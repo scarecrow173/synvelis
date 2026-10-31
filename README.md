@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/branding/logo-dark.svg">
+    <img src="assets/branding/logo.svg" alt="Synvelis" width="440">
+  </picture>
+</p>
+
 # Synvelis
 
 **Synvelis（シンヴェリス）** は、作曲・録音・編集・ミキシング・サウンドデザインを統合する、Rust製の汎用デジタルオーディオワークステーション（DAW）を目指すプロジェクトです。
@@ -51,6 +58,17 @@ Synvelisが目指すのは、通常の制作作業を直感的に進められ、
 4. **詳細・診断表示：** 取得可能な制御値、処理状態、レイテンシや負荷などの情報。
 
 Signal Flowをノードとして表示する案と、選択対象の関連情報を示すContext Inspectorを検討しています。これらは**初期UIの方向性**であり、最終仕様ではありません。
+ 
+### Interactive UI mockup
+
+[**Synvelis DAW UI Concept — HTMLモックアップ**](docs/mockups/synvelis-daw.html)
+
+Arrangement / Timeline、Mixer、Signal Flow、Automation、Context Inspectorの関係を検討するための**インタラクティブなデザイン資料**です。旧仮称「Auvane」で作成した初期案の表記を「Synvelis」に更新したものです。
+
+**実際のDAW機能を提供するアプリケーションではありません。** 再生、録音、メーター、波形、パラメーター値は視覚的なデモであり、音声エンジンやプロジェクトの永続化には接続されていません。UI構成や挙動も今後変更する可能性があります。
+
+GitHubのファイル画面ではHTMLソースとして表示されます。実際に操作する場合はリポジトリをクローンし、`docs/mockups/synvelis-daw.html` をブラウザで開いてください（ロゴは `assets/branding/logo-dark.svg` を参照します）。
+
 
 ## Planned capabilities
 
@@ -112,6 +130,8 @@ mise run setup
 | ファイル | 内容 |
 | --- | --- |
 | `README.md` | プロジェクト概要と現時点の方向性 |
+| `assets/branding/` | ロゴ（明色・暗色）とシンボルのSVGアセット |
+| `docs/mockups/synvelis-daw.html` | DAW UIのインタラクティブなデザインモックアップ |
 | `AGENTS.md` | 開発・設計・作業時の共通契約 |
 | `mise.toml` | 開発ツールとセットアップタスク |
 | `apm.yml` | AIエージェント関連の依存設定 |
@@ -119,7 +139,7 @@ mise run setup
 | `.gitattributes` / `.gitignore` | テキスト・LFS・除外設定 |
 | `.worktreeinclude` | worktree間で共有するローカル設定の指定 |
 
-ソースコード、設計文書、UIアセット用のディレクトリ構成は今後必要に応じて追加します。
+DAW本体のソースコードと正式な設計文書は、今後の開発段階で追加します。
 
 ## License and name
 
