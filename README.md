@@ -58,6 +58,8 @@ Synvelisが目指すのは、通常の制作作業を直感的に進められ、
 4. **詳細・診断表示：** 取得可能な制御値、処理状態、レイテンシや負荷などの情報。
 
 Signal Flowをノードとして表示する案と、選択対象の関連情報を示すContext Inspectorを検討しています。これらは**初期UIの方向性**であり、最終仕様ではありません。
+
+**Workspaceの必須要件:** Viewのドッキング・分離、複数ウィンドウ・複数モニター対応を初期設計に含めます。レイアウトと画面間状態の統合方針は[Workspace / Docking / Multi-Window 統合設計](docs/designs/workspace-docking-state-architecture.md)を参照してください（設計段階・未実装）。
  
 ### Interactive UI mockup
 
