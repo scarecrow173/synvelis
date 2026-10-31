@@ -3,6 +3,7 @@
 - **文書状態:** 初期設計ベースライン（基本方針を承認済み、詳細API・OS挙動は提案/PoC待ち）
 - **対象:** SynvelisのWorkspace / Docking / Selection / Focus / Command Routing、およびRuviformへの要求
 - **前提:** [製品価値と中核体験 Issue #1](https://github.com/scarecrow173/synvelis/issues/1)
+- **Synvelis実装・検証課題:** [Workspace / Docking / Selection / Command 統合 Issue #2](https://github.com/scarecrow173/synvelis/issues/2)
 - **Ruviform側の依存課題:** [Multi-Window Host #181](https://github.com/scarecrow173/ruviform/issues/181) → [Docking基盤 #182](https://github.com/scarecrow173/ruviform/issues/182)
 - **参考:** [Ruviform GUIホスト #156](https://github.com/scarecrow173/ruviform/issues/156)、[現行GUIホスト設計](https://github.com/scarecrow173/ruviform/blob/main/docs/designs/issue-156-gui-host-foundation.md)、[UI方針ADR](https://github.com/scarecrow173/ruviform/blob/main/docs/adr/ui-architecture-webview-hybrid.md)
 
