@@ -1,0 +1,41 @@
+name: project-template
+version: 1.0.0
+description: Minimal language-agnostic development foundation
+targets:
+  - copilot
+  - codex
+  - claude
+  - cursor
+  - windsurf
+dependencies:
+  apm:
+    - scarecrow173/apm-packages/packages/basic-dev-foundation#main
+    - scarecrow173/apm-packages/packages/recommended-dev-suite#main
+    - scarecrow173/apm-packages/packages/doc-driven-dev#main
+    - scarecrow173/apm-packages/packages/review-protocol#main
+    - scarecrow173/cheaper/packages/apm#main
+  mcp: []
+devDependencies:
+  mcp:
+    - name: serena
+      registry: false
+      transport: stdio
+      command: mise
+      args:
+        - exec
+        - --
+        - serena
+        - start-mcp-server
+        - --context
+        - ide
+        - --project-from-cwd
+    - name: mise
+      registry: false
+      transport: stdio
+      command: mise
+      args:
+        - mcp
+      env:
+        MISE_EXPERIMENTAL: '1'
+includes: auto
+scripts: {}

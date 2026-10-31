@@ -1,0 +1,15 @@
+# Language-agnostic checks powered by prek's built-in hooks.
+repos:
+  - repo: builtin
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: mixed-line-ending
+        exclude: '\.(ps1|bat|cmd)$'
+      - id: fix-byte-order-marker
+        exclude: '\.ps1$'
+      - id: detect-private-key
+      - id: check-illegal-windows-names

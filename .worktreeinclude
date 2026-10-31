@@ -1,0 +1,52 @@
+# Local environment files (only existing, gitignored paths are copied)
+.env
+.env.local
+
+# APM package sources and deployed agent assets — let worktree agents use
+# skills/hooks/commands immediately without re-running `apm install`
+apm_modules/
+.agents/
+.sdp/
+
+# Only the listed children are Git-ignored; parent directories such as
+# .claude/ and .codex/ are not ignored.
+.claude/agents/
+.claude/commands/
+.claude/hooks/
+.claude/skills/
+.claude/apm-hooks.json
+.claude/settings.json
+.codex/agents/
+.codex/hooks/
+.codex/prompts/
+.codex/apm-hooks.json
+.codex/config.toml
+.codex/hooks.json
+.cursor/agents/
+.cursor/commands/
+.cursor/rules/
+.cursor/hooks/
+.cursor/apm-hooks.json
+.cursor/hooks.json
+.cursor/mcp.json
+.windsurf/agents/
+.windsurf/hooks/
+.windsurf/rules/
+.windsurf/workflows/
+.windsurf/apm-hooks.json
+.windsurf/hooks.json
+.github/agents/
+.github/commands/
+.github/instructions/
+.github/prompts/
+.github/skills/
+.github/hooks/
+.github/extensions/
+.github/apm-hooks.json
+.github/copilot-instructions.md
+.github/mcp.json
+.mcp.json
+.vscode/mcp.json
+
+# Do not copy .mise/: tracked .mise/locks/ sidecars arrive with Git; other
+# mise state is local and can be regenerated.

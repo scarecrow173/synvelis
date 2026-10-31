@@ -1,0 +1,22 @@
+[settings]
+minimum_release_age = "7d"
+lockfile = true
+
+[env]
+UV_EXCLUDE_NEWER = "1 week"
+
+# Infrastructure tools only; add a project language toolchain as needed.
+[tools]
+uv = "0.13.4"
+prek = "0.5.5"
+git-lfs = "3.8.0"
+"github:microsoft/apm" = "0.33.0"
+"pipx:serena-agent" = "1.7.0"
+
+[tasks.setup]
+description = "Install APM dependencies, prek hooks and repository-local Git LFS"
+run = [
+  "apm install",
+  "prek install",
+  "git lfs install --local",
+]
