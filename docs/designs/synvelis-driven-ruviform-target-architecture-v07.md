@@ -186,3 +186,42 @@ flowchart TB
 - **未確定：** Graph IRのcrate/API、Bridge独立crate化、Stable Runtime Slotの型/ライフサイクル、旧PlanSwap置換方式、PPQN/分母上限、L1適用精度、Span/Event Budget、Codec/Tail/FS Publish、UI/GPU Backend。
 
 **結論:** Synvelis v0.3〜v0.6の合意をRuviform目標能力へ投影し、Graph/Audio実行/Stateful ownershipの再配置を中心に、Compat維持・PoC検証付きM0〜M7で段階移行する。合意したのは構造と検証条件であり、RuviformのRustコード改変や実装完了ではない。
+
+## 11. 初期E2E 2系統の依存解決（横断監査 2026-11-01）
+
+**決定の位置付け:** v0.7.1 §8「Local WAV→Playback→Export」は**Playback/Render側の最小Production-oriented Slice**であり、既存[Recording Vertical Slice #13〜#16](https://github.com/scarecrow173/synvelis/issues/12)を廃止・後回しにするものではない。M0〜M7はRuviform汎用能力のMigration群で、SynvelisのE2Eを1列で待機させる工程順を意味しない。
+
+| Stream | 最小依存 | 完了判定 |
+| --- | --- | --- |
+| **Common F0** | Stable Project/Asset/Source/Clip ID、ProjectController/Save/Reload、Session/Source/Engine Frame区別、Verified Media/Manifestの正本。Recording [VS-A #13](https://github.com/scarecrow173/synvelis/issues/13)は有力な最初の実装入口 | 同一ID・時刻・保存契約を両E2Eが共有、別実装/暫定時間型を増やさない |
+| **E2E-L（Playback/Export）** | F0 + Decode/Media Reader/NonRT Prefetch + Typed Audio Graph/Playback + [Ruviform #191](https://github.com/scarecrow173/ruviform/issues/191) PCM WAV実Encode/Finalize | Local WAV→Verified Source→Track/Clip→Playback→Offline Master WAV→再読込/Channel/Frame検証 |
+| **E2E-R（Recording）** | F0 + [VS-B #14](https://github.com/scarecrow173/synvelis/issues/14) Mock Input/RT Capture → [VS-C #15](https://github.com/scarecrow173/synvelis/issues/15) Raw PCM + Journal/Recovery → [VS-D #16](https://github.com/scarecrow173/synvelis/issues/16) Idempotent Commit/Undo/Reload | Mock→RT Gate→Staging→Verified Range→Project Commit→Save/Reload/Undo、Queue Fault/Crash Recovery |
+| **E2E-X（Cross-Integration）** | E2E-LとE2E-Rがそれぞれ通過した後 | 録音SourceをPlayback/Offline Exportへ渡し、Source ID/Source Frame/Project Placement/Outputの整合を確認 |
+
+**Dependency DAG（概念）:**
+
+~~~mermaid
+flowchart TD
+ F["F0: Project / Stable IDs / Media & Time Foundation"]
+ R1["VS-B: Mock RT Capture"]
+ R2["VS-C: Staging Writer / Recovery"]
+ R3["VS-D: Project Commit / Recording E2E"]
+ L1["Media Decode / Prefetch"]
+ L2["Typed Graph / Playback"]
+ L3["PCM WAV Encoder / Offline Render"]
+ L4["E2E-L: Playback / WAV Export"]
+ X["E2E-X: Recorded Source → Playback / Export"]
+ F --> R1 --> R2 --> R3
+ F --> L1 --> L2 --> L4
+ F --> L3 --> L4
+ R3 --> X
+ L4 --> X
+~~~
+
+- VS-Bは**Mock Input**で進められ、実Device Duplex [Ruviform #187](https://github.com/scarecrow173/ruviform/issues/187)は初期VS-Dの必須前提ではない。
+- VS-Cの初期候補は**Raw PCM + Metadata/Journal**であり、外部Export向けWAV Encoder #191に依存させない。後から同じMedia Sink能力へ統合するときもRecovery/Safe Checkpointの保証は保つ。
+- E2E-Lは録音の全VS完了に依存しない。E2E-RもTyped Graph/実Plugin/External WAV Exportに依存しない。
+- F0におけるTimeは[可変PPQN・有理Beat設計](https://github.com/scarecrow173/synvelis/issues/19)を前提にし、既存960コードを本仕様として固定化しない。
+- 両E2Eの完了判定を混同しない。優先順位/工数/具体crate/テストCIへの展開は**M0 Inventory後**に確定。今回の作業は設計整合性の補足であり、M0実装へは進まない。
+
+**残る設計制限:** Plugin Block/TransportのExact Capabilityは[Synvelis v0.5 §14](time-transport-midi-automation-plugin-integration-architecture.md)、[Ruviform #190](https://github.com/scarecrow173/ruviform/issues/190)に従う。両E2Eは初期Pluginなしでも成立させ、Plugin完全対応済みと誤認しない。
