@@ -76,10 +76,10 @@ Recording Session FrameはLoop Wrapで巻き戻さない。Device RestartでCloc
 2. Prepared PlanはTempo変更、Seek、Loop Wrap、Clip Boundary、Transport/Plugin Context変更の候補を特定する。
 3. **Transport Contextが変わる位置**で論理Spanへ分割（毎MIDI Eventで無条件再Processしない）。
 4. SpanのProject Position、LoopIteration、TempoRevision、TransportGeneration、Plugin Transport Contextを確定。
-5. Eventは対応するSpan内Frame Offsetへ配送。Block境界は半開区間で重複/欠落を抑制。
+5. Eventの**正本位置はEngine Frame**とし、Callback/Span/Plugin Process Callの相対Offsetは各起点を明示して配送境界で再計算する。Block/Span境界は半開区間で重複/欠落を抑制。
 6. RT実行は事前確保されたMax Span/Event/Buffer容量以内。超過するPlanは非RTでRestrict/Rejectする。
 
-**具体例:** 256-frame Callbackの100 Frame目にLoop Wrapが起きる場合、[0,100) と [100,256) に論理分割し、PluginのTransport Snapshotは各区間で正しいProject Positionにする。1 process callあたり1 Transport Snapshotしか受け付けないAdapterは2呼出し等のCapability整合を要する。Loop次Iterationの発音は別のEvent Occurrenceで識別するが、同じIterationのSource Eventを二重送信しない。
+**具体例:** 256-frame Callbackの100 Frame目にLoop Wrapが起きる場合、[0,100) と [100,256) に論理分割し、PluginのTransport Snapshotは各区間で正しいProject Positionにする。1 process callあたり1 Transport Snapshotしか受け付けないAdapterは2呼出し等のCapability整合を要するが、**Activated Pluginのmin_frames/max_framesに違反する分割は行わない**（§14）。Loop次Iterationの発音は別のEvent Occurrenceで識別するが、同じIterationのSource Eventを二重送信しない。
 
 ## 5. Timed Event Contract
 
@@ -90,7 +90,7 @@ TimedEvent {
   target: RuntimeTargetId,
   plan_generation: PlanGeneration,
   transport_generation: TransportGeneration,
-  frame_offset: u32,
+  engine_frame: EngineFrame, // canonical occurrence position; 未実装の概念フィールド
   stable_source_event_id: Option<EventId>,
   loop_occurrence: Option<Iteration>,
   source_sequence: u64,
@@ -98,7 +98,7 @@ TimedEvent {
 }
 ~~~
 
-- Frame OffsetはSpan/Blockの境界内であり、Deadline/Generation/Target Bindingを検証する。
+- 正本のEngine FrameをCallback/Span/Plugin Process Callの各Originから相対Offsetへ変換する。実Plugin EventListのFrame Offsetは**各Plugin process call開始からの相対値**であり、Span相対値を無検証で再利用しない。Deadline/Generation/Target Bindingを検証する。
 - 同一Frameは明示的な因果依存→Sourceの安定順序を保持。「NoteOffは必ずすべてのNoteOnより先」といった普遍優先順位は採らない。
 - 既存Ruviform EventListのFrame Offset昇順・同Offsetの安定順序・zero-frame flushの契約を尊重する。Semantic TimelineとWire EventListを同一の正本にはしない。
 - 古いPlan Generation/Plugin Instanceへ属するEventを無検証の新Targetへ配送しない。
@@ -231,3 +231,37 @@ Ruviformの現行crate構造を固定せず、reuse/extend/extract/replace/depre
 **未確定:** Beatの実型/整数幅とPPQN上限、Tempo Ramp、Max Span/Event Budget、Plugin Adapterごとの正確なState Capture/Precision、MIDI1同音高重なりとCC64復帰、Touch Return Time、Sample-accurate対応、具体crateと移行順。いずれもPoCで採否を決め、既存コードが実装済みであるとは報告しない。
 
 **Next integrated topic:** Media / Import / Export / Offline Render / UI / Diagnostics横断統合。
+
+## 14. 横断監査によるTransport Span / Plugin Process互換契約（2026-11-01）
+
+**位置付け:** v0.5の「Transport Contextの変更点で論理Spanを分割する」目標は維持する。ただし、論理SpanとPluginの物理\`process\`呼出しは同義ではない。既存[Ruviform Plugin ProcessConfig](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-plugin-core/src/processor.rs)はActivated \`min_frames ≤ frames ≤ max_frames\`、[PluginEndpoint](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-plugin-host/src/endpoint.rs)には経路別のBlock Gateがある。[Ruviform #190](https://github.com/scarecrow173/ruviform/issues/190)でPoC追跡。
+
+### 14.1 Frame座標の規約
+
+- **Canonical Event Position:** 非RT Compiled Eventは\`EngineFrame\`絶対位置を持つ（具体Rust型名はPoC）。Loop反復は\`LoopOccurrence\`でSource Eventの識別と区別。
+- **Callback:** Driverが\`[callback_start, callback_start + N)\`を提供。Callback-relative offset = event_engine_frame − callback_start。
+- **Logical Transport Span:** Context不連続で\`[span_start, span_end)\`へ分割。Span-relative offset = event_engine_frame − span_start。
+- **Physical Plugin Process Call:** 実際にAdapterへ渡す\`[process_start, process_end)\`。**Plugin EventListの\`frame_offset\`はevent_engine_frame − process_start**。CLAP \`clap_event_header.time\`もProcess Call開始相対。Span/Callback Offsetをそのまま転送しない。
+- 全て半開区間。境界\`event_engine_frame == span_end\`/ \`process_end\`は次区間で1回だけ配送し、Eventの因果依存・同一Frame安定順序を維持。0-frame flushは専用制御境界で検証し、通常Audio Sample区間と混同しない。
+- 例: Callback [0,256)、Loop at 100、Event at 120ではCallback Offset=120、後半Span/Process [100,256)のOffset=20。Event at 100は次Span先頭のOffset 0。
+
+### 14.2 Physical Processの能力判定
+
+1. **Prepared PlanのPreflight（非RT）:** 既存Plugin/Adapterのmin/max Block、最大分割数、L0/L1有効Block契約、Transport Contextの更新方式、Stateful DSP/PDC/Tail、時刻精度を確認。各物理Process Chunkは契約に従う。必要な能力を確認できないPluginは「対応済み」と扱わない。
+2. **許容Block分割:** 各物理ChunkがActivated \`min_frames ≤ frames ≤ max_frames\`を満たし、対応するTransport Snapshot/Stateful時間連続性を正確に保持できるならSpanに沿って呼び出してよい。
+3. **単一Block内のSample-accurate Transport Event:** 規格が可能にする場合は分割せず配送可能。CLAPは\`CLAP_EVENT_TRANSPORT\`をBlock内のsample offsetで提供できるが、**対象Pluginの実対応、Ruviform Adapter実装、イベント順序が検証された場合に限る**。VST3やその他規格にも一律に同じ保証を適用しない。
+4. **どちらも不可能:** **正確なLoop/Seek/Tempo境界を処理できたと偽装しない**。新しいTransport/Graph/Plugin要求は非RT Preflightで\`UnsupportedExactTransport\`等の明示拒否/診断とし、適用前ならLast-good状態を維持する。Liveで明示的な精度劣化Policyをユーザーが選ぶ場合のみ量子化/延期を認め、\`AppliedReceipt\`には**実際の適用Engine Frame・精度低下**を記録する。Offline Exact Renderは無断量子化しない。RT内部で制約違反の短いBlockを無理に送らない。
+5. **動的な境界増加:** LoopやTempo変更を後から加える場合も、Active PlanのCapabilityを再評価。既存連続処理中のPluginへ未検証のContextを差し込まず、適切なPlan/Transport GenerationでPrepare/Applyする。RTでCapacity超過や未対応が判明した場合は定義済みFault、Last-good/Fallback、Observationを使用し、不整合なSilent Successを禁止。
+
+### 14.3 受入テスト追加
+
+| ID | Fixture | Expected |
+| --- | --- | --- |
+| TT-025 | Callback 256 / Wrap at100 / plugin min_frames=1 | 100+156の適法物理分割、Transport Context正確 |
+| TT-026 | Callback 256 / Wrap at100 / plugin min_frames=128 | 不正な100-Frame呼出しなし。検証済Block内Event方式がなければPreflight Rejectまたは明示User-approved Degraded Policy |
+| TT-027 | CLAP in-block Transport Event / no proven support | Adapter/PluginごとのCapabilityと検証。規格に存在するだけでSample-accurate保証しない |
+| TT-028 | Callback event at100、120、256 | 境界Event重複なし、ProcessOffset=0/20、256は次Callbackの0 |
+| TT-029 | L0/L1・Zero-frame flush・多周Loop・Stateful Plugin | Endpoint Block Gate、時刻順、Note Ledger、PDC/Tail、PlanGeneration維持 |
+| TT-030 | Offline exact vs explicit live degraded | Offlineは無断丸めせずFail、Liveはユーザーが選択した精度だけReceiptに表示 |
+
+**範囲:** 新しい6受入ケースは既存TT-001〜TT-024に追加される監査補遺であり、他の合意済み要件を置換しない。使用するRust型名、Plugin Capability判定・Runtime Event配送、精度劣化UIはPoCで確定。
