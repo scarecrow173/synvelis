@@ -66,3 +66,9 @@ apm_modules/
 # Local state produced by optional agent tooling
 .serena/
 .sdp/
+
+# Rust build artifacts
+target/
+
+# recording-poc deterministic output bundle
+crates/recording-poc/poc-out/

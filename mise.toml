@@ -12,6 +12,7 @@ prek = "0.5.5"
 git-lfs = "3.8.0"
 "github:microsoft/apm" = "0.33.0"
 "pipx:serena-agent" = "1.7.0"
+rust = "1.99.0"
 
 [tasks.setup]
 description = "Install APM dependencies, prek hooks and repository-local Git LFS"
@@ -20,3 +21,31 @@ run = [
   "prek install",
   "git lfs install --local",
 ]
+
+[tasks.fmt]
+description = "Format all Rust sources"
+run = "cargo fmt --all"
+
+[tasks.fmt-check]
+description = "Check formatting without rewriting"
+run = "cargo fmt --all -- --check"
+
+[tasks.check]
+description = "Type-check the workspace (dev profile)"
+run = "cargo check --workspace --all-targets"
+
+[tasks.lint]
+description = "Clippy with warnings denied (dev profile)"
+run = "cargo clippy --workspace --all-targets -- -D warnings"
+
+[tasks.test]
+description = "Run all workspace tests against the locked dependency graph"
+run = "cargo test --workspace --locked"
+
+[tasks.build]
+description = "Build the workspace (dev profile)"
+run = "cargo build --workspace --locked"
+
+[tasks.test-msrv]
+description = "Compile and test under the declared MSRV toolchain"
+run = "mise exec rust@1.89.0 -- cargo test --workspace --locked"
