@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/synvelis-project",
+  "crates/synvelis-recording",
+  "crates/recording-poc",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
+
+[profile.dev]
+incremental = true
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ruviform-media-core = { git = "https://github.com/scarecrow173/ruviform.git" }

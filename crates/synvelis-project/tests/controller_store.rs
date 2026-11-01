@@ -1,0 +1,277 @@
+//! AC7/AC8/AC9/AC12: atomic commands, undo/redo, schema enforcement,
+//! save/reload, and the verified-source reference port.
+
+use synvelis_project::*;
+
+fn controller() -> ProjectController {
+    ProjectController::new(
+        Project::new(ProjectId::new(0), "p"),
+        Box::new(CounterIdGenerator::new(1)),
+    )
+}
+
+fn cmd(c: &ProjectController, op: ProjectOp) -> Command<ProjectOp> {
+    Command {
+        expected_revision: c.live_revision(),
+        op,
+    }
+}
+
+#[test]
+fn stale_revision_and_invalid_target_are_rejected_atomically() {
+    let mut c = controller();
+    let rev0 = c.live_revision();
+    // Stale expected revision (we are at 0, claim 5).
+    let stale = Command {
+        expected_revision: ProjectRevision(5),
+        op: ProjectOp::AddTrack { name: "t".into() },
+    };
+    assert!(matches!(c.apply(stale), Err(Error::StaleRevision { .. })));
+    assert_eq!(c.live_revision(), rev0);
+    assert!(c.live().tracks.is_empty());
+    // Invalid target: removing a track that does not exist.
+    let bad = cmd(
+        &c,
+        ProjectOp::RemoveTrack {
+            track_id: TrackId::new(999),
+        },
+    );
+    assert!(matches!(c.apply(bad), Err(Error::NotFound(_))));
+    assert_eq!(c.live_revision(), rev0); // no partial application
+    assert!(c.live().tracks.is_empty());
+}
+
+#[test]
+fn apply_advances_revision_and_is_atomic() {
+    let mut c = controller();
+    c.apply(cmd(&c, ProjectOp::AddTrack { name: "a".into() }))
+        .unwrap();
+    assert_eq!(c.live_revision(), ProjectRevision(1));
+    assert_eq!(c.live().tracks.len(), 1);
+    // Invalid op: AddLane on missing track — nothing changes.
+    let bad = cmd(
+        &c,
+        ProjectOp::AddLane {
+            track_id: TrackId::new(42),
+        },
+    );
+    assert!(c.apply(bad).is_err());
+    assert_eq!(c.live_revision(), ProjectRevision(1));
+    assert!(c.live().lanes.is_empty());
+}
+
+#[test]
+fn undo_redo_issue_new_revisions_and_keep_saved_intact() {
+    let mut c = controller();
+    c.apply(cmd(&c, ProjectOp::AddTrack { name: "a".into() }))
+        .unwrap();
+    let mut store = InMemoryStore::new();
+    let saved = c.save(&mut store).unwrap();
+    assert_eq!(saved.revision, ProjectRevision(1));
+
+    c.apply(cmd(&c, ProjectOp::AddTrack { name: "b".into() }))
+        .unwrap();
+    assert_eq!(c.live().tracks.len(), 2);
+    assert!(c.undo().unwrap());
+    // Content reverted but revision advanced, saved untouched.
+    assert_eq!(c.live().tracks.len(), 1);
+    assert_eq!(c.live_revision(), ProjectRevision(3));
+    assert_eq!(c.saved().unwrap().revision, ProjectRevision(1));
+
+    assert!(c.redo().unwrap());
+    assert_eq!(c.live().tracks.len(), 2);
+    assert_eq!(c.live_revision(), ProjectRevision(4));
+
+    // A fresh command clears redo.
+    assert!(c.undo().unwrap());
+    c.apply(cmd(
+        &c,
+        ProjectOp::SetProjectName {
+            name: "renamed".into(),
+        },
+    ))
+    .unwrap();
+    assert!(!c.redo().unwrap()); // stack was cleared
+    // Empty undo history drains to false.
+    while c.undo().unwrap() {}
+}
+
+#[test]
+fn save_reload_preserves_identity_ids_and_revision() {
+    let mut c = controller();
+    c.apply(cmd(
+        &c,
+        ProjectOp::RegisterAsset {
+            digest: "d1".into(),
+        },
+    ))
+    .unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::RegisterSource {
+            asset_id: *c.live().assets.keys().next().unwrap(),
+            content_digest: "d1".into(),
+        },
+    ))
+    .unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::RegisterClockEpoch {
+            description: "clk".into(),
+        },
+    ))
+    .unwrap();
+    let mut store = InMemoryStore::new();
+    c.save(&mut store).unwrap();
+
+    let mut c2 = controller();
+    c2.load(&store).unwrap();
+    assert_eq!(c.live(), c2.live());
+    assert_eq!(c.live_revision(), c2.live_revision());
+    assert_eq!(c2.saved().unwrap().head, c.saved().unwrap().head);
+    // All stable IDs identical.
+    assert_eq!(
+        c.live().sources.keys().next().unwrap(),
+        c2.live().sources.keys().next().unwrap()
+    );
+    assert_eq!(
+        c.live().clock_epochs.keys().next().unwrap(),
+        c2.live().clock_epochs.keys().next().unwrap()
+    );
+    // Undo history cleared after load.
+    assert!(!c2.undo().unwrap());
+}
+
+#[test]
+fn unknown_schema_and_corrupt_snapshots_are_rejected() {
+    let mut c = controller();
+    c.apply(cmd(&c, ProjectOp::AddTrack { name: "x".into() }))
+        .unwrap();
+    let mut store = InMemoryStore::new();
+    c.save(&mut store).unwrap();
+
+    // Craft an unsupported schema version through the store bytes.
+    let head = store.head().unwrap().unwrap();
+    let bytes = store.read_snapshot(&head).unwrap();
+    let mut env: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    env["schema_version"] = serde_json::json!(99);
+    store
+        .save("p", ProjectRevision(9), &serde_json::to_vec(&env).unwrap())
+        .unwrap();
+    let mut c2 = controller();
+    assert!(matches!(
+        c2.load(&store),
+        Err(Error::UnsupportedSchema { found: 99 })
+    ));
+    // Live state untouched by the failed load.
+    assert_eq!(c2.live_revision(), ProjectRevision(0));
+
+    // Unknown top-level field is rejected (deny_unknown_fields).
+    let mut env2: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    env2["mystery"] = serde_json::json!(1);
+    store
+        .save(
+            "p",
+            ProjectRevision(10),
+            &serde_json::to_vec(&env2).unwrap(),
+        )
+        .unwrap();
+    assert!(c2.load(&store).is_err());
+    assert_eq!(c2.live_revision(), ProjectRevision(0));
+
+    // Truncated JSON also fails without touching live state.
+    store
+        .save("p", ProjectRevision(11), &bytes[..bytes.len() / 2])
+        .unwrap();
+    assert!(c2.load(&store).is_err());
+    assert_eq!(c2.live_revision(), ProjectRevision(0));
+}
+
+#[test]
+fn source_state_is_forward_only_and_carries_no_media() {
+    let mut c = controller();
+    c.apply(cmd(&c, ProjectOp::RegisterAsset { digest: "d".into() }))
+        .unwrap();
+    let asset_id = *c.live().assets.keys().next().unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::RegisterSource {
+            asset_id,
+            content_digest: "d".into(),
+        },
+    ))
+    .unwrap();
+    let source_id = *c.live().sources.keys().next().unwrap();
+    assert_eq!(c.live().sources[&source_id].state, SourceState::Imported);
+
+    // Skip ahead or backward: rejected.
+    assert!(
+        c.apply(cmd(
+            &c,
+            ProjectOp::SetSourceState {
+                source_id,
+                state: SourceState::Saved,
+            }
+        ))
+        .is_err()
+    );
+    c.apply(cmd(
+        &c,
+        ProjectOp::SetSourceState {
+            source_id,
+            state: SourceState::Verified,
+        },
+    ))
+    .unwrap();
+    // States are distinct: Imported != Verified != Committed != Saved.
+    assert_ne!(SourceState::Imported, SourceState::Verified);
+    assert_ne!(SourceState::Verified, SourceState::Committed);
+    assert_ne!(SourceState::Committed, SourceState::Saved);
+    // Regression rejected.
+    assert!(
+        c.apply(cmd(
+            &c,
+            ProjectOp::SetSourceState {
+                source_id,
+                state: SourceState::Imported,
+            }
+        ))
+        .is_err()
+    );
+
+    // The serialized project contains no media bytes — only the
+    // reference fields (ids, digest string, state tag).
+    let mut store = InMemoryStore::new();
+    c.save(&mut store).unwrap();
+    let bytes = store
+        .read_snapshot(&store.head().unwrap().unwrap())
+        .unwrap();
+    let json = String::from_utf8(bytes).unwrap();
+    assert!(json.contains("verified"));
+    assert!(json.contains("source-"));
+    // No byte-array payload is present anywhere in the schema.
+    assert!(!json.contains("\"data\""));
+}
+
+#[test]
+fn directory_bundle_save_publishes_head_last() {
+    let dir = std::env::temp_dir().join(format!("synvelis-f0-{}-{}", std::process::id(), "bundle"));
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut store = DirectoryBundleStore::create(&dir).unwrap();
+    let mut c = controller();
+    c.apply(cmd(&c, ProjectOp::AddTrack { name: "a".into() }))
+        .unwrap();
+    let saved = c.save(&mut store).unwrap();
+    assert!(dir.join("snapshots").join(&saved.head).exists());
+    assert_eq!(
+        std::fs::read_to_string(dir.join("HEAD")).unwrap(),
+        saved.head
+    );
+    // Two saves keep both immutable snapshots.
+    c.apply(cmd(&c, ProjectOp::AddTrack { name: "b".into() }))
+        .unwrap();
+    let saved2 = c.save(&mut store).unwrap();
+    assert!(dir.join("snapshots").join(&saved.head).exists());
+    assert!(dir.join("snapshots").join(&saved2.head).exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}
