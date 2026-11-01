@@ -234,23 +234,23 @@ Ruviformの現行crate構造を固定せず、reuse/extend/extract/replace/depre
 
 ## 14. 横断監査によるTransport Span / Plugin Process互換契約（2026-11-01）
 
-**位置付け:** v0.5の「Transport Contextの変更点で論理Spanを分割する」目標は維持する。ただし、論理SpanとPluginの物理\`process\`呼出しは同義ではない。既存[Ruviform Plugin ProcessConfig](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-plugin-core/src/processor.rs)はActivated \`min_frames ≤ frames ≤ max_frames\`、[PluginEndpoint](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-plugin-host/src/endpoint.rs)には経路別のBlock Gateがある。[Ruviform #190](https://github.com/scarecrow173/ruviform/issues/190)でPoC追跡。
+**位置付け:** v0.5の「Transport Contextの変更点で論理Spanを分割する」目標は維持する。ただし、論理SpanとPluginの物理`process`呼出しは同義ではない。既存[Ruviform Plugin ProcessConfig](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-plugin-core/src/processor.rs)はActivated `min_frames ≤ frames ≤ max_frames`、[PluginEndpoint](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-plugin-host/src/endpoint.rs)には経路別のBlock Gateがある。[Ruviform #190](https://github.com/scarecrow173/ruviform/issues/190)でPoC追跡。
 
 ### 14.1 Frame座標の規約
 
-- **Canonical Event Position:** 非RT Compiled Eventは\`EngineFrame\`絶対位置を持つ（具体Rust型名はPoC）。Loop反復は\`LoopOccurrence\`でSource Eventの識別と区別。
-- **Callback:** Driverが\`[callback_start, callback_start + N)\`を提供。Callback-relative offset = event_engine_frame − callback_start。
-- **Logical Transport Span:** Context不連続で\`[span_start, span_end)\`へ分割。Span-relative offset = event_engine_frame − span_start。
-- **Physical Plugin Process Call:** 実際にAdapterへ渡す\`[process_start, process_end)\`。**Plugin EventListの\`frame_offset\`はevent_engine_frame − process_start**。CLAP \`clap_event_header.time\`もProcess Call開始相対。Span/Callback Offsetをそのまま転送しない。
-- 全て半開区間。境界\`event_engine_frame == span_end\`/ \`process_end\`は次区間で1回だけ配送し、Eventの因果依存・同一Frame安定順序を維持。0-frame flushは専用制御境界で検証し、通常Audio Sample区間と混同しない。
+- **Canonical Event Position:** 非RT Compiled Eventは`EngineFrame`絶対位置を持つ（具体Rust型名はPoC）。Loop反復は`LoopOccurrence`でSource Eventの識別と区別。
+- **Callback:** Driverが`[callback_start, callback_start + N)`を提供。Callback-relative offset = event_engine_frame − callback_start。
+- **Logical Transport Span:** Context不連続で`[span_start, span_end)`へ分割。Span-relative offset = event_engine_frame − span_start。
+- **Physical Plugin Process Call:** 実際にAdapterへ渡す`[process_start, process_end)`。**Plugin EventListの`frame_offset`はevent_engine_frame − process_start**。CLAP `clap_event_header.time`もProcess Call開始相対。Span/Callback Offsetをそのまま転送しない。
+- 全て半開区間。境界`event_engine_frame == span_end`/ `process_end`は次区間で1回だけ配送し、Eventの因果依存・同一Frame安定順序を維持。0-frame flushは専用制御境界で検証し、通常Audio Sample区間と混同しない。
 - 例: Callback [0,256)、Loop at 100、Event at 120ではCallback Offset=120、後半Span/Process [100,256)のOffset=20。Event at 100は次Span先頭のOffset 0。
 
 ### 14.2 Physical Processの能力判定
 
 1. **Prepared PlanのPreflight（非RT）:** 既存Plugin/Adapterのmin/max Block、最大分割数、L0/L1有効Block契約、Transport Contextの更新方式、Stateful DSP/PDC/Tail、時刻精度を確認。各物理Process Chunkは契約に従う。必要な能力を確認できないPluginは「対応済み」と扱わない。
-2. **許容Block分割:** 各物理ChunkがActivated \`min_frames ≤ frames ≤ max_frames\`を満たし、対応するTransport Snapshot/Stateful時間連続性を正確に保持できるならSpanに沿って呼び出してよい。
-3. **単一Block内のSample-accurate Transport Event:** 規格が可能にする場合は分割せず配送可能。CLAPは\`CLAP_EVENT_TRANSPORT\`をBlock内のsample offsetで提供できるが、**対象Pluginの実対応、Ruviform Adapter実装、イベント順序が検証された場合に限る**。VST3やその他規格にも一律に同じ保証を適用しない。
-4. **どちらも不可能:** **正確なLoop/Seek/Tempo境界を処理できたと偽装しない**。新しいTransport/Graph/Plugin要求は非RT Preflightで\`UnsupportedExactTransport\`等の明示拒否/診断とし、適用前ならLast-good状態を維持する。Liveで明示的な精度劣化Policyをユーザーが選ぶ場合のみ量子化/延期を認め、\`AppliedReceipt\`には**実際の適用Engine Frame・精度低下**を記録する。Offline Exact Renderは無断量子化しない。RT内部で制約違反の短いBlockを無理に送らない。
+2. **許容Block分割:** 各物理ChunkがActivated `min_frames ≤ frames ≤ max_frames`を満たし、対応するTransport Snapshot/Stateful時間連続性を正確に保持できるならSpanに沿って呼び出してよい。
+3. **単一Block内のSample-accurate Transport Event:** 規格が可能にする場合は分割せず配送可能。CLAPは`CLAP_EVENT_TRANSPORT`をBlock内のsample offsetで提供できるが、**対象Pluginの実対応、Ruviform Adapter実装、イベント順序が検証された場合に限る**。VST3やその他規格にも一律に同じ保証を適用しない。
+4. **どちらも不可能:** **正確なLoop/Seek/Tempo境界を処理できたと偽装しない**。新しいTransport/Graph/Plugin要求は非RT Preflightで`UnsupportedExactTransport`等の明示拒否/診断とし、適用前ならLast-good状態を維持する。Liveで明示的な精度劣化Policyをユーザーが選ぶ場合のみ量子化/延期を認め、`AppliedReceipt`には**実際の適用Engine Frame・精度低下**を記録する。Offline Exact Renderは無断量子化しない。RT内部で制約違反の短いBlockを無理に送らない。
 5. **動的な境界増加:** LoopやTempo変更を後から加える場合も、Active PlanのCapabilityを再評価。既存連続処理中のPluginへ未検証のContextを差し込まず、適切なPlan/Transport GenerationでPrepare/Applyする。RTでCapacity超過や未対応が判明した場合は定義済みFault、Last-good/Fallback、Observationを使用し、不整合なSilent Successを禁止。
 
 ### 14.3 受入テスト追加
