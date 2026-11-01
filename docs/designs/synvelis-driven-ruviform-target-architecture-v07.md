@@ -22,14 +22,14 @@ ProvenanceやDiagnosticsはRuviformの測定値・Frame/Generation/Loss/Confiden
 ## 2. 現行調査から確定した事実と修正
 
 - Ruviform Workspaceは[28 crate](https://github.com/scarecrow173/ruviform/blob/main/crates/README.md)で構成され、基盤、Audio/Video、Media I/O、Plugin Host/Adapter、UI/Viz/CLIを含む。
-- [plugin-host/Cargo.toml](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-plugin-host/Cargo.toml)では\`ruviform-audio\`は**dev-dependency**であり本番通常依存ではない。前回v0.7の「Plugin Hostが通常依存する」という表現はv0.7.1で訂正された。
-- [PluginEndpoint::process_audio](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-plugin-host/src/endpoint.rs)は\`ruviform-audio-core\`等を用いる。Audio Engineの具象Typeを必須とするHost/Engine循環は**現状発生していない**。
+- [plugin-host/Cargo.toml](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-plugin-host/Cargo.toml)では`ruviform-audio`は**dev-dependency**であり本番通常依存ではない。前回v0.7の「Plugin Hostが通常依存する」という表現はv0.7.1で訂正された。
+- [PluginEndpoint::process_audio](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-plugin-host/src/endpoint.rs)は`ruviform-audio-core`等を用いる。Audio Engineの具象Typeを必須とするHost/Engine循環は**現状発生していない**。
 - [Audio Graph](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-audio/src/graph.rs)は現時点で順序AudioNode PullのGraph。Typed Multi-Port Graph、Source/Sidechain/PDC Compilerは[追加要件 #184](https://github.com/scarecrow173/ruviform/issues/184)。
-- [Audio PlanSwap](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-audio/src/plan.rs)は\`RwLock<Arc<GraphPlan>>\`/\`try_read\`/last-good/非RT retireで動作。同期方針は[Accepted ADR](https://github.com/scarecrow173/ruviform/blob/main/docs/adr/audio-engine-snapshot-swap.md)で確定済み。新方式へ変更するにはPoCと後継ADRが必要。
+- [Audio PlanSwap](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-audio/src/plan.rs)は`RwLock<Arc<GraphPlan>>`/`try_read`/last-good/非RT retireで動作。同期方針は[Accepted ADR](https://github.com/scarecrow173/ruviform/blob/main/docs/adr/audio-engine-snapshot-swap.md)で確定済み。新方式へ変更するにはPoCと後継ADRが必要。
 - [MIDI/Param EventList](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-plugin-core/src/event.rs)はFrame Offset/Stable Order/Zero-frame Flushを持つが、現EventKindはParamValue中心。Timed MIDI/NoteLedger/Target Generationは未実装。
 - [Musical Time後継ADR](https://github.com/scarecrow173/ruviform/blob/main/docs/adr/configurable-ppqn-resolution-independent-musical-time.md)は**Accepted**。Ruviform実装は固定960からの移行前。
 - [OfflineDriver](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-exec/src/offline.rs)は独立Chunkのみ並列決定性の保証。Stateful Pluginの時間並列の安全性は導かない。
-- [Audio/Video/Plugin](https://github.com/scarecrow173/ruviform)やNLE\`ruviform-edit\`は他Consumerの基盤として維持。DAWのTake/Comp/UndoをNLE Timelineへ強制統合しない。
+- [Audio/Video/Plugin](https://github.com/scarecrow173/ruviform)やNLE`ruviform-edit`は他Consumerの基盤として維持。DAWのTake/Comp/UndoをNLE Timelineへ強制統合しない。
 
 ## 3. 採用する12のアーキテクチャ判断
 
@@ -116,20 +116,20 @@ flowchart TB
 
 ## 6. 公開API境界（設計契約。存在するAPIではない）
 
-- \`GraphSpec\` / \`ValidatedGraph\`：NonRT Graph Node/Port/Edge/SignalDomain/Role/Channel Layout、Cycle/Multiplicity/Capabilityの検証。
-- \`AudioCompiler\` / \`PreparedPlan\`：NonRT Schedule/Buffer/PDC/Event Budget、Runtime NodeとTarget Bindingの準備。Format変換を黙って挿入しない。
-- \`RtExecutionState\`（概念）：Stateful Processor Instanceの単一RT Owner。Schedule Generationとの安全な対応/Activation/NonRT Retirement。
-- \`ActivationTicket\` / \`AppliedReceipt\`：Command受付と実際のRT Applied Frame/Plan/Transport Generationを分離。
-- \`TimedEvent\`：Target/Binding/Plan/TransportGeneration、FrameOffset、Stable Source Order、Loop Occurrence、分類別Overflow。
-- \`MediaReader\` / \`Prefetch\` / \`OutputWriter\`：RuviformはCodec/Buffer/IO、SynvelisはStable Source/Asset/Project Commit。
-- \`ProbeRecord\` / \`JobReceipt\`：Generic Execution Evidence/Progress/Cancel、SynvelisはIncident Diagnosis/Job Ownership Scope。
+- `GraphSpec` / `ValidatedGraph`：NonRT Graph Node/Port/Edge/SignalDomain/Role/Channel Layout、Cycle/Multiplicity/Capabilityの検証。
+- `AudioCompiler` / `PreparedPlan`：NonRT Schedule/Buffer/PDC/Event Budget、Runtime NodeとTarget Bindingの準備。Format変換を黙って挿入しない。
+- `RtExecutionState`（概念）：Stateful Processor Instanceの単一RT Owner。Schedule Generationとの安全な対応/Activation/NonRT Retirement。
+- `ActivationTicket` / `AppliedReceipt`：Command受付と実際のRT Applied Frame/Plan/Transport Generationを分離。
+- `TimedEvent`：Target/Binding/Plan/TransportGeneration、FrameOffset、Stable Source Order、Loop Occurrence、分類別Overflow。
+- `MediaReader` / `Prefetch` / `OutputWriter`：RuviformはCodec/Buffer/IO、SynvelisはStable Source/Asset/Project Commit。
+- `ProbeRecord` / `JobReceipt`：Generic Execution Evidence/Progress/Cancel、SynvelisはIncident Diagnosis/Job Ownership Scope。
 
 ### Plan ownership comparison
 
 - **Plan-owned Processor:** 実行PlanがProcessorを所有。構造は簡潔だがGraph変更時にPlugin Stateの移行/再生成が課題。
 - **Stable Runtime Slot:** ScheduleとInstanceの寿命を分ける。Plugin維持に有利だが、Schedule切替/RCU/retirement/target generationが難しい。
 
-後者を**目標候補**とするが、初期段階で実証なしに最終採用しない。旧\`PlanSwap\`の\`RwLock<Arc<GraphPlan>>\`/\`try_read\`を無断廃止しない。同期方式変更時は後継ADRを作成する。Gap-free graph swapや全PluginのBit-perfect Offline結果も無条件保証しない。
+後者を**目標候補**とするが、初期段階で実証なしに最終採用しない。旧`PlanSwap`の`RwLock<Arc<GraphPlan>>`/`try_read`を無断廃止しない。同期方式変更時は後継ADRを作成する。Gap-free graph swapや全PluginのBit-perfect Offline結果も無条件保証しない。
 
 ## 7. Migration M0–M7と並行可能なPoC
 
@@ -144,7 +144,7 @@ flowchart TB
 | M6 | PCM WAV Encoder/Muxer、Sequential Stateful Render、Output Validation | Import→Playback→Export→Reopen E2E |
 | M7 | Multiwindow/Docking、Job Scope、Probe/Diagnostics、Compat Cutover | WindowClose Job Safety＋Video/CLI/Plugin/UI回帰 |
 
-\`M1→M2→M3→...\`の厳密なウォーターフォールを強制せず、WAV Encoder PoC、Device Duplex、Dock/Probe等の独立課題は並列実施可能。RT/ABI/FS/OS保証は対象API/Platformに応じて測定する。
+`M1→M2→M3→...`の厳密なウォーターフォールを強制せず、WAV Encoder PoC、Device Duplex、Dock/Probe等の独立課題は並列実施可能。RT/ABI/FS/OS保証は対象API/Platformに応じて測定する。
 
 ## 8. Initial E2E: Minimum DAW Production Slice
 
