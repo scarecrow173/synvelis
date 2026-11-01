@@ -124,6 +124,19 @@ pub struct InspectionWriter {
 }
 
 impl InspectionWriter {
+    /// `WriterEnds` と共有 `FaultLatch` から構築する。
+    #[must_use]
+    pub fn new(ends: WriterEnds, fault: FaultLatch) -> Self {
+        Self {
+            filled_rx: ends.filled_rx,
+            free_tx: ends.free_tx,
+            fault,
+            hold: 0,
+            held: Vec::new(),
+            log: Vec::new(),
+        }
+    }
+
     /// 次に受け取る `n` chunk を free へ戻さず保持する（注入）。
     pub fn hold_next(&mut self, n: usize) {
         self.hold = self.hold.saturating_add(n);
@@ -163,30 +176,60 @@ impl InspectionWriter {
     }
 }
 
+impl crate::handoff::ChunkSink for InspectionWriter {
+    fn pump(&mut self) {
+        InspectionWriter::pump(self);
+    }
+
+    fn into_ends(
+        self,
+    ) -> (
+        Consumer<CaptureChunk>,
+        Producer<CaptureChunk>,
+        Vec<CaptureChunk>,
+    ) {
+        InspectionWriter::into_ends(self)
+    }
+}
+
 /// 1 stream の engine + writer。
-pub struct StreamRig {
+pub struct StreamRig<W = InspectionWriter> {
     /// RT engine。
     pub engine: CaptureEngine,
     /// 非 RT writer。
-    pub writer: InspectionWriter,
+    pub writer: W,
 }
 
 /// 計画から構築されたシナリオ。stream ごとに独立した SPSC 対を持つ。
-pub struct Scenario {
+/// `W` は `ChunkSink` を満たす非 RT 消費者（`InspectionWriter` のほか
+/// `StreamWriter` 等の staging 実装を差し替えられる）。
+pub struct Scenario<W = InspectionWriter> {
     /// 凍結済み計画（scheduler は共有・無状態）。
     pub plan: PreparedRecordingPlan,
     /// stream ごとの rig。
-    pub rigs: Vec<StreamRig>,
+    pub rigs: Vec<StreamRig<W>>,
     /// 共有 Fault latch。
     pub fault: FaultLatch,
     pcms: Vec<MockPcm>,
 }
 
-impl Scenario {
-    /// `plan` から pool・SPSC・engine・writer を構築し、全 chunk を
-    /// free pool に流した状態で返す。
+impl Scenario<InspectionWriter> {
+    /// `plan` から pool・SPSC・engine・`InspectionWriter` を構築し、
+    /// 全 chunk を free pool に流した状態で返す。
     #[must_use]
     pub fn build(plan: PreparedRecordingPlan) -> Self {
+        Self::build_with(plan, |_i, ends, fault| InspectionWriter::new(ends, fault))
+    }
+}
+
+impl<W: crate::handoff::ChunkSink> Scenario<W> {
+    /// `plan` から pool・SPSC・engine と、stream ごとに `make` が作る
+    /// writer を構築する。`make` には `stream_index`・`WriterEnds`・共有
+    /// `FaultLatch` が渡される。
+    pub fn build_with(
+        plan: PreparedRecordingPlan,
+        make: impl Fn(u16, WriterEnds, FaultLatch) -> W,
+    ) -> Self {
         let fault = FaultLatch::new();
         let mut rigs = Vec::new();
         let mut pcms = Vec::new();
@@ -209,15 +252,7 @@ impl Scenario {
                 fault.clone(),
                 b.lookahead_spans,
             );
-            let WriterEnds { filled_rx, free_tx } = writer_ends;
-            let writer = InspectionWriter {
-                filled_rx,
-                free_tx,
-                fault: fault.clone(),
-                hold: 0,
-                held: Vec::new(),
-                log: Vec::new(),
-            };
+            let writer = make(stream_index, writer_ends, fault.clone());
             rigs.push(StreamRig { engine, writer });
             pcms.push(MockPcm {
                 seed: stream_index.into(),

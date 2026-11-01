@@ -151,6 +151,7 @@ version = "0.1.0"
 dependencies = [
  "ruviform-rt",
  "serde",
+ "serde_json",
  "stats_alloc",
  "synvelis-project",
 ]
