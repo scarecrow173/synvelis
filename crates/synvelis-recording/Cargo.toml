@@ -11,3 +11,7 @@ workspace = true
 [dependencies]
 synvelis-project = { path = "../synvelis-project" }
 serde.workspace = true
+ruviform-rt.workspace = true
+
+[dev-dependencies]
+stats_alloc = "0.1.10"

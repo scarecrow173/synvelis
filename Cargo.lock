@@ -3,6 +3,15 @@
 version = 4
 
 [[package]]
+name = "arc-swap"
+version = "1.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "380962b3d93b99642e50b9febf72c071e97e8b32d86eae9cf4ef582bb960ae6e"
+dependencies = [
+ "rustversion",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -42,9 +51,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "rtrb"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5974e397833d890f2f74963408e0d4a6cd8eda2f6a445ae06750291b5d7a997e"
+
+[[package]]
+name = "rustversion"
+version = "1.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
+
+[[package]]
 name = "ruviform-media-core"
 version = "0.1.0"
-source = "git+https://github.com/scarecrow173/ruviform.git#41772a7af35e42a2380c45dade841b80c0d00d70"
+source = "git+https://github.com/scarecrow173/ruviform.git#8ad88f512bca1783528a574775399240e65334c8"
+
+[[package]]
+name = "ruviform-rt"
+version = "0.1.0"
+source = "git+https://github.com/scarecrow173/ruviform.git#8ad88f512bca1783528a574775399240e65334c8"
+dependencies = [
+ "arc-swap",
+ "rtrb",
+]
 
 [[package]]
 name = "serde"
@@ -90,6 +120,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "stats_alloc"
+version = "0.1.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c0e04424e733e69714ca1bbb9204c1a57f09f5493439520f9f68c132ad25eec"
+
+[[package]]
 name = "syn"
 version = "3.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -113,7 +149,9 @@ dependencies = [
 name = "synvelis-recording"
 version = "0.1.0"
 dependencies = [
+ "ruviform-rt",
  "serde",
+ "stats_alloc",
  "synvelis-project",
 ]
 
