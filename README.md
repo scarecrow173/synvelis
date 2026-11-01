@@ -12,7 +12,7 @@
 > **音の流れが見える。創作の可能性が広がる。**  
 > ※ コンセプトを検討するための暫定的なメッセージです。
 
-**開発状況：初期構想・設計段階。** 現在のリポジトリは開発基盤のテンプレートから作成されたもので、DAWとして動作するアプリケーションはまだありません。以下の機能や設計は、明記されたものを除き**計画・検討段階**です。
+**開発状況：主要設計ベースライン（v0.3〜v0.7.1）合意済み・実装準備段階。** 現在のリポジトリは開発基盤のテンプレートから作成されており、DAWとして動作するアプリケーションはまだありません。**設計の合意とコード/PoCの実装・試験完了は別**です。
 
 ## Vision
 
@@ -59,6 +59,8 @@ Synvelisが目指すのは、通常の制作作業を直感的に進められ、
 
 Signal Flowをノードとして表示する案と、選択対象の関連情報を示すContext Inspectorを検討しています。これらは**初期UIの方向性**であり、最終仕様ではありません。
 
+**Workspaceの必須要件:** Viewのドッキング・分離、複数ウィンドウ・複数モニター対応を初期設計に含めます。レイアウトと画面間状態の統合方針は[Workspace / Docking / Multi-Window 統合設計](docs/designs/workspace-docking-state-architecture.md)を参照してください（設計段階・未実装）。
+
 ### Interactive UI mockup
 
 [**Synvelis DAW UI Concept — HTMLモックアップ**](docs/mockups/synvelis-daw.html)
@@ -89,13 +91,28 @@ GitHubのファイル画面ではHTMLソースとして表示されます。実�
 
 Synvelisは、汎用マルチメディアフレームワーク **[Ruviform](https://github.com/scarecrow173/ruviform)** を利用する**独立したDAWアプリケーション**として構想しています。
 
-- **Synvelisの責務（案）：** プロジェクト、トラック、クリップ、音楽時間、制作操作、DAW固有のUI・状態管理・保存形式。
-- **Ruviformの責務：** 汎用的なメディア処理、オーディオ入出力、DSP、リアルタイム処理、プラグインホストなどの再利用可能な基盤。
-- **検討すべき境界：** 編集用Project Modelと実行用Audio Graphの分離、MIDI/Event/Controlの扱い、Graph Compilation、UIへ渡す観測情報。
+- **Synvelisの責務（合意済み）：** プロジェクト、トラック、クリップ、Take/Comp、Project PPQN設定（既定960）、制作操作、DAW固有のUI・状態管理・保存形式。
+- **Ruviformの責務（合意済み）：** Rational Beat/TempoMap、汎用Graph/Media、オーディオ入出力、DSP、RT処理、Plugin Host、Probe/UI基盤などの再利用可能な能力。
+- **境界（合意済み）：** SynvelisのSemantic ProjectとRuviformのGraph IR/Audio Execution、Timed Event、Plugin Adapter、Media Output、Observabilityを分離。具体API・新crate・RT所有方式はPoCで確定する。
 
 RuviformにcrateやAPIが存在することは、SynvelisのDAW要件への適合を意味しません。実装と契約を確認しながら統合方針を決めます。
 
 関連する **[AudioLens](https://github.com/scarecrow173/audio-lens)** は独立した音声解析ツールであり、Synvelisへの統合は現在の方針ではありません。
+
+## Approved architecture baselines（2026-11-01）
+
+製品コンセプトから個別設計・Ruviform汎用基盤・PoCまでの参照経路は[Synvelis #22 — 全体設計・トレーサビリティ索引](https://github.com/scarecrow173/synvelis/issues/22)を正本とし、Ruviformの移行管理は[ruviform #192](https://github.com/scarecrow173/ruviform/issues/192)を参照します。
+
+| 設計 | 正本 |
+| --- | --- |
+| Project / Asset / Persistence v0.3 | [Synvelis #17](https://github.com/scarecrow173/synvelis/issues/17) / [設計書](docs/designs/project-asset-persistence-architecture.md) |
+| Playback / Mixer / Graph v0.4 | [Synvelis #18](https://github.com/scarecrow173/synvelis/issues/18) / [設計書](docs/designs/playback-mixer-generic-execution-graph-architecture.md) |
+| Musical Time / Variable PPQN | [Synvelis #19](https://github.com/scarecrow173/synvelis/issues/19) / [設計書](docs/designs/configurable-ppqn-musical-time-architecture.md) |
+| Transport / MIDI / Automation / Plugin v0.5 | [Synvelis #20](https://github.com/scarecrow173/synvelis/issues/20) / [設計書](docs/designs/time-transport-midi-automation-plugin-integration-architecture.md) |
+| Media / Import / Export / UI / Diagnostics v0.6 | [Synvelis #21](https://github.com/scarecrow173/synvelis/issues/21) / [設計書](docs/designs/media-import-export-offline-render-ui-diagnostics-architecture.md) |
+| Ruviform Target Architecture v0.7.1 | [Synvelis #22](https://github.com/scarecrow173/synvelis/issues/22) / [設計書](docs/designs/synvelis-driven-ruviform-target-architecture-v07.md) |
+
+Workspace/Recording/Asset Library等の詳細Issueは#22の索引から辿れます。現在の主要な未解決PoCは[Ruviform #190 Transport/Plugin Block](https://github.com/scarecrow173/ruviform/issues/190)、[#189 Variable PPQN実装](https://github.com/scarecrow173/ruviform/issues/189)、[#191 PCM WAV Output](https://github.com/scarecrow173/ruviform/issues/191)です。
 
 ## Development roadmap
 
@@ -139,7 +156,7 @@ mise run setup
 | `.gitattributes` / `.gitignore` | テキスト・LFS・除外設定 |
 | `.worktreeinclude` | worktree間で共有するローカル設定の指定 |
 
-DAW本体のソースコードと正式な設計文書は、今後の開発段階で追加します。
+DAW本体のソースコードは未着手ですが、正式に合意した設計書は`docs/designs/`に保存されています（上記索引参照）。
 
 ## License and name
 
