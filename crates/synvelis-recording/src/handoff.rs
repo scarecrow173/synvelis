@@ -96,6 +96,22 @@ pub struct WriterEnds {
     pub free_tx: Producer<CaptureChunk>,
 }
 
+/// `WriterEnds` の非 RT 消費者が満たす契約。filled を空まで drain し、
+/// 消費した Chunk を free へ返却する（失敗・保持した Chunk は退役時
+/// 回収用に保持する）。
+pub trait ChunkSink {
+    /// filled を空になるまで非ブロックで消費する（非 RT）。
+    fn pump(&mut self);
+    /// endpoint と保持 Chunk を返す（teardown・総数照合用）。
+    fn into_ends(
+        self,
+    ) -> (
+        Consumer<CaptureChunk>,
+        Producer<CaptureChunk>,
+        Vec<CaptureChunk>,
+    );
+}
+
 /// Chunk pool + SPSC 対を構築し、全 chunk を Free 側へ流した状態で返す。
 ///
 /// 割当てはここで一括して行い、以後の RT パスでは再割当てしない。
