@@ -6,6 +6,12 @@ Directory: `docs/tasks`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| TASK-YUqbpBWfyNBWBrdnL1eX38 | VS-B task1 deps bounded plan clock | todo | [vs-b-task1-deps-bounded-plan-clock.md](./vs-b-task1-deps-bounded-plan-clock.md) |
+| TASK-IOg16XR9hFXm4HxznkaIlM | VS-B task2 gate schedule | todo | [vs-b-task2-gate-schedule.md](./vs-b-task2-gate-schedule.md) |
+| TASK-oPdRML5zQpCplnqKl8f5E8 | VS-B task3 capture handoff engine | todo | [vs-b-task3-capture-handoff-engine.md](./vs-b-task3-capture-handoff-engine.md) |
+| TASK-R3hI9GxjhaO5En49GPl1YK | VS-B task4 mock driver writer | todo | [vs-b-task4-mock-driver-writer.md](./vs-b-task4-mock-driver-writer.md) |
+| TASK-3x4WFhrRf9r9qJ29dKDIfg | VS-B task5 poc acceptance tests | todo | [vs-b-task5-poc-acceptance-tests.md](./vs-b-task5-poc-acceptance-tests.md) |
+| TASK-vAuCiK5oASTb8dwuPNTCWs | VS-B task6 verification merge impl record | todo | [vs-b-task6-verification-merge-impl-record.md](./vs-b-task6-verification-merge-impl-record.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
 
