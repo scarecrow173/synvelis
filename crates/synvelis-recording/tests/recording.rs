@@ -158,6 +158,7 @@ fn registration_rejected_before_open() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // sequential assertion scenario
 fn full_reference_integrity_is_validated() {
     let mut c = controller();
     let (lane_id, source_id, clock_epoch_id) = scaffold(&mut c);

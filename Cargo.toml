@@ -27,3 +27,4 @@ incremental = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ruviform-media-core = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-rt = { git = "https://github.com/scarecrow173/ruviform.git" }
