@@ -13,7 +13,8 @@ use synvelis_project::{
 };
 use synvelis_recording::{
     BufferBudget, CaptureTarget, GateSpec, MockInput, RecordingOp, RecordingRequest, Scenario,
-    SynvelisOp, preflight,
+    StagingArea, StagingSessionConfig, StagingStreamConfig, StreamWriter, SynvelisOp, finish_all,
+    preflight, recovery, stream_config,
 };
 
 fn cmd<C: synvelis_project::Operation>(
@@ -33,10 +34,223 @@ macro_rules! apply {
 }
 
 fn main() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("vsc") {
+        std::process::exit(vsc(&args[2..]));
+    }
     if let Err(e) = run() {
         eprintln!("recording-poc failed: {e}");
         std::process::exit(1);
     }
+}
+
+// ---- VS-C: staging writer / journal / crash recovery ----
+//
+// `recording-poc vsc record <root> <session> [--crash]`
+//   決定的 mock 録音 → staging。`--crash` 時は checkpoint 後に
+//   `process::exit(3)`（finalize/drop なしの process 終了を再現）。
+// `recording-poc vsc recover <root> <session>`
+//   reopen → journal replay + Last Valid Checkpoint まで検証 →
+//   `finalized.json` を（未作成なら）公開。exit 0。
+fn vsc(args: &[String]) -> i32 {
+    let (sub, root, session) = match args {
+        [sub, root, session] => (sub.as_str(), PathBuf::from(root), session.clone()),
+        [sub, root, session, flag] if flag == "--crash" => {
+            (sub.as_str(), PathBuf::from(root), session.clone())
+        }
+        _ => {
+            eprintln!("usage: recording-poc vsc record|recover <root> <session> [--crash]");
+            return 2;
+        }
+    };
+    let crash = args.last().map(String::as_str) == Some("--crash");
+    let Ok(raw) = session.parse::<u128>() else {
+        eprintln!("invalid session id");
+        return 2;
+    };
+    let session_id = synvelis_project::RecordingSessionId::new(raw);
+    match sub {
+        "record" => vsc_record(&root, session_id, crash),
+        "recover" => vsc_recover(&root, session_id),
+        _ => {
+            eprintln!("unknown vsc subcommand: {sub}");
+            2
+        }
+    }
+}
+
+#[allow(clippy::too_many_lines)] // sequential poc scenario
+fn vsc_record(
+    root: &std::path::Path,
+    session_id: synvelis_project::RecordingSessionId,
+    crash: bool,
+) -> i32 {
+    use synvelis_project::{ClockEpoch, ClockEpochId, Lane, LaneId, Track, TrackId};
+    let lane = LaneId::new(11);
+    let epoch = ClockEpochId::new(22);
+    let mut p = Project::new(ProjectId::new(0), "vsc-poc");
+    p.clock_epochs.insert(
+        epoch,
+        ClockEpoch {
+            id: epoch,
+            description: "mock".into(),
+        },
+    );
+    let track = TrackId::new(1);
+    p.tracks.insert(
+        track,
+        Track {
+            id: track,
+            name: "t".into(),
+            lane_ids: vec![lane],
+        },
+    );
+    p.lanes.insert(
+        lane,
+        Lane {
+            id: lane,
+            track_id: track,
+            clip_ids: vec![],
+        },
+    );
+    let area = match StagingArea::create(
+        root,
+        &StagingSessionConfig {
+            session_id,
+            sample_rate: 48_000,
+            streams: vec![stream_config(
+                0,
+                synvelis_project::CaptureStreamId::new(100),
+                lane,
+                2,
+            )],
+        },
+    ) {
+        Ok(a) => a,
+        Err(e) => {
+            eprintln!("staging create failed: {e}");
+            return 1;
+        }
+    };
+    let stream_cfgs: Vec<StagingStreamConfig> = area
+        .manifest
+        .streams
+        .iter()
+        .map(|m| StagingStreamConfig {
+            stream_index: m.stream_index,
+            capture_stream_id: m.capture_stream_id.clone(),
+            lane_id: m.lane_id.clone(),
+            channels: m.channels,
+        })
+        .collect();
+    let Ok(plan) = preflight(
+        &p,
+        RecordingRequest {
+            targets: vec![CaptureTarget {
+                lane_id: lane,
+                channels: 2,
+            }],
+            clock_epoch: epoch,
+            tempo_map: TempoMapRef { revision: 0 },
+            transport_start: MusicalTick::ZERO,
+            stop: MusicalTick::new(1920),
+            gate: GateSpec::Normal {
+                open: MusicalTick::ZERO,
+            },
+            budget: BufferBudget {
+                chunks: 8,
+                chunk_frames: 512,
+                spans_per_chunk: 8,
+                filled_capacity: 8,
+                lookahead_spans: 16,
+            },
+            max_block_frames: 512,
+        },
+        48_000,
+    ) else {
+        eprintln!("preflight failed");
+        return 1;
+    };
+    let a = area.clone();
+    let mut sc: Scenario<StreamWriter> = Scenario::build_with(plan, move |i, ends, fault| {
+        StreamWriter::create(&a, stream_cfgs[i as usize].clone(), ends, fault)
+            .expect("writer create")
+    });
+    let mut input = MockInput::new(epoch, 0);
+    sc.run_to_end(&mut input, 256);
+    for rig in &mut sc.rigs {
+        if let Err(e) = rig.writer.checkpoint() {
+            eprintln!("checkpoint failed: {e}");
+            return 1;
+        }
+    }
+    if crash {
+        // checkpoint 後の finalize/drop 無しに process 終了（crash 再現）。
+        std::process::exit(3);
+    }
+    let tag = session_id.to_tagged();
+    let writers: Vec<&mut StreamWriter> = sc.rigs.iter_mut().map(|r| &mut r.writer).collect();
+    let report = finish_all(&tag, 48_000, writers);
+    for (i, r) in &report.refs {
+        match r {
+            Ok(s) => println!(
+                "vsc_finalize stream={i} outcome={:?} frames={} bytes={} digest={}",
+                s.outcome, s.source_frames, s.media_byte_len, s.digest
+            ),
+            Err(e) => {
+                eprintln!("vsc_finalize stream={i} error={e}");
+                return 1;
+            }
+        }
+    }
+    println!("result=OK");
+    0
+}
+
+fn vsc_recover(root: &std::path::Path, session_id: synvelis_project::RecordingSessionId) -> i32 {
+    let area = match StagingArea::open(root, session_id) {
+        Ok(a) => a,
+        Err(e) => {
+            eprintln!("staging open failed: {e}");
+            return 1;
+        }
+    };
+    let report = match recovery::scan(root) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("scan failed: {e}");
+            return 1;
+        }
+    };
+    for session in &report.sessions {
+        for s in &session.streams {
+            println!(
+                "vsc_scan stream={} class={:?} durable={:?} tail_v={} tail_u={}",
+                s.stream_index,
+                s.class,
+                s.durable.map(|d| d.media_len),
+                s.validated_tail_bytes,
+                s.unverified_tail_bytes
+            );
+        }
+    }
+    for (i, r) in recovery::recover_finalize(&area) {
+        match r {
+            Ok(s) => println!(
+                "vsc_recover stream={i} outcome={:?} frames={} bytes={} digest={}",
+                s.outcome, s.source_frames, s.media_byte_len, s.digest
+            ),
+            Err(synvelis_recording::WriterError::AlreadyFinalized) => {
+                println!("vsc_recover stream={i} already_finalized");
+            }
+            Err(e) => {
+                eprintln!("vsc_recover stream={i} error={e}");
+                return 1;
+            }
+        }
+    }
+    println!("result=OK");
+    0
 }
 
 #[allow(clippy::too_many_lines)] // sequential poc scenario
