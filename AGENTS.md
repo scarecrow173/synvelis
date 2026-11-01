@@ -116,6 +116,11 @@ mise run setup
 - `apm_modules/`、各エージェント向けの配布生成物、およびSerena等のローカル状態はコミットしない。追跡する設定と生成物の区別は `.gitignore` を確認する。
 - APMで管理されるMCPは `apm.yml` に従って復元する。Serenaの起動にはmise管理下の実行環境を使用する。
 
+## ドキュメント駆動開発
+
+- canonical ドキュメントは `docs/` 配下のタイプ別ディレクトリ（`adr`・`designs`・`discovery`・`ideas`・`impl`・`plans`・`specs`・`tasks`・`test-specs`）に配置する。
+- ドキュメント起点の開発フローは `doc-driven-dev-graph` をエントリポイントとし、route が返す delegate と audit に従って進める。
+
 ## Gitと安全性
 
 - コミットは論理的な変更単位に分け、Conventional Commitsを基本とする。
