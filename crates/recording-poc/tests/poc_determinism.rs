@@ -1,4 +1,4 @@
-//! AC11: the headless PoC produces identical output across runs.
+//! AC11: the headless `PoC` produces identical output across runs.
 
 use std::process::Command as Proc;
 

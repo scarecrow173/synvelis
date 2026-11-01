@@ -8,10 +8,13 @@
 use std::path::PathBuf;
 
 use synvelis_project::{
-    Command, CounterIdGenerator, DirectoryBundleStore, Project, ProjectId, ProjectOp, SessionFrame,
-    SessionRange, SourceFrame, SourceRange,
+    Command, CounterIdGenerator, DirectoryBundleStore, MusicalTick, Project, ProjectId, ProjectOp,
+    SessionFrame, SessionRange, SourceFrame, SourceRange, TempoMapRef,
 };
-use synvelis_recording::{RecordingOp, SynvelisOp};
+use synvelis_recording::{
+    BufferBudget, CaptureTarget, GateSpec, MockInput, RecordingOp, RecordingRequest, Scenario,
+    SynvelisOp, preflight,
+};
 
 fn cmd<C: synvelis_project::Operation>(
     controller: &synvelis_project::ProjectController,
@@ -36,6 +39,7 @@ fn main() {
     }
 }
 
+#[allow(clippy::too_many_lines)] // sequential poc scenario
 fn run() -> Result<(), synvelis_project::Error> {
     let out_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("poc-out");
     let _ = std::fs::remove_dir_all(&out_dir);
@@ -163,6 +167,70 @@ fn run() -> Result<(), synvelis_project::Error> {
     println!("takes={}", controller.live().recording.takes.len());
     println!("roundtrip_equal={same}");
     assert!(same, "reload mismatch");
+
+    // ---- VS-B: Mock Clock/Input -> Gate -> RT Capture -> SPSC ----
+    // 4-bar loop (15360 ticks = 384000f @48k/120bpm) を 3 pass 録音する。
+    let plan = preflight(
+        controller.live(),
+        RecordingRequest {
+            targets: vec![CaptureTarget {
+                lane_id,
+                channels: 2,
+            }],
+            clock_epoch: clock_epoch_id,
+            tempo_map: TempoMapRef { revision: 0 },
+            transport_start: MusicalTick::ZERO,
+            stop: MusicalTick::new(46_080),
+            gate: GateSpec::Loop {
+                loop_start: MusicalTick::ZERO,
+                loop_end: MusicalTick::new(15_360),
+            },
+            budget: BufferBudget {
+                chunks: 8,
+                chunk_frames: 40_000,
+                spans_per_chunk: 8,
+                filled_capacity: 8,
+                lookahead_spans: 16,
+            },
+            max_block_frames: 40_000,
+        },
+        48_000,
+    )?;
+    let mut sc = Scenario::build(plan);
+    let mut input = MockInput::new(clock_epoch_id, 0);
+    sc.run_to_end(&mut input, 40_000);
+
+    let (n_chunks, n_spans, frames, pass_sum, checksum, faulted, fault_bits) = {
+        let log = &sc.rigs[0].writer.log;
+        let spans: Vec<_> = log.iter().flat_map(|e| e.spans.iter()).collect();
+        let frames: i64 = spans.iter().map(|s| i64::from(s.frame_count)).sum();
+        let pass_sum: u64 = spans.iter().map(|s| u64::from(s.pass_index)).sum();
+        // packed PCM の全 bit を fold した決定的チェックサム。
+        let checksum: u64 = log
+            .iter()
+            .flat_map(|e| e.pcm.iter())
+            .fold(0x9E37_79B9_7F4A_7C15, |acc, s| {
+                acc.wrapping_mul(1_000_003) ^ u64::from(s.to_bits())
+            });
+        (
+            log.len(),
+            spans.len(),
+            frames,
+            pass_sum,
+            checksum,
+            sc.fault.is_faulted(),
+            sc.fault.bits(),
+        )
+    };
+    let recovered = sc.recover_all();
+    println!("vsb_chunks={n_chunks}");
+    println!("vsb_spans={n_spans}");
+    println!("vsb_frames={frames}");
+    println!("vsb_pass_sum={pass_sum}");
+    println!("vsb_fault_bits={fault_bits:#x}");
+    println!("vsb_recovered={}", recovered.len());
+    println!("vsb_checksum={checksum:#x}");
+    assert!(!faulted, "vs-b fault");
     println!("result=OK");
     Ok(())
 }
