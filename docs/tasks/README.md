@@ -6,12 +6,12 @@ Directory: `docs/tasks`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
-| TASK-YUqbpBWfyNBWBrdnL1eX38 | VS-B task1 deps bounded plan clock | todo | [vs-b-task1-deps-bounded-plan-clock.md](./vs-b-task1-deps-bounded-plan-clock.md) |
-| TASK-IOg16XR9hFXm4HxznkaIlM | VS-B task2 gate schedule | todo | [vs-b-task2-gate-schedule.md](./vs-b-task2-gate-schedule.md) |
-| TASK-oPdRML5zQpCplnqKl8f5E8 | VS-B task3 capture handoff engine | todo | [vs-b-task3-capture-handoff-engine.md](./vs-b-task3-capture-handoff-engine.md) |
-| TASK-R3hI9GxjhaO5En49GPl1YK | VS-B task4 mock driver writer | todo | [vs-b-task4-mock-driver-writer.md](./vs-b-task4-mock-driver-writer.md) |
-| TASK-3x4WFhrRf9r9qJ29dKDIfg | VS-B task5 poc acceptance tests | todo | [vs-b-task5-poc-acceptance-tests.md](./vs-b-task5-poc-acceptance-tests.md) |
-| TASK-vAuCiK5oASTb8dwuPNTCWs | VS-B task6 verification merge impl record | todo | [vs-b-task6-verification-merge-impl-record.md](./vs-b-task6-verification-merge-impl-record.md) |
+| TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
+| TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
+| TASK-034QfQZsTXhM5gVQP0gh81 | VS-C task3 staging writer | todo | [vs-c-task3-staging-writer.md](./vs-c-task3-staging-writer.md) |
+| TASK-034QfR0eLqVxiQlwHq30L3 | VS-C task4 recovery scanner | todo | [vs-c-task4-recovery-scanner.md](./vs-c-task4-recovery-scanner.md) |
+| TASK-034QfR0WeQaYFoG1702td0 | VS-C task5 poc acceptance tests | todo | [vs-c-task5-poc-acceptance-tests.md](./vs-c-task5-poc-acceptance-tests.md) |
+| TASK-034QfR1ESUtmNef7DRyTyz | VS-C task6 verification impl record | todo | [vs-c-task6-verification-impl-record.md](./vs-c-task6-verification-impl-record.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
 
@@ -23,3 +23,9 @@ Directory: `docs/tasks`
 | TASK-034Qe0ljzKKQaZoE9tnw0X | VS-A task4 recording ops validation | done | [vs-a-task4-recording-ops-validation.md](./vs-a-task4-recording-ops-validation.md) |
 | TASK-034Qe0lVcKRcJl9zeQENb4 | VS-A task5 poc and acceptance tests | done | [vs-a-task5-poc-and-acceptance-tests.md](./vs-a-task5-poc-and-acceptance-tests.md) |
 | TASK-034Qe0mu0kdmAWf1VTSq5U | VS-A task6 verification merge impl record | done | [vs-a-task6-verification-merge-impl-record.md](./vs-a-task6-verification-merge-impl-record.md) |
+| TASK-YUqbpBWfyNBWBrdnL1eX38 | VS-B task1 deps bounded plan clock | done | [vs-b-task1-deps-bounded-plan-clock.md](./vs-b-task1-deps-bounded-plan-clock.md) |
+| TASK-IOg16XR9hFXm4HxznkaIlM | VS-B task2 gate schedule | done | [vs-b-task2-gate-schedule.md](./vs-b-task2-gate-schedule.md) |
+| TASK-oPdRML5zQpCplnqKl8f5E8 | VS-B task3 capture handoff engine | done | [vs-b-task3-capture-handoff-engine.md](./vs-b-task3-capture-handoff-engine.md) |
+| TASK-R3hI9GxjhaO5En49GPl1YK | VS-B task4 mock driver writer | done | [vs-b-task4-mock-driver-writer.md](./vs-b-task4-mock-driver-writer.md) |
+| TASK-3x4WFhrRf9r9qJ29dKDIfg | VS-B task5 poc acceptance tests | done | [vs-b-task5-poc-acceptance-tests.md](./vs-b-task5-poc-acceptance-tests.md) |
+| TASK-vAuCiK5oASTb8dwuPNTCWs | VS-B task6 verification merge impl record | done | [vs-b-task6-verification-merge-impl-record.md](./vs-b-task6-verification-merge-impl-record.md) |

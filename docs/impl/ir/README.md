@@ -15,3 +15,5 @@ Directory: `docs/impl/ir`
 | IMPL-034Qeee1v46cNscWJeF2Fc | VS-A task3 controller ops store | completed | [vs-a-task3-controller-ops-store.md](vs-a-task3-controller-ops-store.md) |
 | IMPL-034QeeeJaQiHCJjOt1ogZf | VS-A task4 recording ops validation | completed | [vs-a-task4-recording-ops-validation.md](vs-a-task4-recording-ops-validation.md) |
 | IMPL-034Qeefum0sCLzMQV4B0T5 | VS-A task5 poc and acceptance tests | completed | [vs-a-task5-poc-and-acceptance-tests.md](vs-a-task5-poc-and-acceptance-tests.md) |
+| IMPL-pQbrnczYyJPOw79LzmmIy | VS-B Clock/Gate/RT Capture — Mock Input・Buffer Pool・SPSC (E2E-R1) | completed | [vs-b-clock-gate-rt-capture-mock-spsc.md](vs-b-clock-gate-rt-capture-mock-spsc.md) |
+| IMPL-034QfRW3cPFErlmVZ7TCoI | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range (E2E-R2) | completed | [vs-c-staging-writer-journal-crash-recovery.md](vs-c-staging-writer-journal-crash-recovery.md) |
