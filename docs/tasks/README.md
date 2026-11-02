@@ -33,6 +33,12 @@ Directory: `docs/tasks`
 | TASK-034QmkzixMrECeHtSzDAOq | L2 task3 render core processors | done | [l2-task3-render-core.md](./l2-task3-render-core.md) |
 | TASK-034QmkzTccUOQtocumKKXN | L2 task4 verify publish job | done | [l2-task4-verify-publish-job.md](./l2-task4-verify-publish-job.md) |
 | TASK-034QmkApgInfzfYY2D8TrH | L2 task5 acceptance tests verification | done | [l2-task5-acceptance-tests.md](./l2-task5-acceptance-tests.md) |
+| TASK-034PCA05Ql0zTu6aCdQeFg | PC-A task1 ruviform-plugin-core dep + control model + Project::control + schema 2 | done | [pc-a-task1-control-model-deps.md](./pc-a-task1-control-model-deps.md) |
+| TASK-034PCA06Rm1aUv7bDeRfGh | PC-A task2 control ProjectOp + conflict detection | done | [pc-a-task2-control-ops-conflicts.md](./pc-a-task2-control-ops-conflicts.md) |
+| TASK-034PCA07Sn2bVw8cEfSgHi | PC-A task3 eval + control graph + capability/dispatch | done | [pc-a-task3-eval-graph-dispatch.md](./pc-a-task3-eval-graph-dispatch.md) |
+| TASK-034PCA08To3cWx9dFgThIj | PC-A task4 ControlSession + workspace API | done | [pc-a-task4-control-session.md](./pc-a-task4-control-session.md) |
+| TASK-034PCA09Up4dXy0eGhUiJk | PC-A task5 受入 test PC-A-01..08 | done | [pc-a-task5-acceptance-tests.md](./pc-a-task5-acceptance-tests.md) |
+| TASK-034PCA10Vq5eYz1fHiVjKl | PC-A task6 最終検証 + impl record | done | [pc-a-task6-verification-impl-record.md](./pc-a-task6-verification-impl-record.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | TASK-034Qe0kHawWuXO1xHGTd8F | VS-A task3 controller ops store | done | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |
