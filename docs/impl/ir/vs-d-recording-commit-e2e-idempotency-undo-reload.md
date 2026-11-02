@@ -268,7 +268,7 @@ P1/P2 を修正し、対象 regression test を追加した。
 （`CommitStatus::IntegrityConflict`）と manifest 改ざん検出
 （`CommitError::Manifest`）の両面で検証する。
 
-## Verification
+## Validation
 
 - `mise run fmt-check` / `check` / `lint` / `test` / `build` /
   `test-msrv`: 全 green（workspace、--locked 含む）。
@@ -287,3 +287,15 @@ P1/P2 を修正し、対象 regression test を追加した。
   分離済み（VS-C 契約を維持）。
 - staging recovery は media 側の回復であり、Project 状態の復旧を
   意味しない（両者は別構造で、recoverable は常に分離表示される）。
+
+## Related Experiments
+
+なし（exploratory experiment log の記録対象となる探索的実験は発生しなかった）。
+
+## Risks
+
+既知リスクはなし。検証は headless 決定的 driver で実測済み。
+
+## Follow-ups
+
+なし。

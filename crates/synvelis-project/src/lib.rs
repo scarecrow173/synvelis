@@ -25,12 +25,13 @@ pub use controller::{Command, Operation, ProjectController, ProjectRevision, Sav
 pub use error::Error;
 pub use id::{
     AssetId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, CounterIdGenerator,
-    IdGenerator, LaneId, ProjectId, RecordingPassId, RecordingSessionId, SourceId, TakeId, TrackId,
+    IdGenerator, ImportId, LaneId, ProjectId, RecordingPassId, RecordingSessionId, SourceId,
+    TakeId, TrackId,
 };
 pub use ops::ProjectOp;
 pub use project::{
-    AppliedRecordingCommit, Asset, Clip, Lane, Project, RecordingRegistry, Source, SourceState,
-    TimeAnchor, Track,
+    AppliedImport, AppliedRecordingCommit, Asset, Clip, Lane, Project, RecordingRegistry, Source,
+    SourceState, TimeAnchor, Track,
 };
 pub use range::{MediaSpan, MusicalRange, Range, SessionRange, SourceRange};
 pub use recording_data::{

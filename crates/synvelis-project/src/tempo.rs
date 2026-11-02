@@ -10,7 +10,8 @@
 //! independent direction of issue #19 / ruviform #189.
 
 use ruviform_media_core::{
-    MediaTime, TempoEvent, TempoMap, TempoMapBuilder, Tick, TimeBase, TimeSignatureEvent,
+    MediaTime, Ppqn, TempoEvent, TempoMap, TempoMapBuilder, Tick, TickPosition, TimeBase,
+    TimeSignatureEvent,
 };
 use serde::{Deserialize, Serialize};
 
@@ -96,19 +97,23 @@ impl TempoMapData {
     /// [`Error::Validation`] when the event lists fail `TempoMapBuilder`
     /// validation (empty tempo, out-of-range BPM, bad signature, dup ticks).
     pub fn compile(&self) -> Result<TempoMap, Error> {
+        let ppqn = Ppqn::new(
+            u16::try_from(self.ppqn).map_err(|_| Error::Validation("ppqn out of range".into()))?,
+        )
+        .map_err(|e| Error::Validation(format!("ppqn: {e:?}")))?;
         let mut builder = TempoMapBuilder::new();
         for e in &self.tempo_events {
-            builder.add_tempo_event(TempoEvent {
-                tick: Tick::new(e.tick),
-                bpm_milli: e.bpm_milli,
-            });
+            builder.add_tempo_event(TempoEvent::at_tick(
+                TickPosition::new(Tick::new(e.tick), ppqn),
+                e.bpm_milli,
+            ));
         }
         for e in &self.signature_events {
-            builder.add_time_signature_event(TimeSignatureEvent {
-                tick: Tick::new(e.tick),
-                numerator: e.numerator,
-                denominator: e.denominator,
-            });
+            builder.add_time_signature_event(TimeSignatureEvent::at_tick(
+                TickPosition::new(Tick::new(e.tick), ppqn),
+                e.numerator,
+                e.denominator,
+            ));
         }
         builder
             .build()
@@ -161,9 +166,10 @@ impl TickTimeMapping {
     ) -> Result<MediaTimeValue, Error> {
         let base = TimeBase::new(numerator, denominator)
             .map_err(|e| Error::Validation(format!("time base: {e:?}")))?;
+        let ppqn = self.ppqn_value()?;
         let media: MediaTime = self
             .map
-            .tick_to_media(Tick::new(tick.value()), base)
+            .tick_to_media(TickPosition::new(Tick::new(tick.value()), ppqn), base)
             .map_err(|_| Error::Overflow)?;
         Ok(MediaTimeValue {
             value: media.value(),
@@ -181,8 +187,14 @@ impl TickTimeMapping {
             .map_err(|e| Error::Validation(format!("time base: {e:?}")))?;
         let tick = self
             .map
-            .media_to_tick(MediaTime::new(media.value, base))
+            .media_to_tick(MediaTime::new(media.value, base), self.ppqn_value()?)
             .map_err(|_| Error::Overflow)?;
-        Ok(MusicalTick::new(tick.value()))
+        Ok(MusicalTick::new(tick.tick().value()))
+    }
+
+    /// The stored PPQN as a validated Ruviform `Ppqn`.
+    fn ppqn_value(&self) -> Result<Ppqn, Error> {
+        Ppqn::new(u16::try_from(self.ppqn).map_err(|_| Error::Overflow)?)
+            .map_err(|e| Error::Validation(format!("ppqn: {e:?}")))
     }
 }

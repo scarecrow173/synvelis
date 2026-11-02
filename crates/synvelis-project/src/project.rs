@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::Error,
     id::{
-        AssetId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, LaneId, ProjectId,
-        RecordingPassId, RecordingSessionId, SourceId, TakeId, TrackId,
+        AssetId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, ImportId, LaneId,
+        ProjectId, RecordingPassId, RecordingSessionId, SourceId, TakeId, TrackId,
     },
     range::{MediaSpan, MusicalRange},
     recording_data::{
@@ -67,6 +67,10 @@ pub struct Clip {
     pub anchor: TimeAnchor,
     /// Offset into the source where the clip starts reading.
     pub source_offset: SourceFrame,
+    /// Muted clips contribute silence — excluded at timeline lowering.
+    /// `#[serde(default)]` keeps snapshots written before L1 loadable.
+    #[serde(default)]
+    pub muted: bool,
 }
 
 /// A stored asset (content-addressed media or document).
@@ -142,6 +146,22 @@ pub struct AppliedRecordingCommit {
     pub clip_ids: Vec<ClipId>,
 }
 
+/// A safe local import that was applied to the project (L1 idempotency
+/// registry entry). Keys are the import identity reserved by the import
+/// manifest; `content_hash` carries the verified blob digest so a retry
+/// with different content is detected as an integrity conflict rather
+/// than applied twice.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppliedImport {
+    /// Verified content digest of the materialized blob (hex).
+    pub content_hash: String,
+    /// Asset registered by the import.
+    pub asset_id: AssetId,
+    /// Source registered by the import.
+    pub source_id: SourceId,
+}
+
 /// The recording registry: all session-scoped entities.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -190,6 +210,10 @@ pub struct Project {
     pub clock_epochs: BTreeMap<ClockEpochId, ClockEpoch>,
     /// Recording registry.
     pub recording: RecordingRegistry,
+    /// Applied local imports by import ID. `#[serde(default)]`
+    /// keeps snapshots written before L1 loadable.
+    #[serde(default)]
+    pub applied_imports: BTreeMap<ImportId, AppliedImport>,
 }
 
 impl Project {
@@ -209,6 +233,7 @@ impl Project {
             sources: BTreeMap::new(),
             clock_epochs: BTreeMap::new(),
             recording: RecordingRegistry::default(),
+            applied_imports: BTreeMap::new(),
         }
     }
 

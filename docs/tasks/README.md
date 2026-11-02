@@ -35,3 +35,8 @@ Directory: `docs/tasks`
 | TASK-94KUOSi6E5hLp0z924tx0Z | VS-D task4 poc vsd scenario | done | [vs-d-task4-poc-vsd-scenario.md](./vs-d-task4-poc-vsd-scenario.md) |
 | TASK-Q55t28lMPEU2KfWWnDjN0v | VS-D task5 acceptance tests | done | [vs-d-task5-acceptance-tests.md](./vs-d-task5-acceptance-tests.md) |
 | TASK-y590vxVzQnOZqfoO4yx5HA | VS-D task6 verification impl record | done | [vs-d-task6-verification-impl-record.md](./vs-d-task6-verification-impl-record.md) |
+| TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |
+| TASK-z866D1bQYKGTdgVlXsQMXJ | L1 task2 player crate fixture | done | [l1-task2-player-crate-fixture.md](./l1-task2-player-crate-fixture.md) |
+| TASK-W9NYIr58HYQiSJ9WczQxPS | L1 task3 import resolver | done | [l1-task3-import-resolver.md](./l1-task3-import-resolver.md) |
+| TASK-mdpjsGDSBa6N88wCzXnTmq | L1 task4 lowering processor driver | done | [l1-task4-lowering-processor-driver.md](./l1-task4-lowering-processor-driver.md) |
+| TASK-Ozv0WCVZK59abncGl9NN28 | L1 task5 acceptance tests verification | done | [l1-task5-acceptance-tests-verification.md](./l1-task5-acceptance-tests-verification.md) |
