@@ -38,6 +38,10 @@ pub enum WorkspaceError {
     NoGesture(ViewInstanceId),
     /// The gesture state itself is inconsistent.
     InvalidGesture(String),
+    /// A native input stamp was rejected by the rf#188
+    /// `map_stamp_to_frame` authority — a defined rejection, never a
+    /// silently mis-placed input.
+    StampRejected(String),
 }
 
 impl fmt::Display for WorkspaceError {
@@ -57,6 +61,7 @@ impl fmt::Display for WorkspaceError {
             Self::GestureActive(v) => write!(f, "gesture already active on view {v}"),
             Self::NoGesture(v) => write!(f, "no active gesture on view {v}"),
             Self::InvalidGesture(msg) => write!(f, "invalid gesture: {msg}"),
+            Self::StampRejected(msg) => write!(f, "stamp rejected: {msg}"),
         }
     }
 }

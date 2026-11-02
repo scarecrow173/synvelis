@@ -8,7 +8,11 @@
 //! stub rebuilds its (fake) graph — dock/layout/focus operations never
 //! touch either.
 
-use synvelis_project::{Command, Error, Project, ProjectController, ProjectOp, ProjectRevision};
+use synvelis_project::{
+    Command, Error, ParameterTargetId, Project, ProjectController, ProjectOp, ProjectRevision,
+};
+
+use crate::control::{ControlSession, GestureEnd, RecordingOutcome};
 
 /// Transport playback state — a stub, but a real concept that view
 /// commands must not confuse with project mutations.
@@ -44,6 +48,7 @@ pub struct ProjectSession {
     controller: ProjectController,
     transport: TransportState,
     engine: EngineStub,
+    control: ControlSession,
 }
 
 impl ProjectSession {
@@ -54,6 +59,7 @@ impl ProjectSession {
             controller,
             transport: TransportState::default(),
             engine: EngineStub::default(),
+            control: ControlSession::default(),
         }
     }
 
@@ -79,6 +85,74 @@ impl ProjectSession {
     #[must_use]
     pub fn engine(&self) -> &EngineStub {
         &self.engine
+    }
+
+    /// The session-scoped parameter-control state (issue #40): UI
+    /// modes, arms, gestures, recording transaction, observations.
+    /// Never persisted, never a project mutation by itself.
+    #[must_use]
+    pub fn control(&self) -> &ControlSession {
+        &self.control
+    }
+
+    /// Mutable control-session access (mode/arm/transport/gesture).
+    #[must_use]
+    pub fn control_mut(&mut self) -> &mut ControlSession {
+        &mut self.control
+    }
+
+    /// Runs `f` with the control session and the live project — the
+    /// borrow-safe bridge for session ops that must read the project
+    /// (target existence, capabilities, scope resolution) while
+    /// mutating session state.
+    pub fn control_with<R>(&mut self, f: impl FnOnce(&mut ControlSession, &Project) -> R) -> R {
+        f(&mut self.control, self.controller.live())
+    }
+
+    /// Ends a manual gesture on `target`. `Off` mode returns
+    /// `BaseEdit` and applies `SetParameterBase` — one undoable edit;
+    /// every other outcome touches session state only.
+    ///
+    /// # Errors
+    /// [`Error::Validation`] on no active gesture; controller errors
+    /// for the `Off`-mode base apply.
+    pub fn control_gesture_end(&mut self, target: ParameterTargetId) -> Result<GestureEnd, Error> {
+        let end = self.control.gesture_end(target)?;
+        if let GestureEnd::BaseEdit { value } = end {
+            let rev = self.revision();
+            self.apply(ProjectOp::SetParameterBase { target, value }, rev)?;
+        }
+        Ok(end)
+    }
+
+    /// Commits the open recording transaction as **one undo step**:
+    /// every lane segment becomes an explicit `Replace` region write
+    /// inside a single `Composite` apply.
+    ///
+    /// # Errors
+    /// [`Error::Validation`] on no open transaction; controller errors
+    /// on a rejected commit (the transaction is already consumed).
+    pub fn control_record_commit(&mut self) -> Result<RecordingOutcome, Error> {
+        let (was_sealed, ops) = self.control.build_commit_ops()?;
+        if ops.is_empty() {
+            return Ok(RecordingOutcome {
+                applied: false,
+                revision: None,
+                was_sealed,
+            });
+        }
+        let rev = self.revision();
+        let revision = self.apply(ProjectOp::Composite { ops }, rev)?;
+        Ok(RecordingOutcome {
+            applied: true,
+            revision: Some(revision),
+            was_sealed,
+        })
+    }
+
+    /// Aborts the open recording transaction — nothing is applied.
+    pub fn control_record_abort(&mut self) {
+        self.control.record_abort();
     }
 
     /// The live project.

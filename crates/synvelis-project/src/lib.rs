@@ -10,6 +10,7 @@
 
 #![warn(missing_docs)]
 
+pub mod control;
 pub mod controller;
 pub mod error;
 pub mod id;
@@ -21,12 +22,21 @@ pub mod store;
 pub mod tempo;
 pub mod time;
 
+pub use control::{
+    AutomationConflict, AutomationLane, AutomationPoint, AutomationRegion, BeatPoint, BeatRange,
+    ConflictPolicy, Contribution, ControlEvaluation, ControlGraph, ControlModel, ControlScope,
+    EvalPlan, Interpolation, LfoShape, ModulationAssignment, ModulationSource, ParamMapping,
+    ParameterTarget, Polarity, ReferenceSource, SourceKind, TargetCapability, Transform, ValueKind,
+    cut_range_points, detect_conflicts, dispatch_check, evaluate_control, lane_value, lower_event,
+    modulation_allowed, quantize_value, resolve_scope_pos,
+};
 pub use controller::{Command, Operation, ProjectController, ProjectRevision, SavedState};
 pub use error::Error;
 pub use id::{
-    AssetId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, CounterIdGenerator,
-    IdGenerator, ImportId, LaneId, ProjectId, RecordingPassId, RecordingSessionId, SourceId,
-    TakeId, TrackId,
+    AssetId, AutomationLaneId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId,
+    CounterIdGenerator, IdGenerator, ImportId, LaneId, ModulationAssignmentId, ModulationSourceId,
+    NoteId, ParameterTargetId, ProjectId, RecordingPassId, RecordingSessionId, SourceId, TakeId,
+    TrackId,
 };
 pub use ops::ProjectOp;
 pub use project::{

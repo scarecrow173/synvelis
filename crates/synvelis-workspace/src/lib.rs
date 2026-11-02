@@ -15,6 +15,7 @@
 //! touched.
 
 pub mod command;
+pub mod control;
 pub mod edit;
 pub mod error;
 pub mod focus;
@@ -31,6 +32,11 @@ pub mod view;
 pub mod workspace;
 
 pub use command::{CommandContext, CommandKind, CommandOutcome};
+pub use control::{
+    AssignmentView, AutomationMode, ControlGesture, ControlObservation, ControlSession, GestureEnd,
+    InspectorBreakdown, Lowered, ObservationData, ObservationState, PlaybackState, PlaybackStatus,
+    RecordingOutcome, RecordingTransaction, SealReason, TransportEffect, WriteArm,
+};
 pub use edit::CommitEffect;
 pub use error::WorkspaceError;
 pub use focus::{FocusState, InputContext};

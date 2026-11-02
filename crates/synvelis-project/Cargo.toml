@@ -12,3 +12,4 @@ workspace = true
 serde.workspace = true
 serde_json.workspace = true
 ruviform-media-core.workspace = true
+ruviform-plugin-core.workspace = true
