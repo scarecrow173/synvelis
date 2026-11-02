@@ -255,6 +255,22 @@ review-protocol の adversarial レビューで指摘され、コードで
   で拒否 (`pc_b_02_add_note_validates_domain`)。
 - `project.rs` の serde コメント誤記修正 (v3 body は deserialize
   できるが `load()` は v4 を要求)。
+- **`param_defunct` が到達不能**: `ParamTargetTable::revalidate`/
+  `unbind`/`invalidate_node` への pass-through を `ParamDispatch`
+  に追加し、`param_owners` 側 index も同期。plugin の param 再
+  列挙で binding が defunct 化し `param_defunct` token が実際に
+  到達する。
+- **RT 計測が Track scope のみ**: fixture に lane→clip→note→
+  note-scoped target を追加し、計測窓内で track/note scope を
+  交互評価 — clip/note scope 解決 arm も alloc-free を確認
+  (alloc/dealloc == 0 維持)。等価性 assert も両 scope で実施。
+- **`EvalPlan` の snapshot 契約を明文化**: `compile` doc に
+  「control mutation は recompile まで eval_rt に見えない
+  (scope placement は live 解決)」を記載。`stage()` doc に
+  `Dispatched` が endpoint ack でないことと
+  `mark_reporting_unavailable` terminal を記載。
+- test-spec の半開区間 example 誤記修正 (pos 14 →
+  `ScopeUnavailable`)、workspace テストのコメント誤記修正。
 
 レビューで発見し、PC-B の原因でないため変更しなかったもの:
 
@@ -265,6 +281,14 @@ review-protocol の adversarial レビューで指摘され、コードで
   ないが無駄。呼び出し側契約として記録のみ。
 - `ParamDispatch` は `HeadlessDriver` 配線外 (spec どおり
   caller が attach から直接組み立てる) — 統合は follow-up。
+- `record_start` が bound write lane を事前確認しない
+  (gesture_end 時点で lane binding error) — PC-A 既存経路。
+- `transport_advance` で tempo compile/beat→media 失敗時に
+  playback.frame が静かに stale のまま — PC-A 既存経路。
+- `ControlGraph::compile` の index panic は post-oracle 状態では
+  到達不能 — 直接 Project 構築のみ。既知の制約として記録。
+- `EvalPlan` staleness は検出機構なし — revision guard は
+  engine 配線時の follow-up (contract は compile doc に明記)。
 
 ## Related Experiments
 

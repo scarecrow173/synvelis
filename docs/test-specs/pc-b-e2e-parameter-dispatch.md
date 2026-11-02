@@ -56,8 +56,9 @@ relations:
 
 - Rule: `ControlScope::Note` の評価座標は note-relative beats。
   - Example: clip@beats 8..16、note@clip-relative 2..6 のとき、
-    project pos 10 → note-local 0、pos 14 → 4。pos 16(clip 外)・
-    pos 9(note 手前)は `ScopeUnavailable`。
+    project pos 10 → note-local 0、pos 13.5 → 3.5。pos 16(clip 外)・
+    pos 9(note 手前)・pos 14(note 終端、半開区間)は
+    `ScopeUnavailable`。
 - Rule: 記録点は note-relative 座標で格納される。
   - Example: pos 11 に gesture write → lane point pos=1。
 - Rule: domain 外の書き込み点は記録されない。

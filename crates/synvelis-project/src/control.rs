@@ -1181,6 +1181,15 @@ impl ControlGraph {
     /// the project; a rejected compile leaves the previously installed
     /// plan untouched (immutability by value semantics).
     ///
+    /// **Snapshot contract:** the plan freezes target bases, kinds,
+    /// merged automation series, and assignment data as of this call.
+    /// Control mutations (`WriteAutomationRegion`, `SetParameterBase`,
+    /// assignment/lane edits) are **not** visible to `eval_rt` until
+    /// the caller recompiles and reinstalls — callers must recompile
+    /// on each relevant project revision (scope *placement* — clip
+    /// anchor/extent — is resolved live so `MoveClip` stays correct
+    /// without recompile).
+    ///
     /// # Errors
     /// [`Error::ControlCycle`] when enabled assignments form a
     /// zero-delay dependency cycle.

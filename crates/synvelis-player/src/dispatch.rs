@@ -180,6 +180,34 @@ impl ParamDispatch {
         Ok(binding)
     }
 
+    /// Revalidates `target`'s binding against the plugin's live
+    /// `params` enumeration — a param dropped by the plugin flips the
+    /// binding defunct so later `resolve_write` returns
+    /// `param_defunct`. Returns `false` when the binding went defunct
+    /// (or was absent).
+    pub fn revalidate(&mut self, target: ParameterTargetId, params: &[ParamInfo]) -> bool {
+        let ok = self
+            .table
+            .revalidate(to_target_id(target), self.node, params);
+        if !ok {
+            self.param_owners.retain(|_, owner| *owner != target);
+        }
+        ok
+    }
+
+    /// Drops `target`'s binding and its ownership record.
+    pub fn unbind(&mut self, target: ParameterTargetId) -> bool {
+        self.param_owners.retain(|_, owner| *owner != target);
+        self.table.unbind(to_target_id(target))
+    }
+
+    /// Marks every binding on this dispatcher's node defunct — e.g.
+    /// after the plugin re-enumerated its parameters.
+    pub fn invalidate_node(&mut self) {
+        self.table.invalidate_node(self.node);
+        self.param_owners.clear();
+    }
+
     /// Resolves `target` to a live binding, refusing writes the table
     /// cannot honor.
     ///
@@ -301,6 +329,13 @@ impl ParamDispatch {
     }
 
     /// The latest stage a target reached in the ledger, if tracked.
+    ///
+    /// `Dispatched` is a plan×span projection — "the call window
+    /// covered the event" — not an endpoint acknowledgement. For
+    /// plugin classes with no report channel, callers may finalize
+    /// honesty via the ledger's `mark_reporting_unavailable`
+    /// terminal (`Unavailable`) instead of leaving entries
+    /// `Dispatched` forever.
     #[must_use]
     pub fn stage(&self, target: ParameterTargetId) -> Option<DispatchStage> {
         self.ledger.query(to_target_id(target)).map(|obs| obs.stage)

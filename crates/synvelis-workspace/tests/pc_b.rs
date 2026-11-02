@@ -171,7 +171,7 @@ fn pc_b_02_note_scope_evaluates_note_relative() {
         evaluate_control(project, target, bp(20), None),
         Err(Error::ScopeUnavailable { .. })
     ));
-    // no points before note-rel 0 → base 0.1 at project 10.5
+    // project 10.5 → note-rel 0.5: step chase holds the point at rel 0
     let eval = evaluate_control(project, target, BeatPoint::new(21, 2).unwrap(), None).unwrap();
     assert!((eval.host_normalized - 0.2).abs() < 1e-9);
 }
