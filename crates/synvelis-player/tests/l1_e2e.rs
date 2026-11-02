@@ -930,6 +930,7 @@ fn l1_compat_prepare_failure_keeps_last_good() {
         spec: bad_builder.build(),
         clips: Vec::new(),
         master_in: lowered.master_in,
+        inserts: Vec::new(),
         skipped: Vec::new(),
     };
     let attempt = driver.activate(&bad, Vec::new());

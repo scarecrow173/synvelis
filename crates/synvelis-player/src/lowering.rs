@@ -91,6 +91,17 @@ pub enum SkippedClip {
     },
 }
 
+/// A master-bus insert node between the clip fan-in and the sink.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct InsertBinding {
+    /// Stable graph node issued by the builder.
+    pub node_id: NodeId,
+    /// The node's audio input port.
+    pub in_port: PortId,
+    /// The node's audio output port.
+    pub out_port: PortId,
+}
+
 /// Lowering result: the generic spec plus every stable binding.
 #[derive(Clone, Debug)]
 pub struct Lowered {
@@ -100,6 +111,9 @@ pub struct Lowered {
     pub clips: Vec<ClipBinding>,
     /// The master sink's input port (the graph output tap).
     pub master_in: PortId,
+    /// Master-bus insert chain in signal order — every clip edge lands
+    /// on the first insert (or the sink when empty).
+    pub inserts: Vec<InsertBinding>,
     /// Clips that produced no node, with reasons.
     pub skipped: Vec<SkippedClip>,
 }
@@ -137,7 +151,12 @@ fn media_span_frames(span: &MediaSpan, rate: u32) -> (i64, i64) {
 ///
 /// Engine-channel coverage for differing layouts uses an explicit
 /// [`ChannelMap`]: output channel `d` reads source channel
-/// `min(d, src-1)` — mono→stereo duplicates, stereo→mono sums.
+/// `min(d, src-1)` — mono→stereo duplicates the single channel; a
+/// stereo→mono engine selects channel 0 (the map carries one entry,
+/// it does not sum). The engine format supports the mono/stereo
+/// scope of the L1/L2 slices: callers must keep `engine.channels`
+/// in `1..=2` — wider counts coerce to stereo here and are the
+/// caller's responsibility to refuse earlier.
 /// # Panics
 /// When `engine.sample_rate` is zero (engine config invariant).
 #[must_use]
@@ -146,6 +165,24 @@ pub fn lower(
     project: &Project,
     canonical_of: &dyn Fn(SourceId) -> Option<AudioFormat>,
     engine: &EngineConfig,
+) -> Lowered {
+    lower_with_inserts(project, canonical_of, engine, 0)
+}
+
+/// [`lower`] plus a master-bus insert chain of `insert_count`
+/// processor nodes between the clip fan-in and the sink — the offline
+/// render path installs deterministic DSP there. Every insert carries
+/// one input and one output port in the engine format; the first
+/// insert's input is unbounded (it receives the whole clip fan-in).
+/// # Panics
+/// When `engine.sample_rate` is zero (engine config invariant).
+#[must_use]
+#[allow(clippy::too_many_lines)] // one pass over a flat clip table
+pub fn lower_with_inserts(
+    project: &Project,
+    canonical_of: &dyn Fn(SourceId) -> Option<AudioFormat>,
+    engine: &EngineConfig,
+    insert_count: usize,
 ) -> Lowered {
     let mut builder = GraphBuilder::new();
     let engine_format = AudioFormat {
@@ -171,6 +208,75 @@ pub fn lower(
         }],
     });
     let master_in = master_ports[0];
+
+    let mut inserts = Vec::with_capacity(insert_count);
+    for index in 0..insert_count {
+        let (node_id, ports) = builder.add_node(&NodeDef {
+            kind: NodeKind::Processor,
+            ports: vec![
+                PortDef {
+                    direction: Direction::Input,
+                    role: PortRole::Main,
+                    format: PortFormat::Audio(engine_format),
+                    multiplicity: if index == 0 {
+                        Multiplicity::unbounded(0)
+                    } else {
+                        Multiplicity::exactly(1)
+                    },
+                    capabilities: Vec::new(),
+                    availability: Availability::Always,
+                    activation: Activation::Enabled,
+                },
+                PortDef {
+                    direction: Direction::Output,
+                    role: PortRole::Main,
+                    format: PortFormat::Audio(engine_format),
+                    multiplicity: Multiplicity::exactly(1),
+                    capabilities: Vec::new(),
+                    availability: Availability::Always,
+                    activation: Activation::Enabled,
+                },
+            ],
+        });
+        inserts.push(InsertBinding {
+            node_id,
+            in_port: ports[0],
+            out_port: ports[1],
+        });
+    }
+    // Wire the chain tail-to-head: each insert's output feeds the next
+    // insert (or the sink), so clip edges land on `fan_in`.
+    let fan_in = inserts.first().map_or_else(
+        || PortRef {
+            node: master_node,
+            port: master_in,
+        },
+        |first| PortRef {
+            node: first.node_id,
+            port: first.in_port,
+        },
+    );
+    for (index, insert) in inserts.iter().enumerate() {
+        let to = inserts.get(index + 1).map_or_else(
+            || PortRef {
+                node: master_node,
+                port: master_in,
+            },
+            |next| PortRef {
+                node: next.node_id,
+                port: next.in_port,
+            },
+        );
+        builder.connect(&ConnDef {
+            from: PortRef {
+                node: insert.node_id,
+                port: insert.out_port,
+            },
+            to,
+            delay: EdgeDelay::Zero,
+            channel_map: None,
+        });
+    }
 
     let tempo = TickTimeMapping::new(&project.tempo_map).ok();
     let mut clips = Vec::new();
@@ -222,7 +328,10 @@ pub fn lower(
         };
         // Clamp a negative engine start: the skipped head shifts the
         // source window forward — never silently repositioned.
-        let lead = u64::try_from(start.max(0) - start).unwrap_or(0);
+        // `start == i64::MIN` saturates rather than overflows; the
+        // `len` check below refuses the clip in that case anyway.
+        let lead =
+            u64::try_from(start.checked_neg().unwrap_or(i64::MAX).max(0)).unwrap_or(u64::MAX);
         let engine_start = u64::try_from(start.max(0)).unwrap_or(0);
         let Some(len) = end
             .checked_sub(start)
@@ -238,7 +347,13 @@ pub fn lower(
         }
         let source_start = u64::try_from(clip.source_offset.value()).unwrap_or(0) + lead;
         let src_channels = u16::try_from(canonical.layout.channels()).unwrap_or(u16::MAX);
-        let channel_map = if src_channels == engine.channels {
+        // A ChannelMap is required whenever the *layout* differs — not
+        // only the channel count: an unpositioned canonical layout
+        // (`Custom`) feeding a `Mono`/`Stereo` master validates as an
+        // implicit conversion without one. The entries also cover the
+        // count mismatch: mono→stereo duplicates, and a stereo→mono
+        // engine selects channel 0 (a map entry cannot express a sum).
+        let channel_map = if canonical.layout == engine_format.layout {
             None
         } else {
             Some(ChannelMap {
@@ -264,10 +379,7 @@ pub fn lower(
                 node: node_id,
                 port: out_ports[0],
             },
-            to: PortRef {
-                node: master_node,
-                port: master_in,
-            },
+            to: fan_in,
             delay: EdgeDelay::Zero,
             channel_map,
         });
@@ -289,6 +401,7 @@ pub fn lower(
         spec: builder.build(),
         clips,
         master_in,
+        inserts,
         skipped,
     }
 }

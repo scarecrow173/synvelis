@@ -13,7 +13,7 @@ use synvelis_project::{
     AppliedImport, Asset, AssetId, Command, IdGenerator, ImportId, Operation, Project,
     ProjectController, Source, SourceId, SourceState,
 };
-use synvelis_recording::crc32::crc32;
+use synvelis_recording::crc32::{Crc32, crc32};
 use synvelis_recording::staging::{
     DirSyncCapability, detect_dir_sync, publish_atomic, sync_parent_dir,
 };
@@ -226,6 +226,50 @@ pub fn content_digest(bytes: &[u8]) -> String {
     rev_bytes.reverse();
     let bwd = u64::from(crc32(&rev_bytes));
     format!("{fwd:08x}{bwd:08x}")
+}
+
+/// Streaming form of [`content_digest`] over one already-open handle:
+/// the forward crc consumes sequential chunks, the backward crc
+/// consumes chunks read tail→head with each chunk reversed — the same
+/// result as `crc32(bytes.reversed())`, bounded memory. Digesting on
+/// the same fd that is then handed to the demuxer closes the
+/// verify-then-open gap: a replaced path cannot swap the bytes
+/// between digest and decode. The cursor ends rewound to `0`.
+///
+/// # Errors
+/// [`std::io::Error`] — read/seek failures.
+pub fn content_digest_stream(file: &mut File) -> std::io::Result<String> {
+    use std::io::{Read, Seek, SeekFrom};
+    const CHUNK: usize = 1 << 16;
+    // usize fits u64 on every real target — the projection is exact.
+    let chunk = u64::try_from(CHUNK).unwrap_or(u64::MAX);
+    let len = file.seek(SeekFrom::End(0))?;
+    file.seek(SeekFrom::Start(0))?;
+    let mut buf = vec![0u8; CHUNK];
+    let (mut fwd, mut bwd) = (Crc32::new(), Crc32::new());
+    let mut pos = 0u64;
+    while pos < len {
+        let take = usize::try_from((len - pos).min(chunk)).unwrap_or(usize::MAX);
+        file.read_exact(&mut buf[..take])?;
+        fwd.update(&buf[..take]);
+        pos += take as u64;
+    }
+    let mut end = len;
+    while end > 0 {
+        let take = usize::try_from(end.min(chunk)).unwrap_or(usize::MAX);
+        let start = end - take as u64;
+        file.seek(SeekFrom::Start(start))?;
+        file.read_exact(&mut buf[..take])?;
+        buf[..take].reverse();
+        bwd.update(&buf[..take]);
+        end = start;
+    }
+    file.seek(SeekFrom::Start(0))?;
+    Ok(format!(
+        "{:08x}{:08x}",
+        u64::from(fwd.finish()),
+        u64::from(bwd.finish())
+    ))
 }
 
 /// The canonical blob path for `digest` under `media_root`.
