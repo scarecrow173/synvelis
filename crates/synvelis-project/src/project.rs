@@ -125,6 +125,23 @@ pub struct Source {
     pub state: SourceState,
 }
 
+/// A recording commit that was applied to the project (VS-D idempotency
+/// registry entry). Keys are the session identity; `content_hash` carries
+/// the committed manifest payload hash so a retry with different content
+/// is detected as an integrity conflict rather than applied twice.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AppliedRecordingCommit {
+    /// Canonical content hash of the committed manifest payload (hex).
+    pub content_hash: String,
+    /// Sources registered by the commit.
+    pub source_ids: Vec<SourceId>,
+    /// Takes registered by the commit.
+    pub take_ids: Vec<TakeId>,
+    /// Clips registered by the commit.
+    pub clip_ids: Vec<ClipId>,
+}
+
 /// The recording registry: all session-scoped entities.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -139,6 +156,10 @@ pub struct RecordingRegistry {
     pub segments: BTreeMap<CaptureSegmentId, CaptureSegment>,
     /// Takes by ID.
     pub takes: BTreeMap<TakeId, Take>,
+    /// Applied recording commits by session ID. `#[serde(default)]`
+    /// keeps snapshots written before VS-D loadable.
+    #[serde(default)]
+    pub applied_commits: BTreeMap<RecordingSessionId, AppliedRecordingCommit>,
 }
 
 /// The full persisted project aggregate.

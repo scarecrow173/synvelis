@@ -104,6 +104,17 @@ impl ProjectController {
         self.saved.as_ref()
     }
 
+    /// Draws the next raw ID value for an external reservation (a commit
+    /// manifest recorded before its [`Operation`] is applied). The
+    /// watermark persisted by the next successful apply or save accounts
+    /// for the draw, so the value is not re-issued while this controller
+    /// — or any save it produced — remains authoritative. An operation
+    /// that consumes externally reserved IDs must `reseed` past them on
+    /// apply so a reload from an older save cannot re-issue them.
+    pub fn draw_raw_id(&mut self) -> u128 {
+        self.generator.next()
+    }
+
     /// Applies a command atomically.
     ///
     /// Validation failure or a stale expected revision leaves both the

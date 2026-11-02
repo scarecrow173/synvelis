@@ -29,7 +29,8 @@ pub use id::{
 };
 pub use ops::ProjectOp;
 pub use project::{
-    Asset, Clip, Lane, Project, RecordingRegistry, Source, SourceState, TimeAnchor, Track,
+    AppliedRecordingCommit, Asset, Clip, Lane, Project, RecordingRegistry, Source, SourceState,
+    TimeAnchor, Track,
 };
 pub use range::{MediaSpan, MusicalRange, Range, SessionRange, SourceRange};
 pub use recording_data::{
