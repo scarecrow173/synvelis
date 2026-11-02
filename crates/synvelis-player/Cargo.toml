@@ -17,6 +17,7 @@ ruviform-media-core.workspace = true
 ruviform-media-io.workspace = true
 ruviform-media-reader.workspace = true
 ruviform-io-symphonia.workspace = true
+ruviform-io-wav.workspace = true
 ruviform-graph.workspace = true
 ruviform-audio.workspace = true
 ruviform-audio-core.workspace = true

@@ -23,6 +23,7 @@ pub mod fixture;
 pub mod import;
 pub mod lowering;
 pub mod processor;
+pub mod publish;
 pub mod resolver;
 
 pub use driver::{DriverState, HeadlessDriver, PlayReport, PumpPolicy};
@@ -30,4 +31,5 @@ pub use error::{ImportError, ResolveError};
 pub use import::{BlobReceipt, ImportOutcome, ImportRequest, ProjectReceipt, VerifiedMedia};
 pub use lowering::{ClipBinding, ClipWindow, EngineConfig, Lowered, SkippedClip};
 pub use processor::{ClipPlayer, PlaybackStats};
+pub use publish::{PublishError, PublishReport, PublishedStream, SkippedStream, publish_recorded};
 pub use resolver::PreparedClip;
