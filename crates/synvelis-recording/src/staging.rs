@@ -370,6 +370,53 @@ impl StagingArea {
     pub fn sync_dir(&self) -> io::Result<()> {
         sync_parent_dir(&self.session_dir.join("manifest.json"))
     }
+
+    /// capture 側 fault（queue 満杯・epoch 断絶等、session 全体を
+    /// 中断させた RT/engine 側 fault）を session スコープの durable
+    /// marker として記録する。writer 個別の失敗は stream ごとの
+    /// journal/finalized ref が担うため、この marker は「capture が
+    /// 全 stream で正常終了しなかった」ことだけを示す。
+    /// commit 層は marker の存在を全 stream の `recoverable` 分離
+    /// として解釈する。
+    ///
+    /// # Errors
+    /// marker 書込みの I/O 失敗。
+    pub fn record_capture_fault(&self, detail: &str) -> io::Result<()> {
+        let bytes = serde_json::to_vec_pretty(&serde_json::json!({
+            "capture_fault": detail,
+        }))?;
+        publish_atomic(&self.capture_fault_path(), &bytes)?;
+        if self.manifest.capabilities.directory_sync == DirSyncCapability::Supported {
+            self.sync_dir()?;
+        }
+        Ok(())
+    }
+
+    /// 記録済み capture fault marker の内容。未記録・読めない場合は
+    /// `None`（未記録と読取失敗は同一視しないため、読取失敗は
+    /// commit 層側で別途扱う）。
+    #[must_use]
+    pub fn capture_fault(&self) -> Option<String> {
+        let bytes = fs::read(self.capture_fault_path()).ok()?;
+        serde_json::from_slice::<serde_json::Value>(&bytes)
+            .ok()?
+            .get("capture_fault")?
+            .as_str()
+            .map(str::to_string)
+    }
+
+    /// capture fault marker が読めない形で存在するか（commit 層は
+    /// fail-closed に recoverable 分離する）。
+    #[must_use]
+    pub fn capture_fault_marker_exists(&self) -> bool {
+        self.capture_fault_path().exists()
+    }
+
+    /// capture fault marker の絶対 path。
+    #[must_use]
+    pub fn capture_fault_path(&self) -> PathBuf {
+        self.session_dir.join("capture-fault.json")
+    }
 }
 
 /// `LaneId`/`CaptureStreamId` から `StagingStreamConfig` を作る補助

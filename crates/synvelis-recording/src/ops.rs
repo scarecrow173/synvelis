@@ -92,6 +92,17 @@ pub enum RecordingOp {
         /// Target take.
         take_id: TakeId,
     },
+    /// Apply a persisted commit manifest as one Project mutation
+    /// (VS-D: `Closed → Finalized` session + assets/sources/passes/
+    /// segments/takes/clips + applied-commit registry entry). All IDs
+    /// come from the manifest reserved before commit — nothing is
+    /// re-generated here.
+    CommitRecording {
+        /// The commit manifest (identity + reserved stable IDs +
+        /// content hash + full payload). PCM is never carried; the
+        /// payload holds references, digests and ranges only.
+        manifest: Box<crate::commit::RecordingCommitManifest>,
+    },
 }
 
 impl Operation for RecordingOp {
@@ -210,9 +221,11 @@ impl Operation for RecordingOp {
                 }
                 Ok(())
             }
+            Self::CommitRecording { manifest } => crate::commit::validate_commit(project, manifest),
         }
     }
 
+    #[allow(clippy::too_many_lines)] // flat match per op variant
     fn apply(&self, project: &mut Project, ids: &mut dyn IdGenerator) -> Result<(), Error> {
         match self {
             Self::CreateSession { name } => {
@@ -311,6 +324,9 @@ impl Operation for RecordingOp {
                 if let Some(take) = project.recording.takes.get_mut(take_id) {
                     take.state = TakeState::Verified;
                 }
+            }
+            Self::CommitRecording { manifest } => {
+                crate::commit::apply_commit(project, manifest, ids)?;
             }
         }
         Ok(())
