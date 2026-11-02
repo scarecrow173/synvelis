@@ -30,6 +30,36 @@ pub enum Error {
     IllegalTransition(String),
     /// A general invariant violation described in text.
     Validation(String),
+    /// Competing automation on the same parameter at the same
+    /// evaluation time — detected, never silently prioritized.
+    AutomationConflict {
+        /// The target with competing series.
+        target: String,
+        /// Description of the conflicting lanes/ranges.
+        detail: String,
+    },
+    /// A zero-delay cycle in the control graph (e.g. mutual
+    /// depth-source references) — rejected at compile/eval.
+    ControlCycle {
+        /// The detected dependency path.
+        path: String,
+    },
+    /// A scope's time coordinate cannot be resolved for the
+    /// evaluation position (clip range outside, media anchor, or an
+    /// unimplemented note entity).
+    ScopeUnavailable {
+        /// Description of the unavailable scope/coordinate.
+        detail: String,
+    },
+    /// The ruviform param-write contract rejected the requested means
+    /// (`check_param_write` — capability honesty, never a silent
+    /// misapplication).
+    WriteRejected {
+        /// The write means that was requested.
+        means: String,
+        /// The typed rejection from the upstream contract.
+        rejection: String,
+    },
     /// The snapshot schema version is outside the supported set.
     UnsupportedSchema {
         /// The version found in the snapshot.
@@ -55,6 +85,16 @@ impl fmt::Display for Error {
             Self::WrongOwner(s) => write!(f, "reference owned by another parent: {s}"),
             Self::IllegalTransition(s) => write!(f, "illegal transition: {s}"),
             Self::Validation(s) => write!(f, "validation failed: {s}"),
+            Self::AutomationConflict { target, detail } => {
+                write!(f, "automation conflict on {target}: {detail}")
+            }
+            Self::ControlCycle { path } => write!(f, "control cycle: {path}"),
+            Self::ScopeUnavailable { detail } => {
+                write!(f, "control scope unavailable: {detail}")
+            }
+            Self::WriteRejected { means, rejection } => {
+                write!(f, "param write rejected ({means}): {rejection}")
+            }
             Self::UnsupportedSchema { found } => {
                 write!(f, "unsupported schema version: {found}")
             }

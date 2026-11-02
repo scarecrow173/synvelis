@@ -20,3 +20,4 @@ Directory: `docs/impl/ir`
 | IMPL-L1LocalWavVerifiedPlayback | E2E-L1 Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | completed | [l1-e2e-local-wav-verified-playback.md](l1-e2e-local-wav-verified-playback.md) |
 | IMPL-034QxsUh3NmPwprwJkrlk5 | WS-A workspace foundation headless PoC | completed | [ws-a-workspace-foundation-headless-poc.md](ws-a-workspace-foundation-headless-poc.md) |
 | IMPL-034QAWvNQYPna11TqH7YTn | ED-A editing model headless PoC | completed | [ed-a-editing-model-headless-poc.md](ed-a-editing-model-headless-poc.md) |
+| IMPL-034PCA12Xz9hCd5kLmZnOp | PC-A parameter control model headless PoC | completed | [pc-a-parameter-control-headless-poc.md](pc-a-parameter-control-headless-poc.md) |
