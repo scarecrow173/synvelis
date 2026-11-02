@@ -16,7 +16,9 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use synvelis_project::{ClipId, LaneId, MediaSpan, MusicalRange, SourceId};
+use synvelis_project::{
+    ClipId, LaneId, MediaSpan, MediaTimeValue, MusicalRange, MusicalTick, SourceId,
+};
 
 use crate::error::WorkspaceError;
 use crate::state::{EditingSelection, SemanticTarget};
@@ -149,6 +151,95 @@ pub enum EditTimeDomain {
     Musical,
     /// Media time (source/session frames).
     Media,
+}
+
+/// A position on the edit timeline, tagged with its time domain
+/// (ED-B, issue #65).
+///
+/// Probes, gesture origins and preview positions carry the domain in
+/// the value itself, so a musical tick can never be silently
+/// reinterpreted as a media instant (or vice versa). Media positions
+/// keep their declared time base; converting an instant or a delta
+/// between bases is exact rational math floored once at the final
+/// boundary — the same convention [`MediaTimeValue::frames_at`]
+/// established.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "value", deny_unknown_fields)]
+pub enum EditTimePoint {
+    /// Musical position in project PPQN ticks.
+    Musical(MusicalTick),
+    /// Media position in its declared time base.
+    Media(MediaTimeValue),
+}
+
+impl EditTimePoint {
+    /// The domain this position lives in.
+    #[must_use]
+    pub fn domain(&self) -> EditTimeDomain {
+        match self {
+            Self::Musical(_) => EditTimeDomain::Musical,
+            Self::Media(_) => EditTimeDomain::Media,
+        }
+    }
+
+    /// The declared `(numerator, denominator)` time base a media
+    /// position carries — `None` for musical positions (ticks have no
+    /// declared base).
+    #[must_use]
+    pub fn media_base(&self) -> Option<(u32, u32)> {
+        match self {
+            Self::Musical(_) => None,
+            Self::Media(m) => Some((m.numerator(), m.denominator())),
+        }
+    }
+
+    /// Signed delta `self - origin`, expressed in `origin`'s declared
+    /// base units (ticks for musical). Media instants with different
+    /// bases rescale through exact rational math, floored once.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::MixedTimeDomains`] when the domains differ;
+    /// [`WorkspaceError::Project`] on arithmetic overflow.
+    pub fn delta_since(&self, origin: &Self) -> Result<i64, WorkspaceError> {
+        match (*self, *origin) {
+            (Self::Musical(pos), Self::Musical(orig)) => {
+                Ok(pos.ticks_since(orig).map_err(WorkspaceError::Project)?)
+            }
+            (Self::Media(pos), Self::Media(orig)) => {
+                let pos_units = media_rescale(
+                    pos.value(),
+                    (pos.numerator(), pos.denominator()),
+                    (orig.numerator(), orig.denominator()),
+                )
+                .ok_or(WorkspaceError::Project(synvelis_project::Error::Overflow))?;
+                pos_units
+                    .checked_sub(orig.value())
+                    .ok_or(WorkspaceError::Project(synvelis_project::Error::Overflow))
+            }
+            _ => Err(WorkspaceError::MixedTimeDomains(
+                "position domain differs from the gesture origin".to_string(),
+            )),
+        }
+    }
+}
+
+/// `floor(numer / denom)` as `i64` — floors toward negative infinity
+/// for negative numerators, `None` when the quotient does not fit
+/// `i64`. `denom` must be positive.
+pub(crate) fn floor_div_i128(numer: i128, denom: i128) -> Option<i64> {
+    let q = numer / denom;
+    let floored = if numer % denom < 0 { q - 1 } else { q };
+    i64::try_from(floored).ok()
+}
+
+/// Re-expresses `value` (in units of base `from`) in units of base
+/// `to` — exact `i128` rational math floored once at the final
+/// boundary. `None` when the rescaled value does not fit `i64`. A
+/// time base `(n, d)` means one unit spans `n / d` seconds.
+pub(crate) fn media_rescale(value: i64, from: (u32, u32), to: (u32, u32)) -> Option<i64> {
+    let numer = i128::from(value) * i128::from(from.0) * i128::from(to.1);
+    let denom = i128::from(from.1) * i128::from(to.0);
+    floor_div_i128(numer, denom)
 }
 
 /// A view-local time selection. Independent of the object selection:

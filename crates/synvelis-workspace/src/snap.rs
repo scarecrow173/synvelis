@@ -13,7 +13,6 @@
 //! behaviour under device input, adaptive grid subdivision.
 
 use serde::{Deserialize, Serialize};
-use synvelis_project::MusicalTick;
 
 use crate::selection::EditTimeDomain;
 
@@ -21,8 +20,9 @@ use crate::selection::EditTimeDomain;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "ticks", rename_all = "kebab-case")]
 pub enum SnapUnit {
-    /// A fixed tick quantum — never changes with zoom.
-    Explicit(MusicalTick),
+    /// A fixed quantum in the gesture domain's declared base units
+    /// (ticks for musical gestures) — never changes with zoom.
+    Explicit(i64),
     /// Zoom-derived quantum; the caller recomputes `auto_step` when
     /// the viewport changes. Only this unit may follow zoom.
     Auto,
@@ -43,7 +43,7 @@ impl Default for GridConfig {
     fn default() -> Self {
         Self {
             visible: true,
-            unit: SnapUnit::Explicit(MusicalTick::new(960)),
+            unit: SnapUnit::Explicit(960),
         }
     }
 }
@@ -56,8 +56,8 @@ pub struct SnapConfig {
     pub enabled: bool,
     /// The snap quantum used to generate grid candidates.
     pub unit: SnapUnit,
-    /// Max distance (ticks) a candidate may sit from the pointer
-    /// position and still win.
+    /// Max distance (in the gesture domain's declared base units) a
+    /// candidate may sit from the pointer position and still win.
     pub threshold_ticks: i64,
     /// Distance within which the previous winner is kept stable.
     pub hysteresis_ticks: i64,
@@ -67,7 +67,7 @@ impl Default for SnapConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            unit: SnapUnit::Explicit(MusicalTick::new(960)),
+            unit: SnapUnit::Explicit(960),
             threshold_ticks: 240,
             hysteresis_ticks: 60,
         }
@@ -86,13 +86,15 @@ pub enum SnapSource {
     Grid,
 }
 
-/// One concrete snap candidate.
+/// One concrete snap candidate. `position` is a scalar in the
+/// gesture domain's declared base units — the caller supplies
+/// candidates in the same base the gesture resolves deltas in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SnapCandidate {
     /// Where the candidate comes from.
     pub source: SnapSource,
-    /// Its timeline position.
-    pub position: MusicalTick,
+    /// Its timeline position, in declared base units.
+    pub position: i64,
     /// The time domain the candidate lives in.
     pub domain: EditTimeDomain,
 }
@@ -103,7 +105,7 @@ pub struct SnapCandidate {
 pub struct SnapEnvironment {
     /// The quantum `SnapUnit::Auto` resolves to this frame (zoom
     /// derived). Unused by explicit units.
-    pub auto_step: MusicalTick,
+    pub auto_step: i64,
     /// Non-grid candidates (clip bounds, playhead, …).
     pub candidates: Vec<SnapCandidate>,
 }
@@ -113,8 +115,8 @@ pub struct SnapEnvironment {
 pub struct SnapWinner {
     /// Winning source.
     pub source: SnapSource,
-    /// Snapped position.
-    pub position: MusicalTick,
+    /// Snapped position, in declared base units.
+    pub position: i64,
 }
 
 impl SnapWinner {
@@ -127,7 +129,7 @@ impl SnapWinner {
             SnapSource::Playhead => "playhead",
             SnapSource::Grid => "grid",
         };
-        format!("{src}@{}", self.position.value())
+        format!("{src}@{}", self.position)
     }
 }
 
@@ -140,7 +142,7 @@ impl SnapWinner {
 pub fn resolve_snap(
     config: &SnapConfig,
     env: &SnapEnvironment,
-    position: MusicalTick,
+    position: i64,
     domain: EditTimeDomain,
     previous: Option<SnapWinner>,
 ) -> Option<SnapWinner> {
@@ -155,17 +157,16 @@ pub fn resolve_snap(
         .collect();
     // Grid candidates are generated in the gesture's own domain.
     let step = match config.unit {
-        SnapUnit::Explicit(step) => Some(step.value()),
-        SnapUnit::Auto => (env.auto_step.value() > 0).then(|| env.auto_step.value()),
+        SnapUnit::Explicit(step) => Some(step),
+        SnapUnit::Auto => (env.auto_step > 0).then_some(env.auto_step),
     };
     if let Some(step) = step
         && step > 0
     {
-        let raw = position.value();
-        for base in [raw.div_euclid(step), raw.div_euclid(step) + 1] {
+        for base in [position.div_euclid(step), position.div_euclid(step) + 1] {
             candidates.push(SnapCandidate {
                 source: SnapSource::Grid,
-                position: MusicalTick::new(base * step),
+                position: base * step,
                 domain,
             });
         }
@@ -175,15 +176,15 @@ pub fn resolve_snap(
     let hysteresis = u64::try_from(config.hysteresis_ticks.max(0)).unwrap_or(0);
     let threshold = u64::try_from(config.threshold_ticks.max(0)).unwrap_or(0);
     if let Some(prev) = previous {
-        let drift = position.value().abs_diff(prev.position.value());
+        let drift = position.abs_diff(prev.position);
         if drift <= hysteresis {
             return Some(prev);
         }
     }
     candidates
         .iter()
-        .filter(|c| position.value().abs_diff(c.position.value()) <= threshold)
-        .min_by_key(|c| (position.value().abs_diff(c.position.value()), c.source))
+        .filter(|c| position.abs_diff(c.position) <= threshold)
+        .min_by_key(|c| (position.abs_diff(c.position), c.source))
         .map(|c| SnapWinner {
             source: c.source,
             position: c.position,

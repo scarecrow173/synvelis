@@ -23,6 +23,8 @@ Directory: `docs/tasks`
 | TASK-034QAu4igyxOwf6eNf7xk9 | ED-A task4 command 追加 + workspace editing API + cancel hook | done | [ed-a-task4-commands-workspace-api.md](./ed-a-task4-commands-workspace-api.md) |
 | TASK-034QAu59SzY753wmZUJZ5T | ED-A task5 受入 test ED-A-01..05 | done | [ed-a-task5-acceptance-tests.md](./ed-a-task5-acceptance-tests.md) |
 | TASK-034QAu61uDP868aqejEmAN | ED-A task6 最終検証 + impl record | done | [ed-a-task6-verification-impl-record.md](./ed-a-task6-verification-impl-record.md) |
+| TASK-034QN1YPq2DVRcHKewnTAs | ED-B task: ed_b acceptance tests | done | [ed-b-task-acceptance-tests.md](./ed-b-task-acceptance-tests.md) |
+| TASK-034QN1Ynloix2iEZj58mZJ | ED-B task: media move/trim/slip + marquee commit | done | [ed-b-task-media-commit.md](./ed-b-task-media-commit.md) |
 | TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |
 | TASK-z866D1bQYKGTdgVlXsQMXJ | L1 task2 player crate fixture | done | [l1-task2-player-crate-fixture.md](./l1-task2-player-crate-fixture.md) |
 | TASK-W9NYIr58HYQiSJ9WczQxPS | L1 task3 import resolver | done | [l1-task3-import-resolver.md](./l1-task3-import-resolver.md) |

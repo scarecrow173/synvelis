@@ -12,7 +12,7 @@ use ruviform_ui::dock::{
 };
 use ruviform_ui::event::HostEvent;
 use ruviform_ui::window::{MonitorInfo, WindowConfig, WindowHandle, WindowId};
-use synvelis_project::{MusicalTick, ProjectOp, ProjectRevision};
+use synvelis_project::{ProjectOp, ProjectRevision, TimeAnchor};
 
 use crate::command::{CommandContext, CommandKind, CommandOutcome, build_project_op, spec_for};
 use crate::edit::{self, CommitEffect};
@@ -21,11 +21,11 @@ use crate::focus::{FocusState, InputContext};
 use crate::gesture::{CancelReason, Gesture, GestureFixation, GestureOutcome, GesturePreview};
 use crate::link::{LinkEvent, LinkGroupId, LinkGroupManager};
 use crate::persist::{LinkRecord, ViewRecord, WORKSPACE_SCHEMA, WorkspaceSnapshot};
-use crate::selection::{LaneScope, SelectionDomain, TimeSelection};
+use crate::selection::{EditTimePoint, LaneScope, SelectionDomain, TimeSelection};
 use crate::session::ProjectSession;
 use crate::snap::{SnapEnvironment, resolve_snap};
 use crate::state::{EditingSelection, SemanticTarget, ViewState, ViewStateRegistry};
-use crate::tool::{EditOperation, HitProbe, Tool, ToolResolution, resolve_tool};
+use crate::tool::{EditOperation, HandleKind, HitProbe, Tool, ToolResolution, resolve_tool};
 use crate::view::{ViewDescriptor, ViewRegistry, ViewType};
 
 /// A window the manager knows about (creation order = capture order).
@@ -655,12 +655,27 @@ impl<H: WindowHandle> WorkspaceManager<H> {
             }),
             ToolResolution::NoGesture => Ok(PointerOutcome::NoGesture),
             ToolResolution::Resolved { operation, targets } => {
+                let has_clip = targets.iter().any(|t| matches!(t, SemanticTarget::Clip(_)));
                 let domain =
-                    if matches!(operation, EditOperation::Marquee | EditOperation::DrawClip) {
-                        crate::selection::EditTimeDomain::Musical
+                    if matches!(operation, EditOperation::Marquee | EditOperation::DrawClip)
+                        || !has_clip
+                    {
+                        // Target-free and clip-free operations take the
+                        // probe's own domain — a media marquee is a media
+                        // gesture, and the fixation's domain tag always
+                        // matches its origin.
+                        probe.position.domain()
                     } else {
                         edit::gesture_domain(self.session.project(), &targets)?
                     };
+                // ED-B-06: when clip targets fix the domain, a probe
+                // reporting another domain is a start-time rejection —
+                // never a silent reinterpretation of its position.
+                if has_clip && probe.position.domain() != domain {
+                    return Err(WorkspaceError::MixedTimeDomains(
+                        "probe position domain disagrees with the gesture domain".to_string(),
+                    ));
+                }
                 let gesture = Gesture {
                     fixation: GestureFixation {
                         operation,
@@ -684,13 +699,17 @@ impl<H: WindowHandle> WorkspaceManager<H> {
     /// Moves the running gesture's preview to `position`: the delta
     /// recomputes (through snap resolution on the primary anchor for
     /// move/trim gestures) while the fixation stays untouched.
+    /// `position` must report the fixated domain — a mismatched probe
+    /// is rejected, never reinterpreted.
     ///
     /// # Errors
-    /// [`WorkspaceError::UnknownView`] / [`WorkspaceError::NoGesture`].
+    /// [`WorkspaceError::UnknownView`] / [`WorkspaceError::NoGesture`] /
+    /// [`WorkspaceError::MixedTimeDomains`] on a domain-mismatched
+    /// position.
     pub fn drag_update(
         &mut self,
         view: ViewInstanceId,
-        position: MusicalTick,
+        position: EditTimePoint,
         env: &SnapEnvironment,
     ) -> Result<(), WorkspaceError> {
         let state = self.state(view)?;
@@ -700,31 +719,27 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         let fixation = gesture.fixation.clone();
         let prev_snap = gesture.preview.snap;
         let snap_cfg = state.snap;
-        let raw_delta = position
-            .value()
-            .checked_sub(fixation.origin.value())
-            .ok_or(synvelis_project::Error::Overflow)?;
+        let raw_delta = position.delta_since(&fixation.origin)?;
         let mut delta = raw_delta;
         let mut winner = None;
         if matches!(
             fixation.operation,
             EditOperation::MoveClips | EditOperation::TrimClip { .. }
-        ) && let Some(anchor_start) = primary_anchor_start(self.session.project(), &fixation)
+        ) && let Some(edge_start) = primary_snap_position(self.session.project(), &fixation)
         {
             let snapped = resolve_snap(
                 &snap_cfg,
                 env,
-                anchor_start
+                edge_start
                     .checked_add(raw_delta)
-                    .map_err(WorkspaceError::Project)?,
+                    .ok_or(WorkspaceError::Project(synvelis_project::Error::Overflow))?,
                 fixation.domain,
                 prev_snap,
             );
             if let Some(w) = snapped {
                 delta = w
                     .position
-                    .value()
-                    .checked_sub(anchor_start.value())
+                    .checked_sub(edge_start)
                     .ok_or(synvelis_project::Error::Overflow)?;
                 winner = Some(w);
             }
@@ -1215,20 +1230,50 @@ enum ResolvedTarget {
     View(ViewInstanceId),
 }
 
-/// The primary clip's anchor start — the position snap operates on
-/// during a move/trim preview.
-fn primary_anchor_start(
+/// The position snap operates on during a move/trim preview, in the
+/// fixation origin's declared base units: the primary clip's anchor
+/// for a move or `StartTrim`, its media/musical *end* for `EndTrim`
+/// (the dragged edge is what snaps, not the stationary anchor).
+/// `None` for non-clip primaries or a base that cannot be expressed
+/// (a domain mismatch is already rejected at `pointer_down`).
+fn primary_snap_position(
     project: &synvelis_project::Project,
     fixation: &GestureFixation,
-) -> Option<MusicalTick> {
+) -> Option<i64> {
     let SemanticTarget::Clip(clip_id) = fixation.primary()? else {
         return None;
     };
     let clip = project.clips.get(&clip_id)?;
-    match clip.placement.anchor {
-        synvelis_project::TimeAnchor::Musical(tick) => Some(tick),
-        synvelis_project::TimeAnchor::Absolute(_) => None,
-    }
+    let anchor_start = match (clip.placement.anchor, fixation.origin) {
+        (TimeAnchor::Musical(tick), EditTimePoint::Musical(_)) => tick.value(),
+        (TimeAnchor::Absolute(anchor), EditTimePoint::Media(origin)) => {
+            crate::selection::media_rescale(
+                anchor.value(),
+                (anchor.numerator(), anchor.denominator()),
+                (origin.numerator(), origin.denominator()),
+            )?
+        }
+        _ => return None,
+    };
+    let EditOperation::TrimClip {
+        edge: HandleKind::EndTrim,
+    } = fixation.operation
+    else {
+        return Some(anchor_start);
+    };
+    let extent_units = match (clip.placement.extent, fixation.origin) {
+        (synvelis_project::ClipExtent::Musical(dur), EditTimePoint::Musical(_)) => dur.value(),
+        (synvelis_project::ClipExtent::Absolute(dur), EditTimePoint::Media(origin)) => {
+            crate::selection::media_rescale(
+                dur.value(),
+                (dur.numerator(), dur.denominator()),
+                (origin.numerator(), origin.denominator()),
+            )?
+        }
+        // A mixed-domain trim is rejected at commit; no snap edge.
+        _ => return None,
+    };
+    anchor_start.checked_add(extent_units)
 }
 
 // keep DockTree/DockError referenced in the public surface docs
