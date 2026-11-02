@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     comp::CompRegistry,
-    control::{ControlModel, ControlScope},
+    control::{BeatPoint, ControlModel, ControlScope},
     error::Error,
     id::{
-        AssetId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, ImportId, LaneId,
+        AssetId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, ImportId, LaneId, NoteId,
         ProjectId, RecordingPassId, RecordingSessionId, SourceId, TakeId, TrackId,
     },
     placement::{ClipPlacement, ClipPlayback},
@@ -189,6 +189,29 @@ pub struct Clip {
     pub muted: bool,
 }
 
+/// A note: a clip-local timed entity that anchors note-local
+/// expression scope (`ControlScope::Note`).
+///
+/// `start`/`len` are clip-relative beats — the note follows its owning
+/// clip's musical anchor, so `MoveClip` shifts the evaluation domain
+/// without rewriting anything. `key` carries the note's musical
+/// identity (0–127) for stable display/dedup purposes; the `PoC` only
+/// uses the temporal domain.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Note {
+    /// Stable ID.
+    pub id: NoteId,
+    /// Owning clip.
+    pub clip: ClipId,
+    /// Musical key identity (0–127).
+    pub key: u8,
+    /// Clip-relative start beat.
+    pub start: BeatPoint,
+    /// Note length in beats (> 0).
+    pub len: BeatPoint,
+}
+
 /// A stored asset (content-addressed media or document).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -318,6 +341,11 @@ pub struct Project {
     pub lanes: BTreeMap<LaneId, Lane>,
     /// Clips by ID.
     pub clips: BTreeMap<ClipId, Clip>,
+    /// Notes by ID — clip-local entities anchoring `ControlScope::Note`
+    /// evaluation domains (issue #43). `#[serde(default)]` lets a v3
+    /// body deserialize; `load()` still requires schema v4.
+    #[serde(default)]
+    pub notes: BTreeMap<NoteId, Note>,
     /// Assets by ID.
     pub assets: BTreeMap<AssetId, Asset>,
     /// Media sources by ID.
@@ -355,6 +383,7 @@ impl Project {
             tracks: BTreeMap::new(),
             lanes: BTreeMap::new(),
             clips: BTreeMap::new(),
+            notes: BTreeMap::new(),
             assets: BTreeMap::new(),
             sources: BTreeMap::new(),
             clock_epochs: BTreeMap::new(),
@@ -416,6 +445,17 @@ impl Project {
                 return Err(Error::NotFound(format!("source {}", clip.source_id)));
             }
             crate::placement::validate_clip_contract(self, &clip.placement, &clip.playback)?;
+        }
+        for note in self.notes.values() {
+            if !self.clips.contains_key(&note.clip) {
+                return Err(Error::NotFound(format!("clip {}", note.clip)));
+            }
+            if note.len.num() <= 0 {
+                return Err(Error::Validation(format!(
+                    "note {} has non-positive length",
+                    note.id
+                )));
+            }
         }
         for source in self.sources.values() {
             if !self.assets.contains_key(&source.asset_id) {
@@ -537,6 +577,9 @@ impl Project {
                 ControlScope::Clip(id) if !self.clips.contains_key(&id) => {
                     return Err(Error::NotFound(format!("clip {id}")));
                 }
+                ControlScope::Note(id) if !self.notes.contains_key(&id) => {
+                    return Err(Error::NotFound(format!("note {id}")));
+                }
                 _ => {}
             }
             target
@@ -560,6 +603,9 @@ impl Project {
                 }
                 ControlScope::Clip(id) if !self.clips.contains_key(&id) => {
                     return Err(Error::NotFound(format!("clip {id}")));
+                }
+                ControlScope::Note(id) if !self.notes.contains_key(&id) => {
+                    return Err(Error::NotFound(format!("note {id}")));
                 }
                 _ => {}
             }

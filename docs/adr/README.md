@@ -11,6 +11,7 @@ Directory: `docs/adr`
 | ADR-034QmbgsQDkLDllHgAxa1f | L2 — Render slice boundaries・Ruviform sequential offline driver adoption・Staged publish | accepted | [l2-render-slice-boundaries.md](./l2-render-slice-boundaries.md) |
 | ADR-cyMsJVD4HiJceSTYXBJCJD | MD-A — Clip 正規化 Placement/Playback スキーマ・Comp 採用モデル・Effective Comp 投影の境界 | accepted | [mda-normalized-placement-comp-schema.md](./mda-normalized-placement-comp-schema.md) |
 | ADR-034PCA02Mh7wQr3xZaNbCd | PC-A parameter-control placement: synvelis-project persisted model + evaluation, synvelis-workspace session state machines | accepted | [pc-a-parameter-control-placement-project-model-workspace-session.md](./pc-a-parameter-control-placement-project-model-workspace-session.md) |
+| ADR-034PCB02Lm9wQr3tYuVbCd | PC-B: dispatch 境界・note entity・prepared eval の配置決定 | accepted | [pc-b-dispatch-boundary-note-entity-prepared-eval.md](./pc-b-dispatch-boundary-note-entity-prepared-eval.md) |
 | ADR-034QdxBCx9w88ptCJEEz7D | VS-A Workspace構成・Ruviform git依存・永続化PoC・Stable ID生成 | accepted | [vs-a-workspace-ruviform-git-poc-stable-id.md](./vs-a-workspace-ruviform-git-poc-stable-id.md) |
 | ADR-ODnVCNLDT5mtpswKxVDw9R | VS-B SPSCプリミティブ・Gate Schedule表現・Fault通知・Chunk所有権 | accepted | [vs-b-ruviform-rt-spsc-gate-schedule-fault-ownership.md](./vs-b-ruviform-rt-spsc-gate-schedule-fault-ownership.md) |
 | ADR-034QfJdymYmhzfa9PFs8fD | VS-C Journal形式・Checkpoint Sync方針・Fault隔離・Finalized出力 | accepted | [vs-c-journal-checkpoint-sync-fault-finalized.md](./vs-c-journal-checkpoint-sync-fault-finalized.md) |

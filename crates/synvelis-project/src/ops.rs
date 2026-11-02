@@ -15,10 +15,10 @@ use crate::{
     error::Error,
     id::{
         AssetId, AutomationLaneId, ClipId, IdGenerator, LaneId, ModulationAssignmentId,
-        ModulationSourceId, ParameterTargetId, SourceId, TrackId,
+        ModulationSourceId, NoteId, ParameterTargetId, SourceId, TrackId,
     },
     placement::{ClipExtent, ClipPlacement, ClipPlayback, TimeAnchor, validate_clip_contract},
-    project::{Asset, Clip, Lane, Project, Source, SourceState, Track},
+    project::{Asset, Clip, Lane, Note, Project, Source, SourceState, Track},
     range::{MusicalRange, SourceRange},
     recording_data::ClockEpoch,
     tempo::SignatureDto,
@@ -89,7 +89,8 @@ pub enum ProjectOp {
         /// Source read window and project→source mapping.
         playback: ClipPlayback,
     },
-    /// Remove a clip.
+    /// Remove a clip. Notes anchored to the clip are removed with it —
+    /// a note cannot outlive its coordinate frame.
     RemoveClip {
         /// Target clip.
         clip_id: ClipId,
@@ -123,6 +124,24 @@ pub enum ProjectOp {
         clip_id: ClipId,
         /// New muted state.
         muted: bool,
+    },
+    /// Add a clip-local note (anchor for `ControlScope::Note`).
+    AddNote {
+        /// Owning clip.
+        clip: ClipId,
+        /// Musical key identity (0–127).
+        key: u8,
+        /// Clip-relative start beat.
+        start: crate::control::BeatPoint,
+        /// Note length in beats (> 0).
+        len: crate::control::BeatPoint,
+    },
+    /// Remove a note. The post-apply reference oracle rejects the
+    /// commit while a note-scoped target or modulation source still
+    /// references the note — remove those first.
+    RemoveNote {
+        /// Target note.
+        note: NoteId,
     },
     /// Register an asset.
     RegisterAsset {
@@ -178,8 +197,8 @@ pub enum ProjectOp {
         /// Musical half-open range to remove.
         range: MusicalRange,
     },
-    /// Create a parameter target (issue #40). `Note` scope is rejected —
-    /// the note entity model is not part of this `PoC`.
+    /// Create a parameter target (issue #40). `Note` scope resolves to
+    /// a note-relative coordinate domain (issue #43).
     AddParameterTarget {
         /// Display name.
         name: String,
@@ -241,7 +260,7 @@ pub enum ProjectOp {
         /// Half-open range to clear.
         range: BeatRange,
     },
-    /// Create a modulation source. `Note` scope is rejected.
+    /// Create a modulation source.
     AddModulationSource {
         /// Owning scope.
         owner: ControlScope,
@@ -443,6 +462,42 @@ impl Operation for ProjectOp {
                 .contains_key(clip_id)
                 .then_some(())
                 .ok_or_else(|| Error::NotFound(format!("clip {clip_id}"))),
+            Self::AddNote {
+                clip,
+                key,
+                start,
+                len,
+            } => {
+                let c = project
+                    .clips
+                    .get(clip)
+                    .ok_or_else(|| Error::NotFound(format!("clip {clip}")))?;
+                if *key > 127 {
+                    return Err(Error::Validation(format!("note key {key} > 127")));
+                }
+                if len.num() <= 0 || start.num() < 0 {
+                    return Err(Error::Validation(
+                        "note needs len > 0 and start >= 0".into(),
+                    ));
+                }
+                let ClipExtent::Musical(dur) = c.placement.extent else {
+                    return Err(Error::Validation(format!(
+                        "note {clip} clip is not musically anchored"
+                    )));
+                };
+                let extent = clip_beats(project, dur.value())?;
+                if start.checked_add(*len)? > extent {
+                    return Err(Error::Validation(format!(
+                        "note exceeds clip {clip} extent"
+                    )));
+                }
+                Ok(())
+            }
+            Self::RemoveNote { note } => project
+                .notes
+                .contains_key(note)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("note {note}"))),
             Self::RegisterSource { asset_id, .. } => project
                 .assets
                 .contains_key(asset_id)
@@ -500,6 +555,17 @@ impl Operation for ProjectOp {
                     return Err(Error::Validation(format!(
                         "clip_b_source_offset precedes source offset of clip {clip_id}"
                     )));
+                }
+                // A note cut in half would lose its tail domain —
+                // refuse rather than silently orphan it.
+                let offset = clip_beats(project, at.ticks_since(start)?)?;
+                for note in project.notes.values().filter(|n| n.clip == *clip_id) {
+                    if note.start < offset && note.start.checked_add(note.len)? > offset {
+                        return Err(Error::Validation(format!(
+                            "note {} straddles split point of clip {clip_id}",
+                            note.id
+                        )));
+                    }
                 }
                 Ok(())
             }
@@ -798,6 +864,28 @@ impl Operation for ProjectOp {
                 {
                     lane.clip_ids.retain(|id| id != clip_id);
                 }
+                project.notes.retain(|_, note| note.clip != *clip_id);
+            }
+            Self::AddNote {
+                clip,
+                key,
+                start,
+                len,
+            } => {
+                let id = NoteId::new(ids.next());
+                project.notes.insert(
+                    id,
+                    Note {
+                        id,
+                        clip: *clip,
+                        key: *key,
+                        start: *start,
+                        len: *len,
+                    },
+                );
+            }
+            Self::RemoveNote { note } => {
+                project.notes.remove(note);
             }
             Self::MoveClip { clip_id, anchor } => {
                 if let Some(clip) = project.clips.get_mut(clip_id) {
@@ -918,6 +1006,15 @@ impl Operation for ProjectOp {
                 if let Some(clip) = project.clips.get_mut(clip_id) {
                     clip.placement.extent =
                         ClipExtent::Musical(MusicalDuration::new(at.ticks_since(start)?)?);
+                }
+                // Notes fully past the split point follow clip B with
+                // re-based starts; straddles were refused in validate.
+                let offset = clip_beats(project, at.ticks_since(start)?)?;
+                for note in project.notes.values_mut().filter(|n| n.clip == *clip_id) {
+                    if note.start >= offset {
+                        note.clip = id;
+                        note.start = note.start.checked_sub(offset)?;
+                    }
                 }
             }
             Self::RemoveClipsInRange { lanes, range } => {
@@ -1076,8 +1173,20 @@ impl Operation for ProjectOp {
     }
 }
 
-/// Validates that a `ControlScope` resolves against existing entities —
-/// `Note` scope is honestly rejected (no note entity model in this `PoC`).
+/// Clip-relative beats for a musical tick offset — the shared
+/// conversion for note-domain checks (`AddNote` extent, `SplitClip`
+/// re-parenting).
+fn clip_beats(project: &Project, ticks: i64) -> Result<crate::control::BeatPoint, Error> {
+    let ppqn =
+        ruviform_media_core::Ppqn::new(u16::try_from(project.ppqn.0).map_err(|_| Error::Overflow)?)
+            .map_err(|e| Error::Validation(format!("ppqn: {e:?}")))?;
+    Ok(crate::control::BeatPoint::from_beat(
+        ruviform_media_core::TickPosition::new(ruviform_media_core::Tick::new(ticks), ppqn)
+            .to_beat(),
+    ))
+}
+
+/// Validates that a `ControlScope` resolves against existing entities.
 fn validate_scope(scope: ControlScope, project: &Project) -> Result<(), Error> {
     match scope {
         ControlScope::Track(id) if !project.tracks.contains_key(&id) => {
@@ -1086,9 +1195,9 @@ fn validate_scope(scope: ControlScope, project: &Project) -> Result<(), Error> {
         ControlScope::Clip(id) if !project.clips.contains_key(&id) => {
             Err(Error::NotFound(format!("clip {id}")))
         }
-        ControlScope::Note(id) => Err(Error::Validation(format!(
-            "note scope {id} has no entity model yet"
-        ))),
+        ControlScope::Note(id) if !project.notes.contains_key(&id) => {
+            Err(Error::NotFound(format!("note {id}")))
+        }
         _ => Ok(()),
     }
 }

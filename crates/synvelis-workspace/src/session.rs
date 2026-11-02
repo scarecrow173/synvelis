@@ -118,7 +118,7 @@ impl ProjectSession {
     /// [`Error::Validation`] on no active gesture; controller errors
     /// for the `Off`-mode base apply.
     pub fn control_gesture_end(&mut self, target: ParameterTargetId) -> Result<GestureEnd, Error> {
-        let end = self.control.gesture_end(target)?;
+        let end = self.control_with(|c, p| c.gesture_end(p, target))?;
         if let GestureEnd::BaseEdit { value } = end {
             let rev = self.revision();
             self.apply(ProjectOp::SetParameterBase { target, value }, rev)?;

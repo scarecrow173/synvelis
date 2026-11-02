@@ -331,7 +331,8 @@ fn pc_a_02_scope_separation_clip_follows_move() {
         evaluate_control(project, clip_target, bp(5), None),
         Err(Error::ScopeUnavailable { .. })
     ));
-    // Note scope is honestly rejected — no note entity model exists.
+    // Note scope targets a real note entity (PC-B) — a missing note
+    // is a typed NotFound, not a silent accept.
     assert!(matches!(
         try_apply(
             &mut ws,
@@ -344,7 +345,7 @@ fn pc_a_02_scope_separation_clip_follows_move() {
                 base: 0.5,
             }
         ),
-        Err(Error::Validation(_))
+        Err(Error::NotFound(_))
     ));
     // Moving the clip shifts where the envelope lands — the points
     // themselves are not rewritten.
@@ -717,8 +718,7 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
         },
     );
     ws.session_mut()
-        .control_mut()
-        .record_write(target, bp(3), 0.9)
+        .control_with(|c, p| c.record_write(p, target, bp(3), 0.9))
         .unwrap();
     let outcome = ws.session_mut().control_record_commit().unwrap();
     assert!(outcome.applied && !outcome.was_sealed);
@@ -745,8 +745,7 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
     let rev = ws.session().revision();
     ws.session_mut().control_mut().record_start(rev).unwrap();
     ws.session_mut()
-        .control_mut()
-        .record_write(target, bp(1), 0.5)
+        .control_with(|c, p| c.record_write(p, target, bp(1), 0.5))
         .unwrap();
     let effect = ws
         .session_mut()
@@ -759,8 +758,7 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
     );
     assert!(
         ws.session_mut()
-            .control_mut()
-            .record_write(target, bp(0), 0.1)
+            .control_with(|c, p| c.record_write(p, target, bp(0), 0.1))
             .is_err()
     );
     let outcome = ws.session_mut().control_record_commit().unwrap();
@@ -783,8 +781,7 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
         .unwrap();
     assert!(
         ws.session_mut()
-            .control_mut()
-            .record_write(target2, bp(0), 0.8)
+            .control_with(|c, p| c.record_write(p, target2, bp(0), 0.8))
             .is_err()
     );
     assert_eq!(
