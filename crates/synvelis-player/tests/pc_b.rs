@@ -46,8 +46,10 @@ use ruviform_plugin_core::{
 };
 use ruviform_plugin_host::{EndpointBounds, HostCommand, HostReply, PluginHost};
 use ruviform_rt::RtContext;
-use synvelis_player::{DispatchError, ParamDispatch};
-use synvelis_project::ParameterTargetId;
+use synvelis_player::driver::ActivateError;
+use synvelis_player::lowering::{EngineConfig, lower_with_inserts};
+use synvelis_player::{AttachedNode, DispatchError, HeadlessDriver, ParamDispatch, PumpPolicy};
+use synvelis_project::{ParameterTargetId, Project, ProjectId, SourceId};
 
 const DESCRIPTOR: PluginDescriptor = PluginDescriptor {
     id: "org.synvelis.test.pc-b-rec",
@@ -612,4 +614,390 @@ fn pc_b_04_offline_render_matches_playback() {
     );
     assert_eq!(playback_events.len(), 4);
     let _ = std::fs::remove_file(&dest);
+}
+
+/// PC-B-05 — `ParamDispatch` wired through `HeadlessDriver`: the
+/// attached plugin installs into a lowered `Processor` insert slot,
+/// per-block `observe` advances the ledger to `Dispatched`, an empty
+/// batch stages nothing, and `seek` re-anchors the node's cursor +
+/// position so absolute-frame events still land after the jump.
+#[test]
+fn pc_b_05_headless_driver_dispatch_and_seek() {
+    let hosted = host_plugin(&PARAMS);
+    let project = Project::new(ProjectId::new(0), "drv");
+    let engine = EngineConfig {
+        sample_rate: 48_000,
+        channels: 2,
+        block_frames: 128,
+    };
+    let lowered = lower_with_inserts(
+        &project,
+        &|_: SourceId| -> Option<AudioFormat> { None },
+        &engine,
+        1,
+    );
+    assert!(lowered.playbacks.is_empty());
+    let insert = lowered.inserts[0].node_id;
+
+    let mut driver = HeadlessDriver::new(engine);
+    driver
+        .activate_with_attached(
+            &lowered,
+            Vec::new(),
+            vec![AttachedNode {
+                node: hosted.attached.node,
+                dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base()),
+            }],
+        )
+        .expect("activate");
+
+    let target = ParameterTargetId::new(1);
+    {
+        let d = driver.attached_dispatch(insert).expect("dispatch bound");
+        // An empty batch stages nothing — no plan minted, no Play.
+        assert!(matches!(d.dispatch(&[]), Err(DispatchError::Empty)));
+        assert_eq!(d.last_plan_generation(), None);
+        d.bind(target, ParamId(7), &PARAMS).unwrap();
+        d.dispatch(&writes()).unwrap();
+    }
+
+    driver.run(3, PumpPolicy::Every(1)).expect("run");
+
+    let expected: Vec<Delivered> = writes()
+        .iter()
+        .map(|(_, e)| Delivered {
+            abs_frame: u64::try_from(e.position.value()).unwrap(),
+            param_id: 7,
+            value: e.event.value.get(),
+        })
+        .collect();
+    assert_eq!(
+        *hosted.delivered.lock().unwrap(),
+        expected,
+        "endpoint saw the dispatched events through the driver"
+    );
+    // Per-block observe advanced the ledger — the merged observation
+    // map reflects the last call covering the stream.
+    assert!(matches!(
+        driver.param_observations().get(&target).map(|o| o.stage),
+        Some(DispatchStage::Dispatched { .. })
+    ));
+
+    // Seek re-anchors node cursor + position: a fresh plan's absolute
+    // frame events land on the new frame series — without the
+    // `set_clock`/`Seek` pair the node would keep running at frame 384.
+    driver.seek(0);
+    let writes2: Vec<(ParameterTargetId, TimedParamEvent)> = [(64_i64, 0.3_f64), (192, 0.6)]
+        .into_iter()
+        .map(|(pos, v)| {
+            (
+                target,
+                TimedParamEvent {
+                    position: MediaTime::new(pos, frame_base()),
+                    event: ParamEvent {
+                        param_id: ParamId(7),
+                        value: ParamValue::new(v).unwrap(),
+                    },
+                },
+            )
+        })
+        .collect();
+    driver
+        .attached_dispatch(insert)
+        .unwrap()
+        .dispatch(&writes2)
+        .unwrap();
+    driver.run(2, PumpPolicy::Every(1)).expect("run");
+
+    let mut all = expected;
+    all.extend(writes2.iter().map(|(_, e)| Delivered {
+        abs_frame: u64::try_from(e.position.value()).unwrap(),
+        param_id: 7,
+        value: e.event.value.get(),
+    }));
+    assert_eq!(
+        *hosted.delivered.lock().unwrap(),
+        all,
+        "post-seek events landed at their absolute engine frames"
+    );
+}
+
+/// PC-B-05 — an [`AttachedNode`] must fill a `Processor` slot in the
+/// spec: two dispatchers claiming the same insert are refused as
+/// [`ActivateError::UnmatchedAttached`] before anything publishes, and
+/// the driver's last-good state is untouched.
+#[test]
+fn pc_b_05_unmatched_attached_rejected() {
+    let project = Project::new(ProjectId::new(0), "drv");
+    let engine = EngineConfig {
+        sample_rate: 48_000,
+        channels: 2,
+        block_frames: 128,
+    };
+    let lowered = lower_with_inserts(
+        &project,
+        &|_: SourceId| -> Option<AudioFormat> { None },
+        &engine,
+        1,
+    );
+    let insert = lowered.inserts[0].node_id;
+    let a = host_plugin(&PARAMS);
+    let b = host_plugin(&PARAMS);
+    let mut driver = HeadlessDriver::new(engine);
+    let err = driver
+        .activate_with_attached(
+            &lowered,
+            Vec::new(),
+            vec![
+                AttachedNode {
+                    node: a.attached.node,
+                    dispatch: ParamDispatch::new(a.attached.control, insert, frame_base()),
+                },
+                AttachedNode {
+                    node: b.attached.node,
+                    dispatch: ParamDispatch::new(b.attached.control, insert, frame_base()),
+                },
+            ],
+        )
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        ActivateError::UnmatchedAttached(id) if id == insert
+    ));
+    assert_eq!(driver.published_revision(), None);
+    assert_eq!(driver.state(), synvelis_player::DriverState::Stopped);
+}
+
+/// Issue #64 review: `activate_with_attached` must re-anchor a fresh
+/// node's cursor to the driver cursor — a node first activated
+/// mid-run starts at frame 0, and without the `set_clock`/`Seek`
+/// pair its position series lags the driver's by the cursor at
+/// activation: absolute-frame events would land late while the
+/// ledger's fabricated spans claimed `Dispatched`.
+#[test]
+fn pc_b_05_midrun_activation_reanchors_node() {
+    let engine = EngineConfig {
+        sample_rate: 48_000,
+        channels: 2,
+        block_frames: 128,
+    };
+    let project = Project::new(ProjectId::new(0), "drv");
+    let lowered = lower_with_inserts(
+        &project,
+        &|_: SourceId| -> Option<AudioFormat> { None },
+        &engine,
+        1,
+    );
+    let insert = lowered.inserts[0].node_id;
+    let first = host_plugin(&PARAMS);
+    let second = host_plugin(&PARAMS);
+
+    let mut driver = HeadlessDriver::new(engine);
+    driver
+        .activate_with_attached(
+            &lowered,
+            Vec::new(),
+            vec![AttachedNode {
+                node: first.attached.node,
+                dispatch: ParamDispatch::new(first.attached.control, insert, frame_base()),
+            }],
+        )
+        .expect("activate");
+    driver.run(3, PumpPolicy::Every(1)).expect("run");
+    assert_eq!(driver.cursor(), 384);
+
+    // Re-activate mid-run with a fresh node (e.g. an insert swap):
+    // its transport must continue at driver frame 384, not restart
+    // at node frame 0.
+    driver
+        .activate_with_attached(
+            &lowered,
+            Vec::new(),
+            vec![AttachedNode {
+                node: second.attached.node,
+                dispatch: ParamDispatch::new(second.attached.control, insert, frame_base()),
+            }],
+        )
+        .expect("re-activate");
+    let target = ParameterTargetId::new(1);
+    let event = |pos: i64, value: f64| {
+        (
+            target,
+            TimedParamEvent {
+                position: MediaTime::new(pos, frame_base()),
+                event: ParamEvent {
+                    param_id: ParamId(7),
+                    value: ParamValue::new(value).unwrap(),
+                },
+            },
+        )
+    };
+    {
+        let d = driver.attached_dispatch(insert).unwrap();
+        d.bind(target, ParamId(7), &PARAMS).unwrap();
+        d.dispatch(&[event(448, 0.5)]).unwrap();
+    }
+    driver.run(1, PumpPolicy::Every(1)).expect("run");
+    assert_eq!(
+        *second.delivered.lock().unwrap(),
+        vec![Delivered {
+            abs_frame: 448,
+            param_id: 7,
+            value: 0.5,
+        }],
+        "event lands on the driver's frame series, not the node's"
+    );
+    assert!(matches!(
+        driver.param_observations().get(&target).map(|o| o.stage),
+        Some(DispatchStage::Dispatched { .. })
+    ));
+}
+
+/// Issue #64 review: a `dispatch` staged *before* `seek` must drain
+/// at the old cursor — node controls compute their due frame at pop
+/// time, so without the quiesce pass a plan queued before the rewind
+/// installed mid-rewind and the old plan re-fired. `seek`'s quiesce
+/// pass drains pending controls first, then re-anchors.
+#[test]
+fn pc_b_05_dispatch_before_seek_drains_at_old_cursor() {
+    let hosted = host_plugin(&PARAMS);
+    let project = Project::new(ProjectId::new(0), "drv");
+    let engine = EngineConfig {
+        sample_rate: 48_000,
+        channels: 2,
+        block_frames: 128,
+    };
+    let lowered = lower_with_inserts(
+        &project,
+        &|_: SourceId| -> Option<AudioFormat> { None },
+        &engine,
+        1,
+    );
+    let insert = lowered.inserts[0].node_id;
+
+    let mut driver = HeadlessDriver::new(engine);
+    driver
+        .activate_with_attached(
+            &lowered,
+            Vec::new(),
+            vec![AttachedNode {
+                node: hosted.attached.node,
+                dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base()),
+            }],
+        )
+        .expect("activate");
+
+    let target = ParameterTargetId::new(1);
+    {
+        let d = driver.attached_dispatch(insert).unwrap();
+        d.bind(target, ParamId(7), &PARAMS).unwrap();
+        d.dispatch(&writes()).unwrap(); // plan A: 64, 128, 192, 320
+    }
+    driver.run(3, PumpPolicy::Every(1)).expect("run");
+    let base_len = hosted.delivered.lock().unwrap().len();
+    assert_eq!(base_len, 4, "plan A delivered");
+
+    // Stage plan B *before* the seek — the pre-fix bug installed it
+    // mid-rewind while plan A re-fired at the rewound positions.
+    let writes_b: Vec<(ParameterTargetId, TimedParamEvent)> = [(32_i64, 0.3_f64), (96, 0.6)]
+        .into_iter()
+        .map(|(pos, v)| {
+            (
+                target,
+                TimedParamEvent {
+                    position: MediaTime::new(pos, frame_base()),
+                    event: ParamEvent {
+                        param_id: ParamId(7),
+                        value: ParamValue::new(v).unwrap(),
+                    },
+                },
+            )
+        })
+        .collect();
+    driver
+        .attached_dispatch(insert)
+        .unwrap()
+        .dispatch(&writes_b)
+        .unwrap();
+    driver.seek(0);
+    driver.run(2, PumpPolicy::Every(1)).expect("run");
+
+    let all = hosted.delivered.lock().unwrap().clone();
+    let extra = &all[base_len..];
+    let mut expected_extra: Vec<Delivered> = writes_b
+        .iter()
+        .map(|(_, e)| Delivered {
+            abs_frame: u64::try_from(e.position.value()).unwrap(),
+            param_id: 7,
+            value: e.event.value.get(),
+        })
+        .collect();
+    expected_extra.sort_by_key(|d| d.abs_frame);
+    let mut extra_sorted = extra.to_vec();
+    extra_sorted.sort_by_key(|d| d.abs_frame);
+    assert_eq!(
+        extra_sorted, expected_extra,
+        "plan B delivers post-seek; plan A never re-fires"
+    );
+    assert_eq!(
+        extra.len(),
+        expected_extra.len(),
+        "no duplicate deliveries from the rewind window"
+    );
+}
+
+/// Issue #64 review: an `install_plan` apply rejected inside the
+/// scheduler (`ScheduleBudget::max_pending_applies = 16`) must not
+/// mint `Dispatched` — `observe` gates projection on the plan
+/// generation the node's receipts report live. Nine dispatches in
+/// one inter-callback window stage 18 applies; the ninth plan's
+/// `Play`+`install_plan` are rejected, the receipts keep reporting
+/// the eighth generation, and plan-9 entries stay `Scheduled`.
+#[test]
+fn pc_b_05_rejected_install_never_projects_dispatched() {
+    let hosted = host_plugin(&PARAMS);
+    let project = Project::new(ProjectId::new(0), "drv");
+    let engine = EngineConfig {
+        sample_rate: 48_000,
+        channels: 2,
+        block_frames: 128,
+    };
+    let lowered = lower_with_inserts(
+        &project,
+        &|_: SourceId| -> Option<AudioFormat> { None },
+        &engine,
+        1,
+    );
+    let insert = lowered.inserts[0].node_id;
+
+    let mut driver = HeadlessDriver::new(engine);
+    driver
+        .activate_with_attached(
+            &lowered,
+            Vec::new(),
+            vec![AttachedNode {
+                node: hosted.attached.node,
+                dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base()),
+            }],
+        )
+        .expect("activate");
+
+    let target = ParameterTargetId::new(1);
+    {
+        let d = driver.attached_dispatch(insert).unwrap();
+        d.bind(target, ParamId(7), &PARAMS).unwrap();
+        for _ in 0..9 {
+            d.dispatch(&writes()).unwrap();
+        }
+    }
+    driver.run(1, PumpPolicy::Every(1)).expect("run");
+
+    // The ninth install never applied — projection must not claim
+    // `Dispatched` for events the plugin never received.
+    let dispatch = driver.attached_dispatch(insert).unwrap();
+    assert!(
+        matches!(dispatch.stage(target), Some(DispatchStage::Scheduled)),
+        "rejected plan stays Scheduled, got {:?}",
+        dispatch.stage(target)
+    );
 }

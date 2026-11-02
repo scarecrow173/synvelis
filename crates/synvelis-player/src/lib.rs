@@ -28,7 +28,7 @@ pub mod publish;
 pub mod resolver;
 
 pub use dispatch::{DispatchError, ParamDispatch};
-pub use driver::{DriverState, HeadlessDriver, PlayReport, PumpPolicy};
+pub use driver::{AttachedNode, DriverState, HeadlessDriver, PlayReport, PumpPolicy};
 pub use error::{ImportError, ResolveError};
 pub use import::{BlobReceipt, ImportOutcome, ImportRequest, ProjectReceipt, VerifiedMedia};
 pub use lowering::{

@@ -20,8 +20,8 @@ use std::fmt;
 use std::sync::Arc;
 
 use ruviform_audio_plugin_bridge::{
-    DispatchStage, ParamBinding, ParamDispatchLedger, ParamTargetTable, ParamValueObservation,
-    PluginNodeControl, TargetId, TargetResolution,
+    DispatchStage, NodeReport, ParamBinding, ParamDispatchLedger, ParamTargetTable,
+    ParamValueObservation, PluginNodeControl, TargetId, TargetResolution,
 };
 use ruviform_graph::NodeId;
 use ruviform_media_core::{
@@ -53,6 +53,11 @@ pub enum DispatchError {
     /// An event position could not be represented in the plan's frame
     /// base.
     PositionUnrepresentable,
+    /// An empty write batch was submitted — there is no plan to
+    /// stage, and staging one would still mark the previous plan's
+    /// `Scheduled` entries `PlanReplaced` and clear the node's live
+    /// plan. Nothing is staged or requested.
+    Empty,
 }
 
 impl fmt::Display for DispatchError {
@@ -65,6 +70,7 @@ impl fmt::Display for DispatchError {
             Self::PositionUnrepresentable => {
                 write!(f, "event position not representable in plan frame base")
             }
+            Self::Empty => write!(f, "empty write batch — nothing staged"),
         }
     }
 }
@@ -73,10 +79,19 @@ impl std::error::Error for DispatchError {}
 
 /// Maps a synvelis [`ParameterTargetId`] to a bridge [`TargetId`].
 /// Stable ids come from a monotonic generator whose values fit in
-/// `u64`; the conversion is injective within one table.
+/// `u64`; the conversion is injective within one table. Callers must
+/// gate on [`in_range`] first — truncating an out-of-range raw id
+/// would alias onto another bound target.
 fn to_target_id(target: ParameterTargetId) -> TargetId {
     #[allow(clippy::cast_possible_truncation)]
     TargetId(target.raw() as u64)
+}
+
+/// Whether `target` fits the bridge's `u64` id space — the gate for
+/// every `to_target_id` call (a truncated raw id aliases onto a
+/// real bound target).
+fn in_range(target: ParameterTargetId) -> bool {
+    target.raw() <= u128::from(u64::MAX)
 }
 
 /// The non-RT dispatch orchestrator for one attached plugin node.
@@ -100,6 +115,14 @@ pub struct ParamDispatch {
     /// The last staged plan — `observe` projects through exactly this,
     /// so a stale/foreign `Arc` can never misattribute stages.
     last_plan: Option<Arc<TransportPlan<EventKind>>>,
+    /// The plan generation the node's scheduler last reported live in
+    /// an [`ruviform_media_core::AppliedReceipt`] — the node's own
+    /// truth. `None` until any receipt arrives. Projection is gated
+    /// on it matching `last_plan`'s generation: a `install_plan`
+    /// apply rejected inside the scheduler (budget, stale epoch)
+    /// leaves the receipt's generation on the previous plan, proving
+    /// our staged plan never ran.
+    scheduler_gen: Option<PlanGeneration>,
     /// `(node, param)` → owning synvelis target — keeps ledger
     /// attribution honest by refusing a second target on one param.
     param_owners: BTreeMap<(NodeId, ParamId), ParameterTargetId>,
@@ -109,6 +132,11 @@ impl ParamDispatch {
     /// A dispatcher for `node` behind `control`, building plans in
     /// `frame_base` (the engine frame base — e.g.
     /// `TimeBase::sample_rate(48_000)`).
+    ///
+    /// `frame_base` **must equal** the node's attach-time
+    /// `AttachConfig::frame_base` — the bridge exposes no accessor to
+    /// verify this, and a mismatch silently scales event positions,
+    /// `Seek` re-anchors, and observation windows.
     #[must_use]
     pub fn new(control: PluginNodeControl, node: NodeId, frame_base: TimeBase) -> Self {
         Self {
@@ -119,6 +147,7 @@ impl ParamDispatch {
             frame_base,
             next_generation: 1,
             last_plan: None,
+            scheduler_gen: None,
             param_owners: BTreeMap::new(),
         }
     }
@@ -129,10 +158,36 @@ impl ParamDispatch {
         self.node
     }
 
-    /// The underlying node control handle (transport requests,
-    /// report drains beyond the observation API).
+    /// The underlying node control handle for transport requests.
+    /// Note [`ParamDispatch::observe`] drains the report channel
+    /// unconditionally — consumers attached through
+    /// `HeadlessDriver` must not expect to drain receipts/faults
+    /// themselves once blocks run.
+    ///
+    /// Out-of-band pushes through this handle (`seek`,
+    /// `device_restart`, a direct `install_plan`, …) bypass the
+    /// dispatcher: the ledger's last-plan tracking and the driver's
+    /// fabricated span/cursor assumptions are not updated, and
+    /// `SetClock` re-anchors the cursor `dispatch`/`observe` compute
+    /// against. Consumers that need those operations should go
+    /// through `HeadlessDriver::seek`/activation, which keeps the
+    /// dispatcher consistent.
     pub fn control(&mut self) -> &mut PluginNodeControl {
         &mut self.control
+    }
+
+    /// The plan frame base this dispatcher builds positions in.
+    #[must_use]
+    pub const fn frame_base(&self) -> TimeBase {
+        self.frame_base
+    }
+
+    /// The generation of the last staged plan, if any — what the
+    /// node's scheduler would stamp on span contexts once the
+    /// `install_plan` applies.
+    #[must_use]
+    pub fn last_plan_generation(&self) -> Option<PlanGeneration> {
+        self.last_plan.as_ref().map(|plan| plan.generation)
     }
 
     /// Binds `target` to the plugin-local `param`, validated against
@@ -153,7 +208,7 @@ impl ParamDispatch {
         param: ParamId,
         params: &[ParamInfo],
     ) -> Result<ParamBinding, DispatchError> {
-        if target.raw() > u128::from(u64::MAX) {
+        if !in_range(target) {
             return Err(DispatchError::WriteRejected {
                 means: "bind".into(),
                 rejection: "param_target_out_of_range".into(),
@@ -184,8 +239,11 @@ impl ParamDispatch {
     /// `params` enumeration — a param dropped by the plugin flips the
     /// binding defunct so later `resolve_write` returns
     /// `param_defunct`. Returns `false` when the binding went defunct
-    /// (or was absent).
+    /// (or was absent), or when `target` exceeds the bridge id space.
     pub fn revalidate(&mut self, target: ParameterTargetId, params: &[ParamInfo]) -> bool {
+        if !in_range(target) {
+            return false;
+        }
         let ok = self
             .table
             .revalidate(to_target_id(target), self.node, params);
@@ -197,6 +255,9 @@ impl ParamDispatch {
 
     /// Drops `target`'s binding and its ownership record.
     pub fn unbind(&mut self, target: ParameterTargetId) -> bool {
+        if !in_range(target) {
+            return false;
+        }
         self.param_owners.retain(|_, owner| *owner != target);
         self.table.unbind(to_target_id(target))
     }
@@ -216,6 +277,12 @@ impl ParamDispatch {
     /// binding exists, `param_defunct` when the binding failed
     /// revalidation against the plugin's enumeration.
     pub fn resolve_write(&self, target: ParameterTargetId) -> Result<ParamBinding, DispatchError> {
+        if !in_range(target) {
+            return Err(DispatchError::WriteRejected {
+                means: "resolve".into(),
+                rejection: "param_target_out_of_range".into(),
+            });
+        }
         match self.table.resolve(to_target_id(target)) {
             TargetResolution::Resolved(binding) => Ok(binding),
             TargetResolution::Unresolved => Err(DispatchError::WriteRejected {
@@ -250,14 +317,20 @@ impl ParamDispatch {
     ///
     /// # Errors
     /// [`DispatchError::WriteRejected`] on binding resolution or
-    /// param mismatch; [`DispatchError::PositionUnrepresentable`] when
-    /// an event position cannot convert to the frame base;
+    /// param mismatch; [`DispatchError::Empty`] when `writes` is
+    /// empty (staging an empty plan would still replace the live
+    /// plan and `PlanReplaced`-drop its pending entries);
+    /// [`DispatchError::PositionUnrepresentable`] when an event
+    /// position cannot convert to the frame base;
     /// [`DispatchError::QueueFull`] when the node's bounded queue
     /// drops the staged message.
     pub fn dispatch(
         &mut self,
         writes: &[(ParameterTargetId, TimedParamEvent)],
     ) -> Result<Arc<TransportPlan<EventKind>>, DispatchError> {
+        if writes.is_empty() {
+            return Err(DispatchError::Empty);
+        }
         for (target, event) in writes {
             let binding = self.resolve_write(*target)?;
             if binding.param != event.event.param_id {
@@ -305,21 +378,73 @@ impl ParamDispatch {
     ///
     /// The caller supplies the span/call window because the physical
     /// call partition lives inside the RT runtime — this method is the
-    /// non-RT side observing what the node reported.
+    /// non-RT side observing what the node reported. Reports drain on
+    /// every call (plan or not) — receipts/faults of transport-only
+    /// controls must not fill the bounded channel.
+    ///
+    /// Report application order matters: install/control-time reports
+    /// (`VaultExceeded`, `Fault`, stale-epoch and receipt traffic)
+    /// apply **before** the projection so a plan the node never
+    /// installed or a faulted scheduler cannot mint `Dispatched`
+    /// entries — `VaultExceeded` drops only still-`Scheduled` entries,
+    /// which an earlier projection would have wrongly promoted.
+    /// Call-window reports (`UndeliverableSpan`, `EventScratchOverflow`,
+    /// `EndpointError`) attribute to the call just projected — the
+    /// latter two name "the most recently projected call" — so they
+    /// apply after it.
+    ///
+    /// Projection is additionally gated on the scheduler's own
+    /// receipts: the last [`NodeReport::Receipt`] in the drain reports
+    /// the plan generation actually live on the node, and a mismatch
+    /// with `last_plan` (a `install_plan` apply rejected inside the
+    /// scheduler — e.g. `BudgetExceeded`) skips the projection
+    /// instead of minting `Dispatched` for events the plugin never
+    /// received.
     pub fn observe(
         &mut self,
         span: &TransportSpan,
         call_start: EngineFrame,
         call_frames: u32,
     ) -> Vec<(ParameterTargetId, ParamValueObservation)> {
-        let Some(plan) = self.last_plan.clone() else {
-            return Vec::new();
-        };
-        self.ledger
-            .project_call(&plan, span, call_start, call_frames);
         let reports = self.control.drain_reports();
         for report in &reports {
-            self.ledger.apply_report(report);
+            if !matches!(
+                report,
+                NodeReport::UndeliverableSpan { .. }
+                    | NodeReport::EventScratchOverflow
+                    | NodeReport::EndpointError { .. }
+            ) {
+                self.ledger.apply_report(report);
+            }
+        }
+        // Receipts carry the scheduler's live plan generation — the
+        // last one in the drain is the newest truth. An install
+        // rejected at apply time leaves it on the previous plan, so a
+        // mismatch here proves `last_plan` never ran and projecting
+        // through it would mint `Dispatched` for undelivered events.
+        for report in reports.iter().rev() {
+            if let NodeReport::Receipt(receipt) = report {
+                self.scheduler_gen = Some(receipt.plan_generation);
+                break;
+            }
+        }
+        if let Some(plan) = self.last_plan.clone()
+            && self
+                .scheduler_gen
+                .is_none_or(|live| live == plan.generation)
+        {
+            self.ledger
+                .project_call(&plan, span, call_start, call_frames);
+        }
+        for report in &reports {
+            if matches!(
+                report,
+                NodeReport::UndeliverableSpan { .. }
+                    | NodeReport::EventScratchOverflow
+                    | NodeReport::EndpointError { .. }
+            ) {
+                self.ledger.apply_report(report);
+            }
         }
         self.ledger
             .observations()
@@ -338,6 +463,9 @@ impl ParamDispatch {
     /// `Dispatched` forever.
     #[must_use]
     pub fn stage(&self, target: ParameterTargetId) -> Option<DispatchStage> {
+        if !in_range(target) {
+            return None;
+        }
         self.ledger.query(to_target_id(target)).map(|obs| obs.stage)
     }
 }

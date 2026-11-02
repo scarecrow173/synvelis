@@ -385,3 +385,248 @@ fn directory_bundle_save_publishes_head_last() {
     assert!(dir.join("snapshots").join(&saved2.head).exists());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Issue #64: `EvalPlan::is_stale` detects control-model mutations the
+/// plan froze at compile — and stays fresh over placement changes the
+/// snapshot contract resolves live.
+#[test]
+#[allow(clippy::too_many_lines)] // sequential acceptance scenario
+fn eval_plan_is_stale_tracks_frozen_inputs() {
+    let mut c = controller();
+    c.apply(cmd(&c, ProjectOp::AddTrack { name: "t".into() }))
+        .unwrap();
+    let track = *c.live().tracks.keys().next().unwrap();
+    c.apply(cmd(&c, ProjectOp::AddLane { track_id: track }))
+        .unwrap();
+    let lane_id = *c.live().lanes.keys().next().unwrap();
+    c.apply(cmd(&c, ProjectOp::RegisterAsset { digest: "d".into() }))
+        .unwrap();
+    let asset = *c.live().assets.keys().next().unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::RegisterSource {
+            asset_id: asset,
+            content_digest: "d".into(),
+        },
+    ))
+    .unwrap();
+    let source = *c.live().sources.keys().next().unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::AddClip {
+            lane_id,
+            source_id: source,
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Musical(MusicalTick::new(0)),
+                extent: ClipExtent::Musical(MusicalDuration::new(8 * 960).unwrap()),
+            },
+            playback: ClipPlayback {
+                source_region: SourceRange::try_new(
+                    SourceFrame::ZERO,
+                    SourceFrame::new(1_000_000).unwrap(),
+                )
+                .unwrap(),
+                mapping: PlaybackMapping::Natural,
+            },
+        },
+    ))
+    .unwrap();
+    let clip = *c.live().clips.keys().next().unwrap();
+    for (owner, base) in [
+        (ControlScope::Clip(clip), 0.5),
+        (ControlScope::Track(track), 0.4),
+    ] {
+        c.apply(cmd(
+            &c,
+            ProjectOp::AddParameterTarget {
+                name: "p".into(),
+                owner,
+                kind: ValueKind::Continuous,
+                mapping: ParamMapping::Linear,
+                capability: None,
+                base,
+            },
+        ))
+        .unwrap();
+    }
+    let clip_target = c
+        .live()
+        .control
+        .targets
+        .values()
+        .find(|t| t.owner == ControlScope::Clip(clip))
+        .unwrap()
+        .id;
+    let target = c
+        .live()
+        .control
+        .targets
+        .values()
+        .find(|t| t.owner == ControlScope::Track(track))
+        .unwrap()
+        .id;
+    c.apply(cmd(&c, ProjectOp::AddAutomationLane { target }))
+        .unwrap();
+    let auto_lane = *c.live().control.lanes.keys().next().unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::WriteAutomationRegion {
+            lane: auto_lane,
+            region: AutomationRegion {
+                range: BeatRange::try_new(
+                    BeatPoint::new(0, 1).unwrap(),
+                    BeatPoint::new(8, 1).unwrap(),
+                )
+                .unwrap(),
+                interpolation: Interpolation::Step,
+                points: vec![AutomationPoint {
+                    pos: BeatPoint::new(0, 1).unwrap(),
+                    value: 0.5,
+                }],
+            },
+            policy: ConflictPolicy::Reject,
+        },
+    ))
+    .unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::AddModulationSource {
+            owner: ControlScope::Track(track),
+            kind: SourceKind::Macro { value: 0.25 },
+        },
+    ))
+    .unwrap();
+    let src = *c.live().control.sources.keys().next().unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::AddModulationAssignment {
+            source: src,
+            target,
+            depth: 0.1,
+            depth_source: Some(clip_target),
+            polarity: Polarity::Bipolar,
+            transform: Transform::Identity,
+            enabled: true,
+        },
+    ))
+    .unwrap();
+    let assignment = *c.live().control.assignments.keys().next().unwrap();
+
+    let plan = ControlGraph::compile(c.live()).unwrap();
+    assert!(!plan.is_stale(c.live()));
+
+    // Placement moves are resolved live — the frozen inputs are
+    // untouched, so the plan stays correct without a recompile.
+    c.apply(cmd(
+        &c,
+        ProjectOp::MoveClip {
+            clip_id: clip,
+            anchor: TimeAnchor::Musical(MusicalTick::new(4 * 960)),
+        },
+    ))
+    .unwrap();
+    assert!(!plan.is_stale(c.live()));
+    // The same plan still resolves the moved clip's scope against the
+    // new anchor — placement is live, not frozen.
+    let mut scratch = plan.scratch();
+    assert!(
+        plan.eval_rt(
+            c.live(),
+            clip_target,
+            BeatPoint::new(5, 1).unwrap(),
+            None,
+            &mut scratch
+        )
+        .is_ok()
+    );
+
+    // Frozen inputs, one at a time (recompiled baseline each step).
+    c.apply(cmd(&c, ProjectOp::SetParameterBase { target, value: 0.9 }))
+        .unwrap();
+    assert!(plan.is_stale(c.live()), "base is frozen input");
+
+    let plan = ControlGraph::compile(c.live()).unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::WriteAutomationRegion {
+            lane: auto_lane,
+            region: AutomationRegion {
+                range: BeatRange::try_new(
+                    BeatPoint::new(8, 1).unwrap(),
+                    BeatPoint::new(12, 1).unwrap(),
+                )
+                .unwrap(),
+                interpolation: Interpolation::Step,
+                points: vec![AutomationPoint {
+                    pos: BeatPoint::new(8, 1).unwrap(),
+                    value: 0.1,
+                }],
+            },
+            policy: ConflictPolicy::Reject,
+        },
+    ))
+    .unwrap();
+    assert!(plan.is_stale(c.live()), "merged series is frozen input");
+
+    let plan = ControlGraph::compile(c.live()).unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::SetModulationAssignment {
+            id: assignment,
+            depth: None,
+            enabled: Some(false),
+        },
+    ))
+    .unwrap();
+    assert!(plan.is_stale(c.live()), "assignment enable is frozen input");
+
+    let plan = ControlGraph::compile(c.live()).unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::AddParameterTarget {
+            name: "q".into(),
+            owner: ControlScope::Project,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: None,
+            base: 0.0,
+        },
+    ))
+    .unwrap();
+    assert!(plan.is_stale(c.live()), "target membership is frozen input");
+
+    // A model that no longer compiles is definitionally stale. A
+    // genuine depth cycle needs the reverse edge — re-enabling the
+    // disabled assignment plus the inserted counter-assignment forms a
+    // `target ↔ clip_target` cycle (the op oracle does not check
+    // acyclicity, so this state is reachable; here it is constructed
+    // by direct mutation to keep the fixture compact).
+    let plan = ControlGraph::compile(c.live()).unwrap();
+    let mut bad = c.live().clone();
+    bad.control
+        .assignments
+        .get_mut(&assignment)
+        .unwrap()
+        .enabled = true;
+    bad.control.assignments.insert(
+        ModulationAssignmentId::new(99),
+        ModulationAssignment {
+            id: ModulationAssignmentId::new(99),
+            source: src,
+            target: clip_target,
+            depth: 0.1,
+            depth_source: Some(target),
+            polarity: Polarity::Bipolar,
+            transform: Transform::Identity,
+            enabled: true,
+        },
+    );
+    assert!(
+        ControlGraph::compile(&bad).is_err(),
+        "the fixture must fail compilation to exercise the Err arm"
+    );
+    assert!(
+        plan.is_stale(&bad),
+        "a rejected recompile means the plan is out of date"
+    );
+}

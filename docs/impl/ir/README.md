@@ -23,3 +23,6 @@ Directory: `docs/impl/ir`
 | IMPL-034QxsUh3NmPwprwJkrlk5 | WS-A workspace foundation headless PoC | completed | [ws-a-workspace-foundation-headless-poc.md](ws-a-workspace-foundation-headless-poc.md) |
 | IMPL-034QAWvNQYPna11TqH7YTn | ED-A editing model headless PoC | completed | [ed-a-editing-model-headless-poc.md](ed-a-editing-model-headless-poc.md) |
 | IMPL-034PCA12Xz9hCd5kLmZnOp | PC-A parameter control model headless PoC | completed | [pc-a-parameter-control-headless-poc.md](pc-a-parameter-control-headless-poc.md) |
+| IMPL-034PCB07Kq2wXyZmAbCdEf | PC-B parameter dispatch/note-scope/RT/offline headless PoC | completed | [pc-b-parameter-dispatch-note-scope-rt-offline.md](pc-b-parameter-dispatch-note-scope-rt-offline.md) |
+| IMPL-034QO4tHWa37Uyya3N6ttQ | ED-B media-domain move/trim/slip + marquee commit semantics | completed | [ed-b-media-domain-move-trim-slip-marquee-commit-semantics.md](ed-b-media-domain-move-trim-slip-marquee-commit-semantics.md) |
+| IMPL-034PC64RmwkXyZnPqRsTvWxA | PC-B 残件 — dispatch driver 配線・EvalPlan staleness・offline honesty | completed | [pc-b-remaining-dispatch-driver-evalplan-offline.md](pc-b-remaining-dispatch-driver-evalplan-offline.md) |

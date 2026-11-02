@@ -6,8 +6,8 @@
 //! no real plugin.
 
 use ruviform_media_core::{
-    ClockAnchor, ClockDomainId, EngineFrame, InputStamp, MediaTime, MediaTimestamp, Ppqn, Tick,
-    TickPosition, TimeBase, TimestampProvenance,
+    ClockAnchor, ClockDomainId, ClockEpochId, EngineFrame, InputStamp, MediaTime, MediaTimestamp,
+    Ppqn, Tick, TickPosition, TimeBase, TimestampProvenance,
 };
 use ruviform_plugin_core::{ParamFlags, ParamWriteMeans, ParamWriteRejection, check_param_write};
 use synvelis_project::{
@@ -1235,4 +1235,167 @@ fn pc_a_08_time_consistency() {
             .control_with(|c, p| c.stamp_gesture(p, target, &bad, 0.9))
             .is_err()
     );
+}
+
+/// Issue #64: an `Off`-mode gesture with no updates must not commit
+/// the seeded evaluation reference as a base edit — that would
+/// persist the *evaluated* (automated/modulated) value, not a user
+/// edit, plus a phantom undo step.
+#[test]
+fn pc_a_05_empty_off_gesture_commits_nothing() {
+    let mut ws = fresh_ws();
+    let (_track, target) = add_track_target(&mut ws, "vol", 0.4);
+    let lane = add_automation_lane(&mut ws, target);
+    apply(
+        &mut ws,
+        ProjectOp::WriteAutomationRegion {
+            lane,
+            region: region(bp(0), bp(8), vec![pt(bp(0), 0.5)]),
+            policy: ConflictPolicy::Reject,
+        },
+    );
+    ws.session_mut()
+        .control_with(|c, p| c.set_mode(p, target, AutomationMode::Off))
+        .unwrap();
+    // The evaluated reference at begin is 0.5 (automation) — the old
+    // code would commit that as the base even though no update moved.
+    ws.session_mut()
+        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
+        .unwrap();
+    let rev = ws.session().revision();
+    let end = ws.session_mut().control_gesture_end(target).unwrap();
+    assert_eq!(end, GestureEnd::Returned);
+    assert_eq!(ws.session().revision(), rev);
+    assert!(
+        (ws.session().project().control.targets[&target].base - 0.4).abs() < f64::EPSILON,
+        "base must keep its user value, not the evaluated reference"
+    );
+}
+
+/// Issue #64: `record_start` refuses armed write-mode targets with no
+/// bound write lane — the lane check moves from `gesture_end`
+/// (stranded mid-gesture) to transaction open.
+#[test]
+fn pc_a_05_record_start_rejects_unbound_write_lane() {
+    let mut ws = fresh_ws();
+    let (_track, target) = add_track_target(&mut ws, "vol", 0.4);
+    let lane = add_automation_lane(&mut ws, target);
+    ws.session_mut()
+        .control_with(|c, p| c.set_mode(p, target, AutomationMode::Touch))
+        .unwrap();
+    ws.session_mut()
+        .control_with(|c, p| c.set_arm(p, target, WriteArm::Armed))
+        .unwrap();
+    ws.session_mut().control_mut().set_record_enabled(true);
+    ws.session_mut().control_mut().transport_play();
+    let rev = ws.session().revision();
+    // Armed + write-mode but unbound: start fails, nothing fixed.
+    assert!(
+        ws.session_mut().control_mut().record_start(rev).is_err(),
+        "unbound write lane must fail record_start"
+    );
+    assert!(ws.session().control().recording().is_none());
+    // With the lane bound the same gates open the transaction.
+    ws.session_mut()
+        .control_with(|c, p| c.bind_write_lane(p, target, lane))
+        .unwrap();
+    ws.session_mut().control_mut().record_start(rev).unwrap();
+    assert_eq!(
+        ws.session().control().recording().unwrap().fixed_targets,
+        vec![target]
+    );
+}
+
+/// Issue #64 review: a `write_lanes` binding outlives the lane it
+/// names — project ops cannot see session state, so
+/// `RemoveAutomationLane` can strand a bound lane mid-transaction.
+/// The write path must reject the dead lane at record time, and the
+/// commit path must not destroy the transaction (points recorded
+/// *before* removal included) on a lane that no longer exists.
+#[test]
+fn pc_a_05_record_write_rejects_removed_write_lane() {
+    let mut ws = fresh_ws();
+    let (_track, target) = add_track_target(&mut ws, "vol", 0.4);
+    let lane = add_automation_lane(&mut ws, target);
+    ws.session_mut()
+        .control_with(|c, p| c.bind_write_lane(p, target, lane))
+        .unwrap();
+    ws.session_mut()
+        .control_with(|c, p| c.set_mode(p, target, AutomationMode::Touch))
+        .unwrap();
+    ws.session_mut()
+        .control_with(|c, p| c.set_arm(p, target, WriteArm::Armed))
+        .unwrap();
+    ws.session_mut().control_mut().set_record_enabled(true);
+    ws.session_mut().control_mut().transport_play();
+    let rev = ws.session().revision();
+    ws.session_mut().control_mut().record_start(rev).unwrap();
+    // Points recorded while the lane was alive accumulate in the
+    // transaction.
+    ws.session_mut()
+        .control_with(|c, p| c.record_write(p, target, bp(1), 0.5))
+        .unwrap();
+    // The session binding survives the lane's removal.
+    apply(&mut ws, ProjectOp::RemoveAutomationLane { lane });
+    assert!(
+        ws.session_mut()
+            .control_with(|c, p| c.record_write(p, target, bp(2), 0.6))
+            .is_err(),
+        "record_write must reject a removed write lane at write time"
+    );
+    // Commit must not silently consume: the dead lane is refused
+    // before the transaction is taken, so nothing is lost — the
+    // recorded points survive for an explicit abort.
+    let rev_before = ws.session().revision();
+    assert!(
+        ws.session_mut().control_record_commit().is_err(),
+        "commit must refuse a transaction holding a removed lane"
+    );
+    assert!(
+        ws.session().control().recording().is_some(),
+        "a failed commit must not consume the transaction"
+    );
+    assert_eq!(ws.session().revision(), rev_before, "nothing applied");
+    ws.session_mut().control_record_abort();
+    assert!(ws.session().control().recording().is_none());
+}
+
+/// Issue #64 review: `install_clock_anchor` adopts the anchor's frame
+/// epoch — an anchor minted on the engine's own epoch must not wedge
+/// `stamp_gesture` behind `EpochMismatch` rejections with no way to
+/// correct the stored session epoch.
+#[test]
+fn pc_a_05_stamp_anchor_install_syncs_epoch() {
+    let mut ws = fresh_ws();
+    let (_track, target) = add_track_target(&mut ws, "vol", 0.4);
+    ws.session_mut()
+        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
+        .unwrap();
+    let ns = TimeBase::new(1, 1_000_000_000).unwrap();
+    // An anchor on a different epoch than the session default —
+    // mirroring an engine clock the session had never heard of.
+    let engine_epoch = ClockEpochId::new(0);
+    ws.session_mut()
+        .control_mut()
+        .install_clock_anchor(ClockAnchor {
+            domain: ClockDomainId::MONOTONIC,
+            stamp_ticks: 0,
+            stamp_base: ns,
+            frame: EngineFrame::new(engine_epoch, 0),
+            calibration: TimestampProvenance::Carried,
+        });
+    assert_eq!(
+        ws.session().control().playback().epoch,
+        engine_epoch,
+        "anchor install adopts the engine epoch"
+    );
+    let stamp = InputStamp {
+        ticks: 1_000_000_000,
+        base: ns,
+        domain: ClockDomainId::MONOTONIC,
+        provenance: TimestampProvenance::Carried,
+    };
+    ws.session_mut()
+        .control_with(|c, p| c.stamp_gesture(p, target, &stamp, 0.9))
+        .expect("stamp on the anchor's epoch must map, not EpochMismatch");
 }

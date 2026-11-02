@@ -131,10 +131,12 @@ impl ProjectSession {
     /// inside a single `Composite` apply.
     ///
     /// # Errors
-    /// [`Error::Validation`] on no open transaction; controller errors
-    /// on a rejected commit (the transaction is already consumed).
+    /// [`Error::Validation`] on no open transaction or a segment lane
+    /// removed mid-recording (the transaction stays open for abort);
+    /// controller errors on a rejected commit (the transaction is
+    /// already consumed).
     pub fn control_record_commit(&mut self) -> Result<RecordingOutcome, Error> {
-        let (was_sealed, ops) = self.control.build_commit_ops()?;
+        let (was_sealed, ops) = self.control_with(ControlSession::build_commit_ops)?;
         if ops.is_empty() {
             return Ok(RecordingOutcome {
                 applied: false,

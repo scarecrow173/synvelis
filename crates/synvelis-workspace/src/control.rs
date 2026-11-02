@@ -84,8 +84,10 @@ pub enum PlaybackStatus {
 }
 
 /// Session playback state — kept in beats (`BeatPosition`-exact) so
-/// tempo edits never rewrite history; `frame`/`epoch` track the engine
-/// clock for stamp→frame mapping (rf#188).
+/// tempo edits never rewrite history; `epoch` carries the clock epoch
+/// for stamp→frame mapping (rf#188). The engine frame is **derived**
+/// from `position` at the use site (`stamp_gesture`), never stored —
+/// a stored copy can only go silently stale.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlaybackState {
     /// Rolling or stopped.
@@ -97,8 +99,6 @@ pub struct PlaybackState {
     pub loop_range: Option<(BeatPoint, BeatPoint)>,
     /// Clock epoch for frame comparisons.
     pub epoch: ruviform_media_core::ClockEpochId,
-    /// Current engine frame.
-    pub frame: u64,
 }
 
 impl Default for PlaybackState {
@@ -108,7 +108,6 @@ impl Default for PlaybackState {
             position: BeatPoint::ZERO,
             loop_range: None,
             epoch: ruviform_media_core::ClockEpochId::new(1),
-            frame: 0,
         }
     }
 }
@@ -469,9 +468,6 @@ impl ControlSession {
 
     /// Seeks the playhead (chase = the next evaluation simply reads the
     /// new position). Session-only.
-    ///
-    /// # Errors
-    /// [`Error::Validation`] when `pos` is not finite-representable.
     pub fn transport_seek(&mut self, pos: BeatPoint) {
         self.playback.position = pos;
     }
@@ -518,13 +514,8 @@ impl ControlSession {
             }
         }
         self.playback.position = pos;
-        // Track the engine frame from the position (beat → media →
-        // frame ticks) so stamp→frame `now` stays fresh.
-        if let Ok(map) = project.tempo_map.compile()
-            && let Ok(media) = map.beat_to_media(pos.to_beat(), self.frame_base)
-        {
-            self.playback.frame = u64::try_from(media.value()).unwrap_or(0);
-        }
+        // The engine frame is derived from `position` inside
+        // `stamp_gesture` — nothing to keep fresh here.
         // Control-rate continuous write for held values.
         let held: Vec<(ParameterTargetId, f64)> = self
             .latch_held
@@ -606,11 +597,14 @@ impl ControlSession {
     }
 
     /// Ends the gesture per the target's selected mode. `Off` returns
-    /// [`GestureEnd::BaseEdit`] — the caller applies `SetParameterBase`.
-    /// `Touch`/`Latch`/`Write` write the gesture interval only when the
-    /// write gates (armed + record + rolling + open transaction fixing
-    /// this target) hold. Gesture point positions are normalized into
-    /// the target's scope coordinate before they enter the transaction.
+    /// [`GestureEnd::BaseEdit`] for a gesture with points (the caller
+    /// applies `SetParameterBase`); an empty gesture returns
+    /// [`GestureEnd::Returned`] so the seeded evaluation reference is
+    /// never persisted as a base edit. `Touch`/`Latch`/`Write` write
+    /// the gesture interval only when the write gates hold (armed,
+    /// record-enabled, rolling, open transaction fixing this
+    /// target). Gesture point positions are normalized into the
+    /// target's scope coordinate before they enter the transaction.
     ///
     /// # Errors
     /// [`Error::Validation`] on no active gesture.
@@ -627,7 +621,15 @@ impl ControlSession {
         match mode {
             AutomationMode::Off => {
                 self.manual_overrides.remove(&target);
-                Ok(GestureEnd::BaseEdit { value: last })
+                // An empty gesture wrote nothing — the seeded override
+                // was only the evaluation reference. Committing it as
+                // a base edit would silently persist the *evaluated*
+                // (possibly modulated/automated) value as the base.
+                if g.points.is_empty() {
+                    Ok(GestureEnd::Returned)
+                } else {
+                    Ok(GestureEnd::BaseEdit { value: last })
+                }
             }
             AutomationMode::Read => {
                 self.manual_overrides.remove(&target);
@@ -704,6 +706,16 @@ impl ControlSession {
         if fixed.is_empty() {
             return Err(Error::Validation("no armed write-mode target".into()));
         }
+        // Every fixed target must have its write lane bound now — a
+        // lane missing here only surfaced at `gesture_end`/
+        // `record_write`, stranding the write the transaction fixed.
+        for target in &fixed {
+            if !self.write_lanes.contains_key(target) {
+                return Err(Error::Validation(format!(
+                    "no write lane bound for {target}"
+                )));
+            }
+        }
         self.recording = Some(RecordingTransaction {
             started_at: self.playback.position,
             fixed_targets: fixed,
@@ -755,6 +767,15 @@ impl ControlSession {
             .write_lanes
             .get(&target)
             .ok_or_else(|| Error::Validation(format!("no write lane bound for {target}")))?;
+        // The binding is session state — a lane removed after
+        // `bind_write_lane` still resolves here, so re-check the
+        // lane lives before accumulating a segment the commit could
+        // never write back.
+        if !project.control.lanes.contains_key(&lane) {
+            return Err(Error::Validation(format!(
+                "write lane {lane} no longer exists"
+            )));
+        }
         let mut resolved = Vec::with_capacity(points.len());
         for (pos, value) in points {
             match synvelis_project::resolve_scope_pos(project, scope, *pos) {
@@ -791,13 +812,32 @@ impl ControlSession {
     /// of the recorded interval — inside one `Composite` so the whole
     /// session lands as **one undo step**.
     ///
+    /// Every segment lane is re-validated against the live project
+    /// **before** the transaction is consumed: a lane removed after
+    /// its points were recorded would otherwise fail validation at
+    /// apply time — after `take()` — destroying the whole commit.
+    /// On failure the transaction stays open for `record_abort` (or
+    /// inspection) instead of being silently lost.
+    ///
     /// # Errors
-    /// [`Error::Validation`] on no open transaction or an interval
-    /// edge that cannot be represented.
-    pub fn build_commit_ops(&mut self) -> Result<(bool, Vec<ProjectOp>), Error> {
+    /// [`Error::Validation`] on no open transaction, a segment lane
+    /// that no longer exists, or an interval edge that cannot be
+    /// represented.
+    pub fn build_commit_ops(&mut self, project: &Project) -> Result<(bool, Vec<ProjectOp>), Error> {
         let Some(tx) = self.recording.take() else {
             return Err(Error::Validation("no open recording".into()));
         };
+        if let Some(dead) = tx
+            .segments
+            .keys()
+            .find(|lane| !project.control.lanes.contains_key(lane))
+        {
+            let dead = *dead;
+            self.recording = Some(tx);
+            return Err(Error::Validation(format!(
+                "write lane {dead} no longer exists"
+            )));
+        }
         let mut ops = Vec::new();
         for (lane, mut points) in tx.segments {
             points.sort_by_key(|p| p.pos);
@@ -966,8 +1006,13 @@ impl ControlSession {
 
     // -- stamp→gesture (rf#188) -------------------------------------------
 
-    /// Installs the clock anchor used by [`map_stamp_to_frame`].
+    /// Installs the clock anchor used by [`map_stamp_to_frame`]. The
+    /// session's playback epoch follows the anchor's frame epoch —
+    /// it is the engine clock's own epoch, and a mismatched stored
+    /// epoch would make every `stamp_gesture` reject as
+    /// `EpochMismatch` with no path to correct it.
     pub fn install_clock_anchor(&mut self, anchor: ClockAnchor) {
+        self.playback.epoch = anchor.frame.epoch();
         self.clock_anchor = Some(anchor);
     }
 
@@ -990,7 +1035,19 @@ impl ControlSession {
         let anchor = self
             .clock_anchor
             .ok_or_else(|| Error::Validation("no clock anchor installed".into()))?;
-        let now = EngineFrame::new(self.playback.epoch, self.playback.frame);
+        // `now` derives from the transport position — the session's
+        // single authoritative clock — so a failed conversion surfaces
+        // here instead of leaving a stored frame silently stale.
+        let media_now = project
+            .tempo_map
+            .compile()
+            .map_err(|e| Error::Validation(format!("tempo map: {e}")))?
+            .beat_to_media(self.playback.position.to_beat(), self.frame_base)
+            .map_err(|_| Error::Overflow)?;
+        let now = EngineFrame::new(
+            self.playback.epoch,
+            u64::try_from(media_now.value()).map_err(|_| Error::Overflow)?,
+        );
         let mapped = map_stamp_to_frame(stamp, &anchor, self.frame_base, now)
             .map_err(|rej| Error::Validation(format!("stamp rejected: {rej:?}")))?;
         let media = MediaTime::new(

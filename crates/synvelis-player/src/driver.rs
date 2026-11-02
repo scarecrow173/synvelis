@@ -9,16 +9,22 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use synvelis_project::ClipId;
+use synvelis_project::{ClipId, ParameterTargetId};
 
 use ruviform_audio::typed::{
-    ActivationError, CompileError, Compiler, CompilerConfig, FactoryError, GraphRuntime,
-    InstalledInfo, PrepareOutcome, ProcessError, RtRuntime,
+    ActivationError, CompileError, Compiler, CompilerConfig, FactoryError, GraphProcessor,
+    GraphRuntime, InstalledInfo, PrepareOutcome, ProcessError, RtRuntime,
 };
-use ruviform_graph::{GraphProject, GraphRevision, NodeSpec, PortId, PrepareError};
+use ruviform_audio_plugin_bridge::{ParamValueObservation, PluginNode};
+use ruviform_graph::{GraphProject, GraphRevision, NodeId, NodeSpec, PortId, PrepareError};
+use ruviform_media_core::{
+    ClockEpochId, EngineFrame, LoopOccurrence, MediaTime, PlanGeneration, SpanContext,
+    TempoMapRevision, TransportCommand, TransportGeneration, TransportSpan, TransportStatus,
+};
 use ruviform_media_reader::{PrefetchHandle, PrefetchProducer, PumpOutcome, SourceFrame};
 use ruviform_rt::RtContext;
 
+use crate::dispatch::ParamDispatch;
 use crate::lowering::{EngineConfig, Lowered, NodeContent, PlaybackBinding};
 use crate::processor::{ClipPlayer, ClipSync, PlaybackStats};
 use crate::resolver::PreparedClip;
@@ -62,6 +68,10 @@ pub enum ActivateError {
     Compile(CompileError),
     /// `GraphRuntime::publish` failed to queue the plan.
     Publish(ActivationError),
+    /// An [`AttachedNode`] named a node id with no `Processor` slot
+    /// in the spec — every attached node must fill one
+    /// `lowered.inserts` entry (dupes count as unmatched).
+    UnmatchedAttached(NodeId),
 }
 
 impl fmt::Display for ActivateError {
@@ -70,11 +80,32 @@ impl fmt::Display for ActivateError {
             Self::Validation(e) => write!(f, "graph validation failed: {e}"),
             Self::Compile(e) => write!(f, "graph compile failed: {e}"),
             Self::Publish(e) => write!(f, "graph publish failed: {e}"),
+            Self::UnmatchedAttached(id) => {
+                write!(f, "attached node {id} has no insert slot in the spec")
+            }
         }
     }
 }
 
 impl std::error::Error for ActivateError {}
+
+/// A plugin node bound into the driver: the RT-side [`PluginNode`]
+/// moves into its lowered `Processor` slot at activation while the
+/// [`ParamDispatch`] orchestrator (owning the node's control handle)
+/// stays on the non-RT side for binds, writes and observation.
+///
+/// The driver owns transport for attached nodes: `Play` is requested
+/// at activation (position == engine frame from block zero) and
+/// [`HeadlessDriver::seek`] re-anchors both the node's cursor and its
+/// position, so plan events addressed by absolute engine frame land
+/// exactly on it.
+pub struct AttachedNode {
+    /// The RT-side node — `ruviform_audio_plugin_bridge::Attached::node`.
+    pub node: PluginNode,
+    /// The dispatch orchestrator — owns `Attached::control`; its
+    /// `node()` must be the `Processor` slot the node installs on.
+    pub dispatch: ParamDispatch,
+}
 
 /// Deterministic headless playback driver for the L1 slice.
 pub struct HeadlessDriver {
@@ -95,6 +126,17 @@ pub struct HeadlessDriver {
     stats: Vec<(NodeContent, Arc<PlaybackStats>)>,
     master_in: Option<PortId>,
     generation: u64,
+    /// Attached plugin nodes' non-RT dispatch halves — the RT halves
+    /// live inside the published plan. Transport ownership: the
+    /// driver requests `Play` at activation and re-anchors on `seek`.
+    attached: Vec<ParamDispatch>,
+    /// Latest per-target observation merged across attached nodes —
+    /// refreshed per block inside [`HeadlessDriver::run`].
+    param_observations: BTreeMap<ParameterTargetId, ParamValueObservation>,
+    /// Clock epoch of the driver's frame series — the scheduler
+    /// epoch attached nodes start in. `device_restart` is never sent,
+    /// so this stays the node's live epoch.
+    epoch: ClockEpochId,
 }
 
 impl HeadlessDriver {
@@ -124,6 +166,9 @@ impl HeadlessDriver {
             stats: Vec::new(),
             master_in: None,
             generation: 1,
+            attached: Vec::new(),
+            param_observations: BTreeMap::new(),
+            epoch: ClockEpochId::new(0),
         }
     }
 
@@ -150,7 +195,51 @@ impl HeadlessDriver {
         lowered: &Lowered,
         prepared: Vec<PreparedClip>,
     ) -> Result<u64, ActivateError> {
-        let mut pending: BTreeMap<_, ClipPlayer> = BTreeMap::new();
+        self.activate_with_attached(lowered, prepared, Vec::new())
+    }
+
+    /// [`activate`] plus [`AttachedNode`]s installed into the spec's
+    /// `Processor` slots (the `lowered.inserts` chain). Every attached
+    /// `dispatch.node()` must name an insert slot — anything else is
+    /// [`ActivateError::UnmatchedAttached`] before the spec is even
+    /// validated. An insert slot left without an attached node
+    /// surfaces as the compiler's `MissingProcessor`, keeping the
+    /// previous plan live.
+    ///
+    /// On success each attached node's transport is re-anchored to
+    /// the driver's cursor (`set_clock` + `Seek`) and `Play` is
+    /// requested — plan positions are engine frames, so the node's
+    /// position tracks the driver's frame series 1:1 even when
+    /// activation happens mid-run.
+    ///
+    /// # Errors
+    /// [`ActivateError`] — the attempted revision is recorded on the
+    /// project either way, except [`ActivateError::UnmatchedAttached`]
+    /// which returns before `prepare` and records nothing.
+    ///
+    /// # Panics
+    /// When the graph project fails to expose the plan it just
+    /// published (internal invariant violation).
+    pub fn activate_with_attached(
+        &mut self,
+        lowered: &Lowered,
+        prepared: Vec<PreparedClip>,
+        attached: Vec<AttachedNode>,
+    ) -> Result<u64, ActivateError> {
+        let mut slots: std::collections::BTreeSet<NodeId> =
+            lowered.inserts.iter().map(|i| i.node_id).collect();
+        for node in &attached {
+            if !slots.remove(&node.dispatch.node()) {
+                return Err(ActivateError::UnmatchedAttached(node.dispatch.node()));
+            }
+        }
+        let mut pending: BTreeMap<NodeId, Box<dyn GraphProcessor>> = BTreeMap::new();
+        let mut attached_dispatch = Vec::with_capacity(attached.len());
+        for node in attached {
+            // `slots.remove` above already proved id uniqueness.
+            pending.insert(node.dispatch.node(), Box::new(node.node));
+            attached_dispatch.push(node.dispatch);
+        }
         let mut stats = Vec::with_capacity(lowered.playbacks.len());
         let mut producers = Vec::with_capacity(lowered.playbacks.len());
         let mut handles = Vec::with_capacity(lowered.playbacks.len());
@@ -162,7 +251,7 @@ impl HeadlessDriver {
             let drain = Arc::new(AtomicU64::new(0));
             pending.insert(
                 binding.node_id,
-                ClipPlayer::new(
+                Box::new(ClipPlayer::new(
                     clip.consumer,
                     binding.window,
                     binding.fade,
@@ -174,7 +263,7 @@ impl HeadlessDriver {
                     Arc::clone(&stat),
                     self.engine.block_frames,
                     clip.canonical.layout.channels() as usize,
-                ),
+                )),
             );
             stats.push((binding.content, stat));
             if clip
@@ -195,8 +284,8 @@ impl HeadlessDriver {
          -> Result<PrepareOutcome, FactoryError> {
             pending
                 .remove(&node.id())
-                .map_or(Ok(PrepareOutcome::Boundary), |player| {
-                    Ok(PrepareOutcome::New(Box::new(player)))
+                .map_or(Ok(PrepareOutcome::Boundary), |proc| {
+                    Ok(PrepareOutcome::New(proc))
                 })
         };
         self.project
@@ -229,7 +318,36 @@ impl HeadlessDriver {
         self.drain_nonces = drains;
         self.generation += 1;
         self.master_in = Some(lowered.master_in);
+        self.param_observations.clear();
+        self.attached = attached_dispatch;
+        self.anchor_attached_transport();
         Ok(generation)
+    }
+
+    /// Re-anchors every attached node's cursor and position to the
+    /// driver cursor, then requests `Play`. A fresh node's cursor
+    /// starts at frame 0, so without this its frame/position series
+    /// would lag the driver's by `self.cursor`. `set_clock` applies
+    /// first in drain order, so the `Seek`'s due frame is already
+    /// the new cursor and position == frame holds from the node's
+    /// first callback; `Play` last so its anchor reads the
+    /// re-anchored position. Best-effort: the bounded control queue
+    /// drains at every callback head, so a drop here means the
+    /// consumer flooded the channel — `param_observations`/reports
+    /// still reflect what the node actually did.
+    fn anchor_attached_transport(&mut self) {
+        for dispatch in &mut self.attached {
+            let base = dispatch.frame_base();
+            let _ = dispatch.control().set_clock(self.epoch, self.cursor);
+            let _ = dispatch.control().request(
+                TransportCommand::Seek(MediaTime::new(
+                    i64::try_from(self.cursor).unwrap_or(i64::MAX),
+                    base,
+                )),
+                0,
+            );
+            let _ = dispatch.control().request(TransportCommand::Play, 0);
+        }
     }
 
     /// Runs `blocks` blocks of `engine.block_frames`, collecting the
@@ -259,6 +377,7 @@ impl HeadlessDriver {
             }
             self.clock.store(self.cursor, Ordering::Relaxed);
             self.rt.process(block, &self.ctx)?;
+            self.observe_attached_block();
             if let Some(port) = self.master_in
                 && let Some(slot) = self.rt.output_reader(port)
             {
@@ -285,6 +404,43 @@ impl HeadlessDriver {
         })
     }
 
+    /// Projects the block that just processed onto every attached
+    /// dispatcher's ledger. Call after each `rt.process` while
+    /// `self.cursor` still holds the block's start frame — fabricates
+    /// the span the node's scheduler ran: the driver keeps attached
+    /// nodes always-`Playing` with position == engine frame
+    /// (anchored at activation, re-anchored on seek), and due=0
+    /// applies land at callback heads — so the one honest span is
+    /// exactly the physical call window.
+    fn observe_attached_block(&mut self) {
+        let call_start = EngineFrame::new(self.epoch, self.cursor);
+        let block = self.engine.block_frames;
+        let call_frames = u32::try_from(block).unwrap_or(u32::MAX);
+        for dispatch in &mut self.attached {
+            let span = TransportSpan {
+                start: call_start,
+                end: call_start.advance(block as u64),
+                ctx: SpanContext {
+                    status: TransportStatus::Playing,
+                    position_ticks: i64::try_from(self.cursor).unwrap_or(i64::MAX),
+                    position_base: dispatch.frame_base(),
+                    loop_ticks: None,
+                    occurrence: LoopOccurrence::new(0),
+                    clock_epoch: self.epoch,
+                    transport_generation: TransportGeneration::new(0),
+                    plan_generation: dispatch
+                        .last_plan_generation()
+                        .unwrap_or_else(|| PlanGeneration::new(0)),
+                    tempo_revision: TempoMapRevision::new(0),
+                },
+                deliverable: true,
+            };
+            for (target, obs) in dispatch.observe(&span, call_start, call_frames) {
+                self.param_observations.insert(target, obs);
+            }
+        }
+    }
+
     /// Re-anchors the transport: engine cursor plus a per-clip source
     /// seek aligned to each window's mapping (clamped to the window —
     /// positions outside it still land at a defined frame).
@@ -293,13 +449,32 @@ impl HeadlessDriver {
     /// process pass — output discarded) so the seek `Boundary` is the
     /// consumer's next item: deterministic re-anchor with no stale
     /// play-through and no position hole.
+    ///
+    /// The same quiesce pass runs when attached nodes exist: node
+    /// controls compute their due frame against the cursor **at pop
+    /// time**, so a dispatch staged before `seek` must drain at the
+    /// old cursor or it would install mid-rewind under the old plan.
+    /// Each pass is a real processed block for attached nodes —
+    /// in-window plan events deliver for real — so it is observed
+    /// like any other block. Two passes cover the node's 64-entry
+    /// control channel at its 32-message per-callback drain cap;
+    /// deeper floods surface as `QueueFull` at push time.
     pub fn seek(&mut self, engine_frame: u64) {
-        if !self.drain_nonces.is_empty() {
-            for nonce in &self.drain_nonces {
-                nonce.fetch_add(1, Ordering::Relaxed);
+        if !self.drain_nonces.is_empty() || !self.attached.is_empty() {
+            let passes = usize::from(!self.attached.is_empty()) + 1;
+            for _ in 0..passes {
+                for nonce in &self.drain_nonces {
+                    nonce.fetch_add(1, Ordering::Relaxed);
+                }
+                self.clock.store(self.cursor, Ordering::Relaxed);
+                // A failed pass produced no spans — skip the
+                // projection rather than fabricate one (the only
+                // current `ProcessError` is unreachable under
+                // `max_frames == block_frames`, kept honest anyway).
+                if self.rt.process(self.engine.block_frames, &self.ctx).is_ok() {
+                    self.observe_attached_block();
+                }
             }
-            self.clock.store(self.cursor, Ordering::Relaxed);
-            let _ = self.rt.process(self.engine.block_frames, &self.ctx);
         }
         self.cursor = engine_frame;
         for (index, binding) in self.bindings.iter().enumerate() {
@@ -314,6 +489,22 @@ impl HeadlessDriver {
             if self.handles[index].seek(SourceFrame(target)).is_ok() {
                 self.seek_nonces[index].fetch_add(1, Ordering::Relaxed);
             }
+        }
+        for dispatch in &mut self.attached {
+            // Re-anchor cursor, then position — `set_clock` is applied
+            // first in the drain order, so the `Seek`'s due frame is
+            // already the new cursor; `Seek` keeps position == frame
+            // even if a prior `Play` had anchored elsewhere. Best-effort
+            // queueing as at activation.
+            let base = dispatch.frame_base();
+            let _ = dispatch.control().set_clock(self.epoch, engine_frame);
+            let _ = dispatch.control().request(
+                TransportCommand::Seek(MediaTime::new(
+                    i64::try_from(engine_frame).unwrap_or(i64::MAX),
+                    base,
+                )),
+                0,
+            );
         }
     }
 
@@ -332,6 +523,27 @@ impl HeadlessDriver {
     #[must_use]
     pub const fn cursor(&self) -> u64 {
         self.cursor
+    }
+
+    /// The [`ParamDispatch`] orchestrator of the attached node at
+    /// `node_id` — binds, writes, revalidation and per-target stage
+    /// queries. `None` when the active plan installed no node there.
+    pub fn attached_dispatch(&mut self, node_id: NodeId) -> Option<&mut ParamDispatch> {
+        self.attached.iter_mut().find(|d| d.node() == node_id)
+    }
+
+    /// Latest observation per parameter target, merged across all
+    /// attached nodes — refreshed per processed block inside
+    /// [`HeadlessDriver::run`] and on the `seek` quiesce pass
+    /// (per-call ledger projection plus drained node reports).
+    /// Cleared on activation. Per-target rows are last-writer-wins:
+    /// a `ParameterTargetId` bound on two attached nodes reports
+    /// only the later dispatcher's stage — use
+    /// [`HeadlessDriver::attached_dispatch`]'s per-node `stage` for
+    /// attribution-critical queries.
+    #[must_use]
+    pub fn param_observations(&self) -> &BTreeMap<ParameterTargetId, ParamValueObservation> {
+        &self.param_observations
     }
 
     /// Per-clip playback stats — the node's clip identity only; comp
