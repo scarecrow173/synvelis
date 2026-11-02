@@ -133,6 +133,12 @@ impl ProjectController {
         command.op.validate(&self.live)?;
         let mut next = self.live.clone();
         command.op.apply(&mut next, self.generator.as_mut())?;
+        // The writer — not each op — owns the persisted-state
+        // invariant: the post-apply state must satisfy the same oracle
+        // `load` enforces, so no op can commit a snapshot the loader
+        // would reject (e.g. a tempo edit that invalidates a comp's
+        // source handles). A failure discards `next` untouched.
+        next.validate_references()?;
         next.id_watermark = self.generator.peek();
         let previous = std::mem::replace(&mut self.live, next);
         self.undo.push(previous);

@@ -6,28 +6,140 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    comp::CompRegistry,
     control::{ControlModel, ControlScope},
     error::Error,
     id::{
         AssetId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, ImportId, LaneId,
         ProjectId, RecordingPassId, RecordingSessionId, SourceId, TakeId, TrackId,
     },
+    placement::{ClipPlacement, ClipPlayback},
     range::{MediaSpan, MusicalRange},
     recording_data::{
         CaptureSegment, CaptureStream, ClockEpoch, RecordingPass, RecordingSession, Take,
     },
     tempo::{ProjectPpqn, TempoMapData},
-    time::SourceFrame,
+    time::ProjectTime,
 };
 
-/// Where a clip sits on the timeline.
+/// A project-domain half-open range: musical ticks or a media span.
+///
+/// (Formerly `TimeAnchor` — renamed when `Clip` adopted the normalized
+/// anchor+extent placement model; a point anchor is now
+/// [`crate::placement::TimeAnchor`].)
 #[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "range", deny_unknown_fields)]
-pub enum TimeAnchor {
-    /// Musical position (project tick range, ppqn context on `Project`).
+pub enum ProjectRange {
+    /// Musical range (project tick range, ppqn context on `Project`).
     Musical(MusicalRange),
-    /// Media position (time-base span).
+    /// Media range (time-base span).
     Media(MediaSpan),
+}
+
+/// The time domain a [`ProjectRange`] lives in.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ProjectDomain {
+    /// Musical ticks.
+    Musical,
+    /// Media time base.
+    Media,
+}
+
+impl ProjectRange {
+    /// The domain this range is expressed in.
+    #[must_use]
+    pub const fn domain(&self) -> ProjectDomain {
+        match self {
+            Self::Musical(_) => ProjectDomain::Musical,
+            Self::Media(_) => ProjectDomain::Media,
+        }
+    }
+
+    /// Inclusive start as a project-time point.
+    #[must_use]
+    pub fn start_time(&self) -> ProjectTime {
+        match self {
+            Self::Musical(r) => ProjectTime::Musical(r.start()),
+            Self::Media(s) => ProjectTime::Media(s.start()),
+        }
+    }
+
+    /// Exclusive end as a project-time point.
+    #[must_use]
+    pub fn end_time(&self) -> ProjectTime {
+        match self {
+            Self::Musical(r) => ProjectTime::Musical(r.end()),
+            Self::Media(s) => ProjectTime::Media(s.end()),
+        }
+    }
+
+    /// `true` when the range contains no position (`start == end`).
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::Musical(r) => r.is_empty(),
+            Self::Media(s) => s.is_empty(),
+        }
+    }
+
+    /// `true` when `pos` is inside `[start, end)`. A `pos` in the other
+    /// domain is never contained.
+    #[must_use]
+    pub fn contains_time(&self, pos: &ProjectTime) -> bool {
+        match (self, pos) {
+            (Self::Musical(r), ProjectTime::Musical(t)) => r.contains(*t),
+            (Self::Media(s), ProjectTime::Media(m)) => !m.lt(&s.start()) && m.lt(&s.end()),
+            _ => false,
+        }
+    }
+
+    /// `true` when the two ranges share at least one position.
+    /// Different domains never overlap.
+    #[must_use]
+    pub fn overlaps(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Musical(a), Self::Musical(b)) => a.overlaps(b),
+            (Self::Media(a), Self::Media(b)) => a.start().lt(&b.end()) && b.start().lt(&a.end()),
+            _ => false,
+        }
+    }
+
+    /// `true` when `other` lies entirely within `self` (same domain
+    /// required — a range in another domain is never contained).
+    #[must_use]
+    pub fn contains_range(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Musical(a), Self::Musical(b)) => a.start() <= b.start() && b.end() <= a.end(),
+            (Self::Media(a), Self::Media(b)) => !b.start().lt(&a.start()) && !a.end().lt(&b.end()),
+            _ => false,
+        }
+    }
+
+    /// The range length in frames at `rate`. Musical ranges convert
+    /// through `map` (required only for the musical domain).
+    ///
+    /// # Errors
+    /// [`Error::Validation`]/[`Error::Overflow`]/[`Error::Negative`].
+    pub fn media_frames(
+        &self,
+        map: Option<&crate::tempo::TickTimeMapping>,
+        rate: u32,
+    ) -> Result<i64, Error> {
+        match self {
+            Self::Media(s) => {
+                let end = s.end().frames_at(rate);
+                let start = s.start().frames_at(rate);
+                end.checked_sub(start).ok_or(Error::Overflow)
+            }
+            Self::Musical(r) => {
+                let map =
+                    map.ok_or_else(|| Error::Validation("musical range needs a tempo map".into()))?;
+                let end = map.tick_to_media(r.end(), 1, rate)?.value();
+                let start = map.tick_to_media(r.start(), 1, rate)?.value();
+                end.checked_sub(start).ok_or(Error::Overflow)
+            }
+        }
+    }
 }
 
 /// A track containing lanes.
@@ -55,6 +167,9 @@ pub struct Lane {
 }
 
 /// A clip: a positioned reference into a media source.
+///
+/// Placement (anchor point + extent, the saved authority) and playback
+/// (source window + mapping) are separate per the normalized model.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Clip {
@@ -64,10 +179,10 @@ pub struct Clip {
     pub lane_id: LaneId,
     /// Media source it reads.
     pub source_id: SourceId,
-    /// Timeline placement.
-    pub anchor: TimeAnchor,
-    /// Offset into the source where the clip starts reading.
-    pub source_offset: SourceFrame,
+    /// Timeline placement (anchor + extent).
+    pub placement: ClipPlacement,
+    /// Source read window and project→source mapping.
+    pub playback: ClipPlayback,
     /// Muted clips contribute silence — excluded at timeline lowering.
     /// `#[serde(default)]` keeps snapshots written before L1 loadable.
     #[serde(default)]
@@ -211,6 +326,10 @@ pub struct Project {
     pub clock_epochs: BTreeMap<ClockEpochId, ClockEpoch>,
     /// Recording registry.
     pub recording: RecordingRegistry,
+    /// Comping registry (take groups, comps, regions, transitions).
+    /// `#[serde(default)]` keeps snapshots written before MD-A loadable.
+    #[serde(default)]
+    pub comp: CompRegistry,
     /// Applied local imports by import ID. `#[serde(default)]`
     /// keeps snapshots written before L1 loadable.
     #[serde(default)]
@@ -240,6 +359,7 @@ impl Project {
             sources: BTreeMap::new(),
             clock_epochs: BTreeMap::new(),
             recording: RecordingRegistry::default(),
+            comp: CompRegistry::default(),
             applied_imports: BTreeMap::new(),
             control: ControlModel::default(),
         }
@@ -395,6 +515,7 @@ impl Project {
                 }
             }
         }
+        crate::comp::validate_registry(self)?;
         // -- parameter control model (issue #40) ----------------------
         let ctl = &self.control;
         for target in ctl.targets.values() {

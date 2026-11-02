@@ -19,9 +19,9 @@ use synvelis_player::EngineConfig;
 use synvelis_player::fixture::{fixture_sample_f32, write_fixture};
 use synvelis_player::import::{ImportOutcome, ImportRequest, import_local};
 use synvelis_project::{
-    ClipId, Command, CounterIdGenerator, MediaSpan, MediaTimeValue, MusicalRange, MusicalTick,
-    Project, ProjectController, ProjectId, ProjectOp, ProjectRevision, SourceFrame, SourceId,
-    TimeAnchor,
+    ClipExtent, ClipId, ClipPlacement, ClipPlayback, Command, CounterIdGenerator, MediaDuration,
+    MediaTimeValue, MusicalDuration, MusicalTick, PlaybackMapping, Project, ProjectController,
+    ProjectId, ProjectOp, ProjectRevision, SourceFrame, SourceId, SourceRange, TimeAnchor,
 };
 
 use ruviform_audio_core::SampleFormat;
@@ -64,13 +64,22 @@ fn apply(c: &mut ProjectController, op: ProjectOp) -> ProjectRevision {
     c.apply(cmd(c, op)).unwrap()
 }
 
-fn media_anchor(start: i64, end: i64, rate: u32) -> TimeAnchor {
-    let value = |v: i64| MediaTimeValue {
-        value: v,
-        numerator: 1,
-        denominator: rate,
-    };
-    TimeAnchor::Media(MediaSpan::try_new(value(start), value(end)).unwrap())
+fn media_placement(start: i64, end: i64, rate: u32) -> ClipPlacement {
+    ClipPlacement {
+        anchor: TimeAnchor::Absolute(MediaTimeValue::new(start, 1, rate).unwrap()),
+        extent: ClipExtent::Absolute(MediaDuration::new(end - start, 1, rate).unwrap()),
+    }
+}
+
+fn natural_playback(offset: u64, frames: u64) -> ClipPlayback {
+    ClipPlayback {
+        source_region: SourceRange::try_new(
+            SourceFrame::new(i64::try_from(offset).unwrap()).unwrap(),
+            SourceFrame::new(i64::try_from(offset + frames).unwrap()).unwrap(),
+        )
+        .unwrap(),
+        mapping: PlaybackMapping::Natural,
+    }
 }
 
 fn import(c: &mut ProjectController, root: &Path, path: &Path) -> ImportOutcome {
@@ -107,8 +116,8 @@ fn add_clip(
         ProjectOp::AddClip {
             lane_id: lane,
             source_id,
-            anchor: media_anchor(start, end, rate),
-            source_offset: SourceFrame::new(i64::try_from(offset).unwrap()).unwrap(),
+            placement: media_placement(start, end, rate),
+            playback: natural_playback(offset, u64::try_from(end - start).unwrap()),
         },
     );
     *c.live().clips.keys().next_back().unwrap()
@@ -1032,10 +1041,11 @@ fn l2_02_unresolvable_anchor_refused() {
         ProjectOp::AddClip {
             lane_id: lane,
             source_id: out.commit.source_id,
-            anchor: TimeAnchor::Musical(
-                MusicalRange::try_new(MusicalTick::new(0), MusicalTick::new(i64::MAX)).unwrap(),
-            ),
-            source_offset: SourceFrame::new(0).unwrap(),
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Musical(MusicalTick::new(0)),
+                extent: ClipExtent::Musical(MusicalDuration::new(i64::MAX).unwrap()),
+            },
+            playback: natural_playback(0, 1_024),
         },
     );
     let snapshot = freeze(&c, &root);

@@ -19,6 +19,17 @@ const CHANNELS: u32 = 2;
 
 // ---------- helpers ----------
 
+/// clip の musical placement を `[start, end)` tick として返す。
+fn clip_musical_span(clip: &Clip) -> (i64, i64) {
+    let TimeAnchor::Musical(start) = clip.placement.anchor else {
+        panic!("clip anchor must be musical")
+    };
+    let ClipExtent::Musical(dur) = clip.placement.extent else {
+        panic!("clip extent must be musical")
+    };
+    (start.value(), start.value() + dur.value())
+}
+
 /// controller + track + lanes + clock epoch を op 経由で構築する。
 fn controller_with(lane_count: usize) -> (ProjectController, Vec<LaneId>, ClockEpochId) {
     let mut c = ProjectController::new(
@@ -262,14 +273,8 @@ fn vs_d_normal_commit_verified() {
     assert_eq!(clip.source_id, source.id);
     assert_eq!(lane_clips(&c, lane), 1);
     // clip placement は segment の project window と一致。
-    match clip.anchor {
-        TimeAnchor::Musical(range) => {
-            assert_eq!(range.start().value(), 0);
-            assert_eq!(range.end().value(), 1920);
-        }
-        TimeAnchor::Media(_) => panic!("clip anchor must be musical"),
-    }
-    assert_eq!(clip.source_offset.value(), 0);
+    assert_eq!(clip_musical_span(clip), (0, 1920));
+    assert_eq!(clip.playback.source_region.start().value(), 0);
 
     // applied_commits registry が identity を記録。
     assert_eq!(
@@ -364,14 +369,12 @@ fn vs_d_punch_placement_exact() {
             .values()
             .find(|s| s.source_id == clip.source_id)
             .unwrap();
-        match clip.anchor {
-            TimeAnchor::Musical(range) => {
-                // clip は punch window の project tick と正確一致。
-                assert_eq!(range.start().value(), seg_proj_in(&area, seg.id));
-            }
-            TimeAnchor::Media(_) => panic!("musical anchor"),
-        }
-        assert_eq!(clip.source_offset, seg.source_range.start());
+        // clip は punch window の project tick と正確一致。
+        assert_eq!(clip_musical_span(clip).0, seg_proj_in(&area, seg.id));
+        assert_eq!(
+            clip.playback.source_region.start(),
+            seg.source_range.start()
+        );
     }
     // punch は session の途中 → session_start > 0。
     let seg = p.recording.segments.values().next().unwrap();
@@ -428,17 +431,11 @@ fn vs_d_loop_three_passes() {
     assert_eq!(report.clips_committed, 1);
     assert_eq!(p.clips.len(), 1);
     let clip = p.clips.values().next().unwrap();
-    match clip.anchor {
-        TimeAnchor::Musical(range) => {
-            assert_eq!(range.start().value(), 0);
-            assert_eq!(
-                range.end().value(),
-                15_360,
-                "clip covers pass-0 loop window"
-            );
-        }
-        TimeAnchor::Media(_) => panic!("musical anchor"),
-    }
+    assert_eq!(
+        clip_musical_span(clip),
+        (0, 15_360),
+        "clip covers pass-0 loop window"
+    );
     // take → pass の mapping が各 pass に対応。
     let pass_indexes: std::collections::BTreeSet<u32> = p
         .recording
@@ -1200,10 +1197,18 @@ fn vs_d_stale_manifest_rebuild_after_lane_change() {
         ProjectOp::AddClip {
             lane_id: lane,
             source_id: source,
-            anchor: TimeAnchor::Musical(
-                MusicalRange::try_new(MusicalTick::new(0), MusicalTick::new(480)).unwrap(),
-            ),
-            source_offset: SourceFrame::ZERO,
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Musical(MusicalTick::new(0)),
+                extent: ClipExtent::Musical(MusicalDuration::new(480).unwrap()),
+            },
+            playback: ClipPlayback {
+                source_region: SourceRange::try_new(
+                    SourceFrame::ZERO,
+                    SourceFrame::new(480 * 50).unwrap(),
+                )
+                .unwrap(),
+                mapping: PlaybackMapping::Natural,
+            },
         },
     );
     assert_eq!(lane_clips(&c, lane), 1);

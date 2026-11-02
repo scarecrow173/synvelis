@@ -147,6 +147,22 @@ define_id!(
     ImportId, "import"
 );
 define_id!(
+    /// Identifies a [`crate::TakeGroup`].
+    TakeGroupId, "take-group"
+);
+define_id!(
+    /// Identifies a [`crate::Comp`].
+    CompId, "comp"
+);
+define_id!(
+    /// Identifies a [`crate::CompRegion`].
+    CompRegionId, "comp-region"
+);
+define_id!(
+    /// Identifies a [`crate::CompTransition`].
+    CompTransitionId, "comp-transition"
+);
+define_id!(
     /// Identifies a [`crate::control::ParameterTarget`].
     ParameterTargetId, "param"
 );

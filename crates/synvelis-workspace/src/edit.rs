@@ -15,7 +15,9 @@
 //! than faking a conversion. `DrawClip` needs a source binding the
 //! probe does not carry, so it is likewise unsupported here.
 
-use synvelis_project::{MusicalRange, MusicalTick, Project, ProjectOp, TimeAnchor};
+use synvelis_project::{
+    ClipExtent, MusicalDuration, MusicalRange, MusicalTick, Project, ProjectOp, TimeAnchor,
+};
 
 use crate::error::WorkspaceError;
 use crate::gesture::Gesture;
@@ -55,15 +57,17 @@ pub fn gesture_domain(
 ) -> Result<EditTimeDomain, WorkspaceError> {
     let mut domain: Option<EditTimeDomain> = None;
     for target in targets {
-        let next = match target {
-            SemanticTarget::Clip(clip_id) => {
-                project.clips.get(clip_id).map(|clip| match clip.anchor {
+        let next =
+            match target {
+                SemanticTarget::Clip(clip_id) => project.clips.get(clip_id).map(|clip| match clip
+                    .placement
+                    .anchor
+                {
                     TimeAnchor::Musical(_) => EditTimeDomain::Musical,
-                    TimeAnchor::Media(_) => EditTimeDomain::Media,
-                })
-            }
-            _ => None,
-        };
+                    TimeAnchor::Absolute(_) => EditTimeDomain::Media,
+                }),
+                _ => None,
+            };
         if let Some(next) = next {
             match domain {
                 None => domain = Some(next),
@@ -88,6 +92,7 @@ pub fn gesture_domain(
 /// [`WorkspaceError::UnsupportedOperation`] for operations with no
 /// modelled commit semantics; [`WorkspaceError::Project`] on anchor
 /// math failure.
+#[allow(clippy::too_many_lines)] // flat match per edit operation
 pub fn build_commit(
     project: &Project,
     gesture: &Gesture,
@@ -114,10 +119,19 @@ pub fn build_commit(
                 .filter_map(|lane| project.lanes.get(lane))
                 .flat_map(|lane| lane.clip_ids.iter().copied())
                 .filter(|clip_id| {
-                    matches!(
-                        project.clips.get(clip_id).map(|c| c.anchor),
-                        Some(TimeAnchor::Musical(r)) if r.overlaps(&range)
-                    )
+                    project.clips.get(clip_id).is_some_and(|c| {
+                        matches!(
+                            (c.placement.anchor, c.placement.extent),
+                            (TimeAnchor::Musical(start), ClipExtent::Musical(dur))
+                                if MusicalRange::try_new(
+                                    start,
+                                    start
+                                        .checked_add(dur.value())
+                                        .unwrap_or(MusicalTick::new(i64::MAX)),
+                                )
+                                .is_ok_and(|r| r.overlaps(&range))
+                        )
+                    })
                 })
                 .map(SemanticTarget::Clip)
                 .collect();
@@ -138,21 +152,41 @@ pub fn build_commit(
                 .clips
                 .get(&clip_id)
                 .ok_or_else(|| WorkspaceError::InvalidGesture(format!("clip {clip_id} gone")))?;
-            let TimeAnchor::Musical(range) = clip.anchor else {
+            let (TimeAnchor::Musical(start), ClipExtent::Musical(dur)) =
+                (clip.placement.anchor, clip.placement.extent)
+            else {
                 return Err(WorkspaceError::UnsupportedOperation(
                     "trim on a media-anchored clip",
                 ));
             };
-            let (start, end) = (range.start(), range.end());
+            let end = start.checked_add(dur.value())?;
             let delta = gesture.preview.delta;
-            let anchor = match edge {
-                HandleKind::StartTrim => MusicalRange::try_new(start.checked_add(delta)?, end)?,
-                _ => MusicalRange::try_new(start, end.checked_add(delta)?)?,
+            let op = match edge {
+                HandleKind::StartTrim => {
+                    let new_start = start.checked_add(delta)?;
+                    ProjectOp::Composite {
+                        ops: vec![
+                            ProjectOp::MoveClip {
+                                clip_id,
+                                anchor: TimeAnchor::Musical(new_start),
+                            },
+                            ProjectOp::SetClipExtent {
+                                clip_id,
+                                extent: ClipExtent::Musical(MusicalDuration::new(
+                                    end.ticks_since(new_start)?,
+                                )?),
+                            },
+                        ],
+                    }
+                }
+                _ => ProjectOp::SetClipExtent {
+                    clip_id,
+                    extent: ClipExtent::Musical(MusicalDuration::new(
+                        end.checked_add(delta)?.ticks_since(start)?,
+                    )?),
+                },
             };
-            Ok(CommitEffect::ProjectOp(ProjectOp::MoveClip {
-                clip_id,
-                anchor: TimeAnchor::Musical(anchor),
-            }))
+            Ok(CommitEffect::ProjectOp(op))
         }
         EditOperation::EraseTargets => {
             let ops: Vec<ProjectOp> = fix
@@ -211,15 +245,12 @@ fn move_ops(
             .clips
             .get(clip_id)
             .ok_or_else(|| WorkspaceError::InvalidGesture(format!("clip {clip_id} gone")))?;
-        let TimeAnchor::Musical(range) = clip.anchor else {
+        let TimeAnchor::Musical(start) = clip.placement.anchor else {
             return Err(WorkspaceError::UnsupportedOperation(
                 "moving a media-anchored clip",
             ));
         };
-        let anchor = TimeAnchor::Musical(MusicalRange::try_new(
-            range.start().checked_add(delta)?,
-            range.end().checked_add(delta)?,
-        )?);
+        let anchor = TimeAnchor::Musical(start.checked_add(delta)?);
         ops.push(ProjectOp::MoveClip {
             clip_id: *clip_id,
             anchor,

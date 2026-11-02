@@ -6,8 +6,9 @@ use ruviform_ui::dock::{DockError, DockEvent, DockTarget, WindowCloseDisposition
 use ruviform_ui::event::HostEvent;
 use ruviform_ui::window::{CloseDecision, MonitorInfo};
 use synvelis_project::{
-    ClipId, CounterIdGenerator, LaneId, MusicalRange, MusicalTick, Project, ProjectController,
-    ProjectId, ProjectOp, ProjectRevision, SourceFrame, TimeAnchor, TrackId,
+    ClipExtent, ClipId, ClipPlacement, ClipPlayback, CounterIdGenerator, LaneId, MusicalDuration,
+    MusicalTick, PlaybackMapping, Project, ProjectController, ProjectId, ProjectOp,
+    ProjectRevision, SourceFrame, SourceRange, TimeAnchor, TrackId,
 };
 use synvelis_workspace::{
     CommandContext, CommandOutcome, EditingSelection, FakeWindowHost, InputContext, InspectionMode,
@@ -92,14 +93,26 @@ fn seeded() -> (Ws, TrackId, LaneId, ClipId) {
         ProjectOp::AddClip {
             lane_id,
             source_id,
-            anchor: TimeAnchor::Musical(
-                MusicalRange::try_new(MusicalTick::new(0), MusicalTick::new(960)).unwrap(),
-            ),
-            source_offset: SourceFrame::new(0).unwrap(),
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Musical(MusicalTick::new(0)),
+                extent: ClipExtent::Musical(MusicalDuration::new(960).unwrap()),
+            },
+            playback: natural_playback(),
         },
     );
     let clip_id = *ws.session().project().clips.keys().next().unwrap();
     (ws, track_id, lane_id, clip_id)
+}
+
+fn natural_playback() -> ClipPlayback {
+    ClipPlayback {
+        source_region: SourceRange::try_new(
+            SourceFrame::ZERO,
+            SourceFrame::new(1_000_000).unwrap(),
+        )
+        .unwrap(),
+        mapping: PlaybackMapping::Natural,
+    }
 }
 
 fn add_clip(ws: &mut Ws, lane_id: LaneId) -> ClipId {
@@ -109,10 +122,11 @@ fn add_clip(ws: &mut Ws, lane_id: LaneId) -> ClipId {
         ProjectOp::AddClip {
             lane_id,
             source_id,
-            anchor: TimeAnchor::Musical(
-                MusicalRange::try_new(MusicalTick::new(960), MusicalTick::new(1920)).unwrap(),
-            ),
-            source_offset: SourceFrame::new(0).unwrap(),
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Musical(MusicalTick::new(960)),
+                extent: ClipExtent::Musical(MusicalDuration::new(960).unwrap()),
+            },
+            playback: natural_playback(),
         },
     );
     *ws.session().project().clips.keys().last().unwrap()

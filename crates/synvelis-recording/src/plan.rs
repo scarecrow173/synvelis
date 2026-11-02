@@ -124,7 +124,7 @@ fn tick_frame(
     sample_rate: u32,
 ) -> Result<i64, Error> {
     let v = mapping.tick_to_media(tick, 1, sample_rate)?;
-    Ok(v.value)
+    Ok(v.value())
 }
 
 /// `request` を `project` に照らして検証し、凍結済み計画を返す。

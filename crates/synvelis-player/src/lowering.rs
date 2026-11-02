@@ -8,9 +8,7 @@
 //! project tempo map, and the only rounding is `floor` at the final
 //! engine-frame boundary.
 
-use synvelis_project::{
-    ClipId, MediaSpan, MediaTimeValue, Project, SourceId, TickTimeMapping, TimeAnchor,
-};
+use synvelis_project::{ClipId, PlaybackMapping, Project, SourceId, TickTimeMapping};
 
 use ruviform_audio_core::AudioFormat;
 use ruviform_graph::{
@@ -89,6 +87,13 @@ pub enum SkippedClip {
         /// The unresolved source.
         source_id: SourceId,
     },
+    /// The playback mapping is not lowerable by the 1:1 clip-player
+    /// graph (loop/stretch need a different node family — MD-A scope
+    /// keeps them explicit skips, never silent).
+    UnsupportedMapping {
+        /// The clip.
+        clip_id: ClipId,
+    },
 }
 
 /// A master-bus insert node between the clip fan-in and the sink.
@@ -116,31 +121,6 @@ pub struct Lowered {
     pub inserts: Vec<InsertBinding>,
     /// Clips that produced no node, with reasons.
     pub skipped: Vec<SkippedClip>,
-}
-
-/// `floor(n/d)` on `i128` — the only rounding applied, at the final
-/// frame boundary.
-fn floor_div(numer: i128, denom: i128) -> i64 {
-    let q = numer / denom;
-    let r = numer % denom;
-    let floored = if r < 0 { q - 1 } else { q };
-    i64::try_from(floored).unwrap_or(i64::MAX)
-}
-
-/// `MediaTimeValue` → engine frames: `value * num * rate / den`,
-/// floored at the boundary.
-fn media_frames(value: MediaTimeValue, rate: u32) -> i64 {
-    floor_div(
-        i128::from(value.value) * i128::from(value.numerator) * i128::from(rate),
-        i128::from(value.denominator),
-    )
-}
-
-fn media_span_frames(span: &MediaSpan, rate: u32) -> (i64, i64) {
-    (
-        media_frames(span.start(), rate),
-        media_frames(span.end(), rate),
-    )
 }
 
 /// Lowers the project's clips into a generic audio graph spec.
@@ -308,24 +288,19 @@ pub fn lower_with_inserts(
             });
             continue;
         }
-        let (start, end) = match clip.anchor {
-            TimeAnchor::Media(span) => media_span_frames(&span, engine.sample_rate),
-            TimeAnchor::Musical(range) => {
-                let Some(map) = &tempo else {
-                    skipped.push(SkippedClip::UnresolvableAnchor { clip_id: clip.id });
-                    continue;
-                };
-                let Ok(s) = map.tick_to_media(range.start(), 1, engine.sample_rate) else {
-                    skipped.push(SkippedClip::UnresolvableAnchor { clip_id: clip.id });
-                    continue;
-                };
-                let Ok(e) = map.tick_to_media(range.end(), 1, engine.sample_rate) else {
-                    skipped.push(SkippedClip::UnresolvableAnchor { clip_id: clip.id });
-                    continue;
-                };
-                (s.value, e.value)
-            }
+        let Ok(resolved) =
+            clip.placement
+                .resolve(&clip.playback, tempo.as_ref(), engine.sample_rate)
+        else {
+            skipped.push(SkippedClip::UnresolvableAnchor { clip_id: clip.id });
+            continue;
         };
+        if !matches!(resolved.mapping, PlaybackMapping::Natural) {
+            skipped.push(SkippedClip::UnsupportedMapping { clip_id: clip.id });
+            continue;
+        }
+        let start = resolved.media_span.start().value();
+        let end = resolved.media_span.end().value();
         // Clamp a negative engine start: the skipped head shifts the
         // source window forward — never silently repositioned.
         // `start == i64::MIN` saturates rather than overflows; the
@@ -345,7 +320,7 @@ pub fn lower_with_inserts(
             skipped.push(SkippedClip::UnresolvableAnchor { clip_id: clip.id });
             continue;
         }
-        let source_start = u64::try_from(clip.source_offset.value()).unwrap_or(0) + lead;
+        let source_start = u64::try_from(resolved.source_start.value()).unwrap_or(0) + lead;
         let src_channels = u16::try_from(canonical.layout.channels()).unwrap_or(u16::MAX);
         // A ChannelMap is required whenever the *layout* differs — not
         // only the channel count: an unpositioned canonical layout

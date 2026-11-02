@@ -178,8 +178,8 @@ fn push_template(
     seg_out: MusicalTick,
     templates: &mut Vec<Template>,
 ) -> Result<(), Error> {
-    let f_in = mapping.tick_to_media(seg_in, 1, sample_rate)?.value;
-    let f_out = mapping.tick_to_media(seg_out, 1, sample_rate)?.value;
+    let f_in = mapping.tick_to_media(seg_in, 1, sample_rate)?.value();
+    let f_out = mapping.tick_to_media(seg_out, 1, sample_rate)?.value();
     templates.push(Template {
         off_in: f_in.checked_sub(base_frame).ok_or(Error::Overflow)?,
         off_out: f_out.checked_sub(base_frame).ok_or(Error::Overflow)?,
@@ -209,7 +209,7 @@ impl GateScheduler {
         ticks.sort_unstable();
         ticks.dedup();
         let s = |tick: MusicalTick| -> Result<i64, Error> {
-            let f = mapping.tick_to_media(tick, 1, sample_rate)?.value;
+            let f = mapping.tick_to_media(tick, 1, sample_rate)?.value();
             f.checked_sub(transport_start_frame).ok_or(Error::Overflow)
         };
 
@@ -261,7 +261,7 @@ impl GateScheduler {
                     } => (punch_in, punch_out),
                     GateSpec::Normal { .. } | GateSpec::Punch { .. } => unreachable!(),
                 };
-                let base_frame = mapping.tick_to_media(loop_start, 1, sample_rate)?.value;
+                let base_frame = mapping.tick_to_media(loop_start, 1, sample_rate)?.value();
                 compile_region(
                     mapping,
                     sample_rate,

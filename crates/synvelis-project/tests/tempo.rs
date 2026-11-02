@@ -49,7 +49,7 @@ fn tick_media_mapping_matches_design_example() {
 
     let tick = MusicalTick::new(15_360);
     let media = mapping.tick_to_media(tick, 1, 48_000).unwrap();
-    assert_eq!(media.value, 384_000);
+    assert_eq!(media.value(), 384_000);
 
     let back = mapping.media_to_tick(media).unwrap();
     assert_eq!(back.value(), 15_360);

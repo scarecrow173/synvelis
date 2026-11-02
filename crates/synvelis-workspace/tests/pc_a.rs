@@ -11,11 +11,12 @@ use ruviform_media_core::{
 };
 use ruviform_plugin_core::{ParamFlags, ParamWriteMeans, ParamWriteRejection, check_param_write};
 use synvelis_project::{
-    AutomationLaneId, AutomationPoint, AutomationRegion, BeatPoint, BeatRange, ClipId,
-    ConflictPolicy, ControlGraph, ControlScope, CounterIdGenerator, Error, Interpolation, LfoShape,
-    MusicalRange, MusicalTick, ParamMapping, ParameterTargetId, Polarity, Project,
-    ProjectController, ProjectId, ProjectOp, ProjectRevision, ReferenceSource, SourceFrame,
-    SourceKind, TargetCapability, TimeAnchor, TrackId, Transform, ValueKind, evaluate_control,
+    AutomationLaneId, AutomationPoint, AutomationRegion, BeatPoint, BeatRange, ClipExtent, ClipId,
+    ClipPlacement, ClipPlayback, ConflictPolicy, ControlGraph, ControlScope, CounterIdGenerator,
+    Error, Interpolation, LfoShape, MusicalDuration, MusicalTick, ParamMapping, ParameterTargetId,
+    PlaybackMapping, Polarity, Project, ProjectController, ProjectId, ProjectOp, ProjectRevision,
+    ReferenceSource, SourceFrame, SourceKind, SourceRange, TargetCapability, TimeAnchor, TrackId,
+    Transform, ValueKind, evaluate_control,
 };
 use synvelis_workspace::{
     AutomationMode, ControlSession, FakeWindowHost, GestureEnd, Lowered, ObservationState,
@@ -175,20 +176,25 @@ fn seeded_clip(ws: &mut Ws, track: TrackId, start_tick: i64, end_tick: i64) -> C
         ProjectOp::AddClip {
             lane_id: lane,
             source_id: source,
-            anchor: TimeAnchor::Musical(
-                MusicalRange::try_new(MusicalTick::new(start_tick), MusicalTick::new(end_tick))
-                    .unwrap(),
-            ),
-            source_offset: SourceFrame::new(0).unwrap(),
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Musical(MusicalTick::new(start_tick)),
+                extent: ClipExtent::Musical(MusicalDuration::new(end_tick - start_tick).unwrap()),
+            },
+            playback: ClipPlayback {
+                source_region: SourceRange::try_new(
+                    SourceFrame::ZERO,
+                    SourceFrame::new(1_000_000).unwrap(),
+                )
+                .unwrap(),
+                mapping: PlaybackMapping::Natural,
+            },
         },
     );
     *ws.session().project().clips.keys().last().unwrap()
 }
 
-fn musical(start_tick: i64, end_tick: i64) -> TimeAnchor {
-    TimeAnchor::Musical(
-        MusicalRange::try_new(MusicalTick::new(start_tick), MusicalTick::new(end_tick)).unwrap(),
-    )
+fn musical(tick: i64) -> TimeAnchor {
+    TimeAnchor::Musical(MusicalTick::new(tick))
 }
 
 fn media_stamp(ticks: i64, provenance: TimestampProvenance) -> MediaTimestamp {
@@ -346,7 +352,7 @@ fn pc_a_02_scope_separation_clip_follows_move() {
         &mut ws,
         ProjectOp::MoveClip {
             clip_id: clip,
-            anchor: musical(1920, 2880), // beats [2, 3)
+            anchor: musical(1920), // moves to beats [2, 3) (extent preserved)
         },
     );
     let project = ws.session().project();

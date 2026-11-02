@@ -10,11 +10,13 @@
 
 #![warn(missing_docs)]
 
+pub mod comp;
 pub mod control;
 pub mod controller;
 pub mod error;
 pub mod id;
 pub mod ops;
+pub mod placement;
 pub mod project;
 pub mod range;
 pub mod recording_data;
@@ -22,6 +24,11 @@ pub mod store;
 pub mod tempo;
 pub mod time;
 
+pub use comp::{
+    Comp, CompCandidateRef, CompOp, CompProvenance, CompRegion, CompRegistry, CompTransition,
+    EditorDisplayTarget, EditorEditingTarget, EffectiveComp, EffectiveSegment, EffectiveTransition,
+    FadeShape, SourceBinding, SourceVersionRef, TakeGroup, project_comp,
+};
 pub use control::{
     AutomationConflict, AutomationLane, AutomationPoint, AutomationRegion, BeatPoint, BeatRange,
     ConflictPolicy, Contribution, ControlEvaluation, ControlGraph, ControlModel, ControlScope,
@@ -33,15 +40,19 @@ pub use control::{
 pub use controller::{Command, Operation, ProjectController, ProjectRevision, SavedState};
 pub use error::Error;
 pub use id::{
-    AssetId, AutomationLaneId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId,
-    CounterIdGenerator, IdGenerator, ImportId, LaneId, ModulationAssignmentId, ModulationSourceId,
-    NoteId, ParameterTargetId, ProjectId, RecordingPassId, RecordingSessionId, SourceId, TakeId,
-    TrackId,
+    AssetId, AutomationLaneId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, CompId,
+    CompRegionId, CompTransitionId, CounterIdGenerator, IdGenerator, ImportId, LaneId,
+    ModulationAssignmentId, ModulationSourceId, NoteId, ParameterTargetId, ProjectId,
+    RecordingPassId, RecordingSessionId, SourceId, TakeGroupId, TakeId, TrackId,
 };
 pub use ops::ProjectOp;
+pub use placement::{
+    ClipExtent, ClipPlacement, ClipPlayback, PlaybackMapping, ResolvedClip, StretchRatio,
+    TimeAnchor,
+};
 pub use project::{
-    AppliedImport, AppliedRecordingCommit, Asset, Clip, Lane, Project, RecordingRegistry, Source,
-    SourceState, TimeAnchor, Track,
+    AppliedImport, AppliedRecordingCommit, Asset, Clip, Lane, Project, ProjectDomain, ProjectRange,
+    RecordingRegistry, Source, SourceState, Track,
 };
 pub use range::{MediaSpan, MusicalRange, Range, SessionRange, SourceRange};
 pub use recording_data::{
@@ -55,4 +66,7 @@ pub use store::{
 pub use tempo::{
     ProjectPpqn, SignatureDto, TempoEventDto, TempoMapData, TempoMapRef, TickTimeMapping,
 };
-pub use time::{MediaTimeValue, MusicalTick, ProjectTime, SessionFrame, SourceFrame};
+pub use time::{
+    MediaDuration, MediaTimeValue, MusicalDuration, MusicalTick, ProjectTime, SessionFrame,
+    SourceFrame,
+};

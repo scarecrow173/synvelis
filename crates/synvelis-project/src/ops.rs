@@ -17,12 +17,13 @@ use crate::{
         AssetId, AutomationLaneId, ClipId, IdGenerator, LaneId, ModulationAssignmentId,
         ModulationSourceId, ParameterTargetId, SourceId, TrackId,
     },
-    project::{Asset, Clip, Lane, Project, Source, SourceState, TimeAnchor, Track},
-    range::MusicalRange,
+    placement::{ClipExtent, ClipPlacement, ClipPlayback, TimeAnchor},
+    project::{Asset, Clip, Lane, Project, Source, SourceState, Track},
+    range::{MusicalRange, SourceRange},
     recording_data::ClockEpoch,
     tempo::SignatureDto,
     tempo::TempoEventDto,
-    time::{MusicalTick, SourceFrame},
+    time::{MusicalDuration, MusicalTick, SourceFrame},
 };
 
 /// Project-level operations.
@@ -83,22 +84,38 @@ pub enum ProjectOp {
         lane_id: LaneId,
         /// Media source the clip reads.
         source_id: SourceId,
-        /// Timeline placement.
-        anchor: TimeAnchor,
-        /// Read offset inside the source.
-        source_offset: SourceFrame,
+        /// Timeline placement (anchor + extent, the saved authority).
+        placement: ClipPlacement,
+        /// Source read window and project→source mapping.
+        playback: ClipPlayback,
     },
     /// Remove a clip.
     RemoveClip {
         /// Target clip.
         clip_id: ClipId,
     },
-    /// Change a clip's timeline placement.
+    /// Move a clip: change its placement anchor (extent and playback
+    /// are unchanged — a move never rewrites the source window).
     MoveClip {
         /// Target clip.
         clip_id: ClipId,
-        /// New placement.
+        /// New anchor point.
         anchor: TimeAnchor,
+    },
+    /// Trim a clip: change its extent. The new length must still fit
+    /// the playback window under its mapping.
+    SetClipExtent {
+        /// Target clip.
+        clip_id: ClipId,
+        /// New extent.
+        extent: ClipExtent,
+    },
+    /// Change a clip's playback window/mapping (slip, stretch, loop).
+    SetClipPlayback {
+        /// Target clip.
+        clip_id: ClipId,
+        /// New playback contract.
+        playback: ClipPlayback,
     },
     /// Set a clip's muted flag — muted clips lower to silence.
     SetClipMuted {
@@ -367,7 +384,10 @@ impl Operation for ProjectOp {
                 Ok(())
             }
             Self::AddClip {
-                lane_id, source_id, ..
+                lane_id,
+                source_id,
+                placement,
+                playback,
             } => {
                 if !project.lanes.contains_key(lane_id) {
                     return Err(Error::NotFound(format!("lane {lane_id}")));
@@ -375,11 +395,50 @@ impl Operation for ProjectOp {
                 if !project.sources.contains_key(source_id) {
                     return Err(Error::NotFound(format!("source {source_id}")));
                 }
-                Ok(())
+                validate_clip_contract(project, placement, playback)
             }
-            Self::RemoveClip { clip_id }
-            | Self::MoveClip { clip_id, .. }
-            | Self::SetClipMuted { clip_id, .. } => project
+            Self::MoveClip {
+                clip_id, anchor, ..
+            } => {
+                let clip = project
+                    .clips
+                    .get(clip_id)
+                    .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
+                validate_clip_contract(
+                    project,
+                    &ClipPlacement {
+                        anchor: *anchor,
+                        extent: clip.placement.extent,
+                    },
+                    &clip.playback,
+                )
+            }
+            Self::SetClipExtent {
+                clip_id, extent, ..
+            } => {
+                let clip = project
+                    .clips
+                    .get(clip_id)
+                    .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
+                validate_clip_contract(
+                    project,
+                    &ClipPlacement {
+                        anchor: clip.placement.anchor,
+                        extent: *extent,
+                    },
+                    &clip.playback,
+                )
+            }
+            Self::SetClipPlayback {
+                clip_id, playback, ..
+            } => {
+                let clip = project
+                    .clips
+                    .get(clip_id)
+                    .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
+                validate_clip_contract(project, &clip.placement, playback)
+            }
+            Self::RemoveClip { clip_id } | Self::SetClipMuted { clip_id, .. } => project
                 .clips
                 .contains_key(clip_id)
                 .then_some(())
@@ -423,18 +482,21 @@ impl Operation for ProjectOp {
                     .clips
                     .get(clip_id)
                     .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
-                let TimeAnchor::Musical(range) = clip.anchor else {
+                let (TimeAnchor::Musical(start), ClipExtent::Musical(dur)) =
+                    (clip.placement.anchor, clip.placement.extent)
+                else {
                     return Err(Error::Validation(format!(
                         "clip {clip_id} is not musically anchored"
                     )));
                 };
-                if !range.contains(*at) || *at == range.start() {
+                let end = start.checked_add(dur.value())?;
+                if !(*at > start && *at < end) {
                     return Err(Error::Validation(format!(
                         "split tick {} is not strictly inside clip {clip_id}",
                         at.value()
                     )));
                 }
-                if *clip_b_source_offset < clip.source_offset {
+                if *clip_b_source_offset < clip.playback.source_region.start() {
                     return Err(Error::Validation(format!(
                         "clip_b_source_offset precedes source offset of clip {clip_id}"
                     )));
@@ -711,8 +773,8 @@ impl Operation for ProjectOp {
             Self::AddClip {
                 lane_id,
                 source_id,
-                anchor,
-                source_offset,
+                placement,
+                playback,
             } => {
                 let id = ClipId::new(ids.next());
                 project.clips.insert(
@@ -721,8 +783,8 @@ impl Operation for ProjectOp {
                         id,
                         lane_id: *lane_id,
                         source_id: *source_id,
-                        anchor: *anchor,
-                        source_offset: *source_offset,
+                        placement: *placement,
+                        playback: *playback,
                         muted: false,
                     },
                 );
@@ -739,7 +801,17 @@ impl Operation for ProjectOp {
             }
             Self::MoveClip { clip_id, anchor } => {
                 if let Some(clip) = project.clips.get_mut(clip_id) {
-                    clip.anchor = *anchor;
+                    clip.placement.anchor = *anchor;
+                }
+            }
+            Self::SetClipExtent { clip_id, extent } => {
+                if let Some(clip) = project.clips.get_mut(clip_id) {
+                    clip.placement.extent = *extent;
+                }
+            }
+            Self::SetClipPlayback { clip_id, playback } => {
+                if let Some(clip) = project.clips.get_mut(clip_id) {
+                    clip.playback = *playback;
                 }
             }
             Self::SetClipMuted { clip_id, muted } => {
@@ -800,18 +872,31 @@ impl Operation for ProjectOp {
                 at,
                 clip_b_source_offset,
             } => {
-                let (lane_id, source_id, muted, range) = {
+                let (lane_id, source_id, muted, start, end, playback) = {
                     let clip = project
                         .clips
                         .get(clip_id)
                         .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
-                    let TimeAnchor::Musical(range) = clip.anchor else {
+                    let (TimeAnchor::Musical(start), ClipExtent::Musical(dur)) =
+                        (clip.placement.anchor, clip.placement.extent)
+                    else {
                         return Err(Error::Validation(format!(
                             "clip {clip_id} is not musically anchored"
                         )));
                     };
-                    (clip.lane_id, clip.source_id, clip.muted, range)
+                    (
+                        clip.lane_id,
+                        clip.source_id,
+                        clip.muted,
+                        start,
+                        start.checked_add(dur.value())?,
+                        clip.playback,
+                    )
                 };
+                let mut b_playback = playback;
+                b_playback.source_region =
+                    SourceRange::try_new(*clip_b_source_offset, playback.source_region.end())?;
+                let b_extent = MusicalDuration::new(end.ticks_since(*at)?)?;
                 let id = ClipId::new(ids.next());
                 project.clips.insert(
                     id,
@@ -819,8 +904,11 @@ impl Operation for ProjectOp {
                         id,
                         lane_id,
                         source_id,
-                        anchor: TimeAnchor::Musical(MusicalRange::try_new(*at, range.end())?),
-                        source_offset: *clip_b_source_offset,
+                        placement: ClipPlacement {
+                            anchor: TimeAnchor::Musical(*at),
+                            extent: ClipExtent::Musical(b_extent),
+                        },
+                        playback: b_playback,
                         muted,
                     },
                 );
@@ -828,7 +916,8 @@ impl Operation for ProjectOp {
                     lane.clip_ids.push(id);
                 }
                 if let Some(clip) = project.clips.get_mut(clip_id) {
-                    clip.anchor = TimeAnchor::Musical(MusicalRange::try_new(range.start(), *at)?);
+                    clip.placement.extent =
+                        ClipExtent::Musical(MusicalDuration::new(at.ticks_since(start)?)?);
                 }
             }
             Self::RemoveClipsInRange { lanes, range } => {
@@ -842,10 +931,19 @@ impl Operation for ProjectOp {
                             .flat_map(|lane| lane.clip_ids.iter().copied())
                     })
                     .filter(|clip_id| {
-                        matches!(
-                            project.clips.get(clip_id).map(|c| c.anchor),
-                            Some(TimeAnchor::Musical(r)) if r.overlaps(range)
-                        )
+                        project.clips.get(clip_id).is_some_and(|c| {
+                            matches!(
+                                (c.placement.anchor, c.placement.extent),
+                                (TimeAnchor::Musical(start), ClipExtent::Musical(dur))
+                                    if MusicalRange::try_new(
+                                        start,
+                                        start
+                                            .checked_add(dur.value())
+                                            .unwrap_or(MusicalTick::new(i64::MAX)),
+                                    )
+                                    .is_ok_and(|r| r.overlaps(range))
+                            )
+                        })
                     })
                     .collect();
                 for clip_id in doomed {
@@ -975,6 +1073,37 @@ impl Operation for ProjectOp {
             }
         }
         Ok(())
+    }
+}
+
+/// Clip placement+playback contract checks.
+///
+/// Only the *rate-independent* contract is enforced here — anchor
+/// resolvability is tempo-map dependent (an anchor may re-derive
+/// differently or fail after a tempo edit; consumers surface that as
+/// `UnresolvableAnchor`, so it is not an op-time error).
+///
+/// `Absolute` extents carry their own time base: `frames_at(denominator)`
+/// treats the declared base as the source's native frame rate — the
+/// unit-consistent convention for absolute-extent clips (`1/rate`
+/// bases check exactly). `Musical` extents are tempo-derived and
+/// `Source` carries no native rate, so only the non-empty window is
+/// checked; their handle fit is enforced at resolve time.
+fn validate_clip_contract(
+    _project: &Project,
+    placement: &ClipPlacement,
+    playback: &ClipPlayback,
+) -> Result<(), Error> {
+    if placement.extent.is_empty() {
+        return Err(Error::Validation("clip extent is empty".into()));
+    }
+    match &placement.extent {
+        ClipExtent::Absolute(dur) => {
+            let media_frames =
+                u64::try_from(dur.frames_at(dur.denominator())).map_err(|_| Error::Negative)?;
+            playback.validate_window(media_frames)
+        }
+        ClipExtent::Musical(_) => playback.validate_window(0),
     }
 }
 

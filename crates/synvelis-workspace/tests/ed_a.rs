@@ -8,8 +8,9 @@
 use ruviform_ui::dock::DockTarget;
 use ruviform_ui::window::MonitorInfo;
 use synvelis_project::{
-    ClipId, CounterIdGenerator, LaneId, MediaSpan, MediaTimeValue, MusicalRange, MusicalTick,
-    Project, ProjectController, ProjectId, ProjectOp, ProjectRevision, SourceFrame, SourceId,
+    ClipExtent, ClipId, ClipPlacement, ClipPlayback, CounterIdGenerator, LaneId, MediaDuration,
+    MediaTimeValue, MusicalDuration, MusicalRange, MusicalTick, PlaybackMapping, Project,
+    ProjectController, ProjectId, ProjectOp, ProjectRevision, SourceFrame, SourceId, SourceRange,
     TimeAnchor, TrackId,
 };
 use synvelis_workspace::{
@@ -86,10 +87,11 @@ fn add_musical_clip(ws: &mut Ws, lane_id: LaneId, start: i64, end: i64) -> ClipI
         ProjectOp::AddClip {
             lane_id,
             source_id,
-            anchor: TimeAnchor::Musical(
-                MusicalRange::try_new(MusicalTick::new(start), MusicalTick::new(end)).unwrap(),
-            ),
-            source_offset: SourceFrame::new(0).unwrap(),
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Musical(MusicalTick::new(start)),
+                extent: ClipExtent::Musical(MusicalDuration::new(end - start).unwrap()),
+            },
+            playback: natural_playback(),
         },
     );
     *ws.session().project().clips.keys().last().unwrap()
@@ -97,14 +99,17 @@ fn add_musical_clip(ws: &mut Ws, lane_id: LaneId, start: i64, end: i64) -> ClipI
 
 fn add_media_clip(ws: &mut Ws, lane_id: LaneId) -> ClipId {
     let source_id = *ws.session().project().sources.keys().next().unwrap();
-    let at = |v| MediaTimeValue::new(v, 44_100, 1).unwrap();
+    let at = |v| MediaTimeValue::new(v, 1, 44_100).unwrap();
     apply(
         ws,
         ProjectOp::AddClip {
             lane_id,
             source_id,
-            anchor: TimeAnchor::Media(MediaSpan::try_new(at(0), at(44_100)).unwrap()),
-            source_offset: SourceFrame::new(0).unwrap(),
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Absolute(at(0)),
+                extent: ClipExtent::Absolute(MediaDuration::new(44_100, 1, 44_100).unwrap()),
+            },
+            playback: natural_playback(),
         },
     );
     *ws.session().project().clips.keys().last().unwrap()
@@ -130,14 +135,25 @@ fn musical_range(start: i64, end: i64) -> MusicalRange {
     MusicalRange::try_new(MusicalTick::new(start), MusicalTick::new(end)).unwrap()
 }
 
-fn clip_anchor(ws: &Ws, clip: ClipId) -> TimeAnchor {
-    ws.session().project().clips.get(&clip).unwrap().anchor
+fn musical_bounds(ws: &Ws, clip: ClipId) -> (i64, i64) {
+    let c = ws.session().project().clips.get(&clip).unwrap();
+    match (c.placement.anchor, c.placement.extent) {
+        (TimeAnchor::Musical(start), ClipExtent::Musical(dur)) => (
+            start.value(),
+            start.checked_add(dur.value()).unwrap().value(),
+        ),
+        (anchor, extent) => panic!("clip {clip} is not musical: {anchor:?} {extent:?}"),
+    }
 }
 
-fn musical_bounds(ws: &Ws, clip: ClipId) -> (i64, i64) {
-    match clip_anchor(ws, clip) {
-        TimeAnchor::Musical(r) => (r.start().value(), r.end().value()),
-        other @ TimeAnchor::Media(_) => panic!("clip {clip} is not musical: {other:?}"),
+fn natural_playback() -> ClipPlayback {
+    ClipPlayback {
+        source_region: SourceRange::try_new(
+            SourceFrame::ZERO,
+            SourceFrame::new(1_000_000).unwrap(),
+        )
+        .unwrap(),
+        mapping: PlaybackMapping::Natural,
     }
 }
 

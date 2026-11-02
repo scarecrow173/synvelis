@@ -19,8 +19,10 @@ use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::P
 
 /// The only schema version this build reads or writes.
 /// v2 adds `Project::control` (the issue-#40 Parameter Control Model);
-/// v1 snapshots are not migrated (PoC-stage format change).
-pub const SCHEMA_VERSION: u32 = 2;
+/// v3 replaces the clip anchor/offset pair with the normalized
+/// placement+playback contract and adds the comping registry (MD-A).
+/// v1/v2 snapshots are not migrated (PoC-stage format change).
+pub const SCHEMA_VERSION: u32 = 3;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.

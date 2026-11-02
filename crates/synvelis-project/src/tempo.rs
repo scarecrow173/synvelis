@@ -171,11 +171,7 @@ impl TickTimeMapping {
             .map
             .tick_to_media(TickPosition::new(Tick::new(tick.value()), ppqn), base)
             .map_err(|_| Error::Overflow)?;
-        Ok(MediaTimeValue {
-            value: media.value(),
-            numerator,
-            denominator,
-        })
+        MediaTimeValue::new(media.value(), numerator, denominator)
     }
 
     /// Converts a media instant back to a musical tick.
@@ -183,11 +179,11 @@ impl TickTimeMapping {
     /// # Errors
     /// [`Error::Overflow`] when the tick is out of range.
     pub fn media_to_tick(&self, media: MediaTimeValue) -> Result<MusicalTick, Error> {
-        let base = TimeBase::new(media.numerator, media.denominator)
+        let base = TimeBase::new(media.numerator(), media.denominator())
             .map_err(|e| Error::Validation(format!("time base: {e:?}")))?;
         let tick = self
             .map
-            .media_to_tick(MediaTime::new(media.value, base), self.ppqn_value()?)
+            .media_to_tick(MediaTime::new(media.value(), base), self.ppqn_value()?)
             .map_err(|_| Error::Overflow)?;
         Ok(MusicalTick::new(tick.tick().value()))
     }
