@@ -19,11 +19,11 @@ use crate::{
     },
     placement::{ClipExtent, ClipPlacement, ClipPlayback, TimeAnchor},
     project::{Asset, Clip, Lane, Project, Source, SourceState, Track},
-    range::MusicalRange,
+    range::{MusicalRange, SourceRange},
     recording_data::ClockEpoch,
     tempo::SignatureDto,
     tempo::TempoEventDto,
-    time::{MusicalTick, SourceFrame},
+    time::{MusicalDuration, MusicalTick, SourceFrame},
 };
 
 /// Project-level operations.
@@ -482,18 +482,21 @@ impl Operation for ProjectOp {
                     .clips
                     .get(clip_id)
                     .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
-                let TimeAnchor::Musical(range) = clip.anchor else {
+                let (TimeAnchor::Musical(start), ClipExtent::Musical(dur)) =
+                    (clip.placement.anchor, clip.placement.extent)
+                else {
                     return Err(Error::Validation(format!(
                         "clip {clip_id} is not musically anchored"
                     )));
                 };
-                if !range.contains(*at) || *at == range.start() {
+                let end = start.checked_add(dur.value())?;
+                if !(*at > start && *at < end) {
                     return Err(Error::Validation(format!(
                         "split tick {} is not strictly inside clip {clip_id}",
                         at.value()
                     )));
                 }
-                if *clip_b_source_offset < clip.source_offset {
+                if *clip_b_source_offset < clip.playback.source_region.start() {
                     return Err(Error::Validation(format!(
                         "clip_b_source_offset precedes source offset of clip {clip_id}"
                     )));
@@ -869,18 +872,31 @@ impl Operation for ProjectOp {
                 at,
                 clip_b_source_offset,
             } => {
-                let (lane_id, source_id, muted, range) = {
+                let (lane_id, source_id, muted, start, end, playback) = {
                     let clip = project
                         .clips
                         .get(clip_id)
                         .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
-                    let TimeAnchor::Musical(range) = clip.anchor else {
+                    let (TimeAnchor::Musical(start), ClipExtent::Musical(dur)) =
+                        (clip.placement.anchor, clip.placement.extent)
+                    else {
                         return Err(Error::Validation(format!(
                             "clip {clip_id} is not musically anchored"
                         )));
                     };
-                    (clip.lane_id, clip.source_id, clip.muted, range)
+                    (
+                        clip.lane_id,
+                        clip.source_id,
+                        clip.muted,
+                        start,
+                        start.checked_add(dur.value())?,
+                        clip.playback,
+                    )
                 };
+                let mut b_playback = playback;
+                b_playback.source_region =
+                    SourceRange::try_new(*clip_b_source_offset, playback.source_region.end())?;
+                let b_extent = MusicalDuration::new(end.ticks_since(*at)?)?;
                 let id = ClipId::new(ids.next());
                 project.clips.insert(
                     id,
@@ -888,8 +904,11 @@ impl Operation for ProjectOp {
                         id,
                         lane_id,
                         source_id,
-                        anchor: TimeAnchor::Musical(MusicalRange::try_new(*at, range.end())?),
-                        source_offset: *clip_b_source_offset,
+                        placement: ClipPlacement {
+                            anchor: TimeAnchor::Musical(*at),
+                            extent: ClipExtent::Musical(b_extent),
+                        },
+                        playback: b_playback,
                         muted,
                     },
                 );
@@ -897,7 +916,8 @@ impl Operation for ProjectOp {
                     lane.clip_ids.push(id);
                 }
                 if let Some(clip) = project.clips.get_mut(clip_id) {
-                    clip.anchor = TimeAnchor::Musical(MusicalRange::try_new(range.start(), *at)?);
+                    clip.placement.extent =
+                        ClipExtent::Musical(MusicalDuration::new(at.ticks_since(start)?)?);
                 }
             }
             Self::RemoveClipsInRange { lanes, range } => {
@@ -911,10 +931,19 @@ impl Operation for ProjectOp {
                             .flat_map(|lane| lane.clip_ids.iter().copied())
                     })
                     .filter(|clip_id| {
-                        matches!(
-                            project.clips.get(clip_id).map(|c| c.anchor),
-                            Some(TimeAnchor::Musical(r)) if r.overlaps(range)
-                        )
+                        project.clips.get(clip_id).is_some_and(|c| {
+                            matches!(
+                                (c.placement.anchor, c.placement.extent),
+                                (TimeAnchor::Musical(start), ClipExtent::Musical(dur))
+                                    if MusicalRange::try_new(
+                                        start,
+                                        start
+                                            .checked_add(dur.value())
+                                            .unwrap_or(MusicalTick::new(i64::MAX)),
+                                    )
+                                    .is_ok_and(|r| r.overlaps(range))
+                            )
+                        })
                     })
                     .collect();
                 for clip_id in doomed {

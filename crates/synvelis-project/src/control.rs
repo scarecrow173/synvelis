@@ -36,7 +36,8 @@ use crate::{
         AutomationLaneId, ClipId, ModulationAssignmentId, ModulationSourceId, NoteId,
         ParameterTargetId, TrackId,
     },
-    project::{Project, TimeAnchor},
+    placement::{ClipExtent, TimeAnchor},
+    project::Project,
     range::Range,
 };
 
@@ -913,15 +914,18 @@ pub fn resolve_scope_pos(
                 .clips
                 .get(&clip_id)
                 .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
-            let TimeAnchor::Musical(range) = clip.anchor else {
+            let (TimeAnchor::Musical(start_tick), ClipExtent::Musical(dur)) =
+                (clip.placement.anchor, clip.placement.extent)
+            else {
                 return Err(Error::ScopeUnavailable {
                     detail: format!("clip {clip_id} is not musically anchored"),
                 });
             };
+            let end_tick = start_tick.checked_add(dur.value())?;
             let ppqn = Ppqn::new(u16::try_from(project.ppqn.0).map_err(|_| Error::Overflow)?)
                 .map_err(|e| Error::Validation(format!("ppqn: {e:?}")))?;
-            let start = TickPosition::new(Tick::new(range.start().value()), ppqn).to_beat();
-            let end = TickPosition::new(Tick::new(range.end().value()), ppqn).to_beat();
+            let start = TickPosition::new(Tick::new(start_tick.value()), ppqn).to_beat();
+            let end = TickPosition::new(Tick::new(end_tick.value()), ppqn).to_beat();
             let pos_b = pos.to_beat();
             if pos_b < start || pos_b >= end {
                 return Err(Error::ScopeUnavailable {

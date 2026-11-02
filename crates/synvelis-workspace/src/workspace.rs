@@ -1225,9 +1225,9 @@ fn primary_anchor_start(
         return None;
     };
     let clip = project.clips.get(&clip_id)?;
-    match clip.anchor {
-        synvelis_project::TimeAnchor::Musical(range) => Some(range.start()),
-        synvelis_project::TimeAnchor::Media(_) => None,
+    match clip.placement.anchor {
+        synvelis_project::TimeAnchor::Musical(tick) => Some(tick),
+        synvelis_project::TimeAnchor::Absolute(_) => None,
     }
 }
 
