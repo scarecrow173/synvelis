@@ -1,7 +1,7 @@
 ---
 id: "TASK-034Qx10ZOfjtNkN8JmDyBR"
 type: "task"
-status: "todo"
+status: "done"
 title: "WS-A task5 受入test WS-A-01..06"
 created: "2026-11-02"
 updated: "2026-11-02"

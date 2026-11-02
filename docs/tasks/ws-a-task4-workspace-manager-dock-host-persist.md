@@ -1,7 +1,7 @@
 ---
 id: "TASK-034Qx10viwoP7xnqZBuC1p"
 type: "task"
-status: "todo"
+status: "done"
 title: "WS-A task4 workspace manager・dock lifecycle・fake host・persist"
 created: "2026-11-02"
 updated: "2026-11-02"

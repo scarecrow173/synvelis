@@ -1,7 +1,7 @@
 ---
 id: "TASK-034Qx10154Li5NXfNP7baP"
 type: "task"
-status: "todo"
+status: "done"
 title: "WS-A task3 command router・target解決"
 created: "2026-11-02"
 updated: "2026-11-02"

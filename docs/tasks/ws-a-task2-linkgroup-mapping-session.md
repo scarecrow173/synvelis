@@ -1,7 +1,7 @@
 ---
 id: "TASK-034Qx0ZvZ742U0JcMeFDx2"
 type: "task"
-status: "todo"
+status: "done"
 title: "WS-A task2 link group・semantic mapping・session配信"
 created: "2026-11-02"
 updated: "2026-11-02"

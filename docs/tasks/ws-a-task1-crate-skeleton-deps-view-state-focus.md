@@ -1,7 +1,7 @@
 ---
 id: "TASK-034Qx0YZqo0BocaH8p0zvQ"
 type: "task"
-status: "todo"
+status: "done"
 title: "WS-A task1 crate skeleton・deps更新・error/view/state/focus"
 created: "2026-11-02"
 updated: "2026-11-02"
