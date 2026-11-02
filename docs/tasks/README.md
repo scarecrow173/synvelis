@@ -29,3 +29,9 @@ Directory: `docs/tasks`
 | TASK-R3hI9GxjhaO5En49GPl1YK | VS-B task4 mock driver writer | done | [vs-b-task4-mock-driver-writer.md](./vs-b-task4-mock-driver-writer.md) |
 | TASK-3x4WFhrRf9r9qJ29dKDIfg | VS-B task5 poc acceptance tests | done | [vs-b-task5-poc-acceptance-tests.md](./vs-b-task5-poc-acceptance-tests.md) |
 | TASK-vAuCiK5oASTb8dwuPNTCWs | VS-B task6 verification merge impl record | done | [vs-b-task6-verification-merge-impl-record.md](./vs-b-task6-verification-merge-impl-record.md) |
+| TASK-UNKbSXncDrwD7F9WA51dDG | VS-D task1 applied commit registry | done | [vs-d-task1-applied-commit-registry.md](./vs-d-task1-applied-commit-registry.md) |
+| TASK-89CafxCbPp0k654XLLwJL4 | VS-D task2 commit manifest plan | done | [vs-d-task2-commit-manifest-plan.md](./vs-d-task2-commit-manifest-plan.md) |
+| TASK-g9NPYtRA6rCjhXiJ6FRPf1 | VS-D task3 commit recording op | done | [vs-d-task3-commit-recording-op.md](./vs-d-task3-commit-recording-op.md) |
+| TASK-94KUOSi6E5hLp0z924tx0Z | VS-D task4 poc vsd scenario | done | [vs-d-task4-poc-vsd-scenario.md](./vs-d-task4-poc-vsd-scenario.md) |
+| TASK-Q55t28lMPEU2KfWWnDjN0v | VS-D task5 acceptance tests | done | [vs-d-task5-acceptance-tests.md](./vs-d-task5-acceptance-tests.md) |
+| TASK-y590vxVzQnOZqfoO4yx5HA | VS-D task6 verification impl record | done | [vs-d-task6-verification-impl-record.md](./vs-d-task6-verification-impl-record.md) |

@@ -38,6 +38,9 @@ fn main() {
     if args.get(1).map(String::as_str) == Some("vsc") {
         std::process::exit(vsc(&args[2..]));
     }
+    if args.get(1).map(String::as_str) == Some("vsd") {
+        std::process::exit(vsd(&args[2..]));
+    }
     if let Err(e) = run() {
         eprintln!("recording-poc failed: {e}");
         std::process::exit(1);
@@ -248,6 +251,342 @@ fn vsc_recover(root: &std::path::Path, session_id: synvelis_project::RecordingSe
                 return 1;
             }
         }
+    }
+    println!("result=OK");
+    0
+}
+
+// ---- VS-D: recording commit / idempotency / undo / reload ----
+//
+// `recording-poc vsd <root> <session>`
+//   project ops → mock 録音 → staging finalize → commit_session →
+//   save → reload → AlreadyApplied retry → undo/redo の決定的実演。
+//   `vsd-report.json` を root 直下に出力し、stdout は key=value。
+fn vsd(args: &[String]) -> i32 {
+    let (root, session) = if let [root, session] = args {
+        (PathBuf::from(root), session.clone())
+    } else {
+        eprintln!("usage: recording-poc vsd <root> <session>");
+        return 2;
+    };
+    let Ok(raw) = session.parse::<u128>() else {
+        eprintln!("invalid session id");
+        return 2;
+    };
+    vsd_run(&root, synvelis_project::RecordingSessionId::new(raw))
+}
+
+#[allow(clippy::too_many_lines)] // sequential poc scenario
+fn vsd_run(root: &std::path::Path, session_raw: synvelis_project::RecordingSessionId) -> i32 {
+    use synvelis_project::{ClockEpochId, CounterIdGenerator, DirectoryBundleStore, LaneId};
+    use synvelis_recording::{CommitOutcome, commit_session, commit_status, read_commit_marker};
+
+    let _ = session_raw; // session 実体は controller が採番（決定的）。
+    let bundle = root.join("project.synvelis");
+    if bundle.exists() {
+        let _ = std::fs::remove_dir_all(&bundle);
+    }
+
+    let mut controller = synvelis_project::ProjectController::new(
+        Project::new(ProjectId::new(0), "vsd-poc"),
+        Box::new(CounterIdGenerator::new(1)),
+    );
+    apply!(
+        controller,
+        SynvelisOp::Project(ProjectOp::AddTrack { name: "vsd".into() })
+    );
+    let track_id = *controller.live().tracks.keys().next().unwrap();
+    apply!(
+        controller,
+        SynvelisOp::Project(ProjectOp::AddLane { track_id })
+    );
+    let lane_id: LaneId = *controller.live().lanes.keys().next().unwrap();
+    apply!(
+        controller,
+        SynvelisOp::Project(ProjectOp::RegisterClockEpoch {
+            description: "mock".into(),
+        })
+    );
+    let epoch: ClockEpochId = *controller.live().clock_epochs.keys().next().unwrap();
+    apply!(
+        controller,
+        SynvelisOp::Recording(RecordingOp::CreateSession {
+            name: "vsd-session".into(),
+        })
+    );
+    let session_id = *controller.live().recording.sessions.keys().next().unwrap();
+    apply!(
+        controller,
+        SynvelisOp::Recording(RecordingOp::OpenSession { session_id })
+    );
+    apply!(
+        controller,
+        SynvelisOp::Recording(RecordingOp::RegisterStream {
+            session_id,
+            lane_id,
+            clock_epoch_id: epoch,
+        })
+    );
+    let stream_id = *controller.live().recording.streams.keys().next().unwrap();
+    let session_dir = root.join(session_id.to_tagged());
+    if session_dir.exists() {
+        let _ = std::fs::remove_dir_all(&session_dir);
+    }
+
+    let area = match StagingArea::create(
+        root,
+        &StagingSessionConfig {
+            session_id,
+            sample_rate: 48_000,
+            streams: vec![stream_config(0, stream_id, lane_id, 2)],
+        },
+    ) {
+        Ok(a) => a,
+        Err(e) => {
+            eprintln!("staging create failed: {e}");
+            return 1;
+        }
+    };
+    let stream_cfgs: Vec<StagingStreamConfig> = area
+        .manifest
+        .streams
+        .iter()
+        .map(|m| StagingStreamConfig {
+            stream_index: m.stream_index,
+            capture_stream_id: m.capture_stream_id.clone(),
+            lane_id: m.lane_id.clone(),
+            channels: m.channels,
+        })
+        .collect();
+    let Ok(plan) = preflight(
+        controller.live(),
+        RecordingRequest {
+            targets: vec![CaptureTarget {
+                lane_id,
+                channels: 2,
+            }],
+            clock_epoch: epoch,
+            tempo_map: TempoMapRef { revision: 0 },
+            transport_start: MusicalTick::ZERO,
+            stop: MusicalTick::new(1920),
+            gate: GateSpec::Normal {
+                open: MusicalTick::ZERO,
+            },
+            budget: BufferBudget {
+                chunks: 8,
+                chunk_frames: 512,
+                spans_per_chunk: 8,
+                filled_capacity: 8,
+                lookahead_spans: 16,
+            },
+            max_block_frames: 512,
+        },
+        48_000,
+    ) else {
+        eprintln!("preflight failed");
+        return 1;
+    };
+    let a = area.clone();
+    let mut sc: Scenario<StreamWriter> = Scenario::build_with(plan, move |i, ends, fault| {
+        StreamWriter::create(&a, stream_cfgs[i as usize].clone(), ends, fault)
+            .expect("writer create")
+    });
+    let mut input = MockInput::new(epoch, 0);
+    sc.run_to_end(&mut input, 256);
+    // capture 中に latch された engine 側 fault（queue 溢れ・epoch
+    // 断絶等）は session 全体に属するため、driver が durable marker
+    // として staging に記録する。commit は marker で全 stream を
+    // recoverable に分類する（FaultLatch は in-memory のため）。
+    if sc.fault.is_faulted()
+        && let Err(e) = area.record_capture_fault(&format!("fault bits {}", sc.fault.bits()))
+    {
+        eprintln!("capture fault marker failed: {e}");
+        return 1;
+    }
+    for rig in &mut sc.rigs {
+        if let Err(e) = rig.writer.checkpoint() {
+            eprintln!("checkpoint failed: {e}");
+            return 1;
+        }
+    }
+    let tag = session_id.to_tagged();
+    let writers: Vec<&mut StreamWriter> = sc.rigs.iter_mut().map(|r| &mut r.writer).collect();
+    let fin = finish_all(&tag, 48_000, writers);
+    for (i, r) in &fin.refs {
+        match r {
+            Ok(s) => println!(
+                "vsd_finalize stream={i} outcome={:?} frames={} digest={}",
+                s.outcome, s.source_frames, s.digest
+            ),
+            Err(e) => {
+                eprintln!("vsd_finalize stream={i} error={e}");
+                return 1;
+            }
+        }
+    }
+    apply!(
+        controller,
+        SynvelisOp::Recording(RecordingOp::CloseSession { session_id })
+    );
+
+    let report = match commit_session(&mut controller, &area) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("commit failed: {e}");
+            return 1;
+        }
+    };
+    match &report.outcome {
+        CommitOutcome::Applied { revision } => {
+            println!("vsd_commit outcome=applied rev={revision}");
+        }
+        other => {
+            eprintln!("vsd_commit unexpected outcome: {other:?}");
+            return 1;
+        }
+    }
+    println!(
+        "vsd_committed sources={} takes={} clips={} recoverable={}",
+        report.sources_committed,
+        report.takes_committed,
+        report.clips_committed,
+        report.recoverable.len()
+    );
+    println!("vsd_hash={}", report.content_hash);
+
+    let mut store = match DirectoryBundleStore::create(&bundle) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("store create failed: {e}");
+            return 1;
+        }
+    };
+    if let Err(e) = controller.save(&mut store) {
+        eprintln!("save failed: {e}");
+        return 1;
+    }
+
+    let mut reloaded = synvelis_project::ProjectController::new(
+        Project::new(ProjectId::new(0), "placeholder"),
+        Box::new(CounterIdGenerator::new(1)),
+    );
+    if let Err(e) = reloaded.load(&store) {
+        eprintln!("reload failed: {e}");
+        return 1;
+    }
+    let roundtrip = serde_json::to_value(controller.live()).unwrap()
+        == serde_json::to_value(reloaded.live()).unwrap();
+    println!("vsd_reload_equal={roundtrip}");
+    if !roundtrip {
+        return 1;
+    }
+    // reload 後の retry: persisted registry が AlreadyApplied を返し、
+    // 同一 manifest（同一 ID・同一 hash）で重複登録しない。
+    let report2 = match commit_session(&mut reloaded, &area) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("retry failed: {e}");
+            return 1;
+        }
+    };
+    match &report2.outcome {
+        CommitOutcome::AlreadyApplied => println!("vsd_retry outcome=already-applied"),
+        other => {
+            eprintln!("vsd_retry unexpected outcome: {other:?}");
+            return 1;
+        }
+    }
+    let committed_ids: Vec<String> = controller
+        .live()
+        .recording
+        .takes
+        .keys()
+        .map(|t| t.to_tagged())
+        .collect();
+    println!("vsd_take_ids={}", committed_ids.join(","));
+
+    // undo/redo（in-memory history）: Project 参照のみ戻し、staging
+    // media は残る。
+    let media_path = area.media_path(0);
+    let media_bytes_before = media_path.metadata().map_or(0, |m| m.len());
+    if !controller.undo().unwrap_or(false) {
+        eprintln!("undo failed");
+        return 1;
+    }
+    let undone = controller.live();
+    println!(
+        "vsd_undo sources={} takes={} clips={} sessions_finalized={} media_present={}",
+        undone.sources.len(),
+        undone.recording.takes.len(),
+        undone.clips.len(),
+        usize::from(
+            undone
+                .recording
+                .sessions
+                .values()
+                .any(|s| s.state == synvelis_project::SessionState::Finalized)
+        ),
+        media_path.exists()
+    );
+    if !controller.redo().unwrap_or(false) {
+        eprintln!("redo failed");
+        return 1;
+    }
+    let redone_ids: Vec<String> = controller
+        .live()
+        .recording
+        .takes
+        .keys()
+        .map(|t| t.to_tagged())
+        .collect();
+    let ids_same = committed_ids == redone_ids;
+    println!(
+        "vsd_redo sources={} ids_same={ids_same}",
+        controller.live().sources.len()
+    );
+    if !ids_same {
+        return 1;
+    }
+    let media_bytes_after = media_path.metadata().map_or(0, |m| m.len());
+    println!(
+        "vsd_media_preserved={}",
+        media_bytes_before == media_bytes_after
+    );
+    if media_bytes_before != media_bytes_after {
+        return 1;
+    }
+    let status = commit_status(controller.live(), session_id, &report.content_hash);
+    println!("vsd_status_after_redo={status:?}");
+    if let Some(m) = read_commit_marker(&area) {
+        println!("vsd_marker outcome={} rev={}", m.outcome, m.revision);
+    } else {
+        eprintln!("commit marker missing");
+        return 1;
+    }
+
+    // durable report（結果比較の正本）。
+    let report_doc = serde_json::json!({
+        "session": session_id.to_tagged(),
+        "content_hash": report.content_hash,
+        "sources_committed": report.sources_committed,
+        "takes_committed": report.takes_committed,
+        "clips_committed": report.clips_committed,
+        "recoverable": report.recoverable.iter().map(|r| {
+            serde_json::json!({
+                "stream": r.stream_index, "reason": r.reason, "media": r.media,
+            })
+        }).collect::<Vec<_>>(),
+        "retry_outcome": "already-applied",
+        "reload_equal": roundtrip,
+        "undo_redo_ids_same": ids_same,
+        "media_preserved_bytes": media_bytes_after,
+    });
+    if let Err(e) = std::fs::write(
+        root.join("vsd-report.json"),
+        serde_json::to_vec_pretty(&report_doc).unwrap(),
+    ) {
+        eprintln!("report write failed: {e}");
+        return 1;
     }
     println!("result=OK");
     0
