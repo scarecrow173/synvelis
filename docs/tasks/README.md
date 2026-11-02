@@ -27,6 +27,10 @@ Directory: `docs/tasks`
 | TASK-034QmkzixMrECeHtSzDAOq | L2 task3 render core processors | done | [l2-task3-render-core.md](./l2-task3-render-core.md) |
 | TASK-034QmkzTccUOQtocumKKXN | L2 task4 verify publish job | done | [l2-task4-verify-publish-job.md](./l2-task4-verify-publish-job.md) |
 | TASK-034QmkApgInfzfYY2D8TrH | L2 task5 acceptance tests verification | done | [l2-task5-acceptance-tests.md](./l2-task5-acceptance-tests.md) |
+| TASK-A12kQItkHfVbth42pCr8ga | MD-A task1 正規化 Placement/Playback 型・Clip 移行・consumer 適合 | done | [mda-task1-normalized-placement-schema.md](./mda-task1-normalized-placement-schema.md) |
+| TASK-HVCTNeUo2kXQN0NvHCUa6K | MD-A task2 Comp スキーマ (ID/registry/POD) + CompOp + 検証 | done | [mda-task2-comp-schema-ops.md](./mda-task2-comp-schema-ops.md) |
+| TASK-jlbvNYC9NvQW1NsWa4wo4K | MD-A task3 Effective Comp 投影 + editor target 型 | done | [mda-task3-effective-comp-projection-editor-targets.md](./mda-task3-effective-comp-projection-editor-targets.md) |
+| TASK-2s64FRQrl31k3APXwajsNF | MD-A task4 MD-A-* 受入テスト + 全検証 + impl record | done | [mda-task4-acceptance-tests-verification.md](./mda-task4-acceptance-tests-verification.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | TASK-034Qe0kHawWuXO1xHGTd8F | VS-A task3 controller ops store | done | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |
