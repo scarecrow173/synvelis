@@ -12,6 +12,12 @@ Directory: `docs/tasks`
 | TASK-034QfR0eLqVxiQlwHq30L3 | VS-C task4 recovery scanner | todo | [vs-c-task4-recovery-scanner.md](./vs-c-task4-recovery-scanner.md) |
 | TASK-034QfR0WeQaYFoG1702td0 | VS-C task5 poc acceptance tests | todo | [vs-c-task5-poc-acceptance-tests.md](./vs-c-task5-poc-acceptance-tests.md) |
 | TASK-034QfR1ESUtmNef7DRyTyz | VS-C task6 verification impl record | todo | [vs-c-task6-verification-impl-record.md](./vs-c-task6-verification-impl-record.md) |
+| TASK-034Qx0YZqo0BocaH8p0zvQ | WS-A task1 crate skeleton・deps更新・error/view/state/focus | todo | [ws-a-task1-crate-skeleton-deps-view-state-focus.md](./ws-a-task1-crate-skeleton-deps-view-state-focus.md) |
+| TASK-034Qx0ZvZ742U0JcMeFDx2 | WS-A task2 link group・semantic mapping・session配信 | todo | [ws-a-task2-linkgroup-mapping-session.md](./ws-a-task2-linkgroup-mapping-session.md) |
+| TASK-034Qx10154Li5NXfNP7baP | WS-A task3 command router・target解決 | todo | [ws-a-task3-command-router.md](./ws-a-task3-command-router.md) |
+| TASK-034Qx10viwoP7xnqZBuC1p | WS-A task4 workspace manager・dock lifecycle・fake host・persist | todo | [ws-a-task4-workspace-manager-dock-host-persist.md](./ws-a-task4-workspace-manager-dock-host-persist.md) |
+| TASK-034Qx10ZOfjtNkN8JmDyBR | WS-A task5 受入test WS-A-01..06 | todo | [ws-a-task5-acceptance-tests.md](./ws-a-task5-acceptance-tests.md) |
+| TASK-034Qx11uIekuC4n8fmY3Wh | WS-A task6 merge・再生成・最終検証・impl record | todo | [ws-a-task6-verification-merge-impl-record.md](./ws-a-task6-verification-merge-impl-record.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
 
