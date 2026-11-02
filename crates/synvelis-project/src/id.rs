@@ -142,6 +142,10 @@ define_id!(
     /// Identifies a [`crate::ClockEpoch`].
     ClockEpochId, "clock-epoch"
 );
+define_id!(
+    /// Identifies one safe local media import operation.
+    ImportId, "import"
+);
 
 /// Source of fresh stable-ID raw values. Injected into
 /// [`crate::ProjectController`] so tests are fully deterministic.

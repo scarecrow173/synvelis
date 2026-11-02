@@ -91,6 +91,13 @@ pub enum ProjectOp {
         /// New placement.
         anchor: TimeAnchor,
     },
+    /// Set a clip's muted flag — muted clips lower to silence.
+    SetClipMuted {
+        /// Target clip.
+        clip_id: ClipId,
+        /// New muted state.
+        muted: bool,
+    },
     /// Register an asset.
     RegisterAsset {
         /// Content digest.
@@ -224,7 +231,9 @@ impl Operation for ProjectOp {
                 }
                 Ok(())
             }
-            Self::RemoveClip { clip_id } | Self::MoveClip { clip_id, .. } => project
+            Self::RemoveClip { clip_id }
+            | Self::MoveClip { clip_id, .. }
+            | Self::SetClipMuted { clip_id, .. } => project
                 .clips
                 .contains_key(clip_id)
                 .then_some(())
@@ -324,6 +333,7 @@ impl Operation for ProjectOp {
                         source_id: *source_id,
                         anchor: *anchor,
                         source_offset: *source_offset,
+                        muted: false,
                     },
                 );
                 if let Some(lane) = project.lanes.get_mut(lane_id) {
@@ -340,6 +350,11 @@ impl Operation for ProjectOp {
             Self::MoveClip { clip_id, anchor } => {
                 if let Some(clip) = project.clips.get_mut(clip_id) {
                     clip.anchor = *anchor;
+                }
+            }
+            Self::SetClipMuted { clip_id, muted } => {
+                if let Some(clip) = project.clips.get_mut(clip_id) {
+                    clip.muted = *muted;
                 }
             }
             Self::RegisterAsset { digest } => {
