@@ -141,9 +141,7 @@ impl Operation for CommitImport {
                 },
             ));
         }
-        if project.assets.contains_key(&self.asset_id)
-            || project.sources.contains_key(&self.source_id)
-        {
+        if project.assets.contains_key(&self.asset_id) || project.contains_source(&self.source_id) {
             return Err(Error::Validation("import reserved-id collision".into()));
         }
         Ok(())

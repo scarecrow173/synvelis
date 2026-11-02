@@ -17,13 +17,17 @@ use crate::{
         AssetId, AutomationLaneId, ClipId, IdGenerator, LaneId, ModulationAssignmentId,
         ModulationSourceId, NoteId, ParameterTargetId, SourceId, TrackId,
     },
-    placement::{ClipExtent, ClipPlacement, ClipPlayback, TimeAnchor, validate_clip_contract},
+    midi::{MidiDivision, MidiNote, MidiSource},
+    placement::{
+        ClipExtent, ClipPlacement, ClipPlayback, TimeAnchor, validate_clip_contract,
+        validate_midi_clip_contract,
+    },
     project::{Asset, Clip, Lane, Note, Project, Source, SourceState, Track},
     range::{MusicalRange, SourceRange},
     recording_data::ClockEpoch,
     tempo::SignatureDto,
     tempo::TempoEventDto,
-    time::{MusicalDuration, MusicalTick, SourceFrame},
+    time::{MidiTick, MusicalDuration, MusicalTick, SourceFrame},
 };
 
 /// Project-level operations.
@@ -82,7 +86,7 @@ pub enum ProjectOp {
     AddClip {
         /// Lane to hold the clip.
         lane_id: LaneId,
-        /// Media source the clip reads.
+        /// Source the clip reads — media or MIDI.
         source_id: SourceId,
         /// Timeline placement (anchor + extent, the saved authority).
         placement: ClipPlacement,
@@ -142,6 +146,70 @@ pub enum ProjectOp {
     RemoveNote {
         /// Target note.
         note: NoteId,
+    },
+    /// Create a MIDI source: a project-owned note sequence in
+    /// source-native ticks sharing the `SourceId` space (issue #52).
+    /// Clips reference it through `Clip::source_id` like a media
+    /// source — linked clips then read the same note set.
+    AddMidiSource {
+        /// Native tick resolution.
+        division: MidiDivision,
+    },
+    /// Remove a MIDI source — only while no clip references it.
+    RemoveMidiSource {
+        /// Target MIDI source.
+        source_id: SourceId,
+    },
+    /// Add a note to a MIDI source. The note is source payload —
+    /// every clip reading the source sees it (linked semantics); the
+    /// op names the source directly, so editing never goes "through"
+    /// one of the linked clips.
+    AddMidiNote {
+        /// Owning MIDI source.
+        source_id: SourceId,
+        /// Musical key identity (0–127).
+        key: u8,
+        /// Note-on velocity (1–127).
+        velocity: u8,
+        /// Source-native start tick.
+        start: MidiTick,
+        /// Note length in source-native ticks (> 0).
+        len: MidiTick,
+    },
+    /// Remove a note from a MIDI source.
+    RemoveMidiNote {
+        /// Owning MIDI source.
+        source_id: SourceId,
+        /// Target note.
+        note_id: NoteId,
+    },
+    /// Set a MIDI note's velocity (1–127).
+    SetMidiNoteVelocity {
+        /// Owning MIDI source.
+        source_id: SourceId,
+        /// Target note.
+        note_id: NoteId,
+        /// New velocity.
+        velocity: u8,
+    },
+    /// Move a MIDI note to a new start tick. The duration is
+    /// unchanged — a move never rewrites `len`.
+    MoveMidiNote {
+        /// Owning MIDI source.
+        source_id: SourceId,
+        /// Target note.
+        note_id: NoteId,
+        /// New source-native start tick.
+        start: MidiTick,
+    },
+    /// Break a clip's shared-source link: duplicate the MIDI source
+    /// it reads (fresh `SourceId`, fresh `NoteId`s) and repoint the
+    /// clip at the copy — the explicit linked→independent
+    /// transition (issue #52). Independence is never implicit
+    /// copy-on-write, and detaching a media-source clip is rejected.
+    DetachClipSource {
+        /// Clip to detach.
+        clip_id: ClipId,
     },
     /// Register an asset.
     RegisterAsset {
@@ -411,10 +479,11 @@ impl Operation for ProjectOp {
                 if !project.lanes.contains_key(lane_id) {
                     return Err(Error::NotFound(format!("lane {lane_id}")));
                 }
-                if !project.sources.contains_key(source_id) {
+                if !project.contains_source(source_id) {
                     return Err(Error::NotFound(format!("source {source_id}")));
                 }
-                validate_clip_contract(project, placement, playback)
+                validate_clip_contract(project, placement, playback)?;
+                validate_midi_clip_contract(project, source_id, placement, playback)
             }
             Self::MoveClip {
                 clip_id, anchor, ..
@@ -439,14 +508,12 @@ impl Operation for ProjectOp {
                     .clips
                     .get(clip_id)
                     .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
-                validate_clip_contract(
-                    project,
-                    &ClipPlacement {
-                        anchor: clip.placement.anchor,
-                        extent: *extent,
-                    },
-                    &clip.playback,
-                )
+                let placement = ClipPlacement {
+                    anchor: clip.placement.anchor,
+                    extent: *extent,
+                };
+                validate_clip_contract(project, &placement, &clip.playback)?;
+                validate_midi_clip_contract(project, &clip.source_id, &placement, &clip.playback)
             }
             Self::SetClipPlayback {
                 clip_id, playback, ..
@@ -455,7 +522,8 @@ impl Operation for ProjectOp {
                     .clips
                     .get(clip_id)
                     .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
-                validate_clip_contract(project, &clip.placement, playback)
+                validate_clip_contract(project, &clip.placement, playback)?;
+                validate_midi_clip_contract(project, &clip.source_id, &clip.placement, playback)
             }
             Self::RemoveClip { clip_id } | Self::SetClipMuted { clip_id, .. } => project
                 .clips
@@ -498,6 +566,67 @@ impl Operation for ProjectOp {
                 .contains_key(note)
                 .then_some(())
                 .ok_or_else(|| Error::NotFound(format!("note {note}"))),
+            // -- MIDI source/note model (issue #52) -------------------
+            Self::AddMidiSource { division } => division.validate(),
+            Self::RemoveMidiSource { source_id } => {
+                midi_source(project, source_id)?;
+                if project.clips.values().any(|c| c.source_id == *source_id) {
+                    return Err(Error::Validation(format!(
+                        "midi source {source_id} still referenced by clips"
+                    )));
+                }
+                Ok(())
+            }
+            Self::AddMidiNote {
+                source_id,
+                key,
+                velocity,
+                start,
+                len,
+            } => {
+                midi_source(project, source_id)?;
+                MidiNote::validate_fields(*key, *velocity, *start, *len)
+            }
+            Self::RemoveMidiNote { source_id, note_id } => midi_source(project, source_id)?
+                .notes
+                .contains_key(note_id)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("note {note_id}"))),
+            Self::SetMidiNoteVelocity {
+                source_id,
+                note_id,
+                velocity,
+            } => {
+                midi_note(project, source_id, note_id)?;
+                if *velocity == 0 || *velocity > 127 {
+                    return Err(Error::Validation(format!(
+                        "velocity {velocity} outside 1..=127"
+                    )));
+                }
+                Ok(())
+            }
+            Self::MoveMidiNote {
+                source_id,
+                note_id,
+                start,
+            } => {
+                let note = midi_note(project, source_id, note_id)?;
+                // The moved note must still have a representable end.
+                start.checked_add(note.len.value())?;
+                Ok(())
+            }
+            Self::DetachClipSource { clip_id } => {
+                let clip = project
+                    .clips
+                    .get(clip_id)
+                    .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
+                if !project.midi_sources.contains_key(&clip.source_id) {
+                    return Err(Error::Validation(format!(
+                        "clip {clip_id} does not read a midi source"
+                    )));
+                }
+                Ok(())
+            }
             Self::RegisterSource { asset_id, .. } => project
                 .assets
                 .contains_key(asset_id)
@@ -887,6 +1016,99 @@ impl Operation for ProjectOp {
             Self::RemoveNote { note } => {
                 project.notes.remove(note);
             }
+            // -- MIDI source/note model (issue #52) -------------------
+            Self::AddMidiSource { division } => {
+                let id = SourceId::new(ids.next());
+                project.midi_sources.insert(
+                    id,
+                    MidiSource {
+                        id,
+                        division: *division,
+                        notes: std::collections::BTreeMap::new(),
+                    },
+                );
+            }
+            Self::RemoveMidiSource { source_id } => {
+                project.midi_sources.remove(source_id);
+            }
+            Self::AddMidiNote {
+                source_id,
+                key,
+                velocity,
+                start,
+                len,
+            } => {
+                if let Some(source) = project.midi_sources.get_mut(source_id) {
+                    let id = NoteId::new(ids.next());
+                    source.notes.insert(
+                        id,
+                        MidiNote {
+                            id,
+                            key: *key,
+                            velocity: *velocity,
+                            start: *start,
+                            len: *len,
+                        },
+                    );
+                }
+            }
+            Self::RemoveMidiNote { source_id, note_id } => {
+                if let Some(source) = project.midi_sources.get_mut(source_id) {
+                    source.notes.remove(note_id);
+                }
+            }
+            Self::SetMidiNoteVelocity {
+                source_id,
+                note_id,
+                velocity,
+            } => {
+                if let Some(source) = project.midi_sources.get_mut(source_id)
+                    && let Some(note) = source.notes.get_mut(note_id)
+                {
+                    note.velocity = *velocity;
+                }
+            }
+            Self::MoveMidiNote {
+                source_id,
+                note_id,
+                start,
+            } => {
+                if let Some(source) = project.midi_sources.get_mut(source_id)
+                    && let Some(note) = source.notes.get_mut(note_id)
+                {
+                    note.start = *start;
+                }
+            }
+            Self::DetachClipSource { clip_id } => {
+                let linked_id = project.clips.get(clip_id).map(|c| c.source_id);
+                if let Some(linked_id) = linked_id
+                    && let Some(linked) = project.midi_sources.get(&linked_id).cloned()
+                {
+                    let new_id = SourceId::new(ids.next());
+                    // Fresh NoteIds keep the project-wide uniqueness
+                    // invariant — a detached copy is a new note, not
+                    // the linked one under a second address.
+                    let notes = linked
+                        .notes
+                        .into_values()
+                        .map(|mut note| {
+                            note.id = NoteId::new(ids.next());
+                            (note.id, note)
+                        })
+                        .collect();
+                    project.midi_sources.insert(
+                        new_id,
+                        MidiSource {
+                            id: new_id,
+                            division: linked.division,
+                            notes,
+                        },
+                    );
+                    if let Some(clip) = project.clips.get_mut(clip_id) {
+                        clip.source_id = new_id;
+                    }
+                }
+            }
             Self::MoveClip { clip_id, anchor } => {
                 if let Some(clip) = project.clips.get_mut(clip_id) {
                     clip.placement.anchor = *anchor;
@@ -1184,6 +1406,27 @@ fn clip_beats(project: &Project, ticks: i64) -> Result<crate::control::BeatPoint
         ruviform_media_core::TickPosition::new(ruviform_media_core::Tick::new(ticks), ppqn)
             .to_beat(),
     ))
+}
+
+/// Resolves a MIDI source by ID — the `source_id` op parameter
+/// requires a MIDI-kind source, not any entry in the `SourceId` space.
+fn midi_source<'p>(project: &'p Project, source_id: &SourceId) -> Result<&'p MidiSource, Error> {
+    project
+        .midi_sources
+        .get(source_id)
+        .ok_or_else(|| Error::NotFound(format!("midi source {source_id}")))
+}
+
+/// Resolves a note inside a MIDI source.
+fn midi_note<'p>(
+    project: &'p Project,
+    source_id: &SourceId,
+    note_id: &NoteId,
+) -> Result<&'p MidiNote, Error> {
+    midi_source(project, source_id)?
+        .notes
+        .get(note_id)
+        .ok_or_else(|| Error::NotFound(format!("note {note_id}")))
 }
 
 /// Validates that a `ControlScope` resolves against existing entities.

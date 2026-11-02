@@ -244,6 +244,38 @@ pub(crate) fn validate_clip_contract(
     }
 }
 
+/// Enforces the defined clip-contract subset over a
+/// [`MidiSource`](crate::midi::MidiSource): a `Musical` extent and a
+/// `Natural` mapping. Frame-domain `Absolute` extents compare media
+/// frames against native ticks, and media-rate mappings (`Loop` /
+/// `SimpleStretch`) have no defined meaning over a note sequence —
+/// persisting either would record a contract no consumer can evaluate
+/// (issue #52). Media-source clips are unconstrained here.
+///
+/// # Errors
+/// [`Error::Validation`] when a MIDI-source clip leaves that subset.
+pub(crate) fn validate_midi_clip_contract(
+    project: &crate::project::Project,
+    source_id: &crate::id::SourceId,
+    placement: &ClipPlacement,
+    playback: &ClipPlayback,
+) -> Result<(), Error> {
+    if !project.midi_sources.contains_key(source_id) {
+        return Ok(());
+    }
+    if !matches!(placement.extent, ClipExtent::Musical(_)) {
+        return Err(Error::Validation(format!(
+            "clip on midi source {source_id} requires a Musical extent"
+        )));
+    }
+    if !matches!(playback.mapping, PlaybackMapping::Natural) {
+        return Err(Error::Validation(format!(
+            "clip on midi source {source_id} requires a Natural playback mapping"
+        )));
+    }
+    Ok(())
+}
+
 /// A placement+playback pair resolved to concrete frames under one
 /// tempo-map revision.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
