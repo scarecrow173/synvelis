@@ -45,7 +45,8 @@ pub use host::FakeWindowHost;
 pub use link::{LinkEvent, LinkGroupId, LinkGroupManager};
 pub use persist::{WORKSPACE_SCHEMA, WorkspaceSnapshot};
 pub use selection::{
-    EditBinding, EditTimeDomain, LaneScope, ObjectSelections, SelectionDomain, TimeSelection,
+    EditBinding, EditTimeDomain, EditTimePoint, LaneScope, ObjectSelections, SelectionDomain,
+    TimeSelection,
 };
 pub use session::{EngineStub, ProjectSession, TransportState};
 pub use snap::{

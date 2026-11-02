@@ -10,9 +10,9 @@
 //! change rejects rather than silently retargeting.
 
 use serde::{Deserialize, Serialize};
-use synvelis_project::{MusicalTick, ProjectRevision};
+use synvelis_project::ProjectRevision;
 
-use crate::selection::EditTimeDomain;
+use crate::selection::{EditTimeDomain, EditTimePoint};
 use crate::snap::SnapWinner;
 use crate::state::SemanticTarget;
 use crate::tool::EditOperation;
@@ -30,8 +30,9 @@ pub struct GestureFixation {
     /// The shared time domain of the targets (or the probe domain for
     /// target-free operations like marquee).
     pub domain: EditTimeDomain,
-    /// Pointer position at gesture start.
-    pub origin: MusicalTick,
+    /// Pointer position at gesture start — domain-tagged like the
+    /// fixated `domain` (checked at `pointer_down`, ED-B).
+    pub origin: EditTimePoint,
 }
 
 impl GestureFixation {
@@ -47,9 +48,10 @@ impl GestureFixation {
 /// it exists only inside view state and is dropped on commit/cancel.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GesturePreview {
-    /// Current pointer position.
-    pub position: MusicalTick,
-    /// Tick delta from the fixation origin, after snapping.
+    /// Current pointer position, in the fixated domain.
+    pub position: EditTimePoint,
+    /// Delta from the fixation origin in the origin's declared base
+    /// units (ticks for musical gestures), after snapping.
     pub delta: i64,
     /// The active snap winner, when the last update snapped.
     pub snap: Option<SnapWinner>,

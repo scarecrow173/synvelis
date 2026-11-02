@@ -14,11 +14,11 @@ use synvelis_project::{
     TimeAnchor, TrackId,
 };
 use synvelis_workspace::{
-    CancelReason, CommandContext, CommandOutcome, EditOperation, EditingSelection, FakeWindowHost,
-    GestureOutcome, HandleKind, HitCandidate, HitProbe, HitZone, InputContext, LaneScope,
-    LinkGroupId, PointerOutcome, ProjectSession, SelectionDomain, SemanticTarget, SnapCandidate,
-    SnapEnvironment, SnapSource, SnapUnit, TimeSelection, Tool, ViewType, WorkspaceError,
-    WorkspaceManager,
+    CancelReason, CommandContext, CommandOutcome, EditOperation, EditTimePoint, EditingSelection,
+    FakeWindowHost, GestureOutcome, HandleKind, HitCandidate, HitProbe, HitZone, InputContext,
+    LaneScope, LinkGroupId, PointerOutcome, ProjectSession, SelectionDomain, SemanticTarget,
+    SnapCandidate, SnapEnvironment, SnapSource, SnapUnit, TimeSelection, Tool, ViewType,
+    WorkspaceError, WorkspaceManager,
 };
 
 // ---------------------------------------------------------------------------
@@ -121,9 +121,15 @@ fn arrangement(ws: &mut Ws) -> ruviform_ui::dock::ViewInstanceId {
         .unwrap()
 }
 
+/// Musical-domain pointer position (ED-B: probes carry a tagged
+/// `EditTimePoint`).
+fn pt(tick: i64) -> EditTimePoint {
+    EditTimePoint::Musical(MusicalTick::new(tick))
+}
+
 fn body_probe(pos: i64, target: SemanticTarget) -> HitProbe {
     HitProbe {
-        position: MusicalTick::new(pos),
+        position: pt(pos),
         candidates: vec![HitCandidate {
             zone: HitZone::Body,
             target: Some(target),
@@ -302,7 +308,7 @@ fn ed_a_02_tool_resolution_and_fixation() {
 
     // Handle outranks body at the same position.
     let probe = HitProbe {
-        position: MusicalTick::new(10),
+        position: pt(10),
         candidates: vec![
             HitCandidate {
                 zone: HitZone::Body,
@@ -334,7 +340,7 @@ fn ed_a_02_tool_resolution_and_fixation() {
 
     // Body outranks lane-empty.
     let probe = HitProbe {
-        position: MusicalTick::new(10),
+        position: pt(10),
         candidates: vec![
             HitCandidate {
                 zone: HitZone::LaneEmpty,
@@ -362,7 +368,7 @@ fn ed_a_02_tool_resolution_and_fixation() {
     // Two equally-ranked candidates resolve Ambiguous with suggested
     // dedicated tools — no gesture starts.
     let probe = HitProbe {
-        position: MusicalTick::new(10),
+        position: pt(10),
         candidates: vec![
             HitCandidate {
                 zone: HitZone::Handle(HandleKind::StartTrim),
@@ -433,7 +439,10 @@ fn ed_a_02_tool_resolution_and_fixation() {
     ws.pointer_down(arr, &body_probe(10, SemanticTarget::Clip(clip)))
         .unwrap();
     let err = ws.commit_gesture(arr).unwrap_err();
-    assert!(matches!(err, WorkspaceError::UnsupportedOperation("slip")));
+    assert!(matches!(
+        err,
+        WorkspaceError::UnsupportedOperation("slip needs a declared media rate (absolute extent)")
+    ));
     ws.cancel_gesture(arr, CancelReason::Escape).unwrap();
 }
 
@@ -458,14 +467,14 @@ fn ed_a_03_snap_grid_time_domain() {
         .unwrap();
     ws.pointer_down(arr, &body_probe(0, SemanticTarget::Clip(clip)))
         .unwrap();
-    ws.drag_update(arr, MusicalTick::new(1000), &env).unwrap();
+    ws.drag_update(arr, pt(1000), &env).unwrap();
     let preview = &ws.state(arr).unwrap().gesture.as_ref().unwrap().preview;
     assert_eq!(preview.delta, 960, "snapped to the 960 grid line");
     assert_eq!(preview.snap.unwrap().label(), "grid@960");
 
     // Explicit unit ignores viewport zoom; only Auto follows it.
     ws.state_mut(arr).unwrap().viewport.zoom_x = 8.0;
-    ws.drag_update(arr, MusicalTick::new(1000), &env).unwrap();
+    ws.drag_update(arr, pt(1000), &env).unwrap();
     assert_eq!(
         ws.state(arr)
             .unwrap()
@@ -479,12 +488,12 @@ fn ed_a_03_snap_grid_time_domain() {
     );
     ws.state_mut(arr).unwrap().snap.unit = SnapUnit::Auto;
     let env = SnapEnvironment {
-        auto_step: MusicalTick::new(200), // zoom-derived step
+        auto_step: 200, // zoom-derived step
         candidates: Vec::new(),
     };
     // leave hysteresis window first
-    ws.drag_update(arr, MusicalTick::new(2000), &env).unwrap();
-    ws.drag_update(arr, MusicalTick::new(1000), &env).unwrap();
+    ws.drag_update(arr, pt(2000), &env).unwrap();
+    ws.drag_update(arr, pt(1000), &env).unwrap();
     assert_eq!(
         ws.state(arr)
             .unwrap()
@@ -500,31 +509,31 @@ fn ed_a_03_snap_grid_time_domain() {
 
     // Non-grid candidates: clip bounds beat the grid when nearer;
     // the winner is reported with its source label.
-    ws.state_mut(arr).unwrap().snap.unit = SnapUnit::Explicit(MusicalTick::new(960));
+    ws.state_mut(arr).unwrap().snap.unit = SnapUnit::Explicit(960);
     let env = SnapEnvironment {
-        auto_step: MusicalTick::new(960),
+        auto_step: 960,
         candidates: vec![
             SnapCandidate {
                 source: SnapSource::ClipBounds,
-                position: MusicalTick::new(970),
+                position: 970,
                 domain: synvelis_workspace::EditTimeDomain::Musical,
             },
             SnapCandidate {
                 source: SnapSource::ClipBounds,
-                position: MusicalTick::new(3000), // media-domain would be filtered
+                position: 3000, // media-domain would be filtered
                 domain: synvelis_workspace::EditTimeDomain::Media,
             },
         ],
     };
     ws.pointer_down(arr, &body_probe(0, SemanticTarget::Clip(clip)))
         .unwrap();
-    ws.drag_update(arr, MusicalTick::new(1000), &env).unwrap();
+    ws.drag_update(arr, pt(1000), &env).unwrap();
     let preview = &ws.state(arr).unwrap().gesture.as_ref().unwrap().preview;
     assert_eq!(preview.snap.unwrap().label(), "clip-bounds@970");
     assert_eq!(preview.delta, 970);
 
     // Hysteresis keeps the winner under sub-window drift.
-    ws.drag_update(arr, MusicalTick::new(1010), &env).unwrap();
+    ws.drag_update(arr, pt(1010), &env).unwrap();
     let preview = &ws.state(arr).unwrap().gesture.as_ref().unwrap().preview;
     assert_eq!(preview.snap.unwrap().label(), "clip-bounds@970");
     ws.cancel_gesture(arr, CancelReason::Escape).unwrap();
@@ -544,7 +553,7 @@ fn ed_a_03_snap_grid_time_domain() {
     let env = SnapEnvironment::default();
     ws.pointer_down(arr, &body_probe(0, SemanticTarget::Clip(clip)))
         .unwrap();
-    ws.drag_update(arr, MusicalTick::new(1000), &env).unwrap();
+    ws.drag_update(arr, pt(1000), &env).unwrap();
     let out = ws.commit_gesture(arr).unwrap();
     assert!(matches!(out, GestureOutcome::Applied { .. }));
     assert_eq!(musical_bounds(&ws, clip), (960, 1920));
@@ -598,7 +607,7 @@ fn ed_a_04_preview_atomic_undo() {
     ws.pointer_down(arr, &body_probe(0, SemanticTarget::Clip(clip2)))
         .unwrap();
     for pos in [200, 500, 1000] {
-        ws.drag_update(arr, MusicalTick::new(pos), &env).unwrap();
+        ws.drag_update(arr, pt(pos), &env).unwrap();
     }
     assert_eq!(ws.session().revision(), rev0, "preview must not commit");
     assert_eq!(
@@ -649,7 +658,7 @@ fn ed_a_04_preview_atomic_undo() {
     .unwrap();
     let before = musical_bounds(&ws, clip);
     ws.pointer_down(arr, &body_probe(960, ghost)).unwrap();
-    ws.drag_update(arr, MusicalTick::new(1200), &env).unwrap();
+    ws.drag_update(arr, pt(1200), &env).unwrap();
     let err = ws.commit_gesture(arr).unwrap_err();
     assert!(
         matches!(
@@ -670,7 +679,7 @@ fn ed_a_04_preview_atomic_undo() {
         .unwrap();
     ws.pointer_down(arr, &body_probe(960, SemanticTarget::Clip(clip)))
         .unwrap();
-    ws.drag_update(arr, MusicalTick::new(1920), &env).unwrap();
+    ws.drag_update(arr, pt(1920), &env).unwrap();
     apply(
         &mut ws,
         ProjectOp::SetProjectName {
@@ -697,7 +706,7 @@ fn ed_a_04_preview_atomic_undo() {
         let before_rev = ws.session().revision();
         ws.pointer_down(arr, &body_probe(960, SemanticTarget::Clip(clip)))
             .unwrap();
-        ws.drag_update(arr, MusicalTick::new(1500), &env).unwrap();
+        ws.drag_update(arr, pt(1500), &env).unwrap();
         let out = ws.cancel_gesture(arr, reason).unwrap();
         assert!(matches!(out, GestureOutcome::Cancelled { .. }));
         assert!(ws.state(arr).unwrap().gesture.is_none());
@@ -794,7 +803,7 @@ fn ed_a_05_linked_context_separation() {
 
     // The gesture still commits against its fixation.
     let env = SnapEnvironment::default();
-    ws.drag_update(arr_a, MusicalTick::new(1000), &env).unwrap();
+    ws.drag_update(arr_a, pt(1000), &env).unwrap();
     let out = ws.commit_gesture(arr_a).unwrap();
     assert!(matches!(out, GestureOutcome::Applied { .. }));
     assert_eq!(musical_bounds(&ws, clip), (960, 1920));

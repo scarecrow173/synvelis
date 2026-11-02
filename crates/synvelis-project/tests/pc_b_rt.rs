@@ -31,6 +31,7 @@ fn bp(num: i64) -> BeatPoint {
 /// automation-driven target on track scope, and a note-scoped target —
 /// all domains always resolvable so the measured path is the success
 /// path, including the clip→note scope-resolution arms.
+#[expect(clippy::too_many_lines)]
 fn fixture() -> (Project, ParameterTargetId, ParameterTargetId) {
     let mut p = Project::new(synvelis_project::ProjectId::new(0), "pc-b-rt");
     let track = synvelis_project::TrackId::new(1);

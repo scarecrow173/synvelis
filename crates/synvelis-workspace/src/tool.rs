@@ -12,8 +12,8 @@
 //! thresholds, hover, pen/touch behaviour.
 
 use serde::{Deserialize, Serialize};
-use synvelis_project::MusicalTick;
 
+use crate::selection::EditTimePoint;
 use crate::state::SemanticTarget;
 
 /// The editing tool active on a view.
@@ -119,8 +119,9 @@ pub struct HitCandidate {
 /// (hypothetical) hit test reports. Deterministic by construction.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HitProbe {
-    /// Pointer position in musical ticks.
-    pub position: MusicalTick,
+    /// Pointer position, domain-tagged (ED-B): a media-domain probe
+    /// reports a declared-base media instant, never a tick count.
+    pub position: EditTimePoint,
     /// Zone candidates at that position, in report order.
     pub candidates: Vec<HitCandidate>,
 }
@@ -147,7 +148,8 @@ pub enum EditOperation {
     DrawClip,
     /// Delete the fixed targets.
     EraseTargets,
-    /// Slip content (resolves; commit unsupported in this `PoC`).
+    /// Slip content under a fixed extent (commits as
+    /// `SetClipPlayback` when the clip declares a media rate).
     SlipClip,
     /// Stretch boundary (resolves; commit unsupported).
     StretchClip,
