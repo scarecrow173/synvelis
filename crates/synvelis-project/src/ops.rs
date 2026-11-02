@@ -10,10 +10,11 @@ use crate::{
     error::Error,
     id::{AssetId, ClipId, IdGenerator, LaneId, SourceId, TrackId},
     project::{Asset, Clip, Lane, Project, Source, SourceState, TimeAnchor, Track},
+    range::MusicalRange,
     recording_data::ClockEpoch,
     tempo::SignatureDto,
     tempo::TempoEventDto,
-    time::SourceFrame,
+    time::{MusicalTick, SourceFrame},
 };
 
 /// Project-level operations.
@@ -122,6 +123,35 @@ pub enum ProjectOp {
     RegisterClockEpoch {
         /// Description of the clock source.
         description: String,
+    },
+    /// Apply several ops as one atomic transaction — the multi-target
+    /// editing-gesture commit (issue #11/#38: all-or-nothing, one undo
+    /// step). Nested `Composite` is rejected.
+    Composite {
+        /// Ops applied in order on the same scratch project.
+        ops: Vec<ProjectOp>,
+    },
+    /// Split a musically anchored clip at `at` into two clips. The new
+    /// clip keeps the source and muted flag; `clip_b_source_offset` is
+    /// caller-resolved (tick→source-frame rate mapping is not modeled).
+    SplitClip {
+        /// Target clip.
+        clip_id: ClipId,
+        /// Split position; must lie strictly inside the clip's
+        /// `MusicalRange`.
+        at: MusicalTick,
+        /// Source offset of the clip after the split (must not precede
+        /// the original offset).
+        clip_b_source_offset: SourceFrame,
+    },
+    /// Remove every clip on `lanes` whose `MusicalRange` overlaps
+    /// `range`. Media-anchored clips are outside this op's time domain
+    /// and are left untouched (no silent domain conversion).
+    RemoveClipsInRange {
+        /// Lanes to sweep.
+        lanes: Vec<LaneId>,
+        /// Musical half-open range to remove.
+        range: MusicalRange,
     },
 }
 
@@ -253,6 +283,56 @@ impl Operation for ProjectOp {
                         "source state {:?} -> {state:?} (strictly one stage forward)",
                         source.state
                     )));
+                }
+                Ok(())
+            }
+            Self::Composite { ops } => {
+                if ops.is_empty() {
+                    return Err(Error::Validation("empty composite".into()));
+                }
+                for op in ops {
+                    if matches!(op, Self::Composite { .. }) {
+                        return Err(Error::Validation("nested composite".into()));
+                    }
+                    op.validate(project)?;
+                }
+                Ok(())
+            }
+            Self::SplitClip {
+                clip_id,
+                at,
+                clip_b_source_offset,
+            } => {
+                let clip = project
+                    .clips
+                    .get(clip_id)
+                    .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
+                let TimeAnchor::Musical(range) = clip.anchor else {
+                    return Err(Error::Validation(format!(
+                        "clip {clip_id} is not musically anchored"
+                    )));
+                };
+                if !range.contains(*at) || *at == range.start() {
+                    return Err(Error::Validation(format!(
+                        "split tick {} is not strictly inside clip {clip_id}",
+                        at.value()
+                    )));
+                }
+                if *clip_b_source_offset < clip.source_offset {
+                    return Err(Error::Validation(format!(
+                        "clip_b_source_offset precedes source offset of clip {clip_id}"
+                    )));
+                }
+                Ok(())
+            }
+            Self::RemoveClipsInRange { lanes, range } => {
+                if range.is_empty() {
+                    return Err(Error::Validation("empty removal range".into()));
+                }
+                for lane_id in lanes {
+                    if !project.lanes.contains_key(lane_id) {
+                        return Err(Error::NotFound(format!("lane {lane_id}")));
+                    }
                 }
                 Ok(())
             }
@@ -396,6 +476,71 @@ impl Operation for ProjectOp {
                         description: description.clone(),
                     },
                 );
+            }
+            Self::Composite { ops } => {
+                // `project` is the controller's scratch clone — a mid-way
+                // failure is discarded with it, keeping the commit atomic.
+                for op in ops {
+                    op.validate(project)?;
+                    op.apply(project, ids)?;
+                }
+            }
+            Self::SplitClip {
+                clip_id,
+                at,
+                clip_b_source_offset,
+            } => {
+                let (lane_id, source_id, muted, range) = {
+                    let clip = project
+                        .clips
+                        .get(clip_id)
+                        .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
+                    let TimeAnchor::Musical(range) = clip.anchor else {
+                        return Err(Error::Validation(format!(
+                            "clip {clip_id} is not musically anchored"
+                        )));
+                    };
+                    (clip.lane_id, clip.source_id, clip.muted, range)
+                };
+                let id = ClipId::new(ids.next());
+                project.clips.insert(
+                    id,
+                    Clip {
+                        id,
+                        lane_id,
+                        source_id,
+                        anchor: TimeAnchor::Musical(MusicalRange::try_new(*at, range.end())?),
+                        source_offset: *clip_b_source_offset,
+                        muted,
+                    },
+                );
+                if let Some(lane) = project.lanes.get_mut(&lane_id) {
+                    lane.clip_ids.push(id);
+                }
+                if let Some(clip) = project.clips.get_mut(clip_id) {
+                    clip.anchor = TimeAnchor::Musical(MusicalRange::try_new(range.start(), *at)?);
+                }
+            }
+            Self::RemoveClipsInRange { lanes, range } => {
+                let doomed: Vec<ClipId> = lanes
+                    .iter()
+                    .flat_map(|lane_id| {
+                        project
+                            .lanes
+                            .get(lane_id)
+                            .into_iter()
+                            .flat_map(|lane| lane.clip_ids.iter().copied())
+                    })
+                    .filter(|clip_id| {
+                        matches!(
+                            project.clips.get(clip_id).map(|c| c.anchor),
+                            Some(TimeAnchor::Musical(r)) if r.overlaps(range)
+                        )
+                    })
+                    .collect();
+                for clip_id in doomed {
+                    Self::RemoveClip { clip_id }.apply(project, ids)?;
+                }
             }
         }
         Ok(())

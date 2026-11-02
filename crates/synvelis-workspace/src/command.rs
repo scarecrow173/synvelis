@@ -23,6 +23,7 @@ use synvelis_project::{ProjectOp, ProjectRevision};
 
 use crate::error::WorkspaceError;
 use crate::focus::InputContext;
+use crate::selection::SelectionDomain;
 use crate::state::{EditingSelection, SemanticTarget};
 
 /// Command classification — determines the routing lane.
@@ -36,11 +37,15 @@ pub enum CommandKind {
     /// Transport control (play/stop/seek): engine-facing, not a
     /// project mutation.
     Transport,
-    /// View-local operation (activate tab, zoom, …).
+    /// View-local operation (activate tab, zoom, tool switch, …).
     View,
     /// Editing operation against a project entity (remove clip, …):
     /// requires a resolved target and goes through the controller.
     Editing,
+    /// Undo/redo — routed by input context: `View` goes through the
+    /// session's project history, text lanes get their own undo, and
+    /// modal/plugin contexts swallow it entirely.
+    Undo,
 }
 
 /// The issue-time context a command travels with.
@@ -119,26 +124,47 @@ pub struct CommandSpec {
     pub kind: CommandKind,
     /// Whether the command needs a resolved entity target.
     pub needs_target: bool,
+    /// The selection domain the command resolves in. When set, a
+    /// selection-derived target must come from this domain —
+    /// a command issued against a view whose *active* domain is
+    /// different resolves `Unresolved` rather than reaching across
+    /// domains. Explicit targets bypass this check (they are kind
+    /// checked by [`build_project_op`] instead).
+    pub required_domain: Option<SelectionDomain>,
 }
 
-/// The WS-A command vocabulary.
+/// The command vocabulary (WS-A + ED-A additions).
 ///
-/// - `clip.remove` / `clip.mute` — editing, destructive / flag-set.
+/// - `clip.remove` / `clip.mute` — editing, destructive / flag-set,
+///   resolve in the `Clips` domain only.
+/// - `clips.delete-range` — editing, target-free: derives its clip
+///   set from the origin view's musical `TimeSelection` +
+///   `LaneScope` (the explicit range-delete command; a time
+///   selection alone never maps onto object deletion).
+/// - `edit.undo` / `edit.redo` — undo lane, input-context routed.
+/// - `tool.activate` — view-local, `arg` names the tool.
 /// - `project.rename` — project mutation, no entity target.
 /// - `transport.play` / `transport.stop` — transport.
 /// - `view.activate` — view-local tab activation.
 /// - `app.quit` — application.
 #[must_use]
 pub fn spec_for(id: &str) -> Option<CommandSpec> {
-    let (kind, needs_target) = match id {
-        "clip.remove" | "clip.mute" => (CommandKind::Editing, true),
-        "project.rename" => (CommandKind::Project, false),
-        "transport.play" | "transport.stop" => (CommandKind::Transport, false),
-        "view.activate" => (CommandKind::View, true),
-        "app.quit" => (CommandKind::Application, false),
+    let (kind, needs_target, required_domain) = match id {
+        "clip.remove" | "clip.mute" => (CommandKind::Editing, true, Some(SelectionDomain::Clips)),
+        "clips.delete-range" => (CommandKind::Editing, false, None),
+        "edit.undo" | "edit.redo" => (CommandKind::Undo, false, None),
+        "tool.activate" => (CommandKind::View, false, None),
+        "project.rename" => (CommandKind::Project, false, None),
+        "transport.play" | "transport.stop" => (CommandKind::Transport, false, None),
+        "view.activate" => (CommandKind::View, true, None),
+        "app.quit" => (CommandKind::Application, false, None),
         _ => return None,
     };
-    Some(CommandSpec { kind, needs_target })
+    Some(CommandSpec {
+        kind,
+        needs_target,
+        required_domain,
+    })
 }
 
 /// Builds the [`ProjectOp`] for an entity-targeted command. Kind

@@ -12,15 +12,20 @@ use ruviform_ui::dock::{
 };
 use ruviform_ui::event::HostEvent;
 use ruviform_ui::window::{MonitorInfo, WindowConfig, WindowHandle, WindowId};
-use synvelis_project::{ProjectOp, ProjectRevision};
+use synvelis_project::{MusicalTick, ProjectOp, ProjectRevision};
 
 use crate::command::{CommandContext, CommandKind, CommandOutcome, build_project_op, spec_for};
+use crate::edit::{self, CommitEffect};
 use crate::error::WorkspaceError;
-use crate::focus::FocusState;
+use crate::focus::{FocusState, InputContext};
+use crate::gesture::{CancelReason, Gesture, GestureFixation, GestureOutcome, GesturePreview};
 use crate::link::{LinkEvent, LinkGroupId, LinkGroupManager};
 use crate::persist::{LinkRecord, ViewRecord, WORKSPACE_SCHEMA, WorkspaceSnapshot};
+use crate::selection::{LaneScope, SelectionDomain, TimeSelection};
 use crate::session::ProjectSession;
+use crate::snap::{SnapEnvironment, resolve_snap};
 use crate::state::{EditingSelection, SemanticTarget, ViewState, ViewStateRegistry};
+use crate::tool::{EditOperation, HitProbe, Tool, ToolResolution, resolve_tool};
 use crate::view::{ViewDescriptor, ViewRegistry, ViewType};
 
 /// A window the manager knows about (creation order = capture order).
@@ -50,6 +55,10 @@ pub struct WorkspaceManager<H: WindowHandle> {
     session: ProjectSession,
     windows: Vec<WindowRecord>,
     next_view: u64,
+    /// Text-lane undo invocations — the stub standing in for text
+    /// fields' own undo stacks (text input undo never reaches the
+    /// DAW project history).
+    text_lane_undos: u64,
 }
 
 impl<H: WindowHandle> WorkspaceManager<H> {
@@ -66,6 +75,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
             session,
             windows: Vec::new(),
             next_view: 0,
+            text_lane_undos: 0,
         }
     }
 
@@ -135,6 +145,13 @@ impl<H: WindowHandle> WorkspaceManager<H> {
     #[must_use]
     pub fn windows(&self) -> &[WindowRecord] {
         &self.windows
+    }
+
+    /// How many undos landed on the text lane — the evidence that
+    /// text-input undo stayed out of the project history.
+    #[must_use]
+    pub fn text_lane_undos(&self) -> u64 {
+        self.text_lane_undos
     }
 
     fn window_record(&self, id: WindowId) -> Option<&WindowRecord> {
@@ -508,12 +525,15 @@ impl<H: WindowHandle> WorkspaceManager<H> {
 
     // -- selection + link dispatch ------------------------------------------
 
-    /// Sets `view`'s editing selection and publishes it through the
-    /// view's link group. Returns the delivered `(receiver, event)`
-    /// pairs that were actually applied.
+    /// Sets `view`'s object selection (domain inferred from the
+    /// targets) and publishes it through the view's link group.
+    /// Returns the delivered `(receiver, event)` pairs that were
+    /// actually applied.
     ///
     /// # Errors
-    /// [`WorkspaceError::UnknownView`] when `view` is unregistered.
+    /// [`WorkspaceError::UnknownView`] when `view` is unregistered;
+    /// [`WorkspaceError::MixedDomains`] when `selection` mixes
+    /// domains.
     pub fn select(
         &mut self,
         view: ViewInstanceId,
@@ -522,10 +542,16 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         if !self.registry.contains(view) {
             return Err(WorkspaceError::UnknownView(view));
         }
-        self.states.ensure(view).editing_selection = selection;
+        self.states
+            .ensure(view)
+            .object_selections
+            .assign(selection)?;
         let Some((event, receivers)) = self.links.publish(
             view,
-            &self.states.ensure(view).editing_selection,
+            self.states
+                .ensure(view)
+                .object_selections
+                .active_selection(),
             self.session.project(),
         ) else {
             return Ok(Vec::new());
@@ -539,6 +565,256 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         Ok(delivered)
     }
 
+    // -- editing model (ED-A) ------------------------------------------------
+
+    /// Sets `view`'s time selection (or clears it).
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] when unregistered.
+    pub fn set_time_selection(
+        &mut self,
+        view: ViewInstanceId,
+        time: Option<TimeSelection>,
+    ) -> Result<(), WorkspaceError> {
+        self.state_mut(view)?.time_selection = time;
+        Ok(())
+    }
+
+    /// Sets `view`'s lane scope.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] when unregistered.
+    pub fn set_lane_scope(
+        &mut self,
+        view: ViewInstanceId,
+        scope: LaneScope,
+    ) -> Result<(), WorkspaceError> {
+        self.state_mut(view)?.lane_scope = scope;
+        Ok(())
+    }
+
+    /// Sets `view`'s active tool.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] when unregistered.
+    pub fn set_tool(&mut self, view: ViewInstanceId, tool: Tool) -> Result<(), WorkspaceError> {
+        self.state_mut(view)?.active_tool = tool;
+        Ok(())
+    }
+
+    /// Binds `clip` to `view`'s editor surface — a display/edit
+    /// binding only. Neither selection nor link state changes
+    /// (ED-A-05).
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] / missing clip.
+    pub fn open_in_editor(
+        &mut self,
+        view: ViewInstanceId,
+        clip_id: synvelis_project::ClipId,
+    ) -> Result<(), WorkspaceError> {
+        let clip = self.session.project().clips.get(&clip_id).ok_or_else(|| {
+            WorkspaceError::Project(synvelis_project::Error::NotFound(format!("clip {clip_id}")))
+        })?;
+        let binding = crate::selection::EditBinding {
+            clip: clip_id,
+            source: clip.source_id,
+        };
+        self.state_mut(view)?.edit_binding = Some(binding);
+        Ok(())
+    }
+
+    /// The outcome of a `pointer_down`.
+    /// Resolves the active tool over `probe` and, on success, fixes
+    /// the gesture: operation, target set, project revision and
+    /// shared time domain are frozen for the gesture's lifetime.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`], [`WorkspaceError::GestureActive`]
+    /// when a gesture is already running on this view, or
+    /// [`WorkspaceError::MixedTimeDomains`] when the fixed targets
+    /// disagree on their time domain.
+    pub fn pointer_down(
+        &mut self,
+        view: ViewInstanceId,
+        probe: &HitProbe,
+    ) -> Result<PointerOutcome, WorkspaceError> {
+        let state = self.state(view)?;
+        if state.gesture.is_some() {
+            return Err(WorkspaceError::GestureActive(view));
+        }
+        let selection = state.object_selections.active_selection().targets.clone();
+        let resolution = resolve_tool(state.active_tool, probe, &selection);
+        match resolution {
+            ToolResolution::Ambiguous {
+                candidates,
+                suggested,
+            } => Ok(PointerOutcome::Ambiguous {
+                candidates,
+                suggested,
+            }),
+            ToolResolution::NoGesture => Ok(PointerOutcome::NoGesture),
+            ToolResolution::Resolved { operation, targets } => {
+                let domain =
+                    if matches!(operation, EditOperation::Marquee | EditOperation::DrawClip) {
+                        crate::selection::EditTimeDomain::Musical
+                    } else {
+                        edit::gesture_domain(self.session.project(), &targets)?
+                    };
+                let gesture = Gesture {
+                    fixation: GestureFixation {
+                        operation,
+                        targets,
+                        revision: self.session.revision(),
+                        domain,
+                        origin: probe.position,
+                    },
+                    preview: GesturePreview {
+                        position: probe.position,
+                        delta: 0,
+                        snap: None,
+                    },
+                };
+                self.state_mut(view)?.gesture = Some(gesture);
+                Ok(PointerOutcome::GestureStarted)
+            }
+        }
+    }
+
+    /// Moves the running gesture's preview to `position`: the delta
+    /// recomputes (through snap resolution on the primary anchor for
+    /// move/trim gestures) while the fixation stays untouched.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] / [`WorkspaceError::NoGesture`].
+    pub fn drag_update(
+        &mut self,
+        view: ViewInstanceId,
+        position: MusicalTick,
+        env: &SnapEnvironment,
+    ) -> Result<(), WorkspaceError> {
+        let state = self.state(view)?;
+        let Some(gesture) = state.gesture.as_ref() else {
+            return Err(WorkspaceError::NoGesture(view));
+        };
+        let fixation = gesture.fixation.clone();
+        let prev_snap = gesture.preview.snap;
+        let snap_cfg = state.snap;
+        let raw_delta = position
+            .value()
+            .checked_sub(fixation.origin.value())
+            .ok_or(synvelis_project::Error::Overflow)?;
+        let mut delta = raw_delta;
+        let mut winner = None;
+        if matches!(
+            fixation.operation,
+            EditOperation::MoveClips | EditOperation::TrimClip { .. }
+        ) && let Some(anchor_start) = primary_anchor_start(self.session.project(), &fixation)
+        {
+            let snapped = resolve_snap(
+                &snap_cfg,
+                env,
+                anchor_start
+                    .checked_add(raw_delta)
+                    .map_err(WorkspaceError::Project)?,
+                fixation.domain,
+                prev_snap,
+            );
+            if let Some(w) = snapped {
+                delta = w
+                    .position
+                    .value()
+                    .checked_sub(anchor_start.value())
+                    .ok_or(synvelis_project::Error::Overflow)?;
+                winner = Some(w);
+            }
+        }
+        let gesture = self
+            .state_mut(view)?
+            .gesture
+            .as_mut()
+            .ok_or(WorkspaceError::NoGesture(view))?;
+        gesture.preview.position = position;
+        gesture.preview.delta = delta;
+        gesture.preview.snap = winner;
+        Ok(())
+    }
+
+    /// Commits `view`'s running gesture: build the single effect,
+    /// apply it through the session (expected revision = the fixated
+    /// one — a project change meanwhile rejects stale), distribute
+    /// the revision, drop the gesture.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::NoGesture`], validation/stale errors from the
+    /// controller (gesture kept so the caller can inspect or cancel).
+    pub fn commit_gesture(
+        &mut self,
+        view: ViewInstanceId,
+    ) -> Result<GestureOutcome, WorkspaceError> {
+        let state = self.state(view)?;
+        let Some(gesture) = state.gesture.clone() else {
+            return Err(WorkspaceError::NoGesture(view));
+        };
+        let lane_scope = state.lane_scope.clone();
+        match edit::build_commit(self.session.project(), &gesture, &lane_scope)? {
+            CommitEffect::ProjectOp(op) => {
+                let expected = gesture.fixation.revision;
+                match self.session.apply(op, expected) {
+                    Ok(revision) => {
+                        self.distribute_revision(revision);
+                        self.state_mut(view)?.gesture = None;
+                        Ok(GestureOutcome::Applied { revision })
+                    }
+                    Err(e) => Err(WorkspaceError::Project(e)),
+                }
+            }
+            CommitEffect::Selection { domain, targets } => {
+                let state = self.state_mut(view)?;
+                state
+                    .object_selections
+                    .set(domain, EditingSelection { targets })?;
+                state.gesture = None;
+                Ok(GestureOutcome::SelectionChanged)
+            }
+            CommitEffect::NoChange => {
+                self.state_mut(view)?.gesture = None;
+                Ok(GestureOutcome::NoChange)
+            }
+        }
+    }
+
+    /// Cancels `view`'s running gesture — the preview is dropped and
+    /// the project is untouched.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::NoGesture`].
+    pub fn cancel_gesture(
+        &mut self,
+        view: ViewInstanceId,
+        reason: CancelReason,
+    ) -> Result<GestureOutcome, WorkspaceError> {
+        let state = self.state_mut(view)?;
+        if state.gesture.take().is_none() {
+            return Err(WorkspaceError::NoGesture(view));
+        }
+        Ok(GestureOutcome::Cancelled { reason })
+    }
+
+    /// Switches the session input context. Leaving `View` drops every
+    /// running gesture (`InputScopeLost` semantics — the preview is
+    /// discarded, the project untouched).
+    pub fn set_input_context(&mut self, input: InputContext) {
+        if input != InputContext::View && self.focus.input == InputContext::View {
+            for id in self.states.ids() {
+                if let Some(state) = self.states.get_mut(id) {
+                    state.gesture = None;
+                }
+            }
+        }
+        self.focus.input = input;
+    }
+
     /// Replays `event` to `receiver` — tests proving dedup re-deliver
     /// the same event. Returns whether it applied.
     pub fn redeliver(&mut self, event: LinkEvent, receiver: ViewInstanceId) -> bool {
@@ -549,6 +825,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
 
     /// Routes `ctx` per the WS-A contract: suppression → target
     /// resolution → execution. See [`crate::command`] for the rules.
+    #[allow(clippy::too_many_lines)] // one lane per kind keeps the routing table flat
     pub fn dispatch(&mut self, ctx: CommandContext) -> CommandOutcome {
         let Some(spec) = spec_for(&ctx.id) else {
             return CommandOutcome::Rejected {
@@ -566,6 +843,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
             };
         }
         match spec.kind {
+            CommandKind::Undo => self.dispatch_undo(&ctx),
             CommandKind::Application => {
                 self.host.exit();
                 CommandOutcome::Applied { revision: None }
@@ -579,6 +857,22 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                 CommandOutcome::Applied { revision: None }
             }
             CommandKind::View => {
+                if ctx.id == "tool.activate" {
+                    let Some(tool) = ctx.arg.as_deref().and_then(Tool::parse) else {
+                        return CommandOutcome::Unresolved {
+                            reason: "tool.activate without a tool name".to_string(),
+                        };
+                    };
+                    let Some(view) = ctx.origin_view else {
+                        return CommandOutcome::Unresolved {
+                            reason: "tool.activate without an origin view".to_string(),
+                        };
+                    };
+                    return match self.set_tool(view, tool) {
+                        Ok(()) => CommandOutcome::Applied { revision: None },
+                        Err(e) => CommandOutcome::Rejected { error: e },
+                    };
+                }
                 let Some(target) = self.resolve_target(&ctx) else {
                     return CommandOutcome::Unresolved {
                         reason: "view command without a resolvable view target".to_string(),
@@ -618,6 +912,36 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                         error: WorkspaceError::ViewBusy(v),
                     };
                 }
+                // Range delete resolves from the origin view's time
+                // selection + lane scope — an explicit command, never
+                // implied by object selection.
+                if ctx.id == "clips.delete-range" {
+                    return self.dispatch_delete_range(&ctx);
+                }
+                // Selection-derived targets must come from the
+                // command's required domain — a selection in another
+                // domain leaves the command unresolved (ED-A-01).
+                if let Some(domain) = spec.required_domain
+                    && ctx.explicit_targets.is_empty()
+                {
+                    let matches_domain = ctx.selection.as_ref().map_or_else(
+                        || {
+                            ctx.origin_view
+                                .and_then(|v| self.states.get(v))
+                                .is_some_and(|s| s.object_selections.active == domain)
+                        },
+                        |sel| {
+                            sel.targets
+                                .first()
+                                .is_some_and(|t| SelectionDomain::of(*t) == domain)
+                        },
+                    );
+                    if !matches_domain {
+                        return CommandOutcome::Unresolved {
+                            reason: format!("{} requires a {domain:?} selection", ctx.id),
+                        };
+                    }
+                }
                 let Some(ResolvedTarget::Entity(entity)) = self.resolve_target(&ctx) else {
                     return CommandOutcome::Unresolved {
                         reason: format!("{} has no resolvable entity target", ctx.id),
@@ -631,6 +955,74 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                 self.apply_project_op(op, &ctx)
             }
         }
+    }
+
+    /// Undo/redo lane: `View` goes through the session's project
+    /// history (engine hook advances); `TextInput`/`Ime` land on the
+    /// text lane stub without touching the project; `Modal`/
+    /// `PluginGui` are swallowed.
+    fn dispatch_undo(&mut self, ctx: &CommandContext) -> CommandOutcome {
+        match ctx.input {
+            InputContext::View => {
+                let done = if ctx.id == "edit.undo" {
+                    self.session.undo()
+                } else {
+                    self.session.redo()
+                };
+                match done {
+                    Ok(true) => {
+                        let revision = self.session.revision();
+                        self.distribute_revision(revision);
+                        CommandOutcome::Applied {
+                            revision: Some(revision),
+                        }
+                    }
+                    Ok(false) => CommandOutcome::Applied { revision: None },
+                    Err(e) => CommandOutcome::Rejected {
+                        error: WorkspaceError::Project(e),
+                    },
+                }
+            }
+            InputContext::TextInput | InputContext::Ime => {
+                self.text_lane_undos += 1;
+                CommandOutcome::Applied { revision: None }
+            }
+            _ => CommandOutcome::Suppressed {
+                reason: "input context captures undo",
+            },
+        }
+    }
+
+    /// `clips.delete-range`: build [`ProjectOp::RemoveClipsInRange`]
+    /// from the origin view's musical `TimeSelection` + `LaneScope`.
+    fn dispatch_delete_range(&mut self, ctx: &CommandContext) -> CommandOutcome {
+        let Some(view) = ctx.origin_view else {
+            return CommandOutcome::Unresolved {
+                reason: "clips.delete-range without an origin view".to_string(),
+            };
+        };
+        let Some(state) = self.states.get(view) else {
+            return CommandOutcome::Unresolved {
+                reason: "clips.delete-range on an unknown view".to_string(),
+            };
+        };
+        let Some(TimeSelection::Musical(range)) = state.time_selection else {
+            return CommandOutcome::Unresolved {
+                reason: "clips.delete-range requires a musical time selection".to_string(),
+            };
+        };
+        if state.lane_scope.is_empty() {
+            return CommandOutcome::Unresolved {
+                reason: "clips.delete-range with an empty lane scope".to_string(),
+            };
+        }
+        self.apply_project_op(
+            ProjectOp::RemoveClipsInRange {
+                lanes: state.lane_scope.lanes.clone(),
+                range,
+            },
+            ctx,
+        )
     }
 
     /// Applies `op` via the session and distributes the new revision
@@ -681,7 +1073,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         }
         self.states
             .get(view)
-            .and_then(|s| s.editing_selection.primary())
+            .and_then(|s| s.object_selections.primary())
             .map(ResolvedTarget::Entity)
     }
 
@@ -798,11 +1190,45 @@ impl<H: WindowHandle> WorkspaceManager<H> {
     }
 }
 
+/// What `pointer_down` resolved to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PointerOutcome {
+    /// A gesture started — its fixation is stored on the view.
+    GestureStarted,
+    /// The hit was ambiguous; candidates and suggested dedicated
+    /// tools are reported instead of starting a gesture.
+    Ambiguous {
+        /// The competing operations.
+        candidates: Vec<EditOperation>,
+        /// Dedicated tools that disambiguate.
+        suggested: Vec<Tool>,
+    },
+    /// The probe resolved to nothing (e.g. a dedicated tool with no
+    /// compatible hit).
+    NoGesture,
+}
+
 /// Internal resolution result — either a project entity or a view.
 #[derive(Debug, Clone, Copy)]
 enum ResolvedTarget {
     Entity(SemanticTarget),
     View(ViewInstanceId),
+}
+
+/// The primary clip's anchor start — the position snap operates on
+/// during a move/trim preview.
+fn primary_anchor_start(
+    project: &synvelis_project::Project,
+    fixation: &GestureFixation,
+) -> Option<MusicalTick> {
+    let SemanticTarget::Clip(clip_id) = fixation.primary()? else {
+        return None;
+    };
+    let clip = project.clips.get(&clip_id)?;
+    match clip.anchor {
+        synvelis_project::TimeAnchor::Musical(range) => Some(range.start()),
+        synvelis_project::TimeAnchor::Media(_) => None,
+    }
 }
 
 // keep DockTree/DockError referenced in the public surface docs

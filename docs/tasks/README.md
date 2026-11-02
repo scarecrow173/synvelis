@@ -12,12 +12,17 @@ Directory: `docs/tasks`
 | TASK-034QfR0eLqVxiQlwHq30L3 | VS-C task4 recovery scanner | todo | [vs-c-task4-recovery-scanner.md](./vs-c-task4-recovery-scanner.md) |
 | TASK-034QfR0WeQaYFoG1702td0 | VS-C task5 poc acceptance tests | todo | [vs-c-task5-poc-acceptance-tests.md](./vs-c-task5-poc-acceptance-tests.md) |
 | TASK-034QfR1ESUtmNef7DRyTyz | VS-C task6 verification impl record | todo | [vs-c-task6-verification-impl-record.md](./vs-c-task6-verification-impl-record.md) |
-| TASK-034Qx11uIekuC4n8fmY3Wh | WS-A task6 merge・再生成・最終検証・impl record | todo | [ws-a-task6-verification-merge-impl-record.md](./ws-a-task6-verification-merge-impl-record.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| TASK-034QAtPmN1oYgkip3TL6wG | ED-A task1 ProjectOp batch ops + selection model + ViewState 移行 | done | [ed-a-task1-selection-model-project-ops.md](./ed-a-task1-selection-model-project-ops.md) |
+| TASK-034QAu1d6DTe49e8cgWMtq | ED-A task2 tool resolution + gesture fixation/preview 型 | done | [ed-a-task2-tool-gesture-model.md](./ed-a-task2-tool-gesture-model.md) |
+| TASK-034QAu2bJQYSQOBkB7eOoz | ED-A task3 snap engine + edit op 構築 + commit/cancel 経路 | done | [ed-a-task3-snap-edit-commit.md](./ed-a-task3-snap-edit-commit.md) |
+| TASK-034QAu4igyxOwf6eNf7xk9 | ED-A task4 command 追加 + workspace editing API + cancel hook | done | [ed-a-task4-commands-workspace-api.md](./ed-a-task4-commands-workspace-api.md) |
+| TASK-034QAu59SzY753wmZUJZ5T | ED-A task5 受入 test ED-A-01..05 | done | [ed-a-task5-acceptance-tests.md](./ed-a-task5-acceptance-tests.md) |
+| TASK-034QAu61uDP868aqejEmAN | ED-A task6 最終検証 + impl record | done | [ed-a-task6-verification-impl-record.md](./ed-a-task6-verification-impl-record.md) |
 | TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |
 | TASK-z866D1bQYKGTdgVlXsQMXJ | L1 task2 player crate fixture | done | [l1-task2-player-crate-fixture.md](./l1-task2-player-crate-fixture.md) |
 | TASK-W9NYIr58HYQiSJ9WczQxPS | L1 task3 import resolver | done | [l1-task3-import-resolver.md](./l1-task3-import-resolver.md) |
@@ -51,6 +56,7 @@ Directory: `docs/tasks`
 | TASK-034Qx10154Li5NXfNP7baP | WS-A task3 command router・target解決 | done | [ws-a-task3-command-router.md](./ws-a-task3-command-router.md) |
 | TASK-034Qx10viwoP7xnqZBuC1p | WS-A task4 workspace manager・dock lifecycle・fake host・persist | done | [ws-a-task4-workspace-manager-dock-host-persist.md](./ws-a-task4-workspace-manager-dock-host-persist.md) |
 | TASK-034Qx10ZOfjtNkN8JmDyBR | WS-A task5 受入test WS-A-01..06 | done | [ws-a-task5-acceptance-tests.md](./ws-a-task5-acceptance-tests.md) |
+| TASK-034Qx11uIekuC4n8fmY3Wh | WS-A task6 merge・再生成・最終検証・impl record | done | [ws-a-task6-verification-merge-impl-record.md](./ws-a-task6-verification-merge-impl-record.md) |
 | TASK-ktcgo0ekChv0F6hDG8O3rr | X task1 canonical receipt schema + commit digest 接続 (synvelis-recording) | done | [x-task1-canonical-ref-manifest.md](./x-task1-canonical-ref-manifest.md) |
 | TASK-lon8rNqrFA4DGM8WvurTtM | X task2 recorded media canonical publish (synvelis-player) | done | [x-task2-recorded-media-publish.md](./x-task2-recorded-media-publish.md) |
 | TASK-tU6Q6O7q6fOl2JizqTj6Kh | X task3 acceptance tests X-01..X-06 (synvelis-render/tests/x_e2e.rs) | done | [x-task3-acceptance-tests.md](./x-task3-acceptance-tests.md) |
