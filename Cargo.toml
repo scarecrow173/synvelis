@@ -7,6 +7,7 @@ members = [
   "crates/synvelis-player",
   "crates/synvelis-render",
   "crates/synvelis-workspace",
+  "crates/synvelis-gateway",
 ]
 
 [workspace.package]

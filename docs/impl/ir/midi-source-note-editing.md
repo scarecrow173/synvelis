@@ -72,9 +72,7 @@ relations:
     - "docs/designs/midi-source-note-editing-design.md"
   verified-by: []
   references: []
-  defers:
-    - "SMF Import/Export、Device MIDI 録音、MIDI 再生 lowering、window→note 投影"
-    - "SMPTE division、note resize/key edit、source length"
+  defers: []
   deferred-by: []
 ---
 
