@@ -12,6 +12,7 @@ Directory: `docs/tasks`
 | TASK-034QfR0eLqVxiQlwHq30L3 | VS-C task4 recovery scanner | todo | [vs-c-task4-recovery-scanner.md](./vs-c-task4-recovery-scanner.md) |
 | TASK-034QfR0WeQaYFoG1702td0 | VS-C task5 poc acceptance tests | todo | [vs-c-task5-poc-acceptance-tests.md](./vs-c-task5-poc-acceptance-tests.md) |
 | TASK-034QfR1ESUtmNef7DRyTyz | VS-C task6 verification impl record | todo | [vs-c-task6-verification-impl-record.md](./vs-c-task6-verification-impl-record.md) |
+| TASK-034Qx11uIekuC4n8fmY3Wh | WS-A task6 merge・再生成・最終検証・impl record | todo | [ws-a-task6-verification-merge-impl-record.md](./ws-a-task6-verification-merge-impl-record.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
 
@@ -45,6 +46,11 @@ Directory: `docs/tasks`
 | TASK-94KUOSi6E5hLp0z924tx0Z | VS-D task4 poc vsd scenario | done | [vs-d-task4-poc-vsd-scenario.md](./vs-d-task4-poc-vsd-scenario.md) |
 | TASK-Q55t28lMPEU2KfWWnDjN0v | VS-D task5 acceptance tests | done | [vs-d-task5-acceptance-tests.md](./vs-d-task5-acceptance-tests.md) |
 | TASK-y590vxVzQnOZqfoO4yx5HA | VS-D task6 verification impl record | done | [vs-d-task6-verification-impl-record.md](./vs-d-task6-verification-impl-record.md) |
+| TASK-034Qx0YZqo0BocaH8p0zvQ | WS-A task1 crate skeleton・deps更新・error/view/state/focus | done | [ws-a-task1-crate-skeleton-deps-view-state-focus.md](./ws-a-task1-crate-skeleton-deps-view-state-focus.md) |
+| TASK-034Qx0ZvZ742U0JcMeFDx2 | WS-A task2 link group・semantic mapping・session配信 | done | [ws-a-task2-linkgroup-mapping-session.md](./ws-a-task2-linkgroup-mapping-session.md) |
+| TASK-034Qx10154Li5NXfNP7baP | WS-A task3 command router・target解決 | done | [ws-a-task3-command-router.md](./ws-a-task3-command-router.md) |
+| TASK-034Qx10viwoP7xnqZBuC1p | WS-A task4 workspace manager・dock lifecycle・fake host・persist | done | [ws-a-task4-workspace-manager-dock-host-persist.md](./ws-a-task4-workspace-manager-dock-host-persist.md) |
+| TASK-034Qx10ZOfjtNkN8JmDyBR | WS-A task5 受入test WS-A-01..06 | done | [ws-a-task5-acceptance-tests.md](./ws-a-task5-acceptance-tests.md) |
 | TASK-ktcgo0ekChv0F6hDG8O3rr | X task1 canonical receipt schema + commit digest 接続 (synvelis-recording) | done | [x-task1-canonical-ref-manifest.md](./x-task1-canonical-ref-manifest.md) |
 | TASK-lon8rNqrFA4DGM8WvurTtM | X task2 recorded media canonical publish (synvelis-player) | done | [x-task2-recorded-media-publish.md](./x-task2-recorded-media-publish.md) |
 | TASK-tU6Q6O7q6fOl2JizqTj6Kh | X task3 acceptance tests X-01..X-06 (synvelis-render/tests/x_e2e.rs) | done | [x-task3-acceptance-tests.md](./x-task3-acceptance-tests.md) |
