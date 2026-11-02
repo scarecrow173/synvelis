@@ -162,6 +162,26 @@ define_id!(
     /// Identifies a [`crate::CompTransition`].
     CompTransitionId, "comp-transition"
 );
+define_id!(
+    /// Identifies a [`crate::control::ParameterTarget`].
+    ParameterTargetId, "param"
+);
+define_id!(
+    /// Identifies a [`crate::control::AutomationLane`].
+    AutomationLaneId, "automation-lane"
+);
+define_id!(
+    /// Identifies a [`crate::control::ModulationSource`].
+    ModulationSourceId, "mod-source"
+);
+define_id!(
+    /// Identifies a [`crate::control::ModulationAssignment`].
+    ModulationAssignmentId, "mod-assign"
+);
+define_id!(
+    /// Identifies a note entity (placeholder for clip-local note scope).
+    NoteId, "note"
+);
 
 /// Source of fresh stable-ID raw values. Injected into
 /// [`crate::ProjectController`] so tests are fully deterministic.

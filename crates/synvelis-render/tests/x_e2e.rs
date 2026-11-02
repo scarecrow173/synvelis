@@ -461,7 +461,7 @@ fn x_01_recorded_playback_export_bit_exact() {
     // media with the identical canonical digest.
     let again = publish_recorded(&area, &media_root).unwrap();
     assert_eq!(again.reused.len(), 1);
-    assert_eq!(again.published, []);
+    assert_eq!(again.published, Vec::new());
     fs::remove_file(&blob).unwrap();
     let again2 = publish_recorded(&area, &media_root).unwrap();
     assert_eq!(again2.reused.len(), 1);

@@ -14,3 +14,11 @@ Directory: `docs/plans`
 | PLAN-034QfNV0kVj6j2cR8sXyLqWm | VS-C Staging Writer / Journal / Crash Recovery 実装計画 | approved | [vs-c-staging-writer-journal-crash-recovery.md](./vs-c-staging-writer-journal-crash-recovery.md) |
 | PLAN-wDLeQm8n2jpOzr5utDhOSF | VS-D Recording Commit / E2E 実装計画 | approved | [vs-d-recording-commit-e2e.md](./vs-d-recording-commit-e2e.md) |
 | PLAN-KF3NnioeKW8ERFMd7dyN15 | X 実装計画 — Recorded Source→Generic Playback/Export integration | approved | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |
+
+## Settled <!-- doc-suite:settled-index -->
+
+| ID | Title | Status | File |
+| --- | --- | --- | --- |
+| PLAN-034QArZ5DRWJ27yfk2aEID | ED-A Editing Model headless PoC 実装計画 | completed | [ed-a-editing-model.md](./ed-a-editing-model.md) |
+| PLAN-034PCA04Pk9ySt5zBcPdEf | PC-A Parameter Control Model headless PoC 実装計画 | completed | [pc-a-parameter-control.md](./pc-a-parameter-control.md) |
+| PLAN-034QwZOjdblHRzDVhDXNIP | WS-A Workspace 基盤 headless PoC 実装計画 | completed | [ws-a-workspace-foundation.md](./ws-a-workspace-foundation.md) |

@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     comp::CompRegistry,
+    control::{ControlModel, ControlScope},
     error::Error,
     id::{
         AssetId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, ImportId, LaneId,
@@ -333,6 +334,12 @@ pub struct Project {
     /// keeps snapshots written before L1 loadable.
     #[serde(default)]
     pub applied_imports: BTreeMap<ImportId, AppliedImport>,
+    /// The persisted Parameter Control Model — the single source of
+    /// truth every Lane / Signal Flow / Inspector projection reads
+    /// (issue #40). `#[serde(default)]` keeps schema-2 minimal
+    /// snapshots loadable.
+    #[serde(default)]
+    pub control: ControlModel,
 }
 
 impl Project {
@@ -354,6 +361,7 @@ impl Project {
             recording: RecordingRegistry::default(),
             comp: CompRegistry::default(),
             applied_imports: BTreeMap::new(),
+            control: ControlModel::default(),
         }
     }
 
@@ -508,6 +516,82 @@ impl Project {
             }
         }
         crate::comp::validate_registry(self)?;
+        // -- parameter control model (issue #40) ----------------------
+        let ctl = &self.control;
+        for target in ctl.targets.values() {
+            match target.owner {
+                ControlScope::Track(id) if !self.tracks.contains_key(&id) => {
+                    return Err(Error::NotFound(format!("track {id}")));
+                }
+                ControlScope::Clip(id) if !self.clips.contains_key(&id) => {
+                    return Err(Error::NotFound(format!("clip {id}")));
+                }
+                _ => {}
+            }
+            target
+                .kind
+                .validate()
+                .map_err(|e| Error::Validation(format!("param {}: {e}", target.id)))?;
+            if !target.base.is_finite() || !(0.0..=1.0).contains(&target.base) {
+                return Err(Error::Validation(format!(
+                    "param {} base outside [0,1]",
+                    target.id
+                )));
+            }
+            if let Some(cap) = target.capability {
+                cap.param_info("")?;
+            }
+        }
+        for source in ctl.sources.values() {
+            match source.owner {
+                ControlScope::Track(id) if !self.tracks.contains_key(&id) => {
+                    return Err(Error::NotFound(format!("track {id}")));
+                }
+                ControlScope::Clip(id) if !self.clips.contains_key(&id) => {
+                    return Err(Error::NotFound(format!("clip {id}")));
+                }
+                _ => {}
+            }
+            source
+                .kind
+                .validate()
+                .map_err(|e| Error::Validation(format!("mod source {}: {e}", source.id)))?;
+        }
+        for lane in ctl.lanes.values() {
+            if !ctl.targets.contains_key(&lane.target) {
+                return Err(Error::NotFound(format!("param {}", lane.target)));
+            }
+            for region in &lane.regions {
+                region
+                    .validate()
+                    .map_err(|e| Error::Validation(format!("lane {}: {e}", lane.id)))?;
+            }
+        }
+        for assignment in ctl.assignments.values() {
+            if !ctl.sources.contains_key(&assignment.source) {
+                return Err(Error::NotFound(format!("mod source {}", assignment.source)));
+            }
+            if !ctl.targets.contains_key(&assignment.target) {
+                return Err(Error::NotFound(format!("param {}", assignment.target)));
+            }
+            if let Some(ds) = assignment.depth_source
+                && !ctl.targets.contains_key(&ds)
+            {
+                return Err(Error::NotFound(format!("depth source param {ds}")));
+            }
+        }
+        // Regions on one target never overlap — competition is a
+        // detected conflict, and load must not carry a silently
+        // prioritized series.
+        if let Some(conflict) = crate::control::detect_conflicts(self).into_iter().next() {
+            return Err(Error::AutomationConflict {
+                target: conflict.target.to_string(),
+                detail: format!(
+                    "lanes {} / {} overlap at {:?}",
+                    conflict.lane_a, conflict.lane_b, conflict.overlap
+                ),
+            });
+        }
         Ok(())
     }
 }

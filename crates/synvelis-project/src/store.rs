@@ -18,9 +18,11 @@ use serde::{Deserialize, Serialize};
 use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::Project};
 
 /// The only schema version this build reads or writes.
-/// `2` replaces the clip anchor/offset pair with the normalized
+/// v2 adds `Project::control` (the issue-#40 Parameter Control Model);
+/// v3 replaces the clip anchor/offset pair with the normalized
 /// placement+playback contract and adds the comping registry (MD-A).
-pub const SCHEMA_VERSION: u32 = 2;
+/// v1/v2 snapshots are not migrated (PoC-stage format change).
+pub const SCHEMA_VERSION: u32 = 3;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.

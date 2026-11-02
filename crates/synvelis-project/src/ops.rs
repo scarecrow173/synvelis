@@ -6,14 +6,24 @@
 //! that need it read it from the project after apply (F0 simplification).
 
 use crate::{
+    control::{
+        AutomationLane, AutomationRegion, BeatRange, ConflictPolicy, ControlScope, ParamMapping,
+        Polarity, SourceKind, TargetCapability, Transform, ValueKind, cut_range_points,
+        dispatch_check, modulation_allowed,
+    },
     controller::Operation,
     error::Error,
-    id::{AssetId, ClipId, IdGenerator, LaneId, SourceId, TrackId},
+    id::{
+        AssetId, AutomationLaneId, ClipId, IdGenerator, LaneId, ModulationAssignmentId,
+        ModulationSourceId, ParameterTargetId, SourceId, TrackId,
+    },
     placement::{ClipExtent, ClipPlacement, ClipPlayback, TimeAnchor},
     project::{Asset, Clip, Lane, Project, Source, SourceState, Track},
+    range::MusicalRange,
     recording_data::ClockEpoch,
     tempo::SignatureDto,
     tempo::TempoEventDto,
+    time::{MusicalTick, SourceFrame},
 };
 
 /// Project-level operations.
@@ -138,6 +148,143 @@ pub enum ProjectOp {
     RegisterClockEpoch {
         /// Description of the clock source.
         description: String,
+    },
+    /// Apply several ops as one atomic transaction — the multi-target
+    /// editing-gesture commit (issue #11/#38: all-or-nothing, one undo
+    /// step). Nested `Composite` is rejected.
+    Composite {
+        /// Ops applied in order on the same scratch project.
+        ops: Vec<ProjectOp>,
+    },
+    /// Split a musically anchored clip at `at` into two clips. The new
+    /// clip keeps the source and muted flag; `clip_b_source_offset` is
+    /// caller-resolved (tick→source-frame rate mapping is not modeled).
+    SplitClip {
+        /// Target clip.
+        clip_id: ClipId,
+        /// Split position; must lie strictly inside the clip's
+        /// `MusicalRange`.
+        at: MusicalTick,
+        /// Source offset of the clip after the split (must not precede
+        /// the original offset).
+        clip_b_source_offset: SourceFrame,
+    },
+    /// Remove every clip on `lanes` whose `MusicalRange` overlaps
+    /// `range`. Media-anchored clips are outside this op's time domain
+    /// and are left untouched (no silent domain conversion).
+    RemoveClipsInRange {
+        /// Lanes to sweep.
+        lanes: Vec<LaneId>,
+        /// Musical half-open range to remove.
+        range: MusicalRange,
+    },
+    /// Create a parameter target (issue #40). `Note` scope is rejected —
+    /// the note entity model is not part of this `PoC`.
+    AddParameterTarget {
+        /// Display name.
+        name: String,
+        /// Owning scope (defines the time coordinate of its automation).
+        owner: ControlScope,
+        /// Discrete/continuous value domain.
+        kind: ValueKind,
+        /// Normalized→plain mapping.
+        mapping: ParamMapping,
+        /// Optional plugin capability contract (fixture `ParamInfo`).
+        capability: Option<TargetCapability>,
+        /// Normalized base value in `[0, 1]`.
+        base: f64,
+    },
+    /// Remove a parameter target (only when no lane or assignment
+    /// references it and it is not a depth source).
+    RemoveParameterTarget {
+        /// Target to remove.
+        target: ParameterTargetId,
+    },
+    /// Set a target's persistent base value — the `Off`-mode edit and
+    /// the fallback when no automation/manual value applies. Rejected
+    /// on `READONLY` targets.
+    SetParameterBase {
+        /// Target to edit.
+        target: ParameterTargetId,
+        /// New normalized base in `[0, 1]`.
+        value: f64,
+    },
+    /// Create an empty automation lane feeding a target.
+    AddAutomationLane {
+        /// The parameter the lane feeds.
+        target: ParameterTargetId,
+    },
+    /// Remove an automation lane and all its regions.
+    RemoveAutomationLane {
+        /// Lane to remove.
+        lane: AutomationLaneId,
+    },
+    /// Write a region into a lane. `policy` is the caller's explicit
+    /// conflict decision: `Reject` reports competing series as
+    /// [`Error::AutomationConflict`]; `Replace` overwrites the merged
+    /// series (existing points inside the new range are removed on
+    /// every lane of the target). Requires the target to accept
+    /// [`ruviform_plugin_core::ParamWriteMeans::TimedEvent`].
+    WriteAutomationRegion {
+        /// Lane receiving the region.
+        lane: AutomationLaneId,
+        /// The region to insert.
+        region: AutomationRegion,
+        /// Explicit conflict policy.
+        policy: ConflictPolicy,
+    },
+    /// Remove every point inside `range` on `lane` (regions are split
+    /// at the boundary; empty remains are dropped).
+    EraseAutomationRange {
+        /// Lane to erase from.
+        lane: AutomationLaneId,
+        /// Half-open range to clear.
+        range: BeatRange,
+    },
+    /// Create a modulation source. `Note` scope is rejected.
+    AddModulationSource {
+        /// Owning scope.
+        owner: ControlScope,
+        /// Signal definition.
+        kind: SourceKind,
+    },
+    /// Remove a modulation source (only when no assignment uses it).
+    RemoveModulationSource {
+        /// Source to remove.
+        source: ModulationSourceId,
+    },
+    /// Bind a source to a target. Only `Continuous`, writable targets
+    /// accept modulation — a discrete kind or `READONLY` capability is
+    /// rejected here, never silently ignored at evaluation.
+    AddModulationAssignment {
+        /// Signal provider.
+        source: ModulationSourceId,
+        /// Modulated parameter.
+        target: ParameterTargetId,
+        /// Normalized increment scale (finite; sign allowed).
+        depth: f64,
+        /// Optional target whose resolved value scales `depth`.
+        depth_source: Option<ParameterTargetId>,
+        /// Bipolar/unipolar application.
+        polarity: Polarity,
+        /// Signal shaping.
+        transform: Transform,
+        /// Whether the assignment is live.
+        enabled: bool,
+    },
+    /// Update an assignment's depth and/or enabled flag.
+    SetModulationAssignment {
+        /// Assignment to update.
+        id: ModulationAssignmentId,
+        /// New depth (unchanged when `None`).
+        depth: Option<f64>,
+        /// New enabled flag (unchanged when `None`).
+        enabled: Option<bool>,
+    },
+    /// Remove a modulation assignment.
+    RemoveModulationAssignment {
+        /// Assignment to remove.
+        id: ModulationAssignmentId,
     },
 }
 
@@ -314,6 +461,250 @@ impl Operation for ProjectOp {
                 }
                 Ok(())
             }
+            Self::Composite { ops } => {
+                if ops.is_empty() {
+                    return Err(Error::Validation("empty composite".into()));
+                }
+                for op in ops {
+                    if matches!(op, Self::Composite { .. }) {
+                        return Err(Error::Validation("nested composite".into()));
+                    }
+                    op.validate(project)?;
+                }
+                Ok(())
+            }
+            Self::SplitClip {
+                clip_id,
+                at,
+                clip_b_source_offset,
+            } => {
+                let clip = project
+                    .clips
+                    .get(clip_id)
+                    .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
+                let TimeAnchor::Musical(range) = clip.anchor else {
+                    return Err(Error::Validation(format!(
+                        "clip {clip_id} is not musically anchored"
+                    )));
+                };
+                if !range.contains(*at) || *at == range.start() {
+                    return Err(Error::Validation(format!(
+                        "split tick {} is not strictly inside clip {clip_id}",
+                        at.value()
+                    )));
+                }
+                if *clip_b_source_offset < clip.source_offset {
+                    return Err(Error::Validation(format!(
+                        "clip_b_source_offset precedes source offset of clip {clip_id}"
+                    )));
+                }
+                Ok(())
+            }
+            Self::RemoveClipsInRange { lanes, range } => {
+                if range.is_empty() {
+                    return Err(Error::Validation("empty removal range".into()));
+                }
+                for lane_id in lanes {
+                    if !project.lanes.contains_key(lane_id) {
+                        return Err(Error::NotFound(format!("lane {lane_id}")));
+                    }
+                }
+                Ok(())
+            }
+            // -- parameter control model (issue #40) -------------------
+            Self::AddParameterTarget {
+                owner,
+                kind,
+                mapping,
+                capability,
+                base,
+                ..
+            } => {
+                validate_scope(*owner, project)?;
+                kind.validate()?;
+                if !base.is_finite() || !(0.0..=1.0).contains(base) {
+                    return Err(Error::Validation("param base outside [0,1]".into()));
+                }
+                if let Some(cap) = capability {
+                    cap.param_info("")?;
+                    if matches!(mapping, ParamMapping::Exponential) && cap.min_value <= 0.0 {
+                        return Err(Error::Validation(
+                            "exponential mapping needs min_value > 0".into(),
+                        ));
+                    }
+                }
+                Ok(())
+            }
+            Self::RemoveParameterTarget { target } => {
+                if !project.control.targets.contains_key(target) {
+                    return Err(Error::NotFound(format!("param {target}")));
+                }
+                if project.control.lanes.values().any(|l| l.target == *target)
+                    || project
+                        .control
+                        .assignments
+                        .values()
+                        .any(|a| a.target == *target || a.depth_source == Some(*target))
+                {
+                    return Err(Error::Validation(format!(
+                        "param {target} still referenced"
+                    )));
+                }
+                Ok(())
+            }
+            Self::SetParameterBase { target, value } => {
+                let t = project
+                    .control
+                    .targets
+                    .get(target)
+                    .ok_or_else(|| Error::NotFound(format!("param {target}")))?;
+                if !value.is_finite() || !(0.0..=1.0).contains(value) {
+                    return Err(Error::Validation("param base outside [0,1]".into()));
+                }
+                if t.is_readonly() {
+                    return Err(Error::WriteRejected {
+                        means: "SetParameterBase".into(),
+                        rejection: "param_readonly".into(),
+                    });
+                }
+                Ok(())
+            }
+            Self::AddAutomationLane { target } => project
+                .control
+                .targets
+                .contains_key(target)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("param {target}"))),
+            Self::RemoveAutomationLane { lane } => project
+                .control
+                .lanes
+                .contains_key(lane)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("automation lane {lane}"))),
+            Self::WriteAutomationRegion {
+                lane,
+                region,
+                policy,
+            } => {
+                let lane_ref = project
+                    .control
+                    .lanes
+                    .get(lane)
+                    .ok_or_else(|| Error::NotFound(format!("automation lane {lane}")))?;
+                let target = project
+                    .control
+                    .targets
+                    .get(&lane_ref.target)
+                    .ok_or_else(|| Error::NotFound(format!("param {}", lane_ref.target)))?;
+                region.validate()?;
+                dispatch_check(target, ruviform_plugin_core::ParamWriteMeans::TimedEvent)?;
+                if *policy == ConflictPolicy::Reject {
+                    for other in project.control.lanes.values() {
+                        if other.target != lane_ref.target {
+                            continue;
+                        }
+                        for existing in &other.regions {
+                            if existing.range.overlaps(&region.range) {
+                                return Err(Error::AutomationConflict {
+                                    target: lane_ref.target.to_string(),
+                                    detail: format!(
+                                        "lane {lane} region {:?} overlaps lane {} region {:?}",
+                                        region.range, other.id, existing.range
+                                    ),
+                                });
+                            }
+                        }
+                    }
+                }
+                Ok(())
+            }
+            Self::EraseAutomationRange { lane, range } => {
+                if range.is_empty() {
+                    return Err(Error::Validation("empty erase range".into()));
+                }
+                project
+                    .control
+                    .lanes
+                    .contains_key(lane)
+                    .then_some(())
+                    .ok_or_else(|| Error::NotFound(format!("automation lane {lane}")))
+            }
+            Self::AddModulationSource { owner, kind } => {
+                validate_scope(*owner, project)?;
+                kind.validate()
+            }
+            Self::RemoveModulationSource { source } => {
+                if !project.control.sources.contains_key(source) {
+                    return Err(Error::NotFound(format!("mod source {source}")));
+                }
+                if project
+                    .control
+                    .assignments
+                    .values()
+                    .any(|a| a.source == *source)
+                {
+                    return Err(Error::Validation(format!(
+                        "mod source {source} still assigned"
+                    )));
+                }
+                Ok(())
+            }
+            Self::AddModulationAssignment {
+                source,
+                target,
+                depth,
+                depth_source,
+                ..
+            } => {
+                if !project.control.sources.contains_key(source) {
+                    return Err(Error::NotFound(format!("mod source {source}")));
+                }
+                let t = project
+                    .control
+                    .targets
+                    .get(target)
+                    .ok_or_else(|| Error::NotFound(format!("param {target}")))?;
+                if !depth.is_finite() {
+                    return Err(Error::Validation("modulation depth not finite".into()));
+                }
+                if !modulation_allowed(t.kind) {
+                    return Err(Error::Validation(format!(
+                        "param {target} kind rejects continuous modulation"
+                    )));
+                }
+                // Modulation reaches the plugin through block-rate
+                // writes — `READONLY` rejects, `AUTOMATABLE` is not
+                // required (timed events are the sample-accurate path).
+                dispatch_check(t, ruviform_plugin_core::ParamWriteMeans::BlockBoundary)?;
+                if let Some(ds) = depth_source {
+                    if *ds == *target {
+                        return Err(Error::Validation(
+                            "depth source cannot be the target itself".into(),
+                        ));
+                    }
+                    if !project.control.targets.contains_key(ds) {
+                        return Err(Error::NotFound(format!("depth source param {ds}")));
+                    }
+                }
+                Ok(())
+            }
+            Self::SetModulationAssignment { id, depth, .. } => {
+                if !project.control.assignments.contains_key(id) {
+                    return Err(Error::NotFound(format!("mod assignment {id}")));
+                }
+                if let Some(d) = depth
+                    && !d.is_finite()
+                {
+                    return Err(Error::Validation("modulation depth not finite".into()));
+                }
+                Ok(())
+            }
+            Self::RemoveModulationAssignment { id } => project
+                .control
+                .assignments
+                .contains_key(id)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("mod assignment {id}"))),
         }
     }
 
@@ -465,6 +856,192 @@ impl Operation for ProjectOp {
                     },
                 );
             }
+            Self::Composite { ops } => {
+                // `project` is the controller's scratch clone — a mid-way
+                // failure is discarded with it, keeping the commit atomic.
+                for op in ops {
+                    op.validate(project)?;
+                    op.apply(project, ids)?;
+                }
+            }
+            Self::SplitClip {
+                clip_id,
+                at,
+                clip_b_source_offset,
+            } => {
+                let (lane_id, source_id, muted, range) = {
+                    let clip = project
+                        .clips
+                        .get(clip_id)
+                        .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
+                    let TimeAnchor::Musical(range) = clip.anchor else {
+                        return Err(Error::Validation(format!(
+                            "clip {clip_id} is not musically anchored"
+                        )));
+                    };
+                    (clip.lane_id, clip.source_id, clip.muted, range)
+                };
+                let id = ClipId::new(ids.next());
+                project.clips.insert(
+                    id,
+                    Clip {
+                        id,
+                        lane_id,
+                        source_id,
+                        anchor: TimeAnchor::Musical(MusicalRange::try_new(*at, range.end())?),
+                        source_offset: *clip_b_source_offset,
+                        muted,
+                    },
+                );
+                if let Some(lane) = project.lanes.get_mut(&lane_id) {
+                    lane.clip_ids.push(id);
+                }
+                if let Some(clip) = project.clips.get_mut(clip_id) {
+                    clip.anchor = TimeAnchor::Musical(MusicalRange::try_new(range.start(), *at)?);
+                }
+            }
+            Self::RemoveClipsInRange { lanes, range } => {
+                let doomed: Vec<ClipId> = lanes
+                    .iter()
+                    .flat_map(|lane_id| {
+                        project
+                            .lanes
+                            .get(lane_id)
+                            .into_iter()
+                            .flat_map(|lane| lane.clip_ids.iter().copied())
+                    })
+                    .filter(|clip_id| {
+                        matches!(
+                            project.clips.get(clip_id).map(|c| c.anchor),
+                            Some(TimeAnchor::Musical(r)) if r.overlaps(range)
+                        )
+                    })
+                    .collect();
+                for clip_id in doomed {
+                    Self::RemoveClip { clip_id }.apply(project, ids)?;
+                }
+            }
+            // -- parameter control model (issue #40) -------------------
+            Self::AddParameterTarget {
+                name,
+                owner,
+                kind,
+                mapping,
+                capability,
+                base,
+            } => {
+                let id = ParameterTargetId::new(ids.next());
+                project.control.targets.insert(
+                    id,
+                    crate::control::ParameterTarget {
+                        id,
+                        owner: *owner,
+                        name: name.clone(),
+                        kind: *kind,
+                        mapping: *mapping,
+                        capability: *capability,
+                        base: *base,
+                    },
+                );
+            }
+            Self::RemoveParameterTarget { target } => {
+                project.control.targets.remove(target);
+            }
+            Self::SetParameterBase { target, value } => {
+                if let Some(t) = project.control.targets.get_mut(target) {
+                    t.base = *value;
+                }
+            }
+            Self::AddAutomationLane { target } => {
+                let id = AutomationLaneId::new(ids.next());
+                project.control.lanes.insert(
+                    id,
+                    AutomationLane {
+                        id,
+                        target: *target,
+                        regions: Vec::new(),
+                    },
+                );
+            }
+            Self::RemoveAutomationLane { lane } => {
+                project.control.lanes.remove(lane);
+            }
+            Self::WriteAutomationRegion {
+                lane,
+                region,
+                policy,
+            } => {
+                if *policy == ConflictPolicy::Replace {
+                    let target = project.control.lanes.get(lane).map(|l| l.target);
+                    // Explicit overwrite: the new region wins the merged
+                    // series — every lane of this target loses the
+                    // overlapping span.
+                    for other in project.control.lanes.values_mut() {
+                        if Some(other.target) == target {
+                            cut_range_points(&mut other.regions, &region.range);
+                        }
+                    }
+                }
+                if let Some(lane_ref) = project.control.lanes.get_mut(lane) {
+                    lane_ref.regions.push(region.clone());
+                }
+            }
+            Self::EraseAutomationRange { lane, range } => {
+                if let Some(lane_ref) = project.control.lanes.get_mut(lane) {
+                    cut_range_points(&mut lane_ref.regions, range);
+                }
+            }
+            Self::AddModulationSource { owner, kind } => {
+                let id = ModulationSourceId::new(ids.next());
+                project.control.sources.insert(
+                    id,
+                    crate::control::ModulationSource {
+                        id,
+                        owner: *owner,
+                        kind: kind.clone(),
+                    },
+                );
+            }
+            Self::RemoveModulationSource { source } => {
+                project.control.sources.remove(source);
+            }
+            Self::AddModulationAssignment {
+                source,
+                target,
+                depth,
+                depth_source,
+                polarity,
+                transform,
+                enabled,
+            } => {
+                let id = ModulationAssignmentId::new(ids.next());
+                project.control.assignments.insert(
+                    id,
+                    crate::control::ModulationAssignment {
+                        id,
+                        source: *source,
+                        target: *target,
+                        depth: *depth,
+                        depth_source: *depth_source,
+                        polarity: *polarity,
+                        transform: *transform,
+                        enabled: *enabled,
+                    },
+                );
+            }
+            Self::SetModulationAssignment { id, depth, enabled } => {
+                if let Some(a) = project.control.assignments.get_mut(id) {
+                    if let Some(d) = depth {
+                        a.depth = *d;
+                    }
+                    if let Some(e) = enabled {
+                        a.enabled = *e;
+                    }
+                }
+            }
+            Self::RemoveModulationAssignment { id } => {
+                project.control.assignments.remove(id);
+            }
         }
         Ok(())
     }
@@ -498,5 +1075,22 @@ fn validate_clip_contract(
             playback.validate_window(media_frames)
         }
         ClipExtent::Musical(_) => playback.validate_window(0),
+    }
+}
+
+/// Validates that a `ControlScope` resolves against existing entities —
+/// `Note` scope is honestly rejected (no note entity model in this `PoC`).
+fn validate_scope(scope: ControlScope, project: &Project) -> Result<(), Error> {
+    match scope {
+        ControlScope::Track(id) if !project.tracks.contains_key(&id) => {
+            Err(Error::NotFound(format!("track {id}")))
+        }
+        ControlScope::Clip(id) if !project.clips.contains_key(&id) => {
+            Err(Error::NotFound(format!("clip {id}")))
+        }
+        ControlScope::Note(id) => Err(Error::Validation(format!(
+            "note scope {id} has no entity model yet"
+        ))),
+        _ => Ok(()),
     }
 }

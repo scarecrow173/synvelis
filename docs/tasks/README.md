@@ -17,6 +17,12 @@ Directory: `docs/tasks`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| TASK-034QAtPmN1oYgkip3TL6wG | ED-A task1 ProjectOp batch ops + selection model + ViewState 移行 | done | [ed-a-task1-selection-model-project-ops.md](./ed-a-task1-selection-model-project-ops.md) |
+| TASK-034QAu1d6DTe49e8cgWMtq | ED-A task2 tool resolution + gesture fixation/preview 型 | done | [ed-a-task2-tool-gesture-model.md](./ed-a-task2-tool-gesture-model.md) |
+| TASK-034QAu2bJQYSQOBkB7eOoz | ED-A task3 snap engine + edit op 構築 + commit/cancel 経路 | done | [ed-a-task3-snap-edit-commit.md](./ed-a-task3-snap-edit-commit.md) |
+| TASK-034QAu4igyxOwf6eNf7xk9 | ED-A task4 command 追加 + workspace editing API + cancel hook | done | [ed-a-task4-commands-workspace-api.md](./ed-a-task4-commands-workspace-api.md) |
+| TASK-034QAu59SzY753wmZUJZ5T | ED-A task5 受入 test ED-A-01..05 | done | [ed-a-task5-acceptance-tests.md](./ed-a-task5-acceptance-tests.md) |
+| TASK-034QAu61uDP868aqejEmAN | ED-A task6 最終検証 + impl record | done | [ed-a-task6-verification-impl-record.md](./ed-a-task6-verification-impl-record.md) |
 | TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |
 | TASK-z866D1bQYKGTdgVlXsQMXJ | L1 task2 player crate fixture | done | [l1-task2-player-crate-fixture.md](./l1-task2-player-crate-fixture.md) |
 | TASK-W9NYIr58HYQiSJ9WczQxPS | L1 task3 import resolver | done | [l1-task3-import-resolver.md](./l1-task3-import-resolver.md) |
@@ -31,6 +37,12 @@ Directory: `docs/tasks`
 | TASK-HVCTNeUo2kXQN0NvHCUa6K | MD-A task2 Comp スキーマ (ID/registry/POD) + CompOp + 検証 | done | [mda-task2-comp-schema-ops.md](./mda-task2-comp-schema-ops.md) |
 | TASK-jlbvNYC9NvQW1NsWa4wo4K | MD-A task3 Effective Comp 投影 + editor target 型 | done | [mda-task3-effective-comp-projection-editor-targets.md](./mda-task3-effective-comp-projection-editor-targets.md) |
 | TASK-2s64FRQrl31k3APXwajsNF | MD-A task4 MD-A-* 受入テスト + 全検証 + impl record | done | [mda-task4-acceptance-tests-verification.md](./mda-task4-acceptance-tests-verification.md) |
+| TASK-034PCA05Ql0zTu6aCdQeFg | PC-A task1 ruviform-plugin-core dep + control model + Project::control + schema 2 | done | [pc-a-task1-control-model-deps.md](./pc-a-task1-control-model-deps.md) |
+| TASK-034PCA06Rm1aUv7bDeRfGh | PC-A task2 control ProjectOp + conflict detection | done | [pc-a-task2-control-ops-conflicts.md](./pc-a-task2-control-ops-conflicts.md) |
+| TASK-034PCA07Sn2bVw8cEfSgHi | PC-A task3 eval + control graph + capability/dispatch | done | [pc-a-task3-eval-graph-dispatch.md](./pc-a-task3-eval-graph-dispatch.md) |
+| TASK-034PCA08To3cWx9dFgThIj | PC-A task4 ControlSession + workspace API | done | [pc-a-task4-control-session.md](./pc-a-task4-control-session.md) |
+| TASK-034PCA09Up4dXy0eGhUiJk | PC-A task5 受入 test PC-A-01..08 | done | [pc-a-task5-acceptance-tests.md](./pc-a-task5-acceptance-tests.md) |
+| TASK-034PCA10Vq5eYz1fHiVjKl | PC-A task6 最終検証 + impl record | done | [pc-a-task6-verification-impl-record.md](./pc-a-task6-verification-impl-record.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | TASK-034Qe0kHawWuXO1xHGTd8F | VS-A task3 controller ops store | done | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |
@@ -49,6 +61,12 @@ Directory: `docs/tasks`
 | TASK-94KUOSi6E5hLp0z924tx0Z | VS-D task4 poc vsd scenario | done | [vs-d-task4-poc-vsd-scenario.md](./vs-d-task4-poc-vsd-scenario.md) |
 | TASK-Q55t28lMPEU2KfWWnDjN0v | VS-D task5 acceptance tests | done | [vs-d-task5-acceptance-tests.md](./vs-d-task5-acceptance-tests.md) |
 | TASK-y590vxVzQnOZqfoO4yx5HA | VS-D task6 verification impl record | done | [vs-d-task6-verification-impl-record.md](./vs-d-task6-verification-impl-record.md) |
+| TASK-034Qx0YZqo0BocaH8p0zvQ | WS-A task1 crate skeleton・deps更新・error/view/state/focus | done | [ws-a-task1-crate-skeleton-deps-view-state-focus.md](./ws-a-task1-crate-skeleton-deps-view-state-focus.md) |
+| TASK-034Qx0ZvZ742U0JcMeFDx2 | WS-A task2 link group・semantic mapping・session配信 | done | [ws-a-task2-linkgroup-mapping-session.md](./ws-a-task2-linkgroup-mapping-session.md) |
+| TASK-034Qx10154Li5NXfNP7baP | WS-A task3 command router・target解決 | done | [ws-a-task3-command-router.md](./ws-a-task3-command-router.md) |
+| TASK-034Qx10viwoP7xnqZBuC1p | WS-A task4 workspace manager・dock lifecycle・fake host・persist | done | [ws-a-task4-workspace-manager-dock-host-persist.md](./ws-a-task4-workspace-manager-dock-host-persist.md) |
+| TASK-034Qx10ZOfjtNkN8JmDyBR | WS-A task5 受入test WS-A-01..06 | done | [ws-a-task5-acceptance-tests.md](./ws-a-task5-acceptance-tests.md) |
+| TASK-034Qx11uIekuC4n8fmY3Wh | WS-A task6 merge・再生成・最終検証・impl record | done | [ws-a-task6-verification-merge-impl-record.md](./ws-a-task6-verification-merge-impl-record.md) |
 | TASK-ktcgo0ekChv0F6hDG8O3rr | X task1 canonical receipt schema + commit digest 接続 (synvelis-recording) | done | [x-task1-canonical-ref-manifest.md](./x-task1-canonical-ref-manifest.md) |
 | TASK-lon8rNqrFA4DGM8WvurTtM | X task2 recorded media canonical publish (synvelis-player) | done | [x-task2-recorded-media-publish.md](./x-task2-recorded-media-publish.md) |
 | TASK-tU6Q6O7q6fOl2JizqTj6Kh | X task3 acceptance tests X-01..X-06 (synvelis-render/tests/x_e2e.rs) | done | [x-task3-acceptance-tests.md](./x-task3-acceptance-tests.md) |
