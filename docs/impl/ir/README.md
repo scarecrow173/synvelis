@@ -17,3 +17,4 @@ Directory: `docs/impl/ir`
 | IMPL-034Qeefum0sCLzMQV4B0T5 | VS-A task5 poc and acceptance tests | completed | [vs-a-task5-poc-and-acceptance-tests.md](vs-a-task5-poc-and-acceptance-tests.md) |
 | IMPL-pQbrnczYyJPOw79LzmmIy | VS-B Clock/Gate/RT Capture — Mock Input・Buffer Pool・SPSC (E2E-R1) | completed | [vs-b-clock-gate-rt-capture-mock-spsc.md](vs-b-clock-gate-rt-capture-mock-spsc.md) |
 | IMPL-034QfRW3cPFErlmVZ7TCoI | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range (E2E-R2) | completed | [vs-c-staging-writer-journal-crash-recovery.md](vs-c-staging-writer-journal-crash-recovery.md) |
+| IMPL-L1LocalWavVerifiedPlayback | E2E-L1 Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | completed | [l1-e2e-local-wav-verified-playback.md](l1-e2e-local-wav-verified-playback.md) |

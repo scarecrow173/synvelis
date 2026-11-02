@@ -10,3 +10,4 @@ Directory: `docs/adr`
 | ADR-ODnVCNLDT5mtpswKxVDw9R | VS-B SPSCプリミティブ・Gate Schedule表現・Fault通知・Chunk所有権 | accepted | [vs-b-ruviform-rt-spsc-gate-schedule-fault-ownership.md](./vs-b-ruviform-rt-spsc-gate-schedule-fault-ownership.md) |
 | ADR-034QfJdymYmhzfa9PFs8fD | VS-C Journal形式・Checkpoint Sync方針・Fault隔離・Finalized出力 | accepted | [vs-c-journal-checkpoint-sync-fault-finalized.md](./vs-c-journal-checkpoint-sync-fault-finalized.md) |
 | ADR-MSyE0rkQSGNdJNwNrTVoCy | VS-D CommitIdentity・Manifest・Single Mutation・Undo 単位 | accepted | [vs-d-commit-identity-manifest-single-mutation.md](./vs-d-commit-identity-manifest-single-mutation.md) |
+| ADR-Ym8S8syVSNCeQiMNBHHfHt | L1 — Import・Blob・Lowering・Driver の配置と境界 | accepted | [l1-player-slice-boundaries.md](./l1-player-slice-boundaries.md) |

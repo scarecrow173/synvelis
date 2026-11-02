@@ -109,9 +109,27 @@ relations:
   implemented-by: []
   depends-on: []
   blocks: []
+  supersedes: []
+  superseded-by: []
+  related: []
+  refines: []
+  refined-by: []
+  derives-from: []
+  derived-by: []
+  verifies: []
+  verified-by: []
+  references: []
+  defers: []
+  deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # VS-B Clock/Gate/RT Capture — Mock Input・Buffer Pool・SPSC
+
+## Summary
 
 Mock Clock/Input の決定的 frame 列を Preflight → Prepared Gate
 Schedule → RT Capture → 事前確保 SPSC Handoff で扱う E2E-R1 縦切片。
