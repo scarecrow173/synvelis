@@ -21,3 +21,7 @@ ruviform-audio.workspace = true
 ruviform-audio-core.workspace = true
 ruviform-rt.workspace = true
 ruviform-exec.workspace = true
+
+[dev-dependencies]
+synvelis-recording = { path = "../synvelis-recording" }
+serde_json.workspace = true

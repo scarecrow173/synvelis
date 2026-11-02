@@ -29,12 +29,12 @@ pub use bounded::{BoundedFull, BoundedVec};
 pub use capture::{CaptureBlockHeader, CaptureChunk, CaptureSpan, ChunkId, ChunkValidity};
 pub use clock::InputBlock;
 pub use commit::{
-    ClipEntry, CommitError, CommitIdentity, CommitMarker, CommitOutcome, CommitPayload,
-    CommitReport, CommitStatus, PassEntry, PreparedCommit, RecordingCommitManifest,
+    CanonicalReceipt, ClipEntry, CommitError, CommitIdentity, CommitMarker, CommitOutcome,
+    CommitPayload, CommitReport, CommitStatus, PassEntry, PreparedCommit, RecordingCommitManifest,
     RecoverableStream, SegmentEntry, StreamEntry, StreamFinalization, TakeEntry, apply_commit,
     build_payload, commit_manifest_path, commit_marker_path, commit_session, commit_status,
-    load_finalized, payload_hash, prepare_manifest, read_commit_manifest, read_commit_marker,
-    validate_commit,
+    load_canonical, load_finalized, payload_hash, prepare_manifest, read_commit_manifest,
+    read_commit_marker, validate_commit,
 };
 pub use crc32::{Crc32, crc32, digest_fold};
 pub use engine::{CaptureEngine, EngineEndsBack};
@@ -60,8 +60,9 @@ pub use session::{
     accepts_registration, accepts_take_verification, legal_transition, require_transition,
 };
 pub use staging::{
-    DirSyncCapability, ManifestStream, StagingArea, StagingCapabilities, StagingError,
-    StagingManifest, StagingSessionConfig, StagingStreamConfig, publish_atomic, stream_config,
+    CANONICAL_MEDIA_FORMAT, CANONICAL_SCHEMA_VERSION, CanonicalSourceRef, DirSyncCapability,
+    ManifestStream, StagingArea, StagingCapabilities, StagingError, StagingManifest,
+    StagingSessionConfig, StagingStreamConfig, canonical_rel, publish_atomic, stream_config,
     stream_stem,
 };
 pub use writer::{

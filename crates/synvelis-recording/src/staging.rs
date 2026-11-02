@@ -25,6 +25,10 @@ use synvelis_project::{CaptureStreamId, LaneId, RecordingSessionId};
 pub const STAGING_SCHEMA_VERSION: u32 = 1;
 /// media の PCM 形式識別子。
 pub const PCM_FORMAT: &str = "f32le-interleaved";
+/// canonical receipt (`canonical.json`) の schema version。
+pub const CANONICAL_SCHEMA_VERSION: u32 = 1;
+/// canonical media の container/format 識別子（PCM f32 WAV）。
+pub const CANONICAL_MEDIA_FORMAT: &str = "wav-f32";
 
 /// 1 stream の staging 設定（呼び出し側が plan/project から供給する
 /// Project 非依存の identity/format 解決）。
@@ -127,6 +131,46 @@ fn journal_rel(stream_index: u16) -> String {
 }
 fn finalized_rel(stream_index: u16) -> String {
     format!("streams/{}.finalized.json", stream_stem(stream_index))
+}
+
+/// canonical receipt の session 相対 path。
+#[must_use]
+pub fn canonical_rel(stream_index: u16) -> String {
+    format!("streams/{}.canonical.json", stream_stem(stream_index))
+}
+
+/// canonical publication receipt（`streams/stream-NNNN.canonical.json`）。
+/// recovery 確定済みの raw media を canonical verified-media 形式
+/// （decodable container・`media_root/blobs/<digest>` で resolve 可能）
+/// へ publish した記録。commit は `digest` を `Source.content_digest`
+/// へ採用し、raw media provenance は `raw_digest` で保持する。
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CanonicalSourceRef {
+    /// schema version。
+    pub schema_version: u32,
+    /// session 識別子（tagged）。
+    pub session_id: String,
+    /// stream index。
+    pub stream_index: u16,
+    /// capture stream 識別子（tagged）。
+    pub capture_stream_id: String,
+    /// lane 識別子（tagged）。
+    pub lane_id: String,
+    /// 対象 `FinalizedSourceRef` の raw media fold digest（hex）。
+    pub raw_digest: String,
+    /// canonical blob の content digest（import と同一 scheme・hex16）。
+    pub digest: String,
+    /// canonical media の container/format 識別子。
+    pub media_format: String,
+    /// canonical blob byte 長。
+    pub byte_len: u64,
+    /// 確定 source frame 総数（`FinalizedSourceRef` と一致必須）。
+    pub source_frames: u64,
+    /// sample rate。
+    pub sample_rate: u32,
+    /// チャネル数。
+    pub channels: u32,
 }
 
 /// open 済みの staging session 領域。
@@ -360,6 +404,12 @@ impl StagingArea {
     #[must_use]
     pub fn finalized_path(&self, stream_index: u16) -> PathBuf {
         self.session_dir.join(finalized_rel(stream_index))
+    }
+
+    /// canonical receipt (`canonical.json`) の絶対 path。
+    #[must_use]
+    pub fn canonical_path(&self, stream_index: u16) -> PathBuf {
+        self.session_dir.join(canonical_rel(stream_index))
     }
 
     /// `session_dir` 直下の dir sync を試みる（capability が

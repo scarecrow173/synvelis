@@ -29,12 +29,14 @@ use synvelis_project::{
 use crate::{
     crc32::crc32,
     ops::{RecordingOp, SynvelisOp},
-    staging::{DirSyncCapability, StagingArea, StagingError, publish_atomic},
+    staging::{CanonicalSourceRef, DirSyncCapability, StagingArea, StagingError, publish_atomic},
     writer::{FinalizedOutcome, FinalizedSourceRef, FinalizedSpan},
 };
 
 /// commit-manifest.json の schema version。
-pub const COMMIT_SCHEMA_VERSION: u32 = 1;
+/// v2: `StreamEntry.digest` が canonical publication receipt を経由して
+/// canonical blob digest を取り得る（`raw_digest` で provenance 保持）。
+pub const COMMIT_SCHEMA_VERSION: u32 = 2;
 /// staging session dir 内の commit manifest 名。
 pub const COMMIT_MANIFEST_FILE: &str = "commit-manifest.json";
 /// staging session dir 内の commit marker 名。
@@ -147,8 +149,13 @@ pub struct StreamEntry {
     /// PCM 形式識別子。
     pub pcm_format: String,
     /// media 内容 digest（hex・asset/source の `content_digest` と同一）。
+    /// canonical publication 済み stream では canonical blob の digest。
     pub digest: String,
-    /// media file の session 相対 path。
+    /// canonical 化前の raw media fold digest（canonical receipt 採用時
+    /// のみ `Some`・raw media への provenance）。
+    #[serde(default)]
+    pub raw_digest: Option<String>,
+    /// media file の session 相対 path（raw staging media）。
     pub media: String,
     /// durable media byte 長。
     pub media_byte_len: u64,
@@ -449,7 +456,105 @@ pub fn load_finalized(area: &StagingArea) -> Vec<StreamFinalization> {
         .collect()
 }
 
+/// canonical receipt の読み取り結果。
+#[derive(Clone, Debug)]
+pub struct CanonicalReceipt {
+    /// stream index。
+    pub stream_index: u16,
+    /// 解析済み receipt（missing/破損は `None`）。
+    pub canonical: Option<CanonicalSourceRef>,
+    /// 読み取り/解析失敗の理由。
+    pub error: Option<String>,
+}
+
+/// staging manifest 上の全 stream の canonical receipt を読む。
+/// `load_finalized` と同型の best-effort loader — receipt 不在は
+/// canonical 未 publish を意味し、read/parse 失敗は error に記録し
+/// panic しない（build 側で fail-closed に扱う）。
+#[must_use]
+pub fn load_canonical(area: &StagingArea) -> Vec<CanonicalReceipt> {
+    area.manifest
+        .streams
+        .iter()
+        .map(|ms| {
+            let path = area.canonical_path(ms.stream_index);
+            if !path.exists() {
+                return CanonicalReceipt {
+                    stream_index: ms.stream_index,
+                    canonical: None,
+                    error: None,
+                };
+            }
+            match fs::read(&path) {
+                Ok(bytes) => match serde_json::from_slice::<CanonicalSourceRef>(&bytes) {
+                    Ok(can) => CanonicalReceipt {
+                        stream_index: ms.stream_index,
+                        canonical: Some(can),
+                        error: None,
+                    },
+                    Err(e) => CanonicalReceipt {
+                        stream_index: ms.stream_index,
+                        canonical: None,
+                        error: Some(format!("decode: {e}")),
+                    },
+                },
+                Err(e) => CanonicalReceipt {
+                    stream_index: ms.stream_index,
+                    canonical: None,
+                    error: Some(format!("read: {e}")),
+                },
+            }
+        })
+        .collect()
+}
+
+/// `FinalizedSourceRef` と canonical receipt の整合を検査する。
+/// receipt が指す raw media identity と frames/format が ref と一致する
+/// 場合のみ `Some(canonical.digest)` を返し、不整合は `Err`（silent な
+/// 別 media への付替えを防ぐ fail-closed）。
+fn adopt_canonical_digest(
+    r: &FinalizedSourceRef,
+    receipt: Option<&CanonicalSourceRef>,
+) -> Result<(String, Option<String>), CommitError> {
+    let Some(can) = receipt else {
+        return Ok((r.digest.clone(), None));
+    };
+    let ok = can.schema_version == crate::staging::CANONICAL_SCHEMA_VERSION
+        && can.media_format == crate::staging::CANONICAL_MEDIA_FORMAT
+        && can.session_id == r.session_id
+        && can.stream_index == r.stream_index
+        && can.capture_stream_id == r.capture_stream_id
+        && can.lane_id == r.lane_id
+        && can.raw_digest == r.digest
+        && can.source_frames == r.source_frames
+        && can.sample_rate == r.sample_rate
+        && can.channels == r.channels;
+    if ok {
+        Ok((can.digest.clone(), Some(r.digest.clone())))
+    } else {
+        Err(CommitError::Manifest(format!(
+            "canonical receipt stream {} inconsistent with finalized ref",
+            r.stream_index
+        )))
+    }
+}
+
 // ---------- payload construction ----------
+
+/// payload 構築の中間表現 — finalize 検証を通過した stream の
+/// commit 入力（canonical 採用済み digest を含む）。
+struct StreamSpec {
+    /// `plan.targets` の添字。
+    stream_index: u16,
+    /// 検証済み finalized ref。
+    r: FinalizedSourceRef,
+    /// `Source.content_digest` に載る digest（canonical 優先）。
+    digest: String,
+    /// canonical 採用時の raw media provenance。
+    raw_digest: Option<String>,
+    /// merge 済み論理区間。
+    segments: Vec<FinalizedSpan>,
+}
 
 /// payload の内容 fingerprint（ID 文字列を除いた構造一致判定）。
 /// 既存 manifest 再利用時に refs/project 由来の再構成と照合する。
@@ -598,6 +703,7 @@ pub fn build_payload(
     draw: &mut dyn FnMut() -> u128,
 ) -> Result<(CommitPayload, Vec<RecoverableStream>), CommitError> {
     let fins = load_finalized(area);
+    let cans = load_canonical(area);
     // session スコープの capture fault marker（RT/engine 側 fault の
     // durable 記録）。存在すれば全 stream を recoverable 分離する
     // — capture が session として正常終了していないため「Complete
@@ -612,7 +718,7 @@ pub fn build_payload(
     };
     let mut recoverable = Vec::new();
     let mut pass_indexes: BTreeSet<u32> = BTreeSet::new();
-    let mut stream_specs: Vec<(u16, FinalizedSourceRef, Vec<FinalizedSpan>)> = Vec::new();
+    let mut stream_specs: Vec<StreamSpec> = Vec::new();
 
     for ms in &area.manifest.streams {
         if let Some(detail) = &capture_fault {
@@ -691,11 +797,28 @@ pub fn build_payload(
                 continue;
             }
         };
+        // canonical receipt が公開済みなら整合を検査して採用する。
+        // 破損 receipt は未公開扱いにせず fail-closed で拒否する。
+        let can = cans.iter().find(|c| c.stream_index == ms.stream_index);
+        if let Some(e) = can.and_then(|c| c.error.as_ref()) {
+            return Err(CommitError::Manifest(format!(
+                "canonical receipt stream {} unreadable: {e}",
+                ms.stream_index
+            )));
+        }
+        let (digest, raw_digest) =
+            adopt_canonical_digest(&entry, can.and_then(|c| c.canonical.as_ref()))?;
         let segments = merge_spans(&entry.spans);
         for g in &segments {
             pass_indexes.insert(g.pass_index);
         }
-        stream_specs.push((ms.stream_index, entry, segments));
+        stream_specs.push(StreamSpec {
+            stream_index: ms.stream_index,
+            r: entry,
+            digest,
+            raw_digest,
+            segments,
+        });
     }
 
     // pass index → reserved pass id（全 stream 共有・index 昇順に採番）。
@@ -708,7 +831,14 @@ pub fn build_payload(
     // stream のみが生成する（重複 clip set を lane に載せない）。
     let mut lanes_with_clips: BTreeSet<String> = BTreeSet::new();
     let mut streams = Vec::new();
-    for (stream_index, r, segments) in stream_specs {
+    for StreamSpec {
+        stream_index,
+        r,
+        digest,
+        raw_digest,
+        segments,
+    } in stream_specs
+    {
         let stream_id = CaptureStreamId::from_tagged(&r.capture_stream_id)
             .map_err(|_| CommitError::Manifest("bad capture_stream_id tag".into()))?;
         let stream = project.recording.streams.get(&stream_id).ok_or_else(|| {
@@ -799,7 +929,8 @@ pub fn build_payload(
             asset_id: AssetId::new(draw()).to_tagged(),
             source_id: SourceId::new(draw()).to_tagged(),
             pcm_format: r.pcm_format.clone(),
-            digest: r.digest.clone(),
+            digest,
+            raw_digest,
             media: r.media.clone(),
             media_byte_len: r.media_byte_len,
             source_frames: r.source_frames,
