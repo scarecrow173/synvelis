@@ -1549,6 +1549,7 @@ pub fn apply_commit(
                         MusicalTick::new(c.tick_out),
                     )?),
                     source_offset: SourceFrame::new(c.source_offset)?,
+                    muted: false,
                 },
             );
             if let Some(lane) = project.lanes.get_mut(&lane_id) {
