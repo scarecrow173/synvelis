@@ -19,7 +19,7 @@ use ruviform_graph::{GraphProject, GraphRevision, NodeSpec, PortId, PrepareError
 use ruviform_media_reader::{PrefetchHandle, PrefetchProducer, PumpOutcome, SourceFrame};
 use ruviform_rt::RtContext;
 
-use crate::lowering::{ClipBinding, EngineConfig, Lowered};
+use crate::lowering::{EngineConfig, Lowered, NodeContent, PlaybackBinding};
 use crate::processor::{ClipPlayer, ClipSync, PlaybackStats};
 use crate::resolver::PreparedClip;
 
@@ -91,8 +91,8 @@ pub struct HeadlessDriver {
     handles: Vec<PrefetchHandle>,
     seek_nonces: Vec<Arc<AtomicU64>>,
     drain_nonces: Vec<Arc<AtomicU64>>,
-    bindings: Vec<ClipBinding>,
-    stats: Vec<(ClipId, Arc<PlaybackStats>)>,
+    bindings: Vec<PlaybackBinding>,
+    stats: Vec<(NodeContent, Arc<PlaybackStats>)>,
     master_in: Option<PortId>,
     generation: u64,
 }
@@ -129,8 +129,8 @@ impl HeadlessDriver {
 
     /// Publishes `lowered` and installs one [`ClipPlayer`] per binding.
     ///
-    /// `prepared` must carry one [`PreparedClip`] per `lowered.clips`
-    /// entry, in the same order — each clip gets its own reader so a
+    /// `prepared` must carry one [`PreparedClip`] per `lowered.playbacks`
+    /// entry, in the same order — each node gets its own reader so a
     /// shared source plays through independent decode paths. Each
     /// consumer is initially aligned to its window's `source_start`.
     ///
@@ -151,12 +151,12 @@ impl HeadlessDriver {
         prepared: Vec<PreparedClip>,
     ) -> Result<u64, ActivateError> {
         let mut pending: BTreeMap<_, ClipPlayer> = BTreeMap::new();
-        let mut stats = Vec::with_capacity(lowered.clips.len());
-        let mut producers = Vec::with_capacity(lowered.clips.len());
-        let mut handles = Vec::with_capacity(lowered.clips.len());
-        let mut nonces = Vec::with_capacity(lowered.clips.len());
-        let mut drains = Vec::with_capacity(lowered.clips.len());
-        for (binding, mut clip) in lowered.clips.iter().zip(prepared) {
+        let mut stats = Vec::with_capacity(lowered.playbacks.len());
+        let mut producers = Vec::with_capacity(lowered.playbacks.len());
+        let mut handles = Vec::with_capacity(lowered.playbacks.len());
+        let mut nonces = Vec::with_capacity(lowered.playbacks.len());
+        let mut drains = Vec::with_capacity(lowered.playbacks.len());
+        for (binding, mut clip) in lowered.playbacks.iter().zip(prepared) {
             let stat = Arc::new(PlaybackStats::default());
             let nonce = Arc::new(AtomicU64::new(0));
             let drain = Arc::new(AtomicU64::new(0));
@@ -165,6 +165,7 @@ impl HeadlessDriver {
                 ClipPlayer::new(
                     clip.consumer,
                     binding.window,
+                    binding.fade,
                     ClipSync {
                         clock: Arc::clone(&self.clock),
                         pending_seek: Arc::clone(&nonce),
@@ -175,7 +176,7 @@ impl HeadlessDriver {
                     clip.canonical.layout.channels() as usize,
                 ),
             );
-            stats.push((binding.clip_id, stat));
+            stats.push((binding.content, stat));
             if clip
                 .handle
                 .seek(SourceFrame(binding.window.source_start))
@@ -220,7 +221,7 @@ impl HeadlessDriver {
         self.graph
             .publish(compiled)
             .map_err(ActivateError::Publish)?;
-        self.bindings.clone_from(&lowered.clips);
+        self.bindings.clone_from(&lowered.playbacks);
         self.stats = stats;
         self.producers = producers;
         self.handles = handles;
@@ -333,12 +334,20 @@ impl HeadlessDriver {
         self.cursor
     }
 
-    /// Per-clip playback stats.
+    /// Per-clip playback stats — the node's clip identity only; comp
+    /// segments and transition sides report through
+    /// [`HeadlessDriver::stats_of_content`].
     #[must_use]
     pub fn stats_of(&self, clip_id: ClipId) -> Option<&Arc<PlaybackStats>> {
+        self.stats_of_content(&NodeContent::Clip(clip_id))
+    }
+
+    /// Per-node playback stats, keyed by the node's content.
+    #[must_use]
+    pub fn stats_of_content(&self, content: &NodeContent) -> Option<&Arc<PlaybackStats>> {
         self.stats
             .iter()
-            .find(|(id, _)| *id == clip_id)
+            .find(|(id, _)| id == content)
             .map(|(_, stats)| stats)
     }
 

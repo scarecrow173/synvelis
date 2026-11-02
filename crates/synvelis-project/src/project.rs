@@ -368,10 +368,20 @@ impl Project {
     /// Validates every internal reference. Called on load so a corrupt or
     /// tampered snapshot is rejected before it replaces live state.
     ///
+    /// Also re-validates the persisted *temporal contract*: the
+    /// persisted tempo map must compile (every musical anchor/extent/
+    /// comp range resolves through it) and every clip's placement/
+    /// playback pair must satisfy `validate_clip_contract`, so a
+    /// snapshot that can no longer produce valid lowered state is
+    /// rejected at load rather than resurrecting invalid clips.
+    ///
     /// # Errors
     /// [`Error::NotFound`]/[`Error::WrongOwner`]/[`Error::Validation`].
     #[allow(clippy::too_many_lines)] // sequential per-entity checks
     pub fn validate_references(&self) -> Result<(), Error> {
+        // The persisted tempo map must compile — a malformed map would
+        // silently strand every musical-time consumer.
+        crate::tempo::TickTimeMapping::new(&self.tempo_map)?;
         for lane in self.lanes.values() {
             let track = self
                 .tracks
@@ -405,6 +415,7 @@ impl Project {
             if !self.sources.contains_key(&clip.source_id) {
                 return Err(Error::NotFound(format!("source {}", clip.source_id)));
             }
+            crate::placement::validate_clip_contract(self, &clip.placement, &clip.playback)?;
         }
         for source in self.sources.values() {
             if !self.assets.contains_key(&source.asset_id) {

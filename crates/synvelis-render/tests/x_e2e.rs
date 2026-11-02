@@ -19,7 +19,7 @@ use ruviform_audio_core::{AudioFormat, ChannelLayout, SampleFormat, SampleRate};
 use ruviform_media_reader::PrefetchConfig;
 
 use synvelis_player::import::{blob_path, content_digest};
-use synvelis_player::lowering::{EngineConfig, lower};
+use synvelis_player::lowering::{EngineConfig, NodeContent, lower};
 use synvelis_player::publish::publish_recorded;
 use synvelis_player::resolver::prepare;
 use synvelis_player::{HeadlessDriver, PumpPolicy};
@@ -302,7 +302,7 @@ fn play(c: &ProjectController, media_root: &Path, frames: u64) -> Vec<Vec<f32>> 
     let eng = engine(RATE, 2, 1024);
     let lowered = lower(c.live(), &|_| Some(canonical()), &eng);
     let prepared: Vec<_> = lowered
-        .clips
+        .playbacks
         .iter()
         .map(|b| prepare(c.live(), b.source_id, media_root, &prefetch(2, RATE)).unwrap())
         .collect();
@@ -495,11 +495,13 @@ fn x_01_recorded_playback_export_bit_exact() {
     let eng = engine(RATE, 2, 1024);
     let lowered = lower(c2.live(), &|_| Some(canonical()), &eng);
     let prepared: Vec<_> = lowered
-        .clips
+        .playbacks
         .iter()
         .map(|b| prepare(c2.live(), b.source_id, &media_root, &prefetch(2, RATE)).unwrap())
         .collect();
-    let clip_id = lowered.clips[0].clip_id;
+    let NodeContent::Clip(clip_id) = lowered.playbacks[0].content else {
+        panic!("first playback node is the committed clip")
+    };
     let mut driver = HeadlessDriver::new(eng);
     driver.activate(&lowered, prepared).unwrap();
     let starved = driver.run(2, PumpPolicy::Every(0)).unwrap();
@@ -768,7 +770,7 @@ fn x_04_finalized_only_visibility() {
     assert_eq!(c.live().sources.len(), 0);
     let eng = engine(RATE, 2, 1024);
     let lowered = lower(c.live(), &|_| Some(canonical()), &eng);
-    assert!(lowered.clips.is_empty(), "no clips without commit");
+    assert!(lowered.playbacks.is_empty(), "no clips without commit");
 
     // (b) WIP stream: a second session is recorded but never finalized.
     let (session2, cfgs2) = open_session(&mut c, &lanes, epoch);

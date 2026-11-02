@@ -334,10 +334,10 @@ fn l1_03_headless_clip_playback_exact() {
         },
         &eng,
     );
-    assert_eq!(lowered.clips.len(), 1);
-    assert_eq!(lowered.clips[0].window.engine_start, 64);
-    assert_eq!(lowered.clips[0].window.engine_len, 700);
-    assert_eq!(lowered.clips[0].window.source_start, 13);
+    assert_eq!(lowered.playbacks.len(), 1);
+    assert_eq!(lowered.playbacks[0].window.engine_start, 64);
+    assert_eq!(lowered.playbacks[0].window.engine_len, 700);
+    assert_eq!(lowered.playbacks[0].window.source_start, 13);
 
     let mut driver = HeadlessDriver::new(eng);
     let prepared = vec![
@@ -641,7 +641,7 @@ fn l1_05_time_conversion_is_exact_and_documented() {
     };
     let lowered = lower(c.live(), &|_| Some(canonical), &eng);
     let mut windows: Vec<(u64, u64, u64)> = lowered
-        .clips
+        .playbacks
         .iter()
         .map(|b| {
             (
@@ -658,7 +658,7 @@ fn l1_05_time_conversion_is_exact_and_documented() {
     // the musical clip covers frames 200..=5199.
     let mut driver = HeadlessDriver::new(eng);
     let prepared = lowered
-        .clips
+        .playbacks
         .iter()
         .map(|_| {
             prepare(
@@ -943,7 +943,7 @@ fn l1_compat_prepare_failure_keeps_last_good() {
     });
     let bad = synvelis_player::lowering::Lowered {
         spec: bad_builder.build(),
-        clips: Vec::new(),
+        playbacks: Vec::new(),
         master_in: lowered.master_in,
         inserts: Vec::new(),
         skipped: Vec::new(),

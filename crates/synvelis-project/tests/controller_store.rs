@@ -253,6 +253,116 @@ fn source_state_is_forward_only_and_carries_no_media() {
     assert!(!json.contains("\"data\""));
 }
 
+// ---------------------------------------------------------------------
+// MD-B: load-time revalidation (issue #50 scope 2)
+// ---------------------------------------------------------------------
+
+/// Builds a valid snapshot with one clip on one lane, then lets the
+/// caller mutate the serialized project before reloading.
+fn snapshot_with_clip(store: &mut InMemoryStore) -> serde_json::Value {
+    let mut c = controller();
+    c.apply(cmd(&c, ProjectOp::AddTrack { name: "t".into() }))
+        .unwrap();
+    let track = *c.live().tracks.keys().next().unwrap();
+    c.apply(cmd(&c, ProjectOp::AddLane { track_id: track }))
+        .unwrap();
+    let lane = *c.live().lanes.keys().next().unwrap();
+    c.apply(cmd(&c, ProjectOp::RegisterAsset { digest: "d".into() }))
+        .unwrap();
+    let asset = *c.live().assets.keys().next().unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::RegisterSource {
+            asset_id: asset,
+            content_digest: "d".into(),
+        },
+    ))
+    .unwrap();
+    let source = *c.live().sources.keys().next().unwrap();
+    c.apply(cmd(
+        &c,
+        ProjectOp::AddClip {
+            lane_id: lane,
+            source_id: source,
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Absolute(MediaTimeValue::new(0, 1, 48_000).unwrap()),
+                extent: ClipExtent::Absolute(MediaDuration::new(48_000, 1, 48_000).unwrap()),
+            },
+            playback: ClipPlayback {
+                source_region: SourceRange::try_new(
+                    SourceFrame::ZERO,
+                    SourceFrame::new(48_000).unwrap(),
+                )
+                .unwrap(),
+                mapping: PlaybackMapping::Natural,
+            },
+        },
+    ))
+    .unwrap();
+    c.save(store).unwrap();
+    let head = store.head().unwrap().unwrap();
+    serde_json::from_slice(&store.read_snapshot(&head).unwrap()).unwrap()
+}
+
+/// A snapshot whose persisted tempo map fails to compile is rejected
+/// at load — the live project is untouched.
+#[test]
+fn load_rejects_malformed_tempo_map() {
+    let mut store = InMemoryStore::new();
+    let mut env = snapshot_with_clip(&mut store);
+    // An empty tempo event list cannot compile — this is the honest
+    // detection the load path owes a broken snapshot.
+    env["project"]["tempo_map"]["tempo_events"] = serde_json::json!([]);
+    store
+        .save("p", ProjectRevision(20), &serde_json::to_vec(&env).unwrap())
+        .unwrap();
+
+    let mut c2 = controller();
+    assert!(c2.load(&store).is_err(), "malformed tempo map must fail");
+    assert_eq!(c2.live_revision(), ProjectRevision(0));
+    assert!(c2.live().clips.is_empty());
+}
+
+/// A clip whose persisted contract is unsatisfiable — a source window
+/// shorter than the absolute extent demands — is rejected at load even
+/// though every individual field deserializes.
+#[test]
+fn load_rejects_invalid_clip_contract() {
+    let mut store = InMemoryStore::new();
+    let mut env = snapshot_with_clip(&mut store);
+    // Shrink the source window to 100 frames under a 48_000-frame
+    // absolute extent: `Natural` playback then consumes more than the
+    // window — the contract fails at revalidation.
+    let clips = env["project"]["clips"].as_object_mut().unwrap();
+    let clip = clips.values_mut().next().unwrap();
+    clip["playback"]["source_region"]["end"] = serde_json::json!(100);
+    store
+        .save("p", ProjectRevision(21), &serde_json::to_vec(&env).unwrap())
+        .unwrap();
+
+    let mut c2 = controller();
+    assert!(c2.load(&store).is_err(), "broken clip contract must fail");
+    assert_eq!(c2.live_revision(), ProjectRevision(0));
+    assert!(c2.live().clips.is_empty());
+}
+
+/// The same revalidation leaves a conforming snapshot loadable — the
+/// new checks tighten the oracle, not the contract.
+#[test]
+fn load_still_accepts_valid_snapshot() {
+    let mut store = InMemoryStore::new();
+    let env = snapshot_with_clip(&mut store);
+    store
+        .save("p", ProjectRevision(22), &serde_json::to_vec(&env).unwrap())
+        .unwrap();
+    let mut c2 = controller();
+    c2.load(&store).unwrap();
+    assert_eq!(c2.live().clips.len(), 1);
+    // The store-level revision names the snapshot file; the envelope's
+    // own `revision` field (5 ops applied above) is what loads.
+    assert_eq!(c2.live_revision(), ProjectRevision(5));
+}
+
 #[test]
 fn directory_bundle_save_publishes_head_last() {
     let dir = std::env::temp_dir().join(format!("synvelis-f0-{}-{}", std::process::id(), "bundle"));

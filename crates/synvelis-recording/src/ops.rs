@@ -5,7 +5,7 @@
 //! the controller — there is no second writer and no second store.
 
 use synvelis_project::{
-    CaptureSegmentId, CaptureStreamId, ClockEpochId, Error, IdGenerator, LaneId, Operation,
+    CaptureSegmentId, CaptureStreamId, ClockEpochId, CompOp, Error, IdGenerator, LaneId, Operation,
     Project, ProjectOp, RecordingPassId, RecordingSessionId, SessionRange, SessionState, SourceId,
     SourceRange, TakeId, TakeState,
     recording_data::{CaptureSegment, CaptureStream, RecordingPass, RecordingSession, Take},
@@ -334,13 +334,15 @@ impl Operation for RecordingOp {
 }
 
 /// The operation sum type used by the `PoC` and tests: project ops plus
-/// recording ops under one controller.
+/// recording ops plus comp ops under one controller.
 #[derive(Clone, Debug)]
 pub enum SynvelisOp {
     /// A project-domain operation.
     Project(ProjectOp),
     /// A recording-domain operation.
     Recording(RecordingOp),
+    /// A comping operation (take groups, comps, regions, transitions).
+    Comp(CompOp),
 }
 
 impl Operation for SynvelisOp {
@@ -348,6 +350,7 @@ impl Operation for SynvelisOp {
         match self {
             Self::Project(op) => op.validate(project),
             Self::Recording(op) => op.validate(project),
+            Self::Comp(op) => op.validate(project),
         }
     }
 
@@ -355,6 +358,7 @@ impl Operation for SynvelisOp {
         match self {
             Self::Project(op) => op.apply(project, ids),
             Self::Recording(op) => op.apply(project, ids),
+            Self::Comp(op) => op.apply(project, ids),
         }
     }
 }

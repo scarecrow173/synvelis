@@ -9,7 +9,8 @@
 //! touch either.
 
 use synvelis_project::{
-    Command, Error, ParameterTargetId, Project, ProjectController, ProjectOp, ProjectRevision,
+    Command, Error, Operation, ParameterTargetId, Project, ProjectController, ProjectOp,
+    ProjectRevision,
 };
 
 use crate::control::{ControlSession, GestureEnd, RecordingOutcome};
@@ -170,12 +171,17 @@ impl ProjectSession {
     /// Applies `op` through the controller (validation + revision
     /// check + atomic apply), then rebuilds the engine stub's graph.
     ///
+    /// Generic over the operation type: the workspace command layer
+    /// produces `ProjectOp`, and any other domain op that satisfies
+    /// the project's `Operation` contract — `CompOp`, `SynvelisOp` —
+    /// reaches the controller through the same surface.
+    ///
     /// # Errors
     /// [`Error::StaleRevision`]/validation errors from the controller —
     /// project unchanged.
-    pub fn apply(
+    pub fn apply<O: Operation>(
         &mut self,
-        op: ProjectOp,
+        op: O,
         expected_revision: ProjectRevision,
     ) -> Result<ProjectRevision, Error> {
         let revision = self.controller.apply(Command {

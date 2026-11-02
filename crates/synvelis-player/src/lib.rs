@@ -29,7 +29,10 @@ pub mod resolver;
 pub use driver::{DriverState, HeadlessDriver, PlayReport, PumpPolicy};
 pub use error::{ImportError, ResolveError};
 pub use import::{BlobReceipt, ImportOutcome, ImportRequest, ProjectReceipt, VerifiedMedia};
-pub use lowering::{ClipBinding, ClipWindow, EngineConfig, Lowered, SkippedClip};
+pub use lowering::{
+    ClipWindow, CompSkipReason, EngineConfig, FadeDirection, FadeWindow, Lowered, NodeContent,
+    OverlapSide, PlaybackBinding, SkippedPlayback,
+};
 pub use processor::{ClipPlayer, PlaybackStats};
 pub use publish::{PublishError, PublishReport, PublishedStream, SkippedStream, publish_recorded};
 pub use resolver::PreparedClip;

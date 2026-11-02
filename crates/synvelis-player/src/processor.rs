@@ -28,7 +28,7 @@ use ruviform_audio::typed::{GraphProcessor, NodeIo};
 use ruviform_media_reader::{FillReport, PrefetchConsumer};
 use ruviform_rt::RtContext;
 
-use crate::lowering::ClipWindow;
+use crate::lowering::{ClipWindow, FadeWindow};
 
 /// Bound on probe fills per `process` call — larger than any prefetch
 /// ring depth, so resync always converges or stalls on underrun/EOF.
@@ -112,10 +112,12 @@ pub struct ClipSync {
 }
 
 /// Per-clip playback processor: prefetched source PCM inside a
-/// declared engine window, silence outside it.
+/// declared engine window, silence outside it. A [`FadeWindow`]
+/// (transition-side nodes only) shapes the emitted gain per frame.
 pub struct ClipPlayer {
     consumer: PrefetchConsumer,
     window: ClipWindow,
+    fade: Option<FadeWindow>,
     sync: ClipSync,
     stats: Arc<PlaybackStats>,
     scratch: Vec<Vec<f32>>,
@@ -132,10 +134,12 @@ pub struct ClipPlayer {
 impl ClipPlayer {
     /// Creates the processor. `scratch`/`probe` planes are allocated
     /// here — never inside `process` — so the RT path does not allocate.
+    /// `fade` is the node's crossfade envelope (`None` = unity gain).
     #[must_use]
     pub fn new(
         consumer: PrefetchConsumer,
         window: ClipWindow,
+        fade: Option<FadeWindow>,
         sync: ClipSync,
         stats: Arc<PlaybackStats>,
         block_frames: usize,
@@ -145,6 +149,7 @@ impl ClipPlayer {
         Self {
             consumer,
             window,
+            fade,
             sync,
             stats,
             scratch: vec![vec![0.0; block_frames]; channels],
@@ -361,7 +366,18 @@ impl GraphProcessor for ClipPlayer {
         if let Some(mut out) = io.output(0) {
             for (index, channel) in self.scratch.iter().enumerate() {
                 if let Some(dst) = out.channel_mut(index) {
-                    dst[..frames].copy_from_slice(&channel[..frames]);
+                    if let Some(fade) = self.fade {
+                        // The fade parameter is the engine frame — the
+                        // envelope is evaluated in the graph's own
+                        // position domain.
+                        let block = i64::try_from(base).unwrap_or(i64::MAX);
+                        for (i, d) in dst[..frames].iter_mut().enumerate() {
+                            let at = block.saturating_add(i64::try_from(i).unwrap_or(0));
+                            *d = channel[i] * fade.gain_at(at);
+                        }
+                    } else {
+                        dst[..frames].copy_from_slice(&channel[..frames]);
+                    }
                 }
             }
         }

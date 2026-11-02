@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use synvelis_player::error::ResolveError;
-use synvelis_player::lowering::{SkippedClip, lower_with_inserts};
+use synvelis_player::lowering::{NodeContent, SkippedPlayback, lower_with_inserts};
 use synvelis_project::SourceId;
 
 use ruviform_audio::render::{
@@ -107,27 +107,42 @@ fn run(
         &engine,
         request.inserts.len(),
     );
-    // Every skipped clip is explicit: `Muted` is intentional silence,
-    // anything else is a refused render — never a silent drop.
+    // Every skip is explicit: `Muted`, `CompSilence` and
+    // `SupersededByComp` are intentional silence — anything else is a
+    // refused render, never a silent drop.
     for skipped in &lowered.skipped {
-        let clip_id = match skipped {
-            SkippedClip::Muted { .. } => continue,
-            SkippedClip::RateMismatch { clip_id, .. }
-            | SkippedClip::UnresolvableAnchor { clip_id }
-            | SkippedClip::MissingSource { clip_id, .. }
-            | SkippedClip::UnsupportedMapping { clip_id } => *clip_id,
-        };
-        return Err(failed(
-            ExportStage::Preflight,
-            PreflightError::UnrenderableClip {
-                clip_id,
-                reason: format!("{skipped:?}"),
-            },
-        ));
+        match skipped {
+            SkippedPlayback::Muted { .. }
+            | SkippedPlayback::CompSilence { .. }
+            | SkippedPlayback::SupersededByComp { .. } => {}
+            SkippedPlayback::RateMismatch { clip_id, .. }
+            | SkippedPlayback::UnresolvableAnchor { clip_id }
+            | SkippedPlayback::MissingSource { clip_id, .. }
+            | SkippedPlayback::UnsupportedMapping { clip_id } => {
+                return Err(failed(
+                    ExportStage::Preflight,
+                    PreflightError::UnrenderableClip {
+                        clip_id: *clip_id,
+                        reason: format!("{skipped:?}"),
+                    },
+                ));
+            }
+            SkippedPlayback::CompProjection { comp_id, .. }
+            | SkippedPlayback::CompSegment { comp_id, .. }
+            | SkippedPlayback::CompOverlap { comp_id, .. } => {
+                return Err(failed(
+                    ExportStage::Preflight,
+                    PreflightError::UnrenderableComp {
+                        comp_id: *comp_id,
+                        detail: format!("{skipped:?}"),
+                    },
+                ));
+            }
+        }
     }
-    // Zero clip nodes — an all-muted or clip-free export — is a
+    // Zero playback nodes — an all-muted or clip-free export — is a
     // refusal, not a silently empty file.
-    if lowered.clips.is_empty() {
+    if lowered.playbacks.is_empty() {
         return Err(failed(
             ExportStage::Preflight,
             PreflightError::NothingToRender,
@@ -147,15 +162,22 @@ fn run(
             .saturating_add(declared_latency);
 
     let mut pending: BTreeMap<ruviform_graph::NodeId, Box<dyn GraphProcessor>> = BTreeMap::new();
-    for binding in &lowered.clips {
+    for binding in &lowered.playbacks {
         let opened_src = opened.get_mut(&binding.source_id).ok_or_else(|| {
-            failed(
-                ExportStage::Prepare,
-                ExportError::Preflight(PreflightError::MissingSource {
-                    clip_id: binding.clip_id,
+            let error = match binding.content {
+                NodeContent::Clip(clip_id) => PreflightError::MissingSource {
+                    clip_id,
                     source_id: binding.source_id,
-                }),
-            )
+                },
+                content => PreflightError::UnrenderableComp {
+                    comp_id: content.comp_id().expect("comp content carries a comp id"),
+                    detail: format!(
+                        "{content:?} references missing source {}",
+                        binding.source_id
+                    ),
+                },
+            };
+            failed(ExportStage::Prepare, error)
         })?;
         let decoded = decode_window(
             &mut opened_src.reader,
@@ -174,6 +196,7 @@ fn run(
                 decoded.planes,
                 decoded.base,
                 binding.window,
+                binding.fade,
                 play_pos_i64,
                 request.clip_support,
             )),
