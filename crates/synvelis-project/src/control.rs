@@ -1188,7 +1188,8 @@ impl ControlGraph {
     /// the caller recompiles and reinstalls — callers must recompile
     /// on each relevant project revision (scope *placement* — clip
     /// anchor/extent — is resolved live so `MoveClip` stays correct
-    /// without recompile).
+    /// without recompile). [`EvalPlan::is_stale`] detects the
+    /// divergence.
     ///
     /// # Errors
     /// [`Error::ControlCycle`] when enabled assignments form a
@@ -1250,6 +1251,31 @@ impl ControlGraph {
 }
 
 impl EvalPlan {
+    /// Whether the inputs this plan froze at compile have since
+    /// changed — `true` when a recompile of `project` would produce a
+    /// different plan (or fail outright).
+    ///
+    /// The check compares exactly what [`ControlGraph::compile`]
+    /// freezes — target bases, kinds and owner scopes, merged
+    /// automation series, enabled assignments and their resolved
+    /// depth sources — by recompiling and comparing. A control
+    /// mutation (`WriteAutomationRegion`, `SetParameterBase`,
+    /// assignment/lane edits, target add/remove) reports stale;
+    /// *placement* changes (`MoveClip`, `SetClipExtent`, note add or
+    /// move) do not — scope resolution stays live per the snapshot
+    /// contract, so those plans are still correct.
+    ///
+    /// Recompile-compare is O(model) and allocates — a non-RT check
+    /// the caller runs at its own cadence (once per control tick or
+    /// after each applied command), never from `eval_rt`'s
+    /// allocation-free path.
+    #[must_use]
+    pub fn is_stale(&self, project: &Project) -> bool {
+        // A control model that no longer compiles can never equal this
+        // plan — it is definitionally out of date.
+        ControlGraph::compile(project).map_or(true, |plan| plan != *self)
+    }
+
     /// A caller-owned scratch sized for this plan — allocate once off
     /// the RT path, reuse across control-rate evaluations.
     #[must_use]
