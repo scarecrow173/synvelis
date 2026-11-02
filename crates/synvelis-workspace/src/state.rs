@@ -1,8 +1,12 @@
-//! Per-view state: editing selection, inspection focus, linked context
-//! and viewport — deliberately four separate concepts (WS-A-01).
+//! Per-view state: object selection, time selection, lane scope,
+//! inspection focus, linked context, tool/grid/snap configuration and
+//! viewport — deliberately separate concepts (WS-A-01 + ED-A-01).
 //!
-//! - [`EditingSelection`] — the view-local *editing target*; never
-//!   broadcast, never read by another view.
+//! - [`crate::selection::ObjectSelections`] — the view-local *editing
+//!   target*, per domain; never broadcast, never read by another view.
+//! - [`crate::selection::TimeSelection`] / [`crate::selection::LaneScope`]
+//!   — the view-local time range and lane reach, independent of the
+//!   object selection.
 //! - [`InspectionFocus`] — the view-local *inspected entity* with a
 //!   Follow/Pinned mode.
 //! - [`LinkedContext`] — link-derived highlight/context received from
@@ -14,6 +18,11 @@ use std::collections::BTreeMap;
 use ruviform_ui::dock::ViewInstanceId;
 use serde::{Deserialize, Serialize};
 use synvelis_project::{ClipId, LaneId, ProjectRevision, SourceId, TrackId};
+
+use crate::gesture::Gesture;
+use crate::selection::{EditBinding, LaneScope, ObjectSelections, TimeSelection};
+use crate::snap::{GridConfig, SnapConfig};
+use crate::tool::Tool;
 
 /// A semantic project entity — the currency of selections, focus,
 /// link events and command targets.
@@ -120,9 +129,34 @@ impl Default for Viewport {
 
 /// The full state bundle carried by one view.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ViewState {
-    /// Editing selection (view-local).
-    pub editing_selection: EditingSelection,
+    /// Object selection, kept per editing domain (view-local).
+    #[serde(default)]
+    pub object_selections: ObjectSelections,
+    /// Time selection (view-local) — may coexist with the object
+    /// selection and never implicitly triggers object commands.
+    #[serde(default)]
+    pub time_selection: Option<TimeSelection>,
+    /// Lane scope for time-domain commands (view-local).
+    #[serde(default)]
+    pub lane_scope: LaneScope,
+    /// Active editing tool (view-local).
+    #[serde(default)]
+    pub active_tool: Tool,
+    /// Display grid configuration — cosmetic only.
+    #[serde(default)]
+    pub grid: GridConfig,
+    /// Snap configuration — independent of the display grid.
+    #[serde(default)]
+    pub snap: SnapConfig,
+    /// Editor display/edit binding — *not* a command target.
+    #[serde(default)]
+    pub edit_binding: Option<EditBinding>,
+    /// The running gesture, if any. Session state only — never
+    /// persisted.
+    #[serde(skip)]
+    pub gesture: Option<Gesture>,
     /// Inspection focus (view-local).
     pub inspection_focus: InspectionFocus,
     /// Link-derived context (view-local, delivered by peers).

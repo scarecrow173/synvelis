@@ -148,13 +148,16 @@ fn ws_a_01_shared_project_independent_view_state() {
     assert!(ws.session().project().tracks.contains_key(&track));
 
     // per-view state independence
-    ws.state_mut(arr).unwrap().editing_selection =
-        EditingSelection::single(SemanticTarget::Clip(clip));
+    ws.state_mut(arr)
+        .unwrap()
+        .object_selections
+        .assign(EditingSelection::single(SemanticTarget::Clip(clip)))
+        .unwrap();
     ws.state_mut(insp).unwrap().inspection_focus.target = Some(SemanticTarget::Track(track));
     ws.state_mut(arr).unwrap().viewport.scroll_x = 42.0;
     ws.state_mut(mix).unwrap().viewport.zoom_x = 2.0;
 
-    assert!(ws.state(mix).unwrap().editing_selection.is_empty());
+    assert!(ws.state(mix).unwrap().object_selections.is_empty());
     assert!(ws.state(arr).unwrap().inspection_focus.target.is_none());
     assert_eq!(ws.state(mix).unwrap().viewport.scroll_x, 0.0);
     assert_eq!(ws.state(arr).unwrap().viewport.zoom_x, 1.0);
@@ -207,7 +210,7 @@ fn ws_a_02_link_group_semantics() {
     assert_eq!(mix_ctx.target, Some(SemanticTarget::Track(track)));
     assert_eq!(mix_ctx.source, Some(arr));
     // linked context is not an editing selection
-    assert!(ws.state(mix).unwrap().editing_selection.is_empty());
+    assert!(ws.state(mix).unwrap().object_selections.is_empty());
     // follow inspector tracks the semantic target
     assert_eq!(
         ws.state(insp).unwrap().inspection_focus.target,
@@ -319,8 +322,11 @@ fn ws_a_03_command_routing() {
     // unresolved: the origin view's selection is empty and no explicit
     // target was given — refused, project unchanged, and the command
     // never fell back to another window's stale selection
-    ws.state_mut(mix).unwrap().editing_selection =
-        EditingSelection::single(SemanticTarget::Clip(clip));
+    ws.state_mut(mix)
+        .unwrap()
+        .object_selections
+        .assign(EditingSelection::single(SemanticTarget::Clip(clip)))
+        .unwrap();
     let outcome = ws.dispatch(CommandContext::from_view("clip.remove", insp));
     assert!(matches!(outcome, CommandOutcome::Unresolved { .. }));
     assert!(ws.session().project().clips.contains_key(&clip));
@@ -400,15 +406,18 @@ fn ws_a_04_detach_reattach_move_rollback() {
     let arr = ws
         .spawn_view(ViewType::Arrangement, "arr", DockTarget::Window(win_a))
         .unwrap();
-    ws.state_mut(arr).unwrap().editing_selection =
-        EditingSelection::single(SemanticTarget::Clip(clip));
+    ws.state_mut(arr)
+        .unwrap()
+        .object_selections
+        .assign(EditingSelection::single(SemanticTarget::Clip(clip)))
+        .unwrap();
 
     // detach → new window: identity + state preserved
     let win_c = ws.detach_to_new_window(arr, "detached-arr").unwrap();
     assert_eq!(ws.dock().owner_of(arr), Some(win_c));
     assert!(ws.dock().is_registered(win_c));
     assert_eq!(
-        ws.state(arr).unwrap().editing_selection.primary(),
+        ws.state(arr).unwrap().object_selections.primary(),
         Some(SemanticTarget::Clip(clip))
     );
     // reattach to window B
@@ -520,8 +529,11 @@ fn ws_a_04c_layout_save_restore() {
     let insp = ws.spawn_detached_view(ViewType::Inspector, "insp").unwrap();
     ws.links_mut().set_group(arr, Some(LinkGroupId(1)));
     ws.links_mut().set_group(mix, Some(LinkGroupId(1)));
-    ws.state_mut(arr).unwrap().editing_selection =
-        EditingSelection::single(SemanticTarget::Clip(clip));
+    ws.state_mut(arr)
+        .unwrap()
+        .object_selections
+        .assign(EditingSelection::single(SemanticTarget::Clip(clip)))
+        .unwrap();
     ws.state_mut(insp).unwrap().inspection_focus.target = Some(SemanticTarget::Track(track));
 
     let snap = ws.capture().unwrap();
@@ -542,7 +554,7 @@ fn ws_a_04c_layout_save_restore() {
     // detached view stays detached; state + links restored
     assert!(ws2.dock().is_detached(insp));
     assert_eq!(
-        ws2.state(arr).unwrap().editing_selection.primary(),
+        ws2.state(arr).unwrap().object_selections.primary(),
         Some(SemanticTarget::Clip(clip))
     );
     assert_eq!(
@@ -580,7 +592,7 @@ fn ws_a_04c_layout_save_restore() {
     assert!(ws3.dock().is_detached(arr));
     assert!(ws3.dock().is_detached(mix));
     assert_eq!(
-        ws3.state(arr).unwrap().editing_selection.primary(),
+        ws3.state(arr).unwrap().object_selections.primary(),
         Some(SemanticTarget::Clip(clip))
     );
 }

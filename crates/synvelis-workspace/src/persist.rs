@@ -21,7 +21,11 @@ use crate::state::ViewState;
 use crate::view::ViewType;
 
 /// Envelope schema version — bump on incompatible changes.
-pub const WORKSPACE_SCHEMA: u32 = 1;
+///
+/// Schema history: `1` = WS-A (`editing_selection`); `2` = ED-A
+/// (`object_selections` + time selection/lane scope/tool/grid/snap/
+/// edit binding).
+pub const WORKSPACE_SCHEMA: u32 = 2;
 
 /// One persisted view: identity + state. Position lives in the
 /// `LayoutSnapshot` dock trees (or the detached pool).

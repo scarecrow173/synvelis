@@ -25,6 +25,19 @@ pub enum WorkspaceError {
     UnknownCommand(String),
     /// The workspace snapshot could not be decoded or applied.
     Snapshot(String),
+    /// One selection combined targets from different editing domains.
+    MixedDomains(String),
+    /// A gesture's targets span musical and media time anchors with
+    /// no declared common domain — rejected, never converted.
+    MixedTimeDomains(String),
+    /// The resolved operation has no modelled commit semantics.
+    UnsupportedOperation(&'static str),
+    /// A gesture is already running on this view.
+    GestureActive(ViewInstanceId),
+    /// No gesture is running on this view.
+    NoGesture(ViewInstanceId),
+    /// The gesture state itself is inconsistent.
+    InvalidGesture(String),
 }
 
 impl fmt::Display for WorkspaceError {
@@ -38,6 +51,12 @@ impl fmt::Display for WorkspaceError {
             Self::ViewBusy(v) => write!(f, "view {v} is mid-transfer"),
             Self::UnknownCommand(id) => write!(f, "unknown command: {id}"),
             Self::Snapshot(msg) => write!(f, "snapshot: {msg}"),
+            Self::MixedDomains(msg) => write!(f, "mixed selection domains: {msg}"),
+            Self::MixedTimeDomains(msg) => write!(f, "mixed time domains: {msg}"),
+            Self::UnsupportedOperation(op) => write!(f, "unsupported operation: {op}"),
+            Self::GestureActive(v) => write!(f, "gesture already active on view {v}"),
+            Self::NoGesture(v) => write!(f, "no active gesture on view {v}"),
+            Self::InvalidGesture(msg) => write!(f, "invalid gesture: {msg}"),
         }
     }
 }
