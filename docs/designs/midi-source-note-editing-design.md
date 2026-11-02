@@ -73,9 +73,7 @@ relations:
     - "docs/impl/ir/midi-source-note-editing.md"
   references:
     - "https://github.com/scarecrow173/ruviform/issues/189"
-  defers:
-    - "SMF Import/Export、Device MIDI 録音、MIDI 再生 lowering"
-    - "SMPTE 形式 division、source length、note resize/key edit"
+  defers: []
   deferred-by: []
 ---
 
