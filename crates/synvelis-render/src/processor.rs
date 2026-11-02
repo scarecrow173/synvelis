@@ -8,19 +8,22 @@
 use ruviform_audio::typed::{GraphProcessor, NodeIo, OfflineRenderSupport};
 use ruviform_rt::RtContext;
 
-use synvelis_player::ClipWindow;
+use synvelis_player::{ClipWindow, FadeWindow};
 
 /// Offline clip renderer: decoded canonical PCM inside the clip's
 /// engine window, silence outside. Position comes from the render's
 /// sequential drive — `process` calls are contiguous from
 /// `job_start`, so the transport position of call `k`, frame `j` is
-/// `play_position + processed + j`; no clock feed or I/O needed.
+/// `play_position + processed + j`; no clock feed or I/O needed. A
+/// [`FadeWindow`] (comp transition-side nodes only) shapes the
+/// emitted gain per frame.
 pub struct ClipRenderer {
     pcm: Vec<Vec<f32>>,
     /// Window-local frame `pcm[c][0]` corresponds to — the decode may
     /// start mid-window when only part of it is processed.
     pcm_base: u64,
     window: ClipWindow,
+    fade: Option<FadeWindow>,
     play_position: i64,
     processed: u64,
     support: OfflineRenderSupport,
@@ -29,13 +32,15 @@ pub struct ClipRenderer {
 impl ClipRenderer {
     /// `pcm[c][i]` = window-local frame `pcm_base + i`, channel `c`;
     /// `play_position` is the transport position at `job_start`
-    /// (`range_start.saturating_sub(preroll)`), `support` is the
+    /// (`range_start.saturating_sub(preroll)`), `fade` is the node's
+    /// crossfade envelope (`None` = unity gain), `support` is the
     /// honestly reported offline capability.
     #[must_use]
     pub fn new(
         pcm: Vec<Vec<f32>>,
         pcm_base: u64,
         window: ClipWindow,
+        fade: Option<FadeWindow>,
         play_position: i64,
         support: OfflineRenderSupport,
     ) -> Self {
@@ -43,6 +48,7 @@ impl ClipRenderer {
             pcm,
             pcm_base,
             window,
+            fade,
             play_position,
             processed: 0,
             support,
@@ -74,7 +80,8 @@ impl GraphProcessor for ClipRenderer {
                         .ok()
                         .and_then(|l| l.checked_sub(self.pcm_base))
                         .and_then(|r| usize::try_from(r).ok());
-                    *d = rel.and_then(|i| src.get(i)).copied().unwrap_or(0.0);
+                    let sample = rel.and_then(|i| src.get(i)).copied().unwrap_or(0.0);
+                    *d = self.fade.map_or(sample, |f| sample * f.gain_at(pos));
                 }
             }
         }

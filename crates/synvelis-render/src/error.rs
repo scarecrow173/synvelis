@@ -6,7 +6,7 @@ use std::fmt;
 use std::path::PathBuf;
 
 use synvelis_player::ResolveError;
-use synvelis_project::{AssetId, ClipId, SourceId};
+use synvelis_project::{AssetId, ClipId, CompId, SourceId};
 
 use ruviform_audio::render::RenderError;
 
@@ -73,6 +73,15 @@ pub enum PreflightError {
         /// Lowering-reported reason.
         reason: String,
     },
+    /// A comp-produced node could not be lowered, or an active comp
+    /// could not be projected at all — the same explicit-skip rule:
+    /// a failed comp node is a refused render, never silent output.
+    UnrenderableComp {
+        /// The comp whose node failed.
+        comp_id: CompId,
+        /// The failing node identity plus lowering-reported reason.
+        detail: String,
+    },
     /// Lowering produced no clip nodes at all — an all-muted or
     /// clip-free export publishes nothing, so it refuses early rather
     /// than emit a silent file that looks rendered.
@@ -102,6 +111,9 @@ impl fmt::Display for PreflightError {
             }
             Self::UnrenderableClip { clip_id, reason } => {
                 write!(f, "clip {clip_id} could not be rendered: {reason}")
+            }
+            Self::UnrenderableComp { comp_id, detail } => {
+                write!(f, "comp {comp_id} node could not be rendered: {detail}")
             }
             Self::NothingToRender => write!(f, "no clips to render"),
         }

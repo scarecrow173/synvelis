@@ -205,6 +205,45 @@ impl ClipPlayback {
     }
 }
 
+/// Clip placement+playback contract checks.
+///
+/// Only the *rate-independent* contract is enforced here — anchor
+/// resolvability is tempo-map dependent (an anchor may re-derive
+/// differently or fail after a tempo edit; consumers surface that as
+/// `UnresolvableAnchor`, so it is not an op-time error).
+///
+/// `Absolute` extents carry their own time base: `frames_at(denominator)`
+/// treats the declared base as the source's native frame rate — the
+/// unit-consistent convention for absolute-extent clips (`1/rate`
+/// bases check exactly). `Musical` extents are tempo-derived and
+/// `Source` carries no native rate, so only the non-empty window is
+/// checked; their handle fit is enforced at resolve time.
+///
+/// The same check runs at op validation and inside
+/// `Project::validate_references`, so a snapshot that violates the
+/// persisted contract is rejected at load instead of resurrecting an
+/// invalid clip.
+///
+/// # Errors
+/// [`Error::Validation`]/[`Error::Negative`]/[`Error::Overflow`].
+pub(crate) fn validate_clip_contract(
+    _project: &crate::project::Project,
+    placement: &ClipPlacement,
+    playback: &ClipPlayback,
+) -> Result<(), Error> {
+    if placement.extent.is_empty() {
+        return Err(Error::Validation("clip extent is empty".into()));
+    }
+    match &placement.extent {
+        ClipExtent::Absolute(dur) => {
+            let media_frames =
+                u64::try_from(dur.frames_at(dur.denominator())).map_err(|_| Error::Negative)?;
+            playback.validate_window(media_frames)
+        }
+        ClipExtent::Musical(_) => playback.validate_window(0),
+    }
+}
+
 /// A placement+playback pair resolved to concrete frames under one
 /// tempo-map revision.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

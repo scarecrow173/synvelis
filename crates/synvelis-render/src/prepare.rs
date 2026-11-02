@@ -122,10 +122,11 @@ pub fn open_source(
     })
 }
 
-/// Opens every source the project's non-muted clips reference — one
-/// reader per source, shared across clips on that source. `cancel`
-/// is checked per source: prepare is the longest pre-render phase
-/// and must not wait for the first physical call to honor it.
+/// Opens every source the project's non-muted clips and active comp
+/// bindings reference — one reader per source, shared across nodes on
+/// that source. `cancel` is checked per source: prepare is the longest
+/// pre-render phase and must not wait for the first physical call to
+/// honor it.
 ///
 /// # Errors
 /// [`ResolveError`] — `Cancelled` when the token trips, otherwise the
@@ -135,18 +136,47 @@ pub fn open_sources(
     media_root: &std::path::Path,
     cancel: &CancellationToken,
 ) -> Result<BTreeMap<SourceId, OpenedSource>, ResolveError> {
+    let mut needed: Vec<SourceId> = project
+        .clips
+        .values()
+        .filter(|clip| !clip.muted)
+        .map(|clip| clip.source_id)
+        .collect();
+    // Comp bindings read the same verified sources through the same
+    // digest-verified boundary. A comp that fails to project here also
+    // fails at lowering, which reports it — prepare opens nothing for
+    // it and the render refuses there.
+    for group in project.comp.take_groups.values() {
+        let Some(comp_id) = group.active_comp_id else {
+            continue;
+        };
+        let Ok(effective) = synvelis_project::project_comp(project, comp_id) else {
+            continue;
+        };
+        for binding in effective
+            .segments
+            .iter()
+            .filter_map(|s| s.binding.as_ref())
+            .chain(
+                effective
+                    .transitions
+                    .iter()
+                    .flat_map(|t| [t.left.as_ref(), t.right.as_ref()])
+                    .flatten(),
+            )
+        {
+            needed.push(binding.source_id);
+        }
+    }
     let mut opened = BTreeMap::new();
-    for clip in project.clips.values() {
+    for source_id in needed {
         if cancel.is_cancelled() {
             return Err(ResolveError::Cancelled);
         }
-        if clip.muted || opened.contains_key(&clip.source_id) {
+        if opened.contains_key(&source_id) {
             continue;
         }
-        opened.insert(
-            clip.source_id,
-            open_source(project, clip.source_id, media_root)?,
-        );
+        opened.insert(source_id, open_source(project, source_id, media_root)?);
     }
     Ok(opened)
 }

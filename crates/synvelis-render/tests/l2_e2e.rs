@@ -19,10 +19,12 @@ use synvelis_player::EngineConfig;
 use synvelis_player::fixture::{fixture_sample_f32, write_fixture};
 use synvelis_player::import::{ImportOutcome, ImportRequest, import_local};
 use synvelis_project::{
-    ClipExtent, ClipId, ClipPlacement, ClipPlayback, Command, CounterIdGenerator, MediaDuration,
-    MediaTimeValue, MusicalDuration, MusicalTick, PlaybackMapping, Project, ProjectController,
-    ProjectId, ProjectOp, ProjectRevision, SourceFrame, SourceId, SourceRange, TimeAnchor,
+    ClipExtent, ClipId, ClipPlacement, ClipPlayback, Command, CompOp, CounterIdGenerator,
+    MediaDuration, MediaTimeValue, MusicalDuration, MusicalTick, PlaybackMapping, Project,
+    ProjectController, ProjectId, ProjectOp, ProjectRevision, SourceFrame, SourceId, SourceRange,
+    TimeAnchor,
 };
+use synvelis_recording::ops::RecordingOp;
 
 use ruviform_audio_core::SampleFormat;
 use ruviform_media_io::{Error as MediaError, ErrorKind, MediaSink};
@@ -1422,4 +1424,306 @@ fn l2_07_capability_evidence_on_receipt() {
     assert!(backend.can_mux());
     assert!(backend.can_encode(ruviform_media_io::CodecId::Pcm));
     assert!(!backend.can_demux());
+}
+
+// ------------------------------------------------------------------
+// MD-B: Effective Comp through the offline render path (issue #50)
+// ------------------------------------------------------------------
+
+fn gapply<O: synvelis_project::Operation>(c: &mut ProjectController, op: O) -> ProjectRevision {
+    c.apply(Command {
+        expected_revision: c.live_revision(),
+        op,
+    })
+    .expect("op applies")
+}
+
+fn mr(start: i64, end: i64) -> synvelis_project::ProjectRange {
+    synvelis_project::ProjectRange::Musical(
+        synvelis_project::MusicalRange::try_new(MusicalTick::new(start), MusicalTick::new(end))
+            .unwrap(),
+    )
+}
+
+/// Builds the canonical MD-B comp project for render verification:
+/// one imported mono source, one lane, one take over `source
+/// [0,60_000)`, an active comp `[0,960) Take@0` / `[960,1920)
+/// ExistingSource@2000` / `[1920,2000) Silence` with a `[900,1020)`
+/// transition, plus a lane clip inside the target range that must be
+/// superseded — never double-played into the export.
+#[allow(clippy::too_many_lines)] // sequential comp construction
+fn comp_fixture(root: &Path) -> (ProjectController, SourceId) {
+    let wav = root.join("comp.wav");
+    write_fixture(&wav, 1, 48_000, 60_000).unwrap();
+    let mut c = controller();
+    let out = import(&mut c, root, &wav);
+    let source_id = out.commit.source_id;
+    let lane = lane(&mut c);
+    gapply(
+        &mut c,
+        ProjectOp::RegisterClockEpoch {
+            description: "clk".into(),
+        },
+    );
+    let epoch = *c.live().clock_epochs.keys().next().unwrap();
+
+    gapply(
+        &mut c,
+        ProjectOp::AddClip {
+            lane_id: lane,
+            source_id,
+            placement: media_placement(0, 48_000, 48_000),
+            playback: natural_playback(12_000, 48_000),
+        },
+    );
+
+    gapply(&mut c, RecordingOp::CreateSession { name: "s".into() });
+    let session = *c.live().recording.sessions.keys().next().unwrap();
+    gapply(
+        &mut c,
+        RecordingOp::OpenSession {
+            session_id: session,
+        },
+    );
+    gapply(
+        &mut c,
+        RecordingOp::RegisterPass {
+            session_id: session,
+            index: 0,
+        },
+    );
+    let pass = *c.live().recording.passes.keys().next().unwrap();
+    gapply(
+        &mut c,
+        RecordingOp::RegisterStream {
+            session_id: session,
+            lane_id: lane,
+            clock_epoch_id: epoch,
+        },
+    );
+    let stream = *c.live().recording.streams.keys().next().unwrap();
+    gapply(
+        &mut c,
+        RecordingOp::RegisterSegment {
+            stream_id: stream,
+            pass_id: pass,
+            session_range: synvelis_project::SessionRange::try_new(
+                synvelis_project::SessionFrame::new(0).unwrap(),
+                synvelis_project::SessionFrame::new(60_000).unwrap(),
+            )
+            .unwrap(),
+            source_range: SourceRange::try_new(
+                SourceFrame::ZERO,
+                SourceFrame::new(60_000).unwrap(),
+            )
+            .unwrap(),
+            source_id,
+        },
+    );
+    let segment = *c.live().recording.segments.keys().next().unwrap();
+    gapply(
+        &mut c,
+        RecordingOp::RegisterTake {
+            session_id: session,
+            pass_id: pass,
+            stream_id: stream,
+            lane_id: lane,
+            source_id,
+            segment_ids: vec![segment],
+        },
+    );
+    let take_id = *c.live().recording.takes.keys().next().unwrap();
+    gapply(&mut c, RecordingOp::MarkTakeVerified { take_id });
+
+    gapply(
+        &mut c,
+        CompOp::RegisterTakeGroup {
+            lane_id: lane,
+            target_range: mr(0, 2_000),
+            take_ids: vec![take_id],
+            source_rate: 48_000,
+        },
+    );
+    let group = *c.live().comp.take_groups.keys().next().unwrap();
+    gapply(
+        &mut c,
+        CompOp::CreateComp {
+            take_group_id: group,
+        },
+    );
+    let comp = *c.live().comp.comps.keys().next().unwrap();
+    for (range, candidate) in [
+        (
+            mr(0, 960),
+            synvelis_project::CompCandidateRef::Take {
+                take_id,
+                source_offset: SourceFrame::ZERO,
+            },
+        ),
+        (
+            mr(960, 1_920),
+            synvelis_project::CompCandidateRef::ExistingSource {
+                source_id,
+                handle: SourceRange::try_new(SourceFrame::ZERO, SourceFrame::new(60_000).unwrap())
+                    .unwrap(),
+                play_from: SourceFrame::new(2_000).unwrap(),
+            },
+        ),
+        (
+            mr(1_920, 2_000),
+            synvelis_project::CompCandidateRef::Silence,
+        ),
+    ] {
+        gapply(
+            &mut c,
+            CompOp::AddCompRegion {
+                comp_id: comp,
+                project_range: range,
+                candidate,
+                mapping: PlaybackMapping::Natural,
+            },
+        );
+    }
+    gapply(
+        &mut c,
+        CompOp::SetActiveComp {
+            take_group_id: group,
+            comp_id: Some(comp),
+        },
+    );
+    let regions = c.live().comp.comps[&comp].region_ids.clone();
+    gapply(
+        &mut c,
+        CompOp::AddCompTransition {
+            left_region_id: regions[0],
+            right_region_id: regions[1],
+            overlap_range: mr(900, 1_020),
+            fade_out: synvelis_project::FadeShape::EqualPower,
+            fade_in: synvelis_project::FadeShape::Linear,
+        },
+    );
+    (c, source_id)
+}
+
+/// Expected mono mix of the comp fixture at engine frame `f`
+/// (25 frames/tick): r0 base at unity inside the overlap pre-side, the
+/// right overhang fading in, r1 base plus the left overhang fading
+/// out, silence region and beyond at zero.
+#[allow(clippy::cast_possible_truncation)]
+#[allow(clippy::cast_precision_loss)] // engine frames stay far under 2^53
+fn comp_expected(f: i64) -> f32 {
+    let (o_start, o_end, boundary) = (22_500_i64, 25_500_i64, 24_000_i64);
+    let fx = |frame: i64| fixture_sample_f32(0, usize::try_from(frame).unwrap());
+    if f < o_start {
+        fx(f)
+    } else if f < boundary {
+        let t = (f - o_start) as f64 / (boundary - o_start) as f64;
+        fx(f) + fx(500 + (f - o_start)) * (t as f32)
+    } else if f < o_end {
+        let t = (f - boundary) as f64 / (o_end - boundary) as f64;
+        fx(2_000 + (f - boundary))
+            + fx(f) * (((1.0 - t) * std::f64::consts::FRAC_PI_2).sin() as f32)
+    } else if f < 48_000 {
+        fx(2_000 + (f - boundary))
+    } else {
+        0.0
+    }
+}
+
+/// MD-B: the active comp's Effective projection exports through the
+/// offline path — adopted segments at unity, faded transition
+/// overhangs, the silence region as silence, and the superseded lane
+/// clip absent from the mix.
+#[test]
+fn md_b_comp_export_pcm_exact() {
+    let root = scratch("mdb");
+    let (c, _source_id) = comp_fixture(&root);
+    let snapshot = freeze(&c, &root);
+    let dest = root.join("comp-out.wav");
+    let frames = 51_200_u64; // covers the whole target range
+    let req = request(
+        dest.clone(),
+        engine(48_000, 1, 256),
+        0,
+        frames,
+        Some(TailPolicy::None),
+        0,
+        SampleFormat::F32,
+        Vec::new(),
+        256,
+    );
+    let mut expected = vec![Vec::with_capacity(usize::try_from(frames).unwrap()); 1];
+    for f in 0..i64::try_from(frames).unwrap() {
+        expected[0].push(comp_expected(f));
+    }
+    let capture = Arc::new(Mutex::new(None));
+    let hooks = OutputHooks {
+        expect_pcm: Some(pcm_hook(Some(expected.clone()), 1e-5, Arc::clone(&capture))),
+        ..OutputHooks::default()
+    };
+    let job = ExportJob::new();
+    let receipt = completed(export(&snapshot, &req, hooks, &job));
+    assert!(receipt.verified.reopened);
+    assert!(receipt.verified.pcm_checked);
+    assert_eq!(receipt.render.frames_emitted, frames);
+    assert!(dest.exists());
+    let planes = capture.lock().unwrap().clone().unwrap();
+    assert_planes(&planes, &expected, 1e-5, "comp export");
+}
+
+/// MD-B: a comp node that cannot be lowered for the render engine
+/// fails the export as an explicit `UnrenderableComp` — never a
+/// silently dropped region.
+#[test]
+fn md_b_comp_unlowerable_fails_export() {
+    let root = scratch("mdbfail");
+    let (mut c, source_id) = comp_fixture(&root);
+    // Swap the silence region for a `Loop`-mapped one: legal in the
+    // comp contract but not lowerable by the 1:1 playback graph, so
+    // export must refuse honestly.
+    let comp = *c.live().comp.comps.keys().next().unwrap();
+    let regions = c.live().comp.comps[&comp].region_ids.clone();
+    gapply(
+        &mut c,
+        CompOp::RemoveCompRegion {
+            region_id: regions[2],
+        },
+    );
+    gapply(
+        &mut c,
+        CompOp::AddCompRegion {
+            comp_id: comp,
+            project_range: mr(1_920, 2_000),
+            candidate: synvelis_project::CompCandidateRef::ExistingSource {
+                source_id,
+                handle: SourceRange::try_new(SourceFrame::ZERO, SourceFrame::new(60_000).unwrap())
+                    .unwrap(),
+                play_from: SourceFrame::ZERO,
+            },
+            mapping: PlaybackMapping::Loop,
+        },
+    );
+    let snapshot = freeze(&c, &root);
+    let dest = root.join("comp-fail.wav");
+    let req = request(
+        dest,
+        engine(48_000, 1, 256),
+        0,
+        51_200,
+        Some(TailPolicy::None),
+        0,
+        SampleFormat::F32,
+        Vec::new(),
+        256,
+    );
+    let job = ExportJob::new();
+    let (stage, error) = failed(export(&snapshot, &req, OutputHooks::default(), &job));
+    assert_eq!(stage, ExportStage::Preflight);
+    assert!(
+        matches!(
+            error,
+            ExportError::Preflight(PreflightError::UnrenderableComp { .. })
+        ),
+        "expected UnrenderableComp, got {error:?}"
+    );
 }
