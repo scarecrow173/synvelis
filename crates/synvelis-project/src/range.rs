@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::Error,
-    time::{MediaTimeValue, MusicalTick, SessionFrame, SourceFrame},
+    time::{MediaTimeValue, MidiTick, MusicalTick, SessionFrame, SourceFrame},
 };
 
 /// Half-open range over an ordered position type.
@@ -117,6 +117,8 @@ pub type SessionRange = Range<SessionFrame>;
 pub type SourceRange = Range<SourceFrame>;
 /// `[start, end)` over [`MusicalTick`] positions.
 pub type MusicalRange = Range<MusicalTick>;
+/// `[start, end)` over [`MidiTick`] positions.
+pub type MidiRange = Range<MidiTick>;
 
 /// Half-open span between two media instants (possibly different bases).
 ///

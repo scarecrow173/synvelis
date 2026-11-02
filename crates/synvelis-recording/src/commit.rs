@@ -1382,7 +1382,7 @@ pub fn validate_commit(project: &Project, manifest: &RecordingCommitManifest) ->
         if project.assets.contains_key(&asset_id) {
             return Err(Error::Validation(format!("asset id {asset_id} collides")));
         }
-        if project.sources.contains_key(&source_id) {
+        if project.contains_source(&source_id) {
             return Err(Error::Validation(format!("source id {source_id} collides")));
         }
         let frame_bytes = u64::from(s.channels) * BYTES_PER_SAMPLE;

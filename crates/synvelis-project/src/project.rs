@@ -13,6 +13,7 @@ use crate::{
         AssetId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, ImportId, LaneId, NoteId,
         ProjectId, RecordingPassId, RecordingSessionId, SourceId, TakeId, TrackId,
     },
+    midi::MidiSource,
     placement::{ClipPlacement, ClipPlayback},
     range::{MediaSpan, MusicalRange},
     recording_data::{
@@ -166,7 +167,7 @@ pub struct Lane {
     pub clip_ids: Vec<ClipId>,
 }
 
-/// A clip: a positioned reference into a media source.
+/// A clip: a positioned reference into a source — media or MIDI.
 ///
 /// Placement (anchor point + extent, the saved authority) and playback
 /// (source window + mapping) are separate per the normalized model.
@@ -177,7 +178,7 @@ pub struct Clip {
     pub id: ClipId,
     /// Lane it sits on.
     pub lane_id: LaneId,
-    /// Media source it reads.
+    /// Source it reads — a media `Source` or a `MidiSource`.
     pub source_id: SourceId,
     /// Timeline placement (anchor + extent).
     pub placement: ClipPlacement,
@@ -343,13 +344,20 @@ pub struct Project {
     pub clips: BTreeMap<ClipId, Clip>,
     /// Notes by ID — clip-local entities anchoring `ControlScope::Note`
     /// evaluation domains (issue #43). `#[serde(default)]` lets a v3
-    /// body deserialize; `load()` still requires schema v4.
+    /// body deserialize; `load()` still requires schema v5.
     #[serde(default)]
     pub notes: BTreeMap<NoteId, Note>,
     /// Assets by ID.
     pub assets: BTreeMap<AssetId, Asset>,
     /// Media sources by ID.
     pub sources: BTreeMap<SourceId, Source>,
+    /// MIDI sources by ID — project-owned note sequences sharing the
+    /// `SourceId` space, so a clip references a MIDI source through
+    /// `Clip::source_id` exactly like a media source (issue #52:
+    /// linked clips read the same note set). `#[serde(default)]` lets
+    /// a v4 body deserialize; `load()` still requires schema v5.
+    #[serde(default)]
+    pub midi_sources: BTreeMap<SourceId, MidiSource>,
     /// Clock epochs by ID.
     pub clock_epochs: BTreeMap<ClockEpochId, ClockEpoch>,
     /// Recording registry.
@@ -371,6 +379,15 @@ pub struct Project {
 }
 
 impl Project {
+    /// `true` when `source_id` resolves to a readable source — a media
+    /// [`Source`] or a [`MidiSource`]. Clip references validate against
+    /// this union; domains that require media bytes (recording,
+    /// comping) keep checking `sources` alone.
+    #[must_use]
+    pub fn contains_source(&self, source_id: &SourceId) -> bool {
+        self.sources.contains_key(source_id) || self.midi_sources.contains_key(source_id)
+    }
+
     /// An empty project with the given identity and name.
     #[must_use]
     pub fn new(project_id: ProjectId, name: impl Into<String>) -> Self {
@@ -386,6 +403,7 @@ impl Project {
             notes: BTreeMap::new(),
             assets: BTreeMap::new(),
             sources: BTreeMap::new(),
+            midi_sources: BTreeMap::new(),
             clock_epochs: BTreeMap::new(),
             recording: RecordingRegistry::default(),
             comp: CompRegistry::default(),
@@ -441,25 +459,76 @@ impl Project {
                     clip.id, lane.id
                 )));
             }
-            if !self.sources.contains_key(&clip.source_id) {
+            if !self.contains_source(&clip.source_id) {
                 return Err(Error::NotFound(format!("source {}", clip.source_id)));
             }
             crate::placement::validate_clip_contract(self, &clip.placement, &clip.playback)?;
+            crate::placement::validate_midi_clip_contract(
+                self,
+                &clip.source_id,
+                &clip.placement,
+                &clip.playback,
+            )?;
         }
-        for note in self.notes.values() {
+        for (key, note) in &self.notes {
+            if *key != note.id {
+                return Err(Error::WrongOwner(format!(
+                    "note {} stored under foreign key {key}",
+                    note.id
+                )));
+            }
             if !self.clips.contains_key(&note.clip) {
                 return Err(Error::NotFound(format!("clip {}", note.clip)));
             }
-            if note.len.num() <= 0 {
+            if note.len.num() <= 0 || note.start.num() < 0 {
                 return Err(Error::Validation(format!(
-                    "note {} has non-positive length",
+                    "note {} needs len > 0 and start >= 0",
                     note.id
+                )));
+            }
+            if note.key > 127 {
+                return Err(Error::Validation(format!(
+                    "note {} key {} > 127",
+                    note.id, note.key
                 )));
             }
         }
         for source in self.sources.values() {
             if !self.assets.contains_key(&source.asset_id) {
                 return Err(Error::NotFound(format!("asset {}", source.asset_id)));
+            }
+        }
+        // -- MIDI source/note model (issue #52) ----------------------
+        // The `SourceId` space is shared across `sources` and
+        // `midi_sources`, and the `NoteId` space across clip-local
+        // `notes` and every MIDI source: a crafted snapshot must not
+        // name the same ID in two places — clip/note addressing would
+        // silently depend on which collection a consumer reads.
+        let mut midi_note_ids = std::collections::BTreeSet::new();
+        for (source_id, source) in &self.midi_sources {
+            if *source_id != source.id {
+                return Err(Error::WrongOwner(format!(
+                    "midi source {} stored under foreign key {source_id}",
+                    source.id
+                )));
+            }
+            if self.sources.contains_key(source_id) {
+                return Err(Error::Validation(format!(
+                    "source {source_id} names both a media source and a midi source"
+                )));
+            }
+            source.validate()?;
+            for note_id in source.notes.keys() {
+                if !midi_note_ids.insert(*note_id) {
+                    return Err(Error::Validation(format!(
+                        "note {note_id} exists in more than one midi source"
+                    )));
+                }
+                if self.notes.contains_key(note_id) {
+                    return Err(Error::Validation(format!(
+                        "note {note_id} exists as both clip-local note and midi note"
+                    )));
+                }
             }
         }
         let rec = &self.recording;
@@ -648,6 +717,66 @@ impl Project {
                     conflict.lane_a, conflict.lane_b, conflict.overlap
                 ),
             });
+        }
+        Ok(())
+    }
+
+    /// Largest generator-issued raw ID among every serialized entity
+    /// key — `None` when the project carries no issued entity. Entity
+    /// identity is the map key, so key iteration covers the live IDs.
+    fn max_issued_id_raw(&self) -> Option<u128> {
+        macro_rules! fold {
+            ($max:expr, $map:expr) => {
+                $max = $map.keys().fold($max, |acc: Option<u128>, id| {
+                    Some(acc.map_or_else(|| id.raw(), |m| m.max(id.raw())))
+                });
+            };
+        }
+        let mut max: Option<u128> = None;
+        fold!(max, self.tracks);
+        fold!(max, self.lanes);
+        fold!(max, self.clips);
+        fold!(max, self.notes);
+        fold!(max, self.assets);
+        fold!(max, self.sources);
+        fold!(max, self.midi_sources);
+        fold!(max, self.clock_epochs);
+        fold!(max, self.applied_imports);
+        fold!(max, self.recording.sessions);
+        fold!(max, self.recording.passes);
+        fold!(max, self.recording.streams);
+        fold!(max, self.recording.segments);
+        fold!(max, self.recording.takes);
+        fold!(max, self.comp.take_groups);
+        fold!(max, self.comp.comps);
+        fold!(max, self.comp.regions);
+        fold!(max, self.comp.transitions);
+        fold!(max, self.control.targets);
+        fold!(max, self.control.lanes);
+        fold!(max, self.control.sources);
+        fold!(max, self.control.assignments);
+        max
+    }
+
+    /// Rejects a state whose `id_watermark` is not the issuance
+    /// position *after* every serialized entity. `load` reseeds the
+    /// generator from this field, so a forged low watermark would
+    /// re-issue a live ID on the next op — silently overwriting that
+    /// entity. Checked only at the load boundary: during `apply` the
+    /// just-drawn IDs legitimately sit at/above the still-unstamped
+    /// watermark. `project_id` is excluded — it is created outside the
+    /// generator.
+    ///
+    /// # Errors
+    /// [`Error::Validation`] when the watermark cannot be authoritative.
+    pub(crate) fn check_id_watermark(&self) -> Result<(), Error> {
+        if let Some(max) = self.max_issued_id_raw()
+            && self.id_watermark <= max
+        {
+            return Err(Error::Validation(format!(
+                "id_watermark {} does not exceed live entity id {max}",
+                self.id_watermark
+            )));
         }
         Ok(())
     }

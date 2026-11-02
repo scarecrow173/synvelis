@@ -106,6 +106,13 @@ define_frame!(
     /// Musical duration in project PPQN ticks (non-negative length).
     MusicalDuration
 );
+define_frame!(
+    /// Source-native tick inside a [`crate::midi::MidiSource`]. `0` is
+    /// the source's first tick; the source's [`crate::midi::MidiDivision`]
+    /// declares the resolution. Never project PPQN ticks — converting to
+    /// musical time is an explicit mapping through the division.
+    MidiTick
+);
 
 /// Musical position in project PPQN ticks (default 960 per quarter note).
 /// Negative values are legal (pre-roll before tick 0).

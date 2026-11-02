@@ -15,6 +15,7 @@ pub mod control;
 pub mod controller;
 pub mod error;
 pub mod id;
+pub mod midi;
 pub mod ops;
 pub mod placement;
 pub mod project;
@@ -45,6 +46,7 @@ pub use id::{
     ModulationAssignmentId, ModulationSourceId, NoteId, ParameterTargetId, ProjectId,
     RecordingPassId, RecordingSessionId, SourceId, TakeGroupId, TakeId, TrackId,
 };
+pub use midi::{MidiDivision, MidiNote, MidiSource};
 pub use ops::ProjectOp;
 pub use placement::{
     ClipExtent, ClipPlacement, ClipPlayback, PlaybackMapping, ResolvedClip, StretchRatio,
@@ -54,7 +56,7 @@ pub use project::{
     AppliedImport, AppliedRecordingCommit, Asset, Clip, Lane, Note, Project, ProjectDomain,
     ProjectRange, RecordingRegistry, Source, SourceState, Track,
 };
-pub use range::{MediaSpan, MusicalRange, Range, SessionRange, SourceRange};
+pub use range::{MediaSpan, MidiRange, MusicalRange, Range, SessionRange, SourceRange};
 pub use recording_data::{
     CaptureSegment, CaptureStream, ClockEpoch, RecordingPass, RecordingSession, SessionState, Take,
     TakeState,
@@ -67,6 +69,6 @@ pub use tempo::{
     ProjectPpqn, SignatureDto, TempoEventDto, TempoMapData, TempoMapRef, TickTimeMapping,
 };
 pub use time::{
-    MediaDuration, MediaTimeValue, MusicalDuration, MusicalTick, ProjectTime, SessionFrame,
-    SourceFrame,
+    MediaDuration, MediaTimeValue, MidiTick, MusicalDuration, MusicalTick, ProjectTime,
+    SessionFrame, SourceFrame,
 };

@@ -111,7 +111,8 @@ define_id!(
     ClipId, "clip"
 );
 define_id!(
-    /// Identifies a media [`crate::Source`].
+    /// Identifies a readable source — a media [`crate::Source`] or a
+    /// project-owned [`crate::MidiSource`]; the two share one ID space.
     SourceId, "source"
 );
 define_id!(

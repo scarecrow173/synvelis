@@ -225,6 +225,7 @@ impl ProjectController {
             });
         }
         envelope.project.validate_references()?;
+        envelope.project.check_id_watermark()?;
         self.live = envelope.project;
         self.live_revision = envelope.revision.0;
         self.saved = Some(SavedState {

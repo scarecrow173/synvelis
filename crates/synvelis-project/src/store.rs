@@ -22,11 +22,13 @@ use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::P
 /// v3 replaces the clip anchor/offset pair with the normalized
 /// placement+playback contract and adds the comping registry (MD-A).
 /// v4 adds `Project::notes` — the clip-local note entities anchoring
-/// `ControlScope::Note` (issue #43). `notes` is `#[serde(default)]`,
-/// so a v3 snapshot body still deserializes; the version bump records
-/// the intentional format advance. v1/v2 snapshots are not migrated
-/// (PoC-stage format change).
-pub const SCHEMA_VERSION: u32 = 4;
+/// `ControlScope::Note` (issue #43). v5 adds `Project::midi_sources` —
+/// project-owned MIDI note sequences sharing the `SourceId` space
+/// (issue #52). New maps are `#[serde(default)]`, so an older body
+/// still deserializes; each version bump records the intentional
+/// format advance. v1/v2 snapshots are not migrated (PoC-stage format
+/// change).
+pub const SCHEMA_VERSION: u32 = 5;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.
