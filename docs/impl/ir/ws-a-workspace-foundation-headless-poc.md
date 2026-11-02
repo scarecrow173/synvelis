@@ -171,6 +171,10 @@ docs/test-specs/ws-a-e2e-workspace-foundation.md。
   構造的に存在しない。
 - `view.activate` の target 解決は origin view 自身(View 種別の
   ため Entity 解決に落とさない)。
+- review で検出した 2 件を修正: restore 後に `next_view` を復元済み
+  最大 id に合わせる(post-restore spawn の `DuplicateView` 衝突)、
+  undo/redo を `ProjectSession` 経由にして `EngineStub` の
+  graph build を呼ぶ(project 変更→graph build の不変条件)。
 
 ## Related Experiments
 

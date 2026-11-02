@@ -785,6 +785,15 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                 self.links.set_group(id, Some(LinkGroupId(link.group)));
             }
         }
+        // Future view ids must not collide with restored ids.
+        self.next_view = self
+            .registry
+            .ids()
+            .iter()
+            .map(|v| v.get())
+            .max()
+            .unwrap_or(0)
+            .max(self.next_view);
         Ok(())
     }
 }

@@ -116,4 +116,32 @@ impl ProjectSession {
     pub fn set_playing(&mut self, playing: bool) {
         self.transport.playing = playing;
     }
+
+    /// Undoes the last project command and rebuilds the engine stub's
+    /// graph — the project changed, so the graph must too.
+    ///
+    /// # Errors
+    /// Propagates controller errors (none in practice).
+    pub fn undo(&mut self) -> Result<bool, Error> {
+        if self.controller.undo()? {
+            self.engine
+                .on_project_revision(self.controller.live_revision());
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    /// Redoes the last undone command and rebuilds the engine stub's
+    /// graph.
+    ///
+    /// # Errors
+    /// Propagates controller errors (none in practice).
+    pub fn redo(&mut self) -> Result<bool, Error> {
+        if self.controller.redo()? {
+            self.engine
+                .on_project_revision(self.controller.live_revision());
+            return Ok(true);
+        }
+        Ok(false)
+    }
 }

@@ -303,7 +303,7 @@ fn ws_a_03_command_routing() {
     assert!(!ws.session().project().clips.contains_key(&clip));
 
     // undo restores it — history flows through the controller only
-    assert!(ws.session_mut().controller_mut().undo().unwrap());
+    assert!(ws.session_mut().undo().unwrap());
     assert!(ws.session().project().clips.contains_key(&clip));
 
     // explicit target (context-menu invocation) wins over selection
@@ -552,6 +552,16 @@ fn ws_a_04c_layout_save_restore() {
     assert_eq!(ws2.links().group_of(arr), Some(LinkGroupId(1)));
     assert_eq!(ws2.links().group_of(mix), Some(LinkGroupId(1)));
     assert_eq!(ws2.descriptor(arr).unwrap().kind, ViewType::Arrangement);
+    // a view spawned after restore gets a fresh id — no collision
+    // with restored ViewInstanceIds
+    let late = ws2
+        .spawn_view(
+            ViewType::SignalFlow,
+            "late",
+            DockTarget::Window(ws2.windows()[0].id),
+        )
+        .unwrap();
+    assert!(late.get() > insp.get());
 
     // malformed JSON → hard error before any state is touched
     assert!(WorkspaceSnapshot::from_json("not json {{{").is_err());
@@ -616,8 +626,8 @@ fn ws_a_05_layout_ops_leave_project_and_engine_alone() {
     assert_eq!(ws.session().revision(), rev0);
     assert_eq!(ws.session().engine().graph_builds, builds0);
     // undo history unpolluted: the last *project* op still undoes
-    assert!(ws.session_mut().controller_mut().undo().unwrap());
-    assert!(ws.session_mut().controller_mut().redo().unwrap());
+    assert!(ws.session_mut().undo().unwrap());
+    assert!(ws.session_mut().redo().unwrap());
     assert!(ws.session().project().clips.contains_key(&clip));
 
     // a project command is the only thing that advances both counters
@@ -625,9 +635,10 @@ fn ws_a_05_layout_ops_leave_project_and_engine_alone() {
         .unwrap();
     let outcome = ws.dispatch(CommandContext::from_view("clip.remove", arr));
     assert!(matches!(outcome, CommandOutcome::Applied { .. }));
-    // undo and redo each advanced the live revision by one
+    // undo and redo each advanced the live revision and (like any
+    // project change) the engine graph — plus the clip.remove itself
     assert_eq!(ws.session().revision().0, rev0.0 + 3);
-    assert_eq!(ws.session().engine().graph_builds, builds0 + 1);
+    assert_eq!(ws.session().engine().graph_builds, builds0 + 3);
 }
 
 // keep the import used
