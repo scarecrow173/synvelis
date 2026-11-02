@@ -32,10 +32,10 @@ pub use comp::{
 pub use control::{
     AutomationConflict, AutomationLane, AutomationPoint, AutomationRegion, BeatPoint, BeatRange,
     ConflictPolicy, Contribution, ControlEvaluation, ControlGraph, ControlModel, ControlScope,
-    EvalPlan, Interpolation, LfoShape, ModulationAssignment, ModulationSource, ParamMapping,
-    ParameterTarget, Polarity, ReferenceSource, SourceKind, TargetCapability, Transform, ValueKind,
-    cut_range_points, detect_conflicts, dispatch_check, evaluate_control, lane_value, lower_event,
-    modulation_allowed, quantize_value, resolve_scope_pos,
+    EvalPlan, EvalScratch, Interpolation, LfoShape, ModulationAssignment, ModulationSource,
+    ParamMapping, ParameterTarget, Polarity, ReferenceSource, SourceKind, TargetCapability,
+    Transform, ValueKind, cut_range_points, detect_conflicts, dispatch_check, evaluate_control,
+    lane_value, lower_event, modulation_allowed, quantize_value, resolve_scope_pos,
 };
 pub use controller::{Command, Operation, ProjectController, ProjectRevision, SavedState};
 pub use error::Error;
@@ -51,8 +51,8 @@ pub use placement::{
     TimeAnchor,
 };
 pub use project::{
-    AppliedImport, AppliedRecordingCommit, Asset, Clip, Lane, Project, ProjectDomain, ProjectRange,
-    RecordingRegistry, Source, SourceState, Track,
+    AppliedImport, AppliedRecordingCommit, Asset, Clip, Lane, Note, Project, ProjectDomain,
+    ProjectRange, RecordingRegistry, Source, SourceState, Track,
 };
 pub use range::{MediaSpan, MusicalRange, Range, SessionRange, SourceRange};
 pub use recording_data::{

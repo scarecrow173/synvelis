@@ -537,7 +537,7 @@ impl ControlSession {
             .map(|(t, v)| (*t, *v))
             .collect();
         for (target, value) in held {
-            self.record_write(target, pos, value)?;
+            self.record_write(project, target, pos, value)?;
         }
         Ok(effect)
     }
@@ -609,11 +609,16 @@ impl ControlSession {
     /// [`GestureEnd::BaseEdit`] — the caller applies `SetParameterBase`.
     /// `Touch`/`Latch`/`Write` write the gesture interval only when the
     /// write gates (armed + record + rolling + open transaction fixing
-    /// this target) hold.
+    /// this target) hold. Gesture point positions are normalized into
+    /// the target's scope coordinate before they enter the transaction.
     ///
     /// # Errors
     /// [`Error::Validation`] on no active gesture.
-    pub fn gesture_end(&mut self, target: ParameterTargetId) -> Result<GestureEnd, Error> {
+    pub fn gesture_end(
+        &mut self,
+        project: &Project,
+        target: ParameterTargetId,
+    ) -> Result<GestureEnd, Error> {
         let Some(g) = self.gestures.remove(&target) else {
             return Err(Error::Validation(format!("no gesture on {target}")));
         };
@@ -631,7 +636,7 @@ impl ControlSession {
             AutomationMode::Touch => {
                 self.manual_overrides.remove(&target);
                 if self.write_gates(target) {
-                    let n = self.record_points(target, &g.points)?;
+                    let n = self.record_points(project, target, &g.points)?;
                     Ok(GestureEnd::Written { points: n })
                 } else {
                     Ok(GestureEnd::Returned)
@@ -640,7 +645,7 @@ impl ControlSession {
             AutomationMode::Latch => {
                 self.manual_overrides.remove(&target);
                 if self.write_gates(target) {
-                    let _ = self.record_points(target, &g.points)?;
+                    let _ = self.record_points(project, target, &g.points)?;
                     self.latch_held.insert(target, last);
                     Ok(GestureEnd::Latched { value: last })
                 } else {
@@ -649,7 +654,7 @@ impl ControlSession {
             }
             AutomationMode::Write => {
                 if self.write_gates(target) {
-                    let n = self.record_points(target, &g.points)?;
+                    let n = self.record_points(project, target, &g.points)?;
                     Ok(GestureEnd::Written { points: n })
                 } else {
                     self.manual_overrides.remove(&target);
@@ -710,13 +715,17 @@ impl ControlSession {
     }
 
     /// Appends a manual (pre-modulation) point to the open
-    /// transaction — never a host-resolved value.
+    /// transaction — never a host-resolved value. `at` is a project
+    /// position; it is normalized into the target's scope coordinate
+    /// before storage. A position outside the scope's domain (e.g.
+    /// beyond a note's range) records nothing.
     ///
     /// # Errors
     /// [`Error::Validation`] when no open unsealed transaction fixed
     /// `target`, no write lane is bound, or the value is out of domain.
     pub fn record_write(
         &mut self,
+        project: &Project,
         target: ParameterTargetId,
         at: BeatPoint,
         value: f64,
@@ -726,19 +735,35 @@ impl ControlSession {
                 "record gates closed for {target}"
             )));
         }
-        self.record_points(target, &[(at, value)])?;
+        self.record_points(project, target, &[(at, value)])?;
         Ok(())
     }
 
+    /// Stores `points` (project positions) into the open transaction
+    /// in the target's scope coordinate. Positions outside the scope
+    /// domain are skipped — a write sweep crossing a domain edge must
+    /// not silently inject project-coordinate points into a local
+    /// series; other resolution failures propagate.
     fn record_points(
         &mut self,
+        project: &Project,
         target: ParameterTargetId,
         points: &[(BeatPoint, f64)],
     ) -> Result<usize, Error> {
+        let scope = Self::target(project, target)?.owner;
         let lane = *self
             .write_lanes
             .get(&target)
             .ok_or_else(|| Error::Validation(format!("no write lane bound for {target}")))?;
+        let mut resolved = Vec::with_capacity(points.len());
+        for (pos, value) in points {
+            match synvelis_project::resolve_scope_pos(project, scope, *pos) {
+                Ok(local) => resolved.push((local, *value)),
+                Err(synvelis_project::Error::ScopeUnavailable { .. }) => {}
+                Err(e) => return Err(e),
+            }
+        }
+        let written = resolved.len();
         let seg = self
             .recording
             .as_mut()
@@ -746,11 +771,8 @@ impl ControlSession {
             .segments
             .entry(lane)
             .or_default();
-        for (pos, value) in points {
-            seg.push(AutomationPoint {
-                pos: *pos,
-                value: *value,
-            });
+        for (pos, value) in resolved {
+            seg.push(AutomationPoint { pos, value });
         }
         seg.sort_by_key(|p| p.pos);
         seg.dedup_by(|next, prev| {
@@ -761,7 +783,7 @@ impl ControlSession {
                 false
             }
         });
-        Ok(points.len())
+        Ok(written)
     }
 
     /// Builds the commit op list for the open transaction and closes

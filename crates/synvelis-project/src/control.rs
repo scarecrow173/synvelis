@@ -208,9 +208,10 @@ fn beat_diff_f64(a: BeatPoint, b: BeatPoint) -> f64 {
 /// - `Track` / `Project` — project musical time (beats on the tempo map).
 /// - `Clip` — clip-relative beats: point `p` evaluates at project
 ///   position `clip.start + p` while the clip is musically anchored.
-/// - `Note` — note-relative beats; the note entity model is not part
-///   of this `PoC`, so note-scoped evaluation reports
-///   [`Error::ScopeUnavailable`] honestly.
+/// - `Note` — note-relative beats: point `p` evaluates at project
+///   position `clip.start + note.start + p` while the owning clip is
+///   musically anchored. Outside the note's `[start, start+len)` domain
+///   evaluation reports [`Error::ScopeUnavailable`] honestly.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "scope", content = "id", deny_unknown_fields)]
 pub enum ControlScope {
@@ -894,11 +895,13 @@ pub struct ControlEvaluation {
 /// Resolves a scope's evaluation coordinate from a project beat
 /// position. Clip scope maps project → clip-relative beats through the
 /// clip's current anchor (so `MoveClip` shifts evaluation without
-/// rewriting points); `Note` scope is honestly unavailable.
+/// rewriting points); `Note` scope resolves project → clip-relative →
+/// note-relative beats through the owning clip's current anchor.
 ///
 /// # Errors
-/// [`Error::ScopeUnavailable`] for note scope, media-anchored clips,
-/// positions outside the clip's musical range, or missing clips.
+/// [`Error::ScopeUnavailable`] for media-anchored clips, positions
+/// outside the clip's or note's domain, [`Error::NotFound`] for
+/// missing clips/notes.
 pub fn resolve_scope_pos(
     project: &Project,
     scope: ControlScope,
@@ -906,9 +909,22 @@ pub fn resolve_scope_pos(
 ) -> Result<BeatPoint, Error> {
     match scope {
         ControlScope::Track(_) | ControlScope::Project => Ok(pos),
-        ControlScope::Note(id) => Err(Error::ScopeUnavailable {
-            detail: format!("note scope {id} has no entity model yet"),
-        }),
+        ControlScope::Note(id) => {
+            let note = project
+                .notes
+                .get(&id)
+                .ok_or_else(|| Error::NotFound(format!("note {id}")))?;
+            let clip_pos = resolve_scope_pos(project, ControlScope::Clip(note.clip), pos)?;
+            let note_end = note.start.checked_add(note.len)?;
+            if clip_pos < note.start || clip_pos >= note_end {
+                return Err(Error::ScopeUnavailable {
+                    detail: format!("position {pos} outside note {id} range"),
+                });
+            }
+            clip_pos
+                .checked_sub(note.start)
+                .map_err(|_| Error::Overflow)
+        }
         ControlScope::Clip(clip_id) => {
             let clip = project
                 .clips
@@ -1100,12 +1116,57 @@ fn eval_inner(
 // ---------------------------------------------------------------------------
 
 /// The compiled control graph: a topologically ordered evaluation plan
-/// over targets. Preparation/validation happens here, off the RT path;
-/// RT-side evaluation walks `order` — bounded, fixed-order, no cycles.
+/// over targets plus prepared per-target data (merged series, resolved
+/// assignments). Preparation/validation happens at compile, off the RT
+/// path; RT-side evaluation walks `order` — bounded, fixed-order, no
+/// cycles — and only touches prepared data and scope resolution.
 #[derive(Clone, Debug, PartialEq)]
 pub struct EvalPlan {
     /// Targets in dependency order (depth drivers before dependents).
     pub order: Vec<ParameterTargetId>,
+    /// Prepared evaluation data parallel to `order`.
+    prepared: Vec<PreparedTarget>,
+}
+
+/// Per-target evaluation data frozen at [`ControlGraph::compile`] —
+/// `eval_rt` never walks `BTreeMap`s for structure.
+#[derive(Clone, Debug, PartialEq)]
+struct PreparedTarget {
+    /// Owning scope — resolved live per call so `MoveClip`/`AddNote`
+    /// between compiles still evaluate against current placement.
+    owner: ControlScope,
+    /// Normalized base value.
+    base: f64,
+    /// Value domain (quantization).
+    kind: ValueKind,
+    /// Merged sorted `(pos, value, interp)` series across all lanes.
+    series: Box<[(BeatPoint, f64, Interpolation)]>,
+    /// Enabled assignments, depth sources pre-resolved to order indices.
+    assignments: Box<[PreparedAssignment]>,
+}
+
+/// An enabled assignment with its depth driver resolved to an `order`
+/// index (topo guarantees the driver index precedes the dependent's).
+#[derive(Clone, Debug, PartialEq)]
+struct PreparedAssignment {
+    /// Signal source definition (cloned — `SourceKind::value` is pure).
+    source: SourceKind,
+    /// Depth scale.
+    depth: f64,
+    /// Uni/bipolar.
+    polarity: Polarity,
+    /// Raw→transformed map.
+    transform: Transform,
+    /// Driver index in `EvalPlan::order`, if depth-modulated.
+    depth_source: Option<usize>,
+}
+
+/// Caller-owned scratch for [`EvalPlan::eval_rt`] — allocated once,
+/// reused across control-rate calls so the RT path never allocates.
+#[derive(Clone, Debug, Default)]
+pub struct EvalScratch {
+    values: Vec<f64>,
+    computed: Vec<bool>,
 }
 
 /// Compiles the project's control graph — a DAG over
@@ -1147,7 +1208,141 @@ impl ControlGraph {
             dfs_topo(start, &edges, &mut state, &mut stack, &mut order)?;
         }
         order.reverse();
-        Ok(EvalPlan { order })
+        let order_index: BTreeMap<ParameterTargetId, usize> =
+            order.iter().enumerate().map(|(i, id)| (*id, i)).collect();
+        let prepared = order
+            .iter()
+            .map(|id| {
+                let target = &project.control.targets[id];
+                let assignments = project
+                    .control
+                    .assignments
+                    .values()
+                    .filter(|a| a.target == *id && a.enabled)
+                    .map(|a| PreparedAssignment {
+                        source: project.control.sources[&a.source].kind.clone(),
+                        depth: a.depth,
+                        polarity: a.polarity,
+                        transform: a.transform,
+                        depth_source: a.depth_source.map(|ds| order_index[&ds]),
+                    })
+                    .collect();
+                PreparedTarget {
+                    owner: target.owner,
+                    base: target.base,
+                    kind: target.kind,
+                    series: merged_series(project, *id).into_boxed_slice(),
+                    assignments,
+                }
+            })
+            .collect();
+        Ok(EvalPlan { order, prepared })
+    }
+}
+
+impl EvalPlan {
+    /// A caller-owned scratch sized for this plan — allocate once off
+    /// the RT path, reuse across control-rate evaluations.
+    #[must_use]
+    pub fn scratch(&self) -> EvalScratch {
+        EvalScratch {
+            values: vec![0.0; self.order.len()],
+            computed: vec![false; self.order.len()],
+        }
+    }
+
+    /// Allocation-free control-rate evaluation of `target`'s
+    /// dependency chain at `pos`. `manual` is the pre-modulation
+    /// reference for `target` only (drivers never see manual input —
+    /// same rule as [`evaluate_control`]). Returns `host_normalized`.
+    ///
+    /// The success path performs no heap allocation: series lookup is
+    /// binary search, drivers resolve through `scratch`, and scope
+    /// resolution only reads project maps. Error paths may allocate
+    /// (message formatting) — the RT contract covers the success path.
+    ///
+    /// # Errors
+    /// Same surface as [`evaluate_control`], plus
+    /// [`Error::NotFound`] when `target` is not in the plan and
+    /// [`Error::Validation`] when `scratch` is undersized.
+    pub fn eval_rt(
+        &self,
+        project: &Project,
+        target: ParameterTargetId,
+        pos: BeatPoint,
+        manual: Option<f64>,
+        scratch: &mut EvalScratch,
+    ) -> Result<f64, Error> {
+        let idx = self
+            .order
+            .iter()
+            .position(|id| *id == target)
+            .ok_or_else(|| Error::NotFound(format!("param {target}")))?;
+        if scratch.values.len() < self.order.len() || scratch.computed.len() < self.order.len() {
+            return Err(Error::Validation("eval_rt scratch too small".into()));
+        }
+        scratch.computed.fill(false);
+        self.eval_node(project, idx, pos, manual, scratch)
+    }
+
+    fn eval_node(
+        &self,
+        project: &Project,
+        idx: usize,
+        pos: BeatPoint,
+        manual: Option<f64>,
+        scratch: &mut EvalScratch,
+    ) -> Result<f64, Error> {
+        if scratch.computed[idx] {
+            return Ok(scratch.values[idx]);
+        }
+        let t = &self.prepared[idx];
+        let local = resolve_scope_pos(project, t.owner, pos)?;
+        let automation = prepared_lane_value(&t.series, local);
+        let reference = match (manual, automation) {
+            (Some(m), _) => m,
+            (None, Some(a)) => a,
+            (None, None) => t.base,
+        };
+        let mut raw_total = reference;
+        for a in &t.assignments {
+            let raw = a.source.value(local);
+            let mut transformed = a.transform.apply(raw);
+            if a.polarity == Polarity::Unipolar {
+                transformed = transformed.midpoint(1.0);
+            }
+            let depth_eff = match a.depth_source {
+                Some(ds) => a.depth * self.eval_node(project, ds, pos, None, scratch)?,
+                None => a.depth,
+            };
+            raw_total += depth_eff * transformed;
+        }
+        let host_normalized = quantize_value(t.kind, raw_total.clamp(0.0, 1.0));
+        scratch.values[idx] = host_normalized;
+        scratch.computed[idx] = true;
+        Ok(host_normalized)
+    }
+}
+
+/// Allocation-free automation lookup over a prepared merged series —
+/// the `lane_value` semantics (chase: latest point at or before `pos`;
+/// before the first point `None` falls back to base) without the
+/// project `BTreeMap` scan.
+fn prepared_lane_value(series: &[(BeatPoint, f64, Interpolation)], pos: BeatPoint) -> Option<f64> {
+    if series.is_empty() || pos < series[0].0 {
+        return None;
+    }
+    let idx = series.partition_point(|p| p.0 <= pos) - 1;
+    let (p0, v0, interp) = series[idx];
+    let Some(&(p1, v1, _)) = series.get(idx + 1) else {
+        return Some(v0);
+    };
+    match interp {
+        Interpolation::Step => Some(v0),
+        Interpolation::Linear => {
+            let frac = beat_diff_f64(pos, p0) / beat_diff_f64(p1, p0);
+            Some(v0 + (v1 - v0) * frac.clamp(0.0, 1.0))
+        }
     }
 }
 

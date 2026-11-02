@@ -22,6 +22,10 @@ ruviform-graph.workspace = true
 ruviform-audio.workspace = true
 ruviform-audio-core.workspace = true
 ruviform-rt.workspace = true
+ruviform-plugin-core.workspace = true
+ruviform-plugin-host.workspace = true
+ruviform-audio-plugin-bridge.workspace = true
+ruviform-exec.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

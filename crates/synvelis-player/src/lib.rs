@@ -17,6 +17,7 @@
 //!   expected-revision project mutation → save/reload
 //! ```
 
+pub mod dispatch;
 pub mod driver;
 pub mod error;
 pub mod fixture;
@@ -26,6 +27,7 @@ pub mod processor;
 pub mod publish;
 pub mod resolver;
 
+pub use dispatch::{DispatchError, ParamDispatch};
 pub use driver::{DriverState, HeadlessDriver, PlayReport, PumpPolicy};
 pub use error::{ImportError, ResolveError};
 pub use import::{BlobReceipt, ImportOutcome, ImportRequest, ProjectReceipt, VerifiedMedia};
