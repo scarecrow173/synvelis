@@ -205,6 +205,14 @@ revision/no cross-window fallback/ViewBusy)、WS-A-04 `ws_a_04*`
 WS-A-05 `ws_a_05_*` (dock 操作で revision・graph_builds・undo 履歴
 不変)、WS-A-06 本レコード。
 
+### 既知の repo 健全性(既存・本スライス非因果)
+
+- `doc_status audit --type all` は 72 findings (67 blocking) を
+  報告するが、全て既存の architecture/vs-c ドキュメントの
+  front-matter 欠落・traceability 未整備であり、WS-A 成果物への
+  finding は 0 件。exit-audit は focused chain が clean のため
+  pass として記録した。
+
 ### 未検証(正直な記録)
 
 - 実 OS Window/WebView/GPU/IME/plugin GUI: 対象外 (ruviform #243

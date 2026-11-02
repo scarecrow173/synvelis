@@ -1,7 +1,7 @@
 ---
 id: "PLAN-034QwZOjdblHRzDVhDXNIP"
 type: "plan"
-status: "in-progress"
+status: "completed"
 title: "WS-A Workspace 基盤 headless PoC 実装計画"
 created: "2026-11-02"
 updated: "2026-11-02"

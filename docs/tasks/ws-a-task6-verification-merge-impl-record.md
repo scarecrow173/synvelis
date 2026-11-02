@@ -1,7 +1,7 @@
 ---
 id: "TASK-034Qx11uIekuC4n8fmY3Wh"
 type: "task"
-status: "todo"
+status: "done"
 title: "WS-A task6 merge・再生成・最終検証・impl record"
 created: "2026-11-02"
 updated: "2026-11-02"
