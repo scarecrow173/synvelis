@@ -47,7 +47,7 @@ relations:
       - type: "file"
         path: "docs/tasks/vs-c-task5-poc-acceptance-tests.md"
       - type: "file"
-        path: "docs/tasks/vs-c-task6-verification-merge-impl-record.md"
+        path: "docs/tasks/vs-c-task6-verification-impl-record.md"
     modified:
       - type: "file"
         path: "Cargo.lock"
@@ -101,7 +101,7 @@ relations:
     - "docs/tasks/vs-c-task3-staging-writer.md"
     - "docs/tasks/vs-c-task4-recovery-scanner.md"
     - "docs/tasks/vs-c-task5-poc-acceptance-tests.md"
-    - "docs/tasks/vs-c-task6-verification-merge-impl-record.md"
+    - "docs/tasks/vs-c-task6-verification-impl-record.md"
   implemented-by: []
   depends-on: []
   blocks: []
