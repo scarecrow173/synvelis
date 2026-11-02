@@ -98,11 +98,13 @@ pub fn prepare(
         .iter()
         .find(|s| s.stream.kind == StreamKind::Audio)
         .ok_or_else(|| ResolveError::UnsupportedCodec {
+            source_id,
             detail: "no audio stream".into(),
         })?
         .clone();
     if stream.codec.codec != CodecId::Pcm {
         return Err(ResolveError::UnsupportedCodec {
+            source_id,
             detail: format!("codec {:?} is not PCM", stream.codec.codec),
         });
     }

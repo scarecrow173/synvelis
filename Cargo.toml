@@ -5,6 +5,7 @@ members = [
   "crates/synvelis-recording",
   "crates/recording-poc",
   "crates/synvelis-player",
+  "crates/synvelis-render",
 ]
 
 [workspace.package]
@@ -35,3 +36,5 @@ ruviform-graph = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-audio = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-audio-core = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-rt = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-io-wav = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-exec = { git = "https://github.com/scarecrow173/ruviform.git" }

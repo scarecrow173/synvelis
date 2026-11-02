@@ -116,9 +116,15 @@ pub enum ResolveError {
     },
     /// Codec/container/format unsupported by the decode backend.
     UnsupportedCodec {
+        /// The source that failed to resolve.
+        source_id: SourceId,
         /// Underlying diagnostic.
         detail: String,
     },
+    /// Cooperative cancellation landed while a source was being
+    /// prepared — not a resolve failure, the caller distinguishes
+    /// `Cancelled` from `Failed` on it.
+    Cancelled,
     /// Underlying I/O failure.
     Io {
         /// Underlying diagnostic.
@@ -141,9 +147,10 @@ impl fmt::Display for ResolveError {
                 write!(f, "blob hash mismatch: expected {expected}, got {actual}")
             }
             Self::Corrupt { detail } => write!(f, "corrupt media: {detail}"),
-            Self::UnsupportedCodec { detail } => {
-                write!(f, "unsupported codec/format: {detail}")
+            Self::UnsupportedCodec { source_id, detail } => {
+                write!(f, "source {source_id}: unsupported codec/format: {detail}")
             }
+            Self::Cancelled => write!(f, "cancelled during source preparation"),
             Self::Io { detail } => write!(f, "I/O failure: {detail}"),
         }
     }
