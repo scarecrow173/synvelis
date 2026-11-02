@@ -18,9 +18,10 @@ use synvelis_player::lowering::{EngineConfig, lower};
 use synvelis_player::resolver::prepare;
 use synvelis_player::{DriverState, HeadlessDriver, ImportError, PumpPolicy, ResolveError};
 use synvelis_project::{
-    ClipId, Command, CounterIdGenerator, DirectoryBundleStore, MediaSpan, MediaTimeValue,
-    MusicalRange, MusicalTick, Project, ProjectController, ProjectId, ProjectOp, ProjectRevision,
-    SourceFrame, SourceId, TimeAnchor,
+    ClipExtent, ClipId, ClipPlacement, ClipPlayback, Command, CounterIdGenerator,
+    DirectoryBundleStore, MediaDuration, MediaTimeValue, MusicalDuration, MusicalTick,
+    PlaybackMapping, Project, ProjectController, ProjectId, ProjectOp, ProjectRevision,
+    SourceFrame, SourceId, SourceRange, TimeAnchor,
 };
 
 use ruviform_media_reader::PrefetchConfig;
@@ -58,19 +59,33 @@ fn apply(c: &mut ProjectController, op: ProjectOp) -> ProjectRevision {
     c.apply(cmd(c, op)).unwrap()
 }
 
-fn media_anchor(start_frame: u64, end_frame: u64, rate: u32) -> TimeAnchor {
-    let value = |frame: u64| MediaTimeValue {
-        value: i64::try_from(frame).unwrap(),
-        numerator: 1,
-        denominator: rate,
-    };
-    TimeAnchor::Media(MediaSpan::try_new(value(start_frame), value(end_frame)).unwrap())
+fn media_placement(start_frame: u64, end_frame: u64, rate: u32) -> ClipPlacement {
+    ClipPlacement {
+        anchor: TimeAnchor::Absolute(
+            MediaTimeValue::new(i64::try_from(start_frame).unwrap(), 1, rate).unwrap(),
+        ),
+        extent: ClipExtent::Absolute(
+            MediaDuration::new(i64::try_from(end_frame - start_frame).unwrap(), 1, rate).unwrap(),
+        ),
+    }
 }
 
-fn musical_anchor(start_tick: i64, end_tick: i64) -> TimeAnchor {
-    TimeAnchor::Musical(
-        MusicalRange::try_new(MusicalTick::new(start_tick), MusicalTick::new(end_tick)).unwrap(),
-    )
+fn musical_placement(start_tick: i64, end_tick: i64) -> ClipPlacement {
+    ClipPlacement {
+        anchor: TimeAnchor::Musical(MusicalTick::new(start_tick)),
+        extent: ClipExtent::Musical(MusicalDuration::new(end_tick - start_tick).unwrap()),
+    }
+}
+
+fn natural_playback(offset: i64, frames: i64) -> ClipPlayback {
+    ClipPlayback {
+        source_region: SourceRange::try_new(
+            SourceFrame::new(offset).unwrap(),
+            SourceFrame::new(offset + frames).unwrap(),
+        )
+        .unwrap(),
+        mapping: PlaybackMapping::Natural,
+    }
 }
 
 fn request(root: &Path, path: &Path) -> ImportRequest {
@@ -226,8 +241,8 @@ fn l1_02_id_separation_shared_source_undo_save() {
         ProjectOp::AddClip {
             lane_id: lane,
             source_id,
-            anchor: media_anchor(0, 480, 48_000),
-            source_offset: SourceFrame::new(0).unwrap(),
+            placement: media_placement(0, 480, 48_000),
+            playback: natural_playback(0, 480),
         },
     );
     apply(
@@ -235,8 +250,8 @@ fn l1_02_id_separation_shared_source_undo_save() {
         ProjectOp::AddClip {
             lane_id: lane,
             source_id,
-            anchor: media_anchor(960, 1_440, 48_000),
-            source_offset: SourceFrame::new(96).unwrap(),
+            placement: media_placement(960, 1_440, 48_000),
+            playback: natural_playback(96, 480),
         },
     );
 
@@ -250,7 +265,7 @@ fn l1_02_id_separation_shared_source_undo_save() {
         c.live()
             .clips
             .values()
-            .map(|c| c.source_offset.value())
+            .map(|c| c.playback.source_region.start().value())
             .collect::<Vec<_>>(),
         vec![0, 96]
     );
@@ -301,8 +316,8 @@ fn l1_03_headless_clip_playback_exact() {
         ProjectOp::AddClip {
             lane_id: lane,
             source_id,
-            anchor: media_anchor(64, 764, 48_000),
-            source_offset: SourceFrame::new(13).unwrap(),
+            placement: media_placement(64, 764, 48_000),
+            playback: natural_playback(13, 700),
         },
     );
     let clip_id = *c.live().clips.keys().next().unwrap();
@@ -404,8 +419,8 @@ fn l1_03_clip_end_past_source_eof() {
         ProjectOp::AddClip {
             lane_id: lane,
             source_id,
-            anchor: media_anchor(0, 512, 48_000),
-            source_offset: SourceFrame::new(0).unwrap(),
+            placement: media_placement(0, 512, 48_000),
+            playback: natural_playback(0, 512),
         },
     );
     let clip_id = *c.live().clips.keys().next().unwrap();
@@ -601,8 +616,8 @@ fn l1_05_time_conversion_is_exact_and_documented() {
         ProjectOp::AddClip {
             lane_id: lane,
             source_id,
-            anchor: media_anchor(1, 101, 48_000),
-            source_offset: SourceFrame::new(5).unwrap(),
+            placement: media_placement(1, 101, 48_000),
+            playback: natural_playback(5, 100),
         },
     );
     // Musical anchor: default 120 BPM @ 960 PPQN → 25 engine frames
@@ -613,8 +628,8 @@ fn l1_05_time_conversion_is_exact_and_documented() {
         ProjectOp::AddClip {
             lane_id: lane,
             source_id,
-            anchor: musical_anchor(8, 208),
-            source_offset: SourceFrame::new(0).unwrap(),
+            placement: musical_placement(8, 208),
+            playback: natural_playback(0, 5_000),
         },
     );
 
@@ -714,8 +729,8 @@ fn l1_06_capability_and_latency_evidence() {
         ProjectOp::AddClip {
             lane_id: lane,
             source_id,
-            anchor: media_anchor(0, 1_024, 48_000),
-            source_offset: SourceFrame::new(0).unwrap(),
+            placement: media_placement(0, 1_024, 48_000),
+            playback: natural_playback(0, 1_024),
         },
     );
     let eng = engine(48_000, 2, 256);
@@ -854,8 +869,8 @@ fn l1_compat_prepare_failure_keeps_last_good() {
         ProjectOp::AddClip {
             lane_id: lane,
             source_id,
-            anchor: media_anchor(0, 256, 48_000),
-            source_offset: SourceFrame::new(0).unwrap(),
+            placement: media_placement(0, 256, 48_000),
+            playback: natural_playback(0, 256),
         },
     );
     let eng = engine(48_000, 1, 256);

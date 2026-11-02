@@ -20,10 +20,10 @@ use std::{
 use serde::{Deserialize, Serialize};
 use synvelis_project::{
     AppliedRecordingCommit, Asset, AssetId, CaptureSegment, CaptureSegmentId, CaptureStreamId,
-    Clip, ClipId, ClockEpochId, Command, Error, IdGenerator, LaneId, MusicalRange, MusicalTick,
-    Project, ProjectController, RecordingPass, RecordingPassId, RecordingSessionId, SessionFrame,
-    SessionRange, SessionState, Source, SourceFrame, SourceId, SourceRange, SourceState, Take,
-    TakeId, TakeState, TimeAnchor,
+    Clip, ClipExtent, ClipId, ClipPlacement, ClipPlayback, ClockEpochId, Command, Error,
+    IdGenerator, LaneId, MusicalDuration, MusicalTick, PlaybackMapping, Project, ProjectController,
+    RecordingPass, RecordingPassId, RecordingSessionId, SessionFrame, SessionRange, SessionState,
+    Source, SourceFrame, SourceId, SourceRange, SourceState, Take, TakeId, TakeState, TimeAnchor,
 };
 
 use crate::{
@@ -1669,17 +1669,34 @@ pub fn apply_commit(
                 ClipId::from_tagged(&c.id).map_err(|e| Error::Validation(format!("{e}")))?;
             note(clip_id.raw());
             clip_ids.push(clip_id);
+            // The playback window is the owning segment's captured
+            // source range — inserted above in this same atomic pass.
+            let seg_id = CaptureSegmentId::from_tagged(&c.segment_id)
+                .map_err(|e| Error::Validation(format!("{e}")))?;
+            let window = project
+                .recording
+                .segments
+                .get(&seg_id)
+                .map(|seg| seg.source_range)
+                .ok_or_else(|| {
+                    Error::Validation(format!("clip {clip_id} references unknown segment"))
+                })?;
             project.clips.insert(
                 clip_id,
                 Clip {
                     id: clip_id,
                     lane_id,
                     source_id,
-                    anchor: TimeAnchor::Musical(MusicalRange::try_new(
-                        MusicalTick::new(c.tick_in),
-                        MusicalTick::new(c.tick_out),
-                    )?),
-                    source_offset: SourceFrame::new(c.source_offset)?,
+                    placement: ClipPlacement {
+                        anchor: TimeAnchor::Musical(MusicalTick::new(c.tick_in)),
+                        extent: ClipExtent::Musical(MusicalDuration::new(
+                            c.tick_out.checked_sub(c.tick_in).unwrap_or(0),
+                        )?),
+                    },
+                    playback: ClipPlayback {
+                        source_region: window,
+                        mapping: PlaybackMapping::Natural,
+                    },
                     muted: false,
                 },
             );

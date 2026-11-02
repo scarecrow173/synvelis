@@ -24,9 +24,10 @@ use synvelis_player::publish::publish_recorded;
 use synvelis_player::resolver::prepare;
 use synvelis_player::{HeadlessDriver, PumpPolicy};
 use synvelis_project::{
-    ClockEpochId, Command, CounterIdGenerator, DirectoryBundleStore, LaneId, MusicalRange,
-    MusicalTick, Operation, Project, ProjectController, ProjectId, ProjectOp, ProjectRevision,
-    RecordingSessionId, SourceFrame, SourceId, TempoMapRef, TimeAnchor,
+    ClipExtent, ClipPlacement, ClipPlayback, ClockEpochId, Command, CounterIdGenerator,
+    DirectoryBundleStore, LaneId, MusicalDuration, MusicalTick, Operation, PlaybackMapping,
+    Project, ProjectController, ProjectId, ProjectOp, ProjectRevision, RecordingSessionId,
+    SourceFrame, SourceId, TempoMapRef, TimeAnchor,
 };
 use synvelis_recording::commit::{commit_session, read_commit_manifest};
 use synvelis_recording::mock::{MockInput, MockPcm, Scenario};
@@ -277,10 +278,22 @@ fn canonical() -> AudioFormat {
     }
 }
 
-fn musical_anchor(start_tick: i64, end_tick: i64) -> TimeAnchor {
-    TimeAnchor::Musical(
-        MusicalRange::try_new(MusicalTick::new(start_tick), MusicalTick::new(end_tick)).unwrap(),
-    )
+fn musical_placement(start_tick: i64, end_tick: i64) -> ClipPlacement {
+    ClipPlacement {
+        anchor: TimeAnchor::Musical(MusicalTick::new(start_tick)),
+        extent: ClipExtent::Musical(MusicalDuration::new(end_tick - start_tick).unwrap()),
+    }
+}
+
+/// clip の musical placement を `[start, end)` tick として返す。
+fn clip_musical_span(clip: &synvelis_project::Clip) -> (i64, i64) {
+    let TimeAnchor::Musical(start) = clip.placement.anchor else {
+        panic!("recorded clips use Musical anchors")
+    };
+    let ClipExtent::Musical(dur) = clip.placement.extent else {
+        panic!("recorded clips use Musical extents")
+    };
+    (start.value(), start.value() + dur.value())
 }
 
 /// Runs the generic playback path for `frames` engine frames and
@@ -332,15 +345,11 @@ fn expected_output(p: &synvelis_project::Project, frames: u64, channels: u32) ->
         if clip.muted {
             continue;
         }
-        let TimeAnchor::Musical(range) = clip.anchor else {
-            panic!("recorded clips use Musical anchors");
-        };
-        let tick_in = range.start().value();
-        let tick_out = range.end().value();
+        let (tick_in, tick_out) = clip_musical_span(clip);
         let win_start = (tick_in * FRAMES_PER_TICK).max(0);
         let win_end = (tick_out * FRAMES_PER_TICK).max(0);
         for e in win_start.max(0)..win_end.min(i64::try_from(frames).unwrap()) {
-            let sf = clip.source_offset.value() + (e - tick_in * FRAMES_PER_TICK);
+            let sf = clip.playback.source_region.start().value() + (e - tick_in * FRAMES_PER_TICK);
             let Some(input_frame) = segment_input_frame(p, clip.source_id, sf) else {
                 continue;
             };
@@ -452,7 +461,7 @@ fn x_01_recorded_playback_export_bit_exact() {
     // media with the identical canonical digest.
     let again = publish_recorded(&area, &media_root).unwrap();
     assert_eq!(again.reused.len(), 1);
-    assert!(again.published.is_empty());
+    assert_eq!(again.published, []);
     fs::remove_file(&blob).unwrap();
     let again2 = publish_recorded(&area, &media_root).unwrap();
     assert_eq!(again2.reused.len(), 1);
@@ -566,27 +575,24 @@ fn x_02_punch_in_loop_per_segment_correspondence() {
 
     // Auto-clip covers the pass-0 segment at its project placement.
     let auto_clip = p.clips.values().next().unwrap();
-    let TimeAnchor::Musical(r) = auto_clip.anchor else {
-        panic!("musical anchor")
-    };
-    assert_eq!(r.start().value(), 3_841);
-    assert_eq!(r.end().value(), 11_519);
-    assert_eq!(
-        auto_clip.source_offset.value(),
-        segs[0].source_range.start().value()
-    );
+    assert_eq!(clip_musical_span(auto_clip), (3_841, 11_519));
+    // The playback window is the whole captured segment range.
+    assert_eq!(auto_clip.playback.source_region, segs[0].source_range);
 
     // X-02 composition: pass-1 take placed at [20000,27678), pass-2
     // take placed in pre-roll [-1920,5758) → negative clamp exercises
     // clip source offset + project placement.
-    let (off1, off2) = (segs[1].source_range.start(), segs[2].source_range.start());
+    let (win1, win2) = (segs[1].source_range, segs[2].source_range);
     apply(
         &mut c,
         ProjectOp::AddClip {
             lane_id: lane,
             source_id,
-            anchor: musical_anchor(20_000, 27_678),
-            source_offset: off1,
+            placement: musical_placement(20_000, 27_678),
+            playback: ClipPlayback {
+                source_region: win1,
+                mapping: PlaybackMapping::Natural,
+            },
         },
     );
     apply(
@@ -594,8 +600,11 @@ fn x_02_punch_in_loop_per_segment_correspondence() {
         ProjectOp::AddClip {
             lane_id: lane,
             source_id,
-            anchor: musical_anchor(-1_920, 5_758),
-            source_offset: off2,
+            placement: musical_placement(-1_920, 5_758),
+            playback: ClipPlayback {
+                source_region: win2,
+                mapping: PlaybackMapping::Natural,
+            },
         },
     );
     let c2 = &mut save_reload(&mut c, &root);

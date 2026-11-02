@@ -102,6 +102,10 @@ define_frame!(
     /// Offset inside a media source file. `0` is the first captured frame.
     SourceFrame
 );
+define_frame!(
+    /// Musical duration in project PPQN ticks (non-negative length).
+    MusicalDuration
+);
 
 /// Musical position in project PPQN ticks (default 960 per quarter note).
 /// Negative values are legal (pre-roll before tick 0).
@@ -164,15 +168,29 @@ impl From<MusicalTick> for i64 {
 /// state stores this value/TimeBase triple and converts at the boundary.
 /// `numerator`/`denominator` are the `TimeBase` rational (seconds =
 /// `value * numerator / denominator`).
+///
+/// The fields are private so the `> 0` time-base invariant cannot be
+/// bypassed by a literal or a crafted snapshot — the serde repr
+/// validates through [`MediaTimeValue::new`] like [`Range::try_new`].
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "MediaTimeValueRepr", into = "MediaTimeValueRepr")]
 #[serde(deny_unknown_fields)]
 pub struct MediaTimeValue {
     /// Instant in base ticks (negative allowed, e.g. preroll).
-    pub value: i64,
+    value: i64,
     /// `TimeBase` numerator (> 0).
-    pub numerator: u32,
+    numerator: u32,
     /// `TimeBase` denominator (> 0).
-    pub denominator: u32,
+    denominator: u32,
+}
+
+/// Wire form for [`MediaTimeValue`]; validates on conversion.
+#[derive(Copy, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MediaTimeValueRepr {
+    value: i64,
+    numerator: u32,
+    denominator: u32,
 }
 
 impl MediaTimeValue {
@@ -189,6 +207,24 @@ impl MediaTimeValue {
             numerator,
             denominator,
         })
+    }
+
+    /// The instant in base ticks.
+    #[must_use]
+    pub const fn value(&self) -> i64 {
+        self.value
+    }
+
+    /// The `TimeBase` numerator (`> 0`).
+    #[must_use]
+    pub const fn numerator(&self) -> u32 {
+        self.numerator
+    }
+
+    /// The `TimeBase` denominator (`> 0`).
+    #[must_use]
+    pub const fn denominator(&self) -> u32 {
+        self.denominator
     }
 
     /// Compares two instants exactly via `v*n/d` cross-multiplication.
@@ -212,6 +248,134 @@ impl MediaTimeValue {
     #[must_use]
     pub fn ge(self, other: &Self) -> bool {
         !self.lt(other)
+    }
+
+    /// `self == other` on the absolute time axis (different bases can
+    /// name the same instant).
+    #[must_use]
+    pub fn eq_time(self, other: &Self) -> bool {
+        let (a, b) = self.scaled_num(other);
+        a == b
+    }
+
+    /// Converts the instant to frames at `rate` — exact rational math,
+    /// floored once at the final frame boundary (the shared rounding
+    /// convention for media→frame conversion).
+    #[must_use]
+    pub fn frames_at(self, rate: u32) -> i64 {
+        let numer = i128::from(self.value) * i128::from(self.numerator) * i128::from(rate);
+        let denom = i128::from(self.denominator);
+        let q = numer / denom;
+        let floored = if numer % denom < 0 { q - 1 } else { q };
+        i64::try_from(floored).unwrap_or(if numer < 0 { i64::MIN } else { i64::MAX })
+    }
+}
+
+impl From<MediaTimeValue> for MediaTimeValueRepr {
+    fn from(v: MediaTimeValue) -> Self {
+        Self {
+            value: v.value,
+            numerator: v.numerator,
+            denominator: v.denominator,
+        }
+    }
+}
+
+impl TryFrom<MediaTimeValueRepr> for MediaTimeValue {
+    type Error = Error;
+    fn try_from(repr: MediaTimeValueRepr) -> Result<Self, Self::Error> {
+        Self::new(repr.value, repr.numerator, repr.denominator)
+    }
+}
+
+/// Media duration in time-base units: `value * numerator / denominator`
+/// seconds. The duration `value` is non-negative; the base components
+/// are positive — enforced by construction like [`MediaTimeValue`].
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "MediaDurationRepr", into = "MediaDurationRepr")]
+#[serde(deny_unknown_fields)]
+pub struct MediaDuration {
+    /// Length in base ticks (`>= 0`).
+    value: i64,
+    /// `TimeBase` numerator (`> 0`).
+    numerator: u32,
+    /// `TimeBase` denominator (`> 0`).
+    denominator: u32,
+}
+
+/// Wire form for [`MediaDuration`]; validates on conversion.
+#[derive(Copy, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MediaDurationRepr {
+    value: i64,
+    numerator: u32,
+    denominator: u32,
+}
+
+impl MediaDuration {
+    /// Creates a duration, rejecting negative lengths and zero bases.
+    ///
+    /// # Errors
+    /// [`Error::Negative`] when `value < 0`;
+    /// [`Error::Validation`] when a base component is zero.
+    pub fn new(value: i64, numerator: u32, denominator: u32) -> Result<Self, Error> {
+        if value < 0 {
+            return Err(Error::Negative);
+        }
+        if numerator == 0 || denominator == 0 {
+            return Err(Error::Validation("time base component is zero".into()));
+        }
+        Ok(Self {
+            value,
+            numerator,
+            denominator,
+        })
+    }
+
+    /// The length in base ticks (`>= 0`).
+    #[must_use]
+    pub const fn value(&self) -> i64 {
+        self.value
+    }
+
+    /// The `TimeBase` numerator (`> 0`).
+    #[must_use]
+    pub const fn numerator(&self) -> u32 {
+        self.numerator
+    }
+
+    /// The `TimeBase` denominator (`> 0`).
+    #[must_use]
+    pub const fn denominator(&self) -> u32 {
+        self.denominator
+    }
+
+    /// The length in frames at `rate`, floored at the boundary.
+    #[must_use]
+    pub fn frames_at(&self, rate: u32) -> i64 {
+        MediaTimeValue {
+            value: self.value,
+            numerator: self.numerator,
+            denominator: self.denominator,
+        }
+        .frames_at(rate)
+    }
+}
+
+impl From<MediaDuration> for MediaDurationRepr {
+    fn from(d: MediaDuration) -> Self {
+        Self {
+            value: d.value,
+            numerator: d.numerator,
+            denominator: d.denominator,
+        }
+    }
+}
+
+impl TryFrom<MediaDurationRepr> for MediaDuration {
+    type Error = Error;
+    fn try_from(repr: MediaDurationRepr) -> Result<Self, Self::Error> {
+        Self::new(repr.value, repr.numerator, repr.denominator)
     }
 }
 

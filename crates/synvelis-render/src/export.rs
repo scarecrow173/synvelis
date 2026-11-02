@@ -114,7 +114,8 @@ fn run(
             SkippedClip::Muted { .. } => continue,
             SkippedClip::RateMismatch { clip_id, .. }
             | SkippedClip::UnresolvableAnchor { clip_id }
-            | SkippedClip::MissingSource { clip_id, .. } => *clip_id,
+            | SkippedClip::MissingSource { clip_id, .. }
+            | SkippedClip::UnsupportedMapping { clip_id } => *clip_id,
         };
         return Err(failed(
             ExportStage::Preflight,
