@@ -81,6 +81,11 @@ pub enum PlaybackStatus {
     Stopped,
     /// Rolling (record gates may open).
     Playing,
+    /// Held mid-position: not rolling, but the playhead and any
+    /// latch-held writes stay in place so `resume` continues the same
+    /// playback. Record gates stay closed — a write must never land
+    /// while the transport is not rolling.
+    Paused,
 }
 
 /// Session playback state — kept in beats (`BeatPosition`-exact) so
@@ -457,6 +462,23 @@ impl ControlSession {
         self.playback.status = PlaybackStatus::Playing;
     }
 
+    /// Pauses a rolling transport: the playhead holds its position and
+    /// latch-held writes stay armed, but record gates close — nothing
+    /// lands while paused. A no-op when not `Playing`.
+    pub fn transport_pause(&mut self) {
+        if self.playback.status == PlaybackStatus::Playing {
+            self.playback.status = PlaybackStatus::Paused;
+        }
+    }
+
+    /// Resumes a paused transport. A no-op unless `Paused` — resume
+    /// never starts a stopped transport.
+    pub fn transport_resume(&mut self) {
+        if self.playback.status == PlaybackStatus::Paused {
+            self.playback.status = PlaybackStatus::Playing;
+        }
+    }
+
     /// Stops rolling. Latch holds and write-held overrides end —
     /// nothing carries into the next playback.
     pub fn transport_stop(&mut self) {
@@ -528,7 +550,13 @@ impl ControlSession {
             .map(|(t, v)| (*t, *v))
             .collect();
         for (target, value) in held {
-            self.record_write(project, target, pos, value)?;
+            // Held writes land only while the gates hold — a pause, a
+            // sealed or closed transaction, or a disarmed target mutes
+            // the write, never the clock. The held value survives for
+            // a later transaction.
+            if self.write_gates(target) {
+                self.record_write(project, target, pos, value)?;
+            }
         }
         Ok(effect)
     }
@@ -664,6 +692,22 @@ impl ControlSession {
                 }
             }
         }
+    }
+
+    /// Cancels the in-flight gesture on `target`, discarding the
+    /// uncommitted preview: the collected points and the manual
+    /// override are dropped and the target returns to its
+    /// recorded/evaluated series. Nothing is written — a cancel never
+    /// rewrites committed state and never creates an undo entry.
+    ///
+    /// # Errors
+    /// [`Error::Validation`] on no active gesture.
+    pub fn gesture_cancel(&mut self, target: ParameterTargetId) -> Result<(), Error> {
+        if self.gestures.remove(&target).is_none() {
+            return Err(Error::Validation(format!("no gesture on {target}")));
+        }
+        self.manual_overrides.remove(&target);
+        Ok(())
     }
 
     // -- recording ------------------------------------------------------
