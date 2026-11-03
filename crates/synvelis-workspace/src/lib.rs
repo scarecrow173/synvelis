@@ -16,6 +16,7 @@
 
 pub mod command;
 pub mod control;
+pub mod controls_ui;
 pub mod edit;
 pub mod error;
 pub mod focus;
@@ -37,6 +38,12 @@ pub use control::{
     AssignmentView, AutomationMode, ControlGesture, ControlObservation, ControlSession, GestureEnd,
     InspectorBreakdown, Lowered, ObservationData, ObservationState, PlaybackState, PlaybackStatus,
     RecordingOutcome, RecordingTransaction, SealReason, TransportEffect, WriteArm,
+};
+pub use controls_ui::{
+    BindingSnapshot, CommandIntent, CommandPhase, CommandReceipt, ControlValue, ControlsUi,
+    DispatchContext, GestureCancelReason, IntentKind, ParamProjection, ProjectionValue,
+    ReceiptStatus, StateProjection, StripRow, TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET,
+    TransportProjection, TransportRow, UiDiagnostics, WireReceipt,
 };
 pub use edit::CommitEffect;
 pub use error::WorkspaceError;
