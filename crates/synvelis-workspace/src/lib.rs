@@ -19,6 +19,7 @@ pub mod control;
 pub mod edit;
 pub mod error;
 pub mod focus;
+pub mod gateway_ui;
 pub mod gesture;
 pub mod host;
 pub mod link;
@@ -40,6 +41,13 @@ pub use control::{
 pub use edit::CommitEffect;
 pub use error::WorkspaceError;
 pub use focus::{FocusState, InputContext};
+pub use gateway_ui::{
+    AiFeature, AiPanelView, AiSwitches, ApplyMode, ApplyReport, ApprovalSurface, BudgetExplanation,
+    CommandRow, CommitVerdict, ConnectionRow, EffectRow, EngineApplyState, ExpiryExplanation,
+    GatewayUi, GatewayUiDeps, GatewayUiError, GrantExplanation, GrantRow, JobRow, LinkedEffect,
+    MidiNoteRow, OperationRow, OwnerExplanation, Revocation, RevocationReport, ScopeExplanation,
+    SurfaceDecision, SwitchRow, TaskRow, capture_scope, explain_grant,
+};
 pub use gesture::{CancelReason, Gesture, GestureFixation, GestureOutcome, GesturePreview};
 pub use host::FakeWindowHost;
 pub use link::{LinkEvent, LinkGroupId, LinkGroupManager};
