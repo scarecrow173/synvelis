@@ -62,23 +62,36 @@
 //! [`FilePolicyStore`] + durable fence markers is the evaluated PoC-B
 //! comparison (ACG-003/004, REC-07..10).
 //!
+//! GW-08 (Issue #59) exposes that internal boundary as an MCP server
+//! adapter: [`McpHost`] is the transport-agnostic session core —
+//! `synvelis.connect` binds a session through a Synvelis-issued
+//! connection permit ([`mcp_permit`]), the semantic tool surface
+//! (`mcp_tools`) translates calls into the same typed wire contract
+//! every adapter uses, and the operation book + [`CommitPort`] report
+//! settled verdicts through `operation.get` reconciliation instead of
+//! a second job authority. The crate owns the protocol translation
+//! and the trusted-identity binding; transports (the `mcp-poc` stdio
+//! helper + authenticated loopback control channel) live outside it.
+//!
 //! # Ownership boundary (GTC-001)
 //!
 //! This crate owns the contract, its validation pipeline, and the
 //! authorization decision. It does **not** own: the project aggregate
 //! or its revision (GW-06 commits through `ProjectController`), the
 //! project-state resource view ([`ResourceOracle`] is the host's
-//! snapshot seam), MCP transport (GW-08), or UX (GW-09). It holds no
-//! project handle — a bound request can never mutate project state
-//! through this crate.
+//! snapshot seam), MCP transport processes (the `PoC` binary owns
+//! framing), or UX (GW-09). It holds no project handle — a bound
+//! request can never mutate project state through this crate.
 //!
 //! # Trust boundary (GT-002)
 //!
 //! The wire type [`WireRequest`] has no caller/authority fields, and
 //! [`CallerIdentity`] can only be built with an [`AdapterSeal`] minted
 //! inside this crate — wire payloads and external crates cannot forge
-//! a trusted caller. GW-01's [`fixture::FixtureAdapter`] is the only
-//! seal issuer; real transports get their issuance seam in GW-08.
+//! a trusted caller. Seal issuance is crate-internal: GW-01's
+//! [`fixture::FixtureAdapter`] (test origin) and GW-08's
+//! [`McpHost`] (external-adapter origin, gated on a verified
+//! connection permit) are the issuers.
 
 #![warn(missing_docs)]
 
@@ -94,6 +107,10 @@ pub mod gateway;
 pub mod grant;
 pub mod id;
 pub mod journal;
+pub mod mcp;
+pub mod mcp_permit;
+pub mod mcp_server;
+mod mcp_tools;
 pub mod outcome;
 pub mod policy;
 pub mod prepare;
@@ -141,6 +158,14 @@ pub use id::{
     ProactivePermitRef, ProposalRef, RequestId, SelectionViewRef, SnapshotRef, TaskRef,
 };
 pub use journal::{FileJournal, OpenReport, ReplayOutcome, StopReason};
+pub use mcp::{AdapterFault, CallToolResult, McpBounds, McpChannel};
+pub use mcp_permit::{
+    FilePermitStore, MemoryPermitStore, PermitIssue, PermitRecord, PermitSpec, PermitStore,
+};
+pub use mcp_server::{
+    AdminPort, BoundIdentity, CommitPort, McpConfig, McpHost, McpSession, NoAdminPort,
+    NoCommitPort, OpStatus,
+};
 pub use outcome::{
     ErrorCategory, ErrorEnvelope, ExternalError, GatewayError, GatewayOutcome, RetryAdvice,
 };

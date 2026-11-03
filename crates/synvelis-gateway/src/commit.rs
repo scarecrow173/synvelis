@@ -935,6 +935,48 @@ impl<F: CommitFence> CommitGate<F> {
         self.fence.section(|| self.commit_in_fence(proposal, hooks))
     }
 
+    /// Cancels an apply attempt through the same fence every commit
+    /// takes — a cancel and a commit can never interleave, so the
+    /// verdict is honest: whichever enters the section first wins.
+    /// Returns `Ok(true)` when the apply settled `Rejected`,
+    /// `Ok(false)` when it was already past cancellation.
+    ///
+    /// # Errors
+    /// [`ErrorEnvelope`] — no apply exists for the proposal, or the
+    /// gate diverged.
+    pub fn cancel_apply(&self, proposal: &ProposalRef) -> Result<bool, ErrorEnvelope> {
+        self.fence.section(|| {
+            if self.diverged() {
+                return Err(GatewayError::Indeterminate {
+                    reason: "commit gate diverged from the durable journal; reopen to reconcile"
+                        .to_owned(),
+                }
+                .into());
+            }
+            let Some(apply) = self
+                .deps
+                .proposals
+                .view(proposal)
+                .and_then(|view| view.apply)
+            else {
+                return Err(GatewayError::ProposalUnavailable {
+                    reason: "no apply attempt for proposal".to_owned(),
+                }
+                .into());
+            };
+            match apply.status {
+                ApplyStatus::AwaitingApproval | ApplyStatus::CommitRequested => {
+                    self.deps
+                        .proposals
+                        .transit_apply(proposal, ApplyEvent::Reject)
+                        .map_err(ErrorEnvelope::from)?;
+                    Ok(true)
+                }
+                _ => Ok(false),
+            }
+        })
+    }
+
     /// The fence section — every ordering-sensitive step lives here.
     fn commit_in_fence(
         &self,
