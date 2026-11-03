@@ -57,6 +57,25 @@ macro_rules! define_u128_id {
                 s.serialize_str(&self.to_tagged())
             }
         }
+
+        impl<'de> Deserialize<'de> for $name {
+            /// Deserialization is for internal durable records (GW-06
+            /// journal) — the `"<kind>-<32hex>"` tag is re-validated, so a
+            /// stored value can never mint an id of the wrong kind.
+            fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                let s = String::deserialize(d)?;
+                let prefix = format!("{}-", Self::KIND);
+                let hex = s
+                    .strip_prefix(&prefix)
+                    .ok_or_else(|| D::Error::custom(format!("invalid {} tag", Self::KIND)))?;
+                let raw = u128::from_str_radix(hex, 16)
+                    .map_err(|_| D::Error::custom(format!("invalid {} hex", Self::KIND)))?;
+                if hex.len() != 32 {
+                    return Err(D::Error::custom(format!("invalid {} hex", Self::KIND)));
+                }
+                Ok(Self::new(raw))
+            }
+        }
     };
 }
 
@@ -117,6 +136,15 @@ define_u128_id!(
     /// [`crate::CallerIdentity`]. Minted by the crate's adapter
     /// constructions; not a wire value.
     AdapterId, "adapter"
+);
+
+define_u128_id!(
+    /// Identifies one durable commit decision (GW-06).
+    ///
+    /// Assigned by the commit gate from the ordered journal sequence —
+    /// the commit identity is the same durable value a retry/reconcile
+    /// resolves after a disconnect or restart.
+    CommitId, "commit"
 );
 
 define_string_ref!(

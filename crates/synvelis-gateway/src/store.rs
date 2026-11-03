@@ -19,9 +19,11 @@
 //! level; the durable store and the crash/recovery story are GW-06's.
 
 use std::collections::BTreeMap;
+use std::io;
 use std::sync::RwLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::grant::{Grant, PolicyEpoch, Validity};
 use crate::id::{GrantRef, ProactivePermitRef, TaskRef};
@@ -31,7 +33,7 @@ use synvelis_project::ProjectId;
 /// A user-issued or explicitly-permitted proactive task activation
 /// (AHG-007: activation authority is a separate contract from the
 /// execution grant).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "activation", rename_all = "kebab-case")]
 pub enum Activation {
     /// The user explicitly activated this task.
@@ -48,7 +50,7 @@ pub enum Activation {
 /// An authorized task — activation authority, separate from any
 /// execution grant (AHG-007). An agent request resolves its `task` ref
 /// here; holding the ref proves nothing by itself.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthorizedTask {
     /// The task's stable reference.
@@ -67,7 +69,7 @@ pub struct AuthorizedTask {
 ///
 /// A delegated-apply grant is **not** proactive authority — only a
 /// permit of this kind authorizes a proactively-started task.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProactivePermit {
     /// The permit's stable reference.
@@ -141,6 +143,10 @@ struct StoreState {
 #[derive(Default)]
 pub struct InMemoryPolicyStore {
     state: RwLock<StoreState>,
+    /// Fail-closed after a durable-side failure the in-memory view
+    /// could not roll back (`PoC B` consume-log loss): every further
+    /// mutation must fail rather than diverge from the log silently.
+    poisoned: AtomicBool,
 }
 
 impl InMemoryPolicyStore {
@@ -148,6 +154,18 @@ impl InMemoryPolicyStore {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Marks the store fail-closed (`PoC B` durable-loss guard) —
+    /// subsequent mutations report failure instead of diverging.
+    pub(crate) fn poison(&self) {
+        self.poisoned.store(true, Ordering::Release);
+    }
+
+    /// Whether the store was poisoned by a durable-side failure.
+    #[must_use]
+    pub fn poisoned(&self) -> bool {
+        self.poisoned.load(Ordering::Acquire)
     }
 
     /// Issues an authorized task. Single-issuance: an existing id is
@@ -300,6 +318,9 @@ impl PolicyStore for InMemoryPolicyStore {
     }
 
     fn try_consume_apply(&self, id: &GrantRef, now: crate::clock::PolicyInstant) -> bool {
+        if self.poisoned() {
+            return false;
+        }
         let mut state = self.state.write().expect("policy store poisoned");
         let epoch = state.epoch;
         let Some(record) = state.grants.get_mut(id) else {
@@ -320,5 +341,84 @@ impl PolicyStore for InMemoryPolicyStore {
         }
         record.consumed_applies = record.consumed_applies.saturating_add(1);
         true
+    }
+}
+
+impl InMemoryPolicyStore {
+    /// Restores one consumed delegated-apply unit during GW-06 journal
+    /// replay — unconditional (no liveness/epoch/budget re-check): the
+    /// commit record is the durable authority that the spend happened.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the store's lock is poisoned.
+    pub fn note_consumption(&self, id: &GrantRef) {
+        if let Some(record) = self
+            .state
+            .write()
+            .expect("policy store poisoned")
+            .grants
+            .get_mut(id)
+        {
+            record.consumed_applies = record.consumed_applies.saturating_add(1);
+        }
+    }
+}
+
+impl crate::commit::PolicyAdmin for InMemoryPolicyStore {
+    fn issue_task(&self, task: AuthorizedTask) -> io::Result<()> {
+        if self.poisoned() {
+            return Err(io::Error::other("policy store poisoned"));
+        }
+        InMemoryPolicyStore::issue_task(self, task);
+        Ok(())
+    }
+    fn revoke_task(&self, id: &TaskRef) -> io::Result<()> {
+        if self.poisoned() {
+            return Err(io::Error::other("policy store poisoned"));
+        }
+        InMemoryPolicyStore::revoke_task(self, id);
+        Ok(())
+    }
+    fn issue_permit(&self, permit: ProactivePermit) -> io::Result<()> {
+        if self.poisoned() {
+            return Err(io::Error::other("policy store poisoned"));
+        }
+        InMemoryPolicyStore::issue_proactive_permit(self, permit);
+        Ok(())
+    }
+    fn revoke_permit(&self, id: &ProactivePermitRef) -> io::Result<()> {
+        if self.poisoned() {
+            return Err(io::Error::other("policy store poisoned"));
+        }
+        InMemoryPolicyStore::revoke_proactive_permit(self, id);
+        Ok(())
+    }
+    fn issue_grant(&self, grant: crate::grant::Grant) -> io::Result<()> {
+        if self.poisoned() {
+            return Err(io::Error::other("policy store poisoned"));
+        }
+        InMemoryPolicyStore::issue_grant(self, grant);
+        Ok(())
+    }
+    fn revoke_grant(&self, id: &GrantRef) -> io::Result<()> {
+        if self.poisoned() {
+            return Err(io::Error::other("policy store poisoned"));
+        }
+        InMemoryPolicyStore::revoke_grant(self, id);
+        Ok(())
+    }
+    fn advance_epoch(&self) -> io::Result<PolicyEpoch> {
+        if self.poisoned() {
+            return Err(io::Error::other("policy store poisoned"));
+        }
+        Ok(InMemoryPolicyStore::update_policy(self))
+    }
+    fn note_consumption(&self, id: &GrantRef) -> io::Result<()> {
+        if self.poisoned() {
+            return Err(io::Error::other("policy store poisoned"));
+        }
+        InMemoryPolicyStore::note_consumption(self, id);
+        Ok(())
     }
 }

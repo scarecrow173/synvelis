@@ -87,7 +87,7 @@ impl ResourceKind {
 /// Parsing checks the declared kind *and* the id's own tag: a
 /// `"clip-…"` value passed where `"source"` was declared is a typed
 /// [`GatewayError::WrongResourceKind`], not a silent reinterpretation.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "id", rename_all = "kebab-case")]
 pub enum ResourceRef {
     /// [`ProjectId`].
@@ -270,7 +270,7 @@ pub enum TimeDomain {
 }
 
 /// A validated explicit range: declared time domain + integer extent.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedRange {
     /// The coordinate domain the range is expressed in.
     pub domain: TimeDomain,
@@ -418,7 +418,7 @@ impl ConsistencyKind {
 /// GTC-001: trusted human authority and agent grant/task authority are
 /// distinct authorization grounds — the kind is part of the identity so
 /// the evaluator can never conflate them.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PrincipalKind {
     /// Trusted human (manual DAW session).
@@ -469,6 +469,21 @@ impl Principal {
     #[must_use]
     pub fn id(&self) -> &str {
         &self.id
+    }
+}
+
+impl<'de> Deserialize<'de> for Principal {
+    /// Deserialization is for internal durable records (GW-06 journal)
+    /// only — the bounded constructor still runs, so a stored value can
+    /// never produce a principal `Principal::new` would have rejected.
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        struct Raw {
+            kind: PrincipalKind,
+            id: String,
+        }
+        let raw = Raw::deserialize(d)?;
+        Self::new(raw.kind, raw.id).map_err(serde::de::Error::custom)
     }
 }
 
