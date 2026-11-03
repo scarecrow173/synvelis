@@ -1116,7 +1116,12 @@ pub(crate) fn grant_from_params(
         },
         create_within,
         approval_policy,
-        limits: GrantLimits { apply_budget },
+        limits: GrantLimits {
+            apply_budget,
+            // The MCP tool surface does not mint job budgets (GW-07
+            // issues them through the policy record, not the wire).
+            job_budget: None,
+        },
         validity: Validity::default(),
         epoch_ceiling: None,
         issued_at_revision,

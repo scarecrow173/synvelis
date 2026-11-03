@@ -880,7 +880,7 @@ fn control_scope_json(scope: &ControlScope) -> Value {
     }
 }
 
-const fn source_state_name(state: SourceState) -> &'static str {
+pub(crate) const fn source_state_name(state: SourceState) -> &'static str {
     match state {
         SourceState::Imported => "imported",
         SourceState::Verified => "verified",

@@ -516,7 +516,11 @@ impl Gateway {
     /// `task`/`grant` are covered: a retry carrying different
     /// authorization references is a conflict, not a silent duplicate.
     fn fingerprint(req: &OperationRequest) -> String {
-        serde_json::json!({
+        // The ledger stores only a digest: args can carry secret-class
+        // payloads (job prompts), and the ledger is a retained record,
+        // not a disclosure channel.
+        use sha2::Digest;
+        let payload = serde_json::json!({
             "capability": req.capability,
             "schema": req.input_schema,
             "project": req.project.to_tagged(),
@@ -526,7 +530,10 @@ impl Gateway {
             "task": req.task,
             "grant": req.grant,
         })
-        .to_string()
+        .to_string();
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(payload.as_bytes());
+        format!("sha256:{:x}", hasher.finalize())
     }
 
     /// The outcome must honor the declared contract: a `Sync`

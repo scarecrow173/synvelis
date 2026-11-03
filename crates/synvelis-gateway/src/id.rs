@@ -216,6 +216,27 @@ define_string_ref!(
 );
 
 define_string_ref!(
+    /// Opaque reference to a non-real-time job owned by the Synvelis
+    /// job coordinator (GW-07 / issue #21 domain).
+    ///
+    /// Issued by the job owner, never by the caller — holding one is a
+    /// lookup key, not an authorization proof. Kept semantically
+    /// distinct from [`OperationId`] (the gateway-assigned handle),
+    /// [`RequestId`], [`TaskRef`], and [`ProposalRef`].
+    JobRef, 256, "job ref"
+);
+
+define_string_ref!(
+    /// Opaque reference to a staged/verified media output a job
+    /// produced (GW-07 / issue #17 domain).
+    ///
+    /// The staged-media record is the registration input for the
+    /// project-placement path — the media ref itself carries no bytes
+    /// and is never a project [`crate::request::ResourceRef`].
+    MediaRef, 256, "media ref"
+);
+
+define_string_ref!(
     /// Client-supplied idempotency key.
     ///
     /// Scoped to (principal, project): the same key with the same payload

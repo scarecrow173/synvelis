@@ -76,6 +76,10 @@ pub struct PrepareEngine {
     descriptor: CapabilityDescriptor,
     ops: BTreeMap<CapabilityRef, OpSpec>,
     proposals: Arc<ProposalStore>,
+    /// The GW-07 verified-media gate — `synvelis.media.register`
+    /// resolves its staged-media ref through this seam. `None`
+    /// fails the op closed: unverifiable media is never registerable.
+    media: Option<Arc<dyn crate::media::MediaGate>>,
 }
 
 fn obj(fields: &[(&str, ValueSchema)], required: &[&str], deny_unknown: bool) -> ValueSchema {
@@ -462,6 +466,17 @@ impl PrepareEngine {
                 obj(&[("content_digest", str_(256))], &["content_digest"], true),
             ),
             (
+                crate::job_engine::MEDIA_REGISTER_ID,
+                TargetContract::Create {
+                    parent: ResourceKind::Asset,
+                    creates: ResourceKind::Source,
+                },
+                &[Create],
+                // The staged-media ref only — the content digest is
+                // gate-resolved at lowering, never agent-declared.
+                obj(&[("media", str_(256))], &["media"], true),
+            ),
+            (
                 "synvelis.source.set-state",
                 TargetContract::Resource {
                     kind: ResourceKind::Source,
@@ -486,8 +501,22 @@ impl PrepareEngine {
     pub fn new(
         context: Arc<ContextProjectionEngine>,
         authorizer: Arc<dyn PrepareAuthorizer>,
+        budget: PrepareBudget,
+        proposals: Arc<ProposalStore>,
+    ) -> Self {
+        Self::with_media(context, authorizer, budget, proposals, None)
+    }
+
+    /// The engine with the GW-07 verified-media gate wired —
+    /// `synvelis.media.register` resolves staged-media refs through
+    /// `media`; absent a gate the op fails closed.
+    #[must_use]
+    pub fn with_media(
+        context: Arc<ContextProjectionEngine>,
+        authorizer: Arc<dyn PrepareAuthorizer>,
         mut budget: PrepareBudget,
         proposals: Arc<ProposalStore>,
+        media: Option<Arc<dyn crate::media::MediaGate>>,
     ) -> Self {
         budget.max_ops = budget.max_ops.max(1);
         budget.max_proposals = budget.max_proposals.max(1);
@@ -498,6 +527,7 @@ impl PrepareEngine {
             descriptor: Self::descriptor(),
             ops: Self::op_specs(),
             proposals,
+            media,
         }
     }
 
@@ -660,14 +690,65 @@ impl PrepareEngine {
         }
     }
 
+    /// The gated `synvelis.media.register` lowering — the staged-media
+    /// ref must resolve to a `Verified` record owned by this caller
+    /// and project (unknown/rejected/foreign share one blind deny),
+    /// and the resulting `RegisterSource` carries the gate's
+    /// re-derived content digest, never an agent-declared one.
+    #[allow(clippy::result_large_err)] // typed envelope is the contract
+    fn lower_media(
+        &self,
+        req: &OperationRequest,
+        target: &OperationTarget,
+        args: &Value,
+    ) -> Result<ProjectOp, ErrorEnvelope> {
+        let Some(gate) = &self.media else {
+            // Host misconfiguration, not an authorization verdict.
+            return Err(GatewayError::Internal {
+                reason: "no media verification authority is wired".to_owned(),
+            }
+            .into());
+        };
+        let media = crate::MediaRef::new(
+            args.get("media")
+                .and_then(Value::as_str)
+                .ok_or_else(|| prepare::violation("args.media", "expected a string"))?,
+        )
+        .map_err(ErrorEnvelope::from)?;
+        let verified = gate
+            .verified_media(req.caller().principal(), req.project(), &media)
+            .ok_or_else(|| GatewayError::Denied {
+                stage: crate::authorization::AuthorizationStage::PrepareProposal,
+                reason: Some("media is not registerable".to_owned()),
+            })?;
+        let asset_id = match target {
+            OperationTarget::Create {
+                parent: ResourceRef::Asset(id),
+                ..
+            } => *id,
+            _ => {
+                return Err(GatewayError::Internal {
+                    reason: "media.register expected an asset create target".to_owned(),
+                }
+                .into());
+            }
+        };
+        Ok(ProjectOp::RegisterSource {
+            asset_id,
+            content_digest: verified.content_digest,
+        })
+    }
+
     /// Lowers one named operation to `(commands, ProjectOp)` —
     /// recursing through the batch capability so member commands are
-    /// normalized individually.
+    /// normalized individually. `req` is the bound request the gated
+    /// lowerings (verified media) evaluate ownership against.
     #[allow(clippy::result_large_err)] // typed envelope is the contract
     fn lower_named(
         &self,
         named: &NamedOperation,
         path: &str,
+        req: &OperationRequest,
     ) -> Result<(Vec<SemanticCommand>, ProjectOp), ErrorEnvelope> {
         let Some(spec) = self.ops.get(&named.capability) else {
             let supported: Vec<CapabilityVersion> = self
@@ -734,7 +815,7 @@ impl PrepareEngine {
                     ));
                 }
                 let (member_commands, op) =
-                    self.lower_named(&member_named, &format!("{path}.args.ops[{i}]"))?;
+                    self.lower_named(&member_named, &format!("{path}.args.ops[{i}]"), req)?;
                 commands.extend(member_commands);
                 ops.push(op);
             }
@@ -744,7 +825,13 @@ impl PrepareEngine {
         // syntactically (args were schema-validated above).
         let target = crate::gateway::Gateway::bind_target(&spec.descriptor, named.target.as_ref())
             .map_err(ErrorEnvelope::from)?;
-        let op = (spec.lower)(&target, &named.args).map_err(ErrorEnvelope::from)?;
+        let op = if named.capability.id.as_str() == crate::job_engine::MEDIA_REGISTER_ID {
+            // GW-07: the verified-media op lowers through the media
+            // gate — the digest is gate-derived, never agent-declared.
+            self.lower_media(req, &target, &named.args)?
+        } else {
+            (spec.lower)(&target, &named.args).map_err(ErrorEnvelope::from)?
+        };
         Ok((
             vec![SemanticCommand {
                 capability: named.capability.clone(),
@@ -789,7 +876,7 @@ impl PrepareEngine {
             .get("operation")
             .ok_or_else(|| prepare::violation("args.operation", "missing required field"))?;
         let named = NamedOperation::parse(operation_value, "args.operation")?;
-        let (commands, op) = self.lower_named(&named, "args.operation")?;
+        let (commands, op) = self.lower_named(&named, "args.operation", req)?;
         let (facts, capabilities) = self.provisional_gate(req, &pin, &named, &op, &commands)?;
 
         // The project's own validator is the semantic authority —

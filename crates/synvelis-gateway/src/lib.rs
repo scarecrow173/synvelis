@@ -106,11 +106,14 @@ pub mod fixture;
 pub mod gateway;
 pub mod grant;
 pub mod id;
+pub mod job;
+pub mod job_engine;
 pub mod journal;
 pub mod mcp;
 pub mod mcp_permit;
 pub mod mcp_server;
 mod mcp_tools;
+pub mod media;
 pub mod outcome;
 pub mod policy;
 pub mod prepare;
@@ -119,11 +122,13 @@ pub mod prepare_policy;
 pub mod proposal;
 pub mod proposal_engine;
 pub mod proposal_policy;
+pub mod provenance;
 pub mod registry;
 pub mod request;
 pub mod schema;
 pub mod snapshot;
 pub mod store;
+pub mod stub;
 pub mod wire;
 
 pub use authorization::{
@@ -154,9 +159,16 @@ pub use grant::{
     ResourceOracle, ResourceScope, ScopedEffects, Validity,
 };
 pub use id::{
-    AdapterId, ApprovalRef, CommitId, CursorRef, GrantRef, IdempotencyKey, OperationId,
-    ProactivePermitRef, ProposalRef, RequestId, SelectionViewRef, SnapshotRef, TaskRef,
+    AdapterId, ApprovalRef, CommitId, CursorRef, GrantRef, IdempotencyKey, JobRef, MediaRef,
+    OperationId, ProactivePermitRef, ProposalRef, RequestId, SelectionViewRef, SnapshotRef,
+    TaskRef,
 };
+pub use job::{
+    CancelLink, CancelResponse, DeclaredOutput, InputPin, InputSnapshot, JobBook, JobKind,
+    JobPhase, JobPort, JobRecord, JobResult, JobSpec, JobStatus, OutputKind, OutputReport,
+    SharedJobBook,
+};
+pub use job_engine::{JOB_CANCEL_ID, JOB_GET_ID, JOB_SUBMIT_ID, JobEngine, MEDIA_REGISTER_ID};
 pub use journal::{FileJournal, OpenReport, ReplayOutcome, StopReason};
 pub use mcp::{AdapterFault, CallToolResult, McpBounds, McpChannel};
 pub use mcp_permit::{
@@ -165,6 +177,9 @@ pub use mcp_permit::{
 pub use mcp_server::{
     AdminPort, BoundIdentity, CommitPort, McpConfig, McpHost, McpSession, NoAdminPort,
     NoCommitPort, OpStatus,
+};
+pub use media::{
+    MediaBook, MediaGate, MediaLifecycle, MediaPort, MediaRecord, MediaVerdict, VerifiedMedia,
 };
 pub use outcome::{
     ErrorCategory, ErrorEnvelope, ExternalError, GatewayError, GatewayOutcome, RetryAdvice,
@@ -183,6 +198,7 @@ pub use proposal::{
 };
 pub use proposal_engine::{APPLY_ID, APPROVE_ID, PREVIEW_ID, ProposalEngine};
 pub use proposal_policy::ProposalGate;
+pub use provenance::{EvidenceLevel, GenerationProvenance, ProvenanceField, ProviderClaim};
 pub use registry::{CapabilityOperation, CapabilityRegistry, Registration};
 pub use request::{
     AdapterSeal, CallerIdentity, Consistency, ConsistencyKind, OperationRequest, OperationTarget,
@@ -193,6 +209,7 @@ pub use snapshot::{MemorySnapshotSource, PinnedSnapshot, ProjectOracle, Snapshot
 pub use store::{
     Activation, AuthorizedTask, GrantRecord, InMemoryPolicyStore, PolicyStore, ProactivePermit,
 };
+pub use stub::{CancelMode, DriveMode, MediaStub, ProviderStub, StubContent, StubOutputSpec};
 pub use wire::{
     FORBIDDEN_AUTHORITY_FIELDS, FORBIDDEN_IMPLICIT_TARGET_FIELDS, WireConsistency, WireRequest,
     WireTarget,
