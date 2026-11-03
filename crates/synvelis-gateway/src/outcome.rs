@@ -221,6 +221,15 @@ pub enum GatewayError {
     /// pinnable. The two cases share one verdict (existence-blind); the
     /// engine never silently re-bases onto `Latest` (GW-03, DATA-03).
     SnapshotExpired,
+    /// The semantic operation was rejected by the project aggregate's
+    /// own validator against the pinned base (GW-04, GTC-005). The
+    /// request was well-formed — the base state does not satisfy the
+    /// operation's preconditions (absent ids, illegal references,
+    /// unrepresentable ranges).
+    PreparationRejected {
+        /// Safe-to-disclose reason.
+        reason: String,
+    },
     /// The page cursor passed its expiry — the pagination chain is
     /// dead and a new query must be issued to start a fresh one
     /// (GW-03, expiring cursor).
@@ -329,6 +338,7 @@ impl GatewayError {
             | Self::TargetShapeMismatch { .. }
             | Self::SchemaViolation { .. }
             | Self::CursorInvalid { .. }
+            | Self::PreparationRejected { .. }
             | Self::LimitExceeded { .. } => ErrorCategory::Validation,
             Self::UnknownCapability { .. }
             | Self::UnsupportedCapabilityVersion { .. }
@@ -371,6 +381,7 @@ impl GatewayError {
             | Self::UnexpectedTarget
             | Self::TargetShapeMismatch { .. }
             | Self::SchemaViolation { .. }
+            | Self::PreparationRejected { .. }
             | Self::ConsistencyNotAllowed { .. }
             | Self::CapabilityConflict { .. }
             | Self::SchemaConflict { .. }
@@ -394,6 +405,7 @@ impl GatewayError {
 
     /// A safe, external-facing message built only from discloseable
     /// fields — never containing internals like serde paths.
+    #[allow(clippy::too_many_lines)] // one message arm per variant
     #[must_use]
     pub fn safe_message(&self) -> String {
         match self {
@@ -478,6 +490,9 @@ impl GatewayError {
             Self::SnapshotExpired => {
                 "pinned snapshot is no longer available; issue a new query to pin a fresh revision"
                     .to_owned()
+            }
+            Self::PreparationRejected { reason } => {
+                format!("operation rejected at preparation: {reason}")
             }
             Self::CursorExpired => {
                 "page cursor expired; issue a new query to start a new pagination chain".to_owned()

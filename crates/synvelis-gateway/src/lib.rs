@@ -22,6 +22,18 @@
 //! authorization, and honest `complete`/`unknown`/`unavailable`
 //! completeness — per #45 GTC-004.
 //!
+//! GW-04 (Issue #56) implements semantic operation preparation: the
+//! `synvelis.operation.prepare` capability served by
+//! [`PrepareEngine`], which lowers a typed semantic operation to a
+//! `synvelis-project` [`ProjectOp`], validates and applies it on a
+//! scratch clone of a pinned base — never the live project — derives
+//! the real structural [`DerivedEffect`]s from the before/after
+//! attribute diff (linked MIDI sources named explicitly, independent
+//! copies as `create` + reference update), and evaluates them through
+//! the GW-02 authorizer ([`PrepareAuthorizer`]/[`PreparePolicy`])
+//! before recording a [`PreparedRecord`] GW-06 can revalidate and
+//! commit — per #45 GTC-005.
+//!
 //! # Ownership boundary (GTC-001)
 //!
 //! This crate owns the contract, its validation pipeline, and the
@@ -53,6 +65,9 @@ pub mod grant;
 pub mod id;
 pub mod outcome;
 pub mod policy;
+pub mod prepare;
+pub mod prepare_engine;
+pub mod prepare_policy;
 pub mod registry;
 pub mod request;
 pub mod schema;
@@ -89,6 +104,12 @@ pub use outcome::{
     ErrorCategory, ErrorEnvelope, ExternalError, GatewayError, GatewayOutcome, RetryAdvice,
 };
 pub use policy::GrantPolicy;
+pub use prepare::{
+    DerivedEffect, EffectVisibility, NamedOperation, Precondition, PreparationBasis,
+    PrepareAuthorizer, PreparedEffects, PreparedOperation, PreparedRecord, SemanticCommand,
+};
+pub use prepare_engine::{PrepareBudget, PrepareEngine};
+pub use prepare_policy::PreparePolicy;
 pub use registry::{CapabilityOperation, CapabilityRegistry, Registration};
 pub use request::{
     AdapterSeal, CallerIdentity, Consistency, ConsistencyKind, OperationRequest, OperationTarget,

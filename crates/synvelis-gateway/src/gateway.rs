@@ -38,6 +38,7 @@ use crate::wire::{WireConsistency, WireRequest, WireTarget};
 const fn stage_for(domain: OperationDomain) -> AuthorizationStage {
     match domain {
         OperationDomain::Query => AuthorizationStage::ReadContext,
+        OperationDomain::Proposal => AuthorizationStage::PrepareProposal,
         OperationDomain::ProjectMutation => AuthorizationStage::RequestApply,
         OperationDomain::RuntimeControl => AuthorizationStage::StartRuntimeOperation,
         OperationDomain::AsyncOperation => AuthorizationStage::StartAsyncOperation,
@@ -194,19 +195,20 @@ impl Gateway {
     ) -> Result<(), ErrorEnvelope> {
         self.schemas.resolve(&descriptor.input_schema)?;
         self.schemas.resolve(&descriptor.output_schema)?;
-        if matches!(descriptor.domain, OperationDomain::Query)
-            && descriptor.effect_bound.iter().any(|e| {
-                matches!(
-                    e,
-                    crate::capability::EffectKind::Write
-                        | crate::capability::EffectKind::Create
-                        | crate::capability::EffectKind::Delete
-                )
-            })
-        {
+        if matches!(
+            descriptor.domain,
+            OperationDomain::Query | OperationDomain::Proposal
+        ) && descriptor.effect_bound.iter().any(|e| {
+            matches!(
+                e,
+                crate::capability::EffectKind::Write
+                    | crate::capability::EffectKind::Create
+                    | crate::capability::EffectKind::Delete
+            )
+        }) {
             return Err(GatewayError::IncoherentDescriptor {
                 id: descriptor.id.to_string(),
-                reason: "query capabilities may not declare mutating effects".to_owned(),
+                reason: "read-side capabilities may not declare mutating effects".to_owned(),
             }
             .into());
         }
@@ -378,7 +380,10 @@ impl Gateway {
         self.invoke(&req)
     }
 
-    fn bind_target(
+    /// Binds a wire target against a descriptor's contract — shared
+    /// with the GW-04 preparation engine, which binds the *inner*
+    /// operation's declared target the same way (GTC-001/GTC-005).
+    pub(crate) fn bind_target(
         descriptor: &CapabilityDescriptor,
         target: Option<&WireTarget>,
     ) -> Result<OperationTarget, GatewayError> {

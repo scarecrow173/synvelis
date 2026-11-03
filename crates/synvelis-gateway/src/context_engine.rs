@@ -264,6 +264,24 @@ impl ContextProjectionEngine {
         }
     }
 
+    /// Pins an exact committed revision for the GW-04 preparation
+    /// engine — the trusted internal seam behind a proposal base.
+    ///
+    /// Same semantics as `pin_for`'s `ReadAt` arm: the revision must be
+    /// committed in the source, evicted/unknown revisions report
+    /// [`GatewayError::SnapshotExpired`], and there is never a silent
+    /// rebase to Latest.
+    ///
+    /// # Errors
+    /// [`GatewayError::SnapshotExpired`] — the revision cannot be pinned.
+    pub fn pin_revision(
+        &self,
+        project: ProjectId,
+        revision: ProjectRevision,
+    ) -> Result<PinnedSnapshot, ErrorEnvelope> {
+        self.pin_state(project, revision)
+    }
+
     /// Evicts a pinned snapshot — retention control for the host and
     /// the fixture (an evicted pin never silently re-bases to Latest).
     ///
