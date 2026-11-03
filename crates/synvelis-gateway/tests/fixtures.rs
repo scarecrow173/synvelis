@@ -301,6 +301,7 @@ fn note_id_typed_target_resource_set() {
             },
             effect_bound: EffectSet::of([EffectKind::Read]),
             required_permissions: PermissionSet::of([PermissionKind::ReadContext]),
+            data_access: DataAccessSet::of([DataAccessClass::MetadataRead]),
             execution: ExecutionContract::Sync,
             availability: Availability::Available,
         },

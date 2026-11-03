@@ -103,7 +103,7 @@ impl fmt::Display for CapabilityVersion {
 }
 
 /// A versioned reference to a capability — what the wire names.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CapabilityRef {
     /// Stable capability id.
@@ -295,6 +295,76 @@ impl FromIterator<PermissionKind> for PermissionSet {
     }
 }
 
+/// Data-access class a capability may touch (AHG-007, GW-02).
+///
+/// [`PermissionKind`] is the coarse capability-level verb; this is the
+/// finer data-dimension split a grant restricts separately — metadata,
+/// media bytes, and derived data are different read classes, and
+/// disclosing data to an external principal is different again from
+/// transferring it to an external provider.
+///
+/// Like [`CapabilityDescriptor::effect_bound`], the descriptor's
+/// [`data_access`][CapabilityDescriptor::data_access] is an *upper
+/// bound* declared at registration by Synvelis — not an agent's
+/// self-declared access.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DataAccessClass {
+    /// Reads project metadata (structure, names, placements).
+    MetadataRead,
+    /// Reads media payload bytes (PCM, waveform, encoded content).
+    MediaBytesRead,
+    /// Reads derived data (analysis features, computed fingerprints).
+    DerivedDataRead,
+    /// Discloses data to an external principal.
+    ExternalDisclosure,
+    /// Transfers data to an external provider (model, service).
+    ProviderTransfer,
+}
+
+/// Set of [`DataAccessClass`] a capability may require or a grant may
+/// permit.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct DataAccessSet(BTreeSet<DataAccessClass>);
+
+impl DataAccessSet {
+    /// Empty set.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Builds a set from classes.
+    #[must_use]
+    pub fn of(classes: impl IntoIterator<Item = DataAccessClass>) -> Self {
+        Self(classes.into_iter().collect())
+    }
+
+    /// Whether `class` is in the set.
+    #[must_use]
+    pub fn contains(&self, class: DataAccessClass) -> bool {
+        self.0.contains(&class)
+    }
+
+    /// Whether every member of `self` is present in `other`.
+    #[must_use]
+    pub fn is_subset_of(&self, other: &Self) -> bool {
+        self.0.is_subset(&other.0)
+    }
+
+    /// Iterate the set.
+    pub fn iter(&self) -> impl Iterator<Item = DataAccessClass> + '_ {
+        self.0.iter().copied()
+    }
+}
+
+impl FromIterator<DataAccessClass> for DataAccessSet {
+    fn from_iter<I: IntoIterator<Item = DataAccessClass>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+
 /// How an invocation completes.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -358,6 +428,11 @@ pub struct CapabilityDescriptor {
     /// Permissions the caller must hold — existence of this descriptor
     /// in the registry never grants them.
     pub required_permissions: PermissionSet,
+    /// Upper bound of data-access classes the capability may touch
+    /// (GW-02). Registration-declared, like [`Self::effect_bound`] — a
+    /// grant must cover every class listed here.
+    #[serde(default)]
+    pub data_access: DataAccessSet,
     /// Sync / async-accept execution contract.
     pub execution: ExecutionContract,
     /// Current availability.

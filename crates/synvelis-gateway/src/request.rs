@@ -87,7 +87,7 @@ impl ResourceKind {
 /// Parsing checks the declared kind *and* the id's own tag: a
 /// `"clip-…"` value passed where `"source"` was declared is a typed
 /// [`GatewayError::WrongResourceKind`], not a silent reinterpretation.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(tag = "kind", content = "id", rename_all = "kebab-case")]
 pub enum ResourceRef {
     /// [`ProjectId`].
@@ -210,6 +210,17 @@ impl ResourceRef {
                 Self::AutomationLane(AutomationLaneId::from_tagged(id).map_err(|_| invalid())?)
             }
         })
+    }
+
+    /// Parses a tagged id string, deriving the kind from the id's own
+    /// tag (used by policy evaluation for args-carried resource refs,
+    /// where the kind is not pre-declared).
+    ///
+    /// # Errors
+    /// [`GatewayError::InvalidId`] for malformed tagged ids.
+    pub(crate) fn parse_tagged(id: &str) -> Result<Self, GatewayError> {
+        let kind = Self::kind_of_tagged(id)?;
+        Self::expect(kind, id)
     }
 
     /// Parses a tagged id string whose kind is fixed by the caller.

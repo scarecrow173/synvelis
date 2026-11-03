@@ -144,6 +144,15 @@ define_string_ref!(
 );
 
 define_string_ref!(
+    /// Opaque reference to a proactive-activation permit (GW-02 domain).
+    ///
+    /// Identifies the explicit activation authority under which a task
+    /// was proactively started — separate from any execution grant
+    /// (AHG-007: delegated apply is not proactive-activation authority).
+    ProactivePermitRef, 256, "proactive permit ref"
+);
+
+define_string_ref!(
     /// Opaque reference to a prepared proposal (GW-05 domain).
     ProposalRef, 256, "proposal ref"
 );
