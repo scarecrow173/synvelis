@@ -110,6 +110,12 @@ pub struct GrantLimits {
     /// unbounded within validity — never a substitute for expiry or
     /// revocation.
     pub apply_budget: Option<u64>,
+    /// Maximum number of non-RT jobs the grant may admit (GW-07
+    /// execution budget). Counted at job admission by the job
+    /// adapter's own serialized book — one unit per accepted submit,
+    /// never refunded; `None` is unbounded within validity.
+    #[serde(default)]
+    pub job_budget: Option<u64>,
 }
 
 /// Time and revocation state shared by grants, tasks, and permits.

@@ -308,6 +308,192 @@ pub(crate) fn fixture_rig_with_cap(max_entries: usize) -> Rig {
     }
 }
 
+// ── GW-07 job rig ────────────────────────────────────────────
+//
+// The fixture rig plus the job engine over the deterministic
+// provider/media stubs; the media book doubles as the
+// `synvelis.media.register` gate (same wiring `with_media` expects).
+
+pub(crate) struct JobRig {
+    pub(crate) rig: Rig,
+    pub(crate) jobs: Arc<JobEngine>,
+    pub(crate) providers: BTreeMap<String, Arc<ProviderStub>>,
+    pub(crate) content: Arc<StubContent>,
+    pub(crate) book: Arc<MediaBook>,
+}
+
+/// Builds `(provider-key → ProviderStub)` ports from constructor
+/// arguments so tests keep the typed stub handles.
+#[allow(clippy::needless_pass_by_value)] // stubs move into shared ports
+pub(crate) fn job_rig(providers: Vec<(String, ProviderStub)>) -> JobRig {
+    let store = Arc::new(InMemoryPolicyStore::new());
+    let clock = Arc::new(ManualClock::new(PolicyInstant::new(1_000)));
+    let source = Arc::new(MemorySnapshotSource::new());
+    source.commit(project(), ProjectRevision(1), demo_project());
+    let oracle: Arc<dyn ResourceOracle> = Arc::new(LatestOracle {
+        source: source.clone(),
+    });
+    // The media stub must read the same content store the providers
+    // write declared outputs into — derive it from the first stub
+    // (all providers in a rig share one store by construction).
+    let content = providers
+        .first()
+        .map_or_else(StubContent::shared, |(_, s)| s.content());
+    let book = MediaBook::shared();
+    let mut ports: BTreeMap<String, Arc<dyn JobPort>> = BTreeMap::new();
+    let mut stubs: BTreeMap<String, Arc<ProviderStub>> = BTreeMap::new();
+    for (key, stub) in providers {
+        debug_assert!(
+            Arc::ptr_eq(&stub.content(), &content),
+            "every provider stub shares the rig's content store"
+        );
+        let stub = Arc::new(stub);
+        ports.insert(key.clone(), stub.clone());
+        stubs.insert(key, stub);
+    }
+    let jobs = Arc::new(JobEngine::new(
+        ports,
+        Arc::new(MediaStub::new(content.clone())),
+        book.clone(),
+        source.clone(),
+        store.clone(),
+        Arc::new(GrantPolicy::new(
+            store.clone(),
+            clock.clone(),
+            oracle.clone(),
+        )),
+    ));
+    let ctx = Arc::new(ContextProjectionEngine::new(
+        source.clone(),
+        Arc::new(StaticSelection),
+        Arc::new(GrantPolicy::new(
+            store.clone(),
+            clock.clone(),
+            oracle.clone(),
+        )),
+        clock.clone(),
+        ContextBudget::default(),
+    ));
+    let proposals = Arc::new(ProposalStore::new(
+        clock.clone(),
+        PROPOSAL_TTL,
+        APPROVAL_TTL,
+        PrepareBudget::default().max_proposals,
+    ));
+    let engine = Arc::new(PrepareEngine::with_media(
+        ctx,
+        Arc::new(PreparePolicy::new(store.clone(), clock.clone())),
+        PrepareBudget::default(),
+        proposals.clone(),
+        Some(book.clone()),
+    ));
+    let proposal_engine = Arc::new(ProposalEngine::new(
+        proposals.clone(),
+        source.clone(),
+        store.clone(),
+        Arc::new(PreparePolicy::new(store.clone(), clock.clone())),
+    ));
+    let mut gw = Gateway::with_evaluator(Box::new(ProposalGate::new(
+        proposals.clone(),
+        Box::new(GrantPolicy::new(store.clone(), clock.clone(), oracle)),
+    )));
+    engine.install(&mut gw).unwrap();
+    proposal_engine.install(&mut gw).unwrap();
+    jobs.install(&mut gw).unwrap();
+    JobRig {
+        rig: Rig {
+            store,
+            clock,
+            source,
+            proposals,
+            engine,
+            proposal_engine,
+            gw,
+        },
+        jobs,
+        providers: stubs,
+        content,
+        book,
+    }
+}
+
+/// A job grant: the three job capabilities plus
+/// `synvelis.media.register` plus the prepare/apply axis, the
+/// `RunJob`/`MutateProject`/`ReadContext` permissions, and the
+/// provider-transfer + disclosure classes the staged flow needs.
+pub(crate) fn job_grant(tag: &str, task_tag: &str, ops: &[&str]) -> Grant {
+    let mut caps = BTreeSet::from([
+        cap_ref("synvelis.operation.prepare"),
+        cap_ref(JOB_SUBMIT_ID),
+        cap_ref(JOB_GET_ID),
+        cap_ref(JOB_CANCEL_ID),
+        cap_ref(MEDIA_REGISTER_ID),
+        cap_ref(APPLY_ID),
+    ]);
+    caps.extend(ops.iter().map(|id| cap_ref(id)));
+    Grant {
+        id: grant_ref(tag),
+        issued_by: human_principal(),
+        principal: agent_principal(),
+        project: project(),
+        binding: GrantBinding::Task {
+            task: task_ref(task_tag),
+        },
+        capabilities: caps,
+        permissions: PermissionSet::of([
+            PermissionKind::MutateProject,
+            PermissionKind::RunJob,
+            PermissionKind::ReadContext,
+        ]),
+        data_access: DataAccessSet::of([
+            DataAccessClass::MetadataRead,
+            DataAccessClass::ExternalDisclosure,
+            DataAccessClass::ProviderTransfer,
+        ]),
+        scope: ResourceScope::Exact {
+            // asset5 is the `media.register` create parent — the
+            // target check needs it in scope; create_within bounds
+            // the *kind* axis.
+            resources: BTreeSet::from([
+                clip11(),
+                clip12(),
+                source9(),
+                source10(),
+                ResourceRef::Asset(synvelis_project::AssetId::new(5)),
+            ]),
+        },
+        create_within: Some(CreateWithin {
+            parents: OwnerConstraint::Any,
+            kinds: BTreeSet::from([ResourceKind::Source]),
+            placement: None,
+        }),
+        approval_policy: ApprovalPolicy::DelegatedApply,
+        limits: GrantLimits::default(),
+        validity: Validity::default(),
+        epoch_ceiling: None,
+        issued_at_revision: Some(ProjectRevision(1)),
+    }
+}
+
+/// A wire request against a job capability — the same request shape
+/// `proposal_req` builds, with the unconditional consistency the
+/// async-operation domain requires.
+#[allow(clippy::needless_pass_by_value)]
+pub(crate) fn job_req(capability: &str, args: Value, task: &str, grant: &str) -> Value {
+    proposal_req(
+        capability,
+        args,
+        Some(task),
+        Some(grant),
+        json!({"kind": "unconditional"}),
+    )
+}
+
+/// The submit wire request for a generation job.
+pub(crate) fn submit_req(task: &str, grant: &str, args: Value) -> Value {
+    job_req(JOB_SUBMIT_ID, args, task, grant)
+}
+
 // ── Authority builders ───────────────────────────────────────
 
 pub(crate) fn issue_task(store: &InMemoryPolicyStore, tag: &str) {

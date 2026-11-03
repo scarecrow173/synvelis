@@ -764,6 +764,14 @@ pub(crate) fn lower_for(id: &str) -> Option<LowerFn> {
         "synvelis.source.register" => lower_source_register,
         "synvelis.source.set-state" => lower_source_set_state,
         "synvelis.clock-epoch.register" => lower_clock_epoch,
+        // GW-07: the verified-media placement op — its content digest
+        // must come from the media gate, so the engine's gated path
+        // builds the op; this entry only keeps the table total.
+        crate::job_engine::MEDIA_REGISTER_ID => |_, _| {
+            Err(GatewayError::Internal {
+                reason: "media.register lowers through the media gate".to_owned(),
+            })
+        },
         _ => return None,
     })
 }
