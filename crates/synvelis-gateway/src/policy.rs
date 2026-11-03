@@ -68,7 +68,9 @@ const NO_AUTH: &str = "no applicable authorization";
 /// Deny reason when a resource fails scope coverage — deliberately
 /// shared between "does not exist", "exists but outside scope", and
 /// "unresolvable" so the verdict leaks no existence information.
-const OUTSIDE_SCOPE: &str = "target outside grant scope";
+/// Crate-visible: the GW-03 context engine's explicit-selector verdict
+/// emits this same reason (one string, no drift between copies).
+pub(crate) const OUTSIDE_SCOPE: &str = "target outside grant scope";
 
 /// Deny reason when a create exceeds `create_within`.
 const OUTSIDE_CREATE: &str = "creation outside grant constraints";
@@ -230,7 +232,11 @@ impl GrantPolicy {
     /// caller. Every failure returns `None` — nothing about existence
     /// is disclosed before the grant is proven bound to this
     /// principal+project.
-    fn authorize_agent(&self, req: &OperationRequest) -> Option<GrantRecord> {
+    ///
+    /// Crate-internal: the GW-03 context authorizer reuses this same
+    /// binding proof rather than re-deriving task/grant resolution
+    /// (one authoritative chain).
+    pub(crate) fn authorize_agent(&self, req: &OperationRequest) -> Option<GrantRecord> {
         let caller = req.caller();
         let now = self.clock.now();
 
@@ -646,6 +652,102 @@ impl PolicyEvaluator for GrantPolicy {
         capability: &CapabilityDescriptor,
     ) -> AuthorizationDecision {
         self.evaluate(req, stage, capability)
+    }
+}
+
+impl crate::context::ContextAuthorizer for GrantPolicy {
+    /// Scope admission for a context query's candidate set (GTC-004).
+    ///
+    /// Runs the same base chain as a read evaluation — binding proof,
+    /// grant dimensions — then classifies each candidate by scope
+    /// coverage. Coverage is a *filter* here: uncovered or
+    /// unresolvable members are dropped, never named (the caller
+    /// decides whether the filtered shape denies — an explicit id
+    /// list denies on any drop, an enumeration emits the subset).
+    /// The dynamic-membership budget is shared across the candidate
+    /// set, so a capped scope admits at most `max_members`.
+    ///
+    /// `facts` is the pinned-snapshot fact source — scope coverage is
+    /// judged on the attributes the projection will actually disclose,
+    /// never a newer live view (DATA-03).
+    fn admitted_scope(
+        &self,
+        req: &OperationRequest,
+        capability: &CapabilityDescriptor,
+        candidates: &[ResourceRef],
+        facts: &dyn ResourceOracle,
+    ) -> Result<crate::context::ScopeAdmission, String> {
+        if capability.id != req.capability().id || capability.version != req.capability().version {
+            return Err("capability descriptor mismatch".to_owned());
+        }
+        if req.caller().principal().kind() == PrincipalKind::Human {
+            return Ok(crate::context::ScopeAdmission::All);
+        }
+        let Some(record) = self.authorize_agent(req) else {
+            return Err(NO_AUTH.to_owned());
+        };
+        if let Some(reason) = self.check_grant_dimensions(req, &record.grant, capability) {
+            return Err(reason);
+        }
+        let mut counters = ScopeCounters::default();
+        let mut covered = Vec::with_capacity(candidates.len());
+        for resource in candidates {
+            let ResourceFacts::Known(attrs) = facts.facts(req.project(), resource) else {
+                continue;
+            };
+            if Self::coverage(&record.grant, resource, &attrs, &mut counters).is_some() {
+                covered.push(*resource);
+            }
+        }
+        Ok(crate::context::ScopeAdmission::Subset(covered))
+    }
+
+    /// The disclosure boundary (GTC-004 / GT-004).
+    ///
+    /// A fresh policy-chain read (task/grant binding, dimensions) plus
+    /// the emitted `classes` against the grant's `data_access`. An
+    /// `external` caller additionally needs
+    /// [`DataAccessClass::ExternalDisclosure`] — an id, cursor, or
+    /// operation handle never discloses by itself. This is distinct
+    /// from the preflight `decide(ReadContext)`, which only checks
+    /// the capability's declared `data_access` *bound*; the classes
+    /// checked here are the ones the response actually carries.
+    fn authorize_disclosure(
+        &self,
+        req: &OperationRequest,
+        capability: &CapabilityDescriptor,
+        classes: &BTreeSet<DataAccessClass>,
+        external: bool,
+    ) -> AuthorizationDecision {
+        if capability.id != req.capability().id || capability.version != req.capability().version {
+            return AuthorizationDecision::Deny {
+                reason: "capability descriptor mismatch".to_owned(),
+            };
+        }
+        if req.caller().principal().kind() == PrincipalKind::Human {
+            return AuthorizationDecision::PermitForStage;
+        }
+        let Some(record) = self.authorize_agent(req) else {
+            return AuthorizationDecision::Deny {
+                reason: NO_AUTH.to_owned(),
+            };
+        };
+        if let Some(reason) = self.check_grant_dimensions(req, &record.grant, capability) {
+            return AuthorizationDecision::Deny { reason };
+        }
+        let mut emitted = classes.clone();
+        if external {
+            emitted.insert(DataAccessClass::ExternalDisclosure);
+        }
+        if !emitted
+            .iter()
+            .all(|class| record.grant.data_access.contains(*class))
+        {
+            return AuthorizationDecision::Deny {
+                reason: "data access outside grant".to_owned(),
+            };
+        }
+        self.stage_gate(AuthorizationStage::ReadContext, &record)
     }
 }
 

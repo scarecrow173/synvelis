@@ -216,6 +216,32 @@ pub enum GatewayError {
         /// The live revision.
         actual: u64,
     },
+    /// The pinned snapshot is no longer available — evicted from the
+    /// pinned store, or the requested reference/revision was never
+    /// pinnable. The two cases share one verdict (existence-blind); the
+    /// engine never silently re-bases onto `Latest` (GW-03, DATA-03).
+    SnapshotExpired,
+    /// The page cursor passed its expiry — the pagination chain is
+    /// dead and a new query must be issued to start a fresh one
+    /// (GW-03, expiring cursor).
+    CursorExpired,
+    /// The page cursor does not identify a live pagination chain for
+    /// this request — unknown id, wrong caller/task/grant, mismatched
+    /// snapshot reference, or query parameters carried alongside a
+    /// continuation. Unknown and foreign cursors share one verdict —
+    /// the error never confirms whether the token exists (GW-03).
+    CursorInvalid {
+        /// What was invalid (safe to disclose).
+        reason: String,
+    },
+    /// A bounded budget was exceeded — fetch amount, page count,
+    /// selector size, or range window (GW-03, DATA-08).
+    LimitExceeded {
+        /// Which budget was exceeded (safe to disclose).
+        limit: String,
+        /// The configured bound.
+        max: u64,
+    },
     /// The idempotency key was already seen with an identical payload.
     DuplicateRequest {
         /// The operation the first identical request produced.
@@ -288,9 +314,10 @@ impl GatewayError {
         match self {
             Self::SelfDeclaredAuthority { .. } => ErrorCategory::Authentication,
             Self::Denied { .. } => ErrorCategory::Authorization,
-            Self::ConsistencyNotAllowed { .. } | Self::RevisionConflict { .. } => {
-                ErrorCategory::Consistency
-            }
+            Self::ConsistencyNotAllowed { .. }
+            | Self::RevisionConflict { .. }
+            | Self::SnapshotExpired
+            | Self::CursorExpired => ErrorCategory::Consistency,
             Self::MalformedRequest { .. }
             | Self::ImplicitTargetRejected { .. }
             | Self::InvalidId { .. }
@@ -300,7 +327,9 @@ impl GatewayError {
             | Self::TargetRequired
             | Self::UnexpectedTarget
             | Self::TargetShapeMismatch { .. }
-            | Self::SchemaViolation { .. } => ErrorCategory::Validation,
+            | Self::SchemaViolation { .. }
+            | Self::CursorInvalid { .. }
+            | Self::LimitExceeded { .. } => ErrorCategory::Validation,
             Self::UnknownCapability { .. }
             | Self::UnsupportedCapabilityVersion { .. }
             | Self::UnknownSchema { .. }
@@ -330,6 +359,7 @@ impl GatewayError {
             | Self::SelfDeclaredAuthority { .. }
             | Self::ImplicitTargetRejected { .. }
             | Self::DuplicateRequest { .. }
+            | Self::CursorInvalid { .. }
             | Self::NoExecutor { .. } => RetryAdvice::Never,
             Self::IncompatibleSchema { .. }
             | Self::MalformedRequest { .. }
@@ -346,6 +376,7 @@ impl GatewayError {
             | Self::SchemaConflict { .. }
             | Self::IncoherentDescriptor { .. }
             | Self::Denied { .. }
+            | Self::LimitExceeded { .. }
             | Self::IdempotencyConflict => RetryAdvice::AfterCorrection,
             Self::Unavailable { availability, .. } => match availability {
                 Availability::Disabled { .. } => RetryAdvice::AfterCorrection,
@@ -353,9 +384,10 @@ impl GatewayError {
                     RetryAdvice::Never
                 }
             },
-            Self::RevisionConflict { .. } | Self::Indeterminate { .. } => {
-                RetryAdvice::ReconcileState
-            }
+            Self::RevisionConflict { .. }
+            | Self::SnapshotExpired
+            | Self::CursorExpired
+            | Self::Indeterminate { .. } => RetryAdvice::ReconcileState,
             Self::Internal { .. } => RetryAdvice::Transient,
         }
     }
@@ -442,6 +474,17 @@ impl GatewayError {
             },
             Self::RevisionConflict { expected, actual } => {
                 format!("revision conflict: expected {expected}, actual {actual}")
+            }
+            Self::SnapshotExpired => {
+                "pinned snapshot is no longer available; issue a new query to pin a fresh revision"
+                    .to_owned()
+            }
+            Self::CursorExpired => {
+                "page cursor expired; issue a new query to start a new pagination chain".to_owned()
+            }
+            Self::CursorInvalid { reason } => format!("page cursor is not valid: {reason}"),
+            Self::LimitExceeded { limit, max } => {
+                format!("request exceeds {limit} (max {max})")
             }
             Self::DuplicateRequest { .. } => "duplicate request".to_owned(),
             Self::IdempotencyConflict => {

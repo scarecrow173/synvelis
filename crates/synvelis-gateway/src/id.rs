@@ -168,6 +168,26 @@ define_string_ref!(
 );
 
 define_string_ref!(
+    /// Opaque continuation token for a snapshot-pinned pagination chain
+    /// (GW-03 domain).
+    ///
+    /// Issued by the context engine and bound to a snapshot reference, the
+    /// caller identity, the task/grant refs, and the emitted data classes.
+    /// Holding one is a lookup key, never an authorization proof.
+    CursorRef, 256, "cursor ref"
+);
+
+define_string_ref!(
+    /// Opaque reference naming a permitted workspace-selection view
+    /// (GW-03 domain).
+    ///
+    /// Selection state may be disclosed only through a view the request
+    /// names explicitly; UI selection is never an implicit input and
+    /// never resolves operation targets (SEC-07/AHG-006).
+    SelectionViewRef, 256, "selection view ref"
+);
+
+define_string_ref!(
     /// Client-supplied idempotency key.
     ///
     /// Scoped to (principal, project): the same key with the same payload
