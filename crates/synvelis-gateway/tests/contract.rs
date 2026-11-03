@@ -349,6 +349,7 @@ fn test_descriptor(id: &str) -> CapabilityDescriptor {
         },
         effect_bound: EffectSet::of([EffectKind::Write]),
         required_permissions: PermissionSet::of([PermissionKind::MutateProject]),
+        data_access: DataAccessSet::of([DataAccessClass::MetadataRead]),
         execution: ExecutionContract::Sync,
         availability: Availability::Available,
     }

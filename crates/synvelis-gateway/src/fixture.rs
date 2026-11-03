@@ -17,16 +17,18 @@ use serde_json::{Value, json};
 
 use crate::authorization::{AuthorizationDecision, AuthorizationStage, PolicyEvaluator};
 use crate::capability::{
-    Availability, CapabilityDescriptor, CapabilityId, CapabilityVersion, EffectKind, EffectSet,
-    ExecutionContract, OperationDomain, PermissionKind, PermissionSet, TargetContract,
+    Availability, CapabilityDescriptor, CapabilityId, CapabilityVersion, DataAccessClass,
+    DataAccessSet, EffectKind, EffectSet, ExecutionContract, OperationDomain, PermissionKind,
+    PermissionSet, TargetContract,
 };
 use crate::gateway::Gateway;
+use crate::grant::{ResourceFacts, ResourceOracle};
 use crate::id::AdapterId;
 use crate::outcome::{ErrorEnvelope, GatewayOutcome};
 use crate::registry::CapabilityOperation;
 use crate::request::{
     AdapterSeal, CallerIdentity, OperationRequest, OriginKind, Principal, PrincipalKind,
-    ResourceKind, TimeDomain,
+    ResourceKind, ResourceRef, TimeDomain,
 };
 use crate::schema::{FieldSchema, SchemaRef, SchemaVersion, ValueSchema};
 
@@ -93,6 +95,54 @@ impl FixtureAdapter {
     /// See [`caller`][Self::caller].
     pub fn agent(&self, id: impl Into<String>) -> Result<CallerIdentity, crate::GatewayError> {
         self.caller(PrincipalKind::Agent, id)
+    }
+}
+
+/// A static resource oracle for policy tests (GW-02).
+///
+/// Answers [`crate::grant::ResourceFacts::Known`] for resources
+/// registered under the exact `(project, resource)` key and
+/// `Unresolved` for everything else — the same non-distinguishing
+/// verdict a real oracle gives for absent or invisible resources.
+#[derive(Debug, Default)]
+pub struct StaticOracle {
+    facts: std::collections::HashMap<(synvelis_project::ProjectId, ResourceRef), ResourceFacts>,
+}
+
+impl StaticOracle {
+    /// An oracle with no known resources.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Registers facts for `resource` in `project`.
+    pub fn set(
+        &mut self,
+        project: synvelis_project::ProjectId,
+        resource: ResourceRef,
+        facts: ResourceFacts,
+    ) {
+        self.facts.insert((project, resource), facts);
+    }
+
+    /// Convenience for registering known attributes.
+    pub fn known(
+        &mut self,
+        project: synvelis_project::ProjectId,
+        resource: ResourceRef,
+        attrs: crate::grant::ResourceAttributes,
+    ) {
+        self.set(project, resource, ResourceFacts::Known(attrs));
+    }
+}
+
+impl ResourceOracle for StaticOracle {
+    fn facts(&self, project: synvelis_project::ProjectId, resource: &ResourceRef) -> ResourceFacts {
+        self.facts
+            .get(&(project, *resource))
+            .cloned()
+            .unwrap_or(ResourceFacts::Unresolved)
     }
 }
 
@@ -184,6 +234,7 @@ fn descriptor(
     target: TargetContract,
     effects: &[EffectKind],
     permissions: &[PermissionKind],
+    data_access: &[DataAccessClass],
     execution: ExecutionContract,
 ) -> CapabilityDescriptor {
     CapabilityDescriptor {
@@ -195,6 +246,7 @@ fn descriptor(
         target,
         effect_bound: EffectSet::of(effects.iter().copied()),
         required_permissions: PermissionSet::of(permissions.iter().copied()),
+        data_access: DataAccessSet::of(data_access.iter().copied()),
         execution,
         availability: Availability::Available,
     }
@@ -224,6 +276,11 @@ pub fn fixture_descriptors() -> Vec<CapabilityDescriptor> {
             },
             &[EffectKind::Read, EffectKind::Disclose],
             &[PermissionKind::ReadContext, PermissionKind::DiscloseContext],
+            &[
+                DataAccessClass::MetadataRead,
+                DataAccessClass::MediaBytesRead,
+                DataAccessClass::ExternalDisclosure,
+            ],
             ExecutionContract::Sync,
         ),
         descriptor(
@@ -236,6 +293,7 @@ pub fn fixture_descriptors() -> Vec<CapabilityDescriptor> {
             },
             &[EffectKind::Read, EffectKind::Write],
             &[PermissionKind::MutateProject],
+            &[DataAccessClass::MetadataRead],
             ExecutionContract::Sync,
         ),
         descriptor(
@@ -249,6 +307,7 @@ pub fn fixture_descriptors() -> Vec<CapabilityDescriptor> {
             },
             &[EffectKind::Create],
             &[PermissionKind::MutateProject],
+            &[],
             ExecutionContract::Sync,
         ),
         descriptor(
@@ -259,6 +318,7 @@ pub fn fixture_descriptors() -> Vec<CapabilityDescriptor> {
             TargetContract::None,
             &[],
             &[PermissionKind::ControlTransport],
+            &[],
             ExecutionContract::Sync,
         ),
         descriptor(
@@ -269,6 +329,10 @@ pub fn fixture_descriptors() -> Vec<CapabilityDescriptor> {
             TargetContract::None,
             &[EffectKind::Read, EffectKind::ExternalAction],
             &[PermissionKind::RunJob],
+            &[
+                DataAccessClass::MetadataRead,
+                DataAccessClass::ProviderTransfer,
+            ],
             ExecutionContract::AsyncAccept,
         ),
     ]
