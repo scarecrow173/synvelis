@@ -232,12 +232,26 @@ impl SelectionSource for StaticSelection {
 
 pub(crate) struct Rig {
     pub(crate) store: Arc<InMemoryPolicyStore>,
+    pub(crate) clock: Arc<ManualClock>,
     pub(crate) source: Arc<MemorySnapshotSource>,
+    pub(crate) proposals: Arc<ProposalStore>,
     pub(crate) engine: Arc<PrepareEngine>,
+    pub(crate) proposal_engine: Arc<ProposalEngine>,
     pub(crate) gw: Gateway,
 }
 
+/// Proposal/approval TTLs used by the rig — far enough ahead of the
+/// manual clock's start (`1_000`) that expiry is opt-in per test.
+pub(crate) const PROPOSAL_TTL: u64 = 60_000;
+pub(crate) const APPROVAL_TTL: u64 = 30_000;
+
 pub(crate) fn fixture_rig() -> Rig {
+    fixture_rig_with_cap(PrepareBudget::default().max_proposals)
+}
+
+/// Same wiring with a bounded proposal store — eviction-order tests
+/// pick a small cap instead of pushing hundreds of proposals.
+pub(crate) fn fixture_rig_with_cap(max_entries: usize) -> Rig {
     let store = Arc::new(InMemoryPolicyStore::new());
     let clock = Arc::new(ManualClock::new(PolicyInstant::new(1_000)));
     let source = Arc::new(MemorySnapshotSource::new());
@@ -256,21 +270,40 @@ pub(crate) fn fixture_rig() -> Rig {
         clock.clone(),
         ContextBudget::default(),
     ));
+    let proposals = Arc::new(ProposalStore::new(
+        clock.clone(),
+        PROPOSAL_TTL,
+        APPROVAL_TTL,
+        max_entries,
+    ));
     let engine = Arc::new(PrepareEngine::new(
         ctx,
         Arc::new(PreparePolicy::new(store.clone(), clock.clone())),
         PrepareBudget::default(),
+        proposals.clone(),
     ));
-    let mut gw = Gateway::with_evaluator(Box::new(GrantPolicy::new(
+    let proposal_engine = Arc::new(ProposalEngine::new(
+        proposals.clone(),
+        source.clone(),
         store.clone(),
-        clock.clone(),
-        oracle,
+        Arc::new(PreparePolicy::new(store.clone(), clock.clone())),
+    ));
+    // The GW-05 apply gate wraps the GW-02 evaluator: everything the
+    // base policy decides still decides, and the apply stage
+    // additionally asks the receipt question.
+    let mut gw = Gateway::with_evaluator(Box::new(ProposalGate::new(
+        proposals.clone(),
+        Box::new(GrantPolicy::new(store.clone(), clock.clone(), oracle)),
     )));
     engine.install(&mut gw).unwrap();
+    proposal_engine.install(&mut gw).unwrap();
     Rig {
         store,
+        clock,
         source,
+        proposals,
         engine,
+        proposal_engine,
         gw,
     }
 }
@@ -341,6 +374,161 @@ pub(crate) fn issue_agent(store: &InMemoryPolicyStore, tag: &str, grant: Grant) 
 }
 
 // ── Request builders ─────────────────────────────────────────
+
+/// A wire request against one of the GW-05 proposal capabilities.
+// The `Value` args are serialized into the request, not consumed.
+#[allow(clippy::needless_pass_by_value)]
+pub(crate) fn proposal_req(
+    capability: &str,
+    args: Value,
+    task: Option<&str>,
+    grant: Option<&str>,
+    consistency: Value,
+) -> Value {
+    let mut req = json!({
+        "request_id": "req-prop",
+        "capability": {"id": capability, "version": {"major": 1, "minor": 0}},
+        "schema": {"name": format!("{capability}.input"), "version": {"major": 1, "minor": 0}},
+        "project": project().to_tagged(),
+        "args": args,
+        "consistency": consistency,
+    });
+    if let Some(t) = task {
+        req["task"] = json!(t);
+    }
+    if let Some(g) = grant {
+        req["grant"] = json!(g);
+    }
+    req
+}
+
+pub(crate) fn preview_req(
+    proposal: &str,
+    digest: Option<&str>,
+    task: Option<&str>,
+    grant: Option<&str>,
+) -> Value {
+    let mut args = json!({"proposal": proposal});
+    if let Some(d) = digest {
+        args["digest"] = json!(d);
+    }
+    proposal_req(PREVIEW_ID, args, task, grant, expected(1))
+}
+
+pub(crate) fn approve_req(proposal: &str, digest: &str) -> Value {
+    proposal_req(
+        APPROVE_ID,
+        json!({"proposal": proposal, "digest": digest}),
+        None,
+        None,
+        expected(1),
+    )
+}
+
+pub(crate) fn apply_req(
+    proposal: &str,
+    digest: &str,
+    approval: Option<&str>,
+    task: Option<&str>,
+    grant: Option<&str>,
+) -> Value {
+    let mut args = json!({"proposal": proposal, "digest": digest});
+    if let Some(a) = approval {
+        args["approval"] = json!(a);
+    }
+    proposal_req(APPLY_ID, args, task, grant, expected(1))
+}
+
+/// A prepare+apply grant for the rig's agent — the same grant must
+/// cover preparation and the apply gate so the receipt's grant/task
+/// binding matches the apply request.
+pub(crate) fn apply_grant(
+    tag: &str,
+    task_tag: &str,
+    ops: &[&str],
+    policy: ApprovalPolicy,
+) -> Grant {
+    let mut grant = prep_grant(
+        tag,
+        task_tag,
+        ops,
+        ResourceScope::Exact {
+            resources: BTreeSet::from([clip11(), clip12(), clip13(), source10()]),
+        },
+        None,
+        &content_classes(),
+    );
+    let mut caps = grant.capabilities.clone();
+    caps.insert(cap_ref(PREVIEW_ID));
+    caps.insert(cap_ref(APPLY_ID));
+    grant.capabilities = caps;
+    // Preview reads context; apply mutates — the grant covers both.
+    grant.permissions =
+        PermissionSet::of([PermissionKind::MutateProject, PermissionKind::ReadContext]);
+    grant.approval_policy = policy;
+    grant
+}
+
+/// Prepares the standard clip-11 mute as `caller`; returns
+/// (proposal, digest).
+pub(crate) fn prepare_mute(rig: &mut Rig, caller: CallerIdentity) -> (String, String) {
+    let result = complete(
+        rig.gw
+            .handle(
+                &prepare_req(
+                    None,
+                    None,
+                    op(
+                        "synvelis.clip.mute",
+                        res_target("clip", &clip11()),
+                        json!({"muted": true}),
+                    ),
+                    expected(1),
+                ),
+                caller,
+            )
+            .unwrap(),
+    );
+    (
+        result["proposal"].as_str().unwrap().to_owned(),
+        result["digest"].as_str().unwrap().to_owned(),
+    )
+}
+
+/// Prepares as the rig's agent under task+grant; returns
+/// (proposal, digest).
+pub(crate) fn prepare_mute_agent(rig: &mut Rig, task: &str, grant: &str) -> (String, String) {
+    let result = complete(
+        rig.gw
+            .handle(
+                &prepare_req(
+                    Some(task),
+                    Some(grant),
+                    op(
+                        "synvelis.clip.mute",
+                        res_target("clip", &clip11()),
+                        json!({"muted": true}),
+                    ),
+                    expected(1),
+                ),
+                agent(),
+            )
+            .unwrap(),
+    );
+    (
+        result["proposal"].as_str().unwrap().to_owned(),
+        result["digest"].as_str().unwrap().to_owned(),
+    )
+}
+
+/// The preview result `proposal` produces for the trusted user.
+pub(crate) fn preview_value_of(rig: &mut Rig, proposal: &str) -> Value {
+    complete(
+        rig.gw
+            .handle(&preview_req(proposal, None, None, None), human())
+            .unwrap(),
+    )
+}
 
 // The `Value` args are serialized into the request, not consumed.
 #[allow(clippy::needless_pass_by_value)]

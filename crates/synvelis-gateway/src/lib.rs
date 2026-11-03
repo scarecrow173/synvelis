@@ -34,6 +34,19 @@
 //! before recording a [`PreparedRecord`] GW-06 can revalidate and
 //! commit — per #45 GTC-005.
 //!
+//! GW-05 (Issue #57) freezes that product into the immutable
+//! [`PreparedChangeSet`] — canonicalized and digested, bound to its
+//! dependency identity — and layers the three independent lifecycle
+//! machines on it: proposal (`Prepared`/`Invalidated`/`Expired`),
+//! approval (`Requested` → `Granted`/`Declined`/`Expired`/`Revoked`/
+//! `Invalidated`/`Consumed`), and apply (`AwaitingApproval` →
+//! `CommitRequested` → `Committed`/`Rejected`/`Conflict`/
+//! `Indeterminate`). [`ProposalEngine`] serves preview/approve/apply;
+//! [`ProposalGate`] adds the receipt verdict to the apply stage; only
+//! digest-bound trusted receipts unlock an `ApproveToApply` apply, and
+//! consumption precedes any success claim — commit-result
+//! reconciliation stays GW-06's (GT-007..010, SEC-09..12).
+//!
 //! # Ownership boundary (GTC-001)
 //!
 //! This crate owns the contract, its validation pipeline, and the
@@ -68,6 +81,9 @@ pub mod policy;
 pub mod prepare;
 pub mod prepare_engine;
 pub mod prepare_policy;
+pub mod proposal;
+pub mod proposal_engine;
+pub mod proposal_policy;
 pub mod registry;
 pub mod request;
 pub mod schema;
@@ -110,6 +126,13 @@ pub use prepare::{
 };
 pub use prepare_engine::{PrepareBudget, PrepareEngine};
 pub use prepare_policy::PreparePolicy;
+pub use proposal::{
+    ApplyEvent, ApplyRecord, ApplyStatus, ApprovalEvent, ApprovalReceipt, ApprovalRecord,
+    ApprovalStatus, CHANGESET_SCHEMA, ContentDigest, PreparedChangeSet, ProposalEvent,
+    ProposalStatus, ProposalStore, ProposalView,
+};
+pub use proposal_engine::{APPLY_ID, APPROVE_ID, PREVIEW_ID, ProposalEngine};
+pub use proposal_policy::ProposalGate;
 pub use registry::{CapabilityOperation, CapabilityRegistry, Registration};
 pub use request::{
     AdapterSeal, CallerIdentity, Consistency, ConsistencyKind, OperationRequest, OperationTarget,

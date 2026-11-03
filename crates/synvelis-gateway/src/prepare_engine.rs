@@ -12,8 +12,8 @@
 //! preparation is non-destructive by construction: the only mutable
 //! value in the pipeline is a private clone.
 
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
-use std::sync::{Arc, Mutex};
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 use serde_json::Value;
 use synvelis_project::{CounterIdGenerator, Operation, ProjectOp};
@@ -32,6 +32,7 @@ use crate::prepare::{
     self, NamedOperation, OpSpec, PrepareAuthorizer, PreparedOperation, PreparedRecord,
     SemanticCommand,
 };
+use crate::proposal::ProposalStore;
 use crate::registry::CapabilityOperation;
 use crate::request::{
     Consistency, OperationRequest, OperationTarget, PrincipalKind, ResourceKind, ResourceRef,
@@ -64,22 +65,17 @@ impl Default for PrepareBudget {
     }
 }
 
-#[derive(Default)]
-struct EngineState {
-    proposals: BTreeMap<String, Arc<PreparedRecord>>,
-    order: VecDeque<String>,
-    next_ref: u128,
-}
-
 /// The preparation engine — executes `synvelis.operation.prepare`
 /// over the GW-03 snapshot seam and a GW-02 prepare authorizer.
+/// Retention lives in the shared [`ProposalStore`] — the same store
+/// GW-05's lifecycle machines, gate, and preview read.
 pub struct PrepareEngine {
     context: Arc<ContextProjectionEngine>,
     authorizer: Arc<dyn PrepareAuthorizer>,
     budget: PrepareBudget,
     descriptor: CapabilityDescriptor,
     ops: BTreeMap<CapabilityRef, OpSpec>,
-    state: Mutex<EngineState>,
+    proposals: Arc<ProposalStore>,
 }
 
 fn obj(fields: &[(&str, ValueSchema)], required: &[&str], deny_unknown: bool) -> ValueSchema {
@@ -483,12 +479,15 @@ impl PrepareEngine {
     }
 
     /// The engine over the GW-03 context engine (its snapshot seam
-    /// supplies every pin) and a prepare authorizer.
+    /// supplies every pin), a prepare authorizer, and the shared
+    /// proposal store (`budget.max_proposals` is mirrored into it at
+    /// construction — pass a store already sized for the rig).
     #[must_use]
     pub fn new(
         context: Arc<ContextProjectionEngine>,
         authorizer: Arc<dyn PrepareAuthorizer>,
         mut budget: PrepareBudget,
+        proposals: Arc<ProposalStore>,
     ) -> Self {
         budget.max_ops = budget.max_ops.max(1);
         budget.max_proposals = budget.max_proposals.max(1);
@@ -498,7 +497,7 @@ impl PrepareEngine {
             budget,
             descriptor: Self::descriptor(),
             ops: Self::op_specs(),
-            state: Mutex::new(EngineState::default()),
+            proposals,
         }
     }
 
@@ -621,44 +620,24 @@ impl PrepareEngine {
     }
 
     /// Looks up a retained proposal — the GW-06 commit seam and the
-    /// test surface for `PreparedRecord`.
-    ///
-    /// # Panics
-    /// Panics if the engine's lock is poisoned.
+    /// test surface for `PreparedRecord`. Present only while the
+    /// proposal is `Prepared`; expiry/invalidation drops it.
     #[must_use]
     pub fn prepared(&self, proposal: &ProposalRef) -> Option<Arc<PreparedRecord>> {
-        self.state
-            .lock()
-            .expect("prepare engine poisoned")
-            .proposals
-            .get(proposal.as_str())
-            .cloned()
+        self.proposals.record(proposal)
     }
 
     /// Number of retained proposals (test/introspection).
-    ///
-    /// # Panics
-    /// Panics if the engine's lock is poisoned.
     #[must_use]
     pub fn proposal_count(&self) -> usize {
-        self.state
-            .lock()
-            .expect("prepare engine poisoned")
-            .proposals
-            .len()
+        self.proposals.count()
     }
 
-    /// Evicts a retained proposal — the host's retention control.
-    ///
-    /// # Panics
-    /// Panics if the engine's lock is poisoned.
+    /// Evicts a retained proposal — the host's retention control;
+    /// the proposal transitions to `Invalidated` and its record drops.
+    #[must_use]
     pub fn evict(&self, proposal: &ProposalRef) -> bool {
-        let mut state = self.state.lock().expect("prepare engine poisoned");
-        let removed = state.proposals.remove(proposal.as_str()).is_some();
-        if removed {
-            state.order.retain(|r| r != proposal.as_str());
-        }
-        removed
+        self.proposals.evict(proposal)
     }
 
     /// Resolves the request's consistency to a pinned base through
@@ -777,32 +756,21 @@ impl PrepareEngine {
         ))
     }
 
+    #[allow(clippy::result_large_err)] // typed envelope is the contract
     fn store_record(
         &self,
         request: OperationRequest,
         op: ProjectOp,
         prepared: PreparedOperation,
-    ) -> (ProposalRef, Arc<PreparedRecord>) {
-        let mut state = self.state.lock().expect("prepare engine poisoned");
-        let reference = ProposalRef::new(format!("proposal-{:032x}", state.next_ref))
-            .expect("proposal ref is bounded");
-        state.next_ref = state.next_ref.checked_add(1).expect("ref space exhausted");
-        while state.proposals.len() >= self.budget.max_proposals
-            && let Some(oldest) = state.order.pop_front()
-        {
-            state.proposals.remove(&oldest);
-        }
-        let record = Arc::new(PreparedRecord {
-            proposal: reference.clone(),
-            request,
-            op,
-            prepared,
-        });
-        state
-            .proposals
-            .insert(reference.as_str().to_owned(), record.clone());
-        state.order.push_back(reference.as_str().to_owned());
-        (reference, record)
+    ) -> Result<
+        (
+            ProposalRef,
+            Arc<PreparedRecord>,
+            crate::proposal::PreparedChangeSet,
+        ),
+        GatewayError,
+    > {
+        self.proposals.insert(request, op, prepared)
     }
 
     fn is_external(req: &OperationRequest) -> bool {
@@ -894,10 +862,11 @@ impl PrepareEngine {
             unsupported: facts.unsupported,
             candidate,
         };
-        let (proposal, stored) = self.store_record(req.clone(), op, prepared);
-        Ok(GatewayOutcome::Completed {
-            result: prepare::result_json(&proposal, &stored.prepared),
-        })
+        let (proposal, stored, changeset) = self.store_record(req.clone(), op, prepared)?;
+        let mut result = prepare::result_json(&proposal, &stored.prepared);
+        result["digest"] = Value::from(changeset.digest.as_str());
+        result["expires_at"] = Value::from(changeset.expires_at.0);
+        Ok(GatewayOutcome::Completed { result })
     }
 
     /// The pre-domain-validation gate: create-parent identity,
