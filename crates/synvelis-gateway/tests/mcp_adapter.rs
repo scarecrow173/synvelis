@@ -190,24 +190,9 @@ fn mcp_rig() -> McpRig {
 }
 
 fn mcp_rig_enabled(enabled: bool) -> McpRig {
-    let mut rig = fixture_rig();
-    // The fixture rig registers prepare/proposal but not
-    // `context.query` — the adapter's read tools need it.
-    let oracle: Arc<dyn ResourceOracle> = Arc::new(LatestOracle {
-        source: rig.source.clone(),
-    });
-    let ctx = Arc::new(ContextProjectionEngine::new(
-        rig.source.clone(),
-        Arc::new(StaticSelection),
-        Arc::new(GrantPolicy::new(
-            rig.store.clone(),
-            rig.clock.clone(),
-            oracle,
-        )),
-        rig.clock.clone(),
-        ContextBudget::default(),
-    ));
-    ctx.install(&mut rig.gw).expect("context engine installs");
+    let rig = fixture_rig();
+    // fixture_rig() already wires `synvelis.context.query` — the
+    // adapter's read tools ride the same pinned snapshot.
 
     // Authority: three agents under three approval policies, plus a
     // second principal for foreign-handle tests. `midi.note.add`

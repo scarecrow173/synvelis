@@ -83,6 +83,15 @@
 //! framing), or UX (GW-09). It holds no project handle — a bound
 //! request can never mutate project state through this crate.
 //!
+//! GW-10 (Issue #62) adds the verification harness — the
+//! [`evidence`] record schema + JSONL sink feeding G0..G6 gate
+//! verdicts, the [`oracle`] expectation model independent of the
+//! production evaluator, the [`schedule`] deterministic fence +
+//! fault hooks, and the [`trace`] causal event log. These modules
+//! are test/PoC seams only: they never participate in production
+//! authorization, and the oracle re-expresses contract rules rather
+//! than reusing [`GrantPolicy`].
+//!
 //! # Trust boundary (GT-002)
 //!
 //! The wire type [`WireRequest`] has no caller/authority fields, and
@@ -102,6 +111,7 @@ pub mod commit;
 pub mod context;
 pub mod context_engine;
 pub mod durable_policy;
+pub mod evidence;
 pub mod fixture;
 pub mod gateway;
 pub mod grant;
@@ -114,6 +124,7 @@ pub mod mcp_permit;
 pub mod mcp_server;
 mod mcp_tools;
 pub mod media;
+pub mod oracle;
 pub mod outcome;
 pub mod policy;
 pub mod prepare;
@@ -125,10 +136,12 @@ pub mod proposal_policy;
 pub mod provenance;
 pub mod registry;
 pub mod request;
+pub mod schedule;
 pub mod schema;
 pub mod snapshot;
 pub mod store;
 pub mod stub;
+pub mod trace;
 pub mod wire;
 
 pub use authorization::{
@@ -152,6 +165,10 @@ pub use context::{
 };
 pub use context_engine::ContextProjectionEngine;
 pub use durable_policy::{FilePolicyStore, PolicyLogEvent, PolicyOpenReport};
+pub use evidence::{
+    Evidence, EvidenceCase, EvidenceRecord, Gate, GateReport, Layer, MatrixRow, RunMode, Verdict,
+    fault,
+};
 pub use gateway::Gateway;
 pub use grant::{
     ApprovalPolicy, CreateEffect, CreateWithin, DynamicScope, Grant, GrantBinding, GrantLimits,
@@ -181,6 +198,10 @@ pub use mcp_server::{
 pub use media::{
     MediaBook, MediaGate, MediaLifecycle, MediaPort, MediaRecord, MediaVerdict, VerifiedMedia,
 };
+pub use oracle::{
+    Expected, FirstConfirmed, OracleApproval, OracleGrant, OracleStage, OracleTask, OrderedVerdict,
+    ReqView, SpecOracle,
+};
 pub use outcome::{
     ErrorCategory, ErrorEnvelope, ExternalError, GatewayError, GatewayOutcome, RetryAdvice,
 };
@@ -204,12 +225,14 @@ pub use request::{
     AdapterSeal, CallerIdentity, Consistency, ConsistencyKind, OperationRequest, OperationTarget,
     OriginKind, Principal, PrincipalKind, ResourceKind, ResourceRef, TimeDomain, TypedRange,
 };
+pub use schedule::{CrashHook, ScheduledFence};
 pub use schema::{FieldSchema, SchemaRef, SchemaRegistry, SchemaVersion, ValueSchema};
 pub use snapshot::{MemorySnapshotSource, PinnedSnapshot, ProjectOracle, SnapshotSource};
 pub use store::{
     Activation, AuthorizedTask, GrantRecord, InMemoryPolicyStore, PolicyStore, ProactivePermit,
 };
 pub use stub::{CancelMode, DriveMode, MediaStub, ProviderStub, StubContent, StubOutputSpec};
+pub use trace::{CausalTrace, TraceEvent};
 pub use wire::{
     FORBIDDEN_AUTHORITY_FIELDS, FORBIDDEN_IMPLICIT_TARGET_FIELDS, WireConsistency, WireRequest,
     WireTarget,

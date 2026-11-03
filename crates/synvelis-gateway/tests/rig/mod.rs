@@ -15,17 +15,22 @@
 //! `ProjectController` single-writer/Undo integration seam.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde_json::{Value, json};
+use synvelis_gateway::commit::{JournalPayload, PolicyEvent};
 use synvelis_gateway::fixture::FixtureAdapter;
+use synvelis_gateway::journal;
 use synvelis_gateway::snapshot::attributes;
 use synvelis_gateway::*;
 use synvelis_project::{
-    Asset, Clip, ClipExtent, ClipId, ClipPlacement, ClipPlayback, Lane, LaneId, MidiDivision,
-    MidiNote, MidiSource, MidiTick, MusicalDuration, MusicalTick, NoteId, PlaybackMapping, Project,
-    ProjectId, ProjectRevision, Source, SourceFrame, SourceId, SourceRange, SourceState,
-    TimeAnchor, Track, TrackId,
+    Asset, Clip, ClipExtent, ClipId, ClipPlacement, ClipPlayback, Command, CounterIdGenerator,
+    DirectoryBundleStore, Lane, LaneId, MidiDivision, MidiNote, MidiSource, MidiTick,
+    MusicalDuration, MusicalTick, NoteId, PlaybackMapping, Project, ProjectController, ProjectId,
+    ProjectOp, ProjectRevision, ProjectStore, Source, SourceFrame, SourceId, SourceRange,
+    SourceState, TimeAnchor, Track, TrackId,
 };
 
 // ── Fixture ids ──────────────────────────────────────────────
@@ -50,6 +55,12 @@ pub(crate) fn source9() -> ResourceRef {
 }
 pub(crate) fn source10() -> ResourceRef {
     ResourceRef::Source(SourceId::new(10))
+}
+pub(crate) fn note20() -> ResourceRef {
+    ResourceRef::Note(NoteId::new(20))
+}
+pub(crate) fn note21() -> ResourceRef {
+    ResourceRef::Note(NoteId::new(21))
 }
 pub(crate) fn project_ref() -> ResourceRef {
     ResourceRef::Project(project())
@@ -91,6 +102,10 @@ pub(crate) fn human_principal() -> Principal {
 }
 pub(crate) fn agent() -> CallerIdentity {
     adapter().agent("mcp-client-1").unwrap()
+}
+/// A second agent — the "other principal" for binding/blinding cases.
+pub(crate) fn other_agent() -> CallerIdentity {
+    adapter().agent("mcp-client-2").unwrap()
 }
 pub(crate) fn human() -> CallerIdentity {
     adapter().human("user-1").unwrap()
@@ -277,7 +292,7 @@ pub(crate) fn fixture_rig_with_cap(max_entries: usize) -> Rig {
         max_entries,
     ));
     let engine = Arc::new(PrepareEngine::new(
-        ctx,
+        ctx.clone(),
         Arc::new(PreparePolicy::new(store.clone(), clock.clone())),
         PrepareBudget::default(),
         proposals.clone(),
@@ -297,6 +312,9 @@ pub(crate) fn fixture_rig_with_cap(max_entries: usize) -> Rig {
     )));
     engine.install(&mut gw).unwrap();
     proposal_engine.install(&mut gw).unwrap();
+    // The context-query capability rides the same pinned snapshot
+    // source — the rig exposes the full GW-03/04/05 surface.
+    ctx.install(&mut gw).unwrap();
     Rig {
         store,
         clock,
@@ -554,6 +572,22 @@ pub(crate) fn content_classes() -> Vec<DataAccessClass> {
     ]
 }
 
+/// String forms matching `mutate_classes`/`content_classes` — the
+/// oracle's fact vocabulary (independent of the typed enum).
+pub(crate) fn mutate_classes_str() -> Vec<&'static str> {
+    vec!["MetadataRead", "ExternalDisclosure"]
+}
+pub(crate) fn content_classes_str() -> Vec<&'static str> {
+    vec![
+        "MetadataRead",
+        "StructuredContentRead",
+        "ExternalDisclosure",
+    ]
+}
+pub(crate) fn metadata_only_str() -> Vec<&'static str> {
+    vec!["MetadataRead"]
+}
+
 pub(crate) fn issue_agent(store: &InMemoryPolicyStore, tag: &str, grant: Grant) {
     issue_task(store, tag);
     store.issue_grant(grant);
@@ -791,4 +825,522 @@ pub(crate) fn effect<'a>(
         .iter()
         .find(|e| e.kind == kind && e.resource == *resource)
         .unwrap_or_else(|| panic!("expected {kind:?} effect on {resource:?}"))
+}
+
+// ── GW-10 harness seam ──────────────────────────────────────
+//
+// Shared persistence/recovery helpers so every GW-10 suite boots the
+// same real `CommitGate` + `DirectoryBundleStore` + framed journal
+// triad. Deterministic scheduling (`ScheduledFence`) and crash
+// injection (`CrashHook`) live in `synvelis_gateway::schedule` —
+// production seams the suites enumerate, not test-only doubles.
+
+/// Per-test temp dir under the OS temp root.
+pub(crate) fn tmpdir(tag: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("synvelis-gw10-{tag}-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+pub(crate) fn apply_desc(rig: &Rig) -> CapabilityDescriptor {
+    rig.gw
+        .registry()
+        .describe(&cap_ref(APPLY_ID))
+        .expect("apply capability registered")
+        .clone()
+}
+
+#[allow(clippy::needless_pass_by_value)] // callers hand an owned descriptor for clarity
+pub(crate) fn gate_deps(
+    store: Arc<InMemoryPolicyStore>,
+    clock: Arc<ManualClock>,
+    source: Arc<MemorySnapshotSource>,
+    proposals: Arc<ProposalStore>,
+    apply_capability: CapabilityDescriptor,
+) -> GateDeps {
+    let oracle: Arc<dyn ResourceOracle> = Arc::new(LatestOracle {
+        source: source.clone(),
+    });
+    GateDeps {
+        policy: store.clone(),
+        admin: store.clone(),
+        evaluator: GrantPolicy::new(store, clock, oracle),
+        proposals,
+        apply_capability,
+    }
+}
+
+pub(crate) fn rig_deps(rig: &Rig) -> GateDeps {
+    gate_deps(
+        rig.store.clone(),
+        rig.clock.clone(),
+        rig.source.clone(),
+        rig.proposals.clone(),
+        apply_desc(rig),
+    )
+}
+
+/// Publishes the demo project at revision 1 — the same base the rig's
+/// snapshot source pins — so `expected_revision: 1` commits land.
+pub(crate) fn seed_store(dir: &Path) -> DirectoryBundleStore {
+    let mut store = DirectoryBundleStore::create(dir).unwrap();
+    if store.head().unwrap().is_none() {
+        let mut controller =
+            ProjectController::new(demo_project(), Box::new(CounterIdGenerator::new(9_000)));
+        controller
+            .apply(Command {
+                expected_revision: controller.live_revision(),
+                op: ProjectOp::SetProjectName {
+                    name: "demo".to_owned(),
+                },
+            })
+            .unwrap();
+        controller.save(&mut store).unwrap();
+    }
+    store
+}
+
+/// First-boot gate: seeded store, fresh journal, rig-wired deps.
+pub(crate) fn boot_with<F: CommitFence>(
+    rig: &Rig,
+    dir: &Path,
+    fence: F,
+) -> (CommitGate<F>, RecoveryReport, DirectoryBundleStore) {
+    let store_dir = dir.join("project");
+    let mut store = seed_store(&store_dir);
+    let (gate, report) = CommitGate::open(
+        demo_project(),
+        Box::new(CounterIdGenerator::new(9_000)),
+        &mut store,
+        dir.join("commit.journal"),
+        rig_deps(rig),
+        fence,
+    )
+    .expect("gate opens");
+    (gate, report, store)
+}
+
+pub(crate) fn boot(rig: &Rig, dir: &Path) -> (CommitGate, RecoveryReport, DirectoryBundleStore) {
+    boot_with(rig, dir, MutexFence::new())
+}
+
+/// Restart with the A-model recovery view: a *fresh* policy store —
+/// every grant/revocation/consumption the journal carries is what
+/// policy knows. The proposal store is likewise fresh: nothing in
+/// memory survived the process boundary.
+#[allow(clippy::type_complexity)]
+pub(crate) fn restart(
+    rig: &Rig,
+    dir: &Path,
+) -> (
+    CommitGate,
+    RecoveryReport,
+    Arc<InMemoryPolicyStore>,
+    DirectoryBundleStore,
+) {
+    let store_dir = dir.join("project");
+    let mut store = DirectoryBundleStore::create(&store_dir).unwrap();
+    let policy = Arc::new(InMemoryPolicyStore::new());
+    let proposals = Arc::new(ProposalStore::new(
+        rig.clock.clone(),
+        PROPOSAL_TTL,
+        APPROVAL_TTL,
+        PrepareBudget::default().max_proposals,
+    ));
+    let deps = gate_deps(
+        policy.clone(),
+        rig.clock.clone(),
+        rig.source.clone(),
+        proposals,
+        apply_desc(rig),
+    );
+    let (gate, report) = CommitGate::open(
+        demo_project(),
+        Box::new(CounterIdGenerator::new(9_000)),
+        &mut store,
+        dir.join("commit.journal"),
+        deps,
+        MutexFence::new(),
+    )
+    .expect("gate reopens");
+    (gate, report, policy, store)
+}
+
+#[allow(clippy::needless_pass_by_value)] // callers hand an owned grant for clarity
+pub(crate) fn issue_via_gate<F: CommitFence>(gate: &CommitGate<F>, task: &str, grant: Grant) {
+    gate.issue_task(&AuthorizedTask {
+        task: task_ref(task),
+        principal: agent_principal(),
+        project: project(),
+        activation: Activation::UserIssued,
+        validity: Validity::default(),
+    })
+    .unwrap();
+    gate.issue_grant(&grant).unwrap();
+}
+
+/// Delegated-apply grant covering the standard mute, with a one-unit
+/// budget so consumption is observable.
+pub(crate) fn delegated_grant(tag: &str, task: &str) -> Grant {
+    let mut grant = apply_grant(
+        tag,
+        task,
+        &["synvelis.clip.mute"],
+        ApprovalPolicy::DelegatedApply,
+    );
+    grant.limits.apply_budget = Some(1);
+    grant
+}
+
+/// Presents an apply request for `proposal`/`digest`; returns the
+/// accepted operation id.
+pub(crate) fn accept_apply(
+    rig: &mut Rig,
+    proposal: &str,
+    digest: &str,
+    task: &str,
+    grant: &str,
+) -> OperationId {
+    let outcome = rig
+        .gw
+        .handle(
+            &apply_req(proposal, digest, None, Some(task), Some(grant)),
+            agent(),
+        )
+        .unwrap();
+    let GatewayOutcome::Accepted { operation } = outcome else {
+        panic!("expected Accepted, got {outcome:?}");
+    };
+    operation
+}
+
+/// The full GW-05 path: prepare → apply → `CommitRequested`.
+pub(crate) fn accepted(rig: &mut Rig, task: &str, grant: &str) -> (ProposalRef, OperationId) {
+    let (proposal, digest) = prepare_mute_agent(rig, task, grant);
+    let operation = accept_apply(rig, &proposal, &digest, task, grant);
+    (ProposalRef::new(&proposal).unwrap(), operation)
+}
+
+/// Same as `accepted` but with a wire `idempotency_key`.
+pub(crate) fn accepted_keyed(
+    rig: &mut Rig,
+    task: &str,
+    grant: &str,
+    key: &str,
+) -> (ProposalRef, OperationId) {
+    let (proposal, digest) = prepare_mute_agent(rig, task, grant);
+    let mut req = apply_req(&proposal, &digest, None, Some(task), Some(grant));
+    req["idempotency_key"] = json!(key);
+    let outcome = rig.gw.handle(&req, agent()).unwrap();
+    let GatewayOutcome::Accepted { operation } = outcome else {
+        panic!("expected Accepted, got {outcome:?}");
+    };
+    (ProposalRef::new(&proposal).unwrap(), operation)
+}
+
+/// `ApproveToApply` path: apply → `ApprovalRequired` → human grants →
+/// apply presenting the receipt → `CommitRequested`.
+pub(crate) fn accepted_via_receipt(
+    rig: &mut Rig,
+    task: &str,
+    grant: &str,
+) -> (ProposalRef, OperationId) {
+    let (proposal, digest) = prepare_mute_agent(rig, task, grant);
+    let outcome = rig
+        .gw
+        .handle(
+            &apply_req(&proposal, &digest, None, Some(task), Some(grant)),
+            agent(),
+        )
+        .unwrap();
+    let GatewayOutcome::ApprovalRequired { approval } = outcome else {
+        panic!("expected ApprovalRequired, got {outcome:?}");
+    };
+    complete(
+        rig.gw
+            .handle(&approve_req(&proposal, &digest), human())
+            .unwrap(),
+    );
+    let outcome = rig
+        .gw
+        .handle(
+            &apply_req(
+                &proposal,
+                &digest,
+                Some(approval.as_str()),
+                Some(task),
+                Some(grant),
+            ),
+            agent(),
+        )
+        .unwrap();
+    let GatewayOutcome::Accepted { operation } = outcome else {
+        panic!("expected Accepted, got {outcome:?}");
+    };
+    (ProposalRef::new(&proposal).unwrap(), operation)
+}
+
+/// Replays the framed journal at `path`; returns the durable payloads.
+pub(crate) fn journal_payloads(path: &Path) -> Vec<JournalPayload> {
+    let bytes = fs::read(path).unwrap();
+    journal::replay(&bytes)
+        .records
+        .iter()
+        .map(|r| serde_json::from_slice::<JournalPayload>(&r.payload).unwrap())
+        .collect()
+}
+
+/// Whether clip11 is muted under the gate's live controller.
+pub(crate) fn clip11_muted<F: CommitFence>(gate: &CommitGate<F>) -> bool {
+    gate.inspect(|c| c.live().clips[&ClipId::new(11)].muted)
+}
+
+/// Maps a gateway `handle` result to the oracle's decision class —
+/// the comparison level the evidence records judge at.
+pub(crate) fn verdict_of(outcome: &Result<GatewayOutcome<Value>, ErrorEnvelope>) -> Expected {
+    match outcome {
+        Ok(
+            GatewayOutcome::Completed { .. }
+            | GatewayOutcome::Accepted { .. }
+            | GatewayOutcome::ProposalReady { .. },
+        ) => Expected::Permit,
+        Ok(GatewayOutcome::ApprovalRequired { .. }) => Expected::ApprovalRequired,
+        Err(env) => verdict_of_err(&Err::<(), _>(env.clone())),
+    }
+}
+
+/// Maps a `Result` carrying an [`ErrorEnvelope`] (e.g. `gate.commit`)
+/// to the oracle's decision class.
+pub(crate) fn verdict_of_err<T>(outcome: &Result<T, ErrorEnvelope>) -> Expected {
+    match outcome {
+        Ok(_) => Expected::Permit,
+        Err(env) => match &env.code {
+            GatewayError::RevisionConflict { .. } => Expected::Conflict,
+            GatewayError::Indeterminate { .. } => Expected::Unknown,
+            _ => Expected::Deny,
+        },
+    }
+}
+
+/// An oracle carrying the rig's standard authority facts: task `task`
+/// issued to the rig's agent on the demo project, grant `grant`
+/// bound to it. Scenario mutations (revocation, expiry, budgets) are
+/// applied by the caller on the returned oracle/grant pair.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn oracle_grant(oracle: &mut SpecOracle, task: &str, grant: &str, fact: OracleGrant) {
+    oracle.with_task(
+        task,
+        OracleTask {
+            principal: agent_principal().id().to_owned(),
+            project: project().to_tagged(),
+            revoked: false,
+        },
+    );
+    oracle.with_grant(grant, fact);
+    oracle.with_revision(&project().to_tagged(), 1);
+}
+
+/// The oracle facts matching `apply_grant` — capabilities
+/// prepare+apply (+ inner ops), mutate+read permissions, disclosure
+/// classes, exact scope, approval policy.
+pub(crate) fn oracle_apply_facts(task: &str, ops: &[&str], policy: &str) -> OracleGrant {
+    let mut capabilities = BTreeSet::from([
+        "synvelis.operation.prepare".to_owned(),
+        APPLY_ID.to_owned(),
+        PREVIEW_ID.to_owned(),
+    ]);
+    capabilities.extend(ops.iter().map(|s| (*s).to_owned()));
+    OracleGrant {
+        principal: agent_principal().id().to_owned(),
+        project: project().to_tagged(),
+        task: task.to_owned(),
+        capabilities,
+        permissions: BTreeSet::from(["MutateProject".to_owned(), "ReadContext".to_owned()]),
+        data_access: BTreeSet::from([
+            "MetadataRead".to_owned(),
+            "StructuredContentRead".to_owned(),
+            "ExternalDisclosure".to_owned(),
+        ]),
+        scope: BTreeSet::from([
+            tagged(&clip11()),
+            tagged(&clip12()),
+            tagged(&clip13()),
+            tagged(&source10()),
+        ]),
+        policy: policy.to_owned(),
+        budget: None,
+        revoked: false,
+        expired: false,
+    }
+}
+
+/// The oracle facts matching `job_grant` — the job capabilities +
+/// media register + prepare/apply, run/mutate/read permissions,
+/// provider-transfer + disclosure classes, job scope.
+pub(crate) fn oracle_job_facts(task: &str, ops: &[&str]) -> OracleGrant {
+    let mut capabilities = BTreeSet::from([
+        "synvelis.operation.prepare".to_owned(),
+        JOB_SUBMIT_ID.to_owned(),
+        JOB_GET_ID.to_owned(),
+        JOB_CANCEL_ID.to_owned(),
+        MEDIA_REGISTER_ID.to_owned(),
+        APPLY_ID.to_owned(),
+    ]);
+    capabilities.extend(ops.iter().map(|s| (*s).to_owned()));
+    OracleGrant {
+        principal: agent_principal().id().to_owned(),
+        project: project().to_tagged(),
+        task: task.to_owned(),
+        capabilities,
+        permissions: BTreeSet::from([
+            "MutateProject".to_owned(),
+            "RunJob".to_owned(),
+            "ReadContext".to_owned(),
+        ]),
+        data_access: BTreeSet::from([
+            "MetadataRead".to_owned(),
+            "ExternalDisclosure".to_owned(),
+            "ProviderTransfer".to_owned(),
+        ]),
+        scope: BTreeSet::from([
+            tagged(&clip11()),
+            tagged(&clip12()),
+            tagged(&source9()),
+            tagged(&source10()),
+            tagged(&ResourceRef::Asset(synvelis_project::AssetId::new(5))),
+        ]),
+        policy: "DelegatedApply".to_owned(),
+        budget: None,
+        revoked: false,
+        expired: false,
+    }
+}
+
+/// The request view matching a standard `prepare`/`apply` wire
+/// request for `task`/`grant` under `capability`.
+pub(crate) fn req_view(task: &str, grant: &str, capability: &str) -> ReqView {
+    ReqView {
+        principal: agent_principal().id().to_owned(),
+        task: Some(task.to_owned()),
+        grant: Some(grant.to_owned()),
+        capability: capability.to_owned(),
+        permission: Some("MutateProject"),
+        data_class: None,
+        targets: vec![tagged(&clip11())],
+        expected_revision: Some(1),
+        approval: None,
+        digest: None,
+    }
+}
+
+// ── Context-query builders (GW-03 surface) ──────────────────
+
+/// A context grant: `classes` data-access + `resources` exact scope.
+pub(crate) fn ctx_grant(
+    tag: &str,
+    task_tag: &str,
+    classes: &[DataAccessClass],
+    resources: &[ResourceRef],
+) -> Grant {
+    Grant {
+        id: grant_ref(tag),
+        issued_by: human_principal(),
+        principal: agent_principal(),
+        project: project(),
+        binding: GrantBinding::Task {
+            task: task_ref(task_tag),
+        },
+        capabilities: BTreeSet::from([cap_ref("synvelis.context.query")]),
+        permissions: PermissionSet::of([
+            PermissionKind::ReadContext,
+            PermissionKind::DiscloseContext,
+        ]),
+        data_access: DataAccessSet::of(classes.iter().copied()),
+        scope: ResourceScope::Exact {
+            resources: resources.iter().copied().collect(),
+        },
+        create_within: None,
+        approval_policy: ApprovalPolicy::DelegatedApply,
+        limits: GrantLimits::default(),
+        validity: Validity::default(),
+        epoch_ceiling: None,
+        issued_at_revision: Some(ProjectRevision(1)),
+    }
+}
+
+/// A `synvelis.context.query` wire request.
+#[allow(clippy::needless_pass_by_value)]
+pub(crate) fn query_req(
+    task: &str,
+    grant: &str,
+    args: impl Into<Value>,
+    consistency: impl Into<Value>,
+) -> Value {
+    json!({
+        "request_id": "req-ctx",
+        "capability": {"id": "synvelis.context.query", "version": {"major": 1, "minor": 0}},
+        "schema": {"name": "synvelis.context.query.input", "version": {"major": 1, "minor": 0}},
+        "project": project().to_tagged(),
+        "args": args.into(),
+        "consistency": consistency.into(),
+        "task": task,
+        "grant": grant,
+    })
+}
+
+pub(crate) fn latest() -> Value {
+    json!({"kind": "latest"})
+}
+pub(crate) fn selector(args: impl Into<Value>) -> Value {
+    json!({"selector": args.into()})
+}
+pub(crate) fn resources(refs: &[ResourceRef]) -> Value {
+    json!({"resources": refs.iter().map(tagged).collect::<Vec<_>>()})
+}
+
+/// The oracle facts matching `ctx_grant` — context-query capability,
+/// read+disclose permissions, the granted classes, exact scope.
+pub(crate) fn oracle_ctx_facts(
+    task: &str,
+    classes: &[&str],
+    resources: &[ResourceRef],
+) -> OracleGrant {
+    OracleGrant {
+        principal: agent_principal().id().to_owned(),
+        project: project().to_tagged(),
+        task: task.to_owned(),
+        capabilities: BTreeSet::from(["synvelis.context.query".to_owned()]),
+        permissions: BTreeSet::from(["ReadContext".to_owned(), "DiscloseContext".to_owned()]),
+        data_access: classes.iter().map(|s| (*s).to_owned()).collect(),
+        scope: resources.iter().map(tagged).collect(),
+        policy: "DelegatedApply".to_owned(),
+        budget: None,
+        revoked: false,
+        expired: false,
+    }
+}
+
+/// The durable `PolicyEvent` positions inside the journal.
+pub(crate) fn policy_positions(payloads: &[JournalPayload], kind: &str) -> Vec<usize> {
+    payloads
+        .iter()
+        .enumerate()
+        .filter_map(|(i, p)| {
+            let matched = matches!(
+                (kind, p),
+                (
+                    "revoke-grant",
+                    JournalPayload::Policy(PolicyEvent::RevokeGrant(_))
+                ) | (
+                    "issue-grant",
+                    JournalPayload::Policy(PolicyEvent::IssueGrant(_))
+                ) | (
+                    "issue-task",
+                    JournalPayload::Policy(PolicyEvent::IssueTask(_))
+                )
+            );
+            matched.then_some(i)
+        })
+        .collect()
 }
