@@ -46,6 +46,19 @@ run = "cargo test --workspace --locked"
 description = "Build the workspace (dev profile)"
 run = "cargo build --workspace --locked"
 
+[tasks.gw10]
+description = "Run the GW-10 gateway harness suites and emit the gate report"
+run = [
+  "cargo run -p synvelis-gateway --bin gw10_report -- --clean",
+  "cargo test -p synvelis-gateway --test gw10_harness --test gw10_contract --test gw10_authorization --test gw10_project --test gw10_concurrency --test gw10_persistence --test gw10_mcp --test gw10_job --test gw10_system",
+  "cargo test -p mcp-poc --test gw10_transport",
+  "cargo run -p synvelis-gateway --bin gw10_report -- --strict",
+]
+
+[tasks.gw10-report]
+description = "Aggregate target/gw10-evidence into the per-gate verdict report"
+run = "cargo run -p synvelis-gateway --bin gw10_report"
+
 [tasks.test-msrv]
 description = "Compile and test under the declared MSRV toolchain"
 run = "mise exec rust@1.89.0 -- cargo test --workspace --locked"
