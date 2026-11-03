@@ -140,7 +140,7 @@ pub enum WireConsistency {
 /// values are left for serde to reject — the scan only guards known
 /// variants, since `deny_unknown_fields` is inert on internally-tagged
 /// enums (serde#2123).
-fn allowed_target_keys(shape: &str) -> Option<&'static [&'static str]> {
+pub(crate) fn allowed_target_keys(shape: &str) -> Option<&'static [&'static str]> {
     Some(match shape {
         "resource" => &["shape", "kind", "id"],
         "resource-set" => &["shape", "kind", "ids"],
@@ -160,7 +160,11 @@ fn allowed_consistency_keys(kind: &str) -> Option<&'static [&'static str]> {
 }
 
 /// Rejects keys outside `allowed` inside the object at `path`.
-fn deny_extra_keys(value: &Value, path: &str, allowed: &[&str]) -> Result<(), GatewayError> {
+pub(crate) fn deny_extra_keys(
+    value: &Value,
+    path: &str,
+    allowed: &[&str],
+) -> Result<(), GatewayError> {
     if let Some(obj) = value.as_object() {
         for key in obj.keys() {
             if !allowed.contains(&key.as_str()) {

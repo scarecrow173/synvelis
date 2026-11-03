@@ -63,7 +63,8 @@ use crate::store::{Activation, GrantRecord, PolicyStore};
 
 /// Uniform pre-binding deny reason — no task/grant/resource existence
 /// is disclosed before ownership is proven.
-const NO_AUTH: &str = "no applicable authorization";
+/// Crate-visible: the GW-04 prepare authorizer emits this same reason.
+pub(crate) const NO_AUTH: &str = "no applicable authorization";
 
 /// Deny reason when a resource fails scope coverage — deliberately
 /// shared between "does not exist", "exists but outside scope", and
@@ -73,15 +74,17 @@ const NO_AUTH: &str = "no applicable authorization";
 pub(crate) const OUTSIDE_SCOPE: &str = "target outside grant scope";
 
 /// Deny reason when a create exceeds `create_within`.
-const OUTSIDE_CREATE: &str = "creation outside grant constraints";
+/// Crate-visible: the GW-04 prepare authorizer emits this same reason.
+pub(crate) const OUTSIDE_CREATE: &str = "creation outside grant constraints";
 
 /// Per-request count of distinct dynamically-covered members —
 /// compared against [`DynamicScope::max_members`][crate::grant::DynamicScope].
 /// Shared across the target and effects passes of one evaluation, and
 /// deduplicated by resource: the cap spans the whole request, and a
 /// member appearing on both axes is counted once.
+/// Crate-visible: GW-04's after-state coverage pass shares the type.
 #[derive(Default)]
-struct ScopeCounters {
+pub(crate) struct ScopeCounters {
     dynamic_members: u32,
     counted: BTreeSet<ResourceRef>,
 }
@@ -493,7 +496,8 @@ impl GrantPolicy {
     /// Classifies `resource`'s membership under `grant.scope` —
     /// `None` means not covered. Dynamic coverage is counted in
     /// `counters` and capped by `max_members`.
-    fn coverage(
+    /// Crate-visible: GW-04's after-state coverage reuses it verbatim.
+    pub(crate) fn coverage(
         grant: &Grant,
         resource: &ResourceRef,
         attrs: &ResourceAttributes,

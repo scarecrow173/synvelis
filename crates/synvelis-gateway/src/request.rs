@@ -362,6 +362,18 @@ impl Consistency {
                 self,
                 Self::Latest | Self::ReadAt { .. } | Self::FixedSnapshot { .. }
             ),
+            // A proposal is prepared against a pinned base — any
+            // committed-state pin is legal. `ExpectedRevision` names the
+            // base revision the eventual apply expects, so the same
+            // request shape survives the prepare→apply path; it asserts
+            // nothing about liveness at prepare time (GW-06 revalidates).
+            OperationDomain::Proposal => matches!(
+                self,
+                Self::Latest
+                    | Self::ReadAt { .. }
+                    | Self::FixedSnapshot { .. }
+                    | Self::ExpectedRevision { .. }
+            ),
             OperationDomain::ProjectMutation => matches!(self, Self::ExpectedRevision { .. }),
             OperationDomain::RuntimeControl | OperationDomain::AsyncOperation => {
                 matches!(self, Self::Unconditional)

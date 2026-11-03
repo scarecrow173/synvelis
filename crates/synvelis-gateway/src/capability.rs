@@ -128,6 +128,10 @@ impl fmt::Display for CapabilityRef {
 pub enum OperationDomain {
     /// Read-only context query / projection.
     Query,
+    /// Non-destructive mutation preparation — derive and evaluate the
+    /// real effects of a semantic operation against a pinned base
+    /// (GW-04). Preparation reads and validates but never commits.
+    Proposal,
     /// Semantic project mutation (goes to the GW-06 commit boundary).
     ProjectMutation,
     /// Real-time adjacent control such as transport (owner: issue #20).
@@ -142,6 +146,7 @@ impl OperationDomain {
     pub const fn name(&self) -> &'static str {
         match self {
             Self::Query => "query",
+            Self::Proposal => "proposal",
             Self::ProjectMutation => "project-mutation",
             Self::RuntimeControl => "runtime-control",
             Self::AsyncOperation => "async-operation",

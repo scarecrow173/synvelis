@@ -881,7 +881,7 @@ fn registration_rejects_incoherent_or_unresolvable() {
             .code,
         GatewayError::IncoherentDescriptor {
             id: "test.query-with-write".to_owned(),
-            reason: "query capabilities may not declare mutating effects".to_owned(),
+            reason: "read-side capabilities may not declare mutating effects".to_owned(),
         }
     );
 
