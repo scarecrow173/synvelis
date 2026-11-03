@@ -8,6 +8,7 @@ members = [
   "crates/synvelis-render",
   "crates/synvelis-workspace",
   "crates/synvelis-gateway",
+  "crates/mcp-poc",
 ]
 
 [workspace.package]
@@ -31,6 +32,7 @@ incremental = true
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
+rand = "0.8"
 ruviform-media-core = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-media-io = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-media-reader = { git = "https://github.com/scarecrow173/ruviform.git" }
