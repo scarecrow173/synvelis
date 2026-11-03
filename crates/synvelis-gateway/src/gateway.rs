@@ -571,9 +571,12 @@ impl Default for Gateway {
     }
 }
 
-/// Deterministic approval-request ref for GW-01's outcome boundary —
-/// the real receipt lifecycle is GW-05's.
-fn approval_ref_for(operation: OperationId) -> ApprovalRef {
+/// Deterministic approval-request ref for the outcome boundary — the
+/// wire-visible name of "the approval request this apply raised".
+/// GW-05's [`crate::proposal::ProposalStore`] tracks this ref on the
+/// approval record so the ref an agent was last told is the ref it
+/// can present; the receipt binding, not this ref, is the authority.
+pub(crate) fn approval_ref_for(operation: OperationId) -> ApprovalRef {
     // Fixed-width output ("approval-for-operation-<32 hex>") is far
     // below the ref length bound, so construction cannot fail.
     ApprovalRef::new(format!("approval-for-{operation}"))

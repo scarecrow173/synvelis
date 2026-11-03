@@ -230,6 +230,30 @@ pub enum GatewayError {
         /// Safe-to-disclose reason.
         reason: String,
     },
+    /// The asserted content digest does not match the proposal's
+    /// stored changeset — the request names one proposal but asserts
+    /// different semantic content (GW-05, SEC-09). Re-preparation is
+    /// the correction path, not guessing a new digest.
+    DigestMismatch {
+        /// The proposal the mismatch was detected against.
+        proposal: String,
+    },
+    /// The named proposal cannot be previewed, approved, or applied —
+    /// it is unknown to this caller, expired, or invalidated. Unknown
+    /// and inaccessible proposals share one verdict (existence
+    /// blinding); a dead proposal names its terminal status.
+    ProposalUnavailable {
+        /// Safe-to-disclose reason.
+        reason: String,
+    },
+    /// An approval receipt could not authorize this apply — expired,
+    /// revoked, invalidated, declined, already consumed, or bound to
+    /// a different principal/project/grant/task/digest/revision than
+    /// the request carries (GW-05, SEC-10/11).
+    ApprovalInvalid {
+        /// Safe-to-disclose reason.
+        reason: String,
+    },
     /// The page cursor passed its expiry — the pagination chain is
     /// dead and a new query must be issued to start a fresh one
     /// (GW-03, expiring cursor).
@@ -323,10 +347,13 @@ impl GatewayError {
         match self {
             Self::SelfDeclaredAuthority { .. } => ErrorCategory::Authentication,
             Self::Denied { .. } => ErrorCategory::Authorization,
+            Self::ApprovalInvalid { .. } => ErrorCategory::Approval,
             Self::ConsistencyNotAllowed { .. }
             | Self::RevisionConflict { .. }
             | Self::SnapshotExpired
-            | Self::CursorExpired => ErrorCategory::Consistency,
+            | Self::CursorExpired
+            | Self::DigestMismatch { .. }
+            | Self::ProposalUnavailable { .. } => ErrorCategory::Consistency,
             Self::MalformedRequest { .. }
             | Self::ImplicitTargetRejected { .. }
             | Self::InvalidId { .. }
@@ -387,6 +414,8 @@ impl GatewayError {
             | Self::SchemaConflict { .. }
             | Self::IncoherentDescriptor { .. }
             | Self::Denied { .. }
+            | Self::DigestMismatch { .. }
+            | Self::ApprovalInvalid { .. }
             | Self::LimitExceeded { .. }
             | Self::IdempotencyConflict => RetryAdvice::AfterCorrection,
             Self::Unavailable { availability, .. } => match availability {
@@ -398,6 +427,7 @@ impl GatewayError {
             Self::RevisionConflict { .. }
             | Self::SnapshotExpired
             | Self::CursorExpired
+            | Self::ProposalUnavailable { .. }
             | Self::Indeterminate { .. } => RetryAdvice::ReconcileState,
             Self::Internal { .. } => RetryAdvice::Transient,
         }
@@ -493,6 +523,15 @@ impl GatewayError {
             }
             Self::PreparationRejected { reason } => {
                 format!("operation rejected at preparation: {reason}")
+            }
+            Self::DigestMismatch { proposal } => {
+                format!("changeset digest mismatch on proposal {proposal}")
+            }
+            Self::ProposalUnavailable { reason } => {
+                format!("proposal is not applicable: {reason}")
+            }
+            Self::ApprovalInvalid { reason } => {
+                format!("approval cannot authorize this apply: {reason}")
             }
             Self::CursorExpired => {
                 "page cursor expired; issue a new query to start a new pagination chain".to_owned()

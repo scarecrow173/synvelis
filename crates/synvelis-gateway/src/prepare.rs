@@ -1402,7 +1402,7 @@ pub trait PrepareAuthorizer: Send + Sync {
 
 /// The canonical tagged id string of a `ResourceRef` (the inner
 /// project id types own `to_tagged`).
-fn ref_tagged(r: &ResourceRef) -> String {
+pub(crate) fn ref_tagged(r: &ResourceRef) -> String {
     match r {
         ResourceRef::Project(id) => id.to_tagged(),
         ResourceRef::Track(id) => id.to_tagged(),
@@ -1434,7 +1434,7 @@ fn range_json(range: &TypedRange) -> Value {
     })
 }
 
-fn attrs_json(attrs: &ResourceAttributes) -> Value {
+pub(crate) fn attrs_json(attrs: &ResourceAttributes) -> Value {
     serde_json::json!({
         "kind": kind_json(attrs.kind),
         "owner": attrs.owner.map(|r| ref_tagged(&r)),
@@ -1443,7 +1443,7 @@ fn attrs_json(attrs: &ResourceAttributes) -> Value {
     })
 }
 
-fn target_json(target: &OperationTarget) -> Value {
+pub(crate) fn target_json(target: &OperationTarget) -> Value {
     match target {
         OperationTarget::None => Value::Null,
         OperationTarget::Resource { resource } => serde_json::json!({
@@ -1462,7 +1462,7 @@ fn target_json(target: &OperationTarget) -> Value {
     }
 }
 
-fn effect_kind_name(kind: EffectKind) -> &'static str {
+pub(crate) fn effect_kind_name(kind: EffectKind) -> &'static str {
     match kind {
         EffectKind::Read => "read",
         EffectKind::Write => "write",
