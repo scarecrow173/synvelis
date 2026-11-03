@@ -13,6 +13,15 @@
 //! [`DataAccessSet`] classes, approval policies, validity, budget, and
 //! the policy epoch — per #44 AHG-006..010 and #45 GTC-003.
 //!
+//! GW-03 (Issue #55) implements scoped context projection: the
+//! `synvelis.context.query` capability served by
+//! [`ContextProjectionEngine`], which projects a [`PinnedSnapshot`] of
+//! the host's project state (never a second source of truth) through
+//! the typed [`ContextQuery`] contract — snapshot-revision-fixed
+//! pagination with expiring cursors, per-field-class disclosure
+//! authorization, and honest `complete`/`unknown`/`unavailable`
+//! completeness — per #45 GTC-004.
+//!
 //! # Ownership boundary (GTC-001)
 //!
 //! This crate owns the contract, its validation pipeline, and the
@@ -36,6 +45,8 @@
 pub mod authorization;
 pub mod capability;
 pub mod clock;
+pub mod context;
+pub mod context_engine;
 pub mod fixture;
 pub mod gateway;
 pub mod grant;
@@ -45,6 +56,7 @@ pub mod policy;
 pub mod registry;
 pub mod request;
 pub mod schema;
+pub mod snapshot;
 pub mod store;
 pub mod wire;
 
@@ -57,6 +69,12 @@ pub use capability::{
     PermissionKind, PermissionSet, TargetContract,
 };
 pub use clock::{ManualClock, PolicyClock, PolicyInstant, SystemClock};
+pub use context::{
+    Completeness, ContextAuthorizer, ContextBudget, ContextProjection, ContextQuery, FieldGroup,
+    FieldSelection, NoSelectionSource, PageInfo, PageRequest, ProjectedItem, ResourceSelector,
+    ScopeAdmission, SelectionFacts, SelectionProjection, SelectionSource,
+};
+pub use context_engine::ContextProjectionEngine;
 pub use gateway::Gateway;
 pub use grant::{
     ApprovalPolicy, CreateEffect, CreateWithin, DynamicScope, Grant, GrantBinding, GrantLimits,
@@ -64,8 +82,8 @@ pub use grant::{
     ResourceOracle, ResourceScope, ScopedEffects, Validity,
 };
 pub use id::{
-    AdapterId, ApprovalRef, GrantRef, IdempotencyKey, OperationId, ProactivePermitRef, ProposalRef,
-    RequestId, SnapshotRef, TaskRef,
+    AdapterId, ApprovalRef, CursorRef, GrantRef, IdempotencyKey, OperationId, ProactivePermitRef,
+    ProposalRef, RequestId, SelectionViewRef, SnapshotRef, TaskRef,
 };
 pub use outcome::{
     ErrorCategory, ErrorEnvelope, ExternalError, GatewayError, GatewayOutcome, RetryAdvice,
@@ -77,6 +95,7 @@ pub use request::{
     OriginKind, Principal, PrincipalKind, ResourceKind, ResourceRef, TimeDomain, TypedRange,
 };
 pub use schema::{FieldSchema, SchemaRef, SchemaRegistry, SchemaVersion, ValueSchema};
+pub use snapshot::{MemorySnapshotSource, PinnedSnapshot, ProjectOracle, SnapshotSource};
 pub use store::{
     Activation, AuthorizedTask, GrantRecord, InMemoryPolicyStore, PolicyStore, ProactivePermit,
 };

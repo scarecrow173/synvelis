@@ -314,8 +314,16 @@ pub enum DataAccessClass {
     MetadataRead,
     /// Reads media payload bytes (PCM, waveform, encoded content).
     MediaBytesRead,
+    /// Reads structured content payloads (MIDI note data, clip-local
+    /// notes) — the typed-content analogue of [`Self::MediaBytesRead`]
+    /// for non-media sources (GW-03).
+    StructuredContentRead,
     /// Reads derived data (analysis features, computed fingerprints).
     DerivedDataRead,
+    /// Reads workspace selection/focus state through an explicitly
+    /// named view (GW-03 — the view is a permitted context window, not
+    /// an implicit UI state feed).
+    WorkspaceSelectionRead,
     /// Discloses data to an external principal.
     ExternalDisclosure,
     /// Transfers data to an external provider (model, service).
