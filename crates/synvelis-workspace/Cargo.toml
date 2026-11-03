@@ -16,3 +16,4 @@ synvelis-gateway = { path = "../synvelis-gateway" }
 ruviform-ui.workspace = true
 ruviform-media-core.workspace = true
 ruviform-plugin-core.workspace = true
+ruviform-viz.workspace = true

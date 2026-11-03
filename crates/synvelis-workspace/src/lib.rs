@@ -31,6 +31,7 @@ pub mod snap;
 pub mod state;
 pub mod tool;
 pub mod view;
+pub mod viz_ui;
 pub mod workspace;
 
 pub use command::{CommandContext, CommandKind, CommandOutcome};
@@ -76,4 +77,16 @@ pub use tool::{
     EditOperation, HandleKind, HitCandidate, HitProbe, HitZone, Tool, ToolResolution, resolve_tool,
 };
 pub use view::{HeadlessView, ViewDescriptor, ViewFactory, ViewRegistry, ViewType};
+pub use viz_ui::{
+    DEFAULT_CACHE_BUDGET, DEFAULT_MAX_QUERY_BYTES, DEFAULT_STALE_AFTER_MS, FreqScale, MAX_BUCKETS,
+    MAX_EVENTS, ManualMeter, ManualSpectrum, ManualWaveform, MemoryWaveform, MeterChannel,
+    MeterFrame, MeterMeta, MeterPort, MeterRow, MeterScale, OverlayMarker, OverlayState,
+    QueryErrorKind, QueryId, QueryOutcome, QueryPayload, QueryReply, SourceRevision,
+    SpectrumBinsAxis, SpectrumFrame, SpectrumMeta, SpectrumPort, SpectrumRow, SpectrumScale,
+    SubrangeWaveform, SurfaceId, TimeRange, TimelineAxis, TimelineItem, TimelinePayload,
+    TimelineRow, ViewportQuery, ViewportTrigger, VizDiagnostics, VizError, VizQueryError,
+    VizSourceId, VizStatus, VizStyleInput, VizUi, VizViewEvent, WaveformAxis, WaveformBucket,
+    WaveformMeta, WaveformPort, WaveformQuery, WaveformRow, WaveformView, meter_master_target,
+    meter_track_target, spectrum_probe_target, waveform_clip_target, waveform_source_target,
+};
 pub use workspace::{PointerOutcome, WindowRecord, WorkspaceManager};
