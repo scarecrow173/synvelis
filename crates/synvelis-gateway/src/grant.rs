@@ -24,7 +24,7 @@
 
 use std::collections::BTreeSet;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use synvelis_project::{ProjectId, ProjectRevision};
 
 use crate::capability::{CapabilityRef, DataAccessSet, PermissionSet};
@@ -55,7 +55,7 @@ pub struct PolicyEpoch(pub u64);
 
 /// Whether the grant applies to a task, a session, or a project
 /// persistently (AHG-010 — task-scoped is the initial default).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "binding", rename_all = "kebab-case")]
 pub enum GrantBinding {
     /// Bound to one authorized task — the initial default form. The
@@ -84,7 +84,7 @@ pub enum GrantBinding {
 ///
 /// The mode is *derived from the grant's policy* — an agent cannot
 /// escalate itself by declaring a mode on the wire.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "mode", rename_all = "kebab-case")]
 pub enum ApprovalPolicy {
     /// The agent may prepare proposals only; apply requests are denied.
@@ -101,7 +101,7 @@ pub enum ApprovalPolicy {
 }
 
 /// Quantitative bounds on delegated activity.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GrantLimits {
     /// Maximum number of delegated apply authorizations the grant may
@@ -113,7 +113,7 @@ pub struct GrantLimits {
 }
 
 /// Time and revocation state shared by grants, tasks, and permits.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Validity {
     /// Latest instant the record is live (`now <= expires_at`);
@@ -134,7 +134,7 @@ impl Validity {
 }
 
 /// The owner dimension of a dynamic scope or a create constraint.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "owners", rename_all = "kebab-case")]
 pub enum OwnerConstraint {
     /// Membership is not constrained by owner.
@@ -159,7 +159,7 @@ pub enum OwnerConstraint {
 /// re-evaluation runs and the dynamic constraints apply as a
 /// snapshot of current state. Policy authors constraining relocation
 /// must declare the destination fields.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MoveArgs {
     /// Args field holding the destination parent's tagged id.
@@ -169,7 +169,7 @@ pub struct MoveArgs {
 }
 
 /// Constrained dynamic membership (AHG-008).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DynamicScope {
     /// Permitted owners.
@@ -192,7 +192,7 @@ pub struct DynamicScope {
 }
 
 /// A constraint on the placement of created resources.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlacementConstraint {
     /// Args field holding the `{domain,start,len}` placement range.
@@ -203,7 +203,7 @@ pub struct PlacementConstraint {
 
 /// The create axis of a grant (AHG-008): creating resources is
 /// evaluated separately from editing existing ones.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CreateWithin {
     /// Permitted parent refs for the created resource.
@@ -215,7 +215,7 @@ pub struct CreateWithin {
 }
 
 /// The resource scope a grant covers.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "scope", rename_all = "kebab-case")]
 pub enum ResourceScope {
     /// An explicit set of stable ids.
@@ -237,7 +237,7 @@ pub enum ResourceScope {
 }
 
 /// The record a request's `grant` ref resolves to.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Grant {
     /// The grant's stable reference.

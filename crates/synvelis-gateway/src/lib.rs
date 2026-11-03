@@ -47,6 +47,21 @@
 //! consumption precedes any success claim — commit-result
 //! reconciliation stays GW-06's (GT-007..010, SEC-09..12).
 //!
+//! GW-06 (Issue #58) closes the commit boundary: [`CommitGate`] is the
+//! only path from an accepted apply to the host's `ProjectController`.
+//! Inside one [`CommitFence`] section it revalidates the receipt
+//! binding, grant/task/epoch/scope/effects against the *current*
+//! [`PolicyStore`], and the expected revision — then applies through
+//! the single writer and fsyncs the durable [`JournalPayload`] record
+//! before reporting success. Revocation enters the same fence, so
+//! revoke/commit ordering is the journal order (REC-01/02); keyed
+//! retries replay recorded outcomes and never re-apply (REC-04..06);
+//! `Indeterminate` is a first-class verdict, never a silent success.
+//! [`CommitGate::open`] replays the journal across restarts — the
+//! ordered Recovery Journal is the adopted PoC-A durability approach;
+//! [`FilePolicyStore`] + durable fence markers is the evaluated PoC-B
+//! comparison (ACG-003/004, REC-07..10).
+//!
 //! # Ownership boundary (GTC-001)
 //!
 //! This crate owns the contract, its validation pipeline, and the
@@ -70,12 +85,15 @@
 pub mod authorization;
 pub mod capability;
 pub mod clock;
+pub mod commit;
 pub mod context;
 pub mod context_engine;
+pub mod durable_policy;
 pub mod fixture;
 pub mod gateway;
 pub mod grant;
 pub mod id;
+pub mod journal;
 pub mod outcome;
 pub mod policy;
 pub mod prepare;
@@ -100,12 +118,18 @@ pub use capability::{
     PermissionKind, PermissionSet, TargetContract,
 };
 pub use clock::{ManualClock, PolicyClock, PolicyInstant, SystemClock};
+pub use commit::{
+    CommitFence, CommitGate, CommitHooks, CommitOutcome, CommitReceipt, CommitRecord, FenceCtx,
+    GateCrash, GateDeps, JournalIdem, JournalPayload, MutexFence, NoHooks, OutcomeRecord,
+    PolicyAdmin, PolicyEvent, RecoveryReport, RetryOutcome, SaveRecord,
+};
 pub use context::{
     Completeness, ContextAuthorizer, ContextBudget, ContextProjection, ContextQuery, FieldGroup,
     FieldSelection, NoSelectionSource, PageInfo, PageRequest, ProjectedItem, ResourceSelector,
     ScopeAdmission, SelectionFacts, SelectionProjection, SelectionSource,
 };
 pub use context_engine::ContextProjectionEngine;
+pub use durable_policy::{FilePolicyStore, PolicyLogEvent, PolicyOpenReport};
 pub use gateway::Gateway;
 pub use grant::{
     ApprovalPolicy, CreateEffect, CreateWithin, DynamicScope, Grant, GrantBinding, GrantLimits,
@@ -113,9 +137,10 @@ pub use grant::{
     ResourceOracle, ResourceScope, ScopedEffects, Validity,
 };
 pub use id::{
-    AdapterId, ApprovalRef, CursorRef, GrantRef, IdempotencyKey, OperationId, ProactivePermitRef,
-    ProposalRef, RequestId, SelectionViewRef, SnapshotRef, TaskRef,
+    AdapterId, ApprovalRef, CommitId, CursorRef, GrantRef, IdempotencyKey, OperationId,
+    ProactivePermitRef, ProposalRef, RequestId, SelectionViewRef, SnapshotRef, TaskRef,
 };
+pub use journal::{FileJournal, OpenReport, ReplayOutcome, StopReason};
 pub use outcome::{
     ErrorCategory, ErrorEnvelope, ExternalError, GatewayError, GatewayOutcome, RetryAdvice,
 };

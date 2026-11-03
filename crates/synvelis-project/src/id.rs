@@ -186,7 +186,10 @@ define_id!(
 
 /// Source of fresh stable-ID raw values. Injected into
 /// [`crate::ProjectController`] so tests are fully deterministic.
-pub trait IdGenerator {
+/// The `Send` bound lets the single writer live behind a mutex on a
+/// multithreaded host — GW-06's commit fence serializes callers from
+/// different worker threads onto one `ProjectController`.
+pub trait IdGenerator: Send {
     /// Returns the next raw value without exposing the next-but-one.
     fn next(&mut self) -> u128;
     /// Returns the value that the next call to [`IdGenerator::next`] yields.

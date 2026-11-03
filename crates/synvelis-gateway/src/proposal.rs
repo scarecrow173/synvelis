@@ -577,6 +577,10 @@ pub struct ApplyRecord {
     pub approval: Option<ApprovalRef>,
     /// When this attempt was opened (policy clock).
     pub requested_at: PolicyInstant,
+    /// The bound apply request — retained so the GW-06 commit gate can
+    /// revalidate the exact caller/task/grant/idempotency identity at
+    /// the commit boundary instead of trusting preflight-time data.
+    pub request: OperationRequest,
 }
 
 /// A cloned view of one proposal's full lifecycle state — the read
@@ -1295,6 +1299,7 @@ impl ProposalStore {
                     .expect("awaiting accepts");
                 record.operation = req.operation_id();
                 record.approval = spent;
+                record.request = req.clone();
             }
             _ => {
                 entry.apply = Some(ApplyRecord {
@@ -1304,6 +1309,7 @@ impl ProposalStore {
                     status: ApplyStatus::CommitRequested,
                     approval: spent,
                     requested_at: now,
+                    request: req.clone(),
                 });
             }
         }
@@ -1333,6 +1339,7 @@ impl ProposalStore {
             status: ApplyStatus::AwaitingApproval,
             approval: None,
             requested_at: self.clock.now(),
+            request: req.clone(),
         });
     }
 
@@ -1367,6 +1374,7 @@ impl ProposalStore {
             status,
             approval: prior_approval,
             requested_at: self.clock.now(),
+            request: req.clone(),
         });
     }
 
