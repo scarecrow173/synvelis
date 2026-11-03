@@ -12,6 +12,7 @@ workspace = true
 serde.workspace = true
 serde_json.workspace = true
 synvelis-project = { path = "../synvelis-project" }
+synvelis-gateway = { path = "../synvelis-gateway" }
 ruviform-ui.workspace = true
 ruviform-media-core.workspace = true
 ruviform-plugin-core.workspace = true
