@@ -4,6 +4,19 @@
 // while #333 ships no shared implementation, this file is the authoritative
 // Synvelis mapping — see docs/specs/issue-148-impact-classification.md.
 //
+// Issue #157: selective execution enabled. classify additionally emits a
+// `lanes` output — the lane ids ci.yml must schedule — consumed by each
+// lane job's `if:` condition. Scheduling is lane-uniform (all legs of a
+// lane share the classifier's expectation); leg-level audit stays in the
+// gate. The gate contract is unchanged: `evidence` remains the single
+// fail-closed verdict over the expected set vs the run's actual results.
+//
+// Issue #157 rev.2 (Issue #148/#145 2026-11-05 agreement): macOS legs are
+// physically separated from the required universe — they run in dedicated
+// non-required jobs (OBSERVED_LEGS), are never in the gate's expected set,
+// and their results are recorded as observed verdicts (Pass/Fail/
+// Cancelled/Skipped/Pending) without being counted as Pass or violations.
+//
 // Two subcommands:
 //   classify  changed files -> impact classes -> expected lane set (JSON)
 //   gate      expected set + workflow run job results -> fail-closed verdict
@@ -19,13 +32,15 @@
 // Usage:
 //   node tools/ci-impact.mjs classify [--base <sha> --head <sha> | --files-file <f>]
 //                                     [--mode shadow|full|selective] [--out <path>]
-//                                     [--set-output <name>] [--summary <path>]
+//                                     [--set-output <name>] [--lanes-output <name>]
+//                                     [--summary <path>]
 //   node tools/ci-impact.mjs gate --impact <path> --jobs <path>
 //                                 [--attempt <n>] [--summary <path>] [--out <path>]
 //   node tools/ci-impact.mjs lanes
 //
 // Env fallbacks: CI_IMPACT_MODE, CI_IMPACT_BASE, CI_IMPACT_HEAD,
-// CI_IMPACT_FILES_FILE, GITHUB_EVENT_NAME, GITHUB_OUTPUT, GITHUB_STEP_SUMMARY.
+// CI_IMPACT_FILES_FILE, CI_IMPACT_LANES_OUTPUT, GITHUB_EVENT_NAME,
+// GITHUB_OUTPUT, GITHUB_STEP_SUMMARY.
 
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
@@ -41,19 +56,29 @@ const SCHEMA = "synvelis/ci-impact/v1";
 const LANE_LEGS = [
   { lane: "verify", os: "ubuntu-latest", name: "verify (ubuntu-latest)" },
   { lane: "verify", os: "windows-latest", name: "verify (windows-latest)" },
-  { lane: "verify", os: "macos-latest", name: "verify (macos-latest)" },
   { lane: "rt-verify", os: "ubuntu-latest", name: "rt-verify" },
   { lane: "gw10-verify", os: "ubuntu-latest", name: "gw10-verify (ubuntu-latest)" },
   { lane: "gw10-verify", os: "windows-latest", name: "gw10-verify (windows-latest)" },
-  { lane: "gw10-verify", os: "macos-latest", name: "gw10-verify (macos-latest)" },
   { lane: "msrv-verify", os: "ubuntu-latest", name: "msrv-verify" },
   { lane: "ui-verify", os: "ubuntu-latest", name: "ui-verify (ubuntu-latest)" },
   { lane: "ui-verify", os: "windows-latest", name: "ui-verify (windows-latest)" },
-  { lane: "ui-verify", os: "macos-latest", name: "ui-verify (macos-latest)" },
   { lane: "dep-guard", os: "ubuntu-latest", name: "dep-guard" },
   { lane: "classify", os: "ubuntu-latest", name: "classify" },
 ];
 const GATE_JOB = "evidence";
+
+// Issue #157 rev.2: non-blocking macOS track. These are dedicated jobs in
+// ci.yml (not legs of the required lanes) so runner starvation on
+// macos-latest can never gate a PR. They keep running on PR/main and the
+// gate records their real conclusions as observed verdicts — runner
+// shortage is recorded as pending/cancelled, never as NotApplicable, and
+// a real failure is surfaced, not hidden. They are also never "unknown
+// job" violations.
+const OBSERVED_LEGS = [
+  { lane: "verify", os: "macos-latest", name: "verify-macos" },
+  { lane: "gw10-verify", os: "macos-latest", name: "gw10-verify-macos" },
+  { lane: "ui-verify", os: "macos-latest", name: "ui-verify-macos" },
+];
 
 // --- Internal crate dependency graph (path deps from crates/*/Cargo.toml) -----
 const CRATE_DEPS = {
@@ -233,7 +258,15 @@ export function buildImpactReport({ files, mode, base, head, event }) {
     return { expectation: "not-applicable", reason: docsOnly ? "docs-only change" : `no ${name.lane}-relevant impact (classes: ${classes.join(", ") || "none"})` };
   };
 
-  const lanes = LANE_LEGS.map((leg) => ({ name: leg.name, lane: leg.lane, os: leg.os, ...laneReasons(leg) }));
+  const lanes = LANE_LEGS.map((leg) => {
+    const lr = laneReasons(leg);
+    // Issue #157: scheduling contract for ci.yml lane `if:` conditions.
+    // selective mode schedules only `required` legs; shadow/full keep every
+    // leg running so unauthorized `skipped` stays a gate violation.
+    // Scheduling is lane-uniform: job-level `if` cannot see `matrix`, and
+    // laneReasons is lane-scoped, so all OS legs of a lane agree.
+    return { name: leg.name, lane: leg.lane, os: leg.os, ...lr, scheduled: mode !== "selective" || lr.expectation === "required" };
+  });
 
   return {
     schema: SCHEMA,
@@ -328,13 +361,24 @@ export function evaluateGate({ impact, jobs, attempt }) {
     }
   }
 
+  // Issue #157 rev.2: non-blocking macOS track. Their real conclusions are
+  // recorded as observed verdicts (pending = still queued/in progress or
+  // absent from the API view). Never required, never a violation — but a
+  // real failure or cancellation is surfaced, not hidden.
+  const observed = OBSERVED_LEGS.map((leg) => {
+    const job = pickJob(byName.get(leg.name), attempt);
+    const v = jobVerdict(job);
+    return { name: leg.name, lane: leg.lane, os: leg.os, verdict: v === "not-run" ? "pending" : v, job };
+  });
+
   for (const name of byName.keys()) {
-    if (!LANE_LEGS.some((l) => l.name === name) && name !== GATE_JOB) {
-      violations.push(`unclassified job '${name}' in this run — add it to LANE_LEGS in tools/ci-impact.mjs`);
+    const known = LANE_LEGS.some((l) => l.name === name) || OBSERVED_LEGS.some((l) => l.name === name) || name === GATE_JOB;
+    if (!known) {
+      violations.push(`unclassified job '${name}' in this run — add it to LANE_LEGS/OBSERVED_LEGS in tools/ci-impact.mjs`);
     }
   }
 
-  return { ok: violations.length === 0, rows, violations, shadow };
+  return { ok: violations.length === 0, rows, violations, shadow, observed };
 }
 
 // --- Reporting ---------------------------------------------------------------
@@ -396,6 +440,18 @@ function gateMarkdown({ verdict, impact, context }) {
       lines.push(`| ${s.name} | yes | ${s.actual} | ${s.false_negative ? "**FALSE NEGATIVE**" : "consistent"} |`);
     }
   }
+  const observedRows = verdict.observed ?? [];
+  if (observedRows.length > 0) {
+    lines.push("");
+    lines.push(`## Observed macOS legs (non-blocking — recorded, never counted as Pass/Fail)`);
+    lines.push("");
+    lines.push(`| lane leg | actual | verdict |`);
+    lines.push(`|---|---|---|`);
+    for (const o of observedRows) {
+      const job = o.job ? `${o.job.status}/${o.job.conclusion ?? "-"}` : "absent";
+      lines.push(`| ${o.name} | ${job} | ${o.verdict} |`);
+    }
+  }
   if (verdict.violations.length > 0) {
     lines.push("");
     lines.push(`## Violations`);
@@ -454,7 +510,10 @@ function main() {
   const args = parseArgs(rest);
 
   if (cmd === "lanes") {
-    for (const l of LANE_LEGS) process.stdout.write(`${l.name}\n`);
+    // Every job name the run can produce besides the gate itself — the full
+    // job universe (required legs + observed macOS track). Used by the
+    // evidence collect step to size the expected jobs API payload.
+    for (const l of [...LANE_LEGS, ...OBSERVED_LEGS]) process.stdout.write(`${l.name}\n`);
     return;
   }
 
@@ -482,6 +541,7 @@ function main() {
       for (const l of report.lanes) {
         l.expectation = "required";
         l.reason = "full CI (diff unavailable)";
+        l.scheduled = true;
       }
     }
     const json = JSON.stringify(report, null, 2);
@@ -497,6 +557,13 @@ function main() {
       // not-run; per-class file lists are dropped to bound the payload.
       const slim = { ...report, classes: report.classes.map((c) => ({ id: c.id, count: c.files.length })) };
       appendFileSync(process.env.GITHUB_OUTPUT, `${setOutput}=${JSON.stringify(slim)}\n`);
+    }
+    const lanesOutput = args["lanes-output"] ?? process.env.CI_IMPACT_LANES_OUTPUT;
+    if (lanesOutput && process.env.GITHUB_OUTPUT) {
+      // Lane ids to schedule this run (JSON array). ci.yml lane `if:`
+      // conditions membership-test their own lane id against this list.
+      const lanes = [...new Set(report.lanes.filter((l) => l.scheduled === true).map((l) => l.lane))].sort();
+      appendFileSync(process.env.GITHUB_OUTPUT, `${lanesOutput}=${JSON.stringify(lanes)}\n`);
     }
     return;
   }
@@ -533,8 +600,13 @@ function main() {
     const summaryPath = args.summary ?? process.env.GITHUB_STEP_SUMMARY;
     if (summaryPath) appendFileSync(summaryPath, md + "\n");
     else process.stdout.write(md + "\n");
-    if (args.out) writeFileSync(args.out, JSON.stringify({ ...verdict, rows: verdict.rows.map(({ job, ...r }) => r) }, null, 2) + "\n");
+    if (args.out) writeFileSync(args.out, JSON.stringify({ ...verdict, rows: verdict.rows.map(({ job, ...r }) => r), observed: (verdict.observed ?? []).map(({ job, ...o }) => o) }, null, 2) + "\n");
     for (const v of verdict.violations) process.stderr.write(`::error::${v}\n`);
+    for (const o of verdict.observed ?? []) {
+      if (o.verdict === "fail" || o.verdict === "cancelled") {
+        process.stderr.write(`::warning::observed macOS leg '${o.name}' ${o.verdict} — non-blocking, recorded for audit\n`);
+      }
+    }
     if (!verdict.ok) process.exit(1);
     process.stdout.write("ci-impact gate: all expected lanes passed; evidence recorded\n");
     return;
