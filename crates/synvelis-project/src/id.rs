@@ -183,6 +183,39 @@ define_id!(
     /// Identifies a note entity (placeholder for clip-local note scope).
     NoteId, "note"
 );
+define_id!(
+    /// Identifies a [`crate::routing::Bus`] — a logical route
+    /// (group/return/master), not an audio device endpoint.
+    BusId, "bus"
+);
+define_id!(
+    /// Identifies a [`crate::routing::ChannelStrip`] — the owner of
+    /// DSP/fader/pan/insert/send, distinct from `TrackId`.
+    StripId, "strip"
+);
+define_id!(
+    /// Identifies a [`crate::routing::Processor`].
+    ProcessorId, "processor"
+);
+define_id!(
+    /// Identifies a [`crate::routing::ProcessorChain`].
+    ChainId, "chain"
+);
+define_id!(
+    /// Identifies a [`crate::routing::SemanticPort`] — the project
+    /// semantic port, a different type from the runtime graph `PortId`
+    /// and from any plugin-local port identifier.
+    SemanticPortId, "semantic-port"
+);
+define_id!(
+    /// Identifies a [`crate::routing::RoutingConnection`] — the single
+    /// authority for where a signal goes.
+    RoutingConnectionId, "connection"
+);
+define_id!(
+    /// Identifies a [`crate::routing::SendConfig`].
+    SendId, "send"
+);
 
 /// Source of fresh stable-ID raw values. Injected into
 /// [`crate::ProjectController`] so tests are fully deterministic.

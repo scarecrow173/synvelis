@@ -17,18 +17,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::Project};
 
-/// The only schema version this build reads or writes.
+/// The schema version this build writes. Reading accepts every version
+/// reachable through `crate::migration`'s ordered step registry.
 /// v2 adds `Project::control` (the issue-#40 Parameter Control Model);
 /// v3 replaces the clip anchor/offset pair with the normalized
 /// placement+playback contract and adds the comping registry (MD-A).
 /// v4 adds `Project::notes` — the clip-local note entities anchoring
 /// `ControlScope::Note` (issue #43). v5 adds `Project::midi_sources` —
 /// project-owned MIDI note sequences sharing the `SourceId` space
-/// (issue #52). New maps are `#[serde(default)]`, so an older body
-/// still deserializes; each version bump records the intentional
-/// format advance. v1/v2 snapshots are not migrated (PoC-stage format
-/// change).
-pub const SCHEMA_VERSION: u32 = 5;
+/// (issue #52). v6 adds `Project::routing` — the Semantic Routing
+/// Model (issue #104); v5 bodies are read through the ordered
+/// migration registry which projects the legacy clip→master route.
+/// New maps are `#[serde(default)]`, so an older body still
+/// deserializes; each version bump records the intentional format
+/// advance. v1–v4 snapshots are not migrated.
+pub const SCHEMA_VERSION: u32 = 6;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.

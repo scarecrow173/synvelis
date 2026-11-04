@@ -19,6 +19,7 @@ use crate::{
     recording_data::{
         CaptureSegment, CaptureStream, ClockEpoch, RecordingPass, RecordingSession, Take,
     },
+    routing::{RoutingModel, WELL_KNOWN_BASE, is_issuable_raw},
     tempo::{ProjectPpqn, TempoMapData},
     time::ProjectTime,
 };
@@ -376,6 +377,12 @@ pub struct Project {
     /// snapshots loadable.
     #[serde(default)]
     pub control: ControlModel,
+    /// The Semantic Routing Model — persisted signal-flow authority
+    /// (issue #104, schema v6). `#[serde(default)]` lets a v5 body
+    /// *parse*; it is not a migration — the v5→v6 step projects the
+    /// legacy routing explicitly (see `crate::migration`).
+    #[serde(default)]
+    pub routing: RoutingModel,
 }
 
 impl Project {
@@ -409,6 +416,7 @@ impl Project {
             comp: CompRegistry::default(),
             applied_imports: BTreeMap::new(),
             control: ControlModel::default(),
+            routing: RoutingModel::default(),
         }
     }
 
@@ -718,17 +726,25 @@ impl Project {
                 ),
             });
         }
-        Ok(())
+        // -- semantic routing model (issue #104) ----------------------
+        self.routing.validate(self)
     }
 
-    /// Largest generator-issued raw ID among every serialized entity
+    /// Largest generator-issuable raw ID among every serialized entity
     /// key — `None` when the project carries no issued entity. Entity
     /// identity is the map key, so key iteration covers the live IDs.
-    fn max_issued_id_raw(&self) -> Option<u128> {
+    /// Reserved well-known raw values (`>= WELL_KNOWN_BASE`, the
+    /// bootstrap master entities) are constants the generator never
+    /// issues — not "issued" IDs — so they do not push the watermark.
+    pub(crate) fn max_issuable_id_raw(&self) -> Option<u128> {
         macro_rules! fold {
             ($max:expr, $map:expr) => {
                 $max = $map.keys().fold($max, |acc: Option<u128>, id| {
-                    Some(acc.map_or_else(|| id.raw(), |m| m.max(id.raw())))
+                    if is_issuable_raw(id.raw()) {
+                        Some(acc.map_or_else(|| id.raw(), |m| m.max(id.raw())))
+                    } else {
+                        acc
+                    }
                 });
             };
         }
@@ -755,6 +771,14 @@ impl Project {
         fold!(max, self.control.lanes);
         fold!(max, self.control.sources);
         fold!(max, self.control.assignments);
+        // -- semantic routing model (issue #104) ----------------------
+        fold!(max, self.routing.buses);
+        fold!(max, self.routing.strips);
+        fold!(max, self.routing.processors);
+        fold!(max, self.routing.chains);
+        fold!(max, self.routing.ports);
+        fold!(max, self.routing.connections);
+        fold!(max, self.routing.sends);
         max
     }
 
@@ -765,12 +789,19 @@ impl Project {
     /// entity. Checked only at the load boundary: during `apply` the
     /// just-drawn IDs legitimately sit at/above the still-unstamped
     /// watermark. `project_id` is excluded — it is created outside the
-    /// generator.
+    /// generator. A watermark inside the reserved well-known range
+    /// would let the generator re-issue bootstrap constants.
     ///
     /// # Errors
     /// [`Error::Validation`] when the watermark cannot be authoritative.
     pub(crate) fn check_id_watermark(&self) -> Result<(), Error> {
-        if let Some(max) = self.max_issued_id_raw()
+        if self.id_watermark >= WELL_KNOWN_BASE {
+            return Err(Error::Validation(format!(
+                "id_watermark {} entered the reserved range",
+                self.id_watermark
+            )));
+        }
+        if let Some(max) = self.max_issuable_id_raw()
             && self.id_watermark <= max
         {
             return Err(Error::Validation(format!(
