@@ -13,11 +13,11 @@ use ruviform_media_core::{MediaTime, TimeBase};
 use ruviform_plugin_core::ParamWriteMeans;
 use stats_alloc::{INSTRUMENTED_SYSTEM, Region, StatsAlloc};
 use synvelis_project::{
-    AutomationLaneId, AutomationPoint, AutomationRegion, BeatPoint, BeatRange, ClipExtent,
-    ClipPlacement, ClipPlayback, ControlGraph, ControlScope, Interpolation, LaneId,
+    AutomationLaneId, AutomationPoint, AutomationRegion, AutomationTimeScope, BeatPoint, BeatRange,
+    ClipExtent, ClipPlacement, ClipPlayback, ControlGraph, ControlOwner, Interpolation, LaneId,
     ModulationAssignmentId, ModulationSourceId, MusicalDuration, MusicalTick, NoteId, ParamMapping,
-    ParameterTargetId, PlaybackMapping, Polarity, Project, SourceFrame, SourceId, SourceKind,
-    SourceRange, TargetCapability, TimeAnchor, Transform, ValueKind, lower_event,
+    ParameterRole, ParameterTargetId, PlaybackMapping, Polarity, Project, SourceFrame, SourceId,
+    SourceKind, SourceRange, TargetCapability, TimeAnchor, Transform, ValueKind, lower_event,
 };
 
 #[global_allocator]
@@ -51,7 +51,9 @@ fn fixture() -> (Project, ParameterTargetId, ParameterTargetId) {
             synvelis_project::ParameterTarget {
                 id,
                 name: "p".into(),
-                owner: ControlScope::Track(track),
+                owner: ControlOwner::Track(track),
+                role: ParameterRole::Generic,
+                time_scope: AutomationTimeScope::ProjectMusical,
                 kind: ValueKind::Continuous,
                 mapping: ParamMapping::Linear,
                 capability: Some(TargetCapability {
@@ -92,7 +94,7 @@ fn fixture() -> (Project, ParameterTargetId, ParameterTargetId) {
         src,
         synvelis_project::ModulationSource {
             id: src,
-            owner: ControlScope::Track(track),
+            owner: ControlOwner::Track(track),
             kind: SourceKind::Macro { value: 0.25 },
         },
     );
@@ -160,7 +162,9 @@ fn fixture() -> (Project, ParameterTargetId, ParameterTargetId) {
         synvelis_project::ParameterTarget {
             id: note_target,
             name: "pn".into(),
-            owner: ControlScope::Note(note_id),
+            owner: ControlOwner::Note(note_id),
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::NoteLocal,
             kind: ValueKind::Continuous,
             mapping: ParamMapping::Linear,
             capability: Some(TargetCapability {

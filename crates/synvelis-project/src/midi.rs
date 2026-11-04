@@ -118,7 +118,7 @@ impl TryFrom<MidiDivisionRepr> for MidiDivision {
 /// source-native ticks occupying `[start, start + len)`.
 ///
 /// Distinct from the clip-local [`crate::Note`], which anchors
-/// `ControlScope::Note` evaluation domains in clip-relative beats —
+/// `ControlOwner::Note` evaluation domains in clip-relative beats —
 /// a `MidiNote` is source payload shared by every clip that reads the
 /// source. Both draw IDs from the same [`NoteId`] space, but note
 /// addressing is always the `(SourceId, NoteId)` pair: editing ops

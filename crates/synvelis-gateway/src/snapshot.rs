@@ -23,9 +23,9 @@ use std::sync::{Arc, RwLock};
 
 use serde_json::{Map, Value, json};
 use synvelis_project::{
-    Asset, Clip, Comp, ControlScope, Lane, MidiSource, Note, ParameterTarget, PlaybackMapping,
-    Project, ProjectId, ProjectRange, ProjectRevision, Source, SourceState, TakeGroup, Track,
-    ValueKind,
+    Asset, Clip, Comp, ControlOwner, Lane, MidiSource, Note, ParameterTarget, PlaybackMapping,
+    Project, ProjectId, ProjectRange, ProjectRevision, Source, SourceState, StripOwner, TakeGroup,
+    Track, ValueKind,
 };
 
 use crate::context::{Completeness, FieldGroup, FieldSelection, ProjectedItem};
@@ -227,12 +227,30 @@ pub fn enumerate_kind(project: &Project, kind: ResourceKind) -> Vec<ResourceRef>
             .keys()
             .map(|id| ResourceRef::AutomationLane(*id))
             .collect(),
+        ResourceKind::Strip => project
+            .routing
+            .strips
+            .keys()
+            .map(|id| ResourceRef::Strip(*id))
+            .collect(),
+        ResourceKind::Send => project
+            .routing
+            .sends
+            .keys()
+            .map(|id| ResourceRef::Send(*id))
+            .collect(),
+        ResourceKind::Processor => project
+            .routing
+            .processors
+            .keys()
+            .map(|id| ResourceRef::Processor(*id))
+            .collect(),
     }
 }
 
 /// The kinds [`enumerate_kind`] walks for a whole-project selector,
 /// in their canonical emission order.
-pub const ENUMERATED_KINDS: [ResourceKind; 10] = [
+pub const ENUMERATED_KINDS: [ResourceKind; 13] = [
     ResourceKind::Track,
     ResourceKind::Lane,
     ResourceKind::Clip,
@@ -243,6 +261,9 @@ pub const ENUMERATED_KINDS: [ResourceKind; 10] = [
     ResourceKind::Comp,
     ResourceKind::ParameterTarget,
     ResourceKind::AutomationLane,
+    ResourceKind::Strip,
+    ResourceKind::Send,
+    ResourceKind::Processor,
 ];
 
 /// The scope fact set for `resource` inside `project` — `None` when
@@ -367,7 +388,7 @@ pub fn attributes(project: &Project, resource: &ResourceRef) -> Option<ResourceA
             let target = project.control.targets.get(id)?;
             attrs(
                 ResourceKind::ParameterTarget,
-                Some(control_scope_ref(&target.owner, project.project_id)),
+                Some(control_owner_ref(&target.owner, project.project_id)),
                 None,
                 vec![],
             )
@@ -381,19 +402,53 @@ pub fn attributes(project: &Project, resource: &ResourceRef) -> Option<ResourceA
                 vec![],
             )
         }
+        ResourceRef::Strip(id) => {
+            let strip = project.routing.strips.get(id)?;
+            let owner = match strip.owner {
+                StripOwner::Track(t) => ResourceRef::Track(t),
+                // A bus strip's logical owner is the bus; the resource
+                // model carries no bus ref so the project is the
+                // honest enclosing scope.
+                StripOwner::Bus(_) => ResourceRef::Project(project.project_id),
+            };
+            attrs(ResourceKind::Strip, Some(owner), None, vec![])
+        }
+        ResourceRef::Send(id) => {
+            let send = project.routing.sends.get(id)?;
+            attrs(
+                ResourceKind::Send,
+                Some(ResourceRef::Project(project.project_id)),
+                None,
+                send.gain_target
+                    .map(ResourceRef::ParameterTarget)
+                    .into_iter()
+                    .collect(),
+            )
+        }
+        ResourceRef::Processor(id) => {
+            let _proc = project.routing.processors.get(id)?;
+            let strip = project
+                .routing
+                .strip_of_processor(*id)
+                .map(ResourceRef::Strip);
+            attrs(ResourceKind::Processor, strip, None, vec![])
+        }
         // Foreign/absent ids: `Project` guarded on equality above,
         // `Source`/`Asset` on membership.
         ResourceRef::Project(_) | ResourceRef::Source(_) | ResourceRef::Asset(_) => return None,
     })
 }
 
-/// A [`ControlScope`] as the scope-fact owner reference.
-fn control_scope_ref(scope: &ControlScope, project: ProjectId) -> ResourceRef {
-    match scope {
-        ControlScope::Track(id) => ResourceRef::Track(*id),
-        ControlScope::Clip(id) => ResourceRef::Clip(*id),
-        ControlScope::Note(id) => ResourceRef::Note(*id),
-        ControlScope::Project => ResourceRef::Project(project),
+/// A [`ControlOwner`] as the scope-fact owner reference.
+fn control_owner_ref(owner: &ControlOwner, project: ProjectId) -> ResourceRef {
+    match owner {
+        ControlOwner::Project => ResourceRef::Project(project),
+        ControlOwner::Track(id) => ResourceRef::Track(*id),
+        ControlOwner::Strip(id) => ResourceRef::Strip(*id),
+        ControlOwner::Send(id) => ResourceRef::Send(*id),
+        ControlOwner::Processor(id) => ResourceRef::Processor(*id),
+        ControlOwner::Clip(id) => ResourceRef::Clip(*id),
+        ControlOwner::Note(id) => ResourceRef::Note(*id),
     }
 }
 
@@ -647,6 +702,8 @@ fn metadata_group(project: &Project, resource: &ResourceRef) -> Option<Value> {
         ResourceRef::ParameterTarget(id) => {
             let ParameterTarget {
                 owner,
+                role,
+                time_scope,
                 name,
                 kind,
                 base,
@@ -654,7 +711,9 @@ fn metadata_group(project: &Project, resource: &ResourceRef) -> Option<Value> {
             } = project.control.targets.get(id)?;
             json!({
                 "name": name,
-                "owner": control_scope_json(owner),
+                "owner": control_owner_json(owner),
+                "role": role,
+                "time_scope": time_scope,
                 "kind": value_kind_name(*kind),
                 "base": base,
             })
@@ -664,6 +723,35 @@ fn metadata_group(project: &Project, resource: &ResourceRef) -> Option<Value> {
             json!({
                 "target": lane.target.to_tagged(),
                 "region_count": lane.regions.len(),
+            })
+        }
+        ResourceRef::Strip(id) => {
+            let strip = project.routing.strips.get(id)?;
+            let owner = match strip.owner {
+                StripOwner::Track(t) => json!({"owner": "track", "id": t.to_tagged()}),
+                StripOwner::Bus(b) => json!({"owner": "bus", "id": b.to_tagged()}),
+            };
+            json!({
+                "owner": owner,
+                "chain": strip.chain.to_tagged(),
+                "port_count": strip.port_ids.len(),
+            })
+        }
+        ResourceRef::Send(id) => {
+            let send = project.routing.sends.get(id)?;
+            json!({
+                "connection": send.connection.to_tagged(),
+                "gain_target": send.gain_target.map(synvelis_project::ParameterTargetId::to_tagged),
+            })
+        }
+        ResourceRef::Processor(id) => {
+            let proc_ = project.routing.processors.get(id)?;
+            json!({
+                "name": proc_.name,
+                "strip": project
+                    .routing
+                    .strip_of_processor(*id)
+                    .map(synvelis_project::StripId::to_tagged),
             })
         }
         // `ResourceRef::Project` with a foreign id — the project arm
@@ -871,12 +959,15 @@ fn project_range_json(range: &ProjectRange) -> Value {
     }
 }
 
-fn control_scope_json(scope: &ControlScope) -> Value {
-    match scope {
-        ControlScope::Track(id) => json!({"scope": "track", "id": id.to_tagged()}),
-        ControlScope::Clip(id) => json!({"scope": "clip", "id": id.to_tagged()}),
-        ControlScope::Note(id) => json!({"scope": "note", "id": id.to_tagged()}),
-        ControlScope::Project => json!({"scope": "project"}),
+fn control_owner_json(owner: &ControlOwner) -> Value {
+    match owner {
+        ControlOwner::Project => json!({"owner": "project"}),
+        ControlOwner::Track(id) => json!({"owner": "track", "id": id.to_tagged()}),
+        ControlOwner::Strip(id) => json!({"owner": "strip", "id": id.to_tagged()}),
+        ControlOwner::Send(id) => json!({"owner": "send", "id": id.to_tagged()}),
+        ControlOwner::Processor(id) => json!({"owner": "processor", "id": id.to_tagged()}),
+        ControlOwner::Clip(id) => json!({"owner": "clip", "id": id.to_tagged()}),
+        ControlOwner::Note(id) => json!({"owner": "note", "id": id.to_tagged()}),
     }
 }
 
@@ -895,5 +986,58 @@ const fn value_kind_name(kind: ValueKind) -> &'static str {
         ValueKind::Stepped { .. } => "stepped",
         ValueKind::Boolean => "boolean",
         ValueKind::Choice { .. } => "choice",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use synvelis_project::{
+        AutomationTimeScope, ClipId, ControlOwner, NoteId, ParamMapping, ParameterRole,
+        ParameterTargetId, ProcessorId, SendId, StripId, TrackId,
+    };
+
+    #[test]
+    fn control_owner_json_names_every_owner_kind() {
+        for (owner, name) in [
+            (ControlOwner::Project, "project"),
+            (ControlOwner::Track(TrackId::new(1)), "track"),
+            (ControlOwner::Strip(StripId::new(2)), "strip"),
+            (ControlOwner::Send(SendId::new(3)), "send"),
+            (ControlOwner::Processor(ProcessorId::new(4)), "processor"),
+            (ControlOwner::Clip(ClipId::new(5)), "clip"),
+            (ControlOwner::Note(NoteId::new(6)), "note"),
+        ] {
+            assert_eq!(control_owner_json(&owner)["owner"], name);
+        }
+    }
+
+    #[test]
+    fn target_metadata_projects_owner_role_and_time_scope() {
+        let mut p = Project::new(ProjectId::new(0), "p");
+        let strip = StripId::new(7);
+        let target = ParameterTargetId::new(8);
+        p.control.targets.insert(
+            target,
+            ParameterTarget {
+                id: target,
+                owner: ControlOwner::Strip(strip),
+                role: ParameterRole::Fader,
+                time_scope: AutomationTimeScope::ProjectMusical,
+                name: "fader".into(),
+                kind: ValueKind::Continuous,
+                mapping: ParamMapping::Linear,
+                capability: None,
+                base: 0.5,
+            },
+        );
+        let meta = metadata_group(&p, &ResourceRef::ParameterTarget(target)).unwrap();
+        assert_eq!(meta["owner"]["owner"], "strip");
+        assert_eq!(meta["owner"]["id"], strip.to_tagged());
+        assert_eq!(meta["role"], "fader");
+        assert_eq!(meta["time_scope"], "project-musical");
+        // The scope-fact owner resolves through `control_owner_ref`.
+        let attrs = attributes(&p, &ResourceRef::ParameterTarget(target)).unwrap();
+        assert_eq!(attrs.owner, Some(ResourceRef::Strip(strip)));
     }
 }

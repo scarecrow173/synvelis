@@ -594,7 +594,8 @@ impl RoutingModel {
     }
 
     /// The strip that owns `processor` through its chain.
-    fn strip_of_processor(&self, processor_id: ProcessorId) -> Option<StripId> {
+    #[must_use]
+    pub fn strip_of_processor(&self, processor_id: ProcessorId) -> Option<StripId> {
         self.chains
             .values()
             .find(|c| c.processors.contains(&processor_id))

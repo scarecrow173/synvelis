@@ -11,12 +11,12 @@ use ruviform_media_core::{
 };
 use ruviform_plugin_core::{ParamFlags, ParamWriteMeans, ParamWriteRejection, check_param_write};
 use synvelis_project::{
-    AutomationLaneId, AutomationPoint, AutomationRegion, BeatPoint, BeatRange, ClipExtent, ClipId,
-    ClipPlacement, ClipPlayback, ConflictPolicy, ControlGraph, ControlScope, CounterIdGenerator,
-    Error, Interpolation, LfoShape, MusicalDuration, MusicalTick, ParamMapping, ParameterTargetId,
-    PlaybackMapping, Polarity, Project, ProjectController, ProjectId, ProjectOp, ProjectRevision,
-    ReferenceSource, SourceFrame, SourceKind, SourceRange, TargetCapability, TimeAnchor, TrackId,
-    Transform, ValueKind, evaluate_control,
+    AutomationLaneId, AutomationPoint, AutomationRegion, AutomationTimeScope, BeatPoint, BeatRange,
+    ClipExtent, ClipId, ClipPlacement, ClipPlayback, ConflictPolicy, ControlGraph, ControlOwner,
+    CounterIdGenerator, Error, Interpolation, LfoShape, MusicalDuration, MusicalTick, ParamMapping,
+    ParameterRole, ParameterTargetId, PlaybackMapping, Polarity, Project, ProjectController,
+    ProjectId, ProjectOp, ProjectRevision, ReferenceSource, SourceFrame, SourceKind, SourceRange,
+    TargetCapability, TimeAnchor, TrackId, Transform, ValueKind, evaluate_control,
 };
 use synvelis_workspace::{
     AutomationMode, ControlSession, FakeWindowHost, GestureEnd, Lowered, ObservationState,
@@ -86,7 +86,9 @@ fn add_track_target(ws: &mut Ws, name: &str, base: f64) -> (TrackId, ParameterTa
         ws,
         ProjectOp::AddParameterTarget {
             name: name.into(),
-            owner: ControlScope::Track(track),
+            owner: ControlOwner::Track(track),
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::ProjectMusical,
             kind: ValueKind::Continuous,
             mapping: ParamMapping::Linear,
             capability: None,
@@ -115,7 +117,9 @@ fn add_target_with(
         ws,
         ProjectOp::AddParameterTarget {
             name: "p".into(),
-            owner: ControlScope::Project,
+            owner: ControlOwner::Project,
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::ProjectMusical,
             kind,
             mapping,
             capability,
@@ -140,7 +144,7 @@ fn add_macro_source(ws: &mut Ws, value: f64) -> synvelis_project::ModulationSour
     apply(
         ws,
         ProjectOp::AddModulationSource {
-            owner: ControlScope::Project,
+            owner: ControlOwner::Project,
             kind: SourceKind::Macro { value },
         },
     );
@@ -292,7 +296,9 @@ fn pc_a_02_scope_separation_clip_follows_move() {
         &mut ws,
         ProjectOp::AddParameterTarget {
             name: "clip-env".into(),
-            owner: ControlScope::Clip(clip),
+            owner: ControlOwner::Clip(clip),
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::ClipLocal,
             kind: ValueKind::Continuous,
             mapping: ParamMapping::Linear,
             capability: None,
@@ -338,7 +344,9 @@ fn pc_a_02_scope_separation_clip_follows_move() {
             &mut ws,
             ProjectOp::AddParameterTarget {
                 name: "note-env".into(),
-                owner: ControlScope::Note(synvelis_project::NoteId::new(1)),
+                owner: ControlOwner::Note(synvelis_project::NoteId::new(1)),
+                role: ParameterRole::Generic,
+                time_scope: AutomationTimeScope::NoteLocal,
                 kind: ValueKind::Continuous,
                 mapping: ParamMapping::Linear,
                 capability: None,
@@ -668,7 +676,7 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
     apply(
         &mut ws,
         ProjectOp::AddModulationSource {
-            owner: ControlScope::Project,
+            owner: ControlOwner::Project,
             kind: SourceKind::Lfo {
                 rate: bp(1),
                 shape: LfoShape::Sine,
@@ -1093,7 +1101,9 @@ fn pc_a_07_capability_honesty() {
             &mut ws,
             ProjectOp::AddParameterTarget {
                 name: "bad".into(),
-                owner: ControlScope::Project,
+                owner: ControlOwner::Project,
+                role: ParameterRole::Generic,
+                time_scope: AutomationTimeScope::ProjectMusical,
                 kind: ValueKind::Continuous,
                 mapping: ParamMapping::Exponential,
                 capability: Some(caps(ParamFlags::AUTOMATABLE, -1.0, 1.0)),

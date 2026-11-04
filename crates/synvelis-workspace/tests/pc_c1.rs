@@ -10,10 +10,11 @@
 
 use ruviform_media_core::ClockEpochId;
 use synvelis_project::{
-    AutomationLaneId, AutomationPoint, BeatPoint, ClipExtent, ClipId, ClipPlacement, ClipPlayback,
-    ControlScope, CounterIdGenerator, MusicalDuration, MusicalTick, NoteId, ParamMapping,
-    ParameterTargetId, PlaybackMapping, Project, ProjectController, ProjectId, ProjectOp,
-    ProjectRevision, SourceFrame, SourceRange, TimeAnchor, TrackId, ValueKind,
+    AutomationLaneId, AutomationPoint, AutomationTimeScope, BeatPoint, ClipExtent, ClipId,
+    ClipPlacement, ClipPlayback, ControlOwner, CounterIdGenerator, MusicalDuration, MusicalTick,
+    NoteId, ParamMapping, ParameterRole, ParameterTargetId, PlaybackMapping, Project,
+    ProjectController, ProjectId, ProjectOp, ProjectRevision, SourceFrame, SourceRange, TimeAnchor,
+    TrackId, ValueKind,
 };
 use synvelis_workspace::{
     AutomationMode, FakeWindowHost, PreparedRecordingCommit, ProjectSession, RecordCommitError,
@@ -53,7 +54,9 @@ fn add_track_target(ws: &mut Ws, name: &str, base: f64) -> (TrackId, ParameterTa
         ws,
         ProjectOp::AddParameterTarget {
             name: name.into(),
-            owner: ControlScope::Track(track),
+            owner: ControlOwner::Track(track),
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::ProjectMusical,
             kind: ValueKind::Continuous,
             mapping: ParamMapping::Linear,
             capability: None,
@@ -811,7 +814,9 @@ fn rec_c1_06_scope_epoch_and_tempo_contexts() {
         &mut ws,
         ProjectOp::AddParameterTarget {
             name: "clip-env".into(),
-            owner: ControlScope::Clip(clip),
+            owner: ControlOwner::Clip(clip),
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::ClipLocal,
             kind: ValueKind::Continuous,
             mapping: ParamMapping::Linear,
             capability: None,
@@ -831,7 +836,9 @@ fn rec_c1_06_scope_epoch_and_tempo_contexts() {
         &mut ws,
         ProjectOp::AddParameterTarget {
             name: "note-expr".into(),
-            owner: ControlScope::Note(note),
+            owner: ControlOwner::Note(note),
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::NoteLocal,
             kind: ValueKind::Continuous,
             mapping: ParamMapping::Linear,
             capability: None,

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     comp::CompRegistry,
-    control::{BeatPoint, ControlModel, ControlScope},
+    control::{BeatPoint, ControlModel, ControlOwner},
     error::Error,
     id::{
         AssetId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, ImportId, LaneId, NoteId,
@@ -192,7 +192,7 @@ pub struct Clip {
 }
 
 /// A note: a clip-local timed entity that anchors note-local
-/// expression scope (`ControlScope::Note`).
+/// expression scope (`ControlOwner::Note`).
 ///
 /// `start`/`len` are clip-relative beats — the note follows its owning
 /// clip's musical anchor, so `MoveClip` shifts the evaluation domain
@@ -343,7 +343,7 @@ pub struct Project {
     pub lanes: BTreeMap<LaneId, Lane>,
     /// Clips by ID.
     pub clips: BTreeMap<ClipId, Clip>,
-    /// Notes by ID — clip-local entities anchoring `ControlScope::Note`
+    /// Notes by ID — clip-local entities anchoring `ControlOwner::Note`
     /// evaluation domains (issue #43). `#[serde(default)]` lets a v3
     /// body deserialize; `load()` still requires schema v5.
     #[serde(default)]
@@ -644,21 +644,16 @@ impl Project {
             }
         }
         crate::comp::validate_registry(self)?;
-        // -- parameter control model (issue #40) ----------------------
+        // -- parameter control model (issue #40, issue #121) -----------
         let ctl = &self.control;
         for target in ctl.targets.values() {
-            match target.owner {
-                ControlScope::Track(id) if !self.tracks.contains_key(&id) => {
-                    return Err(Error::NotFound(format!("track {id}")));
-                }
-                ControlScope::Clip(id) if !self.clips.contains_key(&id) => {
-                    return Err(Error::NotFound(format!("clip {id}")));
-                }
-                ControlScope::Note(id) if !self.notes.contains_key(&id) => {
-                    return Err(Error::NotFound(format!("note {id}")));
-                }
-                _ => {}
-            }
+            crate::control::validate_control_binding(
+                self,
+                target.owner,
+                target.role,
+                target.time_scope,
+                Some(target.id),
+            )?;
             target
                 .kind
                 .validate()
@@ -674,22 +669,27 @@ impl Project {
             }
         }
         for source in ctl.sources.values() {
-            match source.owner {
-                ControlScope::Track(id) if !self.tracks.contains_key(&id) => {
-                    return Err(Error::NotFound(format!("track {id}")));
-                }
-                ControlScope::Clip(id) if !self.clips.contains_key(&id) => {
-                    return Err(Error::NotFound(format!("clip {id}")));
-                }
-                ControlScope::Note(id) if !self.notes.contains_key(&id) => {
-                    return Err(Error::NotFound(format!("note {id}")));
-                }
-                _ => {}
-            }
+            crate::control::validate_control_owner(self, source.owner)?;
             source
                 .kind
                 .validate()
                 .map_err(|e| Error::Validation(format!("mod source {}: {e}", source.id)))?;
+        }
+        // Send gain bindings must reference targets the send itself
+        // owns (issue #121 owner mapping).
+        for send in self.routing.sends.values() {
+            if let Some(target_id) = send.gain_target {
+                let target = ctl
+                    .targets
+                    .get(&target_id)
+                    .ok_or_else(|| Error::NotFound(format!("param {target_id}")))?;
+                if target.owner != ControlOwner::Send(send.id) {
+                    return Err(Error::Validation(format!(
+                        "send {} gain target {} is not send-owned",
+                        send.id, target_id
+                    )));
+                }
+            }
         }
         for lane in ctl.lanes.values() {
             if !ctl.targets.contains_key(&lane.target) {

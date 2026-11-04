@@ -28,13 +28,13 @@ use ruviform_plugin_core::{
     ParamEvent, ParamFlags, ParamId, ParamInfo, ParamValue, ParamWriteMeans, TimedParamEvent,
     check_param_write,
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error as _};
 
 use crate::{
     error::Error,
     id::{
         AutomationLaneId, ClipId, ModulationAssignmentId, ModulationSourceId, NoteId,
-        ParameterTargetId, TrackId,
+        ParameterTargetId, ProcessorId, SendId, StripId, TrackId,
     },
     placement::{ClipExtent, TimeAnchor},
     project::Project,
@@ -202,27 +202,235 @@ fn beat_diff_f64(a: BeatPoint, b: BeatPoint) -> f64 {
 // ownership scope + target description
 // ---------------------------------------------------------------------------
 
-/// Which entity owns a control target / source — the scope determines
-/// the time coordinate its points are expressed in.
+/// The entity that owns a control target / source (issue #121).
 ///
-/// - `Track` / `Project` — project musical time (beats on the tempo map).
-/// - `Clip` — clip-relative beats: point `p` evaluates at project
-///   position `clip.start + p` while the clip is musically anchored.
-/// - `Note` — note-relative beats: point `p` evaluates at project
-///   position `clip.start + note.start + p` while the owning clip is
-///   musically anchored. Outside the note's `[start, start+len)` domain
-///   evaluation reports [`Error::ScopeUnavailable`] honestly.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "scope", content = "id", deny_unknown_fields)]
-pub enum ControlScope {
-    /// Track/project-time owned parameter.
-    Track(TrackId),
-    /// Clip-local parameter; coordinates are clip-relative beats.
-    Clip(ClipId),
-    /// Note-local parameter; coordinates are note-relative beats.
-    Note(NoteId),
+/// Ownership is *only* about identity/lifecycle — the time coordinate
+/// of a target's automation is declared separately by
+/// [`AutomationTimeScope`], replacing the legacy `ControlScope` which
+/// conflated both responsibilities.
+///
+/// There is deliberately no `Bus` variant: a bus's audio parameters are
+/// bound to the [`StripId`] its `StripOwner::Bus(BusId)` names — the
+/// strip is the single DSP authority.
+///
+/// **Wire contract:** serialized as `{"owner": "<Variant>", "id":
+/// "<tagged-id>"}` (no `id` for `Project`). Deserialization also
+/// accepts the legacy v6 `{"scope": ...}` tag so the v6→v7 migration
+/// step receives a typed `Project` — this is the reader-side migration
+/// boundary, not a runtime compatibility layer; serialization only
+/// ever writes the new form.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "owner", content = "id", deny_unknown_fields)]
+pub enum ControlOwner {
     /// Project-global parameter.
     Project,
+    /// Production track's parameter (container owner).
+    Track(TrackId),
+    /// Channel strip's parameter — fader/pan/mute/solo and bus DSP
+    /// bindings (the strip may be `StripOwner::Track` or
+    /// `StripOwner::Bus` owned).
+    Strip(StripId),
+    /// Send-owned parameter — the send's level target.
+    Send(SendId),
+    /// Processor-owned parameter (plugin param binding).
+    Processor(ProcessorId),
+    /// Clip-owned parameter.
+    Clip(ClipId),
+    /// Note-owned parameter.
+    Note(NoteId),
+}
+
+impl<'de> Deserialize<'de> for ControlOwner {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Repr {
+            /// Variant name — the migration boundary accepts the legacy
+            /// v6 `scope` tag as well as the current `owner` tag.
+            #[serde(alias = "scope")]
+            owner: String,
+            /// Tagged entity id (`track-…`, `strip-…`, …).
+            #[serde(default)]
+            id: Option<String>,
+        }
+        fn tagged<T, E>(
+            id: Option<String>,
+            parse: impl Fn(&str) -> Result<T, Error>,
+        ) -> Result<T, E>
+        where
+            E: serde::de::Error,
+        {
+            let raw = id.ok_or_else(|| E::custom("control owner missing id"))?;
+            parse(&raw).map_err(E::custom)
+        }
+        let repr = Repr::deserialize(deserializer)?;
+        let unknown = || D::Error::custom(format!("unknown control owner {:?}", repr.owner));
+        Ok(match repr.owner.as_str() {
+            "Project" => Self::Project,
+            "Track" => Self::Track(tagged::<_, D::Error>(repr.id, TrackId::from_tagged)?),
+            "Strip" => Self::Strip(tagged::<_, D::Error>(repr.id, StripId::from_tagged)?),
+            "Send" => Self::Send(tagged::<_, D::Error>(repr.id, SendId::from_tagged)?),
+            "Processor" => {
+                Self::Processor(tagged::<_, D::Error>(repr.id, ProcessorId::from_tagged)?)
+            }
+            "Clip" => Self::Clip(tagged::<_, D::Error>(repr.id, ClipId::from_tagged)?),
+            "Note" => Self::Note(tagged::<_, D::Error>(repr.id, NoteId::from_tagged)?),
+            _ => return Err(unknown()),
+        })
+    }
+}
+
+/// The time coordinate a target's automation points are expressed in
+/// (issue #121) — declared independently of [`ControlOwner`].
+///
+/// - `ProjectMusical` — project musical beats on the tempo map
+///   (points evaluate at the project position as-is).
+/// - `ProjectAbsolute` — absolute project time. The type is introduced
+///   here so persisted bindings can name it; evaluation reports
+///   [`Error::ScopeUnavailable`] honestly until the absolute-time point
+///   model lands (no silent beats reinterpretation).
+/// - `ClipLocal` — clip-relative beats: point `p` evaluates at project
+///   position `clip.start + p` while the clip is musically anchored.
+///   Only valid with [`ControlOwner::Clip`].
+/// - `NoteLocal` — note-relative beats: point `p` evaluates at project
+///   position `clip.start + note.start + p` inside the note's
+///   `[start, start+len)` domain. Only valid with
+///   [`ControlOwner::Note`]. Outside the domain evaluation reports
+///   [`Error::ScopeUnavailable`].
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AutomationTimeScope {
+    /// Project musical beats (default and only value a v6 body derives).
+    #[default]
+    ProjectMusical,
+    /// Absolute project time — declared, resolution unavailable.
+    ProjectAbsolute,
+    /// Clip-relative beats (`ControlOwner::Clip` only).
+    ClipLocal,
+    /// Note-relative beats (`ControlOwner::Note` only).
+    NoteLocal,
+}
+
+/// The semantic role a [`ParameterTarget`] plays for its owner
+/// (issue #121 `ParameterBinding::role`).
+///
+/// `Fader`/`Pan`/`Mute`/`Solo`/`SendLevel` are *singleton* roles: at
+/// most one target per owner (`validate_references` and the add-op
+/// reject duplicates). `Generic` (user/plugin params and everything a
+/// v6 body migrates to) and `ProcessorParam` (a processor carries many
+/// plugin params) may coexist in any number.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ParameterRole {
+    /// Untyped parameter — migrated v6 targets and free-form params.
+    #[default]
+    Generic,
+    /// The strip's fader (one per strip).
+    Fader,
+    /// The strip's pan (one per strip).
+    Pan,
+    /// The strip's mute (one per strip).
+    Mute,
+    /// The strip's solo (one per strip).
+    Solo,
+    /// The send's level (one per send).
+    SendLevel,
+    /// A processor's plugin parameter (many per processor).
+    ProcessorParam,
+}
+
+impl ParameterRole {
+    /// Whether at most one target of this role may exist per owner.
+    #[must_use]
+    pub const fn is_singleton(self) -> bool {
+        matches!(
+            self,
+            Self::Fader | Self::Pan | Self::Mute | Self::Solo | Self::SendLevel
+        )
+    }
+}
+
+/// Whether `owner` may carry `time_scope`: local scopes bind to their
+/// matching owner kind; project-time scopes bind to every other owner.
+const fn time_scope_allowed(owner: ControlOwner, time_scope: AutomationTimeScope) -> bool {
+    match time_scope {
+        AutomationTimeScope::ClipLocal => matches!(owner, ControlOwner::Clip(_)),
+        AutomationTimeScope::NoteLocal => matches!(owner, ControlOwner::Note(_)),
+        AutomationTimeScope::ProjectMusical | AutomationTimeScope::ProjectAbsolute => {
+            !matches!(owner, ControlOwner::Clip(_) | ControlOwner::Note(_))
+        }
+    }
+}
+
+/// Validates that `owner` references an existing entity — the shared
+/// existence oracle for targets and modulation sources, used by both
+/// write-time op checks and [`Project::validate_references`].
+///
+/// # Errors
+/// [`Error::NotFound`] when the referenced entity does not exist.
+pub fn validate_control_owner(project: &Project, owner: ControlOwner) -> Result<(), Error> {
+    match owner {
+        ControlOwner::Track(id) if !project.tracks.contains_key(&id) => {
+            Err(Error::NotFound(format!("track {id}")))
+        }
+        ControlOwner::Strip(id) if !project.routing.strips.contains_key(&id) => {
+            Err(Error::NotFound(format!("strip {id}")))
+        }
+        ControlOwner::Send(id) if !project.routing.sends.contains_key(&id) => {
+            Err(Error::NotFound(format!("send {id}")))
+        }
+        ControlOwner::Processor(id) if !project.routing.processors.contains_key(&id) => {
+            Err(Error::NotFound(format!("processor {id}")))
+        }
+        ControlOwner::Clip(id) if !project.clips.contains_key(&id) => {
+            Err(Error::NotFound(format!("clip {id}")))
+        }
+        ControlOwner::Note(id) if !project.notes.contains_key(&id) => {
+            Err(Error::NotFound(format!("note {id}")))
+        }
+        // `Project` is always valid; every other variant resolved by
+        // the guards above.
+        _ => Ok(()),
+    }
+}
+
+/// Validates a target's full binding: owner existence, the
+/// owner×time-scope matrix, and singleton `(owner, role)` uniqueness.
+/// `exclude` names the target being validated so re-validation of an
+/// existing binding does not collide with itself.
+///
+/// # Errors
+/// [`Error::NotFound`] for a missing owner entity,
+/// [`Error::Validation`] for an incoherent combination or a duplicate
+/// singleton role.
+pub fn validate_control_binding(
+    project: &Project,
+    owner: ControlOwner,
+    role: ParameterRole,
+    time_scope: AutomationTimeScope,
+    exclude: Option<ParameterTargetId>,
+) -> Result<(), Error> {
+    validate_control_owner(project, owner)?;
+    if !time_scope_allowed(owner, time_scope) {
+        return Err(Error::Validation(format!(
+            "owner {owner:?} cannot carry time scope {time_scope:?}"
+        )));
+    }
+    if role.is_singleton()
+        && project
+            .control
+            .targets
+            .values()
+            .any(|t| Some(t.id) != exclude && t.owner == owner && t.role == role)
+    {
+        return Err(Error::Validation(format!(
+            "owner {owner:?} already owns a {role:?} target"
+        )));
+    }
+    Ok(())
 }
 
 /// The quantized/discrete behavior of a target's value domain.
@@ -378,13 +586,24 @@ impl TargetCapability {
 /// bind to. `base` is the normalized manual/default value
 /// (`[0, 1]`, finite) used when no automation or manual gesture
 /// overrides it.
+///
+/// `owner` + `role` + `time_scope` realize the issue-#121
+/// `ParameterBinding` concept as flat persisted fields.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ParameterTarget {
     /// Stable ID.
     pub id: ParameterTargetId,
-    /// Owning scope (defines the time coordinate of its automation).
-    pub owner: ControlScope,
+    /// Owning entity (identity/lifecycle only).
+    pub owner: ControlOwner,
+    /// Semantic role — singleton roles are unique per owner.
+    /// `#[serde(default)]`: absent in v6 bodies, derived by migration.
+    #[serde(default)]
+    pub role: ParameterRole,
+    /// Time coordinate of this target's automation points.
+    /// `#[serde(default)]`: absent in v6 bodies, derived by migration.
+    #[serde(default)]
+    pub time_scope: AutomationTimeScope,
     /// Display name.
     pub name: String,
     /// Discrete/continuous value domain.
@@ -617,14 +836,17 @@ impl SourceKind {
     }
 }
 
-/// A modulation signal provider owned by a scope.
+/// A modulation signal provider owned by an entity. The owner carries
+/// no `time_scope`: the source signal is evaluated at the *assigned
+/// target's* resolved coordinate (the established evaluation
+/// contract), so ownership is identity/lifecycle only.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModulationSource {
     /// Stable ID.
     pub id: ModulationSourceId,
-    /// Owning scope.
-    pub owner: ControlScope,
+    /// Owning entity.
+    pub owner: ControlOwner,
     /// Signal definition.
     pub kind: SourceKind,
 }
@@ -892,68 +1114,99 @@ pub struct ControlEvaluation {
     pub quantized: bool,
 }
 
-/// Resolves a scope's evaluation coordinate from a project beat
-/// position. Clip scope maps project → clip-relative beats through the
-/// clip's current anchor (so `MoveClip` shifts evaluation without
-/// rewriting points); `Note` scope resolves project → clip-relative →
-/// note-relative beats through the owning clip's current anchor.
+/// Resolves a target's evaluation coordinate from a project beat
+/// position under its declared [`AutomationTimeScope`]. `ClipLocal`
+/// maps project → clip-relative beats through the owner's current
+/// anchor (so `MoveClip` shifts evaluation without rewriting points);
+/// `NoteLocal` resolves project → clip-relative → note-relative beats
+/// through the owning clip's current anchor.
 ///
 /// # Errors
 /// [`Error::ScopeUnavailable`] for media-anchored clips, positions
-/// outside the clip's or note's domain, [`Error::NotFound`] for
-/// missing clips/notes.
+/// outside the clip's or note's domain, and for `ProjectAbsolute`
+/// (absolute-time resolution is not yet supported);
+/// [`Error::NotFound`] for missing clips/notes; [`Error::Validation`]
+/// when the owner/time-scope combination is incoherent — an invariant
+/// `validate_control_binding` rejects before evaluation.
 pub fn resolve_scope_pos(
     project: &Project,
-    scope: ControlScope,
+    owner: ControlOwner,
+    time_scope: AutomationTimeScope,
     pos: BeatPoint,
 ) -> Result<BeatPoint, Error> {
-    match scope {
-        ControlScope::Track(_) | ControlScope::Project => Ok(pos),
-        ControlScope::Note(id) => {
-            let note = project
-                .notes
-                .get(&id)
-                .ok_or_else(|| Error::NotFound(format!("note {id}")))?;
-            let clip_pos = resolve_scope_pos(project, ControlScope::Clip(note.clip), pos)?;
-            let note_end = note.start.checked_add(note.len)?;
-            if clip_pos < note.start || clip_pos >= note_end {
-                return Err(Error::ScopeUnavailable {
-                    detail: format!("position {pos} outside note {id} range"),
-                });
+    match time_scope {
+        AutomationTimeScope::ProjectMusical => match owner {
+            ControlOwner::Clip(_) | ControlOwner::Note(_) => Err(Error::Validation(
+                "local-scope owner cannot carry a project time scope".into(),
+            )),
+            _ => Ok(pos),
+        },
+        AutomationTimeScope::ProjectAbsolute => Err(Error::ScopeUnavailable {
+            detail: "absolute time scope is not yet supported".into(),
+        }),
+        AutomationTimeScope::ClipLocal => match owner {
+            ControlOwner::Clip(clip_id) => resolve_clip_pos(project, clip_id, pos),
+            _ => Err(Error::Validation(
+                "clip-local scope requires a clip owner".into(),
+            )),
+        },
+        AutomationTimeScope::NoteLocal => match owner {
+            ControlOwner::Note(id) => {
+                let note = project
+                    .notes
+                    .get(&id)
+                    .ok_or_else(|| Error::NotFound(format!("note {id}")))?;
+                let clip_pos = resolve_clip_pos(project, note.clip, pos)?;
+                let note_end = note.start.checked_add(note.len)?;
+                if clip_pos < note.start || clip_pos >= note_end {
+                    return Err(Error::ScopeUnavailable {
+                        detail: format!("position {pos} outside note {id} range"),
+                    });
+                }
+                clip_pos
+                    .checked_sub(note.start)
+                    .map_err(|_| Error::Overflow)
             }
-            clip_pos
-                .checked_sub(note.start)
-                .map_err(|_| Error::Overflow)
-        }
-        ControlScope::Clip(clip_id) => {
-            let clip = project
-                .clips
-                .get(&clip_id)
-                .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
-            let (TimeAnchor::Musical(start_tick), ClipExtent::Musical(dur)) =
-                (clip.placement.anchor, clip.placement.extent)
-            else {
-                return Err(Error::ScopeUnavailable {
-                    detail: format!("clip {clip_id} is not musically anchored"),
-                });
-            };
-            let end_tick = start_tick.checked_add(dur.value())?;
-            let ppqn = Ppqn::new(u16::try_from(project.ppqn.0).map_err(|_| Error::Overflow)?)
-                .map_err(|e| Error::Validation(format!("ppqn: {e:?}")))?;
-            let start = TickPosition::new(Tick::new(start_tick.value()), ppqn).to_beat();
-            let end = TickPosition::new(Tick::new(end_tick.value()), ppqn).to_beat();
-            let pos_b = pos.to_beat();
-            if pos_b < start || pos_b >= end {
-                return Err(Error::ScopeUnavailable {
-                    detail: format!("position {pos} outside clip {clip_id} range"),
-                });
-            }
-            pos_b
-                .checked_sub(start)
-                .map(BeatPoint::from_beat)
-                .map_err(|_| Error::Overflow)
-        }
+            _ => Err(Error::Validation(
+                "note-local scope requires a note owner".into(),
+            )),
+        },
     }
+}
+
+/// Project beat position → clip-relative beats through the clip's
+/// current musical anchor.
+fn resolve_clip_pos(
+    project: &Project,
+    clip_id: ClipId,
+    pos: BeatPoint,
+) -> Result<BeatPoint, Error> {
+    let clip = project
+        .clips
+        .get(&clip_id)
+        .ok_or_else(|| Error::NotFound(format!("clip {clip_id}")))?;
+    let (TimeAnchor::Musical(start_tick), ClipExtent::Musical(dur)) =
+        (clip.placement.anchor, clip.placement.extent)
+    else {
+        return Err(Error::ScopeUnavailable {
+            detail: format!("clip {clip_id} is not musically anchored"),
+        });
+    };
+    let end_tick = start_tick.checked_add(dur.value())?;
+    let ppqn = Ppqn::new(u16::try_from(project.ppqn.0).map_err(|_| Error::Overflow)?)
+        .map_err(|e| Error::Validation(format!("ppqn: {e:?}")))?;
+    let start = TickPosition::new(Tick::new(start_tick.value()), ppqn).to_beat();
+    let end = TickPosition::new(Tick::new(end_tick.value()), ppqn).to_beat();
+    let pos_b = pos.to_beat();
+    if pos_b < start || pos_b >= end {
+        return Err(Error::ScopeUnavailable {
+            detail: format!("position {pos} outside clip {clip_id} range"),
+        });
+    }
+    pos_b
+        .checked_sub(start)
+        .map(BeatPoint::from_beat)
+        .map_err(|_| Error::Overflow)
 }
 
 /// Merged `(pos, value, segment interpolation)` of every region on
@@ -1047,7 +1300,7 @@ fn eval_inner(
             .targets
             .get(&target_id)
             .ok_or_else(|| Error::NotFound(format!("param {target_id}")))?;
-        let local = resolve_scope_pos(project, target.owner, pos)?;
+        let local = resolve_scope_pos(project, target.owner, target.time_scope, pos)?;
         let automation = lane_value(project, target_id, local);
         let (reference, reference_source) = match (manual, automation) {
             (Some(m), _) => (m, ReferenceSource::Manual),
@@ -1132,9 +1385,12 @@ pub struct EvalPlan {
 /// `eval_rt` never walks `BTreeMap`s for structure.
 #[derive(Clone, Debug, PartialEq)]
 struct PreparedTarget {
-    /// Owning scope — resolved live per call so `MoveClip`/`AddNote`
-    /// between compiles still evaluate against current placement.
-    owner: ControlScope,
+    /// Owning entity and time coordinate — resolved live per call so
+    /// `MoveClip`/`AddNote` between compiles still evaluate against
+    /// current placement.
+    owner: ControlOwner,
+    /// Declared coordinate of the frozen series positions.
+    time_scope: AutomationTimeScope,
     /// Normalized base value.
     base: f64,
     /// Value domain (quantization).
@@ -1239,6 +1495,7 @@ impl ControlGraph {
                     .collect();
                 PreparedTarget {
                     owner: target.owner,
+                    time_scope: target.time_scope,
                     base: target.base,
                     kind: target.kind,
                     series: merged_series(project, *id).into_boxed_slice(),
@@ -1332,7 +1589,7 @@ impl EvalPlan {
             return Ok(scratch.values[idx]);
         }
         let t = &self.prepared[idx];
-        let local = resolve_scope_pos(project, t.owner, pos)?;
+        let local = resolve_scope_pos(project, t.owner, t.time_scope, pos)?;
         let automation = prepared_lane_value(&t.series, local);
         let reference = match (manual, automation) {
             (Some(m), _) => m,

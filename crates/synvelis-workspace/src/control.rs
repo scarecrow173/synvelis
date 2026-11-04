@@ -41,9 +41,9 @@ use ruviform_media_core::{
 };
 use ruviform_plugin_core::{ParamWriteMeans, TimedParamEvent};
 use synvelis_project::{
-    AutomationLaneId, AutomationPoint, AutomationRegion, BeatPoint, BeatRange, ControlEvaluation,
-    ControlScope, Error, Interpolation, ModulationAssignmentId, ParameterTargetId, Project,
-    ProjectOp, ProjectRevision, TargetCapability, evaluate_control,
+    AutomationLaneId, AutomationPoint, AutomationRegion, AutomationTimeScope, BeatPoint, BeatRange,
+    ControlEvaluation, ControlOwner, Error, Interpolation, ModulationAssignmentId,
+    ParameterTargetId, Project, ProjectOp, ProjectRevision, TargetCapability, evaluate_control,
 };
 
 /// The UI-facing automation mode (`#6` 決定④). Selected per target;
@@ -1125,7 +1125,8 @@ impl ControlSession {
         target: ParameterTargetId,
         points: &[(BeatPoint, f64)],
     ) -> Result<usize, Error> {
-        let scope = Self::target(project, target)?.owner;
+        let bound = Self::target(project, target)?;
+        let (owner, time_scope) = (bound.owner, bound.time_scope);
         let lane = *self
             .recording
             .as_ref()
@@ -1143,7 +1144,7 @@ impl ControlSession {
         }
         let mut resolved = Vec::with_capacity(points.len());
         for (pos, value) in points {
-            match synvelis_project::resolve_scope_pos(project, scope, *pos) {
+            match synvelis_project::resolve_scope_pos(project, owner, time_scope, *pos) {
                 Ok(local) => resolved.push((local, *value)),
                 Err(synvelis_project::Error::ScopeUnavailable { .. }) => {}
                 Err(e) => return Err(e),
@@ -1815,16 +1816,17 @@ impl ControlSession {
         })
     }
 
-    /// Resolves which scope a target belongs to (exposed for tests and
-    /// UI coordinate mapping).
+    /// Resolves a target's binding — owning entity and declared time
+    /// coordinate (exposed for tests and UI coordinate mapping).
     ///
     /// # Errors
     /// [`Error::NotFound`] for an unknown target.
-    pub fn target_scope(
+    pub fn target_binding(
         project: &Project,
         target: ParameterTargetId,
-    ) -> Result<ControlScope, Error> {
-        Ok(Self::target(project, target)?.owner)
+    ) -> Result<(ControlOwner, AutomationTimeScope), Error> {
+        let t = Self::target(project, target)?;
+        Ok((t.owner, t.time_scope))
     }
 }
 

@@ -562,7 +562,9 @@ fn send_gain_target_references_the_control_model() {
         &c,
         ProjectOp::AddParameterTarget {
             name: "send-lvl".into(),
-            owner: ControlScope::Track(track),
+            owner: ControlOwner::Track(track),
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::ProjectMusical,
             kind: ValueKind::Continuous,
             mapping: ParamMapping::Linear,
             capability: None,
@@ -584,18 +586,33 @@ fn send_gain_target_references_the_control_model() {
     ))
     .unwrap();
 
+    // The send adopts the target: `AddSend` seals the binding so the
+    // gain target is owned by the send itself.
+    let send = *c.live().routing.sends.keys().next().unwrap();
+    assert_eq!(
+        c.live().control.targets[&target].owner,
+        ControlOwner::Send(send)
+    );
+    assert_eq!(
+        c.live().control.targets[&target].role,
+        ParameterRole::SendLevel
+    );
+
     // The control model stays the single authority: a target still
     // referenced by a send cannot be removed.
     assert!(
         c.apply(cmd(&c, ProjectOp::RemoveParameterTarget { target }))
             .is_err()
     );
-    // After the send goes, the reference clears and removal works.
-    let send = *c.live().routing.sends.keys().next().unwrap();
+    // The send owns its level target for life: removing the send
+    // cascades to the owned target, so a later removal is a NotFound.
     c.apply(cmd(&c, ProjectOp::RemoveSend { send_id: send }))
         .unwrap();
-    c.apply(cmd(&c, ProjectOp::RemoveParameterTarget { target }))
-        .unwrap();
+    assert!(!c.live().control.targets.contains_key(&target));
+    assert!(
+        c.apply(cmd(&c, ProjectOp::RemoveParameterTarget { target }))
+            .is_err()
+    );
 }
 
 // ── SF-MODEL-12: cycles are rejected ────────────────────────────

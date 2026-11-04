@@ -9,8 +9,8 @@
 
 use serde::{Deserialize, Serialize};
 use synvelis_project::{
-    AssetId, AutomationLaneId, ClipId, CompId, LaneId, NoteId, ParameterTargetId, ProjectId,
-    ProjectRevision, SourceId, TakeGroupId, TrackId,
+    AssetId, AutomationLaneId, ClipId, CompId, LaneId, NoteId, ParameterTargetId, ProcessorId,
+    ProjectId, ProjectRevision, SendId, SourceId, StripId, TakeGroupId, TrackId,
 };
 
 use crate::capability::{CapabilityRef, OperationDomain};
@@ -51,6 +51,12 @@ pub enum ResourceKind {
     ParameterTarget,
     /// An automation lane.
     AutomationLane,
+    /// A channel strip (issue #121 control-owner reference).
+    Strip,
+    /// A send config (issue #121 control-owner reference).
+    Send,
+    /// A routing processor (issue #121 control-owner reference).
+    Processor,
 }
 
 impl ResourceKind {
@@ -72,6 +78,9 @@ impl ResourceKind {
             "comp" => Self::Comp,
             "param" | "parameter-target" => Self::ParameterTarget,
             "automation-lane" => Self::AutomationLane,
+            "strip" => Self::Strip,
+            "send" => Self::Send,
+            "processor" => Self::Processor,
             _ => {
                 return Err(GatewayError::UnknownResourceKind {
                     name: name.to_owned(),
@@ -112,6 +121,12 @@ pub enum ResourceRef {
     ParameterTarget(ParameterTargetId),
     /// [`AutomationLaneId`].
     AutomationLane(AutomationLaneId),
+    /// [`StripId`].
+    Strip(StripId),
+    /// [`SendId`].
+    Send(SendId),
+    /// [`ProcessorId`].
+    Processor(ProcessorId),
 }
 
 impl ResourceRef {
@@ -130,6 +145,9 @@ impl ResourceRef {
             Self::Comp(_) => ResourceKind::Comp,
             Self::ParameterTarget(_) => ResourceKind::ParameterTarget,
             Self::AutomationLane(_) => ResourceKind::AutomationLane,
+            Self::Strip(_) => ResourceKind::Strip,
+            Self::Send(_) => ResourceKind::Send,
+            Self::Processor(_) => ResourceKind::Processor,
         }
     }
 
@@ -161,6 +179,9 @@ impl ResourceRef {
             "comp" => ResourceKind::Comp,
             "param" => ResourceKind::ParameterTarget,
             "automation-lane" => ResourceKind::AutomationLane,
+            "strip" => ResourceKind::Strip,
+            "send" => ResourceKind::Send,
+            "processor" => ResourceKind::Processor,
             _ => {
                 return Err(GatewayError::InvalidId {
                     text: text.to_owned(),
@@ -209,6 +230,11 @@ impl ResourceRef {
             ResourceKind::AutomationLane => {
                 Self::AutomationLane(AutomationLaneId::from_tagged(id).map_err(|_| invalid())?)
             }
+            ResourceKind::Strip => Self::Strip(StripId::from_tagged(id).map_err(|_| invalid())?),
+            ResourceKind::Send => Self::Send(SendId::from_tagged(id).map_err(|_| invalid())?),
+            ResourceKind::Processor => {
+                Self::Processor(ProcessorId::from_tagged(id).map_err(|_| invalid())?)
+            }
         })
     }
 
@@ -247,6 +273,9 @@ impl ResourceRef {
                 ResourceKind::Comp => "comp",
                 ResourceKind::ParameterTarget => "param",
                 ResourceKind::AutomationLane => "automation-lane",
+                ResourceKind::Strip => "strip",
+                ResourceKind::Send => "send",
+                ResourceKind::Processor => "processor",
             },
             id,
         )
