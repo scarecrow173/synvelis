@@ -42,9 +42,9 @@ function notify(channel: string, data: unknown): void {
 }
 
 /** Mirrors `ConsoleViewModel`'s receipt route: wire → `binding.ack`. */
-function wireReceipts(
+function wireReceipts<P>(
   viewId: string,
-  ...bindings: CommandBinding[]
+  ...bindings: CommandBinding<P>[]
 ): () => void {
   return notifyRouter().on("syn.control.receipt", (data) => {
     const d = data as {
@@ -97,7 +97,7 @@ describe("subscription → projection → element", () => {
     document.body.appendChild(el);
     const unbind = bindControlElement(el, b);
 
-    const unsub = port.subscribe!(
+    const unsub = port.subscribe!<{ plain: number }>(
       "param-gain",
       (p) => b.observe(p),
       { viewId: "v1", generation: 1 },
@@ -145,7 +145,7 @@ describe("subscription → projection → element", () => {
     const el = document.createElement("rvf-knob") as RvfKnob;
     document.body.appendChild(el);
     const unbind = bindControlElement(el, b);
-    port.subscribe!("param-gain", (p) => b.observe(p), {
+    port.subscribe!<{ plain: number }>("param-gain", (p) => b.observe(p), {
       viewId: "v1",
       generation: 1,
     });
@@ -172,8 +172,8 @@ describe("subscription → projection → element", () => {
 });
 
 describe("receipt reflection", () => {
-  function ackCommand(
-    b: CommandBinding,
+  function ackCommand<P>(
+    b: CommandBinding<P>,
     status: string,
     commandId = "cmd-1",
   ): void {
@@ -199,7 +199,7 @@ describe("receipt reflection", () => {
     const unbind = bindControlElement(el, b);
     wireReceipts("v1", b);
 
-    port.subscribe!("param-gain", (p) => b.observe(p), {
+    port.subscribe!<{ plain: number }>("param-gain", (p) => b.observe(p), {
       viewId: "v1",
       generation: 1,
     });
