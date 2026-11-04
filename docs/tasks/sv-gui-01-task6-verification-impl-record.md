@@ -1,7 +1,7 @@
 ---
 id: "TASK-WhMYtZA3TKzN6d0ELzgJ3D"
 type: "task"
-status: "todo"
+status: "done"
 title: "SV-GUI-01 task6 最終検証・merge・impl record"
 created: "2026-11-04"
 updated: "2026-11-04"

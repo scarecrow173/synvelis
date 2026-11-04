@@ -1,7 +1,7 @@
 ---
 id: "TASK-jLkK7lARWtOgmAI02PaXQ5"
 type: "task"
-status: "todo"
+status: "done"
 title: "SV-GUI-01 task2 headless service op・asset check テスト"
 created: "2026-11-04"
 updated: "2026-11-04"

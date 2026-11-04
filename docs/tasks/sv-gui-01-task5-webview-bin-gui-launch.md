@@ -1,7 +1,7 @@
 ---
 id: "TASK-pFWmIPcnM0SNWSnPnDf7OQ"
 type: "task"
-status: "todo"
+status: "done"
 title: "SV-GUI-01 task5 webview bin・実 Windows GUI 起動検証"
 created: "2026-11-04"
 updated: "2026-11-04"

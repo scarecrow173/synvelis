@@ -1,7 +1,7 @@
 ---
 id: "TASK-5ySbythnz4gMVnQauJQq8a"
 type: "task"
-status: "todo"
+status: "done"
 title: "SV-GUI-01 task3 ui/ frontend pipeline・vendored sync・mise tasks"
 created: "2026-11-04"
 updated: "2026-11-04"

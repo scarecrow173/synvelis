@@ -1,7 +1,7 @@
 ---
 id: "TASK-xum593l0Fok2XTCWotqIwp"
 type: "task"
-status: "todo"
+status: "done"
 title: "SV-GUI-01 task4 frontend headless test (ipc/store/components)"
 created: "2026-11-04"
 updated: "2026-11-04"

@@ -1,7 +1,7 @@
 ---
 id: "TASK-MlLPS12iG90WZhRs4S9pub"
 type: "task"
-status: "todo"
+status: "done"
 title: "SV-GUI-01 task1 synvelis-app crate skeleton・Composition Root・AppService"
 created: "2026-11-04"
 updated: "2026-11-04"
