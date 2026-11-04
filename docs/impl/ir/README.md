@@ -43,3 +43,4 @@ Directory: `docs/impl/ir`
 | IMPL-0SV47ControlsUiInteg01 | SV-47 Ruviform controls/binding headless contract integration — Mixer/Transport/parameter editing surfaces | completed | [sv47-ruviform-controls-ui-integration.md](sv47-ruviform-controls-ui-integration.md) |
 | IMPL-0SV48VizUiInteg0001 | SV-48 Ruviform ui/viz + ui/binding headless contract integration — Waveform/Meter/Spectrum/Timeline into the DAW view layer | completed | [sv48-ruviform-viz-ui-integration.md](sv48-ruviform-viz-ui-integration.md) |
 | IMPL-034Rp8RppbqCF1xtexsFvB | Synvelis 独立 PR/Push CI 実装記録 | completed | [synvelis-pr-push-ci.md](synvelis-pr-push-ci.md) |
+| IMPL-034RwzRkGd3wl6hL83YIBo | PC-C1 recording transaction prepare/apply/finalize | completed | [pc-c1-recording-transaction-prepare-apply-finalize.md](pc-c1-recording-transaction-prepare-apply-finalize.md) |

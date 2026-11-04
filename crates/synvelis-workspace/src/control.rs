@@ -8,8 +8,14 @@
 //! the project, advances the revision or touches the undo history. The
 //! only path back into the project is an explicit commit
 //! ([`ProjectSession::control_gesture_end`] for `Off`-mode base edits,
-//! [`ProjectSession::control_record_commit`] for a recording session),
-//! which is one atomic apply = one undo step.
+//! [`ProjectSession::control_record_commit`] for a recording session).
+//! A recording commit is split into three phases (issue #98):
+//! [`ControlSession::prepare_record_commit`] snapshots the point
+//! columns **non-destructively** and checks the transaction's fixed
+//! revision against the live one, `ProjectController::apply` is the
+//! CAS authority, and [`ControlSession::finish_record_commit`] is the
+//! only consumer — a failed prepare or apply leaves every recorded
+//! point in place for Inspect / Retry / Explicit Rebase / Abort.
 //!
 //! Consumed upstream contracts (never reimplemented):
 //!
@@ -27,10 +33,11 @@
 //! [`ProjectSession::control_record_commit`]: crate::session::ProjectSession::control_record_commit
 
 use std::collections::BTreeMap;
+use std::fmt;
 
 use ruviform_media_core::{
-    ClockAnchor, EngineFrame, InputStamp, MediaTime, MediaTimestamp, TimeBase, TimestampProvenance,
-    map_stamp_to_frame,
+    ClockAnchor, ClockEpochId, EngineFrame, InputStamp, MediaTime, MediaTimestamp, TimeBase,
+    TimestampProvenance, map_stamp_to_frame,
 };
 use ruviform_plugin_core::{ParamWriteMeans, TimedParamEvent};
 use synvelis_project::{
@@ -118,14 +125,143 @@ impl Default for PlaybackState {
 }
 
 /// Why a recording transaction was sealed — further writes are
-/// rejected; the transaction must be committed or aborted.
+/// rejected; the transaction must be committed or aborted. A seal
+/// closes the **write gate only**: prepare/commit/abort stay legal
+/// on a sealed transaction (the `LoopWrap` contract).
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum SealReason {
     /// The playhead wrapped the loop end: continuing would silently
     /// overwrite the interval just recorded — forbidden by the agreed
     /// model.
     LoopWrap,
+    /// The transport stopped — a stopped session never resumes into
+    /// the same transaction on the next play.
+    Stopped,
+    /// The playhead was repositioned mid-recording; the recorded
+    /// interval is no longer contiguous.
+    Seek,
+    /// A fixed target's UI mode changed mid-recording.
+    ModeChanged,
+    /// A fixed target's write arm changed mid-recording.
+    ArmChanged,
+    /// A project apply/undo/redo succeeded while the transaction was
+    /// open — its fixed revision is now stale.
+    ProjectChange,
 }
+
+/// Monotonic, unique id of a recording transaction inside one
+/// `ControlSession` (issued from 1; never reused within the session).
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RecordingTransactionId(pub u64);
+
+impl fmt::Display for RecordingTransactionId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "rec-tx-{}", self.0)
+    }
+}
+
+/// Lifecycle state of a recording transaction. Failures leave the
+/// transaction in `Conflict`/`Rejected` **with its point columns
+/// retained** — only `Committed` consumes it.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+pub enum RecordingTxnState {
+    /// Accumulating points or ready to commit.
+    #[default]
+    Pending,
+    /// `prepare` found `fixed_revision != current` — needs an explicit
+    /// user rebase approval before it can commit.
+    Conflict,
+    /// `prepare`'s structural checks or the controller's apply
+    /// rejected the commit — the columns are retained.
+    Rejected,
+    /// Consumed by a successful `finish_record_commit`.
+    Committed,
+}
+
+/// Errors of the recording-commit protocol (issue #98). The typed
+/// variants map directly onto the UI choices Inspect / Retry /
+/// Explicit Rebase / Abort.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RecordCommitError {
+    /// No open transaction and nothing to commit against.
+    NoTransaction,
+    /// The presented id matches neither the open transaction nor any
+    /// applied record — a stale or foreign receipt.
+    UnknownTransaction {
+        /// The transaction id that was presented.
+        id: RecordingTransactionId,
+    },
+    /// `fixed_revision` differs from the live revision — the default
+    /// outcome for *any* drift, including unrelated edits. No silent
+    /// rebinding to the newest revision.
+    Conflict {
+        /// Revision the transaction fixed at `record_start`.
+        fixed: ProjectRevision,
+        /// Live revision at prepare time.
+        current: ProjectRevision,
+        /// The targets whose recorded data is at stake.
+        affected_targets: Vec<ParameterTargetId>,
+    },
+    /// The prepared op built and CAS-checked clean but the
+    /// controller's `apply` rejected it (stale CAS, validation,
+    /// store). The transaction is `Rejected`, columns retained.
+    Rejected {
+        /// The controller error.
+        reason: Error,
+    },
+    /// The same transaction id with an identical payload was already
+    /// committed — the retry wrote nothing (in-memory exactly-once).
+    AlreadyApplied {
+        /// The committed transaction id.
+        id: RecordingTransactionId,
+        /// The revision the first commit produced.
+        revision: ProjectRevision,
+    },
+    /// The same transaction id was presented with a different
+    /// payload fingerprint — refused, never merged.
+    IntegrityConflict {
+        /// The transaction id in question.
+        id: RecordingTransactionId,
+    },
+    /// `prepare`'s structural checks failed (a fixed target or
+    /// segment lane no longer exists, a lane was retargeted, a range
+    /// cannot be represented, or the point budget was exceeded).
+    Invalid(String),
+}
+
+impl fmt::Display for RecordCommitError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NoTransaction => write!(f, "no open recording transaction"),
+            Self::UnknownTransaction { id } => {
+                write!(f, "unknown recording transaction {id}")
+            }
+            Self::Conflict {
+                fixed,
+                current,
+                affected_targets,
+            } => write!(
+                f,
+                "recording revision conflict: fixed {fixed:?}, current {current:?}, \
+                 {} affected target(s)",
+                affected_targets.len()
+            ),
+            Self::Rejected { reason } => write!(f, "recording commit rejected: {reason}"),
+            Self::AlreadyApplied { id, revision } => {
+                write!(
+                    f,
+                    "recording transaction {id} already applied at {revision:?}"
+                )
+            }
+            Self::IntegrityConflict { id } => {
+                write!(f, "recording transaction {id} payload mismatch")
+            }
+            Self::Invalid(msg) => write!(f, "recording commit invalid: {msg}"),
+        }
+    }
+}
+
+impl std::error::Error for RecordCommitError {}
 
 /// An in-progress manual gesture on one target.
 #[derive(Clone, Debug, PartialEq)]
@@ -136,22 +272,129 @@ pub struct ControlGesture {
     pub points: Vec<(BeatPoint, f64)>,
 }
 
-/// One recording session = one undo transaction. Target, arm state
-/// and project revision are **fixed at start** — later Inspector
-/// follow/focus changes cannot retarget the write.
+/// One recording session = one undo transaction. Target set, lane
+/// mapping, arm state, transport epoch context and project revision
+/// are **fixed at start** — later Inspector follow/focus changes
+/// cannot retarget the write. The recorded point columns are never
+/// consumed before a successful [`ControlSession::finish_record_commit`]
+/// (issue #98).
 #[derive(Clone, Debug, PartialEq)]
 pub struct RecordingTransaction {
+    /// Session-unique transaction id.
+    pub id: RecordingTransactionId,
     /// Session start position (project beats).
     pub started_at: BeatPoint,
+    /// Clock epoch captured at start (transport context).
+    pub epoch: ClockEpochId,
     /// Targets armed+write-capable when `record_start` ran.
     pub fixed_targets: Vec<ParameterTargetId>,
+    /// Target → write-lane mapping fixed at `record_start`.
+    pub fixed_lanes: BTreeMap<ParameterTargetId, AutomationLaneId>,
     /// Live project revision at start.
     pub fixed_revision: ProjectRevision,
     /// Collected manual (pre-modulation) points per destination lane.
     pub segments: BTreeMap<AutomationLaneId, Vec<AutomationPoint>>,
     /// `Some` once sealed — further `record_write` is rejected.
     pub sealed: Option<SealReason>,
+    /// Commit lifecycle state.
+    pub state: RecordingTxnState,
 }
+
+/// The non-destructive output of
+/// [`ControlSession::prepare_record_commit`]: an immutable snapshot of
+/// what a commit would apply, ready for the controller's CAS.
+#[derive(Clone, Debug)]
+pub struct PreparedRecordingCommit {
+    /// The transaction this commit was prepared from.
+    pub id: RecordingTransactionId,
+    /// Deterministic fingerprint of the transaction payload.
+    pub fingerprint: u64,
+    /// Revision the CAS will require — the transaction's
+    /// `fixed_revision`, never silently rebound to a newer one.
+    pub expected_revision: ProjectRevision,
+    /// `Composite` of per-lane `Replace` region writes; `None` when
+    /// the transaction recorded nothing.
+    pub op: Option<ProjectOp>,
+    /// Whether the transaction had been sealed at prepare time.
+    pub was_sealed: bool,
+}
+
+/// Per-lane report inside [`RebasePreview`]: what an explicit rebase
+/// commit would write and what it would overwrite.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RebaseLaneReport {
+    /// The recorded-into lane.
+    pub lane: AutomationLaneId,
+    /// The fixed target that recorded into the lane.
+    pub fixed_target: ParameterTargetId,
+    /// Whether the fixed target still exists.
+    pub target_exists: bool,
+    /// Whether the lane still exists and still feeds `fixed_target`.
+    pub lane_exists: bool,
+    /// Points recorded into this lane.
+    pub recorded_points: usize,
+    /// `(first, last)` recorded position, when the lane is non-empty.
+    pub recorded_range: Option<(BeatPoint, BeatPoint)>,
+    /// Existing regions on any lane of `fixed_target` overlapping the
+    /// recorded range — what a `Replace` write would overwrite.
+    pub overlapping_regions: usize,
+}
+
+/// What the user inspects before approving an explicit rebase: target
+/// and lane existence, recorded extents, and overlap with current
+/// regions — never an automatic merge.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RebasePreview {
+    /// The transaction under inspection.
+    pub id: RecordingTransactionId,
+    /// Revision fixed at `record_start`.
+    pub fixed_revision: ProjectRevision,
+    /// Live revision now.
+    pub current_revision: ProjectRevision,
+    /// Whether/why the write gate was sealed.
+    pub sealed: Option<SealReason>,
+    /// Per-recorded-lane reports, in lane order.
+    pub lanes: Vec<RebaseLaneReport>,
+}
+
+/// The most recent lifecycle outcome of a transaction — used to map
+/// an id-less session retry onto `AlreadyApplied`/`NoTransaction`.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum RecordDisposition {
+    /// The transaction was committed at this revision (`None` for an
+    /// empty session that applied nothing).
+    Committed {
+        /// The committed transaction id.
+        id: RecordingTransactionId,
+        /// The revision the commit produced, when an apply happened.
+        revision: Option<ProjectRevision>,
+    },
+    /// The transaction was aborted — nothing was applied.
+    Aborted {
+        /// The aborted transaction id.
+        id: RecordingTransactionId,
+    },
+}
+
+/// What a committed transaction left in the applied registry
+/// (in-memory, session-scoped, capacity-bounded).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct AppliedRecord {
+    /// Fingerprint of the committed payload.
+    pub fingerprint: u64,
+    /// The revision the commit produced.
+    pub revision: ProjectRevision,
+}
+
+/// In-memory, session-scoped exactly-once window: the last
+/// `APPLIED_REGISTRY_CAP` committed transactions. No crash recovery
+/// or persisted registry is claimed (issue #12's separate contract).
+pub const APPLIED_REGISTRY_CAP: usize = 64;
+
+/// Total automation points one transaction may hold across all lanes.
+/// Writes that would exceed the budget are rejected; recorded points
+/// are never dropped (non-RT memory/size bound, REC-C1-06).
+pub const RECORD_POINT_BUDGET: usize = 262_144;
 
 /// An observed value plus its measurement stamp (rf#185 vocabulary).
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -248,6 +491,8 @@ pub enum Lowered {
 /// What a committed recording session produced.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RecordingOutcome {
+    /// The consumed transaction id.
+    pub id: RecordingTransactionId,
     /// Whether a project apply happened (empty sessions commit
     /// nothing — no undo entry is created).
     pub applied: bool,
@@ -311,6 +556,9 @@ pub struct ControlSession {
     write_lanes: BTreeMap<ParameterTargetId, AutomationLaneId>,
     clock_anchor: Option<ClockAnchor>,
     frame_base: TimeBase,
+    next_txn_id: u64,
+    applied: BTreeMap<RecordingTransactionId, AppliedRecord>,
+    last_disposition: Option<RecordDisposition>,
 }
 
 impl Default for ControlSession {
@@ -336,6 +584,9 @@ impl ControlSession {
             write_lanes: BTreeMap::new(),
             clock_anchor: None,
             frame_base,
+            next_txn_id: 0,
+            applied: BTreeMap::new(),
+            last_disposition: None,
         }
     }
 
@@ -383,7 +634,13 @@ impl ControlSession {
         mode: AutomationMode,
     ) -> Result<(), Error> {
         Self::target(project, target)?;
-        self.modes.insert(target, mode);
+        if self.mode(target) != mode {
+            self.modes.insert(target, mode);
+            // A fixed target's mode change mid-recording closes the
+            // write gate permanently — the transaction's captured
+            // context no longer holds.
+            self.seal_fixed_target(target, SealReason::ModeChanged);
+        }
         if mode != AutomationMode::Latch {
             self.latch_held.remove(&target);
         }
@@ -404,7 +661,10 @@ impl ControlSession {
         arm: WriteArm,
     ) -> Result<(), Error> {
         Self::target(project, target)?;
-        self.arms.insert(target, arm);
+        if self.arm(target) != arm {
+            self.arms.insert(target, arm);
+            self.seal_fixed_target(target, SealReason::ArmChanged);
+        }
         Ok(())
     }
 
@@ -416,13 +676,25 @@ impl ControlSession {
     /// Fixes which automation lane a write-mode target records into.
     ///
     /// # Errors
-    /// [`Error::Validation`] when the lane does not feed `target`.
+    /// [`Error::Validation`] when the lane does not feed `target`, or
+    /// when `target` is fixed by an open recording transaction — the
+    /// transaction's lane mapping was captured at `record_start` and
+    /// cannot be rebound underneath it.
     pub fn bind_write_lane(
         &mut self,
         project: &Project,
         target: ParameterTargetId,
         lane: AutomationLaneId,
     ) -> Result<(), Error> {
+        if self
+            .recording
+            .as_ref()
+            .is_some_and(|tx| tx.fixed_targets.contains(&target))
+        {
+            return Err(Error::Validation(format!(
+                "cannot rebind {target} while its recording transaction is open"
+            )));
+        }
         let lane_ref = project
             .control
             .lanes
@@ -435,6 +707,18 @@ impl ControlSession {
         }
         self.write_lanes.insert(target, lane);
         Ok(())
+    }
+
+    /// Seals the open transaction when `target` is one of its fixed
+    /// targets — a mode/arm change on it permanently invalidates the
+    /// captured recording context.
+    fn seal_fixed_target(&mut self, target: ParameterTargetId, reason: SealReason) {
+        if let Some(tx) = self.recording.as_mut()
+            && tx.sealed.is_none()
+            && tx.fixed_targets.contains(&target)
+        {
+            tx.sealed = Some(reason);
+        }
     }
 
     /// All three write gates: armed + record enabled + rolling, with an
@@ -480,18 +764,33 @@ impl ControlSession {
     }
 
     /// Stops rolling. Latch holds and write-held overrides end —
-    /// nothing carries into the next playback.
+    /// nothing carries into the next playback. An open recording
+    /// transaction is sealed: a stopped session never resumes into
+    /// the same transaction on the next play.
     pub fn transport_stop(&mut self) {
         self.playback.status = PlaybackStatus::Stopped;
         self.latch_held.clear();
         self.manual_overrides
             .retain(|t, _| self.gestures.contains_key(t));
+        self.seal_recording(SealReason::Stopped);
     }
 
     /// Seeks the playhead (chase = the next evaluation simply reads the
-    /// new position). Session-only.
+    /// new position). Session-only. An open recording transaction is
+    /// sealed — the recorded interval is no longer contiguous.
     pub fn transport_seek(&mut self, pos: BeatPoint) {
         self.playback.position = pos;
+        self.seal_recording(SealReason::Seek);
+    }
+
+    /// Seals the open transaction's write gate with `reason` — the
+    /// recorded columns stay for inspect/commit/abort.
+    fn seal_recording(&mut self, reason: SealReason) {
+        if let Some(tx) = self.recording.as_mut()
+            && tx.sealed.is_none()
+        {
+            tx.sealed = Some(reason);
+        }
     }
 
     /// Sets or clears the loop range.
@@ -720,13 +1019,19 @@ impl ControlSession {
 
     /// Opens a recording transaction. Requires record-enabled +
     /// rolling + at least one armed write-mode target. The target set,
-    /// arm state and project revision are **fixed now** — later
-    /// Inspector follow changes cannot retarget the write.
+    /// the target→lane mapping, the arm state, the clock-epoch
+    /// context and the project revision are **fixed now** — later
+    /// Inspector follow changes cannot retarget the write. Returns
+    /// the session-unique transaction id for id-tagged lifecycle
+    /// calls (`finish_record_commit`, `approve_rebase`).
     ///
     /// # Errors
     /// [`Error::Validation`] when the gates do not hold or a
     /// transaction is already open.
-    pub fn record_start(&mut self, revision: ProjectRevision) -> Result<(), Error> {
+    pub fn record_start(
+        &mut self,
+        revision: ProjectRevision,
+    ) -> Result<RecordingTransactionId, Error> {
         if self.recording.is_some() {
             return Err(Error::Validation("recording already open".into()));
         }
@@ -753,21 +1058,30 @@ impl ControlSession {
         // Every fixed target must have its write lane bound now — a
         // lane missing here only surfaced at `gesture_end`/
         // `record_write`, stranding the write the transaction fixed.
+        // The mapping is captured into `fixed_lanes` so a later rebind
+        // cannot retarget recorded points.
+        let mut fixed_lanes = BTreeMap::new();
         for target in &fixed {
-            if !self.write_lanes.contains_key(target) {
-                return Err(Error::Validation(format!(
-                    "no write lane bound for {target}"
-                )));
-            }
+            let lane = self
+                .write_lanes
+                .get(target)
+                .ok_or_else(|| Error::Validation(format!("no write lane bound for {target}")))?;
+            fixed_lanes.insert(*target, *lane);
         }
+        self.next_txn_id = self.next_txn_id.checked_add(1).ok_or(Error::Overflow)?;
+        let id = RecordingTransactionId(self.next_txn_id);
         self.recording = Some(RecordingTransaction {
+            id,
             started_at: self.playback.position,
+            epoch: self.playback.epoch,
             fixed_targets: fixed,
+            fixed_lanes,
             fixed_revision: revision,
             segments: BTreeMap::new(),
             sealed: None,
+            state: RecordingTxnState::Pending,
         });
-        Ok(())
+        Ok(id)
     }
 
     /// Appends a manual (pre-modulation) point to the open
@@ -800,6 +1114,11 @@ impl ControlSession {
     /// domain are skipped — a write sweep crossing a domain edge must
     /// not silently inject project-coordinate points into a local
     /// series; other resolution failures propagate.
+    ///
+    /// Points land on the lane **fixed** for the target at
+    /// `record_start`; a batch that would exceed
+    /// [`RECORD_POINT_BUDGET`] is rejected whole — already-recorded
+    /// points are never dropped.
     fn record_points(
         &mut self,
         project: &Project,
@@ -808,13 +1127,15 @@ impl ControlSession {
     ) -> Result<usize, Error> {
         let scope = Self::target(project, target)?.owner;
         let lane = *self
-            .write_lanes
+            .recording
+            .as_ref()
+            .ok_or_else(|| Error::Validation("no open recording".into()))?
+            .fixed_lanes
             .get(&target)
-            .ok_or_else(|| Error::Validation(format!("no write lane bound for {target}")))?;
-        // The binding is session state — a lane removed after
-        // `bind_write_lane` still resolves here, so re-check the
-        // lane lives before accumulating a segment the commit could
-        // never write back.
+            .ok_or_else(|| Error::Validation(format!("no fixed write lane for {target}")))?;
+        // The fixed lane lives in the project — a lane removed
+        // mid-recording must surface now, not strand a segment the
+        // commit could never write back.
         if !project.control.lanes.contains_key(&lane) {
             return Err(Error::Validation(format!(
                 "write lane {lane} no longer exists"
@@ -829,13 +1150,17 @@ impl ControlSession {
             }
         }
         let written = resolved.len();
-        let seg = self
+        let rec = self
             .recording
             .as_mut()
-            .ok_or_else(|| Error::Validation("no open recording".into()))?
-            .segments
-            .entry(lane)
-            .or_default();
+            .ok_or_else(|| Error::Validation("no open recording".into()))?;
+        let total = rec.segments.values().map(Vec::len).sum::<usize>();
+        if total + resolved.len() > RECORD_POINT_BUDGET {
+            return Err(Error::Validation(format!(
+                "recording point budget of {RECORD_POINT_BUDGET} exceeded"
+            )));
+        }
+        let seg = rec.segments.entry(lane).or_default();
         for (pos, value) in resolved {
             seg.push(AutomationPoint { pos, value });
         }
@@ -851,65 +1176,378 @@ impl ControlSession {
         Ok(written)
     }
 
-    /// Builds the commit op list for the open transaction and closes
-    /// it: one `Replace` region-write per lane — an explicit overwrite
-    /// of the recorded interval — inside one `Composite` so the whole
-    /// session lands as **one undo step**.
+    /// Snapshots the open transaction into an immutable
+    /// [`PreparedRecordingCommit`] — **non-destructively**: the
+    /// recorded columns, fixed targets and fixed lanes stay in place
+    /// until [`ControlSession::finish_record_commit`] consumes them
+    /// after a successful apply.
     ///
-    /// Every segment lane is re-validated against the live project
-    /// **before** the transaction is consumed: a lane removed after
-    /// its points were recorded would otherwise fail validation at
-    /// apply time — after `take()` — destroying the whole commit.
-    /// On failure the transaction stays open for `record_abort` (or
-    /// inspection) instead of being silently lost.
+    /// The prepare performs, in order:
+    /// 1. the fixed-revision check — `fixed_revision` vs
+    ///    `current_revision`, where *any* drift (including unrelated
+    ///    edits) is the default [`RecordCommitError::Conflict`];
+    /// 2. structural integrity — every fixed target still exists and
+    ///    every segment lane still exists and still feeds the target
+    ///    that recorded into it;
+    /// 3. the region-write construction — one `Replace` op per lane
+    ///    inside one `Composite`, so the session lands as **one undo
+    ///    step**.
+    ///
+    /// A failed prepare leaves the transaction open — `Conflict` for
+    /// a revision mismatch (Inspect / Explicit Rebase / Abort),
+    /// `Rejected` for a structural problem. No silent rebinding to
+    /// the newest revision and no merge ever happens here.
     ///
     /// # Errors
-    /// [`Error::Validation`] on no open transaction, a segment lane
-    /// that no longer exists, or an interval edge that cannot be
-    /// represented.
-    pub fn build_commit_ops(&mut self, project: &Project) -> Result<(bool, Vec<ProjectOp>), Error> {
-        let Some(tx) = self.recording.take() else {
-            return Err(Error::Validation("no open recording".into()));
+    /// [`RecordCommitError::NoTransaction`], [`RecordCommitError::Conflict`],
+    /// or [`RecordCommitError::Invalid`].
+    pub fn prepare_record_commit(
+        &mut self,
+        project: &Project,
+        current_revision: ProjectRevision,
+    ) -> Result<PreparedRecordingCommit, RecordCommitError> {
+        let Some(tx) = self.recording.as_ref() else {
+            return Err(RecordCommitError::NoTransaction);
         };
-        if let Some(dead) = tx
-            .segments
-            .keys()
-            .find(|lane| !project.control.lanes.contains_key(lane))
-        {
-            let dead = *dead;
-            self.recording = Some(tx);
-            return Err(Error::Validation(format!(
-                "write lane {dead} no longer exists"
-            )));
-        }
-        let mut ops = Vec::new();
-        for (lane, mut points) in tx.segments {
-            points.sort_by_key(|p| p.pos);
-            let (Some(first), Some(last)) = (points.first(), points.last()) else {
-                continue;
+        if tx.fixed_revision != current_revision {
+            let conflict = RecordCommitError::Conflict {
+                fixed: tx.fixed_revision,
+                current: current_revision,
+                affected_targets: tx.fixed_targets.clone(),
             };
-            let (start, last_pos) = (first.pos, last.pos);
-            // Cover the last point: extend the half-open range by the
-            // smallest representable increment (2^-32 beats — below
-            // any meaningful user point, documented).
-            let end = last_pos.checked_add(BeatPoint::new(1, u32::MAX)?)?;
-            let range = BeatRange::try_new(start, end)?;
-            ops.push(ProjectOp::WriteAutomationRegion {
-                lane,
-                region: AutomationRegion {
-                    range,
-                    interpolation: Interpolation::Linear,
-                    points,
-                },
-                policy: synvelis_project::ConflictPolicy::Replace,
-            });
+            if let Some(tx) = self.recording.as_mut() {
+                tx.state = RecordingTxnState::Conflict;
+            }
+            return Err(conflict);
         }
-        Ok((tx.sealed.is_some(), ops))
+        // Everything below is read-only against `tx`; failures mark
+        // the transaction `Rejected` afterwards — `tx` borrows
+        // `self.recording`, so no mutable call can happen inside.
+        let built = (|| {
+            // Structural integrity: the write-back must land on the
+            // same target/lane mapping the transaction fixed. A
+            // deleted target or a removed/retargeted lane rejects the
+            // commit — the columns stay for inspection.
+            for target in &tx.fixed_targets {
+                if !project.control.targets.contains_key(target) {
+                    return Err(RecordCommitError::Invalid(format!(
+                        "fixed target {target} no longer exists"
+                    )));
+                }
+            }
+            for (lane, points) in &tx.segments {
+                if points.is_empty() {
+                    continue;
+                }
+                let Some(lane_ref) = project.control.lanes.get(lane) else {
+                    return Err(RecordCommitError::Invalid(format!(
+                        "write lane {lane} no longer exists"
+                    )));
+                };
+                let fixed_target = tx
+                    .fixed_lanes
+                    .iter()
+                    .find_map(|(t, l)| (*l == *lane).then_some(*t));
+                if fixed_target.is_some_and(|t| lane_ref.target != t) {
+                    return Err(RecordCommitError::Invalid(format!(
+                        "write lane {lane} no longer feeds its fixed target"
+                    )));
+                }
+            }
+            let mut ops = Vec::new();
+            for (lane, points) in &tx.segments {
+                let mut points = points.clone();
+                points.sort_by_key(|p| p.pos);
+                let (Some(first), Some(last)) = (points.first(), points.last()) else {
+                    continue;
+                };
+                let (start, last_pos) = (first.pos, last.pos);
+                // Cover the last point: extend the half-open range by
+                // the smallest representable increment (2^-32 beats —
+                // below any meaningful user point, documented).
+                let end = last_pos
+                    .checked_add(
+                        BeatPoint::new(1, u32::MAX)
+                            .map_err(|e| RecordCommitError::Invalid(e.to_string()))?,
+                    )
+                    .map_err(|e| RecordCommitError::Invalid(e.to_string()))?;
+                let range = BeatRange::try_new(start, end)
+                    .map_err(|e| RecordCommitError::Invalid(e.to_string()))?;
+                ops.push(ProjectOp::WriteAutomationRegion {
+                    lane: *lane,
+                    region: AutomationRegion {
+                        range,
+                        interpolation: Interpolation::Linear,
+                        points,
+                    },
+                    policy: synvelis_project::ConflictPolicy::Replace,
+                });
+            }
+            Ok(PreparedRecordingCommit {
+                id: tx.id,
+                fingerprint: txn_fingerprint(tx),
+                expected_revision: tx.fixed_revision,
+                op: (!ops.is_empty()).then_some(ProjectOp::Composite { ops }),
+                was_sealed: tx.sealed.is_some(),
+            })
+        })();
+        match built {
+            Ok(prepared) => Ok(prepared),
+            Err(e) => {
+                self.reject_open();
+                Err(e)
+            }
+        }
     }
 
-    /// Discards the open transaction — nothing is applied.
+    /// Pre-apply gate for [`ProjectSession::control_record_finish`]:
+    /// resolves the prepared payload's identity **before** any apply
+    /// so a duplicate receipt, a payload mismatch or an unknown id
+    /// can never write. Checks, in order:
+    /// 1. the applied registry — same id + fingerprint is
+    ///    `AlreadyApplied`, same id + different fingerprint is
+    ///    `IntegrityConflict` (in-memory, session-scoped only);
+    /// 2. the open transaction — same id requires a fingerprint
+    ///    match (`IntegrityConflict` otherwise); any other id is
+    ///    `UnknownTransaction`.
+    ///
+    /// # Errors
+    /// [`RecordCommitError::AlreadyApplied`]/`IntegrityConflict`/
+    /// `UnknownTransaction`.
+    pub fn preflight_record_finish(
+        &self,
+        prepared: &PreparedRecordingCommit,
+    ) -> Result<(), RecordCommitError> {
+        self.check_record_receipt(prepared)?;
+        match self.recording.as_ref() {
+            Some(tx) if tx.id == prepared.id => {
+                if txn_fingerprint(tx) != prepared.fingerprint {
+                    return Err(RecordCommitError::IntegrityConflict { id: prepared.id });
+                }
+                Ok(())
+            }
+            _ => Err(RecordCommitError::UnknownTransaction { id: prepared.id }),
+        }
+    }
+
+    /// The applied-registry half of the finish checks — shared by
+    /// `preflight` (pre-apply) and `finish` (the consumer).
+    fn check_record_receipt(
+        &self,
+        prepared: &PreparedRecordingCommit,
+    ) -> Result<(), RecordCommitError> {
+        if let Some(receipt) = self.applied.get(&prepared.id) {
+            return if receipt.fingerprint == prepared.fingerprint {
+                Err(RecordCommitError::AlreadyApplied {
+                    id: prepared.id,
+                    revision: receipt.revision,
+                })
+            } else {
+                Err(RecordCommitError::IntegrityConflict { id: prepared.id })
+            };
+        }
+        Ok(())
+    }
+
+    /// Consumes the open transaction **after** its prepared op was
+    /// successfully applied — the only consumer of the recorded
+    /// columns. `applied_revision` is `Some` when an apply happened
+    /// (a `Some` op), `None` for an empty session that committed
+    /// nothing.
+    ///
+    /// The same id + fingerprint presented again resolves against the
+    /// applied registry to [`RecordCommitError::AlreadyApplied`] — an
+    /// in-memory, session-scoped exactly-once receipt; the same id
+    /// with a different fingerprint is
+    /// [`RecordCommitError::IntegrityConflict`].
+    ///
+    /// # Errors
+    /// [`RecordCommitError::NoTransaction`],
+    /// [`RecordCommitError::UnknownTransaction`],
+    /// [`RecordCommitError::IntegrityConflict`], or
+    /// [`RecordCommitError::AlreadyApplied`].
+    pub fn finish_record_commit(
+        &mut self,
+        prepared: &PreparedRecordingCommit,
+        applied_revision: Option<ProjectRevision>,
+    ) -> Result<RecordingOutcome, RecordCommitError> {
+        // Idempotent retry: the id was already consumed once.
+        self.check_record_receipt(prepared)?;
+        let Some(tx) = self.recording.take() else {
+            return Err(RecordCommitError::UnknownTransaction { id: prepared.id });
+        };
+        if tx.id != prepared.id {
+            self.recording = Some(tx);
+            return Err(RecordCommitError::UnknownTransaction { id: prepared.id });
+        }
+        if txn_fingerprint(&tx) != prepared.fingerprint {
+            self.recording = Some(tx);
+            return Err(RecordCommitError::IntegrityConflict { id: prepared.id });
+        }
+        let outcome = RecordingOutcome {
+            id: tx.id,
+            applied: applied_revision.is_some(),
+            revision: applied_revision,
+            was_sealed: tx.sealed.is_some(),
+        };
+        self.last_disposition = Some(RecordDisposition::Committed {
+            id: tx.id,
+            revision: applied_revision,
+        });
+        if let Some(revision) = applied_revision {
+            self.applied.insert(
+                tx.id,
+                AppliedRecord {
+                    fingerprint: prepared.fingerprint,
+                    revision,
+                },
+            );
+            // Bounded window: evict the oldest receipt beyond the cap.
+            while self.applied.len() > APPLIED_REGISTRY_CAP {
+                self.applied.pop_first();
+            }
+        }
+        Ok(outcome)
+    }
+
+    /// Marks the open transaction `Rejected` after the controller
+    /// refused the prepared apply — the columns, fixed targets and
+    /// fixed lanes stay for Inspect / Retry / Abort.
+    pub fn note_commit_rejected(&mut self, id: RecordingTransactionId) {
+        if let Some(tx) = self.recording.as_mut()
+            && tx.id == id
+        {
+            tx.state = RecordingTxnState::Rejected;
+        }
+    }
+
+    /// A foreign project change succeeded (an apply/undo/redo that is
+    /// **not** this transaction's own commit): the fixed revision is
+    /// now stale — close the write gate. The recorded columns are
+    /// retained; the next prepare reports `Conflict`.
+    pub fn note_project_changed(&mut self) {
+        self.seal_recording(SealReason::ProjectChange);
+    }
+
+    /// Marks the open transaction `Rejected` — used by
+    /// `prepare_record_commit`'s structural checks.
+    fn reject_open(&mut self) {
+        if let Some(tx) = self.recording.as_mut() {
+            tx.state = RecordingTxnState::Rejected;
+        }
+    }
+
+    /// The user-facing report behind an explicit rebase approval:
+    /// for every recorded lane, whether its fixed target and lane
+    /// still exist, how much was recorded, and which existing regions
+    /// a `Replace` write would overwrite. Never merges — it only
+    /// reports what approval would write.
+    ///
+    /// # Errors
+    /// [`RecordCommitError::NoTransaction`].
+    pub fn rebase_preview(
+        &self,
+        project: &Project,
+        current_revision: ProjectRevision,
+    ) -> Result<RebasePreview, RecordCommitError> {
+        let Some(tx) = self.recording.as_ref() else {
+            return Err(RecordCommitError::NoTransaction);
+        };
+        // Iterate the fixed target→lane mapping joined with the
+        // recorded segments: a segment lane is always written through
+        // `fixed_lanes`, so every recorded lane reports its target.
+        let mut lanes = Vec::new();
+        for (target, lane) in &tx.fixed_lanes {
+            let Some(points) = tx.segments.get(lane) else {
+                continue;
+            };
+            let recorded_range = points
+                .first()
+                .and_then(|first| points.last().map(|last| (first.pos, last.pos)));
+            let overlapping_regions = recorded_range.map_or(0, |(start, last)| {
+                // The written extent covers the last point by the same
+                // smallest increment `prepare` uses.
+                let end = last
+                    .checked_add(BeatPoint::new(1, u32::MAX).unwrap_or(last))
+                    .unwrap_or(last);
+                BeatRange::try_new(start, end).map_or(0, |rec_range| {
+                    project
+                        .control
+                        .lanes
+                        .values()
+                        .filter(|l| l.target == *target)
+                        .flat_map(|l| l.regions.iter())
+                        .filter(|r| r.range.overlaps(&rec_range))
+                        .count()
+                })
+            });
+            lanes.push(RebaseLaneReport {
+                lane: *lane,
+                fixed_target: *target,
+                target_exists: project.control.targets.contains_key(target),
+                lane_exists: project
+                    .control
+                    .lanes
+                    .get(lane)
+                    .is_some_and(|l| l.target == *target),
+                recorded_points: points.len(),
+                recorded_range,
+                overlapping_regions,
+            });
+        }
+        Ok(RebasePreview {
+            id: tx.id,
+            fixed_revision: tx.fixed_revision,
+            current_revision,
+            sealed: tx.sealed,
+            lanes,
+        })
+    }
+
+    /// Explicit user approval to rebase the transaction onto the
+    /// current revision: re-pins `fixed_revision` and returns the
+    /// transaction to `Pending` for a fresh prepare. Never reopens
+    /// the write gate — the seal (if any) is kept — and never runs
+    /// automatically.
+    ///
+    /// # Errors
+    /// [`RecordCommitError::NoTransaction`] or
+    /// [`RecordCommitError::UnknownTransaction`].
+    pub fn approve_rebase(
+        &mut self,
+        id: RecordingTransactionId,
+        current_revision: ProjectRevision,
+    ) -> Result<(), RecordCommitError> {
+        let Some(tx) = self.recording.as_mut() else {
+            return Err(RecordCommitError::NoTransaction);
+        };
+        if tx.id != id {
+            return Err(RecordCommitError::UnknownTransaction { id });
+        }
+        tx.fixed_revision = current_revision;
+        tx.state = RecordingTxnState::Pending;
+        Ok(())
+    }
+
+    /// The applied-registry receipt for `id`, if committed.
+    #[must_use]
+    pub fn applied_record(&self, id: RecordingTransactionId) -> Option<AppliedRecord> {
+        self.applied.get(&id).copied()
+    }
+
+    /// The most recent lifecycle disposition (commit or abort).
+    #[must_use]
+    pub fn last_disposition(&self) -> Option<RecordDisposition> {
+        self.last_disposition
+    }
+
+    /// Discards the open transaction — nothing is applied; the
+    /// recorded columns are dropped and the abort is recorded as the
+    /// last disposition.
     pub fn record_abort(&mut self) {
-        self.recording = None;
+        if let Some(tx) = self.recording.take() {
+            self.last_disposition = Some(RecordDisposition::Aborted { id: tx.id });
+        }
     }
 
     // -- evaluation / dispatch ------------------------------------------
@@ -1188,4 +1826,42 @@ impl ControlSession {
     ) -> Result<ControlScope, Error> {
         Ok(Self::target(project, target)?.owner)
     }
+}
+
+/// Deterministic fingerprint of a transaction's canonical payload —
+/// FNV-1a over the id, fixed revision, start position, epoch, fixed
+/// targets/lanes and every recorded point (position + value bits).
+/// Stable across runs and platforms; two transactions with the same
+/// fingerprint are byte-identical payloads.
+fn txn_fingerprint(tx: &RecordingTransaction) -> u64 {
+    const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const PRIME: u64 = 0x0000_0100_0000_01b3;
+    let mut h = OFFSET;
+    let mut mix = |bytes: &[u8]| {
+        for &b in bytes {
+            h ^= u64::from(b);
+            h = h.wrapping_mul(PRIME);
+        }
+    };
+    mix(&tx.id.0.to_le_bytes());
+    mix(&tx.fixed_revision.0.to_le_bytes());
+    mix(&tx.started_at.num().to_le_bytes());
+    mix(&tx.started_at.den().to_le_bytes());
+    mix(&tx.epoch.get().to_le_bytes());
+    for target in &tx.fixed_targets {
+        mix(&target.raw().to_le_bytes());
+    }
+    for (target, lane) in &tx.fixed_lanes {
+        mix(&target.raw().to_le_bytes());
+        mix(&lane.raw().to_le_bytes());
+    }
+    for (lane, points) in &tx.segments {
+        mix(&lane.raw().to_le_bytes());
+        for p in points {
+            mix(&p.pos.num().to_le_bytes());
+            mix(&p.pos.den().to_le_bytes());
+            mix(&p.value.to_bits().to_le_bytes());
+        }
+    }
+    h
 }

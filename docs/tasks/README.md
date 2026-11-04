@@ -49,6 +49,7 @@ Directory: `docs/tasks`
 | TASK-034PCA09Up4dXy0eGhUiJk | PC-A task5 受入 test PC-A-01..08 | done | [pc-a-task5-acceptance-tests.md](./pc-a-task5-acceptance-tests.md) |
 | TASK-034PCA10Vq5eYz1fHiVjKl | PC-A task6 最終検証 + impl record | done | [pc-a-task6-verification-impl-record.md](./pc-a-task6-verification-impl-record.md) |
 | TASK-034PCB06Rm1aUv7bDeFgHi | PC-B: dispatch/note-scope/RT/offline 実装タスク | done | [pc-b-task1-dispatch-note-rt-offline.md](./pc-b-task1-dispatch-note-rt-offline.md) |
+| TASK-034RoXjRUKOjib6ULatmIn | PC-C1: prepare/apply/finalize 実装タスク | done | [pc-c1-task1-prepare-apply-finalize.md](./pc-c1-task1-prepare-apply-finalize.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | TASK-034Qe0kHawWuXO1xHGTd8F | VS-A task3 controller ops store | done | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |
