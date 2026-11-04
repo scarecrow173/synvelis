@@ -1155,14 +1155,19 @@ jobs:
         run: |
           set -euo pipefail
           # Issue #157: leg の conclusion 遷移(cancel/fail 処理)中に jobs
-          # API が job エントリを一時的に欠落して返し得る。expected 件数
-          # (lane leg 総数 + observed macOS + evidence 自身)に満たない間は
-          # bounded retry し、それでも不足なら gate が fail-closed で
-          # absent を検出する。selective で `if:` skip された job は API
-          # に出ないため、件数不足でも bounded 回で先へ進む。
-          expected="$(( $(mise exec -- node tools/ci-impact.mjs lanes | wc -l) + 1 ))"
+          # API が job エントリを一時的に欠落して返し得る。expected 件数は
+          # `expected-jobs` が impact report から正確化する — scheduled
+          # lane は leg 数分展開され、job-level `if:` で skip された lane
+          # は 1 entry に収縮する(matrix lane は matrix 式未展開名の
+          # placeholder、非 matrix lane は通常名 skipped entry)。expected
+          # に満たない間は bounded retry し、それでも不足なら gate が
+          # fail-closed で absent を検出する。
+          expected="$(mise exec -- node tools/ci-impact.mjs expected-jobs --impact impact-report.json)"
           for i in 1 2 3 4; do
-            gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?filter=all&per_page=100" --jq '.jobs' > run-jobs.json
+            # filter=all は全 attempt の job を返す(1 attempt ≒14 件)ため
+            # --paginate で取りこぼしを防ぎ、.jobs[] 展開を slurp で単一
+            # 配列へ戻す(gate は jobs 配列を読む)。
+            gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?filter=all&per_page=100" --paginate --jq '.jobs[]' | jq -s '.' > run-jobs.json
             count="$(jq length run-jobs.json 2>/dev/null || echo 0)"
             echo "collected $count job entries for run $RUN_ID (fetch attempt $i, expected $expected)"
             [ "$count" -ge "$expected" ] && break
