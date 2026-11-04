@@ -42,3 +42,4 @@ Directory: `docs/impl/ir`
 | IMPL-0Gw09UiContractState01 | GW-09 Connection/Grant/Approval UI — Headless Contract・State・Fixtures (Explicit Scope・3 Modes・Receipt/Revocation UX) | completed | [gw-09-connection-grant-approval-ui-headless-contract-state-fixtures.md](gw-09-connection-grant-approval-ui-headless-contract-state-fixtures.md) |
 | IMPL-0SV47ControlsUiInteg01 | SV-47 Ruviform controls/binding headless contract integration — Mixer/Transport/parameter editing surfaces | completed | [sv47-ruviform-controls-ui-integration.md](sv47-ruviform-controls-ui-integration.md) |
 | IMPL-0SV48VizUiInteg0001 | SV-48 Ruviform ui/viz + ui/binding headless contract integration — Waveform/Meter/Spectrum/Timeline into the DAW view layer | completed | [sv48-ruviform-viz-ui-integration.md](sv48-ruviform-viz-ui-integration.md) |
+| IMPL-034Rp8RppbqCF1xtexsFvB | Synvelis 独立 PR/Push CI 実装記録 | completed | [synvelis-pr-push-ci.md](synvelis-pr-push-ci.md) |

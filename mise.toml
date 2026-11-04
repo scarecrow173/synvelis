@@ -7,12 +7,13 @@ UV_EXCLUDE_NEWER = "1 week"
 
 # Infrastructure tools only; add a project language toolchain as needed.
 [tools]
+actionlint = "1.7.12"
 uv = "0.13.4"
 prek = "0.5.5"
 git-lfs = "3.8.0"
 "github:microsoft/apm" = "0.33.0"
 "pipx:serena-agent" = "1.7.0"
-rust = "1.99.0"
+rust = { version = "1.99.0", components = ["rustfmt", "clippy"] }
 
 [tasks.setup]
 description = "Install APM dependencies, prek hooks and repository-local Git LFS"
@@ -41,6 +42,14 @@ run = "cargo clippy --workspace --all-targets -- -D warnings"
 [tasks.test]
 description = "Run all workspace tests against the locked dependency graph"
 run = "cargo test --workspace --locked"
+
+[tasks.test-rt]
+description = "Run the rt_ contract tests (RT no-alloc/no-block) against the locked dependency graph"
+run = "cargo test --workspace --locked rt_"
+
+[tasks.lint-actions]
+description = "Lint GitHub Actions workflow files with actionlint"
+run = "actionlint"
 
 [tasks.build]
 description = "Build the workspace (dev profile)"
