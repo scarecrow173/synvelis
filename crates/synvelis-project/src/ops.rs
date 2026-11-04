@@ -1749,24 +1749,64 @@ impl Operation for ProjectOp {
                 region,
                 policy,
             } => {
-                if *policy == ConflictPolicy::Replace {
-                    let target = project.control.lanes.get(lane).map(|l| l.target);
+                if *policy == ConflictPolicy::Replace
+                    && let Some(target) = project.control.lanes.get(lane).map(|l| l.target)
+                {
+                    // AUT-02 (issue #132): plan the boundary anchors on
+                    // the pre-edit merged series before the cut drops
+                    // the points they are computed from.
+                    let series = crate::control::merged_series(project, target);
+                    let (left, right) = crate::control::boundary_anchors(&series, &region.range);
                     // Explicit overwrite: the new region wins the merged
                     // series — every lane of this target loses the
                     // overlapping span.
                     for other in project.control.lanes.values_mut() {
-                        if Some(other.target) == target {
+                        if other.target == target {
                             cut_range_points(&mut other.regions, &region.range);
                         }
                     }
-                }
-                if let Some(lane_ref) = project.control.lanes.get_mut(lane) {
+                    let mut region = region.clone();
+                    // Left boundary: fold `v_old(cut.start)` into the new
+                    // region unless the caller already placed an
+                    // explicit point at the boundary (E-1 — the caller's
+                    // point owns the anchor position).
+                    if let Some(anchor_point) = left
+                        && region
+                            .points
+                            .first()
+                            .is_none_or(|p| p.pos > anchor_point.pos)
+                    {
+                        region.points.insert(0, anchor_point);
+                    }
+                    if let Some(lane_ref) = project.control.lanes.get_mut(lane) {
+                        lane_ref.regions.push(region);
+                    }
+                    // Right boundary: restore `v_old(cut.end)` from the
+                    // pre-edit curve so the series outside the replaced
+                    // span is unchanged.
+                    if let Some(anchor) = right {
+                        crate::control::stitch_boundary_anchor(project, target, *lane, &anchor)?;
+                    }
+                } else if let Some(lane_ref) = project.control.lanes.get_mut(lane) {
                     lane_ref.regions.push(region.clone());
                 }
             }
             Self::EraseAutomationRange { lane, range } => {
+                // AUT-02 (issue #132): erase preserves the right-side
+                // curve the same way; the left Linear approach has no
+                // region to host an anchor at `range.start` (E-3).
+                let target = project.control.lanes.get(lane).map(|l| l.target);
+                let right = target.and_then(|t| {
+                    let series = crate::control::merged_series(project, t);
+                    crate::control::boundary_anchors(&series, range)
+                        .1
+                        .map(|a| (t, a))
+                });
                 if let Some(lane_ref) = project.control.lanes.get_mut(lane) {
                     cut_range_points(&mut lane_ref.regions, range);
+                }
+                if let Some((target, anchor)) = right {
+                    crate::control::stitch_boundary_anchor(project, target, *lane, &anchor)?;
                 }
             }
             Self::AddModulationSource { owner, kind } => {

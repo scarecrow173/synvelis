@@ -1049,6 +1049,252 @@ pub fn cut_range_points(regions: &mut Vec<AutomationRegion>, cut: &BeatRange) {
 }
 
 // ---------------------------------------------------------------------------
+// cut boundary preservation (issue #132, AUT-02)
+// ---------------------------------------------------------------------------
+
+/// Smallest representable sentinel-region extent: `1/u32::MAX` beats —
+/// the same half-open extension `prepare_record_commit` uses.
+const SENTINEL_EPS_NUM: i64 = 1;
+const SENTINEL_EPS_DEN: u32 = u32::MAX;
+
+/// A synthesized boundary point carrying the pre-edit merged-series
+/// value at a cut boundary — the right-side resume anchor that keeps
+/// the curve outside `[cut.start, cut.end)` identical (issue #132).
+///
+/// `interp` is the interpolation of the pre-edit chase source — the
+/// segment the anchor must continue from `pos` to the next point — so
+/// the anchor can only live inside a region whose interpolation
+/// matches, or inside a dedicated sentinel region created for it.
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct BoundaryAnchor {
+    /// Boundary position — always `cut.end()` (the right resume side).
+    pub pos: BeatPoint,
+    /// `v_old(pos)` evaluated on the pre-edit merged series.
+    pub value: f64,
+    /// Segment interpolation the anchor must carry forward.
+    pub interp: Interpolation,
+    /// The pre-edit chase source `(pos, value, interp)` the stitch
+    /// compares against — when the post-edit chase source already
+    /// reproduces it, no anchor is inserted (no silent duplication).
+    pub source: (BeatPoint, f64, Interpolation),
+}
+
+/// Plans the boundary anchors for a `cut` over the pre-edit merged
+/// series `series` (all lanes of one target, sorted by `pos`).
+///
+/// Returns `(left, right)`:
+///
+/// - `left` — a point `(cut.start, v_old(cut.start))` the caller may
+///   prepend to the incoming region. `None` when the pre-edit series
+///   has no point at or before `cut.start` (the region start is owned
+///   by the caller's first point — contract exception E-1).
+/// - `right` — a [`BoundaryAnchor`] at `cut.end`. `None` when an
+///   explicit point exists exactly at `cut.end` (the kept point owns
+///   the boundary) or when the pre-edit series has no point before
+///   `cut.end` (a point cannot express an unreached series — contract
+///   exception E-2).
+pub(crate) fn boundary_anchors(
+    series: &[(BeatPoint, f64, Interpolation)],
+    cut: &BeatRange,
+) -> (Option<AutomationPoint>, Option<BoundaryAnchor>) {
+    let left = prepared_lane_value(series, cut.start()).map(|value| AutomationPoint {
+        pos: cut.start(),
+        value: value.clamp(0.0, 1.0),
+    });
+    let mut right = None;
+    if !series.iter().any(|p| p.0 == cut.end()) {
+        let idx = series.partition_point(|p| p.0 < cut.end());
+        if idx > 0 {
+            let source = series[idx - 1];
+            if let Some(value) = prepared_lane_value(series, cut.end()) {
+                right = Some(BoundaryAnchor {
+                    pos: cut.end(),
+                    value: value.clamp(0.0, 1.0),
+                    interp: source.2,
+                    source,
+                });
+            }
+        }
+    }
+    (left, right)
+}
+
+/// Applies `anchor` to the post-cut control model: when the post-edit
+/// chase source at `anchor.pos` no longer reproduces the pre-edit one,
+/// inserts the anchor as a boundary point.
+///
+/// Placement: the unique region containing `anchor.pos` — prepended
+/// when its interpolation matches the anchor's, otherwise split so the
+/// anchor gets a dedicated sentinel region `[pos, p1)` — or, when no
+/// region contains `pos`, a sentinel region `[pos, min(next_start,
+/// pos + 1/u32::MAX))` on `fallback_lane`. A synthesized point is never
+/// inserted where an explicit point already exists, so coincident
+/// points (and any silent last-wins ordering) cannot occur.
+///
+/// `lane.regions` stays sorted by `range.start` — the same persisted
+/// order `cut_range_points` produces.
+pub(crate) fn stitch_boundary_anchor(
+    project: &mut Project,
+    target: ParameterTargetId,
+    fallback_lane: AutomationLaneId,
+    anchor: &BoundaryAnchor,
+) -> Result<(), Error> {
+    let series = merged_series(project, target);
+    let idx = series.partition_point(|p| p.0 < anchor.pos);
+    let last = idx.checked_sub(1).map(|i| series[i]);
+    if last.is_some_and(|(pos, value, interp)| {
+        pos == anchor.source.0
+            && value.to_bits() == anchor.source.1.to_bits()
+            && interp == anchor.source.2
+    }) {
+        return Ok(());
+    }
+    let point = AutomationPoint {
+        pos: anchor.pos,
+        value: anchor.value,
+    };
+    // The unique region containing `pos` (at most one — ranges never
+    // overlap on a target).
+    let host = project
+        .control
+        .lanes
+        .iter()
+        .filter(|(_, lane)| lane.target == target)
+        .find_map(|(lane_id, lane)| {
+            lane.regions
+                .iter()
+                .position(|r| r.range.contains(anchor.pos))
+                .map(|ri| (*lane_id, ri))
+        });
+    if let Some((lane_id, ri)) = host {
+        return stitch_into_host(project, target, lane_id, ri, anchor, point);
+    }
+    let end = sentinel_end(project, target, anchor.pos)?;
+    let sentinel = AutomationRegion {
+        range: Range::try_new(anchor.pos, end)
+            .map_err(|_| Error::Validation("sentinel range is empty".into()))?,
+        interpolation: anchor.interp,
+        points: vec![point],
+    };
+    let lane = project
+        .control
+        .lanes
+        .get_mut(&fallback_lane)
+        .ok_or_else(|| Error::NotFound(format!("automation lane {fallback_lane}")))?;
+    let at = lane
+        .regions
+        .partition_point(|r| r.range.start() < anchor.pos);
+    lane.regions.insert(at, sentinel);
+    Ok(())
+}
+
+/// Places the anchor inside `regions[ri]` of `lane_id` — prepended in
+/// ascending order when the host interpolation matches, otherwise by
+/// splitting the host so the anchor lives in a dedicated sentinel
+/// region `[pos, end_bound)` carrying `anchor.interp`.
+fn stitch_into_host(
+    project: &mut Project,
+    target: ParameterTargetId,
+    lane_id: AutomationLaneId,
+    ri: usize,
+    anchor: &BoundaryAnchor,
+    point: AutomationPoint,
+) -> Result<(), Error> {
+    let (host_interp, host_start, host_end, insert_at, first_right_pos) = {
+        let region = &project
+            .control
+            .lanes
+            .get(&lane_id)
+            .ok_or_else(|| Error::NotFound(format!("automation lane {lane_id}")))?
+            .regions[ri];
+        let insert_at = region.points.partition_point(|p| p.pos < anchor.pos);
+        (
+            region.interpolation,
+            region.range.start(),
+            region.range.end(),
+            insert_at,
+            region.points.get(insert_at).map(|p| p.pos),
+        )
+    };
+    if host_interp == anchor.interp {
+        let region = &mut project
+            .control
+            .lanes
+            .get_mut(&lane_id)
+            .ok_or_else(|| Error::NotFound(format!("automation lane {lane_id}")))?
+            .regions[ri];
+        region.points.insert(insert_at, point);
+        return Ok(());
+    }
+    // Interpolation mismatch: the anchor needs its own segment kind —
+    // split the host at `pos` so the anchor lives in a sentinel
+    // region with `anchor.interp`.
+    let end_bound = match first_right_pos {
+        Some(p) => std::cmp::min(p, sentinel_eps_end(anchor.pos)?),
+        None => sentinel_end(project, target, anchor.pos)?,
+    };
+    let lane = project
+        .control
+        .lanes
+        .get_mut(&lane_id)
+        .ok_or_else(|| Error::NotFound(format!("automation lane {lane_id}")))?;
+    let region = &mut lane.regions[ri];
+    let left_pts: Vec<AutomationPoint> = region.points[..insert_at].to_vec();
+    let right_pts: Vec<AutomationPoint> = region.points[insert_at..].to_vec();
+    let sentinel = AutomationRegion {
+        range: Range::try_new(anchor.pos, end_bound)
+            .map_err(|_| Error::Validation("sentinel range is empty".into()))?,
+        interpolation: anchor.interp,
+        points: vec![point],
+    };
+    let mut rebuilt: Vec<AutomationRegion> = Vec::with_capacity(3);
+    if let (Ok(left_range), false) = (Range::try_new(host_start, anchor.pos), left_pts.is_empty()) {
+        rebuilt.push(AutomationRegion {
+            range: left_range,
+            interpolation: host_interp,
+            points: left_pts,
+        });
+    }
+    rebuilt.push(sentinel);
+    if let (Ok(right_range), false) = (Range::try_new(end_bound, host_end), right_pts.is_empty()) {
+        rebuilt.push(AutomationRegion {
+            range: right_range,
+            interpolation: host_interp,
+            points: right_pts,
+        });
+    }
+    lane.regions.splice(ri..=ri, rebuilt);
+    Ok(())
+}
+
+/// `pos + 1/u32::MAX` beats — the default sentinel-region extent.
+fn sentinel_eps_end(pos: BeatPoint) -> Result<BeatPoint, Error> {
+    pos.checked_add(BeatPoint::new(SENTINEL_EPS_NUM, SENTINEL_EPS_DEN)?)
+}
+
+/// Sentinel-region end when the anchor is not followed by a known
+/// point: the earliest region start after `pos`, or `pos + ε`.
+fn sentinel_end(
+    project: &Project,
+    target: ParameterTargetId,
+    pos: BeatPoint,
+) -> Result<BeatPoint, Error> {
+    let next_start = project
+        .control
+        .lanes
+        .values()
+        .filter(|lane| lane.target == target)
+        .flat_map(|lane| lane.regions.iter())
+        .map(|r| r.range.start())
+        .filter(|s| *s > pos)
+        .min();
+    Ok(match next_start {
+        Some(s) => std::cmp::min(s, sentinel_eps_end(pos)?),
+        None => sentinel_eps_end(pos)?,
+    })
+}
+
+// ---------------------------------------------------------------------------
 // evaluation
 // ---------------------------------------------------------------------------
 
@@ -1217,7 +1463,7 @@ fn resolve_clip_pos(
 /// Merged `(pos, value, segment interpolation)` of every region on
 /// every lane of `target`, sorted by position — the one logical series
 /// all projections read.
-fn merged_series(
+pub(crate) fn merged_series(
     project: &Project,
     target: ParameterTargetId,
 ) -> Vec<(BeatPoint, f64, Interpolation)> {
