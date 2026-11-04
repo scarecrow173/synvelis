@@ -496,6 +496,62 @@ pub enum ProjectOp {
         /// New index (0..len).
         new_index: usize,
     },
+    /// Replace a connection's explicit channel map (`None` clears it).
+    /// The post-apply oracle and the generic graph validator own the
+    /// map's legality — this op performs no implicit conversion.
+    SetConnectionChannelMap {
+        /// Target connection.
+        connection_id: RoutingConnectionId,
+        /// New explicit map.
+        channel_map: Option<ExplicitChannelMap>,
+    },
+    /// Rebind a send's level target. `Some(target)` adopts an existing
+    /// project-time target (owner is sealed to `Send(send_id)` like
+    /// `AddSend`); `None` clears the binding.
+    SetSendGainTarget {
+        /// Target send.
+        send_id: SendId,
+        /// New level target.
+        gain_target: Option<ParameterTargetId>,
+    },
+    /// Change a bus's persisted configuration — name and/or kind. The
+    /// master kind is fixed (`Master` stays `Master`, and no other bus
+    /// may become `Master`).
+    ConfigureBus {
+        /// Target bus.
+        bus_id: BusId,
+        /// New display name (`None` keeps it).
+        name: Option<String>,
+        /// New kind (`None` keeps it).
+        kind: Option<BusKind>,
+    },
+    /// Set a strip's persisted mute — the `ControlOwner::Strip` +
+    /// `ParameterRole::Mute` Boolean target is the authority; it is
+    /// created on first use.
+    SetStripMute {
+        /// Target strip.
+        strip_id: StripId,
+        /// Muted flag.
+        muted: bool,
+    },
+    /// Set a strip's persisted solo — the `ControlOwner::Strip` +
+    /// `ParameterRole::Solo` Boolean target is the authority; it is
+    /// created on first use.
+    SetStripSolo {
+        /// Target strip.
+        strip_id: StripId,
+        /// Soloed flag.
+        soloed: bool,
+    },
+    /// Atomic routing transaction (issue #105 / SF-02): a whole
+    /// routing gesture — temporary references resolved to stable IDs,
+    /// per-edit semantics, generic graph validation, and the project
+    /// oracle — staged then committed as one CAS/one undo. Any
+    /// rejection leaves the project untouched.
+    Routing {
+        /// The authored intent.
+        intent: crate::routing_tx::RoutingEditIntent,
+    },
 }
 
 impl Operation for ProjectOp {
@@ -1194,6 +1250,78 @@ impl Operation for ProjectOp {
                 }
                 Ok(())
             }
+            Self::SetConnectionChannelMap { connection_id, .. } => project
+                .routing
+                .connections
+                .contains_key(connection_id)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("connection {connection_id}"))),
+            Self::SetSendGainTarget {
+                send_id,
+                gain_target,
+            } => {
+                if !project.routing.sends.contains_key(send_id) {
+                    return Err(Error::NotFound(format!("send {send_id}")));
+                }
+                if let Some(target) = gain_target {
+                    let t = project
+                        .control
+                        .targets
+                        .get(target)
+                        .ok_or_else(|| Error::NotFound(format!("param {target}")))?;
+                    if !matches!(
+                        t.time_scope,
+                        AutomationTimeScope::ProjectMusical | AutomationTimeScope::ProjectAbsolute
+                    ) {
+                        return Err(Error::Validation(format!(
+                            "send gain target {target} must be project-time"
+                        )));
+                    }
+                    if project
+                        .routing
+                        .sends
+                        .values()
+                        .any(|s| s.id != *send_id && s.gain_target == Some(*target))
+                    {
+                        return Err(Error::Validation(format!(
+                            "param {target} already bound as a send gain"
+                        )));
+                    }
+                }
+                Ok(())
+            }
+            Self::ConfigureBus { bus_id, kind, .. } => {
+                let bus = project
+                    .routing
+                    .buses
+                    .get(bus_id)
+                    .ok_or_else(|| Error::NotFound(format!("bus {bus_id}")))?;
+                match (bus.kind, kind) {
+                    (_, Some(BusKind::Master)) if *bus_id != project.routing.master => Err(
+                        Error::Validation("only the master bus may carry kind Master".into()),
+                    ),
+                    (BusKind::Master, Some(k)) if *k != BusKind::Master => {
+                        Err(Error::Validation("the master bus kind is fixed".into()))
+                    }
+                    _ => Ok(()),
+                }
+            }
+            Self::SetStripMute { strip_id, .. } | Self::SetStripSolo { strip_id, .. } => project
+                .routing
+                .strips
+                .contains_key(strip_id)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("strip {strip_id}"))),
+            Self::Routing { intent } => {
+                // Whole-transaction staging on a dry generator: the
+                // watermark seed issues non-colliding raws so every
+                // edit resolves exactly as it would at apply, without
+                // consuming live IDs.
+                let mut dry = crate::id::CounterIdGenerator::new(project.id_watermark);
+                crate::routing_tx::preflight(project, intent, &mut dry)
+                    .map(|_| ())
+                    .map_err(crate::routing_tx::RoutingEditError::into_error)
+            }
         }
     }
 
@@ -1875,6 +2003,7 @@ impl Operation for ProjectOp {
                         role: PortRole::Main,
                         domain: SignalDomain::Audio,
                         binding: processor_port_binding(binding, "in"),
+                        channels: crate::routing::DEFAULT_PORT_CHANNELS,
                     },
                 );
                 let port_out = SemanticPortId::new(ids.next());
@@ -1888,6 +2017,7 @@ impl Operation for ProjectOp {
                         role: PortRole::Main,
                         domain: SignalDomain::Audio,
                         binding: processor_port_binding(binding, "out"),
+                        channels: crate::routing::DEFAULT_PORT_CHANNELS,
                     },
                 );
                 if *sidechain_input {
@@ -1902,6 +2032,7 @@ impl Operation for ProjectOp {
                             role: PortRole::Sidechain,
                             domain: SignalDomain::Audio,
                             binding: processor_port_binding(binding, "sidechain"),
+                            channels: crate::routing::DEFAULT_PORT_CHANNELS,
                         },
                     );
                 }
@@ -1941,6 +2072,53 @@ impl Operation for ProjectOp {
                     chain.processors.remove(old);
                     chain.processors.insert(*new_index, *processor_id);
                 }
+            }
+            Self::SetConnectionChannelMap {
+                connection_id,
+                channel_map,
+            } => {
+                if let Some(conn) = project.routing.connections.get_mut(connection_id) {
+                    conn.channel_map.clone_from(channel_map);
+                }
+            }
+            Self::SetSendGainTarget {
+                send_id,
+                gain_target,
+            } => {
+                if let Some(send) = project.routing.sends.get_mut(send_id) {
+                    send.gain_target = *gain_target;
+                }
+                // Sealed like `AddSend`: the send owns its level target.
+                if let Some(t) = gain_target
+                    && let Some(target) = project.control.targets.get_mut(t)
+                {
+                    target.owner = ControlOwner::Send(*send_id);
+                    target.role = ParameterRole::SendLevel;
+                }
+            }
+            Self::ConfigureBus { bus_id, name, kind } => {
+                if let Some(bus) = project.routing.buses.get_mut(bus_id) {
+                    if let Some(n) = name {
+                        bus.name.clone_from(n);
+                    }
+                    if let Some(k) = kind {
+                        bus.kind = *k;
+                    }
+                }
+            }
+            Self::SetStripMute { strip_id, muted } => {
+                set_strip_bool(project, ids, *strip_id, ParameterRole::Mute, *muted);
+            }
+            Self::SetStripSolo { strip_id, soloed } => {
+                set_strip_bool(project, ids, *strip_id, ParameterRole::Solo, *soloed);
+            }
+            Self::Routing { intent } => {
+                // One preflight stages the whole intent; the validated
+                // candidate replaces the project wholesale — the
+                // controller's CAS then commits it as one revision.
+                let plan = crate::routing_tx::preflight(project, intent, ids)
+                    .map_err(crate::routing_tx::RoutingEditError::into_error)?;
+                *project = plan.project;
             }
         }
         Ok(())
@@ -2022,6 +2200,7 @@ fn insert_strip(
                 role: PortRole::Main,
                 domain: SignalDomain::Audio,
                 binding: PortBinding::Internal,
+                channels: crate::routing::DEFAULT_PORT_CHANNELS,
             },
         );
     }
@@ -2038,6 +2217,64 @@ fn remove_strip_owned(project: &mut Project, strip_id: StripId) {
         for port_id in &strip.port_ids {
             project.routing.ports.remove(port_id);
         }
+    }
+}
+
+/// Sets a strip's singleton Boolean mixer state (mute/solo) through
+/// its `ControlOwner::Strip` parameter target — created on first use
+/// so strips carry no mute/solo state until the user engages it. The
+/// Boolean base `1.0`/`0.0` is the persisted authority; automation
+/// and modulation bind to the same target.
+fn set_strip_bool(
+    project: &mut Project,
+    ids: &mut dyn IdGenerator,
+    strip_id: StripId,
+    role: ParameterRole,
+    on: bool,
+) {
+    let base = if on { 1.0 } else { 0.0 };
+    let existing = project
+        .control
+        .targets
+        .values()
+        .find(|t| t.owner == ControlOwner::Strip(strip_id) && t.role == role)
+        .map(|t| t.id);
+    if let Some(id) = existing {
+        if let Some(target) = project.control.targets.get_mut(&id) {
+            target.base = base;
+        }
+    } else {
+        let id = ParameterTargetId::new(ids.next());
+        project.control.targets.insert(
+            id,
+            crate::control::ParameterTarget {
+                id,
+                owner: ControlOwner::Strip(strip_id),
+                role,
+                time_scope: AutomationTimeScope::ProjectMusical,
+                name: match role {
+                    ParameterRole::Mute => "Mute".into(),
+                    ParameterRole::Solo => "Solo".into(),
+                    _ => role_name(role).into(),
+                },
+                kind: ValueKind::Boolean,
+                mapping: ParamMapping::Linear,
+                capability: None,
+                base,
+            },
+        );
+    }
+}
+
+fn role_name(role: ParameterRole) -> &'static str {
+    match role {
+        ParameterRole::Generic => "Param",
+        ParameterRole::Fader => "Fader",
+        ParameterRole::Pan => "Pan",
+        ParameterRole::Mute => "Mute",
+        ParameterRole::Solo => "Solo",
+        ParameterRole::SendLevel => "Send Level",
+        ParameterRole::ProcessorParam => "Plugin Param",
     }
 }
 

@@ -5,7 +5,8 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { buildImpactReport, evaluateGate } from "./ci-impact.mjs";
+import { readFileSync } from "node:fs";
+import { buildImpactReport, evaluateGate, expectedJobs } from "./ci-impact.mjs";
 
 // Required lane legs — Issue #157 rev.2: macOS legs are physically
 // separated into the non-blocking OBSERVED track, so each matrix lane
@@ -290,5 +291,136 @@ describe("gate: fail-closed verdicts", () => {
     assert.equal(v.ok, true, JSON.stringify(v.violations));
     const v1 = evaluateGate({ impact: reportFor(["ui/src/x.ts"]), jobs, attempt: 1 });
     assert.equal(v1.ok, false);
+  });
+});
+
+// Issue #157 rev.3: a matrix lane skipped by its job-level `if:` is not
+// expanded into legs at all — GitHub records a single placeholder job whose
+// name is the unexpanded name template ('<lane> (${{ matrix.os }})'). The
+// fixture below is the real jobs API payload of run 41894049161 (PR #161),
+// where ui-verify was the only unscheduled lane: 13 entries — 8 scheduled
+// legs + 1 placeholder + 3 observed macOS jobs + evidence itself.
+const RUN_41894049161_JOBS = JSON.parse(
+  readFileSync(new URL("./fixtures/run-41894049161-jobs.json", import.meta.url), "utf8"),
+);
+
+// PR #161's changed file list — synvelis-project sources propagate to
+// verify/rt-verify/gw10-verify/msrv-verify/dep-guard while ui-verify stays
+// not-applicable, reproducing the report that run's classify emitted.
+const PR_161_FILES = [
+  "crates/synvelis-project/src/control.rs",
+  "crates/synvelis-project/src/ops.rs",
+  "crates/synvelis-project/tests/aut_02.rs",
+  "docs/adr/aut-02-boundary-sentinel-anchor-placement.md",
+  "docs/designs/aut-02-region-replace-boundary-design.md",
+  "docs/impl/ir/aut-02-region-replace-boundary.md",
+  "docs/plans/aut-02-region-replace-boundary.md",
+  "docs/specs/aut-02-region-replace-boundary-curve-preservation.md",
+  "docs/tasks/aut-02-task1-region-replace-boundary.md",
+  "docs/test-specs/aut-02-e2e-region-replace-boundary.md",
+];
+
+describe("gate: skipped matrix lane placeholders (Issue #157 rev.3)", () => {
+  it("placeholder for an unscheduled lane is authorized — run 41894049161 replay", () => {
+    const impact = reportFor(PR_161_FILES, "selective");
+    const v = evaluateGate({ impact, jobs: RUN_41894049161_JOBS, attempt: 1 });
+    assert.equal(v.ok, true, JSON.stringify(v.violations));
+    const ph = v.rows.find((r) => r.name === "ui-verify (${{ matrix.os }})");
+    assert.equal(ph?.verdict, "skipped-placeholder");
+    // The lane's real legs stay absent+not-required — no violation either way.
+    for (const leg of ["ui-verify (ubuntu-latest)", "ui-verify (windows-latest)"]) {
+      const row = v.rows.find((r) => r.name === leg);
+      assert.equal(row?.verdict, "not-run");
+    }
+  });
+
+  it("placeholder for a scheduled lane is a required-lane-skipped violation", () => {
+    const impact = reportFor(["ui/src/x.ts"], "selective");
+    const jobs = allPassJobs()
+      .filter((j) => !j.name.startsWith("ui-verify ("))
+      .concat([job("ui-verify (${{ matrix.os }})", "skipped")]);
+    const v = evaluateGate({ impact, jobs, attempt: 1 });
+    assert.equal(v.ok, false);
+    assert.ok(v.violations.some((m) => m.includes("ui-verify (${{ matrix.os }})") && m.includes("skipped")));
+  });
+
+  it("placeholder-shaped name with an unknown prefix stays an unclassified violation", () => {
+    const impact = reportFor(["ui/src/x.ts"], "selective");
+    const jobs = [...allPassJobs(), job("foo (${{ matrix.os }})", "skipped")];
+    const v = evaluateGate({ impact, jobs, attempt: 1 });
+    assert.equal(v.ok, false);
+    assert.ok(v.violations.some((m) => m.includes("unclassified") && m.includes("foo")));
+  });
+
+  it("placeholder while shadow/full schedules everything is a violation", () => {
+    const impact = reportFor(["docs/x.md"], "shadow");
+    const jobs = allPassJobs().concat([job("ui-verify (${{ matrix.os }})", "skipped")]);
+    const v = evaluateGate({ impact, jobs, attempt: 1 });
+    assert.equal(v.ok, false);
+  });
+
+  it("stale placeholder from an earlier attempt is superseded by later legs", () => {
+    // Rollback path: attempt 1 ran selective with ui-verify unscheduled
+    // (placeholder recorded); re-run-all under CI_SELECTIVE_DISABLE emits a
+    // shadow report scheduling every lane, so attempt 2 expands and passes
+    // ui-verify's legs. The old placeholder must not retro-fail that run.
+    const impact = reportFor(PR_161_FILES, "shadow");
+    const jobs = allPassJobs()
+      .map((j) => ({ ...j, run_attempt: 2 }))
+      .concat([job("ui-verify (${{ matrix.os }})", "skipped", 1)]);
+    const v = evaluateGate({ impact, jobs, attempt: 2 });
+    assert.equal(v.ok, true, JSON.stringify(v.violations));
+  });
+
+  it("placeholder-shaped entry without a skipped conclusion is a violation", () => {
+    // A placeholder is by definition a record of a skip; any other
+    // conclusion means the API no longer matches the assumed semantics —
+    // fail closed rather than accept an unrecognized record.
+    const impact = reportFor(PR_161_FILES, "selective");
+    const jobs = RUN_41894049161_JOBS.map((j) =>
+      j.name === "ui-verify (${{ matrix.os }})" ? { ...j, conclusion: "cancelled" } : j,
+    );
+    const v = evaluateGate({ impact, jobs, attempt: 1 });
+    assert.equal(v.ok, false);
+    assert.ok(v.violations.some((m) => m.includes("ui-verify (${{ matrix.os }})") && m.includes("expected skipped")));
+  });
+
+  it("job entries without a string name degrade to unclassified, not a crash", () => {
+    const jobs = [...allPassJobs(), { status: "completed", conclusion: "success" }];
+    const v = evaluateGate({ impact: reportFor(["ui/src/x.ts"], "selective"), jobs, attempt: 1 });
+    assert.equal(v.ok, false);
+    assert.ok(v.violations.some((m) => m.includes("unclassified")));
+  });
+});
+
+describe("expected-jobs count (Issue #157 rev.3)", () => {
+  it("selective run with one unscheduled lane expects 13 jobs", () => {
+    // 8 scheduled legs + 1 placeholder + 3 observed + 1 evidence — matches
+    // the real 13-entry payload of run 41894049161.
+    const impact = reportFor(PR_161_FILES, "selective");
+    assert.equal(expectedJobs(impact), 13);
+  });
+
+  it("fully scheduled runs expect 14 jobs", () => {
+    for (const m of ["shadow", "full"]) {
+      assert.equal(expectedJobs(reportFor(["docs/x.md"], m)), 14, m);
+    }
+    assert.equal(expectedJobs(reportFor(["Cargo.toml"], "selective")), 14);
+  });
+
+  it("docs-only selective run expects 11 jobs", () => {
+    // classify only + 6 unscheduled lane entries + 3 observed + 1 evidence.
+    assert.equal(expectedJobs(reportFor(["docs/x.md", "README.md"], "selective")), 11);
+  });
+
+  it("missing/malformed report falls back to the full universe (fail-safe over-expect)", () => {
+    assert.equal(expectedJobs(null), 14);
+    assert.equal(expectedJobs({}), 14);
+    assert.equal(expectedJobs({ lanes: "bogus" }), 14);
+    // Semantically malformed: a report that does not cover the full lane
+    // universe is treated the same as an unreadable one — under-expecting
+    // could end the bounded retry while jobs are still transiently absent.
+    assert.equal(expectedJobs({ lanes: [] }), 14);
+    assert.equal(expectedJobs({ lanes: [{ name: "verify (ubuntu-latest)", scheduled: false }] }), 14);
   });
 });

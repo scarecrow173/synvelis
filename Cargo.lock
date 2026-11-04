@@ -2691,6 +2691,8 @@ dependencies = [
 name = "synvelis-project"
 version = "0.1.0"
 dependencies = [
+ "ruviform-audio-core",
+ "ruviform-graph",
  "ruviform-media-core",
  "ruviform-plugin-core",
  "serde",

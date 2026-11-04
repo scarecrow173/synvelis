@@ -18,6 +18,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    control::{ControlModel, ControlOwner, ParameterRole},
     error::Error,
     id::{
         BusId, ChainId, ParameterTargetId, ProcessorId, RoutingConnectionId, SemanticPortId,
@@ -125,6 +126,7 @@ impl RoutingModel {
                         role: PortRole::Main,
                         domain: SignalDomain::Audio,
                         binding: PortBinding::Internal,
+                        channels: DEFAULT_PORT_CHANNELS,
                     },
                 ),
                 (
@@ -136,6 +138,7 @@ impl RoutingModel {
                         role: PortRole::Main,
                         domain: SignalDomain::Audio,
                         binding: PortBinding::Internal,
+                        channels: DEFAULT_PORT_CHANNELS,
                     },
                 ),
             ]),
@@ -556,6 +559,22 @@ impl RoutingModel {
     /// DFS cycle check over the strip graph (owner projection of every
     /// connection).
     fn validate_acyclic(&self) -> Result<(), Error> {
+        let edges = self.enabled_strip_edges();
+        let mut visiting: BTreeSet<StripId> = BTreeSet::new();
+        let mut done: BTreeSet<StripId> = BTreeSet::new();
+        for strip in self.strips.keys() {
+            visit_strip(*strip, &edges, &mut visiting, &mut done)?;
+        }
+        Ok(())
+    }
+
+    /// The strip-level graph formed by *enabled* connections: a
+    /// main/send edge from strip A to strip B — or a sidechain edge
+    /// into a processor on strip B — means B's DSP reads A's output.
+    /// Source ports owned by processors never leave the strip (their
+    /// strip-internal feed is not a routing connection).
+    #[must_use]
+    pub fn enabled_strip_edges(&self) -> BTreeMap<StripId, BTreeSet<StripId>> {
         let mut edges: BTreeMap<StripId, BTreeSet<StripId>> = BTreeMap::new();
         for conn in self.connections.values() {
             if !conn.enabled {
@@ -567,30 +586,26 @@ impl RoutingModel {
             ) else {
                 continue;
             };
-            let src_strip = match src.owner {
-                PortOwner::Strip(s) => s,
-                PortOwner::Processor(_) => continue,
-            };
-            let dst_strip = match dst.owner {
-                PortOwner::Strip(s) => s,
-                PortOwner::Processor(p) => {
-                    // A processor belongs to a strip through its chain.
-                    match self.strip_of_processor(p) {
-                        Some(s) => s,
-                        None => continue,
-                    }
-                }
+            let (Some(src_strip), Some(dst_strip)) =
+                (self.strip_of_port(src), self.strip_of_port(dst))
+            else {
+                continue;
             };
             if src_strip != dst_strip {
                 edges.entry(src_strip).or_default().insert(dst_strip);
             }
         }
-        let mut visiting: BTreeSet<StripId> = BTreeSet::new();
-        let mut done: BTreeSet<StripId> = BTreeSet::new();
-        for strip in self.strips.keys() {
-            visit_strip(*strip, &edges, &mut visiting, &mut done)?;
+        edges
+    }
+
+    /// The strip a port ultimately belongs to: a strip's own port, or
+    /// the strip owning the processor through its chain.
+    #[must_use]
+    pub fn strip_of_port(&self, port: &SemanticPort) -> Option<StripId> {
+        match port.owner {
+            PortOwner::Strip(s) => Some(s),
+            PortOwner::Processor(p) => self.strip_of_processor(p),
         }
-        Ok(())
     }
 
     /// The strip that owns `processor` through its chain.
@@ -602,6 +617,124 @@ impl RoutingModel {
             .and_then(|chain| self.strips.values().find(|s| s.chain == chain.id))
             .map(|s| s.id)
     }
+
+    // -- mute/solo audibility (issue #105 / SF-02) -------------------
+
+    /// Whether `strip`'s persisted mute is on — the `ControlOwner::Strip`
+    /// + `ParameterRole::Mute` Boolean target is the single authority.
+    #[must_use]
+    pub fn strip_muted(&self, control: &ControlModel, strip: StripId) -> bool {
+        control
+            .targets
+            .values()
+            .find(|t| t.owner == ControlOwner::Strip(strip) && t.role == ParameterRole::Mute)
+            .is_some_and(|t| t.base >= 0.5)
+    }
+
+    /// Whether `strip`'s persisted solo is on — the
+    /// `ControlOwner::Strip` + `ParameterRole::Solo` Boolean target is
+    /// the single authority.
+    #[must_use]
+    pub fn strip_soloed(&self, control: &ControlModel, strip: StripId) -> bool {
+        control
+            .targets
+            .values()
+            .find(|t| t.owner == ControlOwner::Strip(strip) && t.role == ParameterRole::Solo)
+            .is_some_and(|t| t.base >= 0.5)
+    }
+
+    /// The set of strips whose signal is audible at the master under
+    /// the persisted mute/solo state — a model-level evaluation over
+    /// the enabled strip graph, not a runtime PCM claim (SF-03 owns
+    /// the runtime projection).
+    ///
+    /// Policy (Issue #105): mute silences the strip's own audible
+    /// output — every edge *out of* a muted strip stops carrying
+    /// signal, including its send and sidechain supplies. When at
+    /// least one strip is soloed, audible strips are those upstream
+    /// suppliers of a soloed strip plus the strips on a path from a
+    /// soloed strip to the master (return buses shared with non-solo
+    /// sources stay audible; only the soloed contribution flows).
+    /// Multiple solos union. A muted strip never becomes audible and
+    /// never relays signal for others.
+    #[must_use]
+    pub fn audible_strips(&self, control: &ControlModel) -> BTreeSet<StripId> {
+        let muted: BTreeSet<StripId> = self
+            .strips
+            .keys()
+            .filter(|s| self.strip_muted(control, **s))
+            .copied()
+            .collect();
+        let soloed: BTreeSet<StripId> = self
+            .strips
+            .keys()
+            .filter(|s| self.strip_soloed(control, **s))
+            .copied()
+            .collect();
+        // Edges out of a muted strip carry no audible signal.
+        let edges: BTreeMap<StripId, BTreeSet<StripId>> = self
+            .enabled_strip_edges()
+            .into_iter()
+            .filter(|(src, _)| !muted.contains(src))
+            .collect();
+        if soloed.is_empty() {
+            return self
+                .strips
+                .keys()
+                .filter(|s| !muted.contains(*s))
+                .copied()
+                .collect();
+        }
+        // Suppliers of a soloed strip are audible (a soloed bus plays
+        // its content); strips downstream of a soloed strip are
+        // audible only while they still feed the master.
+        let mut audible = reach_reverse(&edges, &soloed);
+        if let Some(master) = self.buses.get(&self.master) {
+            let to_master = reach_reverse(&edges, &BTreeSet::from([master.strip]));
+            audible.extend(
+                reach_forward(&edges, &soloed)
+                    .intersection(&to_master)
+                    .copied(),
+            );
+        } else {
+            audible.extend(reach_forward(&edges, &soloed));
+        }
+        audible.retain(|s| !muted.contains(s));
+        audible
+    }
+}
+
+/// Forward reachability over the strip graph — includes the seeds.
+fn reach_forward(
+    edges: &BTreeMap<StripId, BTreeSet<StripId>>,
+    seeds: &BTreeSet<StripId>,
+) -> BTreeSet<StripId> {
+    let mut seen = seeds.clone();
+    let mut queue: Vec<StripId> = seeds.iter().copied().collect();
+    while let Some(strip) = queue.pop() {
+        if let Some(next) = edges.get(&strip) {
+            for target in next {
+                if seen.insert(*target) {
+                    queue.push(*target);
+                }
+            }
+        }
+    }
+    seen
+}
+
+/// Reverse reachability over the strip graph — includes the seeds.
+fn reach_reverse(
+    edges: &BTreeMap<StripId, BTreeSet<StripId>>,
+    seeds: &BTreeSet<StripId>,
+) -> BTreeSet<StripId> {
+    let mut reverse: BTreeMap<StripId, BTreeSet<StripId>> = BTreeMap::new();
+    for (src, targets) in edges {
+        for target in targets {
+            reverse.entry(*target).or_default().insert(*src);
+        }
+    }
+    reach_forward(&reverse, seeds)
 }
 
 fn visit_strip(
@@ -734,6 +867,14 @@ pub enum ProcessorBinding {
     },
 }
 
+/// Default channel count of a [`SemanticPort`] (stereo) — the
+/// `#[serde(default)]` value snapshots written before SF-02 derive.
+pub const DEFAULT_PORT_CHANNELS: u32 = 2;
+
+fn default_port_channels() -> u32 {
+    DEFAULT_PORT_CHANNELS
+}
+
 /// A project semantic port — owned by a strip or a processor. Not the
 /// runtime graph `PortId`: runtime IDs are reissued on every lowering.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -751,6 +892,13 @@ pub struct SemanticPort {
     pub domain: SignalDomain,
     /// Resolution/binding state.
     pub binding: PortBinding,
+    /// Channel count — the persisted layout authority a connection's
+    /// two ends must match unless an [`ExplicitChannelMap`] plus an
+    /// approved conversion policy records the user's consent (SF-02).
+    /// `#[serde(default)]`: absent in pre-SF-02 snapshots, derived as
+    /// [`DEFAULT_PORT_CHANNELS`].
+    #[serde(default = "default_port_channels")]
+    pub channels: u32,
 }
 
 /// The entity a [`SemanticPort`] belongs to.

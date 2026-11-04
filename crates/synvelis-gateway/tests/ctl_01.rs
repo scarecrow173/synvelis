@@ -44,6 +44,7 @@ fn seeded() -> (Project, StripId, SendId) {
                 role: PortRole::Main,
                 domain: SignalDomain::Audio,
                 binding: PortBinding::Internal,
+                channels: synvelis_project::routing::DEFAULT_PORT_CHANNELS,
             },
         );
     }

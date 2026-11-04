@@ -17,7 +17,19 @@
 // and their results are recorded as observed verdicts (Pass/Fail/
 // Cancelled/Skipped/Pending) without being counted as Pass or violations.
 //
-// Two subcommands:
+// Issue #157 rev.3: a matrix lane skipped by its job-level `if:` is not
+// expanded into legs at all — GitHub records a single placeholder job named
+// after the unexpanded name template ('<lane> (${{ matrix.os }})',
+// conclusion=skipped). The gate classifies that name as a skip-collapsed
+// placeholder: legal only while the impact report marks every leg of the
+// lane scheduled=false, otherwise it is the same violation as a skipped
+// required leg. An unknown prefix stays an unclassified-job violation.
+// `expected-jobs` gives the evidence collect step the exact jobs-API entry
+// count for the current report: scheduled lanes expand to legs, skipped
+// lanes collapse to one entry each (placeholder for matrix lanes, a
+// normal-named skipped entry for non-matrix lanes).
+//
+// Subcommands:
 //   classify  changed files -> impact classes -> expected lane set (JSON)
 //   gate      expected set + workflow run job results -> fail-closed verdict
 //
@@ -37,6 +49,7 @@
 //   node tools/ci-impact.mjs gate --impact <path> --jobs <path>
 //                                 [--attempt <n>] [--summary <path>] [--out <path>]
 //   node tools/ci-impact.mjs lanes
+//   node tools/ci-impact.mjs expected-jobs [--impact <path>]
 //
 // Env fallbacks: CI_IMPACT_MODE, CI_IMPACT_BASE, CI_IMPACT_HEAD,
 // CI_IMPACT_FILES_FILE, CI_IMPACT_LANES_OUTPUT, GITHUB_EVENT_NAME,
@@ -79,6 +92,12 @@ const OBSERVED_LEGS = [
   { lane: "gw10-verify", os: "macos-latest", name: "gw10-verify-macos" },
   { lane: "ui-verify", os: "macos-latest", name: "ui-verify-macos" },
 ];
+
+// Issue #157 rev.3: a job-level `if:` skip collapses a matrix job into one
+// placeholder entry carrying the unexpanded name template — observed as
+// 'ui-verify (${{ matrix.os }})' (job id 126798807824, run 41894049161).
+// Tolerates expression/whitespace drift; the prefix must still name a lane.
+const PLACEHOLDER_NAME_RE = /^(.+?)\s*\(\s*\$\{\{[\s\S]*?\}\}\s*\)\s*$/;
 
 // --- Internal crate dependency graph (path deps from crates/*/Cargo.toml) -----
 const CRATE_DEPS = {
@@ -373,12 +392,73 @@ export function evaluateGate({ impact, jobs, attempt }) {
 
   for (const name of byName.keys()) {
     const known = LANE_LEGS.some((l) => l.name === name) || OBSERVED_LEGS.some((l) => l.name === name) || name === GATE_JOB;
-    if (!known) {
+    if (known) continue;
+
+    // Issue #157 rev.3: a job-level `if:` skip collapses a matrix lane into
+    // a single placeholder job ('<lane> (${{ matrix.os }})') instead of
+    // legs. It is legal only while the impact report scheduled nothing in
+    // that lane; a placeholder for a scheduled lane is the same violation
+    // as a skipped required leg. Unknown prefixes stay unclassified.
+    const ph = typeof name === "string" ? name.match(PLACEHOLDER_NAME_RE) : null;
+    if (!ph) {
       violations.push(`unclassified job '${name}' in this run — add it to LANE_LEGS/OBSERVED_LEGS in tools/ci-impact.mjs`);
+      continue;
+    }
+    const prefix = ph[1].trim();
+    if (!LANE_LEGS.some((l) => l.lane === prefix)) {
+      violations.push(`unclassified job '${name}' in this run — add it to LANE_LEGS/OBSERVED_LEGS in tools/ci-impact.mjs`);
+      continue;
+    }
+    const phJob = pickJob(byName.get(name), attempt);
+    // Attempt-scoped: a placeholder recorded in an earlier attempt is stale
+    // once a later attempt actually expanded the lane's legs (e.g. a re-run
+    // after CI_SELECTIVE_DISABLE flipped the scheduling). It records only
+    // history then — not evidence of a skip in the evaluated attempt.
+    const superseded = LANE_LEGS.filter((l) => l.lane === prefix)
+      .flatMap((l) => byName.get(l.name) ?? [])
+      .some((e) => (e.run_attempt ?? 1) > (phJob?.run_attempt ?? 1));
+    if (superseded) continue;
+    const reportLegs = impact.lanes.filter((l) => l?.lane === prefix);
+    const laneUnscheduled = reportLegs.length > 0 && reportLegs.every((l) => l?.scheduled === false);
+    if (!laneUnscheduled) {
+      violations.push(`'${name}' is a skip-collapsed matrix placeholder for lane '${prefix}', but that lane has required/scheduled legs — required lanes may never skip (skipped is not Pass)`);
+    } else if (jobVerdict(phJob) !== "skipped") {
+      // The placeholder is by definition a record of a skip — any other
+      // conclusion means the API semantics drifted; fail closed rather
+      // than accept a record we no longer understand.
+      violations.push(`'${name}' is a placeholder for unscheduled lane '${prefix}' but has conclusion '${phJob?.conclusion ?? "absent"}' (expected skipped)`);
+    } else {
+      rows.push({
+        name,
+        expectation: reportLegs[0]?.expectation ?? "not-applicable",
+        reason: `lane '${prefix}' not scheduled — skip-collapsed matrix placeholder`,
+        verdict: "skipped-placeholder",
+        job: phJob,
+      });
     }
   }
 
   return { ok: violations.length === 0, rows, violations, shadow, observed };
+}
+
+/**
+ * Expected jobs-API entry count for a run under `impact`: scheduled lanes
+ * expand to one entry per leg, each skipped lane collapses to a single
+ * entry (a matrix placeholder or a normal-named skipped job), the observed
+ * macOS jobs always produce one entry each, and `evidence` itself is one.
+ * Missing/malformed reports fall back to the full universe — over-expecting
+ * only costs bounded retries, under-expecting can hide absent jobs.
+ */
+export function expectedJobs(impact) {
+  const lanes = Array.isArray(impact?.lanes) ? impact.lanes : null;
+  // Only a report covering the full lane universe is trustworthy — an empty
+  // or partial `lanes` array is semantically malformed and falls back to
+  // the same full-universe count as an unreadable report.
+  const wellFormed = lanes !== null && LANE_LEGS.every((leg) => lanes.some((l) => l?.name === leg.name));
+  if (!wellFormed) return LANE_LEGS.length + OBSERVED_LEGS.length + 1;
+  const scheduledLegs = lanes.filter((l) => l?.scheduled !== false).length;
+  const unscheduledLanes = new Set(lanes.filter((l) => l?.scheduled === false).map((l) => l?.lane)).size;
+  return scheduledLegs + unscheduledLanes + OBSERVED_LEGS.length + 1;
 }
 
 // --- Reporting ---------------------------------------------------------------
@@ -511,9 +591,24 @@ function main() {
 
   if (cmd === "lanes") {
     // Every job name the run can produce besides the gate itself — the full
-    // job universe (required legs + observed macOS track). Used by the
-    // evidence collect step to size the expected jobs API payload.
+    // job universe (required legs + observed macOS track). Diagnostic aid;
+    // the evidence collect step sizes the expected payload via
+    // `expected-jobs`, which accounts for skip-collapsed lanes.
     for (const l of [...LANE_LEGS, ...OBSERVED_LEGS]) process.stdout.write(`${l.name}\n`);
+    return;
+  }
+
+  if (cmd === "expected-jobs") {
+    // Exact jobs-API entry count for this run's impact report — the
+    // evidence collect step retries until it has this many entries.
+    const impactPath = args.impact ?? process.env.CI_IMPACT_REPORT_FILE;
+    let impact = null;
+    try {
+      impact = JSON.parse(readFileSync(impactPath, "utf8"));
+    } catch {
+      impact = null;
+    }
+    process.stdout.write(`${expectedJobs(impact)}\n`);
     return;
   }
 
@@ -612,7 +707,7 @@ function main() {
     return;
   }
 
-  process.stderr.write("usage: ci-impact.mjs classify|gate|lanes — see file header\n");
+  process.stderr.write("usage: ci-impact.mjs classify|gate|lanes|expected-jobs — see file header\n");
   process.exit(2);
 }
 

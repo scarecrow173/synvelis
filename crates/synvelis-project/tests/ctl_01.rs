@@ -375,6 +375,7 @@ fn the_oracle_rejects_duplicate_singleton_roles_on_load() {
                 role: PortRole::Main,
                 domain: SignalDomain::Audio,
                 binding: PortBinding::Internal,
+                channels: synvelis_project::routing::DEFAULT_PORT_CHANNELS,
             },
         );
     }

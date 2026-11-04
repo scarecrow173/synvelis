@@ -147,6 +147,24 @@ impl ProjectController {
         Ok(ProjectRevision(self.live_revision))
     }
 
+    /// Preview-only staging of a routing intent (issue #105): runs the
+    /// same [`crate::routing_tx::preflight`] the commit path runs, but
+    /// on a dry-run ID generator seeded at the live watermark — nothing
+    /// mutates, no IDs are consumed, no revision moves. UI drag/cancel
+    /// gestures call this; only `apply` commits.
+    ///
+    /// # Errors
+    /// The intent's typed [`crate::routing_tx::RoutingEditError`]
+    /// collapsed into [`Error`].
+    pub fn preview_routing(
+        &self,
+        intent: &crate::routing_tx::RoutingEditIntent,
+    ) -> Result<crate::routing_tx::RoutingPlan, Error> {
+        let mut dry = crate::id::CounterIdGenerator::new(self.live.id_watermark);
+        crate::routing_tx::preflight(&self.live, intent, &mut dry)
+            .map_err(crate::routing_tx::RoutingEditError::into_error)
+    }
+
     /// Reverts the most recent command's content. Issues a *new* live
     /// revision and reseeds the ID generator from the restored snapshot's
     /// `id_watermark` (documented re-issue behavior; no two entities with
