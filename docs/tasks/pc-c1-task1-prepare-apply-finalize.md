@@ -1,10 +1,10 @@
 ---
 id: "TASK-034RoXjRUKOjib6ULatmIn"
 type: "task"
-status: "todo"
+status: "done"
 title: "PC-C1: prepare/apply/finalize 実装タスク"
 created: "2026-11-03"
-updated: "2026-11-03"
+updated: "2026-11-04"
 owners: []
 relations:
   source: []
