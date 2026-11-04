@@ -102,4 +102,4 @@ relations:
       freshness skip される
 - [x] `mise run check-ui` / `test-ui` / `build-ui` が worktree で pass
 - [x] `mise run lint-actions` と `mise exec -- prek run --all-files` pass
-- [ ] PR で `ui-verify` 3 leg + `evidence` が緑(`gh pr checks --watch`)
+- [x] PR で `ui-verify` 3 leg + `evidence` が緑(`gh pr checks --watch`)

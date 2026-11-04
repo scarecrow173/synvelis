@@ -161,17 +161,29 @@ npm 依存導入は ruviform #330 と同じ freshness-checked `install-ui` task 
   repair 0 件。`apply --type adr` で `docs/adr/README.md` の stale index
   を再生成(main 由来の drift、両エントリ表保持のまま解決)。
 
-未実行(CI 上でのみ検証可能):
+CI 上での検証(PR #153・run 41814620520、`gh pr checks --watch` で完了確認):
 
-- `ui-verify` 3 leg + `evidence` の PR 上での起動・緑確認
-  (`gh pr checks --watch` で確認予定)。
-- lane 失敗時の `evidence` fail(fail-open でないことの実証)。
+- `ui-verify (ubuntu-latest)` — PASS 39s。ログで dep access
+  (anonymous https)→ `synced ruviform ui/* @ 8fb665f168` → npm ci
+  `added 101 packages`(setup-ui 一度)→ check/test/build 各 step で
+  `[install-ui] sources up-to-date, skipping` → 37 tests pass →
+  `wrote synvelis-assets.json` を確認。
+- `ui-verify (windows-latest)` — PASS 1m48s。
+- `ui-verify (macos-latest)` — PASS 45s。
+- `evidence` — PASS 5s。証跡テーブルに ui-verify 3 OS 行が
+  `success` で記録され、not-run-is-not-pass 判定に包含されている。
+
+未実行:
+
+- lane 失敗時の `evidence` fail(fault injection を伴う実証は行わず、
+  needs + results 判定への包含で構成上の fail-closed を担保)。
 
 ## Risks
 
-- 3 OS matrix により PR の runner 時間が増える(ui-verify は独立 job の
-  ため wall time への影響は並列度次第。cargo fetch + npm ci + 3 task で
-  各 leg 数分規模の見込み)。Before/After を PR で記録する。
+- 3 OS matrix により PR の runner 時間が増える。実測(PR #153):
+  ui-verify 各 leg は 39s〜1m48s で、最長 leg(verify windows 5m20s)を
+  下回るため本 run では critical path の wall time 増は無し
+  (runner-minutes は +約4分)。
 - `install-ui` freshness は node_modules の部分破損を検出しない
   (ruviform #330 と同じ前提。破損時は `npm ci` 手動再実行で復旧)。
 - Windows/macOS leg で npm/platform 固有の失敗が出る可能性(matrix で
