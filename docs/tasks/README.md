@@ -7,6 +7,12 @@ Directory: `docs/tasks`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | TASK-034Rp08nCxirezDOCQ9l0Z | CI 検証・証跡・最終レビュー | in-progress | [ci-task3-verify-review.md](./ci-task3-verify-review.md) |
+| TASK-034RBFUDGVewxs72FGa8RM | SYN-OBS-01 task1 依存更新と logging モジュール(設定解決/install/owner) | todo | [syn-obs-01-task1-deps-logging-module.md](./syn-obs-01-task1-deps-logging-module.md) |
+| TASK-034RBFVsXUmxHPEa6zbZRx | SYN-OBS-01 task2 ObservabilityOwner Source catalog と syn.app.info logging セクション | todo | [syn-obs-01-task2-owner-catalog-app-info.md](./syn-obs-01-task2-owner-catalog-app-info.md) |
+| TASK-034RBFW6PKUMmU8bg04whw | SYN-OBS-01 task3 service/app 非RT tracing イベント | todo | [syn-obs-01-task3-tracing-events.md](./syn-obs-01-task3-tracing-events.md) |
+| TASK-034RBFWIyMu9xrEL27zPNX | SYN-OBS-01 task4 synvelis bin 起動引数/install/attach 組込み | todo | [syn-obs-01-task4-bin-wiring.md](./syn-obs-01-task4-bin-wiring.md) |
+| TASK-034RBFXktNsZRlOztedppD | SYN-OBS-01 task5 logging テスト新設と mise 検証 | todo | [syn-obs-01-task5-tests-verification.md](./syn-obs-01-task5-tests-verification.md) |
+| TASK-034RBFY3O4vz81b0Rumg95 | SYN-OBS-01 task6 最終検証と impl record | todo | [syn-obs-01-task6-final-verify-impl-record.md](./syn-obs-01-task6-final-verify-impl-record.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
 | TASK-034QfQZsTXhM5gVQP0gh81 | VS-C task3 staging writer | todo | [vs-c-task3-staging-writer.md](./vs-c-task3-staging-writer.md) |
@@ -18,12 +24,6 @@ Directory: `docs/tasks`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
-| TASK-MlLPS12iG90WZhRs4S9pub | SV-GUI-01 task1 synvelis-app crate skeleton・Composition Root・AppService | done | [sv-gui-01-task1-app-crate-composition-root.md](./sv-gui-01-task1-app-crate-composition-root.md) |
-| TASK-jLkK7lARWtOgmAI02PaXQ5 | SV-GUI-01 task2 headless service op・asset check テスト | done | [sv-gui-01-task2-headless-service-asset-tests.md](./sv-gui-01-task2-headless-service-asset-tests.md) |
-| TASK-5ySbythnz4gMVnQauJQq8a | SV-GUI-01 task3 ui/ frontend pipeline・vendored sync・mise tasks | done | [sv-gui-01-task3-frontend-pipeline-vendor.md](./sv-gui-01-task3-frontend-pipeline-vendor.md) |
-| TASK-xum593l0Fok2XTCWotqIwp | SV-GUI-01 task4 frontend headless test (ipc/store/components) | done | [sv-gui-01-task4-frontend-headless-tests.md](./sv-gui-01-task4-frontend-headless-tests.md) |
-| TASK-pFWmIPcnM0SNWSnPnDf7OQ | SV-GUI-01 task5 webview bin・実 Windows GUI 起動検証 | done | [sv-gui-01-task5-webview-bin-gui-launch.md](./sv-gui-01-task5-webview-bin-gui-launch.md) |
-| TASK-WhMYtZA3TKzN6d0ELzgJ3D | SV-GUI-01 task6 最終検証・merge・impl record | done | [sv-gui-01-task6-verification-impl-record.md](./sv-gui-01-task6-verification-impl-record.md) |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |
 | TASK-034Rp07EGtrO1nUIIjiLh8 | ci.yml + dep-access composite action 実装 | done | [ci-task2-workflow.md](./ci-task2-workflow.md) |
 | TASK-034QAtPmN1oYgkip3TL6wG | ED-A task1 ProjectOp batch ops + selection model + ViewState 移行 | done | [ed-a-task1-selection-model-project-ops.md](./ed-a-task1-selection-model-project-ops.md) |
@@ -56,6 +56,13 @@ Directory: `docs/tasks`
 | TASK-034PCA10Vq5eYz1fHiVjKl | PC-A task6 最終検証 + impl record | done | [pc-a-task6-verification-impl-record.md](./pc-a-task6-verification-impl-record.md) |
 | TASK-034PCB06Rm1aUv7bDeFgHi | PC-B: dispatch/note-scope/RT/offline 実装タスク | done | [pc-b-task1-dispatch-note-rt-offline.md](./pc-b-task1-dispatch-note-rt-offline.md) |
 | TASK-034RoXjRUKOjib6ULatmIn | PC-C1: prepare/apply/finalize 実装タスク | done | [pc-c1-task1-prepare-apply-finalize.md](./pc-c1-task1-prepare-apply-finalize.md) |
+| TASK-034SF01Pr2uVw7xY4zAbCdFgH | SF-01: RoutingModel 型・oracle・Schema v6 Migration・ops・検証 | done | [sf-01-task1-routing-model-schema-migration.md](./sf-01-task1-routing-model-schema-migration.md) |
+| TASK-MlLPS12iG90WZhRs4S9pub | SV-GUI-01 task1 synvelis-app crate skeleton・Composition Root・AppService | done | [sv-gui-01-task1-app-crate-composition-root.md](./sv-gui-01-task1-app-crate-composition-root.md) |
+| TASK-jLkK7lARWtOgmAI02PaXQ5 | SV-GUI-01 task2 headless service op・asset check テスト | done | [sv-gui-01-task2-headless-service-asset-tests.md](./sv-gui-01-task2-headless-service-asset-tests.md) |
+| TASK-5ySbythnz4gMVnQauJQq8a | SV-GUI-01 task3 ui/ frontend pipeline・vendored sync・mise tasks | done | [sv-gui-01-task3-frontend-pipeline-vendor.md](./sv-gui-01-task3-frontend-pipeline-vendor.md) |
+| TASK-xum593l0Fok2XTCWotqIwp | SV-GUI-01 task4 frontend headless test (ipc/store/components) | done | [sv-gui-01-task4-frontend-headless-tests.md](./sv-gui-01-task4-frontend-headless-tests.md) |
+| TASK-pFWmIPcnM0SNWSnPnDf7OQ | SV-GUI-01 task5 webview bin・実 Windows GUI 起動検証 | done | [sv-gui-01-task5-webview-bin-gui-launch.md](./sv-gui-01-task5-webview-bin-gui-launch.md) |
+| TASK-WhMYtZA3TKzN6d0ELzgJ3D | SV-GUI-01 task6 最終検証・merge・impl record | done | [sv-gui-01-task6-verification-impl-record.md](./sv-gui-01-task6-verification-impl-record.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | TASK-034Qe0kHawWuXO1xHGTd8F | VS-A task3 controller ops store | done | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |
