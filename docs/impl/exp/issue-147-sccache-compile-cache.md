@@ -19,7 +19,8 @@ updated: "2026-11-04"
 | --- | --- |
 | 測定日 | 2026-11-04(UTC) |
 | cold run | https://github.com/scarecrow173/synvelis/actions/runs/41823038077 (PR 初回 push、namespace `synvelis-v1-<RUNNER_OS>` 未存在) |
-| warm run | (採取中) |
+| warm run | https://github.com/scarecrow173/synvelis/actions/runs/41824169427 (docs push、同一 Cargo.lock/SHA) |
+| kill switch 検証 | 同上 run の `gw10-verify (ubuntu-latest)` を `CI_SCCACHE_DISABLE=1` 下で rerun(変数は検証後に削除済み) |
 | sccache | v0.19.0(`mozilla-actions/sccache-action` pin `fc920bf0ec8de6ee65d409111f7ec508035751ba` = v0.0.11) |
 | backend | GitHub Actions cache(`SCCACHE_GHA_ENABLED=true`・`SCCACHE_GHA_VERSION=synvelis-v1-<RUNNER_OS>`) |
 | profile | dev・`CARGO_INCREMENTAL=0` |
@@ -78,9 +79,60 @@ updated: "2026-11-04"
 - verify windows の wall 増(+46〜146s)は cold write 競合と sccache
   setup/stats step の増分。warm run で回収できるかを次節で判定。
 
-## 4. Warm run 計測結果
+## 4. Warm run 計測結果(run 41824169427)
 
-(採取中 — 次回 push/rerun 後に追記)
+### job wall time(cold → warm、Before 対比)
+
+| job | cold | warm | Before 4 run 範囲 | 判定 |
+| --- | --- | --- | --- | --- |
+| verify ubuntu | 144s | 112s | 95–144s(中央 ~126s) | 中央値より改善 |
+| verify windows | 344s | 223s | 198–314s(中央 ~239s) | 中央値より改善(-7%) |
+| verify macos | 228s | 177s | 143–194s(中央 ~193s) | 中央値より改善(-8%) |
+| gw10 ubuntu | 51s | 35s | 35–47s | 範囲最良(-32% vs cold) |
+| gw10 windows | 89s | 101s | 76–106s(中央 ~90s) | 範囲内・中央より微増 |
+| gw10 macos | 70s | 69s | 36–63s(中央 ~55s) | Before 最大を微超過(+6s) |
+| rt-verify | 79s | 85s | 85–95s | sccache 非導入・範囲内 |
+| msrv-verify | 134s | 115s | 104–200s | sccache 非導入・範囲内 |
+| ui-verify u/w/m | 30/100/56s | 35/76/45s | 36/88/54s(1 run) | sccache 非導入・範囲内 |
+| dep-guard | 20s | 25s | 22–25s | 非対象 |
+| evidence | 4s | 2s | — | 非対象・全緑 |
+
+### sccache --show-stats(warm)
+
+| job | requests | executed | hits | misses | hit rate | write errors | read/cache errors |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| verify ubuntu | 483 | 223 | 199 | 22 | 90.05% | 0 | 0 |
+| verify windows | 481 | 225 | 167 | 56 | 74.89% | 0 | 0 |
+| verify macos | 485 | 232 | 185 | 45 | 80.43% | 0 | 0 |
+| gw10 ubuntu | 61 | 35 | 34 | 0 | 100.00% | 0 | 0 |
+| gw10 windows | 58 | 34 | 29 | 4 | 87.88% | 0 | 0 |
+| gw10 macos | 61 | 35 | 32 | 2 | 94.12% | 0 | 0 |
+
+- warm hit rate 75–100%。cold run で書き込まれた entry が有効に
+  再利用されている(OS 別 namespace のみで cross-lane 共有も成立:
+  gw10 ubuntu は verify の書込みも含め 100%)。
+- write/read/cache errors は全 lane で 0。cold の write error(0–47)は
+  warm では再現せず — rate limit 競合は cold 同時書込み時の一過性。
+- warm の verify wall time は Before 中央値を全 OS で下回る
+  (ubuntu -14s・windows -16s・macos -16s)。cold→warm の改善は
+  ubuntu -32s・windows -121s・macos -51s。
+- gw10 は lane 合計でほぼ中立(ubuntu -16s・windows +12s・macos -1s)。
+  compile 単位が小さい(35 executed)ため sccache setup/stats step の
+  固定 overhead(~5–10s)が hit 節約と相殺される構造。critical path
+  でないため総 wall には影響しない。
+
+## 4b. Kill switch 実測
+
+`CI_SCCACHE_DISABLE=1`(repository variable)を設定して run 41824169427 の
+`gw10-verify (ubuntu-latest)` を単体 rerun:
+
+- `Set up sccache` / `Export sccache GHA backend env` /
+  `Verify sccache environment` / `sccache statistics` の 4 step が全て
+  `skipped`。
+- `Run GW-10 evidence-gated harness (mise run gw10)` を含む全 lane が
+  `success` — RUSTC_WRAPPER 未設定の通常 compile 経路へ問題なく
+  fallback。
+- 検証後に変数は削除済み(恒久的な disable 状態を残さない)。
 
 ## 5. RT 列挙コンパイル分離計測
 
@@ -115,4 +167,26 @@ rt-verify(run 41823038077、sccache 非導入)の step 時間
 
 ## 7. 結論(採否判定)
 
-(warm run 採取後に記入)
+- `verify`(3OS): **採用**。warm hit 75–90%・write/read error 0・
+  Before 中央値を全 OS で下回る wall。critical path の verify windows
+  が Before 中央 -16s(単一 warm 観測)。cold run も fail-open で
+  全緑のため、cache backend 障害時の悪化リスクは setup overhead に
+  限定される。
+- `gw10-verify`(3OS): **採用(維持)**。hit 88–100%・error 0。
+  wall は ubuntu 改善・windows/macos 微増で lane 合計ほぼ中立。
+  critical path ではなく、critical path への影響なし。compile 単位が
+  小さいため固定 overhead が支配的だが、verify との namespace 共有で
+  hit は高く、悪化も誤差範囲内。OS 別に sccache を外す条件分岐の
+  複雑さを正当化する差ではないと判断。
+- `rt-verify` / `msrv-verify`: **今回不導入(分離設計のみ記録)**。
+  MSRV 1.89.0 との toolchain 成果物誤共有を構造的に排除し、
+  厳格 non-empty RT 選択(列挙 56s/本試験 4s)を変更なしで維持。
+  stage 2 候補として exp §5 に分離方針を記録済み。
+- `ui-verify`(3OS): **今回不導入**。npm install/test/build 主体で
+  Rust compile 対象が限定的(ruviform でも ui lane hit 率低・分散大)。
+  stage 2 以降で再評価。
+- kill switch: `CI_SCCACHE_DISABLE=1` で sccache 全 step skip・通常
+  compile へ fallback することを実測確認済み(§4b)。
+- rollback: workflow から sccache step を除去する revert、または
+  repository variable `CI_SCCACHE_DISABLE=1` で即時無効化可能。
+  namespace `synvelis-v1-*` を上げれば cache 全破棄も可能。

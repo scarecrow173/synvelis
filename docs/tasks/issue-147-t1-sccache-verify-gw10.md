@@ -1,7 +1,7 @@
 ---
 id: "TASK-034RINq1C9IMn7tPyqXY2h"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "Issue #147 T1 sccache verify/gw10 導入・実測評価"
 created: "2026-11-04"
 updated: "2026-11-04"
@@ -72,18 +72,18 @@ cold/warm run で hit rate・job 時間を実測して採否を判定する。
 
 ## Done When
 
-- [ ] `verify`・`gw10-verify` に sccache step 群が挿入され、他 job に
+- [x] `verify`・`gw10-verify` に sccache step 群が挿入され、他 job に
       diff がない。
-- [ ] cold/warm run の `sccache --show-stats` と job wall time が
+- [x] cold/warm run の `sccache --show-stats` と job wall time が
       `docs/impl/exp/issue-147-sccache-compile-cache.md` に記録される。
-- [ ] 全 lane green、または悪化 lane の sccache step 除去 + 不採用記録。
-- [ ] IR `docs/impl/ir/issue-147-sccache-compile-cache.md` が記録される。
+- [x] 全 lane green、または悪化 lane の sccache step 除去 + 不採用記録。
+- [x] IR `docs/impl/ir/issue-147-sccache-verify-gw10.md` が記録される。
 
 ## Verification
 
-- [ ] `mise run lint-actions` pass。
-- [ ] `mise exec -- prek run --all-files` pass。
-- [ ] `gh pr checks --watch` で 10 required contexts 全緑(必要に応じて
+- [x] `mise run lint-actions` pass。
+- [x] `mise exec -- prek run --all-files` pass。
+- [x] `gh pr checks --watch` で 10 required contexts 全緑(必要に応じて
       scope 外 flake の rerun を実施)。
-- [ ] rt-verify/msrv-verify/ui-verify/dep-guard/evidence に sccache 非
+- [x] rt-verify/msrv-verify/ui-verify/dep-guard/evidence に sccache 非
       導入であること(diff 確認)。
