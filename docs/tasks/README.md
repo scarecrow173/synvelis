@@ -7,6 +7,7 @@ Directory: `docs/tasks`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | TASK-034Rp08nCxirezDOCQ9l0Z | CI 検証・証跡・最終レビュー | in-progress | [ci-task3-verify-review.md](./ci-task3-verify-review.md) |
+| TASK-034SVCIOPT02zA1sDfGh | Issue #148 T1 impact classifier + fail-closed evidence gate 実装 | in-progress | [issue-148-t1-impact-gate.md](./issue-148-t1-impact-gate.md) |
 | TASK-034RADc5Q2mNYPcXkM8fR | SV-GUI-02 frontend BindingPort/ViewModel/ConsoleView | completed | [sv-gui-02-frontend-bindingport-viewmodel-consoleview.md](./sv-gui-02-frontend-bindingport-viewmodel-consoleview.md) |
 | TASK-034RADeL6sQ8vFzJ3xTmN | SV-GUI-02 検証レーン統合 (headless/vitest/guitest) | completed | [sv-gui-02-headless-vitest-guitest.md](./sv-gui-02-headless-vitest-guitest.md) |
 | TASK-034RADaUbkmnzbFjZ29bl4 | SV-GUI-02 ruviform rev 追従 + Rust syn.* UI op 面 | completed | [sv-gui-02-ruviform-rev-rust-syn-ui-op.md](./sv-gui-02-ruviform-rev-rust-syn-ui-op.md) |
