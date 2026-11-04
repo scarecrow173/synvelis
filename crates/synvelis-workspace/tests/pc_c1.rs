@@ -138,7 +138,9 @@ fn open_recording(
     ws.session_mut().control_mut().set_record_enabled(true);
     ws.session_mut().control_mut().transport_play();
     let rev = ws.session().revision();
-    ws.session_mut().control_mut().record_start(rev).unwrap()
+    ws.session_mut()
+        .control_with(|c, p| c.record_start(p, rev))
+        .unwrap()
 }
 
 /// Total recorded points across the open transaction's segments.
@@ -608,8 +610,9 @@ fn rec_c1_05_lifecycle_gates() {
     );
     assert!(ws.session().control().recording().unwrap().sealed.is_none());
     // A Touch release during the pause writes nothing.
+    let rev = ws.session().revision();
     ws.session_mut()
-        .control_with(|c, p| c.gesture_begin(p, target, bp(1)))
+        .control_with(|c, p| c.gesture_begin(p, target, bp(1), rev))
         .unwrap();
     ws.session_mut()
         .control_mut()
@@ -710,8 +713,9 @@ fn rec_c1_05_lifecycle_gates() {
     // A cancelled gesture writes nothing.
     ws.session_mut().control_record_abort();
     let _id = open_recording(&mut ws, target, lane);
+    let rev = ws.session().revision();
     ws.session_mut()
-        .control_with(|c, p| c.gesture_begin(p, target, bp(1)))
+        .control_with(|c, p| c.gesture_begin(p, target, bp(1), rev))
         .unwrap();
     ws.session_mut()
         .control_mut()
@@ -749,11 +753,13 @@ fn rec_c1_05_latch_pause_resume_no_seal() {
     ws.session_mut().control_mut().set_record_enabled(true);
     ws.session_mut().control_mut().transport_play();
     let rev = ws.session().revision();
-    ws.session_mut().control_mut().record_start(rev).unwrap();
+    ws.session_mut()
+        .control_with(|c, p| c.record_start(p, rev))
+        .unwrap();
 
     // Gesture end in Latch holds the value; transport_advance lands it.
     ws.session_mut()
-        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
+        .control_with(|c, p| c.gesture_begin(p, target, bp(0), rev))
         .unwrap();
     ws.session_mut()
         .control_mut()
@@ -955,8 +961,9 @@ fn rec_c1_06_point_budget_rejects_whole_batch() {
     // One gesture carrying more than the budget of distinct
     // positions: `gesture_end` hands the whole batch to
     // `record_points`, which must reject it atomically.
+    let rev = ws.session().revision();
     ws.session_mut()
-        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
+        .control_with(|c, p| c.gesture_begin(p, target, bp(0), rev))
         .unwrap();
     let budget = i64::try_from(synvelis_workspace::RECORD_POINT_BUDGET).unwrap();
     for i in 0..=budget {

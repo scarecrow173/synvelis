@@ -1350,9 +1350,10 @@ impl ControlsUi {
         gesture_id: GestureId,
         param: ParameterTargetId,
     ) {
+        let rev = session.revision();
         let begun = session.control_with(|c, p| {
             let pos = c.playback().position;
-            c.gesture_begin(p, param, pos)
+            c.gesture_begin(p, param, pos, rev)
         });
         match begun {
             Ok(()) => {
@@ -2169,7 +2170,7 @@ impl ControlsUi {
         session: &mut ProjectSession,
     ) -> Result<crate::control::RecordingTransactionId, Error> {
         let rev = session.revision();
-        let id = session.control_mut().record_start(rev)?;
+        let id = session.control_with(|c, p| c.record_start(p, rev))?;
         self.touch_and_broadcast_transport(session, "record");
         Ok(id)
     }
