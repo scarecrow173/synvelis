@@ -15,6 +15,11 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use ruviform_observability::logging::{HealthSnapshot, LoggingHealth, SinkDegraded};
+use ruviform_observability::source::{
+    CounterDescriptor, CounterSource, MetricSource, ObservationScope, ObservationUnit,
+    ReportingHint,
+};
 use ruviform_observability::{Counter, counter};
 use ruviform_ui::BackendReport;
 use serde_json::{Value, json};
@@ -26,7 +31,9 @@ use synvelis_workspace::{ProjectSession, WorkspaceManager};
 
 use crate::error::AppError;
 use crate::host::ShellWindowHost;
+use crate::logging::InstallState;
 use crate::revision::HOST_REVISION;
+use crate::ui_ops::UiOpsState;
 
 /// Crate version baked at build time — the app revision reported to
 /// the frontend.
@@ -83,22 +90,54 @@ impl RecorderSlot {
 }
 
 /// Process-wide observability owner — counters the service layer
-/// increments; the shell reads them via `syn.app.info`.
+/// increments plus the OBS-02 source catalog describing them; the
+/// shell reads both via `syn.app.info`.
+///
+/// The catalog holds canonical `MetricSource` values so the sources
+/// can be handed to an `ObservationRegistrar` unchanged once the
+/// upstream collector (ruviform#289) lands — Synvelis keeps no
+/// registrar of its own.
 #[derive(Debug)]
 pub struct ObservabilityOwner {
     intents: Counter,
     intent_errors: Counter,
+    sources: Vec<MetricSource>,
+    logging_state: InstallState,
+    logging_health: Option<LoggingHealth>,
+    logging_degraded: Vec<SinkDegraded>,
 }
 
 impl ObservabilityOwner {
-    /// Zeroed counters.
+    /// Zeroed counters with their source descriptors registered in the
+    /// process-scope catalog.
     #[must_use]
     pub fn new() -> Self {
-        let (intents, _) = counter();
-        let (intent_errors, _) = counter();
+        let (intents, intents_reader) = counter();
+        let (intent_errors, intent_errors_reader) = counter();
+        let sources = [
+            ("synvelis.app.intents", intents_reader),
+            ("synvelis.app.intent_errors", intent_errors_reader),
+        ]
+        .into_iter()
+        .map(|(key, reader)| {
+            MetricSource::from(CounterSource {
+                descriptor: CounterDescriptor {
+                    key,
+                    unit: ObservationUnit::Count,
+                    reporting: ReportingHint::SnapshotOnly,
+                },
+                scope: ObservationScope::Process,
+                reader,
+            })
+        })
+        .collect();
         Self {
             intents,
             intent_errors,
+            sources,
+            logging_state: InstallState::Off,
+            logging_health: None,
+            logging_degraded: Vec::new(),
         }
     }
 
@@ -117,6 +156,46 @@ impl ObservabilityOwner {
     pub fn counters(&self) -> (u64, u64) {
         (self.intents.read(), self.intent_errors.read())
     }
+
+    /// The OBS-02 source catalog — descriptors + readers ready for
+    /// `ObservationRegistrar` registration (ruviform#289).
+    #[must_use]
+    pub fn sources(&self) -> &[MetricSource] {
+        &self.sources
+    }
+
+    /// Connects the process-level logging install outcome so
+    /// `syn.app.info` can report it. `health` is `None` when logging is
+    /// off or when the install call lost an already-installed race.
+    pub fn attach_logging(
+        &mut self,
+        state: InstallState,
+        health: Option<LoggingHealth>,
+        degraded: Vec<SinkDegraded>,
+    ) {
+        self.logging_state = state;
+        self.logging_health = health;
+        self.logging_degraded = degraded;
+    }
+
+    /// Non-recursive snapshot of the installed sinks — `None` when no
+    /// logging health handle is attached.
+    #[must_use]
+    pub fn logging_snapshot(&self) -> Option<HealthSnapshot> {
+        self.logging_health.as_ref().map(LoggingHealth::snapshot)
+    }
+
+    /// The reported install state for `syn.app.info`.
+    #[must_use]
+    pub const fn logging_state(&self) -> InstallState {
+        self.logging_state
+    }
+
+    /// Best-effort sinks that failed at build time.
+    #[must_use]
+    pub fn logging_degraded(&self) -> &[SinkDegraded] {
+        &self.logging_degraded
+    }
 }
 
 impl Default for ObservabilityOwner {
@@ -131,7 +210,10 @@ impl Default for ObservabilityOwner {
 /// `run` closure (UI thread) or by a headless `UiRuntime` driver in
 /// tests/CLI.
 pub struct SynvelisApp {
-    workspace: WorkspaceManager<ShellWindowHost>,
+    /// `pub(crate)` so `ui_ops` can borrow the session disjoint from
+    /// the `ui` gateway state (method accessors would borrow all of
+    /// `self`).
+    pub(crate) workspace: WorkspaceManager<ShellWindowHost>,
     store: Option<DirectoryBundleStore>,
     audio: AudioRuntimeSlot,
     recorder: RecorderSlot,
@@ -142,7 +224,9 @@ pub struct SynvelisApp {
     /// loop cannot reach back into), and the host loop drains it to
     /// call `HostHandle::request_close`.
     quit: Arc<AtomicBool>,
-    notify_seq: u64,
+    /// SV-GUI-02 UI op state — `ControlsUi`/`VizUi` gateways, notify
+    /// outbox, view/subscription/surface registries, UI clock.
+    pub(crate) ui: UiOpsState,
 }
 
 impl SynvelisApp {
@@ -163,7 +247,7 @@ impl SynvelisApp {
             observability: ObservabilityOwner::new(),
             backend,
             quit: Arc::new(AtomicBool::new(false)),
-            notify_seq: 0,
+            ui: UiOpsState::new(),
         }
     }
 
@@ -198,10 +282,23 @@ impl SynvelisApp {
         &self.observability
     }
 
+    /// Connects the process-level logging install outcome (SYN-OBS-01)
+    /// so `syn.app.info` reports it. Called once by the process entry
+    /// point after `install` — never installs a subscriber itself.
+    pub fn attach_logging(
+        &mut self,
+        state: InstallState,
+        health: Option<LoggingHealth>,
+        degraded: Vec<SinkDegraded>,
+    ) {
+        self.observability.attach_logging(state, health, degraded);
+    }
+
     /// Marks quit requested; the host loop observes
     /// [`Self::quit_flag`]/[`Self::take_quit`] and calls
     /// `HostHandle::request_close`.
     pub fn request_quit(&mut self) {
+        tracing::info!("syn.app.quit requested");
         self.quit.store(true, Ordering::Release);
     }
 
@@ -223,6 +320,19 @@ impl SynvelisApp {
     /// # Errors
     /// [`AppError::Store`] on bundle-creation or save failures.
     pub fn project_new(&mut self, path: &str, name: Option<&str>) -> Result<Value, AppError> {
+        // Non-RT boundary; paths stay out of event fields (sensitive-data
+        // rule — the adapter never inspects field content).
+        let result = self.project_new_inner(path, name);
+        match &result {
+            Ok(_) => tracing::info!("syn.project.new completed"),
+            Err(error) => {
+                tracing::warn!(error = %error, "syn.project.new failed");
+            }
+        }
+        result
+    }
+
+    fn project_new_inner(&mut self, path: &str, name: Option<&str>) -> Result<Value, AppError> {
         let mut store =
             DirectoryBundleStore::create(path).map_err(|e| AppError::store(e.to_string()))?;
         let mut workspace = WorkspaceManager::new(
@@ -246,6 +356,17 @@ impl SynvelisApp {
     /// [`AppError::Store`] when the bundle is missing, empty, or fails
     /// to load.
     pub fn project_open(&mut self, path: &str) -> Result<Value, AppError> {
+        let result = self.project_open_inner(path);
+        match &result {
+            Ok(_) => tracing::info!("syn.project.open completed"),
+            Err(error) => {
+                tracing::warn!(error = %error, "syn.project.open failed");
+            }
+        }
+        result
+    }
+
+    fn project_open_inner(&mut self, path: &str) -> Result<Value, AppError> {
         let store =
             DirectoryBundleStore::create(path).map_err(|e| AppError::store(e.to_string()))?;
         let session = Self::fresh_session("loading");
@@ -266,6 +387,17 @@ impl SynvelisApp {
     /// [`AppError::Store`] when no project was opened/created yet or
     /// the write fails.
     pub fn project_save(&mut self) -> Result<Value, AppError> {
+        let result = self.project_save_inner();
+        match &result {
+            Ok(_) => tracing::info!("syn.project.save completed"),
+            Err(error) => {
+                tracing::warn!(error = %error, "syn.project.save failed");
+            }
+        }
+        result
+    }
+
+    fn project_save_inner(&mut self) -> Result<Value, AppError> {
         let store = self
             .store
             .as_mut()
@@ -335,6 +467,54 @@ impl SynvelisApp {
                 "notes": self.backend.notes,
             },
             "counters": { "intents": intents, "intent_errors": intent_errors },
+            "logging": self.logging_info(),
+        })
+    }
+
+    /// Logging section for `syn.app.info` — the process-level install
+    /// state plus a bounded point-in-time sink snapshot. Never reaches
+    /// the logging pipeline itself (the health handle is non-recursive).
+    fn logging_info(&self) -> Value {
+        let sinks: Vec<Value> = self
+            .observability
+            .logging_snapshot()
+            .map(|snapshot| {
+                snapshot
+                    .sinks
+                    .iter()
+                    .map(|sink| {
+                        json!({
+                            "sink_index": sink.sink_index,
+                            "kind": sink.kind.to_string(),
+                            "state": sink.state.to_string(),
+                            "events_written": sink.events_written,
+                            "dropped_queue_full": sink.dropped_queue_full,
+                            "partial_writes": sink.partial_writes,
+                            "write_failures": sink.write_failures,
+                            "flush_failures": sink.flush_failures,
+                            "channel_disconnected": sink.channel_disconnected,
+                            "shutdown_abandoned": sink.shutdown_abandoned,
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let degraded: Vec<Value> = self
+            .observability
+            .logging_degraded()
+            .iter()
+            .map(|entry| {
+                json!({
+                    "sink_index": entry.sink_index,
+                    "kind": entry.kind.to_string(),
+                    "reason": entry.reason,
+                })
+            })
+            .collect();
+        json!({
+            "state": self.observability.logging_state().as_str(),
+            "sinks": sinks,
+            "degraded": degraded,
         })
     }
 
@@ -354,8 +534,8 @@ impl SynvelisApp {
             "recorder": { "state": "unavailable", "active": self.recorder.active() },
             "workspace": { "state": "available", "mounted": true },
             "project": { "state": "available" },
-            "multi_window": { "state": "unavailable", "reason": "SV-GUI-02" },
-            "views": { "state": "unavailable", "reason": "SV-GUI-02" },
+            "multi_window": { "state": "unavailable", "reason": "deferred to SV-GUI-03" },
+            "views": { "state": "available" },
             "signal_flow": { "state": "unavailable", "reason": "issue #108" },
             "plugins": { "state": "unavailable", "reason": "not wired in SV-GUI-01" },
             "ai": { "state": "unavailable", "reason": "out of scope" },
@@ -364,9 +544,9 @@ impl SynvelisApp {
 
     /// Latest-wins app-state push payload for the `Ready` event.
     pub fn app_state_notify(&mut self) -> ruviform_ui::ipc::Event {
-        self.notify_seq += 1;
+        self.ui.notify_seq += 1;
         ruviform_ui::ipc::Event::Notify {
-            seq: self.notify_seq,
+            seq: self.ui.notify_seq,
             data: json!({
                 "app": "synvelis",
                 "project": self.project_info(),

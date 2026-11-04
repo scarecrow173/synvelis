@@ -27,7 +27,9 @@ import { pathToFileURL } from "node:url";
 const REPO_ROOT = resolve(import.meta.dirname, "..");
 const VENDOR_DIR = join(REPO_ROOT, "ui", "vendor", "ruviform");
 const REV_FILE = join(VENDOR_DIR, "REV");
-const PACKAGES = ["ui/core", "ui/components", "ui/binding", "ui/viz"];
+// `ui/guitest` is vendored for the shared RF-GT fixture corpus +
+// ContractModel replay lane (test-only — never imported by the bundle).
+const PACKAGES = ["ui/core", "ui/components", "ui/binding", "ui/viz", "ui/guitest"];
 
 /** Read the resolved ruviform git revision + url from Cargo.lock. */
 export function readPin(lockPath = join(REPO_ROOT, "Cargo.lock")) {
