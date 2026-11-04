@@ -833,6 +833,12 @@ pub(crate) fn op_name(op: &ProjectOp) -> &'static str {
         ProjectOp::InsertProcessor { .. } => "insert-processor",
         ProjectOp::RemoveProcessor { .. } => "remove-processor",
         ProjectOp::ReorderProcessor { .. } => "reorder-processor",
+        ProjectOp::SetConnectionChannelMap { .. } => "set-connection-channel-map",
+        ProjectOp::SetSendGainTarget { .. } => "set-send-gain-target",
+        ProjectOp::ConfigureBus { .. } => "configure-bus",
+        ProjectOp::SetStripMute { .. } => "set-strip-mute",
+        ProjectOp::SetStripSolo { .. } => "set-strip-solo",
+        ProjectOp::Routing { .. } => "routing",
     }
 }
 

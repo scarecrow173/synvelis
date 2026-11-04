@@ -140,6 +140,7 @@ fn migrate_v5_routing(mut project: Project) -> Result<Project, Error> {
                 role: PortRole::Main,
                 domain: SignalDomain::Audio,
                 binding: PortBinding::Internal,
+                channels: crate::routing::DEFAULT_PORT_CHANNELS,
             },
         );
         project.routing.ports.insert(
@@ -151,6 +152,7 @@ fn migrate_v5_routing(mut project: Project) -> Result<Project, Error> {
                 role: PortRole::Main,
                 domain: SignalDomain::Audio,
                 binding: PortBinding::Internal,
+                channels: crate::routing::DEFAULT_PORT_CHANNELS,
             },
         );
         project.routing.connections.insert(
