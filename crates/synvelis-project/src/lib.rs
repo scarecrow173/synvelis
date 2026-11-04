@@ -23,6 +23,7 @@ pub mod project;
 pub mod range;
 pub mod recording_data;
 pub mod routing;
+pub mod routing_tx;
 pub mod store;
 pub mod tempo;
 pub mod time;
@@ -71,6 +72,11 @@ pub use routing::{
     PortDirection, PortOwner, PortRole, Processor, ProcessorBinding, ProcessorChain,
     RoutingConnection, RoutingModel, SemanticPort, SendConfig, SendTap, SignalDomain, StripOwner,
     WELL_KNOWN_BASE, is_issuable_raw,
+};
+pub use routing_tx::{
+    BusRef, ConnectionRef, ExplicitConversionPolicy, PortRef, RoutingEdit, RoutingEditError,
+    RoutingEditIntent, RoutingPlan, RoutingReceipt, SendGainSpec, SendRef, StripRef, TempBusId,
+    TempConnectionId, TempSendId, port_capability_generation, preflight as routing_preflight,
 };
 pub use store::{
     DirectoryBundleStore, InMemoryStore, ProjectStore, SCHEMA_VERSION, SnapshotEnvelope,
