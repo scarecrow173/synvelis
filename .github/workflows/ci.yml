@@ -1,0 +1,518 @@
+name: ci
+
+# Issue #83: Synvelis 独立 PR/Push CI。ruviform 側の cross-consumer gate
+# (#219/#294) とは別系統で、本 repo 自身の PR/main push/手動起動を検証する。
+# 検証ロジックは mise タスクへ委譲し、workflow 内に cargo を直書きしない
+# (dep access・ガード・証跡の薄いシェルのみ)。
+#
+# access mode: ruviform git 依存は public 期は匿名 HTTPS で取得し、
+# private 復帰時は read-only deploy key secret CROSS_REPO_DEPLOY_KEY
+# (ruviform consumer-verify.yml と同一契約)で読み取る。どちらの経路も
+# 取れない lane は fail(依存取得不能を緑にしない)。
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # main push の証跡は run ごとに完走させ、PR/dispatch は最新のみ残す。
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+env:
+  # CI は pinned Rust toolchain + 検証用補助ツールのみを有効化する。
+  # pipx:serena-agent 等の任意開発ツールは activate しない。
+  MISE_ENABLE_TOOLS: rust,prek,git-lfs,actionlint
+  # synvelis には .cargo/config.toml が無いため、cargo の git 取得を
+  # system git(deploy key mode の url.insteadOf + GIT_SSH_COMMAND が
+  # 効く経路)へ委譲し、依存 checkout の LFS smudge を skip する。
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+  GIT_LFS_SKIP_SMUDGE: "1"
+
+jobs:
+  verify:
+    name: verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      # 片 OS の失敗で他 OS の証跡を失わない。
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          lfs: true
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore CI-required tools from mise.lock
+        shell: bash
+        run: |
+          mise trust
+          mise install --locked rust prek git-lfs actionlint
+
+      - name: Resolve ruviform dep access
+        id: dep-access
+        uses: ./.github/actions/ruviform-dep-access
+        with:
+          deploy-key: ${{ secrets.CROSS_REPO_DEPLOY_KEY }}
+
+      - name: Restore cargo registry/git index cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Check config files with prek
+        run: mise exec -- prek run --all-files
+
+      - name: Lint workflows (mise run lint-actions)
+        id: lint-actions
+        run: mise run lint-actions
+
+      - name: Check formatting (mise run fmt-check)
+        id: fmt
+        run: mise run fmt-check
+
+      - name: Type-check workspace (mise run check)
+        id: check
+        run: mise run check
+
+      - name: Lint workspace (mise run lint)
+        id: lint
+        run: mise run lint
+
+      - name: Test workspace (mise run test)
+        id: test
+        run: mise run test
+
+      # check/lint は --locked 無しの task のため、実行後の lockfile
+      # 差分があれば fail にして汚染を検出する。
+      - name: Assert Cargo.lock unchanged
+        id: lockdiff
+        run: git diff --exit-code -- Cargo.lock
+
+      - name: Record lane evidence
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## verify (${{ matrix.os }}) — run ${{ github.run_id }}#${{ github.run_attempt }}"
+            echo ""
+            echo "- commit: ${{ github.sha }}"
+            echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
+            echo "- toolchain: $(mise exec -- rustc --version 2>/dev/null || echo 'n/a')"
+            echo ""
+            echo "| step | result |"
+            echo "|---|---|"
+            echo "| lint-actions | ${{ steps.lint-actions.outcome || 'not run' }} |"
+            echo "| fmt-check | ${{ steps.fmt.outcome || 'not run' }} |"
+            echo "| check | ${{ steps.check.outcome || 'not run' }} |"
+            echo "| lint | ${{ steps.lint.outcome || 'not run' }} |"
+            echo "| test | ${{ steps.test.outcome || 'not run' }} |"
+            echo "| lockfile-diff | ${{ steps.lockdiff.outcome || 'not run' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup credential
+        if: always()
+        shell: bash
+        run: |
+          git config --global --unset-all url."git@github.com:scarecrow173/ruviform.git".insteadOf || true
+          rt="$RUNNER_TEMP"
+          if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
+          rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
+
+  rt-verify:
+    name: rt-verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore CI-required tools from mise.lock
+        shell: bash
+        run: |
+          mise trust
+          mise install --locked rust git-lfs
+
+      - name: Resolve ruviform dep access
+        id: dep-access
+        uses: ./.github/actions/ruviform-dep-access
+        with:
+          deploy-key: ${{ secrets.CROSS_REPO_DEPLOY_KEY }}
+
+      - name: Restore cargo registry/git index cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      # `rt_` フィルタは部分文字列一致で 0 件でも成功し得るため、
+      # 厳密接頭辞マッチの非空を先に確認する(ruviform rt-verify と同型)。
+      - name: Require non-empty rt_ contract test selection
+        id: rt-guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_list="$(mise exec -- cargo test --workspace --locked rt_ -- --list)"
+          strict_count="$(printf '%s\n' "$test_list" | grep -Ec '(^|::)rt_[^[:space:]]+: test$' || true)"
+          echo "Strict rt_ contract tests: $strict_count"
+          test "$strict_count" -gt 0
+
+      - name: Run RT contract tests (mise run test-rt)
+        id: rt
+        run: mise run test-rt
+
+      - name: Record lane evidence
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## rt-verify — run ${{ github.run_id }}#${{ github.run_attempt }}"
+            echo ""
+            echo "- commit: ${{ github.sha }}"
+            echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
+            echo ""
+            echo "| step | result |"
+            echo "|---|---|"
+            echo "| rt_ non-empty guard | ${{ steps.rt-guard.outcome || 'not run' }} |"
+            echo "| test-rt | ${{ steps.rt.outcome || 'not run' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup credential
+        if: always()
+        shell: bash
+        run: |
+          git config --global --unset-all url."git@github.com:scarecrow173/ruviform.git".insteadOf || true
+          rt="$RUNNER_TEMP"
+          if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
+          rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
+
+  gw10-verify:
+    name: gw10-verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          lfs: true
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore CI-required tools from mise.lock
+        shell: bash
+        run: |
+          mise trust
+          mise install --locked rust git-lfs
+
+      - name: Resolve ruviform dep access
+        id: dep-access
+        uses: ./.github/actions/ruviform-dep-access
+        with:
+          deploy-key: ${{ secrets.CROSS_REPO_DEPLOY_KEY }}
+
+      - name: Restore cargo registry/git index cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Run GW-10 evidence-gated harness (mise run gw10)
+        id: gw10
+        run: mise run gw10
+
+      - name: Record lane evidence
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## gw10-verify (${{ matrix.os }}) — run ${{ github.run_id }}#${{ github.run_attempt }}"
+            echo ""
+            echo "- commit: ${{ github.sha }}"
+            echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
+            echo ""
+            echo "| step | result |"
+            echo "|---|---|"
+            echo "| gw10 harness + strict report | ${{ steps.gw10.outcome || 'not run' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup credential
+        if: always()
+        shell: bash
+        run: |
+          git config --global --unset-all url."git@github.com:scarecrow173/ruviform.git".insteadOf || true
+          rt="$RUNNER_TEMP"
+          if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
+          rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
+
+  msrv-verify:
+    name: msrv-verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore CI-required tools from mise.lock
+        shell: bash
+        run: |
+          mise trust
+          mise install --locked rust git-lfs
+
+      - name: Resolve ruviform dep access
+        id: dep-access
+        uses: ./.github/actions/ruviform-dep-access
+        with:
+          deploy-key: ${{ secrets.CROSS_REPO_DEPLOY_KEY }}
+
+      - name: Restore cargo registry/git index cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-msrv-
+
+      # rust-version = "1.89" 宣言に一致する toolchain を明示 install
+      # してから test-msrv(mise exec rust@1.89.0)を実行する。
+      - name: Install MSRV toolchain (rust@1.89.0)
+        run: mise install rust@1.89.0
+
+      - name: Test workspace under MSRV (mise run test-msrv)
+        id: msrv
+        run: mise run test-msrv
+
+      - name: Record lane evidence
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## msrv-verify — run ${{ github.run_id }}#${{ github.run_attempt }}"
+            echo ""
+            echo "- commit: ${{ github.sha }}"
+            echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
+            echo "- declared rust-version: $(grep -E '^rust-version' Cargo.toml || echo 'n/a')"
+            echo ""
+            echo "| step | result |"
+            echo "|---|---|"
+            echo "| test-msrv (rust@1.89.0) | ${{ steps.msrv.outcome || 'not run' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup credential
+        if: always()
+        shell: bash
+        run: |
+          git config --global --unset-all url."git@github.com:scarecrow173/ruviform.git".insteadOf || true
+          rt="$RUNNER_TEMP"
+          if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
+          rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
+
+  dep-guard:
+    name: dep-guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      ruviform_sha: ${{ steps.lockguard.outputs.ruviform_sha }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore CI-required tools from mise.lock
+        shell: bash
+        run: |
+          mise trust
+          mise install --locked rust git-lfs
+
+      - name: Resolve ruviform dep access
+        id: dep-access
+        uses: ./.github/actions/ruviform-dep-access
+        with:
+          deploy-key: ${{ secrets.CROSS_REPO_DEPLOY_KEY }}
+
+      # ruviform git 依存は既定ブランチ追従が規約。rev/branch pin の
+      # 混入は lockfile 解決を分裂させ得るため fail-closed で拒否する。
+      - name: Enforce branch-follow manifest for ruviform deps
+        id: manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -nE 'ruviform\.git' Cargo.toml | grep -nE '(rev|branch)\s*='; then
+            echo "::error::ruviform git deps must follow the default branch — remove rev/branch pins from Cargo.toml"
+            exit 1
+          fi
+          echo "ruviform manifest deps follow the default branch (no rev/branch pin)"
+
+      - name: Fetch deps with locked lockfile
+        id: fetch
+        run: mise exec -- cargo fetch --locked
+
+      - name: Single-SHA ruviform lockfile guard
+        id: lockguard
+        shell: bash
+        run: |
+          set -euo pipefail
+          shas="$(grep -oE 'scarecrow173/ruviform\.git[^"]*#[0-9a-f]{40}' Cargo.lock | sed -E 's/.*#//' | sort -u || true)"
+          count="$(printf '%s\n' "$shas" | grep -c . || true)"
+          if [ "$count" -eq 0 ]; then
+            echo "::error::no ruviform git sources found in Cargo.lock"
+            exit 1
+          fi
+          if [ "$count" -ne 1 ]; then
+            echo "::error::ruviform git sources resolve to $count distinct SHAs — dependency revision split is fail-closed"
+            grep -n 'scarecrow173/ruviform\.git' Cargo.lock
+            exit 1
+          fi
+          echo "ruviform_sha=$shas" >> "$GITHUB_OUTPUT"
+          echo "single ruviform resolved SHA: $shas"
+
+      - name: Record lane evidence
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## dep-guard — run ${{ github.run_id }}#${{ github.run_attempt }}"
+            echo ""
+            echo "- commit: ${{ github.sha }}"
+            echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
+            echo "- ruviform resolved SHA: ${{ steps.lockguard.outputs.ruviform_sha || 'n/a' }}"
+            echo ""
+            echo "| step | result |"
+            echo "|---|---|"
+            echo "| manifest branch-follow guard | ${{ steps.manifest.outcome || 'not run' }} |"
+            echo "| cargo fetch --locked | ${{ steps.fetch.outcome || 'not run' }} |"
+            echo "| single-SHA lockfile guard | ${{ steps.lockguard.outcome || 'not run' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup credential
+        if: always()
+        shell: bash
+        run: |
+          git config --global --unset-all url."git@github.com:scarecrow173/ruviform.git".insteadOf || true
+          rt="$RUNNER_TEMP"
+          if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
+          rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
+
+  evidence:
+    name: evidence
+    needs: [verify, rt-verify, gw10-verify, msrv-verify, dep-guard]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Aggregate evidence table
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "# CI evidence — ${{ github.event_name }} ${{ github.ref_name }}"
+            echo ""
+            echo "- run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} (attempt ${{ github.run_attempt }})"
+            echo "- commit: ${{ github.sha }}"
+            echo "- ruviform resolved SHA: ${{ needs.dep-guard.outputs.ruviform_sha || 'n/a' }}"
+            echo ""
+            echo "| lane | OS | result |"
+            echo "|---|---|---|"
+            echo "| verify | ubuntu-latest | ${{ needs.verify.result }} (aggregate, see per-OS summaries) |"
+            echo "| verify | windows-latest | ${{ needs.verify.result }} (aggregate, see per-OS summaries) |"
+            echo "| verify | macos-latest | ${{ needs.verify.result }} (aggregate, see per-OS summaries) |"
+            echo "| rt-verify | ubuntu-latest | ${{ needs.rt-verify.result }} |"
+            echo "| gw10-verify | ubuntu-latest | ${{ needs.gw10-verify.result }} (aggregate) |"
+            echo "| gw10-verify | windows-latest | ${{ needs.gw10-verify.result }} (aggregate) |"
+            echo "| gw10-verify | macos-latest | ${{ needs.gw10-verify.result }} (aggregate) |"
+            echo "| msrv-verify | ubuntu-latest (rust@1.89.0) | ${{ needs.msrv-verify.result }} |"
+            echo "| dep-guard | ubuntu-latest | ${{ needs.dep-guard.result }} |"
+            echo ""
+            echo "## NotRun lanes (未導入 — PASS に計上しない)"
+            echo ""
+            echo "| lane | status | reason / connection point |"
+            echo "|---|---|---|"
+            echo "| RF-GT-01 Browser DOM/Accessibility Playwright | NotRun | ruviform #310 共有 harness 未完了 |"
+            echo "| RF-GT-02 IPC conformance fixture | NotRun | ruviform #311 未完了 |"
+            echo "| RF-GT-03/04 Secure Test Host / OS Driver + SV-GUI-05 | NotRun | ruviform #312/#313・synvelis #114 未完了 |"
+            echo "| SolidJS+TS build/typecheck/component tests | NotRun | frontend workspace 未導入 (#110〜) |"
+            echo "| Visual Golden | NotRun | ruviform #314 未完了 |"
+            echo "| Recording 実 Device/Plugin Binding/PPQN-MIDI/Automation feature lanes | NotRun | 各 Feature 実装待ち (#115〜#134 系) |"
+            echo "| AudioLens consumer 回帰 | NotRun | ruviform #294 / audio-lens #142 側の責務 |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce not-run-is-not-pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          results="${{ needs.verify.result }} ${{ needs.rt-verify.result }} ${{ needs.gw10-verify.result }} ${{ needs.msrv-verify.result }} ${{ needs.dep-guard.result }}"
+          echo "lane results: $results"
+          fail=0; ran=0
+          for r in $results; do
+            case "$r" in
+              success) ran=$((ran+1)) ;;
+              failure|cancelled) fail=1 ;;
+              skipped) ;;
+              *) fail=1 ;;
+            esac
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::one or more lanes failed or were cancelled — see per-lane summaries"
+            exit 1
+          fi
+          if [ "$ran" -eq 0 ]; then
+            echo "::error::no lane produced evidence (all not run) — a green run requires at least one executed lane"
+            exit 1
+          fi
+          echo "all lanes passed; evidence recorded"
