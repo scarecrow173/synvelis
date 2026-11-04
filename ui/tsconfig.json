@@ -20,7 +20,8 @@
       "@ruviform/ui-core": ["./vendor/ruviform/ui/core/src/index.ts"],
       "@ruviform/ui-components": ["./vendor/ruviform/ui/components/src/index.ts"],
       "@ruviform/ui-binding": ["./vendor/ruviform/ui/binding/src/index.ts"],
-      "@ruviform/ui-viz": ["./vendor/ruviform/ui/viz/src/index.ts"]
+      "@ruviform/ui-viz": ["./vendor/ruviform/ui/viz/src/index.ts"],
+      "@ruviform/ui-guitest": ["./vendor/ruviform/ui/guitest/src/index.ts"]
     }
   },
   "include": ["src", "test", "vendor"]

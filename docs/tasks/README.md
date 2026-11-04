@@ -13,6 +13,9 @@ Directory: `docs/tasks`
 | TASK-034RBFWIyMu9xrEL27zPNX | SYN-OBS-01 task4 synvelis bin 起動引数/install/attach 組込み | todo | [syn-obs-01-task4-bin-wiring.md](./syn-obs-01-task4-bin-wiring.md) |
 | TASK-034RBFXktNsZRlOztedppD | SYN-OBS-01 task5 logging テスト新設と mise 検証 | todo | [syn-obs-01-task5-tests-verification.md](./syn-obs-01-task5-tests-verification.md) |
 | TASK-034RBFY3O4vz81b0Rumg95 | SYN-OBS-01 task6 最終検証と impl record | todo | [syn-obs-01-task6-final-verify-impl-record.md](./syn-obs-01-task6-final-verify-impl-record.md) |
+| TASK-034RADbGVb9WAcV6EzJbCo | SV-GUI-02 frontend BindingPort/ViewModel/ConsoleView | todo | [sv-gui-02-frontend-bindingport-viewmodel-consoleview.md](./sv-gui-02-frontend-bindingport-viewmodel-consoleview.md) |
+| TASK-034RADctmZxjtLOOJAELUP | SV-GUI-02 検証レーン統合 (headless/vitest/guitest) | todo | [sv-gui-02-headless-vitest-guitest.md](./sv-gui-02-headless-vitest-guitest.md) |
+| TASK-034RADaUbkmnzbFjZ29bl4 | SV-GUI-02 ruviform rev 追従 + Rust syn.* UI op 面 | todo | [sv-gui-02-ruviform-rev-rust-syn-ui-op.md](./sv-gui-02-ruviform-rev-rust-syn-ui-op.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
 | TASK-034QfQZsTXhM5gVQP0gh81 | VS-C task3 staging writer | todo | [vs-c-task3-staging-writer.md](./vs-c-task3-staging-writer.md) |

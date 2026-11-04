@@ -91,7 +91,6 @@ fn capabilities_lists_unavailable_areas_honestly() {
         "audio_runtime",
         "recorder",
         "multi_window",
-        "views",
         "signal_flow",
         "plugins",
         "ai",
@@ -100,6 +99,7 @@ fn capabilities_lists_unavailable_areas_honestly() {
     }
     assert_eq!(caps["project"]["state"], "available");
     assert_eq!(caps["workspace"]["state"], "available");
+    assert_eq!(caps["views"]["state"], "available");
 }
 
 #[test]

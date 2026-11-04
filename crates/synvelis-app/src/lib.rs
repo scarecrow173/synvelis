@@ -32,6 +32,7 @@ pub mod host;
 pub mod logging;
 pub mod revision;
 pub mod service;
+pub mod ui_ops;
 
 pub use app::{AudioRuntimeSlot, ObservabilityOwner, RecorderSlot, SynvelisApp};
 pub use error::{AppError, AssetError, AssetErrorKind};

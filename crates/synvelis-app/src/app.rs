@@ -33,6 +33,7 @@ use crate::error::AppError;
 use crate::host::ShellWindowHost;
 use crate::logging::InstallState;
 use crate::revision::HOST_REVISION;
+use crate::ui_ops::UiOpsState;
 
 /// Crate version baked at build time — the app revision reported to
 /// the frontend.
@@ -209,7 +210,10 @@ impl Default for ObservabilityOwner {
 /// `run` closure (UI thread) or by a headless `UiRuntime` driver in
 /// tests/CLI.
 pub struct SynvelisApp {
-    workspace: WorkspaceManager<ShellWindowHost>,
+    /// `pub(crate)` so `ui_ops` can borrow the session disjoint from
+    /// the `ui` gateway state (method accessors would borrow all of
+    /// `self`).
+    pub(crate) workspace: WorkspaceManager<ShellWindowHost>,
     store: Option<DirectoryBundleStore>,
     audio: AudioRuntimeSlot,
     recorder: RecorderSlot,
@@ -220,7 +224,9 @@ pub struct SynvelisApp {
     /// loop cannot reach back into), and the host loop drains it to
     /// call `HostHandle::request_close`.
     quit: Arc<AtomicBool>,
-    notify_seq: u64,
+    /// SV-GUI-02 UI op state — `ControlsUi`/`VizUi` gateways, notify
+    /// outbox, view/subscription/surface registries, UI clock.
+    pub(crate) ui: UiOpsState,
 }
 
 impl SynvelisApp {
@@ -241,7 +247,7 @@ impl SynvelisApp {
             observability: ObservabilityOwner::new(),
             backend,
             quit: Arc::new(AtomicBool::new(false)),
-            notify_seq: 0,
+            ui: UiOpsState::new(),
         }
     }
 
@@ -528,8 +534,8 @@ impl SynvelisApp {
             "recorder": { "state": "unavailable", "active": self.recorder.active() },
             "workspace": { "state": "available", "mounted": true },
             "project": { "state": "available" },
-            "multi_window": { "state": "unavailable", "reason": "SV-GUI-02" },
-            "views": { "state": "unavailable", "reason": "SV-GUI-02" },
+            "multi_window": { "state": "unavailable", "reason": "deferred to SV-GUI-03" },
+            "views": { "state": "available" },
             "signal_flow": { "state": "unavailable", "reason": "issue #108" },
             "plugins": { "state": "unavailable", "reason": "not wired in SV-GUI-01" },
             "ai": { "state": "unavailable", "reason": "out of scope" },
@@ -538,9 +544,9 @@ impl SynvelisApp {
 
     /// Latest-wins app-state push payload for the `Ready` event.
     pub fn app_state_notify(&mut self) -> ruviform_ui::ipc::Event {
-        self.notify_seq += 1;
+        self.ui.notify_seq += 1;
         ruviform_ui::ipc::Event::Notify {
-            seq: self.notify_seq,
+            seq: self.ui.notify_seq,
             data: json!({
                 "app": "synvelis",
                 "project": self.project_info(),

@@ -8,7 +8,7 @@
  * so — it never pretends to be connected.
  */
 
-import { onCleanup, onMount } from "solid-js";
+import { onCleanup, onMount, Show } from "solid-js";
 
 import { registerElements } from "./adapters/ruviform.ts";
 import { ErrorBanner } from "./components/ErrorBanner.tsx";
@@ -18,6 +18,7 @@ import { StatusBar } from "./components/StatusBar.tsx";
 import { TransportBar } from "./components/TransportBar.tsx";
 import { bridgeReady, call, onEvent } from "./ipc.ts";
 import { appStore } from "./store.ts";
+import { ConsoleView } from "./views/console.tsx";
 
 /** Initial hydration — the same ops a `Ready` notify mirrors. */
 export async function hydrateApp(): Promise<void> {
@@ -54,6 +55,12 @@ export function App() {
       <main class="shell-main">
         <ProjectPanel />
         <TransportBar />
+        <Show when={appStore.state.connected}>
+          <ConsoleView
+            viewId="console-main"
+            windowId={String(appStore.state.workspace?.shellWindow ?? 0)}
+          />
+        </Show>
       </main>
       <StatusBar />
     </div>
