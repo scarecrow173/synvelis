@@ -126,6 +126,50 @@ describe("classify: trigger classes and fallback", () => {
   });
 });
 
+describe("classify: selective scheduling (Issue #157)", () => {
+  const scheduledLegs = (r) => r.lanes.filter((l) => l.scheduled === true).map((l) => l.name).sort();
+
+  it("selective schedules only required legs (ui change)", () => {
+    const r = reportFor(["ui/src/x.ts"], "selective");
+    assert.deepEqual(scheduledLegs(r), [
+      "classify", "dep-guard",
+      "ui-verify (macos-latest)", "ui-verify (ubuntu-latest)", "ui-verify (windows-latest)",
+    ].sort());
+  });
+
+  it("selective docs-only schedules only classify", () => {
+    const r = reportFor(["docs/x.md", "README.md"], "selective");
+    assert.deepEqual(scheduledLegs(r), ["classify"]);
+  });
+
+  it("selective keeps RT/GW-10/MSRV/verify scheduled for owner-affecting changes", () => {
+    const r = reportFor(["crates/synvelis-project/src/store.rs"], "selective");
+    const legs = scheduledLegs(r);
+    for (const n of ["verify (ubuntu-latest)", "verify (windows-latest)", "verify (macos-latest)",
+      "rt-verify", "msrv-verify", "dep-guard", "classify"]) {
+      assert.ok(legs.includes(n), n);
+    }
+    // synvelis-project propagates to gateway -> gw10 required too.
+    assert.ok(legs.includes("gw10-verify (ubuntu-latest)"));
+    assert.ok(!legs.includes("ui-verify (ubuntu-latest)"));
+  });
+
+  it("selective trigger/fallback schedules every leg", () => {
+    for (const f of ["Cargo.toml", ".github/workflows/ci.yml", "tools/ci-impact.mjs", "mise.toml"]) {
+      const r = reportFor([f], "selective");
+      assert.equal(r.lanes.length, ALL_LANES.length);
+      assert.ok(r.lanes.every((l) => l.scheduled === true), f);
+    }
+  });
+
+  it("shadow and full modes schedule every leg (selective disabled)", () => {
+    for (const m of ["shadow", "full"]) {
+      const r = reportFor(["docs/x.md"], m);
+      assert.ok(r.lanes.every((l) => l.scheduled === true), m);
+    }
+  });
+});
+
 describe("gate: fail-closed verdicts", () => {
   it("passes when every leg succeeded", () => {
     const v = evaluateGate({ impact: reportFor(["ui/src/x.ts"]), jobs: allPassJobs(), attempt: 1 });

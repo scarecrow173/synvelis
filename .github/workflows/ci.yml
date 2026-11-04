@@ -12,7 +12,10 @@ name: ci
 #
 # Issue #148 (SV-CI-OPT-02): `classify` が変更影響分類と期待検証集合を
 # 出力し、`evidence` が期待集合 vs leg 単位実結果を fail-closed 照合する。
-# lane 条件付き実行は Shadow 検証が済むまで無効(全 lane 常時実行)。
+# Issue #157: PR は selective mode — 分類で対象外の lane leg は `if:` で
+# skip され、`evidence` が根拠付き NotApplicable 以外の未実行を拒否する
+# 唯一の安定的 required context。repository variable
+# `CI_SELECTIVE_DISABLE=1` で shadow mode(全 lane 実行)へ即時 rollback。
 
 on:
   pull_request:
@@ -40,16 +43,18 @@ env:
   GIT_LFS_SKIP_SMUDGE: "1"
 
 jobs:
-  # Issue #148 (SV-CI-OPT-02): 変更影響分類。PR では shadow mode — 分類結果と
-  # 期待 lane 集合を出力するが、偽陰性が確認されるまで lane 条件付き実行は
-  # 無効のまま全 lane が走り、分類 vs Full CI の照合を evidence gate が行う。
-  # push: main / workflow_dispatch は full mode(従来どおりの網羅実行)。
+  # Issue #148 (SV-CI-OPT-02): 変更影響分類。Issue #157 で PR は selective
+  # mode — `lanes` 出力(実行対象 lane id 一覧)を各 lane job の
+  # `if:` が消費し、対象外 lane を skip する。偽陰性監査の shadow 照合は
+  # evidence gate が従来どおり行う。push: main / workflow_dispatch は
+  # full mode(従来どおりの網羅実行)。
   classify:
     name: classify
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
       report: ${{ steps.impact.outputs.report }}
+      lanes: ${{ steps.impact.outputs.lanes }}
     env:
       MISE_ENABLE_TOOLS: node
     steps:
@@ -81,11 +86,19 @@ jobs:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
           HEAD_SHA: ${{ github.sha }}
+          # Issue #157 rollback switch: repository variable
+          # CI_SELECTIVE_DISABLE=1 で PR を shadow(全 lane 実行)へ戻す。
+          CI_SELECTIVE_DISABLE: ${{ vars.CI_SELECTIVE_DISABLE }}
         run: |
           set -euo pipefail
           case "$EVENT_NAME" in
             pull_request)
-              export CI_IMPACT_MODE=shadow CI_IMPACT_BASE="$PR_BASE" CI_IMPACT_HEAD="$PR_HEAD" ;;
+              if [ "${CI_SELECTIVE_DISABLE:-}" = "1" ]; then
+                export CI_IMPACT_MODE=shadow
+              else
+                export CI_IMPACT_MODE=selective
+              fi
+              export CI_IMPACT_BASE="$PR_BASE" CI_IMPACT_HEAD="$PR_HEAD" ;;
             push)
               # merge queue/初回 push 等で before が 0 埋めの場合は tool 側が
               # full CI に fallback する(mode=full でいずれにせよ全実行)。
@@ -93,11 +106,20 @@ jobs:
             *)
               export CI_IMPACT_MODE=full ;;
           esac
-          export CI_IMPACT_OUT=impact-report.json CI_IMPACT_SET_OUTPUT=report
+          export CI_IMPACT_OUT=impact-report.json CI_IMPACT_SET_OUTPUT=report CI_IMPACT_LANES_OUTPUT=lanes
           mise run ci-impact
 
+  # Issue #157: 各 lane job は classify の `lanes` 出力を membership test
+  # し、selective mode で対象外 lane を skip する。job-level `if` は
+  # matrix context を参照できないため条件は lane 単位 — 分類の期待値も
+  # lane 単位で全 OS leg が同一のため等価。shadow/full mode では lanes が
+  # 全 lane を含むため従来どおり全実行。classify 失敗時は全 lane が skip
+  # されるが、evidence が missing report として fail し fail-closed が
+  # 保たれる。
   verify:
     name: verify (${{ matrix.os }})
+    needs: classify
+    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'verify')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
@@ -246,6 +268,8 @@ jobs:
 
   rt-verify:
     name: rt-verify
+    needs: classify
+    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'rt-verify')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -324,6 +348,8 @@ jobs:
 
   gw10-verify:
     name: gw10-verify (${{ matrix.os }})
+    needs: classify
+    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'gw10-verify')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
@@ -438,6 +464,8 @@ jobs:
 
   msrv-verify:
     name: msrv-verify
+    needs: classify
+    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'msrv-verify')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -514,6 +542,8 @@ jobs:
   # パターンに倣い install-ui へ集約し、setup-ui で lane 内一度だけ実行する。
   ui-verify:
     name: ui-verify (${{ matrix.os }})
+    needs: classify
+    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'ui-verify')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -616,6 +646,8 @@ jobs:
 
   dep-guard:
     name: dep-guard
+    needs: classify
+    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'dep-guard')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -710,8 +742,10 @@ jobs:
   # GitHub required checks の意味(成功扱い)に委ねず、Pass / Fail /
   # Cancelled / NotRun / Skipped / Unsupported / NotApplicable を明示
   # 検査し、根拠付き NotApplicable 以外の未実行を拒否する。
-  # 各 lane の skipped を required leg で拒否することで、将来の条件付き
-  # 実行でも job skip が required context を緑にできない。
+  # Issue #157: selective mode 有効化により本 job が唯一の安定的
+  # required context となる。needs に skip された lane があっても
+  # `if: always()` で必ず実行し、required leg の skip を violation
+  # として fail するため、job skip が required context を緑にできない。
   evidence:
     name: evidence
     needs: [classify, verify, rt-verify, gw10-verify, msrv-verify, ui-verify, dep-guard]
