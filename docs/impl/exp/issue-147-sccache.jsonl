@@ -41,4 +41,12 @@
 {"ts": "2026-11-04", "kind": "warm", "run": 41824169427, "lane": "ui-verify", "os": "ubuntu-latest", "job_exec_s": 35, "sccache": false}
 {"ts": "2026-11-04", "kind": "warm", "run": 41824169427, "lane": "ui-verify", "os": "windows-latest", "job_exec_s": 76, "sccache": false}
 {"ts": "2026-11-04", "kind": "warm", "run": 41824169427, "lane": "ui-verify", "os": "macos-latest", "job_exec_s": 45, "sccache": false}
+{"ts": "2026-11-04", "kind": "warm2", "run": 41825678376, "lane": "verify", "os": "ubuntu-latest", "job_exec_s": 95, "executed": 223, "hits": 221, "misses": 0, "hit_rate": 100.0, "write_errors": 0, "read_errors": 0, "cache_errors": 0}
+{"ts": "2026-11-04", "kind": "warm2", "run": 41825678376, "lane": "verify", "os": "windows-latest", "job_exec_s": 222, "executed": 225, "hits": 213, "misses": 10, "hit_rate": 95.52, "write_errors": 0, "read_errors": 0, "cache_errors": 0}
+{"ts": "2026-11-04", "kind": "warm2", "run": 41825678376, "lane": "verify", "os": "macos-latest", "job_exec_s": 112, "executed": 232, "hits": 230, "misses": 0, "hit_rate": 100.0, "write_errors": 0, "read_errors": 0, "cache_errors": 0}
+{"ts": "2026-11-04", "kind": "warm2", "run": 41825678376, "lane": "gw10-verify", "os": "ubuntu-latest", "job_exec_s": 32, "executed": 35, "hits": 34, "misses": 0, "hit_rate": 100.0, "write_errors": 0, "read_errors": 0, "cache_errors": 0}
+{"ts": "2026-11-04", "kind": "warm2", "run": 41825678376, "lane": "gw10-verify", "os": "windows-latest", "job_exec_s": 97, "executed": 34, "hits": 32, "misses": 1, "hit_rate": 96.97, "write_errors": 0, "read_errors": 0, "cache_errors": 0}
+{"ts": "2026-11-04", "kind": "warm2", "run": 41825678376, "lane": "gw10-verify", "os": "macos-latest", "job_exec_s": 54, "executed": 35, "hits": 34, "misses": 0, "hit_rate": 100.0, "write_errors": 0, "read_errors": 0, "cache_errors": 0}
+{"ts": "2026-11-04", "kind": "warm2", "run": 41825678376, "lane": "rt-verify", "os": "ubuntu-latest", "job_exec_s": 78, "sccache": false}
+{"ts": "2026-11-04", "kind": "warm2", "run": 41825678376, "lane": "msrv-verify", "os": "ubuntu-latest", "job_exec_s": 132, "sccache": false}
 {"ts": "2026-11-04", "kind": "kill-switch", "run": 41824169427, "job": "gw10-verify (ubuntu-latest)", "var": "CI_SCCACHE_DISABLE=1", "result": "success", "skipped_steps": ["Set up sccache", "Export sccache GHA backend env", "Verify sccache environment", "sccache statistics"], "note": "single-job rerun under variable; variable deleted after verification"}

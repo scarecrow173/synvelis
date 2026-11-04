@@ -19,8 +19,9 @@ updated: "2026-11-04"
 | --- | --- |
 | 測定日 | 2026-11-04(UTC) |
 | cold run | https://github.com/scarecrow173/synvelis/actions/runs/41823038077 (PR 初回 push、namespace `synvelis-v1-<RUNNER_OS>` 未存在) |
-| warm run | https://github.com/scarecrow173/synvelis/actions/runs/41824169427 (docs push、同一 Cargo.lock/SHA) |
-| kill switch 検証 | 同上 run の `gw10-verify (ubuntu-latest)` を `CI_SCCACHE_DISABLE=1` 下で rerun(変数は検証後に削除済み) |
+| warm run 1 | https://github.com/scarecrow173/synvelis/actions/runs/41824169427 (docs push、同一 Cargo.lock/SHA) |
+| warm run 2 | https://github.com/scarecrow173/synvelis/actions/runs/41825678376 (exp/IR 追記 push) |
+| kill switch 検証 | warm run 1 の `gw10-verify (ubuntu-latest)` を `CI_SCCACHE_DISABLE=1` 下で rerun(変数は検証後に削除済み) |
 | sccache | v0.19.0(`mozilla-actions/sccache-action` pin `fc920bf0ec8de6ee65d409111f7ec508035751ba` = v0.0.11) |
 | backend | GitHub Actions cache(`SCCACHE_GHA_ENABLED=true`・`SCCACHE_GHA_VERSION=synvelis-v1-<RUNNER_OS>`) |
 | profile | dev・`CARGO_INCREMENTAL=0` |
@@ -86,7 +87,7 @@ updated: "2026-11-04"
 | job | cold | warm | Before 4 run 範囲 | 判定 |
 | --- | --- | --- | --- | --- |
 | verify ubuntu | 144s | 112s | 95–144s(中央 ~126s) | 中央値より改善 |
-| verify windows | 344s | 223s | 198–314s(中央 ~239s) | 中央値より改善(-7%) |
+| verify windows | 344s | 223s | 198–314s(中央 ~234s) | 中央値より改善(-11s) |
 | verify macos | 228s | 177s | 143–194s(中央 ~193s) | 中央値より改善(-8%) |
 | gw10 ubuntu | 51s | 35s | 35–47s | 範囲最良(-32% vs cold) |
 | gw10 windows | 89s | 101s | 76–106s(中央 ~90s) | 範囲内・中央より微増 |
@@ -114,12 +115,34 @@ updated: "2026-11-04"
 - write/read/cache errors は全 lane で 0。cold の write error(0–47)は
   warm では再現せず — rate limit 競合は cold 同時書込み時の一過性。
 - warm の verify wall time は Before 中央値を全 OS で下回る
-  (ubuntu -14s・windows -16s・macos -16s)。cold→warm の改善は
+  (ubuntu -14s・windows -11s・macos -16s)。cold→warm の改善は
   ubuntu -32s・windows -121s・macos -51s。
 - gw10 は lane 合計でほぼ中立(ubuntu -16s・windows +12s・macos -1s)。
   compile 単位が小さい(35 executed)ため sccache setup/stats step の
   固定 overhead(~5–10s)が hit 節約と相殺される構造。critical path
   でないため総 wall には影響しない。
+
+## 4a. Warm run 2 計測結果(run 41825678376、本 doc 追記 push)
+
+| job | wall | executed | hits | misses | hit rate | errors |
+| --- | --- | --- | --- | --- | --- | --- |
+| verify ubuntu | 95s | 223 | 221 | 0 | 100.00% | 0 |
+| verify windows | 222s | 225 | 213 | 10 | 95.52% | 0 |
+| verify macos | 112s | 232 | 230 | 0 | 100.00% | 0 |
+| gw10 ubuntu | 32s | 35 | 34 | 0 | 100.00% | 0 |
+| gw10 windows | 97s | 34 | 32 | 1 | 96.97% | 0 |
+| gw10 macos | 54s | 35 | 34 | 0 | 100.00% | 0 |
+
+- warm run 1 で書き込まれた残りの miss 分が反映され hit 95.5–100% に
+  収束(verify windows の残 miss 10 は cold write error 分 + 変動分)。
+- wall も warm 1 より改善: verify u/w/m = 95/222/112s(ubuntu は
+  Before 最小 95s と同値、macos は Before 最小 143s を下回る、
+  windows は Before 範囲内で中央値 ~234s より -12s)、gw10 u/w/m =
+  32/97/54s(ubuntu は Before 最小 35s を下回り、macos 54s は
+  Before 範囲 36–63 内に収束 — warm 1 の 69s 超過は一過性だった
+  ことが確認された)。
+- 非対象 lane: rt 78s・msrv 132s・ui 35/104/39s・dep-guard 21s・
+  evidence 3s — 全 PASS。
 
 ## 4b. Kill switch 実測
 
@@ -167,17 +190,17 @@ rt-verify(run 41823038077、sccache 非導入)の step 時間
 
 ## 7. 結論(採否判定)
 
-- `verify`(3OS): **採用**。warm hit 75–90%・write/read error 0・
-  Before 中央値を全 OS で下回る wall。critical path の verify windows
-  が Before 中央 -16s(単一 warm 観測)。cold run も fail-open で
-  全緑のため、cache backend 障害時の悪化リスクは setup overhead に
-  限定される。
-- `gw10-verify`(3OS): **採用(維持)**。hit 88–100%・error 0。
-  wall は ubuntu 改善・windows/macos 微増で lane 合計ほぼ中立。
-  critical path ではなく、critical path への影響なし。compile 単位が
-  小さいため固定 overhead が支配的だが、verify との namespace 共有で
-  hit は高く、悪化も誤差範囲内。OS 別に sccache を外す条件分岐の
-  複雑さを正当化する差ではないと判断。
+- `verify`(3OS): **採用**。warm hit 75–100%(2 run)・write/read
+  error 0・Before 中央値を全 OS で下回る wall。critical path の
+  verify windows が Before 中央 -11〜-12s(2 warm run)。
+  cold run も fail-open で全緑のため、cache backend 障害時の悪化
+  リスクは setup overhead に限定される。
+- `gw10-verify`(3OS): **採用**。hit 88–100%(2 run)・error 0。
+  warm run 1 では lane 合計ほぼ中立、warm run 2 では u/w/m =
+  32/97/54s で全 OS が Before 範囲内〜最良。compile 単位が小さい
+  ため固定 overhead が支配的だが、verify との namespace 共有で
+  hit は高く、warm 2 で macos の wall も範囲内に収束した。
+  OS 別条件分岐の複雑さを正当化する差ではないと判断。
 - `rt-verify` / `msrv-verify`: **今回不導入(分離設計のみ記録)**。
   MSRV 1.89.0 との toolchain 成果物誤共有を構造的に排除し、
   厳格 non-empty RT 選択(列挙 56s/本試験 4s)を変更なしで維持。

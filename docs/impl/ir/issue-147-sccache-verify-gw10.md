@@ -148,10 +148,10 @@ Rust CI 高速化、sccache 採用評価)の対応。先行評価は ruviform #3
 ### Adopted
 
 - `docs/impl/exp/issue-147-sccache-compile-cache.md`: cold(run
-  41823038077)/warm(run 41824169427)の Before/After 実測。
-  verify warm hit 75–90%・Before 中央値比で全 OS 改善
-  (windows -16s・ubuntu -14s・macos -16s)、gw10 hit 88–100%。
-  判定: verify・gw10-verify ともに採用。
+  41823038077)/warm(run 41824169427・41825678376 の 2 観測)の
+  Before/After 実測。verify warm hit 75–100%・Before 中央値比で
+  全 OS 改善(windows -11〜-12s・ubuntu -14s・macos -16s〜)、
+  gw10 hit 88–100%。判定: verify・gw10-verify ともに採用。
 
 ### Rejected
 
@@ -179,6 +179,10 @@ CI(PR #155、`gh pr checks --watch` で完了確認):
   74.89–90.05%・gw10 hit 87.88–100%・errors 全 0。job wall:
   verify 112/223/177s(u/w/m)、gw10 35/101/69s — Before 4 run
   中央値対比で verify 全 OS 改善、gw10 は lane 合計ほぼ中立。
+- warm run 41825678376(2 回目): 全 13 job PASS。hit 95.52–100%・
+  errors 全 0。job wall: verify 95/222/112s、gw10 32/97/54s —
+  gw10 macos も Before 範囲内に収束し、warm 1 の微超過は一過性と
+  確認。
 - kill switch: `CI_SCCACHE_DISABLE=1` 下で `gw10-verify
   (ubuntu-latest)` 単体 rerun — sccache 4 step 全 skip・harness
   success(変数は検証後に削除済み)。
@@ -197,7 +201,7 @@ CI(PR #155、`gh pr checks --watch` で完了確認):
 - GHAC rate limit による cold write error(最大 47)は既知挙動。
   fail-open で compile/test は完走するが、write 失敗分は次 run の
   hit に寄与しない(warm では 0 に収束)。
-- 観測は cold/warm 各 1 run。runner 負荷で wall は変動するため、
+- 観測は cold 1・warm 2 run。runner 負荷で wall は変動するため、
   継続監視で回帰を検出する必要がある。
 - `SCCACHE_GHA_VERSION` を変更しない限り古い entry が残る。
   toolchain/profile 変更時は key 自体が変わるため旧 entry は自然に
