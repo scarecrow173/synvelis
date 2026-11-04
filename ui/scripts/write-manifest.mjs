@@ -66,4 +66,8 @@ const manifest = {
   files,
 };
 writeFileSync(join(DIST, MANIFEST), `${JSON.stringify(manifest, null, 2)}\n`);
+// `vite build` empties outDir first — recreate the tracked `.gitkeep`
+// so `frontend/dist` exists on a fresh checkout (rust-embed #[folder]
+// must resolve even before the first build).
+writeFileSync(join(DIST, ".gitkeep"), "");
 console.log(`wrote ${MANIFEST} (${Object.keys(files).length} files)`);
