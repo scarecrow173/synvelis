@@ -2,6 +2,11 @@
 
 lockfile_version = 3
 
+[[tools.actionlint]]
+version = "1.7.12"
+backend = "aqua:rhysd/actionlint"
+specifiers = ["1.7.12"]
+
 [[tools.git-lfs]]
 version = "3.8.0"
 backend = "aqua:git-lfs/git-lfs"

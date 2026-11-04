@@ -1,0 +1,69 @@
+name: ruviform dep access
+description: >-
+  Resolve read access for the ruviform git dependency: anonymous HTTPS while
+  the repository is public, or a read-only SSH deploy key when it is private.
+  Fails closed when neither path is available so lanes never pass without a
+  real dependency fetch.
+
+inputs:
+  deploy-key:
+    description: >-
+      Read-only SSH deploy key for scarecrow173/ruviform. Pass
+      secrets.CROSS_REPO_DEPLOY_KEY; empty means anonymous HTTPS only.
+    required: false
+    default: ""
+
+outputs:
+  mode:
+    description: "Resolved access mode: deploy_key or anonymous"
+    value: ${{ steps.resolve.outputs.mode }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve ruviform dep access mode
+      id: resolve
+      shell: bash
+      env:
+        DEPLOY_KEY: ${{ inputs.deploy-key }}
+      run: |
+        set -euo pipefail
+        if [ -n "${DEPLOY_KEY:-}" ]; then
+          # private 経路: read-only deploy key。GitHub 公表 fingerprint と
+          # 照合した known_hosts で pin し、https URL を SSH へ rewrite する。
+          # Windows runner の $RUNNER_TEMP は Windows 形式のため、ssh で
+          # 使えるよう POSIX 形式へ正規化する。
+          rt="$RUNNER_TEMP"
+          if command -v cygpath >/dev/null 2>&1; then
+            rt="$(cygpath -u "$rt")"
+          fi
+          keyfile="$rt/ruviform-deploy-key"
+          printf '%s\n' "$DEPLOY_KEY" > "$keyfile"
+          chmod 600 "$keyfile"
+          kh="$rt/ruviform-known-hosts"
+          ssh-keyscan -t rsa,ecdsa,ed25519 github.com > "$kh" 2>/dev/null
+          ok=0
+          for want in \
+            "SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s" \
+            "SHA256:p2QAMXNIC1TJYWeIOttrVc98/R1BUFWuNC/Ldsl8C8I" \
+            "SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU"; do
+            if ssh-keygen -lf "$kh" | grep -q "$want"; then ok=$((ok+1)); fi
+          done
+          if [ "$ok" -lt 3 ]; then
+            echo "::error::github.com host key fingerprints do not match published constants — check for GitHub host key rotation and update the pinned fingerprints in ruviform-dep-access"
+            exit 1
+          fi
+          git config --global url."git@github.com:scarecrow173/ruviform.git".insteadOf \
+            "https://github.com/scarecrow173/ruviform.git"
+          export GIT_SSH_COMMAND="ssh -i $keyfile -o IdentitiesOnly=yes -o UserKnownHostsFile=$kh -o StrictHostKeyChecking=yes"
+          echo "GIT_SSH_COMMAND=$GIT_SSH_COMMAND" >> "$GITHUB_ENV"
+          git ls-remote git@github.com:scarecrow173/ruviform.git HEAD >/dev/null
+          echo "mode=deploy_key" >> "$GITHUB_OUTPUT"
+          echo "ruviform dep access: deploy_key"
+        elif git ls-remote https://github.com/scarecrow173/ruviform.git HEAD >/dev/null 2>&1; then
+          echo "mode=anonymous" >> "$GITHUB_OUTPUT"
+          echo "ruviform dep access: anonymous https"
+        else
+          echo "::error::no ruviform dep access path — repository is unreachable anonymously and no deploy key is configured (set CROSS_REPO_DEPLOY_KEY or restore public access)"
+          exit 1
+        fi
