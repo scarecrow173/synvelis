@@ -13,7 +13,11 @@
 
 import { onCleanup, onMount } from "solid-js";
 
-import { bindControlElement, bindTransportElement } from "@ruviform/ui-binding";
+import {
+  bindControlElement,
+  bindTransportElement,
+  bindViewIntents,
+} from "@ruviform/ui-binding";
 import type { RvfFader, RvfKnob, RvfSeekbar, RvfTransport } from "@ruviform/ui-components";
 import type { RvfMeter, RvfWaveform } from "@ruviform/ui-viz";
 
@@ -86,6 +90,35 @@ export function ConsoleView(props: { viewId: string; windowId: string }) {
     }).catch(() => {});
     void waveSource.refresh();
     void meterSource.refresh();
+
+    // View-state intents (rvf-viewport / rvf-select) forward to the
+    // bounded syn.viz.* surface ops — viewport truth stays Rust-side.
+    const unbindViewIntents = bindViewIntents(waveEl, {
+      onViewport: (detail) => {
+        const d = detail as
+          | { viewport?: { start?: number; end?: number } }
+          | undefined;
+        const vp = d?.viewport;
+        if (typeof vp?.start !== "number" || typeof vp.end !== "number") return;
+        void call("syn.viz.viewport", {
+          view_id: props.viewId,
+          surface_id: "wave",
+          start: vp.start,
+          end: vp.end,
+        }).catch(() => {});
+      },
+      onSelect: (detail) => {
+        const d = detail as { start?: number; end?: number } | undefined;
+        if (typeof d?.start !== "number" || typeof d.end !== "number") return;
+        void call("syn.viz.select", {
+          view_id: props.viewId,
+          surface_id: "wave",
+          start: d.start,
+          end: d.end,
+        }).catch(() => {});
+      },
+    });
+    onCleanup(unbindViewIntents);
 
     onCleanup(() => {
       waveSource.dispose();

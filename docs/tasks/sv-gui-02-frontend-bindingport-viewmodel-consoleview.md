@@ -1,7 +1,7 @@
 ---
 id: "TASK-034RADc5Q2mNYPcXkM8fR"
 type: "task"
-status: "todo"
+status: "completed"
 title: "SV-GUI-02 frontend BindingPort/ViewModel/ConsoleView"
 created: "2026-11-04"
 updated: "2026-11-04"

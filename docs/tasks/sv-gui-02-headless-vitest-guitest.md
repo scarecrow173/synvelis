@@ -1,7 +1,7 @@
 ---
 id: "TASK-034RADeL6sQ8vFzJ3xTmN"
 type: "task"
-status: "todo"
+status: "completed"
 title: "SV-GUI-02 検証レーン統合 (headless/vitest/guitest)"
 created: "2026-11-04"
 updated: "2026-11-04"

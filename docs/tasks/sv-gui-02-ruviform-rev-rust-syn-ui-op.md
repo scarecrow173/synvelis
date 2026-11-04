@@ -1,7 +1,7 @@
 ---
 id: "TASK-034RADaUbkmnzbFjZ29bl4"
 type: "task"
-status: "todo"
+status: "completed"
 title: "SV-GUI-02 ruviform rev 追従 + Rust syn.* UI op 面"
 created: "2026-11-04"
 updated: "2026-11-04"
