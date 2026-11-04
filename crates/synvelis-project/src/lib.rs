@@ -16,11 +16,13 @@ pub mod controller;
 pub mod error;
 pub mod id;
 pub mod midi;
+pub(crate) mod migration;
 pub mod ops;
 pub mod placement;
 pub mod project;
 pub mod range;
 pub mod recording_data;
+pub mod routing;
 pub mod store;
 pub mod tempo;
 pub mod time;
@@ -41,10 +43,11 @@ pub use control::{
 pub use controller::{Command, Operation, ProjectController, ProjectRevision, SavedState};
 pub use error::Error;
 pub use id::{
-    AssetId, AutomationLaneId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, CompId,
-    CompRegionId, CompTransitionId, CounterIdGenerator, IdGenerator, ImportId, LaneId,
-    ModulationAssignmentId, ModulationSourceId, NoteId, ParameterTargetId, ProjectId,
-    RecordingPassId, RecordingSessionId, SourceId, TakeGroupId, TakeId, TrackId,
+    AssetId, AutomationLaneId, BusId, CaptureSegmentId, CaptureStreamId, ChainId, ClipId,
+    ClockEpochId, CompId, CompRegionId, CompTransitionId, CounterIdGenerator, IdGenerator,
+    ImportId, LaneId, ModulationAssignmentId, ModulationSourceId, NoteId, ParameterTargetId,
+    ProcessorId, ProjectId, RecordingPassId, RecordingSessionId, RoutingConnectionId,
+    SemanticPortId, SendId, SourceId, StripId, TakeGroupId, TakeId, TrackId,
 };
 pub use midi::{MidiDivision, MidiNote, MidiSource};
 pub use ops::ProjectOp;
@@ -60,6 +63,12 @@ pub use range::{MediaSpan, MidiRange, MusicalRange, Range, SessionRange, SourceR
 pub use recording_data::{
     CaptureSegment, CaptureStream, ClockEpoch, RecordingPass, RecordingSession, SessionState, Take,
     TakeState,
+};
+pub use routing::{
+    Bus, BusKind, ChannelStrip, ConnectionKind, ExplicitChannelMap, PluginRef, PortBinding,
+    PortDirection, PortOwner, PortRole, Processor, ProcessorBinding, ProcessorChain,
+    RoutingConnection, RoutingModel, SemanticPort, SendConfig, SendTap, SignalDomain, StripOwner,
+    WELL_KNOWN_BASE, is_issuable_raw,
 };
 pub use store::{
     DirectoryBundleStore, InMemoryStore, ProjectStore, SCHEMA_VERSION, SnapshotEnvelope,
