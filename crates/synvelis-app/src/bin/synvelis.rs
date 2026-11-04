@@ -38,6 +38,9 @@ fn main() -> ExitCode {
     let mut app = SynvelisApp::new(report);
     let quit = app.quit_flag();
     let initial_notify = app.app_state_notify();
+    // Shared SV-GUI-02 notify outbox — UI ops pump receipts/projections/
+    // frames into it; the tick below drains it into the page.
+    let ui_outbox = app.event_outbox();
 
     let real_assets = app_asset_source();
     let assets: Arc<dyn ruviform_ui::AssetSource> = match check_bundle(real_assets.as_ref()) {
@@ -78,6 +81,20 @@ fn main() -> ExitCode {
         if ready && !sent_notify {
             sent_notify = true;
             host.eval(&dispatch_script(&initial_notify));
+        }
+        if ready || sent_notify {
+            // Drain the bounded notify outbox on every event-loop turn:
+            // receipts, projections, viz frames/events, view state.
+            let mut pending: Vec<ruviform_ui::ipc::Event> = Vec::new();
+            {
+                let mut q = ui_outbox.borrow_mut();
+                while let Some(e) = q.pop_front() {
+                    pending.push(e);
+                }
+            }
+            for e in pending {
+                host.eval(&dispatch_script(&e));
+            }
         }
         if quit.swap(false, Ordering::AcqRel) {
             host.request_close();

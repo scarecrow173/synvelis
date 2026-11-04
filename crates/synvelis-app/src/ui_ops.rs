@@ -292,11 +292,15 @@ impl SynvelisApp {
                         })
                     }
                 };
-                json!({
-                    "revision": o.revision,
-                    "value": value,
-                    "provenance": o.provenance,
-                })
+                // `provenance` is optional on the upstream
+                // `StateProjection` — absent, never null.
+                let mut observed = serde_json::Map::new();
+                observed.insert("revision".to_owned(), Value::from(o.revision));
+                observed.insert("value".to_owned(), value);
+                if let Some(p) = &o.provenance {
+                    observed.insert("provenance".to_owned(), Value::from(p.clone()));
+                }
+                Value::Object(observed)
             });
             self.push_notify(
                 "syn.control.projection",

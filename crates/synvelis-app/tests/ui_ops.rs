@@ -201,13 +201,25 @@ fn unknown_and_detached_dispatch_are_dropped_not_faked() {
     drain_all(&outbox);
     // dispatch on a never-attached view — silently dropped by contract
     dispatch(&mut rt, "ghost", "cmd-g", &transport_action("play"), 0);
-    assert_eq!(notifies(&outbox, "syn.control.receipt"), Vec::<Value>::new());
+    assert_eq!(
+        notifies(&outbox, "syn.control.receipt"),
+        Vec::<Value>::new()
+    );
 
     attach(&mut rt, "console", "win-1");
     drain_all(&outbox);
     // stale generation intent — dropped, no receipt minted
-    dispatch(&mut rt, "console", "cmd-stale", &transport_action("play"), 0);
-    assert_eq!(notifies(&outbox, "syn.control.receipt"), Vec::<Value>::new());
+    dispatch(
+        &mut rt,
+        "console",
+        "cmd-stale",
+        &transport_action("play"),
+        0,
+    );
+    assert_eq!(
+        notifies(&outbox, "syn.control.receipt"),
+        Vec::<Value>::new()
+    );
     // unknown target — rejected receipt, never a fake success
     let bad = json!({
         "kind": "action", "target": "nope",
