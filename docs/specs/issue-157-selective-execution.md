@@ -101,6 +101,10 @@ leg を根拠付き `NotApplicable` としてのみ受理する。`push: main` /
 - run 内の未知 job は violation(lane universe は ci.yml に対して total)。
 - `evidence` が唯一の安定的 required context: needs に skip 済み lane が
   あっても `if: always()` で必ず実行される。
+- jobs API 収集は bounded retry 付き: leg の conclusion 遷移中に API が
+  job エントリを一時欠落して返す eventual consistency を観測済み
+  (本 PR 初回 run で成功済み leg が absent と報告された)。expected
+  件数未満の間は retry し、最終的に不足なら従来どおり fail-closed。
 
 ## Ruleset 移行計画(coordinator 実施)
 
