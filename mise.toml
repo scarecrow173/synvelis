@@ -13,6 +13,7 @@ git-lfs = "3.8.0"
 "github:microsoft/apm" = "0.33.0"
 "pipx:serena-agent" = "1.7.0"
 rust = "1.99.0"
+node = "26.12.1"
 
 [tasks.setup]
 description = "Install APM dependencies, prek hooks and repository-local Git LFS"
@@ -58,6 +59,79 @@ run = [
 [tasks.gw10-report]
 description = "Aggregate target/gw10-evidence into the per-gate verdict report"
 run = "cargo run -p synvelis-gateway --bin gw10_report"
+
+# Issue #110 / SV-GUI-01: ui/ frontend lane. The Cargo.lock ruviform rev is
+# the single source of truth — sync-ui-deps materializes the vendored
+# ui/* packages from the local cargo checkout at that rev, and
+# check-ruviform-rev verifies lock/vendor/manifest agree.
+
+[tasks.sync-ui-deps]
+description = "ruviform ui/*(TS)を Cargo.lock と同一 SHA で ui/vendor/ へ再生成"
+run = "node tools/sync-ruviform-ui.mjs"
+
+[tasks.setup-ui]
+description = "ui/ の npm devDependencies を package-lock から復元"
+run = "npm ci --prefix ui --no-audit --no-fund"
+
+[tasks.check-ruviform-rev]
+description = "ruviform Git 依存の resolved SHA 単一性 + UI vendor REV + frontend manifest 整合を検証"
+run = "node tools/check-ruviform-rev.mjs"
+
+[tasks.check-headless-deps]
+description = "headless crate の依存木に GUI/GPU/WebView framework crate が無いことを検証"
+run = "node tools/check-headless-deps.mjs"
+
+[tasks.check-ui]
+description = "ui/ frontend の型チェック(tsc --noEmit)+ vendor 同期照合"
+run = [
+  "node tools/sync-ruviform-ui.mjs --check",
+  "npm --prefix ui run typecheck",
+]
+
+[tasks.test-ui]
+description = "ui/ frontend の vitest スイート(happy-dom、実 SolidJS client render)"
+run = [
+  "node tools/sync-ruviform-ui.mjs --check",
+  "npm --prefix ui test",
+]
+
+[tasks.build-ui]
+description = "ui/ frontend を vite build し crates/synvelis-app/frontend/dist + manifest を生成"
+run = [
+  "node tools/sync-ruviform-ui.mjs --check",
+  "npm --prefix ui run build",
+]
+
+# synvelis-app `webview` feature lane。既定 check/lint/test は headless
+# (lib + Service op 層)のまま、実窓 host 依存ターゲットはここで分離検証する。
+
+[tasks.check-app-webview]
+description = "synvelis-app webview feature 型チェック(実窓 host ターゲット含む)"
+run = "cargo check -p synvelis-app --features webview --all-targets"
+
+[tasks.lint-app-webview]
+description = "synvelis-app webview feature lint"
+run = "cargo clippy -p synvelis-app --all-targets --features webview -- -D warnings"
+
+[tasks.test-app-webview]
+description = "synvelis-app webview feature テスト"
+run = "cargo test -p synvelis-app --features webview"
+
+[tasks.dev-ui]
+description = "開発ループ: ui/ を build して synvelis app を debug 起動(assets は live FS 読み)"
+run = [
+  "node tools/sync-ruviform-ui.mjs --check",
+  "npm --prefix ui run build",
+  "cargo run -p synvelis-app --features webview --bin synvelis",
+]
+
+[tasks.build-app]
+description = "本番 lane: ui/ build → synvelis-app release build(frontend dist 埋め込み)"
+run = [
+  "node tools/sync-ruviform-ui.mjs --check",
+  "npm --prefix ui run build",
+  "cargo build -p synvelis-app --features webview --release --locked",
+]
 
 [tasks.test-msrv]
 description = "Compile and test under the declared MSRV toolchain"
