@@ -168,6 +168,9 @@ version = "1.99.0"
 backend = "core:rust"
 specifiers = ["1.99.0"]
 
+[tools.rust.options]
+components = "clippy,rustfmt"
+
 [[tools.uv]]
 version = "0.13.4"
 backend = "aqua:astral-sh/uv"
