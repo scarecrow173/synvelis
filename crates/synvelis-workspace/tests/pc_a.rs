@@ -660,32 +660,11 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
         Vec::new()
     );
 
-    // Rolling + record_start fixes target set and revision.
-    ws.session_mut().control_mut().transport_play();
-    let rev = ws.session().revision();
-    ws.session_mut().control_mut().record_start(rev).unwrap();
-    assert_eq!(
-        ws.session().control().recording().unwrap().fixed_targets,
-        vec![target]
-    );
-    // Touch gesture writes the gesture interval (manual values only).
-    ws.session_mut()
-        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
-        .unwrap();
-    ws.session_mut()
-        .control_mut()
-        .gesture_update(target, bp(1), 0.6)
-        .unwrap();
-    ws.session_mut()
-        .control_mut()
-        .gesture_update(target, bp(2), 0.7)
-        .unwrap();
-    let end = ws.session_mut().control_gesture_end(target).unwrap();
-    assert_eq!(end, GestureEnd::Written { points: 2 });
-
-    // Recording stores pre-modulation manual values: add an LFO +
-    // assignment mid-session; the recorded point is the manual value,
-    // not the host-resolved (modulated) one — no double modulation.
+    // Recording stores pre-modulation manual values: an LFO +
+    // assignment is installed before the transaction starts (a
+    // successful mid-session apply would seal the write gate —
+    // REC-C1-05), so the recorded point is the manual value, not the
+    // host-resolved (modulated) one — no double modulation.
     apply(
         &mut ws,
         ProjectOp::AddModulationSource {
@@ -717,6 +696,29 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
             enabled: true,
         },
     );
+
+    // Rolling + record_start fixes target set and revision.
+    ws.session_mut().control_mut().transport_play();
+    let rev = ws.session().revision();
+    ws.session_mut().control_mut().record_start(rev).unwrap();
+    assert_eq!(
+        ws.session().control().recording().unwrap().fixed_targets,
+        vec![target]
+    );
+    // Touch gesture writes the gesture interval (manual values only).
+    ws.session_mut()
+        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
+        .unwrap();
+    ws.session_mut()
+        .control_mut()
+        .gesture_update(target, bp(1), 0.6)
+        .unwrap();
+    ws.session_mut()
+        .control_mut()
+        .gesture_update(target, bp(2), 0.7)
+        .unwrap();
+    let end = ws.session_mut().control_gesture_end(target).unwrap();
+    assert_eq!(end, GestureEnd::Written { points: 2 });
     ws.session_mut()
         .control_with(|c, p| c.record_write(p, target, bp(3), 0.9))
         .unwrap();
