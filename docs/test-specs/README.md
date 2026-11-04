@@ -11,6 +11,7 @@ Directory: `docs/test-specs`
 | TSPEC-034QAmjdN5ihez8HzDIvIs | ED-A 検証仕様 — Editing Model 合意5項目 headless 受入 | approved | [ed-a-e2e-editing-model.md](./ed-a-e2e-editing-model.md) |
 | TSPEC-034QN1oYnTtpV7t5CPcc5e | ED-B e2e media-domain editing acceptance | approved | [ed-b-e2e-media-domain-editing.md](./ed-b-e2e-media-domain-editing.md) |
 | TSPEC-034RIJsxayw9vKD3Ez9Wcy | Issue #147 sccache 導入検証仕様 | approved | [issue-147-sccache-compile-cache.md](./issue-147-sccache-compile-cache.md) |
+| TSPEC-034SVCIOPT02gT5yUiOp | Issue #148 変更影響分類・Fail-Closed evidence Gate 検証仕様 | approved | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
 | TSPEC-034RGXpDyOEiejVT0jxK7a | Issue #151 ui-verify lane 検証仕様 | approved | [issue-151-ui-ci-lane.md](./issue-151-ui-ci-lane.md) |
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | TSPEC-034QmjuUDQRs8JzfSsG8wM | L2 検証仕様 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
