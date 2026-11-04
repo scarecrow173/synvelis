@@ -591,7 +591,7 @@ fn pc_a_05_mode_select_never_mutates_and_off_read_behave() {
         .control_with(|c, p| c.set_mode(p, target, AutomationMode::Off))
         .unwrap();
     ws.session_mut()
-        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
+        .control_with(|c, p| c.gesture_begin(p, target, bp(0), rev))
         .unwrap();
     ws.session_mut()
         .control_mut()
@@ -611,7 +611,7 @@ fn pc_a_05_mode_select_never_mutates_and_off_read_behave() {
         .unwrap();
     let rev = ws.session().revision();
     ws.session_mut()
-        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
+        .control_with(|c, p| c.gesture_begin(p, target, bp(0), rev))
         .unwrap();
     ws.session_mut()
         .control_mut()
@@ -654,8 +654,9 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
     ws.session_mut().control_mut().set_record_enabled(true);
 
     // Without transport rolling the Touch gesture writes nothing.
+    let rev = ws.session().revision();
     ws.session_mut()
-        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
+        .control_with(|c, p| c.gesture_begin(p, target, bp(0), rev))
         .unwrap();
     ws.session_mut()
         .control_mut()
@@ -708,14 +709,16 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
     // Rolling + record_start fixes target set and revision.
     ws.session_mut().control_mut().transport_play();
     let rev = ws.session().revision();
-    ws.session_mut().control_mut().record_start(rev).unwrap();
+    ws.session_mut()
+        .control_with(|c, p| c.record_start(p, rev))
+        .unwrap();
     assert_eq!(
         ws.session().control().recording().unwrap().fixed_targets,
         vec![target]
     );
     // Touch gesture writes the gesture interval (manual values only).
     ws.session_mut()
-        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
+        .control_with(|c, p| c.gesture_begin(p, target, bp(0), rev))
         .unwrap();
     ws.session_mut()
         .control_mut()
@@ -753,7 +756,9 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
         .set_loop(Some((bp(0), bp(4))))
         .unwrap();
     let rev = ws.session().revision();
-    ws.session_mut().control_mut().record_start(rev).unwrap();
+    ws.session_mut()
+        .control_with(|c, p| c.record_start(p, rev))
+        .unwrap();
     ws.session_mut()
         .control_with(|c, p| c.record_write(p, target, bp(1), 0.5))
         .unwrap();
@@ -785,7 +790,9 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
         .control_with(|c, p| c.set_mode(p, target2, AutomationMode::Write))
         .unwrap();
     let rev = ws.session().revision();
-    ws.session_mut().control_mut().record_start(rev).unwrap();
+    ws.session_mut()
+        .control_with(|c, p| c.record_start(p, rev))
+        .unwrap();
     ws.session_mut()
         .control_with(|c, p| c.set_arm(p, target2, WriteArm::Armed))
         .unwrap();
@@ -952,9 +959,10 @@ fn pc_a_07_capability_honesty() {
         ),
         Err(Error::WriteRejected { .. })
     ));
+    let rev = ws.session().revision();
     assert!(matches!(
         ws.session_mut()
-            .control_with(|c, p| c.gesture_begin(p, ro, bp(0))),
+            .control_with(|c, p| c.gesture_begin(p, ro, bp(0), rev)),
         Err(Error::WriteRejected { .. })
     ));
     assert!(matches!(
@@ -1218,8 +1226,9 @@ fn pc_a_08_time_consistency() {
             frame: EngineFrame::new(epoch, 0),
             calibration: TimestampProvenance::Carried,
         });
+    let rev = ws.session().revision();
     ws.session_mut()
-        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
+        .control_with(|c, p| c.gesture_begin(p, target, bp(0), rev))
         .unwrap();
     let stamp = InputStamp {
         ticks: 1_000_000_000, // 1 s after the anchor
@@ -1271,10 +1280,10 @@ fn pc_a_05_empty_off_gesture_commits_nothing() {
         .unwrap();
     // The evaluated reference at begin is 0.5 (automation) — the old
     // code would commit that as the base even though no update moved.
-    ws.session_mut()
-        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
-        .unwrap();
     let rev = ws.session().revision();
+    ws.session_mut()
+        .control_with(|c, p| c.gesture_begin(p, target, bp(0), rev))
+        .unwrap();
     let end = ws.session_mut().control_gesture_end(target).unwrap();
     assert_eq!(end, GestureEnd::Returned);
     assert_eq!(ws.session().revision(), rev);
@@ -1303,7 +1312,9 @@ fn pc_a_05_record_start_rejects_unbound_write_lane() {
     let rev = ws.session().revision();
     // Armed + write-mode but unbound: start fails, nothing fixed.
     assert!(
-        ws.session_mut().control_mut().record_start(rev).is_err(),
+        ws.session_mut()
+            .control_with(|c, p| c.record_start(p, rev))
+            .is_err(),
         "unbound write lane must fail record_start"
     );
     assert!(ws.session().control().recording().is_none());
@@ -1311,7 +1322,9 @@ fn pc_a_05_record_start_rejects_unbound_write_lane() {
     ws.session_mut()
         .control_with(|c, p| c.bind_write_lane(p, target, lane))
         .unwrap();
-    ws.session_mut().control_mut().record_start(rev).unwrap();
+    ws.session_mut()
+        .control_with(|c, p| c.record_start(p, rev))
+        .unwrap();
     assert_eq!(
         ws.session().control().recording().unwrap().fixed_targets,
         vec![target]
@@ -1341,7 +1354,9 @@ fn pc_a_05_record_write_rejects_removed_write_lane() {
     ws.session_mut().control_mut().set_record_enabled(true);
     ws.session_mut().control_mut().transport_play();
     let rev = ws.session().revision();
-    ws.session_mut().control_mut().record_start(rev).unwrap();
+    ws.session_mut()
+        .control_with(|c, p| c.record_start(p, rev))
+        .unwrap();
     // Points recorded while the lane was alive accumulate in the
     // transaction.
     ws.session_mut()
@@ -1380,8 +1395,9 @@ fn pc_a_05_record_write_rejects_removed_write_lane() {
 fn pc_a_05_stamp_anchor_install_syncs_epoch() {
     let mut ws = fresh_ws();
     let (_track, target) = add_track_target(&mut ws, "vol", 0.4);
+    let rev = ws.session().revision();
     ws.session_mut()
-        .control_with(|c, p| c.gesture_begin(p, target, bp(0)))
+        .control_with(|c, p| c.gesture_begin(p, target, bp(0), rev))
         .unwrap();
     let ns = TimeBase::new(1, 1_000_000_000).unwrap();
     // An anchor on a different epoch than the session default —

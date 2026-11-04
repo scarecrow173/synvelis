@@ -197,7 +197,9 @@ fn pc_b_02_note_scope_records_note_relative() {
     ws.session_mut().control_mut().set_record_enabled(true);
     ws.session_mut().control_mut().transport_play();
     let rev = ws.session().revision();
-    ws.session_mut().control_mut().record_start(rev).unwrap();
+    ws.session_mut()
+        .control_with(|c, p| c.record_start(p, rev))
+        .unwrap();
     // project 11 → clip-rel 3 → note-rel 1
     ws.session_mut()
         .control_with(|c, p| c.record_write(p, target, bp(11), 0.9))

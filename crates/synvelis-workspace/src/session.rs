@@ -256,7 +256,7 @@ impl ProjectSession {
         expected_revision: ProjectRevision,
     ) -> Result<ProjectRevision, Error> {
         let revision = self.apply_internal(op, expected_revision)?;
-        self.control.note_project_changed();
+        self.control.note_project_changed(self.controller.live());
         Ok(revision)
     }
 
@@ -293,7 +293,7 @@ impl ProjectSession {
         if self.controller.undo()? {
             self.engine
                 .on_project_revision(self.controller.live_revision());
-            self.control.note_project_changed();
+            self.control.note_project_changed(self.controller.live());
             return Ok(true);
         }
         Ok(false)
@@ -309,7 +309,7 @@ impl ProjectSession {
         if self.controller.redo()? {
             self.engine
                 .on_project_revision(self.controller.live_revision());
-            self.control.note_project_changed();
+            self.control.note_project_changed(self.controller.live());
             return Ok(true);
         }
         Ok(false)

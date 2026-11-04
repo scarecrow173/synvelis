@@ -32,18 +32,19 @@
 //! [`ProjectSession::control_gesture_end`]: crate::session::ProjectSession::control_gesture_end
 //! [`ProjectSession::control_record_commit`]: crate::session::ProjectSession::control_record_commit
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt;
 
 use ruviform_media_core::{
-    ClockAnchor, ClockEpochId, EngineFrame, InputStamp, MediaTime, MediaTimestamp, TimeBase,
-    TimestampProvenance, map_stamp_to_frame,
+    ClockAnchor, ClockEpochId, EngineFrame, InputStamp, MediaDuration, MediaTime, MediaTimestamp,
+    Rounding, TimeBase, TimestampProvenance, map_stamp_to_frame,
 };
 use ruviform_plugin_core::{ParamWriteMeans, TimedParamEvent};
 use synvelis_project::{
     AutomationLaneId, AutomationPoint, AutomationRegion, AutomationTimeScope, BeatPoint, BeatRange,
     ControlEvaluation, ControlOwner, Error, Interpolation, ModulationAssignmentId,
-    ParameterTargetId, Project, ProjectOp, ProjectRevision, TargetCapability, evaluate_control,
+    ParameterTargetId, ProcessorId, Project, ProjectOp, ProjectRevision, ReferenceSource,
+    TargetCapability, evaluate_control,
 };
 
 /// The UI-facing automation mode (`#6` 決定④). Selected per target;
@@ -263,6 +264,25 @@ impl fmt::Display for RecordCommitError {
 
 impl std::error::Error for RecordCommitError {}
 
+/// Everything captured at gesture begin (issue #131 `GestureFixation`):
+/// the execution context the write may not float away from — the
+/// target itself, the project revision, the arm state and the clock
+/// context. Inspector follow/focus changes later cannot retarget the
+/// write or reinterpret the captured context.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ControlGestureFixation {
+    /// The target the gesture bound to at begin.
+    pub target: ParameterTargetId,
+    /// Live project revision at begin.
+    pub revision: ProjectRevision,
+    /// Write arm state at begin.
+    pub arm: WriteArm,
+    /// Transport clock epoch at begin.
+    pub epoch: ClockEpochId,
+    /// Engine frame clock base at begin.
+    pub frame_base: TimeBase,
+}
+
 /// An in-progress manual gesture on one target.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ControlGesture {
@@ -270,6 +290,8 @@ pub struct ControlGesture {
     pub started_at: BeatPoint,
     /// `(pos, normalized value)` pairs in arrival order.
     pub points: Vec<(BeatPoint, f64)>,
+    /// Context fixed at begin — immutable for the gesture's lifetime.
+    pub fixation: ControlGestureFixation,
 }
 
 /// One recording session = one undo transaction. Target set, lane
@@ -502,6 +524,98 @@ pub struct RecordingOutcome {
     pub was_sealed: bool,
 }
 
+/// Default Touch return duration: the provisional 150 ms agreed for
+/// AUT-01 (issue #131) — a later pass approves the final default.
+pub const DEFAULT_TOUCH_RETURN_MS: i64 = 150;
+
+/// Capacity bound of the [`ControlSession`] writer-closure log.
+pub const WRITER_CLOSE_CAP: usize = 256;
+
+/// An in-flight Touch return: after a `Touch` gesture releases, the
+/// reference glides back to the automation series over the session's
+/// return duration instead of jumping (issue #131). Runtime state
+/// only — the return never writes points, never mutates the project.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TouchReturn {
+    /// Normalized reference value at gesture release.
+    pub release_value: f64,
+    /// Session clock instant at release (`frame_base` ticks).
+    pub released_at: MediaTime,
+}
+
+/// The per-target runtime writer state — the inspectable half of the
+/// mode boundary contract (issue #131). Session state only; no variant
+/// implies a project mutation by itself.
+#[derive(Clone, Debug, PartialEq)]
+pub enum WriterState {
+    /// No gesture, held value or return is active.
+    Idle,
+    /// A manual gesture is in flight (the override is live).
+    Gesture,
+    /// `Latch`: the released value keeps writing while the gates hold.
+    LatchHeld {
+        /// The held normalized value.
+        value: f64,
+    },
+    /// `Write`: the reference fixed at `record_start` (or the last
+    /// gesture value) keeps writing while the gates hold.
+    WriteHeld {
+        /// The held normalized value.
+        value: f64,
+    },
+    /// `Touch`: the released value is returning to the automation
+    /// series over the configured duration.
+    Returning {
+        /// The normalized reference at release.
+        release_value: f64,
+        /// `x = clamp(elapsed / duration, 0, 1)` on the session clock.
+        progress: f64,
+        /// `true` when the configured duration is 0 — an explicit
+        /// instant return whose click/zipper risk must be visible.
+        instant: bool,
+    },
+}
+
+/// Why runtime gesture/writer state was explicitly closed (issue #131
+/// boundary events). Every variant is an *observable* transition —
+/// recorded in the session's writer-closure log.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum WriterCloseReason {
+    /// The transport stopped.
+    TransportStop,
+    /// The playhead was repositioned.
+    TransportSeek,
+    /// The playhead wrapped the loop end.
+    LoopWrap,
+    /// A new transport run began (non-`Playing` → `Playing` edge;
+    /// `Paused` → `Playing` via `transport_resume` is the same
+    /// playback and does **not** close).
+    NewTransportPlay,
+    /// Window/IME/plugin-GUI input focus moved away mid-gesture.
+    FocusLost,
+    /// The owning processor reported a plugin crash.
+    PluginCrash,
+    /// The target was deleted from the project.
+    TargetDeleted,
+    /// The selected mode changed (held `Latch`/`Write` state only —
+    /// an in-flight return is mode-independent and completes).
+    ModeChanged,
+    /// The gesture was cancelled explicitly.
+    Cancelled,
+}
+
+/// One explicit closure of runtime gesture/writer state — what closed
+/// and which state it had.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WriterClosure {
+    /// The target whose state was closed.
+    pub target: ParameterTargetId,
+    /// The boundary event that closed it.
+    pub reason: WriterCloseReason,
+    /// The state at close time.
+    pub state: WriterState,
+}
+
 /// A lane/Signal-Flow projection row — borrowed from `Project::control`;
 /// the projection holds no copy of the series.
 #[derive(Clone, Debug, PartialEq)]
@@ -535,6 +649,8 @@ pub struct InspectorBreakdown {
     pub mode: AutomationMode,
     /// Write arm state.
     pub arm: WriteArm,
+    /// Runtime writer state (issue #131 boundary introspection).
+    pub writer_state: WriterState,
     /// Capability contract (fixture `ParamInfo`), if declared.
     pub capability: Option<TargetCapability>,
 }
@@ -559,6 +675,10 @@ pub struct ControlSession {
     next_txn_id: u64,
     applied: BTreeMap<RecordingTransactionId, AppliedRecord>,
     last_disposition: Option<RecordDisposition>,
+    touch_returns: BTreeMap<ParameterTargetId, TouchReturn>,
+    clock_now: MediaTime,
+    return_ticks: i64,
+    writer_closes: VecDeque<WriterClosure>,
 }
 
 impl Default for ControlSession {
@@ -571,6 +691,14 @@ impl ControlSession {
     /// A session with `frame_base` as the engine frame clock.
     #[must_use]
     pub fn new(frame_base: TimeBase) -> Self {
+        // The provisional 150 ms default expressed in `frame_base`
+        // ticks (150·den/(num·1000), truncating toward zero — exact
+        // for every sample-rate-derived base).
+        let return_ticks = TimeBase::new(1, 1_000).map_or(0, |ms| {
+            MediaDuration::new(DEFAULT_TOUCH_RETURN_MS, ms)
+                .convert(frame_base, Rounding::TowardZero)
+                .map_or(0, MediaDuration::value)
+        });
         Self {
             modes: BTreeMap::new(),
             arms: BTreeMap::new(),
@@ -587,6 +715,10 @@ impl ControlSession {
             next_txn_id: 0,
             applied: BTreeMap::new(),
             last_disposition: None,
+            touch_returns: BTreeMap::new(),
+            clock_now: MediaTime::new(0, frame_base),
+            return_ticks,
+            writer_closes: VecDeque::new(),
         }
     }
 
@@ -641,11 +773,27 @@ impl ControlSession {
             // context no longer holds.
             self.seal_fixed_target(target, SealReason::ModeChanged);
         }
-        if mode != AutomationMode::Latch {
-            self.latch_held.remove(&target);
+        // Leaving `Latch`/`Write` drops the held write value — an
+        // explicit closure, recorded. An in-flight `Touch` return is
+        // mode-independent (it only finishes the release) and runs on.
+        if mode != AutomationMode::Latch
+            && let Some(value) = self.latch_held.remove(&target)
+        {
+            self.log_closure(
+                target,
+                WriterCloseReason::ModeChanged,
+                WriterState::LatchHeld { value },
+            );
         }
-        if mode != AutomationMode::Write && !self.gestures.contains_key(&target) {
-            self.manual_overrides.remove(&target);
+        if mode != AutomationMode::Write
+            && !self.gestures.contains_key(&target)
+            && let Some(value) = self.manual_overrides.remove(&target)
+        {
+            self.log_closure(
+                target,
+                WriterCloseReason::ModeChanged,
+                WriterState::WriteHeld { value },
+            );
         }
         Ok(())
     }
@@ -741,8 +889,15 @@ impl ControlSession {
         &self.playback
     }
 
-    /// Starts rolling. Session-only.
+    /// Starts rolling. Session-only. A non-`Playing` → `Playing` edge
+    /// is a **new** transport run: every gesture/writer state is
+    /// explicitly closed — nothing carries over from the previous run.
+    /// (`transport_resume` from `Paused` continues the same playback
+    /// and does not close.)
     pub fn transport_play(&mut self) {
+        if self.playback.status != PlaybackStatus::Playing {
+            self.close_runtime_state(WriterCloseReason::NewTransportPlay);
+        }
         self.playback.status = PlaybackStatus::Playing;
     }
 
@@ -763,23 +918,24 @@ impl ControlSession {
         }
     }
 
-    /// Stops rolling. Latch holds and write-held overrides end —
-    /// nothing carries into the next playback. An open recording
+    /// Stops rolling. Every gesture/writer state is explicitly closed —
+    /// latch holds, write-held overrides, in-flight gestures and
+    /// returns never carry into the next playback. An open recording
     /// transaction is sealed: a stopped session never resumes into
     /// the same transaction on the next play.
     pub fn transport_stop(&mut self) {
         self.playback.status = PlaybackStatus::Stopped;
-        self.latch_held.clear();
-        self.manual_overrides
-            .retain(|t, _| self.gestures.contains_key(t));
+        self.close_runtime_state(WriterCloseReason::TransportStop);
         self.seal_recording(SealReason::Stopped);
     }
 
     /// Seeks the playhead (chase = the next evaluation simply reads the
-    /// new position). Session-only. An open recording transaction is
-    /// sealed — the recorded interval is no longer contiguous.
+    /// new position). Session-only. Gesture/writer state is explicitly
+    /// closed and an open recording transaction is sealed — the
+    /// recorded interval is no longer contiguous.
     pub fn transport_seek(&mut self, pos: BeatPoint) {
         self.playback.position = pos;
+        self.close_runtime_state(WriterCloseReason::TransportSeek);
         self.seal_recording(SealReason::Seek);
     }
 
@@ -827,6 +983,10 @@ impl ControlSession {
         {
             pos = start;
             effect.wrapped = true;
+            // The wrap boundary explicitly closes every gesture/writer
+            // state — a return or held write anchored to the old
+            // position must not straddle the wrap.
+            self.close_runtime_state(WriterCloseReason::LoopWrap);
             if let Some(tx) = self.recording.as_mut()
                 && tx.sealed.is_none()
             {
@@ -860,12 +1020,213 @@ impl ControlSession {
         Ok(effect)
     }
 
+    // -- session clock / touch return (issue #131) ---------------------
+
+    /// Advances the deterministic session clock to `now` — the sole
+    /// progress source for Touch returns. The host drives it at
+    /// control rate, independent of the beat playhead; a return
+    /// completes even while the transport is stopped or paused. `now`
+    /// must be exactly representable in `frame_base` and
+    /// monotonically non-decreasing; returns past `x = 1` are swept.
+    ///
+    /// # Errors
+    /// [`Error::Validation`] on a non-representable base or a
+    /// non-monotonic move.
+    pub fn clock_advance(&mut self, now: MediaTime) -> Result<(), Error> {
+        let now = now
+            .convert_exact(self.frame_base)
+            .ok_or_else(|| Error::Validation("session clock base not representable".into()))?;
+        if now < self.clock_now {
+            return Err(Error::Validation("session clock is monotonic".into()));
+        }
+        self.clock_now = now;
+        // Sweep completed returns — evaluation at `x = 1` equals the
+        // automation value, so removal is behavior-preserving.
+        let (now_v, dur) = (self.clock_now.value(), self.return_ticks);
+        self.touch_returns
+            .retain(|_, ret| now_v - ret.released_at.value() < dur);
+        Ok(())
+    }
+
+    /// The session clock's current instant.
+    #[must_use]
+    pub fn clock_now(&self) -> MediaTime {
+        self.clock_now
+    }
+
+    /// Sets the Touch return duration — the runtime interpolation
+    /// window between release and the automation series. `0` is legal
+    /// for an explicit user value but reports `instant` on
+    /// [`WriterState::Returning`] — a zero-duration return is an
+    /// audio click/zipper boundary, not a smooth fade.
+    ///
+    /// # Errors
+    /// [`Error::Validation`] on a negative duration or a base not
+    /// exactly representable in `frame_base`.
+    pub fn set_return_duration(&mut self, duration: MediaDuration) -> Result<(), Error> {
+        if duration.value() < 0 {
+            return Err(Error::Validation("return duration must be >= 0".into()));
+        }
+        self.return_ticks = duration
+            .convert_exact(self.frame_base)
+            .ok_or_else(|| Error::Validation("return duration base not representable".into()))?
+            .value();
+        Ok(())
+    }
+
+    /// The configured Touch return duration.
+    #[must_use]
+    pub fn return_duration(&self) -> MediaDuration {
+        MediaDuration::new(self.return_ticks, self.frame_base)
+    }
+
+    /// The target's runtime writer state — the inspectable contract
+    /// behind the mode boundary matrix (issue #131): `Idle`,
+    /// `Gesture`, `LatchHeld`, `WriteHeld` or `Returning`.
+    #[must_use]
+    pub fn writer_state(&self, target: ParameterTargetId) -> WriterState {
+        if self.gestures.contains_key(&target) {
+            return WriterState::Gesture;
+        }
+        if let Some(&value) = self.latch_held.get(&target) {
+            return WriterState::LatchHeld { value };
+        }
+        if let Some(&value) = self.manual_overrides.get(&target) {
+            return WriterState::WriteHeld { value };
+        }
+        if let Some(ret) = self.touch_returns.get(&target) {
+            return WriterState::Returning {
+                release_value: ret.release_value,
+                progress: self.return_progress(ret),
+                instant: self.return_ticks == 0,
+            };
+        }
+        WriterState::Idle
+    }
+
+    /// The writer-closure log — every explicit boundary closure in
+    /// order, bounded to [`WRITER_CLOSE_CAP`].
+    #[must_use]
+    pub fn writer_closes(&self) -> &VecDeque<WriterClosure> {
+        &self.writer_closes
+    }
+
+    /// The context fixed at `gesture_begin` for `target`, if a gesture
+    /// is in flight.
+    #[must_use]
+    pub fn gesture_fixation(&self, target: ParameterTargetId) -> Option<&ControlGestureFixation> {
+        self.gestures.get(&target).map(|g| &g.fixation)
+    }
+
+    /// Window/IME/plugin-GUI input focus moved away: every in-flight
+    /// gesture and held state is explicitly closed (issue #131 — a
+    /// gesture cannot silently continue against a focus it no longer
+    /// owns). Session-only; the recording transaction is untouched.
+    pub fn note_focus_lost(&mut self) {
+        self.close_runtime_state(WriterCloseReason::FocusLost);
+    }
+
+    /// The owning processor reported a plugin crash: runtime state of
+    /// every target bound to that processor is explicitly closed —
+    /// writes to a crashed plugin's lane must not continue.
+    /// Session-only.
+    pub fn note_plugin_crash(&mut self, project: &Project, processor: ProcessorId) {
+        for target in self.runtime_targets() {
+            if project
+                .control
+                .targets
+                .get(&target)
+                .is_some_and(|t| t.owner == ControlOwner::Processor(processor))
+            {
+                self.close_target_runtime(target, WriterCloseReason::PluginCrash);
+            }
+        }
+    }
+
+    /// `x = clamp(elapsed / return_duration, 0, 1)` on the session
+    /// clock — the Touch return phase (documented lossy `f64`
+    /// evaluation, same rule as curve interpolation).
+    fn return_progress(&self, ret: &TouchReturn) -> f64 {
+        if self.return_ticks <= 0 {
+            return 1.0;
+        }
+        let elapsed = self.clock_now.value() - ret.released_at.value();
+        #[allow(clippy::cast_precision_loss)] // documented lossy evaluation path
+        (elapsed as f64 / self.return_ticks as f64).clamp(0.0, 1.0)
+    }
+
+    /// `w = 3x² - 2x³` — the Smoothstep weight driving the Touch
+    /// return blend.
+    fn return_blend(&self, ret: &TouchReturn) -> f64 {
+        let x = self.return_progress(ret);
+        3.0 * x * x - 2.0 * x * x * x
+    }
+
+    /// Every target with live runtime state (gesture / override /
+    /// latch / return).
+    fn runtime_targets(&self) -> BTreeSet<ParameterTargetId> {
+        self.gestures
+            .keys()
+            .chain(self.manual_overrides.keys())
+            .chain(self.latch_held.keys())
+            .chain(self.touch_returns.keys())
+            .copied()
+            .collect()
+    }
+
+    /// Explicitly closes every in-flight gesture, manual override,
+    /// latch/write-held value and Touch return (issue #131 boundary
+    /// closure): each non-idle target transitions to `Idle` and is
+    /// recorded as a [`WriterClosure`].
+    fn close_runtime_state(&mut self, reason: WriterCloseReason) {
+        for target in self.runtime_targets() {
+            self.close_target_runtime(target, reason);
+        }
+    }
+
+    /// Closes one target's runtime state with `reason` — discards the
+    /// uncommitted gesture preview, the manual override, held values
+    /// and any in-flight return, and logs a [`WriterClosure`].
+    fn close_target_runtime(&mut self, target: ParameterTargetId, reason: WriterCloseReason) {
+        let state = self.writer_state(target);
+        if matches!(state, WriterState::Idle) {
+            return;
+        }
+        self.gestures.remove(&target);
+        self.manual_overrides.remove(&target);
+        self.latch_held.remove(&target);
+        self.touch_returns.remove(&target);
+        self.log_closure(target, reason, state);
+    }
+
+    /// Appends a closure record to the bounded writer-closure log.
+    fn log_closure(
+        &mut self,
+        target: ParameterTargetId,
+        reason: WriterCloseReason,
+        state: WriterState,
+    ) {
+        self.writer_closes.push_back(WriterClosure {
+            target,
+            reason,
+            state,
+        });
+        while self.writer_closes.len() > WRITER_CLOSE_CAP {
+            self.writer_closes.pop_front();
+        }
+    }
+
     // -- gestures ------------------------------------------------------
 
     /// Begins a manual gesture on `target`. The override starts at the
     /// currently evaluated reference value so touching a knob does not
-    /// jump. `READONLY` targets reject the gesture — the capability
+    /// jump — during an in-flight Touch return that is the blended
+    /// value. `READONLY` targets reject the gesture — the capability
     /// contract is enforced at the session boundary too.
+    ///
+    /// The gesture's execution context — target, `revision`, arm and
+    /// clock context — is fixed now (issue #131 `GestureFixation`):
+    /// later Inspector follow/focus changes cannot retarget the write.
     ///
     /// # Errors
     /// [`Error::NotFound`]/[`Error::WriteRejected`]/[`Error::Validation`].
@@ -874,6 +1235,7 @@ impl ControlSession {
         project: &Project,
         target: ParameterTargetId,
         at: BeatPoint,
+        revision: ProjectRevision,
     ) -> Result<(), Error> {
         let t = Self::target(project, target)?;
         if t.is_readonly() {
@@ -885,16 +1247,27 @@ impl ControlSession {
         if self.gestures.contains_key(&target) {
             return Err(Error::Validation(format!("gesture active on {target}")));
         }
-        let start_value =
-            evaluate_control(project, target, at, None).map_or(t.base, |e| e.reference);
+        let start_value = self
+            .evaluate(project, target, at)
+            .map_or(t.base, |e| e.reference);
         self.gestures.insert(
             target,
             ControlGesture {
                 started_at: at,
                 points: Vec::new(),
+                fixation: ControlGestureFixation {
+                    target,
+                    revision,
+                    arm: self.arm(target),
+                    epoch: self.playback.epoch,
+                    frame_base: self.frame_base,
+                },
             },
         );
         self.manual_overrides.insert(target, start_value);
+        // A re-touch supersedes an in-flight return — the new gesture
+        // takes over from the blended reference it just seeded.
+        self.touch_returns.remove(&target);
         Ok(())
     }
 
@@ -964,6 +1337,18 @@ impl ControlSession {
             }
             AutomationMode::Touch => {
                 self.manual_overrides.remove(&target);
+                // Release starts the runtime Touch return — the
+                // reference glides back to the automation series over
+                // the configured duration (issue #131). The return is
+                // independent of the write gates: it only reshapes the
+                // reference layer, never the recorded series.
+                self.touch_returns.insert(
+                    target,
+                    TouchReturn {
+                        release_value: last,
+                        released_at: self.clock_now,
+                    },
+                );
                 if self.write_gates(target) {
                     let n = self.record_points(project, target, &g.points)?;
                     Ok(GestureEnd::Written { points: n })
@@ -995,17 +1380,18 @@ impl ControlSession {
 
     /// Cancels the in-flight gesture on `target`, discarding the
     /// uncommitted preview: the collected points and the manual
-    /// override are dropped and the target returns to its
-    /// recorded/evaluated series. Nothing is written — a cancel never
-    /// rewrites committed state and never creates an undo entry.
+    /// override are dropped and the target snaps back to its
+    /// recorded/evaluated series (no return interpolation — cancel is
+    /// not a release). Nothing is written — a cancel never rewrites
+    /// committed state and never creates an undo entry.
     ///
     /// # Errors
     /// [`Error::Validation`] on no active gesture.
     pub fn gesture_cancel(&mut self, target: ParameterTargetId) -> Result<(), Error> {
-        if self.gestures.remove(&target).is_none() {
+        if !self.gestures.contains_key(&target) {
             return Err(Error::Validation(format!("no gesture on {target}")));
         }
-        self.manual_overrides.remove(&target);
+        self.close_target_runtime(target, WriterCloseReason::Cancelled);
         Ok(())
     }
 
@@ -1030,6 +1416,7 @@ impl ControlSession {
     /// transaction is already open.
     pub fn record_start(
         &mut self,
+        project: &Project,
         revision: ProjectRevision,
     ) -> Result<RecordingTransactionId, Error> {
         if self.recording.is_some() {
@@ -1068,6 +1455,23 @@ impl ControlSession {
                 .ok_or_else(|| Error::Validation(format!("no write lane bound for {target}")))?;
             fixed_lanes.insert(*target, *lane);
         }
+        // `Write`-mode fixed targets hold the reference evaluated at
+        // the start position — the agreed "記録開始時に固定した
+        // Reference 基準値から継続書込み": the held value writes at
+        // control rate until a gesture moves it. A target with an
+        // in-flight gesture keeps its gesture value instead. A start
+        // position outside the target's scope domain has no Reference
+        // to hold — the target simply stays unheld rather than
+        // failing the transaction open.
+        let mut write_seeds = Vec::new();
+        for target in &fixed {
+            if self.mode(*target) == AutomationMode::Write
+                && !self.gestures.contains_key(target)
+                && let Ok(eval) = evaluate_control(project, *target, self.playback.position, None)
+            {
+                write_seeds.push((*target, eval.reference));
+            }
+        }
         self.next_txn_id = self.next_txn_id.checked_add(1).ok_or(Error::Overflow)?;
         let id = RecordingTransactionId(self.next_txn_id);
         self.recording = Some(RecordingTransaction {
@@ -1081,6 +1485,9 @@ impl ControlSession {
             sealed: None,
             state: RecordingTxnState::Pending,
         });
+        for (target, value) in write_seeds {
+            self.manual_overrides.insert(target, value);
+        }
         Ok(id)
     }
 
@@ -1424,10 +1831,18 @@ impl ControlSession {
 
     /// A foreign project change succeeded (an apply/undo/redo that is
     /// **not** this transaction's own commit): the fixed revision is
-    /// now stale — close the write gate. The recorded columns are
-    /// retained; the next prepare reports `Conflict`.
-    pub fn note_project_changed(&mut self) {
+    /// now stale — close the write gate. Runtime state whose target no
+    /// longer exists is explicitly closed (`TargetDeleted`) — a
+    /// gesture/return/writer can never silently continue on a deleted
+    /// target. The recorded columns are retained; the next prepare
+    /// reports `Conflict`.
+    pub fn note_project_changed(&mut self, project: &Project) {
         self.seal_recording(SealReason::ProjectChange);
+        for target in self.runtime_targets() {
+            if !project.control.targets.contains_key(&target) {
+                self.close_target_runtime(target, WriterCloseReason::TargetDeleted);
+            }
+        }
     }
 
     /// Marks the open transaction `Rejected` — used by
@@ -1554,7 +1969,15 @@ impl ControlSession {
     // -- evaluation / dispatch ------------------------------------------
 
     /// Evaluates `target` at `pos`, injecting any held manual override
-    /// (gesture/latch/write-held) as the pre-modulation reference.
+    /// (gesture/latch/write-held) — or an in-flight Touch return's
+    /// blended reference — as the pre-modulation reference.
+    ///
+    /// The return runs `v = release + (v_auto - release) · w` with
+    /// `w = 3x² - 2x³`, `x = elapsed / return_duration` on the session
+    /// clock (issue #131). `v_auto` is the evaluation of the
+    /// automation layer at `pos` itself — a series changed mid-return
+    /// is followed continuously. The result reports
+    /// [`ReferenceSource::Return`]; nothing is written to the project.
     ///
     /// # Errors
     /// Propagates [`synvelis_project::evaluate_control`].
@@ -1569,7 +1992,20 @@ impl ControlSession {
             .get(&target)
             .or_else(|| self.latch_held.get(&target))
             .copied();
-        evaluate_control(project, target, pos, manual)
+        let mut eval = evaluate_control(project, target, pos, manual)?;
+        if manual.is_none()
+            && let Some(ret) = self.touch_returns.get(&target)
+        {
+            // `v_auto` is the reference evaluated without an override —
+            // the automation series where it reaches, else base.
+            let v_auto = eval.reference;
+            let w = self.return_blend(ret);
+            let blended = ret.release_value + (v_auto - ret.release_value) * w;
+            let mut returned = evaluate_control(project, target, pos, Some(blended))?;
+            returned.reference_source = ReferenceSource::Return;
+            eval = returned;
+        }
+        Ok(eval)
     }
 
     /// Lowers the evaluated value into an rf#186 `TimedParamEvent` at
@@ -1812,6 +2248,7 @@ impl ControlSession {
             probe: obs.probe,
             mode: self.mode(target),
             arm: self.arm(target),
+            writer_state: self.writer_state(target),
             capability: Self::target(project, target)?.capability,
         })
     }

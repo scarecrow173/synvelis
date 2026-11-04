@@ -1053,8 +1053,9 @@ pub fn cut_range_points(regions: &mut Vec<AutomationRegion>, cut: &BeatRange) {
 // ---------------------------------------------------------------------------
 
 /// Where the evaluation's reference value came from — automation wins
-/// only where points exist; a manual gesture wins during touch; base
-/// is the persistent default.
+/// only where points exist; a manual gesture wins during touch; a
+/// touch return blends between release and automation; base is the
+/// persistent default.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ReferenceSource {
     /// `ParameterTarget::base`.
@@ -1063,6 +1064,10 @@ pub enum ReferenceSource {
     Automation,
     /// An injected manual gesture value (pre-modulation).
     Manual,
+    /// An injected touch-return runtime blend (issue #131, pre-modulation
+    /// reference domain — never a recorded point). Set by the owning
+    /// session, never by [`evaluate_control`] itself.
+    Return,
 }
 
 /// One assignment's contribution to the evaluated value — every stage
