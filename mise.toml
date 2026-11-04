@@ -78,9 +78,21 @@ run = "cargo run -p synvelis-gateway --bin gw10_report"
 description = "ruviform ui/*(TS)を Cargo.lock と同一 SHA で ui/vendor/ へ再生成"
 run = "node tools/sync-ruviform-ui.mjs"
 
+# Issue #151 / ruviform #330 整合: ui/package-lock.json への npm ci は
+# install-ui task のみが所有する。sources(lockfile + manifest)と
+# outputs(npm が install 時に必ず書く hidden lockfile)で mise の
+# freshness check が働き、入力不変の再実行は skip される。CI lane は
+# 前段で setup-ui を一度だけ実行し、後続の npm 消費 task は depends
+# 経由で同じ node_modules を再利用する。
+[tasks.install-ui]
+description = "Install ui deps via npm ci from package-lock (skipped while lockfile/manifest and node_modules marker are unchanged)"
+sources = ["ui/package-lock.json", "ui/package.json"]
+outputs = ["ui/node_modules/.package-lock.json"]
+run = "npm --prefix ui ci --no-audit --no-fund"
+
 [tasks.setup-ui]
-description = "ui/ の npm devDependencies を package-lock から復元"
-run = "npm ci --prefix ui --no-audit --no-fund"
+description = "ui/ npm deps の集約 install 入口(CI lane 前段で一度だけ実行; verify task は depends 経由で再利用)"
+depends = ["install-ui"]
 
 [tasks.check-ruviform-rev]
 description = "ruviform Git 依存の resolved SHA 単一性 + UI vendor REV + frontend manifest 整合を検証"
@@ -92,6 +104,7 @@ run = "node tools/check-headless-deps.mjs"
 
 [tasks.check-ui]
 description = "ui/ frontend の型チェック(tsc --noEmit)+ vendor 同期照合"
+depends = ["install-ui"]
 run = [
   "node tools/sync-ruviform-ui.mjs --check",
   "npm --prefix ui run typecheck",
@@ -99,6 +112,7 @@ run = [
 
 [tasks.test-ui]
 description = "ui/ frontend の vitest スイート(happy-dom、実 SolidJS client render)"
+depends = ["install-ui"]
 run = [
   "node tools/sync-ruviform-ui.mjs --check",
   "npm --prefix ui test",
@@ -106,6 +120,7 @@ run = [
 
 [tasks.build-ui]
 description = "ui/ frontend を vite build し crates/synvelis-app/frontend/dist + manifest を生成"
+depends = ["install-ui"]
 run = [
   "node tools/sync-ruviform-ui.mjs --check",
   "npm --prefix ui run build",
@@ -128,6 +143,7 @@ run = "cargo test -p synvelis-app --features webview"
 
 [tasks.dev-ui]
 description = "開発ループ: ui/ を build して synvelis app を debug 起動(assets は live FS 読み)"
+depends = ["install-ui"]
 run = [
   "node tools/sync-ruviform-ui.mjs --check",
   "npm --prefix ui run build",
@@ -136,6 +152,7 @@ run = [
 
 [tasks.build-app]
 description = "本番 lane: ui/ build → synvelis-app release build(frontend dist 埋め込み)"
+depends = ["install-ui"]
 run = [
   "node tools/sync-ruviform-ui.mjs --check",
   "npm --prefix ui run build",
