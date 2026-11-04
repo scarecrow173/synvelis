@@ -52,6 +52,21 @@ run = "cargo test --workspace --locked rt_"
 description = "Lint GitHub Actions workflow files with actionlint"
 run = "actionlint"
 
+# Issue #148 (SV-CI-OPT-02): 変更影響分類 → 期待 lane 集合の決定と、
+# 期待集合 vs 実ジョブ結果の fail-closed 照合は tools/ci-impact.mjs が
+# 単一の authoritative 実装として所有する。
+[tasks.ci-impact]
+description = "変更影響分類 — impact classes・依存伝播・期待 lane 集合を JSON で出力"
+run = "node tools/ci-impact.mjs classify"
+
+[tasks.ci-evidence-gate]
+description = "期待検証集合と実 lane 結果を照合する fail-closed evidence gate"
+run = "node tools/ci-impact.mjs gate"
+
+[tasks.test-ci-impact]
+description = "Impact classifier / evidence gate の node:test スイート"
+run = "node --test tools/ci-impact.test.mjs"
+
 [tasks.build]
 description = "Build the workspace (dev profile)"
 run = "cargo build --workspace --locked"

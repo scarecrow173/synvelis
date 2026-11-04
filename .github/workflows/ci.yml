@@ -9,6 +9,10 @@ name: ci
 # private 復帰時は read-only deploy key secret CROSS_REPO_DEPLOY_KEY
 # (ruviform consumer-verify.yml と同一契約)で読み取る。どちらの経路も
 # 取れない lane は fail(依存取得不能を緑にしない)。
+#
+# Issue #148 (SV-CI-OPT-02): `classify` が変更影響分類と期待検証集合を
+# 出力し、`evidence` が期待集合 vs leg 単位実結果を fail-closed 照合する。
+# lane 条件付き実行は Shadow 検証が済むまで無効(全 lane 常時実行)。
 
 on:
   pull_request:
@@ -36,6 +40,62 @@ env:
   GIT_LFS_SKIP_SMUDGE: "1"
 
 jobs:
+  # Issue #148 (SV-CI-OPT-02): 変更影響分類。PR では shadow mode — 分類結果と
+  # 期待 lane 集合を出力するが、偽陰性が確認されるまで lane 条件付き実行は
+  # 無効のまま全 lane が走り、分類 vs Full CI の照合を evidence gate が行う。
+  # push: main / workflow_dispatch は full mode(従来どおりの網羅実行)。
+  classify:
+    name: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      report: ${{ steps.impact.outputs.report }}
+    env:
+      MISE_ENABLE_TOOLS: node
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore CI-required tools from mise.lock
+        shell: bash
+        run: |
+          mise trust
+          mise install --locked node
+
+      - name: Classifier self-test (mise run test-ci-impact)
+        run: mise run test-ci-impact
+
+      - name: Run impact classification (mise run ci-impact)
+        id: impact
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          case "$EVENT_NAME" in
+            pull_request)
+              export CI_IMPACT_MODE=shadow CI_IMPACT_BASE="$PR_BASE" CI_IMPACT_HEAD="$PR_HEAD" ;;
+            push)
+              # merge queue/初回 push 等で before が 0 埋めの場合は tool 側が
+              # full CI に fallback する(mode=full でいずれにせよ全実行)。
+              export CI_IMPACT_MODE=full CI_IMPACT_BASE="$PUSH_BEFORE" CI_IMPACT_HEAD="$HEAD_SHA" ;;
+            *)
+              export CI_IMPACT_MODE=full ;;
+          esac
+          export CI_IMPACT_OUT=impact-report.json CI_IMPACT_SET_OUTPUT=report
+          mise run ci-impact
+
   verify:
     name: verify (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -644,72 +704,71 @@ jobs:
           if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
           rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
 
+  # Issue #148 (SV-CI-OPT-02): fail-closed 集約 gate。classify の期待
+  # 検証集合と、この run の実ジョブ結果(Actions jobs API の leg 単位
+  # conclusion)を tools/ci-impact.mjs gate が照合する。skipped を
+  # GitHub required checks の意味(成功扱い)に委ねず、Pass / Fail /
+  # Cancelled / NotRun / Skipped / Unsupported / NotApplicable を明示
+  # 検査し、根拠付き NotApplicable 以外の未実行を拒否する。
+  # 各 lane の skipped を required leg で拒否することで、将来の条件付き
+  # 実行でも job skip が required context を緑にできない。
   evidence:
     name: evidence
-    needs: [verify, rt-verify, gw10-verify, msrv-verify, ui-verify, dep-guard]
+    needs: [classify, verify, rt-verify, gw10-verify, msrv-verify, ui-verify, dep-guard]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # 集約 gate のみ Actions jobs API の読み取りが必要(run の leg 結果)。
+    # job 単位で権限を宣言し、他 lane の contents:read 既定は変えない。
+    permissions:
+      contents: read
+      actions: read
+    env:
+      MISE_ENABLE_TOOLS: node
     steps:
-      - name: Aggregate evidence table
-        shell: bash
-        run: |
-          set -euo pipefail
-          {
-            echo "# CI evidence — ${{ github.event_name }} ${{ github.ref_name }}"
-            echo ""
-            echo "- run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} (attempt ${{ github.run_attempt }})"
-            echo "- commit: ${{ github.sha }}"
-            echo "- ruviform resolved SHA: ${{ needs.dep-guard.outputs.ruviform_sha || 'n/a' }}"
-            echo ""
-            echo "| lane | OS | result |"
-            echo "|---|---|---|"
-            echo "| verify | ubuntu-latest | ${{ needs.verify.result }} (aggregate, see per-OS summaries) |"
-            echo "| verify | windows-latest | ${{ needs.verify.result }} (aggregate, see per-OS summaries) |"
-            echo "| verify | macos-latest | ${{ needs.verify.result }} (aggregate, see per-OS summaries) |"
-            echo "| rt-verify | ubuntu-latest | ${{ needs.rt-verify.result }} |"
-            echo "| gw10-verify | ubuntu-latest | ${{ needs.gw10-verify.result }} (aggregate) |"
-            echo "| gw10-verify | windows-latest | ${{ needs.gw10-verify.result }} (aggregate) |"
-            echo "| gw10-verify | macos-latest | ${{ needs.gw10-verify.result }} (aggregate) |"
-            echo "| msrv-verify | ubuntu-latest (rust@1.89.0) | ${{ needs.msrv-verify.result }} |"
-            echo "| ui-verify | ubuntu-latest | ${{ needs.ui-verify.result }} (aggregate, see per-OS summaries) |"
-            echo "| ui-verify | windows-latest | ${{ needs.ui-verify.result }} (aggregate, see per-OS summaries) |"
-            echo "| ui-verify | macos-latest | ${{ needs.ui-verify.result }} (aggregate, see per-OS summaries) |"
-            echo "| dep-guard | ubuntu-latest | ${{ needs.dep-guard.result }} |"
-            echo ""
-            echo "## NotRun lanes (未導入 — PASS に計上しない)"
-            echo ""
-            echo "| lane | status | reason / connection point |"
-            echo "|---|---|---|"
-            echo "| RF-GT-01 Browser DOM/Accessibility Playwright | NotRun | ruviform #310 共有 harness 未完了 |"
-            echo "| RF-GT-02 IPC conformance fixture | NotRun | ruviform #311 未完了 |"
-            echo "| RF-GT-03/04 Secure Test Host / OS Driver + SV-GUI-05 | NotRun | ruviform #312/#313・synvelis #114 未完了 |"
-            echo "| Visual Golden | NotRun | ruviform #314 未完了 |"
-            echo "| Recording 実 Device/Plugin Binding/PPQN-MIDI/Automation feature lanes | NotRun | 各 Feature 実装待ち (#115〜#134 系) |"
-            echo "| AudioLens consumer 回帰 | NotRun | ruviform #294 / audio-lens #142 側の責務 |"
-          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
 
-      - name: Enforce not-run-is-not-pass
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore CI-required tools from mise.lock
         shell: bash
         run: |
+          mise trust
+          mise install --locked node
+
+      - name: Persist impact report from classify
+        shell: bash
+        env:
+          IMPACT_REPORT: ${{ needs.classify.outputs.report }}
+        run: |
+          # classify 失敗時は output が空 — gate が missing report として
+          # fail し、分類不能な run を緑にしない(fail-closed)。
+          printf '%s' "${IMPACT_REPORT:-}" > impact-report.json
+
+      - name: Collect per-leg job results
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+        run: |
           set -euo pipefail
-          results="${{ needs.verify.result }} ${{ needs.rt-verify.result }} ${{ needs.gw10-verify.result }} ${{ needs.msrv-verify.result }} ${{ needs.ui-verify.result }} ${{ needs.dep-guard.result }}"
-          echo "lane results: $results"
-          fail=0; ran=0
-          for r in $results; do
-            case "$r" in
-              success) ran=$((ran+1)) ;;
-              failure|cancelled) fail=1 ;;
-              skipped) ;;
-              *) fail=1 ;;
-            esac
-          done
-          if [ "$fail" -ne 0 ]; then
-            echo "::error::one or more lanes failed or were cancelled — see per-lane summaries"
-            exit 1
-          fi
-          if [ "$ran" -eq 0 ]; then
-            echo "::error::no lane produced evidence (all not run) — a green run requires at least one executed lane"
-            exit 1
-          fi
-          echo "all lanes passed; evidence recorded"
+          gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?filter=all&per_page=100" --jq '.jobs' > run-jobs.json
+          count="$(jq length run-jobs.json 2>/dev/null || echo '?')"
+          echo "collected $count job entries for run $RUN_ID"
+
+      - name: Fail-closed evidence gate (mise run ci-evidence-gate)
+        shell: bash
+        env:
+          CI_IMPACT_REPORT_FILE: impact-report.json
+          CI_JOBS_FILE: run-jobs.json
+          CI_RUN_ATTEMPT: ${{ github.run_attempt }}
+          CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CI_HEAD_SHA: ${{ github.sha }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_RUVIFORM_SHA: ${{ needs.dep-guard.outputs.ruviform_sha }}
+        run: mise run ci-evidence-gate
