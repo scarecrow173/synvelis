@@ -96,10 +96,10 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "ruviform#289 OBS-07 collector/metrics/history/snapshot"
-    - "ruviform#291 OBS-09 diagnostics"
-    - "ruviform#292 OBS-10 debug"
-    - "ruviform#293 OBS-11 host runner"
+    - "https://github.com/scarecrow173/ruviform/issues/289"
+    - "https://github.com/scarecrow173/ruviform/issues/291"
+    - "https://github.com/scarecrow173/ruviform/issues/292"
+    - "https://github.com/scarecrow173/ruviform/issues/293"
   deferred-by: []
 metadata:
   experiments:

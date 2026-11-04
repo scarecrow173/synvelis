@@ -80,6 +80,46 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
+      # Issue #147 (CI-OPT-01): sccache content-addressed compile cache on the
+      # GitHub Actions cache backend. The cache service credentials
+      # (ACTIONS_RESULTS_URL/ACTIONS_RUNTIME_TOKEN) reach JS actions only, not
+      # `run` steps — the github-script step re-exports them plus
+      # RUSTC_WRAPPER/SCCACHE_* via GITHUB_ENV. Kill switch: repo variable
+      # CI_SCCACHE_DISABLE=1 skips every sccache step so cargo runs plain rustc.
+      - name: Set up sccache
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+        with:
+          version: "v0.19.0"
+
+      - name: Export sccache GHA backend env
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const token = process.env.ACTIONS_RUNTIME_TOKEN || '';
+            const url = process.env.ACTIONS_RESULTS_URL || '';
+            const gha = token !== '' && url !== '';
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', token);
+            core.exportVariable('ACTIONS_RESULTS_URL', url);
+            core.exportVariable('SCCACHE_GHA_ENABLED', gha ? 'true' : 'false');
+            core.exportVariable('SCCACHE_GHA_VERSION', `synvelis-v1-${process.env.RUNNER_OS || 'unknown'}`);
+            core.exportVariable('RUSTC_WRAPPER', 'sccache');
+            core.info(`sccache GHA backend: ${gha ? 'enabled' : 'disabled (cache credentials absent)'}`);
+
+      - name: Verify sccache environment
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v sccache
+          sccache --version
+          echo "RUSTC_WRAPPER=$RUSTC_WRAPPER"
+          echo "SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED"
+          echo "SCCACHE_GHA_VERSION=$SCCACHE_GHA_VERSION"
+          if [ -n "${ACTIONS_RESULTS_URL:-}" ]; then echo "ACTIONS_RESULTS_URL: set"; else echo "::warning::ACTIONS_RESULTS_URL missing — sccache GHA backend disabled (local disk fallback)"; fi
+          if [ -n "${ACTIONS_RUNTIME_TOKEN:-}" ]; then echo "ACTIONS_RUNTIME_TOKEN: set"; else echo "::warning::ACTIONS_RUNTIME_TOKEN missing — sccache GHA backend disabled (local disk fallback)"; fi
+
       - name: Check config files with prek
         run: mise exec -- prek run --all-files
 
@@ -108,6 +148,11 @@ jobs:
       - name: Assert Cargo.lock unchanged
         id: lockdiff
         run: git diff --exit-code -- Cargo.lock
+
+      - name: sccache statistics
+        if: always() && vars.CI_SCCACHE_DISABLE != '1'
+        shell: bash
+        run: sccache --show-stats || true
 
       - name: Record lane evidence
         if: always()
@@ -260,9 +305,52 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
 
+      # Issue #147 (CI-OPT-01): same sccache setup as `verify`, sharing the
+      # synvelis-v1-<RUNNER_OS> namespace — the harness compiles the same dev
+      # profile units as `verify`, so cross-lane hits are expected and
+      # measured. Kill switch: repo variable CI_SCCACHE_DISABLE=1.
+      - name: Set up sccache
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+        with:
+          version: "v0.19.0"
+
+      - name: Export sccache GHA backend env
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const token = process.env.ACTIONS_RUNTIME_TOKEN || '';
+            const url = process.env.ACTIONS_RESULTS_URL || '';
+            const gha = token !== '' && url !== '';
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', token);
+            core.exportVariable('ACTIONS_RESULTS_URL', url);
+            core.exportVariable('SCCACHE_GHA_ENABLED', gha ? 'true' : 'false');
+            core.exportVariable('SCCACHE_GHA_VERSION', `synvelis-v1-${process.env.RUNNER_OS || 'unknown'}`);
+            core.exportVariable('RUSTC_WRAPPER', 'sccache');
+            core.info(`sccache GHA backend: ${gha ? 'enabled' : 'disabled (cache credentials absent)'}`);
+
+      - name: Verify sccache environment
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v sccache
+          sccache --version
+          echo "RUSTC_WRAPPER=$RUSTC_WRAPPER"
+          echo "SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED"
+          echo "SCCACHE_GHA_VERSION=$SCCACHE_GHA_VERSION"
+          if [ -n "${ACTIONS_RESULTS_URL:-}" ]; then echo "ACTIONS_RESULTS_URL: set"; else echo "::warning::ACTIONS_RESULTS_URL missing — sccache GHA backend disabled (local disk fallback)"; fi
+          if [ -n "${ACTIONS_RUNTIME_TOKEN:-}" ]; then echo "ACTIONS_RUNTIME_TOKEN: set"; else echo "::warning::ACTIONS_RUNTIME_TOKEN missing — sccache GHA backend disabled (local disk fallback)"; fi
+
       - name: Run GW-10 evidence-gated harness (mise run gw10)
         id: gw10
         run: mise run gw10
+
+      - name: sccache statistics
+        if: always() && vars.CI_SCCACHE_DISABLE != '1'
+        shell: bash
+        run: sccache --show-stats || true
 
       - name: Record lane evidence
         if: always()
