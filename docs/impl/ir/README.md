@@ -9,6 +9,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-034Rx4ef0v8Ch5IBl2s39L | SV-GUI-01 desktop app bootstrap webview frontend pipeline | completed | [sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md](sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md) |
 | IMPL-034QeegdSleOElhx1CWUGn | VS-A task6 verification merge impl record | completed | [vs-a-task6-verification-merge-impl-record.md](vs-a-task6-verification-merge-impl-record.md) |
 | IMPL-034QeecIYVT0VX2rTFukXg | VS-A task1 workspace skeleton | completed | [vs-a-task1-workspace-skeleton.md](vs-a-task1-workspace-skeleton.md) |
 | IMPL-034Qeedli77Yb2i69YgXSZ | VS-A task2 synvelis-project data model | completed | [vs-a-task2-synvelis-project-data-model.md](vs-a-task2-synvelis-project-data-model.md) |

@@ -1,0 +1,25 @@
+{
+  "name": "@synvelis/ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Synvelis product Application Shell — SolidJS + TypeScript frontend over the Ruviform WebView host (SV-GUI-01 / Issue #110).",
+  "scripts": {
+    "sync-deps": "node ../tools/sync-ruviform-ui.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "build": "vite build && node scripts/write-manifest.mjs",
+    "manifest": "node scripts/write-manifest.mjs"
+  },
+  "dependencies": {
+    "solid-js": "1.9.17"
+  },
+  "devDependencies": {
+    "@types/node": "~24.10.2",
+    "happy-dom": "~21.0.4",
+    "typescript": "~5.9.3",
+    "vite": "~8.3.5",
+    "vite-plugin-solid": "~2.11.14",
+    "vitest": "~5.0.5"
+  }
+}
