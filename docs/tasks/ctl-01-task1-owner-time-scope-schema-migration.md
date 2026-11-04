@@ -1,10 +1,10 @@
 ---
 id: "TASK-034CTL01Sa3yBv9cE5fG6hIj"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "CTL-01: ControlOwner/AutomationTimeScope/ParameterRole 型・oracle・Schema v7 Migration・ops・検証"
 created: "2026-11-05"
-updated: "2026-11-05"
+updated: "2026-11-04"
 owners: []
 relations:
   source:
@@ -12,18 +12,26 @@ relations:
   changes:
     added:
       - "crates/synvelis-project/tests/ctl_01.rs"
+      - "crates/synvelis-gateway/tests/ctl_01.rs"
     modified:
       - "crates/synvelis-project/src/control.rs"
       - "crates/synvelis-project/src/project.rs"
       - "crates/synvelis-project/src/ops.rs"
       - "crates/synvelis-project/src/migration.rs"
       - "crates/synvelis-project/src/store.rs"
+      - "crates/synvelis-project/src/routing.rs"
       - "crates/synvelis-project/src/midi.rs"
       - "crates/synvelis-project/src/lib.rs"
       - "crates/synvelis-gateway/src/snapshot.rs"
       - "crates/synvelis-gateway/src/request.rs"
+      - "crates/synvelis-gateway/src/prepare.rs"
+      - "crates/synvelis-gateway/src/job.rs"
+      - "crates/synvelis-gateway/tests/authorization.rs"
       - "crates/synvelis-workspace/src/control.rs"
+      - "crates/synvelis-workspace/src/gateway_ui.rs"
       - "crates/synvelis-project/tests/controller_store.rs"
+      - "crates/synvelis-project/tests/md_a.rs"
+      - "crates/synvelis-project/tests/midi_source.rs"
       - "crates/synvelis-project/tests/pc_b_rt.rs"
       - "crates/synvelis-project/tests/routing_sf01.rs"
       - "crates/synvelis-workspace/tests/pc_a.rs"
@@ -36,7 +44,8 @@ relations:
     generated: []
   implements:
     - "docs/plans/ctl-01-control-owner-time-scope.md"
-  implemented-by: []
+  implemented-by:
+    - "docs/impl/ir/ctl-01-control-owner-time-scope.md"
   depends-on:
     - "docs/specs/ctl-01-control-owner-automation-time-scope-typed-schema.md"
     - "docs/designs/ctl-01-control-owner-time-scope-design.md"
