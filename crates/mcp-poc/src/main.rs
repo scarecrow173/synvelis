@@ -515,8 +515,20 @@ fn cmd_serve(args: &[String]) -> i32 {
         let Ok(port) = port else {
             return fail("--control-port must be a port number");
         };
+        // The listener binds before the stdio loop starts and reports the
+        // real port on stderr — `--control-port 0` lets the kernel pick a
+        // guaranteed-free port instead of the harness probing one and
+        // racing every other parallel test for it between probe and bind.
+        // A failed bind is fatal: a serve without its control channel is
+        // not the surface the tests contract.
+        let listener = match TcpListener::bind(("127.0.0.1", port)) {
+            Ok(l) => l,
+            Err(e) => return fail(&format!("control listener bind failed: {e}")),
+        };
+        let bound = listener.local_addr().map_or(port, |a| a.port());
+        eprintln!("control-port={bound}");
         let host = harness.host.clone();
-        thread::spawn(move || control_listener(&host, port));
+        thread::spawn(move || control_listener(&host, &listener));
     }
     let stdin = std::io::stdin();
     let stdout = std::io::stdout();
@@ -533,11 +545,8 @@ fn cmd_serve(args: &[String]) -> i32 {
 /// connection, all attesting `McpChannel::Control`. Connections past
 /// the cap are dropped rather than queued — the loopback `PoC` never
 /// needs more than a handful of operator sessions.
-fn control_listener(host: &Arc<McpHost>, port: u16) {
+fn control_listener(host: &Arc<McpHost>, listener: &TcpListener) {
     const MAX_CONTROL_CONNS: usize = 8;
-    let Ok(listener) = TcpListener::bind(("127.0.0.1", port)) else {
-        return;
-    };
     let live = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     for conn in listener.incoming().flatten() {
         let host = host.clone();

@@ -5,9 +5,9 @@
 //! pipes and the authenticated loopback control channel.
 
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::{Value, json};
@@ -151,20 +151,34 @@ pub struct Server {
 
 impl Server {
     pub fn spawn(dir: &Path) -> Self {
-        let port = free_port();
+        // `--control-port 0` — the server picks a guaranteed-free port and
+        // reports it on stderr. Probing a port here and handing it to the
+        // child raced every other parallel test's probe/bind (and any
+        // runner process) for the same port; the loser attached `control()`
+        // to a foreign listener and took ConnectionReset when its owner
+        // exited.
         let mut child = Command::new(BIN)
             .arg("serve")
             .arg("--dir")
             .arg(dir)
             .arg("--control-port")
-            .arg(port.to_string())
+            .arg("0")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped())
             .spawn()
             .expect("mcp-poc serve spawns");
         let stdin: ChildStdin = child.stdin.take().expect("stdin pipe");
         let stdout: ChildStdout = child.stdout.take().expect("stdout pipe");
+        let stderr: ChildStderr = child.stderr.take().expect("stderr pipe");
+        let port = match wait_control_port(stderr) {
+            Ok(port) => port,
+            Err(message) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                panic!("{message}");
+            }
+        };
         Self {
             stdio: LineIo {
                 writer: Box::new(stdin),
@@ -177,24 +191,45 @@ impl Server {
     }
 
     /// A fresh control-channel connection (one session per socket).
+    /// The server reported its already-bound port — a failed connect is
+    /// a real defect, not startup latency, so there is no retry.
     pub fn control(&self) -> LineIo {
-        // The listener binds lazily in its thread — retry briefly.
-        let mut last = None;
-        for _ in 0..50 {
-            match TcpStream::connect(("127.0.0.1", self.port)) {
-                Ok(stream) => {
-                    let read = stream.try_clone().expect("clone");
-                    return LineIo {
-                        writer: Box::new(stream),
-                        reader: BufReader::new(Box::new(read)),
-                        next_id: 0,
-                    };
-                }
-                Err(e) => last = Some(e),
-            }
-            std::thread::sleep(std::time::Duration::from_millis(20));
+        let stream = TcpStream::connect(("127.0.0.1", self.port)).expect("control listener bound");
+        let read = stream.try_clone().expect("clone");
+        LineIo {
+            writer: Box::new(stream),
+            reader: BufReader::new(Box::new(read)),
+            next_id: 0,
         }
-        panic!("control listener never bound: {last:?}");
+    }
+}
+
+/// Reads the control listener's bound port from the child's stderr —
+/// `serve` reports `control-port=<bound>` once the socket is bound.
+/// The pipe keeps draining to EOF on a thread so a panicking session
+/// thread can never wedge the child on a full stderr buffer.
+fn wait_control_port(stderr: ChildStderr) -> Result<u16, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let log = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let sink = log.clone();
+    std::thread::spawn(move || {
+        for line in BufReader::new(stderr).lines().map_while(Result::ok) {
+            if let Some(port) = line.strip_prefix("control-port=") {
+                let _ = tx.send(port.parse::<u16>());
+            }
+            sink.lock().expect("stderr log").push(line);
+        }
+    });
+    match rx.recv_timeout(std::time::Duration::from_secs(30)) {
+        Ok(Ok(port)) => Ok(port),
+        Ok(Err(_)) => Err("mcp-poc reported an unparsable control port".to_owned()),
+        Err(
+            std::sync::mpsc::RecvTimeoutError::Timeout
+            | std::sync::mpsc::RecvTimeoutError::Disconnected,
+        ) => Err(format!(
+            "mcp-poc never reported its control port — stderr: {}",
+            log.lock().expect("stderr log").join(" | ")
+        )),
     }
 }
 
@@ -203,14 +238,6 @@ impl Drop for Server {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
-}
-
-fn free_port() -> u16 {
-    TcpListener::bind(("127.0.0.1", 0))
-        .expect("bind")
-        .local_addr()
-        .expect("addr")
-        .port()
 }
 
 pub fn connect(io: &mut LineIo, secret: &str) -> Value {
