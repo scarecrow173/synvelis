@@ -146,16 +146,45 @@ stderr に報告する方式へ変更(racy な probe を構造的に除去):
 
 ## 7. Shadow CI 証跡(issue-148 selective 判定の偽陰性対照)
 
-本 PR の変更集合は `crates/mcp-poc/**`(gateway/ipc class、dep 伝播で
-synvelis-workspace/synvelis-app も affected)+ `docs/**`。selective 意味論で
-期待 lane は `classify`/`dep-guard`/`verify`/`msrv-verify`/`gw10-verify`、
-not-applicable は `rt-verify`/`ui-verify`(×3OS)と予測される。
-PR run の `classify` job 出力・evidence gate の shadow comparison
-(would-skip leg の実結果)をここに記録する。
+本 PR の変更集合は `crates/mcp-poc/**`(gateway/ipc class)+ `docs/**`。
+PR run の `classify` job 出力と evidence gate の shadow comparison
+(would-skip leg の実結果)を以下に記録する(#157 蓄積用)。
 
-- PR: (created 後に記録)
-- classify decision: (run 完了後に記録)
-- shadow legs 実結果: (run 完了後に記録)
+- PR: https://github.com/scarecrow173/synvelis/pull/158
+- run: https://github.com/scarecrow173/synvelis/actions/runs/41841675449
+  (attempt 1、head `17f359f`、base `76afee6`、ruviform `8fb665f1`)
+
+### classify decision(mode=shadow、selective_enabled=false)
+
+- changed_files: 3 / classes: `docs`×1, `gateway`×2, `ipc`×2
+- crates: changed=`[mcp-poc]`、affected=`[mcp-poc]`
+  (mcp-poc は leaf crate で downstream dependent が無い)
+- fallback_full_ci: false
+
+| lane leg | expectation | reason |
+| --- | --- | --- |
+| verify ×3 OS | required | affected crates: mcp-poc |
+| gw10-verify ×3 OS | required | GW-10 owner affected (synvelis-gateway/mcp-poc via dep graph) |
+| msrv-verify | required | affected crates: mcp-poc |
+| dep-guard | required | dependency contract guard (always-on for non-docs changes) |
+| classify | required | impact gate input |
+| rt-verify | not-applicable | no rt-verify-relevant impact (classes: docs, gateway, ipc) |
+| ui-verify ×3 OS | not-applicable | no ui-verify-relevant impact (classes: docs, gateway, ipc) |
+
+### Shadow comparison(would-skip legs の実結果 — 偽陰性対照)
+
+| lane leg | would skip | actual | result |
+| --- | --- | --- | --- |
+| rt-verify | yes | pass | consistent |
+| ui-verify (ubuntu-latest) | yes | pass | consistent |
+| ui-verify (windows-latest) | yes | pass | consistent |
+| ui-verify (macos-latest) | yes | pass | consistent |
+
+- **偽陰性 0 件**: classifier が not-applicable とした 4 leg は全て
+  full 実行され pass — selective 判定と実結果は consistent。
+- evidence gate verdict: `ci-impact gate: all expected lanes passed;
+  evidence recorded`(job conclusion = success、14 job entries)。
+- 全 14 job green、修正対象の msrv-verify も pass(1m43s)。
 
 ## 8. 残存リスク・監視
 
