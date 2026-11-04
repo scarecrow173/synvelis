@@ -15,7 +15,7 @@ sha2.workspace = true
 synvelis-project = { path = "../synvelis-project" }
 synvelis-workspace = { path = "../synvelis-workspace" }
 ruviform-ui.workspace = true
-ruviform-observability = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-observability.workspace = true
 ruviform-ui-webview = { workspace = true, optional = true }
 rust-embed = { workspace = true, optional = true }
 
