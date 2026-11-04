@@ -9,8 +9,9 @@
 
 use ruviform_plugin_core::ParamFlags;
 use synvelis_project::{
-    AutomationLaneId, BeatPoint, ControlScope, CounterIdGenerator, ParamMapping, ParameterTargetId,
-    Project, ProjectController, ProjectId, ProjectOp, ProjectRevision, TargetCapability, ValueKind,
+    AutomationLaneId, AutomationTimeScope, BeatPoint, ControlOwner, CounterIdGenerator,
+    ParamMapping, ParameterRole, ParameterTargetId, Project, ProjectController, ProjectId,
+    ProjectOp, ProjectRevision, TargetCapability, ValueKind,
 };
 use synvelis_workspace::{
     AutomationMode, CommandIntent, CommandPhase, ControlsUi, DispatchContext, GestureCancelReason,
@@ -51,7 +52,9 @@ fn add_target(s: &mut ProjectSession, base: f64) -> ParameterTargetId {
         s,
         ProjectOp::AddParameterTarget {
             name: "p".into(),
-            owner: ControlScope::Project,
+            owner: ControlOwner::Project,
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::ProjectMusical,
             kind: ValueKind::Continuous,
             mapping: ParamMapping::Linear,
             capability: None,
@@ -66,7 +69,9 @@ fn add_readonly_target(s: &mut ProjectSession) -> ParameterTargetId {
         s,
         ProjectOp::AddParameterTarget {
             name: "ro".into(),
-            owner: ControlScope::Project,
+            owner: ControlOwner::Project,
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::ProjectMusical,
             kind: ValueKind::Continuous,
             mapping: ParamMapping::Linear,
             capability: Some(caps(ParamFlags::AUTOMATABLE.union(ParamFlags::READONLY))),

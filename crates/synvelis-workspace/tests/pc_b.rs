@@ -1,15 +1,16 @@
 //! PC-B acceptance tests — `docs/test-specs/pc-b-e2e-parameter-dispatch.md`.
 //!
-//! PC-B-02: note-local expression scope — `ControlScope::Note` resolves
+//! PC-B-02: note-local expression scope — `ControlOwner::Note` resolves
 //! to a note-relative beat domain anchored inside its owning clip, and
 //! recorded automation points are stored in that coordinate.
 
 use synvelis_project::{
-    AutomationLaneId, AutomationPoint, AutomationRegion, BeatPoint, BeatRange, ClipExtent, ClipId,
-    ClipPlacement, ClipPlayback, ConflictPolicy, ControlScope, CounterIdGenerator, Error,
-    Interpolation, MusicalDuration, MusicalTick, NoteId, ParamMapping, ParameterTargetId,
-    PlaybackMapping, Project, ProjectController, ProjectId, ProjectOp, ProjectRevision,
-    SourceFrame, SourceRange, TimeAnchor, TrackId, ValueKind, evaluate_control,
+    AutomationLaneId, AutomationPoint, AutomationRegion, AutomationTimeScope, BeatPoint, BeatRange,
+    ClipExtent, ClipId, ClipPlacement, ClipPlayback, ConflictPolicy, ControlOwner,
+    CounterIdGenerator, Error, Interpolation, MusicalDuration, MusicalTick, NoteId, ParamMapping,
+    ParameterRole, ParameterTargetId, PlaybackMapping, Project, ProjectController, ProjectId,
+    ProjectOp, ProjectRevision, SourceFrame, SourceRange, TimeAnchor, TrackId, ValueKind,
+    evaluate_control,
 };
 use synvelis_workspace::{
     AutomationMode, FakeWindowHost, ProjectSession, WorkspaceManager, WriteArm,
@@ -106,7 +107,9 @@ fn note_fixture() -> (Ws, ClipId, NoteId, ParameterTargetId, AutomationLaneId) {
         &mut ws,
         ProjectOp::AddParameterTarget {
             name: "note-expr".into(),
-            owner: ControlScope::Note(note),
+            owner: ControlOwner::Note(note),
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::NoteLocal,
             kind: ValueKind::Continuous,
             mapping: ParamMapping::Linear,
             capability: None,

@@ -1151,6 +1151,17 @@ fn detail_of(project: &Project, resource: &ResourceRef) -> Value {
         ResourceRef::AutomationLane(id) => {
             project.control.lanes.get(id).map_or(Value::Null, to_detail)
         }
+        ResourceRef::Strip(id) => project
+            .routing
+            .strips
+            .get(id)
+            .map_or(Value::Null, to_detail),
+        ResourceRef::Send(id) => project.routing.sends.get(id).map_or(Value::Null, to_detail),
+        ResourceRef::Processor(id) => project
+            .routing
+            .processors
+            .get(id)
+            .map_or(Value::Null, to_detail),
         ResourceRef::Project(_) => Value::Null,
     }
 }
@@ -1435,6 +1446,9 @@ pub(crate) fn ref_tagged(r: &ResourceRef) -> String {
         ResourceRef::Comp(id) => id.to_tagged(),
         ResourceRef::ParameterTarget(id) => id.to_tagged(),
         ResourceRef::AutomationLane(id) => id.to_tagged(),
+        ResourceRef::Strip(id) => id.to_tagged(),
+        ResourceRef::Send(id) => id.to_tagged(),
+        ResourceRef::Processor(id) => id.to_tagged(),
     }
 }
 

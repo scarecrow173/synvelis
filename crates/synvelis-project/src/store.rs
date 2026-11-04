@@ -23,15 +23,19 @@ use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::P
 /// v3 replaces the clip anchor/offset pair with the normalized
 /// placement+playback contract and adds the comping registry (MD-A).
 /// v4 adds `Project::notes` — the clip-local note entities anchoring
-/// `ControlScope::Note` (issue #43). v5 adds `Project::midi_sources` —
+/// `ControlOwner::Note` (issue #43). v5 adds `Project::midi_sources` —
 /// project-owned MIDI note sequences sharing the `SourceId` space
 /// (issue #52). v6 adds `Project::routing` — the Semantic Routing
 /// Model (issue #104); v5 bodies are read through the ordered
 /// migration registry which projects the legacy clip→master route.
+/// v7 splits `ControlScope` into `ControlOwner` +
+/// `AutomationTimeScope` + `ParameterRole` (issue #121); v6 bodies are
+/// read through the same registry which projects the legacy scope
+/// into owner + derived time scope.
 /// New maps are `#[serde(default)]`, so an older body still
 /// deserializes; each version bump records the intentional format
 /// advance. v1–v4 snapshots are not migrated.
-pub const SCHEMA_VERSION: u32 = 6;
+pub const SCHEMA_VERSION: u32 = 7;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.

@@ -8,6 +8,7 @@
 //! validated and published as a *new* snapshot by the next save.
 
 use crate::{
+    control::{AutomationTimeScope, ControlOwner, ParameterRole},
     error::Error,
     id::{ChainId, RoutingConnectionId, SemanticPortId, StripId, TrackId},
     project::Project,
@@ -30,10 +31,16 @@ struct MigrationStep {
 
 /// The ordered migration ladder. New schema work adds steps here —
 /// #17 / #86 / #92 share this registry and ordering.
-const STEPS: &[MigrationStep] = &[MigrationStep {
-    from: 5,
-    migrate: migrate_v5_routing,
-}];
+const STEPS: &[MigrationStep] = &[
+    MigrationStep {
+        from: 5,
+        migrate: migrate_v5_routing,
+    },
+    MigrationStep {
+        from: 6,
+        migrate: migrate_v6_control,
+    },
+];
 
 /// Runs the ordered ladder from `version` to [`SCHEMA_VERSION`].
 ///
@@ -162,5 +169,49 @@ fn migrate_v5_routing(mut project: Project) -> Result<Project, Error> {
     // one past the last draw (the oracle rejects a watermark that does
     // not strictly exceed every live ID).
     project.id_watermark = (next_raw + 1).max(project.id_watermark);
+    Ok(project)
+}
+
+/// v6 → v7: project the legacy `ControlScope` field into the split
+/// `ControlOwner` + `AutomationTimeScope` + `ParameterRole` binding
+/// (issue #121). The v6 body deserializes the owner through the
+/// legacy `scope` tag into `ControlOwner`; this step then derives the
+/// evaluation coordinate strictly: clip/note owners keep their local
+/// coordinates, every other owner gets `ProjectMusical`, and every
+/// role is `Generic`. Deterministic — allocates no IDs and leaves
+/// `id_watermark` untouched.
+///
+/// # Errors
+/// [`Error::Validation`] when the v6 body carries a `Strip`/`Send`/
+/// `Processor` owner — those owners did not exist in v6, so the body
+/// is foreign state this projection cannot own (same rule the v5→v6
+/// step applies to pre-existing routing state).
+fn migrate_v6_control(mut project: Project) -> Result<Project, Error> {
+    let foreign = |owner: ControlOwner| {
+        matches!(
+            owner,
+            ControlOwner::Strip(_) | ControlOwner::Send(_) | ControlOwner::Processor(_)
+        )
+    };
+    for target in project.control.targets.values_mut() {
+        if foreign(target.owner) {
+            return Err(Error::Validation(
+                "v6 snapshot carries a non-legacy control owner".into(),
+            ));
+        }
+        target.role = ParameterRole::Generic;
+        target.time_scope = match target.owner {
+            ControlOwner::Clip(_) => AutomationTimeScope::ClipLocal,
+            ControlOwner::Note(_) => AutomationTimeScope::NoteLocal,
+            _ => AutomationTimeScope::ProjectMusical,
+        };
+    }
+    for source in project.control.sources.values_mut() {
+        if foreign(source.owner) {
+            return Err(Error::Validation(
+                "v6 snapshot carries a non-legacy control owner".into(),
+            ));
+        }
+    }
     Ok(project)
 }

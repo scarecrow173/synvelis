@@ -433,14 +433,20 @@ fn eval_plan_is_stale_tracks_frozen_inputs() {
     .unwrap();
     let clip = *c.live().clips.keys().next().unwrap();
     for (owner, base) in [
-        (ControlScope::Clip(clip), 0.5),
-        (ControlScope::Track(track), 0.4),
+        (ControlOwner::Clip(clip), 0.5),
+        (ControlOwner::Track(track), 0.4),
     ] {
         c.apply(cmd(
             &c,
             ProjectOp::AddParameterTarget {
                 name: "p".into(),
                 owner,
+                role: ParameterRole::Generic,
+                time_scope: match owner {
+                    ControlOwner::Clip(_) => AutomationTimeScope::ClipLocal,
+                    ControlOwner::Note(_) => AutomationTimeScope::NoteLocal,
+                    _ => AutomationTimeScope::ProjectMusical,
+                },
                 kind: ValueKind::Continuous,
                 mapping: ParamMapping::Linear,
                 capability: None,
@@ -454,7 +460,7 @@ fn eval_plan_is_stale_tracks_frozen_inputs() {
         .control
         .targets
         .values()
-        .find(|t| t.owner == ControlScope::Clip(clip))
+        .find(|t| t.owner == ControlOwner::Clip(clip))
         .unwrap()
         .id;
     let target = c
@@ -462,7 +468,7 @@ fn eval_plan_is_stale_tracks_frozen_inputs() {
         .control
         .targets
         .values()
-        .find(|t| t.owner == ControlScope::Track(track))
+        .find(|t| t.owner == ControlOwner::Track(track))
         .unwrap()
         .id;
     c.apply(cmd(&c, ProjectOp::AddAutomationLane { target }))
@@ -491,7 +497,7 @@ fn eval_plan_is_stale_tracks_frozen_inputs() {
     c.apply(cmd(
         &c,
         ProjectOp::AddModulationSource {
-            owner: ControlScope::Track(track),
+            owner: ControlOwner::Track(track),
             kind: SourceKind::Macro { value: 0.25 },
         },
     ))
@@ -585,7 +591,9 @@ fn eval_plan_is_stale_tracks_frozen_inputs() {
         &c,
         ProjectOp::AddParameterTarget {
             name: "q".into(),
-            owner: ControlScope::Project,
+            owner: ControlOwner::Project,
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::ProjectMusical,
             kind: ValueKind::Continuous,
             mapping: ParamMapping::Linear,
             capability: None,

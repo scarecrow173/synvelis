@@ -7,9 +7,10 @@
 
 use crate::{
     control::{
-        AutomationLane, AutomationRegion, BeatRange, ConflictPolicy, ControlScope, ParamMapping,
-        Polarity, SourceKind, TargetCapability, Transform, ValueKind, cut_range_points,
-        dispatch_check, modulation_allowed,
+        AutomationLane, AutomationRegion, AutomationTimeScope, BeatRange, ConflictPolicy,
+        ControlOwner, ParamMapping, ParameterRole, Polarity, SourceKind, TargetCapability,
+        Transform, ValueKind, cut_range_points, dispatch_check, modulation_allowed,
+        validate_control_binding, validate_control_owner,
     },
     controller::Operation,
     error::Error,
@@ -135,7 +136,7 @@ pub enum ProjectOp {
         /// New muted state.
         muted: bool,
     },
-    /// Add a clip-local note (anchor for `ControlScope::Note`).
+    /// Add a clip-local note (anchor for `ControlOwner::Note`).
     AddNote {
         /// Owning clip.
         clip: ClipId,
@@ -271,13 +272,18 @@ pub enum ProjectOp {
         /// Musical half-open range to remove.
         range: MusicalRange,
     },
-    /// Create a parameter target (issue #40). `Note` scope resolves to
-    /// a note-relative coordinate domain (issue #43).
+    /// Create a parameter target (issue #40, owner/time-scope split per
+    /// issue #121). `Note` owner + `NoteLocal` scope resolves to a
+    /// note-relative coordinate domain (issue #43).
     AddParameterTarget {
         /// Display name.
         name: String,
-        /// Owning scope (defines the time coordinate of its automation).
-        owner: ControlScope,
+        /// Owning entity.
+        owner: ControlOwner,
+        /// Semantic role — singleton roles are unique per owner.
+        role: ParameterRole,
+        /// Time coordinate of the target's automation points.
+        time_scope: AutomationTimeScope,
         /// Discrete/continuous value domain.
         kind: ValueKind,
         /// Normalized→plain mapping.
@@ -336,8 +342,8 @@ pub enum ProjectOp {
     },
     /// Create a modulation source.
     AddModulationSource {
-        /// Owning scope.
-        owner: ControlScope,
+        /// Owning entity.
+        owner: ControlOwner,
         /// Signal definition.
         kind: SourceKind,
     },
@@ -829,13 +835,15 @@ impl Operation for ProjectOp {
             // -- parameter control model (issue #40) -------------------
             Self::AddParameterTarget {
                 owner,
+                role,
+                time_scope,
                 kind,
                 mapping,
                 capability,
                 base,
                 ..
             } => {
-                validate_scope(*owner, project)?;
+                validate_control_binding(project, *owner, *role, *time_scope, None)?;
                 kind.validate()?;
                 if !base.is_finite() || !(0.0..=1.0).contains(base) {
                     return Err(Error::Validation("param base outside [0,1]".into()));
@@ -950,7 +958,7 @@ impl Operation for ProjectOp {
                     .ok_or_else(|| Error::NotFound(format!("automation lane {lane}")))
             }
             Self::AddModulationSource { owner, kind } => {
-                validate_scope(*owner, project)?;
+                validate_control_owner(project, *owner)?;
                 kind.validate()
             }
             Self::RemoveModulationSource { source } => {
@@ -1095,10 +1103,33 @@ impl Operation for ProjectOp {
                 if !project.routing.ports.contains_key(destination) {
                     return Err(Error::NotFound(format!("port {destination}")));
                 }
-                if let Some(target) = gain_target
-                    && !project.control.targets.contains_key(target)
-                {
-                    return Err(Error::NotFound(format!("param {target}")));
+                if let Some(target) = gain_target {
+                    let t = project
+                        .control
+                        .targets
+                        .get(target)
+                        .ok_or_else(|| Error::NotFound(format!("param {target}")))?;
+                    // The send adopts the target at apply (owner →
+                    // `Send(send_id)`): only a project-time target can
+                    // legally carry a send owner.
+                    if !matches!(
+                        t.time_scope,
+                        AutomationTimeScope::ProjectMusical | AutomationTimeScope::ProjectAbsolute
+                    ) {
+                        return Err(Error::Validation(format!(
+                            "send gain target {target} must be project-time"
+                        )));
+                    }
+                    if project
+                        .routing
+                        .sends
+                        .values()
+                        .any(|s| s.gain_target == Some(*target))
+                    {
+                        return Err(Error::Validation(format!(
+                            "param {target} already bound as a send gain"
+                        )));
+                    }
                 }
                 Ok(())
             }
@@ -1540,6 +1571,8 @@ impl Operation for ProjectOp {
             Self::AddParameterTarget {
                 name,
                 owner,
+                role,
+                time_scope,
                 kind,
                 mapping,
                 capability,
@@ -1551,6 +1584,8 @@ impl Operation for ProjectOp {
                     crate::control::ParameterTarget {
                         id,
                         owner: *owner,
+                        role: *role,
+                        time_scope: *time_scope,
                         name: name.clone(),
                         kind: *kind,
                         mapping: *mapping,
@@ -1717,6 +1752,7 @@ impl Operation for ProjectOp {
                     && let ConnectionKind::Send(send_id) = conn.kind
                 {
                     project.routing.sends.remove(&send_id);
+                    remove_send_owned(project, send_id);
                 }
             }
             Self::AddSend {
@@ -1749,10 +1785,21 @@ impl Operation for ProjectOp {
                         gain_target: *gain_target,
                     },
                 );
+                // The send owns its gain target by construction: a
+                // `Send`-owned target cannot precede the send id, so
+                // `gain_target` declares "this target is the send's
+                // level" and the binding is sealed here.
+                if let Some(t) = gain_target
+                    && let Some(target) = project.control.targets.get_mut(t)
+                {
+                    target.owner = ControlOwner::Send(send_id);
+                    target.role = ParameterRole::SendLevel;
+                }
             }
             Self::RemoveSend { send_id } => {
                 if let Some(send) = project.routing.sends.remove(send_id) {
                     project.routing.connections.remove(&send.connection);
+                    remove_send_owned(project, *send_id);
                 }
             }
             Self::SetSendTap { send_id, tap } => {
@@ -1954,6 +2001,43 @@ fn remove_strip_owned(project: &mut Project, strip_id: StripId) {
     }
 }
 
+/// Cascade: every control entity a removed send owned dies with it —
+/// the send's level target cannot outlive the send that owns it, and
+/// `gain_target`'s mutual reference makes oracle-rejection a deadlock
+/// otherwise. Lanes and assignments feeding the removed targets and
+/// assignments driven by the removed sources go with them.
+fn remove_send_owned(project: &mut Project, send_id: SendId) {
+    let targets: std::collections::BTreeSet<ParameterTargetId> = project
+        .control
+        .targets
+        .values()
+        .filter(|t| t.owner == ControlOwner::Send(send_id))
+        .map(|t| t.id)
+        .collect();
+    let sources: std::collections::BTreeSet<ModulationSourceId> = project
+        .control
+        .sources
+        .values()
+        .filter(|s| s.owner == ControlOwner::Send(send_id))
+        .map(|s| s.id)
+        .collect();
+    project
+        .control
+        .lanes
+        .retain(|_, lane| !targets.contains(&lane.target));
+    project.control.assignments.retain(|_, a| {
+        !targets.contains(&a.target)
+            && !a.depth_source.is_some_and(|ds| targets.contains(&ds))
+            && !sources.contains(&a.source)
+    });
+    for id in targets {
+        project.control.targets.remove(&id);
+    }
+    for id in sources {
+        project.control.sources.remove(&id);
+    }
+}
+
 /// The master strip's main input port — the default destination every
 /// track strip routes into.
 fn master_main_input(project: &Project) -> Option<SemanticPortId> {
@@ -1990,21 +2074,5 @@ fn processor_port_binding(binding: &ProcessorBinding, advertised: &str) -> PortB
             plugin: descriptor.clone(),
             advertised: advertised.to_string(),
         },
-    }
-}
-
-/// Validates that a `ControlScope` resolves against existing entities.
-fn validate_scope(scope: ControlScope, project: &Project) -> Result<(), Error> {
-    match scope {
-        ControlScope::Track(id) if !project.tracks.contains_key(&id) => {
-            Err(Error::NotFound(format!("track {id}")))
-        }
-        ControlScope::Clip(id) if !project.clips.contains_key(&id) => {
-            Err(Error::NotFound(format!("clip {id}")))
-        }
-        ControlScope::Note(id) if !project.notes.contains_key(&id) => {
-            Err(Error::NotFound(format!("note {id}")))
-        }
-        _ => Ok(()),
     }
 }

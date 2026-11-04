@@ -42,6 +42,9 @@ pub(crate) fn tagged(resource: &ResourceRef) -> String {
         ResourceRef::Comp(id) => id.to_tagged(),
         ResourceRef::ParameterTarget(id) => id.to_tagged(),
         ResourceRef::AutomationLane(id) => id.to_tagged(),
+        ResourceRef::Strip(id) => id.to_tagged(),
+        ResourceRef::Send(id) => id.to_tagged(),
+        ResourceRef::Processor(id) => id.to_tagged(),
     }
 }
 

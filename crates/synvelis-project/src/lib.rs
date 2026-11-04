@@ -33,12 +33,14 @@ pub use comp::{
     FadeShape, SourceBinding, SourceVersionRef, TakeGroup, project_comp,
 };
 pub use control::{
-    AutomationConflict, AutomationLane, AutomationPoint, AutomationRegion, BeatPoint, BeatRange,
-    ConflictPolicy, Contribution, ControlEvaluation, ControlGraph, ControlModel, ControlScope,
-    EvalPlan, EvalScratch, Interpolation, LfoShape, ModulationAssignment, ModulationSource,
-    ParamMapping, ParameterTarget, Polarity, ReferenceSource, SourceKind, TargetCapability,
-    Transform, ValueKind, cut_range_points, detect_conflicts, dispatch_check, evaluate_control,
-    lane_value, lower_event, modulation_allowed, quantize_value, resolve_scope_pos,
+    AutomationConflict, AutomationLane, AutomationPoint, AutomationRegion, AutomationTimeScope,
+    BeatPoint, BeatRange, ConflictPolicy, Contribution, ControlEvaluation, ControlGraph,
+    ControlModel, ControlOwner, EvalPlan, EvalScratch, Interpolation, LfoShape,
+    ModulationAssignment, ModulationSource, ParamMapping, ParameterRole, ParameterTarget, Polarity,
+    ReferenceSource, SourceKind, TargetCapability, Transform, ValueKind, cut_range_points,
+    detect_conflicts, dispatch_check, evaluate_control, lane_value, lower_event,
+    modulation_allowed, quantize_value, resolve_scope_pos, validate_control_binding,
+    validate_control_owner,
 };
 pub use controller::{Command, Operation, ProjectController, ProjectRevision, SavedState};
 pub use error::Error;
