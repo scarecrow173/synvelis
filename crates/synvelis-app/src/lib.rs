@@ -29,11 +29,16 @@ pub mod app;
 pub mod assets;
 pub mod error;
 pub mod host;
+pub mod logging;
 pub mod revision;
 pub mod service;
 
 pub use app::{AudioRuntimeSlot, ObservabilityOwner, RecorderSlot, SynvelisApp};
 pub use error::{AppError, AssetError, AssetErrorKind};
 pub use host::ShellWindowHost;
+pub use logging::{
+    CliOverrides, EnvOverrides, HostLog, InstallState, LogInstallError, LogSettings, SettingsError,
+    install, parse_args, to_logging_config,
+};
 pub use revision::{APP_ASSET_SCHEMA, AssetManifest, HOST_REVISION, MANIFEST_NAME, check_bundle};
 pub use service::{AppService, OPS};

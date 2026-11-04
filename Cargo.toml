@@ -52,3 +52,4 @@ ruviform-audio-plugin-bridge = { git = "https://github.com/scarecrow173/ruviform
 ruviform-ui-webview = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-observability = { git = "https://github.com/scarecrow173/ruviform.git" }
 rust-embed = "8"
+tracing = "0.1"
