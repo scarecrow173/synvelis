@@ -13,7 +13,10 @@ use synvelis_project::{
     ProjectRevision,
 };
 
-use crate::control::{ControlSession, GestureEnd, RecordingOutcome};
+use crate::control::{
+    ControlSession, GestureEnd, PreparedRecordingCommit, RecordCommitError, RecordingOutcome,
+    RecordingTransactionId,
+};
 
 /// Transport playback state — a stub, but a real concept that view
 /// commands must not confuse with project mutations.
@@ -126,31 +129,94 @@ impl ProjectSession {
         Ok(end)
     }
 
-    /// Commits the open recording transaction as **one undo step**:
-    /// every lane segment becomes an explicit `Replace` region write
-    /// inside a single `Composite` apply.
+    /// Commits the open recording transaction as **one undo step**
+    /// through the PC-C1 protocol (issue #98):
+    /// [`ControlSession::prepare_record_commit`] snapshots the columns
+    /// non-destructively and CAS-checks the transaction's fixed
+    /// revision, the controller applies the `Composite` against that
+    /// expectation, and only a successful apply reaches
+    /// [`ControlSession::finish_record_commit`] — the sole consumer.
+    /// A conflict or rejection leaves every recorded point in place.
+    ///
+    /// The internal apply deliberately bypasses
+    /// [`ControlSession::note_project_changed`] — a transaction's own
+    /// commit is not a foreign project change.
     ///
     /// # Errors
-    /// [`Error::Validation`] on no open transaction or a segment lane
-    /// removed mid-recording (the transaction stays open for abort);
-    /// controller errors on a rejected commit (the transaction is
-    /// already consumed).
-    pub fn control_record_commit(&mut self) -> Result<RecordingOutcome, Error> {
-        let (was_sealed, ops) = self.control_with(ControlSession::build_commit_ops)?;
-        if ops.is_empty() {
-            return Ok(RecordingOutcome {
-                applied: false,
-                revision: None,
-                was_sealed,
-            });
-        }
-        let rev = self.revision();
-        let revision = self.apply(ProjectOp::Composite { ops }, rev)?;
-        Ok(RecordingOutcome {
-            applied: true,
-            revision: Some(revision),
-            was_sealed,
-        })
+    /// [`RecordCommitError::NoTransaction`]/`Conflict`/`Invalid` from
+    /// prepare, or `Rejected` carrying the controller error — the
+    /// transaction always retains its columns.
+    pub fn control_record_commit(&mut self) -> Result<RecordingOutcome, RecordCommitError> {
+        let current = self.revision();
+        let prepared = self.control_with(|c, p| c.prepare_record_commit(p, current))?;
+        let applied = match prepared.op.clone() {
+            Some(op) => match self.apply_internal(op, prepared.expected_revision) {
+                Ok(rev) => Some(rev),
+                Err(reason) => {
+                    self.control.note_commit_rejected(prepared.id);
+                    return Err(RecordCommitError::Rejected { reason });
+                }
+            },
+            None => None,
+        };
+        self.control.finish_record_commit(&prepared, applied)
+    }
+
+    /// Commits an already-prepared recording transaction — the
+    /// idempotent path for a delayed/duplicate ACK or an explicit
+    /// retry after a rejection. Same id + fingerprint is
+    /// `AlreadyApplied`; same id + different fingerprint is
+    /// `IntegrityConflict`; an unknown id is `UnknownTransaction`.
+    ///
+    /// # Errors
+    /// [`RecordCommitError::AlreadyApplied`]/`IntegrityConflict`/
+    /// `UnknownTransaction`/`NoTransaction`, or `Rejected` carrying
+    /// the controller error.
+    pub fn control_record_finish(
+        &mut self,
+        prepared: &PreparedRecordingCommit,
+    ) -> Result<RecordingOutcome, RecordCommitError> {
+        // Identity first: a duplicate receipt, a payload mismatch or
+        // an unknown id must never reach the apply — the project must
+        // not move for a transaction that is not the open one.
+        self.control.preflight_record_finish(prepared)?;
+        let applied = match prepared.op.clone() {
+            Some(op) => match self.apply_internal(op, prepared.expected_revision) {
+                Ok(rev) => Some(rev),
+                Err(reason) => {
+                    self.control.note_commit_rejected(prepared.id);
+                    return Err(RecordCommitError::Rejected { reason });
+                }
+            },
+            None => None,
+        };
+        self.control.finish_record_commit(prepared, applied)
+    }
+
+    /// The user-requested rebase report for the open transaction —
+    /// never an automatic merge.
+    ///
+    /// # Errors
+    /// [`RecordCommitError::NoTransaction`].
+    pub fn control_record_rebase_preview(
+        &self,
+    ) -> Result<crate::control::RebasePreview, RecordCommitError> {
+        self.control
+            .rebase_preview(self.controller.live(), self.revision())
+    }
+
+    /// Explicit approval of a rebase inspected through
+    /// [`ProjectSession::control_record_rebase_preview`]: re-pins the
+    /// fixed revision to the live one and returns the transaction to
+    /// pending. The write gate stays exactly as sealed.
+    ///
+    /// # Errors
+    /// [`RecordCommitError::NoTransaction`]/`UnknownTransaction`.
+    pub fn control_record_approve_rebase(
+        &mut self,
+        id: RecordingTransactionId,
+    ) -> Result<(), RecordCommitError> {
+        self.control.approve_rebase(id, self.revision())
     }
 
     /// Aborts the open recording transaction — nothing is applied.
@@ -171,7 +237,10 @@ impl ProjectSession {
     }
 
     /// Applies `op` through the controller (validation + revision
-    /// check + atomic apply), then rebuilds the engine stub's graph.
+    /// check + atomic apply), rebuilds the engine stub's graph, then
+    /// notifies the control session: a successful apply is a foreign
+    /// project change that seals an open recording transaction's
+    /// write gate.
     ///
     /// Generic over the operation type: the workspace command layer
     /// produces `ProjectOp`, and any other domain op that satisfies
@@ -182,6 +251,20 @@ impl ProjectSession {
     /// [`Error::StaleRevision`]/validation errors from the controller —
     /// project unchanged.
     pub fn apply<O: Operation>(
+        &mut self,
+        op: O,
+        expected_revision: ProjectRevision,
+    ) -> Result<ProjectRevision, Error> {
+        let revision = self.apply_internal(op, expected_revision)?;
+        self.control.note_project_changed();
+        Ok(revision)
+    }
+
+    /// The controller apply + engine rebuild without the
+    /// foreign-change notification — used internally by the
+    /// recording-commit path, whose transaction consumes its own
+    /// revision advance and must never seal itself.
+    fn apply_internal<O: Operation>(
         &mut self,
         op: O,
         expected_revision: ProjectRevision,
@@ -200,7 +283,9 @@ impl ProjectSession {
     }
 
     /// Undoes the last project command and rebuilds the engine stub's
-    /// graph — the project changed, so the graph must too.
+    /// graph — the project changed, so the graph must too. A
+    /// successful undo is a foreign project change: it seals an open
+    /// recording transaction's write gate.
     ///
     /// # Errors
     /// Propagates controller errors (none in practice).
@@ -208,13 +293,15 @@ impl ProjectSession {
         if self.controller.undo()? {
             self.engine
                 .on_project_revision(self.controller.live_revision());
+            self.control.note_project_changed();
             return Ok(true);
         }
         Ok(false)
     }
 
     /// Redoes the last undone command and rebuilds the engine stub's
-    /// graph.
+    /// graph — a foreign project change that seals an open recording
+    /// transaction's write gate.
     ///
     /// # Errors
     /// Propagates controller errors (none in practice).
@@ -222,6 +309,7 @@ impl ProjectSession {
         if self.controller.redo()? {
             self.engine
                 .on_project_revision(self.controller.live_revision());
+            self.control.note_project_changed();
             return Ok(true);
         }
         Ok(false)

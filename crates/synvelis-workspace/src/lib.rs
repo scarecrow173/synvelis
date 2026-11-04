@@ -36,9 +36,12 @@ pub mod workspace;
 
 pub use command::{CommandContext, CommandKind, CommandOutcome};
 pub use control::{
-    AssignmentView, AutomationMode, ControlGesture, ControlObservation, ControlSession, GestureEnd,
-    InspectorBreakdown, Lowered, ObservationData, ObservationState, PlaybackState, PlaybackStatus,
-    RecordingOutcome, RecordingTransaction, SealReason, TransportEffect, WriteArm,
+    APPLIED_REGISTRY_CAP, AppliedRecord, AssignmentView, AutomationMode, ControlGesture,
+    ControlObservation, ControlSession, GestureEnd, InspectorBreakdown, Lowered, ObservationData,
+    ObservationState, PlaybackState, PlaybackStatus, PreparedRecordingCommit, RECORD_POINT_BUDGET,
+    RebaseLaneReport, RebasePreview, RecordCommitError, RecordDisposition, RecordingOutcome,
+    RecordingTransaction, RecordingTransactionId, RecordingTxnState, SealReason, TransportEffect,
+    WriteArm,
 };
 pub use controls_ui::{
     BindingSnapshot, CommandIntent, CommandPhase, CommandReceipt, ControlValue, ControlsUi,

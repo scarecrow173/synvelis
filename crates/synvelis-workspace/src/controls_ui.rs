@@ -2159,14 +2159,19 @@ impl ControlsUi {
     }
 
     /// Opens the recording transaction; broadcasts the transport truth.
+    /// Returns the transaction id for later Inspect / Retry /
+    /// Explicit Rebase / Abort calls.
     ///
     /// # Errors
     /// Propagates [`ControlSession::record_start`].
-    pub fn record_start(&mut self, session: &mut ProjectSession) -> Result<(), Error> {
+    pub fn record_start(
+        &mut self,
+        session: &mut ProjectSession,
+    ) -> Result<crate::control::RecordingTransactionId, Error> {
         let rev = session.revision();
-        session.control_mut().record_start(rev)?;
+        let id = session.control_mut().record_start(rev)?;
         self.touch_and_broadcast_transport(session, "record");
-        Ok(())
+        Ok(id)
     }
 
     /// Commits the open recording transaction as one undo step;
@@ -2177,7 +2182,7 @@ impl ControlsUi {
     pub fn record_commit(
         &mut self,
         session: &mut ProjectSession,
-    ) -> Result<RecordingOutcome, Error> {
+    ) -> Result<RecordingOutcome, crate::control::RecordCommitError> {
         let outcome = session.control_record_commit()?;
         // The consumed transaction flips `recording_active` —
         // transport truth changed, so its epoch must advance or the
@@ -2185,6 +2190,51 @@ impl ControlsUi {
         self.touch(TRANSPORT_TARGET);
         self.broadcast_all(session, "commit");
         Ok(outcome)
+    }
+
+    /// Retries a commit with the prepared payload — the
+    /// duplicate/delayed-ACK path. Same id + fingerprint is reported
+    /// `AlreadyApplied`; the columns are never written twice.
+    ///
+    /// # Errors
+    /// Propagates [`ProjectSession::control_record_finish`].
+    pub fn record_finish(
+        &mut self,
+        session: &mut ProjectSession,
+        prepared: &crate::control::PreparedRecordingCommit,
+    ) -> Result<RecordingOutcome, crate::control::RecordCommitError> {
+        let outcome = session.control_record_finish(prepared)?;
+        self.touch(TRANSPORT_TARGET);
+        self.broadcast_all(session, "commit");
+        Ok(outcome)
+    }
+
+    /// The Inspect choice for a `Conflict`ed transaction — reports
+    /// what an explicit rebase would write; never merges.
+    ///
+    /// # Errors
+    /// Propagates [`ProjectSession::control_record_rebase_preview`].
+    pub fn record_rebase_preview(
+        &self,
+        session: &ProjectSession,
+    ) -> Result<crate::control::RebasePreview, crate::control::RecordCommitError> {
+        session.control_record_rebase_preview()
+    }
+
+    /// The Explicit Rebase choice: re-pins the transaction's fixed
+    /// revision to the live one so the next `record_commit` CAS
+    /// succeeds. The write gate stays exactly as sealed.
+    ///
+    /// # Errors
+    /// Propagates [`ProjectSession::control_record_approve_rebase`].
+    pub fn record_approve_rebase(
+        &mut self,
+        session: &mut ProjectSession,
+        id: crate::control::RecordingTransactionId,
+    ) -> Result<(), crate::control::RecordCommitError> {
+        session.control_record_approve_rebase(id)?;
+        self.touch_and_broadcast_transport(session, "record");
+        Ok(())
     }
 
     /// Aborts the open recording transaction; broadcasts the transport

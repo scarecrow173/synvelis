@@ -14,8 +14,9 @@ use crate::{
     controller::Operation,
     error::Error,
     id::{
-        AssetId, AutomationLaneId, ClipId, IdGenerator, LaneId, ModulationAssignmentId,
-        ModulationSourceId, NoteId, ParameterTargetId, SourceId, TrackId,
+        AssetId, AutomationLaneId, BusId, ChainId, ClipId, IdGenerator, LaneId,
+        ModulationAssignmentId, ModulationSourceId, NoteId, ParameterTargetId, ProcessorId,
+        RoutingConnectionId, SemanticPortId, SendId, SourceId, StripId, TrackId,
     },
     midi::{MidiDivision, MidiNote, MidiSource},
     placement::{
@@ -25,6 +26,11 @@ use crate::{
     project::{Asset, Clip, Lane, Note, Project, Source, SourceState, Track},
     range::{MusicalRange, SourceRange},
     recording_data::ClockEpoch,
+    routing::{
+        Bus, BusKind, ChannelStrip, ConnectionKind, ExplicitChannelMap, PortBinding, PortDirection,
+        PortOwner, PortRole, Processor, ProcessorBinding, ProcessorChain, RoutingConnection,
+        SemanticPort, SendConfig, SignalDomain, StripOwner,
+    },
     tempo::SignatureDto,
     tempo::TempoEventDto,
     time::{MidiTick, MusicalDuration, MusicalTick, SourceFrame},
@@ -372,6 +378,117 @@ pub enum ProjectOp {
     RemoveModulationAssignment {
         /// Assignment to remove.
         id: ModulationAssignmentId,
+    },
+    // -- semantic routing model (issue #104) -------------------------
+    /// Create a group or return bus: the bus, its channel strip, the
+    /// strip's chain and its main input/output ports. The master bus is
+    /// created at project bootstrap — it cannot be added here.
+    AddBus {
+        /// `Group` or `Return` (`Master` is rejected).
+        kind: crate::routing::BusKind,
+        /// Display name.
+        name: String,
+    },
+    /// Remove a bus together with its owned strip, chain and ports.
+    /// Connections/sends still referencing those ports reject the
+    /// commit at the reference oracle — remove them first (a single
+    /// `Composite` is the sanctioned path). The master bus cannot be
+    /// removed.
+    RemoveBus {
+        /// Target bus.
+        bus_id: BusId,
+    },
+    /// Give a track its channel strip (chain + main ports) and wire the
+    /// strip's main output into the master's main input — the
+    /// deterministic default route matching the v5→v6 migration
+    /// projection. Rejected when the track already owns a strip.
+    AddTrackStrip {
+        /// Owning track.
+        track_id: TrackId,
+    },
+    /// Create a `Main` or `Sidechain` connection between two semantic
+    /// ports. `Send` connections are created only by `AddSend` so the
+    /// send↔connection 1:1 invariant holds by construction.
+    AddConnection {
+        /// Source output port.
+        source: SemanticPortId,
+        /// Destination input port.
+        destination: SemanticPortId,
+        /// `Main` or `Sidechain` (`Send(_)` is rejected).
+        kind: crate::routing::ConnectionKind,
+        /// Explicit channel map for differing port layouts.
+        channel_map: Option<ExplicitChannelMap>,
+    },
+    /// Remove a connection. When the connection is a send edge its
+    /// `SendConfig` is removed with it (1:1 invariant).
+    RemoveConnection {
+        /// Target connection.
+        connection_id: RoutingConnectionId,
+    },
+    /// Create a send: the `kind = Send` connection plus its
+    /// `SendConfig` in one atomic op (one CAS, one undo step).
+    /// `gain_target` is a reference into the control model — the
+    /// persisted gain authority lives there, never duplicated.
+    AddSend {
+        /// Source strip main output port.
+        source: SemanticPortId,
+        /// Destination strip main input port.
+        destination: SemanticPortId,
+        /// Pre/post-fader tap.
+        tap: crate::routing::SendTap,
+        /// Optional send-level control target.
+        gain_target: Option<ParameterTargetId>,
+    },
+    /// Remove a send and its connection.
+    RemoveSend {
+        /// Target send.
+        send_id: SendId,
+    },
+    /// Change a send's tap point.
+    SetSendTap {
+        /// Target send.
+        send_id: SendId,
+        /// New tap.
+        tap: crate::routing::SendTap,
+    },
+    /// Enable or disable a connection — a disabled connection carries
+    /// no signal and forms no graph edge.
+    SetConnectionEnabled {
+        /// Target connection.
+        connection_id: RoutingConnectionId,
+        /// New enabled state.
+        enabled: bool,
+    },
+    /// Insert a processor into a strip's chain at `index`, creating its
+    /// main input/output ports (plus a sidechain input port when
+    /// requested).
+    InsertProcessor {
+        /// Owning strip.
+        strip_id: StripId,
+        /// Position in the chain (0..=len).
+        index: usize,
+        /// Display name.
+        name: String,
+        /// Plugin binding (resolved identity or unresolved marker).
+        binding: crate::routing::ProcessorBinding,
+        /// Also create a sidechain-role input port.
+        sidechain_input: bool,
+    },
+    /// Remove a processor and its ports. Connections still referencing
+    /// those ports reject at the reference oracle — remove them first.
+    RemoveProcessor {
+        /// Target processor.
+        processor_id: ProcessorId,
+    },
+    /// Move a processor to a new position inside its chain — the
+    /// persisted DSP order is meaningful.
+    ReorderProcessor {
+        /// Owning chain.
+        chain_id: ChainId,
+        /// Processor to move.
+        processor_id: ProcessorId,
+        /// New index (0..len).
+        new_index: usize,
     },
 }
 
@@ -743,6 +860,11 @@ impl Operation for ProjectOp {
                         .assignments
                         .values()
                         .any(|a| a.target == *target || a.depth_source == Some(*target))
+                    || project
+                        .routing
+                        .sends
+                        .values()
+                        .any(|s| s.gain_target == Some(*target))
                 {
                     return Err(Error::Validation(format!(
                         "param {target} still referenced"
@@ -903,6 +1025,144 @@ impl Operation for ProjectOp {
                 .contains_key(id)
                 .then_some(())
                 .ok_or_else(|| Error::NotFound(format!("mod assignment {id}"))),
+            // -- semantic routing model (issue #104) -----------------
+            // Structural checks (existence, ownership preconditions,
+            // legal kinds) live here; the full invariant sweep runs
+            // once in the post-apply oracle, so an op never duplicates
+            // rules the model owns.
+            Self::AddBus { kind, .. } => match kind {
+                BusKind::Master => Err(Error::Validation(
+                    "the master bus is created at project bootstrap".into(),
+                )),
+                BusKind::Group | BusKind::Return => Ok(()),
+            },
+            Self::RemoveBus { bus_id } => {
+                let bus = project
+                    .routing
+                    .buses
+                    .get(bus_id)
+                    .ok_or_else(|| Error::NotFound(format!("bus {bus_id}")))?;
+                if bus.kind == BusKind::Master {
+                    return Err(Error::Validation("the master bus cannot be removed".into()));
+                }
+                Ok(())
+            }
+            Self::AddTrackStrip { track_id } => {
+                if !project.tracks.contains_key(track_id) {
+                    return Err(Error::NotFound(format!("track {track_id}")));
+                }
+                if project.routing.strip_of_track(*track_id).is_some() {
+                    return Err(Error::Validation(format!(
+                        "track {track_id} already owns a strip"
+                    )));
+                }
+                Ok(())
+            }
+            Self::AddConnection {
+                source,
+                destination,
+                kind,
+                ..
+            } => {
+                if matches!(kind, ConnectionKind::Send(_)) {
+                    return Err(Error::Validation(
+                        "send connections are created by AddSend".into(),
+                    ));
+                }
+                if !project.routing.ports.contains_key(source) {
+                    return Err(Error::NotFound(format!("port {source}")));
+                }
+                if !project.routing.ports.contains_key(destination) {
+                    return Err(Error::NotFound(format!("port {destination}")));
+                }
+                Ok(())
+            }
+            Self::RemoveConnection { connection_id } => project
+                .routing
+                .connections
+                .contains_key(connection_id)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("connection {connection_id}"))),
+            Self::AddSend {
+                source,
+                destination,
+                gain_target,
+                ..
+            } => {
+                if !project.routing.ports.contains_key(source) {
+                    return Err(Error::NotFound(format!("port {source}")));
+                }
+                if !project.routing.ports.contains_key(destination) {
+                    return Err(Error::NotFound(format!("port {destination}")));
+                }
+                if let Some(target) = gain_target
+                    && !project.control.targets.contains_key(target)
+                {
+                    return Err(Error::NotFound(format!("param {target}")));
+                }
+                Ok(())
+            }
+            Self::RemoveSend { send_id } | Self::SetSendTap { send_id, .. } => project
+                .routing
+                .sends
+                .contains_key(send_id)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("send {send_id}"))),
+            Self::SetConnectionEnabled { connection_id, .. } => project
+                .routing
+                .connections
+                .contains_key(connection_id)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("connection {connection_id}"))),
+            Self::InsertProcessor {
+                strip_id, index, ..
+            } => {
+                let strip = project
+                    .routing
+                    .strips
+                    .get(strip_id)
+                    .ok_or_else(|| Error::NotFound(format!("strip {strip_id}")))?;
+                let len = project
+                    .routing
+                    .chains
+                    .get(&strip.chain)
+                    .map_or(0, |c| c.processors.len());
+                if *index > len {
+                    return Err(Error::Validation(format!(
+                        "insert index {index} beyond chain length {len}"
+                    )));
+                }
+                Ok(())
+            }
+            Self::RemoveProcessor { processor_id } => project
+                .routing
+                .processors
+                .contains_key(processor_id)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("processor {processor_id}"))),
+            Self::ReorderProcessor {
+                chain_id,
+                processor_id,
+                new_index,
+            } => {
+                let chain = project
+                    .routing
+                    .chains
+                    .get(chain_id)
+                    .ok_or_else(|| Error::NotFound(format!("chain {chain_id}")))?;
+                if !chain.processors.contains(processor_id) {
+                    return Err(Error::NotFound(format!(
+                        "processor {processor_id} not in chain {chain_id}"
+                    )));
+                }
+                if *new_index >= chain.processors.len() {
+                    return Err(Error::Validation(format!(
+                        "reorder index {new_index} beyond chain length {}",
+                        chain.processors.len()
+                    )));
+                }
+                Ok(())
+            }
         }
     }
 
@@ -942,6 +1202,13 @@ impl Operation for ProjectOp {
                 );
             }
             Self::RemoveTrack { track_id } => {
+                // Removing the production container removes the strip
+                // bound to it plus the strip-owned entities; a
+                // connection still referencing those ports fails the
+                // post-apply oracle and discards the whole command.
+                if let Some(strip_id) = project.routing.strip_of_track(*track_id).map(|s| s.id) {
+                    remove_strip_owned(project, strip_id);
+                }
                 project.tracks.remove(track_id);
             }
             Self::AddLane { track_id } => {
@@ -1390,6 +1657,204 @@ impl Operation for ProjectOp {
             Self::RemoveModulationAssignment { id } => {
                 project.control.assignments.remove(id);
             }
+            // -- semantic routing model (issue #104) -----------------
+            Self::AddBus { kind, name } => {
+                let bus_id = BusId::new(ids.next());
+                let (strip_id, _) = insert_strip(project, ids, StripOwner::Bus(bus_id));
+                project.routing.buses.insert(
+                    bus_id,
+                    Bus {
+                        id: bus_id,
+                        kind: *kind,
+                        name: name.clone(),
+                        strip: strip_id,
+                    },
+                );
+            }
+            Self::RemoveBus { bus_id } => {
+                if let Some(bus) = project.routing.buses.remove(bus_id) {
+                    remove_strip_owned(project, bus.strip);
+                }
+            }
+            Self::AddTrackStrip { track_id } => {
+                let (_, main_out) = insert_strip(project, ids, StripOwner::Track(*track_id));
+                let master_in = master_main_input(project)
+                    .ok_or_else(|| Error::Validation("master strip lacks main input".into()))?;
+                let conn = RoutingConnectionId::new(ids.next());
+                project.routing.connections.insert(
+                    conn,
+                    RoutingConnection {
+                        id: conn,
+                        source: main_out,
+                        destination: master_in,
+                        kind: ConnectionKind::Main,
+                        enabled: true,
+                        channel_map: None,
+                    },
+                );
+            }
+            Self::AddConnection {
+                source,
+                destination,
+                kind,
+                channel_map,
+            } => {
+                let id = RoutingConnectionId::new(ids.next());
+                project.routing.connections.insert(
+                    id,
+                    RoutingConnection {
+                        id,
+                        source: *source,
+                        destination: *destination,
+                        kind: *kind,
+                        enabled: true,
+                        channel_map: channel_map.clone(),
+                    },
+                );
+            }
+            Self::RemoveConnection { connection_id } => {
+                if let Some(conn) = project.routing.connections.remove(connection_id)
+                    && let ConnectionKind::Send(send_id) = conn.kind
+                {
+                    project.routing.sends.remove(&send_id);
+                }
+            }
+            Self::AddSend {
+                source,
+                destination,
+                tap,
+                gain_target,
+            } => {
+                // One atomic unit: the send edge plus its config — never
+                // one without the other.
+                let send_id = SendId::new(ids.next());
+                let conn = RoutingConnectionId::new(ids.next());
+                project.routing.connections.insert(
+                    conn,
+                    RoutingConnection {
+                        id: conn,
+                        source: *source,
+                        destination: *destination,
+                        kind: ConnectionKind::Send(send_id),
+                        enabled: true,
+                        channel_map: None,
+                    },
+                );
+                project.routing.sends.insert(
+                    send_id,
+                    SendConfig {
+                        id: send_id,
+                        connection: conn,
+                        tap: *tap,
+                        gain_target: *gain_target,
+                    },
+                );
+            }
+            Self::RemoveSend { send_id } => {
+                if let Some(send) = project.routing.sends.remove(send_id) {
+                    project.routing.connections.remove(&send.connection);
+                }
+            }
+            Self::SetSendTap { send_id, tap } => {
+                if let Some(send) = project.routing.sends.get_mut(send_id) {
+                    send.tap = *tap;
+                }
+            }
+            Self::SetConnectionEnabled {
+                connection_id,
+                enabled,
+            } => {
+                if let Some(conn) = project.routing.connections.get_mut(connection_id) {
+                    conn.enabled = *enabled;
+                }
+            }
+            Self::InsertProcessor {
+                strip_id,
+                index,
+                name,
+                binding,
+                sidechain_input,
+            } => {
+                let proc_id = ProcessorId::new(ids.next());
+                let mut port_ids = Vec::new();
+                let port_in = SemanticPortId::new(ids.next());
+                port_ids.push(port_in);
+                insert_port(
+                    project,
+                    SemanticPort {
+                        id: port_in,
+                        owner: PortOwner::Processor(proc_id),
+                        direction: PortDirection::Input,
+                        role: PortRole::Main,
+                        domain: SignalDomain::Audio,
+                        binding: processor_port_binding(binding, "in"),
+                    },
+                );
+                let port_out = SemanticPortId::new(ids.next());
+                port_ids.push(port_out);
+                insert_port(
+                    project,
+                    SemanticPort {
+                        id: port_out,
+                        owner: PortOwner::Processor(proc_id),
+                        direction: PortDirection::Output,
+                        role: PortRole::Main,
+                        domain: SignalDomain::Audio,
+                        binding: processor_port_binding(binding, "out"),
+                    },
+                );
+                if *sidechain_input {
+                    let port_sc = SemanticPortId::new(ids.next());
+                    port_ids.push(port_sc);
+                    insert_port(
+                        project,
+                        SemanticPort {
+                            id: port_sc,
+                            owner: PortOwner::Processor(proc_id),
+                            direction: PortDirection::Input,
+                            role: PortRole::Sidechain,
+                            domain: SignalDomain::Audio,
+                            binding: processor_port_binding(binding, "sidechain"),
+                        },
+                    );
+                }
+                project.routing.processors.insert(
+                    proc_id,
+                    Processor {
+                        id: proc_id,
+                        name: name.clone(),
+                        binding: binding.clone(),
+                        port_ids,
+                    },
+                );
+                if let Some(strip) = project.routing.strips.get(strip_id)
+                    && let Some(chain) = project.routing.chains.get_mut(&strip.chain)
+                {
+                    chain.processors.insert(*index, proc_id);
+                }
+            }
+            Self::RemoveProcessor { processor_id } => {
+                if let Some(proc) = project.routing.processors.remove(processor_id) {
+                    for port_id in &proc.port_ids {
+                        project.routing.ports.remove(port_id);
+                    }
+                    for chain in project.routing.chains.values_mut() {
+                        chain.processors.retain(|id| id != processor_id);
+                    }
+                }
+            }
+            Self::ReorderProcessor {
+                chain_id,
+                processor_id,
+                new_index,
+            } => {
+                if let Some(chain) = project.routing.chains.get_mut(chain_id)
+                    && let Some(old) = chain.processors.iter().position(|id| id == processor_id)
+                {
+                    chain.processors.remove(old);
+                    chain.processors.insert(*new_index, *processor_id);
+                }
+            }
         }
         Ok(())
     }
@@ -1427,6 +1892,105 @@ fn midi_note<'p>(
         .notes
         .get(note_id)
         .ok_or_else(|| Error::NotFound(format!("note {note_id}")))
+}
+
+/// Creates a strip with its empty chain and main input/output ports —
+/// the shared construction for `AddBus`/`AddTrackStrip` and the v5→v6
+/// migration shape. Returns the strip ID and its main output port.
+fn insert_strip(
+    project: &mut Project,
+    ids: &mut dyn IdGenerator,
+    owner: StripOwner,
+) -> (StripId, SemanticPortId) {
+    let strip_id = StripId::new(ids.next());
+    let chain_id = ChainId::new(ids.next());
+    let port_in = SemanticPortId::new(ids.next());
+    let port_out = SemanticPortId::new(ids.next());
+    project.routing.chains.insert(
+        chain_id,
+        ProcessorChain {
+            id: chain_id,
+            processors: Vec::new(),
+        },
+    );
+    project.routing.strips.insert(
+        strip_id,
+        ChannelStrip {
+            id: strip_id,
+            owner,
+            chain: chain_id,
+            port_ids: vec![port_in, port_out],
+        },
+    );
+    for (id, direction) in [
+        (port_in, PortDirection::Input),
+        (port_out, PortDirection::Output),
+    ] {
+        project.routing.ports.insert(
+            id,
+            SemanticPort {
+                id,
+                owner: PortOwner::Strip(strip_id),
+                direction,
+                role: PortRole::Main,
+                domain: SignalDomain::Audio,
+                binding: PortBinding::Internal,
+            },
+        );
+    }
+    (strip_id, port_out)
+}
+
+/// Removes a strip and the entities it exclusively owns (its chain and
+/// its ports). Callers rely on the post-apply oracle to reject a
+/// command that would orphan connections or sends still referencing
+/// those ports.
+fn remove_strip_owned(project: &mut Project, strip_id: StripId) {
+    if let Some(strip) = project.routing.strips.remove(&strip_id) {
+        project.routing.chains.remove(&strip.chain);
+        for port_id in &strip.port_ids {
+            project.routing.ports.remove(port_id);
+        }
+    }
+}
+
+/// The master strip's main input port — the default destination every
+/// track strip routes into.
+fn master_main_input(project: &Project) -> Option<SemanticPortId> {
+    let master = project.routing.buses.get(&project.routing.master)?;
+    let strip = project.routing.strips.get(&master.strip)?;
+    strip
+        .port_ids
+        .iter()
+        .find(|p| {
+            project.routing.ports.get(p).is_some_and(|port| {
+                port.direction == PortDirection::Input && port.role == PortRole::Main
+            })
+        })
+        .copied()
+}
+
+/// Inserts a semantic port (routing ops draw its ID beforehand).
+fn insert_port(project: &mut Project, port: SemanticPort) {
+    project.routing.ports.insert(port.id, port);
+}
+
+/// The port binding derived from a processor's plugin binding:
+/// resolved instances bind to plugin-advertised port identities, an
+/// unresolved processor keeps its ports explicitly `Unresolved` —
+/// never silently rebound by numeric equality.
+fn processor_port_binding(binding: &ProcessorBinding, advertised: &str) -> PortBinding {
+    match binding {
+        ProcessorBinding::Resolved(reference) => PortBinding::PluginDeclared {
+            plugin: reference.descriptor.clone(),
+            advertised: advertised.to_string(),
+            capability_revision: reference.capability_revision,
+        },
+        ProcessorBinding::Unresolved { descriptor } => PortBinding::Unresolved {
+            plugin: descriptor.clone(),
+            advertised: advertised.to_string(),
+        },
+    }
 }
 
 /// Validates that a `ControlScope` resolves against existing entities.
