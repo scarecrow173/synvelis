@@ -17,6 +17,7 @@ Directory: `docs/plans`
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |
 | PLAN-034RoUbM3cA2J9g5wWzEfG | PC-C1 Recording Transaction 実装計画 | approved | [pc-c1-recording-transaction.md](./pc-c1-recording-transaction.md) |
 | PLAN-034SF01Np0sTu5vW2xYzAbDeF | SF-01 Semantic Routing Model 実装計画 | approved | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
+| PLAN-034SF02Wz0rOp7qT0vB5cDfGh | SF-02 RoutingTransaction 実装計画 — staging/検証/mute-solo/テスト | approved | [sf-02-routing-transaction.md](./sf-02-routing-transaction.md) |
 | PLAN-v1VQEMk92Nx1lQHUlSVh1t | SV-GUI-01 実装計画 — Desktop App Bootstrap・WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap.md](./sv-gui-01-desktop-app-bootstrap.md) |
 | PLAN-SVGUI02 | SV-GUI-02 View Model・Binding IPC 実装計画 | approved | [sv-gui-02-view-model-binding-ipc.md](./sv-gui-02-view-model-binding-ipc.md) |
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |

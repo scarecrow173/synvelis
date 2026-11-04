@@ -58,6 +58,8 @@ Directory: `docs/tasks`
 | TASK-034PCB06Rm1aUv7bDeFgHi | PC-B: dispatch/note-scope/RT/offline 実装タスク | done | [pc-b-task1-dispatch-note-rt-offline.md](./pc-b-task1-dispatch-note-rt-offline.md) |
 | TASK-034RoXjRUKOjib6ULatmIn | PC-C1: prepare/apply/finalize 実装タスク | done | [pc-c1-task1-prepare-apply-finalize.md](./pc-c1-task1-prepare-apply-finalize.md) |
 | TASK-034SF01Pr2uVw7xY4zAbCdFgH | SF-01: RoutingModel 型・oracle・Schema v6 Migration・ops・検証 | done | [sf-01-task1-routing-model-schema-migration.md](./sf-01-task1-routing-model-schema-migration.md) |
+| TASK-034SF02Yb2tQr9sV2xD7eFhIj | SF-02 T1: RoutingTransaction/TempRef staging・channels・mute/solo authority・汎用検証投影 | in-progress | [sf-02-task1-routing-transaction-staging-model.md](./sf-02-task1-routing-transaction-staging-model.md) |
+| TASK-034SF02Zc3uRs0tW3yE8fGiJk | SF-02 T2: 受入/Reject/不変/Undo 契約テストと canonical 検証 | todo | [sf-02-task2-validation-acceptance-tests.md](./sf-02-task2-validation-acceptance-tests.md) |
 | TASK-MlLPS12iG90WZhRs4S9pub | SV-GUI-01 task1 synvelis-app crate skeleton・Composition Root・AppService | done | [sv-gui-01-task1-app-crate-composition-root.md](./sv-gui-01-task1-app-crate-composition-root.md) |
 | TASK-jLkK7lARWtOgmAI02PaXQ5 | SV-GUI-01 task2 headless service op・asset check テスト | done | [sv-gui-01-task2-headless-service-asset-tests.md](./sv-gui-01-task2-headless-service-asset-tests.md) |
 | TASK-5ySbythnz4gMVnQauJQq8a | SV-GUI-01 task3 ui/ frontend pipeline・vendored sync・mise tasks | done | [sv-gui-01-task3-frontend-pipeline-vendor.md](./sv-gui-01-task3-frontend-pipeline-vendor.md) |
