@@ -251,61 +251,72 @@ impl SynvelisApp {
         self.push_surface_frames();
     }
 
-    /// Bound subscription rows — the projection channel.
+    /// Bound subscription rows — the projection channel. `observed`
+    /// carries the upstream `StateProjection` shape (`revision` +
+    /// `value` + `provenance`) so the frontend's `observe` can apply
+    /// its own revision guard without a second format.
     fn push_subscription_rows(&mut self) {
         let subs: Vec<(String, String)> = self.ui.subscriptions.iter().cloned().collect();
         for (view, target) in subs {
-            let row = if target == TRANSPORT_TARGET || target == TRANSPORT_POSITION_TARGET {
-                self.ui.controls.transport_row(&view).map(|r| {
-                    json!({
-                        "kind": "transport",
-                        "phase": r.phase,
-                        "generation": r.generation,
-                        "attached": r.attached,
-                        "timed_out": r.timed_out,
-                        "preview": r.preview,
-                        "last_receipt": r.last_receipt,
-                        "observed": r.observed.as_ref().map(|p| json!({
+            let Some(snap) = self.ui.controls.binding(&view, &target) else {
+                continue;
+            };
+            let kind = if target == TRANSPORT_TARGET || target == TRANSPORT_POSITION_TARGET {
+                "transport"
+            } else {
+                "param"
+            };
+            let observed = snap.last_observed.as_ref().map(|o| {
+                let value = match &o.value {
+                    synvelis_workspace::controls_ui::ProjectionValue::Parameter(p) => {
+                        let e = &p.breakdown.evaluation;
+                        json!({
+                            "plain": e.host_plain,
+                            "normalized": e.host_normalized,
+                            "read_only": p.read_only,
+                            "mode": format!("{:?}", p.breakdown.mode),
+                            "arm": format!("{:?}", p.breakdown.arm),
+                            "observation": format!("{:?}", p.breakdown.observation),
+                            "capability": p.breakdown.capability.is_some(),
+                        })
+                    }
+                    synvelis_workspace::controls_ui::ProjectionValue::Transport(p) => {
+                        json!({
                             "status": format!("{:?}", p.status),
                             "position": format!("{}", p.position),
-                            "loop_range": p.loop_range
+                            "loop_range": p
+                                .loop_range
                                 .map(|(a, b)| format!("{a}..{b}")),
                             "record_enabled": p.record_enabled,
                             "recording_active": p.recording_active,
-                        })),
-                    })
+                        })
+                    }
+                };
+                json!({
+                    "revision": o.revision,
+                    "value": value,
+                    "provenance": o.provenance,
                 })
-            } else {
-                self.ui.controls.strip_row(&view, &target).map(|r| {
-                    json!({
-                        "kind": "param",
-                        "phase": r.phase,
-                        "generation": r.generation,
-                        "attached": r.attached,
-                        "timed_out": r.timed_out,
-                        "preview": r.preview,
-                        "last_receipt": r.last_receipt,
-                        "observed": r.observed.as_ref().map(|p| {
-                            let e = &p.breakdown.evaluation;
-                            json!({
-                                "plain": e.host_plain,
-                                "normalized": e.host_normalized,
-                                "read_only": p.read_only,
-                                "mode": format!("{:?}", p.breakdown.mode),
-                                "arm": format!("{:?}", p.breakdown.arm),
-                                "observation": format!("{:?}", p.breakdown.observation),
-                                "capability": p.breakdown.capability.is_some(),
-                            })
-                        }),
-                    })
-                })
-            };
-            if let Some(value) = row {
-                self.push_notify(
-                    "syn.control.projection",
-                    json!({ "view_id": view, "target": target, "row": value }),
-                );
-            }
+            });
+            self.push_notify(
+                "syn.control.projection",
+                json!({
+                    "view_id": view,
+                    "target": target,
+                    "row": {
+                        "kind": kind,
+                        "phase": snap.phase,
+                        "generation": snap.generation,
+                        "attached": snap.attached,
+                        "subscribed": snap.subscribed,
+                        "timed_out": snap.timed_out,
+                        "preview": snap.preview,
+                        "last_receipt": snap.last_receipt,
+                        "observed": observed,
+                        "observed_seq": snap.observed_seq,
+                    },
+                }),
+            );
         }
     }
 

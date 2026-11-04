@@ -171,7 +171,7 @@ fn transport_action_receipt_and_projection_flow() {
     assert_eq!(last["target"], "transport");
     assert_eq!(last["row"]["kind"], "transport");
     assert_eq!(
-        last["row"]["observed"]["status"], "Playing",
+        last["row"]["observed"]["value"]["status"], "Playing",
         "applied truth lands as observed, not as request"
     );
 }
