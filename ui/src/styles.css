@@ -1,0 +1,223 @@
+:root {
+  color-scheme: dark;
+  --bg: #1b1d21;
+  --bg-panel: #23262c;
+  --fg: #e8e8ea;
+  --fg-dim: #9aa0a8;
+  --accent: #6aa9e8;
+  --warn: #f0a868;
+  --err: #e86a6a;
+  --ok: #6ac88a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, "Segoe UI", sans-serif;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.mono {
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+}
+
+/* menu */
+
+.menu-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.4rem 0.8rem;
+  background: var(--bg-panel);
+  border-bottom: 1px solid #33373f;
+}
+
+.menu-title {
+  font-weight: 600;
+}
+
+.menu-items {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.menu-item,
+button {
+  font: inherit;
+  color: var(--fg);
+  background: #2c3038;
+  border: 1px solid #3a3f47;
+  border-radius: 4px;
+  padding: 0.25rem 0.7rem;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* banners */
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.8rem;
+  font-size: 13px;
+}
+
+.banner-startup {
+  background: #3a3126;
+  color: var(--warn);
+}
+
+.banner-error {
+  background: #3a2626;
+  color: var(--err);
+}
+
+.banner-tag {
+  font-family: monospace;
+  font-size: 11px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  padding: 0 0.35rem;
+}
+
+.banner-close {
+  margin-left: auto;
+  padding: 0 0.5rem;
+}
+
+/* main panels */
+
+.shell-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  padding: 0.8rem;
+  align-content: start;
+}
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid #33373f;
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+}
+
+.panel h2 {
+  margin: 0 0 0.6rem;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-dim);
+}
+
+.project-info {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.8rem;
+  margin: 0 0 0.8rem;
+}
+
+.project-info dt {
+  color: var(--fg-dim);
+}
+
+.project-info dd {
+  margin: 0;
+}
+
+.project-form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.project-form label {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
+.project-form input {
+  font: inherit;
+  color: var(--fg);
+  background: #191b1f;
+  border: 1px solid #3a3f47;
+  border-radius: 4px;
+  padding: 0.35rem 0.5rem;
+}
+
+.project-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.transport-bar rvf-transport {
+  display: block;
+}
+
+/* status bar */
+
+.status-bar {
+  border-top: 1px solid #33373f;
+  background: var(--bg-panel);
+  padding: 0.35rem 0.8rem;
+  font-size: 12px;
+  color: var(--fg-dim);
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot.ok {
+  background: var(--ok);
+}
+
+.dot.off {
+  background: var(--err);
+}
+
+.caps-row {
+  margin-top: 0.25rem;
+}
+
+.cap-chip {
+  border: 1px solid #3a3f47;
+  border-radius: 3px;
+  padding: 0 0.4rem;
+  color: var(--warn);
+  font-family: monospace;
+  font-size: 11px;
+}

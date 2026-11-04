@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "types": ["node"],
+    "paths": {
+      "@ruviform/ui-core": ["./vendor/ruviform/ui/core/src/index.ts"],
+      "@ruviform/ui-components": ["./vendor/ruviform/ui/components/src/index.ts"],
+      "@ruviform/ui-binding": ["./vendor/ruviform/ui/binding/src/index.ts"],
+      "@ruviform/ui-viz": ["./vendor/ruviform/ui/viz/src/index.ts"]
+    }
+  },
+  "include": ["src", "test", "vendor"]
+}
