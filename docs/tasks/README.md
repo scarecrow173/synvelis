@@ -7,15 +7,10 @@ Directory: `docs/tasks`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | TASK-034Rp08nCxirezDOCQ9l0Z | CI 検証・証跡・最終レビュー | in-progress | [ci-task3-verify-review.md](./ci-task3-verify-review.md) |
-| TASK-034RBFUDGVewxs72FGa8RM | SYN-OBS-01 task1 依存更新と logging モジュール(設定解決/install/owner) | todo | [syn-obs-01-task1-deps-logging-module.md](./syn-obs-01-task1-deps-logging-module.md) |
-| TASK-034RBFVsXUmxHPEa6zbZRx | SYN-OBS-01 task2 ObservabilityOwner Source catalog と syn.app.info logging セクション | todo | [syn-obs-01-task2-owner-catalog-app-info.md](./syn-obs-01-task2-owner-catalog-app-info.md) |
-| TASK-034RBFW6PKUMmU8bg04whw | SYN-OBS-01 task3 service/app 非RT tracing イベント | todo | [syn-obs-01-task3-tracing-events.md](./syn-obs-01-task3-tracing-events.md) |
-| TASK-034RBFWIyMu9xrEL27zPNX | SYN-OBS-01 task4 synvelis bin 起動引数/install/attach 組込み | todo | [syn-obs-01-task4-bin-wiring.md](./syn-obs-01-task4-bin-wiring.md) |
-| TASK-034RBFXktNsZRlOztedppD | SYN-OBS-01 task5 logging テスト新設と mise 検証 | todo | [syn-obs-01-task5-tests-verification.md](./syn-obs-01-task5-tests-verification.md) |
-| TASK-034RBFY3O4vz81b0Rumg95 | SYN-OBS-01 task6 最終検証と impl record | todo | [syn-obs-01-task6-final-verify-impl-record.md](./syn-obs-01-task6-final-verify-impl-record.md) |
-| TASK-034RADbGVb9WAcV6EzJbCo | SV-GUI-02 frontend BindingPort/ViewModel/ConsoleView | todo | [sv-gui-02-frontend-bindingport-viewmodel-consoleview.md](./sv-gui-02-frontend-bindingport-viewmodel-consoleview.md) |
-| TASK-034RADctmZxjtLOOJAELUP | SV-GUI-02 検証レーン統合 (headless/vitest/guitest) | todo | [sv-gui-02-headless-vitest-guitest.md](./sv-gui-02-headless-vitest-guitest.md) |
-| TASK-034RADaUbkmnzbFjZ29bl4 | SV-GUI-02 ruviform rev 追従 + Rust syn.* UI op 面 | todo | [sv-gui-02-ruviform-rev-rust-syn-ui-op.md](./sv-gui-02-ruviform-rev-rust-syn-ui-op.md) |
+| TASK-034RGXoZuTHIczgPxzHY1W | Issue #151 T1 ui-verify lane + install-ui freshness 追加 | in-progress | [issue-151-t1-ui-verify-lane.md](./issue-151-t1-ui-verify-lane.md) |
+| TASK-034RADc5Q2mNYPcXkM8fR | SV-GUI-02 frontend BindingPort/ViewModel/ConsoleView | completed | [sv-gui-02-frontend-bindingport-viewmodel-consoleview.md](./sv-gui-02-frontend-bindingport-viewmodel-consoleview.md) |
+| TASK-034RADeL6sQ8vFzJ3xTmN | SV-GUI-02 検証レーン統合 (headless/vitest/guitest) | completed | [sv-gui-02-headless-vitest-guitest.md](./sv-gui-02-headless-vitest-guitest.md) |
+| TASK-034RADaUbkmnzbFjZ29bl4 | SV-GUI-02 ruviform rev 追従 + Rust syn.* UI op 面 | completed | [sv-gui-02-ruviform-rev-rust-syn-ui-op.md](./sv-gui-02-ruviform-rev-rust-syn-ui-op.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
 | TASK-034QfQZsTXhM5gVQP0gh81 | VS-C task3 staging writer | todo | [vs-c-task3-staging-writer.md](./vs-c-task3-staging-writer.md) |
@@ -29,6 +24,7 @@ Directory: `docs/tasks`
 | --- | --- | --- | --- |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |
 | TASK-034Rp07EGtrO1nUIIjiLh8 | ci.yml + dep-access composite action 実装 | done | [ci-task2-workflow.md](./ci-task2-workflow.md) |
+| TASK-034CTL01Sa3yBv9cE5fG6hIj | CTL-01: ControlOwner/AutomationTimeScope/ParameterRole 型・oracle・Schema v7 Migration・ops・検証 | done | [ctl-01-task1-owner-time-scope-schema-migration.md](./ctl-01-task1-owner-time-scope-schema-migration.md) |
 | TASK-034QAtPmN1oYgkip3TL6wG | ED-A task1 ProjectOp batch ops + selection model + ViewState 移行 | done | [ed-a-task1-selection-model-project-ops.md](./ed-a-task1-selection-model-project-ops.md) |
 | TASK-034QAu1d6DTe49e8cgWMtq | ED-A task2 tool resolution + gesture fixation/preview 型 | done | [ed-a-task2-tool-gesture-model.md](./ed-a-task2-tool-gesture-model.md) |
 | TASK-034QAu2bJQYSQOBkB7eOoz | ED-A task3 snap engine + edit op 構築 + commit/cancel 経路 | done | [ed-a-task3-snap-edit-commit.md](./ed-a-task3-snap-edit-commit.md) |
@@ -66,6 +62,12 @@ Directory: `docs/tasks`
 | TASK-xum593l0Fok2XTCWotqIwp | SV-GUI-01 task4 frontend headless test (ipc/store/components) | done | [sv-gui-01-task4-frontend-headless-tests.md](./sv-gui-01-task4-frontend-headless-tests.md) |
 | TASK-pFWmIPcnM0SNWSnPnDf7OQ | SV-GUI-01 task5 webview bin・実 Windows GUI 起動検証 | done | [sv-gui-01-task5-webview-bin-gui-launch.md](./sv-gui-01-task5-webview-bin-gui-launch.md) |
 | TASK-WhMYtZA3TKzN6d0ELzgJ3D | SV-GUI-01 task6 最終検証・merge・impl record | done | [sv-gui-01-task6-verification-impl-record.md](./sv-gui-01-task6-verification-impl-record.md) |
+| TASK-034RBFUDGVewxs72FGa8RM | SYN-OBS-01 task1 依存更新と logging モジュール(設定解決/install/owner) | done | [syn-obs-01-task1-deps-logging-module.md](./syn-obs-01-task1-deps-logging-module.md) |
+| TASK-034RBFVsXUmxHPEa6zbZRx | SYN-OBS-01 task2 ObservabilityOwner Source catalog と syn.app.info logging セクション | done | [syn-obs-01-task2-owner-catalog-app-info.md](./syn-obs-01-task2-owner-catalog-app-info.md) |
+| TASK-034RBFW6PKUMmU8bg04whw | SYN-OBS-01 task3 service/app 非RT tracing イベント | done | [syn-obs-01-task3-tracing-events.md](./syn-obs-01-task3-tracing-events.md) |
+| TASK-034RBFWIyMu9xrEL27zPNX | SYN-OBS-01 task4 synvelis bin 起動引数/install/attach 組込み | done | [syn-obs-01-task4-bin-wiring.md](./syn-obs-01-task4-bin-wiring.md) |
+| TASK-034RBFXktNsZRlOztedppD | SYN-OBS-01 task5 logging テスト新設と mise 検証 | done | [syn-obs-01-task5-tests-verification.md](./syn-obs-01-task5-tests-verification.md) |
+| TASK-034RBFY3O4vz81b0Rumg95 | SYN-OBS-01 task6 最終検証と impl record | done | [syn-obs-01-task6-final-verify-impl-record.md](./syn-obs-01-task6-final-verify-impl-record.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | TASK-034Qe0kHawWuXO1xHGTd8F | VS-A task3 controller ops store | done | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |
