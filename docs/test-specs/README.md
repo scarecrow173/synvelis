@@ -17,6 +17,7 @@ Directory: `docs/test-specs`
 | TSPEC-034RoV9mM6nXzVq1kYpQwE | PC-C1 Recording Transaction 検証仕様 | approved | [pc-c1-e2e-recording-transaction.md](./pc-c1-e2e-recording-transaction.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
 | TSPEC-A8sVfBvTuQextSVcPY8yp9 | SV-GUI-01 検証仕様 — App Bootstrap・Service 契約・Asset Pipeline | approved | [sv-gui-01-e2e-desktop-bootstrap.md](./sv-gui-01-e2e-desktop-bootstrap.md) |
+| TSPEC-034RBFeQnmt3PcI7beSRpy | SYN-OBS-01 検証仕様 — Host Logging install・設定解決・Health・Source catalog | draft | [syn-obs-01-logging-source-catalog.md](./syn-obs-01-logging-source-catalog.md) |
 | TSPEC-034RADiqUVQCamDG09qVZZ | SV-GUI-02 契約検証仕様 | draft | [sv-gui-02.md](./sv-gui-02.md) |
 | TSPEC-034QdZPqGguxUOzVihyxjE | VS-A F0 Gate 検証仕様 — Stable ID・時間・Command・Save/Reload・Recording | approved | [vs-a-f0-gate-stable-id-command-save-reload-recording.md](./vs-a-f0-gate-stable-id-command-save-reload-recording.md) |
 | TSPEC-dtmF30GppYRVULWnH8CG9o | VS-B E2E-R Gate 検証仕様 — Mock Gate・Buffer Pool・SPSC・Fail-stop | approved | [vs-b-e2e-r1-mock-gate-rt-capture.md](./vs-b-e2e-r1-mock-gate-rt-capture.md) |

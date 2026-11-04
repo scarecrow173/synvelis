@@ -72,6 +72,18 @@ fn app_info_reports_revisions_backend_and_counters() {
 }
 
 #[test]
+fn app_info_reports_logging_state_without_install() {
+    // SYN-OBS-01: the logging section is always present — `off` when the
+    // process entry point never attached an install outcome (tests,
+    // headless callers), with empty sink/degraded lists.
+    let mut rt = runtime();
+    let info = ok(&mut rt, "syn.app.info", json!({}));
+    assert_eq!(info["logging"]["state"], "off");
+    assert_eq!(info["logging"]["sinks"], json!([]));
+    assert_eq!(info["logging"]["degraded"], json!([]));
+}
+
+#[test]
 fn capabilities_lists_unavailable_areas_honestly() {
     let mut rt = runtime();
     let caps = ok(&mut rt, "syn.app.capabilities", json!({}));

@@ -232,10 +232,15 @@ impl Service for AppService {
         params: &Value,
         _ctx: &mut ServiceContext<'_>,
     ) -> Result<CallOutcome, ErrorBody> {
+        // Non-RT boundary: tracing is allowed here (service ops run on
+        // the UI/host thread, never on an audio callback). Event fields
+        // carry the op name only — params/bodies may contain paths.
+        tracing::debug!(op, "syn op received");
         self.app.observability().record_intent();
         let result = self.dispatch(op, params);
-        if result.is_err() {
+        if let Err(error) = &result {
             self.app.observability().record_intent_error();
+            tracing::warn!(op, code = %error.code, "syn op failed");
         }
         result.map(CallOutcome::Result)
     }
