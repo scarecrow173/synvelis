@@ -7,7 +7,7 @@ Directory: `docs/tasks`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | TASK-034Rp08nCxirezDOCQ9l0Z | CI 検証・証跡・最終レビュー | in-progress | [ci-task3-verify-review.md](./ci-task3-verify-review.md) |
-| TASK-034RGXoZuTHIczgPxzHY1W | Issue #151 T1 ui-verify lane + install-ui freshness 追加 | in-progress | [issue-151-t1-ui-verify-lane.md](./issue-151-t1-ui-verify-lane.md) |
+| TASK-034RINq1C9IMn7tPyqXY2h | Issue #147 T1 sccache verify/gw10 導入・実測評価 | in-progress | [issue-147-t1-sccache-verify-gw10.md](./issue-147-t1-sccache-verify-gw10.md) |
 | TASK-034RADc5Q2mNYPcXkM8fR | SV-GUI-02 frontend BindingPort/ViewModel/ConsoleView | completed | [sv-gui-02-frontend-bindingport-viewmodel-consoleview.md](./sv-gui-02-frontend-bindingport-viewmodel-consoleview.md) |
 | TASK-034RADeL6sQ8vFzJ3xTmN | SV-GUI-02 検証レーン統合 (headless/vitest/guitest) | completed | [sv-gui-02-headless-vitest-guitest.md](./sv-gui-02-headless-vitest-guitest.md) |
 | TASK-034RADaUbkmnzbFjZ29bl4 | SV-GUI-02 ruviform rev 追従 + Rust syn.* UI op 面 | completed | [sv-gui-02-ruviform-rev-rust-syn-ui-op.md](./sv-gui-02-ruviform-rev-rust-syn-ui-op.md) |
@@ -33,6 +33,7 @@ Directory: `docs/tasks`
 | TASK-034QAu61uDP868aqejEmAN | ED-A task6 最終検証 + impl record | done | [ed-a-task6-verification-impl-record.md](./ed-a-task6-verification-impl-record.md) |
 | TASK-034QN1YPq2DVRcHKewnTAs | ED-B task: ed_b acceptance tests | done | [ed-b-task-acceptance-tests.md](./ed-b-task-acceptance-tests.md) |
 | TASK-034QN1Ynloix2iEZj58mZJ | ED-B task: media move/trim/slip + marquee commit | done | [ed-b-task-media-commit.md](./ed-b-task-media-commit.md) |
+| TASK-034RGXoZuTHIczgPxzHY1W | Issue #151 T1 ui-verify lane + install-ui freshness 追加 | done | [issue-151-t1-ui-verify-lane.md](./issue-151-t1-ui-verify-lane.md) |
 | TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |
 | TASK-z866D1bQYKGTdgVlXsQMXJ | L1 task2 player crate fixture | done | [l1-task2-player-crate-fixture.md](./l1-task2-player-crate-fixture.md) |
 | TASK-W9NYIr58HYQiSJ9WczQxPS | L1 task3 import resolver | done | [l1-task3-import-resolver.md](./l1-task3-import-resolver.md) |
