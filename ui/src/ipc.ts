@@ -18,7 +18,24 @@ export type OpName =
   | "syn.project.save"
   | "syn.project.info"
   | "syn.transport.set"
-  | "syn.workspace.mount";
+  | "syn.workspace.mount"
+  | "syn.view.attach"
+  | "syn.view.detach"
+  | "syn.view.close"
+  | "syn.view.list"
+  | "syn.control.dispatch"
+  | "syn.control.subscribe"
+  | "syn.control.unsubscribe"
+  | "syn.control.targets"
+  | "syn.viz.bind"
+  | "syn.viz.meta"
+  | "syn.viz.query"
+  | "syn.viz.viewport"
+  | "syn.viz.select"
+  | "syn.viz.snapshot"
+  | "syn.viz.register"
+  | "syn.viz.push_frame"
+  | "syn.viz.source_changed";
 
 /** One `rvf.ipc.v1` envelope pushed from Rust (non-result kinds). */
 export interface RvfEvent {
