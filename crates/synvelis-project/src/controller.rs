@@ -210,6 +210,13 @@ impl ProjectController {
     /// takes the saved state as its new baseline: `live_revision` becomes
     /// the saved revision and the undo/redo stacks are cleared.
     ///
+    /// Older supported schema versions are migrated through
+    /// `crate::migration`'s ordered registry — the source snapshot bytes
+    /// stay immutable. A migrated load counts as one implicit revision
+    /// step (`live_revision = saved + 1`) so the next save publishes a
+    /// new snapshot name and can never overwrite the old body; `saved`
+    /// still records the HEAD the load came from.
+    ///
     /// # Errors
     /// Missing HEAD, parse failure, [`Error::UnsupportedSchema`], or a
     /// failed reference check — in all cases prior state is preserved.
@@ -219,15 +226,18 @@ impl ProjectController {
             .ok_or_else(|| Error::Store("store has no HEAD".into()))?;
         let bytes = store.read_snapshot(&head)?;
         let envelope: SnapshotEnvelope = serde_json::from_slice(&bytes)?;
-        if envelope.schema_version != SCHEMA_VERSION {
-            return Err(Error::UnsupportedSchema {
-                found: envelope.schema_version,
-            });
-        }
-        envelope.project.validate_references()?;
-        envelope.project.check_id_watermark()?;
-        self.live = envelope.project;
-        self.live_revision = envelope.revision.0;
+        let (project, migrated) = if envelope.schema_version == SCHEMA_VERSION {
+            (envelope.project, false)
+        } else {
+            (
+                crate::migration::migrate_to_current(envelope.schema_version, envelope.project)?,
+                true,
+            )
+        };
+        project.validate_references()?;
+        project.check_id_watermark()?;
+        self.live = project;
+        self.live_revision = envelope.revision.0 + u64::from(migrated);
         self.saved = Some(SavedState {
             revision: envelope.revision,
             head,

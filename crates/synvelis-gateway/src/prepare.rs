@@ -821,6 +821,18 @@ pub(crate) fn op_name(op: &ProjectOp) -> &'static str {
         ProjectOp::AddModulationAssignment { .. } => "add-modulation-assignment",
         ProjectOp::SetModulationAssignment { .. } => "set-modulation-assignment",
         ProjectOp::RemoveModulationAssignment { .. } => "remove-modulation-assignment",
+        ProjectOp::AddBus { .. } => "add-bus",
+        ProjectOp::RemoveBus { .. } => "remove-bus",
+        ProjectOp::AddTrackStrip { .. } => "add-track-strip",
+        ProjectOp::AddConnection { .. } => "add-connection",
+        ProjectOp::RemoveConnection { .. } => "remove-connection",
+        ProjectOp::AddSend { .. } => "add-send",
+        ProjectOp::RemoveSend { .. } => "remove-send",
+        ProjectOp::SetSendTap { .. } => "set-send-tap",
+        ProjectOp::SetConnectionEnabled { .. } => "set-connection-enabled",
+        ProjectOp::InsertProcessor { .. } => "insert-processor",
+        ProjectOp::RemoveProcessor { .. } => "remove-processor",
+        ProjectOp::ReorderProcessor { .. } => "reorder-processor",
     }
 }
 
