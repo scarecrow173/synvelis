@@ -6,6 +6,7 @@ Directory: `docs/adr`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| ADR-034CTL01Px0vYs6zB2cD3eFg | CTL-01 ControlOwner/AutomationTimeScope 責務分離・Schema v7・Versioned Migration 境界 | accepted | [ctl-01-control-owner-time-scope-schema-v7.md](./ctl-01-control-owner-time-scope-schema-v7.md) |
 | ADR-034QAmdUp9fg7PPVCOQtcx | ED-A editing-model placement: synvelis-workspace gesture/tool/snap state machines + synvelis-project batch ops | accepted | [ed-a-editing-model-placement-synvelis-workspace-gesture-tool-snap-state-machines.md](./ed-a-editing-model-placement-synvelis-workspace-gesture-tool-snap-state-machines.md) |
 | ADR-034QN06oqUD5VvvsC9aedM | ED-B media-domain gesture positions + slip/trim/marquee commit semantics | accepted | [ed-b-media-domain-gesture-positions-slip-trim-marquee-commit-semantics.md](./ed-b-media-domain-gesture-positions-slip-trim-marquee-commit-semantics.md) |
 | ADR-Gw01GateWayCrateBoundary | GW-01 — synvelis-gateway crate 配置と契約境界 | accepted | [gw-01-gateway-contract-crate-boundary.md](./gw-01-gateway-contract-crate-boundary.md) |
@@ -17,8 +18,8 @@ Directory: `docs/adr`
 | ADR-034RoTL4YIadCWevIM5Mfg | PC-C1: commit 境界を session CAS orchestration + 非破壊 prepared commit に置く決定 | accepted | [pc-c1-commit-session-cas-orchestration-prepared-commit.md](./pc-c1-commit-session-cas-orchestration-prepared-commit.md) |
 | ADR-034SF01Ln8qRs3tU0vWxYzBcD | SF-01 Routing Model 配置・Schema v6 Migration・Reserved Well-Known ID | approved | [sf-01-routing-model-schema-v6-migration.md](./sf-01-routing-model-schema-v6-migration.md) |
 | ADR-2kAD08Yeuxmx8U4t2mD2wr | SV-GUI-01 app crate boundary・webview feature gate・vendored ui/* TS pipeline | accepted | [sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md](./sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md) |
-| ADR-034RBxHj0wzQculGmgXguq | SYN-OBS-01 単一crate ruviform-observability logging feature 採用と Host 所有 Global Subscriber | proposed | [syn-obs-01-crate-ruviform-observability-logging-feature-host-global-subscriber.md](./syn-obs-01-crate-ruviform-observability-logging-feature-host-global-subscriber.md) |
-| ADR-034RAA8oZVNDaL6mMAMJ55 | SV-GUI-02 syn.* binding IPC surface・notify outbox・bounded wire DTO | proposed | [sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md](./sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md) |
+| ADR-034RAA8oZVNDaL6mMAMJ55 | SV-GUI-02 syn.* binding IPC surface・notify outbox・bounded wire DTO | accepted | [sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md](./sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md) |
+| ADR-034RBxHj0wzQculGmgXguq | SYN-OBS-01 単一crate ruviform-observability logging feature 採用と Host 所有 Global Subscriber | accepted | [syn-obs-01-crate-ruviform-observability-logging-feature-host-global-subscriber.md](./syn-obs-01-crate-ruviform-observability-logging-feature-host-global-subscriber.md) |
 | ADR-034QdxBCx9w88ptCJEEz7D | VS-A Workspace構成・Ruviform git依存・永続化PoC・Stable ID生成 | accepted | [vs-a-workspace-ruviform-git-poc-stable-id.md](./vs-a-workspace-ruviform-git-poc-stable-id.md) |
 | ADR-ODnVCNLDT5mtpswKxVDw9R | VS-B SPSCプリミティブ・Gate Schedule表現・Fault通知・Chunk所有権 | accepted | [vs-b-ruviform-rt-spsc-gate-schedule-fault-ownership.md](./vs-b-ruviform-rt-spsc-gate-schedule-fault-ownership.md) |
 | ADR-034QfJdymYmhzfa9PFs8fD | VS-C Journal形式・Checkpoint Sync方針・Fault隔離・Finalized出力 | accepted | [vs-c-journal-checkpoint-sync-fault-finalized.md](./vs-c-journal-checkpoint-sync-fault-finalized.md) |

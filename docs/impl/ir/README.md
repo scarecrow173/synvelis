@@ -9,6 +9,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-034RGXq9DiVrM6SNyBhyQs | Issue #151 ui-verify lane 実装記録 | completed | [issue-151-ui-verify-lane.md](issue-151-ui-verify-lane.md) |
 | IMPL-034Rx4ef0v8Ch5IBl2s39L | SV-GUI-01 desktop app bootstrap webview frontend pipeline | completed | [sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md](sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md) |
 | IMPL-034QeegdSleOElhx1CWUGn | VS-A task6 verification merge impl record | completed | [vs-a-task6-verification-merge-impl-record.md](vs-a-task6-verification-merge-impl-record.md) |
 | IMPL-034QeecIYVT0VX2rTFukXg | VS-A task1 workspace skeleton | completed | [vs-a-task1-workspace-skeleton.md](vs-a-task1-workspace-skeleton.md) |
