@@ -16,6 +16,10 @@ name: ci
 # skip され、`evidence` が根拠付き NotApplicable 以外の未実行を拒否する
 # 唯一の安定的 required context。repository variable
 # `CI_SELECTIVE_DISABLE=1` で shadow mode(全 lane 実行)へ即時 rollback。
+# Issue #157 rev.2 (#148/#145 2026-11-05 合意): macOS leg は required
+# universe から物理分離 — `verify`/`gw10-verify`/`ui-verify` の matrix は
+# ubuntu+windows のみとし、macOS は非 required の `*-macos` job が継続
+# 実行して結果を記録する(runner 逼迫が PR gate を塞がない)。
 
 on:
   pull_request:
@@ -125,8 +129,10 @@ jobs:
     strategy:
       # 片 OS の失敗で他 OS の証跡を失わない。
       fail-fast: false
+      # Issue #157 rev.2: macos-latest leg は非 required の verify-macos
+      # job へ分離。ここには required context を持つ OS のみ残す。
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     env:
       CARGO_INCREMENTAL: "0"
     steps:
@@ -266,6 +272,152 @@ jobs:
           if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
           rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
 
+  # Issue #157 rev.2 (#148/#145 2026-11-05 合意): macOS non-blocking
+  # track。verify/gw10-verify/ui-verify の macos leg を required
+  # universe から物理分離した専用 job — required context・evidence の
+  # 期待集合のどちらにも含めず、runner 逼迫による queue/cancel が PR
+  # gate を塞がない。ただし skip/無視はしない: lane が schedule される
+  # 限り継続実行し、結果は本 job の summary と evidence の Observed 表に
+  # Fail/Cancelled/Pending/Skipped として記録される(実行済み失敗を
+  # 隠さない・runner 不足を NotApplicable にしない)。正式リリース/
+  # Consumer 受入では候補 SHA の macOS 実測が別途必須(runbook 参照)。
+  verify-macos:
+    name: verify-macos
+    needs: classify
+    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'verify')
+    runs-on: macos-latest
+    timeout-minutes: 40
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          lfs: true
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore CI-required tools from mise.lock
+        shell: bash
+        run: |
+          mise trust
+          mise install --locked rust prek git-lfs actionlint
+
+      - name: Resolve ruviform dep access
+        id: dep-access
+        uses: ./.github/actions/ruviform-dep-access
+        with:
+          deploy-key: ${{ secrets.CROSS_REPO_DEPLOY_KEY }}
+
+      - name: Restore cargo registry/git index cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Set up sccache
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+        with:
+          version: "v0.19.0"
+
+      - name: Export sccache GHA backend env
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const token = process.env.ACTIONS_RUNTIME_TOKEN || '';
+            const url = process.env.ACTIONS_RESULTS_URL || '';
+            const gha = token !== '' && url !== '';
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', token);
+            core.exportVariable('ACTIONS_RESULTS_URL', url);
+            core.exportVariable('SCCACHE_GHA_ENABLED', gha ? 'true' : 'false');
+            core.exportVariable('SCCACHE_GHA_VERSION', `synvelis-v1-${process.env.RUNNER_OS || 'unknown'}`);
+            core.exportVariable('RUSTC_WRAPPER', 'sccache');
+            core.info(`sccache GHA backend: ${gha ? 'enabled' : 'disabled (cache credentials absent)'}`);
+
+      - name: Verify sccache environment
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v sccache
+          sccache --version
+          echo "RUSTC_WRAPPER=$RUSTC_WRAPPER"
+          echo "SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED"
+          echo "SCCACHE_GHA_VERSION=$SCCACHE_GHA_VERSION"
+          if [ -n "${ACTIONS_RESULTS_URL:-}" ]; then echo "ACTIONS_RESULTS_URL: set"; else echo "::warning::ACTIONS_RESULTS_URL missing — sccache GHA backend disabled (local disk fallback)"; fi
+          if [ -n "${ACTIONS_RUNTIME_TOKEN:-}" ]; then echo "ACTIONS_RUNTIME_TOKEN: set"; else echo "::warning::ACTIONS_RUNTIME_TOKEN missing — sccache GHA backend disabled (local disk fallback)"; fi
+
+      - name: Check config files with prek
+        run: mise exec -- prek run --all-files
+
+      - name: Lint workflows (mise run lint-actions)
+        id: lint-actions
+        run: mise run lint-actions
+
+      - name: Check formatting (mise run fmt-check)
+        id: fmt
+        run: mise run fmt-check
+
+      - name: Type-check workspace (mise run check)
+        id: check
+        run: mise run check
+
+      - name: Lint workspace (mise run lint)
+        id: lint
+        run: mise run lint
+
+      - name: Test workspace (mise run test)
+        id: test
+        run: mise run test
+
+      - name: Assert Cargo.lock unchanged
+        id: lockdiff
+        run: git diff --exit-code -- Cargo.lock
+
+      - name: sccache statistics
+        if: always() && vars.CI_SCCACHE_DISABLE != '1'
+        shell: bash
+        run: sccache --show-stats || true
+
+      - name: Record lane evidence
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## verify-macos — run ${{ github.run_id }}#${{ github.run_attempt }} (non-blocking observed leg)"
+            echo ""
+            echo "- commit: ${{ github.sha }}"
+            echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
+            echo "- toolchain: $(mise exec -- rustc --version 2>/dev/null || echo 'n/a')"
+            echo ""
+            echo "| step | result |"
+            echo "|---|---|"
+            echo "| lint-actions | ${{ steps.lint-actions.outcome || 'not run' }} |"
+            echo "| fmt-check | ${{ steps.fmt.outcome || 'not run' }} |"
+            echo "| check | ${{ steps.check.outcome || 'not run' }} |"
+            echo "| lint | ${{ steps.lint.outcome || 'not run' }} |"
+            echo "| test | ${{ steps.test.outcome || 'not run' }} |"
+            echo "| lockfile-diff | ${{ steps.lockdiff.outcome || 'not run' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup credential
+        if: always()
+        shell: bash
+        run: |
+          git config --global --unset-all url."git@github.com:scarecrow173/ruviform.git".insteadOf || true
+          rt="$RUNNER_TEMP"
+          if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
+          rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
+
   rt-verify:
     name: rt-verify
     needs: classify
@@ -354,8 +506,10 @@ jobs:
     timeout-minutes: 40
     strategy:
       fail-fast: false
+      # Issue #157 rev.2: macos-latest leg は非 required の
+      # gw10-verify-macos job へ分離。
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     env:
       CARGO_INCREMENTAL: "0"
     steps:
@@ -462,6 +616,116 @@ jobs:
           if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
           rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
 
+  # Issue #157 rev.2: gw10-verify の macOS non-blocking track
+  # (構造は verify-macos と同型、詳細はそちらのコメント参照)。
+  gw10-verify-macos:
+    name: gw10-verify-macos
+    needs: classify
+    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'gw10-verify')
+    runs-on: macos-latest
+    timeout-minutes: 40
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          lfs: true
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore CI-required tools from mise.lock
+        shell: bash
+        run: |
+          mise trust
+          mise install --locked rust git-lfs
+
+      - name: Resolve ruviform dep access
+        id: dep-access
+        uses: ./.github/actions/ruviform-dep-access
+        with:
+          deploy-key: ${{ secrets.CROSS_REPO_DEPLOY_KEY }}
+
+      - name: Restore cargo registry/git index cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Set up sccache
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+        with:
+          version: "v0.19.0"
+
+      - name: Export sccache GHA backend env
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const token = process.env.ACTIONS_RUNTIME_TOKEN || '';
+            const url = process.env.ACTIONS_RESULTS_URL || '';
+            const gha = token !== '' && url !== '';
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', token);
+            core.exportVariable('ACTIONS_RESULTS_URL', url);
+            core.exportVariable('SCCACHE_GHA_ENABLED', gha ? 'true' : 'false');
+            core.exportVariable('SCCACHE_GHA_VERSION', `synvelis-v1-${process.env.RUNNER_OS || 'unknown'}`);
+            core.exportVariable('RUSTC_WRAPPER', 'sccache');
+            core.info(`sccache GHA backend: ${gha ? 'enabled' : 'disabled (cache credentials absent)'}`);
+
+      - name: Verify sccache environment
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v sccache
+          sccache --version
+          echo "RUSTC_WRAPPER=$RUSTC_WRAPPER"
+          echo "SCCACHE_GHA_ENABLED=$SCCACHE_GHA_ENABLED"
+          echo "SCCACHE_GHA_VERSION=$SCCACHE_GHA_VERSION"
+          if [ -n "${ACTIONS_RESULTS_URL:-}" ]; then echo "ACTIONS_RESULTS_URL: set"; else echo "::warning::ACTIONS_RESULTS_URL missing — sccache GHA backend disabled (local disk fallback)"; fi
+          if [ -n "${ACTIONS_RUNTIME_TOKEN:-}" ]; then echo "ACTIONS_RUNTIME_TOKEN: set"; else echo "::warning::ACTIONS_RUNTIME_TOKEN missing — sccache GHA backend disabled (local disk fallback)"; fi
+
+      - name: Run GW-10 evidence-gated harness (mise run gw10)
+        id: gw10
+        run: mise run gw10
+
+      - name: sccache statistics
+        if: always() && vars.CI_SCCACHE_DISABLE != '1'
+        shell: bash
+        run: sccache --show-stats || true
+
+      - name: Record lane evidence
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## gw10-verify-macos — run ${{ github.run_id }}#${{ github.run_attempt }} (non-blocking observed leg)"
+            echo ""
+            echo "- commit: ${{ github.sha }}"
+            echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
+            echo ""
+            echo "| step | result |"
+            echo "|---|---|"
+            echo "| gw10 harness + strict report | ${{ steps.gw10.outcome || 'not run' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup credential
+        if: always()
+        shell: bash
+        run: |
+          git config --global --unset-all url."git@github.com:scarecrow173/ruviform.git".insteadOf || true
+          rt="$RUNNER_TEMP"
+          if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
+          rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
+
   msrv-verify:
     name: msrv-verify
     needs: classify
@@ -549,8 +813,10 @@ jobs:
     strategy:
       # 片 OS の失敗で他 OS の証跡を失わない。
       fail-fast: false
+      # Issue #157 rev.2: macos-latest leg は非 required の
+      # ui-verify-macos job へ分離。
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
     env:
       CARGO_INCREMENTAL: "0"
       # この lane だけ node を有効化する(ui/ npm 依存)。workflow 既定の
@@ -621,6 +887,101 @@ jobs:
         run: |
           {
             echo "## ui-verify (${{ matrix.os }}) — run ${{ github.run_id }}#${{ github.run_attempt }}"
+            echo ""
+            echo "- commit: ${{ github.sha }}"
+            echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
+            echo ""
+            echo "| step | result |"
+            echo "|---|---|"
+            echo "| cargo fetch --locked | ${{ steps.fetch.outcome || 'not run' }} |"
+            echo "| sync-ui-deps | ${{ steps.sync.outcome || 'not run' }} |"
+            echo "| setup-ui (npm ci once) | ${{ steps.setup.outcome || 'not run' }} |"
+            echo "| check-ui | ${{ steps.check.outcome || 'not run' }} |"
+            echo "| test-ui | ${{ steps.test.outcome || 'not run' }} |"
+            echo "| build-ui | ${{ steps.build.outcome || 'not run' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup credential
+        if: always()
+        shell: bash
+        run: |
+          git config --global --unset-all url."git@github.com:scarecrow173/ruviform.git".insteadOf || true
+          rt="$RUNNER_TEMP"
+          if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
+          rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
+
+  # Issue #157 rev.2: ui-verify の macOS non-blocking track
+  # (構造は verify-macos と同型、詳細はそちらのコメント参照)。
+  ui-verify-macos:
+    name: ui-verify-macos
+    needs: classify
+    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'ui-verify')
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: "0"
+      MISE_ENABLE_TOOLS: rust,git-lfs,node
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore CI-required tools from mise.lock
+        shell: bash
+        run: |
+          mise trust
+          mise install --locked rust git-lfs node
+
+      - name: Resolve ruviform dep access
+        id: dep-access
+        uses: ./.github/actions/ruviform-dep-access
+        with:
+          deploy-key: ${{ secrets.CROSS_REPO_DEPLOY_KEY }}
+
+      - name: Restore cargo registry/git index cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-ui-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-ui-
+
+      - name: Fetch deps with locked lockfile
+        id: fetch
+        run: mise exec -- cargo fetch --locked
+
+      - name: Sync vendored ruviform ui/* (mise run sync-ui-deps)
+        id: sync
+        run: mise run sync-ui-deps
+
+      - name: Install UI npm dependencies (mise run setup-ui)
+        id: setup
+        run: mise run setup-ui
+
+      - name: Type-check UI (mise run check-ui)
+        id: check
+        run: mise run check-ui
+
+      - name: Test UI (mise run test-ui)
+        id: test
+        run: mise run test-ui
+
+      - name: Build UI bundle (mise run build-ui)
+        id: build
+        run: mise run build-ui
+
+      - name: Record lane evidence
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## ui-verify-macos — run ${{ github.run_id }}#${{ github.run_attempt }} (non-blocking observed leg)"
             echo ""
             echo "- commit: ${{ github.sha }}"
             echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
@@ -746,6 +1107,8 @@ jobs:
   # required context となる。needs に skip された lane があっても
   # `if: always()` で必ず実行し、required leg の skip を violation
   # として fail するため、job skip が required context を緑にできない。
+  # rev.2: `*-macos` job は needs に含めない — required 判定が macOS
+  # runner 状況に依存しない(結果は Observed 表に記録のみ)。
   evidence:
     name: evidence
     needs: [classify, verify, rt-verify, gw10-verify, msrv-verify, ui-verify, dep-guard]
@@ -793,8 +1156,10 @@ jobs:
           set -euo pipefail
           # Issue #157: leg の conclusion 遷移(cancel/fail 処理)中に jobs
           # API が job エントリを一時的に欠落して返し得る。expected 件数
-          # (lane leg 総数 + evidence 自身)に満たない間は bounded retry
-          # し、それでも不足なら gate が fail-closed で absent を検出する。
+          # (lane leg 総数 + observed macOS + evidence 自身)に満たない間は
+          # bounded retry し、それでも不足なら gate が fail-closed で
+          # absent を検出する。selective で `if:` skip された job は API
+          # に出ないため、件数不足でも bounded 回で先へ進む。
           expected="$(( $(mise exec -- node tools/ci-impact.mjs lanes | wc -l) + 1 ))"
           for i in 1 2 3 4; do
             gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?filter=all&per_page=100" --jq '.jobs' > run-jobs.json

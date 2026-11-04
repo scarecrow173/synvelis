@@ -7,14 +7,28 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { buildImpactReport, evaluateGate } from "./ci-impact.mjs";
 
+// Required lane legs — Issue #157 rev.2: macOS legs are physically
+// separated into the non-blocking OBSERVED track, so each matrix lane
+// contributes ubuntu+windows legs only.
 const ALL_LANES = [
-  "verify", "verify", "verify",
+  "verify", "verify",
   "rt-verify",
-  "gw10-verify", "gw10-verify", "gw10-verify",
+  "gw10-verify", "gw10-verify",
   "msrv-verify",
-  "ui-verify", "ui-verify", "ui-verify",
+  "ui-verify", "ui-verify",
   "dep-guard", "classify",
 ];
+
+const REQUIRED_LEG_NAMES = [
+  "verify (ubuntu-latest)", "verify (windows-latest)",
+  "rt-verify",
+  "gw10-verify (ubuntu-latest)", "gw10-verify (windows-latest)",
+  "msrv-verify",
+  "ui-verify (ubuntu-latest)", "ui-verify (windows-latest)",
+  "dep-guard", "classify",
+];
+
+const OBSERVED_LEG_NAMES = ["verify-macos", "gw10-verify-macos", "ui-verify-macos"];
 
 function requiredLanes(report) {
   return report.lanes.filter((l) => l.expectation === "required").map((l) => l.lane).sort();
@@ -33,14 +47,10 @@ const job = (name, conclusion = "success", attempt = 1) => ({
   completed_at: "2026-11-04T00:05:00Z",
 });
 
-const allPassJobs = (skip = []) =>
-  ["verify (ubuntu-latest)", "verify (windows-latest)", "verify (macos-latest)",
-    "rt-verify",
-    "gw10-verify (ubuntu-latest)", "gw10-verify (windows-latest)", "gw10-verify (macos-latest)",
-    "msrv-verify",
-    "ui-verify (ubuntu-latest)", "ui-verify (windows-latest)", "ui-verify (macos-latest)",
-    "dep-guard", "classify"]
+const allPassJobs = (skip = [], observed = OBSERVED_LEG_NAMES.map((n) => job(n))) =>
+  REQUIRED_LEG_NAMES
     .map((n) => job(n, skip.includes(n) ? "skipped" : "success"))
+    .concat(observed)
     .concat([{ name: "evidence", status: "in_progress", conclusion: null, run_attempt: 1 }]);
 
 function reportFor(files, mode = "shadow") {
@@ -57,9 +67,9 @@ describe("classify: path rules and classes", () => {
 
   it("recording crate change requires verify+msrv+rt but not gw10/ui", () => {
     const r = reportFor(["crates/synvelis-recording/src/journal.rs"]);
-    assert.deepEqual(requiredLanes(r), ["classify", "dep-guard", "msrv-verify", "rt-verify", "verify", "verify", "verify"]);
-    assert.ok(notApplicable(r, "gw10-verify").length === 3);
-    assert.ok(notApplicable(r, "ui-verify").length === 3);
+    assert.deepEqual(requiredLanes(r), ["classify", "dep-guard", "msrv-verify", "rt-verify", "verify", "verify"]);
+    assert.ok(notApplicable(r, "gw10-verify").length === 2);
+    assert.ok(notApplicable(r, "ui-verify").length === 2);
     assert.deepEqual(r.crates.affected.sort(), ["recording-poc", "synvelis-player", "synvelis-recording", "synvelis-render"].sort());
   });
 
@@ -67,7 +77,7 @@ describe("classify: path rules and classes", () => {
     const r = reportFor(["crates/synvelis-project/src/store.rs"]);
     assert.ok(requiredLanes(r).includes("gw10-verify"));
     assert.ok(requiredLanes(r).includes("rt-verify"));
-    assert.ok(notApplicable(r, "ui-verify").length === 3);
+    assert.ok(notApplicable(r, "ui-verify").length === 2);
   });
 
   it("gateway change requires gw10 but not rt (dep direction)", () => {
@@ -133,7 +143,7 @@ describe("classify: selective scheduling (Issue #157)", () => {
     const r = reportFor(["ui/src/x.ts"], "selective");
     assert.deepEqual(scheduledLegs(r), [
       "classify", "dep-guard",
-      "ui-verify (macos-latest)", "ui-verify (ubuntu-latest)", "ui-verify (windows-latest)",
+      "ui-verify (ubuntu-latest)", "ui-verify (windows-latest)",
     ].sort());
   });
 
@@ -145,13 +155,15 @@ describe("classify: selective scheduling (Issue #157)", () => {
   it("selective keeps RT/GW-10/MSRV/verify scheduled for owner-affecting changes", () => {
     const r = reportFor(["crates/synvelis-project/src/store.rs"], "selective");
     const legs = scheduledLegs(r);
-    for (const n of ["verify (ubuntu-latest)", "verify (windows-latest)", "verify (macos-latest)",
+    for (const n of ["verify (ubuntu-latest)", "verify (windows-latest)",
       "rt-verify", "msrv-verify", "dep-guard", "classify"]) {
       assert.ok(legs.includes(n), n);
     }
     // synvelis-project propagates to gateway -> gw10 required too.
     assert.ok(legs.includes("gw10-verify (ubuntu-latest)"));
     assert.ok(!legs.includes("ui-verify (ubuntu-latest)"));
+    // macOS legs are not part of the required universe at all (rev.2).
+    assert.ok(!r.lanes.some((l) => l.os === "macos-latest"));
   });
 
   it("selective trigger/fallback schedules every leg", () => {
@@ -228,17 +240,44 @@ describe("gate: fail-closed verdicts", () => {
 
   it("selective mode: skipped not-applicable leg is authorized", () => {
     const impact = reportFor(["ui/src/x.ts"], "selective");
-    const jobs = allPassJobs(["verify (ubuntu-latest)", "verify (windows-latest)", "verify (macos-latest)", "rt-verify", "msrv-verify",
-      "gw10-verify (ubuntu-latest)", "gw10-verify (windows-latest)", "gw10-verify (macos-latest)"]);
+    const jobs = allPassJobs(["verify (ubuntu-latest)", "verify (windows-latest)", "rt-verify", "msrv-verify",
+      "gw10-verify (ubuntu-latest)", "gw10-verify (windows-latest)"]);
     const v = evaluateGate({ impact, jobs, attempt: 1 });
     assert.equal(v.ok, true, JSON.stringify(v.violations));
   });
 
   it("selective mode: skipped required leg is a violation", () => {
     const impact = reportFor(["ui/src/x.ts"], "selective");
-    const v = evaluateGate({ impact, jobs: allPassJobs(["ui-verify (macos-latest)"]), attempt: 1 });
+    const v = evaluateGate({ impact, jobs: allPassJobs(["ui-verify (windows-latest)"]), attempt: 1 });
     assert.equal(v.ok, false);
-    assert.ok(v.violations.some((m) => m.includes("ui-verify (macos-latest)")));
+    assert.ok(v.violations.some((m) => m.includes("ui-verify (windows-latest)")));
+  });
+
+  it("Issue #157 rev.2: observed macOS legs never gate — cancelled and failed stay non-blocking but recorded", () => {
+    const impact = reportFor(["ui/src/x.ts"], "selective");
+    const observed = [
+      job("verify-macos", "cancelled"),
+      job("gw10-verify-macos", "failure"),
+      { name: "ui-verify-macos", status: "in_progress", conclusion: null, run_attempt: 1 },
+    ];
+    const v = evaluateGate({ impact, jobs: allPassJobs([], observed), attempt: 1 });
+    assert.equal(v.ok, true, JSON.stringify(v.violations));
+    assert.equal(v.observed.find((o) => o.name === "verify-macos").verdict, "cancelled");
+    assert.equal(v.observed.find((o) => o.name === "gw10-verify-macos").verdict, "fail");
+    assert.equal(v.observed.find((o) => o.name === "ui-verify-macos").verdict, "pending");
+  });
+
+  it("Issue #157 rev.2: observed legs absent from the API view are recorded pending, not violations", () => {
+    const v = evaluateGate({ impact: reportFor(["ui/src/x.ts"], "selective"), jobs: allPassJobs([], []), attempt: 1 });
+    assert.equal(v.ok, true, JSON.stringify(v.violations));
+    assert.ok(v.observed.every((o) => o.verdict === "pending"));
+  });
+
+  it("Issue #157 rev.2: required Linux/Windows/RT/MSRV leg cancelled still fails the gate", () => {
+    const jobs = allPassJobs().map((j) => (j.name === "gw10-verify (windows-latest)" ? job("gw10-verify (windows-latest)", "cancelled") : j));
+    const v = evaluateGate({ impact: reportFor(["ui/src/x.ts"]), jobs, attempt: 1 });
+    assert.equal(v.ok, false);
+    assert.ok(v.violations.some((m) => m.includes("gw10-verify (windows-latest)")));
   });
 
   it("picks the job entry for the requested attempt", () => {
