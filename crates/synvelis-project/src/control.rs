@@ -1512,6 +1512,396 @@ pub fn lane_value(project: &Project, target: ParameterTargetId, pos: BeatPoint) 
     }
 }
 
+// ---------------------------------------------------------------------------
+// viewport LOD (issue #134) — bounded read-only projection, never persisted
+// ---------------------------------------------------------------------------
+
+/// Bounded viewport query for [`automation_view`]. `start`/`end` are
+/// the target's **scope coordinate** projected to `f64` — the display
+/// axis a viewport reports (for `ProjectMusical` targets this equals
+/// project beats). Stored positions keep their exact `BeatPoint`
+/// truth; the `f64` window is display-only.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CurveQuery {
+    /// Window start (inclusive).
+    pub start: f64,
+    /// Window end (inclusive — the last bin and the verbatim channel
+    /// cover a point at exactly `end`).
+    pub end: f64,
+    /// Number of envelope bins (`> 0`), typically the plot pixel width.
+    pub bins: usize,
+    /// Maximum verbatim stored points the view may return.
+    pub max_points: usize,
+    /// Maximum classified features the view may emit.
+    pub max_features: usize,
+}
+
+/// One display bin of the envelope: `min`/`max` are the evaluated
+/// curve's **exact** extrema inside the bin (not an approximation —
+/// Linear segments are affine so endpoints and stored points carry
+/// every extremum). `NaN` when the series does not reach the bin.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ViewBin {
+    /// Bin left edge (inclusive).
+    pub start: f64,
+    /// Bin right edge (exclusive, except the last bin which includes
+    /// `end`).
+    pub end: f64,
+    /// Exact curve minimum inside the bin; `NaN` when uncovered.
+    pub min: f64,
+    /// Exact curve maximum inside the bin; `NaN` when uncovered.
+    pub max: f64,
+    /// Stored points whose position falls in this bin. `0` is legal
+    /// for a covered bin — the tail after the last point is held by
+    /// chase, distinguishing "held" from "missing" data.
+    pub count: usize,
+    /// Whether the evaluated curve reaches this bin at all.
+    pub covered: bool,
+}
+
+/// A classified curve feature the LOD must never silently drop.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CurveFeatureKind {
+    /// Step-interpolated discontinuity — the held value jumps at this
+    /// exact position.
+    StepEdge,
+    /// Strict local extremum — the stored value reverses direction.
+    Extremum,
+    /// A region's `range.start`/`range.end` — a recorded coverage edge
+    /// (AUT-02 sentinel anchors are captured through these).
+    RegionBoundary,
+}
+
+/// A feature at an exact stored position. `pos` keeps `BeatPoint`
+/// precision (display `f64` is never used for feature positions).
+#[derive(Clone, Debug, PartialEq)]
+pub struct CurveFeature {
+    /// The feature's exact position (scope coordinate).
+    pub pos: BeatPoint,
+    /// The value at the feature (evaluated for boundaries; `NaN` when
+    /// the series does not reach the position).
+    pub value: f64,
+    /// What the feature marks.
+    pub kind: CurveFeatureKind,
+}
+
+/// Fidelity classification of an [`AutomationCurveView`].
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum CurveQuality {
+    /// Every in-view stored point was returned verbatim and every
+    /// feature was emitted — full fidelity.
+    Exact,
+    /// The verbatim point channel was reduced but **no feature was
+    /// dropped** — envelope and features still carry the full curve
+    /// shape.
+    Reduced,
+    /// At least one feature was dropped — the view may lose curve
+    /// shape. Reported honestly even when the rendered result looks
+    /// smooth.
+    Truncated,
+}
+
+/// The bounded LOD projection over one target's merged series —
+/// a volatile DTO for display, never persisted and never a second
+/// source of truth.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AutomationCurveView {
+    /// Exact per-bin min/max envelope, `bins` entries.
+    pub bins: Vec<ViewBin>,
+    /// Verbatim stored points inside the view (the explicit-anchor
+    /// channel), position-ascending, reduced to `max_points`.
+    pub points: Vec<AutomationPoint>,
+    /// Classified features (`StepEdge`/`Extremum`/`RegionBoundary`),
+    /// position-ascending, reduced to `max_features`.
+    pub features: Vec<CurveFeature>,
+    /// `(start, end)` extents of regions overlapping the view, in
+    /// `f64` scope coordinates — the recorded coverage the curve is
+    /// derived from.
+    pub coverage: Vec<(f64, f64)>,
+    /// Fidelity of this view.
+    pub quality: CurveQuality,
+    /// Stored points inside the view window (before reduction).
+    pub source_points: usize,
+    /// In-view stored points not returned in `points`.
+    pub truncated_points: usize,
+    /// Features not emitted in `features`.
+    pub truncated_features: usize,
+}
+
+/// Exact `f64` evaluation at `x` over the `(pos_f64, value, interp)`
+/// series — the last point at or before `x` holds (chase semantics);
+/// `None` before the first point.
+fn eval_at_f64(series: &[(f64, f64, Interpolation)], x: f64) -> Option<f64> {
+    let idx = series.partition_point(|p| p.0 <= x).checked_sub(1)?;
+    Some(series_piece(series, idx, x))
+}
+
+/// Left-limit evaluation approaching `x` — the piece active just
+/// *before* `x` (a point at exactly `x` contributes nothing). `None`
+/// when no point precedes `x`.
+fn eval_before_f64(series: &[(f64, f64, Interpolation)], x: f64) -> Option<f64> {
+    let idx = series.partition_point(|p| p.0 < x).checked_sub(1)?;
+    Some(series_piece(series, idx, x))
+}
+
+/// The piecewise value at `x` under segment `idx`'s interpolation.
+fn series_piece(series: &[(f64, f64, Interpolation)], idx: usize, x: f64) -> f64 {
+    let (p0, v0, interp) = series[idx];
+    match (interp, series.get(idx + 1)) {
+        (Interpolation::Linear, Some(&(p1, v1, _))) => {
+            v0 + (v1 - v0) * ((x - p0) / (p1 - p0)).clamp(0.0, 1.0)
+        }
+        _ => v0,
+    }
+}
+
+/// The bounded viewport LOD projection of `target`'s merged series
+/// (issue #134). Read-only: the project is never mutated, no undo
+/// entry is created, and the persisted point columns stay the single
+/// source of truth.
+///
+/// The envelope is exact at bin granularity; `StepEdge`/`Extremum`/
+/// `RegionBoundary` features carry exact `BeatPoint` positions;
+/// `points` returns stored points verbatim (the explicit-anchor
+/// channel). Nothing is dropped silently: `quality` reports
+/// `Exact`/`Reduced`/`Truncated`, and bins the series does not reach
+/// carry `NaN` min/max with `covered = false`.
+///
+/// # Errors
+/// [`Error::NotFound`] for an unknown target, [`Error::Validation`]
+/// for a non-finite window, `end <= start`, or `bins == 0`.
+pub fn automation_view(
+    project: &Project,
+    target: ParameterTargetId,
+    query: &CurveQuery,
+) -> Result<AutomationCurveView, Error> {
+    if !project.control.targets.contains_key(&target) {
+        return Err(Error::NotFound(format!("param {target}")));
+    }
+    if !query.start.is_finite() || !query.end.is_finite() || query.end <= query.start {
+        return Err(Error::Validation(format!(
+            "view window [{}, {}) is not finite/increasing",
+            query.start, query.end
+        )));
+    }
+    if query.bins == 0 {
+        return Err(Error::Validation("view bins must be > 0".into()));
+    }
+    let merged = merged_series(project, target);
+    let series: Vec<(f64, f64, Interpolation)> = merged
+        .iter()
+        .map(|(pos, v, interp)| (pos.to_f64(), *v, *interp))
+        .collect();
+    // In-view stored points: `pos` in the closed window `[start, end]`
+    // (the last bin includes `end`).
+    let in_view: Vec<usize> = (0..merged.len())
+        .filter(|&i| {
+            let x = series[i].0;
+            query.start <= x && x <= query.end
+        })
+        .collect();
+    let (features, coverage, truncated_features) =
+        curve_view_features(project, target, &merged, &series, &in_view, query);
+    // Verbatim point channel: feature-tagged points first, then plain
+    // anchors in position order, capped at `max_points`.
+    let flagged_pos: BTreeSet<BeatPoint> = features
+        .iter()
+        .filter(|f| f.kind != CurveFeatureKind::RegionBoundary)
+        .map(|f| f.pos)
+        .collect();
+    let mut selected: Vec<usize> = in_view
+        .iter()
+        .copied()
+        .filter(|&i| flagged_pos.contains(&merged[i].0))
+        .collect();
+    selected.extend(
+        in_view
+            .iter()
+            .copied()
+            .filter(|i| !flagged_pos.contains(&merged[*i].0))
+            .take(query.max_points.saturating_sub(selected.len())),
+    );
+    selected.truncate(query.max_points);
+    selected.sort_unstable();
+    let points: Vec<AutomationPoint> = selected
+        .iter()
+        .map(|&i| AutomationPoint {
+            pos: merged[i].0,
+            value: merged[i].1,
+        })
+        .collect();
+    let truncated_points = in_view.len() - selected.len();
+    let bins_out = curve_view_bins(&series, &in_view, query);
+    let quality = if truncated_features > 0 {
+        CurveQuality::Truncated
+    } else if truncated_points > 0 {
+        CurveQuality::Reduced
+    } else {
+        CurveQuality::Exact
+    };
+    Ok(AutomationCurveView {
+        bins: bins_out,
+        points,
+        features,
+        coverage,
+        quality,
+        source_points: in_view.len(),
+        truncated_points,
+        truncated_features,
+    })
+}
+
+/// Classifies the view's features and computes the region coverage —
+/// returns `(features, coverage, truncated_features)`: shape-critical
+/// `StepEdge`/`Extremum` first, `RegionBoundary` filling the rest of
+/// `max_features`, everything dropped counted toward `Truncated`.
+fn curve_view_features(
+    project: &Project,
+    target: ParameterTargetId,
+    merged: &[(BeatPoint, f64, Interpolation)],
+    series: &[(f64, f64, Interpolation)],
+    in_view: &[usize],
+    query: &CurveQuery,
+) -> (Vec<CurveFeature>, Vec<(f64, f64)>, usize) {
+    let mut critical: Vec<CurveFeature> = Vec::new();
+    let mut boundaries: Vec<CurveFeature> = Vec::new();
+    for &i in in_view {
+        let (pos, v, _) = merged[i];
+        // A step discontinuity arrives through the *previous* segment's
+        // interpolation; stored values are exact, so an edge is an
+        // exact change — not an epsilon difference.
+        #[expect(clippy::float_cmp)]
+        let step_edge = i > 0 && merged[i - 1].2 == Interpolation::Step && v != merged[i - 1].1;
+        if step_edge {
+            critical.push(CurveFeature {
+                pos,
+                value: v,
+                kind: CurveFeatureKind::StepEdge,
+            });
+        }
+        // Strict direction reversal — a peak or trough the LOD must
+        // keep even when the verbatim channel is reduced.
+        if i > 0 && i + 1 < merged.len() {
+            let d1 = v - merged[i - 1].1;
+            let d2 = merged[i + 1].1 - v;
+            if d1 * d2 < 0.0 {
+                critical.push(CurveFeature {
+                    pos,
+                    value: v,
+                    kind: CurveFeatureKind::Extremum,
+                });
+            }
+        }
+    }
+    let mut coverage = Vec::new();
+    for lane in project
+        .control
+        .lanes
+        .values()
+        .filter(|l| l.target == target)
+    {
+        for region in &lane.regions {
+            let rs = region.range.start().to_f64();
+            let re = region.range.end().to_f64();
+            if rs < query.end && re > query.start {
+                coverage.push((rs, re));
+                for (pos, at_start) in [(region.range.start(), true), (region.range.end(), false)] {
+                    let x = pos.to_f64();
+                    if query.start <= x && x <= query.end {
+                        let value = if at_start {
+                            eval_at_f64(series, x).unwrap_or(f64::NAN)
+                        } else {
+                            eval_before_f64(series, x).unwrap_or(f64::NAN)
+                        };
+                        boundaries.push(CurveFeature {
+                            pos,
+                            value,
+                            kind: CurveFeatureKind::RegionBoundary,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    coverage.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let take_critical = critical.len().min(query.max_features);
+    let take_boundary = boundaries
+        .len()
+        .min(query.max_features.saturating_sub(take_critical));
+    let truncated_features = critical.len() - take_critical + (boundaries.len() - take_boundary);
+    let mut features: Vec<CurveFeature> = critical
+        .into_iter()
+        .take(take_critical)
+        .chain(boundaries.into_iter().take(take_boundary))
+        .collect();
+    features.sort_by(|a, b| a.pos.cmp(&b.pos).then(a.kind.cmp(&b.kind)));
+    (features, coverage, truncated_features)
+}
+
+/// The exact per-bin envelope — half-open bins except the closed
+/// last one; a covered bin feeds `eval_at(start)`, each stored point
+/// inside, and the right-edge limit (`eval_before`, or `eval_at(end)`
+/// on the last bin). Because `Linear` pieces are affine and `Step`
+/// pieces are held, these candidates carry the true min/max — the
+/// envelope is exact, not a sampling approximation.
+#[allow(clippy::cast_precision_loss)] // same documented lossy axis
+fn curve_view_bins(
+    series: &[(f64, f64, Interpolation)],
+    in_view: &[usize],
+    query: &CurveQuery,
+) -> Vec<ViewBin> {
+    let first_x = series.first().map_or(f64::INFINITY, |p| p.0);
+    let width = (query.end - query.start) / query.bins as f64;
+    let mut bins_out = Vec::with_capacity(query.bins);
+    for i in 0..query.bins {
+        let s = query.start + width * i as f64;
+        let last = i + 1 == query.bins;
+        let e = if last {
+            query.end
+        } else {
+            query.start + width * (i + 1) as f64
+        };
+        // Half-open bins cover `x >= first` iff `e > first`; the last
+        // bin is closed and also covers a point at exactly `end`.
+        let covered = if last { e >= first_x } else { e > first_x };
+        let mut lo = f64::INFINITY;
+        let mut hi = f64::NEG_INFINITY;
+        let mut count = 0usize;
+        if covered {
+            let mut feed = |v: Option<f64>| {
+                if let Some(v) = v {
+                    lo = lo.min(v);
+                    hi = hi.max(v);
+                }
+            };
+            if s >= first_x {
+                feed(eval_at_f64(series, s));
+            }
+            for &j in in_view {
+                let x = series[j].0;
+                if s <= x && (x < e || (last && x <= e)) {
+                    feed(Some(series[j].1));
+                    count += 1;
+                }
+            }
+            if last {
+                feed(eval_at_f64(series, e));
+            } else {
+                feed(eval_before_f64(series, e));
+            }
+        }
+        bins_out.push(ViewBin {
+            start: s,
+            end: e,
+            min: if covered { lo } else { f64::NAN },
+            max: if covered { hi } else { f64::NAN },
+            count,
+            covered,
+        });
+    }
+    bins_out
+}
+
 /// Evaluates `target` at project position `pos` (or a manual
 /// pre-modulation override), returning the full breakdown.
 ///

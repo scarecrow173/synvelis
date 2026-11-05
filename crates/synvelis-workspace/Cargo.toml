@@ -16,4 +16,8 @@ synvelis-gateway = { path = "../synvelis-gateway" }
 ruviform-ui.workspace = true
 ruviform-media-core.workspace = true
 ruviform-plugin-core.workspace = true
+ruviform-rt.workspace = true
 ruviform-viz.workspace = true
+
+[dev-dependencies]
+stats_alloc = "0.1.10"
