@@ -109,24 +109,28 @@ macOS 非 required の互換 gate として維持する。`workflow_dispatch` �
 
 ## Done When
 
-- [ ] `mise run test-ci-summary` pass(検証仕様の全契約 pin)。
-- [ ] `mise run lint-actions` pass。
-- [ ] `mise exec -- prek run --all-files` pass。
-- [ ] ci.yml: classify/lane `if:`/`CI_SELECTIVE_DISABLE` が無く、
+- [x] `mise run test-ci-summary` pass(29 tests・検証仕様の全契約 pin)。
+- [x] `mise run lint-actions` pass。
+- [x] `mise exec -- prek run --all-files` pass。
+- [x] ci.yml: classify/lane `if:`/`CI_SELECTIVE_DISABLE` が無く、
       `evidence`(required 互換)と `ci-summary`(full 集約)が
       `if: always()` で併存、全 lane が trigger 毎回実行。
-- [ ] `workflow_dispatch.inputs.expected_sha` と checkout pin・
+- [x] `workflow_dispatch.inputs.expected_sha` と checkout pin・
       `ci-summary` の HEAD 一致検証が実装済み。
-- [ ] 旧 spec 3件に superseded 標記、README index 更新。
-- [ ] ローカル検証の実行結果(コマンド・exit code)が報告済み。
+- [x] 旧 spec 3件に superseded 標記、README index 更新。
+- [x] ローカル検証の実行結果(コマンド・exit code)が報告済み。
 
 ## Verification
 
-- [ ] `mise run test-ci-summary`
-- [ ] `node tools/ci-summary.mjs gate`(合成 run-jobs 再生・pr/full)
-- [ ] `node tools/ci-summary.mjs expected-jobs --mode pr|full`
-- [ ] `mise run lint-actions`
-- [ ] `mise exec -- prek run --all-files`
-- [ ] `mise run fmt-check` / `check` / `lint` / `test`(workspace 非回帰)
+- [x] `mise run test-ci-summary` — 29 pass / 0 fail(Windows・mise 管理 node 26.12.1)。
+- [x] `node tools/ci-summary.mjs gate`(合成 run-jobs 再生) —
+      pr: macOS fail を observed として pass(exit 0)、full: macOS
+      fail/absent + evidence in_progress を violation として fail
+      (exit 1)、all-green: pass(exit 0)。
+- [x] `node tools/ci-summary.mjs expected-jobs --mode pr|full` — 13 / 14。
+- [x] `mise run lint-actions` — actionlint clean(exit 0)。
+- [x] `mise exec -- prek run --all-files` — 全 hook pass(exit 0)。
+- [x] `mise run fmt-check` / `check` / `lint` / `test` — 全 pass
+      (CARGO_NET_OFFLINE=1 で依存 download 無しを強制、exit 0)。
 - GitHub Actions 実 run・PR check — 実行不可(GitHub 書き込み禁止、
   coordinator へブロッキング条件として報告)。
