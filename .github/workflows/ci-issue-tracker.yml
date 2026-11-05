@@ -1,0 +1,71 @@
+name: ci-issue-tracker
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ci-issue-tracker-${{ github.repository }}
+  cancel-in-progress: false
+
+env:
+  MISE_ENABLE_TOOLS: node
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - name: Checkout trusted default-branch repository
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Checkout shared CI implementation
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: scarecrow173/ruviform
+          ref: 669d6d88892dd61d166035aa8a3331def0311957
+          path: .ci-shared/ruviform
+          ssh-key: ${{ secrets.CROSS_REPO_DEPLOY_KEY }}
+          persist-credentials: false
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore node toolchain from mise.lock
+        run: |
+          mise trust
+          mise install --locked node
+
+      - name: Record shared CI implementation revision
+        run: |
+          echo "Shared CI revision: $(git -C .ci-shared/ruviform rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Self-test shared tracker evaluator
+        run: mise exec -- node --test .ci-shared/ruviform/ci/tracker/
+
+      - name: Evaluate completed run and update failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRACKER_EVENT_PATH: ${{ github.event_path }}
+        run: mise exec -- node .ci-shared/ruviform/ci/tracker/tracker.mjs --report ci-issue-tracker-report.json
+
+      - name: Upload tracker report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-issue-tracker-report-attempt-${{ github.run_attempt }}
+          path: ci-issue-tracker-report.json
+          if-no-files-found: warn
