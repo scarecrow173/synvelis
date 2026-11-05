@@ -172,7 +172,8 @@ DECLARED_NOT_RUN:   非自動化の実機/GUI 受入(従来表を維持)
 - ヘッダ: run URL/attempt、head SHA、base SHA(PR 時)、ruviform
   resolved SHA(dep-guard output)。
 - **SHA contract セクション**: `expected_sha` input 値(未指定時は
-  `<unset>`)、checkout 後 `git rev-parse HEAD`、`github.sha`。
+  `<unset>`)、checkout 後 `git rev-parse HEAD`、`github.sha`
+  (workflow revision)。
 - leg 表: `| lane leg | required | actual | verdict |`(actual は
   `status/conclusion` または `absent`)。
 - `pr` mode は別表で observed macOS legs を記録。
@@ -189,7 +190,11 @@ DECLARED_NOT_RUN:   非自動化の実機/GUI 受入(従来表を維持)
   - push: `github.sha` = push 済み commit(既定と同じ・ref 名より
     race-free)。
   - dispatch 指定あり: expected_sha を pin(github.sha=dispatch 時の
-    ref HEAD とずれ得るため input を優先)。
+    ref HEAD とずれ得るため input を優先)。ずれている run は
+    ci-summary の revision 検証で fail となる(後述)。
+- 全 lane の証跡 step は `commit:` 行に checkout 済み
+  `git rev-parse HEAD` を記録する — `github.sha` ではなく実際に
+  検証したコミットを残す。
 - `classify` job・全 lane の `needs: classify`/`if:`・mode env を
   削除。`concurrency`・permissions・sccache・dep-access・証跡記録の
   各 step は変更しない。
@@ -197,11 +202,43 @@ DECLARED_NOT_RUN:   非自動化の実機/GUI 受入(従来表を維持)
   を `expected-jobs --mode pr`(13)、gate を
   `mise run ci-summary-gate`(`CI_SUMMARY_MODE: pr`)へ置換。
   tool self-test `mise run test-ci-summary` を collect 前に実行。
-- `ci-summary` job(新規): checkout(ref pin)→ expected_sha
-  検証 step(指定時 `git rev-parse HEAD` と一致確認、不一致 fail;
-  未指定は記録のみ)→ mise/node 復元 → `expected-jobs --mode full`
-  (14)の bounded retry 収集 → `CI_SUMMARY_MODE: full` で gate。
-  permissions は evidence と同じ `contents:read + actions:read`。
+- `ci-summary` job(新規): checkout(ref pin)→ mise/node 復元 →
+  `tools/ci-summary.mjs verify-sha` で expected_sha 契約を検証
+  (指定時 `expected_sha == github.sha == checked-out HEAD` の
+  3 点一致、不一致 fail; 未指定は不発動・記録のみ)→
+  `expected-jobs --mode full`(14)の bounded retry 収集 →
+  `CI_SUMMARY_MODE: full` で gate。permissions は evidence と同じ
+  `contents:read + actions:read`。
+
+### expected_sha revision 契約の根拠
+
+`workflow_dispatch` では GitHub が dispatch された ref の **その時点の
+head revision** から workflow 定義を読み込む — 任意の過去 SHA の
+workflow revision を選んで dispatch する手段は存在しない。したがって
+`github.sha` は「この run が使う workflow revision」と等価であり、
+候補 SHA の検証は `expected_sha == github.sha` が成り立つ場合にのみ
+「その SHA 自身の CI 定義」で行われたと言える。
+
+scheduler が候補 SHA を計算してから dispatch run が作られるまでに ref
+が進んだ場合(stale dispatch)、run は **新しい revision の workflow
+定義** で **古い候補 SHA のコード** を検証することになる。CI 定義自体
+が間に変わり得るため、この結果を候補 SHA の Full CI 証跡として採用
+すると誤認の余地がある。検討した選択肢:
+
+- **warning で継続(旧実装)**: 証跡が「どの revision の検証か」を
+  曖昧に残し、stale な run が緑に見える。誤認リスクを残すので不可。
+- **ci.yml 等の内容比較で許容**: ci.yml が同一でも composite action・
+  mise.toml など workflow 入力は revision ごと異なり得、完全な同値
+  判定にならない。複雑化に対し安全性が不完全で不採用。
+- **3 点一致で fail-closed(採用)**: `expected_sha == github.sha ==
+  checked-out HEAD`。stale dispatch は失敗として記録され、
+  scheduler(#167)は新しい head で再 dispatch する — main に
+  未検証の新 SHA があることは scheduler 側の通常状態であり、
+  追加運用を必要としない。最も単純で厳密に安全。
+
+なお checkout pin `expected_sha || github.sha` は 3 点一致が保証
+される場合 `github.sha` と同値になるが、「どのコードを検証対象と
+するか」を宣言的に示すため維持する。
 
 ## mise.toml 変更
 

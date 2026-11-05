@@ -26,9 +26,13 @@ name: ci
 # trigger だけ先に止めるデッドロックは禁止)。
 #
 # workflow_dispatch.inputs.expected_sha: daily-ci(#167)が main 候補
-# SHA を pin して dispatch する契約の受け口。全 job の checkout が
-# `expected_sha || github.sha` を参照し、ci-summary が HEAD 一致を
-# fail-closed 検証する。未指定の手動起動・PR/push では既定 ref。
+# SHA を pin して dispatch する契約の受け口。workflow 定義は dispatch
+# された ref の head revision (= github.sha)から読み込まれるため、
+# ci-summary が expected_sha == github.sha == checked-out HEAD の
+# 3 点一致を fail-closed 検証する — ref が進んだ stale dispatch は
+# 別 revision の検証結果を候補 SHA の証跡と誤認させないよう拒否。
+# 全 job の checkout は `expected_sha || github.sha` を参照し、
+# 未指定の手動起動・PR/push では既定 ref。
 
 on:
   pull_request:
@@ -193,7 +197,7 @@ jobs:
           {
             echo "## verify (${{ matrix.os }}) — run ${{ github.run_id }}#${{ github.run_attempt }}"
             echo ""
-            echo "- commit: ${{ github.sha }}"
+            echo "- commit: $(git rev-parse HEAD 2>/dev/null || echo 'n/a')"
             echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
             echo "- toolchain: $(mise exec -- rustc --version 2>/dev/null || echo 'n/a')"
             echo ""
@@ -340,7 +344,7 @@ jobs:
           {
             echo "## verify-macos — run ${{ github.run_id }}#${{ github.run_attempt }} (non-blocking observed leg)"
             echo ""
-            echo "- commit: ${{ github.sha }}"
+            echo "- commit: $(git rev-parse HEAD 2>/dev/null || echo 'n/a')"
             echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
             echo "- toolchain: $(mise exec -- rustc --version 2>/dev/null || echo 'n/a')"
             echo ""
@@ -425,7 +429,7 @@ jobs:
           {
             echo "## rt-verify — run ${{ github.run_id }}#${{ github.run_attempt }}"
             echo ""
-            echo "- commit: ${{ github.sha }}"
+            echo "- commit: $(git rev-parse HEAD 2>/dev/null || echo 'n/a')"
             echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
             echo ""
             echo "| step | result |"
@@ -543,7 +547,7 @@ jobs:
           {
             echo "## gw10-verify (${{ matrix.os }}) — run ${{ github.run_id }}#${{ github.run_attempt }}"
             echo ""
-            echo "- commit: ${{ github.sha }}"
+            echo "- commit: $(git rev-parse HEAD 2>/dev/null || echo 'n/a')"
             echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
             echo ""
             echo "| step | result |"
@@ -652,7 +656,7 @@ jobs:
           {
             echo "## gw10-verify-macos — run ${{ github.run_id }}#${{ github.run_attempt }} (non-blocking observed leg)"
             echo ""
-            echo "- commit: ${{ github.sha }}"
+            echo "- commit: $(git rev-parse HEAD 2>/dev/null || echo 'n/a')"
             echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
             echo ""
             echo "| step | result |"
@@ -724,7 +728,7 @@ jobs:
           {
             echo "## msrv-verify — run ${{ github.run_id }}#${{ github.run_attempt }}"
             echo ""
-            echo "- commit: ${{ github.sha }}"
+            echo "- commit: $(git rev-parse HEAD 2>/dev/null || echo 'n/a')"
             echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
             echo "- declared rust-version: $(grep -E '^rust-version' Cargo.toml || echo 'n/a')"
             echo ""
@@ -831,7 +835,7 @@ jobs:
           {
             echo "## ui-verify (${{ matrix.os }}) — run ${{ github.run_id }}#${{ github.run_attempt }}"
             echo ""
-            echo "- commit: ${{ github.sha }}"
+            echo "- commit: $(git rev-parse HEAD 2>/dev/null || echo 'n/a')"
             echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
             echo ""
             echo "| step | result |"
@@ -926,7 +930,7 @@ jobs:
           {
             echo "## ui-verify-macos — run ${{ github.run_id }}#${{ github.run_attempt }} (non-blocking observed leg)"
             echo ""
-            echo "- commit: ${{ github.sha }}"
+            echo "- commit: $(git rev-parse HEAD 2>/dev/null || echo 'n/a')"
             echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
             echo ""
             echo "| step | result |"
@@ -1020,7 +1024,7 @@ jobs:
           {
             echo "## dep-guard — run ${{ github.run_id }}#${{ github.run_attempt }}"
             echo ""
-            echo "- commit: ${{ github.sha }}"
+            echo "- commit: $(git rev-parse HEAD 2>/dev/null || echo 'n/a')"
             echo "- dep access: ${{ steps.dep-access.outputs.mode || 'not resolved' }}"
             echo "- ruviform resolved SHA: ${{ steps.lockguard.outputs.ruviform_sha || 'n/a' }}"
             echo ""
@@ -1145,28 +1149,6 @@ jobs:
         with:
           ref: ${{ inputs.expected_sha || github.sha }}
 
-      # expected_sha 契約: dispatch で指定された main 候補 SHA と実際に
-      # checkout された HEAD の一致を検証する(未指定の trigger では
-      # 記録のみ)。不一致は後段 gate 以前にここで fail — 誤った SHA の
-      # 検証結果を証跡として残さない。
-      - name: Verify expected_sha contract
-        id: sha-check
-        shell: bash
-        env:
-          EXPECTED_SHA: ${{ inputs.expected_sha }}
-        run: |
-          set -euo pipefail
-          head_sha="$(git rev-parse HEAD)"
-          echo "resolved_head=$head_sha" >> "$GITHUB_OUTPUT"
-          echo "expected_sha=${EXPECTED_SHA:-<unset>} github_sha=${{ github.sha }} checked_out=$head_sha"
-          if [ -n "${EXPECTED_SHA:-}" ] && [ "$head_sha" != "$EXPECTED_SHA" ]; then
-            echo "::error::checked-out HEAD $head_sha does not match expected_sha $EXPECTED_SHA"
-            exit 1
-          fi
-          if [ -n "${EXPECTED_SHA:-}" ] && [ "${{ github.sha }}" != "$EXPECTED_SHA" ]; then
-            echo "::warning::github.sha ${{ github.sha }} differs from expected_sha $EXPECTED_SHA — run verifies the expected_sha pin, ref has since moved"
-          fi
-
       - name: Set up mise
         uses: jdx/mise-action@v5.2.0
         with:
@@ -1177,6 +1159,25 @@ jobs:
         run: |
           mise trust
           mise install --locked node
+
+      # expected_sha 契約: GitHub は dispatch された ref の head revision
+      # (= github.sha)から workflow 定義を読み込む — github.sha が
+      # workflow revision そのもの。candidate SHA と食い違う stale
+      # dispatch は、別 revision の workflow で検証した結果を候補 SHA の
+      # Full CI 証跡と誤認し得るため fail-closed で拒否する(scheduler
+      # は新 head で再 dispatch する)。tools/ci-summary.mjs verify-sha
+      # が expected_sha == github.sha == checked-out HEAD の 3 点一致を
+      # 検証(未指定の trigger では不発動・記録のみ)。
+      - name: Verify expected_sha contract (mise exec ci-summary verify-sha)
+        id: sha-check
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          head_sha="$(git rev-parse HEAD)"
+          echo "resolved_head=$head_sha" >> "$GITHUB_OUTPUT"
+          mise exec -- node tools/ci-summary.mjs verify-sha --expected "${EXPECTED_SHA:-}" --head "$head_sha" --github-sha "${{ github.sha }}"
 
       - name: Collect per-leg job results
         shell: bash

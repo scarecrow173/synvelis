@@ -134,3 +134,20 @@ macOS 非 required の互換 gate として維持する。`workflow_dispatch` �
       (CARGO_NET_OFFLINE=1 で依存 download 無しを強制、exit 0)。
 - GitHub Actions 実 run・PR check — 実行不可(GitHub 書き込み禁止、
   coordinator へブロッキング条件として報告)。
+
+## Verification 追補 — expected_sha revision 契約修正(coordinator 指摘)
+
+- 指摘: `verify expected_sha contract` が `expected_sha != github.sha`
+  で warning のみで通過し、lane 証跡が `github.sha` を記録していた。
+  stale dispatch(ref が進んだ場合)は「別 workflow revision の検証
+  結果を候補 SHA の Full CI 成功」と誤認可能だった。
+- 修正: `tools/ci-summary.mjs verify-sha` サブコマンドを新設し
+  `expected_sha == github.sha == checked-out HEAD` の 3 点一致を
+  fail-closed 検証(stale dispatch は失敗、scheduler が新 head で
+  再 dispatch)。全 lane の `commit:` 証跡を `git rev-parse HEAD`
+  (実際に検証したコミット)へ修正。回帰 test 7 件を追加。
+- [x] `mise run test-ci-summary` — 36 pass / 0 fail。
+- [x] `mise run lint-actions` — actionlint clean(exit 0)。
+- [x] `mise exec -- prek run --all-files` — 全 hook pass(exit 0)。
+- 根拠・検討した代替案は `docs/designs/issue-166-full-ci-ci-summary.md`
+  「expected_sha revision 契約の根拠」を参照。

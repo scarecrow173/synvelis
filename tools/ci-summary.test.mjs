@@ -7,7 +7,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { evaluateGate, expectedJobs } from "./ci-summary.mjs";
+import { evaluateGate, expectedJobs, verifySha } from "./ci-summary.mjs";
 
 const REQUIRED_LEG_NAMES = [
   "verify (ubuntu-latest)", "verify (windows-latest)",
@@ -207,6 +207,65 @@ describe("expected-jobs count", () => {
   });
   it("unknown mode falls back to the full universe floor", () => {
     assert.equal(expectedJobs("bogus"), 14);
+  });
+});
+
+describe("verify-sha: expected_sha revision contract", () => {
+  const SHA_A = "a".repeat(40);
+  const SHA_B = "b".repeat(40);
+
+  it("unset expected_sha -> ok, contract not engaged", () => {
+    for (const expected of [undefined, null, "", "  "]) {
+      const r = verifySha({ expected, head: SHA_A, githubSha: SHA_A });
+      assert.equal(r.ok, true);
+      assert.equal(r.skipped, true);
+      assert.equal(r.errors.length, 0);
+    }
+  });
+
+  it("expected == head == github.sha -> ok", () => {
+    const r = verifySha({ expected: SHA_A, head: SHA_A, githubSha: SHA_A });
+    assert.equal(r.ok, true);
+    assert.equal(r.skipped, false);
+    assert.equal(r.errors.length, 0);
+  });
+
+  it("expected != github.sha -> revision mismatch error (stale dispatch)", () => {
+    // The ref moved after the scheduler computed the candidate SHA: the
+    // workflow file was loaded from github.sha's revision, so the run
+    // cannot certify expected_sha — fail closed, never a warning.
+    const r = verifySha({ expected: SHA_A, head: SHA_A, githubSha: SHA_B });
+    assert.equal(r.ok, false);
+    assert.equal(r.errors.length, 1);
+    assert.ok(r.errors[0].includes("workflow revision"));
+    assert.ok(r.errors[0].includes(SHA_B));
+  });
+
+  it("expected != checked-out HEAD -> checkout mismatch error", () => {
+    const r = verifySha({ expected: SHA_A, head: SHA_B, githubSha: SHA_A });
+    assert.equal(r.ok, false);
+    assert.equal(r.errors.length, 1);
+    assert.ok(r.errors[0].includes("checked-out HEAD"));
+  });
+
+  it("both mismatches are reported together", () => {
+    const SHA_C = "c".repeat(40);
+    const r = verifySha({ expected: SHA_A, head: SHA_B, githubSha: SHA_C });
+    assert.equal(r.ok, false);
+    assert.equal(r.errors.length, 2);
+  });
+
+  it("a ref name / short sha as expected_sha fails strict equality", () => {
+    for (const expected of ["main", SHA_A.slice(0, 7), "HEAD"]) {
+      const r = verifySha({ expected, head: SHA_A, githubSha: SHA_A });
+      assert.equal(r.ok, false, `input ${expected} must not pass`);
+      assert.ok(r.errors[0].includes("workflow revision"));
+    }
+  });
+
+  it("hex comparison is case-insensitive", () => {
+    const r = verifySha({ expected: SHA_A.toUpperCase(), head: SHA_A, githubSha: SHA_A });
+    assert.equal(r.ok, true);
   });
 });
 

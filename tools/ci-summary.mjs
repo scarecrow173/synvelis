@@ -26,16 +26,19 @@
 // Subcommands:
 //   gate           jobs API results -> fail-closed verdict
 //   expected-jobs  jobs-API entry-count floor for the collect retry
+//   verify-sha     expected_sha revision/checkout consistency check
 //   lanes          diagnostic: every leg name in the universe
 //
 // Usage:
 //   node tools/ci-summary.mjs gate --jobs <path> [--mode pr|full]
 //                                 [--attempt <n>] [--summary <path>] [--out <path>]
 //   node tools/ci-summary.mjs expected-jobs [--mode pr|full]
+//   node tools/ci-summary.mjs verify-sha [--expected <sha>] [--head <sha>] [--github-sha <sha>]
 //   node tools/ci-summary.mjs lanes
 //
 // Env fallbacks: CI_SUMMARY_MODE, CI_JOBS_FILE, CI_RUN_ATTEMPT,
-// GITHUB_STEP_SUMMARY, GITHUB_OUTPUT.
+// CI_EXPECTED_SHA, CI_RESOLVED_HEAD, CI_GITHUB_SHA,
+// GITHUB_STEP_SUMMARY, GITHUB_OUTPUT, GITHUB_SHA.
 
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -195,6 +198,35 @@ export function expectedJobs(mode = "full") {
   return REQUIRED_LEGS.length + MACOS_LEGS.length + gateCount;
 }
 
+/**
+ * expected_sha contract check for workflow_dispatch runs.
+ *
+ * GitHub loads the workflow file from the dispatched ref's head revision
+ * at run-creation time — `github.sha` IS the workflow revision. A run can
+ * therefore certify `expected_sha` only when the three SHAs agree:
+ *   expected_sha == github.sha (workflow revision is the candidate)
+ *   expected_sha == checked-out HEAD (the pinned checkout resolved)
+ * If the ref moved after the scheduler computed the candidate, the run
+ * was produced under a different workflow revision and must fail closed —
+ * a stale dispatch is rejected, and the scheduler re-dispatches the new
+ * head. When `expected` is unset the contract is not engaged (manual
+ * dispatch, pull_request, push).
+ */
+export function verifySha({ expected, head, githubSha }) {
+  const exp = (expected ?? "").trim().toLowerCase();
+  const hd = (head ?? "").trim().toLowerCase();
+  const gh = (githubSha ?? "").trim().toLowerCase();
+  const errors = [];
+  if (!exp) return { ok: true, skipped: true, errors };
+  if (exp !== gh) {
+    errors.push(`expected_sha ${expected} does not equal the run's workflow revision ${githubSha} — stale dispatch: the run cannot certify a candidate SHA under a different revision; re-dispatch the current ref head`);
+  }
+  if (exp !== hd) {
+    errors.push(`checked-out HEAD ${head} does not equal expected_sha ${expected} — the pinned checkout did not resolve to the candidate SHA`);
+  }
+  return { ok: errors.length === 0, skipped: false, errors };
+}
+
 // --- Reporting ---------------------------------------------------------------
 
 function mdEscape(s) {
@@ -218,7 +250,7 @@ function summaryMarkdown({ verdict, mode, context }) {
   lines.push(`|---|---|`);
   lines.push(`| expected_sha input | ${context.expectedSha ?? "<unset>"} |`);
   lines.push(`| checked-out HEAD | ${context.resolvedHead ?? context.headSha} |`);
-  lines.push(`| github.sha | ${context.headSha} |`);
+  lines.push(`| github.sha (workflow revision) | ${context.headSha} |`);
   lines.push(`| ruviform resolved SHA | ${context.ruviformSha} |`);
   lines.push("");
   const requiredRows = verdict.rows.filter((r) => r.required);
@@ -297,6 +329,22 @@ function main() {
   if (cmd === "expected-jobs") {
     // Jobs-API entry-count floor for the collect step's bounded retry.
     process.stdout.write(`${expectedJobs(resolveMode(args))}\n`);
+    return;
+  }
+
+  if (cmd === "verify-sha") {
+    const r = verifySha({
+      expected: args.expected ?? process.env.CI_EXPECTED_SHA,
+      head: args.head ?? process.env.CI_RESOLVED_HEAD,
+      githubSha: args["github-sha"] ?? process.env.CI_GITHUB_SHA ?? process.env.GITHUB_SHA,
+    });
+    for (const e of r.errors) process.stderr.write(`::error::${e}\n`);
+    if (!r.ok) process.exit(1);
+    process.stdout.write(
+      r.skipped
+        ? "verify-sha: expected_sha unset — revision contract not engaged (manual dispatch / pull_request / push)\n"
+        : "verify-sha: expected_sha matches workflow revision and checked-out HEAD\n",
+    );
     return;
   }
 

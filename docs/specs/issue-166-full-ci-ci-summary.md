@@ -150,11 +150,19 @@ Classifier(`classify` job・`tools/ci-impact.mjs`)と選択実行機構
 
 5. **`expected_sha` 契約**
    - `workflow_dispatch.inputs.expected_sha`(optional string)を追加。
-   - 全 job の checkout を `ref: expected_sha || github.sha` で pin し、
-     `ci-summary` が checkout 済み `git rev-parse HEAD` と expected_sha
-     の一致を検証(指定時のみ・不一致は fail)。
-   - expected_sha・github.sha・ruviform resolved SHA の整合を
-     `ci-summary` の Job Summary に SHA contract として記録。
+   - 全 job の checkout を `ref: expected_sha || github.sha` で pin。
+   - GitHub は dispatch された ref の head revision(=`github.sha`)
+     から workflow 定義を読み込むため、`github.sha` が workflow
+     revision そのもの。`ci-summary` が
+     `expected_sha == github.sha == checked-out HEAD` の 3 点一致を
+     検証(指定時のみ)。不一致は fail — ref が先に進んだ stale
+     dispatch は別 revision の workflow で検証した結果を候補 SHA の
+     証跡と誤認し得るため拒否し、scheduler が新 head で再 dispatch
+     する運用とする。
+   - 各 lane の証跡は checkout 済み `git rev-parse HEAD` を記録し、
+     検証対象コミットを正確に示す。
+   - expected_sha・checked-out HEAD・github.sha・ruviform resolved
+     SHA を `ci-summary` の Job Summary に SHA contract として記録。
    - expected_sha 未指定の手動起動・pull_request/push では既定 ref を
      検証し記録のみ行う。
 
