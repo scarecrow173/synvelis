@@ -1,7 +1,7 @@
 ---
 id: "SPEC-034RUjwAo6z9Q2Hpkp99SH"
 type: "spec"
-status: "approved"
+status: "superseded"
 title: "Issue #157 rev.3 matrix lane skip placeholder — evidence gate 修正"
 created: "2026-11-05"
 updated: "2026-11-05"
@@ -32,7 +32,8 @@ relations:
     - "docs/specs/issue-157-selective-execution.md"
   blocks: []
   supersedes: []
-  superseded-by: []
+  superseded-by:
+    - "docs/specs/issue-166-full-ci-ci-summary.md"
   related:
     - "docs/specs/issue-148-impact-classification.md"
   refines: []
@@ -55,6 +56,12 @@ relations:
 ---
 
 # Issue #157 rev.3 matrix lane skip placeholder — evidence gate 修正
+
+> **Superseded (2026-11-05)**: lane `if:` skip が撤去されたため skip
+> collapsed placeholder は発生しなくなった。`ci-summary` gate は
+> placeholder 形の名前を unclassified violation として拒否する
+> (fail-closed)。現行仕様は `docs/specs/issue-166-full-ci-ci-summary.md`
+> を参照。本書は実装経緯の履歴として保持する。
 
 ## What Should Be Built
 

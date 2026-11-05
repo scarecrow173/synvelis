@@ -52,20 +52,17 @@ run = "cargo test --workspace --locked rt_"
 description = "Lint GitHub Actions workflow files with actionlint"
 run = "actionlint"
 
-# Issue #148 (SV-CI-OPT-02): 変更影響分類 → 期待 lane 集合の決定と、
-# 期待集合 vs 実ジョブ結果の fail-closed 照合は tools/ci-impact.mjs が
-# 単一の authoritative 実装として所有する。
-[tasks.ci-impact]
-description = "変更影響分類 — impact classes・依存伝播・期待 lane 集合を JSON で出力"
-run = "node tools/ci-impact.mjs classify"
+# Issue #166 stage 1: Full CI 化。変更影響分類・選択実行は撤去し、全 lane
+# を毎回実行する。jobs API 実結果の fail-closed 照合は tools/ci-summary.mjs
+# が単一の authoritative 実装として所有する(pr=evidence 互換 gate、
+# full=ci-summary — mode は CI_SUMMARY_MODE で渡す)。
+[tasks.ci-summary-gate]
+description = "run 内の全 lane leg を fail-closed 照合する CI 集約 gate (CI_SUMMARY_MODE=pr|full)"
+run = "node tools/ci-summary.mjs gate"
 
-[tasks.ci-evidence-gate]
-description = "期待検証集合と実 lane 結果を照合する fail-closed evidence gate"
-run = "node tools/ci-impact.mjs gate"
-
-[tasks.test-ci-impact]
-description = "Impact classifier / evidence gate の node:test スイート"
-run = "node --test tools/ci-impact.test.mjs"
+[tasks.test-ci-summary]
+description = "ci-summary gate の node:test スイート"
+run = "node --test tools/ci-summary.test.mjs"
 
 [tasks.build]
 description = "Build the workspace (dev profile)"

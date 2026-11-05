@@ -1,7 +1,7 @@
 ---
 id: "SPEC-034SVCIOPT02bN7mQwErTy"
 type: "spec"
-status: "approved"
+status: "superseded"
 title: "Issue #148 変更影響分類・Fail-Closed evidence Gate 仕様"
 created: "2026-11-04"
 updated: "2026-11-04"
@@ -34,7 +34,8 @@ relations:
     - "docs/discovery/issue-148-evidence-fail-open-gap.md"
   blocks: []
   supersedes: []
-  superseded-by: []
+  superseded-by:
+    - "docs/specs/issue-166-full-ci-ci-summary.md"
   related:
     - "docs/specs/ci-synvelis-pr-push-regression-gate.md"
     - "docs/specs/issue-151-ui-ci-lane.md"
@@ -58,6 +59,11 @@ relations:
 ---
 
 # Issue #148 変更影響分類・Fail-Closed evidence Gate 仕様
+
+> **Superseded (2026-11-05)**: 変更影響分類・選択実行機構は Issue #166
+> stage 1 で撤去され、fail-closed 集約は `tools/ci-summary.mjs` が
+> 引き継いだ。現行仕様は `docs/specs/issue-166-full-ci-ci-summary.md`
+> を参照。本書は実装経緯の履歴として保持する。
 
 ## What Should Be Built
 

@@ -1,7 +1,7 @@
 ---
 id: "SPEC-034SYN157Kx9mTvQp2w"
 type: "spec"
-status: "approved"
+status: "superseded"
 title: "Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画"
 created: "2026-11-05"
 updated: "2026-11-05"
@@ -31,7 +31,8 @@ relations:
     - "docs/specs/issue-148-impact-classification.md"
   blocks: []
   supersedes: []
-  superseded-by: []
+  superseded-by:
+    - "docs/specs/issue-166-full-ci-ci-summary.md"
   related:
     - "docs/impl/exp/issue-131-aut-01-shadow-ci.md"
   refines: []
@@ -50,6 +51,13 @@ relations:
 ---
 
 # Issue #157 選択実行有効化 + Ruleset 整合仕様
+
+> **Superseded (2026-11-05)**: selective execution・`CI_SELECTIVE_DISABLE`
+> ・shadow mode は Issue #166 stage 1 で撤去され、全 lane は全 trigger
+> で毎回実行される。macOS 非ブロッキング境界は `evidence`(pr scope)に
+> 継承され、Full CI の required 評価は `ci-summary`(full scope)へ移行。
+> 現行仕様は `docs/specs/issue-166-full-ci-ci-summary.md` を参照。
+> 本書は実装経緯の履歴として保持する。
 
 ## What Should Be Built
 
