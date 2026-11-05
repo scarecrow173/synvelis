@@ -38,9 +38,9 @@ pub use command::{CommandContext, CommandKind, CommandOutcome};
 pub use control::{
     APPLIED_REGISTRY_CAP, AppliedRecord, AssignmentView, AutomationMode, ControlGesture,
     ControlGestureFixation, ControlObservation, ControlSession, DEFAULT_TOUCH_RETURN_MS,
-    GestureEnd, InspectorBreakdown, Lowered, ObservationData, ObservationState, PlaybackState,
-    PlaybackStatus, PreparedRecordingCommit, RECORD_POINT_BUDGET, RebaseLaneReport, RebasePreview,
-    RecordCommitError, RecordDisposition, RecordingOutcome, RecordingTransaction,
+    GestureEnd, InspectorBreakdown, LoopPassId, Lowered, ObservationData, ObservationState,
+    PlaybackState, PlaybackStatus, PreparedRecordingCommit, RECORD_POINT_BUDGET, RebaseLaneReport,
+    RebasePreview, RecordCommitError, RecordDisposition, RecordingOutcome, RecordingTransaction,
     RecordingTransactionId, RecordingTxnState, SealReason, TouchReturn, TransportEffect,
     WRITER_CLOSE_CAP, WriteArm, WriterCloseReason, WriterClosure, WriterState,
 };

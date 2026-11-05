@@ -136,7 +136,8 @@ fn open_recording(
         .control_with(|c, p| c.set_arm(p, target, WriteArm::Armed))
         .unwrap();
     ws.session_mut().control_mut().set_record_enabled(true);
-    ws.session_mut().control_mut().transport_play();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_play);
     let rev = ws.session().revision();
     ws.session_mut()
         .control_with(|c, p| c.record_start(p, rev))
@@ -630,7 +631,8 @@ fn rec_c1_05_lifecycle_gates() {
     assert_eq!(recorded_points(&ws), 1);
 
     // Stop: seals the write gate; commit still works (seal ≠ abort).
-    ws.session_mut().control_mut().transport_stop();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_stop);
     assert_eq!(
         ws.session().control().recording().unwrap().sealed,
         Some(SealReason::Stopped)
@@ -655,7 +657,8 @@ fn rec_c1_05_lifecycle_gates() {
     ws.session_mut()
         .control_with(|c, p| c.record_write(p, target, bp(1), 0.4))
         .unwrap();
-    ws.session_mut().control_mut().transport_seek(bp(9));
+    ws.session_mut()
+        .control_with(|c, p| c.transport_seek(p, bp(9)));
     assert_eq!(
         ws.session().control().recording().unwrap().sealed,
         Some(SealReason::Seek)
@@ -751,7 +754,8 @@ fn rec_c1_05_latch_pause_resume_no_seal() {
         .control_with(|c, p| c.set_arm(p, target, WriteArm::Armed))
         .unwrap();
     ws.session_mut().control_mut().set_record_enabled(true);
-    ws.session_mut().control_mut().transport_play();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_play);
     let rev = ws.session().revision();
     ws.session_mut()
         .control_with(|c, p| c.record_start(p, rev))

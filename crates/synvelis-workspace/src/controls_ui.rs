@@ -1484,7 +1484,7 @@ impl ControlsUi {
                 // A seekbar commit applies the final scrub position.
                 match beats_to_point(value.plain) {
                     Ok(pos) => {
-                        session.control_mut().transport_seek(pos);
+                        session.control_with(|c, p| c.transport_seek(p, pos));
                         self.end_gesture(view, target, gesture_id);
                         self.emit_receipt(
                             view,
@@ -1709,7 +1709,7 @@ impl ControlsUi {
                 let before = session.control().playback().status;
                 match action {
                     "play" => {
-                        session.control_mut().transport_play();
+                        session.control_with(crate::control::ControlSession::transport_play);
                         session.set_playing(true);
                     }
                     "pause" => {
@@ -1723,7 +1723,7 @@ impl ControlsUi {
                         }
                     }
                     "stop" => {
-                        session.control_mut().transport_stop();
+                        session.control_with(crate::control::ControlSession::transport_stop);
                         session.set_playing(false);
                     }
                     _ => {
@@ -2286,7 +2286,7 @@ impl ControlsUi {
         session: &mut ProjectSession,
         range: Option<(BeatPoint, BeatPoint)>,
     ) -> Result<(), Error> {
-        session.control_mut().set_loop(range)?;
+        session.control_with(|c, p| c.set_loop(p, range))?;
         self.touch_and_broadcast_transport(session, "loop");
         Ok(())
     }
