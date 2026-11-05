@@ -40,11 +40,12 @@ use ruviform_media_core::{
     Rounding, TimeBase, TimestampProvenance, map_stamp_to_frame,
 };
 use ruviform_plugin_core::{ParamWriteMeans, TimedParamEvent};
+use ruviform_rt::{Consumer, Producer};
 use synvelis_project::{
-    AutomationLaneId, AutomationPoint, AutomationRegion, AutomationTimeScope, BeatPoint, BeatRange,
-    ControlEvaluation, ControlOwner, Error, Interpolation, ModulationAssignmentId,
-    ParameterTargetId, ProcessorId, Project, ProjectOp, ProjectRevision, ReferenceSource,
-    TargetCapability, evaluate_control,
+    AutomationCurveView, AutomationLaneId, AutomationPoint, AutomationRegion, AutomationTimeScope,
+    BeatPoint, BeatRange, ControlEvaluation, ControlOwner, CurveQuery, Error, Interpolation,
+    ModulationAssignmentId, ParameterTargetId, ProcessorId, Project, ProjectOp, ProjectRevision,
+    ReferenceSource, TargetCapability, evaluate_control,
 };
 
 /// The UI-facing automation mode (`#6` 決定④). Selected per target;
@@ -363,6 +364,23 @@ pub struct RecordingTransaction {
     pub coverage_end: BTreeMap<AutomationLaneId, BeatPoint>,
     /// Collected manual (pre-modulation) points per destination lane.
     pub segments: BTreeMap<AutomationLaneId, Vec<AutomationPoint>>,
+    /// Delivered write intervals per lane (scope coordinates — each
+    /// `(first, last)` marks the extent one accepted batch covered,
+    /// issue #134). Bounded by [`RECORD_DELIVERY_CAP`].
+    pub deliveries: BTreeMap<AutomationLaneId, Vec<(BeatPoint, BeatPoint)>>,
+    /// Delivery intervals dropped because [`RECORD_DELIVERY_CAP`] was
+    /// reached — counted, never silent.
+    pub deliveries_dropped: u64,
+    /// Explicit data-loss runs per lane in **project beats** (issue
+    /// #134): dropped record events fold here at the next drain —
+    /// never smoothed into the recorded series. Bounded by
+    /// [`RECORD_GAP_CAP`]; further drops merge into the last gap.
+    pub record_gaps: BTreeMap<AutomationLaneId, Vec<RecordGap>>,
+    /// Drops merged into an at-capacity gap ledger — counted, never
+    /// silent.
+    pub record_gaps_merged: u64,
+    /// Total dropped events attributed to this transaction.
+    pub record_dropped: u64,
     /// `Some` once sealed — further `record_write` is rejected.
     pub sealed: Option<SealReason>,
     /// Commit lifecycle state.
@@ -464,6 +482,324 @@ pub const APPLIED_REGISTRY_CAP: usize = 64;
 /// Writes that would exceed the budget are rejected; recorded points
 /// are never dropped (non-RT memory/size bound, REC-C1-06).
 pub const RECORD_POINT_BUDGET: usize = 262_144;
+
+// ---------------------------------------------------------------------------
+// bounded record-event queue + health (issue #134)
+// ---------------------------------------------------------------------------
+
+/// Capacity of the RT→non-RT record-event ring (`ruviform_rt` SPSC):
+/// fixed, wait-free and allocation-free for the producer. A full
+/// queue is a typed [`RecordPushError::QueueFull`], never a silent
+/// drop.
+pub const RECORD_EVENT_QUEUE_CAP: usize = 4_096;
+/// Default events one [`ControlSession::drain_record_events`]
+/// consumes — the non-RT drain stays bounded so a starved RT path
+/// never waits on an unbounded batch.
+pub const RECORD_DRAIN_BUDGET: usize = 4_096;
+/// Capacity bound of the session's record-notification log.
+pub const RECORD_NOTIFY_CAP: usize = 256;
+/// Capacity bound of a transaction's per-lane record-gap ledger.
+pub const RECORD_GAP_CAP: usize = 256;
+/// Capacity bound of the session's per-target record-health table.
+pub const RECORD_HEALTH_CAP: usize = 64;
+/// Capacity bound of a transaction's per-lane delivery ledger.
+pub const RECORD_DELIVERY_CAP: usize = 4_096;
+/// Capacity bound of a drain report's retained rejection list.
+pub const RECORD_REJECT_CAP: usize = 256;
+
+/// Tunable bounds of the record path (issue #134 REC-C2). Every
+/// budget is a real limit — hitting one produces a typed
+/// [`RecordNotification`]/counter, never a silent truncation.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct RecordBudgets {
+    /// Point columns one transaction may hold (REC-C1-06 bound).
+    pub max_points: usize,
+    /// Events one `drain_record_events` consumes at most.
+    pub max_events_per_drain: usize,
+}
+
+impl Default for RecordBudgets {
+    fn default() -> Self {
+        Self {
+            max_points: RECORD_POINT_BUDGET,
+            max_events_per_drain: RECORD_DRAIN_BUDGET,
+        }
+    }
+}
+
+/// One automation record event pushed from the RT side — the intent
+/// to record `(pos, value)`. Only the non-RT drain mutates the
+/// transaction; the RT path is bounded, wait-free and allocation-free.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct AutomationRecordEvent {
+    /// The transaction the event was pushed under.
+    pub txn: RecordingTransactionId,
+    /// The armed write target.
+    pub target: ParameterTargetId,
+    /// Project position (project beats).
+    pub pos: BeatPoint,
+    /// The manual (pre-modulation) normalized value.
+    pub value: f64,
+}
+
+/// Why [`ControlSession::record_event_rt`] rejected the event — a
+/// typed rejection, never a silent drop.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum RecordPushError {
+    /// Write gates closed (target not armed / not recording / not
+    /// rolling / transaction sealed).
+    GatesClosed,
+    /// The event itself is not recordable (non-finite or out-of-domain
+    /// value, position at/past the loop end).
+    Invalid,
+    /// The bounded RT queue is full — the event could not be enqueued.
+    /// Counted on the target's [`RecordTargetHealth::queue_fulls`].
+    QueueFull,
+}
+
+impl fmt::Display for RecordPushError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::GatesClosed => write!(f, "record gates closed"),
+            Self::Invalid => write!(f, "record event invalid"),
+            Self::QueueFull => write!(f, "record event queue full"),
+        }
+    }
+}
+
+impl std::error::Error for RecordPushError {}
+
+/// A run of dropped record events — an **explicit data gap** in the
+/// recording, never smoothed into a curve (issue #134). Positions are
+/// project beats; `dropped` counts the events lost in the run.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct RecordGap {
+    /// First dropped position of the run.
+    pub start: BeatPoint,
+    /// Last dropped position of the run.
+    pub end: BeatPoint,
+    /// Events dropped in this run.
+    pub dropped: u64,
+}
+
+/// Why the drain rejected an event — each kind is a distinct, named
+/// state (issue #134): the failure is reported, counted and leaves a
+/// gap rather than disappearing.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RecordRejectKind {
+    /// The event's transaction is stale — it was pushed under a
+    /// transaction that already ended.
+    WrongTxn,
+    /// The write gates closed between push and drain.
+    GatesClosed,
+    /// The position lies at/past the pass end (issue #133).
+    OutsidePass,
+    /// Non-finite or out-of-domain value.
+    BadValue,
+    /// The scope could not resolve the position — the point is
+    /// unattributable.
+    ScopeLost,
+    /// The fixed lane or target vanished from the project.
+    LaneGone,
+    /// The transaction point budget is full.
+    OverBudget,
+    /// Any other commit-path failure.
+    Failed,
+}
+
+/// One rejected event retained by the drain report (bounded —
+/// [`RECORD_REJECT_CAP`] entries; `rejected_total` keeps the count).
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct RecordRejection {
+    /// The event that was rejected.
+    pub event: AutomationRecordEvent,
+    /// Why it was rejected.
+    pub kind: RecordRejectKind,
+}
+
+/// A bounded report of one [`ControlSession::drain_record_events`]
+/// pass. `partial` flags events still queued — the caller retries;
+/// nothing reports "done" while the queue holds events.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RecordDrainReport {
+    /// Events popped this drain.
+    pub popped: usize,
+    /// Events accepted into the transaction.
+    pub accepted: usize,
+    /// Events pushed under a stale/no transaction.
+    pub stale: usize,
+    /// Events rejected because the point budget was full.
+    pub overflowed: usize,
+    /// Events rejected for any drain-side reason.
+    pub rejected_total: usize,
+    /// Retained rejections (bounded by [`RECORD_REJECT_CAP`]).
+    pub rejected: Vec<RecordRejection>,
+    /// `true` when the queue still holds events — the drain was
+    /// partial and must be retried.
+    pub partial: bool,
+}
+
+impl RecordDrainReport {
+    fn reject(&mut self, event: AutomationRecordEvent, kind: RecordRejectKind) {
+        self.rejected_total += 1;
+        if self.rejected.len() < RECORD_REJECT_CAP {
+            self.rejected.push(RecordRejection { event, kind });
+        }
+    }
+}
+
+/// A session notification about the record path (issue #134): the
+/// bounded log keeps at most [`RECORD_NOTIFY_CAP`] entries; overflow
+/// drops the oldest and counts on
+/// [`ControlSession::record_notifications_dropped`].
+#[derive(Clone, Debug, PartialEq)]
+pub enum RecordNotification {
+    /// RT queue-full drops for `target` since the last drain.
+    QueueFull {
+        /// The affected target.
+        target: ParameterTargetId,
+        /// The target's cumulative drop counter.
+        dropped_total: u64,
+    },
+    /// A dropped-event run was folded into the transaction's gap
+    /// ledger — an explicit data hole.
+    DataGap {
+        /// The lane that lost data.
+        lane: AutomationLaneId,
+        /// Gap start (project beats).
+        start: BeatPoint,
+        /// Gap end (project beats).
+        end: BeatPoint,
+        /// Events lost in the run.
+        dropped: u64,
+    },
+    /// Drain-side rejects, aggregated per `(target, kind)`.
+    Rejected {
+        /// The affected target.
+        target: ParameterTargetId,
+        /// Why the events were rejected.
+        kind: RecordRejectKind,
+        /// How many events this drain rejected.
+        count: u64,
+    },
+    /// The drain hit its event budget while the queue was non-empty —
+    /// retry pending.
+    Partial {
+        /// Events accepted before the budget ran out.
+        accepted: usize,
+    },
+}
+
+/// Per-target record-path health — cumulative counters, gap-run
+/// tracking and the notification watermark. Session state only.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RecordTargetHealth {
+    /// The tracked target.
+    pub target: ParameterTargetId,
+    /// Events dropped for this target, any cause.
+    pub dropped: u64,
+    /// RT queue-full rejections (push side).
+    pub queue_fulls: u64,
+    /// Point-budget rejections (drain side).
+    pub overflowed: u64,
+    /// All other drain-side rejects.
+    pub rejected: u64,
+    /// First dropped position of the open run (project beats).
+    pub gap_open: Option<BeatPoint>,
+    /// Last dropped position of the open run.
+    pub gap_last: Option<BeatPoint>,
+    /// Drops accumulated in the open run.
+    pub gap_dropped: u64,
+    /// `queue_fulls` value last reported via [`RecordNotification`] —
+    /// a delta watermark, so each full event notifies once.
+    pub notified_fulls: u64,
+}
+
+impl RecordTargetHealth {
+    fn new(target: ParameterTargetId) -> Self {
+        Self {
+            target,
+            dropped: 0,
+            queue_fulls: 0,
+            overflowed: 0,
+            rejected: 0,
+            gap_open: None,
+            gap_last: None,
+            gap_dropped: 0,
+            notified_fulls: 0,
+        }
+    }
+}
+
+/// The read-only snapshot of one target's record health.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct RecordHealthSummary {
+    /// The tracked target.
+    pub target: ParameterTargetId,
+    /// Events dropped for this target, any cause.
+    pub dropped: u64,
+    /// RT queue-full rejections.
+    pub queue_fulls: u64,
+    /// Point-budget rejections.
+    pub overflowed: u64,
+    /// All other rejects.
+    pub rejected: u64,
+}
+
+impl From<&RecordTargetHealth> for RecordHealthSummary {
+    fn from(h: &RecordTargetHealth) -> Self {
+        Self {
+            target: h.target,
+            dropped: h.dropped,
+            queue_fulls: h.queue_fulls,
+            overflowed: h.overflowed,
+            rejected: h.rejected,
+        }
+    }
+}
+
+/// A record gap resolved into the target's scope coordinate for
+/// display — `f64`, consistent with [`synvelis_project::CurveQuery`].
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct ResolvedRecordGap {
+    /// Gap start in scope coordinates.
+    pub start: f64,
+    /// Gap end in scope coordinates.
+    pub end: f64,
+    /// Events lost in the gap.
+    pub dropped: u64,
+}
+
+/// The Automation-Lane projection (issue #134): the bounded LOD
+/// curve **plus** the session-only overlays — uncommitted recorded
+/// points, delivered write intervals, explicit record gaps and
+/// record-path health. Read-only; session data only annotates, the
+/// project stays the single source of truth.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AutomationLaneView {
+    /// The projected target.
+    pub target: ParameterTargetId,
+    /// The project revision the projection was taken at — a stale
+    /// revision in the UI reports staleness, not a silent mismatch.
+    pub revision: ProjectRevision,
+    /// The model-side bounded LOD curve.
+    pub curve: AutomationCurveView,
+    /// Uncommitted recorded points per lane inside the window —
+    /// the recording session's live overlay.
+    pub pending: Vec<(AutomationLaneId, Vec<AutomationPoint>)>,
+    /// `pending` was cut by `max_points` — the count stays honest
+    /// via `pending_truncated`.
+    pub pending_truncated: bool,
+    /// Delivered write intervals inside the window (scope `f64`).
+    pub deliveries: Vec<(f64, f64)>,
+    /// Record gaps resolved to the scope coordinate.
+    pub gaps: Vec<ResolvedRecordGap>,
+    /// Gaps that could not be resolved to the scope coordinate —
+    /// counted, never silent.
+    pub gaps_unresolved: usize,
+    /// The target's record health, when any record event was seen.
+    pub health: Option<RecordHealthSummary>,
+}
 
 /// An observed value plus its measurement stamp (rf#185 vocabulary).
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -726,6 +1062,13 @@ pub struct ControlSession {
     clock_now: MediaTime,
     return_ticks: i64,
     writer_closes: VecDeque<WriterClosure>,
+    record_producer: Producer<AutomationRecordEvent>,
+    record_consumer: Consumer<AutomationRecordEvent>,
+    record_budgets: RecordBudgets,
+    record_health: Vec<RecordTargetHealth>,
+    record_notifications: VecDeque<RecordNotification>,
+    record_health_overflows: u64,
+    record_notifications_dropped: u64,
 }
 
 impl Default for ControlSession {
@@ -746,6 +1089,7 @@ impl ControlSession {
                 .convert(frame_base, Rounding::TowardZero)
                 .map_or(0, MediaDuration::value)
         });
+        let (record_producer, record_consumer) = ruviform_rt::channel(RECORD_EVENT_QUEUE_CAP);
         Self {
             modes: BTreeMap::new(),
             arms: BTreeMap::new(),
@@ -766,6 +1110,13 @@ impl ControlSession {
             clock_now: MediaTime::new(0, frame_base),
             return_ticks,
             writer_closes: VecDeque::new(),
+            record_producer,
+            record_consumer,
+            record_budgets: RecordBudgets::default(),
+            record_health: Vec::with_capacity(RECORD_HEALTH_CAP),
+            record_notifications: VecDeque::with_capacity(RECORD_NOTIFY_CAP),
+            record_health_overflows: 0,
+            record_notifications_dropped: 0,
         }
     }
 
@@ -1636,6 +1987,11 @@ impl ControlSession {
             fixed_scopes,
             coverage_end: BTreeMap::new(),
             segments: BTreeMap::new(),
+            deliveries: BTreeMap::new(),
+            deliveries_dropped: 0,
+            record_gaps: BTreeMap::new(),
+            record_gaps_merged: 0,
+            record_dropped: 0,
             sealed: None,
             state: RecordingTxnState::Pending,
         });
@@ -1735,16 +2091,25 @@ impl ControlSession {
             }
         }
         let written = resolved.len();
+        let max_points = self.record_budgets.max_points;
         let rec = self
             .recording
             .as_mut()
             .ok_or_else(|| Error::Validation("no open recording".into()))?;
         let total = rec.segments.values().map(Vec::len).sum::<usize>();
-        if total + resolved.len() > RECORD_POINT_BUDGET {
+        if total + resolved.len() > max_points {
             return Err(Error::Validation(format!(
-                "recording point budget of {RECORD_POINT_BUDGET} exceeded"
+                "recording point budget of {max_points} exceeded"
             )));
         }
+        // The delivered write extent this batch covered — recorded
+        // before dedup collapses duplicate positions (issue #134):
+        // the delivery *happened* even when a dedup rewrites a point.
+        let delivered = resolved
+            .iter()
+            .map(|(pos, _)| *pos)
+            .min()
+            .zip(resolved.iter().map(|(pos, _)| *pos).max());
         let seg = rec.segments.entry(lane).or_default();
         for (pos, value) in resolved {
             seg.push(AutomationPoint { pos, value });
@@ -1758,7 +2123,439 @@ impl ControlSession {
                 false
             }
         });
+        if let Some((first, last)) = delivered {
+            let dels = rec.deliveries.entry(lane).or_default();
+            if dels.len() < RECORD_DELIVERY_CAP {
+                dels.push((first, last));
+            } else {
+                rec.deliveries_dropped = rec.deliveries_dropped.saturating_add(1);
+            }
+        }
         Ok(written)
+    }
+
+    // -- record event queue (issue #134) --------------------------------
+
+    /// The RT-side ingress for automation record events — the only
+    /// write path callable from a real-time callback: bounded,
+    /// wait-free and allocation-free (`ruviform_rt` SPSC
+    /// [`Producer::try_push`]). A full queue rejects with
+    /// [`RecordPushError::QueueFull`]; the loss is counted on the
+    /// target's health and folded into an explicit gap at the next
+    /// [`Self::drain_record_events`] — never a smooth curve.
+    ///
+    /// `pos` is a project position (project beats); `value` is the
+    /// manual normalized value. The event binds the **currently open**
+    /// transaction — an event drained after the transaction ended is
+    /// rejected as `stale`/`WrongTxn`, never attributed to a new one.
+    ///
+    /// # Errors
+    /// [`RecordPushError::GatesClosed`] when the write gates are shut,
+    /// [`RecordPushError::Invalid`] for a non-recordable event, and
+    /// [`RecordPushError::QueueFull`] when the bounded ring is full.
+    pub fn record_event_rt(
+        &mut self,
+        target: ParameterTargetId,
+        pos: BeatPoint,
+        value: f64,
+    ) -> Result<(), RecordPushError> {
+        if !self.write_gates(target) {
+            return Err(RecordPushError::GatesClosed);
+        }
+        if let Some((_, end)) = self.playback.loop_range
+            && pos >= end
+        {
+            return Err(RecordPushError::Invalid);
+        }
+        if !(0.0..=1.0).contains(&value) {
+            return Err(RecordPushError::Invalid);
+        }
+        let txn = self
+            .recording
+            .as_ref()
+            .map_or(RecordingTransactionId(0), |tx| tx.id);
+        if self
+            .record_producer
+            .try_push(AutomationRecordEvent {
+                txn,
+                target,
+                pos,
+                value,
+            })
+            .is_err()
+        {
+            self.note_record_drop(target, Some(pos), |h| {
+                h.queue_fulls = h.queue_fulls.saturating_add(1);
+            });
+            if let Some(tx) = self.recording.as_mut() {
+                tx.record_dropped = tx.record_dropped.saturating_add(1);
+            }
+            return Err(RecordPushError::QueueFull);
+        }
+        Ok(())
+    }
+
+    /// Non-RT consumer of the record queue — drains up to
+    /// [`RecordBudgets::max_events_per_drain`] events into the open
+    /// transaction, folds dropped-event runs into explicit
+    /// [`RecordGap`]s, and emits bounded [`RecordNotification`]s.
+    /// Each failure kind is reported distinctly — `partial` means
+    /// events remain queued and the caller retries; nothing reports
+    /// "done" while the queue holds events.
+    pub fn drain_record_events(&mut self, project: &Project) -> RecordDrainReport {
+        let mut rep = RecordDrainReport::default();
+        let budget = self.record_budgets.max_events_per_drain;
+        let mut rejects: BTreeMap<(ParameterTargetId, RecordRejectKind), u64> = BTreeMap::new();
+        for _ in 0..budget {
+            let Ok(ev) = self.record_consumer.try_pop() else {
+                break;
+            };
+            rep.popped += 1;
+            self.drain_record_event(project, ev, &mut rep, &mut rejects);
+        }
+        rep.partial = !self.record_consumer.is_empty();
+        self.fold_record_gaps();
+        self.emit_drain_notifications(&rep, &rejects);
+        rep
+    }
+
+    /// One drained event through the reject pipeline — stale txn,
+    /// closed gates, out-of-pass position, bad value, full point
+    /// budget, scope/structural failure; each kind is counted and
+    /// retained distinctly, and every drop leaves a health mark.
+    fn drain_record_event(
+        &mut self,
+        project: &Project,
+        ev: AutomationRecordEvent,
+        rep: &mut RecordDrainReport,
+        rejects: &mut BTreeMap<(ParameterTargetId, RecordRejectKind), u64>,
+    ) {
+        // Only the open transaction may take the event — a stale
+        // event is rejected, never attributed to a new session.
+        if self.recording.as_ref().map(|tx| tx.id) != Some(ev.txn) {
+            rep.stale += 1;
+            self.drain_reject(ev, rep, rejects, RecordRejectKind::WrongTxn, None);
+            return;
+        }
+        // Gates may have closed between push and drain.
+        let kind = if !self.write_gates(ev.target) {
+            Some(RecordRejectKind::GatesClosed)
+        } else if self
+            .playback
+            .loop_range
+            .is_some_and(|(_, end)| ev.pos >= end)
+        {
+            Some(RecordRejectKind::OutsidePass)
+        } else if !(0.0..=1.0).contains(&ev.value) {
+            Some(RecordRejectKind::BadValue)
+        } else {
+            None
+        };
+        if let Some(kind) = kind {
+            self.drain_reject(ev, rep, rejects, kind, Some(ev.pos));
+            return;
+        }
+        // Drain-side point budget — a full budget is `OverBudget`,
+        // not a silent loss.
+        let full = self.recording.as_ref().is_some_and(|tx| {
+            tx.segments.values().map(Vec::len).sum::<usize>() >= self.record_budgets.max_points
+        });
+        if full {
+            rep.overflowed += 1;
+            self.drain_reject(ev, rep, rejects, RecordRejectKind::OverBudget, Some(ev.pos));
+            return;
+        }
+        match self.record_points(project, ev.target, &[(ev.pos, ev.value)]) {
+            Ok(0) => {
+                // Resolved to nothing — the scope could not attribute
+                // the point: an explicit gap, not data.
+                self.drain_reject(ev, rep, rejects, RecordRejectKind::ScopeLost, Some(ev.pos));
+            }
+            Ok(_) => rep.accepted += 1,
+            Err(e) => {
+                let kind = if matches!(e, Error::NotFound(_)) {
+                    RecordRejectKind::LaneGone
+                } else {
+                    RecordRejectKind::Failed
+                };
+                self.drain_reject(ev, rep, rejects, kind, Some(ev.pos));
+            }
+        }
+    }
+
+    /// One rejected event: aggregate the (target, kind) count, mark
+    /// the health counters, open/extend the gap run when `pos` is
+    /// known, attribute the drop to the open transaction, and retain
+    /// the reject in the report (bounded).
+    fn drain_reject(
+        &mut self,
+        ev: AutomationRecordEvent,
+        rep: &mut RecordDrainReport,
+        rejects: &mut BTreeMap<(ParameterTargetId, RecordRejectKind), u64>,
+        kind: RecordRejectKind,
+        pos: Option<BeatPoint>,
+    ) {
+        *rejects.entry((ev.target, kind)).or_default() += 1;
+        self.note_record_drop(ev.target, pos, |h| match kind {
+            RecordRejectKind::OverBudget => {
+                h.overflowed = h.overflowed.saturating_add(1);
+            }
+            _ => h.rejected = h.rejected.saturating_add(1),
+        });
+        if pos.is_some()
+            && let Some(tx) = self.recording.as_mut()
+        {
+            tx.record_dropped = tx.record_dropped.saturating_add(1);
+        }
+        rep.reject(ev, kind);
+    }
+
+    /// Folds each target's open gap run into the transaction's
+    /// explicit [`RecordGap`] ledger — a dropped run becomes a data
+    /// hole on the lane the target records into, never smoothed data.
+    fn fold_record_gaps(&mut self) {
+        let mut notes = Vec::new();
+        for h in &mut self.record_health {
+            if let (Some(start), Some(end)) = (h.gap_open, h.gap_last)
+                && h.gap_dropped > 0
+                && let Some(tx) = self.recording.as_mut()
+                && let Some(lane) = tx.fixed_lanes.get(&h.target).copied()
+            {
+                let gaps = tx.record_gaps.entry(lane).or_default();
+                if gaps.len() >= RECORD_GAP_CAP {
+                    if let Some(last) = gaps.last_mut() {
+                        last.end = last.end.max(end);
+                        last.dropped = last.dropped.saturating_add(h.gap_dropped);
+                    }
+                    tx.record_gaps_merged = tx.record_gaps_merged.saturating_add(1);
+                } else {
+                    gaps.push(RecordGap {
+                        start,
+                        end,
+                        dropped: h.gap_dropped,
+                    });
+                    notes.push(RecordNotification::DataGap {
+                        lane,
+                        start,
+                        end,
+                        dropped: h.gap_dropped,
+                    });
+                }
+            }
+            h.gap_open = None;
+            h.gap_last = None;
+            h.gap_dropped = 0;
+        }
+        for n in notes {
+            self.notify(n);
+        }
+    }
+
+    /// Emits the bounded notifications for one drain — queue-full
+    /// deltas (watermark, once per target), per-(target, kind)
+    /// rejects, and the partial-drain state.
+    fn emit_drain_notifications(
+        &mut self,
+        rep: &RecordDrainReport,
+        rejects: &BTreeMap<(ParameterTargetId, RecordRejectKind), u64>,
+    ) {
+        let full_notes: Vec<(ParameterTargetId, u64)> = self
+            .record_health
+            .iter_mut()
+            .filter(|h| h.queue_fulls > h.notified_fulls)
+            .map(|h| {
+                h.notified_fulls = h.queue_fulls;
+                (h.target, h.dropped)
+            })
+            .collect();
+        for (target, dropped_total) in full_notes {
+            self.notify(RecordNotification::QueueFull {
+                target,
+                dropped_total,
+            });
+        }
+        for ((target, kind), count) in rejects {
+            self.notify(RecordNotification::Rejected {
+                target: *target,
+                kind: *kind,
+                count: *count,
+            });
+        }
+        if rep.partial {
+            self.notify(RecordNotification::Partial {
+                accepted: rep.accepted,
+            });
+        }
+    }
+
+    /// Counts a dropped record event on the target's health —
+    /// opening/extending a gap run when `pos` is known. When the
+    /// health table is full, the drop falls onto
+    /// [`Self::record_health_overflows`] — counted, never silent.
+    fn note_record_drop(
+        &mut self,
+        target: ParameterTargetId,
+        pos: Option<BeatPoint>,
+        bump: impl Fn(&mut RecordTargetHealth),
+    ) {
+        let idx = self.record_health.iter().position(|h| h.target == target);
+        let health = match idx {
+            Some(i) => &mut self.record_health[i],
+            None if self.record_health.len() < RECORD_HEALTH_CAP => {
+                self.record_health.push(RecordTargetHealth::new(target));
+                self.record_health.last_mut().expect("just pushed")
+            }
+            None => {
+                self.record_health_overflows = self.record_health_overflows.saturating_add(1);
+                return;
+            }
+        };
+        health.dropped = health.dropped.saturating_add(1);
+        bump(health);
+        if let Some(p) = pos {
+            health.gap_open.get_or_insert(p);
+            health.gap_last = Some(p);
+            health.gap_dropped = health.gap_dropped.saturating_add(1);
+        }
+    }
+
+    /// Appends a bounded record notification; at capacity the oldest
+    /// entry is dropped and counted.
+    fn notify(&mut self, n: RecordNotification) {
+        if self.record_notifications.len() >= RECORD_NOTIFY_CAP {
+            self.record_notifications.pop_front();
+            self.record_notifications_dropped = self.record_notifications_dropped.saturating_add(1);
+        }
+        self.record_notifications.push_back(n);
+    }
+
+    /// The record-path budgets.
+    #[must_use]
+    pub fn record_budgets(&self) -> RecordBudgets {
+        self.record_budgets
+    }
+
+    /// Updates the record-path budgets (point columns, drain size).
+    /// Session-only — never a project mutation.
+    pub fn set_record_budgets(&mut self, budgets: RecordBudgets) {
+        self.record_budgets = budgets;
+    }
+
+    /// The target's cumulative record health, when any record event
+    /// was seen for it.
+    #[must_use]
+    pub fn record_health(&self, target: ParameterTargetId) -> Option<RecordHealthSummary> {
+        self.record_health
+            .iter()
+            .find(|h| h.target == target)
+            .map(RecordHealthSummary::from)
+    }
+
+    /// Drops that could not enter the bounded health table.
+    #[must_use]
+    pub fn record_health_overflows(&self) -> u64 {
+        self.record_health_overflows
+    }
+
+    /// The bounded record-notification log (newest last).
+    #[must_use]
+    pub fn record_notifications(&self) -> &VecDeque<RecordNotification> {
+        &self.record_notifications
+    }
+
+    /// Notifications dropped because the bounded log was full.
+    #[must_use]
+    pub fn record_notifications_dropped(&self) -> u64 {
+        self.record_notifications_dropped
+    }
+
+    /// The Automation-Lane projection (issue #134): the model-side
+    /// bounded LOD curve plus the session-only overlays — uncommitted
+    /// recorded points inside the window, delivered write intervals,
+    /// explicit record gaps (resolved into the scope coordinate) and
+    /// record-path health. Read-only: `revision` is captured so a UI
+    /// can detect a stale view; nothing mutates the project.
+    ///
+    /// # Errors
+    /// Propagates [`synvelis_project::automation_view`]'s errors —
+    /// [`Error::NotFound`] for an unknown target,
+    /// [`Error::Validation`] for an invalid window.
+    pub fn automation_view(
+        &self,
+        project: &Project,
+        target: ParameterTargetId,
+        query: &CurveQuery,
+        revision: ProjectRevision,
+    ) -> Result<AutomationLaneView, Error> {
+        let curve = synvelis_project::automation_view(project, target, query)?;
+        let mut pending = Vec::new();
+        let mut pending_truncated = false;
+        let mut deliveries = Vec::new();
+        let mut gaps = Vec::new();
+        let mut gaps_unresolved = 0usize;
+        if let Some(tx) = &self.recording {
+            for (t, lane) in &tx.fixed_lanes {
+                if *t != target {
+                    continue;
+                }
+                if let Some(seg) = tx.segments.get(lane) {
+                    let in_win: Vec<AutomationPoint> = seg
+                        .iter()
+                        .copied()
+                        .filter(|p| {
+                            let x = p.pos.to_f64();
+                            query.start <= x && x <= query.end
+                        })
+                        .collect();
+                    if in_win.len() > query.max_points {
+                        pending_truncated = true;
+                        pending.push((*lane, in_win.into_iter().take(query.max_points).collect()));
+                    } else {
+                        pending.push((*lane, in_win));
+                    }
+                }
+                if let Some(ds) = tx.deliveries.get(lane) {
+                    deliveries.extend(
+                        ds.iter()
+                            .filter(|(a, b)| a.to_f64() < query.end && b.to_f64() > query.start)
+                            .map(|(a, b)| (a.to_f64(), b.to_f64())),
+                    );
+                }
+                if let Some(gs) = tx.record_gaps.get(lane)
+                    && let Some((owner, scope)) = tx.fixed_scopes.get(t).copied()
+                {
+                    for g in gs {
+                        match (
+                            synvelis_project::resolve_scope_pos(project, owner, scope, g.start),
+                            synvelis_project::resolve_scope_pos(project, owner, scope, g.end),
+                        ) {
+                            (Ok(a), Ok(b)) => gaps.push(ResolvedRecordGap {
+                                start: a.to_f64(),
+                                end: b.to_f64(),
+                                dropped: g.dropped,
+                            }),
+                            _ => gaps_unresolved += 1,
+                        }
+                    }
+                }
+            }
+        }
+        let health = self
+            .record_health
+            .iter()
+            .find(|h| h.target == target)
+            .map(RecordHealthSummary::from);
+        Ok(AutomationLaneView {
+            target,
+            revision,
+            curve,
+            pending,
+            pending_truncated,
+            deliveries,
+            gaps,
+            gaps_unresolved,
+            health,
+        })
     }
 
     /// Snapshots the open transaction into an immutable

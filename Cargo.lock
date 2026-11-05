@@ -2737,10 +2737,12 @@ version = "0.1.0"
 dependencies = [
  "ruviform-media-core",
  "ruviform-plugin-core",
+ "ruviform-rt",
  "ruviform-ui",
  "ruviform-viz",
  "serde",
  "serde_json",
+ "stats_alloc",
  "synvelis-gateway",
  "synvelis-project",
 ]
