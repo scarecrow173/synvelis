@@ -17,6 +17,7 @@ Directory: `docs/plans`
 | PLAN-034SVCIOPT02jH8vNfRd | Issue #148 変更影響分類・Fail-Closed evidence Gate 実装計画 | approved | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
 | PLAN-034RGXgmeBXSmxXfegDQ8f | Issue #151 CI ui-verify lane 実装計画 | approved | [issue-151-ui-ci-lane.md](./issue-151-ui-ci-lane.md) |
 | PLAN-034RUl6aYDJVN0hwia8nWp | Issue #157 rev.3 matrix placeholder gate 実装計画 | approved | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |
+| PLAN-034SYN166StG1CiSm | Issue #166 Full CI 化・ci-summary 統一 — 第一段階実装計画 | proposed | [issue-166-full-ci-ci-summary.md](./issue-166-full-ci-ci-summary.md) |
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |

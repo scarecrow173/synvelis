@@ -22,6 +22,7 @@ Directory: `docs/designs`
 | DESIGN-034SVCIOPT02kX3pLwQs | Issue #148 変更影響分類・Fail-Closed evidence Gate 設計 | approved | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
 | DESIGN-034RGXfK1v0mkpD0U2xAaN | Issue #151 CI ui-verify lane 設計 | approved | [issue-151-ui-ci-lane.md](./issue-151-ui-ci-lane.md) |
 | DESIGN-034RUkhVNYe0G4XOqwwqOa | Issue #157 rev.3 matrix lane skip placeholder — evidence gate 設計 | approved | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |
+| DESIGN-034SYN166CiSuMmRy | Issue #166 Full CI 化・ci-summary 統一 — 第一段階設計 | proposed | [issue-166-full-ci-ci-summary.md](./issue-166-full-ci-ci-summary.md) |
 | DESIGN-yiV0z7HH1jyKUmweFh9hCT | L1 Design — Safe Import・Verified Media・Lowering・Headless Driver | approved | [l1-local-wav-verified-playback-design.md](./l1-local-wav-verified-playback-design.md) |
 | DESIGN-034QmfChvqgB632y8fAydk | L2 Design — Render Snapshot・Preflight・Sequential Render・WAV Output・Reopen Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export-design.md](./l2-master-sequential-offline-wav-export-design.md) |
 | DESIGN-YFKePNnF4peFnskSfrnSc2 | MD-A Design — TakeGroup/Comp スキーマ・Effective Comp 投影・正規化 Placement/Playback 時間契約 | approved | [mda-comp-effective-projection-placement-design.md](./mda-comp-effective-projection-placement-design.md) |

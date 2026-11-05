@@ -18,6 +18,7 @@ Directory: `docs/test-specs`
 | TSPEC-034SVCIOPT02gT5yUiOp | Issue #148 変更影響分類・Fail-Closed evidence Gate 検証仕様 | approved | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
 | TSPEC-034RGXpDyOEiejVT0jxK7a | Issue #151 ui-verify lane 検証仕様 | approved | [issue-151-ui-ci-lane.md](./issue-151-ui-ci-lane.md) |
 | TSPEC-034RUl6XqtnGnSMl6PCvgL | Issue #157 rev.3 matrix placeholder gate 検証仕様 | approved | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |
+| TSPEC-034SYN166CiGateX | Issue #166 ci-summary fail-closed gate 検証仕様 | proposed | [issue-166-ci-summary-gate.md](./issue-166-ci-summary-gate.md) |
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | TSPEC-034QmjuUDQRs8JzfSsG8wM | L2 検証仕様 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | TSPEC-SXc0ENzb4xBlpJDsiIaUA8 | MD-A 検証仕様 — TakeGroup/Comp・Effective Comp 投影・Placement/Playback 時間契約 | approved | [mda-model-poc-acceptance.md](./mda-model-poc-acceptance.md) |

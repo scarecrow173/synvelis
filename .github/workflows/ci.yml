@@ -10,16 +10,25 @@ name: ci
 # (ruviform consumer-verify.yml と同一契約)で読み取る。どちらの経路も
 # 取れない lane は fail(依存取得不能を緑にしない)。
 #
-# Issue #148 (SV-CI-OPT-02): `classify` が変更影響分類と期待検証集合を
-# 出力し、`evidence` が期待集合 vs leg 単位実結果を fail-closed 照合する。
-# Issue #157: PR は selective mode — 分類で対象外の lane leg は `if:` で
-# skip され、`evidence` が根拠付き NotApplicable 以外の未実行を拒否する
-# 唯一の安定的 required context。repository variable
-# `CI_SELECTIVE_DISABLE=1` で shadow mode(全 lane 実行)へ即時 rollback。
-# Issue #157 rev.2 (#148/#145 2026-11-05 合意): macOS leg は required
-# universe から物理分離 — `verify`/`gw10-verify`/`ui-verify` の matrix は
-# ubuntu+windows のみとし、macOS は非 required の `*-macos` job が継続
-# 実行して結果を記録する(runner 逼迫が PR gate を塞がない)。
+# Issue #166 stage 1 (Ruviform #365 phase 1): Full CI — 変更影響分類と
+# 選択実行(classify job・tools/ci-impact.mjs・lane `if:`・
+# CI_SELECTIVE_DISABLE・shadow/selective mode)は撤去し、全 lane を全
+# trigger で毎回実行する。集約は 2 層:
+#   - `evidence`    ruleset main-checkstatus が要求する required
+#                   context。macOS 以外の required leg を fail-closed
+#                   照合し、*-macos job は observed 記録に留める
+#                   (Issue #157 rev.2 の PR 非ブロッキング境界を維持)。
+#   - `ci-summary`  新しい Full CI verdict。全 leg(macOS 含む)+
+#                   `evidence` を required として fail-closed 照合し、
+#                   expected_sha 契約と SHA 証跡を Job Summary に残す。
+# pull_request/push trigger と `evidence` context は owner が
+# main-checkstatus required を解除するまで維持する(#365 決定6 —
+# trigger だけ先に止めるデッドロックは禁止)。
+#
+# workflow_dispatch.inputs.expected_sha: daily-ci(#167)が main 候補
+# SHA を pin して dispatch する契約の受け口。全 job の checkout が
+# `expected_sha || github.sha` を参照し、ci-summary が HEAD 一致を
+# fail-closed 検証する。未指定の手動起動・PR/push では既定 ref。
 
 on:
   pull_request:
@@ -27,6 +36,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: "Expected main candidate SHA this run verifies — checked out by every job and asserted by ci-summary"
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -47,83 +61,12 @@ env:
   GIT_LFS_SKIP_SMUDGE: "1"
 
 jobs:
-  # Issue #148 (SV-CI-OPT-02): 変更影響分類。Issue #157 で PR は selective
-  # mode — `lanes` 出力(実行対象 lane id 一覧)を各 lane job の
-  # `if:` が消費し、対象外 lane を skip する。偽陰性監査の shadow 照合は
-  # evidence gate が従来どおり行う。push: main / workflow_dispatch は
-  # full mode(従来どおりの網羅実行)。
-  classify:
-    name: classify
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      report: ${{ steps.impact.outputs.report }}
-      lanes: ${{ steps.impact.outputs.lanes }}
-    env:
-      MISE_ENABLE_TOOLS: node
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7.0.1
-        with:
-          fetch-depth: 0
-
-      - name: Set up mise
-        uses: jdx/mise-action@v5.2.0
-        with:
-          install: false
-
-      - name: Restore CI-required tools from mise.lock
-        shell: bash
-        run: |
-          mise trust
-          mise install --locked node
-
-      - name: Classifier self-test (mise run test-ci-impact)
-        run: mise run test-ci-impact
-
-      - name: Run impact classification (mise run ci-impact)
-        id: impact
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-          PUSH_BEFORE: ${{ github.event.before }}
-          HEAD_SHA: ${{ github.sha }}
-          # Issue #157 rollback switch: repository variable
-          # CI_SELECTIVE_DISABLE=1 で PR を shadow(全 lane 実行)へ戻す。
-          CI_SELECTIVE_DISABLE: ${{ vars.CI_SELECTIVE_DISABLE }}
-        run: |
-          set -euo pipefail
-          case "$EVENT_NAME" in
-            pull_request)
-              if [ "${CI_SELECTIVE_DISABLE:-}" = "1" ]; then
-                export CI_IMPACT_MODE=shadow
-              else
-                export CI_IMPACT_MODE=selective
-              fi
-              export CI_IMPACT_BASE="$PR_BASE" CI_IMPACT_HEAD="$PR_HEAD" ;;
-            push)
-              # merge queue/初回 push 等で before が 0 埋めの場合は tool 側が
-              # full CI に fallback する(mode=full でいずれにせよ全実行)。
-              export CI_IMPACT_MODE=full CI_IMPACT_BASE="$PUSH_BEFORE" CI_IMPACT_HEAD="$HEAD_SHA" ;;
-            *)
-              export CI_IMPACT_MODE=full ;;
-          esac
-          export CI_IMPACT_OUT=impact-report.json CI_IMPACT_SET_OUTPUT=report CI_IMPACT_LANES_OUTPUT=lanes
-          mise run ci-impact
-
-  # Issue #157: 各 lane job は classify の `lanes` 出力を membership test
-  # し、selective mode で対象外 lane を skip する。job-level `if` は
-  # matrix context を参照できないため条件は lane 単位 — 分類の期待値も
-  # lane 単位で全 OS leg が同一のため等価。shadow/full mode では lanes が
-  # 全 lane を含むため従来どおり全実行。classify 失敗時は全 lane が skip
-  # されるが、evidence が missing report として fail し fail-closed が
-  # 保たれる。
+  # Issue #166 stage 1: 全 lane は trigger を問わず毎回実行される。
+  # classify の lanes 出力・job-level `if:`・CI_SELECTIVE_DISABLE は
+  # 撤去済み — lane skip は存在せず、evidence/ci-summary が未実行・
+  # skipped・失敗を fail-closed で拒否する。
   verify:
     name: verify (${{ matrix.os }})
-    needs: classify
-    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'verify')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
@@ -139,6 +82,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
         with:
+          ref: ${{ inputs.expected_sha || github.sha }}
           lfs: true
 
       - name: Set up mise
@@ -275,16 +219,16 @@ jobs:
   # Issue #157 rev.2 (#148/#145 2026-11-05 合意): macOS non-blocking
   # track。verify/gw10-verify/ui-verify の macos leg を required
   # universe から物理分離した専用 job — required context・evidence の
-  # 期待集合のどちらにも含めず、runner 逼迫による queue/cancel が PR
-  # gate を塞がない。ただし skip/無視はしない: lane が schedule される
-  # 限り継続実行し、結果は本 job の summary と evidence の Observed 表に
+  # required 集合のどちらにも含めず、runner 逼迫による queue/cancel が
+  # PR gate を塞がない。ただし skip/無視はしない: 毎回継続実行し、
+  # 結果は本 job の summary と evidence の Observed 表に
   # Fail/Cancelled/Pending/Skipped として記録される(実行済み失敗を
-  # 隠さない・runner 不足を NotApplicable にしない)。正式リリース/
-  # Consumer 受入では候補 SHA の macOS 実測が別途必須(runbook 参照)。
+  # 隠さない・runner 不足を成功にしない)。Issue #166: `ci-summary`
+  # (Full CI verdict)では本 leg は required — macOS 失敗は Full CI
+  # 失敗。正式リリース/Consumer 受入では候補 SHA の macOS 実測が別途
+  # 必須(runbook 参照)。
   verify-macos:
     name: verify-macos
-    needs: classify
-    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'verify')
     runs-on: macos-latest
     timeout-minutes: 40
     env:
@@ -293,6 +237,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
         with:
+          ref: ${{ inputs.expected_sha || github.sha }}
           lfs: true
 
       - name: Set up mise
@@ -420,8 +365,6 @@ jobs:
 
   rt-verify:
     name: rt-verify
-    needs: classify
-    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'rt-verify')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -429,6 +372,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.expected_sha || github.sha }}
 
       - name: Set up mise
         uses: jdx/mise-action@v5.2.0
@@ -500,8 +445,6 @@ jobs:
 
   gw10-verify:
     name: gw10-verify (${{ matrix.os }})
-    needs: classify
-    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'gw10-verify')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
@@ -516,6 +459,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
         with:
+          ref: ${{ inputs.expected_sha || github.sha }}
           lfs: true
 
       - name: Set up mise
@@ -620,8 +564,6 @@ jobs:
   # (構造は verify-macos と同型、詳細はそちらのコメント参照)。
   gw10-verify-macos:
     name: gw10-verify-macos
-    needs: classify
-    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'gw10-verify')
     runs-on: macos-latest
     timeout-minutes: 40
     env:
@@ -630,6 +572,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
         with:
+          ref: ${{ inputs.expected_sha || github.sha }}
           lfs: true
 
       - name: Set up mise
@@ -728,8 +671,6 @@ jobs:
 
   msrv-verify:
     name: msrv-verify
-    needs: classify
-    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'msrv-verify')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -737,6 +678,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.expected_sha || github.sha }}
 
       - name: Set up mise
         uses: jdx/mise-action@v5.2.0
@@ -806,8 +749,6 @@ jobs:
   # パターンに倣い install-ui へ集約し、setup-ui で lane 内一度だけ実行する。
   ui-verify:
     name: ui-verify (${{ matrix.os }})
-    needs: classify
-    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'ui-verify')
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -825,6 +766,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.expected_sha || github.sha }}
 
       - name: Set up mise
         uses: jdx/mise-action@v5.2.0
@@ -914,8 +857,6 @@ jobs:
   # (構造は verify-macos と同型、詳細はそちらのコメント参照)。
   ui-verify-macos:
     name: ui-verify-macos
-    needs: classify
-    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'ui-verify')
     runs-on: macos-latest
     timeout-minutes: 30
     env:
@@ -924,6 +865,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.expected_sha || github.sha }}
 
       - name: Set up mise
         uses: jdx/mise-action@v5.2.0
@@ -1007,8 +950,6 @@ jobs:
 
   dep-guard:
     name: dep-guard
-    needs: classify
-    if: needs.classify.result == 'success' && contains(fromJSON(needs.classify.outputs.lanes), 'dep-guard')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -1016,6 +957,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.expected_sha || github.sha }}
 
       - name: Set up mise
         uses: jdx/mise-action@v5.2.0
@@ -1097,21 +1040,19 @@ jobs:
           if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
           rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
 
-  # Issue #148 (SV-CI-OPT-02): fail-closed 集約 gate。classify の期待
-  # 検証集合と、この run の実ジョブ結果(Actions jobs API の leg 単位
-  # conclusion)を tools/ci-impact.mjs gate が照合する。skipped を
-  # GitHub required checks の意味(成功扱い)に委ねず、Pass / Fail /
-  # Cancelled / NotRun / Skipped / Unsupported / NotApplicable を明示
-  # 検査し、根拠付き NotApplicable 以外の未実行を拒否する。
-  # Issue #157: selective mode 有効化により本 job が唯一の安定的
-  # required context となる。needs に skip された lane があっても
-  # `if: always()` で必ず実行し、required leg の skip を violation
-  # として fail するため、job skip が required context を緑にできない。
-  # rev.2: `*-macos` job は needs に含めない — required 判定が macOS
-  # runner 状況に依存しない(結果は Observed 表に記録のみ)。
+  # Issue #166 stage 1: fail-closed 集約 gate(ruleset required context
+  # `evidence` を維持する互換層)。全 lane は trigger を問わず毎回実行
+  # されるため期待集合の分類照合は不要 — macOS 以外の required leg が
+  # jobs API 上で success であることを tools/ci-summary.mjs --mode pr
+  # が照合する。skipped/cancelled/failure/timed_out/未実行/未知 job は
+  # 成功にしない。Issue #157 rev.2 の境界を維持: `*-macos` job は
+  # needs に含めず macOS runner 状況が PR gate を塞がない(結果は
+  # Observed 表に記録のみ、Full CI での required 評価は ci-summary
+  # が担う)。lane が needs 上失敗していても `if: always()` で必ず
+  # 実行し、job skip が required context を緑にできない。
   evidence:
     name: evidence
-    needs: [classify, verify, rt-verify, gw10-verify, msrv-verify, ui-verify, dep-guard]
+    needs: [verify, rt-verify, gw10-verify, msrv-verify, ui-verify, dep-guard]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -1125,6 +1066,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.expected_sha || github.sha }}
 
       - name: Set up mise
         uses: jdx/mise-action@v5.2.0
@@ -1137,14 +1080,8 @@ jobs:
           mise trust
           mise install --locked node
 
-      - name: Persist impact report from classify
-        shell: bash
-        env:
-          IMPACT_REPORT: ${{ needs.classify.outputs.report }}
-        run: |
-          # classify 失敗時は output が空 — gate が missing report として
-          # fail し、分類不能な run を緑にしない(fail-closed)。
-          printf '%s' "${IMPACT_REPORT:-}" > impact-report.json
+      - name: Summary tool self-test (mise run test-ci-summary)
+        run: mise run test-ci-summary
 
       - name: Collect per-leg job results
         shell: bash
@@ -1154,19 +1091,16 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # Issue #157: leg の conclusion 遷移(cancel/fail 処理)中に jobs
-          # API が job エントリを一時的に欠落して返し得る。expected 件数は
-          # `expected-jobs` が impact report から正確化する — scheduled
-          # lane は leg 数分展開され、job-level `if:` で skip された lane
-          # は 1 entry に収縮する(matrix lane は matrix 式未展開名の
-          # placeholder、非 matrix lane は通常名 skipped entry)。expected
-          # に満たない間は bounded retry し、それでも不足なら gate が
-          # fail-closed で absent を検出する。
-          expected="$(mise exec -- node tools/ci-impact.mjs expected-jobs --impact impact-report.json)"
+          # leg の conclusion 遷移(cancel/fail 処理)中に jobs API が job
+          # エントリを一時的に欠落して返し得る。expected 件数は
+          # `expected-jobs --mode pr` が固定 universe から返す(12 leg +
+          # 本 job 自身 = 13)。expected に満たない間は bounded retry
+          # し、それでも不足なら gate が fail-closed で absent を検出。
+          expected="$(mise exec -- node tools/ci-summary.mjs expected-jobs --mode pr)"
           for i in 1 2 3 4; do
-            # filter=all は全 attempt の job を返す(1 attempt ≒14 件)ため
-            # --paginate で取りこぼしを防ぎ、.jobs[] 展開を slurp で単一
-            # 配列へ戻す(gate は jobs 配列を読む)。
+            # filter=all は全 attempt の job を返すため --paginate で
+            # 取りこぼしを防ぎ、.jobs[] 展開を slurp で単一配列へ戻す
+            # (gate は jobs 配列を読む)。
             gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?filter=all&per_page=100" --paginate --jq '.jobs[]' | jq -s '.' > run-jobs.json
             count="$(jq length run-jobs.json 2>/dev/null || echo 0)"
             echo "collected $count job entries for run $RUN_ID (fetch attempt $i, expected $expected)"
@@ -1174,14 +1108,106 @@ jobs:
             sleep 5
           done
 
-      - name: Fail-closed evidence gate (mise run ci-evidence-gate)
+      - name: Fail-closed evidence gate (mise run ci-summary-gate)
         shell: bash
         env:
-          CI_IMPACT_REPORT_FILE: impact-report.json
+          CI_SUMMARY_MODE: pr
           CI_JOBS_FILE: run-jobs.json
           CI_RUN_ATTEMPT: ${{ github.run_attempt }}
           CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           CI_HEAD_SHA: ${{ github.sha }}
           CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           CI_RUVIFORM_SHA: ${{ needs.dep-guard.outputs.ruviform_sha }}
-        run: mise run ci-evidence-gate
+          CI_EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: mise run ci-summary-gate
+
+  # Issue #166 stage 1: Full CI verdict — 共通名 `ci-summary`。全 lane
+  # (macOS `*-macos` job を required として含む)と `evidence` gate
+  # 自体の結果を tools/ci-summary.mjs --mode full が fail-closed 照合
+  # する。daily-ci(#167)・手動 Full CI が参照する正本の判定。
+  # `evidence` を needs に含めるのは、PR gate 用集約が失敗した run を
+  # Full CI 成功と誤認しないため。expected_sha 指定時は checkout 済み
+  # HEAD との一致を検証し、SHA contract を Job Summary に記録する。
+  ci-summary:
+    name: ci-summary
+    needs: [verify, verify-macos, rt-verify, gw10-verify, gw10-verify-macos, msrv-verify, ui-verify, ui-verify-macos, dep-guard, evidence]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    env:
+      MISE_ENABLE_TOOLS: node
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.expected_sha || github.sha }}
+
+      # expected_sha 契約: dispatch で指定された main 候補 SHA と実際に
+      # checkout された HEAD の一致を検証する(未指定の trigger では
+      # 記録のみ)。不一致は後段 gate 以前にここで fail — 誤った SHA の
+      # 検証結果を証跡として残さない。
+      - name: Verify expected_sha contract
+        id: sha-check
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          head_sha="$(git rev-parse HEAD)"
+          echo "resolved_head=$head_sha" >> "$GITHUB_OUTPUT"
+          echo "expected_sha=${EXPECTED_SHA:-<unset>} github_sha=${{ github.sha }} checked_out=$head_sha"
+          if [ -n "${EXPECTED_SHA:-}" ] && [ "$head_sha" != "$EXPECTED_SHA" ]; then
+            echo "::error::checked-out HEAD $head_sha does not match expected_sha $EXPECTED_SHA"
+            exit 1
+          fi
+          if [ -n "${EXPECTED_SHA:-}" ] && [ "${{ github.sha }}" != "$EXPECTED_SHA" ]; then
+            echo "::warning::github.sha ${{ github.sha }} differs from expected_sha $EXPECTED_SHA — run verifies the expected_sha pin, ref has since moved"
+          fi
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore CI-required tools from mise.lock
+        shell: bash
+        run: |
+          mise trust
+          mise install --locked node
+
+      - name: Collect per-leg job results
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.run_id }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # `needs` に evidence を含むため本 job 起動時には全 14 job
+          # エントリ(12 leg + evidence + 自身)が存在する。evidence と
+          # 同じ bounded retry で API eventual consistency を吸収する。
+          expected="$(mise exec -- node tools/ci-summary.mjs expected-jobs --mode full)"
+          for i in 1 2 3 4; do
+            gh api "repos/${REPO}/actions/runs/${RUN_ID}/jobs?filter=all&per_page=100" --paginate --jq '.jobs[]' | jq -s '.' > run-jobs.json
+            count="$(jq length run-jobs.json 2>/dev/null || echo 0)"
+            echo "collected $count job entries for run $RUN_ID (fetch attempt $i, expected $expected)"
+            [ "$count" -ge "$expected" ] && break
+            sleep 5
+          done
+
+      - name: Fail-closed full CI gate (mise run ci-summary-gate)
+        shell: bash
+        env:
+          CI_SUMMARY_MODE: full
+          CI_JOBS_FILE: run-jobs.json
+          CI_RUN_ATTEMPT: ${{ github.run_attempt }}
+          CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CI_HEAD_SHA: ${{ github.sha }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_RUVIFORM_SHA: ${{ needs.dep-guard.outputs.ruviform_sha }}
+          CI_EXPECTED_SHA: ${{ inputs.expected_sha }}
+          CI_RESOLVED_HEAD: ${{ steps.sha-check.outputs.resolved_head }}
+        run: mise run ci-summary-gate
