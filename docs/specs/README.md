@@ -7,6 +7,7 @@ Directory: `docs/specs`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | SPEC-034AUT01T7xRw4mNcQ8pZbV2 | AUT-01 Automation Mode 境界 State — Read/Touch/Latch/Write・Touch Return 150ms Smoothstep | approved | [aut-01-automation-mode-boundary-touch-return-writer-state.md](./aut-01-automation-mode-boundary-touch-return-writer-state.md) |
+| SPEC-034AUT03AW1Qq4l4VCpTSK | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・明示 Rearm | approved | [aut-03-loop-write-one-pass-write-range-rearm.md](./aut-03-loop-write-one-pass-write-range-rearm.md) |
 | SPEC-034RoWOUkW5OezJQSLBWKd | Synvelis 独立 PR/Push CI — Workspace/RT/Recording/Gateway 回帰 Gate | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | SPEC-034CTL01Ow9uXr5zA1bC2dEf | CTL-01 ControlOwner / AutomationTimeScope 責務分離・Bus/Strip/Send 型付き Schema 移行 | approved | [ctl-01-control-owner-automation-time-scope-typed-schema.md](./ctl-01-control-owner-automation-time-scope-typed-schema.md) |
 | SPEC-034QAlF2irl9rIJaUi9RQ1 | ED-A Editing Model — Selection/Tool/Snap/Transaction/LinkedContext headless PoC | approved | [ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md](./ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md) |
@@ -33,3 +34,9 @@ Directory: `docs/specs`
 | SPEC-iciMnP7AaIMP2qKQPCoAId | VS-D Recording Commit / E2E Vertical Slice — Idempotency・Undo・Reload | approved | [vs-d-recording-commit-e2e-idempotency-undo-reload.md](./vs-d-recording-commit-e2e-idempotency-undo-reload.md) |
 | SPEC-034QwWbIzoS7Pl7KxncpF6 | WS-A Workspace Foundation — View/Selection/LinkGroup/Command/Dock headless PoC | approved | [ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md](./ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md) |
 | SPEC-wVS4pCX5veOtjhEh013pJ0 | X — Recorded Source→Generic Playback/Export integration with Frame/ID/Content integrity | approved | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |
+
+## Settled <!-- doc-suite:settled-index -->
+
+| ID | Title | Status | File |
+| --- | --- | --- | --- |
+| SPEC-034AUT02Kw7xRn3vBz9sQm5t | AUT-02 Region Replace 境界曲線保存・Reject/Replace 原子的編集 | implemented | [aut-02-region-replace-boundary-curve-preservation.md](./aut-02-region-replace-boundary-curve-preservation.md) |

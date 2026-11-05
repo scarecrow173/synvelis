@@ -210,6 +210,10 @@ fn media_stamp(ticks: i64, provenance: TimestampProvenance) -> MediaTimestamp {
     }
 }
 
+fn assert_observation(ws: &Ws, target: ParameterTargetId, expected: ObservationState) {
+    assert_eq!(ws.session().control().observation_state(target), expected);
+}
+
 // ---------------------------------------------------------------------------
 // PC-A-01 single source + three projections
 // ---------------------------------------------------------------------------
@@ -494,10 +498,7 @@ fn pc_a_04_breakdown_and_observation_states() {
 
     // Observation states: Unavailable → AtPlayhead → Live → Captured →
     // Stale.
-    assert_eq!(
-        ws.session().control().observation_state(target),
-        ObservationState::Unavailable
-    );
+    assert_observation(&ws, target, ObservationState::Unavailable);
     ws.session_mut()
         .control_with(|c, p| {
             c.feed_plugin_report(
@@ -508,16 +509,12 @@ fn pc_a_04_breakdown_and_observation_states() {
             )
         })
         .unwrap();
-    assert_eq!(
-        ws.session().control().observation_state(target),
-        ObservationState::AtPlayhead
-    );
-    ws.session_mut().control_mut().transport_play();
-    assert_eq!(
-        ws.session().control().observation_state(target),
-        ObservationState::Live
-    );
-    ws.session_mut().control_mut().transport_stop();
+    assert_observation(&ws, target, ObservationState::AtPlayhead);
+    ws.session_mut()
+        .control_with(ControlSession::transport_play);
+    assert_observation(&ws, target, ObservationState::Live);
+    ws.session_mut()
+        .control_with(ControlSession::transport_stop);
     ws.session_mut()
         .control_with(|c, p| {
             c.feed_probe(
@@ -528,10 +525,7 @@ fn pc_a_04_breakdown_and_observation_states() {
             )
         })
         .unwrap();
-    assert_eq!(
-        ws.session().control().observation_state(target),
-        ObservationState::Captured
-    );
+    assert_observation(&ws, target, ObservationState::Captured);
     // An Estimated-provenance stamp is Stale, never trusted.
     let target2 = add_target_with(
         &mut ws,
@@ -550,10 +544,7 @@ fn pc_a_04_breakdown_and_observation_states() {
             )
         })
         .unwrap();
-    assert_eq!(
-        ws.session().control().observation_state(target2),
-        ObservationState::Stale
-    );
+    assert_observation(&ws, target2, ObservationState::Stale);
 }
 
 // ---------------------------------------------------------------------------
@@ -707,7 +698,8 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
     );
 
     // Rolling + record_start fixes target set and revision.
-    ws.session_mut().control_mut().transport_play();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_play);
     let rev = ws.session().revision();
     ws.session_mut()
         .control_with(|c, p| c.record_start(p, rev))
@@ -752,8 +744,7 @@ fn pc_a_05_recording_gates_undo_seal_fixation() {
     // Loop wrap seals the transaction — the recorded interval is never
     // silently overwritten.
     ws.session_mut()
-        .control_mut()
-        .set_loop(Some((bp(0), bp(4))))
+        .control_with(|c, p| c.set_loop(p, Some((bp(0), bp(4)))))
         .unwrap();
     let rev = ws.session().revision();
     ws.session_mut()
@@ -1171,7 +1162,8 @@ fn pc_a_08_time_consistency() {
     // Offline render == playback on the same grid: stepping the
     // transport and evaluating each position produces the same values
     // as evaluating the same positions directly.
-    ws.session_mut().control_mut().transport_play();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_play);
     let mut stepped = Vec::new();
     for i in 0..4 {
         let pos = frac(i, 2);
@@ -1186,7 +1178,8 @@ fn pc_a_08_time_consistency() {
                 .host_normalized,
         );
     }
-    ws.session_mut().control_mut().transport_stop();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_stop);
     for (i, v) in stepped.iter().enumerate() {
         let direct = evaluate_control(
             ws.session().project(),
@@ -1201,8 +1194,7 @@ fn pc_a_08_time_consistency() {
 
     // Loop wrap keeps the evaluation consistent at the loop start.
     ws.session_mut()
-        .control_mut()
-        .set_loop(Some((bp(0), bp(4))))
+        .control_with(|c, p| c.set_loop(p, Some((bp(0), bp(4)))))
         .unwrap();
     let eff = ws
         .session_mut()
@@ -1217,15 +1209,18 @@ fn pc_a_08_time_consistency() {
     // tick 960: beat 1 at 0.5 s, beat 2 at 1.5 s).
     let ns = TimeBase::new(1, 1_000_000_000).unwrap();
     let epoch = ws.session().control().playback().epoch;
-    ws.session_mut()
-        .control_mut()
-        .install_clock_anchor(ClockAnchor {
-            domain: ClockDomainId::MONOTONIC,
-            stamp_ticks: 0,
-            stamp_base: ns,
-            frame: EngineFrame::new(epoch, 0),
-            calibration: TimestampProvenance::Carried,
-        });
+    ws.session_mut().control_with(|c, p| {
+        c.install_clock_anchor(
+            p,
+            ClockAnchor {
+                domain: ClockDomainId::MONOTONIC,
+                stamp_ticks: 0,
+                stamp_base: ns,
+                frame: EngineFrame::new(epoch, 0),
+                calibration: TimestampProvenance::Carried,
+            },
+        );
+    });
     let rev = ws.session().revision();
     ws.session_mut()
         .control_with(|c, p| c.gesture_begin(p, target, bp(0), rev))
@@ -1308,7 +1303,8 @@ fn pc_a_05_record_start_rejects_unbound_write_lane() {
         .control_with(|c, p| c.set_arm(p, target, WriteArm::Armed))
         .unwrap();
     ws.session_mut().control_mut().set_record_enabled(true);
-    ws.session_mut().control_mut().transport_play();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_play);
     let rev = ws.session().revision();
     // Armed + write-mode but unbound: start fails, nothing fixed.
     assert!(
@@ -1352,7 +1348,8 @@ fn pc_a_05_record_write_rejects_removed_write_lane() {
         .control_with(|c, p| c.set_arm(p, target, WriteArm::Armed))
         .unwrap();
     ws.session_mut().control_mut().set_record_enabled(true);
-    ws.session_mut().control_mut().transport_play();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_play);
     let rev = ws.session().revision();
     ws.session_mut()
         .control_with(|c, p| c.record_start(p, rev))
@@ -1403,15 +1400,18 @@ fn pc_a_05_stamp_anchor_install_syncs_epoch() {
     // An anchor on a different epoch than the session default —
     // mirroring an engine clock the session had never heard of.
     let engine_epoch = ClockEpochId::new(0);
-    ws.session_mut()
-        .control_mut()
-        .install_clock_anchor(ClockAnchor {
-            domain: ClockDomainId::MONOTONIC,
-            stamp_ticks: 0,
-            stamp_base: ns,
-            frame: EngineFrame::new(engine_epoch, 0),
-            calibration: TimestampProvenance::Carried,
-        });
+    ws.session_mut().control_with(|c, p| {
+        c.install_clock_anchor(
+            p,
+            ClockAnchor {
+                domain: ClockDomainId::MONOTONIC,
+                stamp_ticks: 0,
+                stamp_base: ns,
+                frame: EngineFrame::new(engine_epoch, 0),
+                calibration: TimestampProvenance::Carried,
+            },
+        );
+    });
     assert_eq!(
         ws.session().control().playback().epoch,
         engine_epoch,

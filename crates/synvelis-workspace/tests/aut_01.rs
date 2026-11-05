@@ -106,7 +106,8 @@ fn open_recording(ws: &mut Ws, target: ParameterTargetId, lane: AutomationLaneId
         .control_with(|c, p| c.set_arm(p, target, WriteArm::Armed))
         .unwrap();
     ws.session_mut().control_mut().set_record_enabled(true);
-    ws.session_mut().control_mut().transport_play();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_play);
     let rev = ws.session().revision();
     ws.session_mut()
         .control_with(|c, p| c.record_start(p, rev))
@@ -711,7 +712,8 @@ fn aut_01_write_seeds_held_reference_and_stops() {
         .control_with(|c, p| c.set_arm(p, target, WriteArm::Armed))
         .unwrap();
     ws.session_mut().control_mut().set_record_enabled(true);
-    ws.session_mut().control_mut().transport_play();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_play);
     let rev = ws.session().revision();
     ws.session_mut()
         .control_with(|c, p| c.record_start(p, rev))
@@ -754,7 +756,8 @@ fn aut_01_write_seeds_held_reference_and_stops() {
 
     // Stop is an explicit closure — the held write ends and nothing
     // re-arms on the next play.
-    ws.session_mut().control_mut().transport_stop();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_stop);
     assert_eq!(writer_state(&ws, target), WriterState::Idle);
     let closes: Vec<_> = ws
         .session()
@@ -827,7 +830,8 @@ fn aut_01_boundaries_close_runtime_state() {
         .gesture_update(target, bp(1), 0.8)
         .unwrap();
 
-    ws.session_mut().control_mut().transport_stop();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_stop);
     assert_eq!(writer_state(&ws, target), WriterState::Idle);
     assert_eq!(writer_state(&ws, other), WriterState::Idle);
     let closes: Vec<_> = ws
@@ -850,7 +854,8 @@ fn aut_01_boundaries_close_runtime_state() {
     ws.session_mut()
         .control_with(|c, p| c.gesture_begin(p, target, bp(0), rev))
         .unwrap();
-    ws.session_mut().control_mut().transport_seek(bp(4));
+    ws.session_mut()
+        .control_with(|c, p| c.transport_seek(p, bp(4)));
     assert_eq!(writer_state(&ws, target), WriterState::Idle);
     assert_eq!(
         ws.session()
@@ -868,8 +873,7 @@ fn aut_01_boundaries_close_runtime_state() {
         .control_with(|c, p| c.gesture_begin(p, target, bp(0), rev))
         .unwrap();
     ws.session_mut()
-        .control_mut()
-        .set_loop(Some((bp(0), bp(4))))
+        .control_with(|c, p| c.set_loop(p, Some((bp(0), bp(4)))))
         .unwrap();
     let effect = ws
         .session_mut()
@@ -950,7 +954,8 @@ fn aut_01_pause_resume_vs_new_play_boundary() {
     // A fresh `transport_play` is a *new* run — the held write closes
     // explicitly and never re-arms.
     ws.session_mut().control_mut().transport_pause();
-    ws.session_mut().control_mut().transport_play();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_play);
     assert_eq!(writer_state(&ws, target), WriterState::Idle);
     assert_eq!(
         ws.session()

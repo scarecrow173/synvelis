@@ -7,6 +7,8 @@ Directory: `docs/test-specs`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | TSPEC-034AUT01Hd5jKm8nRt3wXsYq | AUT-01 Touch Return・Writer State 境界 検証仕様 | approved | [aut-01-e2e-touch-return-writer-state.md](./aut-01-e2e-touch-return-writer-state.md) |
+| TSPEC-034AUT02Fh3jDs8mXq5vWk2n | AUT-02 E2E 検証仕様 — Region Replace 境界曲線保存・Reject/Replace 原子的編集 | approved | [aut-02-e2e-region-replace-boundary.md](./aut-02-e2e-region-replace-boundary.md) |
+| TSPEC-034AUT03Zk6mVt4nQr2wXs8 | AUT-03 E2E 検証仕様 — Loop 録音 1 Pass・Write Range 半開区間・境界 flush・明示 Rearm | approved | [aut-03-e2e-loop-write-one-pass.md](./aut-03-e2e-loop-write-one-pass.md) |
 | TSPEC-034RoWXtHq8FkSjQ9NWwqn | Synvelis 独立 CI ワークフロー検証仕様 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | TSPEC-034CTL01Pr2sUv7wY4zAbCdEfG | CTL-01 ControlOwner/AutomationTimeScope 検証仕様 | approved | [ctl-01-e2e-control-owner-time-scope.md](./ctl-01-e2e-control-owner-time-scope.md) |
 | TSPEC-034QAmjdN5ihez8HzDIvIs | ED-A 検証仕様 — Editing Model 合意5項目 headless 受入 | approved | [ed-a-e2e-editing-model.md](./ed-a-e2e-editing-model.md) |

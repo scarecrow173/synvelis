@@ -24,6 +24,8 @@ Directory: `docs/tasks`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| TASK-034AUT02Gt6kHr4nWy8sBp3x | AUT-02 task1: 境界 anchor 実装 + op 適用 + property/exact fixture テスト | done | [aut-02-task1-region-replace-boundary.md](./aut-02-task1-region-replace-boundary.md) |
+| TASK-034AUT03Pq9rWx3nVm7sJk2d | AUT-03 task1: Write Range 閉鎖・境界 flush・明示 Rearm 実装 + headless テスト | done | [aut-03-task1-loop-write-one-pass.md](./aut-03-task1-loop-write-one-pass.md) |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |
 | TASK-034Rp07EGtrO1nUIIjiLh8 | ci.yml + dep-access composite action 実装 | done | [ci-task2-workflow.md](./ci-task2-workflow.md) |
 | TASK-034CTL01Sa3yBv9cE5fG6hIj | CTL-01: ControlOwner/AutomationTimeScope/ParameterRole 型・oracle・Schema v7 Migration・ops・検証 | done | [ctl-01-task1-owner-time-scope-schema-migration.md](./ctl-01-task1-owner-time-scope-schema-migration.md) |

@@ -96,6 +96,20 @@ pub enum PlaybackStatus {
     Paused,
 }
 
+/// Which loop pass of the current transport run a recording
+/// transaction writes into (issue #133). `0` means "no run yet":
+/// a non-`Playing` → `Playing` edge starts pass `1`, and each loop
+/// wrap increments it. A new pass never records implicitly — only an
+/// explicit `record_start` (re-arm) opens a transaction for it.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct LoopPassId(pub u64);
+
+impl fmt::Display for LoopPassId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "pass-{}", self.0)
+    }
+}
+
 /// Session playback state — kept in beats (`BeatPosition`-exact) so
 /// tempo edits never rewrite history; `epoch` carries the clock epoch
 /// for stamp→frame mapping (rf#188). The engine frame is **derived**
@@ -112,6 +126,9 @@ pub struct PlaybackState {
     pub loop_range: Option<(BeatPoint, BeatPoint)>,
     /// Clock epoch for frame comparisons.
     pub epoch: ruviform_media_core::ClockEpochId,
+    /// The loop pass of the current transport run (`1` on the first
+    /// play edge, `+1` per wrap).
+    pub pass: LoopPassId,
 }
 
 impl Default for PlaybackState {
@@ -121,6 +138,7 @@ impl Default for PlaybackState {
             position: BeatPoint::ZERO,
             loop_range: None,
             epoch: ruviform_media_core::ClockEpochId::new(1),
+            pass: LoopPassId(0),
         }
     }
 }
@@ -148,6 +166,21 @@ pub enum SealReason {
     /// A project apply/undo/redo succeeded while the transaction was
     /// open — its fixed revision is now stale.
     ProjectChange,
+    /// The transport clock epoch changed mid-recording — the epoch
+    /// fixed at `record_start` no longer holds (issue #133).
+    EpochChange,
+    /// The host reported the control plan / `LastGood` graph stale —
+    /// continuing could record through a mismatched mapping
+    /// (issue #133). Session-only notification.
+    GraphStale,
+    /// The loop range changed mid-recording — the pass boundary's
+    /// coordinate basis is void (issue #133).
+    LoopChanged,
+    /// A non-`Playing` → `Playing` edge began a new transport run
+    /// while the transaction was open — a new run never resumes an
+    /// old pass (issue #133; the AUT-01 run-boundary contract applied
+    /// to the recording gate).
+    NewTransportPlay,
 }
 
 /// Monotonic, unique id of a recording transaction inside one
@@ -314,6 +347,20 @@ pub struct RecordingTransaction {
     pub fixed_lanes: BTreeMap<ParameterTargetId, AutomationLaneId>,
     /// Live project revision at start.
     pub fixed_revision: ProjectRevision,
+    /// The loop pass this transaction writes into — fixed at
+    /// `record_start` (issue #133). A later wrap increments the
+    /// transport's pass but never this one.
+    pub pass: LoopPassId,
+    /// Target → `(owner, time_scope)` fixed at `record_start` —
+    /// recorded positions resolve against this captured context, so
+    /// a later clip move or scope change cannot reinterpret them.
+    pub fixed_scopes: BTreeMap<ParameterTargetId, (ControlOwner, AutomationTimeScope)>,
+    /// Per-lane write-range coverage end **in project beats** — the
+    /// exclusive end of the interval the pass actually covered. Set
+    /// once, when the write range closes, only for lanes whose target
+    /// had an active writer at the boundary; resolved into the lane's
+    /// scope coordinate at `prepare_record_commit`.
+    pub coverage_end: BTreeMap<AutomationLaneId, BeatPoint>,
     /// Collected manual (pre-modulation) points per destination lane.
     pub segments: BTreeMap<AutomationLaneId, Vec<AutomationPoint>>,
     /// `Some` once sealed — further `record_write` is rejected.
@@ -767,11 +814,13 @@ impl ControlSession {
     ) -> Result<(), Error> {
         Self::target(project, target)?;
         if self.mode(target) != mode {
-            self.modes.insert(target, mode);
             // A fixed target's mode change mid-recording closes the
-            // write gate permanently — the transaction's captured
-            // context no longer holds.
-            self.seal_fixed_target(target, SealReason::ModeChanged);
+            // write range permanently — the transaction's captured
+            // context no longer holds. The close runs before the new
+            // mode lands so a held `Write` writer is still counted
+            // for coverage at the boundary (issue #133).
+            self.seal_fixed_target(project, target, SealReason::ModeChanged);
+            self.modes.insert(target, mode);
         }
         // Leaving `Latch`/`Write` drops the held write value — an
         // explicit closure, recorded. An in-flight `Touch` return is
@@ -811,7 +860,7 @@ impl ControlSession {
         Self::target(project, target)?;
         if self.arm(target) != arm {
             self.arms.insert(target, arm);
-            self.seal_fixed_target(target, SealReason::ArmChanged);
+            self.seal_fixed_target(project, target, SealReason::ArmChanged);
         }
         Ok(())
     }
@@ -860,12 +909,18 @@ impl ControlSession {
     /// Seals the open transaction when `target` is one of its fixed
     /// targets — a mode/arm change on it permanently invalidates the
     /// captured recording context.
-    fn seal_fixed_target(&mut self, target: ParameterTargetId, reason: SealReason) {
-        if let Some(tx) = self.recording.as_mut()
-            && tx.sealed.is_none()
-            && tx.fixed_targets.contains(&target)
+    fn seal_fixed_target(
+        &mut self,
+        project: &Project,
+        target: ParameterTargetId,
+        reason: SealReason,
+    ) {
+        if self
+            .recording
+            .as_ref()
+            .is_some_and(|tx| tx.sealed.is_none() && tx.fixed_targets.contains(&target))
         {
-            tx.sealed = Some(reason);
+            self.close_write_range(project, reason, self.playback.position);
         }
     }
 
@@ -893,10 +948,18 @@ impl ControlSession {
     /// is a **new** transport run: every gesture/writer state is
     /// explicitly closed — nothing carries over from the previous run.
     /// (`transport_resume` from `Paused` continues the same playback
-    /// and does not close.)
-    pub fn transport_play(&mut self) {
+    /// and does not close.) The edge also starts loop pass `1` and
+    /// seals an open recording transaction — a new run never resumes
+    /// an old pass (issue #133).
+    pub fn transport_play(&mut self, project: &Project) {
         if self.playback.status != PlaybackStatus::Playing {
+            self.close_write_range(
+                project,
+                SealReason::NewTransportPlay,
+                self.playback.position,
+            );
             self.close_runtime_state(WriterCloseReason::NewTransportPlay);
+            self.playback.pass = LoopPassId(1);
         }
         self.playback.status = PlaybackStatus::Playing;
     }
@@ -921,43 +984,121 @@ impl ControlSession {
     /// Stops rolling. Every gesture/writer state is explicitly closed —
     /// latch holds, write-held overrides, in-flight gestures and
     /// returns never carry into the next playback. An open recording
-    /// transaction is sealed: a stopped session never resumes into
-    /// the same transaction on the next play.
-    pub fn transport_stop(&mut self) {
+    /// transaction has its write range closed at the current position
+    /// and is sealed: a stopped session never resumes into the same
+    /// transaction on the next play.
+    pub fn transport_stop(&mut self, project: &Project) {
         self.playback.status = PlaybackStatus::Stopped;
+        self.close_write_range(project, SealReason::Stopped, self.playback.position);
         self.close_runtime_state(WriterCloseReason::TransportStop);
-        self.seal_recording(SealReason::Stopped);
     }
 
     /// Seeks the playhead (chase = the next evaluation simply reads the
     /// new position). Session-only. Gesture/writer state is explicitly
-    /// closed and an open recording transaction is sealed — the
-    /// recorded interval is no longer contiguous.
-    pub fn transport_seek(&mut self, pos: BeatPoint) {
+    /// closed and an open recording transaction's write range closes
+    /// at the pre-seek position — the recorded interval is no longer
+    /// contiguous.
+    pub fn transport_seek(&mut self, project: &Project, pos: BeatPoint) {
+        let bound = self.playback.position;
         self.playback.position = pos;
+        self.close_write_range(project, SealReason::Seek, bound);
         self.close_runtime_state(WriterCloseReason::TransportSeek);
-        self.seal_recording(SealReason::Seek);
     }
 
-    /// Seals the open transaction's write gate with `reason` — the
-    /// recorded columns stay for inspect/commit/abort.
-    fn seal_recording(&mut self, reason: SealReason) {
-        if let Some(tx) = self.recording.as_mut()
-            && tx.sealed.is_none()
-        {
-            tx.sealed = Some(reason);
+    /// Closes the open transaction's write range and seals its write
+    /// gate with `reason` (issue #133). First-seal-wins: an already
+    /// sealed transaction is left untouched and `false` is returned.
+    ///
+    /// `bound` is the exclusive end of the recorded interval in
+    /// project beats (clamped to the loop end when a loop is set):
+    /// the loop `end` for a wrap, the current position for every
+    /// other boundary.
+    ///
+    /// Two things happen while the transaction is still unsealed:
+    ///
+    /// 1. **Flush** — an in-flight gesture on a fixed target has its
+    ///    delivered points appended (`pos <= bound`, and `pos < end`
+    ///    under a loop): they are part of the pass's recording, not a
+    ///    discardable preview. The gesture itself still closes as a
+    ///    runtime boundary. Flush is best-effort — a lane that
+    ///    vanished mid-recording fails the commit's structural check
+    ///    anyway, so the close never aborts on a failed append.
+    /// 2. **Coverage** — a fixed target with an active writer
+    ///    (in-flight gesture, held `Latch`, held `Write`) marks its
+    ///    lane's `coverage_end` at `bound`: a held write covered the
+    ///    interval continuously, which `last point + ε` cannot
+    ///    express. The recorded columns stay for inspect/commit/abort.
+    fn close_write_range(
+        &mut self,
+        project: &Project,
+        reason: SealReason,
+        bound: BeatPoint,
+    ) -> bool {
+        let loop_end = self.playback.loop_range.map(|(_, end)| end);
+        let bound = loop_end.map_or(bound, |end| bound.min(end));
+        let Some(tx) = self.recording.as_ref() else {
+            return false;
+        };
+        if tx.sealed.is_some() {
+            return false;
         }
+        let fixed: Vec<(ParameterTargetId, AutomationLaneId)> = tx
+            .fixed_lanes
+            .iter()
+            .map(|(target, lane)| (*target, *lane))
+            .collect();
+        for (target, _) in &fixed {
+            let Some(g) = self.gestures.get(target) else {
+                continue;
+            };
+            let clipped: Vec<(BeatPoint, f64)> = g
+                .points
+                .iter()
+                .copied()
+                .filter(|(pos, _)| *pos <= bound && loop_end.is_none_or(|end| *pos < end))
+                .collect();
+            if !clipped.is_empty() {
+                let _ = self.record_points(project, *target, &clipped);
+            }
+        }
+        let covered: Vec<AutomationLaneId> = fixed
+            .iter()
+            .filter(|(target, _)| {
+                self.gestures.contains_key(target)
+                    || self.latch_held.contains_key(target)
+                    || (self.manual_overrides.contains_key(target)
+                        && self.mode(*target) == AutomationMode::Write)
+            })
+            .map(|(_, lane)| *lane)
+            .collect();
+        let Some(tx) = self.recording.as_mut() else {
+            return false;
+        };
+        for lane in covered {
+            tx.coverage_end.insert(lane, bound);
+        }
+        tx.sealed = Some(reason);
+        true
     }
 
-    /// Sets or clears the loop range.
+    /// Sets or clears the loop range. Changing it while a recording
+    /// transaction is open seals the write range — the pass
+    /// boundary's coordinate basis no longer holds (issue #133).
     ///
     /// # Errors
     /// [`Error::Validation`] when `end <= start`.
-    pub fn set_loop(&mut self, range: Option<(BeatPoint, BeatPoint)>) -> Result<(), Error> {
+    pub fn set_loop(
+        &mut self,
+        project: &Project,
+        range: Option<(BeatPoint, BeatPoint)>,
+    ) -> Result<(), Error> {
         if let Some((start, end)) = range
             && end <= start
         {
             return Err(Error::Validation("loop end must exceed start".into()));
+        }
+        if self.playback.loop_range != range {
+            self.close_write_range(project, SealReason::LoopChanged, self.playback.position);
         }
         self.playback.loop_range = range;
         Ok(())
@@ -983,16 +1124,15 @@ impl ControlSession {
         {
             pos = start;
             effect.wrapped = true;
-            // The wrap boundary explicitly closes every gesture/writer
-            // state — a return or held write anchored to the old
-            // position must not straddle the wrap.
+            // The pass ends at the loop end — `end` itself belongs to
+            // the next pass and stays outside the half-open write
+            // range (issue #133). The wrap boundary explicitly closes
+            // every gesture/writer state — a return or held write
+            // anchored to the old position must not straddle the
+            // wrap.
+            effect.sealed = self.close_write_range(project, SealReason::LoopWrap, end);
             self.close_runtime_state(WriterCloseReason::LoopWrap);
-            if let Some(tx) = self.recording.as_mut()
-                && tx.sealed.is_none()
-            {
-                tx.sealed = Some(SealReason::LoopWrap);
-                effect.sealed = true;
-            }
+            self.playback.pass = LoopPassId(self.playback.pass.0.saturating_add(1));
         }
         self.playback.position = pos;
         // The engine frame is derived from `position` inside
@@ -1455,6 +1595,17 @@ impl ControlSession {
                 .ok_or_else(|| Error::Validation(format!("no write lane bound for {target}")))?;
             fixed_lanes.insert(*target, *lane);
         }
+        // The `(owner, time_scope)` pair each recorded position
+        // resolves against — fixed now (issue #133): a clip move or
+        // scope change mid-recording cannot reinterpret the pass's
+        // positions. A target that no longer resolves is skipped
+        // here; `record_points` surfaces it as `NotFound`.
+        let mut fixed_scopes = BTreeMap::new();
+        for target in &fixed {
+            if let Ok(t) = Self::target(project, *target) {
+                fixed_scopes.insert(*target, (t.owner, t.time_scope));
+            }
+        }
         // `Write`-mode fixed targets hold the reference evaluated at
         // the start position — the agreed "記録開始時に固定した
         // Reference 基準値から継続書込み": the held value writes at
@@ -1481,6 +1632,9 @@ impl ControlSession {
             fixed_targets: fixed,
             fixed_lanes,
             fixed_revision: revision,
+            pass: self.playback.pass,
+            fixed_scopes,
+            coverage_end: BTreeMap::new(),
             segments: BTreeMap::new(),
             sealed: None,
             state: RecordingTxnState::Pending,
@@ -1512,6 +1666,16 @@ impl ControlSession {
                 "record gates closed for {target}"
             )));
         }
+        // A position at or beyond the loop end belongs to the next
+        // pass — it can never be attributed to this transaction
+        // (issue #133).
+        if let Some((_, end)) = self.playback.loop_range
+            && at >= end
+        {
+            return Err(Error::Validation(format!(
+                "position {at} is outside the loop pass [.., {end})"
+            )));
+        }
         self.record_points(project, target, &[(at, value)])?;
         Ok(())
     }
@@ -1533,11 +1697,18 @@ impl ControlSession {
         points: &[(BeatPoint, f64)],
     ) -> Result<usize, Error> {
         let bound = Self::target(project, target)?;
-        let (owner, time_scope) = (bound.owner, bound.time_scope);
-        let lane = *self
+        let tx_ref = self
             .recording
             .as_ref()
-            .ok_or_else(|| Error::Validation("no open recording".into()))?
+            .ok_or_else(|| Error::Validation("no open recording".into()))?;
+        // Positions resolve against the `(owner, time_scope)` fixed at
+        // `record_start` — never a scope that moved mid-recording.
+        let (owner, time_scope) = tx_ref
+            .fixed_scopes
+            .get(&target)
+            .copied()
+            .unwrap_or((bound.owner, bound.time_scope));
+        let lane = *tx_ref
             .fixed_lanes
             .get(&target)
             .ok_or_else(|| Error::Validation(format!("no fixed write lane for {target}")))?;
@@ -1549,8 +1720,14 @@ impl ControlSession {
                 "write lane {lane} no longer exists"
             )));
         }
+        let pass_end = self.playback.loop_range.map(|(_, end)| end);
         let mut resolved = Vec::with_capacity(points.len());
         for (pos, value) in points {
+            // A batch position at or beyond the loop end belongs to the
+            // next pass — clip it, never attribute it here (issue #133).
+            if pass_end.is_some_and(|end| *pos >= end) {
+                continue;
+            }
             match synvelis_project::resolve_scope_pos(project, owner, time_scope, *pos) {
                 Ok(local) => resolved.push((local, *value)),
                 Err(synvelis_project::Error::ScopeUnavailable { .. }) => {}
@@ -1670,15 +1847,40 @@ impl ControlSession {
                     continue;
                 };
                 let (start, last_pos) = (first.pos, last.pos);
+                // The write range's exclusive end (issue #133): the
+                // lane's `coverage_end` — recorded in project beats at
+                // the boundary and resolved here against the fixed
+                // scope — covers a held write's continuous tail. It
+                // only applies when it actually extends the recorded
+                // points (`> last_pos`); a scope the bound cannot be
+                // expressed in falls back to the last-point increment.
+                let coverage = tx
+                    .coverage_end
+                    .get(lane)
+                    .and_then(|bound| {
+                        let fixed_target = tx
+                            .fixed_lanes
+                            .iter()
+                            .find_map(|(t, l)| (*l == *lane).then_some(*t))?;
+                        let (owner, scope) = tx.fixed_scopes.get(&fixed_target).copied()?;
+                        synvelis_project::resolve_scope_pos(project, owner, scope, *bound).ok()
+                    })
+                    .filter(|end| *end > last_pos);
                 // Cover the last point: extend the half-open range by
                 // the smallest representable increment (2^-32 beats —
                 // below any meaningful user point, documented).
-                let end = last_pos
-                    .checked_add(
-                        BeatPoint::new(1, u32::MAX)
-                            .map_err(|e| RecordCommitError::Invalid(e.to_string()))?,
-                    )
-                    .map_err(|e| RecordCommitError::Invalid(e.to_string()))?;
+                let fallback_end = || {
+                    last_pos
+                        .checked_add(
+                            BeatPoint::new(1, u32::MAX)
+                                .map_err(|e| RecordCommitError::Invalid(e.to_string()))?,
+                        )
+                        .map_err(|e| RecordCommitError::Invalid(e.to_string()))
+                };
+                let end = match coverage {
+                    Some(end) => end,
+                    None => fallback_end()?,
+                };
                 let range = BeatRange::try_new(start, end)
                     .map_err(|e| RecordCommitError::Invalid(e.to_string()))?;
                 ops.push(ProjectOp::WriteAutomationRegion {
@@ -1837,7 +2039,7 @@ impl ControlSession {
     /// target. The recorded columns are retained; the next prepare
     /// reports `Conflict`.
     pub fn note_project_changed(&mut self, project: &Project) {
-        self.seal_recording(SealReason::ProjectChange);
+        self.close_write_range(project, SealReason::ProjectChange, self.playback.position);
         for target in self.runtime_targets() {
             if !project.control.targets.contains_key(&target) {
                 self.close_target_runtime(target, WriterCloseReason::TargetDeleted);
@@ -2129,10 +2331,29 @@ impl ControlSession {
     /// session's playback epoch follows the anchor's frame epoch —
     /// it is the engine clock's own epoch, and a mismatched stored
     /// epoch would make every `stamp_gesture` reject as
-    /// `EpochMismatch` with no path to correct it.
-    pub fn install_clock_anchor(&mut self, anchor: ClockAnchor) {
+    /// `EpochMismatch` with no path to correct it. A device/clock
+    /// epoch change seals an open recording transaction — the epoch
+    /// fixed at `record_start` no longer holds (issue #133).
+    pub fn install_clock_anchor(&mut self, project: &Project, anchor: ClockAnchor) {
+        let epoch_changed = self
+            .recording
+            .as_ref()
+            .is_some_and(|tx| tx.sealed.is_none() && tx.epoch != anchor.frame.epoch());
+        if epoch_changed {
+            self.close_write_range(project, SealReason::EpochChange, self.playback.position);
+        }
         self.playback.epoch = anchor.frame.epoch();
         self.clock_anchor = Some(anchor);
+    }
+
+    /// The host detected a stale control plan / `LastGood` graph —
+    /// writes through it could land on a mismatched parameter
+    /// (issue #133). The open transaction's write range closes at the
+    /// current position; runtime gesture state is untouched (the
+    /// gesture preview remains a session concern, not a project one).
+    /// No-op with no open transaction.
+    pub fn note_graph_stale(&mut self, project: &Project) {
+        self.close_write_range(project, SealReason::GraphStale, self.playback.position);
     }
 
     /// Maps a native [`InputStamp`] to an engine frame exactly once via
@@ -2268,10 +2489,11 @@ impl ControlSession {
 }
 
 /// Deterministic fingerprint of a transaction's canonical payload —
-/// FNV-1a over the id, fixed revision, start position, epoch, fixed
-/// targets/lanes and every recorded point (position + value bits).
-/// Stable across runs and platforms; two transactions with the same
-/// fingerprint are byte-identical payloads.
+/// FNV-1a over the id, fixed revision, start position, epoch, loop
+/// pass, fixed targets/lanes/scopes, write-range coverage and every
+/// recorded point (position + value bits). Stable across runs and
+/// platforms; two transactions with the same fingerprint are
+/// byte-identical payloads.
 fn txn_fingerprint(tx: &RecordingTransaction) -> u64 {
     const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
     const PRIME: u64 = 0x0000_0100_0000_01b3;
@@ -2287,12 +2509,23 @@ fn txn_fingerprint(tx: &RecordingTransaction) -> u64 {
     mix(&tx.started_at.num().to_le_bytes());
     mix(&tx.started_at.den().to_le_bytes());
     mix(&tx.epoch.get().to_le_bytes());
+    mix(&tx.pass.0.to_le_bytes());
     for target in &tx.fixed_targets {
         mix(&target.raw().to_le_bytes());
     }
     for (target, lane) in &tx.fixed_lanes {
         mix(&target.raw().to_le_bytes());
         mix(&lane.raw().to_le_bytes());
+    }
+    for (target, (owner, scope)) in &tx.fixed_scopes {
+        mix(&target.raw().to_le_bytes());
+        mix(format!("{owner:?}").as_bytes());
+        mix(format!("{scope:?}").as_bytes());
+    }
+    for (lane, bound) in &tx.coverage_end {
+        mix(&lane.raw().to_le_bytes());
+        mix(&bound.num().to_le_bytes());
+        mix(&bound.den().to_le_bytes());
     }
     for (lane, points) in &tx.segments {
         mix(&lane.raw().to_le_bytes());

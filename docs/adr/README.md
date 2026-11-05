@@ -6,6 +6,8 @@ Directory: `docs/adr`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| ADR-034AUT02Xy4mKp8wQe2sVn7j | AUT-02 境界 Sentinel/Anchor 配置 — merged series 単位の境界復元・host region 選択 | accepted | [aut-02-boundary-sentinel-anchor-placement.md](./aut-02-boundary-sentinel-anchor-placement.md) |
+| ADR-034AUT0312NAA2Mk53Gle5 | AUT-03 Write Range 半開区間の表現 — 境界 flush・coverage_end・Pass fixation | accepted | [aut-03-write-range-boundary-flush-pass-fixation.md](./aut-03-write-range-boundary-flush-pass-fixation.md) |
 | ADR-034CTL01Px0vYs6zB2cD3eFg | CTL-01 ControlOwner/AutomationTimeScope 責務分離・Schema v7・Versioned Migration 境界 | accepted | [ctl-01-control-owner-time-scope-schema-v7.md](./ctl-01-control-owner-time-scope-schema-v7.md) |
 | ADR-034QAmdUp9fg7PPVCOQtcx | ED-A editing-model placement: synvelis-workspace gesture/tool/snap state machines + synvelis-project batch ops | accepted | [ed-a-editing-model-placement-synvelis-workspace-gesture-tool-snap-state-machines.md](./ed-a-editing-model-placement-synvelis-workspace-gesture-tool-snap-state-machines.md) |
 | ADR-034QN06oqUD5VvvsC9aedM | ED-B media-domain gesture positions + slip/trim/marquee commit semantics | accepted | [ed-b-media-domain-gesture-positions-slip-trim-marquee-commit-semantics.md](./ed-b-media-domain-gesture-positions-slip-trim-marquee-commit-semantics.md) |

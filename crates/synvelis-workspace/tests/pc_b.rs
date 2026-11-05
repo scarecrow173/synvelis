@@ -195,7 +195,8 @@ fn pc_b_02_note_scope_records_note_relative() {
         .control_with(|c, p| c.bind_write_lane(p, target, lane))
         .unwrap();
     ws.session_mut().control_mut().set_record_enabled(true);
-    ws.session_mut().control_mut().transport_play();
+    ws.session_mut()
+        .control_with(synvelis_workspace::ControlSession::transport_play);
     let rev = ws.session().revision();
     ws.session_mut()
         .control_with(|c, p| c.record_start(p, rev))
