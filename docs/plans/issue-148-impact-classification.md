@@ -4,7 +4,7 @@ type: "plan"
 status: "approved"
 title: "Issue #148 変更影響分類・Fail-Closed evidence Gate 実装計画"
 created: "2026-11-04"
-updated: "2026-11-04"
+updated: "2026-11-06"
 owners: []
 relations:
   source:
@@ -52,8 +52,8 @@ relations:
   references:
     - ".github/workflows/ci.yml"
     - "mise.toml"
-    - "tools/ci-impact.mjs"
-    - "tools/ci-impact.test.mjs"
+    - "https://github.com/scarecrow173/synvelis/blob/3f4f4450131b0258a1919b213de3ad394fbbb709/tools/ci-impact.mjs"
+    - "https://github.com/scarecrow173/synvelis/blob/3f4f4450131b0258a1919b213de3ad394fbbb709/tools/ci-impact.test.mjs"
   defers: []
   deferred-by: []
 ---

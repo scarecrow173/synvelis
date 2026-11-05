@@ -1,10 +1,10 @@
 ---
 id: "TASK-034RADc5Q2mNYPcXkM8fR"
 type: "task"
-status: "completed"
+status: "in-progress"
 title: "SV-GUI-02 frontend BindingPort/ViewModel/ConsoleView"
 created: "2026-11-04"
-updated: "2026-11-04"
+updated: "2026-11-06"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -61,3 +61,25 @@ relations:
 ## Classification
 
 - `normal-plan-task`
+
+## 2026-11-06 lifecycle 是正による再開
+
+既存の owner-tied cleanup / mount–unmount–remount 契約を復元する
+是正作業として本タスクを再開する。変更前の `ConsoleView` は
+`await vm.attach()` 後に cleanup を登録し、`ConsoleViewModel.detach()`
+は receipt listener の解放と pending attach の無効化を行っていない。
+製品再現テストと修復コードは、再開時点では未実施である。
+
+### 是正範囲
+
+- Solid owner が有効な同期区間で cleanup を登録し、unmount 時に
+  DOM binding と viz source を解放する。
+- detach/close 後に遅延 attach 応答が local binding を復活させない。
+- receipt 購読を attach/detach の lifetime に合わせ、再 attach 時に
+  一つだけ復元する。
+- unmount を backend close や Project/Audio/Render Job の取消で代用しない。
+- normal mount/unmount、attach/viz bind 待機中の unmount、旧応答が
+  新 mount より遅れる場合、detach/re-attach の回帰テストを先に作成する。
+
+ここでは既存契約の是正だけを扱う。SV-GUI-03 (#112) 全体、実 OS、
+新しい CI trigger、権限、永続化の設計変更を完了したとは扱わない。

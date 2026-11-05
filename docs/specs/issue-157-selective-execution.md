@@ -4,7 +4,7 @@ type: "spec"
 status: "superseded"
 title: "Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画"
 created: "2026-11-05"
-updated: "2026-11-05"
+updated: "2026-11-06"
 owners: []
 relations:
   source:
@@ -44,8 +44,8 @@ relations:
   verified-by: []
   references:
     - ".github/workflows/ci.yml"
-    - "tools/ci-impact.mjs"
-    - "tools/ci-impact.test.mjs"
+    - "https://github.com/scarecrow173/synvelis/blob/3f4f4450131b0258a1919b213de3ad394fbbb709/tools/ci-impact.mjs"
+    - "https://github.com/scarecrow173/synvelis/blob/3f4f4450131b0258a1919b213de3ad394fbbb709/tools/ci-impact.test.mjs"
   defers: []
   deferred-by: []
 ---
