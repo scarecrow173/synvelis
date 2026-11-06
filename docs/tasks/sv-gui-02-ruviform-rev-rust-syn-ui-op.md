@@ -1,10 +1,10 @@
 ---
 id: "TASK-034RADaUbkmnzbFjZ29bl4"
 type: "task"
-status: "completed"
+status: "done"
 title: "SV-GUI-02 ruviform rev 追従 + Rust syn.* UI op 面"
 created: "2026-11-04"
-updated: "2026-11-04"
+updated: "2026-11-06"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -62,3 +62,9 @@ relations:
 ## Classification
 
 - `normal-plan-task`
+
+## 2026-11-06 status 表記の正規化
+
+既存の `completed` を Task Graph の正規値 `done` に正規化した。
+2026-11-04 の完了記録は保持し、本編集による検証の再実行や新しい
+受入成功を主張しない。

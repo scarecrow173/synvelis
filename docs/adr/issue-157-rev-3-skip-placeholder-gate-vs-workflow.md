@@ -4,7 +4,7 @@ type: "adr"
 status: "accepted"
 title: "Issue #157 rev.3 skip placeholder 受理方式 — gate 名照合拡張 vs workflow 構造変更"
 created: "2026-11-05"
-updated: "2026-11-05"
+updated: "2026-11-06"
 owners: []
 relations:
   source:
@@ -43,7 +43,7 @@ relations:
   verified-by: []
   references:
     - ".github/workflows/ci.yml"
-    - "tools/ci-impact.mjs"
+    - "https://github.com/scarecrow173/synvelis/blob/3f4f4450131b0258a1919b213de3ad394fbbb709/tools/ci-impact.mjs"
   defers: []
   deferred-by: []
 metadata:

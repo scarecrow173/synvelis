@@ -11,7 +11,7 @@
 //! a generated explanation page so the user sees the failure in-app, and
 //! the mismatched files are never served.
 //!
-//! Logging flags: `--log[=FILTER]` (EnvFilter directives, bare means
+//! Logging flags: `--log[=FILTER]` (`EnvFilter` directives, bare means
 //! `info`), `--log-file <DIR>` (daily rolling JSONL sink), `--log-format
 //! text|jsonl` (stderr format). Environment: `SYNVELIS_LOG`,
 //! `SYNVELIS_LOG_FILE`, `SYNVELIS_LOG_FORMAT`. Logging is OFF unless one
@@ -46,29 +46,29 @@ fn env_overrides() -> EnvOverrides {
     }
 }
 
-fn main() -> ExitCode {
-    // SYN-OBS-01: the process entry point resolves product settings and
-    // installs the global subscriber at most once. A settings error is a
-    // startup failure — never silently disable a user-requested log.
+/// SYN-OBS-01: the process entry point resolves product settings and
+/// installs the global subscriber at most once. A settings error is a
+/// startup failure — never silently disable a user-requested log.
+fn install_logging() -> Result<logging::HostLog, ExitCode> {
     let cli = match logging::parse_args(&std::env::args().skip(1).collect::<Vec<_>>()) {
         Ok(cli) => cli,
         Err(e) => {
             eprintln!("synvelis: {e}");
-            return ExitCode::from(4);
+            return Err(ExitCode::from(4));
         }
     };
     let settings = match LogSettings::resolve(&cli, &env_overrides()) {
         Ok(settings) => settings,
         Err(e) => {
             eprintln!("synvelis: {e}");
-            return ExitCode::from(4);
+            return Err(ExitCode::from(4));
         }
     };
-    let mut host_log = match logging::install(&settings) {
+    let host_log = match logging::install(&settings) {
         Ok(host_log) => host_log,
         Err(e) => {
             eprintln!("synvelis: {e}");
-            return ExitCode::from(4);
+            return Err(ExitCode::from(4));
         }
     };
     tracing::info!(
@@ -78,6 +78,14 @@ fn main() -> ExitCode {
     for entry in host_log.degraded() {
         tracing::warn!(sink = entry.sink_index, kind = %entry.kind, "logging sink degraded");
     }
+    Ok(host_log)
+}
+
+fn main() -> ExitCode {
+    let mut host_log = match install_logging() {
+        Ok(host_log) => host_log,
+        Err(code) => return code,
+    };
 
     let report = detect_backend();
     if report.state != BackendState::Available {

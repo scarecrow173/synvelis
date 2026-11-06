@@ -13,6 +13,7 @@ import type {
   BindingPort,
   CommandBinding,
   CommandReceipt,
+  LinkDetachReason,
 } from "@ruviform/ui-binding";
 import { ViewLink } from "@ruviform/ui-binding";
 
@@ -43,23 +44,18 @@ export class ConsoleViewModel {
   readonly seek: CommandBinding<TransportView>;
   /** Parameter strip bindings keyed by logical target. */
   private readonly strips = new Map<string, CommandBinding<ParamView>>();
-  private readonly receiptOff: () => void;
+  private readonly router: NotifyRouter;
+  private receiptOff: (() => void) | undefined;
   private attachedGeneration = 0;
+  private attachToken: object | undefined;
 
   constructor(options: ConsoleViewModelOptions) {
     this.viewId = options.viewId;
     this.windowId = options.windowId;
+    this.router = options.router;
     this.link = new ViewLink({ viewId: options.viewId, port: options.port });
     this.transport = this.link.createBinding<TransportView>("transport");
     this.seek = this.link.createBinding<TransportView>("transport/position");
-    this.receiptOff = options.router.on(
-      "syn.control.receipt",
-      (data) => {
-        const d = data as WireReceiptData;
-        if (d.view_id !== this.viewId || d.receipt === undefined) return;
-        for (const b of this.bindingsFor(d.target)) b.ack(d.receipt);
-      },
-    );
   }
 
   private *bindingsFor(target: string | undefined) {
@@ -79,7 +75,7 @@ export class ConsoleViewModel {
     return b;
   }
 
-  /** Live backend generation after `attach` (0 before first attach). */
+  /** Live backend generation after `attach` (0 before attach and after detach/close). */
   get generation(): number {
     return this.attachedGeneration;
   }
@@ -90,18 +86,41 @@ export class ConsoleViewModel {
    * re-pushes subscription truth.
    */
   async attach(): Promise<number> {
-    const res = await call<{ generation?: number }>("syn.view.attach", {
+    const token = {};
+    this.attachToken = token;
+    const res = await call<{ generation: number }>("syn.view.attach", {
       view_id: this.viewId,
       window_id: this.windowId,
     });
-    this.attachedGeneration = res.generation ?? 0;
-    this.link.attach(this.windowId);
+    if (this.attachToken !== token) return this.attachedGeneration;
+    const generation = res.generation;
+    if (!Number.isSafeInteger(generation) || generation < 0) {
+      throw new RangeError(
+        `syn.view.attach returned invalid generation: ${String(generation)}`,
+      );
+    }
+    this.attachedGeneration = generation;
+    this.link.attach(this.windowId, generation);
+    this.receiptOff?.();
+    this.receiptOff = this.router.on("syn.control.receipt", (data) => {
+      const d = data as WireReceiptData;
+      if (d.view_id !== this.viewId || d.receipt === undefined) return;
+      for (const b of this.bindingsFor(d.target)) b.ack(d.receipt);
+    });
     return this.attachedGeneration;
+  }
+
+  private releaseAttach(reason: LinkDetachReason): void {
+    this.attachToken = undefined;
+    this.receiptOff?.();
+    this.receiptOff = undefined;
+    this.link.detach(reason);
+    this.attachedGeneration = 0;
   }
 
   /** `syn.view.detach` + link detach — dock transfer or unmount. */
   async detach(reason?: "dock-transfer" | "unmount"): Promise<void> {
-    this.link.detach(reason ?? "unmount");
+    this.releaseAttach(reason ?? "unmount");
     await call("syn.view.detach", {
       view_id: this.viewId,
       ...(reason !== undefined ? { reason } : {}),
@@ -110,8 +129,7 @@ export class ConsoleViewModel {
 
   /** `syn.view.close` — terminal; drops UI state on both gateways. */
   async close(): Promise<void> {
-    this.link.detach("explicit");
-    this.receiptOff();
+    this.releaseAttach("explicit");
     await call("syn.view.close", { view_id: this.viewId });
   }
 }

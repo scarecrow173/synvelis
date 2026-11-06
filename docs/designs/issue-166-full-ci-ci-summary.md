@@ -4,7 +4,7 @@ type: "design"
 status: "proposed"
 title: "Issue #166 Full CI 化・ci-summary 統一 — 第一段階設計"
 created: "2026-11-05"
-updated: "2026-11-05"
+updated: "2026-11-06"
 owners: []
 relations:
   source:
@@ -60,7 +60,7 @@ relations:
     - "tools/ci-summary.mjs"
     - "tools/ci-summary.test.mjs"
   defers:
-    - "pull_request/push トリガー除去・*-macos job の matrix 再統合"
+    - "https://github.com/scarecrow173/ruviform/issues/365"
   deferred-by: []
 ---
 
@@ -260,3 +260,11 @@ scheduler が候補 SHA を計算してから dispatch run が作られるまで
   最新で少なくとも1回完走・判定正確であること、(c) #167 Scheduler/
   Tracker が稼働 — の3条件が揃ってから pull_request/push trigger と
   `evidence` job を除去し `*-macos` を matrix へ再統合する。
+
+## 2026-11-06 relation 表現の正規化
+
+`defers` の自由記述を、既存の横断移行 Issue への参照に正規化した。
+第一段階で先送りした内容は従来どおり次の一点であり、移行完了や
+PR/push トリガー停止を新たに承認したものではない。
+
+- pull_request/push トリガー除去・*-macos job の matrix 再統合

@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "SV-GUI-02 契約検証仕様"
 created: "2026-11-04"
-updated: "2026-11-04"
+updated: "2026-11-07"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -66,6 +66,14 @@ relations:
   listener が二重化せず detach で cleanup される(計数検証)。
 - Example: view reload で `syn.view.attach` が再発行され
   subscription が rehydrate される。
+- Rule: remount/reattach 後の `syn.control.dispatch` の
+  `ctx.generation` は attach reply の backend authoritative epoch
+  と一致する。backend live epoch と不一致の intent は receipt
+  なく drop される(backend stale guard 契約)。fake host による
+  echo 検証ではなく独立 epoch ledger で照合する。
+- Example: 同 viewId の fresh-VM remount(attach reply=2)で
+  pre-attach/後発 binding の双方が backend epoch を wire に刻み、
+  pending attach 破棄・逆順旧応答でも epoch が巻き戻らない。
 
 ## Feature: 共有 fixture (補助証拠)
 

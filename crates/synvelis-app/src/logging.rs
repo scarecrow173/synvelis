@@ -50,7 +50,7 @@ use std::path::PathBuf;
 
 use ruviform_observability::logging::{
     LogFormat, LoggingBuildError, LoggingConfig, LoggingHealth, RotationPeriod, SinkConfig,
-    SinkDegraded, SinkDestination, SinkFailureMode, WriterGuard, build_logging,
+    SinkDegraded, SinkDestination, SinkFailureMode, SpanEvents, WriterGuard, build_logging,
 };
 
 /// Default `EnvFilter` directives applied when logging is enabled without
@@ -272,6 +272,7 @@ pub fn to_logging_config(settings: &LogSettings) -> Option<LoggingConfig> {
     let mut sinks = vec![SinkConfig {
         destination: SinkDestination::Stderr,
         format: settings.stderr_format,
+        span_events: SpanEvents::NONE,
         filter: settings.filter.clone(),
         failure_mode: SinkFailureMode::Required,
     }];
@@ -280,11 +281,13 @@ pub fn to_logging_config(settings: &LogSettings) -> Option<LoggingConfig> {
             destination: SinkDestination::RollingFile {
                 directory: directory.clone(),
                 filename_prefix: settings.file_prefix.clone(),
+                filename_suffix: None,
                 rotation: settings.rotation,
                 max_files: settings.max_files,
                 queue_capacity: settings.queue_capacity,
             },
             format: LogFormat::JsonLines,
+            span_events: SpanEvents::NONE,
             filter: settings.filter.clone(),
             failure_mode: SinkFailureMode::BestEffort,
         });

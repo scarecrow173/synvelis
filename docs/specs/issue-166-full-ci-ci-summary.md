@@ -4,7 +4,7 @@ type: "spec"
 status: "proposed"
 title: "Issue #166 Full CI 化・ci-summary 統一 — 安全な第一段階"
 created: "2026-11-05"
-updated: "2026-11-05"
+updated: "2026-11-06"
 owners: []
 relations:
   source:
@@ -74,8 +74,8 @@ relations:
     - "tools/ci-summary.mjs"
     - "tools/ci-summary.test.mjs"
   defers:
-    - "pull_request/push トリガー除去(#166 変更6・Ruleset main-checkstatus required 解除後)"
-    - "Scheduler/Tracker 導入(#167)"
+    - "https://github.com/scarecrow173/ruviform/issues/365"
+    - "https://github.com/scarecrow173/synvelis/issues/167"
   deferred-by: []
 ---
 
@@ -245,3 +245,12 @@ Classifier(`classify` job・`tools/ci-impact.mjs`)と選択実行機構
 - 退役対象: `docs/specs/issue-148-impact-classification.md`、
   `docs/specs/issue-157-selective-execution.md`、
   `docs/specs/issue-157-matrix-placeholder-gate.md`
+
+## 2026-11-06 relation 表現の正規化
+
+`defers` の自由記述を、既存の担当 Issue への参照に正規化した。
+第一段階で先送りした内容は従来どおり次の二点であり、移行完了や
+PR/push トリガー停止を新たに承認したものではない。
+
+- pull_request/push トリガー除去(#166 変更6・Ruleset main-checkstatus required 解除後)
+- Scheduler/Tracker 導入(#167)
