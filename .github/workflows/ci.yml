@@ -1,7 +1,9 @@
 name: ci
 
 # Issue #83: Synvelis 独立 PR/Push CI。ruviform 側の cross-consumer gate
-# (#219/#294) とは別系統で、本 repo 自身の PR/main push/手動起動を検証する。
+# (#219/#294) とは別系統で、本 repo 自身の main 手動/日次 dispatch を
+# 検証する Full CI(Issue #145 で pull_request/push trigger は撤去済み、
+# workflow_dispatch 専用)。
 # 検証ロジックは mise タスクへ委譲し、workflow 内に cargo を直書きしない
 # (dep access・ガード・証跡の薄いシェルのみ)。
 #
@@ -21,9 +23,11 @@ name: ci
 #   - `ci-summary`  新しい Full CI verdict。全 leg(macOS 含む)+
 #                   `evidence` を required として fail-closed 照合し、
 #                   expected_sha 契約と SHA 証跡を Job Summary に残す。
-# pull_request/push trigger と `evidence` context は owner が
-# main-checkstatus required を解除するまで維持する(#365 決定6 —
-# trigger だけ先に止めるデッドロックは禁止)。
+# Issue #145 受入: main-checkstatus ruleset は disabled(2026-11-06
+# rulesets API で required_status_checks 実効 0 を実測) — #365 決定6
+# の前提(required が残る間 trigger を止めない)が解除済みのため、
+# pull_request/push trigger を撤去した。main-protect(PR 必須・
+# reviews 0・non-ff/deletion 禁止)は active のまま変更なし。
 #
 # workflow_dispatch.inputs.expected_sha: daily-ci(#167)が main 候補
 # SHA を pin して dispatch する契約の受け口。workflow 定義は dispatch
@@ -32,13 +36,9 @@ name: ci
 # 3 点一致を fail-closed 検証する — ref が進んだ stale dispatch は
 # 別 revision の検証結果を候補 SHA の証跡と誤認させないよう拒否。
 # 全 job の checkout は `expected_sha || github.sha` を参照し、
-# 未指定の手動起動・PR/push では既定 ref。
+# expected_sha 未指定の手動起動では既定 ref。
 
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       expected_sha:
@@ -48,7 +48,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # main push の証跡は run ごとに完走させ、PR/dispatch は最新のみ残す。
+  # main への dispatch の証跡は run ごとに完走させ、他 ref は最新のみ残す。
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
@@ -224,7 +224,7 @@ jobs:
   # track。verify/gw10-verify/ui-verify の macos leg を required
   # universe から物理分離した専用 job — required context・evidence の
   # required 集合のどちらにも含めず、runner 逼迫による queue/cancel が
-  # PR gate を塞がない。ただし skip/無視はしない: 毎回継続実行し、
+  # 集約 gate を塞がない。ただし skip/無視はしない: 毎回継続実行し、
   # 結果は本 job の summary と evidence の Observed 表に
   # Fail/Cancelled/Pending/Skipped として記録される(実行済み失敗を
   # 隠さない・runner 不足を成功にしない)。Issue #166: `ci-summary`
@@ -1044,13 +1044,14 @@ jobs:
           if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
           rm -f "$rt/ruviform-deploy-key" "$rt/ruviform-known-hosts"
 
-  # Issue #166 stage 1: fail-closed 集約 gate(ruleset required context
-  # `evidence` を維持する互換層)。全 lane は trigger を問わず毎回実行
+  # Issue #166 stage 1: fail-closed 集約 gate — ruleset required context
+  # は #145 で解除済みだが、ci-summary 手前で macOS 非 required leg を
+  # 照合する fail-closed 層として維持する。全 lane は trigger を問わず毎回実行
   # されるため期待集合の分類照合は不要 — macOS 以外の required leg が
   # jobs API 上で success であることを tools/ci-summary.mjs --mode pr
   # が照合する。skipped/cancelled/failure/timed_out/未実行/未知 job は
   # 成功にしない。Issue #157 rev.2 の境界を維持: `*-macos` job は
-  # needs に含めず macOS runner 状況が PR gate を塞がない(結果は
+  # needs に含めず macOS runner 状況が pr-mode 集約を塞がない(結果は
   # Observed 表に記録のみ、Full CI での required 評価は ci-summary
   # が担う)。lane が needs 上失敗していても `if: always()` で必ず
   # 実行し、job skip が required context を緑にできない。
@@ -1129,7 +1130,7 @@ jobs:
   # (macOS `*-macos` job を required として含む)と `evidence` gate
   # 自体の結果を tools/ci-summary.mjs --mode full が fail-closed 照合
   # する。daily-ci(#167)・手動 Full CI が参照する正本の判定。
-  # `evidence` を needs に含めるのは、PR gate 用集約が失敗した run を
+  # `evidence` を needs に含めるのは、pr-mode 集約が失敗した run を
   # Full CI 成功と誤認しないため。expected_sha 指定時は checkout 済み
   # HEAD との一致を検証し、SHA contract を Job Summary に記録する。
   ci-summary:

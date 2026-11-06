@@ -256,11 +256,72 @@ test("daily entry unchanged: no tracker responsibilities mixed in", () => {
   assert.doesNotMatch(daily, /--reconcile/);
 });
 
-test("ci.yml triggers unchanged: PR/push/dispatch stay in this task", () => {
+test("ci.yml is workflow_dispatch-only (Issue #145 trigger removal)", () => {
   const on = onBlock(ci);
-  assert.match(on, /pull_request:/);
-  assert.match(on, /^\s+push:/m);
   assert.match(on, /workflow_dispatch:/);
+  for (const banned of [
+    /pull_request/,
+    /pull_request_target/,
+    /^\s+push:/m,
+    /schedule:/,
+    /workflow_run/,
+  ]) {
+    assert.doesNotMatch(
+      on,
+      banned,
+      `ci.yml must not carry trigger matching ${banned}`,
+    );
+  }
+  // The expected_sha input is the receive-side of daily-ci's dispatch
+  // contract — it must survive trigger removal.
+  assert.match(on, /expected_sha:/);
+  assert.match(on, /required:\s*false/);
+});
+
+test("no workflow retains PR/push triggers (negative scan)", () => {
+  for (const name of workflowFiles) {
+    const on = onBlock(wf(name));
+    for (const banned of [/pull_request/, /pull_request_target/, /^\s+push:/m]) {
+      assert.doesNotMatch(
+        on,
+        banned,
+        `${name} must not carry trigger matching ${banned}`,
+      );
+    }
+  }
+});
+
+test("ci.yml lane structure and fail-closed gates are unchanged", () => {
+  for (const job of [
+    "verify",
+    "verify-macos",
+    "rt-verify",
+    "gw10-verify",
+    "gw10-verify-macos",
+    "msrv-verify",
+    "ui-verify",
+    "ui-verify-macos",
+    "dep-guard",
+    "evidence",
+    "ci-summary",
+  ]) {
+    assert.match(
+      ci,
+      new RegExp(`^  ${job}:\\n`, "m"),
+      `job ${job} must still exist`,
+    );
+  }
+  // Aggregation modes: evidence keeps the non-macOS pr-mode gate,
+  // ci-summary keeps the full-universe verdict including evidence.
+  assert.match(ci, /CI_SUMMARY_MODE:\s*pr/);
+  assert.match(ci, /CI_SUMMARY_MODE:\s*full/);
+  assert.match(ci, /needs:\s*\[[^\]]*evidence[^\]]*\]/);
+  // expected_sha checkout pin + verify-sha contract must survive.
+  assert.match(
+    ci,
+    /ref:\s*\$\{\{\s*inputs\.expected_sha \|\| github\.sha\s*\}\}/,
+  );
+  assert.match(ci, /ci-summary\.mjs verify-sha/);
 });
 
 test("mise task entry point exists", () => {
