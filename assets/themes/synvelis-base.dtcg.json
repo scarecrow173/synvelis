@@ -1,0 +1,39 @@
+{
+  "$extensions": {
+    "synvelis.productTheme": {
+      "schema": 1,
+      "theme": "synvelis",
+      "layer": "product"
+    }
+  },
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "ui":   { "$value": ["system-ui", "Segoe UI", "sans-serif"] },
+      "mono": { "$value": ["ui-monospace", "Consolas", "monospace"] }
+    },
+    "weight": {
+      "$type": "fontWeight",
+      "regular": { "$value": 400 },
+      "medium":  { "$value": 500 },
+      "bold":    { "$value": 700 }
+    }
+  },
+  "radius": {
+    "$type": "dimension",
+    "sm": { "$value": "2px" },
+    "md": { "$value": "4px" },
+    "lg": { "$value": "8px" }
+  },
+  "motion": {
+    "$type": "duration",
+    "fast":   { "$value": "100ms" },
+    "normal": { "$value": "200ms" }
+  },
+  "easing": {
+    "standard": {
+      "$type": "cubicBezier",
+      "$value": [0.2, 0.0, 0.0, 1.0]
+    }
+  }
+}

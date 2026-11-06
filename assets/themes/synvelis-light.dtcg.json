@@ -1,0 +1,24 @@
+{
+  "$extensions": {
+    "synvelis.productTheme": {
+      "schema": 1,
+      "theme": "synvelis",
+      "mode": "light",
+      "layer": "product"
+    },
+    "synvelis.provenance": "provisional-pending-native-design-review"
+  },
+  "color": {
+    "$type": "color",
+    "bg":          { "$value": "#f5f6f8" },
+    "bg-panel":    { "$value": "#e8eaee" },
+    "fg":          { "$value": "#1b1d21" },
+    "fg-dim":      { "$value": "#5a6068" },
+    "accent":      { "$value": "#2a6bc2" },
+    "warn":        { "$value": "#b06a20" },
+    "err":         { "$value": "#c23a3a" },
+    "ok":          { "$value": "#2a8a4a" },
+    "bg-hover":    { "$value": "{color.bg-panel}" },
+    "border":      { "$value": "{color.bg-panel}" }
+  }
+}

@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 // is intentionally absent — the app layer owns GUI deps behind its
 // `webview` feature.
 const HEADLESS_CRATES = [
+  "synvelis-theme",
   "synvelis-project",
   "synvelis-recording",
   "recording-poc",

@@ -47,14 +47,14 @@ pub struct WindowRecord {
 pub struct WorkspaceManager<H: WindowHandle> {
     /// The window host port (fake host in tests).
     pub host: H,
-    dock: DockWorkspace,
-    registry: ViewRegistry,
-    states: ViewStateRegistry,
-    links: LinkGroupManager,
-    focus: FocusState,
+    pub(crate) dock: DockWorkspace,
+    pub(crate) registry: ViewRegistry,
+    pub(crate) states: ViewStateRegistry,
+    pub(crate) links: LinkGroupManager,
+    pub(crate) focus: FocusState,
     session: ProjectSession,
-    windows: Vec<WindowRecord>,
-    next_view: u64,
+    pub(crate) windows: Vec<WindowRecord>,
+    pub(crate) next_view: u64,
     /// Text-lane undo invocations — the stub standing in for text
     /// fields' own undo stacks (text input undo never reaches the
     /// DAW project history).

@@ -1,0 +1,27 @@
+{
+  "$extensions": {
+    "synvelis.productTheme": {
+      "schema": 1,
+      "theme": "synvelis",
+      "density": "comfortable",
+      "layer": "product"
+    }
+  },
+  "spacing": {
+    "$type": "dimension",
+    "xs": { "$value": "4px" },
+    "sm": { "$value": "8px" },
+    "md": { "$value": "12px" },
+    "lg": { "$value": "16px" }
+  },
+  "control": {
+    "height": { "$type": "dimension", "$value": "28px" }
+  },
+  "font": {
+    "size": {
+      "$type": "dimension",
+      "sm": { "$value": "12px" },
+      "md": { "$value": "14px" }
+    }
+  }
+}

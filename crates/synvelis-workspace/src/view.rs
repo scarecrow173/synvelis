@@ -8,7 +8,7 @@ use synvelis_project::ProjectRevision;
 
 use crate::error::WorkspaceError;
 
-/// The four DAW surface kinds the workspace can host.
+/// The DAW surface kinds the workspace can host.
 ///
 /// Rendering is out of scope for this crate — each kind is produced by
 /// the headless [`ViewFactory`] as a stub that records render calls so
@@ -24,6 +24,9 @@ pub enum ViewType {
     Inspector,
     /// Signal-flow routing surface.
     SignalFlow,
+    /// Plugin dock surface — vocabulary only (SV177): the native
+    /// plugin host/editor implementation is owned by SV176.
+    PluginDock,
 }
 
 /// Persistent identity of a view instance: id + kind + display title.

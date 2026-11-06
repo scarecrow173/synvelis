@@ -1,0 +1,13 @@
+{
+  "$extensions": {
+    "synvelis.productTheme": {
+      "schema": 1,
+      "theme": "test",
+      "layer": "product"
+    }
+  },
+  "color": {
+    "$type": "color",
+    "fg": { "$value": "{color.bg" }
+  }
+}
