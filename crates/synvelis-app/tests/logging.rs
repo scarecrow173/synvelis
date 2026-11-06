@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use ruviform_observability::logging::{
     LogFormat, LoggingConfig, RotationPeriod, SinkConfig, SinkDestination, SinkFailureMode,
-    SinkKind, build_logging,
+    SinkKind, SpanEvents, build_logging,
 };
 use ruviform_observability::source::{
     MetricKind, MetricReader, ObservationScope, ObservationUnit, ReportingHint,
@@ -53,11 +53,13 @@ fn file_sink(directory: PathBuf, failure_mode: SinkFailureMode) -> SinkConfig {
         destination: SinkDestination::RollingFile {
             directory,
             filename_prefix: "test".to_owned(),
+            filename_suffix: None,
             rotation: RotationPeriod::Daily,
             max_files: NonZeroUsize::new(2).unwrap(),
             queue_capacity: NonZeroUsize::new(64).unwrap(),
         },
         format: LogFormat::JsonLines,
+        span_events: SpanEvents::NONE,
         filter: "info".to_owned(),
         failure_mode,
     }
@@ -254,6 +256,7 @@ fn build_logging_reports_degraded_best_effort_sink() {
             SinkConfig {
                 destination: SinkDestination::Stderr,
                 format: LogFormat::Text,
+                span_events: SpanEvents::NONE,
                 filter: "off".to_owned(),
                 failure_mode: SinkFailureMode::Required,
             },
