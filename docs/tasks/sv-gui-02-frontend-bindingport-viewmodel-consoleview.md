@@ -1,7 +1,7 @@
 ---
 id: "TASK-034RADc5Q2mNYPcXkM8fR"
 type: "task"
-status: "blocked"
+status: "done"
 title: "SV-GUI-02 frontend BindingPort/ViewModel/ConsoleView"
 created: "2026-11-04"
 updated: "2026-11-06"
@@ -108,6 +108,38 @@ RF 修復の consumer 取り込みと mounted control-op の positive control �
 [既存 Implementation Record](../impl/ir/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc.md) の追補を参照。
 共有 SDK 修復・実 OS／Docking 受入・CI notification gap はこの小さな frontend 修復の成功で消したことにしない。
 
+## 2026-11-06 RF #376 修復 SDK 取込（consumer 側契約検証）
+
+前節の正式受入ブロッカーだった共有 SDK 不整合は、producer 側で
+[Ruviform #379](https://github.com/scarecrow173/ruviform/pull/379)（fix `4f258c2`）として
+RF main `513b29b13810900ede0c67b295d702cfc75b7fc4` に統合済み。
+本タスクではその consumer 取込と恒久回帰化を行った。
+
+- `Cargo.lock` の ruviform 解決を既定ブランチ追従で `8fb665f` → `513b29b` へ更新。
+  `ui/vendor/ruviform` は既存 `tools/sync-ruviform-ui.mjs` で同 revision に再生成し、
+  `check-ruviform-rev` が lock / vendor REV / ビルド manifest 三者一致を確認。
+- consumer 境界の恒久テストを追加：`binding.test.ts` に attach 済み link 上の
+  後発 binding が live epoch で dispatch・receipt 相関・reattach epoch 更新・
+  stale receipt 排除・detach/close 後 wire dispatch なしを検証する suite、
+  `console.test.tsx` に実 mount した `ConsoleView` の `rvf-gesture` →
+  `syn.control.dispatch`（generation=1）→ receipt `applied` →
+  `syn.control.projection` で pending 解除・値反映までの positive control。
+- 旧 vendor SDK (`8fb665f`) では同テストが epoch=0 dispatch で 3 件 RED
+  （意味のある assertion 失敗）、修復 SDK で 23/23 focused・全 UI 51 件 GREEN。
+- 取込に伴う upstream API 追従：`ruviform-observability` の `SinkConfig` に
+  `span_events`、`SinkDestination::RollingFile` に `filename_suffix` が追加されたため、
+  Synvelis 側 initializer とテスト helper に `SpanEvents::NONE` / `None`
+  （変更前と同一動作）を補完。`synvelis` bin の `clippy::doc_markdown` /
+  `too_many_lines`（webview feature でのみ発現する main 由来の既存 lint）は
+  `install_logging()` 抽出で解消。SDK の回避策や backend stale guard 緩和は行っていない。
+
+**本タスクの status を `done` とする。** Task の完了条件（RF 修復の consumer
+取込 + mounted control-op の positive control）は充足した。ただしこれは
+headless + vitest/happy-dom + fake IPC での契約検証であり、実 OS WebView
+GUI・実 Rust IPC・native GPU 描画の正式受入は test-spec「未検証として明示
+するもの」のとおり別 lane の NotRun のまま残る。#112（SV-GUI-03 全体）の
+完了を意味しない。
+
 ## Verification
 
 以下は今回実行した修復スライスの検証であり、上記の正式受入ブロッカーを解除するものではない。
@@ -117,3 +149,16 @@ RF 修復の consumer 取り込みと mounted control-op の positive control �
 - [x] `mise run test-ui` exits 0（全45件成功）。
 - [x] `mise run build-ui` exits 0。
 - [x] `mise run test` exits 0（Rust workspace 全 suite）。
+
+### 2026-11-06 RF #376 修復 SDK 取込後
+
+- [x] 旧 SDK (`8fb665f`) で新規契約テスト 3 件 RED（後発 binding epoch=0、
+      mounted dispatch ctx.generation=0）。
+- [x] 修復 SDK (`513b29b`) で focused `binding.test.ts`+`console.test.tsx`
+      23/23 成功、`mise run test-ui` 全51件成功。
+- [x] `mise run fmt-check` / `check` / `lint` / `test` exits 0。
+- [x] `mise run check-ui` / `build-ui` exits 0。
+- [x] `mise run check-ruviform-rev` exits 0（`513b29b`、lock/vendor/manifest 一致）。
+- [x] `mise run check-headless-deps` / `gw10` exits 0（gw10 は既存 NOT-RUN
+      case を除き全 gate PASS）。
+- [x] `mise run check-app-webview` / `lint-app-webview` / `test-app-webview` exits 0。

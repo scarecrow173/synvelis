@@ -1,7 +1,7 @@
 ---
 id: "IMPL-SVGui02FrontendViewModelsRuviformCustomElementsTypedIpc"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "SV-GUI-02 Frontend View Models・Ruviform Custom Elements・Rust IPC/Receipt統合"
 created: "2026-11-25"
 updated: "2026-11-25"
@@ -69,6 +69,10 @@ relations:
         path: "ui/tsconfig.json"
       - type: "file"
         path: "tools/sync-ruviform-ui.mjs"
+      - type: "file"
+        path: "crates/synvelis-app/src/logging.rs"
+      - type: "file"
+        path: "crates/synvelis-app/tests/logging.rs"
       - type: "file"
         path: "Cargo.lock"
     deleted: []
@@ -331,3 +335,83 @@ Ruviform current main にも同じ欠落があり、[Ruviform #376](https://gith
   古い completion による復活とは区別する。永久 closed seal は加えない。
 
 CI トリガー・権限・Job 契約は変更せず、bot CI 自動通知 gap は別件の ADR 待ちである。
+
+## 2026-11-06 RF #376 修復 SDK 取込（consumer 側・追補）
+
+前追補で frontend 正式受入を BLOCKED としていた共有 SDK 不整合は、
+[Ruviform #379](https://github.com/scarecrow173/ruviform/pull/379)（fix `4f258c2`）により
+RF main `513b29b13810900ede0c67b295d702cfc75b7fc4` で修復済み。
+`ViewLink.createBinding()` が attached 済み link 上では
+`binding.attach(generation_)` を subscribe 前に呼ぶため、後発 binding が
+live view epoch を継承する。本追補はその consumer 取込と恒久回帰化の記録。
+producer 側 RED/GREEN 原証跡（`.devin/evidence/rf376-closeout-20261106/`）の
+再実行は行っていない。
+
+### 取込と lineage
+
+- `Cargo.toml` は変更しない（既定ブランチ追従 git 依存、SHA 恒久 pin なし）。
+  `Cargo.lock` の ruviform 22 source を `8fb665f` → `513b29b` に解決更新。
+- `mise run sync-ui-deps`（`tools/sync-ruviform-ui.mjs`）で `ui/vendor/ruviform`
+  を同 revision に再生成。`mise run build-ui` で frontend manifest を再生成し、
+  `mise run check-ruviform-rev` が lock / vendor `REV` / manifest host の
+  三者一致を確認（`513b29b1`, 22 lockfile sources, lockfile-primary, REV match）。
+
+### consumer 境界の恒久回帰（RED → GREEN）
+
+`ui/test/binding.test.ts` に `late-created bindings adopt the live view epoch`
+suite を追加：attach 済み link への strip 作成が live generation を持つこと、
+dispatch context の generation、receipt 相関と `applied`、reattach で
+generation=2 更新、死 epoch の stale receipt が `lastReceipt` にならないこと、
+detach/close 済み後発 strip が wire dispatch を出さず detached-intent 診断を
+増やすこと。`ui/test/console.test.tsx` に mounted positive control を追加：
+実 mount した `ConsoleView` の `rvf-gesture` begin/commit が
+`ctx.generation=1` の `syn.control.dispatch` となり、receipt `applied` の後も
+pending は維持し、`syn.control.projection` 着地でのみ pending 解除・
+値 `0.6` 反映となる（receipt≠表示真実の既存契約どおり）。
+
+| 測定 | 結果 |
+| --- | --- |
+| 旧 vendor SDK `8fb665f` で新テスト実行 | 3 件 RED（後発 binding epoch=0、mounted ctx.generation=0 の assertion 失敗。import missing や成功ハードコードではない） |
+| 修復 SDK `513b29b` で focused `binding`+`console` | 23/23 成功 |
+| `mise run test-ui` | 全 6 ファイル 51 件成功 |
+
+### API 追従・付随修復
+
+- `ruviform-observability` 更新で `SinkConfig.span_events` と
+  `SinkDestination::RollingFile.filename_suffix` が必須化。
+  `crates/synvelis-app/src/logging.rs` と `tests/logging.rs` の initializer に
+  `SpanEvents::NONE` / `filename_suffix: None` を補完（ともに変更前と
+  同一動作：span lifecycle 記録なし、`{prefix}.{date}` 命名維持）。
+- `crates/synvelis-app/src/bin/synvelis.rs` の `clippy::doc_markdown` と
+  `too_many_lines`（`--features webview` でのみ発現する main 由来の既存 lint）を
+  `install_logging()` 抽出で解消。挙動変更なし。
+- Synvelis 側 workaround / backend stale guard 緩和は行っていない。
+
+### 今回実行した検証（2026-11-06、Windows 11 / Git Bash）
+
+| コマンド | 結果 |
+| --- | --- |
+| `mise run fmt-check` | exit 0 |
+| `mise run check` | exit 0 |
+| `mise run lint` | exit 0（-D warnings） |
+| `mise run test` | exit 0（workspace 全 suite） |
+| `mise run check-ui` | exit 0 |
+| `mise run test-ui` | exit 0（51件） |
+| `mise run build-ui` | exit 0 |
+| `mise run check-ruviform-rev` | exit 0 |
+| `mise run check-headless-deps` | exit 0 |
+| `mise run gw10` | exit 0（全 gate PASS；SYS-02-ux / SYS-03-ux / SYS-05-powerloss / CONSUMER-* / SYS-07-rt は既存どおり NOT-RUN/UNSUPPORTED） |
+| `mise run check-app-webview` | exit 0 |
+| `mise run lint-app-webview` | exit 0 |
+| `mise run test-app-webview` | exit 0（asset_check 10 / logging 11 / service_ops 13 / ui_ops 10） |
+| `mise run test-msrv` | exit 0（rust@1.89.0 で workspace 全 suite） |
+
+### 受入境界（前追補からの更新）
+
+RF #376 由来の BLOCKED は解消し、Task `TASK-034RADc5Q2mNYPcXkM8fR` を
+`done`、本 IR を `completed` とした。ただしこれは契約検証面での実装完了で
+あり、以下は引き続き NotRun：実 OS WebView GUI（macOS/Linux 含む）・
+実 Rust IPC 接続の end-to-end・native GPU 描画・実 plugin/実 DSP・実 multi
+window（test-spec「未検証として明示するもの」）。これらは別 lane の
+正式受入であり、本追補の成功で消したことにしない。#112 は継続。
+Draft PR での保存状態は変わらず、merge-ready / 統合済みとは扱わない。
