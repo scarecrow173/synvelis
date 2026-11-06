@@ -75,7 +75,7 @@ export class ConsoleViewModel {
     return b;
   }
 
-  /** Live backend generation after `attach` (0 before first attach). */
+  /** Live backend generation after `attach` (0 before attach and after detach/close). */
   get generation(): number {
     return this.attachedGeneration;
   }
@@ -88,13 +88,19 @@ export class ConsoleViewModel {
   async attach(): Promise<number> {
     const token = {};
     this.attachToken = token;
-    const res = await call<{ generation?: number }>("syn.view.attach", {
+    const res = await call<{ generation: number }>("syn.view.attach", {
       view_id: this.viewId,
       window_id: this.windowId,
     });
     if (this.attachToken !== token) return this.attachedGeneration;
-    this.attachedGeneration = res.generation ?? 0;
-    this.link.attach(this.windowId, res.generation);
+    const generation = res.generation;
+    if (!Number.isSafeInteger(generation) || generation < 0) {
+      throw new RangeError(
+        `syn.view.attach returned invalid generation: ${String(generation)}`,
+      );
+    }
+    this.attachedGeneration = generation;
+    this.link.attach(this.windowId, generation);
     this.receiptOff?.();
     this.receiptOff = this.router.on("syn.control.receipt", (data) => {
       const d = data as WireReceiptData;
@@ -109,6 +115,7 @@ export class ConsoleViewModel {
     this.receiptOff?.();
     this.receiptOff = undefined;
     this.link.detach(reason);
+    this.attachedGeneration = 0;
   }
 
   /** `syn.view.detach` + link detach — dock transfer or unmount. */

@@ -751,16 +751,24 @@ describe("authoritative attach epoch", () => {
     await flushWire();
     guard.pump();
 
-    expect(lastDispatchCtx("transport").generation).toBe(2);
+    const tctx = lastDispatchCtx("transport");
+    expect(tctx.generation).toBe(2);
     const sctx = lastDispatchCtx("param-gain");
     expect(sctx.generation).toBe(2);
     expect(guard.staleIntents).toBe(0);
     expect(guard.detachedIntents).toBe(0);
 
-    // Positive control — the accepted dispatch minted a receipt that
-    // the attach-scoped receipt route correlated under the live epoch.
+    // Positive control — the accepted transport dispatch minted the
+    // `applied` receipt the real backend produces for a transport
+    // action, and the attach-scoped route correlated it under the
+    // live epoch. For the param strip the epoch path only needs the
+    // receipt to arrive; the real backend's action-on-param status
+    // (`unsupported`) stays in the Rust routing tests.
+    expect(vm2.transport.state.lastReceipt?.commandId).toBe(
+      tctx.commandId,
+    );
+    expect(vm2.transport.state.phase).toBe("applied");
     expect(strip.state.lastReceipt?.commandId).toBe(sctx.commandId);
-    expect(strip.state.phase).toBe("applied");
     expect(strip.diagnostics.staleReceipts).toBe(0);
 
     // receipt → projection — the truth channel still lands.
@@ -878,5 +886,40 @@ describe("authoritative attach epoch", () => {
     expect(
       guard.receipts.filter((r) => r.commandId === ctx.commandId),
     ).toHaveLength(0);
+  });
+
+  it("an attach reply without a valid generation rejects fail-closed instead of silently diverging", async () => {
+    const guard = createBackendEpochGuard(host);
+    const vm = mountVm("v-inv");
+
+    // The one wire assumption this fix depends on: the reply carries
+    // the backend's live epoch. A reply that lacks it must reject —
+    // never fall back to the local counter and re-open the zombie
+    // console this suite guards against.
+    const p = vm.attach();
+    guard.pump({ answer: false });
+    const attachId = host.sent.find(
+      (s) => s.op === "syn.view.attach",
+    )!.id;
+    host.answer(attachId, { view_id: "v-inv", attached: true });
+    await expect(p).rejects.toThrow(RangeError);
+    expect(vm.link.attached).toBe(false);
+    expect(vm.generation).toBe(0);
+
+    // A malformed value must not leave `attachedGeneration` holding a
+    // broken value while the link keeps an older epoch.
+    const p2 = vm.attach();
+    guard.pump({ answer: false });
+    const attachId2 = host.sent.filter(
+      (s) => s.op === "syn.view.attach",
+    )[1]!.id;
+    host.answer(attachId2, {
+      view_id: "v-inv",
+      attached: true,
+      generation: "2",
+    });
+    await expect(p2).rejects.toThrow(RangeError);
+    expect(vm.link.attached).toBe(false);
+    expect(vm.generation).toBe(0);
   });
 });

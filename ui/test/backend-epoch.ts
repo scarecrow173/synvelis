@@ -79,7 +79,10 @@ export interface BackendEpochGuard {
 
 export function createBackendEpochGuard(host: FakeHost): BackendEpochGuard {
   const views = new Map<string, ViewState>();
-  const bindings = new Map<string, BindingState>();
+  // Mirrors the backend's (ViewId, LogicalTarget) tuple key — a nested
+  // map cannot collide across prefix-related viewIds or (view,target)
+  // pairs the way a concatenated string key does.
+  const bindings = new Map<string, Map<string, BindingState>>();
   const receipts: MintedReceipt[] = [];
   const queued: { id: string; body: unknown }[] = [];
   let processed = 0;
@@ -88,14 +91,9 @@ export function createBackendEpochGuard(host: FakeHost): BackendEpochGuard {
   let duplicateCommands = 0;
   let acceptedIntents = 0;
 
-  const key = (view: string, target: string) => `${view}${target}`;
-
   function bindingsOf(view: string): BindingState[] {
-    const out: BindingState[] = [];
-    for (const [k, b] of bindings) {
-      if (k.startsWith(`${view}`)) out.push(b);
-    }
-    return out;
+    const inner = bindings.get(view);
+    return inner === undefined ? [] : [...inner.values()];
   }
 
   function detachView(view: string): void {
@@ -111,8 +109,12 @@ export function createBackendEpochGuard(host: FakeHost): BackendEpochGuard {
   }
 
   function ensureBinding(view: string, target: string): BindingState {
-    const k = key(view, target);
-    let b = bindings.get(k);
+    let inner = bindings.get(view);
+    if (inner === undefined) {
+      inner = new Map();
+      bindings.set(view, inner);
+    }
+    let b = inner.get(target);
     if (b === undefined) {
       const v = views.get(view);
       b = {
@@ -120,7 +122,7 @@ export function createBackendEpochGuard(host: FakeHost): BackendEpochGuard {
         attached: v?.attached ?? false,
         tracked: new Set(),
       };
-      bindings.set(k, b);
+      inner.set(target, b);
     }
     return b;
   }
@@ -182,9 +184,7 @@ export function createBackendEpochGuard(host: FakeHost): BackendEpochGuard {
       case "syn.view.close": {
         const viewId = p.view_id as string;
         detachView(viewId);
-        for (const k of [...bindings.keys()]) {
-          if (k.startsWith(`${viewId}`)) bindings.delete(k);
-        }
+        bindings.delete(viewId);
         queued.push({ id: s.id, body: { view_id: viewId, closed: true } });
         return;
       }
@@ -214,8 +214,7 @@ export function createBackendEpochGuard(host: FakeHost): BackendEpochGuard {
           queued.push({ id: s.id, body: {} });
           return;
         }
-        const k = key(viewId, target);
-        const b = bindings.get(k);
+        const b = bindings.get(viewId)?.get(target);
         if (b !== undefined) {
           if (!b.attached) {
             detachedIntents += 1;
@@ -253,7 +252,10 @@ export function createBackendEpochGuard(host: FakeHost): BackendEpochGuard {
         return;
       }
       default:
-        return;
+        // Fail loud: an unmodeled op otherwise leaves the `call` reply
+        // unqueued forever and the test dies on an opaque timeout
+        // instead of naming the op the ledger does not know.
+        throw new Error(`backend-epoch ledger: unmodeled op ${s.op}`);
     }
   }
 
@@ -282,7 +284,7 @@ export function createBackendEpochGuard(host: FakeHost): BackendEpochGuard {
       return views.get(viewId)?.generation ?? 0;
     },
     bindingGeneration(viewId, target) {
-      return bindings.get(key(viewId, target))?.generation;
+      return bindings.get(viewId)?.get(target)?.generation;
     },
     pump(options) {
       for (; processed < host.sent.length; processed += 1) {
