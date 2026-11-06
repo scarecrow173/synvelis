@@ -14,6 +14,7 @@ Directory: `docs/test-specs`
 | TSPEC-034CTL01Pr2sUv7wY4zAbCdEfG | CTL-01 ControlOwner/AutomationTimeScope 検証仕様 | approved | [ctl-01-e2e-control-owner-time-scope.md](./ctl-01-e2e-control-owner-time-scope.md) |
 | TSPEC-034QAmjdN5ihez8HzDIvIs | ED-A 検証仕様 — Editing Model 合意5項目 headless 受入 | approved | [ed-a-e2e-editing-model.md](./ed-a-e2e-editing-model.md) |
 | TSPEC-034QN1oYnTtpV7t5CPcc5e | ED-B e2e media-domain editing acceptance | approved | [ed-b-e2e-media-domain-editing.md](./ed-b-e2e-media-domain-editing.md) |
+| TSPEC-O00hUfnnLCmwn9LGFITe1d | Issue #145 ci.yml manual-only test specification — dispatch 専用・陰性 trigger・lane 構造不変 | proposed | [issue-145-ci-manual-only.md](./issue-145-ci-manual-only.md) |
 | TSPEC-034RIJsxayw9vKD3Ez9Wcy | Issue #147 sccache 導入検証仕様 | approved | [issue-147-sccache-compile-cache.md](./issue-147-sccache-compile-cache.md) |
 | TSPEC-034SVCIOPT02gT5yUiOp | Issue #148 変更影響分類・Fail-Closed evidence Gate 検証仕様 | approved | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
 | TSPEC-034RGXpDyOEiejVT0jxK7a | Issue #151 ui-verify lane 検証仕様 | approved | [issue-151-ui-ci-lane.md](./issue-151-ui-ci-lane.md) |
