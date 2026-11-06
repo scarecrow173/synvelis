@@ -59,19 +59,27 @@ export function ConsoleView(props: { viewId: string; windowId: string }) {
     router,
   });
 
+  const unbinds: Array<() => void> = [];
+  let disposed = false;
+  onCleanup(() => {
+    disposed = true;
+    for (const u of unbinds) u();
+    waveSource.dispose();
+    meterSource.dispose();
+    void vm.detach("unmount");
+  });
+
   onMount(async () => {
     await vm.attach();
+    if (disposed) return;
 
     // Controls — gesture → intent → receipt → projection → element.
-    const unbinds = [
+    unbinds.push(
       bindTransportElement(transportEl, vm.transport),
       bindControlElement(seekEl, vm.seek),
       bindControlElement(knobEl, vm.strip("param-gain")),
       bindControlElement(faderEl, vm.strip("param-fader")),
-    ];
-    onCleanup(() => {
-      for (const u of unbinds) u();
-    });
+    );
 
     // Viz — `source` is a typed property, never an attribute.
     setProp(waveEl, "source", waveSource);
@@ -82,49 +90,46 @@ export function ConsoleView(props: { viewId: string; windowId: string }) {
       kind: "waveform",
       source: "wave",
     }).catch(() => {});
+    if (disposed) return;
     await call("syn.viz.bind", {
       view_id: props.viewId,
       surface_id: "meter",
       kind: "meter",
       source: "meter",
     }).catch(() => {});
+    if (disposed) return;
     void waveSource.refresh();
     void meterSource.refresh();
 
     // View-state intents (rvf-viewport / rvf-select) forward to the
     // bounded syn.viz.* surface ops — viewport truth stays Rust-side.
-    const unbindViewIntents = bindViewIntents(waveEl, {
-      onViewport: (detail) => {
-        const d = detail as
-          | { viewport?: { start?: number; end?: number } }
-          | undefined;
-        const vp = d?.viewport;
-        if (typeof vp?.start !== "number" || typeof vp.end !== "number") return;
-        void call("syn.viz.viewport", {
-          view_id: props.viewId,
-          surface_id: "wave",
-          start: vp.start,
-          end: vp.end,
-        }).catch(() => {});
-      },
-      onSelect: (detail) => {
-        const d = detail as { start?: number; end?: number } | undefined;
-        if (typeof d?.start !== "number" || typeof d.end !== "number") return;
-        void call("syn.viz.select", {
-          view_id: props.viewId,
-          surface_id: "wave",
-          start: d.start,
-          end: d.end,
-        }).catch(() => {});
-      },
-    });
-    onCleanup(unbindViewIntents);
-
-    onCleanup(() => {
-      waveSource.dispose();
-      meterSource.dispose();
-      void vm.detach("unmount");
-    });
+    unbinds.push(
+      bindViewIntents(waveEl, {
+        onViewport: (detail) => {
+          const d = detail as
+            | { viewport?: { start?: number; end?: number } }
+            | undefined;
+          const vp = d?.viewport;
+          if (typeof vp?.start !== "number" || typeof vp.end !== "number") return;
+          void call("syn.viz.viewport", {
+            view_id: props.viewId,
+            surface_id: "wave",
+            start: vp.start,
+            end: vp.end,
+          }).catch(() => {});
+        },
+        onSelect: (detail) => {
+          const d = detail as { start?: number; end?: number } | undefined;
+          if (typeof d?.start !== "number" || typeof d.end !== "number") return;
+          void call("syn.viz.select", {
+            view_id: props.viewId,
+            surface_id: "wave",
+            start: d.start,
+            end: d.end,
+          }).catch(() => {});
+        },
+      }),
+    );
   });
 
   return (

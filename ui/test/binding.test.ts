@@ -359,4 +359,125 @@ describe("lifecycle", () => {
     expect(vm.link.linkStats.activeSubscriptions).toBe(0);
     expect(router.listenerCount("syn.control.projection")).toBe(0);
   });
+
+  it("attach → detach → re-attach ties the receipt route to attach lifetime", async () => {
+    const router = createRouter();
+    const port = createIpcBindingPort({ router });
+    const vm = new ConsoleViewModel({
+      viewId: "v-life",
+      windowId: "w0",
+      port,
+      router,
+    });
+    void vm.strip("param-gain");
+
+    const attachP = vm.attach();
+    host.answerOp("syn.view.attach", {
+      view_id: "v-life",
+      attached: true,
+      generation: 1,
+    });
+    await attachP;
+    expect(vm.link.attached).toBe(true);
+    expect(vm.generation).toBe(1);
+    expect.soft(router.listenerCount("syn.control.receipt")).toBe(1);
+    const subs = vm.link.linkStats.activeSubscriptions;
+    expect(subs).toBeGreaterThan(0);
+    const projRoutes = router.listenerCount("syn.control.projection");
+    expect(projRoutes).toBeGreaterThan(0);
+
+    const detachP = vm.detach("dock-transfer");
+    expect.soft(router.listenerCount("syn.control.receipt")).toBe(0);
+    expect.soft(router.listenerCount("syn.control.projection")).toBe(0);
+    expect.soft(vm.link.linkStats.activeSubscriptions).toBe(0);
+    host.answerOp("syn.view.detach", {
+      view_id: "v-life",
+      attached: false,
+    });
+    await detachP;
+    expect(vm.link.attached).toBe(false);
+    expect.soft(router.listenerCount("syn.control.receipt")).toBe(0);
+
+    const reattachP = vm.attach();
+    host.answerOp("syn.view.attach", {
+      view_id: "v-life",
+      attached: true,
+      generation: 2,
+    });
+    await reattachP;
+    expect(vm.link.attached).toBe(true);
+    expect(vm.generation).toBe(2);
+    expect.soft(router.listenerCount("syn.control.receipt")).toBe(1);
+    expect.soft(vm.link.linkStats.activeSubscriptions).toBe(subs);
+    expect.soft(router.listenerCount("syn.control.projection")).toBe(
+      projRoutes,
+    );
+
+    const finalP = vm.detach("unmount");
+    expect.soft(router.listenerCount("syn.control.receipt")).toBe(0);
+    expect.soft(router.listenerCount("syn.control.projection")).toBe(0);
+    expect.soft(vm.link.linkStats.activeSubscriptions).toBe(0);
+    host.answerOp("syn.view.detach", {
+      view_id: "v-life",
+      attached: false,
+    });
+    await finalP;
+    expect(vm.link.attached).toBe(false);
+  });
+
+  for (const mode of ["detach", "close"] as const) {
+    it(`pending attach → ${mode}: the late attach reply cannot resurrect the link`, async () => {
+      const router = createRouter();
+      const port = createIpcBindingPort({ router });
+      const vm = new ConsoleViewModel({
+        viewId: "v-pend",
+        windowId: "w0",
+        port,
+        router,
+      });
+      void vm.strip("param-gain");
+
+      const attachP = vm.attach();
+      const attachId = host.sent.find(
+        (s) => s.op === "syn.view.attach",
+      )!.id;
+
+      let doneP: Promise<unknown>;
+      if (mode === "detach") {
+        doneP = vm.detach("unmount");
+        host.answerOp("syn.view.detach", {
+          view_id: "v-pend",
+          attached: false,
+        });
+      } else {
+        doneP = vm.close();
+        host.answerOp("syn.view.close", {
+          view_id: "v-pend",
+          closed: true,
+        });
+      }
+      await doneP;
+
+      const viewOpsBefore = host.sent.filter((s) =>
+        s.op.startsWith("syn.view."),
+      ).length;
+      host.answer(attachId, {
+        view_id: "v-pend",
+        attached: true,
+        generation: 1,
+      });
+      await attachP;
+      await Promise.resolve();
+
+      expect.soft(vm.link.attached).toBe(false);
+      expect.soft(vm.link.linkStats.activeSubscriptions).toBe(0);
+      expect.soft(router.listenerCount("syn.control.projection")).toBe(
+        0,
+      );
+      expect.soft(router.listenerCount("syn.control.receipt")).toBe(0);
+      expect.soft(
+        host.sent.filter((s) => s.op.startsWith("syn.view.")).length,
+      ).toBe(viewOpsBefore);
+    });
+  }
 });
