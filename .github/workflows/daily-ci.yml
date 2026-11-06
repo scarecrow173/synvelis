@@ -37,7 +37,7 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           repository: scarecrow173/ruviform
-          ref: 73d51d875e2876a75fb2077c471ea8d04478c082
+          ref: eed590e0a3837e61c943d9de1d3efcfd7df32cb0
           path: .ci-shared/ruviform
           ssh-key: ${{ secrets.CROSS_REPO_DEPLOY_KEY }}
           persist-credentials: false

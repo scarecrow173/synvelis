@@ -14,6 +14,7 @@ Directory: `docs/adr`
 | ADR-034QN06oqUD5VvvsC9aedM | ED-B media-domain gesture positions + slip/trim/marquee commit semantics | accepted | [ed-b-media-domain-gesture-positions-slip-trim-marquee-commit-semantics.md](./ed-b-media-domain-gesture-positions-slip-trim-marquee-commit-semantics.md) |
 | ADR-Gw01GateWayCrateBoundary | GW-01 — synvelis-gateway crate 配置と契約境界 | accepted | [gw-01-gateway-contract-crate-boundary.md](./gw-01-gateway-contract-crate-boundary.md) |
 | ADR-034RUwki0c6svA0PlhUBB8 | Issue #157 rev.3 skip placeholder 受理方式 — gate 名照合拡張 vs workflow 構造変更 | accepted | [issue-157-rev-3-skip-placeholder-gate-vs-workflow.md](./issue-157-rev-3-skip-placeholder-gate-vs-workflow.md) |
+| ADR-XTlIzRk1SB1nTV82KYSW6m | Issue #167 Tracker reconcile 入口 — 共有 pin eed590e で RF 別 workflow reconcile 契約を Consumer 採用(trigger 禁止の補足契約の転用) | accepted | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
 | ADR-Ym8S8syVSNCeQiMNBHHfHt | L1 — Import・Blob・Lowering・Driver の配置と境界 | accepted | [l1-player-slice-boundaries.md](./l1-player-slice-boundaries.md) |
 | ADR-034QmbgsQDkLDllHgAxa1f | L2 — Render slice boundaries・Ruviform sequential offline driver adoption・Staged publish | accepted | [l2-render-slice-boundaries.md](./l2-render-slice-boundaries.md) |
 | ADR-cyMsJVD4HiJceSTYXBJCJD | MD-A — Clip 正規化 Placement/Playback スキーマ・Comp 採用モデル・Effective Comp 投影の境界 | accepted | [mda-normalized-placement-comp-schema.md](./mda-normalized-placement-comp-schema.md) |
