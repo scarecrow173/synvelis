@@ -1,0 +1,150 @@
+name: ci-issue-tracker-reconcile
+
+# Issue #167 reconcile entry — consumer deployment of the Ruviform
+# contract (RF PR #380, main eed590e0a3837e61c943d9de1d3efcfd7df32cb0,
+# ADR-vJvyZNtrHi2xnycJxbnSPv). The event tracker (ci-issue-tracker.yml)
+# can never observe `ci` runs that daily-ci dispatched with GITHUB_TOKEN —
+# GitHub's anti-recursion rule fires no downstream workflow_run event on
+# their completion, so bot failures never file and bot successes never
+# close. This second entry runs the SAME shared evaluator
+# (ci/tracker/tracker.mjs --reconcile) on a schedule and on demand: it
+# ignores every event path and reconciles purely from the authoritative
+# `ci` run list for main plus stored marker state. Close/create guards
+# are unchanged — newest-evidence ordering, attempt-aware dedup, compare
+# double guard, pending/unknown fail-closed, canonical issue idempotency.
+#
+# Trust model: schedule only ever runs default-branch code, and checkout
+# is pinned to the default branch even for manual dispatch, so an
+# unmodified copy of this file always executes the mainline tracker —
+# never a completed run's revision, PR code, or artifacts. (As with every
+# workflow, a dispatch runs the SELECTED REF's copy of this file, so the
+# guard+pin defend against accidental non-main dispatch, not an actor who
+# can already edit workflow files — same exposure as daily-ci.yml.) No
+# new secrets or permissions — the job touches GitHub REST metadata only
+# (issues, jobs, run history, compare, branch head) and reuses the
+# existing CROSS_REPO_DEPLOY_KEY for the shared-impl checkout.
+#
+# The cron lives in THIS file on purpose (same blast-radius rule as RF
+# ADR-vJvyZNtrHi2xnycJxbnSPv): GitHub auto-disables a scheduled workflow
+# after ~60 days of inactivity in a public repository, and a disabled
+# workflow stops answering ALL its triggers — keeping schedule out of
+# ci-issue-tracker.yml isolates that blast radius from the event entry.
+# (The 60-day rule is documented for public repos; the separation is kept
+# regardless — scheduled workflows can also stall when the last actor is
+# deactivated — event-entry isolation costs nothing.) If reconcile stops
+# appearing in the Actions list, re-enable the workflow
+# (`gh workflow enable ci-issue-tracker-reconcile`).
+on:
+  # 6h cadence (same class as the RF contract — issue tracking does not
+  # need immediacy; the event entry covers push/manual dispatches), off
+  # the top of the hour and offset from daily-ci's 21:29 UTC dispatch and
+  # RF reconcile's :23 ticks — ticks at 00:47/06:47/12:47/18:47 UTC, so a
+  # bot Full CI finishing ~1-2h after dispatch is typically reconciled on
+  # the next tick (~1-3h later; nominal bound one interval — GitHub
+  # schedules are best-effort and ticks can be delayed or dropped under
+  # load). Staggering the
+  # minute also keeps RF/SV/AL reconcile issue-writes in the shared org
+  # account from synchronizing on the same minute.
+  schedule:
+    - cron: "47 */6 * * *"
+  # Manual diagnostic/replay entry. No inputs: the evaluator is
+  # deliberately uniform so a manual run proves the same path cron takes.
+  workflow_dispatch:
+
+permissions: {}
+
+# SAME group as the event tracker so a reconcile run and an event run can
+# never write issues concurrently (group does not embed the workflow
+# name). Pending replacement can drop a queued reconcile, but reconcile
+# is idempotent over authoritative history — the next tick or event
+# replays the same evidence and converges to the same verdict.
+concurrency:
+  group: ci-issue-tracker-${{ github.repository }}
+  cancel-in-progress: false
+
+env:
+  MISE_ENABLE_TOOLS: node
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    # A workflow_dispatch fired on a non-default ref must not run the
+    # privileged job — the dispatch uses that ref's workflow file, so gate
+    # here and pin the checkout below to the default branch. The schedule
+    # branch is unconditional: a schedule run definitionally executes on
+    # the default branch (GitHub guarantee), and gating it on
+    # `repository`-payload fields would couple every cron tick to a
+    # payload shape that has changed historically (repository/org data was
+    # added to the schedule payload in 2022-09 and is absent on older
+    # GHES) — an empty resolution would silently skip every tick. The ref
+    # comparison exists for dispatch only.
+    if: github.event_name == 'schedule' || github.ref_name == github.event.repository.default_branch
+    # Bound the hold on the shared concurrency group — a hung step would
+    # otherwise occupy the serialization point until the job default and
+    # widen the pending-replacement window for the event entry.
+    timeout-minutes: 15
+    # Same least privilege as the event tracker: issues:write to manage
+    # the failure issue, actions:read for run/job metadata, contents:read
+    # for the compare API and default-branch checkout.
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - name: Checkout repository (default branch)
+        uses: actions/checkout@v7.0.1
+        with:
+          # Pin to the default branch so a dispatch on any other ref still
+          # executes only trusted mainline code — never the ref the
+          # dispatch was launched from. An empty expression value would
+          # make checkout fall back to the triggering ref, so default to
+          # 'main' explicitly.
+          ref: ${{ github.event.repository.default_branch || 'main' }}
+          persist-credentials: false
+
+      - name: Checkout shared CI implementation
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: scarecrow173/ruviform
+          # Single shared pin — must stay equal to daily-ci.yml and
+          # ci-issue-tracker.yml (contract test pins this).
+          ref: eed590e0a3837e61c943d9de1d3efcfd7df32cb0
+          path: .ci-shared/ruviform
+          ssh-key: ${{ secrets.CROSS_REPO_DEPLOY_KEY }}
+          persist-credentials: false
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore node toolchain from mise.lock
+        run: |
+          mise trust
+          mise install --locked node
+
+      - name: Record shared CI implementation revision
+        run: |
+          echo "Shared CI revision: $(git -C .ci-shared/ruviform rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+
+      # A broken evaluator must fail this job rather than
+      # create/update/close the wrong issue. All tests run against a mock
+      # client — no API calls.
+      - name: Self-test shared tracker evaluator
+        run: mise exec -- node --test .ci-shared/ruviform/ci/tracker/
+
+      - name: Reconcile authoritative run history and update failure issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Deliberately NO TRACKER_EVENT_PATH: --reconcile never reads an
+          # event payload (the ambient GITHUB_EVENT_PATH the runner always
+          # sets is ignored by design — mode separation is explicit).
+        run: mise exec -- node .ci-shared/ruviform/ci/tracker/tracker.mjs --reconcile --report ci-issue-tracker-report.json
+
+      - name: Upload tracker report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-issue-tracker-reconcile-report-attempt-${{ github.run_attempt }}
+          path: ci-issue-tracker-report.json
+          if-no-files-found: warn

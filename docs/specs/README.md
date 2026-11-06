@@ -13,12 +13,11 @@ Directory: `docs/specs`
 | SPEC-034CTL01Ow9uXr5zA1bC2dEf | CTL-01 ControlOwner / AutomationTimeScope 責務分離・Bus/Strip/Send 型付き Schema 移行 | approved | [ctl-01-control-owner-automation-time-scope-typed-schema.md](./ctl-01-control-owner-automation-time-scope-typed-schema.md) |
 | SPEC-034QAlF2irl9rIJaUi9RQ1 | ED-A Editing Model — Selection/Tool/Snap/Transaction/LinkedContext headless PoC | approved | [ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md](./ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md) |
 | SPEC-034QMZiCjhKFlSgoIw9YaX | ED-B media-domain move + slip commit semantics (workspace editing PoC) | approved | [ed-b-media-domain-move-slip-commit-semantics.md](./ed-b-media-domain-move-slip-commit-semantics.md) |
+| SPEC-nBrnIDkIfILvtzEXr42L56 | Issue #145 ci.yml manual-only 化 — pull_request/push trigger 撤去と dispatch 専用 Full CI | proposed | [issue-145-ci-manual-only.md](./issue-145-ci-manual-only.md) |
 | SPEC-034RIJkUYtv28x8ZpNn8Tv | Issue #147 sccache コンパイルキャッシュ導入仕様 | approved | [issue-147-sccache-compile-cache.md](./issue-147-sccache-compile-cache.md) |
-| SPEC-034SVCIOPT02bN7mQwErTy | Issue #148 変更影響分類・Fail-Closed evidence Gate 仕様 | superseded | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
 | SPEC-034RGX4X79sB0s9tVVWQh9 | Issue #151 CI ui-verify lane 追加仕様 | approved | [issue-151-ui-ci-lane.md](./issue-151-ui-ci-lane.md) |
-| SPEC-034RUjwAo6z9Q2Hpkp99SH | Issue #157 rev.3 matrix lane skip placeholder — evidence gate 修正 | superseded | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |
-| SPEC-034SYN157Kx9mTvQp2w | Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画 | superseded | [issue-157-selective-execution.md](./issue-157-selective-execution.md) |
 | SPEC-034SYN166FuLlC1sTaGe | Issue #166 Full CI 化・ci-summary 統一 — 安全な第一段階 | proposed | [issue-166-full-ci-ci-summary.md](./issue-166-full-ci-ci-summary.md) |
+| SPEC-jY8M1QCzHBuilakae6Hmyw | Issue #167 Tracker reconcile 入口 — 共有 pin eed590e 更新 + Consumer 別 workflow 定期/手動 reconcile | proposed | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
 | SPEC-ubzJtNuQxbSXLe7nevbdUw | L1 — Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | approved | [l1-local-wav-verified-media-graph-playback.md](./l1-local-wav-verified-media-graph-playback.md) |
 | SPEC-034Qmb9CC7dN4YE5VPN235 | L2 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | SPEC-rBmfzOP1H86N1KAXlFpX5N | MD-A — TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | approved | [mda-takegroup-comp-effective-projection-placement-contract.md](./mda-takegroup-comp-effective-projection-placement-contract.md) |
@@ -42,3 +41,6 @@ Directory: `docs/specs`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | SPEC-034AUT02Kw7xRn3vBz9sQm5t | AUT-02 Region Replace 境界曲線保存・Reject/Replace 原子的編集 | implemented | [aut-02-region-replace-boundary-curve-preservation.md](./aut-02-region-replace-boundary-curve-preservation.md) |
+| SPEC-034SVCIOPT02bN7mQwErTy | Issue #148 変更影響分類・Fail-Closed evidence Gate 仕様 | superseded | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
+| SPEC-034RUjwAo6z9Q2Hpkp99SH | Issue #157 rev.3 matrix lane skip placeholder — evidence gate 修正 | superseded | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |
+| SPEC-034SYN157Kx9mTvQp2w | Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画 | superseded | [issue-157-selective-execution.md](./issue-157-selective-execution.md) |
