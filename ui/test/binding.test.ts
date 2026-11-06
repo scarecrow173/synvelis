@@ -481,3 +481,181 @@ describe("lifecycle", () => {
     });
   }
 });
+
+/**
+ * Late-created binding epoch — the shared-SDK contract behind
+ * Ruviform #376. `ConsoleView` builds strips via `vm.strip()` inside
+ * `onMount` *after* `vm.attach()` resolves, so `createBinding` runs on
+ * an already-attached `ViewLink`. Such a binding must adopt the live
+ * view generation: the backend `ControlsUi` stale guard drops any
+ * intent whose `ctx.generation` is behind the binding's live epoch and
+ * mints no receipt, so a generation-0 dispatch would leave every
+ * mounted strip permanently pending.
+ */
+describe("late-created bindings adopt the live view epoch", () => {
+  async function attachVm(
+    viewId: string,
+    generation: number,
+  ): Promise<ConsoleViewModel> {
+    const router = notifyRouter();
+    const port = createIpcBindingPort({ router });
+    const vm = new ConsoleViewModel({
+      viewId,
+      windowId: "w0",
+      port,
+      router,
+    });
+    const p = vm.attach();
+    host.answerOp("syn.view.attach", {
+      view_id: viewId,
+      attached: true,
+      generation,
+    });
+    await p;
+    return vm;
+  }
+
+  function lastDispatch(target: string) {
+    const s = [...host.sent].reverse().find(
+      (x) =>
+        x.op === "syn.control.dispatch" &&
+        (x.params.intent as { target?: string }).target === target,
+    );
+    if (s === undefined) {
+      throw new Error(`no syn.control.dispatch for ${target}`);
+    }
+    return s.params.ctx as {
+      commandId: string;
+      generation: number;
+      viewId?: string;
+      windowId?: string;
+    };
+  }
+
+  function sendReceipt(viewId: string, target: string, commandId: string) {
+    notify("syn.control.receipt", {
+      view_id: viewId,
+      target,
+      receipt: { commandId, status: "applied" },
+    });
+  }
+
+  it("a strip created after attach dispatches under the live generation", async () => {
+    const vm = await attachVm("v-epoch", 1);
+    const strip = vm.strip("param-gain");
+    expect(strip.generation).toBe(1);
+
+    vm.transport.action("play", { controlId: "transport", sequence: 1 });
+    strip.action("write", { controlId: "param-gain", sequence: 1 });
+    await Promise.resolve();
+
+    // Positive control — the pre-attach transport binding already
+    // stamped the live epoch; the late strip must match it.
+    expect(lastDispatch("transport").generation).toBe(1);
+    const ctx = lastDispatch("param-gain");
+    expect(ctx.generation).toBe(1);
+    expect(ctx.viewId).toBe("v-epoch");
+    expect(ctx.windowId).toBe("w0");
+
+    sendReceipt("v-epoch", "param-gain", ctx.commandId);
+    await Promise.resolve();
+    expect(strip.state.lastReceipt?.commandId).toBe(ctx.commandId);
+    expect(strip.state.phase).toBe("applied");
+    expect(strip.diagnostics.staleReceipts).toBe(0);
+  });
+
+  it("bindings created while attached adopt the re-attach epoch", async () => {
+    const vm = await attachVm("v-epoch", 1);
+    const early = vm.strip("param-gain");
+
+    const detachP = vm.detach("dock-transfer");
+    host.answerOp("syn.view.detach", {
+      view_id: "v-epoch",
+      attached: false,
+    });
+    await detachP;
+    const reattachP = vm.attach();
+    host.answerOp("syn.view.attach", {
+      view_id: "v-epoch",
+      attached: true,
+      generation: 2,
+    });
+    await reattachP;
+
+    // Created under the second epoch — must not stay at generation 0.
+    const late = vm.strip("param-fader");
+    early.action("write", { controlId: "param-gain", sequence: 1 });
+    late.action("write", { controlId: "param-fader", sequence: 1 });
+    await Promise.resolve();
+
+    expect(lastDispatch("param-gain").generation).toBe(2);
+    expect(lastDispatch("param-fader").generation).toBe(2);
+    expect(early.generation).toBe(2);
+    expect(late.generation).toBe(2);
+  });
+
+  it("a receipt minted under a dead generation is classified stale, not applied", async () => {
+    const vm = await attachVm("v-epoch", 1);
+    const strip = vm.strip("param-gain");
+    strip.action("write", { controlId: "param-gain", sequence: 1 });
+    await Promise.resolve();
+    const deadId = lastDispatch("param-gain").commandId;
+
+    const detachP = vm.detach("unmount");
+    host.answerOp("syn.view.detach", {
+      view_id: "v-epoch",
+      attached: false,
+    });
+    await detachP;
+    const reattachP = vm.attach();
+    host.answerOp("syn.view.attach", {
+      view_id: "v-epoch",
+      attached: true,
+      generation: 2,
+    });
+    await reattachP;
+
+    strip.action("write", { controlId: "param-gain", sequence: 2 });
+    await Promise.resolve();
+    const liveId = lastDispatch("param-gain").commandId;
+
+    // The dead-epoch receipt must never move the display.
+    sendReceipt("v-epoch", "param-gain", deadId);
+    await Promise.resolve();
+    expect(strip.diagnostics.staleReceipts).toBeGreaterThan(0);
+    expect(strip.state.lastReceipt?.commandId).not.toBe(deadId);
+
+    // The live-epoch receipt still correlates and applies.
+    sendReceipt("v-epoch", "param-gain", liveId);
+    await Promise.resolve();
+    expect(strip.state.lastReceipt?.commandId).toBe(liveId);
+    expect(strip.state.phase).toBe("applied");
+    expect(strip.diagnostics.staleReceipts).toBe(1);
+  });
+
+  for (const mode of ["detach", "close"] as const) {
+    it(`after ${mode} a late-created strip drops intents without a wire dispatch`, async () => {
+      const vm = await attachVm("v-epoch", 1);
+      const strip = vm.strip("param-gain");
+      const doneP =
+        mode === "detach" ? vm.detach("unmount") : vm.close();
+      host.answerOp(
+        mode === "detach" ? "syn.view.detach" : "syn.view.close",
+        mode === "detach"
+          ? { view_id: "v-epoch", attached: false }
+          : { view_id: "v-epoch", closed: true },
+      );
+      await doneP;
+
+      const marker = host.sent.length;
+      strip.action("write", { controlId: "param-gain", sequence: 1 });
+      await Promise.resolve();
+      expect(
+        host.sent.slice(marker).filter(
+          (s) => s.op === "syn.control.dispatch",
+        ),
+      ).toHaveLength(0);
+      expect(strip.diagnostics.detachedIntents).toBeGreaterThan(0);
+    });
+  }
+});

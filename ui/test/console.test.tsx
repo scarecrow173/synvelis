@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { render } from "solid-js/web";
 
+import type { RvfKnob } from "@ruviform/ui-components";
 import type { RvfWaveform } from "@ruviform/ui-viz";
 
 import { registerElements } from "../src/adapters/ruviform.ts";
@@ -339,5 +340,92 @@ describe("ConsoleView unmount lifecycle", () => {
 
     repl.dispose();
     expectChannelsZero("after replacement dispose");
+  });
+});
+
+describe("ConsoleView mounted control-op", () => {
+  it("a strip created post-attach dispatches under the live generation; its receipt applies", async () => {
+    const { root } = mountView("v-main", "w0");
+    await driveToFullyMounted("v-main", 1);
+    const knobEl = root.querySelector("rvf-knob") as RvfKnob;
+
+    // The strip is created inside onMount after attach resolved —
+    // the RF #376 path. Its commit must stamp the live epoch (1),
+    // or the backend stale guard drops it and no receipt ever lands.
+    const marker = host.sent.length;
+    knobEl.dispatchEvent(
+      new CustomEvent("rvf-gesture", {
+        detail: {
+          type: "begin",
+          meta: { controlId: "param-gain", sequence: 1, gestureId: "g1" },
+          value: { plain: 0.6, normalized: 0.6 },
+        },
+      }),
+    );
+    knobEl.dispatchEvent(
+      new CustomEvent("rvf-gesture", {
+        detail: {
+          type: "commit",
+          meta: { controlId: "param-gain", sequence: 2, gestureId: "g1" },
+          value: { plain: 0.6, normalized: 0.6 },
+        },
+      }),
+    );
+    await flush();
+
+    const sent = host.sent
+      .slice(marker)
+      .filter((s) => s.op === "syn.control.dispatch");
+    const commit = sent.find(
+      (s) => (s.params.intent as { kind?: string }).kind === "commit",
+    );
+    expect(commit).toBeDefined();
+    const ctx = (commit as SentIntent).params.ctx as {
+      commandId?: string;
+      generation?: number;
+    };
+    expect(ctx.generation).toBe(1);
+    expect(knobEl.pending).toBe(true);
+
+    // The applied receipt correlates under the live epoch — never
+    // classified stale. `applied` is still not display truth, so the
+    // pending flag only clears when the projection arrives.
+    host.emit({
+      v: 1,
+      kind: "notify",
+      data: {
+        channel: "syn.control.receipt",
+        data: {
+          view_id: "v-main",
+          target: "param-gain",
+          receipt: { commandId: ctx.commandId, status: "applied" },
+        },
+      },
+    });
+    await flush();
+    expect(knobEl.invalid).toBe(false);
+    expect(knobEl.unsupported).toBe(false);
+
+    host.emit({
+      v: 1,
+      kind: "notify",
+      data: {
+        channel: "syn.control.projection",
+        data: {
+          view_id: "v-main",
+          target: "param-gain",
+          row: {
+            kind: "param",
+            observed: {
+              revision: 1,
+              value: { plain: 0.6, normalized: 0.6 },
+            },
+          },
+        },
+      },
+    });
+    await flush();
+    expect(knobEl.pending).toBe(false);
+    expect(knobEl.value).toBeCloseTo(0.6);
   });
 });
