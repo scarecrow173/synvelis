@@ -94,7 +94,7 @@ export class ConsoleViewModel {
     });
     if (this.attachToken !== token) return this.attachedGeneration;
     this.attachedGeneration = res.generation ?? 0;
-    this.link.attach(this.windowId);
+    this.link.attach(this.windowId, res.generation);
     this.receiptOff?.();
     this.receiptOff = this.router.on("syn.control.receipt", (data) => {
       const d = data as WireReceiptData;
