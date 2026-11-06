@@ -64,6 +64,12 @@ run = "node tools/ci-summary.mjs gate"
 description = "ci-summary gate の node:test スイート"
 run = "node --test tools/ci-summary.test.mjs"
 
+# Issue #167: consumer 側 reconcile 入口契約(共有 pin 単一性・mode 分離・
+# guard・入口 trigger・既存入口不変)を静的に pin する。
+[tasks.test-ci-tracker-entry]
+description = "ci-issue-tracker reconcile 入口の consumer 契約 node:test スイート"
+run = "node --test tools/ci-issue-tracker-reconcile.test.mjs"
+
 [tasks.build]
 description = "Build the workspace (dev profile)"
 run = "cargo build --workspace --locked"
