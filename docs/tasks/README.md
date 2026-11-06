@@ -12,6 +12,7 @@ Directory: `docs/tasks`
 | TASK-034SVCIOPT02zA1sDfGh | Issue #148 T1 impact classifier + fail-closed evidence gate 実装 | in-progress | [issue-148-t1-impact-gate.md](./issue-148-t1-impact-gate.md) |
 | TASK-034RUl0VioQz9IinY5Qc7G | Issue #157 rev.3 T1 matrix placeholder gate 修正 | in-progress | [issue-157-t1-matrix-placeholder-gate.md](./issue-157-t1-matrix-placeholder-gate.md) |
 | TASK-034SYN166T1CiSumX | Issue #166 T1 Full CI 化・ci-summary 統一 — 第一段階実装 | in-progress | [issue-166-t1-ci-summary-stage1.md](./issue-166-t1-ci-summary-stage1.md) |
+| TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
 | TASK-034RADc5Q2mNYPcXkM8fR | SV-GUI-02 frontend BindingPort/ViewModel/ConsoleView | completed | [sv-gui-02-frontend-bindingport-viewmodel-consoleview.md](./sv-gui-02-frontend-bindingport-viewmodel-consoleview.md) |
 | TASK-034RADeL6sQ8vFzJ3xTmN | SV-GUI-02 検証レーン統合 (headless/vitest/guitest) | completed | [sv-gui-02-headless-vitest-guitest.md](./sv-gui-02-headless-vitest-guitest.md) |
 | TASK-034RADaUbkmnzbFjZ29bl4 | SV-GUI-02 ruviform rev 追従 + Rust syn.* UI op 面 | completed | [sv-gui-02-ruviform-rev-rust-syn-ui-op.md](./sv-gui-02-ruviform-rev-rust-syn-ui-op.md) |
