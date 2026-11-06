@@ -294,15 +294,12 @@ impl LocalBlobDir {
 
 impl ProjectBlobStore for LocalBlobDir {
     fn open(&self, object: &ObjectIdentity) -> Result<BlobObject, ProviderError> {
-        let (path, byte_len) = self.resolve(object)?;
+        let (path, _pre_open_len) = self.resolve(object)?;
         let file = File::open(&path).map_err(|e| Self::io("open blob", &e))?;
         // Post-open re-check: a stat→open swap to a non-file must
         // never be streamed (a blocking device read is a DoS).
-        if !file
-            .metadata()
-            .map_err(|e| Self::io("stat blob", &e))?
-            .is_file()
-        {
+        let file_meta = file.metadata().map_err(|e| Self::io("stat blob", &e))?;
+        if !file_meta.is_file() {
             return Err(ProviderError::new(
                 ProviderErrorKind::InvalidRequest,
                 format!("blob {:?} is not a regular file", object.as_str()),
@@ -310,7 +307,7 @@ impl ProjectBlobStore for LocalBlobDir {
         }
         Ok(BlobObject {
             reader: Box::new(file),
-            byte_len,
+            byte_len: file_meta.len(),
         })
     }
 

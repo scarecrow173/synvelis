@@ -74,6 +74,8 @@ relations:
       - type: "file"
         path: "Cargo.lock"
       - type: "file"
+        path: "tools/check-headless-deps.mjs"
+      - type: "file"
         path: "docs/adr/README.md"
       - type: "file"
         path: "docs/designs/README.md"
@@ -231,19 +233,31 @@ ALIB-02/03/04/05/06 が依存する型付き境界を公開する。
 
 ## Validation
 
-実行環境: Windows(Git Bash 上の cargo toolchain)。worker 並列枠のため
-`CARGO_BUILD_JOBS=2` を使用。
+実行環境: Windows(Git Bash、rust toolchain pin 1.99.0 / MSRV 1.89)。
+worker 並列枠のため `CARGO_BUILD_JOBS=2` を使用。正規入口は mise task。
 
 | チェック | コマンド | 結果 |
 | --- | --- | --- |
-| Format | `cargo fmt --all` | pass |
-| Format check | `cargo fmt --all -- --check` | pass |
-| Compile | `cargo check --workspace --all-targets` | pass |
-| Lint | `cargo clippy --workspace --all-targets -- -D warnings` | pass |
-| Test | `cargo test --workspace --locked` | pass(88 test targets、0 failures;library 71 tests + workspace 他 + doc tests 2 件含む) |
+| Format check | `mise run fmt-check` (`cargo fmt --all -- --check`) | pass (exit 0) |
+| Compile | `mise run check` (`cargo check --workspace --all-targets`) | pass (exit 0) |
+| Lint | `mise run lint` (`cargo clippy --workspace --all-targets -- -D warnings`) | pass (exit 0) |
+| Test | `mise run test` (`cargo test --workspace --locked`) | pass (exit 0; 88 test targets・0 failures、synvelis-library 71 tests・doc tests 含む) |
+| Headless deps gate | `mise run check-headless-deps` (`node tools/check-headless-deps.mjs`) | pass (exit 0; 9 headless crates、`synvelis-library` 登録済) |
+| ruviform rev 整合 | `mise run check-ruviform-rev` (`node tools/check-ruviform-rev.mjs`) | pass (exit 0; resolved `49de02cc` 22 sources、REV match) |
 
-最終シーケンスは `LocalBlobDir::open` の post-open regular-file 再検査追加後に
-上記すべてを再実行し、全て pass。
+補足:
+- `check-ruviform-rev` は初回 exit 1(vendor REV `8fb665f` != lockfile
+  `49de02cc`)。原因は未追跡の `ui/vendor/ruviform/REV` が base #171 由来の
+  lockfile rev より古い local vendor staleness で、本差分・lockfile への影響なし
+  (baseline `d8bf8ca` 時点の lockfile が既に `49de02cc` を解決)。正規入口
+  `mise run sync-ui-deps` で `ui/vendor` を lockfile SHA に再生成して復旧し、
+  tracked file への変更はない。
+- `check-headless-deps` の負側境界は一時コピー fixture で検証(HEADLESS_CRATES
+  を `synvelis-library`/`synvelis-project`、EXACT に `serde` を注入した
+  `headless-neg.mjs` が exit 1 で `synvelis-library: serde` を検出)。
+  本物の `tools/check-headless-deps.mjs` は変更していない(登録行追加のみ)。
+- 補助証拠として同一結果の直接 cargo 実行ログも保持するが、上表の mise
+  exit を正規結果とする。
 
 ### Review Protocol
 
@@ -259,12 +273,31 @@ ALIB-02/03/04/05/06 が依存する型付き境界を公開する。
   redaction、FetchSlot terminal latch、registry kind mismatch)。
 - 再検証: focused re-validator が P1 両件を fixed と確認。残存指摘だった
   `LocalBlobDir::open` の stat/open TOCTOU も post-open 再検査で対処。
+- post-open 追補後の独立 Validator(2nd round): `LocalBlobDir::open` の
+  post-open `is_file()` 再検査、`local.rs` 全 open site の post-open 再検査、
+  blob/symlink/非 regular の回帰テスト存在を全件 CONFIRMED。残余指摘:
+  - N1(Low–Medium): `resolve`→`File::open` 間の path 再traverse は
+    component-swap TOCTOU に対し原理的に残存(`std` は openat/dirfd 契約を
+    公開しない)。`is_file()` 再検査により「非 regular の読み取り/DoS」は
+    遮断され、pinned read は EOF で digest/IntegrityMismatch を強制するため
+    影響は `open_preview`(Unverified)の out-of-root regular file 読み取りに限定。
+    下記 Risks に移記。
+  - N2(Low): `LocalBlobDir::open` が pre-open stat の `byte_len` を返しており
+    local.rs(post-open `file_meta.len()`)と不一致。post-open metadata 由来に
+    統一済み。
 
 ## Risks
 
 - `LocalBlobDir`/`local.rs` の open 経路は stat→open→post-open check の構成であり、
   原子性は OS 依存。post-open `is_file` 再検査で streaming 前の型は保証するが、
   open 自体と別プロセスの置換の完全な排除は保証しない。
+- Validator 残余 N1: `resolve`→`File::open` の path 再traverse は、
+  served root/store 配下の directory component が rename+symlink swap される
+  component-swap TOCTOU に残存。`std` は openat/dirfd セマンティクスを公開しない
+  ため完全排除不可。`is_file()` 再検査で非 regular の読み取り/DoS は遮断、
+  pinned read は EOF の digest/IntegrityMismatch で失敗するため、影響は
+  `open_preview`(Unverified)での out-of-root regular file 読み取りに限定。
+  恒久対応には `cap-std`/`openat` 等の open-beneath API が必要で後続検討。
 - `OpaqueCredential`/`PrincipalId` の transport 契約は型で制約するが、実際の
   credential vault/OS 認証統合は本スコープ外。
 - Search の索引範囲・Preview の内容は provider capability 依存で、基準 provider は

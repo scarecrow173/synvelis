@@ -12,6 +12,7 @@ import { execFileSync } from "node:child_process";
 // `webview` feature.
 const HEADLESS_CRATES = [
   "synvelis-project",
+  "synvelis-library",
   "synvelis-recording",
   "recording-poc",
   "synvelis-player",
