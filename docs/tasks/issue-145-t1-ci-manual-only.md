@@ -119,4 +119,33 @@ Actions API で実測して完了とする。
 
 ## Verification
 
-実施結果をここに記録する(コマンド・exit code・OS)。
+実施結果(Windows 11 ・ worktree sv-ci-reconcile ・ 2026-11-06):
+
+- `mise run test-ci-tracker-entry` — exit 0、16/16 pass
+  (dispatch 専用・全 workflow 陰性走査・lane/gate 構造不変)。
+- `mise run test-ci-summary` — exit 0、36/36 pass。
+- `mise run lint-actions`(actionlint) — exit 0。
+- `mise exec -- prek run --all-files` — exit 0、全 hook pass。
+- `git diff`: ci.yml は `on:` 除去 + コメント更新のみ、他
+  workflow・mise.toml・製品コード無変更。diff 全体レビュー済み。
+- `doc_maintenance.js apply` — 6 index 再生成、issue-145 文書の
+  finding 0(残存 finding は全て pre-existing)。
+- reconcile main 実受入: `gh run view/download 42183098205` —
+  workflow_dispatch @ main e84a440・job reconcile success、
+  permissions Actions:read/Contents:read/Issues:write、共有
+  checkout `eed590e`、self-test 91/91、report `mode: reconcile`
+  で権威 `ci` 履歴評価 → pending run 42183097054 に fail-closed
+  noop(Issue 書き込みなし — 正しい挙動)。
+- ruleset 実測(2026-11-06 `gh api repos/{repo}/rulesets` ×3):
+  `main-checkstatus` disabled・`main-protect` active(PR 必須・
+  reviews 0・non-ff/deletion 禁止・bypass なし)・
+  `required_status_checks` 不在・classic protection 404 — SV/RF/AL
+  全 repo 同一。
+- PR 起動ゼロ実測: PR #173(head `b72c523f2766a6786d368fadbd63bc514c1a8bd9`、
+  created 2026-11-06T08:04:18Z)で `gh pr checks 173` =
+  "no checks reported"、`gh run list --branch
+  fix/sv-ci-manual-only` = 0 件、repo-wide run list に作成時刻以降の
+  `ci`/`daily-ci`/tracker 系 run なし。synchronize 後も同測定を
+  記録(下記追記)。
+- 未実施(NotRun): 定期 cron 実観測・実 Issue create/close・製品
+  Rust/UI suite(変更範囲外のため)。
