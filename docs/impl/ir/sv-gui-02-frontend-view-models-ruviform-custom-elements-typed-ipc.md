@@ -415,3 +415,111 @@ RF #376 由来の BLOCKED は解消し、Task `TASK-034RADc5Q2mNYPcXkM8fR` を
 window（test-spec「未検証として明示するもの」）。これらは別 lane の
 正式受入であり、本追補の成功で消したことにしない。#112 は継続。
 Draft PR での保存状態は変わらず、merge-ready / 統合済みとは扱わない。
+
+## 2026-11-07 attach epoch 採用（consumer 側・追補）
+
+前追補の `done` 化後、独立レビュー（Reviewer B、
+`TEMP/sv171-review-b-2361694.md` IC-B1、別 Validator が実 headless
+`UiRuntime` で再現）で P1 が残っていると確認された。
+`ConsoleViewModel.attach` は attach 応答の `res.generation` を getter
+専用の `attachedGeneration` にのみ保存し、`link.attach(windowId)` には
+渡さなかった。`ViewLink` の generation は link 自身の attach 回数
+（local counter）であり、backend `ControlsUi` の view epoch は
+`attach_view` 遷移で +1 するため、同 viewId の fresh-VM remount
+（新 `ViewLink` は counter=0 から）や pending attach 破棄後の再
+attach で両者が乖離する。乖離後の `syn.control.dispatch` は
+`ctx.generation < binding.generation` で `stale_intents` 計上・
+receipt なしの沈黙破棄となり、subscription/projection だけが生きた
+まま操作不能（zombie console）となる。
+
+SDK 側修復は Ruviform PR #383 として RF main
+`49de02cc530d324772d8556225030eb2b9307751` に統合済み
+（`ViewLink.attach(windowId, generation?)`：authoritative epoch を
+link・全 managed binding/query/subscription context へ採用、
+省略時は従来の local increment を維持、同 window 同 epoch は冪等
+no-op、同 window 異 epoch は `unmount` detach→再 attach、
+無効値は `RangeError` で原子拒否）。本追補はユーザー承認済み
+方針A・設計の Task 2（Synvelis consumer 取込）の記録。
+
+### 取込と修正
+
+- `Cargo.lock` の ruviform 22 source を `513b29b` → `49de02c` に
+  `cargo update -p ruviform-*`（既定ブランチ追従 git 依存）で解決更新。
+  `mise run sync-ui-deps` で `ui/vendor/ruviform` を同 revision に
+  再生成し、`build-ui` の manifest を含め `check-ruviform-rev` が
+  三者一致を確認（`49de02c`、22 lockfile sources、lockfile-primary、
+  REV match）。恒久 rev pin・vendor 運用変更なし。
+- `ui/src/viewmodel/console-view-model.ts`：`attachToken` 検証後の
+  `link.attach(this.windowId)` を
+  `link.attach(this.windowId, res.generation)` に変更（1行）。
+  token 失効構造、receipt route の attach/detach lifetime、
+  detach/close 経路は不変。
+- backend stale guard・receipt・projection revision・Job 取消契約は
+  弱めていない。P1 を consumer 側 counter で複製回避する実装や、
+  design 非目標（receipt commandId namespace、detach 窓 receipt、
+  detached 中 binding 生成契約）の混入もない。
+
+### consumer 境界の恒久回帰（RED → GREEN）
+
+`ui/test/backend-epoch.ts` を新設：backend `ControlsUi` の
+view/binding epoch と stale-guard drop 順序を独立 ledger として実装し、
+wire intent（`syn.view.attach/detach/close`・`syn.control.subscribe/
+unsubscribe/dispatch`）を send 順に処理して op reply・receipt を生成する。
+SDK が送出した値を受理するだけの fake とは別に、ledger 自身の
+counter で drop 判定するため、`ctx.generation` 乖離を観測できる。
+`binding.test.ts` に `authoritative attach epoch` suite 4 件を追加：
+
+1. fresh-VM remount（同 viewId、attach reply=2）で pre-attach
+   transport と後発 strip の wire `ctx.generation` が reply と一致、
+   guard で drop 0、receipt `applied` 相関→projection 着地の
+   positive control。
+2. pending attach 破棄（detach 先行）→ 遅延 reply は token 失効で
+   破棄、次の有効 attach（reply=2）で link/dispatch が backend
+   epoch へ再同期。
+3. 逆順到着（fresh reply epoch2 → 遅延 stale reply epoch1）で旧
+   応答が採用済み epoch を巻き戻さない。
+4. 死 epoch を刻んだ偽 `CommandBinding` dispatch が ledger で
+   `staleIntents` 計上・receipt 不発の negative control
+   （guard が送出値の echo でないことの証明）。
+
+Rust 側 guard 契約の原証跡は既存 `ui_ops.rs`
+（`unknown_and_detached_dispatch_are_dropped_not_faked`）と
+`sv47_controls.rs`
+（`dock_move_cancels_gesture_and_stale_generation_cannot_land`）を
+今回 `mise run test` / `test-app-webview` / `test-msrv` で再実測
+（全 pass）。
+
+| 測定 | 結果 |
+| --- | --- |
+| 旧 SDK `513b29b` + head `2361694` で新 suite | 3 件 RED（remount・pending 破棄・逆順の各 wire ctx.generation=1 vs backend live=2） |
+| RF `49de02c` + consumer 修正で focused `binding.test.ts` | 21/21 成功 |
+| `mise run test-ui` | 全 6 ファイル 55 件成功 |
+
+### 今回実行した検証（2026-11-07、Windows 11 / Git Bash）
+
+| コマンド | 結果 |
+| --- | --- |
+| `mise run fmt-check` | exit 0 |
+| `mise run check` | exit 0 |
+| `mise run lint` | exit 0（-D warnings） |
+| `mise run test` | exit 0（workspace 全 suite） |
+| `mise run check-ui` | exit 0 |
+| `mise run test-ui` | exit 0（55件） |
+| `mise run build-ui` | exit 0 |
+| `mise run check-ruviform-rev` | exit 0（`49de02c`） |
+| `mise run check-headless-deps` | exit 0 |
+| `mise run gw10` | exit 0（既存 NOT-RUN/UNSUPPORTED case のみ残存） |
+| `mise run check-app-webview` | exit 0 |
+| `mise run lint-app-webview` | exit 0 |
+| `mise run test-app-webview` | exit 0 |
+| `mise run test-msrv` | exit 0（rust@1.89.0） |
+
+### 受入境界
+
+本追補も headless + vitest/happy-dom + fake IPC と headless Rust
+suite の契約検証であり、実 OS WebView GUI（macOS/Linux 含む）・
+実 Rust IPC 接続の end-to-end・native GPU 描画・実 plugin/実 DSP・
+実 multi window は引き続き別 lane の NotRun。Reviewer B IC-B2
+（detach 窓 receipt の unrouted 消失、P2）は design 非目標として
+切り分け済みで、本変更には含めていない。Draft PR での保存状態は
+変わらず、merge-ready / 統合済みとは扱わない。
