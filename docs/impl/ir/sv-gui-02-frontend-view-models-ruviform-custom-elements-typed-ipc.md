@@ -492,8 +492,33 @@ Rust 側 guard 契約の原証跡は既存 `ui_ops.rs`
 | 測定 | 結果 |
 | --- | --- |
 | 旧 SDK `513b29b` + head `2361694` で新 suite | 3 件 RED（remount・pending 破棄・逆順の各 wire ctx.generation=1 vs backend live=2） |
-| RF `49de02c` + consumer 修正で focused `binding.test.ts` | 21/21 成功 |
-| `mise run test-ui` | 全 6 ファイル 55 件成功 |
+| RF `49de02c` + consumer 修正で focused `binding.test.ts` | 21/21 成功（review hardening 後 22/22） |
+| `mise run test-ui` | 全 6 ファイル 55 件成功（同 56 件） |
+
+独立 review（Reviewer A/B → Validator → Judge を別 Orca worker で
+役割分離、生証跡 `TEMP/sv171-epoch-task2/`）は 9 candidates →
+dedupe 6 件すべて CONFIRMED・P0/P1 ゼロで **ACCEPT WITH
+NON-BLOCKING NOTES**。非 blocker の確定指摘を同スライスで修正した:
+
+- `attach()` は token 検証後・`attachedGeneration` 代入前に reply の
+  `generation` を非負 safe integer で検査し、欠損/壊値で
+  `RangeError` を投げる（local counter への沈黙復帰＝本 P1 の再導入
+  経路を fail-closed で遮断）。reply 型を `generation: number` に
+  引き締め、fail-closed 回帰テストを追加。
+- `releaseAttach` で `attachedGeneration` を 0 に reset（detached
+  状態で dead epoch を live と返さない getter 契約）。
+- ledger の binding 格納を `(view,target)` nested Map に変更し、
+  連結文字列 `startsWith` の prefix/ペア衝突（別 view の binding を
+  誤って bump/削除する latent 欠陥）を構造的に除去。
+- ledger の未モデル op を `default:` で明示 throw（`call` 永久
+  pending が vitest timeout に化ける不透明な失敗を排除）。
+- remount positive control の `applied` assert を実 backend が
+  `Applied` を生成する transport action に限定し、param strip は
+  receipt 到達相関のみ検証（action-on-param の `unsupported` は
+  Rust routing 契約領域のまま）。
+- `registerQuery` の attach 後 epoch adopt 非対称＋port の
+  reply.generation echo（consumer は query 未使用、実害ゼロ）は
+  RF 上流論点として記録のみ・修正しない。
 
 ### 今回実行した検証（2026-11-07、Windows 11 / Git Bash）
 

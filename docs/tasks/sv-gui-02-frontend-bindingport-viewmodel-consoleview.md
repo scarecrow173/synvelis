@@ -186,6 +186,18 @@ query・subscription context へ採用、省略時は local increment を維持�
 - 旧 SDK/head（`2361694`、vendor `513b29b`）で新 suite が 3 件 RED
   （wire ctx.generation=1 vs backend live=2 の assertion 失敗）、
   SDK 取込 + consumer 修正で 21/21 focused・全 UI 55 件 GREEN。
+- 独立 review（Reviewer A/B → Validator → Judge、別 Orca worker 役割
+  分離）は `TEMP/sv171-epoch-task2/` に全生証跡。9 candidates →
+  dedupe 6件すべて CONFIRMED・P0/P1 ゼロで **ACCEPT WITH
+  NON-BLOCKING NOTES**。非 blocker 5件を同スライスで修正:
+  attach reply の `generation` を代入前に非負 safe integer で検証
+  （欠損/壊値で fail-closed RangeError、local counter への沈黙復帰
+  を遮断）、`releaseAttach` で `attachedGeneration` を reset、
+  ledger の binding key を (view,target) nested Map 化（prefix 衝突
+  除去）、未モデル op を明示 throw、`applied` positive control を
+  実 backend が Applied を生成する transport action に限定。
+  `registerQuery` adopt 非対称（RF 上流・consumer 不使用）は記録のみ。
+  修正後 focused 22/22・全 UI 56 件 GREEN。
 
 引き続き headless + vitest/happy-dom + fake IPC の契約検証であり、
 実 OS WebView GUI・実 Rust IPC・native GPU 描画・実 plugin/実 DSP・
@@ -220,8 +232,8 @@ query・subscription context へ採用、省略時は local increment を維持�
       epoch` suite 3 件 RED（remount/pending/逆順の wire ctx.generation=1
       vs backend live=2、意味のある assertion 失敗）。
 - [x] `mise exec -- npm --prefix ui test -- test/binding.test.ts` exits 0
-      （21/21、修復 SDK + consumer 修正後）。
-- [x] `mise run test-ui` exits 0（全 6 ファイル 55 件成功）。
+      （22/22、修復 SDK + consumer 修正 + review hardening 後）。
+- [x] `mise run test-ui` exits 0（全 6 ファイル 56 件成功）。
 - [x] `mise run check-ui` / `build-ui` exits 0。
 - [x] `mise run check-ruviform-rev` exits 0（`49de02c`、22 lockfile
       sources、lock/vendor REV/manifest host 三者一致）。
