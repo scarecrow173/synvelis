@@ -23,6 +23,7 @@ import {
   resetRouterForTests,
 } from "../src/binding/router.ts";
 import { ConsoleViewModel } from "../src/viewmodel/console-view-model.ts";
+import { createBackendEpochGuard } from "./backend-epoch.ts";
 import { installFakeHost, type FakeHost } from "./fake-host.ts";
 
 let host: FakeHost;
@@ -658,4 +659,224 @@ describe("late-created bindings adopt the live view epoch", () => {
       expect(strip.diagnostics.detachedIntents).toBeGreaterThan(0);
     });
   }
+});
+
+/**
+ * Authoritative attach epoch — the consumer side of the ViewLink
+ * generation seam (Ruviform PR #383 / Synvelis PR #171 P1). The
+ * backend `ControlsUi` owns the view epoch: `syn.view.attach` bumps it
+ * and reports it in the reply; `syn.control.dispatch` drops intents
+ * whose `ctx.generation` trails the binding's live epoch — silently,
+ * no receipt. A `ViewLink` that only counts its own attaches diverges
+ * the first time the backend epoch moves without it: a fresh-VM
+ * remount of the same viewId, a discarded pending attach, a replayed
+ * stale reply.
+ *
+ * These tests drive `ConsoleViewModel` over the real
+ * `createIpcBindingPort` + `installFakeHost` wire and check the wire
+ * `ctx.generation` against an independent backend-side epoch ledger
+ * (`backend-epoch.ts`) — never against values the SDK stamped, which
+ * would only echo the implementation under test. The same guard on
+ * the real backend is pinned by
+ * `crates/synvelis-app/tests/ui_ops.rs`
+ * (`unknown_and_detached_dispatch_are_dropped_not_faked`) and
+ * `crates/synvelis-workspace/tests/sv47_controls.rs`
+ * (`dock_move_cancels_gesture_and_stale_generation_cannot_land`).
+ */
+describe("authoritative attach epoch", () => {
+  /** Let queued binding intents reach the wire (queueMicrotask flush). */
+  async function flushWire(): Promise<void> {
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 0));
+  }
+
+  function mountVm(viewId: string, windowId = "w0"): ConsoleViewModel {
+    const router = notifyRouter();
+    const port = createIpcBindingPort({ router });
+    return new ConsoleViewModel({ viewId, windowId, port, router });
+  }
+
+  function lastDispatchCtx(target: string) {
+    const s = [...host.sent].reverse().find(
+      (x) =>
+        x.op === "syn.control.dispatch" &&
+        (x.params.intent as { target?: string }).target === target,
+    );
+    if (s === undefined) {
+      throw new Error(`no syn.control.dispatch for ${target}`);
+    }
+    return s.params.ctx as {
+      commandId: string;
+      generation: number;
+      viewId?: string;
+      windowId?: string;
+    };
+  }
+
+  it("fresh-VM remount stamps the backend attach epoch — wire dispatch, receipt, projection all land", async () => {
+    const guard = createBackendEpochGuard(host);
+
+    const vm1 = mountVm("v-rem");
+    let p = vm1.attach();
+    guard.pump();
+    await p;
+    expect(guard.viewGeneration("v-rem")).toBe(1);
+
+    vm1.transport.action("play", { controlId: "transport", sequence: 1 });
+    await flushWire();
+    guard.pump();
+    expect(lastDispatchCtx("transport").generation).toBe(1);
+    expect(guard.staleIntents).toBe(0);
+
+    const d1 = vm1.detach("unmount");
+    guard.pump();
+    await d1;
+
+    // A fresh mount builds a brand-new ViewLink whose local attach
+    // counter starts at 0 — while the backend just bumped the same
+    // viewId's epoch to 2.
+    const vm2 = mountVm("v-rem");
+    p = vm2.attach();
+    guard.pump();
+    const gen = await p;
+    expect(gen).toBe(2);
+    expect(vm2.link.attached).toBe(true);
+
+    // The pre-attach binding AND a post-attach strip must both stamp
+    // the backend-live epoch — not the link's local counter.
+    vm2.transport.action("play", { controlId: "transport", sequence: 2 });
+    const strip = vm2.strip("param-gain");
+    strip.action("write", { controlId: "param-gain", sequence: 1 });
+    await flushWire();
+    guard.pump();
+
+    expect(lastDispatchCtx("transport").generation).toBe(2);
+    const sctx = lastDispatchCtx("param-gain");
+    expect(sctx.generation).toBe(2);
+    expect(guard.staleIntents).toBe(0);
+    expect(guard.detachedIntents).toBe(0);
+
+    // Positive control — the accepted dispatch minted a receipt that
+    // the attach-scoped receipt route correlated under the live epoch.
+    expect(strip.state.lastReceipt?.commandId).toBe(sctx.commandId);
+    expect(strip.state.phase).toBe("applied");
+    expect(strip.diagnostics.staleReceipts).toBe(0);
+
+    // receipt → projection — the truth channel still lands.
+    notify("syn.control.projection", {
+      view_id: "v-rem",
+      target: "param-gain",
+      row: {
+        kind: "param",
+        observed: {
+          revision: 1,
+          value: { plain: 0.6, normalized: 0.6 },
+        },
+      },
+    });
+    await Promise.resolve();
+    expect(strip.state.lastObserved?.revision).toBe(1);
+    expect(strip.diagnostics.staleProjections).toBe(0);
+  });
+
+  it("a discarded pending attach resyncs on the next valid attach reply", async () => {
+    const guard = createBackendEpochGuard(host);
+    const vm = mountVm("v-pend");
+
+    const p1 = vm.attach();
+    const d = vm.detach("unmount");
+    // Wire order is attach → detach: the backend bumped to epoch 1
+    // then detached; the attach reply arrives dead (token cleared).
+    guard.pump();
+    await d;
+    await p1;
+    expect(vm.link.attached).toBe(false);
+    expect(guard.viewGeneration("v-pend")).toBe(1);
+
+    const p2 = vm.attach();
+    guard.pump();
+    expect(await p2).toBe(2);
+    expect(vm.generation).toBe(2);
+
+    vm.transport.action("play", { controlId: "transport", sequence: 1 });
+    await flushWire();
+    guard.pump();
+    expect(lastDispatchCtx("transport").generation).toBe(2);
+    expect(guard.staleIntents).toBe(0);
+  });
+
+  it("an out-of-order stale attach reply cannot roll the live epoch back", async () => {
+    const guard = createBackendEpochGuard(host);
+    const vm = mountVm("v-ord");
+
+    const p1 = vm.attach();
+    const d = vm.detach("unmount");
+    const p2 = vm.attach();
+    guard.pump({ answer: false });
+    // Wire order was attach(1) → detach → attach(2); both attach
+    // replies are queued but not yet delivered.
+    const attachIds = host.sent
+      .filter((s) => s.op === "syn.view.attach")
+      .map((s) => s.id);
+    const detachId = host.sent.find(
+      (s) => s.op === "syn.view.detach",
+    )!.id;
+
+    // The fresh reply (epoch 2) lands first; the dead reply (epoch 1)
+    // arrives late and must not roll the adopted epoch back.
+    guard.answerQueuedId(attachIds[1]!);
+    expect(await p2).toBe(2);
+    guard.answerQueuedId(attachIds[0]!);
+    await p1;
+    guard.answerQueuedId(detachId);
+    await d;
+
+    expect(vm.generation).toBe(2);
+    expect(vm.link.attached).toBe(true);
+
+    vm.transport.action("play", { controlId: "transport", sequence: 1 });
+    await flushWire();
+    guard.pump();
+    expect(lastDispatchCtx("transport").generation).toBe(2);
+    expect(guard.staleIntents).toBe(0);
+  });
+
+  it("the ledger drops a forged dead-epoch dispatch — the guard is not an echo", async () => {
+    const guard = createBackendEpochGuard(host);
+    const vm = mountVm("v-guard");
+
+    const p = vm.attach();
+    guard.pump();
+    await p;
+    const d = vm.detach("unmount");
+    guard.pump();
+    await d;
+    const p2 = vm.attach();
+    guard.pump();
+    expect(await p2).toBe(2);
+
+    // A frontend that failed to adopt the epoch still stamps 1 — the
+    // same failure mode the SDK seam repairs. Forged through the real
+    // port so the drop is the ledger's own judgement.
+    const stale = new CommandBinding({
+      target: "param-rogue",
+      port: createIpcBindingPort({ router: notifyRouter() }),
+      viewId: "v-guard",
+      flushWith: (fn) => fn(),
+      ackTimeoutMs: 0,
+    });
+    stale.setContext({ viewId: "v-guard", windowId: "w0" });
+    stale.attach(1);
+    stale.action("write", { controlId: "param-rogue", sequence: 9 });
+    await flushWire();
+    guard.pump();
+
+    const ctx = lastDispatchCtx("param-rogue");
+    expect(ctx.generation).toBe(1);
+    expect(guard.staleIntents).toBe(1);
+    expect(
+      guard.receipts.filter((r) => r.commandId === ctx.commandId),
+    ).toHaveLength(0);
+  });
 });
