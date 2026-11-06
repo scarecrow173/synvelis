@@ -1,13 +1,15 @@
 ---
 id: "IMPL-SVGui02FrontendViewModelsRuviformCustomElementsTypedIpc"
 type: "impl"
-status: "completed"
+status: "in-progress"
 title: "SV-GUI-02 Frontend View Models・Ruviform Custom Elements・Rust IPC/Receipt統合"
 created: "2026-11-25"
 updated: "2026-11-25"
 owners: []
 relations:
-  source: []
+  source:
+    - "https://github.com/scarecrow173/synvelis/issues/111"
+    - "https://github.com/scarecrow173/ruviform/issues/376"
   changes:
     added:
       - type: "file"
@@ -44,6 +46,8 @@ relations:
         path: "docs/tasks/sv-gui-02-frontend-bindingport-viewmodel-consoleview.md"
       - type: "file"
         path: "docs/tasks/sv-gui-02-headless-vitest-guitest.md"
+      - type: "file"
+        path: "ui/test/console.test.tsx"
     modified:
       - type: "file"
         path: "crates/synvelis-app/src/app.rs"
@@ -227,3 +231,103 @@ NotRun / environment-dependent:
   同一 corpus を検証済み。Synvelis 側では `syn.*` wire shape を
   同 mirror で追加検証したが、corpus case 全量の再実行はしない
   （重複回避）。
+
+## 2026-11-06 lifecycle 是正（追補・frontend 正式受入 BLOCKED）
+
+対象は `TASK-034RADc5Q2mNYPcXkM8fR` の既存 lifetime 契約の回復であり、
+SV-GUI-03 / Issue #112 全体、新しい CI trigger、永続化設計、実 OS 受入ではない。
+上記既存本文・検証表は履歴として残すが、今回の是正の実証として読み替えない。
+元の「onCleanup 紐付け・二重化なし」という記述だけでは、await を跨ぐ実 mount の
+cleanup や late attach を保証できていなかったことを追加回帰テストで確認した。
+
+### 観測と修復
+
+- 製品コード未変更で console 5件 + model 3件が assertion で失敗し、既存9件は成功した。
+  setup/type/transform error を RED の根拠にしていない。
+- `ConsoleView` の cleanup 登録は有効な Solid owner の同期区間へ移動し、
+  DOM unbind・両 viz source・`vm.detach("unmount")` を所有させた。
+  attach / wave bind / meter bind の各 await 後は disposed lifetime を再開しない。
+- `ConsoleViewModel` は attach attempt を失効可能にし、detach/close が receipt route と
+  local link を同期解放する。遅延応答から link/購読を復活させず、
+  新しい mount を detach する補償 RPC は追加しない。reattach は receipt route を一つ復元する。
+- 修復 source は `ui/src/views/console.tsx` と `ui/src/viewmodel/console-view-model.ts`。
+  回帰追加は `ui/test/console.test.tsx` と `ui/test/binding.test.ts`。
+  backend、Job 取消契約、wire DTO、公開シグネチャ、dependency/lock、CI workflow は変更しない。
+
+### 今回実行した検証
+
+検証対象は origin/main `7a3a9cb55ae271cf96b65c04e25ad10ec5b1d8ec` を基にする
+worktree HEAD `98fcb49c19ac45e670a155a18ef533c84e8b3c93` と本是正の UI 四ファイル差分。
+最新 main を fetch して drift がないことを確認し、既存 vendor を再生成した。
+
+| 検証 | 今回の結果 |
+| --- | --- |
+| 修正前 focused vitest / review 反映後の revised RED | 8 failed / 9 passed、意味のある assertion |
+| 修正後 focused vitest | 17/17 成功、stderr 空（owner 警告を抑制せず解消） |
+| `mise run check-ui` | 成功（vendor check + TypeScript） |
+| `mise exec -- prek run --files`（対象四ファイル） | 成功 |
+| `mise run sync-ui-deps` | 成功 |
+| `mise run test-ui` | 全45件成功 |
+| `mise run build-ui` | production bundle / assets manifest 生成成功 |
+| `mise run test` | Rust workspace 全 suite 成功、ui_ops 10件含む |
+| 実 Chromium client DOM + fake IPC | live/unmount/旧 DOM、pending old attach→replacement→late response の二シナリオ成功 |
+
+Chromium 150 / Windows の測定では live の route 数は receipt=1 / projection=4 /
+viz.event=1 / viz.frame=1、unmount 後はすべて0。
+古い attach 応答の前後で replacement の route 数は不変で、viewport/select 転送を維持し、
+最後の dispose 後はすべて0。console entries は空、truncated=false。
+この測定は fake IPC であり、実 Rust IPC / native WebView / 実 OS 描画 / GPU / Audio の
+受入と混同しない。従来表の optional webview 検証を今回再実行したとも扱わない。
+
+原出力は workspace の `coordinator-state.md` から辿る
+`Temp/verified-skip-and-tracker-replay/sv-lifecycle-*` に保存した。
+ブラウザの wait コマンドは EOF 応答となったが、同一 tab の read-only eval で結果取得し、
+製品エラーや成功と推測せず原 envelope を確認した。一時測定二ファイルは commit 対象外とし削除済み。
+
+### 記録上の境界
+
+作業中の決定・RED/GREEN と検証証跡は state / Temp spec / logs に逐次保存した。
+既存 IR の再開同期は実装開始時に漏れており、この追補を開始時から存在した記録とは扱わない。
+既存の複数 task をまとめる relation と created/updated=2026-11-25 の将来日付は履歴上の
+既存異常として残し、根拠のない日付変更や task 分割を行わない。
+
+### 独立 review と判定
+
+独立した cooperative / adversarial review の10候補を別の Validator で確認し、
+lead が原コード・原結果・候補ごとの到達性を照合した。
+追加の別モデル review はユーザー選択によりスキップした。
+観測は9件確認／1件棄却であって、「9個の新規欠陥」ではない。
+
+lead 著の一時観測 probe は6件成功し、保存 copy の hash と実行対象の一致も確認した。
+そのうち実 model receipt callback は attach と reattach の双方で配送し、
+queue ack が receipt を偽造しないこと、異なる view の receipt を除外することを検証した。
+欠陥の現状値を assert する観測も含むため、この6件を canonical 45件に合算したり
+契約充足の GREEN と読み替えたりしない。一時 probe は削除し、原本・出力は Temp に保存した。
+
+今回の現在 app / VM API 経路の lifetime 修復に起因する P0/P1 は確認していない。
+ただし attach 後に作成した strip が view epoch を採用しない既存の共有 SDK 不整合を確認した。
+client probe では先行 binding=1／後発 binding=0／dispatch ctx.generation=0、
+backend source の stale guard では確認 receipt に到達しない。
+Ruviform current main にも同じ欠落があり、[Ruviform #376](https://github.com/scarecrow173/ruviform/issues/376)
+で追跡する。Synvelis 固有の回避策や backend guard の緩和では隠さない。
+このため frontend 全体の正式受入は BLOCKED とし、本 Task/IR と #112 を完了扱いにしない。
+修復スライスは Draft PR で保存し、merge-ready / 統合済みとは扱わない。
+
+残る P2/P3・検証境界も維持する：
+
+- public な `vm.link` を直接操作すると VM の route 管理を迂回できる。
+  raw detach 後の route 残留は constructor route 時代にも存在し、
+  raw attach の route 欠落は今回の scope 化によるもの。現在 app は VM API を用い、
+  public API の再設計や新しい利用禁止契約を本修復で導入しない。
+- 失効した `attach()` は最後の committed generation を返すが local state は復活させない。
+  現在の呼出側は返却値を用いない。新しい cancellation sentinel / reject 契約は追加しない。
+- attach の拒否時 UI は既存の別問題。disposed meter の in-flight refresh は snapshot を一度
+  続行し得るが、listener/subscriber の再生成はなく errors は catch される。
+- canonical lifecycle tests の mounted control-op / wire params / receipt 配送には盲点が残る。
+  追加 probe の限定的な確認を実 backend 接続の end-to-end 受入と混同しない。
+- 現在の単一 `Show` の unmount→remount と遅延応答は確認したが、同じ view ID の
+  concurrent owner や実 Dock detach の並行順序までは受け入れていない。
+- 明示的な新 attach after close は backend が epoch を上げて許容する既存契約であり、
+  古い completion による復活とは区別する。永久 closed seal は加えない。
+
+CI トリガー・権限・Job 契約は変更せず、bot CI 自動通知 gap は別件の ADR 待ちである。
