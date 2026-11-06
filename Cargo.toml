@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
   "crates/synvelis-project",
+  "crates/synvelis-library",
   "crates/synvelis-recording",
   "crates/recording-poc",
   "crates/synvelis-player",

@@ -6,6 +6,7 @@ Directory: `docs/adr`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| ADR-qjrwwGin4E0PE4ksCSLysY | ALIB-01 — synvelis-library crate 配置と Provider 契約境界 | accepted | [alib-01-synvelis-library-crate-boundary.md](./alib-01-synvelis-library-crate-boundary.md) |
 | ADR-034AUT02Xy4mKp8wQe2sVn7j | AUT-02 境界 Sentinel/Anchor 配置 — merged series 単位の境界復元・host region 選択 | accepted | [aut-02-boundary-sentinel-anchor-placement.md](./aut-02-boundary-sentinel-anchor-placement.md) |
 | ADR-034AUT0312NAA2Mk53Gle5 | AUT-03 Write Range 半開区間の表現 — 境界 flush・coverage_end・Pass fixation | accepted | [aut-03-write-range-boundary-flush-pass-fixation.md](./aut-03-write-range-boundary-flush-pass-fixation.md) |
 | ADR-034AUT04yQRFZlLO2ytJpt | AUT-04 Viewport LOD・有界記録キューの表現 — model 層 LOD 投影・RT SPSC・型付き喪失 provenance | accepted | [aut-04-viewport-lod-bounded-record-queue.md](./aut-04-viewport-lod-bounded-record-queue.md) |

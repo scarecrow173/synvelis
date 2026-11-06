@@ -11,6 +11,7 @@ Directory: `docs/discovery`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| DISC-yt7pUuJb03lx8z07ulXN1r | ALIB-01 Asset Provider 契約・基準 Provider 発掘調査 | resolved | [alib-01-asset-provider-contract-discovery.md](./alib-01-asset-provider-contract-discovery.md) |
 | DISC-034RIJkpAqpAIZlwbFLKgU | Issue #147 sccache コンパイルキャッシュ先行評価 | resolved | [issue-147-sccache-eval.md](./issue-147-sccache-eval.md) |
 | DISC-034SVCIOPT02mQ3rTzAb | Issue #148 evidence skipped 許容の Fail-Open 経路と変更影響分類欠如 | resolved | [issue-148-evidence-fail-open-gap.md](./issue-148-evidence-fail-open-gap.md) |
 | DISC-034RGX4tzLnhJHNrXshLpE | Issue #151 synvelis CI ui/ 検証 lane 欠如 gap 調査 | resolved | [issue-151-ui-ci-lane-gap.md](./issue-151-ui-ci-lane-gap.md) |
