@@ -145,7 +145,9 @@ Actions API で実測して完了とする。
   created 2026-11-06T08:04:18Z)で `gh pr checks 173` =
   "no checks reported"、`gh run list --branch
   fix/sv-ci-manual-only` = 0 件、repo-wide run list に作成時刻以降の
-  `ci`/`daily-ci`/tracker 系 run なし。synchronize 後も同測定を
-  記録(下記追記)。
+  `ci`/`daily-ci`/tracker 系 run なし。synchronize(本 doc 追記
+  commit `a77b5d94e0f59beda98112985da753ebd4060d6d` push 後)も
+  `gh pr checks` = 0 件・branch run 0 件・08:04Z 以降の repo-wide
+  `ci` 系 run 0 件を確認 — opened/synchronize 双方で起動ゼロを実測。
 - 未実施(NotRun): 定期 cron 実観測・実 Issue create/close・製品
   Rust/UI suite(変更範囲外のため)。
