@@ -361,8 +361,9 @@ preset は `WorkspaceManager` の dock/view 操作のみ使用。
   を `branch = "feature/gui-driver-neutral-design-contract"` 追従へ
   一時切替（恒久 `rev` pin は追加しない — `check-ruviform-rev` の
   単一 SHA 不変条件を保つため全 dep 同時切替）。接続時の解決 SHA:
-  `660034f2286b05d75b74a232e43d37b536644ca0`（指示 candidate head
-  `d3b211cc` の直後 evidence commit を含む）。
+  `d26d95f83fa822ed4f01e0aefab3cfcb818f7806`（指示 candidate head
+  `d3b211cc` + evidence commit `660034f2` + Validator P1 修復
+  `d26d95f` — candidate head 前進に追随）。
 - 解除条件: RF385 candidate が ruviform default branch に着地次第、
   全 `branch` key を除去して default 追従へ戻す。branch 削除前に
   解除しないと build が壊れるため merge 確認が先。

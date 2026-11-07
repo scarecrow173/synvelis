@@ -57,7 +57,7 @@ findings（破壊前検証欠落・session state 混入・gate 未登録等）�
 
 **Revision 2（2026-11-07）**: RF385 candidate
 （`feature/gui-driver-neutral-design-contract`、解決 SHA
-`660034f2286b05d75b74a232e43d37b536644ca0`）着地に伴い、
+`d26d95f83fa822ed4f01e0aefab3cfcb818f7806`）着地に伴い、
 `UnresolvedThemeResolver` seam を実 adapter
 （`adapter::resolve_documents` → `TokenDocument::from_json` →
 `ThemeResolver::resolve` → `ResolvedTheme`）へ置換。SV 側の
@@ -104,7 +104,8 @@ Rev.2 で RF385 candidate（`ruviform-ui-theme`・
   一時切替 + `ruviform-ui-theme` 追加（`check-ruviform-rev` の
   単一 SHA 不変条件を保つため全 dep 同時。解除条件は design doc・
   evidence 記録どおり RF385 main 着地時）。`Cargo.lock` 再生成 —
-  23 ruviform sources 全て `660034f2286b05d75b74a232e43d37b536644ca0`。
+  24 ruviform sources 全て `d26d95f83fa822ed4f01e0aefab3cfcb818f7806`
+  （SV84 merge 由来の `ruviform-io-file` 含む）。
 - `crates/synvelis-workspace`: `preset.rs` 新規（PRESET_SCHEMA=2
   slot 型・`PresetViewState` 部分集合・validate・from_snapshot・
   legacy import・`apply_preset`）。`ViewType::PluginDock` 語彙追加・
@@ -152,7 +153,7 @@ Rev.2 で RF385 candidate（`ruviform-ui-theme`・
 
 ## Validation
 
-Rev.2 実行分（2026-11-07、ruviform `660034f2` candidate 上）:
+Rev.2 実行分（2026-11-07、ruviform `660034f2` → `d26d95f` candidate 上）:
 
 - `mise run fmt-check`: pass。
 - `mise run check`: workspace 全体 pass。
@@ -163,7 +164,7 @@ Rev.2 実行分（2026-11-07、ruviform `660034f2` candidate 上）:
 - `node tools/check-headless-deps.mjs`: 9 headless crates、GUI
   framework deps なし。
 - `mise run check-ruviform-rev`: resolved
-  `660034f2286b05d75b74a232e43d37b536644ca0`（23 lockfile
+  `d26d95f83fa822ed4f01e0aefab3cfcb818f7806`（24 lockfile
   sources・lockfile-primary・REV match）。
 - `cargo test -p synvelis-theme`: 10 pass / 0 fail —
   出荷 5 資産が SV envelope + upstream parser 双方を通過し、
