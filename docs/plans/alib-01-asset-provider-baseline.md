@@ -53,6 +53,11 @@ relations:
    typed Unsupported search。実 controller + snapshot 双方でテスト。
 4. **alib-01-task4** — 受入・回帰検証: registry 結合、AC1〜AC4
    の実測、`mise run` 正規検証、impl record。
+5. **alib-01-task5-rooted-cutover** — N1(Refs #85)修復:
+   `LocalFolderProvider`/`LocalBlobDir` を Ruviform
+   `ruviform-io-file::rooted` capability（消費 rev `5d48298b`、
+   既定 main 追従）へ移行し component-swap TOCTOU を解消。
+   7 件の swap 回帰を `#[ignore]` 解除・GREEN 強制。
 
 ## File map
 

@@ -71,6 +71,10 @@ tests/
   contract.rs     型契約・cursor・error・digest の unit 相当
   local.rs        LocalFolderProvider 実 FS テスト
   project.rs      ProjectAssetsProvider テスト
+  types.rs        型・unit テスト
+  containment_swap.rs  component-swap TOCTOU 回帰（7 件強制 GREEN
+                  + seam sanity、fault barrier 経由）
+  common/mod.rs   テスト共有 helper
 ```
 
 ## 型付き公開契約
@@ -164,8 +168,10 @@ Incomplete 扱いにできる。
 ## Cursor
 
 `OpaquePageCursor(String)` = hex(JSON `{v,provider,scope_fp,query_fp,
-principal_fp,epoch,frontier}`)。frontier = DFS の未展開 dir path
-の列（bounded）。Local epoch = provider 内単調 browse generation
+principal_fp,epoch,offset}`)。offset = emit 済み entry 数 —
+resume は scope を再 walk・再 sort して offset から継続する
+（live tree snapshot ではないことを明示）。Local epoch =
+provider 内単調 browse generation
 （新規 browse 毎に ++）。Project epoch = `ProjectRevision.0`。
 fingerprint = scope/sort/filter/principal を sha256 した hex 短縮。
 不一致・別 provider・別 epoch・decode 失敗は全て
@@ -173,40 +179,53 @@ fingerprint = scope/sort/filter/principal を sha256 した hex 短縮。
 
 ## LocalFolderProvider
 
-- root を `canonicalize` で固定（存在し dir でなければ構築失敗）。
-- locator: `/` 区切り root 相対。`\\`・`..`・NUL・絶対を拒否。
-  resolve は join→`canonicalize`→canonical root 配下照合。
-  canonicalize 不可（missing/symlink切れ）は `NotFound`。
-  root 外に出るものは `PermissionDenied`(traversal blocked)。
-  **注記（2026-11-07, N1）**: この照合は check 時点の path 真実のみを
-  証明し、後続 `File::open`/`metadata`/`read_dir` の traverse 時点を
-  証明しない（component-swap TOCTOU、下記「FS traversal
-  containment」節）。
-- browse: iterative DFS。各 dir の `read_dir` を `file_name`→
-  entry kind で安定 sort。entry = Container(dir/symlink-dir)/
-  Asset(file/symlink-file)。symlink は `symlink_metadata` で検出し
-  canonical target が root 内 dir かつ visited 未登録のみ展開。
-  root 外 target は entry として列挙するが stat/pin/open は拒否
-  （Availability::Unavailable{TraversalBlocked}）。
+- root を `RootedDir::open_with` で capability として取得
+  （存在し dir でなければ構築失敗）。以後の全 lookup はこの
+  handle 起点の handle-relative resolve で、root 以下の path
+  再 traverse は行わない。
+- locator: Ruviform `RelativePath` grammar で検証（`/` 区切り
+  root 相対。`\\`・`..`・`.`・NUL・絶対・制御文字・
+  Windows 予約名・末尾 dot/space・超長 component・非 UTF-8 を
+  拒否 — 旧 hand-rolled parser より厳格、互換差は impl record
+  記録済み）。resolve は capability 内 `FollowMode::WithinRoot`。
+  root 外に出るものは `EscapesRoot`→`PermissionDenied`。
+- browse: scoped `RootedDir` handle の iterative DFS。各 dir の
+  `read_dir` を `file_name`→entry kind で安定 sort。entry =
+  Container(dir)/Asset(file/symlink)。symlink leaf は `Symlink`
+  kind で列挙するが降りない（descent `open_dir` は `NoFollow`）。
+  link target の facts は `metadata(WithinRoot)` で、root 外
+  target は leaf として列挙しつつ facts を返さない
+  （`Availability::Unavailable{Other{detail:"symlink target
+  outside browse scope"}}`、dangling は `Missing`）。loop guard
+  は canonical path ではなく `NodeId` set。
 - limits: `max_depth`（default 64）・`max_entries`（walk 総計
   budget）・`page_limit`（page 毎）・`deadline`・`max_bytes`
   （read 系）。超過は coverage=Partial + cursor で継続可能なら
   frontier を残す。budget 上限で frontier 保持不能なら
   next_cursor=None の Partial で終端を明示。
-- stat: `symlink_metadata` +（target 内なら）`metadata` で
-  byte_len/modified/kind/readonly を `Observed`、media 系と
-  checksum_hint は `Unknown`（pin しないと digest は計測しない）。
-- pin: file を open→fstat→bounded sha256 streaming（`max_bytes`
-  guard）。`ConditionalStrong{ContentHash{sha256}}`、
-  object_identity="sha256:<hex>"、expected_size=fstat len。
-  dir/container・symlink 外逃げは typed error。
-- open_pinned: pin の asset 一致 + expected_size との fstat 照合
-  （不一致→`SourceChanged`）→ 検証 reader（EOF sha256 照合、
-  不一致→`IntegrityMismatch`）。
+- stat: `metadata(WithinRoot)` で byte_len/modified/kind/readonly
+  を `Observed`（link leaf は `leaf_kind` で `Symlink` を保持）、
+  media 系と checksum_hint は `Unknown`（pin しないと digest は
+  計測しない）。
+- pin: `open_regular(WithinRoot)` で非 regular を open 前に拒否し
+  同一 object を bounded sha256 streaming（`max_bytes` guard）。
+  `ConditionalStrong{ContentHash{sha256}}`、
+  object_identity="sha256:<hex>"、expected_size=開いた object の
+  `info().byte_len`。dir/container・root 外逃げは typed error。
+- open_pinned: pin の asset 一致 + expected_size との同一 object
+  照合（不一致→`SourceChanged`）→ 検証 reader（EOF sha256 照合、
+  不一致→`IntegrityMismatch`）。digest は integrity であり
+  containment の代替ではない。
 - search: scope 内 walk で file_name case-insensitive 部分一致。
   crawl が正本なので coverage は Complete/Partial を正直に宣言。
-- preview/range: `Seek` で offset + `Take` bounded。claims は
-  `VerificationPolicy::Unverified`（pin ではないことを明示）。
+- preview/range: `RootedFile` の `Seek` + `Take` bounded。claims
+  は `VerificationPolicy::Unverified`（pin ではないことを明示）。
+- scope 付き browse/search は `open_scope` が locator 成分を検証し
+  `canonical_root + components` へ `RootedDir::open_with` で新
+  capability を取得（`open_dir` では親 capability の root 境界を
+  引き継ぐため scope 境界を作れない）。取得後は開いた handle の
+  `canonical_root()` が provider root 配下かを照合する — 同じ
+  object の検証で check-then-use ではない。
 
 ## ProjectAssetsProvider
 
@@ -220,13 +239,17 @@ fingerprint = scope/sort/filter/principal を sha256 した hex 短縮。
   catalog snapshot を `AssetId` sort で paging（cursor offset）。
   epoch = `ProjectRevision`。project が変われば cursor 失効。
 - `ProjectBlobStore` port: `open(identity)->(Read+Send,size)`/
-  `stat(identity)->BlobStat`。`LocalBlobDir` は `<dir>/<digest>` を
-  filename-safe 検証（`/`・`\\`・`..`・非 `[0-9a-f]` 拒否）の上で
-  canonicalize+store 配下照合して open。app は `media_root/blobs`
-  を渡し、path 規約は本 crate に複製しない。blob missing は
-  `availability`=MissingMedia、open は `NotFound`。
-  **注記（N1）**: leaf swap による traverse 時点の escape は上記
-  「FS traversal containment」節と同じ残存を持つ。
+  `stat(identity)->BlobStat`。`LocalBlobDir` は identity を
+  filename-safe 検証（`/`・`\\`・`..`・非 `[0-9a-zA-Z_-]`・
+  DOS device 名を拒否）の上で単一成分 `RelativePath` へ変換し、
+  操作毎に `RootedDir::open_with(store)` で取得した capability
+  の `metadata`/`open_regular(WithinRoot)` で解決する（per-op
+  open は構築後作成の store dir を許容する旧 lifecycle 維持）。
+  app は `media_root/blobs` を渡し、path 規約は本 crate に複製
+  しない。leaf swap は capability 内で `EscapesRoot`/
+  `NotRegularFile` に落ち、root 外 byte/facts は返らない。
+  blob missing は `availability`=MissingMedia、open は
+  `NotFound`。
 - stat: asset の digest・source states・import provenance を
   `Observed`、byte_len は blob fstat（missing→Unknown{reason}
   + Availability::Missing）。
@@ -267,34 +290,31 @@ IntegrityMismatch→Never、Cancelled→Never、CursorInvalid→
 AfterUserRePin? いや cursor 再取得なので `After` ではなく Never +
 caller が再 browse → `Never`）。
 
-## FS traversal containment（N1, Refs #85）
+## FS traversal containment（N1, Refs #85 — 修復済み）
 
-`resolve`(canonicalize+root 配下照合)→ `File::open`/`fs::metadata`/
+旧 `resolve`(canonicalize+root 配下照合)→ `File::open`/`fs::metadata`/
 `fs::read_dir` の 2 段構成は T0（check）と T1（traverse）に分かれ、
 T0→T1 で leaf または intermediate component が rename+symlink swap
-されると T1 は root 外 object を開く。post-open の `is_file`/size は
-object identity を証明しない（opened object が check 済み object と
-同一かを答えられない）。digest 系検証は EOF 前に byte を caller へ
-届けるため containment の代替にならない。
+されると T1 は root 外 object を開いていた。post-open の `is_file`/size
+は object identity を証明せず、digest 系検証は EOF 前に byte を
+caller へ届けるため containment の代替にならなかった。
 
 真の containment は handle-relative traversal（Unix:
 openat+per-component no-follow、Windows: RootDirectory+
 OBJ_DONT_REPARSE 相当）でのみ成立し、symlink follow は「target が
 root 内に解決される間のみ辿る（FollowWithinRoot、bounded hops）」を
 維持する — NoFollow への縮小で現契約を変えない。この能力は std に
-存在せず（Windows `MetadataExt::file_index` 等は unstable）、
-workspace `unsafe_code=forbid` により SV 内実装も不可能。
+存在せず、workspace `unsafe_code=forbid` により SV 内実装も不可能。
 
-**所有境界**: 当該 capability は Ruviform が所有する
-（`ruviform-io-archive::extract` の private handle-relative machinery
-を最小一般化して rooted-read 公開契約とする方向で
-[ruviform#398](https://github.com/scarecrow173/ruviform/issues/398) にて
-RF 側設計 review 中 — API 名・型は未確定で SV 側は先取りしない。
-必要 surface: `open_file`/`metadata`/`open_dir` の rooted 版 +
-fault/mock backend）。SV 側は `set_pre_traverse_hook`（`#[doc(hidden)]`
-fault barrier）を open/stat/read_dir の各再 traverse 地点に持ち、
+**所有境界（確定・消費済み）**: 当該 capability は Ruviform が所有し、
+`ruviform-io-file::rooted`（`RootedDir`/`RelativePath`/`FollowMode`/
+`NodeInfo`/`RootedFile`/`NodePin`/`NodeId`/`IdentityStrength`）として
+[ruviform#398](https://github.com/scarecrow173/ruviform/issues/398) →
+PR401 で公開・main 統合済み（SV 消費 rev `5d48298b`）。SV 側は
+`set_pre_traverse_hook`（`#[doc(hidden)]` fault barrier）を
+stat/open/read_dir の各 rooted 呼出地点に持ち、
 `tests/containment_swap.rs` の deterministic swap 回帰で契約を固定する
-（現状 RED — RF API 確定までは blocking dependency）。
+（GREEN 強制）。実装詳細は task5 と impl record を参照。
 
 ## 検証方針（実テスト）
 
@@ -308,7 +328,9 @@ blob dir は tempdir に digest 名 file を配置。
 
 ## 依存
 
-`synvelis-project`（model）、`serde`/`serde_json`/`sha2`（workspace
-既存 dep）。新規外部 dep なし。N1 修復に必要な Ruviform 側
-rooted-read 公開契約は未確定・未提供であり、SV 側への新 dep 追加は
-承認待ちとする（cap-std 等も未承認）。
+`synvelis-project`（model）、`serde`/`serde_json`/`sha2`、
+`ruviform-io-file`（workspace 既存 dep + N1 修復で新規追加。
+既定 branch 追従 git dep で rev pin なし、解決 rev は
+`Cargo.lock` が記録 — 現 `5d48298b`）。Ruviform 側 rooted-read
+公開契約は RF#398→PR401 で提供・main 統合済み。cap-std 等の
+代替 FS framework は採用しない（unsafe 重複・責務越境のため）。

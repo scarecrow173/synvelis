@@ -1,28 +1,51 @@
 //! `LocalFolderProvider` — the baseline local-filesystem provider.
 //!
 //! Locators are `/`-separated paths relative to the provider root.
-//! Resolution always canonicalizes and re-checks containment in the
-//! canonical root, so `..`, absolute paths, and symlink escapes cannot
-//! traverse out. Browsing is a bounded, deterministic walk: directory
-//! children are sorted by name, symlinked directories are descended
-//! only when their canonical target stays under the root and was not
-//! visited before (loop cut), and every call re-walks the scope under
-//! the configured budgets — a cursor resumes by offset, never by
-//! pretending a live tree was snapshotted.
+//! All filesystem access goes through one Ruviform `RootedDir`
+//! capability: the root directory handle is acquired once at
+//! construction and every lookup below it is resolved handle-
+//! relative (`openat`-family semantics). A leaf or intermediate
+//! component swapped after the capability was acquired cannot
+//! substitute an object outside the root — there is no path
+//! re-traversal below the root for an attacker to race. Bytes,
+//! metadata, and directory entries always come from the same opened
+//! object (`RootedFile` + `NodeInfo`), and link following under
+//! `WithinRoot` is enforced by the resolve layer's canonical-root
+//! component check — a link that would resolve outside fails
+//! `EscapesRoot`.
+//!
+//! Browsing is a bounded, deterministic walk over held directory
+//! handles: children are sorted by name, real directories are
+//! descended through scoped `open_dir` handles (a swap after listing
+//! cannot inject out-of-scope entries), and symlinked entries are
+//! probed with `metadata(WithinRoot)` — a target inside the scope
+//! capability reports `Container`; one escaping it fails
+//! `EscapesRoot` and is listed as observed-but-unavailable. A
+//! locator scope is itself opened as a rooted capability, so the
+//! scope subtree is the containment boundary exactly as the old
+//! canonical-prefix check enforced. Every call re-walks the scope
+//! under the configured budgets — a cursor resumes by offset, never
+//! by pretending a live tree was snapshotted.
 //!
 //! Local files are mutable, so `pin` produces a
 //! `ConditionalStrong{ContentHash}` proof: it streams the file to
 //! measure SHA-256 and `open_pinned` re-verifies that digest at EOF.
-//! A mutated, replaced, or resized file fails with `SourceChanged`
-//! (size precondition) or `IntegrityMismatch` (digest) — never returns
-//! different bytes labelled as pinned.
+//! Content pinning and root containment are separate guarantees: the
+//! capability keeps *which object* is opened inside the root, while
+//! the digest verifies *what bytes* the pinned content had — a
+//! digest computed at EOF could never retract bytes already served,
+//! so it was never an acceptable substitute for containment.
 
-use std::collections::BTreeSet;
-use std::fs::{self, File};
-use std::io::Read;
+use std::collections::{BTreeSet, HashSet};
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
+
+use ruviform_io_file::rooted::{
+    FollowMode, NodeId, NodeInfo, NodeKind, RelativePath, RootedDir, RootedFile, RootedOptions,
+};
+use ruviform_io_file::{FileError, FileErrorKind};
 
 use crate::browse::{
     BrowseEntry, BrowsePage, BrowseRequest, BrowseScope, Coverage, CursorPayload, EntryKind,
@@ -49,44 +72,97 @@ use crate::refs::{
 /// Maximum browse sessions whose cursors stay valid at once.
 const MAX_LIVE_EPOCHS: usize = 512;
 
+/// Resolve budgets for every rooted capability this crate opens.
+/// The defaults bound locator depth at 40 components — tighter than
+/// the historical canonicalize-based resolver's practical
+/// acceptance — so depth/total/open-dirs are raised to stay well
+/// above existing trees while remaining finite.
+pub(crate) fn rooted_options() -> RootedOptions {
+    let mut options = RootedOptions::default();
+    options.max_depth = 256;
+    options.max_components_total = 2048;
+    options.max_open_dirs = 256;
+    options
+}
+
 /// Baseline provider over one local filesystem root.
 pub struct LocalFolderProvider {
     id: ProviderId,
-    /// Canonical root — every resolved path must stay beneath it.
-    root: PathBuf,
+    /// Rooted capability — every lookup below it is handle-relative.
+    root: RootedDir,
     /// Issued browse epochs whose cursors are still honored.
     live_epochs: Mutex<BTreeSet<u64>>,
     next_epoch: AtomicU64,
     /// Deterministic fault barrier for containment regression tests —
-    /// invoked immediately before each filesystem call that
-    /// re-traverses a path after the containment decision.
+    /// invoked immediately before each rooted operation that touches
+    /// the filesystem (`"stat"`/`"open"`/`"read_dir"`). Not a stable
+    /// contract.
     pre_traverse_hook: Option<PreTraverseHook>,
+}
+
+/// Maps a [`FileError`] onto the provider error surface. `Io` errors
+/// keep the raw `io::ErrorKind` through `source` so `NotFound` /
+/// `PermissionDenied` stay precise; resolve-layer kinds map onto the
+/// honest typed surface (`EscapesRoot` → `PermissionDenied`,
+/// `Unsupported` → `UnsupportedCapability`, `IdentityMismatch` →
+/// `SourceChanged`, `LimitExceeded` → `BudgetExceeded`). Loops and
+/// budget rejections are deterministic — never `TransientIo`, which
+/// would advise a pointless retry.
+pub(crate) fn rooted_error(op: &'static str, e: &FileError) -> ProviderError {
+    let kind = match e.kind() {
+        FileErrorKind::NotFound => ProviderErrorKind::NotFound,
+        FileErrorKind::EscapesRoot => ProviderErrorKind::PermissionDenied,
+        FileErrorKind::Unsupported => ProviderErrorKind::UnsupportedCapability,
+        FileErrorKind::InvalidInput
+        | FileErrorKind::NotRegularFile
+        | FileErrorKind::NotDirectory
+        | FileErrorKind::LoopDetected => ProviderErrorKind::InvalidRequest,
+        FileErrorKind::LimitExceeded => ProviderErrorKind::BudgetExceeded,
+        FileErrorKind::IdentityMismatch => ProviderErrorKind::SourceChanged,
+        FileErrorKind::Io => match io_source_kind(e) {
+            Some(std::io::ErrorKind::NotFound) => ProviderErrorKind::NotFound,
+            Some(std::io::ErrorKind::PermissionDenied) => ProviderErrorKind::PermissionDenied,
+            _ => ProviderErrorKind::TransientIo,
+        },
+        _ => ProviderErrorKind::Internal,
+    };
+    ProviderError::new(kind, format!("{op}: {e}"))
+}
+
+/// The raw `io::ErrorKind` behind a [`FileError::Io`], when the
+/// backend attached one as the diagnostic source.
+fn io_source_kind(e: &FileError) -> Option<std::io::ErrorKind> {
+    std::error::Error::source(e)
+        .and_then(|s| s.downcast_ref::<std::io::Error>())
+        .map(std::io::Error::kind)
 }
 
 impl LocalFolderProvider {
     /// Opens `root` as a provider. `root` must exist and be a
-    /// directory; it is canonicalized once here.
+    /// directory; its handle becomes the containment authority for
+    /// every later lookup.
     ///
     /// # Errors
     /// [`ProviderErrorKind::NotFound`] / [`ProviderErrorKind::InvalidRequest`]
-    /// when the root does not exist or is not a directory.
+    /// when the root does not exist or is not a directory;
+    /// [`ProviderErrorKind::UnsupportedCapability`] on platforms
+    /// without a handle-relative backend.
     pub fn new(id: ProviderId, root: impl AsRef<Path>) -> Result<Self, ProviderError> {
         let root = root.as_ref();
-        let canonical = fs::canonicalize(root).map_err(|e| {
-            ProviderError::new(
+        let rooted = RootedDir::open_with(root, rooted_options()).map_err(|e| match e.kind() {
+            FileErrorKind::NotFound => ProviderError::new(
                 ProviderErrorKind::NotFound,
                 format!("local root {}: {e}", root.display()),
-            )
-        })?;
-        if !canonical.is_dir() {
-            return Err(ProviderError::new(
+            ),
+            FileErrorKind::NotDirectory | FileErrorKind::NotRegularFile => ProviderError::new(
                 ProviderErrorKind::InvalidRequest,
-                format!("local root {} is not a directory", canonical.display()),
-            ));
-        }
+                format!("local root {} is not a directory", root.display()),
+            ),
+            _ => rooted_error("open local root", &e),
+        })?;
         Ok(Self {
             id,
-            root: canonical,
+            root: rooted,
             live_epochs: Mutex::new(BTreeSet::new()),
             next_epoch: AtomicU64::new(1),
             pre_traverse_hook: None,
@@ -110,98 +186,62 @@ impl LocalFolderProvider {
     /// The canonical root this provider serves.
     #[must_use]
     pub fn root(&self) -> &Path {
-        &self.root
+        self.root.canonical_root()
     }
 
-    /// Splits a `/`-separated relative locator into components,
-    /// rejecting traversal, absolute, and empty forms.
-    fn parse_locator(locator: &OpaqueLocator) -> Result<Vec<String>, ProviderError> {
-        let text = locator.as_str();
-        let invalid = |detail: &str| {
+    /// Validates a caller locator into a [`RelativePath`]. The
+    /// grammar rejects `..`, absolute/prefixed forms, `\`, `:`, NUL,
+    /// control chars, Windows-reserved names, and >255-byte
+    /// components — the lexical layer of containment.
+    fn locator_rel(locator: &OpaqueLocator) -> Result<RelativePath, ProviderError> {
+        RelativePath::new(locator.as_str()).map_err(|e| {
             ProviderError::new(
                 ProviderErrorKind::InvalidRequest,
-                format!("invalid locator {text:?}: {detail}"),
+                format!("invalid locator {:?}: {e}", locator.as_str()),
             )
-        };
-        if text.contains('\\') {
-            return Err(invalid("backslash separators are not portable"));
-        }
-        if text.starts_with('/') || text.contains(':') {
-            return Err(invalid("absolute paths are not locators"));
-        }
-        let mut components = Vec::new();
-        for part in text.split('/') {
-            match part {
-                "" | "." => return Err(invalid("empty or dot component")),
-                ".." => return Err(invalid("parent traversal is rejected")),
-                _ => components.push(part.to_owned()),
+        })
+    }
+
+    /// Diagnostic lexical path under the capability root for a rel —
+    /// used only as the fault-barrier argument, never for I/O.
+    fn lexical(root: &Path, rel: &str) -> PathBuf {
+        let mut path = root.to_path_buf();
+        for comp in rel.split('/') {
+            if !comp.is_empty() {
+                path.push(comp);
             }
         }
-        Ok(components)
+        path
     }
 
-    /// Joins a validated locator onto the root without resolving
-    /// links — used to inspect the link entry itself.
-    fn join_locator(&self, locator: &OpaqueLocator) -> Result<PathBuf, ProviderError> {
-        let mut path = self.root.clone();
-        for part in Self::parse_locator(locator)? {
-            path.push(part);
+    /// The `AssetKind` a resolved object reports: a leaf link always
+    /// reports `Symlink` — the target's kind never leaks through.
+    fn asset_kind(info: &NodeInfo) -> AssetKind {
+        if info.leaf_kind == NodeKind::Symlink {
+            return AssetKind::Symlink;
         }
-        Ok(path)
-    }
-
-    /// Resolves a locator to a canonical path under the root.
-    fn resolve(&self, locator: &OpaqueLocator) -> Result<PathBuf, ProviderError> {
-        let path = self.join_locator(locator)?;
-        let canonical = fs::canonicalize(&path).map_err(|e| match e.kind() {
-            std::io::ErrorKind::NotFound => ProviderError::new(
-                ProviderErrorKind::NotFound,
-                format!("locator {locator} not found"),
-            ),
-            std::io::ErrorKind::PermissionDenied => ProviderError::new(
-                ProviderErrorKind::PermissionDenied,
-                format!("locator {locator}: {e}"),
-            ),
-            _ => ProviderError::new(
-                ProviderErrorKind::TransientIo,
-                format!("resolve {locator}: {e}"),
-            ),
-        })?;
-        if !canonical.starts_with(&self.root) {
-            return Err(ProviderError::new(
-                ProviderErrorKind::PermissionDenied,
-                format!("locator {locator} escapes the provider root"),
-            ));
+        match info.kind {
+            NodeKind::File => AssetKind::File,
+            NodeKind::Dir => AssetKind::Directory,
+            NodeKind::Symlink => AssetKind::Symlink,
+            _ => AssetKind::Other {
+                label: "other".into(),
+            },
         }
-        Ok(canonical)
     }
 
-    /// The canonical target of a directory entry, when it stays under
-    /// the root and exists.
-    fn contained_target(path: &Path, root: &Path) -> Option<PathBuf> {
-        fs::canonicalize(path).ok().filter(|c| c.starts_with(root))
-    }
-
-    /// Builds the relative `/`-joined locator for a path under root.
-    /// `None` when the name cannot be represented (over the opaque
-    /// bound) — unaddressable entries are skipped, never aliased.
-    fn locator_for(&self, path: &Path) -> Option<OpaqueLocator> {
-        let rel = path.strip_prefix(&self.root).unwrap_or(path);
-        let text = rel
-            .components()
-            .map(|c| c.as_os_str().to_string_lossy().into_owned())
-            .collect::<Vec<_>>()
-            .join("/");
-        OpaqueLocator::new(text).ok()
-    }
-
-    fn entry_facts(meta: &fs::Metadata, kind: AssetKind, at: crate::ObservedAt) -> EntryFacts {
+    fn node_facts(info: &NodeInfo, kind: AssetKind, at: crate::ObservedAt) -> EntryFacts {
         let origin = ObservationOrigin::Filesystem;
         EntryFacts {
-            byte_len: AssetObservation::observed_at(meta.len(), origin, at),
-            modified: match meta.modified() {
-                Ok(t) => AssetObservation::observed_at(crate::ObservedAt(t), origin, at),
-                Err(_) => AssetObservation::unknown(UnavailableReason::Other {
+            byte_len: match info.byte_len {
+                Some(len) => AssetObservation::observed_at(len, origin, at),
+                // Directories and other non-length kinds carry no
+                // byte length — reported honestly, not faked.
+                None => AssetObservation::unknown(UnavailableReason::NotApplicable),
+            },
+            modified: match info.modified {
+                Some(t) => AssetObservation::observed_at(crate::ObservedAt(t), origin, at),
+                None => AssetObservation::unknown(UnavailableReason::Other {
                     detail: "mtime unavailable".into(),
                 }),
             },
@@ -211,32 +251,112 @@ impl LocalFolderProvider {
         }
     }
 
+    /// Facts for a listed-but-unreachable link: the leaf is known to
+    /// be a symlink (the enumeration reports it) but nothing about
+    /// the target was served.
+    fn unavailable_link_facts(at: crate::ObservedAt) -> EntryFacts {
+        let origin = ObservationOrigin::Filesystem;
+        EntryFacts {
+            byte_len: AssetObservation::unknown(UnavailableReason::NotProvided),
+            modified: AssetObservation::unknown(UnavailableReason::NotProvided),
+            kind: AssetObservation::observed_at(AssetKind::Symlink, origin, at),
+            checksum_hint: AssetObservation::unknown(UnavailableReason::RequiresFetch),
+            media: MediaFacts::all_unknown(),
+        }
+    }
+
+    /// Opens a scoped rooted capability for a locator scope. The
+    /// scope subtree is itself the capability root, so `WithinRoot`
+    /// enforces exactly the old canonical-prefix scope containment —
+    /// an ancestor- or sibling-bound link inside the scope fails
+    /// `EscapesRoot`. The opened directory's handle-derived canonical
+    /// path is checked against the provider root once (same-object
+    /// verification, not a re-traversal).
+    fn open_scope(&self, locator: &OpaqueLocator) -> Result<(RootedDir, String), ProviderError> {
+        let rel = Self::locator_rel(locator)?;
+        let mut lexical = self.root.canonical_root().to_path_buf();
+        for comp in rel.components() {
+            lexical.push(comp);
+        }
+        self.pre_traverse(&lexical, "stat");
+        let cap = RootedDir::open_with(&lexical, rooted_options()).map_err(|e| {
+            if matches!(
+                e.kind(),
+                FileErrorKind::NotDirectory | FileErrorKind::NotRegularFile
+            ) || io_source_kind(&e) == Some(std::io::ErrorKind::NotADirectory)
+            {
+                ProviderError::new(
+                    ProviderErrorKind::InvalidRequest,
+                    format!("scope {locator} is not a container"),
+                )
+            } else {
+                rooted_error("browse scope", &e)
+            }
+        })?;
+        if !cap.canonical_root().starts_with(self.root.canonical_root()) {
+            return Err(ProviderError::new(
+                ProviderErrorKind::PermissionDenied,
+                format!("scope {locator} escapes the provider root"),
+            ));
+        }
+        let base = cap
+            .canonical_root()
+            .strip_prefix(self.root.canonical_root())
+            .map(|rel| {
+                rel.components()
+                    .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+                    .join("/")
+            })
+            .unwrap_or_default();
+        Ok((cap, base))
+    }
+
     /// Walks the scope and collects entries, bounded by `cx.limits`.
+    /// Descent is over held scoped handles — directories are opened
+    /// once through `open_dir` and enumerated from the acquired
+    /// handle, so an intermediate swap cannot redirect the listing.
     /// Returns `(entries, truncated)`.
     #[allow(clippy::too_many_lines)] // one bounded stack-walk kept flat
     fn collect_entries(
         &self,
-        scope_dir: &Path,
+        scope: &RootedDir,
+        base: &str,
         filter: &FilterSpec,
         cx: &ProviderContext,
     ) -> Result<(Vec<BrowseEntry>, bool), ProviderError> {
+        let self_rel = RelativePath::new("").expect("the empty locator is the valid self form");
+        let scope_root = scope.canonical_root().to_path_buf();
         let mut entries = Vec::new();
         let mut seen_locators: BTreeSet<String> = BTreeSet::new();
-        // The scope root is pre-seeded: a symlink targeting it (or an
-        // ancestor) can never re-enter the scope and re-emit entries.
-        let mut visited: BTreeSet<PathBuf> = BTreeSet::from([scope_dir.to_path_buf()]);
+        // Loop guard on directory identity — real dirs cannot cycle
+        // by pathname, but mount/bind points can alias a subtree.
+        let mut visited: HashSet<NodeId> = HashSet::new();
+        if let Ok(id) = scope.dir_identity() {
+            visited.insert(id);
+        }
         let mut truncated = false;
         let mut walked = 0u32;
-        let mut stack = vec![(scope_dir.to_path_buf(), 0u32)];
+        let scope_clone = scope
+            .open_dir(&self_rel, FollowMode::NoFollow)
+            .map_err(|e| rooted_error("open scope", &e))?;
+        // Pending dirs keep their scoped handles open for the whole
+        // walk (depth-first, siblings deferred). Handle count grows
+        // with discovered-but-unvisited dirs — bounded by `max_entries`
+        // and `max_open_dirs`, and exhaustion surfaces as `truncated`
+        // rather than a hidden skip. A pathname re-resolve on pop
+        // would reintroduce the traversal window, so held handles are
+        // the honest option.
+        let mut stack = vec![(scope_clone, String::new(), 0u32)];
 
-        'walk: while let Some((dir, depth)) = stack.pop() {
+        'walk: while let Some((dir_cap, prefix, depth)) = stack.pop() {
             cx.check_interrupts()?;
-            self.pre_traverse(&dir, "read_dir");
-            let read = match fs::read_dir(&dir) {
-                Ok(read) => read,
+            self.pre_traverse(&Self::lexical(&scope_root, &prefix), "read_dir");
+            let mut children = match dir_cap.read_dir(&self_rel, FollowMode::NoFollow) {
+                Ok(children) => children,
                 Err(e) => {
-                    if dir == scope_dir {
-                        return Err(io_error("read scope", &e));
+                    if prefix.is_empty() {
+                        return Err(rooted_error("read scope", &e));
                     }
                     // Unreadable subdirectory: skip it and mark the
                     // page partial instead of faking completeness.
@@ -244,102 +364,94 @@ impl LocalFolderProvider {
                     continue;
                 }
             };
-            // Bounded by the remaining entry budget so a pathological
-            // directory cannot defeat `max_entries`' memory bound.
-            let take = usize::try_from(
-                cx.limits
-                    .max_entries
-                    .saturating_sub(walked)
-                    .saturating_add(1),
-            )
-            .unwrap_or(usize::MAX);
-            let mut children: Vec<fs::DirEntry> = read.filter_map(Result::ok).take(take).collect();
-            children.sort_by_key(fs::DirEntry::file_name);
+            children.sort_by(|a, b| a.name.cmp(&b.name));
             for child in children {
                 if walked >= cx.limits.max_entries {
                     truncated = true;
                     break 'walk;
                 }
                 walked += 1;
-                let path = child.path();
-                self.pre_traverse(&path, "stat");
-                let Ok(meta) = child.metadata() else {
+                // Non-UTF-8 / grammar-invalid names can never become
+                // locators — skipped as partial, never aliased.
+                let Some(name) = child.name.to_str() else {
+                    truncated = true;
                     continue;
                 };
-                // `DirEntry::file_type` reports the enumeration-time
-                // type without traversing the link — `metadata()` may
-                // resolve reparse points on some platforms.
-                let Ok(ft) = child.file_type() else {
+                let Ok(comp) = RelativePath::from_component(&child.name) else {
+                    truncated = true;
                     continue;
                 };
-                let via_symlink = ft.is_symlink();
-                let mut kind = EntryKind::Asset;
-                let asset_kind = if ft.is_dir() {
-                    AssetKind::Directory
-                } else if via_symlink {
-                    AssetKind::Symlink
+                let entry_rel = if prefix.is_empty() {
+                    name.to_owned()
                 } else {
-                    AssetKind::File
+                    format!("{prefix}/{name}")
                 };
-                let mut availability = Availability::Available;
-                // The directory to descend into: plain dirs descend
-                // into their own path (canonical since the parent is),
-                // symlinked dirs into their canonical root-contained
-                // target.
-                let mut descend: Option<PathBuf> = None;
+                self.pre_traverse(&Self::lexical(&scope_root, &entry_rel), "stat");
 
-                if ft.is_dir() {
-                    kind = EntryKind::Container;
-                    descend = Some(path.clone());
-                } else if via_symlink {
-                    // Links are followed only while their target stays
-                    // inside the *scope* subtree — an ancestor- or
-                    // sibling-bound link never leaks out-of-scope
-                    // entries.
-                    match Self::contained_target(&path, scope_dir) {
-                        Some(target)
-                            if {
-                                self.pre_traverse(&target, "stat");
-                                target.is_dir()
-                            } =>
-                        {
+                let via_symlink = child.kind == NodeKind::Symlink;
+                let mut kind = EntryKind::Asset;
+                let mut availability = Availability::Available;
+                // `None` for links that cannot be served — the leaf is
+                // still reported (as `Symlink`) but no target facts.
+                let mut facts = None;
+
+                match dir_cap.metadata(&comp, FollowMode::WithinRoot) {
+                    Ok(info) => {
+                        if info.kind == NodeKind::Dir {
                             kind = EntryKind::Container;
-                            descend = Some(target);
                         }
-                        Some(_) => {
-                            // Link to a file inside the scope: an asset.
-                        }
-                        None => {
-                            // Escapes the scope or dangling: listed as an
-                            // observed entry, but never navigated or
-                            // opened through the link.
-                            availability = if fs::canonicalize(&path).is_ok() {
-                                Availability::Unavailable {
-                                    reason: UnavailableReason::Other {
-                                        detail: "symlink target outside browse scope".into(),
-                                    },
-                                }
-                            } else {
-                                Availability::Missing {
-                                    detail: "dangling symlink".into(),
-                                }
+                        facts = Some(Self::node_facts(&info, Self::asset_kind(&info), cx.now()));
+                    }
+                    Err(e) if via_symlink => match e.kind() {
+                        FileErrorKind::EscapesRoot => {
+                            availability = Availability::Unavailable {
+                                reason: UnavailableReason::Other {
+                                    detail: "symlink target outside browse scope".into(),
+                                },
                             };
                         }
+                        FileErrorKind::NotFound => {
+                            availability = Availability::Missing {
+                                detail: "dangling symlink".into(),
+                            };
+                        }
+                        FileErrorKind::LoopDetected => {
+                            availability = Availability::Missing {
+                                detail: "unresolvable symlink".into(),
+                            };
+                        }
+                        _ => {
+                            availability = Availability::Unavailable {
+                                reason: UnavailableReason::Other {
+                                    detail: format!("symlink target unreadable: {e}"),
+                                },
+                            };
+                        }
+                    },
+                    // A vanished non-link entry mid-walk: skip it.
+                    Err(e) if e.kind() == FileErrorKind::NotFound => continue,
+                    // Existed but unobservable — the page is partial.
+                    Err(_) => {
+                        truncated = true;
+                        continue;
                     }
                 }
 
-                if Self::matches_filter(&child.file_name().to_string_lossy(), &path, kind, filter) {
-                    // Entries that cannot produce a unique locator are
-                    // unaddressable — skipped and reported as partial,
-                    // never aliased to a bogus identity.
-                    match self.locator_for(&path) {
-                        Some(locator) if seen_locators.insert(locator.as_str().to_owned()) => {
+                if Self::matches_filter(name, Path::new(&entry_rel), kind, filter) {
+                    let locator_text = if base.is_empty() {
+                        entry_rel.clone()
+                    } else {
+                        format!("{base}/{entry_rel}")
+                    };
+                    match OpaqueLocator::new(locator_text) {
+                        Ok(locator) if seen_locators.insert(locator.as_str().to_owned()) => {
                             entries.push(BrowseEntry {
                                 locator,
-                                display_name: child.file_name().to_string_lossy().into_owned(),
+                                display_name: name.to_owned(),
                                 kind,
                                 availability,
-                                facts: Self::entry_facts(&meta, asset_kind, cx.now()),
+                                facts: facts
+                                    .unwrap_or_else(|| Self::unavailable_link_facts(cx.now())),
                                 via_symlink,
                             });
                         }
@@ -347,13 +459,27 @@ impl LocalFolderProvider {
                     }
                 }
 
-                if let Some(target) = descend {
+                // Only real directories are descended — through the
+                // held scoped handle. Link targets inside the scope
+                // appear under their own canonical locators anyway,
+                // so link descent would only duplicate entries.
+                if child.kind == NodeKind::Dir {
                     if depth + 1 >= cx.limits.max_depth {
                         truncated = true;
-                    } else if visited.insert(target.clone()) {
-                        stack.push((target, depth + 1));
+                    } else {
+                        match dir_cap.open_dir(&comp, FollowMode::NoFollow) {
+                            Ok(sub_cap) => {
+                                let fresh = match sub_cap.dir_identity() {
+                                    Ok(id) => visited.insert(id),
+                                    Err(_) => true,
+                                };
+                                if fresh {
+                                    stack.push((sub_cap, entry_rel, depth + 1));
+                                }
+                            }
+                            Err(_) => truncated = true,
+                        }
                     }
-                    // else: already visited — loop cut.
                 }
             }
         }
@@ -409,8 +535,8 @@ impl LocalFolderProvider {
             .is_ok_and(|epochs| epochs.contains(&epoch))
     }
 
-    /// Shared browse/search pipeline: resolve scope, collect entries,
-    /// sort, page, emit cursor.
+    /// Shared browse/search pipeline: open the scope capability,
+    /// collect entries, sort, page, emit cursor.
     fn list_page(
         &self,
         scope: &BrowseScope,
@@ -447,22 +573,20 @@ impl LocalFolderProvider {
             None => (0, None),
         };
 
-        let scope_dir = match scope {
-            BrowseScope::Root => self.root.clone(),
-            BrowseScope::Locator { locator } => {
-                let dir = self.resolve(locator)?;
-                self.pre_traverse(&dir, "stat");
-                if !dir.is_dir() {
-                    return Err(ProviderError::new(
-                        ProviderErrorKind::InvalidRequest,
-                        format!("scope {locator} is not a container"),
-                    ));
-                }
-                dir
-            }
+        let (scope_cap, base) = match scope {
+            BrowseScope::Root => (
+                self.root
+                    .open_dir(
+                        &RelativePath::new("").expect("empty locator is valid"),
+                        FollowMode::NoFollow,
+                    )
+                    .map_err(|e| rooted_error("open scope", &e))?,
+                String::new(),
+            ),
+            BrowseScope::Locator { locator } => self.open_scope(locator)?,
         };
 
-        let (mut entries, truncated) = self.collect_entries(&scope_dir, filter, cx)?;
+        let (mut entries, truncated) = self.collect_entries(&scope_cap, &base, filter, cx)?;
         sort_entries(&mut entries, sort);
         let total = entries.len() as u64;
         let start = usize::try_from(offset)
@@ -513,10 +637,34 @@ impl LocalFolderProvider {
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)] // one bundle per verification knob stays flat
-    fn open_file_verified(
+    /// Verified open of the regular file `locator` resolves to under
+    /// `WithinRoot` — the returned [`RootedFile`] pairs the reader
+    /// with facts of the same opened object.
+    fn open_asset(
         &self,
+        locator: &OpaqueLocator,
+        not_regular: impl FnOnce() -> String,
+    ) -> Result<RootedFile, ProviderError> {
+        let rel = Self::locator_rel(locator)?;
+        let mut lexical = self.root.canonical_root().to_path_buf();
+        for comp in rel.components() {
+            lexical.push(comp);
+        }
+        self.pre_traverse(&lexical, "open");
+        self.root
+            .open_regular(&rel, FollowMode::WithinRoot)
+            .map_err(|e| match e.kind() {
+                FileErrorKind::NotRegularFile => {
+                    ProviderError::new(ProviderErrorKind::InvalidRequest, not_regular())
+                }
+                _ => rooted_error("open", &e),
+            })
+    }
+
+    #[allow(clippy::too_many_arguments)] // one bundle per verification knob stays flat
+    fn verified_read(
         asset: &RemoteAssetRef,
+        mut file: RootedFile,
         range: Option<ByteRange>,
         claims_verification: VerificationPolicy,
         expected_digest: Option<ContentDigest>,
@@ -524,19 +672,14 @@ impl LocalFolderProvider {
         object_identity: ObjectIdentity,
         cx: &ProviderContext,
     ) -> Result<PinnedRead, ProviderError> {
-        let path = self.resolve(&asset.locator)?;
-        self.pre_traverse(&path, "open");
-        let mut file = File::open(&path).map_err(|e| io_error("open", &e))?;
-        let file_meta = file.metadata().map_err(|e| io_error("stat", &e))?;
-        // Post-open type check: a regular file swapped for a non-file
-        // between resolve and open must never be streamed.
-        if !file_meta.is_file() {
-            return Err(ProviderError::new(
-                ProviderErrorKind::InvalidRequest,
-                format!("{} is not a regular file", asset.locator),
-            ));
-        }
-        let file_len = file_meta.len();
+        // `info()` is the same opened object's probe — a regular file
+        // always carries a byte length.
+        let file_len = file.info().byte_len.ok_or_else(|| {
+            ProviderError::new(
+                ProviderErrorKind::TransientIo,
+                format!("{} opened object reports no length", asset.locator),
+            )
+        })?;
         if let Some(expected) = expected_size
             && file_len != expected
         {
@@ -559,8 +702,7 @@ impl LocalFolderProvider {
         }
         let reader: Box<dyn Read + Send> = match range {
             Some(range) => {
-                use std::io::Seek;
-                file.seek(std::io::SeekFrom::Start(range.offset))
+                file.seek(SeekFrom::Start(range.offset))
                     .map_err(|e| io_error("seek", &e))?;
                 // +1 so crossing the budget surfaces as BudgetExceeded
                 // rather than a silent truncation.
@@ -649,25 +791,23 @@ impl AssetProvider for LocalFolderProvider {
     ) -> Result<AssetStat, ProviderError> {
         self.check_owner(asset)?;
         cx.check_interrupts()?;
-        // Inspect the link entry itself for the kind, then resolve the
-        // canonical target for facts — a symlinked locator reports
-        // `Symlink`, never silently the target's kind.
-        let joined = self.join_locator(&asset.locator)?;
-        let link_meta = fs::symlink_metadata(&joined).map_err(|e| io_error("stat", &e))?;
-        let kind = if link_meta.file_type().is_symlink() {
-            AssetKind::Symlink
-        } else if link_meta.is_dir() {
-            AssetKind::Directory
-        } else {
-            AssetKind::File
-        };
-        let path = self.resolve(&asset.locator)?;
-        self.pre_traverse(&path, "stat");
-        let meta = fs::metadata(&path).map_err(|e| io_error("stat", &e))?;
+        // One resolve gives the leaf's own kind and the resolved
+        // object's facts — a symlinked locator reports `Symlink`,
+        // never silently the target's kind.
+        let rel = Self::locator_rel(&asset.locator)?;
+        let mut lexical = self.root.canonical_root().to_path_buf();
+        for comp in rel.components() {
+            lexical.push(comp);
+        }
+        self.pre_traverse(&lexical, "stat");
+        let info = self
+            .root
+            .metadata(&rel, FollowMode::WithinRoot)
+            .map_err(|e| rooted_error("stat", &e))?;
         Ok(AssetStat {
             asset: asset.clone(),
             availability: Availability::Available,
-            facts: Self::entry_facts(&meta, kind, cx.now()),
+            facts: Self::node_facts(&info, Self::asset_kind(&info), cx.now()),
             provenance: Vec::new(),
         })
     }
@@ -679,32 +819,21 @@ impl AssetProvider for LocalFolderProvider {
     ) -> Result<PinnedAssetRef, ProviderError> {
         self.check_owner(asset)?;
         cx.check_interrupts()?;
-        let path = self.resolve(&asset.locator)?;
-        self.pre_traverse(&path, "stat");
-        let meta = fs::metadata(&path).map_err(|e| io_error("stat", &e))?;
-        if !meta.is_file() {
-            return Err(ProviderError::new(
-                ProviderErrorKind::InvalidRequest,
-                format!("cannot pin a container locator {}", asset.locator),
-            ));
-        }
-        if meta.len() > cx.limits.max_bytes {
+        // Verified open then digest the same opened object — a
+        // stat→open swap cannot redirect the digest because there is
+        // no path between the two.
+        let mut file = self.open_asset(&asset.locator, || {
+            format!("cannot pin a container locator {}", asset.locator)
+        })?;
+        if let Some(len) = file.info().byte_len
+            && len > cx.limits.max_bytes
+        {
             return Err(ProviderError::new(
                 ProviderErrorKind::BudgetExceeded,
                 format!(
                     "{} exceeds byte budget {}",
                     asset.locator, cx.limits.max_bytes
                 ),
-            ));
-        }
-        self.pre_traverse(&path, "open");
-        let mut file = File::open(&path).map_err(|e| io_error("open", &e))?;
-        // Post-open re-check: a stat→open swap to a non-file must
-        // never be digested as pinned content.
-        if !file.metadata().map_err(|e| io_error("stat", &e))?.is_file() {
-            return Err(ProviderError::new(
-                ProviderErrorKind::InvalidRequest,
-                format!("{} is not a regular file", asset.locator),
             ));
         }
         let (digest, bytes) = stream_digest(
@@ -745,8 +874,12 @@ impl AssetProvider for LocalFolderProvider {
                 ));
             }
         };
-        self.open_file_verified(
+        let file = self.open_asset(&pin.asset.locator, || {
+            format!("{} is not a regular file", pin.asset.locator)
+        })?;
+        Self::verified_read(
             &pin.asset,
+            file,
             None,
             VerificationPolicy::StreamVerified {
                 digest: digest.clone(),
@@ -785,16 +918,12 @@ impl AssetProvider for LocalFolderProvider {
     ) -> Result<PinnedRead, ProviderError> {
         self.check_owner(asset)?;
         cx.check_interrupts()?;
-        let path = self.resolve(&asset.locator)?;
-        self.pre_traverse(&path, "stat");
-        if !path.is_file() {
-            return Err(ProviderError::new(
-                ProviderErrorKind::InvalidRequest,
-                format!("cannot preview container {}", asset.locator),
-            ));
-        }
-        self.open_file_verified(
+        let file = self.open_asset(&asset.locator, || {
+            format!("cannot preview container {}", asset.locator)
+        })?;
+        Self::verified_read(
             asset,
+            file,
             range,
             VerificationPolicy::Unverified,
             None,

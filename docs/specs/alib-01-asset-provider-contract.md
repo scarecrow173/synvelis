@@ -99,30 +99,49 @@ Local Folder と Current Project Assets を共通の型付き Catalog として
    `ProviderKind`(LocalFolder/ProjectAssets/Remote 等, non_exhaustive)
    と表示名を持つ。
 9. **LocalFolderProvider**: filesystem capability。`/` 区切りの
-   root 相対 locator、`..`/絶対/NUL 拒否 + canonical 照合で
-   traversal 防止。symlink は canonical target が root 内かつ
-   未訪問 dir のみ辿り visited set で loop 切断。`pin` は sha256
-   streaming 計測の `ConditionalStrong{ContentHash}`、`open_pinned`
-   は EOF で sha256 照合する検証 reader を返し、可変・rename・
-   差替えを `SourceChanged`/`IntegrityMismatch` で固定扱いしない。
+   root 相対 locator は Ruviform `RelativePath` grammar で検証し、
+   全 lookup は構築時に取得した `RootedDir` capability 起点の
+   handle-relative resolve（`WithinRoot` follow）で traversal を
+   防止する。symlink leaf は `Symlink` kind で列挙するが降りず、
+   root 外 target の facts は返さない。loop guard は `NodeId`
+   set で切断。`pin` は sha256 streaming 計測の
+   `ConditionalStrong{ContentHash}`、`open_pinned` は EOF で
+   sha256 照合する検証 reader を返し、可変・rename・差替えを
+   `SourceChanged`/`IntegrityMismatch` で固定扱いしない。
 10. **ProjectAssetsProvider**: `Mutex<ProjectController>` 経由の
     read-only 投影 port(`ProjectCatalog`)のみを持ち、別 Project
     正本を持たない。`pin` は `ImmutableObject{revision: CAS blob
     digest}`、blob dir は注入 port(`ProjectBlobStore`)で path 規約を
     複製しない。source state/import provenance を facts として返す。
 
-### Known gap（2026-11-07 追記, N1 / Refs #85）
+### Resolved gap（2026-11-07 追記→同日修復, N1 / Refs #85）
 
 契約 9/10 の「canonical 照合で traversal 防止」は **check 時点**の
 不変条件であり、traverse 時点（`File::open`/`metadata`/`read_dir`）
 との間に leaf/intermediate component swap（rename+symlink）で
-root 外 object を開く TOCTOU が残存する。これは root 外の
+root 外 object を開く TOCTOU が残存していた。これは root 外の
 bytes/facts/entries を返さないという AC1 意図そのものの侵害であり、
 containment-at-traverse の強制には handle-relative open
 （root capability）が必須 — Ruviform 所有の rooted-read 公開契約として
 [ruviform#398](https://github.com/scarecrow173/ruviform/issues/398) で
-設計中（本 spec の契約は縮小しない）。修復完了まで AC1 の
-traversal 部分は未達として扱う。
+設計され、PR401（main `f483fe1c`、後続 RF403 `5d48298b`）として
+統合された。
+
+**修復済み（task5）**: `LocalFolderProvider`/`LocalBlobDir` の全
+read/stat/pin/open_preview/open_pinned/browse-descend は取得済み
+`RootedDir` capability 経由の handle-relative lookup で、capability
+配下の path 再 traverse は存在しない。capability 取得そのものは
+path-based（`LocalFolderProvider::new`・scope browse 用 `open_scope`・
+`LocalBlobDir` の per-op store open）であり、backend が handle 由来
+canonical path を持たない場合に限り Ruviform 文書上の残存
+path→capability race が残る（impl record 記録）。`WithinRoot` link
+follow の契約は縮小していない（`NoFollow` への置換なし）。
+`tests/containment_swap.rs` の 7 件は `#[ignore]` 解除済み・GREEN。
+互換差（`RelativePath` の厳格文法、保守的 EscapesRoot、scope
+capability 化による link 下降の同値化、read_dir 一括 listing、
+dir byte_len の NotApplicable 化、dangling link の Missing 統一、
+取得済み handle の rename 後 authority 継続）は task5 と impl
+record に記録する。
 
 ## Acceptance
 

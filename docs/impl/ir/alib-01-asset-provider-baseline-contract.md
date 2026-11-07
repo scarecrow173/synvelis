@@ -4,7 +4,7 @@ type: "impl"
 status: "completed"
 title: "ALIB-01 Asset Provider baseline contract"
 created: "2026-11-06"
-updated: "2026-11-07"
+updated: "2026-11-07 (N1 修復追補)"
 owners: []
 relations:
   source: []
@@ -70,11 +70,25 @@ relations:
         path: "docs/tasks/alib-01-task3-project-provider.md"
       - type: "file"
         path: "docs/tasks/alib-01-task4-acceptance.md"
+      - type: "file"
+        path: "docs/tasks/alib-01-task5-rooted-cutover.md"
     modified:
+      - type: "file"
+        path: "crates/synvelis-library/Cargo.toml"
       - type: "file"
         path: "crates/synvelis-library/src/local.rs"
       - type: "file"
         path: "crates/synvelis-library/src/project.rs"
+      - type: "file"
+        path: "crates/synvelis-library/tests/containment_swap.rs"
+      - type: "file"
+        path: "docs/specs/alib-01-asset-provider-contract.md"
+      - type: "file"
+        path: "docs/designs/alib-01-asset-provider-contract-design.md"
+      - type: "file"
+        path: "docs/test-specs/alib-01-asset-provider-contract.md"
+      - type: "file"
+        path: "docs/tasks/README.md"
       - type: "file"
         path: "crates/synvelis-library/src/lib.rs"
       - type: "file"
@@ -112,6 +126,7 @@ relations:
     - "docs/tasks/alib-01-task2-local-provider.md"
     - "docs/tasks/alib-01-task3-project-provider.md"
     - "docs/tasks/alib-01-task4-acceptance.md"
+    - "docs/tasks/alib-01-task5-rooted-cutover.md"
   implemented-by: []
   depends-on: []
   blocks: []
@@ -157,6 +172,12 @@ ALIB-02/03/04/05/06 が依存する型付き境界を公開する。
 
 ### Changes
 
+本節は task1〜4 適用時点(baseline)の記録。`local.rs`/`project.rs` の
+FS traversal 機構・依存一覧は **N1 修復(task5)で後節の記述に更新済み**
+— 現行は `RootedDir` handle-relative resolve であり、本節の
+canonicalize/post-open 再検査・`visited`/`scope_dir` seed・dep 列は
+baseline 履歴として読むこと。
+
 - `crates/synvelis-library`: Asset Provider/Catalog 契約 crate を新設。
   - `id.rs`: `ProviderId`、`OpaqueLocator`、`PrincipalId`、`CredentialKey`、
     `OpaqueCredential`(Debug で credential 値を `<redacted>` にする)。
@@ -194,8 +215,8 @@ ALIB-02/03/04/05/06 が依存する型付き境界を公開する。
     検証。`LocalBlobDir` は名称文字・DOS デバイス名拒否、candidate+root を
     canonicalize して containment 強制、regular file 要求、open 後再検査。
 - `Cargo.toml`: workspace members に `crates/synvelis-library` を追加。
-- 依存は `serde`/`serde_json`/`sha2`/`hex`/`thiserror`/`synvelis-project` のみ。
-  GUI/Tokio/HTTP/Git SDK は公開 API に入らない。
+- 依存は `serde`/`serde_json`/`sha2`/`ruviform-io-file`(task5 で追加)/
+  `synvelis-project` のみ。GUI/Tokio/HTTP/Git SDK は公開 API に入らない。
 
 ### Decisions During Implementation
 
@@ -211,6 +232,8 @@ ALIB-02/03/04/05/06 が依存する型付き境界を公開する。
   epoch 消費を避ける。
 - `LocalBlobDir::resolve`/`open` は stat/open TOCTOU を縮小するため open 後の
   regular-file 再検査を行う(残存 race は「残リスク」参照)。
+  （baseline 時点の判断。task5 で `resolve`/再検査は撤廃され
+  `RootedDir::open_regular` の pre-open `NotRegularFile` へ移行済み）
 
 ## Acceptance Matrix Traceability
 
@@ -277,6 +300,33 @@ worker 並列枠のため `CARGO_BUILD_JOBS=2` を使用。正規入口は mise 
 上記 7 件は RF rooted-read 契約で修復されるまで `#[ignore]` + 理由付きで
 RED 証拠として保持し、green 達成前に成功扱いしない。`mise run test` 本体は
 非回帰(ignore 済み分を除く全 test pass)。
+
+### N1 修復後検証 (task5, 2026-11-07・同日の修復実測)
+
+実行環境: Windows(Git Bash、rust toolchain pin 1.99.0)。`CARGO_BUILD_JOBS=2`。
+ruviform 消費 rev は `5d48298b`(RF403・既定 main 追従 git dep、rev pin なし)。
+
+| チェック | コマンド | 結果 |
+| --- | --- | --- |
+| Format | `mise run fmt` (`cargo fmt --all`) | pass (exit 0) |
+| Format check | `mise run fmt-check` | pass (exit 0) |
+| Compile | `mise run check` (`cargo check --workspace --all-targets`) | pass (exit 0) |
+| Lint | `mise run lint` (`cargo clippy --workspace --all-targets -- -D warnings`) | pass (exit 0) |
+| Test | `mise run test` (`cargo test --workspace --locked`) | pass (exit 0; 全 test target 0 failures — `containment_swap` 8/8: 7 swap 回帰 GREEN 強制 + seam sanity) |
+| Swap 回帰(個別) | `cargo test -p synvelis-library --test containment_swap` | pass (8/8: `blob_stat_leaf_swap`/`blob_open_leaf_swap`/`local_stat_component_swap`/`local_pin_component_swap`/`local_preview_component_swap`/`local_open_pinned_component_swap`/`local_browse_descend_component_swap` + `pre_traverse_hook_fires_at_tagged_points`) |
+| Headless deps gate | `mise run check-headless-deps` | pass (exit 0; 10 headless crates) |
+| ruviform rev 整合 | `mise run check-ruviform-rev` | pass (exit 0; resolved `5d48298b` 26 lockfile sources、lockfile-primary、REV match) |
+| MSRV | `mise run test-msrv` (`mise exec rust@1.89.0 -- cargo test --workspace --locked`) | **fail (既存 main 由来)** — `cargo-platform@0.3.3` が rustc 1.91 を要求。当該 pkg は本差分の `Cargo.lock` delta に無く merge 済み HEAD に同 version で存在するため本変更起因ではない。別途 follow-up 対象。 |
+
+補足:
+- 旧表(上段)の `check-ruviform-rev` 行は pre-fix commit での記録
+  (`49de02cc`・22 sources)。本差分適用後の正規結果は本表の
+  `5d48298b`・26 sources 側。
+- review 指摘を受けた後追い修正も検証済み: `LoopDetected`→`InvalidRequest`/
+  `LimitExceeded`→`BudgetExceeded` への remap、browse で非 link entry の
+  `metadata` が `NotFound` 以外で失敗した際 `truncated=true` とする変更を
+  実施し、上表の lint/test は修正後の code で再実行した結果。
+- Unix/macOS および実 race は引き続き未実測(Windows 実測のみ)。
 
 ### Review Protocol
 
@@ -351,7 +401,8 @@ RED 証拠として保持し、green 達成前に成功扱いしない。`mise r
   SV 側への汎用 OS/atomic FS の重複実装・unsafe 追加・digest 事後検証による
   代替は行わない。FollowWithinRoot(root 内 symlink を辿る現行契約)を
   NoFollow へ無断縮小しない。
-- 現状(この commit): deterministic fault seam(`set_pre_traverse_hook`,
+- ~~現状(この commit)~~ **修復前の状態(task5 適用前の記録・履歴として保持)**:
+  deterministic fault seam(`set_pre_traverse_hook`,
   `#[doc(hidden)]`)を `LocalBlobDir`/`LocalFolderProvider` の再traverse 地点
   (op: `"stat"`/`"open"`/`"read_dir"`)へ追加。`tests/containment_swap.rs` に
   7 件の deterministic swap 回帰を **RED 証拠** として `#[ignore]` 付きで収録
@@ -363,22 +414,131 @@ RED 証拠として保持し、green 達成前に成功扱いしない。`mise r
   (FollowWithinRoot 意味論保持)が公開され candidate SHA が共有されたら、
   SV は `local.rs`/`project.rs` の path 再traverse を当該 capability へ
   置き換え、7 件の `#[ignore]` を外して green を確認する。
-- 残存 sub-issues(修復後も別途観測が必要): FIFO/device swap 時の
+  → **解除済み**: RF#398 は PR401(main `f483fe1c`)として統合、消費 rev
+  `5d48298b`。task5 で capability 置換・7 件 unignore・GREEN 確認済み
+  (次節および後述 Validation 追補)。
+- 残存 sub-issues(修復後も別途観測が必要): ~~FIFO/device swap 時の
   `File::open` block(P2、真の遮断には leaf を non-regular のまま open しない
-  handle-relative open が必須)、dir target の stat race(metadata のみ)、
-  hard link(同一 object ゆえ name ベース containment の許容内)。
-  `LocalBlobDir::new` は `LocalFolderProvider::new` と異なり root を
-  構築時に canonicalize せず `resolve` が呼出毎に `self.dir` を再
-  canonicalize するため、store root 自体の swap/ドリフトは stat/open
-  呼出間で anchored でない TOCTOU-adjacent 面として残る(rooted-read
-  化で吸収されるが独立観測として記録)。
+  handle-relative open が必須)~~ **解決済み(task5)** — `open_regular` が
+  open 前に `NotRegularFile` を返し blocking open に到達しない。
+  dir target の stat race(metadata のみ)は rooted `metadata` の単一
+  resolve に統合済み。hard link(同一 object ゆえ name ベース
+  containment の許容内)は変わらず残存。store root 自体の
+  swap/ドリフトについては `LocalBlobDir` が per-op `RootedDir::open_with`
+  で capability を取得するため、各呼出内では anchored — 呼出と呼出の
+  間で store dir 自体が置換されれば新 capability は新 object を指す
+  (per-op open は旧 canonicalize-per-call と同じ粒度であり、これは
+  lifecycle 維持のため意図的)。
+
+### N1 修復 — rooted capability 移行 (task5, 2026-11-07)
+
+Ruviform `ruviform-io-file::rooted`（RF401/ruviform#398、消費 rev
+`5d48298b`、既定 main 追従 git dep — SHA 固定・vendor なし）への移行を
+実施した。`synvelis-library` に `ruviform-io-file` を追加し、SV 内に
+unsafe・OS 呼出重複・汎用 FS framework・`cap-std` は置いていない。
+
+- `LocalFolderProvider` は `RootedDir`（`rooted_options()`:
+  max_depth 256 / max_components_total 2048 / max_open_dirs 256 —
+  旧 canonicalize 経路の実質 acceptance を下回らない有限 bound）を
+  保持し、locator は `RelativePath` で検証する。
+  - `stat` = `metadata(WithinRoot)` 一回 — leaf_kind で link を
+    `Symlink` と報告しつつ resolved facts を同一 resolve から取得。
+  - `pin`/`open_preview`/`open_pinned` = `open_regular(WithinRoot)`
+    一回の verified open — `RootedFile`（`Read+Seek`）と `NodeInfo`
+    が同一 opened object を記述し、stat→open の 2 段構成は消滅。
+    FIFO/device/link-under-NoFollow は open 前に `NotRegularFile`
+    で拒否され blocking open に到達しない（旧 post-open `is_file`
+    再検査の P2 残存 DoS も同時解消）。
+  - `browse` = 保持 `RootedDir` の `read_dir`/`open_dir` 経由の
+    保持 handle DFS — descend は実 dir の scoped handle のみで、
+    scope 取得後の component swap は `EscapesRoot`/`NotDirectory`
+    に失敗するか取得済み handle が透過する。locator scope は
+    `RootedDir::open_with` で scope subtree を capability root とした
+    上で handle-derived canonical が provider root 配下であることを
+    一度だけ照合（同一 object 検証であって再 traverse ではない）。
+- `LocalBlobDir` は呼出毎に store `RootedDir` を開き
+  `metadata`/`open_regular(WithinRoot)` で同一 object の facts+reader
+  を返す。SV 側の filename-safe/DOS device 検証は維持。store dir
+  自体の作成を構築時に要求しない lifecycle も維持。
+- `FileErrorKind`→`ProviderErrorKind`: `EscapesRoot`→`PermissionDenied`、
+  `Unsupported`→`UnsupportedCapability`、`IdentityMismatch`→
+  `SourceChanged`、`NotRegularFile`/`NotDirectory`/`InvalidInput`/
+  `LoopDetected`→`InvalidRequest`、`LimitExceeded`→`BudgetExceeded`、
+  `Io` は source の `io::ErrorKind`（`NotFound`/`PermissionDenied`/
+  その他 `TransientIo`）で精緻化。loop/budget 拒否は決定的なので
+  retry を唆す `TransientIo` には畳まない。
+- `tests/containment_swap.rs` — 7 件の `#[ignore]` を除去し fault
+  barrier の地点タグを rooted seam へ更新。seam sanity の期待列は
+  blobs `["stat","open"]`、browse `["stat","read_dir","stat"]`。
+- Project provider 側の変更なし — `open_blob_verified` は port
+  経由で `LocalBlobDir` を呼び、修正は blob store 内に閉じる。
+- `pin` の `ConditionalStrong{ContentHash}` content pin 契約は維持
+  （object-identity `NodePin` は契約上の pin 証拠でないため使用せず、
+  weak identity FS への追加制限も課さない）。open_pinned の
+  expected_size/digest 照合も同一 opened object 上で継続。
+
+### N1 修復の互換差（診断済み・意図的）
+
+- `RelativePath` 文法は旧 `parse_locator` より厳格 — Windows 予約名・
+  空白端・末尾 `.`・>255B component・制御文字・非 UTF-8 を `InvalidInput`
+  で拒否する。該当名の object は locator では恒久にアクセス不可となり、
+  browse では unaddressable として partial skip（旧実装の unaddressable
+  扱いと同じ分類）。
+- browse の link 処理: 範囲内 dir link は引き続き `Container`+
+  `via_symlink` で表示するが、下降は実 dir のみ（link target は
+  canonical 実 path 側で必ず列挙されるため出力 entry は同値）。旧
+  canonical-path visited set は `NodeId` 集合へ置換（mount/bind alias
+  用の loop guard として温存）。
+- escaping/dangling link entry の facts は link 自身の最小 facts
+  （`Symlink` kind + NotProvided）を返す — 旧実装は follow した
+  target の facts を報告しており、これは containment の外側の
+  情報流出だったため修正（より正直な報告）。
+- `RootedDir::read_dir` は listing を一括 `Vec<DirEntry>` で返す —
+  旧 `fs::read_dir` の `take` による逐次 materialize 制限は RF API
+  に存在しない。emit される entry 数の `max_entries` bound は維持し、
+  listing の一時確保は RF 契約として記録（ページング API が必要に
+  なれば RF 側への拡張要望の対象）。
+- dangling symlink は Windows/Unix で `Missing` に統一 — 旧 Unix 経路は
+  `child.metadata()` 失敗で entry 自体を黙って skip しており、
+  test-spec の `Missing` 契約は Windows でしか満たされていなかった
+  （潜在一个不整合の修正）。
+- dir entry の `byte_len` は `NotApplicable` — `NodeInfo` は dir に
+  length を持たせない（旧実装は dir size を報告していた）。
+- `LocalFolderProvider::new` の open 失敗は `Io`→`TransientIo` で
+  正直に分類（旧実装は canonicalize 全失敗を `NotFound` に畳んでいた）。
+- RF の `WithinRoot` は canonical-root component の lexical prefix で
+  absolute link target を判定する — `/var` vs `/private/var`・8.3 名・
+  `subst` drive 等の非 canonical alias は kernel 上 in-root であっても
+  `EscapesRoot` を返し得る（RF の文書化された保守的縮小であり、SV が
+  隠すものではない）。
+- scoped directory handle は inode authority を保持し、取得後の外部
+  rename でも読み取り継続する — pathname 継続包含ではなく handle
+  authority（RF の設計どおり）。
+- trailing `/` は `RelativePath` が directory marker として受理する
+  （旧実装は空 component として拒否 — acceptance 拡大で同じ object
+  を指す）。
 
 ## Risks
 
-- `LocalBlobDir`/`local.rs` の open/stat/read_dir 経路は
+- ~~`LocalBlobDir`/`local.rs` の open/stat/read_dir 経路は
   check(canonicalize)→traverse(再解決)の構成であり、T0→T1 の component swap
   で out-of-root regular file を開き得る(N1、上記。実 race 未測定・fault
-  barrier で確定再現済み)。恒久対応は RF 所有の rooted-read capability。
+  barrier で確定再現済み)。恒久対応は RF 所有の rooted-read capability。~~
+  **解決済み(task5)**: 全経路が `RootedDir` の handle-relative lookup で、
+  capability 配下の path 再 traverse は存在しない。残るのは RF 文書化の
+  documented residual — 各 `RootedDir::open_with` の path→capability 境界
+  (handle-derived canonicalization が使えない backend では path
+  canonicalize fallback) と、escaping alias の保守的 `EscapesRoot`。
+- `RootedDir::open_with` の path→capability 境界には RF 文書化の
+  residual race が残る(backend が handle-derived canonical を提供しない
+  場合の `fs::canonicalize` fallback)。capability 取得地点は 3 箇所:
+  `LocalFolderProvider::new`（一度きり）、`open_scope`（locator scope
+  付き browse/search 毎 — scope subtree を `WithinRoot` 境界とするため
+  親 capability の `open_dir` ではなく新 capability が必要）、
+  `LocalBlobDir::store`（呼出毎、構築後作成の lifecycle 維持）。
+  いずれも取得後の lookup は handle-relative であり、境界は acquisition
+  一点に限定される。真の rooted-open 強化が必要なら RF 側の責務と
+  して起票する。
 - `OpaqueCredential`/`PrincipalId` の transport 契約は型で制約するが、実際の
   credential vault/OS 認証統合は本スコープ外。
 - Search の索引範囲・Preview の内容は provider capability 依存で、基準 provider は

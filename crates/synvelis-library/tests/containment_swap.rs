@@ -1,27 +1,26 @@
 //! Deterministic component-swap containment regressions (N1, Refs
 //! Synvelis #85).
 //!
-//! Every `open`/`stat`/`read_dir` path in the baseline providers performs
-//! `canonicalize` + containment check at T0 and then re-traverses the
-//! same path at T1. Between T0 and T1 a leaf or intermediate
-//! component can be swapped (rename + symlink plant), so the second
-//! traversal resolves to an object outside the trusted root.
-//!
-//! The `pre_traverse` fault barrier fires *inside* that T0→T1 window
-//! and performs the swap synchronously — no threads, no timing: the
-//! race is injected deterministically.
+//! The baseline providers used to `canonicalize` + containment-check a
+//! path at T0 and then re-traverse the same path at T1 — between the
+//! two, a leaf or intermediate component could be swapped (rename +
+//! symlink plant) so the second traversal resolved outside the
+//! trusted root. The implementation now resolves everything
+//! handle-relative through a Ruviform `RootedDir` capability: the
+//! `pre_traverse` fault barrier fires immediately before each rooted
+//! operation that touches the filesystem (`"stat"`/`"open"`/
+//! `"read_dir"`) and performs the swap synchronously — no threads,
+//! no timing: the race is injected deterministically.
 //!
 //! Contract under test: an object that resolves outside the trusted
 //! root must never have its bytes, facts, or directory entries
-//! served — the operation must fail. These tests currently FAIL on
-//! the path-retraversal implementation (RED evidence) and must pass
-//! once the open goes through a handle-relative rooted-open
-//! capability (Ruviform-owned; pending). Until then they stay
-//! `#[ignore]`d with the reason recorded — they are not deleted,
-//! weakened, or silently tolerated.
+//! served — the operation must fail. Under the rooted capability a
+//! swapped component either stays inside the acquired handles or
+//! fails `EscapesRoot`/`NotFound`; there is no post-check window.
 //!
-//! Run the evidence explicitly:
-//! `cargo test -p synvelis-library --test containment_swap -- --ignored`
+//! These were originally RED evidence ignored while the Ruviform
+//! rooted-read capability was pending (ruviform#398); they are now
+//! enforced GREEN.
 
 mod common;
 
@@ -36,8 +35,11 @@ use common::{TempTree, aref, browse_req, cx, loc, pid, try_symlink};
 use synvelis_library::*;
 
 /// Parks `victim` aside and plants a symlink to `outside` at its
-/// name. Returns `false` when symlink creation is denied (callers
-/// skip honestly — the swap is never half-done).
+/// name. Returns `false` when symlink creation is denied — the swap
+/// is never half-done. These regressions are enforced, so callers
+/// assert rather than skip: a silently skipped containment test
+/// would be a false-green, and an environment without symlink
+/// privilege must report honestly.
 fn swap_in_link(victim: &Path, outside: &Path) -> bool {
     let parked = victim.with_file_name(format!(
         "{}.parked",
@@ -77,10 +79,9 @@ const INSIDE_BYTES: &[u8] = b"inside-bytes";
 
 // ── LocalBlobDir (single-component leaf) ─────────────────────────
 
-/// `stat` resolves the leaf at T0, then `fs::metadata` re-traverses
-/// at T1 — a leaf swap reports the outside file's length.
+/// `stat` — a leaf swapped for an outside link must fail the rooted
+/// `metadata` call, never report the outside file's length.
 #[test]
-#[ignore = "N1 RED evidence — blocked on Ruviform rooted-read capability; Refs #85"]
 fn blob_stat_leaf_swap_reports_outside_facts() {
     let tree = TempTree::new("blob-swap-stat");
     let outside = tree.join("outside-secret");
@@ -104,10 +105,9 @@ fn blob_stat_leaf_swap_reports_outside_facts() {
     );
 }
 
-/// `open` resolves at T0 and `File::open` re-traverses at T1 — a leaf
-/// swap streams the outside file's bytes.
+/// `open` — a leaf swapped for an outside link must fail
+/// `open_regular`, never stream the outside file's bytes.
 #[test]
-#[ignore = "N1 RED evidence — blocked on Ruviform rooted-read capability; Refs #85"]
 fn blob_open_leaf_swap_serves_outside_bytes() {
     let tree = TempTree::new("blob-swap-open");
     let outside = tree.join("outside-secret");
@@ -136,11 +136,10 @@ fn blob_open_leaf_swap_serves_outside_bytes() {
 
 // ── LocalFolderProvider (intermediate component) ─────────────────
 
-/// `stat` on `sub/inner.wav`: the intermediate `sub` component is
-/// swapped for a link to an outside directory after resolve — the
-/// reported facts describe the outside file.
+/// `stat` on `sub/inner.wav`: the intermediate `sub` component
+/// swapped for a link to an outside directory must fail the rooted
+/// `metadata` call — the outside file's facts are never reported.
 #[test]
-#[ignore = "N1 RED evidence — blocked on Ruviform rooted-read capability; Refs #85"]
 fn local_stat_component_swap_reports_outside_facts() {
     let tree = TempTree::new("local-swap-stat");
     let outside_dir = tree.join("outside");
@@ -164,11 +163,10 @@ fn local_stat_component_swap_reports_outside_facts() {
     );
 }
 
-/// `open_preview` resolves `sub/inner.wav` then `File::open`
-/// re-traverses — the swapped component streams outside bytes with
-/// `Unverified` claims.
+/// `open_preview` on `sub/inner.wav`: the swapped component must
+/// fail `open_regular` — outside bytes never reach the reader, even
+/// with `Unverified` claims.
 #[test]
-#[ignore = "N1 RED evidence — blocked on Ruviform rooted-read capability; Refs #85"]
 fn local_preview_component_swap_serves_outside_bytes() {
     let tree = TempTree::new("local-swap-preview");
     let outside_dir = tree.join("outside");
@@ -195,12 +193,10 @@ fn local_preview_component_swap_serves_outside_bytes() {
     assert!(fired.load(Ordering::SeqCst), "barrier never fired");
 }
 
-/// `pin` re-traverses at `File::open` — the swapped component is
-/// digested as pinned content, so the returned `digest_hint` is the
-/// outside file's SHA-256 (a content-disclosure oracle), not an
-/// error.
+/// `pin` — the swapped component must fail `open_regular` before any
+/// byte is digested; the outside file's SHA-256 is never returned as
+/// a `digest_hint` (a content-disclosure oracle).
 #[test]
-#[ignore = "N1 RED evidence — blocked on Ruviform rooted-read capability; Refs #85"]
 fn local_pin_component_swap_digests_outside_file() {
     let tree = TempTree::new("local-swap-pin");
     let outside_dir = tree.join("outside");
@@ -224,12 +220,11 @@ fn local_pin_component_swap_digests_outside_file() {
     );
 }
 
-/// `open_pinned` — the pinned path leaks too: EOF verification
-/// detects the digest mismatch only *after* the outside bytes were
-/// already delivered to the caller's buffer. Content integrity is
-/// not capability containment.
+/// `open_pinned` — the swapped component must fail `open_regular`
+/// before a single byte reaches the caller's buffer. EOF digest
+/// verification is content integrity, not capability containment —
+/// it cannot substitute for the rooted open.
 #[test]
-#[ignore = "N1 RED evidence — blocked on Ruviform rooted-read capability; Refs #85"]
 fn local_open_pinned_component_swap_leaks_before_eof() {
     let tree = TempTree::new("local-swap-pinned");
     let outside_dir = tree.join("outside");
@@ -265,11 +260,11 @@ fn local_open_pinned_component_swap_leaks_before_eof() {
     );
 }
 
-/// `browse` descend: the verified scope directory is swapped for a
-/// link to an outside directory between resolve and `read_dir` — the
-/// outside directory's entries are enumerated under root locators.
+/// `browse` descend: the scope directory swapped for a link after
+/// its capability was acquired changes nothing — enumeration runs on
+/// the held handle, so the outside directory's entries are never
+/// listed under root locators.
 #[test]
-#[ignore = "N1 RED evidence — blocked on Ruviform rooted-read capability; Refs #85"]
 fn local_browse_descend_component_swap_lists_outside_entries() {
     let tree = TempTree::new("local-swap-browse");
     let outside_dir = tree.join("outside");
@@ -304,9 +299,9 @@ fn local_browse_descend_component_swap_lists_outside_entries() {
 
 // ── seam sanity (GREEN — proves the barrier is wired) ────────────
 
-/// The barrier fires exactly at the tagged re-traversal points during
-/// a normal `stat`+`open` sequence; with no swap installed the
-/// operations succeed as before.
+/// The barrier fires exactly at the tagged rooted-operation points
+/// during a normal `stat`+`open` sequence; with no swap installed
+/// the operations succeed as before.
 #[test]
 fn pre_traverse_hook_fires_at_tagged_points() {
     let tree = TempTree::new("seam-sanity");
@@ -327,7 +322,10 @@ fn pre_traverse_hook_fires_at_tagged_points() {
     let mut buf = Vec::new();
     blob.reader.read_to_end(&mut buf).unwrap();
     assert_eq!(buf, INSIDE_BYTES);
-    assert_eq!(*ops.lock().unwrap(), vec!["stat", "stat", "open"]);
+    // Rooted `stat` is a single `metadata` call and `open` a single
+    // `open_regular` — the old resolve→re-traverse double-stat seam
+    // no longer exists.
+    assert_eq!(*ops.lock().unwrap(), vec!["stat", "open"]);
 
     // Same wiring on the folder provider: a locator-scoped browse
     // must tag the scope check, the directory enumeration, and the

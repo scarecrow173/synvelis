@@ -20,10 +20,11 @@
 //! advances the revision invalidates outstanding cursors.
 
 use std::collections::BTreeMap;
-use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+
+use ruviform_io_file::rooted::{FollowMode, NodeKind, RelativePath, RootedDir};
 
 use serde::{Deserialize, Serialize};
 use synvelis_project::{
@@ -214,28 +215,35 @@ const DOS_DEVICES: &[&str] = &[
 ];
 
 /// Deterministic fault-injection seam for containment regression
-/// tests: invoked immediately before each filesystem call that
-/// re-traverses a path after the containment decision, with the
-/// about-to-be-traversed path and an op tag
-/// (`"stat"`/`"open"`/`"read_dir"`). Production code never installs
-/// it; it is not a stable contract.
+/// tests: invoked immediately before each rooted filesystem
+/// operation, with the about-to-be-resolved path and an op tag
+/// (`"stat"`/`"open"`/`"read_dir"`). The rooted call *is* the
+/// containment decision, so the barrier marks the last moment a
+/// component swap can still beat the lookup. Production code never
+/// installs it; it is not a stable contract.
 #[doc(hidden)]
 pub type PreTraverseHook = Arc<dyn Fn(&Path, &'static str) + Send + Sync>;
 
 /// A blob store over one directory of digest-named files.
 ///
 /// The app points this at `<media_root>/blobs`. Object identities are
-/// validated as filename-safe (`[0-9a-zA-Z_-]` only) before any join,
-/// and resolved paths are canonicalized back inside the store, so a
+/// validated as filename-safe (`[0-9a-zA-Z_-]` only) before they
+/// become a locator, and every lookup resolves handle-relative
+/// through a Ruviform `RootedDir` capability on the store — a
 /// crafted identity cannot traverse out of the directory, name a
-/// device, or reach a non-regular file.
+/// device, or reach a non-regular file, and a leaf swapped between
+/// the store open and the leaf open resolves inside the capability
+/// or fails `EscapesRoot`/`NotRegularFile` instead of serving
+/// out-of-store bytes.
 pub struct LocalBlobDir {
     dir: PathBuf,
     pre_traverse_hook: Option<PreTraverseHook>,
 }
 
 impl LocalBlobDir {
-    /// A blob dir bound to `dir`.
+    /// A blob dir bound to `dir`. The store handle is acquired per
+    /// operation so a directory created after construction still
+    /// works — same lifecycle as the old canonicalize-per-call form.
     #[must_use]
     pub fn new(dir: impl AsRef<Path>) -> Self {
         Self {
@@ -246,6 +254,7 @@ impl LocalBlobDir {
 
     /// Installs the deterministic pre-traversal fault barrier used by
     /// containment regression tests. `None` restores normal behavior.
+    /// Op tags: `"stat"`/`"open"`. Not a stable contract.
     #[doc(hidden)]
     pub fn set_pre_traverse_hook(&mut self, hook: Option<PreTraverseHook>) {
         self.pre_traverse_hook = hook;
@@ -257,13 +266,11 @@ impl LocalBlobDir {
         }
     }
 
-    /// Resolves an object identity to an existing canonical file path
-    /// contained in the store, plus its length. Filename-safe strings
-    /// still cannot escape: the resolved path is canonicalized and
-    /// re-checked against the canonical store dir (defeating symlinked
-    /// blob files and symlinked store dirs), device names are refused,
-    /// and the target must be a regular file (FIFOs/devices rejected).
-    fn resolve(&self, object: &ObjectIdentity) -> Result<(PathBuf, u64), ProviderError> {
+    /// Validates an object identity into a single-component
+    /// [`RelativePath`]: filename-safe characters only, no DOS device
+    /// basenames (`CreateFile` would open the real device on Windows
+    /// regardless of directory prefix).
+    fn object_rel(object: &ObjectIdentity) -> Result<RelativePath, ProviderError> {
         let name = object.as_str();
         if name.is_empty()
             || !name
@@ -275,70 +282,76 @@ impl LocalBlobDir {
                 format!("object identity {name:?} is not filename-safe"),
             ));
         }
-        // DOS device basenames resolve to real devices on Windows
-        // regardless of extension — a crafted digest must never open one.
         if DOS_DEVICES.contains(&name.to_ascii_uppercase().as_str()) {
             return Err(ProviderError::new(
                 ProviderErrorKind::InvalidRequest,
                 format!("object identity {name:?} names a device"),
             ));
         }
-        let joined = self.dir.join(name);
-        let canonical = fs::canonicalize(&joined).map_err(|e| Self::io("resolve blob", &e))?;
-        let canonical_dir =
-            fs::canonicalize(&self.dir).map_err(|e| Self::io("resolve store", &e))?;
-        if !canonical.starts_with(&canonical_dir) {
-            return Err(ProviderError::new(
-                ProviderErrorKind::PermissionDenied,
-                format!("blob {name:?} escapes the store"),
-            ));
-        }
-        self.pre_traverse(&canonical, "stat");
-        let meta = fs::metadata(&canonical).map_err(|e| Self::io("stat blob", &e))?;
-        if !meta.is_file() {
-            return Err(ProviderError::new(
+        RelativePath::new(name).map_err(|e| {
+            ProviderError::new(
                 ProviderErrorKind::InvalidRequest,
-                format!("blob {name:?} is not a regular file"),
-            ));
-        }
-        Ok((canonical, meta.len()))
+                format!("object identity {name:?}: {e}"),
+            )
+        })
     }
 
-    fn io(op: &'static str, e: &std::io::Error) -> ProviderError {
-        match e.kind() {
-            std::io::ErrorKind::NotFound => {
-                ProviderError::new(ProviderErrorKind::NotFound, format!("{op}: {e}"))
-            }
-            std::io::ErrorKind::PermissionDenied => {
-                ProviderError::new(ProviderErrorKind::PermissionDenied, format!("{op}: {e}"))
-            }
-            _ => ProviderError::new(ProviderErrorKind::TransientIo, format!("{op}: {e}")),
-        }
+    /// Opens a rooted capability on the store directory for one
+    /// operation — the dir need not exist at construction, only at
+    /// use.
+    fn store(&self) -> Result<RootedDir, ProviderError> {
+        RootedDir::open_with(&self.dir, crate::local::rooted_options())
+            .map_err(|e| crate::local::rooted_error("open blob store", &e))
     }
 }
 
 impl ProjectBlobStore for LocalBlobDir {
     fn open(&self, object: &ObjectIdentity) -> Result<BlobObject, ProviderError> {
-        let (path, _pre_open_len) = self.resolve(object)?;
-        self.pre_traverse(&path, "open");
-        let file = File::open(&path).map_err(|e| Self::io("open blob", &e))?;
-        // Post-open re-check: a stat→open swap to a non-file must
-        // never be streamed (a blocking device read is a DoS).
-        let file_meta = file.metadata().map_err(|e| Self::io("stat blob", &e))?;
-        if !file_meta.is_file() {
+        let rel = Self::object_rel(object)?;
+        let store = self.store()?;
+        self.pre_traverse(&self.dir.join(rel.to_string()), "open");
+        let file = store
+            .open_regular(&rel, FollowMode::WithinRoot)
+            .map_err(|e| match e.kind() {
+                ruviform_io_file::FileErrorKind::NotRegularFile => ProviderError::new(
+                    ProviderErrorKind::InvalidRequest,
+                    format!("blob {:?} is not a regular file", object.as_str()),
+                ),
+                _ => crate::local::rooted_error("open blob", &e),
+            })?;
+        // The opened object's own probe carries the length — the same
+        // handle that supplies the reader supplies the facts.
+        let byte_len = file.info().byte_len.ok_or_else(|| {
+            ProviderError::new(
+                ProviderErrorKind::TransientIo,
+                format!("blob {:?} opened object reports no length", object.as_str()),
+            )
+        })?;
+        Ok(BlobObject {
+            reader: Box::new(file),
+            byte_len,
+        })
+    }
+
+    fn stat(&self, object: &ObjectIdentity) -> Result<u64, ProviderError> {
+        let rel = Self::object_rel(object)?;
+        let store = self.store()?;
+        self.pre_traverse(&self.dir.join(rel.to_string()), "stat");
+        let info = store
+            .metadata(&rel, FollowMode::WithinRoot)
+            .map_err(|e| crate::local::rooted_error("stat blob", &e))?;
+        if info.kind != NodeKind::File {
             return Err(ProviderError::new(
                 ProviderErrorKind::InvalidRequest,
                 format!("blob {:?} is not a regular file", object.as_str()),
             ));
         }
-        Ok(BlobObject {
-            reader: Box::new(file),
-            byte_len: file_meta.len(),
+        info.byte_len.ok_or_else(|| {
+            ProviderError::new(
+                ProviderErrorKind::TransientIo,
+                format!("blob {:?} reports no length", object.as_str()),
+            )
         })
-    }
-
-    fn stat(&self, object: &ObjectIdentity) -> Result<u64, ProviderError> {
-        Ok(self.resolve(object)?.1)
     }
 }
 

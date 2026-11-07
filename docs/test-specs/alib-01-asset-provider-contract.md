@@ -115,14 +115,21 @@ port であり、検証対象の代替ではない）。
   `IntegrityMismatch`。
 - search は `UnsupportedCapability`。0件 catalog は Complete 空。
 
-## Feature: Component-swap containment（N1, AC1, Refs #85）
+## Feature: Component-swap containment（N1, AC1, Refs #85 — GREEN 強制）
 
 `tests/containment_swap.rs` — `set_pre_traverse_hook`（`#[doc(hidden)]`
-fault barrier）が `File::open`/`fs::metadata`/`fs::read_dir` 直前の
-再 traverse 地点（op `"open"`/`"stat"`/`"read_dir"`）で leaf・
+fault barrier）が rooted 呼出（`metadata`/`open_regular`/`read_dir`）
+直前の地点（op `"stat"`/`"open"`/`"read_dir"`）で leaf・
 intermediate component を rename+symlink swap し、**root 外 object
 の bytes/facts/entries が一切返らない**ことを確定的に検証する
-（thread/timing 非依存）。
+（thread/timing 非依存）。修復後の実装は Ruviform
+`ruviform-io-file::rooted` capability 経由の handle-relative
+lookup を行い、capability 配下の path 再 traverse は存在しない —
+capability 取得（`LocalFolderProvider::new`・`open_scope`・
+`LocalBlobDir` per-op store open）のみが path-based で、backend が
+handle 由来 canonical path を持たない場合の残存 race は RF 文書化の
+documented residual（impl record 記録）。swap は `EscapesRoot`/
+`NotFound` で失敗するか、取得済み handle の authority で透過される。
 
 - `LocalBlobDir`: leaf swap → `stat`/`open` は拒否。
 - `LocalFolderProvider`: intermediate `sub/` swap → `stat`/
@@ -130,12 +137,11 @@ intermediate component を rename+symlink swap し、**root 外 object
   `open_pinned` は EOF の IntegrityMismatch 前に byte が caller へ
   届かないこと（digest 検証は containment の代替ではない）。
 - `pre_traverse_hook_fires_at_tagged_points`: seam の配線確認
-  （非 ignore、GREEN）。
+  （非 ignore、GREEN）。期待 op 列は rooted seam に更新
+  （blobs `["stat","open"]`、browse `["stat","read_dir","stat"]`）。
 
-**現状（2026-11-07）**: 7 件は現実装で失敗する RED 証拠として
-`#[ignore]`+理由付きで保持。RF rooted-read 公開契約
-（[ruviform#398](https://github.com/scarecrow173/ruviform/issues/398)）
-で修復後に ignore を外し green を確認する（それまでは成功扱いしない）。
+**現状（2026-11-07 修復済み）**: 7 件は `#[ignore]` 解除・**GREEN
+強制**（RF401/ruviform#398 main `5d48298b` で修復）。
 
 ## Feature: Registry (AC3)
 
