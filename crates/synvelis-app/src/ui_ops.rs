@@ -9,7 +9,7 @@
 //! (single-threaded app) drained by the webview host loop and by
 //! headless drivers identically.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -81,9 +81,12 @@ pub struct UiOpsState {
     pub(crate) surfaces: HashSet<(String, String)>,
     /// Manually driven viz ports by source id.
     pub(crate) manual_ports: HashMap<String, ManualPort>,
-    /// UI clock (ms) — injected by the host tick / headless driver via
-    /// [`SynvelisApp::set_ui_now`]; deterministic, never wall-clock.
-    pub(crate) ui_now_ms: u64,
+    /// UI clock (ms) — shared cell so the driver-side shell can
+    /// advance it per `Tick` while the app is sealed inside
+    /// `UiRuntime`; deterministic, never wall-clock. [`SynvelisApp::
+    /// set_ui_now`] and headless drivers write the same cell, and
+    /// `ui_pump` re-syncs the gateway clock from it.
+    pub(crate) clock: Rc<Cell<u64>>,
     /// Outbox drop counter (overflow evidence, reported in app info).
     pub(crate) ui_drops: u64,
     /// Notify sequence shared with `app_state_notify` — owned by app.
@@ -103,7 +106,7 @@ impl UiOpsState {
             frame_seq: HashMap::new(),
             surfaces: HashSet::new(),
             manual_ports: HashMap::new(),
-            ui_now_ms: 0,
+            clock: Rc::new(Cell::new(0)),
             ui_drops: 0,
             notify_seq: 0,
         }
@@ -180,10 +183,19 @@ impl SynvelisApp {
         self.ui.ui_drops
     }
 
+    /// Shared UI-clock cell — handed to the native shell before the
+    /// service moves into `UiRuntime`; the shell advances it per
+    /// driver `Tick` and `ui_pump` applies it to the gateways.
+    #[must_use]
+    pub fn ui_clock(&self) -> Rc<Cell<u64>> {
+        Rc::clone(&self.ui.clock)
+    }
+
     /// Injects the UI clock (ms). Called by the webview host each tick
     /// and by headless drivers for deterministic timeout/stale tests.
+    /// Writes the shared cell [`Self::ui_clock`] exposes.
     pub fn set_ui_now(&mut self, now_ms: u64) {
-        self.ui.ui_now_ms = now_ms;
+        self.ui.clock.set(now_ms);
         self.ui.controls.set_clock(now_ms);
     }
 
@@ -221,7 +233,11 @@ impl SynvelisApp {
     /// frames. Called by every UI op at its tail — the outbox always
     /// carries the full consequence of the op.
     pub fn ui_pump(&mut self) {
-        let now = self.ui.ui_now_ms;
+        let now = self.ui.clock.get();
+        // The shared cell is the single clock source — the shell may
+        // have advanced it since the last op, so re-sync the gateway
+        // here rather than trusting the `set_ui_now` writer path.
+        self.ui.controls.set_clock(now);
         // `pump` would consume the wire itself — drain first so the
         // frontend sees every receipt, then `deliver` each back into
         // the owning binding (the same work `pump` performs).

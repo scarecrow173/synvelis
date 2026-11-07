@@ -23,8 +23,10 @@ const HEADLESS_CRATES = [
 ];
 
 // Curated exact package names of GUI/WebView/GPU/windowing framework
-// crates — plus `ruviform-ui-webview` itself: the dependency-free
-// `ruviform-ui` port contract is allowed, the wry/tao adapter is not.
+// crates — plus the ruviform driver adapters themselves: the
+// dependency-free `ruviform-ui` port contract is allowed, the
+// wry/tao and GPUI adapters are not (SV-GPUI-01: `gpui` enters only
+// through `synvelis-app`'s `native` feature, like `webview` before it).
 // OS API crates (`windows-sys`, `windows-targets`, `winapi`, `libc`, …)
 // are deliberately NOT listed — they are not GUI frameworks.
 const EXACT = new Set([
@@ -35,10 +37,12 @@ const EXACT = new Set([
   "fltk",
   "gdk",
   "gdk4",
+  "gpui",
   "gtk",
   "gtk4",
   "iced",
   "naga",
+  "ruviform-ui-gpui",
   "ruviform-ui-webview",
   "slint",
   "tao",
@@ -55,6 +59,7 @@ const EXACT = new Set([
 const PREFIXES = [
   "egui-",
   "gdk-",
+  "gpui-",
   "gtk-",
   "iced-",
   "iced_",
