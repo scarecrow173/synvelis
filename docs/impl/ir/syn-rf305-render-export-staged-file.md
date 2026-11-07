@@ -39,10 +39,15 @@ owners: ["scarecrow173"]
   `frames_emitted`/`tail_evidence` 取得後に `ExportReceipt.render`
   へ move。
 - `verify.rs`: `reopen_check` を `&mut SealedFile` 型へ。
-  `open_readback` → 全 byte を `Vec` へ複写 → `Cursor` →
-  symphonia demux → `SourceReader` canonical decode
-  （demuxer の `MediaSource: 'static` 制約と seal 後差替え非観測の
-  双方を満たす）。rate/channel/frame 数/PCM 検証は従来どおり。
+  `open_readback` → **bounded channel proxy**（`ReadProxy` +
+  `serve_readback`）→ symphonia demux → `SourceReader` canonical
+  decode。`MediaSource: 'static` と borrowed `!Send` `ReadbackFile`
+  の境界は scoped worker + request/response channel で橋渡しし、
+  staged bytes を全量 RAM に保持しない（peak ≈ proxy chunk +
+  decoded planes、移行前 `File` source と同等）。全量 `Vec` 複写を
+  行った初期移行リビジョンの追加 encoded-RAM 退行は本修正で解消
+  （root P1 finding への対応）。rate/channel/frame 数/PCM 検証は
+  従来どおり。
 - `l2_e2e.rs`: `BoundedSink`/`FailFlushSink` を `&'a mut StagedFile`
   借用型へ。publish 失敗注入は destination directory で実 OS
   adapter の `PublishFailure`（`NotPublished`）を発生させ、
@@ -53,7 +58,7 @@ owners: ["scarecrow173"]
   忠実写像、`SealedFile::publish` 委譲）。
 - `Cargo.toml`（render dependencies / player dev-dependencies）に
   `ruviform-io-file.workspace = true`。`Cargo.lock` 全 ruviform
-  crate を `7ead144` へ更新。`ui/vendor` 再同期。
+  crate を `d68b14d` へ更新。`ui/vendor` 再同期。
 
 ## 不変条件の対応
 
@@ -71,6 +76,47 @@ owners: ["scarecrow173"]
 - `Cancelled`/`Failed`/`Partial`/`Completed` と
   `NotPublished`/`Published`/`Indeterminate` は混同なし
   （`ExportOutcome`/`PublishEffect` が分類を担う）。
+
+## 追加修正 — verify readback の encoded 全量 RAM 退行（root P1）
+
+初期移行リビジョンの `verify.rs` は `read_to_end → Vec<u8> →
+Cursor` で demux しており、decode planes（従来どおり O(output)）に
+加え encoded bytes 全量も同時保持する新ピークメモリ退行があった
+（例: 48k stereo f32・2h で旧 ~2.575GiB → 新 ~5.15GiB。コード評価、
+OOM 未実測）。root の独立 Validator も CONFIRMED/P1。
+
+**所有境界の診断**: `open_demuxer(impl MediaSource + 'static)`
+（`MediaSource = Read + Seek + Send`、symphonia `MediaSourceStream`
+も 'static 所有）に対し `SealedFile::open_readback` は借用・
+`!Send` な `ReadbackFile<'a>`（handle 非露出・`try_clone` なし —
+RF の型状態設計上の意図的制約）しか貸さない。借用を保持する限り
+`'static` 所有 source は作れず、全量 copy が強制される構造。
+
+**実装（SV 所有・std のみ・新依存なし）**: `std::thread::scope` で
+scoped worker 上で `open_demuxer(ReadProxy)` + `SourceReader`
+decode を駆動し、呼出し thread 側が `serve_readback` で
+`&mut ReadbackFile` の positioned read を配給する request/response
+channel proxy。`ReadProxy` は channel endpoint のみ所有するため
+`'static + Send`、任意 seek（`SeekFrom::End` は `Len` 要求で解決）
+を正直に実装し、peak は O(proxy chunk ≤1MiB × in-flight 2) +
+decoded planes に縮退 — 移行前 `File` source と同等 profile。
+`expect_pcm` は `&dyn Fn+Send`（非 Sync）のため worker へ渡せず、
+planes を join で返し呼出し thread で実行。worker panic は
+`MediaError::Io` 化して失敗経路を保持。raw handle 漏れ・unsafe
+lifetime 延長・temp path reopen・独自 WAV parser・受入制限の追加は
+一切行っていない（channel は実 readback 経由、decode は symphonia
+のまま）。
+
+**修正後実測（`d68b14d`・Windows）**: `fmt-check`/`check`/`lint`
+pass、`mise run test` 87 binaries 0 fail、`test-rt` 0 fail、
+`check-headless-deps` pass、`check-ruviform-rev` pass、
+`l2_e2e` 17/17・`x_e2e` 5/5（`l2_01` reopen + `md_b` PCM-exact が
+proxy 経路を実測）。
+
+**残存 note**: decoded planes の O(output) 保持は移行前からの
+`expect_pcm(&[Vec<f32>])` 契約由来で本修正の対象外（増分のみ
+解消）。`expect_pcm` を増分 callback 化する選択肢は test 契約変更を
+伴うため別途検討事項。
 
 ## Verification（Windows・実測・候補 SHA `d68b14d` / `7ead144`）
 
