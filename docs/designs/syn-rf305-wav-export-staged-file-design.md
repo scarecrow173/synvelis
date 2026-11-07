@@ -120,14 +120,26 @@ driver が強制する順序は `make_muxer(&mut staged)` → drive →
 `reopen_check(sealed: &mut SealedFile, facts, expect_pcm)`:
 
 1. `sealed.open_readback()` → `ReadbackFile<'_>`（`Read+Seek`、
-   sealed への `&mut` 借用）。
-2. `read_to_end` で全 byte を `Vec<u8>` へ複写 — demuxer は
-   `MediaSource: Read+Seek+Send+'static` を要求し、借用
-   `ReadbackFile` は `'static` ではないため。独立 buffer 上の
-   decode は「seal 後の差替えを観測しない」ことも保証する。
-3. `Cursor::new(bytes)` → `ruviform_io_symphonia::open_demuxer` →
-   `SourceReader::open(DecodeMode::Canonical)` → 従来どおり
-   stream 数・rate・channel 数・frame 数・`expect_pcm` を検証。
+   sealed への `&mut` 借用・`!Send`）。
+2. `ruviform_io_symphonia::with_borrowed_demuxer(&mut readback, f)`
+   — RF407（ruviform #400）の bounded bridge。呼出し thread が
+   serve loop で `&mut readback` の `read`/`seek` を配給し、
+   worker thread 上の channel-backed proxy（`MediaSource` 適合）
+   経由で probe 済み `&mut dyn Demuxer` を callback `f` へ貸す。
+   借用は scope 内に閉じ、in-flight encoded byte は方向あたり
+   ≤64KiB に bounded — 全量 `Vec` 複写・独自 WAV parser・
+   decoder pump 複製・path reopen は使わない。
+3. callback 内で `SourceReader::open(Box::new(demuxer), stream id,
+   DecodeMode::Canonical)`（ruviform-media-io の
+   `impl Demuxer for &mut D` reborrow port で `Box<dyn Demuxer + '_>`
+   を構成）→ 従来どおり stream 数・rate・channel 数・frame 数を
+   検証し、decoded planes + facts を `Send` な戻り値で呼出し側へ
+   返す。`expect_pcm`（`&dyn Fn + Send`、非 Sync 参照）は
+   callback に capture せず、呼出し thread で planes と比較する。
+4. callback は caller-thread の仕事を同期 wait しない（bridge が
+   caller を serve に占有させる設計制約）。worker panic は
+   bridge の `resume_unwind` を `catch_unwind` で受け、従来どおり
+   typed `MediaError`（`ErrorKind::Io`）へ写像する。
 
 失敗は `RenderError::Verify` → `ExportStage::Verify` →
 `ExportError::Render` として publish を起こさない（driver が
@@ -177,11 +189,12 @@ Option<Box<CleanupFailure>> }` は `ExportError::Render` で全体を
 - `synvelis-render` dependencies と `synvelis-player`
   dev-dependencies に `ruviform-io-file.workspace = true`。
 - manifest は既定ブランチ追従の git 依存のまま、`Cargo.lock` の
-  全 ruviform crate を候補 SHA `d68b14d` へ更新（Consumer 検証
-  tuple）。`sync-ruviform-ui` で vendor 再同期し
-  `check-ruviform-rev` が lock 値を証明。恒久 pin・vendor コピー
-  は置かない — 解除条件は RF391 が main へ merge され通常の
-  `cargo update` で新 main HEAD へ再解決される時点。
+  全 ruviform crate を combined 候補 SHA `27698cb1`（RF391 +
+  RF407 merge）へ更新（Consumer 検証 tuple）。`sync-ruviform-ui`
+  で vendor 再同期し `check-ruviform-rev` が lock 値を証明。
+  恒久 pin・vendor コピーは置かない — 解除条件は RF391/RF407 が
+  main へ merge され通常の `cargo update` で新 main HEAD へ
+  再解決される時点。
 
 ## 3. 失敗境界の整理
 

@@ -15,12 +15,16 @@ owners: ["scarecrow173"]
   （関連: Closed https://github.com/scarecrow173/synvelis/issues/25）
 - Upstream: https://github.com/scarecrow173/ruviform/issues/305 /
   https://github.com/scarecrow173/ruviform/pull/391
-- Branch: `feature/render-staged-file-rf305`
-- Ruviform 解決 SHA: `7ead1441aaf31aac43f9cc454aaa30b03c4ce7f1`
-  （refreshed PR391 候補 = RF main `e8adcc0` + staged-file cutover。
+- Branch: `scarecrow173/sv-rf305-export`（PR181。origin/main
+  `2c0711e` merge 済み）
+- Ruviform 解決 SHA: `27698cb108c672c5758e724d8623663983db1224`
+  （RF391 最終 combined 候補 = RF main `5d48298b` + staged-file
+  cutover + RF407 bounded bridge `4c675193` + docs 追記。
+  `3473a964 → 27698cb1` は docs/index のみでコード差分ゼロを
+  本 worker が `git diff --stat` で独立確認済み。
   `Cargo.lock` 内の全 ruviform crate が一致・manifest は既定
   ブランチ追従の git 依存のまま・恒久 pin なし。
-  解除条件: RF391 が main へ merge され `cargo update` で新
+  解除条件: RF391/RF407 が main へ merge され `cargo update` で新
   main HEAD へ再解決される時点）
 
 ## 実施内容
@@ -39,15 +43,21 @@ owners: ["scarecrow173"]
   `frames_emitted`/`tail_evidence` 取得後に `ExportReceipt.render`
   へ move。
 - `verify.rs`: `reopen_check` を `&mut SealedFile` 型へ。
-  `open_readback` → **bounded channel proxy**（`ReadProxy` +
-  `serve_readback`）→ symphonia demux → `SourceReader` canonical
-  decode。`MediaSource: 'static` と borrowed `!Send` `ReadbackFile`
-  の境界は scoped worker + request/response channel で橋渡しし、
-  staged bytes を全量 RAM に保持しない（peak ≈ proxy chunk +
-  decoded planes、移行前 `File` source と同等）。全量 `Vec` 複写を
-  行った初期移行リビジョンの追加 encoded-RAM 退行は本修正で解消
-  （root P1 finding への対応）。rate/channel/frame 数/PCM 検証は
-  従来どおり。
+  `open_readback` → `ruviform_io_symphonia::with_borrowed_demuxer`
+  （RF407/ruviform #400 の正本 bounded bridge）→ callback 内で
+  `SourceReader::open(Box::new(&mut dyn reborrow), stream id,
+  DecodeMode::Canonical)` の canonical decode。`MediaSource: 'static`
+  と borrowed `!Send` `ReadbackFile` の境界は RF 側 bridge が担い、
+  SV 独自の `ReadProxy`/`serve_readback`/channel/scoped-thread は
+  完全撤去した。in-flight encoded byte は bridge 契約どおり方向
+  あたり ≤64KiB に bounded で、staged bytes を全量 RAM に保持しない
+  （peak ≈ bridge chunk + decoded planes、移行前 `File` source と
+  同等）。全量 `Vec` 複写を行った初期移行リビジョンの追加
+  encoded-RAM 退行は構造的に解消（root P1 finding への対応）。
+  `expect_pcm` は callback に capture せず、`DecodedPlanes` を
+  `Send` な戻り値で呼出し thread 側比較。worker panic は
+  `catch_unwind` で typed `MediaError` 化し分類を保持。
+  rate/channel/frame 数/PCM 検証は従来どおり。
 - `l2_e2e.rs`: `BoundedSink`/`FailFlushSink` を `&'a mut StagedFile`
   借用型へ。publish 失敗注入は destination directory で実 OS
   adapter の `PublishFailure`（`NotPublished`）を発生させ、
@@ -58,7 +68,7 @@ owners: ["scarecrow173"]
   忠実写像、`SealedFile::publish` 委譲）。
 - `Cargo.toml`（render dependencies / player dev-dependencies）に
   `ruviform-io-file.workspace = true`。`Cargo.lock` 全 ruviform
-  crate を `d68b14d` へ更新。`ui/vendor` 再同期。
+  crate を `27698cb1` へ更新。`ui/vendor` 再同期。
 
 ## 不変条件の対応
 
@@ -92,63 +102,76 @@ OOM 未実測）。root の独立 Validator も CONFIRMED/P1。
 RF の型状態設計上の意図的制約）しか貸さない。借用を保持する限り
 `'static` 所有 source は作れず、全量 copy が強制される構造。
 
-**実装（SV 所有・std のみ・新依存なし）**: `std::thread::scope` で
-scoped worker 上で `open_demuxer(ReadProxy)` + `SourceReader`
-decode を駆動し、呼出し thread 側が `serve_readback` で
-`&mut ReadbackFile` の positioned read を配給する request/response
-channel proxy。`ReadProxy` は channel endpoint のみ所有するため
-`'static + Send`、任意 seek（`SeekFrom::End` は `Len` 要求で解決）
-を正直に実装し、peak は O(proxy chunk ≤1MiB × in-flight 2) +
-decoded planes に縮退 — 移行前 `File` source と同等 profile。
+**実装の遷移**: 当初は SV 側の一時的 workaround として
+`std::thread::scope` + request/response channel proxy（`ReadProxy`/
+`serve_readback`）で同構造を実装していたが、汎用 Read+Seek →
+`'static` decoder 接続の正本は Ruviform が担う方針となり、RF407
+（ruviform PR407・`4c675193`）が `with_borrowed_demuxer` と
+`impl Demuxer for &mut D` / `SourceReader<'a>` を提供。最終 head
+では SV 側 proxy を完全撤去し、bridge を消費する形へ置換した。
 `expect_pcm` は `&dyn Fn+Send`（非 Sync）のため worker へ渡せず、
-planes を join で返し呼出し thread で実行。worker panic は
-`MediaError::Io` 化して失敗経路を保持。raw handle 漏れ・unsafe
-lifetime 延長・temp path reopen・独自 WAV parser・受入制限の追加は
-一切行っていない（channel は実 readback 経由、decode は symphonia
-のまま）。
+`DecodedPlanes` を `R: Send` で返して呼出し thread で実行する
+所有境界は同一。worker panic は bridge の `resume_unwind` を
+`catch_unwind` で受け従来どおり `MediaError::Io` 化。
+raw handle 漏れ・unsafe lifetime 延長・temp path reopen・独自
+WAV parser・受入制限の追加は一切行っていない。
 
-**修正後実測（`d68b14d`・Windows）**: `fmt-check`/`check`/`lint`
-pass、`mise run test` 87 binaries 0 fail、`test-rt` 0 fail、
-`check-headless-deps` pass、`check-ruviform-rev` pass、
+**RF407 `SourceReader<'a>` 追随**: named 位置3箇所へ lifetime 注釈
+（`synvelis-render/src/prepare.rs` `OpenedSource.reader` フィールド
+`SourceReader<'static>`、`decode_window` 引数 `&mut SourceReader<'_>`、
+`synvelis-player/src/import.rs` `demuxer_container_label` 引数
+`&SourceReader<'_>`）。式位置 `SourceReader::open`
+（`prepare.rs`/`import.rs`/`resolver.rs`/`verify.rs`）は型推論で
+無変更。他 named 使用は workspace 走査の結果ゼロ。
+
+**修正後実測（`27698cb1`・Windows・最終 head）**: `fmt-check`/
+`check`/`lint` pass、`mise run test` 89 binaries 0 fail、
+`test-rt` 0 fail、`check-headless-deps` pass（9 crates）、
+`check-ruviform-rev` pass（`27698cb1`・26 sources・REV match）、
+`check-app-native`/`lint-app-native` pass、
 `l2_e2e` 17/17・`x_e2e` 5/5（`l2_01` reopen + `md_b` PCM-exact が
-proxy 経路を実測）。
+bridge 経路を実測）。`test-msrv` は `cargo-platform@0.3.3`
+（rustc 1.91 要求）により失敗 — 同 package は origin/main
+`2c0711e`（SV175）が lockfile へ持ち込んだもので main 既存破壊、
+本変更非起因として coordinator へ報告済み。
 
 **残存 note**: decoded planes の O(output) 保持は移行前からの
 `expect_pcm(&[Vec<f32>])` 契約由来で本修正の対象外（増分のみ
 解消）。`expect_pcm` を増分 callback 化する選択肢は test 契約変更を
 伴うため別途検討事項。
 
-## Verification（Windows・実測・候補 SHA `d68b14d` / `7ead144`）
+## Verification（Windows・実測・最終 head・候補 SHA `27698cb1`）
 
 **候補 SHA**: 最終 candidate は
-`d68b14d082128b66ec1dd1328f82e8251dfba694`
-（`feature/media-io-staged-file-cutover` head）。`7ead144 → d68b14d`
-の差分は `git diff --stat` で **docs のみ2ファイル**
-（`docs/impl/ir/issue-305-…` +25, `docs/tasks/issue-305-t1-…` ±1）
-・コード差分ゼロを本 worker が独立確認済み。全 compile/test 証拠は
-コード同一の `7ead144` で取得したものを含み、`d68b14d` で
-`check` / `check-ruviform-rev` / export 3 test binary を再実測した。
+`27698cb108c672c5758e724d8623663983db1224`
+（`feature/media-io-staged-file-cutover` head = RF main `5d48298b`
++ RF391 staged-file cutover + RF407 `4c675193` + docs 追記）。
+`3473a964 → 27698cb1` の差分は `git diff --stat` で **docs/index
+のみ7ファイル**・コード差分ゼロを本 worker が独立確認済み。
+全 compile/test 証拠は `27698cb1` の lockfile で再実測した。
 
 | コマンド | 実内容 | 結果 |
 | --- | --- | --- |
 | `mise run fmt-check` | `cargo fmt --all -- --check` | pass |
 | `mise run check` | `cargo check --workspace --all-targets` | pass |
 | `mise run lint` | `cargo clippy --workspace --all-targets -- -D warnings` | pass |
-| `mise run test` | `cargo test --workspace --locked` | pass（87 test binary・0 fail） |
+| `mise run test` | `cargo test --workspace --locked` | pass（89 test binary・0 fail） |
 | `mise run test-rt` | RT lane test | pass（0 fail） |
 | `mise run check-headless-deps` | headless crate GUI dep 検査 | pass（9 crates, no GUI deps） |
-| `mise run check-ruviform-rev` | lockfile SHA 整合 | pass（`d68b14d…`・24 sources・REV match） |
-| `mise run test-msrv` | rust 1.89 `cargo test --workspace --locked` | pass（87 test binary・0 fail） |
-| `mise run check`（`d68b14d` 再実測） | `cargo check --workspace --all-targets` | pass |
-| `cargo test --locked`（`d68b14d` 再実測） | `l2_e2e` / `x_e2e` / `pc_b` | pass（17/17・5/5・8/8） |
+| `mise run check-ruviform-rev` | lockfile SHA 整合 | pass（`27698cb1`・26 sources・REV match） |
+| `mise run check-app-native` | `cargo check -p synvelis-app --features native --all-targets` | pass |
+| `mise run lint-app-native` | `cargo clippy -p synvelis-app --all-targets --features native -- -D warnings` | pass |
+| `mise run test-msrv` | rust 1.89 `cargo test --workspace --locked` | **fail — main 既存破壊**（`cargo-platform@0.3.3` が rustc 1.91 要求。SV175 `2c0711e` が lockfile へ持ち込んだ `synvelis-app` dev-dep → `ruviform-ui-test` → `cargo_metadata` 由来で本変更非起因。origin/main の lockfile にも同一 package が存在） |
 
-- `l2_e2e` 17/17・`x_e2e` 5/5・`pc_b` 8/8 全 pass（`d68b14d` 実測）。
+- `l2_e2e` 17/17・`x_e2e` 5/5・`pc_b` 7/7 全 pass（`27698cb1` 実測）。
   `l2_05_fault_injection_partial_never_completed` は実
   `PublishFailure` 注入（destination directory）で
   `ExportStage::Publish` + `effect()==NotPublished` + destination
   保全 + temp 残滓なしを pin。
 - 旧 API 検索: `crates/` 配下に `StagedOutput`・旧
-  `PublishOptions`・`open_boxed_muxer` 参照 0 件。
+  `PublishOptions`・`open_boxed_muxer` 参照 0 件。`verify.rs` に
+  `read_to_end`/`Vec<u8>`/`Cursor`/`unsafe`/raw handle/`mpsc`/
+  scoped-thread/proxy 参照 0 件（app 独自接続の完全撤去）。
 - ドキュメント監査（`doc_maintenance.js plan --type all`）:
   RF305 チェーン 6 文書 + l2 spec `derived-by` 修正後、
   RF305/l2 関連 finding 0 件（残 247 件は本変更と無関係の
@@ -157,6 +180,8 @@ proxy 経路を実測）。
   下記レビュー節を参照）。
 
 ## Independent Review
+
+### 第1ラウンド（移行 head `5fa1ef9`・候補 `d68b14d`）
 
 review-protocol 完走（A 協調 / B 敵対 → Validator → Judge、
 すべて独立 subagent、相互の finding 非共有で並行）。
@@ -190,6 +215,55 @@ review-protocol 完走（A 協調 / B 敵対 → Validator → Judge、
   手組 staged publish, P2・範囲外）は follow-up issue 候補。
   残りは P3 の report-only 観察。fix 義務なし。
 
+### 第2ラウンド（最終 head・combined 候補 `27698cb1` + origin/main
+`2c0711e` merge + proxy 撤去 → RF407 bridge 消費）
+
+review-protocol 完走（A 協調 / B 敵対 → Validator → Judge、
+すべて独立 subagent。upstream 証拠は pinned cargo checkout
+`27698cb` の file:line で検証）。
+
+- **Reviewer A（cooperative）: ACCEPT WITH NON-BLOCKING NOTES —
+  P0/P1 ゼロ**。8 不変条件を file:line で全検証:
+  encoded 全量 RAM 複写なし（bridge ≤64KiB/方向・`sync_channel(1)`）
+  ・`expect_pcm` は `&dyn Fn+Send`（非 Sync）で callback へ compile
+  不可・Copy facts のみ capture・caller thread 同期 wait なし・
+  panic → `resume_unwind` → `catch_unwind` → typed `MediaError::Io`
+  → `ExportStage::Verify`・`Box<dyn Demuxer + '_>` reborrow は
+  callback scope 内（escape 不可・upstream compile_fail doctest が
+  pin）・driver が finalize→drop→seal→verify→publish 順序を型強制・
+  lifetime 注釈は指定3箇所のみで完全・manifest は既定ブランチ git
+  依存で恒久 pin なし・`l2_01`/`md_b`/fault-injection 全て default
+  verify 経由で bridge 実測。N1（panic 注入 test なし）/N2（pc_b
+  自体は verify 非経路、coverage は l2_e2e）/N3（vendor REV は
+  gitignored 生成物）/N4（F: 旧 checkout は情報）は全て P3。
+- **Reviewer B（adversarial）: ACCEPT WITH NOTES — P0/P1 ゼロ**。
+  11 attack-surface 検証 clean: panic mapping 拡大は fail-safe
+  （serve 側 panic も同型 `MediaError` で temp 破棄・publish 不可）、
+  `AssertUnwindSafe` sound（catch 後 `readback`/`sealed` 不参照）、
+  deadlock/liveness clean、メモリ境界主張は正直（encoded のみ
+  bounded・decoded planes は既存 `expect_pcm` 契約由来 O(output)）、
+  error kind 維持、seek 意味論は uncached で改善側、`!Send` 検証、
+  reborrow 非 escape、全 export test が default verify 経由で bridge
+  非 bypass、manifest clean。F1 panic msg の serve-side 誤帰属
+  （P3 cosmetic、分類不変）/F3 旧候補 SHA・byte-copy 記述残存
+  （P3・全て修正済み）/F4 `ErrorKind::Io` panic 分類は既存挙動
+  （観察）。F2（IR の `md_b` bridge 主張の誤同定）は Validator が
+  却下。
+- **Validator: 6/6 adjudicated — P0/P1 なし**。F2 は
+  `md_b_comp_export_pcm_exact`（`l2_e2e.rs:1648`）が `expect_pcm` +
+  default verify → bridge を実測することを確認し B の誤同定として
+  REJECTED（player `tests/md_b.rs` と混同）。F1/N1 を CONFIRMED
+  （P3）。F3 修正済みを確認。verify.rs sanity 4点（
+  `AssertUnwindSafe` 健全・Copy capture・reborrow 非 escape・
+  callback 内 caller wait なし）全 CONFIRMED。lockfile SHA は
+  親側 `check-ruviform-rev` 実測で担保。
+- **Judge: ACCEPT — P0/P1/P2 ゼロ・merge-eligible・条件なし**。
+  3 高リスク主張を自ら spot-check 再検証（panic mapping +
+  `AssertUnwindSafe` soundness、reborrow containment + 3 注釈、
+  F2 却下の妥当性）。`test-msrv` 失敗は main 既存破壊として
+  non-blocking。残る P3（F1 メッセージ表現・`d68b14d` は歴史的
+  記録として残置）は follow-up 任意、fix 義務なし。
+
 ## NotRun / Unsupported
 
 - `PublishEffect::Indeterminate` の Consumer 側決定的注入:
@@ -201,5 +275,9 @@ review-protocol 完走（A 協調 / B 敵対 → Validator → Judge、
   Windows 実測済み）。実電源断・クラッシュ中回復は RF adapter
   契約。
 - GUI/Native Theme/Asset Provider/RF398: 所有範囲外・未変更。
-- RF391 本 merge 後の main HEAD 再解決: RF 側 merge 待ちの
-  coordinator 所有ゲート。
+- `test-msrv`: `cargo-platform@0.3.3`（rustc 1.91 要求）が
+  `synvelis-app` dev-dep → `ruviform-ui-test` → `cargo_metadata`
+  経由で SV175 `2c0711e` 以降の lockfile に存在 — **main 既存破壊**
+  で本変更非起因。修正は SV175 所有範囲（依存 pin または代替）。
+- RF391/RF407 本 merge 後の main HEAD 再解決・両 Consumer exact
+  tuple 判定・候補 lock 解除: coordinator 所有ゲート。

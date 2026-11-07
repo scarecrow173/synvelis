@@ -53,8 +53,9 @@ relations:
   `verify(&mut SealedFile)`・`SealedFile::publish`・
   `PublishMode`/`Durability::FileSync` 写像・非 Clone
   `RenderReceipt` 対応。
-- `verify.rs`: `reopen_check` を `open_readback` → byte 複写 →
-  `Cursor` 独立 demux/decode へ。
+- `verify.rs`: `reopen_check` を `open_readback` →
+  `ruviform_io_symphonia::with_borrowed_demuxer`（RF407 bounded
+  bridge）→ callback 内 `SourceReader` canonical decode へ。
 - `l2_e2e.rs`: `BoundedSink`/`FailFlushSink` を `&mut StagedFile`
   借用型へ。publish 失敗は destination directory による実
   `PublishFailure`（`NotPublished`）注入へ。
