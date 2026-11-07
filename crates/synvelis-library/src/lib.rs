@@ -51,6 +51,8 @@ pub use observation::{
     AssetKind, AssetObservation, AssetStat, Availability, EntryFacts, InferenceMethod, MediaFacts,
     ObservationOrigin, ObservedAt, ProvenanceRecord, StaleReason, UnavailableReason,
 };
+#[doc(hidden)]
+pub use project::PreTraverseHook;
 pub use project::{
     BlobObject, LocalBlobDir, ProjectAssetRecord, ProjectAssetsProvider, ProjectBlobStore,
     ProjectCatalog, ProjectCatalogSnapshot, ProjectSourceRef,

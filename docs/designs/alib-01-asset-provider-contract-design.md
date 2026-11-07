@@ -4,7 +4,7 @@ type: "design"
 status: "approved"
 title: "ALIB-01 Design — Asset Provider 契約・Local/Project 基準 Provider"
 created: "2026-11-07"
-updated: "2026-11-07"
+updated: "2026-11-07 (N1 注記追補)"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -178,6 +178,10 @@ fingerprint = scope/sort/filter/principal を sha256 した hex 短縮。
   resolve は join→`canonicalize`→canonical root 配下照合。
   canonicalize 不可（missing/symlink切れ）は `NotFound`。
   root 外に出るものは `PermissionDenied`(traversal blocked)。
+  **注記（2026-11-07, N1）**: この照合は check 時点の path 真実のみを
+  証明し、後続 `File::open`/`metadata`/`read_dir` の traverse 時点を
+  証明しない（component-swap TOCTOU、下記「FS traversal
+  containment」節）。
 - browse: iterative DFS。各 dir の `read_dir` を `file_name`→
   entry kind で安定 sort。entry = Container(dir/symlink-dir)/
   Asset(file/symlink-file)。symlink は `symlink_metadata` で検出し
@@ -218,9 +222,11 @@ fingerprint = scope/sort/filter/principal を sha256 した hex 短縮。
 - `ProjectBlobStore` port: `open(identity)->(Read+Send,size)`/
   `stat(identity)->BlobStat`。`LocalBlobDir` は `<dir>/<digest>` を
   filename-safe 検証（`/`・`\\`・`..`・非 `[0-9a-f]` 拒否）の上で
-  open。app は `media_root/blobs` を渡し、path 規約は本 crate に
-  複製しない。blob missing は `availability`=MissingMedia、open は
-  `NotFound`。
+  canonicalize+store 配下照合して open。app は `media_root/blobs`
+  を渡し、path 規約は本 crate に複製しない。blob missing は
+  `availability`=MissingMedia、open は `NotFound`。
+  **注記（N1）**: leaf swap による traverse 時点の escape は上記
+  「FS traversal containment」節と同じ残存を持つ。
 - stat: asset の digest・source states・import provenance を
   `Observed`、byte_len は blob fstat（missing→Unknown{reason}
   + Availability::Missing）。
@@ -261,6 +267,35 @@ IntegrityMismatch→Never、Cancelled→Never、CursorInvalid→
 AfterUserRePin? いや cursor 再取得なので `After` ではなく Never +
 caller が再 browse → `Never`）。
 
+## FS traversal containment（N1, Refs #85）
+
+`resolve`(canonicalize+root 配下照合)→ `File::open`/`fs::metadata`/
+`fs::read_dir` の 2 段構成は T0（check）と T1（traverse）に分かれ、
+T0→T1 で leaf または intermediate component が rename+symlink swap
+されると T1 は root 外 object を開く。post-open の `is_file`/size は
+object identity を証明しない（opened object が check 済み object と
+同一かを答えられない）。digest 系検証は EOF 前に byte を caller へ
+届けるため containment の代替にならない。
+
+真の containment は handle-relative traversal（Unix:
+openat+per-component no-follow、Windows: RootDirectory+
+OBJ_DONT_REPARSE 相当）でのみ成立し、symlink follow は「target が
+root 内に解決される間のみ辿る（FollowWithinRoot、bounded hops）」を
+維持する — NoFollow への縮小で現契約を変えない。この能力は std に
+存在せず（Windows `MetadataExt::file_index` 等は unstable）、
+workspace `unsafe_code=forbid` により SV 内実装も不可能。
+
+**所有境界**: 当該 capability は Ruviform が所有する
+（`ruviform-io-archive::extract` の private handle-relative machinery
+を最小一般化して rooted-read 公開契約とする方向で
+[ruviform#398](https://github.com/scarecrow173/ruviform/issues/398) にて
+RF 側設計 review 中 — API 名・型は未確定で SV 側は先取りしない。
+必要 surface: `open_file`/`metadata`/`open_dir` の rooted 版 +
+fault/mock backend）。SV 側は `set_pre_traverse_hook`（`#[doc(hidden)]`
+fault barrier）を open/stat/read_dir の各再 traverse 地点に持ち、
+`tests/containment_swap.rs` の deterministic swap 回帰で契約を固定する
+（現状 RED — RF API 確定までは blocking dependency）。
+
 ## 検証方針（実テスト）
 
 実 tempdir に file/dir/symlink を作り、browse/stat/pin/open/
@@ -274,4 +309,6 @@ blob dir は tempdir に digest 名 file を配置。
 ## 依存
 
 `synvelis-project`（model）、`serde`/`serde_json`/`sha2`（workspace
-既存 dep）。新規外部 dep なし。
+既存 dep）。新規外部 dep なし。N1 修復に必要な Ruviform 側
+rooted-read 公開契約は未確定・未提供であり、SV 側への新 dep 追加は
+承認待ちとする（cap-std 等も未承認）。

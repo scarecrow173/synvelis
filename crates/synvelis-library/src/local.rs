@@ -38,6 +38,7 @@ use crate::observation::{
     AssetKind, AssetObservation, AssetStat, Availability, EntryFacts, MediaFacts,
     ObservationOrigin, UnavailableReason,
 };
+use crate::project::PreTraverseHook;
 use crate::provider::{
     AssetProvider, ByteRange, FetchClaims, FetchCompletion, PinnedRead, VerificationPolicy,
 };
@@ -56,6 +57,10 @@ pub struct LocalFolderProvider {
     /// Issued browse epochs whose cursors are still honored.
     live_epochs: Mutex<BTreeSet<u64>>,
     next_epoch: AtomicU64,
+    /// Deterministic fault barrier for containment regression tests —
+    /// invoked immediately before each filesystem call that
+    /// re-traverses a path after the containment decision.
+    pre_traverse_hook: Option<PreTraverseHook>,
 }
 
 impl LocalFolderProvider {
@@ -84,7 +89,22 @@ impl LocalFolderProvider {
             root: canonical,
             live_epochs: Mutex::new(BTreeSet::new()),
             next_epoch: AtomicU64::new(1),
+            pre_traverse_hook: None,
         })
+    }
+
+    /// Installs the deterministic pre-traversal fault barrier used by
+    /// containment regression tests. `None` restores normal behavior.
+    /// Op tags: `"stat"`/`"open"`/`"read_dir"`. Not a stable contract.
+    #[doc(hidden)]
+    pub fn set_pre_traverse_hook(&mut self, hook: Option<PreTraverseHook>) {
+        self.pre_traverse_hook = hook;
+    }
+
+    fn pre_traverse(&self, path: &Path, op: &'static str) {
+        if let Some(hook) = &self.pre_traverse_hook {
+            hook(path, op);
+        }
     }
 
     /// The canonical root this provider serves.
@@ -211,6 +231,7 @@ impl LocalFolderProvider {
 
         'walk: while let Some((dir, depth)) = stack.pop() {
             cx.check_interrupts()?;
+            self.pre_traverse(&dir, "read_dir");
             let read = match fs::read_dir(&dir) {
                 Ok(read) => read,
                 Err(e) => {
@@ -241,6 +262,7 @@ impl LocalFolderProvider {
                 }
                 walked += 1;
                 let path = child.path();
+                self.pre_traverse(&path, "stat");
                 let Ok(meta) = child.metadata() else {
                     continue;
                 };
@@ -275,7 +297,12 @@ impl LocalFolderProvider {
                     // sibling-bound link never leaks out-of-scope
                     // entries.
                     match Self::contained_target(&path, scope_dir) {
-                        Some(target) if target.is_dir() => {
+                        Some(target)
+                            if {
+                                self.pre_traverse(&target, "stat");
+                                target.is_dir()
+                            } =>
+                        {
                             kind = EntryKind::Container;
                             descend = Some(target);
                         }
@@ -424,6 +451,7 @@ impl LocalFolderProvider {
             BrowseScope::Root => self.root.clone(),
             BrowseScope::Locator { locator } => {
                 let dir = self.resolve(locator)?;
+                self.pre_traverse(&dir, "stat");
                 if !dir.is_dir() {
                     return Err(ProviderError::new(
                         ProviderErrorKind::InvalidRequest,
@@ -497,6 +525,7 @@ impl LocalFolderProvider {
         cx: &ProviderContext,
     ) -> Result<PinnedRead, ProviderError> {
         let path = self.resolve(&asset.locator)?;
+        self.pre_traverse(&path, "open");
         let mut file = File::open(&path).map_err(|e| io_error("open", &e))?;
         let file_meta = file.metadata().map_err(|e| io_error("stat", &e))?;
         // Post-open type check: a regular file swapped for a non-file
@@ -633,6 +662,7 @@ impl AssetProvider for LocalFolderProvider {
             AssetKind::File
         };
         let path = self.resolve(&asset.locator)?;
+        self.pre_traverse(&path, "stat");
         let meta = fs::metadata(&path).map_err(|e| io_error("stat", &e))?;
         Ok(AssetStat {
             asset: asset.clone(),
@@ -650,6 +680,7 @@ impl AssetProvider for LocalFolderProvider {
         self.check_owner(asset)?;
         cx.check_interrupts()?;
         let path = self.resolve(&asset.locator)?;
+        self.pre_traverse(&path, "stat");
         let meta = fs::metadata(&path).map_err(|e| io_error("stat", &e))?;
         if !meta.is_file() {
             return Err(ProviderError::new(
@@ -666,6 +697,7 @@ impl AssetProvider for LocalFolderProvider {
                 ),
             ));
         }
+        self.pre_traverse(&path, "open");
         let mut file = File::open(&path).map_err(|e| io_error("open", &e))?;
         // Post-open re-check: a stat→open swap to a non-file must
         // never be digested as pinned content.
@@ -754,6 +786,7 @@ impl AssetProvider for LocalFolderProvider {
         self.check_owner(asset)?;
         cx.check_interrupts()?;
         let path = self.resolve(&asset.locator)?;
+        self.pre_traverse(&path, "stat");
         if !path.is_file() {
             return Err(ProviderError::new(
                 ProviderErrorKind::InvalidRequest,

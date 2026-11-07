@@ -4,7 +4,7 @@ type: "spec"
 status: "approved"
 title: "ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider"
 created: "2026-11-07"
-updated: "2026-11-07"
+updated: "2026-11-07 (N1 既知差分追記)"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -110,6 +110,19 @@ Local Folder と Current Project Assets を共通の型付き Catalog として
     正本を持たない。`pin` は `ImmutableObject{revision: CAS blob
     digest}`、blob dir は注入 port(`ProjectBlobStore`)で path 規約を
     複製しない。source state/import provenance を facts として返す。
+
+### Known gap（2026-11-07 追記, N1 / Refs #85）
+
+契約 9/10 の「canonical 照合で traversal 防止」は **check 時点**の
+不変条件であり、traverse 時点（`File::open`/`metadata`/`read_dir`）
+との間に leaf/intermediate component swap（rename+symlink）で
+root 外 object を開く TOCTOU が残存する。これは root 外の
+bytes/facts/entries を返さないという AC1 意図そのものの侵害であり、
+containment-at-traverse の強制には handle-relative open
+（root capability）が必須 — Ruviform 所有の rooted-read 公開契約として
+[ruviform#398](https://github.com/scarecrow173/ruviform/issues/398) で
+設計中（本 spec の契約は縮小しない）。修復完了まで AC1 の
+traversal 部分は未達として扱う。
 
 ## Acceptance
 

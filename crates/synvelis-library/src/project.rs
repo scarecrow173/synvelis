@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 use synvelis_project::{
@@ -213,6 +213,15 @@ const DOS_DEVICES: &[&str] = &[
     "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 ];
 
+/// Deterministic fault-injection seam for containment regression
+/// tests: invoked immediately before each filesystem call that
+/// re-traverses a path after the containment decision, with the
+/// about-to-be-traversed path and an op tag
+/// (`"stat"`/`"open"`/`"read_dir"`). Production code never installs
+/// it; it is not a stable contract.
+#[doc(hidden)]
+pub type PreTraverseHook = Arc<dyn Fn(&Path, &'static str) + Send + Sync>;
+
 /// A blob store over one directory of digest-named files.
 ///
 /// The app points this at `<media_root>/blobs`. Object identities are
@@ -222,6 +231,7 @@ const DOS_DEVICES: &[&str] = &[
 /// device, or reach a non-regular file.
 pub struct LocalBlobDir {
     dir: PathBuf,
+    pre_traverse_hook: Option<PreTraverseHook>,
 }
 
 impl LocalBlobDir {
@@ -230,6 +240,20 @@ impl LocalBlobDir {
     pub fn new(dir: impl AsRef<Path>) -> Self {
         Self {
             dir: dir.as_ref().to_path_buf(),
+            pre_traverse_hook: None,
+        }
+    }
+
+    /// Installs the deterministic pre-traversal fault barrier used by
+    /// containment regression tests. `None` restores normal behavior.
+    #[doc(hidden)]
+    pub fn set_pre_traverse_hook(&mut self, hook: Option<PreTraverseHook>) {
+        self.pre_traverse_hook = hook;
+    }
+
+    fn pre_traverse(&self, path: &Path, op: &'static str) {
+        if let Some(hook) = &self.pre_traverse_hook {
+            hook(path, op);
         }
     }
 
@@ -269,6 +293,7 @@ impl LocalBlobDir {
                 format!("blob {name:?} escapes the store"),
             ));
         }
+        self.pre_traverse(&canonical, "stat");
         let meta = fs::metadata(&canonical).map_err(|e| Self::io("stat blob", &e))?;
         if !meta.is_file() {
             return Err(ProviderError::new(
@@ -295,6 +320,7 @@ impl LocalBlobDir {
 impl ProjectBlobStore for LocalBlobDir {
     fn open(&self, object: &ObjectIdentity) -> Result<BlobObject, ProviderError> {
         let (path, _pre_open_len) = self.resolve(object)?;
+        self.pre_traverse(&path, "open");
         let file = File::open(&path).map_err(|e| Self::io("open blob", &e))?;
         // Post-open re-check: a stat→open swap to a non-file must
         // never be streamed (a blocking device read is a DoS).

@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "ALIB-01 検証仕様 — Asset Provider 契約・Local/Project 基準 Provider"
 created: "2026-11-07"
-updated: "2026-11-07"
+updated: "2026-11-07 (N1 回帰 feature 追加)"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -114,6 +114,28 @@ port であり、検証対象の代替ではない）。
   blob bytes 改竄（digest 名そのまま中身差替え）は
   `IntegrityMismatch`。
 - search は `UnsupportedCapability`。0件 catalog は Complete 空。
+
+## Feature: Component-swap containment（N1, AC1, Refs #85）
+
+`tests/containment_swap.rs` — `set_pre_traverse_hook`（`#[doc(hidden)]`
+fault barrier）が `File::open`/`fs::metadata`/`fs::read_dir` 直前の
+再 traverse 地点（op `"open"`/`"stat"`/`"read_dir"`）で leaf・
+intermediate component を rename+symlink swap し、**root 外 object
+の bytes/facts/entries が一切返らない**ことを確定的に検証する
+（thread/timing 非依存）。
+
+- `LocalBlobDir`: leaf swap → `stat`/`open` は拒否。
+- `LocalFolderProvider`: intermediate `sub/` swap → `stat`/
+  `pin`/`open_preview`/`open_pinned`/`browse` descend は拒否。
+  `open_pinned` は EOF の IntegrityMismatch 前に byte が caller へ
+  届かないこと（digest 検証は containment の代替ではない）。
+- `pre_traverse_hook_fires_at_tagged_points`: seam の配線確認
+  （非 ignore、GREEN）。
+
+**現状（2026-11-07）**: 7 件は現実装で失敗する RED 証拠として
+`#[ignore]`+理由付きで保持。RF rooted-read 公開契約
+（[ruviform#398](https://github.com/scarecrow173/ruviform/issues/398)）
+で修復後に ignore を外し green を確認する（それまでは成功扱いしない）。
 
 ## Feature: Registry (AC3)
 

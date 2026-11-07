@@ -4,7 +4,7 @@ type: "impl"
 status: "completed"
 title: "ALIB-01 Asset Provider baseline contract"
 created: "2026-11-06"
-updated: "2026-11-06"
+updated: "2026-11-07"
 owners: []
 relations:
   source: []
@@ -49,6 +49,8 @@ relations:
       - type: "file"
         path: "crates/synvelis-library/tests/contract.rs"
       - type: "file"
+        path: "crates/synvelis-library/tests/containment_swap.rs"
+      - type: "file"
         path: "docs/discovery/alib-01-asset-provider-contract-discovery.md"
       - type: "file"
         path: "docs/specs/alib-01-asset-provider-contract.md"
@@ -69,6 +71,12 @@ relations:
       - type: "file"
         path: "docs/tasks/alib-01-task4-acceptance.md"
     modified:
+      - type: "file"
+        path: "crates/synvelis-library/src/local.rs"
+      - type: "file"
+        path: "crates/synvelis-library/src/project.rs"
+      - type: "file"
+        path: "crates/synvelis-library/src/lib.rs"
       - type: "file"
         path: "Cargo.toml"
       - type: "file"
@@ -259,6 +267,17 @@ worker 並列枠のため `CARGO_BUILD_JOBS=2` を使用。正規入口は mise 
 - 補助証拠として同一結果の直接 cargo 実行ログも保持するが、上表の mise
   exit を正規結果とする。
 
+### N1 deterministic fault-barrier 回帰 (2026-11-07 追補)
+
+| チェック | コマンド | 結果 |
+| --- | --- | --- |
+| seam 配線 | `cargo test -p synvelis-library --test containment_swap` | `pre_traverse_hook_fires_at_tagged_points` pass、7 件 ignored |
+| RED 証拠 | `cargo test -p synvelis-library --test containment_swap -- --ignored` | **7 件全件失敗(想定)** — leaf/component swap で out-of-root bytes(`outside-secret-bytes` 20B)が open/preview/pinned 経路へ流出、`stat` は out-of-root facts(len 20)を報告、`pin` は out-of-root file の sha256 を `digest_hint` として返却、`browse` descend は out-of-root entry `out-secret.wav` を列挙 |
+
+上記 7 件は RF rooted-read 契約で修復されるまで `#[ignore]` + 理由付きで
+RED 証拠として保持し、green 達成前に成功扱いしない。`mise run test` 本体は
+非回帰(ignore 済み分を除く全 test pass)。
+
 ### Review Protocol
 
 - Reviewer A(協調): 10 candidates。
@@ -276,28 +295,90 @@ worker 並列枠のため `CARGO_BUILD_JOBS=2` を使用。正規入口は mise 
 - post-open 追補後の独立 Validator(2nd round): `LocalBlobDir::open` の
   post-open `is_file()` 再検査、`local.rs` 全 open site の post-open 再検査、
   blob/symlink/非 regular の回帰テスト存在を全件 CONFIRMED。残余指摘:
-  - N1(Low–Medium): `resolve`→`File::open` 間の path 再traverse は
+  - N1(Low–Medium と当時評価): `resolve`→`File::open` 間の path 再traverse は
     component-swap TOCTOU に対し原理的に残存(`std` は openat/dirfd 契約を
-    公開しない)。`is_file()` 再検査により「非 regular の読み取り/DoS」は
-    遮断され、pinned read は EOF で digest/IntegrityMismatch を強制するため
-    影響は `open_preview`(Unverified)の out-of-root regular file 読み取りに限定。
-    下記 Risks に移記。
+    公開しない)。
   - N2(Low): `LocalBlobDir::open` が pre-open stat の `byte_len` を返しており
     local.rs(post-open `file_meta.len()`)と不一致。post-open metadata 由来に
     統一済み。
+- 独立 Reviewer A/B + Validator(3rd round, head d27bbee): N1 を CONFIRMED、
+  coordinator Judge は **P1 BLOCKING** と判定。当時の N1 評価コメントは
+  以下の点で不正確だった(訂正):
+  - ~~「影響は `open_preview`(Unverified)の out-of-root regular file 読み取りに
+    限定」~~ → **誤り**。`digest.rs` の `VerifyingReader` は EOF 到達 *前* に
+    読み取り byte を caller へ返す(streaming 検証は EOF で改竄を「検出」するが、
+    既に届いた byte の開示を防げない)。よって `open_pinned`/`open_preview` で
+    out-of-root file の bytes が届き、`pin` は out-of-root file の
+    sha256+size を `digest_hint`/`expected_size` として返す(content disclosure
+    oracle)。`stat`/`browse` の `fs::metadata`/`read_dir` 再traverse も同型で、
+    out-of-root object の byte_len/modified/entries が facts として報告される。
+    内容整合性(digest)と capability containment は別物であり、digest 事後検証は
+    containment の代替にならない。
+  - ~~「`is_file()` 再検査により非 regular の読み取り/DoS は遮断」~~ → **誤り**。
+    post-open `is_file()` は streaming 前の *type* しか保証せず、swap 後に
+    FIFO/device を指した場合 `File::open` 自体が block する/副作用を持ち得る
+    (open 呼出しは check より前)。これは残存 DoS(P2)であり、遮断済みではない。
+  - 実 race(並行 swap)は未測定であり、本不具合の観測は deterministic fault
+    barrier 注入による。Unix 未実測(開発/CI 実測は Windows)。また
+    `synvelis-library` は現時点で app crate へ未配線(利用経路なし)で、これは
+    重大度の評価とは別論点として記録する。
+
+### N1 containment 欠陥 — 所有境界の診断と現状 (Refs #85)
+
+- 破られた不変条件: 「root 外 object の bytes/facts/entries は如何なる
+  stat/pin/open/browse-descend 経路からも返さない」。`canonicalize`+`starts_with`
+  は check 時点(T0)の path のみを証明し、traverse 時点(T1)の object を
+  証明しない。leaf/single-component(`LocalBlobDir`)と intermediate-component
+  (`LocalFolderProvider` の `sub/` 等)の両 swap で T1 が out-of-root object を
+  解決する。
+- 影響面: `LocalBlobDir::{open,stat}`(project.rs)、`LocalFolderProvider` の
+  `stat`/`pin`/`open_preview`/`open_pinned`/`collect_entries`(local.rs)。
+- std/既存 dep で閉じられない根拠(実測):
+  - Windows: `std::os::windows::fs::MetadataExt` の `file_index`/
+    `volume_serial_number` は unstable(`windows_by_handle`, rust#63010)で
+    pinned toolchain(1.99.0)ではコンパイル不可。Win32 `CreateFile` に
+    `OBJ_DONT_REPARSE` 相当のフラグは存在しない(NT-level only)。
+    handle→path(`GetFinalPathNameByHandle`)も std 非公開。
+  - Unix: `MetadataExt::dev()/ino()` で post-open identity 検証は std-only で
+    可能だが、open 時点の曝露(FIFO block・side-effect open・dir stat race)は
+    残り、platform 保証が分岐する。
+  - workspace `unsafe_code = "forbid"`(`#[expect]` で解除不可)により SV 内
+    FFI 実装は lint ゲートを通過しない。新規 dep は承認前に追加不可。
+- 所有境界の結論: handle-relative traversal(openat+O_NOFOLLOW /
+  RootDirectory+OBJ_DONT_REPARSE)を所有するのは Ruviform(RF main 59c7e71 時点で
+  公開 API なし。`ruviform-io-archive::extract::{fs,unix,windows}.rs` に
+  private machinery と `NodeIdentity`、cfg(test) `MockExtractOps` あり)。
+  SV 側への汎用 OS/atomic FS の重複実装・unsafe 追加・digest 事後検証による
+  代替は行わない。FollowWithinRoot(root 内 symlink を辿る現行契約)を
+  NoFollow へ無断縮小しない。
+- 現状(この commit): deterministic fault seam(`set_pre_traverse_hook`,
+  `#[doc(hidden)]`)を `LocalBlobDir`/`LocalFolderProvider` の再traverse 地点
+  (op: `"stat"`/`"open"`/`"read_dir"`)へ追加。`tests/containment_swap.rs` に
+  7 件の deterministic swap 回帰を **RED 証拠** として `#[ignore]` 付きで収録
+  — 実行すると現実装では全件失敗する(下記 Validation)。containment 修復本体は
+  RF rooted-read 公開契約待ちで **Blocked (Refs #85)**。
+  依存先: [ruviform#398](https://github.com/scarecrow173/ruviform/issues/398)
+  (rooted-read contract、独立設計 review 中 — 確定 API を先取りしない)。
+  解除条件: RF 側で rooted `open_file`/`metadata`/`open_dir`
+  (FollowWithinRoot 意味論保持)が公開され candidate SHA が共有されたら、
+  SV は `local.rs`/`project.rs` の path 再traverse を当該 capability へ
+  置き換え、7 件の `#[ignore]` を外して green を確認する。
+- 残存 sub-issues(修復後も別途観測が必要): FIFO/device swap 時の
+  `File::open` block(P2、真の遮断には leaf を non-regular のまま open しない
+  handle-relative open が必須)、dir target の stat race(metadata のみ)、
+  hard link(同一 object ゆえ name ベース containment の許容内)。
+  `LocalBlobDir::new` は `LocalFolderProvider::new` と異なり root を
+  構築時に canonicalize せず `resolve` が呼出毎に `self.dir` を再
+  canonicalize するため、store root 自体の swap/ドリフトは stat/open
+  呼出間で anchored でない TOCTOU-adjacent 面として残る(rooted-read
+  化で吸収されるが独立観測として記録)。
 
 ## Risks
 
-- `LocalBlobDir`/`local.rs` の open 経路は stat→open→post-open check の構成であり、
-  原子性は OS 依存。post-open `is_file` 再検査で streaming 前の型は保証するが、
-  open 自体と別プロセスの置換の完全な排除は保証しない。
-- Validator 残余 N1: `resolve`→`File::open` の path 再traverse は、
-  served root/store 配下の directory component が rename+symlink swap される
-  component-swap TOCTOU に残存。`std` は openat/dirfd セマンティクスを公開しない
-  ため完全排除不可。`is_file()` 再検査で非 regular の読み取り/DoS は遮断、
-  pinned read は EOF の digest/IntegrityMismatch で失敗するため、影響は
-  `open_preview`(Unverified)での out-of-root regular file 読み取りに限定。
-  恒久対応には `cap-std`/`openat` 等の open-beneath API が必要で後続検討。
+- `LocalBlobDir`/`local.rs` の open/stat/read_dir 経路は
+  check(canonicalize)→traverse(再解決)の構成であり、T0→T1 の component swap
+  で out-of-root regular file を開き得る(N1、上記。実 race 未測定・fault
+  barrier で確定再現済み)。恒久対応は RF 所有の rooted-read capability。
 - `OpaqueCredential`/`PrincipalId` の transport 契約は型で制約するが、実際の
   credential vault/OS 認証統合は本スコープ外。
 - Search の索引範囲・Preview の内容は provider capability 依存で、基準 provider は
