@@ -6889,6 +6889,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "synvelis-library"
+version = "0.1.0"
+dependencies = [
+ "ruviform-io-file",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "synvelis-project",
+]
+
+[[package]]
 name = "synvelis-player"
 version = "0.1.0"
 dependencies = [

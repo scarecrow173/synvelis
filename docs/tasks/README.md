@@ -25,6 +25,12 @@ Directory: `docs/tasks`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| TASK-kMjCKWyai7zEXTluv8aW1T | ALIB-01 task1 — synvelis-library crate + 契約型/registry/digest | done | [alib-01-task1-contract-types.md](./alib-01-task1-contract-types.md) |
+| TASK-1XhNow8ckI40ZrcNm0VXFJ | ALIB-01 task2 — LocalFolderProvider 実装 + 実 FS テスト | done | [alib-01-task2-local-provider.md](./alib-01-task2-local-provider.md) |
+| TASK-G71A5me0TE1Mc9yHV4G1Qv | ALIB-01 task3 — ProjectAssetsProvider + catalog/blob port | done | [alib-01-task3-project-provider.md](./alib-01-task3-project-provider.md) |
+| TASK-MrgE7n0XwNu9hoShUiohdL | ALIB-01 task4 — 受入・回帰検証 + impl record | done | [alib-01-task4-acceptance.md](./alib-01-task4-acceptance.md) |
+| TASK-SV180RootedCutover2k26 | ALIB-01 task5 — Ruviform rooted capability への containment 移行（N1 修復） | done | [alib-01-task5-rooted-cutover.md](./alib-01-task5-rooted-cutover.md) |
+| TASK-SV85RF409ScopedEnum9zQ2 | ALIB-01 task6 — ruviform#409 scoped re-root / bounded 列挙への正規契約移行 | done | [alib-01-task6-rf409-scoped-enumeration.md](./alib-01-task6-rf409-scoped-enumeration.md) |
 | TASK-034AUT02Gt6kHr4nWy8sBp3x | AUT-02 task1: 境界 anchor 実装 + op 適用 + property/exact fixture テスト | done | [aut-02-task1-region-replace-boundary.md](./aut-02-task1-region-replace-boundary.md) |
 | TASK-034AUT03Pq9rWx3nVm7sJk2d | AUT-03 task1: Write Range 閉鎖・境界 flush・明示 Rearm 実装 + headless テスト | done | [aut-03-task1-loop-write-one-pass.md](./aut-03-task1-loop-write-one-pass.md) |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |
