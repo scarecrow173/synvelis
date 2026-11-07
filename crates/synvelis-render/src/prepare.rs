@@ -25,7 +25,7 @@ use synvelis_player::lowering::ClipWindow;
 /// codec id captured for the preflight codec check.
 pub struct OpenedSource {
     /// Independent reader positioned at frame 0.
-    pub reader: SourceReader,
+    pub reader: SourceReader<'static>,
     /// Canonical `f32` planar format of this source.
     pub canonical: AudioFormat,
     /// Codec of the selected audio stream.
@@ -214,7 +214,7 @@ pub struct DecodedWindow {
 /// [`ResolveError`] — `Cancelled` when the token trips, otherwise
 /// seek/decode failures.
 pub fn decode_window(
-    reader: &mut SourceReader,
+    reader: &mut SourceReader<'_>,
     canonical: AudioFormat,
     window: ClipWindow,
     needed: std::ops::Range<u64>,

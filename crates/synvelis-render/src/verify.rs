@@ -1,4 +1,6 @@
-//! Reopen verification: the staged WAV is reopened through an
+//! Readback verification: the sealed staged WAV is read through
+//! `SealedFile::open_readback` — a read-only view of the sealed temp,
+//! independent of the muxer's write path — then demuxed through an
 //! independent reader (symphonia demux + [`SourceReader`] canonical
 //! decode) before publish. The hook asserts stream shape, canonical
 //! rate/channel geometry and decoded frame count against
@@ -6,10 +8,12 @@
 //! sample. Any failure lands as `RenderError::Verify` — the temp is
 //! discarded, never published.
 
-use std::path::Path;
+use std::io;
 
 use ruviform_audio::render::OutputFacts;
-use ruviform_media_io::{DecodeMode, Demuxer as _, Error as MediaError, ErrorKind};
+use ruviform_audio_core::SampleRate;
+use ruviform_io_file::SealedFile;
+use ruviform_media_io::{DecodeMode, Demuxer, Error as MediaError, ErrorKind};
 use ruviform_media_reader::SourceReader;
 
 /// What the verify stage actually established — recorded on the
@@ -30,24 +34,50 @@ pub struct VerifiedOutput {
     pub pcm_checked: bool,
 }
 
-/// Reopens `temp` and decodes it through the independent reader path.
-///
-/// # Errors
-/// [`MediaError`] — reopen, decode or comparison failure.
-pub fn reopen_check(
-    temp: &Path,
-    facts: &OutputFacts,
-    expect_pcm: crate::spec::PcmExpectRef<'_>,
-) -> Result<VerifiedOutput, MediaError> {
-    const CHUNK: usize = 8192;
-    fn invalid(detail: &'static str) -> MediaError {
-        MediaError::with_source(
-            ErrorKind::InvalidData,
-            std::io::Error::new(std::io::ErrorKind::InvalidData, detail),
-        )
-    }
-    let file = std::fs::File::open(temp).map_err(|e| MediaError::with_source(ErrorKind::Io, e))?;
-    let demuxer = ruviform_io_symphonia::open_demuxer(file)?;
+/// Decode scratch width — frames decoded per `read_planar` call.
+const CHUNK: usize = 8192;
+
+fn invalid(detail: &'static str) -> MediaError {
+    MediaError::with_source(
+        ErrorKind::InvalidData,
+        io::Error::new(io::ErrorKind::InvalidData, detail),
+    )
+}
+
+/// A bridge-worker panic mapped to the same typed verify failure the
+/// pipeline already classifies — the staged temp is discarded, never
+/// published.
+fn worker_panic(payload: &(dyn std::any::Any + Send)) -> MediaError {
+    let detail = payload
+        .downcast_ref::<&str>()
+        .copied()
+        .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+        .unwrap_or("unknown panic");
+    MediaError::with_source(
+        ErrorKind::Io,
+        io::Error::other(format!("verify worker panicked: {detail}")),
+    )
+}
+
+/// Decoded output returned by the bridge worker — canonical facts plus
+/// the planes the caller still needs for `expect_pcm`. `Send` by
+/// construction so it can leave the worker-thread callback.
+struct DecodedPlanes {
+    rate: u32,
+    channels: usize,
+    frames: u64,
+    planes: Vec<Vec<f32>>,
+}
+
+/// Demux + canonical decode through the borrowed demuxer — runs on the
+/// bridge's worker thread; returns what the caller needs to finish
+/// evidence and PCM comparison on the calling thread.
+fn decode_borrowed(
+    demuxer: &mut dyn Demuxer,
+    facts_rate: SampleRate,
+    facts_channels: u32,
+    facts_frames: u64,
+) -> Result<DecodedPlanes, MediaError> {
     let stream = {
         let streams = demuxer.streams();
         if streams.len() != 1 {
@@ -55,15 +85,16 @@ pub fn reopen_check(
         }
         streams[0].clone()
     };
+    // The reader holds a `Box<dyn Demuxer + '_>` built from the
+    // callback's `&mut dyn` reborrow (`impl Demuxer for &mut D`) — the
+    // borrow stays inside this scope and never reaches the return.
     let mut reader =
         SourceReader::open(Box::new(demuxer), stream.stream.id, DecodeMode::Canonical)?;
     let canonical = reader.metadata().canonical;
     // Layout *variants* may differ across the independent reopen (an
     // unpositioned WAV decodes as `Custom`, not `Mono`/`Stereo`) — the
     // contract being verified is rate + channel count + frames.
-    if canonical.sample_rate != facts.sample_rate
-        || canonical.layout.channels() != facts.layout.channels()
-    {
+    if canonical.sample_rate != facts_rate || canonical.layout.channels() != facts_channels {
         return Err(invalid("rate or channel count mismatch"));
     }
     let mut planes = vec![Vec::new(); canonical.layout.channels() as usize];
@@ -80,11 +111,56 @@ pub fn reopen_check(
             break;
         }
     }
-    if frames != facts.frames_emitted {
+    if frames != facts_frames {
         return Err(invalid("decoded frame count mismatch"));
     }
+    Ok(DecodedPlanes {
+        rate: canonical.sample_rate.get(),
+        channels: planes.len(),
+        frames,
+        planes,
+    })
+}
+
+/// Reads `sealed` back through its read-only readback surface and
+/// decodes it through the independent reader path.
+///
+/// The demuxer owns its source (`MediaSource: 'static`) while the
+/// readback is a borrowed, `!Send` `Read + Seek` — so the decode runs
+/// through [`ruviform_io_symphonia::with_borrowed_demuxer`]: this
+/// thread serves the borrowed readback while the bridge's worker owns
+/// the demuxer. In-flight encoded bytes stay bounded by the bridge's
+/// per-chunk cap rather than the staged size — the same bounded
+/// profile as the pre-staging `File` source. The bridge keeps the
+/// no-path-reopen guarantee — the decode reads the sealed object
+/// itself, not a swapped stand-in.
+///
+/// # Errors
+/// [`MediaError`] — readback, decode or comparison failure.
+pub fn reopen_check(
+    sealed: &mut SealedFile,
+    facts: &OutputFacts,
+    expect_pcm: crate::spec::PcmExpectRef<'_>,
+) -> Result<VerifiedOutput, MediaError> {
+    let mut readback = sealed
+        .open_readback()
+        .map_err(|e| MediaError::with_source(ErrorKind::Io, e))?;
+    let facts_rate = facts.sample_rate;
+    let facts_channels = facts.layout.channels();
+    let facts_frames = facts.frames_emitted;
+    // A worker panic crosses the bridge as `resume_unwind`; catch it
+    // here so it stays the typed verify failure the pipeline
+    // classifies, not an unwinding `render()` caller.
+    let decoded = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+        ruviform_io_symphonia::with_borrowed_demuxer(&mut readback, move |demuxer| {
+            decode_borrowed(demuxer, facts_rate, facts_channels, facts_frames)
+        })
+    })) {
+        Ok(result) => result?,
+        Err(payload) => return Err(worker_panic(&*payload)),
+    };
     let pcm_checked = if let Some(expect) = expect_pcm {
-        if !expect(&planes) {
+        if !expect(&decoded.planes) {
             return Err(invalid("PCM expectation refused"));
         }
         true
@@ -92,9 +168,9 @@ pub fn reopen_check(
         false
     };
     Ok(VerifiedOutput {
-        frames,
-        channels: planes.len(),
-        sample_rate: canonical.sample_rate.get(),
+        frames: decoded.frames,
+        channels: decoded.channels,
+        sample_rate: decoded.rate,
         reopened: true,
         pcm_checked,
     })

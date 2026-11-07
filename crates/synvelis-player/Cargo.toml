@@ -31,3 +31,6 @@ ruviform-exec.workspace = true
 serde_json.workspace = true
 ruviform-graph.workspace = true
 ruviform-audio-core.workspace = true
+ruviform-io-file.workspace = true
+ruviform-io-wav.workspace = true
+ruviform-media-io.workspace = true
