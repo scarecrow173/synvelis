@@ -50,7 +50,9 @@ use std::collections::{BTreeMap, VecDeque};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use ruviform_media_core::MediaTimestamp;
-use synvelis_project::{BeatPoint, Error, ParameterTargetId, TargetCapability};
+use synvelis_project::{
+    BeatPoint, Error, ParameterTargetId, Project, TargetCapability, TickTimeMapping,
+};
 
 use crate::{
     control::{
@@ -700,20 +702,20 @@ fn parse_target(target: &str) -> Option<TargetRef> {
         .map(TargetRef::Parameter)
 }
 
-/// Denominator for `f64` beats → [`BeatPoint`] conversion (micro-beat —
-/// far below seekbar resolution, reduced on store).
-const SEEK_DEN: u32 = 1_000_000;
-/// Sensible upper bound for a scrub position (beats).
-const SEEK_MAX_BEATS: f64 = 1e12;
+/// Sensible upper bound for a scrub position (seconds).
+const SEEK_MAX_SECONDS: f64 = 1e9;
 
-fn beats_to_point(beats: f64) -> Result<BeatPoint, Error> {
-    if !beats.is_finite() || !(0.0..SEEK_MAX_BEATS).contains(&beats) {
+/// The seekbar's seconds value → beat position under the project tempo
+/// map — the commit half of the transport seconds contract (display is
+/// `TickTimeMapping::beat_to_seconds`, the same rule inverted).
+fn seek_point(project: &Project, seconds: f64) -> Result<BeatPoint, Error> {
+    if !seconds.is_finite() || !(0.0..SEEK_MAX_SECONDS).contains(&seconds) {
         return Err(Error::Validation(format!(
-            "seek position {beats} out of range"
+            "seek position {seconds} out of range"
         )));
     }
-    #[allow(clippy::cast_possible_truncation)] // bounded by SEEK_MAX_BEATS
-    BeatPoint::new((beats * f64::from(SEEK_DEN)).round() as i64, SEEK_DEN)
+    let mapping = TickTimeMapping::new(&project.tempo_map)?;
+    Ok(BeatPoint::from_beat(mapping.seconds_to_beat(seconds)?))
 }
 
 /// Every session/domain error is a `rejected` receipt — the domain
@@ -1482,7 +1484,7 @@ impl ControlsUi {
         match t {
             TargetRef::Transport => {
                 // A seekbar commit applies the final scrub position.
-                match beats_to_point(value.plain) {
+                match session.control_with(|_, p| seek_point(p, value.plain)) {
                     Ok(pos) => {
                         session.control_with(|c, p| c.transport_seek(p, pos));
                         self.end_gesture(view, target, gesture_id);

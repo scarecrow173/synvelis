@@ -1005,16 +1005,26 @@ pub fn notify_to_view_event(event: &Event) -> Option<(String, Event)> {
         }
         CHANNEL_PROJECTION => {
             let target = payload.get("target")?.as_str()?;
-            let observed = payload.get("row")?.get("observed")?;
+            let row = payload.get("row")?;
+            let observed = row.get("observed")?;
             if observed.is_null() {
                 return None;
             }
             let revision = observed.get("revision")?.clone();
+            // `display_value` is the controlled value when the adapter
+            // maps the authoritative truth to one (transport seekbar:
+            // seconds); otherwise the observed value itself.
+            let value = row
+                .get("display_value")
+                .filter(|v| !v.is_null())
+                .or_else(|| observed.get("value"))
+                .cloned()
+                .unwrap_or(Value::Null);
             let mut body = json!({
                 "control_id": target,
                 "target": target,
                 "revision": revision,
-                "value": observed.get("value").cloned().unwrap_or(Value::Null),
+                "value": value,
             });
             if let Some(p) = observed.get("provenance") {
                 body["provenance"] = p.clone();

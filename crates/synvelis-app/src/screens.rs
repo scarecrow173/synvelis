@@ -4,8 +4,8 @@
 //! [`main_screen_spec`] is the smallest *product-shaped* `ViewSpec`
 //! mounted through the RF387 seam: `Panel > Tabs > Seek` driving the
 //! real `transport/position` command target (`Begin → Preview →
-//! Commit/Cancel` gesture dispatch; projection display is not yet
-//! reflected by the RF renderer, see Ruviform #414) plus a `Fader` on a second tab
+//! Commit/Cancel` gesture dispatch; the controlled value is the seconds
+//! position derived from the authoritative projection) plus a `Fader` on a second tab
 //! marked `unsupported` — the honest "known but undriven" state for a
 //! mixer gain that no parameter target exists for yet.
 //!
@@ -153,8 +153,9 @@ fn mixer_fader() -> ComponentSpec {
 ///
 /// - **Transport** tab: the `Seek` bound to `transport/position` —
 ///   `Begin → Preview → Commit/Cancel` gesture dispatch through the
-///   real `syn.control.*` surface. Projection delivery reaches the
-///   host binding; on-screen display follows once Ruviform #414 lands.
+///   real `syn.control.*` surface. The controlled display is the
+///   seconds position of the authoritative projection (see the adapter
+///   in `binding.rs`).
 /// - **Mixer** tab: the `Fader` mounted `unsupported` (see
 ///   [`mixer_fader`]).
 #[must_use]

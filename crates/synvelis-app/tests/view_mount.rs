@@ -305,7 +305,8 @@ fn mount_attach_subscribe_and_projection_reaches_host() {
 
     // The initial projection row is pushed by the subscribe pump —
     // the translated `Notify{control_id, revision, value}` must reach
-    // the host's binding (`last_observed`; on-screen display: Ruviform #414).
+    // the host's binding (`last_observed`); the controlled display is
+    // asserted in `seek_display_follows_the_authoritative_projection_in_seconds`.
     let projections = notifies(&f.driver, f.window, "syn.control.projection");
     assert!(
         projections
@@ -366,6 +367,27 @@ fn gesture_begin_preview_commit_lands_applied_receipt_on_host() {
         receipts.iter().any(|r| r["receipt"]["commandId"] == cmd),
         "raw receipt broadcast: {receipts:?}"
     );
+}
+
+/// The Seek's controlled display — the value the renderer reads — is
+/// the authoritative transport position in seconds once the commit's
+/// projection lands (8 s under the default 120 BPM map is beat 16).
+#[test]
+fn seek_display_follows_the_authoritative_projection_in_seconds() {
+    let mut f = fixture();
+    f.deliver_to_host();
+    f.input("seek.position", MountedFixture::begin("gd"));
+    f.input("seek.position", MountedFixture::preview("gd", 3.0));
+    f.input("seek.position", MountedFixture::commit("gd"));
+    f.deliver_to_host();
+
+    let snap = f
+        .host
+        .observe(&key("seek.position"))
+        .expect("seek snapshot");
+    assert!(snap.observed.is_some(), "projection landed: {snap:?}");
+    let display = snap.display.expect("controlled display");
+    assert!((display.plain - 3.0).abs() < 1e-9, "display: {display:?}");
 }
 
 #[test]

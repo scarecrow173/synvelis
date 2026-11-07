@@ -728,9 +728,10 @@ fn seek_preview_never_moves_the_playhead() {
     let r = last_receipt(&mut ui);
     assert_eq!(r.status, ReceiptStatus::Applied);
     ui.pump();
-    assert_eq!(s.control().playback().position, bp(8));
+    // The seekbar value is seconds: 8 s under the default 120 BPM map is beat 16.
+    assert_eq!(s.control().playback().position, bp(16));
     let row = ui.transport_row("main").unwrap();
-    assert_eq!(row.observed.unwrap().position, bp(8));
+    assert_eq!(row.observed.unwrap().position, bp(16));
     assert!(row.preview.is_none());
 
     // A cancelled scrub leaves the playhead untouched.
@@ -759,7 +760,7 @@ fn seek_preview_never_moves_the_playhead() {
         ctx(&ui, "main", "transport/position", "c6"),
     );
     ui.pump();
-    assert_eq!(s.control().playback().position, bp(8));
+    assert_eq!(s.control().playback().position, bp(16));
 }
 
 // ---------------------------------------------------------------------------

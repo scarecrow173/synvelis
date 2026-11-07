@@ -17,6 +17,7 @@ use std::sync::Arc;
 use ruviform_ui::ipc::{ErrorBody, Event, codes};
 use serde_json::{Value, json};
 
+use synvelis_project::TickTimeMapping;
 use synvelis_workspace::VizSourceId;
 use synvelis_workspace::controls_ui::{
     CommandIntent, ControlsUi, DispatchContext, GestureCancelReason, TRANSPORT_POSITION_TARGET,
@@ -273,6 +274,7 @@ impl SynvelisApp {
     /// its own revision guard without a second format.
     fn push_subscription_rows(&mut self) {
         let subs: Vec<(String, String)> = self.ui.subscriptions.iter().cloned().collect();
+        let tempo = TickTimeMapping::new(&self.workspace.session().project().tempo_map).ok();
         for (view, target) in subs {
             let Some(snap) = self.ui.controls.binding(&view, &target) else {
                 continue;
@@ -281,6 +283,19 @@ impl SynvelisApp {
                 "transport"
             } else {
                 "param"
+            };
+            // The transport seekbar's controlled value is seconds (the
+            // beat position converted under the project tempo map); the
+            // raw transport object stays in `observed` for other readers.
+            let display_value = match snap.last_observed.as_ref().map(|o| &o.value) {
+                Some(synvelis_workspace::controls_ui::ProjectionValue::Transport(p))
+                    if target == TRANSPORT_POSITION_TARGET =>
+                {
+                    tempo
+                        .as_ref()
+                        .and_then(|t| t.beat_to_seconds(p.position.to_beat()).ok())
+                }
+                _ => None,
             };
             let observed = snap.last_observed.as_ref().map(|o| {
                 let value = match &o.value {
@@ -333,6 +348,7 @@ impl SynvelisApp {
                         "preview": snap.preview,
                         "last_receipt": snap.last_receipt,
                         "observed": observed,
+                        "display_value": display_value,
                         "observed_seq": snap.observed_seq,
                     },
                 }),
