@@ -136,12 +136,18 @@ documented residual（impl record 記録）。swap は `EscapesRoot`/
   `pin`/`open_preview`/`open_pinned`/`browse` descend は拒否。
   `open_pinned` は EOF の IntegrityMismatch 前に byte が caller へ
   届かないこと（digest 検証は containment の代替ではない）。
+- `local_scope_acquisition_swap_cannot_escape_root`: scope 取得境界
+  — `open_scope` の `RootedDir::open_with` 直前に scope dir 自体を
+  outside link へ swap。開かれた handle の canonical が root 外に
+  落ちるため同一 object 照合が `PermissionDenied` で拒否し、
+  outside entries は列挙されない。
 - `pre_traverse_hook_fires_at_tagged_points`: seam の配線確認
   （非 ignore、GREEN）。期待 op 列は rooted seam に更新
   （blobs `["stat","open"]`、browse `["stat","read_dir","stat"]`）。
 
-**現状（2026-11-07 修復済み）**: 7 件は `#[ignore]` 解除・**GREEN
-強制**（RF401/ruviform#398 main `5d48298b` で修復）。
+**現状（2026-11-07 修復済み）**: 8 件の swap 回帰は **GREEN
+強制**（7 件 `#[ignore]` 解除 + scope 取得境界 `open_scope` swap
+1 件追加。ruviform#398 → 消費 rev `5d48298b` で修復）。
 
 ## Feature: Registry (AC3)
 

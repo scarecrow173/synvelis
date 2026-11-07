@@ -297,6 +297,41 @@ fn local_browse_descend_component_swap_lists_outside_entries() {
     assert!(fired.load(Ordering::SeqCst), "barrier never fired");
 }
 
+/// `BrowseScope::Locator` — the scope directory itself is swapped
+/// for a link to an outside directory at capability acquisition
+/// (`open_scope`'s `RootedDir::open_with`, tagged `"stat"`). The
+/// opened handle's canonical path lands outside the provider root,
+/// so the same-object scope check must fail `PermissionDenied` —
+/// outside entries are never listed.
+#[test]
+fn local_scope_acquisition_swap_cannot_escape_root() {
+    let tree = TempTree::new("local-swap-scope");
+    let outside_dir = tree.join("outside");
+    fs::create_dir_all(&outside_dir).unwrap();
+    fs::write(outside_dir.join("out-secret.wav"), OUTSIDE_BYTES).unwrap();
+    let root = tree.join("root");
+    let sub = root.join("sub");
+    fs::create_dir_all(&sub).unwrap();
+    fs::write(sub.join("inner.wav"), INSIDE_BYTES).unwrap();
+
+    let mut provider = LocalFolderProvider::new(pid(1), &root).unwrap();
+    let (hook, fired) = swap_once(sub, outside_dir, "stat");
+    provider.set_pre_traverse_hook(Some(hook));
+
+    let mut req = browse_req(16);
+    req.scope = BrowseScope::Locator {
+        locator: loc("sub"),
+    };
+    let result = provider.browse(&req, &cx());
+    assert!(fired.load(Ordering::SeqCst), "barrier never fired");
+    let err = result.expect_err("swapped scope must not serve a page");
+    assert_eq!(
+        err.kind(),
+        ProviderErrorKind::PermissionDenied,
+        "acquisition-time scope swap must fail PermissionDenied, got {err:?}"
+    );
+}
+
 // ── seam sanity (GREEN — proves the barrier is wired) ────────────
 
 /// The barrier fires exactly at the tagged rooted-operation points

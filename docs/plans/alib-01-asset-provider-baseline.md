@@ -57,7 +57,8 @@ relations:
    `LocalFolderProvider`/`LocalBlobDir` を Ruviform
    `ruviform-io-file::rooted` capability（消費 rev `5d48298b`、
    既定 main 追従）へ移行し component-swap TOCTOU を解消。
-   7 件の swap 回帰を `#[ignore]` 解除・GREEN 強制。
+   7 件の swap 回帰を `#[ignore]` 解除・GREEN 強制（scope 取得境界
+   の追加回帰を含め計 8 件）。
 
 ## File map
 

@@ -69,14 +69,18 @@ handle-relative capability（ruviform#398 → PR401 merge `f483fe1c`、
   deterministic fault barrier の地点タグを rooted seam
   （`"stat"`/`"open"`/`"read_dir"`）へ更新。seam sanity の期待列を
   `["stat","open"]`/`["stat","read_dir","stat"]` へ更新。
+  scope 取得境界（`open_scope` の `RootedDir::open_with`）の swap
+  回帰 `local_scope_acquisition_swap_cannot_escape_root` を追加
+  — capability 取得そのものが root 外を掴まないことを
+  `PermissionDenied` で固定。
 - test-spec N1 feature・spec Known gap・design FS traversal 節・
   impl record を実態へ更新。
 
 ## 検証
 
-- `cargo test -p synvelis-library` — 8 swap regressions 全件 GREEN
-  （`#[ignore]` なし）+ seam sanity pass、local 33・project 21・
-  contract・types 全非回帰。
+- `cargo test -p synvelis-library` — 9/9 pass（8 swap regressions
+  GREEN 強制 + seam sanity、いずれも `#[ignore]` なし）、
+  local 33・project 21・contract・types 全非回帰。
 - `mise run fmt`/`fmt-check`/`check`/`lint`/`test` 全 workspace pass、
   `check-ruviform-rev`（`5d48298b`・26 sources）・
   `check-headless-deps` pass。

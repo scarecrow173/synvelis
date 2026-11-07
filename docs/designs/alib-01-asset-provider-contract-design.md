@@ -72,7 +72,7 @@ tests/
   local.rs        LocalFolderProvider 実 FS テスト
   project.rs      ProjectAssetsProvider テスト
   types.rs        型・unit テスト
-  containment_swap.rs  component-swap TOCTOU 回帰（7 件強制 GREEN
+  containment_swap.rs  component-swap TOCTOU 回帰（8 件強制 GREEN
                   + seam sanity、fault barrier 経由）
   common/mod.rs   テスト共有 helper
 ```

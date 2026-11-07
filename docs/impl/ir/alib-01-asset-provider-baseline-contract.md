@@ -312,8 +312,9 @@ ruviform 消費 rev は `5d48298b`(RF403・既定 main 追従 git dep、rev pin 
 | Format check | `mise run fmt-check` | pass (exit 0) |
 | Compile | `mise run check` (`cargo check --workspace --all-targets`) | pass (exit 0) |
 | Lint | `mise run lint` (`cargo clippy --workspace --all-targets -- -D warnings`) | pass (exit 0) |
-| Test | `mise run test` (`cargo test --workspace --locked`) | pass (exit 0; 全 test target 0 failures — `containment_swap` 8/8: 7 swap 回帰 GREEN 強制 + seam sanity) |
-| Swap 回帰(個別) | `cargo test -p synvelis-library --test containment_swap` | pass (8/8: `blob_stat_leaf_swap`/`blob_open_leaf_swap`/`local_stat_component_swap`/`local_pin_component_swap`/`local_preview_component_swap`/`local_open_pinned_component_swap`/`local_browse_descend_component_swap` + `pre_traverse_hook_fires_at_tagged_points`) |
+| Test | `mise run test` (`cargo test --workspace --locked`) | pass (exit 0; 全 test target 0 failures — `containment_swap` 9/9: 8 swap 回帰 GREEN 強制 + seam sanity) |
+| Swap 回帰(個別) | `cargo test -p synvelis-library --test containment_swap` | pass (9/9: `blob_stat_leaf_swap`/`blob_open_leaf_swap`/`local_stat_component_swap`/`local_pin_component_swap`/`local_preview_component_swap`/`local_open_pinned_component_swap`/`local_browse_descend_component_swap`/`local_scope_acquisition_swap_cannot_escape_root` + `pre_traverse_hook_fires_at_tagged_points`) |
+| Alias/authority 等価(個別) | `cargo test -p synvelis-library -- symlink rename swap scope` | pass (20 件: 8 swap + escaping/ancestor/dangling/loop/into-root link、blob escape、scope 系、rename pin — `EscapesRoot`→`PermissionDenied`・handle authority・`WithinRoot` follow の等価を固定) |
 | Headless deps gate | `mise run check-headless-deps` | pass (exit 0; 10 headless crates) |
 | ruviform rev 整合 | `mise run check-ruviform-rev` | pass (exit 0; resolved `5d48298b` 26 lockfile sources、lockfile-primary、REV match) |
 | MSRV | `mise run test-msrv` (`mise exec rust@1.89.0 -- cargo test --workspace --locked`) | **fail (既存 main 由来)** — `cargo-platform@0.3.3` が rustc 1.91 を要求。当該 pkg は本差分の `Cargo.lock` delta に無く merge 済み HEAD に同 version で存在するため本変更起因ではない。別途 follow-up 対象。 |
