@@ -34,7 +34,7 @@ use std::collections::{HashMap, VecDeque};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use ruviform_ui::ipc::{ErrorBody, Event, Intent, JobState, LifecycleState};
+use ruviform_ui::ipc::{ErrorBody, Event, Intent, JobState, LifecycleState, codes};
 use synvelis_workspace::controls_ui::{
     CommandIntent, CommandReceipt, ControlValue, DispatchContext, GestureCancelReason,
 };
@@ -74,7 +74,9 @@ pub struct ProjectionRow {
     /// Whether the newest receipt window timed out.
     pub timed_out: bool,
     /// The in-flight preview value, if a gesture is previewing.
-    pub preview: Option<ControlValue>,
+    /// Mirrors `BindingSnapshot.preview`'s wire shape — a bare
+    /// normalized/beats `f64`, not a `{plain, normalized}` object.
+    pub preview: Option<f64>,
     /// The newest receipt seen for this binding.
     pub last_receipt: Option<CommandReceipt>,
     /// The last landed `StateProjection` (`revision` + `value` +
@@ -329,20 +331,22 @@ impl ViewBinding {
         self.push("syn.control.targets", json!({}))
     }
 
-    /// Gesture `begin` — returns the consumer-owned `gesture_id`
-    /// (`<view>-g<n>`) preview/commit/cancel reuse.
+    /// Gesture `begin` — returns `(gesture_id, command_id)`: the
+    /// consumer-owned gesture id (`<view>-g<n>`) preview/commit/cancel
+    /// reuse, plus the minted command id for correlating the `begin`
+    /// receipt the backend emits.
     pub fn gesture_begin(
         &mut self,
         target: impl Into<String>,
         control_id: impl Into<String>,
         value: ControlValue,
-    ) -> String {
+    ) -> (String, String) {
         let target = target.into();
         let control_id = control_id.into();
         self.gesture_seq += 1;
         let gesture_id = format!("{}-g{}", self.view, self.gesture_seq);
         let sequence = self.control_sequence(&control_id);
-        self.dispatch(&CommandIntent::Begin {
+        let command_id = self.dispatch(&CommandIntent::Begin {
             target,
             control_id,
             sequence,
@@ -351,7 +355,7 @@ impl ViewBinding {
             atomic: None,
             value,
         });
-        gesture_id
+        (gesture_id, command_id)
     }
 
     /// Gesture `preview` — the only coalescible command; never a
@@ -592,12 +596,25 @@ impl ViewBinding {
         }
         match op.as_deref() {
             Some("syn.view.attach") => {
-                let generation = u32::try_from(
-                    data.and_then(|d| d["generation"].as_u64())
-                        .unwrap_or(0)
-                        .min(u64::from(u32::MAX)),
-                )
-                .unwrap_or(u32::MAX);
+                // The backend contract always emits a numeric
+                // `generation`; a missing one is a wire violation —
+                // report the call failed rather than minting a
+                // dead epoch-0 binding that reports `attached()`.
+                let generation = data
+                    .and_then(|d| d["generation"].as_u64())
+                    .and_then(|v| u32::try_from(v).ok());
+                let Some(generation) = generation else {
+                    return vec![BindingNotice::CallResult {
+                        id: id.to_string(),
+                        op: op.clone(),
+                        ok: false,
+                        data: data.cloned(),
+                        error: Some(ErrorBody::new(
+                            codes::INVALID_PARAMS,
+                            "syn.view.attach result carries no numeric generation",
+                        )),
+                    }];
+                };
                 self.generation = generation;
                 self.attached = true;
                 notices.push(BindingNotice::Attached { generation });
@@ -654,9 +671,16 @@ impl ViewBinding {
                 kind: payload["kind"].as_str().unwrap_or_default().to_string(),
                 frame: payload["frame"].clone(),
             }],
-            CHANNEL_VIZ_EVENT => vec![BindingNotice::VizEvent {
-                event: payload["event"].clone(),
-            }],
+            // The viz payload has no top-level `view_id`; the owning
+            // view is nested inside the serialized `VizViewEvent`
+            // (`rename_all_fields = "camelCase"` → `viewId`).
+            CHANNEL_VIZ_EVENT
+                if payload["event"]["viewId"].as_str() == Some(self.view.as_str()) =>
+            {
+                vec![BindingNotice::VizEvent {
+                    event: payload["event"].clone(),
+                }]
+            }
             _ => vec![BindingNotice::Ignored],
         }
     }

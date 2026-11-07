@@ -128,6 +128,35 @@ relations:
 | `cargo test -p synvelis-app --test shell` | 10 pass |
 | `cargo check -p synvelis-app --features native --all-targets` | pass(3m23s、transitive `proc-macro-error2` の future-incompat 警告のみ) |
 
+## 独立 review と対応
+
+実装後に独立 reviewer 2 系統(コード正当性 / 契約・spec 適合)で検査し、
+以下を対応した。
+
+- **[major→fix] `ProjectionRow.preview` の wire 型誤り**: `Option<ControlValue>`
+  で mirror していたが、producer は `BindingSnapshot.preview: Option<f64>`。
+  preview 中の projection row が typed decode に落ちる実害のため `Option<f64>`
+  へ修正。
+- **[fix] `pending_view_ops` leak**: 失敗した `syn.view.*` op の tracking entry が
+  remove されず残存。任意 Result で entry を消費し `ok` 時のみ reconcile へ変更。
+- **[fix] attach result の `generation` 欠落**: `unwrap_or(0)` で epoch-0 binding が
+  黙って成立し backend が stale drop する経路。`generation` 非数値は
+  `invalid_params` 相当の失敗 result として報告するよう厳格化。
+- **[fix] `Ready` 二重配信**: `initial_notify` が Ready 毎に再送される可能性を
+  once-guard で排除。
+- **[fix] `syn.viz.event` の view フィルタ欠落**: payload には top-level `view_id`
+  がなく nested `VizViewEvent.viewId`(camelCase)を見て `for_me` 判定するよう修正。
+- **[fix] `gesture_begin` が `command_id` を返さない**: begin も backend が
+  receipt を発行するため `(gesture_id, command_id)` を返すよう変更。
+- **[確認済・変更不要] `coalescible` 不存在**: 候補 `4c53e28` の `CommandIntent`
+  serde を実コード照合し、wire に `coalescible` フィールドは存在しない。
+  `expect_receipt` は envelope に常時 emit(commit/action のみ true)、
+  `origin_view: Some("view-{id}")` も常時 emit — 本 decode は候補 wire に
+  field-exact であり、`#[non_exhaustive]` 将来拡張への厳格性は `rvf.ui.command.v1`
+  の versioning に委ねる設計と確認。
+- **[確認済・変更不要] id 衝突なし**: 本側 mint は `{view}-{tag}{seq}`、候補
+  command_id は `{view_id}:{counter}` で書式が交差しない。
+
 ## 残課題 / 未達 scope
 
 - **実 OS/GPU 上の GPUI 実行は未観測**。`synvelis-native` の起動・実 window 表示・
@@ -144,6 +173,14 @@ relations:
   保存。projection の `control_id` は本 slice では `target` を使用
   (control_id≠target の view は独自 map が必要)。
 - RF389 owner の実 desktop 入力 slot、SV112/113/176/114 は scope 外のまま。
+- 独立 review で残置を確認した minor items(いずれも本 slice では許容):
+  `expect_receipt` は decode するが情報保持のみで suppress 判定には未使用
+  (receipt 必要性は backend が intent kind から導出、peer も独自規則で mint)。
+  `origin_view` 欠落時の view 解決は multi-view window で非決定的
+  (本 slice は 1 window 1 view)。`attached()/closed()` flag は
+  `syn.view.state` push では reconcile しない(op result のみ)。
+  mounted view には翻訳済 Result/Notify と raw notify broadcast が併存
+  (classic consumer 互換のため意図的)。
 
 ## 主要決定
 

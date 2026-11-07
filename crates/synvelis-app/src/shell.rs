@@ -207,8 +207,13 @@ impl NativeShell {
                 self.windows.entry(window).or_insert(false);
             }
             WindowLifecycle::Ready => {
-                self.windows.insert(window, true);
-                driver.post_event(window, &self.initial_notify.clone());
+                // First `Ready` only — the boot app-state push is
+                // once per window.
+                let ready = self.windows.entry(window).or_insert(false);
+                if !*ready {
+                    *ready = true;
+                    driver.post_event(window, &self.initial_notify.clone());
+                }
             }
             WindowLifecycle::Action(intent) => {
                 if intent.op == COMMAND_INTENT_OP {
@@ -326,15 +331,18 @@ impl NativeShell {
     /// is forwarded — teardown bookkeeping only, never intercepting
     /// the result itself.
     fn observe_result(&mut self, re: &RoutedEvent) {
-        let Event::Result {
-            id, ok: true, data, ..
-        } = &re.event
-        else {
+        let Event::Result { id, ok, data, .. } = &re.event else {
             return;
         };
+        // Consume the tracking entry on *any* result — a failed op
+        // must not leak it (and a later colliding id must not
+        // reconcile against a stale entry).
         let Some((op, view, window)) = self.pending_view_ops.remove(id) else {
             return;
         };
+        if !*ok {
+            return;
+        }
         match op {
             ViewOp::Attach => {
                 self.views.insert(view.clone(), window);

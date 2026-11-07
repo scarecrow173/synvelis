@@ -109,8 +109,9 @@ fn gesture_lifecycle_mints_shared_gesture_id() {
         plain: 4.0,
         normalized: 0.5,
     };
-    let gesture = b.gesture_begin("transport/position", "seekbar", value);
+    let (gesture, begin_cmd) = b.gesture_begin("transport/position", "seekbar", value);
     assert_eq!(gesture, "console-g1");
+    assert!(begin_cmd.starts_with("console-c"));
     b.gesture_preview(&gesture, "transport/position", "seekbar", value);
     let commit_cmd = b.gesture_commit(&gesture, "transport/position", "seekbar", value);
     assert!(commit_cmd.starts_with("console-c"));
@@ -121,7 +122,7 @@ fn gesture_lifecycle_mints_shared_gesture_id() {
         .map(|i| i.params["intent"]["kind"].as_str().unwrap().to_string())
         .collect();
     assert_eq!(kinds, ["begin", "preview", "commit"]);
-    let intents = b.gesture_begin("transport/position", "seekbar", value);
+    let (intents, _) = b.gesture_begin("transport/position", "seekbar", value);
     assert_eq!(intents, "console-g2");
     let cancel_cmd = b.gesture_cancel(
         &gesture,
