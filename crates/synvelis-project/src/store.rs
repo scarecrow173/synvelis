@@ -6,6 +6,10 @@
 //! protocol through `ruviform-io-file`'s staged publish:
 //! `StagedFile` → `SealedFile` → classified `publish` — snapshots are
 //! immutable (`PublishMode::CreateNew`), HEAD is atomically replaced.
+//! An accepted same-name collision re-publishes the kept bytes
+//! (`Replace`): the save only completes when the snapshot's own
+//! directory-entry durability is (re-)established, so an existing
+//! name is never trusted as proof of it.
 //! A failure reports its classified effect: `NotPublished` leaves the
 //! previous HEAD intact, while `Published`/`Indeterminate` may have
 //! already repointed it — `head()` remains the honest readback.
@@ -100,13 +104,15 @@ pub fn snapshot_name(revision: ProjectRevision) -> String {
 /// bytes.
 enum SnapshotCollision {
     /// Byte-identical, or the same logical snapshot whose stored
-    /// `id_watermark` is at least the incoming one — the publish is
-    /// already satisfied.
+    /// `id_watermark` is at least the incoming one — the stored
+    /// bytes are the winner. The durable-publish guarantee is still
+    /// owed: existence proves nothing about directory-entry
+    /// durability, so the stored bytes are re-published.
     Satisfied,
     /// The same logical snapshot — [`SnapshotEnvelope`] identical
     /// modulo `Project::id_watermark` — carrying a newer watermark.
-    /// The incoming bytes may refresh the file so the monotone
-    /// watermark record is not lost.
+    /// The incoming bytes are the winner: they refresh the file so
+    /// the monotone watermark record is not lost.
     Refresh,
     /// Different content under the immutable name — a real conflict.
     Conflict,
@@ -121,10 +127,16 @@ enum SnapshotCollision {
 /// crashed save published. Two envelopes that differ only in that
 /// bookkeeping field are the same logical snapshot: the watermark
 /// record is monotone, so the file may advance to the newer bytes
-/// ([`SnapshotCollision::Refresh`]) or be left holding the newer
-/// record already ([`SnapshotCollision::Satisfied`]). Genuinely
+/// ([`SnapshotCollision::Refresh`]) or keep the newer record it
+/// already holds ([`SnapshotCollision::Satisfied`]). Genuinely
 /// different content under the same immutable name — a stale writer,
 /// a foreign project, or corrupt bytes — is a real conflict.
+///
+/// The classification only decides *which bytes* the immutable name
+/// must end up holding; both accepted outcomes still owe the
+/// `FileAndDirectorySync` publish before HEAD may advance — the
+/// file's prior existence is no proof the earlier publish ever
+/// completed its directory sync.
 fn snapshot_collision(existing: &[u8], incoming: &[u8]) -> SnapshotCollision {
     if existing == incoming {
         return SnapshotCollision::Satisfied;
@@ -276,12 +288,15 @@ impl ProjectStore for DirectoryBundleStore {
         match Self::publish_staged(&target, bytes, PublishMode::CreateNew) {
             Ok(()) => {}
             // Immutable snapshots are idempotent under retry: an
-            // existing snapshot holding the same logical content
-            // already satisfies this publish (a crash between the
-            // original snapshot publish and the HEAD repoint leaves
-            // an orphan that recovery legitimately restores to, and
-            // `id_watermark` bookkeeping may advance the same
-            // revision's bytes — see `snapshot_collision`).
+            // existing snapshot holding the same logical content is
+            // accepted (a crash between the original snapshot
+            // publish and the HEAD repoint leaves an orphan that
+            // recovery legitimately restores to, and `id_watermark`
+            // bookkeeping may advance the same revision's bytes —
+            // see `snapshot_collision`). Acceptance is not a skip:
+            // the kept bytes are re-published so this save still
+            // owes — and re-establishes — the full durability
+            // guarantee on the snapshot's own directory entry.
             Err(PublishStepError::Publish(mut failure))
                 if failure.kind() == PublishFailureKind::DestinationExists =>
             {
@@ -301,19 +316,32 @@ impl ProjectStore for DirectoryBundleStore {
                             target.display()
                         )));
                     }
-                    Ok(existing) => match snapshot_collision(&existing, bytes) {
-                        SnapshotCollision::Satisfied => {}
-                        SnapshotCollision::Refresh => {
-                            Self::publish_staged(&target, bytes, PublishMode::Replace)
-                                .map_err(|e| Self::publish_error(&target, e))?;
-                        }
-                        SnapshotCollision::Conflict => {
-                            return Err(Self::publish_error(
-                                &target,
-                                PublishStepError::Publish(failure),
-                            ));
-                        }
-                    },
+                    Ok(existing) => {
+                        // Content-verified winner bytes: the stored
+                        // bytes for `Satisfied` (byte-identical, or
+                        // the stored newer watermark is kept), the
+                        // incoming bytes for `Refresh`. Accepting
+                        // the collision re-publishes the winner
+                        // through the full staged pipeline — the only
+                        // public operation that re-establishes
+                        // `FileAndDirectorySync` for this directory
+                        // entry. A bare existing name is never taken
+                        // as proof of achieved durability, and a
+                        // failed re-publish propagates instead of
+                        // letting HEAD advance onto an undurable name.
+                        let winning: &[u8] = match snapshot_collision(&existing, bytes) {
+                            SnapshotCollision::Satisfied => existing.as_slice(),
+                            SnapshotCollision::Refresh => bytes,
+                            SnapshotCollision::Conflict => {
+                                return Err(Self::publish_error(
+                                    &target,
+                                    PublishStepError::Publish(failure),
+                                ));
+                            }
+                        };
+                        Self::publish_staged(&target, winning, PublishMode::Replace)
+                            .map_err(|e| Self::publish_error(&target, e))?;
+                    }
                 }
             }
             Err(e) => return Err(Self::publish_error(&target, e)),
@@ -371,6 +399,9 @@ impl ProjectStore for InMemoryStore {
         // The immutable-name contract of `DirectoryBundleStore`:
         // a satisfied collision keeps the stored bytes, a refresh
         // stores the newer-watermark bytes, a conflict is rejected.
+        // (The directory store additionally re-publishes the kept
+        // bytes to re-establish FS directory-entry durability —
+        // in memory there is no such dimension.)
         match self
             .snapshots
             .get(&name)

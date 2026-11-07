@@ -4,7 +4,7 @@ type: "spec"
 status: "approved"
 title: "SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行"
 created: "2026-11-06"
-updated: "2026-11-06"
+updated: "2026-11-07"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -59,12 +59,20 @@ relations:
   `DestinationExists` で拒否されるが、次の 2 経路のみ受理する:
   (a) byte 完全一致の再送は冪等に受理 — snapshot publish と
   HEAD publish の間で crash した孤児 snapshot を journal replay
-  等の回復経路が再 save できる（HEAD の再指向のみ）。
+  等の回復経路が再 save できる。
   (b) envelope が `id_watermark` のみ異なる同一論理 snapshot は
   watermark 単調増方向に refresh（新 byte へ `Replace`）—
   `controller.save` の save 時 watermark stamp が `draw_raw_id`
   の apply なし予約を永続化する機構を維持する。それ以外の内容
   差異を持つ同名再公開は拒否し、既存 byte を上書きしない。
+  いずれの受理経路もスキップではない: 既存名の存在＋byte 一致
+  は `FileAndDirectorySync` 達成の証明にならない（先の publish
+  が DirectorySync 失敗で `Published` だった可能性を区別不能、
+  かつ HEAD 親 root の dir sync は snapshots/ 親の entry を
+  cover しない）ので、保持する勝者 byte を `Replace` で再公開
+  して耐久性を再確立してから HEAD へ進む。再公開を完遂でき
+  なければ `Err` で HEAD は不変 — 耐久性未達のまま成功は
+  報告しない。
 - **HEAD**（`HEAD`）: `PublishMode::Replace` で原子的に差し替える。
   単一 file replace は Project CAS ではない。Synvelis 側の
   ExpectedRevision/単一 Writer/Lock/Recovery 判断は従来どおり
@@ -146,6 +154,12 @@ relations:
   `id_watermark` のみ異なる同一論理 snapshot（単調増 refresh /
   冪等受理）に限り受理して HEAD を再指向し、内容差異がある場合は
   拒否する（`Error::Store`、既存 byte 不変）。
+- 衝突受理は「勝者 byte を `Replace` + `FileAndDirectorySync`
+  で再公開する」ことで snapshot 自身の directory entry 耐久性を
+  （再）確立する。既存名の存在のみを証拠に HEAD 前進・成功を
+  報告してはならず、再公開が完遂できなければ `Err` とし HEAD
+  は不変とする（受理が `Replace` でも勝者 byte 不変なので
+  immutable name 契約は維持される）。
 - HEAD は snapshot publish 成功後にのみ `Replace` で差し替える。
   HEAD publish が `NotPublished` で失敗した場合、snapshot は
   orphan として残り旧 HEAD を保持する（旧 snapshot を消さない）。

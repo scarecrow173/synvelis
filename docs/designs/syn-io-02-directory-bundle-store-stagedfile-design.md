@@ -4,7 +4,7 @@ type: "design"
 status: "approved"
 title: "SYN-IO-02 DirectoryBundleStore StagedFile 移行設計"
 created: "2026-11-06"
-updated: "2026-11-06"
+updated: "2026-11-07"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -125,9 +125,18 @@ Recovery/Undo）は Consumer 側に残す。
        異なり既存側が新しい場合 → 公開済み snapshot がこの save
        を冪等に満たすものとして継続（snapshot→HEAD publish 間
        crash の孤児を journal replay が再 save する gateway
-       回復経路を維持）。
+       回復経路を維持）。ただし受理はスキップではない — 存在
+       する名前だけでは directory-entry 耐久性の証拠にならない
+       （先の publish が DirectorySync で死んだ可能性を区別
+       できない）ため、保持する byte（stored）を `Replace` で
+       再公開して `FileAndDirectorySync` を再確立してから HEAD
+       へ進む。再公開が完遂できなければ `Err` を返し HEAD は
+       不変 — 「既に durable」という虚偽の成功は報告しない。
      - envelope が `id_watermark` のみ異なり *incoming* が新しい
-       場合 → `Replace` で新 byte に refresh して継続。
+       場合 → `Replace` で新 byte に refresh して継続（受理は常に
+       勝者 byte の再公開 = `Replace` + `FileAndDirectorySync`
+       であり、HEAD 親 root の dir sync では snapshots/ 親の
+       entry 耐久性を cover しない点に注意）。
        `controller.save` は `draw_raw_id` による外部 ID 予約を
        save 時に `id_watermark` へ刻むため、apply なしの予約で
        同一 revision の canonical byte が変わり得る — 単調増の

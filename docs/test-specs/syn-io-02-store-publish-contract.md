@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "SYN-IO-02 Store Publish 契約試験"
 created: "2026-11-06"
-updated: "2026-11-06"
+updated: "2026-11-07"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -59,12 +59,21 @@ through `ruviform-io-file` staged publish.
 - Rule 1 — Snapshot は `CreateNew` の immutable name。同一 revision
   の `save` 再実行で内容が異なる場合は `Err` を返し、既存
   snapshot byte と HEAD を変更しない。既存 byte と完全一致する
-  再送は冪等に受理し（snapshot publish→HEAD publish 間の crash
-  復旧で孤児 snapshot を再利用する経路）、HEAD の再指向だけを
-  行う。`SnapshotEnvelope` が `id_watermark` のみ異なる同一論理
-  snapshot は watermark 単調増方向に refresh を許す（新しい byte
+  再送は冪等に受理する（snapshot publish→HEAD publish 間の
+  crash 復旧で孤児 snapshot を再利用する経路 — 受理そのものの
+  意味は Rule 8）。`SnapshotEnvelope` が `id_watermark` のみ異なる
+  同一論理 snapshot は watermark 単調増方向に refresh を許す
+  （新しい byte
   へ `Replace`）、古い watermark は既存 byte を保持する冪等受理と
   する。それ以外の内容差異は既存 snapshot byte を上書きしない。
+- Rule 8 — 衝突受理（Satisfied/Refresh）は「勝者 byte」を
+  `Replace` で再公開する完結操作であり、存在＋byte一致を
+  `FileAndDirectorySync` 達成の証明とはしない。snapshot 自身の
+  directory entry 耐久性が（再）確立されるまで HEAD 公開・save
+  成功を報告しない — 再公開が不可能なら `Err` で HEAD 不変。
+  受理された snapshot の内容は常に勝者 byte のまま（byte 同一
+  再送・古い watermark 再送は既存 byte を保持、単調増 refresh
+  だけが新 byte へ進む）。
 - Rule 2 — `save` は snapshot publish 成功（または冪等/refresh
   受理）後にのみ HEAD を進める。snapshot publish が失敗した場合
   HEAD は不変。
@@ -117,16 +126,32 @@ through `ruviform-io-file` staged publish.
 - E11: stage 失敗 — `snapshots/` が file のとき `save` は
   `Error::Store`（stage create 分類）、HEAD は生成されない
   （Rule 4 の stage phase）。
+- E12: 耐久性未証明 snapshot の同一 byte retry — 公開済みだが
+  DirectorySync 到達が疑わしい状態（HEAD 未指向のまま残った
+  `snapshots/r<N>.json` と等価）に対し同一 byte `save` → `Ok`、
+  destination は rename で物理更新（過去 mtime sentinel が新規
+  temp の write time へ置換）かつ内容 byte 一致、HEAD=
+  `r<N>.json`、load 成功（Rule 8）。
+- E13: 再確立不能 — collision 受理の `Replace` 再公開が
+  完遂できない状態（Windows: destination を delete/write 共有
+  拒否で open 保持 / unix: `snapshots/` read-only 相当）で同一
+  byte `save` → `Err`、HEAD は repoint されない。存在のみを根拠
+  にした `Ok` は偽の成功として拒否される（Rule 8）。
 
 ## Guarantees
 
 - 同一 revision 名の snapshot の内容（envelope）が上書きされる
   ことはない（byte 同一再送と `id_watermark` 単調増 refresh のみ
-  受理、内容差異は拒否）。
+  受理、内容差異は拒否）。衝突受理の `Replace` 再公開も常に勝者
+  byte を書く — 内容不変条件を保ったまま耐久性のみを再確立する。
 - snapshot publish に失敗した save は HEAD を前進させない。
   HEAD publish 自体の `NotPublished` 失敗は旧 HEAD を保持するが、
   `Published`/`Indeterminate` 失敗は HEAD が進んだ可能性を正直に
   報告し、`head()` 再読込が実態を決める。
+- save の `Ok` は snapshot 名の `FileAndDirectorySync` 証拠を
+  伴う — 存在＋byte一致のまま「既に durable」と見なして HEAD を
+  進める経路は存在しない（snapshot の親 directory は HEAD の
+  親 root とは別であり、HEAD の dir sync では cover されない）。
 - publish の中途失敗は `Error::Store` のメッセージに effect/
   phase/durability/operation id を含めて伝播する。
 - store は `*.rvf-tmp-*` 残滓や外部 HEAD 変更を隠蔽せず、
@@ -134,10 +159,11 @@ through `ruviform-io-file` staged publish.
 
 ## Non-goals
 
-- OS 固有の Indeterminate/DirSync 失敗注入（ruviform-io-file
-  側の fault-injection 責務。consumer 側は「snapshot publish 失敗は
-  HEAD を進めない」「HEAD publish 失敗は effect 分類どおりに報告
-  される」経路を pin）。
+- 実 OS での DirSync 失敗そのものの注入（ruviform-io-file 側の
+  fault-injection 責務）および実電源断試験。consumer 側は「同一
+  byte 衝突受理も完全 publish を再実行して耐久性証拠を再確立
+  する」「再確立できなければ HEAD を進めず `Err`」経路を決定的
+  に pin し、OS 別挙動は ruviform 側検証に委譲する。
 - 複数 process の同時 save・真の HEAD CAS（単一 writer モデル
   外の責務）。
 - `SnapshotEnvelope` serialization 単体の検証（既存

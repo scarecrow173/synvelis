@@ -394,6 +394,117 @@ fn in_memory_store_honors_immutable_snapshot_names() {
     assert_eq!(store.head().unwrap().as_deref(), Some("r2.json"));
 }
 
+// Rule 8 (durability re-establishment): a snapshot file whose
+// directory-entry durability is unproven — the earlier publish may
+// have died at DirectorySync (effect `Published`, FileSynced only)
+// before HEAD was repointed — is indistinguishable to the store
+// from a durable one. Existence plus byte equality must NOT be
+// accepted as the durability proof: accepting the collision has to
+// re-run the full publish on the kept bytes (file sync → atomic
+// replace → snapshots/ directory sync) before HEAD is repointed.
+// The observable consequence: the destination is physically renewed
+// by the rename — a far-past mtime sentinel is replaced by the
+// fresh temp's write time — while the content stays byte-identical.
+#[test]
+fn satisfied_resave_reestablishes_snapshot_durability() {
+    let (_g, dir, mut store) = bundle("redurable");
+    let mut c = controller();
+    c.apply(cmd(&c, ProjectOp::AddTrack { name: "a".into() }))
+        .unwrap();
+    c.save(&mut store).unwrap();
+    let target = dir.join("snapshots").join("r1.json");
+    let bytes = fs::read(&target).unwrap();
+    // Post-fault state: the snapshot name exists but HEAD was never
+    // repointed — what a save dying at DirectorySync (effect
+    // `Published`, FileSynced only) leaves behind — and nothing in
+    // the filesystem distinguishes an undurable entry from a
+    // durable one, so byte equality is not the proof the contract
+    // requires.
+    fs::remove_file(dir.join("HEAD")).unwrap();
+    // Sentinel mtime far in the past: a publish-renewed file carries
+    // the staged temp's (fresh) write time; an untouched file keeps
+    // the sentinel — deterministic on any real filesystem.
+    let stale = std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(946_684_800);
+    fs::File::options()
+        .write(true)
+        .open(&target)
+        .unwrap()
+        .set_modified(stale)
+        .unwrap();
+    assert_eq!(fs::metadata(&target).unwrap().modified().unwrap(), stale);
+
+    store.save("p", ProjectRevision(1), &bytes).unwrap();
+
+    assert_eq!(fs::read(&target).unwrap(), bytes);
+    assert!(
+        fs::metadata(&target).unwrap().modified().unwrap() > stale,
+        "collision accept must re-publish the kept bytes to \
+         FileAndDirectorySync, not trust the existing name"
+    );
+    assert_eq!(fs::read_to_string(dir.join("HEAD")).unwrap(), "r1.json");
+    // The re-adopted snapshot is loadable — the durability
+    // re-establishment does not corrupt the canonical bytes.
+    let mut c2 = controller();
+    c2.load(&store).unwrap();
+    assert_eq!(c2.live_revision(), ProjectRevision(1));
+    assert_eq!(c2.live(), c.live());
+}
+
+// Rule 8 (honest failure): the collision-accept must never report
+// success while the durability re-publish cannot complete — the
+// save errors and HEAD is never repointed. On Windows the
+// destination is held open with delete/write sharing denied (the
+// collision read still succeeds, the atomic replace cannot); on
+// unix the equivalent refusal is a read-only `snapshots/`, which
+// rejects the staged temp earlier in the same call — either way
+// `Ok` would mean a false success.
+#[test]
+#[cfg(any(unix, windows))]
+fn satisfied_resave_fails_instead_of_reporting_false_success() {
+    let (_g, dir, mut store) = bundle("redurable-fail");
+    let bytes = br#"{"schema_version":7,"payload":[1,2,3]}"#;
+    let target = dir.join("snapshots").join("r1.json");
+    fs::write(&target, bytes).unwrap();
+
+    #[cfg(windows)]
+    let _held = {
+        use std::os::windows::fs::OpenOptionsExt;
+        // FILE_SHARE_READ alone: our own fs::read still classifies
+        // the collision, but MoveFileExW cannot replace the entry.
+        fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0x1)
+            .open(&target)
+            .unwrap()
+    };
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(dir.join("snapshots")).unwrap().permissions();
+        perms.set_mode(0o555);
+        fs::set_permissions(dir.join("snapshots"), perms).unwrap();
+    }
+
+    let err = store.save("p", ProjectRevision(1), bytes).unwrap_err();
+    assert!(
+        matches!(err, Error::Store(_)),
+        "re-establishment failure must surface as a store error: {err}"
+    );
+    assert!(
+        !dir.join("HEAD").exists(),
+        "HEAD must not be repointed when the durability guarantee was not re-established"
+    );
+
+    #[cfg(unix)]
+    {
+        // Restore write permission so the guard can clean up.
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(dir.join("snapshots")).unwrap().permissions();
+        perms.set_mode(0o755);
+        let _ = fs::set_permissions(dir.join("snapshots"), perms);
+    }
+}
+
 // Rule 1/concurrency: two store instances racing the same immutable
 // snapshot name with different bytes — the atomic no-replace publish
 // admits exactly one winner and the loser's error carries the

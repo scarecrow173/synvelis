@@ -19,6 +19,58 @@ owners: ["scarecrow173"]
   （`Cargo.lock` 内の全 ruviform crate と一致・lock 差分は新規
   `ruviform-io-file` 1 package + `synvelis-project` dep edge のみ）
 
+## P1 修復（2026-11-07・merge 前レビュー Judge=BLOCKED 由来）
+
+- **根因**: `save` の `DestinationExists` 受理経路で
+  `SnapshotCollision::Satisfied => {}` が「内容冪等性」を
+  「耐久性達成」と同一視していた。初回 publish が
+  `Published`（rename 済み・FileSynced）→ DirectorySync 失敗で
+  `Err` を返すと、`snapshots/r<N>.json` は存在するが directory
+  entry 耐久性が未証明のまま残る。同一 byte 再送は CreateNew
+  が `DestinationExists` で即 `Err`（publish phase・親 dirsync
+  未実行）→ byte 一致で Satisfied → HEAD `Replace` + root
+  dirsync だけ成功して `Ok` を報告 — `snapshots/` 親 dir は
+  HEAD 親 root とは別であり、どこでも dir sync されないため
+  電源断/復旧で参照耐久性が崩れていた。
+- **修復（受理/最終公開境界）**: 衝突受理をスキップから
+  「勝者 byte の完全 publish 再実行」へ修正。`Satisfied` は
+  stored byte（byte 同一・既存新 watermark 保持の双方を含む）、
+  `Refresh` は incoming byte を `Replace` +
+  `FileAndDirectorySync` で再公開 — `PublishReceipt` の Ok は
+  要求した全保証達成時のみなので、受理が dir sync 証拠を必ず
+  再確立する。公開 API には standalone dirsync が無いため、
+  完遂 publish が唯一の再確立経路。`Conflict` 拒否・HEAD
+  ordering・canonical byte・CAS/外部変更・watermark 単調増・
+  InMemory port 整合は不変（InMemory は byte 勝者意味論のみ、
+  FS 耐久性の次元を持たない）。
+- **決定的 fault 試験（tests/store_publish.rs・Rule 8 対応）**:
+  - `satisfied_resave_reestablishes_snapshot_durability`:
+    HEAD 未指向の post-fault 状態 + 過去 mtime sentinel で
+    同一 byte `save` → destination が rename で物理更新
+    （sentinel 消滅＝publish pipeline 再実行の証拠）かつ byte
+    一致・HEAD repoint・load 成功。修復前は sentinel 保持で
+    RED → 修復後 GREEN。
+  - `satisfied_resave_fails_instead_of_reporting_false_success`:
+    Windows は destination を `FILE_SHARE_READ` のみで保持
+    （collision read は通るが atomic replace 不可）、unix は
+    `snapshots/` read-only 相当で再公開を完遂不能に → `Err`・
+    HEAD 非 repoint。修復前は `Ok("r1.json")` の偽成功で RED →
+    修復後 GREEN。実電源断は未実施（mechanism pin のみ）。
+- **レビュー状態**: Reviewer B + 独立 Validator が P1 CONFIRMED・
+  Judge BLOCKED（merge 保留）→ 修復後の独立 Validator 再検証は
+  **CONFIRMED-FIXED**（勝者 byte のみ Replace・HEAD ordering・
+  Conflict/CAS/InMemory parity を全点検、新規違反なし）。
+  残余（non-blocking）: ≥3 同時 writer での read→Replace 間
+  TOCTOU（single-writer モデル非目標・CAS rename プリミティブ
+  不存在）と、unix 側 fault leg が修復前判別しない点
+  （test comment 記載どおり RED 判別は Windows leg）。
+- **修復後検証（Windows・実測）**: `mise run fmt`/`fmt-check`/
+  `check`/`lint` 全て pass。`mise run test`（workspace --locked）
+  全 83 test binary 0 fail — `store_publish` 16 tests 含む
+  （修復前 RED 再現済み: 2 new tests が現行コードで失敗、
+  false success `Ok("r1.json")` を観測）。未実施: 実電源断・
+  macOS/Linux 実測（Refs #84 受入 Gate 維持）。
+
 ## 実施内容
 
 - `DirectoryBundleStore::write_atomic`（`.tmp` → `File::sync_all`

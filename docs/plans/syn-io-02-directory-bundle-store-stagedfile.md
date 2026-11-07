@@ -4,7 +4,7 @@ type: "plan"
 status: "approved"
 title: "SYN-IO-02 DirectoryBundleStore StagedFile 移行計画"
 created: "2026-11-06"
-updated: "2026-11-06"
+updated: "2026-11-07"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -122,11 +122,13 @@ FileAndDirectorySync・分類済み失敗伝播を既存 port/format 不変で
 
 ## Open Questions / Gaps
 
-- OS レベルの Indeterminate/DirSync 失敗注入は consumer 側で
-  決定論的に再現不能（ruviform の fault-injection mock は crate
-  内部）。consumer 契約として「任意の publish 失敗で HEAD を
-  進めない・失敗分類を伝播」を pin し、OS 別挙動は ruviform
-  #296/#306 側の検証に委譲する。
+- 実 OS の DirSync 失敗注入は ruviform 側 fault-injection 責務
+  （mock は crate 内部・実電源断は未実施）。consumer 側は
+  「任意の publish 失敗で HEAD を進めない・失敗分類を伝播」に
+  加え、「同一 byte 衝突受理は勝者 byte の完全 publish 再実行
+  で耐久性を再確立し、完遂不能なら `Err`・HEAD 不変」（E12/
+  E13、存在のみの証明排除）を決定的に pin する。OS 別挙動は
+  ruviform #296/#306 側の検証に委譲する。
 
 ## Self-Review
 
