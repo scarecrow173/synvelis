@@ -41,6 +41,7 @@ pub mod error;
 pub mod host;
 pub mod logging;
 pub mod revision;
+pub mod screens;
 pub mod service;
 pub mod shell;
 pub mod ui_ops;
@@ -54,5 +55,8 @@ pub use logging::{
     install, parse_args, to_logging_config,
 };
 pub use revision::{APP_ASSET_SCHEMA, AssetManifest, HOST_REVISION, MANIFEST_NAME, check_bundle};
+pub use screens::{
+    main_screen_spec, main_view_id, main_view_instance, main_view_targets, mount_main_view,
+};
 pub use service::{AppService, OPS};
 pub use shell::NativeShell;

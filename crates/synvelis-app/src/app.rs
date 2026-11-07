@@ -12,6 +12,8 @@
 //! `unavailable` — the shell must surface that honestly instead of
 //! implying playback/recording exists.
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -22,6 +24,7 @@ use ruviform_observability::source::{
 };
 use ruviform_observability::{Counter, counter};
 use ruviform_ui::BackendReport;
+use ruviform_ui::view::{AttachEpoch, AttachEpochAllocator};
 use serde_json::{Value, json};
 
 use synvelis_project::{
@@ -227,6 +230,15 @@ pub struct SynvelisApp {
     /// SV-GUI-02 UI op state — `ControlsUi`/`VizUi` gateways, notify
     /// outbox, view/subscription/surface registries, UI clock.
     pub(crate) ui: UiOpsState,
+    /// Session-owned `AttachEpoch` allocator (RF387) behind a shared
+    /// cell — the same pattern as `quit`/`outbox`/`ui_clock`: the
+    /// composition root takes a handle *before* the app seals into
+    /// `AppService`/`UiRuntime`, so a `ViewHost` recreated mid-session
+    /// still mints from the one allocator (a second allocator would
+    /// restart the sequence and re-open the stale-receipt collision).
+    /// Minted epochs are runtime guards only — the persisted identity
+    /// is the `ViewInstanceId`, never the epoch.
+    attach_epochs: Rc<RefCell<AttachEpochAllocator>>,
 }
 
 impl SynvelisApp {
@@ -248,7 +260,30 @@ impl SynvelisApp {
             backend,
             quit: Arc::new(AtomicBool::new(false)),
             ui: UiOpsState::new(),
+            attach_epochs: Rc::new(RefCell::new(AttachEpochAllocator::new())),
         }
+    }
+
+    /// The shared session `AttachEpoch` allocator — take a handle
+    /// before the app seals (same extraction pattern as
+    /// [`Self::quit_flag`]/[`crate::ui_ops::UiOpsState::event_outbox`]).
+    /// Exactly one allocator exists per session, so every `ViewHost`
+    /// — the first mount *and* any mid-session recreation — mints
+    /// disjoint command-id namespaces.
+    #[must_use]
+    pub fn attach_epoch_allocator(&self) -> Rc<RefCell<AttachEpochAllocator>> {
+        Rc::clone(&self.attach_epochs)
+    }
+
+    /// Mints the `AttachEpoch` for a `ViewHost` this session is
+    /// creating (RF387). Convenience wrapper over the shared
+    /// allocator — the sequence is monotone, so a host recreated for
+    /// the same logical view mints commands in a disjoint namespace
+    /// and stale receipts addressed to a dead host can never land on
+    /// the live one.
+    #[must_use]
+    pub fn mint_attach_epoch(&self) -> AttachEpoch {
+        self.attach_epochs.borrow_mut().mint()
     }
 
     fn fresh_session(name: &str) -> ProjectSession {

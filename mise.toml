@@ -171,6 +171,15 @@ run = "cargo check -p synvelis-app --features native --all-targets"
 description = "synvelis-app native feature lint"
 run = "cargo clippy -p synvelis-app --all-targets --features native -- -D warnings"
 
+[tasks.build-app-native]
+description = "synvelis-app native feature bin ビルド(GPUI driver 実窓)"
+run = "cargo build -p synvelis-app --features native --bin synvelis-native --locked"
+
+[tasks.run-app-native]
+description = "synvelis-native 実窓起動(GPUI;mount/close の手動・実機検証入口)"
+depends = ["build-app-native"]
+run = "cargo run -p synvelis-app --features native --bin synvelis-native --locked"
+
 [tasks.dev-ui]
 description = "開発ループ: ui/ を build して synvelis app を debug 起動(assets は live FS 読み)"
 depends = ["install-ui"]

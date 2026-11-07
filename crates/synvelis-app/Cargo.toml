@@ -20,6 +20,7 @@ tracing.workspace = true
 ruviform-ui-webview = { workspace = true, optional = true }
 ruviform-ui-gpui = { workspace = true, optional = true }
 rust-embed = { workspace = true, optional = true }
+synvelis-theme = { workspace = true, optional = true }
 
 [dev-dependencies]
 ruviform-ui-test.workspace = true
@@ -36,6 +37,7 @@ webview = [
 native = [
   "dep:ruviform-ui-gpui",
   "ruviform-ui-gpui/gpui",
+  "dep:synvelis-theme",
 ]
 
 [[bin]]

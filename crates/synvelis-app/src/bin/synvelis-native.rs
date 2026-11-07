@@ -4,10 +4,13 @@
 //! This binary is the composition-root exception: the only place GPUI
 //! enters the product tree. It assembles the RF386 standard driver
 //! ([`GpuiDriver`]), the shared app (`SynvelisApp` → `AppService` →
-//! `UiRuntime` inside [`NativeShell`]), and drives the shell through
-//! the driver's blocking event loop. View rendering stays inside the
-//! driver's minimal fixture until the RF387 renderer contract lands —
-//! this binary wires the shell/lifecycle/binding seam, not screens.
+//! `UiRuntime` inside [`NativeShell`]), mounts the product's minimal
+//! screen spec (`Panel > Tabs > Seek`/`Fader`, RF387) through the
+//! driver's `create_view_window` seam, and drives the shell through
+//! the driver's blocking event loop. The view's `AttachEpoch` is
+//! minted by the session-owned allocator on [`SynvelisApp`] before the
+//! app is sealed; the logical `view_id` is the persisted identity,
+//! never the epoch.
 //!
 //! Startup order mirrors the `synvelis` (webview) entry: install the
 //! process-global logging subscriber first (SYN-OBS-01), then compose
@@ -29,11 +32,15 @@
 use std::process::ExitCode;
 use std::time::Duration;
 
-use ruviform_ui::{BackendReport, Capability, WindowCapabilities, WindowDriver};
-use ruviform_ui_gpui::GpuiDriver;
+use ruviform_ui::driver::{DriverEvent, WindowLifecycle};
+use ruviform_ui::{BackendReport, Capability, WindowCapabilities, WindowDriver, WindowSpec};
+use ruviform_ui_gpui::{GpuiDriver, ViewMount};
+use synvelis_theme::{ThemeCatalog, ThemeSelection};
 
 use synvelis_app::logging::{self, EnvOverrides};
-use synvelis_app::{LogSettings, NativeShell, SynvelisApp};
+use synvelis_app::{
+    LogSettings, NativeShell, SynvelisApp, main_view_id, main_view_targets, mount_main_view,
+};
 
 /// UI tick cadence — job drain, outbox flush, and clock advance rate.
 const TICK: Duration = Duration::from_millis(16);
@@ -101,6 +108,41 @@ fn log_capabilities(caps: &WindowCapabilities) {
     );
 }
 
+/// Resolves the shipped product theme (`synvelis/dark/comfortable`)
+/// through the `synvelis-theme` catalog — RF385 `ResolvedTheme`
+/// interpretation stays delegated upstream; this function only selects
+/// the layered documents. `None` yields the driver's literal fallback
+/// palette — a missing theme is degraded, never fatal.
+fn product_theme() -> Option<synvelis_theme::ResolvedTheme> {
+    let mut catalog = ThemeCatalog::new();
+    for json in [
+        include_str!("../../../../assets/themes/synvelis-base.dtcg.json"),
+        include_str!("../../../../assets/themes/synvelis-dark.dtcg.json"),
+        include_str!("../../../../assets/themes/synvelis-density-comfortable.dtcg.json"),
+        include_str!("../../../../assets/themes/synvelis-density-compact.dtcg.json"),
+        include_str!("../../../../assets/themes/synvelis-light.dtcg.json"),
+    ] {
+        match synvelis_theme::load_document(json) {
+            Ok(doc) => {
+                catalog.insert(doc);
+            }
+            Err(e) => tracing::warn!(error = %e, "theme document rejected"),
+        }
+    }
+    let sel = ThemeSelection {
+        theme: "synvelis".to_string(),
+        mode: "dark".to_string(),
+        density: "comfortable".to_string(),
+    };
+    match catalog.resolve(&sel) {
+        Ok(theme) => Some(theme),
+        Err(e) => {
+            tracing::warn!(error = %e, "theme resolution failed — fallback palette");
+            None
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let mut host_log = match install_logging() {
         Ok(host_log) => host_log,
@@ -120,6 +162,20 @@ fn main() -> ExitCode {
         host_log.take_degraded(),
     );
 
+    // The view host is minted while the app is still composition-owned
+    // — its `AttachEpoch` comes from the session allocator handle,
+    // never a second allocator.
+    let view_host = match mount_main_view(&app.attach_epoch_allocator()) {
+        Ok(host) => host,
+        Err(e) => {
+            eprintln!("synvelis-native: view mount failed: {e}");
+            tracing::error!(error = %e, "view mount failed");
+            return ExitCode::from(3);
+        }
+    };
+    let view_id = main_view_id();
+    let view_targets = main_view_targets();
+
     let mut shell = match NativeShell::new(app, TICK) {
         Ok(shell) => shell,
         Err(e) => {
@@ -128,14 +184,47 @@ fn main() -> ExitCode {
             return ExitCode::from(3);
         }
     };
-    if let Err(e) = shell.open_main(&mut driver) {
-        eprintln!("synvelis-native: window creation failed: {e}");
-        tracing::error!(error = %e, "window creation failed");
-        return ExitCode::from(3);
-    }
+    let theme = product_theme();
+    let window = match driver.create_view_window(
+        &WindowSpec {
+            title: "Synvelis".to_string(),
+            ..WindowSpec::default()
+        },
+        ViewMount {
+            host: view_host,
+            theme,
+        },
+    ) {
+        Ok(window) => window,
+        Err(e) => {
+            eprintln!("synvelis-native: window creation failed: {e}");
+            tracing::error!(error = %e, "window creation failed");
+            return ExitCode::from(3);
+        }
+    };
 
+    // Attach + subscribe on the main window's first `Ready` — after
+    // `handle` so the shell has registered the window (owner resolution
+    // requires it in `windows`).
+    let mut view_attached = false;
     let result = driver.run(Some(TICK), move |event, driver| {
+        let main_ready = matches!(
+            &event,
+            DriverEvent::Windowed {
+                window: w,
+                event: WindowLifecycle::Ready,
+            } if *w == window
+        );
         shell.handle(event, driver);
+        if main_ready && !view_attached {
+            view_attached = true;
+            if let Err(e) = shell.attach_view(driver, window, &view_id, &view_targets) {
+                eprintln!("synvelis-native: view attach failed: {e}");
+                tracing::error!(error = %e, "view attach failed");
+            } else {
+                tracing::info!(view_id = %view_id, "main view attached");
+            }
+        }
     });
     match result {
         Ok(()) => {

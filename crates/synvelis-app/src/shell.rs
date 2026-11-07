@@ -41,17 +41,18 @@
 //! only the `ruviform-ui` port types. **RT contract:** non-RT only —
 //! driven on the UI thread by the driver's `run`/`pump` loop.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use serde_json::json;
+use serde_json::{Value, json};
 
 use ruviform_ui::driver::{DriverEvent, WindowDriver, WindowLifecycle, WindowSpec};
 use ruviform_ui::ipc::{ErrorBody, Event, LifecycleState, codes};
+use ruviform_ui::view::{AttachEpoch, AttachEpochAllocator};
 use ruviform_ui::window::{CloseDecision, RoutedEvent, WindowId};
 use ruviform_ui::{DataRegistry, UiError, UiRuntime};
 
@@ -88,6 +89,10 @@ pub struct NativeShell {
     /// Shared UI clock cell — advanced per `Tick`; `ui_pump` re-syncs
     /// the gateway clock from it inside every op.
     clock: Rc<Cell<u64>>,
+    /// Session `AttachEpoch` allocator — shared cell captured before
+    /// the app sealed, so mid-session host recreation still mints
+    /// from the single allocator (RF387).
+    attach_epochs: Rc<RefCell<AttachEpochAllocator>>,
     /// Boot app-state push — delivered to each window on `Ready`.
     initial_notify: Event,
     /// `Tick` cadence in ms — the clock advance per tick.
@@ -125,6 +130,7 @@ impl NativeShell {
         let quit = app.quit_flag();
         let outbox = app.event_outbox();
         let clock = app.ui_clock();
+        let attach_epochs = app.attach_epoch_allocator();
         let initial_notify = app.app_state_notify();
         let mut rt = UiRuntime::new(DataRegistry::new());
         rt.register_service(AppService::new(app))?;
@@ -133,6 +139,7 @@ impl NativeShell {
             quit,
             outbox,
             clock,
+            attach_epochs,
             initial_notify,
             tick_ms: u64::try_from(tick.as_millis()).unwrap_or(u64::MAX),
             windows: BTreeMap::new(),
@@ -141,6 +148,22 @@ impl NativeShell {
             pending_view_ops: HashMap::new(),
             teardown_seq: 0,
         })
+    }
+
+    /// The session `AttachEpoch` allocator — mints every `ViewHost`'s
+    /// epoch from the one session-owned sequence. Reachable after the
+    /// app sealed, so a view remount/host recreation under a live
+    /// shell still takes the mandatory allocator path.
+    #[must_use]
+    pub fn attach_epoch_allocator(&self) -> Rc<RefCell<AttachEpochAllocator>> {
+        Rc::clone(&self.attach_epochs)
+    }
+
+    /// Mints the next attach epoch — convenience over
+    /// [`Self::attach_epoch_allocator`].
+    #[must_use]
+    pub fn mint_attach_epoch(&self) -> AttachEpoch {
+        self.attach_epochs.borrow_mut().mint()
     }
 
     /// Creates the product's main window through the driver. Call
@@ -156,6 +179,102 @@ impl NativeShell {
             ..WindowSpec::default()
         };
         driver.create_window(&spec)
+    }
+
+    /// Attaches a mounted view (`ViewHost` already given to the
+    /// driver) to `window` and subscribes its binding targets — the
+    /// composition-root half of the RF387 mount seam.
+    ///
+    /// The window itself is created by the driver first
+    /// (`GpuiDriver::create_view_window` on the GPUI lane; any
+    /// `create_window` on a fake), because the host lives inside the
+    /// driver's render object — the shell never holds `ViewHost`.
+    /// This method then mints the `syn.view.attach` +
+    /// `syn.control.subscribe` ops through the same runtime dispatch
+    /// an `Action`-channel intent would take, so shell bookkeeping
+    /// (`views`, `view_generation`) reconciles on the exact same path
+    /// and `Destroyed` teardown covers the view uniformly.
+    ///
+    /// `view_id` is the wire identity (`"view-{ViewInstanceId}"` —
+    /// [`crate::screens::main_view_id`]); the `AttachEpoch` used to
+    /// build the host is a separate runtime guard minted by
+    /// [`SynvelisApp::mint_attach_epoch`].
+    ///
+    /// Returns the `syn.view.attach` result payload (`generation`
+    /// included) so callers/tests can assert the adopted epoch.
+    ///
+    /// # Errors
+    /// [`UiError::Internal`] when the attach op reports a failure —
+    /// a mounted view that cannot attach is a composition defect, so
+    /// the error is propagated rather than leaving the host silently
+    /// bound to nothing.
+    pub fn attach_view(
+        &mut self,
+        driver: &mut dyn WindowDriver,
+        window: WindowId,
+        view_id: &str,
+        targets: &[String],
+    ) -> Result<Value, UiError> {
+        let intent = ruviform_ui::ipc::Intent::new(
+            format!("shell-attach-{view_id}"),
+            "syn.view.attach",
+            json!({ "view_id": view_id, "window_id": window.to_string() }),
+        );
+        self.track_view_op(&intent);
+        let mut attach_data = Value::Null;
+        let mut failure: Option<String> = None;
+        for re in self.rt.dispatch_window_intent(window, intent) {
+            if let Event::Result {
+                ok, data, error, ..
+            } = &re.event
+            {
+                if *ok {
+                    attach_data = data.clone().unwrap_or(Value::Null);
+                } else {
+                    failure = Some(
+                        error
+                            .as_ref()
+                            .map_or_else(|| "attach rejected".to_string(), |e| e.message.clone()),
+                    );
+                }
+            }
+            self.observe_result(&re);
+            self.post_routed(&re, driver);
+        }
+        if let Some(message) = failure {
+            return Err(UiError::Internal {
+                message: format!("syn.view.attach for {view_id} failed: {message}"),
+            });
+        }
+        for target in targets {
+            let sub = ruviform_ui::ipc::Intent::new(
+                format!("shell-sub-{view_id}-{target}"),
+                "syn.control.subscribe",
+                json!({ "view_id": view_id, "target": target }),
+            );
+            for re in self.rt.dispatch_window_intent(window, sub) {
+                if let Event::Result {
+                    ok: false, error, ..
+                } = &re.event
+                {
+                    tracing::warn!(
+                        view_id,
+                        target,
+                        error = ?error,
+                        "view subscription refused"
+                    );
+                }
+                self.observe_result(&re);
+                self.post_routed(&re, driver);
+            }
+        }
+        // The dispatched ops pumped receipts/initial projections into
+        // the outbox — drain it into the windows exactly as `handle`
+        // does after every event, so the subscription's first
+        // `syn.control.projection` row lands without waiting for the
+        // next unrelated event.
+        self.drain_outbox(driver);
+        Ok(attach_data)
     }
 
     /// The view→window association learned from successful
