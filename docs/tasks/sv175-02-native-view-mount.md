@@ -142,3 +142,32 @@ Dock・#176 PluginDock 受入は開始条件にしない。
   capability 出力通り。実 OS/製品 E2E・親 Issue #175/#112 完全
   受入は未達。
 - 一般 Dock(#113)・PluginDock(#176)・実外部 editor 受入は後段。
+
+## 2026-11-08 再測定: main 追従・RF414 消費・Seek 単位の秒化
+
+- main `8c11e31`（PR#180）を merge。競合は `docs/tasks/README.md` の索引行のみで、両側を保持した。
+- ruviform `79d1db0a` → `20a24a66`（main、PR#415: RF414 projection→controlled display）。
+  `Cargo.lock` の ruviform source 26 件が同一 SHA、`ui/vendor/ruviform/REV` と一致（`mise run check-ruviform-rev` pass）。
+- 再測定で判明した事実: transport projection の `value` は `TransportProjection` の多キー object であり、
+  RF414 の `projection_value_input` は単一スカラー（または単一キーの `plain`/`normalized`）しか controlled
+  display に渡さない。そのため、object のままでは Seek の display は authoritative projection で更新されなかった。
+  ruviform 側の object フィールド指定は追加せず、SV の binding adapter で単位付きスカラーに明示変換する方針を採った。
+
+### 単位契約（Seek = 秒）
+
+- 表示: `TickTimeMapping::beat_to_seconds`（`synvelis-project`）。ruviform `TempoMap::beat_to_media` で
+  有理数の拍を秒に変換し、マイクロ秒（1e-6 s）に量子化する。量子化の丸めは ruviform の base 量子化規則に従う。
+- 書き込み: `TickTimeMapping::seconds_to_beat`。入力秒は最近接マイクロ秒に丸めてから `media_to_beat` で拍に戻す。
+  commit 経路は `synvelis-workspace` の `seek_point`（project の tempo map を使用）。
+- 換算元は project の tempo map。既定 120 BPM では 1 拍 = 0.5 秒。BeatPoint の有理数は保持し、PPQN 量子化は行わない。
+- 経路: `ui_ops` が行に `display_value`（秒）を付与 → `binding.rs` が view wire の `value` に使う（`observed` の
+  生 object は他の読み手のため残す）。
+- 範囲: Seek は boot 時の固定 0..240 秒。ruviform `20a24a66` の ViewHost に descriptor 差替 API がないため、
+  project length への追従は未達（remount が必要。follow-up）。
+
+### 未達・残課題
+
+- Seek range は project length に追従しない（固定 0..240 秒）。
+- Fader（`mixer.gain`）は projection 元が無く、controlled display の実測は NotRun。
+- RF387 側の canvas 幅 0・SeekFader 未描画（実機、RF387 Partial/open）は本 slice では未観測。
+- 実 GPUI 実窓、OS render/input/IME は未検証（Windows 以外は未実測）。
