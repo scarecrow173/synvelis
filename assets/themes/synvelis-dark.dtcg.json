@@ -1,0 +1,32 @@
+{
+  "$extensions": {
+    "dev.ruviform.dtcg-profile": {
+      "profile": "rvf-dtcg-profile.v1",
+      "layer": "product",
+      "id": "synvelis-dark",
+      "modes": ["dark"]
+    },
+    "synvelis.productTheme": {
+      "schema": 1,
+      "theme": "synvelis",
+      "mode": "dark",
+      "layer": "product"
+    },
+    "synvelis.provenance": "ui/src/styles.css (pre-native dark palette, observed values)"
+  },
+  "color": {
+    "$type": "color",
+    "bg":          { "$value": "#1b1d21" },
+    "bg-panel":    { "$value": "#23262c" },
+    "fg":          { "$value": "#e8e8ea" },
+    "fg-dim":      { "$value": "#9aa0a8" },
+    "accent":      { "$value": "#6aa9e8" },
+    "warn":        { "$value": "#f0a868" },
+    "err":         { "$value": "#e86a6a" },
+    "ok":          { "$value": "#6ac88a" },
+    "bg-hover":    { "$value": "#2c3038" },
+    "bg-active":   { "$value": "#3a3f47" },
+    "bg-input":    { "$value": "#191b1f" },
+    "border":      { "$value": "#33373f" }
+  }
+}

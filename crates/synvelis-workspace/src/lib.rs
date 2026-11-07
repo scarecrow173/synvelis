@@ -25,6 +25,7 @@ pub mod gesture;
 pub mod host;
 pub mod link;
 pub mod persist;
+pub mod preset;
 pub mod selection;
 pub mod session;
 pub mod snap;
@@ -68,6 +69,10 @@ pub use gesture::{CancelReason, Gesture, GestureFixation, GestureOutcome, Gestur
 pub use host::FakeWindowHost;
 pub use link::{LinkEvent, LinkGroupId, LinkGroupManager};
 pub use persist::{WORKSPACE_SCHEMA, WorkspaceSnapshot};
+pub use preset::{
+    PRESET_SCHEMA, PresetDock, PresetFocus, PresetGeometry, PresetLink, PresetReport, PresetView,
+    PresetViewState, PresetWindow, WorkspacePreset,
+};
 pub use selection::{
     EditBinding, EditTimeDomain, EditTimePoint, LaneScope, ObjectSelections, SelectionDomain,
     TimeSelection,

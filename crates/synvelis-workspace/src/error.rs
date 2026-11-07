@@ -25,6 +25,8 @@ pub enum WorkspaceError {
     UnknownCommand(String),
     /// The workspace snapshot could not be decoded or applied.
     Snapshot(String),
+    /// A workspace preset could not be decoded, migrated, or applied.
+    Preset(String),
     /// One selection combined targets from different editing domains.
     MixedDomains(String),
     /// A gesture's targets span musical and media time anchors with
@@ -55,6 +57,7 @@ impl fmt::Display for WorkspaceError {
             Self::ViewBusy(v) => write!(f, "view {v} is mid-transfer"),
             Self::UnknownCommand(id) => write!(f, "unknown command: {id}"),
             Self::Snapshot(msg) => write!(f, "snapshot: {msg}"),
+            Self::Preset(msg) => write!(f, "preset: {msg}"),
             Self::MixedDomains(msg) => write!(f, "mixed selection domains: {msg}"),
             Self::MixedTimeDomains(msg) => write!(f, "mixed time domains: {msg}"),
             Self::UnsupportedOperation(op) => write!(f, "unsupported operation: {op}"),

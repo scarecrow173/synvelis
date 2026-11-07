@@ -1,0 +1,50 @@
+{
+  "schema": 2,
+  "id": "synvelis.editing",
+  "name": "Editing",
+  "windows": [
+    {
+      "title": "Arrangement",
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 1600,
+        "height": 900
+      },
+      "dock": {
+        "type": "split",
+        "axis": "horizontal",
+        "ratio": 0.75,
+        "children": [
+          {
+            "type": "tabs",
+            "views": [1],
+            "active": 0
+          },
+          {
+            "type": "tabs",
+            "views": [2],
+            "active": 0
+          }
+        ]
+      }
+    }
+  ],
+  "views": [
+    {
+      "slot": 1,
+      "kind": "arrangement",
+      "title": "Arrangement"
+    },
+    {
+      "slot": 2,
+      "kind": "inspector",
+      "title": "Inspector"
+    }
+  ],
+  "detached": [],
+  "links": [
+    { "view": 2, "group": 1 }
+  ],
+  "focus": { "window": 0, "view": 1 }
+}

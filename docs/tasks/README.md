@@ -14,7 +14,6 @@ Directory: `docs/tasks`
 | TASK-034RUl0VioQz9IinY5Qc7G | Issue #157 rev.3 T1 matrix placeholder gate 修正 | in-progress | [issue-157-t1-matrix-placeholder-gate.md](./issue-157-t1-matrix-placeholder-gate.md) |
 | TASK-034SYN166T1CiSumX | Issue #166 T1 Full CI 化・ci-summary 統一 — 第一段階実装 | in-progress | [issue-166-t1-ci-summary-stage1.md](./issue-166-t1-ci-summary-stage1.md) |
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
-| TASK-034T2c6ZLwPXf10mPcW2MC | SYN-IO-02 task1 store.rs StagedFile 移行 | todo | [syn-io-02-task1-store-stagedfile-migration.md](./syn-io-02-task1-store-stagedfile-migration.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
 | TASK-034QfQZsTXhM5gVQP0gh81 | VS-C task3 staging writer | todo | [vs-c-task3-staging-writer.md](./vs-c-task3-staging-writer.md) |
@@ -75,6 +74,8 @@ Directory: `docs/tasks`
 | TASK-034RADc5Q2mNYPcXkM8fR | SV-GUI-02 frontend BindingPort/ViewModel/ConsoleView | done | [sv-gui-02-frontend-bindingport-viewmodel-consoleview.md](./sv-gui-02-frontend-bindingport-viewmodel-consoleview.md) |
 | TASK-034RADeL6sQ8vFzJ3xTmN | SV-GUI-02 検証レーン統合 (headless/vitest/guitest) | done | [sv-gui-02-headless-vitest-guitest.md](./sv-gui-02-headless-vitest-guitest.md) |
 | TASK-034RADaUbkmnzbFjZ29bl4 | SV-GUI-02 ruviform rev 追従 + Rust syn.* UI op 面 | done | [sv-gui-02-ruviform-rev-rust-syn-ui-op.md](./sv-gui-02-ruviform-rev-rust-syn-ui-op.md) |
+| TASK-034T7IgIHI7umPL7xCvU3u | SV177 theme crate + preset module implementation | done | [sv177-theme-preset-impl.md](./sv177-theme-preset-impl.md) |
+| TASK-034T2c6ZLwPXf10mPcW2MC | SYN-IO-02 task1 store.rs StagedFile 移行 | done | [syn-io-02-task1-store-stagedfile-migration.md](./syn-io-02-task1-store-stagedfile-migration.md) |
 | TASK-034RBFUDGVewxs72FGa8RM | SYN-OBS-01 task1 依存更新と logging モジュール(設定解決/install/owner) | done | [syn-obs-01-task1-deps-logging-module.md](./syn-obs-01-task1-deps-logging-module.md) |
 | TASK-034RBFVsXUmxHPEa6zbZRx | SYN-OBS-01 task2 ObservabilityOwner Source catalog と syn.app.info logging セクション | done | [syn-obs-01-task2-owner-catalog-app-info.md](./syn-obs-01-task2-owner-catalog-app-info.md) |
 | TASK-034RBFW6PKUMmU8bg04whw | SYN-OBS-01 task3 service/app 非RT tracing イベント | done | [syn-obs-01-task3-tracing-events.md](./syn-obs-01-task3-tracing-events.md) |
