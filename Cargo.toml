@@ -35,31 +35,25 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 rand = "0.8"
-# TEMPORARY (SV177/RF385): all ruviform deps track the
-# `feature/gui-driver-neutral-design-contract` candidate branch so the
-# `ruviform-ui-theme` DTCG interpreter (ruviform #385) is consumable and
-# the single-resolved-SHA invariant (tools/check-ruviform-rev.mjs) holds.
-# Removal condition: drop every `branch` key once the candidate lands on
-# ruviform's default branch. See evidence/reports/sv177-rf385-adapter.md.
-ruviform-io-file = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-media-core = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-media-io = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-media-reader = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-io-symphonia = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-graph = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-audio = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-audio-core = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-rt = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-io-wav = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-exec = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-ui = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-ui-theme = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-viz = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-plugin-core = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-plugin-host = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-audio-plugin-bridge = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-ui-webview = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
-ruviform-observability = { git = "https://github.com/scarecrow173/ruviform.git", branch = "feature/gui-driver-neutral-design-contract" }
+ruviform-io-file = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-media-core = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-media-io = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-media-reader = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-io-symphonia = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-graph = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-audio = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-audio-core = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-rt = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-io-wav = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-exec = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-ui = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-ui-theme = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-viz = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-plugin-core = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-plugin-host = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-audio-plugin-bridge = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-ui-webview = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-observability = { git = "https://github.com/scarecrow173/ruviform.git" }
 synvelis-theme = { path = "crates/synvelis-theme" }
 rust-embed = "8"
 tracing = "0.1"

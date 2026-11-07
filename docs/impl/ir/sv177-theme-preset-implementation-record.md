@@ -55,9 +55,9 @@ Validator → Judge の review-protocol で確認された blocking
 findings（破壊前検証欠落・session state 混入・gate 未登録等）を
 全て修正済み。
 
-**Revision 2（2026-11-07）**: RF385 candidate
-（`feature/gui-driver-neutral-design-contract`、解決 SHA
-`d26d95f83fa822ed4f01e0aefab3cfcb818f7806`）着地に伴い、
+**Revision 2（2026-11-07）**: RF385（`ruviform-ui-theme`・
+`rvf-dtcg-profile.v1`）ruviform main 着地
+（PR #397 squash `df45d10cd86918d10fa81dc80a3f5f5f2564d5ae`）に伴い、
 `UnresolvedThemeResolver` seam を実 adapter
 （`adapter::resolve_documents` → `TokenDocument::from_json` →
 `ThemeResolver::resolve` → `ResolvedTheme`）へ置換。SV 側の
@@ -99,12 +99,14 @@ Rev.2 で RF385 candidate（`ruviform-ui-theme`・
   block（`layer="product"`・一意 id・mode 文書は `modes` 宣言）を
   併記し、`dimension`/`duration` を typed `{value,unit}` 形へ移行
   （CSS 文字列 `"22px"`/`"100ms"` は上流 `InvalidValue` 不適合）。
-- `Cargo.toml`（workspace）: 全 ruviform git 依存を
+- `Cargo.toml`（workspace）: `ruviform-ui-theme` を default 追従
+  dep として追加。candidate landing 前は全 ruviform git 依存を
   `branch = "feature/gui-driver-neutral-design-contract"` 追従へ
-  一時切替 + `ruviform-ui-theme` 追加（`check-ruviform-rev` の
-  単一 SHA 不変条件を保つため全 dep 同時。解除条件は design doc・
-  evidence 記録どおり RF385 main 着地時）。`Cargo.lock` 再生成 —
-  24 ruviform sources 全て `d26d95f83fa822ed4f01e0aefab3cfcb818f7806`
+  一時切替していたが、main 着地（`df45d10`）確認後に全 `branch`
+  key を除去して default 追従へ復帰（解除条件消化済み、恒久
+  `rev` pin なし — 証跡 `evidence/reports/sv177-rf385-adapter.md`）。
+  `Cargo.lock` 再生成 — 24 ruviform sources 全て
+  `df45d10cd86918d10fa81dc80a3f5f5f2564d5ae`
   （SV84 merge 由来の `ruviform-io-file` 含む）。
 - `crates/synvelis-workspace`: `preset.rs` 新規（PRESET_SCHEMA=2
   slot 型・`PresetViewState` 部分集合・validate・from_snapshot・
@@ -153,7 +155,7 @@ Rev.2 で RF385 candidate（`ruviform-ui-theme`・
 
 ## Validation
 
-Rev.2 実行分（2026-11-07、ruviform `660034f2` → `d26d95f` candidate 上）:
+Rev.2 実行分（2026-11-07、ruviform `df45d10`（main）上）:
 
 - `mise run fmt-check`: pass。
 - `mise run check`: workspace 全体 pass。
@@ -164,7 +166,7 @@ Rev.2 実行分（2026-11-07、ruviform `660034f2` → `d26d95f` candidate 上�
 - `node tools/check-headless-deps.mjs`: 9 headless crates、GUI
   framework deps なし。
 - `mise run check-ruviform-rev`: resolved
-  `d26d95f83fa822ed4f01e0aefab3cfcb818f7806`（24 lockfile
+  `df45d10cd86918d10fa81dc80a3f5f5f2564d5ae`（24 lockfile
   sources・lockfile-primary・REV match）。
 - `cargo test -p synvelis-theme`: 10 pass / 0 fail —
   出荷 5 資産が SV envelope + upstream parser 双方を通過し、

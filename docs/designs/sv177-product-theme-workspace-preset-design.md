@@ -355,15 +355,14 @@ preset は `WorkspaceManager` の dock/view 操作のみ使用。
 - screen spec → RF387 ViewSpec 写像 | RF387 未着地 | RF387 着地時 |
   文書 spec が型と乖離する可能性
 
-### RF385 candidate 一時接続（証跡は evidence/reports/sv177-rf385-adapter.md）
+### RF385 接続（証跡は evidence/reports/sv177-rf385-adapter.md）
 
-- 方法: workspace `[workspace.dependencies]` の全 ruviform git 依存
-  を `branch = "feature/gui-driver-neutral-design-contract"` 追従へ
-  一時切替（恒久 `rev` pin は追加しない — `check-ruviform-rev` の
-  単一 SHA 不変条件を保つため全 dep 同時切替）。接続時の解決 SHA:
-  `d26d95f83fa822ed4f01e0aefab3cfcb818f7806`（指示 candidate head
-  `d3b211cc` + evidence commit `660034f2` + Validator P1 修復
-  `d26d95f` — candidate head 前進に追随）。
-- 解除条件: RF385 candidate が ruviform default branch に着地次第、
-  全 `branch` key を除去して default 追従へ戻す。branch 削除前に
-  解除しないと build が壊れるため merge 確認が先。
+- 最終状態: ruviform **default branch 追従**（他の ruviform dep と
+  同一方法、恒久 `rev` pin なし）。RF385 は PR #397 squash merge
+  `df45d10cd86918d10fa81dc80a3f5f5f2564d5ae` で main 着地済み —
+  `Cargo.lock` 全 24 sources が `df45d10` を解決。
+- 経緯: landing 前は全 ruviform git 依存を
+  `branch = "feature/gui-driver-neutral-design-contract"` 追従へ
+  一時切替していた（`check-ruviform-rev` の単一 SHA 不変条件を保つ
+  ため全 dep 同時）。main 着地確認後に全 `branch` key を除去し
+  default 追従へ復帰 — 解除条件を消化済み。
