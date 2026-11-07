@@ -118,7 +118,12 @@ handle-relative capability（ruviform#398 → PR401 merge `f483fe1c`、
   段階では効かない。raw-path fallback での回避は capability
   逸脱のため禁止として、streaming/bounded 列挙 API
   （例: callback/iterator または limit 付き `read_dir`）を RF
-  側へ ask — この残余は **BLOCKED（RF API 待ち）** として明示。
+  側へ ask — この残余は **BLOCKED（RF API 待ち）** として明示
+  （truncate による kept-window 復元は emit/subset bound のみで
+  P1-2 を FIXED としない）。coordinator 回答（2026-11-07）:
+  bounded/streaming 列挙 API は RF 責務として別 Issue で
+  起票・実装する方針、`open_dir` が親 root 境界を共有するため
+  scope-subtree re-root の必要性も同じ RF API 案へ含める。
 - dangling symlink は Windows/Unix で `Missing` に統一（旧 Unix
   経路は列挙から黙って skip していた）。
 - dir entry の `byte_len` は `NotApplicable`（旧実装は dir size を
