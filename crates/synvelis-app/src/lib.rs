@@ -1,5 +1,6 @@
 //! `synvelis-app` — the Synvelis product application composition root
-//! and GUI host boundary (Issue #110 / SV-GUI-01).
+//! and GUI host boundary (Issue #110 / SV-GUI-01, Issue #175 /
+//! SV-GPUI-01).
 //!
 //! This crate owns the single place where the product's runtime
 //! services are assembled: the project session, workspace manager,
@@ -10,12 +11,20 @@
 //! ## Layer boundary
 //!
 //! The library half is headless — it never imports a windowing or
-//! webview type. Everything platform-dependent (wry/tao host, embedded
-//! assets, the desktop entry point) sits behind the non-default
-//! `webview` feature so `cargo check --workspace` stays a headless
-//! verification path. GUI, CLI, and headless callers all reach the
-//! same [`ruviform_ui::UiRuntime`] + [`Service`] contract, so the
-//! single-project-source-of-truth invariant holds on every surface.
+//! webview/GPUI type. Everything platform-dependent (wry/tao host,
+//! embedded assets, the desktop entry points) sits behind the
+//! non-default `webview`/`native` features so `cargo check
+//! --workspace` stays a headless verification path. GUI, CLI, and
+//! headless callers all reach the same [`ruviform_ui::UiRuntime`] +
+//! [`Service`] contract, so the single-project-source-of-truth
+//! invariant holds on every surface.
+//!
+//! SV-GPUI-01 adds the driver-neutral native lane: [`NativeShell`]
+//! routes the RF386 [`ruviform_ui::WindowDriver`] contract onto the
+//! same sealed runtime, [`ViewBinding`] is the typed adapter native
+//! views speak, and the `synvelis-native` binary (feature `native`)
+//! assembles the GPUI standard driver — the only place `gpui` types
+//! enter the tree.
 //!
 //! ## Ops
 //!
@@ -27,14 +36,17 @@
 pub mod app;
 #[cfg(feature = "webview")]
 pub mod assets;
+pub mod binding;
 pub mod error;
 pub mod host;
 pub mod logging;
 pub mod revision;
 pub mod service;
+pub mod shell;
 pub mod ui_ops;
 
 pub use app::{AudioRuntimeSlot, ObservabilityOwner, RecorderSlot, SynvelisApp};
+pub use binding::{BindingNotice, ProjectionRow, ViewBinding};
 pub use error::{AppError, AssetError, AssetErrorKind};
 pub use host::ShellWindowHost;
 pub use logging::{
@@ -43,3 +55,4 @@ pub use logging::{
 };
 pub use revision::{APP_ASSET_SCHEMA, AssetManifest, HOST_REVISION, MANIFEST_NAME, check_bundle};
 pub use service::{AppService, OPS};
+pub use shell::NativeShell;
