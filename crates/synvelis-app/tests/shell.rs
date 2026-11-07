@@ -621,3 +621,310 @@ fn rvf_command_malformed_gets_typed_error_not_silent_default() {
         .expect("error body");
     assert_eq!(err.code, "invalid_params");
 }
+
+/// A second ready window — the multi-window counterpart of
+/// `ready_window` for ownership/reattach cases.
+fn second_window(shell: &mut NativeShell, driver: &mut FakeDriver) -> WindowId {
+    let w = driver
+        .create_window(&ruviform_ui::WindowSpec::default())
+        .unwrap();
+    inject(
+        shell,
+        driver,
+        DriverEvent::Windowed {
+            window: w,
+            event: WindowLifecycle::Ready,
+        },
+    );
+    assert!(shell.is_ready(w));
+    w
+}
+
+/// Asserts the command `id` was answered with exactly one
+/// `invalid_params` rejection on `window` — the fail-closed shape
+/// every origin-resolution refusal must mint.
+fn assert_rejected(driver: &FakeDriver, window: WindowId, id: &str) {
+    let results = results_for(driver, window, id);
+    assert_eq!(results.len(), 1, "one rejection result: {results:?}");
+    assert!(!results[0].0, "command must be rejected: {results:?}");
+    let err = driver
+        .events_for(window)
+        .iter()
+        .find_map(|e| match e {
+            Event::Result { id: rid, error, .. } if rid == id => error.clone(),
+            _ => None,
+        })
+        .expect("error body");
+    assert_eq!(err.code, "invalid_params");
+}
+
+/// Asserts no `syn.control.receipt` notify for `id` reached `window` —
+/// a rejected command must never mint a domain receipt.
+fn assert_no_receipt(driver: &FakeDriver, window: WindowId, id: &str) {
+    let receipts = notifies(driver, window, "syn.control.receipt");
+    assert!(
+        receipts.iter().all(|r| r["receipt"]["commandId"] != id),
+        "rejected command must not reach the domain: {receipts:?}"
+    );
+}
+
+#[test]
+fn rvf_command_on_stale_window_after_reattach_is_rejected() {
+    let (mut shell, mut driver) = harness();
+    let a = ready_window(&mut shell, &mut driver);
+    let b = second_window(&mut shell, &mut driver);
+    let gen_a = attach(&mut shell, &mut driver, a, "console");
+
+    // Dock transfer: the same view re-attaches on B — ownership
+    // moves and the generation bumps.
+    let gen_b = attach(&mut shell, &mut driver, b, "console");
+    assert_eq!(shell.view_window("console"), Some(b));
+    assert!(gen_b > gen_a, "reattach bumps the epoch");
+
+    // A leftover command on the old channel names the view that no
+    // longer lives here — it must never mint an op under the live
+    // epoch (the runtime forwards ctx.window_id unchecked).
+    action(
+        &mut shell,
+        &mut driver,
+        a,
+        rvf_command("stale-1", &rvf_gesture("begin", "g-stale", 3.0)),
+    );
+    assert_rejected(&driver, a, "stale-1");
+    assert_no_receipt(&driver, a, "stale-1");
+    assert_no_receipt(&driver, b, "stale-1");
+    assert!(
+        results_for(&driver, b, "stale-1").is_empty(),
+        "nothing is routed to the new owner for a stale command"
+    );
+}
+
+#[test]
+fn rvf_command_follows_reattach_to_the_new_owner_window() {
+    let (mut shell, mut driver) = harness();
+    let a = ready_window(&mut shell, &mut driver);
+    let b = second_window(&mut shell, &mut driver);
+    attach(&mut shell, &mut driver, a, "console");
+    attach(&mut shell, &mut driver, b, "console");
+    action(
+        &mut shell,
+        &mut driver,
+        b,
+        Intent::new(
+            "sub-b",
+            "syn.control.subscribe",
+            json!({ "view_id": "console", "target": "transport/position" }),
+        ),
+    );
+
+    // The new owner window keeps minting commands — its
+    // begin→commit lands translated as `applied`.
+    action(
+        &mut shell,
+        &mut driver,
+        b,
+        rvf_command("cmd-b0", &rvf_gesture("begin", "g-b", 2.0)),
+    );
+    action(
+        &mut shell,
+        &mut driver,
+        b,
+        rvf_command("cmd-b1", &rvf_gesture("commit", "g-b", 5.0)),
+    );
+    let results = results_for(&driver, b, "cmd-b1");
+    assert_eq!(results.len(), 1, "receipt-as-result: {results:?}");
+    let (ok, data) = &results[0];
+    assert!(ok, "new-owner command applies: {results:?}");
+    assert_eq!(data.as_ref().unwrap()["status"], "applied");
+}
+
+#[test]
+fn rvf_command_for_a_view_on_another_window_is_rejected() {
+    let (mut shell, mut driver) = harness();
+    let a = ready_window(&mut shell, &mut driver);
+    let b = second_window(&mut shell, &mut driver);
+    attach(&mut shell, &mut driver, a, "console");
+
+    // B never owned the view — a command naming it on B's channel is
+    // not B's to mint.
+    action(
+        &mut shell,
+        &mut driver,
+        b,
+        rvf_command("foreign-1", &rvf_gesture("begin", "g-f", 1.0)),
+    );
+    assert_rejected(&driver, b, "foreign-1");
+    assert_no_receipt(&driver, a, "foreign-1");
+    assert_no_receipt(&driver, b, "foreign-1");
+}
+
+#[test]
+fn rvf_command_naming_an_unattached_view_is_rejected() {
+    let (mut shell, mut driver) = harness();
+    let window = ready_window(&mut shell, &mut driver);
+    attach(&mut shell, &mut driver, window, "console");
+
+    // `origin_view` names a view the shell never saw attach — it is
+    // not adopted into a fresh op with a fabricated epoch.
+    let mut g = rvf_gesture("begin", "g-ghost", 1.0);
+    g["origin_view"] = json!("ghost");
+    action(&mut shell, &mut driver, window, rvf_command("ghost-1", &g));
+    assert_rejected(&driver, window, "ghost-1");
+    assert_no_receipt(&driver, window, "ghost-1");
+}
+
+#[test]
+fn rvf_command_without_origin_view_resolves_the_bound_view() {
+    let (mut shell, mut driver) = harness();
+    let window = ready_window(&mut shell, &mut driver);
+    attach(&mut shell, &mut driver, window, "console");
+    action(
+        &mut shell,
+        &mut driver,
+        window,
+        Intent::new(
+            "sub-1",
+            "syn.control.subscribe",
+            json!({ "view_id": "console", "target": "transport/position" }),
+        ),
+    );
+
+    // No `origin_view` — the window's single bound view applies.
+    let mut b = rvf_gesture("begin", "g-no", 2.0);
+    b.as_object_mut().unwrap().remove("origin_view");
+    action(&mut shell, &mut driver, window, rvf_command("cmd-n0", &b));
+    let mut g = rvf_gesture("commit", "g-no", 4.0);
+    g.as_object_mut().unwrap().remove("origin_view");
+    action(&mut shell, &mut driver, window, rvf_command("cmd-no", &g));
+    let results = results_for(&driver, window, "cmd-no");
+    assert_eq!(results.len(), 1, "receipt-as-result: {results:?}");
+    let (ok, data) = &results[0];
+    assert!(ok, "unique bound view resolves: {results:?}");
+    assert_eq!(data.as_ref().unwrap()["status"], "applied");
+}
+
+#[test]
+fn rvf_command_without_origin_view_and_no_bound_view_is_rejected() {
+    let (mut shell, mut driver) = harness();
+    let window = ready_window(&mut shell, &mut driver);
+
+    let mut g = rvf_gesture("begin", "g-none", 1.0);
+    g.as_object_mut().unwrap().remove("origin_view");
+    action(&mut shell, &mut driver, window, rvf_command("none-1", &g));
+    assert_rejected(&driver, window, "none-1");
+}
+
+#[test]
+fn rvf_command_without_origin_view_ambiguous_binding_is_rejected() {
+    let (mut shell, mut driver) = harness();
+    let window = ready_window(&mut shell, &mut driver);
+    attach(&mut shell, &mut driver, window, "console");
+    attach(&mut shell, &mut driver, window, "mixer");
+
+    // Two views bound to one window — `origin_view` is the only
+    // unambiguous key; a silent pick would mint for the wrong view.
+    let mut g = rvf_gesture("begin", "g-amb", 1.0);
+    g.as_object_mut().unwrap().remove("origin_view");
+    action(&mut shell, &mut driver, window, rvf_command("amb-1", &g));
+    assert_rejected(&driver, window, "amb-1");
+    assert_no_receipt(&driver, window, "amb-1");
+}
+
+/// `rvf_gesture` with an explicit `origin_view` — the declared
+/// producer view on the wire.
+fn rvf_gesture_on(view: &str, kind: &str, gesture: &str, value: f64) -> Value {
+    let mut i = rvf_gesture(kind, gesture, value);
+    i["origin_view"] = json!(view);
+    i
+}
+
+#[test]
+fn attach_owner_is_the_declared_window_not_the_arrival_channel() {
+    let (mut shell, mut driver) = harness();
+    let a = ready_window(&mut shell, &mut driver);
+    let b = second_window(&mut shell, &mut driver);
+
+    // The attach rides A's channel but declares B — the domain
+    // attaches the view to B, and shell bookkeeping mirrors that:
+    // A's channel never owned the view.
+    action(
+        &mut shell,
+        &mut driver,
+        a,
+        Intent::new(
+            "v-attach",
+            "syn.view.attach",
+            json!({ "view_id": "v", "window_id": b.to_string() }),
+        ),
+    );
+    let (ok, _) = results_for(&driver, a, "v-attach")
+        .last()
+        .cloned()
+        .expect("attach result");
+    assert!(ok, "attach succeeded");
+    assert_eq!(shell.view_window("v"), Some(b));
+
+    action(
+        &mut shell,
+        &mut driver,
+        a,
+        rvf_command("v-stale", &rvf_gesture_on("v", "begin", "g-v", 1.0)),
+    );
+    assert_rejected(&driver, a, "v-stale");
+    assert_no_receipt(&driver, a, "v-stale");
+
+    // B — the declared owner — mints commands normally.
+    action(
+        &mut shell,
+        &mut driver,
+        b,
+        rvf_command("v-b0", &rvf_gesture_on("v", "begin", "g-v", 1.0)),
+    );
+    action(
+        &mut shell,
+        &mut driver,
+        b,
+        rvf_command("v-b1", &rvf_gesture_on("v", "commit", "g-v", 2.0)),
+    );
+    let results = results_for(&driver, b, "v-b1");
+    let (ok, data) = results.last().expect("receipt-as-result");
+    assert!(ok, "owner-window command applies: {results:?}");
+    assert_eq!(data.as_ref().unwrap()["status"], "applied");
+}
+
+#[test]
+fn attach_declaring_a_dead_window_leaves_the_view_ownerless() {
+    let (mut shell, mut driver) = harness();
+    let a = ready_window(&mut shell, &mut driver);
+
+    // `window_id` names no live window — the domain accepts the
+    // string, but no channel gets to claim the view.
+    action(
+        &mut shell,
+        &mut driver,
+        a,
+        Intent::new(
+            "v-attach",
+            "syn.view.attach",
+            json!({ "view_id": "v", "window_id": "w999" }),
+        ),
+    );
+    let (ok, _) = results_for(&driver, a, "v-attach")
+        .last()
+        .cloned()
+        .expect("attach result");
+    assert!(ok, "attach op accepted");
+    assert!(
+        shell.view_window("v").is_none(),
+        "declared dead window — ownerless"
+    );
+
+    action(
+        &mut shell,
+        &mut driver,
+        a,
+        rvf_command("v-dead", &rvf_gesture_on("v", "begin", "g-d", 1.0)),
+    );
+    assert_rejected(&driver, a, "v-dead");
+    assert_no_receipt(&driver, a, "v-dead");
+}

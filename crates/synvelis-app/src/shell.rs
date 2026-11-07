@@ -95,15 +95,21 @@ pub struct NativeShell {
     /// Tracked windows → ready flag. `Created` inserts, `Ready` marks,
     /// `Destroyed` removes.
     windows: BTreeMap<WindowId, bool>,
-    /// `view_id → origin driver window` — reconciled from successful
-    /// `syn.view.*` results so `Destroyed` teardown is precise.
+    /// `view_id → owner driver window` — reconciled from successful
+    /// `syn.view.*` results so `Destroyed` teardown and view-command
+    /// origin resolution are precise. The owner is the window the
+    /// `attach` declares (`window_id` — the window the domain
+    /// actually attaches the view to), never the channel the intent
+    /// happened to arrive on.
     views: HashMap<String, WindowId>,
     /// `view_id → generation` adopted from `syn.view.attach` results —
     /// the authoritative epoch `DispatchContext.generation` must carry
     /// for view-translated commands.
     view_generation: HashMap<String, u32>,
-    /// `intent.id → (view op, view_id, origin window)` in flight.
-    pending_view_ops: HashMap<String, (ViewOp, String, WindowId)>,
+    /// `intent.id → (view op, view_id, declared owner window)` in
+    /// flight — `Some` only for `attach` when the declared
+    /// `window_id` names a live tracked window.
+    pending_view_ops: HashMap<String, (ViewOp, String, Option<WindowId>)>,
     /// Shell-minted intent ids for teardown replays.
     teardown_seq: u64,
 }
@@ -219,7 +225,7 @@ impl NativeShell {
                 if intent.op == COMMAND_INTENT_OP {
                     self.on_view_command(window, intent, driver);
                 } else {
-                    self.track_view_op(window, &intent);
+                    self.track_view_op(&intent);
                     for re in self.rt.dispatch_window_intent(window, intent) {
                         self.observe_result(&re);
                         self.post_routed(&re, driver);
@@ -249,13 +255,31 @@ impl NativeShell {
     }
 
     /// Handles a view-minted `rvf.ui.command.v1` intent: strictly
-    /// decodes it into the typed command vocabulary, resolves the view
-    /// (`origin_view`, else the window's bound view), fills
-    /// `DispatchContext` with the attach-adopted generation + clock,
-    /// and dispatches the `syn.control.dispatch` through the runtime.
-    /// The ok-ack is not delivered to the view — the authoritative
-    /// receipt arrives via the `syn.control.receipt` → `Result`
-    /// translation; a failed ack is forwarded as the rejected receipt.
+    /// decodes it into the typed command vocabulary, resolves the
+    /// producing view against live ownership, fills `DispatchContext`
+    /// with the attach-adopted generation + clock, and dispatches the
+    /// `syn.control.dispatch` through the runtime.
+    ///
+    /// Ownership rules — `ctx.window_id` is forwarded unchecked by
+    /// `ControlsUi`, so the shell is the only boundary that can refuse
+    /// a stale or foreign channel before stamping the live epoch:
+    ///
+    /// - `origin_view` must name the view *attached to this window*
+    ///   (a reattach moves ownership; the old channel must not mint
+    ///   commands under the new generation).
+    /// - Without `origin_view` the window's bound view applies — the
+    ///   current 1-window/1-view contract resolves it uniquely;
+    ///   multiple bound views are ambiguous and fail closed rather
+    ///   than picking one.
+    /// - The epoch is the generation adopted from the view's last
+    ///   successful attach — an unestablished one is never fabricated
+    ///   (`unwrap_or(0)` would mint an op for an epoch nobody owns).
+    ///
+    /// Every refusal answers with an `invalid_params` `Result` on the
+    /// arriving channel. The ok-ack is not delivered to the view —
+    /// the authoritative receipt arrives via the `syn.control.receipt`
+    /// → `Result` translation; a failed ack is forwarded as the
+    /// rejected receipt.
     fn on_view_command(
         &mut self,
         window: WindowId,
@@ -265,36 +289,47 @@ impl NativeShell {
         let cmd = match decode_view_command(&intent.params) {
             Ok(cmd) => cmd,
             Err(e) => {
-                driver.post_event(
-                    window,
-                    &Event::result_err(
-                        intent.id,
-                        ErrorBody::new(codes::INVALID_PARAMS, e.to_string()),
-                    ),
-                );
+                Self::reject_view_command(driver, window, intent.id, e.to_string());
                 return;
             }
         };
-        let view = cmd.origin_view.clone().or_else(|| {
-            self.views
-                .iter()
-                .find(|(_, w)| **w == window)
-                .map(|(v, _)| v.clone())
-        });
-        let Some(view) = view else {
-            driver.post_event(
-                window,
-                &Event::result_err(
-                    intent.id,
-                    ErrorBody::new(
-                        codes::INVALID_PARAMS,
-                        "view command carries no origin_view and window has no bound view",
-                    ),
+        let resolved = if let Some(view) = &cmd.origin_view {
+            match self.views.get(view) {
+                Some(owner) if *owner == window => Ok(view.clone()),
+                Some(owner) => Err(format!(
+                    "view command origin_view {view} is attached to window {owner}, not this one"
+                )),
+                None => Err(format!("view command origin_view {view} is not attached")),
+            }
+        } else {
+            let mut bound = self.views.iter().filter(|(_, w)| **w == window);
+            match (bound.next(), bound.next()) {
+                (Some((view, _)), None) => Ok(view.clone()),
+                (None, _) => Err(
+                    "view command carries no origin_view and window has no bound view".to_string(),
                 ),
+                _ => Err(
+                    "view command carries no origin_view and window has multiple bound views"
+                        .to_string(),
+                ),
+            }
+        };
+        let view = match resolved {
+            Ok(view) => view,
+            Err(message) => {
+                Self::reject_view_command(driver, window, intent.id, message);
+                return;
+            }
+        };
+        let Some(generation) = self.view_generation.get(&view).copied() else {
+            Self::reject_view_command(
+                driver,
+                window,
+                intent.id,
+                format!("view {view} has no attach-adopted generation"),
             );
             return;
         };
-        let generation = self.view_generation.get(&view).copied().unwrap_or(0);
         let dispatch = view_command_dispatch(
             &cmd,
             &view,
@@ -311,9 +346,29 @@ impl NativeShell {
         }
     }
 
+    /// Answers `id` with an `invalid_params` `Result` on `window` —
+    /// every rejected view command gets a typed failure on the
+    /// channel it arrived on, never a silent drop.
+    fn reject_view_command(
+        driver: &mut dyn WindowDriver,
+        window: WindowId,
+        id: String,
+        message: String,
+    ) {
+        driver.post_event(
+            window,
+            &Event::result_err(id, ErrorBody::new(codes::INVALID_PARAMS, message)),
+        );
+    }
+
     /// Records `syn.view.*` intents so [`Self::observe_result`] can
-    /// reconcile the view→window map on success.
-    fn track_view_op(&mut self, window: WindowId, intent: &ruviform_ui::ipc::Intent) {
+    /// reconcile the view→window map on success. Only `attach`
+    /// carries an owner: the declared `window_id` — the window the
+    /// domain actually attaches the view to — resolved against the
+    /// live tracked windows, never the channel the intent arrived
+    /// on. A declared id no live window has (and every non-attach
+    /// op) records `None`, so the view stays ownerless.
+    fn track_view_op(&mut self, intent: &ruviform_ui::ipc::Intent) {
         let op = match intent.op.as_str() {
             "syn.view.attach" => ViewOp::Attach,
             "syn.view.detach" => ViewOp::Detach,
@@ -323,8 +378,19 @@ impl NativeShell {
         let Some(view) = intent.params["view_id"].as_str() else {
             return;
         };
+        let owner = match op {
+            // The owner must be a *live* window the shell tracks —
+            // a declared id no window has is kept as `None`.
+            ViewOp::Attach => intent.params["window_id"].as_str().and_then(|declared| {
+                self.windows
+                    .keys()
+                    .find(|w| w.to_string() == declared)
+                    .copied()
+            }),
+            _ => None,
+        };
         self.pending_view_ops
-            .insert(intent.id.clone(), (op, view.to_string(), window));
+            .insert(intent.id.clone(), (op, view.to_string(), owner));
     }
 
     /// Applies a dispatch result to the `views` map before the event
@@ -337,21 +403,36 @@ impl NativeShell {
         // Consume the tracking entry on *any* result — a failed op
         // must not leak it (and a later colliding id must not
         // reconcile against a stale entry).
-        let Some((op, view, window)) = self.pending_view_ops.remove(id) else {
+        let Some((op, view, declared)) = self.pending_view_ops.remove(id) else {
             return;
         };
         if !*ok {
             return;
         }
         match op {
+            // The declared window is the owner the domain attached
+            // the view to — mirror it exactly. A declared `window_id`
+            // that cannot name a live window leaves the view
+            // ownerless — no channel may mint its commands or a
+            // stale epoch.
             ViewOp::Attach => {
-                self.views.insert(view.clone(), window);
-                let generation = data
-                    .as_ref()
-                    .and_then(|d| d["generation"].as_u64())
-                    .map(|g| u32::try_from(g.min(u64::from(u32::MAX))).unwrap_or(u32::MAX));
-                if let Some(g) = generation {
-                    self.view_generation.insert(view, g);
+                if let Some(owner) = declared {
+                    self.views.insert(view.clone(), owner);
+                    let generation = data
+                        .as_ref()
+                        .and_then(|d| d["generation"].as_u64())
+                        .map(|g| u32::try_from(g).unwrap_or(u32::MAX));
+                    if let Some(g) = generation {
+                        self.view_generation.insert(view, g);
+                    } else {
+                        // A generation-less attach establishes no
+                        // epoch — drop any adopted one so commands
+                        // fail closed at resolution.
+                        self.view_generation.remove(&view);
+                    }
+                } else {
+                    self.views.remove(&view);
+                    self.view_generation.remove(&view);
                 }
             }
             ViewOp::Detach => {}

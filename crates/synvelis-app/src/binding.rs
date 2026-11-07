@@ -842,7 +842,9 @@ pub struct ViewCommand {
     /// The translated command (Synvelis [`CommandIntent`]).
     pub intent: CommandIntent,
     /// The view id the intent carries (`origin_view`), when set —
-    /// the gesture's declared origin, preferred over shell bookkeeping.
+    /// the gesture's declared origin, validated against shell
+    /// bookkeeping (the view must be attached to the window the
+    /// command arrives on).
     pub origin_view: Option<String>,
 }
 
