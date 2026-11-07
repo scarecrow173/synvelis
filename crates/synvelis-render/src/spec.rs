@@ -4,13 +4,13 @@
 //! classification, preroll, destination, publish policy, output recipe
 //! and the master-bus insert chain.
 
-use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use ruviform_audio::render::OutputFacts;
 use ruviform_audio::typed::OfflineRenderSupport;
 use ruviform_audio_core::SampleFormat;
-use ruviform_media_io::{Error as MediaError, MediaSink, Muxer, PublishOptions, StagedOutput};
+use ruviform_io_file::{PublishFailure, PublishOptions, PublishReceipt, SealedFile, StagedFile};
+use ruviform_media_io::{Error as MediaError, MediaSink, Muxer};
 use synvelis_player::EngineConfig;
 
 /// Tail classification handed to the sequential driver.
@@ -99,13 +99,16 @@ impl Insert {
 }
 
 /// A staged-sink wrapper for fault injection (bounded-write,
-/// failing-flush sinks).
-pub type WrapSink = Box<dyn FnOnce(File) -> Box<dyn MediaSink> + Send>;
-/// A reopen/verify hook over the staged temp path + emitted facts.
-pub type DynVerify = Box<dyn FnOnce(&Path, &OutputFacts) -> Result<(), MediaError> + Send>;
-/// A publish step replacing [`StagedOutput::publish`].
+/// failing-flush sinks) — wraps the `&mut StagedFile` borrow the
+/// muxer writes through.
+pub type WrapSink = Box<dyn for<'a> FnOnce(&'a mut StagedFile) -> Box<dyn MediaSink + 'a> + Send>;
+/// A verify hook over the sealed staged file + emitted facts; reads
+/// through `SealedFile::open_readback`, never a raw file handle.
+pub type DynVerify =
+    Box<dyn FnOnce(&mut SealedFile, &OutputFacts) -> Result<(), MediaError> + Send>;
+/// A publish step replacing [`SealedFile::publish`].
 pub type DynPublish =
-    Box<dyn FnOnce(StagedOutput, PublishOptions) -> Result<(), MediaError> + Send>;
+    Box<dyn FnOnce(SealedFile, PublishOptions) -> Result<PublishReceipt, PublishFailure> + Send>;
 /// A PCM comparison run inside the default verify hook — receives the
 /// reopened decoded planes (`planar f32`, one vec per channel);
 /// returning `false` fails verification.
@@ -116,20 +119,20 @@ pub type PcmExpectRef<'a> = Option<&'a (dyn Fn(&[Vec<f32>]) -> bool + Send + 'a)
 /// How a caller replaces the output plumbing for fault injection —
 /// the same seams [`ruviform_audio::render::RenderOutput`] exposes.
 /// The default (all `None`) is the real io-wav path: `open_muxer` over
-/// the staged `File`, io-wav encoder, structural reopen verify and
-/// [`StagedOutput::publish`].
+/// the borrowed `StagedFile`, io-wav encoder, sealed readback verify
+/// and [`SealedFile::publish`].
 #[derive(Default)]
 pub struct OutputHooks {
-    /// Wraps the staged file sink before the muxer is built — e.g. a
-    /// bounded-write or failing-flush sink. `None` uses the file
-    /// directly.
+    /// Wraps the borrowed staged file sink before the muxer is built —
+    /// e.g. a bounded-write or failing-flush sink. `None` uses the
+    /// `&mut StagedFile` directly.
     pub wrap_sink: Option<WrapSink>,
-    /// Replaces the default reopen/verify hook entirely. `None` runs
+    /// Replaces the default readback/verify hook entirely. `None` runs
     /// [`crate::verify::reopen_check`] (independent reader: rate,
     /// layout, frame count, plus `expect_pcm` when set).
     pub verify: Option<DynVerify>,
-    /// Replaces [`StagedOutput::publish`] — e.g. an injected publish
-    /// failure. `None` delegates to `StagedOutput::publish`.
+    /// Replaces [`SealedFile::publish`] — e.g. an injected publish
+    /// failure. `None` delegates to `SealedFile::publish`.
     pub publish: Option<DynPublish>,
     /// Extra PCM comparison run inside the default verify hook.
     /// Ignored when `verify` is set.
@@ -165,7 +168,7 @@ pub struct ExportRequest {
     /// Warm-up positions processed before `range_start` (clamped so
     /// the play position never goes below `0`).
     pub preroll: u64,
-    /// Destination path — a `StagedOutput` temp sibling is written
+    /// Destination path — a `StagedFile` temp sibling is written
     /// first and only published on success.
     pub destination: PathBuf,
     /// Publish policy: allow replacing an existing destination.
@@ -181,5 +184,6 @@ pub struct ExportRequest {
     pub clip_support: OfflineRenderSupport,
 }
 
-/// A custom muxer constructor over the staged file handle.
-pub(crate) type DynMuxerCtor = Box<dyn FnOnce(File) -> Result<Box<dyn Muxer>, MediaError> + Send>;
+/// A custom muxer constructor over the borrowed staged file.
+pub(crate) type DynMuxerCtor =
+    Box<dyn for<'a> FnOnce(&'a mut StagedFile) -> Result<Box<dyn Muxer + 'a>, MediaError> + Send>;

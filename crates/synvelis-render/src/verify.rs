@@ -1,4 +1,6 @@
-//! Reopen verification: the staged WAV is reopened through an
+//! Readback verification: the sealed staged WAV is read through
+//! `SealedFile::open_readback` — a read-only view of the sealed temp,
+//! independent of the muxer's write path — then demuxed through an
 //! independent reader (symphonia demux + [`SourceReader`] canonical
 //! decode) before publish. The hook asserts stream shape, canonical
 //! rate/channel geometry and decoded frame count against
@@ -6,9 +8,10 @@
 //! sample. Any failure lands as `RenderError::Verify` — the temp is
 //! discarded, never published.
 
-use std::path::Path;
+use std::io::{Cursor, Read as _};
 
 use ruviform_audio::render::OutputFacts;
+use ruviform_io_file::SealedFile;
 use ruviform_media_io::{DecodeMode, Demuxer as _, Error as MediaError, ErrorKind};
 use ruviform_media_reader::SourceReader;
 
@@ -30,12 +33,18 @@ pub struct VerifiedOutput {
     pub pcm_checked: bool,
 }
 
-/// Reopens `temp` and decodes it through the independent reader path.
+/// Reads `sealed` back through its read-only readback surface and
+/// decodes it through the independent reader path.
+///
+/// The demuxer owns its source (`MediaSource: 'static`), so the
+/// borrowed [`ReadbackFile`](ruviform_io_file::ReadbackFile) bytes are
+/// first copied into an independent in-memory buffer — the decode
+/// cannot observe a file swapped after seal.
 ///
 /// # Errors
-/// [`MediaError`] — reopen, decode or comparison failure.
+/// [`MediaError`] — readback, decode or comparison failure.
 pub fn reopen_check(
-    temp: &Path,
+    sealed: &mut SealedFile,
     facts: &OutputFacts,
     expect_pcm: crate::spec::PcmExpectRef<'_>,
 ) -> Result<VerifiedOutput, MediaError> {
@@ -46,8 +55,14 @@ pub fn reopen_check(
             std::io::Error::new(std::io::ErrorKind::InvalidData, detail),
         )
     }
-    let file = std::fs::File::open(temp).map_err(|e| MediaError::with_source(ErrorKind::Io, e))?;
-    let demuxer = ruviform_io_symphonia::open_demuxer(file)?;
+    let mut readback = sealed
+        .open_readback()
+        .map_err(|e| MediaError::with_source(ErrorKind::Io, e))?;
+    let mut bytes = Vec::new();
+    readback
+        .read_to_end(&mut bytes)
+        .map_err(|e| MediaError::with_source(ErrorKind::Io, e))?;
+    let demuxer = ruviform_io_symphonia::open_demuxer(Cursor::new(bytes))?;
     let stream = {
         let streams = demuxer.streams();
         if streams.len() != 1 {

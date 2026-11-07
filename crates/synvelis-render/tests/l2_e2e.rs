@@ -27,7 +27,8 @@ use synvelis_project::{
 use synvelis_recording::ops::RecordingOp;
 
 use ruviform_audio_core::SampleFormat;
-use ruviform_media_io::{Error as MediaError, ErrorKind, MediaSink};
+use ruviform_io_file::StagedFile;
+use ruviform_media_io::MediaSink;
 
 use synvelis_render::{
     ExportError, ExportJob, ExportOutcome, ExportRequest, ExportStage, Insert,
@@ -1167,13 +1168,14 @@ fn l2_05_destination_policy() {
 }
 
 /// A write-budget sink: writes succeed until `budget` bytes, then fail
-/// — the "disk full"/"writer full" class.
-struct BoundedSink {
-    file: fs::File,
+/// — the "disk full"/"writer full" class. Wraps the `&mut StagedFile`
+/// borrow the muxer writes through.
+struct BoundedSink<'a> {
+    staged: &'a mut StagedFile,
     budget: u64,
 }
 
-impl Write for BoundedSink {
+impl Write for BoundedSink<'_> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         if self.budget == 0 {
             return Err(std::io::Error::other("disk full"));
@@ -1183,38 +1185,38 @@ impl Write for BoundedSink {
                 .min(u64::try_from(buf.len()).unwrap_or(u64::MAX)),
         )
         .unwrap_or(usize::MAX);
-        let n = self.file.write(&buf[..take])?;
+        let n = self.staged.write(&buf[..take])?;
         self.budget -= u64::try_from(n).unwrap_or(u64::MAX);
         Ok(n)
     }
     fn flush(&mut self) -> std::io::Result<()> {
-        self.file.flush()
+        self.staged.flush()
     }
 }
 
-impl Seek for BoundedSink {
+impl Seek for BoundedSink<'_> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
-        self.file.seek(pos)
+        self.staged.seek(pos)
     }
 }
 
 /// A sink whose `flush` (close/sync half of finalize) always fails.
-struct FailFlushSink {
-    file: fs::File,
+struct FailFlushSink<'a> {
+    staged: &'a mut StagedFile,
 }
 
-impl Write for FailFlushSink {
+impl Write for FailFlushSink<'_> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.file.write(buf)
+        self.staged.write(buf)
     }
     fn flush(&mut self) -> std::io::Result<()> {
         Err(std::io::Error::other("flush failed"))
     }
 }
 
-impl Seek for FailFlushSink {
+impl Seek for FailFlushSink<'_> {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
-        self.file.seek(pos)
+        self.staged.seek(pos)
     }
 }
 
@@ -1256,8 +1258,11 @@ fn l2_05_fault_injection_partial_never_completed() {
     let dest = root.join("full.wav");
     let req = basic_request(dest.clone());
     let hooks = OutputHooks {
-        wrap_sink: Some(Box::new(|file| {
-            Box::new(BoundedSink { file, budget: 128 }) as Box<dyn MediaSink>
+        wrap_sink: Some(Box::new(|staged: &mut StagedFile| {
+            Box::new(BoundedSink {
+                staged,
+                budget: 128,
+            }) as Box<dyn MediaSink + '_>
         })),
         ..OutputHooks::default()
     };
@@ -1274,8 +1279,8 @@ fn l2_05_fault_injection_partial_never_completed() {
     let dest = root.join("close.wav");
     let req = basic_request(dest.clone());
     let hooks = OutputHooks {
-        wrap_sink: Some(Box::new(|file| {
-            Box::new(FailFlushSink { file }) as Box<dyn MediaSink>
+        wrap_sink: Some(Box::new(|staged: &mut StagedFile| {
+            Box::new(FailFlushSink { staged }) as Box<dyn MediaSink + '_>
         })),
         ..OutputHooks::default()
     };
@@ -1306,22 +1311,27 @@ fn l2_05_fault_injection_partial_never_completed() {
     assert_eq!(leftover_temps(&root), Vec::<PathBuf>::new());
 
     // Publish failure — everything succeeded until the commit step.
+    // The failure is *real*, never fabricated: the destination is a
+    // directory, so the atomic publish cannot apply and the OS
+    // adapter reports a typed `PublishFailure` (`NotPublished`) — the
+    // injected hook still delegates to the actual publish pipeline.
     let dest = root.join("publish.wav");
-    fs::write(&dest, b"keep me").unwrap();
+    fs::create_dir(&dest).unwrap();
     let mut req = basic_request(dest.clone());
     req.replace_existing = true;
     let hooks = OutputHooks {
-        publish: Some(Box::new(|_, _| Err(MediaError::from_kind(ErrorKind::Io)))),
+        publish: Some(Box::new(ruviform_io_file::SealedFile::publish)),
         ..OutputHooks::default()
     };
     let job = ExportJob::new();
     let (stage, err) = failed(export(&snapshot, &req, hooks, &job));
     assert_eq!(stage, ExportStage::Publish);
     assert!(matches!(
-        err,
-        ExportError::Render(ruviform_audio::render::RenderError::Publish { .. })
+        &err,
+        ExportError::Render(ruviform_audio::render::RenderError::Publish { source, .. })
+            if source.effect() == ruviform_io_file::PublishEffect::NotPublished
     ));
-    assert_eq!(fs::read(&dest).unwrap(), b"keep me");
+    assert!(dest.is_dir());
     assert_eq!(leftover_temps(&root), Vec::<PathBuf>::new());
 
     // Cancellation requested before the export runs — honored at the

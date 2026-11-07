@@ -19,12 +19,13 @@ use ruviform_audio::typed::{
 };
 use ruviform_audio_core::SampleRate;
 use ruviform_graph::{GraphProject, NodeSpec};
+use ruviform_io_file::{Durability, PublishMode, PublishOptions, SealedFile, StagedFile};
 use ruviform_io_wav::WavOutputSpec;
 use ruviform_media_core::{
     BlockContract, DeliveryPolicy, EngineFrame, InBlockTransportSupport, MediaTime, ScheduleBudget,
     ScheduledEvent, TransportCommand, TransportScheduler,
 };
-use ruviform_media_io::{Error as MediaError, ErrorKind, Muxer, PublishOptions, StagedOutput};
+use ruviform_media_io::{Error as MediaError, ErrorKind, Muxer};
 
 use crate::error::{ExportError, PreflightError};
 use crate::job::{
@@ -34,14 +35,8 @@ use crate::preflight::{canonical_of, preflight_canonical, preflight_static};
 use crate::prepare::{decode_window, open_sources};
 use crate::processor::{ClipRenderer, DelayProc, GainProc, OnePoleProc};
 use crate::snapshot::RenderSnapshot;
-use crate::spec::{ExportRequest, Insert, OutputHooks, TailPolicy};
+use crate::spec::{DynPublish, DynVerify, ExportRequest, Insert, OutputHooks, TailPolicy};
 use crate::verify::{VerifiedOutput, facts_evidence, reopen_check};
-
-type DynVerify = Box<
-    dyn FnOnce(&std::path::Path, &ruviform_audio::render::OutputFacts) -> Result<(), MediaError>
-        + Send,
->;
-type DynPublish = Box<dyn FnOnce(StagedOutput, PublishOptions) -> Result<(), MediaError> + Send>;
 
 fn no_events(_: &ScheduledEvent<u32>, _: u64) -> Option<NodeEvent> {
     None
@@ -328,8 +323,8 @@ fn run(
     let slot = Arc::clone(&verified_slot);
     let custom_verify = verify.is_some();
     let verify_fn: DynVerify = verify.unwrap_or_else(|| {
-        Box::new(move |temp, facts| {
-            let observed = reopen_check(temp, facts, expect_pcm.as_deref())?;
+        Box::new(move |sealed, facts| {
+            let observed = reopen_check(sealed, facts, expect_pcm.as_deref())?;
             *slot
                 .lock()
                 .map_err(|_| MediaError::from_kind(ErrorKind::Io))? = Some(observed);
@@ -337,7 +332,7 @@ fn run(
         })
     });
     let publish_fn: DynPublish =
-        publish.unwrap_or_else(|| Box::new(StagedOutput::publish) as DynPublish);
+        publish.unwrap_or_else(|| Box::new(SealedFile::publish) as DynPublish);
     let info = WavOutputSpec {
         sample_rate: rate,
         layout,
@@ -354,16 +349,16 @@ fn run(
     })?;
     let muxer_info = info.clone();
     let make_muxer: crate::spec::DynMuxerCtor = match wrap_sink {
-        Some(wrap) => Box::new(move |file| {
-            ruviform_io_wav::open_boxed_muxer(wrap(file), std::slice::from_ref(&muxer_info))
-                .map(|m| Box::new(m) as Box<dyn Muxer>)
+        Some(wrap) => Box::new(move |staged: &mut StagedFile| {
+            ruviform_io_wav::open_muxer(wrap(staged), std::slice::from_ref(&muxer_info))
+                .map(|m| Box::new(m) as Box<dyn Muxer + '_>)
         }),
-        None => Box::new(move |file| {
-            ruviform_io_wav::open_muxer(file, std::slice::from_ref(&muxer_info))
-                .map(|m| Box::new(m) as Box<dyn Muxer>)
+        None => Box::new(move |staged: &mut StagedFile| {
+            ruviform_io_wav::open_muxer(staged, std::slice::from_ref(&muxer_info))
+                .map(|m| Box::new(m) as Box<dyn Muxer + '_>)
         }),
     };
-    let staged = StagedOutput::create(&request.destination).map_err(|e| {
+    let staged = StagedFile::create(&request.destination).map_err(|e| {
         failed(
             ExportStage::Preflight,
             ExportError::Io {
@@ -375,10 +370,18 @@ fn run(
         staged,
         make_muxer,
         encoder: Box::new(encoder),
-        publish_options: PublishOptions {
-            replace_existing: request.replace_existing,
-            sync_before_publish: true,
-        },
+        // `replace_existing` maps to the publish mode; the old
+        // `sync_before_publish: true` contract is `Durability::FileSync`
+        // — staged content is synced before the atomic publish, the
+        // directory entry itself is not additionally synced.
+        publish_options: PublishOptions::new(
+            if request.replace_existing {
+                PublishMode::Replace
+            } else {
+                PublishMode::CreateNew
+            },
+            Durability::FileSync,
+        ),
         verify: Some(verify_fn),
         publish: publish_fn,
     };
@@ -412,9 +415,10 @@ fn run(
                 verified.reopened || custom_verify,
                 "default verify always reopens"
             );
+            let tail_evidence = render_receipt.tail_evidence;
             Ok(ExportOutcome::Completed {
                 receipt: Box::new(ExportReceipt {
-                    render: render_receipt.clone(),
+                    render: render_receipt,
                     snapshot: snapshot.ids.clone(),
                     capability: CapabilityEvidence {
                         wav_sample_formats: caps
@@ -424,7 +428,7 @@ fn run(
                             .collect(),
                         node_support,
                         total_latency,
-                        tail_evidence: render_receipt.tail_evidence,
+                        tail_evidence,
                         wav_rf64: caps.rf64,
                         wav_custom_layouts: caps.custom_layouts,
                     },

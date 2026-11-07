@@ -82,6 +82,7 @@ Directory: `docs/tasks`
 | TASK-034RBFWIyMu9xrEL27zPNX | SYN-OBS-01 task4 synvelis bin 起動引数/install/attach 組込み | done | [syn-obs-01-task4-bin-wiring.md](./syn-obs-01-task4-bin-wiring.md) |
 | TASK-034RBFXktNsZRlOztedppD | SYN-OBS-01 task5 logging テスト新設と mise 検証 | done | [syn-obs-01-task5-tests-verification.md](./syn-obs-01-task5-tests-verification.md) |
 | TASK-034RBFY3O4vz81b0Rumg95 | SYN-OBS-01 task6 最終検証と impl record | done | [syn-obs-01-task6-final-verify-impl-record.md](./syn-obs-01-task6-final-verify-impl-record.md) |
+| TASK-034T2RF305WAVSTAGED01A | SYN-RF305 task1 render/player WAV Export StagedFile 移行 | done | [syn-rf305-task1-render-export-staged-file.md](./syn-rf305-task1-render-export-staged-file.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | TASK-034Qe0kHawWuXO1xHGTd8F | VS-A task3 controller ops store | done | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |

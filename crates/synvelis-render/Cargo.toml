@@ -12,6 +12,7 @@ workspace = true
 synvelis-project = { path = "../synvelis-project" }
 synvelis-player = { path = "../synvelis-player" }
 ruviform-media-core.workspace = true
+ruviform-io-file.workspace = true
 ruviform-media-io.workspace = true
 ruviform-media-reader.workspace = true
 ruviform-io-symphonia.workspace = true

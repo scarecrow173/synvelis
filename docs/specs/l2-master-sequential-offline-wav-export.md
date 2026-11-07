@@ -34,7 +34,10 @@ relations:
   refined-by: []
   derives-from:
     - "docs/discovery/l2-master-sequential-offline-wav-export-discovery.md"
-  derived-by: []
+  derived-by:
+    - "docs/designs/l2-master-sequential-offline-wav-export-design.md"
+    - "docs/plans/l2-master-sequential-offline-wav-export.md"
+    - "docs/specs/syn-rf305-wav-export-staged-file.md"
   verifies: []
   verified-by: []
   references: []
