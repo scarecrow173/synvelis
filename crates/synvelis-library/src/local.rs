@@ -43,7 +43,8 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use ruviform_io_file::rooted::{
-    FollowMode, NodeId, NodeInfo, NodeKind, RelativePath, RootedDir, RootedFile, RootedOptions,
+    FollowMode, IdentityStrength, NodeId, NodeInfo, NodeKind, RelativePath, RootedDir, RootedFile,
+    RootedOptions,
 };
 use ruviform_io_file::{FileError, FileErrorKind};
 
@@ -269,9 +270,24 @@ impl LocalFolderProvider {
     /// scope subtree is itself the capability root, so `WithinRoot`
     /// enforces exactly the old canonical-prefix scope containment —
     /// an ancestor- or sibling-bound link inside the scope fails
-    /// `EscapesRoot`. The opened directory's handle-derived canonical
-    /// path is checked against the provider root once (same-object
-    /// verification, not a re-traversal).
+    /// `EscapesRoot`.
+    ///
+    /// Authority comes from the held provider capability, never the
+    /// root pathname alone: the scope is first resolved relative to
+    /// `self.root` (held handles — the root may have been renamed
+    /// since construction), which also enforces link containment on
+    /// the locator itself. `RootedDir::open_dir` cannot be used for
+    /// the scoped capability because its `WithinRoot` boundary stays
+    /// the provider root — a scope-internal link to an in-root
+    /// sibling would then resolve instead of failing `EscapesRoot`.
+    /// `open_with` on the canonical path therefore acquires the
+    /// scope-subtree capability, and the opened object is verified
+    /// against the held-capability resolution by `NodeId`: a
+    /// renamed/replaced root pathname that now names a different
+    /// tree fails `SourceChanged` instead of rebinding the scope.
+    /// The two filesystem touch points carry separate fault-barrier
+    /// tags — `"stat"` before the held-resolution `metadata`,
+    /// `"open"` before the `open_with` acquisition.
     fn open_scope(&self, locator: &OpaqueLocator) -> Result<(RootedDir, String), ProviderError> {
         let rel = Self::locator_rel(locator)?;
         let mut lexical = self.root.canonical_root().to_path_buf();
@@ -279,6 +295,30 @@ impl LocalFolderProvider {
             lexical.push(comp);
         }
         self.pre_traverse(&lexical, "stat");
+        let scope_info = self
+            .root
+            .metadata(&rel, FollowMode::WithinRoot)
+            .map_err(|e| rooted_error("browse scope", &e))?;
+        if scope_info.kind != NodeKind::Dir {
+            return Err(ProviderError::new(
+                ProviderErrorKind::InvalidRequest,
+                format!("scope {locator} is not a container"),
+            ));
+        }
+        // The `NodeId` equality check below is only as strong as the
+        // discriminator behind it: a weak-identity filesystem cannot
+        // tell a same-tick delete+recreate apart, so the rebind
+        // window it is meant to close would stay open silently.
+        // Mirror RF's `open_pinned` gate and refuse rather than
+        // pretend the check held (RF rooted.rs `Unsupported` on
+        // non-`Strong` strength).
+        if scope_info.identity_strength != IdentityStrength::Strong {
+            return Err(ProviderError::new(
+                ProviderErrorKind::UnsupportedCapability,
+                format!("scope {locator} cannot be safely acquired: filesystem identity is weak"),
+            ));
+        }
+        self.pre_traverse(&lexical, "open");
         let cap = RootedDir::open_with(&lexical, rooted_options()).map_err(|e| {
             if matches!(
                 e.kind(),
@@ -297,6 +337,26 @@ impl LocalFolderProvider {
             return Err(ProviderError::new(
                 ProviderErrorKind::PermissionDenied,
                 format!("scope {locator} escapes the provider root"),
+            ));
+        }
+        // Same-object check across the acquisition boundary: the
+        // pathname may have been repointed at a different tree since
+        // the held-capability resolution above. Comparing `NodeId`s
+        // — not paths — is what makes the opened capability's
+        // authority match the held root's. The `Strong`-strength
+        // gate above keeps this meaningful on weak-identity
+        // filesystems; a backend whose `identity()` call itself
+        // fails fails closed via `rooted_error`.
+        if cap
+            .dir_identity()
+            .map_err(|e| rooted_error("browse scope", &e))?
+            != scope_info.identity
+        {
+            return Err(ProviderError::new(
+                ProviderErrorKind::SourceChanged,
+                format!(
+                    "scope {locator} resolved to a different object under the provider root pathname"
+                ),
             ));
         }
         let base = cap
@@ -364,6 +424,20 @@ impl LocalFolderProvider {
                     continue;
                 }
             };
+            // Bound the kept window the way the old
+            // `take(remaining + 1)` did — enumeration-order prefix,
+            // then sorted. The returned page is never a
+            // globally-smallest subset (that was true before too);
+            // the contract is `max_entries` + honest `truncated`.
+            // Residual: `read_dir` materializes the full directory
+            // inside Ruviform before this bound applies — bounded
+            // enumeration needs an RF streaming/cap API (tracked in
+            // docs/tasks/alib-01-task5-rooted-cutover.md), so the
+            // pre-sort memory bound is the ownable part, not a
+            // hidden fix.
+            let remaining =
+                usize::try_from(cx.limits.max_entries.saturating_sub(walked)).unwrap_or(usize::MAX);
+            children.truncate(remaining.saturating_add(1));
             children.sort_by(|a, b| a.name.cmp(&b.name));
             for child in children {
                 if walked >= cx.limits.max_entries {

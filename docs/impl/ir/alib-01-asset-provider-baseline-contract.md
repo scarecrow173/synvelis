@@ -312,9 +312,9 @@ ruviform 消費 rev は `5d48298b`(RF403・既定 main 追従 git dep、rev pin 
 | Format check | `mise run fmt-check` | pass (exit 0) |
 | Compile | `mise run check` (`cargo check --workspace --all-targets`) | pass (exit 0) |
 | Lint | `mise run lint` (`cargo clippy --workspace --all-targets -- -D warnings`) | pass (exit 0) |
-| Test | `mise run test` (`cargo test --workspace --locked`) | pass (exit 0; 全 test target 0 failures — `containment_swap` 9/9: 8 swap 回帰 GREEN 強制 + seam sanity) |
-| Swap 回帰(個別) | `cargo test -p synvelis-library --test containment_swap` | pass (9/9: `blob_stat_leaf_swap`/`blob_open_leaf_swap`/`local_stat_component_swap`/`local_pin_component_swap`/`local_preview_component_swap`/`local_open_pinned_component_swap`/`local_browse_descend_component_swap`/`local_scope_acquisition_swap_cannot_escape_root` + `pre_traverse_hook_fires_at_tagged_points`) |
-| Alias/authority 等価(個別) | `cargo test -p synvelis-library -- symlink rename swap scope` | pass (20 件: 8 swap + escaping/ancestor/dangling/loop/into-root link、blob escape、scope 系、rename pin — `EscapesRoot`→`PermissionDenied`・handle authority・`WithinRoot` follow の等価を固定) |
+| Test | `mise run test` (`cargo test --workspace --locked`) | pass (exit 0; 全 test target 0 failures — `containment_swap` 11/11: 10 swap 回帰 GREEN 強制 + seam sanity) |
+| Swap 回帰(個別) | `cargo test -p synvelis-library --test containment_swap` | pass (11/11: `blob_stat_leaf_swap`/`blob_open_leaf_swap`/`local_stat_component_swap`/`local_pin_component_swap`/`local_preview_component_swap`/`local_open_pinned_component_swap`/`local_browse_descend_component_swap`/`local_scope_acquisition_swap_cannot_escape_root`/`local_scope_root_replacement_cannot_rebind_capability`/`local_scope_open_swap_cannot_escape_root` + `pre_traverse_hook_fires_at_tagged_points`) |
+| Alias/authority 等価(個別) | `cargo test -p synvelis-library -- symlink rename swap scope` | pass (22 件: 10 swap + escaping/ancestor/dangling/loop/into-root link、blob escape、scope 系、rename pin — `EscapesRoot`→`PermissionDenied`・handle authority・`WithinRoot` follow の等価を固定) |
 | Headless deps gate | `mise run check-headless-deps` | pass (exit 0; 10 headless crates) |
 | ruviform rev 整合 | `mise run check-ruviform-rev` | pass (exit 0; resolved `5d48298b` 26 lockfile sources、lockfile-primary、REV match) |
 | MSRV | `mise run test-msrv` (`mise exec rust@1.89.0 -- cargo test --workspace --locked`) | **fail (既存 main 由来)** — `cargo-platform@0.3.3` が rustc 1.91 を要求。当該 pkg は本差分の `Cargo.lock` delta に無く merge 済み HEAD に同 version で存在するため本変更起因ではない。別途 follow-up 対象。 |
@@ -454,9 +454,21 @@ unsafe・OS 呼出重複・汎用 FS framework・`cap-std` は置いていない
     保持 handle DFS — descend は実 dir の scoped handle のみで、
     scope 取得後の component swap は `EscapesRoot`/`NotDirectory`
     に失敗するか取得済み handle が透過する。locator scope は
-    `RootedDir::open_with` で scope subtree を capability root とした
-    上で handle-derived canonical が provider root 配下であることを
-    一度だけ照合（同一 object 検証であって再 traverse ではない）。
+    まず保持 root 上の `metadata(WithinRoot)` で権威解決し
+    （held handle 基準のため provider 構築後の root rename を
+    透過し、locator 自体の link containment もここで強制）、
+    次いで `RootedDir::open_with` で scope subtree を
+    capability root とした scoped capability を取得して
+    `dir_identity`/`NodeId` で held 解決と同一 object かを
+    照合する（`canonical_root` prefix 照合は文字列のため root
+    rename + 同一 pathname への別 tree 設置を通す — `NodeId`
+    比較のみが rebind を検出し `SourceChanged` で拒否する）。
+    `NodeId` 照合は `IdentityStrength::Strong` を要求し、weak
+    backend では RF `open_pinned` と同様 `UnsupportedCapability`
+    で fail-closed。seam tag は held-resolution=`"stat"`・
+    pathname 取得=`"open"` の 2 地点。kept window は
+    `truncate(remaining+1)` → sort（旧 `take(remaining+1)` の
+    bound/subset 意味論を復元）。
 - `LocalBlobDir` は呼出毎に store `RootedDir` を開き
   `metadata`/`open_regular(WithinRoot)` で同一 object の facts+reader
   を返す。SV 側の filename-safe/DOS device 検証は維持。store dir
@@ -470,7 +482,11 @@ unsafe・OS 呼出重複・汎用 FS framework・`cap-std` は置いていない
   retry を唆す `TransientIo` には畳まない。
 - `tests/containment_swap.rs` — 7 件の `#[ignore]` を除去し fault
   barrier の地点タグを rooted seam へ更新。seam sanity の期待列は
-  blobs `["stat","open"]`、browse `["stat","read_dir","stat"]`。
+  blobs `["stat","open"]`、browse `["stat","open","read_dir","stat"]`
+  （`open_scope` は held-resolution `"stat"` + 取得 `"open"` の
+  2 地点）。scope 取得境界の回帰を 3 件追加（保持 root 解決直前
+  swap→`PermissionDenied`、権威解決/取得間 swap→`PermissionDenied`、
+  root 置換 rebind→`SourceChanged`）。
 - Project provider 側の変更なし — `open_blob_verified` は port
   経由で `LocalBlobDir` を呼び、修正は blob store 内に閉じる。
 - `pin` の `ConditionalStrong{ContentHash}` content pin 契約は維持
@@ -494,11 +510,16 @@ unsafe・OS 呼出重複・汎用 FS framework・`cap-std` は置いていない
   （`Symlink` kind + NotProvided）を返す — 旧実装は follow した
   target の facts を報告しており、これは containment の外側の
   情報流出だったため修正（より正直な報告）。
-- `RootedDir::read_dir` は listing を一括 `Vec<DirEntry>` で返す —
-  旧 `fs::read_dir` の `take` による逐次 materialize 制限は RF API
-  に存在しない。emit される entry 数の `max_entries` bound は維持し、
-  listing の一時確保は RF 契約として記録（ページング API が必要に
-  なれば RF 側への拡張要望の対象）。
+- `RootedDir::read_dir` は listing を一括 `Vec<DirEntry>` で返す。
+  kept window は `truncate(remaining+1)` → sort で旧 `fs::read_dir`
+  の `take(remaining+1)` bound と subset 意味論（enumeration
+  order prefix）を復元するが、**列挙そのものの memory/work
+  bound は RF API に存在しない** — `VfsDir::list` が全件
+  materialize するため巨大 dir では `max_entries`/cancel/deadline
+  が列挙段階で効かない。raw-path fallback は capability 逸脱の
+  ため行わず、streaming/bounded 列挙 API（callback/iterator または
+  limit 付き read_dir）を RF へ ask — **BLOCKED（RF API 待ち）**
+  残余として明示する。
 - dangling symlink は Windows/Unix で `Missing` に統一 — 旧 Unix 経路は
   `child.metadata()` 失敗で entry 自体を黙って skip しており、
   test-spec の `Missing` 契約は Windows でしか満たされていなかった
@@ -514,7 +535,16 @@ unsafe・OS 呼出重複・汎用 FS framework・`cap-std` は置いていない
   隠すものではない）。
 - scoped directory handle は inode authority を保持し、取得後の外部
   rename でも読み取り継続する — pathname 継続包含ではなく handle
-  authority（RF の設計どおり）。
+  authority（RF の設計どおり）。対称的に locator scope 付き
+  browse/search は root rename + 同一 pathname 別 tree 設置で
+  `SourceChanged` を返し（`BrowseScope::Root` の handle-authority
+  継続とは意図的な非対称）、scope 取得と競合する in-root の
+  scope dir rename/recreate も `SourceChanged` となる（旧実装は
+  新 object をそのまま serve — 意図的な厳格化）。
+- weak-identity filesystem では locator scope 付き browse/search が
+  `UnsupportedCapability` を返す — `NodeId` が same-tick recreate
+  を判別できないため（RF `open_pinned` の `Strong` ゲートと同じ
+  fail-closed。Root scope・stat/open 系は影響なし）。
 - trailing `/` は `RelativePath` が directory marker として受理する
   （旧実装は空 component として拒否 — acceptance 拡大で同じ object
   を指す）。
@@ -535,7 +565,12 @@ unsafe・OS 呼出重複・汎用 FS framework・`cap-std` は置いていない
   場合の `fs::canonicalize` fallback)。capability 取得地点は 3 箇所:
   `LocalFolderProvider::new`（一度きり）、`open_scope`（locator scope
   付き browse/search 毎 — scope subtree を `WithinRoot` 境界とするため
-  親 capability の `open_dir` ではなく新 capability が必要）、
+  親 capability の `open_dir` ではなく新 capability が必要。ただし
+  取得は保持 root 上の `metadata(WithinRoot)` 権威解決の結果と
+  `dir_identity`/`NodeId` の same-object 照合を経るため、root
+  pathname の rename/置換による別 tree への rebind は
+  `SourceChanged` で拒否される — `starts_with` 文字列照合だけでは
+  同 pathname の別 object を検出できない）、
   `LocalBlobDir::store`（呼出毎、構築後作成の lifecycle 維持）。
   いずれも取得後の lookup は handle-relative であり、境界は acquisition
   一点に限定される。真の rooted-open 強化が必要なら RF 側の責務と

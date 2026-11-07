@@ -137,17 +137,32 @@ documented residual（impl record 記録）。swap は `EscapesRoot`/
   `open_pinned` は EOF の IntegrityMismatch 前に byte が caller へ
   届かないこと（digest 検証は containment の代替ではない）。
 - `local_scope_acquisition_swap_cannot_escape_root`: scope 取得境界
-  — `open_scope` の `RootedDir::open_with` 直前に scope dir 自体を
-  outside link へ swap。開かれた handle の canonical が root 外に
-  落ちるため同一 object 照合が `PermissionDenied` で拒否し、
-  outside entries は列挙されない。
+  — `open_scope` の保持 root `metadata(WithinRoot)` 直前に scope
+  dir 自体を outside link へ swap。held-capability 解決が
+  `EscapesRoot` で失敗し `PermissionDenied` — outside entries は
+  列挙されない。
+- `local_scope_root_replacement_cannot_rebind_capability`: root
+  置換境界 — provider 構築後に root を rename 退避し、同一
+  pathname へ別 tree を設置。保持 capability の `metadata` 解決
+  identity と pathname 再取得（`open_with`）した capability の
+  `dir_identity` が乖離するため `SourceChanged` で拒否 —
+  `starts_with` の文字列照合だけでは同 pathname の別 object を
+  検出できないことを固定。
+- `local_scope_open_swap_cannot_escape_root`: 権威解決
+  (`metadata`、tag `"stat"`) と pathname 取得
+  （`open_with`、tag `"open"`）の間の最狭 window で scope dir を
+  outside link へ swap — 取得 capability の canonical が root 外へ
+  落ち lexical containment 照合が `PermissionDenied` で拒否する
+  ことを固定（`NodeId` 照合に到達しない経路）。
 - `pre_traverse_hook_fires_at_tagged_points`: seam の配線確認
   （非 ignore、GREEN）。期待 op 列は rooted seam に更新
-  （blobs `["stat","open"]`、browse `["stat","read_dir","stat"]`）。
+  （blobs `["stat","open"]`、browse
+  `["stat","open","read_dir","stat"]`）。
 
-**現状（2026-11-07 修復済み）**: 8 件の swap 回帰は **GREEN
+**現状（2026-11-07 修復済み）**: 10 件の swap 回帰は **GREEN
 強制**（7 件 `#[ignore]` 解除 + scope 取得境界 `open_scope` swap
-1 件追加。ruviform#398 → 消費 rev `5d48298b` で修復）。
++ root 置換 rebind + 権威解決/取得 window swap、計 3 件追加。
+ruviform#398 → 消費 rev `5d48298b` で修復）。
 
 ## Feature: Registry (AC3)
 

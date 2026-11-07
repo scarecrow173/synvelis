@@ -130,14 +130,22 @@ containment-at-traverse の強制には handle-relative open
 **修復済み（task5）**: `LocalFolderProvider`/`LocalBlobDir` の全
 read/stat/pin/open_preview/open_pinned/browse-descend は取得済み
 `RootedDir` capability 経由の handle-relative lookup で、capability
-配下の path 再 traverse は存在しない。capability 取得そのものは
-path-based（`LocalFolderProvider::new`・scope browse 用 `open_scope`・
-`LocalBlobDir` の per-op store open）であり、backend が handle 由来
-canonical path を持たない場合に限り Ruviform 文書上の残存
-path→capability race が残る（impl record 記録）。`WithinRoot` link
+配下の path 再 traverse は存在しない。capability 取得は原則
+path-based（`LocalFolderProvider::new`・`LocalBlobDir` の per-op
+store open）だが、scope browse 用 `open_scope` は保持 root
+capability 上の `metadata(WithinRoot)` で先に権威解決し、
+`open_with` で取得した scoped capability を `dir_identity`/
+`NodeId` で same-object 照合する — root rename + 同一 pathname
+への別 tree 設置で保持 capability 外へ rebind することはできず、
+`SourceChanged` で拒否する（照合は `IdentityStrength::Strong` を
+要求し、weak backend は `UnsupportedCapability` で fail-closed）。
+backend が handle 由来 canonical path を持たない場合に限り
+Ruviform 文書上の残存 path→capability race が残る（impl record
+記録）。`WithinRoot` link
 follow の契約は縮小していない（`NoFollow` への置換なし）。
-`tests/containment_swap.rs` は 8 件の swap 回帰を GREEN 強制
-（7 件 `#[ignore]` 解除 + scope 取得境界の追加回帰 1 件）。
+`tests/containment_swap.rs` は 10 件の swap 回帰を GREEN 強制
+（7 件 `#[ignore]` 解除 + scope 取得境界・root 置換 rebind・
+権威解決/取得間 window の追加回帰 3 件）。
 互換差（`RelativePath` の厳格文法、保守的 EscapesRoot、scope
 capability 化による link 下降の同値化、read_dir 一括 listing、
 dir byte_len の NotApplicable 化、dangling link の Missing 統一、

@@ -55,8 +55,14 @@ handle-relative capability（ruviform#398 → PR401 merge `f483fe1c`、
   `pin`/`open_preview`/`open_pinned`=`open_regular(WithinRoot)`+
   `RootedFile`/`NodeInfo` の同一 object facts。browse descend は
   実 dir のみ `open_dir(NoFollow)` の scoped handle 経由。locator
-  scope は scoped `RootedDir` として開き、scope subtree が
-  capability root = 旧 canonical-prefix scope 境界と同値。
+  scope は保持 `RootedDir` 上の `metadata(WithinRoot)` で先に
+  権威解決し（locator 自体の link containment もここで強制）、
+  scope subtree を capability root とする scoped `RootedDir` を
+  `open_with` で取得して `dir_identity`/`NodeId` の same-object
+  照合を行う — `open_dir` は `WithinRoot` 境界が provider root
+  のままで scope 内 link 判定を弱めるため使わず、root rename +
+  同一 pathname への別 tree 設置による再 bind は `SourceChanged`
+  で拒否する（旧 canonical-prefix scope 境界と同値を維持）。
 - `LocalBlobDir` は呼出毎に store `RootedDir` を開き
   `metadata`/`open_regular(WithinRoot)`。SV 側の name/device 検証は
   維持。
@@ -68,17 +74,22 @@ handle-relative capability（ruviform#398 → PR401 merge `f483fe1c`、
 - `tests/containment_swap.rs` の 7 件から `#[ignore]` を除去し
   deterministic fault barrier の地点タグを rooted seam
   （`"stat"`/`"open"`/`"read_dir"`）へ更新。seam sanity の期待列を
-  `["stat","open"]`/`["stat","read_dir","stat"]` へ更新。
-  scope 取得境界（`open_scope` の `RootedDir::open_with`）の swap
-  回帰 `local_scope_acquisition_swap_cannot_escape_root` を追加
-  — capability 取得そのものが root 外を掴まないことを
-  `PermissionDenied` で固定。
+  `["stat","open"]`/`["stat","open","read_dir","stat"]` へ更新
+  （`open_scope` は held-resolution `metadata`=`"stat"` と
+  取得 `open_with`=`"open"` の 2 地点）。
+  scope 取得境界の swap 回帰を 3 件追加 — 保持 root 解決直前の
+  `local_scope_acquisition_swap_cannot_escape_root`
+  （`EscapesRoot`→`PermissionDenied`）、権威解決/取得間の
+  `local_scope_open_swap_cannot_escape_root`（canonical 外
+  →`PermissionDenied`）、root rename 退避+同一 pathname 別 tree
+  設置の `local_scope_root_replacement_cannot_rebind_capability`
+  （`dir_identity` 乖離→`SourceChanged`）。
 - test-spec N1 feature・spec Known gap・design FS traversal 節・
   impl record を実態へ更新。
 
 ## 検証
 
-- `cargo test -p synvelis-library` — 9/9 pass（8 swap regressions
+- `cargo test -p synvelis-library` — 11/11 pass（10 swap regressions
   GREEN 強制 + seam sanity、いずれも `#[ignore]` なし）、
   local 33・project 21・contract・types 全非回帰。
 - `mise run fmt`/`fmt-check`/`check`/`lint`/`test` 全 workspace pass、
@@ -97,9 +108,17 @@ handle-relative capability（ruviform#398 → PR401 merge `f483fe1c`、
   下降はしない（canonical 実 path 側で既に列挙されるため出力は
   同値）。escaping link の facts は target 側ではなく link 自身の
   最小 facts を返す（旧実装は target facts を報告していた）。
-- `RootedDir::read_dir` は listing を一括 `Vec` で返す（旧
-  `fs::read_dir` の incremental take 相当の逐次制限は RF API に
-  存在しない）。emit 件数の `max_entries` bound は維持。
+- `RootedDir::read_dir` は listing を一括 `Vec` で返す。旧
+  `fs::read_dir` の `take(remaining+1)` に相当する bound は
+  `truncate(remaining+1)` → sort で復元し emit 件数・subset
+  意味論（enumeration order prefix）は同値を維持するが、
+  **列挙そのものの memory/work bound は RF API 側に存在しない**
+  — `VfsDir::list`/`read_dir` は全件 `Vec` を materialize して
+  から返すため巨大 dir で `max_entries`/cancel/deadline は列挙
+  段階では効かない。raw-path fallback での回避は capability
+  逸脱のため禁止として、streaming/bounded 列挙 API
+  （例: callback/iterator または limit 付き `read_dir`）を RF
+  側へ ask — この残余は **BLOCKED（RF API 待ち）** として明示。
 - dangling symlink は Windows/Unix で `Missing` に統一（旧 Unix
   経路は列挙から黙って skip していた）。
 - dir entry の `byte_len` は `NotApplicable`（旧実装は dir size を
@@ -111,7 +130,21 @@ handle-relative capability（ruviform#398 → PR401 merge `f483fe1c`、
   隠さない）。
 - scoped directory handle は inode authority を保持し、取得後の
   外部 rename でも読み取り継続する — pathname 継続包含ではなく
-  handle authority（RF の設計どおり）。
+  handle authority（RF の設計どおり）。対称的に、locator scope 付き
+  browse/search は保持 capability の `NodeId` 照合を経るため、
+  root rename + 同一 pathname への別 tree 設置（root 置換）では
+  `SourceChanged` で拒否される — `BrowseScope::Root` が rename
+  退避側を handle authority で読み続けるのとは意図的な非対称。
+  scope 取得と競合する **in-root の** scope dir rename/recreate
+  も同じく `SourceChanged` を返す（旧実装は新 object をそのまま
+  serve していた — 意図的な厳格化）。
+- weak-identity filesystem（birth/creation time や discriminating
+  handle を持たず `IdentityStrength::Weak` となる backend — NTFS/
+  statx 系以外）では locator scope 付き browse/search が
+  `UnsupportedCapability` を返す — `NodeId` same-tick recreate を
+  判別できず rebind 検出を黙って弱めるより RF `open_pinned` と
+  同じ fail-closed を選ぶ（Root scope や blob/stat/open 系には
+  影響しない）。
 - `LocalFolderProvider::new` の open 失敗は `Io`→`TransientIo` で
   正直に分類（旧実装は canonicalize 全失敗を `NotFound` に畳んで
   いた）。

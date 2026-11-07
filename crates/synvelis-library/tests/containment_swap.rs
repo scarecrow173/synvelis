@@ -299,10 +299,11 @@ fn local_browse_descend_component_swap_lists_outside_entries() {
 
 /// `BrowseScope::Locator` — the scope directory itself is swapped
 /// for a link to an outside directory at capability acquisition
-/// (`open_scope`'s `RootedDir::open_with`, tagged `"stat"`). The
-/// opened handle's canonical path lands outside the provider root,
-/// so the same-object scope check must fail `PermissionDenied` —
-/// outside entries are never listed.
+/// (`open_scope`, tagged `"stat"` — the held-resolution
+/// `metadata(WithinRoot)` point, which runs before the pathname
+/// `open_with`). The held-capability resolution follows the link
+/// and lands outside the provider root, failing `EscapesRoot` →
+/// `PermissionDenied` — outside entries are never listed.
 #[test]
 fn local_scope_acquisition_swap_cannot_escape_root() {
     let tree = TempTree::new("local-swap-scope");
@@ -329,6 +330,89 @@ fn local_scope_acquisition_swap_cannot_escape_root() {
         err.kind(),
         ProviderErrorKind::PermissionDenied,
         "acquisition-time scope swap must fail PermissionDenied, got {err:?}"
+    );
+}
+
+/// Root replacement between provider construction and scope
+/// acquisition: the held `RootedDir` — never the root pathname —
+/// decides which tree the scope binds to. The original root is
+/// renamed aside (the open handle keeps authority over the moved
+/// object) and a different tree is planted at the same pathname.
+/// `open_scope` must detect that the pathname now resolves to a
+/// different object than the held capability's `sub` and fail —
+/// `open_with` alone would happily open the replacement and the
+/// lexical `starts_with` check would pass on the same string.
+#[test]
+fn local_scope_root_replacement_cannot_rebind_capability() {
+    let tree = TempTree::new("local-swap-root");
+    let root = tree.join("root");
+    let sub = root.join("sub");
+    fs::create_dir_all(&sub).unwrap();
+    fs::write(sub.join("inner.wav"), INSIDE_BYTES).unwrap();
+
+    let provider = LocalFolderProvider::new(pid(1), &root).unwrap();
+    // No barrier needed: the swap is sequential — provider holds the
+    // original root capability, then the pathname is repointed at a
+    // different tree before `browse` acquires the scope.
+    let held = tree.join("root_held");
+    fs::rename(&root, &held).unwrap();
+    fs::create_dir_all(&sub).unwrap();
+    fs::write(sub.join("out-secret.wav"), OUTSIDE_BYTES).unwrap();
+
+    let mut req = browse_req(16);
+    req.scope = BrowseScope::Locator {
+        locator: loc("sub"),
+    };
+    match provider.browse(&req, &cx()) {
+        Ok(page) => {
+            let served: Vec<_> = page.entries.iter().map(|e| e.locator.as_str()).collect();
+            panic!(
+                "root rebound the scope to the replacement tree — \
+                 served outside-capability entries: {served:?}"
+            );
+        }
+        Err(err) => assert_eq!(
+            err.kind(),
+            ProviderErrorKind::SourceChanged,
+            "pathname rebind must fail SourceChanged, got {err:?}"
+        ),
+    }
+}
+
+/// Between held-resolution and pathname acquisition: the `"open"`
+/// barrier fires after `metadata(WithinRoot)` resolved the original
+/// `sub` but before `RootedDir::open_with` opens the lexical path —
+/// the narrowest window in `open_scope`. Swapping `sub` for an
+/// outside link there means the opened capability's canonical root
+/// lands outside the provider root, so the lexical containment
+/// check must fail `PermissionDenied` before the `NodeId` compare
+/// is ever reached.
+#[test]
+fn local_scope_open_swap_cannot_escape_root() {
+    let tree = TempTree::new("local-swap-scope-open");
+    let outside_dir = tree.join("outside");
+    fs::create_dir_all(&outside_dir).unwrap();
+    fs::write(outside_dir.join("out-secret.wav"), OUTSIDE_BYTES).unwrap();
+    let root = tree.join("root");
+    let sub = root.join("sub");
+    fs::create_dir_all(&sub).unwrap();
+    fs::write(sub.join("inner.wav"), INSIDE_BYTES).unwrap();
+
+    let mut provider = LocalFolderProvider::new(pid(1), &root).unwrap();
+    let (hook, fired) = swap_once(sub, outside_dir, "open");
+    provider.set_pre_traverse_hook(Some(hook));
+
+    let mut req = browse_req(16);
+    req.scope = BrowseScope::Locator {
+        locator: loc("sub"),
+    };
+    let result = provider.browse(&req, &cx());
+    assert!(fired.load(Ordering::SeqCst), "barrier never fired");
+    let err = result.expect_err("swapped scope must not serve a page");
+    assert_eq!(
+        err.kind(),
+        ProviderErrorKind::PermissionDenied,
+        "open-point scope swap must fail PermissionDenied, got {err:?}"
     );
 }
 
@@ -363,7 +447,8 @@ fn pre_traverse_hook_fires_at_tagged_points() {
     assert_eq!(*ops.lock().unwrap(), vec!["stat", "open"]);
 
     // Same wiring on the folder provider: a locator-scoped browse
-    // must tag the scope check, the directory enumeration, and the
+    // must tag the scope's held-resolution stat, the capability
+    // acquisition open, the directory enumeration, and the
     // per-entry stat.
     let root = tree.join("root");
     let sub = root.join("sub");
@@ -381,5 +466,8 @@ fn pre_traverse_hook_fires_at_tagged_points() {
     };
     let page = provider.browse(&req, &cx()).unwrap();
     assert_eq!(page.entries.len(), 1);
-    assert_eq!(*ops.lock().unwrap(), vec!["stat", "read_dir", "stat"]);
+    assert_eq!(
+        *ops.lock().unwrap(),
+        vec!["stat", "open", "read_dir", "stat"]
+    );
 }

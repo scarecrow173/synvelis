@@ -72,7 +72,7 @@ tests/
   local.rs        LocalFolderProvider 実 FS テスト
   project.rs      ProjectAssetsProvider テスト
   types.rs        型・unit テスト
-  containment_swap.rs  component-swap TOCTOU 回帰（8 件強制 GREEN
+  containment_swap.rs  component-swap TOCTOU 回帰（10 件強制 GREEN
                   + seam sanity、fault barrier 経由）
   common/mod.rs   テスト共有 helper
 ```
@@ -221,11 +221,25 @@ fingerprint = scope/sort/filter/principal を sha256 した hex 短縮。
 - preview/range: `RootedFile` の `Seek` + `Take` bounded。claims
   は `VerificationPolicy::Unverified`（pin ではないことを明示）。
 - scope 付き browse/search は `open_scope` が locator 成分を検証し
-  `canonical_root + components` へ `RootedDir::open_with` で新
-  capability を取得（`open_dir` では親 capability の root 境界を
-  引き継ぐため scope 境界を作れない）。取得後は開いた handle の
-  `canonical_root()` が provider root 配下かを照合する — 同じ
-  object の検証で check-then-use ではない。
+  まず保持 `RootedDir` 上の `metadata(WithinRoot)` で scope を
+  権威解決する — held handle 基準のため provider 構築後の root
+  rename を透過し、locator 自体の link containment もここで強制
+  される。次いで `canonical_root + components` へ
+  `RootedDir::open_with` で新 capability を取得し（`open_dir`
+  では親 capability の root 境界を引き継ぐため scope 境界を
+  作れない）、`canonical_root()` の prefix 照合に加えて
+  `dir_identity`/`NodeId` で held-capability 解決と同一 object
+  かを照合する — 同 pathname への別 tree 設置は文字列照合を
+  通るため、`NodeId` 比較だけが rebind を検出し `SourceChanged`
+  で拒否する（check-then-use ではなく opened object の検証。
+  `NodeId` 照合は `IdentityStrength::Strong` を要求し、weak
+  backend では `UnsupportedCapability` で fail-closed）。
+- `read_dir` は RF が一括 `Vec` を materialize するため、kept
+  window は `truncate(max_entries-walked+1)` → sort で旧
+  `take(remaining+1)` の bound/subset 意味論を復元する。列挙
+  そのもの（Vec materialize 段階）の memory/work bound は RF
+  API に存在せず BLOCKED（streaming/bounded 列挙 API を RF へ
+  ask 済み — task5 記録）。
 
 ## ProjectAssetsProvider
 
