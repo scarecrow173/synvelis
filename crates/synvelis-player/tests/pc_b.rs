@@ -30,6 +30,7 @@ use ruviform_graph::{
     ConnDef, Direction, EdgeDelay, GraphBuilder, NodeDef, NodeKind, NodeSpec, PortId, PortRef,
     Validator,
 };
+use ruviform_io_file::{Durability, PublishMode, PublishOptions, SealedFile, StagedFile};
 use ruviform_io_wav::WavOutputSpec;
 use ruviform_media_core::{
     BlockContract, ClockEpochId, DeliveryPolicy, EngineFrame, InBlockTransportSupport,
@@ -37,7 +38,7 @@ use ruviform_media_core::{
     TimeBase, TransportCommand, TransportGeneration, TransportScheduler, TransportSpan,
     TransportStatus,
 };
-use ruviform_media_io::{Muxer, PublishOptions, StagedOutput};
+use ruviform_media_io::Muxer;
 use ruviform_plugin_core::{
     BufferView, BufferViewMut, BusDescriptor, BusDirection, BusRole, ErasedPlugin, EventKind,
     EventList, ParamEvent, ParamFlags, ParamId, ParamInfo, ParamValue, Plugin, PluginDescriptor,
@@ -50,6 +51,14 @@ use synvelis_player::driver::ActivateError;
 use synvelis_player::lowering::{EngineConfig, lower_with_inserts};
 use synvelis_player::{AttachedNode, DispatchError, HeadlessDriver, ParamDispatch, PumpPolicy};
 use synvelis_project::{ParameterTargetId, Project, ProjectId, SourceId};
+
+/// Muxer constructor over the `&mut StagedFile` borrow — the
+/// `RenderOutput::make_muxer` shape for the offline-render parity
+/// drive.
+type DynMuxerCtor = Box<
+    dyn for<'a> FnOnce(&'a mut StagedFile) -> Result<Box<dyn Muxer + 'a>, ruviform_media_io::Error>
+        + Send,
+>;
 
 const DESCRIPTOR: PluginDescriptor = PluginDescriptor {
     id: "org.synvelis.test.pc-b-rec",
@@ -561,7 +570,7 @@ fn pc_b_04_offline_render_matches_playback() {
     };
     let dest =
         std::env::temp_dir().join(format!("synvelis-pc-b-parity-{}.wav", std::process::id()));
-    let staged = StagedOutput::create(&dest).expect("staged output");
+    let staged = StagedFile::create(&dest).expect("staged output");
     let info = WavOutputSpec {
         sample_rate: SampleRate::new(48_000).unwrap(),
         layout: ChannelLayout::Stereo,
@@ -570,26 +579,24 @@ fn pc_b_04_offline_render_matches_playback() {
     .stream_info();
     let encoder = ruviform_io_wav::make_encoder(&info).expect("encoder");
     let muxer_info = info.clone();
+    let make_muxer: DynMuxerCtor = Box::new(move |staged| {
+        ruviform_io_wav::open_muxer(staged, std::slice::from_ref(&muxer_info))
+            .map(|m| Box::new(m) as Box<dyn Muxer>)
+    });
     let output = RenderOutput {
         staged,
-        make_muxer: Box::new(move |file| {
-            ruviform_io_wav::open_muxer(file, std::slice::from_ref(&muxer_info))
-                .map(|m| Box::new(m) as Box<dyn Muxer>)
-        }),
+        make_muxer,
         encoder: Box::new(encoder),
-        publish_options: PublishOptions {
-            replace_existing: true,
-            sync_before_publish: false,
-        },
+        publish_options: PublishOptions::new(PublishMode::Replace, Durability::BestEffort),
         verify: None::<
             Box<
                 dyn FnOnce(
-                    &std::path::Path,
+                    &mut SealedFile,
                     &ruviform_audio::render::OutputFacts,
                 ) -> Result<(), ruviform_media_io::Error>,
             >,
         >,
-        publish: Box::new(StagedOutput::publish),
+        publish: Box::new(SealedFile::publish),
     };
     let mut feeder = SilentFeeder;
     let progress = Progress::new();

@@ -573,6 +573,6 @@ pub fn import_local(
     })
 }
 
-fn demuxer_container_label(reader: &SourceReader) -> String {
+fn demuxer_container_label(reader: &SourceReader<'_>) -> String {
     reader.metadata().container.format.name().to_owned()
 }
