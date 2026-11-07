@@ -18,7 +18,11 @@ ruviform-ui.workspace = true
 ruviform-observability = { workspace = true, features = ["logging"] }
 tracing.workspace = true
 ruviform-ui-webview = { workspace = true, optional = true }
+ruviform-ui-gpui = { workspace = true, optional = true }
 rust-embed = { workspace = true, optional = true }
+
+[dev-dependencies]
+ruviform-ui-test.workspace = true
 
 [features]
 webview = [
@@ -26,8 +30,20 @@ webview = [
   "ruviform-ui-webview/webview",
   "dep:rust-embed",
 ]
+# SV-GPUI-01: GPUI standard-driver assembly — the only place `gpui` and
+# OS-window types enter the tree. Non-default so `cargo check
+# --workspace` stays headless, same pattern as `webview`.
+native = [
+  "dep:ruviform-ui-gpui",
+  "ruviform-ui-gpui/gpui",
+]
 
 [[bin]]
 name = "synvelis"
 path = "src/bin/synvelis.rs"
 required-features = ["webview"]
+
+[[bin]]
+name = "synvelis-native"
+path = "src/bin/synvelis-native.rs"
+required-features = ["native"]

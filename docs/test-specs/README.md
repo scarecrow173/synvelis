@@ -31,6 +31,7 @@ Directory: `docs/test-specs`
 | TSPEC-034SF02Xa1sPq8rU1wC6dEgHi | SF-02 E2E/契約テスト仕様 — RoutingTransaction Reject/不変/Undo/Revision | approved | [sf-02-e2e-routing-transaction.md](./sf-02-e2e-routing-transaction.md) |
 | TSPEC-A8sVfBvTuQextSVcPY8yp9 | SV-GUI-01 検証仕様 — App Bootstrap・Service 契約・Asset Pipeline | approved | [sv-gui-01-e2e-desktop-bootstrap.md](./sv-gui-01-e2e-desktop-bootstrap.md) |
 | TESTSPEC-SVGUI02 | SV-GUI-02 契約検証仕様 | approved | [sv-gui-02.md](./sv-gui-02.md) |
+| TSPEC-Wa6Ax4SQSRfWvuKIzs8fCf | SV175-01 検証仕様: NativeShell lifecycle + ViewBinding wire 形 | approved | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TSPEC-034T7Ieio7KRMC297yqbIs | SV177 theme contract + workspace preset headless verification | approved | [sv177-theme-preset-contract.md](./sv177-theme-preset-contract.md) |
 | TSPEC-034T2c6eMscPucNt6w8iYW | SYN-IO-02 Store Publish 契約試験 | approved | [syn-io-02-store-publish-contract.md](./syn-io-02-store-publish-contract.md) |
 | TSPEC-034RBFeQnmt3PcI7beSRpy | SYN-OBS-01 検証仕様 — Host Logging install・設定解決・Health・Source catalog | draft | [syn-obs-01-logging-source-catalog.md](./syn-obs-01-logging-source-catalog.md) |

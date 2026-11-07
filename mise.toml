@@ -159,6 +159,18 @@ run = "cargo clippy -p synvelis-app --all-targets --features webview -- -D warni
 description = "synvelis-app webview feature テスト"
 run = "cargo test -p synvelis-app --features webview"
 
+# synvelis-app `native` feature lane (SV-GPUI-01)。GPUI backend を
+# 引くため headless 既定 lane と分離する。build jobs はタスク制約に
+# 合わせ 1–2 に固定。
+
+[tasks.check-app-native]
+description = "synvelis-app native feature 型チェック(GPUI driver 組立 bin 含む)"
+run = "cargo check -p synvelis-app --features native --all-targets"
+
+[tasks.lint-app-native]
+description = "synvelis-app native feature lint"
+run = "cargo clippy -p synvelis-app --all-targets --features native -- -D warnings"
+
 [tasks.dev-ui]
 description = "開発ループ: ui/ を build して synvelis app を debug 起動(assets は live FS 読み)"
 depends = ["install-ui"]

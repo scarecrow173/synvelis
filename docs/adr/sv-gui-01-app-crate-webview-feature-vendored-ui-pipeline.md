@@ -1,10 +1,10 @@
 ---
 id: "ADR-2kAD08Yeuxmx8U4t2mD2wr"
 type: "adr"
-status: "accepted"
+status: "superseded"
 title: "SV-GUI-01 app crate boundary・webview feature gate・vendored ui/* TS pipeline"
 created: "2026-11-04"
-updated: "2026-11-04"
+updated: "2026-11-07"
 owners: []
 relations:
   source:
@@ -21,7 +21,8 @@ relations:
   depends-on: []
   blocks: []
   supersedes: []
-  superseded-by: []
+  superseded-by:
+    - "docs/adr/sv175-native-shell-driver-neutral-gpui.md"
   related:
     - "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md"
     - "docs/adr/ws-a-workspace-crate-boundary-and-ruviform-dock-host-contract-adoption.md"
@@ -45,6 +46,14 @@ metadata:
 ---
 
 # SV-GUI-01 app crate boundary・webview feature gate・vendored ui/* TS pipeline
+
+> **Status: Superseded** — 本決定は SV175 後継 ADR
+> `docs/adr/sv175-native-shell-driver-neutral-gpui.md`（Driver-neutral
+> shell + GPUI 標準 Driver）により supersede された。`synvelis-app` の
+> crate 境界・feature gate の形は継承されるが、WebView（wry/tao）+
+> vendored SolidJS/TS pipeline を製品 GUI 標準とする技術選択は廃止。
+> 旧実装・`ui/` frontend・PoC 証拠は Native 実証まで preview lane
+> として残置・削除しない。
 
 ## Context and Problem Statement
 

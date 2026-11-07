@@ -53,6 +53,8 @@ ruviform-plugin-core = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-plugin-host = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-audio-plugin-bridge = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-ui-webview = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-ui-gpui = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-ui-test = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-observability = { git = "https://github.com/scarecrow173/ruviform.git" }
 synvelis-theme = { path = "crates/synvelis-theme" }
 rust-embed = "8"
