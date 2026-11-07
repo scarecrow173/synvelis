@@ -1,0 +1,17 @@
+{
+  "$extensions": {
+    "dev.ruviform.dtcg-profile": {
+      "profile": "rvf-dtcg-profile.v1",
+      "layer": "product",
+      "id": "test-delegated-type"
+    },
+    "synvelis.productTheme": {
+      "schema": 1,
+      "theme": "test",
+      "layer": "product"
+    }
+  },
+  "shadow": {
+    "sm": { "$type": "shadow", "$value": "0 1px 2px #000" }
+  }
+}

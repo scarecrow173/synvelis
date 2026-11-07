@@ -1,0 +1,70 @@
+{
+  "schema": 2,
+  "id": "synvelis.mixing",
+  "name": "Mixing",
+  "windows": [
+    {
+      "title": "Mixer",
+      "geometry": {
+        "x": 0,
+        "y": 0,
+        "width": 1600,
+        "height": 900
+      },
+      "dock": {
+        "type": "tabs",
+        "views": [1],
+        "active": 0
+      }
+    },
+    {
+      "title": "Inspector / Signal Flow",
+      "geometry": {
+        "x": 1620,
+        "y": 0,
+        "width": 1280,
+        "height": 900
+      },
+      "dock": {
+        "type": "split",
+        "axis": "vertical",
+        "ratio": 0.5,
+        "children": [
+          {
+            "type": "tabs",
+            "views": [2],
+            "active": 0
+          },
+          {
+            "type": "tabs",
+            "views": [3],
+            "active": 0
+          }
+        ]
+      }
+    }
+  ],
+  "views": [
+    {
+      "slot": 1,
+      "kind": "mixer",
+      "title": "Mixer"
+    },
+    {
+      "slot": 2,
+      "kind": "inspector",
+      "title": "Inspector"
+    },
+    {
+      "slot": 3,
+      "kind": "signal-flow",
+      "title": "Signal Flow"
+    }
+  ],
+  "detached": [],
+  "links": [
+    { "view": 2, "group": 1 },
+    { "view": 3, "group": 1 }
+  ],
+  "focus": { "window": 0, "view": 1 }
+}

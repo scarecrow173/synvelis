@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+  "crates/synvelis-theme",
   "crates/synvelis-project",
   "crates/synvelis-library",
   "crates/synvelis-recording",
@@ -47,11 +48,15 @@ ruviform-rt = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-io-wav = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-exec = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-ui = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-ui-theme = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-viz = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-plugin-core = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-plugin-host = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-audio-plugin-bridge = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-ui-webview = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-ui-gpui = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-ui-test = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-observability = { git = "https://github.com/scarecrow173/ruviform.git" }
+synvelis-theme = { path = "crates/synvelis-theme" }
 rust-embed = "8"
 tracing = "0.1"

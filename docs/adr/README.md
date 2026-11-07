@@ -25,8 +25,9 @@ Directory: `docs/adr`
 | ADR-034RoTL4YIadCWevIM5Mfg | PC-C1: commit 境界を session CAS orchestration + 非破壊 prepared commit に置く決定 | accepted | [pc-c1-commit-session-cas-orchestration-prepared-commit.md](./pc-c1-commit-session-cas-orchestration-prepared-commit.md) |
 | ADR-034SF01Ln8qRs3tU0vWxYzBcD | SF-01 Routing Model 配置・Schema v6 Migration・Reserved Well-Known ID | approved | [sf-01-routing-model-schema-v6-migration.md](./sf-01-routing-model-schema-v6-migration.md) |
 | ADR-034SF02Ux8pMn5oR8tY3zAbDe | SF-02 RoutingTransaction 配置・TempRef Staging・channels 永続化・Mute/Solo 権威・汎用検証の再利用 | accepted | [sf-02-routing-transaction-port-channels-mute-solo-authority.md](./sf-02-routing-transaction-port-channels-mute-solo-authority.md) |
-| ADR-2kAD08Yeuxmx8U4t2mD2wr | SV-GUI-01 app crate boundary・webview feature gate・vendored ui/* TS pipeline | accepted | [sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md](./sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md) |
 | ADR-034RAA8oZVNDaL6mMAMJ55 | SV-GUI-02 syn.* binding IPC surface・notify outbox・bounded wire DTO | accepted | [sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md](./sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md) |
+| ADR-vXwuA1OrALJD99tNRgZ8gQ | ADR: Native App Shell は Driver-neutral shell + GPUI 標準 Driver。SV-GUI-01 の WebView/SolidJS 決定を supersede | accepted | [sv175-native-shell-driver-neutral-gpui.md](./sv175-native-shell-driver-neutral-gpui.md) |
+| ADR-034T6XUbzRkbVBGiEFXH4Q | SV177 product theme crate boundary, DTCG document envelope and slot-based workspace preset schema | accepted | [sv177-product-theme-crate-boundary-dtcg-document-envelope-and-slot-based-workspa.md](./sv177-product-theme-crate-boundary-dtcg-document-envelope-and-slot-based-workspa.md) |
 | ADR-034RBxHj0wzQculGmgXguq | SYN-OBS-01 単一crate ruviform-observability logging feature 採用と Host 所有 Global Subscriber | accepted | [syn-obs-01-crate-ruviform-observability-logging-feature-host-global-subscriber.md](./syn-obs-01-crate-ruviform-observability-logging-feature-host-global-subscriber.md) |
 | ADR-034QdxBCx9w88ptCJEEz7D | VS-A Workspace構成・Ruviform git依存・永続化PoC・Stable ID生成 | accepted | [vs-a-workspace-ruviform-git-poc-stable-id.md](./vs-a-workspace-ruviform-git-poc-stable-id.md) |
 | ADR-ODnVCNLDT5mtpswKxVDw9R | VS-B SPSCプリミティブ・Gate Schedule表現・Fault通知・Chunk所有権 | accepted | [vs-b-ruviform-rt-spsc-gate-schedule-fault-ownership.md](./vs-b-ruviform-rt-spsc-gate-schedule-fault-ownership.md) |
@@ -34,3 +35,9 @@ Directory: `docs/adr`
 | ADR-MSyE0rkQSGNdJNwNrTVoCy | VS-D CommitIdentity・Manifest・Single Mutation・Undo 単位 | accepted | [vs-d-commit-identity-manifest-single-mutation.md](./vs-d-commit-identity-manifest-single-mutation.md) |
 | ADR-034QwWcA5mHzwXYyFiDTTi | WS-A workspace crate boundary and Ruviform dock/host contract adoption | accepted | [ws-a-workspace-crate-boundary-and-ruviform-dock-host-contract-adoption.md](./ws-a-workspace-crate-boundary-and-ruviform-dock-host-contract-adoption.md) |
 | ADR-yEJFG31sy193FI2AeehiqF | X — Finalized raw media の canonical publication 境界・commit digest 接続・playback 無変更 | accepted | [x-recorded-media-canonicalization-boundary.md](./x-recorded-media-canonicalization-boundary.md) |
+
+## Settled <!-- doc-suite:settled-index -->
+
+| ID | Title | Status | File |
+| --- | --- | --- | --- |
+| ADR-2kAD08Yeuxmx8U4t2mD2wr | SV-GUI-01 app crate boundary・webview feature gate・vendored ui/* TS pipeline | superseded | [sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md](./sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md) |

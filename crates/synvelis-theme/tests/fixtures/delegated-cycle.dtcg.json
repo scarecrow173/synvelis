@@ -1,0 +1,19 @@
+{
+  "$extensions": {
+    "dev.ruviform.dtcg-profile": {
+      "profile": "rvf-dtcg-profile.v1",
+      "layer": "product",
+      "id": "test-delegated-cycle"
+    },
+    "synvelis.productTheme": {
+      "schema": 1,
+      "theme": "test",
+      "layer": "product"
+    }
+  },
+  "color": {
+    "$type": "color",
+    "a": { "$value": "{color.b}" },
+    "b": { "$value": "{color.a}" }
+  }
+}

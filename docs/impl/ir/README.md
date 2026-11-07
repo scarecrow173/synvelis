@@ -51,3 +51,5 @@ Directory: `docs/impl/ir`
 | IMPL-034RwzRkGd3wl6hL83YIBo | PC-C1 recording transaction prepare/apply/finalize | completed | [pc-c1-recording-transaction-prepare-apply-finalize.md](pc-c1-recording-transaction-prepare-apply-finalize.md) |
 | IMPL-034RBYkTtBOQ5Akfjc5HEi | SYN-OBS-01 host logging owner + OBS-02 source catalog（synvelis-app 単一所有） | completed | [syn-obs-01-host-logging-owner-obs-02-source-catalog-synvelis-app.md](syn-obs-01-host-logging-owner-obs-02-source-catalog-synvelis-app.md) |
 | IMPL-034RUA08INQhlEiCYTUuqn | Issue #157 rev.3 matrix placeholder gate 修正 | completed | [issue-157-rev-3-matrix-placeholder-gate.md](issue-157-rev-3-matrix-placeholder-gate.md) |
+| IMPL-034T7IhBoewhoZNaZfjXP1 | SV177 theme/preset implementation record | completed | [sv177-theme-preset-implementation-record.md](sv177-theme-preset-implementation-record.md) |
+| IMPL-SV17501NativeShellBinding | SV175-01 Native App Shell 初期 slice — NativeShell lifecycle + ViewBinding adapter + RF387 wire 翻訳 実装記録 | completed | [sv175-01-native-shell-binding.md](sv175-01-native-shell-binding.md) |
