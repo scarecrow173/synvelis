@@ -158,11 +158,53 @@ impl ThemeCatalog {
     /// ([`crate::adapter::resolve_documents`]) — shorthand for
     /// `resolve_documents(&self.documents_for(sel), &sel.mode)`.
     ///
+    /// The catalog's declared vocabulary bounds selection: when the
+    /// theme declares any mode (resp. density) documents, a
+    /// selection outside that vocabulary fails with
+    /// [`ThemeError::Selection`] instead of silently resolving a
+    /// partial layer set labelled with a mode no document provides.
+    /// A theme with no mode documents at all stays mode-agnostic.
+    ///
     /// # Errors
-    /// [`ThemeError::Resolve`] on upstream parse/merge failure —
-    /// including `EmptyDocuments` when the selection has no layers.
+    /// [`ThemeError::Selection`] when `sel.mode`/`sel.density` is
+    /// outside the theme's declared vocabulary; [`ThemeError::Resolve`]
+    /// on upstream parse/merge failure — including `EmptyDocuments`
+    /// when the selection has no layers.
     pub fn resolve(&self, sel: &ThemeSelection) -> Result<ResolvedTheme, ThemeError> {
+        self.ensure_selectable(sel)?;
         crate::adapter::resolve_documents(&self.documents_for(sel), &sel.mode)
+    }
+
+    /// Fail when the selection asks for a mode/density the theme
+    /// never declares. Vocabulary is derived from existing keys —
+    /// an empty set means "unconstrained" (mode-agnostic theme).
+    fn ensure_selectable(&self, sel: &ThemeSelection) -> Result<(), ThemeError> {
+        let (mut modes, mut densities) = (Vec::new(), Vec::new());
+        for key in self.themes.keys().filter(|k| k.theme == sel.theme) {
+            if let Some(m) = &key.mode
+                && !modes.contains(m)
+            {
+                modes.push(m.clone());
+            }
+            if let Some(d) = &key.density
+                && !densities.contains(d)
+            {
+                densities.push(d.clone());
+            }
+        }
+        for (field, declared, requested) in [
+            ("mode", modes, &sel.mode),
+            ("density", densities, &sel.density),
+        ] {
+            if !declared.is_empty() && !declared.contains(requested) {
+                return Err(ThemeError::Selection(format!(
+                    "theme {:?} declares {field}s {declared:?}; \
+                     requested {field} {requested:?} has no document",
+                    sel.theme
+                )));
+            }
+        }
+        Ok(())
     }
 
     /// Whether the catalog has every layer a selection needs (base +

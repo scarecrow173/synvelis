@@ -64,6 +64,27 @@ fn shipped_assets_are_valid() {
 }
 
 #[test]
+fn resolve_rejects_modes_and_densities_outside_the_catalog_vocabulary() {
+    // The theme declares modes {dark, light} and densities
+    // {compact, comfortable}. Asking for anything else must fail
+    // loudly — silently resolving the remaining layers would return
+    // a ResolvedTheme labelled with a mode no document provides.
+    let catalog = shipped_catalog();
+    for bad in [
+        selection("sepia", "compact"),
+        selection("dark", "huge"),
+        selection("sepia", "huge"),
+    ] {
+        match catalog.resolve(&bad) {
+            Err(ThemeError::Selection(msg)) => {
+                assert!(msg.contains(&bad.theme), "{msg}");
+            }
+            other => panic!("expected Selection error for {bad:?}, got {other:?}"),
+        }
+    }
+}
+
+#[test]
 fn shipped_assets_pass_the_upstream_profile_parser() {
     // Every shipped document must carry both envelopes: the Synvelis
     // product metadata (validated by `load_dir`) and the upstream
@@ -126,10 +147,17 @@ fn shipped_assets_resolve_for_every_mode_density_pair() {
 
 #[test]
 fn adapter_surfaces_upstream_document_errors() {
-    // `delegated-cycle` has a valid Synvelis envelope but no
-    // `dev.ruviform.dtcg-profile` block — the consumer loads it,
-    // the upstream parser rejects it at resolve time.
-    let doc = load_document(&fixture("delegated-cycle.dtcg.json")).unwrap();
+    // A document with a valid Synvelis envelope but no
+    // `dev.ruviform.dtcg-profile` block loads at the consumer level —
+    // the upstream parser rejects it at resolve time (MissingProfile
+    // short-circuits before any token check).
+    let doc = load_document(
+        r##"{
+          "$extensions": {"synvelis.productTheme": {"schema": 1, "theme": "t", "layer": "product"}},
+          "color": {"$type": "color", "x": {"$value": "#ffffff"}}
+        }"##,
+    )
+    .unwrap();
     let err = resolve_documents(&[&doc], "dark").unwrap_err();
     match err {
         ThemeError::Resolve(ResolveError::Document(TokenError::MissingProfile)) => {}
@@ -138,7 +166,77 @@ fn adapter_surfaces_upstream_document_errors() {
 }
 
 #[test]
-fn valid_document_with_alias_loads() {
+fn delegated_fixtures_surface_their_named_upstream_rejections() {
+    // Each `delegated-*` fixture carries both envelopes plus one
+    // token-level problem, so the upstream pipeline reaches — and
+    // names — the specific violation instead of stopping at
+    // MissingProfile.
+    let cases: &[(&str, &str)] = &[
+        ("delegated-type.dtcg.json", "UnknownTokenType"),
+        ("delegated-value.dtcg.json", "InvalidValue"),
+        ("delegated-ref.dtcg.json", "InvalidValue"),
+    ];
+    for (name, variant) in cases {
+        let doc = load_document(&fixture(name)).unwrap();
+        let err = resolve_documents(&[&doc], "dark").unwrap_err();
+        match err {
+            ThemeError::Resolve(ResolveError::Document(e)) => {
+                assert!(
+                    format!("{e:?}").contains(variant),
+                    "{name}: expected Document({variant}), got {e:?}"
+                );
+            }
+            other => panic!("{name}: expected Resolve(Document({variant})), got {other:?}"),
+        }
+    }
+    // Alias cycles are checked on the merged token set (upstream
+    // resolve step, not document parse).
+    let doc = load_document(&fixture("delegated-cycle.dtcg.json")).unwrap();
+    match resolve_documents(&[&doc], "dark").unwrap_err() {
+        ThemeError::Resolve(ResolveError::AliasCycle { .. }) => {}
+        other => panic!("expected Resolve(AliasCycle), got {other:?}"),
+    }
+}
+
+#[test]
+fn overridden_cycle_members_make_the_merged_set_legal() {
+    // P1 regression: the pre-delegation validator rejected
+    // `delegated-cycle` up front, which wrongly rejected sets that
+    // become legal once a later layer replaces the cyclic tokens.
+    // Upstream checks cycles on the merged set only, so a cycle in a
+    // lower document overridden by a later document is legal.
+    let cyclic = load_document(&fixture("delegated-cycle.dtcg.json")).unwrap();
+    let override_doc = load_document(
+        r##"{
+          "$extensions": {
+            "dev.ruviform.dtcg-profile": {
+              "profile": "rvf-dtcg-profile.v1",
+              "layer": "product",
+              "id": "test-override"
+            },
+            "synvelis.productTheme": {
+              "schema": 1,
+              "theme": "test",
+              "mode": "dark",
+              "layer": "product"
+            }
+          },
+          "color": {
+            "$type": "color",
+            "a": { "$value": "#112233" },
+            "b": { "$value": "#445566" }
+          }
+        }"##,
+    )
+    .unwrap();
+    let theme = resolve_documents(&[&cyclic, &override_doc], "dark")
+        .expect("overridden cycle members must resolve");
+    assert_eq!(theme.mode(), "dark");
+    assert!(theme.color("color.a").is_some());
+}
+
+#[test]
+fn valid_document_with_alias_loads_and_resolves() {
     let doc = load_document(&fixture("valid-alias.dtcg.json")).unwrap();
     assert_eq!(doc.meta().theme, "test");
     assert_eq!(doc.meta().mode.as_deref(), Some("dark"));
@@ -146,6 +244,10 @@ fn valid_document_with_alias_loads() {
     assert_eq!(doc.tree().tokens().len(), 4);
     // The original JSON is retained for the upstream parser.
     assert!(doc.source().contains("dev.ruviform.dtcg-profile"));
+    // Real upstream alias resolution: {color.fg} resolves to the
+    // literal #ffffff token, so fg-dim == fg in the merged theme.
+    let theme = resolve_documents(&[&doc], "dark").expect("alias doc resolves");
+    assert_eq!(theme.color("color.fg-dim"), theme.color("color.fg"));
 }
 
 #[test]
@@ -221,6 +323,83 @@ fn envelope_profile_violations_fail_closed() {
         }
         other => panic!("expected Validation, got {other:?}"),
     }
+}
+
+#[test]
+fn dual_envelope_contradictions_fail_closed() {
+    // The two extension envelopes must agree — the checks below are
+    // coherence, not upstream re-validation.
+    // (a) Upstream layer demotes the document: upstream resolver
+    // would merge it at `semantic` while SV believes `product`.
+    let err = load_document(
+        r##"{
+          "$extensions": {
+            "synvelis.productTheme": {"schema": 1, "theme": "t", "layer": "product"},
+            "dev.ruviform.dtcg-profile": {"profile": "rvf-dtcg-profile.v1", "layer": "semantic", "id": "x"}
+          },
+          "color": {"$type": "color", "x": {"$value": "#ffffff"}}
+        }"##,
+    )
+    .unwrap_err();
+    match err {
+        ThemeError::Validation(ps) => {
+            assert!(ps.iter().any(|p| p.kind == ProblemKind::Contract));
+        }
+        other => panic!("expected Validation(Contract), got {other:?}"),
+    }
+    // (b) Upstream `modes` excludes the SV-declared mode.
+    let err = load_document(
+        r##"{
+          "$extensions": {
+            "synvelis.productTheme": {"schema": 1, "theme": "t", "mode": "light", "layer": "product"},
+            "dev.ruviform.dtcg-profile": {"profile": "rvf-dtcg-profile.v1", "layer": "product", "id": "x", "modes": ["dark"]}
+          },
+          "color": {"$type": "color", "x": {"$value": "#ffffff"}}
+        }"##,
+    )
+    .unwrap_err();
+    match err {
+        ThemeError::Validation(ps) => {
+            assert!(ps.iter().any(|p| p.kind == ProblemKind::Contract));
+        }
+        other => panic!("expected Validation(Contract), got {other:?}"),
+    }
+    // (c) Upstream `modes` on a mode-free SV base document.
+    let err = load_document(
+        r##"{
+          "$extensions": {
+            "synvelis.productTheme": {"schema": 1, "theme": "t", "layer": "product"},
+            "dev.ruviform.dtcg-profile": {"profile": "rvf-dtcg-profile.v1", "layer": "product", "id": "x", "modes": ["dark"]}
+          },
+          "color": {"$type": "color", "x": {"$value": "#ffffff"}}
+        }"##,
+    )
+    .unwrap_err();
+    match err {
+        ThemeError::Validation(ps) => {
+            assert!(ps.iter().any(|p| p.kind == ProblemKind::Contract));
+        }
+        other => panic!("expected Validation(Contract), got {other:?}"),
+    }
+    // (d) A document declaring both mode and density is unreachable
+    // through the layered catalog selection.
+    let err = load_document(
+        r##"{
+          "$extensions": {"synvelis.productTheme": {"schema": 1, "theme": "t", "mode": "dark", "density": "compact", "layer": "product"}},
+          "color": {"$type": "color", "x": {"$value": "#ffffff"}}
+        }"##,
+    )
+    .unwrap_err();
+    match err {
+        ThemeError::Validation(ps) => {
+            assert!(ps.iter().any(|p| p.kind == ProblemKind::Contract));
+        }
+        other => panic!("expected Validation(Contract), got {other:?}"),
+    }
+    // A coherent pair still loads (shipped assets pin this in
+    // `shipped_assets_are_valid` / `..._resolve_for_every_*`).
+    let doc = load_document(&fixture("valid-alias.dtcg.json")).unwrap();
+    assert_eq!(doc.meta().mode.as_deref(), Some("dark"));
 }
 
 #[test]

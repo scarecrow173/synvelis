@@ -33,6 +33,20 @@ pub struct ProductMeta {
     pub layer: String,
 }
 
+/// The upstream `dev.ruviform.dtcg-profile` envelope fields needed
+/// for the dual-envelope coherence check (layer tag and declared
+/// modes). Everything else in the upstream block stays upstream-owned
+/// and is not re-validated here — this struct only exists so the two
+/// envelopes cannot silently contradict each other.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct UpstreamProfile {
+    /// Upstream `layer` value, when present.
+    pub layer: Option<String>,
+    /// Upstream `modes` list, when present (an empty list means the
+    /// document is mode-agnostic).
+    pub modes: Option<Vec<String>>,
+}
+
 /// A parsed DTCG token tree: the root JSON object minus the
 /// `$extensions` envelope.
 ///
@@ -58,6 +72,7 @@ impl TokenTree {
             .root
             .iter()
             .map(|(k, v)| (k.clone(), v))
+            .filter(|(k, _)| !k.starts_with('$')) // metadata keys are not groups
             .filter_map(|(k, v)| v.as_object().map(|o| (k, o)))
             .collect();
         while let Some((path, obj)) = stack.pop() {
@@ -96,8 +111,12 @@ pub struct ThemeDocument {
 
 impl ThemeDocument {
     /// Assemble a document from its parsed parts and original source.
+    /// Crate-private: only [`crate::validate::load_document`] may
+    /// construct a `ThemeDocument`, so an incoherent
+    /// meta/tree/source triple cannot be built outside the load
+    /// path.
     #[must_use]
-    pub fn new(meta: ProductMeta, tree: TokenTree, source: String) -> Self {
+    pub(crate) fn new(meta: ProductMeta, tree: TokenTree, source: String) -> Self {
         Self { meta, tree, source }
     }
 
@@ -121,7 +140,11 @@ impl ThemeDocument {
     }
 }
 
-/// Parse a JSON document into `(ProductMeta, TokenTree)`.
+/// Parse a JSON document into `(ProductMeta, UpstreamProfile,
+/// TokenTree)`. The upstream profile block is captured only for the
+/// dual-envelope coherence check — `None` when the document carries
+/// no `dev.ruviform.dtcg-profile` block (upstream `TokenDocument`
+/// will reject it at resolve time; that is not re-validated here).
 ///
 /// Fails closed: envelope problems produce `ThemeError::Schema` and
 /// per-token problems produce `ThemeError::Validation` (via the
@@ -131,7 +154,9 @@ impl ThemeDocument {
 /// [`ThemeError::Schema`] when the root is not a JSON object;
 /// [`ThemeError::Validation`] when the product-theme envelope is
 /// missing or malformed.
-pub fn parse_document(json: &str) -> Result<(ProductMeta, TokenTree), ThemeError> {
+pub fn parse_document(
+    json: &str,
+) -> Result<(ProductMeta, Option<UpstreamProfile>, TokenTree), ThemeError> {
     let root: Value =
         serde_json::from_str(json).map_err(|e| ThemeError::Schema(format!("invalid JSON: {e}")))?;
     let root = root
@@ -157,7 +182,24 @@ pub fn parse_document(json: &str) -> Result<(ProductMeta, TokenTree), ThemeError
         }])
     })?;
 
+    // Capture just the upstream fields needed for the envelope
+    // coherence check; malformed upstream internals stay
+    // upstream-rejected at resolve time.
+    let upstream = root
+        .get("$extensions")
+        .and_then(|e| e.get("dev.ruviform.dtcg-profile"))
+        .map(|p| UpstreamProfile {
+            layer: p.get("layer").and_then(Value::as_str).map(str::to_owned),
+            modes: p.get("modes").and_then(|m| {
+                m.as_array().map(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(str::to_owned))
+                        .collect()
+                })
+            }),
+        });
+
     let mut tree = root;
     tree.remove("$extensions");
-    Ok((meta, TokenTree { root: tree }))
+    Ok((meta, upstream, TokenTree { root: tree }))
 }

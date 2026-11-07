@@ -74,17 +74,21 @@ apply_preset）の実装。5 theme asset + 3 preset asset + contract
 ## Done When
 
 - [x] theme 文書が envelope/schema/type/value/alias/cycle を fail-closed 検証
+  （Rev.2 注記: type/value/alias/cycle は SV 側再検証を撤去し envelope
+  + coherence のみ — 上流 resolver が実判定を担当）
 - [x] catalog が layered `documents_for` + duplicate 通知を提供
+  （Rev.2: declared vocabulary 外の mode/density を `Selection` error で拒否）
 - [x] `UnresolvedThemeResolver` が明示 Unsupported を返す
+  （Rev.2 注記: RF385 main 着地 `df45d10` に伴い seam 撤去・実 adapter 接続）
 - [x] preset が破壊前検証付きで apply され link/focus/detached を復元
 - [x] `ViewType::PluginDock` 語彙追加・`PresetViewState` 部分集合
 - [x] 全 contract テスト pass・clippy 0・headless gate 登録
 
 ## Verification
 
-- [x] `cargo test -p synvelis-theme`（11 pass）
+- [x] `cargo test -p synvelis-theme`（Rev.1: 11 pass → Rev.2: 14 pass）
 - [x] `cargo test -p synvelis-workspace`（preset 15 + 既存全 pass）
 - [x] `cargo clippy`（warning 0）・`cargo fmt --all`
 - [x] `node tools/check-headless-deps.mjs`（9 crates OK）
-- [ ] workspace 全体 `mise run check`/`test` 最終確認（統合前）
+- [x] workspace 全体 `mise run check`/`test` 最終確認（ruviform `5c0f16b`・947 tests・0 fail）
 - [ ] Native 受入: NotRun（RF390/RF313/RF314+SV114 gate）

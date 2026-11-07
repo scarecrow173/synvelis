@@ -106,8 +106,9 @@ Rev.2 で RF385 candidate（`ruviform-ui-theme`・
   key を除去して default 追従へ復帰（解除条件消化済み、恒久
   `rev` pin なし — 証跡 `evidence/reports/sv177-rf385-adapter.md`）。
   `Cargo.lock` 再生成 — 24 ruviform sources 全て
-  `df45d10cd86918d10fa81dc80a3f5f5f2564d5ae`
-  （SV84 merge 由来の `ruviform-io-file` 含む）。
+  `5c0f16b574c0eaea3856318992d32dcddd869523`（RF394 統合後の
+  main head、RF385 landing `df45d10` を包含。SV84 merge 由来の
+  `ruviform-io-file` 含む）。
 - `crates/synvelis-workspace`: `preset.rs` 新規（PRESET_SCHEMA=2
   slot 型・`PresetViewState` 部分集合・validate・from_snapshot・
   legacy import・`apply_preset`）。`ViewType::PluginDock` 語彙追加・
@@ -155,7 +156,7 @@ Rev.2 で RF385 candidate（`ruviform-ui-theme`・
 
 ## Validation
 
-Rev.2 実行分（2026-11-07、ruviform `df45d10`（main）上）:
+Rev.2 実行分（2026-11-07、ruviform `5c0f16b`（main）上）:
 
 - `mise run fmt-check`: pass。
 - `mise run check`: workspace 全体 pass。
@@ -166,14 +167,17 @@ Rev.2 実行分（2026-11-07、ruviform `df45d10`（main）上）:
 - `node tools/check-headless-deps.mjs`: 9 headless crates、GUI
   framework deps なし。
 - `mise run check-ruviform-rev`: resolved
-  `df45d10cd86918d10fa81dc80a3f5f5f2564d5ae`（24 lockfile
+  `5c0f16b574c0eaea3856318992d32dcddd869523`（24 lockfile
   sources・lockfile-primary・REV match）。
-- `cargo test -p synvelis-theme`: 10 pass / 0 fail —
+- `cargo test -p synvelis-theme`: 14 pass / 0 fail —
   出荷 5 資産が SV envelope + upstream parser 双方を通過し、
   dark/light × compact/comfortable 全 4 組合せで
   `catalog.resolve` が `ResolvedTheme` を返すことを実 RF
-  pipeline で検証。`delegated-*` load 通過 +
-  `Resolve(Document(MissingProfile))` で委譲境界を固定。
+  pipeline で検証。Reviewer B findings 反映後の追加固定:
+  declared vocabulary 外 mode/density の `Selection` 拒否・
+  両 envelope coherence（`Contract`）・`delegated-*` 各 variant
+  （`UnknownTokenType`/`InvalidValue`/`AliasCycle`）・P1 override
+  回帰（cycle 消滅集合の resolve 成功）・real alias 解決。
 
 Rev.1 実行分: `cargo test -p synvelis-theme` 11 pass・
 `cargo test -p synvelis-workspace` 全 suite pass・clippy
@@ -181,19 +185,26 @@ warning 0・fmt 適用・headless-deps pass。
 
 ## Risks
 
-- RF385 candidate は未 merge branch — merge 前の force-push/削除で
-  参照が切れる。`rev` pin は使わず lock SHA + 解除条件を証跡化
-  （design doc / evidence）。
+- `ResolvedTheme` → GPUI/driver mapper は RF386 未着地 — adapter は
+  実接続済みだが driver 写像の消費点が無い（upstream error は
+  `ThemeError::Resolve` で透過）。
 - preset apply は破壊前検証済みだが、mutation 開始後の host/dock
   失敗では部分的 layout 残置があり得る（view/dock 不変は維持）。
 - 真の schema-1 preset ファイル移行は既知 limitation（現行
   `WorkspaceSnapshot` 形状のみ legacy import 受理）。
+- `synvelis-light` は `color.bg-active`/`color.bg-input` を含まない
+  （dark 12色 vs light 10色、provisional）— Native Design Review
+  で確定。mapper 消費時に `None` となり得る既知差分。
 
 ## Follow-ups
 
-- RF385 candidate が ruviform default branch へ merge されたら、
-  workspace Cargo.toml の全 `branch` key を除去して default 追従へ
-  戻し、`cargo update -p ruviform-media-core` で lock を再生成。
+- ~~RF385 candidate merge 時に `branch` key 除去~~ — 済
+  （`df45d10` 着地確認後、全 `branch` key を除去して default
+  追従へ復帰。以後の main 前進は `cargo update` / lock 再生成で
+  追随 — 単一 source なので個別 `-p` 更新は行わない）。
+- 複数文書の resolve error にはどの文書が失敗したかの id 情報が
+  無い（upstream `TokenError` の path のみ）— 上流側の error
+  context 強化要望は RF 側 issue として扱う。
 - Native 受入（実 GPUI window/実 plugin editor/実 OS）: **NotRun**。
   RF390/RF313/RF314 + SV114 gate 後に実施。
 - `ResolvedTheme` → renderer/GPUI mapper 接続は RF386 mapper

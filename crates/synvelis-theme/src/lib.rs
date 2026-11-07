@@ -19,11 +19,16 @@ pub mod validate;
 
 pub use adapter::resolve_documents;
 pub use catalog::{PREFS_SCHEMA, ThemeCatalog, ThemeKey, ThemePreferences, ThemeSelection};
-pub use document::{ProductMeta, SV_THEME_SCHEMA, ThemeDocument, TokenTree, parse_document};
+pub use document::{
+    ProductMeta, SV_THEME_SCHEMA, ThemeDocument, TokenTree, UpstreamProfile, parse_document,
+};
 pub use error::{ProblemKind, ThemeError, TokenProblem};
 // Re-export the upstream contract surface the adapter exposes so
-// consumers do not need their own `ruviform-ui-theme` dependency.
+// consumers do not need their own `ruviform-ui-theme` dependency —
+// including the resolved-value types `ResolvedTheme` accessors return.
 pub use ruviform_ui_theme::{
-    DocumentLayer, ResolveError, ResolvedTheme, ResolvedValue, TokenDocument, TokenError,
+    ColorSpace, DocumentLayer, DurationUnit, LengthUnit, ResolveError, ResolvedColor,
+    ResolvedDuration, ResolvedLength, ResolvedTheme, ResolvedValue, Rounding, ScaleContext,
+    StrokeStyle, ThemeResolver, TokenDocument, TokenError, TokenSource,
 };
 pub use validate::{load_dir, load_document, validate_document};

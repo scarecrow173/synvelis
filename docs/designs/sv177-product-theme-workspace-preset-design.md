@@ -93,10 +93,10 @@ OS 型を一切持たず、`check-headless-deps` 対象として安全。
 
 | Module | 責務 |
 | --- | --- |
-| `error.rs` | `ThemeError`: `Schema`/`Validation(Vec<TokenProblem>)`/`Io`/`Unsupported`/`Resolve(ruviform_ui_theme::ResolveError)`。`TokenProblem { path, kind: ProblemKind, detail }`、kind = `MissingMeta`/`Schema`（envelope 系のみ — token 系 kind は上流に委譲され消滅）。 |
-| `document.rs` | 生 DTCG 文書の serde 型と envelope。`TokenTree`（root から `$extensions` を除いた opaque 木）+ `ProductMeta { schema, theme, mode, density, layer }`（`$extensions["synvelis.productTheme"]` から読む）+ `ThemeDocument { meta, tree, source }`（**原文 JSON を保持** — 上流 `TokenDocument::from_json` の入力）。`parse_document(json) -> Result<(ProductMeta, TokenTree), ThemeError>`。 |
-| `validate.rs` | `validate_document(meta) -> Vec<TokenProblem>`: envelope 系のみ — schema=`SV_THEME_SCHEMA`・非空 theme/mode/density・`layer="product"`。token 意味論（`$type` 集合・value shape・alias・循環）は**再検証しない**（上流責務 — 同一文書循環拒否が後段 override で合法な集合を誤拒否する P1 の根因）。`load_document`/`load_dir` は `ThemeDocument` を返し fail-closed。 |
-| `catalog.rs` | `ThemeCatalog { themes: BTreeMap<ThemeKey, ThemeDocument> }`（ThemeKey = (theme, mode, density)）+ `ThemeSelection`、`ThemePreferences { schema, selection }`（`PREFS_SCHEMA`、save/load roundtrip）。`documents_for(&self, sel) -> Vec<&ThemeDocument>` — selection を base→mode→density の文書層 set に展開（adapter が消費する入力）。`insert` は duplicate key を `Option` で通知（silent overwrite しない）。`resolve(&sel)` は adapter への委譲。 |
+| `error.rs` | `ThemeError`: `Schema`/`Validation(Vec<TokenProblem>)`/`Io`/`Selection`/`Resolve(ruviform_ui_theme::ResolveError)`。`TokenProblem { path, kind: ProblemKind, detail }`、kind = `MissingMeta`/`Schema`/`Contract`（envelope 系のみ — token 系 kind は上流に委譲され消滅）。 |
+| `document.rs` | 生 DTCG 文書の serde 型と envelope。`TokenTree`（root から `$extensions` を除いた opaque 木）+ `ProductMeta { schema, theme, mode, density, layer }`（`$extensions["synvelis.productTheme"]` から読む）+ `UpstreamProfile { layer, modes }`（coherence 検査用に上流 block の該当 field のみ捕捉）+ `ThemeDocument { meta, tree, source }`（**原文 JSON を保持** — 上流 `TokenDocument::from_json` の入力）。`parse_document(json) -> Result<(ProductMeta, Option<UpstreamProfile>, TokenTree), ThemeError>`。 |
+| `validate.rs` | `validate_document(meta, upstream) -> Vec<TokenProblem>`: envelope 系のみ — schema=`SV_THEME_SCHEMA`・非空 theme/mode/density・`layer="product"`・両 envelope **coherence**（upstream `layer` の一致・upstream `modes` が SV `mode` を包含・mode+density 併記の不可達形は `Contract`）。token 意味論（`$type` 集合・value shape・alias・循環）は**再検証しない**（上流責務 — 同一文書循環拒否が後段 override で合法な集合を誤拒否する P1 の根因）。`load_document`/`load_dir` は `ThemeDocument` を返し fail-closed。 |
+| `catalog.rs` | `ThemeCatalog { themes: BTreeMap<ThemeKey, ThemeDocument> }`（ThemeKey = (theme, mode, density)）+ `ThemeSelection`、`ThemePreferences { schema, selection }`（`PREFS_SCHEMA`、save/load roundtrip）。`documents_for(&self, sel) -> Vec<&ThemeDocument>` — selection を base→mode→density の文書層 set に展開（adapter が消費する入力）。`insert` は duplicate key を `Option` で通知（silent overwrite しない）。`resolve(&sel)` は declared vocabulary（catalog が持つ mode/density の集合）で selection を guard してから adapter へ委譲 — 未宣言 mode/density は `ThemeError::Selection`（部分層集合を mode 名付きで黙って返さない）。 |
 | `adapter.rs` | `resolve_documents(&[&ThemeDocument], mode) -> Result<ResolvedTheme, ThemeError>` — catalog 選択文書の**原文 source** を `TokenDocument::from_json`（上流 strict parser）へ渡し、`ThemeResolver::resolve` を呼ぶ唯一の接続点。token 意味論は一切解釈せず、上流 `TokenError`/`ResolveError` を `ThemeError::Resolve` に包む。`ThemeSelection::style_hint() -> String`（`"{theme}/{mode}/{density}"` 決定的形式、`VizStyleInput.theme` へ渡せる文字列）は catalog 側に存置。 |
 
 #### DTCG 文書形式（RF385 着地形 — 両 envelope 併記）
@@ -293,9 +293,12 @@ preset は `WorkspaceManager` の dock/view 操作のみ使用。
 
 ## Risks and Trade-offs
 
-- RF385 candidate branch（未 merge）へ一時接続中 → merge 前に
-  branch が巻き戻る/削除されると参照が切れる → lock SHA・方法・
-  解除条件を evidence と本書末尾に記録し、恒久 rev pin はしない。
+- ~~RF385 candidate branch（未 merge）へ一時接続中 → merge 前に
+  branch が巻き戻る/削除されると参照が切れる~~ **解消済み**:
+  RF385 は ruviform main 着地（PR #397 squash `df45d10`、実解決は
+  RF394 統合後 `5c0f16b`）。一時 `branch` key は全除去し default
+  追従へ復帰 — 履歴は末尾記録・`evidence/reports/sv177-rf385-adapter.md`
+  参照。恒久 rev pin なし。
 - light theme 値は provisional — 確定は Native Design Review で
   行い、文書上 `$extensions.synvelis.provenance` で暫定を明示。
 - `PluginDock` kind を先に語彙だけ入れる → SV176 側と認識差が出る
@@ -360,7 +363,8 @@ preset は `WorkspaceManager` の dock/view 操作のみ使用。
 - 最終状態: ruviform **default branch 追従**（他の ruviform dep と
   同一方法、恒久 `rev` pin なし）。RF385 は PR #397 squash merge
   `df45d10cd86918d10fa81dc80a3f5f5f2564d5ae` で main 着地済み —
-  `Cargo.lock` 全 24 sources が `df45d10` を解決。
+  `Cargo.lock` 全 24 sources が `5c0f16b`（RF394 統合後の main
+  head、df45d10 を包含）を解決。
 - 経緯: landing 前は全 ruviform git 依存を
   `branch = "feature/gui-driver-neutral-design-contract"` 追従へ
   一時切替していた（`check-ruviform-rev` の単一 SHA 不変条件を保つ

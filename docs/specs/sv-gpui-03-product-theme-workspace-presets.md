@@ -54,14 +54,19 @@ Driver-neutral な別 Schema/Version/Restore の 2 系統として実装する�
      製品 override 文書。Synvelis 固有の Primitive overrides・
      Semantic・Component Theme を、light/dark mode × comfortable/
      compact density の組合せで提供する。
-   - 文書の構造 validation（`$type` 既知集合・value shape・alias
-     参照 syntax・同一文書内 alias 循環検出）を行う loader。alias
-     target の existence は文書 qualifier が無いため検査対象外
-     （cross-document ref と区別不能 — 解決は RF385 の責務）。Token
-     Interpreter（alias/mode merge → ResolvedTheme）は Ruviform
-     #385 の責務であり**再実装しない**。RF385 公開型が未着地の
-     現在 rev `49de02c` では、解決要求は明示的 `Unsupported` を
-     返す seam（`ResolvedThemeSink`）のみ設ける。
+   - 製品 envelope（`$extensions["synvelis.productTheme"]`）の
+     validation — schema・非空 field・`layer` tag・両 envelope の
+     coherence（upstream `layer`/`modes` との整合・mode+density
+     併記の不可達形拒否）を行う loader。`$type`・value shape・
+     alias 解釈・循環検出などの token 意味論は **SV 側で再検証
+     しない**（Rev.1 は loader 内に持っていたが、単文書循環拒否が
+     後段 override で合法な集合を誤拒否する P1 根因となったため
+     Rev.2 で全撤去）。Token Interpreter（alias/mode merge →
+     ResolvedTheme）は Ruviform #385 の責務であり**再実装しない**。
+     RF385 は ruviform main（`df45d10`）着地済みで、実 adapter
+     （`adapter::resolve_documents` → `TokenDocument::from_json` →
+     `ThemeResolver::resolve`）を通じて解決する — Unsupported
+     seam は撤去済み。
    - `ThemeSelection { theme, mode, density }` と versioned
      `ThemePreferences`（独自 schema・Project/WorkspaceSnapshot と
      無関係）を保持する consumer contract。GPUI・DOM・wry・
@@ -121,8 +126,8 @@ snapshot のみの workspace 永続化は、複数 mode/density/preset の
 ### In Scope
 
 - `synvelis-theme` crate: DTCG 製品文書の serde 型・schema
-  version・構造 validation・ThemeCatalog・`ThemeSelection`/
-  `ThemePreferences`・`ResolvedThemeSink` 解決シーム。
+  version・envelope validation・ThemeCatalog・`ThemeSelection`/
+  `ThemePreferences`・上流 resolver への `adapter`。
 - `assets/themes/`: base + dark + light + density compact/
   comfortable の 5 文書（dark は `styles.css` 実測値由来、light は
   provisional と明記）。
@@ -160,7 +165,8 @@ snapshot のみの workspace 永続化は、複数 mode/density/preset の
   GPUI/DOM/wry/Toolkit/OS handle 型を持ち込まない。依存は serde
   系のみ（workspace は既存の ruviform-ui 中立契約を使用）。
 - **R3 再解釈禁止**: alias/mode/override merge・ResolvedTheme 生成を
-  Synvelis 側で実装しない。解決 seam は `Unsupported` を明示する。
+  Synvelis 側で実装しない。解決は ruviform main 上の実 resolver
+  への `adapter` 経由（`ThemeError::Resolve` で上流 error を透過）。
 - **R4 意味分離**: Theme 切替・Preset 適用は Project revision/undo/
   DSP/RT に影響しない（theme は repaint-only の既存契約に整合）。
 - **R5 既存意味保持**: Preset 適用は既存 View identity・Selection/
@@ -178,9 +184,14 @@ snapshot のみの workspace 永続化は、複数 mode/density/preset の
 - [ ] **SV177-01**: `synvelis-theme` が GPUI/Toolkit 依存なしで
   `mise run check`/`test` に合格し、5 つの製品文書を load・
   validate できる。`check-headless-deps` 違反なし。
-- [ ] **SV177-02**: validation が unknown `$type`・malformed color/
-  dimension・alias 構文不備・同一文書内 alias 循環・schema 不一致を
-  各 fixture で検出し、fail-closed に error を返す。
+- [ ] **SV177-02**: envelope validation が schema 不一致・非空
+  field・layer tag・両 envelope の矛盾（upstream layer/modes との
+  不一致・mode+density 併記）を fail-closed に検出する。token 系
+  problem（unknown `$type`・malformed value・alias 構文不備・alias
+  循環）は consumer load を通過し、adapter 経路で上流の対応する
+  error variant（`UnknownTokenType`/`InvalidValue`/`AliasCycle`
+  など）として表面化する。全 4 mode×density 組合せが実 resolver
+  で `ResolvedTheme` を返す。
 - [ ] **SV177-03**: `ThemeCatalog` が (theme, mode, density) の
   catalog を構成し、`ThemeSelection`→決定的 viz style hint を返す。
   `ThemePreferences` が独自 schema で save/load roundtrip する。
@@ -206,9 +217,9 @@ snapshot のみの workspace 永続化は、複数 mode/density/preset の
 
 ## Deferred Design Concerns
 
-- RF385 `ResolvedTheme` への typed adapter・GPUI mapper 結合 | RF385
-  公開型未着地 | ruviform #385 の公開型着地時 | seam の接続先が
-  未検証のまま残る（現状は Unsupported 明示で安全側）。
+- `ResolvedTheme` → GPUI/driver mapper 結合 | RF386 mapper 未着地 |
+  RF386 着地時 | RF385 resolver 本体は main 着地済み（adapter は
+  実接続・headless 検証済み、残るは driver 写像）。
 - Light theme の確定値 | 合意資料なし・provisional | Native Design
   Review（RF390 Lab + 実 OS）| 暫定値が製品外観として暫定的に残る。
 - `ViewType::PluginDock` の実 plugin 対応 | host/session は SV176 |

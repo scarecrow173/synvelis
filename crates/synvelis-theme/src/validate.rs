@@ -11,13 +11,29 @@
 
 use std::path::Path;
 
-use crate::document::{ProductMeta, SV_THEME_SCHEMA, ThemeDocument, parse_document};
+use crate::document::{
+    ProductMeta, SV_THEME_SCHEMA, ThemeDocument, UpstreamProfile, parse_document,
+};
 use crate::error::{ProblemKind, ThemeError, TokenProblem};
 
-/// Validate the product envelope of one parsed document. Returns all
-/// problems found (empty = valid). Token contents are not inspected.
+/// Validate the product envelope of one parsed document, plus the
+/// coherence of the two extension envelopes. Returns all problems
+/// found (empty = valid). Token contents are not inspected.
+///
+/// The coherence check is not upstream re-validation — upstream
+/// internals (`profile`, unknown layer values, malformed `modes`)
+/// stay upstream-rejected at resolve time. What *is* checked is the
+/// Synvelis-owned invariant that the two envelopes in one file agree:
+/// the upstream `layer` must equal the product `layer`, and an
+/// upstream `modes` list must cover the SV-declared `mode`. Without
+/// this the upstream resolver would silently merge the document at
+/// a different layer or reject a mode the catalog believed
+/// selectable.
 #[must_use]
-pub fn validate_document(meta: &ProductMeta) -> Vec<TokenProblem> {
+pub fn validate_document(
+    meta: &ProductMeta,
+    upstream: Option<&UpstreamProfile>,
+) -> Vec<TokenProblem> {
     let mut problems = Vec::new();
     let base = "$extensions.synvelis.productTheme";
 
@@ -31,7 +47,7 @@ pub fn validate_document(meta: &ProductMeta) -> Vec<TokenProblem> {
             ),
         });
     }
-    if meta.theme.is_empty() {
+    if meta.theme.trim().is_empty() {
         problems.push(TokenProblem {
             path: format!("{base}.theme"),
             kind: ProblemKind::MissingMeta,
@@ -40,7 +56,7 @@ pub fn validate_document(meta: &ProductMeta) -> Vec<TokenProblem> {
     }
     for (field, value) in [("mode", &meta.mode), ("density", &meta.density)] {
         if let Some(v) = value
-            && v.is_empty()
+            && v.trim().is_empty()
         {
             problems.push(TokenProblem {
                 path: format!("{base}.{field}"),
@@ -49,12 +65,66 @@ pub fn validate_document(meta: &ProductMeta) -> Vec<TokenProblem> {
             });
         }
     }
+    if meta.mode.is_some() && meta.density.is_some() {
+        problems.push(TokenProblem {
+            path: format!("{base}.density"),
+            kind: ProblemKind::Contract,
+            detail: "mode and density cannot both be declared (such a \
+                     document is unreachable: the catalog selects \
+                     mode and density layers separately)"
+                .into(),
+        });
+    }
     if meta.layer != "product" {
         problems.push(TokenProblem {
             path: format!("{base}.layer"),
             kind: ProblemKind::MissingMeta,
             detail: format!("expected layer \"product\", got {:?}", meta.layer),
         });
+    }
+
+    // Dual-envelope coherence — only when the upstream block exists.
+    if let Some(up) = upstream {
+        let upbase = "$extensions.dev.ruviform.dtcg-profile";
+        if let Some(ulayer) = &up.layer
+            && *ulayer != meta.layer
+        {
+            problems.push(TokenProblem {
+                path: format!("{upbase}.layer"),
+                kind: ProblemKind::Contract,
+                detail: format!(
+                    "upstream layer {ulayer:?} disagrees with \
+                     productTheme layer {:?} — the upstream resolver \
+                     would merge this document at a different layer",
+                    meta.layer
+                ),
+            });
+        }
+        if let Some(modes) = &up.modes
+            && !modes.is_empty()
+        {
+            match &meta.mode {
+                Some(m) if !modes.contains(m) => problems.push(TokenProblem {
+                    path: format!("{upbase}.modes"),
+                    kind: ProblemKind::Contract,
+                    detail: format!(
+                        "upstream modes {modes:?} do not cover \
+                         productTheme mode {m:?} — resolve would fail \
+                         with MissingMode for the declared mode"
+                    ),
+                }),
+                None => problems.push(TokenProblem {
+                    path: format!("{upbase}.modes"),
+                    kind: ProblemKind::Contract,
+                    detail: format!(
+                        "upstream modes {modes:?} declared on a \
+                         mode-free base document — resolves for \
+                         unlisted modes would fail with MissingMode"
+                    ),
+                }),
+                _ => {}
+            }
+        }
     }
 
     problems
@@ -71,8 +141,8 @@ pub fn validate_document(meta: &ProductMeta) -> Vec<TokenProblem> {
 /// [`ThemeError::Schema`] on invalid JSON root;
 /// [`ThemeError::Validation`] on any envelope problem.
 pub fn load_document(json: &str) -> Result<ThemeDocument, ThemeError> {
-    let (meta, tree) = parse_document(json)?;
-    let problems = validate_document(&meta);
+    let (meta, upstream, tree) = parse_document(json)?;
+    let problems = validate_document(&meta, upstream.as_ref());
     if problems.is_empty() {
         Ok(ThemeDocument::new(meta, tree, json.to_owned()))
     } else {
@@ -84,12 +154,18 @@ pub fn load_document(json: &str) -> Result<ThemeDocument, ThemeError> {
 /// in filename order.
 ///
 /// # Errors
-/// [`ThemeError::Io`] when the directory or a document cannot be
-/// read or fails validation (the error names the offending path).
+/// [`ThemeError::Io`] when the directory or a document file cannot be
+/// read. A document that fails parsing or envelope validation
+/// propagates its own [`ThemeError::Schema`]/[`ThemeError::Validation`]
+/// error (with the offending file named in the message/detail) so
+/// structured problems are not lost.
 pub fn load_dir(dir: &Path) -> Result<Vec<ThemeDocument>, ThemeError> {
     let mut paths: Vec<_> = std::fs::read_dir(dir)
         .map_err(|e| ThemeError::Io(format!("{}: {e}", dir.display())))?
-        .filter_map(|e| e.ok().map(|e| e.path()))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| ThemeError::Io(format!("{}: {e}", dir.display())))?
+        .into_iter()
+        .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|x| x == "json"))
         .collect();
     paths.sort();
@@ -98,7 +174,21 @@ pub fn load_dir(dir: &Path) -> Result<Vec<ThemeDocument>, ThemeError> {
         .map(|p| {
             let json = std::fs::read_to_string(&p)
                 .map_err(|e| ThemeError::Io(format!("{}: {e}", p.display())))?;
-            load_document(&json).map_err(|e| ThemeError::Io(format!("{}: {e}", p.display())))
+            load_document(&json).map_err(|e| match e {
+                ThemeError::Validation(problems) => ThemeError::Validation(
+                    problems
+                        .into_iter()
+                        .map(|mut prob| {
+                            prob.detail = format!("in {}: {}", p.display(), prob.detail);
+                            prob
+                        })
+                        .collect(),
+                ),
+                ThemeError::Schema(detail) => {
+                    ThemeError::Schema(format!("{}: {detail}", p.display()))
+                }
+                other => ThemeError::Io(format!("{}: {other}", p.display())),
+            })
         })
         .collect()
 }

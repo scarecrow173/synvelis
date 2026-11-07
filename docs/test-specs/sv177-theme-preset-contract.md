@@ -60,11 +60,17 @@ Driver-neutral product theme documents and slot-based workspace presets.
   （`profile="rvf-dtcg-profile.v1"`・`layer="product"`・一意 `id`・
   mode 文書は `modes` 宣言）を併記し、上流
   `TokenDocument::from_json` を通過する。
+- 両 envelope の coherence は SV の責務: upstream `layer` は
+  productTheme `layer` と一致、upstream `modes` は SV 宣言 `mode`
+  を包含、mode+density 併記は不可達形として `Contract` problem。
+  upstream block 内部（`profile` 値・未知 layer 名）の検証は
+  上流に委譲し再実装しない。
 - token 意味論（`$type` 集合・value shape・alias・循環・merge）は
   `rvf-dtcg-profile.v1` が唯一の正本。SV 側は再検証しない —
   `delegated-*` fixtures が consumer level で load できることが
   境界の証跡。同一文書循環の事前拒否は撤廃（後段 override で
-  合法な集合を誤拒否する P1 の修正）。
+  合法な集合を誤拒否する P1 の修正 — override で消える cycle が
+  resolve できることを回帰固定）。
 - `dimension`/`duration` は typed `{value, unit}` object 形のみ
   （CSS 文字列 `"22px"`/`"100ms"` は上流 `InvalidValue`）。
 - Catalog は (theme,mode,density) で `ThemeDocument`（原文 JSON
@@ -75,6 +81,11 @@ Driver-neutral product theme documents and slot-based workspace presets.
   `ResolvedTheme`（`rvf-dtcg-profile.v1`）を返す。上流失敗は
   `ThemeError::Resolve`（`Document(TokenError)` または merge 系
   `ResolveError`）に包まれる。第 2 interpreter 不許可。
+- catalog の declared vocabulary が selection を bound する:
+  theme が mode（density）文書を持つ場合、未宣言 mode/density の
+  resolve は `ThemeError::Selection` で失敗（部分 layer 集合を
+  黙って返さない。mode 文書を持たない theme は mode-agnostic の
+  まま）。
 - Preset は `PRESET_SCHEMA=2` の slot 形式。`layout` key 有りの
   `WorkspaceSnapshot` 形状 JSON は legacy として `from_snapshot`
   経路で import。
@@ -96,10 +107,15 @@ Driver-neutral product theme documents and slot-based workspace presets.
   `ResolvedTheme` を返す（3 product sources・mode 別背景・density
   別 `control.height` 22/28px・base `motion.fast` = 100ms）。
 - `invalid-schema` fixture は `Schema`、envelope 不在/空 theme/
-  空 mode/誤 layer は `MissingMeta` を返す。
+  空 mode/誤 layer は `MissingMeta`、両 envelope 矛盾（layer
+  不一致・modes 不包含・mode+density 併記）は `Contract` を返す。
 - `delegated-{type,value,ref,cycle}` fixtures は consumer level で
-  load される（token 意味論は非検査）が、RF profile 不在のため
-  adapter は `Resolve(Document(MissingProfile))` で拒否する。
+  load される（token 意味論は非検査）。adapter 経路では各名前の
+  上流 rejection が表面化する: `UnknownTokenType`/`InvalidValue`/
+  `AliasCycle`。RF profile 不在文書は `Document(MissingProfile)`。
+- 未宣言 mode/density（例: `sepia`/`huge`）の `catalog.resolve` は
+  `ThemeError::Selection`。alias fixture は実 resolver で
+  `{color.fg}` が literal へ解決される。
 - editing/mixing/plugin-dock preset が FakeWindowHost + MonitorInfo
   で apply され、adopted view の state が保持される。
 - duplicate dock slot・ratio 範囲外・focus が他 window の view・

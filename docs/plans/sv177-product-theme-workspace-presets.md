@@ -65,8 +65,8 @@ RF385 Token Interpreter/ResolvedTheme・GPUI renderer・native
 
 ## File Map
 
-- `crates/synvelis-theme/src/{error,document,validate,catalog,resolve,lib}.rs` — theme leaf crate
-- `crates/synvelis-theme/Cargo.toml` — leaf 依存（serde/serde_json のみ）
+- `crates/synvelis-theme/src/{error,document,validate,catalog,adapter,lib}.rs` — theme leaf crate（`resolve.rs` は Rev.2 で `adapter.rs` へ置換）
+- `crates/synvelis-theme/Cargo.toml` — leaf 依存（serde/serde_json + `ruviform-ui-theme`、Rev.2 で追加）
 - `crates/synvelis-theme/tests/theme_contract.rs` + `tests/fixtures/*.json` — contract tests
 - `assets/themes/synvelis-{base,dark,light,density-compact,density-comfortable}.dtcg.json` — DTCG override 文書
 - `crates/synvelis-workspace/src/preset.rs` — preset schema/validate/from_snapshot/apply
@@ -80,9 +80,9 @@ RF385 Token Interpreter/ResolvedTheme・GPUI renderer・native
 ## Implementation Sequence
 
 - [x] `synvelis-theme` crate 骨格（error/document/validate/catalog/resolve）
-- [x] DTCG validator（既知 `$type`・value shape・alias 構文・同一文書循環）
-- [x] ThemeCatalog（layered documents_for・duplicate 検出）+ ThemePreferences
-- [x] RF385 seam（`ResolvedThemeSink` + `UnresolvedThemeResolver` → Unsupported）
+- [x] DTCG validator（既知 `$type`・value shape・alias 構文・同一文書循環）— Rev.1。Rev.2 で envelope-only + 両 envelope coherence へ縮退（単文書循環拒否が P1 根因）
+- [x] ThemeCatalog（layered documents_for・duplicate 検出・declared vocabulary による selection guard）+ ThemePreferences
+- [x] RF385 seam（`ResolvedThemeSink` + `UnresolvedThemeResolver` → Unsupported）— Rev.1。Rev.2 で `adapter::resolve_documents` 実接続へ置換（RF385 main 着地 `df45d10`）
 - [x] 5 DTCG asset 文書（dark は既存 style 値を literal 化・light は provisional 明記）
 - [x] `ViewType::PluginDock` 語彙追加 + `WorkspaceError::Preset`
 - [x] `preset.rs`（schema2 slot 型・validate・from_snapshot・legacy import）
@@ -94,8 +94,9 @@ RF385 Token Interpreter/ResolvedTheme・GPUI renderer・native
 
 ## Dependencies and Risks
 
-- RF385 `ResolvedTheme`/interpreter 未着地 → `UnresolvedThemeResolver`
-  が明示 `Unsupported`。着地時に sink 実装で接続（第 2 interpreter 不作）。
+- RF385 は ruviform main（PR #397・`df45d10`）着地済み — Rev.2 で
+  `adapter::resolve_documents` へ実接続。`ResolvedTheme` → GPUI
+  mapper 写像は RF386 未着地のため残る（headless 検証は済）。
 - preset apply は破壊的前に全構造検証済みだが、mutation 開始後の
   host/dock 失敗は部分的 layout 残置の可能性あり（doc 明記済み、
   view/dock 不変は維持）。
@@ -111,7 +112,7 @@ RF385 Token Interpreter/ResolvedTheme・GPUI renderer・native
 
 ## Verification
 
-- [x] `cargo test -p synvelis-theme` — 11 tests pass
+- [x] `cargo test -p synvelis-theme` — 14 tests pass（Rev.2: 実 resolver 経路・委譲 variant・P1 override 回帰・selection/coherence guard）
 - [x] `cargo test -p synvelis-workspace` — preset 15 + 既存 suite 全 pass
 - [x] `cargo clippy -p synvelis-theme -p synvelis-workspace --all-targets` — warning 0
 - [x] `node tools/check-headless-deps.mjs` — 9 headless crates, no GUI deps

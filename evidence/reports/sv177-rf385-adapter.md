@@ -10,8 +10,9 @@
 - **最終状態（解除済み）**: RF385 candidate は ruviform main へ PR #397
   （squash `df45d10cd86918d10fa81dc80a3f5f5f2564d5ae`、Validator P1 修復
   込み）で正式着地。**全 `branch` key を除去して default 追従へ復帰済み**
-  — Cargo.lock の全 24 ruviform sources は `git+...#df45d10`（branch
-  参照ゼロ）、恒久 `rev` pin なし。
+  — Cargo.lock の全 24 ruviform sources は `git+...#5c0f16b`（branch
+  参照ゼロ、RF394 統合後の main head・`df45d10` を包含）、恒久
+  `rev` pin なし。
 - **接続先（履歴）**: `origin/feature/gui-driver-neutral-design-contract`
   - 指示された candidate head: `d3b211cc09c01d74395dfab3354c895b345fc744`
     （main `355b7a1` merge 済み）
@@ -30,6 +31,8 @@
   で確認 → ruviform `main` head `df45d10` を `git ls-remote` で検証 →
   全 `branch` key 除去 → `cargo generate-lockfile` → 24 sources 全て
   `df45d10` → `ui/vendor/ruviform/REV` 同期 → `check-ruviform-rev` pass。
+  その後 main 前進（RF394・msg_3248a1320960）に追随して最終解決は
+  `5c0f16b574c0eaea3856318992d32dcddd869523` へ更新・REV 再同期。
 
 ## 実施内容（Rev.2）
 
@@ -56,35 +59,48 @@
   `dimension`/`duration` を typed `{value,unit}` 形へ移行
   （CSS 文字列 `"22px"`/`"100ms"` は上流 `InvalidValue` 不適合）。
 - `Cargo.toml` / `Cargo.lock`: 上記一時接続。
-- `ui/vendor/ruviform/REV`: lock 追従で `df45d10` へ同期
-  （local artifact、旧 `8fb665f` / `660034f2` / `d26d95f` は stale）。
+- `ui/vendor/ruviform/REV`: lock 追従で `5c0f16b` へ同期
+  （local artifact、旧 `8fb665f` / `660034f2` / `d26d95f` /
+  `df45d10` は stale）。
 - docs: design（module 表・文書形式・data flow・deferred・risks）、
   test-spec（rules/examples）、IR（Rev.2）を実装へ整合。
 
 ## 委譲境界の確認（P1 修正の検証）
 
-- `delegated-{type,value,ref,cycle}.dtcg.json`（token 系 problem +
-  RF profile 不在）は SV envelope では load を通過 — consumer は
-  token 意味論を再検証しない。
-- adapter 経路では上流が拒否: `delegated-cycle` →
-  `ThemeError::Resolve(ResolveError::Document(TokenError::MissingProfile))`
-  （contract test `adapter_surfaces_upstream_document_errors`）。
+- `delegated-{type,value,ref,cycle}.dtcg.json`（token 系 problem を
+  含む両 envelope 文書）は SV envelope では load を通過 —
+  consumer は token 意味論を再検証しない。
+- adapter 経路では上流が**各名前の** rejection を返す
+  （`delegated_fixtures_surface_their_named_upstream_rejections`）:
+  `delegated-type` → `Document(UnknownTokenType)`・
+  `delegated-value`/`delegated-ref` → `Document(InvalidValue)`・
+  `delegated-cycle` → `AliasCycle`。RF profile 不在文書は
+  `Document(MissingProfile)`（`adapter_surfaces_upstream_document_errors`）。
 - alias cycle は上流の **merge 後集合** でのみ検出されるため、
   下位文書の alias 環が上位 override で消える集合は合法 —
-  SV 単文書事前拒否の誤拒否は構造的に解消（SV は存在しない
-  判定を行わない）。
+  `overridden_cycle_members_make_the_merged_set_legal` が
+  P1 の回帰を直接固定（cycle doc + override doc → resolve 成功）。
+  SV 単文書事前拒否の誤拒否は構造的に解消。
+- Reviewer B findings 反映: `catalog.resolve` は declared
+  vocabulary 外 mode/density を `ThemeError::Selection` で拒否
+  （silent 部分層解決の抑止）、両 envelope coherence
+  （layer 一致・modes 包含・mode+density 併記）は `Contract`
+  problem で fail-closed（upstream 内部の再検証ではなく
+  SV 所有の整合契約）。`load_dir` は文書の `Schema`/`Validation`
+  error を構造のまま伝搬（file path を detail に注記）— 従来の
+  `Io` 文字列化による structured problem 喪失を Validator A3 指摘で解消。
 
 ## 実行済み検証（実測・Rev.2）
 
 | 検証 | コマンド | 結果 |
 | --- | --- | --- |
 | fmt | `mise run fmt-check` | Pass |
-| check | `mise run check` | Pass（workspace 全体、ruviform `df45d10`（main）上） |
+| check | `mise run check` | Pass（workspace 全体、ruviform `5c0f16b`（main）上） |
 | lint | `mise run lint`（clippy -D warnings） | Pass（warning 0） |
-| workspace tests | `mise run test`（--locked） | Pass（86 suites・0 fail） |
-| theme tests | `cargo test -p synvelis-theme` | Pass（10/10 — 4 mode×density resolve・両 envelope・委譲境界） |
+| workspace tests | `mise run test`（--locked） | Pass（86+ suites・947 tests・0 fail） |
+| theme tests | `cargo test -p synvelis-theme` | Pass（14/14 — 4 mode×density resolve・両 envelope・委譲境界・selection/coherence guard・P1 override 回帰） |
 | headless gate | `mise run check-headless-deps` | Pass（9 crates・GUI deps なし） |
-| rev gate | `mise run check-ruviform-rev` | Pass（`df45d10`・24 sources・default 追従・REV match） |
+| rev gate | `mise run check-ruviform-rev` | Pass（`5c0f16b`・24 sources・default 追従・REV match） |
 
 ## 未検証 / NotRun
 
@@ -96,6 +112,6 @@
 ## 残 Gate / Follow-up
 
 - **Refs**: 解除完了 — default 追従へ復帰済みで temporary connection
-  は存在しない。`Cargo.lock` 実解決 `df45d10` を記録。
+  は存在しない。`Cargo.lock` 実解決 `5c0f16b` を記録。
 - ruviform main の前進は通常の `cargo update` 運用で追随する
   （本証跡記録の SHA は接続・解除時点の実測値）。

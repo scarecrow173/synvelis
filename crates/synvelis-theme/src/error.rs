@@ -11,6 +11,10 @@ pub enum ProblemKind {
     MissingMeta,
     /// The document or preferences schema/version is unsupported.
     Schema,
+    /// The two extension envelopes contradict each other, or the
+    /// document shape is unreachable through the catalog contract
+    /// (e.g. `mode` and `density` both declared).
+    Contract,
 }
 
 /// A single envelope-level validation problem with its JSON path.
@@ -41,11 +45,13 @@ pub enum ThemeError {
     Validation(Vec<TokenProblem>),
     /// Filesystem or JSON parse failure while loading a document.
     Io(String),
-    /// A real runtime capability is unsupported (e.g. a resolved-theme
-    /// feature a driver cannot provide). This is **not** used for
-    /// upstream-contract problems — resolution failures are reported
-    /// through [`ThemeError::Resolve`].
-    Unsupported(String),
+    /// A selection cannot be satisfied by the catalog's declared
+    /// vocabulary — e.g. the theme declares modes `{"dark","light"}`
+    /// but the selection asks for `"sepia"`. Failing here instead of
+    /// silently resolving a partial layer set keeps a misspelled
+    /// mode/density from producing a theme labelled with a mode no
+    /// document actually provides.
+    Selection(String),
     /// The upstream `ruviform-ui-theme` (`rvf-dtcg-profile.v1`)
     /// pipeline rejected a document or a merge: document-level
     /// problems surface as `ResolveError::Document(TokenError)`
@@ -64,7 +70,7 @@ impl fmt::Display for ThemeError {
                 write!(f, "theme validation failed ({} problem(s))", problems.len())
             }
             ThemeError::Io(msg) => write!(f, "theme I/O error: {msg}"),
-            ThemeError::Unsupported(msg) => write!(f, "theme unsupported: {msg}"),
+            ThemeError::Selection(msg) => write!(f, "theme selection error: {msg}"),
             ThemeError::Resolve(e) => write!(f, "theme resolution failed: {e}"),
         }
     }

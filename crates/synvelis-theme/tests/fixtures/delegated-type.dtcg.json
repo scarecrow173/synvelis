@@ -1,5 +1,10 @@
 {
   "$extensions": {
+    "dev.ruviform.dtcg-profile": {
+      "profile": "rvf-dtcg-profile.v1",
+      "layer": "product",
+      "id": "test-delegated-type"
+    },
     "synvelis.productTheme": {
       "schema": 1,
       "theme": "test",
