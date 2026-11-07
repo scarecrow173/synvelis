@@ -137,32 +137,35 @@ documented residual（impl record 記録）。swap は `EscapesRoot`/
   `open_pinned` は EOF の IntegrityMismatch 前に byte が caller へ
   届かないこと（digest 検証は containment の代替ではない）。
 - `local_scope_acquisition_swap_cannot_escape_root`: scope 取得境界
-  — `open_scope` の保持 root `metadata(WithinRoot)` 直前に scope
-  dir 自体を outside link へ swap。held-capability 解決が
+  — `open_scope` の `open_scoped_root`（tag `"open"`）直前に scope
+  dir 自体を outside link へ swap。`WithinRoot` resolve が
   `EscapesRoot` で失敗し `PermissionDenied` — outside entries は
   列挙されない。
 - `local_scope_root_replacement_cannot_rebind_capability`: root
   置換境界 — provider 構築後に root を rename 退避し、同一
-  pathname へ別 tree を設置。保持 capability の `metadata` 解決
-  identity と pathname 再取得（`open_with`）した capability の
-  `dir_identity` が乖離するため `SourceChanged` で拒否 —
-  `starts_with` の文字列照合だけでは同 pathname の別 object を
-  検出できないことを固定。
-- `local_scope_open_swap_cannot_escape_root`: 権威解決
-  (`metadata`、tag `"stat"`) と pathname 取得
-  （`open_with`、tag `"open"`）の間の最狭 window で scope dir を
-  outside link へ swap — 取得 capability の canonical が root 外へ
-  落ち lexical containment 照合が `PermissionDenied` で拒否する
-  ことを固定（`NodeId` 照合に到達しない経路）。
+  pathname へ別 tree を設置。held handle は rename を透過して
+  held tree を serve し、replacement（別 object）は capability
+  が到達しないため locator には held tree の entries のみが
+  現れる — pathname 再 open が存在しないため rebind は構造的に
+  不可能（RF409 の正規意味論）。
+- `local_scope_post_acquisition_swap_keeps_held_entries`: 取得済み
+  scope capability の authority — `read_dir_each`（tag
+  `"read_dir"`）直前に scope dir を rename+outside link で swap
+  しても、取得済み handle が address する directory object の
+  entries が列挙される（outside entries は一切現れない）。旧
+  metadata/open_with 間 window は契約上存在しない。
 - `pre_traverse_hook_fires_at_tagged_points`: seam の配線確認
   （非 ignore、GREEN）。期待 op 列は rooted seam に更新
-  （blobs `["stat","open"]`、browse
-  `["stat","open","read_dir","stat"]`）。
+  （blobs `["stat","open"]`、scoped browse
+  `["open","read_dir","stat"]`）。
 
-**現状（2026-11-07 修復済み）**: 10 件の swap 回帰は **GREEN
-強制**（7 件 `#[ignore]` 解除 + scope 取得境界 `open_scope` swap
-+ root 置換 rebind + 権威解決/取得 window swap、計 3 件追加。
-ruviform#398 → 消費 rev `5d48298b` で修復）。
+**現状（2026-11-07 修復済み）**: swap 回帰は **GREEN 強制**
+（7 件 `#[ignore]` 解除 + scope 取得境界・root 置換・取得後
+swap・seam sanity。ruviform#398 → task5 消費 rev `5d48298b` で
+初回修復、ruviform#409 → task6 消費 rev `79d1db0a` で正規契約へ
+移行 — `open_scoped_root`/`read_dir_each`）。列挙途中 cancel は
+`tests/local.rs` の
+`cancel_during_directory_enumeration_fails_the_page` が固定する。
 
 ## Feature: Registry (AC3)
 

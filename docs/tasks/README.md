@@ -14,7 +14,6 @@ Directory: `docs/tasks`
 | TASK-034RUl0VioQz9IinY5Qc7G | Issue #157 rev.3 T1 matrix placeholder gate 修正 | in-progress | [issue-157-t1-matrix-placeholder-gate.md](./issue-157-t1-matrix-placeholder-gate.md) |
 | TASK-034SYN166T1CiSumX | Issue #166 T1 Full CI 化・ci-summary 統一 — 第一段階実装 | in-progress | [issue-166-t1-ci-summary-stage1.md](./issue-166-t1-ci-summary-stage1.md) |
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
-| TASK-hSG0A7xXhnXVL7exOdhVuV | SV175-01: NativeShell・ViewBinding・native feature lane 実装 | in-progress | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
 | TASK-034QfQZsTXhM5gVQP0gh81 | VS-C task3 staging writer | todo | [vs-c-task3-staging-writer.md](./vs-c-task3-staging-writer.md) |
@@ -31,6 +30,7 @@ Directory: `docs/tasks`
 | TASK-G71A5me0TE1Mc9yHV4G1Qv | ALIB-01 task3 — ProjectAssetsProvider + catalog/blob port | done | [alib-01-task3-project-provider.md](./alib-01-task3-project-provider.md) |
 | TASK-MrgE7n0XwNu9hoShUiohdL | ALIB-01 task4 — 受入・回帰検証 + impl record | done | [alib-01-task4-acceptance.md](./alib-01-task4-acceptance.md) |
 | TASK-SV180RootedCutover2k26 | ALIB-01 task5 — Ruviform rooted capability への containment 移行（N1 修復） | done | [alib-01-task5-rooted-cutover.md](./alib-01-task5-rooted-cutover.md) |
+| TASK-SV85RF409ScopedEnum9zQ2 | ALIB-01 task6 — ruviform#409 scoped re-root / bounded 列挙への正規契約移行 | done | [alib-01-task6-rf409-scoped-enumeration.md](./alib-01-task6-rf409-scoped-enumeration.md) |
 | TASK-034AUT02Gt6kHr4nWy8sBp3x | AUT-02 task1: 境界 anchor 実装 + op 適用 + property/exact fixture テスト | done | [aut-02-task1-region-replace-boundary.md](./aut-02-task1-region-replace-boundary.md) |
 | TASK-034AUT03Pq9rWx3nVm7sJk2d | AUT-03 task1: Write Range 閉鎖・境界 flush・明示 Rearm 実装 + headless テスト | done | [aut-03-task1-loop-write-one-pass.md](./aut-03-task1-loop-write-one-pass.md) |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |
@@ -80,6 +80,7 @@ Directory: `docs/tasks`
 | TASK-034RADc5Q2mNYPcXkM8fR | SV-GUI-02 frontend BindingPort/ViewModel/ConsoleView | done | [sv-gui-02-frontend-bindingport-viewmodel-consoleview.md](./sv-gui-02-frontend-bindingport-viewmodel-consoleview.md) |
 | TASK-034RADeL6sQ8vFzJ3xTmN | SV-GUI-02 検証レーン統合 (headless/vitest/guitest) | done | [sv-gui-02-headless-vitest-guitest.md](./sv-gui-02-headless-vitest-guitest.md) |
 | TASK-034RADaUbkmnzbFjZ29bl4 | SV-GUI-02 ruviform rev 追従 + Rust syn.* UI op 面 | done | [sv-gui-02-ruviform-rev-rust-syn-ui-op.md](./sv-gui-02-ruviform-rev-rust-syn-ui-op.md) |
+| TASK-hSG0A7xXhnXVL7exOdhVuV | SV175-01: NativeShell・ViewBinding・native feature lane 実装 | done | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TASK-034T7IgIHI7umPL7xCvU3u | SV177 theme crate + preset module implementation | done | [sv177-theme-preset-impl.md](./sv177-theme-preset-impl.md) |
 | TASK-034T2c6ZLwPXf10mPcW2MC | SYN-IO-02 task1 store.rs StagedFile 移行 | done | [syn-io-02-task1-store-stagedfile-migration.md](./syn-io-02-task1-store-stagedfile-migration.md) |
 | TASK-034RBFUDGVewxs72FGa8RM | SYN-OBS-01 task1 依存更新と logging モジュール(設定解決/install/owner) | done | [syn-obs-01-task1-deps-logging-module.md](./syn-obs-01-task1-deps-logging-module.md) |

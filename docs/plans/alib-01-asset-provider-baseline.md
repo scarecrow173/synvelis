@@ -59,6 +59,10 @@ relations:
    既定 main 追従）へ移行し component-swap TOCTOU を解消。
    7 件の swap 回帰を `#[ignore]` 解除・GREEN 強制（scope 取得境界
    および root 置換 rebind 等の追加回帰を含め計 10 件）。
+6. **alib-01-task6-rf409-scoped-enumeration** — ruviform#409
+   （PR412）正規契約への移行: `open_scope` の pathname 再 open +
+   `NodeId` gate を `open_scoped_root` へ、`read_dir` 一括 Vec を
+   bounded `read_dir_each` へ置き換え（消費 rev `79d1db0a`）。
 
 ## File map
 

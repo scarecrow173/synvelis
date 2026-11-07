@@ -221,25 +221,24 @@ fingerprint = scope/sort/filter/principal を sha256 した hex 短縮。
 - preview/range: `RootedFile` の `Seek` + `Take` bounded。claims
   は `VerificationPolicy::Unverified`（pin ではないことを明示）。
 - scope 付き browse/search は `open_scope` が locator 成分を検証し
-  まず保持 `RootedDir` 上の `metadata(WithinRoot)` で scope を
-  権威解決する — held handle 基準のため provider 構築後の root
-  rename を透過し、locator 自体の link containment もここで強制
-  される。次いで `canonical_root + components` へ
-  `RootedDir::open_with` で新 capability を取得し（`open_dir`
-  では親 capability の root 境界を引き継ぐため scope 境界を
-  作れない）、`canonical_root()` の prefix 照合に加えて
-  `dir_identity`/`NodeId` で held-capability 解決と同一 object
-  かを照合する — 同 pathname への別 tree 設置は文字列照合を
-  通るため、`NodeId` 比較だけが rebind を検出し `SourceChanged`
-  で拒否する（check-then-use ではなく opened object の検証。
-  `NodeId` 照合は `IdentityStrength::Strong` を要求し、weak
-  backend では `UnsupportedCapability` で fail-closed）。
-- `read_dir` は RF が一括 `Vec` を materialize するため、kept
-  window は `truncate(max_entries-walked+1)` → sort で旧
-  `take(remaining+1)` の bound/subset 意味論を復元する。列挙
-  そのもの（Vec materialize 段階）の memory/work bound は RF
-  API に存在せず BLOCKED（streaming/bounded 列挙 API を RF へ
-  ask 済み — task5 記録）。
+  保持 `RootedDir` の `open_scoped_root(rel, WithinRoot)` で
+  scoped capability を取得する（ruviform#409/PR412、消費 rev
+  `79d1db0a`）— 解決済み directory handle 自体が capability
+  floor になるため pathname 再 open の window が存在せず、
+  `NodeId`/strong-identity 照合も不要（weak backend を gate
+  しない。root rename + 同一 pathname 別 tree 設置は held
+  handle が address する別 object で rebind 不可能）。`open_dir`
+  では親 capability の `WithinRoot` 境界を引き継ぐため scope
+  境界を作れず使用しない。公開 `base` prefix は scope
+  canonical と held root の handle-derived canonical（
+  `open_scoped_root("")` で再 anchor）の strip で求め、両辺
+  handle 由来のため rename 後も canonical-relative を維持する。
+- browse 列挙は `read_dir_each`（RF#409 bounded enumeration）
+  で kept window（`remaining+1`）を `EntryFlow::Stop` で打切る
+  — `Vec` 全件 materialize がなく列挙段階の memory/work bound
+  と cancel/deadline 適用が回復。kept window は旧
+  `take(remaining+1)` と同じ enumeration-order prefix で sort
+  後の page 意味論は同値。
 
 ## ProjectAssetsProvider
 
@@ -324,11 +323,14 @@ root 内に解決される間のみ辿る（FollowWithinRoot、bounded hops）�
 `ruviform-io-file::rooted`（`RootedDir`/`RelativePath`/`FollowMode`/
 `NodeInfo`/`RootedFile`/`NodePin`/`NodeId`/`IdentityStrength`）として
 [ruviform#398](https://github.com/scarecrow173/ruviform/issues/398) →
-PR401 で公開・main 統合済み（SV 消費 rev `5d48298b`）。SV 側は
-`set_pre_traverse_hook`（`#[doc(hidden)]` fault barrier）を
+PR401 で公開・main 統合済み。さらに
+[ruviform#409](https://github.com/scarecrow173/ruviform/issues/409) →
+PR412 が scoped re-root（`open_scoped_root`）と bounded 列挙
+（`read_dir_each`）を公開・main 統合済み（SV 消費 rev `79d1db0a`）。
+SV 側は `set_pre_traverse_hook`（`#[doc(hidden)]` fault barrier）を
 stat/open/read_dir の各 rooted 呼出地点に持ち、
 `tests/containment_swap.rs` の deterministic swap 回帰で契約を固定する
-（GREEN 強制）。実装詳細は task5 と impl record を参照。
+（GREEN 強制）。実装詳細は task5/task6 と impl record を参照。
 
 ## 検証方針（実テスト）
 
@@ -345,6 +347,7 @@ blob dir は tempdir に digest 名 file を配置。
 `synvelis-project`（model）、`serde`/`serde_json`/`sha2`、
 `ruviform-io-file`（workspace 既存 dep + N1 修復で新規追加。
 既定 branch 追従 git dep で rev pin なし、解決 rev は
-`Cargo.lock` が記録 — 現 `5d48298b`）。Ruviform 側 rooted-read
-公開契約は RF#398→PR401 で提供・main 統合済み。cap-std 等の
+`Cargo.lock` が記録 — 現 `79d1db0a`）。Ruviform 側 rooted-read
+公開契約は RF#398→PR401、scoped re-root/bounded 列挙は
+RF#409→PR412 で提供・main 統合済み。cap-std 等の
 代替 FS framework は採用しない（unsafe 重複・責務越境のため）。
