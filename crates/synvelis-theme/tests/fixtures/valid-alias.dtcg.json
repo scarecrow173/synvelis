@@ -1,5 +1,11 @@
 {
   "$extensions": {
+    "dev.ruviform.dtcg-profile": {
+      "profile": "rvf-dtcg-profile.v1",
+      "layer": "product",
+      "id": "test-alias",
+      "modes": ["dark"]
+    },
     "synvelis.productTheme": {
       "schema": 1,
       "theme": "test",
@@ -14,6 +20,6 @@
     "fg-dim": { "$value": "{color.fg}" }
   },
   "spacing": {
-    "md": { "$type": "dimension", "$value": "8px" }
+    "md": { "$type": "dimension", "$value": { "value": 8, "unit": "px" } }
   }
 }

@@ -4,16 +4,18 @@
 //! `(theme, mode, density)`. Documents are layered: a base document
 //! (no mode/density), one per mode, one per density.
 //! [`ThemeCatalog::documents_for`] collects the layers a
-//! [`ThemeSelection`] needs — the document *set* is the input the
-//! interpreter seam (`ResolvedThemeSink`) consumes. Mode application
-//! and merge semantics belong to ruviform #385; this crate only
-//! selects documents, never merges values.
+//! [`ThemeSelection`] needs — the document *set* the adapter
+//! ([`crate::adapter::resolve_documents`]) feeds into the upstream
+//! `ruviform-ui-theme` resolver. Mode application and merge
+//! semantics belong upstream; this crate only selects documents,
+//! never merges values.
 
 use std::collections::BTreeMap;
 
+use ruviform_ui_theme::ResolvedTheme;
 use serde::{Deserialize, Serialize};
 
-use crate::document::{ProductMeta, TokenTree};
+use crate::document::{ProductMeta, ThemeDocument};
 use crate::error::ThemeError;
 
 /// Preferences schema version (independent of project/workspace
@@ -103,11 +105,12 @@ impl ThemePreferences {
 }
 
 /// Catalog of validated product theme documents, indexed by
-/// [`ThemeKey`]. Each entry keeps its `TokenTree` so a selection can
-/// be expanded into the document set the interpreter consumes.
+/// [`ThemeKey`]. Each entry keeps its [`ThemeDocument`] so a
+/// selection can be expanded into the document set the upstream
+/// resolver consumes.
 #[derive(Debug, Default)]
 pub struct ThemeCatalog {
-    themes: BTreeMap<ThemeKey, (ProductMeta, TokenTree)>,
+    themes: BTreeMap<ThemeKey, ThemeDocument>,
 }
 
 impl ThemeCatalog {
@@ -121,20 +124,16 @@ impl ThemeCatalog {
     /// document with the same key was already present (duplicate
     /// `(theme, mode, density)` declarations are suspicious — callers
     /// should treat a `Some` return as a load-order bug).
-    pub fn insert(
-        &mut self,
-        meta: ProductMeta,
-        tree: TokenTree,
-    ) -> Option<(ProductMeta, TokenTree)> {
-        self.themes.insert(ThemeKey::of(&meta), (meta, tree))
+    pub fn insert(&mut self, document: ThemeDocument) -> Option<ThemeDocument> {
+        self.themes.insert(ThemeKey::of(document.meta()), document)
     }
 
     /// The document layers a selection needs, in deterministic
     /// application order: base (mode/density-free) → mode → density.
     /// Missing layers are simply absent — merge semantics belong to
-    /// the interpreter, not the catalog.
+    /// the upstream resolver, not the catalog.
     #[must_use]
-    pub fn documents_for(&self, sel: &ThemeSelection) -> Vec<&TokenTree> {
+    pub fn documents_for(&self, sel: &ThemeSelection) -> Vec<&ThemeDocument> {
         let keys = [
             ThemeKey {
                 theme: sel.theme.clone(),
@@ -152,9 +151,18 @@ impl ThemeCatalog {
                 density: Some(sel.density.clone()),
             },
         ];
-        keys.iter()
-            .filter_map(|k| self.themes.get(k).map(|(_, t)| t))
-            .collect()
+        keys.iter().filter_map(|k| self.themes.get(k)).collect()
+    }
+
+    /// Resolve a selection through the upstream adapter
+    /// ([`crate::adapter::resolve_documents`]) — shorthand for
+    /// `resolve_documents(&self.documents_for(sel), &sel.mode)`.
+    ///
+    /// # Errors
+    /// [`ThemeError::Resolve`] on upstream parse/merge failure —
+    /// including `EmptyDocuments` when the selection has no layers.
+    pub fn resolve(&self, sel: &ThemeSelection) -> Result<ResolvedTheme, ThemeError> {
+        crate::adapter::resolve_documents(&self.documents_for(sel), &sel.mode)
     }
 
     /// Whether the catalog has every layer a selection needs (base +

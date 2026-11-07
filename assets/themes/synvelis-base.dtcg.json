@@ -1,5 +1,10 @@
 {
   "$extensions": {
+    "dev.ruviform.dtcg-profile": {
+      "profile": "rvf-dtcg-profile.v1",
+      "layer": "product",
+      "id": "synvelis-base"
+    },
     "synvelis.productTheme": {
       "schema": 1,
       "theme": "synvelis",
@@ -21,14 +26,14 @@
   },
   "radius": {
     "$type": "dimension",
-    "sm": { "$value": "2px" },
-    "md": { "$value": "4px" },
-    "lg": { "$value": "8px" }
+    "sm": { "$value": { "value": 2, "unit": "px" } },
+    "md": { "$value": { "value": 4, "unit": "px" } },
+    "lg": { "$value": { "value": 8, "unit": "px" } }
   },
   "motion": {
     "$type": "duration",
-    "fast":   { "$value": "100ms" },
-    "normal": { "$value": "200ms" }
+    "fast":   { "$value": { "value": 100, "unit": "ms" } },
+    "normal": { "$value": { "value": 200, "unit": "ms" } }
   },
   "easing": {
     "standard": {

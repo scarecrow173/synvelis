@@ -36,10 +36,11 @@ pub struct ProductMeta {
 /// A parsed DTCG token tree: the root JSON object minus the
 /// `$extensions` envelope.
 ///
-/// The tree is kept as raw `serde_json` so that the interpreter
-/// (ruviform #385) can consume the same structure later without a
-/// second parser. Validation only inspects it — it never resolves or
-/// merges values.
+/// The tree is kept as raw `serde_json` so the upstream
+/// `ruviform-ui-theme` `TokenDocument` parser (`rvf-dtcg-profile.v1`)
+/// can consume the same structure later without a second parser.
+/// Token semantics are opaque to this crate — no `$type` resolution,
+/// alias handling, or merging happens here.
 #[derive(Debug, Clone)]
 pub struct TokenTree {
     root: Map<String, Value>,
@@ -76,35 +77,47 @@ impl TokenTree {
         out.sort_by(|a, b| a.0.cmp(&b.0));
         out
     }
+}
 
-    /// Return the group-inherited `$type` map: `group path -> $type`
-    /// for every group that declares one (including tokens themselves).
+/// A loaded product-theme document: validated [`ProductMeta`]
+/// envelope, opaque [`TokenTree`], and the original JSON source.
+///
+/// The original source is retained verbatim — including both the
+/// `synvelis.productTheme` and `dev.ruviform.dtcg-profile` extension
+/// blocks — because it is the authoritative input the upstream
+/// `ruviform-ui-theme` `TokenDocument` parser consumes at resolve
+/// time ([`crate::adapter::resolve_documents`]).
+#[derive(Debug, Clone)]
+pub struct ThemeDocument {
+    meta: ProductMeta,
+    tree: TokenTree,
+    source: String,
+}
+
+impl ThemeDocument {
+    /// Assemble a document from its parsed parts and original source.
     #[must_use]
-    pub fn type_map(&self) -> Vec<(String, String)> {
-        let mut out = Vec::new();
-        let mut stack: Vec<(String, &Map<String, Value>)> = vec![(String::new(), &self.root)];
-        while let Some((path, obj)) = stack.pop() {
-            if let Some(Value::String(t)) = obj.get("$type") {
-                out.push((path.clone(), t.clone()));
-            }
-            if obj.contains_key("$value") {
-                continue;
-            }
-            for (k, v) in obj {
-                if k.starts_with('$') {
-                    continue;
-                }
-                if let Some(child) = v.as_object() {
-                    let child_path = if path.is_empty() {
-                        k.clone()
-                    } else {
-                        format!("{path}.{k}")
-                    };
-                    stack.push((child_path, child));
-                }
-            }
-        }
-        out
+    pub fn new(meta: ProductMeta, tree: TokenTree, source: String) -> Self {
+        Self { meta, tree, source }
+    }
+
+    /// Product metadata from the `synvelis.productTheme` envelope.
+    #[must_use]
+    pub const fn meta(&self) -> &ProductMeta {
+        &self.meta
+    }
+
+    /// Opaque token tree (metadata `$` keys stripped at the root).
+    #[must_use]
+    pub const fn tree(&self) -> &TokenTree {
+        &self.tree
+    }
+
+    /// Original JSON source, retained for the upstream typed
+    /// `TokenDocument::from_json` parse.
+    #[must_use]
+    pub fn source(&self) -> &str {
+        &self.source
     }
 }
 

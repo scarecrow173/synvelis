@@ -1,5 +1,10 @@
 {
   "$extensions": {
+    "dev.ruviform.dtcg-profile": {
+      "profile": "rvf-dtcg-profile.v1",
+      "layer": "product",
+      "id": "synvelis-density-compact"
+    },
     "synvelis.productTheme": {
       "schema": 1,
       "theme": "synvelis",
@@ -9,19 +14,19 @@
   },
   "spacing": {
     "$type": "dimension",
-    "xs": { "$value": "2px" },
-    "sm": { "$value": "4px" },
-    "md": { "$value": "6px" },
-    "lg": { "$value": "10px" }
+    "xs": { "$value": { "value": 2, "unit": "px" } },
+    "sm": { "$value": { "value": 4, "unit": "px" } },
+    "md": { "$value": { "value": 6, "unit": "px" } },
+    "lg": { "$value": { "value": 10, "unit": "px" } }
   },
   "control": {
-    "height": { "$type": "dimension", "$value": "22px" }
+    "height": { "$type": "dimension", "$value": { "value": 22, "unit": "px" } }
   },
   "font": {
     "size": {
       "$type": "dimension",
-      "sm": { "$value": "11px" },
-      "md": { "$value": "12px" }
+      "sm": { "$value": { "value": 11, "unit": "px" } },
+      "md": { "$value": { "value": 12, "unit": "px" } }
     }
   }
 }

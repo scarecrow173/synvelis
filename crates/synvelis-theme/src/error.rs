@@ -2,32 +2,22 @@
 
 use std::fmt;
 
-/// Kind of a single token-level validation problem.
+/// Kind of a single envelope-level validation problem.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProblemKind {
-    /// The token's `$type` is not in the accepted initial profile.
-    UnknownType,
-    /// The token's `$value` does not match the shape required by its
-    /// resolved `$type`.
-    BadValue,
-    /// An alias reference is syntactically malformed (unbalanced or
-    /// nested braces, empty target). Target existence is not checked
-    /// — a reference may legitimately live in another document/layer;
-    /// resolution is the interpreter's responsibility.
-    BadRef,
-    /// A same-document alias cycle was detected.
-    CyclicRef,
     /// The required `$extensions["synvelis.productTheme"]` envelope is
-    /// missing or malformed.
+    /// missing, malformed, or violates the product profile (empty
+    /// theme/mode/density, wrong layer tag).
     MissingMeta,
-    /// The document schema/version is unsupported.
+    /// The document or preferences schema/version is unsupported.
     Schema,
 }
 
-/// A single token-level validation problem with its JSON path.
+/// A single envelope-level validation problem with its JSON path.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TokenProblem {
-    /// Dotted JSON path of the offending token/group (e.g. `color.bg`).
+    /// Dotted JSON path of the offending field (e.g.
+    /// `$extensions.synvelis.productTheme.mode`).
     pub path: String,
     /// Classification of the problem.
     pub kind: ProblemKind,
@@ -44,17 +34,26 @@ impl fmt::Display for TokenProblem {
 /// Error type for all `synvelis-theme` operations.
 #[derive(Debug)]
 pub enum ThemeError {
-    /// Document is not valid JSON / not a JSON object at root, or the
-    /// envelope schema is unsupported.
+    /// Document is not valid JSON / not a JSON object at root, or a
+    /// schema version is unsupported.
     Schema(String),
-    /// One or more token-level validation problems were found.
+    /// One or more envelope-level validation problems were found.
     Validation(Vec<TokenProblem>),
     /// Filesystem or JSON parse failure while loading a document.
     Io(String),
-    /// A dependency contract is not yet available (e.g. the ruviform
-    /// #385 `ResolvedTheme` seam) — the caller must not treat this as
-    /// a silent fallback.
+    /// A real runtime capability is unsupported (e.g. a resolved-theme
+    /// feature a driver cannot provide). This is **not** used for
+    /// upstream-contract problems — resolution failures are reported
+    /// through [`ThemeError::Resolve`].
     Unsupported(String),
+    /// The upstream `ruviform-ui-theme` (`rvf-dtcg-profile.v1`)
+    /// pipeline rejected a document or a merge: document-level
+    /// problems surface as `ResolveError::Document(TokenError)`
+    /// (`MissingProfile`, `InvalidValue`, `ReservedKey`, …) and
+    /// merge-level problems as the other `ResolveError` variants
+    /// (`MissingMode`, `TypeMismatch`, `UnknownReference`,
+    /// `AliasCycle`, `DuplicateSource`, `EmptyDocuments`).
+    Resolve(ruviform_ui_theme::ResolveError),
 }
 
 impl fmt::Display for ThemeError {
@@ -66,8 +65,16 @@ impl fmt::Display for ThemeError {
             }
             ThemeError::Io(msg) => write!(f, "theme I/O error: {msg}"),
             ThemeError::Unsupported(msg) => write!(f, "theme unsupported: {msg}"),
+            ThemeError::Resolve(e) => write!(f, "theme resolution failed: {e}"),
         }
     }
 }
 
-impl std::error::Error for ThemeError {}
+impl std::error::Error for ThemeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ThemeError::Resolve(e) => Some(e),
+            _ => None,
+        }
+    }
+}

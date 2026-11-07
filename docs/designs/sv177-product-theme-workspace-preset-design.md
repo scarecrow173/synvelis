@@ -61,7 +61,10 @@ synvelis-workspace → synvelis-project, ruviform-ui(中立契約), serde
 
 `ResolvedTheme`・Token Interpreter・GPUI Style Mapper は ruviform
 #385 の所有で本設計の対象外。本設計はその**消費点**（入力文書・
-選択状態・Unsupported seam）を Synvelis 側に固定する。
+選択状態・adapter）を Synvelis 側に固定する。RF385 candidate
+（`feature/gui-driver-neutral-design-contract`）着地に伴い、
+消費点は `UnresolvedThemeResolver` stub から実 adapter
+（`adapter::resolve_documents`）へ更新済み。
 
 ## Scope
 
@@ -84,27 +87,38 @@ synvelis-workspace → synvelis-project, ruviform-ui(中立契約), serde
 
 ### `synvelis-theme` crate（新規 leaf）
 
-依存は workspace 共有の `serde` + `serde_json` のみ。GUI/Tooling/
+依存は workspace 共有の `serde` + `serde_json` + `ruviform-ui-theme`
+（serde/serde_json のみの interpreter、GUI 依存なし）。GUI/Tooling/
 OS 型を一切持たず、`check-headless-deps` 対象として安全。
 
 | Module | 責務 |
 | --- | --- |
-| `error.rs` | `ThemeError`: `Schema`/`Validation(Vec<TokenProblem>)`/`Io`/`Unsupported`。`TokenProblem { path, kind: ProblemKind, detail }`、kind = `UnknownType`/`BadValue`/`BadRef`/`CyclicRef`/`MissingMeta`/`Schema`。 |
-| `document.rs` | 生 DTCG 文書の serde 型と envelope。`RawDocument`（serde_json Map ベース）+ `ProductMeta { schema, theme, mode, density, layer }`（`$extensions["synvelis.productTheme"]` から読む）。`parse_document(json) -> Result<(ProductMeta, TokenTree), ThemeError>`。 |
-| `validate.rs` | `validate_document(meta, tree) -> Vec<TokenProblem>`: (a) meta の schema=`SV_THEME_SCHEMA`・既知 mode/density/layer、(b) 全 token の `$type` ∈ 既知集合、(c) value shape が型に適合、(d) alias 構文（`{` 始まりで malformed → `BadRef`）、(e) 同一文書内 alias の**循環**検出（existence は文書 qualifier 不在により検査不可 — 下記 profile 節参照）。`load_document`/`load_dir` でまとめて実行し fail-closed。 |
-| `catalog.rs` | `ThemeCatalog { themes: BTreeMap<ThemeKey, (ProductMeta, TokenTree)> }`（ThemeKey = (theme, mode, density)）+ `ThemeSelection`、`ThemePreferences { schema, selection }`（`PREFS_SCHEMA`、save/load roundtrip）。`documents_for(&self, sel) -> Vec<&TokenTree>` — selection を base→mode→density の文書層 set に展開（RF385 interpreter が消費する入力）。`insert` は duplicate key を `Option` で通知（silent overwrite しない）。 |
-| `resolve.rs` | `ResolvedThemeSink` trait（将来の RF385 adapter が実装する消費点）+ `UnresolvedThemeResolver` — `resolve()` が `ThemeError::Unsupported("rf385 ResolvedTheme contract not yet available")` を返す明示 stub。`ThemeSelection::style_hint() -> String`（`"{theme}/{mode}/{density}"` 決定的形式、`VizStyleInput.theme` へ渡せる文字列）。 |
+| `error.rs` | `ThemeError`: `Schema`/`Validation(Vec<TokenProblem>)`/`Io`/`Unsupported`/`Resolve(ruviform_ui_theme::ResolveError)`。`TokenProblem { path, kind: ProblemKind, detail }`、kind = `MissingMeta`/`Schema`（envelope 系のみ — token 系 kind は上流に委譲され消滅）。 |
+| `document.rs` | 生 DTCG 文書の serde 型と envelope。`TokenTree`（root から `$extensions` を除いた opaque 木）+ `ProductMeta { schema, theme, mode, density, layer }`（`$extensions["synvelis.productTheme"]` から読む）+ `ThemeDocument { meta, tree, source }`（**原文 JSON を保持** — 上流 `TokenDocument::from_json` の入力）。`parse_document(json) -> Result<(ProductMeta, TokenTree), ThemeError>`。 |
+| `validate.rs` | `validate_document(meta) -> Vec<TokenProblem>`: envelope 系のみ — schema=`SV_THEME_SCHEMA`・非空 theme/mode/density・`layer="product"`。token 意味論（`$type` 集合・value shape・alias・循環）は**再検証しない**（上流責務 — 同一文書循環拒否が後段 override で合法な集合を誤拒否する P1 の根因）。`load_document`/`load_dir` は `ThemeDocument` を返し fail-closed。 |
+| `catalog.rs` | `ThemeCatalog { themes: BTreeMap<ThemeKey, ThemeDocument> }`（ThemeKey = (theme, mode, density)）+ `ThemeSelection`、`ThemePreferences { schema, selection }`（`PREFS_SCHEMA`、save/load roundtrip）。`documents_for(&self, sel) -> Vec<&ThemeDocument>` — selection を base→mode→density の文書層 set に展開（adapter が消費する入力）。`insert` は duplicate key を `Option` で通知（silent overwrite しない）。`resolve(&sel)` は adapter への委譲。 |
+| `adapter.rs` | `resolve_documents(&[&ThemeDocument], mode) -> Result<ResolvedTheme, ThemeError>` — catalog 選択文書の**原文 source** を `TokenDocument::from_json`（上流 strict parser）へ渡し、`ThemeResolver::resolve` を呼ぶ唯一の接続点。token 意味論は一切解釈せず、上流 `TokenError`/`ResolveError` を `ThemeError::Resolve` に包む。`ThemeSelection::style_hint() -> String`（`"{theme}/{mode}/{density}"` 決定的形式、`VizStyleInput.theme` へ渡せる文字列）は catalog 側に存置。 |
 
-#### DTCG 文書形式（暫定 profile — RF385 着地時に再照合）
+#### DTCG 文書形式（RF385 着地形 — 両 envelope 併記）
+
+出荷文書は **製品 extension と共通 profile の両方**を
+`$extensions` に併記する。Synvelis envelope は catalog/選択の
+metadata、`dev.ruviform.dtcg-profile` は上流 interpreter の
+document identity であり、双方の責務は重複しない。
 
 ```json
 {
   "$extensions": {
+    "dev.ruviform.dtcg-profile": {
+      "profile": "rvf-dtcg-profile.v1",
+      "layer": "product",
+      "id": "synvelis-dark",
+      "modes": ["dark"]
+    },
     "synvelis.productTheme": {
       "schema": 1,
       "theme": "synvelis",
       "mode": "dark",
-      "density": "comfortable",
       "layer": "product"
     }
   },
@@ -115,30 +129,26 @@ OS 型を一切持たず、`check-headless-deps` 対象として安全。
 }
 ```
 
-- root object は任意。`$extensions.synvelis.productTheme` が
-  envelope（必須・`schema` は `SV_THEME_SCHEMA = 1` と一致必須）。
-- `$` prefix の key は metadata（`$type`/`$value`/`$description`/
-  `$extensions`/`$deprecated`）。token = `$value` を持つ object、
-  group = それ以外の nested object。
-- 受理 `$type`: `color` `dimension` `fontFamily` `fontWeight`
-  `duration` `cubicBezier` `number`（DTCG 2025.10 subset;
-  未知 `$type` は `UnknownType` error）。`$type` は group 継承可
-  （DTCG 規約: group の `$type` が子孫 token の既定）。
-- value shape: `color` = `"#rgb"|"#rrggbb"|"#rrggbbaa"` または
-  `{colorSpace,components,alpha?}`（2025.10 object 形）または
-  alias 文字列。`dimension` = `"Npx"|"Nrem"` または `{value,unit}`。
-  `fontFamily` = string または string array。`fontWeight` = number
-  (1..=1000) または named weight 文字列。`duration` = `"Nms"|"Ns"`
-  または `{value,unit}`。`cubicBezier` = `[x1,y1,x2,y2]` number array。
-  `number` = number。
-- alias = `{group.token}` 形式の string value（単一 brace pair・
-  非空・nested brace なし）。`{` で始まるが well-formed でない
-  値は `BadRef`（`{a{b}}`・`{a.b` 等）。brace を途中に含む文字列
-  （`"Fira {Code}"` 等）は literal として扱う。同一文書内の参照は
-  **循環のみ**検査する — alias には文書 qualifier が無く、未解決
-  target は cross-document ref と区別できないため existence 検査は
-  原理的に不可能。解決（存在・mode merge・layer 適用順）は
-  RF385 interpreter に委ねる。
+- `dev.ruviform.dtcg-profile`: 必須（上流 `TokenDocument::from_json`
+  が `MissingProfile` で拒否）。`profile` は `rvf-dtcg-profile.v1`
+  固定、SV 文書は全て `layer="product"`（同一 layer 内は渡し順で
+  後者優先 = catalog の base→mode→density 順）、`id` は
+  `(layer, id)` 一意。`modes` は mode 文書のみ宣言（`["dark"]`/
+  `["light"]`）— 非宣言 doc は mode-agnostic（base/density）。
+- `synvelis.productTheme`: 必須（SV envelope。`schema` は
+  `SV_THEME_SCHEMA = 1` と一致必須）。theme/mode/density/layer は
+  catalog 索引（`ThemeKey`）の metadata。
+- token 意味論は **`rvf-dtcg-profile.v1` が唯一の正本**（SV 側で
+  再検証しない）: 採用 `$type` = `color/dimension/fontFamily/
+  fontWeight/number/duration/cubicBezier/strokeStyle`。
+  `dimension`/`duration` は `{value, unit}` object 形のみ
+  （`"22px"`/`"100ms"` の CSS 文字列は `InvalidValue` — 出荷資産は
+  typed 形へ移行済み）。alias は値全体 `"{path.to.token}"` のみ
+  （部分埋め込み・brace 混入文字列は `InvalidValue`）。`$` 未知
+  key は `ReservedKey`。merge は `primitive<semantic<component<
+  product` 順・同 path 同型 override のみ（`TypeMismatch` 厳格）、
+  alias は merge 後集合で解決（`UnknownReference`/`AliasCycle` は
+  merge 後に残った実害のみ — SV 側の単文書事前循環拒否は撤廃）。
 
 #### `assets/themes/` 5 文書
 
@@ -254,10 +264,11 @@ pub struct PresetFocus { pub window: usize, pub view: Option<u32> }
 ```text
 [theme]  assets/themes/*.dtcg.json
   → document::parse (envelope + token tree)
-  → validate (type/value/ref/cycle)
-  → ThemeCatalog  (theme,mode,density) index
+  → validate (envelope: schema/必須 field/layer tag)
+  → ThemeCatalog  (theme,mode,density) index — ThemeDocument(原文保持)
   → ThemeSelection 選択 → ThemePreferences save/load (独自 schema)
-  → ResolvedThemeSink::resolve(sel)  ── 現状: Unsupported (RF385 seam)
+  → adapter::resolve_documents → TokenDocument::from_json →
+    ThemeResolver::resolve → ResolvedTheme (rvf-dtcg-profile.v1)
   → (別経路) sel.style_hint() → VizStyleInput.theme (repaint-only)
 
 [preset] assets/workspaces/*.json
@@ -282,8 +293,9 @@ preset は `WorkspaceManager` の dock/view 操作のみ使用。
 
 ## Risks and Trade-offs
 
-- RF385 profile 未着地で envelope/`$type` 集合が暫定 → `$extensions`
-  vendor key + schema version で囲い、着地時に再照合・fixture 更新。
+- RF385 candidate branch（未 merge）へ一時接続中 → merge 前に
+  branch が巻き戻る/削除されると参照が切れる → lock SHA・方法・
+  解除条件を evidence と本書末尾に記録し、恒久 rev pin はしない。
 - light theme 値は provisional — 確定は Native Design Review で
   行い、文書上 `$extensions.synvelis.provenance` で暫定を明示。
 - `PluginDock` kind を先に語彙だけ入れる → SV176 側と認識差が出る
@@ -324,8 +336,10 @@ preset は `WorkspaceManager` の dock/view 操作のみ使用。
 - [ ] `mise run check`/`lint`/`test`（workspace 全体）pass
 - [ ] `mise run check-headless-deps` pass — synvelis-theme に
   GUI/GPU/WebView 依存が無いこと
-- [ ] fixture: 5 製品文書 valid / invalid 各系（unknown $type・
-  malformed color/dimension・bad ref・cycle・schema mismatch）
+- [ ] fixture: 5 製品文書が SV envelope + upstream
+  `TokenDocument::from_json` を両方通過し、dark/light ×
+  compact/comfortable 全 4 組合せで `ThemeResolver::resolve` が
+  `ResolvedTheme` を返す（実 RF parser/resolver 契約試験）
 - [ ] preset: 3 asset apply・monitor missing・v1→v2 migration・
   snapshot→preset roundtrip・schema 不一致 error
 - [ ] 不変条件: Theme 切替・Preset 適用で project revision/undo/
@@ -334,11 +348,21 @@ preset は `WorkspaceManager` の dock/view 操作のみ使用。
 
 ## Deferred Design Concerns
 
-- `ResolvedThemeSink` 実装（RF385 adapter）| 上流契約未着地 |
-  ruviform #385 公開型着地 | seam が Unsupported のまま残る
 - light theme 確定値 | 合意資料なし | Native Design Review |
   provisional が暫定外観として残る
 - `ui/` SolidJS frontend の theme 配線 | 旧経路・新 Native 実証前 |
   GPUI 経路確定時 | 旧 CSS と token の二重定義が残る
 - screen spec → RF387 ViewSpec 写像 | RF387 未着地 | RF387 着地時 |
   文書 spec が型と乖離する可能性
+
+### RF385 candidate 一時接続（証跡は evidence/reports/sv177-rf385-adapter.md）
+
+- 方法: workspace `[workspace.dependencies]` の全 ruviform git 依存
+  を `branch = "feature/gui-driver-neutral-design-contract"` 追従へ
+  一時切替（恒久 `rev` pin は追加しない — `check-ruviform-rev` の
+  単一 SHA 不変条件を保つため全 dep 同時切替）。接続時の解決 SHA:
+  `660034f2286b05d75b74a232e43d37b536644ca0`（指示 candidate head
+  `d3b211cc` の直後 evidence commit を含む）。
+- 解除条件: RF385 candidate が ruviform default branch に着地次第、
+  全 `branch` key を除去して default 追従へ戻す。branch 削除前に
+  解除しないと build が壊れるため merge 確認が先。

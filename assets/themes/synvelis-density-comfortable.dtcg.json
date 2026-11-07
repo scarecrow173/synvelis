@@ -1,5 +1,10 @@
 {
   "$extensions": {
+    "dev.ruviform.dtcg-profile": {
+      "profile": "rvf-dtcg-profile.v1",
+      "layer": "product",
+      "id": "synvelis-density-comfortable"
+    },
     "synvelis.productTheme": {
       "schema": 1,
       "theme": "synvelis",
@@ -9,19 +14,19 @@
   },
   "spacing": {
     "$type": "dimension",
-    "xs": { "$value": "4px" },
-    "sm": { "$value": "8px" },
-    "md": { "$value": "12px" },
-    "lg": { "$value": "16px" }
+    "xs": { "$value": { "value": 4, "unit": "px" } },
+    "sm": { "$value": { "value": 8, "unit": "px" } },
+    "md": { "$value": { "value": 12, "unit": "px" } },
+    "lg": { "$value": { "value": 16, "unit": "px" } }
   },
   "control": {
-    "height": { "$type": "dimension", "$value": "28px" }
+    "height": { "$type": "dimension", "$value": { "value": 28, "unit": "px" } }
   },
   "font": {
     "size": {
       "$type": "dimension",
-      "sm": { "$value": "12px" },
-      "md": { "$value": "14px" }
+      "sm": { "$value": { "value": 12, "unit": "px" } },
+      "md": { "$value": { "value": 14, "unit": "px" } }
     }
   }
 }

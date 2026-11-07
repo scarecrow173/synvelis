@@ -54,18 +54,27 @@ Driver-neutral product theme documents and slot-based workspace presets.
 ## Rules
 
 - テーマ文書は `$extensions["synvelis.productTheme"]` envelope を必須と
-  し、`schema == SV_THEME_SCHEMA`・既知 mode/density/layer のみ受理。
-- `$type` は `color/dimension/fontFamily/fontWeight/duration/
-  cubicBezier/number` の subset のみ。未知型・不整合 value shape・
-  malformed alias・同一文書内 alias 循環は fail-closed。
-- alias は `{a.b.c}` 単一 brace 形式。`{` 始まりの malformed は
-  `BadRef`。`"Fira {Code}"` のように途中の brace は literal。
-  alias target existence・cross-document 解決は検査しない（RF385 責務）。
-- Catalog は (theme,mode,density) で layer 文書を保持し、
-  `documents_for` が base→mode→density を返す。merge しない。
-  duplicate key は `insert` の戻り値で通知。
-- `ResolvedThemeSink` 実装は `UnresolvedThemeResolver` のみで、
-  常に `ThemeError::Unsupported` を返す（第 2 interpreter 不許可）。
+  し、`schema == SV_THEME_SCHEMA`・非空 theme/mode/density・
+  `layer="product"` のみ受理（envelope 系のみ fail-closed）。
+- 出荷文書は `$extensions["dev.ruviform.dtcg-profile"]`
+  （`profile="rvf-dtcg-profile.v1"`・`layer="product"`・一意 `id`・
+  mode 文書は `modes` 宣言）を併記し、上流
+  `TokenDocument::from_json` を通過する。
+- token 意味論（`$type` 集合・value shape・alias・循環・merge）は
+  `rvf-dtcg-profile.v1` が唯一の正本。SV 側は再検証しない —
+  `delegated-*` fixtures が consumer level で load できることが
+  境界の証跡。同一文書循環の事前拒否は撤廃（後段 override で
+  合法な集合を誤拒否する P1 の修正）。
+- `dimension`/`duration` は typed `{value, unit}` object 形のみ
+  （CSS 文字列 `"22px"`/`"100ms"` は上流 `InvalidValue`）。
+- Catalog は (theme,mode,density) で `ThemeDocument`（原文 JSON
+  保持）を index し、`documents_for` が base→mode→density を返す。
+  merge しない。duplicate key は `insert` の戻り値で通知。
+- `catalog.resolve(sel)` / `resolve_documents` は文書の原文を
+  `TokenDocument::from_json` → `ThemeResolver::resolve` へ渡し、
+  `ResolvedTheme`（`rvf-dtcg-profile.v1`）を返す。上流失敗は
+  `ThemeError::Resolve`（`Document(TokenError)` または merge 系
+  `ResolveError`）に包まれる。第 2 interpreter 不許可。
 - Preset は `PRESET_SCHEMA=2` の slot 形式。`layout` key 有りの
   `WorkspaceSnapshot` 形状 JSON は legacy として `from_snapshot`
   経路で import。
@@ -81,10 +90,16 @@ Driver-neutral product theme documents and slot-based workspace presets.
 
 ## Examples
 
-- 出荷 5 文書（base/dark/light/compact/comfortable）が validation を
-  通過し、dark selection で base+dark+compact 層が返る。
-- `invalid-{type,value,ref,cycle,schema}` fixtures がそれぞれ
-  `UnknownType`/`BadValue`/`BadRef`/`CyclicRef`/`Schema` を返す。
+- 出荷 5 文書（base/dark/light/compact/comfortable）が SV envelope
+  validation と上流 `TokenDocument::from_json` を通過し、dark/light
+  × compact/comfortable 全 4 組合せで `catalog.resolve` が
+  `ResolvedTheme` を返す（3 product sources・mode 別背景・density
+  別 `control.height` 22/28px・base `motion.fast` = 100ms）。
+- `invalid-schema` fixture は `Schema`、envelope 不在/空 theme/
+  空 mode/誤 layer は `MissingMeta` を返す。
+- `delegated-{type,value,ref,cycle}` fixtures は consumer level で
+  load される（token 意味論は非検査）が、RF profile 不在のため
+  adapter は `Resolve(Document(MissingProfile))` で拒否する。
 - editing/mixing/plugin-dock preset が FakeWindowHost + MonitorInfo
   で apply され、adopted view の state が保持される。
 - duplicate dock slot・ratio 範囲外・focus が他 window の view・
