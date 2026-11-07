@@ -15,17 +15,21 @@
 //! `EscapesRoot`.
 //!
 //! Browsing is a bounded, deterministic walk over held directory
-//! handles: children are sorted by name, real directories are
-//! descended through scoped `open_dir` handles (a swap after listing
-//! cannot inject out-of-scope entries), and symlinked entries are
-//! probed with `metadata(WithinRoot)` — a target inside the scope
-//! capability reports `Container`; one escaping it fails
-//! `EscapesRoot` and is listed as observed-but-unavailable. A
-//! locator scope is itself opened as a rooted capability, so the
-//! scope subtree is the containment boundary exactly as the old
-//! canonical-prefix check enforced. Every call re-walks the scope
-//! under the configured budgets — a cursor resumes by offset, never
-//! by pretending a live tree was snapshotted.
+//! handles: children are enumerated one at a time through
+//! `read_dir_each` (the kept window is bounded before sorting, and
+//! cancellation/deadline stop the enumeration itself), real
+//! directories are descended through scoped `open_dir` handles (a
+//! swap after listing cannot inject out-of-scope entries), and
+//! symlinked entries are probed with `metadata(WithinRoot)` — a
+//! target inside the scope capability reports `Container`; one
+//! escaping it fails `EscapesRoot` and is listed as
+//! observed-but-unavailable. A locator scope is re-rooted through
+//! `open_scoped_root`, so the scope subtree is the containment
+//! boundary exactly as the old canonical-prefix check enforced and
+//! the resolved handle — never a pathname — is the authority. Every
+//! call re-walks the scope under the configured budgets — a cursor
+//! resumes by offset, never by pretending a live tree was
+//! snapshotted.
 //!
 //! Local files are mutable, so `pin` produces a
 //! `ConditionalStrong{ContentHash}` proof: it streams the file to
@@ -43,8 +47,8 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use ruviform_io_file::rooted::{
-    FollowMode, IdentityStrength, NodeId, NodeInfo, NodeKind, RelativePath, RootedDir, RootedFile,
-    RootedOptions,
+    DirEntry, EntryFlow, FollowMode, NodeId, NodeInfo, NodeKind, RelativePath, RootedDir,
+    RootedFile, RootedOptions,
 };
 use ruviform_io_file::{FileError, FileErrorKind};
 
@@ -266,109 +270,75 @@ impl LocalFolderProvider {
         }
     }
 
-    /// Opens a scoped rooted capability for a locator scope. The
-    /// scope subtree is itself the capability root, so `WithinRoot`
-    /// enforces exactly the old canonical-prefix scope containment —
-    /// an ancestor- or sibling-bound link inside the scope fails
+    /// Opens a scoped rooted capability for a locator scope through
+    /// [`RootedDir::open_scoped_root`]: the resolved directory
+    /// handle itself becomes the capability floor. Authority comes
+    /// from the held provider capability — there is no pathname
+    /// re-open and no `NodeId`/strong-identity comparison, so a
+    /// renamed or pathname-replaced root cannot rebind the scope
+    /// (the replacement is a different object the capability never
+    /// reaches) and weak-identity filesystems are not gated.
+    ///
+    /// `WithinRoot` resolution enforces link containment on the
+    /// locator itself — an escaping link fails `EscapesRoot`, and
+    /// `..`/absolute targets are bounded at the scope floor, so the
+    /// scope subtree is the containment boundary exactly as the old
+    /// canonical-prefix check enforced. `open_dir` cannot be used
+    /// for the scoped capability because its `WithinRoot` boundary
+    /// stays the provider root — a scope-internal link to an
+    /// in-root sibling would then resolve instead of failing
     /// `EscapesRoot`.
     ///
-    /// Authority comes from the held provider capability, never the
-    /// root pathname alone: the scope is first resolved relative to
-    /// `self.root` (held handles — the root may have been renamed
-    /// since construction), which also enforces link containment on
-    /// the locator itself. `RootedDir::open_dir` cannot be used for
-    /// the scoped capability because its `WithinRoot` boundary stays
-    /// the provider root — a scope-internal link to an in-root
-    /// sibling would then resolve instead of failing `EscapesRoot`.
-    /// `open_with` on the canonical path therefore acquires the
-    /// scope-subtree capability, and the opened object is verified
-    /// against the held-capability resolution by `NodeId`: a
-    /// renamed/replaced root pathname that now names a different
-    /// tree fails `SourceChanged` instead of rebinding the scope.
-    /// The two filesystem touch points carry separate fault-barrier
-    /// tags — `"stat"` before the held-resolution `metadata`,
-    /// `"open"` before the `open_with` acquisition.
+    /// The public `base` prefix is the scope's handle-derived
+    /// canonical path relative to the held root's *current*
+    /// handle-derived canonical (re-anchored via
+    /// `open_scoped_root("")`), so entry locators stay
+    /// canonical-relative even after the root pathname moved —
+    /// neither side is a stored path string.
+    ///
+    /// The fault-barrier tag is `"open"`, fired once before the
+    /// scoped acquisition (resolve + handle-derived anchor are one
+    /// logical touch point; a root move inside it can only fail the
+    /// prefix check closed, never serve wrong locators).
     fn open_scope(&self, locator: &OpaqueLocator) -> Result<(RootedDir, String), ProviderError> {
         let rel = Self::locator_rel(locator)?;
         let mut lexical = self.root.canonical_root().to_path_buf();
         for comp in rel.components() {
             lexical.push(comp);
         }
-        self.pre_traverse(&lexical, "stat");
-        let scope_info = self
-            .root
-            .metadata(&rel, FollowMode::WithinRoot)
-            .map_err(|e| rooted_error("browse scope", &e))?;
-        if scope_info.kind != NodeKind::Dir {
-            return Err(ProviderError::new(
-                ProviderErrorKind::InvalidRequest,
-                format!("scope {locator} is not a container"),
-            ));
-        }
-        // The `NodeId` equality check below is only as strong as the
-        // discriminator behind it: a weak-identity filesystem cannot
-        // tell a same-tick delete+recreate apart, so the rebind
-        // window it is meant to close would stay open silently.
-        // Mirror RF's `open_pinned` gate and refuse rather than
-        // pretend the check held (RF rooted.rs `Unsupported` on
-        // non-`Strong` strength).
-        if scope_info.identity_strength != IdentityStrength::Strong {
-            return Err(ProviderError::new(
-                ProviderErrorKind::UnsupportedCapability,
-                format!("scope {locator} cannot be safely acquired: filesystem identity is weak"),
-            ));
-        }
         self.pre_traverse(&lexical, "open");
-        let cap = RootedDir::open_with(&lexical, rooted_options()).map_err(|e| {
-            if matches!(
-                e.kind(),
-                FileErrorKind::NotDirectory | FileErrorKind::NotRegularFile
-            ) || io_source_kind(&e) == Some(std::io::ErrorKind::NotADirectory)
-            {
-                ProviderError::new(
+        let cap = self
+            .root
+            .open_scoped_root(&rel, FollowMode::WithinRoot)
+            .map_err(|e| match e.kind() {
+                FileErrorKind::NotDirectory => ProviderError::new(
                     ProviderErrorKind::InvalidRequest,
                     format!("scope {locator} is not a container"),
-                )
-            } else {
-                rooted_error("browse scope", &e)
-            }
-        })?;
-        if !cap.canonical_root().starts_with(self.root.canonical_root()) {
-            return Err(ProviderError::new(
-                ProviderErrorKind::PermissionDenied,
-                format!("scope {locator} escapes the provider root"),
-            ));
-        }
-        // Same-object check across the acquisition boundary: the
-        // pathname may have been repointed at a different tree since
-        // the held-capability resolution above. Comparing `NodeId`s
-        // — not paths — is what makes the opened capability's
-        // authority match the held root's. The `Strong`-strength
-        // gate above keeps this meaningful on weak-identity
-        // filesystems; a backend whose `identity()` call itself
-        // fails fails closed via `rooted_error`.
-        if cap
-            .dir_identity()
-            .map_err(|e| rooted_error("browse scope", &e))?
-            != scope_info.identity
-        {
-            return Err(ProviderError::new(
-                ProviderErrorKind::SourceChanged,
-                format!(
-                    "scope {locator} resolved to a different object under the provider root pathname"
                 ),
-            ));
-        }
+                _ => rooted_error("browse scope", &e),
+            })?;
+        let anchor = self
+            .root
+            .open_scoped_root(
+                &RelativePath::new("").expect("the empty locator is the valid self form"),
+                FollowMode::WithinRoot,
+            )
+            .map_err(|e| rooted_error("browse scope", &e))?;
         let base = cap
             .canonical_root()
-            .strip_prefix(self.root.canonical_root())
+            .strip_prefix(anchor.canonical_root())
             .map(|rel| {
                 rel.components()
                     .map(|c| c.as_os_str().to_string_lossy().into_owned())
                     .collect::<Vec<_>>()
                     .join("/")
             })
-            .unwrap_or_default();
+            .map_err(|_| {
+                ProviderError::new(
+                    ProviderErrorKind::PermissionDenied,
+                    format!("scope {locator} escapes the provider root"),
+                )
+            })?;
         Ok((cap, base))
     }
 
@@ -412,32 +382,42 @@ impl LocalFolderProvider {
         'walk: while let Some((dir_cap, prefix, depth)) = stack.pop() {
             cx.check_interrupts()?;
             self.pre_traverse(&Self::lexical(&scope_root, &prefix), "read_dir");
-            let mut children = match dir_cap.read_dir(&self_rel, FollowMode::NoFollow) {
-                Ok(children) => children,
-                Err(e) => {
-                    if prefix.is_empty() {
-                        return Err(rooted_error("read scope", &e));
-                    }
-                    // Unreadable subdirectory: skip it and mark the
-                    // page partial instead of faking completeness.
-                    truncated = true;
-                    continue;
-                }
-            };
-            // Bound the kept window the way the old
-            // `take(remaining + 1)` did — enumeration-order prefix,
-            // then sorted. The returned page is never a
-            // globally-smallest subset (that was true before too);
-            // the contract is `max_entries` + honest `truncated`.
-            // Residual: `read_dir` materializes the full directory
-            // inside Ruviform before this bound applies — bounded
-            // enumeration needs an RF streaming/cap API (tracked in
-            // docs/tasks/alib-01-task5-rooted-cutover.md), so the
-            // pre-sort memory bound is the ownable part, not a
-            // hidden fix.
+            // Bounded enumeration: `read_dir_each` delivers entries
+            // one at a time and `EntryFlow::Stop` ends the walk —
+            // after the kept window (`remaining + 1`, the same
+            // enumeration-order prefix the old `take(remaining+1)`
+            // produced) no further OS reads, probes, or visitor
+            // calls happen, so `max_entries`/cancel/deadline bound
+            // the enumeration stage itself, not just the kept set.
+            // The window is then sorted for deterministic order.
             let remaining =
                 usize::try_from(cx.limits.max_entries.saturating_sub(walked)).unwrap_or(usize::MAX);
-            children.truncate(remaining.saturating_add(1));
+            let mut children: Vec<DirEntry> = Vec::new();
+            let mut interrupt: Option<ProviderError> = None;
+            let listed = dir_cap.read_dir_each(&self_rel, FollowMode::NoFollow, &mut |entry| {
+                if let Err(e) = cx.check_interrupts() {
+                    interrupt = Some(e);
+                    return EntryFlow::Stop;
+                }
+                if children.len() < remaining.saturating_add(1) {
+                    children.push(entry);
+                    EntryFlow::Continue
+                } else {
+                    EntryFlow::Stop
+                }
+            });
+            if let Some(err) = interrupt {
+                return Err(err);
+            }
+            if let Err(e) = listed {
+                if prefix.is_empty() {
+                    return Err(rooted_error("read scope", &e));
+                }
+                // Unreadable subdirectory: skip it and mark the
+                // page partial instead of faking completeness.
+                truncated = true;
+                continue;
+            }
             children.sort_by(|a, b| a.name.cmp(&b.name));
             for child in children {
                 if walked >= cx.limits.max_entries {

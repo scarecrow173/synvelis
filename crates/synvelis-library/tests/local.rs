@@ -6,6 +6,8 @@ mod common;
 
 use std::fs;
 use std::io::Read;
+use std::path::Path;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use synvelis_library::*;
@@ -45,6 +47,11 @@ fn browse_lists_files_and_dirs_with_observed_facts() {
         .unwrap();
     assert_eq!(sub.kind, EntryKind::Container);
     assert_eq!(sub.facts.kind.value(), Some(&AssetKind::Directory));
+    // Directories carry no byte length — reported Unknown, not faked.
+    assert!(matches!(
+        sub.facts.byte_len,
+        AssetObservation::Unknown { .. }
+    ));
     assert!(!sub.via_symlink);
 
     let a = &page.entries[0];
@@ -660,6 +667,30 @@ fn cancelled_context_fails_operations() {
             .kind(),
         ProviderErrorKind::Cancelled
     );
+}
+
+/// Cancellation observed *inside* directory enumeration: the
+/// `"read_dir"` barrier cancels the token after the walk's per-dir
+/// checkpoint but before entries are delivered — the bounded
+/// `read_dir_each` visitor must stop the enumeration and the call
+/// must fail `Cancelled`, never return a partial page as if whole.
+#[test]
+fn cancel_during_directory_enumeration_fails_the_page() {
+    let tree = TempTree::new("local-cancel-enum");
+    tree.write("a.wav", b"alpha-bytes");
+    tree.write("b.txt", b"beta");
+    tree.write("c.wav", b"cee");
+    let mut provider = provider_at(&tree);
+
+    let ctx = cx();
+    let token = ctx.cancel.clone();
+    provider.set_pre_traverse_hook(Some(Arc::new(move |_p: &Path, op| {
+        if op == "read_dir" {
+            token.cancel();
+        }
+    })));
+    let err = provider.browse(&browse_req(10), &ctx).unwrap_err();
+    assert_eq!(err.kind(), ProviderErrorKind::Cancelled);
 }
 
 #[test]
