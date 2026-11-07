@@ -2068,6 +2068,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruviform-io-file"
+version = "0.1.0"
+source = "git+https://github.com/scarecrow173/ruviform.git#49de02cc530d324772d8556225030eb2b9307751"
+dependencies = [
+ "libc",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "ruviform-io-symphonia"
 version = "0.1.0"
 source = "git+https://github.com/scarecrow173/ruviform.git#49de02cc530d324772d8556225030eb2b9307751"
@@ -2705,6 +2714,7 @@ version = "0.1.0"
 dependencies = [
  "ruviform-audio-core",
  "ruviform-graph",
+ "ruviform-io-file",
  "ruviform-media-core",
  "ruviform-plugin-core",
  "serde",

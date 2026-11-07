@@ -35,6 +35,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 rand = "0.8"
+ruviform-io-file = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-media-core = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-media-io = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-media-reader = { git = "https://github.com/scarecrow173/ruviform.git" }
