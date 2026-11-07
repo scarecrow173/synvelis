@@ -1,4 +1,4 @@
-# PLAN Documents
+# Architecture Decision Records
 
 <!-- doc-suite:generated-index -->
 
@@ -42,6 +42,7 @@ Directory: `docs/plans`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| PLAN-luVzqvmmFtXrtfQQ7Sqb6k | ALIB-01 実装計画 — Asset Provider 契約・Local/Project 基準 Provider | completed | [alib-01-asset-provider-baseline.md](./alib-01-asset-provider-baseline.md) |
 | PLAN-034QArZ5DRWJ27yfk2aEID | ED-A Editing Model headless PoC 実装計画 | completed | [ed-a-editing-model.md](./ed-a-editing-model.md) |
 | PLAN-034PCA04Pk9ySt5zBcPdEf | PC-A Parameter Control Model headless PoC 実装計画 | completed | [pc-a-parameter-control.md](./pc-a-parameter-control.md) |
 | PLAN-034PCB04Pk9ySt5zBcPdEf | PC-B Parameter Control dispatch/note-scope/RT/offline 実装計画 | completed | [pc-b-parameter-dispatch.md](./pc-b-parameter-dispatch.md) |

@@ -9,6 +9,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-034T7QIk72dphjZPfVnZ1O | ALIB-01 Asset Provider baseline contract | completed | [alib-01-asset-provider-baseline-contract.md](alib-01-asset-provider-baseline-contract.md) |
 | IMPL-AUT03LoopWriteOnePass | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・境界 flush・明示 Rearm 実装記録 | completed | [aut-03-loop-write-one-pass.md](aut-03-loop-write-one-pass.md) |
 | IMPL-034RJ4QUQGExYEXb9HnIW3 | Issue #147 sccache verify/gw10 導入実装記録 | completed | [issue-147-sccache-verify-gw10.md](issue-147-sccache-verify-gw10.md) |
 | IMPL-034RGXq9DiVrM6SNyBhyQs | Issue #151 ui-verify lane 実装記録 | completed | [issue-151-ui-verify-lane.md](issue-151-ui-verify-lane.md) |

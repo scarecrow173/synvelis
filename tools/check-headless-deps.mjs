@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 const HEADLESS_CRATES = [
   "synvelis-theme",
   "synvelis-project",
+  "synvelis-library",
   "synvelis-recording",
   "recording-poc",
   "synvelis-player",
