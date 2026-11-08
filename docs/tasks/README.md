@@ -17,11 +17,10 @@ Directory: `docs/tasks`
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
 | TASK-106SF03Tz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T1 — RoutingFault 18分類・engine 改修・reconcile 実装 | in-progress | [sf-03-slice2-fault-contract.md](./sf-03-slice2-fault-contract.md) |
 | TASK-106SF03Uz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T2 — 受入テスト sf03_l2.rs・検証 | in-progress | [sf-03-slice2-reconcile-tests.md](./sf-03-slice2-reconcile-tests.md) |
-| TASK-034UfGmlTvNz0gwIlMQkZL | SF-03 slice3 T1 — ProcessorHost boundary・StaticProcessorHost・PluginHostProcessors | done | [sf-03-slice3-host-boundary.md](./sf-03-slice3-host-boundary.md) |
-| TASK-034UfGn2GRUGJOpEhbrW9K | SF-03 slice3 T2 — RoutingEngine 接続統合・世代連動 teardown | done | [sf-03-slice3-engine-integration.md](./sf-03-slice3-engine-integration.md) |
-| TASK-034UfGnJu6lN4FLgs2mZpK | SF-03 slice3 T3 — sf03_l3 受入テスト・test-spec | done | [sf-03-slice3-acceptance-tests.md](./sf-03-slice3-acceptance-tests.md) |
+| TASK-QL2QzcJ2SdDIQZN7NDxvaK | SF-03 slice4 T3 — 受入テスト sf03_l4・既存 test 追従 | done | [sf-03-slice4-acceptance-tests.md](./sf-03-slice4-acceptance-tests.md) |
+| TASK-034UgPv6iDxfZLWWpr3Dnz | SF-03 slice4 T1 — NoRebuild Equivalence・reconcile revision-drift 抑制 | done | [sf-03-slice4-norebuild-equivalence.md](./sf-03-slice4-norebuild-equivalence.md) |
+| TASK-LJ3dobeIa1bFvvZxBJivEy | SF-03 slice4 T2 — 世代連動 processor control 払い出し | done | [sf-03-slice4-processor-control-vending.md](./sf-03-slice4-processor-control-vending.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
-| TASK-DqvyFE4jtl1dHhjkpI0Awe | SV#28 Ruviform pin を cc7d5296 へ更新し API 追従・検証を完了する | in-progress | [sv28-ruviform-pin-update.md](./sv28-ruviform-pin-update.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
 | TASK-034QfQZsTXhM5gVQP0gh81 | VS-C task3 staging writer | todo | [vs-c-task3-staging-writer.md](./vs-c-task3-staging-writer.md) |
@@ -81,6 +80,9 @@ Directory: `docs/tasks`
 | TASK-034SF02Zc3uRs0tW3yE8fGiJk | SF-02 T2 — 受入/Reject/不変/Undo 契約テストと canonical 検証 | done | [sf-02-task2-validation-acceptance-tests.md](./sf-02-task2-validation-acceptance-tests.md) |
 | TASK-106SF03Hi6iJk7lMn8oPq9rSt | SF-03 slice1 T2 — RoutingEngine activation ledger・stale 防止・SF-ACT-03/04 テスト | done | [sf-03-slice1-activation-tests.md](./sf-03-slice1-activation-tests.md) |
 | TASK-106SF03Gh5hIj6kLm7nOp8qRs | SF-03 slice1 T1 — 契約型(routing_build)・plan_playbacks 抽出・lower_semantic・StripProcessor | done | [sf-03-slice1-contract-lowering.md](./sf-03-slice1-contract-lowering.md) |
+| TASK-034UfGnJu6lN4FLgs2mZpK | SF-03 slice3 T3 — sf03_l3 受入テスト・test-spec | done | [sf-03-slice3-acceptance-tests.md](./sf-03-slice3-acceptance-tests.md) |
+| TASK-034UfGn2GRUGJOpEhbrW9K | SF-03 slice3 T2 — RoutingEngine 接続統合・世代連動 teardown | done | [sf-03-slice3-engine-integration.md](./sf-03-slice3-engine-integration.md) |
+| TASK-034UfGmlTvNz0gwIlMQkZL | SF-03 slice3 T1 — ProcessorHost boundary・StaticProcessorHost・PluginHostProcessors | done | [sf-03-slice3-host-boundary.md](./sf-03-slice3-host-boundary.md) |
 | TASK-MlLPS12iG90WZhRs4S9pub | SV-GUI-01 task1 synvelis-app crate skeleton・Composition Root・AppService | done | [sv-gui-01-task1-app-crate-composition-root.md](./sv-gui-01-task1-app-crate-composition-root.md) |
 | TASK-jLkK7lARWtOgmAI02PaXQ5 | SV-GUI-01 task2 headless service op・asset check テスト | done | [sv-gui-01-task2-headless-service-asset-tests.md](./sv-gui-01-task2-headless-service-asset-tests.md) |
 | TASK-5ySbythnz4gMVnQauJQq8a | SV-GUI-01 task3 ui/ frontend pipeline・vendored sync・mise tasks | done | [sv-gui-01-task3-frontend-pipeline-vendor.md](./sv-gui-01-task3-frontend-pipeline-vendor.md) |
@@ -93,6 +95,7 @@ Directory: `docs/tasks`
 | TASK-hSG0A7xXhnXVL7exOdhVuV | SV175-01: NativeShell・ViewBinding・native feature lane 実装 | done | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TASK-pIf6c5QRXRonGNwoqfvJgY | SV175-02: Native view mount — 最小 Tab/Panel/Fader 縦slice | done | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TASK-034T7IgIHI7umPL7xCvU3u | SV177 theme crate + preset module implementation | done | [sv177-theme-preset-impl.md](./sv177-theme-preset-impl.md) |
+| TASK-DqvyFE4jtl1dHhjkpI0Awe | SV#28 Ruviform pin を cc7d5296 へ更新し API 追従・検証を完了する | done | [sv28-ruviform-pin-update.md](./sv28-ruviform-pin-update.md) |
 | TASK-034T2c6ZLwPXf10mPcW2MC | SYN-IO-02 task1 store.rs StagedFile 移行 | done | [syn-io-02-task1-store-stagedfile-migration.md](./syn-io-02-task1-store-stagedfile-migration.md) |
 | TASK-034RBFUDGVewxs72FGa8RM | SYN-OBS-01 task1 依存更新と logging モジュール(設定解決/install/owner) | done | [syn-obs-01-task1-deps-logging-module.md](./syn-obs-01-task1-deps-logging-module.md) |
 | TASK-034RBFVsXUmxHPEa6zbZRx | SYN-OBS-01 task2 ObservabilityOwner Source catalog と syn.app.info logging セクション | done | [syn-obs-01-task2-owner-catalog-app-info.md](./syn-obs-01-task2-owner-catalog-app-info.md) |
