@@ -14,6 +14,8 @@ body:
         - 参考・関連・経緯の言及 →「関連リンク」欄。
         - 本文のほかの場所に書いた依存は登録されません（サブエージェントの探索で見つかるまで反映されません）。
 
+        設計・仕様・背景など、ほかの欄に収まらない内容はすべて「詳細」欄に書いてください。要約・省略は不要です。
+
   - type: dropdown
     id: kind
     attributes:
@@ -32,9 +34,20 @@ body:
     id: summary
     attributes:
       label: 概要
-      description: 何を、なぜ行うか。2〜5 文で。
+      description: 何を、なぜ行うか。現在の状態（設計承認済み・未着手など）も書く。2〜5 文で。
     validations:
       required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: 詳細
+      description: |
+        仕様・設計契約（API、型、状態遷移、責務の分担）、背景、最新の方針、経緯など、ほかの欄に収まらない内容をすべて書く。
+        長さの制限はない。要約・省略しない。見出しは `####` 以下を使う（`###` はテンプレートの欄の見出しなので使わない）。
+        受入条件・依存・対象外・関連リンクは、ここではなくそれぞれの欄に書く。
+    validations:
+      required: false
 
   - type: textarea
     id: acceptance
@@ -43,6 +56,7 @@ body:
       description: |
         完了と判断できる条件をチェックリストで書く。Worker はこの欄を言い換えずに Spec に転記する。
         「〜を確認した」ではなく、検証できる形（コマンド・期待結果・対象 OS）で書く。
+        すべての条件をこの欄に書く（「続きは〜を参照」としない）。設計の説明は「詳細」欄に書き、ここには満たすべき条件だけを書く。
       placeholder: |
         - [ ] `mise run test` が全 OS の CI で pass する
         - [ ] 〜の API が〜を返す（テスト名: 〜）
@@ -56,11 +70,12 @@ body:
       description: |
         正規の検証入口（このリポジトリの mise タスク名）と、必要な OS・実機・native gate。
         この環境で実行できない検証がある場合は、その旨と代わりの扱い（NotRun として記録するなど）を書く。
+        未定なら「着手時に決める」と書く（Worker が対象リポジトリの AGENTS.md の mise タスクから決める）。
       placeholder: |
         - 正規検証: `mise run ci`
         - 実機: Windows で 〜 を確認（macOS / Linux は NotRun 可）
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: scope
@@ -97,6 +112,7 @@ body:
       description: |
         統合や受入の段階でだけ関係する Issue と、その関係。Blocked by には登録しない。
         同じファイルを変更しそうで同時に進めると競合する Issue もここに書く。
+        着手条件かどうか判断できない Issue は、着手条件に入れず、ここに「（着手条件か未確定）」と付けて書く（Coordinator の探索で判定する）。
       placeholder: |
         - owner/synvelis#45: 統合時に GUI 側の受入で確認する
     validations:
@@ -114,6 +130,6 @@ body:
     id: links
     attributes:
       label: 関連リンク
-      description: 設計文書、関連 Issue / PR、経緯。依存ではない参照はここに書く。
+      description: 親・追跡 Issue、設計文書、関連 Issue / PR。依存ではない参照はここに書く。
     validations:
       required: false
