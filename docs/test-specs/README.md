@@ -31,12 +31,15 @@ Directory: `docs/test-specs`
 | TSPEC-034RoV9mM6nXzVq1kYpQwE | PC-C1 Recording Transaction 検証仕様 | approved | [pc-c1-e2e-recording-transaction.md](./pc-c1-e2e-recording-transaction.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
 | TSPEC-034SF02Xa1sPq8rU1wC6dEgHi | SF-02 E2E/契約テスト仕様 — RoutingTransaction Reject/不変/Undo/Revision | approved | [sf-02-e2e-routing-transaction.md](./sf-02-e2e-routing-transaction.md) |
+| TSPEC-106SF03Ij7jKl8mNo9pQr0sTu | SF-03 slice1 テスト仕様 — Lowering Golden/SourceMap・Activation 証拠 | approved | [sf-03-slice1-lowering-activation.md](./sf-03-slice1-lowering-activation.md) |
+| TSPEC-106SF03Vz2aBc3dEf4gHi5jKl6 | SF-03 slice2 テスト仕様 — Fault 分類・Last-good/Retry・Reconcile | approved | [sf-03-slice2-fault-reconcile.md](./sf-03-slice2-fault-reconcile.md) |
 | TSPEC-A8sVfBvTuQextSVcPY8yp9 | SV-GUI-01 検証仕様 — App Bootstrap・Service 契約・Asset Pipeline | approved | [sv-gui-01-e2e-desktop-bootstrap.md](./sv-gui-01-e2e-desktop-bootstrap.md) |
 | TESTSPEC-SVGUI02 | SV-GUI-02 契約検証仕様 | approved | [sv-gui-02.md](./sv-gui-02.md) |
 | TSPEC-Wa6Ax4SQSRfWvuKIzs8fCf | SV175-01 検証仕様: NativeShell lifecycle + ViewBinding wire 形 | approved | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TSPEC-zjbHKZf81iknbLJPzohrKC | SV175-02 検証仕様: ViewHost mount → typed binding → lifecycle | approved | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TSPEC-034T7Ieio7KRMC297yqbIs | SV177 theme contract + workspace preset headless verification | approved | [sv177-theme-preset-contract.md](./sv177-theme-preset-contract.md) |
 | TSPEC-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 検証仕様: mixer.gain projection・Fader controlled display/commit | approved | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
+| TSPEC-CrvvXGRCC7NBEy9bfba4LH | SV#28 Ruviform pin 更新 検証仕様 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | TSPEC-034T2c6eMscPucNt6w8iYW | SYN-IO-02 Store Publish 契約試験 | approved | [syn-io-02-store-publish-contract.md](./syn-io-02-store-publish-contract.md) |
 | TSPEC-034RBFeQnmt3PcI7beSRpy | SYN-OBS-01 検証仕様 — Host Logging install・設定解決・Health・Source catalog | draft | [syn-obs-01-logging-source-catalog.md](./syn-obs-01-logging-source-catalog.md) |
 | TSPEC-034T2RF305WAVSTAGED01B | SYN-RF305 Export StagedFile Publish 契約試験 | approved | [syn-rf305-export-staged-publish-contract.md](./syn-rf305-export-staged-publish-contract.md) |
