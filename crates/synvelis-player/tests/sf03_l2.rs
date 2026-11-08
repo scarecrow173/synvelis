@@ -302,7 +302,8 @@ fn drive(
             revision,
             deps_default(c.live(), media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     eng.publish(prepared, c.live(), revision).unwrap();
     eng.run(blocks, PumpPolicy::Every(1)).unwrap()
 }
@@ -425,7 +426,8 @@ fn sf03_l2_01_prepare_fault_taxonomy() {
     deps.clips.clear();
     let prepared = eng
         .prepare(&request(8, rev2), c.live(), rev2, deps)
-        .unwrap();
+        .unwrap()
+        .expect_built();
     eng.publish(prepared, c.live(), rev2).unwrap();
 }
 
@@ -557,7 +559,8 @@ fn sf03_l2_03_publish_fault_taxonomy() {
             revision,
             deps_default(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     let mut speculative = c.live().clone();
     let clip = *speculative.clips.keys().next().unwrap();
     speculative.clips.get_mut(&clip).unwrap().muted = true;
@@ -584,7 +587,8 @@ fn sf03_l2_03_publish_fault_taxonomy() {
             revision,
             deps_default(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     incoherent.source_map.generation = incoherent.generation + 100;
     let err = eng.publish(incoherent, c.live(), revision).err().unwrap();
     assert_eq!(err, RoutingFault::BadSourceMap);
@@ -599,7 +603,8 @@ fn sf03_l2_03_publish_fault_taxonomy() {
             revision,
             deps_default(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     let p_new = eng
         .prepare(
             &request(5, revision),
@@ -607,7 +612,8 @@ fn sf03_l2_03_publish_fault_taxonomy() {
             revision,
             deps_default(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     let new_gen = p_new.generation;
     eng.publish(p_new, c.live(), revision).unwrap();
     let err = eng.publish(p_old, c.live(), revision).err().unwrap();
@@ -761,8 +767,10 @@ fn sf03_l2_05_reconcile_drift_matrix() {
     );
     assert_eq!(spec.fault, Some(RoutingFault::SpeculativeMismatch));
 
-    // Committed revision moved → StaleProjectSnapshot, and the drift
-    // report carries every aspect at once.
+    // Revision-only drift (name change, fingerprint untouched) is
+    // *not* stale: the published plan's semantic key still covers the
+    // committed revision — the NoRebuild path leaves it live, so
+    // reconcile reports a clean result.
     apply(
         &mut c,
         ProjectOp::SetProjectName {
@@ -770,19 +778,40 @@ fn sf03_l2_05_reconcile_drift_matrix() {
         },
     );
     let rev2 = c.live_revision();
-    let drift = eng.reconcile(c.live(), rev2, 1, 1);
+    let revision_only = eng.reconcile(c.live(), rev2, 1, 1);
+    assert!(
+        !revision_only
+            .mismatches
+            .contains(&RoutingReconcileMismatch::ProjectRevision)
+    );
+    assert_eq!(revision_only.fault, None);
+    assert_eq!(eng.receipt().unwrap().last_good_generation, Some(1));
+    assert_eq!(eng.rt_status().active_generation, 1);
+
+    // Real semantic drift on top of the revision move → the plan no
+    // longer covers the committed snapshot: ProjectRevision returns
+    // together with the fingerprint drift.
+    let clip = *c.live().clips.keys().next().unwrap();
+    apply(
+        &mut c,
+        ProjectOp::SetClipMuted {
+            clip_id: clip,
+            muted: true,
+        },
+    );
+    let rev3 = c.live_revision();
+    let drift = eng.reconcile(c.live(), rev3, 1, 1);
     assert!(
         drift
             .mismatches
             .contains(&RoutingReconcileMismatch::ProjectRevision)
     );
-    assert_eq!(drift.fault, Some(RoutingFault::StaleProjectSnapshot));
-    // Name-only change keeps the fingerprint — no speculative drift.
     assert!(
-        !drift
+        drift
             .mismatches
             .contains(&RoutingReconcileMismatch::RoutingFingerprint)
     );
+    assert_eq!(drift.fault, Some(RoutingFault::StaleProjectSnapshot));
     assert_eq!(eng.receipt().unwrap().last_good_generation, Some(1));
     assert_eq!(eng.rt_status().active_generation, 1);
 }
@@ -802,7 +831,8 @@ fn sf03_l2_06_pending_publish_is_transient() {
             rev,
             deps_default(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     eng.publish(prepared, c.live(), rev).unwrap();
 
     let report = eng.reconcile(c.live(), rev, 1, 1);
@@ -833,7 +863,8 @@ fn sf03_l2_07_retry_uses_fresh_build() {
             rev1,
             deps_default(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
 
     // Project moves before publish — the prepared plan is stale.
     apply(&mut c, ProjectOp::SetProjectName { name: "v2".into() });
@@ -851,7 +882,8 @@ fn sf03_l2_07_retry_uses_fresh_build() {
             rev2,
             deps_default(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     let fresh_gen = fresh.generation;
     assert!(fresh_gen > 1);
     eng.publish(fresh, c.live(), rev2).unwrap();
@@ -886,7 +918,8 @@ fn sf03_l2_08_event_stale_via_reconcile() {
                 rev,
                 deps_default(c.live(), &media),
             )
-            .unwrap();
+            .unwrap()
+            .expect_built();
         eng.publish(prepared, c.live(), rev).unwrap();
     }
     eng.run(1, PumpPolicy::Every(1)).unwrap();
@@ -927,7 +960,8 @@ fn sf03_l2_09_publish_queue_full_preserves_last_good() {
                 rev,
                 deps_default(c.live(), &media),
             )
-            .unwrap();
+            .unwrap()
+            .expect_built();
         match eng.publish(prepared, c.live(), rev) {
             Ok(_) => {}
             Err(fault) => {
@@ -1020,7 +1054,10 @@ fn sf03_l2_10_offline_capability_gate() {
     host2.insert(processor_id, Box::new(VerifiedGain(0.5)));
     eng2.set_processor_host(Box::new(host2));
     let deps2 = deps_default(c.live(), &media);
-    let prepared = eng2.prepare(&offline_req, c.live(), rev, deps2).unwrap();
+    let prepared = eng2
+        .prepare(&offline_req, c.live(), rev, deps2)
+        .unwrap()
+        .expect_built();
     eng2.publish(prepared, c.live(), rev).unwrap();
     eng2.run(1, PumpPolicy::Every(1)).unwrap();
     assert!(matches!(

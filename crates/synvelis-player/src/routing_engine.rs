@@ -42,19 +42,24 @@ use ruviform_audio_core::AudioFormat;
 use ruviform_graph::{
     GraphProject, GraphSpec, NodeId, NodeSpec, PortId, PrepareError, ValidationError,
 };
+use ruviform_media_core::TimeBase;
 use ruviform_media_reader::{PrefetchHandle, PrefetchProducer, PumpOutcome, SourceFrame};
 use ruviform_rt::RtContext;
 
 use synvelis_project::BuildMode;
 use synvelis_project::{
-    LOWERING_POLICY_VERSION, Project, ProjectRevision, RoutingActivationReceipt,
-    RoutingActivationState, RoutingBuildKey, RoutingBuildRequestId, RoutingCompileRequest,
-    RoutingFault, RoutingReconcileMismatch, RoutingReconcileReport, RoutingSourceMap,
-    RuntimeClockEpochRef, RuntimeInstanceId, port_capability_generation, routing_fingerprint,
+    ExecutionEquivalence, LOWERING_POLICY_VERSION, ProcessorId, Project, ProjectRevision,
+    RoutingActivationReceipt, RoutingActivationState, RoutingBuildKey, RoutingBuildRequestId,
+    RoutingCompileRequest, RoutingFault, RoutingReconcileMismatch, RoutingReconcileReport,
+    RoutingSourceMap, RuntimeClockEpochRef, RuntimeInstanceId, port_capability_generation,
+    routing_fingerprint,
 };
 
 use crate::driver::{DriverState, PlayReport, PumpPolicy};
-use crate::host::{ProcessorConnectRequest, ProcessorHost, ProcessorLease, StaticProcessorHost};
+use crate::host::{
+    ProcessorConnectRequest, ProcessorConnection, ProcessorControl, ProcessorHost, ProcessorLease,
+    StaticProcessorHost,
+};
 use crate::lowering::{
     CompSkipReason, EngineConfig, NodeContent, PlaybackBinding, SkippedPlayback,
 };
@@ -79,6 +84,26 @@ pub struct RoutingDeps<'a> {
     pub engine_config_generation: u64,
     /// Canonical source format generation.
     pub source_format_generation: u64,
+}
+
+/// One host connection's non-RT halves retained for its generation:
+/// the teardown lease plus — for real plugin hosts — the node's
+/// [`PluginNodeControl`](ruviform_audio_plugin_bridge::PluginNodeControl)
+/// that [`RoutingEngine::take_processor_control`] may vend once.
+/// Field order is load-bearing: `_lease` drops before `control`, so
+/// host teardown (StopProcessing→Deactivate→Destroy) always runs
+/// before the control channel's producer end closes — the same
+/// order the lease closure used to enforce internally.
+struct RetainedConnection {
+    /// Semantic processor this connection serves.
+    processor: ProcessorId,
+    /// Generation-local graph node the processor fills.
+    node: NodeId,
+    /// Host teardown token — drop runs the lifecycle teardown once.
+    _lease: ProcessorLease,
+    /// Non-RT plugin control half, `Some` only for real plugin
+    /// hosts; `None` for [`StaticProcessorHost`] connections.
+    control: Option<ruviform_audio_plugin_bridge::PluginNodeControl>,
 }
 
 /// A fully prepared routing build: compiled plan plus the staged
@@ -111,9 +136,60 @@ pub struct PreparedRouting {
     drain_nonces: Vec<Arc<AtomicU64>>,
     /// Staged per-content playback stats.
     stats: Vec<(NodeContent, Arc<PlaybackStats>)>,
-    /// Host teardown leases for this build's chain processors —
+    /// Host connections for this build's chain processors —
     /// committed to the engine's generation ledger on `publish`.
-    leases: Vec<ProcessorLease>,
+    connections: Vec<RetainedConnection>,
+}
+
+/// The outcome of [`RoutingEngine::prepare`]: either a freshly
+/// compiled [`PreparedRouting`] or proof that the live published
+/// plan already covers the configured revision
+/// ([`ExecutionEquivalence`]) — the `NoRebuild` path. The two are
+/// mutually exclusive by construction: `Equivalent` carries nothing
+/// publishable and updates no receipt, generation counter or host
+/// connection.
+pub enum RoutingPrepare {
+    /// A new plan was lowered, host-connected and compiled —
+    /// publish it against the same committed revision. Boxed: the
+    /// prepared bundle is far larger than the equivalence evidence.
+    Built(Box<PreparedRouting>),
+    /// The last published plan's build key matches this request on
+    /// every field except `project_revision` — no rebuild was
+    /// needed. Carries the equivalence evidence; the live plan's
+    /// receipt state is unchanged.
+    Equivalent(ExecutionEquivalence),
+}
+
+impl std::fmt::Debug for RoutingPrepare {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Built(_) => f.write_str("RoutingPrepare::Built(..)"),
+            Self::Equivalent(equivalence) => f
+                .debug_tuple("RoutingPrepare::Equivalent")
+                .field(equivalence)
+                .finish(),
+        }
+    }
+}
+
+impl RoutingPrepare {
+    /// The prepared plan, or a panic describing the equivalence —
+    /// for callers/tests that require a fresh build. Prefer
+    /// matching on the enum when `Equivalent` is meaningful.
+    ///
+    /// # Panics
+    /// Panics when the result is [`Self::Equivalent`].
+    #[must_use]
+    #[track_caller]
+    pub fn expect_built(self) -> PreparedRouting {
+        match self {
+            Self::Built(prepared) => *prepared,
+            Self::Equivalent(equivalence) => panic!(
+                "prepare returned ExecutionEquivalence (plan generation {} covers revision {})",
+                equivalence.plan_generation, equivalence.configured_project_revision.0
+            ),
+        }
+    }
 }
 
 /// Playback/processor state staged by `prepare` — committed to the
@@ -121,8 +197,8 @@ pub struct PreparedRouting {
 struct StagedBuild {
     /// node → processor for the compile factory.
     pending: BTreeMap<NodeId, Box<dyn GraphProcessor>>,
-    /// Teardown leases for every host-connected chain processor.
-    leases: Vec<ProcessorLease>,
+    /// Host connections for every host-connected chain processor.
+    connections: Vec<RetainedConnection>,
     producers: Vec<PrefetchProducer>,
     handles: Vec<PrefetchHandle>,
     seek_nonces: Vec<Arc<AtomicU64>>,
@@ -195,12 +271,12 @@ pub struct RoutingEngine {
     /// Replaced wholesale by [`Self::set_processor_host`]; leases
     /// already minted keep their own host handle.
     host: Box<dyn ProcessorHost>,
-    /// Generation → host teardown leases for every published plan.
-    /// A generation's leases drop only when its plan can no longer
-    /// be RT-active: displaced pending generations release at the
-    /// next publish, and all non-active generations release once a
-    /// newer generation is RT-observed.
-    connections: BTreeMap<u64, Vec<ProcessorLease>>,
+    /// Generation → retained host connections for every published
+    /// plan. A generation's connections drop only when its plan can
+    /// no longer be RT-active: displaced pending generations release
+    /// at the next publish, and all non-active generations release
+    /// once a newer generation is RT-observed.
+    connections: BTreeMap<u64, Vec<RetainedConnection>>,
 }
 
 impl RoutingEngine {
@@ -255,14 +331,27 @@ impl RoutingEngine {
     }
 
     /// Lowers, validates and compiles `project`'s semantic routing
-    /// into a [`PreparedRouting`] — nothing is published and no RT
-    /// state changes. The returned plan must go through
+    /// into a [`RoutingPrepare::Built`] — nothing is published and no
+    /// RT state changes. The returned plan must go through
     /// [`Self::publish`] against the same committed revision.
+    ///
+    /// **`NoRebuild`:** when the last published plan's
+    /// [`RoutingBuildKey`] already matches this request on every
+    /// field except `project_revision` (a rename, view-only change
+    /// or undo/redo that restored identical graph content), the
+    /// compile is skipped entirely — no generation is reserved, no
+    /// lowering/host-connect/compile runs and no receipt is
+    /// recorded. The result is [`RoutingPrepare::Equivalent`]
+    /// carrying [`ExecutionEquivalence`] evidence; the live plan's
+    /// `Active`/`Published` state is untouched, so a new revision is
+    /// never falsely reported as RT-active. A re-prepare at the
+    /// *same* revision always builds — it is the explicit rebuild
+    /// path.
     ///
     /// `revision` is the caller-observed committed revision; it must
     /// equal `request.expected_project_revision` — a stale candidate
     /// (e.g. a gesture preview built before commit) is rejected
-    /// before any graph work.
+    /// before any graph work, equivalence included.
     ///
     /// # Errors
     /// [`RoutingFault`] — recorded on the activation receipt; the
@@ -273,8 +362,16 @@ impl RoutingEngine {
         project: &Project,
         revision: ProjectRevision,
         deps: RoutingDeps<'_>,
-    ) -> Result<PreparedRouting, RoutingFault> {
+    ) -> Result<RoutingPrepare, RoutingFault> {
         let key = self.checked_key(request, project, revision, &deps)?;
+
+        // NoRebuild equivalence: runs after `checked_key` so stale
+        // candidates, wrong epochs and under-budgeted requests are
+        // still rejected, and before generation reservation so an
+        // equivalent prepare consumes nothing.
+        if let Some(equivalence) = self.equivalence(&key) {
+            return Ok(RoutingPrepare::Equivalent(equivalence));
+        }
 
         // Reserve the generation up front — a failed prepare leaves a
         // gap, never a duplicate.
@@ -310,7 +407,7 @@ impl RoutingEngine {
         }
         let StagedBuild {
             mut pending,
-            leases,
+            connections,
             producers,
             handles,
             seek_nonces,
@@ -362,7 +459,7 @@ impl RoutingEngine {
                 planned_generation: generation,
             },
         );
-        Ok(PreparedRouting {
+        Ok(RoutingPrepare::Built(Box::new(PreparedRouting {
             key,
             request_id: request.request_id,
             spec,
@@ -376,7 +473,27 @@ impl RoutingEngine {
             seek_nonces,
             drain_nonces,
             stats,
-            leases,
+            connections,
+        })))
+    }
+
+    /// The `NoRebuild` probe: `Some(ExecutionEquivalence)` when the
+    /// last published plan's build key matches `key` on every field
+    /// except `project_revision` — and the revisions actually
+    /// differ. A same-revision re-prepare is *not* equivalent: it is
+    /// the explicit rebuild path. Pending published-but-not-yet-
+    /// active plans count as live evidence — their key is what RT
+    /// will run once observed.
+    fn equivalence(&self, key: &RoutingBuildKey) -> Option<ExecutionEquivalence> {
+        let source_map = self.source_map.as_ref()?;
+        let live = &source_map.build_key;
+        (live.project_revision != key.project_revision && live.semantic_eq(key)).then(|| {
+            ExecutionEquivalence {
+                configured_project_revision: key.project_revision,
+                active_built_from_revision: live.project_revision,
+                matching_semantic_build_key: live.clone(),
+                plan_generation: source_map.generation,
+            }
         })
     }
 
@@ -456,7 +573,7 @@ impl RoutingEngine {
         generation: u64,
     ) -> Result<StagedBuild, RoutingFault> {
         let mut pending: BTreeMap<NodeId, Box<dyn GraphProcessor>> = BTreeMap::new();
-        let mut leases: Vec<ProcessorLease> = Vec::new();
+        let mut connections: Vec<RetainedConnection> = Vec::new();
         let mut producers = Vec::with_capacity(lowered.playbacks.len());
         let mut handles = Vec::with_capacity(lowered.playbacks.len());
         let mut seek_nonces = Vec::with_capacity(lowered.playbacks.len());
@@ -532,10 +649,13 @@ impl RoutingEngine {
                         port_format,
                         max_frames,
                     }) {
-                        Ok(connection) => {
-                            pending.insert(*node, connection.processor);
-                            leases.push(connection.lease);
-                        }
+                        Ok(connection) => Self::retain_connection(
+                            &mut pending,
+                            &mut connections,
+                            semantic.id,
+                            *node,
+                            connection,
+                        ),
                         Err(error) => {
                             return Err(self.fail(request, key, error.fault()));
                         }
@@ -545,13 +665,32 @@ impl RoutingEngine {
         }
         Ok(StagedBuild {
             pending,
-            leases,
+            connections,
             producers,
             handles,
             seek_nonces,
             drain_nonces,
             stats,
         })
+    }
+
+    /// Splits a successful host connect into its RT half (the graph
+    /// processor) and its generation-retained non-RT halves (lease +
+    /// optional plugin control).
+    fn retain_connection(
+        pending: &mut BTreeMap<NodeId, Box<dyn GraphProcessor>>,
+        connections: &mut Vec<RetainedConnection>,
+        processor: ProcessorId,
+        node: NodeId,
+        connection: ProcessorConnection,
+    ) {
+        pending.insert(node, connection.processor);
+        connections.push(RetainedConnection {
+            processor,
+            node,
+            _lease: connection.lease,
+            control: connection.control,
+        });
     }
 
     /// Publishes a [`PreparedRouting`] after re-validating it against
@@ -621,7 +760,7 @@ impl RoutingEngine {
                 self.drain_nonces = prepared.drain_nonces;
                 self.device_in = Some(prepared.device_in);
                 self.source_map = Some(prepared.source_map);
-                self.connections.insert(generation, prepared.leases);
+                self.connections.insert(generation, prepared.connections);
                 // The new plan displaces every generation that is
                 // neither RT-active nor this one — a displaced
                 // pending generation can never activate, so its
@@ -705,8 +844,20 @@ impl RoutingEngine {
         {
             mismatches.push(RoutingReconcileMismatch::SourceMapIdentity);
         }
-        // Committed-snapshot CAS and semantic drift.
-        if key.project_revision != revision {
+        // Committed-snapshot CAS and semantic drift. A revision-only
+        // advance is *not* drift when the live semantic content still
+        // matches the published key — the `NoRebuild` path leaves the
+        // plan covering the newer revision without a rebuild, and a
+        // rename must not surface as `StaleProjectSnapshot`.
+        if key.project_revision != revision
+            && !self.revision_covered(
+                &key,
+                project,
+                revision,
+                engine_config_generation,
+                source_format_generation,
+            )
+        {
             mismatches.push(RoutingReconcileMismatch::ProjectRevision);
         }
         if routing_fingerprint(project) != key.routing_fingerprint {
@@ -757,27 +908,7 @@ impl RoutingEngine {
         // determines the receipt fault.
         let fault = mismatches
             .iter()
-            .map(|mismatch| match mismatch {
-                RoutingReconcileMismatch::SourceMapIdentity => RoutingFault::BadSourceMap,
-                RoutingReconcileMismatch::ProjectRevision => RoutingFault::StaleProjectSnapshot,
-                RoutingReconcileMismatch::RoutingFingerprint => RoutingFault::SpeculativeMismatch,
-                RoutingReconcileMismatch::CapabilityGeneration => {
-                    RoutingFault::PluginCapabilityChanged
-                }
-                RoutingReconcileMismatch::EngineConfigGeneration
-                | RoutingReconcileMismatch::SourceFormatGeneration => {
-                    RoutingFault::UnsupportedFormatOrTimeMap
-                }
-                RoutingReconcileMismatch::DeviceEpoch => RoutingFault::DeviceEpochChanged,
-                RoutingReconcileMismatch::RuntimeCounters => {
-                    if retire_advanced {
-                        RoutingFault::RetireOverflow
-                    } else {
-                        RoutingFault::EventStale
-                    }
-                }
-                RoutingReconcileMismatch::PendingActivation => RoutingFault::ActivationNotObserved,
-            })
+            .map(|mismatch| Self::fault_for(*mismatch, retire_advanced))
             .next();
         if let Some(fault) = fault {
             self.record_state(
@@ -794,6 +925,59 @@ impl RoutingEngine {
             mismatches,
             fault,
         }
+    }
+
+    /// The receipt fault a reconcile mismatch maps to — precedence
+    /// order is the order mismatches are pushed in `reconcile`.
+    fn fault_for(mismatch: RoutingReconcileMismatch, retire_advanced: bool) -> RoutingFault {
+        match mismatch {
+            RoutingReconcileMismatch::SourceMapIdentity => RoutingFault::BadSourceMap,
+            RoutingReconcileMismatch::ProjectRevision => RoutingFault::StaleProjectSnapshot,
+            RoutingReconcileMismatch::RoutingFingerprint => RoutingFault::SpeculativeMismatch,
+            RoutingReconcileMismatch::CapabilityGeneration => RoutingFault::PluginCapabilityChanged,
+            RoutingReconcileMismatch::EngineConfigGeneration
+            | RoutingReconcileMismatch::SourceFormatGeneration => {
+                RoutingFault::UnsupportedFormatOrTimeMap
+            }
+            RoutingReconcileMismatch::DeviceEpoch => RoutingFault::DeviceEpochChanged,
+            RoutingReconcileMismatch::RuntimeCounters => {
+                if retire_advanced {
+                    RoutingFault::RetireOverflow
+                } else {
+                    RoutingFault::EventStale
+                }
+            }
+            RoutingReconcileMismatch::PendingActivation => RoutingFault::ActivationNotObserved,
+        }
+    }
+
+    /// Whether the committed `project@revision` still describes the
+    /// same executable graph as the published `key` — the
+    /// reconcile-side `NoRebuild` probe. The live key is rebuilt from
+    /// the same inputs `prepare` would use; `build_mode` comes from
+    /// `key` because reconcile inputs carry no mode (a mode change
+    /// surfaces at the next `prepare` as a key difference, not here).
+    fn revision_covered(
+        &self,
+        key: &RoutingBuildKey,
+        project: &Project,
+        revision: ProjectRevision,
+        engine_config_generation: u64,
+        source_format_generation: u64,
+    ) -> bool {
+        let live_key = RoutingBuildKey {
+            project_id: project.project_id,
+            project_revision: revision,
+            routing_fingerprint: routing_fingerprint(project),
+            capability_generation: port_capability_generation(project),
+            engine_config_generation,
+            source_format_generation,
+            lowering_policy_version: LOWERING_POLICY_VERSION,
+            build_mode: key.build_mode,
+            device_clock_epoch: self.epoch,
+            runtime_instance: self.instance,
+        };
+        key.semantic_eq(&live_key)
     }
 
     /// The latest activation receipt — `None` before the first
@@ -816,6 +1000,42 @@ impl RoutingEngine {
     #[must_use]
     pub fn source_map(&self) -> Option<&RoutingSourceMap> {
         self.source_map.as_ref()
+    }
+
+    /// Takes the non-RT control handle for `processor` of a
+    /// **published** `generation` — one-shot: the engine retains the
+    /// connection's [`PluginNodeControl`](ruviform_audio_plugin_bridge::PluginNodeControl)
+    /// only until it is vended here or the generation retires.
+    ///
+    /// Returns `None` for an unknown generation or processor, a
+    /// connection without a plugin control half
+    /// ([`StaticProcessorHost`]), or an already-taken handle. The
+    /// vended [`ProcessorControl`] is caller-owned: it keeps working
+    /// after the generation retires, but its channel is dedicated to
+    /// that generation's plugin instance — staged commands can never
+    /// reach another generation's plugin (wrong-plugin 0 by
+    /// construction), and pushes against a dead node fail as
+    /// `QueueFull` or sit in the bounded buffer undelivered.
+    ///
+    /// `frame_base` is the attach-time `AttachConfig::frame_base`
+    /// (`TimeBase::sample_rate(engine.sample_rate)`) — the exact
+    /// value [`crate::ParamDispatch::new`] requires.
+    pub fn take_processor_control(
+        &mut self,
+        generation: u64,
+        processor: ProcessorId,
+    ) -> Option<ProcessorControl> {
+        let frame_base = TimeBase::sample_rate(self.engine.sample_rate).ok()?;
+        let connections = self.connections.get_mut(&generation)?;
+        let retained = connections
+            .iter_mut()
+            .find(|connection| connection.processor == processor)?;
+        let control = retained.control.take()?;
+        Some(ProcessorControl {
+            node: retained.node,
+            control,
+            frame_base,
+        })
     }
 
     /// Runs `blocks` blocks of `engine.block_frames`, collecting the

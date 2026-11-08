@@ -29,7 +29,7 @@ use std::rc::Rc;
 
 use ruviform_audio::typed::GraphProcessor;
 use ruviform_audio_core::AudioFormat;
-use ruviform_audio_plugin_bridge::{AttachConfig, AttachError, attach};
+use ruviform_audio_plugin_bridge::{AttachConfig, AttachError, PluginNodeControl, attach};
 use ruviform_graph::NodeId;
 use ruviform_media_core::{DeliveryPolicy, ScheduleBudget, TimeBase};
 use ruviform_plugin_core::{BusDescriptor, BusDirection, BusRole, ProcessConfig};
@@ -73,6 +73,33 @@ pub struct ProcessorConnection {
     pub processor: Box<dyn GraphProcessor>,
     /// Non-RT teardown token; drop runs the host-side teardown once.
     pub lease: ProcessorLease,
+    /// The node's non-RT control half (`attach`'s
+    /// [`PluginNodeControl`]) — `Some` only for real plugin hosts.
+    /// The engine retains it for the connection's generation
+    /// lifetime and may vend it once via
+    /// [`crate::routing_engine::RoutingEngine::take_processor_control`];
+    /// untaken controls drop together with the generation's lease.
+    /// `None` for [`StaticProcessorHost`] and other non-plugin hosts.
+    pub control: Option<PluginNodeControl>,
+}
+
+/// One-shot access to a published generation's chain-processor
+/// control channel — the non-RT halves a caller needs to drive
+/// [`crate::ParamDispatch`] for exactly this generation's plugin
+/// instance.
+pub struct ProcessorControl {
+    /// Generation-local graph node the control drives.
+    pub node: NodeId,
+    /// The node's non-RT control handle — its channel is dedicated
+    /// to this generation's plugin instance, so staged transport
+    /// commands can never reach another generation's plugin
+    /// (wrong-plugin 0 by construction).
+    pub control: PluginNodeControl,
+    /// The `AttachConfig::frame_base` the node was bound with —
+    /// `PluginNodeControl` exposes no accessor and
+    /// [`crate::ParamDispatch::new`] requires the exact attach-time
+    /// value, so the engine vends it alongside the control.
+    pub frame_base: TimeBase,
 }
 
 /// Opaque per-connection teardown token. Dropping it runs the
@@ -199,6 +226,7 @@ impl ProcessorHost for StaticProcessorHost {
         Ok(ProcessorConnection {
             processor,
             lease: ProcessorLease::noop(),
+            control: None,
         })
     }
 }
@@ -257,7 +285,6 @@ impl ProcessorHost for PluginHostProcessors {
         match result {
             Ok(attached) => {
                 let host_rc = Rc::clone(&self.host);
-                let control = attached.control;
                 let lease = ProcessorLease::new(move || {
                     // `try_borrow_mut`: a lease may drop while the host
                     // is mutably borrowed elsewhere only on a bug —
@@ -266,11 +293,11 @@ impl ProcessorHost for PluginHostProcessors {
                     if let Ok(mut host) = host_rc.try_borrow_mut() {
                         teardown(&mut host, handle);
                     }
-                    drop(control);
                 });
                 Ok(ProcessorConnection {
                     processor: Box::new(attached.node),
                     lease,
+                    control: Some(attached.control),
                 })
             }
             Err(error) => {
