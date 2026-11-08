@@ -21,8 +21,7 @@ use std::time::Duration;
 use serde_json::{Value, json};
 
 use ruviform_ui::behavior::{
-    CommandReceipt, ControlInput, InputSource, InteractionEvent, ReceiptStatus, Revision,
-    StateProjection, ValueInput,
+    CommandReceipt, ControlInput, InputSource, ReceiptStatus, Revision, StateProjection, ValueInput,
 };
 use ruviform_ui::ipc::{Event, Intent};
 use ruviform_ui::view::{ComponentKey, ProjectionOp, ViewEvent, ViewHost};
@@ -33,8 +32,8 @@ use ruviform_ui_test::FakeDriver;
 
 use synvelis_app::binding::project_action_op;
 use synvelis_app::{
-    NativeShell, SynvelisApp, main_screen_spec, main_view_id, main_view_targets, mount_main_view,
-    seek_range_seconds,
+    NativeShell, SynvelisApp, main_screen_spec, main_view_id, main_view_targets, mixer_gain_target,
+    mount_main_view, seek_range_seconds,
 };
 
 fn key(name: &str) -> ComponentKey {
@@ -425,35 +424,109 @@ fn cancel_gesture_reports_receipt_without_commit() {
     );
 }
 
+/// The Mixer `Fader` is a driven control (synvelis#185): its binding
+/// target is the bootstrap master-strip `ParameterRole::Fader` id, the
+/// subscribe resolves, the controlled display is the authoritative
+/// `host_normalized` projection, and a drag rides the same
+/// `Begin → Preview → Commit` wire path as the Seek.
+///
+/// Automation mode note: the session default is `Read`, under which a
+/// commit returns to the recorded series without writing — the
+/// `Off`-mode `SetParameterBase` write is covered headless in
+/// `synvelis-workspace/tests/sv185_mixer_gain.rs`. Here the wire-level
+/// contract is what matters: preview moves the controlled display and
+/// commit lands an `Applied` receipt.
 #[test]
-fn unsupported_mixer_fader_never_mints_a_command() {
+fn mixer_fader_display_and_gesture_follow_the_domain_projection() {
+    let mut f = fixture();
+    let target = mixer_gain_target();
+
+    // attach_view subscribed both driven targets — the fader's tagged
+    // param id resolves against the bootstrap control model.
+    let sub = results_for(&f.driver, f.window, &format!("shell-sub-view-1-{target}"));
+    assert_eq!(sub.len(), 1, "one fader subscribe result: {sub:?}");
+    assert!(sub[0].0, "fader subscribe ok: {sub:?}");
+
+    // The initial projection row reaches the host binding; the
+    // controlled display is the authoritative base (unity = 1.0).
+    let projections = notifies(&f.driver, f.window, "syn.control.projection");
+    assert!(
+        projections.iter().any(|p| p["target"] == target),
+        "fader projection row pushed: {projections:?}"
+    );
+    f.deliver_to_host();
+    let snap = f.host.observe(&key("fader.gain")).expect("fader snapshot");
+    assert!(snap.observed.is_some(), "fader projection landed: {snap:?}");
+    let display = snap.display.expect("controlled display");
+    assert!(
+        (display.plain - 1.0).abs() < 1e-9,
+        "authoritative unity display: {display:?}"
+    );
+
+    // Drag: begin → preview moves the controlled display (preview wins
+    // over the staged external value), commit lands `Applied` on the
+    // binding and the display returns to the authoritative base under
+    // the default Read mode.
+    f.input("fader.gain", MountedFixture::begin("gf"));
+    f.input("fader.gain", MountedFixture::preview("gf", 0.4));
+    let snap = f
+        .host
+        .observe(&key("fader.gain"))
+        .expect("fader snapshot during preview");
+    let display = snap.display.expect("controlled display during preview");
+    assert!(
+        (display.plain - 0.4).abs() < 1e-9,
+        "preview drives the display: {display:?}"
+    );
+
+    f.input("fader.gain", MountedFixture::commit("gf"));
+    let binding = f
+        .host
+        .binding(&target)
+        .expect("binding for the fader target");
+    let receipt = binding
+        .state()
+        .last_receipt
+        .clone()
+        .expect("a receipt landed");
+    assert_eq!(
+        receipt.status,
+        ReceiptStatus::Applied,
+        "fader commit receipt applied: {receipt:?}"
+    );
+    f.deliver_to_host();
+    let snap = f
+        .host
+        .observe(&key("fader.gain"))
+        .expect("fader snapshot after commit");
+    let display = snap.display.expect("controlled display after commit");
+    assert!(
+        (display.plain - 1.0).abs() < 1e-9,
+        "Read-mode commit returns to the authoritative base: {display:?}"
+    );
+}
+
+/// A cancelled fader gesture drops the preview and restores the
+/// authoritative display — nothing is written to the domain.
+#[test]
+fn mixer_fader_cancel_restores_the_authoritative_display() {
     let mut f = fixture();
     f.deliver_to_host();
-    let receipts_before = notifies(&f.driver, f.window, "syn.control.receipt").len();
 
-    // `fader.gain` is mounted `unsupported: true` — a begin resolves
-    // locally as `Unavailable`, minting no backend intent.
-    let generation = f.host.generation();
-    f.host
-        .dispatch_input(generation, &key("fader.gain"), MountedFixture::begin("gx"))
-        .expect("dispatch_input on unsupported control");
-    let events = f.host.drain_events();
+    f.input("fader.gain", MountedFixture::begin("gc"));
+    f.input("fader.gain", MountedFixture::preview("gc", 0.1));
+    f.input("fader.gain", MountedFixture::cancel("gc"));
+    f.deliver_to_host();
+
+    let snap = f
+        .host
+        .observe(&key("fader.gain"))
+        .expect("fader snapshot after cancel");
+    let display = snap.display.expect("controlled display after cancel");
     assert!(
-        events.iter().any(|e| matches!(
-            e,
-            ViewEvent::Gesture {
-                event: InteractionEvent::Unavailable { .. },
-                ..
-            }
-        )),
-        "unavailable reported on the unsupported fader: {events:?}"
+        (display.plain - 1.0).abs() < 1e-9,
+        "cancel restores the authoritative base: {display:?}"
     );
-    assert!(
-        !events.iter().any(|e| matches!(e, ViewEvent::Intent { .. })),
-        "no intent minted for an unsupported control: {events:?}"
-    );
-    let receipts_after = notifies(&f.driver, f.window, "syn.control.receipt").len();
-    assert_eq!(receipts_before, receipts_after, "no domain receipt minted");
 }
 
 #[test]

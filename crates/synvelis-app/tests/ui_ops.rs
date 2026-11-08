@@ -380,3 +380,18 @@ fn detach_view_stops_surface_and_binding_truth() {
     assert_eq!(err["code"], "service_error");
     let _ = notifies(&outbox, "syn.view.state");
 }
+
+#[test]
+fn control_targets_lists_the_bootstrap_fader() {
+    let (mut rt, _outbox) = runtime();
+    let row = ok(&mut rt, "syn.control.targets", json!({}));
+    let fader =
+        synvelis_project::ParameterTargetId::new(synvelis_project::MASTER_FADER_RAW).to_tagged();
+    let targets = row["targets"].as_array().unwrap();
+    assert!(
+        targets
+            .iter()
+            .any(|t| t["target"] == fader && t["kind"] == "param"),
+        "bootstrap fader missing from syn.control.targets: {targets:?}"
+    );
+}

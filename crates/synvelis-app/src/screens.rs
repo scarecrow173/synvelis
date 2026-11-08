@@ -1,5 +1,5 @@
 //! The product's minimal neutral screen spec (SV-GPUI-01 view-mount
-//! slice, Issue #175 successor).
+//! slice, Issue #175 successor; mixer gain wired by Issue #185).
 //!
 //! [`main_screen_spec`] is the smallest *product-shaped* `ViewSpec`
 //! mounted through the RF387 seam: `Panel > [Toolbar, Tabs]` where the
@@ -8,9 +8,12 @@
 //! command target (`Begin → Preview → Commit/Cancel` gesture dispatch;
 //! the controlled value is the seconds position derived from the
 //! authoritative projection). The Seek range follows the project
-//! length ([`seek_range_seconds`]); a Mixer tab carries a `Fader` marked
-//! `unsupported` — the honest "known but undriven" state for a mixer
-//! gain that no parameter target exists for yet.
+//! length ([`seek_range_seconds`]); a Mixer tab carries a `Fader`
+//! bound to the bootstrap master-strip `ParameterRole::Fader` target
+//! ([`mixer_gain_target`]) — its controlled display is the
+//! authoritative `host_normalized` projection and commits land as
+//! `SetParameterBase` through the same gesture path as every
+//! parameter target.
 //!
 //! The spec is rebuilt on every project-length change and applied with
 //! `ViewHost::update` (through `GpuiDriver::update_view`), so the mounted
@@ -24,11 +27,13 @@
 //!   correlates by `control_id`, so a control whose `control_id`
 //!   differs from its `target` would silently drop every projection
 //!   (`crate::binding::notify_to_view_event`).
-//! - The Mixer fader is `unsupported: true` — mutating inputs mint
-//!   `Unavailable` notifications, never commands, so a target that
-//!   does not exist in `syn.control.targets` is never dispatched
-//!   (RF387 availability semantics; RF410 shared-`control_id` under-
-//!   determination is avoided by giving every control a distinct id).
+//! - Every control carries a distinct `control_id` (RF410 shared-
+//!   `control_id` under-determination is avoided). A control whose
+//!   target does not resolve in `syn.control.targets` mints commands
+//!   that come back `rejected` — the Fader's well-known target is
+//!   seeded by `Project::new` and restored by the v7→v8 migration, so
+//!   every loadable project resolves it; only a corrupt bundle fails
+//!   honestly instead of writing phantom state.
 //! - The logical view id is `view-1`: `ViewHost` stamps
 //!   `origin_view = "view-{ViewInstanceId}"` on minted commands, and
 //!   the shell validates that against `syn.view.attach` bookkeeping —
@@ -48,6 +53,7 @@ use ruviform_ui::view::{
     ComponentVisualState, ControlSpec, Orientation, PanelSpec, TabSpec, TabsSelectionSpec,
     TabsSpec, ViewHost, ViewSpec,
 };
+use synvelis_project::{MASTER_FADER_RAW, ParameterTargetId};
 use synvelis_workspace::controls_ui::TRANSPORT_POSITION_TARGET;
 
 use crate::binding::{PROJECT_TARGET, VIEW_STATE_TARGET};
@@ -93,12 +99,21 @@ pub fn main_view_instance() -> ViewInstanceId {
     ViewInstanceId::new(MAIN_VIEW_INSTANCE_RAW).expect("nonzero literal")
 }
 
+/// Wire target of the mixer gain fader — the tagged id of the
+/// bootstrap master-strip [`synvelis_project::ParameterRole::Fader`]
+/// target (`param-<32hex>`), resolved by `syn.control.subscribe`/
+/// `dispatch` like any parameter target (synvelis#185).
+#[must_use]
+pub fn mixer_gain_target() -> String {
+    ParameterTargetId::new(MASTER_FADER_RAW).to_tagged()
+}
+
 /// Targets the main view subscribes after attach — every driven
 /// control's binding target. One entry per unique target (the
 /// subscription is `(view, target)`, not per control).
 #[must_use]
 pub fn main_view_targets() -> Vec<String> {
-    vec![TRANSPORT_POSITION_TARGET.to_string()]
+    vec![TRANSPORT_POSITION_TARGET.to_string(), mixer_gain_target()]
 }
 
 fn key(name: &str) -> ComponentKey {
@@ -168,24 +183,25 @@ fn project_button(key_name: &str, label: &str, action: &str) -> ComponentSpec {
     })
 }
 
-/// The `Fader` the slice names — a mixer gain. No `mixer.*` parameter
-/// target exists in the boot project (`syn.control.targets` lists only
-/// `transport`/`transport/position`), so it is mounted
-/// `unsupported: true`: rendered but uninputtable — the honest shape
-/// of a control whose domain binding has not landed yet.
+/// The `Fader` the slice names — the mixer gain, bound to the
+/// bootstrap master-strip fader target ([`mixer_gain_target`]). Its
+/// normalized `[0, 1]` domain is the domain contract: the controlled
+/// display is the projection's `host_normalized` and commits write
+/// `target.base` through `SetParameterBase`.
 fn mixer_fader() -> ComponentSpec {
+    let target = mixer_gain_target();
     ComponentSpec::Fader(ControlSpec {
         key: key("fader.gain"),
-        control_id: Some("mixer.gain".to_string()),
-        target: Some("mixer.gain".to_string()),
+        control_id: Some(target.clone()),
+        target: Some(target),
         descriptor: ValueDescriptor {
-            default_value: Some(0.5),
+            default_value: Some(1.0),
             step: Some(0.05),
             ..ValueDescriptor::ranged(0.0, 1.0)
         },
         orientation: Orientation::Vertical,
         detach_policy: DetachPolicy::Cancel,
-        unsupported: true,
+        unsupported: false,
         visual: ComponentVisualState::default(),
         a11y: a11y_slider("Gain", Orientation::Vertical),
     })
@@ -200,8 +216,8 @@ fn mixer_fader() -> ComponentSpec {
 ///   seconds position of the authoritative projection (see the adapter
 ///   in `binding.rs`). Its range is [`seek_range_seconds`] of
 ///   `project_length_seconds`.
-/// - **Mixer** tab: the `Fader` mounted `unsupported` (see
-///   [`mixer_fader`]).
+/// - **Mixer** tab: the `Fader` bound to the bootstrap master-strip
+///   fader target (see [`mixer_fader`]).
 #[must_use]
 pub fn main_screen_spec(project_length_seconds: f64) -> ViewSpec {
     let seek_range = seek_range_seconds(project_length_seconds);

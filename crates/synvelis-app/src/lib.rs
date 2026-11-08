@@ -56,8 +56,8 @@ pub use logging::{
 };
 pub use revision::{APP_ASSET_SCHEMA, AssetManifest, HOST_REVISION, MANIFEST_NAME, check_bundle};
 pub use screens::{
-    main_screen_spec, main_view_id, main_view_instance, main_view_targets, mount_main_view,
-    seek_range_seconds,
+    main_screen_spec, main_view_id, main_view_instance, main_view_targets, mixer_gain_target,
+    mount_main_view, seek_range_seconds,
 };
 pub use service::{AppService, OPS};
 pub use shell::NativeShell;
