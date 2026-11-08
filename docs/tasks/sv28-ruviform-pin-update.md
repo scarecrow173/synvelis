@@ -115,7 +115,7 @@ relations:
   補助として `check-ui`/`test-ui` も pass。
 - [x] 最新 main 取り込み確認（HEAD == origin/main `3fabfef`、
   merge 不要を確認）。
-- [ ] コミット・push・PR 作成（impl record 作成済み）。
+- [x] コミット・push・PR 作成（impl record 作成済み、PR #193）。
 
 ## Verification
 
