@@ -469,6 +469,31 @@ pub struct RoutingReconcileReport {
     pub fault: Option<RoutingFault>,
 }
 
+/// Evidence that a newly configured project revision needs no
+/// rebuild: the last published plan's [`RoutingBuildKey`] already
+/// covers it on every field except `project_revision` (a rename,
+/// view-only change or undo/redo that restored identical graph
+/// content). This is *not* an activation receipt — it asserts only
+/// that the live plan remains the correct executable graph for the
+/// new revision; the plan's own `Active`/`Published` evidence is
+/// unchanged and no new generation was planned, compiled or
+/// published.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExecutionEquivalence {
+    /// The revision the caller just configured — semantically
+    /// covered by the live plan but not physically rebuilt into it.
+    pub configured_project_revision: ProjectRevision,
+    /// The revision the live published plan was actually built
+    /// from.
+    pub active_built_from_revision: ProjectRevision,
+    /// The live plan's build key — every field except
+    /// `project_revision` matched the new request's key.
+    pub matching_semantic_build_key: RoutingBuildKey,
+    /// Generation of the live published plan the IDs/evidence are
+    /// scoped to.
+    pub plan_generation: u64,
+}
+
 /// FNV-1a 64 over the canonical JSON projection of the
 /// graph-relevant project content. Deterministic across processes;
 /// collisions are possible in principle but the fingerprint is a

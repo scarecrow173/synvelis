@@ -391,7 +391,8 @@ fn drive(
     };
     let prepared = engine
         .prepare(&request(request_id, revision), c.live(), revision, deps)
-        .unwrap();
+        .unwrap()
+        .expect_built();
     engine.publish(prepared, c.live(), revision).unwrap();
     engine.run(blocks, PumpPolicy::Every(1)).unwrap()
 }
@@ -551,7 +552,8 @@ fn sf03_02_semantic_audio_matches_legacy_bitexact() {
             revision,
             deps_for(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     let published = routing_engine
         .publish(prepared, c.live(), revision)
         .unwrap();
@@ -728,7 +730,8 @@ fn sf03_04_publish_then_active_receipt() {
             revision,
             deps_for(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     assert_eq!(prepared.generation, 1);
     assert_eq!(prepared.source_map.generation, 1);
 
@@ -784,7 +787,8 @@ fn sf03_04b_failure_preserves_last_good() {
             rev1,
             deps_for(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     eng.publish(good, c.live(), rev1).unwrap();
     let before = eng.run(2, PumpPolicy::Every(1)).unwrap();
     assert!(matches!(
@@ -874,7 +878,8 @@ fn sf03_04c_publish_rejects_stale_revision() {
             rev1,
             deps_for(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
 
     // Project moves before publish.
     apply(
@@ -920,7 +925,8 @@ fn sf03_04d_generation_scoped_source_map() {
             rev1,
             deps_for(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     eng.publish(p1, c.live(), rev1).unwrap();
     eng.run(1, PumpPolicy::Every(1)).unwrap();
     let map1 = eng.source_map().unwrap().clone();
@@ -944,7 +950,8 @@ fn sf03_04d_generation_scoped_source_map() {
             rev2,
             deps_for(c.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     assert_eq!(p2.generation, 2);
     eng.publish(p2, c.live(), rev2).unwrap();
     eng.run(1, PumpPolicy::Every(1)).unwrap();
@@ -1064,7 +1071,10 @@ fn sf03_06_chain_processor_instance() {
     );
     eng.set_processor_host(Box::new(host));
     let deps = deps_for(c.live(), &media);
-    let prepared = eng.prepare(&request(1, rev), c.live(), rev, deps).unwrap();
+    let prepared = eng
+        .prepare(&request(1, rev), c.live(), rev, deps)
+        .unwrap()
+        .expect_built();
     eng.publish(prepared, c.live(), rev).unwrap();
     let halved = eng.run(4, PumpPolicy::Every(1)).unwrap();
 
@@ -1082,7 +1092,8 @@ fn sf03_06_chain_processor_instance() {
             rev_r,
             deps_for(c_ref.live(), &media),
         )
-        .unwrap();
+        .unwrap()
+        .expect_built();
     eng_ref.publish(p_ref, c_ref.live(), rev_r).unwrap();
     let full = eng_ref.run(4, PumpPolicy::Every(1)).unwrap();
 

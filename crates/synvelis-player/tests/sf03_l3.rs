@@ -483,7 +483,8 @@ fn run_semantic(
     let deps = deps_default(c.live(), media);
     let prepared = engine
         .prepare(&request(request_id, revision), c.live(), revision, deps)
-        .unwrap();
+        .unwrap()
+        .expect_built();
     engine.publish(prepared, c.live(), revision).unwrap();
     engine.run(blocks, PumpPolicy::Every(1)).unwrap()
 }
@@ -533,7 +534,10 @@ fn sf03_l3_01_static_host_connect_consumes_instance() {
 
     let rev = c.live_revision();
     let deps = deps_default(c.live(), &media);
-    let prepared = eng.prepare(&request(1, rev), c.live(), rev, deps).unwrap();
+    let prepared = eng
+        .prepare(&request(1, rev), c.live(), rev, deps)
+        .unwrap()
+        .expect_built();
     eng.publish(prepared, c.live(), rev).unwrap();
     let halved = eng.run(4, PumpPolicy::Every(1)).unwrap();
     assert_halved(&halved, &reference_full(&root));
@@ -571,7 +575,10 @@ fn sf03_l3_02_connect_failure_preserves_last_good() {
     // Gen 1: build, publish, activate.
     let rev = c.live_revision();
     let deps = deps_default(c.live(), &media);
-    let prepared = eng.prepare(&request(1, rev), c.live(), rev, deps).unwrap();
+    let prepared = eng
+        .prepare(&request(1, rev), c.live(), rev, deps)
+        .unwrap()
+        .expect_built();
     eng.publish(prepared, c.live(), rev).unwrap();
     let first = eng.run(4, PumpPolicy::Every(1)).unwrap();
     assert!(matches!(
@@ -632,7 +639,10 @@ fn sf03_l3_03_real_host_gain_processes_audio() {
 
     let rev = c.live_revision();
     let deps = deps_default(c.live(), &media);
-    let prepared = eng.prepare(&request(1, rev), c.live(), rev, deps).unwrap();
+    let prepared = eng
+        .prepare(&request(1, rev), c.live(), rev, deps)
+        .unwrap()
+        .expect_built();
     eng.publish(prepared, c.live(), rev).unwrap();
     let halved = eng.run(4, PumpPolicy::Every(1)).unwrap();
 
@@ -863,7 +873,8 @@ fn sf03_l3_09_generation_teardown_lifecycle() {
     let deps1 = deps_default(c.live(), &media);
     let p1 = eng
         .prepare(&request(1, rev1), c.live(), rev1, deps1)
-        .unwrap();
+        .unwrap()
+        .expect_built();
     eng.publish(p1, c.live(), rev1).unwrap();
     assert_eq!(tally.created.load(Ordering::Relaxed), 1);
     assert_eq!(tally.drops.load(Ordering::Relaxed), 0);
@@ -873,7 +884,8 @@ fn sf03_l3_09_generation_teardown_lifecycle() {
     let deps2 = deps_default(c.live(), &media);
     let p2 = eng
         .prepare(&request(2, rev2), c.live(), rev2, deps2)
-        .unwrap();
+        .unwrap()
+        .expect_built();
     eng.publish(p2, c.live(), rev2).unwrap();
     assert_eq!(tally.created.load(Ordering::Relaxed), 2);
 
@@ -898,7 +910,8 @@ fn sf03_l3_09_generation_teardown_lifecycle() {
     let deps3 = deps_default(c.live(), &media);
     let p3 = eng
         .prepare(&request(3, rev3), c.live(), rev3, deps3)
-        .unwrap();
+        .unwrap()
+        .expect_built();
     eng.publish(p3, c.live(), rev3).unwrap();
     assert_eq!(
         tally.drops.load(Ordering::Relaxed),
@@ -983,6 +996,7 @@ impl ProcessorHost for RecordingHost {
             lease: ProcessorLease::new(move || {
                 drops.fetch_add(1, Ordering::Relaxed);
             }),
+            control: None,
         })
     }
 }
@@ -1004,7 +1018,10 @@ fn sf03_l3_11_host_boundary_contract_and_lease_teardown() {
 
     let rev = c.live_revision();
     let deps = deps_default(c.live(), &media);
-    let prepared = eng.prepare(&request(1, rev), c.live(), rev, deps).unwrap();
+    let prepared = eng
+        .prepare(&request(1, rev), c.live(), rev, deps)
+        .unwrap()
+        .expect_built();
     eng.publish(prepared, c.live(), rev).unwrap();
     eng.run(2, PumpPolicy::Every(1)).unwrap();
     assert_eq!(seen.load(Ordering::Relaxed), 1);
@@ -1020,7 +1037,8 @@ fn sf03_l3_11_host_boundary_contract_and_lease_teardown() {
     let deps2 = deps_default(c.live(), &media);
     let p2 = eng
         .prepare(&request(2, rev2), c.live(), rev2, deps2)
-        .unwrap();
+        .unwrap()
+        .expect_built();
     eng.publish(p2, c.live(), rev2).unwrap();
     eng.run(2, PumpPolicy::Every(1)).unwrap();
     assert_eq!(seen.load(Ordering::Relaxed), 2);

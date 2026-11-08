@@ -35,7 +35,7 @@ pub use driver::{AttachedNode, DriverState, HeadlessDriver, PlayReport, PumpPoli
 pub use error::{ImportError, ResolveError};
 pub use host::{
     PluginHostProcessors, ProcessorConnectError, ProcessorConnectRequest, ProcessorConnection,
-    ProcessorHost, ProcessorLease, StaticProcessorHost,
+    ProcessorControl, ProcessorHost, ProcessorLease, StaticProcessorHost,
 };
 pub use import::{BlobReceipt, ImportOutcome, ImportRequest, ProjectReceipt, VerifiedMedia};
 pub use lowering::{
