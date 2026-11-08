@@ -279,39 +279,66 @@ pub struct RoutingSourceMap {
     pub playback_bindings: Vec<RoutingPlaybackRef>,
 }
 
-/// Explicit build/activation failure taxonomy. This slice covers the
-/// variants the lowering/activation path can actually produce; the
-/// full Issue #106 classification lands in a later slice.
+/// Explicit build/activation failure taxonomy — the 18 categories of
+/// Issue #106 §5, one variant each, minted deterministically by the
+/// paths documented in `docs/designs/sf-03-slice2-fault-reconcile-design.md`.
+/// No duplicate or catch-all classification exists: every fault
+/// path maps to exactly one variant.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum RoutingFault {
-    /// The committed project revision moved past the prepared key.
-    StaleProjectRevision,
-    /// Plugin/port capability generation drifted.
-    StaleCapability,
-    /// A temporary (pre-commit) ID leaked into a mapping.
-    TemporaryIdMismatch,
-    /// A clip/comp source could not be resolved for playback.
+    /// The committed project revision (or project identity) moved past
+    /// the prepared key — `StaleProjectSnapshot`.
+    StaleProjectSnapshot,
+    /// The live project's semantic fingerprint differs from the
+    /// prepared key at an equal revision — a speculative plan that
+    /// does not match the committed snapshot.
+    SpeculativeMismatch,
+    /// Plugin/port capability generation drifted from the build key.
+    PluginCapabilityChanged,
+    /// A clip/comp source could not be resolved for playback — the
+    /// build fails closed rather than lowering to fake silence.
     MissingSource,
-    /// A playback mapping the graph cannot lower.
-    UnsupportedMapping,
-    /// Port channel count/layout disagrees with the engine format.
-    ChannelMismatch,
     /// A processor has no usable plugin/processor instance.
     PluginUnavailable,
-    /// The compile factory had no instance for a processor node.
-    MissingProcessorInstance,
-    /// The typed compiler rejected the prepared spec.
-    CompileFailed,
-    /// Generic graph validation rejected the spec.
-    ValidationFailed,
-    /// The runtime command channel could not hold the plan delta.
-    PublishChannelFull,
-    /// An observed generation disagrees with the published plan.
-    GenerationMismatch,
-    /// The engine is stopped — no frames can be processed.
-    EngineStopped,
-    /// A plan event arrived for a stale generation.
-    StaleEvent,
+    /// A semantic port reference cannot be resolved to a port entity.
+    PortUnresolved,
+    /// A signal format, channel layout, or time mapping the lowering
+    /// cannot represent.
+    UnsupportedFormatOrTimeMap,
+    /// The semantic routing model or lowered spec is structurally
+    /// invalid (non-cycle validation, broken entity references).
+    InvalidRouting,
+    /// The graph contains a cycle the validator rejects.
+    Cycle,
+    /// A resource bound (node/connection/frame/slot/delay/processor
+    /// budget) was exceeded.
+    CompileResourceExceeded,
+    /// The runtime command/event channel could not hold the plan
+    /// delta — nothing was published, last-good retained.
+    PublishQueueFull,
+    /// A published plan was processed but its generation was never
+    /// observed active — activation evidence is overdue.
+    ActivationNotObserved,
+    /// Processor/plan retirement overflowed the bounded retire
+    /// channel — a resource degradation, never a clean success.
+    RetireOverflow,
+    /// The request's device clock epoch or runtime instance differs
+    /// from the engine's — the plan would target the wrong runtime.
+    DeviceEpochChanged,
+    /// The prepared plan's generation is not newer than the last
+    /// published generation — an out-of-order publish that must not
+    /// displace the newer plan.
+    Superseded,
+    /// The prepared bundle's source map / build key / generation are
+    /// internally incoherent, or the published map drifted from the
+    /// live state.
+    BadSourceMap,
+    /// Generation-tagged stale events/commands were discarded by the
+    /// RT side (observed via `SharedStatus` counters).
+    EventStale,
+    /// An offline build included a processor instance that does not
+    /// report `OfflineRenderSupport::Verified`.
+    OfflineCapabilityMismatch,
 }
 
 /// Activation evidence state — `Configured`/`Validated`/`Prepared` are
@@ -395,6 +422,50 @@ pub struct RoutingActivationReceipt {
     /// Frames processed while this receipt's plan was active.
     pub frames_observed: u64,
     /// Failure detail when `state` is `Blocked`/`Failed`.
+    pub fault: Option<RoutingFault>,
+}
+
+/// One drift aspect detected by reconciliation between the last
+/// published plan's [`RoutingBuildKey`] and the live committed
+/// snapshot / runtime counters.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum RoutingReconcileMismatch {
+    /// The published source map / plan identity is incoherent —
+    /// project mismatch, generation gap, or key/map disagreement.
+    SourceMapIdentity,
+    /// The committed project revision moved past the published key.
+    ProjectRevision,
+    /// The live semantic fingerprint drifted from the published key.
+    RoutingFingerprint,
+    /// The port capability generation drifted.
+    CapabilityGeneration,
+    /// The engine geometry generation drifted.
+    EngineConfigGeneration,
+    /// The canonical source format generation drifted.
+    SourceFormatGeneration,
+    /// The device clock epoch or runtime instance changed.
+    DeviceEpoch,
+    /// RT stale-discard or retire-overflow counters advanced since
+    /// the previous reconcile.
+    RuntimeCounters,
+    /// The published plan's RT activation is overdue or disagrees
+    /// with the observed generation.
+    PendingActivation,
+}
+
+/// Point-in-time reconciliation result: every drift aspect detected
+/// plus the single [`RoutingFault`] recorded on the activation
+/// receipt. An empty `mismatches` with `fault: None` means the
+/// published plan is fully current.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RoutingReconcileReport {
+    /// Build key of the last published plan — `None` before the first
+    /// successful publish (nothing to reconcile).
+    pub plan_key: Option<RoutingBuildKey>,
+    /// Every drift aspect detected, in check order.
+    pub mismatches: Vec<RoutingReconcileMismatch>,
+    /// The fault recorded on the receipt, when the plan is not
+    /// current. `None` when fully current or nothing published.
     pub fault: Option<RoutingFault>,
 }
 

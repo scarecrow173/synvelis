@@ -79,8 +79,9 @@ pub use routing_build::{
     AvailabilityReason, BuildBudget, BuildMode, LOWERING_POLICY_VERSION, MappingResolution,
     NotLoweredReason, PlaybackContentRef, PlaybackOverlapSide, RoutingActivationReceipt,
     RoutingActivationState, RoutingBuildKey, RoutingBuildRequestId, RoutingCompileRequest,
-    RoutingFault, RoutingFingerprint, RoutingPlaybackRef, RoutingSourceMap, RuntimeClockEpochRef,
-    RuntimeInstanceId, SemanticNodeRef, UnsupportedReason, routing_fingerprint,
+    RoutingFault, RoutingFingerprint, RoutingPlaybackRef, RoutingReconcileMismatch,
+    RoutingReconcileReport, RoutingSourceMap, RuntimeClockEpochRef, RuntimeInstanceId,
+    SemanticNodeRef, UnsupportedReason, routing_fingerprint,
 };
 pub use routing_tx::{
     BusRef, ConnectionRef, ExplicitConversionPolicy, PortRef, RoutingEdit, RoutingEditError,
