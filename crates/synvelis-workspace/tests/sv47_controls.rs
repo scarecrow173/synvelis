@@ -11,7 +11,7 @@ use ruviform_plugin_core::ParamFlags;
 use synvelis_project::{
     AutomationLaneId, AutomationTimeScope, BeatPoint, ControlOwner, CounterIdGenerator,
     ParamMapping, ParameterRole, ParameterTargetId, Project, ProjectController, ProjectId,
-    ProjectOp, ProjectRevision, TargetCapability, ValueKind,
+    ProjectOp, ProjectRevision, TargetCapability, ValueKind, is_issuable_raw,
 };
 use synvelis_workspace::{
     AutomationMode, CommandIntent, CommandPhase, ControlsUi, DispatchContext, GestureCancelReason,
@@ -61,7 +61,14 @@ fn add_target(s: &mut ProjectSession, base: f64) -> ParameterTargetId {
             base,
         },
     );
-    *s.project().control.targets.keys().last().unwrap()
+    // The bootstrap master-fader target is well-known (never issued) —
+    // pick the newest *issued* target.
+    *s.project()
+        .control
+        .targets
+        .keys()
+        .rfind(|id| is_issuable_raw(id.raw()))
+        .unwrap()
 }
 
 fn add_readonly_target(s: &mut ProjectSession) -> ParameterTargetId {
@@ -78,7 +85,12 @@ fn add_readonly_target(s: &mut ProjectSession) -> ParameterTargetId {
             base: 0.5,
         },
     );
-    *s.project().control.targets.keys().last().unwrap()
+    *s.project()
+        .control
+        .targets
+        .keys()
+        .rfind(|id| is_issuable_raw(id.raw()))
+        .unwrap()
 }
 
 fn add_lane(s: &mut ProjectSession, target: ParameterTargetId) -> AutomationLaneId {

@@ -14,7 +14,7 @@ use synvelis_project::{
     AutomationLaneId, AutomationPoint, AutomationRegion, AutomationTimeScope, BeatPoint, BeatRange,
     ConflictPolicy, ControlOwner, CounterIdGenerator, Interpolation, ParamMapping, ParameterRole,
     ParameterTargetId, ProcessorBinding, Project, ProjectController, ProjectId, ProjectOp,
-    ProjectRevision, ReferenceSource, TrackId, ValueKind,
+    ProjectRevision, ReferenceSource, TrackId, ValueKind, is_issuable_raw,
 };
 use synvelis_workspace::{
     AutomationMode, FakeWindowHost, GestureEnd, ProjectSession, WorkspaceManager, WriteArm,
@@ -86,7 +86,7 @@ fn add_track_target(ws: &mut Ws, name: &str, base: f64) -> (TrackId, ParameterTa
         .control
         .targets
         .keys()
-        .last()
+        .rfind(|id| is_issuable_raw(id.raw()))
         .unwrap();
     (track, target)
 }
@@ -1015,7 +1015,7 @@ fn aut_01_plugin_crash_closes_only_its_targets() {
         .control
         .targets
         .keys()
-        .last()
+        .rfind(|id| is_issuable_raw(id.raw()))
         .unwrap();
     let (_track, track_target) = add_track_target(&mut ws, "vol", 0.4);
 

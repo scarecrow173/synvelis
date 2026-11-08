@@ -16,7 +16,7 @@ use synvelis_project::{
     CounterIdGenerator, Error, Interpolation, LfoShape, MusicalDuration, MusicalTick, ParamMapping,
     ParameterRole, ParameterTargetId, PlaybackMapping, Polarity, Project, ProjectController,
     ProjectId, ProjectOp, ProjectRevision, ReferenceSource, SourceFrame, SourceKind, SourceRange,
-    TargetCapability, TimeAnchor, TrackId, Transform, ValueKind, evaluate_control,
+    TargetCapability, TimeAnchor, TrackId, Transform, ValueKind, evaluate_control, is_issuable_raw,
 };
 use synvelis_workspace::{
     AutomationMode, ControlSession, FakeWindowHost, GestureEnd, Lowered, ObservationState,
@@ -101,7 +101,7 @@ fn add_track_target(ws: &mut Ws, name: &str, base: f64) -> (TrackId, ParameterTa
         .control
         .targets
         .keys()
-        .last()
+        .rfind(|id| is_issuable_raw(id.raw()))
         .unwrap();
     (track, target)
 }
@@ -131,7 +131,7 @@ fn add_target_with(
         .control
         .targets
         .keys()
-        .last()
+        .rfind(|id| is_issuable_raw(id.raw()))
         .unwrap()
 }
 
@@ -315,7 +315,7 @@ fn pc_a_02_scope_separation_clip_follows_move() {
         .control
         .targets
         .keys()
-        .last()
+        .rfind(|id| is_issuable_raw(id.raw()))
         .unwrap();
     let clip_lane = add_automation_lane(&mut ws, clip_target);
     apply(

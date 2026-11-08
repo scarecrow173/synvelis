@@ -10,7 +10,7 @@ use synvelis_project::{
     CounterIdGenerator, Error, Interpolation, MusicalDuration, MusicalTick, NoteId, ParamMapping,
     ParameterRole, ParameterTargetId, PlaybackMapping, Project, ProjectController, ProjectId,
     ProjectOp, ProjectRevision, SourceFrame, SourceRange, TimeAnchor, TrackId, ValueKind,
-    evaluate_control,
+    evaluate_control, is_issuable_raw,
 };
 use synvelis_workspace::{
     AutomationMode, FakeWindowHost, ProjectSession, WorkspaceManager, WriteArm,
@@ -122,7 +122,7 @@ fn note_fixture() -> (Ws, ClipId, NoteId, ParameterTargetId, AutomationLaneId) {
         .control
         .targets
         .keys()
-        .last()
+        .rfind(|id| is_issuable_raw(id.raw()))
         .unwrap();
     apply(&mut ws, ProjectOp::AddAutomationLane { target });
     let lane = *ws.session().project().control.lanes.keys().last().unwrap();

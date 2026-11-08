@@ -30,7 +30,7 @@ use crate::{
     routing::{
         Bus, BusKind, ChannelStrip, ConnectionKind, ExplicitChannelMap, PortBinding, PortDirection,
         PortOwner, PortRole, Processor, ProcessorBinding, ProcessorChain, RoutingConnection,
-        SemanticPort, SendConfig, SignalDomain, StripOwner,
+        SemanticPort, SendConfig, SignalDomain, StripOwner, is_issuable_raw,
     },
     tempo::SignatureDto,
     tempo::TempoEventDto,
@@ -918,6 +918,14 @@ impl Operation for ProjectOp {
                 if !project.control.targets.contains_key(target) {
                     return Err(Error::NotFound(format!("param {target}")));
                 }
+                // Well-known bootstrap targets (the master-strip fader)
+                // are structural constants, not issued entities — they
+                // cannot be removed any more than the master bus can.
+                if !is_issuable_raw(target.raw()) {
+                    return Err(Error::Validation(format!(
+                        "param {target} is a well-known bootstrap target"
+                    )));
+                }
                 if project.control.lanes.values().any(|l| l.target == *target)
                     || project
                         .control
@@ -1165,6 +1173,15 @@ impl Operation for ProjectOp {
                         .targets
                         .get(target)
                         .ok_or_else(|| Error::NotFound(format!("param {target}")))?;
+                    // Well-known bootstrap targets (the master-strip
+                    // fader) are structural constants — adopting one
+                    // would re-own it to the send and let send
+                    // teardown delete it (synvelis#185).
+                    if !is_issuable_raw(target.raw()) {
+                        return Err(Error::Validation(format!(
+                            "param {target} is a well-known bootstrap target"
+                        )));
+                    }
                     // The send adopts the target at apply (owner →
                     // `Send(send_id)`): only a project-time target can
                     // legally carry a send owner.
@@ -1269,6 +1286,14 @@ impl Operation for ProjectOp {
                         .targets
                         .get(target)
                         .ok_or_else(|| Error::NotFound(format!("param {target}")))?;
+                    // Same structural guard as `AddSend` — the send
+                    // adopts (re-owns) its gain target, which a
+                    // well-known bootstrap target must never undergo.
+                    if !is_issuable_raw(target.raw()) {
+                        return Err(Error::Validation(format!(
+                            "param {target} is a well-known bootstrap target"
+                        )));
+                    }
                     if !matches!(
                         t.time_scope,
                         AutomationTimeScope::ProjectMusical | AutomationTimeScope::ProjectAbsolute

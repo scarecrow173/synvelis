@@ -15,6 +15,7 @@ use stats_alloc::{INSTRUMENTED_SYSTEM, Region, StatsAlloc};
 use synvelis_project::{
     AutomationTimeScope, BeatPoint, ControlOwner, CounterIdGenerator, ParamMapping, ParameterRole,
     ParameterTargetId, Project, ProjectController, ProjectId, ProjectOp, TrackId, ValueKind,
+    is_issuable_raw,
 };
 use synvelis_workspace::{
     AutomationMode, FakeWindowHost, ProjectSession, RECORD_EVENT_QUEUE_CAP, RecordPushError,
@@ -63,7 +64,7 @@ fn armed_ws() -> (Ws, ParameterTargetId) {
         .control
         .targets
         .keys()
-        .last()
+        .rfind(|id| is_issuable_raw(id.raw()))
         .unwrap();
     let rev = ws.session().revision();
     ws.session_mut()

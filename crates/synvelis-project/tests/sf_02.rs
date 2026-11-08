@@ -697,7 +697,15 @@ fn an_adopted_gain_target_is_sealed_to_the_send() {
         },
     ))
     .unwrap();
-    let target = *c.live().control.targets.keys().next_back().unwrap();
+    // The bootstrap master-fader target is well-known (never issued) —
+    // pick the newest *issued* target.
+    let target = *c
+        .live()
+        .control
+        .targets
+        .keys()
+        .rfind(|id| is_issuable_raw(id.raw()))
+        .unwrap();
 
     let i = intent(
         &c,
@@ -909,4 +917,72 @@ fn solo_unions_suppliers_and_paths_to_master_but_never_muted() {
     let audible = c.live().routing.audible_strips(&c.live().control);
     assert!(audible.contains(&gtr_strip) && audible.contains(&vox_strip));
     assert!(!audible.contains(&keys_strip));
+}
+
+// ── SV185: the bootstrap master fader is never send-adoptable ─────
+
+#[test]
+fn the_bootstrap_fader_cannot_be_adopted_as_a_send_gain() {
+    let mut c = controller();
+    let track = add_track(&mut c, "t");
+    let strip = add_track_strip(&mut c, track);
+    let ret = add_bus(&mut c, BusKind::Return, "r");
+    let ret_strip = c.live().routing.buses[&ret].strip;
+    let fader = ParameterTargetId::new(MASTER_FADER_RAW);
+
+    // `CreateSend` adoption re-owns the target to the send — the
+    // well-known bootstrap fader must be refused before that.
+    let i = intent(
+        &c,
+        vec![RoutingEdit::CreateSend {
+            temp_id: TempSendId(1),
+            temp_connection: TempConnectionId(1),
+            source: strip_main(strip, PortDirection::Output),
+            destination: strip_main(ret_strip, PortDirection::Input),
+            tap: SendTap::PreFader,
+            level: SendGainSpec::Adopt(fader),
+            channel_map: None,
+        }],
+    );
+    let err = apply_intent(&mut c, i).unwrap_err();
+    assert!(
+        err.to_string().contains("well-known bootstrap target"),
+        "{err}"
+    );
+
+    // `SetSendGainTarget` reaches the same re-owning apply path.
+    let i = intent(
+        &c,
+        vec![RoutingEdit::CreateSend {
+            temp_id: TempSendId(1),
+            temp_connection: TempConnectionId(1),
+            source: strip_main(strip, PortDirection::Output),
+            destination: strip_main(ret_strip, PortDirection::Input),
+            tap: SendTap::PreFader,
+            level: SendGainSpec::Create {
+                name: "send level".into(),
+                initial: 1.0,
+            },
+            channel_map: None,
+        }],
+    );
+    apply_intent(&mut c, i).unwrap();
+    let send = *c.live().routing.sends.keys().next().unwrap();
+    let i = intent(
+        &c,
+        vec![RoutingEdit::SetSendGainTarget {
+            send: SendRef::Existing(send),
+            target: Some(fader),
+        }],
+    );
+    let err = apply_intent(&mut c, i).unwrap_err();
+    assert!(
+        err.to_string().contains("well-known bootstrap target"),
+        "{err}"
+    );
+
+    // The fader survives untouched — still the master strip's Fader.
+    let t = &c.live().control.targets[&fader];
+    assert_eq!(t.role, ParameterRole::Fader);
+    assert_eq!(t.owner, ControlOwner::Strip(master_strip(c.live())));
 }

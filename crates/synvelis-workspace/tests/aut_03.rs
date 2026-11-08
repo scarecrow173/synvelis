@@ -18,7 +18,7 @@ use synvelis_project::{
     AutomationLaneId, AutomationPoint, AutomationRegion, AutomationTimeScope, BeatPoint, BeatRange,
     ConflictPolicy, ControlOwner, CounterIdGenerator, InMemoryStore, Interpolation, ParamMapping,
     ParameterRole, ParameterTargetId, Project, ProjectController, ProjectId, ProjectOp,
-    ProjectRevision, TrackId, ValueKind,
+    ProjectRevision, TrackId, ValueKind, is_issuable_raw,
 };
 use synvelis_workspace::{
     AutomationMode, FakeWindowHost, LoopPassId, PlaybackStatus, PreparedRecordingCommit,
@@ -73,7 +73,7 @@ fn add_track_target(ws: &mut Ws, name: &str, base: f64) -> (TrackId, ParameterTa
         .control
         .targets
         .keys()
-        .last()
+        .rfind(|id| is_issuable_raw(id.raw()))
         .unwrap();
     (track, target)
 }
