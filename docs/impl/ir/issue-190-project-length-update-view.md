@@ -51,7 +51,7 @@ metadata:
 Issue #190（ruviform#451 FU-3 由来: project length 更新を
 `GpuiDriver::update_view` 経由で mount 済み Seek の descriptor range に
 反映する consumer 側接続）について、main 上に実装が既に存在することを
-実コードで確認し、pin `cc7d5296`（PR #193 で `769d595a` 系から追従済み）
+実コードで確認し、pin `cc7d5296`（PR #193 で `863a7a9d` から追従済み）
 時点で全検証 lane が green であることを実測した。**コード変更なし・
 検証のみ**の記録であり、再実装は行っていない。
 
