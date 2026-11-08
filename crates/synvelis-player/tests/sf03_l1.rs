@@ -803,7 +803,7 @@ fn sf03_04b_failure_preserves_last_good() {
         .prepare(&stale_request, c.live(), rev1, deps_for(c.live(), &media))
         .err()
         .unwrap();
-    assert_eq!(err, RoutingFault::StaleProjectRevision);
+    assert_eq!(err, RoutingFault::StaleProjectSnapshot);
     assert_eq!(eng.receipt().unwrap().last_good_generation, Some(1));
 
     // (b) A chain processor with no supplied instance → compile fails
@@ -857,7 +857,7 @@ fn sf03_04b_failure_preserves_last_good() {
 
 /// SF-ACT-04: `publish` re-validates against the live snapshot — a
 /// prepared plan published after the project moved is rejected
-/// `StaleProjectRevision` (Blocked), never displacing last-good.
+/// `StaleProjectSnapshot` (Blocked), never displacing last-good.
 #[test]
 fn sf03_04c_publish_rejects_stale_revision() {
     let root = scratch("sf0304c");
@@ -889,11 +889,11 @@ fn sf03_04c_publish_rejects_stale_revision() {
     assert_ne!(rev1, rev2);
 
     let err = eng.publish(prepared, c.live(), rev2).unwrap_err();
-    assert_eq!(err, RoutingFault::StaleProjectRevision);
+    assert_eq!(err, RoutingFault::StaleProjectSnapshot);
     assert!(matches!(
         eng.receipt().unwrap().state,
         RoutingActivationState::Blocked {
-            fault: RoutingFault::StaleProjectRevision,
+            fault: RoutingFault::StaleProjectSnapshot,
             ..
         }
     ));

@@ -64,6 +64,11 @@ pub enum SemanticLowerError {
         /// The offending port.
         port: SemanticPortId,
     },
+    /// A semantic port reference cannot be resolved to a port entity.
+    PortUnresolved {
+        /// The dangling port reference.
+        port: SemanticPortId,
+    },
     /// A clip/comp playback's lane→track→strip chain is broken, or a
     /// referenced semantic entity is absent.
     MissingStrip {
@@ -89,12 +94,14 @@ impl SemanticLowerError {
     #[must_use]
     pub const fn fault(&self) -> RoutingFault {
         match self {
-            Self::ChannelMismatch { .. } => RoutingFault::ChannelMismatch,
-            Self::UnsupportedDomain { .. } => RoutingFault::UnsupportedMapping,
-            Self::MissingStrip { .. }
-            | Self::MasterMissing
-            | Self::DanglingGainTarget { .. }
-            | Self::BudgetExceeded { .. } => RoutingFault::ValidationFailed,
+            Self::ChannelMismatch { .. } | Self::UnsupportedDomain { .. } => {
+                RoutingFault::UnsupportedFormatOrTimeMap
+            }
+            Self::PortUnresolved { .. } => RoutingFault::PortUnresolved,
+            Self::MissingStrip { .. } | Self::MasterMissing | Self::DanglingGainTarget { .. } => {
+                RoutingFault::InvalidRouting
+            }
+            Self::BudgetExceeded { .. } => RoutingFault::CompileResourceExceeded,
         }
     }
 }
@@ -694,11 +701,11 @@ impl<'a> Lower<'a> {
     ) -> Result<(NodeId, Vec<PortId>), SemanticLowerError> {
         let mut defs = Vec::with_capacity(processor.port_ids.len());
         for port_id in &processor.port_ids {
-            let port = self.routing.ports.get(port_id).ok_or_else(|| {
-                SemanticLowerError::MissingStrip {
-                    detail: format!("processor port {port_id} has no entity"),
-                }
-            })?;
+            let port = self
+                .routing
+                .ports
+                .get(port_id)
+                .ok_or(SemanticLowerError::PortUnresolved { port: *port_id })?;
             check_port_domain(*port_id, port.domain, port.channels, self.engine_format)?;
             defs.push(audio_port(
                 match port.direction {
@@ -726,19 +733,16 @@ impl<'a> Lower<'a> {
         &self,
         conn: &RoutingConnection,
     ) -> Result<ConnectionEnds, SemanticLowerError> {
-        let src_sem = self.routing.ports.get(&conn.source).ok_or_else(|| {
-            SemanticLowerError::MissingStrip {
-                detail: format!("connection {} source port {} missing", conn.id, conn.source),
-            }
-        })?;
-        let dst_sem = self.routing.ports.get(&conn.destination).ok_or_else(|| {
-            SemanticLowerError::MissingStrip {
-                detail: format!(
-                    "connection {} destination port {} missing",
-                    conn.id, conn.destination
-                ),
-            }
-        })?;
+        let src_sem = self
+            .routing
+            .ports
+            .get(&conn.source)
+            .ok_or(SemanticLowerError::PortUnresolved { port: conn.source })?;
+        let dst_sem = self.routing.ports.get(&conn.destination).ok_or(
+            SemanticLowerError::PortUnresolved {
+                port: conn.destination,
+            },
+        )?;
 
         let PortOwner::Strip(src_strip_id) = src_sem.owner else {
             return Err(SemanticLowerError::MissingStrip {

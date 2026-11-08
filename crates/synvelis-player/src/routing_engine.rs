@@ -11,12 +11,23 @@
 //! - Any prepare/compile/publish failure leaves the previously
 //!   published plan live (last-good) and records a `Failed` receipt.
 //! - `publish` re-validates the live project against the prepared
-//!   key: a moved revision is `StaleProjectRevision`, semantic drift
-//!   is `StaleCapability` — a stale plan can never displace a newer
-//!   committed snapshot.
+//!   key: a moved revision is `StaleProjectSnapshot`, semantic drift
+//!   is `SpeculativeMismatch`, capability drift is
+//!   `PluginCapabilityChanged` — a stale plan can never displace a
+//!   newer committed snapshot, and an out-of-order generation is
+//!   `Superseded`.
+//! - `reconcile` re-checks the published plan's build key and source
+//!   map against the live committed snapshot and RT counters,
+//!   recording every drift aspect as a typed [`RoutingFault`] while
+//!   the last-good plan stays live.
 //! - Generation-tagged stale events/commands are rejected by
 //!   `RtRuntime` itself and counted on `SharedStatus`; the engine
-//!   surfaces that counter, it does not reinterpret it.
+//!   surfaces that counter through `reconcile`, it does not
+//!   reinterpret it.
+//!
+//! [`RoutingFault`] covers the 18 Issue #106 §5 categories — the
+//! mint-path table lives in
+//! `docs/designs/sf-03-slice2-fault-reconcile-design.md`.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -24,22 +35,28 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use ruviform_audio::typed::{
     CompileError, CompiledPlan, Compiler, CompilerConfig, FactoryError, GraphProcessor,
-    GraphRuntime, InstalledInfo, PrepareOutcome, ProcessError, RtRuntime, SharedStatusSnapshot,
+    GraphRuntime, InstalledInfo, OfflineRenderSupport, PrepareOutcome, ProcessError, RtRuntime,
+    SharedStatusSnapshot,
 };
 use ruviform_audio_core::AudioFormat;
-use ruviform_graph::{GraphProject, GraphSpec, NodeId, NodeSpec, PortId};
+use ruviform_graph::{
+    GraphProject, GraphSpec, NodeId, NodeSpec, PortId, PrepareError, ValidationError,
+};
 use ruviform_media_reader::{PrefetchHandle, PrefetchProducer, PumpOutcome, SourceFrame};
 use ruviform_rt::RtContext;
 
+use synvelis_project::BuildMode;
 use synvelis_project::{
     LOWERING_POLICY_VERSION, ProcessorId, Project, ProjectRevision, RoutingActivationReceipt,
     RoutingActivationState, RoutingBuildKey, RoutingBuildRequestId, RoutingCompileRequest,
-    RoutingFault, RoutingSourceMap, RuntimeClockEpochRef, RuntimeInstanceId,
-    port_capability_generation, routing_fingerprint,
+    RoutingFault, RoutingReconcileMismatch, RoutingReconcileReport, RoutingSourceMap,
+    RuntimeClockEpochRef, RuntimeInstanceId, port_capability_generation, routing_fingerprint,
 };
 
 use crate::driver::{DriverState, PlayReport, PumpPolicy};
-use crate::lowering::{EngineConfig, NodeContent, PlaybackBinding};
+use crate::lowering::{
+    CompSkipReason, EngineConfig, NodeContent, PlaybackBinding, SkippedPlayback,
+};
 use crate::processor::{ClipPlayer, ClipSync, PlaybackStats};
 use crate::resolver::PreparedClip;
 use crate::routing_lower::{
@@ -128,6 +145,17 @@ struct Ledger {
     last_good_generation: Option<u64>,
     planned_generation: Option<u64>,
     published_generation: Option<u64>,
+    /// Request id of the last successful publish — reused for
+    /// reconcile receipts which have no request of their own.
+    published_request_id: Option<RoutingBuildRequestId>,
+    /// Frames observed at the last activation — kept so the receipt's
+    /// `frames_observed` survives the pending slot being cleared.
+    observed_frames: u64,
+    /// `SharedStatus` counter baselines for `reconcile` drift checks.
+    last_stale_events: u64,
+    last_stale_commands: u64,
+    last_retire_overflows: u64,
+    last_plan_retire_overflows: u64,
 }
 
 /// Deterministic semantic-routing playback/activation engine.
@@ -238,8 +266,21 @@ impl RoutingEngine {
         )
         .map_err(|e| self.fail(request, &key, e.fault()))?;
 
+        if key.build_mode == BuildMode::Offline {
+            self.check_offline_capability(request, &key, &lowered, &deps)?;
+        }
+
+        // Skipped playbacks that are not intentional silence fail the
+        // build closed — a clip that should play but cannot is never
+        // lowered to fake silence. This runs before the clip-count
+        // check so the skip's own fault is reported, not masked as a
+        // count mismatch.
+        if let Some(fault) = skipped_fault(&lowered.skipped) {
+            return Err(self.fail(request, &key, fault));
+        }
+
         if deps.clips.len() != lowered.playbacks.len() {
-            return Err(self.fail(request, &key, RoutingFault::ValidationFailed));
+            return Err(self.fail(request, &key, RoutingFault::InvalidRouting));
         }
 
         let staged = self.stage_build(request, &key, &lowered, deps)?;
@@ -254,9 +295,9 @@ impl RoutingEngine {
 
         self.project_rt
             .prepare(lowered.spec.clone())
-            .map_err(|_| self.fail(request, &key, RoutingFault::ValidationFailed))?;
+            .map_err(|e| self.fail(request, &key, graph_prepare_fault(&e)))?;
         let Some(published) = self.project_rt.published() else {
-            return Err(self.fail(request, &key, RoutingFault::CompileFailed));
+            return Err(self.fail(request, &key, RoutingFault::InvalidRouting));
         };
         let validated = published.graph();
         let mut factory = |node: &NodeSpec,
@@ -277,16 +318,7 @@ impl RoutingEngine {
                 self.graph.allocator(),
                 generation,
             )
-            .map_err(|e| {
-                self.fail(
-                    request,
-                    &key,
-                    match e {
-                        CompileError::MissingProcessor { .. } => RoutingFault::PluginUnavailable,
-                        _ => RoutingFault::CompileFailed,
-                    },
-                )
-            })?;
+            .map_err(|e| self.fail(request, &key, compile_fault(&e)))?;
 
         let SemanticLowered {
             source_map,
@@ -324,9 +356,9 @@ impl RoutingEngine {
 
     /// Builds the [`RoutingBuildKey`] for `project@revision` and
     /// rejects stale/misdirected requests before any graph work:
-    /// expected-revision drift is `StaleProjectRevision`, a foreign
-    /// runtime instance/epoch or an under-budgeted request is
-    /// `ValidationFailed`.
+    /// expected-revision drift is `StaleProjectSnapshot`, a foreign
+    /// runtime instance/epoch is `DeviceEpochChanged`, and an
+    /// under-budgeted request is `CompileResourceExceeded`.
     fn checked_key(
         &mut self,
         request: &RoutingCompileRequest,
@@ -347,15 +379,39 @@ impl RoutingEngine {
             runtime_instance: request.runtime_instance,
         };
         if request.expected_project_revision != revision {
-            return Err(self.fail(request, &key, RoutingFault::StaleProjectRevision));
+            return Err(self.fail(request, &key, RoutingFault::StaleProjectSnapshot));
         }
         if request.runtime_instance != self.instance || request.device_clock_epoch != self.epoch {
-            return Err(self.fail(request, &key, RoutingFault::ValidationFailed));
+            return Err(self.fail(request, &key, RoutingFault::DeviceEpochChanged));
         }
         if self.engine.block_frames > request.resource_budget.max_frames {
-            return Err(self.fail(request, &key, RoutingFault::ValidationFailed));
+            return Err(self.fail(request, &key, RoutingFault::CompileResourceExceeded));
         }
         Ok(key)
+    }
+
+    /// Offline builds require every chain-processor instance that
+    /// actually enters the graph to report
+    /// [`OfflineRenderSupport::Verified`] — `Unknown`/`Declared` are
+    /// never treated as verified exact offline support. Instances
+    /// absent from `deps.processors` are left to the compile factory,
+    /// which reports `PluginUnavailable`.
+    fn check_offline_capability(
+        &mut self,
+        request: &RoutingCompileRequest,
+        key: &RoutingBuildKey,
+        lowered: &SemanticLowered,
+        deps: &RoutingDeps<'_>,
+    ) -> Result<(), RoutingFault> {
+        for role in lowered.node_roles.values() {
+            if let SemanticNodeRole::ChainProcessor { processor } = role
+                && let Some(instance) = deps.processors.get(processor)
+                && instance.offline_support() != OfflineRenderSupport::Verified
+            {
+                return Err(self.fail(request, key, RoutingFault::OfflineCapabilityMismatch));
+            }
+        }
+        Ok(())
     }
 
     /// Stages clip players, role-driven stages and supplied processor
@@ -378,7 +434,7 @@ impl RoutingEngine {
         let mut clips = deps.clips.into_iter();
         for binding in &lowered.playbacks {
             let Some(mut clip) = clips.next() else {
-                return Err(self.fail(request, key, RoutingFault::ValidationFailed));
+                return Err(self.fail(request, key, RoutingFault::InvalidRouting));
             };
             let stat = Arc::new(PlaybackStats::default());
             let nonce = Arc::new(AtomicU64::new(0));
@@ -442,16 +498,24 @@ impl RoutingEngine {
 
     /// Publishes a [`PreparedRouting`] after re-validating it against
     /// the live project: the committed revision must still equal the
-    /// prepared key's, and the semantic fingerprint/capability
-    /// generation must not have drifted. On success the staged
-    /// playback state commits and the receipt moves to `Published` —
-    /// non-RT evidence only; `Active` still requires RT observation.
+    /// prepared key's, the semantic fingerprint must not have drifted
+    /// (`SpeculativeMismatch`), the capability generation must not
+    /// have changed (`PluginCapabilityChanged`), the prepared bundle
+    /// must be internally coherent (`BadSourceMap`), and its
+    /// generation must be newer than the last published plan
+    /// (`Superseded`). On success the staged playback state commits
+    /// and the receipt moves to `Published` — non-RT evidence only;
+    /// `Active` still requires RT observation.
     ///
     /// # Errors
-    /// [`RoutingFault::StaleProjectRevision`] / [`RoutingFault::StaleCapability`]
-    /// when the live snapshot moved, [`RoutingFault::PublishChannelFull`]
-    /// when the runtime command channel cannot hold the plan delta.
-    /// Every failure leaves the last-good plan live.
+    /// [`RoutingFault::StaleProjectSnapshot`] /
+    /// [`RoutingFault::SpeculativeMismatch`] /
+    /// [`RoutingFault::PluginCapabilityChanged`] /
+    /// [`RoutingFault::BadSourceMap`] /
+    /// [`RoutingFault::Superseded`] when the live snapshot moved or
+    /// the plan is stale, [`RoutingFault::PublishQueueFull`] when the
+    /// runtime command channel cannot hold the plan delta. Every
+    /// failure leaves the last-good plan live.
     pub fn publish(
         &mut self,
         prepared: PreparedRouting,
@@ -461,31 +525,38 @@ impl RoutingEngine {
         let request_id = prepared.request_id;
         let key = prepared.key.clone();
         if key.project_revision != revision || project.project_id != key.project_id {
-            return Err(self.fail_receipt(
-                Some(request_id),
-                &key,
-                RoutingActivationState::Blocked {
-                    fault: RoutingFault::StaleProjectRevision,
-                    last_good_generation: self.ledger.last_good_generation,
-                },
-                RoutingFault::StaleProjectRevision,
-            ));
+            return Err(self.blocked(request_id, &key, RoutingFault::StaleProjectSnapshot));
         }
-        if routing_fingerprint(project) != key.routing_fingerprint
-            || port_capability_generation(project) != key.capability_generation
-        {
-            return Err(self.fail_receipt(
-                Some(request_id),
+        if routing_fingerprint(project) != key.routing_fingerprint {
+            return Err(self.blocked(request_id, &key, RoutingFault::SpeculativeMismatch));
+        }
+        if port_capability_generation(project) != key.capability_generation {
+            return Err(self.blocked(
+                request_id,
                 &key,
-                RoutingActivationState::Blocked {
-                    fault: RoutingFault::StaleCapability,
-                    last_good_generation: self.ledger.last_good_generation,
-                },
-                RoutingFault::StaleCapability,
+                RoutingFault::PluginCapabilityChanged,
             ));
         }
 
         let generation = prepared.compiled.plan.generation;
+        // The prepared bundle is caller-constructed — its source map,
+        // build key and generation counters must agree before the
+        // plan is allowed near the runtime.
+        if prepared.generation != generation
+            || prepared.source_map.generation != generation
+            || prepared.source_map.build_key != key
+            || prepared.source_map.project_id != key.project_id
+            || prepared.source_map.project_revision != key.project_revision
+        {
+            return Err(self.blocked(request_id, &key, RoutingFault::BadSourceMap));
+        }
+        // Generations are monotonic: a plan that is not newer than the
+        // last published one is superseded — it must never displace
+        // the newer plan or rewind the generation counter.
+        if generation <= self.graph.published_plan().generation {
+            return Err(self.blocked(request_id, &key, RoutingFault::Superseded));
+        }
+
         match self.graph.publish(prepared.compiled) {
             Ok(()) => {
                 self.bindings = prepared.playbacks;
@@ -497,6 +568,7 @@ impl RoutingEngine {
                 self.device_in = Some(prepared.device_in);
                 self.source_map = Some(prepared.source_map);
                 self.ledger.published_generation = Some(generation);
+                self.ledger.published_request_id = Some(request_id);
                 self.ledger.pending = Some(PendingActivation {
                     key: key.clone(),
                     request_id,
@@ -517,11 +589,150 @@ impl RoutingEngine {
                 Some(request_id),
                 &key,
                 RoutingActivationState::Failed {
-                    fault: RoutingFault::PublishChannelFull,
+                    fault: RoutingFault::PublishQueueFull,
                     last_good_generation: self.ledger.last_good_generation,
                 },
-                RoutingFault::PublishChannelFull,
+                RoutingFault::PublishQueueFull,
             )),
+        }
+    }
+
+    /// Reconciles the last published plan against the live committed
+    /// snapshot and the RT status counters. Every drift aspect is
+    /// reported in [`RoutingReconcileReport::mismatches`]; when any
+    /// exists, the highest-precedence one is recorded on the
+    /// activation receipt as `Blocked` while the last-good plan stays
+    /// live. A clean reconcile leaves the receipt untouched.
+    ///
+    /// This is the pre-publish/pre-retry gate: it detects stale CAS,
+    /// semantic/capability/format/epoch drift, source-map identity
+    /// corruption, RT counter regressions and overdue activations —
+    /// so a speculative plan with zero publishes can never slip past
+    /// a changed live state.
+    ///
+    /// Fault precedence (first match wins): `BadSourceMap` →
+    /// `StaleProjectSnapshot` → `SpeculativeMismatch` →
+    /// `PluginCapabilityChanged` → `UnsupportedFormatOrTimeMap` →
+    /// `DeviceEpochChanged` → `RetireOverflow` → `EventStale` →
+    /// `ActivationNotObserved`.
+    #[must_use]
+    pub fn reconcile(
+        &mut self,
+        project: &Project,
+        revision: ProjectRevision,
+        engine_config_generation: u64,
+        source_format_generation: u64,
+    ) -> RoutingReconcileReport {
+        let Some(source_map) = self.source_map.clone() else {
+            return RoutingReconcileReport {
+                plan_key: None,
+                mismatches: Vec::new(),
+                fault: None,
+            };
+        };
+        let key = source_map.build_key.clone();
+        let mut mismatches = Vec::new();
+
+        // Source-map / plan identity coherence.
+        if project.project_id != key.project_id
+            || source_map.project_id != key.project_id
+            || source_map.project_revision != key.project_revision
+            || self.ledger.published_generation != Some(source_map.generation)
+        {
+            mismatches.push(RoutingReconcileMismatch::SourceMapIdentity);
+        }
+        // Committed-snapshot CAS and semantic drift.
+        if key.project_revision != revision {
+            mismatches.push(RoutingReconcileMismatch::ProjectRevision);
+        }
+        if routing_fingerprint(project) != key.routing_fingerprint {
+            mismatches.push(RoutingReconcileMismatch::RoutingFingerprint);
+        }
+        if port_capability_generation(project) != key.capability_generation {
+            mismatches.push(RoutingReconcileMismatch::CapabilityGeneration);
+        }
+        if engine_config_generation != key.engine_config_generation {
+            mismatches.push(RoutingReconcileMismatch::EngineConfigGeneration);
+        }
+        if source_format_generation != key.source_format_generation {
+            mismatches.push(RoutingReconcileMismatch::SourceFormatGeneration);
+        }
+        if self.epoch != key.device_clock_epoch || self.instance != key.runtime_instance {
+            mismatches.push(RoutingReconcileMismatch::DeviceEpoch);
+        }
+
+        // RT counters — baselines advance on every reconcile so only
+        // new discards/overflows are reported.
+        let snap = self.rt_status();
+        let retire_advanced = snap.retire_overflows > self.ledger.last_retire_overflows
+            || snap.plan_retire_overflows > self.ledger.last_plan_retire_overflows;
+        let stale_advanced = snap.stale_events > self.ledger.last_stale_events
+            || snap.stale_commands > self.ledger.last_stale_commands;
+        if retire_advanced || stale_advanced {
+            mismatches.push(RoutingReconcileMismatch::RuntimeCounters);
+        }
+        self.ledger.last_stale_events = snap.stale_events;
+        self.ledger.last_stale_commands = snap.stale_commands;
+        self.ledger.last_retire_overflows = snap.retire_overflows;
+        self.ledger.last_plan_retire_overflows = snap.plan_retire_overflows;
+
+        // Pending activation: frames were processed but the published
+        // generation was never observed — activation is overdue.
+        // `frames == 0` is transient (published, not yet run) and is
+        // never a fault.
+        let pending_overdue = self
+            .ledger
+            .pending
+            .as_ref()
+            .is_some_and(|p| p.frames > 0 && snap.active_generation != p.generation);
+        if pending_overdue {
+            mismatches.push(RoutingReconcileMismatch::PendingActivation);
+        }
+
+        // Mismatches are pushed in precedence order — the first one
+        // determines the receipt fault.
+        let fault = mismatches
+            .iter()
+            .map(|mismatch| match mismatch {
+                RoutingReconcileMismatch::SourceMapIdentity => RoutingFault::BadSourceMap,
+                RoutingReconcileMismatch::ProjectRevision => RoutingFault::StaleProjectSnapshot,
+                RoutingReconcileMismatch::RoutingFingerprint => {
+                    RoutingFault::SpeculativeMismatch
+                }
+                RoutingReconcileMismatch::CapabilityGeneration => {
+                    RoutingFault::PluginCapabilityChanged
+                }
+                RoutingReconcileMismatch::EngineConfigGeneration
+                | RoutingReconcileMismatch::SourceFormatGeneration => {
+                    RoutingFault::UnsupportedFormatOrTimeMap
+                }
+                RoutingReconcileMismatch::DeviceEpoch => RoutingFault::DeviceEpochChanged,
+                RoutingReconcileMismatch::RuntimeCounters => {
+                    if retire_advanced {
+                        RoutingFault::RetireOverflow
+                    } else {
+                        RoutingFault::EventStale
+                    }
+                }
+                RoutingReconcileMismatch::PendingActivation => {
+                    RoutingFault::ActivationNotObserved
+                }
+            })
+            .next();
+        if let Some(fault) = fault {
+            self.record_state(
+                self.ledger.published_request_id,
+                Some(key),
+                RoutingActivationState::Blocked {
+                    fault,
+                    last_good_generation: self.ledger.last_good_generation,
+                },
+            );
+        }
+        RoutingReconcileReport {
+            plan_key: Some(source_map.build_key),
+            mismatches,
+            fault,
         }
     }
 
@@ -663,14 +874,16 @@ impl RoutingEngine {
         if observed != pending.generation || pending.frames == 0 {
             return;
         }
-        let (key, request_id, generation, revision) = (
+        let (key, request_id, generation, revision, frames) = (
             pending.key.clone(),
             pending.request_id,
             pending.generation,
             pending.project_revision,
+            pending.frames,
         );
         self.ledger.pending = None;
         self.ledger.last_good_generation = Some(generation);
+        self.ledger.observed_frames = frames;
         self.record_state(
             Some(request_id),
             Some(key),
@@ -699,6 +912,25 @@ impl RoutingEngine {
             },
         );
         fault
+    }
+
+    /// Records a `Blocked` receipt for a `publish`-stage rejection
+    /// and returns the fault.
+    fn blocked(
+        &mut self,
+        request_id: RoutingBuildRequestId,
+        key: &RoutingBuildKey,
+        fault: RoutingFault,
+    ) -> RoutingFault {
+        self.fail_receipt(
+            Some(request_id),
+            key,
+            RoutingActivationState::Blocked {
+                fault,
+                last_good_generation: self.ledger.last_good_generation,
+            },
+            fault,
+        )
     }
 
     /// Records a `Blocked`/`Failed` receipt for a `publish`-stage
@@ -735,10 +967,76 @@ impl RoutingEngine {
             published_generation: self.ledger.published_generation,
             observed_active_generation: Some(self.graph.status().snapshot().active_generation),
             last_good_generation: self.ledger.last_good_generation,
-            frames_observed: self.ledger.pending.as_ref().map_or(0, |p| p.frames),
+            frames_observed: self
+                .ledger
+                .pending
+                .as_ref()
+                .map_or(self.ledger.observed_frames, |p| p.frames),
             fault,
         };
         self.ledger.receipt = Some(receipt.clone());
         receipt
+    }
+}
+
+/// Maps a non-intentional [`SkippedPlayback`] to the [`RoutingFault`]
+/// the build must fail with. Intentional silence — `Muted`,
+/// `SupersededByComp`, `CompSilence` — returns `None`; everything
+/// else means content that should play could not be lowered and is
+/// never silently replaced by silence.
+fn skipped_fault(skipped: &[SkippedPlayback]) -> Option<RoutingFault> {
+    skipped.iter().find_map(|skip| match skip {
+        SkippedPlayback::Muted { .. }
+        | SkippedPlayback::SupersededByComp { .. }
+        | SkippedPlayback::CompSilence { .. } => None,
+        SkippedPlayback::MissingSource { .. } => Some(RoutingFault::MissingSource),
+        SkippedPlayback::RateMismatch { .. }
+        | SkippedPlayback::UnresolvableAnchor { .. }
+        | SkippedPlayback::UnsupportedMapping { .. } => {
+            Some(RoutingFault::UnsupportedFormatOrTimeMap)
+        }
+        SkippedPlayback::CompProjection { .. } => Some(RoutingFault::InvalidRouting),
+        SkippedPlayback::CompSegment { reason, .. }
+        | SkippedPlayback::CompOverlap { reason, .. } => match reason {
+            CompSkipReason::MissingSource(_) => Some(RoutingFault::MissingSource),
+            CompSkipReason::RateMismatch(_)
+            | CompSkipReason::Unresolvable
+            | CompSkipReason::UnsupportedMapping => Some(RoutingFault::UnsupportedFormatOrTimeMap),
+        },
+    })
+}
+
+/// Classifies a `GraphProject::prepare` rejection: validator cycle
+/// errors are `Cycle`, every other validation failure is
+/// `InvalidRouting`.
+fn graph_prepare_fault(error: &PrepareError) -> RoutingFault {
+    match error {
+        PrepareError::Validation { errors, .. }
+            if errors.errors().iter().any(|e| {
+                matches!(
+                    e,
+                    ValidationError::ZeroDelayCycle { .. }
+                        | ValidationError::DelayedCycleUnsupported { .. }
+                )
+            }) =>
+        {
+            RoutingFault::Cycle
+        }
+        _ => RoutingFault::InvalidRouting,
+    }
+}
+
+/// Classifies a typed-compiler rejection: a missing processor
+/// instance is `PluginUnavailable`, resource overflows are
+/// `CompileResourceExceeded`, and every other rejection means the
+/// lowered spec itself is invalid.
+fn compile_fault(error: &CompileError) -> RoutingFault {
+    match error {
+        CompileError::MissingProcessor { .. } => RoutingFault::PluginUnavailable,
+        CompileError::SlotOverflow { .. }
+        | CompileError::DelayLineOverflow { .. }
+        | CompileError::DelayOverflow { .. }
+        | CompileError::ProcessorOverflow { .. } => RoutingFault::CompileResourceExceeded,
+        _ => RoutingFault::InvalidRouting,
     }
 }
