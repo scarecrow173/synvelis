@@ -531,11 +531,7 @@ impl RoutingEngine {
             return Err(self.blocked(request_id, &key, RoutingFault::SpeculativeMismatch));
         }
         if port_capability_generation(project) != key.capability_generation {
-            return Err(self.blocked(
-                request_id,
-                &key,
-                RoutingFault::PluginCapabilityChanged,
-            ));
+            return Err(self.blocked(request_id, &key, RoutingFault::PluginCapabilityChanged));
         }
 
         let generation = prepared.compiled.plan.generation;
@@ -696,9 +692,7 @@ impl RoutingEngine {
             .map(|mismatch| match mismatch {
                 RoutingReconcileMismatch::SourceMapIdentity => RoutingFault::BadSourceMap,
                 RoutingReconcileMismatch::ProjectRevision => RoutingFault::StaleProjectSnapshot,
-                RoutingReconcileMismatch::RoutingFingerprint => {
-                    RoutingFault::SpeculativeMismatch
-                }
+                RoutingReconcileMismatch::RoutingFingerprint => RoutingFault::SpeculativeMismatch,
                 RoutingReconcileMismatch::CapabilityGeneration => {
                     RoutingFault::PluginCapabilityChanged
                 }
@@ -714,9 +708,7 @@ impl RoutingEngine {
                         RoutingFault::EventStale
                     }
                 }
-                RoutingReconcileMismatch::PendingActivation => {
-                    RoutingFault::ActivationNotObserved
-                }
+                RoutingReconcileMismatch::PendingActivation => RoutingFault::ActivationNotObserved,
             })
             .next();
         if let Some(fault) = fault {
