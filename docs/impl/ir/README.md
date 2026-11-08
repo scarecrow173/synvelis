@@ -56,3 +56,4 @@ Directory: `docs/impl/ir`
 | IMPL-SV18501MixerGainFader | SV185-01 mixer.gain domain projection — master strip Fader bootstrap・v7→v8 migration・Fader 接続 実装記録 | completed | [sv185-01-mixer-gain-fader.md](sv185-01-mixer-gain-fader.md) |
 | IMPL-034Ug8sNPL1sqhquNm1PYh | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 API 追従 | completed | [sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md](sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md) |
 | IR-SV-RF305-export | SYN-RF305 render/player WAV Export StagedFile 移行 実装記録・検証証跡 | final | [syn-rf305-render-export-staged-file.md](syn-rf305-render-export-staged-file.md) |
+| IMPL-034UgItAdeEhbkX8476hNc | Issue #190 project length → update_view 接続 — 既実装検証記録 | completed | [issue-190-project-length-update-view.md](issue-190-project-length-update-view.md) |
