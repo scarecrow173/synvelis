@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "SV175-02 検証仕様: ViewHost mount → typed binding → lifecycle"
 created: "2026-11-07"
-updated: "2026-11-07"
+updated: "2026-11-08"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -68,6 +68,16 @@ theme/fixture の両 lane が同じ wire を踏むことを検証する。
 | M6 | 再 attach / host 再生 | 再 `attach_view` + `mount_main_view`(post-seal handle) | generation bump、新 host の command namespace が dead host と disjoint |
 | M7 | save/reload | gesture→`project.new`→`save`→`open` | view attach/subscription が存続し post-reload gesture も applied |
 | M8 | window 破棄 teardown | view window `Destroyed`(他 window 残存) | `syn.view.close` replay で registry/`views` 解放、subscription/teardown 完了 |
+| M9 | seek range 更新 | mount(空 project)→`update_view` に長さ違い spec | 全 op が `Updated`（`Mount`/`Unmount` 無し）、`seek.position` の descriptor range が新長へ、host generation 不変 |
+| M10 | project Button | `invoke(project.save)`/`invoke(project.reload)` → `rvf.ui.command.v1` wire | `syn.project.save`/`syn.project.open`(reload) が ok で dispatch され view が存続 |
+| M11 | tab pointer 選択 | `invoke(screen.tabs)` の tab header press → `tab-select` action | shell が `view` target を `result_ok` ack、displayed tab が選択 index へ settle |
+
+## project length(`synvelis-workspace`)
+
+| # | 観点 | 手順 | 期待 |
+| --- | --- | --- | --- |
+| L1 | 空 project | `project_length_seconds` | `0.0`（seek fallback 240 s へ写像） |
+| L2 | clip 末尾 | 120BPM/PPQN960 で末尾 2880 tick の clip 2 本 | `1.5` 秒（tick→秒は tempo map 経由、PPQN 量子化無し） |
 
 ## 既存非回帰
 
@@ -134,3 +144,22 @@ GPUI 実機は Partial(canvas 未描画 / Tab 操作未実装 / commit 値縮退
 1. Ruviform #414(projection → display 反映)と RF387 canvas 幅欠陥の修正を待つ。
 2. lock/REV を修正 revision へ同期し `check-ruviform-rev` を通す。
 3. 実 GPUI で非ゼロ projection 表示と Tab/Fader 操作を再測定し、B2/B3 の試験を強化する。
+
+## 2026-11-08 slice2 実機再測定（pin `769d595a`）
+
+前回 Fail/Blocked/NotRun だった項目を ruviform `769d595a`
+（RF#450/451/453/456/448 含む）で再測定。`CopyFromScreen` 実画面
+キャプチャ + 実マウス入力 + アプリログで判定
+（`PrintWindow` は本 GPUI 窓で stale frame を返すため不採用）。
+証拠: `F:/repositry/audio-products/.devin/evidence/sv175-slice2/verdict.md`。
+
+| # | 観点 | 判定 | 証拠 |
+| --- | --- | --- | --- |
+| G1 | Seek 実窓描画 | **Passed** | track `#262d36`/fill `#3d7be0`/thumb `#e8edf2` を画素確認（`seek-drag-*`） |
+| G2 | Seek ドラッグ操作 | **Passed** | ドラッグで thumb 0→69%→0 と fill 追従（各 ~2-3 万 px 差分） |
+| G3 | Tabs pointer 切替 | **Passed** | Mixer↔Transport 双方向で ~4.2 万 px 差分の表示切替 |
+| G4 | Tabs キーボード切替 | **Unsupported** | upstream FU-1 未実装（Synvelis 側で実装しない） |
+| G5 | Save/Reload 実 UI 操作 | **Passed** | 実クリックで `syn.project.save`/`syn.project.open`(reload) completed ログ |
+| G6 | Seek range の project length 追従 | **Passed** | クリップ入り bundle Reload で `seek range updated project_length_seconds=1.5` + thumb が新 range に追従（`ViewHost::update` 非再マウント） |
+| G7 | Fader `mixer.gain` projection | **Unsupported** | 投影元無し。`unsupported: true` で描画のみ・入力不可のまま（捏造しない） |
+| G8 | IME / 非 Windows / close | Unsupported / NotRun / Passed | `ime=unsupported`、Windows のみ実測、`CloseMainWindow`→`synvelis-native shutdown` |
