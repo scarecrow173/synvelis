@@ -976,7 +976,7 @@ impl ProcessorHost for RecordingHost {
         self.seen.fetch_add(1, Ordering::Relaxed);
         assert_eq!(request.mode, BuildMode::Realtime);
         assert!(request.generation >= 1);
-        assert!(!request.ports.is_empty());
+        assert_ne!(request.ports.len(), 0, "ports must be non-empty");
         let drops = Arc::clone(&self.lease_drops);
         Ok(ProcessorConnection {
             processor: Box::new(GainProcessor::new(0.5)),

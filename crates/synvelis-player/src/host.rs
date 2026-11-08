@@ -321,7 +321,7 @@ fn connect_attached(
             input: None,
         },
     )
-    .map_err(attach_error)
+    .map_err(|error| attach_error(&error))
 }
 
 /// `Instantiate { plugin_id }` → handle. Unknown/exhausted plugin
@@ -361,15 +361,13 @@ fn lifecycle(_error: HostError) -> ProcessorConnectError {
 }
 
 /// `attach` failure mapping: bus-table/bounds disagreement is
-/// `Incompatible`; a host-side rejection keeps its host-error class.
-fn attach_error(error: AttachError) -> ProcessorConnectError {
+/// `Incompatible`; a host-side endpoint refusal is `Unavailable`;
+/// every other known or future variant fails closed as `Lifecycle`.
+fn attach_error(error: &AttachError) -> ProcessorConnectError {
     match error {
         AttachError::Bus(_) | AttachError::BoundsMismatch => ProcessorConnectError::Incompatible,
         AttachError::InputConfig => ProcessorConnectError::Invalid,
-        AttachError::Host(error) => match error {
-            HostError::EndpointUnavailable => ProcessorConnectError::Unavailable,
-            _ => ProcessorConnectError::Lifecycle,
-        },
+        AttachError::Host(HostError::EndpointUnavailable) => ProcessorConnectError::Unavailable,
         // `AttachError` is `#[non_exhaustive]` — an unknown future
         // variant fails closed as a lifecycle rejection.
         _ => ProcessorConnectError::Lifecycle,
