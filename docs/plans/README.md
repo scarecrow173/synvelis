@@ -29,12 +29,13 @@ Directory: `docs/plans`
 | PLAN-034SF02Wz0rOp7qT0vB5cDfGh | SF-02 RoutingTransaction 実装計画 — staging/検証/mute-solo/テスト | approved | [sf-02-routing-transaction.md](./sf-02-routing-transaction.md) |
 | PLAN-106SF03Fg4gHi5jKl6mNo7pQr | SF-03 slice1 実装計画 — 契約型・lowering・activation・テスト | approved | [sf-03-slice1-lowering-activation.md](./sf-03-slice1-lowering-activation.md) |
 | PLAN-106SF03Pz2aBc3dEf4gHi5jKl6 | SF-03 slice2 実装計画 — Fault 分類・Last-good/Retry・reconciliation | approved | [sf-03-slice2-fault-reconcile.md](./sf-03-slice2-fault-reconcile.md) |
-| PLAN-034UfDsBnYf8HjGm7Hvr0N | SF-03 slice3 実装計画 — 実 plugin host 接続・世代連動 teardown | draft | [sf-03-slice3-plugin-host-teardown.md](./sf-03-slice3-plugin-host-teardown.md) |
+| PLAN-034UfDsBnYf8HjGm7Hvr0N | SF-03 slice3 実装計画 — 実 plugin host 接続・世代連動 teardown | approved | [sf-03-slice3-plugin-host-teardown.md](./sf-03-slice3-plugin-host-teardown.md) |
 | PLAN-v1VQEMk92Nx1lQHUlSVh1t | SV-GUI-01 実装計画 — Desktop App Bootstrap・WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap.md](./sv-gui-01-desktop-app-bootstrap.md) |
 | PLAN-SVGUI02 | SV-GUI-02 View Model・Binding IPC 実装計画 | approved | [sv-gui-02-view-model-binding-ipc.md](./sv-gui-02-view-model-binding-ipc.md) |
 | PLAN-iD5fujcWIovHuywc0CIEeu | SV175 Native App Shell 実施計画 | approved | [sv175-native-shell.md](./sv175-native-shell.md) |
 | PLAN-034T7GApSe3z9XUatjz8ti | SV177 Product Theme / Workspace Presets — synvelis-theme crate・DTCG assets・slot-based preset apply | approved | [sv177-product-theme-workspace-presets.md](./sv177-product-theme-workspace-presets.md) |
 | PLAN-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain projection 実施 plan | approved | [sv185-mixer-gain-projection.md](./sv185-mixer-gain-projection.md) |
+| PLAN-pOkUKpNa9zeQiK8ZbP5nvk | SV#28 Ruviform pin 更新 実装計画 — 863a7a9d → cc7d5296 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | PLAN-034T2c5vy3vKJPENF8AA50 | SYN-IO-02 DirectoryBundleStore StagedFile 移行計画 | approved | [syn-io-02-directory-bundle-store-stagedfile.md](./syn-io-02-directory-bundle-store-stagedfile.md) |
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |

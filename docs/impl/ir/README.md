@@ -54,4 +54,5 @@ Directory: `docs/impl/ir`
 | IMPL-034T7IhBoewhoZNaZfjXP1 | SV177 theme/preset implementation record | completed | [sv177-theme-preset-implementation-record.md](sv177-theme-preset-implementation-record.md) |
 | IMPL-SV17501NativeShellBinding | SV175-01 Native App Shell 初期 slice — NativeShell lifecycle + ViewBinding adapter + RF387 wire 翻訳 実装記録 | completed | [sv175-01-native-shell-binding.md](sv175-01-native-shell-binding.md) |
 | IMPL-SV18501MixerGainFader | SV185-01 mixer.gain domain projection — master strip Fader bootstrap・v7→v8 migration・Fader 接続 実装記録 | completed | [sv185-01-mixer-gain-fader.md](sv185-01-mixer-gain-fader.md) |
+| IMPL-034Ug8sNPL1sqhquNm1PYh | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 API 追従 | completed | [sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md](sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md) |
 | IR-SV-RF305-export | SYN-RF305 render/player WAV Export StagedFile 移行 実装記録・検証証跡 | final | [syn-rf305-render-export-staged-file.md](syn-rf305-render-export-staged-file.md) |
