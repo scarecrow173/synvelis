@@ -25,13 +25,17 @@ use ruviform_ui::behavior::{
     StateProjection, ValueInput,
 };
 use ruviform_ui::ipc::{Event, Intent};
-use ruviform_ui::view::{ComponentKey, ViewEvent, ViewHost};
+use ruviform_ui::view::{ComponentKey, ProjectionOp, ViewEvent, ViewHost};
 use ruviform_ui::{
     BackendReport, DriverEvent, WindowDriver, WindowId, WindowLifecycle, WindowSpec,
 };
 use ruviform_ui_test::FakeDriver;
 
-use synvelis_app::{NativeShell, SynvelisApp, main_view_id, main_view_targets, mount_main_view};
+use synvelis_app::binding::project_action_op;
+use synvelis_app::{
+    NativeShell, SynvelisApp, main_screen_spec, main_view_id, main_view_targets, mount_main_view,
+    seek_range_seconds,
+};
 
 fn key(name: &str) -> ComponentKey {
     ComponentKey(name.to_string())
@@ -74,7 +78,7 @@ struct MountedFixture {
 
 fn fixture() -> MountedFixture {
     let app = SynvelisApp::new(BackendReport::available("gpui", "test-0.1".to_string()));
-    let host = mount_main_view(&app.attach_epoch_allocator()).expect("main view mounts");
+    let host = mount_main_view(&app.attach_epoch_allocator(), 0.0).expect("main view mounts");
     let view_id = main_view_id();
     let mut shell = NativeShell::new(app, Duration::from_millis(16)).expect("compose shell");
     let mut driver = FakeDriver::new();
@@ -219,6 +223,16 @@ impl MountedFixture {
         self.host
             .dispatch_input(generation, &key(k), input)
             .expect("dispatch_input");
+        self.pump_view_intents();
+        self.deliver_to_host();
+    }
+
+    /// Presses the Button `k` — the same mint/deliver path as `input`.
+    fn press(&mut self, k: &str) {
+        let generation = self.host.generation();
+        self.host
+            .invoke(generation, &key(k))
+            .expect("button invoke");
         self.pump_view_intents();
         self.deliver_to_host();
     }
@@ -461,7 +475,8 @@ fn reattach_bumps_generation_and_fresh_host_absorbs_stale_namespace() {
     // distinct across hosts, so stale receipts addressed to the dead
     // host cannot resolve on the live one.
     let mut dead = f.host;
-    let mut fresh = mount_main_view(&f.shell.attach_epoch_allocator()).expect("fresh host mounts");
+    let mut fresh =
+        mount_main_view(&f.shell.attach_epoch_allocator(), 0.0).expect("fresh host mounts");
 
     let g_dead = dead.generation();
     dead.dispatch_input(g_dead, &key("seek.position"), MountedFixture::begin("d1"))
@@ -600,4 +615,124 @@ fn destroying_the_view_window_runs_view_teardown() {
         0,
         "backend view registry torn down — subscription/gesture cancel replayed"
     );
+}
+
+/// `ok` of the newest `Result` the window received — the answer to the
+/// most recent Button press.
+fn last_result_ok(driver: &FakeDriver, window: WindowId) -> Option<bool> {
+    driver
+        .events_for(window)
+        .iter()
+        .rev()
+        .find_map(|e| match e {
+            Event::Result { ok, .. } => Some(*ok),
+            _ => None,
+        })
+}
+
+#[test]
+fn seek_range_follows_project_length_in_place() {
+    let mut f = fixture();
+    let generation = f.host.generation();
+
+    // The seek's descriptor changes in place: nothing mounts or unmounts,
+    // the seek key is among the updated nodes, the host keeps its
+    // generation (no remount), and the tree is the new spec.
+    let ops = f
+        .host
+        .update(main_screen_spec(120.0), generation)
+        .expect("length update applies");
+    assert!(
+        ops.iter()
+            .all(|op| matches!(op, ProjectionOp::Updated { .. }))
+    );
+    assert!(ops.contains(&ProjectionOp::Updated {
+        key: key("seek.position")
+    }));
+    assert_eq!(f.host.generation(), generation);
+    assert_eq!(f.host.spec(), Some(&main_screen_spec(120.0)));
+
+    // The control keeps working on the updated range.
+    f.input("seek.position", MountedFixture::begin("gs"));
+    f.input("seek.position", MountedFixture::commit("gs"));
+    let receipt = f
+        .host
+        .binding("transport/position")
+        .expect("binding survives the range update")
+        .state()
+        .last_receipt
+        .expect("commit receipt");
+    assert_eq!(receipt.status, ReceiptStatus::Applied);
+}
+
+#[test]
+fn empty_project_keeps_the_default_seek_range() {
+    assert_eq!(seek_range_seconds(0.0), 240.0);
+    assert_eq!(seek_range_seconds(f64::INFINITY), 240.0);
+    assert_eq!(seek_range_seconds(90.5), 90.5);
+}
+
+#[test]
+fn project_buttons_save_and_reload_through_the_mounted_view() {
+    let mut f = fixture();
+    let dir = std::env::temp_dir().join(format!("sv175-buttons-{}", std::process::id()));
+    let path = dir.to_string_lossy().to_string();
+    let _ = std::fs::remove_dir_all(&dir);
+
+    // No bundle yet: Save is answered as a failure, never applied.
+    f.press("project.save");
+    assert_eq!(last_result_ok(&f.driver, f.window), Some(false));
+
+    action(
+        &mut f.shell,
+        &mut f.driver,
+        f.window,
+        Intent::new(
+            "pn",
+            "syn.project.new",
+            json!({ "path": path, "name": "buttons" }),
+        ),
+    );
+    assert!(results_for(&f.driver, f.window, "pn").last().unwrap().0);
+
+    f.press("project.save");
+    assert_eq!(last_result_ok(&f.driver, f.window), Some(true));
+
+    // Reload reopens the bundle the session was created from.
+    f.press("project.reload");
+    assert_eq!(last_result_ok(&f.driver, f.window), Some(true));
+    action(
+        &mut f.shell,
+        &mut f.driver,
+        f.window,
+        Intent::new("pi", "syn.project.info", json!({})),
+    );
+    let info = results_for(&f.driver, f.window, "pi")
+        .last()
+        .and_then(|(_, data)| data.clone())
+        .expect("info after reload");
+    assert_eq!(info["name"], "buttons");
+    assert_eq!(info["saved"], true);
+
+    assert_eq!(project_action_op("save"), Some("syn.project.save"));
+    assert_eq!(project_action_op("reload"), Some("syn.project.reload"));
+    assert_eq!(project_action_op("explode"), None);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn tab_press_switches_the_displayed_tab_through_the_shell() {
+    let mut f = fixture();
+    let generation = f.host.generation();
+    let tabs = key("screen.tabs");
+
+    // A pointer press on the Mixer header: the display moves at once and
+    // the shell's view-state acknowledgement settles it as accepted.
+    f.host.select_tab(generation, &tabs, 1).expect("tab press");
+    f.pump_view_intents();
+    f.deliver_to_host();
+
+    assert_eq!(f.host.observe(&tabs).and_then(|s| s.selected), Some(1));
+    assert_eq!(last_result_ok(&f.driver, f.window), Some(true));
 }

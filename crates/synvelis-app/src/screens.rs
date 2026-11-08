@@ -2,12 +2,19 @@
 //! slice, Issue #175 successor).
 //!
 //! [`main_screen_spec`] is the smallest *product-shaped* `ViewSpec`
-//! mounted through the RF387 seam: `Panel > Tabs > Seek` driving the
-//! real `transport/position` command target (`Begin → Preview →
-//! Commit/Cancel` gesture dispatch; the controlled value is the seconds
-//! position derived from the authoritative projection) plus a `Fader` on a second tab
-//! marked `unsupported` — the honest "known but undriven" state for a
-//! mixer gain that no parameter target exists for yet.
+//! mounted through the RF387 seam: `Panel > [Toolbar, Tabs]` where the
+//! toolbar holds Save/Reload `Button`s (the `project` actions) and the
+//! Transport tab carries a `Seek` driving the real `transport/position`
+//! command target (`Begin → Preview → Commit/Cancel` gesture dispatch;
+//! the controlled value is the seconds position derived from the
+//! authoritative projection). The Seek range follows the project
+//! length ([`seek_range_seconds`]); a Mixer tab carries a `Fader` marked
+//! `unsupported` — the honest "known but undriven" state for a mixer
+//! gain that no parameter target exists for yet.
+//!
+//! The spec is rebuilt on every project-length change and applied with
+//! `ViewHost::update` (through `GpuiDriver::update_view`), so the mounted
+//! controls keep their identity and no remount happens.
 //!
 //! Contract notes baked into the spec:
 //!
@@ -37,14 +44,34 @@ use ruviform_ui::UiError;
 use ruviform_ui::behavior::{DetachPolicy, ValueDescriptor};
 use ruviform_ui::dock::ViewInstanceId;
 use ruviform_ui::view::{
-    A11yRole, A11ySpec, AttachEpochAllocator, ComponentKey, ComponentSpec, ComponentVisualState,
-    ControlSpec, Orientation, PanelSpec, TabSpec, TabsSpec, ViewHost, ViewSpec,
+    A11yRole, A11ySpec, AttachEpochAllocator, ButtonSpec, ComponentKey, ComponentSpec,
+    ComponentVisualState, ControlSpec, Orientation, PanelSpec, TabSpec, TabsSelectionSpec,
+    TabsSpec, ViewHost, ViewSpec,
 };
 use synvelis_workspace::controls_ui::TRANSPORT_POSITION_TARGET;
+
+use crate::binding::{PROJECT_TARGET, VIEW_STATE_TARGET};
 
 /// The single logical view this slice mounts — `ViewInstanceId(1)`
 /// renders as `origin_view`/`view_id` `"view-1"` on the wire.
 const MAIN_VIEW_INSTANCE_RAW: u64 = 1;
+
+/// Seek range used while the project has no resolvable content — the
+/// boot range the slice shipped with, kept so an empty project still
+/// scrubs.
+pub const SEEK_DEFAULT_RANGE_SECONDS: f64 = 240.0;
+
+/// The Seek range for a project of `project_length_seconds`: the real
+/// project length, or [`SEEK_DEFAULT_RANGE_SECONDS`] when the project
+/// has no content (length `0`).
+#[must_use]
+pub fn seek_range_seconds(project_length_seconds: f64) -> f64 {
+    if project_length_seconds.is_finite() && project_length_seconds > 0.0 {
+        project_length_seconds
+    } else {
+        SEEK_DEFAULT_RANGE_SECONDS
+    }
+}
 
 /// Wire `view_id` of the product's main view — must equal
 /// `format!("view-{}", MAIN_VIEW_INSTANCE_RAW)`.
@@ -100,8 +127,9 @@ fn panel(key_name: &str, title: Option<&str>, children: Vec<ComponentSpec>) -> C
 }
 
 /// The driven control: a horizontal seek scrubbing `transport/position`
-/// — the one continuous target the boot project always exposes.
-fn transport_seek() -> ComponentSpec {
+/// — the one continuous target the boot project always exposes. Its
+/// range is the seek range for `range_seconds` ([`seek_range_seconds`]).
+fn transport_seek(range_seconds: f64) -> ComponentSpec {
     ComponentSpec::Seek(ControlSpec {
         key: key("seek.position"),
         control_id: Some(TRANSPORT_POSITION_TARGET.to_string()),
@@ -109,7 +137,7 @@ fn transport_seek() -> ComponentSpec {
         descriptor: ValueDescriptor {
             default_value: Some(0.0),
             step: Some(1.0),
-            ..ValueDescriptor::ranged(0.0, 240.0)
+            ..ValueDescriptor::ranged(0.0, range_seconds)
         },
         orientation: Orientation::Horizontal,
         detach_policy: DetachPolicy::Cancel,
@@ -120,9 +148,23 @@ fn transport_seek() -> ComponentSpec {
             label: Some("Transport position".to_string()),
             orientation: Some(Orientation::Horizontal),
             value_min: Some(0.0),
-            value_max: Some(240.0),
+            value_max: Some(range_seconds),
             value_text: None,
         },
+    })
+}
+
+/// A product `project` action button — Save/Reload. The press emits one
+/// `Action` on [`PROJECT_TARGET`]; the shell runs the matching service op.
+fn project_button(key_name: &str, label: &str, action: &str) -> ComponentSpec {
+    ComponentSpec::Button(ButtonSpec {
+        key: key(key_name),
+        label: label.to_string(),
+        target: PROJECT_TARGET.to_string(),
+        action: action.to_string(),
+        params: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec::default(),
     })
 }
 
@@ -149,42 +191,62 @@ fn mixer_fader() -> ComponentSpec {
     })
 }
 
-/// The product's minimal screen spec — `Panel > Tabs`:
+/// The product's minimal screen spec — `Panel > [Toolbar, Tabs]`:
 ///
+/// - **Toolbar**: Save and Reload `Button`s (the `project` actions).
 /// - **Transport** tab: the `Seek` bound to `transport/position` —
 ///   `Begin → Preview → Commit/Cancel` gesture dispatch through the
 ///   real `syn.control.*` surface. The controlled display is the
 ///   seconds position of the authoritative projection (see the adapter
-///   in `binding.rs`).
+///   in `binding.rs`). Its range is [`seek_range_seconds`] of
+///   `project_length_seconds`.
 /// - **Mixer** tab: the `Fader` mounted `unsupported` (see
 ///   [`mixer_fader`]).
 #[must_use]
-pub fn main_screen_spec() -> ViewSpec {
+pub fn main_screen_spec(project_length_seconds: f64) -> ViewSpec {
+    let seek_range = seek_range_seconds(project_length_seconds);
     ViewSpec {
         root: panel(
             "screen.root",
             Some("Synvelis"),
-            vec![ComponentSpec::Tabs(TabsSpec {
-                key: key("screen.tabs"),
-                active: 0,
-                tabs: vec![
-                    TabSpec {
-                        key: key("tab.transport"),
-                        title: "Transport".to_string(),
-                        child: Box::new(panel("tab.transport.panel", None, vec![transport_seek()])),
+            vec![
+                panel(
+                    "screen.toolbar",
+                    None,
+                    vec![
+                        project_button("project.save", "Save", "save"),
+                        project_button("project.reload", "Reload", "reload"),
+                    ],
+                ),
+                ComponentSpec::Tabs(TabsSpec {
+                    key: key("screen.tabs"),
+                    active: 0,
+                    selection: Some(TabsSelectionSpec {
+                        target: VIEW_STATE_TARGET.to_string(),
+                    }),
+                    tabs: vec![
+                        TabSpec {
+                            key: key("tab.transport"),
+                            title: "Transport".to_string(),
+                            child: Box::new(panel(
+                                "tab.transport.panel",
+                                None,
+                                vec![transport_seek(seek_range)],
+                            )),
+                        },
+                        TabSpec {
+                            key: key("tab.mixer"),
+                            title: "Mixer".to_string(),
+                            child: Box::new(panel("tab.mixer.panel", None, vec![mixer_fader()])),
+                        },
+                    ],
+                    visual: ComponentVisualState::default(),
+                    a11y: A11ySpec {
+                        role: Some(A11yRole::TabList),
+                        ..A11ySpec::default()
                     },
-                    TabSpec {
-                        key: key("tab.mixer"),
-                        title: "Mixer".to_string(),
-                        child: Box::new(panel("tab.mixer.panel", None, vec![mixer_fader()])),
-                    },
-                ],
-                visual: ComponentVisualState::default(),
-                a11y: A11ySpec {
-                    role: Some(A11yRole::TabList),
-                    ..A11ySpec::default()
-                },
-            })],
+                }),
+            ],
         ),
     }
 }
@@ -208,12 +270,13 @@ pub fn main_screen_spec() -> ViewSpec {
 ///
 /// # Errors
 /// [`UiError::Internal`] when the spec fails validation — a code
-/// defect (the spec is a compile-time constant).
+/// defect (the seek range is always finite and ordered).
 pub fn mount_main_view(
     attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
+    project_length_seconds: f64,
 ) -> Result<ViewHost, UiError> {
     let mut host = ViewHost::new(main_view_instance(), attach_epochs.borrow_mut().mint());
-    host.mount(main_screen_spec())
+    host.mount(main_screen_spec(project_length_seconds))
         .map_err(|e| UiError::Internal {
             message: format!("main screen spec invalid: {e}"),
         })?;

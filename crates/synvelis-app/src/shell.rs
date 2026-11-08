@@ -52,16 +52,18 @@ use serde_json::{Value, json};
 
 use ruviform_ui::driver::{DriverEvent, WindowDriver, WindowLifecycle, WindowSpec};
 use ruviform_ui::ipc::{ErrorBody, Event, LifecycleState, codes};
-use ruviform_ui::view::{AttachEpoch, AttachEpochAllocator};
+use ruviform_ui::view::{AttachEpoch, AttachEpochAllocator, TAB_SELECT_ACTION};
 use ruviform_ui::window::{CloseDecision, RoutedEvent, WindowId};
 use ruviform_ui::{DataRegistry, UiError, UiRuntime};
 
 use crate::app::SynvelisApp;
 use crate::binding::{
-    COMMAND_INTENT_OP, decode_view_command, notify_to_view_event, view_command_dispatch,
+    COMMAND_INTENT_OP, PROJECT_TARGET, VIEW_STATE_TARGET, decode_view_command,
+    notify_to_view_event, project_action_op, view_command_dispatch,
 };
 use crate::service::AppService;
 use crate::ui_ops::UiOutbox;
+use synvelis_workspace::controls_ui::CommandIntent;
 
 /// A `syn.view.*` intent the shell is watching so it can reconcile
 /// `view → window` when the result lands.
@@ -440,6 +442,16 @@ impl NativeShell {
                 return;
             }
         };
+        if let CommandIntent::Action { target, action, .. } = &cmd.intent {
+            if target == PROJECT_TARGET {
+                self.dispatch_project_action(window, &cmd.command_id, action, driver);
+                return;
+            }
+            if target == VIEW_STATE_TARGET {
+                Self::answer_view_state_action(driver, window, &cmd.command_id, action);
+                return;
+            }
+        }
         let Some(generation) = self.view_generation.get(&view).copied() else {
             Self::reject_view_command(
                 driver,
@@ -462,6 +474,54 @@ impl NativeShell {
                 continue;
             }
             self.post_routed(&re, driver);
+        }
+    }
+
+    /// Runs a `project` Button action as its service op and answers the
+    /// command with the op's own `Result` (ok or failed) on `window`, so
+    /// the pressing Button resolves its receipt. Project actions are not
+    /// control gestures, so no `syn.control.receipt` exists for them.
+    fn dispatch_project_action(
+        &mut self,
+        window: WindowId,
+        command_id: &str,
+        action: &str,
+        driver: &mut dyn WindowDriver,
+    ) {
+        let Some(op) = project_action_op(action) else {
+            Self::reject_view_command(
+                driver,
+                window,
+                command_id.to_string(),
+                format!("unknown project action {action}"),
+            );
+            return;
+        };
+        let intent = ruviform_ui::ipc::Intent::new(command_id, op, json!({}));
+        for re in self.rt.dispatch_window_intent(window, intent) {
+            self.observe_result(&re);
+            self.post_routed(&re, driver);
+        }
+    }
+
+    /// Acknowledges a view-local action. The Tabs strip moves its display
+    /// optimistically and settles on this receipt, so an accepted
+    /// `tab-select` keeps the tab and a refused one restores the previous.
+    fn answer_view_state_action(
+        driver: &mut dyn WindowDriver,
+        window: WindowId,
+        command_id: &str,
+        action: &str,
+    ) {
+        if action == TAB_SELECT_ACTION {
+            driver.post_event(window, &Event::result_ok(command_id, json!({})));
+        } else {
+            Self::reject_view_command(
+                driver,
+                window,
+                command_id.to_string(),
+                format!("unknown view action {action}"),
+            );
         }
     }
 

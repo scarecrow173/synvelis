@@ -39,11 +39,30 @@ use synvelis_theme::{ThemeCatalog, ThemeSelection};
 
 use synvelis_app::logging::{self, EnvOverrides};
 use synvelis_app::{
-    LogSettings, NativeShell, SynvelisApp, main_view_id, main_view_targets, mount_main_view,
+    LogSettings, NativeShell, SynvelisApp, main_screen_spec, main_view_id, main_view_targets,
+    mount_main_view,
 };
 
 /// UI tick cadence — job drain, outbox flush, and clock advance rate.
 const TICK: Duration = Duration::from_millis(16);
+
+/// Opens the project bundle named by `SYNVELIS_PROJECT_DIR` — creating it
+/// when the path does not exist yet — so Save/Reload act on a real bundle.
+/// Without the variable the boot project stays unsaved (Save reports that).
+fn open_boot_project(app: &mut SynvelisApp) {
+    let Some(dir) = std::env::var_os("SYNVELIS_PROJECT_DIR") else {
+        return;
+    };
+    let path = dir.to_string_lossy();
+    let result = if std::path::Path::new(&dir).exists() {
+        app.project_open(&path)
+    } else {
+        app.project_new(&path, None)
+    };
+    if let Err(e) = result {
+        tracing::error!(error = %e, "boot project bundle failed");
+    }
+}
 
 /// Reads `SYNVELIS_LOG*` at the process boundary — the library never
 /// touches `std::env` itself.
@@ -162,10 +181,15 @@ fn main() -> ExitCode {
         host_log.take_degraded(),
     );
 
+    open_boot_project(&mut app);
+
     // The view host is minted while the app is still composition-owned
     // — its `AttachEpoch` comes from the session allocator handle,
-    // never a second allocator.
-    let view_host = match mount_main_view(&app.attach_epoch_allocator()) {
+    // never a second allocator. The project-length cell is taken here
+    // too: the app publishes into it after every op, and the loop below
+    // pushes changes into the mounted spec.
+    let project_length = app.project_length_cell();
+    let view_host = match mount_main_view(&app.attach_epoch_allocator(), project_length.get()) {
         Ok(host) => host,
         Err(e) => {
             eprintln!("synvelis-native: view mount failed: {e}");
@@ -205,7 +229,11 @@ fn main() -> ExitCode {
 
     // Attach + subscribe on the main window's first `Ready` — after
     // `handle` so the shell has registered the window (owner resolution
-    // requires it in `windows`).
+    // requires it in `windows`). The Seek range follows the project
+    // length: a changed length is pushed as an updated spec, which the
+    // driver applies to the mounted view in place (no remount).
+    let view_driver = driver.clone();
+    let mut applied_length = project_length.get();
     let mut view_attached = false;
     let result = driver.run(Some(TICK), move |event, driver| {
         let main_ready = matches!(
@@ -223,6 +251,15 @@ fn main() -> ExitCode {
                 tracing::error!(error = %e, "view attach failed");
             } else {
                 tracing::info!(view_id = %view_id, "main view attached");
+            }
+        }
+        let length = project_length.get();
+        if length.total_cmp(&applied_length).is_ne() {
+            applied_length = length;
+            if let Err(e) = view_driver.update_view(window, main_screen_spec(length)) {
+                tracing::error!(error = %e, "seek range update failed");
+            } else {
+                tracing::info!(project_length_seconds = length, "seek range updated");
             }
         }
     });
