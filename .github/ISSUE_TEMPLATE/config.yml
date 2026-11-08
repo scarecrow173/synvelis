@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Ruviform（共通基盤）側 Issue
+    url: https://github.com/scarecrow173/ruviform/issues
+    about: 汎用の再利用可能な処理や Ruviform の問題は ruviform repo に起票（相互リンク必須）
+  - name: AudioLens 側 Issue
+    url: https://github.com/scarecrow173/audio-lens/issues
+    about: AudioLens 固有の対応は audio-lens repo に起票（相互リンク必須）
