@@ -31,6 +31,9 @@ Directory: `docs/test-specs`
 | TSPEC-034RoV9mM6nXzVq1kYpQwE | PC-C1 Recording Transaction 検証仕様 | approved | [pc-c1-e2e-recording-transaction.md](./pc-c1-e2e-recording-transaction.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
 | TSPEC-034SF02Xa1sPq8rU1wC6dEgHi | SF-02 E2E/契約テスト仕様 — RoutingTransaction Reject/不変/Undo/Revision | approved | [sf-02-e2e-routing-transaction.md](./sf-02-e2e-routing-transaction.md) |
+| TSPEC-106SF03Ij7jKl8mNo9pQr0sTu | SF-03 slice1 テスト仕様 — Lowering Golden/SourceMap・Activation 証拠 | approved | [sf-03-slice1-lowering-activation.md](./sf-03-slice1-lowering-activation.md) |
+| TSPEC-106SF03Vz2aBc3dEf4gHi5jKl6 | SF-03 slice2 テスト仕様 — Fault 分類・Last-good/Retry・Reconcile | approved | [sf-03-slice2-fault-reconcile.md](./sf-03-slice2-fault-reconcile.md) |
+| TSPEC-034UfG7hrZDa6LMSTkgvCQ | SF-03 slice3 plugin host 接続 test spec | draft | [sf-03-slice3-plugin-host-connect.md](./sf-03-slice3-plugin-host-connect.md) |
 | TSPEC-A8sVfBvTuQextSVcPY8yp9 | SV-GUI-01 検証仕様 — App Bootstrap・Service 契約・Asset Pipeline | approved | [sv-gui-01-e2e-desktop-bootstrap.md](./sv-gui-01-e2e-desktop-bootstrap.md) |
 | TESTSPEC-SVGUI02 | SV-GUI-02 契約検証仕様 | approved | [sv-gui-02.md](./sv-gui-02.md) |
 | TSPEC-Wa6Ax4SQSRfWvuKIzs8fCf | SV175-01 検証仕様: NativeShell lifecycle + ViewBinding wire 形 | approved | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
