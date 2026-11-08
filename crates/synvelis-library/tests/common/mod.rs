@@ -2,7 +2,9 @@
 //!
 //! The temp-dir convention mirrors the workspace tests
 //! (`std::env::temp_dir()` + pid-tagged name + `Drop` cleanup); no
-//! `tempfile` dependency is introduced.
+//! `tempfile` dependency is introduced. The kept root is the
+//! *canonical* spelling of the created directory — see
+//! [`TempTree::new`].
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -35,6 +37,13 @@ impl TempTree {
             std::env::temp_dir().join(format!("synvelis-lib-{tag}-{}-{seq}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(&root).expect("temp root");
+        // Keep the canonical spelling: ruviform `ruviform-io-file`
+        // rooted capabilities compare absolute link targets
+        // component-wise against the canonical root, so a fixture
+        // path spelled through a non-canonical alias (macOS `/var`
+        // → `/private/var`, Windows 8.3 names, junctions) would make
+        // in-root links fail `EscapesRoot`.
+        let root = fs::canonicalize(&root).expect("canonical temp root");
         Self { root }
     }
 

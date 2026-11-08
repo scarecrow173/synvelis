@@ -22,6 +22,7 @@ Directory: `docs/test-specs`
 | TSPEC-034RUl6XqtnGnSMl6PCvgL | Issue #157 rev.3 matrix placeholder gate 検証仕様 | approved | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |
 | TSPEC-034SYN166CiGateX | Issue #166 ci-summary fail-closed gate 検証仕様 | proposed | [issue-166-ci-summary-gate.md](./issue-166-ci-summary-gate.md) |
 | TSPEC-K0owvECAJq2cZ4wvoyMdzy | Issue #167 Tracker reconcile test specification — Consumer 契約(共有 pin・mode 分離・guard・入口) | proposed | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
+| TSPEC-034U2HrQ3Myiuakuy9dVPa | Issue #184 canonical temp fixture 検証仕様 | approved | [issue-184-canonical-temp-fixture.md](./issue-184-canonical-temp-fixture.md) |
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | TSPEC-034QmjuUDQRs8JzfSsG8wM | L2 検証仕様 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | TSPEC-SXc0ENzb4xBlpJDsiIaUA8 | MD-A 検証仕様 — TakeGroup/Comp・Effective Comp 投影・Placement/Playback 時間契約 | approved | [mda-model-poc-acceptance.md](./mda-model-poc-acceptance.md) |
