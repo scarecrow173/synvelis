@@ -11,13 +11,20 @@
 //! a generated explanation page so the user sees the failure in-app, and
 //! the mismatched files are never served.
 //!
+//! The event loop is the driver-neutral [`NativeShell`] composition —
+//! the same `DriverEvent`/`WindowDriver` contract the GPUI lane drives
+//! (RF386): typed `Action` intents dispatch through `UiRuntime`,
+//! `Tick`s drain jobs and advance the UI clock, and the last destroyed
+//! window exits the loop. `rvf://data` pulls resolve against the same
+//! [`DataRegistry`] the runtime's services write to.
+//!
 //! Logging flags: `--log[=FILTER]` (`EnvFilter` directives, bare means
 //! `info`), `--log-file <DIR>` (daily rolling JSONL sink), `--log-format
 //! text|jsonl` (stderr format). Environment: `SYNVELIS_LOG`,
 //! `SYNVELIS_LOG_FILE`, `SYNVELIS_LOG_FORMAT`. Logging is OFF unless one
 //! of these enables it; the installed global subscriber cannot be
-//! uninstalled, and `HostLog` is dropped after `run` returns so every
-//! sink flushes and closes in order.
+//! uninstalled, and `HostLog` is dropped after `run_multi` returns so
+//! every sink flushes and closes in order.
 //!
 //! Exit codes: `0` clean shutdown (window closed / `syn.app.quit`),
 //! `2` backend unavailable, `3` service-registration or host failure,
@@ -25,16 +32,18 @@
 
 use std::process::ExitCode;
 use std::sync::Arc;
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 
-use ruviform_ui::{BackendState, DataRegistry, HostEvent, UiRuntime, dispatch_script};
-use ruviform_ui_webview::{HostConfig, detect_backend, run};
+use ruviform_ui::{BackendState, DataRegistry, LogicalSize, WindowSpec};
+use ruviform_ui_webview::{SessionConfig, WebViewWindowConfig, detect_backend, run_multi};
 
 use synvelis_app::assets::{app_asset_source, error_asset_source};
 use synvelis_app::logging::{self, EnvOverrides};
 use synvelis_app::revision::check_bundle;
-use synvelis_app::{AppService, LogSettings, SynvelisApp};
+use synvelis_app::{LogSettings, NativeShell, SynvelisApp};
+
+/// UI tick cadence — job drain, outbox flush, and clock advance rate.
+const TICK: Duration = Duration::from_millis(16);
 
 /// Reads `SYNVELIS_LOG`/`SYNVELIS_LOG_FILE`/`SYNVELIS_LOG_FORMAT` at the
 /// process boundary — the library never touches `std::env` itself.
@@ -105,11 +114,6 @@ fn main() -> ExitCode {
         host_log.health().cloned(),
         host_log.take_degraded(),
     );
-    let quit = app.quit_flag();
-    let initial_notify = app.app_state_notify();
-    // Shared SV-GUI-02 notify outbox — UI ops pump receipts/projections/
-    // frames into it; the tick below drains it into the page.
-    let ui_outbox = app.event_outbox();
 
     let real_assets = app_asset_source();
     let assets: Arc<dyn ruviform_ui::AssetSource> = match check_bundle(real_assets.as_ref()) {
@@ -126,51 +130,37 @@ fn main() -> ExitCode {
         }
     };
 
+    // One registry shared by the runtime (service data sources) and
+    // the `rvf://data` scheme handler — clones of a `DataRegistry`
+    // alias the same store.
     let data = DataRegistry::new();
-    let mut rt = UiRuntime::new(data.clone());
-    if let Err(e) = rt.register_service(AppService::new(app)) {
-        eprintln!("synvelis: failed to register app service: {e}");
-        tracing::error!("failed to register app service");
-        return ExitCode::from(3);
-    }
+    let mut shell = match NativeShell::new_with_data(app, TICK, data.clone()) {
+        Ok(shell) => shell,
+        Err(e) => {
+            eprintln!("synvelis: failed to compose shell: {e}");
+            tracing::error!("failed to register app service");
+            return ExitCode::from(3);
+        }
+    };
 
-    let config = HostConfig {
-        title: "Synvelis".to_string(),
-        width: 1440,
-        height: 900,
-        url: "rvf://app/index.html".to_string(),
+    let config = SessionConfig {
         data_dir: None,
-        tick: Some(Duration::from_millis(16)),
+        tick: Some(TICK),
+        windows: vec![WebViewWindowConfig {
+            spec: WindowSpec {
+                title: "Synvelis".to_string(),
+                logical_size: LogicalSize::new(1440, 900),
+                ..WindowSpec::default()
+            },
+            url: "rvf://app/index.html".to_string(),
+            devtools: cfg!(debug_assertions),
+        }],
+        default_url: "rvf://app/index.html".to_string(),
         devtools: cfg!(debug_assertions),
     };
 
-    let mut sent_notify = false;
-    let result = run(&config, assets, data, move |ev, host| {
-        let ready = matches!(ev, HostEvent::Ready { .. });
-        for out in rt.handle(ev) {
-            host.eval(&dispatch_script(&out));
-        }
-        if ready && !sent_notify {
-            sent_notify = true;
-            host.eval(&dispatch_script(&initial_notify));
-        }
-        if ready || sent_notify {
-            // Drain the bounded notify outbox on every event-loop turn:
-            // receipts, projections, viz frames/events, view state.
-            let mut pending: Vec<ruviform_ui::ipc::Event> = Vec::new();
-            {
-                let mut q = ui_outbox.borrow_mut();
-                while let Some(e) = q.pop_front() {
-                    pending.push(e);
-                }
-            }
-            for e in pending {
-                host.eval(&dispatch_script(&e));
-            }
-        }
-        if quit.swap(false, Ordering::AcqRel) {
-            host.request_close();
-        }
+    let result = run_multi(&config, assets, data, |event, driver| {
+        shell.handle(event, driver);
     });
 
     match result {

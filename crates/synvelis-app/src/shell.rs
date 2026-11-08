@@ -128,13 +128,29 @@ impl NativeShell {
     /// # Errors
     /// [`UiError`] if service registration fails (a malformed or
     /// duplicate `syn.*` op — a code defect, not a runtime condition).
-    pub fn new(mut app: SynvelisApp, tick: Duration) -> Result<Self, UiError> {
+    pub fn new(app: SynvelisApp, tick: Duration) -> Result<Self, UiError> {
+        Self::new_with_data(app, tick, DataRegistry::new())
+    }
+
+    /// [`new`](Self::new) with a caller-supplied [`DataRegistry`] — the
+    /// `WebView` host shares its registry with the `rvf://data`
+    /// scheme handler, so the page's bounded pulls resolve against the
+    /// same store the runtime's services write to.
+    ///
+    /// # Errors
+    /// [`UiError`] if service registration fails (a malformed or
+    /// duplicate `syn.*` op — a code defect, not a runtime condition).
+    pub fn new_with_data(
+        mut app: SynvelisApp,
+        tick: Duration,
+        data: DataRegistry,
+    ) -> Result<Self, UiError> {
         let quit = app.quit_flag();
         let outbox = app.event_outbox();
         let clock = app.ui_clock();
         let attach_epochs = app.attach_epoch_allocator();
         let initial_notify = app.app_state_notify();
-        let mut rt = UiRuntime::new(DataRegistry::new());
+        let mut rt = UiRuntime::new(data);
         rt.register_service(AppService::new(app))?;
         Ok(Self {
             rt,
