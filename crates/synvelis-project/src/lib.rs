@@ -23,6 +23,7 @@ pub mod project;
 pub mod range;
 pub mod recording_data;
 pub mod routing;
+pub mod routing_build;
 pub mod routing_tx;
 pub mod store;
 pub mod tempo;
@@ -73,6 +74,13 @@ pub use routing::{
     PortDirection, PortOwner, PortRole, Processor, ProcessorBinding, ProcessorChain,
     RoutingConnection, RoutingModel, SemanticPort, SendConfig, SendTap, SignalDomain, StripOwner,
     WELL_KNOWN_BASE, is_issuable_raw,
+};
+pub use routing_build::{
+    AvailabilityReason, BuildBudget, BuildMode, LOWERING_POLICY_VERSION, MappingResolution,
+    NotLoweredReason, PlaybackContentRef, PlaybackOverlapSide, RoutingActivationReceipt,
+    RoutingActivationState, RoutingBuildKey, RoutingBuildRequestId, RoutingCompileRequest,
+    RoutingFault, RoutingFingerprint, RoutingPlaybackRef, RoutingSourceMap, RuntimeClockEpochRef,
+    RuntimeInstanceId, SemanticNodeRef, UnsupportedReason, routing_fingerprint,
 };
 pub use routing_tx::{
     BusRef, ConnectionRef, ExplicitConversionPolicy, PortRef, RoutingEdit, RoutingEditError,
