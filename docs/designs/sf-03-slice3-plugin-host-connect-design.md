@@ -233,6 +233,16 @@ pub struct PluginHostProcessors {
   （既に Failed/途中状態の instance でも後続 command を試す。
   個別失敗は無視 — teardown は best-effort であり、残存は
   `PluginHost` drop が回収する）。
+- **二相解放（実装で確定）**: lease drop が発行する host
+  `Destroy` は lifecycle を終了し slot の `Arc<Mutex<SendCore>>`
+  を手放すが、`attach` が detach した endpoint は `PluginNode`
+  内に残り独自の `SendCore` share を保持する。plugin object の
+  最終 drop は「host `Destroy`」と「RT 側 `PluginNode` 退役」
+  （stale install 破棄 / plan swap retire → `GraphRuntime::collect`
+  の retire drain）の両方が揃った時点になる。これは upstream
+  endpoint の設計どおりで leak ではない — `RoutingEngine::collect`
+  を非 RT 側から呼んで retire を drain する責務は呼出側
+  （headless driver と同じ契約）にある。
 - bus 導出 `semantic_buses(ports)`:
   `processor.port_ids` 順の `SemanticPort` 各要素を
   `BusDescriptor { direction, layout: port_format.layout,

@@ -1,7 +1,7 @@
 ---
 id: "TASK-034UfGn2GRUGJOpEhbrW9K"
 type: "task"
-status: "todo"
+status: "done"
 title: "SF-03 slice3 T2 — RoutingEngine 接続統合・世代連動 teardown"
 created: "2026-11-08"
 updated: "2026-11-08"
@@ -83,20 +83,33 @@ relations:
 
 ## Upstream Documents
 
-- <!-- plan, spec, ADR, or task path -->
+- docs/plans/sf-03-slice3-plugin-host-teardown.md
+- docs/designs/sf-03-slice3-plugin-host-connect-design.md
+- docs/tasks/sf-03-slice3-host-boundary.md
 
 ## Dependencies
 
-- <!-- prerequisite, blocker, or related task -->
+- docs/tasks/sf-03-slice3-host-boundary.md
 
 ## Affected Files
 
-- <!-- file, directory, module, or interface -->
+- crates/synvelis-player/src/routing_engine.rs
+- crates/synvelis-player/src/routing_lower.rs（`engine_format` 公開）
+- crates/synvelis-player/tests/sf03_l1.rs
+- crates/synvelis-player/tests/sf03_l2.rs
 
 ## Done When
 
-- [ ] <!-- completion criterion -->
+- [x] `RoutingDeps.processors` が撤去され `ProcessorHost` boundary
+  経由のみで chain processor が接続される。
+- [x] `stage_build`/`publish`/`observe_activation`/`seek` が
+  generation 連動 lease teardown を実装する。
+- [x] `RoutingEngine::collect` が retire drain を公開する。
+- [x] 既存 slice1/2 test が `StaticProcessorHost` へ移行し green。
 
 ## Verification
 
-- [ ] <!-- command, test, review step, or observable behavior -->
+- [x] `cargo test -p synvelis-player` 全 target green
+  （sf03_l1/l2/l3・pc_b 等、回帰なし）。
+- [x] `sf03_l3_09` で pending 置換・active 置換・engine drop の
+  teardown タイミングを実測。

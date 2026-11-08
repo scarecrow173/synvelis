@@ -1,7 +1,7 @@
 ---
 id: "TASK-034UfGnJu6lN4FLgs2mZpK"
 type: "task"
-status: "todo"
+status: "done"
 title: "SF-03 slice3 T3 — sf03_l3 受入テスト・test-spec"
 created: "2026-11-08"
 updated: "2026-11-08"
@@ -81,20 +81,27 @@ Feature/Rule を実測する。
 
 ## Upstream Documents
 
-- <!-- plan, spec, ADR, or task path -->
+- docs/plans/sf-03-slice3-plugin-host-teardown.md
+- docs/test-specs/sf-03-slice3-plugin-host-connect.md
+- docs/tasks/sf-03-slice3-engine-integration.md
 
 ## Dependencies
 
-- <!-- prerequisite, blocker, or related task -->
+- docs/tasks/sf-03-slice3-engine-integration.md
 
 ## Affected Files
 
-- <!-- file, directory, module, or interface -->
+- crates/synvelis-player/tests/sf03_l3.rs（新規・11 test）
+- docs/test-specs/sf-03-slice3-plugin-host-connect.md
 
 ## Done When
 
-- [ ] <!-- completion criterion -->
+- [x] `sf03_l3.rs` が static host・real `PluginHost`・fault 写像・
+  世代 teardown・offline fail-closed を網羅する。
+- [x] `cargo test -p synvelis-player --test sf03_l3` 11/11 green。
+- [x] test-spec の Rule 1–8 に対応する実測 test が存在する。
 
 ## Verification
 
-- [ ] <!-- command, test, review step, or observable behavior -->
+- [x] `cargo test -p synvelis-player` 全 target green（補助証拠;
+  canonical は `mise run test` で最終確認）。

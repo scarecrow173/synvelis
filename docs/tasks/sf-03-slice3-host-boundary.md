@@ -1,7 +1,7 @@
 ---
 id: "TASK-034UfGmlTvNz0gwIlMQkZL"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "SF-03 slice3 T1 — ProcessorHost boundary・StaticProcessorHost・PluginHostProcessors"
 created: "2026-11-08"
 updated: "2026-11-08"
@@ -85,20 +85,31 @@ relations:
 
 ## Upstream Documents
 
-- <!-- plan, spec, ADR, or task path -->
+- docs/plans/sf-03-slice3-plugin-host-teardown.md
+- docs/designs/sf-03-slice3-plugin-host-connect-design.md
 
 ## Dependencies
 
-- <!-- prerequisite, blocker, or related task -->
+- docs/tasks/sf-03-slice3-engine-integration.md（本 task が先行）
 
 ## Affected Files
 
-- <!-- file, directory, module, or interface -->
+- crates/synvelis-player/src/host.rs（新規）
+- crates/synvelis-player/src/lib.rs
 
 ## Done When
 
-- [ ] <!-- completion criterion -->
+- [x] `ProcessorHost`/`ProcessorConnection`/`ProcessorLease`/
+  `ProcessorConnectError` が定義され `fault()` 写像が存在する。
+- [x] `StaticProcessorHost` が instance を消費し未登録を
+  `Unavailable` で返す。
+- [x] `PluginHostProcessors` が Instantiate→Initialize→
+  Activate(ProcessConfig)→StartProcessing→attach の順で接続し、
+  lease drop で StopProcessing→Deactivate→Destroy を best-effort
+  実行する。
 
 ## Verification
 
-- [ ] <!-- command, test, review step, or observable behavior -->
+- [x] `cargo check -p synvelis-player --all-targets` 通過。
+- [x] `cargo test -p synvelis-player --test sf03_l3` 11/11 green
+  （static/real host・fault 写像・teardown を実測）。
