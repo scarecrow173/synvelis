@@ -14,6 +14,7 @@ Directory: `docs/tasks`
 | TASK-034RUl0VioQz9IinY5Qc7G | Issue #157 rev.3 T1 matrix placeholder gate 修正 | in-progress | [issue-157-t1-matrix-placeholder-gate.md](./issue-157-t1-matrix-placeholder-gate.md) |
 | TASK-034SYN166T1CiSumX | Issue #166 T1 Full CI 化・ci-summary 統一 — 第一段階実装 | in-progress | [issue-166-t1-ci-summary-stage1.md](./issue-166-t1-ci-summary-stage1.md) |
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
+| TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
 | TASK-034QfQZsTXhM5gVQP0gh81 | VS-C task3 staging writer | todo | [vs-c-task3-staging-writer.md](./vs-c-task3-staging-writer.md) |
