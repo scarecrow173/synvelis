@@ -235,7 +235,6 @@ fn deps_for(project: &Project, media_root: &Path) -> RoutingDeps<'static> {
     RoutingDeps {
         canonical_of: &|_| Some(canonical_format()),
         clips: prepared_clips(project, media_root),
-        processors: std::collections::BTreeMap::default(),
         engine_config_generation: 1,
         source_format_generation: 1,
     }
@@ -387,7 +386,6 @@ fn drive(
             .values()
             .map(|clip| prepare(c.live(), clip.source_id, media, &prefetch()).unwrap())
             .collect(),
-        processors: std::collections::BTreeMap::default(),
         engine_config_generation: 1,
         source_format_generation: 1,
     };
@@ -1059,11 +1057,13 @@ fn sf03_06_chain_processor_instance() {
     // With a 0.5 gain instance.
     let mut eng = new_engine();
     let rev = c.live_revision();
-    let mut deps = deps_for(c.live(), &media);
-    deps.processors.insert(
+    let mut host = synvelis_player::StaticProcessorHost::new();
+    host.insert(
         processor_id,
         Box::new(synvelis_player::routing_lower::GainProcessor::new(0.5)),
     );
+    eng.set_processor_host(Box::new(host));
+    let deps = deps_for(c.live(), &media);
     let prepared = eng.prepare(&request(1, rev), c.live(), rev, deps).unwrap();
     eng.publish(prepared, c.live(), rev).unwrap();
     let halved = eng.run(4, PumpPolicy::Every(1)).unwrap();

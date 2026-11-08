@@ -10,7 +10,6 @@
 //! fault under test is the lowering/publish classification, not a
 //! stale-revision rejection.
 
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -230,7 +229,6 @@ fn deps_for<'a>(
     RoutingDeps {
         canonical_of: canonical,
         clips: prepared_clips(project, media_root),
-        processors: BTreeMap::default(),
         engine_config_generation,
         source_format_generation,
     }
@@ -1005,9 +1003,10 @@ fn sf03_l2_10_offline_capability_gate() {
     // Unknown support (GainProcessor does not override the default)
     // → OfflineCapabilityMismatch.
     let mut eng = new_engine();
-    let mut deps = deps_default(c.live(), &media);
-    deps.processors
-        .insert(processor_id, Box::new(GainProcessor::new(0.5)));
+    let mut host = synvelis_player::StaticProcessorHost::new();
+    host.insert(processor_id, Box::new(GainProcessor::new(0.5)));
+    eng.set_processor_host(Box::new(host));
+    let deps = deps_default(c.live(), &media);
     assert_eq!(
         eng.prepare(&offline_req, c.live(), rev, deps)
             .err()
@@ -1017,10 +1016,10 @@ fn sf03_l2_10_offline_capability_gate() {
 
     // Verified support → the offline build proceeds.
     let mut eng2 = new_engine();
-    let mut deps2 = deps_default(c.live(), &media);
-    deps2
-        .processors
-        .insert(processor_id, Box::new(VerifiedGain(0.5)));
+    let mut host2 = synvelis_player::StaticProcessorHost::new();
+    host2.insert(processor_id, Box::new(VerifiedGain(0.5)));
+    eng2.set_processor_host(Box::new(host2));
+    let deps2 = deps_default(c.live(), &media);
     let prepared = eng2.prepare(&offline_req, c.live(), rev, deps2).unwrap();
     eng2.publish(prepared, c.live(), rev).unwrap();
     eng2.run(1, PumpPolicy::Every(1)).unwrap();
@@ -1044,10 +1043,12 @@ fn sf03_l2_11_offline_ignores_unused_instances() {
     let mut eng = new_engine();
     // No chain processors in the graph; an unverified instance for a
     // nonexistent processor ID is simply unused.
-    let mut deps = deps_default(c.live(), &media);
-    deps.processors.insert(
+    let mut host = synvelis_player::StaticProcessorHost::new();
+    host.insert(
         synvelis_project::ProcessorId::new(0xFFFF),
         Box::new(GainProcessor::new(1.0)),
     );
+    eng.set_processor_host(Box::new(host));
+    let deps = deps_default(c.live(), &media);
     eng.prepare(&offline_req, c.live(), rev, deps).unwrap();
 }
