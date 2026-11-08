@@ -26,6 +26,8 @@ pub mod lowering;
 pub mod processor;
 pub mod publish;
 pub mod resolver;
+pub mod routing_engine;
+pub mod routing_lower;
 
 pub use dispatch::{DispatchError, ParamDispatch};
 pub use driver::{AttachedNode, DriverState, HeadlessDriver, PlayReport, PumpPolicy};

@@ -21,7 +21,7 @@
 //! double-play.
 
 use synvelis_project::{
-    ClipId, CompId, CompRegionId, CompTransitionId, EffectiveTransition, FadeShape,
+    Clip, ClipId, CompId, CompRegionId, CompTransitionId, EffectiveTransition, FadeShape,
     PlaybackMapping, Project, ProjectRange, ProjectTime, SourceBinding, SourceId, TakeGroupId,
     TickTimeMapping, project_comp,
 };
@@ -175,6 +175,45 @@ pub struct PlaybackBinding {
     pub canonical: AudioFormat,
     /// Crossfade envelope — `Some` only on transition-side nodes.
     pub fade: Option<FadeWindow>,
+}
+
+/// One resolved playback node's plan — everything needed to emit a
+/// graph node, without the node itself. [`plan_playbacks`] produces
+/// these in deterministic order (clips in project order, then each
+/// active comp's segments and transition sides in take-group order);
+/// both the legacy clip→master lowering and the SF-03 semantic
+/// lowering consume the same plans so source-window resolution has a
+/// single authority.
+#[derive(Clone, Debug)]
+pub struct PlaybackPlan {
+    /// What the node plays — clip, comp segment, or transition side.
+    pub content: NodeContent,
+    /// The verified source it reads.
+    pub source_id: SourceId,
+    /// Resolved engine/source window.
+    pub window: ClipWindow,
+    /// The source's canonical output format.
+    pub canonical: AudioFormat,
+    /// Crossfade envelope — `Some` only on transition-side nodes.
+    pub fade: Option<FadeWindow>,
+}
+
+/// The lane a playback plan's content sits on — clips via their lane,
+/// comp content via the take group's owner lane. `None` when the
+/// provenance cannot be resolved (foreign/missing entities).
+#[must_use]
+pub fn playback_lane_id(
+    project: &Project,
+    content: &NodeContent,
+) -> Option<synvelis_project::LaneId> {
+    match *content {
+        NodeContent::Clip(clip_id) => project.clips.get(&clip_id).map(|c| c.lane_id),
+        NodeContent::CompSegment { comp_id, .. } | NodeContent::CompOverlap { comp_id, .. } => {
+            let comp = project.comp.comps.get(&comp_id)?;
+            let group = project.comp.take_groups.get(&comp.take_group_id)?;
+            Some(group.owner_lane_id)
+        }
+    }
 }
 
 /// Why a comp-produced node could not be lowered — mirrors the
@@ -331,9 +370,6 @@ struct LowerEnv<'a> {
     fan_in: PortRef,
     engine_format: AudioFormat,
     engine_channels: u16,
-    project: &'a Project,
-    canonical_of: &'a dyn Fn(SourceId) -> Option<AudioFormat>,
-    engine: &'a EngineConfig,
 }
 
 /// Emits one playback-source node feeding `fan_in`, with the explicit
@@ -402,7 +438,19 @@ fn point_frame(time: &ProjectTime, map: Option<&TickTimeMapping>, rate: u32) -> 
     }
 }
 
-/// Lowers one comp-side [`SourceBinding`] into a playback node.
+/// Resolution context shared by every lowering path — the project,
+/// the canonical source lookup and the engine geometry. No graph
+/// builder: [`plan_playbacks`] resolves *what* plays, callers decide
+/// *where* each node connects.
+struct PlanEnv<'a> {
+    project: &'a Project,
+    canonical_of: &'a dyn Fn(SourceId) -> Option<AudioFormat>,
+    engine: &'a EngineConfig,
+}
+
+/// Lowers one comp-side [`SourceBinding`] into a playback *plan* —
+/// the same resolution [`lower_comp_node`] performed, minus node
+/// emission.
 ///
 /// The node plays engine span `play_span` reading `binding`'s source
 /// from `read_start` — the caller derives `read_start` from
@@ -410,15 +458,13 @@ fn point_frame(time: &ProjectTime, map: Option<&TickTimeMapping>, rate: u32) -> 
 /// transition side plays only the extended head/tail slice, since the
 /// base read belongs to the region's own segment node). Only `Natural`
 /// mappings lower — the 1:1 contract clips already enforce.
-fn lower_comp_node(
-    env: &mut LowerEnv<'_>,
-    content: NodeContent,
+fn comp_node_plan(
+    env: &PlanEnv<'_>,
     binding: &SourceBinding,
     group_rate: u32,
     play_span: (i64, i64),
     read_start: i64,
-    fade: Option<FadeWindow>,
-) -> Result<PlaybackBinding, CompSkipReason> {
+) -> Result<(ClipWindow, AudioFormat), CompSkipReason> {
     if !env.project.sources.contains_key(&binding.source_id) {
         return Err(CompSkipReason::MissingSource(binding.source_id));
     }
@@ -451,31 +497,25 @@ fn lower_comp_node(
         return Err(CompSkipReason::Unresolvable);
     };
     let source_start = u64::try_from(read_start).unwrap_or(0).saturating_add(lead);
-    let (node_id, out_port) = emit_node(env, canonical);
-    Ok(PlaybackBinding {
-        content,
-        source_id: binding.source_id,
-        node_id,
-        out_port,
-        window: ClipWindow {
+    Ok((
+        ClipWindow {
             engine_start,
             engine_len: len,
             source_start,
             source_len: len,
         },
         canonical,
-        fade,
-    })
+    ))
 }
 
-/// Lowers one active comp's Effective projection into playback nodes:
+/// Plans one active comp's Effective projection into playback nodes:
 /// base segments in order, then each transition's extended sides with
 /// their declared fades.
-fn lower_comp(
-    env: &mut LowerEnv<'_>,
+fn plan_comp(
+    env: &PlanEnv<'_>,
     zone: &CompZone,
     tempo: Option<&TickTimeMapping>,
-    playbacks: &mut Vec<PlaybackBinding>,
+    plans: &mut Vec<PlaybackPlan>,
     skipped: &mut Vec<SkippedPlayback>,
 ) {
     let comp_id = zone.comp_id;
@@ -495,7 +535,7 @@ fn lower_comp(
             skipped.push(SkippedPlayback::CompSilence { comp_id, region_id });
             continue;
         };
-        let node = NodeContent::CompSegment { comp_id, region_id };
+        let content = NodeContent::CompSegment { comp_id, region_id };
         let Some(span) = range_span(&segment.project_range, tempo, env.engine.sample_rate) else {
             skipped.push(SkippedPlayback::CompSegment {
                 comp_id,
@@ -504,16 +544,20 @@ fn lower_comp(
             });
             continue;
         };
-        match lower_comp_node(
+        match comp_node_plan(
             env,
-            node,
             binding,
             zone.source_rate,
             span,
             binding.window.start().value(),
-            None,
         ) {
-            Ok(b) => playbacks.push(b),
+            Ok((window, canonical)) => plans.push(PlaybackPlan {
+                content,
+                source_id: binding.source_id,
+                window,
+                canonical,
+                fade: None,
+            }),
             Err(reason) => skipped.push(SkippedPlayback::CompSegment {
                 comp_id,
                 region_id,
@@ -522,19 +566,19 @@ fn lower_comp(
         }
     }
     for transition in &effective.transitions {
-        lower_transition(env, zone, transition, tempo, playbacks, skipped);
+        plan_transition(env, zone, transition, tempo, plans, skipped);
     }
 }
 
-/// Lowers one Effective transition into its two extended-read nodes.
+/// Plans one Effective transition into its two extended-read nodes.
 /// A `None` side is a silence region's extension — nothing plays,
 /// nothing is skipped (the region already reported its silence).
-fn lower_transition(
-    env: &mut LowerEnv<'_>,
+fn plan_transition(
+    env: &PlanEnv<'_>,
     zone: &CompZone,
     transition: &EffectiveTransition,
     tempo: Option<&TickTimeMapping>,
-    playbacks: &mut Vec<PlaybackBinding>,
+    plans: &mut Vec<PlaybackPlan>,
     skipped: &mut Vec<SkippedPlayback>,
 ) {
     let comp_id = zone.comp_id;
@@ -610,20 +654,19 @@ fn lower_transition(
             engine_start: play_span.0,
             engine_end: play_span.1,
         };
-        match lower_comp_node(
-            env,
-            NodeContent::CompOverlap {
-                comp_id,
-                transition_id,
-                side,
-            },
-            binding,
-            zone.source_rate,
-            play_span,
-            read_start,
-            Some(fade),
-        ) {
-            Ok(b) => playbacks.push(b),
+        let content = NodeContent::CompOverlap {
+            comp_id,
+            transition_id,
+            side,
+        };
+        match comp_node_plan(env, binding, zone.source_rate, play_span, read_start) {
+            Ok((window, canonical)) => plans.push(PlaybackPlan {
+                content,
+                source_id: binding.source_id,
+                window,
+                canonical,
+                fade: Some(fade),
+            }),
             Err(reason) => skipped.push(SkippedPlayback::CompOverlap {
                 comp_id,
                 transition_id,
@@ -777,136 +820,25 @@ pub fn lower_with_inserts(
         });
     }
 
-    let tempo = TickTimeMapping::new(&project.tempo_map).ok();
-
-    // Active comps supersede raw clips inside their target range on the
-    // owner lane — collect the zones up front so the clip pass can mark
-    // superseded clips explicitly.
-    let mut zones = Vec::new();
-    for (group_id, group) in &project.comp.take_groups {
-        let Some(comp_id) = group.active_comp_id else {
-            continue;
-        };
-        zones.push(CompZone {
-            group_id: *group_id,
-            comp_id,
-            lane_id: group.owner_lane_id,
-            source_rate: group.source_rate,
-            span: range_span(&group.target_range, tempo.as_ref(), engine.sample_rate),
-        });
-    }
-
+    let (plans, skipped) = plan_playbacks(project, canonical_of, engine);
     let mut env = LowerEnv {
         builder: &mut builder,
         fan_in,
         engine_format,
         engine_channels: engine.channels,
-        project,
-        canonical_of,
-        engine,
     };
-    let mut playbacks = Vec::new();
-    let mut skipped = Vec::new();
-
-    for clip in project.clips.values() {
-        if clip.muted {
-            skipped.push(SkippedPlayback::Muted { clip_id: clip.id });
-            continue;
-        }
-        // A clip inside an active comp's target span is superseded —
-        // the adopted regions own that span, so the clip neither plays
-        // nor is health-checked.
-        if let Ok(span) = clip
-            .placement
-            .resolve_span(tempo.as_ref(), engine.sample_rate)
-        {
-            let (clip_start, clip_end) = (span.start().value(), span.end().value());
-            if let Some(zone) = zones.iter().find(|z| {
-                z.lane_id == clip.lane_id
-                    && z.span.is_some_and(|(s, e)| clip_start < e && s < clip_end)
-            }) {
-                skipped.push(SkippedPlayback::SupersededByComp {
-                    clip_id: clip.id,
-                    take_group_id: zone.group_id,
-                });
-                continue;
-            }
-        }
-        if !project.sources.contains_key(&clip.source_id) {
-            skipped.push(SkippedPlayback::MissingSource {
-                clip_id: clip.id,
-                source_id: clip.source_id,
-            });
-            continue;
-        }
-        let Some(canonical) = canonical_of(clip.source_id) else {
-            skipped.push(SkippedPlayback::MissingSource {
-                clip_id: clip.id,
-                source_id: clip.source_id,
-            });
-            continue;
-        };
-        if canonical.sample_rate.get() != engine.sample_rate {
-            skipped.push(SkippedPlayback::RateMismatch {
-                clip_id: clip.id,
-                source_rate: canonical.sample_rate.get(),
-            });
-            continue;
-        }
-        let Ok(resolved) =
-            clip.placement
-                .resolve(&clip.playback, tempo.as_ref(), engine.sample_rate)
-        else {
-            skipped.push(SkippedPlayback::UnresolvableAnchor { clip_id: clip.id });
-            continue;
-        };
-        if !matches!(resolved.mapping, PlaybackMapping::Natural) {
-            skipped.push(SkippedPlayback::UnsupportedMapping { clip_id: clip.id });
-            continue;
-        }
-        let start = resolved.media_span.start().value();
-        let end = resolved.media_span.end().value();
-        // Clamp a negative engine start: the skipped head shifts the
-        // source window forward — never silently repositioned.
-        // `start == i64::MIN` saturates rather than overflows; the
-        // `len` check below refuses the clip in that case anyway.
-        let lead =
-            u64::try_from(start.checked_neg().unwrap_or(i64::MAX).max(0)).unwrap_or(u64::MAX);
-        let engine_start = u64::try_from(start.max(0)).unwrap_or(0);
-        let Some(len) = end
-            .checked_sub(start)
-            .and_then(|v| u64::try_from(v).ok())
-            .map(|v| v.saturating_sub(lead))
-        else {
-            skipped.push(SkippedPlayback::UnresolvableAnchor { clip_id: clip.id });
-            continue;
-        };
-        if len == 0 {
-            skipped.push(SkippedPlayback::UnresolvableAnchor { clip_id: clip.id });
-            continue;
-        }
-        let source_start = u64::try_from(resolved.source_start.value()).unwrap_or(0) + lead;
-        let (node_id, out_port) = emit_node(&mut env, canonical);
+    let mut playbacks = Vec::with_capacity(plans.len());
+    for plan in plans {
+        let (node_id, out_port) = emit_node(&mut env, plan.canonical);
         playbacks.push(PlaybackBinding {
-            content: NodeContent::Clip(clip.id),
-            source_id: clip.source_id,
+            content: plan.content,
+            source_id: plan.source_id,
             node_id,
             out_port,
-            window: ClipWindow {
-                engine_start,
-                engine_len: len,
-                source_start,
-                source_len: len,
-            },
-            canonical,
-            fade: None,
+            window: plan.window,
+            canonical: plan.canonical,
+            fade: plan.fade,
         });
-    }
-
-    // Comp pass: active comps in take-group order contribute their
-    // adopted segments and transition sides.
-    for zone in &zones {
-        lower_comp(&mut env, zone, tempo.as_ref(), &mut playbacks, &mut skipped);
     }
 
     Lowered {
@@ -916,4 +848,172 @@ pub fn lower_with_inserts(
         inserts,
         skipped,
     }
+}
+
+/// Resolves the project's clips and active comps into ordered
+/// [`PlaybackPlan`]s plus explicit skips — the single authority for
+/// *what* plays. Node emission and edge wiring are the caller's
+/// concern: the legacy lowering feeds every plan to one fan-in, the
+/// SF-03 semantic lowering feeds each plan to its owning strip's
+/// main input.
+///
+/// Order is deterministic: clips in `project.clips` (`BTreeMap`)
+/// order, then each active take group's comp segments and transition
+/// sides in take-group order. Skips are always explicit — muted,
+/// superseded, missing-source, rate-mismatch, unresolvable-anchor and
+/// unsupported-mapping clips each land in `skipped` with a reason.
+#[must_use]
+pub fn plan_playbacks(
+    project: &Project,
+    canonical_of: &dyn Fn(SourceId) -> Option<AudioFormat>,
+    engine: &EngineConfig,
+) -> (Vec<PlaybackPlan>, Vec<SkippedPlayback>) {
+    let env = PlanEnv {
+        project,
+        canonical_of,
+        engine,
+    };
+    let tempo = TickTimeMapping::new(&env.project.tempo_map).ok();
+
+    // Active comps supersede raw clips inside their target range on the
+    // owner lane — collect the zones up front so the clip pass can mark
+    // superseded clips explicitly.
+    let mut zones = Vec::new();
+    for (group_id, group) in &env.project.comp.take_groups {
+        let Some(comp_id) = group.active_comp_id else {
+            continue;
+        };
+        zones.push(CompZone {
+            group_id: *group_id,
+            comp_id,
+            lane_id: group.owner_lane_id,
+            source_rate: group.source_rate,
+            span: range_span(&group.target_range, tempo.as_ref(), env.engine.sample_rate),
+        });
+    }
+
+    let mut plans = Vec::new();
+    let mut skipped = Vec::new();
+    for clip in env.project.clips.values() {
+        plan_clip(&env, clip, &zones, tempo.as_ref(), &mut plans, &mut skipped);
+    }
+
+    // Comp pass: active comps in take-group order contribute their
+    // adopted segments and transition sides.
+    for zone in &zones {
+        plan_comp(&env, zone, tempo.as_ref(), &mut plans, &mut skipped);
+    }
+
+    (plans, skipped)
+}
+
+/// Plans one clip into a [`PlaybackPlan`] or an explicit skip —
+/// muted, superseded-by-comp, missing-source, rate-mismatch,
+/// unresolvable-anchor and unsupported-mapping each land in
+/// `skipped` with a reason.
+fn plan_clip(
+    env: &PlanEnv<'_>,
+    clip: &Clip,
+    zones: &[CompZone],
+    tempo: Option<&TickTimeMapping>,
+    plans: &mut Vec<PlaybackPlan>,
+    skipped: &mut Vec<SkippedPlayback>,
+) {
+    if clip.muted {
+        skipped.push(SkippedPlayback::Muted { clip_id: clip.id });
+        return;
+    }
+    // A clip inside an active comp's target span is superseded —
+    // the adopted regions own that span, so the clip neither plays
+    // nor is health-checked.
+    if let Ok(span) = clip.placement.resolve_span(tempo, env.engine.sample_rate) {
+        let (clip_start, clip_end) = (span.start().value(), span.end().value());
+        if let Some(zone) = zones.iter().find(|z| {
+            z.lane_id == clip.lane_id && z.span.is_some_and(|(s, e)| clip_start < e && s < clip_end)
+        }) {
+            skipped.push(SkippedPlayback::SupersededByComp {
+                clip_id: clip.id,
+                take_group_id: zone.group_id,
+            });
+            return;
+        }
+    }
+    let Some(canonical) = playable_clip(env, clip, skipped) else {
+        return;
+    };
+    let Ok(resolved) = clip
+        .placement
+        .resolve(&clip.playback, tempo, env.engine.sample_rate)
+    else {
+        skipped.push(SkippedPlayback::UnresolvableAnchor { clip_id: clip.id });
+        return;
+    };
+    if !matches!(resolved.mapping, PlaybackMapping::Natural) {
+        skipped.push(SkippedPlayback::UnsupportedMapping { clip_id: clip.id });
+        return;
+    }
+    let start = resolved.media_span.start().value();
+    let end = resolved.media_span.end().value();
+    // Clamp a negative engine start: the skipped head shifts the
+    // source window forward — never silently repositioned.
+    // `start == i64::MIN` saturates rather than overflows; the
+    // `len` check below refuses the clip in that case anyway.
+    let lead = u64::try_from(start.checked_neg().unwrap_or(i64::MAX).max(0)).unwrap_or(u64::MAX);
+    let engine_start = u64::try_from(start.max(0)).unwrap_or(0);
+    let Some(len) = end
+        .checked_sub(start)
+        .and_then(|v| u64::try_from(v).ok())
+        .map(|v| v.saturating_sub(lead))
+    else {
+        skipped.push(SkippedPlayback::UnresolvableAnchor { clip_id: clip.id });
+        return;
+    };
+    if len == 0 {
+        skipped.push(SkippedPlayback::UnresolvableAnchor { clip_id: clip.id });
+        return;
+    }
+    let source_start = u64::try_from(resolved.source_start.value()).unwrap_or(0) + lead;
+    plans.push(PlaybackPlan {
+        content: NodeContent::Clip(clip.id),
+        source_id: clip.source_id,
+        window: ClipWindow {
+            engine_start,
+            engine_len: len,
+            source_start,
+            source_len: len,
+        },
+        canonical,
+        fade: None,
+    });
+}
+
+/// Source/canonical/rate gates shared by clip planning — pushes the
+/// matching skip and returns `None`, or returns the canonical format.
+fn playable_clip(
+    env: &PlanEnv<'_>,
+    clip: &Clip,
+    skipped: &mut Vec<SkippedPlayback>,
+) -> Option<AudioFormat> {
+    if !env.project.sources.contains_key(&clip.source_id) {
+        skipped.push(SkippedPlayback::MissingSource {
+            clip_id: clip.id,
+            source_id: clip.source_id,
+        });
+        return None;
+    }
+    let Some(canonical) = (env.canonical_of)(clip.source_id) else {
+        skipped.push(SkippedPlayback::MissingSource {
+            clip_id: clip.id,
+            source_id: clip.source_id,
+        });
+        return None;
+    };
+    if canonical.sample_rate.get() != env.engine.sample_rate {
+        skipped.push(SkippedPlayback::RateMismatch {
+            clip_id: clip.id,
+            source_rate: canonical.sample_rate.get(),
+        });
+        return None;
+    }
+    Some(canonical)
 }
