@@ -1,0 +1,119 @@
+name: 作業 Issue
+description: 実装・不具合修正・テスト・設計・CI などの作業を起票する（人とエージェントの共通テンプレート）
+title: "[種別/領域] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **着手に必要な Issue は「着手条件（Blocked by）」欄に決まった形式で書いてください。**
+        Coordinator（`/task-execution-order`）がこの欄を読み、GitHub の正式な依存（Relationships の Blocked by）に登録します。
+        作成時に自分で Blocked by に登録しても構いません（登録済みなら何もしません）。
+
+        - 着手に必要な Issue（その完了を待たないと始められない）→「着手条件（Blocked by）」欄。
+        - 統合・受入の段階でだけ関係する Issue（着手は止めない）→「統合・受入で関係する Issue」欄。Blocked by には登録されません。
+        - 参考・関連・経緯の言及 →「関連リンク」欄。
+        - 本文のほかの場所に書いた依存は登録されません（サブエージェントの探索で見つかるまで反映されません）。
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 種別
+      options:
+        - 実装
+        - 不具合修正
+        - テスト・検証
+        - 設計・ADR
+        - CI・ツール
+        - 調査
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 概要
+      description: 何を、なぜ行うか。2〜5 文で。
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 受入条件
+      description: |
+        完了と判断できる条件をチェックリストで書く。Worker はこの欄を言い換えずに Spec に転記する。
+        「〜を確認した」ではなく、検証できる形（コマンド・期待結果・対象 OS）で書く。
+      placeholder: |
+        - [ ] `mise run test` が全 OS の CI で pass する
+        - [ ] 〜の API が〜を返す（テスト名: 〜）
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: 検証方法
+      description: |
+        正規の検証入口（このリポジトリの mise タスク名）と、必要な OS・実機・native gate。
+        この環境で実行できない検証がある場合は、その旨と代わりの扱い（NotRun として記録するなど）を書く。
+      placeholder: |
+        - 正規検証: `mise run ci`
+        - 実機: Windows で 〜 を確認（macOS / Linux は NotRun 可）
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: 変更してよい範囲 / 触らない範囲
+      description: |
+        変更してよいクレート・ディレクトリ・ファイルと、触ってはいけないもの。
+        共有ファイル（`Cargo.toml` members、`Cargo.lock`、docs index）を変更するかも書く。
+      placeholder: |
+        - 変更してよい: `crates/ruviform-ui/`
+        - 触らない: 公開 API の型名、`docs/adr/`
+        - 共有ファイル: `Cargo.lock` の更新あり
+    validations:
+      required: false
+
+  - type: textarea
+    id: blocked-by
+    attributes:
+      label: 着手条件（Blocked by）
+      description: |
+        この Issue の着手に完了が必要な Issue を、1 行に 1 件、`- owner/repo#番号: 理由` の形式で書く（Issue の URL も可。同じリポジトリなら `- #番号: 理由`）。
+        Coordinator がこの欄の Issue を GitHub の Blocked by に登録する。なければ `なし` と書く。
+        この欄の見出しと形式は変えない（機械的に読み取るため）。統合・受入の段階でだけ関係する Issue は書かない。
+      placeholder: |
+        - scarecrow173/ruviform#123: 〜の API が必要
+        - #45: 〜の設計判断が前提
+    validations:
+      required: true
+
+  - type: textarea
+    id: integration-relations
+    attributes:
+      label: 統合・受入で関係する Issue（着手は止めない）
+      description: |
+        統合や受入の段階でだけ関係する Issue と、その関係。Blocked by には登録しない。
+        同じファイルを変更しそうで同時に進めると競合する Issue もここに書く。
+      placeholder: |
+        - owner/synvelis#45: 統合時に GUI 側の受入で確認する
+    validations:
+      required: false
+
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: 対象外
+      description: この Issue ではやらないこと。別 Issue にする作業があればリンクする。
+    validations:
+      required: false
+
+  - type: textarea
+    id: links
+    attributes:
+      label: 関連リンク
+      description: 設計文書、関連 Issue / PR、経緯。依存ではない参照はここに書く。
+    validations:
+      required: false
