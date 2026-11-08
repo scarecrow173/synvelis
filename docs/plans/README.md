@@ -29,6 +29,7 @@ Directory: `docs/plans`
 | PLAN-034SF02Wz0rOp7qT0vB5cDfGh | SF-02 RoutingTransaction 実装計画 — staging/検証/mute-solo/テスト | approved | [sf-02-routing-transaction.md](./sf-02-routing-transaction.md) |
 | PLAN-106SF03Fg4gHi5jKl6mNo7pQr | SF-03 slice1 実装計画 — 契約型・lowering・activation・テスト | approved | [sf-03-slice1-lowering-activation.md](./sf-03-slice1-lowering-activation.md) |
 | PLAN-106SF03Pz2aBc3dEf4gHi5jKl6 | SF-03 slice2 実装計画 — Fault 分類・Last-good/Retry・reconciliation | approved | [sf-03-slice2-fault-reconcile.md](./sf-03-slice2-fault-reconcile.md) |
+| PLAN-034UfDsBnYf8HjGm7Hvr0N | SF-03 slice3 実装計画 — 実 plugin host 接続・世代連動 teardown | approved | [sf-03-slice3-plugin-host-teardown.md](./sf-03-slice3-plugin-host-teardown.md) |
 | PLAN-v1VQEMk92Nx1lQHUlSVh1t | SV-GUI-01 実装計画 — Desktop App Bootstrap・WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap.md](./sv-gui-01-desktop-app-bootstrap.md) |
 | PLAN-SVGUI02 | SV-GUI-02 View Model・Binding IPC 実装計画 | approved | [sv-gui-02-view-model-binding-ipc.md](./sv-gui-02-view-model-binding-ipc.md) |
 | PLAN-iD5fujcWIovHuywc0CIEeu | SV175 Native App Shell 実施計画 | approved | [sv175-native-shell.md](./sv175-native-shell.md) |

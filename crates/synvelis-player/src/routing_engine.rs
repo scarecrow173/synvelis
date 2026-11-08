@@ -47,35 +47,34 @@ use ruviform_rt::RtContext;
 
 use synvelis_project::BuildMode;
 use synvelis_project::{
-    LOWERING_POLICY_VERSION, ProcessorId, Project, ProjectRevision, RoutingActivationReceipt,
+    LOWERING_POLICY_VERSION, Project, ProjectRevision, RoutingActivationReceipt,
     RoutingActivationState, RoutingBuildKey, RoutingBuildRequestId, RoutingCompileRequest,
     RoutingFault, RoutingReconcileMismatch, RoutingReconcileReport, RoutingSourceMap,
     RuntimeClockEpochRef, RuntimeInstanceId, port_capability_generation, routing_fingerprint,
 };
 
 use crate::driver::{DriverState, PlayReport, PumpPolicy};
+use crate::host::{ProcessorConnectRequest, ProcessorHost, ProcessorLease, StaticProcessorHost};
 use crate::lowering::{
     CompSkipReason, EngineConfig, NodeContent, PlaybackBinding, SkippedPlayback,
 };
 use crate::processor::{ClipPlayer, ClipSync, PlaybackStats};
 use crate::resolver::PreparedClip;
 use crate::routing_lower::{
-    GainProcessor, SemanticLowered, SemanticNodeRole, StripProcessor, lower_semantic,
+    GainProcessor, SemanticLowered, SemanticNodeRole, StripProcessor, engine_format, lower_semantic,
 };
 
 /// External inputs one build consumes — prepared clips in
-/// `SemanticLowered::playbacks` order, processor instances keyed by
-/// semantic `ProcessorId`, and the generation counters the build key
-/// pins (engine geometry / canonical source format revisions managed
-/// by the caller).
+/// `SemanticLowered::playbacks` order and the generation counters
+/// the build key pins (engine geometry / canonical source format
+/// revisions managed by the caller). Chain processors are *not*
+/// supplied here: they are provisioned through the engine's
+/// [`ProcessorHost`] during `stage_build`.
 pub struct RoutingDeps<'a> {
     /// Canonical-format resolver shared with the legacy lowering.
     pub canonical_of: &'a dyn Fn(synvelis_project::SourceId) -> Option<AudioFormat>,
     /// One [`PreparedClip`] per lowered playback, same order.
     pub clips: Vec<PreparedClip>,
-    /// Chain-processor instances by semantic ID. A chain member with
-    /// no entry fails the compile closed (`PluginUnavailable`).
-    pub processors: BTreeMap<ProcessorId, Box<dyn GraphProcessor>>,
     /// Engine geometry generation (rate/channels/block revision).
     pub engine_config_generation: u64,
     /// Canonical source format generation.
@@ -112,6 +111,9 @@ pub struct PreparedRouting {
     drain_nonces: Vec<Arc<AtomicU64>>,
     /// Staged per-content playback stats.
     stats: Vec<(NodeContent, Arc<PlaybackStats>)>,
+    /// Host teardown leases for this build's chain processors —
+    /// committed to the engine's generation ledger on `publish`.
+    leases: Vec<ProcessorLease>,
 }
 
 /// Playback/processor state staged by `prepare` — committed to the
@@ -119,6 +121,8 @@ pub struct PreparedRouting {
 struct StagedBuild {
     /// node → processor for the compile factory.
     pending: BTreeMap<NodeId, Box<dyn GraphProcessor>>,
+    /// Teardown leases for every host-connected chain processor.
+    leases: Vec<ProcessorLease>,
     producers: Vec<PrefetchProducer>,
     handles: Vec<PrefetchHandle>,
     seek_nonces: Vec<Arc<AtomicU64>>,
@@ -186,6 +190,17 @@ pub struct RoutingEngine {
     instance: RuntimeInstanceId,
     epoch: RuntimeClockEpochRef,
     ledger: Ledger,
+    /// Processor provisioning boundary — connects semantic chain
+    /// processors to runtime `GraphProcessor`s plus teardown leases.
+    /// Replaced wholesale by [`Self::set_processor_host`]; leases
+    /// already minted keep their own host handle.
+    host: Box<dyn ProcessorHost>,
+    /// Generation → host teardown leases for every published plan.
+    /// A generation's leases drop only when its plan can no longer
+    /// be RT-active: displaced pending generations release at the
+    /// next publish, and all non-active generations release once a
+    /// newer generation is RT-observed.
+    connections: BTreeMap<u64, Vec<ProcessorLease>>,
 }
 
 impl RoutingEngine {
@@ -226,7 +241,17 @@ impl RoutingEngine {
             instance,
             epoch,
             ledger: Ledger::default(),
+            host: Box::new(StaticProcessorHost::new()),
+            connections: BTreeMap::new(),
         }
+    }
+
+    /// Replaces the processor host used by *future* `prepare` calls.
+    /// Leases already minted keep their own host reference, so
+    /// in-flight generations still tear down correctly; only new
+    /// connects observe the swap.
+    pub fn set_processor_host(&mut self, host: Box<dyn ProcessorHost>) {
+        self.host = host;
     }
 
     /// Lowers, validates and compiles `project`'s semantic routing
@@ -266,10 +291,6 @@ impl RoutingEngine {
         )
         .map_err(|e| self.fail(request, &key, e.fault()))?;
 
-        if key.build_mode == BuildMode::Offline {
-            self.check_offline_capability(request, &key, &lowered, &deps)?;
-        }
-
         // Skipped playbacks that are not intentional silence fail the
         // build closed — a clip that should play but cannot is never
         // lowered to fake silence. This runs before the clip-count
@@ -283,9 +304,13 @@ impl RoutingEngine {
             return Err(self.fail(request, &key, RoutingFault::InvalidRouting));
         }
 
-        let staged = self.stage_build(request, &key, &lowered, deps)?;
+        let staged = self.stage_build(request, &key, &lowered, project, deps, generation)?;
+        if key.build_mode == BuildMode::Offline {
+            self.check_offline_capability(request, &key, &lowered, &staged.pending)?;
+        }
         let StagedBuild {
             mut pending,
+            leases,
             producers,
             handles,
             seek_nonces,
@@ -351,6 +376,7 @@ impl RoutingEngine {
             seek_nonces,
             drain_nonces,
             stats,
+            leases,
         })
     }
 
@@ -390,22 +416,22 @@ impl RoutingEngine {
         Ok(key)
     }
 
-    /// Offline builds require every chain-processor instance that
-    /// actually enters the graph to report
+    /// Offline builds require every host-connected chain processor
+    /// that actually enters the graph to report
     /// [`OfflineRenderSupport::Verified`] — `Unknown`/`Declared` are
     /// never treated as verified exact offline support. Instances
-    /// absent from `deps.processors` are left to the compile factory,
-    /// which reports `PluginUnavailable`.
+    /// absent from `pending` are left to the compile factory, which
+    /// reports `PluginUnavailable`.
     fn check_offline_capability(
         &mut self,
         request: &RoutingCompileRequest,
         key: &RoutingBuildKey,
         lowered: &SemanticLowered,
-        deps: &RoutingDeps<'_>,
+        pending: &BTreeMap<NodeId, Box<dyn GraphProcessor>>,
     ) -> Result<(), RoutingFault> {
-        for role in lowered.node_roles.values() {
-            if let SemanticNodeRole::ChainProcessor { processor } = role
-                && let Some(instance) = deps.processors.get(processor)
+        for (node, role) in &lowered.node_roles {
+            if let SemanticNodeRole::ChainProcessor { .. } = role
+                && let Some(instance) = pending.get(node)
                 && instance.offline_support() != OfflineRenderSupport::Verified
             {
                 return Err(self.fail(request, key, RoutingFault::OfflineCapabilityMismatch));
@@ -414,18 +440,23 @@ impl RoutingEngine {
         Ok(())
     }
 
-    /// Stages clip players, role-driven stages and supplied processor
-    /// instances for the compile factory. Chain members without an
-    /// instance stay absent so the factory reports them honestly
-    /// (`PluginUnavailable`) — never a silent bypass.
+    /// Stages clip players, role-driven stages and host-connected
+    /// chain processors for the compile factory. Each
+    /// [`SemanticNodeRole::ChainProcessor`] goes through
+    /// [`ProcessorHost::connect`]; a connect failure fails the whole
+    /// build closed (`fault()` mapping) and every lease minted so far
+    /// drops — running its teardown — before the error propagates.
     fn stage_build(
         &mut self,
         request: &RoutingCompileRequest,
         key: &RoutingBuildKey,
         lowered: &SemanticLowered,
+        project: &Project,
         deps: RoutingDeps<'_>,
+        generation: u64,
     ) -> Result<StagedBuild, RoutingFault> {
         let mut pending: BTreeMap<NodeId, Box<dyn GraphProcessor>> = BTreeMap::new();
+        let mut leases: Vec<ProcessorLease> = Vec::new();
         let mut producers = Vec::with_capacity(lowered.playbacks.len());
         let mut handles = Vec::with_capacity(lowered.playbacks.len());
         let mut seek_nonces = Vec::with_capacity(lowered.playbacks.len());
@@ -469,7 +500,9 @@ impl RoutingEngine {
             drain_nonces.push(drain);
         }
 
-        let mut processors = deps.processors;
+        let port_format = engine_format(&self.engine);
+        let max_frames = u32::try_from(self.engine.block_frames)
+            .map_err(|_| self.fail(request, key, RoutingFault::InvalidRouting))?;
         for (node, role) in &lowered.node_roles {
             match role {
                 SemanticNodeRole::Playback(_) => {}
@@ -480,14 +513,39 @@ impl RoutingEngine {
                     pending.insert(*node, Box::new(GainProcessor::new(*gain)));
                 }
                 SemanticNodeRole::ChainProcessor { processor } => {
-                    if let Some(instance) = processors.remove(processor) {
-                        pending.insert(*node, instance);
+                    let Some(semantic) = project.routing.processors.get(processor) else {
+                        return Err(self.fail(request, key, RoutingFault::InvalidRouting));
+                    };
+                    let mut ports = Vec::with_capacity(semantic.port_ids.len());
+                    for port_id in &semantic.port_ids {
+                        let Some(port) = project.routing.ports.get(port_id) else {
+                            return Err(self.fail(request, key, RoutingFault::InvalidRouting));
+                        };
+                        ports.push(port.clone());
+                    }
+                    match self.host.connect(ProcessorConnectRequest {
+                        processor: semantic.clone(),
+                        ports,
+                        mode: request.mode,
+                        generation,
+                        node: *node,
+                        port_format,
+                        max_frames,
+                    }) {
+                        Ok(connection) => {
+                            pending.insert(*node, connection.processor);
+                            leases.push(connection.lease);
+                        }
+                        Err(error) => {
+                            return Err(self.fail(request, key, error.fault()));
+                        }
                     }
                 }
             }
         }
         Ok(StagedBuild {
             pending,
+            leases,
             producers,
             handles,
             seek_nonces,
@@ -563,6 +621,16 @@ impl RoutingEngine {
                 self.drain_nonces = prepared.drain_nonces;
                 self.device_in = Some(prepared.device_in);
                 self.source_map = Some(prepared.source_map);
+                self.connections.insert(generation, prepared.leases);
+                // The new plan displaces every generation that is
+                // neither RT-active nor this one — a displaced
+                // pending generation can never activate, so its
+                // plugin instances tear down now. The still-active
+                // generation's leases stay until RT observes the
+                // swap (or a later publish displaces it too).
+                let active = self.graph.status().snapshot().active_generation;
+                self.connections
+                    .retain(|g, _| *g == generation || *g == active);
                 self.ledger.published_generation = Some(generation);
                 self.ledger.published_request_id = Some(request_id);
                 self.ledger.pending = Some(PendingActivation {
@@ -814,6 +882,10 @@ impl RoutingEngine {
             }
             self.clock.store(self.cursor, Ordering::Relaxed);
             let _ = self.rt.process(self.engine.block_frames, &self.ctx);
+            // The drain pass can activate a pending plan — observe it
+            // so activation evidence and lease teardown do not wait
+            // for the next `run`.
+            self.observe_activation(self.engine.block_frames as u64);
         }
         self.cursor = engine_frame;
         for (index, binding) in self.bindings.iter().enumerate() {
@@ -834,6 +906,16 @@ impl RoutingEngine {
     /// Explicit stop — transport state, not a missing plan.
     pub fn stop(&mut self) {
         self.state = DriverState::Stopped;
+    }
+
+    /// Drains deferred processor/plan retirement on the non-RT side —
+    /// drops retired `GraphProcessor`s (including detached plugin
+    /// endpoints, whose `SendCore` share is what finally releases a
+    /// destroyed plugin instance) and retired plan `Arc`s. Call after
+    /// generations have been superseded; the channel is bounded, so
+    /// skipping this leaks on overflow.
+    pub fn collect(&mut self) -> usize {
+        self.graph.collect()
     }
 
     /// Current transport state.
@@ -876,6 +958,11 @@ impl RoutingEngine {
         self.ledger.pending = None;
         self.ledger.last_good_generation = Some(generation);
         self.ledger.observed_frames = frames;
+        // RT observed this generation active — it is the latest
+        // published plan (activation only records against `pending`),
+        // so every other generation's plan is retired and its host
+        // instances tear down.
+        self.connections.retain(|g, _| *g == generation);
         self.record_state(
             Some(request_id),
             Some(key),

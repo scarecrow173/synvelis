@@ -1109,7 +1109,7 @@ fn check_port_domain(
 
 /// Engine `EngineConfig` → `AudioFormat` (mono for 1 channel, stereo
 /// otherwise — the same convention the legacy lowering uses).
-fn engine_format(engine: &EngineConfig) -> AudioFormat {
+pub(crate) fn engine_format(engine: &EngineConfig) -> AudioFormat {
     AudioFormat {
         sample_rate: SampleRate::new(engine.sample_rate).expect("engine rate must be non-zero"),
         layout: if engine.channels == 1 {

@@ -21,6 +21,7 @@ pub mod dispatch;
 pub mod driver;
 pub mod error;
 pub mod fixture;
+pub mod host;
 pub mod import;
 pub mod lowering;
 pub mod processor;
@@ -32,6 +33,10 @@ pub mod routing_lower;
 pub use dispatch::{DispatchError, ParamDispatch};
 pub use driver::{AttachedNode, DriverState, HeadlessDriver, PlayReport, PumpPolicy};
 pub use error::{ImportError, ResolveError};
+pub use host::{
+    PluginHostProcessors, ProcessorConnectError, ProcessorConnectRequest, ProcessorConnection,
+    ProcessorHost, ProcessorLease, StaticProcessorHost,
+};
 pub use import::{BlobReceipt, ImportOutcome, ImportRequest, ProjectReceipt, VerifiedMedia};
 pub use lowering::{
     ClipWindow, CompSkipReason, EngineConfig, FadeDirection, FadeWindow, Lowered, NodeContent,
