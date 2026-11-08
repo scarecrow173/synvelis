@@ -39,6 +39,7 @@ use crate::{
     placement::{ClipExtent, TimeAnchor},
     project::Project,
     range::Range,
+    routing::WELL_KNOWN_BASE,
 };
 
 // ---------------------------------------------------------------------------
@@ -918,6 +919,34 @@ pub struct ModulationAssignment {
     pub enabled: bool,
 }
 
+/// Raw ID of the bootstrap master-strip [`ParameterRole::Fader`]
+/// target ([`ControlModel::bootstrap`]) — a well-known constant
+/// continuing the reserved range after the routing bootstrap entities
+/// (`WELL_KNOWN_BASE + 1..=5` in `routing`). Like those entities it is
+/// never issued by the `IdGenerator` and cannot be removed by
+/// `ProjectOp::RemoveParameterTarget`.
+pub const MASTER_FADER_RAW: u128 = WELL_KNOWN_BASE + 6;
+
+/// The canonical bootstrap master-strip fader target — the single
+/// definition shared by [`ControlModel::bootstrap`] and the v7 → v8
+/// snapshot migration so a migrated project carries byte-identical
+/// state to a fresh one.
+pub(crate) fn master_fader_target(master_strip: StripId) -> ParameterTarget {
+    ParameterTarget {
+        id: ParameterTargetId::new(MASTER_FADER_RAW),
+        owner: ControlOwner::Strip(master_strip),
+        role: ParameterRole::Fader,
+        time_scope: AutomationTimeScope::ProjectMusical,
+        name: "Fader".into(),
+        kind: ValueKind::Continuous,
+        mapping: ParamMapping::Linear,
+        capability: None,
+        // Normalized unity — the plain domain is the same [0, 1]
+        // under `Linear` with no capability.
+        base: 1.0,
+    }
+}
+
 /// The complete persisted control model — part of the [`Project`]
 /// aggregate, the single source of truth for every Lane / Signal Flow /
 /// Inspector projection.
@@ -932,6 +961,29 @@ pub struct ControlModel {
     pub sources: BTreeMap<ModulationSourceId, ModulationSource>,
     /// Modulation assignments by ID.
     pub assignments: BTreeMap<ModulationAssignmentId, ModulationAssignment>,
+}
+
+impl ControlModel {
+    /// The bootstrap control model — the minimum a legal project
+    /// carries (synvelis#185): the master strip's
+    /// [`ParameterRole::Fader`] target under the well-known
+    /// [`MASTER_FADER_RAW`] ID, so the mixer gain has an authoritative
+    /// domain entity from the first revision. Gestures commit through
+    /// the same `gesture_*` → `SetParameterBase` path as any parameter
+    /// target; automation and modulation bind to it identically.
+    ///
+    /// `master_strip` is the strip owned by the bootstrap master bus
+    /// (`RoutingModel::bootstrap`) — the bus's DSP authority.
+    #[must_use]
+    pub fn bootstrap(master_strip: StripId) -> Self {
+        let target = master_fader_target(master_strip);
+        Self {
+            targets: BTreeMap::from([(target.id, target)]),
+            lanes: BTreeMap::new(),
+            sources: BTreeMap::new(),
+            assignments: BTreeMap::new(),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

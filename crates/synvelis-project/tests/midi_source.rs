@@ -108,14 +108,14 @@ fn midi_source_types_are_readable_and_serialize_with_version() {
         assert_eq!(c.live().clips[clip].source_id, source);
     }
 
-    // Versioned serialization: the envelope carries schema v7.
+    // Versioned serialization: the envelope carries the current schema.
     let mut store = InMemoryStore::new();
     c.save(&mut store).unwrap();
     let bytes = store
         .read_snapshot(&store.head().unwrap().unwrap())
         .unwrap();
     let env: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(env["schema_version"], serde_json::json!(7));
+    assert_eq!(env["schema_version"], serde_json::json!(8));
     // The serialized source keeps its native division and note data.
     let s = &env["project"]["midi_sources"];
     let (sid, body) = s.as_object().unwrap().iter().next().unwrap();

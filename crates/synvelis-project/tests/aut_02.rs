@@ -79,7 +79,14 @@ fn add_target(c: &mut ProjectController, base: f64) -> ParameterTargetId {
             base,
         },
     );
-    *c.live().control.targets.keys().last().unwrap()
+    // The bootstrap master-fader target is well-known (never issued) —
+    // pick the newest *issued* target.
+    *c.live()
+        .control
+        .targets
+        .keys()
+        .rfind(|id| is_issuable_raw(id.raw()))
+        .unwrap()
 }
 
 fn add_lane(c: &mut ProjectController, target: ParameterTargetId) -> AutomationLaneId {

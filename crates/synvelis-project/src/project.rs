@@ -7,11 +7,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     comp::CompRegistry,
-    control::{BeatPoint, ControlModel, ControlOwner},
+    control::{BeatPoint, ControlModel, ControlOwner, MASTER_FADER_RAW, ParameterRole},
     error::Error,
     id::{
         AssetId, CaptureSegmentId, CaptureStreamId, ClipId, ClockEpochId, ImportId, LaneId, NoteId,
-        ProjectId, RecordingPassId, RecordingSessionId, SourceId, TakeId, TrackId,
+        ParameterTargetId, ProjectId, RecordingPassId, RecordingSessionId, SourceId, TakeId,
+        TrackId,
     },
     midi::MidiSource,
     placement::{ClipPlacement, ClipPlayback},
@@ -398,6 +399,10 @@ impl Project {
     /// An empty project with the given identity and name.
     #[must_use]
     pub fn new(project_id: ProjectId, name: impl Into<String>) -> Self {
+        let routing = RoutingModel::default();
+        // The bootstrap routing model always carries the master bus and
+        // its strip — the fader target's owner (synvelis#185).
+        let master_strip = routing.buses[&routing.master].strip;
         Self {
             project_id,
             name: name.into(),
@@ -415,8 +420,8 @@ impl Project {
             recording: RecordingRegistry::default(),
             comp: CompRegistry::default(),
             applied_imports: BTreeMap::new(),
-            control: ControlModel::default(),
-            routing: RoutingModel::default(),
+            control: ControlModel::bootstrap(master_strip),
+            routing,
         }
     }
 
@@ -646,6 +651,27 @@ impl Project {
         crate::comp::validate_registry(self)?;
         // -- parameter control model (issue #40, issue #121) -----------
         let ctl = &self.control;
+        // The bootstrap master-strip fader is structural (synvelis#185):
+        // `Project::new` seeds it, ops cannot remove it, and the v7→v8
+        // migration restores it — a snapshot without it is foreign
+        // state, not an older legal shape. The oracle also pins the
+        // target's *role and owner*: the well-known ID is the app's
+        // lookup key for "the master strip's fader", so an entry that
+        // merely squats on the ID while pointing elsewhere is just as
+        // foreign. Cosmetic fields (name/kind/mapping/base) stay
+        // unconstrained — the v7→v8 migration legitimately re-keys a
+        // pre-existing user fader with its own values.
+        let fader_id = ParameterTargetId::new(MASTER_FADER_RAW);
+        let fader = ctl.targets.get(&fader_id).ok_or_else(|| {
+            Error::Validation("project lacks the bootstrap master-strip fader target".into())
+        })?;
+        if let Some(bus) = self.routing.buses.get(&self.routing.master)
+            && (fader.role != ParameterRole::Fader || fader.owner != ControlOwner::Strip(bus.strip))
+        {
+            return Err(Error::Validation(
+                "bootstrap master-strip fader target has a foreign role or owner".into(),
+            ));
+        }
         for target in ctl.targets.values() {
             crate::control::validate_control_binding(
                 self,

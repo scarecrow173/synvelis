@@ -30,7 +30,7 @@
 //!
 //! `syn.app.info`, `syn.app.capabilities`, `syn.app.quit`,
 //! `syn.project.new`, `syn.project.open`, `syn.project.save`,
-//! `syn.project.info`, `syn.transport.set`, `syn.workspace.mount` —
+//! `syn.project.reload`, `syn.project.info`, `syn.transport.set`, `syn.workspace.mount` —
 //! see [`service::OPS`].
 
 pub mod app;
@@ -41,6 +41,7 @@ pub mod error;
 pub mod host;
 pub mod logging;
 pub mod revision;
+pub mod screens;
 pub mod service;
 pub mod shell;
 pub mod ui_ops;
@@ -54,5 +55,9 @@ pub use logging::{
     install, parse_args, to_logging_config,
 };
 pub use revision::{APP_ASSET_SCHEMA, AssetManifest, HOST_REVISION, MANIFEST_NAME, check_bundle};
+pub use screens::{
+    main_screen_spec, main_view_id, main_view_instance, main_view_targets, mixer_gain_target,
+    mount_main_view, seek_range_seconds,
+};
 pub use service::{AppService, OPS};
 pub use shell::NativeShell;

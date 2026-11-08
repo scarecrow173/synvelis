@@ -291,7 +291,10 @@ fn routing_state_survives_save_reload_unchanged() {
 // ── SF-MODEL-06: v5 → v6 migration ──────────────────────────────
 
 /// Serializes `project` as a schema-v5 envelope (the `routing` field
-/// did not exist in v5).
+/// did not exist in v5). The bootstrap master-fader target
+/// (synvelis#185) did not exist in v5 either — its `Strip` owner is
+/// not a legacy control owner — so it is omitted here and re-seeded by
+/// the v7→v8 step on load.
 fn as_v5_envelope(c: &ProjectController) -> serde_json::Value {
     let mut env = serde_json::json!({
         "schema_version": 5,
@@ -300,6 +303,10 @@ fn as_v5_envelope(c: &ProjectController) -> serde_json::Value {
         "project": serde_json::to_value(c.live()).unwrap(),
     });
     env["project"].as_object_mut().unwrap().remove("routing");
+    env["project"]["control"]["targets"]
+        .as_object_mut()
+        .unwrap()
+        .remove(&ParameterTargetId::new(MASTER_FADER_RAW).to_tagged());
     env
 }
 

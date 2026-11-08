@@ -8,7 +8,7 @@
 //! validated and published as a *new* snapshot by the next save.
 
 use crate::{
-    control::{AutomationTimeScope, ControlOwner, ParameterRole},
+    control::{AutomationTimeScope, ControlOwner, ParameterRole, master_fader_target},
     error::Error,
     id::{ChainId, RoutingConnectionId, SemanticPortId, StripId, TrackId},
     project::Project,
@@ -39,6 +39,10 @@ const STEPS: &[MigrationStep] = &[
     MigrationStep {
         from: 6,
         migrate: migrate_v6_control,
+    },
+    MigrationStep {
+        from: 7,
+        migrate: migrate_v7_bootstrap_fader,
     },
 ];
 
@@ -215,5 +219,74 @@ fn migrate_v6_control(mut project: Project) -> Result<Project, Error> {
             ));
         }
     }
+    Ok(project)
+}
+
+/// v7 → v8: seed the bootstrap master-strip fader `ParameterTarget`
+/// (synvelis#185). v7 bodies predate the target, so the well-known ID
+/// is absent; `entry().or_insert` makes the step idempotent for a body
+/// that already carries it. Allocates no IDs — the target's raw value
+/// sits in the reserved well-known range — and leaves `id_watermark`
+/// untouched. The inserted entity is the same canonical target
+/// [`crate::ControlModel::bootstrap`] writes, so a migrated project is
+/// indistinguishable from a fresh one.
+///
+/// A v7 body may already carry an *issued* [`ParameterRole::Fader`]
+/// target on the master strip — legal then, since the singleton rule
+/// allowed the first one and nothing seeded a bootstrap target. That
+/// target is the project's mixer gain, so the step re-keys it onto
+/// the well-known ID — preserving its base value, automation lanes,
+/// modulation assignments, and send bindings — instead of writing a
+/// second `Fader` the singleton rule would reject at validation.
+///
+/// # Errors
+/// [`Error::Validation`] when the v7 body lacks the bootstrap master
+/// bus — every v6+ project carries it, so its absence is foreign
+/// state this projection cannot own.
+fn migrate_v7_bootstrap_fader(mut project: Project) -> Result<Project, Error> {
+    let master_strip = project
+        .routing
+        .buses
+        .get(&project.routing.master)
+        .ok_or_else(|| Error::Validation("v7 snapshot lacks the master bus".into()))?
+        .strip;
+    let canonical = master_fader_target(master_strip);
+    if project.control.targets.contains_key(&canonical.id) {
+        return Ok(project);
+    }
+    let issued = project
+        .control
+        .targets
+        .iter()
+        .find(|(_, t)| {
+            t.owner == ControlOwner::Strip(master_strip) && t.role == ParameterRole::Fader
+        })
+        .map(|(id, _)| *id);
+    if let Some(old) = issued
+        && let Some(mut target) = project.control.targets.remove(&old)
+    {
+        target.id = canonical.id;
+        project.control.targets.insert(canonical.id, target);
+        for lane in project.control.lanes.values_mut() {
+            if lane.target == old {
+                lane.target = canonical.id;
+            }
+        }
+        for assignment in project.control.assignments.values_mut() {
+            if assignment.target == old {
+                assignment.target = canonical.id;
+            }
+            if assignment.depth_source == Some(old) {
+                assignment.depth_source = Some(canonical.id);
+            }
+        }
+        for send in project.routing.sends.values_mut() {
+            if send.gain_target == Some(old) {
+                send.gain_target = Some(canonical.id);
+            }
+        }
+        return Ok(project);
+    }
+    project.control.targets.insert(canonical.id, canonical);
     Ok(project)
 }

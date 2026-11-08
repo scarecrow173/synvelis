@@ -78,3 +78,23 @@ fn media_ticks_persist_and_reload_through_snapshot() {
     c2.load(&store).unwrap();
     assert_eq!(c.live().tempo_map, c2.live().tempo_map);
 }
+
+#[test]
+fn beat_seconds_contract_round_trips_under_tempo_map() {
+    // Default 120 BPM: two beats per second, exact at this grid.
+    let mapping = TickTimeMapping::new(&TempoMapData::default()).unwrap();
+    let beat = |num, den| BeatPoint::new(num, den).unwrap().to_beat();
+    assert_eq!(mapping.beat_to_seconds(beat(16, 1)).unwrap(), 8.0);
+    assert_eq!(
+        BeatPoint::from_beat(mapping.seconds_to_beat(8.0).unwrap()),
+        BeatPoint::new(16, 1).unwrap()
+    );
+    assert_eq!(
+        BeatPoint::from_beat(mapping.seconds_to_beat(1.25).unwrap()),
+        BeatPoint::new(5, 2).unwrap()
+    );
+    // Off-grid beats quantize to microseconds, never drift further.
+    let third = mapping.beat_to_seconds(beat(1, 3)).unwrap();
+    assert!((third - 1.0 / 6.0).abs() <= 1e-6, "{third}");
+    assert!(mapping.seconds_to_beat(f64::NAN).is_err());
+}

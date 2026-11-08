@@ -14,7 +14,7 @@ use synvelis_project::{
     ClipPlacement, ClipPlayback, ControlOwner, CounterIdGenerator, MusicalDuration, MusicalTick,
     NoteId, ParamMapping, ParameterRole, ParameterTargetId, PlaybackMapping, Project,
     ProjectController, ProjectId, ProjectOp, ProjectRevision, SourceFrame, SourceRange, TimeAnchor,
-    TrackId, ValueKind,
+    TrackId, ValueKind, is_issuable_raw,
 };
 use synvelis_workspace::{
     AutomationMode, FakeWindowHost, PreparedRecordingCommit, ProjectSession, RecordCommitError,
@@ -69,7 +69,7 @@ fn add_track_target(ws: &mut Ws, name: &str, base: f64) -> (TrackId, ParameterTa
         .control
         .targets
         .keys()
-        .last()
+        .rfind(|id| is_issuable_raw(id.raw()))
         .unwrap();
     (track, target)
 }
@@ -839,7 +839,7 @@ fn rec_c1_06_scope_epoch_and_tempo_contexts() {
         .control
         .targets
         .keys()
-        .last()
+        .rfind(|id| is_issuable_raw(id.raw()))
         .unwrap();
     let clip_lane = add_automation_lane(&mut ws, clip_target);
     apply(
@@ -861,7 +861,7 @@ fn rec_c1_06_scope_epoch_and_tempo_contexts() {
         .control
         .targets
         .keys()
-        .last()
+        .rfind(|id| is_issuable_raw(id.raw()))
         .unwrap();
     let note_lane = add_automation_lane(&mut ws, note_target);
 

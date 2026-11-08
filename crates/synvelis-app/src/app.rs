@@ -12,6 +12,8 @@
 //! `unavailable` — the shell must surface that honestly instead of
 //! implying playback/recording exists.
 
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -22,6 +24,7 @@ use ruviform_observability::source::{
 };
 use ruviform_observability::{Counter, counter};
 use ruviform_ui::BackendReport;
+use ruviform_ui::view::{AttachEpoch, AttachEpochAllocator};
 use serde_json::{Value, json};
 
 use synvelis_project::{
@@ -43,6 +46,11 @@ const APP_REVISION: &str = env!("CARGO_PKG_VERSION");
 /// `project.new`/`project.open`; identity inside a loaded project is
 /// whatever the store snapshot carries.
 const BOOT_PROJECT_ID: u128 = 0;
+
+/// Media rate of the seconds axis the project length is measured on.
+/// Only resolves clip spans to whole frames; the seconds value does not
+/// depend on it for musical clips.
+const SEEK_MEDIA_RATE: u32 = 48_000;
 
 /// Audio-runtime owner slot.
 ///
@@ -227,6 +235,20 @@ pub struct SynvelisApp {
     /// SV-GUI-02 UI op state — `ControlsUi`/`VizUi` gateways, notify
     /// outbox, view/subscription/surface registries, UI clock.
     pub(crate) ui: UiOpsState,
+    /// Session-owned `AttachEpoch` allocator (RF387) behind a shared
+    /// cell — the same pattern as `quit`/`outbox`/`ui_clock`: the
+    /// composition root takes a handle *before* the app seals into
+    /// `AppService`/`UiRuntime`, so a `ViewHost` recreated mid-session
+    /// still mints from the one allocator (a second allocator would
+    /// restart the sequence and re-open the stale-receipt collision).
+    /// Minted epochs are runtime guards only — the persisted identity
+    /// is the `ViewInstanceId`, never the epoch.
+    attach_epochs: Rc<RefCell<AttachEpochAllocator>>,
+    /// Bundle the session was created or opened from — `reload` reopens it.
+    bundle_path: Option<String>,
+    /// Last published project length in seconds — shared with the
+    /// composition root, refreshed after every service op.
+    project_length: Rc<Cell<f64>>,
 }
 
 impl SynvelisApp {
@@ -248,7 +270,54 @@ impl SynvelisApp {
             backend,
             quit: Arc::new(AtomicBool::new(false)),
             ui: UiOpsState::new(),
+            attach_epochs: Rc::new(RefCell::new(AttachEpochAllocator::new())),
+            bundle_path: None,
+            project_length: Rc::new(Cell::new(0.0)),
         }
+    }
+
+    /// The shared session `AttachEpoch` allocator — take a handle
+    /// before the app seals (same extraction pattern as
+    /// [`Self::quit_flag`]/[`crate::ui_ops::UiOpsState::event_outbox`]).
+    /// Exactly one allocator exists per session, so every `ViewHost`
+    /// — the first mount *and* any mid-session recreation — mints
+    /// disjoint command-id namespaces.
+    #[must_use]
+    pub fn attach_epoch_allocator(&self) -> Rc<RefCell<AttachEpochAllocator>> {
+        Rc::clone(&self.attach_epochs)
+    }
+
+    /// Mints the `AttachEpoch` for a `ViewHost` this session is
+    /// creating (RF387). Convenience wrapper over the shared
+    /// allocator — the sequence is monotone, so a host recreated for
+    /// the same logical view mints commands in a disjoint namespace
+    /// and stale receipts addressed to a dead host can never land on
+    /// the live one.
+    #[must_use]
+    pub fn mint_attach_epoch(&self) -> AttachEpoch {
+        self.attach_epochs.borrow_mut().mint()
+    }
+
+    /// The live project length in seconds — the Seek range source.
+    #[must_use]
+    pub fn project_length_seconds(&self) -> f64 {
+        synvelis_workspace::viz_ui::project_length_seconds(
+            self.workspace.session(),
+            SEEK_MEDIA_RATE,
+        )
+    }
+
+    /// Shared project-length cell, synced to the live project. Taken
+    /// before the app seals; the service refreshes it after every op.
+    #[must_use]
+    pub fn project_length_cell(&self) -> Rc<Cell<f64>> {
+        self.publish_project_length();
+        Rc::clone(&self.project_length)
+    }
+
+    /// Publishes the live project length to the shared cell.
+    pub fn publish_project_length(&self) {
+        self.project_length.set(self.project_length_seconds());
     }
 
     fn fresh_session(name: &str) -> ProjectSession {
@@ -346,6 +415,7 @@ impl SynvelisApp {
             .map_err(|e| AppError::store(e.to_string()))?;
         self.workspace = workspace;
         self.store = Some(store);
+        self.bundle_path = Some(path.to_string());
         Ok(self.project_info())
     }
 
@@ -378,7 +448,22 @@ impl SynvelisApp {
             .map_err(|e| AppError::store(e.to_string()))?;
         self.workspace = workspace;
         self.store = Some(store);
+        self.bundle_path = Some(path.to_string());
         Ok(self.project_info())
+    }
+
+    /// Reopens the bundle this session was created or opened from,
+    /// discarding unsaved edits.
+    ///
+    /// # Errors
+    /// [`AppError::Store`] when no bundle was opened yet or the reopen
+    /// fails.
+    pub fn project_reload(&mut self) -> Result<Value, AppError> {
+        let path = self
+            .bundle_path
+            .clone()
+            .ok_or_else(|| AppError::store("no project store — use syn.project.new/open first"))?;
+        self.project_open(&path)
     }
 
     /// Saves the live project to the currently open bundle.

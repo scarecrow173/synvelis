@@ -9,9 +9,10 @@
 //! `PoC` fixes PPQN at 960 (schema versioned) pending the resolution-
 //! independent direction of issue #19 / ruviform #189.
 
+use num_traits::ToPrimitive;
 use ruviform_media_core::{
-    MediaTime, Ppqn, TempoEvent, TempoMap, TempoMapBuilder, Tick, TickPosition, TimeBase,
-    TimeSignatureEvent,
+    BeatPosition, MediaTime, Ppqn, TempoEvent, TempoMap, TempoMapBuilder, Tick, TickPosition,
+    TimeBase, TimeSignatureEvent,
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +20,14 @@ use crate::{
     error::Error,
     time::{MediaTimeValue, MusicalTick},
 };
+
+/// Seconds-domain resolution of the transport position contract: the
+/// view-facing seconds value is an integer count of microseconds.
+const SECONDS_DEN: u32 = 1_000_000;
+
+fn seconds_base() -> Result<TimeBase, Error> {
+    TimeBase::new(1, SECONDS_DEN).map_err(|e| Error::Validation(format!("time base: {e:?}")))
+}
 
 /// Project PPQN setting (currently fixed at 960; the field is persisted so
 /// the tick context travels with the snapshot).
@@ -186,6 +195,37 @@ impl TickTimeMapping {
             .media_to_tick(MediaTime::new(media.value(), base), self.ppqn_value()?)
             .map_err(|_| Error::Overflow)?;
         Ok(MusicalTick::new(tick.tick().value()))
+    }
+
+    /// Converts a beat position to seconds under this tempo map — the
+    /// transport position's seconds display value. Exact rational math
+    /// in ruviform, quantized to microseconds (`SECONDS_DEN`).
+    ///
+    /// # Errors
+    /// [`Error::Overflow`] when the instant is out of range.
+    pub fn beat_to_seconds(&self, beat: BeatPosition) -> Result<f64, Error> {
+        let media = self
+            .map
+            .beat_to_media(beat, seconds_base()?)
+            .map_err(|_| Error::Overflow)?;
+        let micros = media.value().to_f64().ok_or(Error::Overflow)?;
+        Ok(micros / f64::from(SECONDS_DEN))
+    }
+
+    /// Converts seconds back to a beat position under this tempo map —
+    /// the inverse of [`Self::beat_to_seconds`] for the transport commit.
+    /// The input is rounded to the nearest microsecond.
+    ///
+    /// # Errors
+    /// [`Error::Overflow`] when `seconds` is non-finite or out of range.
+    pub fn seconds_to_beat(&self, seconds: f64) -> Result<BeatPosition, Error> {
+        let micros = (seconds * f64::from(SECONDS_DEN))
+            .round()
+            .to_i64()
+            .ok_or(Error::Overflow)?;
+        self.map
+            .media_to_beat(MediaTime::new(micros, seconds_base()?))
+            .map_err(|_| Error::Overflow)
     }
 
     /// The stored PPQN as a validated Ruviform `Ppqn`.

@@ -45,6 +45,10 @@ pub const OPS: &[OpInfo] = &[
         summary: "save the live project to the open bundle",
     },
     OpInfo {
+        name: "syn.project.reload",
+        summary: "reopen the bundle this session was created or opened from (discards unsaved edits)",
+    },
+    OpInfo {
         name: "syn.project.info",
         summary: "project name, id, revision, saved state",
     },
@@ -181,6 +185,7 @@ impl AppService {
                 self.app.project_open(path).map_err(AppError::into_body)
             }
             "syn.project.save" => self.app.project_save().map_err(AppError::into_body),
+            "syn.project.reload" => self.app.project_reload().map_err(AppError::into_body),
             "syn.project.info" => Ok(self.app.project_info()),
             "syn.transport.set" => {
                 let playing = params
@@ -242,6 +247,7 @@ impl Service for AppService {
             self.app.observability().record_intent_error();
             tracing::warn!(op, code = %error.code, "syn op failed");
         }
+        self.app.publish_project_length();
         result.map(CallOutcome::Result)
     }
 }

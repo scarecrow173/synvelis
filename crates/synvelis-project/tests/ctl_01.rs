@@ -54,7 +54,15 @@ fn add_target(
     // `apply` validates against `expected_revision`; a rejected apply
     // leaves revision and project untouched.
     assert_eq!(c.live_revision(), ProjectRevision(rev.0 + 1));
-    Ok(*c.live().control.targets.keys().next_back().unwrap())
+    // The bootstrap master-fader target is well-known (never issued) —
+    // pick the newest *issued* target.
+    Ok(*c
+        .live()
+        .control
+        .targets
+        .keys()
+        .rfind(|id| is_issuable_raw(id.raw()))
+        .unwrap())
 }
 
 fn master_in(p: &Project) -> SemanticPortId {
@@ -572,6 +580,10 @@ fn removing_a_bus_cannot_orphan_strip_owned_targets() {
 
 /// Serializes `project` as a schema-v6 envelope: targets carry the
 /// legacy `{"scope": ...}` owner tag and no `role`/`time_scope`.
+/// The bootstrap master-fader target (synvelis#185) did not exist in
+/// v6 — a real v6 body cannot carry its `Strip` owner (the v6→v7 step
+/// rejects non-legacy owners), so it is omitted here and re-seeded by
+/// the v7→v8 step on load.
 fn as_v6_envelope(c: &ProjectController) -> serde_json::Value {
     let mut env = serde_json::json!({
         "schema_version": 6,
@@ -579,6 +591,10 @@ fn as_v6_envelope(c: &ProjectController) -> serde_json::Value {
         "revision": c.live_revision(),
         "project": serde_json::to_value(c.live()).unwrap(),
     });
+    env["project"]["control"]["targets"]
+        .as_object_mut()
+        .unwrap()
+        .remove(&ParameterTargetId::new(MASTER_FADER_RAW).to_tagged());
     let scope_of = |owner: &serde_json::Value| {
         let mut scope = serde_json::json!({"scope": owner["owner"]});
         if let Some(id) = owner.get("id") {
@@ -645,9 +661,16 @@ fn v6_snapshot_migrates_owner_role_and_time_scope_deterministically() {
 
     let mut c2 = controller();
     c2.load(&store).unwrap();
-    // Every migrated binding is `Generic` and derives its coordinate
-    // strictly from the legacy scope.
-    for t in c2.live().control.targets.values() {
+    // Every *migrated* binding is `Generic` and derives its coordinate
+    // strictly from the legacy scope. The bootstrap master-fader target
+    // is not a migrated binding — the v7→v8 step re-seeds it canonically.
+    for t in c2
+        .live()
+        .control
+        .targets
+        .values()
+        .filter(|t| is_issuable_raw(t.id.raw()))
+    {
         assert_eq!(t.role, ParameterRole::Generic);
         let expected = match t.owner {
             ControlOwner::Clip(_) => AutomationTimeScope::ClipLocal,
@@ -671,7 +694,7 @@ fn v6_snapshot_migrates_owner_role_and_time_scope_deterministically() {
     assert_ne!(saved.head, head_before);
     let bytes = store.read_snapshot(&saved.head).unwrap();
     let env: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(env["schema_version"], serde_json::json!(7));
+    assert_eq!(env["schema_version"], serde_json::json!(8));
     let target = env["project"]["control"]["targets"]
         .as_object()
         .unwrap()
@@ -796,4 +819,213 @@ fn save_reload_preserves_owner_role_and_time_scope() {
         .unwrap();
     assert_eq!(bound.owner, ControlOwner::Strip(strip));
     assert_eq!(bound.time_scope, AutomationTimeScope::ProjectMusical);
+}
+
+// ── SV185: bootstrap master-strip fader target ──────────────────
+
+/// The well-known fader target id every fresh project carries.
+fn fader_target() -> ParameterTargetId {
+    ParameterTargetId::new(MASTER_FADER_RAW)
+}
+
+#[test]
+fn new_project_carries_the_canonical_master_strip_fader() {
+    let c = controller();
+    let p = c.live();
+    let master_strip = p.routing.buses[&p.routing.master].strip;
+    let t = p.control.targets.get(&fader_target()).unwrap();
+    assert_eq!(t.owner, ControlOwner::Strip(master_strip));
+    assert_eq!(t.role, ParameterRole::Fader);
+    assert_eq!(t.time_scope, AutomationTimeScope::ProjectMusical);
+    assert_eq!(t.kind, ValueKind::Continuous);
+    assert_eq!(t.mapping, ParamMapping::Linear);
+    assert!(t.capability.is_none());
+    assert_eq!(t.base, 1.0);
+    assert!(p.validate_references().is_ok());
+}
+
+#[test]
+fn master_fader_evaluates_and_commits_through_set_parameter_base() {
+    let mut c = controller();
+    let id = fader_target();
+    let ev = evaluate_control(c.live(), id, BeatPoint::new(0, 1).unwrap(), None).unwrap();
+    assert_eq!(ev.host_normalized, 1.0);
+    assert_eq!(ev.host_plain, 1.0);
+
+    c.apply(cmd(
+        &c,
+        ProjectOp::SetParameterBase {
+            target: id,
+            value: 0.25,
+        },
+    ))
+    .unwrap();
+    assert_eq!(c.live().control.targets[&id].base, 0.25);
+    let ev = evaluate_control(c.live(), id, BeatPoint::new(0, 1).unwrap(), None).unwrap();
+    assert_eq!(ev.host_normalized, 0.25);
+}
+
+#[test]
+fn master_fader_target_cannot_be_removed_or_shadowed() {
+    let mut c = controller();
+    let id = fader_target();
+    let rev = c.live_revision();
+    // Removal is refused — the bootstrap target is structural.
+    assert!(matches!(
+        c.apply(cmd(&c, ProjectOp::RemoveParameterTarget { target: id })),
+        Err(Error::Validation(_))
+    ));
+    assert_eq!(c.live_revision(), rev);
+    assert!(c.live().control.targets.contains_key(&id));
+
+    // A second Fader-role target on the same owner violates the
+    // singleton role rule — the bootstrap target already holds it.
+    let master_strip = c.live().routing.buses[&c.live().routing.master].strip;
+    assert!(
+        add_target(
+            &mut c,
+            ControlOwner::Strip(master_strip),
+            ParameterRole::Fader,
+            AutomationTimeScope::ProjectMusical,
+        )
+        .is_err()
+    );
+    // A Generic target on the same owner is still legal.
+    add_target(
+        &mut c,
+        ControlOwner::Strip(master_strip),
+        ParameterRole::Generic,
+        AutomationTimeScope::ProjectMusical,
+    )
+    .unwrap();
+}
+
+/// Serializes `project` as a schema-v7 envelope — the current wire
+/// shape minus the bootstrap fader target, which v7 bodies predate.
+fn as_v7_envelope_without_fader(c: &ProjectController) -> serde_json::Value {
+    let mut env = serde_json::json!({
+        "schema_version": 7,
+        "project_id": c.live().project_id,
+        "revision": c.live_revision(),
+        "project": serde_json::to_value(c.live()).unwrap(),
+    });
+    env["project"]["control"]["targets"]
+        .as_object_mut()
+        .unwrap()
+        .remove(&ParameterTargetId::new(MASTER_FADER_RAW).to_tagged());
+    env
+}
+
+#[test]
+fn v7_snapshot_regains_the_master_fader_target_on_load() {
+    let c = controller();
+    let mut store = InMemoryStore::new();
+    let saved_rev = c.live_revision();
+    store
+        .save(
+            "p",
+            saved_rev,
+            &serde_json::to_vec(&as_v7_envelope_without_fader(&c)).unwrap(),
+        )
+        .unwrap();
+
+    let mut c2 = controller();
+    c2.load(&store).unwrap();
+    // The v7→v8 step re-seeds the canonical target — identical to a
+    // fresh project's, and the load counts as one migrated revision.
+    assert_eq!(
+        c2.live().control.targets[&fader_target()],
+        c.live().control.targets[&fader_target()]
+    );
+    assert_eq!(c2.live_revision(), ProjectRevision(saved_rev.0 + 1));
+    assert!(c2.live().validate_references().is_ok());
+}
+
+#[test]
+fn v8_snapshot_without_the_fader_target_is_rejected() {
+    let c = controller();
+    // A v8 body is the current wire shape — stripping the well-known
+    // target makes it foreign state `validate_references` must refuse.
+    let mut env = serde_json::json!({
+        "schema_version": 8,
+        "project_id": c.live().project_id,
+        "revision": c.live_revision(),
+        "project": serde_json::to_value(c.live()).unwrap(),
+    });
+    env["project"]["control"]["targets"]
+        .as_object_mut()
+        .unwrap()
+        .remove(&ParameterTargetId::new(MASTER_FADER_RAW).to_tagged());
+
+    let mut store = InMemoryStore::new();
+    store
+        .save("p", c.live_revision(), &serde_json::to_vec(&env).unwrap())
+        .unwrap();
+    let mut c2 = controller();
+    assert!(matches!(c2.load(&store), Err(Error::Validation(_))));
+}
+
+#[test]
+fn v7_snapshot_with_a_user_fader_rekeys_it_onto_the_well_known_id() {
+    let mut c = controller();
+    let master_strip = c.live().routing.buses[&c.live().routing.master].strip;
+    // A v7-legal shape: an *issued* Fader-role target on the master
+    // strip — legal then because nothing seeded the bootstrap target.
+    // `add_target` writes Generic; the serialized v7 body below flips
+    // the role, which is exactly what a v7 `AddParameterTarget`
+    // caller could have persisted.
+    let issued = add_target(
+        &mut c,
+        ControlOwner::Strip(master_strip),
+        ParameterRole::Generic,
+        AutomationTimeScope::ProjectMusical,
+    )
+    .unwrap();
+    c.apply(cmd(&c, ProjectOp::AddAutomationLane { target: issued }))
+        .unwrap();
+
+    let mut env = as_v7_envelope_without_fader(&c);
+    env["project"]["control"]["targets"][issued.to_tagged()]["role"] = serde_json::json!("fader");
+
+    let mut store = InMemoryStore::new();
+    store
+        .save("p", c.live_revision(), &serde_json::to_vec(&env).unwrap())
+        .unwrap();
+    let mut c2 = controller();
+    c2.load(&store).unwrap();
+
+    let p = c2.live();
+    assert!(p.validate_references().is_ok());
+    // The user target *became* the canonical fader — same entity,
+    // well-known ID — not a second Fader beside it.
+    let fader = &p.control.targets[&fader_target()];
+    assert_eq!(fader.role, ParameterRole::Fader);
+    assert_eq!(fader.owner, ControlOwner::Strip(master_strip));
+    assert!(!p.control.targets.contains_key(&issued));
+    // The automation lane that fed the issued ID now feeds the
+    // well-known one.
+    assert!(p.control.lanes.values().all(|l| l.target == fader_target()));
+}
+
+#[test]
+fn v8_snapshot_with_a_foreign_entry_at_the_fader_id_is_rejected() {
+    let c = controller();
+    // The well-known ID is the app's lookup key for "the master
+    // strip's fader" — an entry that squats on it while carrying a
+    // foreign role is as invalid as a missing one.
+    let mut env = serde_json::json!({
+        "schema_version": 8,
+        "project_id": c.live().project_id,
+        "revision": c.live_revision(),
+        "project": serde_json::to_value(c.live()).unwrap(),
+    });
+    env["project"]["control"]["targets"][fader_target().to_tagged()]["role"] =
+        serde_json::json!("generic");
+
+    let mut store = InMemoryStore::new();
+    store
+        .save("p", c.live_revision(), &serde_json::to_vec(&env).unwrap())
+        .unwrap();
+    let mut c2 = controller();
+    assert!(matches!(c2.load(&store), Err(Error::Validation(_))));
 }

@@ -712,6 +712,27 @@ impl ViewBinding {
 /// command intents (RF387 `COMMAND_INTENT_OP`).
 pub const COMMAND_INTENT_OP: &str = "rvf.ui.command.v1";
 
+/// Logical target of the product `project` actions (the Save/Reload
+/// Buttons). Not a control target: the shell routes these to the
+/// project service ops instead of `syn.control.dispatch`.
+pub const PROJECT_TARGET: &str = "project";
+
+/// Logical target of view-local actions (the Tabs `tab-select` press).
+/// They change no domain state: the shell acknowledges them so the view
+/// keeps the displayed tab the receipt settles.
+pub const VIEW_STATE_TARGET: &str = "view";
+
+/// The service op a `project` action invokes — `None` for an unknown
+/// action, which the shell answers with a rejected command.
+#[must_use]
+pub fn project_action_op(action: &str) -> Option<&'static str> {
+    match action {
+        "save" => Some("syn.project.save"),
+        "reload" => Some("syn.project.reload"),
+        _ => None,
+    }
+}
+
 /// A `rvf.ui.command.v1` payload that could not be decoded or is not
 /// representable in the Synvelis wire vocabulary.
 #[derive(Debug, Clone, PartialEq)]
@@ -788,6 +809,10 @@ struct RvfActionIntent {
     action: String,
     #[serde(default)]
     source: Option<String>,
+    /// View-local payload only (the Tabs `{"index": n}`); see the
+    /// `action` arm of [`decode_view_command`].
+    #[serde(default)]
+    params: Option<Value>,
 }
 
 /// Builds the Synvelis-typed gesture variant for `kind` — caller
@@ -894,6 +919,15 @@ pub fn decode_view_command(params: &Value) -> Result<ViewCommand, WireTranslateE
         }
         "action" => {
             let w: RvfActionIntent = serde_json::from_value(intent_wire).map_err(decode)?;
+            // `params` is a view-local payload (the Tabs index). The
+            // view owns that state, so only the view-local target may
+            // carry it; a domain action with params is not representable.
+            if w.params.is_some() && w.target != VIEW_STATE_TARGET {
+                return Err(werr(format!(
+                    "action params not representable for target {}",
+                    w.target
+                )));
+            }
             (
                 CommandIntent::Action {
                     target: w.target,
@@ -1005,16 +1039,26 @@ pub fn notify_to_view_event(event: &Event) -> Option<(String, Event)> {
         }
         CHANNEL_PROJECTION => {
             let target = payload.get("target")?.as_str()?;
-            let observed = payload.get("row")?.get("observed")?;
+            let row = payload.get("row")?;
+            let observed = row.get("observed")?;
             if observed.is_null() {
                 return None;
             }
             let revision = observed.get("revision")?.clone();
+            // `display_value` is the controlled value when the adapter
+            // maps the authoritative truth to one (transport seekbar:
+            // seconds); otherwise the observed value itself.
+            let value = row
+                .get("display_value")
+                .filter(|v| !v.is_null())
+                .or_else(|| observed.get("value"))
+                .cloned()
+                .unwrap_or(Value::Null);
             let mut body = json!({
                 "control_id": target,
                 "target": target,
                 "revision": revision,
-                "value": observed.get("value").cloned().unwrap_or(Value::Null),
+                "value": value,
             });
             if let Some(p) = observed.get("provenance") {
                 body["provenance"] = p.clone();

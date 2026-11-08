@@ -17,6 +17,7 @@ use std::sync::Arc;
 use ruviform_ui::ipc::{ErrorBody, Event, codes};
 use serde_json::{Value, json};
 
+use synvelis_project::{TickTimeMapping, is_issuable_raw};
 use synvelis_workspace::VizSourceId;
 use synvelis_workspace::controls_ui::{
     CommandIntent, ControlsUi, DispatchContext, GestureCancelReason, TRANSPORT_POSITION_TARGET,
@@ -273,6 +274,7 @@ impl SynvelisApp {
     /// its own revision guard without a second format.
     fn push_subscription_rows(&mut self) {
         let subs: Vec<(String, String)> = self.ui.subscriptions.iter().cloned().collect();
+        let tempo = TickTimeMapping::new(&self.workspace.session().project().tempo_map).ok();
         for (view, target) in subs {
             let Some(snap) = self.ui.controls.binding(&view, &target) else {
                 continue;
@@ -281,6 +283,28 @@ impl SynvelisApp {
                 "transport"
             } else {
                 "param"
+            };
+            // The transport seekbar's controlled value is seconds (the
+            // beat position converted under the project tempo map); the
+            // raw transport object stays in `observed` for other readers.
+            // Param projections carry the multi-key evaluation object,
+            // which `projection_value_input` cannot decode — the
+            // controlled display contract is the normalized domain, so
+            // the adapter emits it as a single-key `{"normalized": …}`
+            // (the same unit gesture commits write back).
+            let display_value = match snap.last_observed.as_ref().map(|o| &o.value) {
+                Some(synvelis_workspace::controls_ui::ProjectionValue::Transport(p))
+                    if target == TRANSPORT_POSITION_TARGET =>
+                {
+                    tempo
+                        .as_ref()
+                        .and_then(|t| t.beat_to_seconds(p.position.to_beat()).ok())
+                        .map(Value::from)
+                }
+                Some(synvelis_workspace::controls_ui::ProjectionValue::Parameter(p)) => {
+                    Some(json!({ "normalized": p.breakdown.evaluation.host_normalized }))
+                }
+                _ => None,
             };
             let observed = snap.last_observed.as_ref().map(|o| {
                 let value = match &o.value {
@@ -333,6 +357,7 @@ impl SynvelisApp {
                         "preview": snap.preview,
                         "last_receipt": snap.last_receipt,
                         "observed": observed,
+                        "display_value": display_value,
                         "observed_seq": snap.observed_seq,
                     },
                 }),
@@ -551,15 +576,21 @@ impl SynvelisApp {
             json!({ "target": TRANSPORT_TARGET, "kind": "transport" }),
             json!({ "target": TRANSPORT_POSITION_TARGET, "kind": "transport" }),
         ];
-        for (id, t) in self
-            .workspace
-            .session()
-            .project()
-            .control
+        // `control.targets` is id-ordered, so the well-known bootstrap
+        // fader (synvelis#185) sorts last — cap only *issued* targets
+        // or a large project would silently drop the one row every
+        // consumer needs.
+        let ctl = &self.workspace.session().project().control;
+        let issued = ctl
             .targets
             .iter()
-            .take(TARGET_CAP)
-        {
+            .filter(|(id, _)| is_issuable_raw(id.raw()))
+            .take(TARGET_CAP);
+        let structural = ctl
+            .targets
+            .iter()
+            .filter(|(id, _)| !is_issuable_raw(id.raw()));
+        for (id, t) in issued.chain(structural) {
             targets.push(json!({
                 "target": id.to_tagged(),
                 "kind": "param",

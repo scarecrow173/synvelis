@@ -3295,3 +3295,16 @@ fn timeline_items(
     items.sort_by(|a, b| a.start.total_cmp(&b.start));
     (items, unresolved)
 }
+
+/// Project length in seconds — the latest clip end on the seconds
+/// axis, `0.0` when no clip resolves. Shares [`timeline_items`] with the
+/// timeline surface, so the length a consumer reads agrees with the
+/// content span the timeline shows.
+#[must_use]
+pub fn project_length_seconds(session: &ProjectSession, media_rate: u32) -> f64 {
+    timeline_items(session, TimelineAxis::Seconds, media_rate)
+        .0
+        .iter()
+        .map(|item| item.end)
+        .fold(0.0, f64::max)
+}
