@@ -6,6 +6,7 @@ Directory: `docs/discovery`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| DISC-034UvxTvzXCIyCbGIaiTpO | SYN-IO-01 Ruviform 共通 I/O 適合境界 — 現行実装と公開契約の棚卸し | draft | [syn-io-01-io-boundary-inventory.md](./syn-io-01-io-boundary-inventory.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
 

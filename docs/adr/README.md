@@ -39,6 +39,7 @@ Directory: `docs/adr`
 | ADR-034UqJ2qZNzuxcpsia82P3 | SV-GUI-04 slice2 dock transfer: workspace adoption seam と dock/UI 権威分界、Destroyed policy | accepted | [sv-gui-04-slice2-dock-transfer-workspace-adoption.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption.md) |
 | ADR-vXwuA1OrALJD99tNRgZ8gQ | ADR: Native App Shell は Driver-neutral shell + GPUI 標準 Driver。SV-GUI-01 の WebView/SolidJS 決定を supersede | accepted | [sv175-native-shell-driver-neutral-gpui.md](./sv175-native-shell-driver-neutral-gpui.md) |
 | ADR-034T6XUbzRkbVBGiEFXH4Q | SV177 product theme crate boundary, DTCG document envelope and slot-based workspace preset schema | accepted | [sv177-product-theme-crate-boundary-dtcg-document-envelope-and-slot-based-workspa.md](./sv177-product-theme-crate-boundary-dtcg-document-envelope-and-slot-based-workspa.md) |
+| ADR-034UvyaJXF0PgtKqoqygMm | SYN-IO-01 Backup/Import Archive 初期採用範囲 — ZIP コンテナと Limits/Path/Link 方針 | proposed | [syn-io-01-backup-import-archive-zip-limits-path-link.md](./syn-io-01-backup-import-archive-zip-limits-path-link.md) |
 | ADR-034RBxHj0wzQculGmgXguq | SYN-OBS-01 単一crate ruviform-observability logging feature 採用と Host 所有 Global Subscriber | accepted | [syn-obs-01-crate-ruviform-observability-logging-feature-host-global-subscriber.md](./syn-obs-01-crate-ruviform-observability-logging-feature-host-global-subscriber.md) |
 | ADR-034T2RF305WAVSTAGED01C | SYN-RF305 — WAV Export Consumer-first StagedFile cutover と publish durability 写像 | accepted | [syn-rf305-consumer-first-staged-file-cutover.md](./syn-rf305-consumer-first-staged-file-cutover.md) |
 | ADR-034QdxBCx9w88ptCJEEz7D | VS-A Workspace構成・Ruviform git依存・永続化PoC・Stable ID生成 | accepted | [vs-a-workspace-ruviform-git-poc-stable-id.md](./vs-a-workspace-ruviform-git-poc-stable-id.md) |
@@ -53,7 +54,3 @@ Directory: `docs/adr`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | ADR-2kAD08Yeuxmx8U4t2mD2wr | SV-GUI-01 app crate boundary・webview feature gate・vendored ui/* TS pipeline | superseded | [sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md](./sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md) |
-
-<<<<<<< HEAD
-=======
->>>>>>> origin/main
