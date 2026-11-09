@@ -694,7 +694,7 @@ fn v6_snapshot_migrates_owner_role_and_time_scope_deterministically() {
     assert_ne!(saved.head, head_before);
     let bytes = store.read_snapshot(&saved.head).unwrap();
     let env: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(env["schema_version"], serde_json::json!(8));
+    assert_eq!(env["schema_version"], serde_json::json!(SCHEMA_VERSION));
     let target = env["project"]["control"]["targets"]
         .as_object()
         .unwrap()
@@ -942,12 +942,12 @@ fn v7_snapshot_regains_the_master_fader_target_on_load() {
 }
 
 #[test]
-fn v8_snapshot_without_the_fader_target_is_rejected() {
+fn v9_snapshot_without_the_fader_target_is_rejected() {
     let c = controller();
-    // A v8 body is the current wire shape — stripping the well-known
+    // A current-schema body — stripping the well-known
     // target makes it foreign state `validate_references` must refuse.
     let mut env = serde_json::json!({
-        "schema_version": 8,
+        "schema_version": SCHEMA_VERSION,
         "project_id": c.live().project_id,
         "revision": c.live_revision(),
         "project": serde_json::to_value(c.live()).unwrap(),
@@ -1008,13 +1008,13 @@ fn v7_snapshot_with_a_user_fader_rekeys_it_onto_the_well_known_id() {
 }
 
 #[test]
-fn v8_snapshot_with_a_foreign_entry_at_the_fader_id_is_rejected() {
+fn v9_snapshot_with_a_foreign_entry_at_the_fader_id_is_rejected() {
     let c = controller();
     // The well-known ID is the app's lookup key for "the master
     // strip's fader" — an entry that squats on it while carrying a
     // foreign role is as invalid as a missing one.
     let mut env = serde_json::json!({
-        "schema_version": 8,
+        "schema_version": SCHEMA_VERSION,
         "project_id": c.live().project_id,
         "revision": c.live_revision(),
         "project": serde_json::to_value(c.live()).unwrap(),

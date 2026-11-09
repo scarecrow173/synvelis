@@ -32,6 +32,7 @@ use crate::{
         PortOwner, PortRole, Processor, ProcessorBinding, ProcessorChain, RoutingConnection,
         SemanticPort, SendConfig, SignalDomain, StripOwner, is_issuable_raw,
     },
+    smf::SmfDocument,
     tempo::SignatureDto,
     tempo::TempoEventDto,
     time::{MidiTick, MusicalDuration, MusicalTick, SourceFrame},
@@ -208,6 +209,16 @@ pub enum ProjectOp {
         note_id: NoteId,
         /// New source-native start tick.
         start: MidiTick,
+    },
+    /// Import a parsed SMF document as a new MIDI source (issue
+    /// #126): the document becomes the source's persisted
+    /// provenance and its [`crate::SmfDocument::paired_notes`]
+    /// projection becomes the `MidiSource.notes`. The source's
+    /// note ops are then immutable — detach a clip's source to get
+    /// an editable copy.
+    ImportMidiSmf {
+        /// The parsed SMF document (Format 0/1, PPQN division).
+        document: SmfDocument,
     },
     /// Break a clip's shared-source link: duplicate the MIDI source
     /// it reads (fresh `SourceId`, fresh `NoteId`s) and repoint the
@@ -764,19 +775,24 @@ impl Operation for ProjectOp {
                 len,
             } => {
                 midi_source(project, source_id)?;
+                reject_smf_backed(project, source_id)?;
                 MidiNote::validate_fields(*key, *velocity, *start, *len)
             }
-            Self::RemoveMidiNote { source_id, note_id } => midi_source(project, source_id)?
-                .notes
-                .contains_key(note_id)
-                .then_some(())
-                .ok_or_else(|| Error::NotFound(format!("note {note_id}"))),
+            Self::RemoveMidiNote { source_id, note_id } => {
+                midi_source(project, source_id)?
+                    .notes
+                    .contains_key(note_id)
+                    .then_some(())
+                    .ok_or_else(|| Error::NotFound(format!("note {note_id}")))?;
+                reject_smf_backed(project, source_id)
+            }
             Self::SetMidiNoteVelocity {
                 source_id,
                 note_id,
                 velocity,
             } => {
                 midi_note(project, source_id, note_id)?;
+                reject_smf_backed(project, source_id)?;
                 if *velocity == 0 || *velocity > 127 {
                     return Err(Error::Validation(format!(
                         "velocity {velocity} outside 1..=127"
@@ -790,8 +806,16 @@ impl Operation for ProjectOp {
                 start,
             } => {
                 let note = midi_note(project, source_id, note_id)?;
+                reject_smf_backed(project, source_id)?;
                 // The moved note must still have a representable end.
                 start.checked_add(note.len.value())?;
+                Ok(())
+            }
+            Self::ImportMidiSmf { document } => {
+                document.validate()?;
+                // The note projection must be derivable — an unclosed
+                // note is a typed rejection, never a silent auto-close.
+                document.paired_notes()?;
                 Ok(())
             }
             Self::DetachClipSource { clip_id } => {
@@ -1481,6 +1505,7 @@ impl Operation for ProjectOp {
             }
             Self::RemoveMidiSource { source_id } => {
                 project.midi_sources.remove(source_id);
+                project.smf_documents.remove(source_id);
             }
             Self::AddMidiNote {
                 source_id,
@@ -1530,11 +1555,41 @@ impl Operation for ProjectOp {
                     note.start = *start;
                 }
             }
+            Self::ImportMidiSmf { document } => {
+                let source_id = SourceId::new(ids.next());
+                let division = MidiDivision::ppqn(document.division)?;
+                let mut notes = std::collections::BTreeMap::new();
+                for spec in document.paired_notes()? {
+                    let note_id = NoteId::new(ids.next());
+                    notes.insert(
+                        note_id,
+                        MidiNote {
+                            id: note_id,
+                            key: spec.key,
+                            velocity: spec.velocity,
+                            start: spec.start,
+                            len: spec.len,
+                        },
+                    );
+                }
+                project.midi_sources.insert(
+                    source_id,
+                    MidiSource {
+                        id: source_id,
+                        division,
+                        notes,
+                    },
+                );
+                project.smf_documents.insert(source_id, document.clone());
+            }
             Self::DetachClipSource { clip_id } => {
                 let linked_id = project.clips.get(clip_id).map(|c| c.source_id);
                 if let Some(linked_id) = linked_id
                     && let Some(linked) = project.midi_sources.get(&linked_id).cloned()
                 {
+                    // The detached copy carries no SMF provenance — it
+                    // is a new editable note source, not the imported
+                    // document under a second address.
                     let new_id = SourceId::new(ids.next());
                     // Fresh NoteIds keep the project-wide uniqueness
                     // invariant — a detached copy is a new note, not
@@ -2170,6 +2225,19 @@ fn midi_source<'p>(project: &'p Project, source_id: &SourceId) -> Result<&'p Mid
         .midi_sources
         .get(source_id)
         .ok_or_else(|| Error::NotFound(format!("midi source {source_id}")))
+}
+
+/// Rejects note edits on a source that carries SMF provenance —
+/// the document is the authority and `MidiSource.notes` is its
+/// projection, so editing notes would silently diverge the two.
+fn reject_smf_backed(project: &Project, source_id: &SourceId) -> Result<(), Error> {
+    if project.smf_documents.contains_key(source_id) {
+        return Err(Error::Validation(format!(
+            "midi source {source_id} carries SMF provenance; its notes are immutable \
+             (detach a clip's source for an editable copy)"
+        )));
+    }
+    Ok(())
 }
 
 /// Resolves a note inside a MIDI source.

@@ -46,11 +46,14 @@ use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::P
 /// into owner + derived time scope. v8 seeds the bootstrap
 /// master-strip fader `ParameterTarget` (synvelis#185); v7 bodies are
 /// read through the same registry which inserts the well-known
-/// target when absent.
+/// target when absent. v9 adds `Project::smf_documents` — SMF
+/// provenance documents for imported MIDI sources (issue #126); v8
+/// bodies are read through the same registry which needs no
+/// projection (the map defaults empty).
 /// New maps are `#[serde(default)]`, so an older body still
 /// deserializes; each version bump records the intentional format
 /// advance. v1–v4 snapshots are not migrated.
-pub const SCHEMA_VERSION: u32 = 8;
+pub const SCHEMA_VERSION: u32 = 9;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.
