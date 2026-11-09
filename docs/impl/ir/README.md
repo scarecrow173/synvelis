@@ -75,3 +75,4 @@ Directory: `docs/impl/ir`
 | IMPL-034UHWGxnC2sjDoLd5P01u | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | completed | [tim-01-configurable-ppqn.md](tim-01-configurable-ppqn.md) |
 | IMPL-034UGB5wH67MKn7FnNHs1i | Issue #230 check-ruviform-rev REV/lock 不整合 — stale vendor 診断と復旧導線 | completed | [issue-230-check-ruviform-rev-rev-lock-stale-vendor.md](issue-230-check-ruviform-rev-rev-lock-stale-vendor.md) |
 | IMPL-034UJqjrnNLIXxfkFE25tv | SF-03 slice6 実装記録 — RoutingControlDispatch・sf03_l6 acceptance | completed | [sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md](sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md) |
+| IMPL-034UMbAviqhaRhIqExdBM3 | RCD-02 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | completed | [rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md](rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md) |

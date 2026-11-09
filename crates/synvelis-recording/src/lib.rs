@@ -17,6 +17,7 @@ pub mod gate;
 pub mod handoff;
 pub mod input;
 pub mod journal;
+pub mod media_probe;
 pub mod mock;
 pub mod monitor;
 pub mod ops;
@@ -60,6 +61,7 @@ pub use journal::{
     CheckpointRecord, ChunkRecord, FinalizeOutcome, FinalizeRecord, JournalAppender, JournalRecord,
     JournalSpan, RecordPayload, ReplayOutcome, StopReason, encode_record, replay_journal,
 };
+pub use media_probe::{CompositeProbe, ProjectMediaProbe};
 pub use mock::{ChunkLog, InspectionWriter, MockInput, MockPcm, Scenario, StreamRig, verify_log};
 pub use monitor::{
     HardwareDirectMonitor, HardwareDirectState, MonitorDecision, MonitorNotices, MonitorProbe,

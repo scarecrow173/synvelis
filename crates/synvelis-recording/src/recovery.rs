@@ -744,6 +744,11 @@ fn recover_stream_finalize_faultable(
                 verified.validated_tail_bytes
             ));
         }
+        // verified prefix の content identity（#86 verified blob と
+        // 同一 scheme）。hash 失敗は finalize 失敗として fail-closed
+        // に扱い、identity 無しの ref を公開しない。
+        let verified_sha256 =
+            crate::writer::verified_prefix_sha256(&paths.media, durable.media_len)?;
         let source_ref = FinalizedSourceRef {
             schema_version: crate::staging::STAGING_SCHEMA_VERSION,
             session_id: area.manifest.session_id.clone(),
@@ -759,6 +764,7 @@ fn recover_stream_finalize_faultable(
             outcome: outcome_kind,
             spans: verified.spans,
             digest: durable.digest_fold.to_hex(),
+            verified_sha256: Some(verified_sha256),
             journal_seq: durable.seq,
             checkpoint_index: durable.checkpoint_index,
             faults,
