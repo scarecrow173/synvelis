@@ -15,6 +15,7 @@ pub mod engine;
 pub mod faultinj;
 pub mod gate;
 pub mod handoff;
+pub mod input;
 pub mod journal;
 pub mod mock;
 pub mod ops;
@@ -45,6 +46,11 @@ pub use handoff::{
     FAULT_FREE_EXHAUSTED, FAULT_INPUT_DISCONTINUITY, FAULT_PCM_OVERFLOW, FAULT_QUEUE_FULL,
     FAULT_SCHEDULE_UNDERRUN, FAULT_SPAN_OVERFLOW, FAULT_WRITER_ERROR, FaultLatch, WriterEnds,
     build_handoff,
+};
+pub use input::{
+    ArmState, ChannelMap, InputAdapter, InputAdapterParts, InputBindError, InputBinding,
+    InputSession, InputStreamSpec, InputTapSpec, MonitorState, OpenedInput, TapEngineEnds,
+    TapRecord, TapWriterEnds,
 };
 pub use journal::{
     CheckpointRecord, ChunkRecord, FinalizeOutcome, FinalizeRecord, JournalAppender, JournalRecord,
