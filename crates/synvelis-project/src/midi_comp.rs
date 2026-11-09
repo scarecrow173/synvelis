@@ -164,6 +164,9 @@ pub enum MidiControllerKind {
 pub struct MidiControllerEvent {
     /// Source-native tick of the event.
     pub tick: MidiTick,
+    /// MIDI channel the controller addresses (0–15). Two channels
+    /// are distinct controller states — chase never mixes them.
+    pub channel: u8,
     /// Controller addressed.
     pub kind: MidiControllerKind,
     /// Controller value (CC 0–127, pitch bend 0–16383).
@@ -174,8 +177,16 @@ impl MidiControllerEvent {
     /// Enforces the wire-domain value contract.
     ///
     /// # Errors
-    /// [`Error::Validation`] on out-of-domain kind/value pairs.
+    /// [`Error::Validation`] on out-of-domain channel/kind/value
+    /// combinations.
     pub fn validate(&self) -> Result<(), Error> {
+        if self.channel > 15 {
+            return Err(Error::Validation(format!(
+                "midi controller event at {}: channel {} > 15",
+                self.tick.value(),
+                self.channel
+            )));
+        }
         let ok = match self.kind {
             MidiControllerKind::Cc(n) => n <= 127 && (0..=127).contains(&self.value),
             MidiControllerKind::PitchBend => (0..=16_383).contains(&self.value),
@@ -234,6 +245,8 @@ pub enum MidiPlanAction {
     /// emitted at every region start so no state leaks across
     /// regions.
     ControllerChase {
+        /// MIDI channel the controller addresses (0–15).
+        channel: u8,
         /// Controller addressed.
         controller: MidiControllerKind,
         /// Chased value.
@@ -273,10 +286,11 @@ pub struct MidiRegionReport {
     /// offs) — the hanging-note guard's audit trail.
     pub virtual_offs: Vec<(SourceId, NoteId)>,
     /// Controller chase snapshot emitted at the region start:
-    /// `(kind, value)` sorted by kind. Covers the union of kinds
-    /// declared in the input lanes; undeclared kinds chase their
-    /// default (CC → 0, pitch bend → 8192).
-    pub chase: Vec<(MidiControllerKind, i32)>,
+    /// `((channel, kind), value)` sorted by `(channel, kind)`.
+    /// Covers the union of `(channel, kind)` pairs declared in the
+    /// input lanes; undeclared pairs chase their default
+    /// (CC → 0, pitch bend → 8192).
+    pub chase: Vec<((u8, MidiControllerKind), i32)>,
 }
 
 /// The deterministic playback plan compiled from a
@@ -350,12 +364,14 @@ pub fn compile_midi_comp(
     selection.validate(project)?;
     let ppqn = project.tempo_map.ppqn;
 
-    // Validate controller input and collect the chased kind union.
-    let mut all_kinds: BTreeSet<MidiControllerKind> = BTreeSet::new();
+    // Validate controller input and collect the chased
+    // (channel, kind) union — channel 0 CC64 and channel 1 CC64
+    // are distinct controller states and never share a chase.
+    let mut all_pairs: BTreeSet<(u8, MidiControllerKind)> = BTreeSet::new();
     for lane in &controllers.lanes {
         for event in &lane.events {
             event.validate()?;
-            all_kinds.insert(event.kind);
+            all_pairs.insert((event.channel, event.kind));
         }
     }
 
@@ -451,9 +467,9 @@ pub fn compile_midi_comp(
 
         // Controller chase at the region start: the effective state
         // of this source's lane at `phrase.start`, covering the union
-        // of all declared kinds so nothing leaks from a previous
-        // region's source.
-        let mut chase_map: BTreeMap<MidiControllerKind, i32> = BTreeMap::new();
+        // of all declared (channel, kind) pairs so nothing leaks from
+        // a previous region's source.
+        let mut chase_map: BTreeMap<(u8, MidiControllerKind), i32> = BTreeMap::new();
         let lane_events: &[MidiControllerEvent] = controllers
             .lanes
             .iter()
@@ -463,18 +479,21 @@ pub fn compile_midi_comp(
         // wins), matching the lane's documented chronological order.
         let mut ordered: Vec<&MidiControllerEvent> = lane_events.iter().collect();
         ordered.sort_by_key(|e| e.tick.value());
-        for kind in &all_kinds {
+        for (channel, kind) in &all_pairs {
             let value = ordered
                 .iter()
                 .rev()
-                .find(|e| e.kind == *kind && e.tick.value() <= phrase_start)
+                .find(|e| {
+                    e.channel == *channel && e.kind == *kind && e.tick.value() <= phrase_start
+                })
                 .map_or_else(|| default_value(*kind), |e| e.value);
-            chase_map.insert(*kind, value);
+            chase_map.insert((*channel, *kind), value);
         }
-        for (kind, value) in &chase_map {
+        for ((channel, kind), value) in &chase_map {
             events.push(MidiPlanEvent {
                 at: MusicalTick::new(proj_start),
                 action: MidiPlanAction::ControllerChase {
+                    channel: *channel,
                     controller: *kind,
                     value: *value,
                 },
@@ -502,6 +521,7 @@ pub fn compile_midi_comp(
             events.push(MidiPlanEvent {
                 at: MusicalTick::new(at),
                 action: MidiPlanAction::ControllerChase {
+                    channel: event.channel,
                     controller: event.kind,
                     value: event.value,
                 },

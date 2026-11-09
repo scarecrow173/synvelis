@@ -129,6 +129,7 @@ fn selection_for(source: SourceId) -> MidiCompSelection {
 fn lanes_for(source: SourceId) -> MidiControllerLanes {
     let ev = |tick: i64, kind: MidiControllerKind, value: i32| MidiControllerEvent {
         tick: mt(tick),
+        channel: 0,
         kind,
         value,
     };
@@ -313,7 +314,12 @@ fn midi_phrase_chase_covers_kind_union_and_mid_phrase_events_play() {
     // CC64 sustain 127 (@100); CC1/PB/CC10 are later → defaults.
     let chase_a = &plan.regions[0].chase;
     assert_eq!(chase_a.len(), 4, "kind union must be chased");
-    let get = |k: MidiControllerKind| chase_a.iter().find(|(kind, _)| *kind == k).map(|(_, v)| *v);
+    let get = |k: MidiControllerKind| {
+        chase_a
+            .iter()
+            .find(|((ch, kind), _)| *ch == 0 && *kind == k)
+            .map(|(_, v)| *v)
+    };
     assert_eq!(get(MidiControllerKind::Cc(64)), Some(127));
     assert_eq!(get(MidiControllerKind::Cc(1)), Some(0));
     assert_eq!(get(MidiControllerKind::Cc(10)), Some(0));
@@ -323,8 +329,12 @@ fn midi_phrase_chase_covers_kind_union_and_mid_phrase_events_play() {
     // and the earlier CC1/PB values; CC10 @2500 is inside B, not at
     // its start → default at chase, live event mid-phrase.
     let chase_b = &plan.regions[1].chase;
-    let get_b =
-        |k: MidiControllerKind| chase_b.iter().find(|(kind, _)| *kind == k).map(|(_, v)| *v);
+    let get_b = |k: MidiControllerKind| {
+        chase_b
+            .iter()
+            .find(|((ch, kind), _)| *ch == 0 && *kind == k)
+            .map(|(_, v)| *v)
+    };
     assert_eq!(get_b(MidiControllerKind::Cc(64)), Some(64));
     assert_eq!(get_b(MidiControllerKind::Cc(1)), Some(64));
     assert_eq!(get_b(MidiControllerKind::PitchBend), Some(10_000));
@@ -338,8 +348,11 @@ fn midi_phrase_chase_covers_kind_union_and_mid_phrase_events_play() {
             e.at == MusicalTick::new(tick)
                 && matches!(
                     e.action,
-                    MidiPlanAction::ControllerChase { controller, value: v }
-                        if controller == kind && v == value
+                    MidiPlanAction::ControllerChase {
+                        channel: 0,
+                        controller,
+                        value: v,
+                    } if controller == kind && v == value
                 )
         })
     };
@@ -606,6 +619,7 @@ fn midi_phrase_rejects_out_of_domain_controller_events() {
             source_id: source,
             events: vec![MidiControllerEvent {
                 tick: mt(100),
+                channel: 0,
                 kind: MidiControllerKind::Cc(64),
                 value: 200, // CC domain is 0–127
             }],
