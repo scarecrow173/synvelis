@@ -6,16 +6,16 @@
 //! explicit remove/stop lifecycle. Headless: every claim is proven by
 //! RT-observed status evidence drained through `probe_drain`.
 
+use synvelis_player::ProbeRequestError;
 use synvelis_player::driver::PumpPolicy;
 use synvelis_player::lowering::EngineConfig;
 use synvelis_player::routing_engine::{RoutingDeps, RoutingEngine};
-use synvelis_player::ProbeRequestError;
 use synvelis_project::probe::{
     CaptureSegmentEnd, ProbeMode, ProbeResolveState, ProbeStatusKind, SemanticProbePoint,
     SemanticSignalEntityRef, SignalBoundary, SubscriptionKind,
 };
 use synvelis_project::{
-    BusKind, BuildBudget, BuildMode, Command, CounterIdGenerator, PortDirection, PortRole,
+    BuildBudget, BuildMode, BusKind, Command, CounterIdGenerator, PortDirection, PortRole,
     ProbeSubscriptionKey, Project, ProjectController, ProjectId, ProjectOp, ProjectRevision,
     ProjectSessionId, RoutingBuildRequestId, RoutingCompileRequest, RuntimeClockEpochRef,
     RuntimeInstanceId, StripId, TrackId,
@@ -73,7 +73,11 @@ fn add_bus(c: &mut ProjectController, name: &str) -> StripId {
         .strip
 }
 
-fn strip_port(p: &Project, strip: StripId, direction: PortDirection) -> synvelis_project::SemanticPortId {
+fn strip_port(
+    p: &Project,
+    strip: StripId,
+    direction: PortDirection,
+) -> synvelis_project::SemanticPortId {
     p.routing.strips[&strip]
         .port_ids
         .iter()
@@ -297,7 +301,10 @@ fn sf04_probe_capture_segment_cuts_at_generation_boundary() {
     engine.probe_capture(key, 8_192).unwrap();
     engine.run(4, PumpPolicy::Every(1)).unwrap();
     drain(&mut engine);
-    assert_eq!(binding(&engine, &key).confirmed_mode, Some(ProbeMode::Capture));
+    assert_eq!(
+        binding(&engine, &key).confirmed_mode,
+        Some(ProbeMode::Capture)
+    );
 
     // A second capture while the segment is open is refused.
     assert!(matches!(
@@ -315,10 +322,16 @@ fn sf04_probe_capture_segment_cuts_at_generation_boundary() {
     let segments = engine.probe_segments();
     assert_eq!(segments.len(), 1, "no automatic recapture");
     let segment = &segments[0];
-    assert_eq!(segment.ended_by, Some(CaptureSegmentEnd::GenerationBoundary));
+    assert_eq!(
+        segment.ended_by,
+        Some(CaptureSegmentEnd::GenerationBoundary)
+    );
     assert_eq!(segment.active_plan_generation, 1);
     assert!(segment.frame_range.is_some(), "captured PCM observed");
-    assert_eq!(segment.completeness, synvelis_project::CaptureCompleteness::Complete);
+    assert_eq!(
+        segment.completeness,
+        synvelis_project::CaptureCompleteness::Complete
+    );
 
     // The binding rebound under generation 2 in Monitor — the
     // capture request is preserved as requested state, the RT mode
@@ -382,13 +395,11 @@ fn sf04_probe_reinstalls_when_semantic_point_moves() {
             strip_id: bus_strip,
             index: 0,
             name: "eq".into(),
-            binding: synvelis_project::ProcessorBinding::Resolved(
-                synvelis_project::PluginRef {
-                    descriptor: "vendor.eq".into(),
-                    version: "1.0".into(),
-                    capability_revision: 3,
-                },
-            ),
+            binding: synvelis_project::ProcessorBinding::Resolved(synvelis_project::PluginRef {
+                descriptor: "vendor.eq".into(),
+                version: "1.0".into(),
+                capability_revision: 3,
+            }),
             sidechain_input: false,
         },
     );

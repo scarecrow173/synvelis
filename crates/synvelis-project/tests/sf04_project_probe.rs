@@ -71,7 +71,10 @@ fn strip_port(p: &Project, strip: StripId, direction: PortDirection) -> Semantic
         .unwrap()
 }
 
-fn processor_ports(p: &Project, processor: ProcessorId) -> (SemanticPortId, SemanticPortId, SemanticPortId) {
+fn processor_ports(
+    p: &Project,
+    processor: ProcessorId,
+) -> (SemanticPortId, SemanticPortId, SemanticPortId) {
     let mut input = None;
     let mut output = None;
     let mut sidechain = None;
@@ -262,10 +265,7 @@ fn lowered(f: &Fixture) -> Lowered {
         (proc_out, proc.node, proc.output),
         (proc_sc, proc.node, proc.sidechain),
     ] {
-        ports.insert(
-            sem,
-            MappingResolution::Resolved(PortRef { node, port }),
-        );
+        ports.insert(sem, MappingResolution::Resolved(PortRef { node, port }));
     }
 
     let mut send_taps = BTreeMap::new();
@@ -316,11 +316,7 @@ fn point(entity: SemanticSignalEntityRef, boundary: SignalBoundary) -> SemanticP
     }
 }
 
-fn resolve(
-    f: &Fixture,
-    l: &Lowered,
-    point: &SemanticProbePoint,
-) -> ProbePointResolution {
+fn resolve(f: &Fixture, l: &Lowered, point: &SemanticProbePoint) -> ProbePointResolution {
     resolve_probe_point(f.controller.live(), &l.map, &l.spec, point)
 }
 
@@ -402,7 +398,10 @@ fn strip_boundaries_resolve_through_map_and_spec() {
     let track_in = resolved_port(&resolve(
         &f,
         &l,
-        &point(SemanticSignalEntityRef::Track(f.track), SignalBoundary::Input),
+        &point(
+            SemanticSignalEntityRef::Track(f.track),
+            SignalBoundary::Input,
+        ),
     ));
     assert_eq!(track_in, input);
     let bus_out = resolved_port(&resolve(
@@ -491,10 +490,7 @@ fn processor_boundaries_resolve_main_and_sidechain() {
         boundary: SignalBoundary::Sidechain,
         port: Some(proc_in),
     };
-    assert_eq!(
-        resolve(&f, &l, &wrong),
-        ProbePointResolution::Unresolved
-    );
+    assert_eq!(resolve(&f, &l, &wrong), ProbePointResolution::Unresolved);
 }
 
 // ── send boundaries ─────────────────────────────────────────────
@@ -522,7 +518,10 @@ fn send_boundaries_resolve_tap_and_destination() {
     let dst = resolved_port(&resolve(
         &f,
         &l,
-        &point(SemanticSignalEntityRef::Send(f.send), SignalBoundary::Output),
+        &point(
+            SemanticSignalEntityRef::Send(f.send),
+            SignalBoundary::Output,
+        ),
     ));
     assert_eq!(
         dst,
@@ -537,7 +536,10 @@ fn send_boundaries_resolve_tap_and_destination() {
         resolve(
             &f,
             &l,
-            &point(SemanticSignalEntityRef::Send(f.send), SignalBoundary::PreFader),
+            &point(
+                SemanticSignalEntityRef::Send(f.send),
+                SignalBoundary::PreFader
+            ),
         ),
         ProbePointResolution::Unsupported
     );
@@ -579,10 +581,7 @@ fn explicit_port_must_agree_with_the_boundary_selection() {
         boundary: SignalBoundary::PostInsert,
         port: Some(strip_in),
     };
-    assert_eq!(
-        resolve(&f, &l, &internal),
-        ProbePointResolution::Unresolved
-    );
+    assert_eq!(resolve(&f, &l, &internal), ProbePointResolution::Unresolved);
 }
 
 // ── map-state failures are explicit ─────────────────────────────
@@ -598,17 +597,19 @@ fn map_resolution_states_surface_honestly() {
         SignalBoundary::Input,
     );
 
-    l.map
-        .ports
-        .insert(strip_in, MappingResolution::Unavailable(AvailabilityReason::PluginUnavailable));
+    l.map.ports.insert(
+        strip_in,
+        MappingResolution::Unavailable(AvailabilityReason::PluginUnavailable),
+    );
     assert_eq!(
         resolve(&f, &l, &input_point),
         ProbePointResolution::Unavailable
     );
 
-    l.map
-        .ports
-        .insert(strip_in, MappingResolution::NotLowered(NotLoweredReason::MutedStrip));
+    l.map.ports.insert(
+        strip_in,
+        MappingResolution::NotLowered(NotLoweredReason::MutedStrip),
+    );
     assert_eq!(
         resolve(&f, &l, &input_point),
         ProbePointResolution::Unavailable
@@ -647,7 +648,10 @@ fn unknown_entities_and_unmapped_ports_are_unresolved() {
         resolve(
             &f,
             &l,
-            &point(SemanticSignalEntityRef::Strip(StripId::new(999)), SignalBoundary::Input),
+            &point(
+                SemanticSignalEntityRef::Strip(StripId::new(999)),
+                SignalBoundary::Input
+            ),
         ),
         ProbePointResolution::Unresolved
     );
@@ -697,12 +701,7 @@ fn strip_internal_positions_require_the_fader_slot() {
     // Fader node absent from the spec → no physical slot (an empty
     // spec issues no node IDs, so the mapped node cannot exist).
     let empty_spec = GraphBuilder::new().build();
-    let no_node = resolve_probe_point(
-        f.controller.live(),
-        &l.map,
-        &empty_spec,
-        &post_insert,
-    );
+    let no_node = resolve_probe_point(f.controller.live(), &l.map, &empty_spec, &post_insert);
     assert_eq!(no_node, ProbePointResolution::Unavailable);
 
     // Semantic node mapping unavailable / not lowered / unsupported.
@@ -730,7 +729,9 @@ fn strip_internal_positions_require_the_fader_slot() {
         resolve(&f, &l, &post_insert),
         ProbePointResolution::Unsupported
     );
-    l.map.semantic_nodes.remove(&SemanticNodeRef::Strip(f.strip));
+    l.map
+        .semantic_nodes
+        .remove(&SemanticNodeRef::Strip(f.strip));
     assert_eq!(
         resolve(&f, &l, &post_insert),
         ProbePointResolution::Unresolved

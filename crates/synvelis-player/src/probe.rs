@@ -24,8 +24,8 @@ use std::fmt;
 use ruviform_audio::typed::GraphRuntime;
 use ruviform_audio::typed::probe::{
     self, CaptureConfig, PointAvailability, ProbeBroker, ProbeCollector, ProbeConfig, ProbeDeck,
-    ProbeError, ProbeEvent, ProbeId, ProbeMode as RtProbeMode,
-    ProbePoint as RtProbePoint, RecordMeta, RebindReceipt, StatusKind, StatusRecord, StopReason,
+    ProbeError, ProbeEvent, ProbeId, ProbeMode as RtProbeMode, ProbePoint as RtProbePoint,
+    RebindReceipt, RecordMeta, StatusKind, StatusRecord, StopReason,
 };
 use ruviform_graph::GraphSpec;
 
@@ -99,12 +99,8 @@ impl fmt::Display for ProbeRequestError {
         match self {
             Self::UnknownKey => f.write_str("probe subscription not installed"),
             Self::NotBound => f.write_str("probe binding has no runtime probe"),
-            Self::AlreadyCapturing => {
-                f.write_str("probe already has an open capture segment")
-            }
-            Self::ProjectMismatch => {
-                f.write_str("project does not match the published plan")
-            }
+            Self::AlreadyCapturing => f.write_str("probe already has an open capture segment"),
+            Self::ProjectMismatch => f.write_str("project does not match the published plan"),
             Self::NoActivePlan => f.write_str("no published plan to resolve against"),
             Self::Broker(e) => write!(f, "probe broker error: {e}"),
         }
@@ -222,11 +218,7 @@ impl ProbeSession {
     /// `block_frames` sizes recorded gap intervals; `sample_rate`
     /// declares the cursor series' frame unit for clock alignment.
     #[must_use]
-    pub fn pair(
-        config: &ProbeConfig,
-        block_frames: u64,
-        sample_rate: u32,
-    ) -> (Self, ProbeDeck) {
+    pub fn pair(config: &ProbeConfig, block_frames: u64, sample_rate: u32) -> (Self, ProbeDeck) {
         let parts = probe::pair(config);
         let mut session = Self {
             broker: parts.broker,
@@ -517,8 +509,9 @@ impl ProbeSession {
                     binding.runtime_probe_id = None;
                     binding.state = match &resolution {
                         ProbePointResolution::Unresolved => ProbeResolveState::Unresolved,
-                        ProbePointResolution::Unavailable
-                        | ProbePointResolution::NotLowered(_) => ProbeResolveState::Unavailable,
+                        ProbePointResolution::Unavailable | ProbePointResolution::NotLowered(_) => {
+                            ProbeResolveState::Unavailable
+                        }
                         ProbePointResolution::Unsupported => ProbeResolveState::Unsupported,
                         ProbePointResolution::Resolved(_) => {
                             unreachable!("non-resolved arm")
@@ -644,9 +637,9 @@ fn observe_event(
     block_frames: u64,
 ) {
     match event {
-        ProbeEvent::Status(status) => observe_status(
-            *status, bindings, by_probe, open, segments, block_frames,
-        ),
+        ProbeEvent::Status(status) => {
+            observe_status(*status, bindings, by_probe, open, segments, block_frames)
+        }
         ProbeEvent::Captured(chunk) => {
             if let Some(meta) = chunk.meta {
                 observe_meta(meta, open);
@@ -696,31 +689,61 @@ fn observe_status(
         StatusKind::CaptureStopped { reason } => {
             binding.confirmed_mode = Some(ProbeMode::Monitor);
             if let Some(segment) = open.remove(&status.probe) {
-                segments.push(close_segment(segment, Some(segment_end(reason)), clock_ref(status.clock)));
+                segments.push(close_segment(
+                    segment,
+                    Some(segment_end(reason)),
+                    clock_ref(status.clock),
+                ));
             }
         }
         StatusKind::Unbound => {
             binding.state = ProbeResolveState::StaleGeneration;
         }
         StatusKind::Unobserved { .. } => {
-            record_gap(open, status.probe, status.sample_position, block_frames, ObservationGapKind::Unobserved);
+            record_gap(
+                open,
+                status.probe,
+                status.sample_position,
+                block_frames,
+                ObservationGapKind::Unobserved,
+            );
         }
         StatusKind::LostBlocks => {
-            record_gap(open, status.probe, status.sample_position, block_frames, ObservationGapKind::LostBlocks);
+            record_gap(
+                open,
+                status.probe,
+                status.sample_position,
+                block_frames,
+                ObservationGapKind::LostBlocks,
+            );
         }
         StatusKind::LostRecords => {
-            record_gap(open, status.probe, status.sample_position, block_frames, ObservationGapKind::LostRecords);
+            record_gap(
+                open,
+                status.probe,
+                status.sample_position,
+                block_frames,
+                ObservationGapKind::LostRecords,
+            );
         }
         StatusKind::Removed => {
             binding.state = ProbeResolveState::Stopped;
             if let Some(segment) = open.remove(&status.probe) {
-                segments.push(close_segment(segment, Some(CaptureSegmentEnd::Removed), clock_ref(status.clock)));
+                segments.push(close_segment(
+                    segment,
+                    Some(CaptureSegmentEnd::Removed),
+                    clock_ref(status.clock),
+                ));
             }
         }
         StatusKind::RebindDropped => {
             binding.state = ProbeResolveState::Lost;
             if let Some(segment) = open.remove(&status.probe) {
-                segments.push(close_segment(segment, Some(CaptureSegmentEnd::RebindDropped), clock_ref(status.clock)));
+                segments.push(close_segment(
+                    segment,
+                    Some(CaptureSegmentEnd::RebindDropped),
+                    clock_ref(status.clock),
+                ));
             }
         }
         _ => {}
@@ -738,9 +761,7 @@ fn observe_meta(meta: RecordMeta, open: &mut BTreeMap<ProbeId, OpenSegment>) {
     if meta.generation != segment.generation {
         return;
     }
-    let end = meta
-        .sample_position
-        .saturating_add(u64::from(meta.frames));
+    let end = meta.sample_position.saturating_add(u64::from(meta.frames));
     segment.start = Some(
         segment
             .start
@@ -792,12 +813,10 @@ fn close_segment(
         point: segment.point,
         active_plan_generation: segment.generation,
         clock_context: segment.clock.or(status_clock),
-        frame_range: segment
-            .has_data
-            .then(|| ProbeFrameInterval {
-                start: segment.start.unwrap_or(0),
-                end: segment.end,
-            }),
+        frame_range: segment.has_data.then(|| ProbeFrameInterval {
+            start: segment.start.unwrap_or(0),
+            end: segment.end,
+        }),
         discontinuities: segment.gaps,
         completeness,
         ended_by,

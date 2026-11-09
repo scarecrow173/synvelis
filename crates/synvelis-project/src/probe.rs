@@ -22,9 +22,7 @@ use ruviform_media_core::{ClockDomainId, ClockEpochId};
 use serde::{Deserialize, Serialize};
 
 use crate::controller::ProjectRevision;
-use crate::id::{
-    BusId, ProcessorId, SemanticPortId, SendId, StripId, TrackId,
-};
+use crate::id::{BusId, ProcessorId, SemanticPortId, SendId, StripId, TrackId};
 use crate::project::Project;
 use crate::routing::{PortDirection, PortOwner, PortRole, SignalDomain};
 use crate::routing_build::{
@@ -509,17 +507,13 @@ pub fn resolve_probe_point(
         (Some(port_id), PortSelection::Semantic(expected)) if port_id != expected => {
             return ProbePointResolution::Unresolved;
         }
-        (Some(port_id), PortSelection::SidechainInputs(ref ports))
-            if !ports.contains(&port_id) =>
-        {
+        (Some(port_id), PortSelection::SidechainInputs(ref ports)) if !ports.contains(&port_id) => {
             return ProbePointResolution::Unresolved;
         }
         (Some(_), PortSelection::StripInternal(_) | PortSelection::SendTap(_)) => {
             return ProbePointResolution::Unresolved;
         }
-        (Some(port_id), PortSelection::SidechainInputs(_)) => {
-            PortSelection::Semantic(port_id)
-        }
+        (Some(port_id), PortSelection::SidechainInputs(_)) => PortSelection::Semantic(port_id),
         (_, selection) => selection,
     };
 
@@ -583,26 +577,18 @@ fn select_port(
                 return Err(ProbePointResolution::Unresolved);
             }
             match boundary {
-                SignalBoundary::Input | SignalBoundary::PreInsert => {
-                    Ok(PortSelection::Semantic(strip_main_port(
-                        project,
-                        strip_id,
-                        PortDirection::Input,
-                    )?))
-                }
-                SignalBoundary::Output | SignalBoundary::PostFader => {
-                    Ok(PortSelection::Semantic(strip_main_port(
-                        project,
-                        strip_id,
-                        PortDirection::Output,
-                    )?))
-                }
-                SignalBoundary::PostInsert => Ok(PortSelection::StripInternal(
-                    StripInternal::FaderInput,
+                SignalBoundary::Input | SignalBoundary::PreInsert => Ok(PortSelection::Semantic(
+                    strip_main_port(project, strip_id, PortDirection::Input)?,
                 )),
-                SignalBoundary::PreFader => Ok(PortSelection::StripInternal(
-                    StripInternal::FaderPreOut,
+                SignalBoundary::Output | SignalBoundary::PostFader => Ok(PortSelection::Semantic(
+                    strip_main_port(project, strip_id, PortDirection::Output)?,
                 )),
+                SignalBoundary::PostInsert => {
+                    Ok(PortSelection::StripInternal(StripInternal::FaderInput))
+                }
+                SignalBoundary::PreFader => {
+                    Ok(PortSelection::StripInternal(StripInternal::FaderPreOut))
+                }
                 SignalBoundary::Sidechain => Err(ProbePointResolution::Unsupported),
             }
         }
@@ -701,10 +687,7 @@ fn owner_main_port(
 /// Maps a semantic port through the source map — the `MappingResolution`
 /// vocabulary is preserved so muted/disabled/out-of-scope lowering
 /// stays explicit.
-fn resolve_semantic_port(
-    map: &RoutingSourceMap,
-    port_id: SemanticPortId,
-) -> ProbePointResolution {
+fn resolve_semantic_port(map: &RoutingSourceMap, port_id: SemanticPortId) -> ProbePointResolution {
     match map.ports.get(&port_id) {
         Some(MappingResolution::Resolved(port_ref)) => ProbePointResolution::Resolved(*port_ref),
         Some(MappingResolution::Unavailable(_)) | Some(MappingResolution::NotLowered(_)) => {
@@ -729,10 +712,7 @@ fn resolve_strip_internal(
     let ProbeSubject::Strip(strip_id) = subject else {
         return ProbePointResolution::Unresolved;
     };
-    let node_id = match map
-        .semantic_nodes
-        .get(&SemanticNodeRef::Strip(strip_id))
-    {
+    let node_id = match map.semantic_nodes.get(&SemanticNodeRef::Strip(strip_id)) {
         Some(MappingResolution::Resolved(node)) => *node,
         Some(MappingResolution::Unavailable(_)) | Some(MappingResolution::NotLowered(_)) => {
             return ProbePointResolution::Unavailable;
@@ -780,9 +760,7 @@ fn resolve_strip_internal(
                 .ports()
                 .iter()
                 .filter(|p| {
-                    p.direction() == Direction::Output
-                        && p.id() != post_port
-                        && audio_port(p)
+                    p.direction() == Direction::Output && p.id() != post_port && audio_port(p)
                 })
                 .collect();
             match pre_ports.as_slice() {

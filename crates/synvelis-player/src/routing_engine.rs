@@ -33,12 +33,12 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use ruviform_audio::typed::probe::{ProbeConfig, ProbeEvent};
 use ruviform_audio::typed::{
     CompileError, CompiledPlan, Compiler, CompilerConfig, FactoryError, GraphProcessor,
     GraphRuntime, InstalledInfo, OfflineRenderSupport, PrepareOutcome, ProcessError, RtRuntime,
     SharedStatusSnapshot,
 };
-use ruviform_audio::typed::probe::{ProbeConfig, ProbeEvent};
 use ruviform_audio_core::AudioFormat;
 use ruviform_graph::{
     GraphProject, GraphSpec, NodeId, NodeSpec, PortId, PrepareError, ValidationError,
@@ -49,8 +49,8 @@ use ruviform_rt::RtContext;
 
 use synvelis_project::BuildMode;
 use synvelis_project::{
-    ExecutionEquivalence, LOWERING_POLICY_VERSION, ProbeCaptureSegment, ProbeMode, ProcessorId,
-    ProbeSubscriptionKey, Project, ProjectRevision, RoutingActivationReceipt,
+    ExecutionEquivalence, LOWERING_POLICY_VERSION, ProbeCaptureSegment, ProbeMode,
+    ProbeSubscriptionKey, ProcessorId, Project, ProjectRevision, RoutingActivationReceipt,
     RoutingActivationState, RoutingBuildKey, RoutingBuildRequestId, RoutingCompileRequest,
     RoutingFault, RoutingReconcileMismatch, RoutingReconcileReport, RoutingSourceMap,
     RuntimeClockEpochRef, RuntimeInstanceId, SemanticProbeBinding, port_capability_generation,
@@ -65,8 +65,8 @@ use crate::host::{
 use crate::lowering::{
     CompSkipReason, EngineConfig, NodeContent, PlaybackBinding, SkippedPlayback,
 };
-use crate::processor::{ClipPlayer, ClipSync, PlaybackStats};
 use crate::probe::{ProbeRequestError, ProbeSession};
+use crate::processor::{ClipPlayer, ClipSync, PlaybackStats};
 use crate::resolver::PreparedClip;
 use crate::routing_lower::{
     GainProcessor, SemanticLowered, SemanticNodeRole, StripProcessor, engine_format, lower_semantic,
@@ -1068,7 +1068,8 @@ impl RoutingEngine {
         if map.project_id != project.project_id {
             return Err(ProbeRequestError::ProjectMismatch);
         }
-        self.probes.request(&self.graph, spec, project, map, key, mode)
+        self.probes
+            .request(&self.graph, spec, project, map, key, mode)
     }
 
     /// Requests a probe mode change — see [`ProbeSession::set_mode`].
@@ -1116,10 +1117,7 @@ impl RoutingEngine {
     ///
     /// # Errors
     /// [`ProbeRequestError::UnknownKey`]/[`ProbeRequestError::Broker`].
-    pub fn probe_remove(
-        &mut self,
-        key: ProbeSubscriptionKey,
-    ) -> Result<(), ProbeRequestError> {
+    pub fn probe_remove(&mut self, key: ProbeSubscriptionKey) -> Result<(), ProbeRequestError> {
         self.probes.remove(key)
     }
 
