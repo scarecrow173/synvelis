@@ -21,6 +21,8 @@ use std::{
 use serde::{Deserialize, Serialize};
 use synvelis_project::{CaptureStreamId, LaneId, RecordingSessionId};
 
+use crate::faultinj::PublishFaults;
+
 /// manifest/finalized JSON の schema version。
 pub const STAGING_SCHEMA_VERSION: u32 = 1;
 /// media の PCM 形式識別子。
@@ -137,6 +139,12 @@ fn finalized_rel(stream_index: u16) -> String {
 #[must_use]
 pub fn canonical_rel(stream_index: u16) -> String {
     format!("streams/{}.canonical.json", stream_stem(stream_index))
+}
+
+/// recovery review 判定記録の session 相対 path。
+#[must_use]
+pub fn review_rel(stream_index: u16) -> String {
+    format!("streams/{}.review.json", stream_stem(stream_index))
 }
 
 /// canonical publication receipt（`streams/stream-NNNN.canonical.json`）。
@@ -261,17 +269,47 @@ pub fn sync_parent_dir(path: &Path) -> io::Result<()> {
 
 /// `bytes` を `path` へ tmp→sync→rename で原子公開する。
 /// tmp 残留時は既存のものを上書きして進める（idempotent）。
+/// fault 注入が必要な場合は [`publish_atomic_faultable`] を使う。
 ///
 /// # Errors
 /// open/write/sync/rename のいずれかの失敗。
 pub fn publish_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    publish_atomic_faultable(path, bytes, &mut PublishFaults::new())
+}
+
+/// [`publish_atomic`] の fault 注入対応版。`faults` の注入種別は
+/// [`crate::faultinj::PublishInject`] を参照。`Indeterminate` は
+/// rename 成功後に `Err` を返すため、呼出し側は公開成否を file の
+/// 再読込で照合する必要がある（応答喪失相当）。
+///
+/// # Errors
+/// open/write/sync/rename の失敗、または注入された失敗。
+pub fn publish_atomic_faultable(
+    path: &Path,
+    bytes: &[u8],
+    faults: &mut PublishFaults,
+) -> io::Result<()> {
+    let call = faults.next_call();
+    if faults.denied(call) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "injected publish denied",
+        ));
+    }
     let tmp = path.with_extension("tmp");
     {
         let mut f = File::create(&tmp)?;
         f.write_all(bytes)?;
+        if faults.sync_fail(call) {
+            return Err(io::Error::other("injected publish sync failure"));
+        }
         f.sync_all()?;
     }
-    fs::rename(&tmp, path)
+    fs::rename(&tmp, path)?;
+    if faults.indeterminate(call) {
+        return Err(io::Error::other("injected indeterminate publish"));
+    }
+    Ok(())
 }
 
 impl StagingArea {
@@ -410,6 +448,12 @@ impl StagingArea {
     #[must_use]
     pub fn canonical_path(&self, stream_index: u16) -> PathBuf {
         self.session_dir.join(canonical_rel(stream_index))
+    }
+
+    /// recovery review 判定記録の絶対 path。
+    #[must_use]
+    pub fn review_path(&self, stream_index: u16) -> PathBuf {
+        self.session_dir.join(review_rel(stream_index))
     }
 
     /// `session_dir` 直下の dir sync を試みる（capability が

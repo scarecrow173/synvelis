@@ -21,14 +21,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     capture::{CaptureChunk, ChunkValidity},
-    crc32::digest_fold,
+    crc32::{IntegrityDigest, digest_fold},
     faultinj::{FaultWriter, Inject, StorageWriter},
     handoff::{ChunkSink, FAULT_CONTRACT, FAULT_WRITER_ERROR, FaultLatch, WriterEnds},
     journal::{
         CheckpointRecord, ChunkRecord, FinalizeOutcome, FinalizeRecord, JournalAppender,
         JournalSpan, RecordPayload,
     },
-    staging::{DirSyncCapability, StagingArea, publish_atomic, sync_parent_dir},
+    staging::{
+        DirSyncCapability, StagingArea, StagingCapabilities, publish_atomic, sync_parent_dir,
+    },
 };
 
 /// stream の writer 状態機械。
@@ -55,7 +57,7 @@ pub struct StreamPaths {
 }
 
 /// durable frontier（最後に sync 成功した checkpoint）。
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DurableFrontier {
     /// checkpoint record の journal seq。
     pub seq: u64,
@@ -65,8 +67,66 @@ pub struct DurableFrontier {
     pub media_len: u64,
     /// sync した source frame 総数。
     pub source_frames: u64,
-    /// その時点の digest fold。
-    pub digest_fold: u64,
+    /// その時点の digest fold（journal/PCM 整合の integrity 値。
+    /// content identity ではない — [`IntegrityDigest`] 参照）。
+    pub digest_fold: IntegrityDigest,
+}
+
+/// checkpoint 時点の dir sync 観測状態。
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum DirSyncState {
+    /// dir sync capability 非対応のため試行しなかった。
+    NotAttempted,
+    /// dir sync が成功した。
+    Synced,
+    /// dir sync を試行して失敗した（durable 保証はそれ以下に留まる）。
+    Failed,
+    /// FS capability が dir sync 非対応。
+    Unsupported,
+    /// capability/結果が不明（recovery 由来 evidence 等、過去の
+    /// sync 成否を再観測できない場合）。
+    Unknown,
+}
+
+/// checkpoint 1 回分の durability 証拠。media/journal sync・dir
+/// sync・確定 frontier・FS capability を記録し、「write 成功」を
+/// 「durable」と混同しないための観測値。sync 失敗時も失敗地点までの
+/// 観測値が記録される（`frontier` は `None` のまま）。
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DurabilityEvidence {
+    /// media `sync_data` が成功したか。
+    pub media_synced: bool,
+    /// journal `sync_data` が成功したか。
+    pub journal_synced: bool,
+    /// dir sync の観測状態。
+    pub dir_sync: DirSyncState,
+    /// この checkpoint が確定した durable frontier（journal sync
+    /// 失敗時は `None` — record 追記済みでも durable とは言わない）。
+    pub frontier: Option<DurableFrontier>,
+    /// staging manifest が記録した FS capability（作成時観測値）。
+    pub fs_capability: StagingCapabilities,
+}
+
+impl DurabilityEvidence {
+    /// recovery が durable frontier を再検証して確定した場合の
+    /// evidence。`media_synced`/`journal_synced` は「checkpoint
+    /// record が intact prefix に存在し media byte の再検証を
+    /// 通過した」ことを示す（過去の sync 呼出し成否の再観測では
+    /// ない）。`dir_sync` は capability からの写像で、過去の dir
+    /// sync 成否は不明なため `Supported`/`Failed` は `Unknown`。
+    pub(crate) fn recovered(capabilities: &StagingCapabilities, frontier: DurableFrontier) -> Self {
+        Self {
+            media_synced: true,
+            journal_synced: true,
+            dir_sync: match capabilities.directory_sync {
+                DirSyncCapability::Unsupported => DirSyncState::Unsupported,
+                _ => DirSyncState::Unknown,
+            },
+            frontier: Some(frontier),
+            fs_capability: capabilities.clone(),
+        }
+    }
 }
 
 /// `FinalizedSourceRef` の outcome。
@@ -141,6 +201,11 @@ pub struct FinalizedSourceRef {
     pub checkpoint_index: u64,
     /// 観測した fault 記録（診断用）。
     pub faults: Vec<String>,
+    /// checkpoint ごとの durability 証拠（writer が記録した観測値。
+    /// recovery finalize では採用 frontier の再検証 evidence 1 件）。
+    /// 旧形式の finalized.json には無いため default で空になる。
+    #[serde(default)]
+    pub durability_evidence: Vec<DurabilityEvidence>,
 }
 
 /// writer 側エラー。write 系と sync 系を区別する。
@@ -223,7 +288,7 @@ pub struct StreamWriter {
     journal_path: PathBuf,
     ends: WriterEnds,
     fault: FaultLatch,
-    dir_sync: DirSyncCapability,
+    capabilities: StagingCapabilities,
     state: StreamState,
     state_reason: Option<String>,
     appender: JournalAppender,
@@ -247,6 +312,8 @@ pub struct StreamWriter {
     checkpoint_index: u64,
     durable: Option<DurableFrontier>,
     held: Vec<CaptureChunk>,
+    /// checkpoint ごとの durability 証拠（試行順・失敗試行も含む）。
+    evidence: Vec<DurabilityEvidence>,
     /// 観測した fault の診断記録（finalized ref へ転記）。
     pub notes: Vec<String>,
 }
@@ -289,7 +356,7 @@ impl StreamWriter {
             FaultWriter::new(journal),
             ends,
             fault,
-            area.manifest.capabilities.directory_sync,
+            area.manifest.capabilities.clone(),
         ))
     }
 
@@ -303,7 +370,7 @@ impl StreamWriter {
         journal: FaultWriter,
         ends: WriterEnds,
         fault: FaultLatch,
-        dir_sync: DirSyncCapability,
+        capabilities: StagingCapabilities,
     ) -> Self {
         Self {
             cfg,
@@ -313,7 +380,7 @@ impl StreamWriter {
             journal,
             ends,
             fault,
-            dir_sync,
+            capabilities,
             state: StreamState::Active,
             state_reason: None,
             appender: JournalAppender::new(),
@@ -329,6 +396,7 @@ impl StreamWriter {
             checkpoint_index: 0,
             durable: None,
             held: Vec::new(),
+            evidence: Vec::new(),
             notes: Vec::new(),
         }
     }
@@ -367,6 +435,12 @@ impl StreamWriter {
     #[must_use]
     pub fn durable(&self) -> Option<DurableFrontier> {
         self.durable
+    }
+
+    /// checkpoint ごとの durability 証拠（試行順・失敗試行も含む）。
+    #[must_use]
+    pub fn durability_evidence(&self) -> &[DurabilityEvidence] {
+        &self.evidence
     }
 
     /// 保持中の chunk（所有権照合用）。
@@ -592,16 +666,38 @@ impl StreamWriter {
     /// media `sync_data` → Checkpoint record 追記 → journal `sync_data`
     /// → dir sync（capability が `Supported` の場合のみ）。
     /// sync 失敗は `SyncFailed`（write 失敗と別種）で、record は発行しない。
+    /// 各試行の観測値は [`DurabilityEvidence`] として記録され、
+    /// 失敗時も失敗地点までの evidence が残る。
     ///
     /// # Errors
-    /// `SyncFailed`/`Io`。`Finalized` 後は no-op で `Ok`。
-    pub fn checkpoint(&mut self) -> Result<(), WriterError> {
+    /// `SyncFailed`/`Io`/`Corrupt`。`Finalized` 後は no-op で最後の
+    /// evidence を `Ok` で返す。
+    pub fn checkpoint(&mut self) -> Result<DurabilityEvidence, WriterError> {
         if self.state == StreamState::Finalized {
-            return Ok(());
+            return Ok(self
+                .evidence
+                .last()
+                .cloned()
+                .unwrap_or_else(|| DurabilityEvidence {
+                    media_synced: false,
+                    journal_synced: false,
+                    dir_sync: DirSyncState::NotAttempted,
+                    frontier: None,
+                    fs_capability: self.capabilities.clone(),
+                }));
         }
-        self.media
-            .sync_data()
-            .map_err(sync_err("media.sync_data"))?;
+        let mut ev = DurabilityEvidence {
+            media_synced: false,
+            journal_synced: false,
+            dir_sync: DirSyncState::NotAttempted,
+            frontier: None,
+            fs_capability: self.capabilities.clone(),
+        };
+        if let Err(source) = self.media.sync_data() {
+            self.evidence.push(ev);
+            return Err(sync_err("media.sync_data")(source));
+        }
+        ev.media_synced = true;
         let rec = CheckpointRecord {
             checkpoint_index: self.checkpoint_index,
             media_len: self.journaled_media_len,
@@ -610,6 +706,7 @@ impl StreamWriter {
             chunk_records: self.chunk_records,
         };
         let Some(bytes) = self.appender.encode_next(&RecordPayload::Checkpoint(rec)) else {
+            self.evidence.push(ev);
             return Err(WriterError::Corrupt("checkpoint encode failed".into()));
         };
         let seq = self.appender.next_seq().saturating_sub(1);
@@ -617,6 +714,7 @@ impl StreamWriter {
             // append 失敗後の追記は seq gap で unreachable になるため
             // stream を Failed にして dead-end を防ぐ。
             self.fail(format!("journal append: {source}"), FAULT_WRITER_ERROR);
+            self.evidence.push(ev);
             return Err(WriterError::Io {
                 op: "journal.append checkpoint",
                 source,
@@ -625,22 +723,32 @@ impl StreamWriter {
         // record は file 上に存在する（index を消費し、sync 失敗の
         // retry で重複 index にならないよう append 時点で繰り上げ）。
         self.checkpoint_index = self.checkpoint_index.saturating_add(1);
-        self.journal
-            .sync_data()
-            .map_err(sync_err("journal.sync_data"))?;
-        if self.dir_sync == DirSyncCapability::Supported
-            && let Err(e) = sync_parent_dir(&self.journal_path)
-        {
-            self.notes.push(format!("dir sync failed: {e}"));
+        if let Err(source) = self.journal.sync_data() {
+            self.evidence.push(ev);
+            return Err(sync_err("journal.sync_data")(source));
         }
+        ev.journal_synced = true;
+        ev.dir_sync = match self.capabilities.directory_sync {
+            DirSyncCapability::Supported => match sync_parent_dir(&self.journal_path) {
+                Ok(()) => DirSyncState::Synced,
+                Err(e) => {
+                    self.notes.push(format!("dir sync failed: {e}"));
+                    DirSyncState::Failed
+                }
+            },
+            DirSyncCapability::Unsupported => DirSyncState::Unsupported,
+            DirSyncCapability::Failed => DirSyncState::Unknown,
+        };
         self.durable = Some(DurableFrontier {
             seq,
             checkpoint_index: rec.checkpoint_index,
             media_len: self.journaled_media_len,
             source_frames: self.journaled_source_frames,
-            digest_fold: self.journaled_digest,
+            digest_fold: IntegrityDigest(self.journaled_digest),
         });
-        Ok(())
+        ev.frontier = self.durable;
+        self.evidence.push(ev.clone());
+        Ok(ev)
     }
 
     /// Byte Length/Format/Frame Count/Checksum・Journal 整合性を再検証し
@@ -698,10 +806,11 @@ impl StreamWriter {
             source_frames: frontier.source_frames,
             outcome,
             spans: verified.spans,
-            digest: format!("{:016x}", frontier.digest_fold),
+            digest: frontier.digest_fold.to_hex(),
             journal_seq: frontier.seq,
             checkpoint_index: frontier.checkpoint_index,
             faults: self.notes.clone(),
+            durability_evidence: self.evidence.clone(),
         };
         let bytes = serde_json::to_vec_pretty(&source_ref)
             .map_err(|e| WriterError::Corrupt(format!("ref encode: {e}")))?;
@@ -709,7 +818,7 @@ impl StreamWriter {
         let rec = FinalizeRecord {
             media_len: frontier.media_len,
             source_frames: frontier.source_frames,
-            digest_fold: frontier.digest_fold,
+            digest_fold: u64::from(frontier.digest_fold),
             outcome: match outcome {
                 FinalizedOutcome::Complete => FinalizeOutcome::Complete,
                 FinalizedOutcome::Partial => FinalizeOutcome::Partial,
@@ -725,7 +834,7 @@ impl StreamWriter {
                 self.notes.push(format!("journal finalize sync: {e}"));
             }
         }
-        if self.dir_sync == DirSyncCapability::Supported {
+        if self.capabilities.directory_sync == DirSyncCapability::Supported {
             let _ = sync_parent_dir(&self.journal_path);
         }
         self.state = StreamState::Finalized;
@@ -767,7 +876,9 @@ impl ChunkSink for StreamWriter {
 }
 
 /// 全 stream に checkpoint を掛ける。各 stream の結果を index 順に返す。
-pub fn checkpoint_all(streams: &mut [StreamWriter]) -> Vec<Result<(), WriterError>> {
+pub fn checkpoint_all(
+    streams: &mut [StreamWriter],
+) -> Vec<Result<DurabilityEvidence, WriterError>> {
     streams.iter_mut().map(StreamWriter::checkpoint).collect()
 }
 

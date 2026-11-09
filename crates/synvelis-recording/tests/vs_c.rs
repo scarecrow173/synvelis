@@ -295,7 +295,7 @@ fn manual_writer(area: &StagingArea) -> (StreamWriter, EngineEnds) {
             journal,
             writer_ends,
             fault,
-            DirSyncCapability::Unsupported,
+            area.manifest.capabilities.clone(),
         ),
         engine_ends,
     )

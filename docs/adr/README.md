@@ -26,6 +26,7 @@ Directory: `docs/adr`
 | ADR-034Up0Uogue2QzCYAOA09T | PC-C2 Control Relation Index — revision-tagged 派生双方向 projection と enabled-only cycle 意味論 | accepted | [pc-c2-control-relation-index-revision-tagged-projection-enabled-only-cycle.md](./pc-c2-control-relation-index-revision-tagged-projection-enabled-only-cycle.md) |
 | ADR-NrfmeZXs11hrWcr5rWe6PC | PC-C3-05 trace adapter — drain 単一所有・bounded history・generation 相対 window | accepted | [pc-c3-05-trace-adapter-drain-history.md](./pc-c3-05-trace-adapter-drain-history.md) |
 | ADR-034Uqu6fjJkQjiqAsPYYA1 | PC-C3 ControlTrace — stage slot evidence model・freshness 評価境界・probe 状態語彙 | accepted | [pc-c3-control-trace-stage-evidence-freshness.md](./pc-c3-control-trace-stage-evidence-freshness.md) |
+| ADR-OrWdkH3ASYviV5ufFtl0tD | PC-C5 slice1: Relation 投影は workspace read model + verbatim coverage、index は query 毎 rebuild、探索は depth-1 hop + anchor nav-stack | accepted | [pc-c5-01-relation-readmodel-coverage.md](./pc-c5-01-relation-readmodel-coverage.md) |
 | ADR-YRDVKLkFDWrK8LUdnvCroE | PC-C6 oracle — test 内独立参照実装による REL/TR fixture 判定 | accepted | [pc-c6-oracle-rel-tr-headless-fixture.md](./pc-c6-oracle-rel-tr-headless-fixture.md) |
 | ADR-034SF01Ln8qRs3tU0vWxYzBcD | SF-01 Routing Model 配置・Schema v6 Migration・Reserved Well-Known ID | approved | [sf-01-routing-model-schema-v6-migration.md](./sf-01-routing-model-schema-v6-migration.md) |
 | ADR-034SF02Ux8pMn5oR8tY3zAbDe | SF-02 RoutingTransaction 配置・TempRef Staging・channels 永続化・Mute/Solo 権威・汎用検証の再利用 | accepted | [sf-02-routing-transaction-port-channels-mute-solo-authority.md](./sf-02-routing-transaction-port-channels-mute-solo-authority.md) |
@@ -52,3 +53,7 @@ Directory: `docs/adr`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | ADR-2kAD08Yeuxmx8U4t2mD2wr | SV-GUI-01 app crate boundary・webview feature gate・vendored ui/* TS pipeline | superseded | [sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md](./sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md) |
+
+<<<<<<< HEAD
+=======
+>>>>>>> origin/main
