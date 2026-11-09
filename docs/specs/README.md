@@ -7,7 +7,8 @@ Directory: `docs/specs`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | SPEC-j8VrtHRiA60WGx27NKFnH4 | ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
-| SPEC-034UviRHTzZZY5QqaoRYZV | ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | draft | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
+| SPEC-034UviRHTzZZY5QqaoRYZV | ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | approved | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
+| SPEC-alib02-v5snap | ALIB-02 deferred — v5 snapshot 互換移行（SHA-256/旧 CRC digest 共存） | draft | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | SPEC-034AUT01T7xRw4mNcQ8pZbV2 | AUT-01 Automation Mode 境界 State — Read/Touch/Latch/Write・Touch Return 150ms Smoothstep | approved | [aut-01-automation-mode-boundary-touch-return-writer-state.md](./aut-01-automation-mode-boundary-touch-return-writer-state.md) |
 | SPEC-034AUT03AW1Qq4l4VCpTSK | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・明示 Rearm | approved | [aut-03-loop-write-one-pass-write-range-rearm.md](./aut-03-loop-write-one-pass-write-range-rearm.md) |
 | SPEC-034AUT04VJToXbqZEgrP85 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
@@ -30,7 +31,7 @@ Directory: `docs/specs`
 | SPEC-034UoZx9FMfQ1OvSAcWCoN | PC-C2 双方向 Control Relation Index/Projection — Automation/Assignment/Depth Driver | approved | [pc-c2-control-relation-index.md](./pc-c2-control-relation-index.md) |
 | SPEC-vi1L6gnLC2jSjMMB3XG0N4 | PC-C3-05 synvelis-player RT trace adapter — ledger 実イベント → ControlTrace 投影・bounded history・RT 計測 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | SPEC-034UqtrnCaL8J9mhrd4SyZ | PC-C3 ControlTrace — Configured/Prepared/Applied/Reported/Observed projection slice | approved | [pc-c3-control-trace-projection.md](./pc-c3-control-trace-projection.md) |
-| SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | draft | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
+| SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | SPEC-IY7kQwMIWqb4sFVpvsHnQy | PC-C6 headless oracle — REL01〜07 / TR01〜08 fixture（RelationIndex・ControlTrace 独立照合） | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
 | SPEC-034UoScGX6dIi25hMurqCI | RCD-01 Recording Input Adapter — channel binding・Arm/Monitor・fake port fail-stop（synvelis#115 slice） | proposed | [rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md](./rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md) |
@@ -39,6 +40,7 @@ Directory: `docs/specs`
 | SPEC-RCD04Fx7kQ2mV9wX4pL8sT1u | RCD-04 Comp Transition / MIDI Phrase — crate fixture slice (synvelis#118) | proposed | [rcd-04-comp-transition-midi-phrase-fixture.md](./rcd-04-comp-transition-midi-phrase-fixture.md) |
 | SPEC-034SF01Km7pQr2sT9uVwXyZaB | SF-01 Semantic Routing Model — Bus/Send/Processor Chain/Stable Port IDs・Project Schema v6 | approved | [sf-01-semantic-routing-model-bus-send-chain-stable-ports.md](./sf-01-semantic-routing-model-bus-send-chain-stable-ports.md) |
 | SPEC-034SF02Tx9kLm4nQ7rVw2yZaBc | SF-02 DAW Routing Commands — RoutingTransaction/TempRef・Semantic+Generic Validation・Mute/Solo Signal Gate | approved | [sf-02-routing-transaction-commands-semantic-validation.md](./sf-02-routing-transaction-commands-semantic-validation.md) |
+| SPEC-034Ux7RxHxcEmVfIrLzcfM | SF-03 semantic→Ruviform runtime 写像 — 世代証拠・SourceMap・失敗不変条件の統合契約 | approved | [sf-03-map-semantic-runtime-contract.md](./sf-03-map-semantic-runtime-contract.md) |
 | SPEC-106SF03Ab1cDe2fGh3iJk4lMn | SF-03 slice1 — Semantic Routing → Ruviform Typed Graph Lowering・SourceMap・Activation receipt | approved | [sf-03-slice1-semantic-lowering-source-map-activation.md](./sf-03-slice1-semantic-lowering-source-map-activation.md) |
 | SPEC-106SF03Sz2aBc3dEf4gHi5jKl6 | SF-03 slice2 — RoutingFault 18分類完備・Last-good/Retry 高度化・reconciliation | approved | [sf-03-slice2-fault-taxonomy-lastgood-reconcile.md](./sf-03-slice2-fault-taxonomy-lastgood-reconcile.md) |
 | SPEC-034UfvosLz4uB6QhaNTi2s | SF-03 slice3 — 実 plugin host 接続（headless 契約・SF-ACT-05 系） | approved | [sf-03-slice3-plugin-host-connect.md](./sf-03-slice3-plugin-host-connect.md) |

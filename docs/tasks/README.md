@@ -6,6 +6,7 @@ Directory: `docs/tasks`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| TASK-alib02-t1 | ALIB-02 Task 1+2 — import pipeline module・namespace・tests | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | TASK-034AUT01Mn7pQs4wXc9vBhJk | AUT-01: Touch Return 150ms smoothstep・Read/Touch/Latch/Write 境界 State 実装 | in-progress | [aut-01-task1-touch-return-writer-state.md](./aut-01-task1-touch-return-writer-state.md) |
 | TASK-034AUT04uqfg9sevPu0zlr | AUT-04 task1: Viewport LOD・RT bounded queue・型付き喪失 provenance 実装 + headless テスト | todo | [aut-04-task1-automation-curve-lod-record-budget.md](./aut-04-task1-automation-curve-lod-record-budget.md) |
 | TASK-034U2vruJGfkEYZHCqNfwE | canonical temp fixture による synvelis-library symlink テスト修正 | in-progress | [canonical-temp-fixture-synvelis-library-symlink.md](./canonical-temp-fixture-synvelis-library-symlink.md) |
@@ -16,7 +17,6 @@ Directory: `docs/tasks`
 | TASK-034SYN166T1CiSumX | Issue #166 T1 Full CI 化・ci-summary 統一 — 第一段階実装 | in-progress | [issue-166-t1-ci-summary-stage1.md](./issue-166-t1-ci-summary-stage1.md) |
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
 | TASK-P1ub1PJgLQhinQuEDIDy8S | PC-C3 task2 — synvelis-player RT trace adapter 実装（TRACE-C3-05） | in-progress | [pc-c3-task2-rt-trace-adapter.md](./pc-c3-task2-rt-trace-adapter.md) |
-| TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | todo | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
 | TASK-wl7Q7EP5HpNVOP8NAdEB7a | PC-C6: REL01〜07 / TR01〜08 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rel-tr.md](./pc-c6-task1-oracle-rel-tr.md) |
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | in-progress | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
@@ -85,12 +85,15 @@ Directory: `docs/tasks`
 | TASK-034RoXjRUKOjib6ULatmIn | PC-C1: prepare/apply/finalize 実装タスク | done | [pc-c1-task1-prepare-apply-finalize.md](./pc-c1-task1-prepare-apply-finalize.md) |
 | TASK-034Upd3TZPjW8QcMPatmyb | PC-C2: Control Relation Index/Projection 実装タスク | done | [pc-c2-task1-relation-index.md](./pc-c2-task1-relation-index.md) |
 | TASK-034UquDG2pRhDCtpLYPhPi | PC-C3: ControlTrace projection 実装タスク | done | [pc-c3-task1-control-trace.md](./pc-c3-task1-control-trace.md) |
+| TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | done | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TASK-034UtpBjTeXJ6XSJAMupsv | RCD-03 Task1 Monitor/Punch/Latency semantics | done | [rcd-03-task1-monitor-punch-latency.md](./rcd-03-task1-monitor-punch-latency.md) |
 | TASK-RCD04Fx1kE5tY8uI3oP6aS9 | RCD-04 Task1 Comp Transition / MIDI Phrase crate fixture slice | done | [rcd-04-task1-comp-midi-fixture.md](./rcd-04-task1-comp-midi-fixture.md) |
 | TASK-034SF01Pr2uVw7xY4zAbCdFgH | SF-01: RoutingModel 型・oracle・Schema v6 Migration・ops・検証 | done | [sf-01-task1-routing-model-schema-migration.md](./sf-01-task1-routing-model-schema-migration.md) |
 | TASK-034SF02Yb2tQr9sV2xD7eFhIj | SF-02 T1 — RoutingTransaction/TempRef staging・channels・mute/solo authority・汎用検証投影 | done | [sf-02-task1-routing-transaction-staging-model.md](./sf-02-task1-routing-transaction-staging-model.md) |
 | TASK-034SF02Zc3uRs0tW3yE8fGiJk | SF-02 T2 — 受入/Reject/不変/Undo 契約テストと canonical 検証 | done | [sf-02-task2-validation-acceptance-tests.md](./sf-02-task2-validation-acceptance-tests.md) |
+| TASK-034Uxr4gHBdBw4PajV9VU0 | SF-03 map task1 契約・設計文書チェーン（discovery/spec/ADR/design） | done | [sf-03-map-task1-contract-design-docs.md](./sf-03-map-task1-contract-design-docs.md) |
+| TASK-034Uxr4R9Uw7UUOj88JGfp | SF-03 map task2 検証仕様・gate・文書チェーン完結 | done | [sf-03-map-task2-verification-gate-docs.md](./sf-03-map-task2-verification-gate-docs.md) |
 | TASK-106SF03Hi6iJk7lMn8oPq9rSt | SF-03 slice1 T2 — RoutingEngine activation ledger・stale 防止・SF-ACT-03/04 テスト | done | [sf-03-slice1-activation-tests.md](./sf-03-slice1-activation-tests.md) |
 | TASK-106SF03Gh5hIj6kLm7nOp8qRs | SF-03 slice1 T1 — 契約型(routing_build)・plan_playbacks 抽出・lower_semantic・StripProcessor | done | [sf-03-slice1-contract-lowering.md](./sf-03-slice1-contract-lowering.md) |
 | TASK-034UfGnJu6lN4FLgs2mZpK | SF-03 slice3 T3 — sf03_l3 受入テスト・test-spec | done | [sf-03-slice3-acceptance-tests.md](./sf-03-slice3-acceptance-tests.md) |
