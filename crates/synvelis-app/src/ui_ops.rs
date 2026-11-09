@@ -14,7 +14,13 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::sync::Arc;
 
+use ruviform_ui::dock::{
+    DockEvent, DockTarget, MoveToken, ViewInstanceId, WindowCloseDisposition, WindowGeometry,
+};
+use ruviform_ui::driver::WindowSpec;
+use ruviform_ui::event::HostEvent;
 use ruviform_ui::ipc::{ErrorBody, Event, codes};
+use ruviform_ui::window::WindowId;
 use serde_json::{Value, json};
 
 use synvelis_project::{TickTimeMapping, is_issuable_raw};
@@ -29,7 +35,10 @@ use synvelis_workspace::viz_ui::{
 };
 
 use crate::app::SynvelisApp;
-use crate::screens::{InspectorRow, InspectorScreenState, TransportScreenState, main_view_id};
+use crate::screens::{
+    DockViewInfo, InspectorRow, InspectorScreenState, TransportScreenState, dock_view_info,
+    main_view_id,
+};
 
 /// Outbox depth cap — receipts/projections are never silently
 /// unbounded; on overflow the oldest entry drops and
@@ -56,9 +65,50 @@ pub(crate) enum ManualPort {
 }
 
 /// Per-view registry entry — the app's view-side mirror of the
-/// `ViewLink` attach/detach contract.
+/// `ViewLink` attach/detach contract. `window` is `None` while the
+/// view sits in the workspace's detached pool (dock-detached, or its
+/// host window was destroyed under the `DetachViews` disposition) —
+/// the entry stays so `syn.view.list` can distinguish attached from
+/// pooled views.
 pub(crate) struct ViewEntry {
-    window: String,
+    window: Option<String>,
+}
+
+/// In-flight dock move keyed by wire `view_id` — the op layer owns
+/// the `MoveToken`; it never crosses the wire.
+pub(crate) enum DockMove {
+    /// `begin_transfer` issued against an existing adopted window.
+    Prepared {
+        /// Two-phase move token (app-private).
+        token: MoveToken,
+        /// Declared destination window.
+        target: WindowId,
+    },
+    /// New-window saga: a window-creation request is in flight and
+    /// the destination is not committed yet. `window` records the
+    /// destination once the saga's UI-first attach lands — the only
+    /// attach `syn.view.attach` permits while awaiting.
+    AwaitingWindow {
+        /// Window title requested for the driver spec — surfaced in
+        /// `syn.window.list` pending moves for observability.
+        title: String,
+        /// Destination once the exception attach names it.
+        window: Option<WindowId>,
+    },
+}
+
+/// A driver-window creation request pushed by
+/// `syn.window.dock_prepare_new_window` — the app→shell direction of
+/// the new-window dock saga, shared through the same
+/// `Rc<RefCell>` pattern as [`UiOutbox`]/`clock`/`quit`.
+pub struct WindowRequest {
+    /// Wire view id the move belongs to (`"view-{n}"`).
+    pub view_id: String,
+    /// Correlation id echoed in the op result.
+    pub request_id: u64,
+    /// Driver spec the shell creates — built app-side so the shell
+    /// never invents product window parameters.
+    pub spec: WindowSpec,
 }
 
 /// SV-GUI-02 additions to [`SynvelisApp`] state — kept in one struct so
@@ -93,6 +143,13 @@ pub struct UiOpsState {
     pub(crate) ui_drops: u64,
     /// Notify sequence shared with `app_state_notify` — owned by app.
     pub(crate) notify_seq: u64,
+    /// In-flight dock moves keyed by wire `view_id`.
+    pub(crate) dock_moves: HashMap<String, DockMove>,
+    /// Pending app→shell window-creation requests (dock new-window
+    /// saga) — drained by `NativeShell`.
+    pub(crate) window_requests: Rc<RefCell<VecDeque<WindowRequest>>>,
+    /// Monotonic id for `dock_prepare_new_window` requests.
+    pub(crate) window_request_seq: u64,
 }
 
 impl UiOpsState {
@@ -111,6 +168,9 @@ impl UiOpsState {
             clock: Rc::new(Cell::new(0)),
             ui_drops: 0,
             notify_seq: 0,
+            dock_moves: HashMap::new(),
+            window_requests: Rc::new(RefCell::new(VecDeque::new())),
+            window_request_seq: 0,
         }
     }
 }
@@ -171,6 +231,36 @@ fn viz_err(e: &synvelis_workspace::VizError) -> ErrorBody {
     internal(format!("viz: {e}"))
 }
 
+fn dock_err(e: &synvelis_workspace::WorkspaceError) -> ErrorBody {
+    internal(format!("dock: {e}"))
+}
+
+/// `"w{n}"` → [`WindowId`]; `0`/malformed → `None`.
+fn parse_window_id(s: &str) -> Option<WindowId> {
+    WindowId::new(s.strip_prefix('w')?.parse().ok()?)
+}
+
+/// `"view-{n}"` → [`ViewInstanceId`]; `0`/malformed → `None`.
+fn parse_view_instance(s: &str) -> Option<ViewInstanceId> {
+    ViewInstanceId::new(s.strip_prefix("view-")?.parse().ok()?)
+}
+
+/// Dock-domain resolution for `syn.view.*`: `Ok(Some)` for the
+/// composition root's registered views, `Ok(None)` for ids outside
+/// the dock domain (legacy UI-only path), `Err` for `view-{n}`-shaped
+/// ids with no registered metadata — those must never reach "UI
+/// attached but dock unregistered".
+fn dock_domain_view(view: &str) -> Result<Option<DockViewInfo>, ErrorBody> {
+    if parse_view_instance(view).is_none() {
+        return Ok(None);
+    }
+    dock_view_info(view).map(Some).ok_or_else(|| {
+        invalid(format!(
+            "view {view} has no dock metadata — register it in screens.rs"
+        ))
+    })
+}
+
 /// Flattens a [`ParamProjection`]'s `InspectorBreakdown` into display
 /// rows — the agreed breakdown fields (evaluation, observation, mode,
 /// arm, writer state, capability) plus the resolved read-only flag.
@@ -199,6 +289,14 @@ impl SynvelisApp {
     #[must_use]
     pub fn event_outbox(&self) -> UiOutbox {
         Rc::clone(&self.ui.outbox)
+    }
+
+    /// Shared window-request queue — the shell drains it for the
+    /// dock new-window saga (same hand-out pattern as
+    /// [`Self::event_outbox`]).
+    #[must_use]
+    pub fn window_requests(&self) -> Rc<RefCell<VecDeque<WindowRequest>>> {
+        Rc::clone(&self.ui.window_requests)
     }
 
     /// Outbox drop counter — evidence for verification reports.
@@ -497,20 +595,65 @@ impl SynvelisApp {
 
     // -- syn.view.* --------------------------------------------------------
 
+    /// UI half of a dock move — both gateways re-attach (implicit
+    /// detach(dock-transfer) + generation bump) and the app registry
+    /// records the new owner window. Never touches workspace state.
+    fn ui_bind_view(&mut self, view: &str, window: &str) {
+        let session = self.workspace.session_mut();
+        self.ui.controls.attach_view(session, view, window);
+        self.ui.viz.attach_view(view, window);
+        self.ui.views.insert(
+            view.to_string(),
+            ViewEntry {
+                window: Some(window.to_string()),
+            },
+        );
+    }
+
+    /// Rebinds the UI side of `view` to whatever the dock currently
+    /// says owns it — `Some(window)` re-attaches, `None` (detached
+    /// pool) detaches. Restores UI after a failed dock move.
+    fn ui_sync_view_owner(&mut self, view: &str, inst: ViewInstanceId) {
+        let owner = self.workspace.dock().owner_of(inst).map(|w| w.to_string());
+        let current = self.ui.views.get(view).and_then(|e| e.window.clone());
+        if current == owner {
+            return;
+        }
+        if let Some(w) = owner {
+            self.ui_bind_view(view, &w);
+        } else {
+            let session = self.workspace.session_mut();
+            self.ui
+                .controls
+                .detach_view(session, view, &GestureCancelReason::Unmount);
+            self.ui.viz.detach_view(view);
+            if let Some(e) = self.ui.views.get_mut(view) {
+                e.window = None;
+            }
+        }
+    }
+
     /// `syn.view.attach` — attaches `view` on `window` to both UI
     /// gateways; returns the view's live generation.
+    ///
+    /// Dock-domain views (`view-{n}` with registered metadata) first
+    /// update the workspace dock — adopt on first attach, one-shot
+    /// `move_view` afterwards — so a dock rejection never leaves a
+    /// half-bound view. While a `DockMove::AwaitingWindow` saga is
+    /// pending, only the destination attach is allowed and it is
+    /// UI-only (the dock placement commits later).
     ///
     /// # Errors
     /// [`ErrorBody`] on invalid parameters or gateway refusal.
     pub fn op_view_attach(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let view = str_param(params, "view_id")?.to_owned();
         let window = str_param(params, "window_id")?.to_owned();
-        let session = self.workspace.session_mut();
+        if let Some(info) = dock_domain_view(&view)? {
+            self.dock_view_attach(&view, &info, &window)?;
+        }
         // Both gateways handle re-attach internally (dock-transfer
         // detach + generation bump) — no pre-detach here.
-        self.ui.controls.attach_view(session, &view, &window);
-        self.ui.viz.attach_view(&view, &window);
-        self.ui.views.insert(view.clone(), ViewEntry { window });
+        self.ui_bind_view(&view, &window);
         self.ui_pump();
         let (gen_c, gen_v) = (
             self.ui.controls.view_state(&view).map_or(0, |(_, g, _)| g),
@@ -528,8 +671,56 @@ impl SynvelisApp {
         }))
     }
 
+    /// Workspace half of `syn.view.attach` for dock-domain views —
+    /// runs before the UI attach so a dock rejection never leaves a
+    /// half-bound view.
+    fn dock_view_attach(
+        &mut self,
+        view: &str,
+        info: &DockViewInfo,
+        window: &str,
+    ) -> Result<(), ErrorBody> {
+        let inst = info.instance;
+        let win = parse_window_id(window)
+            .ok_or_else(|| invalid(format!("params.window_id must be \"w{{n}}\", got {window}")))?;
+        match self.ui.dock_moves.get(view) {
+            Some(DockMove::AwaitingWindow {
+                window: pending, ..
+            }) => {
+                // The saga's UI-first attach: allowed only toward the
+                // destination the shell named on the window's
+                // lifecycle — every other window (and any attach
+                // before the destination exists) is busy-rejected.
+                if *pending != Some(win) {
+                    return Err(invalid(format!(
+                        "view {view} has a pending dock move to a new window"
+                    )));
+                }
+                return Ok(());
+            }
+            Some(DockMove::Prepared { .. }) => {
+                return Err(invalid(format!("view {view} has a pending dock move")));
+            }
+            None => {}
+        }
+        if self.workspace.dock().is_transferring(inst) {
+            return Err(invalid(format!("view {view} is transferring")));
+        }
+        if !self.workspace.registry().contains(inst) {
+            self.workspace
+                .adopt_view(inst, info.kind, info.title, Some(DockTarget::Window(win)))
+                .map_err(|e| dock_err(&e))?;
+        } else if self.workspace.dock().owner_of(inst) != Some(win) {
+            self.workspace
+                .move_view(inst, DockTarget::Window(win))
+                .map_err(|e| dock_err(&e))?;
+        }
+        Ok(())
+    }
+
     /// `syn.view.detach` — contractual cancel of in-flight gestures +
-    /// generation bump; project/audio/render are untouched.
+    /// generation bump; project/audio/render are untouched. Dock-domain
+    /// views additionally return to the workspace's detached pool.
     ///
     /// # Errors
     /// [`ErrorBody`] on invalid parameters or gateway refusal.
@@ -546,9 +737,18 @@ impl SynvelisApp {
             "lost-pointer-capture" => GestureCancelReason::LostPointerCapture,
             _ => GestureCancelReason::Unmount,
         };
+        let info = dock_domain_view(&view)?;
+        if let Some(info) = &info {
+            self.dock_view_detach(&view, info)?;
+        }
         let session = self.workspace.session_mut();
         self.ui.controls.detach_view(session, &view, &reason);
         self.ui.viz.detach_view(&view);
+        if info.is_some()
+            && let Some(e) = self.ui.views.get_mut(&view)
+        {
+            e.window = None;
+        }
         self.ui_pump();
         self.push_notify(
             "syn.view.state",
@@ -557,12 +757,34 @@ impl SynvelisApp {
         Ok(json!({ "view_id": view, "attached": false }))
     }
 
+    /// Workspace half of `syn.view.detach` for dock-domain views —
+    /// pools the view when it is docked; already-pooled and
+    /// never-adopted views pass through.
+    fn dock_view_detach(&mut self, view: &str, info: &DockViewInfo) -> Result<(), ErrorBody> {
+        let inst = info.instance;
+        if self.ui.dock_moves.contains_key(view) || self.workspace.dock().is_transferring(inst) {
+            return Err(invalid(format!("view {view} has a pending dock move")));
+        }
+        if self.workspace.registry().contains(inst) && !self.workspace.dock().is_detached(inst) {
+            self.workspace
+                .detach_to_pool(inst)
+                .map_err(|e| dock_err(&e))?;
+        }
+        Ok(())
+    }
+
     /// `syn.view.close` — drops the view's UI state on both gateways.
+    /// Dock-domain views additionally leave the workspace entirely;
+    /// an in-flight dock move is aborted first ("close aborts then
+    /// removes").
     ///
     /// # Errors
     /// [`ErrorBody`] on invalid parameters or gateway refusal.
     pub fn op_view_close(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let view = str_param(params, "view_id")?.to_owned();
+        if let Some(info) = dock_domain_view(&view)? {
+            self.dock_view_close(&view, &info)?;
+        }
         let session = self.workspace.session_mut();
         self.ui.controls.close_view(session, &view);
         self.ui.viz.close_view(&view);
@@ -578,7 +800,35 @@ impl SynvelisApp {
         Ok(json!({ "view_id": view, "closed": true }))
     }
 
-    /// `syn.view.list` — the attached-view registry.
+    /// Workspace half of `syn.view.close` for dock-domain views —
+    /// aborts any pending dock move (releasing queued window
+    /// requests), then removes the view from dock/registry/state.
+    fn dock_view_close(&mut self, view: &str, info: &DockViewInfo) -> Result<(), ErrorBody> {
+        let inst = info.instance;
+        match self.ui.dock_moves.remove(view) {
+            Some(DockMove::Prepared { token, .. }) => {
+                if let Err(e) = self.workspace.abort_transfer(token)
+                    && self.workspace.dock().is_transferring(inst)
+                {
+                    return Err(dock_err(&e));
+                }
+            }
+            Some(DockMove::AwaitingWindow { .. }) => {
+                self.ui
+                    .window_requests
+                    .borrow_mut()
+                    .retain(|r| r.view_id != view);
+            }
+            None => {}
+        }
+        if self.workspace.registry().contains(inst) {
+            self.workspace.remove_view(inst).map_err(|e| dock_err(&e))?;
+        }
+        Ok(())
+    }
+
+    /// `syn.view.list` — the view registry; `window_id`/`attached`
+    /// distinguish live bindings from detached-pool entries.
     ///
     /// # Errors
     /// [`ErrorBody`] on invalid parameters or gateway refusal.
@@ -592,11 +842,709 @@ impl SynvelisApp {
                 json!({
                     "view_id": v,
                     "window_id": e.window,
+                    "attached": e.window.is_some(),
                     "generation": self.ui.controls.view_state(v).map_or(0, |(_, g, _)| g),
                 })
             })
             .collect();
         json!({ "views": views })
+    }
+
+    // -- syn.window.* -------------------------------------------------------
+
+    /// Rejects `view` when a dock move is pending for it — the
+    /// `dock_moves` (app pending) and `is_transferring` (dock
+    /// in-flight) locks are separate layers; both reject.
+    fn check_dock_view_free(&self, view: &str, inst: ViewInstanceId) -> Result<(), ErrorBody> {
+        if self.ui.dock_moves.contains_key(view) {
+            return Err(invalid(format!("view {view} has a pending dock move")));
+        }
+        if self.workspace.dock().is_transferring(inst) {
+            return Err(invalid(format!("view {view} is transferring")));
+        }
+        Ok(())
+    }
+
+    /// `syn.window.adopt` — idempotently registers a driver-created
+    /// window with the workspace. Re-adoption with consistent
+    /// params is a no-op ack; contradictory title/geometry is an
+    /// error — never a silent overwrite.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters or conflicting records.
+    pub fn op_window_adopt(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let window = str_param(params, "window_id")?;
+        let id = parse_window_id(window)
+            .ok_or_else(|| invalid(format!("params.window_id must be \"w{{n}}\", got {window}")))?;
+        let title = params.get("title").and_then(Value::as_str);
+        let width = params
+            .get("width")
+            .and_then(Value::as_u64)
+            .map(|v| u32::try_from(v).map_err(|_| invalid("params.width exceeds u32")))
+            .transpose()?;
+        let height = params
+            .get("height")
+            .and_then(Value::as_u64)
+            .map(|v| u32::try_from(v).map_err(|_| invalid("params.height exceeds u32")))
+            .transpose()?;
+        let x = params
+            .get("x")
+            .and_then(Value::as_i64)
+            .map(|v| i32::try_from(v).map_err(|_| invalid("params.x exceeds i32")))
+            .transpose()?;
+        let y = params
+            .get("y")
+            .and_then(Value::as_i64)
+            .map(|v| i32::try_from(v).map_err(|_| invalid("params.y exceeds i32")))
+            .transpose()?;
+        if let Some(rec) = self.workspace.windows().iter().find(|w| w.id == id) {
+            let g = &rec.geometry;
+            let conflict = title.is_some_and(|t| t != rec.title)
+                || width.is_some_and(|w| w != g.width)
+                || height.is_some_and(|h| h != g.height)
+                || x.is_some_and(|x| x != g.x)
+                || y.is_some_and(|y| y != g.y);
+            if conflict {
+                return Err(invalid(format!(
+                    "window {id} already adopted with different parameters"
+                )));
+            }
+            return Ok(json!({ "window_id": id.to_string(), "adopted": true }));
+        }
+        self.workspace
+            .adopt_window(
+                id,
+                title.unwrap_or("Synvelis"),
+                WindowGeometry {
+                    x: x.unwrap_or(0),
+                    y: y.unwrap_or(0),
+                    width: width.unwrap_or(1280),
+                    height: height.unwrap_or(800),
+                    monitor: None,
+                },
+            )
+            .map_err(|e| dock_err(&e))?;
+        Ok(json!({ "window_id": id.to_string(), "adopted": true }))
+    }
+
+    /// `syn.window.list` — the workspace's window/dock observation
+    /// surface: adopted windows, docked vs detached views, and
+    /// in-flight dock moves.
+    #[must_use]
+    pub fn op_window_list(&self) -> Value {
+        let windows: Vec<Value> = self
+            .workspace
+            .windows()
+            .iter()
+            .map(|w| {
+                json!({
+                    "window_id": w.id.to_string(),
+                    "title": w.title,
+                    "geometry": {
+                        "x": w.geometry.x,
+                        "y": w.geometry.y,
+                        "width": w.geometry.width,
+                        "height": w.geometry.height,
+                    },
+                    "veto_close": w.veto_close,
+                    "disposition": match w.disposition {
+                        WindowCloseDisposition::DetachViews => "detach_views",
+                        WindowCloseDisposition::ReleaseViews => "release_views",
+                        WindowCloseDisposition::RelocateTo { .. } => "relocate_to",
+                        _ => "unknown",
+                    },
+                })
+            })
+            .collect();
+        let dock = self.workspace.dock();
+        let mut docked = Vec::new();
+        let mut detached = Vec::new();
+        for v in dock.all_views() {
+            let wire = format!("view-{}", v.get());
+            match dock.owner_of(v) {
+                Some(w) => docked.push(json!({ "view_id": wire, "window_id": w.to_string() })),
+                None => detached.push(wire),
+            }
+        }
+        let pending: Vec<Value> = self
+            .ui
+            .dock_moves
+            .iter()
+            .map(|(view, m)| match m {
+                DockMove::Prepared { target, .. } => json!({
+                    "view_id": view,
+                    "state": "prepared",
+                    "target": target.to_string(),
+                }),
+                DockMove::AwaitingWindow { title, window } => json!({
+                    "view_id": view,
+                    "state": "awaiting_window",
+                    "title": title,
+                    "window_id": window.map(|w| w.to_string()),
+                }),
+            })
+            .collect();
+        json!({
+            "windows": windows,
+            "docked_views": docked,
+            "detached_views": detached,
+            "pending_moves": pending,
+        })
+    }
+
+    /// `syn.window.dock_prepare` — begins a two-phase move of `view`
+    /// to an existing adopted `window` (`begin_transfer`); the token
+    /// stays app-side until `syn.window.dock_commit`/`dock_abort`.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, unknown ids, or a busy view.
+    pub fn op_window_dock_prepare(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let window = str_param(params, "window_id")?.to_owned();
+        let info = dock_domain_view(&view)?
+            .ok_or_else(|| invalid(format!("view {view} is not a dock-domain view")))?;
+        let inst = info.instance;
+        let win = parse_window_id(&window)
+            .ok_or_else(|| invalid(format!("params.window_id must be \"w{{n}}\", got {window}")))?;
+        self.check_dock_view_free(&view, inst)?;
+        if !self.workspace.registry().contains(inst) {
+            return Err(internal(format!(
+                "view {view} is not adopted — attach it first"
+            )));
+        }
+        if !self.workspace.dock().is_registered(win) {
+            return Err(invalid(format!("window {window} is not adopted")));
+        }
+        let token = self
+            .workspace
+            .begin_transfer(inst, DockTarget::Window(win))
+            .map_err(|e| dock_err(&e))?;
+        self.ui
+            .dock_moves
+            .insert(view.clone(), DockMove::Prepared { token, target: win });
+        self.ui_pump();
+        Ok(json!({ "view_id": view, "window_id": window, "prepared": true }))
+    }
+
+    /// `syn.window.dock_prepare_new_window` — phase 1 of the
+    /// new-window saga: marks the view pending and pushes a
+    /// [`WindowRequest`] the shell drains into `create_window`.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, unknown ids, or a busy view.
+    pub fn op_window_dock_prepare_new_window(
+        &mut self,
+        params: &Value,
+    ) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let title = params
+            .get("title")
+            .and_then(Value::as_str)
+            .map(str::to_owned);
+        let info = dock_domain_view(&view)?
+            .ok_or_else(|| invalid(format!("view {view} is not a dock-domain view")))?;
+        let inst = info.instance;
+        self.check_dock_view_free(&view, inst)?;
+        if !self.workspace.registry().contains(inst) {
+            return Err(internal(format!(
+                "view {view} is not adopted — attach it first"
+            )));
+        }
+        if self.workspace.dock().owner_of(inst).is_none() {
+            return Err(invalid(format!(
+                "view {view} is not docked — reattach it first"
+            )));
+        }
+        let title = title.unwrap_or_else(|| "Synvelis".to_string());
+        self.ui.window_request_seq += 1;
+        let request_id = self.ui.window_request_seq;
+        self.ui.dock_moves.insert(
+            view.clone(),
+            DockMove::AwaitingWindow {
+                title: title.clone(),
+                window: None,
+            },
+        );
+        self.ui
+            .window_requests
+            .borrow_mut()
+            .push_back(WindowRequest {
+                view_id: view.clone(),
+                request_id,
+                spec: WindowSpec {
+                    title,
+                    ..WindowSpec::default()
+                },
+            });
+        self.ui_pump();
+        Ok(json!({ "view_id": view, "pending": true, "request_id": request_id }))
+    }
+
+    /// `syn.window.dock_commit` — commits the pending move and
+    /// rebinds the UI side to the destination. `Prepared` uses
+    /// `commit_transfer`; `AwaitingWindow` uses the one-shot
+    /// `move_view` once the saga's attach named the destination.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] when no move is pending, the destination is not
+    /// ready, or the commit fails (the dock rolls back to source).
+    pub fn op_window_dock_commit(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let info = dock_domain_view(&view)?
+            .ok_or_else(|| invalid(format!("view {view} is not a dock-domain view")))?;
+        let inst = info.instance;
+        match self.ui.dock_moves.get(&view) {
+            Some(DockMove::AwaitingWindow { window: None, .. }) => {
+                return Err(invalid(format!(
+                    "view {view} has no destination window yet"
+                )));
+            }
+            Some(_) => {}
+            None => {
+                return Err(internal(format!("view {view} has no pending dock move")));
+            }
+        }
+        let Some(entry) = self.ui.dock_moves.remove(&view) else {
+            return Err(internal(format!("view {view} has no pending dock move")));
+        };
+        let (report, awaiting) = match entry {
+            DockMove::Prepared { token, .. } => match self.workspace.commit_transfer(token) {
+                Ok(report) => (report, false),
+                Err(e) => {
+                    self.push_notify(
+                        "syn.window.state",
+                        json!({ "view_id": view, "dock_move": "failed", "detail": format!("{e}") }),
+                    );
+                    return Err(dock_err(&e));
+                }
+            },
+            DockMove::AwaitingWindow {
+                window: Some(win), ..
+            } => match self.workspace.move_view(inst, DockTarget::Window(win)) {
+                Ok(report) => (report, true),
+                Err(e) => {
+                    self.ui_sync_view_owner(&view, inst);
+                    self.push_notify(
+                        "syn.window.state",
+                        json!({ "view_id": view, "dock_move": "failed", "detail": format!("{e}") }),
+                    );
+                    return Err(dock_err(&e));
+                }
+            },
+            DockMove::AwaitingWindow { window: None, .. } => unreachable!("checked above"),
+        };
+        let to = report.to.to_string();
+        // The AwaitingWindow path already bound the UI to the
+        // destination via the exception attach — bind only when the
+        // recorded owner differs (Prepared path, or an attach that
+        // never landed).
+        let bound = self.ui.views.get(&view).and_then(|e| e.window.as_deref());
+        if !awaiting || bound != Some(to.as_str()) {
+            self.ui_bind_view(&view, &to);
+        }
+        self.ui_pump();
+        self.push_notify(
+            "syn.window.state",
+            json!({
+                "view_id": view,
+                "dock_move": "committed",
+                "from": report.from.map(|w| w.to_string()),
+                "to": to,
+            }),
+        );
+        let (gen_c, gen_v) = (
+            self.ui.controls.view_state(&view).map_or(0, |(_, g, _)| g),
+            self.ui.viz.generation(&view).unwrap_or(0),
+        );
+        Ok(json!({
+            "view_id": view,
+            "committed": true,
+            "from": report.from.map(|w| w.to_string()),
+            "to": to,
+            "generation": gen_c,
+            "viz_generation": gen_v,
+        }))
+    }
+
+    /// `syn.window.dock_abort` — aborts the pending move; the view
+    /// keeps (or returns to) its source ownership and UI binding.
+    /// `AwaitingWindow` aborts also release queued window requests
+    /// and restore the UI binding the exception attach may have moved.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] when no move is pending or the abort fails.
+    pub fn op_window_dock_abort(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let failed = params
+            .get("failed")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let detail = params.get("detail").and_then(Value::as_str);
+        let info = dock_domain_view(&view)?
+            .ok_or_else(|| invalid(format!("view {view} is not a dock-domain view")))?;
+        let inst = info.instance;
+        let Some(entry) = self.ui.dock_moves.remove(&view) else {
+            return Err(internal(format!("view {view} has no pending dock move")));
+        };
+        match entry {
+            DockMove::Prepared { token, .. } => {
+                if let Err(e) = self.workspace.abort_transfer(token)
+                    && self.workspace.dock().is_transferring(inst)
+                {
+                    return Err(dock_err(&e));
+                }
+            }
+            DockMove::AwaitingWindow { .. } => {
+                self.ui
+                    .window_requests
+                    .borrow_mut()
+                    .retain(|r| r.view_id != view);
+                self.ui_sync_view_owner(&view, inst);
+            }
+        }
+        self.ui_pump();
+        self.push_notify(
+            "syn.window.state",
+            json!({
+                "view_id": view,
+                "dock_move": if failed { "failed" } else { "aborted" },
+                "detail": detail,
+            }),
+        );
+        let owner = self.workspace.dock().owner_of(inst).map(|w| w.to_string());
+        let (gen_c, gen_v) = (
+            self.ui.controls.view_state(&view).map_or(0, |(_, g, _)| g),
+            self.ui.viz.generation(&view).unwrap_or(0),
+        );
+        Ok(json!({
+            "view_id": view,
+            "aborted": true,
+            "owner": owner,
+            "generation": gen_c,
+            "viz_generation": gen_v,
+        }))
+    }
+
+    /// `syn.window.dock_detach` — one-shot move of `view` into the
+    /// workspace's detached pool (`detach_to_pool` + UI detach).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, unknown ids, or a busy view.
+    pub fn op_window_dock_detach(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let info = dock_domain_view(&view)?
+            .ok_or_else(|| invalid(format!("view {view} is not a dock-domain view")))?;
+        let inst = info.instance;
+        self.check_dock_view_free(&view, inst)?;
+        if !self.workspace.registry().contains(inst) {
+            return Err(internal(format!(
+                "view {view} is not adopted — attach it first"
+            )));
+        }
+        if !self.workspace.dock().is_detached(inst) {
+            self.workspace
+                .detach_to_pool(inst)
+                .map_err(|e| dock_err(&e))?;
+        }
+        let session = self.workspace.session_mut();
+        self.ui
+            .controls
+            .detach_view(session, &view, &GestureCancelReason::DockTransfer);
+        self.ui.viz.detach_view(&view);
+        if let Some(e) = self.ui.views.get_mut(&view) {
+            e.window = None;
+        }
+        self.ui_pump();
+        self.push_notify(
+            "syn.window.state",
+            json!({ "view_id": view, "dock_move": "detached" }),
+        );
+        Ok(json!({ "view_id": view, "detached": true }))
+    }
+
+    /// `syn.window.dock_reattach` — one-shot move of `view` (from the
+    /// pool or another window) into `window` (`move_view` + UI
+    /// attach).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, unknown ids, or a busy view.
+    pub fn op_window_dock_reattach(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let window = str_param(params, "window_id")?.to_owned();
+        let info = dock_domain_view(&view)?
+            .ok_or_else(|| invalid(format!("view {view} is not a dock-domain view")))?;
+        let inst = info.instance;
+        let win = parse_window_id(&window)
+            .ok_or_else(|| invalid(format!("params.window_id must be \"w{{n}}\", got {window}")))?;
+        self.check_dock_view_free(&view, inst)?;
+        if !self.workspace.registry().contains(inst) {
+            return Err(internal(format!(
+                "view {view} is not adopted — attach it first"
+            )));
+        }
+        if !self.workspace.dock().is_registered(win) {
+            return Err(invalid(format!("window {window} is not adopted")));
+        }
+        let from = self.workspace.dock().owner_of(inst);
+        if from != Some(win) {
+            self.workspace
+                .move_view(inst, DockTarget::Window(win))
+                .map_err(|e| dock_err(&e))?;
+        }
+        self.ui_bind_view(&view, &win.to_string());
+        self.ui_pump();
+        self.push_notify(
+            "syn.window.state",
+            json!({
+                "view_id": view,
+                "dock_move": "reattached",
+                "from": from.map(|w| w.to_string()),
+                "to": win.to_string(),
+            }),
+        );
+        let (gen_c, gen_v) = (
+            self.ui.controls.view_state(&view).map_or(0, |(_, g, _)| g),
+            self.ui.viz.generation(&view).unwrap_or(0),
+        );
+        Ok(json!({
+            "view_id": view,
+            "reattached": true,
+            "from": from.map(|w| w.to_string()),
+            "to": win.to_string(),
+            "generation": gen_c,
+            "viz_generation": gen_v,
+        }))
+    }
+
+    /// `syn.window.lifecycle` — internal forwarding from
+    /// `NativeShell` (the app is sealed inside `UiRuntime`; this op
+    /// is the shell's only path into workspace window state). Params:
+    /// `window_id`, `event` (`created`/`ready`/`resized`/`moved`/
+    /// `focused`/`scale_factor`/`destroyed`) plus event payload
+    /// fields. `destroyed` returns the applied `disposition` and the
+    /// `views` the window held so the shell can replay the right
+    /// teardown per view.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters or workspace failures.
+    pub fn op_window_lifecycle(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let window = str_param(params, "window_id")?;
+        let id = parse_window_id(window)
+            .ok_or_else(|| invalid(format!("params.window_id must be \"w{{n}}\", got {window}")))?;
+        let event = str_param(params, "event")?;
+        let result = match event {
+            "created" | "ready" => {
+                if !self.workspace.windows().iter().any(|w| w.id == id) {
+                    let i32p = |key: &str| {
+                        params
+                            .get(key)
+                            .and_then(Value::as_i64)
+                            .and_then(|v| i32::try_from(v).ok())
+                    };
+                    let u32p = |key: &str| {
+                        params
+                            .get(key)
+                            .and_then(Value::as_u64)
+                            .and_then(|v| u32::try_from(v).ok())
+                    };
+                    self.workspace
+                        .adopt_window(
+                            id,
+                            params
+                                .get("title")
+                                .and_then(Value::as_str)
+                                .unwrap_or("Synvelis"),
+                            WindowGeometry {
+                                x: i32p("x").unwrap_or(0),
+                                y: i32p("y").unwrap_or(0),
+                                width: u32p("width").unwrap_or(1280),
+                                height: u32p("height").unwrap_or(800),
+                                monitor: None,
+                            },
+                        )
+                        .map_err(|e| dock_err(&e))?;
+                }
+                // A new-window saga destination names its pending
+                // move here — the shell only sends `dock_view` for
+                // windows it created for a `WindowRequest`, so the
+                // `AwaitingWindow` exception attach can then match
+                // exactly this window (and no other).
+                if let Some(view) = params.get("dock_view").and_then(Value::as_str)
+                    && let Some(DockMove::AwaitingWindow { window: slot, .. }) =
+                        self.ui.dock_moves.get_mut(view)
+                {
+                    *slot = Some(id);
+                }
+                json!({ "window_id": window, "event": event, "adopted": true })
+            }
+            "resized" => {
+                self.workspace
+                    .on_window_event(
+                        id,
+                        &HostEvent::Resized {
+                            width: u32_param(params, "width")?,
+                            height: u32_param(params, "height")?,
+                        },
+                    )
+                    .map_err(|e| dock_err(&e))?;
+                json!({ "window_id": window, "event": event })
+            }
+            "moved" => {
+                let i32p = |key: &str| -> Result<i32, ErrorBody> {
+                    params
+                        .get(key)
+                        .and_then(Value::as_i64)
+                        .ok_or_else(|| invalid(format!("params.{key} (i32) required")))
+                        .and_then(|v| {
+                            i32::try_from(v)
+                                .map_err(|_| invalid(format!("params.{key} exceeds i32")))
+                        })
+                };
+                self.workspace
+                    .on_window_event(
+                        id,
+                        &HostEvent::Moved {
+                            x: i32p("x")?,
+                            y: i32p("y")?,
+                        },
+                    )
+                    .map_err(|e| dock_err(&e))?;
+                json!({ "window_id": window, "event": event })
+            }
+            "focused" => {
+                let focused = params
+                    .get("focused")
+                    .and_then(Value::as_bool)
+                    .ok_or_else(|| invalid("params.focused (bool) required"))?;
+                self.workspace
+                    .on_window_event(id, &HostEvent::Focused(focused))
+                    .map_err(|e| dock_err(&e))?;
+                json!({ "window_id": window, "event": event })
+            }
+            "scale_factor" => {
+                // DPI/IME semantics belong to the #388/#389/#114
+                // slice — acknowledged, never mapped into workspace
+                // layout state.
+                json!({ "window_id": window, "event": event, "recorded": false })
+            }
+            "destroyed" => self.op_window_lifecycle_destroyed(window, id)?,
+            other => return Err(invalid(format!("unknown lifecycle event {other}"))),
+        };
+        self.ui_pump();
+        Ok(result)
+    }
+
+    /// `syn.window.lifecycle` の `destroyed` — workspace の
+    /// `WindowCloseDisposition` を適用し、orphan になった pending
+    /// dock move を解放した上で、保持していた view ごとに
+    /// disposition 相当の UI teardown（`DetachViews`→detach、
+    /// `ReleaseViews`→close）を実行する。結果には適用した
+    /// disposition と対象 view 一覧を載せ、shell が view 単位の
+    /// 後始末（legacy view の close replay 等）を判断できるようにする。
+    fn op_window_lifecycle_destroyed(
+        &mut self,
+        window: &str,
+        id: WindowId,
+    ) -> Result<Value, ErrorBody> {
+        let disposition = self
+            .workspace
+            .windows()
+            .iter()
+            .find(|w| w.id == id)
+            .map(|w| w.disposition);
+        self.workspace
+            .on_window_event(id, &HostEvent::Destroyed)
+            .map_err(|e| dock_err(&e))?;
+        let mut views = Vec::new();
+        for ev in self.workspace.drain_dock_events() {
+            if let DockEvent::WindowRemoved {
+                window: w,
+                views: vs,
+            } = ev
+                && w == id
+            {
+                views = vs.iter().map(|v| format!("view-{}", v.get())).collect();
+            }
+        }
+        // Pending moves orphaned by the destroy: a Prepared
+        // whose destination died or whose token the dock
+        // already ended, and an AwaitingWindow whose recorded
+        // destination died *or whose source view the destroy
+        // just pooled* — release them so the view lock never
+        // leaks.
+        let stale: Vec<String> = self
+            .ui
+            .dock_moves
+            .iter()
+            .filter_map(|(view, m)| {
+                let inst = parse_view_instance(view)?;
+                let stale = match m {
+                    DockMove::Prepared { target, .. } => {
+                        *target == id || !self.workspace.dock().is_transferring(inst)
+                    }
+                    DockMove::AwaitingWindow { window, .. } => {
+                        window.is_some_and(|w| w == id) || views.iter().any(|v| v == view)
+                    }
+                };
+                stale.then(|| view.clone())
+            })
+            .collect();
+        for view in stale {
+            match self.ui.dock_moves.remove(&view) {
+                Some(DockMove::Prepared { token, .. }) => {
+                    let _ = self.workspace.abort_transfer(token);
+                }
+                Some(DockMove::AwaitingWindow { .. }) => {
+                    self.ui
+                        .window_requests
+                        .borrow_mut()
+                        .retain(|r| r.view_id != view);
+                    if let Some(inst) = parse_view_instance(&view) {
+                        self.ui_sync_view_owner(&view, inst);
+                    }
+                }
+                None => {}
+            }
+            self.push_notify(
+                "syn.window.state",
+                json!({
+                    "view_id": view,
+                    "dock_move": "failed",
+                    "detail": "window destroyed",
+                }),
+            );
+        }
+        // Per-view UI teardown under the applied disposition —
+        // the same ops an explicit `syn.view.detach`/`close`
+        // would run, so gateway state, the app registry, and
+        // subscriptions stay consistent with one authority.
+        // Views with no UI-side entry have nothing to tear down.
+        let release = matches!(disposition, Some(WindowCloseDisposition::ReleaseViews));
+        for view in &views {
+            if !self.ui.views.contains_key(view) {
+                continue;
+            }
+            let params = json!({ "view_id": view });
+            let result = if release {
+                self.op_view_close(&params)
+            } else {
+                self.op_view_detach(&params)
+            };
+            if let Err(e) = result {
+                tracing::warn!(view_id = %view, error = %e.message, "window-destroy view teardown failed");
+            }
+        }
+        let disposition = if release {
+            "release_views"
+        } else {
+            "detach_views"
+        };
+        Ok(json!({
+            "window_id": window,
+            "event": "destroyed",
+            "disposition": disposition,
+            "views": views,
+        }))
     }
 
     // -- syn.project.* -----------------------------------------------------

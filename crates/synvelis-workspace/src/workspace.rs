@@ -219,6 +219,37 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         Ok(id)
     }
 
+    /// Adopts an already-created host window into the dock ledger.
+    ///
+    /// Unlike [`create_window_at`](Self::create_window_at) this never
+    /// calls `host.create_window`: the driver/composition root owns
+    /// window creation, and the workspace only records the result.
+    /// The record defaults to `veto_close: false` and
+    /// [`WindowCloseDisposition::DetachViews`] — the same defaults a
+    /// created window gets.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::DuplicateWindow`] when `id` is already known.
+    pub fn adopt_window(
+        &mut self,
+        id: WindowId,
+        title: &str,
+        geometry: WindowGeometry,
+    ) -> Result<(), WorkspaceError> {
+        if self.window_record(id).is_some() {
+            return Err(WorkspaceError::DuplicateWindow(id));
+        }
+        self.dock.register_window(id);
+        self.windows.push(WindowRecord {
+            id,
+            title: title.to_string(),
+            geometry,
+            veto_close: false,
+            disposition: WindowCloseDisposition::DetachViews,
+        });
+        Ok(())
+    }
+
     /// Sets whether `window` vetoes close requests.
     pub fn set_close_veto(&mut self, window: WindowId, veto: bool) {
         if let Some(rec) = self.window_record_mut(window) {
@@ -281,6 +312,47 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         self.registry.register(id, kind, title.to_string());
         self.states.ensure(id);
         Ok(id)
+    }
+
+    /// Adopts an already-mounted view into the workspace.
+    ///
+    /// Unlike [`spawn_view`](Self::spawn_view) /
+    /// [`spawn_detached_view`](Self::spawn_detached_view) this takes
+    /// the caller-chosen `id` — the app/UI layer owns view identity —
+    /// and never mints one. `Some(target)` attaches the view into the
+    /// target window's dock (the window must already be adopted);
+    /// `None` places it in the detached pool. The dock placement runs
+    /// before the registry/state registration so a dock rejection
+    /// leaves no partial view behind, and `next_view` advances past
+    /// `id` so later `spawn_view` calls cannot collide with adopted
+    /// ids.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::Dock`] when the view is already owned by the
+    /// dock ([`DockError::DuplicateView`]) or `target` is invalid;
+    /// the same variant is used when `id` is already registered in
+    /// the view registry.
+    pub fn adopt_view(
+        &mut self,
+        id: ViewInstanceId,
+        kind: ViewType,
+        title: &str,
+        target: Option<DockTarget>,
+    ) -> Result<(), WorkspaceError> {
+        if self.registry.contains(id) {
+            return Err(WorkspaceError::Dock(DockError::DuplicateView {
+                view: id,
+                owner: self.dock.owner_of(id),
+            }));
+        }
+        match target {
+            Some(target) => self.dock.attach_view(id, target)?,
+            None => self.dock.add_detached(id)?,
+        }
+        self.registry.register(id, kind, title.to_string());
+        self.states.ensure(id);
+        self.next_view = self.next_view.max(id.get());
+        Ok(())
     }
 
     /// Removes a view entirely (dock, registry, state, links).
