@@ -53,7 +53,3 @@ Directory: `docs/adr`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | ADR-2kAD08Yeuxmx8U4t2mD2wr | SV-GUI-01 app crate boundary・webview feature gate・vendored ui/* TS pipeline | superseded | [sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md](./sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md) |
-
-<<<<<<< HEAD
-=======
->>>>>>> origin/main
