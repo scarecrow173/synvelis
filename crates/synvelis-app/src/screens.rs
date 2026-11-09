@@ -477,10 +477,10 @@ fn relation_table(r: &RelationScreenState) -> ComponentSpec {
                     Some(CellValue::Text(format!("{:?}", row.kind))),
                     Some(CellValue::Text(row.source_label())),
                     Some(CellValue::Text(row.target_label())),
-                    Some(CellValue::Text(
-                        row.assignment
-                            .map_or_else(|| "—".to_string(), ModulationAssignmentId::to_tagged),
-                    )),
+                    Some(CellValue::Text(row.assignment.map_or_else(
+                        || "—".to_string(),
+                        ModulationAssignmentId::to_tagged,
+                    ))),
                     Some(CellValue::Text(format!("{:?}", row.state))),
                 ]
             })
