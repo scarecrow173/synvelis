@@ -20,6 +20,7 @@ pub(crate) mod migration;
 pub mod ops;
 pub mod placement;
 pub mod probe;
+pub mod probe_trace;
 pub mod project;
 pub mod range;
 pub mod recording_data;
@@ -71,6 +72,7 @@ pub use probe::{
     SemanticProbePoint, SemanticSignalEntityRef, SignalBoundary, SubscriptionKind,
     resolve_probe_point,
 };
+pub use probe_trace::{ProbeObservationUpdate, ProbePortError, ProbeTracePort};
 pub use project::{
     AppliedImport, AppliedRecordingCommit, Asset, Clip, Lane, Note, Project, ProjectDomain,
     ProjectRange, RecordingRegistry, Source, SourceState, Track,
