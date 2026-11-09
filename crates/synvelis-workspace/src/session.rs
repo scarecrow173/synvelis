@@ -1,12 +1,13 @@
 //! Project session — the single project source of truth plus the
-//! transport stub and the engine stub proving RT/graph separation
-//! (WS-A scope 5).
+//! transport stub and the engine port proving RT/graph separation
+//! (WS-A scope 5, SF-03 slice 5).
 //!
 //! [`ProjectSession`] owns the sole `ProjectController`. Views read
 //! projections from it; every mutation flows through routed commands.
-//! A successful mutation advances the live revision and the engine
-//! stub rebuilds its (fake) graph — dock/layout/focus operations never
-//! touch either.
+//! A successful mutation advances the live revision and notifies the
+//! attached [`EnginePort`] — [`EngineStub`] by default, a real
+//! routing engine when the composition root injects one. Dock/
+//! layout/focus operations never touch either.
 
 use synvelis_project::{
     Command, Error, Operation, ParameterTargetId, Project, ProjectController, ProjectOp,
@@ -28,9 +29,35 @@ pub struct TransportState {
     pub position_ticks: i64,
 }
 
+/// The session's engine boundary. Implementations receive the
+/// committed [`Project`] snapshot and its [`ProjectRevision`] every
+/// time a project command, undo, or redo advances the live revision —
+/// never for view/layout/focus state, which lives outside the
+/// project. Engine-side build failures are recorded as engine
+/// evidence; they must not propagate into the session (the project
+/// commit already succeeded and the engine's last-good stays live).
+pub trait EnginePort {
+    /// A committed project revision advanced. Called after every
+    /// successful apply/undo/redo — synchronously, on the session's
+    /// thread.
+    fn on_project_revision(&mut self, project: &Project, revision: ProjectRevision);
+
+    /// Committed-revision notifications delivered so far — the
+    /// WS-A "graph build" counter. This counts *notifications*, not
+    /// activations: consult the engine's own receipt/source map for
+    /// activation evidence.
+    fn graph_builds(&self) -> u64;
+
+    /// The project revision the engine last observed.
+    fn last_built_revision(&self) -> ProjectRevision;
+}
+
 /// Stands in for the audio engine's graph builder. `graph_builds`
 /// counts graph (re)builds; it only ever advances when the project
 /// revision advances — proving view/layout changes do not rebuild.
+/// This is the default [`EnginePort`]; production wiring injects a
+/// real routing engine (e.g. `synvelis-app`'s session routing
+/// adapter) via [`ProjectSession::set_engine`].
 #[derive(Debug, Clone, Default)]
 pub struct EngineStub {
     /// Number of graph builds performed.
@@ -47,24 +74,58 @@ impl EngineStub {
     }
 }
 
+impl EnginePort for EngineStub {
+    fn on_project_revision(&mut self, _project: &Project, revision: ProjectRevision) {
+        self.on_project_revision(revision);
+    }
+
+    fn graph_builds(&self) -> u64 {
+        self.graph_builds
+    }
+
+    fn last_built_revision(&self) -> ProjectRevision {
+        self.last_built_revision
+    }
+}
+
 /// The one canonical project session.
 pub struct ProjectSession {
     controller: ProjectController,
     transport: TransportState,
-    engine: EngineStub,
+    engine: Box<dyn EnginePort>,
     control: ControlSession,
 }
 
 impl ProjectSession {
     /// Wraps `controller` — the only project source of truth.
+    /// The engine defaults to [`EngineStub`]; attach a real engine
+    /// with [`ProjectSession::set_engine`].
     #[must_use]
     pub fn new(controller: ProjectController) -> Self {
         Self {
             controller,
             transport: TransportState::default(),
-            engine: EngineStub::default(),
+            engine: Box::new(EngineStub::default()),
             control: ControlSession::default(),
         }
+    }
+
+    /// Wraps `controller` with `engine` already attached.
+    #[must_use]
+    pub fn with_engine(controller: ProjectController, engine: Box<dyn EnginePort>) -> Self {
+        Self {
+            controller,
+            transport: TransportState::default(),
+            engine,
+            control: ControlSession::default(),
+        }
+    }
+
+    /// Replaces the session's engine port. The new engine starts
+    /// with no build history — attach it before the first project
+    /// mutation you want it to observe.
+    pub fn set_engine(&mut self, engine: Box<dyn EnginePort>) {
+        self.engine = engine;
     }
 
     /// The project controller (read access for projections).
@@ -85,10 +146,10 @@ impl ProjectSession {
         &self.transport
     }
 
-    /// The engine stub.
+    /// The session's engine port.
     #[must_use]
-    pub fn engine(&self) -> &EngineStub {
-        &self.engine
+    pub fn engine(&self) -> &dyn EnginePort {
+        self.engine.as_ref()
     }
 
     /// The session-scoped parameter-control state (issue #40): UI
@@ -237,10 +298,10 @@ impl ProjectSession {
     }
 
     /// Applies `op` through the controller (validation + revision
-    /// check + atomic apply), rebuilds the engine stub's graph, then
-    /// notifies the control session: a successful apply is a foreign
-    /// project change that seals an open recording transaction's
-    /// write gate.
+    /// check + atomic apply), notifies the engine port of the new
+    /// committed revision, then notifies the control session: a
+    /// successful apply is a foreign project change that seals an
+    /// open recording transaction's write gate.
     ///
     /// Generic over the operation type: the workspace command layer
     /// produces `ProjectOp`, and any other domain op that satisfies
@@ -260,7 +321,7 @@ impl ProjectSession {
         Ok(revision)
     }
 
-    /// The controller apply + engine rebuild without the
+    /// The controller apply + engine notification without the
     /// foreign-change notification — used internally by the
     /// recording-commit path, whose transaction consumes its own
     /// revision advance and must never seal itself.
@@ -273,7 +334,8 @@ impl ProjectSession {
             expected_revision,
             op,
         })?;
-        self.engine.on_project_revision(revision);
+        self.engine
+            .on_project_revision(self.controller.live(), revision);
         Ok(revision)
     }
 
@@ -282,33 +344,35 @@ impl ProjectSession {
         self.transport.playing = playing;
     }
 
-    /// Undoes the last project command and rebuilds the engine stub's
-    /// graph — the project changed, so the graph must too. A
-    /// successful undo is a foreign project change: it seals an open
-    /// recording transaction's write gate.
+    /// Undoes the last project command and notifies the engine port —
+    /// the project changed, so the engine must rebuild. A successful
+    /// undo is a foreign project change: it seals an open recording
+    /// transaction's write gate.
     ///
     /// # Errors
     /// Propagates controller errors (none in practice).
     pub fn undo(&mut self) -> Result<bool, Error> {
         if self.controller.undo()? {
+            let revision = self.controller.live_revision();
             self.engine
-                .on_project_revision(self.controller.live_revision());
+                .on_project_revision(self.controller.live(), revision);
             self.control.note_project_changed(self.controller.live());
             return Ok(true);
         }
         Ok(false)
     }
 
-    /// Redoes the last undone command and rebuilds the engine stub's
-    /// graph — a foreign project change that seals an open recording
+    /// Redoes the last undone command and notifies the engine port —
+    /// a foreign project change that seals an open recording
     /// transaction's write gate.
     ///
     /// # Errors
     /// Propagates controller errors (none in practice).
     pub fn redo(&mut self) -> Result<bool, Error> {
         if self.controller.redo()? {
+            let revision = self.controller.live_revision();
             self.engine
-                .on_project_revision(self.controller.live_revision());
+                .on_project_revision(self.controller.live(), revision);
             self.control.note_project_changed(self.controller.live());
             return Ok(true);
         }

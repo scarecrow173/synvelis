@@ -625,7 +625,7 @@ fn ws_a_05_layout_ops_leave_project_and_engine_alone() {
         .unwrap();
 
     let rev0 = ws.session().revision();
-    let builds0 = ws.session().engine().graph_builds;
+    let builds0 = ws.session().engine().graph_builds();
 
     // dock + window + focus churn
     let win_c = ws.detach_to_new_window(arr, "c").unwrap();
@@ -650,7 +650,7 @@ fn ws_a_05_layout_ops_leave_project_and_engine_alone() {
         .unwrap();
 
     assert_eq!(ws.session().revision(), rev0);
-    assert_eq!(ws.session().engine().graph_builds, builds0);
+    assert_eq!(ws.session().engine().graph_builds(), builds0);
     // undo history unpolluted: the last *project* op still undoes
     assert!(ws.session_mut().undo().unwrap());
     assert!(ws.session_mut().redo().unwrap());
@@ -664,7 +664,7 @@ fn ws_a_05_layout_ops_leave_project_and_engine_alone() {
     // undo and redo each advanced the live revision and (like any
     // project change) the engine graph — plus the clip.remove itself
     assert_eq!(ws.session().revision().0, rev0.0 + 3);
-    assert_eq!(ws.session().engine().graph_builds, builds0 + 3);
+    assert_eq!(ws.session().engine().graph_builds(), builds0 + 3);
 }
 
 // keep the import used

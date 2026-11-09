@@ -596,7 +596,7 @@ fn ed_a_04_preview_atomic_undo() {
 
     // --- preview never mutates ------------------------------------------------
     let rev0 = ws.session().revision();
-    let builds0 = ws.session().engine().graph_builds;
+    let builds0 = ws.session().engine().graph_builds();
     ws.select(
         arr,
         EditingSelection {
@@ -611,7 +611,7 @@ fn ed_a_04_preview_atomic_undo() {
     }
     assert_eq!(ws.session().revision(), rev0, "preview must not commit");
     assert_eq!(
-        ws.session().engine().graph_builds,
+        ws.session().engine().graph_builds(),
         builds0,
         "preview must not rebuild the engine graph"
     );
@@ -640,7 +640,7 @@ fn ed_a_04_preview_atomic_undo() {
         "one undo restores the whole multi-target gesture"
     );
     assert!(
-        ws.session().engine().graph_builds > builds0,
+        ws.session().engine().graph_builds() > builds0,
         "undo routes through the session engine hook"
     );
     let outcome = ws.dispatch(ctx_from("edit.redo", arr));
@@ -728,7 +728,7 @@ fn ed_a_04_preview_atomic_undo() {
     let mut ctx = ctx_from("edit.undo", arr);
     ctx.input = InputContext::TextInput;
     let rev_before = ws.session().revision();
-    let builds_before = ws.session().engine().graph_builds;
+    let builds_before = ws.session().engine().graph_builds();
     let outcome = ws.dispatch(ctx);
     assert!(matches!(
         outcome,
@@ -736,7 +736,7 @@ fn ed_a_04_preview_atomic_undo() {
     ));
     assert_eq!(ws.text_lane_undos(), 1, "text undo lives on its own lane");
     assert_eq!(ws.session().revision(), rev_before);
-    assert_eq!(ws.session().engine().graph_builds, builds_before);
+    assert_eq!(ws.session().engine().graph_builds(), builds_before);
     let mut ctx = ctx_from("edit.undo", arr);
     ctx.input = InputContext::Modal;
     assert!(matches!(

@@ -77,7 +77,7 @@ pub use selection::{
     EditBinding, EditTimeDomain, EditTimePoint, LaneScope, ObjectSelections, SelectionDomain,
     TimeSelection,
 };
-pub use session::{EngineStub, ProjectSession, TransportState};
+pub use session::{EnginePort, EngineStub, ProjectSession, TransportState};
 pub use snap::{
     GridConfig, SnapCandidate, SnapConfig, SnapEnvironment, SnapSource, SnapUnit, SnapWinner,
     resolve_snap,
