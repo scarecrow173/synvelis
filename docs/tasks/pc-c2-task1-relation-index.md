@@ -1,7 +1,7 @@
 ---
 id: "TASK-034Upd3TZPjW8QcMPatmyb"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "PC-C2: Control Relation Index/Projection 実装タスク"
 created: "2026-11-09"
 updated: "2026-11-09"
@@ -109,11 +109,11 @@ relations:
 
 ## Done When
 
-- [ ] REL-C2-01〜05 が `tests/pc_c2_relation.rs` で検証される。
-- [ ] `mise run fmt-check`/`check`/`lint`/`test` 全 green。
-- [ ] impl record が `docs/impl/ir/` にある。
+- [x] REL-C2-01〜05 が `tests/pc_c2_relation.rs` で検証される。
+- [x] `mise run fmt-check`/`check`/`lint`/`test` 全 green。
+- [x] impl record が `docs/impl/ir/` にある。
 
 ## Verification
 
-- [ ] `mise run fmt-check` / `mise run check` / `mise run lint` /
-  `mise run test`(全て実 exit code 記録)。
+- [x] `mise run fmt-check` / `mise run check` / `mise run lint` /
+  `mise run test`(全て実 exit code 記録 — impl record 参照)。
