@@ -20,8 +20,8 @@ use serde_json::{Value, json};
 use synvelis_project::{TickTimeMapping, is_issuable_raw};
 use synvelis_workspace::VizSourceId;
 use synvelis_workspace::controls_ui::{
-    CommandIntent, ControlsUi, DispatchContext, GestureCancelReason, TRANSPORT_POSITION_TARGET,
-    TRANSPORT_TARGET,
+    CommandIntent, ControlsUi, DispatchContext, GestureCancelReason, ParamProjection,
+    TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET,
 };
 use synvelis_workspace::viz_ui::{
     ManualMeter, ManualSpectrum, MemoryWaveform, MeterPort, SpectrumPort, VizUi, VizViewEvent,
@@ -29,6 +29,7 @@ use synvelis_workspace::viz_ui::{
 };
 
 use crate::app::SynvelisApp;
+use crate::screens::{InspectorRow, InspectorScreenState, TransportScreenState, main_view_id};
 
 /// Outbox depth cap — receipts/projections are never silently
 /// unbounded; on overflow the oldest entry drops and
@@ -170,6 +171,28 @@ fn viz_err(e: &synvelis_workspace::VizError) -> ErrorBody {
     internal(format!("viz: {e}"))
 }
 
+/// Flattens a [`ParamProjection`]'s `InspectorBreakdown` into display
+/// rows — the agreed breakdown fields (evaluation, observation, mode,
+/// arm, writer state, capability) plus the resolved read-only flag.
+fn inspector_rows(p: &ParamProjection) -> Vec<InspectorRow> {
+    let b = &p.breakdown;
+    let e = &b.evaluation;
+    let row = |field: &str, value: String| InspectorRow {
+        field: field.to_string(),
+        value,
+    };
+    vec![
+        row("plain", format!("{}", e.host_plain)),
+        row("normalized", format!("{}", e.host_normalized)),
+        row("mode", format!("{:?}", b.mode)),
+        row("arm", format!("{:?}", b.arm)),
+        row("observation", format!("{:?}", b.observation)),
+        row("writer", format!("{:?}", b.writer_state)),
+        row("read_only", p.read_only.to_string()),
+        row("capability", b.capability.is_some().to_string()),
+    ]
+}
+
 impl SynvelisApp {
     /// Shared outbox handle — cloned by the host loop before the
     /// service moves into `UiRuntime`.
@@ -266,6 +289,65 @@ impl SynvelisApp {
         }
         self.push_subscription_rows();
         self.push_surface_frames();
+        self.capture_screen_state();
+    }
+
+    /// Captures the main view's display state out of the `ControlsUi`
+    /// projection rows into the shared [`MainScreenState`] cell — the
+    /// transport readout (`TransportRow.observed`) and the inspector
+    /// breakdown (`StripRow.observed` of the first subscribed param
+    /// target, target-sorted for determinism). Runs at the tail of
+    /// every `ui_pump`, after subscriptions have re-projected, so the
+    /// cell always mirrors the last landed truth — never a request or
+    /// a preview (synvelis#112 slice 1).
+    pub(crate) fn capture_screen_state(&self) {
+        let view = main_view_id();
+        let wants_transport =
+            self.ui.subscriptions.iter().any(|(v, t)| {
+                v == &view && (t == TRANSPORT_TARGET || t == TRANSPORT_POSITION_TARGET)
+            });
+        let mut transport = TransportScreenState::default();
+        if wants_transport
+            && let Some(observed) = self
+                .ui
+                .controls
+                .transport_row(&view)
+                .and_then(|row| row.observed)
+        {
+            // Same seconds conversion the seek's `display_value` uses —
+            // beat position under the project tempo map.
+            let tempo = TickTimeMapping::new(&self.workspace.session().project().tempo_map).ok();
+            transport.status = Some(format!("{:?}", observed.status));
+            transport.position_seconds = tempo
+                .as_ref()
+                .and_then(|t| t.beat_to_seconds(observed.position.to_beat()).ok());
+            transport.loop_enabled = observed.loop_range.is_some();
+        }
+        let mut inspector = InspectorScreenState::default();
+        let mut param_targets: Vec<String> = self
+            .ui
+            .subscriptions
+            .iter()
+            .filter(|(v, t)| v == &view && t != TRANSPORT_TARGET && t != TRANSPORT_POSITION_TARGET)
+            .map(|(_, t)| t.clone())
+            .collect();
+        param_targets.sort();
+        for target in param_targets {
+            let Some(observed) = self
+                .ui
+                .controls
+                .strip_row(&view, &target)
+                .and_then(|row| row.observed)
+            else {
+                continue;
+            };
+            inspector.target = Some(target);
+            inspector.rows = inspector_rows(&observed);
+            break;
+        }
+        let mut screen = self.main_screen.borrow_mut();
+        screen.transport = transport;
+        screen.inspector = inspector;
     }
 
     /// Bound subscription rows — the projection channel. `observed`

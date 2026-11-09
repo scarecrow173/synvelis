@@ -1,23 +1,31 @@
 //! The product's minimal neutral screen spec (SV-GPUI-01 view-mount
-//! slice, Issue #175 successor; mixer gain wired by Issue #185).
+//! slice, Issue #175 successor; mixer gain wired by Issue #185;
+//! Transport actions + Inspector display wired by Issue #112 slice 1).
 //!
 //! [`main_screen_spec`] is the smallest *product-shaped* `ViewSpec`
 //! mounted through the RF387 seam: `Panel > [Toolbar, Tabs]` where the
-//! toolbar holds Save/Reload `Button`s (the `project` actions) and the
-//! Transport tab carries a `Seek` driving the real `transport/position`
-//! command target (`Begin → Preview → Commit/Cancel` gesture dispatch;
-//! the controlled value is the seconds position derived from the
-//! authoritative projection). The Seek range follows the project
-//! length ([`seek_range_seconds`]); a Mixer tab carries a `Fader`
-//! bound to the bootstrap master-strip `ParameterRole::Fader` target
-//! ([`mixer_gain_target`]) — its controlled display is the
-//! authoritative `host_normalized` projection and commits land as
-//! `SetParameterBase` through the same gesture path as every
-//! parameter target.
+//! toolbar holds Save/Reload `Button`s (the `project` actions), the
+//! Transport tab carries Play/Stop `Button`s on the `transport` action
+//! target plus a status `Label` readout and a `Seek` driving the real
+//! `transport/position` command target (`Begin → Preview → Commit/
+//! Cancel` gesture dispatch; the controlled value is the seconds
+//! position derived from the authoritative projection), the Mixer tab
+//! carries a `Fader` bound to the bootstrap master-strip
+//! `ParameterRole::Fader` target ([`mixer_gain_target`]) — its
+//! controlled display is the authoritative `host_normalized` projection
+//! and commits land as `SetParameterBase` through the same gesture path
+//! as every parameter target — and the Inspector tab carries the
+//! subscribed parameter target's `InspectorBreakdown` as a `Table`.
+//! The Seek range follows the project length
+//! ([`seek_range_seconds`]).
 //!
-//! The spec is rebuilt on every project-length change and applied with
-//! `ViewHost::update` (through `GpuiDriver::update_view`), so the mounted
-//! controls keep their identity and no remount happens.
+//! Dynamic display values (transport status/position/loop, inspector
+//! rows) are not projections — they are consumer-resolved text baked
+//! into the spec from [`MainScreenState`], which the composition layer
+//! captures out of the `ControlsUi` projection rows after every UI
+//! pump. The spec is rebuilt on every state change and applied with
+//! `ViewHost::update` (through `GpuiDriver::update_view`), so the
+//! mounted controls keep their identity and no remount happens.
 //!
 //! Contract notes baked into the spec:
 //!
@@ -49,12 +57,12 @@ use ruviform_ui::UiError;
 use ruviform_ui::behavior::{DetachPolicy, ValueDescriptor};
 use ruviform_ui::dock::ViewInstanceId;
 use ruviform_ui::view::{
-    A11yRole, A11ySpec, AttachEpochAllocator, ButtonSpec, ComponentKey, ComponentSpec,
-    ComponentVisualState, ControlSpec, Orientation, PanelSpec, TabSpec, TabsSelectionSpec,
-    TabsSpec, ViewHost, ViewSpec,
+    A11yRole, A11ySpec, AttachEpochAllocator, ButtonSpec, CellValue, ComponentKey, ComponentSpec,
+    ComponentVisualState, ControlSpec, LabelSpec, Orientation, PanelSpec, TabSpec, TableSpec,
+    TabsSelectionSpec, TabsSpec, ViewHost, ViewSpec,
 };
 use synvelis_project::{MASTER_FADER_RAW, ParameterTargetId};
-use synvelis_workspace::controls_ui::TRANSPORT_POSITION_TARGET;
+use synvelis_workspace::controls_ui::{TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET};
 
 use crate::binding::{PROJECT_TARGET, VIEW_STATE_TARGET};
 
@@ -108,12 +116,70 @@ pub fn mixer_gain_target() -> String {
     ParameterTargetId::new(MASTER_FADER_RAW).to_tagged()
 }
 
+/// Transport readout state — captured from the authoritative
+/// `TransportProjection` (`status`/`position`/`loop_range`) by the
+/// composition layer and baked into the spec's status `Label`.
+/// `position_seconds` is already tempo-map converted (seconds), the
+/// same unit the Seek's controlled display uses.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TransportScreenState {
+    /// Playback status display text (`"Stopped"`/`"Playing"`/`"Paused"`).
+    pub status: Option<String>,
+    /// Playhead position in seconds.
+    pub position_seconds: Option<f64>,
+    /// Whether a loop range is active.
+    pub loop_enabled: bool,
+}
+
+/// One Inspector table row — a breakdown field and its resolved
+/// display text.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InspectorRow {
+    /// Field name (e.g. `"mode"`, `"arm"`).
+    pub field: String,
+    /// Resolved display text.
+    pub value: String,
+}
+
+/// Inspector tab state — the subscribed parameter target's
+/// `InspectorBreakdown` flattened to display rows. Slice 1 shows the
+/// view's subscribed param target (the mixer gain bootstrap); target
+/// selection UI is a later slice.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct InspectorScreenState {
+    /// Tagged id of the displayed parameter target, if any.
+    pub target: Option<String>,
+    /// Breakdown rows in display order.
+    pub rows: Vec<InspectorRow>,
+}
+
+/// The full display state [`main_screen_spec`] needs — project length
+/// (Seek range), transport readout, and inspector rows. Owned by the
+/// composition root behind a shared cell; refreshed after every
+/// service op and UI pump, then pushed to the mounted view through
+/// `ViewHost::update`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct MainScreenState {
+    /// Live project length in seconds — the Seek range source.
+    pub project_length_seconds: f64,
+    /// Transport status/position/loop readout.
+    pub transport: TransportScreenState,
+    /// Inspector breakdown display.
+    pub inspector: InspectorScreenState,
+}
+
 /// Targets the main view subscribes after attach — every driven
-/// control's binding target. One entry per unique target (the
-/// subscription is `(view, target)`, not per control).
+/// control's binding target plus the `transport` action surface whose
+/// `TransportProjection` feeds the status readout. One entry per
+/// unique target (the subscription is `(view, target)`, not per
+/// control).
 #[must_use]
 pub fn main_view_targets() -> Vec<String> {
-    vec![TRANSPORT_POSITION_TARGET.to_string(), mixer_gain_target()]
+    vec![
+        TRANSPORT_TARGET.to_string(),
+        TRANSPORT_POSITION_TARGET.to_string(),
+        mixer_gain_target(),
+    ]
 }
 
 fn key(name: &str) -> ComponentKey {
@@ -183,6 +249,91 @@ fn project_button(key_name: &str, label: &str, action: &str) -> ComponentSpec {
     })
 }
 
+/// A `transport` action button — Play/Stop. The press emits one
+/// discrete `Action` on [`TRANSPORT_TARGET`]; `ControlsUi::route_action`
+/// resolves `play`/`stop` into the transport ops and broadcasts the
+/// resulting `TransportProjection` (synvelis#112 slice 1).
+fn transport_button(key_name: &str, label: &str, action: &str) -> ComponentSpec {
+    ComponentSpec::Button(ButtonSpec {
+        key: key(key_name),
+        label: label.to_string(),
+        target: TRANSPORT_TARGET.to_string(),
+        action: action.to_string(),
+        params: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec::default(),
+    })
+}
+
+/// The transport status readout — resolved text baked from
+/// [`TransportScreenState`] (status + seconds position + loop flag).
+/// Static display text: it is *not* a projection target, so it carries
+/// no `control_id`; updates arrive through `ViewHost::update` spec
+/// pushes, not `apply_projection`.
+fn transport_status_label(t: &TransportScreenState) -> ComponentSpec {
+    ComponentSpec::Label(LabelSpec {
+        key: key("transport.status"),
+        text: transport_status_text(t),
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Transport status".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+fn transport_status_text(t: &TransportScreenState) -> String {
+    let status = t.status.as_deref().unwrap_or("—");
+    match t.position_seconds {
+        Some(position) => {
+            let loop_mark = if t.loop_enabled { " loop" } else { "" };
+            format!("{status} {position:.2}s{loop_mark}")
+        }
+        None => status.to_string(),
+    }
+}
+
+/// The Inspector target readout — which parameter target the table
+/// below describes (`"no target"` before the first projection lands).
+fn inspector_target_label(i: &InspectorScreenState) -> ComponentSpec {
+    ComponentSpec::Label(LabelSpec {
+        key: key("inspector.target"),
+        text: i.target.clone().unwrap_or_else(|| "no target".to_string()),
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Inspector target".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The Inspector breakdown table — the subscribed parameter target's
+/// `InspectorBreakdown` flattened to `Field`/`Value` rows by the
+/// composition layer ([`InspectorScreenState`]). Read-only: no
+/// `selection`, so it issues no intents.
+fn inspector_table(i: &InspectorScreenState) -> ComponentSpec {
+    ComponentSpec::Table(TableSpec {
+        key: key("inspector.table"),
+        columns: vec!["Field".to_string(), "Value".to_string()],
+        rows: i
+            .rows
+            .iter()
+            .map(|row| {
+                vec![
+                    Some(CellValue::Text(row.field.clone())),
+                    Some(CellValue::Text(row.value.clone())),
+                ]
+            })
+            .collect(),
+        selection: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Inspector breakdown".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
 /// The `Fader` the slice names — the mixer gain, bound to the
 /// bootstrap master-strip fader target ([`mixer_gain_target`]). Its
 /// normalized `[0, 1]` domain is the domain contract: the controlled
@@ -210,17 +361,22 @@ fn mixer_fader() -> ComponentSpec {
 /// The product's minimal screen spec — `Panel > [Toolbar, Tabs]`:
 ///
 /// - **Toolbar**: Save and Reload `Button`s (the `project` actions).
-/// - **Transport** tab: the `Seek` bound to `transport/position` —
-///   `Begin → Preview → Commit/Cancel` gesture dispatch through the
-///   real `syn.control.*` surface. The controlled display is the
-///   seconds position of the authoritative projection (see the adapter
-///   in `binding.rs`). Its range is [`seek_range_seconds`] of
-///   `project_length_seconds`.
+/// - **Transport** tab: the status `Label` ([`transport_status_label`]),
+///   Play/Stop `Button`s on the `transport` action target
+///   ([`transport_button`]), and the `Seek` bound to
+///   `transport/position` — `Begin → Preview → Commit/Cancel` gesture
+///   dispatch through the real `syn.control.*` surface. The controlled
+///   display is the seconds position of the authoritative projection
+///   (see the adapter in `binding.rs`). Its range is
+///   [`seek_range_seconds`] of `state.project_length_seconds`.
 /// - **Mixer** tab: the `Fader` bound to the bootstrap master-strip
 ///   fader target (see [`mixer_fader`]).
+/// - **Inspector** tab: the target `Label` and breakdown `Table`
+///   ([`inspector_target_label`]/[`inspector_table`]) resolved from
+///   `state.inspector`.
 #[must_use]
-pub fn main_screen_spec(project_length_seconds: f64) -> ViewSpec {
-    let seek_range = seek_range_seconds(project_length_seconds);
+pub fn main_screen_spec(state: &MainScreenState) -> ViewSpec {
+    let seek_range = seek_range_seconds(state.project_length_seconds);
     ViewSpec {
         root: panel(
             "screen.root",
@@ -247,13 +403,36 @@ pub fn main_screen_spec(project_length_seconds: f64) -> ViewSpec {
                             child: Box::new(panel(
                                 "tab.transport.panel",
                                 None,
-                                vec![transport_seek(seek_range)],
+                                vec![
+                                    transport_status_label(&state.transport),
+                                    panel(
+                                        "transport.buttons",
+                                        None,
+                                        vec![
+                                            transport_button("transport.play", "Play", "play"),
+                                            transport_button("transport.stop", "Stop", "stop"),
+                                        ],
+                                    ),
+                                    transport_seek(seek_range),
+                                ],
                             )),
                         },
                         TabSpec {
                             key: key("tab.mixer"),
                             title: "Mixer".to_string(),
                             child: Box::new(panel("tab.mixer.panel", None, vec![mixer_fader()])),
+                        },
+                        TabSpec {
+                            key: key("tab.inspector"),
+                            title: "Inspector".to_string(),
+                            child: Box::new(panel(
+                                "tab.inspector.panel",
+                                None,
+                                vec![
+                                    inspector_target_label(&state.inspector),
+                                    inspector_table(&state.inspector),
+                                ],
+                            )),
                         },
                     ],
                     visual: ComponentVisualState::default(),
@@ -289,10 +468,10 @@ pub fn main_screen_spec(project_length_seconds: f64) -> ViewSpec {
 /// defect (the seek range is always finite and ordered).
 pub fn mount_main_view(
     attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
-    project_length_seconds: f64,
+    state: &MainScreenState,
 ) -> Result<ViewHost, UiError> {
     let mut host = ViewHost::new(main_view_instance(), attach_epochs.borrow_mut().mint());
-    host.mount(main_screen_spec(project_length_seconds))
+    host.mount(main_screen_spec(state))
         .map_err(|e| UiError::Internal {
             message: format!("main screen spec invalid: {e}"),
         })?;

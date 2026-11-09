@@ -35,6 +35,7 @@ Directory: `docs/plans`
 | PLAN-034Um6RlcTKbVmfUr7A4yJ | SF-04 slice1 実装計画 — project/player Semantic Probe Adapter + ruviform pin bump | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | PLAN-v1VQEMk92Nx1lQHUlSVh1t | SV-GUI-01 実装計画 — Desktop App Bootstrap・WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap.md](./sv-gui-01-desktop-app-bootstrap.md) |
 | PLAN-SVGUI02 | SV-GUI-02 View Model・Binding IPC 実装計画 | approved | [sv-gui-02-view-model-binding-ipc.md](./sv-gui-02-view-model-binding-ipc.md) |
+| PLAN-034Ul4TkjPiKYvapjdmBbt | SV-GUI-03 slice1 Transport/Inspector 実施 plan | approved | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
 | PLAN-iD5fujcWIovHuywc0CIEeu | SV175 Native App Shell 実施計画 | approved | [sv175-native-shell.md](./sv175-native-shell.md) |
 | PLAN-034T7GApSe3z9XUatjz8ti | SV177 Product Theme / Workspace Presets — synvelis-theme crate・DTCG assets・slot-based preset apply | approved | [sv177-product-theme-workspace-presets.md](./sv177-product-theme-workspace-presets.md) |
 | PLAN-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain projection 実施 plan | approved | [sv185-mixer-gain-projection.md](./sv185-mixer-gain-projection.md) |
