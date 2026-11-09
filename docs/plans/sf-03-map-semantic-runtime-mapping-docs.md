@@ -148,9 +148,10 @@ discovery ──► spec ──► design ──► test-spec
 - [x] ADR 決定（authoritative owner）
 - [x] design 統合設計（sf-03-map-semantic-runtime-mapping-design）
 - [x] test-spec 検証仕様（sf-03-map-failure-invariant-verification）
-- [ ] plan/task 作成と関係確定
-- [ ] managed index 再生成 + lint/fmt-check
-- [ ] review-protocol 最終判定 + PR
+- [x] plan/task 作成と関係確定
+- [x] managed index 再生成 + lint/fmt-check
+- [x] review-protocol 最終判定（CONFIRMED P0/P1 なし）
+- [ ] PR 作成（`Refs #106`・Issue は Close しない）
 
 ## Dependencies and Risks
 
@@ -167,13 +168,13 @@ discovery ──► spec ──► design ──► test-spec
 
 ## Verification
 
-- [ ] `docs/` の文書チェーンが spec→design→test-spec→plan→task
+- [x] `docs/` の文書チェーンが spec→design→test-spec→plan→task
   の関係で完結し、managed index が最新。
-- [ ] doc_status/doc_maintenance lint で新規文書に error がない
+- [x] doc_status/doc_maintenance lint で新規文書に error がない
   （既存 baseline の warning/error は別件として記録）。
-- [ ] `mise run fmt-check` exit 0（docs のみ変更・Rust 非対象）。
-- [ ] review-protocol で CONFIRMED P0/P1 が残っていない。
-- [ ] 実 OS/device/VST3・RT 実測・GUI は NotRun/Unsupported として
+- [x] `mise run fmt-check` exit 0（docs のみ変更・Rust 非対象）。
+- [x] review-protocol で CONFIRMED P0/P1 が残っていない。
+- [x] 実 OS/device/VST3・RT 実測・GUI は NotRun/Unsupported として
   記録され、成功と誤表示していない。
 
 ## Task Docs
