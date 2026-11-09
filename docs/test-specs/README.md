@@ -32,6 +32,7 @@ Directory: `docs/test-specs`
 | TSPEC-034Upc3ciohad3ZlmsOqVl | PC-C2 Control Relation Index E2E — 双方向・状態・stale・有界性・read-only | approved | [pc-c2-e2e-control-relation-index.md](./pc-c2-e2e-control-relation-index.md) |
 | TSPEC-10rDlBIZV1BQa6OmERMdbJ | PC-C3-05 RT trace adapter テスト仕様 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | TSPEC-034UqHaJf2vZgpPzjlqqi7 | PC-C3 ControlTrace E2E — stage 相関・freshness・probe 状態・plan activation | approved | [pc-c3-e2e-control-trace.md](./pc-c3-e2e-control-trace.md) |
+| TSPEC-tCO4ppjNmQv0ebUI6Q1rHD | PC-C5 slice1 テスト仕様 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
 | TSPEC-034UrlOOfZIvsdF1bdNXfE | RCD-02 Durability / Recovery Review / Commit Receipt fault matrix | proposed | [rcd-02-durability-recovery-review-fault-matrix.md](./rcd-02-durability-recovery-review-fault-matrix.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |

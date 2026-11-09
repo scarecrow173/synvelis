@@ -29,6 +29,7 @@ Directory: `docs/plans`
 | PLAN-034UpbrhX5dkELUwZUoS0i | PC-C2 Control Relation Index 実装計画 | approved | [pc-c2-control-relation-index.md](./pc-c2-control-relation-index.md) |
 | PLAN-qCDk2ELwZ5XT36rSkQsD8F | PC-C3-05 RT trace adapter 実装計画 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | PLAN-034UqHfN1LJeYNaoS0SGYL | PC-C3 ControlTrace projection 実装計画 | approved | [pc-c3-control-trace.md](./pc-c3-control-trace.md) |
+| PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-034UrkBlTpaeiSGII0EyIi | RCD-02 Durability Evidence / Recovery Review / Commit Receipt slice | approved | [rcd-02-durability-recovery-review.md](./rcd-02-durability-recovery-review.md) |
 | PLAN-034SF01Np0sTu5vW2xYzAbDeF | SF-01 Semantic Routing Model 実装計画 | approved | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |

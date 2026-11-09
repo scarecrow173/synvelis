@@ -27,6 +27,7 @@ pub mod host;
 pub mod link;
 pub mod persist;
 pub mod preset;
+pub mod relation_ui;
 pub mod selection;
 pub mod session;
 pub mod snap;
@@ -74,6 +75,10 @@ pub use persist::{WORKSPACE_SCHEMA, WorkspaceSnapshot};
 pub use preset::{
     PRESET_SCHEMA, PresetDock, PresetFocus, PresetGeometry, PresetLink, PresetReport, PresetView,
     PresetViewState, PresetWindow, WorkspacePreset,
+};
+pub use relation_ui::{
+    RELATION_VIEW_INCLUDE_DISABLED, RELATION_VIEW_MAX_DEPTH, RELATION_VIEW_MAX_EDGES, RelationNav,
+    RelationRow, RelationView, RelationViewOptions, relation_rows, relation_rows_with,
 };
 pub use selection::{
     EditBinding, EditTimeDomain, EditTimePoint, LaneScope, ObjectSelections, SelectionDomain,
