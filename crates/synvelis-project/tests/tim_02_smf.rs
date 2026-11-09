@@ -1198,6 +1198,7 @@ fn smf_export_overflow_is_typed() {
 // ===========================================================================
 
 #[test]
+#[allow(clippy::too_many_lines)] // table-driven malformed-input coverage
 fn smf_malformed_inputs_are_typed() {
     // Not an SMF at all.
     let err = parse_smf(b"NOTMIDI!").unwrap_err();
