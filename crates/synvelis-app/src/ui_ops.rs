@@ -252,11 +252,11 @@ fn dock_err(e: &synvelis_workspace::WorkspaceError) -> ErrorBody {
 // -- syn.signal_flow.* helpers -------------------------------------------
 
 /// `view_id` param — defaults to the composition root's main view.
-fn sf_view_param(params: &Value) -> Result<String, ErrorBody> {
-    Ok(params
+fn sf_view_param(params: &Value) -> String {
+    params
         .get("view_id")
         .and_then(Value::as_str)
-        .map_or_else(main_view_id, str::to_string))
+        .map_or_else(main_view_id, str::to_string)
 }
 
 /// One `SignalFlowEntityRef` wire value — `{"kind": ..., "id":
@@ -370,12 +370,12 @@ fn signal_flow_view_json(view: &SignalFlowView) -> Value {
             "role": format!("{:?}", edge.role),
             "source": {
                 "node": format!("{:?}", edge.source.node),
-                "port": edge.source.port.map(|p| p.to_tagged()),
+                "port": edge.source.port.map(SemanticPortId::to_tagged),
                 "port_role": format!("{:?}", edge.source.port_role),
             },
             "target": {
                 "node": format!("{:?}", edge.target.node),
-                "port": edge.target.port.map(|p| p.to_tagged()),
+                "port": edge.target.port.map(SemanticPortId::to_tagged),
                 "port_role": format!("{:?}", edge.target.port_role),
             },
             "enabled": edge.enabled,
@@ -1767,7 +1767,7 @@ impl SynvelisApp {
     /// # Errors
     /// [`ErrorBody`] on invalid parameters.
     pub fn op_signal_flow_view(&self, params: &Value) -> Result<Value, ErrorBody> {
-        let view = sf_view_param(params)?;
+        let view = sf_view_param(params);
         let mut options =
             self.ui
                 .signal_flow
@@ -1813,7 +1813,7 @@ impl SynvelisApp {
     /// # Errors
     /// [`ErrorBody`] on invalid parameters or an unknown action.
     pub fn op_signal_flow_visual(&mut self, params: &Value) -> Result<Value, ErrorBody> {
-        let view = sf_view_param(params)?;
+        let view = sf_view_param(params);
         let action = str_param(params, "action")?;
         let visual = self.ui.signal_flow.entry(view.clone()).or_default();
         match action {

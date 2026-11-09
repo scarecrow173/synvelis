@@ -91,7 +91,6 @@ fn capabilities_lists_unavailable_areas_honestly() {
         "audio_runtime",
         "recorder",
         "multi_window",
-        "signal_flow",
         "plugins",
         "ai",
     ] {
@@ -100,6 +99,9 @@ fn capabilities_lists_unavailable_areas_honestly() {
     assert_eq!(caps["project"]["state"], "available");
     assert_eq!(caps["workspace"]["state"], "available");
     assert_eq!(caps["views"]["state"], "available");
+    // SF-05 slice 1: headless read model + visual ops are available;
+    // the canvas stays deferred (synvelis#108).
+    assert_eq!(caps["signal_flow"]["state"], "available");
 }
 
 #[test]

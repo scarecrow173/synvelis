@@ -26,8 +26,8 @@ use synvelis_player::routing_lower::GainProcessor;
 use synvelis_project::{
     BusKind, ClipExtent, ClipId, ClipPlacement, ClipPlayback, Command, ConnectionKind, LaneId,
     MediaDuration, MediaTimeValue, PlaybackMapping, PortDirection, PortRole, ProcessorBinding,
-    Project, ProjectController, ProjectOp, ProjectRevision, RoutingActivationState, SemanticPortId,
-    SendTap, SourceFrame, SourceId, SourceRange, StripId, TimeAnchor, TrackId,
+    ProcessorId, Project, ProjectController, ProjectOp, ProjectRevision, RoutingActivationState,
+    SemanticPortId, SendTap, SourceFrame, SourceId, SourceRange, StripId, TimeAnchor, TrackId,
 };
 use synvelis_workspace::EnginePort;
 
@@ -180,6 +180,105 @@ fn bus_strip(p: &Project, bus: synvelis_project::BusId) -> StripId {
     p.routing.buses[&bus].strip
 }
 
+/// Adds a bus and returns `(bus id, its strip)`.
+fn add_bus(
+    c: &mut ProjectController,
+    kind: BusKind,
+    name: &str,
+) -> (synvelis_project::BusId, StripId) {
+    apply(
+        c,
+        ProjectOp::AddBus {
+            kind,
+            name: name.into(),
+        },
+    );
+    let bus = c
+        .live()
+        .routing
+        .buses
+        .values()
+        .find(|b| b.name == name)
+        .unwrap()
+        .id;
+    (bus, bus_strip(c.live(), bus))
+}
+
+/// Main-kind connection between two strips' main ports.
+fn connect_strips(
+    c: &mut ProjectController,
+    source: StripId,
+    destination: StripId,
+    kind: ConnectionKind,
+) {
+    connect(
+        c,
+        strip_main_port(c.live(), source, PortDirection::Output),
+        strip_main_port(c.live(), destination, PortDirection::Input),
+        kind,
+    );
+}
+
+fn connect(
+    c: &mut ProjectController,
+    source: SemanticPortId,
+    destination: SemanticPortId,
+    kind: ConnectionKind,
+) {
+    apply(
+        c,
+        ProjectOp::AddConnection {
+            source,
+            destination,
+            kind,
+            channel_map: None,
+        },
+    );
+}
+
+/// Inserts a chain processor with a fixture-resolvable binding and
+/// returns its semantic id.
+fn insert_processor(
+    c: &mut ProjectController,
+    strip: StripId,
+    index: usize,
+    name: &str,
+    sidechain_input: bool,
+) -> ProcessorId {
+    apply(
+        c,
+        ProjectOp::InsertProcessor {
+            strip_id: strip,
+            index,
+            name: name.into(),
+            binding: ProcessorBinding::Resolved(synvelis_project::PluginRef {
+                descriptor: format!("vendor.{name}"),
+                version: "1.0".into(),
+                capability_revision: 1,
+            }),
+            sidechain_input,
+        },
+    );
+    *c.live().routing.processors.keys().next_back().unwrap()
+}
+
+fn processor_port(
+    c: &ProjectController,
+    processor: ProcessorId,
+    direction: PortDirection,
+    role: PortRole,
+) -> SemanticPortId {
+    c.live().routing.processors[&processor]
+        .port_ids
+        .iter()
+        .find(|id| {
+            let p = &c.live().routing.ports[id];
+            p.direction == direction && p.role == role
+        })
+        .copied()
+        .expect("processor port")
+}
+
 /// The Issue #108 routing fixture on the app's live project —
 /// Bass→Music Bus→Master, Kick→Sidechain, Pre/Post sends→Return,
 /// a two-processor chain — all through `ProjectOp` on the session's
@@ -190,133 +289,44 @@ fn seed_routing(c: &mut ProjectController) {
     let (_kick, kick_strip, _kick_lane) = add_track_strip(c, "kick");
     let (_vox, vox_strip, _vox_lane) = add_track_strip(c, "vox");
 
-    apply(
-        c,
-        ProjectOp::AddBus {
-            kind: BusKind::Group,
-            name: "music".into(),
-        },
-    );
-    let music_bus = c
-        .live()
-        .routing
-        .buses
-        .values()
-        .find(|b| b.name == "music")
-        .unwrap()
-        .id;
-    let music_strip = bus_strip(c.live(), music_bus);
-    apply(
-        c,
-        ProjectOp::AddBus {
-            kind: BusKind::Return,
-            name: "verb".into(),
-        },
-    );
-    let verb_bus = c
-        .live()
-        .routing
-        .buses
-        .values()
-        .find(|b| b.name == "verb")
-        .unwrap()
-        .id;
-    let verb_strip = bus_strip(c.live(), verb_bus);
+    let (_music_bus, music_strip) = add_bus(c, BusKind::Group, "music");
+    let (_verb_bus, verb_strip) = add_bus(c, BusKind::Return, "verb");
     let master_strip = bus_strip(c.live(), c.live().routing.master);
 
     // Bass → Music → Master.
-    apply(
-        c,
-        ProjectOp::AddConnection {
-            source: strip_main_port(c.live(), bass_strip, PortDirection::Output),
-            destination: strip_main_port(c.live(), music_strip, PortDirection::Input),
-            kind: ConnectionKind::Main,
-            channel_map: None,
-        },
-    );
-    apply(
-        c,
-        ProjectOp::AddConnection {
-            source: strip_main_port(c.live(), music_strip, PortDirection::Output),
-            destination: strip_main_port(c.live(), master_strip, PortDirection::Input),
-            kind: ConnectionKind::Main,
-            channel_map: None,
-        },
-    );
+    connect_strips(c, bass_strip, music_strip, ConnectionKind::Main);
+    connect_strips(c, music_strip, master_strip, ConnectionKind::Main);
 
     // Kick → sidechain of a processor on the music strip.
-    apply(
+    let sc_proc = insert_processor(c, music_strip, 0, "comp", true);
+    let sc_port = processor_port(c, sc_proc, PortDirection::Input, PortRole::Sidechain);
+    connect(
         c,
-        ProjectOp::InsertProcessor {
-            strip_id: music_strip,
-            index: 0,
-            name: "comp".into(),
-            binding: ProcessorBinding::Resolved(synvelis_project::PluginRef {
-                descriptor: "vendor.comp".into(),
-                version: "1.0".into(),
-                capability_revision: 1,
-            }),
-            sidechain_input: true,
-        },
-    );
-    let sc_proc = *c.live().routing.processors.keys().next_back().unwrap();
-    let sc_port = c.live().routing.processors[&sc_proc]
-        .port_ids
-        .iter()
-        .find(|id| {
-            let p = &c.live().routing.ports[id];
-            p.direction == PortDirection::Input && p.role == PortRole::Sidechain
-        })
-        .copied()
-        .unwrap();
-    apply(
-        c,
-        ProjectOp::AddConnection {
-            source: strip_main_port(c.live(), kick_strip, PortDirection::Output),
-            destination: sc_port,
-            kind: ConnectionKind::Sidechain,
-            channel_map: None,
-        },
+        strip_main_port(c.live(), kick_strip, PortDirection::Output),
+        sc_port,
+        ConnectionKind::Sidechain,
     );
 
     // Pre/Post sends → Return bus.
     let verb_in = strip_main_port(c.live(), verb_strip, PortDirection::Input);
-    apply(
-        c,
-        ProjectOp::AddSend {
-            source: strip_main_port(c.live(), vox_strip, PortDirection::Output),
-            destination: verb_in,
-            tap: SendTap::PreFader,
-            gain_target: None,
-        },
-    );
-    apply(
-        c,
-        ProjectOp::AddSend {
-            source: strip_main_port(c.live(), bass_strip, PortDirection::Output),
-            destination: verb_in,
-            tap: SendTap::PostFader,
-            gain_target: None,
-        },
-    );
-
-    // Two-processor chain on the bass strip.
-    for (index, name) in [(0usize, "eq"), (1, "comp2")] {
+    for (source, tap) in [
+        (vox_strip, SendTap::PreFader),
+        (bass_strip, SendTap::PostFader),
+    ] {
         apply(
             c,
-            ProjectOp::InsertProcessor {
-                strip_id: bass_strip,
-                index,
-                name: name.into(),
-                binding: ProcessorBinding::Resolved(synvelis_project::PluginRef {
-                    descriptor: format!("vendor.{name}"),
-                    version: "1.0".into(),
-                    capability_revision: 1,
-                }),
-                sidechain_input: false,
+            ProjectOp::AddSend {
+                source: strip_main_port(c.live(), source, PortDirection::Output),
+                destination: verb_in,
+                tap,
+                gain_target: None,
             },
         );
     }
+
+    // Two-processor chain on the bass strip.
+    insert_processor(c, bass_strip, 0, "eq", false);
+    insert_processor(c, bass_strip, 1, "comp2", false);
 }
 
 /// App + engine + seeded routing/media fixture. Setup mutations go
@@ -375,12 +385,12 @@ fn app_with_engine(root: &Path) -> (SynvelisApp, SessionRoutingEngine) {
     (app, engine)
 }
 
-fn entity(kind: &str, id: String) -> Value {
+fn entity(kind: &str, id: &str) -> Value {
     json!({ "kind": kind, "id": id })
 }
 
 fn strip_entity(strip: StripId) -> Value {
-    entity("strip", strip.to_tagged())
+    entity("strip", &strip.to_tagged())
 }
 
 // ---------------------------------------------------------------------------
@@ -415,14 +425,14 @@ fn visual_ops_leave_project_revision_undo_engine_and_receipt_untouched() {
         json!({"action": "move_node",
                "entity": strip_entity(strip), "x": 10.0, "y": -4.0}),
         json!({"action": "set_group", "group_id": 7,
-               "label": "drums", "members": [entity("track", track.to_tagged())],
+               "label": "drums", "members": [entity("track", &track.to_tagged())],
                "collapsed": false}),
         json!({"action": "fold", "entity": strip_entity(strip)}),
         json!({"action": "unfold", "entity": strip_entity(strip)}),
         json!({"action": "zoom", "zoom": 1.25}),
         json!({"action": "pan", "x": 3.0, "y": 4.0}),
         json!({"action": "link_focus",
-               "entity": entity("track", track.to_tagged())}),
+               "entity": entity("track", &track.to_tagged())}),
         json!({"action": "link_focus", "entity": Value::Null}),
         json!({"action": "set_scope", "scope": "expanded"}),
     ];

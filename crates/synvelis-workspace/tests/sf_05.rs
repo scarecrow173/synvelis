@@ -551,8 +551,8 @@ fn local_unknown_root_is_unavailable() {
         };
         let view = signal_flow_graph(&session, &options, None);
         assert_eq!(view.coverage, SignalFlowCoverage::Unavailable, "{root:?}");
-        assert!(view.nodes.is_empty());
-        assert!(view.edges.is_empty());
+        assert_eq!(view.nodes.len(), 0);
+        assert_eq!(view.edges.len(), 0);
     }
 }
 
@@ -567,7 +567,8 @@ fn role_filter_narrows_edges_without_dropping_nodes() {
     let view = signal_flow_graph(&session, &options, None);
 
     assert_eq!(view.coverage, SignalFlowCoverage::Complete);
-    assert!(!view.edges.is_empty());
+    // Exactly one Send edge per persisted send — never duplicated.
+    assert_eq!(view.edges.len(), session.project().routing.sends.len());
     assert!(
         view.edges
             .iter()
@@ -621,10 +622,10 @@ fn history_scope_and_empty_layers_are_unsupported() {
     };
     let view = signal_flow_graph(&session, &history, None);
     assert_eq!(view.coverage, SignalFlowCoverage::Unsupported);
-    assert!(view.nodes.is_empty());
+    assert_eq!(view.nodes.len(), 0);
 
     let no_layers = SignalFlowViewOptions {
-        layers: Default::default(),
+        layers: std::collections::BTreeSet::default(),
         ..SignalFlowViewOptions::default()
     };
     let view = signal_flow_graph(&session, &no_layers, None);
@@ -642,8 +643,8 @@ fn expected_revision_mismatch_is_stale_with_empty_graph() {
     let view = signal_flow_graph(&session, &options, None);
 
     assert_eq!(view.coverage, SignalFlowCoverage::Stale);
-    assert!(view.nodes.is_empty());
-    assert!(view.edges.is_empty());
+    assert_eq!(view.nodes.len(), 0);
+    assert_eq!(view.edges.len(), 0);
     // Status still reports the live revision — Stale describes the
     // query, not a fabricated project state.
     assert_eq!(view.status.project_revision, live);
@@ -821,7 +822,7 @@ fn absent_engine_evidence_reports_unobserved_not_success() {
     assert_eq!(view.status.published_generation, None);
     assert_eq!(view.status.observed_active_generation, None);
     assert!(!view.status.stale);
-    assert!(view.status.probes.is_empty());
+    assert_eq!(view.status.probes.len(), 0);
     assert!(
         view.nodes
             .iter()

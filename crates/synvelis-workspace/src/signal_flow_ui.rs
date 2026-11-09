@@ -23,12 +23,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use synvelis_project::{
-    AvailabilityReason, BusId, BusKind, ConnectionKind, MappingResolution, NotLoweredReason,
-    PortBinding, PortOwner, PortRole, ProbeMode, ProbeResolveState, ProcessorBinding, ProcessorId,
-    ProjectId, ProjectRevision, RoutingActivationReceipt, RoutingActivationState,
-    RoutingConnectionId, RoutingFault, RoutingModel, RoutingSourceMap, SemanticNodeRef,
-    SemanticPortId, SemanticProbeBinding, SemanticProbePoint, SemanticSignalEntityRef, SendId,
-    SendTap, StripId, StripOwner, TrackId, UnsupportedReason,
+    AvailabilityReason, BusId, BusKind, ChannelStrip, ConnectionKind, MappingResolution,
+    NotLoweredReason, PortBinding, PortOwner, PortRole, ProbeMode, ProbeResolveState,
+    ProcessorBinding, ProcessorId, Project, ProjectId, ProjectRevision, RoutingActivationReceipt,
+    RoutingActivationState, RoutingConnectionId, RoutingFault, RoutingModel, RoutingSourceMap,
+    SemanticNodeRef, SemanticPortId, SemanticProbeBinding, SemanticProbePoint,
+    SemanticSignalEntityRef, SendId, SendTap, StripId, StripOwner, TrackId, UnsupportedReason,
 };
 
 use crate::session::ProjectSession;
@@ -678,55 +678,7 @@ pub fn signal_flow_graph_with(
     // -- strip nodes ---------------------------------------------------
     let mut strip_nodes: BTreeMap<StripId, SignalFlowNode> = BTreeMap::new();
     for (strip_id, channel) in &routing.strips {
-        let (kind, label) = match channel.owner {
-            StripOwner::Track(track) => {
-                let name = project
-                    .tracks
-                    .get(&track)
-                    .map_or_else(|| track.to_string(), |t| t.name.clone());
-                (
-                    SignalFlowNodeKind::TrackStrip {
-                        track,
-                        name: name.clone(),
-                    },
-                    name,
-                )
-            }
-            StripOwner::Bus(bus) => {
-                let bus_entity = routing.buses.get(&bus);
-                let name = bus_entity.map_or_else(|| bus.to_string(), |b| b.name.clone());
-                (
-                    SignalFlowNodeKind::BusStrip {
-                        bus,
-                        kind: bus_entity.map_or(BusKind::Group, |b| b.kind),
-                        name: name.clone(),
-                    },
-                    name,
-                )
-            }
-        };
-        let processor_count = routing
-            .chains
-            .get(&channel.chain)
-            .map_or(0, |chain| chain.processors.len());
-        strip_nodes.insert(
-            *strip_id,
-            SignalFlowNode {
-                id: SignalFlowNodeId::Strip(*strip_id),
-                kind,
-                label,
-                state: if strip_unresolved(routing, *strip_id) {
-                    SignalFlowNodeState::Unresolved
-                } else {
-                    SignalFlowNodeState::Ready
-                },
-                runtime: SignalFlowNodeRuntime::Unobserved,
-                probe: None,
-                muted: routing.strip_muted(&project.control, *strip_id),
-                soloed: routing.strip_soloed(&project.control, *strip_id),
-                processor_count,
-            },
-        );
+        strip_nodes.insert(*strip_id, strip_node(project, routing, *strip_id, channel));
     }
 
     // -- expansion decision ---------------------------------------------
@@ -737,204 +689,32 @@ pub fn signal_flow_graph_with(
         .iter()
         .filter_map(|entity| entity_strip(routing, *entity))
         .collect();
-    let mut expanded: BTreeSet<StripId> = BTreeSet::new();
-    let mut local_only_processor: Option<ProcessorId> = None;
-    match &options.scope {
-        SignalFlowScope::Expanded => {
-            expanded = strip_nodes.keys().copied().collect();
-            expanded.retain(|strip| !collapsed_strips.contains(strip));
-        }
-        SignalFlowScope::Local {
-            root: SignalFlowEntityRef::Processor(processor),
-        } => {
-            if let Some(strip) = routing.strip_of_processor(*processor)
-                && !collapsed_strips.contains(&strip)
-            {
-                expanded.insert(strip);
-                local_only_processor = Some(*processor);
-            }
-        }
-        _ => {}
-    }
+    let (expanded, local_only_processor) =
+        expanded_strips(options, &strip_nodes, &collapsed_strips, routing);
 
     // -- processor nodes -------------------------------------------------
-    let mut proc_nodes: BTreeMap<ProcessorId, SignalFlowNode> = BTreeMap::new();
-    for strip_id in &expanded {
-        let Some(channel) = routing.strips.get(strip_id) else {
-            continue;
-        };
-        let Some(chain) = routing.chains.get(&channel.chain) else {
-            continue;
-        };
-        for (index, processor_id) in chain.processors.iter().enumerate() {
-            if let Some(only) = local_only_processor
-                && *processor_id != only
-            {
-                continue;
-            }
-            let Some(entity) = routing.processors.get(processor_id) else {
-                continue;
-            };
-            proc_nodes.insert(
-                *processor_id,
-                SignalFlowNode {
-                    id: SignalFlowNodeId::Processor(*processor_id),
-                    kind: SignalFlowNodeKind::Processor {
-                        strip: *strip_id,
-                        index,
-                    },
-                    label: entity.name.clone(),
-                    state: if processor_unresolved(routing, *processor_id) {
-                        SignalFlowNodeState::Unresolved
-                    } else {
-                        SignalFlowNodeState::Ready
-                    },
-                    runtime: SignalFlowNodeRuntime::Unobserved,
-                    probe: None,
-                    muted: false,
-                    soloed: false,
-                    processor_count: 0,
-                },
-            );
-        }
-    }
+    let mut proc_nodes = processor_nodes(routing, &expanded, local_only_processor);
 
     // -- edges -----------------------------------------------------------
-    let port_node = |port_id: SemanticPortId,
-                     proc_nodes: &BTreeMap<ProcessorId, SignalFlowNode>|
-     -> Option<SignalFlowNodeId> {
-        let port = routing.ports.get(&port_id)?;
-        match port.owner {
-            PortOwner::Strip(strip) => Some(SignalFlowNodeId::Strip(strip)),
-            PortOwner::Processor(processor) => proc_nodes
-                .contains_key(&processor)
-                .then_some(SignalFlowNodeId::Processor(processor))
-                .or_else(|| {
-                    routing
-                        .strip_of_processor(processor)
-                        .map(SignalFlowNodeId::Strip)
-                }),
-        }
-    };
-
-    let mut edges: Vec<SignalFlowEdge> = Vec::new();
-    for (connection_id, connection) in &routing.connections {
-        let (Some(source_port), Some(target_port)) = (
-            routing.ports.get(&connection.source),
-            routing.ports.get(&connection.destination),
-        ) else {
-            continue;
-        };
-        let (Some(source_node), Some(target_node)) = (
-            port_node(connection.source, &proc_nodes),
-            port_node(connection.destination, &proc_nodes),
-        ) else {
-            continue;
-        };
-        let (role, tap) = match connection.kind {
-            ConnectionKind::Main => (SignalFlowEdgeRole::Main, None),
-            ConnectionKind::Sidechain => (SignalFlowEdgeRole::Sidechain, None),
-            ConnectionKind::Send(send_id) => (
-                SignalFlowEdgeRole::Send,
-                routing.sends.get(&send_id).map(|s| s.tap),
-            ),
-        };
-        edges.push(SignalFlowEdge {
-            id: SignalFlowEdgeId::Connection(*connection_id),
-            role,
-            source: SignalFlowEndpoint {
-                node: source_node,
-                port: Some(connection.source),
-                port_role: source_port.role,
-            },
-            target: SignalFlowEndpoint {
-                node: target_node,
-                port: Some(connection.destination),
-                port_role: target_port.role,
-            },
-            enabled: connection.enabled,
-            tap,
-        });
-    }
-
-    // Synthesized chain-order edges (Expanded scope only).
-    if !expanded.is_empty() {
-        for strip_id in &expanded {
-            let Some(channel) = routing.strips.get(strip_id) else {
-                continue;
-            };
-            let Some(chain) = routing.chains.get(&channel.chain) else {
-                continue;
-            };
-            // Only emit chain edges when the whole chain is expanded
-            // (Local{Processor} shows the node without implying order).
-            if local_only_processor.is_some() {
-                continue;
-            }
-            for (index, window) in chain.processors.windows(2).enumerate() {
-                let (up, down) = (window[0], window[1]);
-                if !proc_nodes.contains_key(&up) || !proc_nodes.contains_key(&down) {
-                    continue;
-                }
-                edges.push(SignalFlowEdge {
-                    id: SignalFlowEdgeId::Chain {
-                        strip: *strip_id,
-                        index,
-                    },
-                    role: SignalFlowEdgeRole::Chain,
-                    source: SignalFlowEndpoint {
-                        node: SignalFlowNodeId::Processor(up),
-                        port: None,
-                        port_role: PortRole::Main,
-                    },
-                    target: SignalFlowEndpoint {
-                        node: SignalFlowNodeId::Processor(down),
-                        port: None,
-                        port_role: PortRole::Main,
-                    },
-                    enabled: true,
-                    tap: None,
-                });
-            }
-        }
-    }
+    let mut edges = signal_edges(
+        routing,
+        &proc_nodes,
+        &expanded,
+        local_only_processor.is_none(),
+    );
 
     // -- Local scope: induced 1-hop subgraph -----------------------------
-    if let SignalFlowScope::Local { root } = &options.scope {
-        let focus_strip = entity_strip(routing, *root);
-        let focus_proc = match root {
-            SignalFlowEntityRef::Processor(p) => Some(*p),
-            _ => None,
-        };
-        let mut keep_nodes: BTreeSet<SignalFlowNodeId> = BTreeSet::new();
-        if let Some(strip) = focus_strip {
-            keep_nodes.insert(SignalFlowNodeId::Strip(strip));
-        }
-        if let Some(proc_id) = focus_proc
-            && proc_nodes.contains_key(&proc_id)
-        {
-            keep_nodes.insert(SignalFlowNodeId::Processor(proc_id));
-        }
-        if keep_nodes.is_empty() {
-            view.coverage = SignalFlowCoverage::Unavailable;
-            return view;
-        }
-        // Neighbors: nodes sharing an edge with a focus node.
-        let mut neighbor_nodes: BTreeSet<SignalFlowNodeId> = BTreeSet::new();
-        for edge in &edges {
-            let touches =
-                keep_nodes.contains(&edge.source.node) || keep_nodes.contains(&edge.target.node);
-            if touches {
-                neighbor_nodes.insert(edge.source.node);
-                neighbor_nodes.insert(edge.target.node);
-            }
-        }
-        keep_nodes.extend(neighbor_nodes);
-        strip_nodes.retain(|strip, _| keep_nodes.contains(&SignalFlowNodeId::Strip(*strip)));
-        proc_nodes.retain(|proc, _| keep_nodes.contains(&SignalFlowNodeId::Processor(*proc)));
-        edges.retain(|edge| {
-            keep_nodes.contains(&edge.source.node) && keep_nodes.contains(&edge.target.node)
-        });
+    if let SignalFlowScope::Local { root } = &options.scope
+        && !local_scope_filter(
+            &mut strip_nodes,
+            &mut proc_nodes,
+            &mut edges,
+            routing,
+            *root,
+        )
+    {
+        view.coverage = SignalFlowCoverage::Unavailable;
+        return view;
     }
 
     // -- Role filter ------------------------------------------------------
@@ -973,6 +753,296 @@ pub fn signal_flow_graph_with(
     view.nodes = nodes;
     view.edges = edges;
     view
+}
+
+/// Builds the strip-level node for `strip_id` — Track/Bpm strip
+/// naming, unresolved binding state, mute/solo from control state.
+fn strip_node(
+    project: &Project,
+    routing: &RoutingModel,
+    strip_id: StripId,
+    channel: &ChannelStrip,
+) -> SignalFlowNode {
+    let (kind, label) = match channel.owner {
+        StripOwner::Track(track) => {
+            let name = project
+                .tracks
+                .get(&track)
+                .map_or_else(|| track.to_string(), |t| t.name.clone());
+            (
+                SignalFlowNodeKind::TrackStrip {
+                    track,
+                    name: name.clone(),
+                },
+                name,
+            )
+        }
+        StripOwner::Bus(bus) => {
+            let bus_entity = routing.buses.get(&bus);
+            let name = bus_entity.map_or_else(|| bus.to_string(), |b| b.name.clone());
+            (
+                SignalFlowNodeKind::BusStrip {
+                    bus,
+                    kind: bus_entity.map_or(BusKind::Group, |b| b.kind),
+                    name: name.clone(),
+                },
+                name,
+            )
+        }
+    };
+    let processor_count = routing
+        .chains
+        .get(&channel.chain)
+        .map_or(0, |chain| chain.processors.len());
+    SignalFlowNode {
+        id: SignalFlowNodeId::Strip(strip_id),
+        kind,
+        label,
+        state: if strip_unresolved(routing, strip_id) {
+            SignalFlowNodeState::Unresolved
+        } else {
+            SignalFlowNodeState::Ready
+        },
+        runtime: SignalFlowNodeRuntime::Unobserved,
+        probe: None,
+        muted: routing.strip_muted(&project.control, strip_id),
+        soloed: routing.strip_soloed(&project.control, strip_id),
+        processor_count,
+    }
+}
+
+/// Resolves which strips expand to processor nodes and — for
+/// `Local{Processor}` — the single processor allowed inside its
+/// strip (chain-order edges stay suppressed for it).
+fn expanded_strips(
+    options: &SignalFlowViewOptions,
+    strip_nodes: &BTreeMap<StripId, SignalFlowNode>,
+    collapsed_strips: &BTreeSet<StripId>,
+    routing: &RoutingModel,
+) -> (BTreeSet<StripId>, Option<ProcessorId>) {
+    match &options.scope {
+        SignalFlowScope::Expanded => {
+            let expanded = strip_nodes
+                .keys()
+                .copied()
+                .filter(|strip| !collapsed_strips.contains(strip))
+                .collect();
+            (expanded, None)
+        }
+        SignalFlowScope::Local {
+            root: SignalFlowEntityRef::Processor(processor),
+        } => {
+            let mut expanded = BTreeSet::new();
+            let mut local_only = None;
+            if let Some(strip) = routing.strip_of_processor(*processor)
+                && !collapsed_strips.contains(&strip)
+            {
+                expanded.insert(strip);
+                local_only = Some(*processor);
+            }
+            (expanded, local_only)
+        }
+        _ => (BTreeSet::new(), None),
+    }
+}
+
+/// Projects processor nodes for every expanded strip, honoring the
+/// `Local{Processor}` single-processor restriction.
+fn processor_nodes(
+    routing: &RoutingModel,
+    expanded: &BTreeSet<StripId>,
+    local_only: Option<ProcessorId>,
+) -> BTreeMap<ProcessorId, SignalFlowNode> {
+    let mut proc_nodes: BTreeMap<ProcessorId, SignalFlowNode> = BTreeMap::new();
+    for strip_id in expanded {
+        let Some(channel) = routing.strips.get(strip_id) else {
+            continue;
+        };
+        let Some(chain) = routing.chains.get(&channel.chain) else {
+            continue;
+        };
+        for (index, processor_id) in chain.processors.iter().enumerate() {
+            if let Some(only) = local_only
+                && *processor_id != only
+            {
+                continue;
+            }
+            let Some(entity) = routing.processors.get(processor_id) else {
+                continue;
+            };
+            proc_nodes.insert(
+                *processor_id,
+                SignalFlowNode {
+                    id: SignalFlowNodeId::Processor(*processor_id),
+                    kind: SignalFlowNodeKind::Processor {
+                        strip: *strip_id,
+                        index,
+                    },
+                    label: entity.name.clone(),
+                    state: if processor_unresolved(routing, *processor_id) {
+                        SignalFlowNodeState::Unresolved
+                    } else {
+                        SignalFlowNodeState::Ready
+                    },
+                    runtime: SignalFlowNodeRuntime::Unobserved,
+                    probe: None,
+                    muted: false,
+                    soloed: false,
+                    processor_count: 0,
+                },
+            );
+        }
+    }
+    proc_nodes
+}
+
+/// Projects persisted `RoutingConnection`s 1:1 (never duplicated per
+/// send/config) plus synthesized chain-order edges when
+/// `emit_chain_edges` — suppressed for `Local{Processor}` so the node
+/// shows without implying order.
+fn signal_edges(
+    routing: &RoutingModel,
+    proc_nodes: &BTreeMap<ProcessorId, SignalFlowNode>,
+    expanded: &BTreeSet<StripId>,
+    emit_chain_edges: bool,
+) -> Vec<SignalFlowEdge> {
+    let port_node = |port_id: SemanticPortId| -> Option<SignalFlowNodeId> {
+        let port = routing.ports.get(&port_id)?;
+        match port.owner {
+            PortOwner::Strip(strip) => Some(SignalFlowNodeId::Strip(strip)),
+            PortOwner::Processor(processor) => proc_nodes
+                .contains_key(&processor)
+                .then_some(SignalFlowNodeId::Processor(processor))
+                .or_else(|| {
+                    routing
+                        .strip_of_processor(processor)
+                        .map(SignalFlowNodeId::Strip)
+                }),
+        }
+    };
+
+    let mut edges: Vec<SignalFlowEdge> = Vec::new();
+    for (connection_id, connection) in &routing.connections {
+        let (Some(source_port), Some(target_port)) = (
+            routing.ports.get(&connection.source),
+            routing.ports.get(&connection.destination),
+        ) else {
+            continue;
+        };
+        let (Some(source_node), Some(target_node)) = (
+            port_node(connection.source),
+            port_node(connection.destination),
+        ) else {
+            continue;
+        };
+        let (role, tap) = match connection.kind {
+            ConnectionKind::Main => (SignalFlowEdgeRole::Main, None),
+            ConnectionKind::Sidechain => (SignalFlowEdgeRole::Sidechain, None),
+            ConnectionKind::Send(send_id) => (
+                SignalFlowEdgeRole::Send,
+                routing.sends.get(&send_id).map(|s| s.tap),
+            ),
+        };
+        edges.push(SignalFlowEdge {
+            id: SignalFlowEdgeId::Connection(*connection_id),
+            role,
+            source: SignalFlowEndpoint {
+                node: source_node,
+                port: Some(connection.source),
+                port_role: source_port.role,
+            },
+            target: SignalFlowEndpoint {
+                node: target_node,
+                port: Some(connection.destination),
+                port_role: target_port.role,
+            },
+            enabled: connection.enabled,
+            tap,
+        });
+    }
+
+    if emit_chain_edges {
+        for strip_id in expanded {
+            let Some(channel) = routing.strips.get(strip_id) else {
+                continue;
+            };
+            let Some(chain) = routing.chains.get(&channel.chain) else {
+                continue;
+            };
+            for (index, window) in chain.processors.windows(2).enumerate() {
+                let (up, down) = (window[0], window[1]);
+                if !proc_nodes.contains_key(&up) || !proc_nodes.contains_key(&down) {
+                    continue;
+                }
+                edges.push(SignalFlowEdge {
+                    id: SignalFlowEdgeId::Chain {
+                        strip: *strip_id,
+                        index,
+                    },
+                    role: SignalFlowEdgeRole::Chain,
+                    source: SignalFlowEndpoint {
+                        node: SignalFlowNodeId::Processor(up),
+                        port: None,
+                        port_role: PortRole::Main,
+                    },
+                    target: SignalFlowEndpoint {
+                        node: SignalFlowNodeId::Processor(down),
+                        port: None,
+                        port_role: PortRole::Main,
+                    },
+                    enabled: true,
+                    tap: None,
+                });
+            }
+        }
+    }
+    edges
+}
+
+/// Narrows the projected graph to the root entity plus its 1-hop
+/// neighbors. Returns `false` when the root resolves to nothing —
+/// the caller reports `Unavailable`.
+fn local_scope_filter(
+    strip_nodes: &mut BTreeMap<StripId, SignalFlowNode>,
+    proc_nodes: &mut BTreeMap<ProcessorId, SignalFlowNode>,
+    edges: &mut Vec<SignalFlowEdge>,
+    routing: &RoutingModel,
+    root: SignalFlowEntityRef,
+) -> bool {
+    let focus_strip = entity_strip(routing, root);
+    let focus_proc = match root {
+        SignalFlowEntityRef::Processor(p) => Some(p),
+        _ => None,
+    };
+    let mut keep_nodes: BTreeSet<SignalFlowNodeId> = BTreeSet::new();
+    if let Some(strip) = focus_strip {
+        keep_nodes.insert(SignalFlowNodeId::Strip(strip));
+    }
+    if let Some(proc_id) = focus_proc
+        && proc_nodes.contains_key(&proc_id)
+    {
+        keep_nodes.insert(SignalFlowNodeId::Processor(proc_id));
+    }
+    if keep_nodes.is_empty() {
+        return false;
+    }
+    // Neighbors: nodes sharing an edge with a focus node.
+    let mut neighbor_nodes: BTreeSet<SignalFlowNodeId> = BTreeSet::new();
+    for edge in edges.iter() {
+        let touches =
+            keep_nodes.contains(&edge.source.node) || keep_nodes.contains(&edge.target.node);
+        if touches {
+            neighbor_nodes.insert(edge.source.node);
+            neighbor_nodes.insert(edge.target.node);
+        }
+    }
+    keep_nodes.extend(neighbor_nodes);
+    strip_nodes.retain(|strip, _| keep_nodes.contains(&SignalFlowNodeId::Strip(*strip)));
+    proc_nodes.retain(|proc, _| keep_nodes.contains(&SignalFlowNodeId::Processor(*proc)));
+    edges.retain(|edge| {
+        keep_nodes.contains(&edge.source.node) && keep_nodes.contains(&edge.target.node)
+    });
+    true
 }
 
 /// Fills `status` from the live revision + optional evidence.
@@ -1110,7 +1180,6 @@ fn probe_targets_node(
             SemanticSignalEntityRef::Track(track) => routing.strip_of_track(track).map(|s| s.id),
             SemanticSignalEntityRef::Bus(bus) => routing.buses.get(&bus).map(|b| b.strip),
             SemanticSignalEntityRef::Strip(strip) => Some(strip),
-            SemanticSignalEntityRef::Processor(_) | SemanticSignalEntityRef::Send(_) => None,
             _ => None,
         }
     };
