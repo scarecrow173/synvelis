@@ -174,7 +174,7 @@ pub(crate) fn sha256(data: &[u8]) -> [u8; OUTPUT_LEN] {
 /// The string form is `sha256:<64 lowercase hex characters>`. This is a
 /// content-addressing value only; it is not a VCS object ID and must not be
 /// compared for equality with Git blob/tree/commit hashes.
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ContentDigest([u8; OUTPUT_LEN]);
 
 impl ContentDigest {
