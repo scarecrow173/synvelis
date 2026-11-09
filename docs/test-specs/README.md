@@ -45,6 +45,7 @@ Directory: `docs/test-specs`
 | TSPEC-034UgPehQz0fcmoolbwWKY | SF-03 slice4 受入テスト仕様 — NoRebuild Equivalence・世代連動 control・SF-ACT-05 headless | approved | [sf-03-slice4-act-acceptance.md](./sf-03-slice4-act-acceptance.md) |
 | TSPEC-034Uj7Mjz5Aoak1Vz7O3S4 | SF-03 slice5 受入テスト仕様 — session→routing activation e2e | approved | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
 | TSPEC-034Um6SOlStZLqEVmi7IEk | SF-04 slice1 受入テスト仕様 — semantic probe 解決・lifecycle・segment cut | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
+| TSPEC-034UupvzrMsHjf6LBZma9J | SF-04 slice2 受入テスト仕様 — probe observation → trace 記録・freshness・fail-closed | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | TSPEC-A8sVfBvTuQextSVcPY8yp9 | SV-GUI-01 検証仕様 — App Bootstrap・Service 契約・Asset Pipeline | approved | [sv-gui-01-e2e-desktop-bootstrap.md](./sv-gui-01-e2e-desktop-bootstrap.md) |
 | TESTSPEC-SVGUI02 | SV-GUI-02 契約検証仕様 | approved | [sv-gui-02.md](./sv-gui-02.md) |
 | TSPEC-034Ul4TWD6Zf708dAHB1OW | SV-GUI-03 slice1 検証仕様: Transport 操作 + Inspector 表示 | approved | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
