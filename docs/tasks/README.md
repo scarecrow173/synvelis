@@ -22,7 +22,7 @@ Directory: `docs/tasks`
 | TASK-cvXxPcl14NogBTKEDTSKrO | SV-GUI-03 slice2 タスク分解 — Arrangement read-only Table + Undo/Redo | in-progress | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
 | TASK-034UogPe6cIh8LtcFphyuH | SV-GUI-04 slice1 precursor: multi-window WindowHandle + headless dock fixture | in-progress | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | TASK-NFJWSkocsf8xf7WcgpPdL0 | SV-GUI-04 slice1 タスク分解 — 実 2-window mount | in-progress | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
-| TASK-034Uqxo9HW4eRKeVH5w5PU | SV-GUI-04 slice2 タスク分解 — close-veto/cancel | in-progress | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
+| TASK-034Uqxo9HW4eRKeVH5w5PU | SV-GUI-04 slice2 タスク分解 — close-veto/cancel | done | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
