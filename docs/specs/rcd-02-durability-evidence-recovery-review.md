@@ -28,7 +28,8 @@ relations:
     - "docs/specs/rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md"
   refines: []
   refined-by: []
-  derives-from: []
+  derives-from:
+    - "https://github.com/scarecrow173/synvelis/issues/116"
   derived-by: []
   verifies: []
   verified-by: []

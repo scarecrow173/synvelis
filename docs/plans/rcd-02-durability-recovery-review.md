@@ -32,7 +32,8 @@ relations:
   derived-by: []
   verifies:
     - "docs/test-specs/rcd-02-durability-recovery-review-fault-matrix.md"
-  verified-by: []
+  verified-by:
+    - "docs/test-specs/rcd-02-durability-recovery-review-fault-matrix.md"
   references: []
   defers: []
   deferred-by: []

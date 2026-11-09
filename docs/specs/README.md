@@ -27,6 +27,7 @@ Directory: `docs/specs`
 | SPEC-034PCB01Kf8vNq2wXyZmAb | PC-B Parameter Control — Dispatch/NoteScope/RT/Offline headless PoC | approved | [pc-b-parameter-dispatch-note-scope-rt-offline.md](./pc-b-parameter-dispatch-note-scope-rt-offline.md) |
 | SPEC-034RoTBwuGm6u9xW7IxYBu | PC-C1 Recording Transaction — prepare/apply/finalize 分離・Revision競合・失敗後保持 | approved | [pc-c1-recording-transaction-prepare-apply-finalize.md](./pc-c1-recording-transaction-prepare-apply-finalize.md) |
 | SPEC-034UoZx9FMfQ1OvSAcWCoN | PC-C2 双方向 Control Relation Index/Projection — Automation/Assignment/Depth Driver | approved | [pc-c2-control-relation-index.md](./pc-c2-control-relation-index.md) |
+| SPEC-034UqtrnCaL8J9mhrd4SyZ | PC-C3 ControlTrace — Configured/Prepared/Applied/Reported/Observed projection slice | approved | [pc-c3-control-trace-projection.md](./pc-c3-control-trace-projection.md) |
 | SPEC-034UoScGX6dIi25hMurqCI | RCD-01 Recording Input Adapter — channel binding・Arm/Monitor・fake port fail-stop（synvelis#115 slice） | proposed | [rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md](./rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md) |
 | SPEC-034Uri8JTbpWmKASolvM4A | RCD-02 Recording Durability Evidence / Recovery Review — synvelis#116 slice | proposed | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | SPEC-034SF01Km7pQr2sT9uVwXyZaB | SF-01 Semantic Routing Model — Bus/Send/Processor Chain/Stable Port IDs・Project Schema v6 | approved | [sf-01-semantic-routing-model-bus-send-chain-stable-ports.md](./sf-01-semantic-routing-model-bus-send-chain-stable-ports.md) |
@@ -44,6 +45,8 @@ Directory: `docs/specs`
 | SPEC-8qSDBn4gud5ayYyjIQalpX | SV-GUI-03 slice2: Arrangement read-only Table mount + Undo/Redo 露出 | approved | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
 | SPEC-034UogGZ0QtZaMjO9XxPXv | SV-GUI-04 slice1 precursor: multi-window WindowHandle + headless dock fixture | approved | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | SPEC-OGVSCKWOs5Dv4e9e0K7wDY | SV-GUI-04 slice1: 実 2-window mount（fake driver fixture + env-gated native） | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
+| SPEC-034Uqtwgi61id6YJP9tZZX | SV-GUI-04 slice2: close-veto/cancel（unsaved-guard veto） | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
+| SPEC-034UqIcJay7uhO1XhAdcCn | SV-GUI-04 slice2 設計: dock transfer workspace adoption + GUI op 配線 | approved | [sv-gui-04-slice2-dock-transfer-workspace-adoption-gui-op.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption-gui-op.md) |
 | SPEC-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain domain projection — master strip Fader target の bootstrap と Fader controlled display/commit 接続 | approved | [sv185-01-mixer-gain-domain-projection.md](./sv185-01-mixer-gain-domain-projection.md) |
 | SPEC-0D1aGavIsYu1NgyvnRxeRx | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 と API 追従（SV#190 前提解消） | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | SPEC-034T29C9D8CIvYjMxmQIy8 | SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行 | approved | [syn-io-02-snapshot-head-staged-publish.md](./syn-io-02-snapshot-head-staged-publish.md) |
