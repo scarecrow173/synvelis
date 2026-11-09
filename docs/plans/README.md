@@ -42,6 +42,7 @@ Directory: `docs/plans`
 | PLAN-034UgO7fMYPyfOhhpe5zMh | SF-03 slice4 実装計画 — NoRebuild Equivalence・世代連動 control 払い出し・SF-ACT-05 headless 固定 | in-progress | [sf-03-slice4-act-acceptance.md](./sf-03-slice4-act-acceptance.md) |
 | PLAN-034Uj7LMOlnyb7SKUO8Ajd | SF-03 slice5 実装計画 — session EnginePort・app RoutingEngine 接続・headless e2e | done | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
 | PLAN-034Um6RlcTKbVmfUr7A4yJ | SF-04 slice1 実装計画 — project/player Semantic Probe Adapter + ruviform pin bump | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
+| PLAN-034Uupw2uQUIw30kQZ9HYX | SF-04 slice2 実装計画 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | PLAN-034Uuhu2Eis7GPJ5fej73V | SF-05 slice1 実施計画 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | PLAN-v1VQEMk92Nx1lQHUlSVh1t | SV-GUI-01 実装計画 — Desktop App Bootstrap・WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap.md](./sv-gui-01-desktop-app-bootstrap.md) |
 | PLAN-SVGUI02 | SV-GUI-02 View Model・Binding IPC 実装計画 | approved | [sv-gui-02-view-model-binding-ipc.md](./sv-gui-02-view-model-binding-ipc.md) |

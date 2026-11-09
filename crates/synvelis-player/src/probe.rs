@@ -139,7 +139,9 @@ fn project_mode(mode: RtProbeMode) -> Option<ProbeMode> {
 
 /// `ProbeClockMark` → contract clock context (`None` while the series
 /// is unwired/unknown — unknown never compares equal).
-fn clock_ref(mark: ruviform_audio::typed::probe::ProbeClockMark) -> Option<ClockContextRef> {
+pub(crate) fn clock_ref(
+    mark: ruviform_audio::typed::probe::ProbeClockMark,
+) -> Option<ClockContextRef> {
     (!mark.is_unknown()).then_some(ClockContextRef {
         domain: mark.domain,
         epoch: mark.epoch,

@@ -48,6 +48,8 @@ use synvelis_project::{
     ReferenceSource, TargetCapability, evaluate_control,
 };
 
+use crate::probe_trace::ProbeTraceSession;
+
 /// The UI-facing automation mode (`#6` 決定④). Selected per target;
 /// default is `Read`. **Selecting a mode never mutates the project** —
 /// it only changes how subsequent gestures behave.
@@ -1069,6 +1071,7 @@ pub struct ControlSession {
     record_notifications: VecDeque<RecordNotification>,
     record_health_overflows: u64,
     record_notifications_dropped: u64,
+    pub(crate) probe_session: ProbeTraceSession,
 }
 
 impl Default for ControlSession {
@@ -1117,6 +1120,7 @@ impl ControlSession {
             record_notifications: VecDeque::with_capacity(RECORD_NOTIFY_CAP),
             record_health_overflows: 0,
             record_notifications_dropped: 0,
+            probe_session: ProbeTraceSession::new(),
         }
     }
 
