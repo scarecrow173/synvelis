@@ -38,20 +38,17 @@ pub struct PreparedClip {
     pub digest: String,
 }
 
-/// Resolves a registered source into a prepared reader+prefetch.
-///
-/// Enforces the state gate: a source below
-/// [`SourceState::Verified`] (e.g. a bare `RegisterSource` at
-/// `Imported`) is [`ResolveError::UnverifiedSource`] — never playable.
-///
-/// # Errors
-/// [`ResolveError`] — typed per failure class.
-pub fn prepare(
+/// Runs the full verified-open chain for `source_id` — state gate,
+/// asset check, blob read + digest verify, demuxer open, audio-stream
+/// and PCM-codec checks, and `SourceReader` open in canonical decode
+/// mode — returning the reader plus its canonical format, declared
+/// frame count, and verified digest. Shared by [`prepare`] and
+/// [`canonical_format`] so both observe identical verification.
+fn open_verified(
     project: &Project,
     source_id: SourceId,
     media_root: &Path,
-    config: &PrefetchConfig,
-) -> Result<PreparedClip, ResolveError> {
+) -> Result<(SourceReader<'static>, AudioFormat, Fact<u64>, String), ResolveError> {
     let source = project
         .sources
         .get(&source_id)
@@ -114,6 +111,40 @@ pub fn prepare(
         })?;
     let canonical = reader.metadata().canonical;
     let declared = reader.metadata().frame_count;
+    Ok((reader, canonical, declared, digest))
+}
+
+/// Probes the canonical `f32` planar [`AudioFormat`] of a registered
+/// source through the same verified-open chain as [`prepare`] —
+/// without acquiring prefetch resources. Used by session-layer
+/// routing adapters to supply `canonical_of` to playback planning.
+///
+/// # Errors
+/// [`ResolveError`] — identical failure classes to [`prepare`].
+pub fn canonical_format(
+    project: &Project,
+    source_id: SourceId,
+    media_root: &Path,
+) -> Result<AudioFormat, ResolveError> {
+    let (_, canonical, _, _) = open_verified(project, source_id, media_root)?;
+    Ok(canonical)
+}
+
+/// Resolves a registered source into a prepared reader+prefetch.
+///
+/// Enforces the state gate: a source below
+/// [`SourceState::Verified`] (e.g. a bare `RegisterSource` at
+/// `Imported`) is [`ResolveError::UnverifiedSource`] — never playable.
+///
+/// # Errors
+/// [`ResolveError`] — typed per failure class.
+pub fn prepare(
+    project: &Project,
+    source_id: SourceId,
+    media_root: &Path,
+    config: &PrefetchConfig,
+) -> Result<PreparedClip, ResolveError> {
+    let (reader, canonical, declared, digest) = open_verified(project, source_id, media_root)?;
     let (handle, producer, consumer) =
         Prefetch::manual(reader, *config).map_err(|e| ResolveError::Io {
             detail: e.to_string(),
