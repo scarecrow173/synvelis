@@ -162,6 +162,7 @@ fn request(
         inserts,
         max_block,
         clip_support: OfflineRenderSupport::Verified,
+        plugin_state: None,
     }
 }
 

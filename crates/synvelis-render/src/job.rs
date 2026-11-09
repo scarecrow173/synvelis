@@ -12,6 +12,7 @@ use ruviform_graph::NodeId;
 
 use crate::error::ExportError;
 use crate::snapshot::SnapshotIds;
+use crate::spec::PluginStateRecipe;
 use crate::verify::VerifiedOutput;
 
 /// Cooperative job controls handed to the driver — `Progress` counts
@@ -102,6 +103,11 @@ pub struct ExportReceipt {
     /// What the independent reopen observed — always present on
     /// `Completed`.
     pub verified: VerifiedOutput,
+    /// Plugin-state quality recipe evidence (TIM-04), recorded
+    /// verbatim — `Some` only when the request carried a recipe.
+    /// A `Standard` recipe's degraded evidence stays visible here;
+    /// it is never upgraded to an exact claim.
+    pub plugin_state: Option<PluginStateRecipe>,
 }
 
 /// Terminal export outcome. `Partial` never reaches `Completed`: a

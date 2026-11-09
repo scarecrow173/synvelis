@@ -30,5 +30,7 @@ pub use prepare::{DecodedWindow, OpenedSource};
 pub use processor::{ClipRenderer, DelayProc, GainProc, OnePoleProc};
 pub use ruviform_audio::typed::OfflineRenderSupport;
 pub use snapshot::{RenderSnapshot, SnapshotIds};
-pub use spec::{ExportRequest, Insert, OutputHooks, PcmExpect, PcmExpectRef, TailPolicy};
+pub use spec::{
+    ExportRequest, Insert, OutputHooks, PcmExpect, PcmExpectRef, PluginStateRecipe, TailPolicy,
+};
 pub use verify::{VerifiedOutput, reopen_check};

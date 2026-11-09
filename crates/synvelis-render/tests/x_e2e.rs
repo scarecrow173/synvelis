@@ -394,6 +394,7 @@ fn export_and_reopen(
         inserts: Vec::new(),
         max_block: 1024,
         clip_support: OfflineRenderSupport::Verified,
+        plugin_state: None,
     };
     let captured: Arc<Mutex<Option<Vec<Vec<f32>>>>> = Arc::new(Mutex::new(None));
     let cap = captured.clone();
@@ -908,6 +909,7 @@ fn x_05_fault_classes_separate() {
         inserts: Vec::new(),
         max_block: 1024,
         clip_support: OfflineRenderSupport::Verified,
+        plugin_state: None,
     };
     let outcome = export(
         &snapshot,
