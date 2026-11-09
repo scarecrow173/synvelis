@@ -628,6 +628,28 @@ impl ProbeSession {
         self.broker.time_context()
     }
 
+    /// Declares a cursor-series discontinuity (transport seek) —
+    /// bumps the clock epoch so records after the boundary classify
+    /// as `EpochMismatch`/`DiscontinuityInWindow` instead of silently
+    /// aligning with pre-discontinuity spans (Ruviform #309). Open
+    /// capture segments are *not* closed here: they cut lazily when
+    /// the first new-epoch evidence drains, so every pre-discontinuity
+    /// chunk still lands in its own segment. The RT probe keeps its
+    /// mode — post-cut chunks carry the new epoch, match no open
+    /// segment and are discarded (never re-attributed, never
+    /// auto-recaptured).
+    ///
+    /// # Errors
+    /// [`ProbeRequestError::Broker`] on `CommandChannelFull` — the
+    /// broker epoch still advances (upstream bumps before the push),
+    /// so `time_context().epoch` and the deck's mark disagree until a
+    /// later `wire_clock_mark`/`bump_epoch` lands; observable, never
+    /// silently aligned.
+    pub fn bump_clock_epoch(&mut self) -> Result<(), ProbeRequestError> {
+        self.broker.bump_epoch()?;
+        Ok(())
+    }
+
     /// Runtime probe id for an installed binding.
     fn bound_probe(&self, key: ProbeSubscriptionKey) -> Result<ProbeId, ProbeRequestError> {
         self.probe_ids
@@ -653,7 +675,7 @@ fn observe_event(
         }
         ProbeEvent::Captured(chunk) => {
             if let Some(meta) = chunk.meta {
-                observe_meta(meta, open);
+                observe_meta(meta, open, segments);
             }
         }
         _ => {}
@@ -681,6 +703,17 @@ fn observe_status(
         sample_position: status.sample_position,
         clock: clock_ref(status.clock),
     });
+    // Clock-epoch discontinuity: evidence stamped under a new cursor
+    // epoch cuts the open segment before any gap bookkeeping below —
+    // post-epoch loss/unobserved reports must not land inside the old
+    // segment. Closing kinds keep their own end reason.
+    if !matches!(
+        status.kind,
+        StatusKind::CaptureStopped { .. } | StatusKind::Removed | StatusKind::RebindDropped
+    ) && let Some(clock) = clock_ref(status.clock)
+    {
+        cut_segment_on_epoch_change(open, segments, status.probe, clock);
+    }
     match status.kind {
         StatusKind::Installed => {
             // Generation-guarded: only the active generation's install
@@ -764,14 +797,30 @@ fn observe_status(
 /// Captured PCM chunk metadata → open-segment frame range. Only
 /// records whose `meta.generation` matches the segment's generation
 /// accumulate — stale-generation records are never claimed as current
-/// data.
-fn observe_meta(meta: RecordMeta, open: &mut BTreeMap<ProbeId, OpenSegment>) {
-    let Some(segment) = open.get_mut(&meta.probe) else {
+/// data. A record whose clock epoch differs from the segment's cuts
+/// the segment at the discontinuity (`ClockEpoch`) and is itself
+/// discarded: post-epoch data never joins the old segment and no new
+/// segment starts implicitly.
+fn observe_meta(
+    meta: RecordMeta,
+    open: &mut BTreeMap<ProbeId, OpenSegment>,
+    segments: &mut Vec<ProbeCaptureSegment>,
+) {
+    let Some(segment) = open.get(&meta.probe) else {
         return;
     };
     if meta.generation != segment.generation {
         return;
     }
+    if let Some(clock) = clock_ref(meta.clock) {
+        cut_segment_on_epoch_change(open, segments, meta.probe, clock);
+        if !open.contains_key(&meta.probe) {
+            return;
+        }
+    }
+    let Some(segment) = open.get_mut(&meta.probe) else {
+        return;
+    };
     let end = meta.sample_position.saturating_add(u64::from(meta.frames));
     segment.start = Some(
         segment
@@ -783,6 +832,34 @@ fn observe_meta(meta: RecordMeta, open: &mut BTreeMap<ProbeId, OpenSegment>) {
     if segment.clock.is_none() {
         segment.clock = clock_ref(meta.clock);
     }
+}
+
+/// Closes `probe`'s open segment at a cursor clock-epoch change —
+/// the segment keeps its old-epoch `clock_context` and the triggering
+/// record is the caller's to discard. No-op while the segment has no
+/// known clock yet (unwired series stays honestly unknown) or the
+/// epoch already matches.
+fn cut_segment_on_epoch_change(
+    open: &mut BTreeMap<ProbeId, OpenSegment>,
+    segments: &mut Vec<ProbeCaptureSegment>,
+    probe: ProbeId,
+    clock: ClockContextRef,
+) {
+    let Some(segment) = open.get(&probe) else {
+        return;
+    };
+    let Some(old) = segment.clock else {
+        return;
+    };
+    if old == clock {
+        return;
+    }
+    let segment = open.remove(&probe).expect("segment presence checked above");
+    segments.push(close_segment(
+        segment,
+        Some(CaptureSegmentEnd::ClockEpoch),
+        Some(clock),
+    ));
 }
 
 /// Records a per-block gap at `position` inside the open segment.

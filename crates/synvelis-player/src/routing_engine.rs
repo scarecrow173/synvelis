@@ -1155,6 +1155,16 @@ impl RoutingEngine {
         self.probes.counts()
     }
 
+    /// The probe cursor-series time context — clock domain/epoch,
+    /// runtime instance and generation window (Issue #107 / Ruviform
+    /// #309). `epoch` advances on declared discontinuities such as
+    /// [`Self::seek`]; record-level `ClockContextRef`s on bindings and
+    /// segments carry the same identity.
+    #[must_use]
+    pub fn probe_time_context(&self) -> &ruviform_audio::typed::probe::ProbeTimeContext {
+        self.probes.time_context()
+    }
+
     /// Takes the non-RT control handle for `processor` of a
     /// **published** `generation` — one-shot: the engine retains the
     /// connection's [`PluginNodeControl`](ruviform_audio_plugin_bridge::PluginNodeControl)
@@ -1313,6 +1323,16 @@ impl RoutingEngine {
                 self.seek_nonces[index].fetch_add(1, Ordering::Relaxed);
             }
         }
+        // Probe cursor-series discontinuity (Issue #107 / Ruviform
+        // #309): the RT frame cursor keeps counting processed frames
+        // across a seek, so positions alone cannot mark the jump —
+        // the clock epoch is the only evidence that post-seek records
+        // must not align with pre-seek spans. Best-effort: the drain
+        // pass above emptied the command channel, so failure is
+        // limited to the no-drain path with a full channel; the
+        // broker epoch still advances and the next successful wire
+        // resyncs the deck (observable via `probe_time_context`).
+        let _ = self.probes.bump_clock_epoch();
     }
 
     /// Explicit stop — transport state, not a missing plan.
