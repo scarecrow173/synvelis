@@ -52,7 +52,8 @@ use crate::provider::{
     AssetProvider, ByteRange, FetchClaims, FetchCompletion, PinnedRead, VerificationPolicy,
 };
 use crate::refs::{
-    ContentDigest, ObjectIdentity, PinProof, PinnedAssetRef, RemoteAssetRef, RevisionKey,
+    ContentDigest, DigestAlgorithm, ObjectIdentity, PinProof, PinnedAssetRef, RemoteAssetRef,
+    RevisionKey,
 };
 
 /// The canonical serde state name for a [`SourceState`] — the same
@@ -266,12 +267,31 @@ impl LocalBlobDir {
         }
     }
 
-    /// Validates an object identity into a single-component
-    /// [`RelativePath`]: filename-safe characters only, no DOS device
-    /// basenames (`CreateFile` would open the real device on Windows
-    /// regardless of directory prefix).
+    /// Validates an object identity into a [`RelativePath`]. Two
+    /// forms resolve (ALIB-02):
+    ///
+    /// - `"<alg>:<hex>"` — the algorithm-namespaced strong-digest
+    ///   form (`sha256:<64hex>` today) maps to the two-component
+    ///   `<alg>/<hex>` path, keeping the new namespace disjoint from
+    ///   legacy flat blob names (which can never contain `:`).
+    /// - anything else — the legacy single-component filename-safe
+    ///   form (`[0-9a-zA-Z_-]` only), unchanged.
     fn object_rel(object: &ObjectIdentity) -> Result<RelativePath, ProviderError> {
         let name = object.as_str();
+        if let Some((alg, hex)) = name.split_once(':')
+            && alg == DigestAlgorithm::Sha256.tag()
+            && hex.len() == 64
+            && hex.bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return RelativePath::new(&format!("{alg}/{}", hex.to_ascii_lowercase())).map_err(
+                |e| {
+                    ProviderError::new(
+                        ProviderErrorKind::InvalidRequest,
+                        format!("object identity {name:?}: {e}"),
+                    )
+                },
+            );
+        }
         if name.is_empty()
             || !name
                 .bytes()

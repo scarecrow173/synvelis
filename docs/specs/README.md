@@ -7,6 +7,7 @@ Directory: `docs/specs`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | SPEC-j8VrtHRiA60WGx27NKFnH4 | ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
+| SPEC-034UviRHTzZZY5QqaoRYZV | ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | draft | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | SPEC-034AUT01T7xRw4mNcQ8pZbV2 | AUT-01 Automation Mode 境界 State — Read/Touch/Latch/Write・Touch Return 150ms Smoothstep | approved | [aut-01-automation-mode-boundary-touch-return-writer-state.md](./aut-01-automation-mode-boundary-touch-return-writer-state.md) |
 | SPEC-034AUT03AW1Qq4l4VCpTSK | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・明示 Rearm | approved | [aut-03-loop-write-one-pass-write-range-rearm.md](./aut-03-loop-write-one-pass-write-range-rearm.md) |
 | SPEC-034AUT04VJToXbqZEgrP85 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
