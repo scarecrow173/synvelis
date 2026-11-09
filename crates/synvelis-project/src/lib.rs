@@ -19,6 +19,7 @@ pub mod midi;
 pub(crate) mod migration;
 pub mod ops;
 pub mod placement;
+pub mod probe;
 pub mod project;
 pub mod range;
 pub mod recording_data;
@@ -59,6 +60,14 @@ pub use ops::ProjectOp;
 pub use placement::{
     ClipExtent, ClipPlacement, ClipPlayback, PlaybackMapping, ResolvedClip, StretchRatio,
     TimeAnchor,
+};
+pub use probe::{
+    CaptureCompleteness, CaptureSegmentEnd, CaptureSessionId, ClockContextRef, ObservationGap,
+    ObservationGapKind, ProbeCaptureSegment, ProbeFrameInterval, ProbeMode, ProbePointResolution,
+    ProbeResolveState, ProbeStatusKind, ProbeStatusReceipt, ProbeStopReason, ProbeSubscriptionKey,
+    ProbeUnobservedReason, ProjectSessionId, RuntimeProbeId, SemanticProbeBinding,
+    SemanticProbePoint, SemanticSignalEntityRef, SignalBoundary, SubscriptionKind,
+    resolve_probe_point,
 };
 pub use project::{
     AppliedImport, AppliedRecordingCommit, Asset, Clip, Lane, Note, Project, ProjectDomain,
