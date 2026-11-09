@@ -87,13 +87,7 @@ fn app_info_reports_logging_state_without_install() {
 fn capabilities_lists_unavailable_areas_honestly() {
     let mut rt = runtime();
     let caps = ok(&mut rt, "syn.app.capabilities", json!({}));
-    for area in [
-        "audio_runtime",
-        "recorder",
-        "multi_window",
-        "plugins",
-        "ai",
-    ] {
+    for area in ["audio_runtime", "recorder", "multi_window", "plugins", "ai"] {
         assert_eq!(caps[area]["state"], "unavailable", "{area}");
     }
     assert_eq!(caps["project"]["state"], "available");

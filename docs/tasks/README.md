@@ -87,6 +87,7 @@ Directory: `docs/tasks`
 | TASK-034UquDG2pRhDCtpLYPhPi | PC-C3: ControlTrace projection 実装タスク | done | [pc-c3-task1-control-trace.md](./pc-c3-task1-control-trace.md) |
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TASK-034UtpBjTeXJ6XSJAMupsv | RCD-03 Task1 Monitor/Punch/Latency semantics | done | [rcd-03-task1-monitor-punch-latency.md](./rcd-03-task1-monitor-punch-latency.md) |
+| TASK-RCD04Fx1kE5tY8uI3oP6aS9 | RCD-04 Task1 Comp Transition / MIDI Phrase crate fixture slice | done | [rcd-04-task1-comp-midi-fixture.md](./rcd-04-task1-comp-midi-fixture.md) |
 | TASK-034SF01Pr2uVw7xY4zAbCdFgH | SF-01: RoutingModel 型・oracle・Schema v6 Migration・ops・検証 | done | [sf-01-task1-routing-model-schema-migration.md](./sf-01-task1-routing-model-schema-migration.md) |
 | TASK-034SF02Yb2tQr9sV2xD7eFhIj | SF-02 T1 — RoutingTransaction/TempRef staging・channels・mute/solo authority・汎用検証投影 | done | [sf-02-task1-routing-transaction-staging-model.md](./sf-02-task1-routing-transaction-staging-model.md) |
 | TASK-034SF02Zc3uRs0tW3yE8fGiJk | SF-02 T2 — 受入/Reject/不変/Undo 契約テストと canonical 検証 | done | [sf-02-task2-validation-acceptance-tests.md](./sf-02-task2-validation-acceptance-tests.md) |
@@ -117,6 +118,8 @@ Directory: `docs/tasks`
 | TASK-pIf6c5QRXRonGNwoqfvJgY | SV175-02: Native view mount — 最小 Tab/Panel/Fader 縦slice | done | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TASK-034T7IgIHI7umPL7xCvU3u | SV177 theme crate + preset module implementation | done | [sv177-theme-preset-impl.md](./sv177-theme-preset-impl.md) |
 | TASK-DqvyFE4jtl1dHhjkpI0Awe | SV#28 Ruviform pin を cc7d5296 へ更新し API 追従・検証を完了する | done | [sv28-ruviform-pin-update.md](./sv28-ruviform-pin-update.md) |
+| TASK-034UvJH1gMKAHU5UZUrzNN | SYN-IO-01 task1 境界 Owner・失敗写像・Backup/Import 設計文書 | done | [syn-io-01-task1-boundary-design-docs.md](./syn-io-01-task1-boundary-design-docs.md) |
+| TASK-034UvJHLXI3ZB4q8FYKlbH | SYN-IO-01 task2 検証計画・Gate 証拠・文書チェーン完結 | done | [syn-io-01-task2-verification-gate-docs.md](./syn-io-01-task2-verification-gate-docs.md) |
 | TASK-034T2c6ZLwPXf10mPcW2MC | SYN-IO-02 task1 store.rs StagedFile 移行 | done | [syn-io-02-task1-store-stagedfile-migration.md](./syn-io-02-task1-store-stagedfile-migration.md) |
 | TASK-034RBFUDGVewxs72FGa8RM | SYN-OBS-01 task1 依存更新と logging モジュール(設定解決/install/owner) | done | [syn-obs-01-task1-deps-logging-module.md](./syn-obs-01-task1-deps-logging-module.md) |
 | TASK-034RBFVsXUmxHPEa6zbZRx | SYN-OBS-01 task2 ObservabilityOwner Source catalog と syn.app.info logging セクション | done | [syn-obs-01-task2-owner-catalog-app-info.md](./syn-obs-01-task2-owner-catalog-app-info.md) |

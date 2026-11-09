@@ -46,6 +46,7 @@ Directory: `docs/designs`
 | DESIGN-Bz2IMMfywvmEjmdIeThNvq | RCD-01 Input Adapter — binding/Arm/Monitor/channel-map と fake port fail-stop | approved | [rcd-01-input-adapter-binding-arm-monitor-fake-port.md](./rcd-01-input-adapter-binding-arm-monitor-fake-port.md) |
 | DESIGN-034Urj7kRY8rq2nngtTSuL | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | approved | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | DESIGN-034UtlI2uLUF1lr2g3CUM0 | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
+| DESIGN-RCD04Fx2nB8cY6dF5hJ9kM3q | RCD-04 Comp Transition / MIDI Phrase fixture — crate 内完結設計 | approved | [rcd-04-comp-transition-midi-phrase-fixture.md](./rcd-04-comp-transition-midi-phrase-fixture.md) |
 | DESIGN-034SF01Mo9rSt4uV1wXyZaCdE | SF-01 Semantic Routing Model 設計 — 型・整合・Schema v6 Migration | approved | [sf-01-semantic-routing-model-design.md](./sf-01-semantic-routing-model-design.md) |
 | DESIGN-034SF02Vy9qNo6pS9uA4bCeFg | SF-02 RoutingTransaction/TempRef Staging・二層検証・Mute/Solo Audibility 設計 | approved | [sf-02-routing-transaction-design.md](./sf-02-routing-transaction-design.md) |
 | DESIGN-106SF03Ef3fGh4iJk5lMn6oPq | SF-03 slice1 — Lowering/SourceMap/Activation 実装設計 | approved | [sf-03-slice1-lowering-sourcemap-activation-design.md](./sf-03-slice1-lowering-sourcemap-activation-design.md) |
@@ -68,6 +69,7 @@ Directory: `docs/designs`
 | DESIGN-034T728YcMrGoBwDtbkIqS | SV177 Product Theme / Workspace Preset — synvelis-theme crate・DTCG overrides・slot-based preset・semantic screen spec | approved | [sv177-product-theme-workspace-preset-design.md](./sv177-product-theme-workspace-preset-design.md) |
 | DESIGN-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain projection 設計 — ControlModel bootstrap・wire target・display_value | approved | [sv185-mixer-gain-projection-design.md](./sv185-mixer-gain-projection-design.md) |
 | DESIGN-43KJVuVRlioN1JtUFVuqtW | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
+| DESIGN-034Uvylguz0kZUgy1zbseh | SYN-IO-01 Ruviform 共通 I/O 適合境界設計 | approved | [syn-io-01-ruviform-io-boundary-design.md](./syn-io-01-ruviform-io-boundary-design.md) |
 | DESIGN-034T2aGDbNinkumWeftaiP | SYN-IO-02 DirectoryBundleStore StagedFile 移行設計 | approved | [syn-io-02-directory-bundle-store-stagedfile-design.md](./syn-io-02-directory-bundle-store-stagedfile-design.md) |
 | DESIGN-034RBzdpo91wcbqBK7Gb9t | SYN-OBS-01 Design — Host所有 Logging Owner・設定解決・Source Catalog | approved | [syn-obs-01-design-host-logging-owner-source-catalog.md](./syn-obs-01-design-host-logging-owner-source-catalog.md) |
 | DESIGN-034T2RF305WAVSTAGED00Y | SYN-RF305 WAV Export StagedFile 移行設計 | approved | [syn-rf305-wav-export-staged-file-design.md](./syn-rf305-wav-export-staged-file-design.md) |
@@ -81,16 +83,14 @@ Directory: `docs/designs`
 | DESIGN-034QwYMaHNxxpkZgLxPjx6 | WS-A Workspace 基盤設計 — View/Selection/LinkGroup/Command/Dock headless PoC | approved | [ws-a-workspace-foundation-design.md](./ws-a-workspace-foundation-design.md) |
 | DESIGN-HEDK2Gt2m6FAc3GREIhJDl | X Design — Canonical publication receipt・commit digest 接続・同一経路 playback/export | approved | [x-recorded-verified-source-playback-export-design.md](./x-recorded-verified-source-playback-export-design.md) |
 
-<<<<<<< HEAD
 | DESIGN-mFknHHQIpULZsaBsqLEtPk | PC-C6 oracle 設計 — fixture 宣言モデル・独立参照実装・Case 対応表 | approved | [pc-c6-oracle-rel-tr-design.md](./pc-c6-oracle-rel-tr-design.md) |
-=======
 | DESIGN-AkFUh4M60YuHo8COCvb0Um | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
->>>>>>> origin/main
 | — | Synvelis × Ruviform — Playback / Mixer / Generic Execution Graph Architecture | — | [playback-mixer-generic-execution-graph-architecture.md](./playback-mixer-generic-execution-graph-architecture.md) |
 | — | Synvelis — Project / Asset / Persistence Architecture | — | [project-asset-persistence-architecture.md](./project-asset-persistence-architecture.md) |
 | DESIGN-Bz2IMMfywvmEjmdIeThNvq | RCD-01 Input Adapter — binding/Arm/Monitor/channel-map と fake port fail-stop | approved | [rcd-01-input-adapter-binding-arm-monitor-fake-port.md](./rcd-01-input-adapter-binding-arm-monitor-fake-port.md) |
 | DESIGN-034Urj7kRY8rq2nngtTSuL | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | approved | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | DESIGN-034UtlI2uLUF1lr2g3CUM0 | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
+| DESIGN-RCD04Fx2nB8cY6dF5hJ9kM3q | RCD-04 Comp Transition / MIDI Phrase fixture — crate 内完結設計 | approved | [rcd-04-comp-transition-midi-phrase-fixture.md](./rcd-04-comp-transition-midi-phrase-fixture.md) |
 | DESIGN-034SF01Mo9rSt4uV1wXyZaCdE | SF-01 Semantic Routing Model 設計 — 型・整合・Schema v6 Migration | approved | [sf-01-semantic-routing-model-design.md](./sf-01-semantic-routing-model-design.md) |
 | DESIGN-034SF02Vy9qNo6pS9uA4bCeFg | SF-02 RoutingTransaction/TempRef Staging・二層検証・Mute/Solo Audibility 設計 | approved | [sf-02-routing-transaction-design.md](./sf-02-routing-transaction-design.md) |
 | DESIGN-106SF03Ef3fGh4iJk5lMn6oPq | SF-03 slice1 — Lowering/SourceMap/Activation 実装設計 | approved | [sf-03-slice1-lowering-sourcemap-activation-design.md](./sf-03-slice1-lowering-sourcemap-activation-design.md) |

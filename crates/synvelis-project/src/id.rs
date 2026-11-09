@@ -216,6 +216,12 @@ define_id!(
     /// Identifies a [`crate::routing::SendConfig`].
     SendId, "send"
 );
+define_id!(
+    /// Identifies a [`crate::midi_comp::MidiPhraseRegion`] inside a
+    /// plan-level MIDI comp selection (RCD-04 fixture semantics —
+    /// not a persisted project entity).
+    MidiCompRegionId, "midi-comp-region"
+);
 
 /// Source of fresh stable-ID raw values. Injected into
 /// [`crate::ProjectController`] so tests are fully deterministic.
