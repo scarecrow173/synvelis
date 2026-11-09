@@ -27,6 +27,7 @@ Directory: `docs/plans`
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |
 | PLAN-034RoUbM3cA2J9g5wWzEfG | PC-C1 Recording Transaction 実装計画 | approved | [pc-c1-recording-transaction.md](./pc-c1-recording-transaction.md) |
 | PLAN-034UpbrhX5dkELUwZUoS0i | PC-C2 Control Relation Index 実装計画 | approved | [pc-c2-control-relation-index.md](./pc-c2-control-relation-index.md) |
+| PLAN-qCDk2ELwZ5XT36rSkQsD8F | PC-C3-05 RT trace adapter 実装計画 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | PLAN-034UqHfN1LJeYNaoS0SGYL | PC-C3 ControlTrace projection 実装計画 | approved | [pc-c3-control-trace.md](./pc-c3-control-trace.md) |
 | PLAN-7zXphX8skvXfNgeXarocfo | PC-C6 oracle REL/TR headless fixture 実装計画 | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |

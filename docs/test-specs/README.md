@@ -30,6 +30,7 @@ Directory: `docs/test-specs`
 | TSPEC-034PCB05Ql0zTu6aCdEfGh | PC-B Parameter Control dispatch/note-scope/RT/offline 検証仕様 | approved | [pc-b-e2e-parameter-dispatch.md](./pc-b-e2e-parameter-dispatch.md) |
 | TSPEC-034RoV9mM6nXzVq1kYpQwE | PC-C1 Recording Transaction 検証仕様 | approved | [pc-c1-e2e-recording-transaction.md](./pc-c1-e2e-recording-transaction.md) |
 | TSPEC-034Upc3ciohad3ZlmsOqVl | PC-C2 Control Relation Index E2E — 双方向・状態・stale・有界性・read-only | approved | [pc-c2-e2e-control-relation-index.md](./pc-c2-e2e-control-relation-index.md) |
+| TSPEC-10rDlBIZV1BQa6OmERMdbJ | PC-C3-05 RT trace adapter テスト仕様 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | TSPEC-034UqHaJf2vZgpPzjlqqi7 | PC-C3 ControlTrace E2E — stage 相関・freshness・probe 状態・plan activation | approved | [pc-c3-e2e-control-trace.md](./pc-c3-e2e-control-trace.md) |
 | TSPEC-YEy9TAHyUte5MD6kpyZJFI | PC-C6 oracle E2E — REL01〜07 / TR01〜08 独立照合 fixture | approved | [pc-c6-e2e-oracle-rel-tr.md](./pc-c6-e2e-oracle-rel-tr.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |

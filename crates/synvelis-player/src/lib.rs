@@ -30,8 +30,9 @@ pub mod publish;
 pub mod resolver;
 pub mod routing_engine;
 pub mod routing_lower;
+pub mod trace;
 
-pub use dispatch::{DispatchError, ParamDispatch};
+pub use dispatch::{DispatchCycle, DispatchError, ParamDispatch};
 pub use driver::{AttachedNode, DriverState, HeadlessDriver, PlayReport, PumpPolicy};
 pub use error::{ImportError, ResolveError};
 pub use host::{
@@ -47,3 +48,7 @@ pub use probe::{ProbeRequestError, ProbeSession};
 pub use processor::{ClipPlayer, PlaybackStats};
 pub use publish::{PublishError, PublishReport, PublishedStream, SkippedStream, publish_recorded};
 pub use resolver::PreparedClip;
+pub use trace::{
+    DispatchTraceAdapter, TraceAdapterConfig, TraceContext, TraceEvent, TraceEventKind,
+    TraceMetrics,
+};
