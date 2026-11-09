@@ -80,11 +80,24 @@ fn plan_with_gate(
     synvelis_recording::PreparedRecordingPlan,
     synvelis_project::ClockEpochId,
 ) {
+    plan_with_gate_map(gate, stop_tick, max_block_frames, 2)
+}
+
+/// `plan_with_gate` の channel 数指定版（ChannelMap は capture 側で指定）。
+fn plan_with_gate_map(
+    gate: synvelis_recording::GateSpec,
+    stop_tick: i64,
+    max_block_frames: u32,
+    channels: u32,
+) -> (
+    synvelis_recording::PreparedRecordingPlan,
+    synvelis_project::ClockEpochId,
+) {
     let (p, lanes, epoch) = project_with_lanes(1);
     let req = RecordingRequest {
         targets: vec![synvelis_recording::CaptureTarget {
             lane_id: lanes[0],
-            channels: 2,
+            channels,
         }],
         clock_epoch: epoch,
         tempo_map: TempoMapRef { revision: 0 },
@@ -116,19 +129,34 @@ fn capture_with_monitor(
     frames: u32,
     block: u32,
 ) -> Captured {
-    let device = FakeInputDevice::new(2, ClockDomainId::SAMPLE_CLOCK);
+    capture_with_monitor_map(
+        plan,
+        epoch,
+        monitor,
+        frames,
+        block,
+        2,
+        ChannelMap::stereo(0, 1),
+    )
+}
+
+/// `capture_with_monitor` の channel 数・ChannelMap 指定版。
+fn capture_with_monitor_map(
+    plan: &synvelis_recording::PreparedRecordingPlan,
+    epoch: synvelis_project::ClockEpochId,
+    monitor: MonitorState,
+    frames: u32,
+    block: u32,
+    channels: u32,
+    map: ChannelMap,
+) -> Captured {
+    let device = FakeInputDevice::new(channels, ClockDomainId::SAMPLE_CLOCK);
     let spec = synvelis_recording::InputStreamSpec {
-        config: input_config(2),
+        config: input_config(channels),
         clock_epoch: epoch,
         max_block_frames: plan.max_block_frames,
         callback_queue: 16,
-        taps: vec![tap(
-            plan,
-            0,
-            ChannelMap::stereo(0, 1),
-            ArmState::On,
-            monitor,
-        )],
+        taps: vec![tap(plan, 0, map, ArmState::On, monitor)],
     };
     let fault = synvelis_recording::FaultLatch::new();
     let opened = synvelis_recording::InputAdapter::open(&device, &spec, fault.clone())
@@ -578,4 +606,56 @@ fn monitor_does_not_double_correct_placement_across_tempo_boundary() {
         "expected span starting at tempo boundary"
     );
     assert_eq!(off, auto, "monitor changed placement/pcm across tempo");
+}
+
+// ---------- Mono/Stereo binding ----------
+
+#[test]
+fn mono_binding_capture_and_probe_match_channel_agnostic_contract() {
+    // channel 数非依存（spec）: mono binding でも Monitor Off/Auto/On で
+    // Raw byte/span が一致し、probe の route 分割は session frame の
+    // みで成立する。
+    let (plan, epoch) = plan_with_gate_map(
+        synvelis_recording::GateSpec::Punch {
+            punch_in: MusicalTick::new(12),
+            punch_out: MusicalTick::new(28),
+        },
+        200,
+        1024,
+        1,
+    );
+    let frames = u32::try_from(plan.session_end.value()).expect("session_end fits u32");
+    let map = ChannelMap::mono(0);
+    let off =
+        capture_with_monitor_map(&plan, epoch, MonitorState::Off, frames, 500, 1, map.clone());
+    let auto = capture_with_monitor_map(
+        &plan,
+        epoch,
+        MonitorState::Auto,
+        frames,
+        500,
+        1,
+        map.clone(),
+    );
+    let on = capture_with_monitor_map(&plan, epoch, MonitorState::On, frames, 500, 1, map);
+    // 保存総量 = punch 区間 400 frame のみ（stereo と同一契約）。
+    let total: u32 = off.spans.iter().map(|s| s.frame_count).sum();
+    assert_eq!(total, 400);
+    assert_eq!(off, auto, "Auto changed raw capture on mono binding");
+    assert_eq!(off, on, "On changed raw capture on mono binding");
+    // probe も同一 plan で gate 連動 segment を返す（Auto+arm+Playing:
+    // open → Input、closed → Playback）。
+    let mut c = ctx();
+    c.arm = ArmState::On;
+    c.monitor = MonitorState::Auto;
+    let segs = probe_segments(&plan, &c, frames, 500, TransportPhase::Playing);
+    let mut pos = 0;
+    for (a, b, _, _) in &segs {
+        assert_eq!(*a, pos, "gap/overlap before segment {a}..{b}");
+        pos = *b;
+    }
+    assert_eq!(pos, plan.session_end.value());
+    for (_, _, g, r) in &segs {
+        assert_eq!(*r, if *g { Input } else { Playback });
+    }
 }

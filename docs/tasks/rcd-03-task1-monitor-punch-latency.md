@@ -1,7 +1,7 @@
 ---
 id: "TASK-034UtpBjTeXJ6XSJAMupsv"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "RCD-03 Task1 Monitor/Punch/Latency semantics"
 created: "2026-11-09"
 updated: "2026-11-09"
@@ -92,31 +92,31 @@ relations:
 
 ## Done When
 
-- [ ] `MonitorState::Auto` が追加され、Off/Auto/On × Arm ×
+- [x] `MonitorState::Auto` が追加され、Off/Auto/On × Arm ×
       Transport × Punch × Mute/Solo の route 判定が spec 規則表
       どおりに動く
-- [ ] `MonitorProbe` が `evaluate_gate` を再利用して block 途中
+- [x] `MonitorProbe` が `evaluate_gate` を再利用して block 途中
       境界を session-frame 精度で分割し、Gap/重複 0
-- [ ] Hardware Direct `DeviceControlled`/`UserReported`/
+- [x] Hardware Direct `DeviceControlled`/`UserReported`/
       `Unknown` と `DoubleMonitoring`/`HardwareDirectUnknown`/
       `InputUnavailable` notice が型として区別される
-- [ ] Monitor 状態に依らず Raw File Byte が一致し、Arm Off +
+- [x] Monitor 状態に依らず Raw File Byte が一致し、Arm Off +
       Monitor On で capture が発生しない
-- [ ] Loop/Tempo 区間で Raw Placement に二重補正がない
-- [ ] player adapter が gain ramp・native placement・route 別
+- [x] Loop/Tempo 区間で Raw Placement に二重補正がない
+- [x] player adapter が gain ramp・native placement・route 別
       PCM・input missing fail-closed を fixture で検証する
-- [ ] latency が Measured/Reported/Estimated/Unknown・Clock
+- [x] latency が Measured/Reported/Estimated/Unknown・Clock
       Epoch を区別し、round-trip + 個別 reported の二重加算を
       行わない
-- [ ] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/`build`
+- [x] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/`build`
       が全て Pass
 
 ## Verification
 
-- [ ] `mise run fmt-check`
-- [ ] `mise run check`
-- [ ] `mise run lint`
-- [ ] `mise run test`
-- [ ] `mise run test-rt`
-- [ ] `mise run build`
+- [x] `mise run fmt-check`
+- [x] `mise run check`
+- [x] `mise run lint`
+- [x] `mise run test`
+- [x] `mise run test-rt`
+- [x] `mise run build`
 - [ ] 実 OS/Device/GUI — NotRun（実機 gate・後続 slice）
