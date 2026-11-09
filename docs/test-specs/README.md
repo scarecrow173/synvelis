@@ -46,6 +46,8 @@ Directory: `docs/test-specs`
 | TSPEC-034UgPehQz0fcmoolbwWKY | SF-03 slice4 受入テスト仕様 — NoRebuild Equivalence・世代連動 control・SF-ACT-05 headless | approved | [sf-03-slice4-act-acceptance.md](./sf-03-slice4-act-acceptance.md) |
 | TSPEC-034Uj7Mjz5Aoak1Vz7O3S4 | SF-03 slice5 受入テスト仕様 — session→routing activation e2e | approved | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
 | TSPEC-034Um6SOlStZLqEVmi7IEk | SF-04 slice1 受入テスト仕様 — semantic probe 解決・lifecycle・segment cut | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
+| TSPEC-034UupvzrMsHjf6LBZma9J | SF-04 slice2 受入テスト仕様 — probe observation → trace 記録・freshness・fail-closed | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
+| TSPEC-034UuhtnvPrY3vXkkcgAXI | SF-05 slice1 テスト仕様 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | TSPEC-A8sVfBvTuQextSVcPY8yp9 | SV-GUI-01 検証仕様 — App Bootstrap・Service 契約・Asset Pipeline | approved | [sv-gui-01-e2e-desktop-bootstrap.md](./sv-gui-01-e2e-desktop-bootstrap.md) |
 | TESTSPEC-SVGUI02 | SV-GUI-02 契約検証仕様 | approved | [sv-gui-02.md](./sv-gui-02.md) |
 | TSPEC-034Ul4TWD6Zf708dAHB1OW | SV-GUI-03 slice1 検証仕様: Transport 操作 + Inspector 表示 | approved | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
@@ -59,6 +61,7 @@ Directory: `docs/test-specs`
 | TSPEC-034T7Ieio7KRMC297yqbIs | SV177 theme contract + workspace preset headless verification | approved | [sv177-theme-preset-contract.md](./sv177-theme-preset-contract.md) |
 | TSPEC-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 検証仕様: mixer.gain projection・Fader controlled display/commit | approved | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | TSPEC-CrvvXGRCC7NBEy9bfba4LH | SV#28 Ruviform pin 更新 検証仕様 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
+| TSPEC-034UvylKq35FCXtkknERpp | SYN-IO-01 I/O 境界 Golden/Negative/Crash 検証計画 | approved | [syn-io-01-io-boundary-verification.md](./syn-io-01-io-boundary-verification.md) |
 | TSPEC-034T2c6eMscPucNt6w8iYW | SYN-IO-02 Store Publish 契約試験 | approved | [syn-io-02-store-publish-contract.md](./syn-io-02-store-publish-contract.md) |
 | TSPEC-034RBFeQnmt3PcI7beSRpy | SYN-OBS-01 検証仕様 — Host Logging install・設定解決・Health・Source catalog | draft | [syn-obs-01-logging-source-catalog.md](./syn-obs-01-logging-source-catalog.md) |
 | TSPEC-034T2RF305WAVSTAGED01B | SYN-RF305 Export StagedFile Publish 契約試験 | approved | [syn-rf305-export-staged-publish-contract.md](./syn-rf305-export-staged-publish-contract.md) |

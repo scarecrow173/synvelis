@@ -43,6 +43,8 @@ Directory: `docs/specs`
 | SPEC-034UgK3ZuEty10uP1PNjT6 | SF-03 slice4 — SF-ACT-05〜09 系受入消化・NoRebuild Equivalence・世代連動 dispatch（player/project 境界） | approved | [sf-03-slice4-act-acceptance-norebuild.md](./sf-03-slice4-act-acceptance-norebuild.md) |
 | SPEC-034Uj7sqrin4g45fPU9uJM | SF-03 slice5 — app/session 層への RoutingEngine 接続（headless・EngineStub 置き換え） | approved | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
 | SPEC-034UlYgSZ589NRdTrtO4Vu | SF-04 slice1 — Semantic Probe Adapter 基盤（project/player 層 + ruviform pin bump） | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
+| SPEC-034UumeSTLbuxt64vqqJ47 | SF-04 slice2 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
+| SPEC-034Uuc3q3FZYT5JjxQtDv9 | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | approved | [sf-05-signal-flow-headless-hierarchy.md](./sf-05-signal-flow-headless-hierarchy.md) |
 | SPEC-ZXEWFEbx3k4Jeu4YDEQcD0 | SV-GPUI-01 Native App Shell — Driver-neutral shell・GPUI Driver組立・typed ViewModel↔Binding adapter・app lifecycle | approved | [sv-gpui-01-native-app-shell.md](./sv-gpui-01-native-app-shell.md) |
 | SPEC-ZdwjK7WkdHy90Oaw1mTGUy | SV-GUI-01 Desktop Application Bootstrap — WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md](./sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md) |
 | SPEC-034RAxWpKzQgp5rbvJLZMR | SV-GUI-02 Frontend View Models — Ruviform Custom Elements・Typed IPC/Receipt統合 | approved | [sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md](./sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md) |
@@ -54,6 +56,7 @@ Directory: `docs/specs`
 | SPEC-034UqIcJay7uhO1XhAdcCn | SV-GUI-04 slice2 設計: dock transfer workspace adoption + GUI op 配線 | approved | [sv-gui-04-slice2-dock-transfer-workspace-adoption-gui-op.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption-gui-op.md) |
 | SPEC-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain domain projection — master strip Fader target の bootstrap と Fader controlled display/commit 接続 | approved | [sv185-01-mixer-gain-domain-projection.md](./sv185-01-mixer-gain-domain-projection.md) |
 | SPEC-0D1aGavIsYu1NgyvnRxeRx | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 と API 追従（SV#190 前提解消） | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
+| SPEC-034Uvy3JSMhpGuQliLcN6s | SYN-IO-01 Ruviform 共通 I/O 適合境界 — Project Snapshot/HEAD/Backup/Import | approved | [syn-io-01-ruviform-common-io-boundary.md](./syn-io-01-ruviform-common-io-boundary.md) |
 | SPEC-034T29C9D8CIvYjMxmQIy8 | SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行 | approved | [syn-io-02-snapshot-head-staged-publish.md](./syn-io-02-snapshot-head-staged-publish.md) |
 | SPEC-034RBvYIlw0wiBoGsL9EBY | SYN-OBS-01 Ruviform observability 単一crate Logging/Host統合 | proposed | [syn-obs-01-ruviform-observability-crate-logging-host.md](./syn-obs-01-ruviform-observability-crate-logging-host.md) |
 | SPEC-034T2RF305WAVSTAGED00X | SYN-RF305 WAV Export/Player StagedFile 移行 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
