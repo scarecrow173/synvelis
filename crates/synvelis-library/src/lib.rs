@@ -52,6 +52,7 @@ mod project;
 mod provider;
 mod refs;
 mod registry;
+mod webdav;
 
 pub use browse::{
     BrowseEntry, BrowsePage, BrowseRequest, BrowseScope, Coverage, EntryKind, FilterSpec,
@@ -109,3 +110,4 @@ pub use refs::{
     RemoteAssetRef, RevisionKey, StrongRevisionToken,
 };
 pub use registry::{ProviderDescriptor, ProviderKind, ProviderRegistry};
+pub use webdav::{WebDavConfig, WebDavProvider, WebDavScheme, WebDavUrl};
