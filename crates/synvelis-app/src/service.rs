@@ -86,7 +86,43 @@ pub const OPS: &[OpInfo] = &[
     },
     OpInfo {
         name: "syn.view.list",
-        summary: "attached-view registry (view_id, window_id, generation)",
+        summary: "view registry (view_id, window_id, attached, generation)",
+    },
+    OpInfo {
+        name: "syn.window.adopt",
+        summary: "idempotently register a driver-created window (window_id, title?, geometry?)",
+    },
+    OpInfo {
+        name: "syn.window.list",
+        summary: "workspace windows + docked/detached views + pending dock moves",
+    },
+    OpInfo {
+        name: "syn.window.dock_prepare",
+        summary: "begin two-phase move of view_id to existing window_id",
+    },
+    OpInfo {
+        name: "syn.window.dock_prepare_new_window",
+        summary: "begin dock move into a new driver window (title?) — async destination",
+    },
+    OpInfo {
+        name: "syn.window.dock_commit",
+        summary: "commit the pending dock move for view_id",
+    },
+    OpInfo {
+        name: "syn.window.dock_abort",
+        summary: "abort the pending dock move for view_id (failed?, detail?)",
+    },
+    OpInfo {
+        name: "syn.window.dock_detach",
+        summary: "move view_id into the workspace detached pool",
+    },
+    OpInfo {
+        name: "syn.window.dock_reattach",
+        summary: "move view_id from pool/window into window_id",
+    },
+    OpInfo {
+        name: "syn.window.lifecycle",
+        summary: "internal: NativeShell → workspace window lifecycle forwarding",
     },
     OpInfo {
         name: "syn.control.dispatch",
@@ -220,6 +256,17 @@ impl AppService {
             "syn.view.detach" => self.app.op_view_detach(params),
             "syn.view.close" => self.app.op_view_close(params),
             "syn.view.list" => Ok(self.app.op_view_list()),
+            "syn.window.adopt" => self.app.op_window_adopt(params),
+            "syn.window.list" => Ok(self.app.op_window_list()),
+            "syn.window.dock_prepare" => self.app.op_window_dock_prepare(params),
+            "syn.window.dock_prepare_new_window" => {
+                self.app.op_window_dock_prepare_new_window(params)
+            }
+            "syn.window.dock_commit" => self.app.op_window_dock_commit(params),
+            "syn.window.dock_abort" => self.app.op_window_dock_abort(params),
+            "syn.window.dock_detach" => self.app.op_window_dock_detach(params),
+            "syn.window.dock_reattach" => self.app.op_window_dock_reattach(params),
+            "syn.window.lifecycle" => self.app.op_window_lifecycle(params),
             "syn.control.dispatch" => self.app.op_control_dispatch(params),
             "syn.control.subscribe" => self.app.op_control_subscribe(params),
             "syn.control.unsubscribe" => self.app.op_control_unsubscribe(params),

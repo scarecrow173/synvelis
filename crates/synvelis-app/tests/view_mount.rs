@@ -713,11 +713,16 @@ fn destroying_the_view_window_runs_view_teardown() {
     );
     let (ok, data) = results_for(&f.driver, other, "vl").last().cloned().unwrap();
     assert!(ok);
-    assert_eq!(
-        data.unwrap()["views"].as_array().unwrap().len(),
-        0,
-        "backend view registry torn down — subscription/gesture cancel replayed"
-    );
+    // `DetachViews` is the window's default close disposition: the
+    // docked view detaches into the workspace pool — UI bindings and
+    // the owner association are torn down, but the view itself is
+    // preserved (never `syn.view.close`d) for a later reattach.
+    let data = data.unwrap();
+    let views = data["views"].as_array().unwrap();
+    assert_eq!(views.len(), 1, "pooled view stays listed: {views:?}");
+    assert_eq!(views[0]["view_id"], f.view_id);
+    assert_eq!(views[0]["attached"], false);
+    assert!(views[0]["window_id"].is_null());
 }
 
 /// `ok`/`data` of the newest `Result` the window received — the

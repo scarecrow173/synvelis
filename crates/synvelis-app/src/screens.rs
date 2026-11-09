@@ -16,7 +16,9 @@
 //! controlled display is the authoritative `host_normalized` projection
 //! and commits land as `SetParameterBase` through the same gesture path
 //! as every parameter target — the Inspector tab carries the
-//! subscribed parameter target's `InspectorBreakdown` as a `Table`,
+//! subscribed parameter target's `InspectorBreakdown` as a `Table`
+//! plus its control-relation neighborhood as a second read-only
+//! `Table` with a verbatim coverage readout (synvelis#102 UI-C5-01),
 //! the Arrangement tab carries the project-backed track/lane/clip
 //! read model as a read-only `Table` (synvelis#112 slice 2), and the
 //! toolbar carries Undo/Redo `Button`s on the `project` action target
@@ -66,9 +68,11 @@ use ruviform_ui::view::{
     ComponentVisualState, ControlSpec, LabelSpec, Orientation, PanelSpec, TabSpec, TableSpec,
     TabsSelectionSpec, TabsSpec, ViewHost, ViewSpec,
 };
-use synvelis_project::{MASTER_FADER_RAW, ParameterTargetId};
-use synvelis_workspace::ArrangementRow;
+use synvelis_project::{
+    MASTER_FADER_RAW, ModulationAssignmentId, ParameterTargetId, RelationCoverage,
+};
 use synvelis_workspace::controls_ui::{TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET};
+use synvelis_workspace::{ArrangementRow, RelationRow, ViewType};
 
 use crate::binding::{PROJECT_TARGET, VIEW_STATE_TARGET};
 
@@ -188,12 +192,42 @@ pub struct InspectorScreenState {
     pub rows: Vec<InspectorRow>,
 }
 
+/// Relation table state — the subscribed parameter target's
+/// control-relation neighborhood resolved by the composition layer
+/// ([`synvelis_workspace::relation_rows`], synvelis#102 UI-C5-01).
+/// `coverage` carries the query's verbatim [`RelationCoverage`]:
+/// `Stale`/`Unavailable`/`Truncated` surface as text, never as an
+/// empty table that reads like "no relations".
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RelationScreenState {
+    /// Tagged id of the anchor entity, when a query ran.
+    pub anchor: Option<String>,
+    /// Verbatim coverage of the last relation query.
+    pub coverage: Option<RelationCoverage>,
+    /// Relation rows in deterministic query order.
+    pub rows: Vec<RelationRow>,
+}
+
+impl RelationScreenState {
+    /// Projects a [`synvelis_workspace::RelationView`] into display
+    /// state — anchor and coverage carried verbatim.
+    #[must_use]
+    pub fn from_view(view: synvelis_workspace::RelationView) -> Self {
+        Self {
+            anchor: Some(view.anchor_label()),
+            coverage: Some(view.coverage),
+            rows: view.rows,
+        }
+    }
+}
+
 /// The full display state [`main_screen_spec`] needs — project length
 /// (Seek range), arrangement rows, transport readout, and inspector
 /// rows. Owned by the composition root behind a shared cell; refreshed
-/// after every service op (project length + arrangement rows here) and
-/// UI pump (transport/inspector capture in `ui_ops`), then pushed to
-/// the mounted view through `ViewHost::update`.
+/// after every service op (project length + arrangement rows +
+/// relation rows here) and UI pump (transport/inspector capture in
+/// `ui_ops`), then pushed to the mounted view through
+/// `ViewHost::update`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MainScreenState {
     /// Live project length in seconds — the Seek range source.
@@ -205,6 +239,9 @@ pub struct MainScreenState {
     pub transport: TransportScreenState,
     /// Inspector breakdown display.
     pub inspector: InspectorScreenState,
+    /// Inspector relation neighborhood display (synvelis#102
+    /// UI-C5-01).
+    pub relations: RelationScreenState,
 }
 
 /// Targets the main view subscribes after attach — every driven
@@ -232,6 +269,47 @@ pub fn secondary_view_targets() -> Vec<String> {
         TRANSPORT_TARGET.to_string(),
         TRANSPORT_POSITION_TARGET.to_string(),
     ]
+}
+
+/// Dock-domain metadata for a composition-root view — everything the
+/// workspace adoption seam and the `syn.window.dock_*` op layer need
+/// that the wire `view_id` alone cannot carry: the persisted
+/// `ViewInstanceId`, the surface `ViewType`, the descriptor title,
+/// and the subscription targets the window attach issues.
+pub struct DockViewInfo {
+    /// Persisted dock identity.
+    pub instance: ViewInstanceId,
+    /// Surface kind recorded in the view descriptor.
+    pub kind: ViewType,
+    /// Descriptor title (tab caption / window chrome).
+    pub title: &'static str,
+    /// Subscription targets issued on window attach.
+    pub targets: Vec<String>,
+}
+
+/// Resolves `view_id` to its dock metadata — `Some` only for the
+/// composition root's own views (`view-1`/`view-2`). Every other id
+/// stays on the legacy UI-only path and is never adopted into the
+/// workspace dock.
+#[must_use]
+pub fn dock_view_info(view_id: &str) -> Option<DockViewInfo> {
+    if view_id == main_view_id() {
+        Some(DockViewInfo {
+            instance: main_view_instance(),
+            kind: ViewType::Arrangement,
+            title: "Main",
+            targets: main_view_targets(),
+        })
+    } else if view_id == secondary_view_id() {
+        Some(DockViewInfo {
+            instance: secondary_view_instance(),
+            kind: ViewType::Mixer,
+            title: "Secondary",
+            targets: secondary_view_targets(),
+        })
+    } else {
+        None
+    }
 }
 
 fn key(name: &str) -> ComponentKey {
@@ -393,6 +471,70 @@ fn inspector_table(i: &InspectorScreenState) -> ComponentSpec {
     })
 }
 
+/// The Inspector relation readout — which anchor entity the relation
+/// table below describes plus the query's verbatim coverage
+/// (`Complete`/`Truncated`/`Stale`/`Unavailable`). Static display
+/// text like [`transport_status_label`]: updates arrive through
+/// `ViewHost::update` spec pushes, not `apply_projection`.
+fn relation_label(r: &RelationScreenState) -> ComponentSpec {
+    let text = match (&r.anchor, &r.coverage) {
+        (Some(anchor), Some(coverage)) => format!("Relations — {anchor} — {coverage:?}"),
+        (Some(anchor), None) => format!("Relations — {anchor}"),
+        (None, _) => "Relations — no target".to_string(),
+    };
+    ComponentSpec::Label(LabelSpec {
+        key: key("inspector.relations.label"),
+        text,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Inspector relations".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The Inspector relation table — the subscribed parameter target's
+/// control-relation neighborhood ([`RelationScreenState`],
+/// synvelis#102 UI-C5-01). Kind/source/target/assignment/state are
+/// carried verbatim: `Disabled`/`Unresolved` edge states and
+/// `Truncated`/`Stale`/`Unavailable` coverage are surfaced, never
+/// collapsed into an empty or zeroed table. Read-only: `selection`
+/// is `None`, so it issues no intents.
+fn relation_table(r: &RelationScreenState) -> ComponentSpec {
+    ComponentSpec::Table(TableSpec {
+        key: key("inspector.relations.table"),
+        columns: vec![
+            "Kind".to_string(),
+            "Source".to_string(),
+            "Target".to_string(),
+            "Assignment".to_string(),
+            "State".to_string(),
+        ],
+        rows: r
+            .rows
+            .iter()
+            .map(|row| {
+                vec![
+                    Some(CellValue::Text(format!("{:?}", row.kind))),
+                    Some(CellValue::Text(row.source_label())),
+                    Some(CellValue::Text(row.target_label())),
+                    Some(CellValue::Text(row.assignment.map_or_else(
+                        || "—".to_string(),
+                        ModulationAssignmentId::to_tagged,
+                    ))),
+                    Some(CellValue::Text(format!("{:?}", row.state))),
+                ]
+            })
+            .collect(),
+        selection: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Inspector relations".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
 /// The Arrangement table — the project-backed track/lane/clip read
 /// model resolved by the composition layer
 /// ([`synvelis_workspace::arrangement_rows`]). Read-only: `selection`
@@ -482,7 +624,9 @@ fn mixer_fader() -> ComponentSpec {
 ///   fader target (see [`mixer_fader`]).
 /// - **Inspector** tab: the target `Label` and breakdown `Table`
 ///   ([`inspector_target_label`]/[`inspector_table`]) resolved from
-///   `state.inspector`.
+///   `state.inspector`, plus the control-relation readout `Label` and
+///   relation `Table` ([`relation_label`]/[`relation_table`]) resolved
+///   from `state.relations` (synvelis#102 UI-C5-01).
 #[must_use]
 pub fn main_screen_spec(state: &MainScreenState) -> ViewSpec {
     let seek_range = seek_range_seconds(state.project_length_seconds);
@@ -551,6 +695,8 @@ pub fn main_screen_spec(state: &MainScreenState) -> ViewSpec {
                                 vec![
                                     inspector_target_label(&state.inspector),
                                     inspector_table(&state.inspector),
+                                    relation_label(&state.relations),
+                                    relation_table(&state.relations),
                                 ],
                             )),
                         },
