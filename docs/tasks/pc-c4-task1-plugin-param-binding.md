@@ -1,7 +1,7 @@
 ---
 id: "TASK-034Uw8yD0eUlCZJ2VqMd2P"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "PC-C4 task1 — plugin param binding 実装"
 created: "2026-11-09"
 updated: "2026-11-09"
