@@ -93,6 +93,8 @@ Directory: `docs/tasks`
 | TASK-034SF01Pr2uVw7xY4zAbCdFgH | SF-01: RoutingModel 型・oracle・Schema v6 Migration・ops・検証 | done | [sf-01-task1-routing-model-schema-migration.md](./sf-01-task1-routing-model-schema-migration.md) |
 | TASK-034SF02Yb2tQr9sV2xD7eFhIj | SF-02 T1 — RoutingTransaction/TempRef staging・channels・mute/solo authority・汎用検証投影 | done | [sf-02-task1-routing-transaction-staging-model.md](./sf-02-task1-routing-transaction-staging-model.md) |
 | TASK-034SF02Zc3uRs0tW3yE8fGiJk | SF-02 T2 — 受入/Reject/不変/Undo 契約テストと canonical 検証 | done | [sf-02-task2-validation-acceptance-tests.md](./sf-02-task2-validation-acceptance-tests.md) |
+| TASK-034Uxr4gHBdBw4PajV9VU0 | SF-03 map task1 契約・設計文書チェーン（discovery/spec/ADR/design） | done | [sf-03-map-task1-contract-design-docs.md](./sf-03-map-task1-contract-design-docs.md) |
+| TASK-034Uxr4R9Uw7UUOj88JGfp | SF-03 map task2 検証仕様・gate・文書チェーン完結 | done | [sf-03-map-task2-verification-gate-docs.md](./sf-03-map-task2-verification-gate-docs.md) |
 | TASK-106SF03Hi6iJk7lMn8oPq9rSt | SF-03 slice1 T2 — RoutingEngine activation ledger・stale 防止・SF-ACT-03/04 テスト | done | [sf-03-slice1-activation-tests.md](./sf-03-slice1-activation-tests.md) |
 | TASK-106SF03Gh5hIj6kLm7nOp8qRs | SF-03 slice1 T1 — 契約型(routing_build)・plan_playbacks 抽出・lower_semantic・StripProcessor | done | [sf-03-slice1-contract-lowering.md](./sf-03-slice1-contract-lowering.md) |
 | TASK-034UfGnJu6lN4FLgs2mZpK | SF-03 slice3 T3 — sf03_l3 受入テスト・test-spec | done | [sf-03-slice3-acceptance-tests.md](./sf-03-slice3-acceptance-tests.md) |
