@@ -76,6 +76,13 @@ use crate::binding::{PROJECT_TARGET, VIEW_STATE_TARGET};
 /// renders as `origin_view`/`view_id` `"view-1"` on the wire.
 const MAIN_VIEW_INSTANCE_RAW: u64 = 1;
 
+/// The second logical view (SV-GUI-04 slice 1, synvelis#113) —
+/// `ViewInstanceId(2)` renders as `origin_view`/`view_id` `"view-2"`
+/// on the wire. It shares the same `MainScreenState` cell and Project
+/// session as the main view; only the mounted spec (a transport deck)
+/// and its subscription targets differ.
+const SECONDARY_VIEW_INSTANCE_RAW: u64 = 2;
+
 /// Seek range used while the project has no resolvable content — the
 /// boot range the slice shipped with, kept so an empty project still
 /// scrubs.
@@ -111,6 +118,28 @@ pub fn main_view_id() -> String {
 #[must_use]
 pub fn main_view_instance() -> ViewInstanceId {
     ViewInstanceId::new(MAIN_VIEW_INSTANCE_RAW).expect("nonzero literal")
+}
+
+/// Wire `view_id` of the product's secondary view — the transport
+/// deck mounted on the env-gated second window
+/// ([`secondary_screen_spec`]). Must stay in lockstep with
+/// [`secondary_view_instance`] exactly like [`main_view_id`] does
+/// with [`main_view_instance`].
+#[must_use]
+pub fn secondary_view_id() -> String {
+    format!("view-{SECONDARY_VIEW_INSTANCE_RAW}")
+}
+
+/// The logical view instance for the secondary screen — a distinct
+/// persisted identity and command namespace from the main view (the
+/// `AttachEpoch` minted per host is the runtime guard, same contract
+/// as [`main_view_instance`]).
+///
+/// # Panics
+/// Never: `SECONDARY_VIEW_INSTANCE_RAW` is a nonzero literal.
+#[must_use]
+pub fn secondary_view_instance() -> ViewInstanceId {
+    ViewInstanceId::new(SECONDARY_VIEW_INSTANCE_RAW).expect("nonzero literal")
 }
 
 /// Wire target of the mixer gain fader — the tagged id of the
@@ -192,6 +221,19 @@ pub fn main_view_targets() -> Vec<String> {
     ]
 }
 
+/// Targets the secondary view subscribes after attach — only the
+/// transport surface its deck drives (the `transport` action target
+/// for Play/Stop and `transport/position` for the Seek). The
+/// subscription is `(view, target)`, so both views receive their own
+/// projection rows for the shared targets.
+#[must_use]
+pub fn secondary_view_targets() -> Vec<String> {
+    vec![
+        TRANSPORT_TARGET.to_string(),
+        TRANSPORT_POSITION_TARGET.to_string(),
+    ]
+}
+
 fn key(name: &str) -> ComponentKey {
     ComponentKey(name.to_string())
 }
@@ -221,8 +263,15 @@ fn panel(key_name: &str, title: Option<&str>, children: Vec<ComponentSpec>) -> C
 /// — the one continuous target the boot project always exposes. Its
 /// range is the seek range for `range_seconds` ([`seek_range_seconds`]).
 fn transport_seek(range_seconds: f64) -> ComponentSpec {
+    transport_seek_keyed("seek.position", range_seconds)
+}
+
+/// [`transport_seek`] under an explicit `ComponentKey` — the
+/// secondary screen's spec reuses the same driven control contract
+/// (`control_id == target`) under its own key namespace.
+fn transport_seek_keyed(key_name: &str, range_seconds: f64) -> ComponentSpec {
     ComponentSpec::Seek(ControlSpec {
-        key: key("seek.position"),
+        key: key(key_name),
         control_id: Some(TRANSPORT_POSITION_TARGET.to_string()),
         target: Some(TRANSPORT_POSITION_TARGET.to_string()),
         descriptor: ValueDescriptor {
@@ -517,6 +566,59 @@ pub fn main_screen_spec(state: &MainScreenState) -> ViewSpec {
     }
 }
 
+/// The secondary window's minimal screen spec (SV-GUI-04 slice 1,
+/// synvelis#113) — `Panel > [status Label, transport buttons Panel,
+/// Seek]`: a transport deck with a deliberately different region
+/// layout from [`main_screen_spec`]'s toolbar/tabs tree, driven by
+/// the same [`MainScreenState`] so both windows display the same
+/// authoritative transport readout. The contract is identical:
+/// `control_id` equals `target` on driven controls and every
+/// `ComponentKey` is distinct within this spec.
+#[must_use]
+pub fn secondary_screen_spec(state: &MainScreenState) -> ViewSpec {
+    let seek_range = seek_range_seconds(state.project_length_seconds);
+    ViewSpec {
+        root: panel(
+            "screen2.root",
+            Some("Synvelis — Secondary"),
+            vec![
+                transport_status_label(&state.transport),
+                panel(
+                    "transport2.buttons",
+                    None,
+                    vec![
+                        transport_button("transport2.play", "Play", "play"),
+                        transport_button("transport2.stop", "Stop", "stop"),
+                    ],
+                ),
+                transport_seek_keyed("seek2.position", seek_range),
+            ],
+        ),
+    }
+}
+
+/// Shared mount path for both product views — mint the `AttachEpoch`
+/// inside from the composition-root, session-owned allocator (the
+/// mandatory mint path: the allocator is passed, not an epoch, so a
+/// caller cannot bypass it) and mount `spec`. Each call is a *new
+/// host* for the same logical view — the monotonically minted epoch
+/// keeps the fresh host's command-id namespace disjoint from every
+/// earlier host's, so stale receipts are absorbed by the dead
+/// namespace instead of mutating the live binding (RF387
+/// `fresh_host_same_logical_id` contract).
+fn mount_screen_view(
+    attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
+    instance: ViewInstanceId,
+    spec: ViewSpec,
+    label: &str,
+) -> Result<ViewHost, UiError> {
+    let mut host = ViewHost::new(instance, attach_epochs.borrow_mut().mint());
+    host.mount(spec).map_err(|e| UiError::Internal {
+        message: format!("{label} spec invalid: {e}"),
+    })?;
+    Ok(host)
+}
+
 /// Mounts the product main view onto a fresh [`ViewHost`], minting
 /// the `AttachEpoch` inside from the composition-root, session-owned
 /// allocator — the mandatory mint path (the allocator is passed, not
@@ -541,10 +643,32 @@ pub fn mount_main_view(
     attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
     state: &MainScreenState,
 ) -> Result<ViewHost, UiError> {
-    let mut host = ViewHost::new(main_view_instance(), attach_epochs.borrow_mut().mint());
-    host.mount(main_screen_spec(state))
-        .map_err(|e| UiError::Internal {
-            message: format!("main screen spec invalid: {e}"),
-        })?;
-    Ok(host)
+    mount_screen_view(
+        attach_epochs,
+        main_view_instance(),
+        main_screen_spec(state),
+        "main screen",
+    )
+}
+
+/// Mounts the product secondary view (the transport deck,
+/// [`secondary_screen_spec`]) onto a fresh [`ViewHost`] — same
+/// session-owned allocator mint contract as [`mount_main_view`], a
+/// distinct logical view id ([`secondary_view_instance`]) and its
+/// own command namespace. Used by the env-gated second native window
+/// (SV-GUI-04 slice 1) and the two-window `FakeDriver` fixture.
+///
+/// # Errors
+/// [`UiError::Internal`] when the spec fails validation — a code
+/// defect.
+pub fn mount_secondary_view(
+    attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
+    state: &MainScreenState,
+) -> Result<ViewHost, UiError> {
+    mount_screen_view(
+        attach_epochs,
+        secondary_view_instance(),
+        secondary_screen_spec(state),
+        "secondary screen",
+    )
 }
