@@ -81,6 +81,11 @@ impl Drop for TempTree {
     }
 }
 
+/// Offline git fixture builder (ALIB-04 tests). Helpers are shared
+/// across test targets; each target uses a subset.
+#[allow(dead_code)]
+pub mod git_fixture;
+
 /// A provider id for tests.
 #[allow(dead_code)]
 pub fn pid(raw: u128) -> ProviderId {

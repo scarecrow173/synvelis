@@ -193,7 +193,13 @@ impl<R: Read> VerifyingReader<R> {
     }
 
     fn conclude(&mut self) -> io::Result<()> {
-        // EOF reached: verify the measured state against the pin.
+        // EOF reached: a cancel/deadline that landed during the final
+        // read still wins over a clean conclude (e.g. a watchdog-killed
+        // child surfaces as EOF, not as an error).
+        if let Err(err) = check_interrupts(&self.cancel, self.deadline) {
+            return Err(self.fail(err));
+        }
+        // Verify the measured state against the pin.
         let measured = ContentDigest::new(DigestAlgorithm::Sha256, &self.hasher.clone().finalize());
         if let Some(expected) = &self.expected_size
             && self.bytes != *expected

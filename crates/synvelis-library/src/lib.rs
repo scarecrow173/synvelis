@@ -41,6 +41,7 @@ mod catalog;
 mod context;
 mod digest;
 mod error;
+mod git;
 mod id;
 mod import;
 mod local;
@@ -69,6 +70,10 @@ pub use context::{
     SystemClock,
 };
 pub use error::{ProviderError, ProviderErrorKind, RetryAdvice};
+pub use git::{
+    GitObjectFormat, GitProviderInfo, GitRemoteConfig, GitRemoteProvider, GitRemoteScheme,
+    GitRemoteUrl, LfsBackendKind, MirrorMode, UnsupportedFilterPolicy,
+};
 pub use id::{CredentialKey, OpaqueCredential, OpaqueLocator, PrincipalId, ProviderId};
 pub use import::{
     BlobImportReceipt, BlobMaterialization, BlobPublishError, BlobPublishFailure,
