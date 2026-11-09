@@ -3236,7 +3236,7 @@ fn surface_source(s: &Surface) -> Option<&str> {
 /// of the timeline contract. Beat-axis items come straight from the
 /// musical anchor/extent (tempo map only needed for absolute anchors);
 /// seconds items resolve through `ClipPlacement::resolve_span`.
-fn timeline_items(
+pub(crate) fn timeline_items(
     session: &ProjectSession,
     axis: TimelineAxis,
     media_rate: u32,
