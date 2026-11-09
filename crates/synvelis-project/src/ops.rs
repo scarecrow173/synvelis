@@ -24,9 +24,10 @@ use crate::{
         ClipExtent, ClipPlacement, ClipPlayback, TimeAnchor, validate_clip_contract,
         validate_midi_clip_contract,
     },
+    ppqn::{PPQN_MAX, PPQN_MIN, PpqnConversionPolicy, ppqn_in_range, reproject_ppqn},
     project::{Asset, Clip, Lane, Note, Project, Source, SourceState, Track},
     range::{MusicalRange, SourceRange},
-    recording_data::ClockEpoch,
+    recording_data::{ClockEpoch, SessionState},
     routing::{
         Bus, BusKind, ChannelStrip, ConnectionKind, ExplicitChannelMap, PortBinding, PortDirection,
         PortOwner, PortRole, Processor, ProcessorBinding, ProcessorChain, RoutingConnection,
@@ -46,11 +47,28 @@ pub enum ProjectOp {
         /// New display name.
         name: String,
     },
-    /// Set the project PPQN. F0 only accepts `960` (configurable PPQN is
-    /// deferred to issue #19 / ruviform #189).
-    SetPpqn {
-        /// New PPQN value.
-        ppqn: u32,
+    /// Change the project PPQN (issue #125 / TIM-01). Every stored
+    /// musical-tick value — tempo/signature event positions, clip
+    /// musical anchors/extents, comp musical ranges — is lifted through
+    /// exact rational beats and re-projected onto the new grid under
+    /// `policy`; `project.ppqn` is never simply overwritten. Absolute
+    /// media anchors, source-native MIDI ticks/bytes, and recording
+    /// frame data are never touched. One CAS, one undo entry.
+    ///
+    /// Rejected while a recording session is [`SessionState::Open`]
+    /// (the project-visible proxy for "recording in progress"); the
+    /// transport-stopped / automation-write / merge-commit
+    /// preconditions live in the app layer, which owns that state.
+    SetProjectPpqn {
+        /// PPQN the caller observed — a CAS on the setting itself, on
+        /// top of `Command::expected_revision`.
+        old_ppqn: u32,
+        /// Target PPQN (`1..=32767`, the SMF 15-bit selectable range).
+        new_ppqn: u32,
+        /// Explicit policy for values the new grid cannot represent
+        /// exactly — `Exact` rejects; `Round` applies the declared
+        /// ruviform rounding. Never silent.
+        policy: PpqnConversionPolicy,
     },
     /// Add a tempo event (rejects a duplicate tick), bumping the tempo
     /// map revision.
@@ -573,14 +591,37 @@ impl Operation for ProjectOp {
             | Self::RegisterAsset { .. }
             | Self::AddTrack { .. }
             | Self::RegisterClockEpoch { .. } => Ok(()),
-            Self::SetPpqn { ppqn } => {
-                if *ppqn == 960 {
-                    Ok(())
-                } else {
-                    Err(Error::Validation(format!(
-                        "F0 supports ppqn 960 only (got {ppqn})"
-                    )))
+            Self::SetProjectPpqn {
+                old_ppqn,
+                new_ppqn,
+                policy,
+            } => {
+                if *old_ppqn != project.ppqn.0 {
+                    return Err(Error::Validation(format!(
+                        "ppqn CAS mismatch: expected {old_ppqn}, live {}",
+                        project.ppqn.0
+                    )));
                 }
+                if !ppqn_in_range(*new_ppqn) {
+                    return Err(Error::Validation(format!(
+                        "ppqn {new_ppqn} outside selectable range {PPQN_MIN}..={PPQN_MAX}"
+                    )));
+                }
+                if project
+                    .recording
+                    .sessions
+                    .values()
+                    .any(|s| s.state == SessionState::Open)
+                {
+                    return Err(Error::Validation(
+                        "cannot change ppqn while a recording session is open".into(),
+                    ));
+                }
+                // Dry-run the full re-projection on a scratch clone so
+                // conversion rejections surface from `validate` — the
+                // command fails before any live state is touched.
+                let mut scratch = project.clone();
+                reproject_ppqn(&mut scratch, *old_ppqn, *new_ppqn, *policy)
             }
             Self::AddTempoEvent { tick, bpm_milli } => {
                 if project
@@ -1378,7 +1419,11 @@ impl Operation for ProjectOp {
     fn apply(&self, project: &mut Project, ids: &mut dyn IdGenerator) -> Result<(), Error> {
         match self {
             Self::SetProjectName { name } => project.name.clone_from(name),
-            Self::SetPpqn { ppqn } => project.ppqn = crate::tempo::ProjectPpqn(*ppqn),
+            Self::SetProjectPpqn {
+                old_ppqn,
+                new_ppqn,
+                policy,
+            } => reproject_ppqn(project, *old_ppqn, *new_ppqn, *policy)?,
             Self::AddTempoEvent { tick, bpm_milli } => {
                 project.tempo_map.tempo_events.push(TempoEventDto {
                     tick: *tick,

@@ -780,7 +780,7 @@ pub(crate) fn lower_for(id: &str) -> Option<LowerFn> {
 pub(crate) fn op_name(op: &ProjectOp) -> &'static str {
     match op {
         ProjectOp::SetProjectName { .. } => "set-project-name",
-        ProjectOp::SetPpqn { .. } => "set-ppqn",
+        ProjectOp::SetProjectPpqn { .. } => "set-project-ppqn",
         ProjectOp::AddTempoEvent { .. } => "add-tempo-event",
         ProjectOp::AddSignatureEvent { .. } => "add-signature-event",
         ProjectOp::AddTrack { .. } => "add-track",
