@@ -99,7 +99,7 @@ Issue #113（SV-GUI-04）の precursor スライス。headless 契約層のみ:
       ままであることが pin される
 - [x] `mise run fmt-check` / `check` / `lint` / `test` が Pass
 - [x] 文書チェーン完備 + impl record 作成
-- [ ] review-protocol で blocker 無し → commit/push/PR
+- [x] review-protocol で blocker 無し → commit/push/PR
 
 ## Verification
 
