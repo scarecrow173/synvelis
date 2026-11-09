@@ -199,7 +199,7 @@ fn three_views_share_gateway_and_project_stays_untouched() {
     let session = viz_session();
     let mut ui = VizUi::new();
     let rev0 = session.revision();
-    let builds0 = session.engine().graph_builds;
+    let builds0 = session.engine().graph_builds();
 
     // Arrangement: timeline + a clip-window waveform.
     ui.attach_view("arr", "w1");
@@ -288,7 +288,7 @@ fn three_views_share_gateway_and_project_stays_untouched() {
 
     // Display work never touched project/engine truth.
     assert_eq!(session.revision(), rev0);
-    assert_eq!(session.engine().graph_builds, builds0);
+    assert_eq!(session.engine().graph_builds(), builds0);
 }
 
 // ---------------------------------------------------------------------------
@@ -810,7 +810,7 @@ fn display_only_ops_never_requery_and_never_touch_project() {
         .unwrap();
     let issued = ui.diagnostics().queries_issued;
     let rev0 = session.revision();
-    let builds0 = session.engine().graph_builds;
+    let builds0 = session.engine().graph_builds();
 
     // Theme swap, overlays, scales, range, labels — repaint only.
     ui.set_theme(
@@ -855,7 +855,7 @@ fn display_only_ops_never_requery_and_never_touch_project() {
     assert_eq!(d.repaints, 5);
     assert_eq!(ui.theme("arr").unwrap().0, 1);
     assert_eq!(session.revision(), rev0);
-    assert_eq!(session.engine().graph_builds, builds0);
+    assert_eq!(session.engine().graph_builds(), builds0);
 }
 
 // ---------------------------------------------------------------------------

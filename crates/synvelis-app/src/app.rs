@@ -32,6 +32,7 @@ use synvelis_project::{
 };
 use synvelis_workspace::{ProjectSession, WorkspaceManager};
 
+use crate::engine::SessionRoutingEngine;
 use crate::error::AppError;
 use crate::host::ShellWindowHost;
 use crate::logging::InstallState;
@@ -337,6 +338,16 @@ impl SynvelisApp {
     #[must_use]
     pub const fn workspace_mut(&mut self) -> &mut WorkspaceManager<ShellWindowHost> {
         &mut self.workspace
+    }
+
+    /// Attaches a [`SessionRoutingEngine`] to the current project
+    /// session's [`EnginePort`](synvelis_workspace::EnginePort) —
+    /// the headless session→routing connection (SF-03 slice 5).
+    /// `project_new`/`project_open` recreate the session and detach
+    /// the engine; re-attach afterwards with a config matching the
+    /// new project's media root.
+    pub fn attach_routing_engine(&mut self, engine: SessionRoutingEngine) {
+        self.workspace.session_mut().set_engine(Box::new(engine));
     }
 
     /// The probed `WebView` backend report.

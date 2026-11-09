@@ -35,6 +35,7 @@ Directory: `docs/test-specs`
 | TSPEC-106SF03Vz2aBc3dEf4gHi5jKl6 | SF-03 slice2 テスト仕様 — Fault 分類・Last-good/Retry・Reconcile | approved | [sf-03-slice2-fault-reconcile.md](./sf-03-slice2-fault-reconcile.md) |
 | TSPEC-034UfG7hrZDa6LMSTkgvCQ | SF-03 slice3 plugin host 接続 test spec | approved | [sf-03-slice3-plugin-host-connect.md](./sf-03-slice3-plugin-host-connect.md) |
 | TSPEC-034UgPehQz0fcmoolbwWKY | SF-03 slice4 受入テスト仕様 — NoRebuild Equivalence・世代連動 control・SF-ACT-05 headless | approved | [sf-03-slice4-act-acceptance.md](./sf-03-slice4-act-acceptance.md) |
+| TSPEC-034Uj7Mjz5Aoak1Vz7O3S4 | SF-03 slice5 受入テスト仕様 — session→routing activation e2e | approved | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
 | TSPEC-A8sVfBvTuQextSVcPY8yp9 | SV-GUI-01 検証仕様 — App Bootstrap・Service 契約・Asset Pipeline | approved | [sv-gui-01-e2e-desktop-bootstrap.md](./sv-gui-01-e2e-desktop-bootstrap.md) |
 | TESTSPEC-SVGUI02 | SV-GUI-02 契約検証仕様 | approved | [sv-gui-02.md](./sv-gui-02.md) |
 | TSPEC-Wa6Ax4SQSRfWvuKIzs8fCf | SV175-01 検証仕様: NativeShell lifecycle + ViewBinding wire 形 | approved | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
