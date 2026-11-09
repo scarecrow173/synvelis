@@ -69,6 +69,10 @@ pub const OPS: &[OpInfo] = &[
         summary: "workspace mount-point summary (shell window, views, dock)",
     },
     OpInfo {
+        name: "syn.window.close_guard",
+        summary: "window-close guard reasons — unsaved_changes/recording_active/recorder_active",
+    },
+    OpInfo {
         name: "syn.view.attach",
         summary: "attach a logical view to a window (view_id, window_id)",
     },
@@ -211,6 +215,7 @@ impl AppService {
                 Ok(json!({ "playing": playing }))
             }
             "syn.workspace.mount" => Ok(self.app.workspace_info()),
+            "syn.window.close_guard" => Ok(json!({ "reasons": self.app.close_veto_reasons() })),
             "syn.view.attach" => self.app.op_view_attach(params),
             "syn.view.detach" => self.app.op_view_detach(params),
             "syn.view.close" => self.app.op_view_close(params),
