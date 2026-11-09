@@ -67,4 +67,5 @@ Directory: `docs/impl/ir`
 | IMPL-034Ut8egNEzslbJ5OXxdeK | PC-C6 oracle REL/TR headless fixture（REL01〜07・TR01〜08 独立 oracle 照合） | completed | [pc-c6-oracle-rel-tr-headless-fixture.md](pc-c6-oracle-rel-tr-headless-fixture.md) |
 | IMPL-OABQ94C9ziv3kEtnGM5cHa | PC-C5 UI-C5-01 Relation Index の Inspector 投影 headless slice | completed | [pc-c5-01-relation-inspector.md](pc-c5-01-relation-inspector.md) |
 | IMPL-034UtkIqlxoLTf7Dvq5vMZ | SV-GUI-04 slice2 dock transfer — workspace adoption + syn.window.dock_* GUI op 配線 | completed | [sv-gui-04-slice2-dock-transfer-workspace-adoption-syn-window-dock-gui-op.md](sv-gui-04-slice2-dock-transfer-workspace-adoption-syn-window-dock-gui-op.md) |
+| IMPL-034UvMC7UhiwWgHviB9Qnv | RCD-04 Comp Transition / MIDI Phrase crate fixture slice 実装記録 | completed | [rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md](rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md) |
 | IMPL-034UvpX7fem2fghDtfNDJm | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | completed | [sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md](sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md) |
