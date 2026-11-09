@@ -124,17 +124,24 @@ pub enum ArmState {
     On,
 }
 
-/// Software Monitor の状態。
+/// Software Monitor の宣言モード（RCD-03 で `Auto` を追加）。
 ///
-/// raw 録音とは独立した状態。Monitor On は capture/Writer を作らず、
-/// Arm Off + Monitor On でも Writer は作成されない。本スライスでは
-/// monitor 音声 routing 自体は持たず、状態の独立性だけを保証する。
+/// raw 録音とは独立した状態。Monitor On/Auto は capture/Writer を
+/// 作らず、Arm Off + Monitor On でも Writer は作成されない。
+/// `Auto` の region ごとの解決（Arm/Transport/Gate/Mute/Solo →
+/// 可聴 route）は [`crate::monitor::decide`] が担い、本 enum は
+/// binding 時の宣言モードのみを保持する。
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub enum MonitorState {
-    /// Monitor Off。
+    /// Monitor Off: Software Input Off。gate open 区間は既存
+    /// Playback を抑制する（[`crate::monitor`] の判定規則）。
     #[default]
     Off,
-    /// Monitor On: 入力モニタリング有効（raw 録音に依存しない）。
+    /// Monitor Auto: Arm 有効時は停止中 Input・gate open 中 Input・
+    /// それ以外は既存 Playback。Arm Off では Input 無効。
+    Auto,
+    /// Monitor On: 入力 Binding/Output Capability が有効なら
+    /// Arm なしでも Software Monitor 可（Recording は開始しない）。
     On,
 }
 
