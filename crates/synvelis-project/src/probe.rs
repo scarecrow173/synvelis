@@ -387,6 +387,9 @@ pub enum CaptureSegmentEnd {
     RebindDropped,
     /// Probe removed.
     Removed,
+    /// The cursor-series clock epoch changed (transport
+    /// discontinuity such as a seek) — the segment never spans it.
+    ClockEpoch,
     /// A segment end the contract cannot represent (future runtime
     /// variant) — recorded, never guessed.
     Unknown,
@@ -394,8 +397,9 @@ pub enum CaptureSegmentEnd {
 
 /// One capture segment — the probe-observation counterpart of a
 /// recording segment, *not* a persisted recording-domain entity.
-/// A segment never spans a plan-generation boundary: it is cut at the
-/// boundary and a new capture requires an explicit new request.
+/// A segment never spans a plan-generation boundary or a cursor
+/// clock-epoch change: it is cut at the boundary and a new capture
+/// requires an explicit new request.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProbeCaptureSegment {
     /// Owning capture session.
