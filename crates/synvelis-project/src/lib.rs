@@ -30,6 +30,7 @@ pub mod routing;
 pub mod routing_build;
 pub mod routing_tx;
 pub mod smf;
+pub mod snapshot;
 pub mod store;
 pub mod tempo;
 pub mod time;
@@ -115,6 +116,13 @@ pub use routing_tx::{
 pub use smf::{
     SmfConversionReport, SmfDocument, SmfError, SmfEvent, SmfEventKind, SmfExportOptions, SmfFile,
     SmfFormat, SmfNoteSpec, SmfRational, SmfTrack, SmfUnsupportedEvent, export_smf, parse_smf,
+};
+pub use snapshot::{
+    AssetAvailabilityManifest, AssetResolution, BlobProbe, BlobRead, ContentDigest, ContentStatus,
+    FixedSnapshotLocator, ImmutableSnapshot, IndexGeneration, OpaqueStateRef, OpaqueStateStatus,
+    ReadOnlyProjectProjection, SnapshotCancel, SnapshotCompleteness, SnapshotError,
+    SnapshotIdentity, SnapshotLimits, SnapshotLocator, SnapshotOrigin, SnapshotResolver,
+    SnapshotValidation, VcsBytesPort, VcsFileRead, VcsLocator, VcsPortError,
 };
 pub use store::{
     DirectoryBundleStore, InMemoryStore, ProjectStore, SCHEMA_VERSION, SnapshotEnvelope,

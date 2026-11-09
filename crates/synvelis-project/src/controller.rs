@@ -104,6 +104,17 @@ impl ProjectController {
         self.saved.as_ref()
     }
 
+    /// The ID-generator watermark a save *would* stamp right now.
+    ///
+    /// Read-only counterpart of the `id_watermark` assignment inside
+    /// [`Self::save`]: the immutable snapshot resolver uses it to stamp
+    /// captured clones without mutating live state, revisions, or the
+    /// undo/redo stacks.
+    #[must_use]
+    pub fn snapshot_id_watermark(&self) -> u128 {
+        self.generator.peek()
+    }
+
     /// Draws the next raw ID value for an external reservation (a commit
     /// manifest recorded before its [`Operation`] is applied). The
     /// watermark persisted by the next successful apply or save accounts
