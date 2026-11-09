@@ -760,10 +760,11 @@ fn resolve_strip_internal(
                 }
                 // A main-out resolved to a different node cannot
                 // delimit this fader's pre-out — fail closed.
-                Some(MappingResolution::Resolved(_)) => {
-                    return ProbePointResolution::Unavailable;
-                }
-                Some(MappingResolution::Unavailable(_) | MappingResolution::NotLowered(_)) => {
+                Some(
+                    MappingResolution::Resolved(_)
+                    | MappingResolution::Unavailable(_)
+                    | MappingResolution::NotLowered(_),
+                ) => {
                     return ProbePointResolution::Unavailable;
                 }
                 Some(MappingResolution::Unsupported(_)) => {
