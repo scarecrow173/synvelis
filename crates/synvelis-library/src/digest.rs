@@ -42,6 +42,22 @@ pub(crate) fn short_fingerprint(bytes: &[u8]) -> String {
     out
 }
 
+/// Full SHA-256 hex fingerprint (64 chars). Used where a fingerprint
+/// is a *security-relevant namespace separator* — e.g. the on-disk
+/// principal tag of the ALIB-03 cache — and a 64-bit truncation
+/// would be an unacceptable collision surface.
+#[must_use]
+pub(crate) fn full_fingerprint(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let digest = sha2::Sha256::digest(bytes);
+    let mut out = String::with_capacity(64);
+    for &b in &digest {
+        out.push(HEX[usize::from(b >> 4)] as char);
+        out.push(HEX[usize::from(b & 0x0f)] as char);
+    }
+    out
+}
+
 /// Streams `reader` to EOF computing SHA-256, honoring cancel,
 /// deadline, and the byte budget.
 ///
@@ -104,7 +120,7 @@ fn check_interrupts(
     Ok(())
 }
 
-fn io_provider_error(op: &'static str, e: &io::Error) -> ProviderError {
+pub(crate) fn io_provider_error(op: &'static str, e: &io::Error) -> ProviderError {
     match e
         .get_ref()
         .and_then(|inner| inner.downcast_ref::<ProviderError>())

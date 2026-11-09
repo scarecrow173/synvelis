@@ -237,7 +237,7 @@ pub(crate) struct CursorPayload {
     pub offset: u64,
 }
 
-fn hex_encode(bytes: &[u8]) -> String {
+pub(crate) fn hex_encode(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);
     for &b in bytes {
@@ -247,7 +247,7 @@ fn hex_encode(bytes: &[u8]) -> String {
     out
 }
 
-fn hex_decode(text: &str) -> Result<Vec<u8>, ProviderError> {
+pub(crate) fn hex_decode(text: &str) -> Result<Vec<u8>, ProviderError> {
     let bytes = text.as_bytes();
     if !bytes.len().is_multiple_of(2) {
         return Err(cursor_invalid("odd-length cursor token"));
