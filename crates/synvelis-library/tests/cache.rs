@@ -41,7 +41,7 @@ struct FixtureState {
     partial_terminal: bool,
     /// Injected browse/search fault.
     catalog_err: Option<ProviderErrorKind>,
-    /// Injected pin/open_preview fault.
+    /// Injected `pin`/`open_preview` fault.
     preview_err: Option<ProviderErrorKind>,
     /// When true, pins report `expected_size: None`.
     unknown_size: bool,
@@ -188,7 +188,7 @@ impl AssetProvider for Fixture {
             (
                 st.page_size,
                 st.partial_terminal,
-                st.catalog_err.clone(),
+                st.catalog_err,
                 st.browse_release.take(),
                 st.browse_started.take(),
             )
@@ -270,7 +270,7 @@ impl AssetProvider for Fixture {
             (
                 st.page_size,
                 st.partial_terminal,
-                st.catalog_err.clone(),
+                st.catalog_err,
                 st.search_unsupported,
             )
         };
@@ -309,7 +309,7 @@ impl AssetProvider for Fixture {
             st.preview_calls += 1;
             (
                 st.objects.get(asset.locator.as_str()).cloned(),
-                st.preview_err.clone(),
+                st.preview_err,
             )
         };
         if let Some(kind) = err {
@@ -824,7 +824,7 @@ fn preview_range_fetch_cached_and_principal_isolated() {
 #[test]
 fn preview_full_download_requires_consent() {
     let fixture = Arc::new(Fixture::new(31));
-    fixture.object("obj/big.wav", &vec![7u8; 100]);
+    fixture.object("obj/big.wav", &[7u8; 100]);
     let policy = CachePolicy {
         max_preview_object_bytes: 50,
         max_full_object_bytes: 1_000,
@@ -933,7 +933,32 @@ fn preview_ranged_over_budget_refused() {
         err,
         CacheError::Provider(e) if e.kind() == ProviderErrorKind::BudgetExceeded
     ));
-    // Within budget works.
+    // The pre-flight plan reports the same refusal honestly.
+    let plan = cache
+        .preview_plan(
+            &*fixture,
+            &asset,
+            &preview_request(Some(ByteRange {
+                offset: 0,
+                len: 500,
+            })),
+            &cx,
+        )
+        .expect("plan");
+    assert_eq!(plan, PreviewPlan::OverBudget { bytes: 500 });
+    // Within budget works — and the plan agrees it is bounded.
+    let plan = cache
+        .preview_plan(
+            &*fixture,
+            &asset,
+            &preview_request(Some(ByteRange {
+                offset: 10,
+                len: 50,
+            })),
+            &cx,
+        )
+        .expect("plan");
+    assert_eq!(plan, PreviewPlan::Bounded { bytes: 50 });
     let mut lease = cache
         .preview(
             &*fixture,
@@ -1052,7 +1077,7 @@ fn cache_clear_and_eviction_preserve_source_of_truth() {
     let page = provider
         .browse(&browse_req_limit(10), &cx)
         .expect("browse after clear");
-    assert!(!page.entries.is_empty());
+    assert_ne!(page.entries, []);
     let mut lease = cache
         .preview(&provider, &asset, &req, &cx)
         .expect("preview after clear");
@@ -1062,8 +1087,8 @@ fn cache_clear_and_eviction_preserve_source_of_truth() {
 #[test]
 fn cache_budget_evicts_but_leases_pin() {
     let fixture = Arc::new(Fixture::new(40));
-    for i in 0..4 {
-        fixture.object(&format!("obj/{i}.bin"), &vec![i as u8; 1_000]);
+    for i in 0u8..4 {
+        fixture.object(&format!("obj/{i}.bin"), &[i; 1_000]);
     }
     // Disk budget fits ~2 entries; the held lease must survive.
     let policy = CachePolicy {

@@ -11,8 +11,9 @@
 //! unknown or exceeds `max_preview_object_bytes`, [`preview_plan`]
 //! reports [`PreviewPlan::FullDownload`] and `preview` refuses with
 //! [`CacheError::FullDownloadRequired`] unless the caller sets
-//! `PreviewRequest::allow_full_object`. A hard ceiling
-//! (`max_full_object_bytes`) refuses outright even with consent.
+//! `PreviewRequest::allow_full_object`. Fetches beyond the hard
+//! budgets report [`PreviewPlan::OverBudget`] and are refused
+//! outright even with consent.
 //!
 //! Cache-store failures degrade to a live provider fetch
 //! ([`PreviewLease::Live`]) — losing the cache never fails the
@@ -21,10 +22,10 @@
 
 use std::fs::File;
 use std::io::{self, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use ruviform_io_file::{Durability, PublishMode, PublishOptions};
+use ruviform_io_file::{Durability, PublishMode, PublishOptions, RecoveryHandle, StagedFile};
 use serde::{Deserialize, Serialize};
 use sha2::Digest as _;
 
@@ -38,7 +39,7 @@ use crate::error::{ProviderError, ProviderErrorKind};
 use crate::id::ProviderId;
 use crate::notify::LibraryEventKind;
 use crate::observation::ObservedAt;
-use crate::provider::{AssetProvider, ByteRange, PinnedRead};
+use crate::provider::{AssetProvider, ByteRange, FetchCompletion, PinnedRead};
 use crate::refs::{ContentDigest, DigestAlgorithm, ObjectIdentity, PinnedAssetRef, RemoteAssetRef};
 
 /// Preview payload stream chunk size — bounds per-read memory.
@@ -134,13 +135,20 @@ pub enum PreviewPlan {
         /// Expected object size when the pin reported one.
         bytes: Option<u64>,
     },
+    /// The fetch exceeds a hard cache budget — `preview` refuses
+    /// with `BudgetExceeded` even with full-download consent.
+    OverBudget {
+        /// Bytes the fetch would deliver (or the declared object
+        /// size for a full-object fetch).
+        bytes: u64,
+    },
 }
 
 /// The flight result of a preview fetch — shared with waiters.
 #[derive(Clone)]
 enum PreviewFetchOutcome {
     /// Payload committed to the cache.
-    Stored(EntryMeta),
+    Stored(Box<EntryMeta>),
     /// The cache store path failed — caller falls back to a live
     /// provider fetch.
     Uncached,
@@ -159,18 +167,32 @@ pub struct PreviewLease {
     cancel: crate::CancellationToken,
 }
 
+/// Cached lease state — boxed out of [`PreviewLeaseInner`] so the
+/// enum stays small (the incremental digest hasher alone is ~200
+/// bytes).
+struct CachedLease {
+    /// Lease pinning the entry against eviction for the read's
+    /// lifetime.
+    lease: CacheLease,
+    /// Open payload file.
+    file: File,
+    /// Payload bytes left to deliver.
+    remaining: u64,
+    /// Incremental SHA-256 over delivered bytes.
+    hasher: sha2::Sha256,
+    /// Recorded digest to verify at EOF.
+    expected_digest: Option<ContentDigest>,
+    /// `true` once EOF digest verification ran.
+    verified: bool,
+    /// Total payload bytes.
+    byte_len: u64,
+    /// Recorded preview metadata.
+    meta: PreviewMeta,
+}
+
 enum PreviewLeaseInner {
     /// A leased, digest-verified cache payload.
-    Cached {
-        _lease: CacheLease,
-        file: File,
-        remaining: u64,
-        hasher: sha2::Sha256,
-        expected_digest: Option<ContentDigest>,
-        verified: bool,
-        byte_len: u64,
-        meta: PreviewMeta,
-    },
+    Cached(Box<CachedLease>),
     /// A live provider stream — used when the cache store path
     /// failed. Bytes are the provider's unverified preview contract.
     Live {
@@ -185,7 +207,7 @@ impl PreviewLease {
     #[must_use]
     pub fn byte_len(&self) -> Option<u64> {
         match &self.inner {
-            PreviewLeaseInner::Cached { byte_len, .. } => Some(*byte_len),
+            PreviewLeaseInner::Cached(c) => Some(c.byte_len),
             PreviewLeaseInner::Live { expected_size, .. } => *expected_size,
         }
     }
@@ -194,14 +216,14 @@ impl PreviewLease {
     /// digest-verified at EOF), `false` for the live fallback.
     #[must_use]
     pub fn is_cached(&self) -> bool {
-        matches!(self.inner, PreviewLeaseInner::Cached { .. })
+        matches!(self.inner, PreviewLeaseInner::Cached(_))
     }
 
     /// The recorded preview metadata — `Some` for cached leases only.
     #[must_use]
     pub fn meta(&self) -> Option<&PreviewMeta> {
         match &self.inner {
-            PreviewLeaseInner::Cached { meta, .. } => Some(meta),
+            PreviewLeaseInner::Cached(c) => Some(&c.meta),
             PreviewLeaseInner::Live { .. } => None,
         }
     }
@@ -211,7 +233,7 @@ impl PreviewLease {
     #[must_use]
     pub fn payload_path(&self) -> Option<PathBuf> {
         match &self.inner {
-            PreviewLeaseInner::Cached { _lease, .. } => _lease.payload_path(),
+            PreviewLeaseInner::Cached(c) => c.lease.payload_path(),
             PreviewLeaseInner::Live { .. } => None,
         }
     }
@@ -235,23 +257,16 @@ impl Read for PreviewLease {
             ));
         }
         match &mut self.inner {
-            PreviewLeaseInner::Cached {
-                file,
-                remaining,
-                hasher,
-                expected_digest,
-                verified,
-                ..
-            } => {
-                if *remaining == 0 {
-                    if !*verified {
-                        *verified = true;
-                        if let Some(expected) = expected_digest {
+            PreviewLeaseInner::Cached(c) => {
+                if c.remaining == 0 {
+                    if !c.verified {
+                        c.verified = true;
+                        if let Some(expected) = &c.expected_digest {
                             let measured = ContentDigest::new(
                                 DigestAlgorithm::Sha256,
-                                &hasher.clone().finalize(),
+                                &c.hasher.clone().finalize(),
                             );
-                            if measured != *expected {
+                            if &measured != expected {
                                 return Err(io::Error::new(
                                     io::ErrorKind::InvalidData,
                                     format!(
@@ -263,21 +278,21 @@ impl Read for PreviewLease {
                     }
                     return Ok(0);
                 }
-                let want = usize::try_from(*remaining)
+                let want = usize::try_from(c.remaining)
                     .unwrap_or(usize::MAX)
                     .min(buf.len());
                 if want == 0 {
                     return Ok(0);
                 }
-                let n = file.read(&mut buf[..want])?;
+                let n = c.file.read(&mut buf[..want])?;
                 if n == 0 {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
                         "cached preview payload truncated",
                     ));
                 }
-                hasher.update(&buf[..n]);
-                *remaining -= n as u64;
+                c.hasher.update(&buf[..n]);
+                c.remaining -= n as u64;
                 Ok(n)
             }
             PreviewLeaseInner::Live { reader, .. } => reader.read(buf),
@@ -292,13 +307,13 @@ fn classify_preview_error(
     cache: &LibraryCache,
     cx: &ProviderContext,
 ) -> CacheError {
-    if let Some(kind) = err.provider_error().map(|e| e.kind())
+    if let Some(kind) = err.provider_error().map(ProviderError::kind)
         && matches!(
             kind,
             ProviderErrorKind::PermissionDenied | ProviderErrorKind::AuthExpired
         )
     {
-        let _ = cache.retire_for_provider_denial(cx);
+        cache.retire_for_provider_denial(cx);
     }
     err
 }
@@ -351,24 +366,20 @@ impl LibraryCache {
             .core
             .lookup(CacheCategory::Preview, &ptag, &key_fp, now);
 
-        // Fresh hit — open a leased payload.
-        if let Some(meta) = meta.as_ref().filter(|m| !m.expired(now)) {
-            match self.open_cached_lease(meta, cx)? {
-                Some(lease) => {
-                    self.core.note_hit();
-                    return Ok(lease);
-                }
-                None => {
-                    // Vanished or unreadable — fall through to fetch.
-                }
-            }
+        // Fresh hit — open a leased payload. A vanished or
+        // unreadable entry falls through to the fetch path.
+        if let Some(meta) = meta.as_ref().filter(|m| !m.expired(now))
+            && let Some(lease) = self.open_cached_lease(meta, cx)?
+        {
+            self.core.note_hit();
+            return Ok(lease);
         }
 
         // Miss or expired — single-flight fetch+store.
         self.core.note_miss();
         let rel_dir = CacheCore::rel_dir(CacheCategory::Preview, &ptag, &key_fp);
         let outcome = self.core.run_flight(&rel_dir, cx, || {
-            self.fetch_and_store_preview(provider, asset, &pin, request, &key, &ptag, &key_fp, cx)
+            self.fetch_and_store_preview(provider, asset, &pin, request, &key, cx)
         })?;
         match outcome {
             PreviewFetchOutcome::Stored(meta) => {
@@ -411,30 +422,26 @@ impl LibraryCache {
         let EntryAux::Preview(preview_meta) = &meta.aux else {
             return Ok(None);
         };
-        let lease = match self.core.acquire_lease(&meta.rel_dir)? {
-            Some(lease) => lease,
-            None => return Ok(None),
+        let Some(lease) = self.core.acquire_lease(&meta.rel_dir)? else {
+            return Ok(None);
         };
         let Some(path) = lease.payload_path() else {
             return Ok(None);
         };
-        let file = match File::open(&path) {
-            Ok(file) => file,
-            Err(_) => {
-                self.core.remove_entry(&meta.rel_dir);
-                return Ok(None);
-            }
+        let Ok(file) = File::open(&path) else {
+            self.core.remove_entry(&meta.rel_dir);
+            return Ok(None);
         };
         // Cheap integrity gate: the payload must be at least as long
         // as recorded; the digest itself verifies at EOF.
-        let actual = file.metadata().map(|m| m.len()).unwrap_or(0);
+        let actual = file.metadata().map_or(0, |m| m.len());
         if actual < preview_meta.byte_len {
             self.core.remove_entry(&meta.rel_dir);
             return Ok(None);
         }
         Ok(Some(PreviewLease {
-            inner: PreviewLeaseInner::Cached {
-                _lease: lease,
+            inner: PreviewLeaseInner::Cached(Box::new(CachedLease {
+                lease,
                 file,
                 remaining: preview_meta.byte_len,
                 hasher: sha2::Sha256::new(),
@@ -442,7 +449,7 @@ impl LibraryCache {
                 verified: false,
                 byte_len: preview_meta.byte_len,
                 meta: preview_meta.clone(),
-            },
+            })),
             cancel: cx.cancel.clone(),
         }))
     }
@@ -484,53 +491,13 @@ impl LibraryCache {
         pin: &PinnedAssetRef,
         request: &PreviewRequest,
         key: &PreviewCacheKey,
-        principal_tag: &str,
-        key_fp: &str,
         cx: &ProviderContext,
     ) -> Result<PreviewFetchOutcome, CacheError> {
-        // Policy gate — mirrors `preview_plan` but enforced at fetch.
-        let hard_cap = match request.region {
-            Some(range) => {
-                if range.len > self.core.policy.max_preview_object_bytes {
-                    return Err(CacheError::Provider(ProviderError::new(
-                        ProviderErrorKind::BudgetExceeded,
-                        format!(
-                            "preview range {}B exceeds cache budget {}B",
-                            range.len, self.core.policy.max_preview_object_bytes
-                        ),
-                    )));
-                }
-                range.len
-            }
-            None => match pin.expected_size {
-                Some(size) if size > self.core.policy.max_full_object_bytes => {
-                    return Err(CacheError::Provider(ProviderError::new(
-                        ProviderErrorKind::BudgetExceeded,
-                        format!(
-                            "preview object {size}B exceeds hard ceiling {}B",
-                            self.core.policy.max_full_object_bytes
-                        ),
-                    )));
-                }
-                Some(size)
-                    if size > self.core.policy.max_preview_object_bytes
-                        && !request.allow_full_object =>
-                {
-                    return Err(CacheError::FullDownloadRequired {
-                        expected_size: Some(size),
-                    });
-                }
-                None if !request.allow_full_object => {
-                    return Err(CacheError::FullDownloadRequired {
-                        expected_size: None,
-                    });
-                }
-                // Known size → the stream bound is the pin's own
-                // length; unknown + consented → the hard ceiling.
-                Some(size) => size,
-                None => self.core.policy.max_full_object_bytes,
-            },
-        };
+        let hard_cap = self.preview_hard_cap(pin, request)?;
+        let principal_tag = CacheCore::principal_tag(&cx.principal);
+        let key_fp = key.fingerprint();
+        let rel_dir = CacheCore::rel_dir(CacheCategory::Preview, &principal_tag, &key_fp);
+        let dir = self.core.entry_dir(&rel_dir);
 
         let pinned = match provider.open_preview(asset, request.region, cx) {
             Ok(pinned) => pinned,
@@ -544,79 +511,172 @@ impl LibraryCache {
             ..
         } = pinned;
 
-        let rel_dir = CacheCore::rel_dir(CacheCategory::Preview, principal_tag, key_fp);
-        let dir = self.core.entry_dir(&rel_dir);
         let payload_path = dir.join(PREVIEW_PAYLOAD);
-        let mut staged = match self.core.begin_payload(&payload_path) {
-            Ok(staged) => staged,
-            Err(_) => return Ok(PreviewFetchOutcome::Uncached),
+        let Ok(mut staged) = CacheCore::begin_payload(&payload_path) else {
+            return Ok(PreviewFetchOutcome::Uncached);
         };
 
+        let (total, hasher) = match Self::stream_payload(&mut *reader, &mut staged, hard_cap, cx) {
+            Ok(done) => done,
+            Err(CacheError::Io { .. }) => {
+                let _ = staged.abort();
+                return Ok(PreviewFetchOutcome::Uncached);
+            }
+            Err(other) => {
+                let _ = staged.abort();
+                return Err(classify_preview_error(other, self, cx));
+            }
+        };
+        if staged.flush().is_err() {
+            let _ = staged.abort();
+            return Ok(PreviewFetchOutcome::Uncached);
+        }
+
+        let measured = match Self::verify_preview_fetch(&completion, &hasher, total, pin, request) {
+            Ok(measured) => measured,
+            Err(err) => {
+                let _ = staged.abort();
+                return Err(classify_preview_error(err, self, cx));
+            }
+        };
+
+        // Publish payload, then sidecar, then commit.
+        let sealed = staged.seal();
+        if let Err(mut failure) = sealed.publish(PublishOptions::new(
+            PublishMode::Replace,
+            Durability::FileSync,
+        )) {
+            let _ = failure.take_recovery_handle().map(RecoveryHandle::cleanup);
+            return Ok(PreviewFetchOutcome::Uncached);
+        }
+
+        self.commit_preview_payload(PreviewCommit {
+            dir: &dir,
+            rel_dir: &rel_dir,
+            key,
+            principal_tag: &principal_tag,
+            key_fp: &key_fp,
+            pin,
+            request,
+            total,
+            measured,
+            cx,
+        })
+    }
+
+    /// The stream bound for this fetch — mirrors the
+    /// `preview_plan` decision but enforced at fetch time.
+    fn preview_hard_cap(
+        &self,
+        pin: &PinnedAssetRef,
+        request: &PreviewRequest,
+    ) -> Result<u64, CacheError> {
+        match request.region {
+            Some(range) => {
+                if range.len > self.core.policy.max_preview_object_bytes {
+                    return Err(CacheError::Provider(ProviderError::new(
+                        ProviderErrorKind::BudgetExceeded,
+                        format!(
+                            "preview range {}B exceeds cache budget {}B",
+                            range.len, self.core.policy.max_preview_object_bytes
+                        ),
+                    )));
+                }
+                Ok(range.len)
+            }
+            None => match pin.expected_size {
+                Some(size) if size > self.core.policy.max_full_object_bytes => {
+                    Err(CacheError::Provider(ProviderError::new(
+                        ProviderErrorKind::BudgetExceeded,
+                        format!(
+                            "preview object {size}B exceeds hard ceiling {}B",
+                            self.core.policy.max_full_object_bytes
+                        ),
+                    )))
+                }
+                Some(size)
+                    if size > self.core.policy.max_preview_object_bytes
+                        && !request.allow_full_object =>
+                {
+                    Err(CacheError::FullDownloadRequired {
+                        expected_size: Some(size),
+                    })
+                }
+                None if !request.allow_full_object => Err(CacheError::FullDownloadRequired {
+                    expected_size: None,
+                }),
+                // Known size → the stream bound is the pin's own
+                // length; unknown + consented → the hard ceiling.
+                Some(size) => Ok(size),
+                None => Ok(self.core.policy.max_full_object_bytes),
+            },
+        }
+    }
+
+    /// Streams `reader` into `staged`, hashing as it goes. Returns
+    /// the measured byte count and digest state; exceeding
+    /// `hard_cap` aborts early with `BudgetExceeded`.
+    fn stream_payload<R: Read + ?Sized>(
+        reader: &mut R,
+        staged: &mut StagedFile,
+        hard_cap: u64,
+        cx: &ProviderContext,
+    ) -> Result<(u64, sha2::Sha256), CacheError> {
         let mut hasher = sha2::Sha256::new();
         let mut total = 0u64;
         let mut buf = vec![0u8; PREVIEW_CHUNK];
-        let stream_result = loop {
+        loop {
             if let Err(err) = cx.check_interrupts() {
-                break Err(CacheError::Provider(err));
+                return Err(CacheError::Provider(err));
             }
             match reader.read(&mut buf) {
-                Ok(0) => break Ok(()),
+                Ok(0) => return Ok((total, hasher)),
                 Ok(n) => {
                     total += n as u64;
                     if total > hard_cap {
-                        break Err(CacheError::Provider(ProviderError::new(
+                        return Err(CacheError::Provider(ProviderError::new(
                             ProviderErrorKind::BudgetExceeded,
                             format!("preview fetch exceeds cache budget {hard_cap}B"),
                         )));
                     }
                     hasher.update(&buf[..n]);
-                    if let Err(e) = staged.write_all(&buf[..n]) {
-                        break Err(CacheError::Io {
-                            op: "stage preview",
-                            detail: e.to_string(),
-                        });
-                    }
+                    staged.write_all(&buf[..n]).map_err(|e| CacheError::Io {
+                        op: "stage preview",
+                        detail: e.to_string(),
+                    })?;
                 }
                 Err(e) => {
                     // Provider streams surface typed errors through
                     // the io::Error source chain.
-                    break Err(CacheError::Provider(crate::digest::io_provider_error(
+                    return Err(CacheError::Provider(crate::digest::io_provider_error(
                         "preview read",
                         &e,
                     )));
                 }
             }
-        };
-        if let Err(err) = stream_result {
-            let _ = staged.abort();
-            // Store-path I/O failures degrade to the live fallback;
-            // provider/fetch failures propagate.
-            return match err {
-                CacheError::Io { .. } => Ok(PreviewFetchOutcome::Uncached),
-                other => Err(classify_preview_error(other, self, cx)),
-            };
         }
-        if let Err(_e) = staged.flush() {
-            let _ = staged.abort();
-            return Ok(PreviewFetchOutcome::Uncached);
-        }
+    }
 
-        // Terminal receipt — the provider's own accounting is a
-        // cross-check only: the stored facts are always the cache's
-        // measurement of the bytes it actually wrote. A provider
-        // that records no outcome still yields a valid (unverified)
-        // preview payload.
+    /// Terminal verification of a streamed payload. The provider
+    /// receipt is a cross-check only — stored facts are always the
+    /// cache's own measurement; a provider that records no outcome
+    /// still yields a valid (unverified) preview payload. The
+    /// length gate then requires exact delivery. Returns the
+    /// measured digest.
+    fn verify_preview_fetch(
+        completion: &FetchCompletion,
+        hasher: &sha2::Sha256,
+        total: u64,
+        pin: &PinnedAssetRef,
+        request: &PreviewRequest,
+    ) -> Result<ContentDigest, CacheError> {
         match completion.take() {
-            Some(Err(err)) => {
-                let _ = staged.abort();
-                return Err(classify_preview_error(CacheError::Provider(err), self, cx));
-            }
+            Some(Err(err)) => return Err(CacheError::Provider(err)),
             Some(Ok(receipt)) => {
                 let measured =
                     ContentDigest::new(DigestAlgorithm::Sha256, &hasher.clone().finalize());
                 let digest_ok = receipt.digest.as_ref().is_none_or(|d| *d == measured);
                 if receipt.bytes_read != total || !digest_ok {
-                    let _ = staged.abort();
                     return Err(CacheError::Provider(ProviderError::new(
                         ProviderErrorKind::IntegrityMismatch,
                         format!(
@@ -641,39 +701,41 @@ impl LibraryCache {
         if let Some(expected) = expected_total
             && total != expected
         {
-            let _ = staged.abort();
             return Err(CacheError::Provider(ProviderError::new(
                 ProviderErrorKind::SourceChanged,
                 format!("preview delivered {total}B != expected {expected}B"),
             )));
         }
-        let measured = ContentDigest::new(DigestAlgorithm::Sha256, &hasher.finalize());
+        Ok(ContentDigest::new(
+            DigestAlgorithm::Sha256,
+            &hasher.clone().finalize(),
+        ))
+    }
 
-        // Publish payload then sidecar, then commit.
-        let sealed = staged.seal();
-        if let Err(mut failure) = sealed.publish(PublishOptions::new(
-            PublishMode::Replace,
-            Durability::FileSync,
-        )) {
-            let _ = failure.take_recovery_handle().map(|h| h.cleanup());
-            return Ok(PreviewFetchOutcome::Uncached);
-        }
-        let digest = Some(measured);
+    /// Persists a verified, published preview payload: sidecar,
+    /// entry metadata, budget enforcement, store event.
+    /// [`PreviewFetchOutcome::Uncached`] when the store path fails
+    /// or the credential epoch moved mid-fetch.
+    fn commit_preview_payload(
+        &self,
+        c: PreviewCommit<'_>,
+    ) -> Result<PreviewFetchOutcome, CacheError> {
         let meta_record = PreviewMeta {
-            object_identity: pin.object_identity.clone(),
-            byte_len: total,
-            digest: digest.clone(),
-            stored_at: cx.now(),
-            format: request.format.clone(),
-            region: request.region,
+            object_identity: c.pin.object_identity.clone(),
+            byte_len: c.total,
+            digest: Some(c.measured),
+            stored_at: c.cx.now(),
+            format: c.request.format.clone(),
+            region: c.request.region,
         };
         // TTL anchors on the cache's wall clock — provider logical
         // time (`stored_at`) is informational only.
         let committed_at = SystemTime::now();
+        let sweep_tag = preview_sweep_tag(c.key, c.principal_tag);
         let sidecar = SidecarMeta::Preview {
             format_version: SIDECAR_FORMAT,
-            sweep_tag: preview_sweep_tag(key, principal_tag),
-            credential_epoch: key.credential_epoch,
+            sweep_tag: sweep_tag.clone(),
+            credential_epoch: c.key.credential_epoch,
             meta: meta_record.clone(),
             committed_at,
         };
@@ -683,51 +745,76 @@ impl LibraryCache {
                 return Err(CacheError::internal(format!("sidecar encode: {e}")));
             }
         };
-        if let Err(_) = self.core.publish_file(
-            &dir.join(SIDECAR_NAME),
+        if CacheCore::publish_file(
+            &c.dir.join(SIDECAR_NAME),
             &sidecar_bytes,
             PublishMode::Replace,
-        ) {
+        )
+        .is_err()
+        {
             return Ok(PreviewFetchOutcome::Uncached);
         }
         let expires_at = committed_at
             .checked_add(self.core.policy.preview_ttl)
             .unwrap_or(committed_at);
         let entry = EntryMeta {
-            rel_dir: rel_dir.clone(),
+            rel_dir: c.rel_dir.to_owned(),
             category: CacheCategory::Preview,
-            payload_bytes: total + sidecar_bytes.len() as u64,
+            payload_bytes: c.total + sidecar_bytes.len() as u64,
             last_used_at: SystemTime::now(),
             expires_at,
             leases: 0,
-            sweep_tag: preview_sweep_tag(key, principal_tag),
+            sweep_tag,
             generation: 0,
-            credential_epoch: key.credential_epoch,
-            principal: Some(key.principal.clone()),
+            credential_epoch: c.key.credential_epoch,
+            principal: Some(c.key.principal.clone()),
             aux: EntryAux::Preview(meta_record.clone()),
+            instance: 0,
         };
-        match self.core.commit_entry(entry, SystemTime::now()) {
-            Ok(Some(meta)) => {
-                let generation = self.core.events.generation();
-                self.core.events.emit(
-                    generation,
-                    LibraryEventKind::PreviewStored {
-                        key_fp: key_fp.to_owned(),
-                        byte_len: total,
-                    },
-                    meta_record.stored_at,
-                );
-                Ok(PreviewFetchOutcome::Stored(meta))
-            }
-            // Epoch moved mid-fetch — remove the orphaned payload
-            // and serve live rather than resurrect retired data.
-            Ok(None) => {
-                self.core.remove_entry(&rel_dir);
-                Ok(PreviewFetchOutcome::Uncached)
-            }
-            Err(_) => Ok(PreviewFetchOutcome::Uncached),
+        if let Some(meta) = self.core.commit_entry(entry, SystemTime::now()) {
+            let generation = self.core.events.generation();
+            self.core.events.emit(
+                generation,
+                LibraryEventKind::PreviewStored {
+                    key_fp: c.key_fp.to_owned(),
+                    byte_len: c.total,
+                },
+                meta_record.stored_at,
+            );
+            Ok(PreviewFetchOutcome::Stored(Box::new(meta)))
+        } else {
+            // Epoch moved mid-fetch or budget enforcement evicted
+            // the entry itself — remove the orphaned payload and
+            // serve live rather than resurrect retired data.
+            self.core.remove_entry(c.rel_dir);
+            Ok(PreviewFetchOutcome::Uncached)
         }
     }
+}
+
+/// Facts collected while streaming a preview payload — everything
+/// the commit step needs to persist it.
+struct PreviewCommit<'a> {
+    /// Entry directory (payload already published inside).
+    dir: &'a Path,
+    /// Cache-relative entry directory.
+    rel_dir: &'a str,
+    /// Preview cache key.
+    key: &'a PreviewCacheKey,
+    /// Principal namespace tag.
+    principal_tag: &'a str,
+    /// Key fingerprint (event payload).
+    key_fp: &'a str,
+    /// Pinned object identity.
+    pin: &'a PinnedAssetRef,
+    /// Original request.
+    request: &'a PreviewRequest,
+    /// Measured payload bytes.
+    total: u64,
+    /// Measured payload digest.
+    measured: ContentDigest,
+    /// Provider context.
+    cx: &'a ProviderContext,
 }
 
 /// Sweep tag for preview entries — groups by
@@ -746,19 +833,28 @@ fn preview_sweep_tag(key: &PreviewCacheKey, principal_tag: &str) -> String {
     )
 }
 
-/// The `preview_plan` decision for `expected_size` under `policy`.
+/// The `preview_plan` decision for `expected_size` under `policy` —
+/// mirrors the `preview_hard_cap` checks so the plan never promises
+/// a fetch `preview` would refuse.
 fn plan_for(
     request: &PreviewRequest,
     expected_size: Option<u64>,
     policy: &crate::CachePolicy,
 ) -> PreviewPlan {
     match request.region {
+        Some(range) if range.len > policy.max_preview_object_bytes => {
+            PreviewPlan::OverBudget { bytes: range.len }
+        }
         Some(range) => PreviewPlan::Bounded { bytes: range.len },
         None => match expected_size {
-            Some(size) if size <= policy.max_preview_object_bytes => {
-                PreviewPlan::Bounded { bytes: size }
+            Some(size) if size > policy.max_full_object_bytes => {
+                PreviewPlan::OverBudget { bytes: size }
             }
-            other => PreviewPlan::FullDownload { bytes: other },
+            Some(size) if size > policy.max_preview_object_bytes => {
+                PreviewPlan::FullDownload { bytes: Some(size) }
+            }
+            Some(size) => PreviewPlan::Bounded { bytes: size },
+            None => PreviewPlan::FullDownload { bytes: None },
         },
     }
 }

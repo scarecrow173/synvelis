@@ -27,7 +27,7 @@ use crate::observation::ObservedAt;
 /// Bumped by every invalidating operation (principal retirement,
 /// credential change, explicit clear, generation sweep). Events
 /// emitted during/after the bump carry the new value; consumers use
-/// [`SuppressingSink`] or [`RtEventQueue`]'s drain-side filtering to
+/// [`SuppressingSink`] or filter [`RtEventQueue::drain`] output to
 /// drop anything older than the newest generation they have seen.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LibraryGeneration(pub u64);
@@ -172,14 +172,11 @@ impl EventHub {
             Err(_) => return,
         };
         for sink in sinks {
-            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            // A panicking sink is a consumer bug; keep serving the
+            // remaining sinks and the cache operation.
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 sink.emit(event.clone());
             }));
-            if result.is_err() {
-                // A panicking sink is a consumer bug; keep serving the
-                // remaining sinks and the cache operation.
-                continue;
-            }
         }
     }
 }
@@ -313,6 +310,12 @@ impl RtEventQueue {
         self.head
             .load(Ordering::Acquire)
             .wrapping_sub(self.tail.load(Ordering::Acquire))
+    }
+
+    /// `true` when no events are pending.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 

@@ -33,7 +33,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, SystemTime};
 
 use ruviform_io_file::{Durability, PublishMode, PublishOptions, StagedFile};
@@ -61,7 +61,7 @@ pub(crate) const SIDECAR_NAME: &str = "meta.json";
 const RETIRED_MARKER: &str = ".retired";
 
 /// Bounded cache policy — every limit is configurable. Defaults are
-/// PoC values for the headless slice, not security guarantees.
+/// `PoC` values for the headless slice, not security guarantees.
 #[derive(Clone, Debug)]
 pub struct CachePolicy {
     /// Total payload+sidecar bytes retained on disk.
@@ -284,6 +284,10 @@ pub(crate) struct EntryMeta {
     pub principal: Option<PrincipalId>,
     /// Category-typed facts mirrored from the sidecar.
     pub aux: EntryAux,
+    /// Unique instance id assigned at commit/scan — lets a
+    /// [`CacheLease`] verify it still pins *this* entry and not a
+    /// same-`rel_dir` recommit (TTL refresh, clear+refetch).
+    pub instance: u64,
 }
 
 impl EntryMeta {
@@ -357,6 +361,9 @@ pub(crate) struct StoreState {
     evictions: u64,
     /// Explicit retirements.
     retired: u64,
+    /// Next entry-instance id — monotonic so a `rel_dir` recommit
+    /// never reuses an id a live [`CacheLease`] still pins.
+    next_instance: u64,
 }
 
 impl StoreState {
@@ -368,6 +375,7 @@ impl StoreState {
             misses: 0,
             evictions: 0,
             retired: 0,
+            next_instance: 1,
         }
     }
 }
@@ -407,15 +415,17 @@ pub(crate) struct CacheCore {
 
 impl CacheCore {
     fn lock_state(&self) -> MutexGuard<'_, StoreState> {
-        self.state.lock().unwrap_or_else(|e| e.into_inner())
+        self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     fn lock_flights(&self) -> MutexGuard<'_, BTreeMap<String, Arc<Flight>>> {
-        self.flights.lock().unwrap_or_else(|e| e.into_inner())
+        self.flights.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     fn lock_credentials(&self) -> MutexGuard<'_, BTreeMap<PrincipalId, u64>> {
-        self.credentials.lock().unwrap_or_else(|e| e.into_inner())
+        self.credentials
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 
     /// The on-disk principal scope tag — full SHA-256 hex so the
@@ -489,16 +499,13 @@ impl CacheCore {
     /// commit must not resurrect retired data), assigns a fresh
     /// build id, upserts the metadata, then enforces budgets.
     /// Returns the admitted meta — or `None` when the epoch moved on
-    /// (caller must delete the just-published payload).
-    pub(crate) fn commit_entry(
-        &self,
-        mut meta: EntryMeta,
-        now: SystemTime,
-    ) -> Result<Option<EntryMeta>, CacheError> {
+    /// or budget enforcement evicted the entry itself (caller must
+    /// delete the just-published payload / serve uncached).
+    pub(crate) fn commit_entry(&self, mut meta: EntryMeta, now: SystemTime) -> Option<EntryMeta> {
         if let Some(principal) = &meta.principal {
             let current = self.credential_epoch(principal);
             if current != meta.credential_epoch {
-                return Ok(None);
+                return None;
             }
         }
         meta.last_used_at = now;
@@ -506,6 +513,8 @@ impl CacheCore {
         let bytes = meta.payload_bytes;
         let (evicted_count, evicted_bytes, admitted) = {
             let mut state = self.lock_state();
+            meta.instance = state.next_instance;
+            state.next_instance = state.next_instance.wrapping_add(1);
             if let Some(old) = state.entries.insert(rel_dir.clone(), meta.clone()) {
                 state.disk_bytes = state
                     .disk_bytes
@@ -533,7 +542,7 @@ impl CacheCore {
                 ObservedAt(now),
             );
         }
-        Ok(admitted.then_some(meta))
+        admitted.then_some(meta)
     }
 
     /// LRU+TTL eviction. Expired entries are preferred victims, then
@@ -633,11 +642,7 @@ impl CacheCore {
     /// Retires every entry of one principal (both categories), bumps
     /// the credential epoch so late commits are rejected, and emits
     /// `PrincipalRetired` under a fresh generation.
-    pub(crate) fn retire_principal(
-        &self,
-        principal: &PrincipalId,
-        reason: RetireReason,
-    ) -> Result<(), CacheError> {
+    pub(crate) fn retire_principal(&self, principal: &PrincipalId, reason: RetireReason) {
         // Bump first: any in-flight key computation still holding the
         // old epoch will fail the commit-time recheck.
         {
@@ -658,11 +663,10 @@ impl CacheCore {
             },
             ObservedAt(SystemTime::now()),
         );
-        Ok(())
     }
 
     /// Removes every entry (both categories) — explicit clear.
-    pub(crate) fn clear_all(&self) -> Result<(), CacheError> {
+    pub(crate) fn clear_all(&self) {
         let generation = self.events.bump();
         let rels: Vec<String> = {
             let state = self.lock_state();
@@ -676,7 +680,6 @@ impl CacheCore {
             LibraryEventKind::CacheCleared,
             ObservedAt(SystemTime::now()),
         );
-        Ok(())
     }
 
     /// Acquires a lease on an existing entry. `Ok(None)` when the
@@ -699,9 +702,11 @@ impl CacheCore {
             .get_mut(rel_dir)
             .expect("entry presence checked above");
         meta.leases += 1;
+        let instance = meta.instance;
         Ok(Some(CacheLease {
             core: Arc::clone(self),
             rel_dir: rel_dir.to_owned(),
+            instance,
         }))
     }
 
@@ -741,7 +746,7 @@ impl CacheCore {
                 Err(e) => Err(e.clone()),
             };
             {
-                let mut st = flight.state.lock().unwrap_or_else(|e| e.into_inner());
+                let mut st = flight.state.lock().unwrap_or_else(PoisonError::into_inner);
                 st.result = Some(erased);
                 st.done = true;
             }
@@ -753,7 +758,7 @@ impl CacheCore {
         // cancel/deadline stay responsive.
         loop {
             cx.check_interrupts()?;
-            let st = flight.state.lock().unwrap_or_else(|e| e.into_inner());
+            let st = flight.state.lock().unwrap_or_else(PoisonError::into_inner);
             if st.done {
                 return match st.result.clone() {
                     Some(Ok(value)) => value
@@ -767,14 +772,13 @@ impl CacheCore {
             let (_guard, _) = flight
                 .cv
                 .wait_timeout(st, self.policy.flight_wait_slice)
-                .unwrap_or_else(|e| e.into_inner());
+                .unwrap_or_else(PoisonError::into_inner);
         }
     }
 
     /// Publishes small bytes atomically via the staged-publish
     /// primitive (`Replace` + file sync).
     pub(crate) fn publish_file(
-        &self,
         path: &Path,
         bytes: &[u8],
         mode: PublishMode,
@@ -796,7 +800,7 @@ impl CacheCore {
 
     /// Opens a fresh `StagedFile` at `path` for streaming writes —
     /// the caller seals+publishes after the stream completes.
-    pub(crate) fn begin_payload(&self, path: &Path) -> Result<StagedFile, CacheError> {
+    pub(crate) fn begin_payload(path: &Path) -> Result<StagedFile, CacheError> {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|e| io_err("create entry dir", e))?;
         }
@@ -841,7 +845,7 @@ impl CacheCore {
     /// Rebuilds in-memory state from the on-disk layout. Entries
     /// with a `.retired` marker or unreadable/corrupt sidecars or a
     /// missing payload are deleted rather than trusted.
-    fn scan(&self) -> Result<(), CacheError> {
+    fn scan(&self) {
         let mut state = self.lock_state();
         for category in [CacheCategory::Catalog, CacheCategory::Preview] {
             let cat_dir = self.root.join(category.dir_name());
@@ -863,7 +867,9 @@ impl CacheCore {
                         continue;
                     }
                     match self.scan_entry(&rel, &dir) {
-                        Ok(Some(meta)) => {
+                        Ok(Some(mut meta)) => {
+                            meta.instance = state.next_instance;
+                            state.next_instance = state.next_instance.wrapping_add(1);
                             state.disk_bytes = state.disk_bytes.saturating_add(meta.payload_bytes);
                             state.entries.insert(rel, meta);
                         }
@@ -892,7 +898,6 @@ impl CacheCore {
                 let _ = fs::remove_dir_all(self.entry_dir(&victim));
             }
         }
-        Ok(())
     }
 
     /// Parses one on-disk entry into memory metadata. `Ok(None)`
@@ -982,6 +987,7 @@ impl CacheCore {
             credential_epoch,
             principal: None,
             aux,
+            instance: 0,
         }))
     }
 }
@@ -992,6 +998,9 @@ impl CacheCore {
 pub(crate) struct CacheLease {
     core: Arc<CacheCore>,
     rel_dir: String,
+    /// Instance id captured at acquire — the release only applies
+    /// when the entry at `rel_dir` is still that same instance.
+    instance: u64,
 }
 
 impl CacheLease {
@@ -1011,7 +1020,12 @@ impl CacheLease {
 impl Drop for CacheLease {
     fn drop(&mut self) {
         let mut state = self.core.lock_state();
-        if let Some(meta) = state.entries.get_mut(&self.rel_dir) {
+        // Only release the instance this lease actually pinned — a
+        // same-`rel_dir` recommit (TTL refresh, clear+refetch) is a
+        // different entry whose lease count this guard never held.
+        if let Some(meta) = state.entries.get_mut(&self.rel_dir)
+            && meta.instance == self.instance
+        {
             meta.leases = meta.leases.saturating_sub(1);
         }
     }
@@ -1053,7 +1067,7 @@ impl LibraryCache {
             events: EventHub::new(),
             credentials: Mutex::new(BTreeMap::new()),
         });
-        core.scan()?;
+        core.scan();
         Ok(Self { core })
     }
 
@@ -1093,7 +1107,8 @@ impl LibraryCache {
     /// Currently infallible in practice; returns `CacheError` for
     /// forward compatibility with strict stores.
     pub fn clear(&self) -> Result<(), CacheError> {
-        self.core.clear_all()
+        self.core.clear_all();
+        Ok(())
     }
 
     /// Retires every cached entry of `principal` — used on explicit
@@ -1105,7 +1120,8 @@ impl LibraryCache {
     /// forward compatibility.
     pub fn revoke_principal(&self, principal: &PrincipalId) -> Result<(), CacheError> {
         self.core
-            .retire_principal(principal, RetireReason::PermissionRevoked)
+            .retire_principal(principal, RetireReason::PermissionRevoked);
+        Ok(())
     }
 
     /// Signals that `principal`'s credentials changed — bumps the
@@ -1117,18 +1133,16 @@ impl LibraryCache {
     /// forward compatibility.
     pub fn credentials_changed(&self, principal: &PrincipalId) -> Result<(), CacheError> {
         self.core
-            .retire_principal(principal, RetireReason::CredentialChanged)
+            .retire_principal(principal, RetireReason::CredentialChanged);
+        Ok(())
     }
 
     /// Retires `cx.principal`'s entries after the provider reported
     /// `PermissionDenied`/`AuthExpired` — defensive invalidation so
     /// private cached data is never served under stale authority.
-    pub(crate) fn retire_for_provider_denial(
-        &self,
-        cx: &ProviderContext,
-    ) -> Result<(), CacheError> {
+    pub(crate) fn retire_for_provider_denial(&self, cx: &ProviderContext) {
         self.core
-            .retire_principal(&cx.principal, RetireReason::ProviderDenied)
+            .retire_principal(&cx.principal, RetireReason::ProviderDenied);
     }
 
     /// Current credential epoch for `principal`.

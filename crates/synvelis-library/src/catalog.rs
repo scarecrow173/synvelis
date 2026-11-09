@@ -314,18 +314,17 @@ impl LibraryCache {
         generation: CatalogGeneration,
         cx: &ProviderContext,
     ) -> Result<BrowsePage, CacheError> {
-        self.catalog_page(
-            provider,
+        let key = self.key_for(
+            provider.id(),
             req.scope.clone(),
-            req.page_limit,
-            req.cursor.clone(),
             CatalogQuery::Browse {
                 sort: req.sort,
                 filter: req.filter.clone(),
             },
             generation,
             cx,
-        )
+        );
+        self.catalog_page(provider, &key, req.page_limit, req.cursor.as_ref(), cx)
     }
 
     /// Serves one page of `query`'s provider-side search from the
@@ -341,17 +340,16 @@ impl LibraryCache {
         generation: CatalogGeneration,
         cx: &ProviderContext,
     ) -> Result<BrowsePage, CacheError> {
-        self.catalog_page(
-            provider,
+        let key = self.key_for(
+            provider.id(),
             query.scope.clone(),
-            query.page_limit,
-            query.cursor.clone(),
             CatalogQuery::Search {
                 text: query.text.clone(),
             },
             generation,
             cx,
-        )
+        );
+        self.catalog_page(provider, &key, query.page_limit, query.cursor.as_ref(), cx)
     }
 
     /// Read-only index status — no provider call, no build.
@@ -366,14 +364,7 @@ impl LibraryCache {
         generation: CatalogGeneration,
         cx: &ProviderContext,
     ) -> Result<IndexStatus, CacheError> {
-        let key = CatalogCacheKey {
-            provider,
-            scope: scope.clone(),
-            generation,
-            query: query.clone(),
-            principal: cx.principal.clone(),
-            credential_epoch: self.credential_epoch(&cx.principal),
-        };
+        let key = self.key_for(provider, scope.clone(), query.clone(), generation, cx);
         let key_fp = key.fingerprint();
         let ptag = CacheCore::principal_tag(&cx.principal);
         let meta = self
@@ -405,16 +396,34 @@ impl LibraryCache {
         }
     }
 
+    /// Builds the cache key for one catalog query under `cx`'s
+    /// principal and the current credential epoch.
+    fn key_for(
+        &self,
+        provider: ProviderId,
+        scope: BrowseScope,
+        query: CatalogQuery,
+        generation: CatalogGeneration,
+        cx: &ProviderContext,
+    ) -> CatalogCacheKey {
+        CatalogCacheKey {
+            provider,
+            scope,
+            generation,
+            query,
+            principal: cx.principal.clone(),
+            credential_epoch: self.credential_epoch(&cx.principal),
+        }
+    }
+
     /// Shared page path for `browse`/`search`: fresh hit → serve;
     /// miss/expired → single-flight build then serve.
     fn catalog_page(
         &self,
         provider: &dyn AssetProvider,
-        scope: BrowseScope,
+        key: &CatalogCacheKey,
         page_limit: u32,
-        cursor: Option<OpaquePageCursor>,
-        query: CatalogQuery,
-        generation: CatalogGeneration,
+        cursor: Option<&OpaquePageCursor>,
         cx: &ProviderContext,
     ) -> Result<BrowsePage, CacheError> {
         if page_limit == 0 {
@@ -423,14 +432,6 @@ impl LibraryCache {
                 "page_limit must be >= 1",
             )));
         }
-        let key = CatalogCacheKey {
-            provider: provider.id(),
-            scope,
-            generation,
-            query,
-            principal: cx.principal.clone(),
-            credential_epoch: self.credential_epoch(&cx.principal),
-        };
         let key_fp = key.fingerprint();
         let ptag = CacheCore::principal_tag(&cx.principal);
         let now = SystemTime::now();
@@ -440,36 +441,36 @@ impl LibraryCache {
 
         // Cursor pages never refresh — an aged snapshot continues
         // honestly as `Stale`.
-        if let Some(cursor) = &cursor {
+        if let Some(cursor) = cursor {
             return self.serve_cursor_page(&key_fp, meta, cursor, page_limit);
         }
 
-        // Fresh hit — no provider call.
-        if let Some(meta) = meta.as_ref().filter(|m| !m.expired(now)) {
-            if let Some(record) = self.load_index(meta)? {
-                self.core.note_hit();
-                return self.serve_page(
-                    &key_fp,
-                    Some(meta),
-                    &record,
-                    0,
-                    page_limit,
-                    freshness_override(Some(meta), IndexResolution::Fresh, SystemTime::now()),
-                );
-            }
-            // Corrupt payload — `load_index` already retired the
-            // entry; fall through to a rebuild.
+        // Fresh hit — no provider call. A corrupt payload already
+        // retired the entry inside `load_index`; fall through to a
+        // rebuild.
+        if let Some(meta) = meta.as_ref().filter(|m| !m.expired(now))
+            && let Some(record) = self.load_index(meta)
+        {
+            self.core.note_hit();
+            return Self::serve_page(
+                &key_fp,
+                Some(meta),
+                &record,
+                0,
+                page_limit,
+                freshness_override(Some(meta), IndexResolution::Fresh, SystemTime::now()),
+            );
         }
 
         // Miss or expired — single-flight build/refresh.
         self.core.note_miss();
         let rel_dir = CacheCore::rel_dir(CacheCategory::Catalog, &ptag, &key_fp);
         let built = self.core.run_flight(&rel_dir, cx, || {
-            self.build_catalog(provider, &key, &ptag, &key_fp, cx)
+            self.build_catalog(provider, key, &ptag, &key_fp, cx)
         })?;
         let freshness =
             freshness_override(built.meta.as_ref(), built.resolution, SystemTime::now());
-        self.serve_page(
+        Self::serve_page(
             &key_fp,
             built.meta.as_ref(),
             &built.record,
@@ -500,10 +501,9 @@ impl LibraryCache {
         // `Ok(None)` = credential epoch moved mid-build — drop the
         // orphaned payload and serve uncached rather than resurrect
         // retired-authority data.
-        let meta = match self.commit_catalog_index(key, principal_tag, key_fp, &record) {
-            Ok(meta) => meta,
-            Err(_) => None,
-        };
+        let meta = self
+            .commit_catalog_index(key, principal_tag, key_fp, &record)
+            .unwrap_or_default();
         if meta.is_none() {
             self.core.remove_entry(&CacheCore::rel_dir(
                 CacheCategory::Catalog,
@@ -541,21 +541,21 @@ impl LibraryCache {
         key_fp: &str,
         cx: &ProviderContext,
     ) -> Result<BuiltIndex, CacheError> {
-        match err.provider_error().map(|e| e.kind()) {
+        match err.provider_error().map(ProviderError::kind) {
             Some(ProviderErrorKind::PermissionDenied | ProviderErrorKind::AuthExpired) => {
-                let _ = self.retire_for_provider_denial(cx);
+                self.retire_for_provider_denial(cx);
                 return Err(err);
             }
             Some(ProviderErrorKind::Offline) => {
                 if let Some(built) =
-                    self.aged_snapshot(key_fp, principal_tag, IndexResolution::OfflineCached)?
+                    self.aged_snapshot(key_fp, principal_tag, IndexResolution::OfflineCached)
                 {
                     return Ok(built);
                 }
             }
             Some(ProviderErrorKind::TransientIo | ProviderErrorKind::RateLimited) => {
                 if let Some(built) =
-                    self.aged_snapshot(key_fp, principal_tag, IndexResolution::StaleServe)?
+                    self.aged_snapshot(key_fp, principal_tag, IndexResolution::StaleServe)
                 {
                     return Ok(built);
                 }
@@ -566,30 +566,24 @@ impl LibraryCache {
     }
 
     /// Loads the aged snapshot for `key_fp` as a fallback serve.
-    /// `Ok(None)` when no readable index exists.
+    /// `None` when no readable index exists.
     fn aged_snapshot(
         &self,
         key_fp: &str,
         principal_tag: &str,
         resolution: IndexResolution,
-    ) -> Result<Option<BuiltIndex>, CacheError> {
+    ) -> Option<BuiltIndex> {
         let meta = self.core.lookup(
             CacheCategory::Catalog,
             principal_tag,
             key_fp,
             SystemTime::now(),
-        );
-        let Some(meta) = meta else {
-            return Ok(None);
-        };
-        match self.load_index(&meta)? {
-            Some(record) => Ok(Some(BuiltIndex {
-                record: Arc::new(record),
-                meta: Some(meta),
-                resolution,
-            })),
-            None => Ok(None),
-        }
+        )?;
+        self.load_index(&meta).map(|record| BuiltIndex {
+            record: Arc::new(record),
+            meta: Some(meta),
+            resolution,
+        })
     }
 
     /// Pages through the provider building the full index record.
@@ -721,9 +715,8 @@ impl LibraryCache {
             .map_err(|e| CacheError::internal(format!("sidecar encode: {e}")))?;
         let rel_dir = CacheCore::rel_dir(CacheCategory::Catalog, principal_tag, key_fp);
         let dir = self.core.entry_dir(&rel_dir);
-        self.core
-            .publish_file(&dir.join(CATALOG_PAYLOAD), &payload, PublishMode::Replace)?;
-        self.core.publish_file(
+        CacheCore::publish_file(&dir.join(CATALOG_PAYLOAD), &payload, PublishMode::Replace)?;
+        CacheCore::publish_file(
             &dir.join(SIDECAR_NAME),
             &sidecar_bytes,
             PublishMode::Replace,
@@ -747,33 +740,26 @@ impl LibraryCache {
                 indexed_at: record.indexed_at,
                 index_fp,
             },
+            instance: 0,
         };
-        // `Ok(None)` = credential epoch moved mid-build — serve
-        // uncached rather than resurrect retired-authority data.
-        self.core.commit_entry(meta, SystemTime::now())
+        // `None` = credential epoch moved mid-build or the entry was
+        // evicted by its own budget enforcement — serve uncached.
+        Ok(self.core.commit_entry(meta, SystemTime::now()))
     }
 
     /// Reads and parses an entry's `index.json`. Corrupt or missing
-    /// payloads retire the entry and return `Ok(None)` — a damaged
+    /// payloads retire the entry and return `None` — a damaged
     /// cache degrades to a rebuild, never a user-facing failure.
-    fn load_index(&self, meta: &EntryMeta) -> Result<Option<CatalogIndexRecord>, CacheError> {
+    fn load_index(&self, meta: &EntryMeta) -> Option<CatalogIndexRecord> {
         let path = self.core.payload_path(meta);
         let result = std::fs::read(&path)
-            .map_err(|e| CacheError::Io {
-                op: "read index",
-                detail: e.to_string(),
-            })
-            .and_then(|bytes| {
-                serde_json::from_slice::<CatalogIndexRecord>(&bytes).map_err(|e| CacheError::Io {
-                    op: "parse index",
-                    detail: e.to_string(),
-                })
-            });
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<CatalogIndexRecord>(&bytes).ok());
         match result {
-            Ok(record) if record.format_version == INDEX_FORMAT => Ok(Some(record)),
+            Some(record) if record.format_version == INDEX_FORMAT => Some(record),
             _ => {
                 self.core.remove_entry(&meta.rel_dir);
-                Ok(None)
+                None
             }
         }
     }
@@ -797,12 +783,12 @@ impl LibraryCache {
         if payload.index_fp != index_fp {
             return Err(cursor_invalid("index was rebuilt — restart paging"));
         }
-        let Some(record) = self.load_index(&meta)? else {
+        let Some(record) = self.load_index(&meta) else {
             return Err(cursor_invalid("catalog index is unavailable"));
         };
         let freshness =
             freshness_override(Some(&meta), IndexResolution::StaleServe, SystemTime::now());
-        self.serve_page(
+        Self::serve_page(
             key_fp,
             Some(&meta),
             &record,
@@ -815,7 +801,6 @@ impl LibraryCache {
     /// Slices `record` at `offset` into a page, minting a cache
     /// cursor when `meta` is present and entries remain.
     fn serve_page(
-        &self,
         key_fp: &str,
         meta: Option<&EntryMeta>,
         record: &CatalogIndexRecord,
