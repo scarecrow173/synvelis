@@ -18,9 +18,13 @@ relations:
     generated: []
   implements:
     - "docs/specs/syn-io-01-ruviform-common-io-boundary.md"
-  implemented-by: []
+  implemented-by:
+    - "docs/tasks/syn-io-01-task1-boundary-design-docs.md"
+    - "docs/tasks/syn-io-01-task2-verification-gate-docs.md"
   depends-on: []
-  blocks: []
+  blocks:
+    - "docs/tasks/syn-io-01-task1-boundary-design-docs.md"
+    - "docs/tasks/syn-io-01-task2-verification-gate-docs.md"
   supersedes: []
   superseded-by: []
   related:

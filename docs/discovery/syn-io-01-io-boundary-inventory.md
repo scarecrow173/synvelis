@@ -30,6 +30,8 @@ relations:
   derives-from: []
   derived-by:
     - "docs/specs/syn-io-01-ruviform-common-io-boundary.md"
+    - "docs/adr/syn-io-01-backup-import-archive-zip-limits-path-link.md"
+    - "docs/designs/syn-io-01-ruviform-io-boundary-design.md"
   verifies: []
   verified-by: []
   references:

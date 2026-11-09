@@ -17,7 +17,9 @@ relations:
     moved: []
     generated: []
   implements: []
-  implemented-by: []
+  implemented-by:
+    - "docs/designs/syn-io-01-ruviform-io-boundary-design.md"
+    - "docs/plans/syn-io-01-ruviform-io-boundary-design.md"
   depends-on:
     - "docs/specs/syn-io-02-snapshot-head-staged-publish.md"
   blocks: []
@@ -29,9 +31,13 @@ relations:
   refined-by: []
   derives-from:
     - "docs/discovery/syn-io-01-io-boundary-inventory.md"
-  derived-by: []
+  derived-by:
+    - "docs/adr/syn-io-01-backup-import-archive-zip-limits-path-link.md"
+    - "docs/designs/syn-io-01-ruviform-io-boundary-design.md"
+    - "docs/plans/syn-io-01-ruviform-io-boundary-design.md"
   verifies: []
-  verified-by: []
+  verified-by:
+    - "docs/test-specs/syn-io-01-io-boundary-verification.md"
   references:
     - "https://github.com/scarecrow173/ruviform/issues/282"
     - "https://github.com/scarecrow173/ruviform/issues/288"

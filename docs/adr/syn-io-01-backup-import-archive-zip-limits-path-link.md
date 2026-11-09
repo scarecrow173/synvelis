@@ -31,7 +31,9 @@ relations:
   derives-from:
     - "docs/specs/syn-io-01-ruviform-common-io-boundary.md"
     - "docs/discovery/syn-io-01-io-boundary-inventory.md"
-  derived-by: []
+  derived-by:
+    - "docs/designs/syn-io-01-ruviform-io-boundary-design.md"
+    - "docs/test-specs/syn-io-01-io-boundary-verification.md"
   verifies: []
   verified-by: []
   references:

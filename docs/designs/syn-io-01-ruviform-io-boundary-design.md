@@ -32,7 +32,9 @@ relations:
     - "docs/specs/syn-io-01-ruviform-common-io-boundary.md"
     - "docs/discovery/syn-io-01-io-boundary-inventory.md"
     - "docs/adr/syn-io-01-backup-import-archive-zip-limits-path-link.md"
-  derived-by: []
+  derived-by:
+    - "docs/test-specs/syn-io-01-io-boundary-verification.md"
+    - "docs/plans/syn-io-01-ruviform-io-boundary-design.md"
   verifies: []
   verified-by:
     - "docs/test-specs/syn-io-01-io-boundary-verification.md"
