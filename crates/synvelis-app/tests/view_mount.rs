@@ -37,6 +37,12 @@ use synvelis_app::{
     MainScreenState, NativeShell, SynvelisApp, main_screen_spec, main_view_id, main_view_targets,
     mixer_gain_target, mount_main_view, seek_range_seconds,
 };
+use synvelis_project::{
+    ClipExtent, ClipPlacement, ClipPlayback, CounterIdGenerator, DirectoryBundleStore,
+    MusicalDuration, MusicalTick, PlaybackMapping, Project, ProjectController, ProjectId,
+    ProjectOp, ProjectRevision, SourceFrame, SourceRange, TimeAnchor,
+};
+use synvelis_workspace::ProjectSession;
 
 fn key(name: &str) -> ComponentKey {
     ComponentKey(name.to_string())
@@ -714,6 +720,19 @@ fn destroying_the_view_window_runs_view_teardown() {
     );
 }
 
+/// `ok`/`data` of the newest `Result` the window received — the
+/// answer to the most recent intent.
+fn last_result(driver: &FakeDriver, window: WindowId) -> Option<(bool, Option<Value>)> {
+    driver
+        .events_for(window)
+        .iter()
+        .rev()
+        .find_map(|e| match e {
+            Event::Result { ok, data, .. } => Some((*ok, data.clone())),
+            _ => None,
+        })
+}
+
 /// `ok` of the newest `Result` the window received — the answer to the
 /// most recent Button press.
 fn last_result_ok(driver: &FakeDriver, window: WindowId) -> Option<bool> {
@@ -1039,4 +1058,207 @@ fn inspector_table_shows_the_subscribed_targets_breakdown() {
             "row `{field}` value is resolved text"
         );
     }
+}
+
+// ---------------------------------------------------------------------
+// SV-GUI-03 slice 2 (synvelis#112): Arrangement table + Undo/Redo
+// ---------------------------------------------------------------------
+
+fn apply_op(session: &mut ProjectSession, op: ProjectOp) {
+    let rev: ProjectRevision = session.revision();
+    session.apply(op, rev).expect("fixture op");
+}
+
+/// Writes a clip-bearing project bundle into `dir` through the same
+/// `DirectoryBundleStore` + `ProjectController` save path the app
+/// uses — `syn.project.open` then loads real track/lane/clip content
+/// for the Arrangement table (synvelis#112 slice 2). The clip is
+/// muted so the Muted column is exercised.
+fn write_clip_bundle(dir: &std::path::Path) {
+    let mut store = DirectoryBundleStore::create(dir).expect("bundle store");
+    let mut session = ProjectSession::new(ProjectController::new(
+        Project::new(ProjectId::new(0x5EE), "arrangement"),
+        Box::new(CounterIdGenerator::new(1)),
+    ));
+    apply_op(
+        &mut session,
+        ProjectOp::RegisterAsset {
+            digest: "deadbeef".to_string(),
+        },
+    );
+    let asset_id = *session.project().assets.keys().next().expect("asset");
+    apply_op(
+        &mut session,
+        ProjectOp::RegisterSource {
+            asset_id,
+            content_digest: "deadbeef".to_string(),
+        },
+    );
+    apply_op(
+        &mut session,
+        ProjectOp::AddTrack {
+            name: "t1".to_string(),
+        },
+    );
+    let track_id = *session.project().tracks.keys().next().expect("track");
+    apply_op(&mut session, ProjectOp::AddLane { track_id });
+    let lane_id = *session.project().lanes.keys().next().expect("lane");
+    let source_id = *session.project().sources.keys().next().expect("source");
+    apply_op(
+        &mut session,
+        ProjectOp::AddClip {
+            lane_id,
+            source_id,
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Musical(MusicalTick::new(0)),
+                extent: ClipExtent::Musical(MusicalDuration::new(960).expect("extent")),
+            },
+            playback: ClipPlayback {
+                source_region: SourceRange::try_new(
+                    SourceFrame::ZERO,
+                    SourceFrame::new(1_000_000).expect("frame"),
+                )
+                .expect("region"),
+                mapping: PlaybackMapping::Natural,
+            },
+        },
+    );
+    let clip_id = *session.project().clips.keys().next().expect("clip");
+    apply_op(
+        &mut session,
+        ProjectOp::SetClipMuted {
+            clip_id,
+            muted: true,
+        },
+    );
+    session
+        .controller_mut()
+        .save(&mut store)
+        .expect("save bundle");
+}
+
+/// The mounted spec carries the Arrangement tab (first, read-only
+/// `Table` with the track/lane/clip/source/start/end/muted columns)
+/// and the toolbar Undo/Redo `Button`s on the `project` action target
+/// (synvelis#112 slice 2).
+#[test]
+fn main_spec_carries_arrangement_table_and_undo_redo_buttons() {
+    let spec = main_screen_spec(&MainScreenState::default());
+    for (name, action) in [("project.undo", "undo"), ("project.redo", "redo")] {
+        match find_component(&spec.root, name) {
+            Some(ComponentSpec::Button(b)) => {
+                assert_eq!(b.target, "project");
+                assert_eq!(b.action, action);
+            }
+            other => panic!("button `{name}` missing or wrong kind: {other:?}"),
+        }
+    }
+    let tabs = match find_component(&spec.root, "screen.tabs") {
+        Some(ComponentSpec::Tabs(t)) => t,
+        other => panic!("tabs missing or wrong kind: {other:?}"),
+    };
+    assert_eq!(tabs.tabs[0].title, "Arrangement");
+    assert!(
+        matches!(
+            find_component(&spec.root, "tab.arrangement.panel"),
+            Some(ComponentSpec::Panel(_))
+        ),
+        "arrangement tab child mounted"
+    );
+    let table = spec_table(&spec, "arrangement.table");
+    assert_eq!(
+        table.columns,
+        ["Track", "Lane", "Clip", "Source", "Start", "End", "Muted"]
+    );
+    assert!(table.rows.is_empty(), "no clips before project open");
+    assert!(table.selection.is_none(), "arrangement table is read-only");
+}
+
+/// Arrangement rows are project truth: `syn.project.open` loads a
+/// clip-bearing bundle, the service tail's `publish_project_length`
+/// fills `MainScreenState.arrangement_rows`, and the `ViewHost::update`
+/// spec push renders them into `arrangement.table` — generation and
+/// mounted identity preserved (synvelis#112 slice 2).
+#[test]
+fn arrangement_rows_follow_project_open_and_state_push() {
+    let mut f = fixture();
+    let dir = std::env::temp_dir().join(format!("sv112-arr-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    write_clip_bundle(&dir);
+    let path = dir.to_string_lossy().to_string();
+
+    action(
+        &mut f.shell,
+        &mut f.driver,
+        f.window,
+        Intent::new("po", "syn.project.open", json!({ "path": path })),
+    );
+    assert!(results_for(&f.driver, f.window, "po").last().unwrap().0);
+
+    {
+        let screen = f.screen.borrow();
+        assert_eq!(screen.arrangement_rows.len(), 1, "clip row published");
+        let row = &screen.arrangement_rows[0];
+        assert_eq!(row.track, "t1");
+        assert!(row.muted, "muted flag carried");
+        assert!(row.start_seconds.is_some());
+        assert!(row.end_seconds.is_some());
+    }
+
+    let generation = f.host.generation();
+    let ops = f.push_screen_state();
+    assert_eq!(f.host.generation(), generation, "push keeps generation");
+    assert!(
+        ops.iter()
+            .all(|op| matches!(op, ProjectionOp::Updated { .. })),
+        "spec push updates in place, never remounts: {ops:?}"
+    );
+    let spec = f.host.spec().expect("spec mounted");
+    let table = spec_table(spec, "arrangement.table");
+    assert_eq!(table.rows.len(), 1);
+    let cells = &table.rows[0];
+    assert_eq!(cells[0], Some(CellValue::Text("t1".to_string())));
+    assert_eq!(cells[1], Some(CellValue::Text(row_lane_tag(&f))));
+    // Default tempo map: 960 ticks = 1 beat = 0.5 s at 120 BPM.
+    assert!(
+        matches!(cells[4], Some(CellValue::Text(ref s)) if s == "0.00"),
+        "start seconds: {cells:?}"
+    );
+    assert!(
+        matches!(cells[5], Some(CellValue::Text(ref s)) if s == "0.50"),
+        "end seconds: {cells:?}"
+    );
+    assert_eq!(cells[6], Some(CellValue::Text("yes".to_string())));
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The lane tagged id of the fixture's single clip — read back from
+/// the published row so the assertion does not hard-code the id.
+fn row_lane_tag(f: &MountedFixture) -> String {
+    f.screen.borrow().arrangement_rows[0].lane.clone()
+}
+
+/// The Undo/Redo `Button`s ride the `project` action path end to end:
+/// the press mints an `Action` on `project`, `project_action_op`
+/// resolves `syn.project.undo`/`syn.project.redo`, the shell dispatches
+/// the service op, and the op's `Result` answers the command — an
+/// empty history reports `false`, never a fake success
+/// (synvelis#112 slice 2).
+#[test]
+fn undo_redo_buttons_dispatch_project_ops_through_the_mounted_view() {
+    let mut f = fixture();
+
+    f.press("project.undo");
+    let (ok, data) = last_result(&f.driver, f.window).expect("undo result");
+    assert!(ok, "undo op ok");
+    assert_eq!(data.expect("undo data")["undone"], false);
+
+    f.press("project.redo");
+    let (ok, data) = last_result(&f.driver, f.window).expect("redo result");
+    assert!(ok, "redo op ok");
+    assert_eq!(data.expect("redo data")["redone"], false);
+
+    assert_eq!(project_action_op("undo"), Some("syn.project.undo"));
+    assert_eq!(project_action_op("redo"), Some("syn.project.redo"));
 }

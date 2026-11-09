@@ -1,6 +1,7 @@
 //! The product's minimal neutral screen spec (SV-GPUI-01 view-mount
 //! slice, Issue #175 successor; mixer gain wired by Issue #185;
-//! Transport actions + Inspector display wired by Issue #112 slice 1).
+//! Transport actions + Inspector display wired by Issue #112 slice 1;
+//! Arrangement tab + Undo/Redo wired by Issue #112 slice 2).
 //!
 //! [`main_screen_spec`] is the smallest *product-shaped* `ViewSpec`
 //! mounted through the RF387 seam: `Panel > [Toolbar, Tabs]` where the
@@ -14,8 +15,12 @@
 //! `ParameterRole::Fader` target ([`mixer_gain_target`]) — its
 //! controlled display is the authoritative `host_normalized` projection
 //! and commits land as `SetParameterBase` through the same gesture path
-//! as every parameter target — and the Inspector tab carries the
-//! subscribed parameter target's `InspectorBreakdown` as a `Table`.
+//! as every parameter target — the Inspector tab carries the
+//! subscribed parameter target's `InspectorBreakdown` as a `Table`,
+//! the Arrangement tab carries the project-backed track/lane/clip
+//! read model as a read-only `Table` (synvelis#112 slice 2), and the
+//! toolbar carries Undo/Redo `Button`s on the `project` action target
+//! (`syn.project.undo`/`syn.project.redo`).
 //! The Seek range follows the project length
 //! ([`seek_range_seconds`]).
 //!
@@ -62,6 +67,7 @@ use ruviform_ui::view::{
     TabsSelectionSpec, TabsSpec, ViewHost, ViewSpec,
 };
 use synvelis_project::{MASTER_FADER_RAW, ParameterTargetId};
+use synvelis_workspace::ArrangementRow;
 use synvelis_workspace::controls_ui::{TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET};
 
 use crate::binding::{PROJECT_TARGET, VIEW_STATE_TARGET};
@@ -154,14 +160,18 @@ pub struct InspectorScreenState {
 }
 
 /// The full display state [`main_screen_spec`] needs — project length
-/// (Seek range), transport readout, and inspector rows. Owned by the
-/// composition root behind a shared cell; refreshed after every
-/// service op and UI pump, then pushed to the mounted view through
-/// `ViewHost::update`.
+/// (Seek range), arrangement rows, transport readout, and inspector
+/// rows. Owned by the composition root behind a shared cell; refreshed
+/// after every service op (project length + arrangement rows here) and
+/// UI pump (transport/inspector capture in `ui_ops`), then pushed to
+/// the mounted view through `ViewHost::update`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MainScreenState {
     /// Live project length in seconds — the Seek range source.
     pub project_length_seconds: f64,
+    /// Arrangement table rows — the project-backed track/lane/clip
+    /// read model (synvelis#112 slice 2).
+    pub arrangement_rows: Vec<ArrangementRow>,
     /// Transport status/position/loop readout.
     pub transport: TransportScreenState,
     /// Inspector breakdown display.
@@ -334,6 +344,50 @@ fn inspector_table(i: &InspectorScreenState) -> ComponentSpec {
     })
 }
 
+/// The Arrangement table — the project-backed track/lane/clip read
+/// model resolved by the composition layer
+/// ([`synvelis_workspace::arrangement_rows`]). Read-only: `selection`
+/// is `None`, so it issues no intents; row selection → Inspector is a
+/// later slice (synvelis#112).
+fn arrangement_table(rows: &[ArrangementRow]) -> ComponentSpec {
+    ComponentSpec::Table(TableSpec {
+        key: key("arrangement.table"),
+        columns: vec![
+            "Track".to_string(),
+            "Lane".to_string(),
+            "Clip".to_string(),
+            "Source".to_string(),
+            "Start".to_string(),
+            "End".to_string(),
+            "Muted".to_string(),
+        ],
+        rows: rows
+            .iter()
+            .map(|row| {
+                let seconds =
+                    |v: Option<f64>| v.map_or_else(|| "—".to_string(), |s| format!("{s:.2}"));
+                vec![
+                    Some(CellValue::Text(row.track.clone())),
+                    Some(CellValue::Text(row.lane.clone())),
+                    Some(CellValue::Text(row.clip.clone())),
+                    Some(CellValue::Text(row.source.clone())),
+                    Some(CellValue::Text(seconds(row.start_seconds))),
+                    Some(CellValue::Text(seconds(row.end_seconds))),
+                    Some(CellValue::Text(
+                        if row.muted { "yes" } else { "" }.to_string(),
+                    )),
+                ]
+            })
+            .collect(),
+        selection: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Arrangement".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
 /// The `Fader` the slice names — the mixer gain, bound to the
 /// bootstrap master-strip fader target ([`mixer_gain_target`]). Its
 /// normalized `[0, 1]` domain is the domain contract: the controlled
@@ -360,7 +414,13 @@ fn mixer_fader() -> ComponentSpec {
 
 /// The product's minimal screen spec — `Panel > [Toolbar, Tabs]`:
 ///
-/// - **Toolbar**: Save and Reload `Button`s (the `project` actions).
+/// - **Toolbar**: Save, Reload, Undo and Redo `Button`s (the
+///   `project` actions — Undo/Redo map to `syn.project.undo`/
+///   `syn.project.redo`, synvelis#112 slice 2).
+/// - **Arrangement** tab: the project-backed track/lane/clip
+///   read-only `Table` ([`arrangement_table`]) resolved from
+///   `state.arrangement_rows` — `selection: None`, so it issues no
+///   intents.
 /// - **Transport** tab: the status `Label` ([`transport_status_label`]),
 ///   Play/Stop `Button`s on the `transport` action target
 ///   ([`transport_button`]), and the `Seek` bound to
@@ -388,6 +448,8 @@ pub fn main_screen_spec(state: &MainScreenState) -> ViewSpec {
                     vec![
                         project_button("project.save", "Save", "save"),
                         project_button("project.reload", "Reload", "reload"),
+                        project_button("project.undo", "Undo", "undo"),
+                        project_button("project.redo", "Redo", "redo"),
                     ],
                 ),
                 ComponentSpec::Tabs(TabsSpec {
@@ -397,6 +459,15 @@ pub fn main_screen_spec(state: &MainScreenState) -> ViewSpec {
                         target: VIEW_STATE_TARGET.to_string(),
                     }),
                     tabs: vec![
+                        TabSpec {
+                            key: key("tab.arrangement"),
+                            title: "Arrangement".to_string(),
+                            child: Box::new(panel(
+                                "tab.arrangement.panel",
+                                None,
+                                vec![arrangement_table(&state.arrangement_rows)],
+                            )),
+                        },
                         TabSpec {
                             key: key("tab.transport"),
                             title: "Transport".to_string(),

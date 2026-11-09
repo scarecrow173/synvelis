@@ -599,6 +599,42 @@ impl SynvelisApp {
         json!({ "views": views })
     }
 
+    // -- syn.project.* -----------------------------------------------------
+
+    /// `syn.project.undo` — `ControlsUi::undo` (`ProjectSession::undo`
+    /// plus a re-projection of every bound truth) on the single
+    /// project session. An empty history is `undone: false`, never a
+    /// fabricated success (synvelis#112 slice 2).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] when the session undo fails.
+    pub fn op_project_undo(&mut self) -> Result<Value, ErrorBody> {
+        let session = self.workspace.session_mut();
+        let undone = self
+            .ui
+            .controls
+            .undo(session)
+            .map_err(|e| internal(format!("undo: {e}")))?;
+        self.ui_pump();
+        Ok(json!({ "undone": undone }))
+    }
+
+    /// `syn.project.redo` — `ControlsUi::redo`, the redo counterpart
+    /// of [`Self::op_project_undo`].
+    ///
+    /// # Errors
+    /// [`ErrorBody`] when the session redo fails.
+    pub fn op_project_redo(&mut self) -> Result<Value, ErrorBody> {
+        let session = self.workspace.session_mut();
+        let redone = self
+            .ui
+            .controls
+            .redo(session)
+            .map_err(|e| internal(format!("redo: {e}")))?;
+        self.ui_pump();
+        Ok(json!({ "redone": redone }))
+    }
+
     // -- syn.control.* -----------------------------------------------------
 
     /// `syn.control.dispatch` — routes `params.intent` +

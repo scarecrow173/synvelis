@@ -16,6 +16,10 @@ use ruviform_ui::ipc::{ErrorBody, Event};
 use ruviform_ui::{BackendReport, DataRegistry, UiRuntime};
 
 use synvelis_app::{AppService, SynvelisApp};
+use synvelis_project::{
+    ClipExtent, ClipPlacement, ClipPlayback, MusicalDuration, MusicalTick, PlaybackMapping,
+    ProjectOp, ProjectRevision, SourceFrame, SourceRange, TimeAnchor,
+};
 
 type Outbox = Rc<RefCell<VecDeque<Event>>>;
 
@@ -394,4 +398,119 @@ fn control_targets_lists_the_bootstrap_fader() {
             .any(|t| t["target"] == fader && t["kind"] == "param"),
         "bootstrap fader missing from syn.control.targets: {targets:?}"
     );
+}
+
+// ---------------------------------------------------------------------
+// SV-GUI-03 slice 2 (synvelis#112): syn.project.undo / syn.project.redo
+// ---------------------------------------------------------------------
+
+/// The ops are registered and dispatch honestly: a fresh project has
+/// no undo history, so both report `false` — never a fabricated
+/// success (synvelis#112 slice 2).
+#[test]
+fn project_undo_redo_ops_dispatch_and_report_empty_history() {
+    let (mut rt, _outbox) = runtime();
+    let undone = ok(&mut rt, "syn.project.undo", json!({}));
+    assert_eq!(undone["undone"], false);
+    let redone = ok(&mut rt, "syn.project.redo", json!({}));
+    assert_eq!(redone["redone"], false);
+}
+
+/// A real undo/redo round trip on the live session: `session.apply`
+/// records history, `op_project_undo`/`op_project_redo` drive
+/// `ControlsUi::undo`/`redo` (session undo + bound re-projection),
+/// and the shared screen-state cell's arrangement rows follow the
+/// project content through `publish_project_length` — the same call
+/// `AppService::call` makes after every op (synvelis#112 slice 2).
+#[test]
+fn project_undo_redo_round_trip_updates_arrangement_rows() {
+    let mut app = SynvelisApp::new(BackendReport::available("webview2", "test-1.0".into()));
+    let screen = app.main_screen_cell();
+
+    // Fixture mutation through the single session — the same
+    // AddTrack/AddLane/AddClip path the acceptance criteria name.
+    let session = app.workspace_mut().session_mut();
+    let apply = |session: &mut synvelis_workspace::ProjectSession, op: ProjectOp| {
+        let rev: ProjectRevision = session.revision();
+        session.apply(op, rev).expect("fixture op");
+    };
+    apply(
+        session,
+        ProjectOp::RegisterAsset {
+            digest: "deadbeef".to_string(),
+        },
+    );
+    let asset_id = *session.project().assets.keys().next().expect("asset");
+    apply(
+        session,
+        ProjectOp::RegisterSource {
+            asset_id,
+            content_digest: "deadbeef".to_string(),
+        },
+    );
+    apply(
+        session,
+        ProjectOp::AddTrack {
+            name: "t1".to_string(),
+        },
+    );
+    let track_id = *session.project().tracks.keys().next().expect("track");
+    apply(session, ProjectOp::AddLane { track_id });
+    let lane_id = *session.project().lanes.keys().next().expect("lane");
+    let source_id = *session.project().sources.keys().next().expect("source");
+    apply(
+        session,
+        ProjectOp::AddClip {
+            lane_id,
+            source_id,
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Musical(MusicalTick::new(0)),
+                extent: ClipExtent::Musical(MusicalDuration::new(960).expect("extent")),
+            },
+            playback: ClipPlayback {
+                source_region: SourceRange::try_new(
+                    SourceFrame::ZERO,
+                    SourceFrame::new(1_000_000).expect("frame"),
+                )
+                .expect("region"),
+                mapping: PlaybackMapping::Natural,
+            },
+        },
+    );
+
+    // The op tail's publish (service.call) refreshes the cell — do it
+    // explicitly here since the test calls the op fn directly.
+    app.publish_project_length();
+    assert_eq!(screen.borrow().arrangement_rows.len(), 1);
+
+    let undone = app.op_project_undo().expect("undo op ok");
+    assert_eq!(undone["undone"], true);
+    app.publish_project_length();
+    assert!(
+        screen.borrow().arrangement_rows.is_empty(),
+        "undo removes the clip row"
+    );
+
+    let redone = app.op_project_redo().expect("redo op ok");
+    assert_eq!(redone["redone"], true);
+    app.publish_project_length();
+    assert_eq!(
+        screen.borrow().arrangement_rows.len(),
+        1,
+        "redo restores the clip row"
+    );
+
+    // History is drained honestly: the five fixture ops are five undo
+    // steps (the redo restored the clip, so it is undone again first),
+    // then the op reports `false`.
+    let mut remaining = 0u32;
+    loop {
+        let undone = app.op_project_undo().expect("drain undo op ok");
+        if undone["undone"] == false {
+            break;
+        }
+        remaining += 1;
+        assert!(remaining <= 8, "undo history did not drain");
+    }
+    assert_eq!(remaining, 5, "five fixture ops = five undo steps");
 }

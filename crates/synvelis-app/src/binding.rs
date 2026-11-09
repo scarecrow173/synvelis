@@ -729,6 +729,8 @@ pub fn project_action_op(action: &str) -> Option<&'static str> {
     match action {
         "save" => Some("syn.project.save"),
         "reload" => Some("syn.project.reload"),
+        "undo" => Some("syn.project.undo"),
+        "redo" => Some("syn.project.redo"),
         _ => None,
     }
 }
