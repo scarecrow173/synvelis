@@ -366,8 +366,14 @@ fn read_review(
     if !path.exists() {
         return None;
     }
-    fs::read(&path).ok().map(|b| {
-        serde_json::from_slice::<ReviewRecord>(&b)
+    // 読み取り自体の失敗も decode 失敗と同じく fail-closed
+    // （`Unreadable`）に分類し、判定記録を黙って上書きしない。
+    let bytes = match fs::read(&path) {
+        Ok(b) => b,
+        Err(_) => return Some(Err(())),
+    };
+    Some(
+        serde_json::from_slice::<ReviewRecord>(&bytes)
             .map_err(|_| ())
             .and_then(|rec| {
                 if rec.session_id == session_id && rec.stream_index == stream_index {
@@ -375,8 +381,8 @@ fn read_review(
                 } else {
                     Err(())
                 }
-            })
-    })
+            }),
+    )
 }
 
 /// `dir`（session dir）内の `stream_index` の review 状態を分類する。

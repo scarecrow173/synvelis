@@ -667,6 +667,41 @@ fn rcd02_review_discard_fail_closed_and_idempotent() {
     fs::remove_dir_all(&root).ok();
 }
 
+#[test]
+fn rcd02_review_record_unreadable_is_fail_closed() {
+    // 判定記録が存在するが読めない（ここでは dir を置いて read を
+    // 失敗させる）場合、Pending に潰さず Unreadable として
+    // fail-closed にし、review 操作を拒否する。
+    let lane = LaneId::new(11);
+    let root = tmp_dir("review-unreadable");
+    let area = staging_area(&root, 213, &[lane]);
+    let (mut w, mut ends) = manual_writer(&area);
+    push_and_pump(&mut w, &mut ends, 0, 0);
+    w.pump();
+    w.checkpoint().unwrap();
+    drop(w);
+    fs::create_dir(review_path(&root, 213, 0)).unwrap();
+
+    let report = recovery::scan(&root).unwrap();
+    assert_eq!(
+        report.sessions[0].streams[0].review_state,
+        ReviewState::Unreadable
+    );
+    let mut faults = PublishFaults::new();
+    for action in [
+        ReviewAction::Adopt,
+        ReviewAction::Hold,
+        ReviewAction::Discard,
+    ] {
+        let err = review_stream(&area, 0, action, Some(&ClearProbe), &mut faults).unwrap_err();
+        assert!(matches!(err, ReviewError::Corrupt(_)), "{action:?}: {err}");
+    }
+    // media/journal は変更されない。
+    assert!(media_path(&root, 213, 0).exists());
+    assert!(journal_path(&root, 213, 0).exists());
+    fs::remove_dir_all(&root).ok();
+}
+
 // ---------- complete 強化 ----------
 
 #[test]
