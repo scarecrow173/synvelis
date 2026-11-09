@@ -167,6 +167,10 @@ deferred として明記されていた workspace 側 ControlSession wiring の�
   ため bridge テストの stamp は `Derived`（→ `Current` 分類可能）。
   unwired 時の `Estimated` fail-closed 経路は workspace fake-port
   テスト `sf04_s2_estimated_stamp_never_reaches_current` で検証。
+- review-protocol 指摘対応: `MetricRecord` の peak が NaN/負値の
+  場合 `f32::max` fold が `0.0` に還元して `Signal(0.0)` を捏造し得る
+  ため、非有限・負 peak を record 単位で skip する guard を
+  `metric_update` に追加（非有限値は skip の設計契約どおり）。
 
 ## Related Experiments
 
@@ -183,7 +187,8 @@ deferred として明記されていた workspace 側 ControlSession wiring の�
 - `mise run fmt` / `mise run fmt-check`: pass
 - `mise run check`（cargo check --workspace --all-targets）: pass
 - `mise run lint`（cargo clippy --workspace --all-targets -- -D warnings）: pass
-- `mise run test`（cargo test --workspace --locked）: pass（126 suites, 0 failed）
+- `mise run test`（cargo test --workspace --locked）: pass（origin/main
+  `e9ee3ac` merge 後に全 suite 再検証・0 failed）
 - `mise run test-rt`: pass
 - `mise run check-headless-deps`: pass
 - `mise run check-ruviform-rev`: **fail（既存・本変更と無関係）** —
