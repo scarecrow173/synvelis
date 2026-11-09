@@ -120,7 +120,6 @@ impl From<ProbeError> for ProbeRequestError {
 /// observation is ever guessed.
 fn rt_mode(mode: ProbeMode) -> RtProbeMode {
     match mode {
-        ProbeMode::Off => RtProbeMode::Off,
         ProbeMode::Monitor => RtProbeMode::Monitor,
         ProbeMode::Capture => RtProbeMode::Capture,
         _ => RtProbeMode::Off,
@@ -156,10 +155,34 @@ fn same_point(a: RtProbePoint, b: RtProbePoint) -> bool {
 /// physical-slot verdict mirrored without invention.
 fn availability_state(availability: PointAvailability) -> ProbeResolveState {
     match availability {
-        PointAvailability::Unavailable => ProbeResolveState::Unavailable,
         PointAvailability::Unsupported => ProbeResolveState::Unsupported,
         PointAvailability::Unknown => ProbeResolveState::Unresolved,
         _ => ProbeResolveState::Unavailable,
+    }
+}
+
+/// Runtime [`StopReason`] → contract [`ProbeStopReason`] — future
+/// variants land on `Unknown`, never on a guessed cause.
+fn stop_reason(reason: StopReason) -> ProbeStopReason {
+    match reason {
+        StopReason::Requested => ProbeStopReason::Requested,
+        StopReason::BudgetExhausted => ProbeStopReason::BudgetExhausted,
+        StopReason::GenerationBoundary => ProbeStopReason::GenerationBoundary,
+        _ => ProbeStopReason::Unknown,
+    }
+}
+
+/// Runtime [`UnobservedReason`](ruviform_audio::typed::probe::UnobservedReason)
+/// → contract reason — future variants land on `Unknown`.
+fn unobserved_reason(
+    reason: ruviform_audio::typed::probe::UnobservedReason,
+) -> ProbeUnobservedReason {
+    match reason {
+        ruviform_audio::typed::probe::UnobservedReason::Stale => ProbeUnobservedReason::Stale,
+        ruviform_audio::typed::probe::UnobservedReason::BorrowConflict => {
+            ProbeUnobservedReason::BorrowConflict
+        }
+        _ => ProbeUnobservedReason::Unknown,
     }
 }
 
@@ -174,24 +197,11 @@ fn status_kind(kind: StatusKind) -> ProbeStatusKind {
             ProbeStatusKind::CaptureStarted { budget_frames }
         }
         StatusKind::CaptureStopped { reason } => ProbeStatusKind::CaptureStopped {
-            reason: match reason {
-                StopReason::Requested => ProbeStopReason::Requested,
-                StopReason::BudgetExhausted => ProbeStopReason::BudgetExhausted,
-                StopReason::GenerationBoundary => ProbeStopReason::GenerationBoundary,
-                _ => ProbeStopReason::Requested,
-            },
+            reason: stop_reason(reason),
         },
         StatusKind::Unbound => ProbeStatusKind::Unbound,
         StatusKind::Unobserved { reason } => ProbeStatusKind::Unobserved {
-            reason: match reason {
-                ruviform_audio::typed::probe::UnobservedReason::Stale => {
-                    ProbeUnobservedReason::Stale
-                }
-                ruviform_audio::typed::probe::UnobservedReason::BorrowConflict => {
-                    ProbeUnobservedReason::BorrowConflict
-                }
-                _ => ProbeUnobservedReason::Stale,
-            },
+            reason: unobserved_reason(reason),
         },
         StatusKind::LostBlocks => ProbeStatusKind::LostBlocks,
         StatusKind::LostRecords => ProbeStatusKind::LostRecords,
@@ -207,7 +217,7 @@ fn segment_end(reason: StopReason) -> CaptureSegmentEnd {
         StopReason::Requested => CaptureSegmentEnd::Requested,
         StopReason::BudgetExhausted => CaptureSegmentEnd::BudgetExhausted,
         StopReason::GenerationBoundary => CaptureSegmentEnd::GenerationBoundary,
-        _ => CaptureSegmentEnd::Requested,
+        _ => CaptureSegmentEnd::Unknown,
     }
 }
 
@@ -304,6 +314,9 @@ impl ProbeSession {
             ProbePointResolution::Unsupported => {
                 binding.state = ProbeResolveState::Unsupported;
             }
+            // A resolution outcome the contract cannot represent —
+            // fail closed, never bound.
+            _ => binding.state = ProbeResolveState::Unavailable,
         }
         self.bindings.insert(key, binding);
         Ok(())
@@ -446,18 +459,18 @@ impl ProbeSession {
         }
         let receipt = self.broker.on_publish(runtime, spec)?;
         for &probe in &receipt.bound {
-            if let Some(&key) = self.by_probe.get(&probe) {
-                if let Some(binding) = self.bindings.get_mut(&key) {
-                    binding.active_plan_generation = receipt.generation;
-                    binding.state = ProbeResolveState::PendingRtInstall;
-                }
+            if let Some(&key) = self.by_probe.get(&probe)
+                && let Some(binding) = self.bindings.get_mut(&key)
+            {
+                binding.active_plan_generation = receipt.generation;
+                binding.state = ProbeResolveState::PendingRtInstall;
             }
         }
         for &probe in &receipt.unbound {
-            if let Some(&key) = self.by_probe.get(&probe) {
-                if let Some(binding) = self.bindings.get_mut(&key) {
-                    binding.state = ProbeResolveState::StaleGeneration;
-                }
+            if let Some(&key) = self.by_probe.get(&probe)
+                && let Some(binding) = self.bindings.get_mut(&key)
+            {
+                binding.state = ProbeResolveState::StaleGeneration;
             }
         }
         Ok(receipt)
@@ -485,41 +498,37 @@ impl ProbeSession {
             (binding.point, binding.requested_mode)
         };
         let resolution = resolve_probe_point(project, map, spec, &point);
-        let desired = match &resolution {
-            ProbePointResolution::Resolved(port_ref) => RtProbePoint {
+        let desired = if let ProbePointResolution::Resolved(port_ref) = &resolution {
+            RtProbePoint {
                 node: port_ref.node,
                 port: port_ref.port,
-            },
-            _ => {
-                // The semantic point no longer resolves — the probe
-                // must not keep observing a stale runtime slot under
-                // the new generation. Remove it; the staged rebind
-                // never sees it.
-                self.broker.remove(probe)?;
-                self.probe_ids.remove(&key);
-                self.by_probe.remove(&probe);
-                if let Some(segment) = self.open.remove(&probe) {
-                    self.segments.push(close_segment(
-                        segment,
-                        Some(CaptureSegmentEnd::GenerationBoundary),
-                        None,
-                    ));
-                }
-                if let Some(binding) = self.bindings.get_mut(&key) {
-                    binding.runtime_probe_id = None;
-                    binding.state = match &resolution {
-                        ProbePointResolution::Unresolved => ProbeResolveState::Unresolved,
-                        ProbePointResolution::Unavailable | ProbePointResolution::NotLowered(_) => {
-                            ProbeResolveState::Unavailable
-                        }
-                        ProbePointResolution::Unsupported => ProbeResolveState::Unsupported,
-                        ProbePointResolution::Resolved(_) => {
-                            unreachable!("non-resolved arm")
-                        }
-                    };
-                }
-                return Ok(());
             }
+        } else {
+            // The semantic point no longer resolves — the probe
+            // must not keep observing a stale runtime slot under
+            // the new generation. Remove it; the staged rebind
+            // never sees it.
+            self.broker.remove(probe)?;
+            self.probe_ids.remove(&key);
+            self.by_probe.remove(&probe);
+            if let Some(segment) = self.open.remove(&probe) {
+                self.segments.push(close_segment(
+                    segment,
+                    Some(CaptureSegmentEnd::GenerationBoundary),
+                    None,
+                ));
+            }
+            if let Some(binding) = self.bindings.get_mut(&key) {
+                binding.runtime_probe_id = None;
+                binding.state = match &resolution {
+                    ProbePointResolution::Unresolved => ProbeResolveState::Unresolved,
+                    ProbePointResolution::Unsupported => ProbeResolveState::Unsupported,
+                    // Unavailable / NotLowered / any outcome the
+                    // contract cannot represent — fail closed.
+                    _ => ProbeResolveState::Unavailable,
+                };
+            }
+            return Ok(());
         };
         if self
             .broker
@@ -638,7 +647,7 @@ fn observe_event(
 ) {
     match event {
         ProbeEvent::Status(status) => {
-            observe_status(*status, bindings, by_probe, open, segments, block_frames)
+            observe_status(*status, bindings, by_probe, open, segments, block_frames);
         }
         ProbeEvent::Captured(chunk) => {
             if let Some(meta) = chunk.meta {

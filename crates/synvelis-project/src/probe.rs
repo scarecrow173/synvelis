@@ -197,6 +197,9 @@ pub enum ProbeStopReason {
     BudgetExhausted,
     /// A generation boundary cut the capture.
     GenerationBoundary,
+    /// A stop cause the contract cannot represent (future runtime
+    /// variant) — recorded, never guessed.
+    Unknown,
 }
 
 /// Why a point produced no data for a block.
@@ -208,6 +211,9 @@ pub enum ProbeUnobservedReason {
     Stale,
     /// The slot was mutably borrowed at tap time.
     BorrowConflict,
+    /// An unobserved cause the contract cannot represent (future
+    /// runtime variant) — recorded, never guessed.
+    Unknown,
 }
 
 /// Semantic mirror of a runtime probe status event — what happened,
@@ -381,6 +387,9 @@ pub enum CaptureSegmentEnd {
     RebindDropped,
     /// Probe removed.
     Removed,
+    /// A segment end the contract cannot represent (future runtime
+    /// variant) — recorded, never guessed.
+    Unknown,
 }
 
 /// One capture segment — the probe-observation counterpart of a
@@ -411,6 +420,7 @@ pub struct ProbeCaptureSegment {
 }
 
 /// Outcome of [`resolve_probe_point`].
+#[non_exhaustive]
 #[derive(Clone, Debug, PartialEq)]
 pub enum ProbePointResolution {
     /// Resolved to a runtime `(node, port)` — a candidate for broker
@@ -529,7 +539,6 @@ pub fn resolve_probe_point(
             None => ProbePointResolution::Unavailable,
         },
         PortSelection::SidechainInputs(ports) => match ports.as_slice() {
-            [] => ProbePointResolution::Unresolved,
             [only] => resolve_semantic_port(map, *only),
             _ => ProbePointResolution::Unresolved,
         },
@@ -690,7 +699,7 @@ fn owner_main_port(
 fn resolve_semantic_port(map: &RoutingSourceMap, port_id: SemanticPortId) -> ProbePointResolution {
     match map.ports.get(&port_id) {
         Some(MappingResolution::Resolved(port_ref)) => ProbePointResolution::Resolved(*port_ref),
-        Some(MappingResolution::Unavailable(_)) | Some(MappingResolution::NotLowered(_)) => {
+        Some(MappingResolution::Unavailable(_) | MappingResolution::NotLowered(_)) => {
             ProbePointResolution::Unavailable
         }
         Some(MappingResolution::Unsupported(_)) => ProbePointResolution::Unsupported,
@@ -714,7 +723,7 @@ fn resolve_strip_internal(
     };
     let node_id = match map.semantic_nodes.get(&SemanticNodeRef::Strip(strip_id)) {
         Some(MappingResolution::Resolved(node)) => *node,
-        Some(MappingResolution::Unavailable(_)) | Some(MappingResolution::NotLowered(_)) => {
+        Some(MappingResolution::Unavailable(_) | MappingResolution::NotLowered(_)) => {
             return ProbePointResolution::Unavailable;
         }
         Some(MappingResolution::Unsupported(_)) => return ProbePointResolution::Unsupported,
@@ -725,14 +734,14 @@ fn resolve_strip_internal(
     };
     match pos {
         StripInternal::FaderInput => {
-            // Exactly one input port on the fader node.
+            // Exactly one audio input port on the fader node.
             let inputs: Vec<_> = node
                 .ports()
                 .iter()
-                .filter(|p| p.direction() == Direction::Input)
+                .filter(|p| p.direction() == Direction::Input && audio_port(p))
                 .collect();
             match inputs.as_slice() {
-                [port] if audio_port(port) => ProbePointResolution::Resolved(PortRef {
+                [port] => ProbePointResolution::Resolved(PortRef {
                     node: node_id,
                     port: port.id(),
                 }),
@@ -746,9 +755,15 @@ fn resolve_strip_internal(
                 return ProbePointResolution::Unresolved;
             };
             let post_port = match map.ports.get(&main_out) {
-                Some(MappingResolution::Resolved(port_ref)) => port_ref.port,
-                Some(MappingResolution::Unavailable(_))
-                | Some(MappingResolution::NotLowered(_)) => {
+                Some(MappingResolution::Resolved(port_ref)) if port_ref.node == node_id => {
+                    port_ref.port
+                }
+                // A main-out resolved to a different node cannot
+                // delimit this fader's pre-out — fail closed.
+                Some(MappingResolution::Resolved(_)) => {
+                    return ProbePointResolution::Unavailable;
+                }
+                Some(MappingResolution::Unavailable(_) | MappingResolution::NotLowered(_)) => {
                     return ProbePointResolution::Unavailable;
                 }
                 Some(MappingResolution::Unsupported(_)) => {

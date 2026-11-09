@@ -693,10 +693,6 @@ fn strip_internal_positions_require_the_fader_slot() {
         SemanticSignalEntityRef::Strip(f.strip),
         SignalBoundary::PostInsert,
     );
-    let pre_fader = point(
-        SemanticSignalEntityRef::Strip(f.strip),
-        SignalBoundary::PreFader,
-    );
 
     // Fader node absent from the spec → no physical slot (an empty
     // spec issues no node IDs, so the mapped node cannot exist).
@@ -736,6 +732,22 @@ fn strip_internal_positions_require_the_fader_slot() {
         resolve(&f, &l, &post_insert),
         ProbePointResolution::Unresolved
     );
+}
+
+#[test]
+fn strip_internal_positions_reject_ambiguous_or_non_audio_slots() {
+    let f = fixture();
+    let mut l = lowered(&f);
+    let post_insert = point(
+        SemanticSignalEntityRef::Strip(f.strip),
+        SignalBoundary::PostInsert,
+    );
+    let pre_fader = point(
+        SemanticSignalEntityRef::Strip(f.strip),
+        SignalBoundary::PreFader,
+    );
+    let p = f.controller.live();
+    let strip_out = strip_port(p, f.strip, PortDirection::Output);
 
     // Restore and give the fader node two audio inputs — ambiguous.
     l.map.semantic_nodes.insert(
@@ -761,8 +773,6 @@ fn strip_internal_positions_require_the_fader_slot() {
     // outputs for PreFader to find "the other" output — keep the
     // original post_out id, which does not exist on `wide`, so the
     // map entry is stale: update it to wide's first output.
-    let p = f.controller.live();
-    let strip_out = strip_port(p, f.strip, PortDirection::Output);
     l.map.ports.insert(
         strip_out,
         MappingResolution::Resolved(PortRef {
