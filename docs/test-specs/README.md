@@ -71,7 +71,7 @@ Directory: `docs/test-specs`
 | TSPEC-034RBFeQnmt3PcI7beSRpy | SYN-OBS-01 検証仕様 — Host Logging install・設定解決・Health・Source catalog | draft | [syn-obs-01-logging-source-catalog.md](./syn-obs-01-logging-source-catalog.md) |
 | TSPEC-034T2RF305WAVSTAGED01B | SYN-RF305 Export StagedFile Publish 契約試験 | approved | [syn-rf305-export-staged-publish-contract.md](./syn-rf305-export-staged-publish-contract.md) |
 | TSPEC-034UwYugwIyQVbAeVxql8O | TIM-02 SMF Format0/1 fixture matrix | proposed | [tim-02-smf-format01-fixtures.md](./tim-02-smf-format01-fixtures.md) |
-| TSPEC-034UC53kVrQjWrtds8Lrsn | TIM-04 plugin state snapshot consistency — test spec | draft | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
+| TSPEC-034UC53kVrQjWrtds8Lrsn | TIM-04 plugin state snapshot consistency — test spec | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | TSPEC-034UyEDDz7mTejYlyhg4gF | TIM-03 process boundary test spec — TIM-03-PB01..NN | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
 | TSPEC-034UAzXp7iDmaV6yx7QTZQ | VCS-01 snapshot resolver fixtures | approved | [vcs-01-snapshot-resolver-fixtures.md](./vcs-01-snapshot-resolver-fixtures.md) |
 | TSPEC-034QdZPqGguxUOzVihyxjE | VS-A F0 Gate 検証仕様 — Stable ID・時間・Command・Save/Reload・Recording | approved | [vs-a-f0-gate-stable-id-command-save-reload-recording.md](./vs-a-f0-gate-stable-id-command-save-reload-recording.md) |

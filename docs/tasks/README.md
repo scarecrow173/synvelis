@@ -31,7 +31,6 @@ Directory: `docs/tasks`
 | TASK-NFJWSkocsf8xf7WcgpPdL0 | SV-GUI-04 slice1 タスク分解 — 実 2-window mount | in-progress | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | TASK-034UwY7u8viaAzE6tUxLHa | TIM-02 Task1 SMF Format0/1 project+recording headless slice | in-progress | [tim-02-task1-smf-core.md](./tim-02-task1-smf-core.md) |
-| TASK-034UC5rYrk7usxShbL01xG | TIM-04 plugin state snapshot consistency — implementation tasks | todo | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | TASK-034UAAcPSS47j6GIlPGPrX | VCS-01 Task1 Immutable Snapshot Resolver headless slice | in-progress | [vcs-01-task1-immutable-snapshot-resolver-headless-slice.md](./vcs-01-task1-immutable-snapshot-resolver-headless-slice.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
@@ -136,6 +135,7 @@ Directory: `docs/tasks`
 | TASK-034RBFXktNsZRlOztedppD | SYN-OBS-01 task5 logging テスト新設と mise 検証 | done | [syn-obs-01-task5-tests-verification.md](./syn-obs-01-task5-tests-verification.md) |
 | TASK-034RBFY3O4vz81b0Rumg95 | SYN-OBS-01 task6 最終検証と impl record | done | [syn-obs-01-task6-final-verify-impl-record.md](./syn-obs-01-task6-final-verify-impl-record.md) |
 | TASK-034T2RF305WAVSTAGED01A | SYN-RF305 task1 render/player WAV Export StagedFile 移行 | done | [syn-rf305-task1-render-export-staged-file.md](./syn-rf305-task1-render-export-staged-file.md) |
+| TASK-034UC5rYrk7usxShbL01xG | TIM-04 plugin state snapshot consistency — implementation tasks | done | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | TASK-034UyED9PUv2ECvzH9A3RX | TIM-03 task1 — process boundary/capability/degraded policy 実装 | done | [tim03-task1-process-boundary.md](./tim03-task1-process-boundary.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
