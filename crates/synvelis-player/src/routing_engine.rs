@@ -33,6 +33,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use ruviform_audio::typed::probe::{ProbeConfig, ProbeEvent};
 use ruviform_audio::typed::{
     CompileError, CompiledPlan, Compiler, CompilerConfig, FactoryError, GraphProcessor,
     GraphRuntime, InstalledInfo, OfflineRenderSupport, PrepareOutcome, ProcessError, RtRuntime,
@@ -48,10 +49,11 @@ use ruviform_rt::RtContext;
 
 use synvelis_project::BuildMode;
 use synvelis_project::{
-    ExecutionEquivalence, LOWERING_POLICY_VERSION, ProcessorId, Project, ProjectRevision,
-    RoutingActivationReceipt, RoutingActivationState, RoutingBuildKey, RoutingBuildRequestId,
-    RoutingCompileRequest, RoutingFault, RoutingReconcileMismatch, RoutingReconcileReport,
-    RoutingSourceMap, RuntimeClockEpochRef, RuntimeInstanceId, port_capability_generation,
+    ExecutionEquivalence, LOWERING_POLICY_VERSION, ProbeCaptureSegment, ProbeMode,
+    ProbeSubscriptionKey, ProcessorId, Project, ProjectRevision, RoutingActivationReceipt,
+    RoutingActivationState, RoutingBuildKey, RoutingBuildRequestId, RoutingCompileRequest,
+    RoutingFault, RoutingReconcileMismatch, RoutingReconcileReport, RoutingSourceMap,
+    RuntimeClockEpochRef, RuntimeInstanceId, SemanticProbeBinding, port_capability_generation,
     routing_fingerprint,
 };
 
@@ -63,6 +65,7 @@ use crate::host::{
 use crate::lowering::{
     CompSkipReason, EngineConfig, NodeContent, PlaybackBinding, SkippedPlayback,
 };
+use crate::probe::{ProbeRequestError, ProbeSession};
 use crate::processor::{ClipPlayer, ClipSync, PlaybackStats};
 use crate::resolver::PreparedClip;
 use crate::routing_lower::{
@@ -259,6 +262,13 @@ pub struct RoutingEngine {
     /// Latest published plan's source map (replaced wholesale per
     /// publish — runtime IDs are generation-scoped, never persisted).
     source_map: Option<RoutingSourceMap>,
+    /// Latest published plan's `GraphSpec` — semantic probe points
+    /// resolve against it alongside `source_map` (Issue #107).
+    published_spec: Option<GraphSpec>,
+    /// Semantic probe session (Issue #107): broker + collector +
+    /// binding/segment ledgers. The RT `ProbeDeck` lives inside `rt`
+    /// and rebinds on every successful `publish`.
+    probes: ProbeSession,
     /// Next generation to assign — starts at 1 like the driver, and
     /// is *reserved* at `prepare` so two outstanding prepares can
     /// never share a generation.
@@ -294,7 +304,20 @@ impl RoutingEngine {
             max_frames: engine.block_frames,
             ..CompilerConfig::default()
         };
-        let (graph, rt) = GraphRuntime::new(&config, 64, 64);
+        let (graph, mut rt) = GraphRuntime::new(&config, 64, 64);
+        // Semantic probe deck (Issue #107): chunk sizing follows the
+        // engine's process geometry (`chunk_frames >= max_frames`);
+        // the control-plane half stays in `ProbeSession`.
+        let probe_config = ProbeConfig {
+            chunk_frames: engine.block_frames.max(1),
+            ..ProbeConfig::default()
+        };
+        let (probes, deck) = ProbeSession::pair(
+            &probe_config,
+            u64::try_from(engine.block_frames).unwrap_or(u64::MAX),
+            engine.sample_rate,
+        );
+        rt.set_probe_deck(deck);
         Self {
             engine,
             project_rt: GraphProject::new(),
@@ -313,6 +336,8 @@ impl RoutingEngine {
             stats: Vec::new(),
             device_in: None,
             source_map: None,
+            published_spec: None,
+            probes,
             generation: 1,
             instance,
             epoch,
@@ -759,7 +784,23 @@ impl RoutingEngine {
                 self.seek_nonces = prepared.seek_nonces;
                 self.drain_nonces = prepared.drain_nonces;
                 self.device_in = Some(prepared.device_in);
+                // Semantic probes (Issue #107): semantic re-resolution
+                // + staged generation-scoped rebind of every installed
+                // probe against the just-published plan — the
+                // `RebindReceipt` is requested/enqueued evidence only;
+                // RT confirmation arrives via `probe_drain`.
+                // `StopAtBoundary` policy (broker default) cuts
+                // captures at the generation boundary — never silently
+                // continued — and a full command channel leaves
+                // bindings on their previous generation (RT emits
+                // `Unbound` → `StaleGeneration`) without failing
+                // publish.
+                let spec = prepared.spec;
                 self.source_map = Some(prepared.source_map);
+                if let Some(map) = self.source_map.as_ref() {
+                    let _ = self.probes.on_publish(&self.graph, &spec, project, map);
+                }
+                self.published_spec = Some(spec);
                 self.connections.insert(generation, prepared.connections);
                 // The new plan displaces every generation that is
                 // neither RT-active nor this one — a displaced
@@ -1000,6 +1041,105 @@ impl RoutingEngine {
     #[must_use]
     pub fn source_map(&self) -> Option<&RoutingSourceMap> {
         self.source_map.as_ref()
+    }
+
+    /// Requests semantic probe observation of `key`'s point in `mode`
+    /// (Issue #107). Resolution goes through the active source map +
+    /// published spec — fail-closed: `Unavailable`/`Unsupported`/
+    /// `Unresolved` are recorded on the returned binding ledger,
+    /// never faked. Idempotent per key; the default mode is `Off`
+    /// only in the sense that nothing observes until requested.
+    ///
+    /// # Errors
+    /// [`ProbeRequestError::NoActivePlan`] before the first publish,
+    /// [`ProbeRequestError::ProjectMismatch`] when `project` is not
+    /// the published plan's project, [`ProbeRequestError::Broker`]
+    /// on install failure.
+    pub fn probe_request(
+        &mut self,
+        project: &Project,
+        key: ProbeSubscriptionKey,
+        mode: ProbeMode,
+    ) -> Result<(), ProbeRequestError> {
+        let (Some(map), Some(spec)) = (self.source_map.as_ref(), self.published_spec.as_ref())
+        else {
+            return Err(ProbeRequestError::NoActivePlan);
+        };
+        if map.project_id != project.project_id {
+            return Err(ProbeRequestError::ProjectMismatch);
+        }
+        self.probes
+            .request(&self.graph, spec, project, map, key, mode)
+    }
+
+    /// Requests a probe mode change — see [`ProbeSession::set_mode`].
+    ///
+    /// # Errors
+    /// [`ProbeRequestError::UnknownKey`]/[`ProbeRequestError::NotBound`]/
+    /// [`ProbeRequestError::Broker`].
+    pub fn probe_set_mode(
+        &mut self,
+        key: ProbeSubscriptionKey,
+        mode: ProbeMode,
+    ) -> Result<(), ProbeRequestError> {
+        self.probes.set_mode(key, mode)
+    }
+
+    /// Starts a bounded probe capture — an explicit new capture
+    /// session. See [`ProbeSession::capture`].
+    ///
+    /// # Errors
+    /// [`ProbeRequestError::UnknownKey`]/[`ProbeRequestError::NotBound`]/
+    /// [`ProbeRequestError::AlreadyCapturing`]/[`ProbeRequestError::Broker`].
+    pub fn probe_capture(
+        &mut self,
+        key: ProbeSubscriptionKey,
+        max_frames: u64,
+    ) -> Result<(), ProbeRequestError> {
+        self.probes.capture(key, max_frames)
+    }
+
+    /// Stops an in-flight capture (RT returns to `Monitor`). The
+    /// segment closes only on the RT `CaptureStopped` status — see
+    /// [`ProbeSession::stop_capture`].
+    ///
+    /// # Errors
+    /// [`ProbeRequestError::UnknownKey`]/[`ProbeRequestError::NotBound`]/
+    /// [`ProbeRequestError::Broker`].
+    pub fn probe_stop_capture(
+        &mut self,
+        key: ProbeSubscriptionKey,
+    ) -> Result<(), ProbeRequestError> {
+        self.probes.stop_capture(key)
+    }
+
+    /// Removes a probe subscription — see [`ProbeSession::remove`].
+    ///
+    /// # Errors
+    /// [`ProbeRequestError::UnknownKey`]/[`ProbeRequestError::Broker`].
+    pub fn probe_remove(&mut self, key: ProbeSubscriptionKey) -> Result<(), ProbeRequestError> {
+        self.probes.remove(key)
+    }
+
+    /// Drains probe telemetry/capture/status events — the binding
+    /// ledger updates from RT evidence *before* `f` sees each event.
+    /// Call after `run`/`collect` cycles; events are produced RT-side
+    /// during `process`.
+    pub fn probe_drain(&mut self, f: impl FnMut(ProbeEvent<'_>)) -> usize {
+        self.probes.drain(f)
+    }
+
+    /// The probe binding ledger — requested/queued state stays
+    /// distinct from RT-confirmed state per binding.
+    #[must_use]
+    pub fn probe_bindings(&self) -> &BTreeMap<ProbeSubscriptionKey, SemanticProbeBinding> {
+        self.probes.bindings()
+    }
+
+    /// Closed probe capture segments in close order.
+    #[must_use]
+    pub fn probe_segments(&self) -> &[ProbeCaptureSegment] {
+        self.probes.segments()
     }
 
     /// Takes the non-RT control handle for `processor` of a
