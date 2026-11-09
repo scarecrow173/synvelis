@@ -57,3 +57,4 @@ Directory: `docs/impl/ir`
 | IMPL-034Ug8sNPL1sqhquNm1PYh | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 API 追従 | completed | [sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md](sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md) |
 | IR-SV-RF305-export | SYN-RF305 render/player WAV Export StagedFile 移行 実装記録・検証証跡 | final | [syn-rf305-render-export-staged-file.md](syn-rf305-render-export-staged-file.md) |
 | IMPL-034UgItAdeEhbkX8476hNc | Issue #190 project length → update_view 接続 — 既実装検証記録 | completed | [issue-190-project-length-update-view.md](issue-190-project-length-update-view.md) |
+| IMPL-034UjyiVpFVP7RCwlZ2neB | SF-03 slice5 実装記録 — session EnginePort・SessionRoutingEngine 接続 | completed | [sf-03-slice5-session-engineport-sessionroutingengine.md](sf-03-slice5-session-engineport-sessionroutingengine.md) |
