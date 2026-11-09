@@ -23,24 +23,34 @@
 //! Logging flags: `--log[=FILTER]`, `--log-file <DIR>`,
 //! `--log-format text|jsonl` — same contract as `synvelis`.
 //! Environment: `SYNVELIS_LOG`, `SYNVELIS_LOG_FILE`,
-//! `SYNVELIS_LOG_FORMAT`.
+//! `SYNVELIS_LOG_FORMAT`, `SYNVELIS_PROJECT_DIR`,
+//! `SYNVELIS_SECOND_WINDOW` (SV-GUI-04 slice 1 — `1`/`true`/`yes`/`on`
+//! mounts a second window carrying the transport-deck view `view-2`
+//! on the same app/session; unset keeps the single-window boot).
 //!
 //! Exit codes: `0` clean shutdown (last window destroyed /
 //! `syn.app.quit`), `3` service-registration, window-creation, or
 //! driver-loop failure, `4` logging configuration error.
 
+use std::cell::RefCell;
 use std::process::ExitCode;
+use std::rc::Rc;
 use std::time::Duration;
 
 use ruviform_ui::driver::{DriverEvent, WindowLifecycle};
-use ruviform_ui::{BackendReport, Capability, WindowCapabilities, WindowDriver, WindowSpec};
+use ruviform_ui::view::{AttachEpochAllocator, ViewHost, ViewSpec};
+use ruviform_ui::{
+    BackendReport, Capability, LogicalPosition, LogicalSize, WindowCapabilities, WindowDriver,
+    WindowId, WindowSpec,
+};
 use ruviform_ui_gpui::{GpuiDriver, ViewMount};
-use synvelis_theme::{ThemeCatalog, ThemeSelection};
+use synvelis_theme::{ResolvedTheme, ThemeCatalog, ThemeSelection};
 
 use synvelis_app::logging::{self, EnvOverrides};
 use synvelis_app::{
     LogSettings, MainScreenState, NativeShell, SynvelisApp, main_screen_spec, main_view_id,
-    main_view_targets, mount_main_view,
+    main_view_targets, mount_main_view, mount_secondary_view, secondary_screen_spec,
+    secondary_view_id, secondary_view_targets,
 };
 
 /// UI tick cadence — job drain, outbox flush, and clock advance rate.
@@ -162,6 +172,45 @@ fn product_theme() -> Option<synvelis_theme::ResolvedTheme> {
     }
 }
 
+/// `SYNVELIS_SECOND_WINDOW` — the SV-GUI-04 slice-1 gate for the
+/// second native window (synvelis#113). Truthy values `1`, `true`,
+/// `yes`, `on` (case-insensitive, surrounding whitespace ignored);
+/// unset or anything else keeps the single-window boot. Read at the
+/// process boundary only — the library never touches `std::env`.
+fn second_window_enabled() -> bool {
+    std::env::var("SYNVELIS_SECOND_WINDOW").is_ok_and(|v| {
+        matches!(
+            v.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        )
+    })
+}
+
+/// One mounted view↔window pair the run loop drives: attach the view
+/// on the window's first `Ready`, then push the matching screen spec
+/// whenever the shared [`MainScreenState`] changes.
+struct PendingMount {
+    window: WindowId,
+    view_id: String,
+    targets: Vec<String>,
+    /// `true` for the transport-deck view — its state pushes use
+    /// [`secondary_screen_spec`] instead of [`main_screen_spec`].
+    secondary: bool,
+    attached: bool,
+}
+
+impl PendingMount {
+    /// The screen spec this mount currently displays — rebuilt from
+    /// the shared [`MainScreenState`] on every push.
+    fn spec(&self, state: &MainScreenState) -> ViewSpec {
+        if self.secondary {
+            secondary_screen_spec(state)
+        } else {
+            main_screen_spec(state)
+        }
+    }
+}
+
 /// Structured trace for one pushed screen-state update.
 fn log_screen_state_update(state: &MainScreenState) {
     tracing::info!(
@@ -171,6 +220,191 @@ fn log_screen_state_update(state: &MainScreenState) {
         inspector_target = ?state.inspector.target,
         "screen state updated"
     );
+}
+
+/// Mounts the product view hosts while the app is still
+/// composition-owned — each `AttachEpoch` comes from the session
+/// allocator handle, never a second allocator, and the shared
+/// [`MainScreenState`] cell is what the loop below pushes into the
+/// mounted specs. Returns the main host plus the env-gated secondary
+/// host (`SYNVELIS_SECOND_WINDOW`, SV-GUI-04 slice 1 — a mount failure
+/// under the explicit gate is a composition defect, never a silent
+/// degrade).
+fn mount_views(
+    attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
+    screen_state: &Rc<RefCell<MainScreenState>>,
+) -> Result<(ViewHost, Option<ViewHost>), ExitCode> {
+    let main = mount_main_view(attach_epochs, &screen_state.borrow()).map_err(|e| {
+        eprintln!("synvelis-native: view mount failed: {e}");
+        tracing::error!(error = %e, "view mount failed");
+        ExitCode::from(3)
+    })?;
+    let secondary = if second_window_enabled() {
+        Some(
+            mount_secondary_view(attach_epochs, &screen_state.borrow()).map_err(|e| {
+                eprintln!("synvelis-native: secondary view mount failed: {e}");
+                tracing::error!(error = %e, "secondary view mount failed");
+                ExitCode::from(3)
+            })?,
+        )
+    } else {
+        None
+    };
+    Ok((main, secondary))
+}
+
+/// Reserves one view window; `what` names the window in the failure
+/// diagnostics. Window creation happens before `run`, so a failure
+/// here is a composition defect (exit 3).
+fn create_view_window(
+    driver: &mut GpuiDriver,
+    spec: &WindowSpec,
+    host: ViewHost,
+    theme: Option<&ResolvedTheme>,
+    what: &str,
+) -> Result<WindowId, ExitCode> {
+    driver
+        .create_view_window(
+            spec,
+            ViewMount {
+                host,
+                theme: theme.cloned(),
+            },
+        )
+        .map_err(|e| {
+            eprintln!("synvelis-native: {what} failed: {e}");
+            tracing::error!(error = %e, "{what} failed");
+            ExitCode::from(3)
+        })
+}
+
+/// Creates the OS windows for the mounted views — the main window
+/// always, the transport-deck window only when the env gate mounted a
+/// secondary view — and returns the run-loop mount records in
+/// creation order.
+fn open_windows(
+    driver: &mut GpuiDriver,
+    theme: Option<&ResolvedTheme>,
+    main_host: ViewHost,
+    secondary_host: Option<ViewHost>,
+) -> Result<Vec<PendingMount>, ExitCode> {
+    let window = create_view_window(
+        driver,
+        &WindowSpec {
+            title: "Synvelis".to_string(),
+            ..WindowSpec::default()
+        },
+        main_host,
+        theme,
+        "window creation",
+    )?;
+    let mut mounts = vec![PendingMount {
+        window,
+        view_id: main_view_id(),
+        targets: main_view_targets(),
+        secondary: false,
+        attached: false,
+    }];
+
+    if let Some(host) = secondary_host {
+        let spec = WindowSpec {
+            title: "Synvelis — Secondary".to_string(),
+            logical_size: LogicalSize::new(960, 600),
+            position: Some(LogicalPosition::new(80, 80)),
+            resizable: true,
+        };
+        let window = create_view_window(driver, &spec, host, theme, "secondary window creation")?;
+        tracing::info!(window = %window, "secondary window reserved");
+        mounts.push(PendingMount {
+            window,
+            view_id: secondary_view_id(),
+            targets: secondary_view_targets(),
+            secondary: true,
+            attached: false,
+        });
+    }
+    Ok(mounts)
+}
+
+/// Drives the shell through the driver's blocking event loop. Each
+/// mount attaches its view on its window's first `Ready` — after
+/// `handle` so the shell has registered the window (owner resolution
+/// requires it in `windows`) — then every screen-state change
+/// (project length → seek range, transport readout, inspector rows)
+/// is pushed as an updated spec to every attached mount, which the
+/// driver applies to the mounted view in place (no remount).
+/// `view_driver` is the `Rc`-shared clone the `'static` event closure
+/// uses for `update_view`.
+fn run_loop(
+    driver: &mut GpuiDriver,
+    mut shell: NativeShell,
+    mut mounts: Vec<PendingMount>,
+    screen_state: Rc<RefCell<MainScreenState>>,
+) -> ExitCode {
+    let view_driver = driver.clone();
+    let mut applied_state = screen_state.borrow().clone();
+    let result = driver.run(Some(TICK), move |event, driver| {
+        // First `Ready` per mount is detected before `handle` consumes
+        // the event — `attach_view` needs the window registered in the
+        // shell's `windows` map, which `handle` performs.
+        let ready: Vec<usize> = mounts
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| {
+                !m.attached
+                    && matches!(
+                        &event,
+                        DriverEvent::Windowed {
+                            window: w,
+                            event: WindowLifecycle::Ready,
+                        } if *w == m.window
+                    )
+            })
+            .map(|(i, _)| i)
+            .collect();
+        shell.handle(event, driver);
+        for i in ready {
+            let m = &mut mounts[i];
+            m.attached = true;
+            if let Err(e) = shell.attach_view(driver, m.window, &m.view_id, &m.targets) {
+                eprintln!("synvelis-native: view attach failed: {e}");
+                tracing::error!(error = %e, view_id = %m.view_id, "view attach failed");
+            } else {
+                tracing::info!(view_id = %m.view_id, window = %m.window, "view attached");
+            }
+            // A window that attached after the state cell moved must
+            // not keep its mount-time spec — push the current one.
+            let state = screen_state.borrow().clone();
+            if let Err(e) = view_driver.update_view(m.window, m.spec(&state)) {
+                tracing::error!(error = %e, "screen state update failed");
+            }
+        }
+        let state = screen_state.borrow().clone();
+        if state != applied_state {
+            applied_state = state.clone();
+            let mut pushed = false;
+            for m in mounts.iter().filter(|m| m.attached) {
+                match view_driver.update_view(m.window, m.spec(&state)) {
+                    Ok(()) => pushed = true,
+                    Err(e) => tracing::error!(error = %e, "screen state update failed"),
+                }
+            }
+            if pushed {
+                log_screen_state_update(&state);
+            }
+        }
+    });
+    match result {
+        Ok(()) => {
+            tracing::info!("synvelis-native shutdown");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("synvelis-native: driver failure: {e}");
+            tracing::error!(error = %e, "driver failure");
+            ExitCode::from(3)
+        }
+    }
 }
 
 fn main() -> ExitCode {
@@ -194,24 +428,20 @@ fn main() -> ExitCode {
 
     open_boot_project(&mut app);
 
-    // The view host is minted while the app is still composition-owned
-    // — its `AttachEpoch` comes from the session allocator handle,
-    // never a second allocator. The main-screen state cell is taken
-    // here too: the app publishes into it after every op and UI pump,
-    // and the loop below pushes changes into the mounted spec.
+    // The view hosts are minted while the app is still
+    // composition-owned — the `AttachEpoch` comes from the session
+    // allocator handle, never a second allocator. The main-screen
+    // state cell is taken here too: the app publishes into it after
+    // every op and UI pump, and the loop below pushes changes into
+    // the mounted specs.
     let screen_state = app.main_screen_cell();
-    let view_host = match mount_main_view(&app.attach_epoch_allocator(), &screen_state.borrow()) {
-        Ok(host) => host,
-        Err(e) => {
-            eprintln!("synvelis-native: view mount failed: {e}");
-            tracing::error!(error = %e, "view mount failed");
-            return ExitCode::from(3);
-        }
+    let attach_epochs = app.attach_epoch_allocator();
+    let (main_host, secondary_host) = match mount_views(&attach_epochs, &screen_state) {
+        Ok(mounts) => mounts,
+        Err(code) => return code,
     };
-    let view_id = main_view_id();
-    let view_targets = main_view_targets();
 
-    let mut shell = match NativeShell::new(app, TICK) {
+    let shell = match NativeShell::new(app, TICK) {
         Ok(shell) => shell,
         Err(e) => {
             eprintln!("synvelis-native: failed to compose shell: {e}");
@@ -220,71 +450,11 @@ fn main() -> ExitCode {
         }
     };
     let theme = product_theme();
-    let window = match driver.create_view_window(
-        &WindowSpec {
-            title: "Synvelis".to_string(),
-            ..WindowSpec::default()
-        },
-        ViewMount {
-            host: view_host,
-            theme,
-        },
-    ) {
-        Ok(window) => window,
-        Err(e) => {
-            eprintln!("synvelis-native: window creation failed: {e}");
-            tracing::error!(error = %e, "window creation failed");
-            return ExitCode::from(3);
-        }
+    let mounts = match open_windows(&mut driver, theme.as_ref(), main_host, secondary_host) {
+        Ok(mounts) => mounts,
+        Err(code) => return code,
     };
 
-    // Attach + subscribe on the main window's first `Ready` — after
-    // `handle` so the shell has registered the window (owner resolution
-    // requires it in `windows`). Any screen-state change (project
-    // length → seek range, transport readout, inspector rows) is
-    // pushed as an updated spec, which the driver applies to the
-    // mounted view in place (no remount).
-    let view_driver = driver.clone();
-    let mut applied_state = screen_state.borrow().clone();
-    let mut view_attached = false;
-    let result = driver.run(Some(TICK), move |event, driver| {
-        let main_ready = matches!(
-            &event,
-            DriverEvent::Windowed {
-                window: w,
-                event: WindowLifecycle::Ready,
-            } if *w == window
-        );
-        shell.handle(event, driver);
-        if main_ready && !view_attached {
-            view_attached = true;
-            if let Err(e) = shell.attach_view(driver, window, &view_id, &view_targets) {
-                eprintln!("synvelis-native: view attach failed: {e}");
-                tracing::error!(error = %e, "view attach failed");
-            } else {
-                tracing::info!(view_id = %view_id, "main view attached");
-            }
-        }
-        let state = screen_state.borrow().clone();
-        if state != applied_state {
-            applied_state = state.clone();
-            if let Err(e) = view_driver.update_view(window, main_screen_spec(&state)) {
-                tracing::error!(error = %e, "screen state update failed");
-            } else {
-                log_screen_state_update(&state);
-            }
-        }
-    });
-    match result {
-        Ok(()) => {
-            tracing::info!("synvelis-native shutdown");
-            ExitCode::SUCCESS
-        }
-        Err(e) => {
-            eprintln!("synvelis-native: driver failure: {e}");
-            tracing::error!(error = %e, "driver failure");
-            ExitCode::from(3)
-        }
-    }
+    run_loop(&mut driver, shell, mounts, screen_state)
     // `host_log` drops here — sinks drain, flush, and close in order.
 }
