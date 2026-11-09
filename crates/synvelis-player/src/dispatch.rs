@@ -90,8 +90,22 @@ fn to_target_id(target: ParameterTargetId) -> TargetId {
 /// Whether `target` fits the bridge's `u64` id space — the gate for
 /// every `to_target_id` call (a truncated raw id aliases onto a
 /// real bound target).
-fn in_range(target: ParameterTargetId) -> bool {
+pub(crate) fn in_range(target: ParameterTargetId) -> bool {
     target.raw() <= u128::from(u64::MAX)
+}
+
+/// The drained result of one [`ParamDispatch::observe_cycle`]:
+/// latest per-target ledger observations plus every scheduler
+/// receipt drained this cycle. Receipts are `Copy` projections —
+/// the `CommandId` correlation token stays inside the scheduler.
+#[derive(Debug)]
+pub struct DispatchCycle {
+    /// Latest observation per synvelis target after report
+    /// application and call-window projection.
+    pub observations: Vec<(ParameterTargetId, ParamValueObservation)>,
+    /// Every [`ruviform_media_core::AppliedReceipt`] drained this
+    /// cycle, in drain order.
+    pub receipts: Vec<ruviform_media_core::AppliedReceipt>,
 }
 
 /// The non-RT dispatch orchestrator for one attached plugin node.
@@ -406,15 +420,32 @@ impl ParamDispatch {
         call_start: EngineFrame,
         call_frames: u32,
     ) -> Vec<(ParameterTargetId, ParamValueObservation)> {
+        self.observe_cycle(span, call_start, call_frames)
+            .observations
+    }
+
+    /// [`Self::observe`] plus the drained scheduler receipts — the
+    /// PC-C3-05 trace adapter consumes both halves: observations for
+    /// the `dispatched` stage and receipts for `scheduled`/`applied`.
+    /// Drain order, the scheduler-generation projection gate and the
+    /// report-application order are identical to [`Self::observe`].
+    pub fn observe_cycle(
+        &mut self,
+        span: &TransportSpan,
+        call_start: EngineFrame,
+        call_frames: u32,
+    ) -> DispatchCycle {
         let reports = self.control.drain_reports();
+        let mut receipts = Vec::new();
         for report in &reports {
-            if !matches!(
-                report,
+            match report {
+                NodeReport::Receipt(receipt) => receipts.push(*receipt),
                 NodeReport::UndeliverableSpan { .. }
-                    | NodeReport::EventScratchOverflow
-                    | NodeReport::EndpointError { .. }
-            ) {
-                self.ledger.apply_report(report);
+                | NodeReport::EventScratchOverflow
+                | NodeReport::EndpointError { .. } => {}
+                _ => {
+                    self.ledger.apply_report(report);
+                }
             }
         }
         // Receipts carry the scheduler's live plan generation — the
@@ -422,11 +453,8 @@ impl ParamDispatch {
         // rejected at apply time leaves it on the previous plan, so a
         // mismatch here proves `last_plan` never ran and projecting
         // through it would mint `Dispatched` for undelivered events.
-        for report in reports.iter().rev() {
-            if let NodeReport::Receipt(receipt) = report {
-                self.scheduler_gen = Some(receipt.plan_generation);
-                break;
-            }
+        if let Some(receipt) = receipts.last() {
+            self.scheduler_gen = Some(receipt.plan_generation);
         }
         if let Some(plan) = self.last_plan.clone()
             && self
@@ -446,11 +474,39 @@ impl ParamDispatch {
                 self.ledger.apply_report(report);
             }
         }
-        self.ledger
-            .observations()
-            .into_iter()
-            .map(|(tid, obs)| (ParameterTargetId::new(u128::from(tid.0)), obs))
-            .collect()
+        DispatchCycle {
+            observations: self
+                .ledger
+                .observations()
+                .into_iter()
+                .map(|(tid, obs)| (ParameterTargetId::new(u128::from(tid.0)), obs))
+                .collect(),
+            receipts,
+        }
+    }
+
+    /// Records a plugin-reported `value` for `target` in the ledger —
+    /// the latest eligible `Scheduled`/`Dispatched` entry becomes
+    /// [`DispatchStage::Reported`]. Returns `false` when no eligible
+    /// entry exists or `target` is out of the bridge id range.
+    /// Non-RT; visible via [`Self::observe`]/[`Self::observe_cycle`].
+    pub fn record_reported(
+        &mut self,
+        target: ParameterTargetId,
+        value: ruviform_plugin_core::ParamValue,
+    ) -> bool {
+        if !in_range(target) {
+            return false;
+        }
+        self.ledger.record_reported(to_target_id(target), value)
+    }
+
+    /// Declares that no plugin→host reporting channel exists: every
+    /// still-pending ledger entry moves to
+    /// [`DispatchStage::Unavailable`] — the honest terminal stage.
+    /// Non-RT; visible via [`Self::observe`]/[`Self::observe_cycle`].
+    pub fn mark_reporting_unavailable(&mut self) {
+        self.ledger.mark_reporting_unavailable();
     }
 
     /// The latest stage a target reached in the ledger, if tracked.
