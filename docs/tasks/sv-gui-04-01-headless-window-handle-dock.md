@@ -107,4 +107,4 @@ Issue #113（SV-GUI-04）の precursor スライス。headless 契約層のみ:
 - [x] `mise run check`
 - [x] `mise run lint`
 - [x] `mise run test`（`sv113_dock` 含む）
-- [ ] `git merge origin/main` 後の再検証
+- [x] `git merge origin/main` 後の再検証
