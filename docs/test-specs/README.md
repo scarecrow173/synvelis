@@ -7,6 +7,7 @@ Directory: `docs/test-specs`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | TSPEC-DM8VnIP07x0mq4VnOt6PJD | ALIB-01 検証仕様 — Asset Provider 契約・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
+| TESTSPEC-alib02 | ALIB-02 Streaming Verified Import — テスト仕様 | approved | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | TSPEC-034AUT01Hd5jKm8nRt3wXsYq | AUT-01 Touch Return・Writer State 境界 検証仕様 | approved | [aut-01-e2e-touch-return-writer-state.md](./aut-01-e2e-touch-return-writer-state.md) |
 | TSPEC-034AUT02Fh3jDs8mXq5vWk2n | AUT-02 E2E 検証仕様 — Region Replace 境界曲線保存・Reject/Replace 原子的編集 | approved | [aut-02-e2e-region-replace-boundary.md](./aut-02-e2e-region-replace-boundary.md) |
 | TSPEC-034AUT03Zk6mVt4nQr2wXs8 | AUT-03 E2E 検証仕様 — Loop 録音 1 Pass・Write Range 半開区間・境界 flush・明示 Rearm | approved | [aut-03-e2e-loop-write-one-pass.md](./aut-03-e2e-loop-write-one-pass.md) |
@@ -32,7 +33,7 @@ Directory: `docs/test-specs`
 | TSPEC-034Upc3ciohad3ZlmsOqVl | PC-C2 Control Relation Index E2E — 双方向・状態・stale・有界性・read-only | approved | [pc-c2-e2e-control-relation-index.md](./pc-c2-e2e-control-relation-index.md) |
 | TSPEC-10rDlBIZV1BQa6OmERMdbJ | PC-C3-05 RT trace adapter テスト仕様 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | TSPEC-034UqHaJf2vZgpPzjlqqi7 | PC-C3 ControlTrace E2E — stage 相関・freshness・probe 状態・plan activation | approved | [pc-c3-e2e-control-trace.md](./pc-c3-e2e-control-trace.md) |
-| TSPEC-034Uw6FJykHzgki5MvwCPZ | PC-C4 plugin parameter binding e2e — PLUG-C4-01..05 / PC-C4-PL01..08 | draft | [pc-c4-e2e-plugin-param-binding.md](./pc-c4-e2e-plugin-param-binding.md) |
+| TSPEC-034Uw6FJykHzgki5MvwCPZ | PC-C4 plugin parameter binding e2e — PLUG-C4-01..05 / PC-C4-PL01..08 | approved | [pc-c4-e2e-plugin-param-binding.md](./pc-c4-e2e-plugin-param-binding.md) |
 | TSPEC-tCO4ppjNmQv0ebUI6Q1rHD | PC-C5 slice1 テスト仕様 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TSPEC-YEy9TAHyUte5MD6kpyZJFI | PC-C6 oracle E2E — REL01〜07 / TR01〜08 独立照合 fixture | approved | [pc-c6-e2e-oracle-rel-tr.md](./pc-c6-e2e-oracle-rel-tr.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
@@ -66,6 +67,7 @@ Directory: `docs/test-specs`
 | TSPEC-034T2c6eMscPucNt6w8iYW | SYN-IO-02 Store Publish 契約試験 | approved | [syn-io-02-store-publish-contract.md](./syn-io-02-store-publish-contract.md) |
 | TSPEC-034RBFeQnmt3PcI7beSRpy | SYN-OBS-01 検証仕様 — Host Logging install・設定解決・Health・Source catalog | draft | [syn-obs-01-logging-source-catalog.md](./syn-obs-01-logging-source-catalog.md) |
 | TSPEC-034T2RF305WAVSTAGED01B | SYN-RF305 Export StagedFile Publish 契約試験 | approved | [syn-rf305-export-staged-publish-contract.md](./syn-rf305-export-staged-publish-contract.md) |
+| TSPEC-034UyEDDz7mTejYlyhg4gF | TIM-03 process boundary test spec — TIM-03-PB01..NN | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
 | TSPEC-034QdZPqGguxUOzVihyxjE | VS-A F0 Gate 検証仕様 — Stable ID・時間・Command・Save/Reload・Recording | approved | [vs-a-f0-gate-stable-id-command-save-reload-recording.md](./vs-a-f0-gate-stable-id-command-save-reload-recording.md) |
 | TSPEC-dtmF30GppYRVULWnH8CG9o | VS-B E2E-R Gate 検証仕様 — Mock Gate・Buffer Pool・SPSC・Fail-stop | approved | [vs-b-e2e-r1-mock-gate-rt-capture.md](./vs-b-e2e-r1-mock-gate-rt-capture.md) |
 | TSPEC-034QfPbKx2mR9tWvN5zYcHuJ | VS-C E2E-R2 検証仕様 — Staging Writer・Journal・Crash Recovery | approved | [vs-c-e2e-r2-staging-writer-journal-crash-recovery.md](./vs-c-e2e-r2-staging-writer-journal-crash-recovery.md) |
