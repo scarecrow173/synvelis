@@ -24,6 +24,7 @@ pub mod fixture;
 pub mod host;
 pub mod import;
 pub mod lowering;
+pub mod probe;
 pub mod processor;
 pub mod publish;
 pub mod resolver;
@@ -42,6 +43,7 @@ pub use lowering::{
     ClipWindow, CompSkipReason, EngineConfig, FadeDirection, FadeWindow, Lowered, NodeContent,
     OverlapSide, PlaybackBinding, SkippedPlayback,
 };
+pub use probe::{ProbeRequestError, ProbeSession};
 pub use processor::{ClipPlayer, PlaybackStats};
 pub use publish::{PublishError, PublishReport, PublishedStream, SkippedStream, publish_recorded};
 pub use resolver::PreparedClip;
