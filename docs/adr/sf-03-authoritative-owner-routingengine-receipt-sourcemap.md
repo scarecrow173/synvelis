@@ -1,7 +1,7 @@
 ---
 id: "ADR-034Ux91pIhFgxbsb0xs3y9"
 type: "adr"
-status: "approved"
+status: "accepted"
 title: "SF-03 世代スコープ証拠の authoritative owner — RoutingEngine receipt + SourceMap に一元化"
 created: "2026-11-09"
 updated: "2026-11-09"
