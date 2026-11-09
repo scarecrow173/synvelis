@@ -151,7 +151,7 @@ discovery ──► spec ──► design ──► test-spec
 - [x] plan/task 作成と関係確定
 - [x] managed index 再生成 + lint/fmt-check
 - [x] review-protocol 最終判定（CONFIRMED P0/P1 なし）
-- [ ] PR 作成（`Refs #106`・Issue は Close しない）
+- [x] PR 作成（PR #222・`Refs #106`・Issue は Close しない）
 
 ## Dependencies and Risks
 
