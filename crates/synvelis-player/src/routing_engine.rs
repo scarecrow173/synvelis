@@ -107,6 +107,11 @@ struct RetainedConnection {
     /// Non-RT plugin control half, `Some` only for real plugin
     /// hosts; `None` for [`StaticProcessorHost`] connections.
     control: Option<ruviform_audio_plugin_bridge::PluginNodeControl>,
+    /// Plugin instance handle for non-RT state operations (TIM-04),
+    /// `Some` only for real plugin hosts. `Copy` — the host's own
+    /// generation counter rejects stale handles, so vending a copy
+    /// is safe; the lease still owns teardown order.
+    state_handle: Option<ruviform_plugin_host::PluginHandle>,
 }
 
 /// A fully prepared routing build: compiled plan plus the staged
@@ -715,6 +720,7 @@ impl RoutingEngine {
             node,
             _lease: connection.lease,
             control: connection.control,
+            state_handle: connection.state_handle,
         });
     }
 
@@ -1183,6 +1189,45 @@ impl RoutingEngine {
             control,
             frame_base,
         })
+    }
+
+    /// Vends the plugin-state endpoints of a **published**
+    /// `generation` — `(processor, PluginHandle)` pairs for every
+    /// chain connection backed by a real plugin host
+    /// ([`crate::plugin_state::PluginStateEndpoint`]).
+    ///
+    /// Unlike [`Self::take_processor_control`] this is a read-only
+    /// `&self` copy vend: `PluginHandle` is `Copy` and the host's
+    /// own generation counter rejects handles whose instance was
+    /// destroyed, so copies cannot reach another generation's
+    /// plugin. Returns an empty `Vec` for unknown generations and
+    /// skips [`StaticProcessorHost`] connections (no plugin
+    /// instance exists to snapshot).
+    ///
+    /// **Non-RT only** — callers feed the endpoints into
+    /// [`crate::plugin_state::PluginStateHost::bind`] before running
+    /// [`synvelis_project::PluginStateSession`] saves/restores.
+    #[must_use]
+    pub fn plugin_state_handles(
+        &self,
+        generation: u64,
+    ) -> Vec<crate::plugin_state::PluginStateEndpoint> {
+        self.connections
+            .get(&generation)
+            .map(|connections| {
+                connections
+                    .iter()
+                    .filter_map(|connection| {
+                        connection.state_handle.map(|handle| {
+                            crate::plugin_state::PluginStateEndpoint {
+                                processor: connection.processor,
+                                handle,
+                            }
+                        })
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     /// Runs `blocks` blocks of `engine.block_frames`, collecting the

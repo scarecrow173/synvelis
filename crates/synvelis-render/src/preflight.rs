@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use synvelis_project::{SourceId, SourceState};
+use synvelis_project::{SourceId, SourceState, StateQualityPolicy};
 
 use crate::error::PreflightError;
 use crate::prepare::OpenedSource;
@@ -94,6 +94,7 @@ pub fn preflight_static(
             detail: format!("emitted data would exceed the RIFF limit ({bytes} B)"),
         });
     }
+    preflight_plugin_state(request)?;
     // Source registration + verification gates — Missing Source and
     // Unverified Source are preflight failures, never silent skips.
     for clip in snapshot.project.clips.values() {
@@ -120,6 +121,30 @@ pub fn preflight_static(
                 asset_id: source.asset_id,
             });
         }
+    }
+    Ok(())
+}
+
+/// TIM-04 plugin-state recipe gate: `Strict` demands exact-eligible
+/// evidence; `BestEffort`/`Unsupported`/failed records refuse the
+/// export before any output byte exists. `Standard` passes — the
+/// receipt records the evidence verbatim.
+fn preflight_plugin_state(request: &ExportRequest) -> Result<(), PreflightError> {
+    let Some(recipe) = &request.plugin_state else {
+        return Ok(());
+    };
+    if recipe.policy == StateQualityPolicy::Strict && !recipe.evidence.exact_eligible() {
+        return Err(PreflightError::PluginStateQuality {
+            detail: format!(
+                "strict offline recipe but plugin state evidence is not exact-eligible \
+                 ({} processors, {} exact, {} degraded, {} unsupported, {} failed)",
+                recipe.evidence.processors,
+                recipe.evidence.exact,
+                recipe.evidence.degraded,
+                recipe.evidence.unsupported,
+                recipe.evidence.failed,
+            ),
+        });
     }
     Ok(())
 }

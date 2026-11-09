@@ -20,6 +20,7 @@ pub mod midi_comp;
 pub(crate) mod migration;
 pub mod ops;
 pub mod placement;
+pub mod plugin_state;
 pub mod probe;
 pub mod probe_trace;
 pub mod project;
@@ -71,6 +72,16 @@ pub use ops::ProjectOp;
 pub use placement::{
     ClipExtent, ClipPlacement, ClipPlayback, PlaybackMapping, ResolvedClip, StretchRatio,
     TimeAnchor,
+};
+pub use plugin_state::{
+    CaptureMode, CaptureObservation, DirectoryPluginStateStore, InMemoryPluginStateStore,
+    PLUGIN_STATE_SCHEMA_VERSION, PluginStateBinding, PluginStateCapture, PluginStateCaptureError,
+    PluginStateError, PluginStateFailureKind, PluginStateManifest, PluginStateOutcome,
+    PluginStatePort, PluginStateQualitySummary, PluginStateReceipt, PluginStateRecord,
+    PluginStateRestoreOutcome, PluginStateRestoreReceipt, PluginStateRestoreRecord,
+    PluginStateRestoreRequest, PluginStateSaveRequest, PluginStateSession, PluginStateStore,
+    PluginStateStoreError, StateCaptureQuality, StateQualityPolicy, digest_hex, is_manifest_name,
+    plugin_state_manifest_name,
 };
 pub use probe::{
     CaptureCompleteness, CaptureSegmentEnd, CaptureSessionId, ClockContextRef, ObservationGap,

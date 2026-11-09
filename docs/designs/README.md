@@ -78,9 +78,10 @@ Directory: `docs/designs`
 | DESIGN-034T2RF305WAVSTAGED00Y | SYN-RF305 WAV Export StagedFile 移行設計 | approved | [syn-rf305-wav-export-staged-file-design.md](./syn-rf305-wav-export-staged-file-design.md) |
 | — | Synvelis-driven Ruviform Target Architecture v0.7.1 | — | [synvelis-driven-ruviform-target-architecture-v07.md](./synvelis-driven-ruviform-target-architecture-v07.md) |
 | DESIGN-034UwVoRGI8Bp9zuzRFQhj | TIM-02 SMF Format0/1 core — crate 内完結設計 | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
+| DESIGN-034UC0ixTsN58rRlRctgAH | TIM-04 plugin state snapshot consistency design — quality receipt/store/session/offline recipe | draft | [tim-04-plugin-state-snapshot-consistency-design.md](./tim-04-plugin-state-snapshot-consistency-design.md) |
 | DESIGN-034UyEjdALaapQRSk5hAdk | TIM-03 plugin process boundary design — capability/degraded policy oracle | approved | [tim03-process-boundary-design.md](./tim03-process-boundary-design.md) |
 | — | Synvelis × Ruviform — Time / Transport / MIDI / Automation / Plugin Integration Architecture v0.5 | — | [time-transport-midi-automation-plugin-integration-architecture.md](./time-transport-midi-automation-plugin-integration-architecture.md) |
-| DESIGN-034UAwTwlzWbToxqWtFM2B | VCS-01 Immutable Snapshot Resolver — crate 内完結設計 | approved | [vcs-01-immutable-snapshot-resolver-crate.md](./vcs-01-immutable-snapshot-resolver-crate.md) |
+| DESIGN-034UAwTwlzWbToxqWtFM2B | VCS-01 Immutable Snapshot Resolver — crate 内完結設計 | approved | [vcs-01-immutable-snapshot-resolver-design.md](./vcs-01-immutable-snapshot-resolver-design.md) |
 | DESIGN-034QdO7AB6cp4DRgKeuuEn | VS-A Project/Recording Foundation — Stable ID・時間型・Command・永続化 PoC | approved | [vs-a-project-recording-foundation-stable-id-command-poc.md](./vs-a-project-recording-foundation-stable-id-command-poc.md) |
 | DESIGN-8OW4JtYUYaLPOTZ9ZGxXuz | VS-B Clock / Gate Scheduler / RT Capture — Mock Input・Buffer Pool・SPSC | approved | [vs-b-clock-gate-rt-capture-mock-spsc.md](./vs-b-clock-gate-rt-capture-mock-spsc.md) |
 | DESIGN-034QfL0bH9u3cVqK0pYwT7x | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range | approved | [vs-c-staging-writer-journal-crash-recovery-verified-media-range.md](./vs-c-staging-writer-journal-crash-recovery-verified-media-range.md) |
