@@ -6,7 +6,6 @@ Directory: `docs/adr`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
-| ADR-034Ul4shgS8qAsLvnSHlkQ | ADR: SV-GUI-03 slice1 Transport/Inspector は app 層 MainScreenState push で表示し domain/ops を変更しない | accepted | [sv-gui-03-01-transport-inspector-app-state-push.md](./sv-gui-03-01-transport-inspector-app-state-push.md) |
 | ADR-qjrwwGin4E0PE4ksCSLysY | ALIB-01 — synvelis-library crate 配置と Provider 契約境界 | accepted | [alib-01-synvelis-library-crate-boundary.md](./alib-01-synvelis-library-crate-boundary.md) |
 | ADR-034AUT02Xy4mKp8wQe2sVn7j | AUT-02 境界 Sentinel/Anchor 配置 — merged series 単位の境界復元・host region 選択 | accepted | [aut-02-boundary-sentinel-anchor-placement.md](./aut-02-boundary-sentinel-anchor-placement.md) |
 | ADR-034AUT0312NAA2Mk53Gle5 | AUT-03 Write Range 半開区間の表現 — 境界 flush・coverage_end・Pass fixation | accepted | [aut-03-write-range-boundary-flush-pass-fixation.md](./aut-03-write-range-boundary-flush-pass-fixation.md) |
@@ -28,6 +27,8 @@ Directory: `docs/adr`
 | ADR-034SF02Ux8pMn5oR8tY3zAbDe | SF-02 RoutingTransaction 配置・TempRef Staging・channels 永続化・Mute/Solo 権威・汎用検証の再利用 | accepted | [sf-02-routing-transaction-port-channels-mute-solo-authority.md](./sf-02-routing-transaction-port-channels-mute-solo-authority.md) |
 | ADR-106SF03Cd2eFg3hIj4kLm5nOp | SF-03 slice1 — Runtime ID は SourceMap 経由のみ・Activation は RT 観測証拠で分離 | approved | [sf-03-semantic-lowering-source-map-activation-boundary.md](./sf-03-semantic-lowering-source-map-activation-boundary.md) |
 | ADR-034RAA8oZVNDaL6mMAMJ55 | SV-GUI-02 syn.* binding IPC surface・notify outbox・bounded wire DTO | accepted | [sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md](./sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md) |
+| ADR-034Ul4shgS8qAsLvnSHlkQ | SV-GUI-03 slice1: Transport/Inspector の表示値は app 層 MainScreenState push で供給し domain/ops を変更しない | accepted | [sv-gui-03-01-transport-inspector-app-state-push.md](./sv-gui-03-01-transport-inspector-app-state-push.md) |
+| ADR-WWJ1nzLLj2Q6WEjt7ZQg3t | SV-GUI-03 slice2: Arrangement rows は workspace read model + MainScreenState push、Undo/Redo は syn.project.* op 露出 | accepted | [sv-gui-03-02-arrangement-readmodel-undo-ops.md](./sv-gui-03-02-arrangement-readmodel-undo-ops.md) |
 | ADR-vXwuA1OrALJD99tNRgZ8gQ | ADR: Native App Shell は Driver-neutral shell + GPUI 標準 Driver。SV-GUI-01 の WebView/SolidJS 決定を supersede | accepted | [sv175-native-shell-driver-neutral-gpui.md](./sv175-native-shell-driver-neutral-gpui.md) |
 | ADR-034T6XUbzRkbVBGiEFXH4Q | SV177 product theme crate boundary, DTCG document envelope and slot-based workspace preset schema | accepted | [sv177-product-theme-crate-boundary-dtcg-document-envelope-and-slot-based-workspa.md](./sv177-product-theme-crate-boundary-dtcg-document-envelope-and-slot-based-workspa.md) |
 | ADR-034RBxHj0wzQculGmgXguq | SYN-OBS-01 単一crate ruviform-observability logging feature 採用と Host 所有 Global Subscriber | accepted | [syn-obs-01-crate-ruviform-observability-logging-feature-host-global-subscriber.md](./syn-obs-01-crate-ruviform-observability-logging-feature-host-global-subscriber.md) |

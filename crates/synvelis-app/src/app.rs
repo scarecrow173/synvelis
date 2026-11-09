@@ -250,9 +250,10 @@ pub struct SynvelisApp {
     bundle_path: Option<String>,
     /// Last published main-screen display state — shared with the
     /// composition root, refreshed after every service op (project
-    /// length here) and every UI pump (transport/inspector capture in
-    /// `ui_ops`). The native lane polls it and pushes changes into the
-    /// mounted spec through `update_view`.
+    /// length + arrangement rows here) and every UI pump
+    /// (transport/inspector capture in `ui_ops`). The native lane
+    /// polls it and pushes changes into the mounted spec through
+    /// `update_view`.
     pub(crate) main_screen: Rc<RefCell<MainScreenState>>,
 }
 
@@ -312,21 +313,36 @@ impl SynvelisApp {
         )
     }
 
+    /// The Arrangement table rows for the live project — the
+    /// track/lane/clip read model behind the Arrangement tab
+    /// (synvelis#112 slice 2).
+    #[must_use]
+    pub fn arrangement_rows(&self) -> Vec<synvelis_workspace::ArrangementRow> {
+        synvelis_workspace::arrangement_rows(self.workspace.session(), SEEK_MEDIA_RATE)
+    }
+
     /// Shared main-screen state cell. Taken before the app seals; the
-    /// service refreshes the project-length field after every op and
-    /// the UI pump refreshes the transport/inspector fields.
+    /// service refreshes the project-derived fields (length +
+    /// arrangement rows) after every op and the UI pump refreshes the
+    /// transport/inspector fields.
     #[must_use]
     pub fn main_screen_cell(&self) -> Rc<RefCell<MainScreenState>> {
         self.publish_project_length();
         Rc::clone(&self.main_screen)
     }
 
-    /// Publishes the live project length into the shared screen-state
-    /// cell — the Seek range source. The transport/inspector fields of
-    /// the same cell are refreshed by the UI pump's screen-state
-    /// capture (`ui_ops`), not here.
+    /// Publishes the live project-derived screen state — project
+    /// length (Seek range source) and Arrangement rows — into the
+    /// shared cell. Called after every service op (the `AppService`
+    /// call tail) and at cell hand-out; the transport/inspector
+    /// fields of the same cell are refreshed by the UI pump's
+    /// screen-state capture (`ui_ops`), not here. The name predates
+    /// the arrangement rows; renaming is deferred to the next
+    /// `service.rs` touch (synvelis#112 slice 2).
     pub fn publish_project_length(&self) {
-        self.main_screen.borrow_mut().project_length_seconds = self.project_length_seconds();
+        let mut screen = self.main_screen.borrow_mut();
+        screen.project_length_seconds = self.project_length_seconds();
+        screen.arrangement_rows = self.arrangement_rows();
     }
 
     fn fresh_session(name: &str) -> ProjectSession {

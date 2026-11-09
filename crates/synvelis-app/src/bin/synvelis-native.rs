@@ -39,8 +39,8 @@ use synvelis_theme::{ThemeCatalog, ThemeSelection};
 
 use synvelis_app::logging::{self, EnvOverrides};
 use synvelis_app::{
-    LogSettings, NativeShell, SynvelisApp, main_screen_spec, main_view_id, main_view_targets,
-    mount_main_view,
+    LogSettings, MainScreenState, NativeShell, SynvelisApp, main_screen_spec, main_view_id,
+    main_view_targets, mount_main_view,
 };
 
 /// UI tick cadence — job drain, outbox flush, and clock advance rate.
@@ -162,6 +162,17 @@ fn product_theme() -> Option<synvelis_theme::ResolvedTheme> {
     }
 }
 
+/// Structured trace for one pushed screen-state update.
+fn log_screen_state_update(state: &MainScreenState) {
+    tracing::info!(
+        project_length_seconds = state.project_length_seconds,
+        arrangement_rows = state.arrangement_rows.len(),
+        transport_status = ?state.transport.status,
+        inspector_target = ?state.inspector.target,
+        "screen state updated"
+    );
+}
+
 fn main() -> ExitCode {
     let mut host_log = match install_logging() {
         Ok(host_log) => host_log,
@@ -260,12 +271,7 @@ fn main() -> ExitCode {
             if let Err(e) = view_driver.update_view(window, main_screen_spec(&state)) {
                 tracing::error!(error = %e, "screen state update failed");
             } else {
-                tracing::info!(
-                    project_length_seconds = state.project_length_seconds,
-                    transport_status = ?state.transport.status,
-                    inspector_target = ?state.inspector.target,
-                    "screen state updated"
-                );
+                log_screen_state_update(&state);
             }
         }
     });

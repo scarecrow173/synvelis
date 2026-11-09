@@ -32,7 +32,8 @@ relations:
     - "docs/tasks/sv-gui-03-01-transport-inspector-slice1.md"
     - "docs/test-specs/sv-gui-03-01-transport-inspector-slice1.md"
   refines: []
-  refined-by: []
+  refined-by:
+    - "docs/specs/sv-gui-03-02-arrangement-undo-slice2.md"
   derives-from: []
   derived-by: []
   verifies: []

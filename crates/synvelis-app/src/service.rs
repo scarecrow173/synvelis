@@ -53,6 +53,14 @@ pub const OPS: &[OpInfo] = &[
         summary: "project name, id, revision, saved state",
     },
     OpInfo {
+        name: "syn.project.undo",
+        summary: "undo the last project command — {\"undone\": bool}",
+    },
+    OpInfo {
+        name: "syn.project.redo",
+        summary: "redo the last undone project command — {\"redone\": bool}",
+    },
+    OpInfo {
         name: "syn.transport.set",
         summary: "set transport rolling — params.playing (bool)",
     },
@@ -187,6 +195,8 @@ impl AppService {
             "syn.project.save" => self.app.project_save().map_err(AppError::into_body),
             "syn.project.reload" => self.app.project_reload().map_err(AppError::into_body),
             "syn.project.info" => Ok(self.app.project_info()),
+            "syn.project.undo" => self.app.op_project_undo(),
+            "syn.project.redo" => self.app.op_project_redo(),
             "syn.transport.set" => {
                 let playing = params
                     .get("playing")
