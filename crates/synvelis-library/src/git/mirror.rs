@@ -313,6 +313,10 @@ impl GitMirror {
         let mut chunk = [0u8; 8192];
         let want = usize::try_from(head_len).unwrap_or(usize::MAX);
         while buf.len() < want {
+            // The stream watchdog kills the child on cancel/deadline;
+            // check here so a truncated head is never mistaken for a
+            // complete one.
+            cx.check_interrupts()?;
             match std::io::Read::read(&mut stream, &mut chunk) {
                 Ok(0) => break,
                 Ok(n) => buf.extend_from_slice(&chunk[..n]),

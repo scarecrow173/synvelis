@@ -14,8 +14,11 @@
 use std::io::Read;
 use std::path::Path;
 use std::process::{Child, ChildStdout, Command, Output, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{self, TryRecvError};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::context::ProviderContext;
 use crate::error::{ProviderError, ProviderErrorKind};
@@ -204,6 +207,11 @@ impl GitRunner {
 
     /// Runs `git <args>` returning stdout bytes, killing the child
     /// once `max_bytes` is exceeded. `truncated` reports the cap hit.
+    ///
+    /// Stdout is drained on a helper thread so the caller keeps
+    /// polling cancel/deadline — `ls-tree`/`ls-remote` can block on a
+    /// stalled remote (lazy promisor fetches included), and a
+    /// synchronous `read` would make interruption impossible.
     pub(crate) fn run_stdout_bounded(
         &self,
         dir: Option<&Path>,
@@ -217,12 +225,38 @@ impl GitRunner {
         let stdout = child.stdout.take().expect("piped");
         let stderr = child.stderr.take().expect("piped");
         let err_h = drain(stderr);
-        let (buf, truncated) = read_bounded(stdout, max_bytes);
-        let _ = join_drain(err_h);
+        let (tx, rx) = mpsc::channel();
+        let out_h = std::thread::spawn(move || {
+            let _ = tx.send(read_bounded(stdout, max_bytes));
+        });
+        let (buf, truncated) = loop {
+            if let Err(err) = cx.check_interrupts() {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = out_h.join();
+                let _ = join_drain(err_h);
+                return Err(err);
+            }
+            match rx.try_recv() {
+                Ok(res) => break res,
+                Err(TryRecvError::Empty) => std::thread::sleep(WAIT_POLL),
+                Err(TryRecvError::Disconnected) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    let _ = join_drain(err_h);
+                    return Err(ProviderError::new(
+                        ProviderErrorKind::Internal,
+                        "git stdout reader terminated unexpectedly",
+                    ));
+                }
+            }
+        };
+        let _ = out_h.join();
         if truncated {
             let _ = child.kill();
         }
         wait_bounded(&mut child, cx)?;
+        let stderr_bytes = join_drain(err_h);
         if !truncated {
             let status = child.try_wait().map_err(|e| {
                 ProviderError::new(ProviderErrorKind::TransientIo, format!("git wait: {e}"))
@@ -230,9 +264,9 @@ impl GitRunner {
             if let Some(status) = status
                 && !status.success()
             {
-                return Err(ProviderError::new(
-                    ProviderErrorKind::TransientIo,
-                    "git listing failed".to_owned(),
+                return Err(classify_failure(
+                    String::from_utf8_lossy(&stderr_bytes).as_ref(),
+                    status.code(),
                 ));
             }
         }
@@ -242,7 +276,9 @@ impl GitRunner {
     /// Spawns `git cat-file blob <oid>` (or any stdout-streaming
     /// command) and returns the live child plus its stdout. The
     /// returned [`GitObjectStream`] kills the child if dropped
-    /// mid-read.
+    /// mid-read, and a watchdog kills it when the call's
+    /// cancel/deadline fires — a `read` blocked on a stalled remote
+    /// (lazy promisor fetch) must still be interruptible.
     pub(crate) fn spawn_stdout(
         &self,
         dir: &Path,
@@ -256,12 +292,52 @@ impl GitRunner {
         let stdout = child.stdout.take().expect("piped");
         let stderr = child.stderr.take().expect("piped");
         let err_h = drain(stderr);
+        let child = Arc::new(Mutex::new(child));
+        let done = Arc::new(AtomicBool::new(false));
+        // Detached: the watchdog self-terminates via `done` or when
+        // its Arc handles are the last ones alive.
+        let _ = spawn_watchdog(Arc::clone(&child), Arc::clone(&done), cx);
         Ok(GitObjectStream {
             child,
             stdout,
             err_h: Some(err_h),
+            done,
         })
     }
+}
+
+/// Polls cancel/deadline and kills the child when either fires.
+/// Exits when `done` is set (stream finished or dropped) or after
+/// issuing the kill.
+fn spawn_watchdog(
+    child: Arc<Mutex<Child>>,
+    done: Arc<AtomicBool>,
+    cx: &ProviderContext,
+) -> JoinHandle<()> {
+    let cancel = cx.cancel.clone();
+    let deadline = cx.limits.deadline;
+    std::thread::spawn(move || {
+        loop {
+            if done.load(Ordering::SeqCst) {
+                return;
+            }
+            let expired = cancel.is_cancelled() || deadline.is_some_and(|d| Instant::now() >= d);
+            if expired {
+                let _ = lock_child(&child).kill();
+                return;
+            }
+            std::thread::sleep(WAIT_POLL);
+        }
+    })
+}
+
+/// Locks the shared child handle; poisoning can only come from a
+/// panicking watchdog/consumer, in which case the guard is still
+/// safe to use.
+fn lock_child(child: &Mutex<Child>) -> MutexGuard<'_, Child> {
+    child
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 struct HeaderPair {
@@ -292,17 +368,20 @@ fn http_authority(url: &str) -> Result<String, ProviderError> {
 
 /// A spawned git child streaming object bytes on stdout.
 pub(crate) struct GitObjectStream {
-    child: Child,
+    child: Arc<Mutex<Child>>,
     stdout: ChildStdout,
     err_h: Option<JoinHandle<Vec<u8>>>,
+    done: Arc<AtomicBool>,
 }
 
 impl GitObjectStream {
     /// Waits for exit and returns stderr text — used by callers that
     /// consume stdout to EOF first.
     pub(crate) fn finish(mut self) -> Result<String, ProviderError> {
-        // stdout already consumed by the reader; reap the child.
-        let status = self.child.wait().map_err(|e| {
+        // stdout already consumed by the reader; the watchdog is
+        // stood down, then the child is reaped.
+        self.done.store(true, Ordering::SeqCst);
+        let status = lock_child(&self.child).wait().map_err(|e| {
             ProviderError::new(ProviderErrorKind::TransientIo, format!("git wait: {e}"))
         })?;
         let stderr = self.err_h.take().map(join_drain).unwrap_or_default();
@@ -325,10 +404,14 @@ impl Read for GitObjectStream {
 
 impl Drop for GitObjectStream {
     fn drop(&mut self) {
-        // Abandoned mid-read: kill so a lazy-fetch child cannot
-        // linger, then reap.
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        // Abandoned mid-read: stand the watchdog down, kill so a
+        // lazy-fetch child cannot linger, then reap.
+        self.done.store(true, Ordering::SeqCst);
+        {
+            let mut guard = lock_child(&self.child);
+            let _ = guard.kill();
+            let _ = guard.wait();
+        }
         if let Some(h) = self.err_h.take() {
             let _ = h.join();
         }
