@@ -30,6 +30,7 @@ Directory: `docs/plans`
 | PLAN-qCDk2ELwZ5XT36rSkQsD8F | PC-C3-05 RT trace adapter 実装計画 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | PLAN-034UqHfN1LJeYNaoS0SGYL | PC-C3 ControlTrace projection 実装計画 | approved | [pc-c3-control-trace.md](./pc-c3-control-trace.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
+| PLAN-7zXphX8skvXfNgeXarocfo | PC-C6 oracle REL/TR headless fixture 実装計画 | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-034UrkBlTpaeiSGII0EyIi | RCD-02 Durability Evidence / Recovery Review / Commit Receipt slice | approved | [rcd-02-durability-recovery-review.md](./rcd-02-durability-recovery-review.md) |
 | PLAN-034SF01Np0sTu5vW2xYzAbDeF | SF-01 Semantic Routing Model 実装計画 | approved | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
@@ -69,3 +70,7 @@ Directory: `docs/plans`
 | PLAN-034PCB04Pk9ySt5zBcPdEf | PC-B Parameter Control dispatch/note-scope/RT/offline 実装計画 | completed | [pc-b-parameter-dispatch.md](./pc-b-parameter-dispatch.md) |
 | PLAN-pOkUKpNa9zeQiK8ZbP5nvk | SV#28 Ruviform pin 更新 実装計画 — 863a7a9d → cc7d5296 | completed | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | PLAN-034QwZOjdblHRzDVhDXNIP | WS-A Workspace 基盤 headless PoC 実装計画 | completed | [ws-a-workspace-foundation.md](./ws-a-workspace-foundation.md) |
+
+<<<<<<< HEAD
+=======
+>>>>>>> origin/main
