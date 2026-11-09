@@ -44,6 +44,10 @@ const STEPS: &[MigrationStep] = &[
         from: 7,
         migrate: migrate_v7_bootstrap_fader,
     },
+    MigrationStep {
+        from: 8,
+        migrate: migrate_v8_smf_documents,
+    },
 ];
 
 /// Runs the ordered ladder from `version` to [`SCHEMA_VERSION`].
@@ -288,5 +292,19 @@ fn migrate_v7_bootstrap_fader(mut project: Project) -> Result<Project, Error> {
         return Ok(project);
     }
     project.control.targets.insert(canonical.id, canonical);
+    Ok(project)
+}
+
+/// v8 → v9: add `Project::smf_documents` (issue #126). The field is
+/// `#[serde(default)]`, so a v8 body already deserializes with an
+/// empty map — no projection is needed and none is fabricated.
+/// Deterministic — allocates no IDs and leaves `id_watermark`
+/// untouched.
+///
+/// # Errors
+/// Never fails: the step is the identity projection. The `Result`
+/// shape keeps the ladder uniform.
+#[allow(clippy::unnecessary_wraps)]
+fn migrate_v8_smf_documents(project: Project) -> Result<Project, Error> {
     Ok(project)
 }

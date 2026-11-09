@@ -115,7 +115,7 @@ fn midi_source_types_are_readable_and_serialize_with_version() {
         .read_snapshot(&store.head().unwrap().unwrap())
         .unwrap();
     let env: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(env["schema_version"], serde_json::json!(8));
+    assert_eq!(env["schema_version"], serde_json::json!(SCHEMA_VERSION));
     // The serialized source keeps its native division and note data.
     let s = &env["project"]["midi_sources"];
     let (sid, body) = s.as_object().unwrap().iter().next().unwrap();

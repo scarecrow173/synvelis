@@ -801,6 +801,7 @@ pub(crate) fn op_name(op: &ProjectOp) -> &'static str {
         ProjectOp::RemoveMidiNote { .. } => "remove-midi-note",
         ProjectOp::SetMidiNoteVelocity { .. } => "set-midi-note-velocity",
         ProjectOp::MoveMidiNote { .. } => "move-midi-note",
+        ProjectOp::ImportMidiSmf { .. } => "import-midi-smf",
         ProjectOp::DetachClipSource { .. } => "detach-clip-source",
         ProjectOp::RegisterAsset { .. } => "register-asset",
         ProjectOp::RegisterSource { .. } => "register-source",

@@ -21,6 +21,7 @@ use crate::{
         CaptureSegment, CaptureStream, ClockEpoch, RecordingPass, RecordingSession, Take,
     },
     routing::{RoutingModel, WELL_KNOWN_BASE, is_issuable_raw},
+    smf::SmfDocument,
     tempo::{ProjectPpqn, TempoMapData},
     time::ProjectTime,
 };
@@ -360,6 +361,14 @@ pub struct Project {
     /// a v4 body deserialize; `load()` still requires schema v5.
     #[serde(default)]
     pub midi_sources: BTreeMap<SourceId, MidiSource>,
+    /// SMF provenance documents keyed by the `MidiSource` they were
+    /// imported into (issue #126). The document owns the source-native
+    /// event stream — track/channel ordering, tempo/meta, sysex —
+    /// while `MidiSource.notes` is its deterministic note projection.
+    /// `#[serde(default)]` keeps pre-v9 bodies loadable; `load()`
+    /// still requires schema v9.
+    #[serde(default)]
+    pub smf_documents: BTreeMap<SourceId, SmfDocument>,
     /// Clock epochs by ID.
     pub clock_epochs: BTreeMap<ClockEpochId, ClockEpoch>,
     /// Recording registry.
@@ -416,6 +425,7 @@ impl Project {
             assets: BTreeMap::new(),
             sources: BTreeMap::new(),
             midi_sources: BTreeMap::new(),
+            smf_documents: BTreeMap::new(),
             clock_epochs: BTreeMap::new(),
             recording: RecordingRegistry::default(),
             comp: CompRegistry::default(),
@@ -542,6 +552,43 @@ impl Project {
                         "note {note_id} exists as both clip-local note and midi note"
                     )));
                 }
+            }
+        }
+        // -- SMF provenance documents (issue #126) -------------------
+        // Every document must name a live MIDI source, agree with its
+        // division, and project to exactly the stored note multiset —
+        // a crafted snapshot cannot keep provenance and notes
+        // divergent (note edits on SMF sources are op-rejected, so any
+        // divergence here is foreign state).
+        for (source_id, doc) in &self.smf_documents {
+            let source = self.midi_sources.get(source_id).ok_or_else(|| {
+                Error::NotFound(format!("midi source {source_id} (smf document)"))
+            })?;
+            doc.validate()?;
+            if source.division.ticks_per_quarter() != doc.division {
+                return Err(Error::Validation(format!(
+                    "smf document for {source_id} division {} != midi source division {}",
+                    doc.division,
+                    source.division.ticks_per_quarter()
+                )));
+            }
+            let mut projected: Vec<(u8, u8, i64, i64)> = doc
+                .paired_notes()
+                .map_err(|e| Error::Validation(format!("smf document for {source_id}: {e}")))?
+                .iter()
+                .map(|s| (s.key, s.velocity, s.start.value(), s.len.value()))
+                .collect();
+            let mut actual: Vec<(u8, u8, i64, i64)> = source
+                .notes
+                .values()
+                .map(|n| (n.key, n.velocity, n.start.value(), n.len.value()))
+                .collect();
+            projected.sort_unstable();
+            actual.sort_unstable();
+            if projected != actual {
+                return Err(Error::Validation(format!(
+                    "smf document for {source_id} note projection diverges from midi source notes"
+                )));
             }
         }
         let rec = &self.recording;
