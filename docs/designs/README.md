@@ -54,6 +54,7 @@ Directory: `docs/designs`
 | DESIGN-8o9zUv4L5ae0FBB0zOM293 | SV-GUI-03 slice2 Arrangement/Undo 設計 — workspace read model + syn.project.* op 露出 | approved | [sv-gui-03-02-arrangement-undo-slice2-design.md](./sv-gui-03-02-arrangement-undo-slice2-design.md) |
 | DESIGN-034UogNAUQrEmBkgZnhrAk | SV-GUI-04 slice1 precursor 設計 — HeadlessWindowHost + dock fixture | approved | [sv-gui-04-01-headless-window-handle-dock-design.md](./sv-gui-04-01-headless-window-handle-dock-design.md) |
 | DESIGN-Ywl9hP3wdlHWjoMPB7Hvjn | SV-GUI-04 slice1 設計 — 2nd view spec + env-gated 2窓 mount + FakeDriver fixture | approved | [sv-gui-04-01-two-window-slice1-design.md](./sv-gui-04-01-two-window-slice1-design.md) |
+| DESIGN-034UqwNDJrureYsAqmckuw | SV-GUI-04 slice2 設計 — close_guard op + 末尾 window veto | approved | [sv-gui-04-02-close-veto-design.md](./sv-gui-04-02-close-veto-design.md) |
 | DESIGN-BWzJVIfJHZS8suU7aFFAGf | SV175 Native App Shell 設計 — NativeShell routing・ViewBinding adapter・native feature lane | approved | [sv175-native-shell-design.md](./sv175-native-shell-design.md) |
 | DESIGN-034T728YcMrGoBwDtbkIqS | SV177 Product Theme / Workspace Preset — synvelis-theme crate・DTCG overrides・slot-based preset・semantic screen spec | approved | [sv177-product-theme-workspace-preset-design.md](./sv177-product-theme-workspace-preset-design.md) |
 | DESIGN-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain projection 設計 — ControlModel bootstrap・wire target・display_value | approved | [sv185-mixer-gain-projection-design.md](./sv185-mixer-gain-projection-design.md) |

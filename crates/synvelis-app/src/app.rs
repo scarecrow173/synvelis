@@ -544,6 +544,36 @@ impl SynvelisApp {
         })
     }
 
+    /// Guard reasons for the window-close decision
+    /// (`syn.window.close_guard`). App-global by contract: the
+    /// project/session is shared by every window, so the reasons
+    /// never depend on which window asks — the shell composes them
+    /// with window topology and applies them only to the last live
+    /// window's close.
+    #[must_use]
+    pub fn close_veto_reasons(&self) -> Vec<&'static str> {
+        let mut reasons = Vec::new();
+        let session = self.workspace.session();
+        let controller = session.controller();
+        let live = controller.live_revision();
+        let dirty = match controller.saved() {
+            Some(saved) => live != saved.revision,
+            // Never saved: only edits past revision 0 are unsaved
+            // work — a fresh boot project carries nothing to lose.
+            None => live.0 > 0,
+        };
+        if dirty {
+            reasons.push("unsaved_changes");
+        }
+        if session.control().recording().is_some() {
+            reasons.push("recording_active");
+        }
+        if self.recorder.active() {
+            reasons.push("recorder_active");
+        }
+        reasons
+    }
+
     /// Sets transport playing/stopped through the session.
     pub fn transport_set(&mut self, playing: bool) {
         self.workspace.session_mut().set_playing(playing);
