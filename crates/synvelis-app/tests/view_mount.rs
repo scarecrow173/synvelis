@@ -24,7 +24,9 @@ use ruviform_ui::behavior::{
     CommandReceipt, ControlInput, InputSource, ReceiptStatus, Revision, StateProjection, ValueInput,
 };
 use ruviform_ui::ipc::{Event, Intent};
-use ruviform_ui::view::{ComponentKey, ProjectionOp, ViewEvent, ViewHost};
+use ruviform_ui::view::{
+    CellValue, ComponentKey, ComponentSpec, ProjectionOp, TableSpec, ViewEvent, ViewHost, ViewSpec,
+};
 use ruviform_ui::{
     BackendReport, DriverEvent, WindowDriver, WindowId, WindowLifecycle, WindowSpec,
 };
@@ -32,8 +34,8 @@ use ruviform_ui_test::FakeDriver;
 
 use synvelis_app::binding::project_action_op;
 use synvelis_app::{
-    NativeShell, SynvelisApp, main_screen_spec, main_view_id, main_view_targets, mixer_gain_target,
-    mount_main_view, seek_range_seconds,
+    MainScreenState, NativeShell, SynvelisApp, main_screen_spec, main_view_id, main_view_targets,
+    mixer_gain_target, mount_main_view, seek_range_seconds,
 };
 
 fn key(name: &str) -> ComponentKey {
@@ -69,6 +71,11 @@ struct MountedFixture {
     host: ViewHost,
     window: WindowId,
     view_id: String,
+    /// The app's shared main-screen state cell — taken before the app
+    /// sealed into the shell, exactly like `synvelis-native` does. The
+    /// UI pump keeps it fresh; tests push it into the host through
+    /// `update` the same way the driver's `update_view` does.
+    screen: std::rc::Rc<std::cell::RefCell<MainScreenState>>,
     /// Cursor into `driver.events_for(window)` — events are an
     /// append-only log on the fake, so deliveries are consumed by
     /// index, mirroring `RvfView`'s drainable inbox.
@@ -77,7 +84,9 @@ struct MountedFixture {
 
 fn fixture() -> MountedFixture {
     let app = SynvelisApp::new(BackendReport::available("gpui", "test-0.1".to_string()));
-    let host = mount_main_view(&app.attach_epoch_allocator(), 0.0).expect("main view mounts");
+    let screen = app.main_screen_cell();
+    let host =
+        mount_main_view(&app.attach_epoch_allocator(), &screen.borrow()).expect("main view mounts");
     let view_id = main_view_id();
     let mut shell = NativeShell::new(app, Duration::from_millis(16)).expect("compose shell");
     let mut driver = FakeDriver::new();
@@ -105,6 +114,7 @@ fn fixture() -> MountedFixture {
         host,
         window,
         view_id,
+        screen,
         inbox_cursor: 0,
     }
 }
@@ -234,6 +244,17 @@ impl MountedFixture {
             .expect("button invoke");
         self.pump_view_intents();
         self.deliver_to_host();
+    }
+
+    /// Pushes the app's current [`MainScreenState`] into the host —
+    /// the headless mirror of `GpuiDriver::update_view` on the native
+    /// lane (`view_driver.update_view(window, main_screen_spec(&state))`).
+    fn push_screen_state(&mut self) -> Vec<ProjectionOp> {
+        let state = self.screen.borrow().clone();
+        let generation = self.host.generation();
+        self.host
+            .update(main_screen_spec(&state), generation)
+            .expect("screen state update applies")
     }
 
     fn begin(id: &str) -> ControlInput {
@@ -548,8 +569,11 @@ fn reattach_bumps_generation_and_fresh_host_absorbs_stale_namespace() {
     // distinct across hosts, so stale receipts addressed to the dead
     // host cannot resolve on the live one.
     let mut dead = f.host;
-    let mut fresh =
-        mount_main_view(&f.shell.attach_epoch_allocator(), 0.0).expect("fresh host mounts");
+    let mut fresh = mount_main_view(
+        &f.shell.attach_epoch_allocator(),
+        &MainScreenState::default(),
+    )
+    .expect("fresh host mounts");
 
     let g_dead = dead.generation();
     dead.dispatch_input(g_dead, &key("seek.position"), MountedFixture::begin("d1"))
@@ -707,13 +731,17 @@ fn last_result_ok(driver: &FakeDriver, window: WindowId) -> Option<bool> {
 fn seek_range_follows_project_length_in_place() {
     let mut f = fixture();
     let generation = f.host.generation();
+    let longer = MainScreenState {
+        project_length_seconds: 120.0,
+        ..MainScreenState::default()
+    };
 
     // The seek's descriptor changes in place: nothing mounts or unmounts,
     // the seek key is among the updated nodes, the host keeps its
     // generation (no remount), and the tree is the new spec.
     let ops = f
         .host
-        .update(main_screen_spec(120.0), generation)
+        .update(main_screen_spec(&longer), generation)
         .expect("length update applies");
     assert!(
         ops.iter()
@@ -723,7 +751,7 @@ fn seek_range_follows_project_length_in_place() {
         key: key("seek.position")
     }));
     assert_eq!(f.host.generation(), generation);
-    assert_eq!(f.host.spec(), Some(&main_screen_spec(120.0)));
+    assert_eq!(f.host.spec(), Some(&main_screen_spec(&longer)));
 
     // The control keeps working on the updated range.
     f.input("seek.position", MountedFixture::begin("gs"));
@@ -808,4 +836,207 @@ fn tab_press_switches_the_displayed_tab_through_the_shell() {
 
     assert_eq!(f.host.observe(&tabs).and_then(|s| s.selected), Some(1));
     assert_eq!(last_result_ok(&f.driver, f.window), Some(true));
+}
+
+// ---------------------------------------------------------------------
+// SV-GUI-03 slice 1 (synvelis#112): Transport actions + Inspector display
+// ---------------------------------------------------------------------
+
+/// Finds a component by key anywhere in the spec tree — Panels recurse
+/// through `children`, Tabs through each tab's `child`.
+fn find_component<'a>(spec: &'a ComponentSpec, name: &str) -> Option<&'a ComponentSpec> {
+    if spec.key().0 == name {
+        return Some(spec);
+    }
+    match spec {
+        ComponentSpec::Panel(p) => p.children.iter().find_map(|c| find_component(c, name)),
+        ComponentSpec::Tabs(t) => t
+            .tabs
+            .iter()
+            .find_map(|tab| find_component(&tab.child, name)),
+        _ => None,
+    }
+}
+
+/// The resolved `text` of the `Label` `name` in `spec`.
+fn spec_label_text(spec: &ViewSpec, name: &str) -> String {
+    match find_component(&spec.root, name) {
+        Some(ComponentSpec::Label(l)) => l.text.clone(),
+        other => panic!("label `{name}` missing or wrong kind: {other:?}"),
+    }
+}
+
+/// The `Table` `name` in `spec`.
+fn spec_table<'a>(spec: &'a ViewSpec, name: &str) -> &'a TableSpec {
+    match find_component(&spec.root, name) {
+        Some(ComponentSpec::Table(t)) => t,
+        other => panic!("table `{name}` missing or wrong kind: {other:?}"),
+    }
+}
+
+/// The mounted spec carries the Transport Play/Stop `Button`s on the
+/// `transport` action target, the status `Label`, and the read-only
+/// Inspector `Table` — stable component keys so `ViewHost::update`
+/// preserves mounted identity (synvelis#112 slice 1).
+#[test]
+fn main_spec_carries_transport_buttons_status_and_inspector_table() {
+    let spec = main_screen_spec(&MainScreenState::default());
+    for (name, action) in [("transport.play", "play"), ("transport.stop", "stop")] {
+        match find_component(&spec.root, name) {
+            Some(ComponentSpec::Button(b)) => {
+                assert_eq!(b.target, "transport");
+                assert_eq!(b.action, action);
+            }
+            other => panic!("button `{name}` missing or wrong kind: {other:?}"),
+        }
+    }
+    assert!(matches!(
+        find_component(&spec.root, "transport.status"),
+        Some(ComponentSpec::Label(_))
+    ));
+    let table = spec_table(&spec, "inspector.table");
+    assert_eq!(table.columns, ["Field", "Value"]);
+    assert!(
+        table.rows.is_empty(),
+        "no breakdown before first projection"
+    );
+    assert!(table.selection.is_none(), "inspector table is read-only");
+}
+
+/// The Transport Play/Stop `Button`s ride the existing
+/// `syn.control.*` command path end to end: the press mints an
+/// `Action` on the `transport` target, `ControlsUi::route_action`
+/// applies it, the `Applied` receipt and the re-broadcast
+/// `TransportProjection` land, the UI pump's screen-state capture
+/// writes the shared cell, and the `ViewHost::update` spec push paints
+/// the status `Label` — generation and mounted identity preserved
+/// (synvelis#112 slice 1).
+#[test]
+fn transport_buttons_play_and_stop_through_the_command_path() {
+    let mut f = fixture();
+
+    // attach_view subscribed `transport` as an action surface — its
+    // projection feeds the status readout even before any press.
+    let sub = results_for(&f.driver, f.window, "shell-sub-view-1-transport");
+    assert_eq!(sub.len(), 1, "one transport subscribe result: {sub:?}");
+    assert!(sub[0].0, "transport subscribe ok: {sub:?}");
+    assert_eq!(
+        f.screen.borrow().transport.status.as_deref(),
+        Some("Stopped"),
+        "initial capture reflects the stopped truth"
+    );
+
+    f.press("transport.play");
+
+    // The wire carried an `Applied` receipt for the transport action —
+    // route_action's authoritative outcome, not a transport ack.
+    let receipts = notifies(&f.driver, f.window, "syn.control.receipt");
+    assert!(
+        receipts
+            .iter()
+            .any(|r| { r["target"] == "transport" && r["receipt"]["status"] == "applied" }),
+        "play receipt applied: {receipts:?}"
+    );
+
+    // The broadcast re-projected transport truth; the capture wrote it
+    // into the shared cell, and pushing the spec paints the Label.
+    {
+        let screen = f.screen.borrow();
+        assert_eq!(screen.transport.status.as_deref(), Some("Playing"));
+        assert_eq!(screen.transport.position_seconds, Some(0.0));
+    }
+    let generation = f.host.generation();
+    let ops = f.push_screen_state();
+    assert_eq!(
+        f.host.generation(),
+        generation,
+        "state push keeps generation"
+    );
+    assert!(
+        ops.iter()
+            .all(|op| matches!(op, ProjectionOp::Updated { .. })),
+        "spec push updates in place, never remounts: {ops:?}"
+    );
+    let spec = f.host.spec().expect("spec mounted");
+    let status = spec_label_text(spec, "transport.status");
+    assert!(status.contains("Playing"), "status label: {status}");
+    assert!(status.contains("0.00s"), "position in seconds: {status}");
+
+    f.press("transport.stop");
+    assert_eq!(
+        f.screen.borrow().transport.status.as_deref(),
+        Some("Stopped")
+    );
+    f.push_screen_state();
+    let spec = f.host.spec().expect("spec mounted");
+    let status = spec_label_text(spec, "transport.status");
+    assert!(status.contains("Stopped"), "status label: {status}");
+}
+
+/// The Inspector tab shows the subscribed parameter target's
+/// `InspectorBreakdown`: the UI pump's capture flattens the
+/// `ParamProjection` into `MainScreenState.inspector` and the spec
+/// push renders it as `inspector.target` + the read-only
+/// `inspector.table` Field/Value rows. Slice 1 displays the view's
+/// subscribed param target — the mixer gain bootstrap; target
+/// selection UI is a later slice (synvelis#112 slice 1).
+#[test]
+fn inspector_table_shows_the_subscribed_targets_breakdown() {
+    let mut f = fixture();
+    f.deliver_to_host();
+
+    {
+        let screen = f.screen.borrow();
+        assert_eq!(screen.inspector.target, Some(mixer_gain_target()));
+        let fields: Vec<&str> = screen
+            .inspector
+            .rows
+            .iter()
+            .map(|r| r.field.as_str())
+            .collect();
+        for expected in [
+            "plain",
+            "normalized",
+            "mode",
+            "arm",
+            "observation",
+            "writer",
+            "read_only",
+            "capability",
+        ] {
+            assert!(
+                fields.contains(&expected),
+                "missing `{expected}`: {fields:?}"
+            );
+        }
+        assert_eq!(screen.inspector.rows.len(), 8);
+    }
+
+    f.push_screen_state();
+    let spec = f.host.spec().expect("spec mounted");
+    assert_eq!(
+        spec_label_text(spec, "inspector.target"),
+        mixer_gain_target()
+    );
+    let table = spec_table(spec, "inspector.table");
+    assert_eq!(table.columns, ["Field", "Value"]);
+    assert_eq!(table.rows.len(), 8);
+    assert!(table.selection.is_none(), "inspector table is read-only");
+    for (row, field) in table.rows.iter().zip([
+        "plain",
+        "normalized",
+        "mode",
+        "arm",
+        "observation",
+        "writer",
+        "read_only",
+        "capability",
+    ]) {
+        assert_eq!(row.len(), 2, "row `{field}` has two cells");
+        assert_eq!(row[0], Some(CellValue::Text(field.to_string())));
+        assert!(
+            matches!(row[1], Some(CellValue::Text(_))),
+            "row `{field}` value is resolved text"
+        );
+    }
 }
