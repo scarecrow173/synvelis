@@ -368,9 +368,8 @@ fn read_review(
     }
     // 読み取り自体の失敗も decode 失敗と同じく fail-closed
     // （`Unreadable`）に分類し、判定記録を黙って上書きしない。
-    let bytes = match fs::read(&path) {
-        Ok(b) => b,
-        Err(_) => return Some(Err(())),
+    let Ok(bytes) = fs::read(&path) else {
+        return Some(Err(()));
     };
     Some(
         serde_json::from_slice::<ReviewRecord>(&bytes)
