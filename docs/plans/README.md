@@ -31,9 +31,10 @@ Directory: `docs/plans`
 | PLAN-106SF03Pz2aBc3dEf4gHi5jKl6 | SF-03 slice2 実装計画 — Fault 分類・Last-good/Retry・reconciliation | approved | [sf-03-slice2-fault-reconcile.md](./sf-03-slice2-fault-reconcile.md) |
 | PLAN-034UfDsBnYf8HjGm7Hvr0N | SF-03 slice3 実装計画 — 実 plugin host 接続・世代連動 teardown | in-progress | [sf-03-slice3-plugin-host-teardown.md](./sf-03-slice3-plugin-host-teardown.md) |
 | PLAN-034UgO7fMYPyfOhhpe5zMh | SF-03 slice4 実装計画 — NoRebuild Equivalence・世代連動 control 払い出し・SF-ACT-05 headless 固定 | in-progress | [sf-03-slice4-act-acceptance.md](./sf-03-slice4-act-acceptance.md) |
-| PLAN-034Uj7LMOlnyb7SKUO8Ajd | SF-03 slice5 実装計画 — session EnginePort・app RoutingEngine 接続・headless e2e | in-progress | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
+| PLAN-034Uj7LMOlnyb7SKUO8Ajd | SF-03 slice5 実装計画 — session EnginePort・app RoutingEngine 接続・headless e2e | done | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
 | PLAN-v1VQEMk92Nx1lQHUlSVh1t | SV-GUI-01 実装計画 — Desktop App Bootstrap・WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap.md](./sv-gui-01-desktop-app-bootstrap.md) |
 | PLAN-SVGUI02 | SV-GUI-02 View Model・Binding IPC 実装計画 | approved | [sv-gui-02-view-model-binding-ipc.md](./sv-gui-02-view-model-binding-ipc.md) |
+| PLAN-034Ul4TkjPiKYvapjdmBbt | SV-GUI-03 slice1 Transport/Inspector 実施 plan | approved | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
 | PLAN-iD5fujcWIovHuywc0CIEeu | SV175 Native App Shell 実施計画 | approved | [sv175-native-shell.md](./sv175-native-shell.md) |
 | PLAN-034T7GApSe3z9XUatjz8ti | SV177 Product Theme / Workspace Presets — synvelis-theme crate・DTCG assets・slot-based preset apply | approved | [sv177-product-theme-workspace-presets.md](./sv177-product-theme-workspace-presets.md) |
 | PLAN-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain projection 実施 plan | approved | [sv185-mixer-gain-projection.md](./sv185-mixer-gain-projection.md) |

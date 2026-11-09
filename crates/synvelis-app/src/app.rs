@@ -12,7 +12,7 @@
 //! `unavailable` — the shell must surface that honestly instead of
 //! implying playback/recording exists.
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -37,6 +37,7 @@ use crate::error::AppError;
 use crate::host::ShellWindowHost;
 use crate::logging::InstallState;
 use crate::revision::HOST_REVISION;
+use crate::screens::MainScreenState;
 use crate::ui_ops::UiOpsState;
 
 /// Crate version baked at build time — the app revision reported to
@@ -247,9 +248,12 @@ pub struct SynvelisApp {
     attach_epochs: Rc<RefCell<AttachEpochAllocator>>,
     /// Bundle the session was created or opened from — `reload` reopens it.
     bundle_path: Option<String>,
-    /// Last published project length in seconds — shared with the
-    /// composition root, refreshed after every service op.
-    project_length: Rc<Cell<f64>>,
+    /// Last published main-screen display state — shared with the
+    /// composition root, refreshed after every service op (project
+    /// length here) and every UI pump (transport/inspector capture in
+    /// `ui_ops`). The native lane polls it and pushes changes into the
+    /// mounted spec through `update_view`.
+    pub(crate) main_screen: Rc<RefCell<MainScreenState>>,
 }
 
 impl SynvelisApp {
@@ -273,7 +277,7 @@ impl SynvelisApp {
             ui: UiOpsState::new(),
             attach_epochs: Rc::new(RefCell::new(AttachEpochAllocator::new())),
             bundle_path: None,
-            project_length: Rc::new(Cell::new(0.0)),
+            main_screen: Rc::new(RefCell::new(MainScreenState::default())),
         }
     }
 
@@ -308,17 +312,21 @@ impl SynvelisApp {
         )
     }
 
-    /// Shared project-length cell, synced to the live project. Taken
-    /// before the app seals; the service refreshes it after every op.
+    /// Shared main-screen state cell. Taken before the app seals; the
+    /// service refreshes the project-length field after every op and
+    /// the UI pump refreshes the transport/inspector fields.
     #[must_use]
-    pub fn project_length_cell(&self) -> Rc<Cell<f64>> {
+    pub fn main_screen_cell(&self) -> Rc<RefCell<MainScreenState>> {
         self.publish_project_length();
-        Rc::clone(&self.project_length)
+        Rc::clone(&self.main_screen)
     }
 
-    /// Publishes the live project length to the shared cell.
+    /// Publishes the live project length into the shared screen-state
+    /// cell — the Seek range source. The transport/inspector fields of
+    /// the same cell are refreshed by the UI pump's screen-state
+    /// capture (`ui_ops`), not here.
     pub fn publish_project_length(&self) {
-        self.project_length.set(self.project_length_seconds());
+        self.main_screen.borrow_mut().project_length_seconds = self.project_length_seconds();
     }
 
     fn fresh_session(name: &str) -> ProjectSession {

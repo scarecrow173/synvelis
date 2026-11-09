@@ -185,11 +185,11 @@ fn main() -> ExitCode {
 
     // The view host is minted while the app is still composition-owned
     // — its `AttachEpoch` comes from the session allocator handle,
-    // never a second allocator. The project-length cell is taken here
-    // too: the app publishes into it after every op, and the loop below
-    // pushes changes into the mounted spec.
-    let project_length = app.project_length_cell();
-    let view_host = match mount_main_view(&app.attach_epoch_allocator(), project_length.get()) {
+    // never a second allocator. The main-screen state cell is taken
+    // here too: the app publishes into it after every op and UI pump,
+    // and the loop below pushes changes into the mounted spec.
+    let screen_state = app.main_screen_cell();
+    let view_host = match mount_main_view(&app.attach_epoch_allocator(), &screen_state.borrow()) {
         Ok(host) => host,
         Err(e) => {
             eprintln!("synvelis-native: view mount failed: {e}");
@@ -229,11 +229,12 @@ fn main() -> ExitCode {
 
     // Attach + subscribe on the main window's first `Ready` — after
     // `handle` so the shell has registered the window (owner resolution
-    // requires it in `windows`). The Seek range follows the project
-    // length: a changed length is pushed as an updated spec, which the
-    // driver applies to the mounted view in place (no remount).
+    // requires it in `windows`). Any screen-state change (project
+    // length → seek range, transport readout, inspector rows) is
+    // pushed as an updated spec, which the driver applies to the
+    // mounted view in place (no remount).
     let view_driver = driver.clone();
-    let mut applied_length = project_length.get();
+    let mut applied_state = screen_state.borrow().clone();
     let mut view_attached = false;
     let result = driver.run(Some(TICK), move |event, driver| {
         let main_ready = matches!(
@@ -253,13 +254,18 @@ fn main() -> ExitCode {
                 tracing::info!(view_id = %view_id, "main view attached");
             }
         }
-        let length = project_length.get();
-        if length.total_cmp(&applied_length).is_ne() {
-            applied_length = length;
-            if let Err(e) = view_driver.update_view(window, main_screen_spec(length)) {
-                tracing::error!(error = %e, "seek range update failed");
+        let state = screen_state.borrow().clone();
+        if state != applied_state {
+            applied_state = state.clone();
+            if let Err(e) = view_driver.update_view(window, main_screen_spec(&state)) {
+                tracing::error!(error = %e, "screen state update failed");
             } else {
-                tracing::info!(project_length_seconds = length, "seek range updated");
+                tracing::info!(
+                    project_length_seconds = state.project_length_seconds,
+                    transport_status = ?state.transport.status,
+                    inspector_target = ?state.inspector.target,
+                    "screen state updated"
+                );
             }
         }
     });

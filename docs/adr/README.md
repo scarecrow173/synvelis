@@ -6,6 +6,7 @@ Directory: `docs/adr`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| ADR-034Ul4shgS8qAsLvnSHlkQ | ADR: SV-GUI-03 slice1 Transport/Inspector は app 層 MainScreenState push で表示し domain/ops を変更しない | accepted | [sv-gui-03-01-transport-inspector-app-state-push.md](./sv-gui-03-01-transport-inspector-app-state-push.md) |
 | ADR-qjrwwGin4E0PE4ksCSLysY | ALIB-01 — synvelis-library crate 配置と Provider 契約境界 | accepted | [alib-01-synvelis-library-crate-boundary.md](./alib-01-synvelis-library-crate-boundary.md) |
 | ADR-034AUT02Xy4mKp8wQe2sVn7j | AUT-02 境界 Sentinel/Anchor 配置 — merged series 単位の境界復元・host region 選択 | accepted | [aut-02-boundary-sentinel-anchor-placement.md](./aut-02-boundary-sentinel-anchor-placement.md) |
 | ADR-034AUT0312NAA2Mk53Gle5 | AUT-03 Write Range 半開区間の表現 — 境界 flush・coverage_end・Pass fixation | accepted | [aut-03-write-range-boundary-flush-pass-fixation.md](./aut-03-write-range-boundary-flush-pass-fixation.md) |
