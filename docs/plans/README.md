@@ -39,6 +39,7 @@ Directory: `docs/plans`
 | PLAN-RCD04Fx4kD9sG2hJ6mN8pQ1 | RCD-04 Comp Transition / MIDI Phrase crate fixture slice — implementation plan | approved | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |
 | PLAN-034SF01Np0sTu5vW2xYzAbDeF | SF-01 Semantic Routing Model 実装計画 | approved | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
 | PLAN-034SF02Wz0rOp7qT0vB5cDfGh | SF-02 RoutingTransaction 実装計画 — staging/検証/mute-solo/テスト | approved | [sf-02-routing-transaction.md](./sf-02-routing-transaction.md) |
+| PLAN-034Uxp78PIJVQOgDqnzNqg | SF-03 semantic→runtime 写像 — 統合設計文書化計画 | approved | [sf-03-map-semantic-runtime-mapping-docs.md](./sf-03-map-semantic-runtime-mapping-docs.md) |
 | PLAN-106SF03Fg4gHi5jKl6mNo7pQr | SF-03 slice1 実装計画 — 契約型・lowering・activation・テスト | approved | [sf-03-slice1-lowering-activation.md](./sf-03-slice1-lowering-activation.md) |
 | PLAN-106SF03Pz2aBc3dEf4gHi5jKl6 | SF-03 slice2 実装計画 — Fault 分類・Last-good/Retry・reconciliation | approved | [sf-03-slice2-fault-reconcile.md](./sf-03-slice2-fault-reconcile.md) |
 | PLAN-034UfDsBnYf8HjGm7Hvr0N | SF-03 slice3 実装計画 — 実 plugin host 接続・世代連動 teardown | in-progress | [sf-03-slice3-plugin-host-teardown.md](./sf-03-slice3-plugin-host-teardown.md) |
