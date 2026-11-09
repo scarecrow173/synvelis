@@ -112,6 +112,7 @@ mise run setup
 - ルート `Cargo.toml` がワークスペースの正本。`resolver = "2"`・`edition = "2024"`・`rust-version = "1.89"`（MSRV、ツールチェーン pin は `1.99.0`）・`publish = false`・`[workspace.lints]` は ruviform の規約に合わせる。
 - メンバーは `crates/` 配下。`synvelis-project`（Project集約・単一 writer モデル・永続化ポート）、`synvelis-recording`（録音操作・検証、Store非所有）、`recording-poc`（決定的 headless PoC bin）。依存方向は `recording-poc → synvelis-recording → synvelis-project` のみ。
 - Ruviform 依存は既定ブランチ追従の git 依存とし、解決 revision は `Cargo.lock` に記録する。特定 SHA の恒久的ハードコード・vendor コピーは禁止。
+- `ui/vendor/ruviform` は gitignore された生成物で、`.worktreeinclude` により worktree へそのままコピーされる。`Cargo.lock` の ruviform 解決 rev が変わる変更（pin 更新・`cargo update`・ブランチ切替）を取り込んだ後は `mise run sync-ui-deps` で lock rev へ再同期する。`check-ruviform-rev` の REV 不一致はこの stale vendor を検出した fail-closed であり、復旧は `sync-ui-deps` の再実行（synvelis#230）。
 - `Cargo.lock` は再現性のためコミット対象。依存変更時は `cargo build` / `cargo generate-lockfile` で再生成する。
 - `ruviform-media-core` の `Tick`/`TickDuration` は unchecked `Add`/`Sub` のみ公開。Synvelis 側の時間演算はすべてチェック付き（`checked_add`/`checked_sub`）で行い、同演算子の直接利用は lint 対象。
 - cargo コマンドは直接実行せず `mise run <task>` 経由を原則とする。

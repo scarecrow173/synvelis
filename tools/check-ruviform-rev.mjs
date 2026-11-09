@@ -71,7 +71,10 @@ const revExists = existsSync(REV_FILE);
 if (revExists && lock.sha !== null) {
   const vendored = readFileSync(REV_FILE, "utf8").trim();
   if (vendored !== lock.sha) {
-    fail(`ui vendor REV ${vendored} != lockfile resolved ${lock.sha}`);
+    fail(
+      `ui vendor REV ${vendored} != lockfile resolved ${lock.sha} — ` +
+        "re-sync the vendor tree (`mise run sync-ui-deps`)",
+    );
   }
 } else if (!revExists && requireVendor) {
   fail("ui/vendor/ruviform/REV is missing — run `mise run sync-ui-deps` first");
