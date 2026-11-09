@@ -29,6 +29,7 @@ Directory: `docs/plans`
 | PLAN-034UpbrhX5dkELUwZUoS0i | PC-C2 Control Relation Index 実装計画 | approved | [pc-c2-control-relation-index.md](./pc-c2-control-relation-index.md) |
 | PLAN-qCDk2ELwZ5XT36rSkQsD8F | PC-C3-05 RT trace adapter 実装計画 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | PLAN-034UqHfN1LJeYNaoS0SGYL | PC-C3 ControlTrace projection 実装計画 | approved | [pc-c3-control-trace.md](./pc-c3-control-trace.md) |
+| PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | draft | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-7zXphX8skvXfNgeXarocfo | PC-C6 oracle REL/TR headless fixture 実装計画 | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |

@@ -843,7 +843,8 @@ fn sf03_l4_06_control_vending_one_shot_and_scoped() {
     // The vended control drives ParamDispatch against *this*
     // generation's instance: writes at frames 64..320 land in
     // instance 0's log after two blocks (512 frames).
-    let mut dispatch = ParamDispatch::new(control.control, control.node, control.frame_base);
+    let mut dispatch =
+        ParamDispatch::new(control.control, control.node, control.frame_base).unwrap();
     let target = ParameterTargetId::new(1);
     dispatch.bind(target, ParamId(7), &REC_PARAMS).unwrap();
     dispatch
@@ -917,7 +918,8 @@ fn sf03_l4_07_stale_control_never_reaches_new_generation() {
 
     // Gen-2 writes at frame 1280 (cursor is at 768 after three
     // blocks), value 0.5 — delivered on the next blocks.
-    let mut dispatch2 = ParamDispatch::new(control2.control, control2.node, control2.frame_base);
+    let mut dispatch2 =
+        ParamDispatch::new(control2.control, control2.node, control2.frame_base).unwrap();
     dispatch2
         .bind(ParameterTargetId::new(1), ParamId(7), &REC_PARAMS)
         .unwrap();
@@ -929,7 +931,8 @@ fn sf03_l4_07_stale_control_never_reaches_new_generation() {
     // write through it. Its node is destroyed: the push either
     // overflows the dead channel or buffers undelivered; either way
     // it must never reach instance 2.
-    let mut dispatch1 = ParamDispatch::new(control1.control, control1.node, control1.frame_base);
+    let mut dispatch1 =
+        ParamDispatch::new(control1.control, control1.node, control1.frame_base).unwrap();
     dispatch1
         .bind(ParameterTargetId::new(1), ParamId(7), &REC_PARAMS)
         .unwrap();

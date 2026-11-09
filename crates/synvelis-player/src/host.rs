@@ -95,10 +95,12 @@ pub struct ProcessorControl {
     /// commands can never reach another generation's plugin
     /// (wrong-plugin 0 by construction).
     pub control: PluginNodeControl,
-    /// The `AttachConfig::frame_base` the node was bound with —
-    /// `PluginNodeControl` exposes no accessor and
-    /// [`crate::ParamDispatch::new`] requires the exact attach-time
-    /// value, so the engine vends it alongside the control.
+    /// The `AttachConfig::frame_base` the node was bound with.
+    /// [`PluginNodeControl::frame_base`] exposes the same verified
+    /// value (Ruviform #307); the engine still vends it alongside the
+    /// control so callers can construct a [`crate::ParamDispatch`]
+    /// (whose `new` verifies the base via `check_frame_base`) or a
+    /// [`crate::PluginBindingSession`] without a second lookup.
     pub frame_base: TimeBase,
 }
 
