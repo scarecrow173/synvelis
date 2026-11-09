@@ -17,9 +17,7 @@ Directory: `docs/tasks`
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
 | TASK-106SF03Tz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T1 — RoutingFault 18分類・engine 改修・reconcile 実装 | in-progress | [sf-03-slice2-fault-contract.md](./sf-03-slice2-fault-contract.md) |
 | TASK-106SF03Uz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T2 — 受入テスト sf03_l2.rs・検証 | in-progress | [sf-03-slice2-reconcile-tests.md](./sf-03-slice2-reconcile-tests.md) |
-| TASK-034Uj82AYjkBHzNn8uXCCu | SF-03 slice5 T3 — headless session→routing e2e・test-spec | todo | [sf-03-slice5-acceptance-tests.md](./sf-03-slice5-acceptance-tests.md) |
-| TASK-034Uj7V9p3khaqx8qH7C2Z | SF-03 slice5 T1 — workspace EnginePort・ProjectSession 接続 | in-progress | [sf-03-slice5-session-engine-port.md](./sf-03-slice5-session-engine-port.md) |
-| TASK-034Uj826EB6a7TEsfLwDmZ | SF-03 slice5 T2 — synvelis-app SessionRoutingEngine・canonical probe | todo | [sf-03-slice5-session-routing-engine.md](./sf-03-slice5-session-routing-engine.md) |
+| TASK-034Um6UmzaMloEGrFyYAS2 | SF-04 slice1 T1 — project/player Semantic Probe Adapter + ruviform pin bump | in-progress | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
@@ -86,6 +84,9 @@ Directory: `docs/tasks`
 | TASK-QL2QzcJ2SdDIQZN7NDxvaK | SF-03 slice4 T3 — 受入テスト sf03_l4・既存 test 追従 | done | [sf-03-slice4-acceptance-tests.md](./sf-03-slice4-acceptance-tests.md) |
 | TASK-034UgPv6iDxfZLWWpr3Dnz | SF-03 slice4 T1 — NoRebuild Equivalence・reconcile revision-drift 抑制 | done | [sf-03-slice4-norebuild-equivalence.md](./sf-03-slice4-norebuild-equivalence.md) |
 | TASK-LJ3dobeIa1bFvvZxBJivEy | SF-03 slice4 T2 — 世代連動 processor control 払い出し | done | [sf-03-slice4-processor-control-vending.md](./sf-03-slice4-processor-control-vending.md) |
+| TASK-034Uj82AYjkBHzNn8uXCCu | SF-03 slice5 T3 — headless session→routing e2e・test-spec | done | [sf-03-slice5-acceptance-tests.md](./sf-03-slice5-acceptance-tests.md) |
+| TASK-034Uj7V9p3khaqx8qH7C2Z | SF-03 slice5 T1 — workspace EnginePort・ProjectSession 接続 | done | [sf-03-slice5-session-engine-port.md](./sf-03-slice5-session-engine-port.md) |
+| TASK-034Uj826EB6a7TEsfLwDmZ | SF-03 slice5 T2 — synvelis-app SessionRoutingEngine・canonical probe | done | [sf-03-slice5-session-routing-engine.md](./sf-03-slice5-session-routing-engine.md) |
 | TASK-MlLPS12iG90WZhRs4S9pub | SV-GUI-01 task1 synvelis-app crate skeleton・Composition Root・AppService | done | [sv-gui-01-task1-app-crate-composition-root.md](./sv-gui-01-task1-app-crate-composition-root.md) |
 | TASK-jLkK7lARWtOgmAI02PaXQ5 | SV-GUI-01 task2 headless service op・asset check テスト | done | [sv-gui-01-task2-headless-service-asset-tests.md](./sv-gui-01-task2-headless-service-asset-tests.md) |
 | TASK-5ySbythnz4gMVnQauJQq8a | SV-GUI-01 task3 ui/ frontend pipeline・vendored sync・mise tasks | done | [sv-gui-01-task3-frontend-pipeline-vendor.md](./sv-gui-01-task3-frontend-pipeline-vendor.md) |
