@@ -22,7 +22,8 @@ use crate::refs::{ContentDigest, ObjectIdentity, PinnedAssetRef, RemoteAssetRef}
 use crate::registry::ProviderKind;
 
 /// A half-open byte range `[offset, offset + len)`.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ByteRange {
     /// Start offset in bytes.
     pub offset: u64,
