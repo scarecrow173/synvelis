@@ -1,5 +1,5 @@
 ---
-id: "ADR-Vnv27PCpq6qJSjUFQRkrM"
+id: "ADR-OrWdkH3ASYviV5ufFtl0tD"
 type: "adr"
 status: "accepted"
 title: "PC-C5 slice1: Relation 投影は workspace read model + verbatim coverage、index は query 毎 rebuild、探索は depth-1 hop + anchor nav-stack"

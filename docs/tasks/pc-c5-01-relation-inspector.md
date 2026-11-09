@@ -1,5 +1,5 @@
 ---
-id: "TASK-WK8a2J24wszr2UBRAjVZe"
+id: "TASK-cAUaOASUPxzyVShIpOO7yi"
 type: "task"
 status: "in-progress"
 title: "PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless）"

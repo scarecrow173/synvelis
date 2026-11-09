@@ -1,5 +1,5 @@
 ---
-id: "SPEC-fohYJjHwaLhpSYiH91wlv"
+id: "SPEC-cBV4t2wr7OJdUVPBI13T4q"
 type: "spec"
 status: "approved"
 title: "PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless）"

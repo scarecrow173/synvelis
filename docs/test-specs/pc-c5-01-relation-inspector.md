@@ -1,5 +1,5 @@
 ---
-id: "TSPEC-aB03BdXeeD21Dc9dD9uKJ"
+id: "TSPEC-tCO4ppjNmQv0ebUI6Q1rHD"
 type: "test-spec"
 status: "approved"
 title: "PC-C5 slice1 テスト仕様 — Relation Inspector 投影（UI-C5-01・headless）"

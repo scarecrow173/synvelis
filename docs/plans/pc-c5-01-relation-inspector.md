@@ -1,5 +1,5 @@
 ---
-id: "PLAN-Qxb0ntXA0MZiwf2piEFji"
+id: "PLAN-g51ftjsIyEJb2fUNiBD22r"
 type: "plan"
 status: "approved"
 title: "PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless）"

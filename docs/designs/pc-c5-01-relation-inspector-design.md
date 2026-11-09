@@ -1,5 +1,5 @@
 ---
-id: "DESIGN-J2trVP4woMaKaeupBX2FQ"
+id: "DESIGN-AkFUh4M60YuHo8COCvb0Um"
 type: "design"
 status: "approved"
 title: "PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table"
