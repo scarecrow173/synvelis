@@ -6,6 +6,7 @@ Directory: `docs/tasks`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| TASK-alib02-t1 | ALIB-02 Task 1+2 — import pipeline module・namespace・tests | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | TASK-034AUT01Mn7pQs4wXc9vBhJk | AUT-01: Touch Return 150ms smoothstep・Read/Touch/Latch/Write 境界 State 実装 | in-progress | [aut-01-task1-touch-return-writer-state.md](./aut-01-task1-touch-return-writer-state.md) |
 | TASK-034AUT04uqfg9sevPu0zlr | AUT-04 task1: Viewport LOD・RT bounded queue・型付き喪失 provenance 実装 + headless テスト | todo | [aut-04-task1-automation-curve-lod-record-budget.md](./aut-04-task1-automation-curve-lod-record-budget.md) |
 | TASK-034U2vruJGfkEYZHCqNfwE | canonical temp fixture による synvelis-library symlink テスト修正 | in-progress | [canonical-temp-fixture-synvelis-library-symlink.md](./canonical-temp-fixture-synvelis-library-symlink.md) |
@@ -19,6 +20,8 @@ Directory: `docs/tasks`
 | TASK-wl7Q7EP5HpNVOP8NAdEB7a | PC-C6: REL01〜07 / TR01〜08 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rel-tr.md](./pc-c6-task1-oracle-rel-tr.md) |
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | in-progress | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
+| TASK-034Uxr4gHBdBw4PajV9VU0 | SF-03 map task1 契約・設計文書チェーン（discovery/spec/ADR/design） | todo | [sf-03-map-task1-contract-design-docs.md](./sf-03-map-task1-contract-design-docs.md) |
+| TASK-034Uxr4R9Uw7UUOj88JGfp | SF-03 map task2 検証仕様・gate・文書チェーン完結 | todo | [sf-03-map-task2-verification-gate-docs.md](./sf-03-map-task2-verification-gate-docs.md) |
 | TASK-106SF03Tz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T1 — RoutingFault 18分類・engine 改修・reconcile 実装 | in-progress | [sf-03-slice2-fault-contract.md](./sf-03-slice2-fault-contract.md) |
 | TASK-106SF03Uz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T2 — 受入テスト sf03_l2.rs・検証 | in-progress | [sf-03-slice2-reconcile-tests.md](./sf-03-slice2-reconcile-tests.md) |
 | TASK-034Um6UmzaMloEGrFyYAS2 | SF-04 slice1 T1 — project/player Semantic Probe Adapter + ruviform pin bump | in-progress | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |

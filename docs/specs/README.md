@@ -7,7 +7,8 @@ Directory: `docs/specs`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | SPEC-j8VrtHRiA60WGx27NKFnH4 | ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
-| SPEC-034UviRHTzZZY5QqaoRYZV | ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | draft | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
+| SPEC-034UviRHTzZZY5QqaoRYZV | ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | approved | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
+| SPEC-alib02-v5snap | ALIB-02 deferred — v5 snapshot 互換移行（SHA-256/旧 CRC digest 共存） | draft | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | SPEC-034AUT01T7xRw4mNcQ8pZbV2 | AUT-01 Automation Mode 境界 State — Read/Touch/Latch/Write・Touch Return 150ms Smoothstep | approved | [aut-01-automation-mode-boundary-touch-return-writer-state.md](./aut-01-automation-mode-boundary-touch-return-writer-state.md) |
 | SPEC-034AUT03AW1Qq4l4VCpTSK | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・明示 Rearm | approved | [aut-03-loop-write-one-pass-write-range-rearm.md](./aut-03-loop-write-one-pass-write-range-rearm.md) |
 | SPEC-034AUT04VJToXbqZEgrP85 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
@@ -38,6 +39,7 @@ Directory: `docs/specs`
 | SPEC-RCD04Fx7kQ2mV9wX4pL8sT1u | RCD-04 Comp Transition / MIDI Phrase — crate fixture slice (synvelis#118) | proposed | [rcd-04-comp-transition-midi-phrase-fixture.md](./rcd-04-comp-transition-midi-phrase-fixture.md) |
 | SPEC-034SF01Km7pQr2sT9uVwXyZaB | SF-01 Semantic Routing Model — Bus/Send/Processor Chain/Stable Port IDs・Project Schema v6 | approved | [sf-01-semantic-routing-model-bus-send-chain-stable-ports.md](./sf-01-semantic-routing-model-bus-send-chain-stable-ports.md) |
 | SPEC-034SF02Tx9kLm4nQ7rVw2yZaBc | SF-02 DAW Routing Commands — RoutingTransaction/TempRef・Semantic+Generic Validation・Mute/Solo Signal Gate | approved | [sf-02-routing-transaction-commands-semantic-validation.md](./sf-02-routing-transaction-commands-semantic-validation.md) |
+| SPEC-034Ux7RxHxcEmVfIrLzcfM | SF-03 semantic→Ruviform runtime 写像 — 世代証拠・SourceMap・失敗不変条件の統合契約 | draft | [sf-03-map-semantic-runtime-contract.md](./sf-03-map-semantic-runtime-contract.md) |
 | SPEC-106SF03Ab1cDe2fGh3iJk4lMn | SF-03 slice1 — Semantic Routing → Ruviform Typed Graph Lowering・SourceMap・Activation receipt | approved | [sf-03-slice1-semantic-lowering-source-map-activation.md](./sf-03-slice1-semantic-lowering-source-map-activation.md) |
 | SPEC-106SF03Sz2aBc3dEf4gHi5jKl6 | SF-03 slice2 — RoutingFault 18分類完備・Last-good/Retry 高度化・reconciliation | approved | [sf-03-slice2-fault-taxonomy-lastgood-reconcile.md](./sf-03-slice2-fault-taxonomy-lastgood-reconcile.md) |
 | SPEC-034UfvosLz4uB6QhaNTi2s | SF-03 slice3 — 実 plugin host 接続（headless 契約・SF-ACT-05 系） | approved | [sf-03-slice3-plugin-host-connect.md](./sf-03-slice3-plugin-host-connect.md) |

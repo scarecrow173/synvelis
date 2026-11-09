@@ -7,6 +7,7 @@ Directory: `docs/test-specs`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | TSPEC-DM8VnIP07x0mq4VnOt6PJD | ALIB-01 検証仕様 — Asset Provider 契約・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
+| TESTSPEC-alib02 | ALIB-02 Streaming Verified Import — テスト仕様 | approved | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | TSPEC-034AUT01Hd5jKm8nRt3wXsYq | AUT-01 Touch Return・Writer State 境界 検証仕様 | approved | [aut-01-e2e-touch-return-writer-state.md](./aut-01-e2e-touch-return-writer-state.md) |
 | TSPEC-034AUT02Fh3jDs8mXq5vWk2n | AUT-02 E2E 検証仕様 — Region Replace 境界曲線保存・Reject/Replace 原子的編集 | approved | [aut-02-e2e-region-replace-boundary.md](./aut-02-e2e-region-replace-boundary.md) |
 | TSPEC-034AUT03Zk6mVt4nQr2wXs8 | AUT-03 E2E 検証仕様 — Loop 録音 1 Pass・Write Range 半開区間・境界 flush・明示 Rearm | approved | [aut-03-e2e-loop-write-one-pass.md](./aut-03-e2e-loop-write-one-pass.md) |
@@ -40,6 +41,7 @@ Directory: `docs/test-specs`
 | TSPEC-RCD04Fx9mB3vC7xZ2qW5eR | RCD-04 Comp Transition / MIDI Phrase fixture matrix | proposed | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
 | TSPEC-034SF02Xa1sPq8rU1wC6dEgHi | SF-02 E2E/契約テスト仕様 — RoutingTransaction Reject/不変/Undo/Revision | approved | [sf-02-e2e-routing-transaction.md](./sf-02-e2e-routing-transaction.md) |
+| TSPEC-034UxcTb2ra5AlekrxQ8JG | SF-03 semantic→runtime 写像 — 世代証拠・失敗不変条件の検証仕様 | draft | [sf-03-map-failure-invariant-verification.md](./sf-03-map-failure-invariant-verification.md) |
 | TSPEC-106SF03Ij7jKl8mNo9pQr0sTu | SF-03 slice1 テスト仕様 — Lowering Golden/SourceMap・Activation 証拠 | approved | [sf-03-slice1-lowering-activation.md](./sf-03-slice1-lowering-activation.md) |
 | TSPEC-106SF03Vz2aBc3dEf4gHi5jKl6 | SF-03 slice2 テスト仕様 — Fault 分類・Last-good/Retry・Reconcile | approved | [sf-03-slice2-fault-reconcile.md](./sf-03-slice2-fault-reconcile.md) |
 | TSPEC-034UfG7hrZDa6LMSTkgvCQ | SF-03 slice3 plugin host 接続 test spec | approved | [sf-03-slice3-plugin-host-connect.md](./sf-03-slice3-plugin-host-connect.md) |
