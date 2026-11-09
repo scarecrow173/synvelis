@@ -195,6 +195,14 @@ pub struct FinalizedSourceRef {
     pub spans: Vec<FinalizedSpan>,
     /// media 内容の fold digest（hex）。
     pub digest: String,
+    /// verified prefix（`media_byte_len` までの durable media byte
+    /// 列）の SHA-256 content digest（`sha256:<64hex>`）。
+    /// `digest` の CRC32 integrity fold とは別 namespace で、#86 の
+    /// verified blob identity（`ContentDigest`）と同一形式。
+    /// unverified tail は含まない。旧形式の finalized.json には
+    /// 無いため default で `None`。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified_sha256: Option<String>,
     /// frontier の journal seq。
     pub journal_seq: u64,
     /// frontier の checkpoint index。
@@ -784,6 +792,10 @@ impl StreamWriter {
             frontier,
             self.cfg.channels,
         )?;
+        // verified prefix の content identity（#86 verified blob と
+        // 同一 scheme）。hash 失敗は finalize 失敗として fail-closed
+        // に扱い、identity 無しの ref を公開しない。
+        let verified_sha256 = verified_prefix_sha256(&self.paths.media, frontier.media_len)?;
         let outcome = if self.state == StreamState::Failed
             || verified.validated_tail_bytes > 0
             || verified.unverified_tail_bytes > 0
@@ -807,6 +819,7 @@ impl StreamWriter {
             outcome,
             spans: verified.spans,
             digest: frontier.digest_fold.to_hex(),
+            verified_sha256: Some(verified_sha256),
             journal_seq: frontier.seq,
             checkpoint_index: frontier.checkpoint_index,
             faults: self.notes.clone(),
@@ -840,6 +853,49 @@ impl StreamWriter {
         self.state = StreamState::Finalized;
         Ok(source_ref)
     }
+}
+
+/// verified prefix（durable frontier が確定した media byte 列、
+/// 先頭 `media_len` byte）の SHA-256 content digest
+/// （`sha256:<64hex>`）。
+///
+/// `FinalizedSourceRef.digest`（[`IntegrityDigest`] 系 CRC32 fold）
+/// とは別 namespace で、#86 の verified blob /
+/// `synvelis_project::snapshot::ContentDigest` /
+/// `synvelis_library::refs::ContentDigest` と同一の
+/// `"<alg>:<hex>"` 形式。`media_len` 以後の byte（unverified
+/// tail）は digest 対象に含めない。
+///
+/// # Errors
+/// media open/read 失敗、または実 file 長が `media_len` に
+/// 満たない場合（検証済み prefix を hash できない = 不正状態）。
+pub(crate) fn verified_prefix_sha256(
+    media_path: &Path,
+    media_len: u64,
+) -> Result<String, WriterError> {
+    use sha2::Digest as _;
+    let mut file = File::open(media_path).map_err(|e| WriterError::Io {
+        op: "open media for verified sha256",
+        source: e,
+    })?;
+    let mut hasher = sha2::Sha256::new();
+    let mut remaining = media_len;
+    let mut buf = [0u8; 8 * 1024];
+    while remaining > 0 {
+        let want = usize::try_from(remaining.min(8 * 1024)).unwrap_or(8 * 1024);
+        let n = std::io::Read::read(&mut file, &mut buf[..want]).map_err(|e| WriterError::Io {
+            op: "read media for verified sha256",
+            source: e,
+        })?;
+        if n == 0 {
+            return Err(WriterError::Corrupt(
+                "media shorter than verified prefix".into(),
+            ));
+        }
+        hasher.update(&buf[..n]);
+        remaining = remaining.saturating_sub(u64::try_from(n).unwrap_or(u64::MAX));
+    }
+    Ok(format!("sha256:{:x}", hasher.finalize()))
 }
 
 /// `verify_chunk` が検算した cursor。journal append 成功後に

@@ -140,7 +140,7 @@ pub use snapshot::{
 };
 pub use store::{
     DirectoryBundleStore, InMemoryStore, ProjectStore, SCHEMA_VERSION, SnapshotEnvelope,
-    snapshot_name,
+    head_revision, snapshot_name, snapshot_revision,
 };
 pub use tempo::{
     ProjectPpqn, SignatureDto, TempoEventDto, TempoMapData, TempoMapRef, TickTimeMapping,

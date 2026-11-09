@@ -104,6 +104,15 @@ impl ProjectController {
         self.saved.as_ref()
     }
 
+    /// Read-only view of the undo/redo stacks' project snapshots —
+    /// states a caller can still return to via [`Self::undo`] /
+    /// [`Self::redo`]. Recovery reference checks use this so media
+    /// referenced only by an unsaved history state is not discarded.
+    /// Iteration order is undo stack (oldest first) then redo stack.
+    pub fn history_states(&self) -> impl Iterator<Item = &Project> {
+        self.undo.iter().chain(self.redo.iter())
+    }
+
     /// The ID-generator watermark a save *would* stamp right now.
     ///
     /// Read-only counterpart of the `id_watermark` assignment inside

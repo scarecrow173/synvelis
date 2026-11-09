@@ -185,6 +185,14 @@ pub struct StreamEntry {
     /// 旧 manifest の payload hash を変えない。
     #[serde(default, skip_serializing_if = "DigestScheme::is_integrity_fold")]
     pub digest_scheme: DigestScheme,
+    /// verified prefix（durable frontier までの media byte 列）の
+    /// SHA-256 content digest（`sha256:<64hex>`、finalized ref
+    /// 由来の provenance）。`digest`/`digest_scheme` とは別の
+    /// verified-blob identity で、#86 の `ContentDigest` と同一形式。
+    /// `None` は旧形式 ref/manifest。serialize 省略で旧 manifest の
+    /// payload hash 互換を保つ。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified_sha256: Option<String>,
     /// media file の session 相対 path（raw staging media）。
     pub media: String,
     /// durable media byte 長。
@@ -597,7 +605,7 @@ fn fingerprint(payload: &CommitPayload) -> Vec<String> {
     }
     for s in &payload.streams {
         lines.push(format!(
-            "stream:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
+            "stream:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}:{}",
             s.stream_index,
             s.capture_stream_id,
             s.lane_id,
@@ -608,7 +616,8 @@ fn fingerprint(payload: &CommitPayload) -> Vec<String> {
             s.media_byte_len,
             s.source_frames,
             s.sample_rate,
-            s.channels
+            s.channels,
+            s.verified_sha256.as_deref().unwrap_or("-")
         ));
         for g in &s.segments {
             lines.push(format!(
@@ -966,6 +975,7 @@ pub fn build_payload(
                 DigestScheme::IntegrityFold
             },
             raw_digest,
+            verified_sha256: r.verified_sha256.clone(),
             media: r.media.clone(),
             media_byte_len: r.media_byte_len,
             source_frames: r.source_frames,
