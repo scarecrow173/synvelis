@@ -173,7 +173,7 @@ fn adapter() -> DispatchTraceAdapter {
         kind: NodeKind::Processor,
         ports: Vec::new(),
     });
-    let dispatch = ParamDispatch::new(attached.control, node, frame_base());
+    let dispatch = ParamDispatch::new(attached.control, node, frame_base()).unwrap();
     DispatchTraceAdapter::new(
         dispatch,
         frame_base(),

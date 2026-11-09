@@ -33,6 +33,7 @@ Directory: `docs/test-specs`
 | TSPEC-034Upc3ciohad3ZlmsOqVl | PC-C2 Control Relation Index E2E — 双方向・状態・stale・有界性・read-only | approved | [pc-c2-e2e-control-relation-index.md](./pc-c2-e2e-control-relation-index.md) |
 | TSPEC-10rDlBIZV1BQa6OmERMdbJ | PC-C3-05 RT trace adapter テスト仕様 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | TSPEC-034UqHaJf2vZgpPzjlqqi7 | PC-C3 ControlTrace E2E — stage 相関・freshness・probe 状態・plan activation | approved | [pc-c3-e2e-control-trace.md](./pc-c3-e2e-control-trace.md) |
+| TSPEC-034Uw6FJykHzgki5MvwCPZ | PC-C4 plugin parameter binding e2e — PLUG-C4-01..05 / PC-C4-PL01..08 | draft | [pc-c4-e2e-plugin-param-binding.md](./pc-c4-e2e-plugin-param-binding.md) |
 | TSPEC-tCO4ppjNmQv0ebUI6Q1rHD | PC-C5 slice1 テスト仕様 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TSPEC-YEy9TAHyUte5MD6kpyZJFI | PC-C6 oracle E2E — REL01〜07 / TR01〜08 独立照合 fixture | approved | [pc-c6-e2e-oracle-rel-tr.md](./pc-c6-e2e-oracle-rel-tr.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
