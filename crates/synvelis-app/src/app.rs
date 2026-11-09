@@ -28,7 +28,8 @@ use ruviform_ui::view::{AttachEpoch, AttachEpochAllocator};
 use serde_json::{Value, json};
 
 use synvelis_project::{
-    CounterIdGenerator, DirectoryBundleStore, Project, ProjectController, ProjectId,
+    ControlEntityRef, CounterIdGenerator, DirectoryBundleStore, ParameterTargetId, Project,
+    ProjectController, ProjectId, RelationDirection,
 };
 use synvelis_workspace::{ProjectSession, WorkspaceManager};
 
@@ -37,7 +38,7 @@ use crate::error::AppError;
 use crate::host::ShellWindowHost;
 use crate::logging::InstallState;
 use crate::revision::HOST_REVISION;
-use crate::screens::MainScreenState;
+use crate::screens::{MainScreenState, RelationScreenState};
 use crate::ui_ops::UiOpsState;
 
 /// Crate version baked at build time — the app revision reported to
@@ -321,6 +322,39 @@ impl SynvelisApp {
         synvelis_workspace::arrangement_rows(self.workspace.session(), SEEK_MEDIA_RATE)
     }
 
+    /// The subscribed parameter's control-relation neighborhood — the
+    /// data behind the Inspector's relation table (synvelis#102
+    /// UI-C5-01). `None` until the UI pump's inspector capture has
+    /// recorded a target (or the tagged id fails to parse) — no
+    /// anchor means no query ran, which is not the same as "zero
+    /// relations".
+    #[must_use]
+    pub fn relation_rows(&self) -> Option<synvelis_workspace::RelationView> {
+        Self::relation_view(
+            self.workspace.session(),
+            self.main_screen.borrow().inspector.target.as_deref(),
+        )
+    }
+
+    /// Resolves the inspector's subscribed parameter target (tagged
+    /// id) into a [`ControlEntityRef::Parameter`] anchor and queries
+    /// its relation neighborhood in both directions. Shared by
+    /// [`Self::relation_rows`] and the `publish_project_length`
+    /// refresh so the accessor and the published cell can never
+    /// disagree.
+    fn relation_view(
+        session: &ProjectSession,
+        anchor: Option<&str>,
+    ) -> Option<synvelis_workspace::RelationView> {
+        let anchor = anchor?;
+        let entity = ControlEntityRef::Parameter(ParameterTargetId::from_tagged(anchor).ok()?);
+        Some(synvelis_workspace::relation_rows(
+            session,
+            entity,
+            RelationDirection::Both,
+        ))
+    }
+
     /// Shared main-screen state cell. Taken before the app seals; the
     /// service refreshes the project-derived fields (length +
     /// arrangement rows) after every op and the UI pump refreshes the
@@ -332,17 +366,21 @@ impl SynvelisApp {
     }
 
     /// Publishes the live project-derived screen state — project
-    /// length (Seek range source) and Arrangement rows — into the
-    /// shared cell. Called after every service op (the `AppService`
-    /// call tail) and at cell hand-out; the transport/inspector
-    /// fields of the same cell are refreshed by the UI pump's
-    /// screen-state capture (`ui_ops`), not here. The name predates
-    /// the arrangement rows; renaming is deferred to the next
-    /// `service.rs` touch (synvelis#112 slice 2).
+    /// length (Seek range source), Arrangement rows, and the
+    /// subscribed parameter's relation rows — into the shared cell.
+    /// Called after every service op (the `AppService` call tail) and
+    /// at cell hand-out; the transport/inspector fields of the same
+    /// cell are refreshed by the UI pump's screen-state capture
+    /// (`ui_ops`), not here. The name predates the arrangement rows;
+    /// renaming is deferred to the next `service.rs` touch
+    /// (synvelis#112 slice 2).
     pub fn publish_project_length(&self) {
         let mut screen = self.main_screen.borrow_mut();
         screen.project_length_seconds = self.project_length_seconds();
         screen.arrangement_rows = self.arrangement_rows();
+        let anchor = screen.inspector.target.clone();
+        screen.relations = Self::relation_view(self.workspace.session(), anchor.as_deref())
+            .map_or_else(RelationScreenState::default, RelationScreenState::from_view);
     }
 
     fn fresh_session(name: &str) -> ProjectSession {
