@@ -377,8 +377,12 @@ impl InputAdapter {
         let records = tap_records(&spec.taps)?;
 
         // --- armed tap の resource 構築（engine/handoff/queue/PCM pool）---
-        let resources =
-            build_tap_resources(&spec.taps, spec.max_block_frames, spec.callback_queue, &fault)?;
+        let resources = build_tap_resources(
+            &spec.taps,
+            spec.max_block_frames,
+            spec.callback_queue,
+            &fault,
+        )?;
         let mut taps_cb = resources.taps_cb;
 
         // --- callback 構築（RT。確保済み storage のみ使用）---
@@ -654,15 +658,13 @@ fn build_tap_resources(
             continue;
         }
         let map_len = tap_spec.binding.channel_map.len();
-        let channels_u32 =
-            u32::try_from(map_len).map_err(|_| InputBindError::CapacityOverflow)?;
+        let channels_u32 = u32::try_from(map_len).map_err(|_| InputBindError::CapacityOverflow)?;
         let slot_len = usize::try_from(max_block_frames)
             .unwrap_or(usize::MAX)
             .checked_mul(map_len)
             .ok_or(InputBindError::CapacityOverflow)?;
         let (work_tx, work_rx) = ruviform_rt::channel::<WorkItem>(callback_queue);
-        let (mut pcm_free_tx, pcm_free_rx) =
-            ruviform_rt::channel::<Box<[f32]>>(callback_queue);
+        let (mut pcm_free_tx, pcm_free_rx) = ruviform_rt::channel::<Box<[f32]>>(callback_queue);
         for _ in 0..callback_queue {
             // pool 容量 == queue 容量なので全 slot が収まる。
             let _ = pcm_free_tx.try_push(vec![0.0; slot_len].into_boxed_slice());

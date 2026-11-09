@@ -494,10 +494,7 @@ pub fn verify_tap_log(log: &ChunkLog, channel_map: &[u32], seed: u32) -> bool {
                 let idx = start + usize::try_from(f).unwrap_or(usize::MAX) * out_ch + j;
                 if log.pcm[idx].to_bits()
                     != gen_
-                        .sample(
-                            input_base.wrapping_add(u64::from(f)),
-                            src_ch,
-                        )
+                        .sample(input_base.wrapping_add(u64::from(f)), src_ch)
                         .to_bits()
                 {
                     return false;
