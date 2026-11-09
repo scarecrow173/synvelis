@@ -44,6 +44,7 @@ Directory: `docs/specs`
 | SPEC-8qSDBn4gud5ayYyjIQalpX | SV-GUI-03 slice2: Arrangement read-only Table mount + Undo/Redo 露出 | approved | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
 | SPEC-034UogGZ0QtZaMjO9XxPXv | SV-GUI-04 slice1 precursor: multi-window WindowHandle + headless dock fixture | approved | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | SPEC-OGVSCKWOs5Dv4e9e0K7wDY | SV-GUI-04 slice1: 実 2-window mount（fake driver fixture + env-gated native） | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
+| SPEC-034Uqtwgi61id6YJP9tZZX | SV-GUI-04 slice2: close-veto/cancel（unsaved-guard veto） | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
 | SPEC-034UqIcJay7uhO1XhAdcCn | SV-GUI-04 slice2 設計: dock transfer workspace adoption + GUI op 配線 | approved | [sv-gui-04-slice2-dock-transfer-workspace-adoption-gui-op.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption-gui-op.md) |
 | SPEC-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain domain projection — master strip Fader target の bootstrap と Fader controlled display/commit 接続 | approved | [sv185-01-mixer-gain-domain-projection.md](./sv185-01-mixer-gain-domain-projection.md) |
 | SPEC-0D1aGavIsYu1NgyvnRxeRx | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 と API 追従（SV#190 前提解消） | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |

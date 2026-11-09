@@ -103,6 +103,7 @@ Directory: `docs/tasks`
 | TASK-034RADc5Q2mNYPcXkM8fR | SV-GUI-02 frontend BindingPort/ViewModel/ConsoleView | done | [sv-gui-02-frontend-bindingport-viewmodel-consoleview.md](./sv-gui-02-frontend-bindingport-viewmodel-consoleview.md) |
 | TASK-034RADeL6sQ8vFzJ3xTmN | SV-GUI-02 検証レーン統合 (headless/vitest/guitest) | done | [sv-gui-02-headless-vitest-guitest.md](./sv-gui-02-headless-vitest-guitest.md) |
 | TASK-034RADaUbkmnzbFjZ29bl4 | SV-GUI-02 ruviform rev 追従 + Rust syn.* UI op 面 | done | [sv-gui-02-ruviform-rev-rust-syn-ui-op.md](./sv-gui-02-ruviform-rev-rust-syn-ui-op.md) |
+| TASK-034Uqxo9HW4eRKeVH5w5PU | SV-GUI-04 slice2 タスク分解 — close-veto/cancel | done | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
 | TASK-hSG0A7xXhnXVL7exOdhVuV | SV175-01: NativeShell・ViewBinding・native feature lane 実装 | done | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TASK-pIf6c5QRXRonGNwoqfvJgY | SV175-02: Native view mount — 最小 Tab/Panel/Fader 縦slice | done | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TASK-034T7IgIHI7umPL7xCvU3u | SV177 theme crate + preset module implementation | done | [sv177-theme-preset-impl.md](./sv177-theme-preset-impl.md) |
