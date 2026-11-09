@@ -340,8 +340,9 @@ impl SynvelisApp {
     /// id) into a [`ControlEntityRef::Parameter`] anchor and queries
     /// its relation neighborhood in both directions. Shared by
     /// [`Self::relation_rows`] and the `publish_project_length`
-    /// refresh so the accessor and the published cell can never
-    /// disagree.
+    /// refresh so both paths resolve the anchor identically — the
+    /// accessor reflects the live project while the published cell
+    /// reflects the last refresh point.
     fn relation_view(
         session: &ProjectSession,
         anchor: Option<&str>,

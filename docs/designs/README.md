@@ -37,7 +37,7 @@ Directory: `docs/designs`
 | DESIGN-034RoTLCvNiYIgUG0JDqVa | PC-C1 Recording Transaction prepare/apply/finalize 設計 | approved | [pc-c1-recording-transaction-design.md](./pc-c1-recording-transaction-design.md) |
 | DESIGN-034Up3Bm4bb2Rb9RZ1ien7 | PC-C2 Control Relation Index 設計 — 双方向辺モデル・状態証拠・有界 traversal | approved | [pc-c2-control-relation-index-design.md](./pc-c2-control-relation-index-design.md) |
 | DESIGN-034UqtGwJKTXdIjOxuLVS2 | PC-C3 ControlTrace 設計 — stage evidence slot・freshness 判定・plan activation 投影 | approved | [pc-c3-control-trace-design.md](./pc-c3-control-trace-design.md) |
-| DESIGN-J2trVP4woMaKaeupBX2FQ | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
+| DESIGN-AkFUh4M60YuHo8COCvb0Um | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
 | — | Synvelis × Ruviform — Playback / Mixer / Generic Execution Graph Architecture | — | [playback-mixer-generic-execution-graph-architecture.md](./playback-mixer-generic-execution-graph-architecture.md) |
 | — | Synvelis — Project / Asset / Persistence Architecture | — | [project-asset-persistence-architecture.md](./project-asset-persistence-architecture.md) |
 | DESIGN-Bz2IMMfywvmEjmdIeThNvq | RCD-01 Input Adapter — binding/Arm/Monitor/channel-map と fake port fail-stop | approved | [rcd-01-input-adapter-binding-arm-monitor-fake-port.md](./rcd-01-input-adapter-binding-arm-monitor-fake-port.md) |
