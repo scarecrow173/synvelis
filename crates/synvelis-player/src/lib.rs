@@ -33,6 +33,7 @@ pub mod process_boundary;
 pub mod processor;
 pub mod publish;
 pub mod resolver;
+pub mod routing_control;
 pub mod routing_engine;
 pub mod routing_lower;
 pub mod trace;
@@ -70,6 +71,10 @@ pub use process_boundary::{
 pub use processor::{ClipPlayer, PlaybackStats};
 pub use publish::{PublishError, PublishReport, PublishedStream, SkippedStream, publish_recorded};
 pub use resolver::PreparedClip;
+pub use routing_control::{
+    ControlDispatchError, FastControlBlock, FastControlBlockKind, FastControlOutcome,
+    FastControlWrite, ParamCatalog, RoutingControlDispatch, SurfaceReport, SyncOutcome, TickReport,
+};
 pub use trace::{
     DispatchTraceAdapter, TraceAdapterConfig, TraceContext, TraceEvent, TraceEventKind,
     TraceMetrics,
