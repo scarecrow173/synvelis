@@ -23,6 +23,7 @@ pub mod probe;
 pub mod project;
 pub mod range;
 pub mod recording_data;
+pub mod relation;
 pub mod routing;
 pub mod routing_build;
 pub mod routing_tx;
@@ -77,6 +78,10 @@ pub use range::{MediaSpan, MidiRange, MusicalRange, Range, SessionRange, SourceR
 pub use recording_data::{
     CaptureSegment, CaptureStream, ClockEpoch, RecordingPass, RecordingSession, SessionState, Take,
     TakeState,
+};
+pub use relation::{
+    ControlEntityRef, ControlRelation, RelationCoverage, RelationDirection, RelationIndex,
+    RelationKind, RelationQuery, RelationReply, RelationState,
 };
 pub use routing::{
     Bus, BusKind, ChannelStrip, ConnectionKind, ExplicitChannelMap, PluginRef, PortBinding,
