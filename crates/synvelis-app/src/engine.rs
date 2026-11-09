@@ -39,7 +39,7 @@ use synvelis_player::routing_engine::{RoutingDeps, RoutingEngine, RoutingPrepare
 use synvelis_project::{
     BuildBudget, BuildMode, ProcessorId, Project, ProjectRevision, RoutingActivationReceipt,
     RoutingBuildRequestId, RoutingCompileRequest, RoutingReconcileReport, RoutingSourceMap,
-    RuntimeClockEpochRef, RuntimeInstanceId, SourceId,
+    RuntimeClockEpochRef, RuntimeInstanceId, SemanticProbeBinding, SourceId,
 };
 use synvelis_workspace::EnginePort;
 
@@ -207,6 +207,20 @@ impl SessionRoutingEngine {
             engine_config_generation,
             source_format_generation,
         )
+    }
+
+    /// Live semantic probe bindings — requested *and* RT-confirmed
+    /// resolve states together; keeping the distinction is the
+    /// caller's job (SF-05 status display, synvelis#108).
+    #[must_use]
+    pub fn probe_bindings(&self) -> Vec<SemanticProbeBinding> {
+        self.inner
+            .borrow()
+            .engine
+            .probe_bindings()
+            .values()
+            .cloned()
+            .collect()
     }
 
     /// Vends the published generation's processor control handle —

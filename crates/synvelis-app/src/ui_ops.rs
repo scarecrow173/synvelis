@@ -10,7 +10,7 @@
 //! headless drivers identically.
 
 use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -23,7 +23,10 @@ use ruviform_ui::ipc::{ErrorBody, Event, codes};
 use ruviform_ui::window::WindowId;
 use serde_json::{Value, json};
 
-use synvelis_project::{TickTimeMapping, is_issuable_raw};
+use synvelis_project::{
+    BusId, ProcessorId, ProjectRevision, RoutingConnectionId, SemanticPortId, SendId, StripId,
+    TickTimeMapping, TrackId, is_issuable_raw,
+};
 use synvelis_workspace::VizSourceId;
 use synvelis_workspace::controls_ui::{
     CommandIntent, ControlsUi, DispatchContext, GestureCancelReason, ParamProjection,
@@ -32,6 +35,11 @@ use synvelis_workspace::controls_ui::{
 use synvelis_workspace::viz_ui::{
     ManualMeter, ManualSpectrum, MemoryWaveform, MeterPort, SpectrumPort, VizUi, VizViewEvent,
     WaveformPort,
+};
+use synvelis_workspace::{
+    SignalFlowEdgeRole, SignalFlowEntityRef, SignalFlowScope, SignalFlowView,
+    SignalFlowViewOptions, SignalFlowVisualState, signal_flow_graph, visual_fold, visual_move_node,
+    visual_set_group, visual_set_link_focus, visual_set_pan, visual_set_scope, visual_set_zoom,
 };
 
 use crate::app::SynvelisApp;
@@ -150,6 +158,11 @@ pub struct UiOpsState {
     pub(crate) window_requests: Rc<RefCell<VecDeque<WindowRequest>>>,
     /// Monotonic id for `dock_prepare_new_window` requests.
     pub(crate) window_request_seq: u64,
+    /// Per-view Signal Flow visual state (`view_id` →
+    /// [`SignalFlowVisualState`]) — pure display state behind
+    /// `syn.signal_flow.view`/`syn.signal_flow.visual` (SF-05 slice 1,
+    /// synvelis#108). Never touches the project/session/engine.
+    pub(crate) signal_flow: BTreeMap<String, SignalFlowVisualState>,
 }
 
 impl UiOpsState {
@@ -171,6 +184,7 @@ impl UiOpsState {
             dock_moves: HashMap::new(),
             window_requests: Rc::new(RefCell::new(VecDeque::new())),
             window_request_seq: 0,
+            signal_flow: BTreeMap::new(),
         }
     }
 }
@@ -233,6 +247,162 @@ fn viz_err(e: &synvelis_workspace::VizError) -> ErrorBody {
 
 fn dock_err(e: &synvelis_workspace::WorkspaceError) -> ErrorBody {
     internal(format!("dock: {e}"))
+}
+
+// -- syn.signal_flow.* helpers -------------------------------------------
+
+/// `view_id` param — defaults to the composition root's main view.
+fn sf_view_param(params: &Value) -> Result<String, ErrorBody> {
+    Ok(params
+        .get("view_id")
+        .and_then(Value::as_str)
+        .map_or_else(main_view_id, str::to_string))
+}
+
+/// One `SignalFlowEntityRef` wire value — `{"kind": ..., "id":
+/// "<tagged>"}` where kind ∈ `track|bus|strip|processor|port|
+/// connection|send`.
+fn sf_entity(value: &Value, path: &str) -> Result<SignalFlowEntityRef, ErrorBody> {
+    let bad = |msg: &str| invalid(format!("params.{path}: {msg}"));
+    let kind = value
+        .get("kind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| bad("kind (string) required"))?;
+    let id = value
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| bad("id (string) required"))?;
+    macro_rules! tagged {
+        ($e:expr) => {
+            $e.map_err(|_| invalid(format!("params.{path}: malformed tagged id")))?
+        };
+    }
+    Ok(match kind {
+        "track" => SignalFlowEntityRef::Track(tagged!(TrackId::from_tagged(id))),
+        "bus" => SignalFlowEntityRef::Bus(tagged!(BusId::from_tagged(id))),
+        "strip" => SignalFlowEntityRef::Strip(tagged!(StripId::from_tagged(id))),
+        "processor" => SignalFlowEntityRef::Processor(tagged!(ProcessorId::from_tagged(id))),
+        "port" => SignalFlowEntityRef::Port(tagged!(SemanticPortId::from_tagged(id))),
+        "connection" => {
+            SignalFlowEntityRef::Connection(tagged!(RoutingConnectionId::from_tagged(id)))
+        }
+        "send" => SignalFlowEntityRef::Send(tagged!(SendId::from_tagged(id))),
+        other => return Err(bad(&format!("unknown entity kind {other}"))),
+    })
+}
+
+fn sf_entity_param(params: &Value, key: &str) -> Result<SignalFlowEntityRef, ErrorBody> {
+    sf_entity(
+        params
+            .get(key)
+            .ok_or_else(|| invalid(format!("params.{key} required")))?,
+        key,
+    )
+}
+
+/// An array of entity wire values → set.
+fn sf_entities(value: &Value) -> Result<BTreeSet<SignalFlowEntityRef>, ErrorBody> {
+    let items = value
+        .as_array()
+        .ok_or_else(|| invalid("expected an array of entity objects"))?;
+    items.iter().map(|v| sf_entity(v, "entity")).collect()
+}
+
+/// `scope` wire value — `"overview"|"expanded"|"local"|"history"`;
+/// `local` requires `params.root` (an entity object).
+fn sf_scope(value: &Value, params: &Value) -> Result<SignalFlowScope, ErrorBody> {
+    match value.as_str() {
+        Some("overview") => Ok(SignalFlowScope::Overview),
+        Some("expanded") => Ok(SignalFlowScope::Expanded),
+        Some("history") => Ok(SignalFlowScope::History),
+        Some("local") => Ok(SignalFlowScope::Local {
+            root: sf_entity_param(params, "root")?,
+        }),
+        _ => Err(invalid(
+            "params.scope must be overview|expanded|local|history",
+        )),
+    }
+}
+
+/// `roles` wire value — array of `"main"|"sidechain"|"send"|"chain"`.
+fn sf_roles(value: &Value) -> Result<BTreeSet<SignalFlowEdgeRole>, ErrorBody> {
+    let items = value
+        .as_array()
+        .ok_or_else(|| invalid("params.roles must be an array"))?;
+    items
+        .iter()
+        .map(|v| match v.as_str() {
+            Some("main") => Ok(SignalFlowEdgeRole::Main),
+            Some("sidechain") => Ok(SignalFlowEdgeRole::Sidechain),
+            Some("send") => Ok(SignalFlowEdgeRole::Send),
+            Some("chain") => Ok(SignalFlowEdgeRole::Chain),
+            _ => Err(invalid(
+                "params.roles entries must be main|sidechain|send|chain",
+            )),
+        })
+        .collect()
+}
+
+/// Wire shape for [`SignalFlowView`] — every field verbatim; ids and
+/// enums render as `Debug` strings (the wire has no semantic-id
+/// codec — callers match on the debug vocabulary).
+fn signal_flow_view_json(view: &SignalFlowView) -> Value {
+    let opt_revision = |r: Option<ProjectRevision>| r.map(|r| r.0);
+    json!({
+        "project_id": view.project_id.to_tagged(),
+        "project_revision": view.project_revision.0,
+        "view_generation": view.view_generation,
+        "coverage": format!("{:?}", view.coverage),
+        "scope": format!("{:?}", view.scope),
+        "nodes": view.nodes.iter().map(|node| json!({
+            "id": format!("{:?}", node.id),
+            "kind": format!("{:?}", node.kind),
+            "label": node.label,
+            "state": format!("{:?}", node.state),
+            "runtime": format!("{:?}", node.runtime),
+            "probe": node.probe.map(|p| format!("{p:?}")),
+            "muted": node.muted,
+            "soloed": node.soloed,
+            "processor_count": node.processor_count,
+        })).collect::<Vec<_>>(),
+        "edges": view.edges.iter().map(|edge| json!({
+            "id": format!("{:?}", edge.id),
+            "role": format!("{:?}", edge.role),
+            "source": {
+                "node": format!("{:?}", edge.source.node),
+                "port": edge.source.port.map(|p| p.to_tagged()),
+                "port_role": format!("{:?}", edge.source.port_role),
+            },
+            "target": {
+                "node": format!("{:?}", edge.target.node),
+                "port": edge.target.port.map(|p| p.to_tagged()),
+                "port_role": format!("{:?}", edge.target.port_role),
+            },
+            "enabled": edge.enabled,
+            "tap": edge.tap.map(|t| format!("{t:?}")),
+        })).collect::<Vec<_>>(),
+        "status": {
+            "project_revision": view.status.project_revision.0,
+            "engine_attached": view.status.engine_attached,
+            "activation": view.status.activation.as_ref().map(|a| format!("{a:?}")),
+            "planned_generation": view.status.planned_generation,
+            "published_generation": view.status.published_generation,
+            "observed_active_generation": view.status.observed_active_generation,
+            "last_good_generation": view.status.last_good_generation,
+            "fault": view.status.fault.as_ref().map(|f| format!("{f:?}")),
+            "source_map_revision": opt_revision(view.status.source_map_revision),
+            "source_map_generation": view.status.source_map_generation,
+            "stale": view.status.stale,
+            "probes": view.status.probes.iter().map(|p| json!({
+                "point": format!("{:?}", p.point),
+                "state": format!("{:?}", p.state),
+                "requested_mode": format!("{:?}", p.requested_mode),
+                "confirmed_mode": p.confirmed_mode.map(|m| format!("{m:?}")),
+                "generation": p.generation,
+                "project_revision": p.project_revision.0,
+            })).collect::<Vec<_>>(),
+        },
+    })
 }
 
 /// `"w{n}"` → [`WindowId`]; `0`/malformed → `None`.
@@ -1581,6 +1751,136 @@ impl SynvelisApp {
             .map_err(|e| internal(format!("redo: {e}")))?;
         self.ui_pump();
         Ok(json!({ "redone": redone }))
+    }
+
+    // -- syn.signal_flow.* -------------------------------------------------
+
+    /// `syn.signal_flow.view` — the headless Signal Flow projection
+    /// (SF-05 slice 1, synvelis#108). Params `{view_id?, scope?,
+    /// root?, roles?, collapsed?, max_nodes?, max_edges?,
+    /// expected_revision?}`; anything unspecified falls back to the
+    /// per-view [`SignalFlowVisualState`] (default when the view
+    /// never ran a visual op). The response is the full
+    /// [`SignalFlowView`] wire shape — coverage, revisions,
+    /// generations, nodes, edges, and status verbatim.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters.
+    pub fn op_signal_flow_view(&self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = sf_view_param(params)?;
+        let mut options =
+            self.ui
+                .signal_flow
+                .get(&view)
+                .map_or_else(SignalFlowViewOptions::default, |visual| {
+                    visual.view_options(
+                        crate::app::SIGNAL_FLOW_MAX_NODES,
+                        crate::app::SIGNAL_FLOW_MAX_EDGES,
+                    )
+                });
+        if let Some(scope) = params.get("scope") {
+            options.scope = sf_scope(scope, params)?;
+        }
+        if let Some(roles) = params.get("roles") {
+            options.roles = sf_roles(roles)?;
+        }
+        if let Some(collapsed) = params.get("collapsed") {
+            options.collapsed = sf_entities(collapsed)?;
+        }
+        if params.get("max_nodes").is_some() {
+            options.max_nodes = usize_param(params, "max_nodes")?;
+        }
+        if params.get("max_edges").is_some() {
+            options.max_edges = usize_param(params, "max_edges")?;
+        }
+        if params.get("expected_revision").is_some() {
+            options.expected_revision =
+                Some(ProjectRevision(u64_param(params, "expected_revision")?));
+        }
+        let evidence = self.signal_flow_runtime_evidence();
+        let view_result = signal_flow_graph(self.workspace.session(), &options, evidence.as_ref());
+        Ok(signal_flow_view_json(&view_result))
+    }
+
+    /// `syn.signal_flow.visual` — visual-only mutation of the per-view
+    /// [`SignalFlowVisualState`] (SF-UX-02). `params.action` ∈
+    /// `move_node|set_group|fold|unfold|zoom|pan|link_focus|
+    /// set_scope`; the ack echoes `{ok, view, view_generation}`.
+    /// Session revision, undo depth, engine graph builds, and the
+    /// activation receipt are never touched — the visual state is a
+    /// pure value type by construction.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters or an unknown action.
+    pub fn op_signal_flow_visual(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = sf_view_param(params)?;
+        let action = str_param(params, "action")?;
+        let visual = self.ui.signal_flow.entry(view.clone()).or_default();
+        match action {
+            "move_node" => {
+                let entity = sf_entity_param(params, "entity")?;
+                let x = f64_param(params, "x")?;
+                let y = f64_param(params, "y")?;
+                visual_move_node(visual, entity, [x, y]);
+            }
+            "set_group" => {
+                let group = synvelis_workspace::SignalFlowVisualGroup {
+                    id: u64_param(params, "group_id")?,
+                    label: str_param(params, "label")?.to_string(),
+                    members: sf_entities(
+                        params
+                            .get("members")
+                            .ok_or_else(|| invalid("params.members required"))?,
+                    )?,
+                    collapsed: params
+                        .get("collapsed")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false),
+                };
+                visual_set_group(visual, group);
+            }
+            "fold" | "unfold" => {
+                let entity = sf_entity_param(params, "entity")?;
+                let folded = action == "fold"
+                    && params
+                        .get("folded")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(true);
+                visual_fold(visual, entity, folded);
+            }
+            "zoom" => visual_set_zoom(visual, f64_param(params, "zoom")?),
+            "pan" => {
+                let x = f64_param(params, "x")?;
+                let y = f64_param(params, "y")?;
+                visual_set_pan(visual, [x, y]);
+            }
+            "link_focus" => {
+                let focus = match params.get("entity") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => Some(sf_entity(value, "entity")?),
+                };
+                visual_set_link_focus(visual, focus);
+            }
+            "set_scope" => {
+                let scope = sf_scope(
+                    params
+                        .get("scope")
+                        .ok_or_else(|| invalid("params.scope required"))?,
+                    params,
+                )?;
+                visual_set_scope(visual, scope);
+            }
+            other => {
+                return Err(invalid(format!(
+                    "unknown signal_flow visual action {other}"
+                )));
+            }
+        }
+        Ok(json!({
+            "ok": true,
+            "view": view,
+            "view_generation": visual.visual_revision,
+        }))
     }
 
     // -- syn.control.* -----------------------------------------------------
