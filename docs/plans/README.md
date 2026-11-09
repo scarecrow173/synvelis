@@ -65,7 +65,7 @@ Directory: `docs/plans`
 | PLAN-034T2c5vy3vKJPENF8AA50 | SYN-IO-02 DirectoryBundleStore StagedFile 移行計画 | approved | [syn-io-02-directory-bundle-store-stagedfile.md](./syn-io-02-directory-bundle-store-stagedfile.md) |
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
-| PLAN-034UHYyMbiLPEtGczKNKYC | TIM-01 Configurable PPQN Project Command — implementation plan | draft | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
+| PLAN-034UHYyMbiLPEtGczKNKYC | TIM-01 Configurable PPQN Project Command — implementation plan | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | PLAN-034UwXgmnKOCYgkwlGLFkf | TIM-02 SMF Format0/1 core implementation plan | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
 | PLAN-034UC46sceMw6QCzqVjGOO | TIM-04 plugin state snapshot consistency — implementation plan | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | PLAN-034UyECBCu7Wg67fct0qi7 | TIM-03 plugin process boundary plan | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |

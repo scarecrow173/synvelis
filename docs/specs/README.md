@@ -49,6 +49,7 @@ Directory: `docs/specs`
 | SPEC-034UfvosLz4uB6QhaNTi2s | SF-03 slice3 — 実 plugin host 接続（headless 契約・SF-ACT-05 系） | approved | [sf-03-slice3-plugin-host-connect.md](./sf-03-slice3-plugin-host-connect.md) |
 | SPEC-034UgK3ZuEty10uP1PNjT6 | SF-03 slice4 — SF-ACT-05〜09 系受入消化・NoRebuild Equivalence・世代連動 dispatch（player/project 境界） | approved | [sf-03-slice4-act-acceptance-norebuild.md](./sf-03-slice4-act-acceptance-norebuild.md) |
 | SPEC-034Uj7sqrin4g45fPU9uJM | SF-03 slice5 — app/session 層への RoutingEngine 接続（headless・EngineStub 置き換え） | approved | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
+| SPEC-034UJpxSHTVIxHKdrntkyR | SF-03 slice6 — SF-ACT-06 control surface headless slice（automation→TimedParamEvent・Fast Control gate・有界 Queue・catalog refresh） | approved | [sf-03-slice6-act06-control-surface.md](./sf-03-slice6-act06-control-surface.md) |
 | SPEC-034UlYgSZ589NRdTrtO4Vu | SF-04 slice1 — Semantic Probe Adapter 基盤（project/player 層 + ruviform pin bump） | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | SPEC-034UumeSTLbuxt64vqqJ47 | SF-04 slice2 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | SPEC-034Uuc3q3FZYT5JjxQtDv9 | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | approved | [sf-05-signal-flow-headless-hierarchy.md](./sf-05-signal-flow-headless-hierarchy.md) |
@@ -67,7 +68,7 @@ Directory: `docs/specs`
 | SPEC-034T29C9D8CIvYjMxmQIy8 | SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行 | approved | [syn-io-02-snapshot-head-staged-publish.md](./syn-io-02-snapshot-head-staged-publish.md) |
 | SPEC-034RBvYIlw0wiBoGsL9EBY | SYN-OBS-01 Ruviform observability 単一crate Logging/Host統合 | proposed | [syn-obs-01-ruviform-observability-crate-logging-host.md](./syn-obs-01-ruviform-observability-crate-logging-host.md) |
 | SPEC-034T2RF305WAVSTAGED00X | SYN-RF305 WAV Export/Player StagedFile 移行 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
-| SPEC-034UHVLQ9dtoN4YQDjtCy3 | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | draft | [tim-01-configurable-ppqn-project-command.md](./tim-01-configurable-ppqn-project-command.md) |
+| SPEC-034UHVLQ9dtoN4YQDjtCy3 | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | approved | [tim-01-configurable-ppqn-project-command.md](./tim-01-configurable-ppqn-project-command.md) |
 | SPEC-034UwMIulZ7DXWykQFy704 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice (synvelis#126) | proposed | [tim-02-smf-format01-import-export.md](./tim-02-smf-format01-import-export.md) |
 | SPEC-034UBZ7xNf0yey5lCLjVNT | TIM-04 Plugin State Snapshot 一貫性 — quality receipt・save/reload/HEAD/offline recipe（headless mock slice） | approved | [tim-04-plugin-state-snapshot-consistency.md](./tim-04-plugin-state-snapshot-consistency.md) |
 | SPEC-034UyE1s4ix4GwnKIOuV2N | TIM-03 plugin process boundary — capability/degraded policy（headless mock slice） | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |

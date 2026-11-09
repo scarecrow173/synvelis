@@ -4,7 +4,7 @@ type: "design"
 status: "approved"
 title: "SF-03 semantic→Ruviform runtime 写像 — 責務境界・世代証拠・失敗不変条件・検証計画"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-10"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -41,6 +41,8 @@ relations:
     - "docs/discovery/sf-03-map-current-state-inventory.md"
   derived-by:
     - "docs/plans/sf-03-map-semantic-runtime-mapping-docs.md"
+    - "docs/specs/sf-03-slice6-act06-control-surface.md"
+    - "docs/designs/sf-03-slice6-act06-control-surface-design.md"
   verifies: []
   verified-by:
     - "docs/test-specs/sf-03-map-failure-invariant-verification.md"
