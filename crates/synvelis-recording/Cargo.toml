@@ -13,6 +13,8 @@ synvelis-project = { path = "../synvelis-project" }
 serde.workspace = true
 serde_json.workspace = true
 ruviform-rt.workspace = true
+ruviform-audio-core.workspace = true
 
 [dev-dependencies]
 stats_alloc = "0.1.10"
+ruviform-media-core.workspace = true
