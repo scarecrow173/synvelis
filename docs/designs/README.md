@@ -44,6 +44,7 @@ Directory: `docs/designs`
 | — | Synvelis — Project / Asset / Persistence Architecture | — | [project-asset-persistence-architecture.md](./project-asset-persistence-architecture.md) |
 | DESIGN-Bz2IMMfywvmEjmdIeThNvq | RCD-01 Input Adapter — binding/Arm/Monitor/channel-map と fake port fail-stop | approved | [rcd-01-input-adapter-binding-arm-monitor-fake-port.md](./rcd-01-input-adapter-binding-arm-monitor-fake-port.md) |
 | DESIGN-034Urj7kRY8rq2nngtTSuL | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | approved | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
+| DESIGN-034UtlI2uLUF1lr2g3CUM0 | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | DESIGN-034SF01Mo9rSt4uV1wXyZaCdE | SF-01 Semantic Routing Model 設計 — 型・整合・Schema v6 Migration | approved | [sf-01-semantic-routing-model-design.md](./sf-01-semantic-routing-model-design.md) |
 | DESIGN-034SF02Vy9qNo6pS9uA4bCeFg | SF-02 RoutingTransaction/TempRef Staging・二層検証・Mute/Solo Audibility 設計 | approved | [sf-02-routing-transaction-design.md](./sf-02-routing-transaction-design.md) |
 | DESIGN-106SF03Ef3fGh4iJk5lMn6oPq | SF-03 slice1 — Lowering/SourceMap/Activation 実装設計 | approved | [sf-03-slice1-lowering-sourcemap-activation-design.md](./sf-03-slice1-lowering-sourcemap-activation-design.md) |
@@ -52,7 +53,7 @@ Directory: `docs/designs`
 | DESIGN-6tbKfWyun38H7ERAnefMsA | SF-03 slice4 設計 — NoRebuild Equivalence・世代連動 processor control 払い出し | approved | [sf-03-slice4-act-acceptance-design.md](./sf-03-slice4-act-acceptance-design.md) |
 | DESIGN-034Uj7LfhkkACvyn53L7eN | SF-03 slice5 設計 — session EnginePort・SessionRoutingEngine・canonical probe | approved | [sf-03-slice5-session-engine-connect-design.md](./sf-03-slice5-session-engine-connect-design.md) |
 | DESIGN-034Um5591oRMfPg7cVthyU | SF-04 slice1 設計 — Semantic Probe Adapter（project contract + player runtime adapter） | approved | [sf-04-slice1-semantic-probe-adapter-design.md](./sf-04-slice1-semantic-probe-adapter-design.md) |
-| DESIGN-034UudJz8OJsiidXryTNTU | SF-05 slice1 Signal Flow headless 設計 — graph 投影 + visual state + status 合成 | draft | [sf-05-slice1-signal-flow-headless-graph-visual-state-status.md](./sf-05-slice1-signal-flow-headless-graph-visual-state-status.md) |
+| DESIGN-034UudJz8OJsiidXryTNTU | SF-05 slice1 Signal Flow headless 設計 — graph 投影 + visual state + status 合成 | approved | [sf-05-slice1-signal-flow-headless-graph-visual-state-status.md](./sf-05-slice1-signal-flow-headless-graph-visual-state-status.md) |
 | DESIGN-lW54zR76NmEm8cc3NlMskX | SV-GUI-01 Design — Desktop App Bootstrap・Composition Root・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap-design.md](./sv-gui-01-desktop-app-bootstrap-design.md) |
 | DESIGN-034RAAXZ1XMIuk2zr2dr4w | SV-GUI-02 Frontend View Model・Binding IPC・Reference Workspace View | approved | [sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md](./sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md) |
 | DESIGN-5n53fkGhYaUtJlMHOu5P1p | SV-GUI-03 slice1 Transport/Inspector 設計 — MainScreenState push + 既存 syn.control.* 経路 | approved | [sv-gui-03-01-transport-inspector-slice1-design.md](./sv-gui-03-01-transport-inspector-slice1-design.md) |
