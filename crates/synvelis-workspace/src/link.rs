@@ -20,7 +20,9 @@ use ruviform_ui::dock::ViewInstanceId;
 use serde::{Deserialize, Serialize};
 use synvelis_project::Project;
 
-use crate::state::{EditingSelection, InspectionMode, SemanticTarget, ViewStateRegistry};
+use crate::state::{
+    EditingSelection, FollowSource, InspectionMode, SemanticTarget, ViewStateRegistry,
+};
 
 /// A link-group identity. `0` is unused; groups are minted from `1`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -148,7 +150,10 @@ impl LinkGroupManager {
     ///
     /// Applied effects: `linked_context` records the semantic target
     /// and provenance; a Follow-mode inspector focus adopts the
-    /// target. The editing selection is never touched, and no new
+    /// target — but only when its optional [`FollowSource`] matches
+    /// this event's publisher or group (`None` follows whatever the
+    /// view's own group delivers). Explore and Pinned modes never
+    /// retarget. The editing selection is never touched, and no new
     /// event is emitted from the receiver.
     pub fn deliver(
         &mut self,
@@ -166,7 +171,15 @@ impl LinkGroupManager {
         state.linked_context.target = Some(event.target);
         state.linked_context.source = Some(event.source);
         state.linked_context.last_event = Some(event.id);
-        if state.inspection_focus.mode == InspectionMode::Follow {
+        let follows = state.inspection_focus.mode == InspectionMode::Follow
+            && state
+                .inspection_focus
+                .follow_source
+                .is_none_or(|src| match src {
+                    FollowSource::View(v) => v == event.source,
+                    FollowSource::Group(g) => g == event.group,
+                });
+        if follows {
             state.inspection_focus.target = Some(event.target);
         }
         true

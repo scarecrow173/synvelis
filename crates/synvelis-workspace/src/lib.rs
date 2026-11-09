@@ -17,6 +17,7 @@
 pub mod arrangement_ui;
 pub mod command;
 pub mod control;
+pub mod control_edge;
 pub mod controls_ui;
 pub mod edit;
 pub mod error;
@@ -53,6 +54,9 @@ pub use control::{
     RecordRejection, RecordTargetHealth, RecordingOutcome, RecordingTransaction,
     RecordingTransactionId, RecordingTxnState, ResolvedRecordGap, SealReason, TouchReturn,
     TransportEffect, WRITER_CLOSE_CAP, WriteArm, WriterCloseReason, WriterClosure, WriterState,
+};
+pub use control_edge::{
+    ControlEdgeFixation, ControlEdgeGesture, ControlEdgeOutcome, ControlEdgePreview,
 };
 pub use controls_ui::{
     BindingSnapshot, CommandIntent, CommandPhase, CommandReceipt, ControlValue, ControlsUi,
@@ -102,8 +106,8 @@ pub use snap::{
     resolve_snap,
 };
 pub use state::{
-    EditingSelection, InspectionFocus, InspectionMode, LinkedContext, SemanticTarget, ViewState,
-    ViewStateRegistry, Viewport,
+    EditingSelection, FollowSource, InspectionFocus, InspectionMode, LinkedContext, SemanticTarget,
+    ViewState, ViewStateRegistry, Viewport,
 };
 pub use tool::{
     EditOperation, HandleKind, HitCandidate, HitProbe, HitZone, Tool, ToolResolution, resolve_tool,

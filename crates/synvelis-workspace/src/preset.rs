@@ -139,6 +139,9 @@ impl PresetViewState {
             inspection_focus: InspectionFocus {
                 target: None,
                 mode: self.inspection_mode,
+                follow_source: None,
+                explore_back: Vec::new(),
+                explore_fwd: Vec::new(),
             },
             viewport: self.viewport,
             ..ViewState::default()
