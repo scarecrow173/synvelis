@@ -33,7 +33,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use ruviform_audio::typed::probe::{ProbeConfig, ProbeEvent};
+use ruviform_audio::typed::probe::{ProbeConfig, ProbeCounts, ProbeEvent};
 use ruviform_audio::typed::{
     CompileError, CompiledPlan, Compiler, CompilerConfig, FactoryError, GraphProcessor,
     GraphRuntime, InstalledInfo, OfflineRenderSupport, PrepareOutcome, ProcessError, RtRuntime,
@@ -1140,6 +1140,13 @@ impl RoutingEngine {
     #[must_use]
     pub fn probe_segments(&self) -> &[ProbeCaptureSegment] {
         self.probes.segments()
+    }
+
+    /// Broker/collector probe loss counters — cumulative since the
+    /// session started (channel-level evidence, not per-subscription).
+    #[must_use]
+    pub fn probe_counts(&self) -> ProbeCounts {
+        self.probes.counts()
     }
 
     /// Takes the non-RT control handle for `processor` of a

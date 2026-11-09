@@ -87,19 +87,15 @@ fn app_info_reports_logging_state_without_install() {
 fn capabilities_lists_unavailable_areas_honestly() {
     let mut rt = runtime();
     let caps = ok(&mut rt, "syn.app.capabilities", json!({}));
-    for area in [
-        "audio_runtime",
-        "recorder",
-        "multi_window",
-        "signal_flow",
-        "plugins",
-        "ai",
-    ] {
+    for area in ["audio_runtime", "recorder", "multi_window", "plugins", "ai"] {
         assert_eq!(caps[area]["state"], "unavailable", "{area}");
     }
     assert_eq!(caps["project"]["state"], "available");
     assert_eq!(caps["workspace"]["state"], "available");
     assert_eq!(caps["views"]["state"], "available");
+    // SF-05 slice 1: headless read model + visual ops are available;
+    // the canvas stays deferred (synvelis#108).
+    assert_eq!(caps["signal_flow"]["state"], "available");
 }
 
 #[test]

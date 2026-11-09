@@ -31,14 +31,17 @@ use synvelis_project::{
     ControlEntityRef, CounterIdGenerator, DirectoryBundleStore, ParameterTargetId, Project,
     ProjectController, ProjectId, RelationDirection,
 };
-use synvelis_workspace::{ProjectSession, WorkspaceManager};
+use synvelis_workspace::{
+    ProjectSession, SignalFlowRuntimeEvidence, SignalFlowView, SignalFlowViewOptions,
+    WorkspaceManager, signal_flow_graph,
+};
 
 use crate::engine::SessionRoutingEngine;
 use crate::error::AppError;
 use crate::host::ShellWindowHost;
 use crate::logging::InstallState;
 use crate::revision::HOST_REVISION;
-use crate::screens::{MainScreenState, RelationScreenState};
+use crate::screens::{MainScreenState, RelationScreenState, SignalFlowScreenState};
 use crate::ui_ops::UiOpsState;
 
 /// Crate version baked at build time — the app revision reported to
@@ -49,6 +52,12 @@ const APP_REVISION: &str = env!("CARGO_PKG_VERSION");
 /// `project.new`/`project.open`; identity inside a loaded project is
 /// whatever the store snapshot carries.
 const BOOT_PROJECT_ID: u128 = 0;
+
+/// Node/edge bounds for the app's Signal Flow projection — larger
+/// than the read model's own defaults so ordinary projects display
+/// untruncated; overflow still reports `Truncated` honestly.
+pub(crate) const SIGNAL_FLOW_MAX_NODES: usize = 256;
+pub(crate) const SIGNAL_FLOW_MAX_EDGES: usize = 512;
 
 /// Media rate of the seconds axis the project length is measured on.
 /// Only resolves clip spans to whole frames; the seconds value does not
@@ -249,6 +258,13 @@ pub struct SynvelisApp {
     attach_epochs: Rc<RefCell<AttachEpochAllocator>>,
     /// Bundle the session was created or opened from — `reload` reopens it.
     bundle_path: Option<String>,
+    /// Cloneable handle to the attached [`SessionRoutingEngine`] — the
+    /// session owns one boxed `EnginePort`; this handle lets the app
+    /// compose engine evidence (receipt/source map/probe bindings)
+    /// for Signal Flow status without touching the session (SF-05).
+    /// `None` until [`Self::attach_routing_engine`]; cleared when the
+    /// session is recreated by `project.new`/`project.open`.
+    routing_engine: Option<SessionRoutingEngine>,
     /// Last published main-screen display state — shared with the
     /// composition root, refreshed after every service op (project
     /// length + arrangement rows here) and every UI pump
@@ -279,6 +295,7 @@ impl SynvelisApp {
             ui: UiOpsState::new(),
             attach_epochs: Rc::new(RefCell::new(AttachEpochAllocator::new())),
             bundle_path: None,
+            routing_engine: None,
             main_screen: Rc::new(RefCell::new(MainScreenState::default())),
         }
     }
@@ -382,6 +399,9 @@ impl SynvelisApp {
         let anchor = screen.inspector.target.clone();
         screen.relations = Self::relation_view(self.workspace.session(), anchor.as_deref())
             .map_or_else(RelationScreenState::default, RelationScreenState::from_view);
+        screen.signal_flow = SignalFlowScreenState::from_view(
+            self.signal_flow_view(&crate::screens::main_view_id()),
+        );
     }
 
     fn fresh_session(name: &str) -> ProjectSession {
@@ -410,7 +430,40 @@ impl SynvelisApp {
     /// the engine; re-attach afterwards with a config matching the
     /// new project's media root.
     pub fn attach_routing_engine(&mut self, engine: SessionRoutingEngine) {
+        self.routing_engine = Some(engine.clone());
         self.workspace.session_mut().set_engine(Box::new(engine));
+    }
+
+    /// The Signal Flow projection for `view` — the per-view
+    /// [`synvelis_workspace::SignalFlowVisualState`] (default when the
+    /// view never ran a visual op) supplies scope/role/collapse
+    /// options; engine evidence is composed from the attached
+    /// [`SessionRoutingEngine`] when present (SF-05 slice 1,
+    /// synvelis#108). Read-only: no session/project/engine state is
+    /// touched.
+    #[must_use]
+    pub fn signal_flow_view(&self, view: &str) -> SignalFlowView {
+        let options = self
+            .ui
+            .signal_flow
+            .get(view)
+            .map_or_else(SignalFlowViewOptions::default, |visual| {
+                visual.view_options(SIGNAL_FLOW_MAX_NODES, SIGNAL_FLOW_MAX_EDGES)
+            });
+        let evidence = self.signal_flow_runtime_evidence();
+        signal_flow_graph(self.workspace.session(), &options, evidence.as_ref())
+    }
+
+    /// Engine-side evidence snapshot for one Signal Flow query —
+    /// `None` when no [`SessionRoutingEngine`] is attached (the
+    /// projection then reports `engine_attached = false` honestly).
+    pub(crate) fn signal_flow_runtime_evidence(&self) -> Option<SignalFlowRuntimeEvidence> {
+        let engine = self.routing_engine.as_ref()?;
+        Some(SignalFlowRuntimeEvidence {
+            receipt: engine.receipt(),
+            source_map: engine.source_map(),
+            probes: engine.probe_bindings(),
+        })
     }
 
     /// The probed `WebView` backend report.
@@ -490,6 +543,7 @@ impl SynvelisApp {
         self.workspace = workspace;
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
+        self.routing_engine = None;
         Ok(self.project_info())
     }
 
@@ -523,6 +577,7 @@ impl SynvelisApp {
         self.workspace = workspace;
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
+        self.routing_engine = None;
         Ok(self.project_info())
     }
 
@@ -725,7 +780,10 @@ impl SynvelisApp {
             "project": { "state": "available" },
             "multi_window": { "state": "unavailable", "reason": "deferred to SV-GUI-03" },
             "views": { "state": "available" },
-            "signal_flow": { "state": "unavailable", "reason": "issue #108" },
+            "signal_flow": {
+                "state": "available",
+                "scope": "headless read model + visual ops (SF-05 slice 1); canvas deferred",
+            },
             "plugins": { "state": "unavailable", "reason": "not wired in SV-GUI-01" },
             "ai": { "state": "unavailable", "reason": "out of scope" },
         })

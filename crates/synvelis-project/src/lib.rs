@@ -16,10 +16,12 @@ pub mod controller;
 pub mod error;
 pub mod id;
 pub mod midi;
+pub mod midi_comp;
 pub(crate) mod migration;
 pub mod ops;
 pub mod placement;
 pub mod probe;
+pub mod probe_trace;
 pub mod project;
 pub mod range;
 pub mod recording_data;
@@ -53,11 +55,16 @@ pub use error::Error;
 pub use id::{
     AssetId, AutomationLaneId, BusId, CaptureSegmentId, CaptureStreamId, ChainId, ClipId,
     ClockEpochId, CompId, CompRegionId, CompTransitionId, CounterIdGenerator, IdGenerator,
-    ImportId, LaneId, ModulationAssignmentId, ModulationSourceId, NoteId, ParameterTargetId,
-    ProcessorId, ProjectId, RecordingPassId, RecordingSessionId, RoutingConnectionId,
-    SemanticPortId, SendId, SourceId, StripId, TakeGroupId, TakeId, TrackId,
+    ImportId, LaneId, MidiCompRegionId, ModulationAssignmentId, ModulationSourceId, NoteId,
+    ParameterTargetId, ProcessorId, ProjectId, RecordingPassId, RecordingSessionId,
+    RoutingConnectionId, SemanticPortId, SendId, SourceId, StripId, TakeGroupId, TakeId, TrackId,
 };
 pub use midi::{MidiDivision, MidiNote, MidiSource};
+pub use midi_comp::{
+    MidiCompSelection, MidiControllerEvent, MidiControllerKind, MidiControllerLane,
+    MidiControllerLanes, MidiPhraseRegion, MidiPlanAction, MidiPlanEvent, MidiPlaybackPlan,
+    MidiRegionReport, compile_midi_comp,
+};
 pub use ops::ProjectOp;
 pub use placement::{
     ClipExtent, ClipPlacement, ClipPlayback, PlaybackMapping, ResolvedClip, StretchRatio,
@@ -71,6 +78,7 @@ pub use probe::{
     SemanticProbePoint, SemanticSignalEntityRef, SignalBoundary, SubscriptionKind,
     resolve_probe_point,
 };
+pub use probe_trace::{ProbeObservationUpdate, ProbePortError, ProbeTracePort};
 pub use project::{
     AppliedImport, AppliedRecordingCommit, Asset, Clip, Lane, Note, Project, ProjectDomain,
     ProjectRange, RecordingRegistry, Source, SourceState, Track,
