@@ -24,6 +24,7 @@ pub mod fixture;
 pub mod host;
 pub mod import;
 pub mod lowering;
+pub mod monitor;
 pub mod probe;
 pub mod processor;
 pub mod publish;
@@ -43,6 +44,12 @@ pub use import::{BlobReceipt, ImportOutcome, ImportRequest, ProjectReceipt, Veri
 pub use lowering::{
     ClipWindow, CompSkipReason, EngineConfig, FadeDirection, FadeWindow, Lowered, NodeContent,
     OverlapSide, PlaybackBinding, SkippedPlayback,
+};
+pub use monitor::{
+    LatencyBasis, LatencyComponent, LatencyQuality, LatencyReport, LatencyResolution,
+    LatencyResolutionBasis, LowLatencyMonitor, LowLatencyReadiness, LowLatencyReason,
+    LowLatencyState, MonitorAdapter, MonitorBlock, MonitorOutput, MonitorOutputNotices,
+    MonitorRoute, prepare_low_latency,
 };
 pub use probe::{ProbeRequestError, ProbeSession};
 pub use processor::{ClipPlayer, PlaybackStats};

@@ -18,6 +18,7 @@ pub mod handoff;
 pub mod input;
 pub mod journal;
 pub mod mock;
+pub mod monitor;
 pub mod ops;
 pub mod plan;
 pub mod recovery;
@@ -60,6 +61,10 @@ pub use journal::{
     JournalSpan, RecordPayload, ReplayOutcome, StopReason, encode_record, replay_journal,
 };
 pub use mock::{ChunkLog, InspectionWriter, MockInput, MockPcm, Scenario, StreamRig, verify_log};
+pub use monitor::{
+    HardwareDirectMonitor, HardwareDirectState, MonitorDecision, MonitorNotices, MonitorProbe,
+    MonitorRoute, MonitorSegment, TrackMonitorContext, TransportPhase, decide,
+};
 pub use ops::{RecordingOp, SynvelisOp};
 pub use plan::{
     BufferBudget, CaptureTarget, GateSpec, PreparedRecordingPlan, RecordingRequest, preflight,
