@@ -71,4 +71,5 @@ Directory: `docs/impl/ir`
 | IMPL-034UvpX7fem2fghDtfNDJm | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | completed | [sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md](sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md) |
 | IMPL-034UxmcANQsdlNy9GC0tWv | PC-C4 plugin parameter binding — verified frame base・capability gate・generation pin（fake port slice） | completed | [pc-c4-plugin-parameter-binding-frame-base-capability-gate.md](pc-c4-plugin-parameter-binding-frame-base-capability-gate.md) |
 | IMPL-034UyF6gu1UEMJOKr7ZnGg | TIM-03 process boundary implementation record | completed | [tim-03-process-boundary-implementation-record.md](tim-03-process-boundary-implementation-record.md) |
+| IMPL-034UHWGxnC2sjDoLd5P01u | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | completed | [tim-01-configurable-ppqn.md](tim-01-configurable-ppqn.md) |
 | IMPL-034UGB5wH67MKn7FnNHs1i | Issue #230 check-ruviform-rev REV/lock 不整合 — stale vendor 診断と復旧導線 | completed | [issue-230-check-ruviform-rev-rev-lock-stale-vendor.md](issue-230-check-ruviform-rev-rev-lock-stale-vendor.md) |

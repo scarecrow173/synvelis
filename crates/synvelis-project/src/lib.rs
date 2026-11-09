@@ -22,6 +22,7 @@ pub(crate) mod migration;
 pub mod ops;
 pub mod placement;
 pub mod plugin_state;
+pub mod ppqn;
 pub mod probe;
 pub mod probe_trace;
 pub mod project;
@@ -84,6 +85,7 @@ pub use plugin_state::{
     PluginStateStoreError, StateCaptureQuality, StateQualityPolicy, digest_hex, is_manifest_name,
     plugin_state_manifest_name,
 };
+pub use ppqn::{PPQN_MAX, PPQN_MIN, PpqnConversionPolicy, ppqn_in_range};
 pub use probe::{
     CaptureCompleteness, CaptureSegmentEnd, CaptureSessionId, ClockContextRef, ObservationGap,
     ObservationGapKind, ProbeCaptureSegment, ProbeFrameInterval, ProbeMode, ProbePointResolution,

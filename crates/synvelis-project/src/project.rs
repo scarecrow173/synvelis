@@ -452,6 +452,24 @@ impl Project {
         // The persisted tempo map must compile — a malformed map would
         // silently strand every musical-time consumer.
         crate::tempo::TickTimeMapping::new(&self.tempo_map)?;
+        // PPQN coherence (issue #125): the project setting and the
+        // tempo map's tick context must agree and stay inside the SMF
+        // 15-bit selectable range — a snapshot that splits them gives
+        // every musical-tick consumer a different denominator.
+        if !crate::ppqn::ppqn_in_range(self.ppqn.0) {
+            return Err(Error::Validation(format!(
+                "project ppqn {} outside selectable range {}..={}",
+                self.ppqn.0,
+                crate::ppqn::PPQN_MIN,
+                crate::ppqn::PPQN_MAX
+            )));
+        }
+        if self.tempo_map.ppqn != self.ppqn.0 {
+            return Err(Error::Validation(format!(
+                "tempo map ppqn {} disagrees with project ppqn {}",
+                self.tempo_map.ppqn, self.ppqn.0
+            )));
+        }
         for lane in self.lanes.values() {
             let track = self
                 .tracks
