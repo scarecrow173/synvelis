@@ -297,7 +297,7 @@ fn bridge(c: &ProjectController, node: NodeId) -> (ProbeTraceBridge, PluginHost)
         },
     )
     .expect("attach");
-    let dispatch = ParamDispatch::new(attached.control, node, frame_base());
+    let dispatch = ParamDispatch::new(attached.control, node, frame_base()).unwrap();
     let adapter = DispatchTraceAdapter::new(
         dispatch,
         frame_base(),

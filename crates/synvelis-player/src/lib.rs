@@ -17,6 +17,7 @@
 //!   expected-revision project mutation → save/reload
 //! ```
 
+pub mod binding;
 pub mod dispatch;
 pub mod driver;
 pub mod error;
@@ -34,6 +35,10 @@ pub mod routing_engine;
 pub mod routing_lower;
 pub mod trace;
 
+pub use binding::{
+    AttachClockContext, BindingError, PluginBindingSession, PluginParameterBinding,
+    StablePluginInstanceId,
+};
 pub use dispatch::{DispatchCycle, DispatchError, ParamDispatch};
 pub use driver::{AttachedNode, DriverState, HeadlessDriver, PlayReport, PumpPolicy};
 pub use error::{ImportError, ResolveError};

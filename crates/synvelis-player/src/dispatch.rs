@@ -20,8 +20,8 @@ use std::fmt;
 use std::sync::Arc;
 
 use ruviform_audio_plugin_bridge::{
-    DispatchStage, NodeReport, ParamBinding, ParamDispatchLedger, ParamTargetTable,
-    ParamValueObservation, PluginNodeControl, TargetId, TargetResolution,
+    DispatchStage, FrameBaseMismatch, NodeReport, ParamBinding, ParamDispatchLedger,
+    ParamTargetTable, ParamValueObservation, PluginNodeControl, TargetId, TargetResolution,
 };
 use ruviform_graph::NodeId;
 use ruviform_media_core::{
@@ -58,6 +58,12 @@ pub enum DispatchError {
     /// `Scheduled` entries `PlanReplaced` and clear the node's live
     /// plan. Nothing is staged or requested.
     Empty,
+    /// `frame_base` differs from the node's attach-time frame base —
+    /// rejected before any plan is built or staged, so the node's
+    /// live plan and queue are untouched (Ruviform #307 verified
+    /// context). `expected`/`actual` keep the upstream
+    /// [`FrameBaseMismatch`] values.
+    FrameBaseMismatch(FrameBaseMismatch),
 }
 
 impl fmt::Display for DispatchError {
@@ -71,6 +77,7 @@ impl fmt::Display for DispatchError {
                 write!(f, "event position not representable in plan frame base")
             }
             Self::Empty => write!(f, "empty write batch — nothing staged"),
+            Self::FrameBaseMismatch(e) => write!(f, "{e}"),
         }
     }
 }
@@ -148,12 +155,26 @@ impl ParamDispatch {
     /// `TimeBase::sample_rate(48_000)`).
     ///
     /// `frame_base` **must equal** the node's attach-time
-    /// `AttachConfig::frame_base` — the bridge exposes no accessor to
-    /// verify this, and a mismatch silently scales event positions,
-    /// `Seek` re-anchors, and observation windows.
-    #[must_use]
-    pub fn new(control: PluginNodeControl, node: NodeId, frame_base: TimeBase) -> Self {
-        Self {
+    /// `AttachConfig::frame_base` — verified through
+    /// [`PluginNodeControl::check_frame_base`] (Ruviform #307) before
+    /// anything is staged. A mismatch is a typed
+    /// [`DispatchError::FrameBaseMismatch`] carrying the upstream
+    /// expected/actual values; without the check a foreign base would
+    /// silently scale event positions, `Seek` re-anchors, and
+    /// observation windows.
+    ///
+    /// # Errors
+    /// [`DispatchError::FrameBaseMismatch`] when `frame_base` differs
+    /// from the attach-time base.
+    pub fn new(
+        control: PluginNodeControl,
+        node: NodeId,
+        frame_base: TimeBase,
+    ) -> Result<Self, DispatchError> {
+        control
+            .check_frame_base(frame_base)
+            .map_err(DispatchError::FrameBaseMismatch)?;
+        Ok(Self {
             node,
             table: ParamTargetTable::new(),
             ledger: ParamDispatchLedger::new(),
@@ -163,7 +184,7 @@ impl ParamDispatch {
             last_plan: None,
             scheduler_gen: None,
             param_owners: BTreeMap::new(),
-        }
+        })
     }
 
     /// The graph node this dispatcher drives.

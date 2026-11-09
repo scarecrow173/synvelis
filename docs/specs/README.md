@@ -29,6 +29,7 @@ Directory: `docs/specs`
 | SPEC-034UoZx9FMfQ1OvSAcWCoN | PC-C2 双方向 Control Relation Index/Projection — Automation/Assignment/Depth Driver | approved | [pc-c2-control-relation-index.md](./pc-c2-control-relation-index.md) |
 | SPEC-vi1L6gnLC2jSjMMB3XG0N4 | PC-C3-05 synvelis-player RT trace adapter — ledger 実イベント → ControlTrace 投影・bounded history・RT 計測 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | SPEC-034UqtrnCaL8J9mhrd4SyZ | PC-C3 ControlTrace — Configured/Prepared/Applied/Reported/Observed projection slice | approved | [pc-c3-control-trace-projection.md](./pc-c3-control-trace-projection.md) |
+| SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | draft | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | SPEC-IY7kQwMIWqb4sFVpvsHnQy | PC-C6 headless oracle — REL01〜07 / TR01〜08 fixture（RelationIndex・ControlTrace 独立照合） | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
 | SPEC-034UoScGX6dIi25hMurqCI | RCD-01 Recording Input Adapter — channel binding・Arm/Monitor・fake port fail-stop（synvelis#115 slice） | proposed | [rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md](./rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md) |

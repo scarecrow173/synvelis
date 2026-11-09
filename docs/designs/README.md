@@ -38,6 +38,7 @@ Directory: `docs/designs`
 | DESIGN-034Up3Bm4bb2Rb9RZ1ien7 | PC-C2 Control Relation Index 設計 — 双方向辺モデル・状態証拠・有界 traversal | approved | [pc-c2-control-relation-index-design.md](./pc-c2-control-relation-index-design.md) |
 | DESIGN-o5U9K2sOik9XcS81AkO1Qj | PC-C3-05 RT trace adapter 設計 — DispatchTraceAdapter・写像・bounded history・metrics | approved | [pc-c3-05-rt-trace-adapter-design.md](./pc-c3-05-rt-trace-adapter-design.md) |
 | DESIGN-034UqtGwJKTXdIjOxuLVS2 | PC-C3 ControlTrace 設計 — stage evidence slot・freshness 判定・plan activation 投影 | approved | [pc-c3-control-trace-design.md](./pc-c3-control-trace-design.md) |
+| DESIGN-034Uw4SG2SiRKQuoKOZGzL | PC-C4 plugin parameter binding design — verified frame base・capability gate・generation consistency | draft | [pc-c4-plugin-param-binding-design.md](./pc-c4-plugin-param-binding-design.md) |
 | DESIGN-AkFUh4M60YuHo8COCvb0Um | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
 | DESIGN-mFknHHQIpULZsaBsqLEtPk | PC-C6 oracle 設計 — fixture 宣言モデル・独立参照実装・Case 対応表 | approved | [pc-c6-oracle-rel-tr-design.md](./pc-c6-oracle-rel-tr-design.md) |
 | — | Synvelis × Ruviform — Playback / Mixer / Generic Execution Graph Architecture | — | [playback-mixer-generic-execution-graph-architecture.md](./playback-mixer-generic-execution-graph-architecture.md) |

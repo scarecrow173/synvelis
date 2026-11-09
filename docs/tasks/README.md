@@ -16,6 +16,7 @@ Directory: `docs/tasks`
 | TASK-034SYN166T1CiSumX | Issue #166 T1 Full CI 化・ci-summary 統一 — 第一段階実装 | in-progress | [issue-166-t1-ci-summary-stage1.md](./issue-166-t1-ci-summary-stage1.md) |
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
 | TASK-P1ub1PJgLQhinQuEDIDy8S | PC-C3 task2 — synvelis-player RT trace adapter 実装（TRACE-C3-05） | in-progress | [pc-c3-task2-rt-trace-adapter.md](./pc-c3-task2-rt-trace-adapter.md) |
+| TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | todo | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
 | TASK-wl7Q7EP5HpNVOP8NAdEB7a | PC-C6: REL01〜07 / TR01〜08 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rel-tr.md](./pc-c6-task1-oracle-rel-tr.md) |
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | in-progress | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
