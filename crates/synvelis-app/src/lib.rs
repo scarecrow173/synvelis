@@ -51,7 +51,7 @@ pub use app::{AudioRuntimeSlot, ObservabilityOwner, RecorderSlot, SynvelisApp};
 pub use binding::{BindingNotice, ProjectionRow, ViewBinding};
 pub use engine::{SessionEngineConfig, SessionEngineError, SessionRoutingEngine};
 pub use error::{AppError, AssetError, AssetErrorKind};
-pub use host::ShellWindowHost;
+pub use host::{HeadlessWindowHost, ShellWindowHost};
 pub use logging::{
     CliOverrides, EnvOverrides, HostLog, InstallState, LogInstallError, LogSettings, SettingsError,
     install, parse_args, to_logging_config,
@@ -60,7 +60,8 @@ pub use revision::{APP_ASSET_SCHEMA, AssetManifest, HOST_REVISION, MANIFEST_NAME
 pub use screens::{
     InspectorRow, InspectorScreenState, MainScreenState, TransportScreenState, main_screen_spec,
     main_view_id, main_view_instance, main_view_targets, mixer_gain_target, mount_main_view,
-    seek_range_seconds,
+    mount_secondary_view, secondary_screen_spec, secondary_view_id, secondary_view_instance,
+    secondary_view_targets, seek_range_seconds,
 };
 pub use service::{AppService, OPS};
 pub use shell::NativeShell;
