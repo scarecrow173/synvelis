@@ -34,6 +34,7 @@ Directory: `docs/test-specs`
 | TSPEC-034UqHaJf2vZgpPzjlqqi7 | PC-C3 ControlTrace E2E — stage 相関・freshness・probe 状態・plan activation | approved | [pc-c3-e2e-control-trace.md](./pc-c3-e2e-control-trace.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
 | TSPEC-034UrlOOfZIvsdF1bdNXfE | RCD-02 Durability / Recovery Review / Commit Receipt fault matrix | proposed | [rcd-02-durability-recovery-review-fault-matrix.md](./rcd-02-durability-recovery-review-fault-matrix.md) |
+| TSPEC-034Utqp8lRoY8TBzlygCtN | RCD-03 Monitor/Punch/Latency fixture matrix | proposed | [rcd-03-monitor-punch-latency.md](./rcd-03-monitor-punch-latency.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
 | TSPEC-034SF02Xa1sPq8rU1wC6dEgHi | SF-02 E2E/契約テスト仕様 — RoutingTransaction Reject/不変/Undo/Revision | approved | [sf-02-e2e-routing-transaction.md](./sf-02-e2e-routing-transaction.md) |
 | TSPEC-106SF03Ij7jKl8mNo9pQr0sTu | SF-03 slice1 テスト仕様 — Lowering Golden/SourceMap・Activation 証拠 | approved | [sf-03-slice1-lowering-activation.md](./sf-03-slice1-lowering-activation.md) |
