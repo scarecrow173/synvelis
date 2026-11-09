@@ -1,7 +1,7 @@
 ---
 id: "TASK-034UudL7KhVSvQn5M5gy5n"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "SF-05 slice1 タスク分解 — Signal Flow headless"
 created: "2026-11-09"
 updated: "2026-11-09"
