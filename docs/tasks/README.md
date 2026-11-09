@@ -8,6 +8,7 @@ Directory: `docs/tasks`
 | --- | --- | --- | --- |
 | TASK-alib02-t1 | ALIB-02 Task 1+2 — import pipeline module・namespace・tests | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | TASK-alib03-t1 | ALIB-03 Task 1 — cache/catalog/preview/notify modules・tests | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
+| TASK-alib06-t1 | ALIB-06 Task 1 — webdav provider modules・fixture・tests | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
 | TASK-034AUT01Mn7pQs4wXc9vBhJk | AUT-01: Touch Return 150ms smoothstep・Read/Touch/Latch/Write 境界 State 実装 | in-progress | [aut-01-task1-touch-return-writer-state.md](./aut-01-task1-touch-return-writer-state.md) |
 | TASK-034AUT04uqfg9sevPu0zlr | AUT-04 task1: Viewport LOD・RT bounded queue・型付き喪失 provenance 実装 + headless テスト | todo | [aut-04-task1-automation-curve-lod-record-budget.md](./aut-04-task1-automation-curve-lod-record-budget.md) |
 | TASK-034U2vruJGfkEYZHCqNfwE | canonical temp fixture による synvelis-library symlink テスト修正 | in-progress | [canonical-temp-fixture-synvelis-library-symlink.md](./canonical-temp-fixture-synvelis-library-symlink.md) |
