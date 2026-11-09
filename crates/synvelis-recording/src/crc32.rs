@@ -2,6 +2,8 @@
 //! 新規外部依存を持ち込まない。staging journal の record frame と
 //! PCM byte の整合検証に使う（暗号学的強度は主張しない）。
 
+use serde::{Deserialize, Serialize};
+
 const fn build_table() -> [u32; 256] {
     let mut table = [0u32; 256];
     let mut i = 0usize;
@@ -76,6 +78,49 @@ pub const DIGEST_FOLD_K: u64 = 0x9E37_79B9_7F4A_7C15;
 #[must_use]
 pub const fn digest_fold(digest: u64, v: u64) -> u64 {
     digest.wrapping_mul(DIGEST_FOLD_K) ^ v
+}
+
+/// CRC32 fold digest の **integrity 用途**を型で分離する newtype。
+///
+/// journal record 整合・commit 冪等 hash・`finalized.json` の
+/// `digest` hex に使う非暗号学的な integrity 値であり、#86 の
+/// 検証済み SHA-256 content identity（Asset/Blob）ではない。
+/// 用途混同を防ぐため生の `u64` とは別型にする。journal wire 上の
+/// `digest_fold` field は互換のため `u64` のまま（境界で本型へ
+/// 変換する）。
+#[derive(
+    Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
+#[serde(transparent)]
+pub struct IntegrityDigest(pub u64);
+
+impl IntegrityDigest {
+    /// fold の初期値（畳み込み前）。
+    pub const ZERO: Self = Self(0);
+
+    /// `v` を 1 回畳んだ次の値。
+    #[must_use]
+    pub const fn fold(self, v: u64) -> Self {
+        Self(digest_fold(self.0, v))
+    }
+
+    /// 固定幅 lowercase hex（`finalized.json` の `digest` 表現と同一）。
+    #[must_use]
+    pub fn to_hex(self) -> String {
+        format!("{:016x}", self.0)
+    }
+}
+
+impl From<u64> for IntegrityDigest {
+    fn from(v: u64) -> Self {
+        Self(v)
+    }
+}
+
+impl From<IntegrityDigest> for u64 {
+    fn from(d: IntegrityDigest) -> Self {
+        d.0
+    }
 }
 
 #[cfg(test)]

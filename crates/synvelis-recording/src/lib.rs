@@ -31,15 +31,18 @@ pub use capture::{CaptureBlockHeader, CaptureChunk, CaptureSpan, ChunkId, ChunkV
 pub use clock::InputBlock;
 pub use commit::{
     CanonicalReceipt, ClipEntry, CommitError, CommitIdentity, CommitMarker, CommitOutcome,
-    CommitPayload, CommitReport, CommitStatus, PassEntry, PreparedCommit, RecordingCommitManifest,
-    RecoverableStream, SegmentEntry, StreamEntry, StreamFinalization, TakeEntry, apply_commit,
-    build_payload, commit_manifest_path, commit_marker_path, commit_session, commit_status,
-    load_canonical, load_finalized, payload_hash, prepare_manifest, read_commit_manifest,
-    read_commit_marker, validate_commit,
+    CommitPayload, CommitReceipt, CommitReport, CommitStatus, DigestScheme, PassEntry,
+    PreparedCommit, ReceiptStage, RecordingCommitManifest, RecoverableStream, SegmentEntry,
+    StreamEntry, StreamFinalization, StreamFinalizeEvidence, TakeEntry, apply_commit,
+    build_payload, commit_manifest_path, commit_marker_path, commit_receipt, commit_session,
+    commit_status, load_canonical, load_finalized, payload_hash, prepare_manifest,
+    read_commit_manifest, read_commit_marker, reconcile_commit_receipt, validate_commit,
 };
-pub use crc32::{Crc32, crc32, digest_fold};
+pub use crc32::{Crc32, IntegrityDigest, crc32, digest_fold};
 pub use engine::{CaptureEngine, EngineEndsBack};
-pub use faultinj::{FaultWriter, Inject, StorageWriter, corrupt_byte};
+pub use faultinj::{
+    FaultWriter, Inject, PublishFaults, PublishInject, StorageWriter, corrupt_byte,
+};
 pub use gate::{CapturePiece, GateError, GateSchedule, GateScheduler, GateSpan};
 pub use handoff::{
     ChunkSink, EngineEnds, FAULT_ANY, FAULT_ARITHMETIC, FAULT_CONTRACT, FAULT_EPOCH_DISCONTINUITY,
@@ -61,17 +64,22 @@ pub use ops::{RecordingOp, SynvelisOp};
 pub use plan::{
     BufferBudget, CaptureTarget, GateSpec, PreparedRecordingPlan, RecordingRequest, preflight,
 };
-pub use recovery::{RecoveryReport, SessionRecovery, StreamClass, StreamRecovery};
+pub use recovery::{
+    DiscardCandidate, MediaReferenceProbe, RecoveryReport, ReferenceCheck, ReviewAction,
+    ReviewDecision, ReviewError, ReviewOutcome, ReviewRecord, ReviewState, SessionRecovery,
+    StreamClass, StreamRecovery, review_stream,
+};
 pub use session::{
     accepts_registration, accepts_take_verification, legal_transition, require_transition,
 };
 pub use staging::{
     CANONICAL_MEDIA_FORMAT, CANONICAL_SCHEMA_VERSION, CanonicalSourceRef, DirSyncCapability,
     ManifestStream, StagingArea, StagingCapabilities, StagingError, StagingManifest,
-    StagingSessionConfig, StagingStreamConfig, canonical_rel, publish_atomic, stream_config,
-    stream_stem,
+    StagingSessionConfig, StagingStreamConfig, canonical_rel, publish_atomic,
+    publish_atomic_faultable, review_rel, stream_config, stream_stem,
 };
 pub use writer::{
-    DurableFrontier, FinalizedOutcome, FinalizedSourceRef, FinalizedSpan, FinishReport,
-    StreamPaths, StreamState, StreamWriter, WriterError, checkpoint_all, finish_all, stream_paths,
+    DirSyncState, DurabilityEvidence, DurableFrontier, FinalizedOutcome, FinalizedSourceRef,
+    FinalizedSpan, FinishReport, StreamPaths, StreamState, StreamWriter, WriterError,
+    checkpoint_all, finish_all, stream_paths,
 };
