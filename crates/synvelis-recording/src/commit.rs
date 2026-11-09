@@ -22,15 +22,17 @@ use synvelis_project::{
     AppliedRecordingCommit, Asset, AssetId, CaptureSegment, CaptureSegmentId, CaptureStreamId,
     Clip, ClipExtent, ClipId, ClipPlacement, ClipPlayback, ClockEpochId, Command, Error,
     IdGenerator, LaneId, MusicalDuration, MusicalTick, PlaybackMapping, Project, ProjectController,
-    RecordingPass, RecordingPassId, RecordingSessionId, SessionFrame, SessionRange, SessionState,
-    Source, SourceFrame, SourceId, SourceRange, SourceState, Take, TakeId, TakeState, TimeAnchor,
+    ProjectRevision, RecordingPass, RecordingPassId, RecordingSessionId, SessionFrame,
+    SessionRange, SessionState, Source, SourceFrame, SourceId, SourceRange, SourceState, Take,
+    TakeId, TakeState, TimeAnchor,
 };
 
 use crate::{
     crc32::crc32,
+    journal::{FinalizeOutcome, RecordPayload, StopReason, replay_journal},
     ops::{RecordingOp, SynvelisOp},
     staging::{CanonicalSourceRef, DirSyncCapability, StagingArea, StagingError, publish_atomic},
-    writer::{FinalizedOutcome, FinalizedSourceRef, FinalizedSpan},
+    writer::{FinalizedOutcome, FinalizedSourceRef, FinalizedSpan, stream_paths},
 };
 
 /// commit-manifest.json の schema version。
@@ -130,6 +132,29 @@ pub struct ClipEntry {
     pub source_offset: i64,
 }
 
+/// `StreamEntry.digest` の用途区分。CRC32 fold（journal/PCM 整合の
+/// integrity 値・非暗号学的）と content digest（canonical blob・
+/// #86 で検証済み SHA-256 系へ置換予定）を型で分離する。
+/// いずれも #86 の Blob Identity 確定までは暫定 scheme。
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DigestScheme {
+    /// CRC32 fold の integrity digest（hex16）。
+    /// 旧 manifest（field 無し）もこれとして decode される。
+    #[default]
+    IntegrityFold,
+    /// canonical blob の content digest（canonical receipt 採用時）。
+    ContentDigest,
+}
+
+impl DigestScheme {
+    /// serialize 省略判定（`IntegrityFold` は default のため
+    /// 旧 manifest と byte 互換を保つ目的で field を出さない）。
+    fn is_integrity_fold(&self) -> bool {
+        matches!(self, Self::IntegrityFold)
+    }
+}
+
 /// payload 内の stream（1 `FinalizedSourceRef` → 1 asset+source）。
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -155,6 +180,11 @@ pub struct StreamEntry {
     /// のみ `Some`・raw media への provenance）。
     #[serde(default)]
     pub raw_digest: Option<String>,
+    /// `digest` の用途区分。canonical 採用時は `ContentDigest`。
+    /// `IntegrityFold` は default で serialize も省略するため、
+    /// 旧 manifest の payload hash を変えない。
+    #[serde(default, skip_serializing_if = "DigestScheme::is_integrity_fold")]
+    pub digest_scheme: DigestScheme,
     /// media file の session 相対 path（raw staging media）。
     pub media: String,
     /// durable media byte 長。
@@ -930,6 +960,11 @@ pub fn build_payload(
             source_id: SourceId::new(draw()).to_tagged(),
             pcm_format: r.pcm_format.clone(),
             digest,
+            digest_scheme: if raw_digest.is_some() {
+                DigestScheme::ContentDigest
+            } else {
+                DigestScheme::IntegrityFold
+            },
             raw_digest,
             media: r.media.clone(),
             media_byte_len: r.media_byte_len,
@@ -1214,6 +1249,223 @@ pub fn commit_session(
         clips_committed,
         recoverable: prepared.recoverable,
     })
+}
+
+// ---------- commit receipt / reconciliation ----------
+
+/// commit receipt が分類する段階。commit（registry 適用）・
+/// marker publish・journal finalize・project save を分離して観測し、
+/// 「commit 済みだが marker 未公開」の publish-indeterminate を
+/// 独立した状態として表す。
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ReceiptStage {
+    /// commit manifest 不在。
+    Empty,
+    /// manifest あり・registry 未適用（commit 未実行、または
+    /// `NothingCommitted` で marker のみ存在）。
+    Reserved,
+    /// registry 適用 + marker 一致（commit 確定）。
+    CommittedConfirmed,
+    /// registry 適用済みだが marker 不在/破損/不一致
+    /// （publish-indeterminate — crash・応答喪失相当）。
+    PublishIndeterminate,
+    /// identity 一致・内容不一致（integrity 違反）。
+    Conflict,
+    /// manifest/marker 破損または状態不整合。
+    Invalid,
+}
+
+/// stream ごとの journal finalize 観測（receipt 用）。
+#[derive(Clone, Debug)]
+pub struct StreamFinalizeEvidence {
+    /// stream index。
+    pub stream_index: u16,
+    /// `finalized.json` が存在するか。
+    pub finalized_present: bool,
+    /// journal の Finalize record outcome（record 無し・journal
+    /// 不在/読めない場合は `None`）。
+    pub finalize_record: Option<FinalizeOutcome>,
+    /// journal replay の停止理由（journal 不在時は `None`）。
+    pub journal_stop: Option<StopReason>,
+}
+
+/// commit/save/publish/journal の各段階を分離して観測した receipt。
+/// file を再読込して分類するだけで mutation は行わない。
+#[derive(Clone, Debug)]
+pub struct CommitReceipt {
+    /// session 識別子（tagged）。
+    pub session_id: String,
+    /// manifest の content hash（manifest 不在/破損時は `None`）。
+    pub content_hash: Option<String>,
+    /// 分類段階。
+    pub stage: ReceiptStage,
+    /// commit marker の outcome（marker が parse できた場合）。
+    pub marker_outcome: Option<String>,
+    /// marker が記録した適用後 revision。
+    pub committed_revision: Option<u64>,
+    /// `saved_revision` 指定時、commit 適用 revision 以後に
+    /// save 済みか（Commit→Save 未完了の区別）。
+    pub project_saved: Option<bool>,
+    /// stream ごとの finalize 観測。
+    pub journal_finalize: Vec<StreamFinalizeEvidence>,
+}
+
+/// marker の読み取り 3 状態（`read_commit_marker` は damaged を
+/// `None` に潰すため、receipt の分類には厳密版が必要）。
+enum MarkerRead {
+    /// 不在。
+    Missing,
+    /// 存在するが decode 不能。
+    Damaged,
+    /// decode 済み。
+    Valid(CommitMarker),
+}
+
+fn read_marker_state(area: &StagingArea) -> MarkerRead {
+    match fs::read(commit_marker_path(area)) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => MarkerRead::Missing,
+        Err(_) => MarkerRead::Damaged,
+        Ok(bytes) => match serde_json::from_slice::<CommitMarker>(&bytes) {
+            Ok(m) => MarkerRead::Valid(m),
+            Err(_) => MarkerRead::Damaged,
+        },
+    }
+}
+
+/// manifest 全 stream の journal finalize 観測を集める。
+/// journal replay は非 RT の回復経路でのみ使う（重い処理を RT
+/// callback に持ち込まない）。
+fn collect_finalize_evidence(area: &StagingArea) -> Vec<StreamFinalizeEvidence> {
+    area.manifest
+        .streams
+        .iter()
+        .map(|ms| {
+            let paths = stream_paths(area, ms.stream_index);
+            let replayed = paths
+                .journal
+                .exists()
+                .then(|| replay_journal(&fs::read(&paths.journal).unwrap_or_default()));
+            let finalize_record = replayed.as_ref().and_then(|outcome| {
+                outcome.records.iter().rev().find_map(|r| match &r.payload {
+                    RecordPayload::Finalize(f) => Some(f.outcome),
+                    _ => None,
+                })
+            });
+            StreamFinalizeEvidence {
+                stream_index: ms.stream_index,
+                finalized_present: paths.finalized.exists(),
+                finalize_record,
+                journal_stop: replayed.map(|o| o.stop),
+            }
+        })
+        .collect()
+}
+
+/// 現在の file/project 状態から commit receipt を再計算する。
+/// mutation は行わない（観測のみ）。`saved_revision` を渡すと
+/// Commit→Save 未完了を `project_saved` で区別する。
+///
+/// # Errors
+/// [`CommitError`]: manifest I/O・session tag 不正。
+pub fn commit_receipt(
+    project: &Project,
+    area: &StagingArea,
+    saved_revision: Option<ProjectRevision>,
+) -> Result<CommitReceipt, CommitError> {
+    let session_id = area.manifest.session_id.clone();
+    let mut receipt = CommitReceipt {
+        session_id: session_id.clone(),
+        content_hash: None,
+        stage: ReceiptStage::Empty,
+        marker_outcome: None,
+        committed_revision: None,
+        project_saved: None,
+        journal_finalize: Vec::new(),
+    };
+    let Some(manifest) = read_commit_manifest(area)? else {
+        return Ok(receipt);
+    };
+    // manifest 自体の健全性（schema/hash/session 帰属）。
+    let intact = manifest.schema_version == COMMIT_SCHEMA_VERSION
+        && manifest.identity.session_id == session_id
+        && payload_hash(&manifest.payload).is_ok_and(|h| h == manifest.identity.content_hash);
+    if !intact {
+        receipt.stage = ReceiptStage::Invalid;
+        return Ok(receipt);
+    }
+    receipt.content_hash = Some(manifest.identity.content_hash.clone());
+    receipt.journal_finalize = collect_finalize_evidence(area);
+    let sid = RecordingSessionId::from_tagged(&manifest.identity.session_id)
+        .map_err(|_| CommitError::Manifest("bad session_id tag".into()))?;
+    let status = commit_status(project, sid, &manifest.identity.content_hash);
+    let marker = read_marker_state(area);
+    let marker_consistent = match &marker {
+        MarkerRead::Valid(m) => {
+            receipt.marker_outcome = Some(m.outcome.clone());
+            receipt.committed_revision = Some(m.revision);
+            m.identity == manifest.identity
+                && matches!(
+                    m.outcome.as_str(),
+                    "applied" | "already-applied" | "nothing-committed"
+                )
+        }
+        _ => false,
+    };
+    receipt.stage = match status {
+        CommitStatus::IntegrityConflict => ReceiptStage::Conflict,
+        CommitStatus::AlreadyApplied => {
+            // registry 適用が authority。marker が一致して初めて
+            // CommittedConfirmed、marker 不在/破損/不一致は
+            // publish-indeterminate（crash・応答喪失相当）。
+            if marker_consistent && receipt.marker_outcome.as_deref() != Some("nothing-committed") {
+                ReceiptStage::CommittedConfirmed
+            } else {
+                ReceiptStage::PublishIndeterminate
+            }
+        }
+        CommitStatus::NotApplied => match &marker {
+            MarkerRead::Missing => ReceiptStage::Reserved,
+            MarkerRead::Valid(m)
+                if m.identity == manifest.identity && m.outcome == "nothing-committed" =>
+            {
+                ReceiptStage::Reserved
+            }
+            _ => ReceiptStage::Invalid,
+        },
+    };
+    if let (Some(saved), Some(rev)) = (saved_revision, receipt.committed_revision) {
+        receipt.project_saved = Some(saved.0 >= rev);
+    }
+    Ok(receipt)
+}
+
+/// publish-indeterminate を冪等に reconcile する。registry 適用が
+/// authority なので、`AlreadyApplied` のとき marker を manifest +
+/// registry から決定的に再構成して再公開する（`commit_session`
+/// の `AlreadyApplied` 経路と同じ marker 内容のため再書込みは安全）。
+/// その後 receipt を再計算して返す。`PublishIndeterminate` 以外の
+/// stage では観測のみで mutation しない。
+///
+/// # Errors
+/// [`CommitError`]: manifest I/O・marker 公開失敗。
+pub fn reconcile_commit_receipt(
+    controller: &ProjectController,
+    area: &StagingArea,
+    saved_revision: Option<ProjectRevision>,
+) -> Result<CommitReceipt, CommitError> {
+    let receipt = commit_receipt(controller.live(), area, saved_revision)?;
+    if receipt.stage != ReceiptStage::PublishIndeterminate {
+        return Ok(receipt);
+    }
+    let manifest = read_commit_manifest(area)?
+        .ok_or_else(|| CommitError::Manifest("manifest vanished during reconcile".into()))?;
+    write_commit_marker(
+        area,
+        &manifest,
+        "already-applied",
+        controller.live_revision().0,
+    )?;
+    commit_receipt(controller.live(), area, saved_revision)
 }
 
 // ---------- op validation / application ----------

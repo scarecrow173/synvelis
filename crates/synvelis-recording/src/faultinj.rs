@@ -58,6 +58,17 @@ pub enum Inject {
         /// 失敗させる sync 呼出し番号。
         call: u64,
     },
+    /// `call` 回目の `write_all` を permission denied で失敗させる
+    /// （read-only media・権限剥奪相当）。
+    PermissionDenied {
+        /// 失敗させる write 呼出し番号。
+        call: u64,
+    },
+    /// `call` 回目の `sync_data` を permission denied で失敗させる。
+    SyncPermissionDenied {
+        /// 失敗させる sync 呼出し番号。
+        call: u64,
+    },
     /// 累積書込み byte が `limit` を超える以後の `write_all` を、
     /// limit までの分だけ書いてエラーにする（torn tail 用）。
     ByteLimit {
@@ -126,6 +137,12 @@ impl StorageWriter for FaultWriter {
                         "injected short write",
                     ));
                 }
+                Inject::PermissionDenied { call: c } if c == call => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        "injected permission denied",
+                    ));
+                }
                 Inject::ByteLimit { limit } => {
                     if self.written >= limit {
                         return Err(io::Error::new(
@@ -155,13 +172,102 @@ impl StorageWriter for FaultWriter {
         let call = self.sync_calls;
         self.sync_calls = self.sync_calls.saturating_add(1);
         for inj in &self.injects {
-            if let Inject::FailSync { call: c } = *inj
-                && c == call
-            {
-                return Err(io::Error::other("injected sync failure"));
+            match *inj {
+                Inject::FailSync { call: c } if c == call => {
+                    return Err(io::Error::other("injected sync failure"));
+                }
+                Inject::SyncPermissionDenied { call: c } if c == call => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        "injected sync permission denied",
+                    ));
+                }
+                _ => {}
             }
         }
         self.inner.sync_data()
+    }
+}
+
+/// atomic publish（tmp→sync→rename）経路への注入。
+/// commit marker・commit manifest・review record 等、
+/// `staging::publish_atomic_faultable` を通る公開に適用する。
+#[derive(Clone, Debug)]
+pub enum PublishInject {
+    /// `call` 回目の publish で tmp file 作成を permission denied で
+    /// 失敗させる（公開は起きない）。
+    Denied {
+        /// 失敗させる publish 呼出し番号。
+        call: u64,
+    },
+    /// `call` 回目の publish で tmp `sync_all` を失敗させる
+    /// （tmp file は残留し得る。rename は行われない）。
+    SyncFail {
+        /// 失敗させる publish 呼出し番号。
+        call: u64,
+    },
+    /// `call` 回目の publish で rename 成功**後**にエラーを返す
+    /// （file は公開済みだが呼出し側は失敗を見る — 応答喪失・
+    /// indeterminate 相当）。
+    Indeterminate {
+        /// 失敗させる publish 呼出し番号。
+        call: u64,
+    },
+}
+
+/// publish 呼出しの決定的 fault 注入器。`publish_atomic_faultable`
+/// に渡す。call 番号は faultable publish 呼出しのみを数える
+/// （素の `publish_atomic` はこのカウンタを消費しない）。
+#[derive(Default)]
+pub struct PublishFaults {
+    injects: Vec<PublishInject>,
+    calls: u64,
+}
+
+impl PublishFaults {
+    /// 空の注入器。
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// 注入を追加する（同種複数可・評価は登録順）。
+    pub fn inject(&mut self, inj: PublishInject) {
+        self.injects.push(inj);
+    }
+
+    /// 次の publish 呼出し番号を消費する。
+    pub(crate) fn next_call(&mut self) -> u64 {
+        let c = self.calls;
+        self.calls = self.calls.saturating_add(1);
+        c
+    }
+
+    /// `call` が `Denied` 注入対象か。
+    pub(crate) fn denied(&self, call: u64) -> bool {
+        self.injects
+            .iter()
+            .any(|i| matches!(i, PublishInject::Denied { call: c } if *c == call))
+    }
+
+    /// `call` が `SyncFail` 注入対象か。
+    pub(crate) fn sync_fail(&self, call: u64) -> bool {
+        self.injects
+            .iter()
+            .any(|i| matches!(i, PublishInject::SyncFail { call: c } if *c == call))
+    }
+
+    /// `call` が `Indeterminate` 注入対象か。
+    pub(crate) fn indeterminate(&self, call: u64) -> bool {
+        self.injects
+            .iter()
+            .any(|i| matches!(i, PublishInject::Indeterminate { call: c } if *c == call))
+    }
+
+    /// これまでの faultable publish 呼出し回数（診断用）。
+    #[must_use]
+    pub fn calls(&self) -> u64 {
+        self.calls
     }
 }
 
