@@ -239,7 +239,8 @@ fn mint_node_id() -> NodeId {
 /// Adapter over `hosted`'s control handle for the fabricated-span
 /// paths — consumes `attached.control`.
 fn fabricated_adapter(hosted: Hosted, config: TraceAdapterConfig) -> DispatchTraceAdapter {
-    let dispatch = ParamDispatch::new(hosted.attached.control, mint_node_id(), frame_base());
+    let dispatch =
+        ParamDispatch::new(hosted.attached.control, mint_node_id(), frame_base()).unwrap();
     DispatchTraceAdapter::new(dispatch, frame_base(), config, ctx())
 }
 
@@ -412,7 +413,7 @@ fn trace_c3_05_receipt_correlation() {
         .expect("compiles");
     runtime.publish(compiled).expect("publish");
 
-    let dispatch = ParamDispatch::new(hosted.attached.control, p, frame_base());
+    let dispatch = ParamDispatch::new(hosted.attached.control, p, frame_base()).unwrap();
     let mut ad =
         DispatchTraceAdapter::new(dispatch, frame_base(), TraceAdapterConfig::default(), ctx());
     let target = ParameterTargetId::new(1);

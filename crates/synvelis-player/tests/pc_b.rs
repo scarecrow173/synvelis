@@ -370,7 +370,7 @@ fn pc_b_01_dispatch_delivers_param_events() {
         .expect("compiles");
     runtime.publish(compiled).expect("publish");
 
-    let mut dispatch = ParamDispatch::new(hosted.attached.control, proc, frame_base());
+    let mut dispatch = ParamDispatch::new(hosted.attached.control, proc, frame_base()).unwrap();
     let target = ParameterTargetId::new(1);
     dispatch.bind(target, ParamId(7), &PARAMS).unwrap();
     let plan = dispatch.dispatch(&writes()).unwrap();
@@ -428,7 +428,7 @@ fn pc_b_01_dispatch_delivers_param_events() {
 fn pc_b_01_rejections_propagate() {
     let hosted = host_plugin(&PARAMS);
     let (_graph, proc, _s, _k) = build_graph(&hosted.attached);
-    let mut dispatch = ParamDispatch::new(hosted.attached.control, proc, frame_base());
+    let mut dispatch = ParamDispatch::new(hosted.attached.control, proc, frame_base()).unwrap();
 
     // Unknown param refused at bind with the upstream token.
     let err = dispatch
@@ -496,7 +496,8 @@ fn pc_b_04_offline_render_matches_playback() {
         )
         .expect("compiles");
     runtime_a.publish(compiled_a).expect("publish");
-    let mut dispatch_a = ParamDispatch::new(hosted_a.attached.control, proc_a, frame_base());
+    let mut dispatch_a =
+        ParamDispatch::new(hosted_a.attached.control, proc_a, frame_base()).unwrap();
     dispatch_a
         .bind(ParameterTargetId::new(1), ParamId(7), &PARAMS)
         .unwrap();
@@ -537,7 +538,8 @@ fn pc_b_04_offline_render_matches_playback() {
     };
     let mut prepared = PreparedRender::compile(&graph_b, &mut factory_b, compiler_config(), 8, 8)
         .expect("prepared render");
-    let mut dispatch_b = ParamDispatch::new(hosted_b.attached.control, proc_b, frame_base());
+    let mut dispatch_b =
+        ParamDispatch::new(hosted_b.attached.control, proc_b, frame_base()).unwrap();
     dispatch_b
         .bind(ParameterTargetId::new(1), ParamId(7), &PARAMS)
         .unwrap();
@@ -653,7 +655,8 @@ fn pc_b_05_headless_driver_dispatch_and_seek() {
             Vec::new(),
             vec![AttachedNode {
                 node: hosted.attached.node,
-                dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base()),
+                dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base())
+                    .unwrap(),
             }],
         )
         .expect("activate");
@@ -758,11 +761,11 @@ fn pc_b_05_unmatched_attached_rejected() {
             vec![
                 AttachedNode {
                     node: a.attached.node,
-                    dispatch: ParamDispatch::new(a.attached.control, insert, frame_base()),
+                    dispatch: ParamDispatch::new(a.attached.control, insert, frame_base()).unwrap(),
                 },
                 AttachedNode {
                     node: b.attached.node,
-                    dispatch: ParamDispatch::new(b.attached.control, insert, frame_base()),
+                    dispatch: ParamDispatch::new(b.attached.control, insert, frame_base()).unwrap(),
                 },
             ],
         )
@@ -806,7 +809,7 @@ fn pc_b_05_midrun_activation_reanchors_node() {
             Vec::new(),
             vec![AttachedNode {
                 node: first.attached.node,
-                dispatch: ParamDispatch::new(first.attached.control, insert, frame_base()),
+                dispatch: ParamDispatch::new(first.attached.control, insert, frame_base()).unwrap(),
             }],
         )
         .expect("activate");
@@ -822,7 +825,8 @@ fn pc_b_05_midrun_activation_reanchors_node() {
             Vec::new(),
             vec![AttachedNode {
                 node: second.attached.node,
-                dispatch: ParamDispatch::new(second.attached.control, insert, frame_base()),
+                dispatch: ParamDispatch::new(second.attached.control, insert, frame_base())
+                    .unwrap(),
             }],
         )
         .expect("re-activate");
@@ -889,7 +893,8 @@ fn pc_b_05_dispatch_before_seek_drains_at_old_cursor() {
             Vec::new(),
             vec![AttachedNode {
                 node: hosted.attached.node,
-                dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base()),
+                dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base())
+                    .unwrap(),
             }],
         )
         .expect("activate");
@@ -984,7 +989,8 @@ fn pc_b_05_rejected_install_never_projects_dispatched() {
             Vec::new(),
             vec![AttachedNode {
                 node: hosted.attached.node,
-                dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base()),
+                dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base())
+                    .unwrap(),
             }],
         )
         .expect("activate");
