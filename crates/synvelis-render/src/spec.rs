@@ -12,6 +12,33 @@ use ruviform_audio_core::SampleFormat;
 use ruviform_io_file::{PublishFailure, PublishOptions, PublishReceipt, SealedFile, StagedFile};
 use ruviform_media_io::{Error as MediaError, MediaSink, Muxer};
 use synvelis_player::EngineConfig;
+use synvelis_project::{ContentDigest, PluginStateQualitySummary, StateQualityPolicy};
+
+/// Plugin-state quality evidence attached to an offline export
+/// recipe (TIM-04, issue #128).
+///
+/// The recipe carries the *observed* capture quality summary from a
+/// [`synvelis_project::PluginStateSession`] save/restore plus the
+/// manifest digest it came from. Under [`StateQualityPolicy::Strict`]
+/// preflight refuses the export when `evidence.exact_eligible()` is
+/// false — a `BestEffort`/`Unsupported`/failed plugin state can
+/// never silently pass an exact offline requirement. Under
+/// `Standard` the evidence is recorded on the receipt verbatim —
+/// a conditional save is never reported as perfect reproduction.
+///
+/// This slice does not instantiate plugins into the render graph;
+/// the recipe is quality evidence + gate only.
+#[derive(Clone, Debug)]
+pub struct PluginStateRecipe {
+    /// Save quality policy the evidence was produced under.
+    pub policy: StateQualityPolicy,
+    /// Aggregate capture-quality evidence.
+    pub evidence: PluginStateQualitySummary,
+    /// Content digest of the plugin-state manifest the evidence
+    /// came from (`None` when evidence was produced without a
+    /// published manifest, e.g. a rejected Strict save's summary).
+    pub manifest_digest: Option<ContentDigest>,
+}
 
 /// Tail classification handed to the sequential driver.
 ///
@@ -182,6 +209,11 @@ pub struct ExportRequest {
     pub max_block: u32,
     /// Offline support level clip renderers report.
     pub clip_support: OfflineRenderSupport,
+    /// Plugin-state quality recipe (TIM-04). `None` = the export
+    /// makes no plugin-state claim; `Some` under `Strict` is a
+    /// fail-closed preflight gate on the evidence's
+    /// `exact_eligible()`.
+    pub plugin_state: Option<PluginStateRecipe>,
 }
 
 /// A custom muxer constructor over the borrowed staged file.

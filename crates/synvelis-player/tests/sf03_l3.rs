@@ -997,6 +997,7 @@ impl ProcessorHost for RecordingHost {
                 drops.fetch_add(1, Ordering::Relaxed);
             }),
             control: None,
+            state_handle: None,
         })
     }
 }

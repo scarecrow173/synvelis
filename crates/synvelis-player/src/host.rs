@@ -81,6 +81,14 @@ pub struct ProcessorConnection {
     /// untaken controls drop together with the generation's lease.
     /// `None` for [`StaticProcessorHost`] and other non-plugin hosts.
     pub control: Option<PluginNodeControl>,
+    /// The plugin instance handle for non-RT state operations
+    /// (TIM-04 `SaveState`/`RestoreState`) — `Some` only for real
+    /// plugin hosts. Retained per generation and vended through
+    /// [`crate::routing_engine::RoutingEngine::plugin_state_handles`];
+    /// the handle is generation-checked by the host, so a stale
+    /// handle fails closed instead of reaching another generation's
+    /// plugin. `None` for [`StaticProcessorHost`].
+    pub state_handle: Option<PluginHandle>,
 }
 
 /// One-shot access to a published generation's chain-processor
@@ -229,6 +237,7 @@ impl ProcessorHost for StaticProcessorHost {
             processor,
             lease: ProcessorLease::noop(),
             control: None,
+            state_handle: None,
         })
     }
 }
@@ -300,6 +309,7 @@ impl ProcessorHost for PluginHostProcessors {
                     processor: Box::new(attached.node),
                     lease,
                     control: Some(attached.control),
+                    state_handle: Some(handle),
                 })
             }
             Err(error) => {
