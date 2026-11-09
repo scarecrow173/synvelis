@@ -34,7 +34,8 @@ relations:
     - "docs/designs/tim03-process-boundary-design.md"
   derived-by: []
   verifies: []
-  verified-by: []
+  verified-by:
+    - "docs/test-specs/tim03-process-boundary.md"
   references:
     - "docs/tasks/tim03-task1-process-boundary.md"
   defers: []
