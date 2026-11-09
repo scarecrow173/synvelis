@@ -13,6 +13,7 @@
 pub mod comp;
 pub mod control;
 pub mod controller;
+pub mod diff;
 pub mod error;
 pub mod id;
 pub mod midi;
