@@ -30,6 +30,7 @@ pub mod preset;
 pub mod relation_ui;
 pub mod selection;
 pub mod session;
+pub mod signal_flow_ui;
 pub mod snap;
 pub mod state;
 pub mod tool;
@@ -85,6 +86,15 @@ pub use selection::{
     TimeSelection,
 };
 pub use session::{EnginePort, EngineStub, ProjectSession, TransportState};
+pub use signal_flow_ui::{
+    SignalFlowCoverage, SignalFlowEdge, SignalFlowEdgeId, SignalFlowEdgeRole, SignalFlowEndpoint,
+    SignalFlowEntityRef, SignalFlowLayer, SignalFlowNode, SignalFlowNodeId, SignalFlowNodeKind,
+    SignalFlowNodeRuntime, SignalFlowNodeState, SignalFlowProbeStatus, SignalFlowRuntimeEvidence,
+    SignalFlowScope, SignalFlowStatus, SignalFlowView, SignalFlowViewOptions,
+    SignalFlowVisualGroup, SignalFlowVisualState, signal_flow_graph, signal_flow_graph_with,
+    visual_fold, visual_move_node, visual_set_group, visual_set_link_focus, visual_set_pan,
+    visual_set_scope, visual_set_zoom,
+};
 pub use snap::{
     GridConfig, SnapCandidate, SnapConfig, SnapEnvironment, SnapSource, SnapUnit, SnapWinner,
     resolve_snap,
