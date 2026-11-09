@@ -29,6 +29,7 @@ ruviform-exec.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
+stats_alloc = "0.1"
 ruviform-graph.workspace = true
 ruviform-audio-core.workspace = true
 ruviform-io-file.workspace = true
