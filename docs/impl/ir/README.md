@@ -63,3 +63,4 @@ Directory: `docs/impl/ir`
 | IMPL-034UjyiVpFVP7RCwlZ2neB | SF-03 slice5 実装記録 — session EnginePort・SessionRoutingEngine 接続 | completed | [sf-03-slice5-session-engineport-sessionroutingengine.md](sf-03-slice5-session-engineport-sessionroutingengine.md) |
 | IMPL-DVuQSd17Juc0oZ9flKLQ6O | SF-04 slice1 実装記録 — Semantic Probe Adapter 基盤（project/player 層 + ruviform pin bump） | completed | [sf-04-slice1-semantic-probe-adapter.md](sf-04-slice1-semantic-probe-adapter.md) |
 | IMPL-034UqZx9PC3TraceC3Impl0001 | PC-C3 ControlTrace project 層 projection slice（TRACE-C3-01..04） | completed | [pc-c3-control-trace-projection.md](pc-c3-control-trace-projection.md) |
+| IMPL-034Ut8egNEzslbJ5OXxdeK | PC-C6 oracle REL/TR headless fixture（REL01〜07・TR01〜08 独立 oracle 照合） | completed | [pc-c6-oracle-rel-tr-headless-fixture.md](pc-c6-oracle-rel-tr-headless-fixture.md) |

@@ -86,14 +86,35 @@ relations:
 
 ## Done When
 
-- [ ] REL01〜07・TR01〜08 が新規 oracle fixture test で独立算出の
+- [x] REL01〜07・TR01〜08 が新規 oracle fixture test で独立算出の
   期待値と照合され全 pass
-- [ ] REL07 の巨大 graph 実測値が test output と impl record に記録
-- [ ] `mise run fmt-check`/`check`/`lint`/`test` が全て exit 0
-- [ ] impl record + index 再生成済み、残件が NotRun/Deferred 記録
+- [x] REL07 の巨大 graph 実測値が test output と impl record に記録
+- [x] `mise run fmt-check`/`check`/`lint`/`test` が全て exit 0
+- [x] impl record + index 再生成済み、残件が NotRun/Deferred 記録
 
 ## Verification
 
 - canonical: `mise run fmt-check` / `mise run check` /
   `mise run lint` / `mise run test`
 - 補助証拠: 直接 cargo 実行結果（canonical = mise）
+
+## Evidence（2026-11-09, HEAD `91afa54` = merge of `origin/main` `c1c7f0c`）
+
+- `mise run fmt-check` → exit 0
+- `mise run check` → exit 0
+- `mise run lint` → exit 0
+- `mise run test` → exit 0（workspace 全 test binary `test result: ok`、
+  失敗 0。`pc_c6_oracle_rel` 7 tests・`pc_c6_oracle_tr` 8 tests 全 pass）
+- REL07 実測（debug build、`--nocapture`）:
+  fixture 32,200 nodes / 32,000 edges（200 sources × 75 assignments +
+  2,000 lanes）。`RelationIndex::build` 566.6ms、`OracleIndex::build`
+  198.9ms、8 query + widest query 全て sub-ms・Complete/Truncated を
+  oracle と完全一致・再問い合わせで同一 reply。
+- review-protocol: objective checks（上記 4 コマンド）全 pass 後、
+  cooperative/adversarial の 2 pass で docs+code を自己レビュー。
+  CONFIRMED blocker なし → ACCEPT 相当。
+- NotRun/Unsupported（正直な記録）: 実 GPUI/実 plugin/実 OS/実 VST3/
+  実 RT 検証（#114 gate）、synvelis-player dispatch ledger 実経路との
+  統合照合、Ruviform #28/#219/#294 consumer 照合、PC-C1-R01〜08・
+  PC-C4-PL01〜08・PC-C5-UI01〜07・PC-C6-COMP01〜05 — 全て本 slice
+  対象外として spec `defers` に記録済み。
