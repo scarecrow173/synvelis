@@ -28,6 +28,7 @@ Directory: `docs/plans`
 | PLAN-034RoUbM3cA2J9g5wWzEfG | PC-C1 Recording Transaction 実装計画 | approved | [pc-c1-recording-transaction.md](./pc-c1-recording-transaction.md) |
 | PLAN-034UpbrhX5dkELUwZUoS0i | PC-C2 Control Relation Index 実装計画 | approved | [pc-c2-control-relation-index.md](./pc-c2-control-relation-index.md) |
 | PLAN-034UqHfN1LJeYNaoS0SGYL | PC-C3 ControlTrace projection 実装計画 | approved | [pc-c3-control-trace.md](./pc-c3-control-trace.md) |
+| PLAN-7zXphX8skvXfNgeXarocfo | PC-C6 oracle REL/TR headless fixture 実装計画 | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-034SF01Np0sTu5vW2xYzAbDeF | SF-01 Semantic Routing Model 実装計画 | approved | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
 | PLAN-034SF02Wz0rOp7qT0vB5cDfGh | SF-02 RoutingTransaction 実装計画 — staging/検証/mute-solo/テスト | approved | [sf-02-routing-transaction.md](./sf-02-routing-transaction.md) |
