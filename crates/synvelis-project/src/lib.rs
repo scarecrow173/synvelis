@@ -30,6 +30,7 @@ pub mod routing_tx;
 pub mod store;
 pub mod tempo;
 pub mod time;
+pub mod trace;
 
 pub use comp::{
     Comp, CompCandidateRef, CompOp, CompProvenance, CompRegion, CompRegistry, CompTransition,
@@ -112,4 +113,10 @@ pub use tempo::{
 pub use time::{
     MediaDuration, MediaTimeValue, MidiTick, MusicalDuration, MusicalTick, ProjectTime,
     SessionFrame, SourceFrame,
+};
+pub use trace::{
+    ActivePlan, AppliedStageReceipt, ConfiguredEvidence, ControlTrace, ControlTraceKey,
+    DispatchDropReason, DispatchEvidence, FailedPlanAttempt, FreshnessContext, MeasuredValue,
+    ObservationFreshness, PlanActivationState, PluginReportedEvidence, PreparedEvidence,
+    ProbeObservation, ReceiptEvidence, ScheduledReceipt, StaleReason, TraceSlot, UnavailableReason,
 };
