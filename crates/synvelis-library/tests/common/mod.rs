@@ -86,6 +86,10 @@ impl Drop for TempTree {
 #[allow(dead_code)]
 pub mod git_fixture;
 
+/// In-process WebDAV/HTTP mock server (ALIB-06/ALIB-07 tests).
+#[allow(dead_code)]
+pub mod webdav_fixture;
+
 /// A provider id for tests.
 #[allow(dead_code)]
 pub fn pid(raw: u128) -> ProviderId {

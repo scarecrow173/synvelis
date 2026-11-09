@@ -10,13 +10,10 @@
 mod common;
 
 use std::fmt::Write as _;
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::io::Read;
 use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
-use std::time::Duration;
 
+use common::webdav_fixture::{MockResponse, MockServer, dir_props, file_props, propfind_response};
 use common::{aref, cx, loc, pid};
 use synvelis_library::{
     AccessMode, AssetProvider, Availability, BrowseScope, ByteRange, Capability, Coverage,
@@ -30,242 +27,6 @@ const PROVIDER_RAW: u128 = 0x90_06;
 
 fn provider_id() -> ProviderId {
     pid(PROVIDER_RAW)
-}
-
-// ------------------------------------------------------------------
-// Mock server
-// ------------------------------------------------------------------
-
-/// One parsed HTTP request the mock observed.
-struct MockRequest {
-    method: String,
-    /// Raw (still percent-encoded) request target.
-    path: String,
-    headers: Vec<(String, String)>,
-    body: Vec<u8>,
-}
-
-impl MockRequest {
-    fn header(&self, name: &str) -> Option<&str> {
-        self.headers
-            .iter()
-            .find(|(k, _)| k.eq_ignore_ascii_case(name))
-            .map(|(_, v)| v.as_str())
-    }
-}
-
-/// A scripted response.
-struct MockResponse {
-    status: u16,
-    headers: Vec<(String, String)>,
-    body: Vec<u8>,
-}
-
-impl MockResponse {
-    fn new(status: u16) -> Self {
-        Self {
-            status,
-            headers: Vec::new(),
-            body: Vec::new(),
-        }
-    }
-
-    fn header(mut self, name: &str, value: &str) -> Self {
-        self.headers.push((name.to_owned(), value.to_owned()));
-        self
-    }
-
-    fn body(mut self, body: impl Into<Vec<u8>>) -> Self {
-        self.body = body.into();
-        self
-    }
-}
-
-impl From<u16> for MockResponse {
-    fn from(status: u16) -> Self {
-        Self::new(status)
-    }
-}
-
-type Handler = Arc<dyn Fn(&MockRequest) -> MockResponse + Send + Sync>;
-
-/// An in-process HTTP/1.1 server: one request per connection,
-/// `Connection: close`, sequential accept loop.
-struct MockServer {
-    addr: String,
-    stop: Arc<AtomicBool>,
-    thread: Option<JoinHandle<()>>,
-}
-
-impl MockServer {
-    fn start(handler: Handler) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind mock");
-        listener.set_nonblocking(true).expect("nonblocking");
-        let port = listener.local_addr().expect("local addr").port();
-        let stop = Arc::new(AtomicBool::new(false));
-        let flag = stop.clone();
-        let thread = std::thread::spawn(move || {
-            while !flag.load(Ordering::SeqCst) {
-                match listener.accept() {
-                    Ok((stream, _)) => handle_conn(stream, &handler),
-                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                        std::thread::sleep(Duration::from_millis(2));
-                    }
-                    Err(_) => break,
-                }
-            }
-        });
-        Self {
-            addr: format!("127.0.0.1:{port}"),
-            stop,
-            thread: Some(thread),
-        }
-    }
-
-    /// `http://127.0.0.1:PORT`
-    fn url(&self) -> String {
-        format!("http://{}", self.addr)
-    }
-}
-
-impl Drop for MockServer {
-    fn drop(&mut self) {
-        self.stop.store(true, Ordering::SeqCst);
-        // A dummy connect wakes a blocked accept on platforms where
-        // nonblocking accept still parks briefly.
-        let _ = TcpStream::connect(&self.addr);
-        if let Some(t) = self.thread.take() {
-            let _ = t.join();
-        }
-    }
-}
-
-fn reason_phrase(status: u16) -> &'static str {
-    match status {
-        200 => "OK",
-        201 => "Created",
-        204 => "No Content",
-        206 => "Partial Content",
-        207 => "Multi-Status",
-        301 => "Moved Permanently",
-        302 => "Found",
-        303 => "See Other",
-        307 => "Temporary Redirect",
-        308 => "Permanent Redirect",
-        400 => "Bad Request",
-        401 => "Unauthorized",
-        403 => "Forbidden",
-        404 => "Not Found",
-        405 => "Method Not Allowed",
-        409 => "Conflict",
-        412 => "Precondition Failed",
-        416 => "Range Not Satisfiable",
-        429 => "Too Many Requests",
-        500 => "Internal Server Error",
-        503 => "Service Unavailable",
-        _ => "Status",
-    }
-}
-
-fn handle_conn(mut stream: TcpStream, handler: &Handler) {
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(15)));
-    let _ = stream.set_write_timeout(Some(Duration::from_secs(15)));
-    let Ok(req) = read_request(&mut stream) else {
-        return;
-    };
-    let resp = handler(&req);
-    let _ = write_response(&mut stream, &resp);
-}
-
-fn find_subslice(hay: &[u8], needle: &[u8]) -> Option<usize> {
-    hay.windows(needle.len()).position(|w| w == needle)
-}
-
-/// Reads one request: head through `\r\n\r\n`, then `Content-Length`
-/// body bytes. Bounded — a request head over 1 MiB is dropped.
-fn read_request(stream: &mut TcpStream) -> std::io::Result<MockRequest> {
-    let mut buf = Vec::with_capacity(8192);
-    let mut chunk = [0u8; 8192];
-    let head_end = loop {
-        if let Some(i) = find_subslice(&buf, b"\r\n\r\n") {
-            break i + 4;
-        }
-        if buf.len() > 1 << 20 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "request head too large",
-            ));
-        }
-        let n = stream.read(&mut chunk)?;
-        if n == 0 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::UnexpectedEof,
-                "eof in request head",
-            ));
-        }
-        buf.extend_from_slice(&chunk[..n]);
-    };
-    let head = String::from_utf8_lossy(&buf[..head_end]).into_owned();
-    let mut lines = head.split("\r\n");
-    let request_line = lines.next().unwrap_or_default();
-    let mut parts = request_line.split_whitespace();
-    let (Some(method), Some(path)) = (parts.next(), parts.next()) else {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "bad request line",
-        ));
-    };
-    let mut headers = Vec::new();
-    let mut content_length = 0usize;
-    for line in lines {
-        if line.is_empty() {
-            continue;
-        }
-        let Some((name, value)) = line.split_once(':') else {
-            continue;
-        };
-        let name = name.trim().to_ascii_lowercase();
-        let value = value.trim().to_owned();
-        if name == "content-length" {
-            content_length = value.parse().unwrap_or(0);
-        }
-        headers.push((name, value));
-    }
-    let mut body = buf[head_end..].to_vec();
-    while body.len() < content_length {
-        let n = stream.read(&mut chunk)?;
-        if n == 0 {
-            break;
-        }
-        body.extend_from_slice(&chunk[..n]);
-    }
-    body.truncate(content_length);
-    Ok(MockRequest {
-        method: method.to_owned(),
-        path: path.to_owned(),
-        headers,
-        body,
-    })
-}
-
-fn write_response(stream: &mut TcpStream, resp: &MockResponse) -> std::io::Result<()> {
-    let mut out = format!(
-        "HTTP/1.1 {} {}\r\n",
-        resp.status,
-        reason_phrase(resp.status)
-    );
-    let mut has_length = false;
-    for (name, value) in &resp.headers {
-        let _ = write!(out, "{name}: {value}\r\n");
-        has_length |= name.eq_ignore_ascii_case("content-length");
-    }
-    if !has_length {
-        let _ = write!(out, "content-length: {}\r\n", resp.body.len());
-    }
-    out.push_str("connection: close\r\n\r\n");
-    stream.write_all(out.as_bytes())?;
-    stream.write_all(&resp.body)?;
-    stream.flush()
 }
 
 // ------------------------------------------------------------------
@@ -284,44 +45,6 @@ fn provider_at_root(server: &MockServer, root: &str) -> WebDavProvider {
         credential_key: None,
     };
     WebDavProvider::new(provider_id(), config).expect("provider")
-}
-
-/// A `multistatus` body with one `response` per `(href, props)` —
-/// `props` is raw inner XML for the `prop` element.
-fn multistatus(responses: &[(&str, &str)]) -> String {
-    let mut out = String::from(
-        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\
-         <d:multistatus xmlns:d=\"DAV:\">",
-    );
-    for (href, props) in responses {
-        out.push_str("<d:response><d:href>");
-        out.push_str(href);
-        out.push_str("</d:href><d:propstat><d:prop>");
-        out.push_str(props);
-        out.push_str("</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>");
-    }
-    out.push_str("</d:multistatus>");
-    out
-}
-
-fn file_props(size: u64, etag: Option<&str>) -> String {
-    let etag = etag.map_or(String::new(), |e| format!("<d:getetag>{e}</d:getetag>"));
-    format!(
-        "<d:resourcetype/><d:getcontentlength>{size}</d:getcontentlength>\
-         <d:getlastmodified>Sun, 06 Nov 1994 08:49:37 GMT</d:getlastmodified>{etag}"
-    )
-}
-
-fn dir_props() -> &'static str {
-    "<d:resourcetype><d:collection/></d:resourcetype>"
-}
-
-/// A `207 Multi-Status` response. `_path` documents which resource
-/// the fixture answers; the body is path-agnostic.
-fn propfind_response(_path: &str, responses: &[(&str, &str)]) -> MockResponse {
-    MockResponse::new(207)
-        .header("content-type", "application/xml; charset=utf-8")
-        .body(multistatus(responses))
 }
 
 fn names(page: &synvelis_library::BrowsePage) -> Vec<String> {
@@ -1025,4 +748,221 @@ fn capabilities_declare_contract() {
     assert_eq!(caps.fetch, Capability::Supported);
     assert!(matches!(caps.search, Capability::Unsupported { .. }));
     assert_eq!(caps.access, AccessMode::ReadOnly);
+}
+
+// ------------------------------------------------------------------
+// ALIB-07 fault matrix: offline / revoke / malformed wire / redirect
+// ------------------------------------------------------------------
+
+#[test]
+fn offline_server_fails_typed_on_every_op() {
+    let server = MockServer::start(Arc::new(|_| propfind_response("/", &[("/", dir_props())])));
+    let p = provider(&server);
+    p.browse(&scope_req(None, 10), &cx()).expect("browse");
+    drop(server); // listener gone → connect refused
+    for (name, result) in [
+        ("browse", p.browse(&scope_req(None, 10), &cx()).map(|_| ())),
+        (
+            "stat",
+            p.stat(&aref(provider_id(), "/x"), &cx()).map(|_| ()),
+        ),
+        ("pin", p.pin(&aref(provider_id(), "/x"), &cx()).map(|_| ())),
+    ] {
+        let err = result.expect_err(name);
+        assert_eq!(kind_of(&err), ProviderErrorKind::Offline, "{name}");
+    }
+}
+
+#[test]
+fn auth_revoked_between_pin_and_conditional_get() {
+    // Credentials still resolve, but the server revoked them between
+    // the pin's PROPFIND and the conditional GET.
+    let server = MockServer::start(Arc::new(|req| {
+        if req.method == "PROPFIND" {
+            return propfind_response("/a.wav", &[("/a.wav", &file_props(11, Some("\"v1\"")))]);
+        }
+        401.into()
+    }));
+    let p = provider(&server);
+    let pin = p.pin(&aref(provider_id(), "/a.wav"), &cx()).expect("pin");
+    let err = p.open_pinned(&pin, &cx()).expect_err("revoked");
+    assert_eq!(kind_of(&err), ProviderErrorKind::AuthExpired);
+}
+
+#[test]
+fn malformed_response_head_is_typed_transient() {
+    // `MockResponse::raw` bypasses the fixture's own head writer so
+    // each protocol fault reaches the client untouched.
+    let mut too_many = String::from("HTTP/1.1 207 Multi-Status\r\n");
+    for i in 0..150 {
+        let _ = write!(too_many, "x-pad-{i}: v\r\n");
+    }
+    too_many.push_str("\r\n");
+    let mut oversized = String::from("HTTP/1.1 207 Multi-Status\r\n");
+    for _ in 0..700 {
+        oversized.push_str("x-pad: ");
+        oversized.push_str(&"a".repeat(96));
+        oversized.push_str("\r\n");
+    }
+    oversized.push_str("\r\n");
+    for raw in [
+        b"this is not http\r\n\r\n".to_vec(),
+        b"HTTP/1.1 ABC Nope\r\n\r\n".to_vec(),
+        b"HTTP/1.1 207 Multi-Status\r\nx-pad: \xff\xfe bad\r\n\r\n".to_vec(),
+        too_many.into_bytes(),
+        oversized.into_bytes(),
+    ] {
+        let server = MockServer::start(Arc::new(move |_| MockResponse::raw(raw.clone())));
+        let p = provider(&server);
+        let err = p
+            .browse(&scope_req(None, 10), &cx())
+            .expect_err("malformed head");
+        assert_eq!(kind_of(&err), ProviderErrorKind::TransientIo);
+    }
+}
+
+#[test]
+fn truncated_body_fails_mid_stream_not_silent() {
+    let server = MockServer::start(Arc::new(|req| {
+        if req.method == "PROPFIND" {
+            return propfind_response("/a.wav", &[("/a.wav", &file_props(11, Some("\"v\"")))]);
+        }
+        // Content-Length 11 but only 5 bytes arrive before close.
+        MockResponse::new(200)
+            .header("etag", "\"v\"")
+            .header("content-length", "11")
+            .body(b"hello".to_vec())
+    }));
+    let p = provider(&server);
+    let pin = p.pin(&aref(provider_id(), "/a.wav"), &cx()).expect("pin");
+    let mut pr = p.open_pinned(&pin, &cx()).expect("open");
+    let mut body = Vec::new();
+    pr.reader
+        .read_to_end(&mut body)
+        .expect_err("truncated body must fail");
+    assert_eq!(body, b"hello");
+    let recorded = pr
+        .completion
+        .take()
+        .expect("finished")
+        .expect_err("completion must be Err");
+    assert_eq!(recorded.kind(), ProviderErrorKind::TransientIo);
+}
+
+#[test]
+fn malformed_chunked_body_fails_typed() {
+    let raw = b"HTTP/1.1 200 OK\r\netag: \"v\"\r\ntransfer-encoding: chunked\r\n\r\nzz\r\nhello\r\n0\r\n\r\n".to_vec();
+    let server = MockServer::start(Arc::new(move |req| {
+        if req.method == "PROPFIND" {
+            return propfind_response("/a.wav", &[("/a.wav", &file_props(11, Some("\"v\"")))]);
+        }
+        MockResponse::raw(raw.clone())
+    }));
+    let p = provider(&server);
+    let pin = p.pin(&aref(provider_id(), "/a.wav"), &cx()).expect("pin");
+    let mut pr = p.open_pinned(&pin, &cx()).expect("open");
+    let mut body = Vec::new();
+    pr.reader
+        .read_to_end(&mut body)
+        .expect_err("malformed chunk must fail");
+    let recorded = pr
+        .completion
+        .take()
+        .expect("finished")
+        .expect_err("completion must be Err");
+    assert_eq!(recorded.kind(), ProviderErrorKind::TransientIo);
+}
+
+#[test]
+fn requests_declare_identity_encoding() {
+    // Every request forbids content codings — a hostile or buggy
+    // server cannot answer with gzip/brotli and turn a bounded read
+    // into a compression bomb.
+    let encodings = Arc::new(Mutex::new(Vec::<Option<String>>::new()));
+    let encodings2 = encodings.clone();
+    let server = MockServer::start(Arc::new(move |req| {
+        encodings2
+            .lock()
+            .unwrap()
+            .push(req.header("accept-encoding").map(str::to_owned));
+        if req.method == "PROPFIND" {
+            return propfind_response("/a.wav", &[("/a.wav", &file_props(11, Some("\"e\"")))]);
+        }
+        MockResponse::new(200)
+            .header("etag", "\"e\"")
+            .body(b"hello world".to_vec())
+    }));
+    let p = provider(&server);
+    let pin = p.pin(&aref(provider_id(), "/a.wav"), &cx()).expect("pin");
+    let mut pr = p.open_pinned(&pin, &cx()).expect("open");
+    let mut body = Vec::new();
+    pr.reader.read_to_end(&mut body).expect("read");
+    let encodings = encodings.lock().unwrap();
+    assert!(
+        encodings.len() >= 2,
+        "expected PROPFIND + GET, got {encodings:?}"
+    );
+    assert!(
+        encodings.iter().all(|e| e.as_deref() == Some("identity")),
+        "every request must declare identity encoding: {encodings:?}"
+    );
+}
+
+#[test]
+fn same_origin_redirect_keeps_credentials_in_origin() {
+    let seen = Arc::new(Mutex::new(Vec::<(String, Option<String>)>::new()));
+    let seen2 = seen.clone();
+    let server = MockServer::start(Arc::new(move |req| {
+        seen2.lock().unwrap().push((
+            req.path.clone(),
+            req.header("authorization").map(str::to_owned),
+        ));
+        if req.path == "/old" {
+            return MockResponse::new(301).header("location", "/new");
+        }
+        propfind_response("/new", &[("/new", dir_props())])
+    }));
+    let url = WebDavUrl::parse(&server.url()).expect("url");
+    let mut config = WebDavConfig::new(url);
+    config.credential_key = Some(CredentialKey::new("test-key").expect("key"));
+    let p = WebDavProvider::new(provider_id(), config).expect("provider");
+    let mut cx = cx();
+    cx.credentials = Some(Arc::new(TestResolver));
+    p.browse(&scope_req(Some("/old"), 10), &cx).expect("browse");
+    let seen = seen.lock().unwrap();
+    assert_eq!(seen.len(), 2);
+    assert!(
+        seen.iter()
+            .all(|(_, a)| a.as_deref() == Some("Basic dXNlcjpwYXNz")),
+        "same-origin hops must keep Authorization: {seen:?}"
+    );
+}
+
+#[test]
+fn cross_origin_redirect_never_reaches_other_origin() {
+    // A second mock stands in for the foreign origin: it must see
+    // zero requests — the redirect is refused before any connect, so
+    // neither bytes nor credentials can leak across origins.
+    let b_hits = Arc::new(Mutex::new(0usize));
+    let b_hits2 = b_hits.clone();
+    let server_b = MockServer::start(Arc::new(move |_| {
+        *b_hits2.lock().unwrap() += 1;
+        propfind_response("/", &[("/", dir_props())])
+    }));
+    let b_url = server_b.url();
+    let a = MockServer::start(Arc::new(move |_| {
+        let location = format!("{b_url}/steal");
+        MockResponse::new(302).header("location", &location)
+    }));
+    let url = WebDavUrl::parse(&a.url()).expect("url");
+    let mut config = WebDavConfig::new(url);
+    config.credential_key = Some(CredentialKey::new("test-key").expect("key"));
+    let p = WebDavProvider::new(provider_id(), config).expect("provider");
+    let mut cx = cx();
+    cx.credentials = Some(Arc::new(TestResolver));
+    let err = p
+        .browse(&scope_req(None, 10), &cx)
+        .expect_err("cross-origin redirect");
+    assert_eq!(kind_of(&err), ProviderErrorKind::InvalidRequest);
+    assert_eq!(*b_hits.lock().unwrap(), 0, "foreign origin was contacted");
 }

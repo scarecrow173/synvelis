@@ -1033,3 +1033,161 @@ fn import_verified_consumes_git_blob_and_lfs_pins() {
     assert_eq!(out.byte_len, 4096);
     assert_eq!(out.content_digest, sha256_of(&GitFixture::lfs_content()));
 }
+
+// ── ALIB-07 fault matrix: offline / rename / hostile input ───────
+
+#[test]
+fn offline_remote_typed_failures_mirror_stays_honest() {
+    let Some(fix) = GitFixture::new() else { return };
+    let provider = provider(&fix, "mirror");
+    let cx = cx();
+
+    // Warm the mirror: browse, fetch one blob, pin the LFS pointer.
+    provider.browse(&browse_req(100), &cx).expect("browse");
+    let blob_pin = pin_of(&provider, "HEAD:notes.txt", &cx);
+    let (bytes, _pr) = open_and_read(&provider, &blob_pin, &cx).expect("read");
+    assert_eq!(bytes, b"hello git\n");
+    let lfs_pin = pin_of(&provider, "HEAD:payload.bin", &cx);
+
+    fix.remove_remote();
+
+    // Explicit refresh is a typed failure — never silently "fresh".
+    let err = provider.refresh(&cx).expect_err("refresh offline");
+    assert!(
+        matches!(
+            err.kind(),
+            ProviderErrorKind::Offline
+                | ProviderErrorKind::TransientIo
+                | ProviderErrorKind::NotFound
+        ),
+        "refresh kind {:?}",
+        err.kind()
+    );
+
+    // Mirror-backed browse/stat still serve the last fetched state —
+    // honest staleness, not a live claim.
+    let page = provider
+        .browse(&browse_req(100), &cx)
+        .expect("offline browse");
+    assert!(names(&page).iter().any(|n| n == "notes.txt"));
+    provider
+        .stat(&aref(provider_id(), "HEAD:notes.txt"), &cx)
+        .expect("offline stat");
+
+    // Already-fetched objects stay readable from the local mirror.
+    let (bytes, _pr) = open_and_read(&provider, &blob_pin, &cx).expect("offline read");
+    assert_eq!(bytes, b"hello git\n");
+
+    // A never-fetched object cannot be verified → typed failure at
+    // pin time, never missing bytes served as content.
+    let err = provider
+        .pin(&aref(provider_id(), "HEAD:dir/top.txt"), &cx)
+        .expect_err("pin unfetched offline");
+    assert!(
+        matches!(
+            err.kind(),
+            ProviderErrorKind::Offline
+                | ProviderErrorKind::TransientIo
+                | ProviderErrorKind::NotFound
+        ),
+        "unfetched pin kind {:?}",
+        err.kind()
+    );
+
+    // The LFS pin keeps its identity, but the remote object store is
+    // gone → NotFound, never the pointer text as content.
+    let err = provider
+        .open_pinned(&lfs_pin, &cx)
+        .expect_err("lfs object gone");
+    assert_eq!(err.kind(), ProviderErrorKind::NotFound);
+}
+
+#[test]
+fn remote_rename_keeps_pin_and_fixed_commit_identity() {
+    let Some(fix) = GitFixture::new() else { return };
+    let provider = provider(&fix, "mirror");
+    let cx = cx();
+
+    let pin = pin_of(&provider, "HEAD:notes.txt", &cx);
+    let old_sha = match &pin.proof {
+        PinProof::ImmutableObject { revision } => revision
+            .as_str()
+            .strip_prefix("commit:")
+            .expect("commit rev")
+            .to_owned(),
+        PinProof::ConditionalStrong { .. } => unreachable!(),
+    };
+
+    // Rename on the remote: notes.txt → renamed.txt.
+    git_fixture::git(&fix.work, &["mv", "notes.txt", "renamed.txt"]);
+    fix.commit_all("rename notes");
+    fix.push();
+    provider.refresh(&cx).expect("refresh");
+
+    // HEAD moved: the old path is gone, the new path resolves.
+    let err = provider
+        .stat(&aref(provider_id(), "HEAD:notes.txt"), &cx)
+        .expect_err("old path after rename");
+    assert_eq!(err.kind(), ProviderErrorKind::NotFound);
+    pin_of(&provider, "HEAD:renamed.txt", &cx);
+
+    // The pin still yields the original bytes — the commit is
+    // immutable even though the branch moved.
+    let (bytes, _pr) = open_and_read(&provider, &pin, &cx).expect("pinned read");
+    assert_eq!(bytes, b"hello git\n");
+
+    // A fixed-commit locator still sees the old name.
+    let (bytes, _pr) = open_and_read(
+        &provider,
+        &pin_of(&provider, &format!("{old_sha}:notes.txt"), &cx),
+        &cx,
+    )
+    .expect("sha path");
+    assert_eq!(bytes, b"hello git\n");
+}
+
+#[test]
+fn hostile_locator_and_url_inputs_fail_closed() {
+    let Some(fix) = GitFixture::new() else { return };
+    let provider = provider(&fix, "mirror");
+    let cx = cx();
+    provider.browse(&browse_req(10), &cx).expect("browse");
+
+    // Revision/path forms that could smuggle git options, reflog
+    // syntax, or tree traversal are rejected before any argv exists.
+    for locator in [
+        "-x:foo",
+        "--upload-pack=touch:pwned",
+        "HEAD@{1}:notes.txt",
+        "main:../escape",
+        "main:a\\b",
+        "main:a//b",
+        ":notes.txt",
+    ] {
+        let err = provider
+            .stat(&aref(provider_id(), locator), &cx)
+            .expect_err(locator);
+        assert_eq!(err.kind(), ProviderErrorKind::InvalidRequest, "{locator}");
+    }
+
+    // A path component that merely *looks* like an option is data:
+    // it resolves through the tree grammar, never argv.
+    fix.tmp.write("work/-dash.txt", b"dash named\n");
+    fix.commit_all("add dash file");
+    fix.push();
+    provider.refresh(&cx).expect("refresh");
+    let (bytes, _pr) = open_and_read(&provider, &pin_of(&provider, "HEAD:-dash.txt", &cx), &cx)
+        .expect("dash path");
+    assert_eq!(bytes, b"dash named\n");
+
+    // Transport URLs that could execute commands or smuggle
+    // credentials are refused at parse — before any provider exists.
+    for bad in [
+        "ext::sh -c touch%20pwned",
+        "fd::17",
+        "https://user:pass@example.com/r.git",
+        "https://user@example.com/r.git",
+    ] {
+        assert!(GitRemoteUrl::parse(bad).is_err(), "{bad}");
+    }
+}
