@@ -1227,7 +1227,7 @@ fn shape_tracks(
                 out_tracks.push(vec![(0, SmfEventKind::EndOfTrack)]);
                 let mut events: Vec<(i64, SmfEventKind)> =
                     converted.into_iter().map(|c| (c.tick, c.kind)).collect();
-                events.sort_by(|a, b| (a.0, emit_rank(&a.1)).cmp(&(b.0, emit_rank(&b.1))));
+                events.sort_by_key(|a| (a.0, emit_rank(&a.1)));
                 let last_tick = events.last().map_or(0, |(t, _)| *t);
                 events.push((last_tick, SmfEventKind::EndOfTrack));
                 out_tracks.push(events);
