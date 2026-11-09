@@ -19,8 +19,12 @@
 //!   outbox drain + quit-flag check.
 //! - `Windowed { CloseRequested }` → a `lifecycle(Closing)` event to
 //!   that window, then the close policy answers [`WindowDriver::
-//!   respond_close`]. The initial slice's policy is `Approve`
-//!   (unsaved-guard veto is the designed follow-up hook).
+//!   respond_close`]. Only the last live window is guarded: the shell
+//!   queries `syn.window.close_guard` synchronously and vetoes when
+//!   the app reports unsaved changes or an active recording — an
+//!   op error, missing result, or malformed payload fails closed to
+//!   `Veto`. Earlier windows approve unconditionally because the
+//!   shared session survives in the remaining windows.
 //! - `Windowed { Ready }` → the boot app-state notify is delivered
 //!   (once per window — `post_event` also buffers pre-ready traffic).
 //! - `Windowed { Destroyed }` → [`UiRuntime::cancel_window_jobs`] +
@@ -371,16 +375,16 @@ impl NativeShell {
             }
             WindowLifecycle::CloseRequested => {
                 // Mirror `UiRuntime::handle_window`'s closing push,
-                // then apply the close policy — Approve for the
-                // initial slice (unsaved-guard veto is the designed
-                // follow-up hook in the SV175 chain).
+                // then apply the close policy — only the last live
+                // window consults the app's unsaved/recording guard.
                 driver.post_event(
                     window,
                     &Event::Lifecycle {
                         state: LifecycleState::Closing,
                     },
                 );
-                if let Err(e) = driver.respond_close(window, CloseDecision::Approve) {
+                let decision = self.close_decision(window, driver);
+                if let Err(e) = driver.respond_close(window, decision) {
                     tracing::debug!(window = %window, error = %e, "respond_close failed");
                 }
             }
@@ -388,6 +392,52 @@ impl NativeShell {
             // Resized / Moved / Focused / ScaleFactorChanged carry no
             // runtime semantics — consumer UI state (RF386 contract).
             _ => {}
+        }
+    }
+
+    /// Close policy for `CloseRequested`. Only the *last* live
+    /// window can strand the shared project/session/recording state,
+    /// so only its close is guarded — with survivors the state stays
+    /// reachable and earlier windows approve unconditionally.
+    ///
+    /// The guard is the app-global `syn.window.close_guard` query
+    /// dispatched synchronously through the same window-intent path
+    /// `attach_view` uses; its routed events flow through the normal
+    /// observe/post route like any other op result. A well-formed
+    /// empty `reasons` approves; non-empty reasons, an op error, a
+    /// missing result, or a malformed payload all fail closed to
+    /// `Veto` — an unanswerable guard must never silently destroy
+    /// the session's last window.
+    fn close_decision(&mut self, window: WindowId, driver: &mut dyn WindowDriver) -> CloseDecision {
+        let live = driver.windows();
+        if live.len() != 1 || live[0] != window {
+            return CloseDecision::Approve;
+        }
+        let intent_id = format!("shell-close-guard-{window}");
+        let intent =
+            ruviform_ui::ipc::Intent::new(intent_id.clone(), "syn.window.close_guard", json!({}));
+        // Fail-closed default: stays `true` until the guard op
+        // answers with a well-formed empty `reasons` array.
+        let mut guarded = true;
+        for re in self.rt.dispatch_window_intent(window, intent) {
+            if let Event::Result { id, ok, data, .. } = &re.event
+                && id == &intent_id
+            {
+                guarded = !(*ok
+                    && data
+                        .as_ref()
+                        .and_then(|d| d.get("reasons"))
+                        .and_then(Value::as_array)
+                        .is_some_and(Vec::is_empty));
+            }
+            self.observe_result(&re);
+            self.post_routed(&re, driver);
+        }
+        if guarded {
+            tracing::info!(window = %window, "window close vetoed by guard");
+            CloseDecision::Veto
+        } else {
+            CloseDecision::Approve
         }
     }
 
