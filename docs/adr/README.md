@@ -31,6 +31,7 @@ Directory: `docs/adr`
 | ADR-034SF01Ln8qRs3tU0vWxYzBcD | SF-01 Routing Model 配置・Schema v6 Migration・Reserved Well-Known ID | approved | [sf-01-routing-model-schema-v6-migration.md](./sf-01-routing-model-schema-v6-migration.md) |
 | ADR-034SF02Ux8pMn5oR8tY3zAbDe | SF-02 RoutingTransaction 配置・TempRef Staging・channels 永続化・Mute/Solo 権威・汎用検証の再利用 | accepted | [sf-02-routing-transaction-port-channels-mute-solo-authority.md](./sf-02-routing-transaction-port-channels-mute-solo-authority.md) |
 | ADR-106SF03Cd2eFg3hIj4kLm5nOp | SF-03 slice1 — Runtime ID は SourceMap 経由のみ・Activation は RT 観測証拠で分離 | approved | [sf-03-semantic-lowering-source-map-activation-boundary.md](./sf-03-semantic-lowering-source-map-activation-boundary.md) |
+| ADR-034UudJ57tbwiodGimQ1ab | SF-05 slice1: Signal Flow 投影は workspace read model + engine evidence 合成、visual state は app 層 in-memory | accepted | [sf-05-slice1-signal-flow-workspace-read-model-engine-evidence-visual-state-app-i.md](./sf-05-slice1-signal-flow-workspace-read-model-engine-evidence-visual-state-app-i.md) |
 | ADR-034RAA8oZVNDaL6mMAMJ55 | SV-GUI-02 syn.* binding IPC surface・notify outbox・bounded wire DTO | accepted | [sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md](./sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md) |
 | ADR-034Ul4shgS8qAsLvnSHlkQ | SV-GUI-03 slice1: Transport/Inspector の表示値は app 層 MainScreenState push で供給し domain/ops を変更しない | accepted | [sv-gui-03-01-transport-inspector-app-state-push.md](./sv-gui-03-01-transport-inspector-app-state-push.md) |
 | ADR-WWJ1nzLLj2Q6WEjt7ZQg3t | SV-GUI-03 slice2: Arrangement rows は workspace read model + MainScreenState push、Undo/Redo は syn.project.* op 露出 | accepted | [sv-gui-03-02-arrangement-readmodel-undo-ops.md](./sv-gui-03-02-arrangement-readmodel-undo-ops.md) |
@@ -53,7 +54,3 @@ Directory: `docs/adr`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | ADR-2kAD08Yeuxmx8U4t2mD2wr | SV-GUI-01 app crate boundary・webview feature gate・vendored ui/* TS pipeline | superseded | [sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md](./sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md) |
-
-<<<<<<< HEAD
-=======
->>>>>>> origin/main

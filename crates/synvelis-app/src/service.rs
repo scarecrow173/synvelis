@@ -61,6 +61,14 @@ pub const OPS: &[OpInfo] = &[
         summary: "redo the last undone project command — {\"redone\": bool}",
     },
     OpInfo {
+        name: "syn.signal_flow.view",
+        summary: "Signal Flow projection — coverage/nodes/edges/status (view_id?, scope?, roles?, …)",
+    },
+    OpInfo {
+        name: "syn.signal_flow.visual",
+        summary: "visual-only Signal Flow op — move_node|set_group|fold|unfold|zoom|pan|link_focus|set_scope",
+    },
+    OpInfo {
         name: "syn.transport.set",
         summary: "set transport rolling — params.playing (bool)",
     },
@@ -237,6 +245,8 @@ impl AppService {
             "syn.project.info" => Ok(self.app.project_info()),
             "syn.project.undo" => self.app.op_project_undo(),
             "syn.project.redo" => self.app.op_project_redo(),
+            "syn.signal_flow.view" => self.app.op_signal_flow_view(params),
+            "syn.signal_flow.visual" => self.app.op_signal_flow_visual(params),
             "syn.transport.set" => {
                 let playing = params
                     .get("playing")
