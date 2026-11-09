@@ -14,6 +14,7 @@
 //! is provided for tests), so no OS window, webview, GPU or IME is
 //! touched.
 
+pub mod arrangement_ui;
 pub mod command;
 pub mod control;
 pub mod controls_ui;
@@ -35,6 +36,7 @@ pub mod view;
 pub mod viz_ui;
 pub mod workspace;
 
+pub use arrangement_ui::{ArrangementRow, arrangement_rows};
 pub use command::{CommandContext, CommandKind, CommandOutcome};
 pub use control::{
     APPLIED_REGISTRY_CAP, AppliedRecord, AssignmentView, AutomationLaneView, AutomationMode,
