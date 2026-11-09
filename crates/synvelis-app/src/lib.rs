@@ -51,7 +51,7 @@ pub use app::{AudioRuntimeSlot, ObservabilityOwner, RecorderSlot, SynvelisApp};
 pub use binding::{BindingNotice, ProjectionRow, ViewBinding};
 pub use engine::{SessionEngineConfig, SessionEngineError, SessionRoutingEngine};
 pub use error::{AppError, AssetError, AssetErrorKind};
-pub use host::ShellWindowHost;
+pub use host::{HeadlessWindowHost, ShellWindowHost};
 pub use logging::{
     CliOverrides, EnvOverrides, HostLog, InstallState, LogInstallError, LogSettings, SettingsError,
     install, parse_args, to_logging_config,

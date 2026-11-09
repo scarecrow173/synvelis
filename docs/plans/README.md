@@ -37,6 +37,7 @@ Directory: `docs/plans`
 | PLAN-SVGUI02 | SV-GUI-02 View Model・Binding IPC 実装計画 | approved | [sv-gui-02-view-model-binding-ipc.md](./sv-gui-02-view-model-binding-ipc.md) |
 | PLAN-034Ul4TkjPiKYvapjdmBbt | SV-GUI-03 slice1 Transport/Inspector 実施 plan | approved | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
 | PLAN-ATb2LKnqsahGgDlMVeHEIX | SV-GUI-03 slice2 実施計画 — Arrangement read-only Table + Undo/Redo | approved | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
+| PLAN-034Uoh8zSRRCnXhWcV1XTP | SV-GUI-04 slice1 precursor 実施 plan | approved | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | PLAN-XQcxlqc1zMCahjjNxAlbO8 | SV-GUI-04 slice1 実施計画 — 実 2-window mount | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | PLAN-iD5fujcWIovHuywc0CIEeu | SV175 Native App Shell 実施計画 | approved | [sv175-native-shell.md](./sv175-native-shell.md) |
 | PLAN-034T7GApSe3z9XUatjz8ti | SV177 Product Theme / Workspace Presets — synvelis-theme crate・DTCG assets・slot-based preset apply | approved | [sv177-product-theme-workspace-presets.md](./sv177-product-theme-workspace-presets.md) |

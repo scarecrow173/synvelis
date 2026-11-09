@@ -4,6 +4,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-034UoCucc7Cxrp4NwMxb5V | SV-GUI-04 slice1 precursor: headless WindowHandle + dock fixture | completed | [sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md](sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md) |
 
 ## Settled
 
