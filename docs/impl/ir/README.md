@@ -70,4 +70,4 @@ Directory: `docs/impl/ir`
 | IMPL-034UvMC7UhiwWgHviB9Qnv | RCD-04 Comp Transition / MIDI Phrase crate fixture slice 実装記録 | completed | [rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md](rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md) |
 | IMPL-034UvpX7fem2fghDtfNDJm | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | completed | [sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md](sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md) |
 | IMPL-034UxmcANQsdlNy9GC0tWv | PC-C4 plugin parameter binding — verified frame base・capability gate・generation pin（fake port slice） | completed | [pc-c4-plugin-parameter-binding-frame-base-capability-gate.md](pc-c4-plugin-parameter-binding-frame-base-capability-gate.md) |
-| IMPL-TIM02SmfFormat01Core0001 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice 実装記録 | completed | [tim-02-smf-format01-import-export.md](tim-02-smf-format01-import-export.md) |
+| IMPL-034UyF6gu1UEMJOKr7ZnGg | TIM-03 process boundary implementation record | completed | [tim-03-process-boundary-implementation-record.md](tim-03-process-boundary-implementation-record.md) |

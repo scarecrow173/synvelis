@@ -35,14 +35,18 @@
 //! `ProjectController::save` concern.
 
 mod browse;
+mod cache;
 mod capability;
+mod catalog;
 mod context;
 mod digest;
 mod error;
 mod id;
 mod import;
 mod local;
+mod notify;
 mod observation;
+mod preview;
 mod project;
 mod provider;
 mod refs;
@@ -52,8 +56,13 @@ pub use browse::{
     BrowseEntry, BrowsePage, BrowseRequest, BrowseScope, Coverage, EntryKind, FilterSpec,
     OpaquePageCursor, SearchQuery, SortDirection, SortField, SortSpec,
 };
+pub use cache::{CacheError, CachePolicy, CacheStats, LibraryCache};
 pub use capability::{
     AccessMode, Capability, PinCapability, ProviderCapabilities, UnsupportedReason,
+};
+pub use catalog::{
+    CatalogCacheKey, CatalogGeneration, CatalogQuery, IndexCompleteness, IndexPartialReason,
+    IndexStatus,
 };
 pub use context::{
     CancellationToken, Clock, CredentialResolver, FixedClock, ProviderContext, ProviderLimits,
@@ -69,9 +78,16 @@ pub use import::{
     StagingRetainReason, gc_orphans, import_verified, inspect_imports, rebase_import,
 };
 pub use local::LocalFolderProvider;
+pub use notify::{
+    LibraryEvent, LibraryEventKind, LibraryEventSink, LibraryGeneration, RetireReason,
+    RtEventQueue, SuppressingSink,
+};
 pub use observation::{
     AssetKind, AssetObservation, AssetStat, Availability, EntryFacts, InferenceMethod, MediaFacts,
     ObservationOrigin, ObservedAt, ProvenanceRecord, StaleReason, UnavailableReason,
+};
+pub use preview::{
+    PreviewCacheKey, PreviewFormat, PreviewLease, PreviewMeta, PreviewPlan, PreviewRequest,
 };
 #[doc(hidden)]
 pub use project::PreTraverseHook;
