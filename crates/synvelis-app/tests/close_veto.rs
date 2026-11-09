@@ -172,12 +172,12 @@ fn project_info(
     data.unwrap()
 }
 
-fn view_list(
+fn view_rows(
     shell: &mut NativeShell,
     driver: &mut FakeDriver,
     window: WindowId,
     id: &str,
-) -> Vec<String> {
+) -> Vec<Value> {
     action(
         shell,
         driver,
@@ -189,9 +189,16 @@ fn view_list(
         .cloned()
         .expect("view.list result");
     assert!(ok, "view.list failed: {data:?}");
-    data.unwrap()["views"]
-        .as_array()
-        .unwrap()
+    data.unwrap()["views"].as_array().unwrap().clone()
+}
+
+fn view_list(
+    shell: &mut NativeShell,
+    driver: &mut FakeDriver,
+    window: WindowId,
+    id: &str,
+) -> Vec<String> {
+    view_rows(shell, driver, window, id)
         .iter()
         .filter_map(|v| v["view_id"].as_str().map(str::to_string))
         .collect()
@@ -407,20 +414,26 @@ fn quit_with_dirty_project_partially_vetoes() {
     );
 
     // The shared project/session is intact on the surviving window:
-    // same dirty revision, w2's view still attached, w1's view
-    // contractually torn down with its window.
+    // same dirty revision, w2's view still attached. w1's docked
+    // view-1 survives under the default `DetachViews` disposition —
+    // pooled, not closed (dock transfer slice contract).
     let info = project_info(&mut shell, &mut driver, w2, "pi-survivor");
     assert_eq!(info["name"], "dirty");
     assert_eq!(info["revision"], 1);
-    let views = view_list(&mut shell, &mut driver, w2, "vl-survivor");
+    let views = view_rows(&mut shell, &mut driver, w2, "vl-survivor");
+    let row = |id: &str| {
+        views
+            .iter()
+            .find(|v| v["view_id"] == id)
+            .unwrap_or_else(|| panic!("{id} listed: {views:?}"))
+    };
+    assert_eq!(row("view-2")["window_id"], w2.to_string());
+    assert_eq!(row("view-2")["attached"], true);
     assert!(
-        views.contains(&"view-2".to_string()),
-        "w2 view survives: {views:?}"
+        row("view-1")["window_id"].is_null(),
+        "w1 view pooled without an owner: {views:?}"
     );
-    assert!(
-        !views.contains(&"view-1".to_string()),
-        "w1 view torn down: {views:?}"
-    );
+    assert_eq!(row("view-1")["attached"], false);
 }
 
 /// Clean counterpart: quit over two clean windows approves both —

@@ -72,7 +72,7 @@ use synvelis_project::{
     MASTER_FADER_RAW, ModulationAssignmentId, ParameterTargetId, RelationCoverage,
 };
 use synvelis_workspace::controls_ui::{TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET};
-use synvelis_workspace::{ArrangementRow, RelationRow};
+use synvelis_workspace::{ArrangementRow, RelationRow, ViewType};
 
 use crate::binding::{PROJECT_TARGET, VIEW_STATE_TARGET};
 
@@ -269,6 +269,47 @@ pub fn secondary_view_targets() -> Vec<String> {
         TRANSPORT_TARGET.to_string(),
         TRANSPORT_POSITION_TARGET.to_string(),
     ]
+}
+
+/// Dock-domain metadata for a composition-root view — everything the
+/// workspace adoption seam and the `syn.window.dock_*` op layer need
+/// that the wire `view_id` alone cannot carry: the persisted
+/// `ViewInstanceId`, the surface `ViewType`, the descriptor title,
+/// and the subscription targets the window attach issues.
+pub struct DockViewInfo {
+    /// Persisted dock identity.
+    pub instance: ViewInstanceId,
+    /// Surface kind recorded in the view descriptor.
+    pub kind: ViewType,
+    /// Descriptor title (tab caption / window chrome).
+    pub title: &'static str,
+    /// Subscription targets issued on window attach.
+    pub targets: Vec<String>,
+}
+
+/// Resolves `view_id` to its dock metadata — `Some` only for the
+/// composition root's own views (`view-1`/`view-2`). Every other id
+/// stays on the legacy UI-only path and is never adopted into the
+/// workspace dock.
+#[must_use]
+pub fn dock_view_info(view_id: &str) -> Option<DockViewInfo> {
+    if view_id == main_view_id() {
+        Some(DockViewInfo {
+            instance: main_view_instance(),
+            kind: ViewType::Arrangement,
+            title: "Main",
+            targets: main_view_targets(),
+        })
+    } else if view_id == secondary_view_id() {
+        Some(DockViewInfo {
+            instance: secondary_view_instance(),
+            kind: ViewType::Mixer,
+            title: "Secondary",
+            targets: secondary_view_targets(),
+        })
+    } else {
+        None
+    }
 }
 
 fn key(name: &str) -> ComponentKey {

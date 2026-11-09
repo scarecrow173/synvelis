@@ -27,16 +27,31 @@
 //!   shared session survives in the remaining windows.
 //! - `Windowed { Ready }` → the boot app-state notify is delivered
 //!   (once per window — `post_event` also buffers pre-ready traffic).
+//! - `Windowed { Created | Ready | Resized | Moved | Focused |
+//!   ScaleFactorChanged }` → forwarded to the workspace through the
+//!   internal `syn.window.lifecycle` op so `WorkspaceManager` — the
+//!   dock/window authority — sees every host-created window
+//!   (`adopt_window` on first sight, never `create_window`). `Ready`
+//!   additionally delivers the boot app-state notify once per window.
 //! - `Windowed { Destroyed }` → [`UiRuntime::cancel_window_jobs`] +
-//!   `syn.view.close` replayed for every view the shell recorded on
-//!   that window (the same teardown contract a view would run — never
-//!   a parallel cleanup path) + `exit()` when the last window dies.
+//!   `syn.window.lifecycle{destroyed}` so the workspace applies the
+//!   window's `WindowCloseDisposition` (`DetachViews` pools docked
+//!   views — UI detach, never `syn.view.close`; `ReleaseViews`
+//!   removes them) + `syn.view.close` replayed only for legacy
+//!   (non-dock) views the shell recorded on that window + `exit()`
+//!   when the last window dies.
+//! - `syn.window.dock_prepare_new_window` pushes a [`WindowRequest`]
+//!   the shell drains into `driver.create_window`; the new window's
+//!   `Ready` attaches the pending view (the one `syn.view.attach`
+//!   the app permits mid-saga) and commits the move — attach or
+//!   commit failure aborts the move and destroys the orphan window.
 //! - `syn.app.quit` sets the shared quit flag from inside the sealed
 //!   service; the shell observes it and `request_close`s every live
 //!   window (each passes the vetoable close flow — quit is never a
 //!   silent destroy).
 //!
-//! The shell also tracks `syn.view.{attach,detach,close}` intents it
+//! The shell also tracks `syn.view.{attach,detach,close}` and
+//! `syn.window.dock_{commit,reattach,detach,abort}` intents it
 //! forwards and reconciles `view → window` on their successful
 //! results, so `Destroyed` teardown targets exactly the views that
 //! lived on the dead window.
@@ -46,7 +61,7 @@
 //! driven on the UI thread by the driver's `run`/`pump` loop.
 
 use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -65,9 +80,15 @@ use crate::binding::{
     COMMAND_INTENT_OP, PROJECT_TARGET, VIEW_STATE_TARGET, decode_view_command,
     notify_to_view_event, project_action_op, view_command_dispatch,
 };
+use crate::screens::dock_view_info;
 use crate::service::AppService;
-use crate::ui_ops::UiOutbox;
+use crate::ui_ops::{UiOutbox, WindowRequest};
 use synvelis_workspace::controls_ui::CommandIntent;
+
+/// `"w{n}"` → [`WindowId`]; anything else → `None`.
+fn parse_window_id_str(s: &str) -> Option<WindowId> {
+    WindowId::new(s.strip_prefix('w')?.parse().ok()?)
+}
 
 /// A `syn.view.*` intent the shell is watching so it can reconcile
 /// `view → window` when the result lands.
@@ -75,12 +96,21 @@ use synvelis_workspace::controls_ui::CommandIntent;
 enum ViewOp {
     /// `syn.view.attach` — on success the view lives on the window.
     Attach,
-    /// `syn.view.detach` — the window association is kept (the app's
-    /// `ui.views` registry keeps it too; a re-attach elsewhere moves
-    /// it, a window `Destroyed` still tears it down).
+    /// `syn.view.detach` — on success a dock-domain view loses its
+    /// window (pooled); a legacy view keeps the association (the
+    /// app's `ui.views` registry keeps it too; a re-attach elsewhere
+    /// moves it, a window `Destroyed` still tears it down).
     Detach,
     /// `syn.view.close` — on success the view is gone.
     Close,
+    /// `syn.window.dock_commit` / `syn.window.dock_reattach` — on
+    /// success `data.to` names the view's new owner window.
+    DockCommit,
+    /// `syn.window.dock_detach` — on success the view is pooled.
+    DockDetach,
+    /// `syn.window.dock_abort` — on success `data.owner` names the
+    /// restored owner (`null` = detached pool).
+    DockAbort,
 }
 
 /// The driver-neutral product shell — one instance per app process.
@@ -95,6 +125,11 @@ pub struct NativeShell {
     /// Shared UI clock cell — advanced per `Tick`; `ui_pump` re-syncs
     /// the gateway clock from it inside every op.
     clock: Rc<Cell<u64>>,
+    /// Shared window-request queue — `syn.window.dock_prepare_new_
+    /// window` pushes here; the shell drains it into
+    /// `driver.create_window` (the app→shell direction of the
+    /// new-window dock saga).
+    window_requests: Rc<RefCell<VecDeque<WindowRequest>>>,
     /// Session `AttachEpoch` allocator — shared cell captured before
     /// the app sealed, so mid-session host recreation still mints
     /// from the single allocator (RF387).
@@ -121,7 +156,17 @@ pub struct NativeShell {
     /// flight — `Some` only for `attach` when the declared
     /// `window_id` names a live tracked window.
     pending_view_ops: HashMap<String, (ViewOp, String, Option<WindowId>)>,
-    /// Shell-minted intent ids for teardown replays.
+    /// Window title per tracked window — forwarded on `Created` so
+    /// the workspace record carries the spec the shell created the
+    /// window with (driver `Created` itself carries no payload).
+    window_titles: HashMap<WindowId, String>,
+    /// New-window saga destinations the shell created but that have
+    /// not committed yet: `window → view_id`. On the window's `Ready`
+    /// the shell attaches the view and commits the dock move; on
+    /// `Destroyed` (or attach/commit failure) it aborts the move and
+    /// destroys the orphan.
+    saga_windows: HashMap<WindowId, String>,
+    /// Shell-minted intent ids for teardown/lifecycle replays.
     teardown_seq: u64,
 }
 
@@ -152,6 +197,7 @@ impl NativeShell {
         let quit = app.quit_flag();
         let outbox = app.event_outbox();
         let clock = app.ui_clock();
+        let window_requests = app.window_requests();
         let attach_epochs = app.attach_epoch_allocator();
         let initial_notify = app.app_state_notify();
         let mut rt = UiRuntime::new(data);
@@ -161,6 +207,7 @@ impl NativeShell {
             quit,
             outbox,
             clock,
+            window_requests,
             attach_epochs,
             initial_notify,
             tick_ms: u64::try_from(tick.as_millis()).unwrap_or(u64::MAX),
@@ -168,6 +215,8 @@ impl NativeShell {
             views: HashMap::new(),
             view_generation: HashMap::new(),
             pending_view_ops: HashMap::new(),
+            window_titles: HashMap::new(),
+            saga_windows: HashMap::new(),
             teardown_seq: 0,
         })
     }
@@ -200,7 +249,9 @@ impl NativeShell {
             title: "Synvelis".to_string(),
             ..WindowSpec::default()
         };
-        driver.create_window(&spec)
+        let window = driver.create_window(&spec)?;
+        self.window_titles.insert(window, spec.title);
+        Ok(window)
     }
 
     /// Attaches a mounted view (`ViewHost` already given to the
@@ -326,9 +377,53 @@ impl NativeShell {
         // teardown replays do) — drain it into the windows before the
         // quit check so a `syn.app.quit`'s trailing notifies still land.
         self.drain_outbox(driver);
+        self.drain_window_requests(driver);
         if self.quit.swap(false, Ordering::AcqRel) {
             for window in driver.windows() {
                 driver.request_close(window);
+            }
+        }
+    }
+
+    /// Drains app→shell [`WindowRequest`]s (pushed by
+    /// `syn.window.dock_prepare_new_window`) into
+    /// `driver.create_window`. A creation failure aborts the pending
+    /// move app-side (`dock_abort{failed}`) so the view keeps its
+    /// source ownership; a success registers the window as a saga
+    /// destination — its `Ready` attaches + commits, its
+    /// `Destroyed` aborts.
+    fn drain_window_requests(&mut self, driver: &mut dyn WindowDriver) {
+        let mut pending = Vec::new();
+        {
+            let mut queue = self.window_requests.borrow_mut();
+            while let Some(request) = queue.pop_front() {
+                pending.push(request);
+            }
+        }
+        for request in pending {
+            match driver.create_window(&request.spec) {
+                Ok(window) => {
+                    self.window_titles
+                        .insert(window, request.spec.title.clone());
+                    self.saga_windows.insert(window, request.view_id.clone());
+                    tracing::info!(
+                        window = %window,
+                        view_id = %request.view_id,
+                        "dock new-window request → window created"
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        view_id = %request.view_id,
+                        error = %e,
+                        "dock new-window creation failed — aborting move"
+                    );
+                    self.dispatch_dock_abort(
+                        &request.view_id,
+                        &format!("window creation failed: {e}"),
+                        driver,
+                    );
+                }
             }
         }
     }
@@ -352,15 +447,81 @@ impl NativeShell {
         match event {
             WindowLifecycle::Created => {
                 self.windows.entry(window).or_insert(false);
+                self.forward_lifecycle(
+                    "created",
+                    json!({
+                        "window_id": window.to_string(),
+                        "title": self.window_titles.get(&window),
+                        "dock_view": self.saga_windows.get(&window),
+                    }),
+                    driver,
+                );
             }
             WindowLifecycle::Ready => {
                 // First `Ready` only — the boot app-state push is
                 // once per window.
                 let ready = self.windows.entry(window).or_insert(false);
-                if !*ready {
-                    *ready = true;
+                let first_ready = !*ready;
+                *ready = true;
+                // Adopt-if-unknown: fixtures that inject `Ready`
+                // without `Created` still register the window.
+                self.forward_lifecycle(
+                    "ready",
+                    json!({
+                        "window_id": window.to_string(),
+                        "title": self.window_titles.get(&window),
+                        "dock_view": self.saga_windows.get(&window),
+                    }),
+                    driver,
+                );
+                if first_ready {
                     driver.post_event(window, &self.initial_notify.clone());
                 }
+                self.drive_saga_ready(window, driver);
+            }
+            WindowLifecycle::Resized { width, height } => {
+                self.forward_lifecycle(
+                    "resized",
+                    json!({
+                        "window_id": window.to_string(),
+                        "width": width,
+                        "height": height,
+                    }),
+                    driver,
+                );
+            }
+            WindowLifecycle::Moved { x, y } => {
+                self.forward_lifecycle(
+                    "moved",
+                    json!({
+                        "window_id": window.to_string(),
+                        "x": x,
+                        "y": y,
+                    }),
+                    driver,
+                );
+            }
+            WindowLifecycle::Focused(focused) => {
+                self.forward_lifecycle(
+                    "focused",
+                    json!({
+                        "window_id": window.to_string(),
+                        "focused": focused,
+                    }),
+                    driver,
+                );
+            }
+            WindowLifecycle::ScaleFactorChanged { factor } => {
+                // DPI semantics belong to the #388/#389/#114 slice —
+                // forwarded for the record only (`recorded: false`).
+                self.forward_lifecycle(
+                    "scale_factor",
+                    json!({
+                        "window_id": window.to_string(),
+                        "factor": factor,
+                    }),
+                    driver,
+                );
             }
             WindowLifecycle::Action(intent) => {
                 if intent.op == COMMAND_INTENT_OP {
@@ -389,9 +550,139 @@ impl NativeShell {
                 }
             }
             WindowLifecycle::Destroyed => self.on_destroyed(window, driver),
-            // Resized / Moved / Focused / ScaleFactorChanged carry no
-            // runtime semantics — consumer UI state (RF386 contract).
+            // DriverEvent/WindowLifecycle are non-exhaustive — a
+            // variant added by a newer port carries no semantics this
+            // shell knows.
             _ => {}
+        }
+    }
+
+    /// Forwards one window-lifecycle fact to the workspace through
+    /// the internal `syn.window.lifecycle` op — the sealed app is
+    /// unreachable directly, so this op is the shell's only path
+    /// into window adoption/disposition state. Failures are logged,
+    /// never fatal: a missed `Resized` must not wedge the loop.
+    fn forward_lifecycle(&mut self, event: &str, params: Value, driver: &mut dyn WindowDriver) {
+        self.teardown_seq += 1;
+        let id = format!("shell-lifecycle-{}", self.teardown_seq);
+        let mut params = params;
+        params["event"] = json!(event);
+        for routed in self.rt.dispatch_op(id, "syn.window.lifecycle", params) {
+            self.post_unrouted(&routed, driver);
+        }
+    }
+
+    /// New-window saga `Ready`: attach the pending view to the fresh
+    /// window (the single `syn.view.attach` the app permits mid-saga)
+    /// then commit the dock move. Any failure aborts the move
+    /// (`dock_abort{failed}`) and destroys the orphan window — the
+    /// source view keeps its ownership and UI binding throughout.
+    fn drive_saga_ready(&mut self, window: WindowId, driver: &mut dyn WindowDriver) {
+        let Some(view_id) = self.saga_windows.get(&window).cloned() else {
+            return;
+        };
+        let Some(info) = dock_view_info(&view_id) else {
+            self.saga_windows.remove(&window);
+            self.abort_saga(driver, &view_id, window, "view has no dock metadata");
+            return;
+        };
+        match self.attach_view(driver, window, &view_id, &info.targets) {
+            Ok(_) => {
+                self.teardown_seq += 1;
+                let id = format!("shell-dock-commit-{}", self.teardown_seq);
+                let mut committed = false;
+                let mut failure: Option<String> = None;
+                for event in
+                    self.rt
+                        .dispatch_op(id, "syn.window.dock_commit", json!({ "view_id": view_id }))
+                {
+                    if let Event::Result { ok, error, .. } = &event {
+                        committed |= *ok;
+                        if !*ok {
+                            failure = Some(error.as_ref().map_or_else(
+                                || "commit rejected".to_string(),
+                                |e| e.message.clone(),
+                            ));
+                        }
+                    }
+                    self.post_unrouted(&event, driver);
+                }
+                if committed {
+                    self.saga_windows.remove(&window);
+                    tracing::info!(window = %window, view_id = %view_id, "dock move committed");
+                } else {
+                    self.abort_saga(
+                        driver,
+                        &view_id,
+                        window,
+                        &failure.unwrap_or_else(|| "commit produced no result".to_string()),
+                    );
+                }
+            }
+            Err(e) => {
+                self.abort_saga(driver, &view_id, window, &e.to_string());
+            }
+        }
+    }
+
+    /// Aborts a failed new-window saga: `dock_abort{failed}` restores
+    /// the source binding app-side, then the orphan window is
+    /// destroyed (its `Destroyed` finds no saga entry — already
+    /// removed — and no docked views).
+    fn abort_saga(
+        &mut self,
+        driver: &mut dyn WindowDriver,
+        view_id: &str,
+        window: WindowId,
+        detail: &str,
+    ) {
+        self.saga_windows.remove(&window);
+        tracing::warn!(window = %window, view_id = %view_id, detail, "dock saga aborted");
+        self.dispatch_dock_abort(view_id, detail, driver);
+        if let Err(e) = driver.destroy_window(window) {
+            tracing::debug!(window = %window, error = %e, "saga orphan destroy failed");
+        }
+    }
+
+    /// Dispatches `syn.window.dock_abort{failed}` for `view_id` and
+    /// mirrors the restored ownership into shell bookkeeping — the
+    /// op goes through `dispatch_op` (unrouted, internal), so
+    /// `observe_result` never sees its result and the `views` /
+    /// `view_generation` maps would otherwise keep pointing at the
+    /// dead destination.
+    fn dispatch_dock_abort(&mut self, view_id: &str, detail: &str, driver: &mut dyn WindowDriver) {
+        self.teardown_seq += 1;
+        let id = format!("shell-dock-abort-{}", self.teardown_seq);
+        for event in self.rt.dispatch_op(
+            id,
+            "syn.window.dock_abort",
+            json!({ "view_id": view_id, "failed": true, "detail": detail }),
+        ) {
+            if let Event::Result {
+                ok: true,
+                data: Some(d),
+                ..
+            } = &event
+            {
+                match d["owner"].as_str().and_then(parse_window_id_str) {
+                    Some(owner) => {
+                        self.views.insert(view_id.to_string(), owner);
+                    }
+                    None => {
+                        self.views.remove(view_id);
+                    }
+                }
+                match d["generation"].as_u64() {
+                    Some(g) => {
+                        self.view_generation
+                            .insert(view_id.to_string(), u32::try_from(g).unwrap_or(u32::MAX));
+                    }
+                    None => {
+                        self.view_generation.remove(view_id);
+                    }
+                }
+            }
+            self.post_unrouted(&event, driver);
         }
     }
 
@@ -618,6 +909,9 @@ impl NativeShell {
             "syn.view.attach" => ViewOp::Attach,
             "syn.view.detach" => ViewOp::Detach,
             "syn.view.close" => ViewOp::Close,
+            "syn.window.dock_commit" | "syn.window.dock_reattach" => ViewOp::DockCommit,
+            "syn.window.dock_detach" => ViewOp::DockDetach,
+            "syn.window.dock_abort" => ViewOp::DockAbort,
             _ => return,
         };
         let Some(view) = intent.params["view_id"].as_str() else {
@@ -680,45 +974,177 @@ impl NativeShell {
                     self.view_generation.remove(&view);
                 }
             }
-            ViewOp::Detach => {}
-            ViewOp::Close => {
+            ViewOp::Detach => {
+                // A dock-domain detach pools the view — it no longer
+                // lives on any window, so the owner association must
+                // go (a later `Destroyed` must not tear it down). A
+                // legacy view keeps the old contract: the association
+                // survives detach so `Destroyed` still tears it down.
+                if dock_view_info(&view).is_some() {
+                    self.views.remove(&view);
+                    self.view_generation.remove(&view);
+                }
+            }
+            ViewOp::Close | ViewOp::DockDetach => {
                 self.views.remove(&view);
                 self.view_generation.remove(&view);
+            }
+            ViewOp::DockCommit => {
+                // `data.to` names the committed destination — the
+                // dock already moved; mirror the new owner.
+                if let Some(owner) = data
+                    .as_ref()
+                    .and_then(|d| d["to"].as_str())
+                    .and_then(parse_window_id_str)
+                {
+                    self.views.insert(view.clone(), owner);
+                } else {
+                    self.views.remove(&view);
+                }
+                let generation = data
+                    .as_ref()
+                    .and_then(|d| d["generation"].as_u64())
+                    .map(|g| u32::try_from(g).unwrap_or(u32::MAX));
+                match generation {
+                    Some(g) => {
+                        self.view_generation.insert(view, g);
+                    }
+                    None => {
+                        self.view_generation.remove(&view);
+                    }
+                }
+            }
+            ViewOp::DockAbort => {
+                // `data.owner` is the restored owner (`"w{n}"` or
+                // JSON null for the detached pool).
+                match data
+                    .as_ref()
+                    .and_then(|d| d["owner"].as_str())
+                    .and_then(parse_window_id_str)
+                {
+                    Some(owner) => {
+                        self.views.insert(view.clone(), owner);
+                    }
+                    None => {
+                        self.views.remove(&view);
+                    }
+                }
+                let generation = data
+                    .as_ref()
+                    .and_then(|d| d["generation"].as_u64())
+                    .map(|g| u32::try_from(g).unwrap_or(u32::MAX));
+                match generation {
+                    Some(g) => {
+                        self.view_generation.insert(view, g);
+                    }
+                    None => {
+                        self.view_generation.remove(&view);
+                    }
+                }
             }
         }
     }
 
-    /// `Destroyed`: cancel the window's jobs, replay `syn.view.close`
-    /// for every view that lived on it (contractual teardown —
-    /// gesture cancel, generation bump, subscription release through
-    /// the single `syn.*` contract), drop bookkeeping, and exit the
-    /// loop when no window remains (app-exit is consumer policy).
+    /// `Destroyed`: cancel the window's jobs, forward the lifecycle
+    /// fact so the workspace applies the recorded
+    /// `WindowCloseDisposition` (the app tears docked views down per
+    /// disposition — `DetachViews` pools them UI-side, `ReleaseViews`
+    /// closes them), replay `syn.view.close` only for *legacy*
+    /// (non-dock) views the shell recorded on the window, drop
+    /// bookkeeping, and exit the loop when no window remains
+    /// (app-exit is consumer policy).
     fn on_destroyed(&mut self, window: WindowId, driver: &mut dyn WindowDriver) {
         let cancelled = self.rt.cancel_window_jobs(window);
         if cancelled > 0 {
             tracing::info!(window = %window, cancelled, "cancelled window jobs");
         }
         self.windows.remove(&window);
-        let orphans: Vec<String> = self
+        self.window_titles.remove(&window);
+
+        // A saga destination dying before commit aborts the pending
+        // move — the source view keeps ownership and UI binding. The
+        // abort result restores `views`/`view_generation` to the
+        // source owner, so the orphan scan below no longer sees the
+        // view on the dead window.
+        if let Some(view_id) = self.saga_windows.remove(&window) {
+            self.dispatch_dock_abort(&view_id, "destination window destroyed", driver);
+        }
+
+        // Forward `destroyed` — the workspace removes the window with
+        // its disposition; the app applies the per-view UI teardown
+        // inside the op. The result names the docked views it held.
+        let mut dock_views: Vec<String> = Vec::new();
+        let mut lifecycle_failed = false;
+        self.teardown_seq += 1;
+        let id = format!("shell-lifecycle-{}", self.teardown_seq);
+        for event in self.rt.dispatch_op(
+            id,
+            "syn.window.lifecycle",
+            json!({ "window_id": window.to_string(), "event": "destroyed" }),
+        ) {
+            if let Event::Result { ok, data, .. } = &event {
+                if *ok {
+                    if let Some(views) = data.as_ref().and_then(|d| d["views"].as_array()) {
+                        dock_views = views
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .map(str::to_string)
+                            .collect();
+                    }
+                } else {
+                    lifecycle_failed = true;
+                }
+            }
+            self.post_unrouted(&event, driver);
+        }
+
+        // Views the dead window held: dock-domain views were already
+        // torn down app-side per disposition — drop shell bookkeeping
+        // only. On a lifecycle failure fall back to the safe default
+        // (`DetachViews`): dock-domain views get a `syn.view.detach`
+        // replay (pool, nothing lost) instead of a blind close.
+        let mut orphans: Vec<String> = self
             .views
             .iter()
             .filter(|(_, w)| **w == window)
             .map(|(v, _)| v.clone())
             .collect();
-        for view in orphans {
-            self.teardown_seq += 1;
-            let id = format!("shell-teardown-{}", self.teardown_seq);
-            for event in self
-                .rt
-                .dispatch_op(id, "syn.view.close", json!({ "view_id": view }))
-            {
-                // Teardown acks are unrouted — broadcast to whatever
-                // windows remain (a `syn.view.close` result also
-                // pumps the outbox, drained by `handle` next).
-                self.post_unrouted(&event, driver);
+        for view in orphans.drain(..) {
+            let docked = dock_views.iter().any(|v| v == &view)
+                || (!lifecycle_failed && dock_view_info(&view).is_some());
+            if docked {
+                self.views.remove(&view);
+                self.view_generation.remove(&view);
+                if lifecycle_failed {
+                    // Fail-safe pool — never lose a dock view to a
+                    // teardown path that could not read the
+                    // disposition.
+                    self.teardown_seq += 1;
+                    let id = format!("shell-teardown-{}", self.teardown_seq);
+                    for event in self.rt.dispatch_op(
+                        id,
+                        "syn.view.detach",
+                        json!({ "view_id": view, "reason": "unmount" }),
+                    ) {
+                        self.post_unrouted(&event, driver);
+                    }
+                }
+            } else {
+                // Legacy view — the contractual close replay.
+                self.teardown_seq += 1;
+                let id = format!("shell-teardown-{}", self.teardown_seq);
+                for event in self
+                    .rt
+                    .dispatch_op(id, "syn.view.close", json!({ "view_id": view }))
+                {
+                    // Teardown acks are unrouted — broadcast to whatever
+                    // windows remain (a `syn.view.close` result also
+                    // pumps the outbox, drained by `handle` next).
+                    self.post_unrouted(&event, driver);
+                }
+                self.views.remove(&view);
+                self.view_generation.remove(&view);
             }
-            self.views.remove(&view);
-            self.view_generation.remove(&view);
         }
         if driver.windows().is_empty() {
             driver.exit();

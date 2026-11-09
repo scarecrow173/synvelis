@@ -51,6 +51,7 @@ Directory: `docs/test-specs`
 | TSPEC-034Uoh9algsOuSv2AuYVZJ | SV-GUI-04 slice1 precursor 検証仕様: headless multi-window dock fixture | approved | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | TSPEC-Vjrs2MxmcQmuKhfJmVUxJe | SV-GUI-04 slice1 テスト仕様 — 実 2-window mount | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TSPEC-034UqwToZSbEbuOAgyC2SB | SV-GUI-04 slice2 テスト仕様 — close-veto/cancel | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
+| TSPEC-3hJ8nB5cV1xZ7kM2qW9eRt | SV-GUI-04 slice2 テスト仕様 — dock transfer workspace adoption + GUI op 配線 | approved | [sv-gui-04-slice2-dock-transfer-workspace-adoption.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption.md) |
 | TSPEC-Wa6Ax4SQSRfWvuKIzs8fCf | SV175-01 検証仕様: NativeShell lifecycle + ViewBinding wire 形 | approved | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TSPEC-zjbHKZf81iknbLJPzohrKC | SV175-02 検証仕様: ViewHost mount → typed binding → lifecycle | approved | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TSPEC-034T7Ieio7KRMC297yqbIs | SV177 theme contract + workspace preset headless verification | approved | [sv177-theme-preset-contract.md](./sv177-theme-preset-contract.md) |
@@ -88,6 +89,7 @@ Directory: `docs/test-specs`
 | TSPEC-034Uoh9algsOuSv2AuYVZJ | SV-GUI-04 slice1 precursor 検証仕様: headless multi-window dock fixture | approved | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | TSPEC-Vjrs2MxmcQmuKhfJmVUxJe | SV-GUI-04 slice1 テスト仕様 — 実 2-window mount | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TSPEC-034UqwToZSbEbuOAgyC2SB | SV-GUI-04 slice2 テスト仕様 — close-veto/cancel | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
+| TSPEC-3hJ8nB5cV1xZ7kM2qW9eRt | SV-GUI-04 slice2 テスト仕様 — dock transfer workspace adoption + GUI op 配線 | approved | [sv-gui-04-slice2-dock-transfer-workspace-adoption.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption.md) |
 | TSPEC-Wa6Ax4SQSRfWvuKIzs8fCf | SV175-01 検証仕様: NativeShell lifecycle + ViewBinding wire 形 | approved | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TSPEC-zjbHKZf81iknbLJPzohrKC | SV175-02 検証仕様: ViewHost mount → typed binding → lifecycle | approved | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TSPEC-034T7Ieio7KRMC297yqbIs | SV177 theme contract + workspace preset headless verification | approved | [sv177-theme-preset-contract.md](./sv177-theme-preset-contract.md) |

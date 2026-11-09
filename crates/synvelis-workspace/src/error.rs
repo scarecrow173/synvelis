@@ -19,6 +19,9 @@ pub enum WorkspaceError {
     UnknownView(ViewInstanceId),
     /// The window is not registered in this workspace.
     UnknownWindow(WindowId),
+    /// The window is already registered — adoption never replaces
+    /// an existing record.
+    DuplicateWindow(WindowId),
     /// The view is mid-transfer; editing it is locked.
     ViewBusy(ViewInstanceId),
     /// No command is registered under this id.
@@ -54,6 +57,7 @@ impl fmt::Display for WorkspaceError {
             Self::Project(e) => write!(f, "project: {e}"),
             Self::UnknownView(v) => write!(f, "unknown view {v}"),
             Self::UnknownWindow(w) => write!(f, "unknown window {w}"),
+            Self::DuplicateWindow(w) => write!(f, "duplicate window {w}"),
             Self::ViewBusy(v) => write!(f, "view {v} is mid-transfer"),
             Self::UnknownCommand(id) => write!(f, "unknown command: {id}"),
             Self::Snapshot(msg) => write!(f, "snapshot: {msg}"),
