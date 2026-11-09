@@ -8,8 +8,8 @@ use synvelis_project::{
     PlaybackMapping, Project, ProjectController, ProjectId, ProjectOp, ProjectRevision,
     SourceFrame, SourceRange, TimeAnchor,
 };
-use synvelis_workspace::ProjectSession;
 use synvelis_workspace::ArrangementRow;
+use synvelis_workspace::ProjectSession;
 use synvelis_workspace::arrangement_rows;
 
 const MEDIA_RATE: u32 = 48_000;
