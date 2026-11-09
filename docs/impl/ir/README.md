@@ -4,6 +4,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-034UvgCFl4bXw9DZ4bTr3X | SF-04 slice2 ControlSession probe observation → ControlTrace 配線 | in-progress | [sf-04-slice2-controlsession-probe-observation-trace-wiring.md](sf-04-slice2-controlsession-probe-observation-trace-wiring.md) |
 | IMPL-034UrlNf4hC31G8gfjoR8y | SV-GUI-04 slice2 close-veto/cancel — syn.window.close_guard + 末尾 window veto | completed | [sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md](sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md) |
 | IMPL-034UpGfvHCv8xjHEH5ys6e | PC-C2 双方向 Control Relation Index/Projection | completed | [pc-c2-control-relation-index-projection.md](pc-c2-control-relation-index-projection.md) |
 | IMPL-034UoCucc7Cxrp4NwMxb5V | SV-GUI-04 slice1 precursor: headless WindowHandle + dock fixture | completed | [sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md](sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md) |
@@ -66,3 +67,4 @@ Directory: `docs/impl/ir`
 | IMPL-034Ut8egNEzslbJ5OXxdeK | PC-C6 oracle REL/TR headless fixture（REL01〜07・TR01〜08 独立 oracle 照合） | completed | [pc-c6-oracle-rel-tr-headless-fixture.md](pc-c6-oracle-rel-tr-headless-fixture.md) |
 | IMPL-OABQ94C9ziv3kEtnGM5cHa | PC-C5 UI-C5-01 Relation Index の Inspector 投影 headless slice | completed | [pc-c5-01-relation-inspector.md](pc-c5-01-relation-inspector.md) |
 | IMPL-034UtkIqlxoLTf7Dvq5vMZ | SV-GUI-04 slice2 dock transfer — workspace adoption + syn.window.dock_* GUI op 配線 | completed | [sv-gui-04-slice2-dock-transfer-workspace-adoption-syn-window-dock-gui-op.md](sv-gui-04-slice2-dock-transfer-workspace-adoption-syn-window-dock-gui-op.md) |
+| IMPL-034UvpX7fem2fghDtfNDJm | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | completed | [sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md](sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md) |

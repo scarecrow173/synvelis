@@ -26,6 +26,7 @@ pub mod import;
 pub mod lowering;
 pub mod monitor;
 pub mod probe;
+pub mod probe_trace;
 pub mod processor;
 pub mod publish;
 pub mod resolver;
@@ -52,6 +53,7 @@ pub use monitor::{
     MonitorRoute, prepare_low_latency,
 };
 pub use probe::{ProbeRequestError, ProbeSession};
+pub use probe_trace::ProbeTraceBridge;
 pub use processor::{ClipPlayer, PlaybackStats};
 pub use publish::{PublishError, PublishReport, PublishedStream, SkippedStream, publish_recorded};
 pub use resolver::PreparedClip;

@@ -221,6 +221,27 @@ impl RelationScreenState {
     }
 }
 
+/// Signal Flow display state — the latest
+/// [`synvelis_workspace::SignalFlowView`] projected by the
+/// composition layer (synvelis#108 SF-05 slice 1). The whole view is
+/// carried verbatim: coverage (`Complete`/`Truncated`/`Stale`/
+/// `Unavailable`/`Unsupported`), revisions, generations, per-node
+/// runtime/probe state, and edges surface as text — never collapsed
+/// into an empty graph that reads like "no routing".
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct SignalFlowScreenState {
+    /// The last projected view (`None` before the first refresh).
+    pub view: Option<synvelis_workspace::SignalFlowView>,
+}
+
+impl SignalFlowScreenState {
+    /// Projects a [`synvelis_workspace::SignalFlowView`] verbatim.
+    #[must_use]
+    pub fn from_view(view: synvelis_workspace::SignalFlowView) -> Self {
+        Self { view: Some(view) }
+    }
+}
+
 /// The full display state [`main_screen_spec`] needs — project length
 /// (Seek range), arrangement rows, transport readout, and inspector
 /// rows. Owned by the composition root behind a shared cell; refreshed
@@ -242,6 +263,8 @@ pub struct MainScreenState {
     /// Inspector relation neighborhood display (synvelis#102
     /// UI-C5-01).
     pub relations: RelationScreenState,
+    /// Signal Flow graph/status display (synvelis#108 SF-05 slice 1).
+    pub signal_flow: SignalFlowScreenState,
 }
 
 /// Targets the main view subscribes after attach — every driven
@@ -535,6 +558,164 @@ fn relation_table(r: &RelationScreenState) -> ComponentSpec {
     })
 }
 
+/// The Signal Flow status readout — live project revision, view
+/// coverage/scope, engine attachment, activation state and the
+/// planned/published/observed/last-good generations, source-map
+/// revision/generation, staleness, and probe count. `Published` and
+/// `Active` stay distinct labels; an absent engine reads
+/// `engine unattached`, never a fake empty-success (SF-UX-05).
+fn signal_flow_status_label(s: &SignalFlowScreenState) -> ComponentSpec {
+    let text = match &s.view {
+        None => "Signal Flow — no projection".to_string(),
+        Some(view) => {
+            let status = &view.status;
+            let opt_u64 = |v: Option<u64>| v.map_or_else(|| "—".to_string(), |g| g.to_string());
+            let activation = status
+                .activation
+                .as_ref()
+                .map_or_else(|| "none".to_string(), |a| format!("{a:?}"));
+            let engine = if status.engine_attached {
+                "attached"
+            } else {
+                "unattached"
+            };
+            let stale = if status.stale { " STALE" } else { "" };
+            format!(
+                "Signal Flow — rev {} — {:?} — engine {} — activation {} — gen planned/published/observed/last-good {}/{}/{}/{} — map rev {} gen {} — probes {}{}",
+                view.project_revision.0,
+                view.coverage,
+                engine,
+                activation,
+                opt_u64(status.planned_generation),
+                opt_u64(status.published_generation),
+                opt_u64(status.observed_active_generation),
+                opt_u64(status.last_good_generation),
+                status
+                    .source_map_revision
+                    .map_or_else(|| "—".to_string(), |r| r.0.to_string()),
+                opt_u64(status.source_map_generation),
+                status.probes.len(),
+                stale,
+            )
+        }
+    };
+    ComponentSpec::Label(LabelSpec {
+        key: key("signal_flow.status"),
+        text,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Signal Flow status".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+fn signal_flow_node_label(node: &synvelis_workspace::SignalFlowNode) -> String {
+    let kind = match &node.kind {
+        synvelis_workspace::SignalFlowNodeKind::TrackStrip { .. } => "track",
+        synvelis_workspace::SignalFlowNodeKind::BusStrip { kind, .. } => match kind {
+            synvelis_project::BusKind::Master => "master",
+            synvelis_project::BusKind::Group => "bus",
+            synvelis_project::BusKind::Return => "return",
+        },
+        synvelis_workspace::SignalFlowNodeKind::Processor { .. } => "processor",
+    };
+    format!("{} ({kind})", node.label)
+}
+
+/// The Signal Flow node table — projected nodes with semantic state,
+/// runtime resolution, probe state, mute/solo verbatim (SF-UX-01/05).
+/// Read-only: `selection` is `None`.
+fn signal_flow_nodes_table(s: &SignalFlowScreenState) -> ComponentSpec {
+    let rows = s.view.as_ref().map_or_else(Vec::new, |view| {
+        view.nodes
+            .iter()
+            .map(|node| {
+                vec![
+                    Some(CellValue::Text(signal_flow_node_label(node))),
+                    Some(CellValue::Text(format!("{:?}", node.state))),
+                    Some(CellValue::Text(format!("{:?}", node.runtime))),
+                    Some(CellValue::Text(
+                        node.probe
+                            .map_or_else(|| "—".to_string(), |p| format!("{p:?}")),
+                    )),
+                    Some(CellValue::Text(
+                        if node.muted { "yes" } else { "" }.to_string(),
+                    )),
+                    Some(CellValue::Text(
+                        if node.soloed { "yes" } else { "" }.to_string(),
+                    )),
+                ]
+            })
+            .collect()
+    });
+    ComponentSpec::Table(TableSpec {
+        key: key("signal_flow.nodes"),
+        columns: vec![
+            "Node".to_string(),
+            "State".to_string(),
+            "Runtime".to_string(),
+            "Probe".to_string(),
+            "Muted".to_string(),
+            "Solo".to_string(),
+        ],
+        rows,
+        selection: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Signal Flow nodes".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The Signal Flow edge table — one row per projected edge with role,
+/// resolved endpoint labels, enabled flag and send tap verbatim.
+fn signal_flow_edges_table(s: &SignalFlowScreenState) -> ComponentSpec {
+    let rows = s.view.as_ref().map_or_else(Vec::new, |view| {
+        let label_of = |id: synvelis_workspace::SignalFlowNodeId| {
+            view.nodes
+                .iter()
+                .find(|n| n.id == id)
+                .map_or_else(|| format!("{id:?}"), signal_flow_node_label)
+        };
+        view.edges
+            .iter()
+            .map(|edge| {
+                vec![
+                    Some(CellValue::Text(format!("{:?}", edge.role))),
+                    Some(CellValue::Text(label_of(edge.source.node))),
+                    Some(CellValue::Text(label_of(edge.target.node))),
+                    Some(CellValue::Text(
+                        if edge.enabled { "yes" } else { "no" }.to_string(),
+                    )),
+                    Some(CellValue::Text(
+                        edge.tap
+                            .map_or_else(|| "—".to_string(), |t| format!("{t:?}")),
+                    )),
+                ]
+            })
+            .collect()
+    });
+    ComponentSpec::Table(TableSpec {
+        key: key("signal_flow.edges"),
+        columns: vec![
+            "Role".to_string(),
+            "Source".to_string(),
+            "Target".to_string(),
+            "Enabled".to_string(),
+            "Tap".to_string(),
+        ],
+        rows,
+        selection: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Signal Flow edges".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
 /// The Arrangement table — the project-backed track/lane/clip read
 /// model resolved by the composition layer
 /// ([`synvelis_workspace::arrangement_rows`]). Read-only: `selection`
@@ -697,6 +878,19 @@ pub fn main_screen_spec(state: &MainScreenState) -> ViewSpec {
                                     inspector_table(&state.inspector),
                                     relation_label(&state.relations),
                                     relation_table(&state.relations),
+                                ],
+                            )),
+                        },
+                        TabSpec {
+                            key: key("tab.signal_flow"),
+                            title: "Signal Flow".to_string(),
+                            child: Box::new(panel(
+                                "tab.signal_flow.panel",
+                                None,
+                                vec![
+                                    signal_flow_status_label(&state.signal_flow),
+                                    signal_flow_nodes_table(&state.signal_flow),
+                                    signal_flow_edges_table(&state.signal_flow),
                                 ],
                             )),
                         },
