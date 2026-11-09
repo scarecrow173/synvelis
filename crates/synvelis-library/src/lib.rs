@@ -1,5 +1,6 @@
 //! `synvelis-library` — the typed asset-provider boundary (ALIB-01,
-//! Synvelis #85).
+//! Synvelis #85) and the streaming verified-import pipeline (ALIB-02,
+//! Synvelis #86).
 //!
 //! This crate owns the common contract through which the app browses,
 //! observes, pins, and fetches provider assets without depending on
@@ -19,6 +20,19 @@
 //!
 //! The contract is blocking and RT-free: no Tokio, HTTP SDK, Git SDK,
 //! or GUI types appear in the public API.
+//!
+//! ALIB-02 adds [`import_verified`]: a bounded-memory pipeline that
+//! streams a [`PinnedAssetRef`] into a staging file while measuring
+//! SHA-256, verifies the staged bytes by readback, publishes into the
+//! `blobs/sha256/<64hex>` namespace through the [`BlobPublisher`] port
+//! (the `ruviform-io-file` staged-publication primitive in
+//! production), and commits asset + source + applied-import (+
+//! optional clip) atomically at the manifest-pinned project revision.
+//! [`ImportManifest`] is the durable job record driving crash
+//! recovery; [`rebase_import`], [`inspect_imports`], and
+//! [`gc_orphans`] are the explicit recovery surface. `CommittedLive`
+//! never implies `SavedRevision`/`HEAD` — saving stays the caller's
+//! `ProjectController::save` concern.
 
 mod browse;
 mod capability;
@@ -26,6 +40,7 @@ mod context;
 mod digest;
 mod error;
 mod id;
+mod import;
 mod local;
 mod observation;
 mod project;
@@ -46,6 +61,13 @@ pub use context::{
 };
 pub use error::{ProviderError, ProviderErrorKind, RetryAdvice};
 pub use id::{CredentialKey, OpaqueCredential, OpaqueLocator, PrincipalId, ProviderId};
+pub use import::{
+    BlobImportReceipt, BlobMaterialization, BlobPublishError, BlobPublishFailure,
+    BlobPublishReceipt, BlobPublisher, BlobRetainReason, CommitReceipt, CommitVerifiedImport,
+    DirectorySync, ImportError, ImportIntent, ImportJobInfo, ImportManifest, ImportOutcome,
+    ImportStage, ImportStore, ImportTarget, OrphanGcReport, PublishDurability, StagedBlobPublisher,
+    StagingRetainReason, gc_orphans, import_verified, inspect_imports, rebase_import,
+};
 pub use local::LocalFolderProvider;
 pub use observation::{
     AssetKind, AssetObservation, AssetStat, Availability, EntryFacts, InferenceMethod, MediaFacts,
