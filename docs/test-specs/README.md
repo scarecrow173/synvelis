@@ -29,6 +29,7 @@ Directory: `docs/test-specs`
 | TSPEC-034PCA11Wr6fZa2gIjWkLm | PC-A 検証仕様 — Parameter Control 合意8領域 headless 受入 | approved | [pc-a-e2e-parameter-control.md](./pc-a-e2e-parameter-control.md) |
 | TSPEC-034PCB05Ql0zTu6aCdEfGh | PC-B Parameter Control dispatch/note-scope/RT/offline 検証仕様 | approved | [pc-b-e2e-parameter-dispatch.md](./pc-b-e2e-parameter-dispatch.md) |
 | TSPEC-034RoV9mM6nXzVq1kYpQwE | PC-C1 Recording Transaction 検証仕様 | approved | [pc-c1-e2e-recording-transaction.md](./pc-c1-e2e-recording-transaction.md) |
+| TSPEC-034Upc3ciohad3ZlmsOqVl | PC-C2 Control Relation Index E2E — 双方向・状態・stale・有界性・read-only | approved | [pc-c2-e2e-control-relation-index.md](./pc-c2-e2e-control-relation-index.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
 | TSPEC-034SF02Xa1sPq8rU1wC6dEgHi | SF-02 E2E/契約テスト仕様 — RoutingTransaction Reject/不変/Undo/Revision | approved | [sf-02-e2e-routing-transaction.md](./sf-02-e2e-routing-transaction.md) |
 | TSPEC-106SF03Ij7jKl8mNo9pQr0sTu | SF-03 slice1 テスト仕様 — Lowering Golden/SourceMap・Activation 証拠 | approved | [sf-03-slice1-lowering-activation.md](./sf-03-slice1-lowering-activation.md) |
