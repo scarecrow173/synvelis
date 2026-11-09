@@ -37,6 +37,7 @@ pub mod app;
 #[cfg(feature = "webview")]
 pub mod assets;
 pub mod binding;
+pub mod engine;
 pub mod error;
 pub mod host;
 pub mod logging;
@@ -48,6 +49,7 @@ pub mod ui_ops;
 
 pub use app::{AudioRuntimeSlot, ObservabilityOwner, RecorderSlot, SynvelisApp};
 pub use binding::{BindingNotice, ProjectionRow, ViewBinding};
+pub use engine::{SessionEngineConfig, SessionEngineError, SessionRoutingEngine};
 pub use error::{AppError, AssetError, AssetErrorKind};
 pub use host::ShellWindowHost;
 pub use logging::{

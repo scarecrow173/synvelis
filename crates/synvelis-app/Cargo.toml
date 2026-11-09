@@ -13,7 +13,11 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 synvelis-project = { path = "../synvelis-project" }
+synvelis-player = { path = "../synvelis-player" }
 synvelis-workspace = { path = "../synvelis-workspace" }
+ruviform-audio.workspace = true
+ruviform-audio-core.workspace = true
+ruviform-media-reader.workspace = true
 ruviform-ui.workspace = true
 ruviform-observability = { workspace = true, features = ["logging"] }
 tracing.workspace = true

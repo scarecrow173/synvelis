@@ -6865,6 +6865,9 @@ name = "synvelis-app"
 version = "0.1.0"
 dependencies = [
  "rust-embed",
+ "ruviform-audio",
+ "ruviform-audio-core",
+ "ruviform-media-reader",
  "ruviform-observability",
  "ruviform-ui",
  "ruviform-ui-gpui",
@@ -6873,6 +6876,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "synvelis-player",
  "synvelis-project",
  "synvelis-theme",
  "synvelis-workspace",
