@@ -32,6 +32,7 @@ relations:
   related:
     - "docs/adr/sf-03-authoritative-owner-routingengine-receipt-sourcemap.md"
     - "docs/adr/sf-03-semantic-lowering-source-map-activation-boundary.md"
+    - "docs/specs/pc-c4-plugin-param-binding.md"
   refines: []
   refined-by: []
   derives-from:

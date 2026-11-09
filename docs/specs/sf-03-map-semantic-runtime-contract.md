@@ -35,6 +35,7 @@ relations:
     - "docs/specs/sf-04-slice2-controlsession-probe-trace.md"
     - "docs/specs/sf-05-signal-flow-headless-hierarchy.md"
     - "docs/specs/pc-c6-oracle-rel-tr.md"
+    - "docs/specs/pc-c4-plugin-param-binding.md"
     - "docs/adr/sf-03-authoritative-owner-routingengine-receipt-sourcemap.md"
   refines: []
   refined-by: []
@@ -55,6 +56,7 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/105"
     - "https://github.com/scarecrow173/synvelis/issues/107"
     - "https://github.com/scarecrow173/synvelis/issues/108"
+    - "https://github.com/scarecrow173/synvelis/issues/101"
   defers:
     - "SF-ACT-05〜09 の実機部分（RT latency/underrun・実 device epoch restart・実 OS/実デバイス/VST3 検証）"
     - "SF-ACT-06 残件（automation→TimedParamEvent lowering 配線・Fast Control active-generation gate・GUI）"
@@ -278,7 +280,8 @@ SF-05（#108）・PC-C6（#103）も main 統合済みで、これらは全て
 
 - Issue #106（本 spec の source）、#104/#105（SF-01/02 正本）、
   #100（TRACE-C3）、#103（PC-C6 oracle）、#107（SF-04 probe）、
-  #108（SF-05 signal flow）。
+  #108（SF-05 signal flow）、#101（PC-C4 plugin param binding —
+  capability gate/世代スコープ control の consumer 側実装）。
 - 前提文書: `docs/specs/sf-03-slice1..5`（実装済み契約）、
   `docs/adr/sf-03-semantic-lowering-source-map-activation-boundary.md`、
   `docs/specs/pc-c3-control-trace-projection.md`、
