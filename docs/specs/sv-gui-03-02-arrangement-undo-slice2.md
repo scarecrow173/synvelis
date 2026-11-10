@@ -33,7 +33,8 @@ relations:
     - "docs/test-specs/sv-gui-03-02-arrangement-undo-slice2.md"
   refines:
     - "docs/specs/sv-gui-03-01-transport-inspector-slice1.md"
-  refined-by: []
+  refined-by:
+    - "docs/specs/sv-gui-03-03-mixer-strip-toggle-slice3.md"
   derives-from: []
   derived-by: []
   verifies: []

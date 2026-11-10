@@ -41,7 +41,9 @@ use crate::error::AppError;
 use crate::host::ShellWindowHost;
 use crate::logging::InstallState;
 use crate::revision::HOST_REVISION;
-use crate::screens::{MainScreenState, RelationScreenState, SignalFlowScreenState};
+use crate::screens::{
+    MainScreenState, RelationScreenState, SignalFlowScreenState, mixer_strip_targets,
+};
 use crate::ui_ops::UiOpsState;
 
 /// Crate version baked at build time — the app revision reported to
@@ -402,6 +404,7 @@ impl SynvelisApp {
         screen.signal_flow = SignalFlowScreenState::from_view(
             self.signal_flow_view(&crate::screens::main_view_id()),
         );
+        screen.mixer = mixer_strip_targets(&self.workspace.session().project().control);
     }
 
     fn fresh_session(name: &str) -> ProjectSession {
