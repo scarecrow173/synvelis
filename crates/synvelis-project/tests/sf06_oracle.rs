@@ -245,12 +245,7 @@ fn build_mix_project() -> Project {
         &c,
         ProjectOp::AddConnection {
             source: strip_main_port(c.live(), kick_strip, PortDirection::Output),
-            destination: processor_port(
-                c.live(),
-                comp,
-                PortRole::Sidechain,
-                PortDirection::Input,
-            ),
+            destination: processor_port(c.live(), comp, PortRole::Sidechain, PortDirection::Input),
             kind: ConnectionKind::Sidechain,
             channel_map: None,
         },
@@ -287,7 +282,9 @@ fn build_chain_project(disable_middle_main: bool) -> Project {
             .connections
             .values()
             .find(|conn| {
-                conn.kind == ConnectionKind::Main && conn.source == b_out && conn.destination == m_in
+                conn.kind == ConnectionKind::Main
+                    && conn.source == b_out
+                    && conn.destination == m_in
             })
             .unwrap()
             .id;
@@ -363,7 +360,7 @@ impl<'p> AudibilityOracle<'p> {
     /// `control.targets` directly (first match, same as the persisted
     /// singleton contract; duplicates are a separate invariant
     /// violation).
-    fn engaged(&self, control: &ControlModel, strip: StripId, role: ParameterRole) -> bool {
+    fn engaged(control: &ControlModel, strip: StripId, role: ParameterRole) -> bool {
         control
             .targets
             .values()
@@ -376,7 +373,7 @@ impl<'p> AudibilityOracle<'p> {
             .routing
             .strips
             .keys()
-            .filter(|strip| self.engaged(control, **strip, ParameterRole::Mute))
+            .filter(|strip| Self::engaged(control, **strip, ParameterRole::Mute))
             .copied()
             .collect()
     }
@@ -386,7 +383,7 @@ impl<'p> AudibilityOracle<'p> {
             .routing
             .strips
             .keys()
-            .filter(|strip| self.engaged(control, **strip, ParameterRole::Solo))
+            .filter(|strip| Self::engaged(control, **strip, ParameterRole::Solo))
             .copied()
             .collect()
     }
@@ -417,7 +414,6 @@ impl<'p> AudibilityOracle<'p> {
 
     /// BFS reachability over the strip graph; seeds are included.
     fn reach(
-        &self,
         edges: &BTreeMap<StripId, BTreeSet<StripId>>,
         seeds: &BTreeSet<StripId>,
         direction: Reach,
@@ -474,25 +470,16 @@ impl<'p> AudibilityOracle<'p> {
                 .collect();
         }
         let edges = self.edges(&muted);
-        let mut audible = self.reach(&edges, &soloed, Reach::Upstream);
-        if let Some(master) = self
-            .project
-            .routing
-            .buses
-            .get(&self.project.routing.master)
-        {
-            let to_master = self.reach(
-                &edges,
-                &BTreeSet::from([master.strip]),
-                Reach::Upstream,
-            );
+        let mut audible = Self::reach(&edges, &soloed, Reach::Upstream);
+        if let Some(master) = self.project.routing.buses.get(&self.project.routing.master) {
+            let to_master = Self::reach(&edges, &BTreeSet::from([master.strip]), Reach::Upstream);
             audible.extend(
-                self.reach(&edges, &soloed, Reach::Downstream)
+                Self::reach(&edges, &soloed, Reach::Downstream)
                     .intersection(&to_master)
                     .copied(),
             );
         } else {
-            audible.extend(self.reach(&edges, &soloed, Reach::Downstream));
+            audible.extend(Self::reach(&edges, &soloed, Reach::Downstream));
         }
         audible.retain(|strip| !muted.contains(strip));
         audible
@@ -543,20 +530,10 @@ fn sweep_audibility(project: &Project, label: &str) {
     for mask in 0..combos {
         let mut control = project.control.clone();
         for (i, strip) in strips.iter().enumerate() {
-            control
-                .targets
-                .get_mut(&mute_ids[strip])
-                .unwrap()
-                .base = if (mask >> i) & 1 == 1 { 1.0 } else { 0.0 };
-            control
-                .targets
-                .get_mut(&solo_ids[strip])
-                .unwrap()
-                .base = if (mask >> (n + i)) & 1 == 1 {
-                    1.0
-                } else {
-                    0.0
-                };
+            control.targets.get_mut(&mute_ids[strip]).unwrap().base =
+                if (mask >> i) & 1 == 1 { 1.0 } else { 0.0 };
+            control.targets.get_mut(&solo_ids[strip]).unwrap().base =
+                if (mask >> (n + i)) & 1 == 1 { 1.0 } else { 0.0 };
         }
         let observed = project.routing.audible_strips(&control);
         let expected = oracle.audible(&control);
@@ -572,11 +549,38 @@ fn sweep_audibility(project: &Project, label: &str) {
 // SF-VALID-01/02)
 // ---------------------------------------------------------------------------
 
+/// DFS cycle detector for the strip-level enabled-edge graph used by
+/// [`routing_invariant_violations`]. `state`: 0=unvisited, 1=open,
+/// 2=done; revisiting an open node reports a cycle.
+fn visit_for_cycle(
+    strip: StripId,
+    edges: &BTreeMap<StripId, BTreeSet<StripId>>,
+    state: &mut BTreeMap<StripId, u8>,
+    violations: &mut Vec<String>,
+) {
+    match state.get(&strip).copied().unwrap_or(0) {
+        2 => return,
+        1 => {
+            violations.push(format!("routing cycle at strip {strip}"));
+            return;
+        }
+        _ => {}
+    }
+    state.insert(strip, 1);
+    if let Some(next) = edges.get(&strip) {
+        for target in next {
+            visit_for_cycle(*target, edges, state, violations);
+        }
+    }
+    state.insert(strip, 2);
+}
+
 /// Re-checks the documented persisted routing contract from raw
 /// fields — the same invariants `Project::validate_references`
 /// enforces, re-derived independently so a validator blind spot
 /// cannot hide behind the oracle that shares it. Returns human-readable
 /// violations; empty means the model satisfies the contract.
+#[allow(clippy::too_many_lines)] // sequential contract checks read top-to-bottom
 fn routing_invariant_violations(p: &Project) -> Vec<String> {
     let mut violations = Vec::new();
     let r = &p.routing;
@@ -625,9 +629,15 @@ fn routing_invariant_violations(p: &Project) -> Vec<String> {
     }
 
     // Exactly one master bus, and `routing.master` names it.
-    let master_count = r.buses.values().filter(|b| b.kind == BusKind::Master).count();
+    let master_count = r
+        .buses
+        .values()
+        .filter(|b| b.kind == BusKind::Master)
+        .count();
     if master_count != 1 {
-        violations.push(format!("expected exactly one master bus, found {master_count}"));
+        violations.push(format!(
+            "expected exactly one master bus, found {master_count}"
+        ));
     }
     match r.buses.get(&r.master) {
         Some(bus) if bus.kind == BusKind::Master => {}
@@ -639,7 +649,10 @@ fn routing_invariant_violations(p: &Project) -> Vec<String> {
     for bus in r.buses.values() {
         match r.strips.get(&bus.strip) {
             Some(strip) if strip.owner == StripOwner::Bus(bus.id) => {}
-            _ => violations.push(format!("bus {} strip {} missing or foreign-owned", bus.id, bus.strip)),
+            _ => violations.push(format!(
+                "bus {} strip {} missing or foreign-owned",
+                bus.id, bus.strip
+            )),
         }
         let owned = r
             .strips
@@ -647,7 +660,10 @@ fn routing_invariant_violations(p: &Project) -> Vec<String> {
             .filter(|s| s.owner == StripOwner::Bus(bus.id))
             .count();
         if owned != 1 {
-            violations.push(format!("bus {} has {owned} owned strips, expected 1", bus.id));
+            violations.push(format!(
+                "bus {} has {owned} owned strips, expected 1",
+                bus.id
+            ));
         }
     }
 
@@ -702,7 +718,10 @@ fn routing_invariant_violations(p: &Project) -> Vec<String> {
     for chain in r.chains.values() {
         for processor in &chain.processors {
             if !r.processors.contains_key(processor) {
-                violations.push(format!("chain {} references missing processor {processor}", chain.id));
+                violations.push(format!(
+                    "chain {} references missing processor {processor}",
+                    chain.id
+                ));
             }
             if processor_chain.insert(*processor, chain.id).is_some() {
                 violations.push(format!("processor {processor} appears in two chains"));
@@ -740,10 +759,7 @@ fn routing_invariant_violations(p: &Project) -> Vec<String> {
     let mut send_edges: BTreeMap<SendId, RoutingConnectionId> = BTreeMap::new();
     let mut plain_edges: BTreeSet<(SemanticPortId, SemanticPortId)> = BTreeSet::new();
     for conn in r.connections.values() {
-        let endpoints = match (
-            r.ports.get(&conn.source),
-            r.ports.get(&conn.destination),
-        ) {
+        let endpoints = match (r.ports.get(&conn.source), r.ports.get(&conn.destination)) {
             (Some(src), Some(dst)) => Some((src.direction, dst.direction)),
             _ => None,
         };
@@ -785,12 +801,15 @@ fn routing_invariant_violations(p: &Project) -> Vec<String> {
     for send in r.sends.values() {
         match r.connections.get(&send.connection) {
             Some(conn) if conn.kind == ConnectionKind::Send(send.id) => {}
-            _ => violations.push(format!("send {} points at a non-send or missing connection", send.id)),
+            _ => violations.push(format!(
+                "send {} points at a non-send or missing connection",
+                send.id
+            )),
         }
-        if let Some(target) = send.gain_target {
-            if !p.control.targets.contains_key(&target) {
-                violations.push(format!("send {} gain_target {target} is dangling", send.id));
-            }
+        if let Some(target) = send.gain_target
+            && !p.control.targets.contains_key(&target)
+        {
+            violations.push(format!("send {} gain_target {target} is dangling", send.id));
         }
     }
 
@@ -805,37 +824,14 @@ fn routing_invariant_violations(p: &Project) -> Vec<String> {
         if let (Some(src), Some(dst)) = (
             oracle.strip_of_port(conn.source),
             oracle.strip_of_port(conn.destination),
-        ) {
-            if src != dst {
-                edges.entry(src).or_default().insert(dst);
-            }
+        ) && src != dst
+        {
+            edges.entry(src).or_default().insert(dst);
         }
     }
     let mut state: BTreeMap<StripId, u8> = BTreeMap::new(); // 0=unvisited 1=open 2=done
-    fn visit(
-        strip: StripId,
-        edges: &BTreeMap<StripId, BTreeSet<StripId>>,
-        state: &mut BTreeMap<StripId, u8>,
-        violations: &mut Vec<String>,
-    ) {
-        match state.get(&strip).copied().unwrap_or(0) {
-            2 => return,
-            1 => {
-                violations.push(format!("routing cycle at strip {strip}"));
-                return;
-            }
-            _ => {}
-        }
-        state.insert(strip, 1);
-        if let Some(next) = edges.get(&strip) {
-            for target in next {
-                visit(*target, edges, state, violations);
-            }
-        }
-        state.insert(strip, 2);
-    }
     for strip in r.strips.keys() {
-        visit(*strip, &edges, &mut state, &mut violations);
+        visit_for_cycle(*strip, &edges, &mut state, &mut violations);
     }
 
     // Singleton mixer authority: at most one Mute and one Solo
@@ -895,8 +891,7 @@ fn sf_model_valid_persisted_invariants_hold() {
         ("chain", build_chain_project(false)),
         ("chain-disabled", build_chain_project(true)),
     ] {
-        let violations = routing_invariant_violations(&project);
-        assert!(violations.is_empty(), "{label}: {violations:?}");
+        assert_oracle_clean(&project, label);
         assert!(project.validate_references().is_ok(), "{label}");
     }
 }
@@ -906,14 +901,14 @@ fn sf_model_valid_persisted_invariants_hold() {
 #[test]
 fn sf_model_valid_oracle_detects_corruption() {
     let project = build_mix_project();
-    assert!(routing_invariant_violations(&project).is_empty());
+    assert_oracle_clean(&project, "clean");
 
     // Orphaned send: drop the send-kind connection, keep the config.
     let mut bad = project.clone();
     let send_id = *bad.routing.sends.keys().next().unwrap();
     let conn_id = bad.routing.sends[&send_id].connection;
     bad.routing.connections.remove(&conn_id);
-    assert!(!routing_invariant_violations(&bad).is_empty());
+    assert_oracle_dirty(&bad, "orphaned-send");
 
     // Second master-kind bus.
     let mut bad = project.clone();
@@ -928,7 +923,7 @@ fn sf_model_valid_oracle_detects_corruption() {
             strip,
         },
     );
-    assert!(!routing_invariant_violations(&bad).is_empty());
+    assert_oracle_dirty(&bad, "second-master");
 
     // Duplicate main/sidechain edge under a fresh ID.
     let mut bad = project.clone();
@@ -940,13 +935,9 @@ fn sf_model_valid_oracle_detects_corruption() {
         .unwrap()
         .clone();
     let new_id = RoutingConnectionId::new(9_999_999);
-    bad.routing.connections.insert(
-        new_id,
-        RoutingConnection {
-            id: new_id,
-            ..conn
-        },
-    );
+    bad.routing
+        .connections
+        .insert(new_id, RoutingConnection { id: new_id, ..conn });
     assert!(
         routing_invariant_violations(&bad)
             .iter()
@@ -980,21 +971,28 @@ fn sf_model_valid_oracle_detects_corruption() {
     // Dangling connection endpoint.
     let mut bad = project.clone();
     let conn_id = *bad.routing.connections.keys().next().unwrap();
-    bad.routing
-        .connections
-        .get_mut(&conn_id)
-        .unwrap()
-        .source = SemanticPortId::new(7_777_777);
-    assert!(!routing_invariant_violations(&bad).is_empty());
+    bad.routing.connections.get_mut(&conn_id).unwrap().source = SemanticPortId::new(7_777_777);
+    assert_oracle_dirty(&bad, "dangling-endpoint");
+}
+
+/// Asserts the invariant oracle reports no violations, printing them
+/// on failure.
+fn assert_oracle_clean(project: &Project, label: &str) {
+    let violations = routing_invariant_violations(project);
+    assert!(violations.is_empty(), "{label}: {violations:?}");
+}
+
+/// Asserts the invariant oracle reports at least one violation —
+/// corruption the oracle must not miss.
+fn assert_oracle_dirty(project: &Project, label: &str) {
+    let violations = routing_invariant_violations(project);
+    assert!(!violations.is_empty(), "{label}: oracle missed corruption");
 }
 
 /// (live revision, serialized live project) — the observable state a
 /// rejected gesture must leave untouched.
 fn state_snapshot(c: &ProjectController) -> (ProjectRevision, serde_json::Value) {
-    (
-        c.live_revision(),
-        serde_json::to_value(c.live()).unwrap(),
-    )
+    (c.live_revision(), serde_json::to_value(c.live()).unwrap())
 }
 
 /// Asserts `result` is an error and the controller state is
@@ -1002,7 +1000,7 @@ fn state_snapshot(c: &ProjectController) -> (ProjectRevision, serde_json::Value)
 /// invariant" half of SF-VALID-07/08.
 fn expect_reject(
     c: &ProjectController,
-    result: Result<ProjectRevision, Error>,
+    result: &Result<ProjectRevision, Error>,
     before: &(ProjectRevision, serde_json::Value),
     label: &str,
 ) {
@@ -1017,6 +1015,7 @@ fn expect_reject(
 /// Issue #109 SF-VALID-07/08 — every rejected gesture leaves the live
 /// project, revision, and undo history untouched.
 #[test]
+#[allow(clippy::too_many_lines)] // sequential fault rows read top-to-bottom
 fn sf_valid_07_08_fault_matrix_preserves_state() {
     let mut c = controller();
     let bass = add_track(&mut c, "bass");
@@ -1041,7 +1040,7 @@ fn sf_valid_07_08_fault_matrix_preserves_state() {
         },
     });
     // (expected_revision only needs to differ — any stale value rejects)
-    expect_reject(&c, result, &before, "stale-revision");
+    expect_reject(&c, &result, &before, "stale-revision");
 
     // Stale port-capability generation on an intent.
     let stale_cap = RoutingEditIntent {
@@ -1054,7 +1053,7 @@ fn sf_valid_07_08_fault_matrix_preserves_state() {
         approved_conversion: ExplicitConversionPolicy::None,
     };
     let result = c.apply(cmd(&c, ProjectOp::Routing { intent: stale_cap }));
-    expect_reject(&c, result, &before, "stale-capability");
+    expect_reject(&c, &result, &before, "stale-capability");
 
     // Feedback cycle through the group bus (typed rejection).
     let cycle = RoutingEditIntent {
@@ -1117,7 +1116,7 @@ fn sf_valid_07_08_fault_matrix_preserves_state() {
             channel_map: None,
         },
     ));
-    expect_reject(&c, result, &before, "send-via-addconnection");
+    expect_reject(&c, &result, &before, "send-via-addconnection");
 
     // An empty explicit channel map is malformed — target a fresh
     // edge (vox input) so the rejection is the map, not a duplicate.
@@ -1134,7 +1133,7 @@ fn sf_valid_07_08_fault_matrix_preserves_state() {
         approved_conversion: ExplicitConversionPolicy::None,
     };
     let result = c.apply(cmd(&c, ProjectOp::Routing { intent: empty_map }));
-    expect_reject(&c, result, &before, "empty-channel-map");
+    expect_reject(&c, &result, &before, "empty-channel-map");
 
     // A second master bus cannot be created.
     let result = c.apply(cmd(
@@ -1144,11 +1143,11 @@ fn sf_valid_07_08_fault_matrix_preserves_state() {
             name: "master2".into(),
         },
     ));
-    expect_reject(&c, result, &before, "second-master");
+    expect_reject(&c, &result, &before, "second-master");
 
     // Track deletion with live references rejects.
     let result = c.apply(cmd(&c, ProjectOp::RemoveTrack { track_id: bass }));
-    expect_reject(&c, result, &before, "referenced-delete");
+    expect_reject(&c, &result, &before, "referenced-delete");
 
     // A successful op after the fault battery still undoes to the
     // pre-fault project content — no phantom undo entries were
@@ -1175,8 +1174,11 @@ fn sf_valid_07_08_fault_matrix_preserves_state() {
 #[test]
 fn sf_model_05_v5_migration_projection_matches_declaration() {
     /// Serializes `project` as a schema-v5 envelope — the `routing`
-    /// field and the Strip-owned bootstrap fader target did not exist
-    /// in v5 (same construction as `routing_sf01.rs`).
+    /// field and every `Strip`-owned control target (the bootstrap
+    /// master fader plus the CTL-02 strip channel targets) did not
+    /// exist in v5, so they are omitted here and re-seeded by the
+    /// later migration steps on load (same construction as
+    /// `routing_sf01.rs`).
     fn as_v5_envelope(c: &ProjectController) -> serde_json::Value {
         let mut env = serde_json::json!({
             "schema_version": 5,
@@ -1185,10 +1187,35 @@ fn sf_model_05_v5_migration_projection_matches_declaration() {
             "project": serde_json::to_value(c.live()).unwrap(),
         });
         env["project"].as_object_mut().unwrap().remove("routing");
-        env["project"]["control"]["targets"]
+        let targets = env["project"]["control"]["targets"]
             .as_object_mut()
-            .unwrap()
-            .remove(&ParameterTargetId::new(MASTER_FADER_RAW).to_tagged());
+            .unwrap();
+        targets.remove(&ParameterTargetId::new(MASTER_FADER_RAW).to_tagged());
+        let strip_owned: Vec<String> = targets
+            .iter()
+            .filter(|(_, t)| t["owner"]["owner"] == "Strip")
+            .map(|(k, _)| k.clone())
+            .collect();
+        for key in &strip_owned {
+            targets.remove(key);
+        }
+        if !strip_owned.is_empty() {
+            let lanes = env["project"]["control"]["lanes"].as_object_mut().unwrap();
+            lanes.retain(|_, l| {
+                l["target"]
+                    .as_str()
+                    .is_none_or(|t| !strip_owned.iter().any(|k| k == t))
+            });
+            let assignments = env["project"]["control"]["assignments"]
+                .as_object_mut()
+                .unwrap();
+            assignments.retain(|_, a| {
+                [a["target"].as_str(), a["depth_source"].as_str()]
+                    .into_iter()
+                    .flatten()
+                    .all(|t| !strip_owned.iter().any(|k| k == t))
+            });
+        }
         env
     }
 
@@ -1216,7 +1243,10 @@ fn sf_model_05_v5_migration_projection_matches_declaration() {
     // declared track plus the master strip, one Main edge per track
     // into the master input, nothing fabricated.
     assert_eq!(
-        r.buses.values().filter(|b| b.kind == BusKind::Master).count(),
+        r.buses
+            .values()
+            .filter(|b| b.kind == BusKind::Master)
+            .count(),
         1
     );
     assert_eq!(r.strips.len(), TRACKS + 1);
