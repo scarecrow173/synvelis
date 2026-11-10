@@ -638,6 +638,14 @@ impl SynvelisApp {
         })
     }
 
+    /// Recording-state projection for `syn.recording.info` — the
+    /// persisted `Project.recording` entities plus recorder status
+    /// (synvelis#115 RCD-01 headless slice; read-only).
+    #[must_use]
+    pub fn recording_info(&self) -> Value {
+        crate::recording::recording_info(self.workspace.session(), &self.recorder)
+    }
+
     /// Guard reasons for the window-close decision
     /// (`syn.window.close_guard`). App-global by contract: the
     /// project/session is shared by every window, so the reasons
