@@ -25,8 +25,8 @@ use ruviform_audio_plugin_bridge::{
 };
 use ruviform_graph::NodeId;
 use ruviform_media_core::{
-    EngineFrame, PlanGeneration, TimeBase, TransportCommand, TransportPlan, TransportPlanBuilder,
-    TransportSpan,
+    EngineFrame, MediaTime, MidiEvent, PlanGeneration, TimeBase, TransportCommand, TransportPlan,
+    TransportPlanBuilder, TransportSpan,
 };
 use ruviform_plugin_core::{EventKind, ParamId, ParamInfo, TimedParamEvent};
 use synvelis_project::ParameterTargetId;
@@ -394,6 +394,70 @@ impl ParamDispatch {
         self.control
             .request(TransportCommand::Play, 0)
             .map_err(|_| DispatchError::QueueFull)?;
+        self.control
+            .install_plan(Arc::clone(&plan), 0)
+            .map_err(|_| DispatchError::QueueFull)?;
+        self.ledger.mark_plan_replaced();
+        self.ledger.record_plan(&plan, &self.table, self.node);
+        self.last_plan = Some(Arc::clone(&plan));
+        Ok(plan)
+    }
+
+    /// Stages `events` — `(engine frame, MidiEvent)` pairs — as one
+    /// generation-tagged [`TransportPlan`] of `EventKind::Midi`
+    /// payloads and installs it on the node (TIM-02, issue #126).
+    ///
+    /// The install path mirrors [`Self::dispatch`]: the plan is built
+    /// through the node's verified `plan_builder` (attach-time frame
+    /// base), minted under `next_generation`, staged with
+    /// `install_plan(due = 0)`, previously scheduled ledger entries
+    /// are marked `PlanReplaced`, and `last_plan` tracks the staged
+    /// plan. `record_plan` registers only `ParamValue` events, so a
+    /// MIDI plan records zero ledger entries — param observation is
+    /// unaffected.
+    ///
+    /// Unlike [`Self::dispatch`] no `Play` is requested: `Play`
+    /// re-anchors the node's transport position, and a bare `Play`
+    /// after `Stop` would restart position at 0, diverging from the
+    /// engine cursor the driver owns. Transport Play/Seek anchoring
+    /// stays with `HeadlessDriver` (activation, `seek`,
+    /// `resume_attached_transport`); standalone consumers start
+    /// transport through [`Self::control`] themselves.
+    ///
+    /// The node's live plan is single — `install_plan` replaces it
+    /// wholesale, so a MIDI plan and a param plan staged on the same
+    /// node are last-writer-wins (upstream contract). The plan
+    /// generation change is itself a transport discontinuity: the
+    /// node releases sounding notes and chases the new plan's
+    /// prefix before delivery resumes.
+    ///
+    /// # Errors
+    /// [`DispatchError::Empty`] when `events` is empty;
+    /// [`DispatchError::PositionUnrepresentable`] when a frame
+    /// cannot convert to the plan frame base;
+    /// [`DispatchError::QueueFull`] when the node's bounded queue
+    /// drops the staged install.
+    pub fn dispatch_midi(
+        &mut self,
+        events: &[(i64, MidiEvent)],
+    ) -> Result<Arc<TransportPlan<EventKind>>, DispatchError> {
+        if events.is_empty() {
+            return Err(DispatchError::Empty);
+        }
+        let generation = PlanGeneration::new(self.next_generation);
+        self.next_generation = self.next_generation.wrapping_add(1);
+        let mut builder = self.control.plan_builder(generation);
+        for (seq, (frame, midi)) in events.iter().enumerate() {
+            #[allow(clippy::cast_possible_truncation)]
+            builder
+                .event(
+                    MediaTime::new(*frame, self.frame_base),
+                    seq as u64,
+                    EventKind::Midi(*midi),
+                )
+                .map_err(|_| DispatchError::PositionUnrepresentable)?;
+        }
+        let plan = Arc::new(builder.build());
         self.control
             .install_plan(Arc::clone(&plan), 0)
             .map_err(|_| DispatchError::QueueFull)?;

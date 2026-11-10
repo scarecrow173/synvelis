@@ -26,6 +26,7 @@ pub mod host;
 pub mod host_param;
 pub mod import;
 pub mod lowering;
+pub mod midi;
 pub mod monitor;
 pub mod plugin_state;
 pub mod probe;
@@ -56,6 +57,7 @@ pub use lowering::{
     ClipWindow, CompSkipReason, EngineConfig, FadeDirection, FadeWindow, Lowered, NodeContent,
     OverlapSide, PlaybackBinding, SkippedPlayback,
 };
+pub use midi::{MidiCompileError, compile_midi_events};
 pub use monitor::{
     LatencyBasis, LatencyComponent, LatencyQuality, LatencyReport, LatencyResolution,
     LatencyResolutionBasis, LowLatencyMonitor, LowLatencyReadiness, LowLatencyReason,
