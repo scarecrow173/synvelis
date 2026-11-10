@@ -12,7 +12,10 @@ use ruviform_ui::dock::{
 };
 use ruviform_ui::event::HostEvent;
 use ruviform_ui::window::{MonitorInfo, WindowConfig, WindowHandle, WindowId};
-use synvelis_project::{ControlEntityRef, ProjectOp, ProjectRevision, TimeAnchor, Transform};
+use synvelis_project::{
+    ControlEntityRef, ExplicitChannelMap, PortRole, ProjectOp, ProjectRevision, SemanticPortId,
+    TimeAnchor, Transform, port_capability_generation,
+};
 
 use crate::command::{CommandContext, CommandKind, CommandOutcome, build_project_op, spec_for};
 use crate::control_edge::{
@@ -24,8 +27,13 @@ use crate::focus::{FocusState, InputContext};
 use crate::gesture::{CancelReason, Gesture, GestureFixation, GestureOutcome, GesturePreview};
 use crate::link::{LinkEvent, LinkGroupId, LinkGroupManager};
 use crate::persist::{LinkRecord, ViewRecord, WORKSPACE_SCHEMA, WorkspaceSnapshot};
+use crate::routing_gesture::{
+    RoutingGesture, RoutingGestureFixation, RoutingGestureOutcome, RoutingGesturePreview,
+    RoutingPortAssessment, assess_connection, routing_gesture_intent,
+};
 use crate::selection::{EditTimePoint, LaneScope, SelectionDomain, TimeSelection};
 use crate::session::ProjectSession;
+use crate::signal_flow_ui::{SignalFlowEntityRef, SignalFlowViewState};
 use crate::snap::{SnapEnvironment, resolve_snap};
 use crate::state::{
     EditingSelection, FollowSource, InspectionMode, SemanticTarget, ViewState, ViewStateRegistry,
@@ -871,7 +879,10 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         target: ControlEntityRef,
     ) -> Result<(), WorkspaceError> {
         let state = self.state(view)?;
-        if state.gesture.is_some() || state.control_edge_gesture.is_some() {
+        if state.gesture.is_some()
+            || state.control_edge_gesture.is_some()
+            || state.routing_gesture.is_some()
+        {
             return Err(WorkspaceError::GestureActive(view));
         }
         if self.dock.is_transferring(view) {
@@ -980,6 +991,362 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         Ok(ControlEdgeOutcome::Cancelled { reason })
     }
 
+    // -- Signal Flow inspection focus (SF-UX-04) -----------------------
+    //
+    // A routing entity inspected by a Signal Flow view — independent
+    // of the arrangement `inspection_focus`/`SelectionDomain` pair.
+    // The same Follow/Explore/Pinned semantics apply; Explore history
+    // is session-only, and only Follow mode is retargeted by link
+    // delivery (see [`crate::link::LinkGroupManager::deliver`]).
+
+    fn signal_flow_state_mut(
+        &mut self,
+        view: ViewInstanceId,
+    ) -> Result<&mut SignalFlowViewState, WorkspaceError> {
+        Ok(self
+            .state_mut(view)?
+            .signal_flow
+            .get_or_insert_with(SignalFlowViewState::default))
+    }
+
+    /// Inspects a Signal Flow routing entity — equivalent to the
+    /// arrangement [`Self::inspect`] but writing the view-local
+    /// Signal Flow focus, never `inspection_focus` or selection.
+    /// Pushes the previous target onto the Explore back-stack.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
+    pub fn signal_flow_inspect(
+        &mut self,
+        view: ViewInstanceId,
+        entity: SignalFlowEntityRef,
+    ) -> Result<(), WorkspaceError> {
+        let focus = &mut self.signal_flow_state_mut(view)?.inspection;
+        if focus.target != Some(entity) {
+            if let Some(prev) = focus.target.replace(entity) {
+                focus.explore_back.push(prev);
+            }
+            focus.explore_fwd.clear();
+        }
+        focus.mode = InspectionMode::Explore;
+        Ok(())
+    }
+
+    /// Sets the Signal Flow inspection mode. Leaving `Explore`
+    /// clears its session history, matching [`Self::set_inspection_mode`].
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
+    pub fn signal_flow_set_inspection_mode(
+        &mut self,
+        view: ViewInstanceId,
+        mode: InspectionMode,
+    ) -> Result<(), WorkspaceError> {
+        let focus = &mut self.signal_flow_state_mut(view)?.inspection;
+        focus.mode = mode;
+        if mode != InspectionMode::Explore {
+            focus.explore_back.clear();
+            focus.explore_fwd.clear();
+        }
+        Ok(())
+    }
+
+    /// Sets the Signal Flow Follow-mode source filter — `Some`
+    /// narrows adoption to events carrying that source.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
+    pub fn signal_flow_set_follow_source(
+        &mut self,
+        view: ViewInstanceId,
+        source: Option<FollowSource>,
+    ) -> Result<(), WorkspaceError> {
+        self.signal_flow_state_mut(view)?.inspection.follow_source = source;
+        Ok(())
+    }
+
+    /// Steps the Signal Flow Explore history back one entity.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
+    pub fn signal_flow_explore_back(&mut self, view: ViewInstanceId) -> Result<(), WorkspaceError> {
+        let focus = &mut self.signal_flow_state_mut(view)?.inspection;
+        if let Some(prev) = focus.explore_back.pop()
+            && let Some(current) = focus.target.replace(prev)
+        {
+            focus.explore_fwd.push(current);
+        }
+        Ok(())
+    }
+
+    /// Steps the Signal Flow Explore history forward one entity.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
+    pub fn signal_flow_explore_forward(
+        &mut self,
+        view: ViewInstanceId,
+    ) -> Result<(), WorkspaceError> {
+        let focus = &mut self.signal_flow_state_mut(view)?.inspection;
+        if let Some(next) = focus.explore_fwd.pop()
+            && let Some(current) = focus.target.replace(next)
+        {
+            focus.explore_back.push(current);
+        }
+        Ok(())
+    }
+
+    // -- Signal Flow routing gestures (SF-UX-03) ------------------------
+    //
+    // Port-drag connect: fixation at Begin, dry-run assessment on
+    // hover, fixed target at drop, one `ProjectOp::Routing` at confirm.
+
+    /// Begins a Signal Flow routing gesture fixated on `source` —
+    /// view, project revision, port-capability generation and window
+    /// epoch are all captured now and can never be retargeted.
+    /// Refused while any gesture family is active or the view is
+    /// mid-transfer; the port must exist in the routing model.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`], [`WorkspaceError::GestureActive`]
+    /// when any gesture family already runs on this view,
+    /// [`WorkspaceError::ViewBusy`] mid-transfer, or
+    /// [`WorkspaceError::InvalidGesture`] when `source` is not a port
+    /// in the routing model.
+    pub fn routing_gesture_begin(
+        &mut self,
+        view: ViewInstanceId,
+        source: SemanticPortId,
+    ) -> Result<RoutingGestureFixation, WorkspaceError> {
+        let state = self.state(view)?;
+        if state.gesture.is_some()
+            || state.control_edge_gesture.is_some()
+            || state.routing_gesture.is_some()
+        {
+            return Err(WorkspaceError::GestureActive(view));
+        }
+        if self.dock.is_transferring(view) {
+            return Err(WorkspaceError::ViewBusy(view));
+        }
+        if !self.session.project().routing.ports.contains_key(&source) {
+            return Err(WorkspaceError::InvalidGesture(format!(
+                "routing gesture source port {source} does not exist"
+            )));
+        }
+        let fixation = RoutingGestureFixation {
+            view,
+            source,
+            revision: self.session.revision(),
+            capability_generation: port_capability_generation(self.session.project()),
+            window: self.dock.owner_of(view),
+        };
+        self.state_mut(view)?.routing_gesture = Some(RoutingGesture {
+            fixation: fixation.clone(),
+            preview: RoutingGesturePreview {
+                candidate: None,
+                assessment: None,
+                dropped_target: None,
+            },
+        });
+        Ok(fixation)
+    }
+
+    /// Returns the running routing gesture's fixation, if any.
+    #[must_use]
+    pub fn routing_gesture(&self, view: ViewInstanceId) -> Option<&RoutingGestureFixation> {
+        self.states
+            .get(view)
+            .and_then(|s| s.routing_gesture.as_ref())
+            .map(|g| &g.fixation)
+    }
+
+    /// Returns the running routing gesture's preview, if any.
+    #[must_use]
+    pub fn routing_gesture_preview(&self, view: ViewInstanceId) -> Option<&RoutingGesturePreview> {
+        self.states
+            .get(view)
+            .and_then(|s| s.routing_gesture.as_ref())
+            .map(|g| &g.preview)
+    }
+
+    /// Hover update — recomputes the dry-run assessment for `target`
+    /// (`None` = empty canvas). Rejected once the target is fixed by
+    /// drop; the project is never mutated by preview.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::NoGesture`] when nothing runs,
+    /// [`WorkspaceError::UnknownView`] for an unknown view.
+    pub fn routing_gesture_hover(
+        &mut self,
+        view: ViewInstanceId,
+        target: Option<SemanticPortId>,
+    ) -> Result<Option<RoutingPortAssessment>, WorkspaceError> {
+        let gesture = self
+            .states
+            .get(view)
+            .ok_or(WorkspaceError::UnknownView(view))?
+            .routing_gesture
+            .clone()
+            .ok_or(WorkspaceError::NoGesture(view))?;
+        if gesture.preview.dropped_target.is_some() {
+            return Err(WorkspaceError::InvalidGesture(
+                "routing gesture target already fixed by drop".to_string(),
+            ));
+        }
+        let assessment = target.map(|port| {
+            let role = self
+                .session
+                .project()
+                .routing
+                .ports
+                .get(&port)
+                .map_or(PortRole::Main, |p| p.role);
+            assess_connection(self.session.project(), &gesture.fixation, port, role)
+        });
+        if let Some(state) = self.states.get_mut(view)
+            && let Some(g) = state.routing_gesture.as_mut()
+        {
+            g.preview.candidate = target;
+            g.preview.assessment.clone_from(&assessment);
+        }
+        Ok(assessment)
+    }
+
+    /// Drop — fixes the previewed candidate as the immutable target.
+    /// Dropping on empty canvas (no candidate) ends the gesture
+    /// cancelled; the project is untouched either way. After a
+    /// successful drop only [`Self::routing_gesture_confirm`] or
+    /// [`Self::routing_gesture_cancel`] may end the gesture — no
+    /// later hover, receipt, or focus event may swap the target.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::NoGesture`] when nothing runs,
+    /// [`WorkspaceError::UnknownView`] for an unknown view.
+    pub fn routing_gesture_drop(
+        &mut self,
+        view: ViewInstanceId,
+    ) -> Result<Option<SemanticPortId>, WorkspaceError> {
+        let gesture = self
+            .states
+            .get(view)
+            .ok_or(WorkspaceError::UnknownView(view))?
+            .routing_gesture
+            .clone()
+            .ok_or(WorkspaceError::NoGesture(view))?;
+        if let Some(target) = gesture.preview.candidate {
+            if let Some(g) = self.state_mut(view)?.routing_gesture.as_mut() {
+                g.preview.dropped_target = Some(target);
+            }
+            return Ok(Some(target));
+        }
+        self.state_mut(view)?.routing_gesture = None;
+        Ok(None)
+    }
+
+    /// Confirm — applies the fixated routing gesture as one
+    /// `ProjectOp::Routing` at the fixated revision with the explicit
+    /// channel-map consent (`None` = no conversion approved; a
+    /// layout-mismatched pair then fails validation and the gesture
+    /// stays alive for a corrected retry or cancel). A moved window
+    /// epoch, an advanced project revision, or a moved port
+    /// capability generation drops the gesture as
+    /// [`RoutingGestureOutcome::Stale`] — never a retarget.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::NoGesture`] when nothing runs,
+    /// [`WorkspaceError::InvalidGesture`] when no target was dropped,
+    /// or [`WorkspaceError::Project`] on a validation rejection that
+    /// is not staleness (the gesture stays alive).
+    pub fn routing_gesture_confirm(
+        &mut self,
+        view: ViewInstanceId,
+        channel_map: Option<&ExplicitChannelMap>,
+    ) -> Result<RoutingGestureOutcome, WorkspaceError> {
+        let gesture = self
+            .states
+            .get(view)
+            .ok_or(WorkspaceError::UnknownView(view))?
+            .routing_gesture
+            .clone()
+            .ok_or(WorkspaceError::NoGesture(view))?;
+        let fixation = gesture.fixation.clone();
+        let Some(target) = gesture.preview.dropped_target else {
+            return Err(WorkspaceError::InvalidGesture(
+                "routing gesture has no dropped target".to_string(),
+            ));
+        };
+        // Stale checks — window epoch moved (dock transfer), project
+        // revision advanced, or plugin port reconfigure moved the
+        // capability generation. All drop the gesture; none retarget.
+        if self.dock.is_transferring(view) || self.dock.owner_of(view) != fixation.window {
+            self.state_mut(view)?.routing_gesture = None;
+            return Ok(RoutingGestureOutcome::Stale);
+        }
+        if port_capability_generation(self.session.project()) != fixation.capability_generation {
+            self.state_mut(view)?.routing_gesture = None;
+            return Ok(RoutingGestureOutcome::Stale);
+        }
+        let Some(port) = self.session.project().routing.ports.get(&target) else {
+            // The target port vanished — the project moved under the
+            // gesture, so the honest outcome is stale, not a guess.
+            self.state_mut(view)?.routing_gesture = None;
+            return Ok(RoutingGestureOutcome::Stale);
+        };
+        let role = port.role;
+        let intent = routing_gesture_intent(
+            format!(
+                "signal-flow-routing-{}-{}",
+                fixation.view.get(),
+                fixation.revision.0
+            ),
+            &fixation,
+            target,
+            role,
+            channel_map,
+        );
+        match self
+            .session
+            .apply(ProjectOp::Routing { intent }, fixation.revision)
+        {
+            Ok(revision) => {
+                self.distribute_revision(revision);
+                self.state_mut(view)?.routing_gesture = None;
+                Ok(RoutingGestureOutcome::Applied { revision })
+            }
+            Err(synvelis_project::Error::StaleRevision { .. }) => {
+                self.state_mut(view)?.routing_gesture = None;
+                Ok(RoutingGestureOutcome::Stale)
+            }
+            // Any other rejection — including RequiresUserDecision on
+            // an unconsented channel-map — keeps the gesture alive so
+            // the caller can retry with consent or cancel. The
+            // capability generation was verified against the live
+            // project immediately above, so StalePortCapability is
+            // unreachable here.
+            Err(e) => Err(WorkspaceError::Project(e)),
+        }
+    }
+
+    /// Cancels the running routing gesture — preview discarded, the
+    /// project untouched (no undo boundary).
+    ///
+    /// # Errors
+    /// [`WorkspaceError::NoGesture`] when nothing runs,
+    /// [`WorkspaceError::UnknownView`] for an unknown view.
+    pub fn routing_gesture_cancel(
+        &mut self,
+        view: ViewInstanceId,
+        reason: CancelReason,
+    ) -> Result<RoutingGestureOutcome, WorkspaceError> {
+        self.states
+            .get_mut(view)
+            .ok_or(WorkspaceError::UnknownView(view))?
+            .routing_gesture
+            .take()
+            .map(|_| RoutingGestureOutcome::Cancelled { reason })
+            .ok_or(WorkspaceError::NoGesture(view))
+    }
+
     /// The outcome of a `pointer_down`.
     /// Resolves the active tool over `probe` and, on success, fixes
     /// the gesture: operation, target set, project revision and
@@ -996,7 +1363,10 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         probe: &HitProbe,
     ) -> Result<PointerOutcome, WorkspaceError> {
         let state = self.state(view)?;
-        if state.gesture.is_some() {
+        if state.gesture.is_some()
+            || state.control_edge_gesture.is_some()
+            || state.routing_gesture.is_some()
+        {
             return Err(WorkspaceError::GestureActive(view));
         }
         let selection = state.object_selections.active_selection().targets.clone();
@@ -1181,6 +1551,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                 if let Some(state) = self.states.get_mut(id) {
                     state.gesture = None;
                     state.control_edge_gesture = None;
+                    state.routing_gesture = None;
                 }
             }
         }

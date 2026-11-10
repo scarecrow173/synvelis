@@ -24,8 +24,15 @@ use crate::view::ViewType;
 ///
 /// Schema history: `1` = WS-A (`editing_selection`); `2` = ED-A
 /// (`object_selections` + time selection/lane scope/tool/grid/snap/
-/// edit binding).
-pub const WORKSPACE_SCHEMA: u32 = 2;
+/// edit binding); `3` = SF-05 (`ViewState::signal_flow` — per-view
+/// Signal Flow visual + inspection state, synvelis#108 SF-UX-07).
+/// v2 → v3 is additive: v2 snapshots simply lack the field, which
+/// deserializes as `None`.
+pub const WORKSPACE_SCHEMA: u32 = 3;
+
+/// Schema versions this build can read. Anything older or newer is
+/// rejected by [`WorkspaceSnapshot::from_json`].
+const READABLE_SCHEMAS: &[u32] = &[2, WORKSPACE_SCHEMA];
 
 /// One persisted view: identity + state. Position lives in the
 /// `LayoutSnapshot` dock trees (or the detached pool).
@@ -82,17 +89,27 @@ impl WorkspaceSnapshot {
     /// rejected here; layout-level corruption is left for
     /// `LayoutSnapshot::restore_or_default` during apply.
     ///
+    /// Older readable schemas are migrated in place: v2 snapshots
+    /// lack `ViewState::signal_flow`, which deserializes as `None`
+    /// (the v2 → v3 change is purely additive), and the parsed
+    /// snapshot's `schema` is normalized to [`WORKSPACE_SCHEMA`].
+    /// A malformed per-view `signal_flow` payload degrades to `None`
+    /// inside [`crate::state::ViewState`] rather than rejecting the
+    /// whole snapshot (SF-UX-07 safe recovery).
+    ///
     /// # Errors
-    /// [`WorkspaceError::Snapshot`] on malformed JSON or wrong schema.
+    /// [`WorkspaceError::Snapshot`] on malformed JSON or an
+    /// unreadable schema.
     pub fn from_json(json: &str) -> Result<Self, WorkspaceError> {
-        let snap: Self = serde_json::from_str(json)
+        let mut snap: Self = serde_json::from_str(json)
             .map_err(|e| WorkspaceError::Snapshot(format!("malformed snapshot: {e}")))?;
-        if snap.schema != WORKSPACE_SCHEMA {
+        if !READABLE_SCHEMAS.contains(&snap.schema) {
             return Err(WorkspaceError::Snapshot(format!(
-                "unsupported schema {} (expected {WORKSPACE_SCHEMA})",
+                "unsupported schema {} (expected {WORKSPACE_SCHEMA} or a readable older schema)",
                 snap.schema
             )));
         }
+        snap.schema = WORKSPACE_SCHEMA;
         Ok(snap)
     }
 }

@@ -367,7 +367,6 @@ fn sfxr01_01_strip_send_authority_survives_serialization_undo_and_lowering() {
     let node_b = node_of(strip_b);
     let node_bus = node_of(bus_strip);
     let node_master = node_of(master);
-    assert_eq!(node_a, node_of(strip_a));
     let bus_node = match &sm.semantic_nodes[&SemanticNodeRef::Bus(bus)] {
         MappingResolution::Resolved(node) => *node,
         other => panic!("bus {bus:?} must resolve, got {other:?}"),

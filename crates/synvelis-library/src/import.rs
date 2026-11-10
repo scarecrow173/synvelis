@@ -1528,6 +1528,15 @@ pub fn import_verified(
     }
 
     // ---- Live commit --------------------------------------------------
+    // Last cooperative checkpoint before the point of no return: a
+    // cancel that landed during the publish tail or the blob re-stat
+    // parks the job at `Published` — the verified blob stays
+    // manifest-protected and a retry converges without re-publishing.
+    // Once `apply` returns the commit is a fact, so no checkpoint may
+    // follow it (a `Cancelled` there would misreport a committed
+    // import); a crash between apply and the manifest write is
+    // reconciled by `applied_replay` on the next call.
+    cx.check_interrupts()?;
     let op = commit_op(&manifest)?;
     let revision = controller
         .apply(Command {
