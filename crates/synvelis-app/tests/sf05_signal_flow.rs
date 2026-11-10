@@ -728,10 +728,7 @@ fn signal_flow_routing_gesture_commits_one_atomic_undo() {
         .op_signal_flow_routing(&json!({ "action": "confirm" }))
         .unwrap();
     assert_eq!(confirm["outcome"]["outcome"], json!("applied"));
-    assert_eq!(
-        confirm["outcome"]["revision"],
-        json!(revision_before.0 + 1)
-    );
+    assert_eq!(confirm["outcome"]["revision"], json!(revision_before.0 + 1));
     assert_eq!(connection_count(&app), connections_before + 1);
 
     // The gesture is gone and exactly one undo boundary reverts the

@@ -100,12 +100,13 @@ pub use selection::{
 pub use session::{EnginePort, EngineStub, ProjectSession, TransportState};
 pub use signal_flow_ui::{
     SignalFlowCoverage, SignalFlowEdge, SignalFlowEdgeId, SignalFlowEdgeRole, SignalFlowEndpoint,
-    SignalFlowEntityRef, SignalFlowInspectionFocus, SignalFlowLayer, SignalFlowNode, SignalFlowNodeId,
-    SignalFlowNodeKind, SignalFlowNodeRuntime, SignalFlowNodeState, SignalFlowProbeStatus,
-    SignalFlowRuntimeEvidence, SignalFlowScope, SignalFlowStatus, SignalFlowView, SignalFlowViewOptions,
-    SignalFlowViewState, SignalFlowVisualGroup, SignalFlowVisualState, signal_flow_entity_from_semantic,
-    signal_flow_graph, signal_flow_graph_with, visual_fold, visual_move_node, visual_set_group,
-    visual_set_link_focus, visual_set_pan, visual_set_scope, visual_set_zoom,
+    SignalFlowEntityRef, SignalFlowInspectionFocus, SignalFlowLayer, SignalFlowNode,
+    SignalFlowNodeId, SignalFlowNodeKind, SignalFlowNodeRuntime, SignalFlowNodeState,
+    SignalFlowProbeStatus, SignalFlowRuntimeEvidence, SignalFlowScope, SignalFlowStatus,
+    SignalFlowView, SignalFlowViewOptions, SignalFlowViewState, SignalFlowVisualGroup,
+    SignalFlowVisualState, signal_flow_entity_from_semantic, signal_flow_graph,
+    signal_flow_graph_with, visual_fold, visual_move_node, visual_set_group, visual_set_link_focus,
+    visual_set_pan, visual_set_scope, visual_set_zoom,
 };
 pub use snap::{
     GridConfig, SnapCandidate, SnapConfig, SnapEnvironment, SnapSource, SnapUnit, SnapWinner,

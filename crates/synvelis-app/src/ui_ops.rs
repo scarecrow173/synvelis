@@ -2074,15 +2074,13 @@ impl SynvelisApp {
     /// [`ErrorBody`] on invalid parameters.
     pub fn op_signal_flow_view(&self, params: &Value) -> Result<Value, ErrorBody> {
         let view = sf_view_param(params);
-        let mut options = sf_view_state(self, &view).map_or_else(
-            SignalFlowViewOptions::default,
-            |sf| {
+        let mut options =
+            sf_view_state(self, &view).map_or_else(SignalFlowViewOptions::default, |sf| {
                 sf.visual.view_options(
                     crate::app::SIGNAL_FLOW_MAX_NODES,
                     crate::app::SIGNAL_FLOW_MAX_EDGES,
                 )
-            },
-        );
+            });
         if let Some(scope) = params.get("scope") {
             options.scope = sf_scope(scope, params)?;
         }
@@ -2200,13 +2198,11 @@ impl SynvelisApp {
     /// every per-view Signal Flow state lands in the persisted
     /// [`ViewState`] (SF-UX-07).
     fn sf_view_instance(&mut self, view: &str) -> Result<ViewInstanceId, ErrorBody> {
-        let inst = parse_view_instance(view).ok_or_else(|| {
-            invalid(format!("params.view_id must be \"view-{{n}}\", got {view}"))
-        })?;
+        let inst = parse_view_instance(view)
+            .ok_or_else(|| invalid(format!("params.view_id must be \"view-{{n}}\", got {view}")))?;
         if !self.workspace.registry().contains(inst) {
-            let (kind, title) = dock_view_info(view).map_or((ViewType::SignalFlow, view), |i| {
-                (i.kind, i.title)
-            });
+            let (kind, title) =
+                dock_view_info(view).map_or((ViewType::SignalFlow, view), |i| (i.kind, i.title));
             self.workspace
                 .adopt_view(inst, kind, title, None)
                 .map_err(|e| dock_err(&e))?;

@@ -201,8 +201,7 @@ pub(crate) fn classify_preflight(
                     .map(|p| p.channels)
                     .unwrap_or(0)
             };
-            let (source_channels, destination_channels) =
-                (channels(source), channels(target));
+            let (source_channels, destination_channels) = (channels(source), channels(target));
             if source_channels != destination_channels {
                 RoutingPortAssessment::NeedsMapping {
                     source_channels,

@@ -42,9 +42,7 @@ use crate::state::{FollowSource, InspectionMode, SemanticTarget};
 /// arrangement [`crate::selection::SelectionDomain`]: naming a
 /// routing entity here never retargets timeline selection or link
 /// context.
-#[derive(
-    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SignalFlowEntityRef {
     /// A production track (resolved through its channel strip).
@@ -186,9 +184,7 @@ pub enum SignalFlowEdgeId {
 /// Edge role — the Role Filter vocabulary. Roles stay distinct even
 /// when endpoints collapse to the same strip (a Sidechain edge into a
 /// folded processor never masquerades as a Main edge).
-#[derive(
-    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SignalFlowEdgeRole {
     /// Strip/processor main signal path.
@@ -261,9 +257,7 @@ pub enum SignalFlowScope {
 /// Control relations project through [`crate::relation_ui`] instead;
 /// they are deliberately not duplicated here.
 #[non_exhaustive]
-#[derive(
-    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SignalFlowLayer {
     /// Audio routing (the only layer this slice projects).

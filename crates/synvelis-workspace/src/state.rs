@@ -21,8 +21,8 @@ use synvelis_project::{ClipId, LaneId, ProjectRevision, SourceId, TrackId};
 
 use crate::control_edge::ControlEdgeGesture;
 use crate::gesture::Gesture;
-use crate::selection::{EditBinding, LaneScope, ObjectSelections, TimeSelection};
 use crate::routing_gesture::RoutingGesture;
+use crate::selection::{EditBinding, LaneScope, ObjectSelections, TimeSelection};
 use crate::signal_flow_ui::SignalFlowViewState;
 use crate::snap::{GridConfig, SnapConfig};
 use crate::tool::Tool;
@@ -266,9 +266,7 @@ impl ViewStateRegistry {
 /// payloads — including explicit `null` — round-trip normally, and a
 /// payload written by a newer schema (unknown fields) is dropped
 /// rather than corrupting the restore.
-fn deserialize_signal_flow<'de, D>(
-    deserializer: D,
-) -> Result<Option<SignalFlowViewState>, D::Error>
+fn deserialize_signal_flow<'de, D>(deserializer: D) -> Result<Option<SignalFlowViewState>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

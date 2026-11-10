@@ -192,13 +192,14 @@ impl LinkGroupManager {
         // retarget; Explore/Pinned modes are untouched (SF-UX-04).
         if let Some(signal_flow) = state.signal_flow.as_mut() {
             let follows = signal_flow.inspection.mode == InspectionMode::Follow
-                && signal_flow.inspection.follow_source.is_none_or(|src| match src {
-                    FollowSource::View(v) => v == event.source,
-                    FollowSource::Group(g) => g == event.group,
-                });
-            if follows
-                && let Some(entity) = signal_flow_entity_from_semantic(event.target)
-            {
+                && signal_flow
+                    .inspection
+                    .follow_source
+                    .is_none_or(|src| match src {
+                        FollowSource::View(v) => v == event.source,
+                        FollowSource::Group(g) => g == event.group,
+                    });
+            if follows && let Some(entity) = signal_flow_entity_from_semantic(event.target) {
                 signal_flow.inspection.target = Some(entity);
             }
         }

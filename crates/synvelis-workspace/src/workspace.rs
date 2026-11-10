@@ -1057,10 +1057,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
     }
 
     /// Steps the Signal Flow Explore history back one entity.
-    pub fn signal_flow_explore_back(
-        &mut self,
-        view: ViewInstanceId,
-    ) -> Result<(), WorkspaceError> {
+    pub fn signal_flow_explore_back(&mut self, view: ViewInstanceId) -> Result<(), WorkspaceError> {
         let focus = &mut self.signal_flow_state_mut(view)?.inspection;
         if let Some(prev) = focus.explore_back.pop() {
             if let Some(current) = focus.target.replace(prev) {
@@ -1128,15 +1125,17 @@ impl<H: WindowHandle> WorkspaceManager<H> {
             capability_generation: port_capability_generation(self.session.project()),
             window: self.dock.owner_of(view),
         };
-        self.states.get_mut(view).expect("checked above").routing_gesture =
-            Some(RoutingGesture {
-                fixation: fixation.clone(),
-                preview: RoutingGesturePreview {
-                    candidate: None,
-                    assessment: None,
-                    dropped_target: None,
-                },
-            });
+        self.states
+            .get_mut(view)
+            .expect("checked above")
+            .routing_gesture = Some(RoutingGesture {
+            fixation: fixation.clone(),
+            preview: RoutingGesturePreview {
+                candidate: None,
+                assessment: None,
+                dropped_target: None,
+            },
+        });
         Ok(fixation)
     }
 
@@ -1151,10 +1150,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
 
     /// Returns the running routing gesture's preview, if any.
     #[must_use]
-    pub fn routing_gesture_preview(
-        &self,
-        view: ViewInstanceId,
-    ) -> Option<&RoutingGesturePreview> {
+    pub fn routing_gesture_preview(&self, view: ViewInstanceId) -> Option<&RoutingGesturePreview> {
         self.states
             .get(view)
             .and_then(|s| s.routing_gesture.as_ref())
@@ -1236,7 +1232,10 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                 Ok(Some(target))
             }
             None => {
-                self.states.get_mut(view).expect("checked above").routing_gesture = None;
+                self.states
+                    .get_mut(view)
+                    .expect("checked above")
+                    .routing_gesture = None;
                 Ok(None)
             }
         }
@@ -1278,17 +1277,26 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         // revision advanced, or plugin port reconfigure moved the
         // capability generation. All drop the gesture; none retarget.
         if self.dock.is_transferring(view) || self.dock.owner_of(view) != fixation.window {
-            self.states.get_mut(view).expect("checked above").routing_gesture = None;
+            self.states
+                .get_mut(view)
+                .expect("checked above")
+                .routing_gesture = None;
             return Ok(RoutingGestureOutcome::Stale);
         }
         if port_capability_generation(self.session.project()) != fixation.capability_generation {
-            self.states.get_mut(view).expect("checked above").routing_gesture = None;
+            self.states
+                .get_mut(view)
+                .expect("checked above")
+                .routing_gesture = None;
             return Ok(RoutingGestureOutcome::Stale);
         }
         let Some(port) = self.session.project().routing.ports.get(&target) else {
             // The target port vanished — the project moved under the
             // gesture, so the honest outcome is stale, not a guess.
-            self.states.get_mut(view).expect("checked above").routing_gesture = None;
+            self.states
+                .get_mut(view)
+                .expect("checked above")
+                .routing_gesture = None;
             return Ok(RoutingGestureOutcome::Stale);
         };
         let role = port.role;
@@ -1309,11 +1317,17 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         {
             Ok(revision) => {
                 self.distribute_revision(revision);
-                self.states.get_mut(view).expect("checked above").routing_gesture = None;
+                self.states
+                    .get_mut(view)
+                    .expect("checked above")
+                    .routing_gesture = None;
                 Ok(RoutingGestureOutcome::Applied { revision })
             }
             Err(synvelis_project::Error::StaleRevision { .. }) => {
-                self.states.get_mut(view).expect("checked above").routing_gesture = None;
+                self.states
+                    .get_mut(view)
+                    .expect("checked above")
+                    .routing_gesture = None;
                 Ok(RoutingGestureOutcome::Stale)
             }
             // Any other rejection — including RequiresUserDecision on

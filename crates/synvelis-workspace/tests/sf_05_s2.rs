@@ -53,7 +53,12 @@ fn apply(ws: &mut Ws, op: ProjectOp) -> ProjectRevision {
 
 fn add_track(ws: &mut Ws, name: &str) -> TrackId {
     apply(ws, ProjectOp::AddTrack { name: name.into() });
-    *ws.session().project().tracks.keys().next_back().expect("track")
+    *ws.session()
+        .project()
+        .tracks
+        .keys()
+        .next_back()
+        .expect("track")
 }
 
 fn add_track_strip(ws: &mut Ws, track: TrackId) -> StripId {
@@ -93,7 +98,12 @@ fn routed_ws() -> (Ws, TrackId, TrackId, StripId, StripId) {
     (ws, bass, kick, bass_strip, kick_strip)
 }
 
-fn spawn(ws: &mut Ws, kind: ViewType, title: &str, window: ruviform_ui::window::WindowId) -> ruviform_ui::dock::ViewInstanceId {
+fn spawn(
+    ws: &mut Ws,
+    kind: ViewType,
+    title: &str,
+    window: ruviform_ui::window::WindowId,
+) -> ruviform_ui::dock::ViewInstanceId {
     ws.spawn_view(kind, title, DockTarget::Window(window))
         .unwrap()
 }
@@ -121,7 +131,10 @@ fn routing_gesture_commit_is_one_atomic_undo() {
     // Preview is assessment-only: compatible stereo→stereo main route.
     let assessment = ws.routing_gesture_hover(view, Some(target)).unwrap();
     assert_eq!(assessment, Some(RoutingPortAssessment::Compatible));
-    assert_eq!(ws.routing_gesture_preview(view).unwrap().candidate, Some(target));
+    assert_eq!(
+        ws.routing_gesture_preview(view).unwrap().candidate,
+        Some(target)
+    );
     // Nothing reached the project.
     assert_eq!(connections(&ws), before);
     assert_eq!(ws.session().revision(), revision);
@@ -291,9 +304,7 @@ fn routing_gesture_channel_mismatch_requires_explicit_consent() {
     project.routing.ports.get_mut(&target).unwrap().channels = 1;
     let session = ProjectSession::new(ProjectController::new(
         project,
-        Box::new(CounterIdGenerator::new(
-            ws.session().project().id_watermark,
-        )),
+        Box::new(CounterIdGenerator::new(ws.session().project().id_watermark)),
     ));
     ws = WorkspaceManager::new(FakeWindowHost::default(), session);
     let win = ws.create_window("A", 1280, 800).unwrap();
@@ -318,12 +329,7 @@ fn routing_gesture_channel_mismatch_requires_explicit_consent() {
 
     // Explicit consent commits the mapped route — one undo boundary.
     let outcome = ws
-        .routing_gesture_confirm(
-            view,
-            Some(ExplicitChannelMap {
-                entries: vec![0],
-            }),
-        )
+        .routing_gesture_confirm(view, Some(ExplicitChannelMap { entries: vec![0] }))
         .unwrap();
     assert!(matches!(outcome, RoutingGestureOutcome::Applied { .. }));
     assert_eq!(connections(&ws), before + 1);
@@ -335,7 +341,10 @@ fn routing_gesture_channel_mismatch_requires_explicit_consent() {
         .values()
         .find(|c| c.source == source && c.destination == target)
         .expect("committed connection");
-    assert_eq!(conn.channel_map, Some(ExplicitChannelMap { entries: vec![0] }));
+    assert_eq!(
+        conn.channel_map,
+        Some(ExplicitChannelMap { entries: vec![0] })
+    );
     assert!(ws.session_mut().undo().unwrap());
     assert_eq!(connections(&ws), before);
 }
@@ -440,12 +449,7 @@ fn signal_flow_link_delivery_retargets_only_follow_mode() {
     // Follow mode adopted the semantic target as a routing entity.
     let follow_state = ws.state(follow).unwrap();
     assert_eq!(
-        follow_state
-            .signal_flow
-            .as_ref()
-            .unwrap()
-            .inspection
-            .target,
+        follow_state.signal_flow.as_ref().unwrap().inspection.target,
         Some(SignalFlowEntityRef::Track(track))
     );
     // ...without touching the editing selection, and the arrangement
@@ -563,18 +567,36 @@ fn signal_flow_explore_history_and_unmappable_targets() {
     assert!(focus.explore_fwd.is_empty());
 
     ws.signal_flow_explore_back(sf).unwrap();
-    let focus = &ws.state(sf).unwrap().signal_flow.as_ref().unwrap().inspection;
+    let focus = &ws
+        .state(sf)
+        .unwrap()
+        .signal_flow
+        .as_ref()
+        .unwrap()
+        .inspection;
     assert_eq!(focus.target, Some(SignalFlowEntityRef::Track(bass)));
     assert_eq!(focus.explore_fwd, vec![SignalFlowEntityRef::Track(kick)]);
 
     ws.signal_flow_explore_forward(sf).unwrap();
-    let focus = &ws.state(sf).unwrap().signal_flow.as_ref().unwrap().inspection;
+    let focus = &ws
+        .state(sf)
+        .unwrap()
+        .signal_flow
+        .as_ref()
+        .unwrap()
+        .inspection;
     assert_eq!(focus.target, Some(SignalFlowEntityRef::Track(kick)));
 
     // Leaving Explore clears the session history.
     ws.signal_flow_set_inspection_mode(sf, InspectionMode::Pinned)
         .unwrap();
-    let focus = &ws.state(sf).unwrap().signal_flow.as_ref().unwrap().inspection;
+    let focus = &ws
+        .state(sf)
+        .unwrap()
+        .signal_flow
+        .as_ref()
+        .unwrap()
+        .inspection;
     assert!(focus.explore_back.is_empty() && focus.explore_fwd.is_empty());
     assert_eq!(focus.mode, InspectionMode::Pinned);
 }
@@ -594,7 +616,11 @@ fn capture_restore_roundtrips_signal_flow_state_per_view() {
     {
         let state = ws.state_mut(sf).unwrap();
         let sf_state = state.signal_flow.get_or_insert_with(Default::default);
-        visual_move_node(&mut sf_state.visual, SignalFlowEntityRef::Track(track), [10.0, 20.0]);
+        visual_move_node(
+            &mut sf_state.visual,
+            SignalFlowEntityRef::Track(track),
+            [10.0, 20.0],
+        );
     }
     ws.signal_flow_inspect(sf, SignalFlowEntityRef::Track(track))
         .unwrap();
@@ -613,7 +639,10 @@ fn capture_restore_roundtrips_signal_flow_state_per_view() {
     let restored = ws2.state(sf).unwrap();
     let sf_state = restored.signal_flow.as_ref().expect("restored sf state");
     assert_eq!(
-        sf_state.visual.positions.get(&SignalFlowEntityRef::Track(track)),
+        sf_state
+            .visual
+            .positions
+            .get(&SignalFlowEntityRef::Track(track)),
         Some(&[10.0, 20.0])
     );
     assert_eq!(
@@ -643,10 +672,7 @@ fn snapshot_v2_without_signal_flow_migrates() {
     let parsed = WorkspaceSnapshot::from_json(&value.to_string()).unwrap();
     assert_eq!(parsed.schema, synvelis_workspace::WORKSPACE_SCHEMA);
     assert!(
-        parsed
-            .views
-            .iter()
-            .all(|v| v.state.signal_flow.is_none()),
+        parsed.views.iter().all(|v| v.state.signal_flow.is_none()),
         "v2 views default to no Signal Flow state"
     );
 
