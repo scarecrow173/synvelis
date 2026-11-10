@@ -94,3 +94,4 @@ Directory: `docs/plans`
 | PLAN-034PCB04Pk9ySt5zBcPdEf | PC-B Parameter Control dispatch/note-scope/RT/offline 実装計画 | completed | [pc-b-parameter-dispatch.md](./pc-b-parameter-dispatch.md) |
 | PLAN-pOkUKpNa9zeQiK8ZbP5nvk | SV#28 Ruviform pin 更新 実装計画 — 863a7a9d → cc7d5296 | completed | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | PLAN-034QwZOjdblHRzDVhDXNIP | WS-A Workspace 基盤 headless PoC 実装計画 | completed | [ws-a-workspace-foundation.md](./ws-a-workspace-foundation.md) |
+| PLAN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — 実装 plan | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
