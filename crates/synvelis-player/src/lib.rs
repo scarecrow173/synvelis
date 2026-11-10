@@ -68,9 +68,10 @@ pub use plugin_state::{PluginStateEndpoint, PluginStateHost};
 pub use probe::{ProbeRequestError, ProbeSession};
 pub use probe_trace::ProbeTraceBridge;
 pub use process_boundary::{
-    AttachDelivery, BoundaryDegradation, BoundaryKind, BoundaryPoint, DegradedConsent,
-    ExecutionMode, ProcessBoundaryError, ProcessBoundaryPlan, ProcessBoundaryRequest,
-    ProcessCapability, SegmentPlan, TimingPrecision,
+    AttachDelivery, BoundaryDegradation, BoundaryKind, BoundaryPoint, BoundarySessionError,
+    DegradedConsent, ExecutionMode, PrecisionProvenance, ProcessBoundaryError, ProcessBoundaryPlan,
+    ProcessBoundaryRequest, ProcessBoundarySession, ProcessCapability, SegmentPlan,
+    TimingPrecision,
 };
 pub use processor::{ClipPlayer, PlaybackStats};
 pub use publish::{PublishError, PublishReport, PublishedStream, SkippedStream, publish_recorded};

@@ -59,11 +59,21 @@
 //! `rt_` contract tests.
 
 use std::fmt;
+use std::sync::Arc;
 
+use ruviform_audio_plugin_bridge::{FrameBaseMismatch, InstallPlanError, PluginNodeControl};
+use ruviform_graph::NodeId;
 use ruviform_media_core::{
-    BlockContract, CallPartition, DeliveryPolicy, InBlockTransportSupport, ScheduleBudget,
+    BlockContract, CallPartition, DeliveryPolicy, InBlockTransportSupport, MidiEvent,
+    ScheduleBudget, TransportCommand, TransportPlan,
 };
-use ruviform_plugin_core::{ProcessConfig, contract_from_process_config};
+use ruviform_plugin_core::{
+    EventKind, ProcessConfig, TimedParamEvent, contract_from_process_config,
+};
+use synvelis_project::ParameterTargetId;
+
+use crate::binding::{AttachClockContext, StablePluginInstanceId};
+use crate::dispatch::{DispatchError, ParamDispatch};
 
 /// Issue #127 timing-precision classification — the vocabulary the
 /// capability matrix and this policy share.
@@ -727,4 +737,517 @@ fn kind_at(points: &[BoundaryPoint], b: u32) -> BoundaryKind {
         .iter()
         .find(|p| p.offset == b)
         .map_or(BoundaryKind::Other, |p| p.kind)
+}
+
+// ---------------------------------------------------------------------------
+// Per-request plan wiring + precision provenance (TIM-03 wiring slice)
+// ---------------------------------------------------------------------------
+
+/// Generation pins proving one attached node's delivery context is
+/// still current — the precision-provenance record every
+/// [`ProcessBoundarySession`] call re-checks (issue #127).
+///
+/// The composition root mints this once per attach and re-presents it
+/// as `current` on every session call. A pin that no longer matches
+/// live truth — plugin re-attach/restart (new
+/// [`StablePluginInstanceId`]), capability re-enumeration after a
+/// plugin-state restore, or a routing/control-plan swap (new graph
+/// generation) — turns every subsequent stage into a typed
+/// [`BoundarySessionError`] refusal: stale context delivers nothing.
+///
+/// Clock mapping is a separate axis verified through
+/// [`AttachClockContext`] (the attach-time frame base, Ruviform #307):
+/// event positions authored against a different base are refused by
+/// [`ProcessBoundarySession::dispatch_params`] /
+/// [`ProcessBoundarySession::dispatch_midi`] before any plan is
+/// staged. Transport/plan generations are event-scoped axes owned by
+/// the upstream scheduler — [`ParamDispatch`]'s receipt-gated
+/// observation already faults stale-generation delivery, so they are
+/// deliberately not duplicated here.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct PrecisionProvenance {
+    /// Runtime plugin-instance identity (re-attach/restart mints a
+    /// new id).
+    instance: StablePluginInstanceId,
+    /// The graph node the session drives.
+    node: NodeId,
+    /// Capability/parameter-surface generation (port capability
+    /// generation / plugin-state binding revision).
+    capability_generation: u64,
+    /// Routing/control-plan generation the node belongs to.
+    graph_generation: u64,
+}
+
+impl PrecisionProvenance {
+    /// Mints the pin record for one attached node.
+    #[must_use]
+    pub const fn new(
+        instance: StablePluginInstanceId,
+        node: NodeId,
+        capability_generation: u64,
+        graph_generation: u64,
+    ) -> Self {
+        Self {
+            instance,
+            node,
+            capability_generation,
+            graph_generation,
+        }
+    }
+
+    /// The pinned plugin-instance identity.
+    #[must_use]
+    pub const fn instance(&self) -> StablePluginInstanceId {
+        self.instance
+    }
+
+    /// The pinned graph node.
+    #[must_use]
+    pub const fn node(&self) -> NodeId {
+        self.node
+    }
+
+    /// The pinned capability generation.
+    #[must_use]
+    pub const fn capability_generation(&self) -> u64 {
+        self.capability_generation
+    }
+
+    /// The pinned graph generation.
+    #[must_use]
+    pub const fn graph_generation(&self) -> u64 {
+        self.graph_generation
+    }
+}
+
+/// Typed failures of [`ProcessBoundarySession`]. Every refusal is
+/// named and leaves nothing staged — a rejected request never reaches
+/// the node's control queue.
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum BoundarySessionError {
+    /// [`ProcessCapability::attach_delivery`] refused the
+    /// capability/delivery intent at [`ProcessBoundarySession::open`]
+    /// — `Unsupported`/`OfflineUncertified` (the same typed refusal
+    /// `PluginHostProcessors::connect` maps).
+    Capability(ProcessBoundaryError),
+    /// The per-request oracle refused the window — the typed
+    /// [`ProcessBoundaryError`] is preserved verbatim and nothing was
+    /// staged.
+    Evaluate(ProcessBoundaryError),
+    /// The presented provenance's plugin instance differs from the
+    /// session pin — a re-attach or restart minted a new identity.
+    InstanceMismatch {
+        /// The session's pinned instance.
+        expected: StablePluginInstanceId,
+        /// The presented instance.
+        actual: StablePluginInstanceId,
+    },
+    /// The presented provenance's node (or the dispatch's node)
+    /// differs from the session pin.
+    NodeMismatch {
+        /// The session's pinned node.
+        expected: NodeId,
+        /// The presented node.
+        actual: NodeId,
+    },
+    /// The capability generation drifted — plugin-state restore or
+    /// capability re-enumeration invalidated the pin.
+    CapabilityGeneration {
+        /// The session's pinned generation.
+        expected: u64,
+        /// The presented generation.
+        actual: u64,
+    },
+    /// The graph generation drifted — a routing/control-plan swap
+    /// invalidated the pin.
+    GraphGeneration {
+        /// The session's pinned generation.
+        expected: u64,
+        /// The presented generation.
+        actual: u64,
+    },
+    /// The dispatch's frame base differs from the verified attach
+    /// clock context — the clock mapping the event positions were
+    /// authored against is stale (Ruviform #307).
+    FrameBaseMismatch(FrameBaseMismatch),
+    /// A staged transport command hit the node's bounded control
+    /// queue. Commands pushed before the failure remain staged —
+    /// they were all covered by the evaluated plan; retry policy is
+    /// the caller's.
+    QueueFull,
+    /// `install_plan` was rejected by the node control — upstream
+    /// [`InstallPlanError`] preserved (`FrameBaseMismatch` /
+    /// `QueueFull`).
+    InstallPlan(InstallPlanError),
+    /// [`ParamDispatch`] refused the write batch — the upstream
+    /// [`DispatchError`] is preserved verbatim (binding rejection,
+    /// `Empty`, `QueueFull`, …).
+    Dispatch(DispatchError),
+}
+
+impl fmt::Display for BoundarySessionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Capability(e) => write!(f, "capability refused at open: {e}"),
+            Self::Evaluate(e) => write!(f, "boundary plan refused: {e}"),
+            Self::InstanceMismatch { expected, actual } => {
+                write!(f, "stale provenance: instance {expected:?} != {actual:?}")
+            }
+            Self::NodeMismatch { expected, actual } => {
+                write!(f, "stale provenance: node {expected:?} != {actual:?}")
+            }
+            Self::CapabilityGeneration { expected, actual } => {
+                write!(
+                    f,
+                    "stale provenance: capability generation {expected} != {actual}"
+                )
+            }
+            Self::GraphGeneration { expected, actual } => {
+                write!(
+                    f,
+                    "stale provenance: graph generation {expected} != {actual}"
+                )
+            }
+            Self::FrameBaseMismatch(e) => write!(f, "{e}"),
+            Self::QueueFull => write!(f, "plugin-node control queue full"),
+            Self::InstallPlan(e) => write!(f, "plan install rejected: {e}"),
+            Self::Dispatch(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for BoundarySessionError {}
+
+/// The per-request process-boundary gate for one attached plugin
+/// node — the runtime wiring half of the TIM-03 oracle.
+///
+/// [`ProcessCapability::evaluate`] stays a pure non-RT oracle; this
+/// session binds it to the node's verified attach context
+/// ([`AttachClockContext`], Ruviform #307), the attach-time
+/// [`AttachDelivery`] decision (the same `mode`/`consent`/`budget`
+/// inputs `PluginHostProcessors::connect` projects onto
+/// `AttachConfig::{policy, budget}`), and a [`PrecisionProvenance`]
+/// pin record. Every method evaluates the upcoming window *before*
+/// touching the control channel, so an illegal or unauthorized
+/// boundary — and any stale provenance — is a typed refusal with
+/// nothing staged: never a silent quantization, never a
+/// wrong-target delivery.
+///
+/// Window contract: `window_frames`/`boundaries` describe the
+/// *upcoming* callback window the node will run (e.g. the engine
+/// block length and the discontinuities expected inside it —
+/// position-derived loop wraps are caller-supplied; tempo/loop offset
+/// auto-derivation is a documented non-goal). Staged `due_frames` are
+/// window-relative: a command or plan install due inside the window
+/// is itself a boundary and is legality-checked at its offset;
+/// anything due at/past the window end belongs to a later request.
+///
+/// # RT contract
+/// Non-RT orchestration only — `evaluate` allocates the plan and the
+/// stage methods push bounded control messages. Nothing here runs on
+/// the audio callback; the RT path stays upstream
+/// (`TransportScheduler`/`PluginNode`).
+#[derive(Debug)]
+pub struct ProcessBoundarySession {
+    capability: ProcessCapability,
+    clock: AttachClockContext,
+    mode: ExecutionMode,
+    consent: Option<DegradedConsent>,
+    budget: ScheduleBudget,
+    attach: AttachDelivery,
+    provenance: PrecisionProvenance,
+}
+
+impl ProcessBoundarySession {
+    /// Opens a session for the node behind `control`.
+    ///
+    /// `capability`/`mode`/`consent`/`budget` must be the same inputs
+    /// the composition root attached the node with — `attach_delivery`
+    /// is re-evaluated here so an unattachable capability
+    /// (`Unsupported`, uncertified `OfflineExact`) fails closed before
+    /// a session exists, and the resulting [`AttachDelivery`] records
+    /// the policy/budget the scheduler actually runs. Because every
+    /// [`Self::plan_window`] uses the same inputs, an exact plan is
+    /// always honored (a `Degraded` attach delivers legal boundaries
+    /// identically) and a degraded plan can only arise under a
+    /// consented `Degraded` attach — the oracle and the scheduler can
+    /// never disagree about the delivery policy.
+    ///
+    /// # Errors
+    /// [`BoundarySessionError::Capability`] when `attach_delivery`
+    /// refuses the capability/delivery intent.
+    pub fn open(
+        control: &PluginNodeControl,
+        capability: ProcessCapability,
+        mode: ExecutionMode,
+        consent: Option<DegradedConsent>,
+        budget: ScheduleBudget,
+        provenance: PrecisionProvenance,
+    ) -> Result<Self, BoundarySessionError> {
+        let attach = capability
+            .attach_delivery(mode, consent, budget)
+            .map_err(BoundarySessionError::Capability)?;
+        Ok(Self {
+            capability,
+            clock: AttachClockContext::of(control),
+            mode,
+            consent,
+            budget,
+            attach,
+            provenance,
+        })
+    }
+
+    /// The capability this session evaluates against.
+    #[must_use]
+    pub const fn capability(&self) -> ProcessCapability {
+        self.capability
+    }
+
+    /// The attach-time delivery decision the node's scheduler runs —
+    /// the same `AttachConfig::{policy, budget}` projection
+    /// `PluginHostProcessors::connect` installed.
+    #[must_use]
+    pub const fn attach_delivery(&self) -> AttachDelivery {
+        self.attach
+    }
+
+    /// The provenance pins this session was opened with.
+    #[must_use]
+    pub const fn provenance(&self) -> PrecisionProvenance {
+        self.provenance
+    }
+
+    /// Evaluates one upcoming window — provenance check, then the
+    /// non-RT oracle with the session's fixed mode/consent/budget.
+    /// Pure: nothing is staged.
+    ///
+    /// # Errors
+    /// [`BoundarySessionError::InstanceMismatch`] /
+    /// [`NodeMismatch`] / [`CapabilityGeneration`] /
+    /// [`GraphGeneration`] on stale provenance;
+    /// [`BoundarySessionError::Evaluate`] on oracle refusal
+    /// (`Unsupported`, `ConsentRequired`, `OfflineExact`,
+    /// `OfflineUncertified`, `DeferralExceeded`, `InvalidRequest`).
+    pub fn plan_window(
+        &self,
+        current: &PrecisionProvenance,
+        window_frames: u32,
+        boundaries: Vec<BoundaryPoint>,
+    ) -> Result<ProcessBoundaryPlan, BoundarySessionError> {
+        self.check_provenance(current)?;
+        let request = ProcessBoundaryRequest {
+            window_frames,
+            boundaries,
+            mode: self.mode,
+            consent: self.consent,
+            budget: self.budget,
+        };
+        self.capability
+            .evaluate(&request)
+            .map_err(BoundarySessionError::Evaluate)
+    }
+
+    /// [`Self::plan_window`] plus staging `commands` on `control` —
+    /// the per-request wiring of transport discontinuities.
+    ///
+    /// Each command whose `due_frames` lands inside the window
+    /// contributes its own [`BoundaryPoint`] (a `Seek` maps to
+    /// [`BoundaryKind::Seek`], every other command to
+    /// [`BoundaryKind::Other`]) on top of the caller-supplied
+    /// `boundaries` (position-derived loop wraps etc.), so the oracle
+    /// checks exactly the discontinuities being staged. The plan is
+    /// computed *first*: an oracle refusal stages nothing. On success
+    /// commands push in order; a [`BoundarySessionError::QueueFull`]
+    /// aborts the remainder with earlier commands still staged (they
+    /// were covered by the evaluated plan — bounded-queue reality,
+    /// same contract as `PluginNodeControl::request`).
+    ///
+    /// # Errors
+    /// As [`Self::plan_window`], plus [`BoundarySessionError::QueueFull`].
+    pub fn stage_window(
+        &self,
+        control: &mut PluginNodeControl,
+        current: &PrecisionProvenance,
+        window_frames: u32,
+        boundaries: Vec<BoundaryPoint>,
+        commands: &[(TransportCommand, u64)],
+    ) -> Result<ProcessBoundaryPlan, BoundarySessionError> {
+        let mut points = boundaries;
+        for (cmd, due) in commands {
+            if let Some(point) = command_boundary(*cmd, *due, window_frames) {
+                points.push(point);
+            }
+        }
+        let plan = self.plan_window(current, window_frames, points)?;
+        for (cmd, due) in commands {
+            control
+                .request(*cmd, *due)
+                .map_err(|_| BoundarySessionError::QueueFull)?;
+        }
+        Ok(plan)
+    }
+
+    /// [`Self::plan_window`] plus installing `plan` at `due_frames` —
+    /// the per-request wiring of event/tempo plan installs.
+    ///
+    /// An install due inside the window contributes a
+    /// [`BoundaryKind::PlanInstall`] point at its offset (a plan
+    /// install bumps `plan_generation`, splits spans and releases/
+    /// chases notes upstream — it is a real discontinuity). Due at or
+    /// past the window end it applies at a later callback head and is
+    /// not this window's boundary.
+    ///
+    /// # Errors
+    /// As [`Self::plan_window`], plus [`BoundarySessionError::InstallPlan`].
+    pub fn stage_plan(
+        &self,
+        control: &mut PluginNodeControl,
+        current: &PrecisionProvenance,
+        window_frames: u32,
+        boundaries: Vec<BoundaryPoint>,
+        plan: Arc<TransportPlan<EventKind>>,
+        due_frames: u64,
+    ) -> Result<ProcessBoundaryPlan, BoundarySessionError> {
+        let mut points = boundaries;
+        if let Some(offset) = window_offset(due_frames, window_frames) {
+            points.push(BoundaryPoint {
+                offset,
+                kind: BoundaryKind::PlanInstall,
+            });
+        }
+        let evaluated = self.plan_window(current, window_frames, points)?;
+        control
+            .install_plan(plan, due_frames)
+            .map_err(BoundarySessionError::InstallPlan)?;
+        Ok(evaluated)
+    }
+
+    /// Generation-gated param dispatch — the precision-provenance
+    /// half of the param path.
+    ///
+    /// Verifies `current` against the session pins *and* `dispatch`
+    /// against the pinned node and verified clock context, then
+    /// delegates to [`ParamDispatch::dispatch`] — which keeps its own
+    /// generation-tagged plan minting, ledger and receipt-gated
+    /// observation (the `dispatch_midi` pattern). A stale instance /
+    /// node / capability generation / graph generation / frame base
+    /// is a typed refusal before any write resolves: wrong-target or
+    /// stale param delivery is structurally impossible through this
+    /// path.
+    ///
+    /// The staged plan installs at the callback head (`due = 0`), an
+    /// offset-0 apply that splits no span — head installs cannot
+    /// create an illegal interior boundary, so no window evaluation
+    /// is needed here; window legality is [`Self::plan_window`]'s
+    /// concern for in-window discontinuities.
+    ///
+    /// # Errors
+    /// [`BoundarySessionError::InstanceMismatch`] /
+    /// [`NodeMismatch`] / [`CapabilityGeneration`] /
+    /// [`GraphGeneration`] / [`FrameBaseMismatch`] on stale context;
+    /// [`BoundarySessionError::Dispatch`] on upstream refusal.
+    pub fn dispatch_params(
+        &self,
+        dispatch: &mut ParamDispatch,
+        current: &PrecisionProvenance,
+        writes: &[(ParameterTargetId, TimedParamEvent)],
+    ) -> Result<Arc<TransportPlan<EventKind>>, BoundarySessionError> {
+        self.check_dispatch(dispatch, current)?;
+        dispatch
+            .dispatch(writes)
+            .map_err(BoundarySessionError::Dispatch)
+    }
+
+    /// Generation-gated MIDI dispatch — identical gating to
+    /// [`Self::dispatch_params`] over [`ParamDispatch::dispatch_midi`].
+    ///
+    /// # Errors
+    /// As [`Self::dispatch_params`].
+    pub fn dispatch_midi(
+        &self,
+        dispatch: &mut ParamDispatch,
+        current: &PrecisionProvenance,
+        events: &[(i64, MidiEvent)],
+    ) -> Result<Arc<TransportPlan<EventKind>>, BoundarySessionError> {
+        self.check_dispatch(dispatch, current)?;
+        dispatch
+            .dispatch_midi(events)
+            .map_err(BoundarySessionError::Dispatch)
+    }
+
+    /// Compares `current` against the pinned provenance — first
+    /// mismatched axis wins, named by the typed variant.
+    fn check_provenance(&self, current: &PrecisionProvenance) -> Result<(), BoundarySessionError> {
+        let pinned = self.provenance;
+        if current.instance != pinned.instance {
+            return Err(BoundarySessionError::InstanceMismatch {
+                expected: pinned.instance,
+                actual: current.instance,
+            });
+        }
+        if current.node != pinned.node {
+            return Err(BoundarySessionError::NodeMismatch {
+                expected: pinned.node,
+                actual: current.node,
+            });
+        }
+        if current.capability_generation != pinned.capability_generation {
+            return Err(BoundarySessionError::CapabilityGeneration {
+                expected: pinned.capability_generation,
+                actual: current.capability_generation,
+            });
+        }
+        if current.graph_generation != pinned.graph_generation {
+            return Err(BoundarySessionError::GraphGeneration {
+                expected: pinned.graph_generation,
+                actual: current.graph_generation,
+            });
+        }
+        Ok(())
+    }
+
+    /// Provenance plus the dispatch-side pins: the dispatch must drive
+    /// the session's node and build positions in the verified attach
+    /// frame base — a foreign `ParamDispatch` (different node or a
+    /// stale clock mapping) is refused before any write resolves.
+    fn check_dispatch(
+        &self,
+        dispatch: &ParamDispatch,
+        current: &PrecisionProvenance,
+    ) -> Result<(), BoundarySessionError> {
+        self.check_provenance(current)?;
+        let pinned = self.provenance.node();
+        if dispatch.node() != pinned {
+            return Err(BoundarySessionError::NodeMismatch {
+                expected: pinned,
+                actual: dispatch.node(),
+            });
+        }
+        self.clock
+            .check_frame_base(dispatch.frame_base())
+            .map_err(BoundarySessionError::FrameBaseMismatch)
+    }
+}
+
+/// Maps a staged command's `due_frames` onto a window-relative
+/// [`BoundaryPoint`] — `None` when the apply lands at or beyond the
+/// window end (a later window's boundary, evaluated by that window's
+/// request).
+fn command_boundary(cmd: TransportCommand, due: u64, window: u32) -> Option<BoundaryPoint> {
+    let offset = window_offset(due, window)?;
+    Some(BoundaryPoint {
+        offset,
+        kind: match cmd {
+            TransportCommand::Seek(_) => BoundaryKind::Seek,
+            _ => BoundaryKind::Other,
+        },
+    })
+}
+
+/// `due_frames` → window offset when the apply lands strictly inside
+/// `[0, window)`; `None` at or past the window end.
+fn window_offset(due: u64, window: u32) -> Option<u32> {
+    u32::try_from(due).ok().filter(|d| *d < window)
 }
