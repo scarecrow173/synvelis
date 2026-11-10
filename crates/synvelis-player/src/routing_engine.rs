@@ -49,12 +49,12 @@ use ruviform_rt::RtContext;
 
 use synvelis_project::BuildMode;
 use synvelis_project::{
-    ExecutionEquivalence, LOWERING_POLICY_VERSION, ProbeCaptureSegment, ProbeMode,
-    ProbeSubscriptionKey, ProcessorId, Project, ProjectRevision, RoutingActivationReceipt,
-    RoutingActivationState, RoutingBuildKey, RoutingBuildRequestId, RoutingCompileRequest,
-    RoutingFault, RoutingReconcileMismatch, RoutingReconcileReport, RoutingSourceMap,
-    RuntimeClockEpochRef, RuntimeInstanceId, SemanticProbeBinding, port_capability_generation,
-    routing_fingerprint,
+    ExecutionEquivalence, LOWERING_POLICY_VERSION, PluginRef, ProbeCaptureSegment, ProbeMode,
+    ProbeSubscriptionKey, ProcessorBinding, ProcessorId, Project, ProjectRevision,
+    RoutingActivationReceipt, RoutingActivationState, RoutingBuildKey, RoutingBuildRequestId,
+    RoutingCompileRequest, RoutingFault, RoutingReconcileMismatch, RoutingReconcileReport,
+    RoutingSourceMap, RuntimeClockEpochRef, RuntimeInstanceId, SemanticProbeBinding,
+    port_capability_generation, routing_fingerprint,
 };
 
 use crate::driver::{DriverState, PlayReport, PumpPolicy};
@@ -112,6 +112,15 @@ struct RetainedConnection {
     /// generation counter rejects stale handles, so vending a copy
     /// is safe; the lease still owns teardown order.
     state_handle: Option<ruviform_plugin_host::PluginHandle>,
+    /// The authored plugin identity captured from
+    /// `ProcessorConnectRequest.processor.binding` at connect time —
+    /// `Some` only for `ProcessorBinding::Resolved`. This is the
+    /// instance's *own* identity evidence (what it was actually
+    /// instantiated as), deliberately distinct from the live
+    /// project's current binding claim; vended once through
+    /// [`ProcessorControl::plugin`] for [`crate::PluginBindingSession`]
+    /// pins (PC-C4-02).
+    plugin: Option<PluginRef>,
 }
 
 /// A fully prepared routing build: compiled plan plus the staged
@@ -685,6 +694,7 @@ impl RoutingEngine {
                             semantic.id,
                             *node,
                             connection,
+                            Self::connect_plugin_identity(&semantic.binding),
                         ),
                         Err(error) => {
                             return Err(self.fail(request, key, error.fault()));
@@ -704,6 +714,18 @@ impl RoutingEngine {
         })
     }
 
+    /// The authored plugin identity captured at connect time —
+    /// `Some` only for [`ProcessorBinding::Resolved`]. This is the
+    /// instance's own evidence (what it was actually instantiated
+    /// as), deliberately distinct from the live project's current
+    /// binding claim (PC-C4-02).
+    fn connect_plugin_identity(binding: &ProcessorBinding) -> Option<PluginRef> {
+        match binding {
+            ProcessorBinding::Resolved(plugin) => Some(plugin.clone()),
+            ProcessorBinding::Unresolved { .. } => None,
+        }
+    }
+
     /// Splits a successful host connect into its RT half (the graph
     /// processor) and its generation-retained non-RT halves (lease +
     /// optional plugin control).
@@ -713,6 +735,7 @@ impl RoutingEngine {
         processor: ProcessorId,
         node: NodeId,
         connection: ProcessorConnection,
+        plugin: Option<PluginRef>,
     ) {
         pending.insert(node, connection.processor);
         connections.push(RetainedConnection {
@@ -721,6 +744,7 @@ impl RoutingEngine {
             _lease: connection.lease,
             control: connection.control,
             state_handle: connection.state_handle,
+            plugin,
         });
     }
 
@@ -1198,6 +1222,7 @@ impl RoutingEngine {
             node: retained.node,
             control,
             frame_base,
+            plugin: retained.plugin.clone(),
         })
     }
 

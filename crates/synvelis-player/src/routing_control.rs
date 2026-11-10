@@ -640,12 +640,20 @@ impl RoutingControlDispatch {
                 surface.report.without_control.push(*processor);
                 continue;
             };
+            // PC-C4-02: a control that cannot vouch for the instance's
+            // authored plugin identity never backs a binding session —
+            // typed `without_control` evidence, not a silent skip.
+            let Some(plugin) = control.plugin else {
+                surface.report.without_control.push(*processor);
+                continue;
+            };
             let instance = StablePluginInstanceId::new(self.next_instance);
             self.next_instance = self.next_instance.wrapping_add(1);
             let session = PluginBindingSession::attach(
                 &control.control,
                 control.node,
                 *processor,
+                plugin,
                 surface.generation,
                 surface.capability_generation,
                 instance,

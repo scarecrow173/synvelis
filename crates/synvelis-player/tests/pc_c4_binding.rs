@@ -58,8 +58,9 @@ use synvelis_project::{
     AutomationLane, AutomationLaneId, AutomationPoint, AutomationRegion, AutomationTimeScope,
     BeatPoint, BeatRange, ControlGraph, ControlOwner, Interpolation, LfoShape,
     ModulationAssignment, ModulationAssignmentId, ModulationSource, ModulationSourceId,
-    ParamMapping, ParameterRole, ParameterTarget, ParameterTargetId, Polarity, ProcessorId,
-    Project, ProjectId, SourceKind, TargetCapability, Transform, ValueKind,
+    ParamMapping, ParameterRole, ParameterTarget, ParameterTargetId, PluginRef, Polarity,
+    Processor, ProcessorBinding, ProcessorId, Project, ProjectId, SourceKind, TargetCapability,
+    Transform, ValueKind,
 };
 
 /// Muxer constructor over the `&mut StagedFile` borrow — same shape as
@@ -229,6 +230,18 @@ fn processor() -> ProcessorId {
     ProcessorId::new(PROC)
 }
 
+/// The authored plugin identity every fixture session pins — matches
+/// the `ProcessorBinding::Resolved` registered by `project_with`
+/// (PC-C4-02: `bind` resolves the stage-1 semantic binding and
+/// requires this identity).
+fn plugin_ref() -> PluginRef {
+    PluginRef {
+        descriptor: DESCRIPTOR.id.to_owned(),
+        version: DESCRIPTOR.version.to_owned(),
+        capability_revision: 1,
+    }
+}
+
 /// A hosted fixture plugin + its `attached` parts.
 struct Hosted {
     _host: PluginHost,
@@ -392,12 +405,23 @@ fn gain_target(id: u128) -> ParameterTarget {
 }
 
 /// A project carrying `targets` (the master-fader bootstrap target
-/// stays — it is `Strip`-owned and can never bind to a plugin).
+/// stays — it is `Strip`-owned and can never bind to a plugin) plus
+/// the `Resolved` processor registration the stage-1 semantic binding
+/// requires (PC-C4-02).
 fn project_with(targets: Vec<ParameterTarget>) -> Project {
     let mut project = Project::new(ProjectId::new(0), "pcc4");
     for target in targets {
         project.control.targets.insert(target.id, target);
     }
+    project.routing.processors.insert(
+        processor(),
+        Processor {
+            id: processor(),
+            name: "fx".into(),
+            binding: ProcessorBinding::Resolved(plugin_ref()),
+            port_ids: vec![],
+        },
+    );
     project
 }
 
@@ -417,6 +441,7 @@ fn open(
         &control,
         node,
         processor(),
+        plugin_ref(),
         graph_gen,
         cap_gen,
         StablePluginInstanceId::new(instance),
@@ -610,6 +635,7 @@ fn pc_c4_05_verified_frame_base_contract() {
         &hosted.attached.control,
         node,
         processor(),
+        plugin_ref(),
         1,
         1,
         StablePluginInstanceId::new(1),
@@ -1322,4 +1348,166 @@ fn pc_c4_04_generation_consistency() {
     assert!(matches!(err, BindingError::PlanStale));
     let plan_new = ControlGraph::compile(&project_mut).unwrap();
     session_b.check_plan(&plan_new, &project_mut).unwrap();
+}
+
+/// PC-C4-02 — stage-1 authority consumption: `bind` resolves
+/// `semantic_plugin_binding`/`plugin_instance_binding`; a processor
+/// absent from `routing.processors` or `Unresolved` fails closed as a
+/// project-layer error, and any `PluginRef` drift between the
+/// session's connect-time pin and the live semantic binding is a
+/// typed `PluginMismatch` — never a silent rebind.
+#[test]
+fn pc_c4_02_stage1_authority_and_plugin_identity() {
+    let target = gain_target(1);
+    let project = project_with(vec![target.clone()]);
+    let target_id = target.id;
+
+    // The processor-level lookup resolves the same authored identity.
+    assert_eq!(
+        synvelis_project::plugin_instance_binding(&project, processor()).unwrap(),
+        &plugin_ref()
+    );
+
+    let hosted = host_plugin(&PARAMS);
+    let (_g, proc, _s, _k) = build_graph(&hosted.attached);
+    let (mut session, mut dispatch) = open(hosted.attached.control, proc, 1, 1, 1);
+
+    // Baseline: semantic resolution succeeds and the record pins the
+    // instance's authored plugin identity + plugin-local ParamId.
+    let binding = session
+        .bind(&mut dispatch, &project, target_id, &PARAMS)
+        .unwrap();
+    assert_eq!(binding.plugin, plugin_ref());
+    assert_eq!(binding.plugin_param, ParamId(7));
+    assert_eq!(session.plugin(), &plugin_ref());
+
+    // Processor absent from `routing.processors` → typed project
+    // error, no binding minted.
+    let mut no_processor = project.clone();
+    no_processor.routing.processors.clear();
+    let err = session
+        .bind(&mut dispatch, &no_processor, target_id, &PARAMS)
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        BindingError::Project(synvelis_project::Error::NotFound(_))
+    ));
+
+    // `Unresolved` binding → typed project error.
+    let mut unresolved = project.clone();
+    unresolved
+        .routing
+        .processors
+        .get_mut(&processor())
+        .unwrap()
+        .binding = ProcessorBinding::Unresolved {
+        descriptor: "gone".into(),
+    };
+    let err = session
+        .bind(&mut dispatch, &unresolved, target_id, &PARAMS)
+        .unwrap_err();
+    assert!(matches!(
+        err,
+        BindingError::Project(synvelis_project::Error::Validation(_))
+    ));
+
+    // Any `PluginRef` drift — descriptor, version or
+    // capability_revision — is `PluginMismatch` (whole-record
+    // comparison; a colliding capability revision still fails).
+    for mutated in [
+        PluginRef {
+            descriptor: "other.plugin".into(),
+            ..plugin_ref()
+        },
+        PluginRef {
+            version: "9.9.9".into(),
+            ..plugin_ref()
+        },
+        PluginRef {
+            capability_revision: 2,
+            ..plugin_ref()
+        },
+    ] {
+        let mut rebound = project.clone();
+        rebound
+            .routing
+            .processors
+            .get_mut(&processor())
+            .unwrap()
+            .binding = ProcessorBinding::Resolved(mutated.clone());
+        let err = session
+            .bind(&mut dispatch, &rebound, target_id, &PARAMS)
+            .unwrap_err();
+        assert!(
+            matches!(
+                err,
+                BindingError::PluginMismatch { ref expected, ref actual }
+                    if *expected == plugin_ref() && *actual == mutated
+            ),
+            "expected PluginMismatch for {mutated:?}, got {err}"
+        );
+    }
+}
+
+/// PC-C4-02 — dispatch pin + last-good: a record whose `plugin`
+/// differs from the session pin is `PluginMismatch` before any
+/// staging (batch stays atomic); a project rebind fails *new* binds
+/// but never invalidates the already-recorded binding — the pinned
+/// instance identity is unchanged, so delivery to *this* instance
+/// remains correct (generation machinery owns the swap).
+#[test]
+fn pc_c4_02_dispatch_plugin_pin_and_last_good() {
+    let target = gain_target(1);
+    let project = project_with(vec![target.clone()]);
+    let target_id = target.id;
+    let hosted = host_plugin(&PARAMS);
+    let (_g, proc, _s, _k) = build_graph(&hosted.attached);
+    let (mut session, mut dispatch) = open(hosted.attached.control, proc, 1, 1, 1);
+    let binding = session
+        .bind(&mut dispatch, &project, target_id, &PARAMS)
+        .unwrap();
+
+    let ev = TimedParamEvent {
+        position: MediaTime::new(64, frame_base()),
+        event: ParamEvent {
+            param_id: ParamId(7),
+            value: ParamValue::new(0.5).unwrap(),
+        },
+    };
+
+    // A record minted against a different plugin identity →
+    // PluginMismatch at the pin check, before record comparison —
+    // and the whole batch is rejected (nothing staged).
+    let mut foreign = binding.clone();
+    foreign.plugin = PluginRef {
+        capability_revision: 99,
+        ..plugin_ref()
+    };
+    let err = session
+        .dispatch(&mut dispatch, &[(foreign, ev)])
+        .unwrap_err();
+    assert!(matches!(err, BindingError::PluginMismatch { .. }));
+
+    // Project-side rebind: new binds fail `PluginMismatch`…
+    let mut rebound = project.clone();
+    rebound
+        .routing
+        .processors
+        .get_mut(&processor())
+        .unwrap()
+        .binding = ProcessorBinding::Resolved(PluginRef {
+        descriptor: "other.plugin".into(),
+        ..plugin_ref()
+    });
+    let err = session
+        .bind(&mut dispatch, &rebound, target_id, &PARAMS)
+        .unwrap_err();
+    assert!(matches!(err, BindingError::PluginMismatch { .. }));
+
+    // …but the recorded binding still dispatches — this session's
+    // instance *is* the pinned plugin; last-good delivery to it is
+    // correct until the new generation's surface takes over.
+    session
+        .dispatch(&mut dispatch, &[(binding.clone(), ev)])
+        .unwrap();
 }
