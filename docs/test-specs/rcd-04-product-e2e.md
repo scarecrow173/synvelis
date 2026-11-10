@@ -138,7 +138,8 @@ read-only の製品レベル証拠。
   →7 note（phrase 境界 2400 を跨ぐ・直前 onset・
   境界 onset を含む）→ plan boundary oracle（on=off・
   active 空・AllNotesOff terminal・virtual offs・
-  chase 非空）→ undo で最後の note が plan から消え
+  chase が宣言 (channel,kind) union を各 region で
+  網羅）→ undo で最後の note が plan から消え
   redo で NoteId/plan が一致 → save/reload で source/
   note stable ID 維持 → VCS diff に MidiNote Added
   7 件の stable ID・committed(post)→live `equal`・

@@ -1090,11 +1090,27 @@ fn rcd04_midi_phrase_product_e2e() {
         plan.regions.iter().any(|r| !r.virtual_offs.is_empty()),
         "expected at least one virtual off at a phrase boundary"
     );
-    // controller chase covers the declared kind union per region.
+    // controller chase covers the declared (channel, kind) union at
+    // every region start — the no-leak contract: state is re-asserted
+    // per region so nothing carries across a phrase boundary.
+    let declared: BTreeSet<(u8, MidiControllerKind)> = [
+        MidiControllerKind::Cc(1),
+        MidiControllerKind::Cc(10),
+        MidiControllerKind::Cc(64),
+        MidiControllerKind::PitchBend,
+    ]
+    .into_iter()
+    .map(|kind| (0u8, kind))
+    .collect();
     for region in &plan.regions {
-        assert!(
-            !region.chase.is_empty(),
-            "region {} has no chase",
+        let chased: BTreeSet<(u8, MidiControllerKind)> = region
+            .chase
+            .iter()
+            .map(|((channel, kind), _)| (*channel, *kind))
+            .collect();
+        assert_eq!(
+            chased, declared,
+            "region {} chase must cover the declared union",
             region.region
         );
     }
@@ -1112,12 +1128,7 @@ fn rcd04_midi_phrase_product_e2e() {
     assert_plan_boundary_safe(&plan_after_undo);
     assert!(
         plan_after_undo.events.iter().all(|e| {
-            e.action
-                != MidiPlanAction::NoteOn {
-                    key: undone_key,
-                    velocity: 0,
-                }
-                && !(matches!(&e.action, MidiPlanAction::NoteOn { key, .. } if *key == undone_key))
+            !matches!(&e.action, MidiPlanAction::NoteOn { key, .. } if *key == undone_key)
         }),
         "undone note must leave the plan"
     );

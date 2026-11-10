@@ -208,13 +208,21 @@ slice。crate 層 fixture は main 統合済み（PR #219
 - `cargo test -p synvelis-app --test
   rcd_04_product_e2e` — 5 tests pass（補助証拠:
   `mise exec -- cargo test`）。
-- `cargo clippy -p synvelis-app --all-targets` —
-  warning 0（補助証拠: `mise exec -- cargo clippy`）。
-- `rustfmt --edition 2024` — 適用済み。
-- canonical mise 検証（`mise run fmt-check`/`check`/
-  `lint`/`test`/`test-rt`/`test-msrv`/
-  `check-app-native`/`lint-app-native`）— 最終検証で
-  実施予定。
+- canonical mise 検証（Windows 11 x64 / Git Bash、
+  toolchain rust 1.99.0 pin、merge `origin/main`
+  @ `9a75336` 取込後）— すべて exit 0:
+  - `mise run fmt-check` — pass
+  - `mise run check` — pass
+  - `mise run lint` — pass（`-D warnings`）
+  - `mise run test` — pass（workspace 全件。
+    初回実行で `synvelis-library` webdav test が
+    os error 10053 で 5 件 flake → 単独再実行 42/42
+    pass・全体再実行も pass。RCD-04 5 tests 含む）
+  - `mise run test-rt` — pass
+  - `mise run test-msrv` — pass（rust 1.89.0、
+    workspace 全件）
+  - `mise run check-app-native` — pass
+  - `mise run lint-app-native` — pass
 
 ## Risks
 
