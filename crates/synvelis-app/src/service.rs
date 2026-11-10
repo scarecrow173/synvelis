@@ -177,6 +177,30 @@ pub const OPS: &[OpInfo] = &[
         summary: "probe projection — bindings/segments/drain/traces",
     },
     OpInfo {
+        name: "syn.monitoring.set",
+        summary: "session-scope track monitor declaration — arm/monitor/binding/hw-direct patch or clear (RCD-03)",
+    },
+    OpInfo {
+        name: "syn.monitoring.punch",
+        summary: "punch in/out marks — set|in|out|clear (project ticks, half-open)",
+    },
+    OpInfo {
+        name: "syn.monitoring.transport",
+        summary: "monitor session transport — play|pause|stop|seek (project ticks)",
+    },
+    OpInfo {
+        name: "syn.monitoring.session",
+        summary: "monitor session lifecycle — start (preflight) | stop",
+    },
+    OpInfo {
+        name: "syn.monitoring.latency",
+        summary: "latency report/readiness/tone-difference injection (headless)",
+    },
+    OpInfo {
+        name: "syn.monitoring.state",
+        summary: "monitor projection — session/tracks/routes/notices/segments/latency",
+    },
+    OpInfo {
         name: "syn.viz.bind",
         summary: "bind surface to source (view_id, surface_id, source, kind, plot_px?)",
     },
@@ -316,6 +340,12 @@ impl AppService {
             "syn.control.targets" => Ok(self.app.op_control_targets()),
             "syn.probe.control" => self.app.op_probe_control(params),
             "syn.probe.state" => Ok(self.app.op_probe_state()),
+            "syn.monitoring.set" => self.app.op_monitoring_set(params),
+            "syn.monitoring.punch" => self.app.op_monitoring_punch(params),
+            "syn.monitoring.transport" => self.app.op_monitoring_transport(params),
+            "syn.monitoring.session" => self.app.op_monitoring_session(params),
+            "syn.monitoring.latency" => self.app.op_monitoring_latency(params),
+            "syn.monitoring.state" => Ok(self.app.op_monitoring_state()),
             "syn.viz.bind" => self.app.op_viz_bind(params),
             "syn.viz.meta" => self.app.op_viz_meta(params),
             "syn.viz.query" => self.app.op_viz_query(params),
