@@ -1,10 +1,10 @@
 ---
 id: "TSPEC-034UrlOOfZIvsdF1bdNXfE"
 type: "test-spec"
-status: "proposed"
+status: "approved"
 title: "RCD-02 Durability / Recovery Review / Commit Receipt fault matrix"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-11"
 owners: []
 relations:
   source:
@@ -133,8 +133,11 @@ recovery review 判定、commit receipt 分類と冪等再照合。
 ## Non-goals
 
 - 実 OS/FS の durability 実測（NotRun — 実機 gate）。
-- synvelis-project/library への統合 adapter の実接続。
-- #84 StagedFile/HEAD CAS・#86 SHA-256 Blob identity の実接続。
+- #86 verified blob identity/migration・#84 StagedFile/HEAD CAS
+  への実接続（`verified_sha256` 記録と `ProjectMediaProbe` による
+  saved-HEAD 参照判定は task2 で接続済み。
+  `docs/impl/ir/rcd-02-project-library-adapter-verified-sha-256-
+  mediareferenceprobe-saved-head.md` 参照）。
 - 製品 GUI（#118）の recovery フロー。
 - RT callback 上の noalloc/noblock の実オーディオスレッド計測
   （test-rt の既存検証に留める）。

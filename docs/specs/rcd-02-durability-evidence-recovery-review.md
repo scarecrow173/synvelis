@@ -1,10 +1,10 @@
 ---
 id: "SPEC-034Uri8JTbpWmKASolvM4A"
 type: "spec"
-status: "proposed"
+status: "implemented"
 title: "RCD-02 Recording Durability Evidence / Recovery Review — synvelis#116 slice"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-11"
 owners: []
 relations:
   source:
