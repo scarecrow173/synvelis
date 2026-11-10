@@ -78,3 +78,4 @@ Directory: `docs/impl/ir`
 | IMPL-034UMbAviqhaRhIqExdBM3 | RCD-02 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | completed | [rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md](rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md) |
 | IMPL-034UyQi9tCjjAPwfMy7pSX | PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice） | completed | [pc-c5-02-03-gesture-stale-inspector.md](pc-c5-02-03-gesture-stale-inspector.md) |
 | IMPL-034V1rsGSFTsDZgYwBlfaz | TIM-03 attach wiring — capability→AttachConfig composition root | completed | [tim-03-attach-wiring-capability-attachconfig-composition-root.md](tim-03-attach-wiring-capability-attachconfig-composition-root.md) |
+| IMPL-TIM02SmfFormat01Core0001 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice 実装記録 | completed | [tim-02-smf-format01-import-export.md](tim-02-smf-format01-import-export.md) |
