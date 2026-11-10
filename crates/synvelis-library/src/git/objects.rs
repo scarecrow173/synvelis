@@ -110,6 +110,10 @@ impl GitRunner {
             // Never block on a prompt: no terminal prompt, no
             // interactive askpass, no credential helpers.
             .env("GIT_TERMINAL_PROMPT", "0")
+            // Read-only guarantee: porcelain commands like `status`
+            // must never take the optional index lock or refresh-write
+            // the index as a side effect of observation.
+            .env("GIT_OPTIONAL_LOCKS", "0")
             .env("GIT_ASKPASS", "")
             .env("SSH_ASKPASS", "")
             .env("GIT_CONFIG_COUNT", "3")
@@ -645,6 +649,7 @@ fn classify_kind(stderr: &str, code: Option<i32>) -> ProviderErrorKind {
     }
     if s.contains("not found")
         || s.contains("does not exist")
+        || s.contains("not a git repository")
         || s.contains("unknown revision")
         || s.contains("needed a single revision")
         || s.contains("not a valid object name")
