@@ -38,6 +38,7 @@ pub mod store;
 pub mod tempo;
 pub mod time;
 pub mod trace;
+pub mod vcs;
 
 pub use comp::{
     Comp, CompCandidateRef, CompOp, CompProvenance, CompRegion, CompRegistry, CompTransition,
