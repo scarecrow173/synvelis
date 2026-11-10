@@ -10,6 +10,7 @@ Directory: `docs/impl/ir`
 | IMPL-034UrlNf4hC31G8gfjoR8y | SV-GUI-04 slice2 close-veto/cancel — syn.window.close_guard + 末尾 window veto | completed | [sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md](sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md) |
 | IMPL-034UpGfvHCv8xjHEH5ys6e | PC-C2 双方向 Control Relation Index/Projection | completed | [pc-c2-control-relation-index-projection.md](pc-c2-control-relation-index-projection.md) |
 | IMPL-034UoCucc7Cxrp4NwMxb5V | SV-GUI-04 slice1 precursor: headless WindowHandle + dock fixture | completed | [sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md](sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md) |
+| IMPL-034V30Z5uYklMrResgr0lS | RCD-01 実Audio Device録音統合 headless slice — fake port→実StreamWriter fixture + recording state projection | completed | [rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md](rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md) |
 
 ## Settled
 

@@ -41,6 +41,7 @@ pub mod engine;
 pub mod error;
 pub mod host;
 pub mod logging;
+pub mod recording;
 pub mod revision;
 pub mod screens;
 pub mod service;
