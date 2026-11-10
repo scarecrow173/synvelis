@@ -46,8 +46,8 @@ pub use dispatch::{DispatchCycle, DispatchError, ParamDispatch};
 pub use driver::{AttachedNode, DriverState, HeadlessDriver, PlayReport, PumpPolicy};
 pub use error::{ImportError, ResolveError};
 pub use host::{
-    PluginHostProcessors, ProcessorConnectError, ProcessorConnectRequest, ProcessorConnection,
-    ProcessorControl, ProcessorHost, ProcessorLease, StaticProcessorHost,
+    BoundaryDeclaration, PluginHostProcessors, ProcessorConnectError, ProcessorConnectRequest,
+    ProcessorConnection, ProcessorControl, ProcessorHost, ProcessorLease, StaticProcessorHost,
 };
 pub use import::{BlobReceipt, ImportOutcome, ImportRequest, ProjectReceipt, VerifiedMedia};
 pub use lowering::{
@@ -64,9 +64,9 @@ pub use plugin_state::{PluginStateEndpoint, PluginStateHost};
 pub use probe::{ProbeRequestError, ProbeSession};
 pub use probe_trace::ProbeTraceBridge;
 pub use process_boundary::{
-    BoundaryDegradation, BoundaryKind, BoundaryPoint, DegradedConsent, ExecutionMode,
-    ProcessBoundaryError, ProcessBoundaryPlan, ProcessBoundaryRequest, ProcessCapability,
-    SegmentPlan, TimingPrecision,
+    AttachDelivery, BoundaryDegradation, BoundaryKind, BoundaryPoint, DegradedConsent,
+    ExecutionMode, ProcessBoundaryError, ProcessBoundaryPlan, ProcessBoundaryRequest,
+    ProcessCapability, SegmentPlan, TimingPrecision,
 };
 pub use processor::{ClipPlayer, PlaybackStats};
 pub use publish::{PublishError, PublishReport, PublishedStream, SkippedStream, publish_recorded};
