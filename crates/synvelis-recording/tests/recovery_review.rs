@@ -841,3 +841,163 @@ fn rcd02_publish_indeterminate_adopt_recovers() {
     assert_eq!(rec.decision, ReviewDecision::Adopted);
     fs::remove_dir_all(&root).ok();
 }
+
+#[test]
+fn rcd02_fault_matrix_journal_short_write_torn_append() {
+    // journal への short write（torn append）: 部分 byte が file に
+    // 残り writer は Failed。replay は intact prefix で停止し、
+    // review Adopt は verified prefix のみを Partial で確定する
+    // （torn/corrupt tail を Complete にしない）。
+    let lane = LaneId::new(11);
+    let root = tmp_dir("j-short");
+    let area = staging_area(&root, 214, &[lane]);
+    let (mut w, mut ends) = manual_writer(&area);
+    for i in 0..2u32 {
+        push_and_pump(&mut w, &mut ends, i, i64::from(i) * 64);
+    }
+    w.checkpoint().unwrap();
+    // journal write: chunk0(0), chunk1(1), checkpoint(2) を消費済み。
+    // chunk2 の record append（call=3）が途中で切れる。
+    w.inject_journal(Inject::ShortWrite { call: 3, bytes: 17 });
+    push_and_pump(&mut w, &mut ends, 2, 128);
+    assert_eq!(w.state(), StreamState::Failed);
+    drop(w);
+
+    let report = recovery::scan(&root).unwrap();
+    let s = &report.sessions[0].streams[0];
+    // torn tail は CleanEnd に到達せず、verified prefix のみが残る。
+    assert_ne!(s.stop, StopReason::CleanEnd);
+    assert_eq!(s.class, StreamClass::Partial);
+    assert_eq!(s.review_state, ReviewState::Pending);
+    // media には chunk2 分の byte があるが journaled coverage は
+    // checkpoint の 2 chunk 分に留まる（unverified tail）。
+    assert_eq!(s.unverified_tail_bytes, 64 * FRAME_BYTES);
+
+    let mut faults = PublishFaults::new();
+    let out = review_stream(&area, 0, ReviewAction::Adopt, None, &mut faults).unwrap();
+    let ReviewOutcome::Adopted(r) = out else {
+        panic!("expected Adopted")
+    };
+    assert_eq!(r.outcome, FinalizedOutcome::Partial);
+    assert_eq!(r.media_byte_len, 2 * 64 * FRAME_BYTES);
+    assert_eq!(r.source_frames, 128);
+    fs::remove_dir_all(&root).ok();
+}
+
+// ---------- commit receipt: finalize 段階の区別 ----------
+
+#[test]
+fn rcd02_commit_receipt_finalize_publish_lost_is_distinct() {
+    // finalized.json の公開が失われた（journal の Finalize record は
+    // 残る）状態は、commit 未実行の Reserved と区別して
+    // `journal_finalize.finalized_present=false` +
+    // `finalize_record=Some(Complete)` として観測される。
+    // commit は missing-finalized を recoverable に分離し、
+    // 未 finalize stream を commit しない。
+    let (mut c, lanes, epoch) = controller_with(1);
+    let (sid, cfgs) = open_session(&mut c, &lanes, epoch);
+    let root = tmp_dir("fin-lost");
+    let area = record_close(&mut c, &root, sid, &cfgs, &lanes, epoch);
+    let finalized = finalized_path(&root, sid.raw(), 0);
+    fs::remove_file(&finalized).unwrap();
+
+    let report = commit_session(&mut c, &area).unwrap();
+    assert!(matches!(report.outcome, CommitOutcome::NothingCommitted));
+    assert_eq!(report.recoverable.len(), 1);
+    assert_eq!(report.recoverable[0].reason, "missing-finalized");
+    assert_eq!(c.live().sources.len(), 0);
+    assert_eq!(c.live().recording.takes.len(), 0);
+
+    // receipt: commit 未適用 + marker nothing-committed = Reserved。
+    // journal_finalize が finalize publish 喪失を区別して示す。
+    let r = commit_receipt(c.live(), &area, None).unwrap();
+    assert_eq!(r.stage, ReceiptStage::Reserved);
+    assert_eq!(r.marker_outcome.as_deref(), Some("nothing-committed"));
+    assert_eq!(r.journal_finalize.len(), 1);
+    let e = &r.journal_finalize[0];
+    assert!(!e.finalized_present);
+    assert!(matches!(e.finalize_record, Some(FinalizeOutcome::Complete)));
+    assert_eq!(e.journal_stop, Some(StopReason::CleanEnd));
+    fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn rcd02_commit_receipt_adopted_partial_finalize_record_absent() {
+    // review Adopt で確定した Partial（torn journal 由来）は
+    // finalized.json を持つが journal に Finalize record を持たない
+    // （torn tail への append は行われない）。receipt の
+    // `journal_finalize` がこの非対称を区別して観測し、
+    // Partial は commit 対象外（recoverable）に留まる。
+    let (mut c, lanes, epoch) = controller_with(1);
+    let (sid, cfgs) = open_session(&mut c, &lanes, epoch);
+    let root = tmp_dir("fin-adopted");
+    let area = StagingArea::create(
+        &root,
+        &StagingSessionConfig {
+            session_id: sid,
+            sample_rate: RATE,
+            streams: cfgs.clone(),
+        },
+    )
+    .unwrap();
+    let (mut w, mut ends) = crashed_writer(&area, None);
+    for i in 0..3u32 {
+        push_and_pump(&mut w, &mut ends, i, i64::from(i) * 64);
+    }
+    w.pump();
+    w.checkpoint().unwrap();
+    drop(w);
+    // journal 末尾に torn tail を注入（kill/power-loss 相当）。
+    let jp = journal_path(&root, sid.raw(), 0);
+    let mut jbytes = fs::read(&jp).unwrap();
+    let partial = encode_record(
+        4,
+        &RecordPayload::Chunk(ChunkRecord {
+            chunk_id: 0,
+            first_input_frame: 0,
+            session_start: 0,
+            block_frames: 32,
+            stored_frames: 32,
+            media_offset: 0,
+            media_len: 8,
+            pcm_crc32: 0,
+            digest_fold: 0,
+            spans: vec![],
+        }),
+    )
+    .unwrap();
+    jbytes.extend(&partial[..partial.len() / 2]);
+    fs::write(&jp, &jbytes).unwrap();
+    rop(&mut c, RecordingOp::CloseSession { session_id: sid });
+
+    // review Adopt → verified prefix のみ Partial で確定。
+    // journal stop が CleanEnd でないため Finalize record は
+    // 追記されない（finalized.json が authority）。
+    let mut faults = PublishFaults::new();
+    let out = review_stream(&area, 0, ReviewAction::Adopt, None, &mut faults).unwrap();
+    let ReviewOutcome::Adopted(r) = out else {
+        panic!("expected Adopted")
+    };
+    assert_eq!(r.outcome, FinalizedOutcome::Partial);
+    assert!(finalized_path(&root, sid.raw(), 0).exists());
+
+    // Partial は commit 対象外 — payload は空で NothingCommitted、
+    // stream は recoverable に分離される。
+    let report = commit_session(&mut c, &area).unwrap();
+    assert!(matches!(report.outcome, CommitOutcome::NothingCommitted));
+    assert_eq!(report.recoverable.len(), 1);
+    assert_eq!(report.recoverable[0].reason, "partial-finalize");
+    assert_eq!(c.live().sources.len(), 0);
+    assert_eq!(c.live().recording.takes.len(), 0);
+
+    // receipt: finalized 有り + Finalize record 無し + TornTail を
+    // 区別して観測する（journal finalize append 未記録の状態）。
+    let r = commit_receipt(c.live(), &area, None).unwrap();
+    assert_eq!(r.stage, ReceiptStage::Reserved);
+    assert_eq!(r.journal_finalize.len(), 1);
+    let e = &r.journal_finalize[0];
+    assert!(e.finalized_present);
+    assert!(e.finalize_record.is_none());
+    assert_eq!(e.journal_stop, Some(StopReason::TornTail));
+    fs::remove_dir_all(&root).ok();
+}
