@@ -6953,6 +6953,7 @@ name = "synvelis-recording"
 version = "0.1.0"
 dependencies = [
  "ruviform-audio-core",
+ "ruviform-io-file",
  "ruviform-media-core",
  "ruviform-rt",
  "serde",
