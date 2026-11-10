@@ -73,6 +73,41 @@ pub fn send_level_target_id(project: &Project, send: SendId) -> Option<Parameter
         .map(|t| t.id)
 }
 
+/// The stage-1 plugin instance binding of a processor:
+/// `ProcessorId` → authored [`PluginRef`].
+///
+/// This is the processor-level counterpart of
+/// [`semantic_plugin_binding`]: where that resolves a *target* to
+/// `(ProcessorId, PluginRef, ParamId)`, this resolves the processor
+/// itself to the plugin identity its
+/// [`ProcessorBinding::Resolved`] pins — the canonical lookup a
+/// composition root uses to vouch for which plugin an instance was
+/// authored as. Fail-closed like its sibling: an absent processor is
+/// [`Error::NotFound`], an [`ProcessorBinding::Unresolved`] one is
+/// [`Error::Validation`] — never a guess at a numerically matching
+/// plugin.
+///
+/// # Errors
+/// [`Error::NotFound`] when the processor is absent from
+/// `project.routing.processors`; [`Error::Validation`] when its
+/// binding is [`ProcessorBinding::Unresolved`].
+pub fn plugin_instance_binding(
+    project: &Project,
+    processor: ProcessorId,
+) -> Result<&PluginRef, Error> {
+    let processor_ref = project
+        .routing
+        .processors
+        .get(&processor)
+        .ok_or_else(|| Error::NotFound(format!("processor {processor}")))?;
+    match &processor_ref.binding {
+        ProcessorBinding::Resolved(plugin) => Ok(plugin),
+        ProcessorBinding::Unresolved { .. } => Err(Error::Validation(format!(
+            "processor {processor} plugin binding is unresolved"
+        ))),
+    }
+}
+
 /// The stage-1 semantic binding of a plugin parameter target:
 /// `ParameterTargetId` → `(ProcessorId, PluginRef, ParamId)`.
 ///

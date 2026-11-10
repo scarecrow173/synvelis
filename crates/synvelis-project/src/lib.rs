@@ -68,7 +68,8 @@ pub use control::{
 pub use controller::{Command, Operation, ProjectController, ProjectRevision, SavedState};
 pub use error::Error;
 pub use host_param::{
-    SemanticPluginBinding, semantic_plugin_binding, send_level_target_id, strip_channel_target_id,
+    SemanticPluginBinding, plugin_instance_binding, semantic_plugin_binding, send_level_target_id,
+    strip_channel_target_id,
 };
 pub use id::{
     AssetId, AutomationLaneId, BusId, CaptureSegmentId, CaptureStreamId, ChainId, ClipId,

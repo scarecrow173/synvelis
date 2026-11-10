@@ -115,6 +115,14 @@ pub struct ProcessorControl {
     /// (whose `new` verifies the base via `check_frame_base`) or a
     /// [`crate::PluginBindingSession`] without a second lookup.
     pub frame_base: TimeBase,
+    /// The authored plugin identity this generation's instance was
+    /// connected with — the `ProcessorBinding::Resolved` `PluginRef`
+    /// captured at `connect` time, i.e. the instance's *own* identity
+    /// evidence, not the live project's current claim. `Some` only
+    /// when the semantic binding was `Resolved`; `None` means the
+    /// control cannot vouch for plugin identity and must not back a
+    /// [`crate::PluginBindingSession`] (PC-C4-02).
+    pub plugin: Option<PluginRef>,
 }
 
 /// Opaque per-connection teardown token. Dropping it runs the

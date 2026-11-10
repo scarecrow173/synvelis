@@ -13,8 +13,9 @@
 //!   [`TimeBase`], so an unverified base can never enter a binding.
 //! - [`PluginParameterBinding`] — the runtime record pinning a project
 //!   [`ParameterTargetId`] to a stable plugin instance, `NodeId`,
-//!   plugin-local [`ParamId`], capability generation, graph generation
-//!   and the verified clock context.
+//!   plugin-local [`ParamId`], the instance's authored [`PluginRef`]
+//!   identity, capability generation, graph generation and the
+//!   verified clock context.
 //! - [`PluginBindingSession`] — one attached instance's binding table
 //!   plus `bind`/`revalidate`/`invalidate`/`dispatch`/`eval_event`.
 //!   `dispatch` validates **every** `(binding, event)` pair before any
@@ -45,8 +46,8 @@ use ruviform_plugin_core::{
     EventKind, ParamId, ParamInfo, ParamWriteMeans, TimedParamEvent, check_param_write,
 };
 use synvelis_project::{
-    BeatPoint, ControlOwner, EvalPlan, EvalScratch, ParameterTargetId, ProcessorId, Project,
-    dispatch_check, lower_event, modulation_allowed,
+    BeatPoint, ControlOwner, EvalPlan, EvalScratch, ParameterTargetId, PluginRef, ProcessorId,
+    Project, dispatch_check, lower_event, modulation_allowed, semantic_plugin_binding,
 };
 
 use crate::dispatch::{DispatchError, ParamDispatch};
@@ -134,6 +135,11 @@ impl AttachClockContext {
 pub struct PluginParameterBinding {
     /// The project control target this binding serves.
     pub synvelis_target: ParameterTargetId,
+    /// The authored plugin identity the bound instance was connected
+    /// as — the connect-time `ProcessorBinding::Resolved` `PluginRef`
+    /// (PC-C4-02). A record minted against one plugin identity never
+    /// equals one minted against another.
+    pub plugin: PluginRef,
     /// The plugin instance this binding was minted for.
     pub instance_id: StablePluginInstanceId,
     /// The generation-local graph node owning the parameter.
@@ -193,6 +199,17 @@ pub enum BindingError {
     /// The project target's owner is not this session's processor —
     /// Strip/Send/Clip/etc. targets can never bind to a plugin.
     OwnerMismatch,
+    /// The stage-1 semantic binding resolves a different plugin
+    /// identity than this session's pinned instance identity — the
+    /// project rebound the processor (or the session was opened
+    /// against another plugin) and the target's contract no longer
+    /// describes this instance (PC-C4-02).
+    PluginMismatch {
+        /// The plugin identity the session pinned at attach.
+        expected: PluginRef,
+        /// The plugin identity the live semantic binding resolves.
+        actual: PluginRef,
+    },
     /// The target carries no [`synvelis_project::TargetCapability`] —
     /// there is no plugin param contract to bind against.
     CapabilityMissing,
@@ -256,6 +273,12 @@ impl fmt::Display for BindingError {
             Self::ParamRemoved => write!(f, "plugin no longer enumerates the bound param"),
             Self::OwnerMismatch => {
                 write!(f, "target owner is not this session's processor")
+            }
+            Self::PluginMismatch { expected, actual } => {
+                write!(
+                    f,
+                    "plugin identity mismatch: pinned {expected:?}, resolved {actual:?}"
+                )
             }
             Self::CapabilityMissing => {
                 write!(f, "target carries no plugin capability contract")
@@ -327,6 +350,11 @@ pub struct PluginBindingSession {
     node: NodeId,
     /// The semantic processor that owns bindable targets.
     processor: ProcessorId,
+    /// The authored plugin identity the attached instance was
+    /// connected as — connect-time evidence vended through
+    /// [`crate::ProcessorControl::plugin`], never the live project's
+    /// current claim (PC-C4-02).
+    plugin: PluginRef,
     /// Verified attach-time clock context.
     clock: AttachClockContext,
     /// Capability generation pinned at attach.
@@ -343,11 +371,17 @@ impl PluginBindingSession {
     /// The verified clock context is minted from
     /// [`PluginNodeControl::frame_base`] — the attach-time
     /// `AttachConfig::frame_base` — so no unverified `TimeBase` can
-    /// enter the session. `graph_generation`/`capability_generation`
-    /// are the caller's pins for the control-graph plan and the
-    /// plugin's parameter surface; re-attach, plugin reload and
-    /// graph-plan swaps mint a new session (and a new
-    /// [`StablePluginInstanceId`]) rather than mutating these.
+    /// enter the session. `plugin` is the instance's **own** authored
+    /// identity — the `ProcessorBinding::Resolved` `PluginRef`
+    /// captured when this generation's instance was connected (vended
+    /// via [`crate::ProcessorControl::plugin`]), *not* the live
+    /// project's current binding: a later project rebind does not
+    /// change what this instance is. `graph_generation`/
+    /// `capability_generation` are the caller's pins for the
+    /// control-graph plan and the plugin's parameter surface;
+    /// re-attach, plugin reload and graph-plan swaps mint a new
+    /// session (and a new [`StablePluginInstanceId`]) rather than
+    /// mutating these.
     ///
     /// Infallible by construction: the context is read, never claimed.
     #[must_use]
@@ -355,6 +389,7 @@ impl PluginBindingSession {
         control: &PluginNodeControl,
         node: NodeId,
         processor: ProcessorId,
+        plugin: PluginRef,
         graph_generation: u64,
         capability_generation: u64,
         instance_id: StablePluginInstanceId,
@@ -363,6 +398,7 @@ impl PluginBindingSession {
             instance_id,
             node,
             processor,
+            plugin,
             clock: AttachClockContext::of(control),
             capability_generation,
             graph_generation,
@@ -386,6 +422,13 @@ impl PluginBindingSession {
     #[must_use]
     pub const fn processor(&self) -> ProcessorId {
         self.processor
+    }
+
+    /// The authored plugin identity this session's instance was
+    /// connected as (PC-C4-02).
+    #[must_use]
+    pub const fn plugin(&self) -> &PluginRef {
+        &self.plugin
     }
 
     /// The verified attach-time clock context.
@@ -451,12 +494,14 @@ impl PluginBindingSession {
     ///
     /// Checks, in order: dispatcher node/frame-base pin → target
     /// exists → `owner == ControlOwner::Processor(this.processor)` →
-    /// capability present → live enumeration contains the param →
-    /// declared capability matches live `ParamInfo` →
-    /// `check_param_write`/`dispatch_check` accept `TimedEvent` → no
-    /// enabled modulation on a discrete `ValueKind` →
-    /// [`ParamDispatch::bind`]. Any failure is typed and leaves both
-    /// tables unchanged.
+    /// capability present → **stage-1 `semantic_plugin_binding`
+    /// resolution** (processor registered + `Resolved` + plugin
+    /// identity matches this session's pin — PC-C4-02) → live
+    /// enumeration contains the param → declared capability matches
+    /// live `ParamInfo` → `check_param_write`/`dispatch_check` accept
+    /// `TimedEvent` → no enabled modulation on a discrete `ValueKind`
+    /// → [`ParamDispatch::bind`]. Any failure is typed and leaves
+    /// both tables unchanged.
     ///
     /// `params` must be the plugin's **current** enumeration — after a
     /// plugin re-enumerates parameters the caller runs
@@ -484,7 +529,20 @@ impl PluginBindingSession {
         let capability = project_target
             .capability
             .ok_or(BindingError::CapabilityMissing)?;
-        let param = ParamId(capability.param_id);
+        // PC-C4-02: the stage-1 semantic binding is the single
+        // authority for `(processor, plugin, param_id)` — resolve it
+        // before minting any runtime pin. A processor missing from
+        // `routing.processors` or `Unresolved` fails closed as a
+        // project-layer error; a semantic plugin identity different
+        // from this instance's connect-time pin is `PluginMismatch`.
+        let semantic = semantic_plugin_binding(project, target)?;
+        if semantic.plugin != self.plugin {
+            return Err(BindingError::PluginMismatch {
+                expected: self.plugin.clone(),
+                actual: semantic.plugin,
+            });
+        }
+        let param = semantic.param_id;
         let info = params
             .iter()
             .find(|info| info.id == param)
@@ -519,6 +577,7 @@ impl PluginBindingSession {
         dispatch.bind(target, param, params)?;
         let binding = PluginParameterBinding {
             synvelis_target: target,
+            plugin: self.plugin.clone(),
             instance_id: self.instance_id,
             node: self.node,
             plugin_param: param,
@@ -618,6 +677,12 @@ impl PluginBindingSession {
                 return Err(BindingError::GraphGeneration {
                     expected: self.graph_generation,
                     actual: binding.graph_generation,
+                });
+            }
+            if binding.plugin != self.plugin {
+                return Err(BindingError::PluginMismatch {
+                    expected: self.plugin.clone(),
+                    actual: binding.plugin.clone(),
                 });
             }
             self.clock
