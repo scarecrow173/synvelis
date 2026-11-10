@@ -45,7 +45,7 @@ use synvelis_workspace::{
 use crate::app::SynvelisApp;
 use crate::screens::{
     DockViewInfo, InspectorRow, InspectorScreenState, TransportScreenState, dock_view_info,
-    main_view_id,
+    main_view_id, mixer_strip_targets,
 };
 
 /// Outbox depth cap — receipts/projections are never silently
@@ -555,9 +555,49 @@ impl SynvelisApp {
                 }
             }
         }
+        self.reconcile_mixer_subscriptions();
         self.push_subscription_rows();
         self.push_surface_frames();
         self.capture_screen_state();
+    }
+
+    /// Keeps the main view's strip-toggle subscriptions in step with
+    /// the project (synvelis#112 slice 3): the master strip's seeded
+    /// `Mute`/`Solo` targets are discovered from the control model —
+    /// never hard-coded — and subscribed on first sight. The targets
+    /// are well-known and cannot be removed, so the desired set is
+    /// stable for a session; view close already drops per-view subs
+    /// and there is deliberately no unsubscribe path here. Runs
+    /// before [`Self::push_subscription_rows`] so a freshly
+    /// subscribed target's first projection row lands in the same
+    /// pump.
+    fn reconcile_mixer_subscriptions(&mut self) {
+        let view = main_view_id();
+        if self
+            .ui
+            .views
+            .get(&view)
+            .is_none_or(|entry| entry.window.is_none())
+        {
+            return;
+        }
+        let desired = mixer_strip_targets(&self.workspace.session().project().control);
+        for target in [desired.mute_target, desired.solo_target]
+            .into_iter()
+            .flatten()
+        {
+            if self
+                .ui
+                .subscriptions
+                .contains(&(view.clone(), target.clone()))
+            {
+                continue;
+            }
+            let session = self.workspace.session();
+            if self.ui.controls.subscribe(session, &view, &target).is_ok() {
+                self.ui.subscriptions.insert((view.clone(), target));
+            }
+        }
     }
 
     /// Captures the main view's display state out of the `ControlsUi`
@@ -592,11 +632,26 @@ impl SynvelisApp {
             transport.loop_enabled = observed.loop_range.is_some();
         }
         let mut inspector = InspectorScreenState::default();
+        // Strip channel toggles (slice 3) are mixer controls, not
+        // inspector candidates — the breakdown stays on the gain
+        // fader regardless of tagged-id sort order.
+        let strip_toggles: HashSet<String> = {
+            let mixer = mixer_strip_targets(&self.workspace.session().project().control);
+            [mixer.mute_target, mixer.solo_target]
+                .into_iter()
+                .flatten()
+                .collect()
+        };
         let mut param_targets: Vec<String> = self
             .ui
             .subscriptions
             .iter()
-            .filter(|(v, t)| v == &view && t != TRANSPORT_TARGET && t != TRANSPORT_POSITION_TARGET)
+            .filter(|(v, t)| {
+                v == &view
+                    && t != TRANSPORT_TARGET
+                    && t != TRANSPORT_POSITION_TARGET
+                    && !strip_toggles.contains(t)
+            })
             .map(|(_, t)| t.clone())
             .collect();
         param_targets.sort();

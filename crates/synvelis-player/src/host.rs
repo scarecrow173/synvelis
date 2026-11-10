@@ -31,7 +31,7 @@ use ruviform_audio::typed::GraphProcessor;
 use ruviform_audio_core::AudioFormat;
 use ruviform_audio_plugin_bridge::{AttachConfig, AttachError, PluginNodeControl, attach};
 use ruviform_graph::NodeId;
-use ruviform_media_core::{DeliveryPolicy, ScheduleBudget, TimeBase};
+use ruviform_media_core::{DeliveryPolicy, InBlockTransportSupport, ScheduleBudget, TimeBase};
 use ruviform_plugin_core::{BusDescriptor, BusDirection, BusRole, ProcessConfig};
 use ruviform_plugin_host::{
     EndpointBounds, HostCommand, HostError, HostReply, PluginHandle, PluginHost,
@@ -40,6 +40,11 @@ use ruviform_plugin_host::{
 use synvelis_project::{
     BuildMode, PluginRef, PortDirection, PortRole, Processor, ProcessorBinding, ProcessorId,
     RoutingFault, SemanticPort,
+};
+
+use crate::process_boundary::{
+    AttachDelivery, DegradedConsent, ExecutionMode, ProcessBoundaryError, ProcessCapability,
+    TimingPrecision,
 };
 
 /// One processor provisioning request — everything a host needs to
@@ -165,19 +170,33 @@ pub enum ProcessorConnectError {
     /// The request itself is malformed (bad config, port/binding
     /// inconsistency).
     Invalid,
+    /// The instance's certified boundary capability is
+    /// [`TimingPrecision::Unsupported`] or its activated block
+    /// contract is degenerate — the requested delivery cannot be
+    /// provided (TIM-03 `ProcessBoundaryError::Unsupported`).
+    CapabilityUnsupported,
+    /// An offline build requires certified exact-class timing
+    /// precision and the registered [`BoundaryDeclaration`]'s
+    /// certified [`TimingPrecision`] is not exact-class (TIM-03
+    /// `ProcessBoundaryError::OfflineUncertified`).
+    OfflineUncertified,
 }
 
 impl ProcessorConnectError {
     /// Deterministic [`RoutingFault`] mapping (design §fault table):
-    /// `Unavailable`/`Lifecycle` → `PluginUnavailable`,
-    /// `Incompatible` → `UnsupportedFormatOrTimeMap`,
-    /// `Invalid` → `InvalidRouting`.
+    /// `Unavailable`/`Lifecycle`/`CapabilityUnsupported` →
+    /// `PluginUnavailable`, `Incompatible` →
+    /// `UnsupportedFormatOrTimeMap`, `Invalid` → `InvalidRouting`,
+    /// `OfflineUncertified` → `OfflineCapabilityMismatch`.
     #[must_use]
     pub const fn fault(self) -> RoutingFault {
         match self {
-            Self::Unavailable | Self::Lifecycle => RoutingFault::PluginUnavailable,
+            Self::Unavailable | Self::Lifecycle | Self::CapabilityUnsupported => {
+                RoutingFault::PluginUnavailable
+            }
             Self::Incompatible => RoutingFault::UnsupportedFormatOrTimeMap,
             Self::Invalid => RoutingFault::InvalidRouting,
+            Self::OfflineUncertified => RoutingFault::OfflineCapabilityMismatch,
         }
     }
 }
@@ -242,6 +261,35 @@ impl ProcessorHost for StaticProcessorHost {
     }
 }
 
+/// The composition root's attach-time boundary declaration for one
+/// semantic processor (TIM-03): the capability claims and delivery
+/// consent/budget [`PluginHostProcessors::connect`] projects into
+/// `AttachConfig::{policy, budget}` through
+/// [`ProcessCapability::attach_delivery`].
+///
+/// `precision` is the certified [`TimingPrecision`] claim for the
+/// instance — [`TimingPrecision::Unknown`] until measured; it is
+/// never upgraded by assumption. `in_block` is the adapter-attested
+/// [`InBlockTransportSupport`] (only `Verified` claims verified
+/// in-block transport, per the upstream contract). `consent` is the
+/// explicit degraded consent for realtime delivery — `None` attaches
+/// `Exact`; `Some` attaches `Degraded` bounded by
+/// `min(consent.max_deferral, budget.max_deferral)`. `budget` is the
+/// node's bounded-work budget. Offline builds ignore `consent` —
+/// delivery is always `Exact` and uncertified precision fails the
+/// connect closed.
+#[derive(Clone, Debug)]
+pub struct BoundaryDeclaration {
+    /// Certified timing precision for this instance.
+    pub precision: TimingPrecision,
+    /// Adapter-attested in-block transport support.
+    pub in_block: InBlockTransportSupport,
+    /// Explicit degraded consent for realtime delivery.
+    pub consent: Option<DegradedConsent>,
+    /// The node's bounded-work budget.
+    pub budget: ScheduleBudget,
+}
+
 /// Real `ruviform-plugin-host` adapter. Owns (a shared handle to) one
 /// [`PluginHost`]; every `connect` instantiates a fresh plugin
 /// instance, drives it to `Processing`, attaches a bridge endpoint and
@@ -251,6 +299,10 @@ impl ProcessorHost for StaticProcessorHost {
 /// `!Send` by design — `PluginHost` is single-owner non-RT state.
 pub struct PluginHostProcessors {
     host: Rc<RefCell<PluginHost>>,
+    /// TIM-03 attach-time boundary declarations keyed by semantic
+    /// [`ProcessorId`] — processors without a declaration keep the
+    /// legacy `Exact` + default-budget attach.
+    boundaries: BTreeMap<ProcessorId, BoundaryDeclaration>,
 }
 
 impl PluginHostProcessors {
@@ -261,7 +313,44 @@ impl PluginHostProcessors {
     pub fn new(host: PluginHost) -> Self {
         Self {
             host: Rc::new(RefCell::new(host)),
+            boundaries: BTreeMap::new(),
         }
+    }
+
+    /// Registers (or replaces) the TIM-03 [`BoundaryDeclaration`] for
+    /// `processor`. Non-RT orchestration — takes effect on the next
+    /// `connect` for that processor; other processors are unaffected.
+    pub fn register_boundary(&mut self, processor: ProcessorId, declaration: BoundaryDeclaration) {
+        self.boundaries.insert(processor, declaration);
+    }
+
+    /// Projects the registered [`BoundaryDeclaration`] for
+    /// `request.processor` onto the attach-time delivery decision.
+    /// `None` — no declaration: the legacy `Exact` +
+    /// default-budget attach. `Some` — the oracle's
+    /// [`ProcessCapability::attach_delivery`] verdict; boundary
+    /// refusals fail the connect before any instance is minted.
+    fn boundary_delivery(
+        &self,
+        request: &ProcessorConnectRequest,
+        process_config: &ProcessConfig,
+    ) -> Result<Option<AttachDelivery>, ProcessorConnectError> {
+        let Some(declaration) = self.boundaries.get(&request.processor.id) else {
+            return Ok(None);
+        };
+        let capability = ProcessCapability::from_process_config(
+            process_config,
+            declaration.in_block,
+            declaration.precision,
+        );
+        let mode = match request.mode {
+            BuildMode::Realtime => ExecutionMode::Realtime,
+            BuildMode::Offline => ExecutionMode::OfflineExact,
+        };
+        capability
+            .attach_delivery(mode, declaration.consent, declaration.budget)
+            .map(Some)
+            .map_err(|error| boundary_error(&error))
     }
 
     /// Shared access to the underlying host — tests/observers only;
@@ -288,11 +377,15 @@ impl ProcessorHost for PluginHostProcessors {
         }
         let process_config = ProcessConfig::new(request.port_format.sample_rate, 1, max_frames)
             .map_err(|_| ProcessorConnectError::Invalid)?;
+        // TIM-03: the boundary declaration is evaluated before any
+        // instance exists — a refused capability/precision fails the
+        // connect with nothing to tear down.
+        let delivery = self.boundary_delivery(&request, &process_config)?;
         let mut host = self.host.borrow_mut();
         let handle = instantiate(&mut host, plugin)?;
         // From here on the instance exists — every failure path must
         // run the same best-effort teardown before returning.
-        let result = connect_attached(&mut host, handle, &request, process_config);
+        let result = connect_attached(&mut host, handle, &request, process_config, delivery);
         match result {
             Ok(attached) => {
                 let host_rc = Rc::clone(&self.host);
@@ -328,6 +421,7 @@ fn connect_attached(
     handle: PluginHandle,
     request: &ProcessorConnectRequest,
     process_config: ProcessConfig,
+    delivery: Option<AttachDelivery>,
 ) -> Result<ruviform_audio_plugin_bridge::Attached, ProcessorConnectError> {
     exec(host, HostCommand::Initialize { handle }).map_err(lifecycle)?;
     exec(
@@ -346,6 +440,12 @@ fn connect_attached(
     };
     let frame_base = TimeBase::sample_rate(request.port_format.sample_rate.get())
         .map_err(|_| ProcessorConnectError::Invalid)?;
+    // TIM-03: a projected delivery installs its policy/budget;
+    // undeclared processors keep the legacy Exact/default attach.
+    let (policy, budget) = delivery.map_or_else(
+        || (DeliveryPolicy::Exact, ScheduleBudget::default()),
+        |delivery| (delivery.policy, delivery.budget),
+    );
     attach(
         host,
         handle,
@@ -355,8 +455,8 @@ fn connect_attached(
             bounds,
             process_config,
             frame_base,
-            policy: DeliveryPolicy::Exact,
-            budget: ScheduleBudget::default(),
+            policy,
+            budget,
             input: None,
         },
     )
@@ -397,6 +497,20 @@ fn exec(host: &mut PluginHost, command: HostCommand) -> Result<HostReply, HostEr
 /// unavailable to this build, not a format problem).
 fn lifecycle(_error: HostError) -> ProcessorConnectError {
     ProcessorConnectError::Lifecycle
+}
+
+/// TIM-03 boundary refusal → connect error.
+/// [`ProcessCapability::attach_delivery`] can only produce
+/// `Unsupported`/`OfflineUncertified`; any future variant fails
+/// closed as `Invalid`.
+fn boundary_error(error: &ProcessBoundaryError) -> ProcessorConnectError {
+    match error {
+        ProcessBoundaryError::Unsupported { .. } => ProcessorConnectError::CapabilityUnsupported,
+        ProcessBoundaryError::OfflineUncertified { .. } => {
+            ProcessorConnectError::OfflineUncertified
+        }
+        _ => ProcessorConnectError::Invalid,
+    }
 }
 
 /// `attach` failure mapping: bus-table/bounds disagreement is

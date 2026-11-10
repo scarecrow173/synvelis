@@ -244,6 +244,22 @@ pub struct ProcessBoundaryPlan {
     pub segments: Vec<SegmentPlan>,
 }
 
+/// The attach-time delivery decision projected from a
+/// [`ProcessCapability`] and the build's execution intent — the
+/// `AttachConfig::{policy, budget}` pair the composition root
+/// installs on the node's scheduler (TIM-03 wiring slice).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct AttachDelivery {
+    /// [`DeliveryPolicy::Exact`] or [`DeliveryPolicy::Degraded`].
+    pub policy: DeliveryPolicy,
+    /// The budget to install. Under consented degraded delivery
+    /// `max_deferral` is clamped to
+    /// `min(consent.max_deferral, budget.max_deferral)` — the same
+    /// bound [`ProcessCapability::evaluate`] applies to deferred
+    /// boundaries.
+    pub budget: ScheduleBudget,
+}
+
 /// Typed failures of [`ProcessCapability::evaluate`]. Nothing is
 /// converted to a fake success; every rejection names what could not
 /// be delivered and why.
@@ -604,6 +620,74 @@ impl ProcessCapability {
             cand += 1;
         }
         None
+    }
+
+    /// Projects the consumer delivery policy onto the attach-time
+    /// `AttachConfig::{policy, budget}` pair — the composition-root
+    /// half of the oracle. Per-window legality stays with
+    /// [`Self::evaluate`]; this decides only which delivery policy
+    /// and budget the node's scheduler is attached with.
+    ///
+    /// - A certified [`TimingPrecision::Unsupported`] capability or
+    ///   a degenerate contract (`max_frames == 0`) is refused with
+    ///   [`ProcessBoundaryError::Unsupported`].
+    /// - [`ExecutionMode::OfflineExact`] requires certified
+    ///   exact-class precision — anything else fails closed with
+    ///   [`ProcessBoundaryError::OfflineUncertified`]. Offline
+    ///   delivery is always [`DeliveryPolicy::Exact`]; `consent` is
+    ///   ignored because degraded is never accepted offline.
+    /// - [`ExecutionMode::Realtime`] with [`DegradedConsent`] attaches
+    ///   [`DeliveryPolicy::Degraded`] — consent *permits* degraded
+    ///   delivery within `min(consent.max_deferral,
+    ///   budget.max_deferral)`; legal boundaries still apply exactly.
+    ///   Without consent the attach is [`DeliveryPolicy::Exact`].
+    ///
+    /// # Errors
+    /// [`ProcessBoundaryError::Unsupported`] or
+    /// [`ProcessBoundaryError::OfflineUncertified`] — the only
+    /// variants this projection can produce.
+    pub fn attach_delivery(
+        &self,
+        mode: ExecutionMode,
+        consent: Option<DegradedConsent>,
+        budget: ScheduleBudget,
+    ) -> Result<AttachDelivery, ProcessBoundaryError> {
+        if self.contract.max_frames == 0 {
+            return Err(ProcessBoundaryError::Unsupported {
+                reason: "degenerate block contract (max_frames == 0)",
+            });
+        }
+        if self.precision == TimingPrecision::Unsupported {
+            return Err(ProcessBoundaryError::Unsupported {
+                reason: "capability certified unsupported",
+            });
+        }
+        if mode == ExecutionMode::OfflineExact {
+            if !self.precision.certified_exact() {
+                return Err(ProcessBoundaryError::OfflineUncertified {
+                    precision: self.precision,
+                });
+            }
+            return Ok(AttachDelivery {
+                policy: DeliveryPolicy::Exact,
+                budget,
+            });
+        }
+        match consent {
+            Some(consent) => Ok(AttachDelivery {
+                policy: DeliveryPolicy::Degraded,
+                budget: ScheduleBudget::new(
+                    budget.max_spans_per_callback,
+                    budget.max_events_per_span,
+                    budget.max_pending_applies,
+                    consent.max_deferral().min(budget.max_deferral),
+                ),
+            }),
+            None => Ok(AttachDelivery {
+                policy: DeliveryPolicy::Exact,
+                budget,
+            }),
+        }
     }
 }
 

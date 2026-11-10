@@ -4,7 +4,7 @@ type: "spec"
 status: "approved"
 title: "TIM-03 plugin process boundary — capability/degraded policy（headless mock slice）"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-10"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -29,7 +29,8 @@ relations:
     - "docs/specs/pc-c4-plugin-param-binding.md"
   refines: []
   refined-by: []
-  derives-from: []
+  derives-from:
+    - "https://github.com/scarecrow173/synvelis/issues/127"
   derived-by: []
   verifies: []
   verified-by: []
@@ -126,8 +127,10 @@ error とする契約が必要。
 - `synvelis-app`/`synvelis-workspace`/`synvelis-recording`/
   `synvelis-project`/`synvelis-library`・gateway/render/theme/poc・
   `.github/`・`mise.toml`。
-- `ProcessCapability::evaluate` の RT 経路組込み（本 slice は
-  non-RT oracle + mock 検証まで。composition root への配線は後続）。
+- `ProcessCapability::evaluate` の per-request RT 経路組込み
+  （boundary offset 列を伴う plan oracle の runtime 呼出し）。
+  attach 時点の delivery policy/budget 投影は task2
+  （`tim03-task2-attach-wiring`）で実装済み。
 
 ## Requirements
 
@@ -163,9 +166,11 @@ error とする契約が必要。
 - 実 CLAP/VST3 plugin・OS backend×rate×block matrix —
   Ruviform #196/#253 owner の実機 gate。本 slice の型契約は
   mock でのみ検証済み。
-- `ProcessCapability::evaluate` を composition root/attach 経路へ
+- ~~`ProcessCapability::evaluate` を composition root/attach 経路へ
   配線し、plan 結果を `DeliveryPolicy`/`ScheduleBudget` へ反映する
-  統合 — 後続 slice。
+  統合~~ — task2（`tim03-task2-attach-wiring`）で attach 時点の
+  `AttachDelivery` 投影として実装済み。per-request boundary plan
+  の runtime 配線は引き続き後続 slice。
 - AudioLens f64 実測・実 GUI 検証 — それぞれ #294/#114/#176 の
   別 Gate。
 

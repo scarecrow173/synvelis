@@ -41,6 +41,7 @@ pub mod engine;
 pub mod error;
 pub mod host;
 pub mod logging;
+pub mod recording;
 pub mod revision;
 pub mod screens;
 pub mod service;
@@ -58,10 +59,10 @@ pub use logging::{
 };
 pub use revision::{APP_ASSET_SCHEMA, AssetManifest, HOST_REVISION, MANIFEST_NAME, check_bundle};
 pub use screens::{
-    InspectorRow, InspectorScreenState, MainScreenState, TransportScreenState, main_screen_spec,
-    main_view_id, main_view_instance, main_view_targets, mixer_gain_target, mount_main_view,
-    mount_secondary_view, secondary_screen_spec, secondary_view_id, secondary_view_instance,
-    secondary_view_targets, seek_range_seconds,
+    InspectorRow, InspectorScreenState, MainScreenState, MixerScreenState, TransportScreenState,
+    main_screen_spec, main_view_id, main_view_instance, main_view_targets, mixer_gain_target,
+    mixer_strip_targets, mount_main_view, mount_secondary_view, secondary_screen_spec,
+    secondary_view_id, secondary_view_instance, secondary_view_targets, seek_range_seconds,
 };
 pub use service::{AppService, OPS};
 pub use shell::NativeShell;

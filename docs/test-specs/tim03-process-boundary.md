@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "TIM-03 process boundary test spec — TIM-03-PB01..NN"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-10"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -26,6 +26,7 @@ relations:
   superseded-by: []
   related:
     - "docs/tasks/tim03-task1-process-boundary.md"
+    - "docs/tasks/tim03-task2-attach-wiring.md"
   refines: []
   refined-by: []
   derives-from:
@@ -38,6 +39,7 @@ relations:
   verified-by: []
   references:
     - "docs/tasks/tim03-task1-process-boundary.md"
+    - "docs/tasks/tim03-task2-attach-wiring.md"
   defers: []
   deferred-by: []
 ---
@@ -58,6 +60,9 @@ Issue #127 process boundary slice の受入条件を headless mock で
   （`tim03_sched_*`）。
 - `PluginNode` 物理 `process` call（`tim03_node_*`）。
 - RT hot path no-alloc（`tim03_process_boundary_rt.rs`）。
+- `ProcessCapability::attach_delivery` 投影と
+  `PluginHostProcessors::connect` の attach-time gate
+  （`tim03_aw_*`、task2）。
 
 ## Rules
 
@@ -105,6 +110,25 @@ Issue #127 process boundary slice の受入条件を headless mock で
 - **PB-13 RT no-alloc**: `stats_alloc` Region 内で 64 callback
   （wrap boundary + in-loop event 含む）allocations=0/
   deallocations=0。
+- **PB-14 attach delivery 投影**: `attach_delivery` は
+  Realtime 無同意 → `DeliveryPolicy::Exact` + そのままの
+  budget、consent あり → `Degraded` +
+  `min(consent.max_deferral, budget.max_deferral)` clamp。
+  `OfflineExact` は consent を無視して certified exact-class
+  （`ExactWithinVerifiedCapability`/`FrameAccurateEvents`）を
+  要求し、それ以外は `OfflineUncertified`。`Unsupported`
+  capability・degenerate contract は `Unsupported`。
+- **PB-15 connect typed gate**: `register_boundary` 宣言済み
+  processor の `connect` は `Instantiate` 前に投影を評価し、
+  unsupported → `ProcessorConnectError::CapabilityUnsupported`、
+  offline uncertified → `OfflineUncertified` で fail
+  （plugin は instantiate されない — atomic counter で証明）。
+  `fault()` は `PluginUnavailable`/`OfflineCapabilityMismatch`
+  に決定的写像。
+- **PB-16 宣言 scoping/後方互換**: 宣言は `ProcessorId` 単位で
+  次の connect のみ有効（他 processor に波及しない）。宣言なし
+  processor は従来どおり `Exact` + `ScheduleBudget::default()`
+  で attach される。
 
 ## Examples
 
@@ -128,13 +152,19 @@ Issue #127 process boundary slice の受入条件を headless mock で
 - typed error variant は spec の全失敗系を網羅
   （`InvalidRequest`/`Unsupported`/`ConsentRequired`/
   `OfflineExact`/`OfflineUncertified`/`DeferralExceeded`）。
+- plugin instance は `tim03_attach_wiring` の fake
+  `PluginHost`/`PluginInstance`（headless mock）。preflight
+  拒否時に instance が生成されないことを atomic counter で
+  固定。
 - stale generation の param event は plugin に 1 件も届かない
   （`all_params` に param_id が存在しない）。
 
 ## Non-goals
 
 - 実 CLAP/VST3/OS matrix（NotRun — 別 gate）。
-- oracle の composition root/attach 配線。
+- per-request boundary plan の runtime 配線
+  （`PluginNodeControl` 経由の `evaluate` 呼出し）。attach 時点の
+  `AttachDelivery` 投影は PB-14..16 で検証済み。
 - `TimingPrecision` 認定 provenance の定義。
 - boundary offset の Tempo/Loop 由来自動導出。
 
