@@ -116,6 +116,7 @@ Directory: `docs/tasks`
 | TASK-034Uj7V9p3khaqx8qH7C2Z | SF-03 slice5 T1 — workspace EnginePort・ProjectSession 接続 | done | [sf-03-slice5-session-engine-port.md](./sf-03-slice5-session-engine-port.md) |
 | TASK-034Uj826EB6a7TEsfLwDmZ | SF-03 slice5 T2 — synvelis-app SessionRoutingEngine・canonical probe | done | [sf-03-slice5-session-routing-engine.md](./sf-03-slice5-session-routing-engine.md) |
 | TASK-034UudL7KhVSvQn5M5gy5n | SF-05 slice1 タスク分解 — Signal Flow headless | done | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
+| TASK-034V2wJc28eBSJp9D68CuX | SF-06 headless — sf06_oracle.rs Domain Oracle + fault fixture + ledger | done | [sf-06-cross-gate-oracle-headless.md](./sf-06-cross-gate-oracle-headless.md) |
 | TASK-MlLPS12iG90WZhRs4S9pub | SV-GUI-01 task1 synvelis-app crate skeleton・Composition Root・AppService | done | [sv-gui-01-task1-app-crate-composition-root.md](./sv-gui-01-task1-app-crate-composition-root.md) |
 | TASK-jLkK7lARWtOgmAI02PaXQ5 | SV-GUI-01 task2 headless service op・asset check テスト | done | [sv-gui-01-task2-headless-service-asset-tests.md](./sv-gui-01-task2-headless-service-asset-tests.md) |
 | TASK-5ySbythnz4gMVnQauJQq8a | SV-GUI-01 task3 ui/ frontend pipeline・vendored sync・mise tasks | done | [sv-gui-01-task3-frontend-pipeline-vendor.md](./sv-gui-01-task3-frontend-pipeline-vendor.md) |
