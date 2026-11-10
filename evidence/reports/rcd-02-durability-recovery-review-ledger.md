@@ -12,7 +12,7 @@ are `NotRun`/`Unsupported` with reasons, per the vocabulary in
 
 | Field | Value |
 | --- | --- |
-| Synvelis commit | `feature/116-rcd02-durability` — base `3a9f4ca` (PR #210 `67e0870` + PR #239 `17fc3de` を含む) + this change set |
+| Synvelis commit | `feature/116-rcd02-durability` — origin/main `8d925b5` merge 済み (PR #210 `67e0870`・#239 `17fc3de`・TIM-02 #270 を含む) + this change set |
 | Cargo.lock Ruviform SHA | `0f5b57372e9a43f84415f7964b2f9636774174f0` |
 | OS | Windows (win32), NTFS |
 | Toolchain | rustc 1.99.0 (b940084d7) via mise; MSRV rust 1.89 |
