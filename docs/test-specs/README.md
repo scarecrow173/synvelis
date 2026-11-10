@@ -46,6 +46,7 @@ Directory: `docs/test-specs`
 | TSPEC-034V2ixodcql8RLLJfoYqH | RCD-01 device-recording headless fixture test spec | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
 | TSPEC-034UrlOOfZIvsdF1bdNXfE | RCD-02 Durability / Recovery Review / Commit Receipt fault matrix | proposed | [rcd-02-durability-recovery-review-fault-matrix.md](./rcd-02-durability-recovery-review-fault-matrix.md) |
+| TSPEC-034VedrLB13w3phP9Xuh5S | RCD-03 app Arm/Monitoring UX fixture matrix | draft | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
 | TSPEC-034Utqp8lRoY8TBzlygCtN | RCD-03 Monitor/Punch/Latency fixture matrix | proposed | [rcd-03-monitor-punch-latency.md](./rcd-03-monitor-punch-latency.md) |
 | TSPEC-RCD04Fx9mB3vC7xZ2qW5eR | RCD-04 Comp Transition / MIDI Phrase fixture matrix | proposed | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
