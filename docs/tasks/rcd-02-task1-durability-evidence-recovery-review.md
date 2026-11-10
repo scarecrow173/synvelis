@@ -1,17 +1,43 @@
 ---
 id: "TASK-034UrlZ4TNqATDPM8UO4Cd"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-11"
 owners: []
 relations:
   source:
     - "https://github.com/scarecrow173/synvelis/issues/116"
   changes:
-    added: []
-    modified: []
+    added:
+      - type: "file"
+        path: "crates/synvelis-recording/tests/recovery_review.rs"
+      - type: "file"
+        path: "docs/tasks/rcd-02-task1-durability-evidence-recovery-review.md"
+      - type: "file"
+        path: "docs/impl/ir/rcd-02-durability-evidence-recovery-review-commit-receipt.md"
+      - type: "file"
+        path: "evidence/reports/rcd-02-durability-recovery-review-ledger.md"
+    modified:
+      - type: "file"
+        path: "crates/synvelis-recording/src/crc32.rs"
+      - type: "file"
+        path: "crates/synvelis-recording/src/writer.rs"
+      - type: "file"
+        path: "crates/synvelis-recording/src/recovery.rs"
+      - type: "file"
+        path: "crates/synvelis-recording/src/commit.rs"
+      - type: "file"
+        path: "crates/synvelis-recording/src/faultinj.rs"
+      - type: "file"
+        path: "crates/synvelis-recording/src/staging.rs"
+      - type: "file"
+        path: "crates/synvelis-recording/src/lib.rs"
+      - type: "file"
+        path: "crates/synvelis-recording/tests/vs_c.rs"
+      - type: "file"
+        path: "crates/synvelis-recording/tests/project_adapter.rs"
     deleted: []
     renamed: []
     moved: []
@@ -89,26 +115,26 @@ relations:
 
 ## Done When
 
-- [ ] checkpoint ごとの `DurabilityEvidence` が記録・公開される
-- [ ] `scan()` が review_state を分類し `Adopt`/`Hold`/`Discard`
+- [x] checkpoint ごとの `DurabilityEvidence` が記録・公開される
+- [x] `scan()` が review_state を分類し `Adopt`/`Hold`/`Discard`
       の明示 API が動作する（Discard は参照チェック必須・
       参照中 media を削除しない）
-- [ ] commit receipt が commit/marker/journal finalize/save を
+- [x] commit receipt が commit/marker/journal finalize/save を
       区別し、publish indeterminate を冪等に reconcile する
-- [ ] 別 Start 後の再照合で二重 Commit/take を生成しない
-- [ ] CRC32 fold と content identity が型・命名で分離される
-- [ ] fault-matrix test が kill/short write/sync fail/DirSync
+- [x] 別 Start 後の再照合で二重 Commit/take を生成しない
+- [x] CRC32 fold と content identity が型・命名で分離される
+- [x] fault-matrix test が kill/short write/sync fail/DirSync
       unsupported/permission/DiskFull/indeterminate publish を
       検証する
-- [ ] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/`build`
+- [x] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/`build`
       が全て Pass
 
 ## Verification
 
-- [ ] `mise run fmt-check`
-- [ ] `mise run check`
-- [ ] `mise run lint`
-- [ ] `mise run test`
-- [ ] `mise run test-rt`
-- [ ] `mise run build`
+- [x] `mise run fmt-check`
+- [x] `mise run check`
+- [x] `mise run lint`
+- [x] `mise run test`
+- [x] `mise run test-rt`
+- [x] `mise run build`
 - [ ] 実 OS/FS durability — NotRun（実機 gate）
