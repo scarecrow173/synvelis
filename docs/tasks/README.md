@@ -26,6 +26,7 @@ Directory: `docs/tasks`
 | TASK-034VmVPWtNFIg5zO3xaDsP | PC-C6: R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rows.md](./pc-c6-task1-oracle-rows.md) |
 | TASK-034V2kE9l91elvsqfnsx5s | RCD-01 device-recording headless fixture | in_progress | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
+| TASK-034VpnH7YtacCiCUD4y9fu | RCD-02 Task3 StagedFile Publish Migration | in-progress | [rcd-02-task3-stagedfile-publish-migration.md](./rcd-02-task3-stagedfile-publish-migration.md) |
 | TASK-034VegaqbLjPWyJoFDrmhQ | RCD-03 Task2 app Arm/Monitoring UX + monitor session projection | in-progress | [rcd-03-task2-app-arm-monitoring-ux.md](./rcd-03-task2-app-arm-monitoring-ux.md) |
 | TASK-034VmO0u2fPRBj8uO9cGkk | RCD-04 Task1 product E2E | in-progress | [rcd-04-task1-product-e2e.md](./rcd-04-task1-product-e2e.md) |
 | TASK-106SF03Tz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T1 — RoutingFault 18分類・engine 改修・reconcile 実装 | in-progress | [sf-03-slice2-fault-contract.md](./sf-03-slice2-fault-contract.md) |

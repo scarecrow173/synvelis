@@ -87,7 +87,11 @@ recovery review 判定、commit receipt 分類と冪等再照合。
 - **R8 Fault Matrix**: kill/power-loss 相当・media/journal short
   write・sync failure・DirSync unsupported・permission denied・
   disk full・indeterminate publish を fault injection で再現し、
-  各 fault で上記契約が保たれる。
+  各 fault で上記契約が保たれる。publish 経路は ruviform
+  `StagedFile`/`SealedFile::publish` 上にあり、`PublishInject`
+  seam は `Denied`=create 前・`SyncFail`=seal 後 publish 前
+  （temp 除去）・`Indeterminate`=publish 成功後へ写像される
+  （`docs/impl/ir/rcd-02-stagedfile-publish-migration.md` 参照）。
 
 ## Examples
 
@@ -135,9 +139,10 @@ recovery review 判定、commit receipt 分類と冪等再照合。
 - 実 OS/FS の durability 実測（NotRun — 実機 gate）。
 - #86 verified blob identity/migration・#84 StagedFile/HEAD CAS
   への実接続（`verified_sha256` 記録と `ProjectMediaProbe` による
-  saved-HEAD 参照判定は task2 で接続済み。
-  `docs/impl/ir/rcd-02-project-library-adapter-verified-sha-256-
-  mediareferenceprobe-saved-head.md` 参照）。
+  saved-HEAD 参照判定は task2 で接続済み。recording 側 publish の
+  `StagedFile` 接続は task3 で実施済み —
+  `docs/impl/ir/rcd-02-stagedfile-publish-migration.md` 参照。
+  project 側 HEAD CAS 参照進化は残件）。
 - 製品 GUI（#118）の recovery フロー。
 - RT callback 上の noalloc/noblock の実オーディオスレッド計測
   （test-rt の既存検証に留める）。

@@ -13,7 +13,7 @@ are `NotRun`/`Unsupported` with reasons, per the vocabulary in
 | Field | Value |
 | --- | --- |
 | Synvelis commit | `feature/116-rcd02-durability` — origin/main `8d925b5` merge 済み (PR #210 `67e0870`・#239 `17fc3de`・TIM-02 #270 を含む) + this change set |
-| Cargo.lock Ruviform SHA | `0f5b57372e9a43f84415f7964b2f9636774174f0` |
+| Cargo.lock Ruviform SHA | `b02942c2f9e6e195d0d752803b077866468fe58e` (SV#28 pin 更新 merge 済み; task3 で `ruviform-io-file` 依存 edge 追加) |
 | OS | Windows (win32), NTFS |
 | Toolchain | rustc 1.99.0 (b940084d7) via mise; MSRV rust 1.89 |
 | Fixture | temp-dir `StagingArea`/`StreamWriter` on real temp FS + `Inject`/`PublishInject` fault seams (fake/injected fault、実 FS 破壊なし); `ProjectController` + `DirectoryBundleStore` で commit/save/reload/undo を検証 |
@@ -50,7 +50,8 @@ fault on real temp FS files（fault seam は `FaultWriter`/`Inject`/
 | DirSync unsupported | capability `Unsupported` → `DirSyncState::Unsupported`、durable 宣言はそれ以下の保証に留まる | `rcd02_evidence_dir_sync_unsupported_is_honest` Pass | Pass* | — |
 | Permission denied（write/sync/publish） | `PermissionDenied`/`SyncPermissionDenied`/publish 拒否が fail-closed で観測される | `rcd02_fault_matrix_write_sync_permission_diskfull` Pass | Pass | 部分 write は verified prefix を汚染しない |
 | Disk full（injected ENOSPC） | `ByteLimit` で write 失敗、失敗までの evidence を保持 | `rcd02_fault_matrix_write_sync_permission_diskfull`、`vsc_disk_full_byte_limit` Pass | Pass | — |
-| Indeterminate publish | `PublishInject::Indeterminate` → registry 適用済み・marker 未公開/不一致を `PublishIndeterminate` として区別、reconcile で冪等修復・二重 marker/take なし | `rcd02_publish_indeterminate_adopt_recovers`、`rcd02_commit_receipt_lifecycle_and_reconcile` Pass | Pass | `reconcile_commit_receipt` → `CommittedConfirmed` 収束 |
+| Indeterminate publish | `PublishInject::Indeterminate` → registry 適用済み・marker 未公開/不一致を `PublishIndeterminate` として区別、reconcile で冪等修復・二重 marker/take なし。publish は `StagedFile` pipeline 上で成功後に応答喪失を注入（destination は公開済み） | `rcd02_publish_indeterminate_adopt_recovers`、`rcd02_commit_receipt_lifecycle_and_reconcile` Pass | Pass | `reconcile_commit_receipt` → `CommittedConfirmed` 収束 |
+| Publish seam on StagedFile pipeline | `Denied`=create 前（destination/temp 未接触）・`SyncFail`=seal 後 publish 前（temp abort で除去・destination 未公開）・`Indeterminate`=publish 成功後 Err（destination 公開済み）が `publish_atomic_faultable` で決定的に再現される。call 計数は faultable 呼出しのみ | `staged_publish.rs` 7 tests（`publish_faultable_*`・`publish_atomic_*`）Pass | Pass | temp residue は SyncFail/Denied で残らない（旧 `*.tmp` residue は新 pipeline では発生しない） |
 
 ## RCD-02-REVIEW — Recovery Review 明示判定
 
@@ -108,9 +109,11 @@ Fixture: `project_adapter.rs`。Lane: headless project/library 参照。
 - macOS/Linux 等の多 OS FS matrix — **NotRun**（Windows/NTFS のみ）。
 - RT callback 上の実オーディオスレッド noalloc/noblock 計測 —
   `test-rt` の contract test のみ **Pass**、実デバイス計測は **NotRun**。
-- #86 verified blob import/Asset 登録・#84 StagedFile/HEAD CAS への
-  実接続 — **NotRun**（各 Issue gate。`verified_sha256` は provenance
-  記録どまり）。
+- #86 verified blob import/Asset 登録・#84 project 側 HEAD CAS 参照進化
+  への実接続 — **NotRun**（各 Issue gate。`verified_sha256` は provenance
+  記録どまり）。#84 の recording 側 publish 接続は task3 で
+  `ruviform_io_file::StagedFile`/`SealedFile::publish` 経由に実装済み
+  （`docs/impl/ir/rcd-02-stagedfile-publish-migration.md`）。
 
 ## New/changed fixture files (this change)
 
@@ -127,3 +130,14 @@ saved-HEAD adapter 実装）。本 change set で recovery_review.rs +3・
 project_adapter.rs +1（各 14/13 tests）。全 27 tests は
 Windows/rustc 1.99.0 で `cargo test` 実行済み（補助証拠; canonical
 `mise run test` の結果は PR 本文に記録）。
+
+StagedFile publish migration slice（task3、branch
+`feat/116-stagedfile-publish`）: `crates/synvelis-recording/tests/
+staged_publish.rs` 新規 7 tests を追加。Windows/NTFS・rustc 1.99.0
+で `cargo test -p synvelis-recording` 実行済み（補助証拠; canonical
+`mise run test` の結果は PR 本文に記録）。`detect_dir_sync` の
+Windows 観測値（`DirSyncCapability::Unsupported`）は manifest
+`capabilities.directory_sync` へ従来通り記録され、publish pipeline
+の `Durability::FileSync` は dir sync を要求しないため capability
+非対応環境でも偽装なく動作する（`staged_publish.rs` の Replace/
+CreateNew/seam test が Windows/NTFS 上で Pass）。
