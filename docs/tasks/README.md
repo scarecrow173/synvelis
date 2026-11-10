@@ -38,6 +38,7 @@ Directory: `docs/tasks`
 | TASK-NFJWSkocsf8xf7WcgpPdL0 | SV-GUI-04 slice1 タスク分解 — 実 2-window mount | in-progress | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | TASK-034UAAcPSS47j6GIlPGPrX | VCS-01 Task1 Immutable Snapshot Resolver headless slice | in-progress | [vcs-01-task1-immutable-snapshot-resolver-headless-slice.md](./vcs-01-task1-immutable-snapshot-resolver-headless-slice.md) |
+| TASK-VCS04Hist0ryV1ewTsk01 | VCS-04 slice1 タスク分解 — History/Visual Diff headless | in-progress | [vcs-04-task1-history-diff-headless-slice.md](./vcs-04-task1-history-diff-headless-slice.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
 | TASK-034QfQZsTXhM5gVQP0gh81 | VS-C task3 staging writer | todo | [vs-c-task3-staging-writer.md](./vs-c-task3-staging-writer.md) |
@@ -118,6 +119,7 @@ Directory: `docs/tasks`
 | TASK-034Uj7V9p3khaqx8qH7C2Z | SF-03 slice5 T1 — workspace EnginePort・ProjectSession 接続 | done | [sf-03-slice5-session-engine-port.md](./sf-03-slice5-session-engine-port.md) |
 | TASK-034Uj826EB6a7TEsfLwDmZ | SF-03 slice5 T2 — synvelis-app SessionRoutingEngine・canonical probe | done | [sf-03-slice5-session-routing-engine.md](./sf-03-slice5-session-routing-engine.md) |
 | TASK-034UudL7KhVSvQn5M5gy5n | SF-05 slice1 タスク分解 — Signal Flow headless | done | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
+| TASK-hB3uTuJhPxgOVjGdWdSOVj | SF-05 slice2 タスク分解 — Signal Flow gesture/inspection/persist | done | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | TASK-034V2wJc28eBSJp9D68CuX | SF-06 headless — sf06_oracle.rs Domain Oracle + fault fixture + ledger | done | [sf-06-cross-gate-oracle-headless.md](./sf-06-cross-gate-oracle-headless.md) |
 | TASK-MlLPS12iG90WZhRs4S9pub | SV-GUI-01 task1 synvelis-app crate skeleton・Composition Root・AppService | done | [sv-gui-01-task1-app-crate-composition-root.md](./sv-gui-01-task1-app-crate-composition-root.md) |
 | TASK-jLkK7lARWtOgmAI02PaXQ5 | SV-GUI-01 task2 headless service op・asset check テスト | done | [sv-gui-01-task2-headless-service-asset-tests.md](./sv-gui-01-task2-headless-service-asset-tests.md) |

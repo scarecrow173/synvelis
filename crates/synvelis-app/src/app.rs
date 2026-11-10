@@ -462,21 +462,22 @@ impl SynvelisApp {
         self.workspace.session_mut().set_engine(Box::new(engine));
     }
 
-    /// The Signal Flow projection for `view` — the per-view
-    /// [`synvelis_workspace::SignalFlowVisualState`] (default when the
-    /// view never ran a visual op) supplies scope/role/collapse
-    /// options; engine evidence is composed from the attached
-    /// [`SessionRoutingEngine`] when present (SF-05 slice 1,
-    /// synvelis#108). Read-only: no session/project/engine state is
-    /// touched.
+    /// The Signal Flow projection for `view` — the per-view persisted
+    /// [`synvelis_workspace::SignalFlowVisualState`] inside the
+    /// workspace [`ViewState`] (default when the view never ran a
+    /// visual op or is not dock-registered) supplies
+    /// scope/role/collapse options; engine evidence is composed from
+    /// the attached [`SessionRoutingEngine`] when present (SF-05
+    /// slice 1, synvelis#108). Read-only: no session/project/engine
+    /// state is touched.
     #[must_use]
     pub fn signal_flow_view(&self, view: &str) -> SignalFlowView {
-        let options = self
-            .ui
-            .signal_flow
-            .get(view)
-            .map_or_else(SignalFlowViewOptions::default, |visual| {
-                visual.view_options(SIGNAL_FLOW_MAX_NODES, SIGNAL_FLOW_MAX_EDGES)
+        let options = crate::ui_ops::parse_view_instance(view)
+            .and_then(|inst| self.workspace.state(inst).ok())
+            .and_then(|state| state.signal_flow.as_ref())
+            .map_or_else(SignalFlowViewOptions::default, |sf| {
+                sf.visual
+                    .view_options(SIGNAL_FLOW_MAX_NODES, SIGNAL_FLOW_MAX_EDGES)
             });
         let evidence = self.signal_flow_runtime_evidence();
         signal_flow_graph(self.workspace.session(), &options, evidence.as_ref())
