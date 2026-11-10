@@ -22,6 +22,8 @@ use synvelis_project::{ClipId, LaneId, ProjectRevision, SourceId, TrackId};
 use crate::control_edge::ControlEdgeGesture;
 use crate::gesture::Gesture;
 use crate::selection::{EditBinding, LaneScope, ObjectSelections, TimeSelection};
+use crate::routing_gesture::RoutingGesture;
+use crate::signal_flow_ui::SignalFlowViewState;
 use crate::snap::{GridConfig, SnapConfig};
 use crate::tool::Tool;
 
@@ -191,10 +193,23 @@ pub struct ViewState {
     /// [`Gesture`] so the two gesture families cannot be confused.
     #[serde(skip)]
     pub control_edge_gesture: Option<ControlEdgeGesture>,
+    /// The running Signal Flow routing gesture, if any. Session
+    /// state only — never persisted, and a different type from both
+    /// [`Gesture`] and [`ControlEdgeGesture`] so the three gesture
+    /// families cannot be confused (SF-UX-03).
+    #[serde(skip)]
+    pub routing_gesture: Option<RoutingGesture>,
     /// Inspection focus (view-local).
     pub inspection_focus: InspectionFocus,
     /// Link-derived context (view-local, delivered by peers).
     pub linked_context: LinkedContext,
+    /// Per-view Signal Flow state — visual arrangement plus routing
+    /// inspection focus (SF-UX-04/07). `None` for views that never
+    /// hosted a Signal Flow surface; absent in pre-v3 snapshots and
+    /// defaulted on migrate. A malformed persisted payload degrades
+    /// to `None` (safe recovery) instead of rejecting the snapshot.
+    #[serde(default, deserialize_with = "deserialize_signal_flow")]
+    pub signal_flow: Option<SignalFlowViewState>,
     /// Viewport (view-local).
     pub viewport: Viewport,
     /// Project revisions delivered to this view — the observable
@@ -243,4 +258,20 @@ impl ViewStateRegistry {
     pub fn ids(&self) -> Vec<ViewInstanceId> {
         self.states.keys().copied().collect()
     }
+}
+
+/// Tolerant per-view Signal Flow state decode (SF-UX-07 safe
+/// recovery): a malformed persisted payload degrades to `None`
+/// instead of rejecting the whole workspace snapshot. Well-formed
+/// payloads — including explicit `null` — round-trip normally, and a
+/// payload written by a newer schema (unknown fields) is dropped
+/// rather than corrupting the restore.
+fn deserialize_signal_flow<'de, D>(
+    deserializer: D,
+) -> Result<Option<SignalFlowViewState>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value.and_then(|v| serde_json::from_value(v).ok()))
 }

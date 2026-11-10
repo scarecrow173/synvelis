@@ -22,6 +22,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use serde::{Deserialize, Serialize};
 use synvelis_project::{
     AvailabilityReason, BusId, BusKind, ChannelStrip, ConnectionKind, MappingResolution,
     NotLoweredReason, PortBinding, PortOwner, PortRole, ProbeMode, ProbeResolveState,
@@ -32,6 +33,7 @@ use synvelis_project::{
 };
 
 use crate::session::ProjectSession;
+use crate::state::{FollowSource, InspectionMode, SemanticTarget};
 
 // -- typed entity refs -------------------------------------------------
 
@@ -40,7 +42,10 @@ use crate::session::ProjectSession;
 /// arrangement [`crate::selection::SelectionDomain`]: naming a
 /// routing entity here never retargets timeline selection or link
 /// context.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
+#[serde(rename_all = "kebab-case")]
 pub enum SignalFlowEntityRef {
     /// A production track (resolved through its channel strip).
     Track(TrackId),
@@ -181,7 +186,10 @@ pub enum SignalFlowEdgeId {
 /// Edge role — the Role Filter vocabulary. Roles stay distinct even
 /// when endpoints collapse to the same strip (a Sidechain edge into a
 /// folded processor never masquerades as a Main edge).
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
+#[serde(rename_all = "kebab-case")]
 pub enum SignalFlowEdgeRole {
     /// Strip/processor main signal path.
     Main,
@@ -228,7 +236,8 @@ pub struct SignalFlowEdge {
 /// Display scope — the Issue #108 `SignalFlowScope` vocabulary minus
 /// `History` snapshot identity (VCS infra not landed; `History`
 /// queries return `coverage = Unsupported` honestly).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum SignalFlowScope {
     /// Strip-level graph only — no processor nodes.
     Overview,
@@ -252,7 +261,10 @@ pub enum SignalFlowScope {
 /// Control relations project through [`crate::relation_ui`] instead;
 /// they are deliberately not duplicated here.
 #[non_exhaustive]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
+#[serde(rename_all = "kebab-case")]
 pub enum SignalFlowLayer {
     /// Audio routing (the only layer this slice projects).
     Audio,
@@ -412,7 +424,8 @@ pub struct SignalFlowView {
 /// A user-defined visual grouping — display bundling only. It never
 /// creates audio routing, ownership, or semantic diff (Issue #108:
 /// Visual Group ≠ Semantic Group/Bus/Folder).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SignalFlowVisualGroup {
     /// Caller-assigned group id.
     pub id: u64,
@@ -424,13 +437,41 @@ pub struct SignalFlowVisualGroup {
     pub collapsed: bool,
 }
 
+/// `BTreeMap<SignalFlowEntityRef, _>` cannot be a JSON object —
+/// enum keys are not strings — so positions persist as an entry
+/// list `[[entity, [x, y]], ...]`.
+mod serde_entity_positions {
+    use std::collections::BTreeMap;
+
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    use super::SignalFlowEntityRef;
+
+    pub fn serialize<S: Serializer>(
+        map: &BTreeMap<SignalFlowEntityRef, [f64; 2]>,
+        s: S,
+    ) -> Result<S::Ok, S::Error> {
+        map.iter().collect::<Vec<_>>().serialize(s)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        d: D,
+    ) -> Result<BTreeMap<SignalFlowEntityRef, [f64; 2]>, D::Error> {
+        Ok(Vec::<(SignalFlowEntityRef, [f64; 2])>::deserialize(d)?
+            .into_iter()
+            .collect())
+    }
+}
+
 /// Per-view visual-only state — the Issue #108
 /// `SignalFlowViewState` counterpart. Pure value type: it holds no
 /// session/project/engine reference, so no mutation path can reach
 /// DSP, project revision, undo, or PCM (SF-UX-02).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct SignalFlowVisualState {
     /// Node positions (visual coordinates only).
+    #[serde(with = "serde_entity_positions")]
     pub positions: BTreeMap<SignalFlowEntityRef, [f64; 2]>,
     /// Visual groups.
     pub groups: Vec<SignalFlowVisualGroup>,
@@ -553,6 +594,66 @@ pub fn visual_set_link_focus(
 pub fn visual_set_scope(state: &mut SignalFlowVisualState, scope: SignalFlowScope) {
     state.scope = scope;
     bump(state);
+}
+
+// -- persisted per-view state (SF-UX-04/07) ------------------------------
+
+/// The view-local Signal Flow *inspection* focus — the routing-side
+/// counterpart of [`crate::state::InspectionFocus`]. It tracks a
+/// [`SignalFlowEntityRef`] under the same Follow/Explore/Pinned
+/// semantics, stays strictly separate from the editing selection and
+/// the `SemanticTarget` inspection focus, and persists per
+/// `ViewInstanceId` through [`crate::state::ViewState::signal_flow`]
+/// (SF-UX-07). Explore history is session-only, mirroring
+/// [`crate::state::InspectionFocus`].
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SignalFlowInspectionFocus {
+    /// Inspected routing entity, if any. May name an entity that no
+    /// longer resolves — a pinned/explored target is never silently
+    /// substituted.
+    pub target: Option<SignalFlowEntityRef>,
+    /// Follow/Explore/Pinned mode — the shared vocabulary.
+    pub mode: InspectionMode,
+    /// Optional narrowing of Follow mode to one source view or link
+    /// group (`None` follows whatever the view's own group delivers).
+    pub follow_source: Option<FollowSource>,
+    /// Explore back-stack — session state only, never persisted.
+    #[serde(skip)]
+    pub explore_back: Vec<SignalFlowEntityRef>,
+    /// Explore forward-stack — session state only.
+    #[serde(skip)]
+    pub explore_fwd: Vec<SignalFlowEntityRef>,
+}
+
+/// The persisted per-view Signal Flow state bundle — visual
+/// arrangement plus inspection focus, owned per `ViewInstanceId` by
+/// [`crate::state::ViewState::signal_flow`] and carried by
+/// [`crate::persist::WorkspaceSnapshot`] (SF-UX-07). Both halves are
+/// pure value types: nothing here reaches the project, its revision,
+/// undo history, graph builds, or PCM.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SignalFlowViewState {
+    /// Visual-only arrangement state.
+    pub visual: SignalFlowVisualState,
+    /// Routing-entity inspection focus.
+    pub inspection: SignalFlowInspectionFocus,
+}
+
+/// Explicit conversion from the shared [`SemanticTarget`]
+/// vocabulary into [`SignalFlowEntityRef`] — the only representable
+/// pair today is `Track` (a track *is* its strip's routing owner).
+/// `Lane`/`Clip`/`Source` targets have no routing-entity
+/// counterpart and return `None`: link delivery then records the
+/// event in `linked_context` without retargeting a Signal Flow
+/// inspection (SF-UX-04 — conversion is explicit, never implicit).
+#[must_use]
+pub fn signal_flow_entity_from_semantic(target: SemanticTarget) -> Option<SignalFlowEntityRef> {
+    match target {
+        SemanticTarget::Track(track) => Some(SignalFlowEntityRef::Track(track)),
+        SemanticTarget::Lane(_) | SemanticTarget::Clip(_) | SemanticTarget::Source(_) => None,
+    }
 }
 
 // -- projection --------------------------------------------------------
