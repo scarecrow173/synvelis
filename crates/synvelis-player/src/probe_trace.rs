@@ -249,6 +249,21 @@ impl ProbeTraceBridge {
     pub fn adapter_mut(&mut self, node: NodeId) -> Option<&mut DispatchTraceAdapter> {
         self.adapters.get_mut(&node)
     }
+
+    /// Registers `adapter` as the trace owner for runtime `node`,
+    /// replacing any previous adapter for that node. Returns the
+    /// evicted adapter so the caller can observe the replacement —
+    /// its recorded traces are dropped with it, never silently
+    /// merged. Callers own adapter lifecycle: register once per
+    /// node per plan generation and [`Self::route_target`] the
+    /// targets that should observe through it.
+    pub fn insert_adapter(
+        &mut self,
+        node: NodeId,
+        adapter: DispatchTraceAdapter,
+    ) -> Option<DispatchTraceAdapter> {
+        self.adapters.insert(node, adapter)
+    }
 }
 
 impl ProbeTracePort for ProbeTraceBridge {

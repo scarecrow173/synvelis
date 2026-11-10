@@ -169,6 +169,14 @@ pub const OPS: &[OpInfo] = &[
         summary: "bounded bindable-target listing",
     },
     OpInfo {
+        name: "syn.probe.control",
+        summary: "semantic probe lifecycle — request|set_mode|capture|stop_capture|remove (SF-04)",
+    },
+    OpInfo {
+        name: "syn.probe.state",
+        summary: "probe projection — bindings/segments/drain/traces",
+    },
+    OpInfo {
         name: "syn.viz.bind",
         summary: "bind surface to source (view_id, surface_id, source, kind, plot_px?)",
     },
@@ -306,6 +314,8 @@ impl AppService {
             "syn.control.subscribe" => self.app.op_control_subscribe(params),
             "syn.control.unsubscribe" => self.app.op_control_unsubscribe(params),
             "syn.control.targets" => Ok(self.app.op_control_targets()),
+            "syn.probe.control" => self.app.op_probe_control(params),
+            "syn.probe.state" => Ok(self.app.op_probe_state()),
             "syn.viz.bind" => self.app.op_viz_bind(params),
             "syn.viz.meta" => self.app.op_viz_meta(params),
             "syn.viz.query" => self.app.op_viz_query(params),

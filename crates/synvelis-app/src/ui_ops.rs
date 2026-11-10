@@ -25,8 +25,10 @@ use serde_json::{Value, json};
 
 use synvelis_project::vcs::{RevisionSelector, VcsCancel};
 use synvelis_project::{
-    BusId, ExplicitChannelMap, ProcessorId, ProjectRevision, ProjectStore, RoutingConnectionId,
-    SemanticPortId, SendId, StripId, TickTimeMapping, TrackId, is_issuable_raw,
+    BusId, ExplicitChannelMap, ParameterTargetId, ProbeCaptureSegment, ProbeMode, ProbeObservation,
+    ProbePortError, ProbeStatusReceipt, ProbeSubscriptionKey, ProbeTracePort, ProcessorId,
+    ProjectRevision, ProjectStore, RoutingConnectionId, SemanticPortId, SemanticProbePoint, SendId,
+    StripId, SubscriptionKind, TickTimeMapping, TraceSlot, TrackId, is_issuable_raw,
 };
 use synvelis_workspace::VizSourceId;
 use synvelis_workspace::controls_ui::{
@@ -39,12 +41,12 @@ use synvelis_workspace::viz_ui::{
 };
 use synvelis_workspace::{
     CancelReason, EndpointRequest, FollowSource, InspectionMode, LinkGroupId, PinSide,
-    RoutingGestureFixation, RoutingGestureOutcome, RoutingGesturePreview, RoutingPortAssessment,
-    SignalFlowEdgeRole, SignalFlowEntityRef, SignalFlowInspectionFocus, SignalFlowScope,
-    SignalFlowView, SignalFlowViewOptions, SignalFlowViewState, VcsDiffView, VcsEndpointView,
-    VcsHistoryView, VcsSession, VcsUiError, VcsViewMode, ViewType, signal_flow_graph,
-    vcs_history_view, visual_fold, visual_move_node, visual_set_group, visual_set_link_focus,
-    visual_set_pan, visual_set_scope, visual_set_zoom,
+    ProbeDrainReport, ProbeTraceError, RoutingGestureFixation, RoutingGestureOutcome,
+    RoutingGesturePreview, RoutingPortAssessment, SignalFlowEdgeRole, SignalFlowEntityRef,
+    SignalFlowInspectionFocus, SignalFlowScope, SignalFlowView, SignalFlowViewOptions,
+    SignalFlowViewState, VcsDiffView, VcsEndpointView, VcsHistoryView, VcsSession, VcsUiError,
+    VcsViewMode, ViewType, signal_flow_graph, vcs_history_view, visual_fold, visual_move_node,
+    visual_set_group, visual_set_link_focus, visual_set_pan, visual_set_scope, visual_set_zoom,
 };
 
 use crate::app::SynvelisApp;
@@ -164,6 +166,9 @@ pub struct UiOpsState {
     pub(crate) window_requests: Rc<RefCell<VecDeque<WindowRequest>>>,
     /// Monotonic id for `dock_prepare_new_window` requests.
     pub(crate) window_request_seq: u64,
+    /// Last `ControlSession::probe_drain` report — session-scoped
+    /// evidence surfaced by `syn.probe.state` (SF-04 slice 4).
+    pub(crate) last_probe_drain: ProbeDrainReport,
 }
 
 impl UiOpsState {
@@ -185,6 +190,7 @@ impl UiOpsState {
             dock_moves: HashMap::new(),
             window_requests: Rc::new(RefCell::new(VecDeque::new())),
             window_request_seq: 0,
+            last_probe_drain: ProbeDrainReport::default(),
         }
     }
 }
@@ -243,6 +249,82 @@ fn json_param<T: serde::de::DeserializeOwned>(params: &Value, key: &str) -> Resu
 
 fn viz_err(e: &synvelis_workspace::VizError) -> ErrorBody {
     internal(format!("viz: {e}"))
+}
+
+/// `syn.probe.state` trace-row cap — projections stay bounded like
+/// every other UI-facing listing.
+const PROBE_TRACE_CAP: usize = 64;
+
+/// `ProbeDrainReport` → wire shape.
+fn probe_drain_json(report: ProbeDrainReport) -> Value {
+    json!({
+        "updates": report.updates,
+        "uncorrelated": report.uncorrelated,
+        "recorded": report.recorded,
+        "unrouted": report.unrouted,
+    })
+}
+
+/// `ProbeStatusReceipt` → wire shape — the runtime evidence verbatim
+/// (`clock` has no contract serde, so it projects as debug text).
+fn probe_status_json(status: &ProbeStatusReceipt) -> Value {
+    json!({
+        "kind": status.kind,
+        "generation": status.generation,
+        "sample_position": status.sample_position,
+        "clock": status.clock.as_ref().map(|c| format!("{c:?}")),
+    })
+}
+
+/// `ProbeCaptureSegment` → wire shape — closed segments only; the
+/// ledger never exposes open segments.
+fn probe_segment_json(segment: &ProbeCaptureSegment) -> Value {
+    json!({
+        "capture_session_id": segment.capture_session_id,
+        "segment_index": segment.segment_index,
+        "point": segment.point,
+        "active_plan_generation": segment.active_plan_generation,
+        "clock_context": segment.clock_context.as_ref().map(|c| format!("{c:?}")),
+        "frame_range": segment.frame_range,
+        "discontinuities": &segment.discontinuities,
+        "completeness": segment.completeness,
+        "ended_by": segment.ended_by,
+    })
+}
+
+/// `TraceSlot<ProbeObservation>` → wire shape — the slot state
+/// verbatim plus the observation payload as debug text (the
+/// observation vocabulary has no contract serde; `Missing`/
+/// `Disabled`/`Lost`/`Measuring` stay distinguishable).
+fn probe_observed_json(slot: &TraceSlot<ProbeObservation>) -> Value {
+    let state = match slot {
+        TraceSlot::Present(_) => "present",
+        TraceSlot::Missing => "missing",
+        TraceSlot::Unsupported => "unsupported",
+        TraceSlot::Dropped => "dropped",
+        TraceSlot::Expired => "expired",
+        _ => "unknown",
+    };
+    json!({
+        "state": state,
+        "value": slot.present().map(|o| format!("{o:?}")),
+    })
+}
+
+/// `ProbeTraceError` → wire error — an unknown target is a param
+/// fault; named port rejections keep their contract message;
+/// provider-internal `Failed` maps to `SERVICE_ERROR`.
+fn probe_trace_err(error: ProbeTraceError) -> ErrorBody {
+    match error {
+        ProbeTraceError::UnknownTarget(target) => {
+            invalid(format!("unknown parameter target {target}"))
+        }
+        ProbeTraceError::Port(ProbePortError::Failed(reason)) => {
+            internal(format!("probe: {reason}"))
+        }
+        ProbeTraceError::Port(other) => invalid(other.to_string()),
+        _ => internal("probe: unknown session error"),
+    }
 }
 
 fn dock_err(e: &synvelis_workspace::WorkspaceError) -> ErrorBody {
@@ -809,6 +891,22 @@ impl SynvelisApp {
         self.push_subscription_rows();
         self.push_surface_frames();
         self.capture_screen_state();
+        self.drain_probe();
+    }
+
+    /// SF-04 slice 4 drain hook — the *only* session path that pulls
+    /// runtime probe events into `ControlTrace.observed` slots. Runs
+    /// at the `ui_pump` tail whenever a routing engine is attached;
+    /// `ControlSession::probe_drain` stays the single drain owner and
+    /// its report lands in [`UiOpsState::last_probe_drain`] for
+    /// `syn.probe.state`. No engine → no port → nothing drains and no
+    /// observation is fabricated.
+    fn drain_probe(&mut self) {
+        let Some(engine) = self.routing_engine.clone() else {
+            return;
+        };
+        self.ui.last_probe_drain = engine
+            .with_probe_bridge(|port| self.workspace.session_mut().control_mut().probe_drain(port));
     }
 
     /// Keeps the main view's strip-toggle subscriptions in step with
@@ -2742,6 +2840,177 @@ impl SynvelisApp {
             }));
         }
         json!({ "targets": targets })
+    }
+
+    // -- syn.probe.* ---------------------------------------------------------
+
+    /// `syn.probe.control` — semantic probe lifecycle (SF-04 slice 4).
+    /// `action` selects the operation:
+    ///
+    /// - `"request"` — `params.target` (tagged `ParameterTargetId`),
+    ///   `params.point` (serde `SemanticProbePoint`), `params.kind`
+    ///   (serde `SubscriptionKind`), `params.mode` (serde `ProbeMode`)
+    ///   → `ControlSession::probe_request`; returns the minted
+    ///   `key` (pass it back verbatim to the other actions) and the
+    ///   session-correlated `targets`.
+    /// - `"set_mode"` — `params.key` + `params.mode`.
+    /// - `"capture"` — `params.key` + `params.max_frames` (u64).
+    /// - `"stop_capture"` / `"remove"` — `params.key` only.
+    ///
+    /// Every action goes through `ControlSession`'s probe surface
+    /// with the attached engine's `ProbeTraceBridge` as the per-call
+    /// port — the session stays the single correlation/drain owner.
+    /// Fails closed with `SERVICE_ERROR` when no routing engine is
+    /// attached; it never fabricates a binding or observation.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, an unknown action, a
+    /// missing routing engine, or a session/port rejection.
+    pub fn op_probe_control(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let action = str_param(params, "action")?;
+        // Validate the action before the engine check — a malformed
+        // request is a param fault regardless of attachment state.
+        if !matches!(
+            action,
+            "request" | "set_mode" | "capture" | "stop_capture" | "remove"
+        ) {
+            return Err(invalid(format!("params.action: unknown action {action:?}")));
+        }
+        let engine = self
+            .routing_engine
+            .clone()
+            .ok_or_else(|| internal("no routing engine attached"))?;
+        let result = engine.with_probe_bridge(|port| -> Result<Value, ErrorBody> {
+            let session = self.workspace.session_mut();
+            match action {
+                "request" => {
+                    let target = ParameterTargetId::from_tagged(str_param(params, "target")?)
+                        .map_err(|e| invalid(format!("params.target: {e}")))?;
+                    let point: SemanticProbePoint = json_param(params, "point")?;
+                    let kind: SubscriptionKind = json_param(params, "kind")?;
+                    let mode: ProbeMode = json_param(params, "mode")?;
+                    let key = session
+                        .control_with(|control, project| {
+                            control.probe_request(project, port, target, point, kind, mode)
+                        })
+                        .map_err(probe_trace_err)?;
+                    let targets: Vec<String> = session
+                        .control()
+                        .probe_targets(key)
+                        .iter()
+                        .map(|t| t.to_tagged())
+                        .collect();
+                    Ok(json!({ "key": key, "targets": targets }))
+                }
+                "set_mode" => {
+                    let key: ProbeSubscriptionKey = json_param(params, "key")?;
+                    let mode: ProbeMode = json_param(params, "mode")?;
+                    session
+                        .control_mut()
+                        .probe_set_mode(port, key, mode)
+                        .map_err(probe_trace_err)?;
+                    Ok(json!({ "key": key, "mode": mode }))
+                }
+                "capture" => {
+                    let key: ProbeSubscriptionKey = json_param(params, "key")?;
+                    let max_frames = u64_param(params, "max_frames")?;
+                    session
+                        .control_mut()
+                        .probe_capture(port, key, max_frames)
+                        .map_err(probe_trace_err)?;
+                    Ok(json!({ "key": key, "max_frames": max_frames }))
+                }
+                "stop_capture" => {
+                    let key: ProbeSubscriptionKey = json_param(params, "key")?;
+                    session
+                        .control_mut()
+                        .probe_stop_capture(port, key)
+                        .map_err(probe_trace_err)?;
+                    Ok(json!({ "key": key }))
+                }
+                "remove" => {
+                    let key: ProbeSubscriptionKey = json_param(params, "key")?;
+                    session
+                        .control_mut()
+                        .probe_remove(port, key)
+                        .map_err(probe_trace_err)?;
+                    Ok(json!({ "key": key, "removed": true }))
+                }
+                _ => Err(invalid(format!("params.action: unknown action {action:?}"))),
+            }
+        })?;
+        self.ui_pump();
+        Ok(result)
+    }
+
+    /// `syn.probe.state` — probe projection (SF-04 slice 4):
+    /// binding ledger (requested vs RT-confirmed mode and resolve
+    /// state kept distinct — pending is never shown as observed),
+    /// closed capture segments, the last drain report, and routed
+    /// `observed` trace slots. Read-only: it never drains. With no
+    /// routing engine attached it reports `engine_attached:false`
+    /// and empty collections rather than erroring, so consumers can
+    /// render the honest unavailable state.
+    #[must_use]
+    pub fn op_probe_state(&self) -> Value {
+        let Some(engine) = self.routing_engine.as_ref() else {
+            return json!({
+                "engine_attached": false,
+                "bindings": [],
+                "segments": [],
+                "drain": probe_drain_json(ProbeDrainReport::default()),
+                "traces": [],
+            });
+        };
+        let drain = self.ui.last_probe_drain;
+        engine.with_probe_bridge(|port| {
+            let control = self.workspace.session().control();
+            let bindings: Vec<Value> = port
+                .probe_bindings()
+                .iter()
+                .map(|(key, binding)| {
+                    json!({
+                        "key": key,
+                        "targets": control
+                            .probe_targets(*key)
+                            .iter()
+                            .map(|t| t.to_tagged())
+                            .collect::<Vec<_>>(),
+                        "point": binding.point,
+                        "project_revision": binding.project_revision,
+                        "active_plan_generation": binding.active_plan_generation,
+                        "runtime_probe_id": binding.runtime_probe_id,
+                        "requested_mode": binding.requested_mode,
+                        "confirmed_mode": binding.confirmed_mode,
+                        "state": binding.state,
+                        "last_status": binding.last_status.as_ref().map(probe_status_json),
+                    })
+                })
+                .collect();
+            let segments: Vec<Value> = port
+                .probe_segments()
+                .iter()
+                .map(probe_segment_json)
+                .collect();
+            let traces: Vec<Value> = port
+                .traces()
+                .into_iter()
+                .take(PROBE_TRACE_CAP)
+                .map(|(target, trace)| {
+                    json!({
+                        "target": target.to_tagged(),
+                        "observed": probe_observed_json(&trace.observed),
+                    })
+                })
+                .collect();
+            json!({
+                "engine_attached": true,
+                "bindings": bindings,
+                "segments": segments,
+                "drain": probe_drain_json(drain),
+                "traces": traces,
+            })
+        })
     }
 
     // -- syn.viz.* ---------------------------------------------------------

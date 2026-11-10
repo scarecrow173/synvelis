@@ -31,6 +31,7 @@ Directory: `docs/tasks`
 | TASK-034Um6UmzaMloEGrFyYAS2 | SF-04 slice1 T1 — project/player Semantic Probe Adapter + ruviform pin bump | in-progress | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | TASK-034Uur4AKzlyg8khBcNC6X | SF-04 slice2 T1 — ControlSession probe observation → ControlTrace 配線 | in-progress | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | TASK-034UL3a4aL5H7PC2FRWUp7 | SF-04 slice3 T1 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | in-progress | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
+| TASK-5FrDNAlmiEt3QTiDj5a82C | SF-04 slice4 T1 — app/session wiring（probe port・syn.probe.*・drain hook） | in-progress | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |
 | TASK-G4oEdDOSfbQ4uy5d0HrbKh | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture 実装 task | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | TASK-034Ul52jO5RARmW21UHLGR | SV-GUI-03 slice1: Transport 操作 + Inspector 表示を既存 GPUI 経路に接続 | in-progress | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
 | TASK-cvXxPcl14NogBTKEDTSKrO | SV-GUI-03 slice2 タスク分解 — Arrangement read-only Table + Undo/Redo | in-progress | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
