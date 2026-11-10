@@ -59,6 +59,7 @@ Directory: `docs/specs`
 | SPEC-034Uj7sqrin4g45fPU9uJM | SF-03 slice5 — app/session 層への RoutingEngine 接続（headless・EngineStub 置き換え） | approved | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
 | SPEC-034UJpxSHTVIxHKdrntkyR | SF-03 slice6 — SF-ACT-06 control surface headless slice（automation→TimedParamEvent・Fast Control gate・有界 Queue・catalog refresh） | approved | [sf-03-slice6-act06-control-surface.md](./sf-03-slice6-act06-control-surface.md) |
 | SPEC-0ETTGUPUGPQE6z2dyPRs0b | SF-03 slice7 — synvelis-render semantic-lowering 消費 + cross-consumer same-Revision fixture | approved | [sf-03-slice7-render-consumption.md](./sf-03-slice7-render-consumption.md) |
+| SPEC-034VoS9yTOt7fYOoDYlyRU | SF-03 slice8 — app/workspace same-Revision fixture | approved | [sf-03-slice8-revision-fixture.md](./sf-03-slice8-revision-fixture.md) |
 | SPEC-034UlYgSZ589NRdTrtO4Vu | SF-04 slice1 — Semantic Probe Adapter 基盤（project/player 層 + ruviform pin bump） | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | SPEC-034UumeSTLbuxt64vqqJ47 | SF-04 slice2 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | SPEC-034UL2whPqBifdr1Jsrkn7 | SF-04 slice3 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
