@@ -164,7 +164,25 @@ ruviform#251 待ちで `Unsupported`、cross-clock multi-device は
 
 ## Validation
 
-<!-- 実施した検証を追記 -->
+Windows 11 / rustc 1.99.0（mise pin）で実施:
+
+- `mise run fmt-check` — Passed
+- `mise run check`（`cargo check --workspace --all-targets`）— Passed
+- `mise run lint`（`cargo clippy --workspace --all-targets -- -D warnings`）— Passed
+- `mise run test`（`cargo test --workspace --locked`）— Passed
+  （初回実行で `synvelis-library` webdav
+  `browse_rejects_file_scope` が 1 件 flaky 失敗
+  （TransientIo vs InvalidRequest）。本変更と無関係の領域で、
+  単独再実行・workspace 全体の再実行ともに Passed）
+- `mise run test-rt` — Passed
+- 補助証拠: `cargo test -p synvelis-recording`（16 device_recording
+  test 含む全 binary Passed）、`cargo test -p synvelis-app --test
+  recording_projection`（3 test Passed）
+- review-protocol: 独立 2 pass（cooperative acceptance coverage +
+  adversarial defect scan）+ candidate validation + judgment を
+  実施。CONFIRMED P0/P1 なし → ACCEPT WITH NON-BLOCKING NOTES
+  （temp dir 残存は既存 fixture と同運用、helper doc の軽微な
+  不整合のみ）。
 
 ## Risks
 
