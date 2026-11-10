@@ -31,6 +31,7 @@ use crate::state::{
     EditingSelection, FollowSource, InspectionMode, SemanticTarget, ViewState, ViewStateRegistry,
 };
 use crate::tool::{EditOperation, HandleKind, HitProbe, Tool, ToolResolution, resolve_tool};
+use crate::vcs_ui::VcsHistoryViews;
 use crate::view::{ViewDescriptor, ViewRegistry, ViewType};
 
 /// A window the manager knows about (creation order = capture order).
@@ -55,6 +56,7 @@ pub struct WorkspaceManager<H: WindowHandle> {
     pub(crate) dock: DockWorkspace,
     pub(crate) registry: ViewRegistry,
     pub(crate) states: ViewStateRegistry,
+    pub(crate) vcs: VcsHistoryViews,
     pub(crate) links: LinkGroupManager,
     pub(crate) focus: FocusState,
     session: ProjectSession,
@@ -75,6 +77,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
             dock: DockWorkspace::new(),
             registry: ViewRegistry::default(),
             states: ViewStateRegistry::default(),
+            vcs: VcsHistoryViews::new(),
             links: LinkGroupManager::default(),
             focus: FocusState::default(),
             session,
@@ -108,6 +111,30 @@ impl<H: WindowHandle> WorkspaceManager<H> {
     #[must_use]
     pub fn states_mut(&mut self) -> &mut ViewStateRegistry {
         &mut self.states
+    }
+
+    /// The VCS history/diff view-state registry (VCS-04).
+    #[must_use]
+    pub fn vcs(&self) -> &VcsHistoryViews {
+        &self.vcs
+    }
+
+    /// Mutable VCS history/diff view-state registry.
+    #[must_use]
+    pub fn vcs_mut(&mut self) -> &mut VcsHistoryViews {
+        &mut self.vcs
+    }
+
+    /// Runs `f` with split borrows of the VCS registry and the session.
+    ///
+    /// [`VcsHistoryViews`] ops need a [`crate::vcs_ui::VcsSession`]
+    /// context built from `session()` — but `session()` borrows all of
+    /// `self`, so callers cannot hold it across a `vcs_mut()` call.
+    /// This accessor hands out `(&mut VcsHistoryViews, &ProjectSession)`
+    /// simultaneously; the session side is shared, so nothing here can
+    /// mutate project state.
+    pub fn with_vcs<R>(&mut self, f: impl FnOnce(&mut VcsHistoryViews, &ProjectSession) -> R) -> R {
+        f(&mut self.vcs, &self.session)
     }
 
     /// The link-group manager.
@@ -300,6 +327,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         self.dock.attach_view(id, target)?;
         self.registry.register(id, kind, title.to_string());
         self.states.ensure(id);
+        self.vcs.ensure(id);
         Ok(id)
     }
 
@@ -316,6 +344,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         self.dock.add_detached(id)?;
         self.registry.register(id, kind, title.to_string());
         self.states.ensure(id);
+        self.vcs.ensure(id);
         Ok(id)
     }
 
@@ -356,8 +385,22 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         }
         self.registry.register(id, kind, title.to_string());
         self.states.ensure(id);
+        self.vcs.ensure(id);
         self.next_view = self.next_view.max(id.get());
         Ok(())
+    }
+
+    /// Highest view id ever minted or adopted — a read-only peek at
+    /// the id high-water mark. The next
+    /// [`spawn_view`](Self::spawn_view) /
+    /// [`spawn_detached_view`](Self::spawn_detached_view) mints
+    /// `watermark + 1`; callers that allocate ids through
+    /// [`adopt_view`](Self::adopt_view) must stay above it so later
+    /// spawns cannot collide, and must not reuse ids at or below it
+    /// so removed views' ids are never recycled.
+    #[must_use]
+    pub fn view_id_watermark(&self) -> u64 {
+        self.next_view
     }
 
     /// Removes a view entirely (dock, registry, state, links).
@@ -368,6 +411,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         self.dock.remove_view(view)?;
         self.registry.unregister(view)?;
         self.states.remove(view);
+        self.vcs.remove(view);
         self.links.set_group(view, None);
         if self.focus.active_view == Some(view) {
             self.focus.active_view = None;
@@ -586,6 +630,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                         for v in views {
                             let _ = self.registry.unregister(v);
                             self.states.remove(v);
+                            self.vcs.remove(v);
                             self.links.set_group(v, None);
                         }
                     }
@@ -1485,6 +1530,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                     .register(id, record.kind, record.title.clone());
             }
             self.states.insert(id, record.state.clone());
+            self.vcs.ensure(id);
         }
         for view in &layout.detached {
             if self.dock.owner_of(*view).is_none() && !self.dock.is_detached(*view) {

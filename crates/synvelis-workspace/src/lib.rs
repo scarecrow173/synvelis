@@ -36,6 +36,7 @@ pub mod signal_flow_ui;
 pub mod snap;
 pub mod state;
 pub mod tool;
+pub mod vcs_ui;
 pub mod view;
 pub mod viz_ui;
 pub mod workspace;
@@ -111,6 +112,13 @@ pub use state::{
 };
 pub use tool::{
     EditOperation, HandleKind, HitCandidate, HitProbe, HitZone, Tool, ToolResolution, resolve_tool,
+};
+pub use vcs_ui::{
+    EndpointFreshness, EndpointKind, EndpointPin, EndpointRequest, HistorySelection,
+    MAX_DIFF_CHANGES, MAX_DIFF_ISSUES, MAX_HISTORY_NODES, PinSide, PinnedEndpoint, VcsDiffView,
+    VcsEndpointView, VcsEquality, VcsHistoryRow, VcsHistoryState, VcsHistoryView, VcsHistoryViews,
+    VcsIssueRow, VcsSelectionView, VcsSession, VcsUiError, VcsViewMode, VcsViewStatus,
+    endpoint_freshness, vcs_history_view,
 };
 pub use view::{HeadlessView, ViewDescriptor, ViewFactory, ViewRegistry, ViewType};
 pub use viz_ui::{

@@ -27,6 +27,9 @@ pub enum ViewType {
     /// Plugin dock surface — vocabulary only (SV177): the native
     /// plugin host/editor implementation is owned by SV176.
     PluginDock,
+    /// VCS History / A-B Visual Diff surface (VCS-04, synvelis#95) —
+    /// read-only projection; never mutates project or repository.
+    VcsHistory,
 }
 
 /// Persistent identity of a view instance: id + kind + display title.
