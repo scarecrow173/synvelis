@@ -30,9 +30,9 @@ use synvelis_project::vcs::{RevisionSelector, VcsCancel};
 use synvelis_project::{
     BusId, ClockEpochId, ExplicitChannelMap, LaneId, MusicalTick, ParameterTargetId,
     ProbeCaptureSegment, ProbeMode, ProbeObservation, ProbePortError, ProbeStatusReceipt,
-    ProbeSubscriptionKey, ProbeTracePort, ProcessorId, ProjectRevision, ProjectStore,
+    ProbeSubscriptionKey, ProbeTracePort, ProcessorId, ProjectOp, ProjectRevision, ProjectStore,
     RoutingConnectionId, SemanticPortId, SemanticProbePoint, SendId, StripId, SubscriptionKind,
-    TickTimeMapping, TraceSlot, TrackId, is_issuable_raw,
+    TickTimeMapping, TraceSlot, TrackId, is_issuable_raw, monitoring_data,
 };
 use synvelis_recording::{
     ArmState, ChannelMap, HardwareDirectMonitor, HardwareDirectState, MonitorState,
@@ -57,7 +57,7 @@ use synvelis_workspace::{
 };
 
 use crate::app::SynvelisApp;
-use crate::monitoring::{MonitorSessionParams, MonitorTransportAction, PunchSide, TrackPatch};
+use crate::monitoring::{MonitorSessionParams, MonitorTransportAction, MonitorUxState, TrackPatch};
 use crate::screens::{
     DockViewInfo, InspectorRow, InspectorScreenState, TransportScreenState, dock_view_info,
     main_view_id, mixer_strip_targets, vcs_equality_str, vcs_freshness_reason, vcs_freshness_str,
@@ -2869,9 +2869,12 @@ impl SynvelisApp {
     ///   "device_controlled", "observed_active": bool|null}` — 外部
     ///   観測の verbatim 注入。`Unknown` は制御可能と偽らない。
     ///
-    /// 宣言は session-only で project 永続化・revision・Undo に
-    /// 影響しない。存在しない track、またはその track に属さない
-    /// lane は `INVALID_PARAMS`。
+    /// authored 宣言部（`lane`/`arm`/`monitor`/`binding`）は
+    /// `ProjectOp` として `ProjectController` に write-through
+    /// され、undo・Save/Reload の対象になる。
+    /// `input_output_ready`/`hardware_direct` は session 観測値
+    /// であり永続化しない。存在しない track、またはその track
+    /// に属さない lane は `INVALID_PARAMS`。
     ///
     /// # Errors
     /// [`ErrorBody`] on invalid parameters or unknown track/lane.
@@ -2885,86 +2888,70 @@ impl SynvelisApp {
                 .ok_or_else(|| invalid("params.clear (bool) required"))?,
         };
         if clear {
-            let cleared = self.monitoring.clear_track(track);
-            return Ok(json!({ "track": track.to_tagged(), "cleared": cleared }));
-        }
-        let mut patch = TrackPatch::default();
-        if let Some(lane) = params.get("lane") {
-            patch.lane = Some(match lane {
-                Value::Null => None,
-                v => Some(
-                    LaneId::from_tagged(
-                        v.as_str()
-                            .ok_or_else(|| invalid("params.lane (tagged string|null)"))?,
-                    )
-                    .map_err(|e| invalid(format!("params.lane: {e}")))?,
-                ),
-            });
-        }
-        if let Some(arm) = params.get("arm") {
-            patch.arm = Some(arm_state_param(
-                arm.as_str().ok_or_else(|| invalid("params.arm (string)"))?,
-            )?);
-        }
-        if let Some(monitor) = params.get("monitor") {
-            patch.monitor = Some(monitor_state_param(
-                monitor
-                    .as_str()
-                    .ok_or_else(|| invalid("params.monitor (string)"))?,
-            )?);
-        }
-        if let Some(binding) = params.get("binding") {
-            let channels = binding
-                .get("channels")
-                .and_then(Value::as_array)
-                .ok_or_else(|| invalid("params.binding.channels (array) required"))?;
-            let channels: Vec<u32> = channels
-                .iter()
-                .map(|c| {
-                    c.as_u64()
-                        .and_then(|n| u32::try_from(n).ok())
-                        .ok_or_else(|| invalid("params.binding.channels[] (u32) required"))
-                })
-                .collect::<Result<_, _>>()?;
-            patch.channel_map = Some(
-                ChannelMap::new(channels)
-                    .map_err(|e| invalid(format!("params.binding.channels: {e}")))?,
-            );
-        }
-        if let Some(ready) = params.get("input_output_ready") {
-            patch.input_output_ready = Some(
-                ready
-                    .as_bool()
-                    .ok_or_else(|| invalid("params.input_output_ready (bool) required"))?,
-            );
-        }
-        if let Some(hw) = params.get("hardware_direct") {
-            let state = hw_state_param(
-                hw.get("state")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| invalid("params.hardware_direct.state (string) required"))?,
-            )?;
-            let observed_active = match hw.get("observed_active") {
-                None | Some(Value::Null) => None,
-                Some(v) => Some(v.as_bool().ok_or_else(|| {
-                    invalid("params.hardware_direct.observed_active (bool|null)")
-                })?),
+            let (had_decl, had_overlay) = {
+                let project = self.workspace.session().project();
+                (
+                    project.monitoring.tracks.contains_key(&track),
+                    self.monitoring.track_sessions.contains_key(&track),
+                )
             };
-            patch.hardware_direct = Some(HardwareDirectMonitor {
-                state,
-                observed_active,
-            });
+            if !had_decl && !had_overlay {
+                return Ok(json!({ "track": track.to_tagged(), "cleared": false }));
+            }
+            if had_decl {
+                let session = self.workspace.session_mut();
+                let revision = session.revision();
+                session
+                    .apply(ProjectOp::ClearTrackMonitor { track }, revision)
+                    .map_err(|e| invalid(format!("syn.monitoring.set clear: {e}")))?;
+            }
+            let overlay_cleared = self.monitoring.clear_track_session(track);
+            return Ok(json!({
+                "track": track.to_tagged(),
+                "cleared": had_decl || overlay_cleared,
+            }));
+        }
+        let patch = monitoring_track_patch(params)?;
+        // authored 宣言部を project decl に畳み、変化があれば
+        // `SetTrackMonitor` で write-through する（同一値の patch
+        // は revision を消費しない）。session 観測 field は
+        // overlay にのみ書く。
+        let merged = {
+            let project = self.workspace.session().project();
+            MonitorUxState::merged_decl(project, track, &patch)
+        };
+        if let Some(decl) = merged {
+            let unchanged = self
+                .workspace
+                .session()
+                .project()
+                .monitoring
+                .tracks
+                .get(&track)
+                == Some(&decl);
+            if !unchanged {
+                let session = self.workspace.session_mut();
+                let revision = session.revision();
+                session
+                    .apply(ProjectOp::SetTrackMonitor { track, decl }, revision)
+                    .map_err(|e| invalid(format!("syn.monitoring.set: {e}")))?;
+            }
         }
         let project = self.workspace.session().project();
         self.monitoring
-            .set_track(project, track, patch)
+            .set_track_session(project, track, &patch)
             .map_err(invalid)?;
         Ok(json!({ "track": track.to_tagged(), "set": true }))
     }
 
     /// `syn.monitoring.punch` — punch in/out マークの設定・解除
     /// （project tick、半開 `[in, out)`）。session active 中は
-    /// 変更不可（gate は開始時に確定済み）。
+    /// 変更不可（gate は開始時に確定済み — session 層の制約で
+    /// あり project op 自体は制約を持たない）。
+    ///
+    /// punch マークは authored 宣言として `ProjectOp::
+    /// SetPunchMarks` で project に write-through され、undo・
+    /// Save/Reload の対象になる。
     ///
     /// `params.action`:
     /// - `"set"` — `punch_in`/`punch_out`（tick、省略は `null` 扱い）
@@ -2976,27 +2963,42 @@ impl SynvelisApp {
     /// [`ErrorBody`] on invalid parameters or an active session.
     pub fn op_monitoring_punch(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let action = str_param(params, "action")?;
-        match action {
-            "set" => {
-                let punch_in = opt_tick_param(params, "punch_in")?;
-                let punch_out = opt_tick_param(params, "punch_out")?;
-                self.monitoring
-                    .punch_set(punch_in, punch_out)
-                    .map_err(invalid)?;
-            }
+        let current = self.workspace.session().project().monitoring.punch;
+        let next = match action {
+            "set" => monitoring_data::PunchMarks {
+                punch_in: opt_tick_param(params, "punch_in")?,
+                punch_out: opt_tick_param(params, "punch_out")?,
+            },
             "in" | "out" => {
                 let tick = tick_param(params, "tick")?;
-                let side = if action == "in" {
-                    PunchSide::In
+                let mut marks = current;
+                if action == "in" {
+                    marks.punch_in = Some(tick);
                 } else {
-                    PunchSide::Out
-                };
-                self.monitoring.punch_mark(side, tick).map_err(invalid)?;
+                    marks.punch_out = Some(tick);
+                }
+                marks
             }
-            "clear" => self.monitoring.punch_clear().map_err(invalid)?,
+            "clear" => monitoring_data::PunchMarks::default(),
             _ => {
                 return Err(invalid(format!("params.action: unknown action {action:?}")));
             }
+        };
+        self.monitoring
+            .require_no_session("punch marks")
+            .map_err(invalid)?;
+        if next != current {
+            let session = self.workspace.session_mut();
+            let revision = session.revision();
+            session
+                .apply(
+                    ProjectOp::SetPunchMarks {
+                        punch_in: next.punch_in,
+                        punch_out: next.punch_out,
+                    },
+                    revision,
+                )
+                .map_err(|e| invalid(format!("syn.monitoring.punch: {e}")))?;
         }
         Ok(json!({ "action": action }))
     }
@@ -3609,6 +3611,81 @@ impl SynvelisApp {
 }
 
 // -- syn.monitoring.* param helpers ------------------------------------------
+
+/// `syn.monitoring.set` の params を [`TrackPatch`] へ写す。
+/// key 無しの field は patch に含めない（`Some` の field のみ
+/// 更新する patch 意味論）。
+fn monitoring_track_patch(params: &Value) -> Result<TrackPatch, ErrorBody> {
+    let mut patch = TrackPatch::default();
+    if let Some(lane) = params.get("lane") {
+        patch.lane = Some(match lane {
+            Value::Null => None,
+            v => Some(
+                LaneId::from_tagged(
+                    v.as_str()
+                        .ok_or_else(|| invalid("params.lane (tagged string|null)"))?,
+                )
+                .map_err(|e| invalid(format!("params.lane: {e}")))?,
+            ),
+        });
+    }
+    if let Some(arm) = params.get("arm") {
+        patch.arm = Some(arm_state_param(
+            arm.as_str().ok_or_else(|| invalid("params.arm (string)"))?,
+        )?);
+    }
+    if let Some(monitor) = params.get("monitor") {
+        patch.monitor = Some(monitor_state_param(
+            monitor
+                .as_str()
+                .ok_or_else(|| invalid("params.monitor (string)"))?,
+        )?);
+    }
+    if let Some(binding) = params.get("binding") {
+        let channels = binding
+            .get("channels")
+            .and_then(Value::as_array)
+            .ok_or_else(|| invalid("params.binding.channels (array) required"))?;
+        let channels: Vec<u32> = channels
+            .iter()
+            .map(|c| {
+                c.as_u64()
+                    .and_then(|n| u32::try_from(n).ok())
+                    .ok_or_else(|| invalid("params.binding.channels[] (u32) required"))
+            })
+            .collect::<Result<_, _>>()?;
+        patch.channel_map = Some(
+            ChannelMap::new(channels)
+                .map_err(|e| invalid(format!("params.binding.channels: {e}")))?,
+        );
+    }
+    if let Some(ready) = params.get("input_output_ready") {
+        patch.input_output_ready = Some(
+            ready
+                .as_bool()
+                .ok_or_else(|| invalid("params.input_output_ready (bool) required"))?,
+        );
+    }
+    if let Some(hw) = params.get("hardware_direct") {
+        let state = hw_state_param(
+            hw.get("state")
+                .and_then(Value::as_str)
+                .ok_or_else(|| invalid("params.hardware_direct.state (string) required"))?,
+        )?;
+        let observed_active = match hw.get("observed_active") {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(
+                v.as_bool()
+                    .ok_or_else(|| invalid("params.hardware_direct.observed_active (bool|null)"))?,
+            ),
+        };
+        patch.hardware_direct = Some(HardwareDirectMonitor {
+            state,
+            observed_active,
+        });
+    }
+    Ok(patch)
+}
 
 /// `params.<key>` を project tick（`MusicalTick`、負値可）として読む。
 fn tick_param(params: &Value, key: &str) -> Result<MusicalTick, ErrorBody> {

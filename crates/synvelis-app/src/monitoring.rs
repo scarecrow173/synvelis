@@ -1,9 +1,13 @@
 //! RCD-03 app Arm/Monitoring UX — synvelis#117 slice。
 //!
-//! session-scope の monitor 宣言（Arm/Monitor mode/Input binding/
-//! `input_output_ready`/Hardware Direct 観測）と monitor session
+//! authored monitor 宣言（Arm/Monitor の `mode`/`channel_map`/`lane`）と
+//! punch マークは `Project::monitoring`（schema v12）が正本であり、
+//! `syn.monitoring.set`/`punch` の宣言変更は `ProjectOp` として
+//! `ProjectController` に write-through される（undo 対象）。
+//! 本モジュールが保持するのは session 観測値のみ —
+//! `input_output_ready`/Hardware Direct 観測・稼働 monitor session
 //! （`synvelis-recording::plan::preflight` が確定する
-//! `PreparedRecordingPlan` + transport/punch マーク）を保持し、
+//! `PreparedRecordingPlan` + transport 位相）・latency 注入 — で、
 //! `syn.monitoring.state` が `decide`/`MonitorProbe`/
 //! `LatencyReport::resolve`/`prepare_low_latency` を消費した
 //! 読み取り投影を返す。
@@ -13,8 +17,9 @@
 //! - route/gate/latency の意味論は recording/player crate が所有し、
 //!   本モジュールは再実装しない。`decide` の呼出しと `MonitorProbe`
 //!   の feed が route 投影の唯一の経路。
-//! - 宣言・session・punch マーク・latency 注入は全て session-only
-//!   であり `Project`/`ProjectController` を一切変更しない
+//! - 宣言・punch は project が正本（read-through — app は宣言を
+//!   キャッシュしない）。session 観測値・session・latency 注入は
+//!   session-only であり `Project`/`ProjectController` を変更しない
 //!   （`project.new`/`open` で reset）。Mute/Solo は project の
 //!   strip control target から読み取るだけ。
 //! - Hardware Direct Monitor は外部観測として verbatim に保持・
@@ -24,7 +29,7 @@
 //!   対象外 — `MonitorAdapter` のミックスや RT graph 搭載は
 //!   行わない（latency 解決投影のみ消費）。
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde_json::{Value, json};
 use synvelis_player::{
@@ -33,10 +38,11 @@ use synvelis_player::{
 };
 use synvelis_project::{
     ClockEpochId, LaneId, MusicalTick, Project, SessionRange, TempoMapRef, TrackId,
+    monitoring_data::{self, TrackMonitorDecl},
 };
 use synvelis_recording::{
-    ArmState, BoundedVec, BufferBudget, CaptureTarget, ChannelMap, GateSpec, HardwareDirectMonitor,
-    HardwareDirectState, InputBinding, MonitorProbe, MonitorRoute, MonitorSegment, MonitorState,
+    ArmState, BoundedVec, BufferBudget, CaptureTarget, GateSpec, HardwareDirectMonitor,
+    HardwareDirectState, MonitorProbe, MonitorRoute, MonitorSegment, MonitorState,
     PreparedRecordingPlan, RecordingRequest, TrackMonitorContext, TransportPhase, decide,
     preflight,
 };
@@ -70,42 +76,11 @@ const DEFAULT_BUDGET: BufferBudget = BufferBudget {
 /// `syn.monitoring.session` start の既定 `max_block_frames`。
 const DEFAULT_MAX_BLOCK_FRAMES: u32 = 1024;
 
-/// Track 単位の monitor 宣言（session-scope、永続化しない）。
-///
-/// `binding` は `synvelis-recording` の `InputBinding` をそのまま
-/// 保持し、Arm/Monitor/ChannelMap の語彙を複製しない。
-#[derive(Clone, Debug)]
-pub struct MonitorTrackDecl {
-    /// monitor session の capture lane。`None` は session 開始時に
-    /// track の先頭 lane へ解決される。
-    pub lane: Option<LaneId>,
-    /// channel→input 写像 + Arm + Monitor mode。
-    pub binding: InputBinding,
-    /// 入力 Binding + Output Capability の検証済みフラグ
-    /// （`TrackMonitorContext::input_output_ready` へそのまま渡す。
-    /// 未検証を真としない）。
-    pub input_output_ready: bool,
-    /// 外部 Hardware Direct Monitor の観測/申告。`decide` が
-    /// notice 判定に使い、app は値を変更しない。
-    pub hardware_direct: HardwareDirectMonitor,
-}
-
-impl Default for MonitorTrackDecl {
-    fn default() -> Self {
-        Self {
-            lane: None,
-            binding: InputBinding {
-                channel_map: ChannelMap::identity(2),
-                arm: ArmState::Off,
-                monitor: MonitorState::Off,
-            },
-            input_output_ready: false,
-            hardware_direct: HardwareDirectMonitor::default(),
-        }
-    }
-}
-
 /// `syn.monitoring.set` の patch — `Some` の field のみ更新する。
+/// `lane`/`arm`/`monitor`/`channel_map` は authored 宣言として
+/// `project.monitoring` へ write-through され、
+/// `input_output_ready`/`hardware_direct` は session 観測値として
+/// overlay にのみ保持される（永続化しない）。
 #[derive(Default)]
 pub struct TrackPatch {
     /// lane 指定。外側 `Some` = field 指定あり、内側 `None` =
@@ -116,22 +91,11 @@ pub struct TrackPatch {
     /// Monitor mode の新値。
     pub monitor: Option<MonitorState>,
     /// channel→input 写像の新値（arm/monitor は別 field）。
-    pub channel_map: Option<ChannelMap>,
+    pub channel_map: Option<synvelis_recording::ChannelMap>,
     /// `input_output_ready` の新値。
     pub input_output_ready: Option<bool>,
     /// Hardware Direct 観測の新値。
     pub hardware_direct: Option<HardwareDirectMonitor>,
-}
-
-/// Punch in/out マーク（project tick、半開 `[in, out)` の両端）。
-/// session 開始時に `GateSpec` へ写像される — 両方揃えば
-/// `GateSpec::Punch`、それ以外は `GateSpec::Normal`。
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct PunchMarks {
-    /// Punch in tick。
-    pub punch_in: Option<MusicalTick>,
-    /// Punch out tick。
-    pub punch_out: Option<MusicalTick>,
 }
 
 /// `syn.monitoring.transport` の action。
@@ -185,16 +149,33 @@ pub struct MonitorSessionState {
     pub stop: MusicalTick,
 }
 
+/// track 単位の session 観測 overlay — 永続化しない。
+/// authored 宣言（`arm`/`monitor`/`lane`/`channel_map`）は
+/// `project.monitoring` が正本であり、ここには外部観測値のみを
+/// 保持する。
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TrackSessionState {
+    /// 入力 Binding + Output Capability の検証済みフラグ
+    /// （`TrackMonitorContext::input_output_ready` へそのまま渡す。
+    /// 未検証を真としない）。
+    pub input_output_ready: bool,
+    /// 外部 Hardware Direct Monitor の観測/申告。`decide` が
+    /// notice 判定に使い、app は値を変更しない。
+    pub hardware_direct: HardwareDirectMonitor,
+}
+
 /// session-scope の monitor UX 状態。`SynvelisApp` が保持し、
-/// project 再生成で reset される。
+/// project 再生成で reset される。宣言・punch は
+/// `project.monitoring` を read-through するためここには
+/// session 観測値のみを保持する。
 #[derive(Default)]
 pub struct MonitorUxState {
-    /// `TrackId` → monitor 宣言（BTreeMap で決定的順序）。
-    pub tracks: BTreeMap<TrackId, MonitorTrackDecl>,
+    /// `TrackId` → session 観測 overlay（BTreeMap で決定的順序）。
+    /// 宣言の無い track のエントリもあり得る — `syn.monitoring.set`
+    /// の session-only patch が観測値を先行登録する。
+    pub track_sessions: BTreeMap<TrackId, TrackSessionState>,
     /// 稼働中の monitor session。
     pub session: Option<MonitorSessionState>,
-    /// 宣言済み punch マーク。
-    pub punch: PunchMarks,
     /// デバイス報告レイテンシ（headless 注入点。既定は空報告 →
     /// `quality: Unknown` / `Unavailable:NotPrepared` と正直に投影）。
     pub latency: LatencyReport,
@@ -205,107 +186,89 @@ pub struct MonitorUxState {
 }
 
 impl MonitorUxState {
-    /// `syn.monitoring.set` — track 宣言を patch 更新する。
+    /// `syn.monitoring.set` の patch の persisted 宣言部
+    /// （`lane`/`arm`/`monitor`/`channel_map`）を現在の project
+    /// decl（無ければ default）に畳んだ [`TrackMonitorDecl`] を
+    /// 返す。`None` は persisted 変更が無い（patch に persisted
+    /// field が無い — revision を消費しない）を意味する。
     ///
-    /// # Errors
-    /// track が project に存在しない、指定 lane が project に
-    /// 存在しない場合に `Err`（message は op 層が `INVALID_PARAMS`
-    /// へ写す）。
-    pub fn set_track(
-        &mut self,
+    /// session 観測 field（`input_output_ready`/`hardware_direct`）
+    /// だけの patch は宣言を生やさない — 観測値は非永続であり、
+    /// project に default decl を書くと save/load 後に幻の宣言が
+    /// 残ってしまう。宣言無し track の可視性は `state()` が
+    /// decl ∪ overlay の和集合で投影する。
+    #[must_use]
+    pub fn merged_decl(
         project: &Project,
         track: TrackId,
-        patch: TrackPatch,
-    ) -> Result<(), String> {
-        if !project.tracks.contains_key(&track) {
-            return Err(format!("track {} not found in project", track.to_tagged()));
+        patch: &TrackPatch,
+    ) -> Option<TrackMonitorDecl> {
+        let has_persisted = patch.lane.is_some()
+            || patch.arm.is_some()
+            || patch.monitor.is_some()
+            || patch.channel_map.is_some();
+        if !has_persisted {
+            return None;
         }
-        if let Some(Some(lane)) = patch.lane {
-            // 宣言 lane はその track の lane_ids に含まれること —
-            // 他 track の lane を誤って bind すると session が
-            // 別 track の入力を capture する。
-            let owned = project
-                .tracks
-                .get(&track)
-                .is_some_and(|t| t.lane_ids.contains(&lane));
-            if !owned {
-                return Err(format!(
-                    "lane {} is not a lane of track {}",
-                    lane.to_tagged(),
-                    track.to_tagged()
-                ));
-            }
-        }
-        let decl = self.tracks.entry(track).or_default();
+        let mut decl = project
+            .monitoring
+            .tracks
+            .get(&track)
+            .cloned()
+            .unwrap_or_default();
         if let Some(lane) = patch.lane {
             decl.lane = lane;
         }
         if let Some(arm) = patch.arm {
-            decl.binding.arm = arm;
+            decl.arm = to_project_arm(arm);
         }
         if let Some(monitor) = patch.monitor {
-            decl.binding.monitor = monitor;
+            decl.monitor = to_project_monitor(monitor);
         }
-        if let Some(map) = patch.channel_map {
-            decl.binding.channel_map = map;
+        if let Some(map) = &patch.channel_map {
+            decl.channel_map = monitoring_data::MonitorChannelMap {
+                channels: map.channels().to_vec(),
+            };
         }
+        Some(decl)
+    }
+
+    /// `syn.monitoring.set` の session 観測 field
+    /// （`input_output_ready`/`hardware_direct`）を overlay に
+    /// 書く。宣言 field は呼出側が `ProjectOp::SetTrackMonitor`
+    /// で project に write-through 済みであること。
+    ///
+    /// # Errors
+    /// track が project に存在しない場合に `Err`（message は op 層が
+    /// `INVALID_PARAMS` へ写す）。
+    pub fn set_track_session(
+        &mut self,
+        project: &Project,
+        track: TrackId,
+        patch: &TrackPatch,
+    ) -> Result<(), String> {
+        if patch.input_output_ready.is_none() && patch.hardware_direct.is_none() {
+            return Ok(());
+        }
+        if !project.tracks.contains_key(&track) {
+            return Err(format!("track {} not found in project", track.to_tagged()));
+        }
+        let state = self.track_sessions.entry(track).or_default();
         if let Some(ready) = patch.input_output_ready {
-            decl.input_output_ready = ready;
+            state.input_output_ready = ready;
         }
         if let Some(hw) = patch.hardware_direct {
-            decl.hardware_direct = hw;
+            state.hardware_direct = hw;
         }
         Ok(())
     }
 
-    /// `syn.monitoring.set` の `clear` — 宣言を削除する。
-    /// 戻り値は実際に削除があったか。
+    /// `syn.monitoring.set` の `clear` の session 側 — 観測 overlay
+    /// を除去する。戻り値は実際に除去があったか。
+    /// （宣言の除去は呼出側が `ProjectOp::ClearTrackMonitor` で行う。）
     #[must_use]
-    pub fn clear_track(&mut self, track: TrackId) -> bool {
-        self.tracks.remove(&track).is_some()
-    }
-
-    /// punch in/out マークを両方設定する（`syn.monitoring.punch`
-    /// の `"set"`）。片方だけの設定は [`Self::punch_mark`] を使う。
-    ///
-    /// # Errors
-    /// session が active な場合（gate は開始時に確定済み）。
-    pub fn punch_set(
-        &mut self,
-        punch_in: Option<MusicalTick>,
-        punch_out: Option<MusicalTick>,
-    ) -> Result<(), String> {
-        self.require_no_session("punch marks")?;
-        self.punch = PunchMarks {
-            punch_in,
-            punch_out,
-        };
-        Ok(())
-    }
-
-    /// punch in または out の片側マークを設定する
-    /// （`syn.monitoring.punch` の `"in"`/`"out"`）。
-    ///
-    /// # Errors
-    /// session が active な場合。
-    pub fn punch_mark(&mut self, which: PunchSide, tick: MusicalTick) -> Result<(), String> {
-        self.require_no_session("punch marks")?;
-        match which {
-            PunchSide::In => self.punch.punch_in = Some(tick),
-            PunchSide::Out => self.punch.punch_out = Some(tick),
-        }
-        Ok(())
-    }
-
-    /// punch マークを全解除する（`syn.monitoring.punch` の
-    /// `"clear"` — gate は Normal に戻る）。
-    ///
-    /// # Errors
-    /// session が active な場合。
-    pub fn punch_clear(&mut self) -> Result<(), String> {
-        self.require_no_session("punch marks")?;
-        self.punch = PunchMarks::default();
-        Ok(())
+    pub fn clear_track_session(&mut self, track: TrackId) -> bool {
+        self.track_sessions.remove(&track).is_some()
     }
 
     /// `syn.monitoring.transport` — session の transport を動かす。
@@ -358,11 +321,11 @@ impl MonitorUxState {
         if self.session.is_some() {
             return Err("monitor session already active — stop it first".to_owned());
         }
-        if self.tracks.is_empty() {
+        if project.monitoring.tracks.is_empty() {
             return Err("no monitor tracks declared — syn.monitoring.set first".to_owned());
         }
-        let mut targets = Vec::with_capacity(self.tracks.len());
-        for (track_id, decl) in &self.tracks {
+        let mut targets = Vec::with_capacity(project.monitoring.tracks.len());
+        for (track_id, decl) in &project.monitoring.tracks {
             let track = project.tracks.get(track_id).ok_or_else(|| {
                 format!("declared track {} no longer exists", track_id.to_tagged())
             })?;
@@ -377,7 +340,7 @@ impl MonitorUxState {
                 })?;
             targets.push(CaptureTarget {
                 lane_id: lane,
-                channels: u32::try_from(decl.binding.channel_map.len()).map_err(|_| {
+                channels: u32::try_from(decl.channel_map.len()).map_err(|_| {
                     format!("track {} channel count overflows u32", track_id.to_tagged())
                 })?,
             });
@@ -388,7 +351,8 @@ impl MonitorUxState {
         let clock_epoch = clock_epoch.ok_or_else(|| {
             "project has no clock epoch — register one before starting a monitor session".to_owned()
         })?;
-        let gate = match (self.punch.punch_in, self.punch.punch_out) {
+        let punch = project.monitoring.punch;
+        let gate = match (punch.punch_in, punch.punch_out) {
             (Some(punch_in), Some(punch_out)) => GateSpec::Punch {
                 punch_in,
                 punch_out,
@@ -425,7 +389,8 @@ impl MonitorUxState {
     }
 
     /// `syn.monitoring.session` stop — session を破棄する。
-    /// 宣言・punch マーク・latency 注入は保持される。
+    /// authored 宣言・punch は project 側にあり常に保持される。
+    /// session 観測 overlay・latency 注入も保持される。
     pub fn stop_session(&mut self) {
         self.session = None;
     }
@@ -449,7 +414,7 @@ impl MonitorUxState {
         }
     }
 
-    fn require_no_session(&self, what: &str) -> Result<(), String> {
+    pub(crate) fn require_no_session(&self, what: &str) -> Result<(), String> {
         if self.session.is_some() {
             return Err(format!(
                 "{what} cannot change while a monitor session is active — stop it first"
@@ -458,32 +423,48 @@ impl MonitorUxState {
         Ok(())
     }
 
-    /// 宣言 track 全件の `TrackMonitorContext` を構築する。
-    /// `any_solo` は宣言 track の strip 集合で評価する
-    /// （monitor session の solo 文脈 — project 全 strip ではない）。
+    /// 宣言 track ∪ 観測 overlay 保持 track 全件の
+    /// `TrackMonitorContext` を構築する。宣言の無い track は
+    /// default 宣言（Arm/Monitor Off）として評価する —
+    /// `decide` が route を正直に決める。`any_solo` は対象 track
+    /// の strip 集合で評価する（monitor session の solo 文脈 —
+    /// project 全 strip ではない）。
     fn contexts(&self, project: &Project) -> Vec<(TrackId, TrackMonitorContext)> {
-        let soloed: Vec<bool> = self
+        let tracks: BTreeSet<TrackId> = project
+            .monitoring
             .tracks
             .keys()
+            .chain(self.track_sessions.keys())
+            .copied()
+            .collect();
+        let soloed: Vec<bool> = tracks
+            .iter()
             .map(|track_id| {
                 Self::strip_of(project, *track_id)
                     .is_some_and(|s| project.routing.strip_soloed(&project.control, s))
             })
             .collect();
         let any_solo = soloed.iter().any(|s| *s);
-        self.tracks
+        tracks
             .iter()
-            .map(|(track_id, decl)| {
+            .map(|track_id| {
+                let decl = project.monitoring.tracks.get(track_id);
+                let session = self
+                    .track_sessions
+                    .get(track_id)
+                    .copied()
+                    .unwrap_or_default();
                 let strip = Self::strip_of(project, *track_id);
                 let ctx = TrackMonitorContext {
-                    arm: decl.binding.arm,
-                    monitor: decl.binding.monitor,
-                    input_output_ready: decl.input_output_ready,
+                    arm: decl.map_or_else(ArmState::default, |d| from_project_arm(d.arm)),
+                    monitor: decl
+                        .map_or_else(MonitorState::default, |d| from_project_monitor(d.monitor)),
+                    input_output_ready: session.input_output_ready,
                     muted: strip.is_some_and(|s| project.routing.strip_muted(&project.control, s)),
                     soloed: strip
                         .is_some_and(|s| project.routing.strip_soloed(&project.control, s)),
                     any_solo,
-                    hardware_direct: decl.hardware_direct,
+                    hardware_direct: session.hardware_direct,
                 };
                 (*track_id, ctx)
             })
@@ -529,14 +510,26 @@ impl MonitorUxState {
             })
             .unwrap_or(false);
         let live = self.live_routes(&contexts, gate_open_now);
-        let mut tracks_json = Vec::with_capacity(self.tracks.len());
+        let mut tracks_json = Vec::with_capacity(contexts.len());
         let mut notices = json!({
             "double_monitoring": [],
             "hardware_direct_unknown": [],
             "input_unavailable": [],
         });
         for (track_id, ctx) in &contexts {
-            let decl = &self.tracks[track_id];
+            // authored 宣言は project が正本。宣言の無い track
+            // （観測 overlay のみ）は default 宣言として投影する。
+            let decl = project
+                .monitoring
+                .tracks
+                .get(track_id)
+                .cloned()
+                .unwrap_or_default();
+            let session = self
+                .track_sessions
+                .get(track_id)
+                .copied()
+                .unwrap_or_default();
             let decision = live
                 .get(track_id)
                 .copied()
@@ -547,17 +540,18 @@ impl MonitorUxState {
             tracks_json.push(json!({
                 "track": track_id.to_tagged(),
                 "in_project": project.tracks.contains_key(track_id),
+                "declared": project.monitoring.tracks.contains_key(track_id),
                 "lane": decl.lane.map(LaneId::to_tagged),
-                "arm": arm_str(decl.binding.arm),
-                "monitor": monitor_str(decl.binding.monitor),
+                "arm": arm_str(from_project_arm(decl.arm)),
+                "monitor": monitor_str(from_project_monitor(decl.monitor)),
                 "binding": {
-                    "kind": binding_kind(&decl.binding.channel_map),
-                    "channels": decl.binding.channel_map.channels(),
+                    "kind": binding_kind(decl.channel_map.channels()),
+                    "channels": decl.channel_map.channels(),
                 },
-                "input_output_ready": decl.input_output_ready,
+                "input_output_ready": session.input_output_ready,
                 "hardware_direct": {
-                    "state": hw_state_str(decl.hardware_direct.state),
-                    "observed_active": decl.hardware_direct.observed_active,
+                    "state": hw_state_str(session.hardware_direct.state),
+                    "observed_active": session.hardware_direct.observed_active,
                 },
                 "muted": ctx.muted,
                 "soloed": ctx.soloed,
@@ -575,15 +569,16 @@ impl MonitorUxState {
                 })
             })
             .collect();
+        let punch = project.monitoring.punch;
         json!({
             "session": self.session_json(position_frame),
             "punch_marks": {
-                "punch_in": self.punch.punch_in.map(MusicalTick::value),
-                "punch_out": self.punch.punch_out.map(MusicalTick::value),
+                "punch_in": punch.punch_in.map(MusicalTick::value),
+                "punch_out": punch.punch_out.map(MusicalTick::value),
             },
             "tracks": tracks_json,
             "segments": segments_json,
-            "tracks_omitted": self.tracks.len().saturating_sub(PROBE_TRACK_CAP),
+            "tracks_omitted": contexts.len().saturating_sub(PROBE_TRACK_CAP),
             "notices": notices,
             "latency": self.latency_json(),
         })
@@ -606,7 +601,9 @@ impl MonitorUxState {
     /// session の表示用 JSON。`phase` は `decide` 語彙
     /// （`TransportPhase`）の wire 表現 — `PunchOpen`/`PostRoll` は
     /// `gate_open` が担うため非停止相の区別は punch マークとの
-    /// 位置比較で導出する。
+    /// 位置比較で導出する。比較に使うマークは session 開始時に
+    /// `plan.gate` へ確定した値 — live の `project.monitoring.punch`
+    /// ではない（稼働中の undo で表示が gate と乖離しないため）。
     fn session_json(&self, position_frame: Option<i64>) -> Value {
         let Some(session) = self.session.as_ref() else {
             return json!({
@@ -626,16 +623,21 @@ impl MonitorUxState {
                 "clock_epoch": null,
             });
         };
-        let (gate, punch_in, punch_out) = match session.plan.gate {
+        let (gate, punch_in, punch_out, gate_marks) = match session.plan.gate {
             GateSpec::Punch {
                 punch_in,
                 punch_out,
-            } => ("punch", Some(punch_in.value()), Some(punch_out.value())),
-            GateSpec::Normal { .. } => ("normal", None, None),
+            } => (
+                "punch",
+                Some(punch_in.value()),
+                Some(punch_out.value()),
+                Some((punch_in, punch_out)),
+            ),
+            GateSpec::Normal { .. } => ("normal", None, None, None),
             // 本 slice は Normal/Punch のみ構築する。万が一 plan が
             // 他 variant を持っても gate 名を偽らない。
-            GateSpec::Loop { .. } => ("loop", None, None),
-            GateSpec::PunchInLoop { .. } => ("punch_in_loop", None, None),
+            GateSpec::Loop { .. } => ("loop", None, None, None),
+            GateSpec::PunchInLoop { .. } => ("punch_in_loop", None, None, None),
         };
         let transport = if session.playing {
             "playing"
@@ -645,8 +647,8 @@ impl MonitorUxState {
             "stopped"
         };
         let phase = if session.playing {
-            match (self.punch.punch_in, self.punch.punch_out) {
-                (Some(punch_in), Some(punch_out)) => {
+            match gate_marks {
+                Some((punch_in, punch_out)) => {
                     let pos = session.position;
                     if pos < punch_in {
                         "punch_wait"
@@ -757,15 +759,6 @@ impl MonitorUxState {
             },
         })
     }
-}
-
-/// punch マークの片側指定。
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum PunchSide {
-    /// punch in。
-    In,
-    /// punch out。
-    Out,
 }
 
 /// 1 track 分の segment 投影結果。
@@ -880,11 +873,47 @@ fn route_str(route: MonitorRoute) -> &'static str {
     }
 }
 
-fn binding_kind(map: &ChannelMap) -> &'static str {
-    match map.len() {
+fn binding_kind(channels: &[u32]) -> &'static str {
+    match channels.len() {
         1 => "mono",
         2 => "stereo",
         _ => "multichannel",
+    }
+}
+
+/// `synvelis-recording` 語彙 → project 永続 POD への写像
+/// （依存方向 `project ← recording` のため project 側に同名
+/// enum の POD コピーを持ち、app 境界で変換する）。
+fn to_project_arm(arm: ArmState) -> monitoring_data::ArmState {
+    match arm {
+        ArmState::Off => monitoring_data::ArmState::Off,
+        ArmState::On => monitoring_data::ArmState::On,
+    }
+}
+
+/// project 永続 POD → `synvelis-recording` 語彙への写像。
+fn from_project_arm(arm: monitoring_data::ArmState) -> ArmState {
+    match arm {
+        monitoring_data::ArmState::Off => ArmState::Off,
+        monitoring_data::ArmState::On => ArmState::On,
+    }
+}
+
+/// `synvelis-recording` 語彙 → project 永続 POD への写像。
+fn to_project_monitor(monitor: MonitorState) -> monitoring_data::MonitorState {
+    match monitor {
+        MonitorState::Off => monitoring_data::MonitorState::Off,
+        MonitorState::Auto => monitoring_data::MonitorState::Auto,
+        MonitorState::On => monitoring_data::MonitorState::On,
+    }
+}
+
+/// project 永続 POD → `synvelis-recording` 語彙への写像。
+fn from_project_monitor(monitor: monitoring_data::MonitorState) -> MonitorState {
+    match monitor {
+        monitoring_data::MonitorState::Off => MonitorState::Off,
+        monitoring_data::MonitorState::Auto => MonitorState::Auto,
+        monitoring_data::MonitorState::On => MonitorState::On,
     }
 }
 

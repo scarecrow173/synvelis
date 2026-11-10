@@ -127,6 +127,10 @@ fn strip_op(app: &mut SynvelisApp, op: ProjectOp) {
     apply(session, op);
 }
 
+fn revision_of(app: &SynvelisApp) -> u64 {
+    app.project_info()["revision"].as_u64().unwrap()
+}
+
 // -- E7: session 未開始の正直な投影 -----------------------------------------
 
 /// session 未開始では `session.active == false`・segments 空・
@@ -698,26 +702,36 @@ fn monitoring_set_rejects_invalid_params() {
     assert_eq!(err.code, "invalid_params");
 }
 
-/// monitor ops は project revision・永続化・Undo を一切変更しない
-/// （宣言は session-only）。
+/// session 観測値（`input_output_ready`/`hardware_direct`）・
+/// session/transport/latency は project revision・永続化・Undo を
+/// 一切変更しない。authored 宣言・punch は write-through で
+/// revision を進めるため、baseline はそれらの確定後に取る。
 #[test]
-fn monitoring_ops_do_not_mutate_project() {
+fn monitoring_runtime_state_does_not_mutate_project() {
     let (mut app, tracks) = fixture_app();
     let (track, ..) = tracks[0];
-    let revision_before = app.project_info()["revision"].clone();
-
     set_decl(
         &mut app,
         &json!({
             "track": track.to_tagged(),
             "arm": "on",
             "monitor": "auto",
-            "input_output_ready": true,
         }),
     );
     punch(
         &mut app,
         &json!({"action": "set", "punch_in": 480, "punch_out": 720}),
+    );
+    let revision_before = app.project_info()["revision"].clone();
+
+    // 観測値のみの patch は宣言を生やさず revision を消費しない。
+    set_decl(
+        &mut app,
+        &json!({
+            "track": track.to_tagged(),
+            "input_output_ready": true,
+            "hardware_direct": {"state": "user_reported", "observed_active": true},
+        }),
     );
     session_start(&mut app);
     transport(&mut app, &json!({"action": "play"}));
@@ -728,7 +742,7 @@ fn monitoring_ops_do_not_mutate_project() {
     let _ = state(&app);
 
     assert_eq!(app.project_info()["revision"], revision_before);
-    // session stop 後も宣言は保持され revision は不変。
+    // session stop 後も宣言・punch は project に保持され revision は不変。
     app.op_monitoring_session(&json!({"action": "stop"}))
         .expect("session stop");
     assert_eq!(state(&app)["session"]["active"], false);
@@ -737,6 +751,236 @@ fn monitoring_ops_do_not_mutate_project() {
     let row = track_row(&s, &track.to_tagged());
     assert_eq!(row["arm"], "on");
     assert_eq!(row["monitor"], "auto");
+    assert_eq!(row["input_output_ready"], true);
+    assert_eq!(s["punch_marks"]["punch_in"], 480);
+}
+
+/// session active 中の punch 変更は従来どおり拒否される — gate は
+/// session 開始時に `plan.gate` へ確定済みであり、稼働中に
+/// `project.monitoring.punch` を書き換えると表示と gate が乖離する
+/// ため（session 層の制約。project op 自体は制約を持たない）。
+#[test]
+fn punch_rejected_while_monitor_session_active() {
+    let (mut app, tracks) = fixture_app();
+    let (track, ..) = tracks[0];
+    set_decl(
+        &mut app,
+        &json!({"track": track.to_tagged(), "arm": "on", "monitor": "auto"}),
+    );
+    session_start(&mut app);
+
+    let err = app
+        .op_monitoring_punch(&json!({"action": "set", "punch_in": 1, "punch_out": 2}))
+        .expect_err("punch during active session must be rejected");
+    assert_eq!(err.code, "invalid_params");
+    // project 側の punch は不変。
+    assert_eq!(
+        app.workspace().session().project().monitoring.punch,
+        synvelis_project::monitoring_data::PunchMarks::default()
+    );
+
+    // stop 後は再び変更できる。
+    app.op_monitoring_session(&json!({"action": "stop"}))
+        .expect("session stop");
+    punch(&mut app, &json!({"action": "in", "tick": 100}));
+    assert_eq!(state(&app)["punch_marks"]["punch_in"], 100);
+}
+
+/// authored 宣言（`lane`/`arm`/`monitor`/`binding`）と punch は
+/// `ProjectOp` 経由で `project.monitoring` に write-through され、
+/// revision・undo・宣言の fold に反映される。session 観測値のみの
+/// patch は revision を消費しない。
+#[test]
+fn monitoring_declarations_write_through_project() {
+    let (mut app, tracks) = fixture_app();
+    let (track, _, lane) = tracks[0];
+
+    let rev0 = revision_of(&app);
+    set_decl(&mut app, &json!({"track": track.to_tagged(), "arm": "on"}));
+    assert_eq!(revision_of(&app), rev0 + 1);
+    {
+        let project = app.workspace().session().project();
+        let d = &project.monitoring.tracks[&track];
+        assert_eq!(d.arm, synvelis_project::monitoring_data::ArmState::On);
+        assert_eq!(
+            d.monitor,
+            synvelis_project::monitoring_data::MonitorState::Off
+        );
+        assert_eq!(d.lane, None);
+    }
+
+    // patch は既存宣言に畳まれ、未指定 field を保持する。
+    set_decl(
+        &mut app,
+        &json!({
+            "track": track.to_tagged(),
+            "monitor": "auto",
+            "lane": lane.to_tagged(),
+        }),
+    );
+    {
+        let project = app.workspace().session().project();
+        let d = &project.monitoring.tracks[&track];
+        assert_eq!(d.arm, synvelis_project::monitoring_data::ArmState::On);
+        assert_eq!(
+            d.monitor,
+            synvelis_project::monitoring_data::MonitorState::Auto
+        );
+        assert_eq!(d.lane, Some(lane));
+    }
+
+    // punch は authored 宣言として project に書かれる。
+    punch(
+        &mut app,
+        &json!({"action": "set", "punch_in": 480, "punch_out": 720}),
+    );
+    {
+        let project = app.workspace().session().project();
+        assert_eq!(
+            project.monitoring.punch.punch_in,
+            Some(synvelis_project::MusicalTick::new(480))
+        );
+        assert_eq!(
+            project.monitoring.punch.punch_out,
+            Some(synvelis_project::MusicalTick::new(720))
+        );
+    }
+
+    // undo は punch → 宣言の順に project 状態を復元する。
+    app.workspace_mut().session_mut().undo().expect("undo");
+    assert_eq!(
+        app.workspace().session().project().monitoring.punch,
+        synvelis_project::monitoring_data::PunchMarks::default()
+    );
+    assert!(
+        app.workspace()
+            .session()
+            .project()
+            .monitoring
+            .tracks
+            .contains_key(&track)
+    );
+
+    // session 観測値のみの patch は revision を消費しない。
+    let rev = revision_of(&app);
+    set_decl(
+        &mut app,
+        &json!({"track": track.to_tagged(), "input_output_ready": true}),
+    );
+    assert_eq!(revision_of(&app), rev);
+
+    // clear は宣言を project から除去する（観測 overlay も消える）。
+    // 宣言も観測も無い track は state の tracks 投影に現れない。
+    set_decl(
+        &mut app,
+        &json!({"track": track.to_tagged(), "clear": true}),
+    );
+    assert!(
+        app.workspace()
+            .session()
+            .project()
+            .monitoring
+            .tracks
+            .is_empty()
+    );
+    let s = state(&app);
+    assert!(
+        s["tracks"]
+            .as_array()
+            .expect("tracks")
+            .iter()
+            .all(|t| t["track"] != track.to_tagged())
+    );
+}
+
+/// authored 宣言・punch は `project_save`/`project_open` を越えて
+/// 再水和され、session 観測値・稼働 session は reset される。
+/// `project.new` は新 project の空の monitoring 状態を映す。
+#[test]
+fn monitoring_state_survives_project_save_open() {
+    let mut app = SynvelisApp::new(backend());
+    let dir = std::env::temp_dir().join(format!("sv117-monitor-{}-roundtrip", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let path = dir.to_string_lossy().to_string();
+    app.project_new(&path, Some("mon")).expect("project.new");
+
+    // fixture と同じ track/strip/lane を新 project 上に組み立てる。
+    let (track, lane) = {
+        let session = app.workspace_mut().session_mut();
+        apply(
+            session,
+            ProjectOp::RegisterClockEpoch {
+                description: "monitor-persist".into(),
+            },
+        );
+        apply(session, ProjectOp::AddTrack { name: "vox".into() });
+        let track = *session.project().tracks.keys().next_back().expect("track");
+        apply(session, ProjectOp::AddTrackStrip { track_id: track });
+        apply(session, ProjectOp::AddLane { track_id: track });
+        let lane = *session.project().tracks[&track]
+            .lane_ids
+            .last()
+            .expect("lane");
+        (track, lane)
+    };
+
+    set_decl(
+        &mut app,
+        &json!({
+            "track": track.to_tagged(),
+            "arm": "on",
+            "monitor": "auto",
+            "lane": lane.to_tagged(),
+            "input_output_ready": true,
+        }),
+    );
+    punch(
+        &mut app,
+        &json!({"action": "set", "punch_in": 480, "punch_out": 720}),
+    );
+    session_start(&mut app);
+    transport(&mut app, &json!({"action": "play"}));
+    app.project_save().expect("project.save");
+
+    app.project_open(&path).expect("project.open");
+
+    // authored 宣言・punch は復元される。
+    let s = state(&app);
+    let row = track_row(&s, &track.to_tagged());
+    assert_eq!(row["declared"], true);
+    assert_eq!(row["arm"], "on");
+    assert_eq!(row["monitor"], "auto");
+    assert_eq!(row["lane"], lane.to_tagged().as_str());
+    assert_eq!(s["punch_marks"]["punch_in"], 480);
+    assert_eq!(s["punch_marks"]["punch_out"], 720);
+    {
+        let project = app.workspace().session().project();
+        assert_eq!(project.monitoring.tracks.len(), 1);
+        assert_eq!(
+            project.monitoring.punch.punch_in,
+            Some(synvelis_project::MusicalTick::new(480))
+        );
+    }
+    // session 観測値・稼働 session は永続化されず reset される。
+    assert_eq!(s["session"]["active"], false);
+    assert_eq!(row["input_output_ready"], false);
+    assert_eq!(
+        row["hardware_direct"]["state"], "unknown",
+        "hardware-direct observation must not persist"
+    );
+
+    // project.new は新 project の空 monitoring を映す。
+    let dir2 = std::env::temp_dir().join(format!("sv117-monitor-{}-fresh", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir2);
+    app.project_new(&dir2.to_string_lossy(), Some("fresh"))
+        .expect("project.new");
+    let s2 = state(&app);
+    assert_eq!(s2["tracks"], json!([]));
+    assert_eq!(s2["punch_marks"]["punch_in"], Value::Null);
+    assert_eq!(s2["punch_marks"]["punch_out"], Value::Null);
+
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&dir2);
 }
 
 /// `syn.monitoring.*` が OPS 一覧と dispatch 経路に登録され、
