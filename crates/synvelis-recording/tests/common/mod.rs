@@ -28,7 +28,7 @@ use synvelis_project::{
 };
 use synvelis_recording::{
     ArmState, BufferBudget, CaptureTarget, ChannelMap, ChunkLog, ChunkRecord, ChunkSink,
-    FinishReport, FaultLatch, GateSpec, InputAdapter, InputBinding, InputSession, InputStreamSpec,
+    FaultLatch, FinishReport, GateSpec, InputAdapter, InputBinding, InputSession, InputStreamSpec,
     InputTapSpec, InspectionWriter, JournalSpan, MockPcm, MonitorState, OpenedInput,
     PreparedRecordingPlan, RecordPayload, RecordingRequest, ReplayOutcome, StagingArea,
     StagingSessionConfig, StagingStreamConfig, StreamWriter, crc32, finish_all, preflight,
@@ -930,10 +930,7 @@ pub fn assert_source_contiguous(spans: &[JournalSpan], total: i64) {
 
 /// span 列の frame 総数。
 pub fn span_frame_total(spans: &[JournalSpan]) -> i64 {
-    spans
-        .iter()
-        .map(|s| i64::from(s.frame_count))
-        .sum()
+    spans.iter().map(|s| i64::from(s.frame_count)).sum()
 }
 
 /// span 列が session 0 からの連続 prefix（隙間・重複・再開なし）で

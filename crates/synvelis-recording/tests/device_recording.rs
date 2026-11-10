@@ -29,10 +29,7 @@ use synvelis_recording::{
 use common::*;
 
 fn tmp_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!(
-        "synvelis-rcd01-{}-{name}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("synvelis-rcd01-{}-{name}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     dir
 }
@@ -55,8 +52,7 @@ fn normal_rig(
     let root = tmp_dir(name);
     let (p, lanes, epoch) = project_with_lanes(lane_count);
     let plan = plan_for(&p, &lanes, target_channels, epoch, 200);
-    let device = FakeInputDevice::new(device_channels, ClockDomainId::SAMPLE_CLOCK)
-        .with_seed(seed);
+    let device = FakeInputDevice::new(device_channels, ClockDomainId::SAMPLE_CLOCK).with_seed(seed);
     let spec = InputStreamSpec {
         config: input_config(device_channels),
         clock_epoch: epoch,
@@ -142,8 +138,7 @@ fn fake_mono_records_verified_pcm_through_real_writer() {
 #[test]
 fn fake_stereo_records_verified_pcm_through_real_writer() {
     let map = ChannelMap::stereo(0, 1);
-    let (mut rig, _device, _p) =
-        normal_rig("stereo", 1, 2, &[2], std::slice::from_ref(&map), SEED);
+    let (mut rig, _device, _p) = normal_rig("stereo", 1, 2, &[2], std::slice::from_ref(&map), SEED);
     rig.drive(5000, 500);
     assert!(!rig.session.fault().is_faulted());
     let report = rig.finish();
@@ -166,8 +161,7 @@ fn fake_two_track_one_stream_binds_channels_to_separate_streams() {
     // 1 stereo device を 2 mono tap が共有し、track ごとに別
     // capture stream / 別 staging media へ書く。
     let maps = [ChannelMap::mono(0), ChannelMap::mono(1)];
-    let (mut rig, _device, _p) =
-        normal_rig("two-track", 2, 2, &[1, 1], &maps, SEED);
+    let (mut rig, _device, _p) = normal_rig("two-track", 2, 2, &[1, 1], &maps, SEED);
     rig.drive(5000, 500);
     assert!(!rig.session.fault().is_faulted());
     let report = rig.finish();
@@ -272,10 +266,7 @@ fn fake_punch_boundaries_are_sample_exact() {
     assert_source_contiguous(&spans, 500);
     assert_eq!(
         span_obs(&spans),
-        vec![
-            (250, 500, 0, 0, 10, 20),
-            (500, 750, 0, 250, 20, 30),
-        ],
+        vec![(250, 500, 0, 0, 10, 20), (500, 750, 0, 250, 20, 30),],
         "punch span session/source/project must be sample-exact"
     );
     // gate 外（[0,250)・[750,5000)）の PCM は media に存在しない。
@@ -327,10 +318,7 @@ fn fake_punch_in_loop_pass_boundaries_are_sample_exact() {
     let cap = capture_of(&rig.area, 0);
     let spans = all_journal_spans(&cap);
     // 各 pass の punch 区間のみ。pass 2 は session_end=2500 で clamp。
-    assert_session_coverage(
-        &spans,
-        &[(250, 750), (1250, 1750), (2250, 2500)],
-    );
+    assert_session_coverage(&spans, &[(250, 750), (1250, 1750), (2250, 2500)]);
     assert_source_contiguous(&spans, 1250);
     // pass_index が pass ごとに単調増加し、project 範囲は punch tick。
     let passes: Vec<u32> = spans.iter().map(|s| s.pass_index).collect();
@@ -451,14 +439,19 @@ fn fake_monitor_on_does_not_alter_raw_pcm() {
         let root = tmp_dir(name);
         let (p, lanes, epoch) = project_with_lanes(1);
         let plan = plan_for(&p, &lanes, &[2], epoch, 200);
-        let device =
-            FakeInputDevice::new(2, ClockDomainId::SAMPLE_CLOCK).with_seed(SEED);
+        let device = FakeInputDevice::new(2, ClockDomainId::SAMPLE_CLOCK).with_seed(SEED);
         let spec = InputStreamSpec {
             config: input_config(2),
             clock_epoch: epoch,
             max_block_frames: plan.max_block_frames,
             callback_queue: 16,
-            taps: vec![tap(&plan, 0, ChannelMap::stereo(0, 1), ArmState::On, monitor)],
+            taps: vec![tap(
+                &plan,
+                0,
+                ChannelMap::stereo(0, 1),
+                ArmState::On,
+                monitor,
+            )],
         };
         DeviceRig::open_one(&root, session_id(7), plan, &device, &spec)
     };
@@ -581,10 +574,7 @@ fn fake_sample_rate_change_fails_stop() {
     bad.sample_rate = ruviform_audio_core::SampleRate::new(44_100).expect("rate");
     device.stream(0).lock().expect("lock").set_format(bad);
     rig.verify_formats();
-    assert_eq!(
-        rig.session.fault().bits() & FAULT_CONTRACT,
-        FAULT_CONTRACT
-    );
+    assert_eq!(rig.session.fault().bits() & FAULT_CONTRACT, FAULT_CONTRACT);
     let _report = rig.finish();
     let cap = assert_fail_stop_prefix(&rig, 0, &[0], SEED);
     assert_eq!(span_frame_total(&all_journal_spans(&cap)), 1500);

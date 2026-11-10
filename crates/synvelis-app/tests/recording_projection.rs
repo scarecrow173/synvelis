@@ -10,8 +10,8 @@ use serde_json::{Value, json};
 
 use ruviform_ui::{BackendReport, DataRegistry, UiRuntime};
 
-use synvelis_app::{AppService, RecorderSlot, SynvelisApp};
 use synvelis_app::recording::recording_info;
+use synvelis_app::{AppService, RecorderSlot, SynvelisApp};
 use synvelis_project::{
     CaptureSegment, CaptureSegmentId, CaptureStream, CaptureStreamId, ClockEpochId,
     CounterIdGenerator, LaneId, Project, ProjectController, ProjectId, RecordingPass,
@@ -118,13 +118,16 @@ fn populated_project() -> Project {
 fn empty_project_projects_empty_registry_and_idle_recorder() {
     let session = session_with(empty_project());
     let info = recording_info(&session, &RecorderSlot::default());
-    assert_eq!(info["counts"], json!({
-        "sessions": 0,
-        "passes": 0,
-        "streams": 0,
-        "segments": 0,
-        "takes": 0,
-    }));
+    assert_eq!(
+        info["counts"],
+        json!({
+            "sessions": 0,
+            "passes": 0,
+            "streams": 0,
+            "segments": 0,
+            "takes": 0,
+        })
+    );
     for key in ["sessions", "passes", "streams", "segments", "takes"] {
         assert_eq!(info[key], json!([]), "{key} must be empty");
     }
@@ -151,7 +154,10 @@ fn populated_registry_projects_all_entity_rows() {
     assert_eq!(s["state"], "finalized");
 
     let pass = &info["passes"][0];
-    assert_eq!(pass["session_id"], RecordingSessionId::new(0xa1).to_tagged());
+    assert_eq!(
+        pass["session_id"],
+        RecordingSessionId::new(0xa1).to_tagged()
+    );
     assert_eq!(pass["index"], 0);
 
     let stream = &info["streams"][0];
