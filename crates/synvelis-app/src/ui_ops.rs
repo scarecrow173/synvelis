@@ -10,7 +10,7 @@
 //! headless drivers identically.
 
 use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -25,8 +25,8 @@ use serde_json::{Value, json};
 
 use synvelis_project::vcs::{RevisionSelector, VcsCancel};
 use synvelis_project::{
-    BusId, ProcessorId, ProjectRevision, ProjectStore, RoutingConnectionId, SemanticPortId, SendId,
-    StripId, TickTimeMapping, TrackId, is_issuable_raw,
+    BusId, ExplicitChannelMap, ProcessorId, ProjectRevision, ProjectStore, RoutingConnectionId,
+    SemanticPortId, SendId, StripId, TickTimeMapping, TrackId, is_issuable_raw,
 };
 use synvelis_workspace::VizSourceId;
 use synvelis_workspace::controls_ui::{
@@ -38,8 +38,10 @@ use synvelis_workspace::viz_ui::{
     WaveformPort,
 };
 use synvelis_workspace::{
-    EndpointRequest, PinSide, SignalFlowEdgeRole, SignalFlowEntityRef, SignalFlowScope,
-    SignalFlowView, SignalFlowViewOptions, SignalFlowVisualState, VcsDiffView, VcsEndpointView,
+    CancelReason, EndpointRequest, FollowSource, InspectionMode, LinkGroupId, PinSide,
+    RoutingGestureFixation, RoutingGestureOutcome, RoutingGesturePreview, RoutingPortAssessment,
+    SignalFlowEdgeRole, SignalFlowEntityRef, SignalFlowInspectionFocus, SignalFlowScope,
+    SignalFlowView, SignalFlowViewOptions, SignalFlowViewState, VcsDiffView, VcsEndpointView,
     VcsHistoryView, VcsSession, VcsUiError, VcsViewMode, ViewType, signal_flow_graph,
     vcs_history_view, visual_fold, visual_move_node, visual_set_group, visual_set_link_focus,
     visual_set_pan, visual_set_scope, visual_set_zoom,
@@ -162,11 +164,6 @@ pub struct UiOpsState {
     pub(crate) window_requests: Rc<RefCell<VecDeque<WindowRequest>>>,
     /// Monotonic id for `dock_prepare_new_window` requests.
     pub(crate) window_request_seq: u64,
-    /// Per-view Signal Flow visual state (`view_id` →
-    /// [`SignalFlowVisualState`]) — pure display state behind
-    /// `syn.signal_flow.view`/`syn.signal_flow.visual` (SF-05 slice 1,
-    /// synvelis#108). Never touches the project/session/engine.
-    pub(crate) signal_flow: BTreeMap<String, SignalFlowVisualState>,
 }
 
 impl UiOpsState {
@@ -188,7 +185,6 @@ impl UiOpsState {
             dock_moves: HashMap::new(),
             window_requests: Rc::new(RefCell::new(VecDeque::new())),
             window_request_seq: 0,
-            signal_flow: BTreeMap::new(),
         }
     }
 }
@@ -345,6 +341,119 @@ fn sf_roles(value: &Value) -> Result<BTreeSet<SignalFlowEdgeRole>, ErrorBody> {
             )),
         })
         .collect()
+}
+
+/// Read-side per-view [`SignalFlowViewState`] — `None` for
+/// unparseable `view_id`s or views holding no Signal Flow state
+/// (the projection then falls back to defaults, matching the
+/// pre-persistence behaviour). Never adopts or mutates.
+fn sf_view_state<'a>(app: &'a SynvelisApp, view: &str) -> Option<&'a SignalFlowViewState> {
+    let inst = parse_view_instance(view)?;
+    app.workspace().state(inst).ok()?.signal_flow.as_ref()
+}
+
+/// One tagged `SemanticPortId` wire value.
+fn sf_port(value: &Value, path: &str) -> Result<SemanticPortId, ErrorBody> {
+    let bad = |msg: &str| invalid(format!("params.{path}: {msg}"));
+    let s = value
+        .as_str()
+        .ok_or_else(|| bad("tagged port id (string) required"))?;
+    SemanticPortId::from_tagged(s).map_err(|_| bad("malformed tagged port id"))
+}
+
+fn sf_port_param(params: &Value, key: &str) -> Result<SemanticPortId, ErrorBody> {
+    sf_port(
+        params
+            .get(key)
+            .ok_or_else(|| invalid(format!("params.{key} required")))?,
+        key,
+    )
+}
+
+/// Inverse of [`sf_entity`] — one `SignalFlowEntityRef` → wire object.
+fn sf_entity_json(entity: SignalFlowEntityRef) -> Value {
+    let (kind, id) = match entity {
+        SignalFlowEntityRef::Track(id) => ("track", id.to_tagged()),
+        SignalFlowEntityRef::Bus(id) => ("bus", id.to_tagged()),
+        SignalFlowEntityRef::Strip(id) => ("strip", id.to_tagged()),
+        SignalFlowEntityRef::Processor(id) => ("processor", id.to_tagged()),
+        SignalFlowEntityRef::Port(id) => ("port", id.to_tagged()),
+        SignalFlowEntityRef::Connection(id) => ("connection", id.to_tagged()),
+        SignalFlowEntityRef::Send(id) => ("send", id.to_tagged()),
+    };
+    json!({ "kind": kind, "id": id })
+}
+
+/// [`SignalFlowInspectionFocus`] → wire shape.
+fn signal_flow_inspection_json(focus: &SignalFlowInspectionFocus) -> Value {
+    let mode = match focus.mode {
+        InspectionMode::Follow => "follow",
+        InspectionMode::Explore => "explore",
+        InspectionMode::Pinned => "pinned",
+    };
+    let follow_source = focus.follow_source.map(|src| match src {
+        FollowSource::View(v) => json!({ "view": format!("view-{}", v.get()) }),
+        FollowSource::Group(g) => json!({ "group": g.0 }),
+    });
+    json!({
+        "target": focus.target.map(sf_entity_json),
+        "mode": mode,
+        "follow_source": follow_source,
+        "explore_back": focus.explore_back.len(),
+        "explore_fwd": focus.explore_fwd.len(),
+    })
+}
+
+/// [`RoutingGestureFixation`] → wire shape.
+fn routing_fixation_json(fixation: &RoutingGestureFixation) -> Value {
+    json!({
+        "view": format!("view-{}", fixation.view.get()),
+        "source": fixation.source.to_tagged(),
+        "revision": fixation.revision.0,
+        "capability_generation": fixation.capability_generation,
+        "window": fixation.window.map(|w| w.to_string()),
+    })
+}
+
+/// [`RoutingGesturePreview`] → wire shape.
+fn routing_preview_json(preview: &RoutingGesturePreview) -> Value {
+    json!({
+        "candidate": preview.candidate.map(SemanticPortId::to_tagged),
+        "assessment": preview.assessment.as_ref().map(routing_assessment_json),
+        "dropped_target": preview.dropped_target.map(SemanticPortId::to_tagged),
+    })
+}
+
+/// [`RoutingPortAssessment`] → wire shape.
+fn routing_assessment_json(assessment: &RoutingPortAssessment) -> Value {
+    match assessment {
+        RoutingPortAssessment::Compatible => json!({ "verdict": "compatible" }),
+        RoutingPortAssessment::NeedsMapping {
+            source_channels,
+            destination_channels,
+        } => json!({
+            "verdict": "needs_mapping",
+            "source_channels": source_channels,
+            "destination_channels": destination_channels,
+        }),
+        RoutingPortAssessment::Prohibited { reason } => {
+            json!({ "verdict": "prohibited", "reason": reason })
+        }
+    }
+}
+
+/// [`RoutingGestureOutcome`] → wire shape.
+fn routing_outcome_json(outcome: &RoutingGestureOutcome) -> Value {
+    match outcome {
+        RoutingGestureOutcome::Applied { revision } => {
+            json!({ "outcome": "applied", "revision": revision.0 })
+        }
+        RoutingGestureOutcome::Cancelled { reason } => json!({
+            "outcome": "cancelled",
+            "reason": serde_json::to_value(reason).unwrap_or(Value::Null),
+        }),
+        RoutingGestureOutcome::Stale => json!({ "outcome": "stale" }),
+    }
 }
 
 /// Wire shape for [`SignalFlowView`] — every field verbatim; ids and
@@ -552,7 +661,7 @@ fn parse_window_id(s: &str) -> Option<WindowId> {
 }
 
 /// `"view-{n}"` → [`ViewInstanceId`]; `0`/malformed → `None`.
-fn parse_view_instance(s: &str) -> Option<ViewInstanceId> {
+pub(crate) fn parse_view_instance(s: &str) -> Option<ViewInstanceId> {
     ViewInstanceId::new(s.strip_prefix("view-")?.parse().ok()?)
 }
 
@@ -1955,25 +2064,25 @@ impl SynvelisApp {
     /// (SF-05 slice 1, synvelis#108). Params `{view_id?, scope?,
     /// root?, roles?, collapsed?, max_nodes?, max_edges?,
     /// expected_revision?}`; anything unspecified falls back to the
-    /// per-view [`SignalFlowVisualState`] (default when the view
-    /// never ran a visual op). The response is the full
-    /// [`SignalFlowView`] wire shape — coverage, revisions,
-    /// generations, nodes, edges, and status verbatim.
+    /// per-view persisted [`SignalFlowViewState::visual`] (default
+    /// when the view never ran a visual op or is not dock-registered).
+    /// The response is the full [`SignalFlowView`] wire shape —
+    /// coverage, revisions, generations, nodes, edges, and status
+    /// verbatim.
     ///
     /// # Errors
     /// [`ErrorBody`] on invalid parameters.
     pub fn op_signal_flow_view(&self, params: &Value) -> Result<Value, ErrorBody> {
         let view = sf_view_param(params);
-        let mut options =
-            self.ui
-                .signal_flow
-                .get(&view)
-                .map_or_else(SignalFlowViewOptions::default, |visual| {
-                    visual.view_options(
-                        crate::app::SIGNAL_FLOW_MAX_NODES,
-                        crate::app::SIGNAL_FLOW_MAX_EDGES,
-                    )
-                });
+        let mut options = sf_view_state(self, &view).map_or_else(
+            SignalFlowViewOptions::default,
+            |sf| {
+                sf.visual.view_options(
+                    crate::app::SIGNAL_FLOW_MAX_NODES,
+                    crate::app::SIGNAL_FLOW_MAX_EDGES,
+                )
+            },
+        );
         if let Some(scope) = params.get("scope") {
             options.scope = sf_scope(scope, params)?;
         }
@@ -1999,7 +2108,10 @@ impl SynvelisApp {
     }
 
     /// `syn.signal_flow.visual` — visual-only mutation of the per-view
-    /// [`SignalFlowVisualState`] (SF-UX-02). `params.action` ∈
+    /// persisted [`SignalFlowViewState::visual`] (SF-UX-02/07). The
+    /// state lives in the workspace [`ViewState`] keyed by the wire
+    /// `view_id`'s [`ViewInstanceId`], so `WorkspaceManager::capture`/
+    /// `restore` round-trips it per view. `params.action` ∈
     /// `move_node|set_group|fold|unfold|zoom|pan|link_focus|
     /// set_scope`; the ack echoes `{ok, view, view_generation}`.
     /// Session revision, undo depth, engine graph builds, and the
@@ -2007,11 +2119,12 @@ impl SynvelisApp {
     /// pure value type by construction.
     ///
     /// # Errors
-    /// [`ErrorBody`] on invalid parameters or an unknown action.
+    /// [`ErrorBody`] on invalid parameters, an unknown action, or a
+    /// `view_id` that is not `"view-{n}"` shaped.
     pub fn op_signal_flow_visual(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let view = sf_view_param(params);
         let action = str_param(params, "action")?;
-        let visual = self.ui.signal_flow.entry(view.clone()).or_default();
+        let visual = &mut self.sf_view_state_mut(&view)?.visual;
         match action {
             "move_node" => {
                 let entity = sf_entity_param(params, "entity")?;
@@ -2077,6 +2190,272 @@ impl SynvelisApp {
             "view": view,
             "view_generation": visual.visual_revision,
         }))
+    }
+
+    /// `view_id` → dock-registered [`ViewInstanceId`] for the
+    /// `syn.signal_flow.*` mutation/inspection/routing ops — the
+    /// view is adopted into the workspace's detached pool on first
+    /// use (kind/title from [`dock_view_info`] when the id is a
+    /// composition-root view, [`ViewType::SignalFlow`] otherwise) so
+    /// every per-view Signal Flow state lands in the persisted
+    /// [`ViewState`] (SF-UX-07).
+    fn sf_view_instance(&mut self, view: &str) -> Result<ViewInstanceId, ErrorBody> {
+        let inst = parse_view_instance(view).ok_or_else(|| {
+            invalid(format!("params.view_id must be \"view-{{n}}\", got {view}"))
+        })?;
+        if !self.workspace.registry().contains(inst) {
+            let (kind, title) = dock_view_info(view).map_or((ViewType::SignalFlow, view), |i| {
+                (i.kind, i.title)
+            });
+            self.workspace
+                .adopt_view(inst, kind, title, None)
+                .map_err(|e| dock_err(&e))?;
+        }
+        Ok(inst)
+    }
+
+    /// Mutable per-view [`SignalFlowViewState`] — adopts the view
+    /// when needed, then returns (creating on first use) its
+    /// workspace-owned state.
+    fn sf_view_state_mut(&mut self, view: &str) -> Result<&mut SignalFlowViewState, ErrorBody> {
+        let inst = self.sf_view_instance(view)?;
+        Ok(self
+            .workspace
+            .state_mut(inst)
+            .map_err(|e| dock_err(&e))?
+            .signal_flow
+            .get_or_insert_with(SignalFlowViewState::default))
+    }
+
+    /// `syn.signal_flow.inspection` — the view-local Signal Flow
+    /// inspection focus (SF-UX-04). `params.action` ∈
+    /// `inspect|set_mode|set_follow_source|back|forward`:
+    ///
+    /// - `inspect` takes `entity` (the `sf_entity` wire object) and
+    ///   enters Explore mode, pushing the previous target onto the
+    ///   session back-stack.
+    /// - `set_mode` takes `mode` ∈ `follow|explore|pinned`.
+    /// - `set_follow_source` takes `follow_source` — `null` clears,
+    ///   `{"view": "view-{n}"}` or `{"group": <u64>}` narrows Follow.
+    /// - `back`/`forward` walk the Explore history.
+    ///
+    /// The response echoes the resulting inspection focus. Link
+    /// delivery retargets only Follow-mode focus whose source filter
+    /// matches — Explore/Pinned are untouched, and the editing
+    /// selection is never modified.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters or an unknown action.
+    pub fn op_signal_flow_inspection(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = sf_view_param(params);
+        let inst = self.sf_view_instance(&view)?;
+        let action = str_param(params, "action")?;
+        match action {
+            "inspect" => {
+                let entity = sf_entity_param(params, "entity")?;
+                self.workspace
+                    .signal_flow_inspect(inst, entity)
+                    .map_err(|e| dock_err(&e))?;
+            }
+            "set_mode" => {
+                let mode = match str_param(params, "mode")? {
+                    "follow" => InspectionMode::Follow,
+                    "explore" => InspectionMode::Explore,
+                    "pinned" => InspectionMode::Pinned,
+                    other => {
+                        return Err(invalid(format!(
+                            "params.mode must be follow|explore|pinned, got {other}"
+                        )));
+                    }
+                };
+                self.workspace
+                    .signal_flow_set_inspection_mode(inst, mode)
+                    .map_err(|e| dock_err(&e))?;
+            }
+            "set_follow_source" => {
+                let source = match params.get("follow_source") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => {
+                        if let Some(v) = value.get("view").and_then(Value::as_str) {
+                            let view_inst = parse_view_instance(v).ok_or_else(|| {
+                                invalid(format!(
+                                    "params.follow_source.view must be \"view-{{n}}\", got {v}"
+                                ))
+                            })?;
+                            Some(FollowSource::View(view_inst))
+                        } else if let Some(g) = value.get("group").and_then(Value::as_u64) {
+                            Some(FollowSource::Group(LinkGroupId(g)))
+                        } else {
+                            return Err(invalid(
+                                "params.follow_source must be null|{\"view\": ...}|{\"group\": n}",
+                            ));
+                        }
+                    }
+                };
+                self.workspace
+                    .signal_flow_set_follow_source(inst, source)
+                    .map_err(|e| dock_err(&e))?;
+            }
+            "back" => {
+                self.workspace
+                    .signal_flow_explore_back(inst)
+                    .map_err(|e| dock_err(&e))?;
+            }
+            "forward" => {
+                self.workspace
+                    .signal_flow_explore_forward(inst)
+                    .map_err(|e| dock_err(&e))?;
+            }
+            other => {
+                return Err(invalid(format!(
+                    "unknown signal_flow inspection action {other}"
+                )));
+            }
+        }
+        let state = self
+            .workspace
+            .state(inst)
+            .map_err(|e| dock_err(&e))?
+            .signal_flow
+            .clone()
+            .unwrap_or_default();
+        Ok(json!({
+            "ok": true,
+            "view": view,
+            "inspection": signal_flow_inspection_json(&state.inspection),
+        }))
+    }
+
+    /// `syn.signal_flow.routing` — the port-drag routing gesture
+    /// (SF-UX-03). `params.action` ∈ `begin|hover|drop|confirm|cancel|
+    /// state`:
+    ///
+    /// - `begin` takes `port` (tagged `SemanticPortId`) — fixes view,
+    ///   source port, project revision, port-capability generation
+    ///   and window epoch.
+    /// - `hover` takes `port` (tagged id, or `null` for empty canvas)
+    ///   and returns the dry-run assessment — `compatible`,
+    ///   `needs_mapping` (channel layouts differ; an explicit
+    ///   `channel_map` is required to commit), or `prohibited`.
+    /// - `drop` fixes the hovered candidate as the immutable target;
+    ///   dropping on empty canvas cancels. Returns the fixed port or
+    ///   `null`.
+    /// - `confirm` takes optional `channel_map` (`{"entries": [...]}`)
+    ///   — the explicit channel-conversion consent. One atomic
+    ///   `ProjectOp::Routing` commit = one undo boundary; stale
+    ///   revision/capability/window outcomes return `stale` and never
+    ///   retarget.
+    /// - `cancel` takes optional `reason` ∈ `escape|pointer-cancel|
+    ///   window-closed|target-deleted|input-scope-lost` (default
+    ///   `escape`) — discards the preview, project untouched.
+    /// - `state` returns the running gesture's fixation + preview.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, an unknown action, or a
+    /// workspace refusal (no gesture, gesture already active,
+    /// mid-transfer, non-stale project rejection).
+    pub fn op_signal_flow_routing(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = sf_view_param(params);
+        let inst = self.sf_view_instance(&view)?;
+        let action = str_param(params, "action")?;
+        match action {
+            "begin" => {
+                let port = sf_port_param(params, "port")?;
+                let fixation = self
+                    .workspace
+                    .routing_gesture_begin(inst, port)
+                    .map_err(|e| dock_err(&e))?;
+                Ok(json!({
+                    "ok": true,
+                    "view": view,
+                    "fixation": routing_fixation_json(&fixation),
+                }))
+            }
+            "hover" => {
+                let port = match params.get("port") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => Some(sf_port(value, "port")?),
+                };
+                let assessment = self
+                    .workspace
+                    .routing_gesture_hover(inst, port)
+                    .map_err(|e| dock_err(&e))?;
+                Ok(json!({
+                    "ok": true,
+                    "view": view,
+                    "assessment": assessment.as_ref().map(routing_assessment_json),
+                }))
+            }
+            "drop" => {
+                let dropped = self
+                    .workspace
+                    .routing_gesture_drop(inst)
+                    .map_err(|e| dock_err(&e))?;
+                Ok(json!({
+                    "ok": true,
+                    "view": view,
+                    "dropped": dropped.map(SemanticPortId::to_tagged),
+                }))
+            }
+            "confirm" => {
+                let channel_map = match params.get("channel_map") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => Some(
+                        serde_json::from_value::<ExplicitChannelMap>(value.clone())
+                            .map_err(|e| invalid(format!("params.channel_map: {e}")))?,
+                    ),
+                };
+                let outcome = self
+                    .workspace
+                    .routing_gesture_confirm(inst, channel_map)
+                    .map_err(|e| dock_err(&e))?;
+                Ok(json!({
+                    "ok": true,
+                    "view": view,
+                    "outcome": routing_outcome_json(&outcome),
+                }))
+            }
+            "cancel" => {
+                let reason = match params.get("reason").and_then(Value::as_str) {
+                    None | Some("escape") => CancelReason::Escape,
+                    Some("pointer-cancel") => CancelReason::PointerCancel,
+                    Some("window-closed") => CancelReason::WindowClosed,
+                    Some("target-deleted") => CancelReason::TargetDeleted,
+                    Some("input-scope-lost") => CancelReason::InputScopeLost,
+                    Some(other) => {
+                        return Err(invalid(format!(
+                            "params.reason must be escape|pointer-cancel|window-closed|target-deleted|input-scope-lost, got {other}"
+                        )));
+                    }
+                };
+                let outcome = self
+                    .workspace
+                    .routing_gesture_cancel(inst, reason)
+                    .map_err(|e| dock_err(&e))?;
+                Ok(json!({
+                    "ok": true,
+                    "view": view,
+                    "outcome": routing_outcome_json(&outcome),
+                }))
+            }
+            "state" => {
+                let fixation = self.workspace.routing_gesture(inst);
+                let preview = self.workspace.routing_gesture_preview(inst);
+                Ok(json!({
+                    "ok": true,
+                    "view": view,
+                    "gesture": fixation.map(|f| json!({
+                        "fixation": routing_fixation_json(f),
+                        "preview": preview.map(routing_preview_json),
+                    })),
+                }))
+            }
+            other => {
+                return Err(invalid(format!(
+                    "unknown signal_flow routing action {other}"
+                )));
+            }
+        }
     }
 
     // -- syn.vcs.* ---------------------------------------------------------

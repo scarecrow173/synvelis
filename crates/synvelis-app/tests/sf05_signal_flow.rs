@@ -29,7 +29,7 @@ use synvelis_project::{
     ProcessorId, Project, ProjectController, ProjectOp, ProjectRevision, RoutingActivationState,
     SemanticPortId, SendTap, SourceFrame, SourceId, SourceRange, StripId, TimeAnchor, TrackId,
 };
-use synvelis_workspace::EnginePort;
+use synvelis_workspace::{EnginePort, SignalFlowScope, WorkspaceSnapshot};
 
 static TEST_SEQ: AtomicU64 = AtomicU64::new(0);
 
@@ -640,4 +640,381 @@ fn visual_set_scope_local_and_role_filter_round_trip() {
         }))
         .is_err()
     );
+}
+
+// ---------------------------------------------------------------------------
+// SF-UX-03: port-drag routing gesture wire surface
+// ---------------------------------------------------------------------------
+
+/// The strip owning `track_name`'s main in/out ports.
+fn strip_of_track_name(app: &SynvelisApp, name: &str) -> StripId {
+    let s = app.workspace().session();
+    let p = s.project();
+    let track = p
+        .tracks
+        .values()
+        .find(|t| t.name == name)
+        .unwrap_or_else(|| panic!("track {name} missing"));
+    p.routing.strip_of_track(track.id).unwrap().id
+}
+
+/// A fresh stereo Main route pair: vox output → kick input (the
+/// seeded fixture leaves kick's main input unconnected).
+fn gesture_port_pair(app: &SynvelisApp) -> (SemanticPortId, SemanticPortId) {
+    let s = app.workspace().session();
+    let p = s.project();
+    (
+        strip_main_port(p, strip_of_track_name(app, "vox"), PortDirection::Output),
+        strip_main_port(p, strip_of_track_name(app, "kick"), PortDirection::Input),
+    )
+}
+
+fn connection_count(app: &SynvelisApp) -> usize {
+    app.workspace()
+        .session()
+        .project()
+        .routing
+        .connections
+        .len()
+}
+
+#[test]
+fn signal_flow_routing_gesture_commits_one_atomic_undo() {
+    let root = scratch("sf-routing");
+    let (mut app, _engine) = app_with_engine(&root);
+    let (source, target) = gesture_port_pair(&app);
+    let connections_before = connection_count(&app);
+    let revision_before = app.workspace().session().revision();
+
+    // begin — the fixation echoes the fixated view, source port, and
+    // live project revision.
+    let begin = app
+        .op_signal_flow_routing(&json!({
+            "action": "begin",
+            "port": source.to_tagged(),
+        }))
+        .unwrap();
+    assert_eq!(begin["ok"], json!(true));
+    assert_eq!(begin["fixation"]["view"], json!(main_view_id()));
+    assert_eq!(begin["fixation"]["source"], json!(source.to_tagged()));
+    assert_eq!(begin["fixation"]["revision"], json!(revision_before.0));
+
+    // state — the running gesture is observable.
+    let state = app
+        .op_signal_flow_routing(&json!({ "action": "state" }))
+        .unwrap();
+    assert_eq!(
+        state["gesture"]["fixation"]["source"],
+        json!(source.to_tagged())
+    );
+
+    // hover — dry-run assessment only; the project is untouched.
+    let hover = app
+        .op_signal_flow_routing(&json!({
+            "action": "hover",
+            "port": target.to_tagged(),
+        }))
+        .unwrap();
+    assert_eq!(hover["assessment"]["verdict"], json!("compatible"));
+    assert_eq!(connection_count(&app), connections_before);
+    assert_eq!(app.workspace().session().revision(), revision_before);
+
+    // drop fixes the candidate; confirm commits one routing op.
+    let drop = app
+        .op_signal_flow_routing(&json!({ "action": "drop" }))
+        .unwrap();
+    assert_eq!(drop["dropped"], json!(target.to_tagged()));
+    let confirm = app
+        .op_signal_flow_routing(&json!({ "action": "confirm" }))
+        .unwrap();
+    assert_eq!(confirm["outcome"]["outcome"], json!("applied"));
+    assert_eq!(
+        confirm["outcome"]["revision"],
+        json!(revision_before.0 + 1)
+    );
+    assert_eq!(connection_count(&app), connections_before + 1);
+
+    // The gesture is gone and exactly one undo boundary reverts the
+    // whole commit (live revision is monotonic — undo bumps it).
+    let state = app
+        .op_signal_flow_routing(&json!({ "action": "state" }))
+        .unwrap();
+    assert_eq!(state["gesture"], Value::Null);
+    assert!(app.workspace_mut().session_mut().undo().unwrap());
+    assert_eq!(connection_count(&app), connections_before);
+}
+
+#[test]
+fn signal_flow_routing_cancel_and_stale_revision_are_project_safe() {
+    let root = scratch("sf-routing-stale");
+    let (mut app, _engine) = app_with_engine(&root);
+    let (source, target) = gesture_port_pair(&app);
+    let connections_before = connection_count(&app);
+    let revision_before = app.workspace().session().revision();
+
+    // begin → hover → cancel: the preview is discarded and nothing
+    // reaches the project.
+    app.op_signal_flow_routing(&json!({
+        "action": "begin",
+        "port": source.to_tagged(),
+    }))
+    .unwrap();
+    app.op_signal_flow_routing(&json!({
+        "action": "hover",
+        "port": target.to_tagged(),
+    }))
+    .unwrap();
+    let cancel = app
+        .op_signal_flow_routing(&json!({
+            "action": "cancel",
+            "reason": "escape",
+        }))
+        .unwrap();
+    assert_eq!(cancel["outcome"]["outcome"], json!("cancelled"));
+    assert_eq!(cancel["outcome"]["reason"], json!("escape"));
+    assert_eq!(connection_count(&app), connections_before);
+    assert_eq!(app.workspace().session().revision(), revision_before);
+
+    // A second gesture whose project revision goes stale mid-flight
+    // (concurrent window mutation) drops `stale` at confirm — never
+    // a retarget onto the newer revision.
+    app.op_signal_flow_routing(&json!({
+        "action": "begin",
+        "port": source.to_tagged(),
+    }))
+    .unwrap();
+    app.op_signal_flow_routing(&json!({
+        "action": "hover",
+        "port": target.to_tagged(),
+    }))
+    .unwrap();
+    app.op_signal_flow_routing(&json!({ "action": "drop" }))
+        .unwrap();
+    let live = app.workspace().session().revision();
+    app.workspace_mut()
+        .session_mut()
+        .apply(
+            ProjectOp::SetProjectName {
+                name: "renamed".into(),
+            },
+            live,
+        )
+        .unwrap();
+    let confirm = app
+        .op_signal_flow_routing(&json!({ "action": "confirm" }))
+        .unwrap();
+    assert_eq!(confirm["outcome"]["outcome"], json!("stale"));
+    assert_eq!(connection_count(&app), connections_before);
+    let state = app
+        .op_signal_flow_routing(&json!({ "action": "state" }))
+        .unwrap();
+    assert_eq!(state["gesture"], Value::Null);
+}
+
+#[test]
+fn signal_flow_routing_rejects_bad_params_and_unknown_actions() {
+    let root = scratch("sf-routing-bad");
+    let (mut app, _engine) = app_with_engine(&root);
+    let (source, _target) = gesture_port_pair(&app);
+
+    // Malformed port id and unknown action are both loud errors.
+    assert!(
+        app.op_signal_flow_routing(&json!({
+            "action": "begin",
+            "port": "not-a-port",
+        }))
+        .is_err()
+    );
+    assert!(
+        app.op_signal_flow_routing(&json!({
+            "action": "teleport",
+        }))
+        .is_err()
+    );
+    // No gesture running → gesture ops report NoGesture.
+    assert!(
+        app.op_signal_flow_routing(&json!({ "action": "drop" }))
+            .is_err()
+    );
+
+    // A begin on a real port succeeds; a second begin is refused
+    // (one gesture per view).
+    app.op_signal_flow_routing(&json!({
+        "action": "begin",
+        "port": source.to_tagged(),
+    }))
+    .unwrap();
+    assert!(
+        app.op_signal_flow_routing(&json!({
+            "action": "begin",
+            "port": source.to_tagged(),
+        }))
+        .is_err()
+    );
+    app.op_signal_flow_routing(&json!({ "action": "cancel" }))
+        .unwrap();
+}
+
+// ---------------------------------------------------------------------------
+// SF-UX-04: inspection focus wire surface
+// ---------------------------------------------------------------------------
+
+#[test]
+fn signal_flow_inspection_modes_history_and_follow_source() {
+    let root = scratch("sf-inspect");
+    let (mut app, _engine) = app_with_engine(&root);
+    let (bass_track, kick_track) = {
+        let s = app.workspace().session();
+        let p = s.project();
+        (
+            p.tracks.values().find(|t| t.name == "bass").unwrap().id,
+            p.tracks.values().find(|t| t.name == "kick").unwrap().id,
+        )
+    };
+
+    // inspect → Explore mode with the entity as target.
+    let r = app
+        .op_signal_flow_inspection(&json!({
+            "action": "inspect",
+            "entity": entity("track", &bass_track.to_tagged()),
+        }))
+        .unwrap();
+    assert_eq!(r["inspection"]["mode"], json!("explore"));
+    assert_eq!(r["inspection"]["target"]["kind"], json!("track"));
+    assert_eq!(
+        r["inspection"]["target"]["id"],
+        json!(bass_track.to_tagged())
+    );
+    assert_eq!(r["inspection"]["explore_back"], json!(0));
+
+    // A second inspect pushes the previous target onto the
+    // session-only back stack.
+    let r = app
+        .op_signal_flow_inspection(&json!({
+            "action": "inspect",
+            "entity": entity("track", &kick_track.to_tagged()),
+        }))
+        .unwrap();
+    assert_eq!(r["inspection"]["explore_back"], json!(1));
+
+    // back/forward walk the history without touching selection.
+    let r = app
+        .op_signal_flow_inspection(&json!({ "action": "back" }))
+        .unwrap();
+    assert_eq!(
+        r["inspection"]["target"]["id"],
+        json!(bass_track.to_tagged())
+    );
+    assert_eq!(r["inspection"]["explore_fwd"], json!(1));
+    let r = app
+        .op_signal_flow_inspection(&json!({ "action": "forward" }))
+        .unwrap();
+    assert_eq!(
+        r["inspection"]["target"]["id"],
+        json!(kick_track.to_tagged())
+    );
+
+    // Leaving Explore clears the history; Pinned + a Follow-source
+    // filter round-trip through the wire.
+    let r = app
+        .op_signal_flow_inspection(&json!({
+            "action": "set_mode",
+            "mode": "pinned",
+        }))
+        .unwrap();
+    assert_eq!(r["inspection"]["mode"], json!("pinned"));
+    assert_eq!(r["inspection"]["explore_back"], json!(0));
+    assert_eq!(r["inspection"]["explore_fwd"], json!(0));
+
+    let r = app
+        .op_signal_flow_inspection(&json!({
+            "action": "set_mode",
+            "mode": "follow",
+        }))
+        .unwrap();
+    assert_eq!(r["inspection"]["mode"], json!("follow"));
+    let r = app
+        .op_signal_flow_inspection(&json!({
+            "action": "set_follow_source",
+            "follow_source": { "view": "view-2" },
+        }))
+        .unwrap();
+    assert_eq!(
+        r["inspection"]["follow_source"],
+        json!({ "view": "view-2" })
+    );
+    let r = app
+        .op_signal_flow_inspection(&json!({
+            "action": "set_follow_source",
+            "follow_source": Value::Null,
+        }))
+        .unwrap();
+    assert_eq!(r["inspection"]["follow_source"], Value::Null);
+
+    // Unknown action/mode are loud errors.
+    assert!(
+        app.op_signal_flow_inspection(&json!({
+            "action": "set_mode",
+            "mode": "sideways",
+        }))
+        .is_err()
+    );
+    assert!(
+        app.op_signal_flow_inspection(&json!({ "action": "explode" }))
+            .is_err()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// SF-UX-07: per-view state separation + snapshot persistence
+// ---------------------------------------------------------------------------
+
+#[test]
+fn signal_flow_state_is_per_view_and_survives_snapshot_round_trip() {
+    let root = scratch("sf-persist");
+    let (mut app, _engine) = app_with_engine(&root);
+
+    // view-1 (default) → Expanded; view-3 → Local rooted at a strip.
+    // Each visual op lands in that view's workspace ViewState.
+    app.op_signal_flow_visual(&json!({
+        "action": "set_scope",
+        "scope": "expanded",
+    }))
+    .unwrap();
+    let strip = {
+        let s = app.workspace().session();
+        *s.project().routing.strips.keys().next().unwrap()
+    };
+    app.op_signal_flow_visual(&json!({
+        "view_id": "view-3",
+        "action": "set_scope",
+        "scope": "local",
+        "root": strip_entity(strip),
+    }))
+    .unwrap();
+
+    // The view op reads each view's own persisted options.
+    let v1 = app.op_signal_flow_view(&json!({})).unwrap();
+    assert!(v1["scope"].as_str().unwrap().starts_with("Expanded"));
+    let v3 = app
+        .op_signal_flow_view(&json!({ "view_id": "view-3" }))
+        .unwrap();
+    assert!(v3["scope"].as_str().unwrap().starts_with("Local"));
+
+    // Workspace capture → JSON → parse preserves both views'
+    // signal_flow state (schema v3).
+    let snap = app.workspace().capture().unwrap();
+    let text = snap.to_json().unwrap();
+    let restored = WorkspaceSnapshot::from_json(&text).unwrap();
+    assert_eq!(restored.schema, synvelis_workspace::WORKSPACE_SCHEMA);
+    let rec1 = restored.views.iter().find(|v| v.id == 1).unwrap();
+    let rec3 = restored.views.iter().find(|v| v.id == 3).unwrap();
+    assert_eq!(
+        rec1.state.signal_flow.as_ref().unwrap().visual.scope,
+        SignalFlowScope::Expanded
+    );
+    assert!(matches!(
+        rec3.state.signal_flow.as_ref().unwrap().visual.scope,
+        SignalFlowScope::Local { .. }
+    ));
 }
