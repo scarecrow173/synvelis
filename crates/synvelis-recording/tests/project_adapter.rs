@@ -796,8 +796,8 @@ fn rcd02pa_commit_save_reload_undo_restore_ids() {
     };
     let hash = report.content_hash.clone();
     let committed = entity_snapshot(c.live());
-    assert!(!committed["takes"].as_array().unwrap().is_empty());
-    assert!(!committed["sources"].as_array().unwrap().is_empty());
+    assert_ne!(committed["takes"], serde_json::json!([]));
+    assert_ne!(committed["sources"], serde_json::json!([]));
 
     // Undo: commit 由来 entity が消え、staging media/manifest は残る。
     assert!(c.undo().unwrap());
@@ -808,7 +808,7 @@ fn rcd02pa_commit_save_reload_undo_restore_ids() {
             "{key} must be empty after undo"
         );
     }
-    assert!(undone["applied_commits"].as_array().unwrap().is_empty());
+    assert_eq!(undone["applied_commits"], serde_json::json!([]));
     let tag = sid.to_tagged();
     assert!(media_path(&root, &tag, 0).exists());
     assert!(commit_manifest_path(&area).exists());
