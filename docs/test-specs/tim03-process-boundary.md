@@ -63,6 +63,9 @@ Issue #127 process boundary slice の受入条件を headless mock で
 - `ProcessCapability::attach_delivery` 投影と
   `PluginHostProcessors::connect` の attach-time gate
   （`tim03_aw_*`、task2）。
+- `ProcessBoundarySession` の per-request plan wiring +
+  `PrecisionProvenance` generation 照合
+  （`tim03_req_*`/`tim03_cap_*`/`tim03_prov_*`、task3）。
 
 ## Rules
 
@@ -129,6 +132,25 @@ Issue #127 process boundary slice の受入条件を headless mock で
   次の connect のみ有効（他 processor に波及しない）。宣言なし
   processor は従来どおり `Exact` + `ScheduleBudget::default()`
   で attach される。
+- **PB-17 session request wiring**: `ProcessBoundarySession` の
+  `plan_window`/`stage_window`/`stage_plan` は provenance 照合を
+  staging 前に行い、window/boundary 行列（100/128/256f・
+  offset 0/1/100/last）・同時 loop/seek/tempo/plan-install/param・
+  min/max legality を実 `PluginNode`/`TransportScheduler` で
+  固定する（`tim03_req_*`）。
+- **PB-18 session capability 分岐**: session open/`plan_window`
+  は task1 oracle と同一の 3 分岐を typed に返す —
+  `Unsupported` → `BoundarySessionError::Capability`/`Evaluate`、
+  RT degraded は consent 必須（`ConsentRequired` 保持）、
+  Offline Exact は uncertified で fail-closed（`tim03_cap_*`）。
+- **PB-19 stale provenance 誤配送 0**: instance/node/
+  capability generation/graph generation/frame-base のいずれかが
+  pin と不一致なら typed refusal で何も stage せず、plugin への
+  param/MIDI 配送は 0 件（`tim03_prov_*`）。
+- **PB-20 valid provenance 配送**: 現行 provenance では
+  `dispatch_params`/`dispatch_midi` が generation-tagged plan を
+  install し、実 callback で param/MIDI event が verified frame
+  base 経由で配送される（`tim03_prov_*`/`tim03_req_*`）。
 
 ## Examples
 
@@ -162,10 +184,15 @@ Issue #127 process boundary slice の受入条件を headless mock で
 ## Non-goals
 
 - 実 CLAP/VST3/OS matrix（NotRun — 別 gate）。
-- per-request boundary plan の runtime 配線
-  （`PluginNodeControl` 経由の `evaluate` 呼出し）。attach 時点の
-  `AttachDelivery` 投影は PB-14..16 で検証済み。
-- `TimingPrecision` 認定 provenance の定義。
+- ~~per-request boundary plan の runtime 配線
+  （`PluginNodeControl` 経由の `evaluate` 呼出し）~~ — task3 で
+  `ProcessBoundarySession` として PB-17..20 で検証済み。attach
+  時点の `AttachDelivery` 投影は PB-14..16。
+- session API を `driver`/`routing_control` の実 dispatch 経路へ
+  接続する composition（後続 slice）。
+- `TimingPrecision` 認定 provenance の定義（task3 の
+  `PrecisionProvenance` は配送文脈の generation pin であり、
+  精度クラス認定の根拠ではない）。
 - boundary offset の Tempo/Loop 由来自動導出。
 
 ## Risk

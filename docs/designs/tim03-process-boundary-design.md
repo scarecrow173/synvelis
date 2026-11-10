@@ -82,10 +82,12 @@ consent 付き degraded では合法 frame への defer、Offline Exact
 
 ### Out of Scope
 
-- oracle の per-request RT 経路組込み（boundary offset 列を伴う
-  `evaluate` の runtime 呼出し）。attach 時点の
-  `AttachDelivery` 投影は task2
-  （`tim03-task2-attach-wiring`）で実装済み。
+- oracle の RT 経路組込み（boundary offset 列を伴う `evaluate`
+  の RT callback 内呼出し）。attach 時点の `AttachDelivery` 投影は
+  task2（`tim03-task2-attach-wiring`）、per-request 配線は task3
+  （`tim03-task3-request-plan` の `ProcessBoundarySession`）で
+  実装済み — session は orchestration 層の API であり、RT
+  callback 内では oracle を評価しない。
 - Ruviform 型の変更・独自 scheduler の再実装。
 - 実 plugin/OS matrix・AudioLens・GUI（spec の Out of Scope と同一）。
 
@@ -208,22 +210,85 @@ OfflineCapabilityMismatch}` に決定的写像され、plugin は
 instantiate されない。宣言なし processor は従来どおり
 `Exact` + `ScheduleBudget::default()`。
 
-per-request の boundary legality/deferral 判定は引き続き
-`evaluate`（non-RT preflight）と upstream
-`TransportScheduler`/`PluginNode` が担い、attach 投影は
-「その processor が取り得る delivery 精度の上限」を固定する
-だけである。
+per-request の boundary legality/deferral 判定は
+`ProcessBoundarySession`（task3）経由で `evaluate`（non-RT
+preflight）と upstream `TransportScheduler`/`PluginNode` が担い、
+attach 投影は「その processor が取り得る delivery 精度の上限」を
+固定するだけである。
+
+## Per-request session + precision provenance（task3 で実装）
+
+`ProcessBoundarySession` は 1 つの attached `PluginNodeControl`
+に対する orchestration 層 API。consumer 側の精度 provenance を
+pin し、request ごとの evaluate/stage/dispatch を仲介する。
+
+- **`PrecisionProvenance`**: `StablePluginInstanceId` + `NodeId` +
+  capability generation + graph generation の 4 要素 pin。
+  caller が `PrecisionProvenance::new` で mint し、session 生成時に
+  固定、各 request で caller が渡す現行 provenance と照合する。
+  `PluginBindingSession`（PC-C4）の stale 拒否パターンを踏襲。
+  transport/plan generation は event-scoped な upstream scheduler
+  所有軸であり、`ParamDispatch` の receipt-gated observation が
+  既に fault するためここでは複製しない（設計判断を明記）。
+- **`ProcessBoundarySession::open`**: `control` から
+  `AttachClockContext::of` で verified clock context を取得し、
+  `attach_delivery` を再評価 — `Unsupported`/`OfflineUncertified`
+  は session 生成前に fail-closed（`connect` と同じ typed
+  refusal）。`mode`/`consent`/`budget` は session に固定され、
+  全 `plan_window` が同一入力で評価されるため oracle と
+  scheduler の delivery policy が乖離しない。
+- **request API**（全て provenance 照合を staging/install の前に
+  実行、mismatch は typed refusal で何も残さない）:
+  - `plan_window(current, window_frames, boundaries)` — 純粋な
+    evaluate。window 内 offset を持つ `BoundaryPoint` 列
+    （caller 供給の loop wrap 等 + `stage_window`/`stage_plan`
+    が command/install 由来で追加する Seek/Other/PlanInstall）を
+    session 固定の mode/consent/budget で評価し `ProcessBoundaryPlan`
+    を返す。staging しない。
+  - `stage_window(control, current, window_frames, boundaries,
+    commands)` — `plan_window` 成功後に `(TransportCommand,
+    due_frames)` を順に `control.request` へ push。window 内 due の
+    command は境界として legality 検査済み。queue full は残りを
+    abort（先行分は plan でカバー済み — upstream bounded-queue
+    契約）。
+  - `stage_plan(control, current, window_frames, boundaries, plan,
+    due_frames)` — `install_plan` 版。window 内 due の install は
+    `plan_generation` bump・span 分割・note release/chase を伴う
+    実 discontinuity として `PlanInstall` 境界で検査。
+  - `dispatch_params`/`dispatch_midi(dispatch, current, …)` —
+    provenance 照合 + `dispatch.node()` が pin node と一致 +
+    `check_frame_base(dispatch.frame_base())`（verified attach
+    clock context、Ruviform #307）を通してから `ParamDispatch`
+    の generation-tagged plan minting/ledger/receipt 観測へ委譲。
+    foreign node や stale clock mapping の `ParamDispatch` は
+    write 解決前に typed refusal。
+- **`BoundarySessionError`**: `Capability`/`Evaluate`（upstream
+  `ProcessBoundaryError` を保持）・`InstanceMismatch`/
+  `NodeMismatch`/`CapabilityGeneration`/`GraphGeneration`/
+  `FrameBaseMismatch`・`QueueFull`/`InstallPlan`/`Dispatch`
+  （upstream typed error を潰さず伝播）。
+- **head install の扱い**: param/MIDI dispatch は callback head
+  （due=0、offset-0 apply）に install されるため span を分割せず
+  window 評価は不要 — window legality は `plan_window` 系が担う
+  という責務分離を test で固定。
+
+provenance の照合は全て orchestration 層（呼出側 thread）で行い、
+RT callback・plugin `process` には一切触れない。generation
+照合の最終防衛は引き続き upstream `TransportScheduler`/
+`SpanSink`/`event_engine_frame` が担う。
 
 ## Deferred Design Concerns
 
 - ~~oracle → `AttachConfig`/`PluginNodeControl` への plan 反映
   （`DeliveryPolicy`/`ScheduleBudget`/`DegradedConsent` →
   consented degraded の wiring）~~ — task2
-  （`tim03-task2-attach-wiring`）で `AttachDelivery` 投影として
-  実装済み。`PluginNodeControl` 経由の per-request plan 反映は
-  引き続き後続 slice。
+  （`tim03-task2-attach-wiring`）で `AttachDelivery` 投影、
+  task3（`tim03-task3-request-plan`）で `ProcessBoundarySession`
+  として実装済み。
 - `TimingPrecision` の capability 認定 provenance（どの計測が
   `ExactWithinVerifiedCapability` を正当化するか）の定義 —
+  task3 の `PrecisionProvenance` は配送文脈の generation pin で
+  あり、精度クラス自体の認定根拠ではない。認定 provenance は
   実機 gate と併せて後続。
 - boundary offset の Tempo map/Loop occurrence 由来の自動導出
   （本 slice は caller が offset を与える）。
@@ -244,3 +309,8 @@ per-request の boundary legality/deferral 判定は引き続き
   budget clamp・offline certified gate・typed refusal と、
   `connect` の instantiate 前 fail-closed（fake `PluginHost` +
   instance counter）・宣言 scoping・undeclared 後方互換。
+- `tim03_req_*`/`tim03_cap_*`/`tim03_prov_*`（task3）:
+  session open の fail-closed・window/boundary 行列・同時
+  loop/seek/tempo/plan-install/param・min/max legality・
+  capability 3 分岐・stale provenance 全軸・foreign dispatch・
+  誤配送 0 を実 `PluginNode`/`ParamDispatch` fixture で固定。

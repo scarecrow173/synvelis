@@ -101,6 +101,11 @@ generation・RT no-alloc を検証する。
 - [x] `git fetch origin main && git merge origin/main`（`060ad66`
   取り込み）後の再検証 — 全 lane exit 0。
 - [x] review-protocol self-review → commit → push → PR #244。
+- [x] task3: `PrecisionProvenance`/`BoundarySessionError`/
+  `ProcessBoundarySession`（open/plan_window/stage_window/
+  stage_plan/dispatch_params/dispatch_midi）+
+  `tim03_request_plan.rs` 10 test — Issue #127 per-request
+  plan wiring + precision provenance slice。
 
 ## Dependencies and Risks
 
@@ -121,6 +126,9 @@ generation・RT no-alloc を検証する。
 - `docs/tasks/tim03-task2-attach-wiring.md` — `AttachDelivery`
   投影 + `PluginHostProcessors::connect` 配線 + typed connect
   error（done）。
+- `docs/tasks/tim03-task3-request-plan.md` — per-request
+  `ProcessBoundarySession` + `PrecisionProvenance` +
+  `BoundarySessionError` + fixture test（done）。
 
 ## Verification
 
@@ -135,10 +143,14 @@ generation・RT no-alloc を検証する。
 
 - ~~oracle の composition root 配線（plan → `DeliveryPolicy`/
   `ScheduleBudget`/consent の attach 反映）~~ — task2 で
-  `AttachDelivery` 投影として実装済み。per-request boundary
-  plan の runtime 配線（`PluginNodeControl` 経由）は後続 slice。
+  `AttachDelivery` 投影、task3 で per-request
+  `ProcessBoundarySession` として実装済み。
 - `TimingPrecision` certified class の認定 provenance は未定義
-  （mock では constructor 注入）。
+  （mock では constructor 注入。task3 の `PrecisionProvenance`
+  は配送文脈の generation pin であり認定根拠ではない）。
+- session API を `driver`/`routing_control` の実 dispatch 経路へ
+  接続する composition は後続 slice（本 slice は
+  `ProcessBoundarySession` API + fixture まで）。
 - boundary offset の Tempo map/Loop occurrence 自動導出は
   未実装（caller が offset を与える）。
 
