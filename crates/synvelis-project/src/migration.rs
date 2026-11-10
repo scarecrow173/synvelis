@@ -59,6 +59,10 @@ const STEPS: &[MigrationStep] = &[
         from: 10,
         migrate: migrate_v10_asset_digests,
     },
+    MigrationStep {
+        from: 11,
+        migrate: migrate_v11_monitoring,
+    },
 ];
 
 /// Runs the ordered ladder from `version` to [`SCHEMA_VERSION`].
@@ -411,5 +415,21 @@ fn migrate_v9_strip_params(mut project: Project) -> Result<Project, Error> {
 /// [`Project::validate_digests`].
 fn migrate_v10_asset_digests(project: Project) -> Result<Project, Error> {
     project.validate_digests()?;
+    Ok(project)
+}
+
+/// v11 → v12: add `Project::monitoring` — authored Arm/Monitor/
+/// channel-map/lane declarations and punch marks (synvelis#117).
+/// v11 bodies predate the monitor projection and carry no such state,
+/// so the serde `#[serde(default)]` on the field already yields the
+/// correct empty value; the step exists to make the version advance
+/// explicit and audited on the shared ladder. Deterministic —
+/// allocates no IDs and leaves `id_watermark` untouched.
+///
+/// # Errors
+/// Never fails: the step is the identity projection. The `Result`
+/// shape keeps the ladder uniform.
+#[allow(clippy::unnecessary_wraps)]
+fn migrate_v11_monitoring(project: Project) -> Result<Project, Error> {
     Ok(project)
 }

@@ -20,6 +20,7 @@ use crate::{
         RoutingConnectionId, SemanticPortId, SendId, SourceId, StripId, TrackId,
     },
     midi::{MidiDivision, MidiNote, MidiSource},
+    monitoring_data::{PunchMarks, TrackMonitorDecl},
     placement::{
         ClipExtent, ClipPlacement, ClipPlayback, TimeAnchor, validate_clip_contract,
         validate_midi_clip_contract,
@@ -572,6 +573,35 @@ pub enum ProjectOp {
         /// Soloed flag.
         soloed: bool,
     },
+    /// Upsert a track's authored monitor declaration — Arm/Monitor
+    /// mode, channel map and lane binding (synvelis#117, schema v12).
+    /// Session observations (`input_output_ready`, hardware-direct
+    /// state, latency) are never part of this op; route/gate semantics
+    /// stay owned by `synvelis-recording`.
+    SetTrackMonitor {
+        /// Target track.
+        track: TrackId,
+        /// The full declaration (upsert — the caller folds any patch
+        /// into the current declaration before issuing the op).
+        decl: TrackMonitorDecl,
+    },
+    /// Remove a track's monitor declaration. Session observations are
+    /// unaffected — they live outside the project.
+    ClearTrackMonitor {
+        /// Target track.
+        track: TrackId,
+    },
+    /// Replace the project-wide punch marks verbatim (both `None`
+    /// clears them). Whether the marks form a punch gate is decided by
+    /// `synvelis-recording` at session start; the "no marks while a
+    /// session is active" rule is enforced by the app layer, which
+    /// owns session state.
+    SetPunchMarks {
+        /// Punch-in tick.
+        punch_in: Option<MusicalTick>,
+        /// Punch-out tick.
+        punch_out: Option<MusicalTick>,
+    },
     /// Atomic routing transaction (issue #105 / SF-02): a whole
     /// routing gesture — temporary references resolved to stable IDs,
     /// per-edit semantics, generic graph validation, and the project
@@ -590,7 +620,8 @@ impl Operation for ProjectOp {
             Self::SetProjectName { .. }
             | Self::RegisterAsset { .. }
             | Self::AddTrack { .. }
-            | Self::RegisterClockEpoch { .. } => Ok(()),
+            | Self::RegisterClockEpoch { .. }
+            | Self::SetPunchMarks { .. } => Ok(()),
             Self::SetProjectPpqn {
                 old_ppqn,
                 new_ppqn,
@@ -697,6 +728,16 @@ impl Operation for ProjectOp {
                 {
                     return Err(Error::Validation(format!(
                         "lane {lane_id} referenced by capture stream"
+                    )));
+                }
+                if project
+                    .monitoring
+                    .tracks
+                    .values()
+                    .any(|d| d.lane == Some(*lane_id))
+                {
+                    return Err(Error::Validation(format!(
+                        "lane {lane_id} referenced by monitor declaration"
                     )));
                 }
                 Ok(())
@@ -1432,6 +1473,30 @@ impl Operation for ProjectOp {
                 .contains_key(strip_id)
                 .then_some(())
                 .ok_or_else(|| Error::NotFound(format!("strip {strip_id}"))),
+            Self::SetTrackMonitor { track, decl } => {
+                let t = project
+                    .tracks
+                    .get(track)
+                    .ok_or_else(|| Error::NotFound(format!("track {track}")))?;
+                if let Some(lane) = decl.lane
+                    && !t.lane_ids.contains(&lane)
+                {
+                    return Err(Error::Validation(format!(
+                        "monitor lane {lane} is not a lane of track {track}"
+                    )));
+                }
+                if decl.channel_map.is_empty() {
+                    return Err(Error::Validation(
+                        "monitor channel map must be non-empty".into(),
+                    ));
+                }
+                Ok(())
+            }
+            Self::ClearTrackMonitor { track } => project
+                .tracks
+                .contains_key(track)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("track {track}"))),
             Self::Routing { intent } => {
                 // Whole-transaction staging on a dry generator: the
                 // watermark seed issues non-colliding raws so every
@@ -1493,6 +1558,10 @@ impl Operation for ProjectOp {
                     remove_strip_owned(project, strip_id);
                 }
                 project.tracks.remove(track_id);
+                // The track's monitor declaration cannot outlive it —
+                // cascade here so the post-apply oracle never sees a
+                // dangling decl (undo restores it via snapshot).
+                project.monitoring.tracks.remove(track_id);
             }
             Self::AddLane { track_id } => {
                 let id = LaneId::new(ids.next());
@@ -2266,6 +2335,21 @@ impl Operation for ProjectOp {
             }
             Self::SetStripSolo { strip_id, soloed } => {
                 set_strip_bool(project, ids, *strip_id, ParameterRole::Solo, *soloed);
+            }
+            Self::SetTrackMonitor { track, decl } => {
+                project.monitoring.tracks.insert(*track, decl.clone());
+            }
+            Self::ClearTrackMonitor { track } => {
+                project.monitoring.tracks.remove(track);
+            }
+            Self::SetPunchMarks {
+                punch_in,
+                punch_out,
+            } => {
+                project.monitoring.punch = PunchMarks {
+                    punch_in: *punch_in,
+                    punch_out: *punch_out,
+                };
             }
             Self::Routing { intent } => {
                 // One preflight stages the whole intent; the validated
