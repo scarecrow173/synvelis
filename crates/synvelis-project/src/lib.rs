@@ -10,6 +10,7 @@
 
 #![warn(missing_docs)]
 
+pub mod apply;
 pub mod comp;
 pub mod control;
 pub mod controller;
@@ -30,6 +31,7 @@ pub mod project;
 pub mod range;
 pub mod recording_data;
 pub mod relation;
+pub mod restore;
 pub mod routing;
 pub mod routing_build;
 pub mod routing_tx;
@@ -41,6 +43,12 @@ pub mod time;
 pub mod trace;
 pub mod vcs;
 
+pub use apply::{
+    ApplyApproval, ApplyChangeIntent, ApplyEffects, ApplyError, ApplyJournal, ApplyJournalError,
+    ApplyJournalRecord, ApplyJournalState, ApplyOutcome, ApplyReceipt, ApplySources,
+    ApplyUntouchedEffects, ChangeSetSource, DirectoryApplyJournal, InMemoryApplyJournal,
+    PluginAvailability, ResolvedChangeSet, apply_selected, target_fingerprint,
+};
 pub use comp::{
     Comp, CompCandidateRef, CompOp, CompProvenance, CompRegion, CompRegistry, CompTransition,
     EditorDisplayTarget, EditorEditingTarget, EffectiveComp, EffectiveSegment, EffectiveTransition,
@@ -112,6 +120,12 @@ pub use recording_data::{
 pub use relation::{
     ControlEntityRef, ControlRelation, RelationCoverage, RelationDirection, RelationIndex,
     RelationKind, RelationQuery, RelationReply, RelationState,
+};
+pub use restore::{
+    DirSyncEvidence, MissingAssetsPolicy, RestoreAssetReport, RestoreBlobSource,
+    RestoreCopyEffects, RestoreEffects, RestoreError, RestoreGitEffects, RestoreOutcome,
+    RestorePluginReport, RestorePluginStateSource, RestorePorts, RestoreReceipt, RestoreRequest,
+    RestoreSourceEffects, RestoreStorageProbe, StableIdReport, restore_as_copy,
 };
 pub use routing::{
     Bus, BusKind, ChannelStrip, ConnectionKind, ExplicitChannelMap, PluginRef, PortBinding,
