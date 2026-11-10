@@ -329,7 +329,7 @@ fn routing_gesture_channel_mismatch_requires_explicit_consent() {
 
     // Explicit consent commits the mapped route — one undo boundary.
     let outcome = ws
-        .routing_gesture_confirm(view, Some(ExplicitChannelMap { entries: vec![0] }))
+        .routing_gesture_confirm(view, Some(&ExplicitChannelMap { entries: vec![0] }))
         .unwrap();
     assert!(matches!(outcome, RoutingGestureOutcome::Applied { .. }));
     assert_eq!(connections(&ws), before + 1);
@@ -564,7 +564,7 @@ fn signal_flow_explore_history_and_unmappable_targets() {
     let focus = &state.signal_flow.as_ref().unwrap().inspection;
     assert_eq!(focus.target, Some(SignalFlowEntityRef::Track(kick)));
     assert_eq!(focus.explore_back, vec![SignalFlowEntityRef::Track(bass)]);
-    assert!(focus.explore_fwd.is_empty());
+    assert_eq!(focus.explore_fwd, []);
 
     ws.signal_flow_explore_back(sf).unwrap();
     let focus = &ws
@@ -651,7 +651,7 @@ fn capture_restore_roundtrips_signal_flow_state_per_view() {
     );
     assert_eq!(sf_state.inspection.mode, InspectionMode::Pinned);
     // Explore history is session-only — never persisted.
-    assert!(sf_state.inspection.explore_back.is_empty());
+    assert_eq!(sf_state.inspection.explore_back, []);
     // The unrelated view carries no Signal Flow state.
     assert!(ws2.state(plain).unwrap().signal_flow.is_none());
     let _ = bass_strip;
@@ -777,5 +777,5 @@ fn inspection_focus_type_roundtrips_through_snapshot() {
     assert_eq!(back.target, focus.target);
     assert_eq!(back.mode, focus.mode);
     assert_eq!(back.follow_source, focus.follow_source);
-    assert!(back.explore_back.is_empty());
+    assert_eq!(back.explore_back, []);
 }

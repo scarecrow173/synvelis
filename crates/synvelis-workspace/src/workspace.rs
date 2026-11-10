@@ -1013,6 +1013,9 @@ impl<H: WindowHandle> WorkspaceManager<H> {
     /// arrangement [`Self::inspect`] but writing the view-local
     /// Signal Flow focus, never `inspection_focus` or selection.
     /// Pushes the previous target onto the Explore back-stack.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
     pub fn signal_flow_inspect(
         &mut self,
         view: ViewInstanceId,
@@ -1031,6 +1034,9 @@ impl<H: WindowHandle> WorkspaceManager<H> {
 
     /// Sets the Signal Flow inspection mode. Leaving `Explore`
     /// clears its session history, matching [`Self::set_inspection_mode`].
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
     pub fn signal_flow_set_inspection_mode(
         &mut self,
         view: ViewInstanceId,
@@ -1047,6 +1053,9 @@ impl<H: WindowHandle> WorkspaceManager<H> {
 
     /// Sets the Signal Flow Follow-mode source filter — `Some`
     /// narrows adoption to events carrying that source.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
     pub fn signal_flow_set_follow_source(
         &mut self,
         view: ViewInstanceId,
@@ -1057,26 +1066,32 @@ impl<H: WindowHandle> WorkspaceManager<H> {
     }
 
     /// Steps the Signal Flow Explore history back one entity.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
     pub fn signal_flow_explore_back(&mut self, view: ViewInstanceId) -> Result<(), WorkspaceError> {
         let focus = &mut self.signal_flow_state_mut(view)?.inspection;
-        if let Some(prev) = focus.explore_back.pop() {
-            if let Some(current) = focus.target.replace(prev) {
-                focus.explore_fwd.push(current);
-            }
+        if let Some(prev) = focus.explore_back.pop()
+            && let Some(current) = focus.target.replace(prev)
+        {
+            focus.explore_fwd.push(current);
         }
         Ok(())
     }
 
     /// Steps the Signal Flow Explore history forward one entity.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
     pub fn signal_flow_explore_forward(
         &mut self,
         view: ViewInstanceId,
     ) -> Result<(), WorkspaceError> {
         let focus = &mut self.signal_flow_state_mut(view)?.inspection;
-        if let Some(next) = focus.explore_fwd.pop() {
-            if let Some(current) = focus.target.replace(next) {
-                focus.explore_back.push(current);
-            }
+        if let Some(next) = focus.explore_fwd.pop()
+            && let Some(current) = focus.target.replace(next)
+        {
+            focus.explore_back.push(current);
         }
         Ok(())
     }
@@ -1125,10 +1140,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
             capability_generation: port_capability_generation(self.session.project()),
             window: self.dock.owner_of(view),
         };
-        self.states
-            .get_mut(view)
-            .expect("checked above")
-            .routing_gesture = Some(RoutingGesture {
+        self.state_mut(view)?.routing_gesture = Some(RoutingGesture {
             fixation: fixation.clone(),
             preview: RoutingGesturePreview {
                 candidate: None,
@@ -1188,15 +1200,14 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                 .routing
                 .ports
                 .get(&port)
-                .map(|p| p.role)
-                .unwrap_or(PortRole::Main);
+                .map_or(PortRole::Main, |p| p.role);
             assess_connection(self.session.project(), &gesture.fixation, port, role)
         });
-        if let Some(state) = self.states.get_mut(view) {
-            if let Some(g) = state.routing_gesture.as_mut() {
-                g.preview.candidate = target;
-                g.preview.assessment = assessment.clone();
-            }
+        if let Some(state) = self.states.get_mut(view)
+            && let Some(g) = state.routing_gesture.as_mut()
+        {
+            g.preview.candidate = target;
+            g.preview.assessment.clone_from(&assessment);
         }
         Ok(assessment)
     }
@@ -1222,23 +1233,14 @@ impl<H: WindowHandle> WorkspaceManager<H> {
             .routing_gesture
             .clone()
             .ok_or(WorkspaceError::NoGesture(view))?;
-        match gesture.preview.candidate {
-            Some(target) => {
-                if let Some(state) = self.states.get_mut(view) {
-                    if let Some(g) = state.routing_gesture.as_mut() {
-                        g.preview.dropped_target = Some(target);
-                    }
-                }
-                Ok(Some(target))
+        if let Some(target) = gesture.preview.candidate {
+            if let Some(g) = self.state_mut(view)?.routing_gesture.as_mut() {
+                g.preview.dropped_target = Some(target);
             }
-            None => {
-                self.states
-                    .get_mut(view)
-                    .expect("checked above")
-                    .routing_gesture = None;
-                Ok(None)
-            }
+            return Ok(Some(target));
         }
+        self.state_mut(view)?.routing_gesture = None;
+        Ok(None)
     }
 
     /// Confirm — applies the fixated routing gesture as one
@@ -1258,7 +1260,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
     pub fn routing_gesture_confirm(
         &mut self,
         view: ViewInstanceId,
-        channel_map: Option<ExplicitChannelMap>,
+        channel_map: Option<&ExplicitChannelMap>,
     ) -> Result<RoutingGestureOutcome, WorkspaceError> {
         let gesture = self
             .states
@@ -1277,26 +1279,17 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         // revision advanced, or plugin port reconfigure moved the
         // capability generation. All drop the gesture; none retarget.
         if self.dock.is_transferring(view) || self.dock.owner_of(view) != fixation.window {
-            self.states
-                .get_mut(view)
-                .expect("checked above")
-                .routing_gesture = None;
+            self.state_mut(view)?.routing_gesture = None;
             return Ok(RoutingGestureOutcome::Stale);
         }
         if port_capability_generation(self.session.project()) != fixation.capability_generation {
-            self.states
-                .get_mut(view)
-                .expect("checked above")
-                .routing_gesture = None;
+            self.state_mut(view)?.routing_gesture = None;
             return Ok(RoutingGestureOutcome::Stale);
         }
         let Some(port) = self.session.project().routing.ports.get(&target) else {
             // The target port vanished — the project moved under the
             // gesture, so the honest outcome is stale, not a guess.
-            self.states
-                .get_mut(view)
-                .expect("checked above")
-                .routing_gesture = None;
+            self.state_mut(view)?.routing_gesture = None;
             return Ok(RoutingGestureOutcome::Stale);
         };
         let role = port.role;
@@ -1317,17 +1310,11 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         {
             Ok(revision) => {
                 self.distribute_revision(revision);
-                self.states
-                    .get_mut(view)
-                    .expect("checked above")
-                    .routing_gesture = None;
+                self.state_mut(view)?.routing_gesture = None;
                 Ok(RoutingGestureOutcome::Applied { revision })
             }
             Err(synvelis_project::Error::StaleRevision { .. }) => {
-                self.states
-                    .get_mut(view)
-                    .expect("checked above")
-                    .routing_gesture = None;
+                self.state_mut(view)?.routing_gesture = None;
                 Ok(RoutingGestureOutcome::Stale)
             }
             // Any other rejection — including RequiresUserDecision on

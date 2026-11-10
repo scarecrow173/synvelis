@@ -157,7 +157,7 @@ pub fn routing_gesture_intent(
     fixation: &RoutingGestureFixation,
     target: SemanticPortId,
     destination_role: PortRole,
-    channel_map: Option<ExplicitChannelMap>,
+    channel_map: Option<&ExplicitChannelMap>,
 ) -> RoutingEditIntent {
     RoutingEditIntent {
         operation_id,
@@ -167,7 +167,7 @@ pub fn routing_gesture_intent(
             source: PortRef::Existing(fixation.source),
             destination: PortRef::Existing(target),
             kind: routing_connection_kind(destination_role),
-            channel_map: channel_map.clone(),
+            channel_map: channel_map.cloned(),
         }],
         approved_conversion: if channel_map.is_some() {
             ExplicitConversionPolicy::Approved
@@ -193,23 +193,17 @@ pub(crate) fn classify_preflight(
     match result {
         Ok(_) => RoutingPortAssessment::Compatible,
         Err(RoutingEditError::RequiresUserDecision { .. }) => {
-            let channels = |port: SemanticPortId| {
-                project
-                    .routing
-                    .ports
-                    .get(&port)
-                    .map(|p| p.channels)
-                    .unwrap_or(0)
-            };
+            let channels =
+                |port: SemanticPortId| project.routing.ports.get(&port).map_or(0, |p| p.channels);
             let (source_channels, destination_channels) = (channels(source), channels(target));
-            if source_channels != destination_channels {
+            if source_channels == destination_channels {
+                RoutingPortAssessment::Prohibited {
+                    reason: "routing-requires-decision".to_string(),
+                }
+            } else {
                 RoutingPortAssessment::NeedsMapping {
                     source_channels,
                     destination_channels,
-                }
-            } else {
-                RoutingPortAssessment::Prohibited {
-                    reason: "routing-requires-decision".to_string(),
                 }
             }
         }

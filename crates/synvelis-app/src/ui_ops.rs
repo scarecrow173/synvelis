@@ -2403,7 +2403,7 @@ impl SynvelisApp {
                 };
                 let outcome = self
                     .workspace
-                    .routing_gesture_confirm(inst, channel_map)
+                    .routing_gesture_confirm(inst, channel_map.as_ref())
                     .map_err(|e| dock_err(&e))?;
                 Ok(json!({
                     "ok": true,
@@ -2446,11 +2446,9 @@ impl SynvelisApp {
                     })),
                 }))
             }
-            other => {
-                return Err(invalid(format!(
-                    "unknown signal_flow routing action {other}"
-                )));
-            }
+            other => Err(invalid(format!(
+                "unknown signal_flow routing action {other}"
+            ))),
         }
     }
 
