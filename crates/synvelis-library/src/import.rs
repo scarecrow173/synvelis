@@ -1133,6 +1133,16 @@ pub struct CommitVerifiedImport {
 impl Operation for CommitVerifiedImport {
     fn validate(&self, project: &Project) -> Result<(), synvelis_project::Error> {
         use synvelis_project::Error;
+        // This op's contract is verified SHA-256 import — a legacy or
+        // opaque digest must never enter the project through it
+        // unverified (synvelis#86 typed-digest rule).
+        if !synvelis_project::project::AssetDigest::parse(&self.content_digest)
+            .is_content_addressed()
+        {
+            return Err(Error::Validation(
+                "commit digest is not a sha256 content address".into(),
+            ));
+        }
         if let Some(applied) = project.applied_imports.get(&self.import_id) {
             return Err(Error::Validation(
                 if applied.content_hash == self.content_digest {
