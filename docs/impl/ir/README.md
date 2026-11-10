@@ -82,3 +82,5 @@ Directory: `docs/impl/ir`
 | IMPL-034V1rsGSFTsDZgYwBlfaz | TIM-03 attach wiring — capability→AttachConfig composition root | completed | [tim-03-attach-wiring-capability-attachconfig-composition-root.md](tim-03-attach-wiring-capability-attachconfig-composition-root.md) |
 | IMPL-Qt0RuNZjqvP8ojWR34w9p1 | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta | completed | [vcs-03-git-read-provider.md](vcs-03-git-read-provider.md) |
 | IMPL-TIM02SmfFormat01Core0001 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice 実装記録 | completed | [tim-02-smf-format01-import-export.md](tim-02-smf-format01-import-export.md) |
+| IMPL-034V4SMgc7OlchXo2EUCfn | VCS-05 safe apply selected change / restore as copy (headless) | completed | [vcs-05-safe-apply-selected-change-restore-as-copy-headless.md](vcs-05-safe-apply-selected-change-restore-as-copy-headless.md) |
+| IMPL-034V6MHZ91AdEfrxqsFgLC | RCD-03 Monitoring/Punch/Latency 意味論 crate 内完結 slice 実装記録 | completed | [rcd-03-monitoring-punch-latency-crate-slice.md](rcd-03-monitoring-punch-latency-crate-slice.md) |
