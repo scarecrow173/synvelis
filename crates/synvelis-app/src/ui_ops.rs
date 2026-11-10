@@ -23,12 +23,19 @@ use ruviform_ui::ipc::{ErrorBody, Event, codes};
 use ruviform_ui::window::WindowId;
 use serde_json::{Value, json};
 
+use synvelis_player::{
+    LatencyBasis, LatencyComponent, LatencyQuality, LatencyReport, LowLatencyReadiness,
+};
 use synvelis_project::vcs::{RevisionSelector, VcsCancel};
 use synvelis_project::{
-    BusId, ExplicitChannelMap, ParameterTargetId, ProbeCaptureSegment, ProbeMode, ProbeObservation,
-    ProbePortError, ProbeStatusReceipt, ProbeSubscriptionKey, ProbeTracePort, ProcessorId,
-    ProjectRevision, ProjectStore, RoutingConnectionId, SemanticPortId, SemanticProbePoint, SendId,
-    StripId, SubscriptionKind, TickTimeMapping, TraceSlot, TrackId, is_issuable_raw,
+    BusId, ClockEpochId, ExplicitChannelMap, LaneId, MusicalTick, ParameterTargetId,
+    ProbeCaptureSegment, ProbeMode, ProbeObservation, ProbePortError, ProbeStatusReceipt,
+    ProbeSubscriptionKey, ProbeTracePort, ProcessorId, ProjectRevision, ProjectStore,
+    RoutingConnectionId, SemanticPortId, SemanticProbePoint, SendId, StripId, SubscriptionKind,
+    TickTimeMapping, TraceSlot, TrackId, is_issuable_raw,
+};
+use synvelis_recording::{
+    ArmState, ChannelMap, HardwareDirectMonitor, HardwareDirectState, MonitorState,
 };
 use synvelis_workspace::VizSourceId;
 use synvelis_workspace::controls_ui::{
@@ -50,6 +57,7 @@ use synvelis_workspace::{
 };
 
 use crate::app::SynvelisApp;
+use crate::monitoring::{MonitorSessionParams, MonitorTransportAction, PunchSide, TrackPatch};
 use crate::screens::{
     DockViewInfo, InspectorRow, InspectorScreenState, TransportScreenState, dock_view_info,
     main_view_id, mixer_strip_targets, vcs_equality_str, vcs_freshness_reason, vcs_freshness_str,
@@ -2842,6 +2850,306 @@ impl SynvelisApp {
         json!({ "targets": targets })
     }
 
+    // -- syn.monitoring.* -----------------------------------------------------
+
+    /// `syn.monitoring.set` — session-scope の track monitor 宣言を
+    /// patch 更新または clear する（synvelis#117 RCD-03 slice）。
+    ///
+    /// `params.track`（tagged `TrackId`）は必須。`params.clear ==
+    /// true` で宣言を削除する。それ以外は patch:
+    ///
+    /// - `lane`: tagged `LaneId` で lane 指定、`null` で自動解決へ
+    ///   戻す（key 自体が無ければ変更なし）。
+    /// - `arm`: `"off"`|`"on"`。
+    /// - `monitor`: `"off"`|`"auto"`|`"on"`。
+    /// - `binding`: `{"channels": [u32, …]}` — channel→input 写像。
+    /// - `input_output_ready`: bool — 入力 Binding + Output
+    ///   Capability の検証済みフラグ（未検証を真としない）。
+    /// - `hardware_direct`: `{"state": "unknown"|"user_reported"|
+    ///   "device_controlled", "observed_active": bool|null}` — 外部
+    ///   観測の verbatim 注入。`Unknown` は制御可能と偽らない。
+    ///
+    /// 宣言は session-only で project 永続化・revision・Undo に
+    /// 影響しない。存在しない track、またはその track に属さない
+    /// lane は `INVALID_PARAMS`。
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters or unknown track/lane.
+    pub fn op_monitoring_set(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let track = TrackId::from_tagged(str_param(params, "track")?)
+            .map_err(|e| invalid(format!("params.track: {e}")))?;
+        let clear = match params.get("clear") {
+            None | Some(Value::Null) => false,
+            Some(v) => v
+                .as_bool()
+                .ok_or_else(|| invalid("params.clear (bool) required"))?,
+        };
+        if clear {
+            let cleared = self.monitoring.clear_track(track);
+            return Ok(json!({ "track": track.to_tagged(), "cleared": cleared }));
+        }
+        let mut patch = TrackPatch::default();
+        if let Some(lane) = params.get("lane") {
+            patch.lane = Some(match lane {
+                Value::Null => None,
+                v => Some(
+                    LaneId::from_tagged(
+                        v.as_str()
+                            .ok_or_else(|| invalid("params.lane (tagged string|null)"))?,
+                    )
+                    .map_err(|e| invalid(format!("params.lane: {e}")))?,
+                ),
+            });
+        }
+        if let Some(arm) = params.get("arm") {
+            patch.arm = Some(arm_state_param(
+                arm.as_str().ok_or_else(|| invalid("params.arm (string)"))?,
+            )?);
+        }
+        if let Some(monitor) = params.get("monitor") {
+            patch.monitor = Some(monitor_state_param(
+                monitor
+                    .as_str()
+                    .ok_or_else(|| invalid("params.monitor (string)"))?,
+            )?);
+        }
+        if let Some(binding) = params.get("binding") {
+            let channels = binding
+                .get("channels")
+                .and_then(Value::as_array)
+                .ok_or_else(|| invalid("params.binding.channels (array) required"))?;
+            let channels: Vec<u32> = channels
+                .iter()
+                .map(|c| {
+                    c.as_u64()
+                        .and_then(|n| u32::try_from(n).ok())
+                        .ok_or_else(|| invalid("params.binding.channels[] (u32) required"))
+                })
+                .collect::<Result<_, _>>()?;
+            patch.channel_map = Some(
+                ChannelMap::new(channels)
+                    .map_err(|e| invalid(format!("params.binding.channels: {e}")))?,
+            );
+        }
+        if let Some(ready) = params.get("input_output_ready") {
+            patch.input_output_ready = Some(
+                ready
+                    .as_bool()
+                    .ok_or_else(|| invalid("params.input_output_ready (bool) required"))?,
+            );
+        }
+        if let Some(hw) = params.get("hardware_direct") {
+            let state = hw_state_param(
+                hw.get("state")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| invalid("params.hardware_direct.state (string) required"))?,
+            )?;
+            let observed_active = match hw.get("observed_active") {
+                None | Some(Value::Null) => None,
+                Some(v) => Some(v.as_bool().ok_or_else(|| {
+                    invalid("params.hardware_direct.observed_active (bool|null)")
+                })?),
+            };
+            patch.hardware_direct = Some(HardwareDirectMonitor {
+                state,
+                observed_active,
+            });
+        }
+        let project = self.workspace.session().project();
+        self.monitoring
+            .set_track(project, track, patch)
+            .map_err(invalid)?;
+        Ok(json!({ "track": track.to_tagged(), "set": true }))
+    }
+
+    /// `syn.monitoring.punch` — punch in/out マークの設定・解除
+    /// （project tick、半開 `[in, out)`）。session active 中は
+    /// 変更不可（gate は開始時に確定済み）。
+    ///
+    /// `params.action`:
+    /// - `"set"` — `punch_in`/`punch_out`（tick、省略は `null` 扱い）
+    ///   で両端をまとめて置き換える。
+    /// - `"in"` / `"out"` — `params.tick` で片側だけ設定。
+    /// - `"clear"` — 両端を解除（gate は Normal に戻る）。
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters or an active session.
+    pub fn op_monitoring_punch(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let action = str_param(params, "action")?;
+        match action {
+            "set" => {
+                let punch_in = opt_tick_param(params, "punch_in")?;
+                let punch_out = opt_tick_param(params, "punch_out")?;
+                self.monitoring
+                    .punch_set(punch_in, punch_out)
+                    .map_err(invalid)?;
+            }
+            "in" | "out" => {
+                let tick = tick_param(params, "tick")?;
+                let side = if action == "in" {
+                    PunchSide::In
+                } else {
+                    PunchSide::Out
+                };
+                self.monitoring.punch_mark(side, tick).map_err(invalid)?;
+            }
+            "clear" => self.monitoring.punch_clear().map_err(invalid)?,
+            _ => {
+                return Err(invalid(format!("params.action: unknown action {action:?}")));
+            }
+        }
+        Ok(json!({ "action": action }))
+    }
+
+    /// `syn.monitoring.transport` — monitor session の transport を
+    /// 動かす。`params.action` は `"play"`|`"pause"`|`"stop"`|
+    /// `"seek"`（seek は `params.position` の project tick 必須）。
+    ///
+    /// session が無い場合は `INVALID_PARAMS`。project transport
+    /// （`syn.transport.set`）とは独立 — monitor session の
+    /// 再生位相のみを動かし、project 側の状態は変更しない。
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters or no active session.
+    pub fn op_monitoring_transport(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let action = str_param(params, "action")?;
+        let mapped = match action {
+            "play" => MonitorTransportAction::Play,
+            "pause" => MonitorTransportAction::Pause,
+            "stop" => MonitorTransportAction::Stop,
+            "seek" => MonitorTransportAction::Seek,
+            _ => {
+                return Err(invalid(format!("params.action: unknown action {action:?}")));
+            }
+        };
+        let position = if mapped == MonitorTransportAction::Seek {
+            Some(tick_param(params, "position")?)
+        } else {
+            None
+        };
+        self.monitoring
+            .transport(mapped, position)
+            .map_err(invalid)?;
+        Ok(json!({ "action": action }))
+    }
+
+    /// `syn.monitoring.session` — monitor session の start/stop。
+    ///
+    /// `"start"` は宣言 track から `RecordingRequest` を組み立て
+    /// `synvelis-recording::preflight` で plan を確定する
+    /// （app 側で gate/tick 意味論を再実装しない）。params:
+    /// `transport_start`/`stop`（tick、必須）、`sample_rate`
+    /// （u32、必須）、`clock_epoch`（tagged、省略時は project の
+    /// 最小 epoch）、`max_block_frames`（u32、省略時は既定）。
+    ///
+    /// `"stop"` は session を破棄する（宣言・punch・latency 注入は
+    /// 保持）。session の start/stop は project revision・capture・
+    /// writer・file bytes を一切変更しない。
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, preflight failure,
+    /// missing clock epoch/track/lane, or an already-active session.
+    pub fn op_monitoring_session(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let action = str_param(params, "action")?;
+        match action {
+            "start" => {
+                let transport_start = tick_param(params, "transport_start")?;
+                let stop = tick_param(params, "stop")?;
+                let sample_rate = u32_param(params, "sample_rate")?;
+                let clock_epoch = match params.get("clock_epoch") {
+                    None | Some(Value::Null) => None,
+                    Some(v) => Some(
+                        ClockEpochId::from_tagged(
+                            v.as_str()
+                                .ok_or_else(|| invalid("params.clock_epoch (tagged string)"))?,
+                        )
+                        .map_err(|e| invalid(format!("params.clock_epoch: {e}")))?,
+                    ),
+                };
+                let max_block_frames = params
+                    .get("max_block_frames")
+                    .map(|v| {
+                        v.as_u64()
+                            .and_then(|n| u32::try_from(n).ok())
+                            .ok_or_else(|| invalid("params.max_block_frames (u32) required"))
+                    })
+                    .transpose()?;
+                let request = MonitorSessionParams {
+                    transport_start,
+                    stop,
+                    clock_epoch,
+                    sample_rate,
+                    max_block_frames,
+                };
+                let project = self.workspace.session().project();
+                self.monitoring
+                    .start_session(project, request)
+                    .map_err(invalid)?;
+                Ok(json!({ "action": "start", "active": true }))
+            }
+            "stop" => {
+                self.monitoring.stop_session();
+                Ok(json!({ "action": "stop", "active": false }))
+            }
+            _ => Err(invalid(format!("params.action: unknown action {action:?}"))),
+        }
+    }
+
+    /// `syn.monitoring.latency` — latency 報告・low-latency
+    /// readiness・tone-difference の注入点（実 device 層が値を
+    /// 提供するまでの headless 注入）。全 field 省略可で、
+    /// 指定した field のみ更新する。
+    ///
+    /// - `report`: `LatencyReport` 全体を置き換える
+    ///   （`round_trip`/`input`/`output` は component object または
+    ///   `null`、`reported` は component 配列、`reported_verified`
+    ///   は bool）。component は `{"frames": u64, "quality":
+    ///   "unknown"|"estimated"|"reported"|"measured", "basis":
+    ///   "callback_reported"|"device_timestamp"|
+    ///   "round_trip_measured", "clock_epoch": u64|null}`。
+    /// - `readiness`: `{"prepared","input_ready","output_ready"}`
+    ///   （全て bool 必須）。
+    /// - `tone_difference`: bool。
+    ///
+    /// 解決投影は `syn.monitoring.state` の `latency` が
+    /// `LatencyReport::resolve`/`prepare_low_latency` の結果を
+    /// verbatim に返す。
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters.
+    pub fn op_monitoring_latency(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let report = match params.get("report") {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(latency_report_param(v)?),
+        };
+        let readiness = match params.get("readiness") {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(latency_readiness_param(v)?),
+        };
+        let tone_difference = match params.get("tone_difference") {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(
+                v.as_bool()
+                    .ok_or_else(|| invalid("params.tone_difference (bool) required"))?,
+            ),
+        };
+        self.monitoring
+            .set_latency(report, readiness, tone_difference);
+        Ok(json!({ "updated": true }))
+    }
+
+    /// `syn.monitoring.state` — Arm/Monitor/Punch/session/latency の
+    /// 完全な読み取り投影。route は `synvelis-recording::decide`、
+    /// segments は `MonitorProbe`、latency は
+    /// `LatencyReport::resolve`/`prepare_low_latency` の結果のみを
+    /// 返し、session 無しでは route/segment を捏造しない
+    /// （`session.active == false`・空 segments・明示的な
+    /// unavailable 値）。
+    #[must_use]
+    pub fn op_monitoring_state(&self) -> Value {
+        self.monitoring.state(self.workspace.session().project())
+    }
+
     // -- syn.probe.* ---------------------------------------------------------
 
     /// `syn.probe.control` — semantic probe lifecycle (SF-04 slice 4).
@@ -3298,4 +3606,149 @@ impl SynvelisApp {
         self.ui_pump();
         Ok(json!({ "changed": true }))
     }
+}
+
+// -- syn.monitoring.* param helpers ------------------------------------------
+
+/// `params.<key>` を project tick（`MusicalTick`、負値可）として読む。
+fn tick_param(params: &Value, key: &str) -> Result<MusicalTick, ErrorBody> {
+    params
+        .get(key)
+        .and_then(Value::as_i64)
+        .map(MusicalTick::new)
+        .ok_or_else(|| invalid(format!("params.{key} (tick) required")))
+}
+
+/// `params.<key>` を省略可の project tick として読む
+/// （key 無し・`null` は `None`）。
+fn opt_tick_param(params: &Value, key: &str) -> Result<Option<MusicalTick>, ErrorBody> {
+    match params.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(v) => v
+            .as_i64()
+            .map(|t| Some(MusicalTick::new(t)))
+            .ok_or_else(|| invalid(format!("params.{key} (tick) required"))),
+    }
+}
+
+fn arm_state_param(s: &str) -> Result<ArmState, ErrorBody> {
+    match s {
+        "off" => Ok(ArmState::Off),
+        "on" => Ok(ArmState::On),
+        _ => Err(invalid(format!("arm: unknown state {s:?}"))),
+    }
+}
+
+fn monitor_state_param(s: &str) -> Result<MonitorState, ErrorBody> {
+    match s {
+        "off" => Ok(MonitorState::Off),
+        "auto" => Ok(MonitorState::Auto),
+        "on" => Ok(MonitorState::On),
+        _ => Err(invalid(format!("monitor: unknown mode {s:?}"))),
+    }
+}
+
+fn hw_state_param(s: &str) -> Result<HardwareDirectState, ErrorBody> {
+    match s {
+        "unknown" => Ok(HardwareDirectState::Unknown),
+        "user_reported" => Ok(HardwareDirectState::UserReported),
+        "device_controlled" => Ok(HardwareDirectState::DeviceControlled),
+        _ => Err(invalid(format!("hardware_direct.state: unknown {s:?}"))),
+    }
+}
+
+fn latency_quality_param(s: &str) -> Result<LatencyQuality, ErrorBody> {
+    match s {
+        "unknown" => Ok(LatencyQuality::Unknown),
+        "estimated" => Ok(LatencyQuality::Estimated),
+        "reported" => Ok(LatencyQuality::Reported),
+        "measured" => Ok(LatencyQuality::Measured),
+        _ => Err(invalid(format!("latency quality: unknown {s:?}"))),
+    }
+}
+
+fn latency_basis_param(s: &str) -> Result<LatencyBasis, ErrorBody> {
+    match s {
+        "callback_reported" => Ok(LatencyBasis::CallbackReported),
+        "device_timestamp" => Ok(LatencyBasis::DeviceTimestamp),
+        "round_trip_measured" => Ok(LatencyBasis::RoundTripMeasured),
+        _ => Err(invalid(format!("latency basis: unknown {s:?}"))),
+    }
+}
+
+/// `LatencyComponent` 1 件分の wire object を読む。
+/// `clock_epoch` は ruviform の device epoch 生値（u64）。
+fn latency_component_param(v: &Value) -> Result<LatencyComponent, ErrorBody> {
+    let frames = v
+        .get("frames")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| invalid("latency component.frames (u64) required"))?;
+    let quality = latency_quality_param(
+        v.get("quality")
+            .and_then(Value::as_str)
+            .ok_or_else(|| invalid("latency component.quality (string) required"))?,
+    )?;
+    let basis = latency_basis_param(
+        v.get("basis")
+            .and_then(Value::as_str)
+            .ok_or_else(|| invalid("latency component.basis (string) required"))?,
+    )?;
+    let clock_epoch = match v.get("clock_epoch") {
+        None | Some(Value::Null) => None,
+        Some(e) => Some(ruviform_media_core::ClockEpochId::new(
+            e.as_u64()
+                .ok_or_else(|| invalid("latency component.clock_epoch (u64)"))?,
+        )),
+    };
+    Ok(LatencyComponent {
+        frames,
+        quality,
+        basis,
+        clock_epoch,
+    })
+}
+
+/// `params.report` の wire object を `LatencyReport` へ写す
+/// （report 全体の置き換え — 部分 patch ではない）。
+fn latency_report_param(v: &Value) -> Result<LatencyReport, ErrorBody> {
+    let component = |key: &str| -> Result<Option<LatencyComponent>, ErrorBody> {
+        match v.get(key) {
+            None | Some(Value::Null) => Ok(None),
+            Some(c) => latency_component_param(c).map(Some),
+        }
+    };
+    let reported = match v.get("reported") {
+        None | Some(Value::Null) => Vec::new(),
+        Some(Value::Array(items)) => items
+            .iter()
+            .map(latency_component_param)
+            .collect::<Result<_, _>>()?,
+        Some(_) => return Err(invalid("params.report.reported (array)")),
+    };
+    Ok(LatencyReport {
+        round_trip: component("round_trip")?,
+        input: component("input")?,
+        output: component("output")?,
+        reported,
+        reported_verified: match v.get("reported_verified") {
+            None | Some(Value::Null) => false,
+            Some(b) => b
+                .as_bool()
+                .ok_or_else(|| invalid("params.report.reported_verified (bool)"))?,
+        },
+    })
+}
+
+/// `params.readiness` の wire object を `LowLatencyReadiness` へ写す。
+fn latency_readiness_param(v: &Value) -> Result<LowLatencyReadiness, ErrorBody> {
+    let flag = |key: &str| -> Result<bool, ErrorBody> {
+        v.get(key)
+            .and_then(Value::as_bool)
+            .ok_or_else(|| invalid(format!("params.readiness.{key} (bool) required")))
+    };
+    Ok(LowLatencyReadiness {
+        prepared: flag("prepared")?,
+        input_ready: flag("input_ready")?,
+        output_ready: flag("output_ready")?,
+    })
 }

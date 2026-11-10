@@ -287,6 +287,13 @@ pub struct SynvelisApp {
     /// headless slice ships the seam only). `pub(crate)` so `ui_ops`
     /// can compose the `VcsSession` context disjoint from `workspace`.
     pub(crate) vcs_backend: Option<Arc<dyn VcsHistoryBackend>>,
+    /// RCD-03 Arm/Monitoring UX state (synvelis#117 slice) —
+    /// session-scope monitor declarations, the active monitor
+    /// session (preflight-frozen plan + transport/punch marks) and
+    /// the latency injection point. Never persisted; reset when the
+    /// project session is recreated. `pub(crate)` so `ui_ops` can
+    /// drive the `syn.monitoring.*` ops.
+    pub(crate) monitoring: crate::monitoring::MonitorUxState,
 }
 
 impl SynvelisApp {
@@ -313,6 +320,7 @@ impl SynvelisApp {
             routing_engine: None,
             main_screen: Rc::new(RefCell::new(MainScreenState::default())),
             vcs_backend: None,
+            monitoring: crate::monitoring::MonitorUxState::default(),
         }
     }
 
@@ -575,6 +583,7 @@ impl SynvelisApp {
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
         self.routing_engine = None;
+        self.monitoring = crate::monitoring::MonitorUxState::default();
         Ok(self.project_info())
     }
 
@@ -609,6 +618,7 @@ impl SynvelisApp {
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
         self.routing_engine = None;
+        self.monitoring = crate::monitoring::MonitorUxState::default();
         Ok(self.project_info())
     }
 
