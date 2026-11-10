@@ -9,6 +9,7 @@ Directory: `docs/designs`
 | DESIGN-OVERVIEW | Synvelis 設計概要 | draft | [overview.md](./overview.md) |
 | DESIGN-pzR2GiO8Eru6Jw2zRK6l2s | ALIB-01 Design — Asset Provider 契約・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract-design.md](./alib-01-asset-provider-contract-design.md) |
 | DSN-alib02-streaming-import | ALIB-02 — Streaming Verified Import 設計（synvelis-library） | approved | [alib-02-streaming-verified-import-design.md](./alib-02-streaming-verified-import-design.md) |
+| DSN-alib02-v5snap | ALIB-02 — v5 snapshot asset-digest 互換移行 設計 | approved | [alib-02-v5-snapshot-compat-design.md](./alib-02-v5-snapshot-compat-design.md) |
 | DSN-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache 設計（synvelis-library） | approved | [alib-03-catalog-preview-cache-design.md](./alib-03-catalog-preview-cache-design.md) |
 | DSN-alib04-git-remote-provider | ALIB-04 — Git Remote Provider 設計（synvelis-library） | approved | [alib-04-git-remote-provider-design.md](./alib-04-git-remote-provider-design.md) |
 | DSN-alib06-webdav-provider | ALIB-06 — WebDAV File-Server Provider 設計（synvelis-library） | approved | [alib-06-webdav-provider-design.md](./alib-06-webdav-provider-design.md) |

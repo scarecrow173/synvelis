@@ -7,6 +7,7 @@ Directory: `docs/tasks`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | TASK-alib02-t1 | ALIB-02 Task 1+2 — import pipeline module・namespace・tests | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
+| TASK-alib02-v5snap-t1 | ALIB-02 v5 asset-digest migration + recovery fixture | completed | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | TASK-alib03-t1 | ALIB-03 Task 1 — cache/catalog/preview/notify modules・tests | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | TASK-alib06-t1 | ALIB-06 Task 1 — webdav provider modules・fixture・tests | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
 | TASK-alib07-t1 | ALIB-07 Task 1 — fault case 追加・webdav fixture 抽出・証拠 matrix | in-progress | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |

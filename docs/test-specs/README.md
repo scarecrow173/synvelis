@@ -8,6 +8,7 @@ Directory: `docs/test-specs`
 | --- | --- | --- | --- |
 | TSPEC-DM8VnIP07x0mq4VnOt6PJD | ALIB-01 検証仕様 — Asset Provider 契約・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
 | TESTSPEC-alib02 | ALIB-02 Streaming Verified Import — テスト仕様 | approved | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
+| TESTSPEC-alib02-v5snap | ALIB-02 v5 asset-digest 互換 + recovery fixture — テスト仕様 | approved | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | TESTSPEC-alib03 | ALIB-03 Catalog/Preview Cache — テスト仕様 | approved | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | TESTSPEC-alib04 | ALIB-04 Git Remote Provider — テスト仕様 | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | TESTSPEC-alib06 | ALIB-06 WebDAV File-Server Provider — テスト仕様 | approved | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |

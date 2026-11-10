@@ -8,7 +8,7 @@ Directory: `docs/specs`
 | --- | --- | --- | --- |
 | SPEC-j8VrtHRiA60WGx27NKFnH4 | ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
 | SPEC-034UviRHTzZZY5QqaoRYZV | ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | approved | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
-| SPEC-alib02-v5snap | ALIB-02 deferred — v5 snapshot 互換移行（SHA-256/旧 CRC digest 共存） | draft | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
+| SPEC-alib02-v5snap | ALIB-02 deferred — v5 snapshot 互換移行（SHA-256/旧 CRC digest 共存） | approved | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | SPEC-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | approved | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | SPEC-alib04-git-remote-provider | ALIB-04 — Git Remote Provider（fixed Commit/Tree・Git LFS・selective fetch・auth）（synvelis-library slice） | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | SPEC-alib06-webdav-provider | ALIB-06 — WebDAV File-Server Provider（strong ETag/If-Match pin・conditional read・auth・cancel）（synvelis-library slice） | approved | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
