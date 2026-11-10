@@ -1,7 +1,7 @@
 ---
 id: "TASK-034V2wJc28eBSJp9D68CuX"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "SF-06 headless — sf06_oracle.rs Domain Oracle + fault fixture + ledger"
 created: "2026-11-10"
 updated: "2026-11-10"
@@ -82,18 +82,19 @@ Ruviform generic primitive には触れない。
 - [x] `sf06_oracle.rs` の 6 test が全て Pass。
 - [x] ledger が Issue #109 schema 全 column と全 Case family
   を持ち、実機/consumer 行が `NotRun`。
-- [ ] docs チェーン + 索引再生成済み。
-- [ ] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt` が
+- [x] docs チェーン + 索引再生成済み。
+- [x] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt` が
   exit 0。
 
 ## Verification
 
 - [x] `cargo test -p synvelis-project --test sf06_oracle`
   exit 0（6 test 全 Pass）。
-- [ ] `mise run fmt-check` exit 0。
-- [ ] `mise run check` exit 0。
-- [ ] `mise run lint` exit 0。
-- [ ] `mise run test` exit 0。
-- [ ] `mise run test-rt` exit 0。
-- [ ] `node .agents/skills/doc-maintenance/scripts/
+- [x] `mise run fmt-check` exit 0。
+- [x] `mise run check` exit 0。
+- [x] `mise run lint` exit 0。
+- [x] `mise run test` exit 0（workspace 全 159 test binary
+  Pass・0 failed）。
+- [x] `mise run test-rt` exit 0（rt_ filter 全 Pass）。
+- [x] `node .agents/skills/doc-maintenance/scripts/
   doc_maintenance.js plan --type all` → `apply` で索引再生成。

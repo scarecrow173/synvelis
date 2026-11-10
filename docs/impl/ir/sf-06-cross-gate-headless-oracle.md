@@ -1,7 +1,7 @@
 ---
 id: "IMPL-034V2wJTpu3xW419A7YT37"
 type: "impl"
-status: "draft"
+status: "completed"
 title: "SF-06 cross-gate headless oracle 実装記録"
 created: "2026-11-10"
 updated: "2026-11-10"
@@ -150,12 +150,20 @@ declarative fixture + 独立導出パターンを適用。
   exit 0 — 6 test 全 Pass（audibility sweep mix 2^14 + chain
   2^8×2 variant、invariant oracle、corruption 検出、fault
   matrix 8 系統、v5 migration）。
-- [ ] `mise run fmt-check` exit 0。
-- [ ] `mise run check` exit 0。
-- [ ] `mise run lint` exit 0。
-- [ ] `mise run test` exit 0。
-- [ ] `mise run test-rt` exit 0。
-- [ ] docs 索引再生成（doc-maintenance preview→apply）。
+- [x] `mise run fmt-check` exit 0。
+- [x] `mise run check` exit 0。
+- [x] `mise run lint` exit 0。
+- [x] `mise run test` exit 0（workspace 全 test binary Pass）。
+- [x] `mise run test-rt` exit 0。
+- [x] docs 索引再生成（doc-maintenance preview→apply）。
+
+rebase 後の追従修正: main 取込で CTL-02 strip channel target
+（`ControlOwner::Strip`）と v6→v7 owner 検査が入ったため、
+v5 envelope 構築を `routing_sf01.rs` と同じ「全 Strip-owned
+target + lane/assignment 除去」へ更新。clippy 指摘
+（`unused_self`/`too_many_lines`/`collapsible_if`/
+`assert_is_empty`/`needless_pass_by_value`/
+`items_after_statements`）も同 commit で解消。
 
 ## Risks
 
