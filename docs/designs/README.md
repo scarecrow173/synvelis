@@ -45,6 +45,7 @@ Directory: `docs/designs`
 | DESIGN-034UqtGwJKTXdIjOxuLVS2 | PC-C3 ControlTrace 設計 — stage evidence slot・freshness 判定・plan activation 投影 | approved | [pc-c3-control-trace-design.md](./pc-c3-control-trace-design.md) |
 | DESIGN-034Uw4SG2SiRKQuoKOZGzL | PC-C4 plugin parameter binding design — verified frame base・capability gate・generation consistency | approved | [pc-c4-plugin-param-binding-design.md](./pc-c4-plugin-param-binding-design.md) |
 | DESIGN-AkFUh4M60YuHo8COCvb0Um | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
+| DESIGN-034UxXM5FBBTGn5JWkSBss | PC-C5 slice2 Gesture 固定・stale drop・Inspector mode 設計 | approved | [pc-c5-02-03-gesture-stale-inspector-design.md](./pc-c5-02-03-gesture-stale-inspector-design.md) |
 | DESIGN-mFknHHQIpULZsaBsqLEtPk | PC-C6 oracle 設計 — fixture 宣言モデル・独立参照実装・Case 対応表 | approved | [pc-c6-oracle-rel-tr-design.md](./pc-c6-oracle-rel-tr-design.md) |
 | — | Synvelis × Ruviform — Playback / Mixer / Generic Execution Graph Architecture | — | [playback-mixer-generic-execution-graph-architecture.md](./playback-mixer-generic-execution-graph-architecture.md) |
 | — | Synvelis — Project / Asset / Persistence Architecture | — | [project-asset-persistence-architecture.md](./project-asset-persistence-architecture.md) |

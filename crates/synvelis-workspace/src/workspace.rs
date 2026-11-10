@@ -12,9 +12,12 @@ use ruviform_ui::dock::{
 };
 use ruviform_ui::event::HostEvent;
 use ruviform_ui::window::{MonitorInfo, WindowConfig, WindowHandle, WindowId};
-use synvelis_project::{ProjectOp, ProjectRevision, TimeAnchor};
+use synvelis_project::{ControlEntityRef, ProjectOp, ProjectRevision, TimeAnchor, Transform};
 
 use crate::command::{CommandContext, CommandKind, CommandOutcome, build_project_op, spec_for};
+use crate::control_edge::{
+    ControlEdgeFixation, ControlEdgeGesture, ControlEdgeOutcome, ControlEdgePreview,
+};
 use crate::edit::{self, CommitEffect};
 use crate::error::WorkspaceError;
 use crate::focus::{FocusState, InputContext};
@@ -24,7 +27,9 @@ use crate::persist::{LinkRecord, ViewRecord, WORKSPACE_SCHEMA, WorkspaceSnapshot
 use crate::selection::{EditTimePoint, LaneScope, SelectionDomain, TimeSelection};
 use crate::session::ProjectSession;
 use crate::snap::{SnapEnvironment, resolve_snap};
-use crate::state::{EditingSelection, SemanticTarget, ViewState, ViewStateRegistry};
+use crate::state::{
+    EditingSelection, FollowSource, InspectionMode, SemanticTarget, ViewState, ViewStateRegistry,
+};
 use crate::tool::{EditOperation, HandleKind, HitProbe, Tool, ToolResolution, resolve_tool};
 use crate::view::{ViewDescriptor, ViewRegistry, ViewType};
 
@@ -696,6 +701,240 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         Ok(())
     }
 
+    // -- inspector (Issue #5 / UI-C5-03) -------------------------------------
+
+    /// Inspects `target` on `view`: enters [`InspectionMode::Explore`],
+    /// pushes the previous target onto the explore back-stack and
+    /// clears the forward-stack. This is observation only — the
+    /// editing selection, project and undo history are never touched,
+    /// so an inspect click can never become an edit (UI-C5-02).
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] when unregistered.
+    pub fn inspect(
+        &mut self,
+        view: ViewInstanceId,
+        target: SemanticTarget,
+    ) -> Result<(), WorkspaceError> {
+        let focus = &mut self.state_mut(view)?.inspection_focus;
+        if let Some(prev) = focus.target
+            && prev != target
+        {
+            focus.explore_back.push(prev);
+        }
+        focus.explore_fwd.clear();
+        focus.target = Some(target);
+        focus.mode = InspectionMode::Explore;
+        Ok(())
+    }
+
+    /// Sets `view`'s inspection mode. Leaving Explore clears its
+    /// session-only history; the follow source is preserved so a
+    /// later return to Follow resumes the same tracking.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] when unregistered.
+    pub fn set_inspection_mode(
+        &mut self,
+        view: ViewInstanceId,
+        mode: InspectionMode,
+    ) -> Result<(), WorkspaceError> {
+        let focus = &mut self.state_mut(view)?.inspection_focus;
+        focus.mode = mode;
+        if mode != InspectionMode::Explore {
+            focus.explore_back.clear();
+            focus.explore_fwd.clear();
+        }
+        Ok(())
+    }
+
+    /// Sets (or clears) what `view`'s Follow mode tracks. `None`
+    /// keeps the default: follow every event the view's own link
+    /// group delivers.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] when unregistered.
+    pub fn set_follow_source(
+        &mut self,
+        view: ViewInstanceId,
+        source: Option<FollowSource>,
+    ) -> Result<(), WorkspaceError> {
+        self.state_mut(view)?.inspection_focus.follow_source = source;
+        Ok(())
+    }
+
+    /// Steps `view`'s inspection target back through the explore
+    /// history. Only meaningful in [`InspectionMode::Explore`];
+    /// elsewhere or with an empty stack this is a no-op. The editing
+    /// selection is never touched.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] when unregistered.
+    pub fn explore_back(&mut self, view: ViewInstanceId) -> Result<(), WorkspaceError> {
+        let focus = &mut self.state_mut(view)?.inspection_focus;
+        if focus.mode != InspectionMode::Explore {
+            return Ok(());
+        }
+        let Some(prev) = focus.explore_back.pop() else {
+            return Ok(());
+        };
+        if let Some(cur) = focus.target {
+            focus.explore_fwd.push(cur);
+        }
+        focus.target = Some(prev);
+        Ok(())
+    }
+
+    /// Steps `view`'s inspection target forward through the explore
+    /// history — the mirror of [`explore_back`](Self::explore_back).
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] when unregistered.
+    pub fn explore_forward(&mut self, view: ViewInstanceId) -> Result<(), WorkspaceError> {
+        let focus = &mut self.state_mut(view)?.inspection_focus;
+        if focus.mode != InspectionMode::Explore {
+            return Ok(());
+        }
+        let Some(next) = focus.explore_fwd.pop() else {
+            return Ok(());
+        };
+        if let Some(cur) = focus.target {
+            focus.explore_back.push(cur);
+        }
+        focus.target = Some(next);
+        Ok(())
+    }
+
+    // -- Control Layer edge gestures (UI-C5-02) ------------------------------
+
+    /// Begins a Control Layer edge gesture on `view`: a drag from a
+    /// [`ControlEntityRef::ModulationSource`] to a
+    /// [`ControlEntityRef::Parameter`]. The UI anchor refs are
+    /// resolved to typed command targets *once*, here — the fixation
+    /// then carries ids, revision and window epoch, so nothing later
+    /// (selection, focus, dock, link events) can retarget it.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`], [`WorkspaceError::ViewBusy`]
+    /// mid-transfer, [`WorkspaceError::GestureActive`] when any
+    /// gesture already runs on the view, or
+    /// [`WorkspaceError::InvalidGesture`] for non connect endpoints.
+    pub fn control_edge_begin(
+        &mut self,
+        view: ViewInstanceId,
+        source: ControlEntityRef,
+        target: ControlEntityRef,
+    ) -> Result<(), WorkspaceError> {
+        let state = self.state(view)?;
+        if state.gesture.is_some() || state.control_edge_gesture.is_some() {
+            return Err(WorkspaceError::GestureActive(view));
+        }
+        if self.dock.is_transferring(view) {
+            return Err(WorkspaceError::ViewBusy(view));
+        }
+        let (ControlEntityRef::ModulationSource(source), ControlEntityRef::Parameter(target)) =
+            (source, target)
+        else {
+            return Err(WorkspaceError::InvalidGesture(
+                "control edge requires ModulationSource -> Parameter".to_string(),
+            ));
+        };
+        let gesture = ControlEdgeGesture {
+            fixation: ControlEdgeFixation {
+                view,
+                source,
+                target,
+                revision: self.session.revision(),
+                window: self.dock.owner_of(view),
+            },
+            preview: ControlEdgePreview::default(),
+        };
+        self.state_mut(view)?.control_edge_gesture = Some(gesture);
+        Ok(())
+    }
+
+    /// Updates the running edge gesture's preview values. Project
+    /// state is never touched — a preview cannot create an undo
+    /// boundary.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] / [`WorkspaceError::NoGesture`].
+    pub fn control_edge_preview(
+        &mut self,
+        view: ViewInstanceId,
+        preview: ControlEdgePreview,
+    ) -> Result<(), WorkspaceError> {
+        let state = self.state_mut(view)?;
+        let Some(gesture) = state.control_edge_gesture.as_mut() else {
+            return Err(WorkspaceError::NoGesture(view));
+        };
+        gesture.preview = preview;
+        Ok(())
+    }
+
+    /// Commits `view`'s running edge gesture as one
+    /// `AddModulationAssignment` at the fixated revision, then
+    /// distributes the new revision. A moved window epoch (dock
+    /// transfer/detach) or an advanced project revision drops the
+    /// gesture as [`ControlEdgeOutcome::Stale`] — it never retargets
+    /// to whatever is current now.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::NoGesture`] when nothing runs;
+    /// [`WorkspaceError::Project`] on non-stale project rejection
+    /// (the gesture is kept so the caller can inspect or cancel).
+    pub fn control_edge_commit(
+        &mut self,
+        view: ViewInstanceId,
+    ) -> Result<ControlEdgeOutcome, WorkspaceError> {
+        let state = self.state(view)?;
+        let Some(gesture) = state.control_edge_gesture.clone() else {
+            return Err(WorkspaceError::NoGesture(view));
+        };
+        if self.dock.is_transferring(view) || self.dock.owner_of(view) != gesture.fixation.window {
+            self.state_mut(view)?.control_edge_gesture = None;
+            return Ok(ControlEdgeOutcome::Stale);
+        }
+        let op = ProjectOp::AddModulationAssignment {
+            source: gesture.fixation.source,
+            target: gesture.fixation.target,
+            depth: gesture.preview.depth,
+            depth_source: None,
+            polarity: gesture.preview.polarity,
+            transform: Transform::Identity,
+            enabled: true,
+        };
+        match self.session.apply(op, gesture.fixation.revision) {
+            Ok(revision) => {
+                self.distribute_revision(revision);
+                self.state_mut(view)?.control_edge_gesture = None;
+                Ok(ControlEdgeOutcome::Applied { revision })
+            }
+            Err(synvelis_project::Error::StaleRevision { .. }) => {
+                self.state_mut(view)?.control_edge_gesture = None;
+                Ok(ControlEdgeOutcome::Stale)
+            }
+            Err(e) => Err(WorkspaceError::Project(e)),
+        }
+    }
+
+    /// Cancels `view`'s running edge gesture — the preview is dropped
+    /// and the project (and its undo history) is untouched.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::NoGesture`] when nothing runs.
+    pub fn control_edge_cancel(
+        &mut self,
+        view: ViewInstanceId,
+        reason: CancelReason,
+    ) -> Result<ControlEdgeOutcome, WorkspaceError> {
+        let state = self.state_mut(view)?;
+        if state.control_edge_gesture.take().is_none() {
+            return Err(WorkspaceError::NoGesture(view));
+        }
+        Ok(ControlEdgeOutcome::Cancelled { reason })
+    }
+
     /// The outcome of a `pointer_down`.
     /// Resolves the active tool over `probe` and, on success, fixes
     /// the gesture: operation, target set, project revision and
@@ -896,6 +1135,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
             for id in self.states.ids() {
                 if let Some(state) = self.states.get_mut(id) {
                     state.gesture = None;
+                    state.control_edge_gesture = None;
                 }
             }
         }

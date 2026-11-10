@@ -19,6 +19,7 @@ use ruviform_ui::dock::ViewInstanceId;
 use serde::{Deserialize, Serialize};
 use synvelis_project::{ClipId, LaneId, ProjectRevision, SourceId, TrackId};
 
+use crate::control_edge::ControlEdgeGesture;
 use crate::gesture::Gesture;
 use crate::selection::{EditBinding, LaneScope, ObjectSelections, TimeSelection};
 use crate::snap::{GridConfig, SnapConfig};
@@ -70,15 +71,32 @@ impl EditingSelection {
     }
 }
 
-/// Whether the inspector follows link-group context or stays pinned.
+/// Whether the inspector follows link-group context, explores freely,
+/// or stays pinned (Issue #5 semantics — Inspector-owned, never an
+/// editing-selection concern).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum InspectionMode {
     /// Follow incoming link events (default).
     #[default]
     Follow,
+    /// Inspect targets explicitly without link-driven retargeting;
+    /// back/forward walk the Inspector's own explore history.
+    Explore,
     /// Keep the pinned target regardless of link events.
     Pinned,
+}
+
+/// What a Follow-mode inspector tracks. `None` on
+/// [`InspectionFocus::follow_source`] keeps the legacy behaviour —
+/// follow every event the view's own link group delivers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum FollowSource {
+    /// Follow events published by this view.
+    View(ViewInstanceId),
+    /// Follow events published inside this link group.
+    Group(crate::link::LinkGroupId),
 }
 
 /// The view-local inspection target.
@@ -86,8 +104,19 @@ pub enum InspectionMode {
 pub struct InspectionFocus {
     /// Inspected entity, if any.
     pub target: Option<SemanticTarget>,
-    /// Follow/Pinned mode.
+    /// Follow/Explore/Pinned mode.
     pub mode: InspectionMode,
+    /// Optional narrowing of Follow mode to one source view or link
+    /// group. `None` follows whatever the view's own group delivers.
+    #[serde(default)]
+    pub follow_source: Option<FollowSource>,
+    /// Explore back-stack — session state only, never persisted or
+    /// carried into presets (Issue #5: explore history resets).
+    #[serde(default, skip)]
+    pub explore_back: Vec<SemanticTarget>,
+    /// Explore forward-stack — session state only.
+    #[serde(default, skip)]
+    pub explore_fwd: Vec<SemanticTarget>,
 }
 
 /// Link-derived context delivered by a link-group peer. Distinct from
@@ -153,10 +182,15 @@ pub struct ViewState {
     /// Editor display/edit binding — *not* a command target.
     #[serde(default)]
     pub edit_binding: Option<EditBinding>,
-    /// The running gesture, if any. Session state only — never
-    /// persisted.
+    /// The running Audio Routing gesture, if any. Session state
+    /// only — never persisted.
     #[serde(skip)]
     pub gesture: Option<Gesture>,
+    /// The running Control Layer edge gesture, if any. Session
+    /// state only — never persisted, and a different type from
+    /// [`Gesture`] so the two gesture families cannot be confused.
+    #[serde(skip)]
+    pub control_edge_gesture: Option<ControlEdgeGesture>,
     /// Inspection focus (view-local).
     pub inspection_focus: InspectionFocus,
     /// Link-derived context (view-local, delivered by peers).

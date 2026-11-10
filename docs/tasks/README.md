@@ -94,6 +94,7 @@ Directory: `docs/tasks`
 | TASK-034UquDG2pRhDCtpLYPhPi | PC-C3: ControlTrace projection 実装タスク | done | [pc-c3-task1-control-trace.md](./pc-c3-task1-control-trace.md) |
 | TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | done | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
+| TASK-034UxYCkPWXOotRSbjIPex | PC-C5 slice2 タスク分解 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | done | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |
 | TASK-034UtpBjTeXJ6XSJAMupsv | RCD-03 Task1 Monitor/Punch/Latency semantics | done | [rcd-03-task1-monitor-punch-latency.md](./rcd-03-task1-monitor-punch-latency.md) |
 | TASK-RCD04Fx1kE5tY8uI3oP6aS9 | RCD-04 Task1 Comp Transition / MIDI Phrase crate fixture slice | done | [rcd-04-task1-comp-midi-fixture.md](./rcd-04-task1-comp-midi-fixture.md) |
