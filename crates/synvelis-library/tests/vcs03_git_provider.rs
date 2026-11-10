@@ -121,8 +121,7 @@ fn committed_locator(repo: &str, rev: &str) -> SnapshotLocator {
 /// untouched.
 fn repo_oracle(fx: &VcsGitFixture) -> String {
     let index = fx.repo.join(".git").join("index");
-    let index_hash = fs::read(&index)
-        .map_or_else(|_| "no-index".into(), |b| sha256_hex(&b));
+    let index_hash = fs::read(&index).map_or_else(|_| "no-index".into(), |b| sha256_hex(&b));
     let status = fx.git(&["status", "--porcelain=v1", "-z", "--no-renames"]);
     let head = fx.git_allow_fail(&["rev-parse", "--verify", "--quiet", "HEAD^{commit}"]);
     let head = String::from_utf8_lossy(&head.stdout).trim().to_owned();
@@ -791,7 +790,8 @@ fn cancelled_token_aborts_every_operation() {
 
     for result in [
         p.working_status(&ProjectScope::root(), &cancel).map(|_| ()),
-        p.list_history(&HistoryQuery::default(), &cancel).map(|_| ()),
+        p.list_history(&HistoryQuery::default(), &cancel)
+            .map(|_| ()),
         p.resolve_fixed_revision(&RevisionSelector::Head, &cancel)
             .map(|_| ()),
         p.resolve_staged_snapshot(&cancel).map(|_| ()),

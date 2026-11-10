@@ -126,19 +126,29 @@ impl GateSchedule {
     }
 }
 
+/// 先頭から `frame_span` frame の session 範囲 ↔ project 範囲
+/// `[p_in, p_out)` の線形対応で、オフセット `off` の project tick を返す。
+/// `off` は `[0, frame_span]` 内を仮定（端点は厳密に project 境界へ写る）。
+#[must_use]
+fn interp_project(frame_span: i64, p_in: MusicalTick, p_out: MusicalTick, off: i64) -> MusicalTick {
+    let tick_span = i128::from(p_out.value() - p_in.value());
+    let tick = i128::from(p_in.value()) + i128::from(off) * tick_span / i128::from(frame_span);
+    // 補間結果は project_in..=project_out に収まる（frame_span > 0、off >= 0）。
+    #[allow(clippy::cast_possible_truncation)]
+    MusicalTick::new(tick as i64)
+}
+
 /// span の `pos` に対応する project tick を線形補間する。
 /// `pos` は `[in, out]` 内を仮定（端点は厳密に project 境界へ写る）。
 #[must_use]
 fn project_at(span: &GateSpan, pos: SessionFrame) -> MusicalTick {
     let in_v = span.session.start().value();
-    let frame_span = span.session.end().value() - in_v;
-    let off = pos.value() - in_v;
-    let tick_span = i128::from(span.project_out.value() - span.project_in.value());
-    let tick =
-        i128::from(span.project_in.value()) + i128::from(off) * tick_span / i128::from(frame_span);
-    // 補間結果は project_in..=project_out に収まる（frame_span > 0、off >= 0）。
-    #[allow(clippy::cast_possible_truncation)]
-    MusicalTick::new(tick as i64)
+    interp_project(
+        span.session.end().value() - in_v,
+        span.project_in,
+        span.project_out,
+        pos.value() - in_v,
+    )
 }
 
 /// tick 区間 `[a, b)` を `tempo_ticks` 内の厳密に内側の点で分割し、
@@ -323,6 +333,15 @@ impl GateScheduler {
                 break;
             }
             let out_capped = out_v.min(self.session_end.value());
+            // session_end で打ち切った span の project_out は、打ち切り
+            // 位置を template の session↔project 対応で補間し直す。
+            // template 終端をそのまま名乗ると、短い末尾区間が gate 全域へ
+            // 引き伸ばされて commit の segment/clip 配置がずれる。
+            let p_out = if out_capped < out_v {
+                interp_project(out_v - in_v, p_in, p_out, out_capped - in_v)
+            } else {
+                p_out
+            };
             let session_in = SessionFrame::new(in_v)?;
             let session_out = SessionFrame::new(out_capped)?;
             let span = GateSpan {

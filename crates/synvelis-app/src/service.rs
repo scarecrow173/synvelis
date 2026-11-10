@@ -53,6 +53,10 @@ pub const OPS: &[OpInfo] = &[
         summary: "project name, id, revision, saved state",
     },
     OpInfo {
+        name: "syn.recording.info",
+        summary: "recording state projection — sessions/passes/streams/segments/takes + recorder status",
+    },
+    OpInfo {
         name: "syn.project.undo",
         summary: "undo the last project command — {\"undone\": bool}",
     },
@@ -243,6 +247,7 @@ impl AppService {
             "syn.project.save" => self.app.project_save().map_err(AppError::into_body),
             "syn.project.reload" => self.app.project_reload().map_err(AppError::into_body),
             "syn.project.info" => Ok(self.app.project_info()),
+            "syn.recording.info" => Ok(self.app.recording_info()),
             "syn.project.undo" => self.app.op_project_undo(),
             "syn.project.redo" => self.app.op_project_redo(),
             "syn.signal_flow.view" => self.app.op_signal_flow_view(params),
