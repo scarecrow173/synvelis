@@ -16,11 +16,13 @@
 //! can read staged/committed project bytes through it without knowing
 //! it is Git.
 
+mod history;
 mod types;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+pub use history::{VcsHistoryAdapter, VcsHistoryBackend};
 pub use types::{
     FixedVcsRevision, HistoryCompleteness, HistoryNode, HistoryPage, HistoryQuery, IndexEntry,
     IndexEntryMode, ProjectPath, ProjectRelativePath, ProjectScope, RevisionRelations,
