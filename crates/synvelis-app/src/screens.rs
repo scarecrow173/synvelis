@@ -1,7 +1,8 @@
 //! The product's minimal neutral screen spec (SV-GPUI-01 view-mount
 //! slice, Issue #175 successor; mixer gain wired by Issue #185;
 //! Transport actions + Inspector display wired by Issue #112 slice 1;
-//! Arrangement tab + Undo/Redo wired by Issue #112 slice 2).
+//! Arrangement tab + Undo/Redo wired by Issue #112 slice 2;
+//! Mixer strip Mute/Solo toggles wired by Issue #112 slice 3).
 //!
 //! [`main_screen_spec`] is the smallest *product-shaped* `ViewSpec`
 //! mounted through the RF387 seam: `Panel > [Toolbar, Tabs]` where the
@@ -20,9 +21,12 @@
 //! plus its control-relation neighborhood as a second read-only
 //! `Table` with a verbatim coverage readout (synvelis#102 UI-C5-01),
 //! the Arrangement tab carries the project-backed track/lane/clip
-//! read model as a read-only `Table` (synvelis#112 slice 2), and the
+//! read model as a read-only `Table` (synvelis#112 slice 2), the
 //! toolbar carries Undo/Redo `Button`s on the `project` action target
-//! (`syn.project.undo`/`syn.project.redo`).
+//! (`syn.project.undo`/`syn.project.redo`), and the Mixer tab's strip
+//! additionally carries `Toggle`s bound to the master strip's seeded
+//! `ParameterRole::Mute`/`Solo` targets discovered from the project's
+//! `ControlModel` (synvelis#112 slice 3).
 //! The Seek range follows the project length
 //! ([`seek_range_seconds`]).
 //!
@@ -69,7 +73,8 @@ use ruviform_ui::view::{
     TabsSelectionSpec, TabsSpec, ViewHost, ViewSpec,
 };
 use synvelis_project::{
-    MASTER_FADER_RAW, ModulationAssignmentId, ParameterTargetId, RelationCoverage,
+    ControlModel, MASTER_FADER_RAW, ModulationAssignmentId, ParameterRole, ParameterTargetId,
+    RelationCoverage,
 };
 use synvelis_workspace::controls_ui::{TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET};
 use synvelis_workspace::{ArrangementRow, RelationRow, ViewType};
@@ -153,6 +158,51 @@ pub fn secondary_view_instance() -> ViewInstanceId {
 #[must_use]
 pub fn mixer_gain_target() -> String {
     ParameterTargetId::new(MASTER_FADER_RAW).to_tagged()
+}
+
+/// Mixer channel-strip state — the tagged `param-<hex>` ids of the
+/// master strip's seeded channel toggles (`Mute`/`Solo`), resolved
+/// from the project's [`ControlModel`] by [`mixer_strip_targets`]
+/// (synvelis#112 slice 3). A `None` field means the target is absent
+/// (a degenerate control model) and the strip omits that toggle
+/// rather than binding a phantom target.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct MixerScreenState {
+    /// Tagged id of the master strip's `ParameterRole::Mute` target.
+    pub mute_target: Option<String>,
+    /// Tagged id of the master strip's `ParameterRole::Solo` target.
+    pub solo_target: Option<String>,
+}
+
+/// Resolves the master strip's seeded channel-toggle targets from the
+/// project's control model — the strip that owns the well-known
+/// [`mixer_gain_target`] fader. Discovery is by role+owner, never by
+/// well-known raw-ID arithmetic (those IDs are `pub(crate)` in
+/// synvelis-project), so it stays correct if the numbering moves.
+/// `Mute`/`Solo` are seeded by `ControlModel::bootstrap` and cannot
+/// be removed, so every legal project resolves both; a degenerate
+/// model resolves neither.
+#[must_use]
+pub fn mixer_strip_targets(control: &ControlModel) -> MixerScreenState {
+    let Some(strip) = control
+        .targets
+        .get(&ParameterTargetId::new(MASTER_FADER_RAW))
+        .map(|target| target.owner)
+    else {
+        return MixerScreenState::default();
+    };
+    let mut state = MixerScreenState::default();
+    for target in control.targets.values() {
+        if target.owner != strip {
+            continue;
+        }
+        match target.role {
+            ParameterRole::Mute => state.mute_target = Some(target.id.to_tagged()),
+            ParameterRole::Solo => state.solo_target = Some(target.id.to_tagged()),
+            _ => {}
+        }
+    }
+    state
 }
 
 /// Transport readout state — captured from the authoritative
@@ -265,6 +315,9 @@ pub struct MainScreenState {
     pub relations: RelationScreenState,
     /// Signal Flow graph/status display (synvelis#108 SF-05 slice 1).
     pub signal_flow: SignalFlowScreenState,
+    /// Mixer strip channel-toggle targets (synvelis#112 slice 3) —
+    /// project-derived, refreshed by `publish_project_length`.
+    pub mixer: MixerScreenState,
 }
 
 /// Targets the main view subscribes after attach — every driven
@@ -784,6 +837,49 @@ fn mixer_fader() -> ComponentSpec {
     })
 }
 
+/// A strip channel `Toggle` — `Mute`/`Solo` on the master strip
+/// (synvelis#112 slice 3). One click is one atomic `Set` (a
+/// synthesized begin+commit pair marked `atomic`) through the same
+/// `syn.control.dispatch` gesture path as the Fader; the controlled
+/// display is the projection's `host_normalized` on the binary
+/// `{0, 1}` descriptor the Toggle contract requires.
+fn strip_toggle(key_name: &str, label: &str, target: &str) -> ComponentSpec {
+    ComponentSpec::Toggle(ControlSpec {
+        key: key(key_name),
+        control_id: Some(target.to_string()),
+        target: Some(target.to_string()),
+        descriptor: ValueDescriptor {
+            default_value: Some(0.0),
+            step: Some(1.0),
+            ..ValueDescriptor::ranged(0.0, 1.0)
+        },
+        orientation: Orientation::Horizontal,
+        detach_policy: DetachPolicy::Cancel,
+        unsupported: false,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            role: Some(A11yRole::Switch),
+            label: Some(label.to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The Mixer tab's channel strip — the gain [`mixer_fader`] plus a
+/// `Toggle` per discovered strip target ([`MixerScreenState`]). A
+/// `None` target omits its toggle so a degenerate project never
+/// binds a phantom target.
+fn mixer_strip(state: &MixerScreenState) -> ComponentSpec {
+    let mut children = vec![mixer_fader()];
+    if let Some(target) = &state.mute_target {
+        children.push(strip_toggle("toggle.mute", "Mute", target));
+    }
+    if let Some(target) = &state.solo_target {
+        children.push(strip_toggle("toggle.solo", "Solo", target));
+    }
+    panel("tab.mixer.strip", Some("Master"), children)
+}
+
 /// The product's minimal screen spec — `Panel > [Toolbar, Tabs]`:
 ///
 /// - **Toolbar**: Save, Reload, Undo and Redo `Button`s (the
@@ -801,8 +897,10 @@ fn mixer_fader() -> ComponentSpec {
 ///   display is the seconds position of the authoritative projection
 ///   (see the adapter in `binding.rs`). Its range is
 ///   [`seek_range_seconds`] of `state.project_length_seconds`.
-/// - **Mixer** tab: the `Fader` bound to the bootstrap master-strip
-///   fader target (see [`mixer_fader`]).
+/// - **Mixer** tab: the master strip — the `Fader` bound to the
+///   bootstrap master-strip fader target plus `Toggle`s for the
+///   discovered `Mute`/`Solo` targets (see [`mixer_fader`],
+///   [`mixer_strip`], [`mixer_strip_targets`]; synvelis#112 slice 3).
 /// - **Inspector** tab: the target `Label` and breakdown `Table`
 ///   ([`inspector_target_label`]/[`inspector_table`]) resolved from
 ///   `state.inspector`, plus the control-relation readout `Label` and
@@ -865,7 +963,11 @@ pub fn main_screen_spec(state: &MainScreenState) -> ViewSpec {
                         TabSpec {
                             key: key("tab.mixer"),
                             title: "Mixer".to_string(),
-                            child: Box::new(panel("tab.mixer.panel", None, vec![mixer_fader()])),
+                            child: Box::new(panel(
+                                "tab.mixer.panel",
+                                None,
+                                vec![mixer_strip(&state.mixer)],
+                            )),
                         },
                         TabSpec {
                             key: key("tab.inspector"),

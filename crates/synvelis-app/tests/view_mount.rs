@@ -34,13 +34,13 @@ use ruviform_ui_test::FakeDriver;
 
 use synvelis_app::binding::project_action_op;
 use synvelis_app::{
-    MainScreenState, NativeShell, SynvelisApp, main_screen_spec, main_view_id, main_view_targets,
-    mixer_gain_target, mount_main_view, seek_range_seconds,
+    MainScreenState, MixerScreenState, NativeShell, SynvelisApp, main_screen_spec, main_view_id,
+    main_view_targets, mixer_gain_target, mixer_strip_targets, mount_main_view, seek_range_seconds,
 };
 use synvelis_project::{
-    ClipExtent, ClipPlacement, ClipPlayback, CounterIdGenerator, DirectoryBundleStore,
-    MusicalDuration, MusicalTick, PlaybackMapping, Project, ProjectController, ProjectId,
-    ProjectOp, ProjectRevision, SourceFrame, SourceRange, TimeAnchor,
+    ClipExtent, ClipPlacement, ClipPlayback, ControlModel, CounterIdGenerator,
+    DirectoryBundleStore, MusicalDuration, MusicalTick, PlaybackMapping, Project,
+    ProjectController, ProjectId, ProjectOp, ProjectRevision, SourceFrame, SourceRange, TimeAnchor,
 };
 use synvelis_workspace::ProjectSession;
 
@@ -755,10 +755,10 @@ fn last_result_ok(driver: &FakeDriver, window: WindowId) -> Option<bool> {
 fn seek_range_follows_project_length_in_place() {
     let mut f = fixture();
     let generation = f.host.generation();
-    let longer = MainScreenState {
-        project_length_seconds: 120.0,
-        ..MainScreenState::default()
-    };
+    // Carry the published state (mixer targets included) and change
+    // only the length — the update must stay an in-place `Updated`.
+    let mut longer = f.screen.borrow().clone();
+    longer.project_length_seconds = 120.0;
 
     // The seek's descriptor changes in place: nothing mounts or unmounts,
     // the seek key is among the updated nodes, the host keeps its
@@ -1266,4 +1266,199 @@ fn undo_redo_buttons_dispatch_project_ops_through_the_mounted_view() {
 
     assert_eq!(project_action_op("undo"), Some("syn.project.undo"));
     assert_eq!(project_action_op("redo"), Some("syn.project.redo"));
+}
+
+// -- SV-GUI-03 slice 3: Mixer strip Mute/Solo toggles --------------------
+
+/// The master strip's toggle targets resolved from a bootstrap
+/// control model — the same well-known tagged ids the app's project
+/// carries (`ProjectId`-independent).
+fn strip_toggle_targets() -> MixerScreenState {
+    let project = Project::new(ProjectId::new(0x112), "strip-targets");
+    mixer_strip_targets(&project.control)
+}
+
+/// Collects every `Toggle` in a spec tree as `(key, control_id)` —
+/// Panel/Tabs are the only container variants the product spec uses.
+fn collect_toggles(spec: &ComponentSpec, out: &mut Vec<(String, Option<String>)>) {
+    match spec {
+        ComponentSpec::Toggle(c) => out.push((c.key.0.clone(), c.control_id.clone())),
+        ComponentSpec::Panel(p) => {
+            for child in &p.children {
+                collect_toggles(child, out);
+            }
+        }
+        ComponentSpec::Tabs(t) => {
+            for tab in &t.tabs {
+                collect_toggles(&tab.child, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// `mixer_strip_targets` resolves the master strip's seeded
+/// `Mute`/`Solo` by role+owner — a degenerate control model
+/// resolves nothing, and the spec built from it mounts no Toggle
+/// (no phantom bind) (synvelis#112 slice 3).
+#[test]
+fn mixer_strip_targets_resolve_by_role_and_owner() {
+    let found = strip_toggle_targets();
+    let mute = found.mute_target.clone().expect("mute discovered");
+    let solo = found.solo_target.clone().expect("solo discovered");
+    assert_ne!(mute, solo, "distinct well-known targets");
+    assert!(mute.starts_with("param-") && solo.starts_with("param-"));
+
+    let empty = mixer_strip_targets(&ControlModel::default());
+    assert_eq!(empty, MixerScreenState::default());
+
+    let state = MainScreenState::default();
+    let spec = main_screen_spec(&state);
+    let mut toggles = Vec::new();
+    collect_toggles(&spec.root, &mut toggles);
+    assert!(
+        toggles.is_empty(),
+        "no toggles without discovered targets: {toggles:?}"
+    );
+}
+
+/// The attach pump reconciles `(view-1, mute/solo)` subscriptions
+/// from the discovered targets — projection rows are on the wire —
+/// and the pushed screen state mounts both `Toggle`s bound to
+/// exactly those targets (synvelis#112 slice 3).
+#[test]
+fn mixer_strip_toggles_mount_and_subscribe_after_attach() {
+    let mut f = fixture();
+    let targets = strip_toggle_targets();
+    let mute = targets.mute_target.clone().expect("mute target");
+    let solo = targets.solo_target.clone().expect("solo target");
+
+    for target in [&mute, &solo] {
+        let rows: Vec<Value> = notifies(&f.driver, f.window, "syn.control.projection")
+            .into_iter()
+            .filter(|d| d["target"] == json!(target))
+            .collect();
+        assert!(!rows.is_empty(), "projection row for {target}: {rows:?}");
+        let row = &rows[0]["row"];
+        assert_eq!(row["kind"], "param");
+        assert_eq!(row["subscribed"], true);
+        assert_eq!(row["display_value"]["normalized"], json!(0.0));
+    }
+
+    // Push the published screen state — the mounted spec gains the
+    // two toggles. `update` revalidates the spec, so the binary
+    // `{0,1,step:1}` descriptor contract is proven by acceptance.
+    let state = f.screen.borrow().clone();
+    f.push_screen_state();
+    let spec = main_screen_spec(&state);
+    let mut toggles = Vec::new();
+    collect_toggles(&spec.root, &mut toggles);
+    assert_eq!(
+        toggles,
+        vec![
+            ("toggle.mute".to_string(), Some(mute)),
+            ("toggle.solo".to_string(), Some(solo)),
+        ],
+        "strip toggles bound to the discovered targets"
+    );
+}
+
+/// One atomic `Set` — the Toggle's click contract — mints the
+/// synthesized begin+commit pair through `syn.control.dispatch`,
+/// lands an `Applied` receipt, and under the default `Read` mode
+/// the authoritative off value returns (the same contract the gain
+/// fader ships with; `Off`-mode writes are a workspace-level
+/// concern with no app op yet) (synvelis#112 slice 3).
+#[test]
+fn mixer_mute_toggle_atomic_set_lands_applied_and_returns() {
+    let mut f = fixture();
+    let mute = strip_toggle_targets().mute_target.expect("mute target");
+    f.push_screen_state();
+
+    f.input(
+        "toggle.mute",
+        ControlInput::Set {
+            value: ValueInput::Plain(1.0),
+            gesture_id: None,
+            source: None,
+            modifiers: None,
+            seq: None,
+        },
+    );
+
+    let receipt = f
+        .host
+        .binding(&mute)
+        .expect("mute binding")
+        .state()
+        .last_receipt
+        .clone()
+        .expect("commit receipt");
+    assert_eq!(
+        receipt.status,
+        ReceiptStatus::Applied,
+        "mute set receipt applied: {receipt:?}"
+    );
+
+    f.deliver_to_host();
+    let snap = f
+        .host
+        .observe(&key("toggle.mute"))
+        .expect("toggle snapshot");
+    let display = snap.display.expect("controlled display");
+    assert!(
+        display.plain.abs() < 1e-9,
+        "Read mode returns the authoritative off value: {display:?}"
+    );
+}
+
+/// The gesture lifecycle on a strip toggle: `Begin → Preview` moves
+/// the controlled display, `Commit` lands `Applied` and returns to
+/// the authoritative value, `Cancel` drops the preview without a
+/// receipt — identical semantics to the gain fader
+/// (synvelis#112 slice 3).
+#[test]
+fn mixer_solo_toggle_gesture_preview_commit_and_cancel() {
+    let mut f = fixture();
+    let solo = strip_toggle_targets().solo_target.expect("solo target");
+    f.push_screen_state();
+
+    f.input("toggle.solo", MountedFixture::begin("gs1"));
+    f.input("toggle.solo", MountedFixture::preview("gs1", 1.0));
+    let snap = f.host.observe(&key("toggle.solo")).expect("solo snapshot");
+    let display = snap.display.expect("display during preview");
+    assert!(
+        (display.plain - 1.0).abs() < 1e-9,
+        "preview drives the display: {display:?}"
+    );
+
+    f.input("toggle.solo", MountedFixture::commit("gs1"));
+    let receipt = f
+        .host
+        .binding(&solo)
+        .expect("solo binding")
+        .state()
+        .last_receipt
+        .clone()
+        .expect("commit receipt");
+    assert_eq!(receipt.status, ReceiptStatus::Applied, "{receipt:?}");
+
+    f.deliver_to_host();
+    let snap = f.host.observe(&key("toggle.solo")).expect("solo snapshot");
+    let display = snap.display.expect("display after commit");
+    assert!(
+        display.plain.abs() < 1e-9,
+        "authoritative off value returns: {display:?}"
+    );
+
+    f.input("toggle.solo", MountedFixture::begin("gs2"));
+    f.input("toggle.solo", MountedFixture::preview("gs2", 1.0));
+    f.input("toggle.solo", MountedFixture::cancel("gs2"));
+    f.deliver_to_host();
+    let snap = f.host.observe(&key("toggle.solo")).expect("solo snapshot");
+    let display = snap.display.expect("display after cancel");
+    assert!(
+        display.plain.abs() < 1e-9,
+        "cancel restores the authoritative value: {display:?}"
+    );
 }
