@@ -88,3 +88,4 @@ Directory: `docs/impl/ir`
 | IMPL-0340LyK9sQ2OUSutsQvSw | TIM-03 request plan — per-request ProcessBoundarySession + precision provenance | completed | [tim-03-request-plan-provenance.md](tim-03-request-plan-provenance.md) |
 | IMPL-034VntRmtjh1jy2mJ1rPum | PC-C6 oracle R/PL/UI/COMP headless fixture（R01〜08・PL01〜08・UI01〜07 独立 oracle 照合） | completed | [pc-c6-oracle-rows-slice.md](pc-c6-oracle-rows-slice.md) |
 | IMPL-034VocnpYlIXEqErLG2I5w | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 API 追従 | completed | [sv-28-ruviform-pin-b02942c2.md](sv-28-ruviform-pin-b02942c2.md) |
+| IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](rcd-04-product-e2e-slice.md) |
