@@ -50,6 +50,7 @@ Directory: `docs/designs`
 | DESIGN-AkFUh4M60YuHo8COCvb0Um | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
 | DESIGN-034UxXM5FBBTGn5JWkSBss | PC-C5 slice2 Gesture 固定・stale drop・Inspector mode 設計 | approved | [pc-c5-02-03-gesture-stale-inspector-design.md](./pc-c5-02-03-gesture-stale-inspector-design.md) |
 | DESIGN-mFknHHQIpULZsaBsqLEtPk | PC-C6 oracle 設計 — fixture 宣言モデル・独立参照実装・Case 対応表 | approved | [pc-c6-oracle-rel-tr-design.md](./pc-c6-oracle-rel-tr-design.md) |
+| DESIGN-034VmVbkRvKggN17EiZnQ9 | PC-C6 oracle 設計 — Recording/Plugin/UI/RT fixture 宣言モデル・独立 oracle・Case 対応表 | approved | [pc-c6-oracle-rows-design.md](./pc-c6-oracle-rows-design.md) |
 | — | Synvelis × Ruviform — Playback / Mixer / Generic Execution Graph Architecture | — | [playback-mixer-generic-execution-graph-architecture.md](./playback-mixer-generic-execution-graph-architecture.md) |
 | — | Synvelis — Project / Asset / Persistence Architecture | — | [project-asset-persistence-architecture.md](./project-asset-persistence-architecture.md) |
 | DESIGN-034V2hPBihovSNoj4xusOA | RCD-01 device-recording headless fixture — Mock Input→Raw Writer 統合設計 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |

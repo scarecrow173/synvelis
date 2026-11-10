@@ -39,6 +39,7 @@ Directory: `docs/plans`
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-034UxXVFIkzqs2eO4wcXo0 | PC-C5 slice2 実施計画 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | PLAN-7zXphX8skvXfNgeXarocfo | PC-C6 oracle REL/TR headless fixture 実装計画 | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
+| PLAN-034VmVEzTuUHmBKxPRoFID | PC-C6 oracle R/PL/UI/COMP headless fixture 実装計画 | approved | [pc-c6-oracle-rows-plan.md](./pc-c6-oracle-rows-plan.md) |
 | PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-034VedskoBprfWhNkuqz6f | RCD-03 app Arm/Monitoring UX + monitor session projection slice | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
