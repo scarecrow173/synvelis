@@ -4,7 +4,7 @@ type: "design"
 status: "approved"
 title: "TIM-03 plugin process boundary design — capability/degraded policy oracle"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-10"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -82,7 +82,10 @@ consent 付き degraded では合法 frame への defer、Offline Exact
 
 ### Out of Scope
 
-- oracle の RT 経路/attach 組込み（composition root 配線は後続）。
+- oracle の per-request RT 経路組込み（boundary offset 列を伴う
+  `evaluate` の runtime 呼出し）。attach 時点の
+  `AttachDelivery` 投影は task2
+  （`tim03-task2-attach-wiring`）で実装済み。
 - Ruviform 型の変更・独自 scheduler の再実装。
 - 実 plugin/OS matrix・AudioLens・GUI（spec の Out of Scope と同一）。
 
@@ -179,11 +182,46 @@ ScheduleBudget は plan から導出) ──► PluginNode::process ──► pl
   offline exact を通らない — 仕様どおりの fail-closed であり、
   通したい場合は capability 認定を別途行う。
 
+## Attach-time projection（task2 で実装）
+
+`ProcessCapability::attach_delivery(mode, consent, budget)` が
+oracle の attach 時点投影を担う: activated `ProcessConfig` から
+`from_process_config` で contract を導出し、`ExecutionMode`・
+optional `DegradedConsent`・`ScheduleBudget` を Ruviform
+`AttachConfig::{policy,budget}` へ写像する。
+
+- Realtime: 無同意 → `DeliveryPolicy::Exact`。同意あり →
+  `DeliveryPolicy::Degraded` で deferral 上限を
+  `min(consent.max_deferral, budget.max_deferral)` に clamp。
+- `OfflineExact`: 常に `Exact` を要求し、certified exact-class
+  （`ExactWithinVerifiedCapability`/`FrameAccurateEvents`）以外を
+  `OfflineUncertified` で拒否。consent は offline を救済しない。
+- `Unsupported` capability・degenerate contract は `Unsupported`
+  で事前拒否。
+
+`PluginHostProcessors` は `BoundaryDeclaration`（precision/
+in-block/consent/budget）を `ProcessorId` 単位で保持し、
+`connect` が `Instantiate` 前に投影を評価する。失敗は
+`ProcessorConnectError::{CapabilityUnsupported,
+OfflineUncertified}` → `RoutingFault::{PluginUnavailable,
+OfflineCapabilityMismatch}` に決定的写像され、plugin は
+instantiate されない。宣言なし processor は従来どおり
+`Exact` + `ScheduleBudget::default()`。
+
+per-request の boundary legality/deferral 判定は引き続き
+`evaluate`（non-RT preflight）と upstream
+`TransportScheduler`/`PluginNode` が担い、attach 投影は
+「その processor が取り得る delivery 精度の上限」を固定する
+だけである。
+
 ## Deferred Design Concerns
 
-- oracle → `AttachConfig`/`PluginNodeControl` への plan 反映
+- ~~oracle → `AttachConfig`/`PluginNodeControl` への plan 反映
   （`DeliveryPolicy`/`ScheduleBudget`/`DegradedConsent` →
-  consented degraded の wiring）— 後続 slice。
+  consented degraded の wiring）~~ — task2
+  （`tim03-task2-attach-wiring`）で `AttachDelivery` 投影として
+  実装済み。`PluginNodeControl` 経由の per-request plan 反映は
+  引き続き後続 slice。
 - `TimingPrecision` の capability 認定 provenance（どの計測が
   `ExactWithinVerifiedCapability` を正当化するか）の定義 —
   実機 gate と併せて後続。
@@ -202,3 +240,7 @@ ScheduleBudget は plan から導出) ──► PluginNode::process ──► pl
   非配送を固定。
 - `tim03_process_boundary_rt.rs`: `stats_alloc` Region で
   64 callback 分の hot path allocations=deallocations=0。
+- `tim03_aw_*`（task2）: `attach_delivery` 投影の mode/consent/
+  budget clamp・offline certified gate・typed refusal と、
+  `connect` の instantiate 前 fail-closed（fake `PluginHost` +
+  instance counter）・宣言 scoping・undeclared 後方互換。

@@ -4,7 +4,7 @@ type: "plan"
 status: "approved"
 title: "TIM-03 plugin process boundary plan"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-10"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -27,6 +27,7 @@ relations:
   superseded-by: []
   related:
     - "docs/tasks/tim03-task1-process-boundary.md"
+    - "docs/tasks/tim03-task2-attach-wiring.md"
   refines: []
   refined-by: []
   derives-from:
@@ -38,6 +39,7 @@ relations:
     - "docs/test-specs/tim03-process-boundary.md"
   references:
     - "docs/tasks/tim03-task1-process-boundary.md"
+    - "docs/tasks/tim03-task2-attach-wiring.md"
   defers: []
   deferred-by: []
 ---
@@ -91,10 +93,14 @@ generation・RT no-alloc を検証する。
 - [x] `tim03_process_boundary.rs` 3 層 test。
 - [x] `tim03_process_boundary_rt.rs` RT 証拠。
 - [x] doc chain 作成。
-- [ ] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
+- [x] task2: `AttachDelivery`/`attach_delivery` +
+  `BoundaryDeclaration`/`register_boundary` + `connect` 配線 +
+  `tim03_attach_wiring.rs` 10 test（task1 IR Follow-ups 第 1 項）。
+- [x] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
   `test-msrv`/`check-headless-deps`。
-- [ ] `git fetch origin main && git merge origin/main` 後の再検証。
-- [ ] review-protocol self-review → commit → push → PR。
+- [x] `git fetch origin main && git merge origin/main`（`060ad66`
+  取り込み）後の再検証 — 全 lane exit 0。
+- [x] review-protocol self-review → commit → push → PR #244。
 
 ## Dependencies and Risks
 
@@ -110,8 +116,11 @@ generation・RT no-alloc を検証する。
 
 ## Task Breakdown
 
-- `docs/tasks/tim03-task1-process-boundary.md` — 全実装を単一
-  task で実施（小規模 slice のため分割しない）。
+- `docs/tasks/tim03-task1-process-boundary.md` — oracle + 3 層
+  test + RT 証拠（done）。
+- `docs/tasks/tim03-task2-attach-wiring.md` — `AttachDelivery`
+  投影 + `PluginHostProcessors::connect` 配線 + typed connect
+  error（done）。
 
 ## Verification
 
@@ -119,15 +128,19 @@ generation・RT no-alloc を検証する。
   — 補助証拠（canonical = mise）。17 tests pass。
 - [x] `cargo test -p synvelis-player --test tim03_process_boundary_rt`
   — 補助証拠。`rt_process_boundary_hot_path_alloc_free` pass。
-- [ ] `mise run fmt-check` / `check` / `lint` / `test` / `test-rt` /
-  `test-msrv` / `check-headless-deps` — canonical。
+- [x] `mise run fmt-check` / `check` / `lint` / `test` / `test-rt` /
+  `test-msrv` / `check-headless-deps` — canonical（全 exit 0）。
 
 ## Open Questions / Gaps
 
-- oracle の composition root 配線（plan → `DeliveryPolicy`/
-  `ScheduleBudget`/consent の attach 反映）は後続 slice。
+- ~~oracle の composition root 配線（plan → `DeliveryPolicy`/
+  `ScheduleBudget`/consent の attach 反映）~~ — task2 で
+  `AttachDelivery` 投影として実装済み。per-request boundary
+  plan の runtime 配線（`PluginNodeControl` 経由）は後続 slice。
 - `TimingPrecision` certified class の認定 provenance は未定義
   （mock では constructor 注入）。
+- boundary offset の Tempo map/Loop occurrence 自動導出は
+  未実装（caller が offset を与える）。
 
 ## Self-Review
 
