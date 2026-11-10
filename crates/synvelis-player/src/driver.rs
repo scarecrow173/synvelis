@@ -15,11 +15,12 @@ use ruviform_audio::typed::{
     ActivationError, CompileError, Compiler, CompilerConfig, FactoryError, GraphProcessor,
     GraphRuntime, InstalledInfo, PrepareOutcome, ProcessError, RtRuntime,
 };
-use ruviform_audio_plugin_bridge::{ParamValueObservation, PluginNode};
+use ruviform_audio_plugin_bridge::{ParamValueObservation, PluginNode, QueueFull};
 use ruviform_graph::{GraphProject, GraphRevision, NodeId, NodeSpec, PortId, PrepareError};
 use ruviform_media_core::{
-    ClockEpochId, EngineFrame, LoopOccurrence, MediaTime, PlanGeneration, SpanContext,
-    TempoMapRevision, TransportCommand, TransportGeneration, TransportSpan, TransportStatus,
+    ClockEpochId, EngineFrame, LoopOccurrence, MediaDuration, MediaRange, MediaTime,
+    PlanGeneration, SpanContext, TempoMapRevision, TransportCommand, TransportGeneration,
+    TransportSpan, TransportStatus,
 };
 use ruviform_media_reader::{PrefetchHandle, PrefetchProducer, PumpOutcome, SourceFrame};
 use ruviform_rt::RtContext;
@@ -508,9 +509,93 @@ impl HeadlessDriver {
         }
     }
 
-    /// Explicit stop — transport state, not a missing plan.
+    /// Explicit stop — transport state, not a missing plan. Attached
+    /// plugin nodes are *not* notified: their schedulers keep their
+    /// last commanded state. The MIDI panic path is
+    /// [`HeadlessDriver::panic`]; resume after it with
+    /// [`HeadlessDriver::resume_attached_transport`].
     pub fn stop(&mut self) {
         self.state = DriverState::Stopped;
+    }
+
+    /// Forwards a loop region `[start_frame, end_frame)` — engine
+    /// frames — to every attached plugin node as
+    /// `TransportCommand::SetLoop` in that node's frame base
+    /// (`due = 0`, applied at the next callback head; TIM-02, issue
+    /// #126).
+    ///
+    /// A loop wrap bumps the node's `LoopOccurrence`, which the node
+    /// treats as a transport discontinuity: sounding notes are
+    /// released and the plan prefix is chased at the wrap position,
+    /// so scheduled events inside the loop re-fire once per
+    /// occurrence while events outside it fire exactly once.
+    /// `start_frame < end_frame` is required — an empty or inverted
+    /// range is rejected upstream as an `InvalidCommand` receipt
+    /// (observable via node reports), never silently looped.
+    ///
+    /// # Errors
+    /// [`QueueFull`] when a node's bounded control queue drops the
+    /// command — nodes earlier in `attached` may already have it.
+    pub fn set_loop(&mut self, start_frame: u64, end_frame: u64) -> Result<(), QueueFull> {
+        for dispatch in &mut self.attached {
+            let base = dispatch.frame_base();
+            let start = MediaTime::new(i64::try_from(start_frame).unwrap_or(i64::MAX), base);
+            let duration = MediaDuration::new(
+                i64::try_from(end_frame.saturating_sub(start_frame)).unwrap_or(i64::MAX),
+                base,
+            );
+            dispatch.control().request(
+                TransportCommand::SetLoop(MediaRange::new(start, duration)),
+                0,
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Clears the loop region on every attached plugin node
+    /// (`TransportCommand::ClearLoop`) — playback then continues past
+    /// the former loop end without wrapping.
+    ///
+    /// # Errors
+    /// [`QueueFull`] — see [`HeadlessDriver::set_loop`].
+    pub fn clear_loop(&mut self) -> Result<(), QueueFull> {
+        for dispatch in &mut self.attached {
+            dispatch.control().request(TransportCommand::ClearLoop, 0)?;
+        }
+        Ok(())
+    }
+
+    /// Panics every attached plugin node: `TransportCommand::Stop` is
+    /// the upstream primitive that releases all ledger-tracked notes
+    /// at the next callback head *without* retriggering them — the
+    /// node's transport stops, so `Stopped` suppresses both chase and
+    /// plan events and sounding voices end with zero remainder. The
+    /// release lands on the next processed block (`run`, or the
+    /// `seek` quiesce pass), not inside this call.
+    ///
+    /// Resume with [`HeadlessDriver::resume_attached_transport`]: a
+    /// bare `Play` would restart the node's position at 0 and diverge
+    /// from the engine cursor this driver owns.
+    ///
+    /// # Errors
+    /// [`QueueFull`] — see [`HeadlessDriver::set_loop`].
+    pub fn panic(&mut self) -> Result<(), QueueFull> {
+        for dispatch in &mut self.attached {
+            dispatch.control().request(TransportCommand::Stop, 0)?;
+        }
+        Ok(())
+    }
+
+    /// Re-anchors every attached node's cursor and position to the
+    /// driver cursor and requests `Play` — identical to the
+    /// activation-time anchor, so plan events addressed by absolute
+    /// engine frame land on the driver's frame series again. This is
+    /// the resume path after [`HeadlessDriver::panic`]; the transport
+    /// generation bump makes each node release-then-chase once at the
+    /// re-anchor point, reconstructing sounding notes from the plan
+    /// prefix at the cursor.
+    pub fn resume_attached_transport(&mut self) {
+        self.anchor_attached_transport();
     }
 
     /// Current transport state.
