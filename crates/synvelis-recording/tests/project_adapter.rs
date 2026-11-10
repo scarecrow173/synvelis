@@ -765,6 +765,88 @@ fn rcd02pa_composite_probe_semantics() {
     assert_eq!(p.check(&c), ReferenceCheck::Clear);
 }
 
+// ---------- Finalized → Commit → Save → Reload → Undo chain ----------
+
+/// commit 由来 entity の tagged ID 集合（重複 take/asset 検出用
+/// snapshot）。BTreeMap の key 順で決定的。
+fn entity_snapshot(p: &Project) -> serde_json::Value {
+    serde_json::json!({
+        "sources": p.sources.keys().map(|k| k.to_tagged()).collect::<Vec<_>>(),
+        "assets": p.assets.keys().map(|k| k.to_tagged()).collect::<Vec<_>>(),
+        "passes": p.recording.passes.keys().map(|k| k.to_tagged()).collect::<Vec<_>>(),
+        "segments": p.recording.segments.keys().map(|k| k.to_tagged()).collect::<Vec<_>>(),
+        "takes": p.recording.takes.keys().map(|k| k.to_tagged()).collect::<Vec<_>>(),
+        "clips": p.clips.keys().map(|k| k.to_tagged()).collect::<Vec<_>>(),
+        "applied_commits": p.recording.applied_commits.keys().map(|k| k.to_tagged()).collect::<Vec<_>>(),
+    })
+}
+
+#[test]
+fn rcd02pa_commit_save_reload_undo_restore_ids() {
+    // Finalized(Complete + verified_sha256) → Commit → Undo/Redo →
+    // Save → Reload（別 Start 相当）→ 再 Commit が AlreadyApplied で
+    // 二重 Asset/Take を生成しないことを通しで検証する。
+    let (mut c, lanes, epoch) = controller_with(1);
+    let (sid, cfgs) = open_session(&mut c, &lanes, epoch);
+    let root = tmp_dir("e2e-chain");
+    let area = record_close(&mut c, &root, sid, &cfgs, &lanes, epoch);
+    let report = commit_session(&mut c, &area).unwrap();
+    let CommitOutcome::Applied { .. } = report.outcome else {
+        panic!("expected applied: {:?}", report.outcome)
+    };
+    let hash = report.content_hash.clone();
+    let committed = entity_snapshot(c.live());
+    assert!(!committed["takes"].as_array().unwrap().is_empty());
+    assert!(!committed["sources"].as_array().unwrap().is_empty());
+
+    // Undo: commit 由来 entity が消え、staging media/manifest は残る。
+    assert!(c.undo().unwrap());
+    let undone = entity_snapshot(c.live());
+    for key in ["sources", "assets", "passes", "segments", "takes", "clips"] {
+        assert!(
+            undone[key].as_array().unwrap().is_empty(),
+            "{key} must be empty after undo"
+        );
+    }
+    assert!(undone["applied_commits"].as_array().unwrap().is_empty());
+    let tag = sid.to_tagged();
+    assert!(media_path(&root, &tag, 0).exists());
+    assert!(commit_manifest_path(&area).exists());
+
+    // Redo: 同一 Stable ID が復元される（別 ID での再作成ではない）。
+    assert!(c.redo().unwrap());
+    assert_eq!(entity_snapshot(c.live()), committed);
+
+    // Save → Reload（別 Start 相当: persisted HEAD からの load）。
+    let mut store = DirectoryBundleStore::create(root.join("bundle")).unwrap();
+    c.save(&mut store).unwrap();
+    let mut c2 = ProjectController::new(
+        Project::new(ProjectId::new(0), "x"),
+        Box::new(CounterIdGenerator::new(1)),
+    );
+    c2.load(&store).unwrap();
+    assert_eq!(
+        serde_json::to_value(c2.live()).unwrap(),
+        serde_json::to_value(c.live()).unwrap(),
+        "project snapshot roundtrip"
+    );
+
+    // 別 Start 後の同一 Session/Stream 再 commit → AlreadyApplied・
+    // entity ID 集合も content hash も不変（誤重複 Take なし）。
+    let before = entity_snapshot(c2.live());
+    let report2 = commit_session(&mut c2, &area).unwrap();
+    assert!(matches!(report2.outcome, CommitOutcome::AlreadyApplied));
+    assert_eq!(report2.content_hash, hash);
+    assert_eq!(entity_snapshot(c2.live()), before);
+
+    // receipt: registry 適用 + marker 一致 + saved HEAD が commit
+    // revision を含む → CommittedConfirmed / project_saved=true。
+    let r = commit_receipt(c2.live(), &area, head_revision(&store).unwrap()).unwrap();
+    assert_eq!(r.stage, ReceiptStage::CommittedConfirmed);
+    assert_eq!(r.project_saved, Some(true));
+    fs::remove_dir_all(&root).ok();
+}
+
 // ---------- saved-HEAD revision adapter ----------
 
 #[test]
