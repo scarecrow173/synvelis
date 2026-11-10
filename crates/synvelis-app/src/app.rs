@@ -269,7 +269,9 @@ pub struct SynvelisApp {
     /// for Signal Flow status without touching the session (SF-05).
     /// `None` until [`Self::attach_routing_engine`]; cleared when the
     /// session is recreated by `project.new`/`project.open`.
-    routing_engine: Option<SessionRoutingEngine>,
+    /// `pub(crate)` so `ui_ops` can reach the probe bridge for the
+    /// `syn.probe.*` ops and the `ui_pump` drain hook (SF-04 slice 4).
+    pub(crate) routing_engine: Option<SessionRoutingEngine>,
     /// Last published main-screen display state — shared with the
     /// composition root, refreshed after every service op (project
     /// length + arrangement rows here) and every UI pump

@@ -34,6 +34,7 @@ use synvelis_player::ProcessorControl;
 use synvelis_player::driver::{PlayReport, PumpPolicy};
 use synvelis_player::host::ProcessorHost;
 use synvelis_player::lowering::{EngineConfig, plan_playbacks};
+use synvelis_player::probe_trace::ProbeTraceBridge;
 use synvelis_player::resolver::{self, PreparedClip};
 use synvelis_player::routing_engine::{RoutingDeps, RoutingEngine, RoutingPrepare};
 use synvelis_project::{
@@ -102,7 +103,13 @@ impl std::error::Error for SessionEngineError {}
 /// Shared engine state behind the cloneable [`SessionRoutingEngine`]
 /// handle.
 struct Inner {
-    engine: RoutingEngine,
+    /// The [`ProbeTraceBridge`] owns the [`RoutingEngine`] plus the
+    /// node-keyed trace adapters — the probe/trace port the session
+    /// layer drains through (SF-04 slice 4). Engine lifecycle calls
+    /// go through `bridge.engine()`/`engine_mut()`; probe lifecycle
+    /// and drain go through the port impl so session correlation and
+    /// drain ownership stay single-sourced.
+    bridge: ProbeTraceBridge,
     config: SessionEngineConfig,
     /// Monotonic request id — one per revision notification that
     /// reaches `prepare`.
@@ -141,7 +148,7 @@ impl SessionRoutingEngine {
         );
         Self {
             inner: Rc::new(RefCell::new(Inner {
-                engine,
+                bridge: ProbeTraceBridge::new(engine, BTreeMap::new()),
                 config,
                 next_request_id: 1,
                 graph_builds: 0,
@@ -156,7 +163,11 @@ impl SessionRoutingEngine {
     /// Replaces the processor host used by *future* builds — same
     /// semantics as [`RoutingEngine::set_processor_host`].
     pub fn set_processor_host(&self, host: Box<dyn ProcessorHost>) {
-        self.inner.borrow_mut().engine.set_processor_host(host);
+        self.inner
+            .borrow_mut()
+            .bridge
+            .engine_mut()
+            .set_processor_host(host);
     }
 
     /// Runs `blocks` blocks of engine geometry — RT pumping plus
@@ -167,27 +178,46 @@ impl SessionRoutingEngine {
     /// # Errors
     /// [`ProcessError`] from the runtime.
     pub fn run(&self, blocks: usize, policy: PumpPolicy) -> Result<PlayReport, ProcessError> {
-        self.inner.borrow_mut().engine.run(blocks, policy)
+        self.inner
+            .borrow_mut()
+            .bridge
+            .engine_mut()
+            .run(blocks, policy)
+    }
+
+    /// Scoped mutable access to the probe/trace port — the
+    /// [`ProbeTraceBridge`] that owns this engine (SF-04 slice 4).
+    /// `f` runs with `&mut` access; the port's contract reads return
+    /// references into shared state, so they cannot escape the scope
+    /// — gather owned data inside `f`. This is the composition
+    /// root's supply path for [`ControlSession`](synvelis_workspace::ControlSession)'s
+    /// per-call `&mut dyn ProbeTracePort` parameters and for
+    /// adapter/route registration ([`ProbeTraceBridge::insert_adapter`],
+    /// [`ProbeTraceBridge::route_target`]). Do not call engine
+    /// lifecycle methods (`run`, `on_project_revision`, …) inside
+    /// `f` — they re-borrow the same `RefCell` and would panic.
+    pub fn with_probe_bridge<R>(&self, f: impl FnOnce(&mut ProbeTraceBridge) -> R) -> R {
+        f(&mut self.inner.borrow_mut().bridge)
     }
 
     /// The latest activation receipt — `None` before the first
     /// `prepare`. Cloned out of the shared state.
     #[must_use]
     pub fn receipt(&self) -> Option<RoutingActivationReceipt> {
-        self.inner.borrow().engine.receipt().cloned()
+        self.inner.borrow().bridge.engine().receipt().cloned()
     }
 
     /// Point-in-time RT status snapshot.
     #[must_use]
     pub fn rt_status(&self) -> SharedStatusSnapshot {
-        self.inner.borrow().engine.rt_status()
+        self.inner.borrow().bridge.engine().rt_status()
     }
 
     /// The latest published plan's source map — `None` before the
     /// first successful publish.
     #[must_use]
     pub fn source_map(&self) -> Option<RoutingSourceMap> {
-        self.inner.borrow().engine.source_map().cloned()
+        self.inner.borrow().bridge.engine().source_map().cloned()
     }
 
     /// Reconciles the published plan's build key against the live
@@ -201,7 +231,7 @@ impl SessionRoutingEngine {
         let mut inner = self.inner.borrow_mut();
         let engine_config_generation = inner.config.engine_config_generation;
         let source_format_generation = inner.source_format_generation;
-        inner.engine.reconcile(
+        inner.bridge.engine_mut().reconcile(
             project,
             revision,
             engine_config_generation,
@@ -216,7 +246,8 @@ impl SessionRoutingEngine {
     pub fn probe_bindings(&self) -> Vec<SemanticProbeBinding> {
         self.inner
             .borrow()
-            .engine
+            .bridge
+            .engine()
             .probe_bindings()
             .values()
             .cloned()
@@ -233,7 +264,8 @@ impl SessionRoutingEngine {
     ) -> Option<ProcessorControl> {
         self.inner
             .borrow_mut()
-            .engine
+            .bridge
+            .engine_mut()
             .take_processor_control(generation, processor)
     }
 
@@ -331,11 +363,18 @@ fn rebuild(inner: &mut Inner, project: &Project, revision: ProjectRevision) {
         source_format_generation: inner.source_format_generation,
     };
 
-    match inner.engine.prepare(&request, project, revision, deps) {
+    match inner
+        .bridge
+        .engine_mut()
+        .prepare(&request, project, revision, deps)
+    {
         Ok(RoutingPrepare::Built(prepared)) => {
             // Publish failures are already recorded on the engine's
             // activation receipt — last-good stays live either way.
-            let _ = inner.engine.publish(*prepared, project, revision);
+            let _ = inner
+                .bridge
+                .engine_mut()
+                .publish(*prepared, project, revision);
         }
         // NoRebuild equivalence leaves the live plan untouched, and
         // prepare faults are already recorded on the engine's
