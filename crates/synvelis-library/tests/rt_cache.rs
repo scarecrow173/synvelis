@@ -31,18 +31,19 @@ fn ev(n: u64) -> LibraryEvent {
 
 #[test]
 fn rt_event_enqueue_is_alloc_and_dealloc_free() {
-    // Warm-up: mutex/slot ring paths outside the measured window.
-    {
-        let q = RtEventQueue::new(8);
-        for i in 1..=8u64 {
-            assert!(q.try_emit(ev(i)));
-        }
-        let _ = q.drain();
+    // Warm-up on the measured instance itself: fill the slot ring,
+    // drain, confirm empty — first-touch mutex/ring paths and lazy
+    // allocator init land outside the measured window (same pattern
+    // as the other rt_* contract tests).
+    let queue = RtEventQueue::new(8);
+    for i in 1..=8u64 {
+        assert!(queue.try_emit(ev(i)));
     }
+    assert_eq!(queue.drain().len(), 8);
+    assert!(queue.is_empty());
 
     // Queue-insertion-only emit: pre-built events move into the
     // preallocated slot ring — no heap traffic on the RT path.
-    let queue = RtEventQueue::new(8);
     let events = [ev(1), ev(2), ev(3), ev(4), ev(5), ev(6), ev(7), ev(8)];
     let reg = Region::new(ALLOC);
     for event in events {
@@ -58,6 +59,13 @@ fn rt_event_enqueue_is_alloc_and_dealloc_free() {
     // front of the queue — is equally alloc/dealloc free, including
     // the stale-generation drop branch.
     let sink = SuppressingSink::new(RtEventQueue::new(8), LibraryGeneration(0));
+    // Warm-up on the measured sink: one emit passes the gate
+    // (generation 0 does not advance the watermark) and occupies a
+    // queue slot. SuppressingSink exposes no drain, so the warm
+    // event is undrainable and leaves 7 free slots; the nine
+    // gate-passing events below then additionally exercise the
+    // full-queue drop branch (ev(8) and ev(9) are dropped there).
+    sink.emit(ev(0));
     let events = [
         ev(1),
         ev(2),
