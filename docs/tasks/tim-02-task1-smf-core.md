@@ -1,10 +1,10 @@
 ---
 id: "TASK-034UwY7u8viaAzE6tUxLHa"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "TIM-02 Task1 SMF Format0/1 project+recording headless slice"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-10"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -80,12 +80,16 @@ test-spec `tim-02-smf-format01-fixtures` に従い、
 
 ## Done When
 
-- [ ] test-spec `tim-02-smf-format01-fixtures` の Rule/Example
-  が全て実測 Pass
-- [ ] `synvelis-player`/`synvelis-app`/`synvelis-workspace`/
-  `synvelis-library`/gateway/Ruviform 側に diff がない
-- [ ] impl record
-  `docs/impl/ir/tim-02-smf-format01-core-slice.md` に
+- [x] test-spec `tim-02-smf-format01-fixtures` の Rule/Example
+  が全て実測 Pass（`tim_02_smf` 28 test・`tim_02_midi_phrase`
+  2 test 全て Pass）
+- [x] `synvelis-player`/`synvelis-app`/`synvelis-workspace`/
+  `synvelis-library`/Ruviform 側に diff がない
+  （`synvelis-gateway/src/prepare.rs` は `ProjectOp` の
+  exhaustive `op_name` match 追従のみ — impl record 記載の
+  機械的変更）
+- [x] impl record
+  `docs/impl/ir/tim-02-smf-format01-import-export.md` に
   pass/fail/NotRun/Unsupported と実行した検証コマンド・
   exit status を正確に記録
 
@@ -117,12 +121,17 @@ test-spec `tim-02-smf-format01-fixtures` に従い、
 
 ## Verification
 
-- [ ] `mise run fmt-check` — Pass
-- [ ] `mise run check` — Pass
-- [ ] `mise run lint` — Pass（warning 0）
-- [ ] `mise run test` — Pass（workspace 全 test、exit 0）
-- [ ] `mise run test-rt` — Pass
-- [ ] `mise run test-msrv` — Pass
-- [ ] `mise run build` — Pass
+- [x] `mise run fmt-check` — Pass
+- [x] `mise run check` — Pass
+- [x] `mise run lint` — Pass（warning 0）
+- [x] `mise run test` — Pass（workspace 全 test、exit 0。
+  2026-11-10 に `origin/main` `5690844` + docs-only 差分で
+  再検証。初回・2 回目は `synvelis-library` webdav
+  `same_origin_redirect_is_followed` が Windows socket
+  error 10053 で flake（TIM-02 と無関係、単独実行は Pass）。
+  3 回目で全 test binary exit 0）
+- [x] `mise run test-rt` — Pass
+- [x] `mise run test-msrv` — Pass（rust 1.89.0）
+- [x] `mise run build` — Pass
 - [ ] 実 OS/Device/GUI・実 RT engine・SMPTE/MIDI2 — NotRun /
   Unsupported（test-spec 宣言どおり後続 slice）
