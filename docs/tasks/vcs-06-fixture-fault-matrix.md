@@ -25,8 +25,9 @@ relations:
 - [x] `vcs06_git_matrix.rs`（3 tests）
 - [x] `evidence/reports/vcs-06-fixture-matrix-ledger.md`
 - [x] `docs/specs|test-specs|tasks` チェーン
-- [ ] `mise run fmt-check/check/lint/test/test-rt` canonical 検証
-- [ ] origin/main merge → 再検証 → commit/push/PR
+- [x] `mise run fmt-check/check/lint/test/test-rt/test-msrv` canonical 検証
+- [x] origin/main merge（Already up to date）→ commit
+- [ ] push → PR 作成（Refs #97）
 
 対象外: VCS-UI-01..05、実 GUI(#114)、consumer(#219/#294)、CI(#83)、
 他 OS、VCS Writer/3-way Merge、追加 provider。
