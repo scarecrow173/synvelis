@@ -34,11 +34,12 @@ Directory: `docs/plans`
 | PLAN-034UpbrhX5dkELUwZUoS0i | PC-C2 Control Relation Index 実装計画 | approved | [pc-c2-control-relation-index.md](./pc-c2-control-relation-index.md) |
 | PLAN-qCDk2ELwZ5XT36rSkQsD8F | PC-C3-05 RT trace adapter 実装計画 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | PLAN-034UqHfN1LJeYNaoS0SGYL | PC-C3 ControlTrace projection 実装計画 | approved | [pc-c3-control-trace.md](./pc-c3-control-trace.md) |
+| PLAN-IXbRrdisj9XdLzGbNo1zWK | PC-C4-02 plugin instance binding plan | approved | [pc-c4-02-plugin-instance-binding.md](./pc-c4-02-plugin-instance-binding.md) |
 | PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-034UxXVFIkzqs2eO4wcXo0 | PC-C5 slice2 実施計画 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | PLAN-7zXphX8skvXfNgeXarocfo | PC-C6 oracle REL/TR headless fixture 実装計画 | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
-| PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | draft | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
+| PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-034UrkBlTpaeiSGII0EyIi | RCD-02 Durability Evidence / Recovery Review / Commit Receipt slice | approved | [rcd-02-durability-recovery-review.md](./rcd-02-durability-recovery-review.md) |
 | PLAN-034UtpZmsA5LhaaXLS0KRF | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter slice | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
@@ -78,6 +79,7 @@ Directory: `docs/plans`
 | PLAN-034UAzWU1ltpUXPw8mRuWd | VCS-01 Immutable Snapshot Resolver implementation plan | approved | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | PLAN-034UEufn0HEwKaQ2GRVCWB | VCS-02 Semantic Diff Engine implementation plan | approved | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
 | PLAN-D4Oqo3jPnK2GybwKhM5nwh | VCS-03 Git Read Provider implementation plan | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
+| PLAN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — 実装 plan | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
 | PLAN-034QdZoc84FQ9sKQSfLWtn | VS-A Project/Recording Foundation 実装計画 | approved | [vs-a-project-recording-foundation.md](./vs-a-project-recording-foundation.md) |
 | PLAN-kco2O0dSUXmFGIGQYqpxrx | VS-B Clock / Gate Scheduler / RT Capture 実装計画 | approved | [vs-b-clock-gate-rt-capture.md](./vs-b-clock-gate-rt-capture.md) |
 | PLAN-034QfNV0kVj6j2cR8sXyLqWm | VS-C Staging Writer / Journal / Crash Recovery 実装計画 | approved | [vs-c-staging-writer-journal-crash-recovery.md](./vs-c-staging-writer-journal-crash-recovery.md) |
@@ -89,9 +91,9 @@ Directory: `docs/plans`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | PLAN-luVzqvmmFtXrtfQQ7Sqb6k | ALIB-01 実装計画 — Asset Provider 契約・Local/Project 基準 Provider | completed | [alib-01-asset-provider-baseline.md](./alib-01-asset-provider-baseline.md) |
+| PLAN-alib02-v5snap | ALIB-02 v5 snapshot asset-digest 互換移行 — 実装計画 | completed | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | PLAN-034QArZ5DRWJ27yfk2aEID | ED-A Editing Model headless PoC 実装計画 | completed | [ed-a-editing-model.md](./ed-a-editing-model.md) |
 | PLAN-034PCA04Pk9ySt5zBcPdEf | PC-A Parameter Control Model headless PoC 実装計画 | completed | [pc-a-parameter-control.md](./pc-a-parameter-control.md) |
 | PLAN-034PCB04Pk9ySt5zBcPdEf | PC-B Parameter Control dispatch/note-scope/RT/offline 実装計画 | completed | [pc-b-parameter-dispatch.md](./pc-b-parameter-dispatch.md) |
 | PLAN-pOkUKpNa9zeQiK8ZbP5nvk | SV#28 Ruviform pin 更新 実装計画 — 863a7a9d → cc7d5296 | completed | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | PLAN-034QwZOjdblHRzDVhDXNIP | WS-A Workspace 基盤 headless PoC 実装計画 | completed | [ws-a-workspace-foundation.md](./ws-a-workspace-foundation.md) |
-| PLAN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — 実装 plan | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |

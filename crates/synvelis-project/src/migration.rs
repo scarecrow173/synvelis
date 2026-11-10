@@ -55,6 +55,10 @@ const STEPS: &[MigrationStep] = &[
         from: 9,
         migrate: migrate_v9_strip_params,
     },
+    MigrationStep {
+        from: 10,
+        migrate: migrate_v10_asset_digests,
+    },
 ];
 
 /// Runs the ordered ladder from `version` to [`SCHEMA_VERSION`].
@@ -385,5 +389,27 @@ fn migrate_v9_strip_params(mut project: Project) -> Result<Project, Error> {
     if next_raw > first_raw {
         project.id_watermark = (next_raw + 1).max(project.id_watermark);
     }
+    Ok(project)
+}
+
+/// v10 → v11: the typed asset-digest contract (synvelis#86 / ALIB-02).
+///
+/// Persisted digest strings — `Asset.digest`, `Source.content_digest`,
+/// `AppliedImport.content_hash` — are preserved **verbatim**: legacy
+/// CRC-fold digests and opaque producer formats are never rewritten
+/// and never promoted to SHA-256 without byte-level verification
+/// (classification lives in [`crate::project::AssetDigest`]). What
+/// the step enforces is the contract's integrity floor — every digest
+/// is non-empty and every applied-import receipt names live asset and
+/// source entities — the same checks [`Project::validate_references`]
+/// applies to current bodies, so a migrated project can never carry
+/// state the writer itself would reject. Deterministic — allocates
+/// no IDs and leaves `id_watermark` untouched.
+///
+/// # Errors
+/// [`Error::Validation`]/[`Error::NotFound`] from
+/// [`Project::validate_digests`].
+fn migrate_v10_asset_digests(project: Project) -> Result<Project, Error> {
+    project.validate_digests()?;
     Ok(project)
 }

@@ -52,11 +52,17 @@ use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::P
 /// projection (the map defaults empty). v10 registers the strip
 /// channel parameter set — `Fader`/`Pan`/`Mute`/`Solo`
 /// `ParameterTarget`s on every strip (issue #122); v9 bodies are read
-/// through the same registry which seeds the missing roles.
+/// through the same registry which seeds the missing roles. v11 types
+/// the asset-digest contract — `Asset.digest`/`Source.content_digest`/
+/// `AppliedImport.content_hash` stay verbatim strings classified by
+/// `project::AssetDigest`, and applied-import receipts must name live
+/// asset/source entities with non-empty digests (synvelis#86); v10
+/// and older bodies are read through the same registry which enforces
+/// that integrity floor without rewriting any digest.
 /// New maps are `#[serde(default)]`, so an older body still
 /// deserializes; each version bump records the intentional format
 /// advance. v1–v4 snapshots are not migrated.
-pub const SCHEMA_VERSION: u32 = 10;
+pub const SCHEMA_VERSION: u32 = 11;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.

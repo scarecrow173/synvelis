@@ -7,6 +7,7 @@ Directory: `docs/tasks`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | TASK-alib02-t1 | ALIB-02 Task 1+2 — import pipeline module・namespace・tests | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
+| TASK-alib02-v5snap-t1 | ALIB-02 v5 asset-digest migration + recovery fixture | completed | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | TASK-alib03-t1 | ALIB-03 Task 1 — cache/catalog/preview/notify modules・tests | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | TASK-alib06-t1 | ALIB-06 Task 1 — webdav provider modules・fixture・tests | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
 | TASK-alib07-t1 | ALIB-07 Task 1 — fault case 追加・webdav fixture 抽出・証拠 matrix | in-progress | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
@@ -20,8 +21,9 @@ Directory: `docs/tasks`
 | TASK-034SYN166T1CiSumX | Issue #166 T1 Full CI 化・ci-summary 統一 — 第一段階実装 | in-progress | [issue-166-t1-ci-summary-stage1.md](./issue-166-t1-ci-summary-stage1.md) |
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
 | TASK-P1ub1PJgLQhinQuEDIDy8S | PC-C3 task2 — synvelis-player RT trace adapter 実装（TRACE-C3-05） | in-progress | [pc-c3-task2-rt-trace-adapter.md](./pc-c3-task2-rt-trace-adapter.md) |
+| TASK-gH5lLpWnYI2KFNM99SswOf | PC-C4-02 task1 — plugin instance binding 実装 | in-progress | [pc-c4-02-task1-plugin-instance-binding.md](./pc-c4-02-task1-plugin-instance-binding.md) |
 | TASK-wl7Q7EP5HpNVOP8NAdEB7a | PC-C6: REL01〜07 / TR01〜08 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rel-tr.md](./pc-c6-task1-oracle-rel-tr.md) |
-| TASK-034V2kE9l91elvsqfnsx5s | RCD-01 device-recording headless fixture | todo | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
+| TASK-034V2kE9l91elvsqfnsx5s | RCD-01 device-recording headless fixture | in_progress | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | in-progress | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
 | TASK-106SF03Tz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T1 — RoutingFault 18分類・engine 改修・reconcile 実装 | in-progress | [sf-03-slice2-fault-contract.md](./sf-03-slice2-fault-contract.md) |
@@ -149,6 +151,7 @@ Directory: `docs/tasks`
 | TASK-034V1qQsacdOwJ7UiGFCAW | TIM-03 task2 — capability→AttachConfig attach 配線（composition root） | done | [tim03-task2-attach-wiring.md](./tim03-task2-attach-wiring.md) |
 | TASK-034UEtaHWZFrCd1VFAIRfl | VCS-02 Task1 Semantic Diff Engine headless slice | done | [vcs-02-task1-semantic-diff-engine-headless-slice.md](./vcs-02-task1-semantic-diff-engine-headless-slice.md) |
 | TASK-v2hQAN1hrbnURHHF2lrf6L | VCS-03 Task1 Git Read Provider headless slice | done | [vcs-03-task1-git-read-provider-headless-slice.md](./vcs-03-task1-git-read-provider-headless-slice.md) |
+| TASK-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless slice — 実装 task | done | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | TASK-034Qe0kHawWuXO1xHGTd8F | VS-A task3 controller ops store | done | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |
@@ -177,4 +180,3 @@ Directory: `docs/tasks`
 | TASK-lon8rNqrFA4DGM8WvurTtM | X task2 recorded media canonical publish (synvelis-player) | done | [x-task2-recorded-media-publish.md](./x-task2-recorded-media-publish.md) |
 | TASK-tU6Q6O7q6fOl2JizqTj6Kh | X task3 acceptance tests X-01..X-06 (synvelis-render/tests/x_e2e.rs) | done | [x-task3-acceptance-tests.md](./x-task3-acceptance-tests.md) |
 | TASK-RKEHMrg7VcrrY7xOboZUqz | X task4 verification + implementation record | done | [x-task4-verification-impl-record.md](./x-task4-verification-impl-record.md) |
-| TASK-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless slice — 実装 task | done | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |

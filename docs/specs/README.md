@@ -8,7 +8,7 @@ Directory: `docs/specs`
 | --- | --- | --- | --- |
 | SPEC-j8VrtHRiA60WGx27NKFnH4 | ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
 | SPEC-034UviRHTzZZY5QqaoRYZV | ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | approved | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
-| SPEC-alib02-v5snap | ALIB-02 deferred — v5 snapshot 互換移行（SHA-256/旧 CRC digest 共存） | draft | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
+| SPEC-alib02-v5snap | ALIB-02 deferred — v5 snapshot 互換移行（SHA-256/旧 CRC digest 共存） | approved | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | SPEC-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | approved | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | SPEC-alib04-git-remote-provider | ALIB-04 — Git Remote Provider（fixed Commit/Tree・Git LFS・selective fetch・auth）（synvelis-library slice） | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | SPEC-alib06-webdav-provider | ALIB-06 — WebDAV File-Server Provider（strong ETag/If-Match pin・conditional read・auth・cancel）（synvelis-library slice） | approved | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
@@ -35,6 +35,7 @@ Directory: `docs/specs`
 | SPEC-034UoZx9FMfQ1OvSAcWCoN | PC-C2 双方向 Control Relation Index/Projection — Automation/Assignment/Depth Driver | approved | [pc-c2-control-relation-index.md](./pc-c2-control-relation-index.md) |
 | SPEC-vi1L6gnLC2jSjMMB3XG0N4 | PC-C3-05 synvelis-player RT trace adapter — ledger 実イベント → ControlTrace 投影・bounded history・RT 計測 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | SPEC-034UqtrnCaL8J9mhrd4SyZ | PC-C3 ControlTrace — Configured/Prepared/Applied/Reported/Observed projection slice | approved | [pc-c3-control-trace-projection.md](./pc-c3-control-trace-projection.md) |
+| SPEC-MCgOf8EskzmlXOde7x0Pqs | PC-C4-02 semantic plugin instance binding — stage-1 authority consumption・plugin identity pin（headless slice） | approved | [pc-c4-02-plugin-instance-binding.md](./pc-c4-02-plugin-instance-binding.md) |
 | SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | SPEC-034UxXLvNqgbDGOypo7Uu4 | PC-C5 slice2 (UI-C5-02/03): Gesture 固定・stale drop・Inspector Follow/Explore/Pinned（headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -81,6 +82,7 @@ Directory: `docs/specs`
 | SPEC-034UAv3chafPsU2fFyQnIb | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only schema projection (synvelis#92) | proposed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | SPEC-034UEsXPitEuEsjBM4qjo6 | VCS-02 Semantic Diff Engine — canonical ChangeSet typed identity lineage Unknown tri-state (synvelis#93) | proposed | [vcs-02-semantic-diff-changeset.md](./vcs-02-semantic-diff-changeset.md) |
 | SPEC-PvLluOn4j6y1qpdtQ0aw8A | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta（synvelis#94） | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
+| SPEC-vcs05-apply-restore-headless | VCS-05 Safe Apply Selected Change / Restore As Copy — headless slice（synvelis#96） | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
 | SPEC-034Qdwuy2lCglk3HjqtRcs | VS-A Project / Recording Foundation — Stable ID・時間型・Command・Save/Reload | approved | [vs-a-project-recording-foundation-stable-id-command-save-reload.md](./vs-a-project-recording-foundation-stable-id-command-save-reload.md) |
 | SPEC-9EcPwSoDwcrg3WPYmvs7Gn | VS-B Clock / Gate Scheduler / RT Capture — Mock Input・Buffer Pool・SPSC | approved | [vs-b-rt-capture-mock-input-buffer-pool-spsc.md](./vs-b-rt-capture-mock-input-buffer-pool-spsc.md) |
 | SPEC-034QfIc1oyjYo7pSqlYH8a | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range | approved | [vs-c-staging-writer-journal-crash-recovery-verified-media-range.md](./vs-c-staging-writer-journal-crash-recovery-verified-media-range.md) |
@@ -97,4 +99,3 @@ Directory: `docs/specs`
 | SPEC-034RUjwAo6z9Q2Hpkp99SH | Issue #157 rev.3 matrix lane skip placeholder — evidence gate 修正 | superseded | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |
 | SPEC-034SYN157Kx9mTvQp2w | Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画 | superseded | [issue-157-selective-execution.md](./issue-157-selective-execution.md) |
 | SPEC-034T6XTAVpIPhybzaw7jdh | SV-GPUI-03 Synvelis Product Theme / Workspace Presets — Driver-neutral DTCG overrides・Preset schema・fixtures | implemented | [sv-gpui-03-product-theme-workspace-presets.md](./sv-gpui-03-product-theme-workspace-presets.md) |
-| SPEC-vcs05-apply-restore-headless | VCS-05 Safe Apply Selected Change / Restore As Copy — headless slice（synvelis#96） | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
