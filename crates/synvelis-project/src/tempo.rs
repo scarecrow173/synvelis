@@ -5,9 +5,11 @@
 //! counter (the snapshot identity a [`TempoMapRef`] points at). At runtime
 //! the map is rebuilt via `TempoMapBuilder` into a [`TickTimeMapping`].
 //!
-//! Musical positions are persisted as `tick + ppqn` context; the current
-//! `PoC` fixes PPQN at 960 (schema versioned) pending the resolution-
-//! independent direction of issue #19 / ruviform #189.
+//! Musical positions are persisted as `tick + ppqn` context; the
+//! project PPQN is configurable in `1..=32767` (issue #125 / TIM-01)
+//! and changes go through `ProjectOp::SetProjectPpqn`, which
+//! re-projects every stored tick through exact rational beats —
+//! see [`crate::ppqn`].
 
 use num_traits::ToPrimitive;
 use ruviform_media_core::{
@@ -29,8 +31,9 @@ fn seconds_base() -> Result<TimeBase, Error> {
     TimeBase::new(1, SECONDS_DEN).map_err(|e| Error::Validation(format!("time base: {e:?}")))
 }
 
-/// Project PPQN setting (currently fixed at 960; the field is persisted so
-/// the tick context travels with the snapshot).
+/// Project PPQN setting — the tick-grid context every `MusicalTick`
+/// in this project counts against (default 960; configurable
+/// `1..=32767` via `ProjectOp::SetProjectPpqn`, issue #125).
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ProjectPpqn(pub u32);

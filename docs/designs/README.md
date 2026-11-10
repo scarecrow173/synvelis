@@ -9,6 +9,10 @@ Directory: `docs/designs`
 | DESIGN-OVERVIEW | Synvelis 設計概要 | draft | [overview.md](./overview.md) |
 | DESIGN-pzR2GiO8Eru6Jw2zRK6l2s | ALIB-01 Design — Asset Provider 契約・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract-design.md](./alib-01-asset-provider-contract-design.md) |
 | DSN-alib02-streaming-import | ALIB-02 — Streaming Verified Import 設計（synvelis-library） | approved | [alib-02-streaming-verified-import-design.md](./alib-02-streaming-verified-import-design.md) |
+| DSN-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache 設計（synvelis-library） | approved | [alib-03-catalog-preview-cache-design.md](./alib-03-catalog-preview-cache-design.md) |
+| DSN-alib04-git-remote-provider | ALIB-04 — Git Remote Provider 設計（synvelis-library） | approved | [alib-04-git-remote-provider-design.md](./alib-04-git-remote-provider-design.md) |
+| DSN-alib06-webdav-provider | ALIB-06 — WebDAV File-Server Provider 設計（synvelis-library） | approved | [alib-06-webdav-provider-design.md](./alib-06-webdav-provider-design.md) |
+| DSN-alib07-fault-matrix | ALIB-07 — Asset Library 全経路 Fault Matrix 設計（synvelis-library headless slice） | approved | [alib-07-fault-matrix-design.md](./alib-07-fault-matrix-design.md) |
 | DESIGN-034AUT01Kp3mWv9zR2sQfL6h | AUT-01 Touch Return・Writer State 境界設計 — session clock + 明示閉鎖 | approved | [aut-01-touch-return-writer-state-design.md](./aut-01-touch-return-writer-state-design.md) |
 | DESIGN-034AUT02Qm8wXs5vLn3jKp9r | AUT-02 Region Replace 境界曲線保存 設計 — merged series 境界 anchor・host 選択・stitch | approved | [aut-02-region-replace-boundary-design.md](./aut-02-region-replace-boundary-design.md) |
 | DESIGN-034AUT03B1wG9hW1zS0Yf4 | AUT-03 Loop 録音 1 Pass — Write Range 半開区間閉鎖・境界 flush・明示 Rearm 設計 | approved | [aut-03-loop-write-one-pass-design.md](./aut-03-loop-write-one-pass-design.md) |
@@ -57,8 +61,10 @@ Directory: `docs/designs`
 | DESIGN-034UfwVzxaw6WwUYS3nMDN | SF-03 slice3 設計 — processor host 接続 boundary・世代連動 teardown | approved | [sf-03-slice3-plugin-host-connect-design.md](./sf-03-slice3-plugin-host-connect-design.md) |
 | DESIGN-6tbKfWyun38H7ERAnefMsA | SF-03 slice4 設計 — NoRebuild Equivalence・世代連動 processor control 払い出し | approved | [sf-03-slice4-act-acceptance-design.md](./sf-03-slice4-act-acceptance-design.md) |
 | DESIGN-034Uj7LfhkkACvyn53L7eN | SF-03 slice5 設計 — session EnginePort・SessionRoutingEngine・canonical probe | approved | [sf-03-slice5-session-engine-connect-design.md](./sf-03-slice5-session-engine-connect-design.md) |
+| DESIGN-034UJqgcnnlXJWllu9yUGb | SF-03 slice6 design — RoutingControlDispatch control surface（世代 gate・有界 queue・binding 証拠・catalog refresh） | approved | [sf-03-slice6-act06-control-surface-design.md](./sf-03-slice6-act06-control-surface-design.md) |
 | DESIGN-034Um5591oRMfPg7cVthyU | SF-04 slice1 設計 — Semantic Probe Adapter（project contract + player runtime adapter） | approved | [sf-04-slice1-semantic-probe-adapter-design.md](./sf-04-slice1-semantic-probe-adapter-design.md) |
 | DESIGN-034UunDPfVm34dBXKZHHG0 | SF-04 slice2 設計 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace-design.md](./sf-04-slice2-controlsession-probe-trace-design.md) |
+| DESIGN-034UL2WkinplQmMD9VPyeX | SF-04 slice3 設計 — probe clock epoch discontinuity・capture segment cut | approved | [sf-04-slice3-clock-epoch-discontinuity-design.md](./sf-04-slice3-clock-epoch-discontinuity-design.md) |
 | DESIGN-034UudJz8OJsiidXryTNTU | SF-05 slice1 Signal Flow headless 設計 — graph 投影 + visual state + status 合成 | approved | [sf-05-slice1-signal-flow-headless-graph-visual-state-status.md](./sf-05-slice1-signal-flow-headless-graph-visual-state-status.md) |
 | DESIGN-lW54zR76NmEm8cc3NlMskX | SV-GUI-01 Design — Desktop App Bootstrap・Composition Root・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap-design.md](./sv-gui-01-desktop-app-bootstrap-design.md) |
 | DESIGN-034RAAXZ1XMIuk2zr2dr4w | SV-GUI-02 Frontend View Model・Binding IPC・Reference Workspace View | approved | [sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md](./sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md) |
@@ -77,7 +83,13 @@ Directory: `docs/designs`
 | DESIGN-034RBzdpo91wcbqBK7Gb9t | SYN-OBS-01 Design — Host所有 Logging Owner・設定解決・Source Catalog | approved | [syn-obs-01-design-host-logging-owner-source-catalog.md](./syn-obs-01-design-host-logging-owner-source-catalog.md) |
 | DESIGN-034T2RF305WAVSTAGED00Y | SYN-RF305 WAV Export StagedFile 移行設計 | approved | [syn-rf305-wav-export-staged-file-design.md](./syn-rf305-wav-export-staged-file-design.md) |
 | — | Synvelis-driven Ruviform Target Architecture v0.7.1 | — | [synvelis-driven-ruviform-target-architecture-v07.md](./synvelis-driven-ruviform-target-architecture-v07.md) |
+| DESIGN-034UHVNvFQXFumTOowIt0g | TIM-01 Configurable PPQN — Rational Beat 再投影設計 | approved | [tim-01-configurable-ppqn-design.md](./tim-01-configurable-ppqn-design.md) |
+| DESIGN-034UwVoRGI8Bp9zuzRFQhj | TIM-02 SMF Format0/1 core — crate 内完結設計 | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
+| DESIGN-034UC0ixTsN58rRlRctgAH | TIM-04 plugin state snapshot consistency design — quality receipt/store/session/offline recipe | approved | [tim-04-plugin-state-snapshot-consistency-design.md](./tim-04-plugin-state-snapshot-consistency-design.md) |
+| DESIGN-034UyEjdALaapQRSk5hAdk | TIM-03 plugin process boundary design — capability/degraded policy oracle | approved | [tim03-process-boundary-design.md](./tim03-process-boundary-design.md) |
 | — | Synvelis × Ruviform — Time / Transport / MIDI / Automation / Plugin Integration Architecture v0.5 | — | [time-transport-midi-automation-plugin-integration-architecture.md](./time-transport-midi-automation-plugin-integration-architecture.md) |
+| DESIGN-034UAwTwlzWbToxqWtFM2B | VCS-01 Immutable Snapshot Resolver — crate 内完結設計 | approved | [vcs-01-immutable-snapshot-resolver-design.md](./vcs-01-immutable-snapshot-resolver-design.md) |
+| DESIGN-034UEtYMoQUWsPmOBrl819 | VCS-02 Semantic Diff Engine design | approved | [vcs-02-semantic-diff-engine-design.md](./vcs-02-semantic-diff-engine-design.md) |
 | DESIGN-034QdO7AB6cp4DRgKeuuEn | VS-A Project/Recording Foundation — Stable ID・時間型・Command・永続化 PoC | approved | [vs-a-project-recording-foundation-stable-id-command-poc.md](./vs-a-project-recording-foundation-stable-id-command-poc.md) |
 | DESIGN-8OW4JtYUYaLPOTZ9ZGxXuz | VS-B Clock / Gate Scheduler / RT Capture — Mock Input・Buffer Pool・SPSC | approved | [vs-b-clock-gate-rt-capture-mock-spsc.md](./vs-b-clock-gate-rt-capture-mock-spsc.md) |
 | DESIGN-034QfL0bH9u3cVqK0pYwT7x | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range | approved | [vs-c-staging-writer-journal-crash-recovery-verified-media-range.md](./vs-c-staging-writer-journal-crash-recovery-verified-media-range.md) |

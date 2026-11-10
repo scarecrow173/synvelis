@@ -9,6 +9,10 @@ Directory: `docs/specs`
 | SPEC-j8VrtHRiA60WGx27NKFnH4 | ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
 | SPEC-034UviRHTzZZY5QqaoRYZV | ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | approved | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | SPEC-alib02-v5snap | ALIB-02 deferred — v5 snapshot 互換移行（SHA-256/旧 CRC digest 共存） | draft | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
+| SPEC-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | approved | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
+| SPEC-alib04-git-remote-provider | ALIB-04 — Git Remote Provider（fixed Commit/Tree・Git LFS・selective fetch・auth）（synvelis-library slice） | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
+| SPEC-alib06-webdav-provider | ALIB-06 — WebDAV File-Server Provider（strong ETag/If-Match pin・conditional read・auth・cancel）（synvelis-library slice） | approved | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
+| SPEC-alib07-fault-matrix | ALIB-07 — Asset Library 全経路 Fault Matrix（headless slice・synvelis-library） | approved | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | SPEC-034AUT01T7xRw4mNcQ8pZbV2 | AUT-01 Automation Mode 境界 State — Read/Touch/Latch/Write・Touch Return 150ms Smoothstep | approved | [aut-01-automation-mode-boundary-touch-return-writer-state.md](./aut-01-automation-mode-boundary-touch-return-writer-state.md) |
 | SPEC-034AUT03AW1Qq4l4VCpTSK | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・明示 Rearm | approved | [aut-03-loop-write-one-pass-write-range-rearm.md](./aut-03-loop-write-one-pass-write-range-rearm.md) |
 | SPEC-034AUT04VJToXbqZEgrP85 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
@@ -47,8 +51,10 @@ Directory: `docs/specs`
 | SPEC-034UfvosLz4uB6QhaNTi2s | SF-03 slice3 — 実 plugin host 接続（headless 契約・SF-ACT-05 系） | approved | [sf-03-slice3-plugin-host-connect.md](./sf-03-slice3-plugin-host-connect.md) |
 | SPEC-034UgK3ZuEty10uP1PNjT6 | SF-03 slice4 — SF-ACT-05〜09 系受入消化・NoRebuild Equivalence・世代連動 dispatch（player/project 境界） | approved | [sf-03-slice4-act-acceptance-norebuild.md](./sf-03-slice4-act-acceptance-norebuild.md) |
 | SPEC-034Uj7sqrin4g45fPU9uJM | SF-03 slice5 — app/session 層への RoutingEngine 接続（headless・EngineStub 置き換え） | approved | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
+| SPEC-034UJpxSHTVIxHKdrntkyR | SF-03 slice6 — SF-ACT-06 control surface headless slice（automation→TimedParamEvent・Fast Control gate・有界 Queue・catalog refresh） | approved | [sf-03-slice6-act06-control-surface.md](./sf-03-slice6-act06-control-surface.md) |
 | SPEC-034UlYgSZ589NRdTrtO4Vu | SF-04 slice1 — Semantic Probe Adapter 基盤（project/player 層 + ruviform pin bump） | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | SPEC-034UumeSTLbuxt64vqqJ47 | SF-04 slice2 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
+| SPEC-034UL2whPqBifdr1Jsrkn7 | SF-04 slice3 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | SPEC-034Uuc3q3FZYT5JjxQtDv9 | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | approved | [sf-05-signal-flow-headless-hierarchy.md](./sf-05-signal-flow-headless-hierarchy.md) |
 | SPEC-ZXEWFEbx3k4Jeu4YDEQcD0 | SV-GPUI-01 Native App Shell — Driver-neutral shell・GPUI Driver組立・typed ViewModel↔Binding adapter・app lifecycle | approved | [sv-gpui-01-native-app-shell.md](./sv-gpui-01-native-app-shell.md) |
 | SPEC-ZdwjK7WkdHy90Oaw1mTGUy | SV-GUI-01 Desktop Application Bootstrap — WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md](./sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md) |
@@ -65,6 +71,12 @@ Directory: `docs/specs`
 | SPEC-034T29C9D8CIvYjMxmQIy8 | SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行 | approved | [syn-io-02-snapshot-head-staged-publish.md](./syn-io-02-snapshot-head-staged-publish.md) |
 | SPEC-034RBvYIlw0wiBoGsL9EBY | SYN-OBS-01 Ruviform observability 単一crate Logging/Host統合 | proposed | [syn-obs-01-ruviform-observability-crate-logging-host.md](./syn-obs-01-ruviform-observability-crate-logging-host.md) |
 | SPEC-034T2RF305WAVSTAGED00X | SYN-RF305 WAV Export/Player StagedFile 移行 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
+| SPEC-034UHVLQ9dtoN4YQDjtCy3 | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | approved | [tim-01-configurable-ppqn-project-command.md](./tim-01-configurable-ppqn-project-command.md) |
+| SPEC-034UwMIulZ7DXWykQFy704 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice (synvelis#126) | proposed | [tim-02-smf-format01-import-export.md](./tim-02-smf-format01-import-export.md) |
+| SPEC-034UBZ7xNf0yey5lCLjVNT | TIM-04 Plugin State Snapshot 一貫性 — quality receipt・save/reload/HEAD/offline recipe（headless mock slice） | approved | [tim-04-plugin-state-snapshot-consistency.md](./tim-04-plugin-state-snapshot-consistency.md) |
+| SPEC-034UyE1s4ix4GwnKIOuV2N | TIM-03 plugin process boundary — capability/degraded policy（headless mock slice） | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
+| SPEC-034UAv3chafPsU2fFyQnIb | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only schema projection (synvelis#92) | proposed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
+| SPEC-034UEsXPitEuEsjBM4qjo6 | VCS-02 Semantic Diff Engine — canonical ChangeSet typed identity lineage Unknown tri-state (synvelis#93) | proposed | [vcs-02-semantic-diff-changeset.md](./vcs-02-semantic-diff-changeset.md) |
 | SPEC-034Qdwuy2lCglk3HjqtRcs | VS-A Project / Recording Foundation — Stable ID・時間型・Command・Save/Reload | approved | [vs-a-project-recording-foundation-stable-id-command-save-reload.md](./vs-a-project-recording-foundation-stable-id-command-save-reload.md) |
 | SPEC-9EcPwSoDwcrg3WPYmvs7Gn | VS-B Clock / Gate Scheduler / RT Capture — Mock Input・Buffer Pool・SPSC | approved | [vs-b-rt-capture-mock-input-buffer-pool-spsc.md](./vs-b-rt-capture-mock-input-buffer-pool-spsc.md) |
 | SPEC-034QfIc1oyjYo7pSqlYH8a | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range | approved | [vs-c-staging-writer-journal-crash-recovery-verified-media-range.md](./vs-c-staging-writer-journal-crash-recovery-verified-media-range.md) |

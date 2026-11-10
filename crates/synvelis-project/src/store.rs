@@ -46,11 +46,14 @@ use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::P
 /// into owner + derived time scope. v8 seeds the bootstrap
 /// master-strip fader `ParameterTarget` (synvelis#185); v7 bodies are
 /// read through the same registry which inserts the well-known
-/// target when absent.
+/// target when absent. v9 adds `Project::smf_documents` — SMF
+/// provenance documents for imported MIDI sources (issue #126); v8
+/// bodies are read through the same registry which needs no
+/// projection (the map defaults empty).
 /// New maps are `#[serde(default)]`, so an older body still
 /// deserializes; each version bump records the intentional format
 /// advance. v1–v4 snapshots are not migrated.
-pub const SCHEMA_VERSION: u32 = 8;
+pub const SCHEMA_VERSION: u32 = 9;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.
@@ -101,6 +104,38 @@ pub trait ProjectStore {
 #[must_use]
 pub fn snapshot_name(revision: ProjectRevision) -> String {
     format!("r{}.json", revision.0)
+}
+
+/// Parses a canonical snapshot name back into its revision — the
+/// inverse of [`snapshot_name`]. Non-canonical names (`r01.json`,
+/// foreign prefixes, missing suffix) return `None` rather than being
+/// silently accepted.
+#[must_use]
+pub fn snapshot_revision(name: &str) -> Option<ProjectRevision> {
+    let rev = name
+        .strip_prefix('r')?
+        .strip_suffix(".json")?
+        .parse::<u64>()
+        .ok()?;
+    (snapshot_name(ProjectRevision(rev)) == name).then_some(ProjectRevision(rev))
+}
+
+/// The revision the store's HEAD snapshot records.
+///
+/// `Ok(None)` means the store has no HEAD (never saved). A HEAD that
+/// exists but does not name a canonical `r<rev>.json` snapshot is a
+/// store integrity problem and returns [`Error::Store`] — callers must
+/// not treat it as "unsaved".
+///
+/// # Errors
+/// Store read failures or a non-canonical HEAD snapshot name.
+pub fn head_revision(store: &dyn ProjectStore) -> Result<Option<ProjectRevision>, Error> {
+    match store.head()? {
+        None => Ok(None),
+        Some(name) => snapshot_revision(&name)
+            .map(Some)
+            .ok_or_else(|| Error::Store(format!("HEAD names non-canonical snapshot: {name}"))),
+    }
 }
 
 /// How an existing snapshot at the target name relates to incoming

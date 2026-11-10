@@ -7,6 +7,9 @@ Directory: `docs/tasks`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | TASK-alib02-t1 | ALIB-02 Task 1+2 — import pipeline module・namespace・tests | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
+| TASK-alib03-t1 | ALIB-03 Task 1 — cache/catalog/preview/notify modules・tests | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
+| TASK-alib06-t1 | ALIB-06 Task 1 — webdav provider modules・fixture・tests | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
+| TASK-alib07-t1 | ALIB-07 Task 1 — fault case 追加・webdav fixture 抽出・証拠 matrix | in-progress | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | TASK-034AUT01Mn7pQs4wXc9vBhJk | AUT-01: Touch Return 150ms smoothstep・Read/Touch/Latch/Write 境界 State 実装 | in-progress | [aut-01-task1-touch-return-writer-state.md](./aut-01-task1-touch-return-writer-state.md) |
 | TASK-034AUT04uqfg9sevPu0zlr | AUT-04 task1: Viewport LOD・RT bounded queue・型付き喪失 provenance 実装 + headless テスト | todo | [aut-04-task1-automation-curve-lod-record-budget.md](./aut-04-task1-automation-curve-lod-record-budget.md) |
 | TASK-034U2vruJGfkEYZHCqNfwE | canonical temp fixture による synvelis-library symlink テスト修正 | in-progress | [canonical-temp-fixture-synvelis-library-symlink.md](./canonical-temp-fixture-synvelis-library-symlink.md) |
@@ -25,11 +28,14 @@ Directory: `docs/tasks`
 | TASK-106SF03Uz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T2 — 受入テスト sf03_l2.rs・検証 | in-progress | [sf-03-slice2-reconcile-tests.md](./sf-03-slice2-reconcile-tests.md) |
 | TASK-034Um6UmzaMloEGrFyYAS2 | SF-04 slice1 T1 — project/player Semantic Probe Adapter + ruviform pin bump | in-progress | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | TASK-034Uur4AKzlyg8khBcNC6X | SF-04 slice2 T1 — ControlSession probe observation → ControlTrace 配線 | in-progress | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
+| TASK-034UL3a4aL5H7PC2FRWUp7 | SF-04 slice3 T1 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | in-progress | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | TASK-034Ul52jO5RARmW21UHLGR | SV-GUI-03 slice1: Transport 操作 + Inspector 表示を既存 GPUI 経路に接続 | in-progress | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
 | TASK-cvXxPcl14NogBTKEDTSKrO | SV-GUI-03 slice2 タスク分解 — Arrangement read-only Table + Undo/Redo | in-progress | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
 | TASK-034UogPe6cIh8LtcFphyuH | SV-GUI-04 slice1 precursor: multi-window WindowHandle + headless dock fixture | in-progress | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | TASK-NFJWSkocsf8xf7WcgpPdL0 | SV-GUI-04 slice1 タスク分解 — 実 2-window mount | in-progress | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
+| TASK-034UwY7u8viaAzE6tUxLHa | TIM-02 Task1 SMF Format0/1 project+recording headless slice | in-progress | [tim-02-task1-smf-core.md](./tim-02-task1-smf-core.md) |
+| TASK-034UAAcPSS47j6GIlPGPrX | VCS-01 Task1 Immutable Snapshot Resolver headless slice | in-progress | [vcs-01-task1-immutable-snapshot-resolver-headless-slice.md](./vcs-01-task1-immutable-snapshot-resolver-headless-slice.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
 | TASK-034QfQZsTXhM5gVQP0gh81 | VS-C task3 staging writer | todo | [vs-c-task3-staging-writer.md](./vs-c-task3-staging-writer.md) |
@@ -47,6 +53,7 @@ Directory: `docs/tasks`
 | TASK-MrgE7n0XwNu9hoShUiohdL | ALIB-01 task4 — 受入・回帰検証 + impl record | done | [alib-01-task4-acceptance.md](./alib-01-task4-acceptance.md) |
 | TASK-SV180RootedCutover2k26 | ALIB-01 task5 — Ruviform rooted capability への containment 移行（N1 修復） | done | [alib-01-task5-rooted-cutover.md](./alib-01-task5-rooted-cutover.md) |
 | TASK-SV85RF409ScopedEnum9zQ2 | ALIB-01 task6 — ruviform#409 scoped re-root / bounded 列挙への正規契約移行 | done | [alib-01-task6-rf409-scoped-enumeration.md](./alib-01-task6-rf409-scoped-enumeration.md) |
+| TASK-alib04-t1 | ALIB-04 Task 1 — git provider modules・fixture・tests | done | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | TASK-034AUT02Gt6kHr4nWy8sBp3x | AUT-02 task1: 境界 anchor 実装 + op 適用 + property/exact fixture テスト | done | [aut-02-task1-region-replace-boundary.md](./aut-02-task1-region-replace-boundary.md) |
 | TASK-034AUT03Pq9rWx3nVm7sJk2d | AUT-03 task1: Write Range 閉鎖・境界 flush・明示 Rearm 実装 + headless テスト | done | [aut-03-task1-loop-write-one-pass.md](./aut-03-task1-loop-write-one-pass.md) |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |
@@ -88,6 +95,7 @@ Directory: `docs/tasks`
 | TASK-034UquDG2pRhDCtpLYPhPi | PC-C3: ControlTrace projection 実装タスク | done | [pc-c3-task1-control-trace.md](./pc-c3-task1-control-trace.md) |
 | TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | done | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
+| TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |
 | TASK-034UtpBjTeXJ6XSJAMupsv | RCD-03 Task1 Monitor/Punch/Latency semantics | done | [rcd-03-task1-monitor-punch-latency.md](./rcd-03-task1-monitor-punch-latency.md) |
 | TASK-RCD04Fx1kE5tY8uI3oP6aS9 | RCD-04 Task1 Comp Transition / MIDI Phrase crate fixture slice | done | [rcd-04-task1-comp-midi-fixture.md](./rcd-04-task1-comp-midi-fixture.md) |
 | TASK-034SF01Pr2uVw7xY4zAbCdFgH | SF-01: RoutingModel 型・oracle・Schema v6 Migration・ops・検証 | done | [sf-01-task1-routing-model-schema-migration.md](./sf-01-task1-routing-model-schema-migration.md) |
@@ -132,6 +140,10 @@ Directory: `docs/tasks`
 | TASK-034RBFXktNsZRlOztedppD | SYN-OBS-01 task5 logging テスト新設と mise 検証 | done | [syn-obs-01-task5-tests-verification.md](./syn-obs-01-task5-tests-verification.md) |
 | TASK-034RBFY3O4vz81b0Rumg95 | SYN-OBS-01 task6 最終検証と impl record | done | [syn-obs-01-task6-final-verify-impl-record.md](./syn-obs-01-task6-final-verify-impl-record.md) |
 | TASK-034T2RF305WAVSTAGED01A | SYN-RF305 task1 render/player WAV Export StagedFile 移行 | done | [syn-rf305-task1-render-export-staged-file.md](./syn-rf305-task1-render-export-staged-file.md) |
+| TASK-034UHVQgQGF9WnpLCSCDTB | TIM-01 configurable PPQN — implementation tasks | done | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
+| TASK-034UC5rYrk7usxShbL01xG | TIM-04 plugin state snapshot consistency — implementation tasks | done | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
+| TASK-034UyED9PUv2ECvzH9A3RX | TIM-03 task1 — process boundary/capability/degraded policy 実装 | done | [tim03-task1-process-boundary.md](./tim03-task1-process-boundary.md) |
+| TASK-034UEtaHWZFrCd1VFAIRfl | VCS-02 Task1 Semantic Diff Engine headless slice | done | [vcs-02-task1-semantic-diff-engine-headless-slice.md](./vcs-02-task1-semantic-diff-engine-headless-slice.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | TASK-034Qe0kHawWuXO1xHGTd8F | VS-A task3 controller ops store | done | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |

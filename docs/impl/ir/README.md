@@ -6,6 +6,7 @@ Directory: `docs/impl/ir`
 | --- | --- | --- | --- |
 | IMPL-034UyQi9tCjjAPwfMy7pSX | PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice） | in-progress | [pc-c5-02-03-gesture-stale-inspector.md](pc-c5-02-03-gesture-stale-inspector.md) |
 | IMPL-034UvgCFl4bXw9DZ4bTr3X | SF-04 slice2 ControlSession probe observation → ControlTrace 配線 | in-progress | [sf-04-slice2-controlsession-probe-observation-trace-wiring.md](sf-04-slice2-controlsession-probe-observation-trace-wiring.md) |
+| IMPL-034UL7HNJppFLqjkPqHDxX | SF-04 slice3 probe clock epoch discontinuity capture segmentation | in-progress | [sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md](sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md) |
 | IMPL-034UrlNf4hC31G8gfjoR8y | SV-GUI-04 slice2 close-veto/cancel — syn.window.close_guard + 末尾 window veto | completed | [sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md](sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md) |
 | IMPL-034UpGfvHCv8xjHEH5ys6e | PC-C2 双方向 Control Relation Index/Projection | completed | [pc-c2-control-relation-index-projection.md](pc-c2-control-relation-index-projection.md) |
 | IMPL-034UoCucc7Cxrp4NwMxb5V | SV-GUI-04 slice1 precursor: headless WindowHandle + dock fixture | completed | [sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md](sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md) |
@@ -71,3 +72,8 @@ Directory: `docs/impl/ir`
 | IMPL-034UvMC7UhiwWgHviB9Qnv | RCD-04 Comp Transition / MIDI Phrase crate fixture slice 実装記録 | completed | [rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md](rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md) |
 | IMPL-034UvpX7fem2fghDtfNDJm | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | completed | [sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md](sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md) |
 | IMPL-034UxmcANQsdlNy9GC0tWv | PC-C4 plugin parameter binding — verified frame base・capability gate・generation pin（fake port slice） | completed | [pc-c4-plugin-parameter-binding-frame-base-capability-gate.md](pc-c4-plugin-parameter-binding-frame-base-capability-gate.md) |
+| IMPL-034UyF6gu1UEMJOKr7ZnGg | TIM-03 process boundary implementation record | completed | [tim-03-process-boundary-implementation-record.md](tim-03-process-boundary-implementation-record.md) |
+| IMPL-034UHWGxnC2sjDoLd5P01u | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | completed | [tim-01-configurable-ppqn.md](tim-01-configurable-ppqn.md) |
+| IMPL-034UGB5wH67MKn7FnNHs1i | Issue #230 check-ruviform-rev REV/lock 不整合 — stale vendor 診断と復旧導線 | completed | [issue-230-check-ruviform-rev-rev-lock-stale-vendor.md](issue-230-check-ruviform-rev-rev-lock-stale-vendor.md) |
+| IMPL-034UJqjrnNLIXxfkFE25tv | SF-03 slice6 実装記録 — RoutingControlDispatch・sf03_l6 acceptance | completed | [sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md](sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md) |
+| IMPL-034UMbAviqhaRhIqExdBM3 | RCD-02 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | completed | [rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md](rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md) |

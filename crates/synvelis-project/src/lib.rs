@@ -13,6 +13,7 @@
 pub mod comp;
 pub mod control;
 pub mod controller;
+pub mod diff;
 pub mod error;
 pub mod id;
 pub mod midi;
@@ -20,6 +21,8 @@ pub mod midi_comp;
 pub(crate) mod migration;
 pub mod ops;
 pub mod placement;
+pub mod plugin_state;
+pub mod ppqn;
 pub mod probe;
 pub mod probe_trace;
 pub mod project;
@@ -29,6 +32,8 @@ pub mod relation;
 pub mod routing;
 pub mod routing_build;
 pub mod routing_tx;
+pub mod smf;
+pub mod snapshot;
 pub mod store;
 pub mod tempo;
 pub mod time;
@@ -70,6 +75,17 @@ pub use placement::{
     ClipExtent, ClipPlacement, ClipPlayback, PlaybackMapping, ResolvedClip, StretchRatio,
     TimeAnchor,
 };
+pub use plugin_state::{
+    CaptureMode, CaptureObservation, DirectoryPluginStateStore, InMemoryPluginStateStore,
+    PLUGIN_STATE_SCHEMA_VERSION, PluginStateBinding, PluginStateCapture, PluginStateCaptureError,
+    PluginStateError, PluginStateFailureKind, PluginStateManifest, PluginStateOutcome,
+    PluginStatePort, PluginStateQualitySummary, PluginStateReceipt, PluginStateRecord,
+    PluginStateRestoreOutcome, PluginStateRestoreReceipt, PluginStateRestoreRecord,
+    PluginStateRestoreRequest, PluginStateSaveRequest, PluginStateSession, PluginStateStore,
+    PluginStateStoreError, StateCaptureQuality, StateQualityPolicy, digest_hex, is_manifest_name,
+    plugin_state_manifest_name,
+};
+pub use ppqn::{PPQN_MAX, PPQN_MIN, PpqnConversionPolicy, ppqn_in_range};
 pub use probe::{
     CaptureCompleteness, CaptureSegmentEnd, CaptureSessionId, ClockContextRef, ObservationGap,
     ObservationGapKind, ProbeCaptureSegment, ProbeFrameInterval, ProbeMode, ProbePointResolution,
@@ -111,9 +127,20 @@ pub use routing_tx::{
     RoutingEditIntent, RoutingPlan, RoutingReceipt, SendGainSpec, SendRef, StripRef, TempBusId,
     TempConnectionId, TempSendId, port_capability_generation, preflight as routing_preflight,
 };
+pub use smf::{
+    SmfConversionReport, SmfDocument, SmfError, SmfEvent, SmfEventKind, SmfExportOptions, SmfFile,
+    SmfFormat, SmfNoteSpec, SmfRational, SmfTrack, SmfUnsupportedEvent, export_smf, parse_smf,
+};
+pub use snapshot::{
+    AssetAvailabilityManifest, AssetResolution, BlobProbe, BlobRead, ContentDigest, ContentStatus,
+    FixedSnapshotLocator, ImmutableSnapshot, IndexGeneration, OpaqueStateRef, OpaqueStateStatus,
+    ReadOnlyProjectProjection, SnapshotCancel, SnapshotCompleteness, SnapshotError,
+    SnapshotIdentity, SnapshotLimits, SnapshotLocator, SnapshotOrigin, SnapshotResolver,
+    SnapshotValidation, VcsBytesPort, VcsFileRead, VcsLocator, VcsPortError,
+};
 pub use store::{
     DirectoryBundleStore, InMemoryStore, ProjectStore, SCHEMA_VERSION, SnapshotEnvelope,
-    snapshot_name,
+    head_revision, snapshot_name, snapshot_revision,
 };
 pub use tempo::{
     ProjectPpqn, SignatureDto, TempoEventDto, TempoMapData, TempoMapRef, TickTimeMapping,

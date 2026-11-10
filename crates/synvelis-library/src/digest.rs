@@ -42,6 +42,22 @@ pub(crate) fn short_fingerprint(bytes: &[u8]) -> String {
     out
 }
 
+/// Full SHA-256 hex fingerprint (64 chars). Used where a fingerprint
+/// is a *security-relevant namespace separator* — e.g. the on-disk
+/// principal tag of the ALIB-03 cache — and a 64-bit truncation
+/// would be an unacceptable collision surface.
+#[must_use]
+pub(crate) fn full_fingerprint(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let digest = sha2::Sha256::digest(bytes);
+    let mut out = String::with_capacity(64);
+    for &b in &digest {
+        out.push(HEX[usize::from(b >> 4)] as char);
+        out.push(HEX[usize::from(b & 0x0f)] as char);
+    }
+    out
+}
+
 /// Streams `reader` to EOF computing SHA-256, honoring cancel,
 /// deadline, and the byte budget.
 ///
@@ -104,7 +120,7 @@ fn check_interrupts(
     Ok(())
 }
 
-fn io_provider_error(op: &'static str, e: &io::Error) -> ProviderError {
+pub(crate) fn io_provider_error(op: &'static str, e: &io::Error) -> ProviderError {
     match e
         .get_ref()
         .and_then(|inner| inner.downcast_ref::<ProviderError>())
@@ -177,7 +193,13 @@ impl<R: Read> VerifyingReader<R> {
     }
 
     fn conclude(&mut self) -> io::Result<()> {
-        // EOF reached: verify the measured state against the pin.
+        // EOF reached: a cancel/deadline that landed during the final
+        // read still wins over a clean conclude (e.g. a watchdog-killed
+        // child surfaces as EOF, not as an error).
+        if let Err(err) = check_interrupts(&self.cancel, self.deadline) {
+            return Err(self.fail(err));
+        }
+        // Verify the measured state against the pin.
         let measured = ContentDigest::new(DigestAlgorithm::Sha256, &self.hasher.clone().finalize());
         if let Some(expected) = &self.expected_size
             && self.bytes != *expected

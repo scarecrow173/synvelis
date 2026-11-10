@@ -86,6 +86,15 @@ pub enum PreflightError {
     /// clip-free export publishes nothing, so it refuses early rather
     /// than emit a silent file that looks rendered.
     NothingToRender,
+    /// The plugin-state recipe demands `Strict` quality but the
+    /// supplied evidence is not exact-eligible (`BestEffort`,
+    /// `Unsupported` or failed records present) — the offline
+    /// export fails closed rather than claim exact reproduction
+    /// (TIM-04).
+    PluginStateQuality {
+        /// Human-readable detail naming the failing evidence.
+        detail: String,
+    },
 }
 
 impl fmt::Display for PreflightError {
@@ -116,6 +125,9 @@ impl fmt::Display for PreflightError {
                 write!(f, "comp {comp_id} node could not be rendered: {detail}")
             }
             Self::NothingToRender => write!(f, "no clips to render"),
+            Self::PluginStateQuality { detail } => {
+                write!(f, "plugin state quality insufficient: {detail}")
+            }
         }
     }
 }

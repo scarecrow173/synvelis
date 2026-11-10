@@ -433,6 +433,7 @@ fn run(
                         wav_custom_layouts: caps.custom_layouts,
                     },
                     verified,
+                    plugin_state: request.plugin_state.clone(),
                 }),
             })
         }

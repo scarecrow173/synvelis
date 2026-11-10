@@ -7,6 +7,10 @@ Directory: `docs/plans`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | PLAN-alib02-streaming-import | ALIB-02 実装計画 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | in-progress | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
+| PLAN-alib03-catalog-preview-cache | ALIB-03 実装計画 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
+| PLAN-alib04-git-remote-provider | ALIB-04 実装計画 — Git Remote Provider（synvelis-library slice） | in-progress | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
+| PLAN-alib06-webdav-provider | ALIB-06 実装計画 — WebDAV File-Server Provider（synvelis-library slice） | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
+| PLAN-alib07-fault-matrix | ALIB-07 実装計画 — Asset Library 全経路 Fault Matrix（synvelis-library headless slice） | in-progress | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | PLAN-034AUT01Zx4wQn8vF2sLrT6m | AUT-01 Touch Return・Writer State 境界 実装計画 | approved | [aut-01-touch-return-writer-state.md](./aut-01-touch-return-writer-state.md) |
 | PLAN-034AUT02Vn5rWt9kJx4sLq8b | AUT-02 Region Replace 境界曲線保存 実装計画 | approved | [aut-02-region-replace-boundary.md](./aut-02-region-replace-boundary.md) |
 | PLAN-034AUT03Cm4rT8vXy1qKp9sL | AUT-03 Loop 録音 1 Pass・Write Range 閉鎖・明示 Rearm 実装計画 | approved | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |
@@ -48,6 +52,7 @@ Directory: `docs/plans`
 | PLAN-034Uj7LMOlnyb7SKUO8Ajd | SF-03 slice5 実装計画 — session EnginePort・app RoutingEngine 接続・headless e2e | done | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
 | PLAN-034Um6RlcTKbVmfUr7A4yJ | SF-04 slice1 実装計画 — project/player Semantic Probe Adapter + ruviform pin bump | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | PLAN-034Uupw2uQUIw30kQZ9HYX | SF-04 slice2 実装計画 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
+| PLAN-034UL6zrSYbZcDzr9MsHXB | SF-04 slice3 実装計画 — probe clock epoch discontinuity・capture segment cut | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | PLAN-034Uuhu2Eis7GPJ5fej73V | SF-05 slice1 実施計画 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | PLAN-v1VQEMk92Nx1lQHUlSVh1t | SV-GUI-01 実装計画 — Desktop App Bootstrap・WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap.md](./sv-gui-01-desktop-app-bootstrap.md) |
 | PLAN-SVGUI02 | SV-GUI-02 View Model・Binding IPC 実装計画 | approved | [sv-gui-02-view-model-binding-ipc.md](./sv-gui-02-view-model-binding-ipc.md) |
@@ -63,6 +68,12 @@ Directory: `docs/plans`
 | PLAN-034T2c5vy3vKJPENF8AA50 | SYN-IO-02 DirectoryBundleStore StagedFile 移行計画 | approved | [syn-io-02-directory-bundle-store-stagedfile.md](./syn-io-02-directory-bundle-store-stagedfile.md) |
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
+| PLAN-034UHYyMbiLPEtGczKNKYC | TIM-01 Configurable PPQN Project Command — implementation plan | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
+| PLAN-034UwXgmnKOCYgkwlGLFkf | TIM-02 SMF Format0/1 core implementation plan | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
+| PLAN-034UC46sceMw6QCzqVjGOO | TIM-04 plugin state snapshot consistency — implementation plan | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
+| PLAN-034UyECBCu7Wg67fct0qi7 | TIM-03 plugin process boundary plan | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
+| PLAN-034UAzWU1ltpUXPw8mRuWd | VCS-01 Immutable Snapshot Resolver implementation plan | approved | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
+| PLAN-034UEufn0HEwKaQ2GRVCWB | VCS-02 Semantic Diff Engine implementation plan | approved | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
 | PLAN-034QdZoc84FQ9sKQSfLWtn | VS-A Project/Recording Foundation 実装計画 | approved | [vs-a-project-recording-foundation.md](./vs-a-project-recording-foundation.md) |
 | PLAN-kco2O0dSUXmFGIGQYqpxrx | VS-B Clock / Gate Scheduler / RT Capture 実装計画 | approved | [vs-b-clock-gate-rt-capture.md](./vs-b-clock-gate-rt-capture.md) |
 | PLAN-034QfNV0kVj6j2cR8sXyLqWm | VS-C Staging Writer / Journal / Crash Recovery 実装計画 | approved | [vs-c-staging-writer-journal-crash-recovery.md](./vs-c-staging-writer-journal-crash-recovery.md) |

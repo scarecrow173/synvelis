@@ -978,3 +978,206 @@ fn sha256_namespace_cannot_collide_with_legacy_flat() {
     obj.reader.take(64).read_to_end(&mut got).unwrap();
     assert_eq!(got, b"namespaced");
 }
+
+// ── ALIB-07 fault matrix: cancel / cross-provider share ─────────
+
+/// Fires `on_read` once, just before the first `read` returns —
+/// deterministic mid-stream abort injection.
+struct ArmOnRead {
+    inner: Box<dyn Read + Send>,
+    on_read: Box<dyn Fn() + Send>,
+    armed: bool,
+}
+
+impl Read for ArmOnRead {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if !self.armed {
+            self.armed = true;
+            (self.on_read)();
+        }
+        self.inner.read(buf)
+    }
+}
+
+/// A [`ScriptedProvider`] whose body stream cancels the caller's
+/// context token on the first read — models a user cancel or
+/// watchdog abort landing mid-stream.
+struct CancelOnReadProvider {
+    inner: ScriptedProvider,
+}
+
+impl AssetProvider for CancelOnReadProvider {
+    fn id(&self) -> ProviderId {
+        self.inner.id()
+    }
+    fn kind(&self) -> ProviderKind {
+        self.inner.kind()
+    }
+    fn capabilities(&self, asset: Option<&RemoteAssetRef>) -> ProviderCapabilities {
+        self.inner.capabilities(asset)
+    }
+    fn browse(
+        &self,
+        req: &synvelis_library::BrowseRequest,
+        cx: &ProviderContext,
+    ) -> Result<synvelis_library::BrowsePage, ProviderError> {
+        self.inner.browse(req, cx)
+    }
+    fn stat(
+        &self,
+        asset: &RemoteAssetRef,
+        cx: &ProviderContext,
+    ) -> Result<synvelis_library::AssetStat, ProviderError> {
+        self.inner.stat(asset, cx)
+    }
+    fn pin(
+        &self,
+        asset: &RemoteAssetRef,
+        cx: &ProviderContext,
+    ) -> Result<PinnedAssetRef, ProviderError> {
+        self.inner.pin(asset, cx)
+    }
+    fn open_pinned(
+        &self,
+        pin: &PinnedAssetRef,
+        cx: &ProviderContext,
+    ) -> Result<PinnedRead, ProviderError> {
+        let mut pr = self.inner.open_pinned(pin, cx)?;
+        let token = cx.cancel.clone();
+        pr.reader = Box::new(ArmOnRead {
+            inner: pr.reader,
+            on_read: Box::new(move || token.cancel()),
+            armed: false,
+        });
+        Ok(pr)
+    }
+}
+
+#[test]
+fn cancel_mid_stream_is_typed_and_same_import_resumes() {
+    let tree = TempTree::new("imp-cancel");
+    let bytes: Vec<u8> = (0..8_192u32)
+        .map(|i| u8::try_from(i % 251).unwrap())
+        .collect();
+    let cancelling = CancelOnReadProvider {
+        inner: ScriptedProvider {
+            id: pid(3),
+            bytes: bytes.clone(),
+            chunk: 1024,
+            digest_override: None,
+        },
+    };
+    let healthy = ScriptedProvider {
+        id: pid(3),
+        bytes,
+        chunk: 1024,
+        digest_override: None,
+    };
+    let mut c = controller();
+    let pin = healthy.pin_for();
+    let it = ImportIntent {
+        import_id: ImportId::new(91),
+        expected_project_revision: ProjectRevision(0),
+        source: pin,
+        target: None,
+    };
+
+    // First run: the cancel lands after the first body chunk → typed
+    // Cancelled, nothing committed, no asset/source registered.
+    let err = import_verified(
+        &cancelling,
+        &it,
+        &store(&tree),
+        &blobs(&tree),
+        &StagedBlobPublisher,
+        &mut c,
+        &cx(),
+    )
+    .unwrap_err();
+    assert!(
+        matches!(&err, ImportError::Provider(e) if e.kind() == ProviderErrorKind::Cancelled),
+        "unexpected: {err:?}"
+    );
+    assert_eq!(c.live().applied_imports.len(), 0);
+    assert_eq!(c.live().assets.len(), 0);
+
+    // Retry under the same ImportId with a live context: the manifest
+    // stayed at Started, re-stages, and converges — no duplicates.
+    let out = import_verified(
+        &healthy,
+        &it,
+        &store(&tree),
+        &blobs(&tree),
+        &StagedBlobPublisher,
+        &mut c,
+        &cx(),
+    )
+    .expect("resumed import");
+    assert_eq!(out.commit.revision, c.live_revision());
+    assert_eq!(c.live().applied_imports.len(), 1);
+    assert_eq!(c.live().assets.len(), 1);
+    assert_eq!(out.source_state, SourceState::Imported);
+}
+
+#[test]
+fn same_bytes_across_providers_share_one_verified_blob() {
+    let tree = TempTree::new("imp-xprov");
+    let bytes = b"shared-content-across-providers".to_vec();
+    let provider_a = ScriptedProvider {
+        id: pid(3),
+        bytes: bytes.clone(),
+        chunk: 4096,
+        digest_override: None,
+    };
+    let provider_b = ScriptedProvider {
+        id: pid(4),
+        bytes,
+        chunk: 4096,
+        digest_override: None,
+    };
+    let mut c = controller();
+
+    let it_a = ImportIntent {
+        import_id: ImportId::new(93),
+        expected_project_revision: ProjectRevision(0),
+        source: provider_a.pin_for(),
+        target: None,
+    };
+    let out_a = import_verified(
+        &provider_a,
+        &it_a,
+        &store(&tree),
+        &blobs(&tree),
+        &StagedBlobPublisher,
+        &mut c,
+        &cx(),
+    )
+    .expect("import a");
+    assert_eq!(out_a.blob.materialized, BlobMaterialization::Created);
+
+    // A different provider serving byte-identical content reuses the
+    // published blob — the sha256 namespace is content-addressed,
+    // never provider-scoped.
+    let it_b = ImportIntent {
+        import_id: ImportId::new(94),
+        expected_project_revision: c.live_revision(),
+        source: provider_b.pin_for(),
+        target: None,
+    };
+    let out_b = import_verified(
+        &provider_b,
+        &it_b,
+        &store(&tree),
+        &blobs(&tree),
+        &StagedBlobPublisher,
+        &mut c,
+        &cx(),
+    )
+    .expect("import b");
+    assert_eq!(out_b.blob.materialized, BlobMaterialization::Reused);
+    assert_eq!(out_b.content_digest, out_a.content_digest);
+    assert_eq!(out_b.blob.identity, out_a.blob.identity);
+    assert_ne!(out_b.commit.asset_id, out_a.commit.asset_id);
+    assert_ne!(out_b.commit.source_id, out_a.commit.source_id);
+    assert_eq!(c.live().applied_imports.len(), 2);
+}
