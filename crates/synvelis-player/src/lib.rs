@@ -23,6 +23,7 @@ pub mod driver;
 pub mod error;
 pub mod fixture;
 pub mod host;
+pub mod host_param;
 pub mod import;
 pub mod lowering;
 pub mod monitor;
@@ -49,6 +50,7 @@ pub use host::{
     BoundaryDeclaration, PluginHostProcessors, ProcessorConnectError, ProcessorConnectRequest,
     ProcessorConnection, ProcessorControl, ProcessorHost, ProcessorLease, StaticProcessorHost,
 };
+pub use host_param::{HostParamDelivery, HostParamEvidence, binding_evidence};
 pub use import::{BlobReceipt, ImportOutcome, ImportRequest, ProjectReceipt, VerifiedMedia};
 pub use lowering::{
     ClipWindow, CompSkipReason, EngineConfig, FadeDirection, FadeWindow, Lowered, NodeContent,

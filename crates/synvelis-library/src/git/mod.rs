@@ -23,6 +23,7 @@ mod locator;
 mod mirror;
 mod objects;
 mod url;
+mod vcs;
 
 use std::io::Read;
 use std::path::PathBuf;
@@ -30,6 +31,7 @@ use std::path::PathBuf;
 pub use lfs::LfsBackendKind;
 pub use mirror::{GitObjectFormat, MirrorMode, UnsupportedFilterPolicy};
 pub use url::{GitRemoteScheme, GitRemoteUrl};
+pub use vcs::{GitVcsConfig, GitVcsProvider};
 
 use crate::browse::{
     BrowseEntry, BrowsePage, BrowseRequest, BrowseScope, Coverage, CursorPayload, EntryKind,

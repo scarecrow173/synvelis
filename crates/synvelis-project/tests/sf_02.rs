@@ -199,7 +199,10 @@ fn pre_and_post_sends_reach_a_return_bus_in_one_intent() {
                 source: strip_main(strip, PortDirection::Output),
                 destination: strip_main(ret_strip, PortDirection::Input),
                 tap: SendTap::PreFader,
-                level: SendGainSpec::None,
+                level: SendGainSpec::Create {
+                    name: "pre verb".into(),
+                    initial: 1.0,
+                },
                 channel_map: None,
             },
             RoutingEdit::CreateSend {
@@ -233,8 +236,10 @@ fn pre_and_post_sends_reach_a_return_bus_in_one_intent() {
         );
     }
     // `Create` produced a Send-owned SendLevel target — the single
-    // persisted gain authority.
+    // persisted gain authority (CTL-02: every new send carries one).
     let post_send = sends.iter().find(|s| s.tap == SendTap::PostFader).unwrap();
+    let pre_send = sends.iter().find(|s| s.tap == SendTap::PreFader).unwrap();
+    assert!(pre_send.gain_target.is_some());
     let created = post_send.gain_target.unwrap();
     let target = &c.live().control.targets[&created];
     assert_eq!(target.owner, ControlOwner::Send(post_send.id));

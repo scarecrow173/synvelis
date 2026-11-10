@@ -991,6 +991,18 @@ impl Operation for ProjectOp {
                         "param {target} is a well-known bootstrap target"
                     )));
                 }
+                // Issue #122: a strip's registered channel targets are
+                // structural — removing one would strip the channel's
+                // persisted parameter authority (the master strip's
+                // are already covered by the well-known guard above).
+                if project.control.targets.get(target).is_some_and(|t| {
+                    matches!(t.owner, ControlOwner::Strip(_))
+                        && crate::control::STRIP_CHANNEL_ROLES.contains(&t.role)
+                }) {
+                    return Err(Error::Validation(format!(
+                        "param {target} is a registered strip channel target"
+                    )));
+                }
                 if project.control.lanes.values().any(|l| l.target == *target)
                     || project
                         .control
@@ -1268,6 +1280,15 @@ impl Operation for ProjectOp {
                             "param {target} already bound as a send gain"
                         )));
                     }
+                    // Issue #122: adoption re-owns the target — a
+                    // strip channel param or a processor plugin param
+                    // must never be re-owned into a send.
+                    if matches!(t.owner, ControlOwner::Strip(_) | ControlOwner::Processor(_)) {
+                        return Err(Error::Validation(format!(
+                            "param {target} is owned by {:?} and cannot be adopted as a send gain",
+                            t.owner
+                        )));
+                    }
                 }
                 Ok(())
             }
@@ -1375,6 +1396,15 @@ impl Operation for ProjectOp {
                     {
                         return Err(Error::Validation(format!(
                             "param {target} already bound as a send gain"
+                        )));
+                    }
+                    // Same issue-#122 guard as `AddSend` — adoption
+                    // re-owns the target, which a strip channel param
+                    // or processor plugin param must never undergo.
+                    if matches!(t.owner, ControlOwner::Strip(_) | ControlOwner::Processor(_)) {
+                        return Err(Error::Validation(format!(
+                            "param {target} is owned by {:?} and cannot be adopted as a send gain",
+                            t.owner
                         )));
                     }
                 }
@@ -2045,7 +2075,7 @@ impl Operation for ProjectOp {
                     && let ConnectionKind::Send(send_id) = conn.kind
                 {
                     project.routing.sends.remove(&send_id);
-                    remove_send_owned(project, send_id);
+                    remove_control_owned(project, ControlOwner::Send(send_id));
                 }
             }
             Self::AddSend {
@@ -2092,7 +2122,7 @@ impl Operation for ProjectOp {
             Self::RemoveSend { send_id } => {
                 if let Some(send) = project.routing.sends.remove(send_id) {
                     project.routing.connections.remove(&send.connection);
-                    remove_send_owned(project, *send_id);
+                    remove_control_owned(project, ControlOwner::Send(*send_id));
                 }
             }
             Self::SetSendTap { send_id, tap } => {
@@ -2342,13 +2372,25 @@ fn insert_strip(
             },
         );
     }
+    // Issue #122: every strip seeds its bit-exact-safe channel
+    // parameter set — the persisted `ParameterTargetId` authority for
+    // fader/mute/solo exists from creation (`Pan` registers on first
+    // use; see `STRIP_SEED_ROLES`).
+    for role in crate::control::STRIP_SEED_ROLES {
+        let id = ParameterTargetId::new(ids.next());
+        project
+            .control
+            .targets
+            .insert(id, crate::control::strip_channel_target(id, strip_id, role));
+    }
     (strip_id, port_out)
 }
 
-/// Removes a strip and the entities it exclusively owns (its chain and
-/// its ports). Callers rely on the post-apply oracle to reject a
-/// command that would orphan connections or sends still referencing
-/// those ports.
+/// Removes a strip and the entities it exclusively owns (its chain,
+/// its ports and its registered channel control targets — issue
+/// #122). Callers rely on the post-apply oracle to reject a command
+/// that would orphan connections or sends still referencing those
+/// ports.
 fn remove_strip_owned(project: &mut Project, strip_id: StripId) {
     if let Some(strip) = project.routing.strips.remove(&strip_id) {
         project.routing.chains.remove(&strip.chain);
@@ -2356,13 +2398,15 @@ fn remove_strip_owned(project: &mut Project, strip_id: StripId) {
             project.routing.ports.remove(port_id);
         }
     }
+    remove_control_owned(project, ControlOwner::Strip(strip_id));
 }
 
 /// Sets a strip's singleton Boolean mixer state (mute/solo) through
-/// its `ControlOwner::Strip` parameter target — created on first use
-/// so strips carry no mute/solo state until the user engages it. The
-/// Boolean base `1.0`/`0.0` is the persisted authority; automation
-/// and modulation bind to the same target.
+/// its `ControlOwner::Strip` parameter target — registered with the
+/// strip since issue #122, so this only ever updates the persisted
+/// base (`1.0`/`0.0`); the fallback branch covers strips that predate
+/// registration. The Boolean base is the persisted authority;
+/// automation and modulation bind to the same target.
 fn set_strip_bool(
     project: &mut Project,
     ids: &mut dyn IdGenerator,
@@ -2383,57 +2427,31 @@ fn set_strip_bool(
         }
     } else {
         let id = ParameterTargetId::new(ids.next());
-        project.control.targets.insert(
-            id,
-            crate::control::ParameterTarget {
-                id,
-                owner: ControlOwner::Strip(strip_id),
-                role,
-                time_scope: AutomationTimeScope::ProjectMusical,
-                name: match role {
-                    ParameterRole::Mute => "Mute".into(),
-                    ParameterRole::Solo => "Solo".into(),
-                    _ => role_name(role).into(),
-                },
-                kind: ValueKind::Boolean,
-                mapping: ParamMapping::Linear,
-                capability: None,
-                base,
-            },
-        );
+        let mut target = crate::control::strip_channel_target(id, strip_id, role);
+        target.base = base;
+        project.control.targets.insert(id, target);
     }
 }
 
-fn role_name(role: ParameterRole) -> &'static str {
-    match role {
-        ParameterRole::Generic => "Param",
-        ParameterRole::Fader => "Fader",
-        ParameterRole::Pan => "Pan",
-        ParameterRole::Mute => "Mute",
-        ParameterRole::Solo => "Solo",
-        ParameterRole::SendLevel => "Send Level",
-        ParameterRole::ProcessorParam => "Plugin Param",
-    }
-}
-
-/// Cascade: every control entity a removed send owned dies with it —
-/// the send's level target cannot outlive the send that owns it, and
-/// `gain_target`'s mutual reference makes oracle-rejection a deadlock
-/// otherwise. Lanes and assignments feeding the removed targets and
-/// assignments driven by the removed sources go with them.
-fn remove_send_owned(project: &mut Project, send_id: SendId) {
+/// Cascade: every control entity `owner` owned dies with it — a
+/// removed send's level target cannot outlive the send (`gain_target`'s
+/// mutual reference makes oracle-rejection a deadlock otherwise), and
+/// a removed strip's registered channel targets (issue #122) cannot
+/// outlive the strip. Lanes and assignments feeding the removed
+/// targets and assignments driven by the removed sources go with them.
+fn remove_control_owned(project: &mut Project, owner: ControlOwner) {
     let targets: std::collections::BTreeSet<ParameterTargetId> = project
         .control
         .targets
         .values()
-        .filter(|t| t.owner == ControlOwner::Send(send_id))
+        .filter(|t| t.owner == owner)
         .map(|t| t.id)
         .collect();
     let sources: std::collections::BTreeSet<ModulationSourceId> = project
         .control
         .sources
         .values()
-        .filter(|s| s.owner == ControlOwner::Send(send_id))
+        .filter(|s| s.owner == owner)
         .map(|s| s.id)
         .collect();
     project

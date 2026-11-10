@@ -4,6 +4,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-034V1FQ09PSOnyDawvKX60 | CTL-02 Strip/Send Host Parameter 正本・Plugin Binding・Routing | completed | [ctl-02-strip-send-host-parameter-plugin-binding-routing.md](ctl-02-strip-send-host-parameter-plugin-binding-routing.md) |
 | IMPL-034UvgCFl4bXw9DZ4bTr3X | SF-04 slice2 ControlSession probe observation → ControlTrace 配線 | in-progress | [sf-04-slice2-controlsession-probe-observation-trace-wiring.md](sf-04-slice2-controlsession-probe-observation-trace-wiring.md) |
 | IMPL-034UL7HNJppFLqjkPqHDxX | SF-04 slice3 probe clock epoch discontinuity capture segmentation | in-progress | [sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md](sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md) |
 | IMPL-034UrlNf4hC31G8gfjoR8y | SV-GUI-04 slice2 close-veto/cancel — syn.window.close_guard + 末尾 window veto | completed | [sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md](sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md) |
@@ -78,4 +79,5 @@ Directory: `docs/impl/ir`
 | IMPL-034UMbAviqhaRhIqExdBM3 | RCD-02 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | completed | [rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md](rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md) |
 | IMPL-034UyQi9tCjjAPwfMy7pSX | PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice） | completed | [pc-c5-02-03-gesture-stale-inspector.md](pc-c5-02-03-gesture-stale-inspector.md) |
 | IMPL-034V1rsGSFTsDZgYwBlfaz | TIM-03 attach wiring — capability→AttachConfig composition root | completed | [tim-03-attach-wiring-capability-attachconfig-composition-root.md](tim-03-attach-wiring-capability-attachconfig-composition-root.md) |
+| IMPL-Qt0RuNZjqvP8ojWR34w9p1 | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta | completed | [vcs-03-git-read-provider.md](vcs-03-git-read-provider.md) |
 | IMPL-TIM02SmfFormat01Core0001 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice 実装記録 | completed | [tim-02-smf-format01-import-export.md](tim-02-smf-format01-import-export.md) |

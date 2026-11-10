@@ -49,11 +49,14 @@ use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::P
 /// target when absent. v9 adds `Project::smf_documents` — SMF
 /// provenance documents for imported MIDI sources (issue #126); v8
 /// bodies are read through the same registry which needs no
-/// projection (the map defaults empty).
+/// projection (the map defaults empty). v10 registers the strip
+/// channel parameter set — `Fader`/`Pan`/`Mute`/`Solo`
+/// `ParameterTarget`s on every strip (issue #122); v9 bodies are read
+/// through the same registry which seeds the missing roles.
 /// New maps are `#[serde(default)]`, so an older body still
 /// deserializes; each version bump records the intentional format
 /// advance. v1–v4 snapshots are not migrated.
-pub const SCHEMA_VERSION: u32 = 9;
+pub const SCHEMA_VERSION: u32 = 10;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.

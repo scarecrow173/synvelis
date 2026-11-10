@@ -1067,7 +1067,7 @@ fn md_a_05_schema_version_and_projection_stable_across_reload() {
     let bytes = store.read_snapshot(&saved.head).unwrap();
     let env: SnapshotEnvelope = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(env.schema_version, SCHEMA_VERSION);
-    assert_eq!(env.schema_version, 9);
+    assert_eq!(env.schema_version, 10);
 
     let mut reloaded = controller(seeded().0);
     reloaded.load(&store).unwrap();

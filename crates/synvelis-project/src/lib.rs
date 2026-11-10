@@ -15,6 +15,7 @@ pub mod control;
 pub mod controller;
 pub mod diff;
 pub mod error;
+pub mod host_param;
 pub mod id;
 pub mod midi;
 pub mod midi_comp;
@@ -38,6 +39,7 @@ pub mod store;
 pub mod tempo;
 pub mod time;
 pub mod trace;
+pub mod vcs;
 
 pub use comp::{
     Comp, CompCandidateRef, CompOp, CompProvenance, CompRegion, CompRegistry, CompTransition,
@@ -50,13 +52,16 @@ pub use control::{
     ControlGraph, ControlModel, ControlOwner, CurveFeature, CurveFeatureKind, CurveQuality,
     CurveQuery, EvalPlan, EvalScratch, Interpolation, LfoShape, MASTER_FADER_RAW,
     ModulationAssignment, ModulationSource, ParamMapping, ParameterRole, ParameterTarget, Polarity,
-    ReferenceSource, SourceKind, TargetCapability, Transform, ValueKind, ViewBin, automation_view,
-    cut_range_points, detect_conflicts, dispatch_check, evaluate_control, lane_value, lower_event,
-    modulation_allowed, quantize_value, resolve_scope_pos, validate_control_binding,
-    validate_control_owner,
+    ReferenceSource, STRIP_CHANNEL_ROLES, SourceKind, TargetCapability, Transform, ValueKind,
+    ViewBin, automation_view, cut_range_points, detect_conflicts, dispatch_check, evaluate_control,
+    lane_value, lower_event, modulation_allowed, quantize_value, resolve_scope_pos,
+    validate_control_binding, validate_control_owner,
 };
 pub use controller::{Command, Operation, ProjectController, ProjectRevision, SavedState};
 pub use error::Error;
+pub use host_param::{
+    SemanticPluginBinding, semantic_plugin_binding, send_level_target_id, strip_channel_target_id,
+};
 pub use id::{
     AssetId, AutomationLaneId, BusId, CaptureSegmentId, CaptureStreamId, ChainId, ClipId,
     ClockEpochId, CompId, CompRegionId, CompTransitionId, CounterIdGenerator, IdGenerator,
