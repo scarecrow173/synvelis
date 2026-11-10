@@ -77,7 +77,10 @@ use synvelis_project::{
     RelationCoverage,
 };
 use synvelis_workspace::controls_ui::{TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET};
-use synvelis_workspace::{ArrangementRow, RelationRow, ViewType};
+use synvelis_workspace::{
+    ArrangementRow, EndpointFreshness, EndpointKind, RelationRow, VcsEndpointView, VcsEquality,
+    VcsHistoryView, VcsViewMode, VcsViewStatus, ViewType,
+};
 
 use crate::binding::{PROJECT_TARGET, VIEW_STATE_TARGET};
 
@@ -878,6 +881,373 @@ fn mixer_strip(state: &MixerScreenState) -> ComponentSpec {
         children.push(strip_toggle("toggle.solo", "Solo", target));
     }
     panel("tab.mixer.strip", Some("Master"), children)
+}
+
+// ---------------------------------------------------------------------------
+// VCS History / A-B Visual Diff (VCS-04, synvelis#95)
+// ---------------------------------------------------------------------------
+
+/// VCS History display state — the latest
+/// [`VcsHistoryView`] projected by `syn.vcs.view`. Carried verbatim:
+/// status, rows, A/B selection, endpoint freshness, and the semantic
+/// diff surface as text — `Unknown`/`Partial`/`Stale` stay distinct
+/// labels and are never collapsed into an empty/equal readout.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct VcsScreenState {
+    /// The last projected view (`None` before the first refresh).
+    pub view: Option<VcsHistoryView>,
+}
+
+impl VcsScreenState {
+    /// Projects a [`VcsHistoryView`] verbatim.
+    #[must_use]
+    pub fn from_view(view: VcsHistoryView) -> Self {
+        Self { view: Some(view) }
+    }
+}
+
+/// Display vocabulary shared by `syn.vcs.view` JSON and
+/// [`history_screen_spec`] — one source so wire and screen never
+/// drift apart.
+pub(crate) fn vcs_status_str(s: &VcsViewStatus) -> &'static str {
+    match s {
+        VcsViewStatus::Ready => "ready",
+        VcsViewStatus::NoBackend => "no-backend",
+        VcsViewStatus::Empty => "empty",
+        VcsViewStatus::Failed { .. } => "failed",
+        VcsViewStatus::Cancelled => "cancelled",
+    }
+}
+
+/// `Failed` detail text, when present.
+pub(crate) fn vcs_status_detail(s: &VcsViewStatus) -> Option<&str> {
+    match s {
+        VcsViewStatus::Failed { detail } => Some(detail.as_str()),
+        _ => None,
+    }
+}
+
+/// Endpoint freshness label.
+pub(crate) fn vcs_freshness_str(f: &EndpointFreshness) -> &'static str {
+    match f {
+        EndpointFreshness::Fresh => "fresh",
+        EndpointFreshness::Stale { .. } => "stale",
+        EndpointFreshness::Unknown { .. } => "unknown",
+    }
+}
+
+/// Stale/unknown reason text, when present.
+pub(crate) fn vcs_freshness_reason(f: &EndpointFreshness) -> Option<&str> {
+    match f {
+        EndpointFreshness::Stale { reason } | EndpointFreshness::Unknown { reason } => {
+            Some(reason.as_str())
+        }
+        EndpointFreshness::Fresh => None,
+    }
+}
+
+/// Endpoint family label.
+pub(crate) fn vcs_kind_str(k: EndpointKind) -> &'static str {
+    match k {
+        EndpointKind::Live => "live",
+        EndpointKind::Saved => "saved",
+        EndpointKind::Staged => "staged",
+        EndpointKind::Committed => "committed",
+    }
+}
+
+/// Diff display-mode label.
+pub(crate) fn vcs_mode_str(m: VcsViewMode) -> &'static str {
+    match m {
+        VcsViewMode::SideBySide => "side_by_side",
+        VcsViewMode::ChangeFocus => "change_focus",
+    }
+}
+
+/// Tri-state equality label — `unknown` stays distinct from `equal`.
+pub(crate) fn vcs_equality_str(e: VcsEquality) -> &'static str {
+    match e {
+        VcsEquality::Equal => "equal",
+        VcsEquality::Different => "different",
+        VcsEquality::Unknown => "unknown",
+    }
+}
+
+/// `"{label} ({kind} {freshness})"` for one pinned endpoint.
+fn vcs_endpoint_text(e: &VcsEndpointView) -> String {
+    let reason = vcs_freshness_reason(&e.freshness).map_or_else(String::new, |r| format!(" — {r}"));
+    format!(
+        "{} ({}, {}{})",
+        e.label,
+        vcs_kind_str(e.kind),
+        vcs_freshness_str(&e.freshness),
+        reason,
+    )
+}
+
+/// Status readout — revision, coarse status + verbatim failure
+/// detail, repository identity, backend attachment, the
+/// new-revision probe, and the last error.
+fn vcs_status_label(s: &VcsScreenState) -> ComponentSpec {
+    let text = match &s.view {
+        None => "VCS History — no projection".to_string(),
+        Some(view) => {
+            let detail =
+                vcs_status_detail(&view.status).map_or_else(String::new, |d| format!(" — {d}"));
+            let repo = view.repository_id.as_deref().unwrap_or("—");
+            let backend = if view.backend_attached {
+                "attached"
+            } else {
+                "unattached"
+            };
+            let new_rev = if view.new_revision_available {
+                " — new revision available"
+            } else {
+                ""
+            };
+            let error = view
+                .last_error
+                .as_deref()
+                .map_or_else(String::new, |e| format!(" — error: {e}"));
+            format!(
+                "VCS History — rev {} — {}{detail} — repo {repo} — backend {backend}{new_rev}{error}",
+                view.project_revision.0,
+                vcs_status_str(&view.status),
+            )
+        }
+    };
+    ComponentSpec::Label(LabelSpec {
+        key: key("vcs.status"),
+        text,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("VCS History status".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The A/B selection readout — both pinned endpoints with freshness,
+/// the display mode, and the recorded merge-parent choice.
+fn vcs_selection_label(s: &VcsScreenState) -> ComponentSpec {
+    let text = s
+        .view
+        .as_ref()
+        .and_then(|v| v.selection.as_ref())
+        .map_or_else(
+            || "A/B — no selection".to_string(),
+            |sel| {
+                let parent = sel.chosen_parent.as_deref().unwrap_or("—");
+                format!(
+                    "A/B — before {} → after {} — mode {} — parent {}",
+                    vcs_endpoint_text(&sel.before),
+                    vcs_endpoint_text(&sel.after),
+                    vcs_mode_str(sel.view_mode),
+                    parent,
+                )
+            },
+        );
+    ComponentSpec::Label(LabelSpec {
+        key: key("vcs.selection"),
+        text,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("VCS A/B selection".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The diff summary readout — tri-state equality, completeness, and
+/// the confirmed-change totals; `truncated` is surfaced, never hidden.
+fn vcs_diff_label(s: &VcsScreenState) -> ComponentSpec {
+    let text = s
+        .view
+        .as_ref()
+        .and_then(|v| v.selection.as_ref())
+        .and_then(|sel| sel.diff.as_ref())
+        .map_or_else(|| "Diff — none".to_string(), |d| {
+            let sum = &d.summary;
+            let truncated = if d.truncated { " — TRUNCATED" } else { "" };
+            format!(
+                "Diff — {} — {:?} — +{} -{} ~{} moved {} reordered {} replaced {} (total {}, unresolved {}){}",
+                vcs_equality_str(d.overall),
+                d.completeness,
+                sum.added,
+                sum.removed,
+                sum.modified,
+                sum.moved,
+                sum.reordered,
+                sum.replaced,
+                sum.total,
+                sum.unresolved,
+                truncated,
+            )
+        });
+    ComponentSpec::Label(LabelSpec {
+        key: key("vcs.diff"),
+        text,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("VCS diff summary".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The history table — provider-ordered rows with all merge parents
+/// count, author/headline verbatim, and the selected marker.
+/// Read-only: `selection` is `None`.
+fn vcs_history_table(s: &VcsScreenState) -> ComponentSpec {
+    let rows = s.view.as_ref().map_or_else(Vec::new, |view| {
+        view.rows
+            .iter()
+            .map(|row| {
+                vec![
+                    Some(CellValue::Text(row.short_oid.clone())),
+                    Some(CellValue::Text(row.parents.len().to_string())),
+                    Some(CellValue::Text(
+                        if row.is_merge { "yes" } else { "" }.to_string(),
+                    )),
+                    Some(CellValue::Text(row.author.clone().unwrap_or_default())),
+                    Some(CellValue::Text(
+                        row.message_headline.clone().unwrap_or_default(),
+                    )),
+                    Some(CellValue::Text(
+                        row.committed_at_unix
+                            .map_or_else(|| "—".to_string(), |t| t.to_string()),
+                    )),
+                    Some(CellValue::Text(format!("{:?}", row.completeness))),
+                    Some(CellValue::Text(
+                        if row.selected { "yes" } else { "" }.to_string(),
+                    )),
+                ]
+            })
+            .collect()
+    });
+    ComponentSpec::Table(TableSpec {
+        key: key("vcs.history"),
+        columns: vec![
+            "Commit".to_string(),
+            "Parents".to_string(),
+            "Merge".to_string(),
+            "Author".to_string(),
+            "Headline".to_string(),
+            "Committed".to_string(),
+            "Completeness".to_string(),
+            "Selected".to_string(),
+        ],
+        rows,
+        selection: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("VCS history".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The confirmed-change table — bounded diff rows with domain,
+/// object kind, change kind, and field-evidence count verbatim.
+/// Read-only: `selection` is `None`.
+fn vcs_changes_table(s: &VcsScreenState) -> ComponentSpec {
+    let rows = s
+        .view
+        .as_ref()
+        .and_then(|v| v.selection.as_ref())
+        .and_then(|sel| sel.diff.as_ref())
+        .map_or_else(Vec::new, |d| {
+            d.changes
+                .iter()
+                .map(|c| {
+                    vec![
+                        Some(CellValue::Text(c.id.clone())),
+                        Some(CellValue::Text(format!("{:?}", c.domain))),
+                        Some(CellValue::Text(format!("{:?}", c.object_kind))),
+                        Some(CellValue::Text(format!("{:?}", c.kind))),
+                        Some(CellValue::Text(c.field_count.to_string())),
+                        Some(CellValue::Text(
+                            if c.has_range { "yes" } else { "" }.to_string(),
+                        )),
+                    ]
+                })
+                .collect()
+        });
+    ComponentSpec::Table(TableSpec {
+        key: key("vcs.changes"),
+        columns: vec![
+            "Change".to_string(),
+            "Domain".to_string(),
+            "Object".to_string(),
+            "Kind".to_string(),
+            "Fields".to_string(),
+            "Range".to_string(),
+        ],
+        rows,
+        selection: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("VCS diff changes".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The unresolved-issue table — provider/diff issues verbatim; an
+/// issue never reads as an empty diff.
+fn vcs_issues_table(s: &VcsScreenState) -> ComponentSpec {
+    let rows = s
+        .view
+        .as_ref()
+        .and_then(|v| v.selection.as_ref())
+        .and_then(|sel| sel.diff.as_ref())
+        .map_or_else(Vec::new, |d| {
+            d.issues
+                .iter()
+                .map(|i| {
+                    vec![
+                        Some(CellValue::Text(i.kind.clone())),
+                        Some(CellValue::Text(i.detail.clone())),
+                    ]
+                })
+                .collect()
+        });
+    ComponentSpec::Table(TableSpec {
+        key: key("vcs.issues"),
+        columns: vec!["Issue".to_string(), "Detail".to_string()],
+        rows,
+        selection: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("VCS diff issues".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The VCS History screen spec (VCS-04, synvelis#95) —
+/// `Panel > [status Label, selection Label, diff Label, history
+/// Table, changes Table, issues Table]` built from
+/// [`VcsScreenState`]. Every table is `selection: None` and no
+/// component carries an intent target: the surface is a pure
+/// projection — selection/pin/compare drive `syn.vcs.visual` ops,
+/// never in-spec gestures.
+#[must_use]
+pub fn history_screen_spec(state: &VcsScreenState) -> ViewSpec {
+    ViewSpec {
+        root: panel(
+            "vcs.root",
+            Some("VCS History"),
+            vec![
+                vcs_status_label(state),
+                vcs_selection_label(state),
+                vcs_diff_label(state),
+                vcs_history_table(state),
+                vcs_changes_table(state),
+                vcs_issues_table(state),
+            ],
+        ),
+    }
 }
 
 /// The product's minimal screen spec — `Panel > [Toolbar, Tabs]`:

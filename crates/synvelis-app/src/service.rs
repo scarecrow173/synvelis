@@ -73,6 +73,14 @@ pub const OPS: &[OpInfo] = &[
         summary: "visual-only Signal Flow op — move_node|set_group|fold|unfold|zoom|pan|link_focus|set_scope",
     },
     OpInfo {
+        name: "syn.vcs.view",
+        summary: "VCS History/A-B Diff projection — status, rows, selection, freshness, diff (view_id)",
+    },
+    OpInfo {
+        name: "syn.vcs.visual",
+        summary: "VCS history op — open|close|refresh|load_more|select_node|pin|compare|view_mode|clear (read-only)",
+    },
+    OpInfo {
         name: "syn.transport.set",
         summary: "set transport rolling — params.playing (bool)",
     },
@@ -252,6 +260,8 @@ impl AppService {
             "syn.project.redo" => self.app.op_project_redo(),
             "syn.signal_flow.view" => self.app.op_signal_flow_view(params),
             "syn.signal_flow.visual" => self.app.op_signal_flow_visual(params),
+            "syn.vcs.view" => self.app.op_vcs_view(params),
+            "syn.vcs.visual" => self.app.op_vcs_visual(params),
             "syn.transport.set" => {
                 let playing = params
                     .get("playing")

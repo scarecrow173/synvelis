@@ -23,9 +23,10 @@ use ruviform_ui::ipc::{ErrorBody, Event, codes};
 use ruviform_ui::window::WindowId;
 use serde_json::{Value, json};
 
+use synvelis_project::vcs::{RevisionSelector, VcsCancel};
 use synvelis_project::{
-    BusId, ProcessorId, ProjectRevision, RoutingConnectionId, SemanticPortId, SendId, StripId,
-    TickTimeMapping, TrackId, is_issuable_raw,
+    BusId, ProcessorId, ProjectRevision, ProjectStore, RoutingConnectionId, SemanticPortId, SendId,
+    StripId, TickTimeMapping, TrackId, is_issuable_raw,
 };
 use synvelis_workspace::VizSourceId;
 use synvelis_workspace::controls_ui::{
@@ -37,15 +38,18 @@ use synvelis_workspace::viz_ui::{
     WaveformPort,
 };
 use synvelis_workspace::{
-    SignalFlowEdgeRole, SignalFlowEntityRef, SignalFlowScope, SignalFlowView,
-    SignalFlowViewOptions, SignalFlowVisualState, signal_flow_graph, visual_fold, visual_move_node,
-    visual_set_group, visual_set_link_focus, visual_set_pan, visual_set_scope, visual_set_zoom,
+    EndpointRequest, PinSide, SignalFlowEdgeRole, SignalFlowEntityRef, SignalFlowScope,
+    SignalFlowView, SignalFlowViewOptions, SignalFlowVisualState, VcsDiffView, VcsEndpointView,
+    VcsHistoryView, VcsSession, VcsUiError, VcsViewMode, ViewType, signal_flow_graph,
+    vcs_history_view, visual_fold, visual_move_node, visual_set_group, visual_set_link_focus,
+    visual_set_pan, visual_set_scope, visual_set_zoom,
 };
 
 use crate::app::SynvelisApp;
 use crate::screens::{
     DockViewInfo, InspectorRow, InspectorScreenState, TransportScreenState, dock_view_info,
-    main_view_id, mixer_strip_targets,
+    main_view_id, mixer_strip_targets, vcs_equality_str, vcs_freshness_reason, vcs_freshness_str,
+    vcs_kind_str, vcs_mode_str, vcs_status_detail, vcs_status_str,
 };
 
 /// Outbox depth cap — receipts/projections are never silently
@@ -402,6 +406,143 @@ fn signal_flow_view_json(view: &SignalFlowView) -> Value {
                 "project_revision": p.project_revision.0,
             })).collect::<Vec<_>>(),
         },
+    })
+}
+
+// -- syn.vcs.* helpers ---------------------------------------------------
+
+/// `params.endpoint` wire value → [`EndpointRequest`]. Kinds:
+/// `live`, `saved` (`head` optional), `staged`, `committed`
+/// (`expr` optional — absent means `HEAD`), `node` (`index` into the
+/// view's loaded history page).
+fn vcs_endpoint_request(params: &Value) -> Result<EndpointRequest, ErrorBody> {
+    let endpoint = params
+        .get("endpoint")
+        .ok_or_else(|| invalid("params.endpoint required"))?;
+    let kind = endpoint
+        .get("kind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid("params.endpoint.kind (string) required"))?;
+    Ok(match kind {
+        "live" => EndpointRequest::Live,
+        "saved" => EndpointRequest::Saved {
+            head: endpoint
+                .get("head")
+                .and_then(Value::as_str)
+                .map(str::to_string),
+        },
+        "staged" => EndpointRequest::Staged,
+        "committed" => EndpointRequest::Committed {
+            selector: match endpoint.get("expr").and_then(Value::as_str) {
+                Some(expr) => RevisionSelector::Expr(expr.to_string()),
+                None => RevisionSelector::Head,
+            },
+        },
+        "node" => EndpointRequest::Node {
+            index: usize_param(endpoint, "index")?,
+        },
+        other => return Err(invalid(format!("unknown endpoint kind {other}"))),
+    })
+}
+
+/// [`VcsUiError`] → op error: request-shape failures are caller
+/// errors; provider/snapshot/diff failures stay service errors with
+/// the verbatim detail preserved.
+fn vcs_ui_err(e: VcsUiError) -> ErrorBody {
+    match e {
+        VcsUiError::InvalidRequest { .. } | VcsUiError::LimitExceeded { .. } => {
+            invalid(format!("vcs: {e}"))
+        }
+        other => internal(format!("vcs: {other}")),
+    }
+}
+
+/// Parsed `syn.vcs.visual` state action (view lifecycle `open`/`close`
+/// are handled before this enum — they manage the view itself).
+enum VcsOp {
+    Refresh,
+    LoadMore,
+    SelectNode(usize),
+    Pin(PinSide, EndpointRequest),
+    Compare,
+    ViewMode(VcsViewMode),
+    Clear,
+}
+
+fn vcs_endpoint_json(e: &VcsEndpointView) -> Value {
+    json!({
+        "kind": vcs_kind_str(e.kind),
+        "label": e.label,
+        "freshness": vcs_freshness_str(&e.freshness),
+        "freshness_reason": vcs_freshness_reason(&e.freshness),
+        "digest": e.digest,
+    })
+}
+
+fn vcs_diff_json(d: &VcsDiffView) -> Value {
+    json!({
+        "key_digest": d.key_digest,
+        "overall": vcs_equality_str(d.overall),
+        "completeness": format!("{:?}", d.completeness),
+        "summary": {
+            "added": d.summary.added,
+            "removed": d.summary.removed,
+            "modified": d.summary.modified,
+            "moved": d.summary.moved,
+            "reordered": d.summary.reordered,
+            "reconnected": d.summary.reconnected,
+            "replaced": d.summary.replaced,
+            "total": d.summary.total,
+            "unresolved": d.summary.unresolved,
+        },
+        "changes": d.changes.iter().map(|c| json!({
+            "id": c.id,
+            "domain": format!("{:?}", c.domain),
+            "object_kind": format!("{:?}", c.object_kind),
+            "stable_id": c.stable_id,
+            "kind": format!("{:?}", c.kind),
+            "field_count": c.field_count,
+            "has_range": c.has_range,
+        })).collect::<Vec<_>>(),
+        "issues": d.issues.iter().map(|i| json!({
+            "kind": i.kind,
+            "detail": i.detail,
+        })).collect::<Vec<_>>(),
+        "truncated": d.truncated,
+    })
+}
+
+/// Wire shape for [`VcsHistoryView`] — enums render as their
+/// kebab-case vocabulary, provider/snapshot/diff detail verbatim.
+fn vcs_view_json(view: &VcsHistoryView) -> Value {
+    json!({
+        "project_revision": view.project_revision.0,
+        "status": vcs_status_str(&view.status),
+        "status_detail": vcs_status_detail(&view.status),
+        "backend_attached": view.backend_attached,
+        "rows": view.rows.iter().map(|r| json!({
+            "commit_oid": r.commit_oid,
+            "short_oid": r.short_oid,
+            "parents": r.parents,
+            "is_merge": r.is_merge,
+            "committed_at_unix": r.committed_at_unix,
+            "author": r.author,
+            "message_headline": r.message_headline,
+            "completeness": format!("{:?}", r.completeness),
+            "selected": r.selected,
+        })).collect::<Vec<_>>(),
+        "next_cursor": view.next_cursor,
+        "selected": view.selected,
+        "selection": view.selection.as_ref().map(|s| json!({
+            "before": vcs_endpoint_json(&s.before),
+            "after": vcs_endpoint_json(&s.after),
+            "chosen_parent": s.chosen_parent,
+            "view_mode": vcs_mode_str(s.view_mode),
+            "diff": s.diff.as_ref().map(vcs_diff_json),
+        })),
+        "new_revision_available": view.new_revision_available,
+        "last_error": view.last_error,
+        "repository_id": view.repository_id,
     })
 }
 
@@ -1936,6 +2077,215 @@ impl SynvelisApp {
             "view": view,
             "view_generation": visual.visual_revision,
         }))
+    }
+
+    // -- syn.vcs.* ---------------------------------------------------------
+
+    /// `view_id` → registered [`ViewInstanceId`] for `syn.vcs.*` ops.
+    /// VCS state is ensured for every spawned view; the op still
+    /// requires a real dock-registered id so typos fail loudly.
+    fn vcs_view_instance(&self, params: &Value) -> Result<ViewInstanceId, ErrorBody> {
+        let view = str_param(params, "view_id")?;
+        let inst = parse_view_instance(view)
+            .ok_or_else(|| invalid(format!("params.view_id must be \"view-{{n}}\", got {view}")))?;
+        if !self.workspace.registry().contains(inst) {
+            return Err(invalid(format!("view {view} is not registered")));
+        }
+        Ok(inst)
+    }
+
+    /// The project store as a `ProjectStore` read port for Saved
+    /// endpoints (`None` until `syn.project.new`/`open`).
+    fn vcs_store_ref(&self) -> Option<&dyn ProjectStore> {
+        self.store.as_ref().map(|s| -> &dyn ProjectStore { s })
+    }
+
+    /// `syn.vcs.view` — the headless History/A-B Visual Diff
+    /// projection (VCS-04, synvelis#95). Params `{view_id}`; the
+    /// response is the full [`VcsHistoryView`] wire shape — status,
+    /// history rows, A/B selection, endpoint freshness, and the
+    /// semantic diff verbatim. Pure read: freshness probes are the
+    /// only backend touches.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters.
+    pub fn op_vcs_view(&self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = self.vcs_view_instance(params)?;
+        let ctx = VcsSession {
+            backend: self.vcs_backend.as_deref(),
+            controller: self.workspace.session().controller(),
+            store: self.vcs_store_ref(),
+            blobs: None,
+        };
+        Ok(vcs_view_json(&vcs_history_view(
+            self.workspace.vcs(),
+            view,
+            &ctx,
+        )))
+    }
+
+    /// `syn.vcs.visual{action:"open"}` — spawns a detached
+    /// [`ViewType::VcsHistory`] view and returns its wire `view_id`.
+    /// The id comes from the workspace's monotonic high-water mark
+    /// (floored above the composition root's reserved
+    /// `view-1`/`view-2`), so it can never collide with a late
+    /// `adopt_view` and is never recycled after `close`.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] when the dock refuses the adoption.
+    fn open_vcs_view(&mut self) -> Result<String, ErrorBody> {
+        let next = self
+            .workspace
+            .view_id_watermark()
+            .max(2)
+            .checked_add(1)
+            .ok_or_else(|| internal("vcs view id space exhausted"))?;
+        let id =
+            ViewInstanceId::new(next).ok_or_else(|| internal("vcs view id space exhausted"))?;
+        self.workspace
+            .adopt_view(id, ViewType::VcsHistory, "VCS History", None)
+            .map_err(|e| dock_err(&e))?;
+        Ok(format!("view-{next}"))
+    }
+
+    /// `syn.vcs.visual{action:"close"}` — removes a
+    /// [`ViewType::VcsHistory`] view (dock entry, registry, per-view
+    /// state, VCS state). Composition-root views are refused by kind
+    /// so this op can never close `view-1`/`view-2`.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, a non-VCS view, or a
+    /// workspace refusal.
+    fn close_vcs_view(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view_name = str_param(params, "view_id")?.to_string();
+        let inst = self.vcs_view_instance(params)?;
+        let is_vcs = self
+            .workspace
+            .registry()
+            .descriptor(inst)
+            .is_some_and(|d| d.kind == ViewType::VcsHistory);
+        if !is_vcs {
+            return Err(invalid(format!(
+                "view {view_name} is not a vcs-history view"
+            )));
+        }
+        self.workspace.remove_view(inst).map_err(|e| dock_err(&e))?;
+        // Mirror `syn.view.close`'s UI-side cleanup: a client may have
+        // attached controls/subscriptions/frame state to the wire
+        // `view_id` even though the view itself is headless.
+        let session = self.workspace.session_mut();
+        self.ui.controls.close_view(session, &view_name);
+        self.ui.viz.close_view(&view_name);
+        self.ui.views.remove(&view_name);
+        self.ui.subscriptions.retain(|(v, _)| v != &view_name);
+        self.ui.frame_seq.retain(|(v, _), _| v != &view_name);
+        self.ui.surfaces.retain(|(v, _)| v != &view_name);
+        self.ui_pump();
+        self.push_notify(
+            "syn.view.state",
+            json!({ "view_id": view_name, "attached": false, "closed": true }),
+        );
+        Ok(json!({ "ok": true, "view_id": view_name, "closed": true }))
+    }
+
+    /// `syn.vcs.visual` — one op on a view's VCS history state
+    /// (VCS-04). Lifecycle actions `open` (spawn a detached
+    /// `VcsHistory` view, no `view_id`) and `close` (`view_id`,
+    /// VCS-kind views only) manage the view itself; the remaining
+    /// actions — `refresh|load_more|select_node|pin|compare|
+    /// view_mode|clear` — mutate only the view's headless VCS state.
+    /// `select_node` takes `index`, `pin` takes `side`
+    /// (`before|after`) + `endpoint`, `view_mode` takes `mode`
+    /// (`side_by_side|change_focus`). State acks are minimal — query
+    /// [`Self::op_vcs_view`] for the projection. Every action is
+    /// read-only toward project, undo, transport, engine, index, and
+    /// worktree by construction (`VcsSession` holds shared refs).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters or a [`VcsUiError`]
+    /// failure (recorded verbatim in the view's `last_error`).
+    pub fn op_vcs_visual(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let action = str_param(params, "action")?;
+        // Lifecycle actions manage the view itself — they run outside
+        // `with_vcs` because spawn/remove need `&mut workspace`.
+        match action {
+            "open" => {
+                let view_id = self.open_vcs_view()?;
+                return Ok(json!({ "ok": true, "view_id": view_id, "opened": true }));
+            }
+            "close" => return self.close_vcs_view(params),
+            _ => {}
+        }
+        let view_name = str_param(params, "view_id")?.to_string();
+        let view = self.vcs_view_instance(params)?;
+        // Parse every action argument up front — param errors must
+        // not depend on view/backend state.
+        let op = match action {
+            "refresh" => VcsOp::Refresh,
+            "load_more" => VcsOp::LoadMore,
+            "select_node" => VcsOp::SelectNode(usize_param(params, "index")?),
+            "pin" => {
+                let side = match str_param(params, "side")? {
+                    "before" => PinSide::Before,
+                    "after" => PinSide::After,
+                    other => {
+                        return Err(invalid(format!(
+                            "params.side must be before|after, got {other}"
+                        )));
+                    }
+                };
+                VcsOp::Pin(side, vcs_endpoint_request(params)?)
+            }
+            "compare" => VcsOp::Compare,
+            "view_mode" => {
+                let mode = match str_param(params, "mode")? {
+                    "side_by_side" => VcsViewMode::SideBySide,
+                    "change_focus" => VcsViewMode::ChangeFocus,
+                    other => {
+                        return Err(invalid(format!(
+                            "params.mode must be side_by_side|change_focus, got {other}"
+                        )));
+                    }
+                };
+                VcsOp::ViewMode(mode)
+            }
+            "clear" => VcsOp::Clear,
+            other => return Err(invalid(format!("unknown vcs action {other}"))),
+        };
+        // Field-level borrows, not `self.vcs_store_ref()`: the method
+        // would borrow all of `self` and collide with `with_vcs`'s
+        // mutable `workspace` borrow.
+        let backend = self.vcs_backend.as_deref();
+        let store = self.store.as_ref().map(|s| -> &dyn ProjectStore { s });
+        let cancel = VcsCancel::new();
+        self.workspace
+            .with_vcs(|views, session| {
+                let ctx = VcsSession {
+                    backend,
+                    controller: session.controller(),
+                    store,
+                    blobs: None,
+                };
+                match op {
+                    VcsOp::Refresh => views.refresh_history(view, &ctx, None, &cancel),
+                    VcsOp::LoadMore => views.load_more_history(view, &ctx, &cancel),
+                    VcsOp::SelectNode(index) => views.select_node(view, index),
+                    VcsOp::Pin(side, request) => {
+                        views.pin_endpoint(view, &ctx, side, &request, &cancel)
+                    }
+                    VcsOp::Compare => views.compare_selection(view, &ctx, &cancel),
+                    VcsOp::ViewMode(mode) => {
+                        views.set_view_mode(view, mode);
+                        Ok(())
+                    }
+                    VcsOp::Clear => {
+                        views.clear_selection(view);
+                        Ok(())
+                    }
+                }
+            })
+            .map_err(vcs_ui_err)?;
+        Ok(json!({ "ok": true, "view_id": view_name }))
     }
 
     // -- syn.control.* -----------------------------------------------------
