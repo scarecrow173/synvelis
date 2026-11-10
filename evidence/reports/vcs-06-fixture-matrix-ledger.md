@@ -75,9 +75,23 @@ temp git repos, read-only oracle on index/HEAD/worktree.
 
 ## VCS-UI-01..05 — history/diff UI
 
-| Case | Expected | Observed | Status |
-| --- | --- | --- | --- |
-| VCS-UI-01..05 | native history visual diff, two-window, IME | no headless lane exists; requires app/workspace + real GPUI (#114) | **NotRun** (external gate) |
+Headless lane: `syn.vcs.view`/`syn.vcs.visual` ops on a real
+`SynvelisApp` over an in-memory `VcsHistoryBackend` fixture
+(`crates/synvelis-app/tests/vcs04_history.rs`,
+`crates/synvelis-app/tests/vcs06_ui_matrix.rs`), plus the
+workspace-layer `vcs_history_view`/`history_screen_spec` projections
+(`crates/synvelis-workspace/tests/vcs04_history.rs`). Lane: headless
+JSON/screen-spec projection only — never real GPUI, OS windows, IME,
+or keyboard.
+
+| Case | Expected | Observed | Status | Recovery/Rollback |
+| --- | --- | --- | --- | --- |
+| VCS-UI-01 fixed A/B + parent selection | pinned endpoints produce one shared ChangeSet; merge `after` records chosen parent | `ab_pin_produces_diff_and_merge_parent_choice` (app), `ab_pin_committed_nodes_produces_shared_changeset`, `merge_after_endpoint_records_parent_choice` (workspace) Pass | Pass* | read-only pins |
+| VCS-UI-02 SideBySide/Focus view modes | `view_mode` switch is display-only over the same ChangeSet/Target | `view_mode_and_clear_selection_are_display_only` (workspace) Pass | Pass* | display-only, no requery |
+| VCS-UI-03 two-window/dock | dock move / window detach preserves VCS view state headlessly; real OS two-window not measured | `dock_moves_and_two_window_detach_preserve_vcs_state` (workspace), `view_close_drops_vcs_state_and_ops_stay_read_only` (app) Pass; real OS window lane **NotRun** | Pass* | headless dock only |
+| VCS-UI-04 Unknown/Stale/Partial never zero-change | cross-project committed pair → `overall:"unknown"` + issues, never `equal`/0-change; `Absent` asset bytes → `completeness:"Partial"` + `missing-asset`/`unresolved-source` issue rows mirrored into the read-only `vcs.issues` screen-spec table; staged pin with failed `index_generation` probe or absent backend → `freshness:"unknown"` + `freshness_reason`; live revision advance → `stale` | `cross_project_committed_endpoints_report_unknown_not_equal`, `absent_asset_bytes_mark_degraded_partial_with_issue_rows`, `staged_pin_freshness_is_unknown_when_index_probe_fails`, `staged_pin_freshness_is_unknown_without_backend` (`vcs06_ui_matrix.rs`, app) + `live_pin_reports_stale_after_revision_advances` (app), `live_endpoint_goes_stale_when_revision_advances`, `staged_endpoint_pins_and_detects_index_drift` (workspace), `missing_asset_blocks_equal_promotion`, `unknown_asset_status_is_unresolved_source` (vcs02) Pass | Pass* | fail-closed; issues verbatim |
+| VCS-UI-05 keyboard/IME/a11y/real GUI | real GPUI input, IME composition, accessibility, native window evidence | no headless lane exists; requires real GPUI (#114) | **NotRun** (external gate) | — |
+| VCS-UI lifecycle/read-only | kind-scoped open/close, foreign repo/bad params honest errors, no-backend status, screen spec read-only, ops never touch project/engine/transport | `history_projection_reports_backend_and_rows`, `staged_and_saved_endpoints_report_honestly`, `foreign_repository_and_bad_params_fail_honestly`, `no_backend_reports_status_and_refuses_history`, `open_close_lifecycle_is_kind_scoped`, `screen_spec_is_a_read_only_projection` (app) + `history_pages_and_node_selection`, `committed_endpoint_selector_resolves_once_and_rejects_foreign`, `no_backend_reports_status_but_live_still_pins`, `cancelled_ops_surface_cancelled_not_success`, `history_bound_refuses_oversized_page`, `remove_view_and_release_views_clean_vcs_state`, `vcs_ops_never_touch_project_engine_or_transport` (workspace) Pass | Pass* | — |
 
 ## VCS-APPLY-01..06 — apply selected change
 
@@ -131,6 +145,7 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 - `crates/synvelis-project/tests/vcs06_apply_matrix.rs` — 8 tests
 - `crates/synvelis-project/tests/vcs06_restore_matrix.rs` — 8 tests
 - `crates/synvelis-library/tests/vcs06_git_matrix.rs` — 3 tests
+- `crates/synvelis-app/tests/vcs06_ui_matrix.rs` — 4 tests (VCS-UI-04 lane)
 
-All 24 pass on Windows/rustc 1.99.0 via `cargo test` (supplemental;
+All 28 pass on Windows/rustc 1.99.0 via `cargo test` (supplemental;
 canonical `mise run test` result recorded in the PR).
