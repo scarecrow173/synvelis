@@ -98,8 +98,9 @@ generation・RT no-alloc を検証する。
   `tim03_attach_wiring.rs` 10 test（task1 IR Follow-ups 第 1 項）。
 - [x] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
   `test-msrv`/`check-headless-deps`。
-- [ ] `git fetch origin main && git merge origin/main` 後の再検証。
-- [ ] review-protocol self-review → commit → push → PR。
+- [x] `git fetch origin main && git merge origin/main`（`060ad66`
+  取り込み）後の再検証 — 全 lane exit 0。
+- [x] review-protocol self-review → commit → push → PR #244。
 
 ## Dependencies and Risks
 
