@@ -488,6 +488,7 @@ impl RoutingEngine {
             skipped: _,
             spec,
             node_roles: _,
+            inserts: _,
         } = lowered;
         self.ledger.planned_generation = Some(generation);
         self.record_state(
