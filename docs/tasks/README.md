@@ -128,6 +128,7 @@ Directory: `docs/tasks`
 | TASK-034Uj82AYjkBHzNn8uXCCu | SF-03 slice5 T3 — headless session→routing e2e・test-spec | done | [sf-03-slice5-acceptance-tests.md](./sf-03-slice5-acceptance-tests.md) |
 | TASK-034Uj7V9p3khaqx8qH7C2Z | SF-03 slice5 T1 — workspace EnginePort・ProjectSession 接続 | done | [sf-03-slice5-session-engine-port.md](./sf-03-slice5-session-engine-port.md) |
 | TASK-034Uj826EB6a7TEsfLwDmZ | SF-03 slice5 T2 — synvelis-app SessionRoutingEngine・canonical probe | done | [sf-03-slice5-session-routing-engine.md](./sf-03-slice5-session-routing-engine.md) |
+| TASK-034VoSREP91HGvxpLROrrC | SF-03 slice8 T1 — app/workspace Revision fixture | done | [sf-03-task1-revision-fixture.md](./sf-03-task1-revision-fixture.md) |
 | TASK-034UudL7KhVSvQn5M5gy5n | SF-05 slice1 タスク分解 — Signal Flow headless | done | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | TASK-hB3uTuJhPxgOVjGdWdSOVj | SF-05 slice2 タスク分解 — Signal Flow gesture/inspection/persist | done | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | TASK-034V2wJc28eBSJp9D68CuX | SF-06 headless — sf06_oracle.rs Domain Oracle + fault fixture + ledger | done | [sf-06-cross-gate-oracle-headless.md](./sf-06-cross-gate-oracle-headless.md) |
@@ -145,6 +146,7 @@ Directory: `docs/tasks`
 | TASK-hSG0A7xXhnXVL7exOdhVuV | SV175-01: NativeShell・ViewBinding・native feature lane 実装 | done | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TASK-pIf6c5QRXRonGNwoqfvJgY | SV175-02: Native view mount — 最小 Tab/Panel/Fader 縦slice | done | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TASK-034T7IgIHI7umPL7xCvU3u | SV177 theme crate + preset module implementation | done | [sv177-theme-preset-impl.md](./sv177-theme-preset-impl.md) |
+| TASK-034VocaCYmo2jkluo0P1eY | SV#28 Ruviform pin を b02942c2 へ更新し検証を完了する | done | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | TASK-DqvyFE4jtl1dHhjkpI0Awe | SV#28 Ruviform pin を cc7d5296 へ更新し API 追従・検証を完了する | done | [sv28-ruviform-pin-update.md](./sv28-ruviform-pin-update.md) |
 | TASK-034UvJH1gMKAHU5UZUrzNN | SYN-IO-01 task1 境界 Owner・失敗写像・Backup/Import 設計文書 | done | [syn-io-01-task1-boundary-design-docs.md](./syn-io-01-task1-boundary-design-docs.md) |
 | TASK-034UvJHLXI3ZB4q8FYKlbH | SYN-IO-01 task2 検証計画・Gate 証拠・文書チェーン完結 | done | [syn-io-01-task2-verification-gate-docs.md](./syn-io-01-task2-verification-gate-docs.md) |

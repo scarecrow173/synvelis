@@ -88,4 +88,7 @@ Directory: `docs/impl/ir`
 | IMPL-034V6MHZ91AdEfrxqsFgLC | RCD-03 Monitoring/Punch/Latency 意味論 crate 内完結 slice 実装記録 | completed | [rcd-03-monitoring-punch-latency-crate-slice.md](rcd-03-monitoring-punch-latency-crate-slice.md) |
 | IMPL-0340LyK9sQ2OUSutsQvSw | TIM-03 request plan — per-request ProcessBoundarySession + precision provenance | completed | [tim-03-request-plan-provenance.md](tim-03-request-plan-provenance.md) |
 | IMPL-034VntRmtjh1jy2mJ1rPum | PC-C6 oracle R/PL/UI/COMP headless fixture（R01〜08・PL01〜08・UI01〜07 独立 oracle 照合） | completed | [pc-c6-oracle-rows-slice.md](pc-c6-oracle-rows-slice.md) |
+| IMPL-034VocnpYlIXEqErLG2I5w | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 API 追従 | completed | [sv-28-ruviform-pin-b02942c2.md](sv-28-ruviform-pin-b02942c2.md) |
 | IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](rcd-04-product-e2e-slice.md) |
+| IMPL-034VoSZokxDrVB1U3GAB2Z | SF-03 slice8 実装記録 — app/workspace same-Revision fixture | completed | [sf-03-slice8-revision-fixture-slice.md](sf-03-slice8-revision-fixture-slice.md) |
+| IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](ci-245-macos-alloc-flake-slice.md) |
