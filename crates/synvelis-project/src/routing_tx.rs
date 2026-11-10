@@ -158,7 +158,12 @@ pub enum ExplicitConversionPolicy {
 
 /// How a `CreateSend` edit obtains its level target — the control
 /// model stays the single persisted gain authority; `SendConfig` only
-/// ever references it.
+/// ever references it. Issue #122: a new enabled send always carries
+/// a level target — `Adopt` an existing dedicated target or `Create`
+/// one inside the same transaction. (`SendConfig.gain_target`'s
+/// `Option` remains only for legacy/unconfigured sends written before
+/// this rule and for the explicit `SetSendGainTarget { None }`
+/// unconfigure path.)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "level", deny_unknown_fields)]
 pub enum SendGainSpec {
@@ -173,8 +178,6 @@ pub enum SendGainSpec {
         /// level).
         initial: f64,
     },
-    /// Create the send without a bound level target.
-    None,
 }
 
 /// One routing edit inside a [`RoutingEditIntent`].
@@ -1021,7 +1024,7 @@ fn apply_create_send(
     check_channel_policy(staging, src, dst, channel_map, approved)?;
     let adopt = match level {
         SendGainSpec::Adopt(target) => Some(*target),
-        _ => None,
+        SendGainSpec::Create { .. } => None,
     };
     let sends_before: BTreeSet<SendId> = staging.project.routing.sends.keys().copied().collect();
     staging.apply_op(

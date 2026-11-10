@@ -139,8 +139,9 @@ fn envelope_bytes(c: &ProjectController) -> Vec<u8> {
 }
 
 /// Serializes the live project as a schema-v5 envelope — the `routing`
-/// field and the bootstrap master-fader target did not exist in v5
-/// (same fixture shape as `routing_sf01.rs`).
+/// field, the bootstrap master-fader target, and the CTL-02 strip
+/// channel targets did not exist in v5 (same fixture shape as
+/// `routing_sf01.rs`).
 fn as_v5_envelope(c: &ProjectController) -> serde_json::Value {
     let mut env = serde_json::json!({
         "schema_version": 5,
@@ -149,10 +150,35 @@ fn as_v5_envelope(c: &ProjectController) -> serde_json::Value {
         "project": serde_json::to_value(c.live()).unwrap(),
     });
     env["project"].as_object_mut().unwrap().remove("routing");
-    env["project"]["control"]["targets"]
+    let targets = env["project"]["control"]["targets"]
         .as_object_mut()
-        .unwrap()
-        .remove(&ParameterTargetId::new(MASTER_FADER_RAW).to_tagged());
+        .unwrap();
+    targets.remove(&ParameterTargetId::new(MASTER_FADER_RAW).to_tagged());
+    let strip_owned: Vec<String> = targets
+        .iter()
+        .filter(|(_, t)| t["owner"]["owner"] == "Strip")
+        .map(|(k, _)| k.clone())
+        .collect();
+    for key in &strip_owned {
+        targets.remove(key);
+    }
+    if !strip_owned.is_empty() {
+        let lanes = env["project"]["control"]["lanes"].as_object_mut().unwrap();
+        lanes.retain(|_, l| {
+            l["target"]
+                .as_str()
+                .is_none_or(|t| !strip_owned.iter().any(|k| k == t))
+        });
+        let assignments = env["project"]["control"]["assignments"]
+            .as_object_mut()
+            .unwrap();
+        assignments.retain(|_, a| {
+            [a["target"].as_str(), a["depth_source"].as_str()]
+                .into_iter()
+                .flatten()
+                .all(|t| !strip_owned.iter().any(|k| k == t))
+        });
+    }
     env
 }
 
@@ -617,7 +643,7 @@ fn unknown_and_too_old_schema_versions_are_rejected() {
     add_track(&mut c, "t");
     let mut env = serde_json::to_value(as_v5_envelope(&c)).unwrap();
 
-    for version in [3u32, 10, 99] {
+    for version in [3u32, SCHEMA_VERSION + 1, 99] {
         env["schema_version"] = serde_json::json!(version);
         let bytes = serde_json::to_vec(&env).unwrap();
         let mut store = FakeStore::default();

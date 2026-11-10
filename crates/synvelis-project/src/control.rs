@@ -927,24 +927,101 @@ pub struct ModulationAssignment {
 /// `ProjectOp::RemoveParameterTarget`.
 pub const MASTER_FADER_RAW: u128 = WELL_KNOWN_BASE + 6;
 
+/// Well-known raw IDs of the master strip's seeded channel targets
+/// (issue #122) — `Mute`/`Solo` join the fader so the bootstrap
+/// strip carries the same registered set every `insert_strip` strip
+/// does. `Pan` has no well-known ID: see [`STRIP_SEED_ROLES`].
+const MASTER_MUTE_RAW: u128 = WELL_KNOWN_BASE + 7;
+const MASTER_SOLO_RAW: u128 = WELL_KNOWN_BASE + 8;
+
+/// The strip channel parameter roles (issue #122): `Fader`/`Pan`/
+/// `Mute`/`Solo` — all singleton roles, at most one target per strip.
+/// Lookups, the canonical factory and the remove/adopt guards cover
+/// all four.
+pub const STRIP_CHANNEL_ROLES: [ParameterRole; 4] = [
+    ParameterRole::Fader,
+    ParameterRole::Pan,
+    ParameterRole::Mute,
+    ParameterRole::Solo,
+];
+
+/// The channel roles *seeded at strip creation* — the bit-exact-safe
+/// subset: `Fader` (unity `1.0`), `Mute`/`Solo` (Boolean off `0.0`).
+/// Strip creation ([`crate::ops`]'s `insert_strip`), the master-strip
+/// [`ControlModel::bootstrap`] and the v9 → v10 snapshot migration
+/// all materialize this set.
+///
+/// `Pan` is deliberately absent: lowering treats a missing `Pan`
+/// target as the unity bypass `[gain, gain]`, while the canonical
+/// center `0.5` under the constant-power law yields `[0.707, 0.707]`
+/// (≈ −3 dB). Seeding it would silently re-gain every existing
+/// strip — a regression, not a registration. `Pan` registers through
+/// the same [`strip_channel_target`] canonical spec on first explicit
+/// use instead.
+pub(crate) const STRIP_SEED_ROLES: [ParameterRole; 3] = [
+    ParameterRole::Fader,
+    ParameterRole::Mute,
+    ParameterRole::Solo,
+];
+
+/// The canonical [`ParameterTarget`] for a strip channel role — the
+/// single definition of each role's persisted defaults shared by
+/// strip seeding, the master-strip bootstrap, first-use `Pan`
+/// registration and the snapshot migration: `Fader` = unity (`1.0`
+/// ≙ 0 dB), `Pan` = center (`0.5`), `Mute`/`Solo` = Boolean off
+/// (`0.0`), all `ProjectMusical`, `Linear`, no plugin capability
+/// (internal channel gains carry no `ParamId`).
+///
+/// # Panics
+/// Panics on a non-channel role — callers pass [`STRIP_CHANNEL_ROLES`]
+/// members only.
+pub(crate) fn strip_channel_target(
+    id: ParameterTargetId,
+    strip: StripId,
+    role: ParameterRole,
+) -> ParameterTarget {
+    let (name, kind, base) = match role {
+        ParameterRole::Fader => ("Fader", ValueKind::Continuous, 1.0),
+        ParameterRole::Pan => ("Pan", ValueKind::Continuous, 0.5),
+        ParameterRole::Mute => ("Mute", ValueKind::Boolean, 0.0),
+        ParameterRole::Solo => ("Solo", ValueKind::Boolean, 0.0),
+        _ => unreachable!("strip channel roles are Fader/Pan/Mute/Solo"),
+    };
+    ParameterTarget {
+        id,
+        owner: ControlOwner::Strip(strip),
+        role,
+        time_scope: AutomationTimeScope::ProjectMusical,
+        name: name.into(),
+        kind,
+        mapping: ParamMapping::Linear,
+        capability: None,
+        base,
+    }
+}
+
+/// The well-known raw ID of the master strip's seeded `role` channel
+/// target — `None` for roles the bootstrap strip does not seed
+/// (`Pan`, see [`STRIP_SEED_ROLES`]).
+pub(crate) fn master_channel_raw(role: ParameterRole) -> Option<u128> {
+    match role {
+        ParameterRole::Fader => Some(MASTER_FADER_RAW),
+        ParameterRole::Mute => Some(MASTER_MUTE_RAW),
+        ParameterRole::Solo => Some(MASTER_SOLO_RAW),
+        _ => None,
+    }
+}
+
 /// The canonical bootstrap master-strip fader target — the single
 /// definition shared by [`ControlModel::bootstrap`] and the v7 → v8
 /// snapshot migration so a migrated project carries byte-identical
 /// state to a fresh one.
 pub(crate) fn master_fader_target(master_strip: StripId) -> ParameterTarget {
-    ParameterTarget {
-        id: ParameterTargetId::new(MASTER_FADER_RAW),
-        owner: ControlOwner::Strip(master_strip),
-        role: ParameterRole::Fader,
-        time_scope: AutomationTimeScope::ProjectMusical,
-        name: "Fader".into(),
-        kind: ValueKind::Continuous,
-        mapping: ParamMapping::Linear,
-        capability: None,
-        // Normalized unity — the plain domain is the same [0, 1]
-        // under `Linear` with no capability.
-        base: 1.0,
-    }
+    strip_channel_target(
+        ParameterTargetId::new(MASTER_FADER_RAW),
+        master_strip,
+        ParameterRole::Fader,
+    )
 }
 
 /// The complete persisted control model — part of the [`Project`]
@@ -973,12 +1050,27 @@ impl ControlModel {
     /// target; automation and modulation bind to it identically.
     ///
     /// `master_strip` is the strip owned by the bootstrap master bus
-    /// (`RoutingModel::bootstrap`) — the bus's DSP authority.
+    /// (`RoutingModel::bootstrap`) — the bus's DSP authority. The
+    /// master strip carries the seeded channel set under well-known
+    /// IDs (issue #122), structurally identical to every
+    /// `insert_strip` strip.
+    ///
+    /// # Panics
+    /// Panics if [`STRIP_SEED_ROLES`] ever names a role without a
+    /// well-known master ID — the seed set and
+    /// [`master_channel_raw`] must stay in lockstep.
     #[must_use]
     pub fn bootstrap(master_strip: StripId) -> Self {
-        let target = master_fader_target(master_strip);
+        let targets = STRIP_SEED_ROLES
+            .iter()
+            .map(|role| {
+                let raw = master_channel_raw(*role).expect("seed roles have well-known master IDs");
+                let target = strip_channel_target(ParameterTargetId::new(raw), master_strip, *role);
+                (target.id, target)
+            })
+            .collect();
         Self {
-            targets: BTreeMap::from([(target.id, target)]),
+            targets,
             lanes: BTreeMap::new(),
             sources: BTreeMap::new(),
             assignments: BTreeMap::new(),

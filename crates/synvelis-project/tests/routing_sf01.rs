@@ -292,9 +292,10 @@ fn routing_state_survives_save_reload_unchanged() {
 
 /// Serializes `project` as a schema-v5 envelope (the `routing` field
 /// did not exist in v5). The bootstrap master-fader target
-/// (synvelis#185) did not exist in v5 either — its `Strip` owner is
-/// not a legacy control owner — so it is omitted here and re-seeded by
-/// the v7→v8 step on load.
+/// (synvelis#185) and the CTL-02 strip channel targets did not exist
+/// in v5 either — their `Strip` owners are not legacy control owners —
+/// so they are omitted here and re-seeded by the later migration
+/// steps on load.
 fn as_v5_envelope(c: &ProjectController) -> serde_json::Value {
     let mut env = serde_json::json!({
         "schema_version": 5,
@@ -303,10 +304,35 @@ fn as_v5_envelope(c: &ProjectController) -> serde_json::Value {
         "project": serde_json::to_value(c.live()).unwrap(),
     });
     env["project"].as_object_mut().unwrap().remove("routing");
-    env["project"]["control"]["targets"]
+    let targets = env["project"]["control"]["targets"]
         .as_object_mut()
-        .unwrap()
-        .remove(&ParameterTargetId::new(MASTER_FADER_RAW).to_tagged());
+        .unwrap();
+    targets.remove(&ParameterTargetId::new(MASTER_FADER_RAW).to_tagged());
+    let strip_owned: Vec<String> = targets
+        .iter()
+        .filter(|(_, t)| t["owner"]["owner"] == "Strip")
+        .map(|(k, _)| k.clone())
+        .collect();
+    for key in &strip_owned {
+        targets.remove(key);
+    }
+    if !strip_owned.is_empty() {
+        let lanes = env["project"]["control"]["lanes"].as_object_mut().unwrap();
+        lanes.retain(|_, l| {
+            l["target"]
+                .as_str()
+                .is_none_or(|t| !strip_owned.iter().any(|k| k == t))
+        });
+        let assignments = env["project"]["control"]["assignments"]
+            .as_object_mut()
+            .unwrap();
+        assignments.retain(|_, a| {
+            [a["target"].as_str(), a["depth_source"].as_str()]
+                .into_iter()
+                .flatten()
+                .all(|t| !strip_owned.iter().any(|k| k == t))
+        });
+    }
     env
 }
 
@@ -579,7 +605,16 @@ fn send_gain_target_references_the_control_model() {
         },
     ))
     .unwrap();
-    let target = *c.live().control.targets.keys().next().unwrap();
+    // CTL-02: strips carry seeded channel targets that sort before
+    // issued IDs — select the Track-owned target by name, not order.
+    let target = c
+        .live()
+        .control
+        .targets
+        .values()
+        .find(|t| t.name == "send-lvl")
+        .unwrap()
+        .id;
     let src = track_main_out(c.live(), track);
     let dst = master_ports(c.live()).0;
     c.apply(cmd(
