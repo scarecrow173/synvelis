@@ -90,6 +90,10 @@ pub mod git_fixture;
 #[allow(dead_code)]
 pub mod webdav_fixture;
 
+/// Local-worktree git fixture (VCS-03 tests).
+#[allow(dead_code)]
+pub mod vcs_git_fixture;
+
 /// A provider id for tests.
 #[allow(dead_code)]
 pub fn pid(raw: u128) -> ProviderId {
