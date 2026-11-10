@@ -497,8 +497,7 @@ mod tests {
                 .files
                 .get(&key)
                 .cloned()
-                .map(VcsFileRead::Present)
-                .unwrap_or(VcsFileRead::Absent))
+                .map_or(VcsFileRead::Absent, VcsFileRead::Present))
         }
 
         fn read_blob(&self, locator: &VcsLocator, digest: &str) -> Result<BlobRead, VcsPortError> {
@@ -508,8 +507,7 @@ mod tests {
                 .blobs
                 .get(&key)
                 .cloned()
-                .map(BlobRead::Present)
-                .unwrap_or(BlobRead::Absent))
+                .map_or(BlobRead::Absent, BlobRead::Present))
         }
     }
 
@@ -718,7 +716,7 @@ mod tests {
         // Every journaled call is a read — the fake has no write
         // methods at all, and the journal names only reads.
         let calls = journal.lock().expect("journal").clone();
-        assert!(!calls.is_empty());
+        assert_ne!(calls.len(), 0);
         for call in &calls {
             assert!(
                 call.starts_with("index_generation")
