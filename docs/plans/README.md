@@ -15,6 +15,7 @@ Directory: `docs/plans`
 | PLAN-034AUT02Vn5rWt9kJx4sLq8b | AUT-02 Region Replace 境界曲線保存 実装計画 | approved | [aut-02-region-replace-boundary.md](./aut-02-region-replace-boundary.md) |
 | PLAN-034AUT03Cm4rT8vXy1qKp9sL | AUT-03 Loop 録音 1 Pass・Write Range 閉鎖・明示 Rearm 実装計画 | approved | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |
 | PLAN-034AUT04psf1yTvW6ZK4c3 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装計画 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
+| PLAN-034VmidubXq53HjWVDgDeV | Issue #245 verify-macos rt_cache alloc 計測 flake — warm-up 実装計画 | approved | [ci-245-macos-alloc-flake-plan.md](./ci-245-macos-alloc-flake-plan.md) |
 | PLAN-034RoZox0pXYihUzci5UC8 | Synvelis 独立 CI 実装計画 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | PLAN-034CTL01Rz2xAu8bD4eF5gHi | CTL-01 ControlOwner/AutomationTimeScope 実装計画 | approved | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
 | PLAN-034QN1oz8zutDLafJy6oDg | ED-B media-domain editing PoC 実装計画 | approved | [ed-b-media-domain-editing.md](./ed-b-media-domain-editing.md) |
@@ -58,6 +59,7 @@ Directory: `docs/plans`
 | PLAN-034Uupw2uQUIw30kQZ9HYX | SF-04 slice2 実装計画 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | PLAN-034UL6zrSYbZcDzr9MsHXB | SF-04 slice3 実装計画 — probe clock epoch discontinuity・capture segment cut | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | PLAN-4fJZbNlcZy6NsCvF40RggB | SF-04 slice4 実装計画 — app/session wiring（probe port・syn.probe.*・drain hook） | approved | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |
+| PLAN-034VpoEbeiqPIm8MYZAnAD | SF-04 slice5 実装計画 — probe subscriber/window ownership（session 層 lease・capture owner） | draft | [sf-04-slice5-probe-subscriber-ownership-plan.md](./sf-04-slice5-probe-subscriber-ownership-plan.md) |
 | PLAN-034Uuhu2Eis7GPJ5fej73V | SF-05 slice1 実施計画 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | PLAN-6xRqunIew52aqbQt4yZ3qy | SF-05 slice2 実施計画 — Signal Flow gesture/inspection/persist | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | PLAN-034V2wD3RqGEqlst7HFeVD | SF-06 cross-gate headless slice — Domain Oracle・Case registry・fault fixture・ledger | approved | [sf-06-cross-gate-oracle.md](./sf-06-cross-gate-oracle.md) |

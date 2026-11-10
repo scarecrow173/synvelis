@@ -19,6 +19,7 @@ Directory: `docs/designs`
 | DESIGN-034AUT02Qm8wXs5vLn3jKp9r | AUT-02 Region Replace 境界曲線保存 設計 — merged series 境界 anchor・host 選択・stitch | approved | [aut-02-region-replace-boundary-design.md](./aut-02-region-replace-boundary-design.md) |
 | DESIGN-034AUT03B1wG9hW1zS0Yf4 | AUT-03 Loop 録音 1 Pass — Write Range 半開区間閉鎖・境界 flush・明示 Rearm 設計 | approved | [aut-03-loop-write-one-pass-design.md](./aut-03-loop-write-one-pass-design.md) |
 | DESIGN-034AUT04CvbbR3Qzx1aKwY | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 設計 | approved | [aut-04-automation-curve-lod-record-budget-design.md](./aut-04-automation-curve-lod-record-budget-design.md) |
+| DESIGN-034VmgS1sGu9EW9NfKKRPY | Issue #245 verify-macos rt_cache alloc 計測 flake — 計測対象インスタンス warm-up 設計 | approved | [ci-245-macos-alloc-flake-design.md](./ci-245-macos-alloc-flake-design.md) |
 | DESIGN-034RoWWK4Xx4NaZSoBYZSX | Synvelis 独立 CI — Lane 構成・証跡・依存アクセス設計 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | — | Synvelis — Configurable PPQN / Resolution-independent Musical Time | — | [configurable-ppqn-musical-time-architecture.md](./configurable-ppqn-musical-time-architecture.md) |
 | DESIGN-034CTL01Qy1wZt7aC3dE4fGh | CTL-01 ControlOwner/AutomationTimeScope 設計 — Schema v7 Migration | approved | [ctl-01-control-owner-time-scope-design.md](./ctl-01-control-owner-time-scope-design.md) |
@@ -74,6 +75,7 @@ Directory: `docs/designs`
 | DESIGN-034UunDPfVm34dBXKZHHG0 | SF-04 slice2 設計 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace-design.md](./sf-04-slice2-controlsession-probe-trace-design.md) |
 | DESIGN-034UL2WkinplQmMD9VPyeX | SF-04 slice3 設計 — probe clock epoch discontinuity・capture segment cut | approved | [sf-04-slice3-clock-epoch-discontinuity-design.md](./sf-04-slice3-clock-epoch-discontinuity-design.md) |
 | DESIGN-4AUoTxfZvkN7cj3NjLptJ2 | SF-04 slice4 設計 — app/session wiring（probe port・syn.probe.*・drain hook） | approved | [sf-04-slice4-app-wiring-design.md](./sf-04-slice4-app-wiring-design.md) |
+| DESIGN-034VpkqegnYxvgZbOSsE3K | SF-04 slice5 設計 — probe subscriber/window ownership（session 層 lease・capture owner） | draft | [sf-04-slice5-probe-subscriber-ownership-design.md](./sf-04-slice5-probe-subscriber-ownership-design.md) |
 | DESIGN-034UudJz8OJsiidXryTNTU | SF-05 slice1 Signal Flow headless 設計 — graph 投影 + visual state + status 合成 | approved | [sf-05-slice1-signal-flow-headless-graph-visual-state-status.md](./sf-05-slice1-signal-flow-headless-graph-visual-state-status.md) |
 | DESIGN-CJVcdyUweKy4i6p0xOHdJc | SF-05 slice2 設計 — routing gesture fixation/preview/commit + inspection focus + schema v3 persist | approved | [sf-05-slice2-signal-flow-ux0307-gesture-inspection-persist.md](./sf-05-slice2-signal-flow-ux0307-gesture-inspection-persist.md) |
 | DESIGN-034V2wuzXfqcjIvGyXFhhz | SF-06 cross-gate headless 設計 — oracle 独立性・fixture topology・ledger schema | approved | [sf-06-cross-gate-oracle-domain-evidence.md](./sf-06-cross-gate-oracle-domain-evidence.md) |

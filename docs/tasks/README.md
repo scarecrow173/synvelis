@@ -34,6 +34,7 @@ Directory: `docs/tasks`
 | TASK-034Uur4AKzlyg8khBcNC6X | SF-04 slice2 T1 — ControlSession probe observation → ControlTrace 配線 | in-progress | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | TASK-034UL3a4aL5H7PC2FRWUp7 | SF-04 slice3 T1 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | in-progress | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | TASK-5FrDNAlmiEt3QTiDj5a82C | SF-04 slice4 T1 — app/session wiring（probe port・syn.probe.*・drain hook） | in-progress | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |
+| TASK-034VpsGgHQsSoFmX1K61s3 | SF-04 slice5 T1 — probe subscriber/window ownership（session 層 lease・capture owner） | in-progress | [sf-04-slice5-task1-probe-subscriber-ownership.md](./sf-04-slice5-task1-probe-subscriber-ownership.md) |
 | TASK-G4oEdDOSfbQ4uy5d0HrbKh | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture 実装 task | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | TASK-034Ul52jO5RARmW21UHLGR | SV-GUI-03 slice1: Transport 操作 + Inspector 表示を既存 GPUI 経路に接続 | in-progress | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
 | TASK-cvXxPcl14NogBTKEDTSKrO | SV-GUI-03 slice2 タスク分解 — Arrangement read-only Table + Undo/Redo | in-progress | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
@@ -66,6 +67,7 @@ Directory: `docs/tasks`
 | TASK-alib07-import-cancel | ALIB-07 slice 2 Task 1 — cancel checkpoint・fault case・crash fixture・matrix 簿記 | done | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | TASK-034AUT02Gt6kHr4nWy8sBp3x | AUT-02 task1: 境界 anchor 実装 + op 適用 + property/exact fixture テスト | done | [aut-02-task1-region-replace-boundary.md](./aut-02-task1-region-replace-boundary.md) |
 | TASK-034AUT03Pq9rWx3nVm7sJk2d | AUT-03 task1: Write Range 閉鎖・境界 flush・明示 Rearm 実装 + headless テスト | done | [aut-03-task1-loop-write-one-pass.md](./aut-03-task1-loop-write-one-pass.md) |
+| TASK-034VmiXNgZm3ucj1WcbTT9 | rt_cache 計測対象インスタンスの warm-up 修正 | done | [ci-245-task1-macos-alloc-flake.md](./ci-245-task1-macos-alloc-flake.md) |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |
 | TASK-034Rp07EGtrO1nUIIjiLh8 | ci.yml + dep-access composite action 実装 | done | [ci-task2-workflow.md](./ci-task2-workflow.md) |
 | TASK-034CTL01Sa3yBv9cE5fG6hIj | CTL-01: ControlOwner/AutomationTimeScope/ParameterRole 型・oracle・Schema v7 Migration・ops・検証 | done | [ctl-01-task1-owner-time-scope-schema-migration.md](./ctl-01-task1-owner-time-scope-schema-migration.md) |

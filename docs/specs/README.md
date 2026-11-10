@@ -17,6 +17,7 @@ Directory: `docs/specs`
 | SPEC-034AUT01T7xRw4mNcQ8pZbV2 | AUT-01 Automation Mode 境界 State — Read/Touch/Latch/Write・Touch Return 150ms Smoothstep | approved | [aut-01-automation-mode-boundary-touch-return-writer-state.md](./aut-01-automation-mode-boundary-touch-return-writer-state.md) |
 | SPEC-034AUT03AW1Qq4l4VCpTSK | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・明示 Rearm | approved | [aut-03-loop-write-one-pass-write-range-rearm.md](./aut-03-loop-write-one-pass-write-range-rearm.md) |
 | SPEC-034AUT04VJToXbqZEgrP85 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
+| SPEC-034VmfUEU36QwKnlrMNd8G | Issue #245 verify-macos rt_cache alloc 計測 flake — 計測対象インスタンスの warm-up | proposed | [ci-245-macos-alloc-flake.md](./ci-245-macos-alloc-flake.md) |
 | SPEC-034RoWOUkW5OezJQSLBWKd | Synvelis 独立 PR/Push CI — Workspace/RT/Recording/Gateway 回帰 Gate | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | SPEC-034CTL01Ow9uXr5zA1bC2dEf | CTL-01 ControlOwner / AutomationTimeScope 責務分離・Bus/Strip/Send 型付き Schema 移行 | approved | [ctl-01-control-owner-automation-time-scope-typed-schema.md](./ctl-01-control-owner-automation-time-scope-typed-schema.md) |
 | SPEC-034QAlF2irl9rIJaUi9RQ1 | ED-A Editing Model — Selection/Tool/Snap/Transaction/LinkedContext headless PoC | approved | [ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md](./ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md) |
@@ -62,6 +63,7 @@ Directory: `docs/specs`
 | SPEC-034UumeSTLbuxt64vqqJ47 | SF-04 slice2 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | SPEC-034UL2whPqBifdr1Jsrkn7 | SF-04 slice3 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | SPEC-4kvuQeb3IYEZ7UbStoNt2X | SF-04 slice4 — app/session wiring（Probe ON/OFF・probe port 実装・syn.probe.* ops・drain hook） | approved | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |
+| SPEC-034VphYPdMdjVaJWKkDJHg | SF-04 slice5 — probe subscriber/window ownership（session 層 lease・capture owner） | proposed | [sf-04-slice5-probe-subscriber-ownership.md](./sf-04-slice5-probe-subscriber-ownership.md) |
 | SPEC-034Uuc3q3FZYT5JjxQtDv9 | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | approved | [sf-05-signal-flow-headless-hierarchy.md](./sf-05-signal-flow-headless-hierarchy.md) |
 | SPEC-hhfyzYWYjCwiqdwtsN8Add | SF-05 slice2 Signal Flow — Port Drag gesture + inspection focus + per-view persist（SF-UX-03/04/07） | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | SPEC-034V2wnQPWFJdKz68KlwJG | SF-06 cross-gate Domain Oracle・Case ID・Fault Fixture・evidence ledger（headless slice） | approved | [sf-06-cross-gate-oracle-case-ledger.md](./sf-06-cross-gate-oracle-case-ledger.md) |
