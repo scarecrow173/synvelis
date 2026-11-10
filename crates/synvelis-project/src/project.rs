@@ -216,6 +216,94 @@ pub struct Note {
     pub len: BeatPoint,
 }
 
+/// Algorithm classification of a persisted content-digest string.
+///
+/// Digest strings stay opaque to the project — the producer records
+/// the algorithm. This classification exists so consumers can tell a
+/// verified content address from a weak legacy digest: a legacy digest
+/// is *never* promoted to a strong identity without byte-level
+/// re-verification (synvelis#86).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum DigestKind {
+    /// `"sha256:<64 hex>"` — the ALIB-02 strong content address that
+    /// resolves under the `blobs/sha256/<hex>` namespace (the blob
+    /// layer lowercases the hex, so casing variants share one blob).
+    Sha256,
+    /// Exactly 16 lowercase hex chars — the legacy forward+reverse
+    /// CRC32 fold written by `synvelis-player`/`synvelis-recording`
+    /// before SHA-256 import. Weak: collisions are possible, so equal
+    /// digests never prove equal bytes.
+    Crc32Fold,
+    /// Any other recorded string — preserved verbatim; the algorithm
+    /// is the producer's concern. Treated as weak/opaque: never a
+    /// verified content address.
+    Opaque,
+}
+
+/// Typed view over a persisted digest string — `Asset.digest`,
+/// `Source.content_digest`, `AppliedImport.content_hash`.
+///
+/// Parsing is infallible: unrecognized forms classify
+/// [`DigestKind::Opaque`] rather than failing, so every historical
+/// snapshot stays readable. Serde (de)serializes the raw string
+/// unchanged — the persisted form is never rewritten.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct AssetDigest {
+    raw: String,
+}
+
+impl AssetDigest {
+    /// Classifies `raw` — never fails.
+    #[must_use]
+    pub fn parse(raw: &str) -> Self {
+        Self {
+            raw: raw.to_owned(),
+        }
+    }
+
+    /// The persisted string, verbatim.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.raw
+    }
+
+    /// The algorithm classification.
+    #[must_use]
+    pub fn kind(&self) -> DigestKind {
+        classify_digest(&self.raw)
+    }
+
+    /// `true` only for the strong SHA-256 content address — the sole
+    /// form a consumer may treat as verified content identity.
+    #[must_use]
+    pub fn is_content_addressed(&self) -> bool {
+        self.kind() == DigestKind::Sha256
+    }
+}
+
+/// The [`DigestKind`] rule, shared with the blob layer's namespace
+/// decision: `"sha256:"` + 64 hex digits is the strong form (the same
+/// acceptance `LocalBlobDir`'s object-identity mapping applies),
+/// exactly-16 lowercase hex is the legacy CRC fold, everything else
+/// is opaque.
+fn classify_digest(raw: &str) -> DigestKind {
+    if let Some(hex) = raw.strip_prefix("sha256:")
+        && hex.len() == 64
+        && hex.bytes().all(|b| b.is_ascii_hexdigit())
+    {
+        return DigestKind::Sha256;
+    }
+    if raw.len() == 16
+        && raw
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return DigestKind::Crc32Fold;
+    }
+    DigestKind::Opaque
+}
+
 /// A stored asset (content-addressed media or document).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -539,6 +627,7 @@ impl Project {
                 return Err(Error::NotFound(format!("asset {}", source.asset_id)));
             }
         }
+        self.validate_digests()?;
         // -- MIDI source/note model (issue #52) ----------------------
         // The `SourceId` space is shared across `sources` and
         // `midi_sources`, and the `NoteId` space across clip-local
@@ -819,6 +908,58 @@ impl Project {
         }
         // -- semantic routing model (issue #104) ----------------------
         self.routing.validate(self)
+    }
+
+    /// Digest/receipt integrity shared by [`Self::validate_references`]
+    /// and the v10→v11 migration step (synvelis#86): every persisted
+    /// digest string is non-empty, and every applied-import receipt
+    /// names live asset and source entities.
+    ///
+    /// Digest *strings* stay opaque — [`AssetDigest`] owns
+    /// classification. Equality between independently recorded digest
+    /// fields is deliberately *not* an invariant: a source may record
+    /// a different digest than its backing asset.
+    ///
+    /// # Errors
+    /// [`Error::Validation`] on an empty digest;
+    /// [`Error::NotFound`] on a receipt naming a missing entity.
+    pub(crate) fn validate_digests(&self) -> Result<(), Error> {
+        for asset in self.assets.values() {
+            if asset.digest.is_empty() {
+                return Err(Error::Validation(format!(
+                    "asset {} has an empty digest",
+                    asset.id
+                )));
+            }
+        }
+        for source in self.sources.values() {
+            if source.content_digest.is_empty() {
+                return Err(Error::Validation(format!(
+                    "source {} has an empty content digest",
+                    source.id
+                )));
+            }
+        }
+        for (import_id, applied) in &self.applied_imports {
+            if !self.assets.contains_key(&applied.asset_id) {
+                return Err(Error::NotFound(format!(
+                    "asset {} (applied import {import_id})",
+                    applied.asset_id
+                )));
+            }
+            if !self.sources.contains_key(&applied.source_id) {
+                return Err(Error::NotFound(format!(
+                    "source {} (applied import {import_id})",
+                    applied.source_id
+                )));
+            }
+            if applied.content_hash.is_empty() {
+                return Err(Error::Validation(format!(
+                    "applied import {import_id} has an empty content hash"
+                )));
+            }
+        }
+        Ok(())
     }
 
     /// Largest generator-issuable raw ID among every serialized entity
