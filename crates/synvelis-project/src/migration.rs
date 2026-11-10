@@ -8,9 +8,12 @@
 //! validated and published as a *new* snapshot by the next save.
 
 use crate::{
-    control::{AutomationTimeScope, ControlOwner, ParameterRole, master_fader_target},
+    control::{
+        AutomationTimeScope, ControlOwner, ParameterRole, STRIP_SEED_ROLES, master_channel_raw,
+        master_fader_target, strip_channel_target,
+    },
     error::Error,
-    id::{ChainId, RoutingConnectionId, SemanticPortId, StripId, TrackId},
+    id::{ChainId, ParameterTargetId, RoutingConnectionId, SemanticPortId, StripId, TrackId},
     project::Project,
     routing::{
         ChannelStrip, ConnectionKind, PortBinding, PortDirection, PortOwner, PortRole,
@@ -47,6 +50,10 @@ const STEPS: &[MigrationStep] = &[
     MigrationStep {
         from: 8,
         migrate: migrate_v8_smf_documents,
+    },
+    MigrationStep {
+        from: 9,
+        migrate: migrate_v9_strip_params,
     },
 ];
 
@@ -306,5 +313,77 @@ fn migrate_v7_bootstrap_fader(mut project: Project) -> Result<Project, Error> {
 /// shape keeps the ladder uniform.
 #[allow(clippy::unnecessary_wraps)]
 fn migrate_v8_smf_documents(project: Project) -> Result<Project, Error> {
+    Ok(project)
+}
+
+/// v9 → v10: seed the strip channel parameter set (issue #122) —
+/// every strip carries the bit-exact-safe `Fader`/`Mute`/`Solo`
+/// [`ParameterTarget`]s under the canonical defaults of
+/// [`strip_channel_target`] (`Pan` registers on first use — see
+/// [`STRIP_SEED_ROLES`]). Strips created before registration lack
+/// them; the step seeds only the *missing* roles so a user-authored
+/// target of the same role is never duplicated (the singleton rule
+/// would reject it anyway).
+///
+/// The master strip's channel targets live in the reserved
+/// well-known range — the step inserts those directly without
+/// drawing IDs; every other strip's targets draw from
+/// `max(live issuable max, id_watermark) + 1` in `StripId` then
+/// [`STRIP_SEED_ROLES`] order, so the same v9 snapshot always
+/// projects to the same v10 project. `id_watermark` advances past
+/// every drawn ID.
+///
+/// # Errors
+/// [`Error::Validation`] when ID allocation would enter the reserved
+/// well-known range.
+fn migrate_v9_strip_params(mut project: Project) -> Result<Project, Error> {
+    let master_strip = project
+        .routing
+        .buses
+        .get(&project.routing.master)
+        .map(|bus| bus.strip);
+    let mut next_raw = project
+        .max_issuable_id_raw()
+        .unwrap_or(0)
+        .max(project.id_watermark);
+    let strip_ids: Vec<StripId> = project.routing.strips.keys().copied().collect();
+    let first_raw = next_raw;
+    for strip in strip_ids {
+        for role in STRIP_SEED_ROLES {
+            let exists = project
+                .control
+                .targets
+                .values()
+                .any(|t| t.owner == ControlOwner::Strip(strip) && t.role == role);
+            if exists {
+                continue;
+            }
+            if Some(strip) == master_strip
+                && let Some(raw) = master_channel_raw(role)
+            {
+                let target = strip_channel_target(ParameterTargetId::new(raw), strip, role);
+                project.control.targets.insert(target.id, target);
+                continue;
+            }
+            next_raw += 1;
+            // The watermark must sit *above* the last drawn ID, so the
+            // last issuable value still needs one free slot after it.
+            if !is_issuable_raw(next_raw) || !is_issuable_raw(next_raw + 1) {
+                return Err(Error::Validation(
+                    "migration ID allocation reached the reserved range".into(),
+                ));
+            }
+            let id = ParameterTargetId::new(next_raw);
+            let target = strip_channel_target(id, strip, role);
+            project.control.targets.insert(id, target);
+        }
+    }
+    // Advance the watermark only when IDs were actually drawn —
+    // `next_raw` starts at `max(max_issuable, watermark)`, so an
+    // unconditional `+1` would skip an ID on a project whose strips
+    // are all well-known (e.g. master-only).
+    if next_raw > first_raw {
+        project.id_watermark = (next_raw + 1).max(project.id_watermark);
+    }
     Ok(project)
 }

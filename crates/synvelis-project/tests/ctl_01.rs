@@ -301,13 +301,9 @@ fn singleton_roles_are_unique_per_owner() {
     let mut c = controller();
     let track = add_track(&mut c, "t");
     let strip = add_track_strip(&mut c, track);
-    add_target(
-        &mut c,
-        ControlOwner::Strip(strip),
-        ParameterRole::Fader,
-        AutomationTimeScope::ProjectMusical,
-    )
-    .unwrap();
+    // CTL-02: strip creation already seeds the channel Fader — the
+    // singleton is occupied before any user target exists.
+    assert!(strip_channel_target_id(c.live(), strip, ParameterRole::Fader).is_some());
     // A second Fader on the same strip collides; on another strip it
     // does not.
     let result = c.apply(cmd(
@@ -580,10 +576,11 @@ fn removing_a_bus_cannot_orphan_strip_owned_targets() {
 
 /// Serializes `project` as a schema-v6 envelope: targets carry the
 /// legacy `{"scope": ...}` owner tag and no `role`/`time_scope`.
-/// The bootstrap master-fader target (synvelis#185) did not exist in
-/// v6 — a real v6 body cannot carry its `Strip` owner (the v6→v7 step
-/// rejects non-legacy owners), so it is omitted here and re-seeded by
-/// the v7→v8 step on load.
+/// The bootstrap master-fader target (synvelis#185) and the CTL-02
+/// strip channel targets did not exist in v6 — a real v6 body cannot
+/// carry their `Strip` owners (the v6→v7 step rejects non-legacy
+/// owners), so they are omitted here and re-seeded by the later
+/// migration steps on load.
 fn as_v6_envelope(c: &ProjectController) -> serde_json::Value {
     let mut env = serde_json::json!({
         "schema_version": 6,
@@ -591,10 +588,38 @@ fn as_v6_envelope(c: &ProjectController) -> serde_json::Value {
         "revision": c.live_revision(),
         "project": serde_json::to_value(c.live()).unwrap(),
     });
-    env["project"]["control"]["targets"]
+    let targets = env["project"]["control"]["targets"]
         .as_object_mut()
-        .unwrap()
-        .remove(&ParameterTargetId::new(MASTER_FADER_RAW).to_tagged());
+        .unwrap();
+    targets.remove(&ParameterTargetId::new(MASTER_FADER_RAW).to_tagged());
+    // Strip-owned channel targets (CTL-02) are post-v6 state — drop
+    // them plus anything bound to them so the body is a faithful v6
+    // snapshot.
+    let strip_owned: Vec<String> = targets
+        .iter()
+        .filter(|(_, t)| t["owner"]["owner"] == "Strip")
+        .map(|(k, _)| k.clone())
+        .collect();
+    for key in &strip_owned {
+        targets.remove(key);
+    }
+    if !strip_owned.is_empty() {
+        let lanes = env["project"]["control"]["lanes"].as_object_mut().unwrap();
+        lanes.retain(|_, l| {
+            l["target"]
+                .as_str()
+                .is_none_or(|t| !strip_owned.iter().any(|k| k == t))
+        });
+        let assignments = env["project"]["control"]["assignments"]
+            .as_object_mut()
+            .unwrap();
+        assignments.retain(|_, a| {
+            [a["target"].as_str(), a["depth_source"].as_str()]
+                .into_iter()
+                .flatten()
+                .all(|t| !strip_owned.iter().any(|k| k == t))
+        });
+    }
     let scope_of = |owner: &serde_json::Value| {
         let mut scope = serde_json::json!({"scope": owner["owner"]});
         if let Some(id) = owner.get("id") {
@@ -798,13 +823,9 @@ fn save_reload_preserves_owner_role_and_time_scope() {
     let mut c = controller();
     let track = add_track(&mut c, "t");
     let strip = add_track_strip(&mut c, track);
-    add_target(
-        &mut c,
-        ControlOwner::Strip(strip),
-        ParameterRole::Fader,
-        AutomationTimeScope::ProjectMusical,
-    )
-    .unwrap();
+    // CTL-02: the seeded strip channel Fader is itself a Strip-owned
+    // target — save/reload must preserve its binding untouched.
+    assert!(strip_channel_target_id(c.live(), strip, ParameterRole::Fader).is_some());
     let mut store = InMemoryStore::new();
     c.save(&mut store).unwrap();
     let mut c2 = controller();
@@ -815,9 +836,8 @@ fn save_reload_preserves_owner_role_and_time_scope() {
         .control
         .targets
         .values()
-        .find(|t| t.role == ParameterRole::Fader)
+        .find(|t| t.owner == ControlOwner::Strip(strip) && t.role == ParameterRole::Fader)
         .unwrap();
-    assert_eq!(bound.owner, ControlOwner::Strip(strip));
     assert_eq!(bound.time_scope, AutomationTimeScope::ProjectMusical);
 }
 

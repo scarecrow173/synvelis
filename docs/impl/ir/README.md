@@ -4,6 +4,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-034V1FQ09PSOnyDawvKX60 | CTL-02 Strip/Send Host Parameter 正本・Plugin Binding・Routing | completed | [ctl-02-strip-send-host-parameter-plugin-binding-routing.md](ctl-02-strip-send-host-parameter-plugin-binding-routing.md) |
 | IMPL-034UvgCFl4bXw9DZ4bTr3X | SF-04 slice2 ControlSession probe observation → ControlTrace 配線 | in-progress | [sf-04-slice2-controlsession-probe-observation-trace-wiring.md](sf-04-slice2-controlsession-probe-observation-trace-wiring.md) |
 | IMPL-034UL7HNJppFLqjkPqHDxX | SF-04 slice3 probe clock epoch discontinuity capture segmentation | in-progress | [sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md](sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md) |
 | IMPL-034UrlNf4hC31G8gfjoR8y | SV-GUI-04 slice2 close-veto/cancel — syn.window.close_guard + 末尾 window veto | completed | [sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md](sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md) |
