@@ -57,6 +57,7 @@ Directory: `docs/tasks`
 | TASK-SV180RootedCutover2k26 | ALIB-01 task5 — Ruviform rooted capability への containment 移行（N1 修復） | done | [alib-01-task5-rooted-cutover.md](./alib-01-task5-rooted-cutover.md) |
 | TASK-SV85RF409ScopedEnum9zQ2 | ALIB-01 task6 — ruviform#409 scoped re-root / bounded 列挙への正規契約移行 | done | [alib-01-task6-rf409-scoped-enumeration.md](./alib-01-task6-rf409-scoped-enumeration.md) |
 | TASK-alib04-t1 | ALIB-04 Task 1 — git provider modules・fixture・tests | done | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
+| TASK-alib07-import-cancel | ALIB-07 slice 2 Task 1 — cancel checkpoint・fault case・crash fixture・matrix 簿記 | done | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | TASK-034AUT02Gt6kHr4nWy8sBp3x | AUT-02 task1: 境界 anchor 実装 + op 適用 + property/exact fixture テスト | done | [aut-02-task1-region-replace-boundary.md](./aut-02-task1-region-replace-boundary.md) |
 | TASK-034AUT03Pq9rWx3nVm7sJk2d | AUT-03 task1: Write Range 閉鎖・境界 flush・明示 Rearm 実装 + headless テスト | done | [aut-03-task1-loop-write-one-pass.md](./aut-03-task1-loop-write-one-pass.md) |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |

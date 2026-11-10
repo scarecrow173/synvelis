@@ -10,10 +10,12 @@ relations:
   verifies:
     - "docs/specs/alib-07-fault-matrix.md"
     - "docs/designs/alib-07-fault-matrix-design.md"
+    - "docs/specs/alib-07-import-cancel.md"
   verified-by:
     - "crates/synvelis-library/tests/git.rs"
     - "crates/synvelis-library/tests/webdav.rs"
     - "crates/synvelis-library/tests/import.rs"
+    - "crates/synvelis-library/tests/import_recovery.rs"
     - "crates/synvelis-library/tests/cache.rs"
     - "crates/synvelis-library/tests/contract.rs"
     - "crates/synvelis-library/tests/local.rs"
@@ -44,6 +46,19 @@ Observed / Status を記録する。
 
 - Synvelis commit: `d867f88`（branch `scarecrow173/sv91-alib07`、
   `origin/main` と同一 HEAD から分岐）
+- Slice 2 追記（branch `feature/91-alib07-cancel-slice`、base
+  `ae5ddc4a` = PR #253 merge）: LIB-IMPORT-04 の publish/commit 相
+  cancel と LIB-IMPORT-08 の実 subprocess crash を追加。先行
+  evidence は PR #236（headless matrix 本体、
+  https://github.com/scarecrow173/synvelis/pull/236）と PR #253
+  （v5 digest migration + import_recovery fixture、
+  https://github.com/scarecrow173/synvelis/pull/253）。
+- 関連 Issue/PR（本 matrix の NotRun 根拠・別 slice の責務）:
+  synvelis#84（File/FS publish/HEAD/crash/recovery cross-gate）、
+  synvelis#97（VCS immutable history/missing LFS）、
+  synvelis#89・#114（Browser/import UX・実 GPUI window）、
+  synvelis#83（独立 CI）、Ruviform#219・#294（consumer 互換・
+  独立 gate）。
 - Ruviform resolved SHA（`Cargo.lock`）:
   `0f5b57372e9a43f84415f7964b2f9636774174f0`
 - Toolchain: rustc 1.99.0（MSRV 1.89）
@@ -197,11 +212,11 @@ workspace 横断の証拠は crate 名を前置する。
 | LIB-IMPORT-01 chunked huge bounded memory | provider chunk サイズに依らず固定 buffer のみで stream、1MiB を 7B ずつ供給して byte-exact | `import.rs::bounded_memory_streaming_with_tiny_chunks`、`import.rs::import_streams_verifies_publishes_and_commits`（Pass。GB 級の実サイズは headless 範囲外として NotRun 注記） | Pass |
 | LIB-IMPORT-02 verify/decode/metadata | staged bytes を readback 再計測し digest+size を照合。media decode 検証は consumer の別段階 | `import.rs::digest_mismatch_is_integrity_error`、`import.rs::byte_budget_is_enforced_during_staging`（byte verify Pass。decode/metadata は library slice 対象外 → NotRun） | Pass（一部 NotRun） |
 | LIB-IMPORT-03 SHA-256 mismatch | pin 期待 digest と実測の不一致は `IntegrityMismatch`、既存 blob との不一致も同様 | `import.rs::digest_mismatch_is_integrity_error`、`git.rs::lfs_size_mismatch_and_corruption_fail_verification`、`import.rs::same_import_id_different_content_is_conflict`（Pass） | Pass |
-| LIB-IMPORT-04 cancellation at each phase | stage 相の cancel は typed `Cancelled` で manifest は `Started` に留まり resume 可能。publish/commit 相の cancel 注入点は本 slice 未整備 | `import.rs::cancel_mid_stream_is_typed_and_same_import_resumes`、`git.rs::cancellation_is_typed_before_and_during_fetch`、`webdav.rs::cancelled_token_fails_before_io`、`cache.rs::catalog_waiter_honours_cancellation`、`local.rs::cancel_during_directory_enumeration_fails_the_page`、`cache.rs::preview_cancel_and_typed_errors`（Pass: provider/stage 相。publish/commit 相 cancel は NotRun） | Pass（一部 NotRun） |
+| LIB-IMPORT-04 cancellation at each phase | stage/verify/publish/commit 各相の cancel は typed `Cancelled` で manifest が直前の durable stage に留まり resume 可能。commit は `apply` 直前の checkpoint のみ — commit 後に cancel を返さない | `import.rs::cancel_mid_stream_is_typed_and_same_import_resumes`（stage→`Started` 保持）、`import.rs::cancel_during_verify_is_typed_and_same_import_resumes`（verify→`Staged` 保持）、`import.rs::cancel_during_publish_is_typed_and_same_import_resumes`（publish→`Verified` 保持）、`import.rs::cancel_at_commit_boundary_parks_at_published_and_resumes`（commit 直前→`Published` 保持・blob 温存・resume は再 publish なしで commit）、`git.rs::cancellation_is_typed_before_and_during_fetch`、`webdav.rs::cancelled_token_fails_before_io`、`cache.rs::catalog_waiter_honours_cancellation`、`local.rs::cancel_during_directory_enumeration_fails_the_page`、`cache.rs::preview_cancel_and_typed_errors`（Pass: headless cooperative token。OS signal 等の実 cancel 経路は consumer/OS 範囲） | Pass |
 | LIB-IMPORT-05 duplicate ImportId same/different digest | same ImportId+same content は冪等 reuse、different content は `IntegrityConflict` で二重登録なし | `import.rs::replay_same_import_is_idempotent`、`import.rs::same_import_id_different_content_is_conflict`（Pass） | Pass |
 | LIB-IMPORT-06 Project Revision/Target changed | stale `expected_project_revision` は `StaleRevision` で `rebase_import` のみが解決。存在しない lane/誤 track target は commit 前に reject | `import.rs::stale_revision_rejected_then_explicit_rebase_converges`、`import.rs::missing_lane_target_is_rejected_without_clip`、`import.rs::wrong_track_lane_target_is_rejected`（Pass） | Pass |
 | LIB-IMPORT-07 multiple windows | 複数 window/consumer からの同時 import | GUI/consumer slice（#89/#114）の範囲。headless library slice では NotRun | NotRun |
-| LIB-IMPORT-08 Blob Published/ACK lost/manifest crash | publish 失敗・indeterminate・dirsync 失敗は typed 記録され manifest から resume、published-uncommitted blob は orphan 保護 | `import.rs::publish_failure_resumes_from_manifest`、`import.rs::indeterminate_publish_is_reconciled_not_misreported`、`import.rs::directory_sync_failure_is_recorded_not_hidden`、`import.rs::incomplete_job_and_blob_are_protected_from_gc`（Pass: scripted publisher による分類証拠。実 process crash は NotRun — Mock PASS を実 durability 保証としない） | Pass（一部 NotRun） |
+| LIB-IMPORT-08 Blob Published/ACK lost/manifest crash | publish 失敗・indeterminate・dirsync 失敗は typed 記録され manifest から resume、published-uncommitted blob は orphan 保護。実 process crash（publish ACK lost / pre-commit）から別 process が manifest + on-disk blob のみで resume | `import.rs::publish_failure_resumes_from_manifest`、`import.rs::indeterminate_publish_is_reconciled_not_misreported`、`import.rs::directory_sync_failure_is_recorded_not_hidden`、`import.rs::incomplete_job_and_blob_are_protected_from_gc`、`import.rs::subprocess_crash_during_publish_or_commit_resumes_across_processes`（self-exec 子 process が publish ACK lost / pre-commit で `exit` 死亡、親 process が `ack-lost`→`Reused` / `pre-commit`→`Created` で commit 収束・子の予約 ID 一致を assert。実 subprocess crash 証拠。OS クラッシュ/電源断の実 durability は実環境 NotRun — synvelis#84 cross-gate） | Pass |
 | LIB-IMPORT-09 Save/HEAD separate | commit は CommittedLive のみで saved()/HEAD を意味しない | `import.rs::import_streams_verifies_publishes_and_commits`（`c.saved().is_none()`・live≠saved を assert、Pass） | Pass |
 | LIB-IMPORT-10 offline playback after Cache eviction | cache eviction/clear は project blob（source of truth）を削除しない。実再生は consumer | `cache.rs::cache_clear_and_eviction_preserve_source_of_truth`、`cache.rs::cache_budget_evicts_but_leases_pin`、`cache.rs::cache_open_scan_drops_corrupt_and_half_published`（library slice Pass。実 playback は NotRun） | Pass（一部 NotRun） |
 
@@ -210,7 +225,7 @@ workspace 横断の証拠は crate 名を前置する。
 | Case | Expected | Observed | Status |
 | --- | --- | --- | --- |
 | LIB-MIG-01 Snapshot v5 read/upgrade | v5 snapshot が現行 schema へ決定的に migrate される | `synvelis-project::routing_sf01::v5_snapshot_migrates_to_legacy_clip_to_master_projection`、`synvelis-project::vcs01_snapshot::v5_snapshot_projects_read_only_into_current_schema`、`synvelis-workspace::preset::legacy_snapshot_shape_migrates_to_preset`（Pass: workspace test lane） | Pass |
-| LIB-MIG-02 旧 hex16 CRC vs SHA-256 namespace | 旧 CRC 参照と新 SHA-256 namespaced key が衝突せず、未検証 hash の昇格をしない。namespace 共存は確認済みだが CRC→SHA-256 移行本体は deferred spec（`alib-02-v5-snapshot-compat` draft）で未実装 | `import.rs::sha256_namespace_cannot_collide_with_legacy_flat`（namespace 共存 Pass。CRC 昇格経路は NotRun — spec draft/deferred を根拠に暗黙 PASS としない） | NotRun（共存のみ Pass） |
+| LIB-MIG-02 旧 hex16 CRC vs SHA-256 namespace | 旧 CRC 参照と新 SHA-256 namespaced key が衝突せず、未検証 hash の昇格をしない。移行・分類の実装権威は #86（PR #253）— 本 Issue は吸収せず完了証跡を参照する | `import.rs::sha256_namespace_cannot_collide_with_legacy_flat`（namespace 共存）、`import_recovery.rs::legacy_crc_blob_coexists_with_sha256_namespace`（flat CRC blob が `DigestKind::Crc32Fold`=weak に留まり flat のまま読め、新規 import は sha256 namespace に着地・flat 非破壊 — 未検証 hash の sha256 昇格なし）（Pass。#86/PR #253 の lane を参照し本 slice では再実装しない） | Pass |
 | LIB-MIG-03 旧 missing blob/degraded | 参照先 blob 欠落は typed `NotFound` で degraded 扱い、panic/誤 bytes なし | `project.rs::missing_blob_is_typed_missing_not_error`（Pass） | Pass |
 | LIB-MIG-04 legacy collision/no unverified hash promotion | flat 名が sha256 namespaced identity を shadow しない | `import.rs::sha256_namespace_cannot_collide_with_legacy_flat`（shadow file case 含む、Pass） | Pass |
 | LIB-MIG-05 Plugin Opaque Bytes/ID/Undo/Source/Recording/PCM Golden untouched | 移行で plugin opaque・Undo・source・recording・PCM golden が非回帰 | `synvelis-recording` `mono_stereo_multichannel_pcm_fidelity`、`raw_capture_bytes_are_identical_across_monitor_states`、`synvelis-player::sf03_l1::sf03_02_semantic_audio_matches_legacy_bitexact`、`recording-poc` vsc_process tests（Pass: workspace lane で非回帰確認） | Pass |
@@ -248,8 +263,8 @@ workspace 横断の証拠は crate 名を前置する。
 
 | Status | 件数 |
 | --- | --- |
-| Pass | 39（うち 7 件は一部 sub-case が NotRun 注記付き） |
-| NotRun | 3（LIB-IMPORT-07、LIB-MIG-02、LIB-QOS-04） |
+| Pass | 40（うち 5 件は一部 sub-case が NotRun 注記付き） |
+| NotRun | 2（LIB-IMPORT-07、LIB-QOS-04） |
 | Fail | 0 |
 | Unsupported | 0（能力不在は個別 test で typed 確認済み） |
 | NotImplemented | SVN/P4/SMB/S3 provider — 行自体を設けず暗黙 PASS にしない |
