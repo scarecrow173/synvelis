@@ -79,6 +79,10 @@ fn controller_with(lane_count: usize) -> (ProjectController, Vec<LaneId>, ClockE
         apply(&mut c, ProjectOp::AddLane { track_id: track });
         lanes.push(*c.live().lanes.keys().last().unwrap());
     }
+    // Semantic lowering requires every clip's track to own a strip.
+    if c.live().routing.strip_of_track(track).is_none() {
+        apply(&mut c, ProjectOp::AddTrackStrip { track_id: track });
+    }
     apply(
         &mut c,
         ProjectOp::RegisterClockEpoch {

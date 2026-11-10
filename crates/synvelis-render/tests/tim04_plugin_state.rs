@@ -91,7 +91,13 @@ fn lane(c: &mut ProjectController) -> LaneId {
     apply(c, ProjectOp::AddTrack { name: "t".into() });
     let track = *c.live().tracks.keys().next().unwrap();
     apply(c, ProjectOp::AddLane { track_id: track });
-    *c.live().lanes.keys().next().unwrap()
+    let lane = *c.live().lanes.keys().next().unwrap();
+    // Semantic lowering requires every clip's track to own a strip.
+    let owner = c.live().lanes[&lane].track_id;
+    if c.live().routing.strip_of_track(owner).is_none() {
+        apply(c, ProjectOp::AddTrackStrip { track_id: owner });
+    }
+    lane
 }
 
 fn add_clip(
