@@ -79,6 +79,7 @@ Directory: `docs/specs`
 | SPEC-034Uqtwgi61id6YJP9tZZX | SV-GUI-04 slice2: close-veto/cancel（unsaved-guard veto） | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
 | SPEC-034UqIcJay7uhO1XhAdcCn | SV-GUI-04 slice2 設計: dock transfer workspace adoption + GUI op 配線 | approved | [sv-gui-04-slice2-dock-transfer-workspace-adoption-gui-op.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption-gui-op.md) |
 | SPEC-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain domain projection — master strip Fader target の bootstrap と Fader controlled display/commit 接続 | approved | [sv185-01-mixer-gain-domain-projection.md](./sv185-01-mixer-gain-domain-projection.md) |
+| SPEC-034VobGQ7ailU8PviI0F9x | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 と API 追従 | approved | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | SPEC-0D1aGavIsYu1NgyvnRxeRx | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 と API 追従（SV#190 前提解消） | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | SPEC-034Uvy3JSMhpGuQliLcN6s | SYN-IO-01 Ruviform 共通 I/O 適合境界 — Project Snapshot/HEAD/Backup/Import | approved | [syn-io-01-ruviform-common-io-boundary.md](./syn-io-01-ruviform-common-io-boundary.md) |
 | SPEC-034T29C9D8CIvYjMxmQIy8 | SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行 | approved | [syn-io-02-snapshot-head-staged-publish.md](./syn-io-02-snapshot-head-staged-publish.md) |
