@@ -72,6 +72,7 @@ Directory: `docs/designs`
 | DESIGN-034Uj7LfhkkACvyn53L7eN | SF-03 slice5 設計 — session EnginePort・SessionRoutingEngine・canonical probe | approved | [sf-03-slice5-session-engine-connect-design.md](./sf-03-slice5-session-engine-connect-design.md) |
 | DESIGN-034UJqgcnnlXJWllu9yUGb | SF-03 slice6 design — RoutingControlDispatch control surface（世代 gate・有界 queue・binding 証拠・catalog refresh） | approved | [sf-03-slice6-act06-control-surface-design.md](./sf-03-slice6-act06-control-surface-design.md) |
 | DESIGN-poso4hBPDap0Gs9cisA92Y | SF-03 slice7 — render semantic-lowering 消費 design | approved | [sf-03-slice7-render-consumption-design.md](./sf-03-slice7-render-consumption-design.md) |
+| DESIGN-034VoSreRK4VhuFxIqvayx | SF-03 slice8 — app/workspace same-Revision fixture design | approved | [sf-03-slice8-revision-fixture-design.md](./sf-03-slice8-revision-fixture-design.md) |
 | DESIGN-034Um5591oRMfPg7cVthyU | SF-04 slice1 設計 — Semantic Probe Adapter（project contract + player runtime adapter） | approved | [sf-04-slice1-semantic-probe-adapter-design.md](./sf-04-slice1-semantic-probe-adapter-design.md) |
 | DESIGN-034UunDPfVm34dBXKZHHG0 | SF-04 slice2 設計 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace-design.md](./sf-04-slice2-controlsession-probe-trace-design.md) |
 | DESIGN-034UL2WkinplQmMD9VPyeX | SF-04 slice3 設計 — probe clock epoch discontinuity・capture segment cut | approved | [sf-04-slice3-clock-epoch-discontinuity-design.md](./sf-04-slice3-clock-epoch-discontinuity-design.md) |

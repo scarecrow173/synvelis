@@ -90,3 +90,5 @@ Directory: `docs/impl/ir`
 | IMPL-034VocnpYlIXEqErLG2I5w | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 API 追従 | completed | [sv-28-ruviform-pin-b02942c2.md](sv-28-ruviform-pin-b02942c2.md) |
 | IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](rcd-04-product-e2e-slice.md) |
 | IMPL-034VpDUdGZZKsxaoSMekla | RCD-02 StagedFile Publish Migration | completed | [rcd-02-stagedfile-publish-migration.md](rcd-02-stagedfile-publish-migration.md) |
+| IMPL-034VoSZokxDrVB1U3GAB2Z | SF-03 slice8 実装記録 — app/workspace same-Revision fixture | completed | [sf-03-slice8-revision-fixture-slice.md](sf-03-slice8-revision-fixture-slice.md) |
+| IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](ci-245-macos-alloc-flake-slice.md) |

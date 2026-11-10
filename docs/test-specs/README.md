@@ -61,6 +61,7 @@ Directory: `docs/test-specs`
 | TSPEC-034Uj7Mjz5Aoak1Vz7O3S4 | SF-03 slice5 受入テスト仕様 — session→routing activation e2e | approved | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
 | TSPEC-034UJrwI2ZQcJUrzIaZFZE | SF-03 slice6 test-spec — sf03_l6 control surface acceptance | approved | [sf-03-slice6-act06-control-surface.md](./sf-03-slice6-act06-control-surface.md) |
 | TSPEC-0HnGRMaXEy6WChONldI4n2 | SF-03 slice7 — render semantic-lowering 消費 test-spec | approved | [sf-03-slice7-render-consumption.md](./sf-03-slice7-render-consumption.md) |
+| TSPEC-034VoSrQGRatV4fFu1xhFo | SF-03 slice8 — app/workspace same-Revision fixture test-spec | approved | [sf-03-slice8-revision-fixture.md](./sf-03-slice8-revision-fixture.md) |
 | TSPEC-034Um6SOlStZLqEVmi7IEk | SF-04 slice1 受入テスト仕様 — semantic probe 解決・lifecycle・segment cut | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | TSPEC-034UupvzrMsHjf6LBZma9J | SF-04 slice2 受入テスト仕様 — probe observation → trace 記録・freshness・fail-closed | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | TSPEC-034UL2Z7qW8xN4pLm5Rs6 | SF-04 slice3 受入テスト仕様 — clock epoch discontinuity・segment cut・fault/DSP invariance | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
