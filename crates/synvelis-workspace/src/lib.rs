@@ -84,7 +84,7 @@ pub use preset::{
     PRESET_SCHEMA, PresetDock, PresetFocus, PresetGeometry, PresetLink, PresetReport, PresetView,
     PresetViewState, PresetWindow, WorkspacePreset,
 };
-pub use probe_trace::{ProbeDrainReport, ProbeTraceError};
+pub use probe_trace::{ProbeDrainReport, ProbePrincipal, ProbeReleaseReport, ProbeTraceError};
 pub use relation_ui::{
     RELATION_VIEW_INCLUDE_DISABLED, RELATION_VIEW_MAX_DEPTH, RELATION_VIEW_MAX_EDGES, RelationNav,
     RelationRow, RelationView, RelationViewOptions, relation_rows, relation_rows_with,
