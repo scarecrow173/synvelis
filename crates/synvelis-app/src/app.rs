@@ -27,6 +27,7 @@ use ruviform_ui::BackendReport;
 use ruviform_ui::view::{AttachEpoch, AttachEpochAllocator};
 use serde_json::{Value, json};
 
+use synvelis_project::vcs::VcsHistoryBackend;
 use synvelis_project::{
     ControlEntityRef, CounterIdGenerator, DirectoryBundleStore, ParameterTargetId, Project,
     ProjectController, ProjectId, RelationDirection,
@@ -236,7 +237,9 @@ pub struct SynvelisApp {
     /// the `ui` gateway state (method accessors would borrow all of
     /// `self`).
     pub(crate) workspace: WorkspaceManager<ShellWindowHost>,
-    store: Option<DirectoryBundleStore>,
+    /// `pub(crate)` so `ui_ops` can compose Saved-endpoint reads
+    /// without borrowing all of `self`.
+    pub(crate) store: Option<DirectoryBundleStore>,
     audio: AudioRuntimeSlot,
     recorder: RecorderSlot,
     observability: ObservabilityOwner,
@@ -274,6 +277,14 @@ pub struct SynvelisApp {
     /// polls it and pushes changes into the mounted spec through
     /// `update_view`.
     pub(crate) main_screen: Rc<RefCell<MainScreenState>>,
+    /// VCS history backend the `syn.vcs.*` ops compose into
+    /// [`synvelis_workspace::VcsSession`] (VCS-04, synvelis#95).
+    /// `None` reports `NoBackend` — Live/Saved endpoints still
+    /// resolve. Injected once by the composition root; production
+    /// wiring detects and binds a provider per project root (the
+    /// headless slice ships the seam only). `pub(crate)` so `ui_ops`
+    /// can compose the `VcsSession` context disjoint from `workspace`.
+    pub(crate) vcs_backend: Option<Arc<dyn VcsHistoryBackend>>,
 }
 
 impl SynvelisApp {
@@ -299,7 +310,21 @@ impl SynvelisApp {
             bundle_path: None,
             routing_engine: None,
             main_screen: Rc::new(RefCell::new(MainScreenState::default())),
+            vcs_backend: None,
         }
+    }
+
+    /// Injects the VCS history backend `syn.vcs.*` ops use (VCS-04).
+    /// Pass an `Arc` so tests/composition roots can keep a handle on
+    /// the same provider the app drives.
+    pub fn set_vcs_backend(&mut self, backend: Arc<dyn VcsHistoryBackend>) {
+        self.vcs_backend = Some(backend);
+    }
+
+    /// The injected VCS history backend, when present.
+    #[must_use]
+    pub fn vcs_backend(&self) -> Option<&dyn VcsHistoryBackend> {
+        self.vcs_backend.as_deref()
     }
 
     /// The shared session `AttachEpoch` allocator — take a handle
