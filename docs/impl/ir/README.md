@@ -85,3 +85,4 @@ Directory: `docs/impl/ir`
 | IMPL-034V4SMgc7OlchXo2EUCfn | VCS-05 safe apply selected change / restore as copy (headless) | completed | [vcs-05-safe-apply-selected-change-restore-as-copy-headless.md](vcs-05-safe-apply-selected-change-restore-as-copy-headless.md) |
 | IMPL-034Vg2bnZtbJvdYWRJIUM3 | RCD-03 app Arm/Monitoring UX slice 実装記録 | completed | [rcd-03-app-arm-monitoring-ux-slice.md](rcd-03-app-arm-monitoring-ux-slice.md) |
 | IMPL-034V6MHZ91AdEfrxqsFgLC | RCD-03 Monitoring/Punch/Latency 意味論 crate 内完結 slice 実装記録 | completed | [rcd-03-monitoring-punch-latency-crate-slice.md](rcd-03-monitoring-punch-latency-crate-slice.md) |
+| IMPL-034VhZh19UVNoeeFues4Ow | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | completed | [rcd-02-durability-evidence-recovery-review-commit-receipt.md](rcd-02-durability-evidence-recovery-review-commit-receipt.md) |

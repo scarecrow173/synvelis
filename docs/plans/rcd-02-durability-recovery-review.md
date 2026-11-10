@@ -1,10 +1,10 @@
 ---
 id: "PLAN-034UrkBlTpaeiSGII0EyIi"
 type: "plan"
-status: "approved"
+status: "completed"
 title: "RCD-02 Durability Evidence / Recovery Review / Commit Receipt slice"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-11"
 owners: []
 relations:
   source:
@@ -85,17 +85,17 @@ fault injection 拡張を実装し、fault-matrix test で検証する。
 
 ## Implementation Sequence
 
-- [ ] `IntegrityDigest` 追加（crc32.rs）
-- [ ] `DirSyncState`/`DurabilityEvidence` + checkpoint 記録 +
+- [x] `IntegrityDigest` 追加（crc32.rs）
+- [x] `DirSyncState`/`DurabilityEvidence` + checkpoint 記録 +
       `DurableFrontier.digest_fold` 型変更 + finalize 転記（writer.rs）
-- [ ] recovery: `ReviewState`/`ReviewRecord`/review API/Complete 強化
+- [x] recovery: `ReviewState`/`ReviewRecord`/review API/Complete 強化
       （recovery.rs）
-- [ ] commit: `DigestScheme` + receipt/reconcile API（commit.rs）
-- [ ] faultinj/staging: publish faultable 拡張（faultinj.rs/
+- [x] commit: `DigestScheme` + receipt/reconcile API（commit.rs）
+- [x] faultinj/staging: publish faultable 拡張（faultinj.rs/
       staging.rs）
-- [ ] lib.rs export 更新
-- [ ] `tests/recovery_review.rs` fault-matrix 実装
-- [ ] 既存テスト回帰修正（必要時）
+- [x] lib.rs export 更新
+- [x] `tests/recovery_review.rs` fault-matrix 実装
+- [x] 既存テスト回帰修正（必要時）
 
 ## Dependencies and Risks
 
@@ -114,12 +114,12 @@ fault injection 拡張を実装し、fault-matrix test で検証する。
 
 ## Verification
 
-- [ ] `mise run fmt-check`
-- [ ] `mise run check`
-- [ ] `mise run lint`
-- [ ] `mise run test`
-- [ ] `mise run test-rt`
-- [ ] `mise run build`
+- [x] `mise run fmt-check`
+- [x] `mise run check`
+- [x] `mise run lint`
+- [x] `mise run test`
+- [x] `mise run test-rt`
+- [x] `mise run build`
 - [ ] 実 OS/FS durability 実測 — NotRun（実機 gate）
 
 ## Open Questions / Gaps

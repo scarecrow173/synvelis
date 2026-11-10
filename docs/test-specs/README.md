@@ -45,8 +45,8 @@ Directory: `docs/test-specs`
 | TSPEC-YEy9TAHyUte5MD6kpyZJFI | PC-C6 oracle E2E — REL01〜07 / TR01〜08 独立照合 fixture | approved | [pc-c6-e2e-oracle-rel-tr.md](./pc-c6-e2e-oracle-rel-tr.md) |
 | TSPEC-034V2ixodcql8RLLJfoYqH | RCD-01 device-recording headless fixture test spec | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
-| TSPEC-034UrlOOfZIvsdF1bdNXfE | RCD-02 Durability / Recovery Review / Commit Receipt fault matrix | proposed | [rcd-02-durability-recovery-review-fault-matrix.md](./rcd-02-durability-recovery-review-fault-matrix.md) |
-| TSPEC-034VedrLB13w3phP9Xuh5S | RCD-03 app Arm/Monitoring UX fixture matrix | draft | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
+| TSPEC-034UrlOOfZIvsdF1bdNXfE | RCD-02 Durability / Recovery Review / Commit Receipt fault matrix | approved | [rcd-02-durability-recovery-review-fault-matrix.md](./rcd-02-durability-recovery-review-fault-matrix.md) |
+| TSPEC-034VedrLB13w3phP9Xuh5S | RCD-03 app Arm/Monitoring UX fixture matrix | proposed | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
 | TSPEC-034Utqp8lRoY8TBzlygCtN | RCD-03 Monitor/Punch/Latency fixture matrix | proposed | [rcd-03-monitor-punch-latency.md](./rcd-03-monitor-punch-latency.md) |
 | TSPEC-RCD04Fx9mB3vC7xZ2qW5eR | RCD-04 Comp Transition / MIDI Phrase fixture matrix | proposed | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
@@ -86,6 +86,7 @@ Directory: `docs/test-specs`
 | TSPEC-034RBFeQnmt3PcI7beSRpy | SYN-OBS-01 検証仕様 — Host Logging install・設定解決・Health・Source catalog | draft | [syn-obs-01-logging-source-catalog.md](./syn-obs-01-logging-source-catalog.md) |
 | TSPEC-034T2RF305WAVSTAGED01B | SYN-RF305 Export StagedFile Publish 契約試験 | approved | [syn-rf305-export-staged-publish-contract.md](./syn-rf305-export-staged-publish-contract.md) |
 | TSPEC-034UHWDhuZ4tU11F5QFAEh | TIM-01 configurable PPQN — test spec | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
+| TESTSPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 fixtures | proposed | [tim-02-player-midi-rt-fixtures.md](./tim-02-player-midi-rt-fixtures.md) |
 | TSPEC-034UwYugwIyQVbAeVxql8O | TIM-02 SMF Format0/1 fixture matrix | proposed | [tim-02-smf-format01-fixtures.md](./tim-02-smf-format01-fixtures.md) |
 | TSPEC-034UC53kVrQjWrtds8Lrsn | TIM-04 plugin state snapshot consistency — test spec | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | TSPEC-034UyEDDz7mTejYlyhg4gF | TIM-03 process boundary test spec — TIM-03-PB01..NN | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
@@ -94,6 +95,7 @@ Directory: `docs/test-specs`
 | TSPEC-K2QAlGFhpEHJiLP6StV4ta | VCS-03 Git read provider fixtures | approved | [vcs-03-git-provider-fixtures.md](./vcs-03-git-provider-fixtures.md) |
 | TSPEC-VCS04Hist0ryV1ewTst01 | VCS-04 History/Visual Diff headless fixtures | approved | [vcs-04-history-diff-fixtures.md](./vcs-04-history-diff-fixtures.md) |
 | TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |
+| TSPEC-vcs06-fixture-matrix | VCS-06 fixture matrix tests | approved | [vcs-06-fixture-matrix.md](./vcs-06-fixture-matrix.md) |
 | TSPEC-034QdZPqGguxUOzVihyxjE | VS-A F0 Gate 検証仕様 — Stable ID・時間・Command・Save/Reload・Recording | approved | [vs-a-f0-gate-stable-id-command-save-reload-recording.md](./vs-a-f0-gate-stable-id-command-save-reload-recording.md) |
 | TSPEC-dtmF30GppYRVULWnH8CG9o | VS-B E2E-R Gate 検証仕様 — Mock Gate・Buffer Pool・SPSC・Fail-stop | approved | [vs-b-e2e-r1-mock-gate-rt-capture.md](./vs-b-e2e-r1-mock-gate-rt-capture.md) |
 | TSPEC-034QfPbKx2mR9tWvN5zYcHuJ | VS-C E2E-R2 検証仕様 — Staging Writer・Journal・Crash Recovery | approved | [vs-c-e2e-r2-staging-writer-journal-crash-recovery.md](./vs-c-e2e-r2-staging-writer-journal-crash-recovery.md) |
@@ -104,7 +106,7 @@ Directory: `docs/test-specs`
 | TSPEC-YEy9TAHyUte5MD6kpyZJFI | PC-C6 oracle E2E — REL01〜07 / TR01〜08 独立照合 fixture | approved | [pc-c6-e2e-oracle-rel-tr.md](./pc-c6-e2e-oracle-rel-tr.md) |
 | TSPEC-tCO4ppjNmQv0ebUI6Q1rHD | PC-C5 slice1 テスト仕様 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
-| TSPEC-034UrlOOfZIvsdF1bdNXfE | RCD-02 Durability / Recovery Review / Commit Receipt fault matrix | proposed | [rcd-02-durability-recovery-review-fault-matrix.md](./rcd-02-durability-recovery-review-fault-matrix.md) |
+| TSPEC-034UrlOOfZIvsdF1bdNXfE | RCD-02 Durability / Recovery Review / Commit Receipt fault matrix | approved | [rcd-02-durability-recovery-review-fault-matrix.md](./rcd-02-durability-recovery-review-fault-matrix.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
 | TSPEC-034SF02Xa1sPq8rU1wC6dEgHi | SF-02 E2E/契約テスト仕様 — RoutingTransaction Reject/不変/Undo/Revision | approved | [sf-02-e2e-routing-transaction.md](./sf-02-e2e-routing-transaction.md) |
 | TSPEC-106SF03Ij7jKl8mNo9pQr0sTu | SF-03 slice1 テスト仕様 — Lowering Golden/SourceMap・Activation 証拠 | approved | [sf-03-slice1-lowering-activation.md](./sf-03-slice1-lowering-activation.md) |
