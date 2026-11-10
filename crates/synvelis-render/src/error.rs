@@ -6,7 +6,7 @@ use std::fmt;
 use std::path::PathBuf;
 
 use synvelis_player::ResolveError;
-use synvelis_project::{AssetId, ClipId, CompId, SourceId};
+use synvelis_project::{AssetId, ClipId, CompId, RoutingFault, SourceId};
 
 use ruviform_audio::render::RenderError;
 
@@ -95,6 +95,18 @@ pub enum PreflightError {
         /// Human-readable detail naming the failing evidence.
         detail: String,
     },
+    /// Semantic lowering or processor provisioning refused the
+    /// build — the typed [`RoutingFault`] classification plus detail
+    /// (missing port/source binding, unsupported format or channel
+    /// map, plugin unavailable, offline capability mismatch, ...).
+    /// The same fault taxonomy the realtime routing engine reports;
+    /// never a silent skip or fake silence.
+    RoutingLowering {
+        /// The [`RoutingFault`] classification.
+        fault: RoutingFault,
+        /// Human-readable detail.
+        detail: String,
+    },
 }
 
 impl fmt::Display for PreflightError {
@@ -127,6 +139,12 @@ impl fmt::Display for PreflightError {
             Self::NothingToRender => write!(f, "no clips to render"),
             Self::PluginStateQuality { detail } => {
                 write!(f, "plugin state quality insufficient: {detail}")
+            }
+            Self::RoutingLowering { fault, detail } => {
+                write!(
+                    f,
+                    "semantic lowering refused the export ({fault:?}): {detail}"
+                )
             }
         }
     }

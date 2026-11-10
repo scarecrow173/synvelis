@@ -9,6 +9,7 @@ use ruviform_audio::render::{RenderError, RenderReceipt, TailEvidence};
 use ruviform_audio::typed::OfflineRenderSupport;
 use ruviform_exec::{CancellationToken, Progress};
 use ruviform_graph::NodeId;
+use synvelis_project::RoutingSourceMap;
 
 use crate::error::ExportError;
 use crate::snapshot::SnapshotIds;
@@ -98,6 +99,13 @@ pub struct ExportReceipt {
     /// Frozen render-input identities — the proof the render ran on a
     /// snapshot distinct from Live/Saved revisions.
     pub snapshot: SnapshotIds,
+    /// Generation-scoped semantic→runtime map the export lowered —
+    /// the same [`RoutingSourceMap`] contract the realtime routing
+    /// engine publishes, stamped `BuildMode::Offline` with the
+    /// snapshot's `project_revision`. Cross-consumer evidence: a
+    /// probe/control/PDC consumer resolving the same semantic IDs
+    /// must observe this revision.
+    pub source_map: RoutingSourceMap,
     /// Backend/capability evidence.
     pub capability: CapabilityEvidence,
     /// What the independent reopen observed — always present on

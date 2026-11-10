@@ -27,7 +27,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use ruviform_audio::typed::{GraphProcessor, NodeIo};
+use ruviform_audio::typed::{GraphProcessor, NodeIo, OfflineRenderSupport};
 use ruviform_audio_core::{AudioFormat, ChannelLayout, SampleFormat, SampleRate};
 use ruviform_graph::{
     Activation, Availability, ChannelMap as GraphChannelMap, ConnDef, ConnectionId, Direction,
@@ -45,8 +45,8 @@ use synvelis_project::{
 };
 
 use crate::lowering::{
-    EngineConfig, NodeContent, PlaybackBinding, PlaybackPlan, SkippedPlayback, plan_playbacks,
-    playback_lane_id,
+    EngineConfig, InsertBinding, NodeContent, PlaybackBinding, PlaybackPlan, SkippedPlayback,
+    plan_playbacks, playback_lane_id,
 };
 
 /// Deterministic lowering failures — each maps to a [`RoutingFault`]
@@ -87,6 +87,14 @@ pub enum SemanticLowerError {
         /// Which bound was crossed.
         detail: &'static str,
     },
+    /// The requested output tap format cannot represent the engine
+    /// format — the sink must share the engine's sample rate and
+    /// sample format; only the channel count may differ, and that is
+    /// bridged by the explicit channel map on the sink edge.
+    OutputFormat {
+        /// What mismatched.
+        detail: &'static str,
+    },
 }
 
 impl SemanticLowerError {
@@ -102,6 +110,7 @@ impl SemanticLowerError {
                 RoutingFault::InvalidRouting
             }
             Self::BudgetExceeded { .. } => RoutingFault::CompileResourceExceeded,
+            Self::OutputFormat { .. } => RoutingFault::UnsupportedFormatOrTimeMap,
         }
     }
 }
@@ -151,6 +160,40 @@ pub struct SemanticLowered {
     pub device_in: PortId,
     /// Explicit skips from the shared playback planner.
     pub skipped: Vec<SkippedPlayback>,
+    /// Output-stage insert bindings in signal order — empty unless
+    /// the lowering ran with [`SemanticOutput::insert_count`] > 0.
+    /// These nodes carry no semantic meaning: they never enter
+    /// `node_roles` or the source map, and the consumer binds one
+    /// processor per binding (the offline render path's master-bus
+    /// DSP slots).
+    pub inserts: Vec<InsertBinding>,
+}
+
+/// The explicit output stage an offline-render lowering adds on top
+/// of the semantic graph — the only consumer that needs it is
+/// `synvelis-render`. [`SemanticOutput::default`] reproduces the
+/// realtime lowering exactly (no inserts, sink at engine format).
+///
+/// The output stage lives strictly at the sink boundary: insert
+/// nodes run at the *engine* format inside the graph, and a
+/// differing [`Self::format`] channel count is bridged ONLY by the
+/// explicit channel map on the edge into the device sink — never an
+/// implicit mix inside the semantic graph (Issue #106 forbids
+/// implicit channel-layout conversion; an explicit request-declared
+/// output format is not one).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SemanticOutput {
+    /// Master-bus insert slots spliced between the master strip's
+    /// post-fader output and the device sink, in signal order. The
+    /// count bounds the emitted nodes — the consumer zips
+    /// [`SemanticLowered::inserts`] with its own DSP specs.
+    pub insert_count: usize,
+    /// Device-sink tap format override. `None` taps at the engine
+    /// format. `Some` must share the engine's sample rate and sample
+    /// format ([`SemanticLowerError::OutputFormat`] otherwise); a
+    /// differing channel count is bridged by the explicit channel
+    /// map on the sink edge.
+    pub format: Option<AudioFormat>,
 }
 
 /// Per-strip resolved wiring.
@@ -199,6 +242,10 @@ impl StripProcessor {
 }
 
 impl GraphProcessor for StripProcessor {
+    fn offline_support(&self) -> OfflineRenderSupport {
+        OfflineRenderSupport::Verified
+    }
+
     fn process(&mut self, io: &mut NodeIo<'_>, _ctx: &RtContext) {
         let frames = io.frames();
         if frames == 0 {
@@ -252,6 +299,10 @@ impl GainProcessor {
 }
 
 impl GraphProcessor for GainProcessor {
+    fn offline_support(&self) -> OfflineRenderSupport {
+        OfflineRenderSupport::Verified
+    }
+
     fn process(&mut self, io: &mut NodeIo<'_>, _ctx: &RtContext) {
         let frames = io.frames();
         if frames == 0 {
@@ -290,6 +341,14 @@ struct Lower<'a> {
     routing: &'a RoutingModel,
     engine_format: AudioFormat,
     engine_channels: u16,
+    /// Device-sink port format — `engine_format` unless the caller
+    /// declared an explicit [`SemanticOutput::format`].
+    sink_format: AudioFormat,
+    /// Explicit channel map bridging graph format → sink format on
+    /// the edge into the sink — `None` when the formats agree.
+    output_channel_map: Option<GraphChannelMap>,
+    /// Output insert nodes in signal order (empty for realtime).
+    output_inserts: Vec<InsertBinding>,
     audible: BTreeSet<StripId>,
     strip_wiring: BTreeMap<StripId, StripWiring>,
     processor_wiring: BTreeMap<ProcessorId, ProcessorWiring>,
@@ -306,14 +365,31 @@ struct Lower<'a> {
 }
 
 impl<'a> Lower<'a> {
-    fn new(project: &'a Project, engine: &EngineConfig) -> Self {
+    fn new(project: &'a Project, engine: &EngineConfig, output: SemanticOutput) -> Self {
         let engine_format = engine_format(engine);
+        let sink_format = output.format.unwrap_or(engine_format);
+        let output_channel_map = (sink_format.layout.channels() != engine_format.layout.channels())
+            .then(|| {
+                // Same convention as the playback edges: sink channel `d`
+                // reads graph channel `min(d, src-1)` — an explicit map,
+                // never an implicit mix.
+                let src = u16::try_from(engine_format.layout.channels()).unwrap_or(u16::MAX);
+                let dst = u16::try_from(sink_format.layout.channels()).unwrap_or(u16::MAX);
+                GraphChannelMap {
+                    entries: (0..dst)
+                        .map(|d| (d.min(src.saturating_sub(1)), d))
+                        .collect(),
+                }
+            });
         Self {
             builder: GraphBuilder::new(),
             project,
             routing: &project.routing,
             engine_format,
             engine_channels: u16::try_from(engine_format.layout.channels()).unwrap_or(u16::MAX),
+            sink_format,
+            output_channel_map,
+            output_inserts: Vec::with_capacity(output.insert_count),
             audible: project.routing.audible_strips(&project.control),
             strip_wiring: BTreeMap::new(),
             processor_wiring: BTreeMap::new(),
@@ -328,18 +404,50 @@ impl<'a> Lower<'a> {
         }
     }
 
-    /// Device sink node — the single graph output tap.
+    /// Device sink node — the single graph output tap, at the
+    /// declared sink format (engine format unless overridden).
     fn emit_device_sink(&mut self) {
         let (node, ports) = self.builder.add_node(&NodeDef {
             kind: NodeKind::Sink,
             ports: vec![audio_port(
                 Direction::Input,
                 GraphPortRole::Main,
-                self.engine_format,
+                self.sink_format,
                 Multiplicity::unbounded(0),
             )],
         });
         self.device = Some((node, ports[0]));
+    }
+
+    /// Output insert slots between the master output and the sink —
+    /// engine-format processor nodes, one input + one output each,
+    /// exactly one edge per port. They carry no semantic meaning and
+    /// never enter `node_roles`/the source map.
+    fn emit_output_inserts(&mut self, count: usize) {
+        for _ in 0..count {
+            let (node, ports) = self.builder.add_node(&NodeDef {
+                kind: NodeKind::Processor,
+                ports: vec![
+                    audio_port(
+                        Direction::Input,
+                        GraphPortRole::Main,
+                        self.engine_format,
+                        Multiplicity::exactly(1),
+                    ),
+                    audio_port(
+                        Direction::Output,
+                        GraphPortRole::Main,
+                        self.engine_format,
+                        Multiplicity::exactly(1),
+                    ),
+                ],
+            });
+            self.output_inserts.push(InsertBinding {
+                node_id: node,
+                in_port: ports[0],
+                out_port: ports[1],
+            });
+        }
     }
 
     /// Every strip: fader node, chain nodes, intra-strip wiring and
@@ -608,14 +716,30 @@ impl<'a> Lower<'a> {
             .copied()
             .ok_or(SemanticLowerError::MasterMissing)?;
         let (device_node, device_in) = self.device.ok_or(SemanticLowerError::MasterMissing)?;
-        self.connect(
-            master_wiring.main_out,
-            GraphPortRef {
-                node: device_node,
-                port: device_in,
-            },
-            None,
-        );
+        let sink = GraphPortRef {
+            node: device_node,
+            port: device_in,
+        };
+        // master post-out → insert[0].in → insert[0].out → … →
+        // insert[n-1].out → sink; with no inserts the master output
+        // feeds the sink directly. The explicit channel map rides
+        // only the edge into the sink.
+        let mut prev = master_wiring.main_out;
+        for insert in self.output_inserts.clone() {
+            self.connect(
+                prev,
+                GraphPortRef {
+                    node: insert.node_id,
+                    port: insert.in_port,
+                },
+                None,
+            );
+            prev = GraphPortRef {
+                node: insert.node_id,
+                port: insert.out_port,
+            };
+        }
+        self.connect(prev, sink, self.output_channel_map.clone());
         Ok(())
     }
 
@@ -675,6 +799,7 @@ impl<'a> Lower<'a> {
             node_roles: self.node_roles,
             device_in,
             skipped,
+            inserts: self.output_inserts,
         })
     }
 
@@ -1078,13 +1203,71 @@ pub fn lower_semantic(
     generation: u64,
     budget: &BuildBudget,
 ) -> Result<SemanticLowered, SemanticLowerError> {
-    let mut lower = Lower::new(project, engine);
+    lower_semantic_inner(
+        project,
+        canonical_of,
+        engine,
+        key,
+        generation,
+        budget,
+        SemanticOutput::default(),
+    )
+}
+
+/// [`lower_semantic`] plus an explicit [`SemanticOutput`] stage —
+/// the offline-render entry point (`BuildMode::Offline` builds).
+/// The semantic pipeline is identical; `output` only adds insert
+/// slots and/or a sink-format tap at the output boundary.
+///
+/// # Errors
+/// [`SemanticLowerError`] — deterministic, never a partial spec.
+pub fn lower_semantic_offline(
+    project: &Project,
+    canonical_of: &dyn Fn(SourceId) -> Option<AudioFormat>,
+    engine: &EngineConfig,
+    key: &RoutingBuildKey,
+    generation: u64,
+    budget: &BuildBudget,
+    output: SemanticOutput,
+) -> Result<SemanticLowered, SemanticLowerError> {
+    lower_semantic_inner(
+        project,
+        canonical_of,
+        engine,
+        key,
+        generation,
+        budget,
+        output,
+    )
+}
+
+fn lower_semantic_inner(
+    project: &Project,
+    canonical_of: &dyn Fn(SourceId) -> Option<AudioFormat>,
+    engine: &EngineConfig,
+    key: &RoutingBuildKey,
+    generation: u64,
+    budget: &BuildBudget,
+    output: SemanticOutput,
+) -> Result<SemanticLowered, SemanticLowerError> {
+    if let Some(format) = output.format {
+        let engine_format = engine_format(engine);
+        if format.sample_rate != engine_format.sample_rate
+            || format.sample_format != engine_format.sample_format
+        {
+            return Err(SemanticLowerError::OutputFormat {
+                detail: "sink format must share the engine sample rate and sample format",
+            });
+        }
+    }
+    let mut lower = Lower::new(project, engine, output);
 
     lower.emit_device_sink();
     lower.emit_strips()?;
     lower.map_bus_nodes();
     lower.lower_connections()?;
     lower.mark_orphan_processors();
+    lower.emit_output_inserts(output.insert_count);
     lower.connect_master_sink()?;
     let (playbacks, skipped) = lower.emit_playbacks(canonical_of, engine)?;
     lower.finish(key, generation, budget, playbacks, skipped)
@@ -1109,7 +1292,12 @@ fn check_port_domain(
 
 /// Engine `EngineConfig` → `AudioFormat` (mono for 1 channel, stereo
 /// otherwise — the same convention the legacy lowering uses).
-pub(crate) fn engine_format(engine: &EngineConfig) -> AudioFormat {
+///
+/// # Panics
+///
+/// Panics if `engine.sample_rate` is zero (`SampleRate` rejects it).
+#[must_use]
+pub fn engine_format(engine: &EngineConfig) -> AudioFormat {
     AudioFormat {
         sample_rate: SampleRate::new(engine.sample_rate).expect("engine rate must be non-zero"),
         layout: if engine.channels == 1 {

@@ -702,6 +702,25 @@ impl RoutingModel {
         audible.retain(|s| !muted.contains(s));
         audible
     }
+
+    /// The channel count every semantic port declares — `Some(n)`
+    /// only when the model is non-empty and uniform; `None` for an
+    /// empty model or mixed declarations. Consumers use this to size
+    /// the engine format a lowering runs at; a mixed or empty model
+    /// has no single engine format and the lowerer fails closed
+    /// either way.
+    #[must_use]
+    pub fn port_channel_count(&self) -> Option<u32> {
+        let mut count = None;
+        for port in self.ports.values() {
+            match count {
+                None => count = Some(port.channels),
+                Some(c) if c == port.channels => {}
+                Some(_) => return None,
+            }
+        }
+        count
+    }
 }
 
 /// Forward reachability over the strip graph — includes the seeds.

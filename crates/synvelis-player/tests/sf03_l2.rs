@@ -1006,6 +1006,16 @@ impl GraphProcessor for VerifiedGain {
     }
 }
 
+/// Same gain DSP but honestly uncertified for offline — the default
+/// `Unknown` support the offline gate must reject.
+struct UnknownGain(f32);
+
+impl GraphProcessor for UnknownGain {
+    fn process(&mut self, io: &mut NodeIo<'_>, ctx: &RtContext) {
+        GainProcessor::new(self.0).process(io, ctx);
+    }
+}
+
 /// `BuildMode::Offline` requires every lowered chain instance to
 /// report `OfflineRenderSupport::Verified` — `Unknown` (the default)
 /// fails `OfflineCapabilityMismatch`, `Verified` builds succeed.
@@ -1034,11 +1044,10 @@ fn sf03_l2_10_offline_capability_gate() {
         ..request(1, rev)
     };
 
-    // Unknown support (GainProcessor does not override the default)
-    // → OfflineCapabilityMismatch.
+    // Unknown support → OfflineCapabilityMismatch.
     let mut eng = new_engine();
     let mut host = synvelis_player::StaticProcessorHost::new();
-    host.insert(processor_id, Box::new(GainProcessor::new(0.5)));
+    host.insert(processor_id, Box::new(UnknownGain(0.5)));
     eng.set_processor_host(Box::new(host));
     let deps = deps_default(c.live(), &media);
     assert_eq!(

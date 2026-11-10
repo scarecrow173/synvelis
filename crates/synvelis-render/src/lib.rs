@@ -24,7 +24,7 @@ pub mod spec;
 pub mod verify;
 
 pub use error::{ExportError, PreflightError};
-pub use export::export;
+pub use export::{export, export_with_host};
 pub use job::{CapabilityEvidence, ExportJob, ExportOutcome, ExportReceipt, ExportStage, stage_of};
 pub use prepare::{DecodedWindow, OpenedSource};
 pub use processor::{ClipRenderer, DelayProc, GainProc, OnePoleProc};

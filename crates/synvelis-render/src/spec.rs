@@ -182,9 +182,15 @@ pub struct OutputHooks {
 ///   `Declared`/`Unknown` to exercise the preflight rejection.
 #[derive(Debug)]
 pub struct ExportRequest {
-    /// Headless engine geometry (rate/channels) — the same contract
-    /// the live driver runs under. `engine.block_frames` is unused on
-    /// the render path: the drive is bounded by `max_block`.
+    /// Headless engine geometry (rate/channels) — `sample_rate` sizes
+    /// both the semantic graph and the output; `channels` is the
+    /// *output tap* channel count (1 = mono, otherwise stereo). The
+    /// semantic graph itself runs at the project's declared routing
+    /// port channel count, and a differing output count is bridged
+    /// only by the explicit channel map on the device-sink edge —
+    /// never an implicit downmix inside the graph. `engine.block_frames`
+    /// is unused on the render path: the drive is bounded by
+    /// `max_block`.
     pub engine: EngineConfig,
     /// First emitted position (inclusive).
     pub range_start: u64,

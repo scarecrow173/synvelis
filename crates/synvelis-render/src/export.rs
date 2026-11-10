@@ -7,17 +7,27 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use synvelis_player::error::ResolveError;
-use synvelis_player::lowering::{NodeContent, SkippedPlayback, lower_with_inserts};
-use synvelis_project::SourceId;
+use synvelis_player::lowering::{EngineConfig, NodeContent, SkippedPlayback};
+use synvelis_player::routing_lower::{
+    GainProcessor, SemanticNodeRole, SemanticOutput, StripProcessor, engine_format,
+    lower_semantic_offline,
+};
+use synvelis_player::{ProcessorConnectRequest, ProcessorHost};
+use synvelis_project::{
+    BuildBudget, BuildMode, LOWERING_POLICY_VERSION, RoutingBuildKey, RoutingFault,
+    RuntimeClockEpochRef, RuntimeInstanceId, SourceId, port_capability_generation,
+    routing_fingerprint,
+};
 
 use ruviform_audio::render::{
     PreparedRender, RenderError, RenderOutput, RenderSpec, RenderTransport, SilentFeeder,
     StagedCommand, TailSpec, render,
 };
 use ruviform_audio::typed::{
-    CompilerConfig, FactoryError, GraphProcessor, InstalledInfo, NodeEvent, PrepareOutcome,
+    CompilerConfig, FactoryError, GraphProcessor, InstalledInfo, NodeEvent, OfflineRenderSupport,
+    PrepareOutcome,
 };
-use ruviform_audio_core::SampleRate;
+use ruviform_audio_core::{AudioFormat, ChannelLayout, SampleRate};
 use ruviform_graph::{GraphProject, NodeSpec};
 use ruviform_io_file::{Durability, PublishMode, PublishOptions, SealedFile, StagedFile};
 use ruviform_io_wav::WavOutputSpec;
@@ -54,7 +64,9 @@ fn failed(stage: ExportStage, error: impl Into<ExportError>) -> ExportOutcome {
 /// The render input is `snapshot` alone — live project edits cannot
 /// reach it, and no processor instance is shared with any live
 /// driver. All failures before publish keep an existing destination
-/// byte-for-byte intact and discard the staged temp.
+/// byte-for-byte intact and discard the staged temp. Chain processors
+/// fail closed ([`RoutingFault::PluginUnavailable`]) — use
+/// [`export_with_host`] to provision them.
 #[must_use]
 pub fn export(
     snapshot: &RenderSnapshot,
@@ -62,10 +74,36 @@ pub fn export(
     hooks: OutputHooks,
     job: &ExportJob,
 ) -> ExportOutcome {
-    match run(snapshot, request, hooks, job) {
+    match run(snapshot, request, hooks, job, None) {
         Ok(outcome) | Err(outcome) => outcome,
     }
 }
+
+/// [`export`] with a [`ProcessorHost`] for semantic chain processors —
+/// the same provisioning boundary the realtime routing engine uses,
+/// always in [`BuildMode::Offline`].
+#[must_use]
+pub fn export_with_host(
+    snapshot: &RenderSnapshot,
+    request: &ExportRequest,
+    hooks: OutputHooks,
+    job: &ExportJob,
+    host: &mut dyn ProcessorHost,
+) -> ExportOutcome {
+    match run(snapshot, request, hooks, job, Some(host)) {
+        Ok(outcome) | Err(outcome) => outcome,
+    }
+}
+
+/// Fixed lowering bounds for the offline path — the realtime engine
+/// takes caller budgets; an export has no caller budget channel, so
+/// the offline lowering gets generous fixed ceilings that still fail
+/// closed on pathological graphs.
+const LOWER_MAX_NODES: usize = 1 << 16;
+const LOWER_MAX_CONNECTIONS: usize = 1 << 17;
+/// The offline build's single plan generation — a stateless export
+/// has no generation lineage; `1` is its first and only generation.
+const OFFLINE_GENERATION: u64 = 1;
 
 #[expect(clippy::too_many_lines, reason = "one orchestration pass")]
 fn run(
@@ -73,6 +111,7 @@ fn run(
     request: &ExportRequest,
     hooks: OutputHooks,
     job: &ExportJob,
+    mut host: Option<&mut dyn ProcessorHost>,
 ) -> Result<ExportOutcome, ExportOutcome> {
     // ---- preflight (static) ----------------------------------------
     preflight_static(snapshot, request).map_err(|e| failed(ExportStage::Preflight, e))?;
@@ -94,14 +133,85 @@ fn run(
     preflight_canonical(snapshot, request, &opened)
         .map_err(|e| failed(ExportStage::Preflight, e))?;
 
-    // ---- lower + decode clip windows --------------------------------
+    // ---- semantic lowering (BuildMode::Offline) ----------------------
+    // The semantic graph runs at the project's declared port channel
+    // geometry — `request.engine.channels` is the *output tap* count,
+    // bridged only by the explicit channel map on the sink edge (an
+    // explicit output declaration, never an implicit downmix).
     let engine = request.engine;
-    let lowered = lower_with_inserts(
+    let Some(port_channels) = snapshot.project.routing.port_channel_count() else {
+        return Err(failed(
+            ExportStage::Preflight,
+            PreflightError::RoutingLowering {
+                fault: RoutingFault::UnsupportedFormatOrTimeMap,
+                detail: "routing ports declare mixed or no channel counts".into(),
+            },
+        ));
+    };
+    let Ok(graph_channels) = u16::try_from(port_channels) else {
+        return Err(failed(
+            ExportStage::Preflight,
+            PreflightError::RoutingLowering {
+                fault: RoutingFault::UnsupportedFormatOrTimeMap,
+                detail: format!("port channel count {port_channels} out of range"),
+            },
+        ));
+    };
+    let lower_engine = EngineConfig {
+        channels: graph_channels,
+        ..engine
+    };
+    let graph_format = engine_format(&lower_engine);
+    let sink_format = AudioFormat {
+        layout: if engine.channels == 1 {
+            ChannelLayout::Mono
+        } else {
+            ChannelLayout::Stereo
+        },
+        ..graph_format
+    };
+    // A stateless export has no engine/source-format generation
+    // lineage — `0` is the honest sentinel; coherence evidence lives
+    // in `project_revision` + `routing_fingerprint` +
+    // `capability_generation`, all computed from the frozen snapshot.
+    let key = RoutingBuildKey {
+        project_id: snapshot.project.project_id,
+        project_revision: snapshot.ids.live_revision,
+        routing_fingerprint: routing_fingerprint(&snapshot.project),
+        capability_generation: port_capability_generation(&snapshot.project),
+        engine_config_generation: 0,
+        source_format_generation: 0,
+        lowering_policy_version: LOWERING_POLICY_VERSION,
+        build_mode: BuildMode::Offline,
+        device_clock_epoch: RuntimeClockEpochRef(0),
+        runtime_instance: RuntimeInstanceId(0),
+    };
+    let budget = BuildBudget {
+        max_nodes: LOWER_MAX_NODES,
+        max_connections: LOWER_MAX_CONNECTIONS,
+        max_frames: usize::try_from(request.max_block).unwrap_or(usize::MAX),
+    };
+    let lowered = lower_semantic_offline(
         &snapshot.project,
         &|id: SourceId| canonical_of(&opened, id),
-        &engine,
-        request.inserts.len(),
-    );
+        &lower_engine,
+        &key,
+        OFFLINE_GENERATION,
+        &budget,
+        SemanticOutput {
+            insert_count: request.inserts.len(),
+            format: Some(sink_format),
+        },
+    )
+    .map_err(|e| {
+        failed(
+            ExportStage::Preflight,
+            PreflightError::RoutingLowering {
+                fault: e.fault(),
+                detail: format!("{e:?}"),
+            },
+        )
+    })?;
     // Every skip is explicit: `Muted`, `CompSilence` and
     // `SupersededByComp` are intentional silence — anything else is a
     // refused render, never a silent drop.
@@ -197,8 +307,107 @@ fn run(
             )),
         );
     }
+    // Semantic graph nodes the lowering emitted beyond playbacks:
+    // strip faders, send gains and chain processors. Fader/gain
+    // stages are deterministic Synvelis processors; chain processors
+    // go through the same [`ProcessorHost`] boundary the realtime
+    // engine uses — absent a host they fail closed, never bypassed.
+    // `held` retains every connection's lease/control/state halves
+    // until the render completes — dropping a lease early would tear
+    // the plugin instance down mid-render.
+    let mut held = Vec::new();
+    let block = request.max_block.max(1);
+    for (node, role) in &lowered.node_roles {
+        match role {
+            SemanticNodeRole::Playback(_) => {}
+            SemanticNodeRole::StripFader { gains, .. } => {
+                pending.insert(*node, Box::new(StripProcessor::new(*gains)));
+            }
+            SemanticNodeRole::SendGain { gain, .. } => {
+                pending.insert(*node, Box::new(GainProcessor::new(*gain)));
+            }
+            SemanticNodeRole::ChainProcessor { processor } => {
+                let Some(host) = host.as_deref_mut() else {
+                    return Err(failed(
+                        ExportStage::Preflight,
+                        PreflightError::RoutingLowering {
+                            fault: RoutingFault::PluginUnavailable,
+                            detail: format!("chain processor {processor} needs a ProcessorHost"),
+                        },
+                    ));
+                };
+                let Some(semantic) = snapshot.project.routing.processors.get(processor) else {
+                    return Err(failed(
+                        ExportStage::Preflight,
+                        PreflightError::RoutingLowering {
+                            fault: RoutingFault::InvalidRouting,
+                            detail: format!("chain processor {processor} missing from model"),
+                        },
+                    ));
+                };
+                let mut ports = Vec::with_capacity(semantic.port_ids.len());
+                for port_id in &semantic.port_ids {
+                    let Some(port) = snapshot.project.routing.ports.get(port_id) else {
+                        return Err(failed(
+                            ExportStage::Preflight,
+                            PreflightError::RoutingLowering {
+                                fault: RoutingFault::PortUnresolved,
+                                detail: format!(
+                                    "chain processor {processor} port {port_id} unresolved"
+                                ),
+                            },
+                        ));
+                    };
+                    ports.push(port.clone());
+                }
+                let connection = host
+                    .connect(ProcessorConnectRequest {
+                        processor: semantic.clone(),
+                        ports,
+                        mode: BuildMode::Offline,
+                        generation: OFFLINE_GENERATION,
+                        node: *node,
+                        port_format: graph_format,
+                        max_frames: block,
+                    })
+                    .map_err(|e| {
+                        failed(
+                            ExportStage::Preflight,
+                            PreflightError::RoutingLowering {
+                                fault: e.fault(),
+                                detail: format!("{e:?}"),
+                            },
+                        )
+                    })?;
+                // Offline builds accept only certified-exact instances —
+                // `Unknown`/`Declared` are never treated as verified.
+                if connection.processor.offline_support() != OfflineRenderSupport::Verified {
+                    return Err(failed(
+                        ExportStage::Preflight,
+                        PreflightError::RoutingLowering {
+                            fault: RoutingFault::OfflineCapabilityMismatch,
+                            detail: format!(
+                                "chain processor {processor} is not OfflineRenderSupport::Verified"
+                            ),
+                        },
+                    ));
+                }
+                let synvelis_player::ProcessorConnection {
+                    processor: instance,
+                    lease,
+                    control,
+                    state_handle,
+                } = connection;
+                pending.insert(*node, instance);
+                held.push((lease, control, state_handle));
+            }
+        }
+    }
     for (insert, spec) in lowered.inserts.iter().zip(request.inserts.iter()) {
-        let channels = usize::from(engine.channels);
+        // Insert nodes run at the *graph* format inside the semantic
+        // graph — channel state must match the node's port format,
+        // which is the project geometry, not the output tap count.
+        let channels = usize::from(graph_channels);
         let proc: Box<dyn GraphProcessor> = match *spec {
             Insert::Gain { gain_db } => Box::new(GainProc::new(gain_db)),
             Insert::OnePole { a, latency } => Box::new(OnePoleProc::new(a, latency, channels)),
@@ -228,7 +437,6 @@ fn run(
         .published()
         .expect("prepare just published")
         .graph();
-    let block = request.max_block.max(1);
     let config = CompilerConfig {
         max_frames: usize::try_from(block).unwrap_or(usize::MAX),
         ..CompilerConfig::default()
@@ -292,14 +500,14 @@ fn run(
         .saturating_add(total_latency)
         .saturating_sub(play_pos);
     let layout = if engine.channels == 1 {
-        ruviform_audio_core::ChannelLayout::Mono
+        ChannelLayout::Mono
     } else {
-        ruviform_audio_core::ChannelLayout::Stereo
+        ChannelLayout::Stereo
     };
     let spec = RenderSpec {
         sample_rate: rate,
         layout,
-        output_port: lowered.master_in,
+        output_port: lowered.device_in,
         range_start: request.range_start,
         range_end: request.range_end,
         tail: match tail {
@@ -420,6 +628,7 @@ fn run(
                 receipt: Box::new(ExportReceipt {
                     render: render_receipt,
                     snapshot: snapshot.ids.clone(),
+                    source_map: lowered.source_map,
                     capability: CapabilityEvidence {
                         wav_sample_formats: caps
                             .sample_formats
