@@ -4,7 +4,6 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
-| IMPL-034UyQi9tCjjAPwfMy7pSX | PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice） | in-progress | [pc-c5-02-03-gesture-stale-inspector.md](pc-c5-02-03-gesture-stale-inspector.md) |
 | IMPL-034UvgCFl4bXw9DZ4bTr3X | SF-04 slice2 ControlSession probe observation → ControlTrace 配線 | in-progress | [sf-04-slice2-controlsession-probe-observation-trace-wiring.md](sf-04-slice2-controlsession-probe-observation-trace-wiring.md) |
 | IMPL-034UL7HNJppFLqjkPqHDxX | SF-04 slice3 probe clock epoch discontinuity capture segmentation | in-progress | [sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md](sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md) |
 | IMPL-034UrlNf4hC31G8gfjoR8y | SV-GUI-04 slice2 close-veto/cancel — syn.window.close_guard + 末尾 window veto | completed | [sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md](sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md) |
@@ -77,3 +76,4 @@ Directory: `docs/impl/ir`
 | IMPL-034UGB5wH67MKn7FnNHs1i | Issue #230 check-ruviform-rev REV/lock 不整合 — stale vendor 診断と復旧導線 | completed | [issue-230-check-ruviform-rev-rev-lock-stale-vendor.md](issue-230-check-ruviform-rev-rev-lock-stale-vendor.md) |
 | IMPL-034UJqjrnNLIXxfkFE25tv | SF-03 slice6 実装記録 — RoutingControlDispatch・sf03_l6 acceptance | completed | [sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md](sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md) |
 | IMPL-034UMbAviqhaRhIqExdBM3 | RCD-02 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | completed | [rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md](rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md) |
+| IMPL-034UyQi9tCjjAPwfMy7pSX | PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice） | completed | [pc-c5-02-03-gesture-stale-inspector.md](pc-c5-02-03-gesture-stale-inspector.md) |

@@ -1,28 +1,84 @@
 ---
 id: "IMPL-034UyQi9tCjjAPwfMy7pSX"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice）"
 created: "2026-11-09"
-updated: "2026-11-09"
-owners: []
+updated: "2026-11-10"
+owners: ["scarecrow173"]
 relations:
-  source: []
+  source:
+    - "https://github.com/scarecrow173/synvelis/issues/102"
   changes:
-    added: []
-    modified: []
+    added:
+      - type: "file"
+        path: "crates/synvelis-workspace/src/control_edge.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/tests/uic5.rs"
+      - type: "file"
+        path: "docs/specs/pc-c5-02-03-gesture-stale-inspector.md"
+      - type: "file"
+        path: "docs/designs/pc-c5-02-03-gesture-stale-inspector-design.md"
+      - type: "file"
+        path: "docs/plans/pc-c5-02-03-gesture-stale-inspector.md"
+      - type: "file"
+        path: "docs/tasks/pc-c5-02-03-gesture-stale-inspector.md"
+      - type: "file"
+        path: "docs/test-specs/pc-c5-02-03-gesture-stale-inspector.md"
+      - type: "file"
+        path: "docs/impl/ir/pc-c5-02-03-gesture-stale-inspector.md"
+    modified:
+      - type: "file"
+        path: "crates/synvelis-workspace/src/lib.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/src/link.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/src/preset.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/src/state.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/src/workspace.rs"
+      - type: "file"
+        path: "docs/specs/README.md"
+      - type: "file"
+        path: "docs/designs/README.md"
+      - type: "file"
+        path: "docs/plans/README.md"
+      - type: "file"
+        path: "docs/tasks/README.md"
+      - type: "file"
+        path: "docs/test-specs/README.md"
+      - type: "file"
+        path: "docs/impl/ir/README.md"
     deleted: []
     renamed: []
     moved: []
-    generated: []
+    generated:
+      - type: "index"
+        path: "docs/specs/README.md"
+      - type: "index"
+        path: "docs/designs/README.md"
+      - type: "index"
+        path: "docs/plans/README.md"
+      - type: "index"
+        path: "docs/tasks/README.md"
+      - type: "index"
+        path: "docs/test-specs/README.md"
+      - type: "index"
+        path: "docs/impl/ir/README.md"
   implements:
     - "docs/tasks/pc-c5-02-03-gesture-stale-inspector.md"
   implemented-by: []
-  depends-on: []
+  depends-on:
+    - "docs/tasks/pc-c5-02-03-gesture-stale-inspector.md"
   blocks: []
   supersedes: []
   superseded-by: []
-  related: []
+  related:
+    - "docs/specs/pc-c5-02-03-gesture-stale-inspector.md"
+    - "docs/designs/pc-c5-02-03-gesture-stale-inspector-design.md"
+    - "docs/plans/pc-c5-02-03-gesture-stale-inspector.md"
+    - "docs/test-specs/pc-c5-02-03-gesture-stale-inspector.md"
   refines: []
   refined-by: []
   derives-from: []
@@ -126,7 +182,20 @@ explore 履歴・link deliver の mode/source 照合・inspect/mode/back/forward
 
 ## Validation
 
-<!-- canonical = mise。merge origin/main 後に実施予定の結果を記録。 -->
+canonical = mise。`origin/main`（17fc3de）merge 後に実施。
+
+| コマンド | 結果 |
+| --- | --- |
+| `mise run fmt-check` | pass |
+| `mise run check` | pass |
+| `mise run lint` | pass（`-D warnings`） |
+| `mise run test` | pass（`tests/uic5.rs` 12 fixture 全 pass。初回実行時に `synvelis-library` `webdav::status_mapping_table` が 1 件 flake 失敗 — 単独・ファイル単位の再実行では pass、sv87 領域の既存 flake で本 slice 無関係。再実行で workspace 全体 pass） |
+| `mise run test-rt` | pass |
+| `mise run check-headless-deps` | pass（headless 10 crate に GUI 依存なし） |
+| `mise run check-app-native` | pass |
+| `mise run lint-app-native` | pass |
+| `mise run build-app-native` | pass |
+| 実 OS GUI/GPUI 実窓 | **NotRun**（UI-C5-05 / native gate、別 Issue） |
 
 ## Risks
 

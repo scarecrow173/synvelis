@@ -4,8 +4,8 @@ type: "test-spec"
 status: "approved"
 title: "PC-C5 slice2 テスト仕様 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless）"
 created: "2026-11-09"
-updated: "2026-11-09"
-owners: []
+updated: "2026-11-10"
+owners: ["scarecrow173"]
 relations:
   source: []
   changes:
@@ -21,7 +21,10 @@ relations:
   blocks: []
   supersedes: []
   superseded-by: []
-  related: []
+  related:
+    - "docs/specs/pc-c5-02-03-gesture-stale-inspector.md"
+    - "docs/designs/pc-c5-02-03-gesture-stale-inspector-design.md"
+    - "docs/tasks/pc-c5-02-03-gesture-stale-inspector.md"
   refines: []
   refined-by: []
   derives-from: []

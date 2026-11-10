@@ -4,10 +4,11 @@ type: "spec"
 status: "approved"
 title: "PC-C5 slice2 (UI-C5-02/03): Gesture 固定・stale drop・Inspector Follow/Explore/Pinned（headless）"
 created: "2026-11-09"
-updated: "2026-11-09"
-owners: []
+updated: "2026-11-10"
+owners: ["scarecrow173"]
 relations:
-  source: []
+  source:
+    - "https://github.com/scarecrow173/synvelis/issues/102"
   changes:
     added: []
     modified: []
@@ -17,11 +18,17 @@ relations:
     generated: []
   implements: []
   implemented-by: []
-  depends-on: []
+  depends-on:
+    - "docs/specs/pc-c5-01-relation-inspector.md"
+    - "docs/specs/ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md"
   blocks: []
   supersedes: []
   superseded-by: []
-  related: []
+  related:
+    - "docs/designs/pc-c5-02-03-gesture-stale-inspector-design.md"
+    - "docs/plans/pc-c5-02-03-gesture-stale-inspector.md"
+    - "docs/tasks/pc-c5-02-03-gesture-stale-inspector.md"
+    - "docs/test-specs/pc-c5-02-03-gesture-stale-inspector.md"
   refines: []
   refined-by: []
   derives-from: []

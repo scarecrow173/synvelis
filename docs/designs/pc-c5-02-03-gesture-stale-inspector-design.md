@@ -4,8 +4,8 @@ type: "design"
 status: "approved"
 title: "PC-C5 slice2 Gesture 固定・stale drop・Inspector mode 設計"
 created: "2026-11-09"
-updated: "2026-11-09"
-owners: []
+updated: "2026-11-10"
+owners: ["scarecrow173"]
 relations:
   source: []
   changes:
@@ -16,17 +16,20 @@ relations:
     moved: []
     generated: []
   implements:
-    - "SPEC-034UxXLvNqgbDGOypo7Uu4"
+    - "docs/specs/pc-c5-02-03-gesture-stale-inspector.md"
   implemented-by: []
   depends-on: []
   blocks: []
   supersedes: []
   superseded-by: []
-  related: []
+  related:
+    - "docs/plans/pc-c5-02-03-gesture-stale-inspector.md"
+    - "docs/tasks/pc-c5-02-03-gesture-stale-inspector.md"
+    - "docs/test-specs/pc-c5-02-03-gesture-stale-inspector.md"
   refines: []
   refined-by: []
   derives-from:
-    - "SPEC-034UxXLvNqgbDGOypo7Uu4"
+    - "docs/specs/pc-c5-02-03-gesture-stale-inspector.md"
   derived-by: []
   verifies: []
   verified-by: []
