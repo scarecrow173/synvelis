@@ -38,6 +38,18 @@ impl CancellationToken {
     pub fn is_cancelled(&self) -> bool {
         self.flag.load(Ordering::SeqCst)
     }
+
+    /// A token aliasing an externally-owned shared flag.
+    ///
+    /// Adapter seam for foreign cancel types (e.g. the project
+    /// crate's `VcsCancel`): cancelling either side is observed by
+    /// both. The flag must only ever be used as a cancellation
+    /// signal.
+    #[doc(hidden)]
+    #[must_use]
+    pub fn from_shared(flag: Arc<AtomicBool>) -> Self {
+        Self { flag }
+    }
 }
 
 /// Bounded resource limits applied to provider operations.

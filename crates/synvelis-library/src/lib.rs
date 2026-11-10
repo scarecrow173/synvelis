@@ -73,7 +73,8 @@ pub use context::{
 pub use error::{ProviderError, ProviderErrorKind, RetryAdvice};
 pub use git::{
     GitObjectFormat, GitProviderInfo, GitRemoteConfig, GitRemoteProvider, GitRemoteScheme,
-    GitRemoteUrl, LfsBackendKind, MirrorMode, UnsupportedFilterPolicy,
+    GitRemoteUrl, GitVcsConfig, GitVcsProvider, LfsBackendKind, MirrorMode,
+    UnsupportedFilterPolicy,
 };
 pub use id::{CredentialKey, OpaqueCredential, OpaqueLocator, PrincipalId, ProviderId};
 pub use import::{
