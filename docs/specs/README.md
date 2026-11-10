@@ -54,6 +54,7 @@ Directory: `docs/specs`
 | SPEC-034UgK3ZuEty10uP1PNjT6 | SF-03 slice4 — SF-ACT-05〜09 系受入消化・NoRebuild Equivalence・世代連動 dispatch（player/project 境界） | approved | [sf-03-slice4-act-acceptance-norebuild.md](./sf-03-slice4-act-acceptance-norebuild.md) |
 | SPEC-034Uj7sqrin4g45fPU9uJM | SF-03 slice5 — app/session 層への RoutingEngine 接続（headless・EngineStub 置き換え） | approved | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
 | SPEC-034UJpxSHTVIxHKdrntkyR | SF-03 slice6 — SF-ACT-06 control surface headless slice（automation→TimedParamEvent・Fast Control gate・有界 Queue・catalog refresh） | approved | [sf-03-slice6-act06-control-surface.md](./sf-03-slice6-act06-control-surface.md) |
+| SPEC-0ETTGUPUGPQE6z2dyPRs0b | SF-03 slice7 — synvelis-render semantic-lowering 消費 + cross-consumer same-Revision fixture | approved | [sf-03-slice7-render-consumption.md](./sf-03-slice7-render-consumption.md) |
 | SPEC-034UlYgSZ589NRdTrtO4Vu | SF-04 slice1 — Semantic Probe Adapter 基盤（project/player 層 + ruviform pin bump） | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | SPEC-034UumeSTLbuxt64vqqJ47 | SF-04 slice2 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | SPEC-034UL2whPqBifdr1Jsrkn7 | SF-04 slice3 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
@@ -82,6 +83,7 @@ Directory: `docs/specs`
 | SPEC-034UAv3chafPsU2fFyQnIb | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only schema projection (synvelis#92) | proposed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | SPEC-034UEsXPitEuEsjBM4qjo6 | VCS-02 Semantic Diff Engine — canonical ChangeSet typed identity lineage Unknown tri-state (synvelis#93) | proposed | [vcs-02-semantic-diff-changeset.md](./vcs-02-semantic-diff-changeset.md) |
 | SPEC-PvLluOn4j6y1qpdtQ0aw8A | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta（synvelis#94） | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
+| SPEC-VCS04Hist0ryV1ewUI001 | VCS-04 History/Visual Diff UI — headless read-only projection slice（synvelis#95） | approved | [vcs-04-history-visual-diff-ui.md](./vcs-04-history-visual-diff-ui.md) |
 | SPEC-vcs05-apply-restore-headless | VCS-05 Safe Apply Selected Change / Restore As Copy — headless slice（synvelis#96） | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
 | SPEC-034Qdwuy2lCglk3HjqtRcs | VS-A Project / Recording Foundation — Stable ID・時間型・Command・Save/Reload | approved | [vs-a-project-recording-foundation-stable-id-command-save-reload.md](./vs-a-project-recording-foundation-stable-id-command-save-reload.md) |
 | SPEC-9EcPwSoDwcrg3WPYmvs7Gn | VS-B Clock / Gate Scheduler / RT Capture — Mock Input・Buffer Pool・SPSC | approved | [vs-b-rt-capture-mock-input-buffer-pool-spsc.md](./vs-b-rt-capture-mock-input-buffer-pool-spsc.md) |

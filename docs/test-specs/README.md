@@ -57,6 +57,7 @@ Directory: `docs/test-specs`
 | TSPEC-034UgPehQz0fcmoolbwWKY | SF-03 slice4 受入テスト仕様 — NoRebuild Equivalence・世代連動 control・SF-ACT-05 headless | approved | [sf-03-slice4-act-acceptance.md](./sf-03-slice4-act-acceptance.md) |
 | TSPEC-034Uj7Mjz5Aoak1Vz7O3S4 | SF-03 slice5 受入テスト仕様 — session→routing activation e2e | approved | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
 | TSPEC-034UJrwI2ZQcJUrzIaZFZE | SF-03 slice6 test-spec — sf03_l6 control surface acceptance | approved | [sf-03-slice6-act06-control-surface.md](./sf-03-slice6-act06-control-surface.md) |
+| TSPEC-0HnGRMaXEy6WChONldI4n2 | SF-03 slice7 — render semantic-lowering 消費 test-spec | approved | [sf-03-slice7-render-consumption.md](./sf-03-slice7-render-consumption.md) |
 | TSPEC-034Um6SOlStZLqEVmi7IEk | SF-04 slice1 受入テスト仕様 — semantic probe 解決・lifecycle・segment cut | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | TSPEC-034UupvzrMsHjf6LBZma9J | SF-04 slice2 受入テスト仕様 — probe observation → trace 記録・freshness・fail-closed | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | TSPEC-034UL2Z7qW8xN4pLm5Rs6 | SF-04 slice3 受入テスト仕様 — clock epoch discontinuity・segment cut・fault/DSP invariance | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
@@ -87,6 +88,7 @@ Directory: `docs/test-specs`
 | TSPEC-034UAzXp7iDmaV6yx7QTZQ | VCS-01 snapshot resolver fixtures | approved | [vcs-01-snapshot-resolver-fixtures.md](./vcs-01-snapshot-resolver-fixtures.md) |
 | TSPEC-034UEueLhP34NeCWclgoux | VCS-02 semantic diff fixtures | approved | [vcs-02-semantic-diff-fixtures.md](./vcs-02-semantic-diff-fixtures.md) |
 | TSPEC-K2QAlGFhpEHJiLP6StV4ta | VCS-03 Git read provider fixtures | approved | [vcs-03-git-provider-fixtures.md](./vcs-03-git-provider-fixtures.md) |
+| TSPEC-VCS04Hist0ryV1ewTst01 | VCS-04 History/Visual Diff headless fixtures | approved | [vcs-04-history-diff-fixtures.md](./vcs-04-history-diff-fixtures.md) |
 | TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |
 | TSPEC-034QdZPqGguxUOzVihyxjE | VS-A F0 Gate 検証仕様 — Stable ID・時間・Command・Save/Reload・Recording | approved | [vs-a-f0-gate-stable-id-command-save-reload-recording.md](./vs-a-f0-gate-stable-id-command-save-reload-recording.md) |
 | TSPEC-dtmF30GppYRVULWnH8CG9o | VS-B E2E-R Gate 検証仕様 — Mock Gate・Buffer Pool・SPSC・Fail-stop | approved | [vs-b-e2e-r1-mock-gate-rt-capture.md](./vs-b-e2e-r1-mock-gate-rt-capture.md) |

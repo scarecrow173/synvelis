@@ -43,6 +43,8 @@ relations:
     - "docs/plans/sf-03-map-semantic-runtime-mapping-docs.md"
     - "docs/specs/sf-03-slice6-act06-control-surface.md"
     - "docs/designs/sf-03-slice6-act06-control-surface-design.md"
+    - "docs/specs/sf-03-slice7-render-consumption.md"
+    - "docs/designs/sf-03-slice7-render-consumption-design.md"
   verifies: []
   verified-by:
     - "docs/test-specs/sf-03-map-failure-invariant-verification.md"
