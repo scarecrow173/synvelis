@@ -123,3 +123,4 @@ Directory: `docs/test-specs`
 | TSPEC-vzMmDCOZB12ay3I4Zd5yHK | VS-D E2E-R3 検証仕様 — Recording Commit・Idempotency・Undo・Reload | approved | [vs-d-e2e-r3-recording-commit.md](./vs-d-e2e-r3-recording-commit.md) |
 | TSPEC-034QwZT6kAhQwa2bRBkZyu | WS-A 検証仕様 — Multi-View/LinkGroup/Command/Dock headless 受入 | approved | [ws-a-e2e-workspace-foundation.md](./ws-a-e2e-workspace-foundation.md) |
 | TSPEC-zzdcoJZ1siQdbof0DBfv5l | X 検証仕様 — Recorded Source→Generic Playback/Export・Frame/ID/Content integrity | approved | [x-e2e-recorded-source-playback-export.md](./x-e2e-recorded-source-playback-export.md) |
+| TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |

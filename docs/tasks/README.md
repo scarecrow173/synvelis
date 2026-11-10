@@ -173,3 +173,4 @@ Directory: `docs/tasks`
 | TASK-lon8rNqrFA4DGM8WvurTtM | X task2 recorded media canonical publish (synvelis-player) | done | [x-task2-recorded-media-publish.md](./x-task2-recorded-media-publish.md) |
 | TASK-tU6Q6O7q6fOl2JizqTj6Kh | X task3 acceptance tests X-01..X-06 (synvelis-render/tests/x_e2e.rs) | done | [x-task3-acceptance-tests.md](./x-task3-acceptance-tests.md) |
 | TASK-RKEHMrg7VcrrY7xOboZUqz | X task4 verification + implementation record | done | [x-task4-verification-impl-record.md](./x-task4-verification-impl-record.md) |
+| TASK-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless slice — 実装 task | done | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
