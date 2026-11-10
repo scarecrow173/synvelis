@@ -2870,14 +2870,21 @@ impl SynvelisApp {
     ///   観測の verbatim 注入。`Unknown` は制御可能と偽らない。
     ///
     /// 宣言は session-only で project 永続化・revision・Undo に
-    /// 影響しない。存在しない track/lane は `INVALID_PARAMS`。
+    /// 影響しない。存在しない track、またはその track に属さない
+    /// lane は `INVALID_PARAMS`。
     ///
     /// # Errors
     /// [`ErrorBody`] on invalid parameters or unknown track/lane.
     pub fn op_monitoring_set(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let track = TrackId::from_tagged(str_param(params, "track")?)
             .map_err(|e| invalid(format!("params.track: {e}")))?;
-        if params.get("clear").and_then(Value::as_bool) == Some(true) {
+        let clear = match params.get("clear") {
+            None | Some(Value::Null) => false,
+            Some(v) => v
+                .as_bool()
+                .ok_or_else(|| invalid("params.clear (bool) required"))?,
+        };
+        if clear {
             let cleared = self.monitoring.clear_track(track);
             return Ok(json!({ "track": track.to_tagged(), "cleared": cleared }));
         }
@@ -3119,7 +3126,13 @@ impl SynvelisApp {
             None | Some(Value::Null) => None,
             Some(v) => Some(latency_readiness_param(v)?),
         };
-        let tone_difference = params.get("tone_difference").and_then(Value::as_bool);
+        let tone_difference = match params.get("tone_difference") {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(
+                v.as_bool()
+                    .ok_or_else(|| invalid("params.tone_difference (bool) required"))?,
+            ),
+        };
         self.monitoring
             .set_latency(report, readiness, tone_difference);
         Ok(json!({ "updated": true }))
@@ -3717,10 +3730,12 @@ fn latency_report_param(v: &Value) -> Result<LatencyReport, ErrorBody> {
         input: component("input")?,
         output: component("output")?,
         reported,
-        reported_verified: v
-            .get("reported_verified")
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
+        reported_verified: match v.get("reported_verified") {
+            None | Some(Value::Null) => false,
+            Some(b) => b
+                .as_bool()
+                .ok_or_else(|| invalid("params.report.reported_verified (bool)"))?,
+        },
     })
 }
 

@@ -88,6 +88,9 @@ Monitor Arm/Monitoring UX state machine — `syn.monitoring.set` /
 - **E2 punch 境界**: punch `[in,out)` 設定の session で segments が
   `[...,gate_open=false] → [gate_open=true] → [gate_open=false]` の
   遷移を半開境界で示し、`out` ちょうどの位置は閉側に属する。
+  長尺 session（旧 block 粒度 cap を超える session_end）でも
+  併合済み segment が全域を覆い、末尾位置の live route が
+  `gate_open` を正しく引く（regression fixture あり）。
 - **E3 Hardware Direct**: `state:"unknown"` 宣言で
   `hardware_direct_unknown` が立ち `observed_active` は `null`。
   `state:"user_reported", observed_active:true` + Monitor On +

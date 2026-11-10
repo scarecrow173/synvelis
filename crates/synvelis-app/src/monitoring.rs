@@ -31,7 +31,9 @@ use synvelis_player::{
     LatencyQuality, LatencyReport, LatencyResolutionBasis, LowLatencyMonitor, LowLatencyReadiness,
     LowLatencyReason, LowLatencyState, prepare_low_latency,
 };
-use synvelis_project::{ClockEpochId, LaneId, MusicalTick, Project, TempoMapRef, TrackId};
+use synvelis_project::{
+    ClockEpochId, LaneId, MusicalTick, Project, SessionRange, TempoMapRef, TrackId,
+};
 use synvelis_recording::{
     ArmState, BoundedVec, BufferBudget, CaptureTarget, ChannelMap, GateSpec, HardwareDirectMonitor,
     HardwareDirectState, InputBinding, MonitorProbe, MonitorRoute, MonitorSegment, MonitorState,
@@ -48,8 +50,11 @@ const PROBE_TRACK_CAP: usize = 32;
 const SEGMENT_CAP: usize = 256;
 
 /// probe feed の block サイズ [frame]。gate 境界は piece 単位で
-/// 正確に分割されるため block 粒度は投影密度に影響しない。
-const FEED_BLOCK: i64 = 4096;
+/// 正確に分割されるため block 粒度は投影精度に影響しない。
+/// 大きめに取り feed 回数を抑える — 出力 segment は
+/// [`push_segment_merged`] で同一決定の隣接区間を併合するため、
+/// 実際の route 遷移数だけが `SEGMENT_CAP` に効く。
+const FEED_BLOCK: i64 = 1 << 24;
 
 /// `syn.monitoring.session` start の既定バッファ予算
 /// （`synvelis-recording` fixture と同値。`max_block_frames` は
@@ -215,10 +220,21 @@ impl MonitorUxState {
         if !project.tracks.contains_key(&track) {
             return Err(format!("track {} not found in project", track.to_tagged()));
         }
-        if let Some(Some(lane)) = patch.lane
-            && !project.lanes.contains_key(&lane)
-        {
-            return Err(format!("lane {} not found in project", lane.to_tagged()));
+        if let Some(Some(lane)) = patch.lane {
+            // 宣言 lane はその track の lane_ids に含まれること —
+            // 他 track の lane を誤って bind すると session が
+            // 別 track の入力を capture する。
+            let owned = project
+                .tracks
+                .get(&track)
+                .is_some_and(|t| t.lane_ids.contains(&lane));
+            if !owned {
+                return Err(format!(
+                    "lane {} is not a lane of track {}",
+                    lane.to_tagged(),
+                    track.to_tagged()
+                ));
+            }
         }
         let decl = self.tracks.entry(track).or_default();
         if let Some(lane) = patch.lane {
@@ -582,7 +598,9 @@ impl MonitorUxState {
             .mapping
             .tick_to_media(session.position, 1, session.sample_rate)
             .ok()?;
-        Some(media.value() - session.plan.transport_start_frame)
+        media
+            .value()
+            .checked_sub(session.plan.transport_start_frame)
     }
 
     /// session の表示用 JSON。`phase` は `decide` 語彙
@@ -782,7 +800,7 @@ fn probe_segments(
             break;
         }
         let Ok(frames) = u32::try_from(remaining.min(FEED_BLOCK)) else {
-            break; // remaining ≤ FEED_BLOCK(4096) なので到達不能
+            break; // remaining.min(FEED_BLOCK) ≤ 2^24 なので到達不能
         };
         probe.feed(frames, TransportPhase::Playing, &mut out);
         if probe.faulted() {
@@ -790,6 +808,9 @@ fn probe_segments(
             break;
         }
         for seg in out.as_slice() {
+            if push_segment_merged(&mut all, *seg) {
+                continue;
+            }
             if all.len() >= SEGMENT_CAP {
                 truncated = true;
                 break;
@@ -801,6 +822,31 @@ fn probe_segments(
         }
     }
     (all, truncated || !probe.finished())
+}
+
+/// `seg` が末尾 segment と同一決定（`gate_open`/`route`/`notices`
+/// 一致・半開連続）なら末尾の終端を伸ばして併合し `true` を返す。
+/// `MonitorProbe` の segment は feed block 粒度で分割されるため、
+/// 併合しないと単純 gate でも session 長に比例した本数になり
+/// `SEGMENT_CAP` が実用 session を打ち切ってしまう。併合は表示上の
+/// 区間統合であり gate 意味論の再実装ではない（scheduler 由来の
+/// `gate_open` と `decide` 結果をそのまま比較するだけ）。
+fn push_segment_merged(all: &mut [MonitorSegment], seg: MonitorSegment) -> bool {
+    let Some(last) = all.last_mut() else {
+        return false;
+    };
+    if last.gate_open != seg.gate_open
+        || last.route != seg.route
+        || last.notices != seg.notices
+        || last.session.end() != seg.session.start()
+    {
+        return false;
+    }
+    let Ok(range) = SessionRange::try_new(last.session.start(), seg.session.end()) else {
+        return false;
+    };
+    last.session = range;
+    true
 }
 
 fn arm_str(arm: ArmState) -> &'static str {

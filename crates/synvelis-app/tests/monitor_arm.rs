@@ -67,17 +67,17 @@ fn fixture_app() -> (SynvelisApp, Vec<(TrackId, StripId, LaneId)>) {
     (app, tracks)
 }
 
-fn set_decl(app: &mut SynvelisApp, params: Value) {
-    app.op_monitoring_set(&params).expect("syn.monitoring.set");
+fn set_decl(app: &mut SynvelisApp, params: &Value) {
+    app.op_monitoring_set(params).expect("syn.monitoring.set");
 }
 
-fn punch(app: &mut SynvelisApp, params: Value) {
-    app.op_monitoring_punch(&params)
+fn punch(app: &mut SynvelisApp, params: &Value) {
+    app.op_monitoring_punch(params)
         .expect("syn.monitoring.punch");
 }
 
-fn transport(app: &mut SynvelisApp, params: Value) {
-    app.op_monitoring_transport(&params)
+fn transport(app: &mut SynvelisApp, params: &Value) {
+    app.op_monitoring_transport(params)
         .expect("syn.monitoring.transport");
 }
 
@@ -104,6 +104,13 @@ fn track_row<'a>(state: &'a Value, tagged: &str) -> &'a Value {
         .iter()
         .find(|t| t["track"] == tagged)
         .unwrap_or_else(|| panic!("no track row for {tagged}"))
+}
+
+fn route_of(app: &SynvelisApp, tagged: &str) -> String {
+    track_row(&state(app), tagged)["route"]
+        .as_str()
+        .expect("route")
+        .to_owned()
 }
 
 fn notice_list(state: &Value, key: &str) -> Vec<String> {
@@ -133,7 +140,7 @@ fn e7_inactive_session_projection_is_honest() {
     let (track, ..) = tracks[0];
     set_decl(
         &mut app,
-        json!({
+        &json!({
             "track": track.to_tagged(),
             "arm": "on",
             "monitor": "auto",
@@ -176,12 +183,12 @@ fn e1_route_matrix_off_auto_on_x_transport_x_punch_x_mute_solo() {
     let (tb, sb, _) = tracks[1];
     punch(
         &mut app,
-        json!({"action": "set", "punch_in": 480, "punch_out": 720}),
+        &json!({"action": "set", "punch_in": 480, "punch_out": 720}),
     );
     for t in [ta, tb] {
         set_decl(
             &mut app,
-            json!({
+            &json!({
                 "track": t.to_tagged(),
                 "arm": "on",
                 "monitor": "auto",
@@ -198,41 +205,42 @@ fn e1_route_matrix_off_auto_on_x_transport_x_punch_x_mute_solo() {
     assert_eq!(track_row(&s, &ta.to_tagged())["route"], "input");
 
     // 再生開始・punch 前: gate 閉 → Playback。
-    transport(&mut app, json!({"action": "play"}));
+    transport(&mut app, &json!({"action": "play"}));
     let s = state(&app);
     assert_eq!(s["session"]["phase"], "punch_wait");
     assert_eq!(track_row(&s, &ta.to_tagged())["route"], "playback");
 
     // punch 内へ seek: gate 開 → Input。
-    transport(&mut app, json!({"action": "seek", "position": 600}));
+    transport(&mut app, &json!({"action": "seek", "position": 600}));
     let s = state(&app);
     assert_eq!(s["session"]["phase"], "punch_open");
     assert_eq!(track_row(&s, &ta.to_tagged())["route"], "input");
 
     // punch out 以降: PostRoll・gate 閉 → Playback。
-    transport(&mut app, json!({"action": "seek", "position": 800}));
+    transport(&mut app, &json!({"action": "seek", "position": 800}));
     let s = state(&app);
     assert_eq!(s["session"]["phase"], "post_roll");
     assert_eq!(track_row(&s, &ta.to_tagged())["route"], "playback");
 
     // Monitor Off + Arm On + gate 開 → Playback 抑制で Muted。
-    transport(&mut app, json!({"action": "seek", "position": 600}));
-    set_decl(&mut app, json!({"track": ta.to_tagged(), "monitor": "off"}));
-    let s = state(&app);
-    assert_eq!(track_row(&s, &ta.to_tagged())["route"], "muted");
+    transport(&mut app, &json!({"action": "seek", "position": 600}));
+    set_decl(
+        &mut app,
+        &json!({"track": ta.to_tagged(), "monitor": "off"}),
+    );
+    assert_eq!(route_of(&app, &ta.to_tagged()), "muted");
 
     // Monitor On + ready → gate に依らず Input。
     set_decl(
         &mut app,
-        json!({"track": ta.to_tagged(), "monitor": "on", "input_output_ready": true}),
+        &json!({"track": ta.to_tagged(), "monitor": "on", "input_output_ready": true}),
     );
-    let s = state(&app);
-    assert_eq!(track_row(&s, &ta.to_tagged())["route"], "input");
+    assert_eq!(route_of(&app, &ta.to_tagged()), "input");
 
     // Monitor On + !ready → Playback フォールバック + notice（E4 も兼ねる）。
     set_decl(
         &mut app,
-        json!({"track": ta.to_tagged(), "input_output_ready": false}),
+        &json!({"track": ta.to_tagged(), "input_output_ready": false}),
     );
     let s = state(&app);
     let row = track_row(&s, &ta.to_tagged());
@@ -243,22 +251,20 @@ fn e1_route_matrix_off_auto_on_x_transport_x_punch_x_mute_solo() {
     // Arm Off + Auto → Input route は Arm 必須なので Playback。
     set_decl(
         &mut app,
-        json!({"track": ta.to_tagged(), "arm": "off", "monitor": "auto", "input_output_ready": true}),
+        &json!({"track": ta.to_tagged(), "arm": "off", "monitor": "auto", "input_output_ready": true}),
     );
-    let s = state(&app);
-    assert_eq!(track_row(&s, &ta.to_tagged())["route"], "playback");
+    assert_eq!(route_of(&app, &ta.to_tagged()), "playback");
 
     // Mute/Solo は project strip 権威。Monitor Off + Arm Off の
     // Playback route にだけ作用する。
     for t in [ta, tb] {
         set_decl(
             &mut app,
-            json!({"track": t.to_tagged(), "arm": "off", "monitor": "off"}),
+            &json!({"track": t.to_tagged(), "arm": "off", "monitor": "off"}),
         );
     }
-    let s = state(&app);
-    assert_eq!(track_row(&s, &ta.to_tagged())["route"], "playback");
-    assert_eq!(track_row(&s, &tb.to_tagged())["route"], "playback");
+    assert_eq!(route_of(&app, &ta.to_tagged()), "playback");
+    assert_eq!(route_of(&app, &tb.to_tagged()), "playback");
 
     // track_a mute → Muted（track_b は無変化）。
     strip_op(
@@ -307,11 +313,11 @@ fn e2_punch_segments_are_contiguous_half_open() {
     let (track, ..) = tracks[0];
     punch(
         &mut app,
-        json!({"action": "set", "punch_in": 480, "punch_out": 720}),
+        &json!({"action": "set", "punch_in": 480, "punch_out": 720}),
     );
     set_decl(
         &mut app,
-        json!({
+        &json!({
             "track": track.to_tagged(),
             "arm": "on",
             "monitor": "auto",
@@ -319,7 +325,7 @@ fn e2_punch_segments_are_contiguous_half_open() {
         }),
     );
     session_start(&mut app);
-    transport(&mut app, json!({"action": "play"}));
+    transport(&mut app, &json!({"action": "play"}));
 
     let s = state(&app);
     let session_end = s["session"]["session_end_frames"].as_i64().expect("end");
@@ -362,17 +368,17 @@ fn e2_punch_segments_are_contiguous_half_open() {
     assert!(flags.contains(&true) && flags.contains(&false));
 
     // 半開境界: punch_in tick は開、punch_out tick は閉。
-    transport(&mut app, json!({"action": "seek", "position": 479}));
+    transport(&mut app, &json!({"action": "seek", "position": 479}));
     assert_eq!(
         track_row(&state(&app), &track.to_tagged())["route"],
         "playback"
     );
-    transport(&mut app, json!({"action": "seek", "position": 480}));
+    transport(&mut app, &json!({"action": "seek", "position": 480}));
     assert_eq!(
         track_row(&state(&app), &track.to_tagged())["route"],
         "input"
     );
-    transport(&mut app, json!({"action": "seek", "position": 720}));
+    transport(&mut app, &json!({"action": "seek", "position": 720}));
     assert_eq!(
         track_row(&state(&app), &track.to_tagged())["route"],
         "playback"
@@ -382,9 +388,9 @@ fn e2_punch_segments_are_contiguous_half_open() {
     // session active 中は変更不可なので stop → clear → 再 start。
     app.op_monitoring_session(&json!({"action": "stop"}))
         .expect("session stop");
-    punch(&mut app, json!({"action": "clear"}));
+    punch(&mut app, &json!({"action": "clear"}));
     session_start(&mut app);
-    transport(&mut app, json!({"action": "play"}));
+    transport(&mut app, &json!({"action": "play"}));
     let s = state(&app);
     assert_eq!(s["session"]["gate"], "normal");
     let segs = s["segments"][0]["segments"].as_array().expect("segments");
@@ -392,6 +398,59 @@ fn e2_punch_segments_are_contiguous_half_open() {
         segs.iter().all(|g| g["gate_open"] == true),
         "normal gate must be open for the whole session"
     );
+}
+
+// -- E2b: 長尺 session の gate_open 投影 --------------------------------------
+
+/// `session_end` が旧 `SEGMENT_CAP`（256 block × 旧 feed 4096 frame
+/// ≈ 22 秒）を超えても、併合済み segment が session 全域を覆い、
+/// 末尾付近の live route が `gate_open = true` を正しく引くこと。
+/// 併合が無いと block 粒度の segment が cap で打ち切られ、
+/// cap 以遠の position で `gate_open` が `false` に倒れて
+/// Playback 誤投影になる regression を防ぐ。
+#[test]
+fn monitoring_long_session_keeps_gate_open_projection() {
+    let (mut app, tracks) = fixture_app();
+    let (track, ..) = tracks[0];
+    set_decl(
+        &mut app,
+        &json!({
+            "track": track.to_tagged(),
+            "arm": "on",
+            "monitor": "auto",
+            "input_output_ready": true,
+        }),
+    );
+    // 100000 tick × 25 frame/tick = 2,500,000 frame（旧 cap 超）。
+    app.op_monitoring_session(&json!({
+        "action": "start",
+        "transport_start": 0,
+        "stop": 100_000,
+        "sample_rate": 48000,
+    }))
+    .expect("session start");
+    transport(&mut app, &json!({"action": "play"}));
+
+    let s = state(&app);
+    let end = s["session"]["session_end_frames"].as_i64().expect("end");
+    assert!(end > 1_048_576, "fixture must exceed the old segment cap");
+    let row = s["segments"]
+        .as_array()
+        .expect("segments")
+        .iter()
+        .find(|t| t["track"] == track.to_tagged())
+        .expect("track segments");
+    assert_eq!(row["truncated"], false);
+    let segs = row["segments"].as_array().expect("segment list");
+    // Normal gate は全域 open・同一決定なので併合で 1 区間。
+    assert_eq!(segs.len(), 1);
+    assert_eq!(segs[0]["start"], 0);
+    assert_eq!(segs[0]["end"], end);
+    assert_eq!(segs[0]["gate_open"], true);
+
+    // 末尾近く（frame 2,475,000）でも gate_open が引けて Input。
+    transport(&mut app, &json!({"action": "seek", "position": 99000}));
+    assert_eq!(route_of(&app, &track.to_tagged()), "input");
 }
 
 // -- E3: Hardware Direct 状態と二重監視 notice --------------------------------
@@ -405,7 +464,7 @@ fn e3_hardware_direct_states_and_double_monitoring() {
     let (track, ..) = tracks[0];
     set_decl(
         &mut app,
-        json!({
+        &json!({
             "track": track.to_tagged(),
             "monitor": "on",
             "input_output_ready": true,
@@ -422,7 +481,7 @@ fn e3_hardware_direct_states_and_double_monitoring() {
     // UserReported + observed active → Input route で二重監視警告。
     set_decl(
         &mut app,
-        json!({
+        &json!({
             "track": track.to_tagged(),
             "hardware_direct": {"state": "user_reported", "observed_active": true},
         }),
@@ -438,7 +497,7 @@ fn e3_hardware_direct_states_and_double_monitoring() {
     // DeviceControlled + 未観測 → どちらの notice も立たない。
     set_decl(
         &mut app,
-        json!({
+        &json!({
             "track": track.to_tagged(),
             "hardware_direct": {"state": "device_controlled"},
         }),
@@ -449,7 +508,10 @@ fn e3_hardware_direct_states_and_double_monitoring() {
     assert_eq!(row["hardware_direct"]["observed_active"], Value::Null);
     assert_eq!(row["notices"]["double_monitoring"], false);
     assert_eq!(row["notices"]["hardware_direct_unknown"], false);
-    assert!(notice_list(&s, "hardware_direct_unknown").is_empty());
+    assert_eq!(
+        notice_list(&s, "hardware_direct_unknown"),
+        Vec::<String>::new()
+    );
 }
 
 // -- E4: input unavailable ---------------------------------------------------
@@ -463,7 +525,7 @@ fn e4_input_unavailable_is_explicit() {
     let (track, ..) = tracks[0];
     set_decl(
         &mut app,
-        json!({
+        &json!({
             "track": track.to_tagged(),
             "monitor": "on",
             "input_output_ready": false,
@@ -478,28 +540,28 @@ fn e4_input_unavailable_is_explicit() {
     // Auto + !ready → input_unavailable は立たない。
     set_decl(
         &mut app,
-        json!({"track": track.to_tagged(), "monitor": "auto"}),
+        &json!({"track": track.to_tagged(), "monitor": "auto"}),
     );
     let s = state(&app);
     assert_eq!(
         track_row(&s, &track.to_tagged())["notices"]["input_unavailable"],
         false
     );
-    assert!(notice_list(&s, "input_unavailable").is_empty());
+    assert_eq!(notice_list(&s, "input_unavailable"), Vec::<String>::new());
 }
 
 // -- E5: view/window/transport 系 op の不変性 ---------------------------------
 
 /// view/window 系 read op と project transport 変更は monitor
 /// session 状態を一切変えない（multi-window/focus の実 GUI 行は
-/// NotRun — headless では op 面の不変性のみ検証）。
+/// `NotRun` — headless では op 面の不変性のみ検証）。
 #[test]
 fn e5_view_window_and_project_transport_do_not_change_monitor_state() {
     let (mut app, tracks) = fixture_app();
     let (track, ..) = tracks[0];
     set_decl(
         &mut app,
-        json!({
+        &json!({
             "track": track.to_tagged(),
             "arm": "on",
             "monitor": "auto",
@@ -508,11 +570,11 @@ fn e5_view_window_and_project_transport_do_not_change_monitor_state() {
     );
     punch(
         &mut app,
-        json!({"action": "set", "punch_in": 480, "punch_out": 720}),
+        &json!({"action": "set", "punch_in": 480, "punch_out": 720}),
     );
     session_start(&mut app);
-    transport(&mut app, json!({"action": "play"}));
-    transport(&mut app, json!({"action": "seek", "position": 600}));
+    transport(&mut app, &json!({"action": "play"}));
+    transport(&mut app, &json!({"action": "seek", "position": 600}));
 
     let before = state(&app);
     // view/window 系 read op + project transport（monitor transport
@@ -528,9 +590,9 @@ fn e5_view_window_and_project_transport_do_not_change_monitor_state() {
 // -- E6: latency / low-latency 投影 -------------------------------------------
 
 /// `syn.monitoring.latency` の注入値が `LatencyReport::resolve` /
-/// `prepare_low_latency` の結果として投影される。round_trip は
-/// authoritative で reported は除外計上、`Measured` は Clock Epoch
-/// 確定時のみ維持される。readiness 欠落は `Unavailable` + reason
+/// `prepare_low_latency` の結果として投影される。`round_trip` は
+/// authoritative で `reported` は除外計上、`Measured` は Clock Epoch
+/// 確定時のみ維持される。`readiness` 欠落は `Unavailable` + reason
 /// を正直に返し、latency 自体は隠さない。
 #[test]
 fn e6_latency_and_low_latency_projection() {
@@ -594,6 +656,48 @@ fn e6_latency_and_low_latency_projection() {
 
 // -- 付帯: project 非破壊・service 配線 ----------------------------------------
 
+/// `syn.monitoring.set` は他 track の lane・未知 track を
+/// `INVALID_PARAMS` で拒否し、`syn.monitoring.latency` は
+/// 非 bool の `tone_difference` を拒否する（malformed を
+/// 黙って捨てない）。
+#[test]
+fn monitoring_set_rejects_invalid_params() {
+    let (mut app, tracks) = fixture_app();
+    let (ta, _, la) = tracks[0];
+    let (tb, _, _) = tracks[1];
+
+    // track B の宣言に track A の lane を bind → 拒否。
+    let err = app
+        .op_monitoring_set(&json!({
+            "track": tb.to_tagged(),
+            "lane": la.to_tagged(),
+        }))
+        .expect_err("foreign lane must be rejected");
+    assert_eq!(err.code, "invalid_params");
+
+    // 未知 track → 拒否。
+    let err = app
+        .op_monitoring_set(&json!({
+            "track": "track-00000000000000000000000000000000",
+            "arm": "on",
+        }))
+        .expect_err("unknown track must be rejected");
+    assert_eq!(err.code, "invalid_params");
+
+    // 正当な lane は通る。
+    app.op_monitoring_set(&json!({
+        "track": ta.to_tagged(),
+        "lane": la.to_tagged(),
+    }))
+    .expect("own lane accepted");
+
+    // tone_difference の非 bool は INVALID_PARAMS。
+    let err = app
+        .op_monitoring_latency(&json!({"tone_difference": "yes"}))
+        .expect_err("non-bool tone_difference must be rejected");
+    assert_eq!(err.code, "invalid_params");
+}
+
 /// monitor ops は project revision・永続化・Undo を一切変更しない
 /// （宣言は session-only）。
 #[test]
@@ -604,7 +708,7 @@ fn monitoring_ops_do_not_mutate_project() {
 
     set_decl(
         &mut app,
-        json!({
+        &json!({
             "track": track.to_tagged(),
             "arm": "on",
             "monitor": "auto",
@@ -613,10 +717,10 @@ fn monitoring_ops_do_not_mutate_project() {
     );
     punch(
         &mut app,
-        json!({"action": "set", "punch_in": 480, "punch_out": 720}),
+        &json!({"action": "set", "punch_in": 480, "punch_out": 720}),
     );
     session_start(&mut app);
-    transport(&mut app, json!({"action": "play"}));
+    transport(&mut app, &json!({"action": "play"}));
     app.op_monitoring_latency(&json!({
         "readiness": {"prepared": true, "input_ready": true, "output_ready": true},
     }))

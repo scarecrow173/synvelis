@@ -114,7 +114,8 @@ session-scope slot を field で保持する既存パターンがある。
 
 `{track, lane?, arm?, monitor?, binding?{channels:[u32,..]},
 input_output_ready?, hardware_direct?{state,observed_active?}, clear?}`
-→ track 存在検証（`project.tracks`）→ lane 存在検証 →
+→ track 存在検証（`project.tracks`）→ lane 存在 + track 帰属検証
+（`track.lane_ids` 所属 — 他 track の lane 誤 bind を拒否）→
 `ChannelMap::new` 検証 → 宣言を merge upsert（未指定 field は維持）。
 `clear: true` で宣言削除。project には一切触れない（session-only）。
 
