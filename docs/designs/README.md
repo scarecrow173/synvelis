@@ -55,7 +55,7 @@ Directory: `docs/designs`
 | DESIGN-034V2hPBihovSNoj4xusOA | RCD-01 device-recording headless fixture — Mock Input→Raw Writer 統合設計 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | DESIGN-Bz2IMMfywvmEjmdIeThNvq | RCD-01 Input Adapter — binding/Arm/Monitor/channel-map と fake port fail-stop | approved | [rcd-01-input-adapter-binding-arm-monitor-fake-port.md](./rcd-01-input-adapter-binding-arm-monitor-fake-port.md) |
 | DESIGN-034Urj7kRY8rq2nngtTSuL | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | approved | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
-| DESIGN-034VdWksbk4tfLCaf6HPoj | RCD-03 app Arm/Monitoring UX + monitor session projection | draft | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
+| DESIGN-034VdWksbk4tfLCaf6HPoj | RCD-03 app Arm/Monitoring UX + monitor session projection | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
 | DESIGN-034UtlI2uLUF1lr2g3CUM0 | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | DESIGN-RCD04Fx2nB8cY6dF5hJ9kM3q | RCD-04 Comp Transition / MIDI Phrase fixture — crate 内完結設計 | approved | [rcd-04-comp-transition-midi-phrase-fixture.md](./rcd-04-comp-transition-midi-phrase-fixture.md) |
 | DESIGN-034SF01Mo9rSt4uV1wXyZaCdE | SF-01 Semantic Routing Model 設計 — 型・整合・Schema v6 Migration | approved | [sf-01-semantic-routing-model-design.md](./sf-01-semantic-routing-model-design.md) |
@@ -95,6 +95,7 @@ Directory: `docs/designs`
 | DESIGN-034T2RF305WAVSTAGED00Y | SYN-RF305 WAV Export StagedFile 移行設計 | approved | [syn-rf305-wav-export-staged-file-design.md](./syn-rf305-wav-export-staged-file-design.md) |
 | — | Synvelis-driven Ruviform Target Architecture v0.7.1 | — | [synvelis-driven-ruviform-target-architecture-v07.md](./synvelis-driven-ruviform-target-architecture-v07.md) |
 | DESIGN-034UHVNvFQXFumTOowIt0g | TIM-01 Configurable PPQN — Rational Beat 再投影設計 | approved | [tim-01-configurable-ppqn-design.md](./tim-01-configurable-ppqn-design.md) |
+| DESIGN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — crate 内完結設計 | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | DESIGN-034UwVoRGI8Bp9zuzRFQhj | TIM-02 SMF Format0/1 core — crate 内完結設計 | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
 | DESIGN-034UC0ixTsN58rRlRctgAH | TIM-04 plugin state snapshot consistency design — quality receipt/store/session/offline recipe | approved | [tim-04-plugin-state-snapshot-consistency-design.md](./tim-04-plugin-state-snapshot-consistency-design.md) |
 | DESIGN-034UyEjdALaapQRSk5hAdk | TIM-03 plugin process boundary design — capability/degraded policy oracle | approved | [tim03-process-boundary-design.md](./tim03-process-boundary-design.md) |

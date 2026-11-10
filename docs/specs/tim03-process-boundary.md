@@ -127,10 +127,13 @@ error とする契約が必要。
 - `synvelis-app`/`synvelis-workspace`/`synvelis-recording`/
   `synvelis-project`/`synvelis-library`・gateway/render/theme/poc・
   `.github/`・`mise.toml`。
-- `ProcessCapability::evaluate` の per-request RT 経路組込み
-  （boundary offset 列を伴う plan oracle の runtime 呼出し）。
-  attach 時点の delivery policy/budget 投影は task2
-  （`tim03-task2-attach-wiring`）で実装済み。
+- `ProcessCapability::evaluate` の RT 経路組込みそのもの
+  （oracle は非 RT preflight のまま）。attach 時点の delivery
+  policy/budget 投影は task2
+  （`tim03-task2-attach-wiring`）、per-request の plan/provenance
+  配線は task3（`tim03-task3-request-plan`、
+  `ProcessBoundarySession`）で実装済み — session は
+  orchestration 層の API であり RT callback 内では評価しない。
 
 ## Requirements
 
@@ -157,6 +160,11 @@ error とする契約が必要。
   Offline Exact エラー・state/Clock mapping 失効時誤 Param 配送 0 —
   `tim03_pb_precision_gates`/`tim03_pb_min_max_illegal_segment_policy`/
   `tim03_node_stale_transport_generation_zero_delivery`。
+- [x] per-request plan wiring + precision provenance:
+  `ProcessBoundarySession` が request ごとに `evaluate` を先行評価し
+  provenance（instance/node/capability/graph generation + frame base）
+  を照合、stale/mismatch は typed `BoundarySessionError` で
+  staging 前に拒否 — `tim03_req_*`/`tim03_cap_*`/`tim03_prov_*`。
 - [x] headless mock で検証・RT noalloc/no blocking（`test-rt`）—
   `tim03_process_boundary_rt.rs` の `stats_alloc` Region で
   allocations=0/deallocations=0。
@@ -169,8 +177,10 @@ error とする契約が必要。
 - ~~`ProcessCapability::evaluate` を composition root/attach 経路へ
   配線し、plan 結果を `DeliveryPolicy`/`ScheduleBudget` へ反映する
   統合~~ — task2（`tim03-task2-attach-wiring`）で attach 時点の
-  `AttachDelivery` 投影として実装済み。per-request boundary plan
-  の runtime 配線は引き続き後続 slice。
+  `AttachDelivery` 投影、task3（`tim03-task3-request-plan`）で
+  per-request の `ProcessBoundarySession`（provenance 照合付き
+  staging/dispatch API）として実装済み。RT callback 内での oracle
+  評価は依然として後続 slice。
 - AudioLens f64 実測・実 GUI 検証 — それぞれ #294/#114/#176 の
   別 Gate。
 

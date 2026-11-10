@@ -26,7 +26,7 @@ Directory: `docs/tasks`
 | TASK-034V2kE9l91elvsqfnsx5s | RCD-01 device-recording headless fixture | in_progress | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | in-progress | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
-| TASK-034VegaqbLjPWyJoFDrmhQ | RCD-03 Task2 app Arm/Monitoring UX + monitor session projection | todo | [rcd-03-task2-app-arm-monitoring-ux.md](./rcd-03-task2-app-arm-monitoring-ux.md) |
+| TASK-034VegaqbLjPWyJoFDrmhQ | RCD-03 Task2 app Arm/Monitoring UX + monitor session projection | in-progress | [rcd-03-task2-app-arm-monitoring-ux.md](./rcd-03-task2-app-arm-monitoring-ux.md) |
 | TASK-106SF03Tz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T1 — RoutingFault 18分類・engine 改修・reconcile 実装 | in-progress | [sf-03-slice2-fault-contract.md](./sf-03-slice2-fault-contract.md) |
 | TASK-106SF03Uz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T2 — 受入テスト sf03_l2.rs・検証 | in-progress | [sf-03-slice2-reconcile-tests.md](./sf-03-slice2-reconcile-tests.md) |
 | TASK-034Um6UmzaMloEGrFyYAS2 | SF-04 slice1 T1 — project/player Semantic Probe Adapter + ruviform pin bump | in-progress | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
@@ -40,8 +40,10 @@ Directory: `docs/tasks`
 | TASK-034UogPe6cIh8LtcFphyuH | SV-GUI-04 slice1 precursor: multi-window WindowHandle + headless dock fixture | in-progress | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | TASK-NFJWSkocsf8xf7WcgpPdL0 | SV-GUI-04 slice1 タスク分解 — 実 2-window mount | in-progress | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
+| TASK-126tim02playerMidiRt01 | TIM-02 Task2 player MIDI RT/Offline 結合 slice | in-progress | [tim-02-task2-player-midi.md](./tim-02-task2-player-midi.md) |
 | TASK-034UAAcPSS47j6GIlPGPrX | VCS-01 Task1 Immutable Snapshot Resolver headless slice | in-progress | [vcs-01-task1-immutable-snapshot-resolver-headless-slice.md](./vcs-01-task1-immutable-snapshot-resolver-headless-slice.md) |
 | TASK-VCS04Hist0ryV1ewTsk01 | VCS-04 slice1 タスク分解 — History/Visual Diff headless | in-progress | [vcs-04-task1-history-diff-headless-slice.md](./vcs-04-task1-history-diff-headless-slice.md) |
+| TASK-vcs06-fixture-fault-matrix | VCS-06 fixture-level fault matrix + evidence ledger | in-progress | [vcs-06-fixture-fault-matrix.md](./vcs-06-fixture-fault-matrix.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
 | TASK-034QfQYNLu0fCICEAgIdjS | VS-C task2 staging faultinj | todo | [vs-c-task2-staging-faultinj.md](./vs-c-task2-staging-faultinj.md) |
 | TASK-034QfQZsTXhM5gVQP0gh81 | VS-C task3 staging writer | todo | [vs-c-task3-staging-writer.md](./vs-c-task3-staging-writer.md) |
@@ -155,6 +157,7 @@ Directory: `docs/tasks`
 | TASK-034UC5rYrk7usxShbL01xG | TIM-04 plugin state snapshot consistency — implementation tasks | done | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | TASK-034UyED9PUv2ECvzH9A3RX | TIM-03 task1 — process boundary/capability/degraded policy 実装 | done | [tim03-task1-process-boundary.md](./tim03-task1-process-boundary.md) |
 | TASK-034V1qQsacdOwJ7UiGFCAW | TIM-03 task2 — capability→AttachConfig attach 配線（composition root） | done | [tim03-task2-attach-wiring.md](./tim03-task2-attach-wiring.md) |
+| TASK-034gOTXfiNaCeDRTpeP2x | TIM-03 task3 — per-request plan wiring + precision provenance（ProcessBoundarySession） | done | [tim03-task3-request-plan.md](./tim03-task3-request-plan.md) |
 | TASK-034UEtaHWZFrCd1VFAIRfl | VCS-02 Task1 Semantic Diff Engine headless slice | done | [vcs-02-task1-semantic-diff-engine-headless-slice.md](./vcs-02-task1-semantic-diff-engine-headless-slice.md) |
 | TASK-v2hQAN1hrbnURHHF2lrf6L | VCS-03 Task1 Git Read Provider headless slice | done | [vcs-03-task1-git-read-provider-headless-slice.md](./vcs-03-task1-git-read-provider-headless-slice.md) |
 | TASK-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless slice — 実装 task | done | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |

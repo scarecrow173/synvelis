@@ -42,7 +42,7 @@ Directory: `docs/plans`
 | PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-034UrkBlTpaeiSGII0EyIi | RCD-02 Durability Evidence / Recovery Review / Commit Receipt slice | approved | [rcd-02-durability-recovery-review.md](./rcd-02-durability-recovery-review.md) |
-| PLAN-034VedskoBprfWhNkuqz6f | RCD-03 app Arm/Monitoring UX + monitor session projection slice | draft | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
+| PLAN-034VedskoBprfWhNkuqz6f | RCD-03 app Arm/Monitoring UX + monitor session projection slice | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
 | PLAN-034UtpZmsA5LhaaXLS0KRF | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter slice | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | PLAN-RCD04Fx4kD9sG2hJ6mN8pQ1 | RCD-04 Comp Transition / MIDI Phrase crate fixture slice — implementation plan | approved | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |
 | PLAN-034SF01Np0sTu5vW2xYzAbDeF | SF-01 Semantic Routing Model 実装計画 | approved | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
@@ -77,6 +77,7 @@ Directory: `docs/plans`
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
 | PLAN-034UHYyMbiLPEtGczKNKYC | TIM-01 Configurable PPQN Project Command — implementation plan | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
+| PLAN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — 実装 plan | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | PLAN-034UwXgmnKOCYgkwlGLFkf | TIM-02 SMF Format0/1 core implementation plan | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
 | PLAN-034UC46sceMw6QCzqVjGOO | TIM-04 plugin state snapshot consistency — implementation plan | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | PLAN-034UyECBCu7Wg67fct0qi7 | TIM-03 plugin process boundary plan | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
