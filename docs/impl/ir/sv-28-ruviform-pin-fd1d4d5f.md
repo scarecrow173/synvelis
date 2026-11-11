@@ -169,6 +169,8 @@ SV 側の追従修正は不要だった。PR #567 により
 ## Validation
 
 Windows 11・mise 管理 rust 1.99.0・cargo 1.99.0 で実施。
+`git merge origin/main` で `a8b8e7f`（Issue #86 DoD(2) 含む
+main 2 commit）取り込み後の merge 済みツリーで全 lane を再検証済み。
 
 | 検証 | 結果 |
 | --- | --- |
@@ -176,17 +178,18 @@ Windows 11・mise 管理 rust 1.99.0・cargo 1.99.0 で実施。
 | `mise run fmt-check` | Passed（exit 0） |
 | `mise run check-headless-deps` | Passed（exit 0、10 headless crates に GUI 系依存なし） |
 | `mise run lint`（`cargo clippy --workspace --all-targets -- -D warnings`） | Passed（exit 0） |
-| `mise run test`（`cargo test --workspace --locked`） | TBD |
-| `mise run test-rt` | TBD |
-| `mise run test-msrv` | TBD |
-| `mise run check-app-webview` | TBD |
-| `mise run lint-app-webview` | TBD |
-| `mise run test-app-webview` | TBD |
-| `mise run check-app-native` | TBD |
-| `mise run lint-app-native` | TBD |
-| `mise run check-ui` | TBD |
-| `mise run test-ui` | TBD |
-| `mise run lint-recording-real-input` | TBD（補助 lane・real-device feature compile） |
+| `mise run test`（`cargo test --workspace --locked`） | Passed（exit 0） |
+| `mise run test-rt` | Passed（exit 0） |
+| `mise run test-msrv`（rust 1.89） | Passed（exit 0） |
+| `mise run check-app-webview` | Passed（exit 0） |
+| `mise run lint-app-webview` | Passed（exit 0） |
+| `mise run test-app-webview` | Passed（exit 0、27 tests。pre-merge の初回実行で `synvelis` bin コンパイル中に rustc が `0xc0000409`（STATUS_STACK_BUFFER_OVERRUN）でクラッシュしたが、単独再実行で pass・post-merge 再実行でも pass。環境起因の flaky で pin 非起因と切り分け — `ruviform-ui-webview` は本差分範囲で無変更） |
+| `mise run check-app-native` | Passed（exit 0） |
+| `mise run lint-app-native` | Passed（exit 0） |
+| `mise run check-ui`（vendor 照合 + tsc --noEmit） | Passed（exit 0） |
+| `mise run test-ui`（vitest） | Passed（exit 0、56 tests） |
+| `mise run lint-recording-real-input`（real-device feature の clippy、`wasapi_input` 経路を含む compile 検証・補助 lane） | Passed（exit 0） |
+| `mise run sync-ui-deps` | Passed（`ui/vendor/ruviform` を `fd1d4d5f` へ再同期） |
 | `node tools/check-ruviform-rev.mjs --require-vendor` | Passed（`resolved fd1d4d5f…`、27 sources、REV match） |
 
 NotRun: 実 GPUI ウィンドウ・実 OS 入力・実 plugin/VST3・実 audio
