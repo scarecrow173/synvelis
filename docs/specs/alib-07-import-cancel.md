@@ -1,10 +1,10 @@
 ---
 id: "SPEC-alib07-import-cancel"
 type: "spec"
-status: "approved"
+status: "implemented"
 title: "ALIB-07 slice 2 — LIB-IMPORT-04 publish/commit 相 cancel・LIB-IMPORT-08 subprocess crash（synvelis-library headless）"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -35,7 +35,8 @@ relations:
     moved: []
     generated: []
   implements: []
-  implemented-by: []
+  implemented-by:
+    - "docs/designs/alib-07-import-cancel-design.md"
   derives-from:
     - "docs/specs/alib-07-fault-matrix.md"
   depends-on:

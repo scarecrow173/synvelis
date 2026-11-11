@@ -4,7 +4,7 @@ type: "impl"
 status: "completed"
 title: "ALIB-07 slice 2 — import cancel checkpoint・subprocess crash fixture 実装記録（synvelis-library）"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   implements:
@@ -112,6 +112,10 @@ commit が事実なので cancel を返さない（`Cancelled` は実状態を
 - LIB-MIG-02 CRC→SHA-256 移行本体: #86 で main 済み・#91 は吸収
   しない（namespace 共存のみ Pass のまま）。
 - SVN/P4/SMB/S3 provider: NotImplemented（matrix に行を設けない）。
+
+上記の残存受入行が Issue #91 を open 維持する根拠である
+（本 slice は PR #256 で merge 済みだが、実環境 lane・
+cross-gate・#89/#114 所有行は未消化）。
 
 詳細は `docs/test-specs/alib-07-fault-matrix.md` の LIB-IMPORT-04 /
 LIB-IMPORT-08 行を参照。

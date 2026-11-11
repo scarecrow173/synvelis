@@ -20,6 +20,9 @@ Directory: `docs/impl/ir`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | IMPL-034T7QIk72dphjZPfVnZ1O | ALIB-01 Asset Provider baseline contract | completed | [alib-01-asset-provider-baseline-contract.md](alib-01-asset-provider-baseline-contract.md) |
+| IMPL-alib02-streaming-verified-import | ALIB-02 Streaming Verified Import — SHA-256 namespace（synvelis-library slice） | completed | [alib-02-streaming-verified-import.md](alib-02-streaming-verified-import.md) |
+| IR-alib07-fault-matrix | ALIB-07 Fault Matrix — headless 実装記録（synvelis-library） | completed | [alib-07-fault-matrix.md](alib-07-fault-matrix.md) |
+| IR-alib07-import-cancel | ALIB-07 slice 2 — import cancel checkpoint・subprocess crash fixture 実装記録（synvelis-library） | completed | [alib-07-import-cancel.md](alib-07-import-cancel.md) |
 | IMPL-AUT03LoopWriteOnePass | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・境界 flush・明示 Rearm 実装記録 | completed | [aut-03-loop-write-one-pass.md](aut-03-loop-write-one-pass.md) |
 | IMPL-034RJ4QUQGExYEXb9HnIW3 | Issue #147 sccache verify/gw10 導入実装記録 | completed | [issue-147-sccache-verify-gw10.md](issue-147-sccache-verify-gw10.md) |
 | IMPL-034RGXq9DiVrM6SNyBhyQs | Issue #151 ui-verify lane 実装記録 | completed | [issue-151-ui-verify-lane.md](issue-151-ui-verify-lane.md) |

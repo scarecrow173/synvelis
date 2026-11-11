@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "ALIB-07 Asset Library 全経路 Fault Matrix — テスト仕様・証拠 matrix（headless slice）"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   verifies:
@@ -59,6 +59,16 @@ Observed / Status を記録する。
   synvelis#89・#114（Browser/import UX・実 GPUI window）、
   synvelis#83（独立 CI）、Ruviform#219・#294（consumer 互換・
   独立 gate）。
+- 統合記録 ledger（cross-gate 側の統合受入証跡。本 matrix の
+  行は headless 証拠であり、これら ledger が示す別 lane の
+  実環境/統合証拠とは区別する）:
+  `evidence/reports/vcs-06-fixture-matrix-ledger.md`
+  （synvelis#97 — VCS-01..05 fixture fault matrix の統合受入
+  ledger）、
+  `evidence/reports/rcd-02-durability-recovery-review-ledger.md`
+  （synvelis#116 — RCD-02 durability/recovery review の統合受入
+  ledger。LIB-IMPORT-08 の OS レベル durability 残行は
+  synvelis#84 cross-gate 側で追跡）。
 - Ruviform resolved SHA（`Cargo.lock`）:
   `0f5b57372e9a43f84415f7964b2f9636774174f0`
 - Toolchain: rustc 1.99.0（MSRV 1.89）
