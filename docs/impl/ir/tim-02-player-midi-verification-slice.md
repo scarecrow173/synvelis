@@ -27,8 +27,6 @@ relations:
       - type: "file"
         path: "docs/specs/README.md"
       - type: "file"
-        path: "docs/plans/README.md"
-      - type: "file"
         path: "docs/tasks/README.md"
       - type: "file"
         path: "docs/test-specs/README.md"
@@ -144,29 +142,62 @@ filename `tim02_midi_transport.rs`）。本 slice は新規実装では
 
 ## Validation
 
-canonical 検証（`mise.toml` タスクの実走。`origin/main`
-`e46bf1f` + 本 slice の docs-only 差分・Windows worktree・
+canonical 検証（`mise.toml` タスクの実走。Windows worktree・
 rust 1.99.0 / MSRV 1.89.0）:
 
-- `mise run fmt-check` — Pass（exit 0）
-- `mise run check` — Pass（exit 0）
-- `mise run lint` — Pass（exit 0・warning 0）
-- `mise run test` — Pass（再実行で exit 0。`tim02_midi_playback`
-  10/10・`tim02_midi_rt` 1/1 を含む全 binary ok。**初回 run
-  exit 9**: `tim03_session_wiring` binary が `memory
-  allocation of 33558588 bytes failed` → `0xc0000409
-  (STATUS_STACK_BUFFER_OVERRUN)` で abort。TIM-02 無関係の
-  transient 要因であり、同 binary 単独再実行（補助証拠:
-  `mise exec -- cargo test -p synvelis-player --test
-  tim03_session_wiring --locked`、10/10 Pass）+ `mise run
-  test` 全量再実行（exit 0）で非再現を確認）
-- `mise run test-rt` — Pass（exit 0）
-- `mise run test-msrv` — Pass（exit 0・rust 1.89.0）
-- `mise run build` — Pass（exit 0）
+- `git fetch origin main && git merge origin/main` —
+  `ff33ffb`（RCD-03 `a218944`・RCD-04 `ff33ffb` 込み）を取込
+  （merge commit `3e91b64`）。merged tree で全 lane を再実行し
+  全 Pass — 最終の canonical 証拠はこちら:
+  - `mise run fmt-check` — Pass（exit 0）
+  - `mise run check` — Pass（exit 0）
+  - `mise run lint` — Pass（exit 0・warning 0）
+  - `mise run test` — Pass（exit 0。`tim02_midi_playback`
+    10/10・`tim02_midi_rt` 1/1 を含む全 binary ok）
+  - `mise run test-rt` — Pass（exit 0）
+  - `mise run test-msrv` — Pass（exit 0・rust 1.89.0）
+  - `mise run build` — Pass（exit 0）
+- 初回 lane（`origin/main` `e46bf1f` + 本 slice の docs-only
+  差分）でも全 lane Pass だが、以下の transient 環境要因を
+  観測（merged lane では再現せず・正直に記録）:
+  - `mise run test` 初回 run exit 9: `tim03_session_wiring`
+    binary が `memory allocation of 33558588 bytes failed` →
+    `0xc0000409 (STATUS_STACK_BUFFER_OVERRUN)` で abort。
+    TIM-02 無関係の transient 要因であり、同 binary 単独再実行
+    （補助証拠: `mise exec -- cargo test -p synvelis-player
+    --test tim03_session_wiring --locked`、10/10 Pass）+
+    `mise run test` 全量再実行（exit 0）で非再現を確認。
+  - `mise run build` 初回 run exit 101: `rustc` が
+    `synvelis-workspace` compile 中に `rustc-LLVM ERROR:
+    out of memory` → `0xc0000409` で abort。同じく memory
+    圧力の transient 要因で、単独再実行で exit 0・非再現。
 
 doc-maintenance / audit（本 slice 作業の検証）:
 
-<!-- DOC_AUDIT -->
+- `doc_maintenance.js plan --type all` — TIM-02 Task2 chain に
+  対する事前 findings: test-spec の `verifies` が task を指す
+  gate 違反 2 件（`test-spec-invalid-verifies-target`・
+  `test-spec-missing-verifies`）、plan の
+  `plan-missing-test-spec-evidence` 1 件。本 slice で
+  `verifies` を spec+design へ・plan `verified-by` を
+  test-spec へ修正し解消。spec/design の `defers` 自由記述
+  行（`broken-relation-link`）は Task1（`tim-02-smf-*`）と
+  同一の既存 convention であり本 slice では変更しない
+  （migrate 対象の `invalid-id-prefix` も同様に据え置き）。
+- `doc_maintenance.js apply --type all` — 管理 index を
+  4 件再生成（`docs/designs|specs|tasks|test-specs/README.md`。
+  designs は regeneration が現行内容と一致し差分なし）。
+  findingsBefore 644 → findingsAfter 639。
+- `audit_impl_record.js` — 新規 2 record とも findings 0 件
+  （repo 全体の pre-existing findings は別途残存）。
+- `doc-driven-dev-graph route_graph.js --current
+  followup-triage --signal followup-terminal` — main 既存の
+  broken relation（自由記述 `defers` link 等）により
+  `blocked`（Task1 impl record・design doc の記録どおり既知の
+  基盤状態）。chain は手動で進行し本記録に残す。
+- `docs/impl/ir/README.md` は generated marker を持たない
+  hand-curated index のため、2 record を `## Settled` 表へ
+  filename 順で手動追記。
 
 NotRun / Unsupported（本 slice の対象外。Pass 扱いしない）:
 

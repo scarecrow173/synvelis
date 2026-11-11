@@ -81,6 +81,11 @@ RT/Offline 結合を実装する。
 
 ## Verification
 
+最終 canonical 証拠: `git merge origin/main`（`ff33ffb`・
+RCD-03/04 込み）後の merged tree で全 lane 再実行し全 Pass
+（exit 0）。以下は初回 lane（`e46bf1f` + docs-only 差分）の
+記録 — merged lane でも同じく全 Pass:
+
 - [x] `mise run fmt-check` — Pass（exit 0）
 - [x] `mise run check` — Pass（exit 0）
 - [x] `mise run lint` — Pass（exit 0・warning 0）
@@ -93,7 +98,9 @@ RT/Offline 結合を実装する。
   record の Validation 節）
 - [x] `mise run test-rt` — Pass（exit 0）
 - [x] `mise run test-msrv` — Pass（exit 0・rust 1.89.0）
-- [x] `mise run build` — Pass（exit 0）
+- [x] `mise run build` — Pass（再実行で exit 0。初回 run は
+  `rustc` LLVM out of memory で exit 101 — test 初回と同じ
+  transient 環境要因、再実行で非再現）
 
 - [ ] 実 MIDI Backend OS 別・実 Device/Plugin・SMPTE/MIDI2・
   AudioLens f64 — NotRun / Unsupported（test-spec 宣言どおり

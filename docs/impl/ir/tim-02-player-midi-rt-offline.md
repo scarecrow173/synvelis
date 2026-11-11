@@ -239,34 +239,47 @@ Gate）・MIDI clip graph lowering・seek 時 controller chase・
 ## Validation
 
 canonical 検証（`mise.toml` タスク。検証 slice の実走・
-`origin/main` `e46bf1f` + 本 slice の docs-only 差分の状態で
-実行。コード差分なしのため `e46bf1f` 上の既 merge コードへの
-canonical 記録となる。Windows worktree・rust 1.99.0 /
-MSRV 1.89.0）:
+Windows worktree・rust 1.99.0 / MSRV 1.89.0）:
+
+最終 lane は `git merge origin/main`（`ff33ffb`、RCD-03/04
+込み）後の merged tree で全 lane 再実行し全 Pass。初回 lane
+は `origin/main` `e46bf1f` + 本 slice の docs-only 差分で
+実行し、そこで観測された transient 失敗（下記）も正直に
+記録する。
+
+merged tree（`ff33ffb` + 本 branch）での最終結果:
 
 - `mise run fmt-check` — Pass（exit 0）
 - `mise run check` — Pass（exit 0・`cargo check --workspace
   --all-targets`）
 - `mise run lint` — Pass（exit 0・`cargo clippy --workspace
-  --all-targets -- -D warnings`）
-- `mise run test` — Pass（再実行で exit 0・`cargo test
-  --workspace --locked`。対象 test: `tim02_midi_playback`
-  10/10 ok・`tim02_midi_rt` 1/1 ok を含む全 binary ok・
-  failure 0。**初回 run は exit 9**: `tim03_session_wiring`
+  --all-targets -- -D warnings`・warning 0）
+- `mise run test` — Pass（exit 0・`cargo test --workspace
+  --locked`。対象 test: `tim02_midi_playback` 10/10 ok・
+  `tim02_midi_rt` 1/1 ok を含む全 binary ok・failure 0）
+- `mise run test-rt` — Pass（exit 0・`cargo test --workspace
+  --locked rt_`。`rt_midi_delivery_hot_path_alloc_free`・
+  `tim02_rt_offline_parity` も含め全 ok）
+- `mise run test-msrv` — Pass（exit 0・`mise exec rust@1.89.0
+  -- cargo test --workspace --locked`）
+- `mise run build` — Pass（exit 0・`cargo build --workspace
+  --locked`）
+
+初回 lane（`e46bf1f` + docs-only 差分）で観測された transient
+環境要因（merged lane では再現せず）:
+
+- `mise run test` 初回 run は exit 9: `tim03_session_wiring`
   binary が `memory allocation of 33558588 bytes failed` を
   出力後 `exit code 0xc0000409 (STATUS_STACK_BUFFER_OVERRUN)`
   で abort。TIM-02 と無関係な TIM-03 binary の transient 環境
   要因で、同 binary の単独再実行（補助証拠: `mise exec --
   cargo test -p synvelis-player --test tim03_session_wiring
   --locked`、10/10 Pass）および `mise run test` 全量再実行
-  （exit 0）で再現しないことを確認）
-- `mise run test-rt` — Pass（exit 0・`cargo test --workspace
-  --locked rt_`。`rt_midi_delivery_hot_path_alloc_free`・
-  `tim02_rt_offline_parity` を含む rt_ suite 全 ok）
-- `mise run test-msrv` — Pass（exit 0・`mise exec rust@1.89.0
-  -- cargo test --workspace --locked`）
-- `mise run build` — Pass（exit 0・`cargo build --workspace
-  --locked`）
+  （exit 0）で再現しないことを確認。
+- `mise run build` 初回 run は exit 101: `rustc` が
+  `synvelis-workspace` compile 中に `rustc-LLVM ERROR:
+  out of memory` で `0xc0000409` abort。同じく memory 圧力の
+  transient 要因で、単独再実行で exit 0・非再現を確認。
 
 NotRun / Unsupported（test-spec 宣言どおり、Pass 扱いしない）:
 
