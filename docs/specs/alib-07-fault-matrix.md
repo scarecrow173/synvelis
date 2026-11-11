@@ -1,10 +1,10 @@
 ---
 id: "SPEC-alib07-fault-matrix"
 type: "spec"
-status: "approved"
+status: "implemented"
 title: "ALIB-07 — Asset Library 全経路 Fault Matrix（headless slice・synvelis-library）"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -45,7 +45,8 @@ relations:
     moved: []
     generated: []
   implements: []
-  implemented-by: []
+  implemented-by:
+    - "docs/designs/alib-07-fault-matrix-design.md"
   depends-on:
     - "docs/specs/alib-01-asset-provider-contract.md"
     - "docs/specs/alib-02-streaming-verified-import.md"

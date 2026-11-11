@@ -6,11 +6,8 @@ Directory: `docs/tasks`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
-| TASK-alib02-t1 | ALIB-02 Task 1+2 — import pipeline module・namespace・tests | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
-| TASK-alib02-v5snap-t1 | ALIB-02 v5 asset-digest migration + recovery fixture | completed | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | TASK-alib03-t1 | ALIB-03 Task 1 — cache/catalog/preview/notify modules・tests | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | TASK-alib06-t1 | ALIB-06 Task 1 — webdav provider modules・fixture・tests | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
-| TASK-alib07-t1 | ALIB-07 Task 1 — fault case 追加・webdav fixture 抽出・証拠 matrix | in-progress | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | TASK-034AUT01Mn7pQs4wXc9vBhJk | AUT-01: Touch Return 150ms smoothstep・Read/Touch/Latch/Write 境界 State 実装 | in-progress | [aut-01-task1-touch-return-writer-state.md](./aut-01-task1-touch-return-writer-state.md) |
 | TASK-034AUT04uqfg9sevPu0zlr | AUT-04 task1: Viewport LOD・RT bounded queue・型付き喪失 provenance 実装 + headless テスト | todo | [aut-04-task1-automation-curve-lod-record-budget.md](./aut-04-task1-automation-curve-lod-record-budget.md) |
 | TASK-034U2vruJGfkEYZHCqNfwE | canonical temp fixture による synvelis-library symlink テスト修正 | in-progress | [canonical-temp-fixture-synvelis-library-symlink.md](./canonical-temp-fixture-synvelis-library-symlink.md) |
@@ -66,7 +63,10 @@ Directory: `docs/tasks`
 | TASK-MrgE7n0XwNu9hoShUiohdL | ALIB-01 task4 — 受入・回帰検証 + impl record | done | [alib-01-task4-acceptance.md](./alib-01-task4-acceptance.md) |
 | TASK-SV180RootedCutover2k26 | ALIB-01 task5 — Ruviform rooted capability への containment 移行（N1 修復） | done | [alib-01-task5-rooted-cutover.md](./alib-01-task5-rooted-cutover.md) |
 | TASK-SV85RF409ScopedEnum9zQ2 | ALIB-01 task6 — ruviform#409 scoped re-root / bounded 列挙への正規契約移行 | done | [alib-01-task6-rf409-scoped-enumeration.md](./alib-01-task6-rf409-scoped-enumeration.md) |
+| TASK-alib02-t1 | ALIB-02 Task 1+2 — import pipeline module・namespace・tests | done | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
+| TASK-alib02-v5snap-t1 | ALIB-02 v5 asset-digest migration + recovery fixture | done | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | TASK-alib04-t1 | ALIB-04 Task 1 — git provider modules・fixture・tests | done | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
+| TASK-alib07-t1 | ALIB-07 Task 1 — fault case 追加・webdav fixture 抽出・証拠 matrix | done | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | TASK-alib07-import-cancel | ALIB-07 slice 2 Task 1 — cancel checkpoint・fault case・crash fixture・matrix 簿記 | done | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | TASK-034AUT02Gt6kHr4nWy8sBp3x | AUT-02 task1: 境界 anchor 実装 + op 適用 + property/exact fixture テスト | done | [aut-02-task1-region-replace-boundary.md](./aut-02-task1-region-replace-boundary.md) |
 | TASK-034AUT03Pq9rWx3nVm7sJk2d | AUT-03 task1: Write Range 閉鎖・境界 flush・明示 Rearm 実装 + headless テスト | done | [aut-03-task1-loop-write-one-pass.md](./aut-03-task1-loop-write-one-pass.md) |
@@ -84,6 +84,7 @@ Directory: `docs/tasks`
 | TASK-034QN1Ynloix2iEZj58mZJ | ED-B task: media move/trim/slip + marquee commit | done | [ed-b-task-media-commit.md](./ed-b-task-media-commit.md) |
 | TASK-034RINq1C9IMn7tPyqXY2h | Issue #147 T1 sccache verify/gw10 導入・実測評価 | done | [issue-147-t1-sccache-verify-gw10.md](./issue-147-t1-sccache-verify-gw10.md) |
 | TASK-034RGXoZuTHIczgPxzHY1W | Issue #151 T1 ui-verify lane + install-ui freshness 追加 | done | [issue-151-t1-ui-verify-lane.md](./issue-151-t1-ui-verify-lane.md) |
+| TASK-VB7LzgmqMRIfE31stZItL7 | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 | done | [issue-86-task-verified-import-wiring.md](./issue-86-task-verified-import-wiring.md) |
 | TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |
 | TASK-z866D1bQYKGTdgVlXsQMXJ | L1 task2 player crate fixture | done | [l1-task2-player-crate-fixture.md](./l1-task2-player-crate-fixture.md) |
 | TASK-W9NYIr58HYQiSJ9WczQxPS | L1 task3 import resolver | done | [l1-task3-import-resolver.md](./l1-task3-import-resolver.md) |
@@ -181,6 +182,7 @@ Directory: `docs/tasks`
 | TASK-v2hQAN1hrbnURHHF2lrf6L | VCS-03 Task1 Git Read Provider headless slice | done | [vcs-03-task1-git-read-provider-headless-slice.md](./vcs-03-task1-git-read-provider-headless-slice.md) |
 | TASK-VCS04Hist0ryV1ewTsk01 | VCS-04 slice1 タスク分解 — History/Visual Diff headless | done | [vcs-04-task1-history-diff-headless-slice.md](./vcs-04-task1-history-diff-headless-slice.md) |
 | TASK-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless slice — 実装 task | done | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
+| TASK-4Sfq6WWBaX1avImCs5OcLh | VCS-06 monitoring-domain matrix | done | [vcs-06-task-monitoring-matrix.md](./vcs-06-task-monitoring-matrix.md) |
 | TASK-034VpC1mzY9bzJDEjAIDKv | VCS-06 UI headless matrix | done | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |

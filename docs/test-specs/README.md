@@ -29,6 +29,7 @@ Directory: `docs/test-specs`
 | TSPEC-034SYN166CiGateX | Issue #166 ci-summary fail-closed gate 検証仕様 | proposed | [issue-166-ci-summary-gate.md](./issue-166-ci-summary-gate.md) |
 | TSPEC-K0owvECAJq2cZ4wvoyMdzy | Issue #167 Tracker reconcile test specification — Consumer 契約(共有 pin・mode 分離・guard・入口) | proposed | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
 | TSPEC-034U2HrQ3Myiuakuy9dVPa | Issue #184 canonical temp fixture 検証仕様 | approved | [issue-184-canonical-temp-fixture.md](./issue-184-canonical-temp-fixture.md) |
+| TSPEC-Zb0ctcQ2s7S0lDwxkjXsiu | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 — テスト仕様 | approved | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | TSPEC-034QmjuUDQRs8JzfSsG8wM | L2 検証仕様 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | TSPEC-SXc0ENzb4xBlpJDsiIaUA8 | MD-A 検証仕様 — TakeGroup/Comp・Effective Comp 投影・Placement/Playback 時間契約 | approved | [mda-model-poc-acceptance.md](./mda-model-poc-acceptance.md) |
@@ -114,6 +115,7 @@ Directory: `docs/test-specs`
 | TSPEC-VCS04Hist0ryV1ewTst01 | VCS-04 History/Visual Diff headless fixtures | approved | [vcs-04-history-diff-fixtures.md](./vcs-04-history-diff-fixtures.md) |
 | TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |
 | TSPEC-vcs06-fixture-matrix | VCS-06 fixture matrix tests | approved | [vcs-06-fixture-matrix.md](./vcs-06-fixture-matrix.md) |
+| TSPEC-KoKmM6h8CwFykztjanQvMC | VCS-06 monitoring-domain matrix tests | approved | [vcs-06-monitoring-matrix.md](./vcs-06-monitoring-matrix.md) |
 | TSPEC-034VpCxHsdsOcOqeEN6wGS | VCS-06 UI headless matrix tests | approved | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
 | TSPEC-034QdZPqGguxUOzVihyxjE | VS-A F0 Gate 検証仕様 — Stable ID・時間・Command・Save/Reload・Recording | approved | [vs-a-f0-gate-stable-id-command-save-reload-recording.md](./vs-a-f0-gate-stable-id-command-save-reload-recording.md) |
 | TSPEC-dtmF30GppYRVULWnH8CG9o | VS-B E2E-R Gate 検証仕様 — Mock Gate・Buffer Pool・SPSC・Fail-stop | approved | [vs-b-e2e-r1-mock-gate-rt-capture.md](./vs-b-e2e-r1-mock-gate-rt-capture.md) |

@@ -18,6 +18,7 @@
 //! ```
 
 pub mod binding;
+pub mod blob;
 pub mod dispatch;
 pub mod driver;
 pub mod error;
@@ -39,14 +40,16 @@ pub mod routing_control;
 pub mod routing_engine;
 pub mod routing_lower;
 pub mod trace;
+pub mod verified_import;
 
 pub use binding::{
     AttachClockContext, BindingError, PluginBindingSession, PluginParameterBinding,
     StablePluginInstanceId,
 };
+pub use blob::{VerifiedBlob, open_blob_verified};
 pub use dispatch::{DispatchCycle, DispatchError, ParamDispatch};
 pub use driver::{AttachedNode, DriverState, HeadlessDriver, PlayReport, PumpPolicy};
-pub use error::{ImportError, ResolveError};
+pub use error::{ImportError, ResolveError, VerifiedImportError};
 pub use host::{
     BoundaryDeclaration, PluginHostProcessors, ProcessorConnectError, ProcessorConnectRequest,
     ProcessorConnection, ProcessorControl, ProcessorHost, ProcessorLease, StaticProcessorHost,
@@ -84,4 +87,7 @@ pub use routing_control::{
 pub use trace::{
     DispatchTraceAdapter, TraceAdapterConfig, TraceContext, TraceEvent, TraceEventKind,
     TraceMetrics,
+};
+pub use verified_import::{
+    VERIFIED_IMPORT_PROVIDER, VerifiedImportOutcome, VerifiedImportRequest, import_verified_local,
 };

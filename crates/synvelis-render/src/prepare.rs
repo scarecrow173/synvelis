@@ -7,9 +7,8 @@
 //! serves that memory with no I/O inside `process`.
 
 use std::collections::BTreeMap;
-use std::fs::File;
 
-use synvelis_player::import::{blob_path, content_digest_stream};
+use synvelis_player::blob::open_blob_verified;
 use synvelis_project::{Project, SourceId};
 
 use ruviform_audio_core::AudioFormat;
@@ -62,32 +61,14 @@ pub fn open_source(
         return Err(ResolveError::MissingAsset { asset_id });
     }
     let digest = source.content_digest.clone();
-    let path = blob_path(media_root, &digest);
-    // One fd serves digest *and* decode — a path swap between the two
+    // `open_blob_verified` resolves by digest kind and measures on the
+    // same fd it returns — a path swap between verify and decode
     // cannot put unverified bytes under a verified digest.
-    let mut file = File::open(&path).map_err(|e| {
-        if path.exists() {
-            ResolveError::Io {
-                detail: e.to_string(),
-            }
-        } else {
-            ResolveError::MissingMedia {
-                digest: digest.clone(),
-            }
-        }
-    })?;
-    let actual = content_digest_stream(&mut file).map_err(|e| ResolveError::Io {
-        detail: e.to_string(),
-    })?;
-    if actual != digest {
-        return Err(ResolveError::HashMismatch {
-            expected: digest,
-            actual,
-        });
-    }
-    let demuxer = ruviform_io_symphonia::open_demuxer(file).map_err(|e| ResolveError::Corrupt {
-        detail: e.to_string(),
-    })?;
+    let blob = open_blob_verified(media_root, &digest)?;
+    let demuxer =
+        ruviform_io_symphonia::open_demuxer(blob.file).map_err(|e| ResolveError::Corrupt {
+            detail: e.to_string(),
+        })?;
     let stream = demuxer
         .streams()
         .iter()
