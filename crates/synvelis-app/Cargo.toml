@@ -12,6 +12,7 @@ workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+synvelis-library = { path = "../synvelis-library" }
 synvelis-project = { path = "../synvelis-project" }
 synvelis-player = { path = "../synvelis-player" }
 synvelis-recording = { path = "../synvelis-recording" }

@@ -13,6 +13,8 @@
 //! implying playback/recording exists.
 
 use std::cell::RefCell;
+use std::fs;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -29,11 +31,14 @@ use ruviform_ui::ipc::{ErrorBody, codes};
 use ruviform_ui::view::{AttachEpoch, AttachEpochAllocator};
 use serde_json::{Value, json};
 
-use synvelis_project::vcs::VcsHistoryBackend;
+use synvelis_library::{GitVcsConfig, GitVcsProvider};
+use synvelis_project::vcs::{
+    ProjectPath, VcsError, VcsHistoryAdapter, VcsHistoryBackend, VcsReadProvider,
+};
 use synvelis_project::{
     ControlEntityRef, CounterIdGenerator, DirectoryBundleStore, ParameterTargetId,
     PpqnConversionPolicy, Project, ProjectController, ProjectId, ProjectOp, ProjectRevision,
-    RelationDirection,
+    ProjectStore, RelationDirection,
 };
 use synvelis_workspace::{
     ProjectSession, SignalFlowRuntimeEvidence, SignalFlowView, SignalFlowViewOptions,
@@ -69,6 +74,14 @@ pub(crate) const SIGNAL_FLOW_MAX_EDGES: usize = 512;
 /// Only resolves clip spans to whole frames; the seconds value does not
 /// depend on it for musical clips.
 const SEEK_MEDIA_RATE: u32 = 48_000;
+
+/// The VCS-facing project file inside a project bundle — a single
+/// file holding the canonical [`synvelis_project::SnapshotEnvelope`]
+/// bytes the store's HEAD names. The `syn.vcs.*` committed/staged
+/// endpoints resolve this repo-relative path through the bound
+/// [`VcsHistoryBackend`]; it is refreshed on every save/open so it
+/// can never lag the saved HEAD (VCS-04 backend wiring, synvelis#95).
+const VCS_PROJECT_FILE: &str = "main.json";
 
 /// Audio-runtime owner slot.
 ///
@@ -285,10 +298,11 @@ pub struct SynvelisApp {
     /// VCS history backend the `syn.vcs.*` ops compose into
     /// [`synvelis_workspace::VcsSession`] (VCS-04, synvelis#95).
     /// `None` reports `NoBackend` — Live/Saved endpoints still
-    /// resolve. Injected once by the composition root; production
-    /// wiring detects and binds a provider per project root (the
-    /// headless slice ships the seam only). `pub(crate)` so `ui_ops`
-    /// can compose the `VcsSession` context disjoint from `workspace`.
+    /// resolve. Bound per project root by
+    /// [`Self::bind_vcs_backend`] on every `project.new`/`open` —
+    /// a backend detected for a previous project root is never kept.
+    /// `pub(crate)` so `ui_ops` can compose the `VcsSession` context
+    /// disjoint from `workspace`.
     pub(crate) vcs_backend: Option<Arc<dyn VcsHistoryBackend>>,
     /// RCD-03 Arm/Monitoring UX state (synvelis#117 slice) —
     /// session-scope monitor declarations, the active monitor
@@ -338,6 +352,73 @@ impl SynvelisApp {
     #[must_use]
     pub fn vcs_backend(&self) -> Option<&dyn VcsHistoryBackend> {
         self.vcs_backend.as_deref()
+    }
+
+    /// Rebinds the production VCS history backend for the project
+    /// bundle at `bundle_path` (VCS-04 backend wiring, synvelis#95).
+    ///
+    /// Detects the git workspace containing the bundle, opens a
+    /// [`GitVcsProvider`] bound to the bundle directory as
+    /// `project_root`, and adapts it into the
+    /// [`VcsHistoryBackend`] the `syn.vcs.*` ops consume. The
+    /// committed/staged endpoints resolve
+    /// `<project_root>/main.json` — the project file
+    /// [`Self::refresh_project_file`] keeps in lockstep with the
+    /// saved HEAD.
+    ///
+    /// Every call re-detects: a non-repository bundle, a detection
+    /// failure, or a provider/bind error clears `vcs_backend` to
+    /// `None` so ops report `NoBackend` honestly — a backend minted
+    /// for a different project root is never kept. Binding is
+    /// infallible by contract; failures are logged, never propagated
+    /// (a missing VCS is a degraded mode, not a project error).
+    fn bind_vcs_backend(&mut self, bundle_path: &str) {
+        self.vcs_backend = None;
+        let detected = (|| -> Result<Arc<dyn VcsHistoryBackend>, VcsError> {
+            let root = ProjectPath::new(bundle_path)?;
+            let info = GitVcsProvider::detect_workspace(&root)?;
+            let provider = GitVcsProvider::open(&GitVcsConfig::new(bundle_path))?;
+            let project_file = if info.project_root.is_empty() {
+                VCS_PROJECT_FILE.to_owned()
+            } else {
+                format!("{}/{VCS_PROJECT_FILE}", info.project_root)
+            };
+            let adapter = VcsHistoryAdapter::new(provider, &info, project_file)?;
+            let backend: Arc<dyn VcsHistoryBackend> = Arc::new(adapter);
+            Ok(backend)
+        })();
+        match detected {
+            Ok(backend) => self.vcs_backend = Some(backend),
+            Err(error) => {
+                tracing::warn!(error = %error, "vcs backend bind failed — syn.vcs.* reports no-backend");
+            }
+        }
+    }
+
+    /// Rewrites `<bundle>/main.json` with the exact bytes the store's
+    /// HEAD names (VCS-04 backend wiring). Called after every
+    /// successful `project.new`/`open`/`save` so the VCS-facing
+    /// project file can never lag the saved HEAD — a stale file would
+    /// let committed endpoints resolve pre-save content and fake
+    /// equality against the Saved endpoint.
+    ///
+    /// # Errors
+    /// [`AppError::Store`] on store read or publish failures.
+    fn refresh_project_file(store: &dyn ProjectStore, bundle_path: &str) -> Result<(), AppError> {
+        let Some(head) = store.head().map_err(|e| AppError::store(e.to_string()))? else {
+            return Ok(());
+        };
+        let bytes = store
+            .read_snapshot(&head)
+            .map_err(|e| AppError::store(e.to_string()))?;
+        let dir = Path::new(bundle_path);
+        let tmp = dir.join(format!("{VCS_PROJECT_FILE}.tmp"));
+        let target = dir.join(VCS_PROJECT_FILE);
+        fs::write(&tmp, &bytes)
+            .map_err(|e| AppError::store(format!("write {}: {e}", tmp.display())))?;
+        fs::rename(&tmp, &target)
+            .map_err(|e| AppError::store(format!("publish {}: {e}", target.display())))?;
+        Ok(())
     }
 
     /// The shared session `AttachEpoch` allocator — take a handle
@@ -582,6 +663,7 @@ impl SynvelisApp {
             .controller_mut()
             .save(&mut store)
             .map_err(|e| AppError::store(e.to_string()))?;
+        Self::refresh_project_file(&store, path)?;
         self.workspace = workspace;
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
@@ -590,6 +672,7 @@ impl SynvelisApp {
         // read-through するため新 project の空状態がそのまま
         // 反映される。ここで reset するのは session 観測値のみ。
         self.monitoring = crate::monitoring::MonitorUxState::default();
+        self.bind_vcs_backend(path);
         Ok(self.project_info())
     }
 
@@ -620,6 +703,7 @@ impl SynvelisApp {
             .controller_mut()
             .load(&store)
             .map_err(|e| AppError::store(e.to_string()))?;
+        Self::refresh_project_file(&store, path)?;
         self.workspace = workspace;
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
@@ -629,6 +713,7 @@ impl SynvelisApp {
         // session 観測値（稼働 session・latency 注入・観測 overlay）
         // のみ — これらは永続化対象外。
         self.monitoring = crate::monitoring::MonitorUxState::default();
+        self.bind_vcs_backend(path);
         Ok(self.project_info())
     }
 
@@ -672,6 +757,11 @@ impl SynvelisApp {
             .controller_mut()
             .save(store)
             .map_err(|e| AppError::store(e.to_string()))?;
+        let bundle_path = self
+            .bundle_path
+            .clone()
+            .ok_or_else(|| AppError::store("no project store — use syn.project.new/open first"))?;
+        Self::refresh_project_file(store, &bundle_path)?;
         Ok(self.project_info())
     }
 
