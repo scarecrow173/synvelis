@@ -7111,7 +7111,9 @@ dependencies = [
  "ruviform-rt",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "stats_alloc",
+ "synvelis-library",
  "synvelis-project",
  "synvelis-recording",
 ]

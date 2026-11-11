@@ -102,6 +102,13 @@ pub enum ResolveError {
         /// Expected content digest.
         digest: String,
     },
+    /// The recorded digest is not a resolvable content address —
+    /// opaque/foreign digest strings fail closed, never treated as
+    /// verified content identity.
+    UnsupportedDigest {
+        /// The unresolvable digest string.
+        digest: String,
+    },
     /// Blob bytes on disk differ from the recorded digest.
     HashMismatch {
         /// Recorded digest.
@@ -143,6 +150,9 @@ impl fmt::Display for ResolveError {
             }
             Self::MissingAsset { asset_id } => write!(f, "missing asset {asset_id}"),
             Self::MissingMedia { digest } => write!(f, "missing blob {digest}"),
+            Self::UnsupportedDigest { digest } => {
+                write!(f, "digest {digest} is not a verified content address")
+            }
             Self::HashMismatch { expected, actual } => {
                 write!(f, "blob hash mismatch: expected {expected}, got {actual}")
             }
@@ -157,3 +167,77 @@ impl fmt::Display for ResolveError {
 }
 
 impl std::error::Error for ResolveError {}
+
+/// Failures of the verified consumer import entry
+/// (`crate::verified_import::import_verified_local`). Each variant
+/// names the stage that failed — provider pin, library pipeline, blob
+/// resolution, media decode, or the state-advance commit — so a caller
+/// never confuses a byte-integrity import failure with a media
+/// verification failure.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum VerifiedImportError {
+    /// Provider construction or pinning the file failed.
+    Provider(synvelis_library::ProviderError),
+    /// The library verified-import pipeline failed — stale expected
+    /// revision, integrity conflict, publish failure, job-state
+    /// violation, or provider interruption (typed in
+    /// `synvelis_library::ImportError`).
+    Import(synvelis_library::ImportError),
+    /// The published blob could not be resolved through the
+    /// digest-kind blob layer — missing media, hash mismatch, or an
+    /// unresolvable digest kind.
+    Resolve(ResolveError),
+    /// The published blob failed container probing or decoding.
+    Corrupt {
+        /// Underlying diagnostic.
+        detail: String,
+    },
+    /// The container parsed but holds no decodable PCM audio stream.
+    UnsupportedCodec {
+        /// Underlying diagnostic.
+        detail: String,
+    },
+    /// The `SetSourceState` state-advance commit was rejected by the
+    /// project controller.
+    CommitRejected {
+        /// The project error.
+        source: synvelis_project::Error,
+    },
+    /// Entry-point I/O — path canonicalization or provider-root
+    /// derivation.
+    Io {
+        /// Underlying diagnostic.
+        detail: String,
+    },
+}
+
+impl fmt::Display for VerifiedImportError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Provider(e) => write!(f, "provider/pin failure: {e}"),
+            Self::Import(e) => write!(f, "verified import pipeline failed: {e}"),
+            Self::Resolve(e) => write!(f, "blob resolution failed: {e}"),
+            Self::Corrupt { detail } => write!(f, "corrupt media: {detail}"),
+            Self::UnsupportedCodec { detail } => {
+                write!(f, "unsupported codec/container: {detail}")
+            }
+            Self::CommitRejected { source } => {
+                write!(f, "state-advance commit rejected: {source}")
+            }
+            Self::Io { detail } => write!(f, "I/O failure: {detail}"),
+        }
+    }
+}
+
+impl std::error::Error for VerifiedImportError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Provider(e) => Some(e),
+            Self::Import(e) => Some(e),
+            Self::Resolve(e) => Some(e),
+            Self::CommitRejected { source } => Some(source),
+            Self::Corrupt { .. } | Self::UnsupportedCodec { .. } | Self::Io { .. } => None,
+        }
+    }
+}

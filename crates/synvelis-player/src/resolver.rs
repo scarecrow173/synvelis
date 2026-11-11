@@ -6,7 +6,6 @@
 //! codec, unresolved source and missing media are distinct variants —
 //! a pre-import path or an unverified source can never resolve.
 
-use std::fs::{self, File};
 use std::path::Path;
 
 use synvelis_project::{AssetId, Project, SourceId, SourceState};
@@ -18,8 +17,8 @@ use ruviform_media_reader::{
     Prefetch, PrefetchConfig, PrefetchConsumer, PrefetchHandle, PrefetchProducer, SourceReader,
 };
 
+use crate::blob::open_blob_verified;
 use crate::error::ResolveError;
-use crate::import::{blob_path, content_digest};
 
 /// A fully prepared clip playback path: reader inside the producer,
 /// consumer ready for the RT side, canonical format recorded.
@@ -64,30 +63,9 @@ fn open_verified(
         return Err(ResolveError::MissingAsset { asset_id });
     }
     let digest = source.content_digest.clone();
-    let path = blob_path(media_root, &digest);
-    let bytes = fs::read(&path).map_err(|e| {
-        if path.exists() {
-            ResolveError::Io {
-                detail: e.to_string(),
-            }
-        } else {
-            ResolveError::MissingMedia {
-                digest: digest.clone(),
-            }
-        }
-    })?;
-    let actual = content_digest(&bytes);
-    if actual != digest {
-        return Err(ResolveError::HashMismatch {
-            expected: digest,
-            actual,
-        });
-    }
+    let blob = open_blob_verified(media_root, &digest)?;
     let demuxer =
-        ruviform_io_symphonia::open_demuxer(File::open(&path).map_err(|e| ResolveError::Io {
-            detail: e.to_string(),
-        })?)
-        .map_err(|e| ResolveError::Corrupt {
+        ruviform_io_symphonia::open_demuxer(blob.file).map_err(|e| ResolveError::Corrupt {
             detail: e.to_string(),
         })?;
     let stream = demuxer
