@@ -96,4 +96,5 @@ Directory: `docs/impl/ir`
 | IMPL-034VpRmK9xT2wQ8nB4vC6d | RCD-03 Arm/Monitor/Punch Project 永続投影 slice 実装記録 | completed | [rcd-03-monitor-persistence-slice.md](rcd-03-monitor-persistence-slice.md) |
 | IMPL-034VpEJmewmUasabGgBzbM | VCS-06 UI headless matrix (synvelis#97 slice) | completed | [vcs-06-ui-headless-matrix-slice.md](vcs-06-ui-headless-matrix-slice.md) |
 | IMPL-034Vsqaiq4B9YQrsfPw8Sb | TIM-03 session→driver/routing wiring — BoundarySessionSpec vend・driver session/mirror・routing scoped API | completed | [tim-03-session-driver-wiring-slice.md](tim-03-session-driver-wiring-slice.md) |
+| IMPL-PCc4030bs3vN1pQ8wXyZ2aG | PC-C4-03 param observation — host drain → ParamDispatch ledger | completed | [pc-c4-03-param-observation-slice.md](pc-c4-03-param-observation-slice.md) |
 | IMPL-034Vu50fg7S7yCp4bni412 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証 | completed | [tim-01-app-ppqn-slice.md](tim-01-app-ppqn-slice.md) |

@@ -47,6 +47,7 @@ Directory: `docs/designs`
 | DESIGN-o5U9K2sOik9XcS81AkO1Qj | PC-C3-05 RT trace adapter 設計 — DispatchTraceAdapter・写像・bounded history・metrics | approved | [pc-c3-05-rt-trace-adapter-design.md](./pc-c3-05-rt-trace-adapter-design.md) |
 | DESIGN-034UqtGwJKTXdIjOxuLVS2 | PC-C3 ControlTrace 設計 — stage evidence slot・freshness 判定・plan activation 投影 | approved | [pc-c3-control-trace-design.md](./pc-c3-control-trace-design.md) |
 | DESIGN-PjOpAzd2cNOD9kshEbJeKl | PC-C4-02 plugin instance binding design — connect-time identity vend・stage-1 authority consumption | approved | [pc-c4-02-plugin-instance-binding-design.md](./pc-c4-02-plugin-instance-binding-design.md) |
+| DSGN-PCc4030bs3vN1pQ8wXyZ2aC | PC-C4-03 param observation design — drain surface・binding 逆引き・gate | approved | [pc-c4-03-param-observation-design.md](./pc-c4-03-param-observation-design.md) |
 | DESIGN-034Uw4SG2SiRKQuoKOZGzL | PC-C4 plugin parameter binding design — verified frame base・capability gate・generation consistency | approved | [pc-c4-plugin-param-binding-design.md](./pc-c4-plugin-param-binding-design.md) |
 | DESIGN-AkFUh4M60YuHo8COCvb0Um | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
 | DESIGN-034UxXM5FBBTGn5JWkSBss | PC-C5 slice2 Gesture 固定・stale drop・Inspector mode 設計 | approved | [pc-c5-02-03-gesture-stale-inspector-design.md](./pc-c5-02-03-gesture-stale-inspector-design.md) |
@@ -102,7 +103,7 @@ Directory: `docs/designs`
 | DESIGN-034RBzdpo91wcbqBK7Gb9t | SYN-OBS-01 Design — Host所有 Logging Owner・設定解決・Source Catalog | approved | [syn-obs-01-design-host-logging-owner-source-catalog.md](./syn-obs-01-design-host-logging-owner-source-catalog.md) |
 | DESIGN-034T2RF305WAVSTAGED00Y | SYN-RF305 WAV Export StagedFile 移行設計 | approved | [syn-rf305-wav-export-staged-file-design.md](./syn-rf305-wav-export-staged-file-design.md) |
 | — | Synvelis-driven Ruviform Target Architecture v0.7.1 | — | [synvelis-driven-ruviform-target-architecture-v07.md](./synvelis-driven-ruviform-target-architecture-v07.md) |
-| DESIGN-034VtzPNCX6aVKTaxy71ke | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn 設計 | draft | [tim-01-app-ppqn-design.md](./tim-01-app-ppqn-design.md) |
+| DESIGN-034VtzPNCX6aVKTaxy71ke | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn 設計 | approved | [tim-01-app-ppqn-design.md](./tim-01-app-ppqn-design.md) |
 | DESIGN-034UHVNvFQXFumTOowIt0g | TIM-01 Configurable PPQN — Rational Beat 再投影設計 | approved | [tim-01-configurable-ppqn-design.md](./tim-01-configurable-ppqn-design.md) |
 | DESIGN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — crate 内完結設計 | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | DESIGN-034UwVoRGI8Bp9zuzRFQhj | TIM-02 SMF Format0/1 core — crate 内完結設計 | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
@@ -165,3 +166,4 @@ Directory: `docs/designs`
 | DESIGN-034QwYMaHNxxpkZgLxPjx6 | WS-A Workspace 基盤設計 — View/Selection/LinkGroup/Command/Dock headless PoC | approved | [ws-a-workspace-foundation-design.md](./ws-a-workspace-foundation-design.md) |
 | DESIGN-HEDK2Gt2m6FAc3GREIhJDl | X Design — Canonical publication receipt・commit digest 接続・同一経路 playback/export | approved | [x-recorded-verified-source-playback-export-design.md](./x-recorded-verified-source-playback-export-design.md) |
 | DSGN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — module 設計 | approved | [vcs-05-apply-restore-headless-design.md](./vcs-05-apply-restore-headless-design.md) |
+| DSGN-PCc4030bs3vN1pQ8wXyZ2aC | PC-C4-03 param observation design — drain surface・binding 逆引き・gate | approved | [pc-c4-03-param-observation-design.md](./pc-c4-03-param-observation-design.md) |

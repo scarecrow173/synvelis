@@ -43,7 +43,6 @@ Directory: `docs/tasks`
 | TASK-034UogPe6cIh8LtcFphyuH | SV-GUI-04 slice1 precursor: multi-window WindowHandle + headless dock fixture | in-progress | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | TASK-NFJWSkocsf8xf7WcgpPdL0 | SV-GUI-04 slice1 タスク分解 — 実 2-window mount | in-progress | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
-| TASK-034VtBNiTaFYQMA3eOBYXv | TIM-01 task2 — app 層 PPQN 統合 | todo | [tim-01-task2-app-ppqn.md](./tim-01-task2-app-ppqn.md) |
 | TASK-126tim02playerMidiRt01 | TIM-02 Task2 player MIDI RT/Offline 結合 slice | in-progress | [tim-02-task2-player-midi.md](./tim-02-task2-player-midi.md) |
 | TASK-034UAAcPSS47j6GIlPGPrX | VCS-01 Task1 Immutable Snapshot Resolver headless slice | in-progress | [vcs-01-task1-immutable-snapshot-resolver-headless-slice.md](./vcs-01-task1-immutable-snapshot-resolver-headless-slice.md) |
 | TASK-VCS04Hist0ryV1ewTsk01 | VCS-04 slice1 タスク分解 — History/Visual Diff headless | in-progress | [vcs-04-task1-history-diff-headless-slice.md](./vcs-04-task1-history-diff-headless-slice.md) |
@@ -107,6 +106,7 @@ Directory: `docs/tasks`
 | TASK-034RoXjRUKOjib6ULatmIn | PC-C1: prepare/apply/finalize 実装タスク | done | [pc-c1-task1-prepare-apply-finalize.md](./pc-c1-task1-prepare-apply-finalize.md) |
 | TASK-034Upd3TZPjW8QcMPatmyb | PC-C2: Control Relation Index/Projection 実装タスク | done | [pc-c2-task1-relation-index.md](./pc-c2-task1-relation-index.md) |
 | TASK-034UquDG2pRhDCtpLYPhPi | PC-C3: ControlTrace projection 実装タスク | done | [pc-c3-task1-control-trace.md](./pc-c3-task1-control-trace.md) |
+| TASK-PCc4030bs3vN1pQ8wXyZ2aE | PC-C4-03 task1 — reported observation 消費 実装 | done | [pc-c4-03-task1-param-observation.md](./pc-c4-03-task1-param-observation.md) |
 | TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | done | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TASK-034UxYCkPWXOotRSbjIPex | PC-C5 slice2 タスク分解 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | done | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -162,6 +162,7 @@ Directory: `docs/tasks`
 | TASK-034RBFY3O4vz81b0Rumg95 | SYN-OBS-01 task6 最終検証と impl record | done | [syn-obs-01-task6-final-verify-impl-record.md](./syn-obs-01-task6-final-verify-impl-record.md) |
 | TASK-034T2RF305WAVSTAGED01A | SYN-RF305 task1 render/player WAV Export StagedFile 移行 | done | [syn-rf305-task1-render-export-staged-file.md](./syn-rf305-task1-render-export-staged-file.md) |
 | TASK-034UHVQgQGF9WnpLCSCDTB | TIM-01 configurable PPQN — implementation tasks | done | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
+| TASK-034VtBNiTaFYQMA3eOBYXv | TIM-01 task2 — app 層 PPQN 統合 | done | [tim-01-task2-app-ppqn.md](./tim-01-task2-app-ppqn.md) |
 | TASK-034UwY7u8viaAzE6tUxLHa | TIM-02 Task1 SMF Format0/1 project+recording headless slice | done | [tim-02-task1-smf-core.md](./tim-02-task1-smf-core.md) |
 | TASK-zHlj8Os7dQ66GPeta6Sxew | TIM-03 task1 — session→driver/routing wiring（BoundarySessionSpec vend・driver session/mirror・routing scoped API） | done | [tim-03-task1-session-driver-wiring.md](./tim-03-task1-session-driver-wiring.md) |
 | TASK-034UC5rYrk7usxShbL01xG | TIM-04 plugin state snapshot consistency — implementation tasks | done | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
