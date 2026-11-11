@@ -116,3 +116,5 @@ Directory: `docs/impl/ir`
 | IMPL-0h9qRk2mNvPwXzYc8uJd4s | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe | completed | [rcd-02-unsynced-loss-real-fs-probe-slice.md](rcd-02-unsynced-loss-real-fs-probe-slice.md) |
 | IMPL-034VGuS8MYmQ9PYiMy81Gt | VCS-04 History/Visual Diff UI — headless read-only projection slice (synvelis#95) | completed | [vcs-04-history-visual-diff-ui.md](vcs-04-history-visual-diff-ui.md) |
 | IMPL-VvBJRLqOSjnq3Pv2b4D1aO | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f API 追従 | completed | [sv-28-ruviform-pin-fd1d4d5f.md](sv-28-ruviform-pin-fd1d4d5f.md) |
+| IMPL-034VTFdV4uROWPZI1T0Xga | VCS-06 evidence completion slice (synvelis#97) | completed | [vcs-06-evidence-completion.md](vcs-06-evidence-completion.md) |
+| IMPL-034VMQZEdjKG5qiL5uYYuF | ALIB-02 residual closeout — Issue #86 DoD 照合・canonical lane 実測・残存 gate 棚卸し | completed | [alib-02-residual-closeout.md](alib-02-residual-closeout.md) |

@@ -43,11 +43,13 @@ Directory: `docs/test-specs`
 | TSPEC-PCc4030bs3vN1pQ8wXyZ2aF | PC-C4-03 param observation — drain→ledger・gate・typed 終端 test 保証 | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |
 | TSPEC-PCc4040bs3vN1pQ8wXyZ2aF | PC-C4-04 app composition — vend・所有・tick・gate・feed test 保証 | approved | [pc-c4-04-app-composition.md](./pc-c4-04-app-composition.md) |
 | TSPEC-034VvKHc3n0JmiEzTuFtD2 | PC-C4-05 persisted StablePluginInstanceId test spec | approved | [pc-c4-05-persisted-instance-id.md](./pc-c4-05-persisted-instance-id.md) |
+| TSPEC-7c4e9a1b2d3f4e5a6b7c8f0a3b4 | PC-C4-06 control op surface test spec | approved | [pc-c4-06-control-op-surface.md](./pc-c4-06-control-op-surface.md) |
 | TSPEC-034Uw6FJykHzgki5MvwCPZ | PC-C4 plugin parameter binding e2e — PLUG-C4-01..05 / PC-C4-PL01..08 | approved | [pc-c4-e2e-plugin-param-binding.md](./pc-c4-e2e-plugin-param-binding.md) |
 | TSPEC-tCO4ppjNmQv0ebUI6Q1rHD | PC-C5 slice1 テスト仕様 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TSPEC-034UxY8XCaH0Kk6JNotIAO | PC-C5 slice2 テスト仕様 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | TSPEC-YEy9TAHyUte5MD6kpyZJFI | PC-C6 oracle E2E — REL01〜07 / TR01〜08 独立照合 fixture | approved | [pc-c6-e2e-oracle-rel-tr.md](./pc-c6-e2e-oracle-rel-tr.md) |
 | TSPEC-034VmVmcW4lYrji082NUve | PC-C6 oracle E2E — R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 独立照合 fixture | approved | [pc-c6-oracle-rows.md](./pc-c6-oracle-rows.md) |
+| TSPEC-034VNrSyPxIGK6pnJSonNR | plugin_instances VCS semantic diff 分類 fixture matrix | proposed | [plugin-instances-vcs-diff.md](./plugin-instances-vcs-diff.md) |
 | TSPEC-034V2ixodcql8RLLJfoYqH | RCD-01 device-recording headless fixture test spec | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
 | TSPEC-htPhSCIWfZxHOOGdEAyaeK | RCD-01 実Audio Device 到達準備 検証仕様 — stamp placement fallback + real backend lane | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
@@ -113,8 +115,11 @@ Directory: `docs/test-specs`
 | TSPEC-034UAzXp7iDmaV6yx7QTZQ | VCS-01 snapshot resolver fixtures | approved | [vcs-01-snapshot-resolver-fixtures.md](./vcs-01-snapshot-resolver-fixtures.md) |
 | TSPEC-034UEueLhP34NeCWclgoux | VCS-02 semantic diff fixtures | approved | [vcs-02-semantic-diff-fixtures.md](./vcs-02-semantic-diff-fixtures.md) |
 | TSPEC-K2QAlGFhpEHJiLP6StV4ta | VCS-03 Git read provider fixtures | approved | [vcs-03-git-provider-fixtures.md](./vcs-03-git-provider-fixtures.md) |
+| TSPEC-VCS04BkndWiringTspec01 | VCS-04 backend wiring fixtures | approved | [vcs-04-backend-wiring.md](./vcs-04-backend-wiring.md) |
 | TSPEC-VCS04Hist0ryV1ewTst01 | VCS-04 History/Visual Diff headless fixtures | approved | [vcs-04-history-diff-fixtures.md](./vcs-04-history-diff-fixtures.md) |
 | TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |
+| TSPEC-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface fixtures | approved | [vcs-05-monitoring-apply-surface.md](./vcs-05-monitoring-apply-surface.md) |
+| TSPEC-TDeaZLlpVBAaTB6kuxZzZ | VCS-06 evidence completion tests | approved | [vcs-06-evidence-completion.md](./vcs-06-evidence-completion.md) |
 | TSPEC-vcs06-fixture-matrix | VCS-06 fixture matrix tests | approved | [vcs-06-fixture-matrix.md](./vcs-06-fixture-matrix.md) |
 | TSPEC-KoKmM6h8CwFykztjanQvMC | VCS-06 monitoring-domain matrix tests | approved | [vcs-06-monitoring-matrix.md](./vcs-06-monitoring-matrix.md) |
 | TSPEC-034VpCxHsdsOcOqeEN6wGS | VCS-06 UI headless matrix tests | approved | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |

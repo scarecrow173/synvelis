@@ -113,10 +113,10 @@ Fixture: `vcs05_apply.rs` + `vcs06_apply_matrix.rs` +
 | VCS-APPLY-07 monitoring kinds | `TrackMonitorDecl`/`PunchMarks` の `Added`/`Modified` selection が typed entity transplant で適用され、`Removed` は fail-closed | `target_fingerprint` が両 kind で解決（旧来の `Unsupported` を返さない）; `Added` 2-change selection → `Applied`、live `monitoring.tracks`/`punch` が after と一致、1 apply = 1 undo step で undo/redo が monitoring 状態を往復 — `monitor_kind_added_selection_applies_typed_entities` (vcs06)・`monitor_decl_and_punch_apply_as_one_undo_step` (vcs05) Pass; `Modified` 適用 + 連続 undo が S1→S0 へ 1 step ずつ復帰 — `monitor_kind_modified_selection_applies_typed_entities` Pass; `Removed` → `ApplyError::Unsupported{kind, change: Removed, "removal changes are deferred (cascade design)"}`、journal `Failed`、live `monitoring` 不変（両 kind）— `monitor_kind_removed_selection_stays_fail_closed` Pass | **Pass** | `Removed` cascade は全 kind deferred のまま; `PluginInstance` apply は #324 系の別 slice; 実 OS/GUI/RT lanes は NotRun |
 | VCS-APPLY-REAL-* (real engine hot-swap, GUI approval UX) | — | not measured | **NotRun** | engine/GUI lanes external |
 
-## VCS-RESTORE-01..07 — restore as new copy
+## VCS-RESTORE-01..08 — restore as new copy
 
 Fixture: `vcs05_restore.rs` + `vcs06_restore_matrix.rs` +
-`vcs06_monitoring_matrix.rs`. Lane: real temp
+`vcs06_monitoring_matrix.rs` + `vcs06_plugin_instance_matrix.rs`. Lane: real temp
 FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 
 | Case | Expected | Observed | Status | Recovery/Rollback |
@@ -128,6 +128,7 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 | VCS-RESTORE-05 destination safety | existing dest → DestinationExists; relative/`CON`/`..` leaf → InvalidRequest; case-conflicting sibling → DestinationExists (lexical scan, FS-independent); low disk → LowDisk; cancel → nothing written | `existing_destination_fails_closed`, `unsafe_destinations_fail_before_any_write`, `low_disk_fails_closed`, `cancelled_restore_writes_nothing` (vcs05), `dotdot_leaf_is_rejected_before_any_write`, `case_conflicting_sibling_is_rejected` (vcs06) Pass | Pass | pre-write rejection verified |
 | VCS-RESTORE-06 independent identity | new ProjectId ≠ source; stable IDs preserved; source Saved HEAD/Git index/worktree untouched | asserted in `restore_publishes_verified_new_copy` receipt effects Pass | Pass* | — |
 | VCS-RESTORE-07 monitoring verbatim | decl (lane/arm/monitor/channel_map) + punch marks survive restore-as-copy verbatim; fork `project_id` only | `envelope.project.monitoring == source`（`monitoring.tracks` + `monitoring.punch` 全 field一致）— `restore_as_copy_preserves_monitoring_verbatim` (vcs06) Pass | Pass | — |
+| VCS-RESTORE-08 plugin_instances verbatim | issued `PluginInstanceId`s + `project.plugin_instances` survive restore-as-copy verbatim (envelope readback pin) | `restore_as_copy_preserves_plugin_instances_verbatim` (vcs06_plugin_instance_matrix) Pass | Pass | — |
 | VCS-RESTORE-REAL-* (OS crash durability, AV/locking, real plugin host, consumer open) | — | not measured | **NotRun** | OS matrix + #219/#294 |
 
 ## VCS-COMPAT-01..04 — cross-gate compatibility
@@ -136,8 +137,8 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 | --- | --- | --- | --- |
 | VCS-COMPAT-01 schema compat (v5→current) | old snapshots project read-only; unknown/too-old rejected; no source rewrite | SNAP-05/06 rows Pass | Pass* |
 | VCS-COMPAT-02 Gate A / consumer precision | AudioLens/consumer cross-check | not measured | **NotRun** (#219/#294) |
-| VCS-COMPAT-03 CI evidence (#83) | CI-run evidence rows | local `mise` verification only; CI lane not executed here | **NotRun** |
-| VCS-COMPAT-04 other OS (macOS/Linux) | same matrix on POSIX FS | Windows-only run; `directory_sync` already reports `Unsupported` here | **NotRun** |
+| VCS-COMPAT-03 CI evidence (#83) | CI-run evidence rows | ci.yml run [42938180676](https://github.com/scarecrow173/synvelis/actions/runs/42938180676)（head `13e65189`・daily-ci dispatch）: ubuntu verify **success**（vcs06 全 pass）・macOS success・windows verify **failure**（非関連 `synvelis-library --test webdav` TransientIo・記録済み）・両 gate failure。#323 covering run は収集時点（2026-11-12 再検証）で未実走 = NotRun pending。証跡: `vcs-06-compat-evidence.md` | measured（**非一様 green**） |
+| VCS-COMPAT-04 other OS (macOS/Linux) | same matrix on POSIX FS | hosted macOS verify leg は run 42938180676 で success 観測済みだが、製品 OS matrix 実機計測ではない。Windows-only run; `directory_sync` already reports `Unsupported` here | **NotRun** |
 
 ## Explicitly out of scope (never Pass)
 

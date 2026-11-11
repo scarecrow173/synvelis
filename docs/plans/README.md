@@ -37,11 +37,13 @@ Directory: `docs/plans`
 | PLAN-PCc4030bs3vN1pQ8wXyZ2aD | PC-C4-03 param observation plan — drain surface + tests + docs | approved | [pc-c4-03-param-observation-plan.md](./pc-c4-03-param-observation-plan.md) |
 | PLAN-PCc4040bs3vN1pQ8wXyZ2aD | PC-C4-04 app composition plan — vend・所有・駆動・橋渡し・fixture | approved | [pc-c4-04-app-composition-plan.md](./pc-c4-04-app-composition-plan.md) |
 | PLAN-034VvHwf0OT5qLdTopdnmC | PC-C4-05 persisted StablePluginInstanceId plan | approved | [pc-c4-05-persisted-instance-id-plan.md](./pc-c4-05-persisted-instance-id-plan.md) |
+| PLAN-7c4e9a1b2d3f4e5a6b7c8f0a1 | PC-C4-06 control op surface plan | approved | [pc-c4-06-control-op-surface-plan.md](./pc-c4-06-control-op-surface-plan.md) |
 | PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-034UxXVFIkzqs2eO4wcXo0 | PC-C5 slice2 実施計画 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | PLAN-7zXphX8skvXfNgeXarocfo | PC-C6 oracle REL/TR headless fixture 実装計画 | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
 | PLAN-034VmVEzTuUHmBKxPRoFID | PC-C6 oracle R/PL/UI/COMP headless fixture 実装計画 | approved | [pc-c6-oracle-rows-plan.md](./pc-c6-oracle-rows-plan.md) |
+| PLAN-034VNrIZteNN2bsGVGokZF | plugin_instances VCS semantic diff 分類 slice | approved | [plugin-instances-vcs-diff-plan.md](./plugin-instances-vcs-diff-plan.md) |
 | PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-gpF9kWuFqfzFATeoPdxIGF | RCD-01 実Audio Device 到達準備 実装計画 — stamp placement fallback + real backend 配線 | approved | [rcd-01-real-backend-readiness-plan.md](./rcd-01-real-backend-readiness-plan.md) |
@@ -99,8 +101,11 @@ Directory: `docs/plans`
 | PLAN-034UAzWU1ltpUXPw8mRuWd | VCS-01 Immutable Snapshot Resolver implementation plan | approved | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | PLAN-034UEufn0HEwKaQ2GRVCWB | VCS-02 Semantic Diff Engine implementation plan | approved | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
 | PLAN-D4Oqo3jPnK2GybwKhM5nwh | VCS-03 Git Read Provider implementation plan | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
+| PLAN-VCS04BkndWiringPln0001 | VCS-04 production backend wiring — 実装 plan | approved | [vcs-04-backend-wiring-plan.md](./vcs-04-backend-wiring-plan.md) |
 | PLAN-VCS04Hist0ryV1ewPln01 | VCS-04 History/Visual Diff UI implementation plan | approved | [vcs-04-history-visual-diff-ui.md](./vcs-04-history-visual-diff-ui.md) |
 | PLAN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — 実装 plan | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
+| PLAN-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface 拡張 — 実装 plan | approved | [vcs-05-monitoring-apply-surface-plan.md](./vcs-05-monitoring-apply-surface-plan.md) |
+| PLAN-4RRd44dWWEduAvHmubiVw | VCS-06 evidence completion — 実装 plan | approved | [vcs-06-evidence-completion-plan.md](./vcs-06-evidence-completion-plan.md) |
 | PLAN-FdgAC8xT08aXjvUlT4GwSz | VCS-06 monitoring-domain matrix — 実装 plan | approved | [vcs-06-monitoring-matrix-plan.md](./vcs-06-monitoring-matrix-plan.md) |
 | PLAN-034VpCx6TPoO1WOEqV19u4 | VCS-06 UI headless matrix — 実装 plan | approved | [vcs-06-ui-headless-matrix-plan.md](./vcs-06-ui-headless-matrix-plan.md) |
 | PLAN-034QdZoc84FQ9sKQSfLWtn | VS-A Project/Recording Foundation 実装計画 | approved | [vs-a-project-recording-foundation.md](./vs-a-project-recording-foundation.md) |
@@ -114,6 +119,7 @@ Directory: `docs/plans`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | PLAN-luVzqvmmFtXrtfQQ7Sqb6k | ALIB-01 実装計画 — Asset Provider 契約・Local/Project 基準 Provider | completed | [alib-01-asset-provider-baseline.md](./alib-01-asset-provider-baseline.md) |
+| PLAN-034VMQQ4mGuzIS1AUxu1MS | ALIB-02 residual closeout — Issue #86 DoD 照合と証拠固定の実装計画 | completed | [alib-02-residual-closeout.md](./alib-02-residual-closeout.md) |
 | PLAN-alib02-streaming-import | ALIB-02 実装計画 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | PLAN-alib02-v5snap | ALIB-02 v5 snapshot asset-digest 互換移行 — 実装計画 | completed | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | PLAN-alib07-fault-matrix | ALIB-07 実装計画 — Asset Library 全経路 Fault Matrix（synvelis-library headless slice） | completed | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |

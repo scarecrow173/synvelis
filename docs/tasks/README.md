@@ -63,6 +63,7 @@ Directory: `docs/tasks`
 | TASK-MrgE7n0XwNu9hoShUiohdL | ALIB-01 task4 — 受入・回帰検証 + impl record | done | [alib-01-task4-acceptance.md](./alib-01-task4-acceptance.md) |
 | TASK-SV180RootedCutover2k26 | ALIB-01 task5 — Ruviform rooted capability への containment 移行（N1 修復） | done | [alib-01-task5-rooted-cutover.md](./alib-01-task5-rooted-cutover.md) |
 | TASK-SV85RF409ScopedEnum9zQ2 | ALIB-01 task6 — ruviform#409 scoped re-root / bounded 列挙への正規契約移行 | done | [alib-01-task6-rf409-scoped-enumeration.md](./alib-01-task6-rf409-scoped-enumeration.md) |
+| TASK-034VMQRx1r1aqfFdyL3kzv | ALIB-02 residual closeout — Issue #86 DoD 照合・canonical lane 実測・証拠追記 | done | [alib-02-residual-closeout.md](./alib-02-residual-closeout.md) |
 | TASK-alib02-t1 | ALIB-02 Task 1+2 — import pipeline module・namespace・tests | done | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | TASK-alib02-v5snap-t1 | ALIB-02 v5 asset-digest migration + recovery fixture | done | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | TASK-alib04-t1 | ALIB-04 Task 1 — git provider modules・fixture・tests | done | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
@@ -112,9 +113,11 @@ Directory: `docs/tasks`
 | TASK-PCc4030bs3vN1pQ8wXyZ2aE | PC-C4-03 task1 — reported observation 消費 実装 | done | [pc-c4-03-task1-param-observation.md](./pc-c4-03-task1-param-observation.md) |
 | TASK-PCc4040bs3vN1pQ8wXyZ2aE | PC-C4-04 task1 — workspace/app composition 実装 | done | [pc-c4-04-task1-app-composition.md](./pc-c4-04-task1-app-composition.md) |
 | TASK-034VvIOJTIiu4YPdKizKEx | PC-C4-05 task1 — persisted StablePluginInstanceId 実装 | done | [pc-c4-05-task1-persisted-instance-id.md](./pc-c4-05-task1-persisted-instance-id.md) |
+| TASK-7c4e9a1b2d3f4e5a6b7c8f0a2b3 | PC-C4-06 task1 — syn.control.* control op surface 実装 | done | [pc-c4-06-control-op-surface-task.md](./pc-c4-06-control-op-surface-task.md) |
 | TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | done | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TASK-034UxYCkPWXOotRSbjIPex | PC-C5 slice2 タスク分解 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | done | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
+| TASK-034VNs3KBar3pyoUwECyIh | plugin_instances VCS semantic diff 分類 | done | [plugin-instances-vcs-diff-task.md](./plugin-instances-vcs-diff-task.md) |
 | TASK-2Ri1ehmSIXwfHO79pHYSiU | RCD-02 Task Unsynced-Write Loss Fixture + Real-FS Probe | done | [rcd-02-task-unsynced-loss-real-fs-probe.md](./rcd-02-task-unsynced-loss-real-fs-probe.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | done | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
 | TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |
@@ -181,8 +184,11 @@ Directory: `docs/tasks`
 | TASK-034gOTXfiNaCeDRTpeP2x | TIM-03 task3 — per-request plan wiring + precision provenance（ProcessBoundarySession） | done | [tim03-task3-request-plan.md](./tim03-task3-request-plan.md) |
 | TASK-034UEtaHWZFrCd1VFAIRfl | VCS-02 Task1 Semantic Diff Engine headless slice | done | [vcs-02-task1-semantic-diff-engine-headless-slice.md](./vcs-02-task1-semantic-diff-engine-headless-slice.md) |
 | TASK-v2hQAN1hrbnURHHF2lrf6L | VCS-03 Task1 Git Read Provider headless slice | done | [vcs-03-task1-git-read-provider-headless-slice.md](./vcs-03-task1-git-read-provider-headless-slice.md) |
+| TASK-VCS04BkndWiringTask001 | VCS-04 production set_vcs_backend 配線 slice — task | done | [vcs-04-backend-wiring-task.md](./vcs-04-backend-wiring-task.md) |
 | TASK-VCS04Hist0ryV1ewTsk01 | VCS-04 slice1 タスク分解 — History/Visual Diff headless | done | [vcs-04-task1-history-diff-headless-slice.md](./vcs-04-task1-history-diff-headless-slice.md) |
 | TASK-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless slice — 実装 task | done | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
+| TASK-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface 拡張 task | done | [vcs-05-monitoring-apply-surface-task.md](./vcs-05-monitoring-apply-surface-task.md) |
+| TASK-WHTOrax2xknKoKwYLbnSX | VCS-06 evidence completion slice | done | [vcs-06-evidence-completion-task.md](./vcs-06-evidence-completion-task.md) |
 | TASK-4Sfq6WWBaX1avImCs5OcLh | VCS-06 monitoring-domain matrix | done | [vcs-06-task-monitoring-matrix.md](./vcs-06-task-monitoring-matrix.md) |
 | TASK-034VpC1mzY9bzJDEjAIDKv | VCS-06 UI headless matrix | done | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
