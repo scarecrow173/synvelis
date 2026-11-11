@@ -7,8 +7,9 @@
 //! <staging_root>/<session-tag>/streams/stream-NNNN.{pcm,journal,finalized.json}
 //! ```
 //!
-//! Manifest は作成時に 1 度だけ atomic publish（tmp→sync→rename）し、
-//! 以後 immutable。`capabilities` は作成時に検出した FS 保証範囲を
+//! Manifest は作成時に 1 度だけ atomic publish（ruviform
+//! `StagedFile`/`SealedFile::publish`、`PublishMode::CreateNew`）
+//! し、以後 immutable。`capabilities` は作成時に検出した FS 保証範囲を
 //! 記録する（directory sync が非対応の環境では `unsupported` を正直に
 //! 記録し、保証を過剰主張しない）。
 
@@ -18,6 +19,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use ruviform_io_file::{
+    Durability, FileError, FileErrorKind, PublishEffect, PublishFailure, PublishFailureKind,
+    PublishMode, PublishOptions, StagedFile,
+};
 use serde::{Deserialize, Serialize};
 use synvelis_project::{CaptureStreamId, LaneId, RecordingSessionId};
 
@@ -267,23 +272,39 @@ pub fn sync_parent_dir(path: &Path) -> io::Result<()> {
     File::open(parent)?.sync_all()
 }
 
-/// `bytes` を `path` へ tmp→sync→rename で原子公開する。
+/// `bytes` を `path` へ staged temp→file sync→atomic rename で
+/// 原子公開する（`PublishMode::Replace` — 既存 destination は
+/// 置き換える。ruviform `StagedFile`/`SealedFile::publish` 経由）。
 /// tmp 残留時は既存のものを上書きして進める（idempotent）。
 /// fault 注入が必要な場合は [`publish_atomic_faultable`] を使う。
 ///
 /// # Errors
-/// open/write/sync/rename のいずれかの失敗。
+/// stage/write/publish のいずれかの失敗。
 pub fn publish_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    publish_atomic_faultable(path, bytes, &mut PublishFaults::new())
+    publish_staged(path, bytes, PublishMode::Replace, || Ok(())).map_err(publish_step_io)
+}
+
+/// `bytes` を `path` へ「destination 非存在時のみ」原子公開する
+/// （`PublishMode::CreateNew` — OS の atomic no-replace primitive
+/// を使い、`exists()`→publish の TOCTOU を持たない）。既存
+/// destination がある場合は `io::ErrorKind::AlreadyExists` を返し、
+/// 既存 bytes は一切変更しない。manifest のような create-once
+/// artifact の公開に使う。
+///
+/// # Errors
+/// stage/write/publish のいずれかの失敗。destination 既存時は
+/// `AlreadyExists`。
+pub fn publish_atomic_create_new(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    publish_staged(path, bytes, PublishMode::CreateNew, || Ok(())).map_err(publish_step_io)
 }
 
 /// [`publish_atomic`] の fault 注入対応版。`faults` の注入種別は
 /// [`crate::faultinj::PublishInject`] を参照。`Indeterminate` は
-/// rename 成功後に `Err` を返すため、呼出し側は公開成否を file の
-/// 再読込で照合する必要がある（応答喪失相当）。
+/// publish 成功**後**に `Err` を返すため、呼出し側は公開成否を
+/// file の再読込で照合する必要がある（応答喪失相当）。
 ///
 /// # Errors
-/// open/write/sync/rename の失敗、または注入された失敗。
+/// stage/write/publish の失敗、または注入された失敗。
 pub fn publish_atomic_faultable(
     path: &Path,
     bytes: &[u8],
@@ -296,20 +317,135 @@ pub fn publish_atomic_faultable(
             "injected publish denied",
         ));
     }
-    let tmp = path.with_extension("tmp");
-    {
-        let mut f = File::create(&tmp)?;
-        f.write_all(bytes)?;
-        if faults.sync_fail(call) {
-            return Err(io::Error::other("injected publish sync failure"));
+    let sync_fail = faults.sync_fail(call);
+    let indeterminate = faults.indeterminate(call);
+    publish_staged(path, bytes, PublishMode::Replace, move || {
+        if sync_fail {
+            Err(io::Error::other("injected publish sync failure"))
+        } else {
+            Ok(())
         }
-        f.sync_all()?;
-    }
-    fs::rename(&tmp, path)?;
-    if faults.indeterminate(call) {
+    })
+    .map_err(publish_step_io)?;
+    if indeterminate {
         return Err(io::Error::other("injected indeterminate publish"));
     }
     Ok(())
+}
+
+/// `StagedFile`/`SealedFile::publish` による atomic publish の中核。
+/// `before_publish` は seal 後・publish 前に一度だけ呼ばれ、Err を
+/// 返すと temp を best-effort 除去して publish しない
+/// （`PublishInject::SyncFail` の写像点）。durability は
+/// `FileSync` — file sync は publish pipeline が行い、directory
+/// sync は capability を持つ呼出し側が別途行う（旧実装と同じ
+/// 責務分担）。
+///
+/// # Errors
+/// stage/write/pre-publish/publish の失敗を [`PublishStepError`]
+/// で分類して返す。
+fn publish_staged(
+    path: &Path,
+    bytes: &[u8],
+    mode: PublishMode,
+    before_publish: impl FnOnce() -> io::Result<()>,
+) -> Result<(), PublishStepError> {
+    let mut staged = StagedFile::create(path).map_err(PublishStepError::Stage)?;
+    if let Err(source) = staged.write_all(bytes) {
+        let temp = staged.temp_path().map(Path::to_path_buf);
+        return Err(PublishStepError::Write { source, temp });
+    }
+    let sealed = staged.seal();
+    if let Err(source) = before_publish() {
+        let temp = sealed.temp_path().map(Path::to_path_buf);
+        let _ = sealed.abort();
+        return Err(PublishStepError::Write { source, temp });
+    }
+    let mut receipt = sealed
+        .publish(PublishOptions::new(mode, Durability::FileSync))
+        .map_err(PublishStepError::Publish)?;
+    // publish 成功後に temp が残った場合の orphan は best-effort
+    // で除去する（publish 結果は変えない — store.rs と同じ扱い）。
+    if let Some(handle) = receipt.take_recovery_handle() {
+        let _ = handle.cleanup();
+    }
+    Ok(())
+}
+
+/// [`publish_staged`] 内部の失敗分類。`io::Error` 境界へ写像する前に
+/// stage/write/publish のどこで失敗したかを保つ。
+enum PublishStepError {
+    /// `StagedFile::create` が失敗 — destination は未接触。
+    Stage(FileError),
+    /// temp への write または pre-publish hook が失敗 — temp は
+    /// drop/abort で best-effort 除去済み。
+    Write {
+        /// 発生した I/O エラー。
+        source: io::Error,
+        /// 失敗時点の temp path（診断用）。
+        temp: Option<PathBuf>,
+    },
+    /// `SealedFile::publish` が失敗 — `PublishFailure` の
+    /// kind/phase/effect/durability/recovery 情報を保持する。
+    Publish(PublishFailure),
+}
+
+/// [`PublishStepError`] を `io::Error` へ写像する。
+/// `DestinationExists` は `AlreadyExists`、`Unsupported` は
+/// `Unsupported` に写像し、それ以外は分類情報（phase/kind/
+/// effect/durability/temp/原因）を message に転記する。
+/// `PublishEffect::Indeterminate` の leftover は回復用に保持し、
+/// それ以外の leftover temp は best-effort で除去する
+/// （ruviform-io-file の契約 — Indeterminate を自動削除しない）。
+fn publish_step_io(error: PublishStepError) -> io::Error {
+    match error {
+        PublishStepError::Stage(e) => file_error_io(&e),
+        PublishStepError::Write { source, temp } => {
+            let temp = temp.map_or_else(|| "unknown".to_owned(), |p| p.display().to_string());
+            io::Error::new(source.kind(), format!("{source}; staged temp {temp}"))
+        }
+        PublishStepError::Publish(mut failure) => {
+            if failure.effect() != PublishEffect::Indeterminate
+                && let Some(handle) = failure.take_recovery_handle()
+            {
+                let _ = handle.cleanup();
+            }
+            let kind = match failure.kind() {
+                PublishFailureKind::DestinationExists => io::ErrorKind::AlreadyExists,
+                PublishFailureKind::Unsupported => io::ErrorKind::Unsupported,
+                _ => io::ErrorKind::Other,
+            };
+            let temp = failure
+                .info()
+                .temp_path()
+                .map_or_else(|| "unknown".to_owned(), |p| p.display().to_string());
+            let cause = std::error::Error::source(&failure)
+                .map_or_else(String::new, |s| format!("; cause {s}"));
+            io::Error::new(kind, format!("{failure}; temp {temp}{cause}"))
+        }
+    }
+}
+
+/// `FileError` を `io::Error` へ写像する。内部の `io::Error` が
+/// 取れる場合はその kind/raw OS error を保持し、取れない場合は
+/// `FileErrorKind` を対応する `io::ErrorKind` へ写像して message を
+/// 転記する。
+fn file_error_io(error: &FileError) -> io::Error {
+    if let Some(source) =
+        std::error::Error::source(error).and_then(|e| e.downcast_ref::<io::Error>())
+    {
+        return match source.raw_os_error() {
+            Some(code) => io::Error::from_raw_os_error(code),
+            None => io::Error::new(source.kind(), source.to_string()),
+        };
+    }
+    let kind = match error.kind() {
+        FileErrorKind::Unsupported => io::ErrorKind::Unsupported,
+        FileErrorKind::InvalidInput => io::ErrorKind::InvalidInput,
+        FileErrorKind::NotFound => io::ErrorKind::NotFound,
+        _ => io::ErrorKind::Other,
+    };
+    io::Error::new(kind, error.to_string())
 }
 
 impl StagingArea {
@@ -374,7 +510,17 @@ impl StagingArea {
         };
         let bytes = serde_json::to_vec_pretty(&manifest)
             .map_err(|e| StagingError::ManifestInvalid(e.to_string()))?;
-        publish_atomic(&manifest_path, &bytes).map_err(StagingError::io("publish manifest"))?;
+        // manifest は create-once artifact — `PublishMode::CreateNew`
+        // の atomic no-replace で exists→publish の TOCTOU を閉じる。
+        // 事前の exists() check は早期 return の fast-path であり、
+        // 競合の安全性は publish primitive が担保する。
+        publish_atomic_create_new(&manifest_path, &bytes).map_err(|e| {
+            if e.kind() == io::ErrorKind::AlreadyExists {
+                StagingError::AlreadyExists(session_dir.display().to_string())
+            } else {
+                StagingError::io("publish manifest")(e)
+            }
+        })?;
         let area = Self {
             root: root.to_path_buf(),
             session_dir,
