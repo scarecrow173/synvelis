@@ -4,7 +4,7 @@ type: "design"
 status: "approved"
 title: "VCS-03 Git Read Provider design"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-12"
 owners: []
 relations:
   source:
@@ -65,7 +65,11 @@ read 経路・degradation 規則の詳細設計。
 
 ## Read 経路（すべて fixed-argv plumbing、shell 不使用）
 
-- **resolve**: `rev-parse --verify --quiet <expr>^{commit}` →
+- **resolve**: `rev-parse --verify <expr>^{commit}`（`--quiet` なし。
+  解決不能時は exit 128 + `fatal: Needed a single revision` 等の
+  stderr を出し、`classify_kind` が `NotFound` に分類する。
+  `--quiet` は silent exit 1 で `TransientIo` に誤分類されるため
+  使わない — synvelis#335 / `vcs-03-unborn-head-classification`）→
   object-format 長の lowercase hex を検証。`RevisionSelector::Head` は
   `HEAD^{commit}`（unborn → `RevisionGone`）。`Expr` は
   `validate_rev_expr`（長さ・option 形・空白・制御文字・`..`・`@{` を拒否、

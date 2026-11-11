@@ -937,3 +937,78 @@ fn history_pagination_is_bounded_and_cursor_bound() {
         .expect_err("foreign cursor");
     assert!(matches!(err, VcsError::InvalidRequest { .. }), "{err:?}");
 }
+
+// ---------------------------------------------------------------------------
+// unborn HEAD (zero-commit repository) — synvelis#335
+// ---------------------------------------------------------------------------
+
+#[test]
+fn unborn_head_reports_typed_absence_not_unavailable() {
+    // `fixture()` is `git init` + config only: HEAD is unborn and the
+    // object store has zero commits. Unresolvable revisions must
+    // surface as `RevisionGone`/`head_commit: None` — never as
+    // `Unavailable` (the misclassified `TransientIo` path).
+    let fx = fixture();
+    fx.write("proj/main.json", b"{}");
+    fx.stage("proj/main.json");
+
+    let p = fx.provider();
+    let cancel = no_cancel();
+
+    // Detection reports the canonical unborn representation.
+    let info = <GitVcsProvider as VcsReadProvider>::detect_workspace(
+        &ProjectPath::new(plain_path(&fx.repo).to_string_lossy().into_owned()).expect("path"),
+    )
+    .expect("detect unborn");
+    assert_eq!(info.head_commit, None);
+
+    // working_status still works on an unborn repo; head_commit is
+    // None and the staged file is reported.
+    let status = p
+        .working_status(&ProjectScope::root(), &cancel)
+        .expect("status on unborn");
+    assert_eq!(status.head_commit, None);
+    assert!(
+        status.entries.iter().any(|e| e.path == "proj/main.json"
+            && e.index_change == Some(synvelis_project::vcs::WorkingChangeKind::Added)),
+        "{:?}",
+        status.entries
+    );
+
+    // RevisionSelector::Head on unborn HEAD → RevisionGone.
+    let err = p
+        .resolve_fixed_revision(&RevisionSelector::Head, &cancel)
+        .expect_err("unborn head");
+    assert!(matches!(err, VcsError::RevisionGone { .. }), "{err:?}");
+
+    // Expr selectors that cannot resolve are RevisionGone too —
+    // unborn branch name, HEAD alias, and a bogus expression.
+    for expr in ["main", "HEAD", "no-such-revision"] {
+        let err = p
+            .resolve_fixed_revision(&RevisionSelector::Expr(expr.into()), &cancel)
+            .expect_err("unresolvable expr");
+        assert!(
+            matches!(err, VcsError::RevisionGone { .. }),
+            "{expr}: {err:?}"
+        );
+    }
+
+    // History with no explicit start has no HEAD to walk →
+    // RevisionGone; an explicit unborn start is the same.
+    for query in [
+        HistoryQuery::default(),
+        HistoryQuery {
+            start: Some(RevisionSelector::Head),
+            ..Default::default()
+        },
+    ] {
+        let err = p.list_history(&query, &cancel).expect_err("unborn history");
+        assert!(matches!(err, VcsError::RevisionGone { .. }), "{err:?}");
+    }
+
+    // Index/staged reads are unaffected by unborn HEAD.
+    let staged = p
+        .resolve_staged_snapshot(&cancel)
+        .expect("staged on unborn");
+    assert!(staged.entries.iter().any(|e| e.path == "proj/main.json"));
+}

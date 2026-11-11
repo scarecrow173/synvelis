@@ -206,13 +206,19 @@ impl GitVcsProvider {
 
     /// Resolves a revision expression to a commit oid (fixed at call
     /// time). `expr` must already be validated.
+    ///
+    /// `--verify` runs *without* `--quiet`: an unresolvable revision
+    /// (unborn HEAD, unknown ref, non-commit peel) exits non-zero with
+    /// a fatal diagnostic on stderr, which `classify_kind` maps to
+    /// `NotFound` — the `RevisionGone` path. `--quiet` would exit 1
+    /// silently and misclassify as `TransientIo` (synvelis#335).
     fn resolve_oid(&self, expr: &str, cx: &ProviderContext) -> Result<String, VcsError> {
         let target = format!("{expr}^{{commit}}");
         let out = self
             .runner
             .run(
                 Some(&self.worktree),
-                &["rev-parse", "--verify", "--quiet", &target],
+                &["rev-parse", "--verify", &target],
                 cx,
             )
             .map_err(|e| match e.kind() {
@@ -231,17 +237,21 @@ impl GitVcsProvider {
     }
 
     /// Resolves the current `HEAD` commit, `None` on unborn HEAD.
+    /// Same `--verify` (no `--quiet`) contract as [`Self::resolve_oid`]:
+    /// unborn HEAD fails with `fatal: Needed a single revision` →
+    /// `NotFound` → `Ok(None)`.
     fn head_oid(&self, cx: &ProviderContext) -> Result<Option<String>, VcsError> {
         match self.runner.run(
             Some(&self.worktree),
-            &["rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
+            &["rev-parse", "--verify", "HEAD^{commit}"],
             cx,
         ) {
             Ok(out) => {
                 let oid = String::from_utf8_lossy(&out.stdout).trim().to_owned();
                 Ok((!oid.is_empty()).then_some(oid))
             }
-            // Unborn HEAD exits non-zero silently under --quiet.
+            // Unborn HEAD (and any other unresolvable HEAD) is
+            // affirmatively absent, not a backend failure.
             Err(e) if e.kind() == ProviderErrorKind::NotFound => Ok(None),
             Err(e) => Err(map_provider_error(&e, None)),
         }
@@ -1387,13 +1397,12 @@ fn probe_workspace(root: &ProjectPath, cx: &ProviderContext) -> Result<Probe, Vc
     })?;
     let project_root = rel_repo_path(&worktree, &root_canon)?;
     // HEAD is informational at probe time; unborn HEAD is not an
-    // error (repos may have no commits yet).
+    // error (repos may have no commits yet). Every failure collapses
+    // to `None` here — `--quiet` is irrelevant since the error is
+    // discarded either way; `--verify` alone keeps the rev-parse
+    // idiom uniform with `resolve_oid`/`head_oid`.
     let head = runner
-        .run(
-            Some(dir),
-            &["rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
-            cx,
-        )
+        .run(Some(dir), &["rev-parse", "--verify", "HEAD^{commit}"], cx)
         .ok()
         .and_then(|o| {
             let oid = String::from_utf8_lossy(&o.stdout).trim().to_owned();
