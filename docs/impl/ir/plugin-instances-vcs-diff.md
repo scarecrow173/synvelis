@@ -1,7 +1,7 @@
 ---
 id: "IMPL-034VNP5tgdXZr0d9jU3FD0"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "plugin_instances VCS semantic diff 分類 slice 実装記録"
 created: "2026-11-11"
 updated: "2026-11-11"

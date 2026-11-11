@@ -112,10 +112,10 @@ intent / architecture decision ではない（design-doc で十分）。
 - [x] `tests/vcs02_diff.rs` plugin-instance 分類セクション
 - [x] select-all apply fixture の apply-surface 絞り込み
   （`plugin_instance_persist.rs`・`vcs06_apply_matrix.rs`）
-- [ ] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
+- [x] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
   `test-msrv`/`build` で検証
-- [ ] review-protocol レビュー → blocker 解消 → impl-ir 記録
-- [ ] Conventional Commits で commit → push → PR（Refs #324）
+- [x] review-protocol レビュー → blocker 解消 → impl-ir 記録
+- [x] Conventional Commits で commit → push → PR（Refs #324）
 
 ## Dependencies and Risks
 
@@ -146,11 +146,11 @@ intent / architecture decision ではない（design-doc で十分）。
 
 ## Verification
 
-- [ ] `mise run fmt-check` `check` `lint` `test` `test-rt`
+- [x] `mise run fmt-check` `check` `lint` `test` `test-rt`
   `test-msrv` `build` 全 pass。
-- [ ] `cargo test -p synvelis-project --test vcs02_diff`
-  （補助証拠、canonical = mise run test）。
-- [ ] fixture が test-spec R1–R5 を網羅。
+- [x] `cargo test -p synvelis-project --test vcs02_diff`
+  （補助証拠、canonical = mise run test）— 36 passed。
+- [x] fixture が test-spec R1–R5 を網羅。
 
 ## Open Questions / Gaps
 

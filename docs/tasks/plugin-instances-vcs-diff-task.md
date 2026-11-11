@@ -1,7 +1,7 @@
 ---
 id: "TASK-034VNs3KBar3pyoUwECyIh"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "plugin_instances VCS semantic diff 分類"
 created: "2026-11-11"
 updated: "2026-11-11"
@@ -87,25 +87,27 @@ apply-surface kind に絞る。
 
 ## Done When
 
-- [ ] `ObjectKind::PluginInstance` が `Routing` domain で分類
+- [x] `ObjectKind::PluginInstance` が `Routing` domain で分類
   され、entry の Added/Removed・`id`/`plugin` 差の `Replaced`・
   その他 field 差の `Modified` が diff に現れる。
-- [ ] `plugin_instances.instances` が `raw_kind_map` 未登録の
+- [x] `plugin_instances.instances` が `raw_kind_map` 未登録の
   まま keyed-synthetic として照合される。
-- [ ] pre-v13 側を含む比較で `id` 差が `Suppressed` →
+- [x] pre-v13 側を含む比較で `id` 差が `Suppressed` →
   `PartialProjection` になり、v13 同士では `Replaced` になる。
-- [ ] `watermark` のみの drift が `Equal` を維持する。
-- [ ] instance-only 差分が policy v3 で `Different` になり、
+- [x] `watermark` のみの drift が `Equal` を維持する。
+- [x] instance-only 差分が policy v3 で `Different` になり、
   `DIFF_POLICY_VERSION == 3`。
-- [ ] `PluginInstance` change が apply surface 外
+- [x] `PluginInstance` change が apply surface 外
   （`target_fingerprint` で `Unsupported`）であることを pin。
-- [ ] `tests/vcs02_diff.rs` の新規セクションが test-spec R1–R5
+- [x] `tests/vcs02_diff.rs` の新規セクションが test-spec R1–R5
   を検証して pass。既存 fixture 全 pass（非回帰）。
-- [ ] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
+- [x] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
   `test-msrv`/`build` が pass。
-- [ ] review-protocol で blocker なし。
+- [x] review-protocol で blocker なし。
 
 ## Verification
 
-- [ ] `mise run test`（canonical）+ fixture 実行。
-- [ ] `git fetch origin main && git merge origin/main` 後の再検証。
+- [x] `mise run test`（canonical）+ fixture 実行 — 全 lane pass
+  （詳細は impl-ir Validation）。
+- [x] `git fetch origin main && git merge origin/main` 後の再検証
+  — ブランチは最新 origin/main（36c2254）から作成済みで差分なし。
