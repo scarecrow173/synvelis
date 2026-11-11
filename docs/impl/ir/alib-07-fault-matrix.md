@@ -4,7 +4,7 @@ type: "impl"
 status: "completed"
 title: "ALIB-07 Fault Matrix — headless 実装記録（synvelis-library）"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   implements:
@@ -102,11 +102,21 @@ head writer を介さない malformed response を注入可能にした。
   transport・LFS batch API）: NotRun。
 - OS credential store 実機: NotRun。
 - 実 device / 実 GUI / Linux・macOS 実機: NotRun。
-- publish/commit 相 cancel の注入点: NotRun（stage 相のみ実施）。
-- v5→SHA-256 移行本体（CRC 昇格）: deferred spec に従い NotRun
-  （namespace 共存のみ Pass）。
+- publish/commit 相 cancel の注入点: slice-2
+  （`docs/impl/ir/alib-07-import-cancel.md`・PR #256 merge 済み）
+  で解消済み。
+- v5→SHA-256 移行本体（CRC 昇格）: #86（PR #253 merge 済み）の
+  責務。本 slice は namespace 共存のみ Pass（吸収しない）。
+- LIB-PIN-02 remote LFS（batch API/HTTP download endpoint）:
+  capability 宣言上 `Unsupported`/`NotRun` のまま。
 - SVN/P4/SMB/S3 provider: NotImplemented（matrix に行を設けず
   暗黙 PASS にしない）。
+
+上記の残存受入行が Issue #91 を open 維持する根拠である
+（headless slice は PR #236・PR #256 で merge 済みだが、
+real-env lane・cross-gate・deferred・#89/#114 所有行は未消化）。
+LIB-IMPORT-07（複数 window）・LIB-QOS-04（実 device/GUI）は
+#89/#114 の責務であり、本 slice の証拠では閉じない。
 
 詳細は `docs/test-specs/alib-07-fault-matrix.md` の
 Case ID 別 matrix を参照。

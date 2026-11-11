@@ -7,13 +7,10 @@ Directory: `docs/specs`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | SPEC-j8VrtHRiA60WGx27NKFnH4 | ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
-| SPEC-034UviRHTzZZY5QqaoRYZV | ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | approved | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | SPEC-alib02-v5snap | ALIB-02 deferred — v5 snapshot 互換移行（SHA-256/旧 CRC digest 共存） | approved | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | SPEC-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | approved | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | SPEC-alib04-git-remote-provider | ALIB-04 — Git Remote Provider（fixed Commit/Tree・Git LFS・selective fetch・auth）（synvelis-library slice） | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | SPEC-alib06-webdav-provider | ALIB-06 — WebDAV File-Server Provider（strong ETag/If-Match pin・conditional read・auth・cancel）（synvelis-library slice） | approved | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
-| SPEC-alib07-fault-matrix | ALIB-07 — Asset Library 全経路 Fault Matrix（headless slice・synvelis-library） | approved | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
-| SPEC-alib07-import-cancel | ALIB-07 slice 2 — LIB-IMPORT-04 publish/commit 相 cancel・LIB-IMPORT-08 subprocess crash（synvelis-library headless） | approved | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | SPEC-034AUT01T7xRw4mNcQ8pZbV2 | AUT-01 Automation Mode 境界 State — Read/Touch/Latch/Write・Touch Return 150ms Smoothstep | approved | [aut-01-automation-mode-boundary-touch-return-writer-state.md](./aut-01-automation-mode-boundary-touch-return-writer-state.md) |
 | SPEC-034AUT03AW1Qq4l4VCpTSK | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・明示 Rearm | approved | [aut-03-loop-write-one-pass-write-range-rearm.md](./aut-03-loop-write-one-pass-write-range-rearm.md) |
 | SPEC-034AUT04VJToXbqZEgrP85 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
@@ -110,6 +107,7 @@ Directory: `docs/specs`
 | SPEC-VCS04Hist0ryV1ewUI001 | VCS-04 History/Visual Diff UI — headless read-only projection slice（synvelis#95） | approved | [vcs-04-history-visual-diff-ui.md](./vcs-04-history-visual-diff-ui.md) |
 | SPEC-vcs05-apply-restore-headless | VCS-05 Safe Apply Selected Change / Restore As Copy — headless slice（synvelis#96） | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
 | SPEC-vcs06-fixture-fault-matrix | VCS-06 fixture-level fault matrix + evidence ledger | approved | [vcs-06-fixture-fault-matrix.md](./vcs-06-fixture-fault-matrix.md) |
+| SPEC-pkRnrZ2RKJfPW1ymwMSENS | VCS-06 monitoring-domain matrix — monitor 宣言の diff/apply/restore 証拠行 | approved | [vcs-06-monitoring-matrix.md](./vcs-06-monitoring-matrix.md) |
 | SPEC-034VpB76W8P3twLKj0HlHB | VCS-06 UI headless matrix — Unknown/Partial honesty fixtures + ledger split | approved | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
 | SPEC-034Qdwuy2lCglk3HjqtRcs | VS-A Project / Recording Foundation — Stable ID・時間型・Command・Save/Reload | approved | [vs-a-project-recording-foundation-stable-id-command-save-reload.md](./vs-a-project-recording-foundation-stable-id-command-save-reload.md) |
 | SPEC-9EcPwSoDwcrg3WPYmvs7Gn | VS-B Clock / Gate Scheduler / RT Capture — Mock Input・Buffer Pool・SPSC | approved | [vs-b-rt-capture-mock-input-buffer-pool-spsc.md](./vs-b-rt-capture-mock-input-buffer-pool-spsc.md) |
@@ -122,6 +120,9 @@ Directory: `docs/specs`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| SPEC-034UviRHTzZZY5QqaoRYZV | ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | implemented | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
+| SPEC-alib07-fault-matrix | ALIB-07 — Asset Library 全経路 Fault Matrix（headless slice・synvelis-library） | implemented | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
+| SPEC-alib07-import-cancel | ALIB-07 slice 2 — LIB-IMPORT-04 publish/commit 相 cancel・LIB-IMPORT-08 subprocess crash（synvelis-library headless） | implemented | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | SPEC-034AUT02Kw7xRn3vBz9sQm5t | AUT-02 Region Replace 境界曲線保存・Reject/Replace 原子的編集 | implemented | [aut-02-region-replace-boundary-curve-preservation.md](./aut-02-region-replace-boundary-curve-preservation.md) |
 | SPEC-034SVCIOPT02bN7mQwErTy | Issue #148 変更影響分類・Fail-Closed evidence Gate 仕様 | superseded | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
 | SPEC-034RUjwAo6z9Q2Hpkp99SH | Issue #157 rev.3 matrix lane skip placeholder — evidence gate 修正 | superseded | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |

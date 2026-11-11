@@ -1,7 +1,7 @@
 ---
 id: "TASK-alib02-t1"
 type: "task"
-status: "completed"
+status: "done"
 title: "ALIB-02 Task 1+2 — import pipeline module・namespace・tests"
 created: "2026-11-09"
 updated: "2026-11-09"

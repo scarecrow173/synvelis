@@ -6,11 +6,9 @@ Directory: `docs/plans`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
-| PLAN-alib02-streaming-import | ALIB-02 実装計画 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | in-progress | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | PLAN-alib03-catalog-preview-cache | ALIB-03 実装計画 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | PLAN-alib04-git-remote-provider | ALIB-04 実装計画 — Git Remote Provider（synvelis-library slice） | in-progress | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | PLAN-alib06-webdav-provider | ALIB-06 実装計画 — WebDAV File-Server Provider（synvelis-library slice） | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
-| PLAN-alib07-fault-matrix | ALIB-07 実装計画 — Asset Library 全経路 Fault Matrix（synvelis-library headless slice） | in-progress | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | PLAN-034AUT01Zx4wQn8vF2sLrT6m | AUT-01 Touch Return・Writer State 境界 実装計画 | approved | [aut-01-touch-return-writer-state.md](./aut-01-touch-return-writer-state.md) |
 | PLAN-034AUT02Vn5rWt9kJx4sLq8b | AUT-02 Region Replace 境界曲線保存 実装計画 | approved | [aut-02-region-replace-boundary.md](./aut-02-region-replace-boundary.md) |
 | PLAN-034AUT03Cm4rT8vXy1qKp9sL | AUT-03 Loop 録音 1 Pass・Write Range 閉鎖・明示 Rearm 実装計画 | approved | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |
@@ -103,6 +101,7 @@ Directory: `docs/plans`
 | PLAN-D4Oqo3jPnK2GybwKhM5nwh | VCS-03 Git Read Provider implementation plan | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
 | PLAN-VCS04Hist0ryV1ewPln01 | VCS-04 History/Visual Diff UI implementation plan | approved | [vcs-04-history-visual-diff-ui.md](./vcs-04-history-visual-diff-ui.md) |
 | PLAN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — 実装 plan | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
+| PLAN-FdgAC8xT08aXjvUlT4GwSz | VCS-06 monitoring-domain matrix — 実装 plan | approved | [vcs-06-monitoring-matrix-plan.md](./vcs-06-monitoring-matrix-plan.md) |
 | PLAN-034VpCx6TPoO1WOEqV19u4 | VCS-06 UI headless matrix — 実装 plan | approved | [vcs-06-ui-headless-matrix-plan.md](./vcs-06-ui-headless-matrix-plan.md) |
 | PLAN-034QdZoc84FQ9sKQSfLWtn | VS-A Project/Recording Foundation 実装計画 | approved | [vs-a-project-recording-foundation.md](./vs-a-project-recording-foundation.md) |
 | PLAN-kco2O0dSUXmFGIGQYqpxrx | VS-B Clock / Gate Scheduler / RT Capture 実装計画 | approved | [vs-b-clock-gate-rt-capture.md](./vs-b-clock-gate-rt-capture.md) |
@@ -115,7 +114,9 @@ Directory: `docs/plans`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | PLAN-luVzqvmmFtXrtfQQ7Sqb6k | ALIB-01 実装計画 — Asset Provider 契約・Local/Project 基準 Provider | completed | [alib-01-asset-provider-baseline.md](./alib-01-asset-provider-baseline.md) |
+| PLAN-alib02-streaming-import | ALIB-02 実装計画 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | PLAN-alib02-v5snap | ALIB-02 v5 snapshot asset-digest 互換移行 — 実装計画 | completed | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
+| PLAN-alib07-fault-matrix | ALIB-07 実装計画 — Asset Library 全経路 Fault Matrix（synvelis-library headless slice） | completed | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | PLAN-alib07-import-cancel | ALIB-07 slice 2 実装計画 — import cancel checkpoint・crash fixture・matrix 簿記 | completed | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | PLAN-034QArZ5DRWJ27yfk2aEID | ED-A Editing Model headless PoC 実装計画 | completed | [ed-a-editing-model.md](./ed-a-editing-model.md) |
 | PLAN-034PCA04Pk9ySt5zBcPdEf | PC-A Parameter Control Model headless PoC 実装計画 | completed | [pc-a-parameter-control.md](./pc-a-parameter-control.md) |

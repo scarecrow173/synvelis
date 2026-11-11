@@ -1,10 +1,10 @@
 ---
 id: "TASK-alib07-t1"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "ALIB-07 Task 1 — fault case 追加・webdav fixture 抽出・証拠 matrix"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   implements:
@@ -54,4 +54,7 @@ relations:
 
 - [x] `mise run fmt-check` / `check` / `lint` / `test` /
       `test-rt` / `test-msrv` 全て exit 0
-- [ ] commit → push → PR（`Refs #91`、close しない）
+- [x] commit → push → PR（`Refs #91`、close しない。PR #236・
+      slice-2 PR #256 ともに merge 済み。Issue は残受入行
+      （real-env lane・cross-gate・deferred・#89/#114 所有分）
+      のため open 維持）
