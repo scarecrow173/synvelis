@@ -647,6 +647,7 @@ fn driver_fixture(
                 node: hosted.attached.node,
                 dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base())
                     .unwrap(),
+                boundary: None,
             }],
         )
         .expect("activate");
@@ -939,7 +940,7 @@ fn tim02_seek_releases_and_chases() {
     driver.run(60, PumpPolicy::Every(1)).expect("run pre"); // cursor 7680
 
     // Seek to engine frame 20000 — inside N1's span, before N2.
-    driver.seek(20_000);
+    driver.seek(20_000).expect("seek");
     driver.run(230, PumpPolicy::Every(1)).expect("run post"); // → 49440
 
     let expected = vec![
@@ -992,7 +993,7 @@ fn tim02_panic_releases_hanging_voice_and_resume() {
     // Resume re-anchors at the driver cursor (9472): the plan prefix
     // still has key60 open → chase reconstructs it at the cursor,
     // then the scheduled off@45000 and terminal CC123 land.
-    driver.resume_attached_transport();
+    driver.resume_attached_transport().expect("resume");
     driver.run(320, PumpPolicy::Every(1)).expect("run post"); // → 50944
 
     let expected = vec![

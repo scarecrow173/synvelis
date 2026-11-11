@@ -657,6 +657,7 @@ fn pc_b_05_headless_driver_dispatch_and_seek() {
                 node: hosted.attached.node,
                 dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base())
                     .unwrap(),
+                boundary: None,
             }],
         )
         .expect("activate");
@@ -696,7 +697,7 @@ fn pc_b_05_headless_driver_dispatch_and_seek() {
     // Seek re-anchors node cursor + position: a fresh plan's absolute
     // frame events land on the new frame series — without the
     // `set_clock`/`Seek` pair the node would keep running at frame 384.
-    driver.seek(0);
+    driver.seek(0).expect("seek");
     let writes2: Vec<(ParameterTargetId, TimedParamEvent)> = [(64_i64, 0.3_f64), (192, 0.6)]
         .into_iter()
         .map(|(pos, v)| {
@@ -762,10 +763,12 @@ fn pc_b_05_unmatched_attached_rejected() {
                 AttachedNode {
                     node: a.attached.node,
                     dispatch: ParamDispatch::new(a.attached.control, insert, frame_base()).unwrap(),
+                    boundary: None,
                 },
                 AttachedNode {
                     node: b.attached.node,
                     dispatch: ParamDispatch::new(b.attached.control, insert, frame_base()).unwrap(),
+                    boundary: None,
                 },
             ],
         )
@@ -810,6 +813,7 @@ fn pc_b_05_midrun_activation_reanchors_node() {
             vec![AttachedNode {
                 node: first.attached.node,
                 dispatch: ParamDispatch::new(first.attached.control, insert, frame_base()).unwrap(),
+                boundary: None,
             }],
         )
         .expect("activate");
@@ -827,6 +831,7 @@ fn pc_b_05_midrun_activation_reanchors_node() {
                 node: second.attached.node,
                 dispatch: ParamDispatch::new(second.attached.control, insert, frame_base())
                     .unwrap(),
+                boundary: None,
             }],
         )
         .expect("re-activate");
@@ -895,6 +900,7 @@ fn pc_b_05_dispatch_before_seek_drains_at_old_cursor() {
                 node: hosted.attached.node,
                 dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base())
                     .unwrap(),
+                boundary: None,
             }],
         )
         .expect("activate");
@@ -931,7 +937,7 @@ fn pc_b_05_dispatch_before_seek_drains_at_old_cursor() {
         .unwrap()
         .dispatch(&writes_b)
         .unwrap();
-    driver.seek(0);
+    driver.seek(0).expect("seek");
     driver.run(2, PumpPolicy::Every(1)).expect("run");
 
     let all = hosted.delivered.lock().unwrap().clone();
@@ -991,6 +997,7 @@ fn pc_b_05_rejected_install_never_projects_dispatched() {
                 node: hosted.attached.node,
                 dispatch: ParamDispatch::new(hosted.attached.control, insert, frame_base())
                     .unwrap(),
+                boundary: None,
             }],
         )
         .expect("activate");

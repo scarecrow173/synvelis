@@ -379,7 +379,7 @@ fn l1_03_headless_clip_playback_exact() {
 
     // Seek back to start and replay — same PCM (loop-equivalent
     // determinism, cursor + per-clip source seek).
-    driver.seek(0);
+    driver.seek(0).expect("seek");
     assert_eq!(driver.cursor(), 0);
     let replay = driver.run(6, PumpPolicy::Every(1)).unwrap();
     assert_eq!(replay.crc, report.crc);
@@ -391,7 +391,7 @@ fn l1_03_headless_clip_playback_exact() {
 
     // Underrun: rewind the cursor into the window, then never pump —
     // zero audio, underrun counted, never reported as content.
-    driver.seek(0);
+    driver.seek(0).expect("seek");
     let starved = driver.run(2, PumpPolicy::Every(0)).unwrap();
     assert!(starved.pcm.iter().flatten().all(|s| *s == 0.0));
     let stats2 = driver.stats_of(clip_id).unwrap().snapshot();
@@ -954,7 +954,7 @@ fn l1_compat_prepare_failure_keeps_last_good() {
         Err(ActivateError::Validation(_) | ActivateError::Compile(_))
     ));
     assert_eq!(driver.published_revision(), Some(first));
-    driver.seek(0);
+    driver.seek(0).expect("seek");
     let again = driver.run(1, PumpPolicy::Every(1)).unwrap();
     assert_eq!(again.pcm[0][0], fixture_sample_f32(0, 0));
     driver.collect();
