@@ -490,6 +490,16 @@ pub struct Project {
     /// `#[serde(default)]` keeps pre-v12 bodies loadable.
     #[serde(default)]
     pub monitoring: MonitoringData,
+    /// Persisted plugin-instance identities — the single authority for
+    /// the `StablePluginInstanceId` each `Resolved` processor's plugin
+    /// instance carries at runtime (Issue #101, schema v13). Keyed by
+    /// `ProcessorId`, pinned to the authored `PluginRef`, with an
+    /// independent monotonic u64 watermark — never the entity
+    /// `id_watermark` domain. `#[serde(default)]` keeps pre-v13 bodies
+    /// loadable; the v12→v13 migration backfills entries
+    /// deterministically (see `crate::migration`).
+    #[serde(default)]
+    pub plugin_instances: crate::plugin_instance::PluginInstanceIdentities,
 }
 
 impl Project {
@@ -530,6 +540,7 @@ impl Project {
             control: ControlModel::bootstrap(master_strip),
             routing,
             monitoring: MonitoringData::default(),
+            plugin_instances: crate::plugin_instance::PluginInstanceIdentities::default(),
         }
     }
 
@@ -938,7 +949,13 @@ impl Project {
             });
         }
         // -- semantic routing model (issue #104) ----------------------
-        self.routing.validate(self)
+        self.routing.validate(self)?;
+        // -- persisted plugin-instance identities (issue #101, v13) ---
+        // The identity store must be a total, consistent projection of
+        // the routing processors: exactly one entry per `Resolved`
+        // processor, none for `Unresolved`, ids inside the issued
+        // watermark range, plugin refs verbatim.
+        self.plugin_instances.validate_against(self)
     }
 
     /// Digest/receipt integrity shared by [`Self::validate_references`]

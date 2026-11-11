@@ -24,6 +24,7 @@ pub(crate) mod migration;
 pub mod monitoring_data;
 pub mod ops;
 pub mod placement;
+pub mod plugin_instance;
 pub mod plugin_state;
 pub mod ppqn;
 pub mod probe;
@@ -93,6 +94,7 @@ pub use placement::{
     ClipExtent, ClipPlacement, ClipPlayback, PlaybackMapping, ResolvedClip, StretchRatio,
     TimeAnchor,
 };
+pub use plugin_instance::{PluginInstanceId, PluginInstanceIdentities, PluginInstanceIdentity};
 pub use plugin_state::{
     CaptureMode, CaptureObservation, DirectoryPluginStateStore, InMemoryPluginStateStore,
     PLUGIN_STATE_SCHEMA_VERSION, PluginStateBinding, PluginStateCapture, PluginStateCaptureError,
