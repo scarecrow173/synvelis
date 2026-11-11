@@ -1,7 +1,7 @@
 ---
 id: "TASK-GJlWE8j5emvVOKFMtbTXHR"
 type: "task"
-status: "in_progress"
+status: "completed"
 title: "RCD-01 Task — 実Audio Device 到達準備（stamp placement fallback + real backend 配線）"
 created: "2026-11-12"
 updated: "2026-11-12"
@@ -93,5 +93,6 @@ relations:
       stamp state 陳腐化は保守的 fault、長時間 session の drift
       閾値は設計上の許容範囲、Cargo.lock の ruviform rev 更新は
       PR に記録）。
-- [ ] Conventional Commits で論理分割 commit、push、PR 作成
+- [x] Conventional Commits で論理分割 commit、push、PR 作成
       （本文は日本語・実測/NotRun を区別）。
+      PR: https://github.com/scarecrow173/synvelis/pull/311
