@@ -82,6 +82,7 @@ Directory: `docs/specs`
 | SPEC-034Ul4godUxplIT6whAIkO | SV-GUI-03 slice1: Transport 操作 + Inspector 表示を既存 GPUI 経路に接続 | approved | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
 | SPEC-8qSDBn4gud5ayYyjIQalpX | SV-GUI-03 slice2: Arrangement read-only Table mount + Undo/Redo 露出 | approved | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
 | SPEC-FM394bM9ITIDUkUMhHB3de | SV-GUI-03 slice3: Mixer channel strip — master Mute/Solo Toggle | approved | [sv-gui-03-03-mixer-strip-toggle-slice3.md](./sv-gui-03-03-mixer-strip-toggle-slice3.md) |
+| SPEC-Kd4nQx8vRw2mLp9sTf3hJc | SV-GUI-03 slice4: Arrangement row selection → Inspector target + Meter/Waveform viz mount | approved | [sv-gui-03-04-selection-inspector-viz.md](./sv-gui-03-04-selection-inspector-viz.md) |
 | SPEC-034UogGZ0QtZaMjO9XxPXv | SV-GUI-04 slice1 precursor: multi-window WindowHandle + headless dock fixture | approved | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | SPEC-OGVSCKWOs5Dv4e9e0K7wDY | SV-GUI-04 slice1: 実 2-window mount（fake driver fixture + env-gated native） | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | SPEC-034Uqtwgi61id6YJP9tZZX | SV-GUI-04 slice2: close-veto/cancel（unsaved-guard veto） | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |

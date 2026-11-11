@@ -4,6 +4,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-034Vzz1zYMrt96iWDBlii8 | SV-GUI-03 slice4: Arrangement row selection → Inspector + Meter/Waveform viz mount | in-progress | [sv-gui-03-04-selection-inspector-viz-slice.md](sv-gui-03-04-selection-inspector-viz-slice.md) |
 | IMPL-sf05s3probeShareWiring01 | SF-05 slice3 probe subscriber/capture dedup の app/UI 配線 | in-progress | [sf-05-slice3-probe-subscriber-wiring-slice.md](sf-05-slice3-probe-subscriber-wiring-slice.md) |
 | IMPL-034VpPQEAhdWyygKYS7mb9 | SF-04 slice5 probe subscriber window ownership | in-progress | [sf-04-slice5-probe-subscriber-window-ownership.md](sf-04-slice5-probe-subscriber-window-ownership.md) |
 | IMPL-034V1FQ09PSOnyDawvKX60 | CTL-02 Strip/Send Host Parameter 正本・Plugin Binding・Routing | completed | [ctl-02-strip-send-host-parameter-plugin-binding-routing.md](ctl-02-strip-send-host-parameter-plugin-binding-routing.md) |
