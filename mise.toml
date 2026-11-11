@@ -62,6 +62,15 @@ run = "cargo test -p synvelis-recording --locked --features real-device --test r
 description = "Clippy for synvelis-recording with the real-device feature enabled (opt-in; not in CI)"
 run = "cargo clippy -p synvelis-recording --all-targets --locked --features real-device -- -D warnings"
 
+# RCD-02 opt-in real-FS lane（CI 対象外・実 FS 実測）。
+# recording-poc tests/real_fs_probe.rs の #[ignore] test のみを実行し、
+# 実 FS 上の rename 原子性・dir sync capability・unsynced tail の
+# 実挙動を観測する。真の power-loss は非破壊的に自動化できないため
+# NotRun のまま残し、process kill で代替可能な範囲のみ実測する。
+[tasks.test-recording-real-fs]
+description = "Run the opt-in real-FS durability probe for RCD-02 (real FS; not in CI)"
+run = "cargo test -p recording-poc --locked --test real_fs_probe -- --ignored --test-threads=1"
+
 [tasks.lint-actions]
 description = "Lint GitHub Actions workflow files with actionlint"
 run = "actionlint"
