@@ -35,6 +35,7 @@ Directory: `docs/designs`
 | DESIGN-034SYN166CiSuMmRy | Issue #166 Full CI 化・ci-summary 統一 — 第一段階設計 | proposed | [issue-166-full-ci-ci-summary.md](./issue-166-full-ci-ci-summary.md) |
 | DESIGN-RBfO0jdqOYWxb6xvtT5z0p | Issue #167 Tracker reconcile 設計 — Consumer 共有 checkout 適合・mode 分離・単一 pin 契約 | approved | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
 | DESIGN-034U2uVeVKqECLpCn8kbSa | Issue #184 CI verify/evidence 失敗 — canonical temp fixture 設計 | approved | [issue-184-ci-verify-evidence-canonical-temp-fixture.md](./issue-184-ci-verify-evidence-canonical-temp-fixture.md) |
+| DESIGN-vaYFK7BnCVN715EASswzTe | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 設計 | approved | [issue-86-verified-import-wiring-design.md](./issue-86-verified-import-wiring-design.md) |
 | DESIGN-yiV0z7HH1jyKUmweFh9hCT | L1 Design — Safe Import・Verified Media・Lowering・Headless Driver | approved | [l1-local-wav-verified-playback-design.md](./l1-local-wav-verified-playback-design.md) |
 | DESIGN-034QmfChvqgB632y8fAydk | L2 Design — Render Snapshot・Preflight・Sequential Render・WAV Output・Reopen Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export-design.md](./l2-master-sequential-offline-wav-export-design.md) |
 | DESIGN-YFKePNnF4peFnskSfrnSc2 | MD-A Design — TakeGroup/Comp スキーマ・Effective Comp 投影・正規化 Placement/Playback 時間契約 | approved | [mda-comp-effective-projection-placement-design.md](./mda-comp-effective-projection-placement-design.md) |
