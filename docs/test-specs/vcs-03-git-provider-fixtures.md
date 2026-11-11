@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "VCS-03 Git read provider fixtures"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-12"
 owners: []
 relations:
   source:
@@ -20,7 +20,7 @@ relations:
 
 Spec `SPEC-PvLluOn4j6y1qpdtQ0aw8A` / Design
 `DESIGN-7jUOgXVjk3gpAYkbIzdUfe` を検証する headless fixture test 仕様。
-実装は `crates/synvelis-library/tests/vcs03_git_provider.rs`（19 test）、
+実装は `crates/synvelis-library/tests/vcs03_git_provider.rs`（20 test）、
 fixture は `tests/common/vcs_git_fixture.rs`。
 
 Fixture は実 `git` CLI で temp worktree を構築する（remote/network/
@@ -74,6 +74,23 @@ commit/branch/tag/index を mutate してよい — provider が mutate しな�
   報告され、file read は `Unknown`/`Unavailable`（内容 fetch しない）。
 - **index generation** → staging 変更で fingerprint が変化、unstage で
   復元。未知 repository_id は `NotFound`。
+
+## Feature: unborn HEAD（VCS-03-UNBORN）— synvelis#335
+
+- **0-commit repo**（`VcsGitFixture::new()` は `git init` + config のみで
+  commit 0 件）で `detect_workspace`/`open` が `head_commit: None` を
+  報告し `NotRepository` にしない。
+- **working_status** が `Ok` + `head_commit: None` を返し、staged file
+  が `index_change: Added` で `WorkingStatusEntry` に現れる
+  （`Unavailable`/`TransientIo` に誤分類されない — Issue #335 の
+  回帰防止）。
+- **resolve_fixed_revision** が `RevisionSelector::Head`・unborn
+  branch 名・`HEAD` alias・未知 ref の `Expr` で `VcsError::
+  RevisionGone` を返す。
+- **list_history** が start 省略・明示 `Head` start の両方で
+  `VcsError::RevisionGone` を返す。
+- **staged/index** が unborn でも正常動作し、`resolve_staged_
+  snapshot` が staged entry を含む `Ok` を返す。
 
 ## Feature: read-only・cancel（VCS-03-RO）
 
