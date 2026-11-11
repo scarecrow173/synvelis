@@ -98,6 +98,7 @@ Directory: `docs/test-specs`
 | TSPEC-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 検証仕様: mixer.gain projection・Fader controlled display/commit | approved | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | TSPEC-034Voc4dPYUq3RE0eQXwi7 | SV#28 Ruviform pin 更新 検証仕様 | approved | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | TSPEC-CrvvXGRCC7NBEy9bfba4LH | SV#28 Ruviform pin 更新 検証仕様 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
+| TSPEC-31xKoCzy7Vtv6MX1J7safw | SV#28 Ruviform pin 更新 検証仕様（9865cd57 → fd1d4d5f） | approved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | TSPEC-034UvylKq35FCXtkknERpp | SYN-IO-01 I/O 境界 Golden/Negative/Crash 検証計画 | approved | [syn-io-01-io-boundary-verification.md](./syn-io-01-io-boundary-verification.md) |
 | TSPEC-034T2c6eMscPucNt6w8iYW | SYN-IO-02 Store Publish 契約試験 | approved | [syn-io-02-store-publish-contract.md](./syn-io-02-store-publish-contract.md) |
 | TSPEC-034RBFeQnmt3PcI7beSRpy | SYN-OBS-01 検証仕様 — Host Logging install・設定解決・Health・Source catalog | draft | [syn-obs-01-logging-source-catalog.md](./syn-obs-01-logging-source-catalog.md) |

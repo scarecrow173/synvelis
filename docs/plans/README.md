@@ -126,4 +126,5 @@ Directory: `docs/plans`
 | PLAN-034VoSKvu6PtN0qTGN02l3 | SF-03 slice8 — app/workspace same-Revision fixture plan | completed | [sf-03-slice8-revision-fixture-plan.md](./sf-03-slice8-revision-fixture-plan.md) |
 | PLAN-034VobWDT9p1N0HGeD67OV | SV#28 Ruviform pin 更新 実装計画 — 0f5b5737 → b02942c2 | completed | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | PLAN-pOkUKpNa9zeQiK8ZbP5nvk | SV#28 Ruviform pin 更新 実装計画 — 863a7a9d → cc7d5296 | completed | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
+| PLAN-TyFpOpS6aiBDCdppuSCl9s | SV#28 Ruviform pin 更新 実装計画 — 9865cd57 → fd1d4d5f | completed | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | PLAN-034QwZOjdblHRzDVhDXNIP | WS-A Workspace 基盤 headless PoC 実装計画 | completed | [ws-a-workspace-foundation.md](./ws-a-workspace-foundation.md) |
