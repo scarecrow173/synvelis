@@ -469,8 +469,9 @@ where
 
 /// Builds `raw u128 → claimed object kinds` for one project, covering
 /// every entity-issued ID collection. Keyed-synthetic collections
-/// (`smf_documents`, `applied_commits`) reuse another entity's ID space
-/// and are excluded so they cannot fabricate collisions.
+/// (`smf_documents`, `applied_commits`, `monitoring.tracks`) reuse
+/// another entity's ID space and are excluded so they cannot
+/// fabricate collisions.
 fn raw_kind_map(project: &Project) -> BTreeMap<u128, BTreeSet<ObjectKind>> {
     let mut map: BTreeMap<u128, BTreeSet<ObjectKind>> = BTreeMap::new();
     let mut add = |kind: ObjectKind, raw: u128| {

@@ -65,6 +65,7 @@ Directory: `docs/designs`
 | DESIGN-034VdWksbk4tfLCaf6HPoj | RCD-03 app Arm/Monitoring UX + monitor session projection | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
 | DESIGN-034VpQd8lN3xO0wS5uZ7vK | RCD-03 Arm/Monitor/Punch Project 永続投影 design | approved | [rcd-03-monitor-persistence-design.md](./rcd-03-monitor-persistence-design.md) |
 | DESIGN-034UtlI2uLUF1lr2g3CUM0 | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
+| DESIGN-rprIAB9zoxNjZbw6rODTWf | RCD-03 VCS semantic diff monitor 宣言分類 design | approved | [rcd-03-vcs-diff-monitor-classification-design.md](./rcd-03-vcs-diff-monitor-classification-design.md) |
 | DESIGN-RCD04Fx2nB8cY6dF5hJ9kM3q | RCD-04 Comp Transition / MIDI Phrase fixture — crate 内完結設計 | approved | [rcd-04-comp-transition-midi-phrase-fixture.md](./rcd-04-comp-transition-midi-phrase-fixture.md) |
 | DESIGN-034VmNZvp2r11R0Phmdf0P | RCD-04 product E2E design | approved | [rcd-04-product-e2e-design.md](./rcd-04-product-e2e-design.md) |
 | DESIGN-034VBU0PCNZXCZsyRneE3S | RCD-04 RT engine comp PCM design | approved | [rcd-04-rt-engine-comp-pcm-design.md](./rcd-04-rt-engine-comp-pcm-design.md) |

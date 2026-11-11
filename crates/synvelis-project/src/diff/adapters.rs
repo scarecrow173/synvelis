@@ -12,6 +12,7 @@ use serde_json::Value;
 use crate::control::MASTER_FADER_RAW;
 use crate::id::{NoteId, ParameterTargetId, SourceId};
 use crate::midi::MidiNote;
+use crate::monitoring_data::PunchMarks;
 use crate::placement::{ClipExtent, TimeAnchor};
 use crate::project::Clip;
 use crate::project::Project;
@@ -50,6 +51,28 @@ pub(crate) fn default_adapters() -> Vec<Box<dyn DomainAdapter>> {
 
 fn no_range<T>(_: Option<&T>, _: Option<&T>) -> Option<SemanticTimeRange> {
     None
+}
+
+/// `true` when the marks hold a declaration — at least one mark set.
+/// `{None, None}` is the authored "no punch declared" state, so the
+/// singleton has presence semantics (unlike `Project`/`RoutingModel`).
+fn punch_declared(marks: &PunchMarks) -> bool {
+    marks.punch_in.is_some() || marks.punch_out.is_some()
+}
+
+/// Punch declaration affected range: the `[in, out)` musical range of
+/// the declaration surviving the transition — `after` when it is still
+/// declared, else `before` (the `clip_range` fallback over presence):
+/// a `Removed` declaration still reports the span it covered. `None`
+/// for a partial or inverted declaration.
+fn punch_range(before: &PunchMarks, after: &PunchMarks) -> Option<SemanticTimeRange> {
+    let marks = if punch_declared(after) { after } else { before };
+    match (marks.punch_in, marks.punch_out) {
+        (Some(i), Some(o)) => MusicalRange::try_new(i, o)
+            .ok()
+            .map(SemanticTimeRange::Musical),
+        _ => None,
+    }
 }
 
 /// Clip affected range: the stored musical extent when both anchor and
@@ -887,7 +910,79 @@ impl DomainAdapter for RecordingAdapter {
             no_range,
             false,
         )?;
+        // Monitor declarations key on `TrackId` — a keyed-synthetic
+        // collection like `smf_documents`/`applied_commits`, excluded
+        // from `raw_kind_map` so it cannot collide with `Track`.
+        diff_map(
+            ctx,
+            ObjectKind::TrackMonitorDecl,
+            &ctx.before.monitoring.tracks,
+            &ctx.after.monitoring.tracks,
+            no_range,
+            false,
+        )?;
+        Self::diff_punch_marks(ctx)?;
         Ok(())
+    }
+}
+
+impl RecordingAdapter {
+    /// `monitoring.punch` is a project-wide singleton (object ref =
+    /// project tag, like `RoutingModel`). Its authored presence is the
+    /// declaration itself — all-`None` marks mean "no punch declared",
+    /// so presence transitions classify `Added`/`Removed` and mark
+    /// edits on a live declaration classify `Modified`.
+    fn diff_punch_marks(ctx: &mut DiffContext<'_>) -> Result<(), DiffError> {
+        let before = &ctx.before.monitoring.punch;
+        let after = &ctx.after.monitoring.punch;
+        if before == after {
+            return Ok(());
+        }
+        ctx.tick(2)?;
+        ctx.entities += 2;
+        let stable_id = ctx.before_id.project_id.to_tagged();
+        let object = ctx.object_ref(ObjectKind::PunchMarks, stable_id);
+        let affected = punch_range(before, after);
+        let (kind, before_ref, after_ref) = match (punch_declared(before), punch_declared(after)) {
+            (false, true) => (
+                ChangeKind::Added,
+                None,
+                Some(DiffContext::value_ref(after)?),
+            ),
+            (true, false) => (
+                ChangeKind::Removed,
+                Some(DiffContext::value_ref(before)?),
+                None,
+            ),
+            (true, true) => (
+                ChangeKind::Modified,
+                Some(DiffContext::value_ref(before)?),
+                Some(DiffContext::value_ref(after)?),
+            ),
+            (false, false) => return Ok(()),
+        };
+        let fields = if kind == ChangeKind::Modified {
+            let before_json = serde_json::to_value(before)
+                .map_err(|e| DiffError::Internal(format!("punch to_value: {e}")))?;
+            let after_json = serde_json::to_value(after)
+                .map_err(|e| DiffError::Internal(format!("punch to_value: {e}")))?;
+            let mut fields = Vec::new();
+            super::engine::json_diff(&before_json, &after_json, "", &mut fields);
+            fields
+        } else {
+            Vec::new()
+        };
+        let id = ctx.change_id(&object, kind, &fields);
+        ctx.emit_change(SemanticChange {
+            id,
+            object,
+            kind,
+            before: before_ref,
+            after: after_ref,
+            affected_range: affected,
+            evidence: ChangeEvidence { fields },
+            dependencies: Vec::new(),
+        })
     }
 }
 
