@@ -84,25 +84,31 @@ relations:
 
 ## Done When
 
-- [ ] 同一 `(point,kind)` への 2 view subscribe で
+- [x] 同一 `(point,kind)` への 2 view subscribe で
   `port.probe_request` が 1 回のみ呼ばれ、両 lease・両 target
   相関が残る。
-- [ ] 片方 view の release で port subscription/capture が
+- [x] 片方 view の release で port subscription/capture が
   継続し、最後の release で `probe_remove` 相当（Missing 記録）
   が走る。
-- [ ] capture owner のみが `probe_abort_capture` でき、
+- [x] capture owner のみが `probe_abort_capture` でき、
   owner lease 喪失で owner が `Session` に退避し capture が
   継続する。
-- [ ] legacy `probe_request`/`probe_remove` の外部挙動が不変
+- [x] legacy `probe_request`/`probe_remove` の外部挙動が不変
   （既存テスト無変更で green）。
-- [ ] port 失敗時に局所 lease/owner 状態が変更されない。
-- [ ] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
+- [x] port 失敗時に局所 lease/owner 状態が変更されない。
+- [x] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
   `test-msrv` が green。
 
 ## Verification
 
-- [ ] `cargo test -p synvelis-workspace`（unit tests、
+- [x] `cargo test -p synvelis-workspace`（unit tests、
   補助証拠 — canonical は `mise run test`）。
-- [ ] `mise run fmt-check` / `check` / `lint` / `test` /
-  `test-rt` / `test-msrv`。
-- [ ] review-protocol 2 pass・blocker なし。
+- [x] `mise run fmt-check` — exit 0
+- [x] `mise run check` — exit 0
+- [x] `mise run lint` — exit 0
+- [x] `mise run test` — exit 0（再実行。初回は
+  `synvelis-library` webdav 2 件の既存 flaky で fail、
+  単独再実行・MSRV を含め全経路で pass を確認）
+- [x] `mise run test-rt` — exit 0
+- [x] `mise run test-msrv` — exit 0（rust 1.89.0）
+- [x] review-protocol 2 pass・blocker なし。
