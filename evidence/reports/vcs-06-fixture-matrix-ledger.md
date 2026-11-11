@@ -11,11 +11,11 @@ in `docs/specs/sf-06-cross-gate-oracle-case-ledger.md`.
 
 | Field | Value |
 | --- | --- |
-| Synvelis commit | `792566072e4ab3e64f73498de79ba17e466b19ed` + this change set (merged `origin/main` @ `099e7ea`) |
-| Cargo.lock Ruviform SHA | `b02942c2f9e6e195d0d752803b077866468fe58e` (post-#301 pin; earlier rows measured under `0f5b57372e9a43f84415f7964b2f9636774174f0`) |
+| Synvelis commit | `78228579f87f560a5c7f0b25558bf918eb1acc44` + this change set (merged `origin/main` @ `7822857` post-#321; monitoring rows measured post-#318 — earlier rows measured under `7925660`/`099e7ea`) |
+| Cargo.lock Ruviform SHA | `9865cd57491f3f39061212a85f81f9ebce731bde` (monitoring rows; earlier rows measured under `b02942c2`/`0f5b5737`) |
 | OS | Windows (win32), NTFS |
 | Toolchain | rustc 1.99.0 (b940084d7), git 2.54.0.windows.1 |
-| Schema | `SCHEMA_VERSION = 11`; v5 projection fixture |
+| Schema | `SCHEMA_VERSION = 13` (monitoring persisted since v12); v5 projection fixture |
 | Fixture | temp-dir `ProjectController` + `ImmutableSnapshot`; real temp git repos via `git` CLI; `DirectoryApplyJournal`/`DirectoryPluginStateStore` on real FS |
 | CI/PR | see PR body (Refs synvelis#97) |
 
@@ -40,9 +40,10 @@ Fixture: `crates/synvelis-project/tests/vcs01_snapshot.rs` (+
 | VCS-SNAP read-only oracle | resolution never mutates controller/store/VCS port | `resolution_never_mutates_controller_store_or_vcs_port`, `stale_live_revision_is_explicit`, `cancelled_token_fails_explicitly_at_phase_boundaries`, `oversized_snapshot_is_budget_exceeded` Pass | Pass* | — |
 | VCS-SNAP-REAL-* (live GUI session, RT thread, real provider E2E) | — | not measured | **NotRun** | needs #114 real GUI + device/RT lanes |
 
-## VCS-DIFF-01..08 — semantic diff / ChangeSet
+## VCS-DIFF-01..10 — semantic diff / ChangeSet
 
-Fixture: `vcs02_diff.rs` + `vcs06_diff_matrix.rs`. Lane: headless compare only.
+Fixture: `vcs02_diff.rs` + `vcs06_diff_matrix.rs` +
+`vcs06_monitoring_matrix.rs`. Lane: headless compare only.
 
 | Case | Expected | Observed | Status | Recovery/Rollback |
 | --- | --- | --- | --- | --- |
@@ -55,6 +56,8 @@ Fixture: `vcs02_diff.rs` + `vcs06_diff_matrix.rs`. Lane: headless compare only.
 | VCS-DIFF-07 MIDI note payload | velocity edit → `Modified`, add → `Added` | `midi_note_edit_and_addition_are_typed_changes` (vcs06) Pass | Pass | — |
 | VCS-DIFF-08 Unknown/Ambiguous | missing/unknown asset, opaque state, cross-kind collision, owner conflict, cross-project → `Unknown`/`Ambiguous`, never `Equal` | `missing_asset_blocks_equal_promotion`, `unknown_asset_status_is_unresolved_source`, `unknown_opaque_state_blocks_equal`, `cross_kind_raw_collision_is_ambiguous_identity`, `owner_reference_conflict_is_ambiguous_identity`, `different_project_ids_are_unknown_not_diffed` Pass | Pass | `Partial` completeness propagates |
 | VCS-DIFF determinism/cache/budget | AA equal; cache identity; budget/cancel explicit | `change_set_cache_returns_identical_result`, `budget_exceeded_and_cancel_are_explicit_errors`, `pre_v6_snapshot_marks_routing_partial_projection` Pass | Pass | — |
+| VCS-DIFF-09 TrackMonitorDecl | decl upsert → `Added` keyed on `TrackId`; field edit → `Modified` + field evidence; clear → `Removed`; no `Track` duplicate; `Recording` domain; AA = `Equal`; Recording 除外で monitor-only 差分 `Equal` / Recording のみで `Different`; 異 `project_id` → `Unknown` + `AmbiguousIdentity{CrossProject}` | `track_monitor_decl_add_modify_clear_are_typed_changes` (vcs06, `a218944b` policy v2 / schema v13) Pass | Pass | — |
+| VCS-DIFF-10 PunchMarks | `{None,None}`→declared → `Added` + `SemanticTimeRange::Musical [in,out)`; mark edit → `Modified` + `punch_in` evidence; declared→`{None,None}` → `Removed` + covered span; partial `{in,None}` → `Added` + range 無し; inverted `{out<in}` → `Modified` + range 無し; `Recording` domain | `punch_marks_presence_transitions_are_typed_changes` (vcs06, policy v2 / schema v13) Pass | Pass | — |
 | VCS-DIFF real plugin/consumer diff view | — | not measured | **NotRun** | consumer/precision lanes #219/#294 |
 
 ## VCS-GIT-01..06 — git read provider
@@ -93,9 +96,10 @@ or keyboard.
 | VCS-UI-05 keyboard/IME/a11y/real GUI | real GPUI input, IME composition, accessibility, native window evidence | no headless lane exists; requires real GPUI (#114) | **NotRun** (external gate) | — |
 | VCS-UI lifecycle/read-only | kind-scoped open/close, foreign repo/bad params honest errors, no-backend status, screen spec read-only, ops never touch project/engine/transport | `history_projection_reports_backend_and_rows`, `staged_and_saved_endpoints_report_honestly`, `foreign_repository_and_bad_params_fail_honestly`, `no_backend_reports_status_and_refuses_history`, `open_close_lifecycle_is_kind_scoped`, `screen_spec_is_a_read_only_projection` (app) + `history_pages_and_node_selection`, `committed_endpoint_selector_resolves_once_and_rejects_foreign`, `no_backend_reports_status_but_live_still_pins`, `cancelled_ops_surface_cancelled_not_success`, `history_bound_refuses_oversized_page`, `remove_view_and_release_views_clean_vcs_state`, `vcs_ops_never_touch_project_engine_or_transport` (workspace) Pass | Pass* | — |
 
-## VCS-APPLY-01..06 — apply selected change
+## VCS-APPLY-01..07 — apply selected change
 
-Fixture: `vcs05_apply.rs` + `vcs06_apply_matrix.rs`. Lane: headless
+Fixture: `vcs05_apply.rs` + `vcs06_apply_matrix.rs` +
+`vcs06_monitoring_matrix.rs`. Lane: headless
 `apply_selected` + real `DirectoryApplyJournal` on temp FS.
 
 | Case | Expected | Observed | Status | Recovery/Rollback |
@@ -106,11 +110,13 @@ Fixture: `vcs05_apply.rs` + `vcs06_apply_matrix.rs`. Lane: headless
 | VCS-APPLY-04 replay/crash | same intent → Replayed, no double mutation; Pending-without-commit retries; ACK gap reconciles; **on-disk journal survives restart** | `second_apply_replays_receipt_without_double_mutation`, `pending_without_commit_retries_normally`, `ack_gap_reconciles_to_replayed` (vcs05), `directory_journal_survives_restart_and_replays` (vcs06, fresh `DirectoryApplyJournal` over same dir → Replayed) Pass | Pass | journal is the recovery record |
 | VCS-APPLY-05 cancel | cooperative cancel → `Cancelled`, no mutation | `cancelled_intent_fails_closed_before_mutation` (vcs06) Pass | Pass | — |
 | VCS-APPLY-06 independence | Saved HEAD / VCS index / git worktree untouched; no write before explicit apply | receipt `effects.untouched.*` asserted in every apply test; `directory_journal_*` confirms persisted receipt only Pass | Pass* | engine-apply flag stays false |
+| VCS-APPLY-07 monitoring kinds | `TrackMonitorDecl`/`PunchMarks` selection → `Unsupported` fail-closed, live/journal honest | `target_fingerprint` + `apply_selected` both → `ApplyError::Unsupported{kind, change: Modified, "object kind outside the apply surface"}`; fingerprint CAS 段で fail — `change` は選択 kind に依らず `Modified` を報告; journal `Failed`; `live.monitoring` 不変 — `monitor_kind_selection_fails_apply_closed` (vcs06) Pass | **Unsupported** | apply surface 未対応は fail-closed の実測（偽装なし）; whitelist 拡張は別 slice |
 | VCS-APPLY-REAL-* (real engine hot-swap, GUI approval UX) | — | not measured | **NotRun** | engine/GUI lanes external |
 
-## VCS-RESTORE-01..06 — restore as new copy
+## VCS-RESTORE-01..07 — restore as new copy
 
-Fixture: `vcs05_restore.rs` + `vcs06_restore_matrix.rs`. Lane: real temp
+Fixture: `vcs05_restore.rs` + `vcs06_restore_matrix.rs` +
+`vcs06_monitoring_matrix.rs`. Lane: real temp
 FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 
 | Case | Expected | Observed | Status | Recovery/Rollback |
@@ -121,6 +127,7 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 | VCS-RESTORE-04 plugin state | processors require plugin-state source (`PluginStateRequired`); manifest+blobs copied verbatim into `plugin-state/` | `processor_project_requires_plugin_state_source`, `plugin_state_manifest_and_blobs_are_copied` (vcs06, real `DirectoryPluginStateStore` round-trip) Pass | Pass* | real plugin *host* restore is NotRun |
 | VCS-RESTORE-05 destination safety | existing dest → DestinationExists; relative/`CON`/`..` leaf → InvalidRequest; case-conflicting sibling → DestinationExists (lexical scan, FS-independent); low disk → LowDisk; cancel → nothing written | `existing_destination_fails_closed`, `unsafe_destinations_fail_before_any_write`, `low_disk_fails_closed`, `cancelled_restore_writes_nothing` (vcs05), `dotdot_leaf_is_rejected_before_any_write`, `case_conflicting_sibling_is_rejected` (vcs06) Pass | Pass | pre-write rejection verified |
 | VCS-RESTORE-06 independent identity | new ProjectId ≠ source; stable IDs preserved; source Saved HEAD/Git index/worktree untouched | asserted in `restore_publishes_verified_new_copy` receipt effects Pass | Pass* | — |
+| VCS-RESTORE-07 monitoring verbatim | decl (lane/arm/monitor/channel_map) + punch marks survive restore-as-copy verbatim; fork `project_id` only | `envelope.project.monitoring == source`（`monitoring.tracks` + `monitoring.punch` 全 field一致）— `restore_as_copy_preserves_monitoring_verbatim` (vcs06) Pass | Pass | — |
 | VCS-RESTORE-REAL-* (OS crash durability, AV/locking, real plugin host, consumer open) | — | not measured | **NotRun** | OS matrix + #219/#294 |
 
 ## VCS-COMPAT-01..04 — cross-gate compatibility
@@ -144,8 +151,10 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 - `crates/synvelis-project/tests/vcs06_diff_matrix.rs` — 5 tests
 - `crates/synvelis-project/tests/vcs06_apply_matrix.rs` — 8 tests
 - `crates/synvelis-project/tests/vcs06_restore_matrix.rs` — 8 tests
+- `crates/synvelis-project/tests/vcs06_monitoring_matrix.rs` — 4 tests
+  (monitoring-domain: VCS-DIFF-09/10・VCS-APPLY-07・VCS-RESTORE-07)
 - `crates/synvelis-library/tests/vcs06_git_matrix.rs` — 3 tests
 - `crates/synvelis-app/tests/vcs06_ui_matrix.rs` — 4 tests (VCS-UI-04 lane)
 
-All 28 pass on Windows/rustc 1.99.0 via `cargo test` (supplemental;
+All 32 pass on Windows/rustc 1.99.0 via `cargo test` (supplemental;
 canonical `mise run test` result recorded in the PR).

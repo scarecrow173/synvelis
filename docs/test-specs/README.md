@@ -114,6 +114,7 @@ Directory: `docs/test-specs`
 | TSPEC-VCS04Hist0ryV1ewTst01 | VCS-04 History/Visual Diff headless fixtures | approved | [vcs-04-history-diff-fixtures.md](./vcs-04-history-diff-fixtures.md) |
 | TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |
 | TSPEC-vcs06-fixture-matrix | VCS-06 fixture matrix tests | approved | [vcs-06-fixture-matrix.md](./vcs-06-fixture-matrix.md) |
+| TSPEC-KoKmM6h8CwFykztjanQvMC | VCS-06 monitoring-domain matrix tests | approved | [vcs-06-monitoring-matrix.md](./vcs-06-monitoring-matrix.md) |
 | TSPEC-034VpCxHsdsOcOqeEN6wGS | VCS-06 UI headless matrix tests | approved | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
 | TSPEC-034QdZPqGguxUOzVihyxjE | VS-A F0 Gate 検証仕様 — Stable ID・時間・Command・Save/Reload・Recording | approved | [vs-a-f0-gate-stable-id-command-save-reload-recording.md](./vs-a-f0-gate-stable-id-command-save-reload-recording.md) |
 | TSPEC-dtmF30GppYRVULWnH8CG9o | VS-B E2E-R Gate 検証仕様 — Mock Gate・Buffer Pool・SPSC・Fail-stop | approved | [vs-b-e2e-r1-mock-gate-rt-capture.md](./vs-b-e2e-r1-mock-gate-rt-capture.md) |
