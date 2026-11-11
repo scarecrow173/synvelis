@@ -4,6 +4,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-034VpPQEAhdWyygKYS7mb9 | SF-04 slice5 probe subscriber window ownership | in-progress | [sf-04-slice5-probe-subscriber-window-ownership.md](sf-04-slice5-probe-subscriber-window-ownership.md) |
 | IMPL-034V1FQ09PSOnyDawvKX60 | CTL-02 Strip/Send Host Parameter 正本・Plugin Binding・Routing | completed | [ctl-02-strip-send-host-parameter-plugin-binding-routing.md](ctl-02-strip-send-host-parameter-plugin-binding-routing.md) |
 | IMPL-034UvgCFl4bXw9DZ4bTr3X | SF-04 slice2 ControlSession probe observation → ControlTrace 配線 | in-progress | [sf-04-slice2-controlsession-probe-observation-trace-wiring.md](sf-04-slice2-controlsession-probe-observation-trace-wiring.md) |
 | IMPL-034UL7HNJppFLqjkPqHDxX | SF-04 slice3 probe clock epoch discontinuity capture segmentation | in-progress | [sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md](sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md) |
@@ -89,6 +90,8 @@ Directory: `docs/impl/ir`
 | IMPL-034VntRmtjh1jy2mJ1rPum | PC-C6 oracle R/PL/UI/COMP headless fixture（R01〜08・PL01〜08・UI01〜07 独立 oracle 照合） | completed | [pc-c6-oracle-rows-slice.md](pc-c6-oracle-rows-slice.md) |
 | IMPL-034VocnpYlIXEqErLG2I5w | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 API 追従 | completed | [sv-28-ruviform-pin-b02942c2.md](sv-28-ruviform-pin-b02942c2.md) |
 | IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](rcd-04-product-e2e-slice.md) |
+| IMPL-034VpDUdGZZKsxaoSMekla | RCD-02 StagedFile Publish Migration | completed | [rcd-02-stagedfile-publish-migration.md](rcd-02-stagedfile-publish-migration.md) |
 | IMPL-034VoSZokxDrVB1U3GAB2Z | SF-03 slice8 実装記録 — app/workspace same-Revision fixture | completed | [sf-03-slice8-revision-fixture-slice.md](sf-03-slice8-revision-fixture-slice.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](ci-245-macos-alloc-flake-slice.md) |
 | IMPL-034VpRmK9xT2wQ8nB4vC6d | RCD-03 Arm/Monitor/Punch Project 永続投影 slice 実装記録 | completed | [rcd-03-monitor-persistence-slice.md](rcd-03-monitor-persistence-slice.md) |
+| IMPL-034VpEJmewmUasabGgBzbM | VCS-06 UI headless matrix (synvelis#97 slice) | completed | [vcs-06-ui-headless-matrix-slice.md](vcs-06-ui-headless-matrix-slice.md) |

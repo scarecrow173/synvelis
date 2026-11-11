@@ -189,24 +189,29 @@ impl StorageWriter for FaultWriter {
     }
 }
 
-/// atomic publish（tmp→sync→rename）経路への注入。
-/// commit marker・commit manifest・review record 等、
+/// atomic publish（`StagedFile` → `SealedFile::publish`）経路への
+/// 注入。commit marker・commit manifest・review record 等、
 /// `staging::publish_atomic_faultable` を通る公開に適用する。
+/// 注入点は新 pipeline 上で次のように写像される:
+/// `Denied` は `StagedFile::create` 前、`SyncFail` は seal 後・
+/// publish 前（temp は abort で除去）、`Indeterminate` は publish
+/// 成功後。
 #[derive(Clone, Debug)]
 pub enum PublishInject {
-    /// `call` 回目の publish で tmp file 作成を permission denied で
+    /// `call` 回目の publish で temp file 作成を permission denied で
     /// 失敗させる（公開は起きない）。
     Denied {
         /// 失敗させる publish 呼出し番号。
         call: u64,
     },
-    /// `call` 回目の publish で tmp `sync_all` を失敗させる
-    /// （tmp file は残留し得る。rename は行われない）。
+    /// `call` 回目の publish で file sync 相当を失敗させる
+    /// （publish は行われず temp は除去される。destination は
+    /// 未公開のまま）。
     SyncFail {
         /// 失敗させる publish 呼出し番号。
         call: u64,
     },
-    /// `call` 回目の publish で rename 成功**後**にエラーを返す
+    /// `call` 回目の publish で publish 成功**後**にエラーを返す
     /// （file は公開済みだが呼出し側は失敗を見る — 応答喪失・
     /// indeterminate 相当）。
     Indeterminate {

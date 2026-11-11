@@ -45,9 +45,10 @@ Directory: `docs/specs`
 | SPEC-034VmUDawn7YGP2Vh36vnP | PC-C6 headless oracle — R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 fixture（Recording・Plugin・GUI/RT 横断 Gate） | approved | [pc-c6-oracle-rows.md](./pc-c6-oracle-rows.md) |
 | SPEC-034V2ghdXlh1m9UFtt5ks1 | RCD-01 実Audio Device録音統合 headless slice — Mock Input→Raw Writer/Journal→Arm/Punch/Loop・Fail-stop Fixture（synvelis#115） | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | SPEC-034UoScGX6dIi25hMurqCI | RCD-01 Recording Input Adapter — channel binding・Arm/Monitor・fake port fail-stop（synvelis#115 slice） | proposed | [rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md](./rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md) |
+| SPEC-034VpjuNHFlkvgLqAJQGHJ | RCD-02 StagedFile Publish Migration — synvelis#116 slice | approved | [rcd-02-stagedfile-publish-migration.md](./rcd-02-stagedfile-publish-migration.md) |
 | SPEC-034VdSvFA9X0ESbckrSvBI | RCD-03 app Arm/Monitoring UX + project projection slice — synvelis#117 | proposed | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
-| SPEC-034UtksmGxvdygOzI1Dp7R | RCD-03 Monitoring / Punch / Latency semantics — synvelis#117 slice | proposed | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | SPEC-034VpQd7kM2xN9wR4tY6uJ | RCD-03 Arm/Monitor/Punch Project 永続投影 slice — synvelis#117 | proposed | [rcd-03-monitor-persistence.md](./rcd-03-monitor-persistence.md) |
+| SPEC-034UtksmGxvdygOzI1Dp7R | RCD-03 Monitoring / Punch / Latency semantics — synvelis#117 slice | proposed | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | SPEC-RCD04Fx7kQ2mV9wX4pL8sT1u | RCD-04 Comp Transition / MIDI Phrase — crate fixture slice (synvelis#118) | proposed | [rcd-04-comp-transition-midi-phrase-fixture.md](./rcd-04-comp-transition-midi-phrase-fixture.md) |
 | SPEC-034VmNS87JaOfBSbYwh0pt | RCD-04 Comp Transition / MIDI Phrase / Recovery Review — product E2E (synvelis#118) | proposed | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | SPEC-034SF01Km7pQr2sT9uVwXyZaB | SF-01 Semantic Routing Model — Bus/Send/Processor Chain/Stable Port IDs・Project Schema v6 | approved | [sf-01-semantic-routing-model-bus-send-chain-stable-ports.md](./sf-01-semantic-routing-model-bus-send-chain-stable-ports.md) |
@@ -65,6 +66,7 @@ Directory: `docs/specs`
 | SPEC-034UumeSTLbuxt64vqqJ47 | SF-04 slice2 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | SPEC-034UL2whPqBifdr1Jsrkn7 | SF-04 slice3 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | SPEC-4kvuQeb3IYEZ7UbStoNt2X | SF-04 slice4 — app/session wiring（Probe ON/OFF・probe port 実装・syn.probe.* ops・drain hook） | approved | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |
+| SPEC-034VphYPdMdjVaJWKkDJHg | SF-04 slice5 — probe subscriber/window ownership（session 層 lease・capture owner） | approved | [sf-04-slice5-probe-subscriber-ownership.md](./sf-04-slice5-probe-subscriber-ownership.md) |
 | SPEC-034Uuc3q3FZYT5JjxQtDv9 | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | approved | [sf-05-signal-flow-headless-hierarchy.md](./sf-05-signal-flow-headless-hierarchy.md) |
 | SPEC-hhfyzYWYjCwiqdwtsN8Add | SF-05 slice2 Signal Flow — Port Drag gesture + inspection focus + per-view persist（SF-UX-03/04/07） | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | SPEC-034V2wnQPWFJdKz68KlwJG | SF-06 cross-gate Domain Oracle・Case ID・Fault Fixture・evidence ledger（headless slice） | approved | [sf-06-cross-gate-oracle-case-ledger.md](./sf-06-cross-gate-oracle-case-ledger.md) |
@@ -97,6 +99,7 @@ Directory: `docs/specs`
 | SPEC-VCS04Hist0ryV1ewUI001 | VCS-04 History/Visual Diff UI — headless read-only projection slice（synvelis#95） | approved | [vcs-04-history-visual-diff-ui.md](./vcs-04-history-visual-diff-ui.md) |
 | SPEC-vcs05-apply-restore-headless | VCS-05 Safe Apply Selected Change / Restore As Copy — headless slice（synvelis#96） | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
 | SPEC-vcs06-fixture-fault-matrix | VCS-06 fixture-level fault matrix + evidence ledger | approved | [vcs-06-fixture-fault-matrix.md](./vcs-06-fixture-fault-matrix.md) |
+| SPEC-034VpB76W8P3twLKj0HlHB | VCS-06 UI headless matrix — Unknown/Partial honesty fixtures + ledger split | approved | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
 | SPEC-034Qdwuy2lCglk3HjqtRcs | VS-A Project / Recording Foundation — Stable ID・時間型・Command・Save/Reload | approved | [vs-a-project-recording-foundation-stable-id-command-save-reload.md](./vs-a-project-recording-foundation-stable-id-command-save-reload.md) |
 | SPEC-9EcPwSoDwcrg3WPYmvs7Gn | VS-B Clock / Gate Scheduler / RT Capture — Mock Input・Buffer Pool・SPSC | approved | [vs-b-rt-capture-mock-input-buffer-pool-spsc.md](./vs-b-rt-capture-mock-input-buffer-pool-spsc.md) |
 | SPEC-034QfIc1oyjYo7pSqlYH8a | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range | approved | [vs-c-staging-writer-journal-crash-recovery-verified-media-range.md](./vs-c-staging-writer-journal-crash-recovery-verified-media-range.md) |

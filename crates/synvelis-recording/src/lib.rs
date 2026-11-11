@@ -83,7 +83,7 @@ pub use staging::{
     CANONICAL_MEDIA_FORMAT, CANONICAL_SCHEMA_VERSION, CanonicalSourceRef, DirSyncCapability,
     ManifestStream, StagingArea, StagingCapabilities, StagingError, StagingManifest,
     StagingSessionConfig, StagingStreamConfig, canonical_rel, publish_atomic,
-    publish_atomic_faultable, review_rel, stream_config, stream_stem,
+    publish_atomic_create_new, publish_atomic_faultable, review_rel, stream_config, stream_stem,
 };
 pub use writer::{
     DirSyncState, DurabilityEvidence, DurableFrontier, FinalizedOutcome, FinalizedSourceRef,

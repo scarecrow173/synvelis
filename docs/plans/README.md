@@ -43,9 +43,10 @@ Directory: `docs/plans`
 | PLAN-034VmVEzTuUHmBKxPRoFID | PC-C6 oracle R/PL/UI/COMP headless fixture 実装計画 | approved | [pc-c6-oracle-rows-plan.md](./pc-c6-oracle-rows-plan.md) |
 | PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
+| PLAN-034VpmToY7qmWuyovg4BmV | RCD-02 StagedFile Publish Migration Plan | approved | [rcd-02-stagedfile-publish-migration-plan.md](./rcd-02-stagedfile-publish-migration-plan.md) |
 | PLAN-034VedskoBprfWhNkuqz6f | RCD-03 app Arm/Monitoring UX + monitor session projection slice | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
-| PLAN-034UtpZmsA5LhaaXLS0KRF | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter slice | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | PLAN-034VpQd9mO4xP1wT6vA8wL | RCD-03 Arm/Monitor/Punch Project 永続投影 slice | approved | [rcd-03-monitor-persistence-plan.md](./rcd-03-monitor-persistence-plan.md) |
+| PLAN-034UtpZmsA5LhaaXLS0KRF | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter slice | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | PLAN-RCD04Fx4kD9sG2hJ6mN8pQ1 | RCD-04 Comp Transition / MIDI Phrase crate fixture slice — implementation plan | approved | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |
 | PLAN-034VmOlfg7SLp6iUHpXla5 | RCD-04 product E2E plan | approved | [rcd-04-product-e2e-plan.md](./rcd-04-product-e2e-plan.md) |
 | PLAN-034SF01Np0sTu5vW2xYzAbDeF | SF-01 Semantic Routing Model 実装計画 | approved | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
@@ -60,6 +61,7 @@ Directory: `docs/plans`
 | PLAN-034Uupw2uQUIw30kQZ9HYX | SF-04 slice2 実装計画 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | PLAN-034UL6zrSYbZcDzr9MsHXB | SF-04 slice3 実装計画 — probe clock epoch discontinuity・capture segment cut | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | PLAN-4fJZbNlcZy6NsCvF40RggB | SF-04 slice4 実装計画 — app/session wiring（probe port・syn.probe.*・drain hook） | approved | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |
+| PLAN-034VpoEbeiqPIm8MYZAnAD | SF-04 slice5 実装計画 — probe subscriber/window ownership（session 層 lease・capture owner） | approved | [sf-04-slice5-probe-subscriber-ownership-plan.md](./sf-04-slice5-probe-subscriber-ownership-plan.md) |
 | PLAN-034Uuhu2Eis7GPJ5fej73V | SF-05 slice1 実施計画 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | PLAN-6xRqunIew52aqbQt4yZ3qy | SF-05 slice2 実施計画 — Signal Flow gesture/inspection/persist | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | PLAN-034V2wD3RqGEqlst7HFeVD | SF-06 cross-gate headless slice — Domain Oracle・Case registry・fault fixture・ledger | approved | [sf-06-cross-gate-oracle.md](./sf-06-cross-gate-oracle.md) |
@@ -89,6 +91,7 @@ Directory: `docs/plans`
 | PLAN-D4Oqo3jPnK2GybwKhM5nwh | VCS-03 Git Read Provider implementation plan | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
 | PLAN-VCS04Hist0ryV1ewPln01 | VCS-04 History/Visual Diff UI implementation plan | approved | [vcs-04-history-visual-diff-ui.md](./vcs-04-history-visual-diff-ui.md) |
 | PLAN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — 実装 plan | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
+| PLAN-034VpCx6TPoO1WOEqV19u4 | VCS-06 UI headless matrix — 実装 plan | approved | [vcs-06-ui-headless-matrix-plan.md](./vcs-06-ui-headless-matrix-plan.md) |
 | PLAN-034QdZoc84FQ9sKQSfLWtn | VS-A Project/Recording Foundation 実装計画 | approved | [vs-a-project-recording-foundation.md](./vs-a-project-recording-foundation.md) |
 | PLAN-kco2O0dSUXmFGIGQYqpxrx | VS-B Clock / Gate Scheduler / RT Capture 実装計画 | approved | [vs-b-clock-gate-rt-capture.md](./vs-b-clock-gate-rt-capture.md) |
 | PLAN-034QfNV0kVj6j2cR8sXyLqWm | VS-C Staging Writer / Journal / Crash Recovery 実装計画 | approved | [vs-c-staging-writer-journal-crash-recovery.md](./vs-c-staging-writer-journal-crash-recovery.md) |

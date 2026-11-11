@@ -26,8 +26,8 @@ Directory: `docs/tasks`
 | TASK-034VmVPWtNFIg5zO3xaDsP | PC-C6: R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rows.md](./pc-c6-task1-oracle-rows.md) |
 | TASK-034V2kE9l91elvsqfnsx5s | RCD-01 device-recording headless fixture | in_progress | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
+| TASK-034VpnH7YtacCiCUD4y9fu | RCD-02 Task3 StagedFile Publish Migration | in-progress | [rcd-02-task3-stagedfile-publish-migration.md](./rcd-02-task3-stagedfile-publish-migration.md) |
 | TASK-034VegaqbLjPWyJoFDrmhQ | RCD-03 Task2 app Arm/Monitoring UX + monitor session projection | in-progress | [rcd-03-task2-app-arm-monitoring-ux.md](./rcd-03-task2-app-arm-monitoring-ux.md) |
-| TASK-034VpQe0nP5xQ2wU7vB9xM | RCD-03 Task1 Arm/Monitor/Punch Project 永続投影 | done | [rcd-03-task1-monitor-persistence.md](./rcd-03-task1-monitor-persistence.md) |
 | TASK-034VmO0u2fPRBj8uO9cGkk | RCD-04 Task1 product E2E | in-progress | [rcd-04-task1-product-e2e.md](./rcd-04-task1-product-e2e.md) |
 | TASK-106SF03Tz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T1 — RoutingFault 18分類・engine 改修・reconcile 実装 | in-progress | [sf-03-slice2-fault-contract.md](./sf-03-slice2-fault-contract.md) |
 | TASK-106SF03Uz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T2 — 受入テスト sf03_l2.rs・検証 | in-progress | [sf-03-slice2-reconcile-tests.md](./sf-03-slice2-reconcile-tests.md) |
@@ -35,6 +35,7 @@ Directory: `docs/tasks`
 | TASK-034Uur4AKzlyg8khBcNC6X | SF-04 slice2 T1 — ControlSession probe observation → ControlTrace 配線 | in-progress | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | TASK-034UL3a4aL5H7PC2FRWUp7 | SF-04 slice3 T1 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | in-progress | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | TASK-5FrDNAlmiEt3QTiDj5a82C | SF-04 slice4 T1 — app/session wiring（probe port・syn.probe.*・drain hook） | in-progress | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |
+| TASK-034VpsGgHQsSoFmX1K61s3 | SF-04 slice5 T1 — probe subscriber/window ownership（session 層 lease・capture owner） | in-progress | [sf-04-slice5-task1-probe-subscriber-ownership.md](./sf-04-slice5-task1-probe-subscriber-ownership.md) |
 | TASK-G4oEdDOSfbQ4uy5d0HrbKh | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture 実装 task | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | TASK-034Ul52jO5RARmW21UHLGR | SV-GUI-03 slice1: Transport 操作 + Inspector 表示を既存 GPUI 経路に接続 | in-progress | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
 | TASK-cvXxPcl14NogBTKEDTSKrO | SV-GUI-03 slice2 タスク分解 — Arrangement read-only Table + Undo/Redo | in-progress | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
@@ -110,6 +111,7 @@ Directory: `docs/tasks`
 | TASK-034UxYCkPWXOotRSbjIPex | PC-C5 slice2 タスク分解 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | done | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | done | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
 | TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |
+| TASK-034VpQe0nP5xQ2wU7vB9xM | RCD-03 Task1 Arm/Monitor/Punch Project 永続投影 | done | [rcd-03-task1-monitor-persistence.md](./rcd-03-task1-monitor-persistence.md) |
 | TASK-034UtpBjTeXJ6XSJAMupsv | RCD-03 Task1 Monitor/Punch/Latency semantics | done | [rcd-03-task1-monitor-punch-latency.md](./rcd-03-task1-monitor-punch-latency.md) |
 | TASK-RCD04Fx1kE5tY8uI3oP6aS9 | RCD-04 Task1 Comp Transition / MIDI Phrase crate fixture slice | done | [rcd-04-task1-comp-midi-fixture.md](./rcd-04-task1-comp-midi-fixture.md) |
 | TASK-034SF01Pr2uVw7xY4zAbCdFgH | SF-01: RoutingModel 型・oracle・Schema v6 Migration・ops・検証 | done | [sf-01-task1-routing-model-schema-migration.md](./sf-01-task1-routing-model-schema-migration.md) |
@@ -167,6 +169,7 @@ Directory: `docs/tasks`
 | TASK-034UEtaHWZFrCd1VFAIRfl | VCS-02 Task1 Semantic Diff Engine headless slice | done | [vcs-02-task1-semantic-diff-engine-headless-slice.md](./vcs-02-task1-semantic-diff-engine-headless-slice.md) |
 | TASK-v2hQAN1hrbnURHHF2lrf6L | VCS-03 Task1 Git Read Provider headless slice | done | [vcs-03-task1-git-read-provider-headless-slice.md](./vcs-03-task1-git-read-provider-headless-slice.md) |
 | TASK-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless slice — 実装 task | done | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
+| TASK-034VpC1mzY9bzJDEjAIDKv | VCS-06 UI headless matrix | done | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | TASK-034Qe0kHawWuXO1xHGTd8F | VS-A task3 controller ops store | done | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |
