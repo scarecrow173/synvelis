@@ -4,7 +4,7 @@ type: "plan"
 status: "approved"
 title: "TIM-02 player MIDI RT/Offline 結合 — 実装 plan"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -30,7 +30,8 @@ relations:
   derives-from: []
   derived-by: []
   verifies: []
-  verified-by: []
+  verified-by:
+    - "docs/test-specs/tim-02-player-midi-rt-fixtures.md"
   references: []
   defers: []
   deferred-by: []
@@ -46,7 +47,7 @@ relations:
 | `crates/synvelis-player/src/dispatch.rs` | `ParamDispatch::dispatch_midi` 追加 |
 | `crates/synvelis-player/src/driver.rs` | `set_loop`/`clear_loop`/`panic`/`resume_attached_transport` 追加 |
 | `crates/synvelis-player/src/lib.rs` | `pub mod midi` + export 追加 |
-| `crates/synvelis-player/tests/tim02_midi_transport.rs` | 新規 — RT/Offline 結合 fixture |
+| `crates/synvelis-player/tests/tim02_midi_playback.rs` | 新規 — RT/Offline 結合 fixture |
 | `crates/synvelis-player/tests/tim02_midi_rt.rs` | 新規 — `rt_` no-alloc fixture |
 
 ## Dependency Graph
@@ -83,7 +84,7 @@ midi.rs (pure lowering)
 
 | 検証 | 手段 |
 | --- | --- |
-| event 順序・frame 位置・channel | `tim02_midi_transport.rs` 配送 assert |
+| event 順序・frame 位置・channel | `tim02_midi_playback.rs` 配送 assert |
 | seek release+chase・hanging 0 | 同上 seek test（ledger feed ベースの発音判定） |
 | loop wrap per-occurrence | 同上 loop test |
 | panic（Stop）発音残り 0 | 同上 panic test |
