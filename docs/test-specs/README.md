@@ -40,6 +40,7 @@ Directory: `docs/test-specs`
 | TSPEC-034UqHaJf2vZgpPzjlqqi7 | PC-C3 ControlTrace E2E — stage 相関・freshness・probe 状態・plan activation | approved | [pc-c3-e2e-control-trace.md](./pc-c3-e2e-control-trace.md) |
 | TSPEC-otlsBc81CdrVkhwlcp4umO | PC-C4-02 plugin instance binding e2e — stage-1 authority・plugin identity pin | approved | [pc-c4-02-e2e-plugin-instance-binding.md](./pc-c4-02-e2e-plugin-instance-binding.md) |
 | TSPEC-PCc4030bs3vN1pQ8wXyZ2aF | PC-C4-03 param observation — drain→ledger・gate・typed 終端 test 保証 | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |
+| TSPEC-PCc4040bs3vN1pQ8wXyZ2aF | PC-C4-04 app composition — vend・所有・tick・gate・feed test 保証 | approved | [pc-c4-04-app-composition.md](./pc-c4-04-app-composition.md) |
 | TSPEC-034VvKHc3n0JmiEzTuFtD2 | PC-C4-05 persisted StablePluginInstanceId test spec | approved | [pc-c4-05-persisted-instance-id.md](./pc-c4-05-persisted-instance-id.md) |
 | TSPEC-034Uw6FJykHzgki5MvwCPZ | PC-C4 plugin parameter binding e2e — PLUG-C4-01..05 / PC-C4-PL01..08 | approved | [pc-c4-e2e-plugin-param-binding.md](./pc-c4-e2e-plugin-param-binding.md) |
 | TSPEC-tCO4ppjNmQv0ebUI6Q1rHD | PC-C5 slice1 テスト仕様 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
