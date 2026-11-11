@@ -96,12 +96,12 @@ fixture/command 対応。
 | caseId | scope | T0 | T1 | T2 | T3 | T4 |
 |---|---|---|---|---|---|---|
 | SF-UX-01 | Semantic vs Visual Group/collapsed edge — Fold/expand/group/move/zoom/role filter で DSP/Project Revision/Undo unchanged・no fake collapsed edge/Role | NotRun | NotRun | Pass*（sf_05 workspace + sf05_signal_flow app tests — hierarchy 投影/role filter/collapse。DSP/PCM 側は T2 継続） | NotRun | NotRun |
-| SF-UX-02 | drag intent/commit/undo — Port drag preview→cancel or approved command・invalid map/other window edits・stale target no-op・1 atomic Commit+Undo | NotRun | NotRun | NotRun（#108 編集 slice 未着手 — headless view のみ存在） | NotRun | NotRun |
-| SF-UX-03 | Inspector Follow/Explore/Pinned — inspection vs editing selection separate・no wrong-target mutation | NotRun | NotRun | NotRun | NotRun | NotRun |
+| SF-UX-02 | drag intent/commit/undo — Port drag preview→cancel or approved command・invalid map/other window edits・stale target no-op・1 atomic Commit+Undo | NotRun | NotRun | Pass*（slice2 merge — routing gesture fixation/dry-run/drop/confirm/cancel・stale revision/capability/window・1 `ProjectOp::Routing` commit=1 undo を `sf_05_s2`/`sf05_signal_flow` tests で検証。実 pointer/OS 経路は T3/T4 NotRun） | NotRun | NotRun |
+| SF-UX-03 | Inspector Follow/Explore/Pinned — inspection vs editing selection separate・no wrong-target mutation | NotRun | NotRun | Pass*（slice2 merge — Signal Flow inspection Follow/Explore/Pinned・session-only 履歴・link 追従・selection 分離を `sf_05_s2` tests で検証） | NotRun | NotRun |
 | SF-UX-04 | Control Layer #102 not Audio routing — Automation/Control 表示と Routing/RT 対象・世代の照合 | NotRun | NotRun | NotRun（#102 依存） | NotRun | NotRun |
 | SF-UX-05 | stale/late receipt — Configured R2/Active R1・Probe Missing/On/Off・Capture single-owner・status truthful・no duplicate capture/fake Observed | NotRun | NotRun | Pass*（sf05_signal_flow `published_without_rt_observation_is_not_displayed_as_active`・`absent_engine_reports_unattached_and_unobserved` — status 真実性の headless 部分） | NotRun | NotRun |
 | SF-UX-06 | real 3OS GUI/HiDPI/keyboard/a11y focus — OS evidence per environment・no headless-only pass | NotRun | NotRun | NotRun | NotRun（#114 gate — Windows/macOS/Linux 実機） | NotRun |
-| SF-UX-07 | Workspace Schema v2→vNext/unknown/corrupt saved view — layout versioned migration・Project Schema/PCM unaffected | NotRun | NotRun | NotRun（#108 SF-UX-07 slice 未着手） | NotRun | NotRun |
+| SF-UX-07 | Workspace Schema v2→vNext/unknown/corrupt saved view — layout versioned migration・Project Schema/PCM unaffected | NotRun | NotRun | Pass*（slice2 merge — `SignalFlowViewState` の `ViewInstanceId` 単位 persist・schema v2→v3 migrate・malformed degrade を `sf_05_s2` tests で検証。Project Schema/PCM 非影響は契約上不変） | NotRun | NotRun |
 | SF-UX-08 | real Windows/macOS/Linux native/WebView・DPI・a11y・keyboard・Window detach/close — OS evidence per environment | NotRun | NotRun | NotRun | NotRun | NotRun |
 
 ### SF-COMPAT（DAW/Consumer non-regression）

@@ -69,6 +69,7 @@ Directory: `docs/specs`
 | SPEC-034VphYPdMdjVaJWKkDJHg | SF-04 slice5 — probe subscriber/window ownership（session 層 lease・capture owner） | approved | [sf-04-slice5-probe-subscriber-ownership.md](./sf-04-slice5-probe-subscriber-ownership.md) |
 | SPEC-034Uuc3q3FZYT5JjxQtDv9 | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | approved | [sf-05-signal-flow-headless-hierarchy.md](./sf-05-signal-flow-headless-hierarchy.md) |
 | SPEC-hhfyzYWYjCwiqdwtsN8Add | SF-05 slice2 Signal Flow — Port Drag gesture + inspection focus + per-view persist（SF-UX-03/04/07） | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
+| SPEC-kX9mQvR2wTbLpNcJyH4sDf | SF-05 slice3 Signal Flow — probe subscriber/capture dedup の app/UI 配線（SF-UX-06 headless 側） | approved | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
 | SPEC-034V2wnQPWFJdKz68KlwJG | SF-06 cross-gate Domain Oracle・Case ID・Fault Fixture・evidence ledger（headless slice） | approved | [sf-06-cross-gate-oracle-case-ledger.md](./sf-06-cross-gate-oracle-case-ledger.md) |
 | SPEC-JQYNMchouBVGrijHyiBC2d | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture（headless slice） | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | SPEC-ZXEWFEbx3k4Jeu4YDEQcD0 | SV-GPUI-01 Native App Shell — Driver-neutral shell・GPUI Driver組立・typed ViewModel↔Binding adapter・app lifecycle | approved | [sv-gpui-01-native-app-shell.md](./sv-gpui-01-native-app-shell.md) |

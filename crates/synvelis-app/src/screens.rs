@@ -295,6 +295,30 @@ impl SignalFlowScreenState {
     }
 }
 
+/// One Signal Flow probe subscription row — the main view's lease on
+/// a `(SemanticProbePoint, SubscriptionKind)` key with the shared
+/// binding's requested mode, resolve state, lease-holder principals,
+/// and capture owner projected verbatim (synvelis#108 SF-05 slice3,
+/// SF-UX-06). Display-only: probe lifecycle runs through
+/// `syn.probe.control`, never through this table, and the row mutates
+/// no project/DSP state.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct SignalFlowProbeRow {
+    /// Semantic probe point (serde JSON text).
+    pub point: String,
+    /// Subscription kind (`Metrics`/`Pcm`).
+    pub kind: String,
+    /// Binding requested mode (`Off`/`Monitor`/`Capture`), `"—"` when
+    /// the port ledger has no live binding row.
+    pub mode: String,
+    /// Binding resolve state verbatim.
+    pub state: String,
+    /// Lease holder principals (`session`, `view-{n}`), `", "`-joined.
+    pub holders: String,
+    /// Recorded capture owner or `"—"`.
+    pub capture_owner: String,
+}
+
 /// The full display state [`main_screen_spec`] needs — project length
 /// (Seek range), arrangement rows, transport readout, and inspector
 /// rows. Owned by the composition root behind a shared cell; refreshed
@@ -318,6 +342,13 @@ pub struct MainScreenState {
     pub relations: RelationScreenState,
     /// Signal Flow graph/status display (synvelis#108 SF-05 slice 1).
     pub signal_flow: SignalFlowScreenState,
+    /// Signal Flow probe subscriptions held by the main view
+    /// (synvelis#108 SF-05 slice3) — session probe state projected by
+    /// the UI pump's screen-state capture. A sibling of `signal_flow`
+    /// (not a field inside it) because `publish_project_length`
+    /// rebuilds `signal_flow` wholesale on every service op; this
+    /// field is only refreshed by `capture_screen_state`.
+    pub signal_flow_probes: Vec<SignalFlowProbeRow>,
     /// Mixer strip channel-toggle targets (synvelis#112 slice 3) —
     /// project-derived, refreshed by `publish_project_length`.
     pub mixer: MixerScreenState,
@@ -767,6 +798,44 @@ fn signal_flow_edges_table(s: &SignalFlowScreenState) -> ComponentSpec {
         visual: ComponentVisualState::default(),
         a11y: A11ySpec {
             label: Some("Signal Flow edges".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The Signal Flow probe table — the main view's probe leases with
+/// the shared binding's mode/state and holder/capture-owner truth
+/// (SF-05 slice3, SF-UX-06). Read-only: `selection` is `None`; the
+/// probe ON/OFF lifecycle runs through `syn.probe.control`, not view
+/// commands, so the table never mints intents.
+fn signal_flow_probes_table(rows: &[SignalFlowProbeRow]) -> ComponentSpec {
+    ComponentSpec::Table(TableSpec {
+        key: key("signal_flow.probes"),
+        columns: vec![
+            "Point".to_string(),
+            "Kind".to_string(),
+            "Mode".to_string(),
+            "State".to_string(),
+            "Holders".to_string(),
+            "Capture".to_string(),
+        ],
+        rows: rows
+            .iter()
+            .map(|row| {
+                vec![
+                    Some(CellValue::Text(row.point.clone())),
+                    Some(CellValue::Text(row.kind.clone())),
+                    Some(CellValue::Text(row.mode.clone())),
+                    Some(CellValue::Text(row.state.clone())),
+                    Some(CellValue::Text(row.holders.clone())),
+                    Some(CellValue::Text(row.capture_owner.clone())),
+                ]
+            })
+            .collect(),
+        selection: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Signal Flow probes".to_string()),
             ..A11ySpec::default()
         },
     })
@@ -1363,6 +1432,7 @@ pub fn main_screen_spec(state: &MainScreenState) -> ViewSpec {
                                     signal_flow_status_label(&state.signal_flow),
                                     signal_flow_nodes_table(&state.signal_flow),
                                     signal_flow_edges_table(&state.signal_flow),
+                                    signal_flow_probes_table(&state.signal_flow_probes),
                                 ],
                             )),
                         },
