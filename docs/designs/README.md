@@ -8,6 +8,7 @@ Directory: `docs/designs`
 | --- | --- | --- | --- |
 | DESIGN-OVERVIEW | Synvelis 設計概要 | draft | [overview.md](./overview.md) |
 | DESIGN-pzR2GiO8Eru6Jw2zRK6l2s | ALIB-01 Design — Asset Provider 契約・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract-design.md](./alib-01-asset-provider-contract-design.md) |
+| DESIGN-034VMQIe8i9hOn2Tb317Ue | ALIB-02 residual closeout — 証拠照合と gate 分類の設計 | approved | [alib-02-residual-closeout-design.md](./alib-02-residual-closeout-design.md) |
 | DSN-alib02-streaming-import | ALIB-02 — Streaming Verified Import 設計（synvelis-library） | approved | [alib-02-streaming-verified-import-design.md](./alib-02-streaming-verified-import-design.md) |
 | DSN-alib02-v5snap | ALIB-02 — v5 snapshot asset-digest 互換移行 設計 | approved | [alib-02-v5-snapshot-compat-design.md](./alib-02-v5-snapshot-compat-design.md) |
 | DSN-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache 設計（synvelis-library） | approved | [alib-03-catalog-preview-cache-design.md](./alib-03-catalog-preview-cache-design.md) |
@@ -51,6 +52,7 @@ Directory: `docs/designs`
 | DSGN-PCc4030bs3vN1pQ8wXyZ2aC | PC-C4-03 param observation design — drain surface・binding 逆引き・gate | approved | [pc-c4-03-param-observation-design.md](./pc-c4-03-param-observation-design.md) |
 | DSGN-PCc4040bs3vN1pQ8wXyZ2aC | PC-C4-04 app composition design — vend cell・所有 dispatch・pump 駆動・feed 橋渡し | approved | [pc-c4-04-app-composition-design.md](./pc-c4-04-app-composition-design.md) |
 | DESIGN-034VvFkFH34loxhN1Sn2tn | PC-C4-05 persisted StablePluginInstanceId design — project identity store・schema v13・hydration | approved | [pc-c4-05-persisted-instance-id-design.md](./pc-c4-05-persisted-instance-id-design.md) |
+| DESIGN-7c4e9a1b2d3f4e5a6b7c8e9f | PC-C4-06 control op surface design — syn.control.* typed-evidence ops | approved | [pc-c4-06-control-op-surface-design.md](./pc-c4-06-control-op-surface-design.md) |
 | DESIGN-034Uw4SG2SiRKQuoKOZGzL | PC-C4 plugin parameter binding design — verified frame base・capability gate・generation consistency | approved | [pc-c4-plugin-param-binding-design.md](./pc-c4-plugin-param-binding-design.md) |
 | DESIGN-AkFUh4M60YuHo8COCvb0Um | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
 | DESIGN-034UxXM5FBBTGn5JWkSBss | PC-C5 slice2 Gesture 固定・stale drop・Inspector mode 設計 | approved | [pc-c5-02-03-gesture-stale-inspector-design.md](./pc-c5-02-03-gesture-stale-inspector-design.md) |
@@ -126,8 +128,11 @@ Directory: `docs/designs`
 | DESIGN-034UAwTwlzWbToxqWtFM2B | VCS-01 Immutable Snapshot Resolver — crate 内完結設計 | approved | [vcs-01-immutable-snapshot-resolver-design.md](./vcs-01-immutable-snapshot-resolver-design.md) |
 | DESIGN-034UEtYMoQUWsPmOBrl819 | VCS-02 Semantic Diff Engine design | approved | [vcs-02-semantic-diff-engine-design.md](./vcs-02-semantic-diff-engine-design.md) |
 | DESIGN-7jUOgXVjk3gpAYkbIzdUfe | VCS-03 Git Read Provider design | approved | [vcs-03-git-read-provider-design.md](./vcs-03-git-read-provider-design.md) |
+| DESIGN-VCS04BkndWiringDsn0001 | VCS-04 production backend wiring — module 設計 | approved | [vcs-04-backend-wiring-design.md](./vcs-04-backend-wiring-design.md) |
 | DESIGN-VCS04Hist0ryV1ewDsn01 | VCS-04 History/Visual Diff UI design | approved | [vcs-04-history-visual-diff-ui-design.md](./vcs-04-history-visual-diff-ui-design.md) |
 | DSGN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — module 設計 | approved | [vcs-05-apply-restore-headless-design.md](./vcs-05-apply-restore-headless-design.md) |
+| DSGN-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface 拡張 design | approved | [vcs-05-monitoring-apply-surface-design.md](./vcs-05-monitoring-apply-surface-design.md) |
+| DESIGN-TR6hK0f243aEk3CmFQlfp | VCS-06 evidence completion — RESTORE-08 / COMPAT-03/04 設計 | approved | [vcs-06-evidence-completion-design.md](./vcs-06-evidence-completion-design.md) |
 | DESIGN-lzcGjnJjPNFKiNNUpE2gE3 | VCS-06 monitoring-domain matrix — fixture 設計 | approved | [vcs-06-monitoring-matrix-design.md](./vcs-06-monitoring-matrix-design.md) |
 | DESIGN-034VpC0m5WnwXqJkI2nNXw | VCS-06 UI headless matrix — fixture 設計 | approved | [vcs-06-ui-headless-matrix-design.md](./vcs-06-ui-headless-matrix-design.md) |
 | DESIGN-034QdO7AB6cp4DRgKeuuEn | VS-A Project/Recording Foundation — Stable ID・時間型・Command・永続化 PoC | approved | [vs-a-project-recording-foundation-stable-id-command-poc.md](./vs-a-project-recording-foundation-stable-id-command-poc.md) |

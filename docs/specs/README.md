@@ -7,7 +7,6 @@ Directory: `docs/specs`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | SPEC-j8VrtHRiA60WGx27NKFnH4 | ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
-| SPEC-alib02-v5snap | ALIB-02 deferred — v5 snapshot 互換移行（SHA-256/旧 CRC digest 共存） | approved | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | SPEC-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | approved | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | SPEC-alib04-git-remote-provider | ALIB-04 — Git Remote Provider（fixed Commit/Tree・Git LFS・selective fetch・auth）（synvelis-library slice） | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | SPEC-alib06-webdav-provider | ALIB-06 — WebDAV File-Server Provider（strong ETag/If-Match pin・conditional read・auth・cancel）（synvelis-library slice） | approved | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
@@ -39,6 +38,7 @@ Directory: `docs/specs`
 | SPEC-PCc4030bs3vN1pQ8wXyZ2aB | PC-C4-03 reported observation 消費 — host drain → ParamDispatch ledger（headless slice） | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |
 | SPEC-PCc4040bs3vN1pQ8wXyZ2aB | PC-C4-04 workspace/app composition — catalog vend・dispatch 所有・tick 駆動・fast_control | approved | [pc-c4-04-app-composition.md](./pc-c4-04-app-composition.md) |
 | SPEC-034VvDn4o6zcn7dFSGRGZC | PC-C4-05 persisted StablePluginInstanceId — project schema v13 + player hydration | approved | [pc-c4-05-persisted-instance-id.md](./pc-c4-05-persisted-instance-id.md) |
+| SPEC-7c4e9a1b2d3f4e5a6b7c8d | PC-C4-06 control op surface — syn.control.* typed-evidence ops | approved | [pc-c4-06-control-op-surface.md](./pc-c4-06-control-op-surface.md) |
 | SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | SPEC-034UxXLvNqgbDGOypo7Uu4 | PC-C5 slice2 (UI-C5-02/03): Gesture 固定・stale drop・Inspector Follow/Explore/Pinned（headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -106,8 +106,11 @@ Directory: `docs/specs`
 | SPEC-034UAv3chafPsU2fFyQnIb | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only schema projection (synvelis#92) | proposed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | SPEC-034UEsXPitEuEsjBM4qjo6 | VCS-02 Semantic Diff Engine — canonical ChangeSet typed identity lineage Unknown tri-state (synvelis#93) | proposed | [vcs-02-semantic-diff-changeset.md](./vcs-02-semantic-diff-changeset.md) |
 | SPEC-PvLluOn4j6y1qpdtQ0aw8A | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta（synvelis#94） | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
+| SPEC-VCS04BkndWiringSpec001 | VCS-04 production set_vcs_backend 配線 slice（synvelis#95） | approved | [vcs-04-backend-wiring.md](./vcs-04-backend-wiring.md) |
 | SPEC-VCS04Hist0ryV1ewUI001 | VCS-04 History/Visual Diff UI — headless read-only projection slice（synvelis#95） | approved | [vcs-04-history-visual-diff-ui.md](./vcs-04-history-visual-diff-ui.md) |
 | SPEC-vcs05-apply-restore-headless | VCS-05 Safe Apply Selected Change / Restore As Copy — headless slice（synvelis#96） | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
+| SPEC-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface 拡張 slice — synvelis#96 Slice A | approved | [vcs-05-monitoring-apply-surface.md](./vcs-05-monitoring-apply-surface.md) |
+| SPEC-034VNNGsOaycnOBjCAH3m1 | VCS-06 evidence completion — RESTORE-08 plugin_instances verbatim + COMPAT-03/04 CI legs | approved | [vcs-06-evidence-completion.md](./vcs-06-evidence-completion.md) |
 | SPEC-vcs06-fixture-fault-matrix | VCS-06 fixture-level fault matrix + evidence ledger | approved | [vcs-06-fixture-fault-matrix.md](./vcs-06-fixture-fault-matrix.md) |
 | SPEC-pkRnrZ2RKJfPW1ymwMSENS | VCS-06 monitoring-domain matrix — monitor 宣言の diff/apply/restore 証拠行 | approved | [vcs-06-monitoring-matrix.md](./vcs-06-monitoring-matrix.md) |
 | SPEC-034VpB76W8P3twLKj0HlHB | VCS-06 UI headless matrix — Unknown/Partial honesty fixtures + ledger split | approved | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
@@ -122,7 +125,9 @@ Directory: `docs/specs`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| SPEC-034VMQHlJRjZlqnsqBmhnw | ALIB-02 residual closeout — Issue #86 DoD 照合・証拠・外部 gate 棚卸し | implemented | [alib-02-residual-closeout.md](./alib-02-residual-closeout.md) |
 | SPEC-034UviRHTzZZY5QqaoRYZV | ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | implemented | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
+| SPEC-alib02-v5snap | ALIB-02 deferred — v5 snapshot 互換移行（SHA-256/旧 CRC digest 共存） | implemented | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | SPEC-alib07-fault-matrix | ALIB-07 — Asset Library 全経路 Fault Matrix（headless slice・synvelis-library） | implemented | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | SPEC-alib07-import-cancel | ALIB-07 slice 2 — LIB-IMPORT-04 publish/commit 相 cancel・LIB-IMPORT-08 subprocess crash（synvelis-library headless） | implemented | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | SPEC-034AUT02Kw7xRn3vBz9sQm5t | AUT-02 Region Replace 境界曲線保存・Reject/Replace 原子的編集 | implemented | [aut-02-region-replace-boundary-curve-preservation.md](./aut-02-region-replace-boundary-curve-preservation.md) |
