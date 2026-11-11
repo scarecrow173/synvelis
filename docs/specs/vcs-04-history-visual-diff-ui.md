@@ -4,7 +4,7 @@ type: "spec"
 status: "approved"
 title: "VCS-04 History/Visual Diff UI — headless read-only projection slice（synvelis#95）"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -15,11 +15,35 @@ relations:
     - "ISSUE-94"
     - "ISSUE-97"
     - "ISSUE-114"
-  verified_by:
-    - "TSPEC-VCS04Hist0ryV1ewTst01"
-  implemented_by: []
+  changes:
+    added: []
+    modified: []
+    deleted: []
+    renamed: []
+    moved: []
+    generated: []
+  implements: []
+  implemented-by:
+    - "docs/designs/vcs-04-history-visual-diff-ui-design.md"
+  depends-on: []
+  blocks: []
   supersedes: []
-  superseded_by: []
+  superseded-by: []
+  related:
+    - "docs/specs/vcs-01-immutable-snapshot-resolver.md"
+    - "docs/specs/vcs-02-semantic-diff-changeset.md"
+    - "docs/specs/vcs-03-git-read-provider.md"
+  refines: []
+  refined-by: []
+  derives-from:
+    - "https://github.com/scarecrow173/synvelis/issues/95"
+  derived-by: []
+  verifies: []
+  verified-by:
+    - "docs/test-specs/vcs-04-history-diff-fixtures.md"
+  references: []
+  defers: []
+  deferred-by: []
 ---
 
 # VCS-04 History/Visual Diff UI — headless read-only projection slice

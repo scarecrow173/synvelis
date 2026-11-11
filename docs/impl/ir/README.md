@@ -21,6 +21,8 @@ Directory: `docs/impl/ir`
 | --- | --- | --- | --- |
 | IMPL-034T7QIk72dphjZPfVnZ1O | ALIB-01 Asset Provider baseline contract | completed | [alib-01-asset-provider-baseline-contract.md](alib-01-asset-provider-baseline-contract.md) |
 | IMPL-alib02-streaming-verified-import | ALIB-02 Streaming Verified Import — SHA-256 namespace（synvelis-library slice） | completed | [alib-02-streaming-verified-import.md](alib-02-streaming-verified-import.md) |
+| IMPL-alib02-v5snap | ALIB-02 v5 snapshot asset-digest 互換移行 + recovery fixture | completed | [alib-02-v5-snapshot-compat.md](alib-02-v5-snapshot-compat.md) |
+| IMPL-alib02-v5snap-slice | ALIB-02 v5 snapshot 互換移行 — 実 v5 fixture residual slice（Issue #86 DoD(1)） | completed | [alib-02-v5-snapshot-compat-slice.md](alib-02-v5-snapshot-compat-slice.md) |
 | IR-alib07-fault-matrix | ALIB-07 Fault Matrix — headless 実装記録（synvelis-library） | completed | [alib-07-fault-matrix.md](alib-07-fault-matrix.md) |
 | IR-alib07-import-cancel | ALIB-07 slice 2 — import cancel checkpoint・subprocess crash fixture 実装記録（synvelis-library） | completed | [alib-07-import-cancel.md](alib-07-import-cancel.md) |
 | IMPL-AUT03LoopWriteOnePass | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・境界 flush・明示 Rearm 実装記録 | completed | [aut-03-loop-write-one-pass.md](aut-03-loop-write-one-pass.md) |
@@ -112,4 +114,5 @@ Directory: `docs/impl/ir`
 | IMPL-034VDfqOMnbp5s6CThZTBe | RCD-03 VCS semantic diff monitor 宣言分類 slice 実装記録 | completed | [rcd-03-vcs-diff-monitor-classification-slice.md](rcd-03-vcs-diff-monitor-classification-slice.md) |
 | IMPL-034VC2V5HUrkERcXqw246v | RCD-04 RT engine comp PCM slice 実装記録 | in-progress | [rcd-04-rt-engine-comp-pcm-slice.md](rcd-04-rt-engine-comp-pcm-slice.md) |
 | IMPL-0h9qRk2mNvPwXzYc8uJd4s | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe | completed | [rcd-02-unsynced-loss-real-fs-probe-slice.md](rcd-02-unsynced-loss-real-fs-probe-slice.md) |
+| IMPL-034VGuS8MYmQ9PYiMy81Gt | VCS-04 History/Visual Diff UI — headless read-only projection slice (synvelis#95) | completed | [vcs-04-history-visual-diff-ui.md](vcs-04-history-visual-diff-ui.md) |
 | IMPL-VvBJRLqOSjnq3Pv2b4D1aO | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f API 追従 | completed | [sv-28-ruviform-pin-fd1d4d5f.md](sv-28-ruviform-pin-fd1d4d5f.md) |
