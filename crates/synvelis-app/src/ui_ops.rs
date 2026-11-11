@@ -14,6 +14,8 @@ use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::sync::Arc;
 
+use ruviform_audio_plugin_bridge::DispatchStage;
+use ruviform_media_core::MediaTimestamp;
 use ruviform_ui::dock::{
     DockEvent, DockTarget, MoveToken, ViewInstanceId, WindowCloseDisposition, WindowGeometry,
 };
@@ -24,7 +26,8 @@ use ruviform_ui::window::WindowId;
 use serde_json::{Value, json};
 
 use synvelis_player::{
-    LatencyBasis, LatencyComponent, LatencyQuality, LatencyReport, LowLatencyReadiness,
+    DispatchCycle, FastControlOutcome, FastControlWrite, LatencyBasis, LatencyComponent,
+    LatencyQuality, LatencyReport, LowLatencyReadiness, TickReport,
 };
 use synvelis_project::vcs::{RevisionSelector, VcsCancel};
 use synvelis_project::{
@@ -179,6 +182,10 @@ pub struct UiOpsState {
     /// Last `ControlSession::probe_drain` report — session-scoped
     /// evidence surfaced by `syn.probe.state` (SF-04 slice 4).
     pub(crate) last_probe_drain: ProbeDrainReport,
+    /// Last `RoutingControlDispatch::tick` report driven by
+    /// [`SynvelisApp::ui_pump`] — control-cycle evidence (PC-C4-04).
+    /// `None` when no routing engine or control surface is attached.
+    pub(crate) last_control_tick: Option<TickReport>,
 }
 
 impl UiOpsState {
@@ -201,6 +208,7 @@ impl UiOpsState {
             window_requests: Rc::new(RefCell::new(VecDeque::new())),
             window_request_seq: 0,
             last_probe_drain: ProbeDrainReport::default(),
+            last_control_tick: None,
         }
     }
 }
@@ -1004,7 +1012,89 @@ impl SynvelisApp {
         self.push_subscription_rows();
         self.push_surface_frames();
         self.capture_screen_state();
+        self.pump_control();
         self.drain_probe();
+    }
+
+    /// PC-C4-04 control-cadence drive — one
+    /// [`synvelis_player::RoutingControlDispatch::tick`] per pump:
+    /// automation evaluation plus the fast-control queue drain,
+    /// gated inside the dispatcher on the RT-observed active
+    /// generation. The session's playback supplies the honest
+    /// `(beat, media)` instant pair — no engine or no attached
+    /// surface means nothing runs and `last_control_tick` stays
+    /// `None`; no position is ever fabricated.
+    fn pump_control(&mut self) {
+        let Some(engine) = self.routing_engine.clone() else {
+            self.ui.last_control_tick = None;
+            return;
+        };
+        let session = self.workspace.session();
+        let control = session.control();
+        let pos = control.playback().position;
+        let position = control.clock_now();
+        let project = session.project();
+        self.ui.last_control_tick = engine.control_tick(project, pos, position);
+    }
+
+    /// The last control-tick report driven by [`Self::ui_pump`] —
+    /// `None` when no engine/surface is attached. Session-scoped
+    /// evidence for consumers that need the gate/delivery counters.
+    #[must_use]
+    pub fn last_control_tick(&self) -> Option<TickReport> {
+        self.ui.last_control_tick.clone()
+    }
+
+    /// Submits a point-in-time fast-control write through the
+    /// attached routing engine's control surface (PC-C4-04) —
+    /// delivered immediately while the surface's generation is
+    /// RT-active, queued (bounded) otherwise. Returns `None` when no
+    /// engine or surface is attached. Non-RT only.
+    #[must_use]
+    pub fn control_fast_control(&self, write: FastControlWrite) -> Option<FastControlOutcome> {
+        let engine = self.routing_engine.as_ref()?;
+        let project = self.workspace.session().project();
+        engine.control_fast_control(project, write)
+    }
+
+    /// PC-C4-04 observation bridge — feeds `Reported`-stage dispatch
+    /// observations into the workspace control session's
+    /// plugin-report channel ([`synvelis_workspace::ControlSession::
+    /// feed_plugin_report`]). Only `Reported` carries a
+    /// plugin-reported value: `Scheduled`/`Dispatched` values are
+    /// host-resolved and `Dropped`/`Unavailable` carry none, so every
+    /// other stage is skipped rather than relabeled. The stamp is
+    /// `Estimated` — the report's measurement instant is
+    /// backend-estimated, which keeps `observation_state` honest
+    /// (`Stale`, never `Live`/`Captured` on borrowed evidence).
+    ///
+    /// Returns the number of observations fed; per-target feed
+    /// refusals (unknown target, out-of-domain value) are skipped —
+    /// the surface's own typed evidence already records why the
+    /// target exists or not.
+    pub fn feed_control_cycle(&mut self, cycle: &DispatchCycle) -> usize {
+        let mut fed = 0usize;
+        for (target, obs) in &cycle.observations {
+            if obs.stage != DispatchStage::Reported {
+                continue;
+            }
+            let Some(value) = obs.value else {
+                continue;
+            };
+            let value = value.get();
+            let stamp = MediaTimestamp::estimated(obs.position);
+            self.workspace
+                .session_mut()
+                .control_with(|control, project| {
+                    if control
+                        .feed_plugin_report(project, *target, value, stamp)
+                        .is_ok()
+                    {
+                        fed += 1;
+                    }
+                });
+        }
+        fed
     }
 
     /// SF-04 slice 4 drain hook — the *only* session path that pulls

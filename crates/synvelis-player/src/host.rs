@@ -32,7 +32,7 @@ use ruviform_audio_core::AudioFormat;
 use ruviform_audio_plugin_bridge::{AttachConfig, AttachError, PluginNodeControl, attach};
 use ruviform_graph::NodeId;
 use ruviform_media_core::{DeliveryPolicy, InBlockTransportSupport, ScheduleBudget, TimeBase};
-use ruviform_plugin_core::{BusDescriptor, BusDirection, BusRole, ProcessConfig};
+use ruviform_plugin_core::{BusDescriptor, BusDirection, BusRole, ParamInfo, ProcessConfig};
 use ruviform_plugin_host::{
     EndpointBounds, HostCommand, HostError, HostReply, PluginHandle, PluginHost,
 };
@@ -338,6 +338,22 @@ pub struct PluginHostProcessors {
     /// [`ProcessorId`] — processors without a declaration keep the
     /// legacy `Exact` + default-budget attach.
     boundaries: BTreeMap<ProcessorId, BoundaryDeclaration>,
+    /// Caller-registered plugin parameter tables keyed by plugin
+    /// descriptor id (PC-C4-04 catalog vend). The composition root
+    /// that registers factories also registers each plugin's static
+    /// [`ParamInfo`] evidence — the pinned ruviform host exposes no
+    /// public parameter enumeration for attached (`Shared`/L1)
+    /// instances, so the host adapter cannot capture it itself.
+    /// Unregistered plugins vend an empty table: binds fail
+    /// `ParamRemoved`-style typed rejections, never fabricated
+    /// metadata.
+    catalogs: BTreeMap<String, Vec<ParamInfo>>,
+    /// Processor-keyed catalog accumulated at every successful
+    /// `connect` — the [`crate::ParamCatalog`] the control surface
+    /// binds against. Shared through an `Rc` so the composition root
+    /// keeps live read access after the host is boxed into the
+    /// engine.
+    vendored: Rc<RefCell<crate::ParamCatalog>>,
 }
 
 impl PluginHostProcessors {
@@ -349,6 +365,8 @@ impl PluginHostProcessors {
         Self {
             host: Rc::new(RefCell::new(host)),
             boundaries: BTreeMap::new(),
+            catalogs: BTreeMap::new(),
+            vendored: Rc::new(RefCell::new(BTreeMap::new())),
         }
     }
 
@@ -357,6 +375,33 @@ impl PluginHostProcessors {
     /// `connect` for that processor; other processors are unaffected.
     pub fn register_boundary(&mut self, processor: ProcessorId, declaration: BoundaryDeclaration) {
         self.boundaries.insert(processor, declaration);
+    }
+
+    /// Registers (or replaces) the [`ParamInfo`] table for the plugin
+    /// whose descriptor id is `plugin_id` — the same id
+    /// [`ProcessorBinding::Resolved`] carries. Non-RT orchestration —
+    /// takes effect on the next `connect` for instances of that
+    /// plugin; other plugins are unaffected.
+    pub fn register_params(&mut self, plugin_id: &str, params: Vec<ParamInfo>) {
+        self.catalogs.insert(plugin_id.to_owned(), params);
+    }
+
+    /// The catalog accumulated by successful `connect`s so far —
+    /// `ProcessorId → ParamInfo` evidence vended through the host
+    /// path. Cloned out of the shared cell; prefer
+    /// [`Self::param_catalog_cell`] when the consumer must observe
+    /// later connects (e.g. per-generation attach/sync).
+    #[must_use]
+    pub fn param_catalog(&self) -> crate::ParamCatalog {
+        self.vendored.borrow().clone()
+    }
+
+    /// The shared catalog cell — clones handed to the composition
+    /// root before the host is boxed into the engine keep reading the
+    /// live accumulated catalog.
+    #[must_use]
+    pub fn param_catalog_cell(&self) -> Rc<RefCell<crate::ParamCatalog>> {
+        Rc::clone(&self.vendored)
     }
 
     /// Resolves the [`BoundarySessionSpec`] for `request.processor`
@@ -455,6 +500,19 @@ impl ProcessorHost for PluginHostProcessors {
                         teardown(&mut host, handle);
                     }
                 });
+                // Catalog vend (PC-C4-04): the connected processor's
+                // parameter evidence is whatever the composition root
+                // registered for this plugin descriptor — `None`
+                // registered means an honestly empty table, never a
+                // fabricated enumeration.
+                let params = self
+                    .catalogs
+                    .get(&plugin.descriptor)
+                    .cloned()
+                    .unwrap_or_default();
+                self.vendored
+                    .borrow_mut()
+                    .insert(request.processor.id, params);
                 Ok(ProcessorConnection {
                     processor: Box::new(attached.node),
                     lease,

@@ -28,19 +28,25 @@ use std::rc::Rc;
 
 use ruviform_audio::typed::{ProcessError, SharedStatusSnapshot};
 use ruviform_audio_core::AudioFormat;
+use ruviform_media_core::{EngineFrame, MediaTime, TransportSpan};
 use ruviform_media_reader::PrefetchConfig;
 
 use synvelis_player::ProcessorControl;
 use synvelis_player::driver::{PlayReport, PumpPolicy};
 use synvelis_player::host::ProcessorHost;
 use synvelis_player::lowering::{EngineConfig, plan_playbacks};
+use synvelis_player::plugin_state::PluginStateEndpoint;
 use synvelis_player::probe_trace::ProbeTraceBridge;
 use synvelis_player::resolver::{self, PreparedClip};
+use synvelis_player::routing_control::RoutingControlDispatch;
 use synvelis_player::routing_engine::{RoutingDeps, RoutingEngine, RoutingPrepare};
+use synvelis_player::{
+    DispatchCycle, FastControlOutcome, FastControlWrite, ParamCatalog, SurfaceReport, TickReport,
+};
 use synvelis_project::{
-    BuildBudget, BuildMode, ProcessorId, Project, ProjectRevision, RoutingActivationReceipt,
-    RoutingBuildRequestId, RoutingCompileRequest, RoutingReconcileReport, RoutingSourceMap,
-    RuntimeClockEpochRef, RuntimeInstanceId, SemanticProbeBinding, SourceId,
+    BeatPoint, BuildBudget, BuildMode, ProcessorId, Project, ProjectRevision,
+    RoutingActivationReceipt, RoutingBuildRequestId, RoutingCompileRequest, RoutingReconcileReport,
+    RoutingSourceMap, RuntimeClockEpochRef, RuntimeInstanceId, SemanticProbeBinding, SourceId,
 };
 use synvelis_workspace::EnginePort;
 
@@ -122,6 +128,25 @@ struct Inner {
     /// format set changes.
     source_format_generation: u64,
     last_prepare_error: Option<SessionEngineError>,
+    /// PC-C4-04: the owned control surface for the live published
+    /// generation — attach/sync driven inside `rebuild`, tick /
+    /// fast-control / observation driven through the `control_*`
+    /// accessors. `None` before the first successful publish or after
+    /// an attach/sync failure (see `last_control_error`).
+    dispatch: Option<RoutingControlDispatch>,
+    /// Rendered [`synvelis_player::ControlDispatchError`] from the
+    /// most recent attach/sync failure — cleared on the next
+    /// successful reconcile.
+    last_control_error: Option<String>,
+    /// PC-C4-04 catalog vend: the shared cell a
+    /// [`synvelis_player::PluginHostProcessors`] accumulates its
+    /// connect-time `ParamInfo` evidence into
+    /// ([`synvelis_player::PluginHostProcessors::param_catalog_cell`]).
+    /// Read live at every control-surface attach/sync so binds always
+    /// see the latest vendored catalog. `None` means an honestly empty
+    /// catalog — plugin-capable targets fail their binds typed, never
+    /// fabricated.
+    param_catalog: Option<Rc<RefCell<ParamCatalog>>>,
 }
 
 /// The session-facing routing engine: an [`EnginePort`] that drives a
@@ -156,6 +181,9 @@ impl SessionRoutingEngine {
                 source_formats: BTreeMap::new(),
                 source_format_generation: 0,
                 last_prepare_error: None,
+                dispatch: None,
+                last_control_error: None,
+                param_catalog: None,
             })),
         }
     }
@@ -168,6 +196,18 @@ impl SessionRoutingEngine {
             .bridge
             .engine_mut()
             .set_processor_host(host);
+    }
+
+    /// Installs the shared catalog cell the control surface reads at
+    /// every attach/sync (PC-C4-04). Pass the cell a
+    /// [`synvelis_player::PluginHostProcessors`] vends through
+    /// [`synvelis_player::PluginHostProcessors::param_catalog_cell`]
+    /// *before* boxing the host into
+    /// [`SessionRoutingEngine::set_processor_host`] — the `Rc` keeps
+    /// the live accumulated catalog reachable across generations.
+    /// `None` (the default) means an honestly empty catalog.
+    pub fn set_param_catalog(&self, cell: Rc<RefCell<ParamCatalog>>) {
+        self.inner.borrow_mut().param_catalog = Some(cell);
     }
 
     /// Runs `blocks` blocks of engine geometry — RT pumping plus
@@ -269,6 +309,20 @@ impl SessionRoutingEngine {
             .take_processor_control(generation, processor)
     }
 
+    /// Vends the plugin-state endpoints of a published `generation`
+    /// — the `(processor, PluginHandle)` pairs
+    /// [`synvelis_player::RoutingControlDispatch::drain_output_reports`]
+    /// consumes (PC-C4-04). Read-only copy vend; stale handles fail
+    /// closed inside the host.
+    #[must_use]
+    pub fn plugin_state_handles(&self, generation: u64) -> Vec<PluginStateEndpoint> {
+        self.inner
+            .borrow()
+            .bridge
+            .engine()
+            .plugin_state_handles(generation)
+    }
+
     /// The most recent adapter-side clip resolution failure —
     /// `Some` only when a build could not assemble `deps.clips` and
     /// the engine was left untouched. Cleared at the start of every
@@ -277,6 +331,113 @@ impl SessionRoutingEngine {
     pub fn last_prepare_error(&self) -> Option<SessionEngineError> {
         self.inner.borrow().last_prepare_error.clone()
     }
+
+    /// The attached control surface's evidence report — `None`
+    /// before the first publish or after an attach/sync failure.
+    #[must_use]
+    pub fn control_report(&self) -> Option<SurfaceReport> {
+        self.inner
+            .borrow()
+            .dispatch
+            .as_ref()
+            .and_then(|dispatch| dispatch.report().cloned())
+    }
+
+    /// The control surface's routing plan generation — `None` when
+    /// no surface is attached.
+    #[must_use]
+    pub fn control_generation(&self) -> Option<u64> {
+        self.inner.borrow().dispatch.as_ref()?.generation()
+    }
+
+    /// The most recent attach/sync failure rendered — `None` after a
+    /// successful reconcile or before the first publish.
+    #[must_use]
+    pub fn last_control_error(&self) -> Option<String> {
+        self.inner.borrow().last_control_error.clone()
+    }
+
+    /// Drives one control tick on the attached surface: automation
+    /// evaluation at `pos` (beat domain) / `position` (media domain —
+    /// the same instant) plus the fast-control queue drain, gated on
+    /// the RT-observed active generation. Returns `None` when no
+    /// surface is attached — nothing ran, nothing fabricated.
+    /// Non-RT only; call at the consumer's control cadence.
+    #[must_use]
+    pub fn control_tick(
+        &self,
+        project: &Project,
+        pos: BeatPoint,
+        position: MediaTime,
+    ) -> Option<TickReport> {
+        let mut inner = self.inner.borrow_mut();
+        let active = observed_active_generation(&inner.bridge.engine().rt_status());
+        let dispatch = inner.dispatch.as_mut()?;
+        Some(dispatch.tick(project, pos, position, active))
+    }
+
+    /// Submits a point-in-time fast-control write through the
+    /// attached surface — delivered immediately while the surface's
+    /// generation is RT-active, queued (bounded) otherwise.
+    /// Returns `None` when no surface is attached. Non-RT only.
+    #[must_use]
+    pub fn control_fast_control(
+        &self,
+        project: &Project,
+        write: FastControlWrite,
+    ) -> Option<FastControlOutcome> {
+        let mut inner = self.inner.borrow_mut();
+        let active = observed_active_generation(&inner.bridge.engine().rt_status());
+        let dispatch = inner.dispatch.as_mut()?;
+        Some(dispatch.fast_control(project, write, active))
+    }
+
+    /// Advances one node's dispatch ledger through one physical call
+    /// window — the generation-scoped
+    /// [`synvelis_player::ParamDispatch::observe_cycle`] behind the
+    /// surface. `generation` must name the attached surface and
+    /// `processor` a plugin-backed chain node on it — either
+    /// mismatch returns `None`, fail-closed. The caller supplies the
+    /// span/call window because the physical call partition lives
+    /// inside the RT runtime. Non-RT only.
+    #[must_use]
+    pub fn control_observe_cycle(
+        &self,
+        processor: ProcessorId,
+        generation: u64,
+        span: &TransportSpan,
+        call_start: EngineFrame,
+        call_frames: u32,
+    ) -> Option<DispatchCycle> {
+        let mut inner = self.inner.borrow_mut();
+        inner
+            .dispatch
+            .as_mut()?
+            .observe_cycle(processor, generation, span, call_start, call_frames)
+    }
+
+    /// Scoped mutable access to the owned control surface — the
+    /// composition root's seam for operations whose signatures name
+    /// host-side types this crate does not depend on (the
+    /// `drain_output_reports` host borrow closure, boundary-session
+    /// staging). `f` runs with `&mut RoutingControlDispatch`; gather
+    /// owned data inside `f` — references cannot escape the scope.
+    /// Returns `None` when no surface is attached. Do not call engine
+    /// lifecycle methods (`run`, `on_project_revision`, …) inside
+    /// `f` — they re-borrow the same `RefCell` and would panic.
+    pub fn with_control_dispatch<R>(
+        &self,
+        f: impl FnOnce(&mut RoutingControlDispatch) -> R,
+    ) -> Option<R> {
+        let mut inner = self.inner.borrow_mut();
+        inner.dispatch.as_mut().map(f)
+    }
+}
+
+/// The RT-observed active generation as the control gates consume it:
+/// `0` means "never observed" → `None` (always gated).
+fn observed_active_generation(status: &SharedStatusSnapshot) -> Option<u64> {
+    (status.active_generation != 0).then_some(status.active_generation)
 }
 
 impl EnginePort for SessionRoutingEngine {
@@ -375,10 +536,54 @@ fn rebuild(inner: &mut Inner, project: &Project, revision: ProjectRevision) {
                 .bridge
                 .engine_mut()
                 .publish(*prepared, project, revision);
+            sync_control_dispatch(inner, project);
         }
         // NoRebuild equivalence leaves the live plan untouched, and
         // prepare faults are already recorded on the engine's
         // activation receipt — neither publishes nor mutates state.
         Ok(RoutingPrepare::Equivalent(_)) | Err(_) => {}
+    }
+}
+
+/// PC-C4-04: reconcile the owned [`RoutingControlDispatch`] with the
+/// live published generation — attach on first publish, `sync` on
+/// every later one (same-generation catalog/plan refresh or a
+/// generation swap that vends fresh one-shot controls). Catalogs are
+/// read live from the shared vend cell so binds always see the latest
+/// host-vended evidence. Attach/sync failures are recorded evidence
+/// (`last_control_error`), never panics — the live plan is untouched
+/// either way, and a stale surface fails closed at the generation
+/// gates.
+fn sync_control_dispatch(inner: &mut Inner, project: &Project) {
+    let Some(generation) = inner
+        .bridge
+        .engine()
+        .source_map()
+        .map(|source_map| source_map.generation)
+    else {
+        return;
+    };
+    let catalogs = inner
+        .param_catalog
+        .as_ref()
+        .map(|cell| cell.borrow().clone())
+        .unwrap_or_default();
+    let engine = inner.bridge.engine_mut();
+    let result = match inner.dispatch.as_mut() {
+        Some(dispatch) => dispatch
+            .sync(engine, generation, project, &catalogs)
+            .map(|_| None),
+        None => RoutingControlDispatch::attach(engine, generation, project, &catalogs).map(Some),
+    };
+    match result {
+        Ok(attached) => {
+            if let Some(dispatch) = attached {
+                inner.dispatch = Some(dispatch);
+            }
+            inner.last_control_error = None;
+        }
+        Err(error) => {
+            inner.last_control_error = Some(error.to_string());
+        }
     }
 }
