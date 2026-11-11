@@ -177,17 +177,26 @@ test-spec に従う。
 
 ## Validation
 
-- `cargo test -p synvelis-project --test plugin_instance_persist`:
-  13/13 pass（auxiliary、canonical は `mise run test`）。
-- `cargo test -p synvelis-player --test pc_c4_05_persisted_instance`:
-  3/3 pass（auxiliary）。
+merge `origin/main`（daabeda）取り込み後の canonical 結果:
+
 - `mise run fmt` / `mise run fmt-check`: pass。
 - `mise run check`: pass（workspace all-targets）。
 - `mise run lint`: pass（`-D warnings`）。
-- `mise run test`: 実行中 — 旧 runtime-mint 契約を仮定した既存
-  assert 2 件を新契約へ更新済み、schema pin 2 件を v13 へ更新済み。
-- `mise run test-rt` / `test-msrv` / `check-headless-deps`:
-  未実施。
+- `mise run test`: pass — workspace 全 test binary 0 failure
+  （新規 `plugin_instance_persist` 13 件・`pc_c4_05_persisted_instance`
+  3 件を含む）。
+- `mise run test-rt`: pass（0 FAILED）。
+- `mise run check-headless-deps`: pass。
+- `mise run check-ruviform-rev`: pass（merge で ruviform rev が
+  `9865cd57` へ更新されたため `mise run sync-ui-deps` を実行済み —
+  gitignore された生成物のみ、追跡ファイルの変更なし）。
+- `mise run test-msrv`: 初回実行で `synvelis-app` test
+  `monitor_arm` の rlib 形式エラー（cargo 1.89 artifact 系、
+  本 slice のコードとは無関係の領域）。再実行で確認中。
+- 補助証拠（canonical = mise）: `cargo test -p
+  synvelis-project --test plugin_instance_persist` 13/13、
+  `cargo test -p synvelis-player --test pc_c4_05_persisted_instance`
+  3/3。
 
 ## Risks
 

@@ -1,7 +1,7 @@
 ---
 id: "SPEC-034VvDn4o6zcn7dFSGRGZC"
 type: "spec"
-status: "proposed"
+status: "approved"
 title: "PC-C4-05 persisted StablePluginInstanceId — project schema v13 + player hydration"
 created: "2026-11-11"
 updated: "2026-11-11"

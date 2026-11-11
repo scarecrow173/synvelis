@@ -48,7 +48,7 @@ Directory: `docs/designs`
 | DESIGN-034UqtGwJKTXdIjOxuLVS2 | PC-C3 ControlTrace 設計 — stage evidence slot・freshness 判定・plan activation 投影 | approved | [pc-c3-control-trace-design.md](./pc-c3-control-trace-design.md) |
 | DESIGN-PjOpAzd2cNOD9kshEbJeKl | PC-C4-02 plugin instance binding design — connect-time identity vend・stage-1 authority consumption | approved | [pc-c4-02-plugin-instance-binding-design.md](./pc-c4-02-plugin-instance-binding-design.md) |
 | DSGN-PCc4030bs3vN1pQ8wXyZ2aC | PC-C4-03 param observation design — drain surface・binding 逆引き・gate | approved | [pc-c4-03-param-observation-design.md](./pc-c4-03-param-observation-design.md) |
-| DESIGN-034VvFkFH34loxhN1Sn2tn | PC-C4-05 persisted StablePluginInstanceId design — project identity store・schema v13・hydration | draft | [pc-c4-05-persisted-instance-id-design.md](./pc-c4-05-persisted-instance-id-design.md) |
+| DESIGN-034VvFkFH34loxhN1Sn2tn | PC-C4-05 persisted StablePluginInstanceId design — project identity store・schema v13・hydration | approved | [pc-c4-05-persisted-instance-id-design.md](./pc-c4-05-persisted-instance-id-design.md) |
 | DESIGN-034Uw4SG2SiRKQuoKOZGzL | PC-C4 plugin parameter binding design — verified frame base・capability gate・generation consistency | approved | [pc-c4-plugin-param-binding-design.md](./pc-c4-plugin-param-binding-design.md) |
 | DESIGN-AkFUh4M60YuHo8COCvb0Um | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
 | DESIGN-034UxXM5FBBTGn5JWkSBss | PC-C5 slice2 Gesture 固定・stale drop・Inspector mode 設計 | approved | [pc-c5-02-03-gesture-stale-inspector-design.md](./pc-c5-02-03-gesture-stale-inspector-design.md) |

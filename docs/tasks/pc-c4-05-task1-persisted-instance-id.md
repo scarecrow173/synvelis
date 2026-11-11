@@ -1,7 +1,7 @@
 ---
 id: "TASK-034VvIOJTIiu4YPdKizKEx"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "PC-C4-05 task1 — persisted StablePluginInstanceId 実装"
 created: "2026-11-11"
 updated: "2026-11-11"
@@ -71,24 +71,24 @@ relations:
 
 ## Done When
 
-- [ ] `Project::plugin_instances` が schema v13 で永続化され、
+- [x] `Project::plugin_instances` が schema v13 で永続化され、
   save→load・v12→v13 migration round-trip で同一 id が復元される
-- [ ] Resolved⇔entry 全単射 oracle が `validate_references` で
+- [x] Resolved⇔entry 全単射 oracle が `validate_references` で
   load/apply 双方に効き、違反は typed reject
-- [ ] `RoutingControlDispatch` が persisted id を hydration し、
+- [x] `RoutingControlDispatch` が persisted id を hydration し、
   missing/stale は `without_control` で fail-closed
-- [ ] VCS apply の Resolved processor 追加が reject されず新規 id が
+- [x] VCS apply の Resolved processor 追加が reject されず新規 id が
   採番される（回帰 test）
 
 ## Verification
 
-- [ ] `mise run test` exits 0（新規 test + 既存全 test green）
-- [ ] `mise run check` exits 0
-- [ ] `mise run lint` exits 0
-- [ ] `mise run fmt-check` exits 0
-- [ ] `mise run test-rt` exits 0
+- [x] `mise run test` exits 0（新規 test + 既存全 test green）
+- [x] `mise run check` exits 0
+- [x] `mise run lint` exits 0
+- [x] `mise run fmt-check` exits 0
+- [x] `mise run test-rt` exits 0
 - [ ] `mise run test-msrv` exits 0
-- [ ] `mise run check-headless-deps` exits 0
+- [x] `mise run check-headless-deps` exits 0
 
 ## Notes
 
