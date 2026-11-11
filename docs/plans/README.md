@@ -48,6 +48,7 @@ Directory: `docs/plans`
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-gpF9kWuFqfzFATeoPdxIGF | RCD-01 実Audio Device 到達準備 実装計画 — stamp placement fallback + real backend 配線 | approved | [rcd-01-real-backend-readiness-plan.md](./rcd-01-real-backend-readiness-plan.md) |
 | PLAN-034VpmToY7qmWuyovg4BmV | RCD-02 StagedFile Publish Migration Plan | approved | [rcd-02-stagedfile-publish-migration-plan.md](./rcd-02-stagedfile-publish-migration-plan.md) |
+| PLAN-SY804uxbfTEGFF4irB0NVO | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe Plan | approved | [rcd-02-unsynced-loss-real-fs-probe-plan.md](./rcd-02-unsynced-loss-real-fs-probe-plan.md) |
 | PLAN-034VedskoBprfWhNkuqz6f | RCD-03 app Arm/Monitoring UX + monitor session projection slice | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
 | PLAN-034VpQd9mO4xP1wT6vA8wL | RCD-03 Arm/Monitor/Punch Project 永続投影 slice | approved | [rcd-03-monitor-persistence-plan.md](./rcd-03-monitor-persistence-plan.md) |
 | PLAN-034UtpZmsA5LhaaXLS0KRF | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter slice | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |

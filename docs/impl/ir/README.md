@@ -102,3 +102,4 @@ Directory: `docs/impl/ir`
 | IMPL-034VvMRwKN7mUk0Wv50AKg | PC-C4-05 persisted StablePluginInstanceId — schema v13 + player hydration | completed | [pc-c4-05-persisted-stableplugininstanceid-schema-v13-player-hydration.md](pc-c4-05-persisted-stableplugininstanceid-schema-v13-player-hydration.md) |
 | IMPL-034Vu50fg7S7yCp4bni412 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証 | completed | [tim-01-app-ppqn-slice.md](tim-01-app-ppqn-slice.md) |
 | IMPL-RCD01rbkSl1cE9mQ2xW | RCD-01 実Audio Device 到達準備 — stamp placement fallback（jitter 許容の累積配置）+ real backend 配線 | completed | [rcd-01-real-backend-readiness-slice.md](rcd-01-real-backend-readiness-slice.md) |
+| IMPL-0h9qRk2mNvPwXzYc8uJd4s | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe | completed | [rcd-02-unsynced-loss-real-fs-probe-slice.md](rcd-02-unsynced-loss-real-fs-probe-slice.md) |
