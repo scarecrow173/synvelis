@@ -25,8 +25,11 @@
 //! - [`target_fingerprint`] is the exported canonical fingerprint
 //!   callers use to compute `expected_target_fingerprint`.
 //!
-//! Out of scope (deferred): `Removed` changes (cascade design),
-//! recording/comping/SMF/clock-epoch domains, in-place restore,
+//! Out of scope (deferred): `Removed` changes (cascade design —
+//! every kind, including the monitor declarations), the rest of the
+//! recording/comping/SMF/clock-epoch domains (only the authored
+//! monitor declarations `TrackMonitorDecl`/`PunchMarks` ride the
+//! apply surface, for `Added`/`Modified`), in-place restore,
 //! engine-level application, and real OS/provider E2E (synvelis#97).
 
 mod entity;

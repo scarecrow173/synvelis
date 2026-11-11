@@ -17,12 +17,16 @@ use synvelis_project::diff::{
     compare_snapshots,
 };
 use synvelis_project::id::{CounterIdGenerator, ProjectId};
+use synvelis_project::monitoring_data::{
+    ArmState, MonitorChannelMap, MonitorState, PunchMarks, TrackMonitorDecl,
+};
 use synvelis_project::ops::ProjectOp;
 use synvelis_project::project::Project;
 use synvelis_project::snapshot::{
     BlobProbe, BlobRead, ContentDigest, ImmutableSnapshot, SnapshotCancel, SnapshotResolver,
     SnapshotValidation,
 };
+use synvelis_project::time::MusicalTick;
 
 // ── fixtures (mirrors vcs02_diff.rs conventions) ───────────────────
 
@@ -534,6 +538,72 @@ fn pending_without_commit_retries_normally() {
     .unwrap();
     assert_eq!(receipt.outcome, ApplyOutcome::Applied);
     assert_eq!(c.live().tracks.len(), 2);
+}
+
+// ── VCS-APPLY-07: monitoring declarations on the apply surface ────
+
+#[test]
+fn monitor_decl_and_punch_apply_as_one_undo_step() {
+    // before: base project (track + lane, no monitoring). after:
+    // same plus a track monitor declaration and punch marks — a
+    // monitor-only `Complete`/`Different` changeset.
+    let mut before_c = base_project();
+    let before = snap_live(&before_c);
+
+    let mut after_c = base_project();
+    let after_track = *after_c.live().tracks.keys().next().unwrap();
+    let decl = TrackMonitorDecl {
+        lane: None,
+        channel_map: MonitorChannelMap::identity(),
+        arm: ArmState::On,
+        monitor: MonitorState::Auto,
+    };
+    apply_op(
+        &mut after_c,
+        ProjectOp::SetTrackMonitor {
+            track: after_track,
+            decl: decl.clone(),
+        },
+    );
+    apply_op(
+        &mut after_c,
+        ProjectOp::SetPunchMarks {
+            punch_in: Some(MusicalTick::new(960)),
+            punch_out: Some(MusicalTick::new(1920)),
+        },
+    );
+    let after = snap_live(&after_c);
+    let cs = compare(&before, &after);
+
+    let decl_change = find_change(&cs, ObjectKind::TrackMonitorDecl, ChangeKind::Added);
+    let punch_change = find_change(&cs, ObjectKind::PunchMarks, ChangeKind::Added);
+    let intent = intent_for(&before_c, &cs, &after, &[decl_change, punch_change]);
+    let src = sources_for(&cs, &before, &after);
+    let mut journal = InMemoryApplyJournal::new();
+
+    let receipt = run_apply(&mut before_c, &intent, &src, &mut journal).unwrap();
+    assert_eq!(receipt.outcome, ApplyOutcome::Applied);
+    assert_eq!(receipt.applied_change_ids.len(), 2);
+    let live_track = *before_c.live().tracks.keys().next().unwrap();
+    assert_eq!(before_c.live().monitoring.tracks[&live_track], decl);
+    assert_eq!(
+        before_c.live().monitoring.punch,
+        PunchMarks {
+            punch_in: Some(MusicalTick::new(960)),
+            punch_out: Some(MusicalTick::new(1920)),
+        }
+    );
+
+    // Exactly one undo step per apply restores the monitoring-empty
+    // state; redo brings the declarations back.
+    assert!(before_c.undo().unwrap());
+    assert!(before_c.live().monitoring.tracks.is_empty());
+    assert_eq!(before_c.live().monitoring.punch, PunchMarks::default());
+    assert!(before_c.redo().unwrap());
+    assert_eq!(
+        before_c.live().monitoring.tracks[&live_track].arm,
+        ArmState::On
+    );
 }
 
 // ── VCS-APPLY-05: partial/degraded snapshots fail closed ───────────

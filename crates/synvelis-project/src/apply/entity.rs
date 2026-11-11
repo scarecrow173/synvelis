@@ -17,6 +17,7 @@ use crate::{
         SemanticPortId, SendId, SourceId, StripId, TrackId,
     },
     midi::{MidiNote, MidiSource},
+    monitoring_data::{PunchMarks, TrackMonitorDecl},
     project::{Asset, Lane, Note, Source, Track},
     routing::{
         Bus, ChannelStrip, PortOwner, Processor, ProcessorChain, RoutingConnection, SemanticPort,
@@ -67,6 +68,8 @@ pub(crate) fn supported_kind(kind: ObjectKind) -> bool {
             | ObjectKind::SemanticPort
             | ObjectKind::RoutingConnection
             | ObjectKind::SendConfig
+            | ObjectKind::TrackMonitorDecl
+            | ObjectKind::PunchMarks
     )
 }
 
@@ -116,6 +119,30 @@ pub(crate) fn entity_value(
         ObjectKind::SemanticPort => keyed!(SemanticPortId, &project.routing.ports),
         ObjectKind::RoutingConnection => keyed!(RoutingConnectionId, &project.routing.connections),
         ObjectKind::SendConfig => keyed!(SendId, &project.routing.sends),
+        ObjectKind::TrackMonitorDecl => {
+            // Keyed-synthetic view: `stable_id` borrows the `TrackId`
+            // space — the declaration itself carries no id, so this
+            // is not a `keyed!` entity-map lookup.
+            let track = TrackId::from_tagged(&object.stable_id)
+                .map_err(|e| invalid_id(format!("{}: {e}", object.stable_id)))?;
+            Ok(project
+                .monitoring
+                .tracks
+                .get(&track)
+                .map(to_value)
+                .transpose()?)
+        }
+        ObjectKind::PunchMarks => {
+            // Declaration-presence semantics mirror the diff
+            // classifier: all-`None` marks mean "no punch declared",
+            // which is the absent-entity encoding (`null`).
+            let marks = &project.monitoring.punch;
+            if marks.punch_in.is_some() || marks.punch_out.is_some() {
+                Ok(Some(to_value(marks)?))
+            } else {
+                Ok(None)
+            }
+        }
         _ => Err(ApplyError::Unsupported {
             kind: object.kind,
             change: ChangeKind::Modified,
@@ -372,6 +399,20 @@ fn write_entity(
             keyed_insert!(project.routing.connections, RoutingConnection);
         }
         ObjectKind::SendConfig => keyed_insert!(project.routing.sends, SendConfig),
+        ObjectKind::TrackMonitorDecl => {
+            // The declaration holds no id of its own: the borrowed
+            // `TrackId` key is parsed from `stable_id`. It never
+            // feeds `max_new_id` — the Track entity's own write owns
+            // reseed when the track itself was added in this apply.
+            let track = TrackId::from_tagged(&object.stable_id)
+                .map_err(|e| Error::InvalidId(e.to_string()))?;
+            let decl: TrackMonitorDecl = from_value(payload, "track monitor decl")?;
+            project.monitoring.tracks.insert(track, decl);
+        }
+        ObjectKind::PunchMarks => {
+            let marks: PunchMarks = from_value(payload, "punch marks")?;
+            project.monitoring.punch = marks;
+        }
         _ => {
             return Err(Error::Validation(format!(
                 "unsupported apply kind {:?}",

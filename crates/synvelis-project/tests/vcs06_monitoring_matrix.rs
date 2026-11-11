@@ -1,8 +1,10 @@
 //! VCS-06 (issue #97): monitoring-domain fixture rows — monitor
 //! declaration diff classification (post-#318 `ObjectKind::
 //! TrackMonitorDecl`/`PunchMarks`, `ComparisonDomain::Recording`),
-//! the measured `apply_selected` fail-closed result for monitoring
-//! kinds, and `project.monitoring` verbatim restore round-trip.
+//! the measured `apply_selected` typed-entity transplant for
+//! monitoring kinds (`Added`/`Modified`; `Removed` stays
+//! fail-closed), and `project.monitoring` verbatim restore
+//! round-trip.
 //!
 //! Same headless contract as the other `vcs06_*` matrices: real
 //! GUI/plugin/consumer lanes remain `NotRun`
@@ -12,16 +14,17 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 use synvelis_project::apply::{
-    ApplyApproval, ApplyChangeIntent, ApplyError, ApplyJournal, ApplyJournalState, ApplySources,
-    ChangeSetSource, InMemoryApplyJournal, ResolvedChangeSet, apply_selected, target_fingerprint,
+    ApplyApproval, ApplyChangeIntent, ApplyError, ApplyJournal, ApplyJournalState, ApplyOutcome,
+    ApplySources, ChangeSetSource, InMemoryApplyJournal, ResolvedChangeSet, apply_selected,
+    target_fingerprint,
 };
 use synvelis_project::controller::{Command, ProjectController, ProjectRevision};
 use synvelis_project::diff::{
     AmbiguityReason, ChangeKind, ChangeSet, ComparisonCompleteness, ComparisonDomain,
     ComparisonDomains, ComparisonEquality, ComparisonIssue, ComparisonSpec, ObjectKind,
-    SemanticChange, SemanticTimeRange, compare_snapshots,
+    SemanticChange, SemanticObjectRef, SemanticTimeRange, compare_snapshots,
 };
-use synvelis_project::id::{CounterIdGenerator, ProjectId};
+use synvelis_project::id::{CounterIdGenerator, ProjectId, TrackId};
 use synvelis_project::monitoring_data::{
     ArmState, MonitorChannelMap, MonitorState, PunchMarks, TrackMonitorDecl,
 };
@@ -172,23 +175,25 @@ fn sources_for(cs: &ChangeSet, before: &ImmutableSnapshot, after: &ImmutableSnap
     }
 }
 
-/// Intent over an unsupported-kind selection: `target_fingerprint`
-/// itself fails closed for monitoring kinds, so the expected
-/// fingerprint is an unreachable placeholder — `apply_inner`
-/// recomputes the fingerprint before comparing it and errors first.
-fn unsupported_intent(
+/// Intent over a monitoring-kind selection: the fingerprint is the
+/// real caller-side `target_fingerprint` — monitoring kinds are on
+/// the apply surface, so it resolves instead of failing closed.
+fn intent_for(
     c: &ProjectController,
     cs: &ChangeSet,
     after: &ImmutableSnapshot,
-    change: &SemanticChange,
+    changes: &[&SemanticChange],
 ) -> ApplyChangeIntent {
+    let mut objects: Vec<SemanticObjectRef> = changes.iter().map(|ch| ch.object.clone()).collect();
+    objects.push(changes[0].object.clone()); // target_object = first selected object
+    let fp = target_fingerprint(c.live(), &objects).unwrap();
     ApplyChangeIntent {
         change_set_id: cs.key.digest(),
         source_snapshot_id: after.identity.digest,
-        target_object: change.object.clone(),
+        target_object: changes[0].object.clone(),
         expected_project_revision: c.live_revision(),
-        selected_change_ids: vec![change.id.clone()],
-        expected_target_fingerprint: ContentDigest::sha256(b"vcs06-monitor-unsupported"),
+        selected_change_ids: changes.iter().map(|ch| ch.id.clone()).collect(),
+        expected_target_fingerprint: fp,
         approval: ApplyApproval {
             ticket: "user-approved".into(),
         },
@@ -454,26 +459,35 @@ fn punch_marks_presence_transitions_are_typed_changes() {
     );
 }
 
-// ── VCS-APPLY-07: monitoring kinds fail apply closed ─────────────
+// ── VCS-APPLY-07: monitoring kinds apply as typed entities ────────
 
-#[test]
-fn monitor_kind_selection_fails_apply_closed() {
-    // before: one plain track. after: same track plus a monitor
-    // declaration and punch marks — a `Complete`/`Different`
-    // monitor-only changeset so `resolve_verified` reaches the
-    // fingerprint CAS stage where the whitelist rejects.
-    let mut before_c = controller();
-    apply_op(&mut before_c, ProjectOp::AddTrack { name: "vox".into() });
-    let before = snap_live(&before_c);
+/// S0/S1/S2 monitoring fixture: S0 = one plain track, S1 = S0 +
+/// `decl_v1` + punch marks, S2 = S1 with declaration field edits +
+/// a punch mark edit. `c` is a controller parked at S0.
+struct MonitorFixture {
+    c: ProjectController,
+    s0: ImmutableSnapshot,
+    s1: ImmutableSnapshot,
+    s2: ImmutableSnapshot,
+    track: TrackId,
+    decl_v1: TrackMonitorDecl,
+    decl_v2: TrackMonitorDecl,
+}
+
+fn monitor_fixture() -> MonitorFixture {
+    let mut c = controller();
+    apply_op(&mut c, ProjectOp::AddTrack { name: "vox".into() });
+    let s0 = snap_live(&c);
 
     let mut after_c = controller();
     apply_op(&mut after_c, ProjectOp::AddTrack { name: "vox".into() });
     let track = *after_c.live().tracks.keys().next().unwrap();
+    let decl_v1 = monitor_decl();
     apply_op(
         &mut after_c,
         ProjectOp::SetTrackMonitor {
             track,
-            decl: monitor_decl(),
+            decl: decl_v1.clone(),
         },
     );
     apply_op(
@@ -483,59 +497,109 @@ fn monitor_kind_selection_fails_apply_closed() {
             punch_out: Some(MusicalTick::new(1920)),
         },
     );
-    let after = snap_live(&after_c);
+    let s1 = snap_live(&after_c);
 
-    let cs = compare(&before, &after);
+    let mut decl_v2 = monitor_decl();
+    decl_v2.arm = ArmState::Off;
+    decl_v2.monitor = MonitorState::On;
+    decl_v2.channel_map = MonitorChannelMap {
+        channels: vec![0, 1, 2, 3],
+    };
+    apply_op(
+        &mut after_c,
+        ProjectOp::SetTrackMonitor {
+            track,
+            decl: decl_v2.clone(),
+        },
+    );
+    apply_op(
+        &mut after_c,
+        ProjectOp::SetPunchMarks {
+            punch_in: Some(MusicalTick::new(480)),
+            punch_out: Some(MusicalTick::new(1920)),
+        },
+    );
+    let s2 = snap_live(&after_c);
+
+    MonitorFixture {
+        c,
+        s0,
+        s1,
+        s2,
+        track,
+        decl_v1,
+        decl_v2,
+    }
+}
+
+/// Applies the S0→S1 `Added` selection so `c` reaches S1.
+fn apply_added_selection(fx: &mut MonitorFixture) {
+    let cs = compare(&fx.s0, &fx.s1);
+    let decl = changes_of(&cs, ObjectKind::TrackMonitorDecl)[0];
+    let punch = changes_of(&cs, ObjectKind::PunchMarks)[0];
+    let intent = intent_for(&fx.c, &cs, &fx.s1, &[decl, punch]);
+    let src = sources_for(&cs, &fx.s0, &fx.s1);
+    let mut journal = InMemoryApplyJournal::new();
+    let receipt = run_apply(&mut fx.c, &intent, &src, &mut journal).unwrap();
+    assert_eq!(receipt.outcome, ApplyOutcome::Applied);
+    assert_eq!(receipt.applied_change_ids.len(), 2);
+}
+
+#[test]
+fn monitor_kind_added_selection_applies_typed_entities() {
+    let mut fx = monitor_fixture();
+    let cs = compare(&fx.s0, &fx.s1);
     assert_eq!(cs.completeness, ComparisonCompleteness::Complete);
     assert_eq!(cs.overall, ComparisonEquality::Different);
-    let decl_change = changes_of(&cs, ObjectKind::TrackMonitorDecl)[0];
-    let punch_change = changes_of(&cs, ObjectKind::PunchMarks)[0];
+    let decl = changes_of(&cs, ObjectKind::TrackMonitorDecl)[0];
+    let punch = changes_of(&cs, ObjectKind::PunchMarks)[0];
+    assert_eq!(decl.kind, ChangeKind::Added);
+    assert_eq!(punch.kind, ChangeKind::Added);
+    assert_eq!(decl.object.stable_id, fx.track.to_tagged());
 
-    // `target_fingerprint` (the pub API callers use to build intents)
-    // itself fails closed for both monitoring kinds — measured.
-    let err =
-        target_fingerprint(before_c.live(), std::slice::from_ref(&decl_change.object)).unwrap_err();
+    // `target_fingerprint` resolves for both kinds now — the
+    // caller-side CAS input is computable (previously `Unsupported`).
+    let fp = target_fingerprint(fx.c.live(), &[decl.object.clone(), punch.object.clone()]);
+    assert!(fp.is_ok(), "{fp:?}");
+
+    apply_added_selection(&mut fx);
+    assert_eq!(fx.c.live().monitoring.tracks[&fx.track], fx.decl_v1);
     assert_eq!(
-        err,
-        ApplyError::Unsupported {
-            kind: ObjectKind::TrackMonitorDecl,
-            change: ChangeKind::Modified,
-            detail: "object kind outside the apply surface".into(),
+        fx.c.live().monitoring.punch,
+        PunchMarks {
+            punch_in: Some(MusicalTick::new(960)),
+            punch_out: Some(MusicalTick::new(1920)),
         }
     );
-    let err = target_fingerprint(before_c.live(), std::slice::from_ref(&punch_change.object))
-        .unwrap_err();
-    assert!(
-        matches!(
-            err,
-            ApplyError::Unsupported {
-                kind: ObjectKind::PunchMarks,
-                ..
-            }
-        ),
-        "{err:?}"
-    );
+}
 
-    // `apply_selected` — same fail-closed at the fingerprint CAS
-    // stage (before `plan_changes`, so `change` reports `Modified`
-    // even for the `Added` selection). Live stays at the before
-    // state and the journal records `Failed`.
-    let src = sources_for(&cs, &before, &after);
-    let rev_before = before_c.live_revision();
+#[test]
+fn monitor_kind_removed_selection_stays_fail_closed() {
+    let mut fx = monitor_fixture();
+    apply_added_selection(&mut fx); // live reaches S1
+
+    // Live is at S1 — exactly the changeset's before side. Both
+    // monitor removals are rejected at plan time; live and the
+    // journal record stay honest.
+    let cs = compare(&fx.s1, &fx.s0);
+    let decl = changes_of(&cs, ObjectKind::TrackMonitorDecl)[0];
+    let punch = changes_of(&cs, ObjectKind::PunchMarks)[0];
+    assert_eq!(decl.kind, ChangeKind::Removed);
+    assert_eq!(punch.kind, ChangeKind::Removed);
+    let src = sources_for(&cs, &fx.s1, &fx.s0);
 
     let mut journal = InMemoryApplyJournal::new();
-    let intent = unsupported_intent(&before_c, &cs, &after, decl_change);
-    let err = run_apply(&mut before_c, &intent, &src, &mut journal).unwrap_err();
+    let intent = intent_for(&fx.c, &cs, &fx.s0, &[decl]);
+    let err = run_apply(&mut fx.c, &intent, &src, &mut journal).unwrap_err();
     assert_eq!(
         err,
         ApplyError::Unsupported {
             kind: ObjectKind::TrackMonitorDecl,
-            change: ChangeKind::Modified,
-            detail: "object kind outside the apply surface".into(),
+            change: ChangeKind::Removed,
+            detail: "removal changes are deferred (cascade design)".into(),
         }
     );
-    assert!(before_c.live().monitoring.tracks.is_empty());
-    assert_eq!(before_c.live_revision(), rev_before);
+    assert_eq!(fx.c.live().monitoring.tracks[&fx.track], fx.decl_v1);
     let record = journal.load(&journal_key(&intent)).unwrap().unwrap();
     assert!(
         matches!(record.state, ApplyJournalState::Failed { .. }),
@@ -543,25 +607,56 @@ fn monitor_kind_selection_fails_apply_closed() {
     );
 
     let mut journal = InMemoryApplyJournal::new();
-    let intent = unsupported_intent(&before_c, &cs, &after, punch_change);
-    let err = run_apply(&mut before_c, &intent, &src, &mut journal).unwrap_err();
-    assert!(
-        matches!(
-            err,
-            ApplyError::Unsupported {
-                kind: ObjectKind::PunchMarks,
-                ..
-            }
-        ),
-        "{err:?}"
+    let intent = intent_for(&fx.c, &cs, &fx.s0, &[punch]);
+    let err = run_apply(&mut fx.c, &intent, &src, &mut journal).unwrap_err();
+    assert_eq!(
+        err,
+        ApplyError::Unsupported {
+            kind: ObjectKind::PunchMarks,
+            change: ChangeKind::Removed,
+            detail: "removal changes are deferred (cascade design)".into(),
+        }
     );
-    assert_eq!(before_c.live().monitoring.punch, PunchMarks::default());
-    assert_eq!(before_c.live_revision(), rev_before);
+    assert_eq!(
+        fx.c.live().monitoring.punch.punch_in,
+        Some(MusicalTick::new(960))
+    );
     let record = journal.load(&journal_key(&intent)).unwrap().unwrap();
     assert!(
         matches!(record.state, ApplyJournalState::Failed { .. }),
         "{record:?}"
     );
+}
+
+#[test]
+fn monitor_kind_modified_selection_applies_typed_entities() {
+    let mut fx = monitor_fixture();
+    apply_added_selection(&mut fx); // live reaches S1
+
+    let cs = compare(&fx.s1, &fx.s2);
+    let decl = changes_of(&cs, ObjectKind::TrackMonitorDecl)[0];
+    let punch = changes_of(&cs, ObjectKind::PunchMarks)[0];
+    assert_eq!(decl.kind, ChangeKind::Modified);
+    assert_eq!(punch.kind, ChangeKind::Modified);
+
+    let intent = intent_for(&fx.c, &cs, &fx.s2, &[decl, punch]);
+    let src = sources_for(&cs, &fx.s1, &fx.s2);
+    let mut journal = InMemoryApplyJournal::new();
+    let receipt = run_apply(&mut fx.c, &intent, &src, &mut journal).unwrap();
+    assert_eq!(receipt.outcome, ApplyOutcome::Applied);
+    assert_eq!(fx.c.live().monitoring.tracks[&fx.track], fx.decl_v2);
+    assert_eq!(
+        fx.c.live().monitoring.punch.punch_in,
+        Some(MusicalTick::new(480))
+    );
+
+    // The two applies each committed exactly one undo step;
+    // undoing twice returns live to the S0 monitoring-empty state.
+    assert!(fx.c.undo().unwrap());
+    assert_eq!(fx.c.live().monitoring.tracks[&fx.track], fx.decl_v1);
+    assert!(fx.c.undo().unwrap());
+    assert!(fx.c.live().monitoring.tracks.is_empty());
+    assert_eq!(fx.c.live().monitoring.punch, PunchMarks::default());
 }
 
 // ── VCS-RESTORE-07: monitoring verbatim round-trip ───────────────
