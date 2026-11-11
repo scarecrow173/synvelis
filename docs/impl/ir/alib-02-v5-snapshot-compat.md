@@ -4,7 +4,7 @@ type: "impl"
 status: "completed"
 title: "ALIB-02 v5 snapshot asset-digest 互換移行 + recovery fixture"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -47,12 +47,15 @@ relations:
     generated: []
   implements:
     - "docs/plans/alib-02-v5-snapshot-compat.md"
+    - "docs/specs/alib-02-v5-snapshot-compat.md"
   implemented-by: []
   depends-on: []
   blocks: []
   supersedes: []
   superseded-by: []
-  related: []
+  related:
+    - "docs/impl/ir/alib-02-v5-snapshot-compat-slice.md"
+    - "docs/impl/ir/alib-02-residual-closeout.md"
   refines: []
   refined-by: []
   derives-from: []
@@ -94,4 +97,8 @@ relations:
 ## 残件
 
 - Linux/macOS 実 FS durability・directory sync: NotRun（Issue #91）。
-- app/player 配線: 対象外（別 dispatch / 後続 slice）。
+- app/player 配線: PR #326（`import_verified_local` +
+  digest-kind blob 解決）で headless 結合済み。実 device/GUI・
+  app 層配線は synvelis#114・#97 の外部 gate。
+- Issue #86 の DoD 照合・canonical lane 再実測・残存 gate 棚卸しは
+  `docs/impl/ir/alib-02-residual-closeout.md` に集約。

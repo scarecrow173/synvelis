@@ -52,7 +52,10 @@ relations:
   superseded-by: []
   related:
     - "docs/impl/ir/alib-02-v5-snapshot-compat.md"
+    - "docs/impl/ir/alib-02-v5-snapshot-compat-slice.md"
+    - "docs/impl/ir/alib-02-residual-closeout.md"
     - "docs/specs/alib-02-v5-snapshot-compat.md"
+    - "docs/specs/alib-02-residual-closeout.md"
   refines: []
   refined-by: []
   derives-from:
@@ -211,23 +214,29 @@ PR #220 時点の NotRun / Unsupported:
 
 ## Follow-ups
 
-Issue #86 を open 維持する残実装 DoD（Issue 本文 2026-11-10
-Close判定に基づく）:
+Issue #86 の残実装 DoD は後続 slice で統合済み（2026-11-11 時点）:
 
-- v5 旧 Asset/Source/Clip ID・Blob path/旧 CRC の既存 Project
-  versioned reader 共用・read-only 原本保存・安全移行・再読込。
-  PR #253 で digest 分類層・v10→v11 migration step・
-  `import_recovery` fixture は統合済みだが、Issue 本文の残 DoD
-  として open 維持。
+- v5 旧 Asset/Source/Clip ID・Blob path/旧 CRC の versioned reader
+  共用・read-only 原本保存・安全移行・再読込 — PR #253
+  （`docs/impl/ir/alib-02-v5-snapshot-compat.md`）+ PR #328
+  （`docs/impl/ir/alib-02-v5-snapshot-compat-slice.md`、実 v5 fixture
+  `tests/alib02_v5_real.rs` 8 tests）で統合済み。
 - Import Receipt → `ProjectController` CAS/Undo → Saved HEAD/
-  Recovery（#84 と協調）→ Offline Playback の実結合。
+  Recovery → Offline Playback の実結合 — PR #326
+  （`docs/impl/ir/issue-86-verified-import-wiring-slice.md`、
+  `tests/verified_import.rs` 8 tests）で headless 結合済み。
 - Duplicate ImportId/StaleRevision/Plugin Opaque/欠落 Asset/
-  Cancel/Crash の独立 fixture 検証（library 層の headless fixture
-  は本 PR・#253・#256 で収録済み、独立 fixture 残行あり）。
-- 新旧 schema round trip と Ruviform staged publish/RT 非回帰。
-- Linux/macOS 実 FS 差・DirSync・実 device/GUI（#91/#114 側の
-  gate、本 slice 対象外）。
+  Cancel/Crash の独立 fixture — `tests/import.rs`（21 tests）・
+  `tests/import_recovery.rs`（6 tests）・`tests/alib02_v5_real.rs`・
+  `tests/verified_import.rs` に収録済み。
+- 新旧 schema round trip・Ruviform staged publish/RT 非回帰 —
+  `alib02_digest.rs`/`alib02_v5_real.rs`/`saved_head_load_replays`・
+  `mise run test-rt` で実測済み。
 
-これら残 DoD が Issue #86 を open 維持する根拠であり、本 IR は
-PR #220 merge 済みという実態の簿記である。Issue の close は
-行わない。
+Issue #86 は外部 gate（実 OS/FS=#91、統合試験=#97、実 GPUI/GUI=
+#114、real provider/remote LFS=#331、cross-consumer/AudioLens=
+ruviform#294）が残るため open 継続。DoD 行 ↔ 証拠の 1:1 照合と
+残存 gate 棚卸しは `docs/impl/ir/alib-02-residual-closeout.md` と
+`docs/specs/alib-02-residual-closeout.md` を正本とする。
+本 IR は PR #220 merge 済みという実態の簿記であり、Issue の close
+は行わない。

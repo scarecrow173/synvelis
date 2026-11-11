@@ -1,7 +1,7 @@
 ---
 id: "SPEC-alib02-v5snap"
 type: "spec"
-status: "approved"
+status: "implemented"
 title: "ALIB-02 deferred — v5 snapshot 互換移行（SHA-256/旧 CRC digest 共存）"
 created: "2026-11-09"
 updated: "2026-11-11"
@@ -19,16 +19,20 @@ relations:
   implements: []
   implemented-by:
     - "docs/designs/alib-02-v5-snapshot-compat-design.md"
+    - "docs/plans/alib-02-v5-snapshot-compat.md"
+    - "docs/impl/ir/alib-02-v5-snapshot-compat.md"
     - "docs/impl/ir/alib-02-v5-snapshot-compat-slice.md"
   depends-on:
     - "docs/specs/alib-02-streaming-verified-import.md"
   blocks: []
   supersedes: []
   superseded-by: []
-  related: []
+  related:
+    - "docs/specs/alib-02-residual-closeout.md"
   refines: []
   refined-by: []
-  derives-from: []
+  derives-from:
+    - "https://github.com/scarecrow173/synvelis/issues/86"
   derived-by: []
   verifies: []
   verified-by:
@@ -37,6 +41,7 @@ relations:
   defers: []
   deferred-by:
     - "docs/specs/alib-02-streaming-verified-import.md"
+    - "docs/designs/alib-02-streaming-verified-import-design.md"
 ---
 
 # ALIB-02 deferred — v5 snapshot 互換移行
@@ -49,7 +54,8 @@ v10→v11 step を実装済み。DoD(1) residual slice（2026-11-11）では
 digest 保全 → save → reload → read-only 原本保存 → 劣化分類の
 連鎖を実測で固定した（`tests/alib02_v5_real.rs`、8 tests）。
 `SCHEMA_VERSION` は現在 13（v11 digest step 以降に v12 monitoring /
-v13 plugin instances が追加済み）。
+v13 plugin instances が追加済み）。Issue #86 の DoD 照合・外部 gate
+棚卸しは `docs/specs/alib-02-residual-closeout.md` を正本とする。
 
 ## What Should Be Built
 
