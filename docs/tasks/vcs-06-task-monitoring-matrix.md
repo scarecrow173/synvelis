@@ -90,7 +90,8 @@ merged `origin/main`・現行 ruviform pin）へ更新する。
 - [x] doc チェーン + index 再生成
 - [x] `git fetch origin main && git merge origin/main` 後の
   canonical `mise run` 検証が pass
-- [ ] push → PR 作成（Refs synvelis#97、Issue は Open のまま）
+- [x] push → PR 作成（Refs synvelis#97、Issue は Open のまま —
+  scarecrow173/synvelis#323）
 
 ## Verification
 
