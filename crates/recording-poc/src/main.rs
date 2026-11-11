@@ -41,6 +41,9 @@ fn main() {
     if args.get(1).map(String::as_str) == Some("vsd") {
         std::process::exit(vsd(&args[2..]));
     }
+    if args.get(1).map(String::as_str) == Some("realfs") {
+        std::process::exit(realfs(&args[2..]));
+    }
     if let Err(e) = run() {
         eprintln!("recording-poc failed: {e}");
         std::process::exit(1);
@@ -589,6 +592,209 @@ fn vsd_run(root: &std::path::Path, session_raw: synvelis_project::RecordingSessi
         return 1;
     }
     println!("result=OK");
+    0
+}
+
+// ---- real-FS probe（RCD-02）: 実 FS 観測・unsynced tail の process-kill 実測 ----
+//
+// `recording-poc realfs probe <dir>`
+//   実 FS 上の rename/dir sync/publish/file 挙動を決定的順の
+//   `key=value` で出力する。err も観測値として印字し exit 0
+//   （観測を偽装しない）。
+// `recording-poc realfs write-unsynced <file> <synced> <unsynced>`
+//   synced byte（0xA5）write → `sync_data` → unsynced byte
+//   （0x5A）write → `ready` を stdout へ flush → stdin 待機。
+//   test が ready 検出後に process を kill し、post-kill の
+//   file 実長・内容を別 process から観測する。
+fn realfs(args: &[String]) -> i32 {
+    match args {
+        [sub, dir] if sub == "probe" => realfs_probe(&PathBuf::from(dir)),
+        [sub, file, synced, unsynced] if sub == "write-unsynced" => {
+            let (Ok(synced), Ok(unsynced)) = (synced.parse::<usize>(), unsynced.parse::<usize>())
+            else {
+                eprintln!("invalid byte counts");
+                return 2;
+            };
+            realfs_write_unsynced(&PathBuf::from(file), synced, unsynced)
+        }
+        _ => {
+            eprintln!(
+                "usage: recording-poc realfs probe <dir> | \
+                 recording-poc realfs write-unsynced <file> <synced> <unsynced>"
+            );
+            2
+        }
+    }
+}
+
+fn print_result<T>(key: &str, r: std::io::Result<T>) {
+    match r {
+        Ok(_) => println!("{key}=ok"),
+        Err(e) => println!("{key}=err:{:?}", e.kind()),
+    }
+}
+
+#[allow(clippy::too_many_lines)] // sequential probe scenario
+fn realfs_probe(dir: &std::path::Path) -> i32 {
+    use std::io::Write;
+    // probe 専用の空 workdir のみを触る — 呼出し側が渡した
+    // 既存非空 dir を再帰削除しない（観測対象外の破壊を避ける）。
+    if dir.exists() && std::fs::read_dir(dir).is_ok_and(|mut e| e.next().is_some()) {
+        eprintln!("probe dir must be empty or absent: {}", dir.display());
+        return 2;
+    }
+    if let Err(e) = std::fs::create_dir_all(dir) {
+        eprintln!("probe dir create failed: {e}");
+        return 1;
+    }
+    println!("dir={}", dir.display());
+    println!("platform={}", std::env::consts::OS);
+
+    // ---- rename 原子性 ----
+    let path_a = dir.join("rename-a.bin");
+    let path_b = dir.join("rename-b.bin");
+    std::fs::write(&path_a, b"alpha").unwrap();
+    print_result("rename_missing_dest", std::fs::rename(&path_a, &path_b));
+    std::fs::write(&path_a, b"alpha2").unwrap();
+    std::fs::write(&path_b, b"beta").unwrap();
+    let replace = std::fs::rename(&path_a, &path_b);
+    let replace_ok = replace.is_ok();
+    print_result("rename_replace", replace);
+    println!(
+        "rename_replace_content_ok={}",
+        replace_ok && std::fs::read(&path_b).is_ok_and(|v| v == b"alpha2")
+    );
+    // open handle を持つ file / open 中 destination への rename
+    // （Windows の sharing semantics 観測。Rust std は
+    // FILE_SHARE_DELETE を付与するため結果は実測値）。
+    let src_path = dir.join("rename-src.bin");
+    std::fs::write(&src_path, b"src").unwrap();
+    let held_src = std::fs::File::open(&src_path).unwrap();
+    print_result(
+        "rename_src_open",
+        std::fs::rename(&src_path, dir.join("rename-src-dst.bin")),
+    );
+    drop(held_src);
+    let path_c = dir.join("rename-c.bin");
+    let path_d = dir.join("rename-d.bin");
+    std::fs::write(&path_c, b"c").unwrap();
+    std::fs::write(&path_d, b"d").unwrap();
+    let held_dst = std::fs::File::open(&path_d).unwrap();
+    print_result("rename_dst_open", std::fs::rename(&path_c, &path_d));
+    drop(held_dst);
+    // create_new no-replace（PublishMode::CreateNew の基礎）。
+    let existing_path = dir.join("exists.bin");
+    std::fs::write(&existing_path, b"x").unwrap();
+    print_result(
+        "create_new_existing",
+        std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&existing_path),
+    );
+
+    // ---- dir sync capability ----
+    print_result("dir_open", std::fs::File::open(dir));
+    print_result(
+        "dir_sync",
+        std::fs::File::open(dir).and_then(|f| f.sync_all()),
+    );
+    let detected = synvelis_recording::staging::detect_dir_sync(dir);
+    println!("detect_dir_sync={detected:?}");
+
+    // ---- staged publish（StagedFile pipeline の実 FS 挙動） ----
+    let published_path = dir.join("published.json");
+    std::fs::write(&published_path, b"old").unwrap();
+    let conflict_path = dir.join("conflict.json");
+    std::fs::write(&conflict_path, b"kept").unwrap();
+    // residue 判定の基準集合（既存 file は先に作ってから撮る）。
+    let before: std::collections::BTreeSet<String> = std::fs::read_dir(dir)
+        .unwrap()
+        .filter_map(std::result::Result::ok)
+        .map(|ent| ent.file_name().to_string_lossy().into_owned())
+        .collect();
+    print_result(
+        "publish_atomic_replace",
+        synvelis_recording::staging::publish_atomic(&published_path, b"new"),
+    );
+    println!(
+        "publish_atomic_content_ok={}",
+        std::fs::read(&published_path).is_ok_and(|v| v == b"new")
+    );
+    print_result(
+        "publish_atomic_create_new",
+        synvelis_recording::staging::publish_atomic_create_new(&dir.join("created.json"), b"fresh"),
+    );
+    print_result(
+        "publish_create_new_conflict",
+        synvelis_recording::staging::publish_atomic_create_new(&conflict_path, b"overwrite"),
+    );
+    println!(
+        "publish_create_new_content_kept={}",
+        std::fs::read(&conflict_path).is_ok_and(|v| v == b"kept")
+    );
+    // publish が temp residue を残さないこと（期待される新規
+    // file は destination のみ）。
+    let expected_new = ["created.json"];
+    let residue: Vec<String> = std::fs::read_dir(dir)
+        .unwrap()
+        .filter_map(std::result::Result::ok)
+        .map(|ent| ent.file_name().to_string_lossy().into_owned())
+        .filter(|n| !before.contains(n) && !expected_new.contains(&n.as_str()))
+        .collect();
+    println!("publish_residue={}", residue.len());
+    if !residue.is_empty() {
+        println!("publish_residue_files={}", residue.join(","));
+    }
+
+    // ---- unsynced byte の in-process 観測 ----
+    let nosync_path = dir.join("nosync.bin");
+    {
+        let mut file = std::fs::File::create(&nosync_path).unwrap();
+        file.write_all(&vec![0xA5u8; 4096]).unwrap();
+        // sync せず drop（close 時の実長観測）。
+    }
+    println!(
+        "file_nosync_len={}",
+        std::fs::metadata(&nosync_path).unwrap().len()
+    );
+    // sync frontier への truncate（fixture モデルの実 FS 裏付け）。
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&nosync_path)
+        .unwrap()
+        .set_len(1024)
+        .unwrap();
+    println!("set_len={}", std::fs::metadata(&nosync_path).unwrap().len());
+    println!("result=OK");
+    0
+}
+
+fn realfs_write_unsynced(file: &std::path::Path, synced: usize, unsynced: usize) -> i32 {
+    use std::io::{Read, Write};
+    let mut f = match std::fs::File::create(file) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("create failed: {e}");
+            return 1;
+        }
+    };
+    let synced_bytes = vec![0xA5u8; synced];
+    let tail_bytes = vec![0x5Au8; unsynced];
+    if let Err(e) = f
+        .write_all(&synced_bytes)
+        .and_then(|()| f.sync_data())
+        .and_then(|()| f.write_all(&tail_bytes))
+    {
+        eprintln!("write failed: {e}");
+        return 1;
+    }
+    println!("realfs_write_unsynced ready synced={synced} unsynced={unsynced}");
+    let _ = std::io::stdout().flush();
+    // kill 待機（test が TerminateProcess 相当で殺す。handle は
+    // open のまま — 録音 writer が mid-session で死ぬ状態の再現）。
+    let mut buf = [0u8; 1];
+    let _ = std::io::stdin().read(&mut buf);
     0
 }
 

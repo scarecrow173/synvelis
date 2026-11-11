@@ -52,6 +52,8 @@ fault on real temp FS files（fault seam は `FaultWriter`/`Inject`/
 | Disk full（injected ENOSPC） | `ByteLimit` で write 失敗、失敗までの evidence を保持 | `rcd02_fault_matrix_write_sync_permission_diskfull`、`vsc_disk_full_byte_limit` Pass | Pass | — |
 | Indeterminate publish | `PublishInject::Indeterminate` → registry 適用済み・marker 未公開/不一致を `PublishIndeterminate` として区別、reconcile で冪等修復・二重 marker/take なし。publish は `StagedFile` pipeline 上で成功後に応答喪失を注入（destination は公開済み） | `rcd02_publish_indeterminate_adopt_recovers`、`rcd02_commit_receipt_lifecycle_and_reconcile` Pass | Pass | `reconcile_commit_receipt` → `CommittedConfirmed` 収束 |
 | Publish seam on StagedFile pipeline | `Denied`=create 前（destination/temp 未接触）・`SyncFail`=seal 後 publish 前（temp abort で除去・destination 未公開）・`Indeterminate`=publish 成功後 Err（destination 公開済み）が `publish_atomic_faultable` で決定的に再現される。call 計数は faultable 呼出しのみ | `staged_publish.rs` 7 tests（`publish_faultable_*`・`publish_atomic_*`）Pass | Pass | temp residue は SyncFail/Denied で残らない（旧 `*.tmp` residue は新 pipeline では発生しない） |
+|| Unsynced-write 喪失（sync frontier 後の dirty byte 喪失） | checkpoint 後に書き込まれ `sync` されなかった media/journal byte を `set_len` truncate で喪失させたとき、replay は最終 durable frontier のみ intact とし、`review_stream(Adopt)` は verified prefix のみ `FinalizedOutcome::Partial`（3 span/192 frames のみ、喪失 chunk を含まない）で Complete に昇格しない | `rcd02_unsynced_loss_truncates_to_sync_frontier` Pass | Pass | frontier は最後の有効 checkpoint。truncate は power-loss-like な dirty-byte 喪失の fixture モデル（実電源断ではない） |
+|| Unsynced-write 非対称喪失（media/journal 片側のみ残存） | media tail 残存+journal tail 喪失 → `StreamClass::Partial` + `unverified_tail_bytes`（journal coverage 外）。journal tail 残存+media tail 喪失 → `StreamClass::Partial` + fault "media shorter than journaled coverage" + `validated_tail_bytes`。両者とも Adopt は verified/物理 prefix のみ `FinalizedOutcome::Partial` で、unverified byte を自動削除・truncate しない | `rcd02_unsynced_loss_asymmetric_tail` Pass | Pass | 非対称 tail は喪失再現後も物理 file を保持し review 判定へ委ねる |
 
 ## RCD-02-REVIEW — Recovery Review 明示判定
 
@@ -99,14 +101,44 @@ Fixture: `project_adapter.rs`。Lane: headless project/library 参照。
 | Fail-closed Unknown | HEAD snapshot の schema 不一致・decode 失敗・project_id 不一致・store error は `Unknown`（推測で読まない）。`CompositeProbe` は Referenced 優先・Unknown 保持 | `rcd02pa_probe_unknown_head_states_fail_closed`、`rcd02pa_composite_probe_semantics` Pass | Pass* |
 | saved HEAD revision adapter | `head_revision`/`snapshot_revision` が read-only で saved revision を返し receipt の `project_saved` 判定に使える | `rcd02pa_head_revision_and_commit_receipt_saved` Pass | Pass* |
 
+## RCD-02-REALFS — Windows/NTFS real-FS 実測
+
+Lane: `recording-poc realfs` 子 process を実 temp FS 上で実行する
+opt-in lane（`mise run test-recording-real-fs` →
+`cargo test -p recording-poc --locked --test real_fs_probe --
+--ignored --test-threads=1`、CI 対象外）。Fixture:
+`crates/recording-poc/tests/real_fs_probe.rs`（2 tests）+
+`crates/recording-poc/src/main.rs` `realfs` subcommand。
+Environment: 本機 Windows (win32) / NTFS / rustc 1.99.0 via mise。
+観測値は全て実測（`key=value` stdout）— 真の power-loss（電源断）
+は非破壊的に自動化不能のため **NotRun** のままとし、process kill
+（TerminateProcess 相当）で代替可能な範囲のみ実測する。
+
+| Case | Expected | Observed | Status | Notes |
+| --- | --- | --- | --- | --- |
+| Rename 可視性/原子性（missing dest・replace） | rename が原子的に destination を作成/置換し内容が新 source になる | `rename_missing_dest=ok`、`rename_replace=ok`、`rename_replace_content_ok=true` | Pass | NTFS 上の `MoveFileExW` 系挙動の実測 |
+| Rename open-handle semantics | open 中 file/destination への rename の可否を観測（環境依存・偽装しない） | `rename_src_open=ok`、`rename_dst_open=ok` | Pass | Rust std は `FILE_SHARE_DELETE` 等を付与するため Windows でも成功 — 観測値が正本 |
+| create_new no-replace | 既存 destination への `create_new` open が `AlreadyExists` で拒否される | `create_new_existing=err:AlreadyExists` | Pass | `PublishMode::CreateNew` の基礎 |
+| Dir sync capability | directory の open/sync が非対応なら `DirSyncCapability::Unsupported` と正直に検出される | `dir_open=err:PermissionDenied`、`dir_sync=err:PermissionDenied`、`detect_dir_sync=Unsupported` | Unsupported | Windows/NTFS で実測非対応。raw 観測と detector 分類が整合し `Supported` を偽装しない |
+| StagedFile publish（replace / create_new / conflict / residue） | `publish_atomic` は content を原子的置換、`publish_atomic_create_new` は新規作成・conflict で既存を保持、publish が temp residue を残さない | `publish_atomic_replace=ok`、`publish_atomic_content_ok=true`、`publish_atomic_create_new=ok`、`publish_create_new_conflict=err:AlreadyExists`、`publish_create_new_content_kept=true`、`publish_residue=0` | Pass | 実 FS 上で StagedFile pipeline の observable semantics を実測 |
+| Unsynced byte の in-process 実長 | `sync_data` なしで close した file の実長・内容が write 分を反映 | `file_nosync_len=4096`（write 4096 byte 一致） | Pass | unsynced byte は file system 上に観測可能（durable とは別） |
+| Sync frontier への truncate | `set_len` が file を任意長へ truncate し fixture モデルの実 FS 裏付けになる | `set_len=1024`（4096→1024 byte） | Pass | `rcd02_unsynced_loss_*` fixture の truncate が実 FS で再現可能 |
+| Process kill と unsynced tail | `write-unsynced` 子 process（synced 1024 byte → `sync_data` → unsynced 2048 byte・ready 後 kill）の post-kill file を別 process から観測 | post-kill len=3072 = synced+unsynced、prefix 0xA5・tail 0x5A 共に intact | Pass | **process kill は OS の dirty page を失わせず unsynced 喪失を再現しない** — よって真の power-loss 行は `NotRun` に留まる |
+| 真の power-loss（電源断・OS crash 相当） | 非破壊的に自動化不能 | 未実施 | NotRun | 実機電源断のみ検証可能。fixture truncate はモデル、process kill は dirty page を保持するため代替にならない |
+
 ## Explicitly out of scope (never Pass)
 
-- 実 OS/FS durability 実測（power-loss/kill 実機、rename/sync 原子性、
-  dir sync capability の実挙動）— **NotRun**（実機 gate）。
+- 真の power-loss（電源断・OS crash 相当）の実機 durability —
+  **NotRun**（非破壊的に自動化不能。process kill で代替可能な
+  範囲は RCD-02-REALFS で実測済みだが、process kill は dirty
+  page を保持するため power-loss 喪失を再現しない）。
+- 他 OS・他 FS（macOS/Linux 等）の rename/dir sync/unsynced
+  挙動 — **NotRun**（Windows/NTFS のみ RCD-02-REALFS で実測）。
 - 実 device 録音・disconnect/LowDisk 実 fault（#115）— **NotRun**。
 - 製品 Comp/Take/Recovery GUI E2E（#118）— **NotRun**。
 - consumer 精度・AudioLens cross-check（#219/#294）— **NotRun**。
-- macOS/Linux 等の多 OS FS matrix — **NotRun**（Windows/NTFS のみ）。
+- macOS/Linux 等の多 OS FS matrix — **NotRun**（Windows/NTFS のみ
+  RCD-02-REALFS で実測。上の行と併せて多 OS 展開は未実測）。
 - RT callback 上の実オーディオスレッド noalloc/noblock 計測 —
   `test-rt` の contract test のみ **Pass**、実デバイス計測は **NotRun**。
 - #86 verified blob import/Asset 登録・#84 project 側 HEAD CAS 参照進化
@@ -141,3 +173,15 @@ Windows 観測値（`DirSyncCapability::Unsupported`）は manifest
 の `Durability::FileSync` は dir sync を要求しないため capability
 非対応環境でも偽装なく動作する（`staged_publish.rs` の Replace/
 CreateNew/seam test が Windows/NTFS 上で Pass）。
+
+Unsynced-loss fixture + real-FS probe slice（本 slice、branch
+`impl/116-unsynced-loss-real-fs-probe`）: `recovery_review.rs` +2
+tests（`rcd02_unsynced_loss_truncates_to_sync_frontier`・
+`rcd02_unsynced_loss_asymmetric_tail`、truncate による dirty-byte
+喪失の決定的再現）、`recording-poc` に `realfs` subcommand と
+`tests/real_fs_probe.rs` 2 tests を追加し、`mise.toml` に opt-in
+manual task `test-recording-real-fs` を 1 件追加（既存
+`test-recording-*` 系と同型・CI 対象外）。fixture tests・real-FS
+lane ともに Windows/NTFS・rustc 1.99.0 で実行済み — canonical
+`mise run test` / `mise run test-recording-real-fs` の結果は PR
+本文に記録。

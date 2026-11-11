@@ -173,6 +173,20 @@ fn append_unverified_media(path: &Path, bytes: usize) {
     m.sync_data().unwrap();
 }
 
+/// `path` を `len` へ truncate する。最終 sync frontier 以後に
+/// `write_all` が成功した unsynced byte が、power-loss で OS の
+/// dirty page と共に失われた状態の再現（file 長・内容ともに
+/// frontier へ戻る）。append handle では truncate できないため
+/// write handle を別途開く。
+fn truncate_to(path: &Path, len: u64) {
+    OpenOptions::new()
+        .write(true)
+        .open(path)
+        .unwrap()
+        .set_len(len)
+        .unwrap();
+}
+
 // ---------- review probe stubs ----------
 
 struct ClearProbe;
@@ -881,6 +895,164 @@ fn rcd02_fault_matrix_journal_short_write_torn_append() {
     assert_eq!(r.outcome, FinalizedOutcome::Partial);
     assert_eq!(r.media_byte_len, 2 * 64 * FRAME_BYTES);
     assert_eq!(r.source_frames, 128);
+    fs::remove_dir_all(&root).ok();
+}
+
+// ---------- unsynced-write loss（sync frontier truncation） ----------
+
+#[test]
+fn rcd02_unsynced_loss_truncates_to_sync_frontier() {
+    // `write_all` が成功し file に見えていた byte が、sync 未達の
+    // ため power-loss で失われる喪失形を、media/journal を最終
+    // sync frontier（checkpoint 直後の実 file 長）へ truncate
+    // して再現する。
+    let lane = LaneId::new(11);
+    let root = tmp_dir("unsynced-loss");
+    let area = staging_area(&root, 215, &[lane]);
+    let (mut w, mut ends) = manual_writer(&area);
+    for i in 0..3u32 {
+        push_and_pump(&mut w, &mut ends, i, i64::from(i) * 64);
+    }
+    w.pump();
+    w.checkpoint().unwrap();
+    // checkpoint 直後の実 file 長 = 最終 sync frontier。
+    let mp = media_path(&root, 215, 0);
+    let jp = journal_path(&root, 215, 0);
+    let synced_media_len = fs::metadata(&mp).unwrap().len();
+    let synced_journal_len = fs::metadata(&jp).unwrap().len();
+    // 以後の write は成功するが sync 未達（unsynced tail）。
+    for i in 3..5u32 {
+        push_and_pump(&mut w, &mut ends, i, i64::from(i) * 64);
+    }
+    drop(w);
+    // unsynced tail が実際に file 上に存在することを pin する
+    // （喪失の再現が vacuous でないことの保証）。
+    assert!(fs::metadata(&mp).unwrap().len() > synced_media_len);
+    assert!(fs::metadata(&jp).unwrap().len() > synced_journal_len);
+    // power-loss 相当: OS が捨てた dirty page 分を truncate で再現。
+    truncate_to(&mp, synced_media_len);
+    truncate_to(&jp, synced_journal_len);
+
+    let report = recovery::scan(&root).unwrap();
+    let s = &report.sessions[0].streams[0];
+    // chunk 3-4 の record も喪失し、journal は checkpoint で
+    // clean に終わる。tail も無く Healthy に見えるが、finalize
+    // は未実施（Pending）。
+    assert_eq!(s.stop, StopReason::CleanEnd);
+    assert_eq!(s.class, StreamClass::Healthy);
+    assert_eq!(s.review_state, ReviewState::Pending);
+    assert_eq!(s.durable.map(|d| d.media_len), Some(synced_media_len));
+    assert_eq!(s.validated_tail_bytes, 0);
+    assert_eq!(s.unverified_tail_bytes, 0);
+
+    let area = StagingArea::open(&root, session_id(215)).unwrap();
+    let mut faults = PublishFaults::new();
+    let out = review_stream(&area, 0, ReviewAction::Adopt, None, &mut faults).unwrap();
+    let ReviewOutcome::Adopted(r) = out else {
+        panic!("expected Adopted")
+    };
+    // verified prefix（sync frontier）のみ確定。Finalize record
+    // 不在の crash 由来なので Complete には昇格せず、喪失
+    // chunk は ref/digest に一切混入しない。
+    assert_eq!(r.outcome, FinalizedOutcome::Partial);
+    assert_eq!(r.media_byte_len, synced_media_len);
+    assert_eq!(r.source_frames, 192);
+    assert_eq!(r.spans.len(), 3);
+    fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn rcd02_unsynced_loss_asymmetric_tail() {
+    let lane = LaneId::new(11);
+    // --- media 残留 / journal 喪失 ---
+    // media の unsynced byte は OS が flush 済みで残り、journal
+    // 側の record だけ失われた状態（unverified tail）。
+    let root = tmp_dir("unsynced-media-tail");
+    let area = staging_area(&root, 216, &[lane]);
+    let (mut w, mut ends) = manual_writer(&area);
+    for i in 0..3u32 {
+        push_and_pump(&mut w, &mut ends, i, i64::from(i) * 64);
+    }
+    w.pump();
+    w.checkpoint().unwrap();
+    let mp = media_path(&root, 216, 0);
+    let jp = journal_path(&root, 216, 0);
+    let synced_media_len = fs::metadata(&mp).unwrap().len();
+    let synced_journal_len = fs::metadata(&jp).unwrap().len();
+    for i in 3..5u32 {
+        push_and_pump(&mut w, &mut ends, i, i64::from(i) * 64);
+    }
+    drop(w);
+    truncate_to(&jp, synced_journal_len);
+
+    let report = recovery::scan(&root).unwrap();
+    let s = &report.sessions[0].streams[0];
+    // journal は checkpoint で clean、media のみ unverified tail。
+    assert_eq!(s.stop, StopReason::CleanEnd);
+    assert_eq!(s.class, StreamClass::Partial);
+    assert_eq!(s.unverified_tail_bytes, 2 * 64 * FRAME_BYTES);
+
+    let area = StagingArea::open(&root, session_id(216)).unwrap();
+    let mut faults = PublishFaults::new();
+    let out = review_stream(&area, 0, ReviewAction::Adopt, None, &mut faults).unwrap();
+    let ReviewOutcome::Adopted(r) = out else {
+        panic!("expected Adopted")
+    };
+    assert_eq!(r.outcome, FinalizedOutcome::Partial);
+    assert_eq!(r.media_byte_len, synced_media_len);
+    assert_eq!(r.source_frames, 192);
+    // unverified byte は削除・切詰めされず file 上に保存される。
+    assert_eq!(
+        fs::metadata(&mp).unwrap().len(),
+        synced_media_len + 2 * 64 * FRAME_BYTES
+    );
+    fs::remove_dir_all(&root).ok();
+
+    // --- journal 残留 / media 喪失 ---
+    // journal 側の chunk record は残るが media の unsynced byte
+    // が失われ、journaled 被覆が media 実長を超える状態。
+    let root = tmp_dir("unsynced-journal-tail");
+    let area = staging_area(&root, 217, &[lane]);
+    let (mut w, mut ends) = manual_writer(&area);
+    for i in 0..3u32 {
+        push_and_pump(&mut w, &mut ends, i, i64::from(i) * 64);
+    }
+    w.pump();
+    w.checkpoint().unwrap();
+    let mp = media_path(&root, 217, 0);
+    let synced_media_len = fs::metadata(&mp).unwrap().len();
+    for i in 3..5u32 {
+        push_and_pump(&mut w, &mut ends, i, i64::from(i) * 64);
+    }
+    drop(w);
+    // media の unsynced tail が喪失前に存在していたことを pin する。
+    assert!(fs::metadata(&mp).unwrap().len() > synced_media_len);
+    truncate_to(&mp, synced_media_len);
+
+    let report = recovery::scan(&root).unwrap();
+    let s = &report.sessions[0].streams[0];
+    // journal は chunk4 まで clean だが media が journaled 被覆
+    // に満たず、fault として報告され Partial に分類される。
+    assert_eq!(s.stop, StopReason::CleanEnd);
+    assert_eq!(s.class, StreamClass::Partial);
+    assert_eq!(s.validated_tail_bytes, 2 * 64 * FRAME_BYTES);
+    assert!(
+        s.faults
+            .iter()
+            .any(|f| f.contains("media shorter than journaled coverage"))
+    );
+
+    let area = StagingArea::open(&root, session_id(217)).unwrap();
+    let mut faults = PublishFaults::new();
+    let out = review_stream(&area, 0, ReviewAction::Adopt, None, &mut faults).unwrap();
+    let ReviewOutcome::Adopted(r) = out else {
+        panic!("expected Adopted")
+    };
+    // journaled tail は frontier を越えるため Complete にならず、
+    // media が物理的に欠けた分も verified prefix に混入しない。
+    assert_eq!(r.outcome, FinalizedOutcome::Partial);
+    assert_eq!(r.media_byte_len, synced_media_len);
+    assert_eq!(r.source_frames, 192);
     fs::remove_dir_all(&root).ok();
 }
 
