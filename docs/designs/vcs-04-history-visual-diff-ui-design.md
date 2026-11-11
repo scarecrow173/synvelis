@@ -4,15 +4,39 @@ type: "design"
 status: "approved"
 title: "VCS-04 History/Visual Diff UI design"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
     - "SPEC-VCS04Hist0ryV1ewUI001"
-  verified_by: []
-  implemented_by: []
+  changes:
+    added: []
+    modified: []
+    deleted: []
+    renamed: []
+    moved: []
+    generated: []
+  implements:
+    - "docs/specs/vcs-04-history-visual-diff-ui.md"
+  implemented-by:
+    - "docs/plans/vcs-04-history-visual-diff-ui.md"
+  depends-on:
+    - "docs/specs/vcs-04-history-visual-diff-ui.md"
+  blocks: []
   supersedes: []
-  superseded_by: []
+  superseded-by: []
+  related: []
+  refines: []
+  refined-by: []
+  derives-from:
+    - "docs/specs/vcs-04-history-visual-diff-ui.md"
+  derived-by: []
+  verifies: []
+  verified-by:
+    - "docs/test-specs/vcs-04-history-diff-fixtures.md"
+  references: []
+  defers: []
+  deferred-by: []
 ---
 
 # VCS-04 History/Visual Diff UI design

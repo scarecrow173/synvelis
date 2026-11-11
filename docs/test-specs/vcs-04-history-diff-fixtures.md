@@ -4,16 +4,41 @@ type: "test-spec"
 status: "approved"
 title: "VCS-04 History/Visual Diff headless fixtures"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
     - "SPEC-VCS04Hist0ryV1ewUI001"
     - "DESIGN-VCS04Hist0ryV1ewDsn01"
-  verified_by: []
-  implemented_by: []
+  changes:
+    added: []
+    modified: []
+    deleted: []
+    renamed: []
+    moved: []
+    generated: []
+  implements: []
+  implemented-by: []
+  depends-on:
+    - "docs/specs/vcs-04-history-visual-diff-ui.md"
+    - "docs/designs/vcs-04-history-visual-diff-ui-design.md"
+  blocks: []
   supersedes: []
-  superseded_by: []
+  superseded-by: []
+  related: []
+  refines: []
+  refined-by: []
+  derives-from:
+    - "docs/specs/vcs-04-history-visual-diff-ui.md"
+    - "docs/designs/vcs-04-history-visual-diff-ui-design.md"
+  derived-by: []
+  verifies:
+    - "docs/specs/vcs-04-history-visual-diff-ui.md"
+    - "docs/designs/vcs-04-history-visual-diff-ui-design.md"
+  verified-by: []
+  references: []
+  defers: []
+  deferred-by: []
 ---
 
 # VCS-04 History/Visual Diff headless fixtures

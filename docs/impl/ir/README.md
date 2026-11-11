@@ -107,3 +107,4 @@ Directory: `docs/impl/ir`
 | IMPL-034VDfqOMnbp5s6CThZTBe | RCD-03 VCS semantic diff monitor 宣言分類 slice 実装記録 | completed | [rcd-03-vcs-diff-monitor-classification-slice.md](rcd-03-vcs-diff-monitor-classification-slice.md) |
 | IMPL-034VC2V5HUrkERcXqw246v | RCD-04 RT engine comp PCM slice 実装記録 | in-progress | [rcd-04-rt-engine-comp-pcm-slice.md](rcd-04-rt-engine-comp-pcm-slice.md) |
 | IMPL-0h9qRk2mNvPwXzYc8uJd4s | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe | completed | [rcd-02-unsynced-loss-real-fs-probe-slice.md](rcd-02-unsynced-loss-real-fs-probe-slice.md) |
+| IMPL-034VGuS8MYmQ9PYiMy81Gt | VCS-04 History/Visual Diff UI — headless read-only projection slice (synvelis#95) | completed | [vcs-04-history-visual-diff-ui.md](vcs-04-history-visual-diff-ui.md) |
