@@ -118,7 +118,9 @@ migration を越えて生き残ることを headless fixture で証明する。
   session 観測値は非永続のまま（外部観測・実行時計測であり
   authored 宣言ではない）。
 - `synvelis-recording` / `synvelis-player` / `synvelis-workspace` /
-  `synvelis-gateway` / `synvelis-library` / `ui/` の変更。
+  `synvelis-library` / `ui/` の変更。`synvelis-gateway` は新規
+  `ProjectOp` variant の `op_name` 命名 arm 追加のみ（網羅 match
+  維持のための Coordinator 承認済み範囲拡張）。
 - Issue #117 の Close（残件は外部 gate）。
 
 ## Requirements

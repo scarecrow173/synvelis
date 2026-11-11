@@ -52,7 +52,9 @@ undo 可能 op で write-through 化する。session 観測値は
 `synvelis-project`（POD 型・schema・migration・ops・tests）と
 `synvelis-app`（monitoring write-through・state read-through・
 fixture 更新）に閉じる。`synvelis-recording`/`player`/`workspace`/
-`gateway`/`library`/`ui/` は変更しない。
+`library`/`ui/` は変更しない。`synvelis-gateway` は `op_name` の
+網羅 match を壊さないための最小 arm 追加のみ（Coordinator 承認済み
+の範囲拡張）。
 
 ## Upstream Documents
 
@@ -91,22 +93,25 @@ fixture 更新）に閉じる。`synvelis-recording`/`player`/`workspace`/
   コメント更新（rehydrate は project 正本化により自動）。
 - `crates/synvelis-app/tests/monitor_arm.rs` - 永続化契約への
   fixture 更新（write-through/undo/save-open/観測値非永続）。
+- `crates/synvelis-gateway/src/prepare.rs` - `op_name` の網羅 match
+  に新 `ProjectOp` 3 variant の arm を追加（Coordinator 承認済みの
+  範囲拡張 — 追加しないと workspace check が E0004 で落ちる）。
 - `docs/` - 本 chain 6 文書 + 各 README index。
 
 ## Implementation Sequence
 
 - [x] spec/design/plan/task/test-spec の doc chain 作成
-- [ ] `monitoring_data.rs` + `project.rs` + `store.rs` +
+- [x] `monitoring_data.rs` + `project.rs` + `store.rs` +
   `migration.rs` + `ops.rs` + `lib.rs`
-- [ ] `crates/synvelis-project/tests/monitoring_persist.rs`
-- [ ] `monitoring.rs` 再構成 + `ui_ops.rs` write-through +
+- [x] `crates/synvelis-project/tests/monitoring_persist.rs`
+- [x] `monitoring.rs` 再構成 + `ui_ops.rs` write-through +
   `app.rs` コメント
-- [ ] `monitor_arm.rs` fixture 更新・拡張
-- [ ] `mise run fmt` → `fmt-check`/`check`/`lint`/`test`/
+- [x] `monitor_arm.rs` fixture 更新・拡張
+- [x] `mise run fmt` → `fmt-check`/`check`/`lint`/`test`/
   `test-rt`/`check-app-native`/`lint-app-native`/`test-msrv`/
   `build` で検証
-- [ ] `git fetch origin main && git merge origin/main` 後に再検証
-- [ ] review-protocol レビュー → blocker 解消
+- [x] `git fetch origin main && git merge origin/main` 後に再検証
+- [x] review-protocol レビュー → blocker 解消
 - [ ] Conventional Commits で論理分割 commit → push → PR（Refs #117）
 
 ## Dependencies and Risks

@@ -1,7 +1,7 @@
 ---
 id: "TASK-034VpQe0nP5xQ2wU7vB9xM"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "RCD-03 Task1 Arm/Monitor/Punch Project 永続投影"
 created: "2026-11-11"
 updated: "2026-11-11"
@@ -86,19 +86,19 @@ relations:
 
 ## Done When
 
-- [ ] 宣言・punch が `Project.monitoring` に保存され、save/load・
+- [x] 宣言・punch が `Project.monitoring` に保存され、save/load・
   v11→v12 migration・undo/redo で復元・整合する。
-- [ ] `syn.monitoring.set`/`punch` の宣言変更が write-through で
+- [x] `syn.monitoring.set`/`punch` の宣言変更が write-through で
   Project に反映され、`syn.project.undo` で戻る。
-- [ ] session 観測値が永続化されず、project_new/open で reset
+- [x] session 観測値が永続化されず、project_new/open で reset
   される。
-- [ ] `tests/monitoring_persist.rs` と `tests/monitor_arm.rs` が
+- [x] `tests/monitoring_persist.rs` と `tests/monitor_arm.rs` が
   test-spec E1–E6 を検証して pass。
-- [ ] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
+- [x] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
   `check-app-native`/`lint-app-native`/`test-msrv`/`build` が pass。
-- [ ] review-protocol で blocker なし。
+- [x] review-protocol で blocker なし。
 
 ## Verification
 
-- [ ] `mise run test`（canonical）+ fixture 実行。
-- [ ] `git fetch origin main && git merge origin/main` 後の再検証。
+- [x] `mise run test`（canonical）+ fixture 実行。
+- [x] `git fetch origin main && git merge origin/main` 後の再検証。
