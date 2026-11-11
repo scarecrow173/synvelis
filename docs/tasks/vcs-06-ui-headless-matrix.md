@@ -4,7 +4,7 @@ type: "task"
 status: "in-progress"
 title: "VCS-06 UI headless matrix"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: []
 relations:
   source:
@@ -77,7 +77,7 @@ freshness Unknown 経路）を固定する。`src/` 変更なし。
 - [x] `vcs06_ui_matrix.rs` 4 tests が外部観測契約を検証し pass
 - [x] ledger の VCS-UI-01..05 行が分割記録される
 - [x] doc チェーン + index 再生成
-- [ ] `git fetch origin main && git merge origin/main` 後の
+- [x] `git fetch origin main && git merge origin/main` 後の
   canonical `mise run` 検証が pass
 - [ ] push → PR 作成（Refs synvelis#97、Issue は Open のまま）
 
@@ -87,5 +87,5 @@ freshness Unknown 経路）を固定する。`src/` 変更なし。
 - [x] `cargo clippy -p synvelis-app --all-targets -- -D warnings`
   （補助）
 - [x] `cargo fmt --all -- --check`（補助）
-- [ ] `mise run fmt-check check lint test test-rt test-msrv
-  check-app-native lint-app-native`（canonical）
+- [x] `mise run fmt-check check lint test test-rt test-msrv
+  check-app-native lint-app-native`（canonical、全 exit 0）

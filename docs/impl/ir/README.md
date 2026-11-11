@@ -11,7 +11,6 @@ Directory: `docs/impl/ir`
 | IMPL-034UpGfvHCv8xjHEH5ys6e | PC-C2 双方向 Control Relation Index/Projection | completed | [pc-c2-control-relation-index-projection.md](pc-c2-control-relation-index-projection.md) |
 | IMPL-034UoCucc7Cxrp4NwMxb5V | SV-GUI-04 slice1 precursor: headless WindowHandle + dock fixture | completed | [sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md](sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md) |
 | IMPL-034V30Z5uYklMrResgr0lS | RCD-01 実Audio Device録音統合 headless slice — fake port→実StreamWriter fixture + recording state projection | completed | [rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md](rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md) |
-| IMPL-034VpEJmewmUasabGgBzbM | VCS-06 UI headless matrix (synvelis#97 slice) | in-progress | [vcs-06-ui-headless-matrix-slice.md](vcs-06-ui-headless-matrix-slice.md) |
 
 ## Settled
 
@@ -92,3 +91,4 @@ Directory: `docs/impl/ir`
 | IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](rcd-04-product-e2e-slice.md) |
 | IMPL-034VoSZokxDrVB1U3GAB2Z | SF-03 slice8 実装記録 — app/workspace same-Revision fixture | completed | [sf-03-slice8-revision-fixture-slice.md](sf-03-slice8-revision-fixture-slice.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](ci-245-macos-alloc-flake-slice.md) |
+| IMPL-034VpEJmewmUasabGgBzbM | VCS-06 UI headless matrix (synvelis#97 slice) | completed | [vcs-06-ui-headless-matrix-slice.md](vcs-06-ui-headless-matrix-slice.md) |

@@ -1,10 +1,10 @@
 ---
 id: "IMPL-034VpEJmewmUasabGgBzbM"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "VCS-06 UI headless matrix (synvelis#97 slice)"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: []
 relations:
   source:
@@ -158,12 +158,25 @@ headless 観測 slice。実機 GUI lane は #114、Issue #97 は Open の
 
 ## Validation
 
-- `cargo test -p synvelis-app --test vcs06_ui_matrix` — 4 pass
-  （補助証拠、Windows/rustc 1.99.0）。
-- `cargo clippy -p synvelis-app --all-targets -- -D warnings` —
-  clean（補助証拠）。
-- `cargo fmt --all -- --check` — clean（補助証拠）。
-- canonical `mise run` 群 — TODO: 実行後に記録。
+`origin/main` @ `099e7ea` 取り込み・`mise run sync-ui-deps` 後の
+最終状態で実測（Windows、pinned rustc 1.99.0、MSRV lane は
+rust 1.89.0）。
+
+- `mise run fmt-check` — exit 0。
+- `mise run check` — exit 0。
+- `mise run lint` — exit 0。
+- `mise run test` — exit 0（workspace 全体、`vcs06_ui_matrix.rs`
+  4 tests を含む）。
+- `mise run test-rt` — exit 0。
+- `mise run test-msrv` — exit 0（rust 1.89.0 toolchain）。
+- `mise run check-app-native` — exit 0。
+- `mise run lint-app-native` — exit 0。
+- `mise run sync-ui-deps` — exit 0（ruviform pin `b02942c2` へ
+  vendor 同期）。
+- 補助証拠（canonical = mise）: `cargo test -p synvelis-app
+  --test vcs06_ui_matrix` 4 pass、`cargo clippy -p
+  synvelis-app --all-targets -- -D warnings` clean、
+  `cargo fmt --all -- --check` clean — Windows/rustc 1.99.0。
 
 ## Risks
 

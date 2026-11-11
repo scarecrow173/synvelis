@@ -4,7 +4,7 @@ type: "plan"
 status: "approved"
 title: "VCS-06 UI headless matrix — 実装 plan"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: []
 relations:
   source:
@@ -75,9 +75,9 @@ VCS-UI-01..05 分割記録を追加する（src 変更なし）。
   --test vcs06_ui_matrix`（補助）→ fmt/clippy 修正
 - [x] ledger VCS-UI 行分割 + fixture 一覧更新
 - [x] doc チェーン作成 → index 再生成
-- [ ] `git fetch origin main && git merge origin/main` → canonical
+- [x] `git fetch origin main && git merge origin/main` → canonical
   `mise run fmt-check check lint test test-rt test-msrv
-  check-app-native lint-app-native`
+  check-app-native lint-app-native`（全 exit 0、impl-ir に記録）
 
 ## Dependencies and Risks
 
@@ -99,7 +99,7 @@ VCS-UI-01..05 分割記録を追加する（src 変更なし）。
 - [x] `cargo clippy -p synvelis-app --all-targets -- -D warnings` —
   clean（補助証拠）
 - [x] `cargo fmt --all -- --check` — clean（補助証拠）
-- [ ] canonical `mise run` 群（impl-ir に実測を記録）
+- [x] canonical `mise run` 群（impl-ir に実測を記録）
 
 ## Open Questions / Gaps
 

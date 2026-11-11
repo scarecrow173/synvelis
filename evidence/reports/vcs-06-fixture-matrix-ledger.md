@@ -11,8 +11,8 @@ in `docs/specs/sf-06-cross-gate-oracle-case-ledger.md`.
 
 | Field | Value |
 | --- | --- |
-| Synvelis commit | `792566072e4ab3e64f73498de79ba17e466b19ed` + this change set |
-| Cargo.lock Ruviform SHA | `0f5b57372e9a43f84415f7964b2f9636774174f0` |
+| Synvelis commit | `792566072e4ab3e64f73498de79ba17e466b19ed` + this change set (merged `origin/main` @ `099e7ea`) |
+| Cargo.lock Ruviform SHA | `b02942c2f9e6e195d0d752803b077866468fe58e` (post-#301 pin; earlier rows measured under `0f5b57372e9a43f84415f7964b2f9636774174f0`) |
 | OS | Windows (win32), NTFS |
 | Toolchain | rustc 1.99.0 (b940084d7), git 2.54.0.windows.1 |
 | Schema | `SCHEMA_VERSION = 11`; v5 projection fixture |
