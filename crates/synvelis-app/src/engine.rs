@@ -416,6 +416,33 @@ impl SessionRoutingEngine {
             .observe_cycle(processor, generation, span, call_start, call_frames)
     }
 
+    /// The attached surface's verified attach-time frame base — the
+    /// base [`synvelis_player::FastControlWrite::position`] and
+    /// automation ticks are stamped in (PC-C4-06). `None` before
+    /// attach or when no processor is plugin-backed.
+    #[must_use]
+    pub fn control_frame_base(&self) -> Option<ruviform_media_core::TimeBase> {
+        self.inner
+            .borrow()
+            .dispatch
+            .as_ref()
+            .and_then(RoutingControlDispatch::frame_base)
+    }
+
+    /// The most recent [`synvelis_player::FastControlBlock`] rendered
+    /// — typed rejection detail behind a `Blocked` outcome
+    /// (PC-C4-06). `None` before the first fast-control attempt or
+    /// after a non-blocked outcome.
+    #[must_use]
+    pub fn control_last_block(&self) -> Option<String> {
+        self.inner
+            .borrow()
+            .dispatch
+            .as_ref()
+            .and_then(|dispatch| dispatch.last_block())
+            .map(ToString::to_string)
+    }
+
     /// Scoped mutable access to the owned control surface — the
     /// composition root's seam for operations whose signatures name
     /// host-side types this crate does not depend on (the

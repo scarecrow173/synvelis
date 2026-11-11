@@ -22,6 +22,7 @@ ruviform-audio-core.workspace = true
 ruviform-audio-plugin-bridge.workspace = true
 ruviform-media-core.workspace = true
 ruviform-media-reader.workspace = true
+ruviform-plugin-core.workspace = true
 ruviform-ui.workspace = true
 ruviform-observability = { workspace = true, features = ["logging"] }
 tracing.workspace = true
@@ -32,7 +33,6 @@ synvelis-theme = { workspace = true, optional = true }
 
 [dev-dependencies]
 ruviform-ui-test.workspace = true
-ruviform-plugin-core.workspace = true
 ruviform-plugin-host.workspace = true
 
 [features]
