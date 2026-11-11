@@ -54,6 +54,7 @@ Directory: `docs/test-specs`
 | TSPEC-034VedrLB13w3phP9Xuh5S | RCD-03 app Arm/Monitoring UX fixture matrix | proposed | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
 | TSPEC-034VpQe1oQ6xR3wV8vC0xN | RCD-03 Arm/Monitor/Punch Project 永続投影 fixture matrix | proposed | [rcd-03-monitor-persistence.md](./rcd-03-monitor-persistence.md) |
 | TSPEC-034Utqp8lRoY8TBzlygCtN | RCD-03 Monitor/Punch/Latency fixture matrix | proposed | [rcd-03-monitor-punch-latency.md](./rcd-03-monitor-punch-latency.md) |
+| TSPEC-1O5VKTXpMQMvUNMWnJXn1a | RCD-03 VCS semantic diff monitor 宣言分類 fixture matrix | proposed | [rcd-03-vcs-diff-monitor-classification.md](./rcd-03-vcs-diff-monitor-classification.md) |
 | TSPEC-RCD04Fx9mB3vC7xZ2qW5eR | RCD-04 Comp Transition / MIDI Phrase fixture matrix | proposed | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |
 | TSPEC-034VmO7ak9xboyiIKIf80v | RCD-04 product E2E test spec | approved | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
