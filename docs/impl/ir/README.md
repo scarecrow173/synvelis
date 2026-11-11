@@ -84,6 +84,8 @@ Directory: `docs/impl/ir`
 | IMPL-034UyQi9tCjjAPwfMy7pSX | PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice） | completed | [pc-c5-02-03-gesture-stale-inspector.md](pc-c5-02-03-gesture-stale-inspector.md) |
 | IMPL-034V1rsGSFTsDZgYwBlfaz | TIM-03 attach wiring — capability→AttachConfig composition root | completed | [tim-03-attach-wiring-capability-attachconfig-composition-root.md](tim-03-attach-wiring-capability-attachconfig-composition-root.md) |
 | IMPL-Qt0RuNZjqvP8ojWR34w9p1 | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta | completed | [vcs-03-git-read-provider.md](vcs-03-git-read-provider.md) |
+| IMPL-034VCf2QmeMPfbOyKxLlVw | TIM-02 player MIDI RT/Offline 結合 — 実装記録 | completed | [tim-02-player-midi-rt-offline.md](tim-02-player-midi-rt-offline.md) |
+| IMPL-034VCfdDgChNzOrdphfKyJ | TIM-02 player MIDI RT/Offline 検証 slice（既 merge コード canonical 検証 + doc chain 閉鎖） | completed | [tim-02-player-midi-verification-slice.md](tim-02-player-midi-verification-slice.md) |
 | IMPL-TIM02SmfFormat01Core0001 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice 実装記録 | completed | [tim-02-smf-format01-import-export.md](tim-02-smf-format01-import-export.md) |
 | IMPL-034V4SMgc7OlchXo2EUCfn | VCS-05 safe apply selected change / restore as copy (headless) | completed | [vcs-05-safe-apply-selected-change-restore-as-copy-headless.md](vcs-05-safe-apply-selected-change-restore-as-copy-headless.md) |
 | IMPL-034Vg2bnZtbJvdYWRJIUM3 | RCD-03 app Arm/Monitoring UX slice 実装記録 | completed | [rcd-03-app-arm-monitoring-ux-slice.md](rcd-03-app-arm-monitoring-ux-slice.md) |

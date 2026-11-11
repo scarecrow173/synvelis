@@ -1,10 +1,10 @@
 ---
 id: "TESTSPEC-126tim02playerMidiRt01"
 type: "test-spec"
-status: "proposed"
+status: "approved"
 title: "TIM-02 player MIDI RT/Offline 結合 fixtures"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -31,7 +31,8 @@ relations:
   derives-from: []
   derived-by: []
   verifies:
-    - "docs/tasks/tim-02-task2-player-midi.md"
+    - "docs/specs/tim-02-player-midi-rt-offline.md"
+    - "docs/designs/tim-02-player-midi-rt-offline.md"
   verified-by: []
   references: []
   defers: []

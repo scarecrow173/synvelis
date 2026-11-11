@@ -1,10 +1,10 @@
 ---
 id: "SPEC-126tim02playerMidiRt01"
 type: "spec"
-status: "proposed"
+status: "implemented"
 title: "TIM-02 player MIDI RT/Offline 結合 slice (synvelis#126)"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
