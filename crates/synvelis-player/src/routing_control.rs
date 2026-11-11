@@ -1002,11 +1002,7 @@ impl RoutingControlDispatch {
     /// generations, already-taken handles) land in
     /// `report.without_control`; bind failures land in
     /// `report.unbound` — both typed, never silent.
-    fn vend_nodes(
-        engine: &mut RoutingEngine,
-        surface: &mut GenerationSurface,
-        project: &Project,
-    ) {
+    fn vend_nodes(engine: &mut RoutingEngine, surface: &mut GenerationSurface, project: &Project) {
         for processor in project.routing.processors.keys() {
             let Some(control) = engine.take_processor_control(surface.generation, *processor)
             else {
