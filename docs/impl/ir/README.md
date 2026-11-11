@@ -97,3 +97,4 @@ Directory: `docs/impl/ir`
 | IMPL-034VpEJmewmUasabGgBzbM | VCS-06 UI headless matrix (synvelis#97 slice) | completed | [vcs-06-ui-headless-matrix-slice.md](vcs-06-ui-headless-matrix-slice.md) |
 | IMPL-034Vsqaiq4B9YQrsfPw8Sb | TIM-03 session→driver/routing wiring — BoundarySessionSpec vend・driver session/mirror・routing scoped API | completed | [tim-03-session-driver-wiring-slice.md](tim-03-session-driver-wiring-slice.md) |
 | IMPL-PCc4030bs3vN1pQ8wXyZ2aG | PC-C4-03 param observation — host drain → ParamDispatch ledger | completed | [pc-c4-03-param-observation-slice.md](pc-c4-03-param-observation-slice.md) |
+| IMPL-034VvMRwKN7mUk0Wv50AKg | PC-C4-05 persisted StablePluginInstanceId — schema v13 + player hydration | in-progress | [pc-c4-05-persisted-stableplugininstanceid-schema-v13-player-hydration.md](pc-c4-05-persisted-stableplugininstanceid-schema-v13-player-hydration.md) |
