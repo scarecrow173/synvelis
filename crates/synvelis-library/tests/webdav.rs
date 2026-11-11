@@ -10,8 +10,10 @@
 mod common;
 
 use std::fmt::Write as _;
-use std::io::Read;
+use std::io::{Read, Write};
+use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use common::webdav_fixture::{MockResponse, MockServer, dir_props, file_props, propfind_response};
 use common::{aref, cx, loc, pid};
@@ -965,4 +967,35 @@ fn cross_origin_redirect_never_reaches_other_origin() {
         .expect_err("cross-origin redirect");
     assert_eq!(kind_of(&err), ProviderErrorKind::InvalidRequest);
     assert_eq!(*b_hits.lock().unwrap(), 0, "foreign origin was contacted");
+}
+
+// ------------------------------------------------------------------
+// Fixture self-check: accepted-connection socket mode
+// ------------------------------------------------------------------
+
+/// Regression for synvelis#245: the listener runs nonblocking, and on
+/// Windows `accept()` propagates that flag to the accepted socket —
+/// POSIX does not. `handle_conn` assumed a blocking socket, so a
+/// `read` that beat the client's first bytes failed `WouldBlock`,
+/// dropped the connection, and surfaced as os error 10054/10053 on
+/// the client. Holding the request past the 2 ms accept poll forces
+/// that race window deterministically.
+#[test]
+fn fixture_serves_request_written_after_accept() {
+    let server = MockServer::start(Arc::new(|_| MockResponse::new(204)));
+    let mut stream =
+        TcpStream::connect(server.url().trim_start_matches("http://")).expect("connect");
+    // Bound the read: a wedged server must fail the test fast, never
+    // hang the suite.
+    stream
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .expect("read timeout");
+    std::thread::sleep(Duration::from_millis(150));
+    stream
+        .write_all(b"GET / HTTP/1.1\r\nHost: x\r\n\r\n")
+        .expect("write");
+    let mut buf = Vec::new();
+    stream.read_to_end(&mut buf).expect("read");
+    let head = String::from_utf8_lossy(&buf);
+    assert!(head.starts_with("HTTP/1.1 204"), "bad head: {head:?}");
 }
