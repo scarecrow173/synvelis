@@ -78,7 +78,8 @@ pub use publish::{PublishError, PublishReport, PublishedStream, SkippedStream, p
 pub use resolver::PreparedClip;
 pub use routing_control::{
     ControlDispatchError, FastControlBlock, FastControlBlockKind, FastControlOutcome,
-    FastControlWrite, ParamCatalog, RoutingControlDispatch, SurfaceReport, SyncOutcome, TickReport,
+    FastControlWrite, ParamCatalog, ReportDrainReport, RoutingControlDispatch, SurfaceReport,
+    SyncOutcome, TickReport,
 };
 pub use trace::{
     DispatchTraceAdapter, TraceAdapterConfig, TraceContext, TraceEvent, TraceEventKind,
