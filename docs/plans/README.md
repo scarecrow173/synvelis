@@ -36,6 +36,7 @@ Directory: `docs/plans`
 | PLAN-qCDk2ELwZ5XT36rSkQsD8F | PC-C3-05 RT trace adapter 実装計画 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | PLAN-034UqHfN1LJeYNaoS0SGYL | PC-C3 ControlTrace projection 実装計画 | approved | [pc-c3-control-trace.md](./pc-c3-control-trace.md) |
 | PLAN-IXbRrdisj9XdLzGbNo1zWK | PC-C4-02 plugin instance binding plan | approved | [pc-c4-02-plugin-instance-binding.md](./pc-c4-02-plugin-instance-binding.md) |
+| PLAN-PCc4030bs3vN1pQ8wXyZ2aD | PC-C4-03 param observation plan — drain surface + tests + docs | approved | [pc-c4-03-param-observation-plan.md](./pc-c4-03-param-observation-plan.md) |
 | PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-034UxXVFIkzqs2eO4wcXo0 | PC-C5 slice2 実施計画 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -82,6 +83,7 @@ Directory: `docs/plans`
 | PLAN-034T2c5vy3vKJPENF8AA50 | SYN-IO-02 DirectoryBundleStore StagedFile 移行計画 | approved | [syn-io-02-directory-bundle-store-stagedfile.md](./syn-io-02-directory-bundle-store-stagedfile.md) |
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
+| PLAN-034VtBaArtupj0qHG0phVl | TIM-01 app 層 PPQN 統合 — implementation plan | approved | [tim-01-app-ppqn-plan.md](./tim-01-app-ppqn-plan.md) |
 | PLAN-034UHYyMbiLPEtGczKNKYC | TIM-01 Configurable PPQN Project Command — implementation plan | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | PLAN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — 実装 plan | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | PLAN-034UwXgmnKOCYgkwlGLFkf | TIM-02 SMF Format0/1 core implementation plan | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
@@ -115,4 +117,3 @@ Directory: `docs/plans`
 | PLAN-034VobWDT9p1N0HGeD67OV | SV#28 Ruviform pin 更新 実装計画 — 0f5b5737 → b02942c2 | completed | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | PLAN-pOkUKpNa9zeQiK8ZbP5nvk | SV#28 Ruviform pin 更新 実装計画 — 863a7a9d → cc7d5296 | completed | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | PLAN-034QwZOjdblHRzDVhDXNIP | WS-A Workspace 基盤 headless PoC 実装計画 | completed | [ws-a-workspace-foundation.md](./ws-a-workspace-foundation.md) |
-| PLAN-PCc4030bs3vN1pQ8wXyZ2aD | PC-C4-03 param observation plan — drain surface + tests + docs | completed | [pc-c4-03-param-observation-plan.md](./pc-c4-03-param-observation-plan.md) |

@@ -38,6 +38,7 @@ Directory: `docs/specs`
 | SPEC-vi1L6gnLC2jSjMMB3XG0N4 | PC-C3-05 synvelis-player RT trace adapter — ledger 実イベント → ControlTrace 投影・bounded history・RT 計測 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | SPEC-034UqtrnCaL8J9mhrd4SyZ | PC-C3 ControlTrace — Configured/Prepared/Applied/Reported/Observed projection slice | approved | [pc-c3-control-trace-projection.md](./pc-c3-control-trace-projection.md) |
 | SPEC-MCgOf8EskzmlXOde7x0Pqs | PC-C4-02 semantic plugin instance binding — stage-1 authority consumption・plugin identity pin（headless slice） | approved | [pc-c4-02-plugin-instance-binding.md](./pc-c4-02-plugin-instance-binding.md) |
+| SPEC-PCc4030bs3vN1pQ8wXyZ2aB | PC-C4-03 reported observation 消費 — host drain → ParamDispatch ledger（headless slice） | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |
 | SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | SPEC-034UxXLvNqgbDGOypo7Uu4 | PC-C5 slice2 (UI-C5-02/03): Gesture 固定・stale drop・Inspector Follow/Explore/Pinned（headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -89,6 +90,7 @@ Directory: `docs/specs`
 | SPEC-034T29C9D8CIvYjMxmQIy8 | SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行 | approved | [syn-io-02-snapshot-head-staged-publish.md](./syn-io-02-snapshot-head-staged-publish.md) |
 | SPEC-034RBvYIlw0wiBoGsL9EBY | SYN-OBS-01 Ruviform observability 単一crate Logging/Host統合 | proposed | [syn-obs-01-ruviform-observability-crate-logging-host.md](./syn-obs-01-ruviform-observability-crate-logging-host.md) |
 | SPEC-034T2RF305WAVSTAGED00X | SYN-RF305 WAV Export/Player StagedFile 移行 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
+| SPEC-034Vtz2CrUpwevHTLxDLm6 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証（synvelis-app slice） | approved | [tim-01-app-ppqn.md](./tim-01-app-ppqn.md) |
 | SPEC-034UHVLQ9dtoN4YQDjtCy3 | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | approved | [tim-01-configurable-ppqn-project-command.md](./tim-01-configurable-ppqn-project-command.md) |
 | SPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 slice (synvelis#126) | proposed | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | SPEC-034UwMIulZ7DXWykQFy704 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice (synvelis#126) | proposed | [tim-02-smf-format01-import-export.md](./tim-02-smf-format01-import-export.md) |
@@ -119,4 +121,3 @@ Directory: `docs/specs`
 | SPEC-034SYN157Kx9mTvQp2w | Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画 | superseded | [issue-157-selective-execution.md](./issue-157-selective-execution.md) |
 | SPEC-034Uri8JTbpWmKASolvM4A | RCD-02 Recording Durability Evidence / Recovery Review — synvelis#116 slice | implemented | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | SPEC-034T6XTAVpIPhybzaw7jdh | SV-GPUI-03 Synvelis Product Theme / Workspace Presets — Driver-neutral DTCG overrides・Preset schema・fixtures | implemented | [sv-gpui-03-product-theme-workspace-presets.md](./sv-gpui-03-product-theme-workspace-presets.md) |
-| SPEC-PCc4030bs3vN1pQ8wXyZ2aB | PC-C4-03 reported observation 消費 — host drain → ParamDispatch ledger（headless slice） | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |

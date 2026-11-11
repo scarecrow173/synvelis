@@ -107,6 +107,7 @@ Directory: `docs/tasks`
 | TASK-034RoXjRUKOjib6ULatmIn | PC-C1: prepare/apply/finalize 実装タスク | done | [pc-c1-task1-prepare-apply-finalize.md](./pc-c1-task1-prepare-apply-finalize.md) |
 | TASK-034Upd3TZPjW8QcMPatmyb | PC-C2: Control Relation Index/Projection 実装タスク | done | [pc-c2-task1-relation-index.md](./pc-c2-task1-relation-index.md) |
 | TASK-034UquDG2pRhDCtpLYPhPi | PC-C3: ControlTrace projection 実装タスク | done | [pc-c3-task1-control-trace.md](./pc-c3-task1-control-trace.md) |
+| TASK-PCc4030bs3vN1pQ8wXyZ2aE | PC-C4-03 task1 — reported observation 消費 実装 | done | [pc-c4-03-task1-param-observation.md](./pc-c4-03-task1-param-observation.md) |
 | TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | done | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TASK-034UxYCkPWXOotRSbjIPex | PC-C5 slice2 タスク分解 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | done | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -162,6 +163,7 @@ Directory: `docs/tasks`
 | TASK-034RBFY3O4vz81b0Rumg95 | SYN-OBS-01 task6 最終検証と impl record | done | [syn-obs-01-task6-final-verify-impl-record.md](./syn-obs-01-task6-final-verify-impl-record.md) |
 | TASK-034T2RF305WAVSTAGED01A | SYN-RF305 task1 render/player WAV Export StagedFile 移行 | done | [syn-rf305-task1-render-export-staged-file.md](./syn-rf305-task1-render-export-staged-file.md) |
 | TASK-034UHVQgQGF9WnpLCSCDTB | TIM-01 configurable PPQN — implementation tasks | done | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
+| TASK-034VtBNiTaFYQMA3eOBYXv | TIM-01 task2 — app 層 PPQN 統合 | done | [tim-01-task2-app-ppqn.md](./tim-01-task2-app-ppqn.md) |
 | TASK-034UwY7u8viaAzE6tUxLHa | TIM-02 Task1 SMF Format0/1 project+recording headless slice | done | [tim-02-task1-smf-core.md](./tim-02-task1-smf-core.md) |
 | TASK-zHlj8Os7dQ66GPeta6Sxew | TIM-03 task1 — session→driver/routing wiring（BoundarySessionSpec vend・driver session/mirror・routing scoped API） | done | [tim-03-task1-session-driver-wiring.md](./tim-03-task1-session-driver-wiring.md) |
 | TASK-034UC5rYrk7usxShbL01xG | TIM-04 plugin state snapshot consistency — implementation tasks | done | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
@@ -200,4 +202,3 @@ Directory: `docs/tasks`
 | TASK-lon8rNqrFA4DGM8WvurTtM | X task2 recorded media canonical publish (synvelis-player) | done | [x-task2-recorded-media-publish.md](./x-task2-recorded-media-publish.md) |
 | TASK-tU6Q6O7q6fOl2JizqTj6Kh | X task3 acceptance tests X-01..X-06 (synvelis-render/tests/x_e2e.rs) | done | [x-task3-acceptance-tests.md](./x-task3-acceptance-tests.md) |
 | TASK-RKEHMrg7VcrrY7xOboZUqz | X task4 verification + implementation record | done | [x-task4-verification-impl-record.md](./x-task4-verification-impl-record.md) |
-| TASK-PCc4030bs3vN1pQ8wXyZ2aE | PC-C4-03 task1 — reported observation 消費 実装 | done | [pc-c4-03-task1-param-observation.md](./pc-c4-03-task1-param-observation.md) |
