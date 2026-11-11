@@ -9,10 +9,12 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+synvelis-library = { path = "../synvelis-library" }
 synvelis-project = { path = "../synvelis-project" }
 synvelis-recording = { path = "../synvelis-recording" }
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 ruviform-media-core.workspace = true
 ruviform-media-io.workspace = true
 ruviform-media-reader.workspace = true
