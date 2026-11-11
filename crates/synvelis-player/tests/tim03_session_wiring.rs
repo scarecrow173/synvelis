@@ -1224,11 +1224,18 @@ fn tim03_sw_06_routing_stale_provenance_and_generation_swap() {
         .unwrap();
     assert!(matches!(synced, synvelis_player::SyncOutcome::Swapped(_)));
 
-    // Fresh surface → fresh session → fresh pins (new instance id,
-    // graph generation 2).
+    // Fresh surface → fresh session → fresh pins. PC-C4-05: the
+    // instance id is the persisted authored identity — stable across
+    // generations for the same processor/plugin pair; freshness lives
+    // in the graph generation pin and the per-generation session.
     let pin2 = dispatch.boundary_provenance(ids.first).expect("pin2");
     assert_eq!(pin2.graph_generation(), 2);
-    assert_ne!(pin2.instance(), pin1.instance());
+    assert_eq!(
+        pin2.instance(),
+        pin1.instance(),
+        "persisted instance identity is generation-stable"
+    );
+    assert_ne!(pin2, pin1, "gen-2 pin is a fresh record");
 
     // The gen-1 active evidence no longer matches the surface.
     let err = dispatch

@@ -54,11 +54,16 @@ use crate::dispatch::{DispatchError, ParamDispatch};
 
 /// Runtime identity of one plugin instance inside a binding session.
 ///
-/// Issued by the composition root once per attach; re-attach, restart
-/// and graph-plan swaps mint a **new** id, so a binding record pinned
-/// to an old id is structurally stale. Uniqueness is only guaranteed
-/// within the issuing allocator — persisted cross-restart stability is
-/// out of this slice's scope (see the PC-C4 spec's deferred concerns).
+/// Issued by the project's persisted identity store
+/// (`Project::plugin_instances`, schema v13 — PC-C4-05): the same
+/// authored processor/plugin pair carries the same id across
+/// save→reload, engine restart and re-attach. A rebind to a different
+/// `PluginRef` (descriptor, version or `capability_revision` drift)
+/// is a different authored identity and mints a new id, so a binding
+/// record pinned to an old plugin identity is structurally stale.
+/// Staleness across generations is still detected by the
+/// capability/graph generation pins — the instance id alone no longer
+/// rotates per attach.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StablePluginInstanceId(u64);
 
@@ -380,8 +385,10 @@ impl PluginBindingSession {
     /// `capability_generation` are the caller's pins for the
     /// control-graph plan and the plugin's parameter surface;
     /// re-attach, plugin reload and graph-plan swaps mint a new
-    /// session (and a new [`StablePluginInstanceId`]) rather than
-    /// mutating these.
+    /// session rather than mutating these. `instance_id` is the
+    /// persisted identity hydrated from `Project::plugin_instances`
+    /// (PC-C4-05) — stable per authored processor/plugin pair, new
+    /// only when the authored `PluginRef` itself changes.
     ///
     /// Infallible by construction: the context is read, never claimed.
     #[must_use]
