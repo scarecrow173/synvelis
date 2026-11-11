@@ -1,7 +1,7 @@
 ---
 id: "TASK-alib02-v5snap-t1"
 type: "task"
-status: "completed"
+status: "done"
 title: "ALIB-02 v5 asset-digest migration + recovery fixture"
 created: "2026-11-10"
 updated: "2026-11-10"

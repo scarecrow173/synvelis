@@ -1,10 +1,10 @@
 ---
 id: "SPEC-034UviRHTzZZY5QqaoRYZV"
 type: "spec"
-status: "approved"
+status: "implemented"
 title: "ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice）"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -26,7 +26,8 @@ relations:
     moved: []
     generated: []
   implements: []
-  implemented-by: []
+  implemented-by:
+    - "docs/designs/alib-02-streaming-verified-import-design.md"
   depends-on:
     - "docs/specs/alib-01-asset-provider-contract.md"
     - "docs/designs/project-asset-persistence-architecture.md"

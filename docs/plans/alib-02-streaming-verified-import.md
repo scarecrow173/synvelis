@@ -1,10 +1,10 @@
 ---
 id: "PLAN-alib02-streaming-import"
 type: "plan"
-status: "in-progress"
+status: "completed"
 title: "ALIB-02 実装計画 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice）"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -26,7 +26,9 @@ relations:
     generated: []
   implements:
     - "docs/specs/alib-02-streaming-verified-import.md"
-  implemented-by: []
+  implemented-by:
+    - "docs/tasks/alib-02-streaming-verified-import.md"
+    - "docs/impl/ir/alib-02-streaming-verified-import.md"
   depends-on:
     - "docs/designs/alib-02-streaming-verified-import-design.md"
   blocks: []

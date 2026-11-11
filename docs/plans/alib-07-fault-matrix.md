@@ -1,10 +1,10 @@
 ---
 id: "PLAN-alib07-fault-matrix"
 type: "plan"
-status: "in-progress"
+status: "completed"
 title: "ALIB-07 実装計画 — Asset Library 全経路 Fault Matrix（synvelis-library headless slice）"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -40,7 +40,9 @@ relations:
     generated: []
   implements:
     - "docs/specs/alib-07-fault-matrix.md"
-  implemented-by: []
+  implemented-by:
+    - "docs/tasks/alib-07-fault-matrix.md"
+    - "docs/impl/ir/alib-07-fault-matrix.md"
   depends-on:
     - "docs/designs/alib-07-fault-matrix-design.md"
   blocks: []
