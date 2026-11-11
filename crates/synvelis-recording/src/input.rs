@@ -27,10 +27,14 @@
 use std::sync::{Arc, OnceLock};
 
 use ruviform_audio_core::device::{
-    Device, DeviceError, InputCallbackInfo, InputDataCallback, InputErrorCallback, InputStream,
-    InputStreamConfig, same_clock_domain,
+    DEVICE_CLOCK_TIMEBASE, Device, DeviceError, InputCallbackInfo, InputDataCallback,
+    InputErrorCallback, InputStream, InputStreamConfig, same_clock_domain,
 };
 use ruviform_audio_core::{AudioBufferView, AudioFormat, SampleFormat};
+use ruviform_media_core::{
+    ClockAnchor, ClockEpochId as MediaClockEpochId, EngineFrame, MapRejection, MediaDuration,
+    Rounding, TimeBase, TimestampProvenance, map_stamp_to_frame,
+};
 use ruviform_rt::{Consumer, Producer};
 use synvelis_project::{ClockEpochId, SessionFrame};
 
@@ -39,8 +43,8 @@ use crate::{
     engine::{CaptureEngine, EngineEndsBack},
     gate::GateScheduler,
     handoff::{
-        FAULT_CONTRACT, FAULT_EPOCH_DISCONTINUITY, FAULT_INPUT_DISCONTINUITY, FAULT_QUEUE_FULL,
-        FaultLatch, WriterEnds, build_handoff,
+        FAULT_ARITHMETIC, FAULT_CONTRACT, FAULT_EPOCH_DISCONTINUITY, FAULT_INPUT_DISCONTINUITY,
+        FAULT_QUEUE_FULL, FaultLatch, WriterEnds, build_handoff,
     },
     plan::BufferBudget,
 };
@@ -397,10 +401,18 @@ impl InputAdapter {
         // 書き込む。`ClockDomainId` の型名は書かず推論に委ねる。
         let domain_cell = Arc::new(OnceLock::new());
         let cell_for_cb = Arc::clone(&domain_cell);
+        // stamp placement は stream open 後に `now()` で較正するため、
+        // callback 側は `OnceLock` 経由で読む（callback は start 後に
+        // しか発火しないので較正完了が保証される）。
+        let stamp_cell = Arc::new(OnceLock::new());
+        let cell_for_stamp = Arc::clone(&stamp_cell);
         let fault_for_cb = fault.clone();
         let clock_epoch = spec.clock_epoch;
         let max_frames = usize::try_from(spec.max_block_frames).unwrap_or(usize::MAX);
         let exp_channels = expected_channels;
+        let frame_base = spec.config.format.sample_rate.time_base();
+        // stamp 経路の累積配置状態（callback 内でのみ更新）。
+        let mut stamp_state = StampState::default();
 
         let data_callback: InputDataCallback = Box::new(
             move |view: AudioBufferView<'_, f32>, info: InputCallbackInfo| {
@@ -416,13 +428,24 @@ impl InputAdapter {
                     fault_for_cb.set(FAULT_EPOCH_DISCONTINUITY);
                     return;
                 }
-                // frame position: 未報告は連続性を検証できないため
-                // fail closed（値の捏造はしない）。
-                let Some(first_frame) = info.frame_position else {
-                    fault_for_cb.set(FAULT_INPUT_DISCONTINUITY);
-                    return;
-                };
+                // frame 位置: `frame_position` を優先し、無ければ
+                // capture stamp 経路（初回 seed + 累積 count 配置 +
+                // stamp 連続性検証）。両方無い・写像不能は fail closed
+                // （値の捏造はしない）。
                 let frames = view.frames();
+                let frames_u64 = u64::try_from(frames).unwrap_or(u64::MAX);
+                let first_frame = match resolve_first_frame(
+                    &info,
+                    cell_for_stamp.get().copied(),
+                    frames_u64,
+                    &mut stamp_state,
+                ) {
+                    Ok(frame) => frame,
+                    Err(bit) => {
+                        fault_for_cb.set(bit);
+                        return;
+                    }
+                };
                 if frames == 0 || frames > max_frames || view.channels() != exp_channels {
                     fault_for_cb.set(FAULT_CONTRACT);
                     return;
@@ -445,23 +468,13 @@ impl InputAdapter {
             },
         );
 
-        let fault_for_err = fault.clone();
-        let error_callback: InputErrorCallback = Box::new(move |err: DeviceError| {
-            // fail-stop: error callback は Fault latch に写像するだけ
-            // （確保・ブロック・panic なし）。
-            let bit = match err {
-                DeviceError::ClockDiscontinuity => FAULT_EPOCH_DISCONTINUITY,
-                DeviceError::StreamInvalidated
-                | DeviceError::DeviceNotFound
-                | DeviceError::Xrun => FAULT_INPUT_DISCONTINUITY,
-                _ => FAULT_CONTRACT,
-            };
-            fault_for_err.set(bit);
-        });
-
         // --- stream open + format/domain 検証 ---
         let stream = device
-            .open_input_stream(&spec.config, data_callback, error_callback)
+            .open_input_stream(
+                &spec.config,
+                data_callback,
+                input_error_callback(fault.clone()),
+            )
             .map_err(InputBindError::Device)?;
         let domain = stream.clock_domain();
         // `same_clock_domain(d, d)` は d == UNKNOWN のときのみ false。
@@ -472,6 +485,12 @@ impl InputAdapter {
         let _ = domain_cell.set(domain);
         if stream.format() != spec.config.format {
             return Err(InputBindError::FormatMismatch);
+        }
+        // stamp→frame anchor の較正（非 RT）。構築できない backend
+        // では `None` のまま — stamp 経路は callback で fail-stop、
+        // `frame_position` 経路は影響を受けない。
+        if let Some(placement) = calibrate_stamp_placement(&*stream, frame_base) {
+            let _ = stamp_cell.set(placement);
         }
 
         Ok(OpenedInput {
@@ -582,6 +601,199 @@ impl InputAdapter {
                 .collect(),
             fault: Some(fault),
         }
+    }
+}
+
+/// `capture_stamp` → device input frame の較正済み写像。
+///
+/// `InputAdapter::open`（非 RT）で `stream.now()` から構築し、RT
+/// callback では読むだけ。`Copy` で callback closure へ move する。
+#[derive(Copy, Clone)]
+struct StampPlacement {
+    /// `map_stamp_to_frame` の権威となる stamp↔frame 対応。
+    anchor: ClockAnchor,
+    /// engine frame の timebase（`1/sample_rate`）。
+    frame_base: TimeBase,
+    /// `map_stamp_to_frame` の `now` — epoch 整合検査専用の定数
+    /// （較正後に epoch は変わらない）。
+    now: EngineFrame,
+}
+
+/// stamp→frame 写像で使う `ruviform_media_core::ClockEpochId`。
+/// 本 adapter 内で完結する固定値（`InputBlock.clock_epoch` の
+/// `synvelis_project::ClockEpochId` とは別型。epoch 整合は
+/// `map_stamp_to_frame` 内部の stale-anchor 検査専用）。
+const STAMP_FRAME_EPOCH: MediaClockEpochId = MediaClockEpochId::new(0);
+
+/// `stream.now()` から stamp→frame anchor を較正する（非 RT）。
+///
+/// `now()` が `DEVICE_CLOCK_TIMEBASE` の非負値を返せない場合は
+/// `None` — stamp 経路は callback で fail-stop に落ち、
+/// `frame_position` 経路には影響しない。
+fn calibrate_stamp_placement(
+    stream: &dyn InputStream,
+    frame_base: TimeBase,
+) -> Option<StampPlacement> {
+    let now = stream.now().ok()?;
+    if now.base() != DEVICE_CLOCK_TIMEBASE {
+        return None;
+    }
+    let ticks = u64::try_from(now.value()).ok()?;
+    Some(StampPlacement {
+        anchor: ClockAnchor {
+            domain: stream.clock_domain(),
+            stamp_ticks: ticks,
+            stamp_base: DEVICE_CLOCK_TIMEBASE,
+            frame: EngineFrame::new(STAMP_FRAME_EPOCH, 0),
+            calibration: TimestampProvenance::Derived,
+        },
+        frame_base,
+        now: EngineFrame::new(STAMP_FRAME_EPOCH, 0),
+    })
+}
+
+/// stamp 経路の per-callback 進行検証の許容誤差（frame 単位）。
+///
+/// 実測（WASAPI/Audient iD4）では連続 capture stamp の tick 差が
+/// 真値の frame 時間から ±1 frame 未満ずれる sub-ms jitter を示す
+/// （10 ms block で ±20 µs ≈ ±1 frame @44.1 kHz）。256 frame は
+/// 48 kHz で約 5.3 ms — jitter を十分に吸収しつつ、1 buffer 規模の
+/// xrun/gap（数百 frame 以上）を検出する。
+const STAMP_DELTA_TOLERANCE_FRAMES: u64 = 256;
+
+/// stamp 経路の anchor からの累積乖離許容（frame 単位）。
+///
+/// 48 kHz で約 0.34 秒相当。~100 ppm の clock drift を 1 時間超
+/// 吸収し、持続的な divergence/xrun 列を検出する。単発の timestamp
+/// jitter は累積しない（±数 frame に留まる）ため誤検出しない。
+const STAMP_ABS_TOLERANCE_FRAMES: u64 = 16_384;
+
+/// stamp 経路の累積配置状態（callback 内でのみ更新・非共有）。
+///
+/// frame 位置は累積 frame count で導出する（sample-exact・block 間
+/// 連続性を保証）。capture stamp は (i) 初回 callback の seed と
+/// (ii) 以後の連続性/ドリフト検証に使い、block 毎の独立写像は
+/// 行わない（timestamp jitter で非連続になるため — 実機実測済み）。
+#[derive(Default)]
+struct StampState {
+    /// seed 済みか（初回 stamp callback で `map_stamp_to_frame` の
+    /// 結果を初期位置として一度だけ較正する）。
+    seeded: bool,
+    /// 次の callback に期待される先頭 device input frame
+    /// （前 block の `first_input_frame + frames`）。
+    next_first_frame: u64,
+    /// 直前 callback の stamp tick（逆行検出用）。
+    prev_stamp_ticks: u64,
+    /// 直前 callback の frame 数（stamp 進行量の期待値）。
+    prev_frames: u64,
+}
+
+/// stamp 経路で block 先頭の device input frame を解決する。
+///
+/// `frame_position` があればそちらを優先する（上流が device frame
+/// counter を供給する将来経路）。stamp 経路では:
+///
+/// 1. `capture_stamp()` → `map_stamp_to_frame` で domain/base/epoch
+///    を検証しつつ初回 seed を較正（配置値としては jitter を含む
+///    ため以後は使わない）。
+/// 2. 以後は `next_first_frame`（累積 count）を配置に使い、stamp の
+///    逆行・per-callback 進行乖離・累積乖離を `FAULT_*` へ写像する。
+///
+/// 配置不能・契約違反は `Err(FAULT_* bit)` — 値を捏造しない。
+/// RT-safe（純粋整数演算のみ、alloc なし）。
+fn resolve_first_frame(
+    info: &InputCallbackInfo,
+    placement: Option<StampPlacement>,
+    frames: u64,
+    state: &mut StampState,
+) -> Result<u64, u32> {
+    if let Some(position) = info.frame_position {
+        return Ok(position);
+    }
+    let Some(placement) = placement else {
+        return Err(FAULT_INPUT_DISCONTINUITY);
+    };
+    let Some(stamp) = info.capture_stamp() else {
+        return Err(FAULT_INPUT_DISCONTINUITY);
+    };
+    // domain/base/epoch の検証を兼ねた stamp→frame 写像。戻り値の
+    // frame は jitter を含むため配置には使わず、rejection 検出と
+    // 初回 seed・累積乖離の観測に使う。
+    let mapped = map_stamp_to_frame(
+        &stamp,
+        &placement.anchor,
+        placement.frame_base,
+        placement.now,
+    )
+    .map_err(stamp_rejection_fault)?;
+    let mapped_frame = mapped.frame.frame();
+
+    if !state.seeded {
+        state.seeded = true;
+        state.next_first_frame = mapped_frame.checked_add(frames).ok_or(FAULT_ARITHMETIC)?;
+        state.prev_stamp_ticks = stamp.ticks;
+        state.prev_frames = frames;
+        return Ok(mapped_frame);
+    }
+
+    // stamp の逆行は capture 時刻の物理的不可逆性に反する。
+    let Some(delta_ticks) = stamp.ticks.checked_sub(state.prev_stamp_ticks) else {
+        return Err(FAULT_INPUT_DISCONTINUITY);
+    };
+    let delta_i64 = i64::try_from(delta_ticks).map_err(|_| FAULT_ARITHMETIC)?;
+    let delta_frames = MediaDuration::new(delta_i64, stamp.base)
+        .convert(placement.frame_base, Rounding::NearestEven)
+        .map_err(|_| FAULT_ARITHMETIC)?
+        .value();
+    let prev_frames = i64::try_from(state.prev_frames).map_err(|_| FAULT_ARITHMETIC)?;
+    if delta_frames.abs_diff(prev_frames) > STAMP_DELTA_TOLERANCE_FRAMES {
+        return Err(FAULT_INPUT_DISCONTINUITY);
+    }
+    // 累積乖離（anchor からの絶対ドリフト）。配置は累積 count の
+    // まま — jitter 範囲内の絶対差は許容する。
+    if mapped_frame.abs_diff(state.next_first_frame) > STAMP_ABS_TOLERANCE_FRAMES {
+        return Err(FAULT_INPUT_DISCONTINUITY);
+    }
+
+    let first = state.next_first_frame;
+    state.next_first_frame = first.checked_add(frames).ok_or(FAULT_ARITHMETIC)?;
+    state.prev_stamp_ticks = stamp.ticks;
+    state.prev_frames = frames;
+    Ok(first)
+}
+
+/// input stream の error callback を構築する。
+///
+/// fail-stop: error callback は Fault latch に写像するだけ
+/// （確保・ブロック・panic なし）。
+fn input_error_callback(fault: FaultLatch) -> InputErrorCallback {
+    Box::new(move |err: DeviceError| {
+        let bit = match err {
+            DeviceError::ClockDiscontinuity => FAULT_EPOCH_DISCONTINUITY,
+            DeviceError::StreamInvalidated | DeviceError::DeviceNotFound | DeviceError::Xrun => {
+                FAULT_INPUT_DISCONTINUITY
+            }
+            _ => FAULT_CONTRACT,
+        };
+        fault.set(bit);
+    })
+}
+
+/// `map_stamp_to_frame` の rejection を既存 `FAULT_*` bit へ写像する。
+///
+/// domain/base/epoch の不一致は clock 系列の同一性問題
+/// （`same_clock_domain` 不一致・`DeviceError::ClockDiscontinuity` と
+/// 同じ分類）。`BeforeAnchor` は配置不能な時刻逆行、`Overflow` は
+/// チェック済み演算失敗。未知の rejection（`MapRejection` は
+/// `non_exhaustive`）は契約違反として fail-stop。
+fn stamp_rejection_fault(rejection: MapRejection) -> u32 {
+    match rejection {
+        MapRejection::UnmappedDomain | MapRejection::BaseMismatch | MapRejection::EpochMismatch => {
+            FAULT_EPOCH_DISCONTINUITY
+        }
+        MapRejection::BeforeAnchor => FAULT_INPUT_DISCONTINUITY,
+        MapRejection::Overflow => FAULT_ARITHMETIC,
+        _ => FAULT_CONTRACT,
     }
 }
 
@@ -876,5 +1088,239 @@ impl InputSession {
     #[must_use]
     pub fn into_adapters(self) -> Vec<InputAdapter> {
         self.adapters
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ruviform_audio_core::device::InputTimestamp;
+    use ruviform_media_core::{ClockDomainId, MediaTime, MediaTimestamp};
+
+    use super::*;
+
+    const TEST_DOMAIN: ClockDomainId = ClockDomainId::MONOTONIC;
+    const TEST_EPOCH: MediaClockEpochId = MediaClockEpochId::new(7);
+
+    fn placement() -> StampPlacement {
+        StampPlacement {
+            anchor: ClockAnchor {
+                domain: TEST_DOMAIN,
+                stamp_ticks: 1_000_000,
+                stamp_base: DEVICE_CLOCK_TIMEBASE,
+                frame: EngineFrame::new(TEST_EPOCH, 0),
+                calibration: TimestampProvenance::Derived,
+            },
+            frame_base: TimeBase::sample_rate(48_000).expect("base"),
+            now: EngineFrame::new(TEST_EPOCH, 0),
+        }
+    }
+
+    fn info(position: Option<u64>, capture_ticks: Option<u64>) -> InputCallbackInfo {
+        InputCallbackInfo {
+            timestamp: InputTimestamp {
+                callback: MediaTime::new(0, DEVICE_CLOCK_TIMEBASE),
+                capture: capture_ticks.map(|ticks| MediaTimestamp {
+                    time: MediaTime::new(
+                        i64::try_from(ticks).unwrap_or(i64::MAX),
+                        DEVICE_CLOCK_TIMEBASE,
+                    ),
+                    provenance: TimestampProvenance::Carried,
+                }),
+            },
+            clock_domain: TEST_DOMAIN,
+            frame_position: position,
+        }
+    }
+
+    /// 500 frame @48kHz ≈ 10,416,667 ns（stamp tick の block 刻み）。
+    const BLOCK_NS: u64 = 10_416_667;
+
+    fn resolve(
+        info: &InputCallbackInfo,
+        placement: Option<StampPlacement>,
+        frames: u64,
+        state: &mut StampState,
+    ) -> Result<u64, u32> {
+        resolve_first_frame(info, placement, frames, state)
+    }
+
+    #[test]
+    fn position_wins_over_stamp() {
+        // frame_position: Some は stamp の有無・状態に関わらず優先。
+        let mut state = StampState::default();
+        let got = resolve(
+            &info(Some(500), Some(9_999_999_999)),
+            Some(placement()),
+            500,
+            &mut state,
+        );
+        assert_eq!(got, Ok(500));
+        assert!(!state.seeded, "position 経路は stamp 状態を更新しない");
+    }
+
+    #[test]
+    fn stamp_seeds_then_places_cumulative_frames() {
+        // 初回 stamp で seed（anchor=1ms → stamp=anchor で frame 0）、
+        // 以後は累積 count で sample-exact に連続配置する。
+        let p = placement();
+        let mut state = StampState::default();
+        // block1: stamp = anchor → mapped 0 → first=0, next=500。
+        let got = resolve(&info(None, Some(1_000_000)), Some(p), 500, &mut state);
+        assert_eq!(got, Ok(0));
+        // block2: stamp = anchor+500frames → first=500（累積）。
+        let got = resolve(
+            &info(None, Some(1_000_000 + BLOCK_NS)),
+            Some(p),
+            500,
+            &mut state,
+        );
+        assert_eq!(got, Ok(500));
+        // block3: block2 の 500 frame 分進んだ stamp → first=1000
+        // （block3 自身は 300 frames で next=1300）。
+        let got = resolve(
+            &info(None, Some(1_000_000 + 2 * BLOCK_NS)),
+            Some(p),
+            300,
+            &mut state,
+        );
+        assert_eq!(got, Ok(1000));
+    }
+
+    #[test]
+    fn stamp_jitter_is_absorbed_not_placed() {
+        // timestamp jitter（±2 frame 相当）は配置に反映しない —
+        // 累積 count が sample-exact を保つ（実機 WASAPI 実測の
+        // ±3 frame jitter を許容する設計）。
+        let p = placement();
+        let mut state = StampState::default();
+        assert_eq!(
+            resolve(&info(None, Some(1_000_000)), Some(p), 500, &mut state),
+            Ok(0)
+        );
+        // stamp が真値より +50µs（≈+2.4 frame）進んでいても、
+        // delta 乖離 2 frame・累積乖離 ~2 frame は許容内 → first=500。
+        let jittered = 1_000_000 + BLOCK_NS + 50_000;
+        let got = resolve(&info(None, Some(jittered)), Some(p), 500, &mut state);
+        assert_eq!(got, Ok(500));
+        // jitter が戻っても累積位置は継続する。
+        let got = resolve(
+            &info(None, Some(1_000_000 + 2 * BLOCK_NS)),
+            Some(p),
+            500,
+            &mut state,
+        );
+        assert_eq!(got, Ok(1000));
+    }
+
+    #[test]
+    fn stamp_delta_gap_faults() {
+        // stamp の進行が frame 進行から許容を超えて乖離（xrun/gap
+        // 相当）→ INPUT_DISCONTINUITY。
+        let p = placement();
+        let mut state = StampState::default();
+        assert_eq!(
+            resolve(&info(None, Some(1_000_000)), Some(p), 500, &mut state),
+            Ok(0)
+        );
+        // 1 秒分（48000 frame 相当）の stamp 進行 vs 500 frame。
+        let got = resolve(
+            &info(None, Some(1_000_000_000 + BLOCK_NS)),
+            Some(p),
+            500,
+            &mut state,
+        );
+        assert_eq!(got, Err(FAULT_INPUT_DISCONTINUITY));
+    }
+
+    #[test]
+    fn stamp_accumulated_drift_faults() {
+        // per-callback の乖離は許容内（200 frame < 256）だが累積で
+        // STAMP_ABS_TOLERANCE_FRAMES を超える持続 drift → fault。
+        let p = placement();
+        let mut state = StampState::default();
+        let mut ticks = 1_000_000u64;
+        assert_eq!(
+            resolve(&info(None, Some(ticks)), Some(p), 500, &mut state),
+            Ok(0)
+        );
+        // 毎 callback 200 frame 分（4,166,667 ns）多く進む stamp。
+        let mut last = Ok(0);
+        for _ in 0..100 {
+            ticks += BLOCK_NS + 4_166_667;
+            last = resolve(&info(None, Some(ticks)), Some(p), 500, &mut state);
+            if last.is_err() {
+                break;
+            }
+        }
+        assert_eq!(last, Err(FAULT_INPUT_DISCONTINUITY));
+    }
+
+    #[test]
+    fn stamp_regression_faults() {
+        // stamp tick の逆行 → INPUT_DISCONTINUITY。
+        let p = placement();
+        let mut state = StampState::default();
+        assert_eq!(
+            resolve(&info(None, Some(2_000_000)), Some(p), 500, &mut state),
+            Ok(48)
+        );
+        let got = resolve(&info(None, Some(1_500_000)), Some(p), 500, &mut state);
+        assert_eq!(got, Err(FAULT_INPUT_DISCONTINUITY));
+    }
+
+    #[test]
+    fn missing_position_and_stamp_faults() {
+        let mut state = StampState::default();
+        // 両方無い → fail-stop。
+        let got = resolve(&info(None, None), Some(placement()), 500, &mut state);
+        assert_eq!(got, Err(FAULT_INPUT_DISCONTINUITY));
+        // anchor 無し（now() 非対応 backend）でも fail-stop。
+        let got = resolve(&info(None, Some(2_000_000)), None, 500, &mut state);
+        assert_eq!(got, Err(FAULT_INPUT_DISCONTINUITY));
+        // anchor 有りでも stamp が検証不能（foreign base 等で
+        // capture_stamp() が None）なら fail-stop。
+        let mut foreign = info(None, Some(2_000_000));
+        foreign.timestamp.capture = foreign.timestamp.capture.map(|mut ts| {
+            ts.time = MediaTime::new(ts.time.value(), TimeBase::new(1, 1_000).expect("base"));
+            ts
+        });
+        let got = resolve(&foreign, Some(placement()), 500, &mut state);
+        assert_eq!(got, Err(FAULT_INPUT_DISCONTINUITY));
+    }
+
+    #[test]
+    fn stamp_rejections_map_to_faults() {
+        let mut state = StampState::default();
+        // UnmappedDomain: stamp の clock domain が anchor と不一致。
+        let mut p = placement();
+        p.anchor.domain = ClockDomainId::new(99);
+        let got = resolve(&info(None, Some(2_000_000)), Some(p), 500, &mut state);
+        assert_eq!(got, Err(FAULT_EPOCH_DISCONTINUITY));
+
+        // BaseMismatch: anchor の stamp base が device clock でない。
+        let mut p = placement();
+        p.anchor.stamp_base = TimeBase::new(1, 1_000).expect("base");
+        let got = resolve(&info(None, Some(2_000_000)), Some(p), 500, &mut state);
+        assert_eq!(got, Err(FAULT_EPOCH_DISCONTINUITY));
+
+        // EpochMismatch: now の epoch が anchor frame の epoch と不一致。
+        let mut p = placement();
+        p.now = EngineFrame::new(MediaClockEpochId::new(8), 0);
+        let got = resolve(&info(None, Some(2_000_000)), Some(p), 500, &mut state);
+        assert_eq!(got, Err(FAULT_EPOCH_DISCONTINUITY));
+
+        // BeforeAnchor: stamp が anchor より過去。
+        let mut p = placement();
+        p.anchor.stamp_ticks = 3_000_000;
+        let got = resolve(&info(None, Some(2_000_000)), Some(p), 500, &mut state);
+        assert_eq!(got, Err(FAULT_INPUT_DISCONTINUITY));
+
+        // Overflow: tick delta が i64 に収まらない極端な stamp。
+        // （実経路では capture_stamp() が i64 範囲に clamp するため
+        // 到達不能だが、写像自体は直接検証する。）
+        assert_eq!(
+            stamp_rejection_fault(MapRejection::Overflow),
+            FAULT_ARITHMETIC
+        );
     }
 }

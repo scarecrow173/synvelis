@@ -6,7 +6,8 @@
 //! （RT no-alloc 計測）で共有する。
 //!
 //! これは fake port 契約の検証であり、実 Device Pass ではない
-//! （実 backend は ruviform#251 待ちで `Unsupported`）。
+//! （実 backend は `real-device` feature の opt-in lane
+//! `tests/real_input.rs` で別途検証する）。
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -21,7 +22,9 @@ use ruviform_audio_core::device::{
 use ruviform_audio_core::{
     AudioBufferView, AudioFormat, ChannelLayout, SampleFormat, SampleRate, SpeakerMask,
 };
-use ruviform_media_core::{ClockDomainId, MediaTime};
+use ruviform_media_core::{
+    ClockDomainId, MediaTime, MediaTimestamp, TimeBase, TimestampProvenance,
+};
 use synvelis_project::{
     CaptureStreamId, ClockEpoch, ClockEpochId, Lane, LaneId, MusicalTick, Project, ProjectId,
     RecordingSessionId, SessionFrame, TempoMapRef, Track, TrackId,
@@ -91,6 +94,24 @@ pub struct FakeStreamShared {
     position: u64,
     /// `frame_position` を報告するか（false で `None` 注入）。
     report_position: bool,
+    /// `InputTimestamp.capture` を報告するか（false で `capture: None`）。
+    report_capture: bool,
+    /// capture stamp の position 0 に対応する device-clock tick。
+    stamp_epoch_ticks: u64,
+    /// capture stamp の timebase（foreign base 注入用）。
+    stamp_base: TimeBase,
+    /// `Some` のとき position 追従ではなく固定 tick を報告する
+    /// （stamp が進まない注入 — stamp 経路なら不連続 fault になる）。
+    stamp_fixed_ticks: Option<u64>,
+    /// stamp tick へ加える決定的 jitter（ns）。deliver ごとに
+    /// `[0,+1,+2,+3,-3,-2,-1]` cycle で `±3*jitter_ns` を与える
+    /// （実機 timestamp jitter の再現。0 で jitter 無し）。
+    stamp_jitter_ns: i64,
+    /// `deliver` 呼出し回数（jitter cycle 用）。
+    deliver_count: u64,
+    /// `stream.now()` が返す値（anchor 較正注入用。device level で
+    /// open 前に設定する）。
+    now_value: i64,
     /// callback に渡す channel 数の上書き（format 変更注入用）。
     deliver_channels: Option<usize>,
     /// planar PCM slab（channel-major、`channels * FRAMES_MAX` 確保済み）。
@@ -116,10 +137,36 @@ impl FakeStreamShared {
                 );
             }
         }
+        let capture = if self.report_capture {
+            // position 追従 stamp: tick = epoch_ticks + position を
+            // stream rate の ns へ換算した値。`position * 1e9 / rate`
+            // の順で計算し、frame 単位の量子化誤差を 1ns 未満に抑える
+            // （`map_stamp_to_frame` の NearestEven で真値の整数
+            // frame へ正確に戻る）。
+            let ticks = self.stamp_fixed_ticks.unwrap_or_else(|| {
+                let rate = u128::from(self.format.sample_rate.get().max(1));
+                let base = i128::from(self.stamp_epoch_ticks)
+                    + i128::from(
+                        u64::try_from(u128::from(self.position) * 1_000_000_000 / rate)
+                            .unwrap_or(u64::MAX),
+                    );
+                // 決定的 jitter: cycle [0,+1,+2,+3,-3,-2,-1] * jitter_ns
+                // （先頭は 0 — seed が anchor と一致し PCM 検算を保つ）。
+                let step = (self.deliver_count + 3) % 7;
+                let jitter = (i64::try_from(step).unwrap_or(0) - 3) * self.stamp_jitter_ns;
+                u64::try_from((base + i128::from(jitter)).max(0)).unwrap_or(u64::MAX)
+            });
+            Some(MediaTimestamp {
+                time: MediaTime::new(i64::try_from(ticks).unwrap_or(i64::MAX), self.stamp_base),
+                provenance: TimestampProvenance::Carried,
+            })
+        } else {
+            None
+        };
         let info = InputCallbackInfo {
             timestamp: InputTimestamp {
                 callback: MediaTime::new(0, DEVICE_CLOCK_TIMEBASE),
-                capture: None,
+                capture,
             },
             clock_domain: self.cb_domain,
             frame_position: if self.report_position {
@@ -134,6 +181,7 @@ impl FakeStreamShared {
             cb(view, info);
         }
         self.position = self.position.wrapping_add(u64::from(frames));
+        self.deliver_count = self.deliver_count.wrapping_add(1);
     }
 
     /// error callback へ `DeviceError` を注入する。
@@ -156,6 +204,33 @@ impl FakeStreamShared {
     /// `frame_position` 報告を止める/再開する。
     pub fn set_report_position(&mut self, report: bool) {
         self.report_position = report;
+    }
+
+    /// `capture` stamp の報告を止める/再開する。
+    pub fn set_report_capture(&mut self, report: bool) {
+        self.report_capture = report;
+    }
+
+    /// capture stamp の epoch tick（position 0 の stamp 値）を設定する。
+    pub fn set_stamp_epoch_ticks(&mut self, ticks: u64) {
+        self.stamp_epoch_ticks = ticks;
+    }
+
+    /// capture stamp の timebase を変更する（foreign base 注入用）。
+    pub fn set_stamp_base(&mut self, base: TimeBase) {
+        self.stamp_base = base;
+    }
+
+    /// capture stamp を固定 tick にする（position 非追従の注入用。
+    /// `None` で position 追従へ戻す）。
+    pub fn set_stamp_fixed_ticks(&mut self, ticks: Option<u64>) {
+        self.stamp_fixed_ticks = ticks;
+    }
+
+    /// capture stamp へ決定的 jitter（ns）を加える。deliver ごとに
+    /// `[0,+1,+2,+3,-3,-2,-1]` cycle で `±3*jitter_ns` が変化する。
+    pub fn set_stamp_jitter_ns(&mut self, jitter_ns: i64) {
+        self.stamp_jitter_ns = jitter_ns;
     }
 
     /// callback の channel 数を変更する（format 変更注入用）。
@@ -199,7 +274,8 @@ impl InputStream for FakeInputStream {
     }
 
     fn now(&self) -> DeviceResult<MediaTime> {
-        Ok(MediaTime::new(0, DEVICE_CLOCK_TIMEBASE))
+        let value = self.shared.lock().expect("lock").now_value;
+        Ok(MediaTime::new(value, DEVICE_CLOCK_TIMEBASE))
     }
 
     fn clock_domain(&self) -> ClockDomainId {
@@ -217,6 +293,8 @@ struct FakeDeviceShared {
     domain: ClockDomainId,
     seed: u32,
     open_error: Option<DeviceError>,
+    /// open 前に設定する `stream.now()` の返り値（anchor 較正注入用）。
+    now_value: i64,
     streams: Vec<Arc<Mutex<FakeStreamShared>>>,
 }
 
@@ -235,6 +313,7 @@ impl FakeInputDevice {
                 domain,
                 seed: SEED,
                 open_error: None,
+                now_value: 0,
                 streams: Vec::new(),
             })),
         }
@@ -254,6 +333,12 @@ impl FakeInputDevice {
     /// `open_input_stream` を常に失敗させる注入。
     pub fn fail_open(&self, err: DeviceError) {
         self.shared.lock().expect("lock").open_error = Some(err);
+    }
+
+    /// open 前に `stream.now()` の返り値を設定する（anchor 較正注入用。
+    /// 以後 open される全 stream に適用される）。
+    pub fn set_now_value(&self, value: i64) {
+        self.shared.lock().expect("lock").now_value = value;
     }
 
     /// 同一 fake device の識別（`open_input_stream` 呼出し順の
@@ -316,6 +401,13 @@ impl Device for FakeInputDevice {
             format: config.format,
             position: 0,
             report_position: true,
+            report_capture: false,
+            stamp_epoch_ticks: 0,
+            stamp_base: DEVICE_CLOCK_TIMEBASE,
+            stamp_fixed_ticks: None,
+            stamp_jitter_ns: 0,
+            deliver_count: 0,
+            now_value: g.now_value,
             deliver_channels: None,
             slab: vec![0.0; channels.saturating_mul(FRAMES_MAX)],
             pcm: MockPcm { seed: g.seed },
@@ -559,7 +651,8 @@ pub fn drive(
 // こちらは `TapWriterEnds` を実 `StreamWriter`（staging media/journal）
 // へ接続し、checkpoint/finalize まで駆動する統合 fixture 用 harness。
 // これも fake port 契約の検証であり、実 Device Pass ではない
-// （実 backend は ruviform#251 待ちで `Unsupported`）。
+// （実 backend は `real-device` feature の opt-in lane
+// `tests/real_input.rs` で別途検証する）。
 
 /// `GateSpec` 指定の plan（`plan_for` の Gate 一般化版）。
 pub fn plan_gated(
