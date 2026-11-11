@@ -15,6 +15,7 @@ use crate::{
         TrackId,
     },
     midi::MidiSource,
+    monitoring_data::MonitoringData,
     placement::{ClipPlacement, ClipPlayback},
     range::{MediaSpan, MusicalRange},
     recording_data::{
@@ -481,6 +482,14 @@ pub struct Project {
     /// legacy routing explicitly (see `crate::migration`).
     #[serde(default)]
     pub routing: RoutingModel,
+    /// Authored monitor declarations — per-track Arm/Monitor mode,
+    /// channel map and lane binding plus project-wide punch marks
+    /// (synvelis#117, schema v12). Session *observations*
+    /// (`input_output_ready`, hardware-direct state, latency, live
+    /// sessions) are runtime state and are never persisted here.
+    /// `#[serde(default)]` keeps pre-v12 bodies loadable.
+    #[serde(default)]
+    pub monitoring: MonitoringData,
 }
 
 impl Project {
@@ -520,6 +529,7 @@ impl Project {
             applied_imports: BTreeMap::new(),
             control: ControlModel::bootstrap(master_strip),
             routing,
+            monitoring: MonitoringData::default(),
         }
     }
 
@@ -800,6 +810,27 @@ impl Project {
                         take.id
                     )));
                 }
+            }
+        }
+        // -- monitor declarations (synvelis#117, schema v12) --------
+        // A declaration names a live track; its optional lane must be
+        // one of that track's lanes, and the channel map must be
+        // non-empty. Punch marks carry no references.
+        for (track_id, decl) in &self.monitoring.tracks {
+            let track = self.tracks.get(track_id).ok_or_else(|| {
+                Error::NotFound(format!("track {track_id} (monitor declaration)"))
+            })?;
+            if let Some(lane) = decl.lane
+                && !track.lane_ids.contains(&lane)
+            {
+                return Err(Error::Validation(format!(
+                    "monitor declaration lane {lane} is not a lane of track {track_id}"
+                )));
+            }
+            if decl.channel_map.is_empty() {
+                return Err(Error::Validation(format!(
+                    "monitor declaration for track {track_id} has an empty channel map"
+                )));
             }
         }
         crate::comp::validate_registry(self)?;

@@ -583,6 +583,9 @@ impl SynvelisApp {
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
         self.routing_engine = None;
+        // authored monitor 宣言・punch は `project.monitoring` を
+        // read-through するため新 project の空状態がそのまま
+        // 反映される。ここで reset するのは session 観測値のみ。
         self.monitoring = crate::monitoring::MonitorUxState::default();
         Ok(self.project_info())
     }
@@ -618,6 +621,10 @@ impl SynvelisApp {
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
         self.routing_engine = None;
+        // authored monitor 宣言・punch は load 済み `project.monitoring`
+        // から read-through で再水和される。ここで reset するのは
+        // session 観測値（稼働 session・latency 注入・観測 overlay）
+        // のみ — これらは永続化対象外。
         self.monitoring = crate::monitoring::MonitorUxState::default();
         Ok(self.project_info())
     }

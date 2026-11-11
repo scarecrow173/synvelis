@@ -21,6 +21,7 @@ pub mod id;
 pub mod midi;
 pub mod midi_comp;
 pub(crate) mod migration;
+pub mod monitoring_data;
 pub mod ops;
 pub mod placement;
 pub mod plugin_state;
@@ -83,6 +84,9 @@ pub use midi_comp::{
     MidiCompSelection, MidiControllerEvent, MidiControllerKind, MidiControllerLane,
     MidiControllerLanes, MidiPhraseRegion, MidiPlanAction, MidiPlanEvent, MidiPlaybackPlan,
     MidiRegionReport, compile_midi_comp,
+};
+pub use monitoring_data::{
+    ArmState, MonitorChannelMap, MonitorState, MonitoringData, PunchMarks, TrackMonitorDecl,
 };
 pub use ops::ProjectOp;
 pub use placement::{

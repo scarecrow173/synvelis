@@ -839,6 +839,9 @@ pub(crate) fn op_name(op: &ProjectOp) -> &'static str {
         ProjectOp::ConfigureBus { .. } => "configure-bus",
         ProjectOp::SetStripMute { .. } => "set-strip-mute",
         ProjectOp::SetStripSolo { .. } => "set-strip-solo",
+        ProjectOp::SetTrackMonitor { .. } => "set-track-monitor",
+        ProjectOp::ClearTrackMonitor { .. } => "clear-track-monitor",
+        ProjectOp::SetPunchMarks { .. } => "set-punch-marks",
         ProjectOp::Routing { .. } => "routing",
     }
 }
