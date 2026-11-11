@@ -58,6 +58,7 @@ Directory: `docs/designs`
 | — | Synvelis — Project / Asset / Persistence Architecture | — | [project-asset-persistence-architecture.md](./project-asset-persistence-architecture.md) |
 | DESIGN-034V2hPBihovSNoj4xusOA | RCD-01 device-recording headless fixture — Mock Input→Raw Writer 統合設計 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | DESIGN-Bz2IMMfywvmEjmdIeThNvq | RCD-01 Input Adapter — binding/Arm/Monitor/channel-map と fake port fail-stop | approved | [rcd-01-input-adapter-binding-arm-monitor-fake-port.md](./rcd-01-input-adapter-binding-arm-monitor-fake-port.md) |
+| DESIGN-89lmf1mLK8flCuybXMmEqR | RCD-01 実Audio Device 到達準備 design — stamp placement fallback + real backend composition root | approved | [rcd-01-real-backend-readiness-design.md](./rcd-01-real-backend-readiness-design.md) |
 | DESIGN-034Urj7kRY8rq2nngtTSuL | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | approved | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | DESIGN-034VplpQjplSqKKaNy9r1G | RCD-02 StagedFile Publish Migration Design | approved | [rcd-02-stagedfile-publish-migration-design.md](./rcd-02-stagedfile-publish-migration-design.md) |
 | DESIGN-034VdWksbk4tfLCaf6HPoj | RCD-03 app Arm/Monitoring UX + monitor session projection | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
@@ -83,6 +84,7 @@ Directory: `docs/designs`
 | DESIGN-034VpkqegnYxvgZbOSsE3K | SF-04 slice5 設計 — probe subscriber/window ownership（session 層 lease・capture owner） | approved | [sf-04-slice5-probe-subscriber-ownership-design.md](./sf-04-slice5-probe-subscriber-ownership-design.md) |
 | DESIGN-034UudJz8OJsiidXryTNTU | SF-05 slice1 Signal Flow headless 設計 — graph 投影 + visual state + status 合成 | approved | [sf-05-slice1-signal-flow-headless-graph-visual-state-status.md](./sf-05-slice1-signal-flow-headless-graph-visual-state-status.md) |
 | DESIGN-CJVcdyUweKy4i6p0xOHdJc | SF-05 slice2 設計 — routing gesture fixation/preview/commit + inspection focus + schema v3 persist | approved | [sf-05-slice2-signal-flow-ux0307-gesture-inspection-persist.md](./sf-05-slice2-signal-flow-ux0307-gesture-inspection-persist.md) |
+| DESIGN-mB7tYwKsPqNvXcZaE5rGjH | SF-05 slice3 設計 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-design.md](./sf-05-slice3-probe-subscriber-wiring-design.md) |
 | DESIGN-034V2wuzXfqcjIvGyXFhhz | SF-06 cross-gate headless 設計 — oracle 独立性・fixture topology・ledger schema | approved | [sf-06-cross-gate-oracle-domain-evidence.md](./sf-06-cross-gate-oracle-domain-evidence.md) |
 | DESIGN-OIDrCGhRjzwr0IzN1tzVkg | SF-XR-01 Design — CTL-01/CTL-02 cross-gate oracle fixture | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | DESIGN-lW54zR76NmEm8cc3NlMskX | SV-GUI-01 Design — Desktop App Bootstrap・Composition Root・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap-design.md](./sv-gui-01-desktop-app-bootstrap-design.md) |
@@ -104,6 +106,7 @@ Directory: `docs/designs`
 | DESIGN-034RBzdpo91wcbqBK7Gb9t | SYN-OBS-01 Design — Host所有 Logging Owner・設定解決・Source Catalog | approved | [syn-obs-01-design-host-logging-owner-source-catalog.md](./syn-obs-01-design-host-logging-owner-source-catalog.md) |
 | DESIGN-034T2RF305WAVSTAGED00Y | SYN-RF305 WAV Export StagedFile 移行設計 | approved | [syn-rf305-wav-export-staged-file-design.md](./syn-rf305-wav-export-staged-file-design.md) |
 | — | Synvelis-driven Ruviform Target Architecture v0.7.1 | — | [synvelis-driven-ruviform-target-architecture-v07.md](./synvelis-driven-ruviform-target-architecture-v07.md) |
+| DESIGN-034VtzPNCX6aVKTaxy71ke | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn 設計 | approved | [tim-01-app-ppqn-design.md](./tim-01-app-ppqn-design.md) |
 | DESIGN-034UHVNvFQXFumTOowIt0g | TIM-01 Configurable PPQN — Rational Beat 再投影設計 | approved | [tim-01-configurable-ppqn-design.md](./tim-01-configurable-ppqn-design.md) |
 | DESIGN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — crate 内完結設計 | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | DESIGN-034UwVoRGI8Bp9zuzRFQhj | TIM-02 SMF Format0/1 core — crate 内完結設計 | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |

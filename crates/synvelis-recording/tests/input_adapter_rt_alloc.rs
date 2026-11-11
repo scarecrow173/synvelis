@@ -89,4 +89,38 @@ fn rt_callback_is_alloc_and_drop_free() {
             .iter()
             .all(|l| verify_tap_log(l, &[0, 1], SEED))
     );
+
+    // stamp fallback 経路（frame_position: None + capture_stamp: Some）
+    // も同じ no-alloc 契約を持つことを確認する。warm-up を挟んでから
+    // 1 block を計測する。
+    {
+        let mut s = stream.lock().expect("lock");
+        s.set_report_position(false);
+        s.set_report_capture(true);
+    }
+    for _ in 0..4 {
+        stream.lock().expect("lock").deliver(256);
+        adapter.pump(&plan.scheduler);
+        for (_, w) in &mut writers {
+            w.pump();
+        }
+    }
+    assert!(!fault.is_faulted(), "fault bits: {:x}", fault.bits());
+
+    let mut guard = stream.lock().expect("lock");
+    let reg = Region::new(ALLOC);
+    guard.deliver(256);
+    let stats = reg.change();
+    drop(guard);
+    assert_eq!(stats.allocations, 0, "stamp-path allocations: {stats:?}");
+    assert_eq!(
+        stats.deallocations, 0,
+        "stamp-path deallocations: {stats:?}"
+    );
+
+    adapter.pump(&plan.scheduler);
+    for (_, w) in &mut writers {
+        w.pump();
+    }
+    assert!(!fault.is_faulted(), "fault bits: {:x}", fault.bits());
 }

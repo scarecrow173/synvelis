@@ -48,6 +48,20 @@ run = "cargo test --workspace --locked"
 description = "Run the rt_ contract tests (RT no-alloc/no-block) against the locked dependency graph"
 run = "cargo test --workspace --locked rt_"
 
+# RCD-01 opt-in 実機 lane（CI 対象外・hardware 依存）。
+# real-device feature で ruviform-audio-device/cpal を有効化し、
+# tests/real_input.rs の #[ignore] test のみを実行する。
+# device 不在環境では test 内の loud SKIP で終了する。
+[tasks.test-recording-real-input]
+description = "Run the opt-in real audio device lane for synvelis-recording (requires hardware; not in CI)"
+run = "cargo test -p synvelis-recording --locked --features real-device --test real_input -- --ignored --test-threads=1"
+
+# real-device feature 有効時の compile/lint を headless で検証する
+# 補助 lane（cpal/OS audio 依存の build を要求するため opt-in）。
+[tasks.lint-recording-real-input]
+description = "Clippy for synvelis-recording with the real-device feature enabled (opt-in; not in CI)"
+run = "cargo clippy -p synvelis-recording --all-targets --locked --features real-device -- -D warnings"
+
 [tasks.lint-actions]
 description = "Lint GitHub Actions workflow files with actionlint"
 run = "actionlint"

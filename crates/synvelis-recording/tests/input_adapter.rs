@@ -6,7 +6,8 @@
 //! domain・fail-stop を検証する。
 //!
 //! これは fake port 契約の検証であり、実 Device Pass ではない
-//! （実 backend は ruviform#251 待ちで `Unsupported`）。
+//! （実 backend は `real-device` feature の opt-in lane
+//! `tests/real_input.rs` で別途検証する）。
 
 // 各 test binary が common の subset だけを使うため module 単位で許容
 // （synvelis-library/tests/common と同じ運用）。
@@ -18,7 +19,7 @@ use ruviform_audio_core::device::{
     BufferSize, DeviceEnumerator, DeviceError, InputStreamConfig, same_clock_domain,
 };
 use ruviform_audio_core::{SampleFormat, SampleRate};
-use ruviform_media_core::ClockDomainId;
+use ruviform_media_core::{ClockDomainId, TimeBase};
 use synvelis_project::ClockEpochId;
 use synvelis_recording::{
     ArmState, ChannelMap, FAULT_CONTRACT, FAULT_EPOCH_DISCONTINUITY, FAULT_INPUT_DISCONTINUITY,
@@ -378,7 +379,9 @@ fn input_frame_gap_faults_and_preserves_verified_prefix() {
 }
 
 #[test]
-fn missing_frame_position_faults() {
+fn missing_position_and_stamp_faults() {
+    // frame_position も capture stamp も無い callback は配置を
+    // 検証できないため fail-stop（連続を捏造しない）。
     let (p, lanes, epoch) = project_with_lanes(1);
     let plan = plan_for(&p, &lanes, &[1], epoch, 200);
     let device = FakeInputDevice::new(1, ClockDomainId::SAMPLE_CLOCK);
@@ -388,6 +391,221 @@ fn missing_frame_position_faults() {
     let (mut adapter, _writers) = into_writers(opened, &fault);
     let stream = device.stream(0);
     stream.lock().expect("lock").set_report_position(false);
+    stream.lock().expect("lock").deliver(500);
+    adapter.pump(&plan.scheduler);
+    assert_eq!(
+        fault.bits() & FAULT_INPUT_DISCONTINUITY,
+        FAULT_INPUT_DISCONTINUITY
+    );
+}
+
+#[test]
+fn capture_stamp_fallback_records_verified_pcm() {
+    // frame_position: None + capture_stamp: Some → map_stamp_to_frame
+    // で導出した frame で録音が成立する（実 cpal stream の経路）。
+    // anchor は open 時の now()=1s(ns)、stamp epoch も 1s に揃え、
+    // 非ゼロ anchor delta の経路を通す。mapped frame は position と
+    // 一致するため PCM 検算も成立する。
+    let (p, lanes, epoch) = project_with_lanes(1);
+    let plan = plan_for(&p, &lanes, &[2], epoch, 200);
+    let device = FakeInputDevice::new(2, ClockDomainId::SAMPLE_CLOCK);
+    device.set_now_value(1_000_000_000);
+    let spec = InputStreamSpec {
+        config: input_config(2),
+        clock_epoch: epoch,
+        max_block_frames: plan.max_block_frames,
+        callback_queue: 16,
+        taps: vec![tap(
+            &plan,
+            0,
+            ChannelMap::stereo(0, 1),
+            ArmState::On,
+            MonitorState::Off,
+        )],
+    };
+    let fault = FaultLatch::new();
+    let opened = InputAdapter::open(&device, &spec, fault.clone()).expect("open");
+    let (mut adapter, mut writers) = into_writers(opened, &fault);
+    let stream = device.stream(0);
+    {
+        let mut s = stream.lock().expect("lock");
+        s.set_report_position(false);
+        s.set_report_capture(true);
+        s.set_stamp_epoch_ticks(1_000_000_000);
+    }
+    drive(&stream, &mut adapter, &mut writers, &plan, 5000, 500);
+    assert!(!fault.is_faulted(), "fault bits: {:x}", fault.bits());
+    let log = &writers[0].1.log;
+    assert_ne!(log.as_slice(), []);
+    for entry in log {
+        assert!(
+            verify_tap_log(entry, &[0, 1], SEED),
+            "PCM mismatch in chunk {:?}",
+            entry.chunk_id
+        );
+    }
+}
+
+#[test]
+fn capture_stamp_jitter_still_records_verified_pcm() {
+    // 実機 WASAPI で観測された sub-ms timestamp jitter（連続 stamp の
+    // tick 差が真値から ±数 frame ずれる）を注入しても、累積 frame
+    // count 配置により block は sample-exact に連続し verified PCM が
+    // 記録される（jitter は配置に反映されず連続性/ドリフト検証のみ）。
+    let (p, lanes, epoch) = project_with_lanes(1);
+    let plan = plan_for(&p, &lanes, &[2], epoch, 200);
+    let device = FakeInputDevice::new(2, ClockDomainId::SAMPLE_CLOCK);
+    device.set_now_value(1_000_000_000);
+    let spec = InputStreamSpec {
+        config: input_config(2),
+        clock_epoch: epoch,
+        max_block_frames: plan.max_block_frames,
+        callback_queue: 16,
+        taps: vec![tap(
+            &plan,
+            0,
+            ChannelMap::stereo(0, 1),
+            ArmState::On,
+            MonitorState::Off,
+        )],
+    };
+    let fault = FaultLatch::new();
+    let opened = InputAdapter::open(&device, &spec, fault.clone()).expect("open");
+    let (mut adapter, mut writers) = into_writers(opened, &fault);
+    let stream = device.stream(0);
+    {
+        let mut s = stream.lock().expect("lock");
+        s.set_report_position(false);
+        s.set_report_capture(true);
+        s.set_stamp_epoch_ticks(1_000_000_000);
+        // ±60 µs（48 kHz で ±約 3 frame）の決定的 jitter —
+        // 実機 iD4/WASAPI の実測 jitter と同程度。
+        s.set_stamp_jitter_ns(20_000);
+    }
+    drive(&stream, &mut adapter, &mut writers, &plan, 5000, 500);
+    assert!(!fault.is_faulted(), "fault bits: {:x}", fault.bits());
+    let log = &writers[0].1.log;
+    assert_ne!(log.as_slice(), []);
+    for entry in log {
+        assert!(
+            verify_tap_log(entry, &[0, 1], SEED),
+            "PCM mismatch in chunk {:?}",
+            entry.chunk_id
+        );
+    }
+}
+
+#[test]
+fn frame_position_wins_over_capture_stamp() {
+    // frame_position: Some と capture_stamp: Some の併存時は
+    // frame_position が優先される。stamp が position に追従しない
+    // 固定 tick を報告しても、position 経路が使われる限り連続で
+    // 記録できる（stamp 経路なら 2 個目の block で不連続 fault）。
+    let (p, lanes, epoch) = project_with_lanes(1);
+    let plan = plan_for(&p, &lanes, &[1], epoch, 200);
+    let device = FakeInputDevice::new(1, ClockDomainId::SAMPLE_CLOCK);
+    let spec = mono_spec(&plan, epoch, 16);
+    let fault = FaultLatch::new();
+    let opened = InputAdapter::open(&device, &spec, fault.clone()).expect("open");
+    let (mut adapter, mut writers) = into_writers(opened, &fault);
+    let stream = device.stream(0);
+    {
+        let mut s = stream.lock().expect("lock");
+        s.set_report_capture(true);
+        // 全 callback が同一 stamp を報告 → stamp 経路なら
+        // stamp 進行量 0 vs 期待 frame 数の乖離で INPUT_DISCONTINUITY。
+        s.set_stamp_fixed_ticks(Some(2_000_000_000));
+    }
+    drive(&stream, &mut adapter, &mut writers, &plan, 5000, 500);
+    assert!(!fault.is_faulted(), "fault bits: {:x}", fault.bits());
+    assert!(
+        writers[0]
+            .1
+            .log
+            .iter()
+            .all(|l| verify_tap_log(l, &[0], SEED))
+    );
+}
+
+#[test]
+fn foreign_capture_base_faults() {
+    // capture stamp の timebase が DEVICE_CLOCK_TIMEBASE でない場合、
+    // `capture_stamp()` は None を返す → 配置不能として fail-stop
+    // （foreign base を再ラベルしない port 契約）。
+    let (p, lanes, epoch) = project_with_lanes(1);
+    let plan = plan_for(&p, &lanes, &[1], epoch, 200);
+    let device = FakeInputDevice::new(1, ClockDomainId::SAMPLE_CLOCK);
+    let spec = mono_spec(&plan, epoch, 16);
+    let fault = FaultLatch::new();
+    let opened = InputAdapter::open(&device, &spec, fault.clone()).expect("open");
+    let (mut adapter, _writers) = into_writers(opened, &fault);
+    let stream = device.stream(0);
+    {
+        let mut s = stream.lock().expect("lock");
+        s.set_report_position(false);
+        s.set_report_capture(true);
+        s.set_stamp_base(TimeBase::new(1, 1_000).expect("base"));
+    }
+    stream.lock().expect("lock").deliver(500);
+    adapter.pump(&plan.scheduler);
+    assert_eq!(
+        fault.bits() & FAULT_INPUT_DISCONTINUITY,
+        FAULT_INPUT_DISCONTINUITY
+    );
+}
+
+#[test]
+fn capture_stamp_regression_faults() {
+    // stamp tick の逆行 → INPUT_DISCONTINUITY（engine の frame
+    // 連続性検査。position 経路と同じ分類）。
+    let (p, lanes, epoch) = project_with_lanes(1);
+    let plan = plan_for(&p, &lanes, &[1], epoch, 200);
+    let device = FakeInputDevice::new(1, ClockDomainId::SAMPLE_CLOCK);
+    let spec = mono_spec(&plan, epoch, 16);
+    let fault = FaultLatch::new();
+    let opened = InputAdapter::open(&device, &spec, fault.clone()).expect("open");
+    let (mut adapter, _writers) = into_writers(opened, &fault);
+    let stream = device.stream(0);
+    {
+        let mut s = stream.lock().expect("lock");
+        s.set_report_position(false);
+        s.set_report_capture(true);
+    }
+    for _ in 0..3 {
+        stream.lock().expect("lock").deliver(500);
+        adapter.pump(&plan.scheduler);
+    }
+    assert!(!fault.is_faulted());
+    // position を逆行させると stamp tick も逆行 → 逆行検出で
+    // 不連続 fault。
+    stream.lock().expect("lock").jump_to(500);
+    stream.lock().expect("lock").deliver(500);
+    adapter.pump(&plan.scheduler);
+    assert_eq!(
+        fault.bits() & FAULT_INPUT_DISCONTINUITY,
+        FAULT_INPUT_DISCONTINUITY
+    );
+}
+
+#[test]
+fn capture_stamp_before_anchor_faults() {
+    // stamp が anchor（open 時の now()）より過去 → MapRejection::
+    // BeforeAnchor → FAULT_INPUT_DISCONTINUITY。
+    let (p, lanes, epoch) = project_with_lanes(1);
+    let plan = plan_for(&p, &lanes, &[1], epoch, 200);
+    let device = FakeInputDevice::new(1, ClockDomainId::SAMPLE_CLOCK);
+    // open 時の now() を未来へ → anchor.stamp_ticks が全 stamp より大きい。
+    device.set_now_value(60_000_000_000);
+    let spec = mono_spec(&plan, epoch, 16);
+    let fault = FaultLatch::new();
+    let opened = InputAdapter::open(&device, &spec, fault.clone()).expect("open");
+    let (mut adapter, _writers) = into_writers(opened, &fault);
+    let stream = device.stream(0);
+    {
+        let mut s = stream.lock().expect("lock");
+        s.set_report_position(false);
+        s.set_report_capture(true);
+    }
     stream.lock().expect("lock").deliver(500);
     adapter.pump(&plan.scheduler);
     assert_eq!(

@@ -45,6 +45,7 @@ Directory: `docs/plans`
 | PLAN-034VmVEzTuUHmBKxPRoFID | PC-C6 oracle R/PL/UI/COMP headless fixture 実装計画 | approved | [pc-c6-oracle-rows-plan.md](./pc-c6-oracle-rows-plan.md) |
 | PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
+| PLAN-gpF9kWuFqfzFATeoPdxIGF | RCD-01 実Audio Device 到達準備 実装計画 — stamp placement fallback + real backend 配線 | approved | [rcd-01-real-backend-readiness-plan.md](./rcd-01-real-backend-readiness-plan.md) |
 | PLAN-034VpmToY7qmWuyovg4BmV | RCD-02 StagedFile Publish Migration Plan | approved | [rcd-02-stagedfile-publish-migration-plan.md](./rcd-02-stagedfile-publish-migration-plan.md) |
 | PLAN-034VedskoBprfWhNkuqz6f | RCD-03 app Arm/Monitoring UX + monitor session projection slice | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
 | PLAN-034VpQd9mO4xP1wT6vA8wL | RCD-03 Arm/Monitor/Punch Project 永続投影 slice | approved | [rcd-03-monitor-persistence-plan.md](./rcd-03-monitor-persistence-plan.md) |
@@ -66,6 +67,7 @@ Directory: `docs/plans`
 | PLAN-034VpoEbeiqPIm8MYZAnAD | SF-04 slice5 実装計画 — probe subscriber/window ownership（session 層 lease・capture owner） | approved | [sf-04-slice5-probe-subscriber-ownership-plan.md](./sf-04-slice5-probe-subscriber-ownership-plan.md) |
 | PLAN-034Uuhu2Eis7GPJ5fej73V | SF-05 slice1 実施計画 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | PLAN-6xRqunIew52aqbQt4yZ3qy | SF-05 slice2 実施計画 — Signal Flow gesture/inspection/persist | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
+| PLAN-dF3hNzQwErTyUiOpL6kMnB | SF-05 slice3 実施計画 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-plan.md](./sf-05-slice3-probe-subscriber-wiring-plan.md) |
 | PLAN-034V2wD3RqGEqlst7HFeVD | SF-06 cross-gate headless slice — Domain Oracle・Case registry・fault fixture・ledger | approved | [sf-06-cross-gate-oracle.md](./sf-06-cross-gate-oracle.md) |
 | PLAN-QRGcQW6CvUDaVfCwWADz2f | SF-XR-01 実装計画 — CTL-01/CTL-02 cross-gate oracle fixture | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | PLAN-v1VQEMk92Nx1lQHUlSVh1t | SV-GUI-01 実装計画 — Desktop App Bootstrap・WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap.md](./sv-gui-01-desktop-app-bootstrap.md) |
@@ -83,6 +85,7 @@ Directory: `docs/plans`
 | PLAN-034T2c5vy3vKJPENF8AA50 | SYN-IO-02 DirectoryBundleStore StagedFile 移行計画 | approved | [syn-io-02-directory-bundle-store-stagedfile.md](./syn-io-02-directory-bundle-store-stagedfile.md) |
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
+| PLAN-034VtBaArtupj0qHG0phVl | TIM-01 app 層 PPQN 統合 — implementation plan | approved | [tim-01-app-ppqn-plan.md](./tim-01-app-ppqn-plan.md) |
 | PLAN-034UHYyMbiLPEtGczKNKYC | TIM-01 Configurable PPQN Project Command — implementation plan | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | PLAN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — 実装 plan | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | PLAN-034UwXgmnKOCYgkwlGLFkf | TIM-02 SMF Format0/1 core implementation plan | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |

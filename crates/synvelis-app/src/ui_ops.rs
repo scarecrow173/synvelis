@@ -48,20 +48,22 @@ use synvelis_workspace::viz_ui::{
 };
 use synvelis_workspace::{
     CancelReason, EndpointRequest, FollowSource, InspectionMode, LinkGroupId, PinSide,
-    ProbeDrainReport, ProbeTraceError, RoutingGestureFixation, RoutingGestureOutcome,
-    RoutingGesturePreview, RoutingPortAssessment, SignalFlowEdgeRole, SignalFlowEntityRef,
-    SignalFlowInspectionFocus, SignalFlowScope, SignalFlowView, SignalFlowViewOptions,
-    SignalFlowViewState, VcsDiffView, VcsEndpointView, VcsHistoryView, VcsSession, VcsUiError,
-    VcsViewMode, ViewType, signal_flow_graph, vcs_history_view, visual_fold, visual_move_node,
-    visual_set_group, visual_set_link_focus, visual_set_pan, visual_set_scope, visual_set_zoom,
+    ProbeDrainReport, ProbePrincipal, ProbeTraceError, ProjectSession, RoutingGestureFixation,
+    RoutingGestureOutcome, RoutingGesturePreview, RoutingPortAssessment, SignalFlowEdgeRole,
+    SignalFlowEntityRef, SignalFlowInspectionFocus, SignalFlowScope, SignalFlowView,
+    SignalFlowViewOptions, SignalFlowViewState, VcsDiffView, VcsEndpointView, VcsHistoryView,
+    VcsSession, VcsUiError, VcsViewMode, ViewType, signal_flow_graph, vcs_history_view,
+    visual_fold, visual_move_node, visual_set_group, visual_set_link_focus, visual_set_pan,
+    visual_set_scope, visual_set_zoom,
 };
 
 use crate::app::SynvelisApp;
 use crate::monitoring::{MonitorSessionParams, MonitorTransportAction, MonitorUxState, TrackPatch};
 use crate::screens::{
-    DockViewInfo, InspectorRow, InspectorScreenState, TransportScreenState, dock_view_info,
-    main_view_id, mixer_strip_targets, vcs_equality_str, vcs_freshness_reason, vcs_freshness_str,
-    vcs_kind_str, vcs_mode_str, vcs_status_detail, vcs_status_str,
+    DockViewInfo, InspectorRow, InspectorScreenState, SignalFlowProbeRow, TransportScreenState,
+    dock_view_info, main_view_id, main_view_instance, mixer_strip_targets, vcs_equality_str,
+    vcs_freshness_reason, vcs_freshness_str, vcs_kind_str, vcs_mode_str, vcs_status_detail,
+    vcs_status_str,
 };
 
 /// Outbox depth cap — receipts/projections are never silently
@@ -319,13 +321,29 @@ fn probe_observed_json(slot: &TraceSlot<ProbeObservation>) -> Value {
     })
 }
 
+/// `ProbePrincipal` → wire string — `"session"` for session
+/// authority, `"view-{n}"` for a logical view subscriber (the same
+/// spelling `view_id` params use).
+fn probe_principal_str(principal: ProbePrincipal) -> String {
+    match principal {
+        ProbePrincipal::Session => "session".to_string(),
+        ProbePrincipal::View(inst) => format!("view-{}", inst.get()),
+        other => format!("{other:?}"),
+    }
+}
+
 /// `ProbeTraceError` → wire error — an unknown target is a param
-/// fault; named port rejections keep their contract message;
-/// provider-internal `Failed` maps to `SERVICE_ERROR`.
-fn probe_trace_err(error: ProbeTraceError) -> ErrorBody {
+/// fault; lease/owner authorization failures (`NotSubscriber`,
+/// `NotCaptureOwner`) are caller faults too, never an ambiguous
+/// internal error; named port rejections keep their contract
+/// message; provider-internal `Failed` maps to `SERVICE_ERROR`.
+fn probe_trace_err(error: &ProbeTraceError) -> ErrorBody {
     match error {
         ProbeTraceError::UnknownTarget(target) => {
             invalid(format!("unknown parameter target {target}"))
+        }
+        ProbeTraceError::NotSubscriber { .. } | ProbeTraceError::NotCaptureOwner { .. } => {
+            invalid(format!("probe: {error}"))
         }
         ProbeTraceError::Port(ProbePortError::Failed(reason)) => {
             internal(format!("probe: {reason}"))
@@ -337,6 +355,93 @@ fn probe_trace_err(error: ProbeTraceError) -> ErrorBody {
 
 fn dock_err(e: &synvelis_workspace::WorkspaceError) -> ErrorBody {
     internal(format!("dock: {e}"))
+}
+
+/// View-scoped `syn.probe.control` actions — `subscribe` /
+/// `unsubscribe` / `capture_for` / `abort_capture` (SF-05
+/// slice3). Every action requires the resolved `ViewInstanceId`
+/// subscriber: a probe lease is per-view ownership and must
+/// never attach silently, so `None` fails closed even though
+/// the dispatcher only routes here after resolving `view_id`.
+/// Lease/dedup/capture-owner invariants stay in
+/// `ControlSession`; this layer only translates params and
+/// projects the wire result.
+fn probe_control_view_scoped(
+    session: &mut ProjectSession,
+    port: &mut dyn ProbeTracePort,
+    params: &Value,
+    action: &str,
+    subscriber: Option<ViewInstanceId>,
+) -> Result<Value, ErrorBody> {
+    let subscriber = subscriber.ok_or_else(|| invalid("params.view_id (string) required"))?;
+    match action {
+        "subscribe" => {
+            let target = ParameterTargetId::from_tagged(str_param(params, "target")?)
+                .map_err(|e| invalid(format!("params.target: {e}")))?;
+            let point: SemanticProbePoint = json_param(params, "point")?;
+            let kind: SubscriptionKind = json_param(params, "kind")?;
+            let mode: ProbeMode = json_param(params, "mode")?;
+            let key = session
+                .control_with(|control, project| {
+                    control.probe_subscribe(project, port, subscriber, target, point, kind, mode)
+                })
+                .map_err(|e| probe_trace_err(&e))?;
+            let targets: Vec<String> = session
+                .control()
+                .probe_targets(key)
+                .iter()
+                .map(|t| t.to_tagged())
+                .collect();
+            Ok(json!({
+                "key": key,
+                "view_id": format!("view-{}", subscriber.get()),
+                "targets": targets,
+            }))
+        }
+        "unsubscribe" => {
+            let key: ProbeSubscriptionKey = json_param(params, "key")?;
+            let report = session
+                .control_mut()
+                .probe_unsubscribe(port, subscriber, key)
+                .map_err(|e| probe_trace_err(&e))?;
+            Ok(json!({
+                "key": key,
+                "view_id": format!("view-{}", subscriber.get()),
+                "released": report.released,
+                "removed": report.removed,
+            }))
+        }
+        "capture_for" => {
+            let key: ProbeSubscriptionKey = json_param(params, "key")?;
+            let max_frames = u64_param(params, "max_frames")?;
+            session
+                .control_mut()
+                .probe_capture_for(port, subscriber, key, max_frames)
+                .map_err(|e| probe_trace_err(&e))?;
+            let owner = session
+                .control()
+                .probe_capture_owner(key)
+                .map(probe_principal_str);
+            Ok(json!({
+                "key": key,
+                "view_id": format!("view-{}", subscriber.get()),
+                "max_frames": max_frames,
+                "owner": owner,
+            }))
+        }
+        "abort_capture" => {
+            let key: ProbeSubscriptionKey = json_param(params, "key")?;
+            session
+                .control_mut()
+                .probe_abort_capture(port, subscriber, key)
+                .map_err(|e| probe_trace_err(&e))?;
+            Ok(json!({
+                "key": key,
+                "view_id": format!("view-{}", subscriber.get()),
+            }))
+        }
+        _ => Err(invalid(format!("params.action: unknown action {action:?}"))),
+    }
 }
 
 // -- syn.signal_flow.* helpers -------------------------------------------
@@ -1024,9 +1129,52 @@ impl SynvelisApp {
             inspector.rows = inspector_rows(&observed);
             break;
         }
+        let signal_flow_probes = self.signal_flow_probe_rows();
         let mut screen = self.main_screen.borrow_mut();
         screen.transport = transport;
         screen.inspector = inspector;
+        screen.signal_flow_probes = signal_flow_probes;
+    }
+
+    /// The main view's probe subscription rows for the Signal Flow
+    /// tab (SF-05 slice3) — its leases projected with the shared
+    /// binding's requested mode/resolve state and the holder/capture
+    /// principals verbatim. Read-only session state: empty without an
+    /// engine or leases, never fabricated, and it mutates no
+    /// project/DSP state.
+    fn signal_flow_probe_rows(&self) -> Vec<SignalFlowProbeRow> {
+        let Some(engine) = self.routing_engine.as_ref() else {
+            return Vec::new();
+        };
+        let subscriber = main_view_instance();
+        engine.with_probe_bridge(|port| {
+            let control = self.workspace.session().control();
+            control
+                .probe_subscriber_keys(subscriber)
+                .into_iter()
+                .map(|key| {
+                    let binding = port.probe_bindings().get(&key);
+                    SignalFlowProbeRow {
+                        point: serde_json::to_string(&key.point)
+                            .unwrap_or_else(|_| format!("{key:?}")),
+                        kind: format!("{:?}", key.kind),
+                        mode: binding
+                            .map_or_else(|| "—".to_string(), |b| format!("{:?}", b.requested_mode)),
+                        state: binding
+                            .map_or_else(|| "—".to_string(), |b| format!("{:?}", b.state)),
+                        holders: control
+                            .probe_lease_holders(key)
+                            .into_iter()
+                            .map(probe_principal_str)
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        capture_owner: control
+                            .probe_capture_owner(key)
+                            .map_or_else(|| "—".to_string(), probe_principal_str),
+                    }
+                })
+                .collect()
+        })
     }
 
     /// Bound subscription rows — the projection channel. `observed`
@@ -1364,6 +1512,10 @@ impl SynvelisApp {
     pub fn op_view_close(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let view = str_param(params, "view_id")?.to_owned();
         if let Some(info) = dock_domain_view(&view)? {
+            // SF-05 slice3: the view's probe leases release before
+            // any teardown — a port failure aborts the close with
+            // the view fully intact so it can be retried.
+            self.release_view_probe_leases(info.instance)?;
             self.dock_view_close(&view, &info)?;
         }
         let session = self.workspace.session_mut();
@@ -1379,6 +1531,29 @@ impl SynvelisApp {
             json!({ "view_id": view, "attached": false, "closed": true }),
         );
         Ok(json!({ "view_id": view, "closed": true }))
+    }
+
+    /// Releases every probe lease `inst` holds through
+    /// `ControlSession::probe_release_subscriber` — the view-close
+    /// counterpart of the session subscriber APIs (SF-05 slice3).
+    /// Only the closing view's leases leave; a key whose last lease
+    /// goes is removed port-side, and a capture the view owned
+    /// retreats to session authority while other holders remain.
+    /// No engine → no port → leases cannot exist → no-op. A port
+    /// failure propagates so the caller aborts before dropping view
+    /// state; already-processed keys stay consistent for retry.
+    fn release_view_probe_leases(&mut self, inst: ViewInstanceId) -> Result<(), ErrorBody> {
+        let Some(engine) = self.routing_engine.clone() else {
+            return Ok(());
+        };
+        engine.with_probe_bridge(|port| -> Result<(), ErrorBody> {
+            self.workspace
+                .session_mut()
+                .control_mut()
+                .probe_release_subscriber(port, inst)
+                .map_err(|e| probe_trace_err(&e))?;
+            Ok(())
+        })
     }
 
     /// Workspace half of `syn.view.close` for dock-domain views —
@@ -2648,6 +2823,9 @@ impl SynvelisApp {
                 "view {view_name} is not a vcs-history view"
             )));
         }
+        // Same probe-lease release as `syn.view.close` — a VCS view
+        // can hold subscriber leases like any logical view.
+        self.release_view_probe_leases(inst)?;
         self.workspace.remove_view(inst).map_err(|e| dock_err(&e))?;
         // Mirror `syn.view.close`'s UI-side cleanup: a client may have
         // attached controls/subscriptions/frame state to the wire
@@ -3154,8 +3332,11 @@ impl SynvelisApp {
 
     // -- syn.probe.* ---------------------------------------------------------
 
-    /// `syn.probe.control` — semantic probe lifecycle (SF-04 slice 4).
-    /// `action` selects the operation:
+    /// `syn.probe.control` — semantic probe lifecycle (SF-04 slice 4,
+    /// view-scoped subscriber actions SF-05 slice3). `action` selects
+    /// the operation:
+    ///
+    /// Session authority (no `view_id`, `ProbePrincipal::Session`):
     ///
     /// - `"request"` — `params.target` (tagged `ParameterTargetId`),
     ///   `params.point` (serde `SemanticProbePoint`), `params.kind`
@@ -3167,6 +3348,23 @@ impl SynvelisApp {
     /// - `"capture"` — `params.key` + `params.max_frames` (u64).
     /// - `"stop_capture"` / `"remove"` — `params.key` only.
     ///
+    /// View-scoped (`params.view_id` = `"view-{n}"` required, resolved
+    /// through [`Self::sf_view_instance`] to a stable
+    /// `ViewInstanceId`; leases follow the logical view, not a
+    /// window):
+    ///
+    /// - `"subscribe"` — `params.view_id` + `target`/`point`/`kind`/
+    ///   `mode` → `ControlSession::probe_subscribe`; dedups to the
+    ///   shared `(session, point, kind)` key — the provider is
+    ///   called only when the key has no live lease.
+    /// - `"unsubscribe"` — `params.view_id` + `params.key` →
+    ///   `probe_unsubscribe`; releases only that view's lease.
+    /// - `"capture_for"` — `params.view_id` + `params.key` +
+    ///   `params.max_frames` → `probe_capture_for`; lease-holding
+    ///   views only, owner recorded as `ProbePrincipal::View`.
+    /// - `"abort_capture"` — `params.view_id` + `params.key` →
+    ///   `probe_abort_capture`; recorded owner only.
+    ///
     /// Every action goes through `ControlSession`'s probe surface
     /// with the attached engine's `ProbeTraceBridge` as the per-call
     /// port — the session stays the single correlation/drain owner.
@@ -3175,17 +3373,39 @@ impl SynvelisApp {
     ///
     /// # Errors
     /// [`ErrorBody`] on invalid parameters, an unknown action, a
-    /// missing routing engine, or a session/port rejection.
+    /// missing routing engine, or a session/port rejection
+    /// (`NotSubscriber`/`NotCaptureOwner` map to `INVALID_PARAMS`).
     pub fn op_probe_control(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let action = str_param(params, "action")?;
         // Validate the action before the engine check — a malformed
         // request is a param fault regardless of attachment state.
         if !matches!(
             action,
-            "request" | "set_mode" | "capture" | "stop_capture" | "remove"
+            "request"
+                | "set_mode"
+                | "capture"
+                | "stop_capture"
+                | "remove"
+                | "subscribe"
+                | "unsubscribe"
+                | "capture_for"
+                | "abort_capture"
         ) {
             return Err(invalid(format!("params.action: unknown action {action:?}")));
         }
+        // View-scoped actions resolve their subscriber up front —
+        // adoption mutates the workspace registry, so it must precede
+        // the session borrow inside the bridge closure. `view_id` is
+        // required (no implicit main-view default): a probe lease is
+        // per-view ownership and must never attach silently.
+        let subscriber = if matches!(
+            action,
+            "subscribe" | "unsubscribe" | "capture_for" | "abort_capture"
+        ) {
+            Some(self.sf_view_instance(str_param(params, "view_id")?)?)
+        } else {
+            None
+        };
         let engine = self
             .routing_engine
             .clone()
@@ -3203,7 +3423,7 @@ impl SynvelisApp {
                         .control_with(|control, project| {
                             control.probe_request(project, port, target, point, kind, mode)
                         })
-                        .map_err(probe_trace_err)?;
+                        .map_err(|e| probe_trace_err(&e))?;
                     let targets: Vec<String> = session
                         .control()
                         .probe_targets(key)
@@ -3218,7 +3438,7 @@ impl SynvelisApp {
                     session
                         .control_mut()
                         .probe_set_mode(port, key, mode)
-                        .map_err(probe_trace_err)?;
+                        .map_err(|e| probe_trace_err(&e))?;
                     Ok(json!({ "key": key, "mode": mode }))
                 }
                 "capture" => {
@@ -3227,7 +3447,7 @@ impl SynvelisApp {
                     session
                         .control_mut()
                         .probe_capture(port, key, max_frames)
-                        .map_err(probe_trace_err)?;
+                        .map_err(|e| probe_trace_err(&e))?;
                     Ok(json!({ "key": key, "max_frames": max_frames }))
                 }
                 "stop_capture" => {
@@ -3235,7 +3455,7 @@ impl SynvelisApp {
                     session
                         .control_mut()
                         .probe_stop_capture(port, key)
-                        .map_err(probe_trace_err)?;
+                        .map_err(|e| probe_trace_err(&e))?;
                     Ok(json!({ "key": key }))
                 }
                 "remove" => {
@@ -3243,20 +3463,22 @@ impl SynvelisApp {
                     session
                         .control_mut()
                         .probe_remove(port, key)
-                        .map_err(probe_trace_err)?;
+                        .map_err(|e| probe_trace_err(&e))?;
                     Ok(json!({ "key": key, "removed": true }))
                 }
-                _ => Err(invalid(format!("params.action: unknown action {action:?}"))),
+                _ => probe_control_view_scoped(session, port, params, action, subscriber),
             }
         })?;
         self.ui_pump();
         Ok(result)
     }
 
-    /// `syn.probe.state` — probe projection (SF-04 slice 4):
-    /// binding ledger (requested vs RT-confirmed mode and resolve
-    /// state kept distinct — pending is never shown as observed),
-    /// closed capture segments, the last drain report, and routed
+    /// `syn.probe.state` — probe projection (SF-04 slice 4, lease
+    /// ownership SF-05 slice3): binding ledger (requested vs
+    /// RT-confirmed mode and resolve state kept distinct — pending
+    /// is never shown as observed) with per-key lease `holders` and
+    /// `capture_owner`, the view→keys `subscribers` map, closed
+    /// capture segments, the last drain report, and routed
     /// `observed` trace slots. Read-only: it never drains. With no
     /// routing engine attached it reports `engine_attached:false`
     /// and empty collections rather than erroring, so consumers can
@@ -3267,6 +3489,7 @@ impl SynvelisApp {
             return json!({
                 "engine_attached": false,
                 "bindings": [],
+                "subscribers": [],
                 "segments": [],
                 "drain": probe_drain_json(ProbeDrainReport::default()),
                 "traces": [],
@@ -3294,6 +3517,35 @@ impl SynvelisApp {
                         "confirmed_mode": binding.confirmed_mode,
                         "state": binding.state,
                         "last_status": binding.last_status.as_ref().map(probe_status_json),
+                        "holders": control
+                            .probe_lease_holders(*key)
+                            .into_iter()
+                            .map(probe_principal_str)
+                            .collect::<Vec<_>>(),
+                        "capture_owner": control
+                            .probe_capture_owner(*key)
+                            .map(probe_principal_str),
+                    })
+                })
+                .collect();
+            // View→keys subscriber map: every leased key has a live
+            // binding, so unioning `View` holders across the binding
+            // ledger covers every subscriber. `probe_subscriber_keys`
+            // reads the session's `by_view` reverse index.
+            let mut subscriber_views = BTreeSet::new();
+            for key in port.probe_bindings().keys() {
+                for holder in control.probe_lease_holders(*key) {
+                    if let ProbePrincipal::View(inst) = holder {
+                        subscriber_views.insert(inst);
+                    }
+                }
+            }
+            let subscribers: Vec<Value> = subscriber_views
+                .into_iter()
+                .map(|inst| {
+                    json!({
+                        "view_id": format!("view-{}", inst.get()),
+                        "keys": control.probe_subscriber_keys(inst),
                     })
                 })
                 .collect();
@@ -3316,6 +3568,7 @@ impl SynvelisApp {
             json!({
                 "engine_attached": true,
                 "bindings": bindings,
+                "subscribers": subscribers,
                 "segments": segments,
                 "drain": probe_drain_json(drain),
                 "traces": traces,

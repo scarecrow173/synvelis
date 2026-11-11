@@ -4,6 +4,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-sf05s3probeShareWiring01 | SF-05 slice3 probe subscriber/capture dedup の app/UI 配線 | in-progress | [sf-05-slice3-probe-subscriber-wiring-slice.md](sf-05-slice3-probe-subscriber-wiring-slice.md) |
 | IMPL-034VpPQEAhdWyygKYS7mb9 | SF-04 slice5 probe subscriber window ownership | in-progress | [sf-04-slice5-probe-subscriber-window-ownership.md](sf-04-slice5-probe-subscriber-window-ownership.md) |
 | IMPL-034V1FQ09PSOnyDawvKX60 | CTL-02 Strip/Send Host Parameter 正本・Plugin Binding・Routing | completed | [ctl-02-strip-send-host-parameter-plugin-binding-routing.md](ctl-02-strip-send-host-parameter-plugin-binding-routing.md) |
 | IMPL-034UvgCFl4bXw9DZ4bTr3X | SF-04 slice2 ControlSession probe observation → ControlTrace 配線 | in-progress | [sf-04-slice2-controlsession-probe-observation-trace-wiring.md](sf-04-slice2-controlsession-probe-observation-trace-wiring.md) |
@@ -98,3 +99,5 @@ Directory: `docs/impl/ir`
 | IMPL-034Vsqaiq4B9YQrsfPw8Sb | TIM-03 session→driver/routing wiring — BoundarySessionSpec vend・driver session/mirror・routing scoped API | completed | [tim-03-session-driver-wiring-slice.md](tim-03-session-driver-wiring-slice.md) |
 | IMPL-PCc4030bs3vN1pQ8wXyZ2aG | PC-C4-03 param observation — host drain → ParamDispatch ledger | completed | [pc-c4-03-param-observation-slice.md](pc-c4-03-param-observation-slice.md) |
 | IMPL-034VvMRwKN7mUk0Wv50AKg | PC-C4-05 persisted StablePluginInstanceId — schema v13 + player hydration | in-progress | [pc-c4-05-persisted-stableplugininstanceid-schema-v13-player-hydration.md](pc-c4-05-persisted-stableplugininstanceid-schema-v13-player-hydration.md) |
+| IMPL-034Vu50fg7S7yCp4bni412 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証 | completed | [tim-01-app-ppqn-slice.md](tim-01-app-ppqn-slice.md) |
+| IMPL-RCD01rbkSl1cE9mQ2xW | RCD-01 実Audio Device 到達準備 — stamp placement fallback（jitter 許容の累積配置）+ real backend 配線 | completed | [rcd-01-real-backend-readiness-slice.md](rcd-01-real-backend-readiness-slice.md) |

@@ -46,6 +46,7 @@ Directory: `docs/specs`
 | SPEC-IY7kQwMIWqb4sFVpvsHnQy | PC-C6 headless oracle — REL01〜07 / TR01〜08 fixture（RelationIndex・ControlTrace 独立照合） | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
 | SPEC-034VmUDawn7YGP2Vh36vnP | PC-C6 headless oracle — R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 fixture（Recording・Plugin・GUI/RT 横断 Gate） | approved | [pc-c6-oracle-rows.md](./pc-c6-oracle-rows.md) |
 | SPEC-034V2ghdXlh1m9UFtt5ks1 | RCD-01 実Audio Device録音統合 headless slice — Mock Input→Raw Writer/Journal→Arm/Punch/Loop・Fail-stop Fixture（synvelis#115） | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
+| SPEC-gut3XVRAIUtMHADNZBNFHC | RCD-01 実Audio Device 到達準備 — stamp placement fallback + real backend 配線（synvelis#115） | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
 | SPEC-034UoScGX6dIi25hMurqCI | RCD-01 Recording Input Adapter — channel binding・Arm/Monitor・fake port fail-stop（synvelis#115 slice） | proposed | [rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md](./rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md) |
 | SPEC-034VpjuNHFlkvgLqAJQGHJ | RCD-02 StagedFile Publish Migration — synvelis#116 slice | approved | [rcd-02-stagedfile-publish-migration.md](./rcd-02-stagedfile-publish-migration.md) |
 | SPEC-034VdSvFA9X0ESbckrSvBI | RCD-03 app Arm/Monitoring UX + project projection slice — synvelis#117 | proposed | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
@@ -71,6 +72,7 @@ Directory: `docs/specs`
 | SPEC-034VphYPdMdjVaJWKkDJHg | SF-04 slice5 — probe subscriber/window ownership（session 層 lease・capture owner） | approved | [sf-04-slice5-probe-subscriber-ownership.md](./sf-04-slice5-probe-subscriber-ownership.md) |
 | SPEC-034Uuc3q3FZYT5JjxQtDv9 | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | approved | [sf-05-signal-flow-headless-hierarchy.md](./sf-05-signal-flow-headless-hierarchy.md) |
 | SPEC-hhfyzYWYjCwiqdwtsN8Add | SF-05 slice2 Signal Flow — Port Drag gesture + inspection focus + per-view persist（SF-UX-03/04/07） | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
+| SPEC-kX9mQvR2wTbLpNcJyH4sDf | SF-05 slice3 Signal Flow — probe subscriber/capture dedup の app/UI 配線（SF-UX-06 headless 側） | approved | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
 | SPEC-034V2wnQPWFJdKz68KlwJG | SF-06 cross-gate Domain Oracle・Case ID・Fault Fixture・evidence ledger（headless slice） | approved | [sf-06-cross-gate-oracle-case-ledger.md](./sf-06-cross-gate-oracle-case-ledger.md) |
 | SPEC-JQYNMchouBVGrijHyiBC2d | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture（headless slice） | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | SPEC-ZXEWFEbx3k4Jeu4YDEQcD0 | SV-GPUI-01 Native App Shell — Driver-neutral shell・GPUI Driver組立・typed ViewModel↔Binding adapter・app lifecycle | approved | [sv-gpui-01-native-app-shell.md](./sv-gpui-01-native-app-shell.md) |
@@ -90,6 +92,7 @@ Directory: `docs/specs`
 | SPEC-034T29C9D8CIvYjMxmQIy8 | SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行 | approved | [syn-io-02-snapshot-head-staged-publish.md](./syn-io-02-snapshot-head-staged-publish.md) |
 | SPEC-034RBvYIlw0wiBoGsL9EBY | SYN-OBS-01 Ruviform observability 単一crate Logging/Host統合 | proposed | [syn-obs-01-ruviform-observability-crate-logging-host.md](./syn-obs-01-ruviform-observability-crate-logging-host.md) |
 | SPEC-034T2RF305WAVSTAGED00X | SYN-RF305 WAV Export/Player StagedFile 移行 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
+| SPEC-034Vtz2CrUpwevHTLxDLm6 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証（synvelis-app slice） | approved | [tim-01-app-ppqn.md](./tim-01-app-ppqn.md) |
 | SPEC-034UHVLQ9dtoN4YQDjtCy3 | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | approved | [tim-01-configurable-ppqn-project-command.md](./tim-01-configurable-ppqn-project-command.md) |
 | SPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 slice (synvelis#126) | proposed | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | SPEC-034UwMIulZ7DXWykQFy704 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice (synvelis#126) | proposed | [tim-02-smf-format01-import-export.md](./tim-02-smf-format01-import-export.md) |

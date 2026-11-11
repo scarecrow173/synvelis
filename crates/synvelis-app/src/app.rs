@@ -17,6 +17,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use ruviform_media_core::Rounding;
 use ruviform_observability::logging::{HealthSnapshot, LoggingHealth, SinkDegraded};
 use ruviform_observability::source::{
     CounterDescriptor, CounterSource, MetricSource, ObservationScope, ObservationUnit,
@@ -24,13 +25,15 @@ use ruviform_observability::source::{
 };
 use ruviform_observability::{Counter, counter};
 use ruviform_ui::BackendReport;
+use ruviform_ui::ipc::{ErrorBody, codes};
 use ruviform_ui::view::{AttachEpoch, AttachEpochAllocator};
 use serde_json::{Value, json};
 
 use synvelis_project::vcs::VcsHistoryBackend;
 use synvelis_project::{
-    ControlEntityRef, CounterIdGenerator, DirectoryBundleStore, ParameterTargetId, Project,
-    ProjectController, ProjectId, RelationDirection,
+    ControlEntityRef, CounterIdGenerator, DirectoryBundleStore, ParameterTargetId,
+    PpqnConversionPolicy, Project, ProjectController, ProjectId, ProjectOp, ProjectRevision,
+    RelationDirection,
 };
 use synvelis_workspace::{
     ProjectSession, SignalFlowRuntimeEvidence, SignalFlowView, SignalFlowViewOptions,
@@ -681,9 +684,68 @@ impl SynvelisApp {
             "name": project.name,
             "project_id": project.project_id.to_tagged(),
             "revision": self.workspace.session().controller().live_revision().0,
+            "ppqn": project.ppqn.0,
             "saved": self.workspace.session().controller().saved().is_some(),
             "store": self.store.is_some(),
         })
+    }
+
+    /// `syn.project.set_ppqn` — changes the project PPQN through
+    /// [`ProjectOp::SetProjectPpqn`] (TIM-01 app slice, synvelis#125).
+    ///
+    /// The app layer owns the wire mapping and the session
+    /// preconditions the project layer cannot see: transport stopped,
+    /// no open recording transaction (merge-commit in flight), and
+    /// automation record disabled. The `old_ppqn` CAS, the
+    /// `expected_revision` CAS, the `1..=32767` range, and musical
+    /// re-projection stay authoritative in `synvelis-project` — this
+    /// method never duplicates them.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] with `codes::INVALID_PARAMS` on malformed params,
+    /// a violated precondition, or a project-layer rejection — the
+    /// message carries the reason either way.
+    pub fn project_set_ppqn(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let old_ppqn = ppqn_param(params, "old_ppqn")?;
+        let new_ppqn = ppqn_param(params, "new_ppqn")?;
+        let policy = ppqn_policy(params)?;
+        let expected_revision = match params.get("expected_revision") {
+            None | Some(Value::Null) => self.workspace.session().revision(),
+            Some(v) => ProjectRevision(
+                v.as_u64()
+                    .ok_or_else(|| invalid_params("params.expected_revision (u64) required"))?,
+            ),
+        };
+        {
+            let session = self.workspace.session();
+            if session.transport().playing {
+                return Err(invalid_params(
+                    "transport is playing — stop transport before changing project ppqn",
+                ));
+            }
+            if session.control().recording().is_some() {
+                return Err(invalid_params(
+                    "recording transaction open — commit or abort it before changing project ppqn",
+                ));
+            }
+            if session.control().record_enabled() {
+                return Err(invalid_params(
+                    "automation record is enabled — disable it before changing project ppqn",
+                ));
+            }
+        }
+        self.workspace
+            .session_mut()
+            .apply(
+                ProjectOp::SetProjectPpqn {
+                    old_ppqn,
+                    new_ppqn,
+                    policy,
+                },
+                expected_revision,
+            )
+            .map_err(|e| invalid_params(format!("syn.project.set_ppqn: {e}")))?;
+        Ok(self.project_info())
     }
 
     /// Recording-state projection for `syn.recording.info` — the
@@ -856,5 +918,64 @@ impl SynvelisApp {
                 "capabilities": self.capabilities(),
             }),
         }
+    }
+}
+
+// -- `syn.project.set_ppqn` wire helpers -----------------------------------
+
+fn invalid_params(message: impl Into<String>) -> ErrorBody {
+    ErrorBody::new(codes::INVALID_PARAMS, message)
+}
+
+fn ppqn_param(params: &Value, key: &str) -> Result<u32, ErrorBody> {
+    let value = params
+        .get(key)
+        .and_then(Value::as_u64)
+        .ok_or_else(|| invalid_params(format!("params.{key} (u64) required")))?;
+    u32::try_from(value).map_err(|_| invalid_params(format!("params.{key} exceeds u32 range")))
+}
+
+/// Maps the wire `policy`/`rounding` strings onto
+/// [`PpqnConversionPolicy`]. The policy is required command input —
+/// a PPQN change can never silently quantize a stored musical
+/// position — and `round` requires an explicit ruviform rounding.
+fn ppqn_policy(params: &Value) -> Result<PpqnConversionPolicy, ErrorBody> {
+    let policy = params
+        .get("policy")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid_params("params.policy (string) required"))?;
+    let rounding = match params.get("rounding") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            v.as_str()
+                .ok_or_else(|| invalid_params("params.rounding (string) required"))?,
+        ),
+    };
+    match (policy, rounding) {
+        ("exact", None) => Ok(PpqnConversionPolicy::Exact),
+        ("exact", Some(_)) => Err(invalid_params(
+            "params.rounding is only valid with policy \"round\"",
+        )),
+        ("round", Some(r)) => {
+            let rounding = match r {
+                "floor" => Rounding::Floor,
+                "ceil" => Rounding::Ceil,
+                "toward_zero" => Rounding::TowardZero,
+                "away_from_zero" => Rounding::AwayFromZero,
+                "nearest_even" => Rounding::NearestEven,
+                _ => {
+                    return Err(invalid_params(format!(
+                        "params.rounding: unknown rounding {r:?}"
+                    )));
+                }
+            };
+            Ok(PpqnConversionPolicy::Round(rounding))
+        }
+        ("round", None) => Err(invalid_params(
+            "params.rounding required when policy is \"round\"",
+        )),
+        (other, _) => Err(invalid_params(format!(
+            "params.policy: unknown policy {other:?}"
+        ))),
     }
 }
