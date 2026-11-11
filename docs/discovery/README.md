@@ -18,6 +18,7 @@ Directory: `docs/discovery`
 | DISC-034U2L1N2kWQrSPjNRT7Vf | Issue #184 CI verify/evidence 失敗 — 非 canonical temp 綴りと symlink fixture | resolved | [issue-184-ci-verify-symlink-fixture.md](./issue-184-ci-verify-symlink-fixture.md) |
 | DISC-99vL2v7VILngzJrF9fbNos | L1 Discovery — Local WAV Safe Import・Verified Media・Headless Generic Graph Playback | resolved | [l1-local-wav-verified-playback-discovery.md](./l1-local-wav-verified-playback-discovery.md) |
 | DISC-034Qmb93ek3YXoxaRPDBBD | L2 Discovery — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | resolved | [l2-master-sequential-offline-wav-export-discovery.md](./l2-master-sequential-offline-wav-export-discovery.md) |
+| DISC-034VG2eVX55D1hI610carh | plugin_instances VCS semantic diff gap — persisted instance identity invisible to compare_snapshots | resolved | [plugin-instances-vcs-diff-gap.md](./plugin-instances-vcs-diff-gap.md) |
 | DISC-034Ux6PrPhfKsxfYRXYkPJ | SF-03 semantic→Ruviform runtime 写像 — 現状棚卸しと設計ギャップ | resolved | [sf-03-map-current-state-inventory.md](./sf-03-map-current-state-inventory.md) |
 | DISC-p1cxf6X5hKAAYXCVPyHLTu | SV175 Native App Shell 棚卸し — 既存 composition root・headless Binding・利用可能 Ruviform 契約・RF387 依存 gap | resolved | [sv175-native-shell-inventory.md](./sv175-native-shell-inventory.md) |
 | DISC-034T6XSXfrmJPxTvbinHT6 | SV177 製品 Theme/Workspace 棚卸し — 既存 Theme・Workspace 永続化・RF385 契約状況 | resolved | [sv177-product-theme-workspace-inventory.md](./sv177-product-theme-workspace-inventory.md) |
