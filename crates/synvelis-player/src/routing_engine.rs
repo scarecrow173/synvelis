@@ -15,11 +15,16 @@
 //!   is `SpeculativeMismatch`, capability drift is
 //!   `PluginCapabilityChanged` — a stale plan can never displace a
 //!   newer committed snapshot, and an out-of-order generation is
-//!   `Superseded`.
+//!   `Superseded`. Capability drift covers both halves of the pin:
+//!   the project-side port/processor capability sum inside the
+//!   build key *and* the [`ProcessorHost::capability_generation`]
+//!   captured at `prepare` (host registrations the project
+//!   fingerprint cannot see).
 //! - `reconcile` re-checks the published plan's build key and source
-//!   map against the live committed snapshot and RT counters,
-//!   recording every drift aspect as a typed [`RoutingFault`] while
-//!   the last-good plan stays live.
+//!   map against the live committed snapshot, the live host
+//!   capability generation and RT counters, recording every drift
+//!   aspect as a typed [`RoutingFault`] while the last-good plan
+//!   stays live.
 //! - Generation-tagged stale events/commands are rejected by
 //!   `RtRuntime` itself and counted on `SharedStatus`; the engine
 //!   surfaces that counter through `reconcile`, it does not
@@ -164,6 +169,13 @@ pub struct PreparedRouting {
     /// Host connections for this build's chain processors —
     /// committed to the engine's generation ledger on `publish`.
     connections: Vec<RetainedConnection>,
+    /// [`ProcessorHost::capability_generation`] captured at
+    /// `prepare` — the host-side half of the capability pin. Kept
+    /// per-prepare (not in the shared ledger) so two outstanding
+    /// prepares each carry the generation *they* were built under;
+    /// `publish` rejects the bundle when the live host generation
+    /// has moved (`PluginCapabilityChanged`).
+    host_capability_generation: u64,
 }
 
 /// The outcome of [`RoutingEngine::prepare`]: either a freshly
@@ -273,6 +285,14 @@ struct Ledger {
     last_stale_commands: u64,
     last_retire_overflows: u64,
     last_plan_retire_overflows: u64,
+    /// Host capability generation the last published plan was built
+    /// under — `Some` once a publish commits (always paired with
+    /// `published_generation`). `reconcile` and the `NoRebuild`
+    /// equivalence probe compare it against the live host so
+    /// host-side drift surfaces as `CapabilityGeneration` /
+    /// `PluginCapabilityChanged` instead of hiding behind the
+    /// project fingerprint.
+    published_host_capability_generation: Option<u64>,
 }
 
 /// Deterministic semantic-routing playback/activation engine.
@@ -423,6 +443,11 @@ impl RoutingEngine {
         deps: RoutingDeps<'_>,
     ) -> Result<RoutingPrepare, RoutingFault> {
         let key = self.checked_key(request, project, revision, &deps)?;
+        // Host-side capability pin: captured before any connect so
+        // the value describes the provisioning state this build
+        // assumes — `connect` consumption is part of the build, not
+        // drift (see `ProcessorHost::capability_generation`).
+        let host_capability_generation = self.host.capability_generation();
 
         // NoRebuild equivalence: runs after `checked_key` so stale
         // candidates, wrong epochs and under-budgeted requests are
@@ -534,6 +559,7 @@ impl RoutingEngine {
             drain_nonces,
             stats,
             connections,
+            host_capability_generation,
         })))
     }
 
@@ -544,17 +570,23 @@ impl RoutingEngine {
     /// the explicit rebuild path. Pending published-but-not-yet-
     /// active plans count as live evidence — their key is what RT
     /// will run once observed.
+    ///
+    /// Host-side capability drift also defeats equivalence: the live
+    /// plan's attach/catalog/factory evidence no longer matches what
+    /// a rebuild would provision, so the prepare must build fresh
+    /// rather than skip onto stale capability evidence.
     fn equivalence(&self, key: &RoutingBuildKey) -> Option<ExecutionEquivalence> {
         let source_map = self.source_map.as_ref()?;
         let live = &source_map.build_key;
-        (live.project_revision != key.project_revision && live.semantic_eq(key)).then(|| {
-            ExecutionEquivalence {
+        let host_current = self.ledger.published_host_capability_generation
+            == Some(self.host.capability_generation());
+        (live.project_revision != key.project_revision && live.semantic_eq(key) && host_current)
+            .then(|| ExecutionEquivalence {
                 configured_project_revision: key.project_revision,
                 active_built_from_revision: live.project_revision,
                 matching_semantic_build_key: live.clone(),
                 plan_generation: source_map.generation,
-            }
-        })
+            })
     }
 
     /// Builds the [`RoutingBuildKey`] for `project@revision` and
@@ -800,13 +832,15 @@ impl RoutingEngine {
     /// Publishes a [`PreparedRouting`] after re-validating it against
     /// the live project: the committed revision must still equal the
     /// prepared key's, the semantic fingerprint must not have drifted
-    /// (`SpeculativeMismatch`), the capability generation must not
-    /// have changed (`PluginCapabilityChanged`), the prepared bundle
-    /// must be internally coherent (`BadSourceMap`), and its
-    /// generation must be newer than the last published plan
-    /// (`Superseded`). On success the staged playback state commits
-    /// and the receipt moves to `Published` — non-RT evidence only;
-    /// `Active` still requires RT observation.
+    /// (`SpeculativeMismatch`), neither capability generation may
+    /// have moved — the project-side sum inside the key nor the
+    /// [`ProcessorHost::capability_generation`] pinned at `prepare`
+    /// (`PluginCapabilityChanged`) — the prepared bundle must be
+    /// internally coherent (`BadSourceMap`), and its generation must
+    /// be newer than the last published plan (`Superseded`). On
+    /// success the staged playback state commits and the receipt
+    /// moves to `Published` — non-RT evidence only; `Active` still
+    /// requires RT observation.
     ///
     /// # Errors
     /// [`RoutingFault::StaleProjectSnapshot`] /
@@ -831,7 +865,16 @@ impl RoutingEngine {
         if routing_fingerprint(project) != key.routing_fingerprint {
             return Err(self.blocked(request_id, &key, RoutingFault::SpeculativeMismatch));
         }
-        if port_capability_generation(project) != key.capability_generation {
+        // Capability drift has two halves: the project-side port /
+        // processor capability sum inside the build key, and the
+        // host-side generation pinned at `prepare` — boundary
+        // declarations, parameter catalogs and factory/route
+        // registrations the project fingerprint cannot see. Either
+        // moving rejects the publish before the plan reaches the
+        // runtime.
+        if port_capability_generation(project) != key.capability_generation
+            || prepared.host_capability_generation != self.host.capability_generation()
+        {
             return Err(self.blocked(request_id, &key, RoutingFault::PluginCapabilityChanged));
         }
 
@@ -892,6 +935,11 @@ impl RoutingEngine {
                     .retain(|g, _| *g == generation || *g == active);
                 self.ledger.published_generation = Some(generation);
                 self.ledger.published_request_id = Some(request_id);
+                // The publish gate already proved this equals the
+                // live host generation — pin it so `reconcile` and
+                // the `NoRebuild` probe detect later host drift.
+                self.ledger.published_host_capability_generation =
+                    Some(prepared.host_capability_generation);
                 self.ledger.pending = Some(PendingActivation {
                     key: key.clone(),
                     request_id,
@@ -921,17 +969,19 @@ impl RoutingEngine {
     }
 
     /// Reconciles the last published plan against the live committed
-    /// snapshot and the RT status counters. Every drift aspect is
-    /// reported in [`RoutingReconcileReport::mismatches`]; when any
-    /// exists, the highest-precedence one is recorded on the
-    /// activation receipt as `Blocked` while the last-good plan stays
-    /// live. A clean reconcile leaves the receipt untouched.
+    /// snapshot, the live host capability generation and the RT
+    /// status counters. Every drift aspect is reported in
+    /// [`RoutingReconcileReport::mismatches`]; when any exists, the
+    /// highest-precedence one is recorded on the activation receipt
+    /// as `Blocked` while the last-good plan stays live. A clean
+    /// reconcile leaves the receipt untouched.
     ///
     /// This is the pre-publish/pre-retry gate: it detects stale CAS,
-    /// semantic/capability/format/epoch drift, source-map identity
-    /// corruption, RT counter regressions and overdue activations —
-    /// so a speculative plan with zero publishes can never slip past
-    /// a changed live state.
+    /// semantic/capability/format/epoch drift (capability covers the
+    /// project-side sum *and* the host-side generation pinned at
+    /// publish), source-map identity corruption, RT counter
+    /// regressions and overdue activations — so a speculative plan
+    /// with zero publishes can never slip past a changed live state.
     ///
     /// Fault precedence (first match wins): `BadSourceMap` →
     /// `StaleProjectSnapshot` → `SpeculativeMismatch` →
@@ -983,7 +1033,14 @@ impl RoutingEngine {
         if routing_fingerprint(project) != key.routing_fingerprint {
             mismatches.push(RoutingReconcileMismatch::RoutingFingerprint);
         }
-        if port_capability_generation(project) != key.capability_generation {
+        // Capability drift: the project-side sum inside the build
+        // key plus the host-side generation the published plan was
+        // built under — host registrations the project fingerprint
+        // cannot see.
+        if port_capability_generation(project) != key.capability_generation
+            || self.ledger.published_host_capability_generation
+                != Some(self.host.capability_generation())
+        {
             mismatches.push(RoutingReconcileMismatch::CapabilityGeneration);
         }
         if engine_config_generation != key.engine_config_generation {

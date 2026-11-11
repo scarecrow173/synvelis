@@ -518,9 +518,14 @@ pub struct RoutingReceipt {
 
 /// The port/processor capability generation an intent is authored
 /// against: a fingerprint of every resolved plugin binding
-/// (`ProcessorBinding::Resolved` and `PluginDeclared` port bindings).
-/// Any reconfigure or rebind changes it, so an intent authored against
-/// the previous view rejects.
+/// (`ProcessorBinding::Resolved` and `PluginDeclared` port bindings)
+/// *inside the project model*. Any reconfigure or rebind changes it,
+/// so an intent authored against the previous view rejects.
+///
+/// This is the project-side half of the capability pin only —
+/// processor-host state (boundary/catalog/factory registrations)
+/// lives outside `Project` and is tracked separately by the runtime
+/// engine's build/publish/reconcile gates (SF-03 slice 9).
 #[must_use]
 pub fn port_capability_generation(project: &Project) -> u64 {
     let processors: u64 = project
