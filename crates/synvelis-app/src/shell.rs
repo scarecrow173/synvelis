@@ -71,7 +71,9 @@ use serde_json::{Value, json};
 
 use ruviform_ui::driver::{DriverEvent, WindowDriver, WindowLifecycle, WindowSpec};
 use ruviform_ui::ipc::{ErrorBody, Event, LifecycleState, codes};
-use ruviform_ui::view::{AttachEpoch, AttachEpochAllocator, TAB_SELECT_ACTION};
+use ruviform_ui::view::{
+    AttachEpoch, AttachEpochAllocator, TAB_SELECT_ACTION, TABLE_SELECT_ACTION,
+};
 use ruviform_ui::window::{CloseDecision, RoutedEvent, WindowId};
 use ruviform_ui::{DataRegistry, UiError, UiRuntime};
 
@@ -805,7 +807,7 @@ impl NativeShell {
                 return;
             }
             if target == VIEW_STATE_TARGET {
-                Self::answer_view_state_action(driver, window, &cmd.command_id, action);
+                self.answer_view_state_action(window, &view, &cmd, driver);
                 return;
             }
         }
@@ -861,24 +863,81 @@ impl NativeShell {
         }
     }
 
-    /// Acknowledges a view-local action. The Tabs strip moves its display
+    /// Answers a view-local action. The Tabs strip moves its display
     /// optimistically and settles on this receipt, so an accepted
-    /// `tab-select` keeps the tab and a refused one restores the previous.
+    /// `tab-select` keeps the tab and a refused one restores the
+    /// previous. The Arrangement table's `select` action is different:
+    /// it mutates the view's `ObjectSelections`/inspector focus —
+    /// view-local workspace state reached through `syn.view.select`,
+    /// whose `Result` settles the row selection the same way (an
+    /// out-of-range or detached view restores the previous row).
     fn answer_view_state_action(
-        driver: &mut dyn WindowDriver,
+        &mut self,
         window: WindowId,
-        command_id: &str,
-        action: &str,
+        view: &str,
+        cmd: &crate::binding::ViewCommand,
+        driver: &mut dyn WindowDriver,
     ) {
+        let action = match &cmd.intent {
+            CommandIntent::Action { action, .. } => action.as_str(),
+            _ => unreachable!("view-state branch only sees Action intents"),
+        };
         if action == TAB_SELECT_ACTION {
-            driver.post_event(window, &Event::result_ok(command_id, json!({})));
-        } else {
+            driver.post_event(window, &Event::result_ok(&cmd.command_id, json!({})));
+            return;
+        }
+        if action == TABLE_SELECT_ACTION {
+            self.dispatch_view_select(
+                window,
+                view,
+                &cmd.command_id,
+                cmd.action_params.as_ref(),
+                driver,
+            );
+            return;
+        }
+        Self::reject_view_command(
+            driver,
+            window,
+            cmd.command_id.clone(),
+            format!("unknown view action {action}"),
+        );
+    }
+
+    /// Routes a table `select` action to `syn.view.select` — the op
+    /// resolves `params.row` against the view's arrangement read
+    /// model and writes the authoritative `ObjectSelections` +
+    /// inspector focus. A missing/malformed `row` is refused here so
+    /// the view's optimistic selection rolls back.
+    fn dispatch_view_select(
+        &mut self,
+        window: WindowId,
+        view: &str,
+        command_id: &str,
+        params: Option<&Value>,
+        driver: &mut dyn WindowDriver,
+    ) {
+        let row = params
+            .and_then(|p| p.get("row"))
+            .and_then(Value::as_u64)
+            .and_then(|v| usize::try_from(v).ok());
+        let Some(row) = row else {
             Self::reject_view_command(
                 driver,
                 window,
                 command_id.to_string(),
-                format!("unknown view action {action}"),
+                "select action requires params.row (u64)".to_string(),
             );
+            return;
+        };
+        let intent = ruviform_ui::ipc::Intent::new(
+            command_id,
+            "syn.view.select",
+            json!({ "view_id": view, "row": row }),
+        );
+        for re in self.rt.dispatch_window_intent(window, intent) {
+            self.observe_result(&re);
+            self.post_routed(&re, driver);
         }
     }
 

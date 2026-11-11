@@ -62,6 +62,7 @@
 //! GPUI/OS/DOM. **RT contract:** non-RT only.
 
 use std::cell::RefCell;
+use std::ops::Range;
 use std::rc::Rc;
 
 use ruviform_ui::UiError;
@@ -69,8 +70,9 @@ use ruviform_ui::behavior::{DetachPolicy, ValueDescriptor};
 use ruviform_ui::dock::ViewInstanceId;
 use ruviform_ui::view::{
     A11yRole, A11ySpec, AttachEpochAllocator, ButtonSpec, CellValue, ComponentKey, ComponentSpec,
-    ComponentVisualState, ControlSpec, LabelSpec, Orientation, PanelSpec, TabSpec, TableSpec,
-    TabsSelectionSpec, TabsSpec, ViewHost, ViewSpec,
+    ComponentVisualState, ControlSpec, LabelSpec, MeterBin, MeterSpec, Orientation, PanelSpec,
+    TabSpec, TableSelectionSpec, TableSpec, TabsSelectionSpec, TabsSpec, ViewHost, ViewSpec,
+    WaveformBin, WaveformSpec,
 };
 use synvelis_project::{
     ControlModel, MASTER_FADER_RAW, ModulationAssignmentId, ParameterRole, ParameterTargetId,
@@ -233,16 +235,100 @@ pub struct InspectorRow {
     pub value: String,
 }
 
-/// Inspector tab state — the subscribed parameter target's
-/// `InspectorBreakdown` flattened to display rows. Slice 1 shows the
-/// view's subscribed param target (the mixer gain bootstrap); target
-/// selection UI is a later slice.
+/// Inspector tab state — the view's inspected target flattened to
+/// display rows. Slice 1 showed the subscribed parameter target's
+/// `InspectorBreakdown`; slice 4 rebinds the display to the view's
+/// `inspection_focus` [`synvelis_workspace::SemanticTarget`] when one
+/// is set (an Arrangement row selection drives it), falling back to
+/// the parameter breakdown while nothing is inspected.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct InspectorScreenState {
-    /// Tagged id of the displayed parameter target, if any.
+    /// Tagged id of the displayed target, if any.
     pub target: Option<String>,
-    /// Breakdown rows in display order.
+    /// Display rows in display order.
     pub rows: Vec<InspectorRow>,
+}
+
+/// Resolved waveform payload behind the Arrangement tab's
+/// `Waveform` component — the composition layer's projection of the
+/// main view's bound `syn.viz.*` waveform surface (synvelis#112
+/// slice 4). Bins are already frame-unit resolved and bounded; the
+/// component mounts unconditionally so an unbound source reads as
+/// honest empty bins plus [`Self::status`] text — never fabricated
+/// audio.
+#[derive(Clone, Debug, PartialEq)]
+pub struct WaveformScreenState {
+    /// Samples per second — the source's declared rate, or the
+    /// display media-rate convention when it declares none.
+    pub sample_rate: u32,
+    /// Channel count (`channel_bins.len()`).
+    pub channels: usize,
+    /// Per-channel total frame count.
+    pub frames: u64,
+    /// Viewport frame range the bins cover.
+    pub viewport: Range<u64>,
+    /// Resolved bins per channel (`<= MAX_WAVEFORM_BINS` total).
+    pub channel_bins: Vec<Vec<WaveformBin>>,
+    /// Surface status display text (`VizStatus` verbatim —
+    /// `"no source"`/`"awaiting data"`/`"stale"`/…).
+    pub status: String,
+}
+
+impl Default for WaveformScreenState {
+    fn default() -> Self {
+        Self {
+            // Display convention only — the bin payload stays empty
+            // until a real source resolves, so no audio is implied.
+            sample_rate: 48_000,
+            channels: 1,
+            frames: 0,
+            viewport: 0..0,
+            channel_bins: vec![Vec::new()],
+            status: "no source".to_string(),
+        }
+    }
+}
+
+/// Resolved level-meter payload behind the Mixer tab's `Meter`
+/// component — the composition layer's projection of the main view's
+/// bound `syn.viz.*` meter surface plus its bounded frame history
+/// (synvelis#112 slice 4). Same honesty contract as
+/// [`WaveformScreenState`]: empty bins + status text, never
+/// fabricated levels.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MeterScreenState {
+    /// Channel count (`channel_levels.len()`).
+    pub channels: usize,
+    /// Viewport frame range the level bins cover.
+    pub viewport: Range<u64>,
+    /// Resolved level bins per channel (`<= MAX_METER_BINS` total).
+    pub channel_levels: Vec<Vec<MeterBin>>,
+    /// Surface status display text (`VizStatus` verbatim).
+    pub status: String,
+}
+
+impl Default for MeterScreenState {
+    fn default() -> Self {
+        Self {
+            channels: 1,
+            viewport: 0..0,
+            channel_levels: vec![Vec::new()],
+            status: "no source".to_string(),
+        }
+    }
+}
+
+/// Meter/Waveform display state — the resolved `syn.viz.*` surface
+/// payloads the composition layer captures into the shared screen
+/// cell each UI pump (synvelis#112 slice 4). A sibling of the
+/// project-derived fields: refreshed only by
+/// `capture_screen_state`, never by `publish_project_length`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct VizScreenState {
+    /// Arrangement tab clip waveform payload.
+    pub waveform: WaveformScreenState,
+    /// Mixer tab master meter payload.
+    pub meter: MeterScreenState,
 }
 
 /// Relation table state — the subscribed parameter target's
@@ -352,6 +438,9 @@ pub struct MainScreenState {
     /// Mixer strip channel-toggle targets (synvelis#112 slice 3) —
     /// project-derived, refreshed by `publish_project_length`.
     pub mixer: MixerScreenState,
+    /// Meter/Waveform surface payloads (synvelis#112 slice 4) —
+    /// refreshed by the UI pump's screen-state capture.
+    pub viz: VizScreenState,
 }
 
 /// Targets the main view subscribes after attach — every driven
@@ -843,9 +932,12 @@ fn signal_flow_probes_table(rows: &[SignalFlowProbeRow]) -> ComponentSpec {
 
 /// The Arrangement table — the project-backed track/lane/clip read
 /// model resolved by the composition layer
-/// ([`synvelis_workspace::arrangement_rows`]). Read-only: `selection`
-/// is `None`, so it issues no intents; row selection → Inspector is a
-/// later slice (synvelis#112).
+/// ([`synvelis_workspace::arrangement_rows`]). Rows are selectable
+/// (synvelis#112 slice 4): a row press emits the view-local `select`
+/// action on [`VIEW_STATE_TARGET`] with `params {"row": n}`; the
+/// shell routes it to `syn.view.select`, which writes the view's
+/// `ObjectSelections` and drives the Inspector target. A rejected
+/// receipt restores the previous row (the `ViewHost` contract).
 fn arrangement_table(rows: &[ArrangementRow]) -> ComponentSpec {
     ComponentSpec::Table(TableSpec {
         key: key("arrangement.table"),
@@ -876,13 +968,96 @@ fn arrangement_table(rows: &[ArrangementRow]) -> ComponentSpec {
                 ]
             })
             .collect(),
-        selection: None,
+        selection: Some(TableSelectionSpec {
+            target: VIEW_STATE_TARGET.to_string(),
+        }),
         visual: ComponentVisualState::default(),
         a11y: A11ySpec {
             label: Some("Arrangement".to_string()),
             ..A11ySpec::default()
         },
     })
+}
+
+/// One visualization status readout — the bound `syn.viz.*` surface's
+/// honest `VizStatus` as text (`"no source"`/`"awaiting data"`/
+/// `"stale"`/`"source error: …"`), the non-color state channel that
+/// keeps an absent producer distinct from silence
+/// (synvelis#112 slice 4).
+fn viz_status_label(key_name: &str, a11y_label: &str, status: &str) -> ComponentSpec {
+    ComponentSpec::Label(LabelSpec {
+        key: key(key_name),
+        text: status.to_string(),
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some(a11y_label.to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The Arrangement tab's clip waveform — resolved bins projected
+/// from the view's bound `syn.viz.*` waveform surface. Mounted
+/// unconditionally: the status label carries the surface truth and an
+/// unbound source renders empty bins, never fabricated audio.
+fn waveform_component(w: &WaveformScreenState) -> ComponentSpec {
+    ComponentSpec::Waveform(WaveformSpec {
+        key: key("viz.waveform"),
+        sample_rate: w.sample_rate,
+        channels: w.channels,
+        frames: w.frames,
+        viewport: w.viewport.clone(),
+        channel_bins: w.channel_bins.clone(),
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Clip waveform".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The Arrangement tab's waveform block — status readout above the
+/// resolved `Waveform` component.
+fn waveform_panel(w: &WaveformScreenState) -> ComponentSpec {
+    panel(
+        "viz.waveform.panel",
+        None,
+        vec![
+            viz_status_label("viz.waveform.status", "Waveform status", &w.status),
+            waveform_component(w),
+        ],
+    )
+}
+
+/// The Mixer tab's master level meter — resolved level bins
+/// projected from the view's bound `syn.viz.*` meter surface plus
+/// its bounded frame history. Same unconditional-mount honesty
+/// contract as [`waveform_component`].
+fn meter_component(m: &MeterScreenState) -> ComponentSpec {
+    ComponentSpec::Meter(MeterSpec {
+        key: key("viz.meter"),
+        channels: m.channels,
+        channel_levels: m.channel_levels.clone(),
+        viewport: m.viewport.clone(),
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Master meter".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The Mixer tab's meter block — status readout above the resolved
+/// `Meter` component.
+fn meter_panel(m: &MeterScreenState) -> ComponentSpec {
+    panel(
+        "viz.meter.panel",
+        None,
+        vec![
+            viz_status_label("viz.meter.status", "Meter status", &m.status),
+            meter_component(m),
+        ],
+    )
 }
 
 /// The `Fader` the slice names — the mixer gain, bound to the
@@ -1369,74 +1544,7 @@ pub fn main_screen_spec(state: &MainScreenState) -> ViewSpec {
                     selection: Some(TabsSelectionSpec {
                         target: VIEW_STATE_TARGET.to_string(),
                     }),
-                    tabs: vec![
-                        TabSpec {
-                            key: key("tab.arrangement"),
-                            title: "Arrangement".to_string(),
-                            child: Box::new(panel(
-                                "tab.arrangement.panel",
-                                None,
-                                vec![arrangement_table(&state.arrangement_rows)],
-                            )),
-                        },
-                        TabSpec {
-                            key: key("tab.transport"),
-                            title: "Transport".to_string(),
-                            child: Box::new(panel(
-                                "tab.transport.panel",
-                                None,
-                                vec![
-                                    transport_status_label(&state.transport),
-                                    panel(
-                                        "transport.buttons",
-                                        None,
-                                        vec![
-                                            transport_button("transport.play", "Play", "play"),
-                                            transport_button("transport.stop", "Stop", "stop"),
-                                        ],
-                                    ),
-                                    transport_seek(seek_range),
-                                ],
-                            )),
-                        },
-                        TabSpec {
-                            key: key("tab.mixer"),
-                            title: "Mixer".to_string(),
-                            child: Box::new(panel(
-                                "tab.mixer.panel",
-                                None,
-                                vec![mixer_strip(&state.mixer)],
-                            )),
-                        },
-                        TabSpec {
-                            key: key("tab.inspector"),
-                            title: "Inspector".to_string(),
-                            child: Box::new(panel(
-                                "tab.inspector.panel",
-                                None,
-                                vec![
-                                    inspector_target_label(&state.inspector),
-                                    inspector_table(&state.inspector),
-                                    relation_label(&state.relations),
-                                    relation_table(&state.relations),
-                                ],
-                            )),
-                        },
-                        TabSpec {
-                            key: key("tab.signal_flow"),
-                            title: "Signal Flow".to_string(),
-                            child: Box::new(panel(
-                                "tab.signal_flow.panel",
-                                None,
-                                vec![
-                                    signal_flow_status_label(&state.signal_flow),
-                                    signal_flow_nodes_table(&state.signal_flow),
-                                    signal_flow_edges_table(&state.signal_flow),
-                                    signal_flow_probes_table(&state.signal_flow_probes),
-                                ],
-                            )),
-                        },
-                    ],
+                    tabs: main_tabs(state, seek_range),
                     visual: ComponentVisualState::default(),
                     a11y: A11ySpec {
                         role: Some(A11yRole::TabList),
@@ -1446,6 +1554,82 @@ pub fn main_screen_spec(state: &MainScreenState) -> ViewSpec {
             ],
         ),
     }
+}
+
+/// The main screen's tab strip — Arrangement (table + waveform),
+/// Transport, Mixer (strips + meter), Inspector, Signal Flow.
+fn main_tabs(state: &MainScreenState, seek_range: f64) -> Vec<TabSpec> {
+    vec![
+        TabSpec {
+            key: key("tab.arrangement"),
+            title: "Arrangement".to_string(),
+            child: Box::new(panel(
+                "tab.arrangement.panel",
+                None,
+                vec![
+                    arrangement_table(&state.arrangement_rows),
+                    waveform_panel(&state.viz.waveform),
+                ],
+            )),
+        },
+        TabSpec {
+            key: key("tab.transport"),
+            title: "Transport".to_string(),
+            child: Box::new(panel(
+                "tab.transport.panel",
+                None,
+                vec![
+                    transport_status_label(&state.transport),
+                    panel(
+                        "transport.buttons",
+                        None,
+                        vec![
+                            transport_button("transport.play", "Play", "play"),
+                            transport_button("transport.stop", "Stop", "stop"),
+                        ],
+                    ),
+                    transport_seek(seek_range),
+                ],
+            )),
+        },
+        TabSpec {
+            key: key("tab.mixer"),
+            title: "Mixer".to_string(),
+            child: Box::new(panel(
+                "tab.mixer.panel",
+                None,
+                vec![mixer_strip(&state.mixer), meter_panel(&state.viz.meter)],
+            )),
+        },
+        TabSpec {
+            key: key("tab.inspector"),
+            title: "Inspector".to_string(),
+            child: Box::new(panel(
+                "tab.inspector.panel",
+                None,
+                vec![
+                    inspector_target_label(&state.inspector),
+                    inspector_table(&state.inspector),
+                    relation_label(&state.relations),
+                    relation_table(&state.relations),
+                ],
+            )),
+        },
+        TabSpec {
+            key: key("tab.signal_flow"),
+            title: "Signal Flow".to_string(),
+            child: Box::new(panel(
+                "tab.signal_flow.panel",
+                None,
+                vec![
+                    signal_flow_status_label(&state.signal_flow),
+                    signal_flow_nodes_table(&state.signal_flow),
+                    signal_flow_edges_table(&state.signal_flow),
+                    signal_flow_probes_table(&state.signal_flow_probes),
+                ],
+            )),
+        },
+    ]
 }
 
 /// The secondary window's minimal screen spec (SV-GUI-04 slice 1,

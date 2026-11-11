@@ -22,6 +22,7 @@ use ruviform_ui::dock::{
 use ruviform_ui::driver::WindowSpec;
 use ruviform_ui::event::HostEvent;
 use ruviform_ui::ipc::{ErrorBody, Event, codes};
+use ruviform_ui::view::{MAX_METER_BINS, MAX_WAVEFORM_BINS, MeterBin, WaveformBin};
 use ruviform_ui::window::WindowId;
 use serde_json::{Value, json};
 
@@ -31,11 +32,11 @@ use synvelis_player::{
 };
 use synvelis_project::vcs::{RevisionSelector, VcsCancel};
 use synvelis_project::{
-    BusId, ClockEpochId, ExplicitChannelMap, LaneId, MusicalTick, ParameterTargetId,
+    BusId, ClipId, ClockEpochId, ExplicitChannelMap, LaneId, MusicalTick, ParameterTargetId,
     ProbeCaptureSegment, ProbeMode, ProbeObservation, ProbePortError, ProbeStatusReceipt,
-    ProbeSubscriptionKey, ProbeTracePort, ProcessorId, ProjectOp, ProjectRevision, ProjectStore,
-    RoutingConnectionId, SemanticPortId, SemanticProbePoint, SendId, StripId, SubscriptionKind,
-    TickTimeMapping, TraceSlot, TrackId, is_issuable_raw, monitoring_data,
+    ProbeSubscriptionKey, ProbeTracePort, ProcessorId, Project, ProjectOp, ProjectRevision,
+    ProjectStore, RoutingConnectionId, SemanticPortId, SemanticProbePoint, SendId, StripId,
+    SubscriptionKind, TickTimeMapping, TraceSlot, TrackId, is_issuable_raw, monitoring_data,
 };
 use synvelis_recording::{
     ArmState, ChannelMap, HardwareDirectMonitor, HardwareDirectState, MonitorState,
@@ -46,27 +47,28 @@ use synvelis_workspace::controls_ui::{
     TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET,
 };
 use synvelis_workspace::viz_ui::{
-    ManualMeter, ManualSpectrum, MemoryWaveform, MeterPort, SpectrumPort, VizUi, VizViewEvent,
-    WaveformPort,
+    ManualMeter, ManualSpectrum, MemoryWaveform, MeterChannel, MeterPort, SpectrumPort, VizStatus,
+    VizUi, VizViewEvent, WaveformAxis, WaveformPort, WaveformView, meter_master_target,
+    waveform_clip_target,
 };
 use synvelis_workspace::{
-    CancelReason, EndpointRequest, FollowSource, InspectionMode, LinkGroupId, PinSide,
-    ProbeDrainReport, ProbePrincipal, ProbeTraceError, ProjectSession, RoutingGestureFixation,
-    RoutingGestureOutcome, RoutingGesturePreview, RoutingPortAssessment, SignalFlowEdgeRole,
-    SignalFlowEntityRef, SignalFlowInspectionFocus, SignalFlowScope, SignalFlowView,
-    SignalFlowViewOptions, SignalFlowViewState, VcsDiffView, VcsEndpointView, VcsHistoryView,
-    VcsSession, VcsUiError, VcsViewMode, ViewType, signal_flow_graph, vcs_history_view,
-    visual_fold, visual_move_node, visual_set_group, visual_set_link_focus, visual_set_pan,
-    visual_set_scope, visual_set_zoom,
+    ArrangementRow, CancelReason, EditingSelection, EndpointRequest, FollowSource, InspectionMode,
+    LinkGroupId, PinSide, ProbeDrainReport, ProbePrincipal, ProbeTraceError, ProjectSession,
+    RoutingGestureFixation, RoutingGestureOutcome, RoutingGesturePreview, RoutingPortAssessment,
+    SemanticTarget, SignalFlowEdgeRole, SignalFlowEntityRef, SignalFlowInspectionFocus,
+    SignalFlowScope, SignalFlowView, SignalFlowViewOptions, SignalFlowViewState, VcsDiffView,
+    VcsEndpointView, VcsHistoryView, VcsSession, VcsUiError, VcsViewMode, ViewType,
+    signal_flow_graph, vcs_history_view, visual_fold, visual_move_node, visual_set_group,
+    visual_set_link_focus, visual_set_pan, visual_set_scope, visual_set_zoom,
 };
 
 use crate::app::SynvelisApp;
 use crate::monitoring::{MonitorSessionParams, MonitorTransportAction, MonitorUxState, TrackPatch};
 use crate::screens::{
-    DockViewInfo, InspectorRow, InspectorScreenState, SignalFlowProbeRow, TransportScreenState,
-    dock_view_info, main_view_id, main_view_instance, mixer_strip_targets, vcs_equality_str,
-    vcs_freshness_reason, vcs_freshness_str, vcs_kind_str, vcs_mode_str, vcs_status_detail,
-    vcs_status_str,
+    DockViewInfo, InspectorRow, InspectorScreenState, MeterScreenState, SignalFlowProbeRow,
+    TransportScreenState, VizScreenState, WaveformScreenState, dock_view_info, main_view_id,
+    main_view_instance, mixer_strip_targets, vcs_equality_str, vcs_freshness_reason,
+    vcs_freshness_str, vcs_kind_str, vcs_mode_str, vcs_status_detail, vcs_status_str,
 };
 
 /// Outbox depth cap — receipts/projections are never silently
@@ -79,6 +81,20 @@ const TARGET_CAP: usize = 256;
 const MAX_WAVEFORM_SAMPLES: usize = 1_000_000;
 /// Default waveform plot width when `plot_px` is omitted.
 const DEFAULT_PLOT_PX: u32 = 1024;
+/// Main-view waveform surface id — bound by [`SynvelisApp::
+/// reconcile_viz_surfaces`] to the selected/first clip's canonical
+/// `waveform:` source (synvelis#112 slice 4).
+const WAVEFORM_SURFACE: &str = "main.waveform";
+/// Main-view meter surface id — bound to `meter:master`.
+const METER_SURFACE: &str = "main.meter";
+/// Binding target used when no clip source resolves — a source id
+/// with no registered port, so the surface reports `NoSource`
+/// honestly instead of retaining a stale clip's data.
+const WAVEFORM_UNBOUND_SOURCE: &str = "waveform:none";
+/// Meter frame-history depth cap per surface — display projection
+/// only; the newest frames are kept and the spec payload stays under
+/// `MAX_METER_BINS` by construction.
+const METER_HISTORY_CAP: usize = 256;
 
 /// Shared notify outbox — `host.eval` drains this every tick.
 pub type UiOutbox = Rc<RefCell<VecDeque<Event>>>;
@@ -160,6 +176,11 @@ pub struct UiOpsState {
     /// Bound viz surfaces `(view, surface)` — app-side registry for
     /// frame pushes (the `VizUi` surface map is its private state).
     pub(crate) surfaces: HashSet<(String, String)>,
+    /// Meter level history per `(view, surface)` — the bounded
+    /// frame-level record the `Meter` spec payload bins from
+    /// (synvelis#112 slice 4). Display projection only: dropped on
+    /// view detach/close and on surface rebind, never project state.
+    pub(crate) meter_levels: HashMap<(String, String), VecDeque<Vec<MeterChannel>>>,
     /// Manually driven viz ports by source id.
     pub(crate) manual_ports: HashMap<String, ManualPort>,
     /// UI clock (ms) — shared cell so the driver-side shell can
@@ -200,6 +221,7 @@ impl UiOpsState {
             subscriptions: HashSet::new(),
             frame_seq: HashMap::new(),
             surfaces: HashSet::new(),
+            meter_levels: HashMap::new(),
             manual_ports: HashMap::new(),
             clock: Rc::new(Cell::new(0)),
             ui_drops: 0,
@@ -906,6 +928,246 @@ fn inspector_rows(p: &ParamProjection) -> Vec<InspectorRow> {
     ]
 }
 
+/// Tagged-id projection of a [`SemanticTarget`] — the Inspector
+/// `target` string, the `syn.view.list` selection/inspection fields,
+/// and the `syn.view.select` ack all share this encoding
+/// (synvelis#112 slice 4).
+fn semantic_target_tag(target: SemanticTarget) -> String {
+    match target {
+        SemanticTarget::Track(id) => id.to_tagged(),
+        SemanticTarget::Lane(id) => id.to_tagged(),
+        SemanticTarget::Clip(id) => id.to_tagged(),
+        SemanticTarget::Source(id) => id.to_tagged(),
+    }
+}
+
+/// Converts one waveform axis-unit position to frame units — `None`
+/// for non-finite input so callers render a gap/zero edge rather than
+/// a fabricated position. `Seconds` needs the source's declared rate;
+/// callers gate on `sample_rate.is_some()` before reaching here.
+fn axis_unit_to_frames(v: f64, axis: WaveformAxis, rate: u32) -> Option<f64> {
+    if !v.is_finite() {
+        return None;
+    }
+    Some(match axis {
+        WaveformAxis::Frames | WaveformAxis::Samples => v,
+        WaveformAxis::Seconds => v * f64::from(rate),
+    })
+}
+
+/// `f64` frame position → `u64` bin edge/extent. Inputs are filtered
+/// non-finite upstream and clamped non-negative here; the `as` cast
+/// saturates at `u64::MAX` rather than wrapping, which is the honest
+/// bound for display geometry.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn frame_edge(v: f64) -> u64 {
+    v.round().max(0.0) as u64
+}
+
+/// Bin/sample index → axis units. Counts stay bounded by
+/// `MAX_WAVEFORM_BINS`/the query byte cap — far under 2^53.
+#[allow(clippy::cast_precision_loss)]
+fn index_units(i: usize) -> f64 {
+    i as f64
+}
+
+/// Projects a resolved [`WaveformView`] into per-channel
+/// [`WaveformBin`]s in frame units — `Bins` map through bucket
+/// geometry, `Samples` aggregate into bounded min/max/rms/count
+/// groups with non-finite samples left as gaps (never zero-filled).
+fn waveform_view_bins(view: &WaveformView, axis: WaveformAxis, rate: u32) -> Vec<Vec<WaveformBin>> {
+    let to_frame = |v: f64| axis_unit_to_frames(v, axis, rate).map_or(0, frame_edge);
+    match view {
+        WaveformView::Bins {
+            start,
+            units_per_bucket,
+            channels,
+            ..
+        } => channels
+            .iter()
+            .map(|ch| {
+                ch.iter()
+                    .enumerate()
+                    .map(|(i, b)| {
+                        let a0 = start + index_units(i) * units_per_bucket;
+                        WaveformBin {
+                            start: to_frame(a0),
+                            end: to_frame(a0 + units_per_bucket),
+                            min: b.min,
+                            max: b.max,
+                            rms: b.rms,
+                            count: b.count,
+                        }
+                    })
+                    .collect()
+            })
+            .collect(),
+        WaveformView::Samples {
+            start,
+            units_per_sample,
+            channels,
+            ..
+        } => {
+            // Decimated raw samples aggregate into bounded bins —
+            // min/max/rms/count over each contiguous group, `NaN`
+            // samples stay gaps (`count` excludes them).
+            let n_ch = channels.len().max(1);
+            let bins_per_ch = (MAX_WAVEFORM_BINS / n_ch).max(1);
+            channels
+                .iter()
+                .map(|ch| {
+                    let n = ch.len();
+                    let target = bins_per_ch.min(n.max(1));
+                    let group = n.div_ceil(target).max(1);
+                    let mut bins = Vec::new();
+                    let mut s = 0usize;
+                    while s < n {
+                        let e = (s + group).min(n);
+                        let mut min = f64::INFINITY;
+                        let mut max = f64::NEG_INFINITY;
+                        let mut sum_sq = 0.0f64;
+                        let mut count = 0u64;
+                        for &v in &ch[s..e] {
+                            if !v.is_finite() {
+                                continue;
+                            }
+                            min = min.min(v);
+                            max = max.max(v);
+                            sum_sq += v * v;
+                            count += 1;
+                        }
+                        let (lo, hi, rms) = if count == 0 {
+                            (f64::NAN, f64::NAN, f64::NAN)
+                        } else {
+                            // bin sample counts stay far under 2^53
+                            #[allow(clippy::cast_precision_loss)]
+                            let rms = (sum_sq / count as f64).sqrt();
+                            (min, max, rms)
+                        };
+                        bins.push(WaveformBin {
+                            start: to_frame(start + index_units(s) * units_per_sample),
+                            end: to_frame(start + index_units(e) * units_per_sample),
+                            min: lo,
+                            max: hi,
+                            rms,
+                            count,
+                        });
+                        s = e;
+                    }
+                    bins
+                })
+                .collect()
+        }
+    }
+}
+
+/// Inspector rows for an inspected [`SemanticTarget`] — an entity
+/// readout resolved against the live project (synvelis#112 slice 4).
+/// A target whose entity left the project reports `state` honestly
+/// rather than fabricating fields; the Arrangement seconds span only
+/// appears when the read model resolved it.
+fn semantic_inspector_rows(
+    project: &Project,
+    target: SemanticTarget,
+    arrangement: &[ArrangementRow],
+) -> Vec<InspectorRow> {
+    fn row(field: &str, value: impl Into<String>) -> InspectorRow {
+        InspectorRow {
+            field: field.to_string(),
+            value: value.into(),
+        }
+    }
+    match target {
+        SemanticTarget::Clip(id) => {
+            let Some(clip) = project.clips.get(&id) else {
+                return vec![row("state", "clip not in project")];
+            };
+            let mut rows = vec![
+                row("kind", "clip"),
+                row("id", id.to_tagged()),
+                row("source", clip.source_id.to_tagged()),
+                row("lane", clip.lane_id.to_tagged()),
+                row("muted", if clip.muted { "yes" } else { "no" }),
+            ];
+            if let Some(lane) = project.lanes.get(&clip.lane_id)
+                && let Some(track) = project.tracks.get(&lane.track_id)
+            {
+                rows.push(row("track", track.name.clone()));
+            }
+            if let Some(arr) = arrangement.iter().find(|r| r.clip == id.to_tagged()) {
+                let seconds =
+                    |v: Option<f64>| v.map_or_else(|| "—".to_string(), |s| format!("{s:.2}"));
+                rows.push(row("start_s", seconds(arr.start_seconds)));
+                rows.push(row("end_s", seconds(arr.end_seconds)));
+            }
+            rows
+        }
+        SemanticTarget::Track(id) => {
+            let Some(track) = project.tracks.get(&id) else {
+                return vec![row("state", "track not in project")];
+            };
+            let clips: usize = track
+                .lane_ids
+                .iter()
+                .filter_map(|lane_id| project.lanes.get(lane_id))
+                .map(|lane| lane.clip_ids.len())
+                .sum();
+            vec![
+                row("kind", "track"),
+                row("id", id.to_tagged()),
+                row("name", track.name.clone()),
+                row("lanes", track.lane_ids.len().to_string()),
+                row("clips", clips.to_string()),
+            ]
+        }
+        SemanticTarget::Lane(id) => {
+            let Some(lane) = project.lanes.get(&id) else {
+                return vec![row("state", "lane not in project")];
+            };
+            let track = project
+                .tracks
+                .get(&lane.track_id)
+                .map_or_else(|| lane.track_id.to_tagged(), |t| t.name.clone());
+            vec![
+                row("kind", "lane"),
+                row("id", id.to_tagged()),
+                row("track", track),
+                row("clips", lane.clip_ids.len().to_string()),
+            ]
+        }
+        SemanticTarget::Source(id) => {
+            let Some(source) = project.sources.get(&id) else {
+                return vec![row("state", "source not in project")];
+            };
+            vec![
+                row("kind", "source"),
+                row("id", id.to_tagged()),
+                row("asset", source.asset_id.to_tagged()),
+                row("digest", source.content_digest.clone()),
+                row("state", format!("{:?}", source.state)),
+            ]
+        }
+    }
+}
+
+/// Display string for a [`VizStatus`] — the `status` channel of the
+/// `Waveform`/`Meter` spec payloads (synvelis#112 slice 4). A stale
+/// *view* wins over the row status, matching the element's own
+/// precedence; `detail` payloads stay visible rather than collapsed.
+fn viz_status_text(status: &VizStatus, view_stale: bool) -> String {
+    if view_stale {
+        return "stale".to_string();
+    }
+    match status {
+        VizStatus::Ok => "ok".to_string(),
+        VizStatus::NoSource => "no source".to_string(),
+        VizStatus::AwaitingData => "awaiting data".to_string(),
+        VizStatus::Stale => "stale".to_string(),
+        VizStatus::SourceError { detail } => format!("source error: {detail}"),
+        VizStatus::Unsupported { detail } => format!("unsupported: {detail}"),
+    }
+}
+
 impl SynvelisApp {
     /// Shared outbox handle — cloned by the host loop before the
     /// service moves into `UiRuntime`.
@@ -1009,6 +1271,7 @@ impl SynvelisApp {
             }
         }
         self.reconcile_mixer_subscriptions();
+        self.reconcile_viz_surfaces();
         self.push_subscription_rows();
         self.push_surface_frames();
         self.capture_screen_state();
@@ -1151,6 +1414,207 @@ impl SynvelisApp {
         }
     }
 
+    /// Keeps the main view's `syn.viz.*` surfaces bound to their
+    /// canonical sources (synvelis#112 slice 4): the Arrangement
+    /// waveform follows the view's primary clip selection — falling
+    /// back to the first arrangement clip, then to the honest
+    /// unbound source — and the Mixer meter binds `meter:master`.
+    /// Compare-and-bind: a changed desired source rebinds the surface
+    /// (fresh bounded query under the `syn.viz.bind` contract), an
+    /// unchanged one is left alone, and a view detach drops the
+    /// surfaces so the next attach rebinds. Runs before
+    /// [`Self::push_surface_frames`]/[`Self::capture_screen_state`]
+    /// so the same pump sees the landed rows.
+    fn reconcile_viz_surfaces(&mut self) {
+        let view = main_view_id();
+        if self
+            .ui
+            .views
+            .get(&view)
+            .is_none_or(|entry| entry.window.is_none())
+        {
+            return;
+        }
+        let waveform_source = self
+            .desired_waveform_source()
+            .unwrap_or_else(|| WAVEFORM_UNBOUND_SOURCE.to_string());
+        let waveform_bound = self
+            .ui
+            .viz
+            .waveform_row(&view, WAVEFORM_SURFACE)
+            .is_some_and(|row| row.source == waveform_source);
+        if !waveform_bound
+            && self
+                .ui
+                .viz
+                .bind_waveform(&view, WAVEFORM_SURFACE, waveform_source, DEFAULT_PLOT_PX)
+                .is_ok()
+        {
+            self.ui
+                .surfaces
+                .insert((view.clone(), WAVEFORM_SURFACE.to_string()));
+        }
+        let meter_source = meter_master_target();
+        let meter_bound = self
+            .ui
+            .viz
+            .meter_row(&view, METER_SURFACE)
+            .is_some_and(|row| row.source == meter_source);
+        if !meter_bound
+            && self
+                .ui
+                .viz
+                .bind_meter(&view, METER_SURFACE, meter_source)
+                .is_ok()
+        {
+            self.ui
+                .surfaces
+                .insert((view.clone(), METER_SURFACE.to_string()));
+            // A (re)bound meter surface starts a fresh level history —
+            // frames from a previous binding never bleed across.
+            self.ui
+                .meter_levels
+                .remove(&(view.clone(), METER_SURFACE.to_string()));
+        }
+    }
+
+    /// The canonical `waveform:` source the Arrangement waveform
+    /// should show: the view's primary clip selection first (the same
+    /// `ObjectSelections` `syn.view.select` writes), then the first
+    /// arrangement clip as the deterministic fallback. `None` when
+    /// the project has no resolvable clip.
+    fn desired_waveform_source(&self) -> Option<VizSourceId> {
+        if let Ok(state) = self.workspace.state(main_view_instance())
+            && let Some(SemanticTarget::Clip(clip)) = state.object_selections.primary()
+        {
+            return Some(waveform_clip_target(&clip));
+        }
+        self.arrangement_rows()
+            .first()
+            .and_then(|row| ClipId::from_tagged(&row.clip).ok())
+            .map(|clip| waveform_clip_target(&clip))
+    }
+
+    /// Captures the main view's resolved `syn.viz.*` surface payloads
+    /// into [`VizScreenState`] — the `Waveform`/`Meter` spec data the
+    /// screen cell carries to `ViewHost::update` (synvelis#112
+    /// slice 4). Read-only projection of `VizUi` rows plus the meter
+    /// level history; never fabricates bins for an absent source.
+    fn capture_viz_state(&self) -> VizScreenState {
+        let view = main_view_id();
+        VizScreenState {
+            waveform: self.waveform_screen_state(&view, WAVEFORM_SURFACE),
+            meter: self.meter_screen_state(&view, METER_SURFACE),
+        }
+    }
+
+    /// Projects the bound waveform surface's `WaveformRow` into spec
+    /// payload — axis-unit `WaveformView` bins/samples converted to
+    /// frame units through the source meta (seconds need the
+    /// declared `sample_rate`; without it the payload stays empty
+    /// rather than guessing a rate).
+    fn waveform_screen_state(&self, view: &str, surface: &str) -> WaveformScreenState {
+        let empty = WaveformScreenState::default();
+        let Some(row) = self.ui.viz.waveform_row(view, surface) else {
+            return empty;
+        };
+        let status = viz_status_text(&row.status, row.view_stale);
+        let Some(meta) = row.meta.clone() else {
+            return WaveformScreenState { status, ..empty };
+        };
+        // Seconds-axis sources must declare their rate — converting
+        // with an assumed one would fabricate frame positions.
+        if meta.axis == WaveformAxis::Seconds && meta.sample_rate.is_none() {
+            return WaveformScreenState { status, ..empty };
+        }
+        let rate = meta.sample_rate.unwrap_or(48_000);
+        let mut channel_bins = row
+            .view
+            .as_ref()
+            .map_or_else(Vec::new, |v| waveform_view_bins(v, meta.axis, rate));
+        // The spec contract pins `channel_bins.len() == channels` —
+        // pad/truncate to the declared channel count honestly (missing
+        // channels render as empty bins, never invented data).
+        channel_bins.resize(meta.channels.max(1), Vec::new());
+        channel_bins.truncate(meta.channels.max(1));
+        let frames = axis_unit_to_frames(meta.extent, meta.axis, rate).map_or(0, frame_edge);
+        let to_frame = |v: f64| axis_unit_to_frames(v, meta.axis, rate).map_or(0, frame_edge);
+        let viewport = row.span.map_or_else(
+            || 0..frames.min(1),
+            |span| to_frame(span.start)..to_frame(span.end).max(to_frame(span.start)),
+        );
+        WaveformScreenState {
+            sample_rate: rate,
+            channels: meta.channels.max(1),
+            frames,
+            viewport,
+            channel_bins,
+            status,
+        }
+    }
+
+    /// Projects the bound meter surface's `MeterRow` plus the bounded
+    /// level history into spec payload — one [`MeterBin`] per
+    /// recorded frame per channel, oldest dropped first when the
+    /// total would exceed `MAX_METER_BINS`.
+    fn meter_screen_state(&self, view: &str, surface: &str) -> MeterScreenState {
+        let empty = MeterScreenState::default();
+        let Some(row) = self.ui.viz.meter_row(view, surface) else {
+            return empty;
+        };
+        let status = if row.stale {
+            "stale".to_string()
+        } else {
+            viz_status_text(&row.status, false)
+        };
+        let channels = row
+            .meta
+            .as_ref()
+            .map_or_else(
+                || row.frame.as_ref().map_or(1, |f| f.channels.len()),
+                |m| m.channels,
+            )
+            .max(1);
+        let key = (view.to_string(), surface.to_string());
+        let history = self.ui.meter_levels.get(&key);
+        let depth = history.map_or(0, VecDeque::len);
+        // Keep the newest frames that fit the spec bound.
+        let keep = (MAX_METER_BINS / channels).clamp(1, METER_HISTORY_CAP);
+        let skip = depth.saturating_sub(keep);
+        let shown = depth.saturating_sub(skip);
+        let channel_levels: Vec<Vec<MeterBin>> =
+            (0..channels)
+                .map(|ch| {
+                    history
+                        .map(|hist| {
+                            hist.iter()
+                                .skip(skip)
+                                .enumerate()
+                                .map(|(i, frame_channels)| {
+                                    let level = frame_channels.get(ch);
+                                    MeterBin {
+                                        start: i as u64,
+                                        end: i as u64 + 1,
+                                        peak: level.map_or(f64::NAN, |l| l.peak),
+                                        rms: level.map_or(f64::NAN, |l| l.rms),
+                                        count: u64::from(level.is_some_and(|l| {
+                                            l.peak.is_finite() || l.rms.is_finite()
+                                        })),
+                                    }
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default()
+                })
+                .collect();
+        MeterScreenState {
+            channels,
+            viewport: 0..shown as u64,
+            channel_levels,
+            status,
+        }
+    }
+
     /// Captures the main view's display state out of the `ControlsUi`
     /// projection rows into the shared [`MainScreenState`] cell — the
     /// transport readout (`TransportRow.observed`) and the inspector
@@ -1183,47 +1647,70 @@ impl SynvelisApp {
             transport.loop_enabled = observed.loop_range.is_some();
         }
         let mut inspector = InspectorScreenState::default();
-        // Strip channel toggles (slice 3) are mixer controls, not
-        // inspector candidates — the breakdown stays on the gain
-        // fader regardless of tagged-id sort order.
-        let strip_toggles: HashSet<String> = {
-            let mixer = mixer_strip_targets(&self.workspace.session().project().control);
-            [mixer.mute_target, mixer.solo_target]
-                .into_iter()
-                .flatten()
-                .collect()
-        };
-        let mut param_targets: Vec<String> = self
-            .ui
-            .subscriptions
-            .iter()
-            .filter(|(v, t)| {
-                v == &view
-                    && t != TRANSPORT_TARGET
-                    && t != TRANSPORT_POSITION_TARGET
-                    && !strip_toggles.contains(t)
-            })
-            .map(|(_, t)| t.clone())
-            .collect();
-        param_targets.sort();
-        for target in param_targets {
-            let Some(observed) = self
-                .ui
-                .controls
-                .strip_row(&view, &target)
-                .and_then(|row| row.observed)
-            else {
-                continue;
+        // Entity inspection (synvelis#112 slice 4): the view's
+        // `inspection_focus` target — driven by `syn.view.select` on
+        // Arrangement row selection — takes precedence over the
+        // parameter breakdown. Selection (`object_selections`) and
+        // inspection (`inspection_focus`) stay distinct workspace
+        // states; only the Inspector *display* follows the inspected
+        // target. While nothing is inspected the slice-1 parameter
+        // breakdown is preserved.
+        let inspected = self
+            .workspace
+            .state(main_view_instance())
+            .ok()
+            .and_then(|state| state.inspection_focus.target);
+        if let Some(target) = inspected {
+            inspector.target = Some(semantic_target_tag(target));
+            inspector.rows = semantic_inspector_rows(
+                self.workspace.session().project(),
+                target,
+                &self.arrangement_rows(),
+            );
+        } else {
+            // Strip channel toggles (slice 3) are mixer controls, not
+            // inspector candidates — the breakdown stays on the gain
+            // fader regardless of tagged-id sort order.
+            let strip_toggles: HashSet<String> = {
+                let mixer = mixer_strip_targets(&self.workspace.session().project().control);
+                [mixer.mute_target, mixer.solo_target]
+                    .into_iter()
+                    .flatten()
+                    .collect()
             };
-            inspector.target = Some(target);
-            inspector.rows = inspector_rows(&observed);
-            break;
+            let mut param_targets: Vec<String> = self
+                .ui
+                .subscriptions
+                .iter()
+                .filter(|(v, t)| {
+                    v == &view
+                        && t != TRANSPORT_TARGET
+                        && t != TRANSPORT_POSITION_TARGET
+                        && !strip_toggles.contains(t)
+                })
+                .map(|(_, t)| t.clone())
+                .collect();
+            param_targets.sort();
+            for target in param_targets {
+                let Some(observed) = self
+                    .ui
+                    .controls
+                    .strip_row(&view, &target)
+                    .and_then(|row| row.observed)
+                else {
+                    continue;
+                };
+                inspector.target = Some(target);
+                inspector.rows = inspector_rows(&observed);
+                break;
+            }
         }
         let signal_flow_probes = self.signal_flow_probe_rows();
         let mut screen = self.main_screen.borrow_mut();
         screen.transport = transport;
         screen.inspector = inspector;
         screen.signal_flow_probes = signal_flow_probes;
+        screen.viz = self.capture_viz_state();
     }
 
     /// The main view's probe subscription rows for the Signal Flow
@@ -1387,6 +1874,27 @@ impl SynvelisApp {
             self.ui
                 .frame_seq
                 .insert((view.clone(), surface.clone()), seq);
+            // Meter level history feeds the `Meter` spec payload
+            // (synvelis#112 slice 4) — bounded per surface, reset on
+            // rebind and dropped with the view on detach/close.
+            if frame == "meter"
+                && let Some(channels) = self
+                    .ui
+                    .viz
+                    .meter_row(&view, &surface)
+                    .and_then(|r| r.frame)
+                    .map(|f| f.channels)
+            {
+                let hist = self
+                    .ui
+                    .meter_levels
+                    .entry((view.clone(), surface.clone()))
+                    .or_default();
+                hist.push_back(channels);
+                while hist.len() > METER_HISTORY_CAP {
+                    hist.pop_front();
+                }
+            }
             let payload = if frame == "meter" {
                 self.ui
                     .viz
@@ -1563,6 +2071,7 @@ impl SynvelisApp {
         let session = self.workspace.session_mut();
         self.ui.controls.detach_view(session, &view, &reason);
         self.ui.viz.detach_view(&view);
+        self.ui.meter_levels.retain(|(v, _), _| v != &view);
         if info.is_some()
             && let Some(e) = self.ui.views.get_mut(&view)
         {
@@ -1615,6 +2124,7 @@ impl SynvelisApp {
         self.ui.subscriptions.retain(|(v, _)| v != &view);
         self.ui.frame_seq.retain(|(v, _), _| v != &view);
         self.ui.surfaces.retain(|(v, _)| v != &view);
+        self.ui.meter_levels.retain(|(v, _), _| v != &view);
         self.ui_pump();
         self.push_notify(
             "syn.view.state",
@@ -1675,6 +2185,10 @@ impl SynvelisApp {
 
     /// `syn.view.list` — the view registry; `window_id`/`attached`
     /// distinguish live bindings from detached-pool entries.
+    /// `selection`/`inspection` carry the view's workspace
+    /// `ObjectSelections` primary target and `inspection_focus`
+    /// target as tagged ids (synvelis#112 slice 4) — `null` for
+    /// views outside the workspace registry or with no target.
     ///
     /// # Errors
     /// [`ErrorBody`] on invalid parameters or gateway refusal.
@@ -1685,15 +2199,79 @@ impl SynvelisApp {
             .views
             .iter()
             .map(|(v, e)| {
+                let state = parse_view_instance(v).and_then(|inst| self.workspace.state(inst).ok());
                 json!({
                     "view_id": v,
                     "window_id": e.window,
                     "attached": e.window.is_some(),
                     "generation": self.ui.controls.view_state(v).map_or(0, |(_, g, _)| g),
+                    "selection": state
+                        .and_then(|s| s.object_selections.primary())
+                        .map(semantic_target_tag),
+                    "inspection": state
+                        .and_then(|s| s.inspection_focus.target)
+                        .map(semantic_target_tag),
                 })
             })
             .collect();
         json!({ "views": views })
+    }
+
+    /// `syn.view.select` — selects Arrangement row `row` of `view_id`:
+    /// resolves the row through the same [`SynvelisApp::
+    /// arrangement_rows`] read model the table spec renders, writes
+    /// the clip into the view's `ObjectSelections` (Clips domain) and
+    /// moves the inspector focus to it (synvelis#112 slice 4). Both
+    /// are view-local workspace states — project/undo/RT untouched —
+    /// and the next `ui_pump` projects them into the Inspector target
+    /// and the waveform binding.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid/missing params, an unattached or
+    /// unregistered view, an out-of-range row, or an unresolvable
+    /// clip id — nothing is partially applied (selection precedes
+    /// inspection and both precede the pump).
+    pub fn op_view_select(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let row = usize_param(params, "row")?;
+        self.require_attached_view(&view)?;
+        let inst = parse_view_instance(&view)
+            .ok_or_else(|| invalid(format!("view {view} is not a workspace view")))?;
+        if !self.workspace.registry().contains(inst) {
+            // `project.new`/`project.open` replace the WorkspaceManager,
+            // so a live view's dock adoption does not survive a project
+            // load — re-adopt into the detached pool on first use, the
+            // same seam `sf_view_instance` uses for per-view workspace
+            // state. Dock placement itself is reconciled by the next
+            // attach/move, not here.
+            let info = dock_view_info(&view)
+                .ok_or_else(|| invalid(format!("view {view} has no dock metadata")))?;
+            self.workspace
+                .adopt_view(inst, info.kind, info.title, None)
+                .map_err(|e| dock_err(&e))?;
+        }
+        let clip_tag = self
+            .arrangement_rows()
+            .get(row)
+            .map(|r| r.clip.clone())
+            .ok_or_else(|| invalid(format!("arrangement row {row} out of range")))?;
+        let clip = ClipId::from_tagged(&clip_tag)
+            .map_err(|e| internal(format!("arrangement clip id {clip_tag}: {e}")))?;
+        let target = SemanticTarget::Clip(clip);
+        self.workspace
+            .select(inst, EditingSelection::single(target))
+            .map_err(|e| dock_err(&e))?;
+        self.workspace
+            .inspect(inst, target)
+            .map_err(|e| dock_err(&e))?;
+        self.ui_pump();
+        Ok(json!({
+            "view_id": view,
+            "row": row,
+            "clip": clip_tag,
+            "selection": semantic_target_tag(target),
+            "inspection": semantic_target_tag(target),
+        }))
     }
 
     // -- syn.window.* -------------------------------------------------------

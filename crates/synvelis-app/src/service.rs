@@ -121,6 +121,10 @@ pub const OPS: &[OpInfo] = &[
         summary: "view registry (view_id, window_id, attached, generation)",
     },
     OpInfo {
+        name: "syn.view.select",
+        summary: "select an arrangement row on a view — ObjectSelections + inspector focus",
+    },
+    OpInfo {
         name: "syn.window.adopt",
         summary: "idempotently register a driver-created window (window_id, title?, geometry?)",
     },
@@ -328,6 +332,7 @@ impl AppService {
             "syn.view.detach" => self.app.op_view_detach(params),
             "syn.view.close" => self.app.op_view_close(params),
             "syn.view.list" => Ok(self.app.op_view_list()),
+            "syn.view.select" => self.app.op_view_select(params),
             "syn.window.adopt" => self.app.op_window_adopt(params),
             "syn.window.list" => Ok(self.app.op_window_list()),
             "syn.window.dock_prepare" => self.app.op_window_dock_prepare(params),

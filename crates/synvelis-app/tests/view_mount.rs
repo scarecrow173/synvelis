@@ -1176,7 +1176,13 @@ fn main_spec_carries_arrangement_table_and_undo_redo_buttons() {
         ["Track", "Lane", "Clip", "Source", "Start", "End", "Muted"]
     );
     assert!(table.rows.is_empty(), "no clips before project open");
-    assert!(table.selection.is_none(), "arrangement table is read-only");
+    // Slice 4: the arrangement table is selectable on the view-local
+    // target — row selection rides the standard `select` action.
+    assert_eq!(
+        table.selection.as_ref().map(|s| s.target.as_str()),
+        Some("view"),
+        "arrangement table selects on the view-local target"
+    );
 }
 
 /// Arrangement rows are project truth: `syn.project.open` loads a
@@ -1460,5 +1466,323 @@ fn mixer_solo_toggle_gesture_preview_commit_and_cancel() {
     assert!(
         display.plain.abs() < 1e-9,
         "cancel restores the authoritative value: {display:?}"
+    );
+}
+
+// ---------------------------------------------------------------------
+// SV-GUI-03 slice 4 (synvelis#112): Arrangement selection → Inspector
+// + Meter/Waveform viz mount
+// ---------------------------------------------------------------------
+
+/// The mounted spec carries the viz mounts unconditionally: a
+/// `Waveform` under the Arrangement tab and a `Meter` under the
+/// Mixer tab, each paired with a status `Label` that carries the
+/// bound `syn.viz.*` surface's honest `VizStatus` text — an unbound
+/// source renders empty bins plus `"no source"`, never fabricated
+/// audio (synvelis#112 slice 4).
+#[test]
+fn main_spec_carries_waveform_and_meter_with_status_labels() {
+    let spec = main_screen_spec(&MainScreenState::default());
+    for (panel, comp, status) in [
+        ("viz.waveform.panel", "viz.waveform", "viz.waveform.status"),
+        ("viz.meter.panel", "viz.meter", "viz.meter.status"),
+    ] {
+        assert!(
+            matches!(
+                find_component(&spec.root, panel),
+                Some(ComponentSpec::Panel(_))
+            ),
+            "{panel} mounted"
+        );
+        match find_component(&spec.root, comp) {
+            Some(ComponentSpec::Waveform(w)) if comp == "viz.waveform" => {
+                assert_eq!(w.channels, 1);
+                assert_eq!(w.frames, 0);
+                assert!(w.channel_bins.iter().all(Vec::is_empty));
+            }
+            Some(ComponentSpec::Meter(m)) if comp == "viz.meter" => {
+                assert_eq!(m.channels, 1);
+                assert!(m.channel_levels.iter().all(Vec::is_empty));
+            }
+            other => panic!("{comp} missing or wrong kind: {other:?}"),
+        }
+        assert_eq!(spec_label_text(&spec, status), "no source");
+    }
+}
+
+/// Opens the clip-bearing fixture bundle and returns the published
+/// clip tagged id — shared setup for the slice-4 selection/viz cases.
+/// `tag` keeps each test's bundle dir distinct under parallel runs.
+fn open_clip_project(f: &mut MountedFixture, tag: &str) -> String {
+    let dir = std::env::temp_dir().join(format!("sv112-sel-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    write_clip_bundle(&dir);
+    let path = dir.to_string_lossy().to_string();
+    action(
+        &mut f.shell,
+        &mut f.driver,
+        f.window,
+        Intent::new("po", "syn.project.open", json!({ "path": path })),
+    );
+    assert!(results_for(&f.driver, f.window, "po").last().unwrap().0);
+    f.deliver_to_host();
+    let clip = f.screen.borrow().arrangement_rows[0].clip.clone();
+    let _ = std::fs::remove_dir_all(&dir);
+    clip
+}
+
+/// Arrangement row selection rides the standard view-local `select`
+/// action end to end: `select_row` mints `{"row":0}` on `view`, the
+/// shell routes it to `syn.view.select`, the op resolves the row
+/// through the same `arrangement_rows` read model into
+/// `ObjectSelections` + inspector focus, and the pump projects the
+/// clip entity into the Inspector while `syn.view.list` reports the
+/// tagged ids. Before selection the Inspector keeps the param
+/// breakdown — the fallback is preserved (synvelis#112 slice 4).
+#[test]
+fn arrangement_row_selection_updates_selection_inspector_and_view_list() {
+    let mut f = fixture();
+    let clip_tag = open_clip_project(&mut f, "pick");
+
+    // Fallback: no inspection focus yet — the subscribed parameter's
+    // breakdown still drives the Inspector.
+    {
+        let screen = f.screen.borrow();
+        assert_eq!(
+            screen.inspector.target.as_deref(),
+            Some(mixer_gain_target().as_str()),
+            "param breakdown target before selection"
+        );
+        assert!(
+            screen.inspector.rows.iter().any(|r| r.field == "plain"),
+            "param breakdown rows before selection"
+        );
+    }
+
+    f.push_screen_state();
+    let generation = f.host.generation();
+    f.host
+        .select_row(generation, &key("arrangement.table"), 0)
+        .expect("row 0 is selectable");
+    f.pump_view_intents();
+    f.deliver_to_host();
+
+    // The op's Result settled the optimistic selection — the last
+    // Result on the wire is the `syn.view.select` ack (ok; the
+    // view-local ack carries no applied/rejected status).
+    let (ok, _) = last_result(&f.driver, f.window).expect("select result");
+    assert!(ok, "syn.view.select result ok");
+
+    // syn.view.list reports the authoritative workspace selection and
+    // inspection focus as tagged ids.
+    action(
+        &mut f.shell,
+        &mut f.driver,
+        f.window,
+        Intent::new("vl", "syn.view.list", json!({})),
+    );
+    let (ok, data) = last_result(&f.driver, f.window).expect("view.list result");
+    assert!(ok);
+    let entry = data.expect("view.list data")["views"]
+        .as_array()
+        .expect("views array")
+        .iter()
+        .find(|v| v["view_id"] == json!(f.view_id))
+        .expect("main view entry")
+        .clone();
+    assert_eq!(entry["selection"], json!(clip_tag));
+    assert_eq!(entry["inspection"], json!(clip_tag));
+
+    // The Inspector display target follows the inspected clip —
+    // entity readout rows, not the param breakdown.
+    {
+        let screen = f.screen.borrow();
+        assert_eq!(screen.inspector.target.as_deref(), Some(clip_tag.as_str()));
+        let row = |field: &str| {
+            screen
+                .inspector
+                .rows
+                .iter()
+                .find(|r| r.field == field)
+                .unwrap_or_else(|| panic!("missing row `{field}`"))
+                .value
+                .clone()
+        };
+        assert_eq!(row("kind"), "clip");
+        assert_eq!(row("id"), clip_tag);
+        assert_eq!(row("muted"), "yes");
+        assert_eq!(row("track"), "t1");
+        assert!(row("start_s").contains('.'));
+        assert!(row("end_s").contains('.'));
+    }
+
+    // The waveform surface follows the selected clip's canonical
+    // source — with no registered port it reports `no source`
+    // honestly rather than fabricating bins.
+    {
+        let screen = f.screen.borrow();
+        assert_eq!(screen.viz.waveform.status, "no source");
+        assert!(screen.viz.waveform.channel_bins.iter().all(Vec::is_empty));
+        assert_eq!(screen.viz.meter.status, "no source");
+        assert!(screen.viz.meter.channel_levels.iter().all(Vec::is_empty));
+    }
+}
+
+/// `syn.view.select` refuses honestly: a missing `row`, an
+/// out-of-range row, and a non-workspace view id all fail — nothing
+/// is partially applied, and `syn.view.list` keeps reporting the
+/// pre-failure state (synvelis#112 slice 4).
+#[test]
+fn view_select_rejects_malformed_and_out_of_range_params() {
+    let mut f = fixture();
+    let _clip = open_clip_project(&mut f, "reject");
+
+    for (id, params) in [
+        ("sv-norow", json!({ "view_id": f.view_id })),
+        ("sv-badrow", json!({ "view_id": f.view_id, "row": "x" })),
+        ("sv-oob", json!({ "view_id": f.view_id, "row": 99 })),
+        ("sv-nowin", json!({ "view_id": "view-9", "row": 0 })),
+    ] {
+        action(
+            &mut f.shell,
+            &mut f.driver,
+            f.window,
+            Intent::new(id, "syn.view.select", params),
+        );
+        let results = results_for(&f.driver, f.window, id);
+        assert_eq!(results.len(), 1, "{id} answered once");
+        assert!(!results[0].0, "{id} rejected: {:?}", results[0]);
+    }
+
+    // No selection landed — the view still reports nulls.
+    action(
+        &mut f.shell,
+        &mut f.driver,
+        f.window,
+        Intent::new("vl2", "syn.view.list", json!({})),
+    );
+    let (ok, data) = last_result(&f.driver, f.window).expect("view.list result");
+    assert!(ok);
+    let entry = &data.expect("data")["views"][0];
+    assert_eq!(entry["selection"], Value::Null);
+    assert_eq!(entry["inspection"], Value::Null);
+}
+
+/// The `syn.viz.*` mount path end to end: `reconcile_viz_surfaces`
+/// binds the Arrangement waveform to the clip's canonical source and
+/// the Mixer meter to `meter:master`; `syn.viz.register` +
+/// `push_frame` land real fixture data whose status/bins project
+/// into `MainScreenState.viz` — bounded, honest, and never fabricated
+/// (synvelis#112 slice 4).
+#[test]
+fn viz_surfaces_bind_and_project_fixture_data() {
+    let mut f = fixture();
+    let clip_tag = open_clip_project(&mut f, "viz");
+    let waveform_source = format!("waveform:{clip_tag}");
+
+    // Register real fixture ports for both bound sources, then pump —
+    // `register_*` invalidates the bound surfaces and re-resolves
+    // meta through `notify_source_changed`.
+    action(
+        &mut f.shell,
+        &mut f.driver,
+        f.window,
+        Intent::new(
+            "vr-wf",
+            "syn.viz.register",
+            json!({
+                "source": waveform_source,
+                "kind": "waveform",
+                "rate": 48_000u32,
+                "channels": [[0.0, 0.5, -0.5, 1.0, -1.0, 0.25]],
+            }),
+        ),
+    );
+    action(
+        &mut f.shell,
+        &mut f.driver,
+        f.window,
+        Intent::new(
+            "vr-mt",
+            "syn.viz.register",
+            json!({ "source": "meter:master", "kind": "meter", "channels": 2 }),
+        ),
+    );
+    for id in ["vr-wf", "vr-mt"] {
+        let (ok, _) = results_for(&f.driver, f.window, id)
+            .last()
+            .cloned()
+            .expect("register result");
+        assert!(ok, "{id} registered");
+    }
+
+    // Meter frames land through `syn.viz.push_frame` — one per
+    // channel pair, sequence-stamped.
+    for seq in 1..=3u64 {
+        action(
+            &mut f.shell,
+            &mut f.driver,
+            f.window,
+            Intent::new(
+                format!("vf-{seq}"),
+                "syn.viz.push_frame",
+                json!({
+                    "source": "meter:master",
+                    "frame": {
+                        "sequence": seq,
+                        "channels": [
+                            { "peak": 0.5, "rms": 0.4 },
+                            { "peak": 0.25, "rms": 0.2 },
+                        ],
+                    },
+                }),
+            ),
+        );
+    }
+
+    {
+        let screen = f.screen.borrow();
+        // Waveform: meta resolved, query landed — status ok and real
+        // bins in frame units (seconds axis × declared rate).
+        assert_eq!(screen.viz.waveform.status, "ok");
+        assert_eq!(screen.viz.waveform.channels, 1);
+        let bins = &screen.viz.waveform.channel_bins[0];
+        assert!(!bins.is_empty(), "waveform bins projected");
+        assert!(
+            bins.iter().any(|b| b.count > 0 && b.max > 0.5),
+            "fixture peaks reach the bins: {bins:?}"
+        );
+        assert!(bins.len() <= 16_384, "bounded bins: {}", bins.len());
+        // Meter: three landed frames → three level bins per channel.
+        assert_eq!(screen.viz.meter.status, "ok");
+        assert_eq!(screen.viz.meter.channels, 2);
+        assert_eq!(screen.viz.meter.channel_levels.len(), 2);
+        for (ch, expected_peak) in screen.viz.meter.channel_levels.iter().zip([0.5, 0.25]) {
+            assert_eq!(ch.len(), 3, "one bin per landed frame");
+            assert!(
+                (ch[0].peak - expected_peak).abs() < 1e-9,
+                "channel peak projects the pushed frame: {ch:?}"
+            );
+            assert_eq!(ch[0].count, 1);
+        }
+        assert!(
+            screen
+                .viz
+                .meter
+                .channel_levels
+                .iter()
+                .flatten()
+                .all(|b| b.end <= 8_192),
+            "bounded meter bins"
+        );
+    }
+
+    // The frame pushes also surfaced on the syn.viz.frame channel.
+    let frames = notifies(&f.driver, f.window, "syn.viz.frame");
+    assert!(
+        frames
+            .iter()
+            .any(|d| d["surface_id"] == json!("main.meter") && d["kind"] == json!("meter")),
+        "meter frames pushed on syn.viz.frame: {frames:?}"
     );
 }
