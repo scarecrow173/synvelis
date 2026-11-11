@@ -185,6 +185,12 @@ pub enum ObjectKind {
     /// The project-wide punch-marks declaration (synvelis#117,
     /// schema v12) — a singleton object identified by the project tag.
     PunchMarks,
+    /// A persisted plugin-instance identity entry, keyed by its
+    /// owning `ProcessorId` (synvelis#324, schema v13) — a
+    /// keyed-synthetic collection like `SmfDocument`/`TrackMonitorDecl`.
+    /// Appended last so every existing kind keeps its `as u8`
+    /// discriminant — change IDs and issue dedup keys bake it in.
+    PluginInstance,
 }
 
 impl ObjectKind {
@@ -210,7 +216,8 @@ impl ObjectKind {
             | Self::ProcessorChain
             | Self::SemanticPort
             | Self::RoutingConnection
-            | Self::SendConfig => ComparisonDomain::Routing,
+            | Self::SendConfig
+            | Self::PluginInstance => ComparisonDomain::Routing,
             Self::ClockEpoch
             | Self::RecordingSession
             | Self::RecordingPass
@@ -530,7 +537,13 @@ pub struct ComparisonSpec {
 /// reports `Different`. The version lives inside `ComparisonKey`, so
 /// cached/persisted results computed under an older policy can never
 /// collide with new-policy keys.
-pub const DIFF_POLICY_VERSION: u32 = 2;
+///
+/// v3 (synvelis#324): `PluginInstance` entries joined the compared
+/// entity set — an instance-identity-only difference that reported
+/// `Equal` under v2 now reports `Different` (or `Unknown`/`Partial`
+/// when a pre-v13 side makes the persisted `id` a migration
+/// projection). Same `ComparisonKey` collision argument as v2.
+pub const DIFF_POLICY_VERSION: u32 = 3;
 
 impl ComparisonSpec {
     /// A spec comparing `before` → `after` over all domains.
