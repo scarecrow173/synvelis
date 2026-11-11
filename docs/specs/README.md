@@ -118,3 +118,4 @@ Directory: `docs/specs`
 | SPEC-034SYN157Kx9mTvQp2w | Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画 | superseded | [issue-157-selective-execution.md](./issue-157-selective-execution.md) |
 | SPEC-034Uri8JTbpWmKASolvM4A | RCD-02 Recording Durability Evidence / Recovery Review — synvelis#116 slice | implemented | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | SPEC-034T6XTAVpIPhybzaw7jdh | SV-GPUI-03 Synvelis Product Theme / Workspace Presets — Driver-neutral DTCG overrides・Preset schema・fixtures | implemented | [sv-gpui-03-product-theme-workspace-presets.md](./sv-gpui-03-product-theme-workspace-presets.md) |
+| SPEC-PCc4030bs3vN1pQ8wXyZ2aB | PC-C4-03 reported observation 消費 — host drain → ParamDispatch ledger（headless slice） | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |

@@ -146,3 +146,4 @@ Directory: `docs/test-specs`
 | TSPEC-034QwZT6kAhQwa2bRBkZyu | WS-A 検証仕様 — Multi-View/LinkGroup/Command/Dock headless 受入 | approved | [ws-a-e2e-workspace-foundation.md](./ws-a-e2e-workspace-foundation.md) |
 | TSPEC-zzdcoJZ1siQdbof0DBfv5l | X 検証仕様 — Recorded Source→Generic Playback/Export・Frame/ID/Content integrity | approved | [x-e2e-recorded-source-playback-export.md](./x-e2e-recorded-source-playback-export.md) |
 | TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |
+| TSPEC-PCc4030bs3vN1pQ8wXyZ2aF | PC-C4-03 param observation — drain→ledger・gate・typed 終端 test 保証 | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |
