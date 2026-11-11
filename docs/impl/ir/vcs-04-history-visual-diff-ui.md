@@ -224,17 +224,21 @@ Doc chain 閉鎖 slice（本 record を含む、コード変更なし）:
 
 ## Validation
 
-`origin/main` @ `7822857`（PR `#321` merge 済み head）に
-`git merge origin/main` で追従した merged tree 上で、既 merge
-コードに対する canonical mise lane を再実測（Windows worktree、
-pinned rustc 1.99.0、MSRV lane は rust 1.89.0）:
+`git merge origin/main` で最新 main（PR `#325`・`#326` merge 済み
+head。`#326` は `synvelis-player`/`synvelis-render` コード差分を
+含むため、merge 後 tree で全 lane を再実測）を取り込んだ merged
+tree 上で、既 merge コードに対する canonical mise lane を再実測
+（Windows worktree、pinned rustc 1.99.0、MSRV lane は rust
+1.89.0）:
 
 - `mise run fmt-check` — Pass（exit 0）
 - `mise run check` — Pass（exit 0）
 - `mise run lint` — Pass（exit 0・warning 0）
 - `mise run test` — Pass（exit 0・workspace 全 test binary ok。
   `vcs04_history.rs`（workspace）13/13、`vcs04_history.rs`（app）
-  9/9、`vcs06_ui_matrix.rs` 4/4 を含む）
+  9/9、`vcs06_ui_matrix.rs` 4/4 を含む。初回試行は Windows 並列
+  link 時の一過性 `LNK1102`（メモリ不足）を観測、再実行で exit 0
+  — TIM-02 記録と同型の環境要因でありコード欠陥ではない）
 - `mise run test-rt` — Pass（exit 0）
 - `mise run test-msrv` — Pass（exit 0・rust 1.89.0）
 - `mise run check-app-native` — Pass（exit 0）
