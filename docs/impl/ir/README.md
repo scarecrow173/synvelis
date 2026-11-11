@@ -102,6 +102,7 @@ Directory: `docs/impl/ir`
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](ci-245-macos-alloc-flake-slice.md) |
 | IMPL-034VpRmK9xT2wQ8nB4vC6d | RCD-03 Arm/Monitor/Punch Project 永続投影 slice 実装記録 | completed | [rcd-03-monitor-persistence-slice.md](rcd-03-monitor-persistence-slice.md) |
 | IMPL-034VpEJmewmUasabGgBzbM | VCS-06 UI headless matrix (synvelis#97 slice) | completed | [vcs-06-ui-headless-matrix-slice.md](vcs-06-ui-headless-matrix-slice.md) |
+| IMPL-bgZP66dLupCITdABVLTgJp | VCS-06 monitoring-domain matrix (synvelis#97 slice) | completed | [vcs-06-monitoring-matrix-slice.md](vcs-06-monitoring-matrix-slice.md) |
 | IMPL-034Vsqaiq4B9YQrsfPw8Sb | TIM-03 session→driver/routing wiring — BoundarySessionSpec vend・driver session/mirror・routing scoped API | completed | [tim-03-session-driver-wiring-slice.md](tim-03-session-driver-wiring-slice.md) |
 | IMPL-PCc4030bs3vN1pQ8wXyZ2aG | PC-C4-03 param observation — host drain → ParamDispatch ledger | completed | [pc-c4-03-param-observation-slice.md](pc-c4-03-param-observation-slice.md) |
 | IMPL-034VvMRwKN7mUk0Wv50AKg | PC-C4-05 persisted StablePluginInstanceId — schema v13 + player hydration | completed | [pc-c4-05-persisted-stableplugininstanceid-schema-v13-player-hydration.md](pc-c4-05-persisted-stableplugininstanceid-schema-v13-player-hydration.md) |
