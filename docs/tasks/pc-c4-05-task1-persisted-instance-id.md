@@ -87,7 +87,7 @@ relations:
 - [x] `mise run lint` exits 0
 - [x] `mise run fmt-check` exits 0
 - [x] `mise run test-rt` exits 0
-- [ ] `mise run test-msrv` exits 0
+- [x] `mise run test-msrv` exits 0
 - [x] `mise run check-headless-deps` exits 0
 
 ## Notes

@@ -1,7 +1,7 @@
 ---
 id: "IMPL-034VvMRwKN7mUk0Wv50AKg"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "PC-C4-05 persisted StablePluginInstanceId — schema v13 + player hydration"
 created: "2026-11-11"
 updated: "2026-11-11"
@@ -190,9 +190,12 @@ merge `origin/main`（daabeda）取り込み後の canonical 結果:
 - `mise run check-ruviform-rev`: pass（merge で ruviform rev が
   `9865cd57` へ更新されたため `mise run sync-ui-deps` を実行済み —
   gitignore された生成物のみ、追跡ファイルの変更なし）。
-- `mise run test-msrv`: 初回実行で `synvelis-app` test
-  `monitor_arm` の rlib 形式エラー（cargo 1.89 artifact 系、
-  本 slice のコードとは無関係の領域）。再実行で確認中。
+- `mise run test-msrv`: pass（rust 1.89 全 test）。初回は
+  `synvelis-app` test `monitor_arm` の rlib 形式エラー、2 回目は
+  `synvelis-library` webdav `non_dav_server_is_unsupported` の
+  `TransientIo` flaky — いずれも本 slice 範囲外の crate で、
+  単独再実行・全量再実行ともに pass を確認（cargo artifact 競合と
+  並列 test 負荷由来の flake と判断）。
 - 補助証拠（canonical = mise）: `cargo test -p
   synvelis-project --test plugin_instance_persist` 13/13、
   `cargo test -p synvelis-player --test pc_c4_05_persisted_instance`
