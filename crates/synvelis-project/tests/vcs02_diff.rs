@@ -4,6 +4,7 @@
 //! kinds, typed identity/lineage ambiguity, and the `Unknown` tri-state.
 //! Real OS / real Git remote / GUI / real plugin host are `NotRun`.
 
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use synvelis_project::control::{
@@ -13,12 +14,16 @@ use synvelis_project::control::{
 use synvelis_project::controller::{Command, ProjectController, ProjectRevision};
 use synvelis_project::diff::{
     AmbiguityReason, ChangeKind, ChangeSet, ChangeSetCache, ComparisonBudget,
-    ComparisonCompleteness, ComparisonDomain, ComparisonEquality, ComparisonIssue, ComparisonSpec,
-    DiffError, ObjectKind, SemanticChange, compare_snapshots,
+    ComparisonCompleteness, ComparisonDomain, ComparisonDomains, ComparisonEquality,
+    ComparisonIssue, ComparisonSpec, DiffError, ObjectKind, SemanticChange, SemanticTimeRange,
+    compare_snapshots,
 };
 use synvelis_project::id::{
     AssetId, ClipId, CounterIdGenerator, LaneId, NoteId, ProcessorId, ProjectId,
     RoutingConnectionId, SemanticPortId, SourceId, TrackId,
+};
+use synvelis_project::monitoring_data::{
+    ArmState, MonitorChannelMap, MonitorState, PunchMarks, TrackMonitorDecl,
 };
 use synvelis_project::ops::ProjectOp;
 use synvelis_project::placement::{
@@ -855,4 +860,288 @@ fn budget_exceeded_and_cancel_are_explicit_errors() {
     cancel.cancel();
     let err2 = compare_snapshots(&before, &after, &spec_for(&before, &after), &cancel).unwrap_err();
     assert_eq!(err2, DiffError::Cancelled);
+}
+
+// ── RCD-03: monitor declaration classification (synvelis#117) ─────
+
+fn monitor_decl(lane: Option<LaneId>) -> TrackMonitorDecl {
+    TrackMonitorDecl {
+        lane,
+        channel_map: MonitorChannelMap::identity(),
+        arm: ArmState::On,
+        monitor: MonitorState::Auto,
+    }
+}
+
+#[test]
+fn monitor_decl_add_remove_is_added_removed() {
+    let mut c = controller();
+    apply(&mut c, ProjectOp::AddTrack { name: "vox".into() });
+    let track = *c.live().tracks.keys().next().unwrap();
+    let before = snap_live(&c);
+    apply(
+        &mut c,
+        ProjectOp::SetTrackMonitor {
+            track,
+            decl: monitor_decl(None),
+        },
+    );
+    let after = snap_live(&c);
+
+    let ab = compare(&before, &after);
+    let hits = changes_of(&ab, ObjectKind::TrackMonitorDecl);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].kind, ChangeKind::Added);
+    assert!(hits[0].before.is_none());
+    assert_eq!(hits[0].object.stable_id, track.to_tagged());
+    // The declaration is not double-reported on its owner track.
+    assert_eq!(changes_of(&ab, ObjectKind::Track).len(), 0);
+
+    apply(&mut c, ProjectOp::ClearTrackMonitor { track });
+    let cleared = snap_live(&c);
+    let bc = compare(&after, &cleared);
+    let hits = changes_of(&bc, ObjectKind::TrackMonitorDecl);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].kind, ChangeKind::Removed);
+    assert!(hits[0].after.is_none());
+}
+
+#[test]
+fn monitor_decl_field_edit_is_modified() {
+    let mut c = controller();
+    apply(&mut c, ProjectOp::AddTrack { name: "vox".into() });
+    let track = *c.live().tracks.keys().next().unwrap();
+    apply(&mut c, ProjectOp::AddLane { track_id: track });
+    let lane = *c.live().tracks[&track].lane_ids.last().unwrap();
+    apply(
+        &mut c,
+        ProjectOp::SetTrackMonitor {
+            track,
+            decl: monitor_decl(None),
+        },
+    );
+    let before = snap_live(&c);
+
+    let mut next = monitor_decl(Some(lane));
+    next.arm = ArmState::Off;
+    next.monitor = MonitorState::On;
+    next.channel_map = MonitorChannelMap {
+        channels: vec![0, 1, 2, 3],
+    };
+    apply(&mut c, ProjectOp::SetTrackMonitor { track, decl: next });
+    let after = snap_live(&c);
+
+    let cs = compare(&before, &after);
+    let hits = changes_of(&cs, ObjectKind::TrackMonitorDecl);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].kind, ChangeKind::Modified);
+    let fields = fields_of(hits[0]);
+    assert!(fields.contains(&"lane"));
+    assert!(fields.contains(&"arm"));
+    assert!(fields.contains(&"monitor"));
+    assert!(fields.contains(&"channel_map.channels"));
+    assert_eq!(cs.overall, ComparisonEquality::Different);
+}
+
+#[test]
+fn punch_marks_add_modify_remove() {
+    let mut c = controller();
+    let before = snap_live(&c);
+    apply(
+        &mut c,
+        ProjectOp::SetPunchMarks {
+            punch_in: Some(MusicalTick::new(960)),
+            punch_out: Some(MusicalTick::new(1920)),
+        },
+    );
+    let punched = snap_live(&c);
+
+    // Undeclared → declared = Added, carrying the declared range.
+    let ab = compare(&before, &punched);
+    let hits = changes_of(&ab, ObjectKind::PunchMarks);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].kind, ChangeKind::Added);
+    assert!(hits[0].before.is_none());
+    assert!(matches!(
+        hits[0].affected_range,
+        Some(SemanticTimeRange::Musical(_))
+    ));
+
+    // Declared → declared (mark edit) = Modified with field evidence.
+    apply(
+        &mut c,
+        ProjectOp::SetPunchMarks {
+            punch_in: Some(MusicalTick::new(480)),
+            punch_out: Some(MusicalTick::new(1920)),
+        },
+    );
+    let moved = snap_live(&c);
+    let bc = compare(&punched, &moved);
+    let hits = changes_of(&bc, ObjectKind::PunchMarks);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].kind, ChangeKind::Modified);
+    let fields = fields_of(hits[0]);
+    assert!(fields.contains(&"punch_in"));
+    assert!(!fields.contains(&"punch_out"));
+
+    // Declared → undeclared = Removed, still reporting the span the
+    // removed declaration covered (in=480, out=1920 at `moved`).
+    apply(
+        &mut c,
+        ProjectOp::SetPunchMarks {
+            punch_in: None,
+            punch_out: None,
+        },
+    );
+    let cleared = snap_live(&c);
+    let cd = compare(&moved, &cleared);
+    let hits = changes_of(&cd, ObjectKind::PunchMarks);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].kind, ChangeKind::Removed);
+    assert!(hits[0].after.is_none());
+    let Some(SemanticTimeRange::Musical(range)) = hits[0].affected_range else {
+        panic!("removed punch declaration must report its covered range");
+    };
+    assert_eq!(range.start(), MusicalTick::new(480));
+    assert_eq!(range.end(), MusicalTick::new(1920));
+}
+
+#[test]
+fn punch_marks_partial_declaration_is_modified_without_range() {
+    // A declaration with only one mark set is still declared (Modified
+    // against a full declaration) but carries no expressible range.
+    let mut before = Project::new(ProjectId::new(1), "p");
+    before.monitoring.punch = PunchMarks {
+        punch_in: Some(MusicalTick::new(0)),
+        punch_out: Some(MusicalTick::new(960)),
+    };
+    let mut after = before.clone();
+    after.monitoring.punch = PunchMarks {
+        punch_in: Some(MusicalTick::new(480)),
+        punch_out: None,
+    };
+    let (b, a) = manual_pair(before, after);
+    let cs = compare(&b, &a);
+    let hits = changes_of(&cs, ObjectKind::PunchMarks);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].kind, ChangeKind::Modified);
+    assert!(hits[0].affected_range.is_none());
+}
+
+#[test]
+fn monitor_changes_follow_recording_domain_filter() {
+    let mut c = controller();
+    apply(&mut c, ProjectOp::AddTrack { name: "vox".into() });
+    let track = *c.live().tracks.keys().next().unwrap();
+    let before = snap_live(&c);
+    apply(
+        &mut c,
+        ProjectOp::SetTrackMonitor {
+            track,
+            decl: monitor_decl(None),
+        },
+    );
+    apply(
+        &mut c,
+        ProjectOp::SetPunchMarks {
+            punch_in: Some(MusicalTick::new(0)),
+            punch_out: Some(MusicalTick::new(960)),
+        },
+    );
+    let after = snap_live(&c);
+
+    // All domains (incl. Recording) → both monitor kinds appear and
+    // a monitor-only difference is `Different`, never `Equal`.
+    let all = compare(&before, &after);
+    assert!(has_kind(
+        &all,
+        ObjectKind::TrackMonitorDecl,
+        ChangeKind::Added
+    ));
+    assert!(has_kind(&all, ObjectKind::PunchMarks, ChangeKind::Added));
+    assert_eq!(all.overall, ComparisonEquality::Different);
+
+    // Recording excluded → no monitor changes (nor any others).
+    let mut spec = spec_for(&before, &after);
+    spec.domains = ComparisonDomains(BTreeSet::from([
+        ComparisonDomain::Project,
+        ComparisonDomain::Arrangement,
+    ]));
+    let cs = compare_snapshots(&before, &after, &spec, &SnapshotCancel::new()).unwrap();
+    assert_eq!(changes_of(&cs, ObjectKind::TrackMonitorDecl).len(), 0);
+    assert_eq!(changes_of(&cs, ObjectKind::PunchMarks).len(), 0);
+    assert_eq!(cs.overall, ComparisonEquality::Equal);
+}
+
+#[test]
+fn monitor_state_does_not_poison_aa_equality() {
+    let mut c = controller();
+    apply(&mut c, ProjectOp::AddTrack { name: "vox".into() });
+    let track = *c.live().tracks.keys().next().unwrap();
+    apply(
+        &mut c,
+        ProjectOp::SetTrackMonitor {
+            track,
+            decl: monitor_decl(None),
+        },
+    );
+    apply(
+        &mut c,
+        ProjectOp::SetPunchMarks {
+            punch_in: Some(MusicalTick::new(0)),
+            punch_out: Some(MusicalTick::new(960)),
+        },
+    );
+    let a = snap_live(&c);
+    let b = snap_live(&c);
+    let cs = compare(&a, &b);
+    assert_eq!(cs.overall, ComparisonEquality::Equal);
+    assert_eq!(cs.changes.len(), 0);
+}
+
+#[test]
+fn monitor_decl_on_ambiguous_track_raw_is_ambiguous() {
+    // before: track 77 + monitor decl keyed by it; after: raw 77
+    // reissued as a clip — the decl key's identity is ambiguous, so
+    // neither the decl nor the collided entities may diff.
+    let mut before = Project::new(ProjectId::new(1), "p");
+    before.tracks.insert(
+        TrackId::new(77),
+        Track {
+            id: TrackId::new(77),
+            name: "ghost".into(),
+            lane_ids: vec![],
+        },
+    );
+    before
+        .monitoring
+        .tracks
+        .insert(TrackId::new(77), monitor_decl(None));
+    let mut after = before.clone();
+    after.tracks.remove(&TrackId::new(77));
+    after.monitoring.tracks.remove(&TrackId::new(77));
+    after.clips.insert(
+        ClipId::new(77),
+        Clip {
+            id: ClipId::new(77),
+            lane_id: LaneId::new(1),
+            source_id: SourceId::new(1),
+            placement: clip_placement(0),
+            playback: clip_playback(),
+            muted: false,
+        },
+    );
+    let (b, a) = manual_pair(before, after);
+    let cs = compare(&b, &a);
+    assert_eq!(changes_of(&cs, ObjectKind::TrackMonitorDecl).len(), 0);
+    assert_eq!(changes_of(&cs, ObjectKind::Track).len(), 0);
+    assert_eq!(changes_of(&cs, ObjectKind::Clip).len(), 0);
+    assert!(cs.unresolved.iter().any(|i| matches!(
+        i,
+        ComparisonIssue::AmbiguousIdentity {
+            object,
+            reason: AmbiguityReason::CrossKindId,
+        } if object.kind == ObjectKind::TrackMonitorDecl
+    )));
+    assert!(matches!(cs.overall, ComparisonEquality::Unknown(_)));
 }

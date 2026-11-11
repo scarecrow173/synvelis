@@ -52,8 +52,10 @@ Directory: `docs/plans`
 | PLAN-034VedskoBprfWhNkuqz6f | RCD-03 app Arm/Monitoring UX + monitor session projection slice | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
 | PLAN-034VpQd9mO4xP1wT6vA8wL | RCD-03 Arm/Monitor/Punch Project 永続投影 slice | approved | [rcd-03-monitor-persistence-plan.md](./rcd-03-monitor-persistence-plan.md) |
 | PLAN-034UtpZmsA5LhaaXLS0KRF | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter slice | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
+| PLAN-TYvHuxegoERJua2h0P3t1D | RCD-03 VCS semantic diff monitor 宣言分類 slice | approved | [rcd-03-vcs-diff-monitor-classification-plan.md](./rcd-03-vcs-diff-monitor-classification-plan.md) |
 | PLAN-RCD04Fx4kD9sG2hJ6mN8pQ1 | RCD-04 Comp Transition / MIDI Phrase crate fixture slice — implementation plan | approved | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |
 | PLAN-034VmOlfg7SLp6iUHpXla5 | RCD-04 product E2E plan | approved | [rcd-04-product-e2e-plan.md](./rcd-04-product-e2e-plan.md) |
+| PLAN-034VC2HhruQrlFFlRTEMNY | RCD-04 RT engine comp PCM plan | approved | [rcd-04-rt-engine-comp-pcm-plan.md](./rcd-04-rt-engine-comp-pcm-plan.md) |
 | PLAN-034SF01Np0sTu5vW2xYzAbDeF | SF-01 Semantic Routing Model 実装計画 | approved | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
 | PLAN-034SF02Wz0rOp7qT0vB5cDfGh | SF-02 RoutingTransaction 実装計画 — staging/検証/mute-solo/テスト | approved | [sf-02-routing-transaction.md](./sf-02-routing-transaction.md) |
 | PLAN-034Uxp78PIJVQOgDqnzNqg | SF-03 semantic→runtime 写像 — 統合設計文書化計画 | approved | [sf-03-map-semantic-runtime-mapping-docs.md](./sf-03-map-semantic-runtime-mapping-docs.md) |
@@ -72,6 +74,7 @@ Directory: `docs/plans`
 | PLAN-dF3hNzQwErTyUiOpL6kMnB | SF-05 slice3 実施計画 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-plan.md](./sf-05-slice3-probe-subscriber-wiring-plan.md) |
 | PLAN-034V2wD3RqGEqlst7HFeVD | SF-06 cross-gate headless slice — Domain Oracle・Case registry・fault fixture・ledger | approved | [sf-06-cross-gate-oracle.md](./sf-06-cross-gate-oracle.md) |
 | PLAN-QRGcQW6CvUDaVfCwWADz2f | SF-XR-01 実装計画 — CTL-01/CTL-02 cross-gate oracle fixture | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
+| PLAN-0DE1gOLgt5QsNGBzENzb8a | Issue #245 webdav MockServer TransientIo flake — blocking 正規化 実装計画 | approved | [sv-ci-webdav-transient-io-flake-plan.md](./sv-ci-webdav-transient-io-flake-plan.md) |
 | PLAN-v1VQEMk92Nx1lQHUlSVh1t | SV-GUI-01 実装計画 — Desktop App Bootstrap・WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap.md](./sv-gui-01-desktop-app-bootstrap.md) |
 | PLAN-SVGUI02 | SV-GUI-02 View Model・Binding IPC 実装計画 | approved | [sv-gui-02-view-model-binding-ipc.md](./sv-gui-02-view-model-binding-ipc.md) |
 | PLAN-034Ul4TkjPiKYvapjdmBbt | SV-GUI-03 slice1 Transport/Inspector 実施 plan | approved | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |

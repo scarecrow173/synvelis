@@ -107,7 +107,7 @@ impl MockServer {
             while !flag.load(Ordering::SeqCst) {
                 match listener.accept() {
                     Ok((stream, _)) => handle_conn(stream, &handler),
-                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    Err(e) if transient_accept_error(&e) => {
                         std::thread::sleep(Duration::from_millis(2));
                     }
                     Err(_) => break,
@@ -166,7 +166,26 @@ fn reason_phrase(status: u16) -> &'static str {
     }
 }
 
+/// Accept-loop errors that describe a dead *pending* connection (a
+/// queued peer that reset before accept — surfaced by Winsock, folded
+/// away by POSIX) rather than a dead listener. Those are per-connection
+/// noise; only listener-level errors may end the loop.
+fn transient_accept_error(e: &std::io::Error) -> bool {
+    use std::io::ErrorKind as K;
+    matches!(
+        e.kind(),
+        K::WouldBlock | K::ConnectionReset | K::ConnectionAborted | K::TimedOut | K::Interrupted
+    )
+}
+
 fn handle_conn(mut stream: TcpStream, handler: &Handler) {
+    // Winsock propagates the listener's nonblocking flag to the
+    // accepted socket; POSIX does not. `read_request`/`write_response`
+    // assume a blocking socket with timeouts — normalize the mode here
+    // so a `read` that beats the client's first bytes blocks instead
+    // of failing `WouldBlock` and RST-ing the connection (os error
+    // 10054/10053 on the client; synvelis#245).
+    let _ = stream.set_nonblocking(false);
     let _ = stream.set_read_timeout(Some(Duration::from_secs(15)));
     let _ = stream.set_write_timeout(Some(Duration::from_secs(15)));
     let Ok(req) = read_request(&mut stream) else {
