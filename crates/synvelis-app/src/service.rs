@@ -177,6 +177,18 @@ pub const OPS: &[OpInfo] = &[
         summary: "bounded bindable-target listing",
     },
     OpInfo {
+        name: "syn.control.fast_control",
+        summary: "point-in-time plugin param write — target/value/means/position_frames/project_revision → Delivered|Queued|Blocked",
+    },
+    OpInfo {
+        name: "syn.control.status",
+        summary: "control surface evidence — SurfaceReport/TickReport/ReportDrainReport/generation/active_generation/frame_base",
+    },
+    OpInfo {
+        name: "syn.control.observe",
+        summary: "observe one call window (processor/generation/call/span) → DispatchStage observations + Reported-only feed count",
+    },
+    OpInfo {
         name: "syn.probe.control",
         summary: "semantic probe lifecycle — request|set_mode|capture|stop_capture|remove (SF-04)",
     },
@@ -348,6 +360,9 @@ impl AppService {
             "syn.control.subscribe" => self.app.op_control_subscribe(params),
             "syn.control.unsubscribe" => self.app.op_control_unsubscribe(params),
             "syn.control.targets" => Ok(self.app.op_control_targets()),
+            "syn.control.fast_control" => self.app.op_control_fast_control(params),
+            "syn.control.status" => Ok(self.app.op_control_status()),
+            "syn.control.observe" => self.app.op_control_observe(params),
             "syn.probe.control" => self.app.op_probe_control(params),
             "syn.probe.state" => Ok(self.app.op_probe_state()),
             "syn.monitoring.set" => self.app.op_monitoring_set(params),

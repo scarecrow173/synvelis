@@ -14,8 +14,12 @@ use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use ruviform_audio_plugin_bridge::DispatchStage;
-use ruviform_media_core::MediaTimestamp;
+use ruviform_audio_plugin_bridge::{DispatchStage, ParamValueObservation};
+use ruviform_media_core::{
+    EngineFrame, LoopOccurrence, MediaTime, MediaTimestamp, PlanGeneration, SpanContext,
+    TempoMapRevision, TimeBase, TransportGeneration, TransportSpan, TransportStatus,
+};
+use ruviform_plugin_core::{ParamValue, ParamWriteMeans};
 use ruviform_ui::dock::{
     DockEvent, DockTarget, MoveToken, ViewInstanceId, WindowCloseDisposition, WindowGeometry,
 };
@@ -27,8 +31,9 @@ use ruviform_ui::window::WindowId;
 use serde_json::{Value, json};
 
 use synvelis_player::{
-    DispatchCycle, FastControlOutcome, FastControlWrite, LatencyBasis, LatencyComponent,
-    LatencyQuality, LatencyReport, LowLatencyReadiness, TickReport,
+    DispatchCycle, FastControlBlockKind, FastControlOutcome, FastControlWrite, LatencyBasis,
+    LatencyComponent, LatencyQuality, LatencyReport, LowLatencyReadiness, ReportDrainReport,
+    SurfaceReport, TickReport,
 };
 use synvelis_project::vcs::{RevisionSelector, VcsCancel};
 use synvelis_project::{
@@ -63,6 +68,7 @@ use synvelis_workspace::{
 };
 
 use crate::app::SynvelisApp;
+use crate::engine::SessionRoutingEngine;
 use crate::monitoring::{MonitorSessionParams, MonitorTransportAction, MonitorUxState, TrackPatch};
 use crate::screens::{
     DockViewInfo, InspectorRow, InspectorScreenState, MeterScreenState, SignalFlowProbeRow,
@@ -207,6 +213,14 @@ pub struct UiOpsState {
     /// [`SynvelisApp::ui_pump`] — control-cycle evidence (PC-C4-04).
     /// `None` when no routing engine or control surface is attached.
     pub(crate) last_control_tick: Option<TickReport>,
+    /// Latest `RoutingControlDispatch::drain_output_reports` report
+    /// recorded through [`SynvelisApp::note_control_drain`] — the
+    /// composition root performs the drain itself through the
+    /// engine's `with_control_dispatch` seam (the host borrow lives
+    /// outside the app) and hands the typed counters here for
+    /// `syn.control.status` exposure (PC-C4-06). `attached: false`
+    /// until the first recorded drain — never fabricated.
+    pub(crate) last_control_drain: ReportDrainReport,
 }
 
 impl UiOpsState {
@@ -231,6 +245,7 @@ impl UiOpsState {
             window_request_seq: 0,
             last_probe_drain: ProbeDrainReport::default(),
             last_control_tick: None,
+            last_control_drain: ReportDrainReport::default(),
         }
     }
 }
@@ -385,6 +400,322 @@ fn probe_trace_err(error: &ProbeTraceError) -> ErrorBody {
 
 fn dock_err(e: &synvelis_workspace::WorkspaceError) -> ErrorBody {
     internal(format!("dock: {e}"))
+}
+
+// -- PC-C4-06 syn.control.* typed-evidence wire shapes -------------------
+//
+// Every shape below is a verbatim projection of the player's typed
+// evidence — counters, stages, generations and rejection kinds cross
+// the wire unchanged. Nothing synthesizes a plugin value, a catalog
+// entry, or a report the surface did not produce.
+
+/// `TimeBase` → wire shape — the rational verbatim; a base is never
+/// reinterpreted as a sample rate.
+fn time_base_json(base: TimeBase) -> Value {
+    json!({
+        "numerator": base.numerator(),
+        "denominator": base.denominator(),
+    })
+}
+
+/// `MediaTime` → wire shape — ticks plus the base they are counted
+/// in; positions are never silently re-based.
+fn media_time_json(time: MediaTime) -> Value {
+    json!({
+        "ticks": time.value(),
+        "base": time_base_json(time.base()),
+    })
+}
+
+/// `SurfaceReport` → wire shape — attach/bind evidence verbatim:
+/// which processors hold control halves, which targets bound, and
+/// every typed bind rejection.
+fn surface_report_json(report: &SurfaceReport) -> Value {
+    let unbound: serde_json::Map<String, Value> = report
+        .unbound
+        .iter()
+        .map(|(target, reason)| (target.to_tagged(), json!(reason)))
+        .collect();
+    json!({
+        "generation": report.generation,
+        "controlled_processors": report
+            .controlled_processors
+            .iter()
+            .map(|p| p.to_tagged())
+            .collect::<Vec<_>>(),
+        "without_control": report
+            .without_control
+            .iter()
+            .map(|p| p.to_tagged())
+            .collect::<Vec<_>>(),
+        "bound_targets": report.bound_targets,
+        "unbound": Value::Object(unbound),
+    })
+}
+
+/// `TickReport` → wire shape — the pump-driven control-cycle
+/// counters verbatim.
+fn tick_report_json(report: &TickReport) -> Value {
+    json!({
+        "attached": report.attached,
+        "generation": report.generation,
+        "gated": report.gated,
+        "stale": report.stale,
+        "queue_delivered": report.queue_delivered,
+        "queue_dropped": report.queue_dropped,
+        "queue_retained": report.queue_retained,
+        "evaluated": report.evaluated,
+        "eval_skipped": report.eval_skipped,
+        "events": report.events,
+        "nodes_dispatched": report.nodes_dispatched,
+        "dispatch_errors": report.dispatch_errors,
+    })
+}
+
+/// `ReportDrainReport` → wire shape — drain counters verbatim plus
+/// each typed `(processor, HostError)` pair (the error renders as
+/// debug text — `HostError` has no contract serde).
+fn report_drain_json(report: &ReportDrainReport) -> Value {
+    json!({
+        "attached": report.attached,
+        "generation": report.generation,
+        "generation_gated": report.generation_gated,
+        "inactive_gated": report.inactive_gated,
+        "drained": report.drained,
+        "unavailable": report.unavailable,
+        "failed": report.failed,
+        "events": report.events,
+        "param_reports": report.param_reports,
+        "reported": report.reported,
+        "unbound_param": report.unbound_param,
+        "no_pending": report.no_pending,
+        "unrouted": report.unrouted,
+        "errors": report
+            .errors
+            .iter()
+            .map(|(processor, error)| {
+                json!({
+                    "processor": processor.to_tagged(),
+                    "error": format!("{error:?}"),
+                })
+            })
+            .collect::<Vec<_>>(),
+    })
+}
+
+/// `FastControlBlockKind` → wire string — the `Copy` rejection kind
+/// verbatim; the full typed reason stays available through
+/// `syn.control.status`'s recorded block detail.
+fn fast_control_block_json(kind: FastControlBlockKind) -> &'static str {
+    match kind {
+        FastControlBlockKind::NoSurface => "no_surface",
+        FastControlBlockKind::StaleSurface => "stale_surface",
+        FastControlBlockKind::QueueFull => "queue_full",
+        FastControlBlockKind::UnboundTarget => "unbound_target",
+        FastControlBlockKind::Lowering => "lowering",
+        FastControlBlockKind::Dispatch => "dispatch",
+    }
+}
+
+/// `FastControlOutcome` → wire shape — `Delivered` / `Queued{depth}`
+/// / `Blocked{kind}` verbatim; a blocked write is never reported as
+/// delivered or queued.
+fn fast_control_outcome_json(outcome: FastControlOutcome) -> Value {
+    match outcome {
+        FastControlOutcome::Delivered => json!({ "outcome": "delivered" }),
+        FastControlOutcome::Queued { depth } => {
+            json!({ "outcome": "queued", "depth": depth })
+        }
+        FastControlOutcome::Blocked(kind) => {
+            json!({ "outcome": "blocked", "block": fast_control_block_json(kind) })
+        }
+    }
+}
+
+/// One `(target, observation)` ledger row → wire shape — the stage
+/// verbatim (`scheduled`/`dispatched`/`dropped`/`reported`/
+/// `unavailable`), the value only where the stage carries one
+/// (`Reported` is plugin-reported; `Scheduled`/`Dispatched` values
+/// are host-resolved and stay labeled by their stage, never
+/// relabeled as reports).
+fn control_observation_json(target: ParameterTargetId, obs: &ParamValueObservation) -> Value {
+    let mut row = match obs.stage {
+        DispatchStage::Scheduled => json!({ "stage": "scheduled" }),
+        DispatchStage::Dispatched {
+            call_start,
+            frame_offset,
+        } => json!({
+            "stage": "dispatched",
+            "call_start": call_start,
+            "frame_offset": frame_offset,
+        }),
+        DispatchStage::Dropped { reason } => {
+            json!({ "stage": "dropped", "reason": format!("{reason:?}") })
+        }
+        DispatchStage::Reported => json!({ "stage": "reported" }),
+        DispatchStage::Unavailable => json!({ "stage": "unavailable" }),
+        _ => json!({ "stage": "unknown" }),
+    };
+    row["target"] = json!(target.to_tagged());
+    row["value"] = json!(obs.value.map(ParamValue::get));
+    row["position"] = media_time_json(obs.position);
+    row["revision"] = json!(obs.revision);
+    row
+}
+
+/// One drained [`ruviform_media_core::AppliedReceipt`] → wire shape —
+/// the scheduler's own post-apply truth (`plan_generation` is how a
+/// caller learns which plan generation is live, the same evidence
+/// the driver's transport mirror consumes). `status` renders as its
+/// variant name; rejection detail stays a typed token upstream.
+fn applied_receipt_json(receipt: &ruviform_media_core::AppliedReceipt) -> Value {
+    let status = match receipt.status {
+        ruviform_media_core::ApplyStatus::Requested => "requested",
+        ruviform_media_core::ApplyStatus::Pending => "pending",
+        ruviform_media_core::ApplyStatus::Applied => "applied",
+        ruviform_media_core::ApplyStatus::Rejected => "rejected",
+        _ => "unknown",
+    };
+    json!({
+        "status": status,
+        "plan_generation": receipt.plan_generation.get(),
+        "transport_generation": receipt.transport_generation.get(),
+        "clock_epoch": receipt.clock_epoch.get(),
+        "applied_frame": receipt.applied_frame.map(EngineFrame::frame),
+    })
+}
+
+/// `params.means` → [`ParamWriteMeans`] — the caller's declared
+/// delivery precision, passed through verbatim; means the contract
+/// cannot honor (`immediate`/`per_note`) are rejected downstream as
+/// typed `UnsupportedMeans`, never silently downgraded.
+fn write_means_param(text: &str) -> Result<ParamWriteMeans, ErrorBody> {
+    match text {
+        "timed_event" => Ok(ParamWriteMeans::TimedEvent),
+        "block_boundary" => Ok(ParamWriteMeans::BlockBoundary),
+        "immediate" => Ok(ParamWriteMeans::Immediate),
+        "per_note" => Ok(ParamWriteMeans::PerNote),
+        other => Err(invalid(format!("params.means: unknown means {other}"))),
+    }
+}
+
+fn i64_param(params: &Value, key: &str) -> Result<i64, ErrorBody> {
+    params
+        .get(key)
+        .and_then(Value::as_i64)
+        .ok_or_else(|| invalid(format!("params.{key} (integer) required")))
+}
+
+/// `syn.control.observe` wire DTOs — the caller-supplied physical
+/// call window and transport span (PC-C4-06). Every field is caller
+/// evidence: the op forwards the span verbatim into
+/// `observe_cycle` and never invents transport context. Per-block
+/// automatic call-window supply inside the RT runtime remains
+/// deferred work — this op is the explicit headless/driver drive.
+#[derive(serde::Deserialize)]
+struct ObserveCallParam {
+    /// Clock epoch of the call-start frame.
+    epoch: u64,
+    /// Absolute engine frame the physical call starts at.
+    frame: u64,
+    /// Physical call length in frames.
+    frames: u32,
+}
+
+#[derive(serde::Deserialize)]
+struct ObserveFrameParam {
+    /// Clock epoch of the frame.
+    epoch: u64,
+    /// Raw frame index inside the epoch.
+    frame: u64,
+}
+
+#[derive(serde::Deserialize)]
+struct ObserveBaseParam {
+    /// `TimeBase` numerator.
+    numerator: u32,
+    /// `TimeBase` denominator.
+    denominator: u32,
+}
+
+#[derive(serde::Deserialize)]
+struct ObserveSpanParam {
+    /// Span start frame.
+    start: ObserveFrameParam,
+    /// Span end frame (exclusive).
+    end: ObserveFrameParam,
+    /// `"stopped"` | `"playing"` | `"paused"`.
+    status: String,
+    /// Position at the span start, in `position_base` ticks.
+    position_ticks: i64,
+    /// Base of `position_ticks`.
+    position_base: ObserveBaseParam,
+    /// Active loop region `(start, end)` in `position_base` ticks —
+    /// `null` when no loop is active.
+    loop_ticks: Option<(i64, i64)>,
+    /// Loop pass counter.
+    occurrence: u64,
+    /// Clock epoch of the span's frame series.
+    clock_epoch: u64,
+    /// Live transport generation for event tag matching.
+    transport_generation: u64,
+    /// Live plan generation for event tag matching.
+    plan_generation: u64,
+    /// Tempo-map revision the plan was compiled from.
+    tempo_revision: u64,
+    /// Whether a legal physical-call partition exists.
+    deliverable: bool,
+}
+
+#[derive(serde::Deserialize)]
+struct ObserveParams {
+    /// Tagged `ProcessorId` of the plugin-backed chain node.
+    processor: String,
+    /// Routing plan generation the surface must be serving.
+    generation: u64,
+    /// The physical call window `[frame, frame + frames)`.
+    call: ObserveCallParam,
+    /// The deliverable transport span covering the call.
+    span: ObserveSpanParam,
+}
+
+fn observe_frame(frame: &ObserveFrameParam) -> EngineFrame {
+    EngineFrame::new(
+        ruviform_media_core::ClockEpochId::new(frame.epoch),
+        frame.frame,
+    )
+}
+
+fn transport_status_param(text: &str) -> Result<TransportStatus, ErrorBody> {
+    match text {
+        "stopped" => Ok(TransportStatus::Stopped),
+        "playing" => Ok(TransportStatus::Playing),
+        "paused" => Ok(TransportStatus::Paused),
+        other => Err(invalid(format!(
+            "params.span.status: unknown status {other}"
+        ))),
+    }
+}
+
+fn transport_span_param(span: &ObserveSpanParam) -> Result<TransportSpan, ErrorBody> {
+    let position_base = TimeBase::new(span.position_base.numerator, span.position_base.denominator)
+        .map_err(|e| invalid(format!("params.span.position_base: {e}")))?;
+    Ok(TransportSpan {
+        start: observe_frame(&span.start),
+        end: observe_frame(&span.end),
+        ctx: SpanContext {
+            status: transport_status_param(&span.status)?,
+            position_ticks: span.position_ticks,
+            position_base,
+            loop_ticks: span.loop_ticks,
+            occurrence: LoopOccurrence::new(span.occurrence),
+            clock_epoch: ruviform_media_core::ClockEpochId::new(span.clock_epoch),
+            transport_generation: TransportGeneration::new(span.transport_generation),
+            plan_generation: PlanGeneration::new(span.plan_generation),
+            tempo_revision: TempoMapRevision::new(span.tempo_revision),
+        },
+        deliverable: span.deliverable,
+    })
 }
 
 /// View-scoped `syn.probe.control` actions — `subscribe` /
@@ -1358,6 +1689,17 @@ impl SynvelisApp {
                 });
         }
         fed
+    }
+
+    /// Records the composition root's latest
+    /// [`synvelis_player::RoutingControlDispatch::drain_output_reports`]
+    /// report for `syn.control.status` exposure (PC-C4-06). The drain
+    /// itself runs outside the app — the `PluginHost` borrow lives
+    /// with the composition root and is reached through the engine's
+    /// `with_control_dispatch` seam; this stores the typed counters
+    /// verbatim and never derives or fabricates a report.
+    pub fn note_control_drain(&mut self, report: ReportDrainReport) {
+        self.ui.last_control_drain = report;
     }
 
     /// SF-04 slice 4 drain hook — the *only* session path that pulls
@@ -3694,6 +4036,177 @@ impl SynvelisApp {
             }));
         }
         json!({ "targets": targets })
+    }
+
+    /// `syn.control.fast_control` — submits a point-in-time
+    /// fast-control write through the attached routing engine's
+    /// control surface (PC-C4-06). Delivered immediately while the
+    /// surface's generation is RT-active, queued (bounded) otherwise,
+    /// `Blocked` with a typed kind on refusal — the outcome is the
+    /// player's [`FastControlOutcome`] verbatim plus the recorded
+    /// [`synvelis_player::FastControlBlock`] detail on blocks.
+    ///
+    /// `params.target` is the tagged `ParameterTargetId`,
+    /// `params.value` the normalized host value, `params.means` the
+    /// declared delivery precision (`"timed_event"` |
+    /// `"block_boundary"` | `"immediate"` | `"per_note"` — unsupported
+    /// means fail typed downstream, never silently downgraded),
+    /// `params.position_frames` the delivery position in engine frames
+    /// counted in the surface's verified frame base (see
+    /// `syn.control.status`'s `frame_base`), and
+    /// `params.project_revision` the revision the intent was authored
+    /// against (correlation evidence only).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters or no attached control
+    /// surface.
+    pub fn op_control_fast_control(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let target = ParameterTargetId::from_tagged(str_param(params, "target")?)
+            .map_err(|e| invalid(format!("params.target: {e}")))?;
+        let value = f64_param(params, "value")?;
+        let means = write_means_param(str_param(params, "means")?)?;
+        let position_frames = i64_param(params, "position_frames")?;
+        let project_revision = ProjectRevision(u64_param(params, "project_revision")?);
+        let frame_base = self
+            .routing_engine
+            .as_ref()
+            .and_then(SessionRoutingEngine::control_frame_base)
+            .ok_or_else(|| internal("no control surface attached"))?;
+        let write = FastControlWrite {
+            target,
+            value,
+            means,
+            position: MediaTime::new(position_frames, frame_base),
+            project_revision,
+        };
+        let outcome = self
+            .control_fast_control(write)
+            .ok_or_else(|| internal("no control surface attached"))?;
+        let block_detail = if matches!(outcome, FastControlOutcome::Blocked(_)) {
+            self.routing_engine
+                .as_ref()
+                .and_then(SessionRoutingEngine::control_last_block)
+        } else {
+            None
+        };
+        let mut row = fast_control_outcome_json(outcome);
+        if let Some(detail) = block_detail {
+            row["block_detail"] = json!(detail);
+        }
+        self.ui_pump();
+        Ok(row)
+    }
+
+    /// `syn.control.status` — the control surface's typed-evidence
+    /// snapshot (PC-C4-06): attach/bind report, last pump-driven tick
+    /// report, the composition root's last recorded drain report,
+    /// the surface generation, the RT-observed active generation
+    /// (`null` = never observed — always gated), the verified frame
+    /// base, and the last attach/sync error. Every field is `null`
+    /// (or the drain's honest `attached: false` default) when no
+    /// engine/surface exists — nothing is fabricated.
+    #[must_use]
+    pub fn op_control_status(&self) -> Value {
+        let engine = self.routing_engine.as_ref();
+        let surface = engine.and_then(SessionRoutingEngine::control_report);
+        let generation = engine.and_then(SessionRoutingEngine::control_generation);
+        let frame_base = engine.and_then(SessionRoutingEngine::control_frame_base);
+        let active_generation = engine.and_then(|e| {
+            let status = e.rt_status();
+            (status.active_generation != 0).then_some(status.active_generation)
+        });
+        let last_error = engine.and_then(SessionRoutingEngine::last_control_error);
+        json!({
+            "engine": engine.is_some(),
+            "generation": generation,
+            "active_generation": active_generation,
+            "frame_base": frame_base.map_or(Value::Null, time_base_json),
+            "last_error": last_error,
+            "surface": surface
+                .as_ref()
+                .map_or(Value::Null, surface_report_json),
+            "tick": self
+                .ui
+                .last_control_tick
+                .as_ref()
+                .map_or(Value::Null, tick_report_json),
+            "drain": report_drain_json(&self.ui.last_control_drain),
+        })
+    }
+
+    /// `syn.control.observe` — advances one plugin node's dispatch
+    /// ledger through one caller-supplied physical call window and
+    /// feeds the cycle into the workspace control session (PC-C4-06).
+    /// Returns the per-target observations verbatim — stage, value,
+    /// position, ledger revision — plus the drained receipt count
+    /// and `fed`, the number of `Reported`-stage observations that
+    /// crossed into `ControlSession::feed_plugin_report`. Only
+    /// `Reported` feeds; `Scheduled`/`Dispatched` stay host-resolved
+    /// on the wire and never reach the plugin-report channel.
+    ///
+    /// `params.processor` is the tagged `ProcessorId`,
+    /// `params.generation` must name the attached surface (a stale
+    /// generation fails closed before any observation runs),
+    /// `params.call` is the physical call window
+    /// (`{epoch, frame, frames}`) and `params.span` the deliverable
+    /// [`TransportSpan`] covering it — both caller evidence, never
+    /// defaulted. Per-block automatic call-window supply inside the
+    /// RT runtime is deferred work; this op is the explicit drive.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, no routing engine/control
+    /// surface, a generation mismatch, or a processor with no control
+    /// node on the surface.
+    pub fn op_control_observe(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let request: ObserveParams =
+            serde_json::from_value(params.clone()).map_err(|e| invalid(format!("params: {e}")))?;
+        let processor = ProcessorId::from_tagged(&request.processor)
+            .map_err(|e| invalid(format!("params.processor: {e}")))?;
+        let span = transport_span_param(&request.span)?;
+        let engine = self
+            .routing_engine
+            .clone()
+            .ok_or_else(|| internal("no routing engine attached"))?;
+        let surface_generation = engine
+            .control_generation()
+            .ok_or_else(|| internal("no control surface attached"))?;
+        if request.generation != surface_generation {
+            return Err(internal(format!(
+                "params.generation {} does not match the attached surface generation {surface_generation}",
+                request.generation
+            )));
+        }
+        let call_start = EngineFrame::new(
+            ruviform_media_core::ClockEpochId::new(request.call.epoch),
+            request.call.frame,
+        );
+        let cycle = engine
+            .control_observe_cycle(
+                processor,
+                request.generation,
+                &span,
+                call_start,
+                request.call.frames,
+            )
+            .ok_or_else(|| {
+                internal(format!(
+                    "params.processor {} has no control node on generation {}",
+                    request.processor, request.generation
+                ))
+            })?;
+        let fed = self.feed_control_cycle(&cycle);
+        let observations: Vec<Value> = cycle
+            .observations
+            .iter()
+            .map(|(target, obs)| control_observation_json(*target, obs))
+            .collect();
+        let receipts: Vec<Value> = cycle.receipts.iter().map(applied_receipt_json).collect();
+        self.ui_pump();
+        Ok(json!({
+            "observations": observations,
+            "receipts": receipts,
+            "fed": fed,
+        }))
     }
 
     // -- syn.monitoring.* -----------------------------------------------------
