@@ -53,6 +53,7 @@ Directory: `docs/plans`
 | PLAN-034UtpZmsA5LhaaXLS0KRF | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter slice | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | PLAN-RCD04Fx4kD9sG2hJ6mN8pQ1 | RCD-04 Comp Transition / MIDI Phrase crate fixture slice — implementation plan | approved | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |
 | PLAN-034VmOlfg7SLp6iUHpXla5 | RCD-04 product E2E plan | approved | [rcd-04-product-e2e-plan.md](./rcd-04-product-e2e-plan.md) |
+| PLAN-034VC2HhruQrlFFlRTEMNY | RCD-04 RT engine comp PCM plan | approved | [rcd-04-rt-engine-comp-pcm-plan.md](./rcd-04-rt-engine-comp-pcm-plan.md) |
 | PLAN-034SF01Np0sTu5vW2xYzAbDeF | SF-01 Semantic Routing Model 実装計画 | approved | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
 | PLAN-034SF02Wz0rOp7qT0vB5cDfGh | SF-02 RoutingTransaction 実装計画 — staging/検証/mute-solo/テスト | approved | [sf-02-routing-transaction.md](./sf-02-routing-transaction.md) |
 | PLAN-034Uxp78PIJVQOgDqnzNqg | SF-03 semantic→runtime 写像 — 統合設計文書化計画 | approved | [sf-03-map-semantic-runtime-mapping-docs.md](./sf-03-map-semantic-runtime-mapping-docs.md) |
