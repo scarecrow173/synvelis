@@ -44,6 +44,7 @@ Directory: `docs/plans`
 | PLAN-034VmVEzTuUHmBKxPRoFID | PC-C6 oracle R/PL/UI/COMP headless fixture 実装計画 | approved | [pc-c6-oracle-rows-plan.md](./pc-c6-oracle-rows-plan.md) |
 | PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
+| PLAN-gpF9kWuFqfzFATeoPdxIGF | RCD-01 実Audio Device 到達準備 実装計画 — stamp placement fallback + real backend 配線 | approved | [rcd-01-real-backend-readiness-plan.md](./rcd-01-real-backend-readiness-plan.md) |
 | PLAN-034VpmToY7qmWuyovg4BmV | RCD-02 StagedFile Publish Migration Plan | approved | [rcd-02-stagedfile-publish-migration-plan.md](./rcd-02-stagedfile-publish-migration-plan.md) |
 | PLAN-034VedskoBprfWhNkuqz6f | RCD-03 app Arm/Monitoring UX + monitor session projection slice | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
 | PLAN-034VpQd9mO4xP1wT6vA8wL | RCD-03 Arm/Monitor/Punch Project 永続投影 slice | approved | [rcd-03-monitor-persistence-plan.md](./rcd-03-monitor-persistence-plan.md) |

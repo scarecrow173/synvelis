@@ -16,7 +16,18 @@ sha2.workspace = true
 ruviform-io-file.workspace = true
 ruviform-rt.workspace = true
 ruviform-audio-core.workspace = true
+ruviform-media-core.workspace = true
+
+[features]
+# opt-in 実機 lane（`tests/real_input.rs` の `#[ignore]` test と
+# `src/real_input.rs` の host 部分を有効化）。cpal/OS audio 依存を
+# 既定の依存グラフへ入れないため optional dep として分離する
+# （synvelis-app の webview/native feature と同じ方針）。
+real-device = ["dep:ruviform-audio-device"]
+
+[dependencies.ruviform-audio-device]
+workspace = true
+optional = true
 
 [dev-dependencies]
 stats_alloc = "0.1.10"
-ruviform-media-core.workspace = true

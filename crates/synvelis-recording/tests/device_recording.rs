@@ -7,7 +7,8 @@
 //! Observed で検証する。
 //!
 //! これは fake port 契約の検証であり、実 Device Pass ではない
-//! （実 backend は ruviform#251 待ちで `Unsupported`。実機受入・
+//! （実 backend は `real-device` feature の opt-in lane
+//! `tests/real_input.rs` で別途検証する。実機受入・
 //! OS 別ドライバ・実 GUI は別 Gate）。
 
 // 各 test binary が common の subset だけを使うため module 単位で許容
@@ -154,6 +155,23 @@ fn fake_multichannel_records_verified_pcm_through_real_writer() {
     assert!(!rig.session.fault().is_faulted());
     let report = rig.finish();
     assert_complete_normal(&rig, &report, &[map], SEED, 5000);
+}
+
+#[test]
+fn fake_capture_stamp_fallback_records_verified_pcm() {
+    // frame_position: None + capture_stamp: Some の実 cpal 経路相当で、
+    // stamp→frame fallback が実 StreamWriter 経路でも verified PCM を
+    // 記録することを確認する（stamp epoch/now は 0 で mapped == position）。
+    let (mut rig, _device, _p) = normal_rig("stamp", 1, 1, &[1], &[ChannelMap::mono(0)], SEED);
+    {
+        let mut s = rig.streams[0].lock().expect("lock");
+        s.set_report_position(false);
+        s.set_report_capture(true);
+    }
+    rig.drive(5000, 500);
+    assert!(!rig.session.fault().is_faulted());
+    let report = rig.finish();
+    assert_complete_normal(&rig, &report, &[ChannelMap::mono(0)], SEED, 5000);
 }
 
 #[test]

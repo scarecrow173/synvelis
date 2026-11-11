@@ -45,6 +45,7 @@ Directory: `docs/specs`
 | SPEC-IY7kQwMIWqb4sFVpvsHnQy | PC-C6 headless oracle — REL01〜07 / TR01〜08 fixture（RelationIndex・ControlTrace 独立照合） | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
 | SPEC-034VmUDawn7YGP2Vh36vnP | PC-C6 headless oracle — R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 fixture（Recording・Plugin・GUI/RT 横断 Gate） | approved | [pc-c6-oracle-rows.md](./pc-c6-oracle-rows.md) |
 | SPEC-034V2ghdXlh1m9UFtt5ks1 | RCD-01 実Audio Device録音統合 headless slice — Mock Input→Raw Writer/Journal→Arm/Punch/Loop・Fail-stop Fixture（synvelis#115） | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
+| SPEC-gut3XVRAIUtMHADNZBNFHC | RCD-01 実Audio Device 到達準備 — stamp placement fallback + real backend 配線（synvelis#115） | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
 | SPEC-034UoScGX6dIi25hMurqCI | RCD-01 Recording Input Adapter — channel binding・Arm/Monitor・fake port fail-stop（synvelis#115 slice） | proposed | [rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md](./rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md) |
 | SPEC-034VpjuNHFlkvgLqAJQGHJ | RCD-02 StagedFile Publish Migration — synvelis#116 slice | approved | [rcd-02-stagedfile-publish-migration.md](./rcd-02-stagedfile-publish-migration.md) |
 | SPEC-034VdSvFA9X0ESbckrSvBI | RCD-03 app Arm/Monitoring UX + project projection slice — synvelis#117 | proposed | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |

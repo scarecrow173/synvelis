@@ -22,6 +22,7 @@ pub mod mock;
 pub mod monitor;
 pub mod ops;
 pub mod plan;
+pub mod real_input;
 pub mod recovery;
 pub mod session;
 pub mod staging;
