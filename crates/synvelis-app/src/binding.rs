@@ -873,6 +873,13 @@ pub struct ViewCommand {
     /// bookkeeping (the view must be attached to the window the
     /// command arrives on).
     pub origin_view: Option<String>,
+    /// View-local action payload (`params`) — only ever `Some` for
+    /// the [`VIEW_STATE_TARGET`] action arm, the sole target the
+    /// decoder lets carry params (the Tabs `{"index": n}` and the
+    /// Arrangement table's `{"row": n}` selection, synvelis#112
+    /// slice 4). Domain commands have no params channel, so it is
+    /// `None` for every other intent kind.
+    pub action_params: Option<Value>,
 }
 
 /// Decodes the `params` of a [`COMMAND_INTENT_OP`] intent. Strict:
@@ -895,11 +902,11 @@ pub fn decode_view_command(params: &Value) -> Result<ViewCommand, WireTranslateE
     };
     let intent_wire = Value::Object(map);
     let decode = |e: serde_json::Error| werr(format!("{kind} intent: {e}"));
-    let (intent, origin_view) = match kind.as_str() {
+    let (intent, origin_view, action_params) = match kind.as_str() {
         "begin" | "preview" | "commit" => {
             let w: RvfGestureIntent = serde_json::from_value(intent_wire).map_err(decode)?;
             let origin_view = w.origin_view.clone();
-            (gesture_to_intent(&kind, w), origin_view)
+            (gesture_to_intent(&kind, w), origin_view, None)
         }
         "cancel" => {
             let w: RvfCancelIntent = serde_json::from_value(intent_wire.clone()).map_err(decode)?;
@@ -917,19 +924,22 @@ pub fn decode_view_command(params: &Value) -> Result<ViewCommand, WireTranslateE
                     reason,
                 },
                 w.origin_view,
+                None,
             )
         }
         "action" => {
             let w: RvfActionIntent = serde_json::from_value(intent_wire).map_err(decode)?;
-            // `params` is a view-local payload (the Tabs index). The
-            // view owns that state, so only the view-local target may
-            // carry it; a domain action with params is not representable.
+            // `params` is a view-local payload (the Tabs index, the
+            // table row). The view owns that state, so only the
+            // view-local target may carry it; a domain action with
+            // params is not representable.
             if w.params.is_some() && w.target != VIEW_STATE_TARGET {
                 return Err(werr(format!(
                     "action params not representable for target {}",
                     w.target
                 )));
             }
+            let params = w.params.clone();
             (
                 CommandIntent::Action {
                     target: w.target,
@@ -943,6 +953,7 @@ pub fn decode_view_command(params: &Value) -> Result<ViewCommand, WireTranslateE
                     source: w.source,
                 },
                 w.origin_view,
+                params,
             )
         }
         other => return Err(werr(format!("unsupported intent kind {other:?}"))),
@@ -952,6 +963,7 @@ pub fn decode_view_command(params: &Value) -> Result<ViewCommand, WireTranslateE
         expect_receipt: env.expect_receipt,
         intent,
         origin_view,
+        action_params,
     })
 }
 
