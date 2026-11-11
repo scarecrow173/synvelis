@@ -11,8 +11,8 @@ in `docs/specs/sf-06-cross-gate-oracle-case-ledger.md`.
 
 | Field | Value |
 | --- | --- |
-| Synvelis commit | `78228579f87f560a5c7f0b25558bf918eb1acc44` + this change set (merged `origin/main` @ `7822857` post-#321; monitoring rows measured post-#318 — earlier rows measured under `7925660`/`099e7ea`) |
-| Cargo.lock Ruviform SHA | `9865cd57491f3f39061212a85f81f9ebce731bde` (monitoring rows; earlier rows measured under `b02942c2`/`0f5b5737`) |
+| Synvelis commit | `1093530a89499fae210aa3529ef2666012c7548f` (origin/main post-#332) + this change set — VCS-APPLY-07 apply rows measured on the monitoring-apply slice merged with origin/main @ `1093530`; earlier rows measured under `7822857`/`7925660`/`099e7ea` |
+| Cargo.lock Ruviform SHA | `fd1d4d5f4de57092b96ad1cd309b85fe47cbef38` (VCS-APPLY-07 apply rows; earlier rows measured under `9865cd57`/`b02942c2`/`0f5b5737`) |
 | OS | Windows (win32), NTFS |
 | Toolchain | rustc 1.99.0 (b940084d7), git 2.54.0.windows.1 |
 | Schema | `SCHEMA_VERSION = 13` (monitoring persisted since v12); v5 projection fixture |
@@ -110,7 +110,7 @@ Fixture: `vcs05_apply.rs` + `vcs06_apply_matrix.rs` +
 | VCS-APPLY-04 replay/crash | same intent → Replayed, no double mutation; Pending-without-commit retries; ACK gap reconciles; **on-disk journal survives restart** | `second_apply_replays_receipt_without_double_mutation`, `pending_without_commit_retries_normally`, `ack_gap_reconciles_to_replayed` (vcs05), `directory_journal_survives_restart_and_replays` (vcs06, fresh `DirectoryApplyJournal` over same dir → Replayed) Pass | Pass | journal is the recovery record |
 | VCS-APPLY-05 cancel | cooperative cancel → `Cancelled`, no mutation | `cancelled_intent_fails_closed_before_mutation` (vcs06) Pass | Pass | — |
 | VCS-APPLY-06 independence | Saved HEAD / VCS index / git worktree untouched; no write before explicit apply | receipt `effects.untouched.*` asserted in every apply test; `directory_journal_*` confirms persisted receipt only Pass | Pass* | engine-apply flag stays false |
-| VCS-APPLY-07 monitoring kinds | `TrackMonitorDecl`/`PunchMarks` selection → `Unsupported` fail-closed, live/journal honest | `target_fingerprint` + `apply_selected` both → `ApplyError::Unsupported{kind, change: Modified, "object kind outside the apply surface"}`; fingerprint CAS 段で fail — `change` は選択 kind に依らず `Modified` を報告; journal `Failed`; `live.monitoring` 不変 — `monitor_kind_selection_fails_apply_closed` (vcs06) Pass | **Unsupported** | apply surface 未対応は fail-closed の実測（偽装なし）; whitelist 拡張は別 slice |
+| VCS-APPLY-07 monitoring kinds | `TrackMonitorDecl`/`PunchMarks` の `Added`/`Modified` selection が typed entity transplant で適用され、`Removed` は fail-closed | `target_fingerprint` が両 kind で解決（旧来の `Unsupported` を返さない）; `Added` 2-change selection → `Applied`、live `monitoring.tracks`/`punch` が after と一致、1 apply = 1 undo step で undo/redo が monitoring 状態を往復 — `monitor_kind_added_selection_applies_typed_entities` (vcs06)・`monitor_decl_and_punch_apply_as_one_undo_step` (vcs05) Pass; `Modified` 適用 + 連続 undo が S1→S0 へ 1 step ずつ復帰 — `monitor_kind_modified_selection_applies_typed_entities` Pass; `Removed` → `ApplyError::Unsupported{kind, change: Removed, "removal changes are deferred (cascade design)"}`、journal `Failed`、live `monitoring` 不変（両 kind）— `monitor_kind_removed_selection_stays_fail_closed` Pass | **Pass** | `Removed` cascade は全 kind deferred のまま; `PluginInstance` apply は #324 系の別 slice; 実 OS/GUI/RT lanes は NotRun |
 | VCS-APPLY-REAL-* (real engine hot-swap, GUI approval UX) | — | not measured | **NotRun** | engine/GUI lanes external |
 
 ## VCS-RESTORE-01..07 — restore as new copy
@@ -151,10 +151,12 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 - `crates/synvelis-project/tests/vcs06_diff_matrix.rs` — 5 tests
 - `crates/synvelis-project/tests/vcs06_apply_matrix.rs` — 8 tests
 - `crates/synvelis-project/tests/vcs06_restore_matrix.rs` — 8 tests
-- `crates/synvelis-project/tests/vcs06_monitoring_matrix.rs` — 4 tests
-  (monitoring-domain: VCS-DIFF-09/10・VCS-APPLY-07・VCS-RESTORE-07)
+- `crates/synvelis-project/tests/vcs06_monitoring_matrix.rs` — 6 tests
+  (monitoring-domain: VCS-DIFF-09/10・VCS-APPLY-07・VCS-RESTORE-07;
+  VCS-APPLY-07 は apply surface 拡張 slice で supported-apply +
+  Removed fail-closed の 3 test へ再構成)
 - `crates/synvelis-library/tests/vcs06_git_matrix.rs` — 3 tests
 - `crates/synvelis-app/tests/vcs06_ui_matrix.rs` — 4 tests (VCS-UI-04 lane)
 
-All 32 pass on Windows/rustc 1.99.0 via `cargo test` (supplemental;
+All 34 pass on Windows/rustc 1.99.0 via `cargo test` (supplemental;
 canonical `mise run test` result recorded in the PR).
