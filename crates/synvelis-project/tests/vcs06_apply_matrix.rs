@@ -120,6 +120,45 @@ fn sources_for(cs: &ChangeSet, before: &ImmutableSnapshot, after: &ImmutableSnap
     }
 }
 
+/// `true` for object kinds inside the VCS-05 apply surface — mirrors
+/// `apply::entity::supported_kind` (crate-private, unreachable from
+/// integration tests). Diff-only kinds such as `PluginInstance` fail
+/// closed at plan/fingerprint time, so select-all fixtures must narrow
+/// their selection to apply-surface kinds.
+fn apply_surface_kind(kind: ObjectKind) -> bool {
+    matches!(
+        kind,
+        ObjectKind::Project
+            | ObjectKind::Track
+            | ObjectKind::Lane
+            | ObjectKind::Clip
+            | ObjectKind::Note
+            | ObjectKind::Asset
+            | ObjectKind::MediaSource
+            | ObjectKind::MidiSource
+            | ObjectKind::MidiNote
+            | ObjectKind::ParameterTarget
+            | ObjectKind::AutomationLane
+            | ObjectKind::ModulationSource
+            | ObjectKind::ModulationAssignment
+            | ObjectKind::RoutingModel
+            | ObjectKind::Bus
+            | ObjectKind::Strip
+            | ObjectKind::Processor
+            | ObjectKind::ProcessorChain
+            | ObjectKind::SemanticPort
+            | ObjectKind::RoutingConnection
+            | ObjectKind::SendConfig
+    )
+}
+
+fn apply_surface_changes(cs: &ChangeSet) -> Vec<&SemanticChange> {
+    cs.changes
+        .iter()
+        .filter(|ch| apply_surface_kind(ch.object.kind))
+        .collect()
+}
+
 fn intent_for(
     c: &ProjectController,
     cs: &ChangeSet,
@@ -434,7 +473,10 @@ fn unavailable_plugin_binding_fails_closed() {
     // The processor delta spans Processor + SemanticPort (+chain)
     // changes — select the whole addition set so port wiring stays
     // consistent; plugin preflight must still reject the binding.
-    let changes: Vec<&SemanticChange> = cs.changes.iter().collect();
+    // `PluginInstance(Added)` rides along in the changeset but is
+    // outside the apply surface, so the selection is narrowed to
+    // apply-surface kinds.
+    let changes: Vec<&SemanticChange> = apply_surface_changes(&cs);
     assert!(
         changes
             .iter()
@@ -502,7 +544,9 @@ fn processor_changeset_with_unknown_opaque_state_is_not_applicable() {
         cs.completeness,
         synvelis_project::diff::ComparisonCompleteness::Partial
     );
-    let changes: Vec<&SemanticChange> = cs.changes.iter().collect();
+    // Same narrowing as above: `PluginInstance` changes are diff-only
+    // evidence and must not enter the apply selection.
+    let changes: Vec<&SemanticChange> = apply_surface_changes(&cs);
     let intent = intent_for(&before_c, &cs, &after, &changes);
     let src = sources_for(&cs, &before, &after);
     let mut journal = InMemoryApplyJournal::new();

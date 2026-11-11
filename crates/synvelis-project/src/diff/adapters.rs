@@ -124,12 +124,16 @@ pub(crate) fn classify_field(
     // role/time_scope exist only from schema v7; earlier snapshots carry
     // migration-derived values that must not diff as authored content.
     let pre_v7 = ctx.before_id.schema_version < 7 || ctx.after_id.schema_version < 7;
+    // plugin_instances is `#[serde(default)]` and backfilled by the
+    // v12→v13 migration; a pre-v13 side's persisted `id` is a
+    // migration-minted projection artifact, not authored history.
+    let pre_v13 = ctx.before_id.schema_version < 13 || ctx.after_id.schema_version < 13;
     match kind.domain() {
         ComparisonDomain::Project => FieldClass::Modified,
         ComparisonDomain::Arrangement => classify_arrangement(kind, path, top, before, after),
         ComparisonDomain::Media => classify_media(kind, top),
         ComparisonDomain::Control => classify_control(kind, top, pre_v7),
-        ComparisonDomain::Routing => classify_routing(kind, top),
+        ComparisonDomain::Routing => classify_routing(kind, top, pre_v13),
         ComparisonDomain::Recording => classify_recording(kind, top),
         ComparisonDomain::Comping => classify_comping(kind, top, before, after),
     }
@@ -212,7 +216,7 @@ fn classify_control(kind: ObjectKind, top: &str, pre_v7: bool) -> FieldClass {
     }
 }
 
-fn classify_routing(kind: ObjectKind, top: &str) -> FieldClass {
+fn classify_routing(kind: ObjectKind, top: &str, pre_v13: bool) -> FieldClass {
     match kind {
         ObjectKind::Bus => match top {
             "strip" => FieldClass::Identity,
@@ -237,6 +241,15 @@ fn classify_routing(kind: ObjectKind, top: &str) -> FieldClass {
         },
         ObjectKind::RoutingConnection => match top {
             "source" | "destination" => FieldClass::Reconnected,
+            _ => FieldClass::Modified,
+        },
+        ObjectKind::PluginInstance => match top {
+            // The persisted `StablePluginInstanceId` is the store's
+            // reason to exist — a swap is content-identity replacement,
+            // like `Clip.source_id`/`Asset.digest`. Pre-v13 the value
+            // is a migration-minted projection artifact → suppress.
+            "id" if pre_v13 => FieldClass::Suppressed("pre-v13-plugin-instance-id"),
+            "id" | "plugin" => FieldClass::Replaced,
             _ => FieldClass::Modified,
         },
         _ => FieldClass::Modified,
@@ -700,6 +713,19 @@ impl DomainAdapter for RoutingAdapter {
             ObjectKind::SendConfig,
             &ctx.before.routing.sends,
             &ctx.after.routing.sends,
+            no_range,
+            false,
+        )?;
+        // Persisted plugin-instance identities — a keyed-synthetic
+        // collection borrowing the `ProcessorId` space (like
+        // `smf_documents`/`monitoring.tracks`), excluded from
+        // `raw_kind_map`. `watermark` is allocator bookkeeping and
+        // never enters this map's comparison.
+        diff_map(
+            ctx,
+            ObjectKind::PluginInstance,
+            &ctx.before.plugin_instances.instances,
+            &ctx.after.plugin_instances.instances,
             no_range,
             false,
         )?;
