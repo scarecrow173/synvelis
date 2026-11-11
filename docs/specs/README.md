@@ -38,6 +38,7 @@ Directory: `docs/specs`
 | SPEC-vi1L6gnLC2jSjMMB3XG0N4 | PC-C3-05 synvelis-player RT trace adapter — ledger 実イベント → ControlTrace 投影・bounded history・RT 計測 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | SPEC-034UqtrnCaL8J9mhrd4SyZ | PC-C3 ControlTrace — Configured/Prepared/Applied/Reported/Observed projection slice | approved | [pc-c3-control-trace-projection.md](./pc-c3-control-trace-projection.md) |
 | SPEC-MCgOf8EskzmlXOde7x0Pqs | PC-C4-02 semantic plugin instance binding — stage-1 authority consumption・plugin identity pin（headless slice） | approved | [pc-c4-02-plugin-instance-binding.md](./pc-c4-02-plugin-instance-binding.md) |
+| SPEC-PCc4030bs3vN1pQ8wXyZ2aB | PC-C4-03 reported observation 消費 — host drain → ParamDispatch ledger（headless slice） | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |
 | SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | SPEC-034UxXLvNqgbDGOypo7Uu4 | PC-C5 slice2 (UI-C5-02/03): Gesture 固定・stale drop・Inspector Follow/Explore/Pinned（headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |

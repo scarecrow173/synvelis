@@ -107,6 +107,7 @@ Directory: `docs/tasks`
 | TASK-034RoXjRUKOjib6ULatmIn | PC-C1: prepare/apply/finalize 実装タスク | done | [pc-c1-task1-prepare-apply-finalize.md](./pc-c1-task1-prepare-apply-finalize.md) |
 | TASK-034Upd3TZPjW8QcMPatmyb | PC-C2: Control Relation Index/Projection 実装タスク | done | [pc-c2-task1-relation-index.md](./pc-c2-task1-relation-index.md) |
 | TASK-034UquDG2pRhDCtpLYPhPi | PC-C3: ControlTrace projection 実装タスク | done | [pc-c3-task1-control-trace.md](./pc-c3-task1-control-trace.md) |
+| TASK-PCc4030bs3vN1pQ8wXyZ2aE | PC-C4-03 task1 — reported observation 消費 実装 | done | [pc-c4-03-task1-param-observation.md](./pc-c4-03-task1-param-observation.md) |
 | TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | done | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TASK-034UxYCkPWXOotRSbjIPex | PC-C5 slice2 タスク分解 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | done | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |

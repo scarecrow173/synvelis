@@ -39,6 +39,7 @@ Directory: `docs/test-specs`
 | TSPEC-10rDlBIZV1BQa6OmERMdbJ | PC-C3-05 RT trace adapter テスト仕様 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
 | TSPEC-034UqHaJf2vZgpPzjlqqi7 | PC-C3 ControlTrace E2E — stage 相関・freshness・probe 状態・plan activation | approved | [pc-c3-e2e-control-trace.md](./pc-c3-e2e-control-trace.md) |
 | TSPEC-otlsBc81CdrVkhwlcp4umO | PC-C4-02 plugin instance binding e2e — stage-1 authority・plugin identity pin | approved | [pc-c4-02-e2e-plugin-instance-binding.md](./pc-c4-02-e2e-plugin-instance-binding.md) |
+| TSPEC-PCc4030bs3vN1pQ8wXyZ2aF | PC-C4-03 param observation — drain→ledger・gate・typed 終端 test 保証 | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |
 | TSPEC-034Uw6FJykHzgki5MvwCPZ | PC-C4 plugin parameter binding e2e — PLUG-C4-01..05 / PC-C4-PL01..08 | approved | [pc-c4-e2e-plugin-param-binding.md](./pc-c4-e2e-plugin-param-binding.md) |
 | TSPEC-tCO4ppjNmQv0ebUI6Q1rHD | PC-C5 slice1 テスト仕様 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TSPEC-034UxY8XCaH0Kk6JNotIAO | PC-C5 slice2 テスト仕様 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -147,3 +148,4 @@ Directory: `docs/test-specs`
 | TSPEC-034QwZT6kAhQwa2bRBkZyu | WS-A 検証仕様 — Multi-View/LinkGroup/Command/Dock headless 受入 | approved | [ws-a-e2e-workspace-foundation.md](./ws-a-e2e-workspace-foundation.md) |
 | TSPEC-zzdcoJZ1siQdbof0DBfv5l | X 検証仕様 — Recorded Source→Generic Playback/Export・Frame/ID/Content integrity | approved | [x-e2e-recorded-source-playback-export.md](./x-e2e-recorded-source-playback-export.md) |
 | TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |
+| TSPEC-PCc4030bs3vN1pQ8wXyZ2aF | PC-C4-03 param observation — drain→ledger・gate・typed 終端 test 保証 | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |

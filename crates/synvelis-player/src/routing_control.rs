@@ -47,6 +47,15 @@
 //!   minted under; [`RoutingControlDispatch::sync`] mints a fresh
 //!   surface (new sessions, new instance ids) per generation and the
 //!   queue survives the swap for re-validation.
+//! - **Reported-observation consumption.** [`Self::drain_output_reports`]
+//!   is the single consumer of the plugin→host report channel
+//!   (`PluginHost::drain_output_reports`): drained `ParamValue` events
+//!   resolve `ParamId → target` through the same verified session
+//!   bindings deliveries use, `Unavailable` answers and dead handles
+//!   terminate pending ledger entries honestly, and non-terminal host
+//!   errors stay typed evidence. [`Self::observe_cycle`] is the
+//!   generation-scoped per-node projection half — the two never share
+//!   a drain.
 //!
 //! Non-RT only: attach/sync/drain run on the orchestration thread.
 //! The plugin parameter catalogs are caller-vended evidence — the same
@@ -57,8 +66,9 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 
-use ruviform_media_core::{MediaTime, TimeBase, TransportCommand};
-use ruviform_plugin_core::{ParamInfo, ParamWriteMeans, TimedParamEvent};
+use ruviform_media_core::{EngineFrame, MediaTime, TimeBase, TransportCommand, TransportSpan};
+use ruviform_plugin_core::{Event, EventKind, ParamInfo, ParamWriteMeans, TimedParamEvent};
+use ruviform_plugin_host::{HostError, PluginHandle, ReportDrain};
 use synvelis_project::{
     BeatPoint, ControlGraph, ControlOwner, EvalPlan, EvalScratch, ParameterTargetId, ProcessorId,
     Project, ProjectRevision, lower_event, port_capability_generation,
@@ -67,7 +77,8 @@ use synvelis_project::{
 use crate::binding::{
     BindingError, PluginBindingSession, PluginParameterBinding, StablePluginInstanceId,
 };
-use crate::dispatch::{DispatchError, ParamDispatch};
+use crate::dispatch::{DispatchCycle, DispatchError, ParamDispatch};
+use crate::plugin_state::PluginStateEndpoint;
 use crate::process_boundary::{
     BoundaryPoint, BoundarySessionError, PrecisionProvenance, ProcessBoundaryPlan,
     ProcessBoundarySession,
@@ -290,6 +301,52 @@ pub struct TickReport {
     pub nodes_dispatched: usize,
     /// Nodes whose batch dispatch failed.
     pub dispatch_errors: usize,
+}
+
+/// Counters from one [`RoutingControlDispatch::drain_output_reports`]
+/// call — the generation-scoped plugin→host report consumption.
+#[derive(Clone, Debug, Default)]
+pub struct ReportDrainReport {
+    /// `false` when no surface is attached — nothing drained.
+    pub attached: bool,
+    /// The surface's routing plan generation.
+    pub generation: u64,
+    /// `true` when `generation` did not name the surface — every
+    /// endpoint was refused before any drain ran, so a report vended
+    /// for another generation can never be attributed here.
+    pub generation_gated: bool,
+    /// `true` when `active_generation` did not match the surface —
+    /// reports stay queued plugin-side under the same gate deliveries
+    /// use; the next active drain still sees them.
+    pub inactive_gated: bool,
+    /// Endpoints answered [`ReportDrain::Drained`].
+    pub drained: usize,
+    /// Endpoints with no usable report channel — `Unavailable`, a
+    /// stale handle or a converged-failed instance — whose pending
+    /// ledger entries moved to `Unavailable`.
+    pub unavailable: usize,
+    /// Endpoints whose drain failed non-terminally or answered an
+    /// unknown [`ReportDrain`] variant — the ledger stays untouched.
+    pub failed: usize,
+    /// `Event`s appended across all drained endpoints (every kind).
+    pub events: usize,
+    /// `EventKind::ParamValue` reports consumed.
+    pub param_reports: usize,
+    /// Reports that advanced a ledger entry to `Reported`.
+    pub reported: usize,
+    /// Param reports naming a `ParamId` no session binding covers —
+    /// counted, never attributed to a target.
+    pub unbound_param: usize,
+    /// Bound-param reports [`ParamDispatch::record_reported`]
+    /// declined — no eligible `Scheduled`/`Dispatched` entry exists
+    /// (plugin-initiated reports or already-terminal writes).
+    pub no_pending: usize,
+    /// Endpoints skipped: the processor has no node surface on this
+    /// generation (static host connection or unvend control).
+    pub unrouted: usize,
+    /// Every `Err(HostError)` drain answer as `(processor, error)`;
+    /// `unavailable`/`failed` record how each was classified.
+    pub errors: Vec<(ProcessorId, HostError)>,
 }
 
 /// Result of [`RoutingControlDispatch::sync`].
@@ -668,6 +725,139 @@ impl RoutingControlDispatch {
             }
             Err(e) => self.block(FastControlBlock::Dispatch(e)),
         }
+    }
+
+    /// Drains plugin→host output reports for `endpoints` — the
+    /// `PluginHost::drain_output_reports` consumer half — into the
+    /// attached surface's per-node dispatch ledgers.
+    ///
+    /// `endpoints` is the caller-vended `(processor, PluginHandle)`
+    /// set for `generation` ([`RoutingEngine::plugin_state_handles`]).
+    /// `drain` is the caller's host borrow — e.g.
+    /// `|handle, out| host.borrow_mut().drain_output_reports(handle, out)`
+    /// — injected as a seam so this surface stays host-type thin and
+    /// the drain answer stays testable without an L1 worker.
+    /// `generation` must name the attached surface and
+    /// `active_generation` the RT-observed one ([`RoutingEngine::rt_status`]);
+    /// either mismatch gates the whole call before any endpoint drains,
+    /// so reports stay queued plugin-side and a foreign generation's
+    /// reports can never be attributed to this surface's bindings.
+    ///
+    /// A `Drained` answer's events map through the node's verified
+    /// session bindings — the same `ParamId → synvelis target` table
+    /// deliveries resolve through, so a report can only land on a
+    /// target this generation actually bound. `EventKind::ParamValue`
+    /// advances the ledger via [`ParamDispatch::record_reported`];
+    /// `Unavailable` and stale/failed handles terminate pending
+    /// entries honestly via
+    /// [`ParamDispatch::mark_reporting_unavailable`]; non-terminal
+    /// [`HostError`]s are typed `errors` evidence with the ledger
+    /// untouched. `EventKind::Midi` and future kinds count toward
+    /// `events` but never reach the parameter ledger.
+    ///
+    /// Non-RT only. These are the plugin's *output* reports — the
+    /// node scheduler report channel stays owned by
+    /// [`Self::observe_cycle`]; the two never share a drain.
+    pub fn drain_output_reports(
+        &mut self,
+        endpoints: &[PluginStateEndpoint],
+        generation: u64,
+        active_generation: Option<u64>,
+        mut drain: impl FnMut(PluginHandle, &mut Vec<Event>) -> Result<ReportDrain, HostError>,
+    ) -> ReportDrainReport {
+        let mut report = ReportDrainReport::default();
+        let Some(mut surface) = self.surface.take() else {
+            return report;
+        };
+        report.attached = true;
+        report.generation = surface.generation;
+        if generation != surface.generation {
+            report.generation_gated = true;
+        } else if active_generation != Some(surface.generation) {
+            report.inactive_gated = true;
+        } else {
+            let mut out = Vec::new();
+            for endpoint in endpoints {
+                let Some(node) = surface.nodes.get_mut(&endpoint.processor) else {
+                    report.unrouted += 1;
+                    continue;
+                };
+                out.clear();
+                match drain(endpoint.handle, &mut out) {
+                    Ok(ReportDrain::Drained) => {
+                        report.drained += 1;
+                        report.events += out.len();
+                        for event in &out {
+                            let EventKind::ParamValue(param) = event.kind() else {
+                                continue;
+                            };
+                            report.param_reports += 1;
+                            let target = node
+                                .session
+                                .bindings()
+                                .find(|b| b.plugin_param == param.param_id)
+                                .map(|b| b.synvelis_target);
+                            if let Some(target) = target {
+                                if node.dispatch.record_reported(target, param.value) {
+                                    report.reported += 1;
+                                } else {
+                                    report.no_pending += 1;
+                                }
+                            } else {
+                                report.unbound_param += 1;
+                            }
+                        }
+                    }
+                    Ok(ReportDrain::Unavailable) => {
+                        report.unavailable += 1;
+                        node.dispatch.mark_reporting_unavailable();
+                    }
+                    Ok(_) => report.failed += 1,
+                    Err(error) => {
+                        report.errors.push((endpoint.processor, error));
+                        if matches!(error, HostError::InvalidHandle | HostError::Failed) {
+                            report.unavailable += 1;
+                            node.dispatch.mark_reporting_unavailable();
+                        } else {
+                            report.failed += 1;
+                        }
+                    }
+                }
+            }
+        }
+        self.surface = Some(surface);
+        report
+    }
+
+    /// Advances one node's dispatch ledger through one physical call
+    /// window — the generation-scoped
+    /// [`ParamDispatch::observe_cycle`]: drains the node's scheduler
+    /// report channel, applies receipts/faults, projects `Scheduled`
+    /// entries onto `[call_start, call_start + call_frames)` of
+    /// `span`, and returns observations plus scheduler receipts.
+    ///
+    /// `generation` must name the attached surface and `processor` a
+    /// plugin-backed chain node on it — either mismatch returns
+    /// `None`, fail-closed: a foreign generation's window can never
+    /// mint `Dispatched` entries here. The caller supplies the
+    /// span/call window because the physical call partition lives
+    /// inside the RT runtime; this method is the non-RT side
+    /// observing what the node reported. Non-RT only.
+    #[must_use]
+    pub fn observe_cycle(
+        &mut self,
+        processor: ProcessorId,
+        generation: u64,
+        span: &TransportSpan,
+        call_start: EngineFrame,
+        call_frames: u32,
+    ) -> Option<DispatchCycle> {
+        let surface = self.surface.as_mut()?;
+        if surface.generation != generation {
+            return None;
+        }
+        let node = surface.nodes.get_mut(&processor)?;
+        Some(node.dispatch.observe_cycle(span, call_start, call_frames))
     }
 
     /// The processor's [`ProcessBoundarySession`] on the attached

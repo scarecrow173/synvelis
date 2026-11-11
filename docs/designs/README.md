@@ -47,6 +47,7 @@ Directory: `docs/designs`
 | DESIGN-o5U9K2sOik9XcS81AkO1Qj | PC-C3-05 RT trace adapter 設計 — DispatchTraceAdapter・写像・bounded history・metrics | approved | [pc-c3-05-rt-trace-adapter-design.md](./pc-c3-05-rt-trace-adapter-design.md) |
 | DESIGN-034UqtGwJKTXdIjOxuLVS2 | PC-C3 ControlTrace 設計 — stage evidence slot・freshness 判定・plan activation 投影 | approved | [pc-c3-control-trace-design.md](./pc-c3-control-trace-design.md) |
 | DESIGN-PjOpAzd2cNOD9kshEbJeKl | PC-C4-02 plugin instance binding design — connect-time identity vend・stage-1 authority consumption | approved | [pc-c4-02-plugin-instance-binding-design.md](./pc-c4-02-plugin-instance-binding-design.md) |
+| DSGN-PCc4030bs3vN1pQ8wXyZ2aC | PC-C4-03 param observation design — drain surface・binding 逆引き・gate | approved | [pc-c4-03-param-observation-design.md](./pc-c4-03-param-observation-design.md) |
 | DESIGN-034Uw4SG2SiRKQuoKOZGzL | PC-C4 plugin parameter binding design — verified frame base・capability gate・generation consistency | approved | [pc-c4-plugin-param-binding-design.md](./pc-c4-plugin-param-binding-design.md) |
 | DESIGN-AkFUh4M60YuHo8COCvb0Um | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
 | DESIGN-034UxXM5FBBTGn5JWkSBss | PC-C5 slice2 Gesture 固定・stale drop・Inspector mode 設計 | approved | [pc-c5-02-03-gesture-stale-inspector-design.md](./pc-c5-02-03-gesture-stale-inspector-design.md) |
@@ -165,3 +166,4 @@ Directory: `docs/designs`
 | DESIGN-034QwYMaHNxxpkZgLxPjx6 | WS-A Workspace 基盤設計 — View/Selection/LinkGroup/Command/Dock headless PoC | approved | [ws-a-workspace-foundation-design.md](./ws-a-workspace-foundation-design.md) |
 | DESIGN-HEDK2Gt2m6FAc3GREIhJDl | X Design — Canonical publication receipt・commit digest 接続・同一経路 playback/export | approved | [x-recorded-verified-source-playback-export-design.md](./x-recorded-verified-source-playback-export-design.md) |
 | DSGN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — module 設計 | approved | [vcs-05-apply-restore-headless-design.md](./vcs-05-apply-restore-headless-design.md) |
+| DSGN-PCc4030bs3vN1pQ8wXyZ2aC | PC-C4-03 param observation design — drain surface・binding 逆引き・gate | approved | [pc-c4-03-param-observation-design.md](./pc-c4-03-param-observation-design.md) |
