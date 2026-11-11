@@ -1,7 +1,7 @@
 ---
 id: "TASK-034VpC1mzY9bzJDEjAIDKv"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "VCS-06 UI headless matrix"
 created: "2026-11-10"
 updated: "2026-11-11"
@@ -79,7 +79,7 @@ freshness Unknown 経路）を固定する。`src/` 変更なし。
 - [x] doc チェーン + index 再生成
 - [x] `git fetch origin main && git merge origin/main` 後の
   canonical `mise run` 検証が pass
-- [ ] push → PR 作成（Refs synvelis#97、Issue は Open のまま）
+- [x] push → PR 作成（Refs synvelis#97、Issue は Open のまま）
 
 ## Verification
 
