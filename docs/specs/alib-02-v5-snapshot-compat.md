@@ -4,7 +4,7 @@ type: "spec"
 status: "approved"
 title: "ALIB-02 deferred — v5 snapshot 互換移行（SHA-256/旧 CRC digest 共存）"
 created: "2026-11-09"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -19,6 +19,7 @@ relations:
   implements: []
   implemented-by:
     - "docs/designs/alib-02-v5-snapshot-compat-design.md"
+    - "docs/impl/ir/alib-02-v5-snapshot-compat-slice.md"
   depends-on:
     - "docs/specs/alib-02-streaming-verified-import.md"
   blocks: []
@@ -41,20 +42,33 @@ relations:
 # ALIB-02 deferred — v5 snapshot 互換移行
 
 ALIB-02（`SPEC-034UviRHTzZZY5QqaoRYZV`）から deferred された残件。
-sv86-alib02 slice（Issue #86 残 headless slice）で実装済み。
+sv86-alib02 slice（Issue #86 残 headless slice）で digest 分類・
+v10→v11 step を実装済み。DoD(1) residual slice（2026-11-11）では
+**実 v5 build が出力した wire bytes**（`a401e5c`、
+`SCHEMA_VERSION=5`）を fixture 化し、decode → STEPS 全 ladder →
+digest 保全 → save → reload → read-only 原本保存 → 劣化分類の
+連鎖を実測で固定した（`tests/alib02_v5_real.rs`、8 tests）。
+`SCHEMA_VERSION` は現在 13（v11 digest step 以降に v12 monitoring /
+v13 plugin instances が追加済み）。
 
 ## What Should Be Built
 
-旧 schema（v5〜v10 系 snapshot・CRC32 fold / opaque digest）で保存された
-Project が、SHA-256 名前空間導入後も lossless で読み込めること。
-`SCHEMA_VERSION` を v11 へ進め、既存の順序付き migration ladder
-（`migration.rs` STEPS）に asset-digest step を追加する。
+旧 schema（v5〜現行 ladder の floor 系 snapshot・CRC32 fold /
+opaque digest）で保存された Project が、SHA-256 名前空間導入後も
+lossless で読み込めること。既存の順序付き migration ladder
+（`migration.rs` STEPS）を共有し、v5 専用 reader は作らない。
 
 - `Asset.digest` / `Source.content_digest` / `AppliedImport.content_hash`
   は raw `String` のまま永続化する。移行は digest 文字列を書き換えない
   （lossless）。型付き分類は `project::AssetDigest` / `DigestKind`
   （`Crc32Fold` / `Sha256` / `Opaque`）として読み出し境界に閉じる。
-- 空・不正な digest 文字列は load / commit 境界で拒否する。
+  `AssetDigest::parse` は infallible（受理して `kind()` で分類）で、
+  空文字列のみ `validate_digests` が load/commit 境界で拒否する。
+- 実 v5 wire bytes は byte-level verify が出来ないため、存在・欠落は
+  `snapshot/` resolver の `ContentStatus`（`Present`/`Missing`/`Unknown`）
+  と `SnapshotValidation`/`SnapshotCompleteness` で劣化として分類する。
+  schema が ladder 外のものは `UnsupportedSchema` で reject する
+  （劣化扱いしない）。
 - 旧 CRC digest は verified SHA-256 content address に昇格しない。
   同一 CRC でも bytes が異なる asset は別 asset のまま保持する。
 - `AppliedImport` receipt は live の `asset_id` / `source_id` を指す

@@ -21,6 +21,8 @@ Directory: `docs/impl/ir`
 | --- | --- | --- | --- |
 | IMPL-034T7QIk72dphjZPfVnZ1O | ALIB-01 Asset Provider baseline contract | completed | [alib-01-asset-provider-baseline-contract.md](alib-01-asset-provider-baseline-contract.md) |
 | IMPL-alib02-streaming-verified-import | ALIB-02 Streaming Verified Import — SHA-256 namespace（synvelis-library slice） | completed | [alib-02-streaming-verified-import.md](alib-02-streaming-verified-import.md) |
+| IMPL-alib02-v5snap | ALIB-02 v5 snapshot asset-digest 互換移行 + recovery fixture | completed | [alib-02-v5-snapshot-compat.md](alib-02-v5-snapshot-compat.md) |
+| IMPL-alib02-v5snap-slice | ALIB-02 v5 snapshot 互換移行 — 実 v5 fixture residual slice（Issue #86 DoD(1)） | completed | [alib-02-v5-snapshot-compat-slice.md](alib-02-v5-snapshot-compat-slice.md) |
 | IR-alib07-fault-matrix | ALIB-07 Fault Matrix — headless 実装記録（synvelis-library） | completed | [alib-07-fault-matrix.md](alib-07-fault-matrix.md) |
 | IR-alib07-import-cancel | ALIB-07 slice 2 — import cancel checkpoint・subprocess crash fixture 実装記録（synvelis-library） | completed | [alib-07-import-cancel.md](alib-07-import-cancel.md) |
 | IMPL-AUT03LoopWriteOnePass | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・境界 flush・明示 Rearm 実装記録 | completed | [aut-03-loop-write-one-pass.md](aut-03-loop-write-one-pass.md) |

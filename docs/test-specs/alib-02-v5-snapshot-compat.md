@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "ALIB-02 v5 asset-digest 互換 + recovery fixture — テスト仕様"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   verifies:
@@ -12,6 +12,7 @@ relations:
     - "docs/designs/alib-02-v5-snapshot-compat-design.md"
   verified-by:
     - "crates/synvelis-project/tests/alib02_digest.rs"
+    - "crates/synvelis-project/tests/alib02_v5_real.rs"
     - "crates/synvelis-library/tests/import_recovery.rs"
 ---
 
@@ -49,6 +50,53 @@ relations:
 
 - Example: `applied_import_receipt_must_name_live_entities` —
   dangling `asset_id`/`source_id` を持つ receipt は拒否。
+
+## Feature: 実 v5 wire bytes の e2e（`alib02_v5_real.rs`, DoD(1) residual）
+
+Fixture: `tests/fixtures/alib02-v5-legacy.{json,blob}` — v5-era build
+（`a401e5c`、`SCHEMA_VERSION=5`）の実 serializer 出力。
+`{"scope": …}` owner tag・routing 未存在・CRC fold digest
+`5fea10b959fe82a9`（blob の実 CRC）・applied-import receipt を含む。
+
+### Rule: 実 v5 bytes が現行 schema へ lossless 移行する
+
+- Example: `real_v5_snapshot_decodes_migrates_and_reloads` —
+  decode→STEPS→digest verbatim（全 carrier で `Crc32Fold`、
+  content-addressed でない）→receipt が live entity を指す→save は
+  新 snapshot 名→reload が live project と一致。旧 `scope` owner が
+  typed `ControlOwner` + derived scope に投影され、v5 に無かった
+  sends/processors/monitoring/plugin instances は合成されない。
+  migrated load で live revision `22→23`。
+
+### Rule: read-only projection は deterministic
+
+- Example: `real_v5_read_only_projection_is_deterministic` —
+  `resolve_saved` を 2 回実行し `PartialEq` 等価の `Project`・
+  manifest・`Valid`/`Complete`・同一 `ContentDigest`。
+  `identity.schema_version=5` / `projection_version=13`。
+
+### Rule: 原本と sibling bytes は不変
+
+- Example: `migrated_save_preserves_original_and_sibling_blobs` —
+  `DirectoryBundleStore` で移行 save 後も v5 snapshot ファイル・
+  flat `blobs/<crc>`・`blobs/sha256/<hex>`・`plugin-state/` opaque
+  bytes が byte-identical、HEAD は新 snapshot 名。
+
+### Rule: 劣化と reject は別語彙で分類される
+
+- Example: `missing_blob_classifies_degraded_not_rejected` —
+  `BlobRead::Absent`→`ContentStatus::Missing`+`Degraded`+`Partial`。
+- Example: `unprobed_blob_never_reports_present` —
+  probe なし→`Unknown`+`Degraded`（`Present` を捏造しない）。
+- Example: `unknown_schema_is_rejected_not_degraded` —
+  `schema_version` 4/99 は controller・resolver 双方で
+  `UnsupportedSchema`（reject、source bytes 不変）。
+- Example: `corrupt_or_foreign_state_is_rejected` —
+  切断 bytes は `Deserialize`、非 default `RoutingModel` を持つ
+  v5 body は `Validation`。
+- Example: `crc_collision_assets_stay_separate_and_weak` —
+  同一 CRC を持つ 2 asset が実 v5 body 内でも別 identity のまま
+  （いずれも `Crc32Fold`・非 content-addressed）。
 
 ## Feature: recovery fixture（library）
 
