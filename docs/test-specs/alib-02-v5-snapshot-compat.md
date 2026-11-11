@@ -14,6 +14,7 @@ relations:
     - "crates/synvelis-project/tests/alib02_digest.rs"
     - "crates/synvelis-project/tests/alib02_v5_real.rs"
     - "crates/synvelis-library/tests/import_recovery.rs"
+    - "docs/tasks/alib-02-v5-snapshot-compat.md"
 ---
 
 # ALIB-02 v5 asset-digest 互換 + recovery fixture — テスト仕様

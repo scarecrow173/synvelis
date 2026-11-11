@@ -44,7 +44,10 @@ relations:
     generated: []
   implements:
     - "docs/specs/alib-02-v5-snapshot-compat.md"
-  implemented-by: []
+  implemented-by:
+    - "docs/tasks/alib-02-v5-snapshot-compat.md"
+    - "docs/impl/ir/alib-02-v5-snapshot-compat.md"
+    - "docs/impl/ir/alib-02-v5-snapshot-compat-slice.md"
   depends-on:
     - "docs/designs/alib-02-v5-snapshot-compat-design.md"
   blocks: []

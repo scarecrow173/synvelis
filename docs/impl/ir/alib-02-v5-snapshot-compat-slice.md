@@ -51,6 +51,7 @@ relations:
   superseded-by: []
   related:
     - "docs/impl/ir/alib-02-streaming-verified-import.md"
+    - "docs/impl/ir/alib-02-residual-closeout.md"
   refines: []
   refined-by: []
   derives-from:
@@ -153,10 +154,13 @@ doc chain の実装同期を提供する。
 | Check | Result |
 | --- | --- |
 | `cargo test -p synvelis-project --test alib02_v5_real` | 8 passed（補助証拠・開発ループ） |
-| `mise run fmt-check` / `check` / `lint` / `test` / `test-rt` / `test-msrv` | canonical lane の結果は PR 本文を参照 |
+| `mise run fmt-check` / `check` / `lint` / `test` / `test-rt` / `test-msrv` | PR #328 時点で全 lane Pass。closeout 再実測（2026-11-11、origin/main `36c2254` + docs-only 差分）の結果は `docs/impl/ir/alib-02-residual-closeout.md` Validation と `evidence/issue-86-v5-migration/closeout-verification.md` を参照 |
 
 ## Remaining
 
-- DoD(2)（RT・実 device・実 GUI・offline playback 実結合）は別
-  worker scope・対象外。
+- DoD(2)（consumer 実結合）は PR #326 で統合済み
+  （`docs/impl/ir/issue-86-verified-import-wiring-slice.md`）。
+  RT・実 device・実 GUI の外部 gate は synvelis#114・#97 が所有。
 - 実 FS durability・OS 差（Issue #91）は対象外のまま。
+- Issue #86 全体の DoD 照合・残存 gate 棚卸しは
+  `docs/impl/ir/alib-02-residual-closeout.md` に集約。

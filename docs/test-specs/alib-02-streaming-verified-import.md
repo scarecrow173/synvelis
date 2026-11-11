@@ -12,12 +12,15 @@ relations:
     - "docs/designs/alib-02-streaming-verified-import-design.md"
   verified-by:
     - "crates/synvelis-library/tests/import.rs"
+    - "docs/tasks/alib-02-streaming-verified-import.md"
 ---
 
 # ALIB-02 Test Spec
 
-`crates/synvelis-library/tests/import.rs`（15 tests）が仕様の各
-Feature/Rule を検証する。Scripted `BlobPublisher`/`AssetProvider`
+`crates/synvelis-library/tests/import.rs`（21 tests — PR #220 時点の
+15 tests に、後続 slice で cancel/resume・crash subprocess・
+cross-provider 収束の 6 tests が追加済み）が仕様の各 Feature/Rule
+を検証する。Scripted `BlobPublisher`/`AssetProvider`
 double は fault *分類* の証拠であり、実 durability の証拠ではない
 （実 publish は `StagedBlobPublisher` = ruviform `StagedFile` 系）。
 
