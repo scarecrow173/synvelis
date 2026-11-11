@@ -7,6 +7,7 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
+use synvelis_project::apply::{ApplyError, target_fingerprint};
 use synvelis_project::control::{
     AutomationPoint, AutomationRegion, AutomationTimeScope, BeatPoint, BeatRange, ConflictPolicy,
     ControlOwner, Interpolation, ParamMapping, ParameterRole, ValueKind,
@@ -15,8 +16,8 @@ use synvelis_project::controller::{Command, ProjectController, ProjectRevision};
 use synvelis_project::diff::{
     AmbiguityReason, ChangeKind, ChangeSet, ChangeSetCache, ComparisonBudget,
     ComparisonCompleteness, ComparisonDomain, ComparisonDomains, ComparisonEquality,
-    ComparisonIssue, ComparisonSpec, DiffError, ObjectKind, SemanticChange, SemanticTimeRange,
-    compare_snapshots,
+    ComparisonIssue, ComparisonSpec, DIFF_POLICY_VERSION, DiffError, ObjectKind, SemanticChange,
+    SemanticObjectRef, SemanticTimeRange, compare_snapshots,
 };
 use synvelis_project::id::{
     AssetId, ClipId, CounterIdGenerator, LaneId, NoteId, ProcessorId, ProjectId,
@@ -29,9 +30,12 @@ use synvelis_project::ops::ProjectOp;
 use synvelis_project::placement::{
     ClipExtent, ClipPlacement, ClipPlayback, PlaybackMapping, TimeAnchor,
 };
+use synvelis_project::plugin_instance::{PluginInstanceId, PluginInstanceIdentity};
 use synvelis_project::project::{Clip, Project, Track};
 use synvelis_project::range::SourceRange;
-use synvelis_project::routing::{ConnectionKind, ProcessorBinding, RoutingConnection};
+use synvelis_project::routing::{
+    ConnectionKind, PluginRef, Processor, ProcessorBinding, RoutingConnection,
+};
 use synvelis_project::snapshot::{
     AssetAvailabilityManifest, AssetResolution, BlobProbe, BlobRead, ContentDigest, ContentStatus,
     FixedSnapshotLocator, ImmutableSnapshot, OpaqueStateRef, OpaqueStateStatus,
@@ -1144,4 +1148,296 @@ fn monitor_decl_on_ambiguous_track_raw_is_ambiguous() {
         } if object.kind == ObjectKind::TrackMonitorDecl
     )));
     assert!(matches!(cs.overall, ComparisonEquality::Unknown(_)));
+}
+
+// ── plugin_instances VCS diff classification (synvelis#324) ──────
+
+fn plugin_ref() -> PluginRef {
+    PluginRef {
+        descriptor: "vendor.inst-diff".into(),
+        version: "1.0.0".into(),
+        capability_revision: 3,
+    }
+}
+
+/// A project carrying one `Resolved` processor on the default strip —
+/// the insert op mints its persisted plugin-instance identity, so the
+/// returned `Project` has a live `plugin_instances.instances` entry.
+fn project_with_resolved_processor() -> (Project, ProcessorId) {
+    let mut c = controller();
+    let strip = *c.live().routing.strips.keys().next().unwrap();
+    apply(
+        &mut c,
+        ProjectOp::InsertProcessor {
+            strip_id: strip,
+            index: 0,
+            name: "fx".into(),
+            binding: ProcessorBinding::Resolved(plugin_ref()),
+            sidechain_input: false,
+        },
+    );
+    let proc = *c.live().routing.processors.keys().next_back().unwrap();
+    (c.live().clone(), proc)
+}
+
+#[test]
+fn plugin_instance_add_remove_is_added_removed() {
+    let mut c = controller();
+    let before = snap_manual(c.live().clone(), SCHEMA_VERSION, "before");
+    let strip = *c.live().routing.strips.keys().next().unwrap();
+    apply(
+        &mut c,
+        ProjectOp::InsertProcessor {
+            strip_id: strip,
+            index: 0,
+            name: "fx".into(),
+            binding: ProcessorBinding::Resolved(plugin_ref()),
+            sidechain_input: false,
+        },
+    );
+    let proc = *c.live().routing.processors.keys().next_back().unwrap();
+    let after = snap_manual(c.live().clone(), SCHEMA_VERSION, "after");
+
+    let cs = compare(&before, &after);
+    let hits = changes_of(&cs, ObjectKind::PluginInstance);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].kind, ChangeKind::Added);
+    assert!(hits[0].before.is_none());
+    assert_eq!(hits[0].object.stable_id, proc.to_tagged());
+    // The entry's presence is a projection of the processor's — both
+    // objects report their own evidence (no suppression of either).
+    assert!(has_kind(&cs, ObjectKind::Processor, ChangeKind::Added));
+    // keyed-synthetic pin: `instances` borrows the `ProcessorId` space
+    // and stays out of `raw_kind_map` — registering it would claim
+    // `{Processor, PluginInstance}` on every resolved processor and
+    // fabricate `AmbiguousIdentity` for the whole map.
+    assert_eq!(cs.unresolved.len(), 0);
+    assert_eq!(cs.overall, ComparisonEquality::Different);
+
+    apply(&mut c, ProjectOp::RemoveProcessor { processor_id: proc });
+    let removed = snap_manual(c.live().clone(), SCHEMA_VERSION, "removed");
+    let cs = compare(&after, &removed);
+    let hits = changes_of(&cs, ObjectKind::PluginInstance);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].kind, ChangeKind::Removed);
+    assert!(hits[0].after.is_none());
+}
+
+#[test]
+fn plugin_instance_id_swap_is_replaced() {
+    // Persisted `StablePluginInstanceId` churn (e.g. a Resolved →
+    // Unresolved → Resolved round trip re-minting the entry) is a
+    // content-identity replacement, reported under policy v3.
+    let (project, proc) = project_with_resolved_processor();
+    let before = snap_manual(project.clone(), SCHEMA_VERSION, "before");
+    let mut after_project = project;
+    after_project
+        .plugin_instances
+        .instances
+        .get_mut(&proc)
+        .unwrap()
+        .id = PluginInstanceId::new(42);
+    after_project.plugin_instances.watermark = 43;
+    let after = snap_manual(after_project, SCHEMA_VERSION, "after");
+
+    let cs = compare(&before, &after);
+    let hits = changes_of(&cs, ObjectKind::PluginInstance);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].kind, ChangeKind::Replaced);
+    assert!(fields_of(hits[0]).contains(&"id"));
+    assert_eq!(cs.overall, ComparisonEquality::Different);
+}
+
+#[test]
+fn plugin_instance_plugin_rebind_is_replaced() {
+    // A `PluginRef` drift (descriptor/version/capability_revision) is
+    // a different authored identity: the binding, the pinned `plugin`
+    // and the minted `id` all change together.
+    let (project, proc) = project_with_resolved_processor();
+    let before = snap_manual(project.clone(), SCHEMA_VERSION, "before");
+    let mut after_project = project;
+    let rebound = PluginRef {
+        descriptor: "vendor.inst-diff".into(),
+        version: "2.0.0".into(),
+        capability_revision: 4,
+    };
+    after_project
+        .routing
+        .processors
+        .get_mut(&proc)
+        .unwrap()
+        .binding = ProcessorBinding::Resolved(rebound.clone());
+    let entry = after_project
+        .plugin_instances
+        .instances
+        .get_mut(&proc)
+        .unwrap();
+    entry.id = PluginInstanceId::new(2);
+    entry.plugin = rebound;
+    after_project.plugin_instances.watermark = 3;
+    let after = snap_manual(after_project, SCHEMA_VERSION, "after");
+
+    let cs = compare(&before, &after);
+    let hits = changes_of(&cs, ObjectKind::PluginInstance);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].kind, ChangeKind::Replaced);
+    let fields = fields_of(hits[0]);
+    assert!(fields.contains(&"id"));
+    assert!(fields.iter().any(|f| f.starts_with("plugin.")));
+    // The owning processor reports its own binding drift separately.
+    assert!(has_kind(&cs, ObjectKind::Processor, ChangeKind::Modified));
+}
+
+#[test]
+fn plugin_instance_watermark_only_drift_is_equal() {
+    // `watermark` is allocator bookkeeping (like `id_watermark`): an
+    // entry set that is identical on both sides with only the issued
+    // range's upper bound moved reports no authored difference.
+    let (project, _proc) = project_with_resolved_processor();
+    let mut after_project = project.clone();
+    after_project.plugin_instances.watermark += 1;
+    let (b, a) = manual_pair(project, after_project);
+    let cs = compare(&b, &a);
+    assert_eq!(cs.overall, ComparisonEquality::Equal);
+    assert_eq!(cs.changes.len(), 0);
+    assert_eq!(cs.unresolved.len(), 0);
+    assert_eq!(cs.completeness, ComparisonCompleteness::Complete);
+}
+
+#[test]
+fn pre_v13_plugin_instance_id_is_suppressed_partial() {
+    // before is a v12-labeled snapshot (post-migration projection) and
+    // after is v13 — the persisted `id` on either side of v13 is a
+    // migration-minted artifact, so the id drift is suppressed into
+    // `PartialProjection` rather than reported as `Replaced`.
+    let (project, proc) = project_with_resolved_processor();
+    let before = snap_manual(project.clone(), 12, "before");
+    let mut after_project = project;
+    after_project
+        .plugin_instances
+        .instances
+        .get_mut(&proc)
+        .unwrap()
+        .id = PluginInstanceId::new(2);
+    after_project.plugin_instances.watermark = 3;
+    let after = snap_manual(after_project, SCHEMA_VERSION, "after");
+
+    let cs = compare(&before, &after);
+    assert_eq!(changes_of(&cs, ObjectKind::PluginInstance).len(), 0);
+    assert!(cs.unresolved.iter().any(|i| matches!(
+        i,
+        ComparisonIssue::PartialProjection {
+            domain: ComparisonDomain::Routing,
+            detail,
+        } if detail == "pre-v13-plugin-instance-id"
+    )));
+    assert_eq!(cs.completeness, ComparisonCompleteness::Partial);
+    assert!(matches!(cs.overall, ComparisonEquality::Unknown(_)));
+}
+
+#[test]
+fn plugin_instance_only_difference_is_different_at_policy_v3() {
+    // The gap this slice closes: an instance-identity-only difference
+    // reported `Equal` under policy v2 — under v3 it is `Different`,
+    // and the policy version is bound into the comparison key.
+    assert_eq!(DIFF_POLICY_VERSION, 3);
+    let (project, proc) = project_with_resolved_processor();
+    let mut after_project = project.clone();
+    after_project
+        .plugin_instances
+        .instances
+        .get_mut(&proc)
+        .unwrap()
+        .id = PluginInstanceId::new(9);
+    after_project.plugin_instances.watermark = 10;
+    let (b, a) = manual_pair(project, after_project);
+    let cs = compare(&b, &a);
+    assert_eq!(cs.comparison.policy_version, DIFF_POLICY_VERSION);
+    assert_eq!(cs.key.policy_version, DIFF_POLICY_VERSION);
+    assert_eq!(cs.overall, ComparisonEquality::Different);
+    let hits = changes_of(&cs, ObjectKind::PluginInstance);
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].kind, ChangeKind::Replaced);
+    assert!(fields_of(hits[0]).contains(&"id"));
+    // Instance-only: the owning processor entity is identical and
+    // reports nothing.
+    assert_eq!(changes_of(&cs, ObjectKind::Processor).len(), 0);
+}
+
+#[test]
+fn plugin_instance_on_ambiguous_processor_raw_is_ambiguous() {
+    // before: resolved processor (raw 77) + its instance entry; after:
+    // the processor is gone and raw 77 is reissued as a track — the
+    // entry key's identity cannot be confirmed, so the instance entry
+    // resolves to `AmbiguousIdentity`, never a fabricated Removed.
+    let c = controller();
+    let mut before = c.live().clone();
+    before.routing.processors.insert(
+        ProcessorId::new(77),
+        Processor {
+            id: ProcessorId::new(77),
+            name: "ghost".into(),
+            binding: ProcessorBinding::Resolved(plugin_ref()),
+            port_ids: vec![],
+        },
+    );
+    before.plugin_instances.instances.insert(
+        ProcessorId::new(77),
+        PluginInstanceIdentity {
+            id: PluginInstanceId::new(1),
+            plugin: plugin_ref(),
+        },
+    );
+    before.plugin_instances.watermark = 2;
+
+    let mut after = before.clone();
+    after.routing.processors.remove(&ProcessorId::new(77));
+    after
+        .plugin_instances
+        .instances
+        .remove(&ProcessorId::new(77));
+    after.tracks.insert(
+        TrackId::new(77),
+        Track {
+            id: TrackId::new(77),
+            name: "reissued".into(),
+            lane_ids: vec![],
+        },
+    );
+
+    let (b, a) = manual_pair(before, after);
+    let cs = compare(&b, &a);
+    assert_eq!(changes_of(&cs, ObjectKind::PluginInstance).len(), 0);
+    assert_eq!(changes_of(&cs, ObjectKind::Processor).len(), 0);
+    assert!(cs.unresolved.iter().any(|i| matches!(
+        i,
+        ComparisonIssue::AmbiguousIdentity {
+            object,
+            reason: AmbiguityReason::CrossKindId,
+        } if object.kind == ObjectKind::PluginInstance
+    )));
+    assert!(matches!(cs.overall, ComparisonEquality::Unknown(_)));
+}
+
+#[test]
+fn plugin_instance_change_is_outside_apply_surface() {
+    // Apply surface stays fail-closed (Deferred Design Concern): the
+    // fingerprint gate rejects the new kind before any mutation, so a
+    // selection containing a `PluginInstance` change can never be
+    // silently applied.
+    let (project, proc) = project_with_resolved_processor();
+    let object = SemanticObjectRef {
+        project_id: project.project_id,
+        kind: ObjectKind::PluginInstance,
+        stable_id: proc.to_tagged(),
+        lineage: None,
+    };
+    let err = target_fingerprint(&project, &[object]).unwrap_err();
+    assert!(matches!(
+        err,
+        ApplyError::Unsupported {
+            kind: ObjectKind::PluginInstance,
+            ..
+        }
+    ));
 }

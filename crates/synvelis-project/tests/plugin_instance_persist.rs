@@ -454,6 +454,45 @@ fn sources_for(cs: &ChangeSet, before: &ImmutableSnapshot, after: &ImmutableSnap
     }
 }
 
+/// `true` for object kinds inside the VCS-05 apply surface — mirrors
+/// `apply::entity::supported_kind` (crate-private, unreachable from
+/// integration tests). Diff-only kinds such as `PluginInstance` fail
+/// closed at plan/fingerprint time, so select-all fixtures must narrow
+/// their selection to apply-surface kinds.
+fn apply_surface_kind(kind: ObjectKind) -> bool {
+    matches!(
+        kind,
+        ObjectKind::Project
+            | ObjectKind::Track
+            | ObjectKind::Lane
+            | ObjectKind::Clip
+            | ObjectKind::Note
+            | ObjectKind::Asset
+            | ObjectKind::MediaSource
+            | ObjectKind::MidiSource
+            | ObjectKind::MidiNote
+            | ObjectKind::ParameterTarget
+            | ObjectKind::AutomationLane
+            | ObjectKind::ModulationSource
+            | ObjectKind::ModulationAssignment
+            | ObjectKind::RoutingModel
+            | ObjectKind::Bus
+            | ObjectKind::Strip
+            | ObjectKind::Processor
+            | ObjectKind::ProcessorChain
+            | ObjectKind::SemanticPort
+            | ObjectKind::RoutingConnection
+            | ObjectKind::SendConfig
+    )
+}
+
+fn apply_surface_changes(cs: &ChangeSet) -> Vec<&SemanticChange> {
+    cs.changes
+        .iter()
+        .filter(|ch| apply_surface_kind(ch.object.kind))
+        .collect()
+}
+
 fn intent_for(
     c: &ProjectController,
     cs: &ChangeSet,
@@ -526,7 +565,11 @@ fn deterministic_pair() -> (
 #[test]
 fn apply_added_resolved_processor_allocates_identity() {
     let (mut live, _after_c, before, after, cs) = deterministic_pair();
-    let changes: Vec<&SemanticChange> = cs.changes.iter().collect();
+    // The changeset also carries the `PluginInstance(Added)` evidence
+    // for the new entry — outside the apply surface, so the selection
+    // is narrowed to apply-surface kinds (fail-closed kinds are never
+    // silently applied).
+    let changes: Vec<&SemanticChange> = apply_surface_changes(&cs);
     let receipt = run_apply(&mut live, &cs, &before, &after, &changes);
     assert_eq!(receipt.outcome, ApplyOutcome::Applied);
 
