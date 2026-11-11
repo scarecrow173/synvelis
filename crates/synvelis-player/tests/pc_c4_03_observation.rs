@@ -922,13 +922,9 @@ fn pc_c4_03_04_inactive_gate_keeps_reports_queued() {
 
     // Drain attesting "not active" → gated, nothing consumed.
     let endpoints = eng.plugin_state_handles(1);
-    let gated = drain_with(
-        &mut dispatch,
-        &endpoints,
-        1,
-        None,
-        &mut |handle, out| host.borrow_mut().drain_output_reports(handle, out),
-    );
+    let gated = drain_with(&mut dispatch, &endpoints, 1, None, &mut |handle, out| {
+        host.borrow_mut().drain_output_reports(handle, out)
+    });
     assert!(gated.inactive_gated, "{gated:?}");
     assert_eq!(gated.drained, 0);
     assert_eq!(gated.events, 0);
