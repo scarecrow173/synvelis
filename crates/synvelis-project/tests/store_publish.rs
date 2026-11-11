@@ -202,6 +202,10 @@ fn failed_snapshot_publish_keeps_head_and_destination() {
 
 // E4 (Rule 3, 4): when the HEAD publish fails, the published snapshot
 // stays as an orphan and the previous HEAD content is preserved.
+// Exercised on `ProjectStore::save` directly: `controller.save` now
+// routes through the expected-head CAS, which reads HEAD inside its
+// lock *before* publishing the snapshot — an unreadable HEAD fails
+// there with no orphan at all (syn-io-02-head-cas).
 #[test]
 fn failed_head_publish_keeps_snapshot_orphan_and_old_head() {
     let (_g, dir, mut store) = bundle("head-fail");
@@ -217,7 +221,18 @@ fn failed_head_publish_keeps_snapshot_orphan_and_old_head() {
     fs::create_dir(dir.join("HEAD")).unwrap();
     c.apply(cmd(&c, ProjectOp::AddTrack { name: "b".into() }))
         .unwrap();
-    let err = c.save(&mut store).unwrap_err();
+    // The same envelope `controller.save` would emit, published
+    // through the unconditional port.
+    let mut project = c.live().clone();
+    project.id_watermark = c.snapshot_id_watermark();
+    let envelope = SnapshotEnvelope {
+        schema_version: SCHEMA_VERSION,
+        project_id: c.live().project_id,
+        revision: c.live_revision(),
+        project,
+    };
+    let bytes = serde_json::to_vec(&envelope).unwrap();
+    let err = store.save("p", c.live_revision(), &bytes).unwrap_err();
     assert!(
         matches!(err, Error::Store(ref s) if s.contains("effect:")),
         "publish classification must propagate: {err}"

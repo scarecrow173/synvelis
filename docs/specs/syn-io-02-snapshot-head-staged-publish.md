@@ -4,7 +4,7 @@ type: "spec"
 status: "approved"
 title: "SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行"
 created: "2026-11-06"
-updated: "2026-11-07"
+updated: "2026-11-12"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -77,7 +77,11 @@ relations:
   単一 file replace は Project CAS ではない。Synvelis 側の
   ExpectedRevision/単一 Writer/Lock/Recovery 判断は従来どおり
   `ProjectController` と呼び出し側に残し、store port の署名
-  （`save`/`head`/`read_snapshot`）は変更しない。
+  （`save`/`head`/`read_snapshot`）は変更しない。なお、
+  expected-head CAS は後続 spec `syn-io-02-head-cas`
+  （synvelis #330）で `save_cas` として additive に追加済み
+  — 既存署名・HEAD/snapshot format は本 spec の契約どおり
+  不変。
 - **Durability**: snapshot/HEAD とも
   `Durability::FileAndDirectorySync` を要求する（アーキテクチャ
   設計の「Atomic Replace できる backend では置換・Directory Sync
@@ -144,8 +148,10 @@ relations:
   Provider（SV85）。
 - Ruviform 側の変更・ProjectId/Revision/Undo 等の DAW 概念の
   基盤への追加。
-- 複数 writer 間の真の HEAD CAS（単一 file replace で実現不能。
-  store port に expected-head を導入しない）。
+- 複数 writer 間の真の HEAD CAS — 本 spec 起票時は Out of
+  Scope だったが、後続 `syn-io-02-head-cas`（synvelis #330）
+  で `ProjectStore::save_cas` の additive expected-head CAS
+  として実装済み（機構・保証境界は同 design を正本とする）。
 
 ## Requirements
 
