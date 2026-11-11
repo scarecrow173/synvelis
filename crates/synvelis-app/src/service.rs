@@ -53,6 +53,10 @@ pub const OPS: &[OpInfo] = &[
         summary: "project name, id, revision, saved state",
     },
     OpInfo {
+        name: "syn.project.set_ppqn",
+        summary: "change project PPQN — params.old_ppqn/new_ppqn/policy(/rounding)/expected_revision?",
+    },
+    OpInfo {
         name: "syn.recording.info",
         summary: "recording state projection — sessions/passes/streams/segments/takes + recorder status",
     },
@@ -295,6 +299,7 @@ impl AppService {
             "syn.project.save" => self.app.project_save().map_err(AppError::into_body),
             "syn.project.reload" => self.app.project_reload().map_err(AppError::into_body),
             "syn.project.info" => Ok(self.app.project_info()),
+            "syn.project.set_ppqn" => self.app.project_set_ppqn(params),
             "syn.recording.info" => Ok(self.app.recording_info()),
             "syn.project.undo" => self.app.op_project_undo(),
             "syn.project.redo" => self.app.op_project_redo(),
