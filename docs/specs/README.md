@@ -39,6 +39,7 @@ Directory: `docs/specs`
 | SPEC-034UqtrnCaL8J9mhrd4SyZ | PC-C3 ControlTrace — Configured/Prepared/Applied/Reported/Observed projection slice | approved | [pc-c3-control-trace-projection.md](./pc-c3-control-trace-projection.md) |
 | SPEC-MCgOf8EskzmlXOde7x0Pqs | PC-C4-02 semantic plugin instance binding — stage-1 authority consumption・plugin identity pin（headless slice） | approved | [pc-c4-02-plugin-instance-binding.md](./pc-c4-02-plugin-instance-binding.md) |
 | SPEC-PCc4030bs3vN1pQ8wXyZ2aB | PC-C4-03 reported observation 消費 — host drain → ParamDispatch ledger（headless slice） | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |
+| SPEC-PCc4040bs3vN1pQ8wXyZ2aB | PC-C4-04 workspace/app composition — catalog vend・dispatch 所有・tick 駆動・fast_control | approved | [pc-c4-04-app-composition.md](./pc-c4-04-app-composition.md) |
 | SPEC-034VvDn4o6zcn7dFSGRGZC | PC-C4-05 persisted StablePluginInstanceId — project schema v13 + player hydration | approved | [pc-c4-05-persisted-instance-id.md](./pc-c4-05-persisted-instance-id.md) |
 | SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |

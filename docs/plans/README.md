@@ -37,6 +37,7 @@ Directory: `docs/plans`
 | PLAN-034UqHfN1LJeYNaoS0SGYL | PC-C3 ControlTrace projection 実装計画 | approved | [pc-c3-control-trace.md](./pc-c3-control-trace.md) |
 | PLAN-IXbRrdisj9XdLzGbNo1zWK | PC-C4-02 plugin instance binding plan | approved | [pc-c4-02-plugin-instance-binding.md](./pc-c4-02-plugin-instance-binding.md) |
 | PLAN-PCc4030bs3vN1pQ8wXyZ2aD | PC-C4-03 param observation plan — drain surface + tests + docs | approved | [pc-c4-03-param-observation-plan.md](./pc-c4-03-param-observation-plan.md) |
+| PLAN-PCc4040bs3vN1pQ8wXyZ2aD | PC-C4-04 app composition plan — vend・所有・駆動・橋渡し・fixture | approved | [pc-c4-04-app-composition-plan.md](./pc-c4-04-app-composition-plan.md) |
 | PLAN-034VvHwf0OT5qLdTopdnmC | PC-C4-05 persisted StablePluginInstanceId plan | approved | [pc-c4-05-persisted-instance-id-plan.md](./pc-c4-05-persisted-instance-id-plan.md) |
 | PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
