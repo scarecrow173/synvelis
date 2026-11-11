@@ -12,7 +12,7 @@ use crate::{
     error::Error,
     id::IdGenerator,
     project::Project,
-    store::{ProjectStore, SCHEMA_VERSION, SnapshotEnvelope},
+    store::{HeadCasError, ProjectStore, SCHEMA_VERSION, SnapshotEnvelope},
 };
 
 /// Monotonic live revision (never rewound by undo/redo).
@@ -220,8 +220,20 @@ impl ProjectController {
 
     /// Saves the live project through the store (temp → publish → HEAD).
     ///
+    /// The save is an expected-head CAS against the HEAD this
+    /// controller last adopted (`saved.head`, `None` before the first
+    /// load/save): if another writer moved the store's HEAD since,
+    /// the store reports the conflict and this method returns
+    /// [`Error::Store`] carrying the typed `head CAS conflict`
+    /// detail — `saved` is not advanced and the caller should
+    /// [`Self::load`] before retrying (syn-io-02-head-cas). Stores
+    /// without CAS support (`HeadCasError::Unsupported`) keep the
+    /// unconditional publish — the single-writer contract they were
+    /// written for is unchanged.
+    ///
     /// # Errors
-    /// Any store/serialization error; live and prior saved state persist.
+    /// Any store/serialization error, including a head CAS conflict;
+    /// live and prior saved state persist.
     pub fn save(&mut self, store: &mut dyn ProjectStore) -> Result<SavedState, Error> {
         self.live.id_watermark = self.generator.peek();
         let envelope = SnapshotEnvelope {
@@ -231,11 +243,21 @@ impl ProjectController {
             project: self.live.clone(),
         };
         let bytes = serde_json::to_vec(&envelope)?;
-        let head = store.save(
+        let expected_head = self.saved.as_ref().map(|s| s.head.clone());
+        let head = match store.save_cas(
             &envelope.project_id.to_tagged(),
+            expected_head.as_deref(),
             ProjectRevision(self.live_revision),
             &bytes,
-        )?;
+        ) {
+            Ok(name) => name,
+            Err(HeadCasError::Unsupported) => store.save(
+                &envelope.project_id.to_tagged(),
+                ProjectRevision(self.live_revision),
+                &bytes,
+            )?,
+            Err(err) => return Err(err.into()),
+        };
         let state = SavedState {
             revision: ProjectRevision(self.live_revision),
             head,

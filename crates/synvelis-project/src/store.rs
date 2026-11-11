@@ -16,9 +16,11 @@
 
 use std::{
     collections::BTreeMap,
-    fs,
+    fmt, fs,
     io::Write,
     path::{Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use ruviform_io_file::{
@@ -88,6 +90,93 @@ pub struct SnapshotEnvelope {
     pub project: Project,
 }
 
+/// How long a `HEAD.lock` file is trusted as held by a live writer
+/// before a contender may break it as stale (syn-io-02-head-cas).
+///
+/// The lock guards only the read-compare-publish critical section —
+/// two staged publishes of small files — so tens of seconds is
+/// already far beyond any legitimate hold. A crashed writer's lock
+/// becomes breakable once its recorded creation time is older than
+/// this.
+pub const HEAD_LOCK_STALE_AFTER: Duration = Duration::from_secs(20);
+
+/// How long [`ProjectStore::save_cas`] waits for a *fresh* `HEAD.lock`
+/// before reporting [`HeadCasError::Store`]. Deliberately longer than
+/// [`HEAD_LOCK_STALE_AFTER`] so a wedged lock is broken and the call
+/// proceeds within a single attempt instead of erroring first.
+pub const HEAD_LOCK_BUSY_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// Poll interval while waiting on a held `HEAD.lock`.
+const HEAD_LOCK_POLL_INTERVAL: Duration = Duration::from_millis(10);
+
+/// Monotonic suffix for unique lock tokens and stale-lock aside names.
+static LOCK_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// Failure of [`ProjectStore::save_cas`].
+///
+/// Unlike [`Error`], this type keeps the expected-head conflict
+/// structured so a caller can distinguish "HEAD moved under me"
+/// (retryable after reload) from ordinary store failures — a CAS
+/// conflict is never reported as success, and never disguised as a
+/// generic I/O error.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HeadCasError {
+    /// The store's HEAD no longer names `expected` — a competing
+    /// writer (or external edit) moved it between the caller's read
+    /// and this save. `actual` is the HEAD observed inside the
+    /// critical section (`None` = absent). No HEAD repoint happened;
+    /// the snapshot publish is skipped entirely on this path, so no
+    /// orphan is left behind either.
+    Conflict {
+        /// The HEAD name the caller asserted (`None` = asserted absent).
+        expected: Option<String>,
+        /// The HEAD name actually observed (`None` = absent).
+        actual: Option<String>,
+    },
+    /// The store does not implement expected-head CAS — the default
+    /// [`ProjectStore::save_cas`] body. Callers that require the
+    /// guarantee must use a store known to implement it
+    /// ([`DirectoryBundleStore`], [`InMemoryStore`]).
+    Unsupported,
+    /// Any other failure: lock acquisition, snapshot publish, HEAD
+    /// publish, or I/O. The wrapped [`Error`] keeps the existing
+    /// store classification (publish effect/phase/durability).
+    Store(Error),
+}
+
+impl fmt::Display for HeadCasError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Conflict { expected, actual } => write!(
+                f,
+                "head CAS conflict: expected {expected:?}, actual {actual:?}"
+            ),
+            Self::Unsupported => write!(f, "store does not support head CAS"),
+            Self::Store(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for HeadCasError {}
+
+impl From<Error> for HeadCasError {
+    fn from(err: Error) -> Self {
+        Self::Store(err)
+    }
+}
+
+impl From<HeadCasError> for Error {
+    fn from(err: HeadCasError) -> Self {
+        match err {
+            HeadCasError::Conflict { expected, actual } => Self::Store(format!(
+                "head CAS conflict: expected {expected:?}, actual {actual:?}"
+            )),
+            HeadCasError::Unsupported => Self::Store("store does not support head CAS".to_owned()),
+            HeadCasError::Store(e) => e,
+        }
+    }
+}
+
 /// Persistence port: stores canonical snapshot bytes and a HEAD pointer.
 pub trait ProjectStore {
     /// Persists `bytes` immutably and repoints HEAD, returning the
@@ -104,6 +193,44 @@ pub trait ProjectStore {
         revision: ProjectRevision,
         bytes: &[u8],
     ) -> Result<String, Error>;
+
+    /// Persists `bytes` immutably and repoints HEAD **only if** HEAD
+    /// still names `expected_head` — the expected-head compare-and-swap
+    /// (syn-io-02-head-cas).
+    ///
+    /// `expected_head` is exactly what [`Self::head`] reports: the
+    /// snapshot name HEAD currently points at, or `None` to assert
+    /// HEAD is absent. The comparison happens inside the store's
+    /// mutual-exclusion boundary, so two cooperating `save_cas`
+    /// callers on the same root cannot both observe the same expected
+    /// HEAD and both commit — the loser receives
+    /// [`HeadCasError::Conflict`] instead of silently repointing HEAD
+    /// (the lost-update `save` cannot prevent).
+    ///
+    /// The default implementation returns
+    /// [`HeadCasError::Unsupported`]; stores that cannot honor the
+    /// precondition must not silently degrade to unconditional
+    /// `save`. [`DirectoryBundleStore`] implements the contract with a
+    /// `HEAD.lock` create-new mutex plus stale-lock breaking;
+    /// [`InMemoryStore`] mirrors the same compare semantics.
+    ///
+    /// # Errors
+    /// [`HeadCasError::Conflict`] when HEAD moved, `Unsupported` when
+    /// the store lacks CAS, [`HeadCasError::Store`] for any other
+    /// failure — same publish-effect honesty rules as [`Self::save`]
+    /// (`NotPublished` leaves HEAD intact; `Published`/
+    /// `Indeterminate` may already have repointed it — re-read
+    /// `head()`).
+    fn save_cas(
+        &mut self,
+        project_id: &str,
+        expected_head: Option<&str>,
+        revision: ProjectRevision,
+        bytes: &[u8],
+    ) -> Result<String, HeadCasError> {
+        let _ = (project_id, expected_head, revision, bytes);
+        Err(HeadCasError::Unsupported)
+    }
 
     /// The snapshot name HEAD currently points at.
     ///
@@ -235,9 +362,8 @@ impl DirectoryBundleStore {
     }
 
     /// Stages `bytes` and publishes at `path` with the requested
-    /// `mode` — file sync + atomic publish + directory sync
-    /// (`Durability::FileAndDirectorySync`), atomic visibility
-    /// required.
+    /// `mode`/`durability` — atomic visibility required
+    /// (`VisibilityRequirement::RequireAtomic`).
     ///
     /// `Ok` is returned only when every requested guarantee was
     /// achieved; failures keep the [`PublishFailure`] classification
@@ -247,6 +373,7 @@ impl DirectoryBundleStore {
         path: &Path,
         bytes: &[u8],
         mode: PublishMode,
+        durability: Durability,
     ) -> Result<(), PublishStepError> {
         let mut staged = StagedFile::create(path).map_err(PublishStepError::Stage)?;
         if let Err(source) = staged.write_all(bytes) {
@@ -255,7 +382,7 @@ impl DirectoryBundleStore {
         }
         let mut receipt = staged
             .seal()
-            .publish(PublishOptions::new(mode, Durability::FileAndDirectorySync))
+            .publish(PublishOptions::new(mode, durability))
             .map_err(PublishStepError::Publish)?;
         // A retained temp after a successful publish is an orphan;
         // best-effort cleanup never changes the publish result.
@@ -309,39 +436,20 @@ impl DirectoryBundleStore {
     fn snapshots_dir(&self) -> PathBuf {
         self.root.join("snapshots")
     }
-}
 
-/// Failure inside [`DirectoryBundleStore::publish_staged`].
-///
-/// `Publish` keeps the `ruviform-io-file` [`PublishFailure`] intact so
-/// the store can classify before flattening to [`Error::Store`].
-enum PublishStepError {
-    /// `StagedFile::create` failed before any bytes were written; the
-    /// destination was never touched.
-    Stage(ruviform_io_file::FileError),
-    /// Writing the staged temp failed; the dropped temp is cleaned
-    /// best-effort by the staged file's `Drop`.
-    Write {
-        /// The underlying write failure.
-        source: std::io::Error,
-        /// The staged temp path at failure time (cleaned on drop).
-        temp: Option<PathBuf>,
-    },
-    /// `SealedFile::publish` failed — effect/phase/durability and the
-    /// recovery handle are preserved.
-    Publish(PublishFailure),
-}
-
-impl ProjectStore for DirectoryBundleStore {
-    fn save(
-        &mut self,
-        _project_id: &str,
-        revision: ProjectRevision,
-        bytes: &[u8],
-    ) -> Result<String, Error> {
+    /// Publishes the immutable snapshot `r<revision>.json` and
+    /// returns its name. Shared by the unconditional `save` path and
+    /// the CAS path — the collision/durability rules are identical;
+    /// only the HEAD precondition differs.
+    fn publish_snapshot(&self, revision: ProjectRevision, bytes: &[u8]) -> Result<String, Error> {
         let name = snapshot_name(revision);
         let target = self.snapshots_dir().join(&name);
-        match Self::publish_staged(&target, bytes, PublishMode::CreateNew) {
+        match Self::publish_staged(
+            &target,
+            bytes,
+            PublishMode::CreateNew,
+            Durability::FileAndDirectorySync,
+        ) {
             Ok(()) => {}
             // Immutable snapshots are idempotent under retry: an
             // existing snapshot holding the same logical content is
@@ -395,19 +503,296 @@ impl ProjectStore for DirectoryBundleStore {
                                 ));
                             }
                         };
-                        Self::publish_staged(&target, winning, PublishMode::Replace)
-                            .map_err(|e| Self::publish_error(&target, e))?;
+                        Self::publish_staged(
+                            &target,
+                            winning,
+                            PublishMode::Replace,
+                            Durability::FileAndDirectorySync,
+                        )
+                        .map_err(|e| Self::publish_error(&target, e))?;
                     }
                 }
             }
             Err(e) => return Err(Self::publish_error(&target, e)),
         }
+        Ok(name)
+    }
+
+    /// Repoints `HEAD` at `name` — the unconditional `Replace`
+    /// publish shared by `save` and the CAS critical section.
+    fn publish_head(&self, name: &str) -> Result<(), Error> {
+        let path = self.root.join("HEAD");
         Self::publish_staged(
-            &self.root.join("HEAD"),
+            &path,
             name.as_bytes(),
             PublishMode::Replace,
+            Durability::FileAndDirectorySync,
         )
-        .map_err(|e| Self::publish_error(&self.root.join("HEAD"), e))?;
+        .map_err(|e| Self::publish_error(&path, e))
+    }
+
+    // ----- HEAD lock (save_cas mutual exclusion) -----
+    //
+    // `HEAD.lock` is acquired with an atomic `CreateNew` publish —
+    // the only no-replace primitive the File API exposes — and held
+    // across the read-compare-publish critical section. The lock file
+    // carries `created_ns` + a unique `token`; a contender that finds
+    // it may break it once it is older than [`HEAD_LOCK_STALE_AFTER`]
+    // by renaming it aside (atomic claim — only one contender's
+    // rename wins) and deleting the aside. Release is
+    // verify-then-delete so a broken-and-recreated lock belonging to
+    // another writer is never removed.
+
+    /// Path of the HEAD mutual-exclusion lock file.
+    fn head_lock_path(&self) -> PathBuf {
+        self.root.join("HEAD.lock")
+    }
+
+    /// Freshness classification of an existing `HEAD.lock`.
+    fn head_lock_state(path: &Path) -> HeadLockState {
+        let content = match fs::read_to_string(path) {
+            Ok(content) => content,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return HeadLockState::Gone,
+            // Unreadable (permissions, not-a-file, …) cannot prove a
+            // live holder — treat as breakable; the break itself
+            // surfaces real rename errors.
+            Err(_) => return HeadLockState::Stale,
+        };
+        let created_ns = content
+            .lines()
+            .find_map(|line| line.strip_prefix("created_ns=")?.parse::<u128>().ok());
+        let Some(created_ns) = created_ns else {
+            // Malformed content cannot prove freshness — breakable.
+            return HeadLockState::Stale;
+        };
+        let age = now_unix_nanos().saturating_sub(created_ns);
+        if age > HEAD_LOCK_STALE_AFTER.as_nanos() {
+            HeadLockState::Stale
+        } else {
+            HeadLockState::Held
+        }
+    }
+
+    /// Claims a stale/absent `HEAD.lock` by renaming it to a unique
+    /// aside name and deleting the aside. The rename is the atomic
+    /// arbitration: only one contender moves the source, the rest see
+    /// `NotFound` and simply retry `CreateNew`.
+    fn break_head_lock(path: &Path) -> Result<(), Error> {
+        let aside = path.with_file_name(format!(
+            "HEAD.lock.stale-{}-{}-{}",
+            std::process::id(),
+            LOCK_COUNTER.fetch_add(1, Ordering::Relaxed),
+            now_unix_nanos()
+        ));
+        match fs::rename(path, &aside) {
+            Ok(()) => {
+                // The aside is normally the lock file; remove_dir_all
+                // covers the degenerate case of `HEAD.lock` being a
+                // directory so no `*.stale-*` garbage is left behind.
+                let _ = fs::remove_file(&aside).or_else(|_| fs::remove_dir_all(&aside));
+                Ok(())
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(Error::Store(format!(
+                "break stale HEAD lock {}: {e}",
+                path.display()
+            ))),
+        }
+    }
+
+    /// Acquires `HEAD.lock`, waiting out fresh holders and breaking
+    /// stale ones, until [`HEAD_LOCK_BUSY_TIMEOUT`] elapses.
+    fn acquire_head_lock(&self) -> Result<HeadLock, HeadCasError> {
+        let path = self.head_lock_path();
+        let deadline = Instant::now() + HEAD_LOCK_BUSY_TIMEOUT;
+        loop {
+            let token = format!(
+                "{}-{}-{}",
+                std::process::id(),
+                LOCK_COUNTER.fetch_add(1, Ordering::Relaxed),
+                now_unix_nanos()
+            );
+            let content = format!(
+                "synvelis-head-lock/1\ncreated_ns={}\ntoken={token}\n",
+                now_unix_nanos()
+            );
+            match Self::publish_staged(
+                &path,
+                content.as_bytes(),
+                PublishMode::CreateNew,
+                // The lock is advisory mutual exclusion, not durable
+                // state — a crash may lose the name entirely, which
+                // is exactly the stale-lock case the breaker handles.
+                Durability::BestEffort,
+            ) {
+                Ok(()) => return Ok(HeadLock { path, token }),
+                Err(PublishStepError::Publish(mut failure))
+                    if failure.kind() == PublishFailureKind::DestinationExists =>
+                {
+                    if failure.effect() != PublishEffect::Indeterminate
+                        && let Some(handle) = failure.take_recovery_handle()
+                    {
+                        let _ = handle.cleanup();
+                    }
+                    match Self::head_lock_state(&path) {
+                        HeadLockState::Held => {
+                            if Instant::now() >= deadline {
+                                return Err(HeadCasError::Store(Error::Store(format!(
+                                    "HEAD lock busy: {}",
+                                    path.display()
+                                ))));
+                            }
+                            std::thread::sleep(HEAD_LOCK_POLL_INTERVAL);
+                        }
+                        HeadLockState::Stale => {
+                            Self::break_head_lock(&path).map_err(HeadCasError::Store)?;
+                        }
+                        HeadLockState::Gone => {}
+                    }
+                }
+                Err(e) => {
+                    return Err(HeadCasError::Store(Self::publish_error(&path, e)));
+                }
+            }
+        }
+    }
+}
+
+/// Freshness of an existing `HEAD.lock` file.
+enum HeadLockState {
+    /// Created recently enough to belong to a live writer.
+    Held,
+    /// Older than [`HEAD_LOCK_STALE_AFTER`], malformed, or unreadable
+    /// — safe to break via rename-aside.
+    Stale,
+    /// Vanished between the failed `CreateNew` and the read.
+    Gone,
+}
+
+/// Unix epoch nanoseconds — the lock file's creation timestamp.
+fn now_unix_nanos() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos())
+}
+
+/// A held `HEAD.lock`. Dropping verifies the file still carries this
+/// writer's token before deleting — a lock that was broken as stale
+/// and recreated by another writer is never removed by the loser.
+struct HeadLock {
+    /// Lock file path (`<root>/HEAD.lock`).
+    path: PathBuf,
+    /// Unique token this holder published.
+    token: String,
+}
+
+impl HeadLock {
+    /// Whether `HEAD.lock` still names this holder's token — the
+    /// fencing check run before repointing HEAD.
+    fn still_ours(&self) -> bool {
+        fs::read_to_string(&self.path).is_ok_and(|content| {
+            content
+                .lines()
+                .any(|line| line.strip_prefix("token=") == Some(self.token.as_str()))
+        })
+    }
+}
+
+impl Drop for HeadLock {
+    fn drop(&mut self) {
+        if self.still_ours() {
+            let _ = fs::remove_file(&self.path);
+        }
+    }
+}
+
+/// Failure inside [`DirectoryBundleStore::publish_staged`].
+///
+/// `Publish` keeps the `ruviform-io-file` [`PublishFailure`] intact so
+/// the store can classify before flattening to [`Error::Store`].
+enum PublishStepError {
+    /// `StagedFile::create` failed before any bytes were written; the
+    /// destination was never touched.
+    Stage(ruviform_io_file::FileError),
+    /// Writing the staged temp failed; the dropped temp is cleaned
+    /// best-effort by the staged file's `Drop`.
+    Write {
+        /// The underlying write failure.
+        source: std::io::Error,
+        /// The staged temp path at failure time (cleaned on drop).
+        temp: Option<PathBuf>,
+    },
+    /// `SealedFile::publish` failed — effect/phase/durability and the
+    /// recovery handle are preserved.
+    Publish(PublishFailure),
+}
+
+impl ProjectStore for DirectoryBundleStore {
+    fn save(
+        &mut self,
+        _project_id: &str,
+        revision: ProjectRevision,
+        bytes: &[u8],
+    ) -> Result<String, Error> {
+        // Unconditional publish — the single-writer/journal-restore
+        // path. Callers that need lost-update protection use
+        // `save_cas`; this method deliberately takes no lock and
+        // keeps its historical semantics.
+        let name = self.publish_snapshot(revision, bytes)?;
+        self.publish_head(&name)?;
+        Ok(name)
+    }
+
+    fn save_cas(
+        &mut self,
+        _project_id: &str,
+        expected_head: Option<&str>,
+        revision: ProjectRevision,
+        bytes: &[u8],
+    ) -> Result<String, HeadCasError> {
+        // The whole compare-and-swap runs inside the HEAD.lock
+        // critical section: acquire → read HEAD → compare → publish
+        // snapshot → fence-check → publish HEAD → release. Two
+        // cooperating save_cas callers on the same root serialize
+        // here, so the second always observes the first's committed
+        // HEAD and reports Conflict instead of repointing blindly.
+        let lock = self.acquire_head_lock()?;
+        let actual = self.head().map_err(HeadCasError::Store)?;
+        if actual.as_deref() != expected_head {
+            return Err(HeadCasError::Conflict {
+                expected: expected_head.map(str::to_owned),
+                actual,
+            });
+        }
+        let name = self
+            .publish_snapshot(revision, bytes)
+            .map_err(HeadCasError::Store)?;
+        // Fencing: if the lock was broken as stale while the
+        // snapshot published, another writer may already have
+        // committed — abort before repointing HEAD. The published
+        // snapshot stays an orphan (same crash-window semantics as
+        // `save`), HEAD is untouched.
+        if !lock.still_ours() {
+            return Err(HeadCasError::Store(Error::Store(format!(
+                "HEAD lock lost during CAS save: {}",
+                self.head_lock_path().display()
+            ))));
+        }
+        self.publish_head(&name).map_err(HeadCasError::Store)?;
+        // Post-publish fencing: the pre-publish check cannot cover a
+        // break landing between it and the HEAD rename — a critical
+        // section held past HEAD_LOCK_STALE_AFTER is breakable, so a
+        // contender may have committed concurrently. Our publish did
+        // land, but reporting Ok could hide that the other writer's
+        // commit was overwritten (or ours was) — surface an
+        // indeterminate store error and let the caller reconcile via
+        // `head()` instead of claiming success.
+        if !lock.still_ours() {
+            return Err(HeadCasError::Store(Error::Store(format!(
+                "HEAD CAS indeterminate: lock lost during HEAD publish: {}",
+                self.head_lock_path().display()
+            ))));
+        }
         Ok(name)
     }
 
@@ -476,6 +861,28 @@ impl ProjectStore for InMemoryStore {
             .or_insert_with(|| bytes.to_vec());
         self.head = Some(name.clone());
         Ok(name)
+    }
+
+    fn save_cas(
+        &mut self,
+        project_id: &str,
+        expected_head: Option<&str>,
+        revision: ProjectRevision,
+        bytes: &[u8],
+    ) -> Result<String, HeadCasError> {
+        // Port parity with `DirectoryBundleStore`: the expected-head
+        // compare runs against the same value `head()` reports, and a
+        // mismatch is the typed conflict — never a silent repoint.
+        // (`&mut self` already serializes callers of one instance;
+        // there is no cross-instance or on-disk dimension to lock.)
+        if self.head.as_deref() != expected_head {
+            return Err(HeadCasError::Conflict {
+                expected: expected_head.map(str::to_owned),
+                actual: self.head.clone(),
+            });
+        }
+        self.save(project_id, revision, bytes)
+            .map_err(HeadCasError::Store)
     }
 
     fn head(&self) -> Result<Option<String>, Error> {

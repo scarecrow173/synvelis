@@ -796,13 +796,23 @@ impl<F: CommitFence> CommitGate<F> {
 
         // The newest committed record supersedes HEAD when ahead — the
         // committed state *was* decided; restore materializes it and the
-        // recovery receipt records provenance.
+        // recovery receipt records provenance. The restore publishes
+        // through `save_cas` against the HEAD `load` just adopted
+        // (syn-io-02-head-cas): if a concurrent writer moved HEAD
+        // between the load and this repoint, the restore fails loudly
+        // instead of silently rewinding HEAD onto the journaled state.
         if let Some((revision, state)) = last_commit
             && revision > controller.live_revision()
         {
+            let expected_head = controller.saved().map(|s| s.head.clone());
             store
-                .save(&project_id.to_tagged(), revision, &state)
-                .map_err(io::Error::other)?;
+                .save_cas(
+                    &project_id.to_tagged(),
+                    expected_head.as_deref(),
+                    revision,
+                    &state,
+                )
+                .map_err(|e| io::Error::other(format!("journal restore save failed: {e}")))?;
             controller.load(store).map_err(io::Error::other)?;
             report.restored_revision = Some(revision);
             report.restored_from_journal = true;

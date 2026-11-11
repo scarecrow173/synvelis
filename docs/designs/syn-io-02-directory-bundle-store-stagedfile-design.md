@@ -4,7 +4,7 @@ type: "design"
 status: "approved"
 title: "SYN-IO-02 DirectoryBundleStore StagedFile 移行設計"
 created: "2026-11-06"
-updated: "2026-11-07"
+updated: "2026-11-12"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -87,9 +87,10 @@ Recovery/Undo）は Consumer 側に残す。
   schema version の変更（`InMemoryStore` は port の immutable name
   契約への整合のみ行い、serialization・API は不変）。
 - 他 crate の `.tmp`/rename（recording/gateway/player）。
-- HEAD CAS 機構の新設（単一 file replace は CAS ではない。
-  複数 writer 競合は単一 writer モデル＋呼び出し側の
-  直列化が担う既存判断を維持）。
+- HEAD CAS 機構の新設 — 本設計起票時は対象外だったが、後続
+  `syn-io-02-head-cas-design`（synvelis #330）で `HEAD.lock`
+  advisory mutex + consumer 側 expected-head CAS として
+  実装済み（本設計の publish helper・collision 規則を再利用）。
 - Autosave/Backup への展開。
 
 ## Components and Boundaries
@@ -220,8 +221,10 @@ phase/kind/operation id/effect/durability を含む。
 ## Deferred Design Concerns
 
 - HEAD への expected-generation 書き込み（真の CAS）— 単一
-  file では実現不能。複数 writer 必要時に ProjectStore 拡張
-  として再検討。
+  file では実現不能だったため deferred。`syn-io-02-head-cas`
+  （synvelis #330）で `HEAD.lock` mutex + consumer 側 compare
+  として解決済み — 機構選択・保証境界は
+  `docs/designs/syn-io-02-head-cas-design.md` を正本とする。
 - store レベルの orphan GC・定期 temp cleanup — GC policy は
   project-asset-persistence の別責務。
 
