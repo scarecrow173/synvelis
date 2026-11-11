@@ -919,6 +919,29 @@ impl fmt::Display for BoundarySessionError {
 
 impl std::error::Error for BoundarySessionError {}
 
+/// The attach-resolved boundary inputs a [`ProcessBoundarySession`]
+/// opens with — everything [`ProcessBoundarySession::open`] needs
+/// besides the verified control and the provenance pin.
+///
+/// The composition root resolves these once at attach time (the same
+/// inputs [`ProcessCapability::attach_delivery`] projects onto
+/// `AttachConfig::{policy, budget}`) and carries them through the
+/// engine/routing/driver vend path so every session opens with the
+/// policy the scheduler actually runs — never a re-derived or
+/// caller-claimed variant. `open` re-evaluates `attach_delivery`, so
+/// a spec inconsistent with the node's real attach fails closed.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct BoundarySessionSpec {
+    /// The instance's certified capability (contract + precision).
+    pub capability: ProcessCapability,
+    /// Realtime vs offline-exact delivery intent.
+    pub mode: ExecutionMode,
+    /// Explicit degraded consent for realtime delivery.
+    pub consent: Option<DegradedConsent>,
+    /// The node's bounded-work budget.
+    pub budget: ScheduleBudget,
+}
+
 /// The per-request process-boundary gate for one attached plugin
 /// node — the runtime wiring half of the TIM-03 oracle.
 ///

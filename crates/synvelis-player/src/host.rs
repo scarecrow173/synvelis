@@ -43,8 +43,8 @@ use synvelis_project::{
 };
 
 use crate::process_boundary::{
-    AttachDelivery, DegradedConsent, ExecutionMode, ProcessBoundaryError, ProcessCapability,
-    TimingPrecision,
+    AttachDelivery, BoundarySessionSpec, DegradedConsent, ExecutionMode, ProcessBoundaryError,
+    ProcessCapability, TimingPrecision,
 };
 
 /// One processor provisioning request — everything a host needs to
@@ -123,6 +123,16 @@ pub struct ProcessorControl {
     /// control cannot vouch for plugin identity and must not back a
     /// [`crate::PluginBindingSession`] (PC-C4-02).
     pub plugin: Option<PluginRef>,
+    /// The attach-resolved [`BoundarySessionSpec`] the host vended for
+    /// this connection — `Some` only when the host attached the node
+    /// under a TIM-03 boundary declaration. Downstream composition
+    /// ([`crate::RoutingControlDispatch`], driver attachment) opens
+    /// its [`crate::ProcessBoundarySession`] with exactly these
+    /// inputs — the same ones `connect` projected onto
+    /// `AttachConfig::{policy, budget}` — so the session's delivery
+    /// policy can never diverge from the scheduler's. `None` for
+    /// undeclared processors and non-plugin hosts.
+    pub boundary: Option<BoundarySessionSpec>,
 }
 
 /// Opaque per-connection teardown token. Dropping it runs the
@@ -225,6 +235,23 @@ pub trait ProcessorHost {
         &mut self,
         request: ProcessorConnectRequest,
     ) -> Result<ProcessorConnection, ProcessorConnectError>;
+
+    /// The [`BoundarySessionSpec`] this host will attach `request`'s
+    /// processor under — resolved from the same inputs `connect`
+    /// projects onto `AttachConfig::{policy, budget}`. The engine
+    /// calls this immediately before `connect` and carries the result
+    /// to [`crate::ProcessorControl::boundary`], so a downstream
+    /// [`crate::ProcessBoundarySession`] opens with the attach-time
+    /// policy/budget the scheduler actually runs.
+    ///
+    /// Default `None` — hosts without a boundary declaration attach
+    /// every processor undeclared. Implementations must return the
+    /// same spec `connect` would project (a spec inconsistent with
+    /// the real attach fails the session open closed downstream).
+    /// Non-RT only.
+    fn boundary_attach(&self, _request: &ProcessorConnectRequest) -> Option<BoundarySessionSpec> {
+        None
+    }
 }
 
 /// Headless/test host: a `ProcessorId → GraphProcessor` instance map.
@@ -332,6 +359,37 @@ impl PluginHostProcessors {
         self.boundaries.insert(processor, declaration);
     }
 
+    /// Resolves the [`BoundarySessionSpec`] for `request.processor`
+    /// from its registered [`BoundaryDeclaration`] — `None` when
+    /// undeclared (the legacy `Exact` + default-budget attach).
+    /// `connect` projects the spec through
+    /// [`ProcessCapability::attach_delivery`] and
+    /// [`ProcessorHost::boundary_attach`] vends it verbatim, so the
+    /// session inputs downstream consumers open with are exactly the
+    /// attach-time inputs — one resolution site, no divergence.
+    fn boundary_spec(
+        &self,
+        request: &ProcessorConnectRequest,
+        process_config: &ProcessConfig,
+    ) -> Option<BoundarySessionSpec> {
+        let declaration = self.boundaries.get(&request.processor.id)?;
+        let capability = ProcessCapability::from_process_config(
+            process_config,
+            declaration.in_block,
+            declaration.precision,
+        );
+        let mode = match request.mode {
+            BuildMode::Realtime => ExecutionMode::Realtime,
+            BuildMode::Offline => ExecutionMode::OfflineExact,
+        };
+        Some(BoundarySessionSpec {
+            capability,
+            mode,
+            consent: declaration.consent,
+            budget: declaration.budget,
+        })
+    }
+
     /// Projects the registered [`BoundaryDeclaration`] for
     /// `request.processor` onto the attach-time delivery decision.
     /// `None` — no declaration: the legacy `Exact` +
@@ -343,21 +401,12 @@ impl PluginHostProcessors {
         request: &ProcessorConnectRequest,
         process_config: &ProcessConfig,
     ) -> Result<Option<AttachDelivery>, ProcessorConnectError> {
-        let Some(declaration) = self.boundaries.get(&request.processor.id) else {
-            return Ok(None);
-        };
-        let capability = ProcessCapability::from_process_config(
-            process_config,
-            declaration.in_block,
-            declaration.precision,
-        );
-        let mode = match request.mode {
-            BuildMode::Realtime => ExecutionMode::Realtime,
-            BuildMode::Offline => ExecutionMode::OfflineExact,
-        };
-        capability
-            .attach_delivery(mode, declaration.consent, declaration.budget)
-            .map(Some)
+        self.boundary_spec(request, process_config)
+            .map(|spec| {
+                spec.capability
+                    .attach_delivery(spec.mode, spec.consent, spec.budget)
+            })
+            .transpose()
             .map_err(|error| boundary_error(&error))
     }
 
@@ -418,6 +467,22 @@ impl ProcessorHost for PluginHostProcessors {
                 Err(error)
             }
         }
+    }
+
+    /// Vends the [`BoundarySessionSpec`] `connect` resolved for this
+    /// request — the identical [`Self::boundary_spec`] inputs, so the
+    /// spec a downstream session opens with always matches the
+    /// `AttachConfig::{policy, budget}` the node was attached under.
+    /// `ProcessConfig` construction mirrors `connect`'s (same
+    /// sample-rate/max-frames derivation); a config `connect` would
+    /// reject yields `None` here and the connect fails on its own.
+    fn boundary_attach(&self, request: &ProcessorConnectRequest) -> Option<BoundarySessionSpec> {
+        if request.max_frames == 0 {
+            return None;
+        }
+        let process_config =
+            ProcessConfig::new(request.port_format.sample_rate, 1, request.max_frames).ok()?;
+        self.boundary_spec(request, &process_config)
     }
 }
 

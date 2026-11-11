@@ -57,7 +57,7 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 
-use ruviform_media_core::{MediaTime, TimeBase};
+use ruviform_media_core::{MediaTime, TimeBase, TransportCommand};
 use ruviform_plugin_core::{ParamInfo, ParamWriteMeans, TimedParamEvent};
 use synvelis_project::{
     BeatPoint, ControlGraph, ControlOwner, EvalPlan, EvalScratch, ParameterTargetId, ProcessorId,
@@ -68,6 +68,10 @@ use crate::binding::{
     BindingError, PluginBindingSession, PluginParameterBinding, StablePluginInstanceId,
 };
 use crate::dispatch::{DispatchError, ParamDispatch};
+use crate::process_boundary::{
+    BoundaryPoint, BoundarySessionError, PrecisionProvenance, ProcessBoundaryPlan,
+    ProcessBoundarySession,
+};
 use crate::routing_engine::RoutingEngine;
 
 /// Caller-vended plugin parameter enumeration per semantic processor —
@@ -169,6 +173,58 @@ impl FastControlBlock {
         }
     }
 }
+
+/// Why a [`RoutingControlDispatch::boundary_plan_window`] /
+/// [`RoutingControlDispatch::boundary_stage_window`] call refused —
+/// typed, never a silent skip. The session's own
+/// [`BoundarySessionError`] is preserved verbatim under
+/// [`Self::Session`].
+#[derive(Debug)]
+pub enum BoundaryStageError {
+    /// No generation surface is attached yet.
+    NoSurface,
+    /// The attached surface's capability/graph pins no longer match
+    /// the project — `sync` to a fresh generation is required.
+    StaleSurface,
+    /// The RT-observed `active_generation` does not match the
+    /// surface's generation — staging is gated on activation
+    /// evidence, never on the merely-published generation.
+    InactiveGeneration {
+        /// The generation the attached surface serves.
+        surface: u64,
+        /// The caller's RT-observed activation (`None` = not active).
+        active: Option<u64>,
+    },
+    /// The processor has no boundary session on this surface —
+    /// undeclared attach, no vended control, or a boundary-open
+    /// refusal already recorded in `SurfaceReport::without_control`.
+    NoSession(ProcessorId),
+    /// The [`ProcessBoundarySession`] refused — stale provenance,
+    /// oracle refusal, or node-side `QueueFull`; the typed
+    /// [`BoundarySessionError`] is preserved verbatim.
+    Session(BoundarySessionError),
+}
+
+impl fmt::Display for BoundaryStageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NoSurface => write!(f, "no control surface attached"),
+            Self::StaleSurface => write!(f, "control surface pins are stale"),
+            Self::InactiveGeneration { surface, active } => {
+                write!(
+                    f,
+                    "generation {surface} is not RT-active (observed {active:?})"
+                )
+            }
+            Self::NoSession(processor) => {
+                write!(f, "processor {processor} has no boundary session")
+            }
+            Self::Session(e) => write!(f, "boundary session refused: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for BoundaryStageError {}
 
 /// Result of [`RoutingControlDispatch::fast_control`].
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -292,6 +348,13 @@ struct GenerationSurface {
 struct NodeSurface {
     session: PluginBindingSession,
     dispatch: ParamDispatch,
+    /// TIM-03 per-generation [`ProcessBoundarySession`] — `Some` only
+    /// when the vended [`crate::ProcessorControl`] carried a
+    /// [`crate::BoundarySessionSpec`] (the processor was attached
+    /// under a boundary declaration). Pinned to this surface's
+    /// instance/node/capability/graph generations; a surface swap
+    /// mints a fresh session with fresh pins.
+    boundary: Option<ProcessBoundarySession>,
 }
 
 /// A batch entry staged for one node — automation evaluations and
@@ -607,6 +670,129 @@ impl RoutingControlDispatch {
         }
     }
 
+    /// The processor's [`ProcessBoundarySession`] on the attached
+    /// surface — `None` before attach, for processors attached
+    /// without a boundary declaration, or when no control was
+    /// vended. Read-only evidence accessor; request evaluation goes
+    /// through the scoped `boundary_*` methods which hold the
+    /// surface's dispatch half.
+    #[must_use]
+    pub fn boundary_session(&self, processor: ProcessorId) -> Option<&ProcessBoundarySession> {
+        self.surface
+            .as_ref()?
+            .nodes
+            .get(&processor)?
+            .boundary
+            .as_ref()
+    }
+
+    /// The session's pinned [`PrecisionProvenance`] — the
+    /// instance/node/capability/graph-generation evidence this
+    /// surface opened with.
+    #[must_use]
+    pub fn boundary_provenance(&self, processor: ProcessorId) -> Option<PrecisionProvenance> {
+        self.boundary_session(processor)
+            .map(ProcessBoundarySession::provenance)
+    }
+
+    /// Pure evaluation of one upcoming window through the
+    /// processor's [`ProcessBoundarySession`] — provenance check
+    /// plus the non-RT oracle with the session's fixed attach
+    /// inputs. Nothing is staged.
+    ///
+    /// # Errors
+    /// [`BoundaryStageError::NoSurface`] / [`StaleSurface`] /
+    /// [`NoSession`] on surface/session gating; [`Session`] on
+    /// stale provenance or oracle refusal.
+    pub fn boundary_plan_window(
+        &self,
+        processor: ProcessorId,
+        project: &Project,
+        window_frames: u32,
+        boundaries: Vec<BoundaryPoint>,
+    ) -> Result<ProcessBoundaryPlan, BoundaryStageError> {
+        let surface = self.surface.as_ref().ok_or(BoundaryStageError::NoSurface)?;
+        if !Self::surface_is_current(surface, project) {
+            return Err(BoundaryStageError::StaleSurface);
+        }
+        let node = surface
+            .nodes
+            .get(&processor)
+            .ok_or(BoundaryStageError::NoSession(processor))?;
+        let session = node
+            .boundary
+            .as_ref()
+            .ok_or(BoundaryStageError::NoSession(processor))?;
+        let pin = session.provenance();
+        let current = PrecisionProvenance::new(
+            pin.instance(),
+            pin.node(),
+            port_capability_generation(project),
+            surface.generation,
+        );
+        session
+            .plan_window(&current, window_frames, boundaries)
+            .map_err(BoundaryStageError::Session)
+    }
+
+    /// [`Self::boundary_plan_window`] plus staging `commands` on the
+    /// node's control — the per-request wiring of transport
+    /// discontinuities through the generation surface. The session
+    /// adds command-derived boundary points, evaluates the plan
+    /// first, and only then pushes; an oracle refusal stages
+    /// nothing, and a node-side `QueueFull` preserves earlier
+    /// commands as staged (bounded-queue reality, typed under
+    /// [`BoundaryStageError::Session`]).
+    ///
+    /// Gated on the RT-observed `active_generation` matching the
+    /// surface — the same activation evidence `tick`/`fast_control`
+    /// require; a merely-published generation never stages.
+    ///
+    /// # Errors
+    /// As [`Self::boundary_plan_window`], plus
+    /// [`BoundaryStageError::InactiveGeneration`] when the surface's
+    /// generation is not the RT-active one.
+    pub fn boundary_stage_window(
+        &mut self,
+        processor: ProcessorId,
+        project: &Project,
+        window_frames: u32,
+        boundaries: Vec<BoundaryPoint>,
+        commands: &[(TransportCommand, u64)],
+        active_generation: Option<u64>,
+    ) -> Result<ProcessBoundaryPlan, BoundaryStageError> {
+        let surface = self.surface.as_mut().ok_or(BoundaryStageError::NoSurface)?;
+        if !Self::surface_is_current(surface, project) {
+            return Err(BoundaryStageError::StaleSurface);
+        }
+        if active_generation != Some(surface.generation) {
+            return Err(BoundaryStageError::InactiveGeneration {
+                surface: surface.generation,
+                active: active_generation,
+            });
+        }
+        let generation = surface.generation;
+        let capability = port_capability_generation(project);
+        let node = surface
+            .nodes
+            .get_mut(&processor)
+            .ok_or(BoundaryStageError::NoSession(processor))?;
+        let Some(session) = node.boundary.as_ref() else {
+            return Err(BoundaryStageError::NoSession(processor));
+        };
+        let pin = session.provenance();
+        let current = PrecisionProvenance::new(pin.instance(), pin.node(), capability, generation);
+        session
+            .stage_window(
+                node.dispatch.control(),
+                &current,
+                window_frames,
+                boundaries,
+                commands,
+            )
+            .map_err(BoundaryStageError::Session)
+    }
+
     fn block(&mut self, block: FastControlBlock) -> FastControlOutcome {
         let kind = block.kind();
         self.last_block = Some(block);
@@ -649,6 +835,38 @@ impl RoutingControlDispatch {
             };
             let instance = StablePluginInstanceId::new(self.next_instance);
             self.next_instance = self.next_instance.wrapping_add(1);
+            // TIM-03: a vended boundary spec opens the node's
+            // per-generation session pinned to this surface's
+            // capability/graph generations and the same instance id
+            // the binding session mints — one identity per surface.
+            // `connect` already projected the identical
+            // `attach_delivery`, so an open refusal is unreachable in
+            // practice; it still fails closed into typed
+            // `without_control` evidence rather than a silent skip.
+            let boundary = match control.boundary {
+                Some(spec) => {
+                    let provenance = PrecisionProvenance::new(
+                        instance,
+                        control.node,
+                        surface.capability_generation,
+                        surface.generation,
+                    );
+                    if let Ok(session) = ProcessBoundarySession::open(
+                        &control.control,
+                        spec.capability,
+                        spec.mode,
+                        spec.consent,
+                        spec.budget,
+                        provenance,
+                    ) {
+                        Some(session)
+                    } else {
+                        surface.report.without_control.push(*processor);
+                        continue;
+                    }
+                }
+                None => None,
+            };
             let session = PluginBindingSession::attach(
                 &control.control,
                 control.node,
@@ -664,7 +882,11 @@ impl RoutingControlDispatch {
                 surface.report.without_control.push(*processor);
                 continue;
             };
-            let mut node = NodeSurface { session, dispatch };
+            let mut node = NodeSurface {
+                session,
+                dispatch,
+                boundary,
+            };
             Self::bind_node(
                 &mut node,
                 &surface.catalogs,

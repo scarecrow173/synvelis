@@ -66,6 +66,7 @@ use crate::lowering::{
     CompSkipReason, EngineConfig, NodeContent, PlaybackBinding, SkippedPlayback,
 };
 use crate::probe::{ProbeRequestError, ProbeSession};
+use crate::process_boundary::BoundarySessionSpec;
 use crate::processor::{ClipPlayer, ClipSync, PlaybackStats};
 use crate::resolver::PreparedClip;
 use crate::routing_lower::{
@@ -121,6 +122,13 @@ struct RetainedConnection {
     /// [`ProcessorControl::plugin`] for [`crate::PluginBindingSession`]
     /// pins (PC-C4-02).
     plugin: Option<PluginRef>,
+    /// The [`BoundarySessionSpec`] the host resolved for this
+    /// connection via [`ProcessorHost::boundary_attach`] — `Some`
+    /// only for processors attached under a TIM-03 boundary
+    /// declaration. Vended once through [`ProcessorControl::boundary`]
+    /// so downstream sessions open with the attach-time
+    /// policy/budget the scheduler runs.
+    boundary: Option<BoundarySessionSpec>,
 }
 
 /// A fully prepared routing build: compiled plan plus the staged
@@ -216,6 +224,18 @@ struct StagedBuild {
     pending: BTreeMap<NodeId, Box<dyn GraphProcessor>>,
     /// Host connections for every host-connected chain processor.
     connections: Vec<RetainedConnection>,
+    producers: Vec<PrefetchProducer>,
+    handles: Vec<PrefetchHandle>,
+    seek_nonces: Vec<Arc<AtomicU64>>,
+    drain_nonces: Vec<Arc<AtomicU64>>,
+    stats: Vec<(NodeContent, Arc<PlaybackStats>)>,
+}
+
+/// The clip half of a [`StagedBuild`] — [`RoutingEngine::stage_playbacks`]
+/// output before chain processors merge into `pending`/`connections`.
+struct StagedPlayback {
+    /// Clip node → processor for the compile factory.
+    pending: BTreeMap<NodeId, Box<dyn GraphProcessor>>,
     producers: Vec<PrefetchProducer>,
     handles: Vec<PrefetchHandle>,
     seek_nonces: Vec<Arc<AtomicU64>>,
@@ -612,50 +632,9 @@ impl RoutingEngine {
         deps: RoutingDeps<'_>,
         generation: u64,
     ) -> Result<StagedBuild, RoutingFault> {
-        let mut pending: BTreeMap<NodeId, Box<dyn GraphProcessor>> = BTreeMap::new();
+        let staged = self.stage_playbacks(request, key, &lowered.playbacks, deps.clips)?;
+        let mut pending = staged.pending;
         let mut connections: Vec<RetainedConnection> = Vec::new();
-        let mut producers = Vec::with_capacity(lowered.playbacks.len());
-        let mut handles = Vec::with_capacity(lowered.playbacks.len());
-        let mut seek_nonces = Vec::with_capacity(lowered.playbacks.len());
-        let mut drain_nonces = Vec::with_capacity(lowered.playbacks.len());
-        let mut stats = Vec::with_capacity(lowered.playbacks.len());
-        let mut clips = deps.clips.into_iter();
-        for binding in &lowered.playbacks {
-            let Some(mut clip) = clips.next() else {
-                return Err(self.fail(request, key, RoutingFault::InvalidRouting));
-            };
-            let stat = Arc::new(PlaybackStats::default());
-            let nonce = Arc::new(AtomicU64::new(0));
-            let drain = Arc::new(AtomicU64::new(0));
-            pending.insert(
-                binding.node_id,
-                Box::new(ClipPlayer::new(
-                    clip.consumer,
-                    binding.window,
-                    binding.fade,
-                    ClipSync {
-                        clock: Arc::clone(&self.clock),
-                        pending_seek: Arc::clone(&nonce),
-                        drain: Arc::clone(&drain),
-                    },
-                    Arc::clone(&stat),
-                    self.engine.block_frames,
-                    clip.canonical.layout.channels() as usize,
-                )),
-            );
-            stats.push((binding.content, stat));
-            if clip
-                .handle
-                .seek(SourceFrame(binding.window.source_start))
-                .is_ok()
-            {
-                nonce.fetch_add(1, Ordering::Relaxed);
-            }
-            producers.push(clip.producer);
-            handles.push(clip.handle);
-            seek_nonces.push(nonce);
-            drain_nonces.push(drain);
-        }
 
         let port_format = engine_format(&self.engine);
         let max_frames = u32::try_from(self.engine.block_frames)
@@ -680,7 +659,7 @@ impl RoutingEngine {
                         };
                         ports.push(port.clone());
                     }
-                    match self.host.connect(ProcessorConnectRequest {
+                    let connect_request = ProcessorConnectRequest {
                         processor: semantic.clone(),
                         ports,
                         mode: request.mode,
@@ -688,7 +667,14 @@ impl RoutingEngine {
                         node: *node,
                         port_format,
                         max_frames,
-                    }) {
+                    };
+                    // TIM-03: resolve the boundary spec before connect —
+                    // the same inputs `connect` projects onto
+                    // `AttachConfig::{policy, budget}`, carried to the
+                    // vended control so downstream sessions open with
+                    // the attach-time policy.
+                    let boundary = self.host.boundary_attach(&connect_request);
+                    match self.host.connect(connect_request) {
                         Ok(connection) => Self::retain_connection(
                             &mut pending,
                             &mut connections,
@@ -696,6 +682,7 @@ impl RoutingEngine {
                             *node,
                             connection,
                             Self::connect_plugin_identity(&semantic.binding),
+                            boundary,
                         ),
                         Err(error) => {
                             return Err(self.fail(request, key, error.fault()));
@@ -707,12 +694,71 @@ impl RoutingEngine {
         Ok(StagedBuild {
             pending,
             connections,
-            producers,
-            handles,
-            seek_nonces,
-            drain_nonces,
-            stats,
+            producers: staged.producers,
+            handles: staged.handles,
+            seek_nonces: staged.seek_nonces,
+            drain_nonces: staged.drain_nonces,
+            stats: staged.stats,
         })
+    }
+
+    /// Stages one [`ClipPlayer`] per playback binding — the clip half
+    /// of [`Self::stage_build`]. `clips` must yield one
+    /// [`PreparedClip`] per binding, in order; a shortfall is
+    /// `InvalidRouting` (same contract the inline loop enforced).
+    fn stage_playbacks(
+        &mut self,
+        request: &RoutingCompileRequest,
+        key: &RoutingBuildKey,
+        playbacks: &[PlaybackBinding],
+        clips: Vec<PreparedClip>,
+    ) -> Result<StagedPlayback, RoutingFault> {
+        let mut staged = StagedPlayback {
+            pending: BTreeMap::new(),
+            producers: Vec::with_capacity(playbacks.len()),
+            handles: Vec::with_capacity(playbacks.len()),
+            seek_nonces: Vec::with_capacity(playbacks.len()),
+            drain_nonces: Vec::with_capacity(playbacks.len()),
+            stats: Vec::with_capacity(playbacks.len()),
+        };
+        let mut clips = clips.into_iter();
+        for binding in playbacks {
+            let Some(mut clip) = clips.next() else {
+                return Err(self.fail(request, key, RoutingFault::InvalidRouting));
+            };
+            let stat = Arc::new(PlaybackStats::default());
+            let nonce = Arc::new(AtomicU64::new(0));
+            let drain = Arc::new(AtomicU64::new(0));
+            staged.pending.insert(
+                binding.node_id,
+                Box::new(ClipPlayer::new(
+                    clip.consumer,
+                    binding.window,
+                    binding.fade,
+                    ClipSync {
+                        clock: Arc::clone(&self.clock),
+                        pending_seek: Arc::clone(&nonce),
+                        drain: Arc::clone(&drain),
+                    },
+                    Arc::clone(&stat),
+                    self.engine.block_frames,
+                    clip.canonical.layout.channels() as usize,
+                )),
+            );
+            staged.stats.push((binding.content, stat));
+            if clip
+                .handle
+                .seek(SourceFrame(binding.window.source_start))
+                .is_ok()
+            {
+                nonce.fetch_add(1, Ordering::Relaxed);
+            }
+            staged.producers.push(clip.producer);
+            staged.handles.push(clip.handle);
+            staged.seek_nonces.push(nonce);
+            staged.drain_nonces.push(drain);
+        }
+        Ok(staged)
     }
 
     /// The authored plugin identity captured at connect time —
@@ -737,6 +783,7 @@ impl RoutingEngine {
         node: NodeId,
         connection: ProcessorConnection,
         plugin: Option<PluginRef>,
+        boundary: Option<BoundarySessionSpec>,
     ) {
         pending.insert(node, connection.processor);
         connections.push(RetainedConnection {
@@ -746,6 +793,7 @@ impl RoutingEngine {
             control: connection.control,
             state_handle: connection.state_handle,
             plugin,
+            boundary,
         });
     }
 
@@ -1224,6 +1272,7 @@ impl RoutingEngine {
             control,
             frame_base,
             plugin: retained.plugin.clone(),
+            boundary: retained.boundary,
         })
     }
 
