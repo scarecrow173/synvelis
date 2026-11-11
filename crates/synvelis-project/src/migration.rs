@@ -63,6 +63,10 @@ const STEPS: &[MigrationStep] = &[
         from: 11,
         migrate: migrate_v11_monitoring,
     },
+    MigrationStep {
+        from: 12,
+        migrate: migrate_v12_plugin_instances,
+    },
 ];
 
 /// Runs the ordered ladder from `version` to [`SCHEMA_VERSION`].
@@ -431,5 +435,32 @@ fn migrate_v10_asset_digests(project: Project) -> Result<Project, Error> {
 /// shape keeps the ladder uniform.
 #[allow(clippy::unnecessary_wraps)]
 fn migrate_v11_monitoring(project: Project) -> Result<Project, Error> {
+    Ok(project)
+}
+
+/// v12 → v13: add `Project::plugin_instances` — the persisted
+/// plugin-instance identity store (Issue #101, PC-C4-05). v12 bodies
+/// predate the store, so the serde `#[serde(default)]` yields the
+/// empty watermark-1 state; this step backfills one identity per
+/// `Resolved` processor so every migrated project satisfies the
+/// v13 oracle (`Resolved` ⇔ exactly one entry).
+///
+/// Determinism: processors are visited in `ProcessorId` order
+/// (`BTreeMap` iteration) and ids issue from watermark 1 upward, so
+/// the same v12 body always projects to the same v13 project.
+/// `Unresolved` processors get no entry; `id_watermark` (the entity
+/// domain) is untouched — the instance watermark is an independent
+/// u64 domain.
+///
+/// # Errors
+/// [`Error::Validation`] only on u64 watermark exhaustion
+/// (unreachable); propagated from
+/// [`crate::plugin_instance::PluginInstanceIdentities::sync_processor`].
+fn migrate_v12_plugin_instances(mut project: Project) -> Result<Project, Error> {
+    // Disjoint field borrows: the store mutates while the processor
+    // map is only read.
+    for processor in project.routing.processors.values() {
+        project.plugin_instances.sync_processor(processor)?;
+    }
     Ok(project)
 }

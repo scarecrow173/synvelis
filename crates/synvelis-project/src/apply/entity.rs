@@ -353,7 +353,19 @@ fn write_entity(
         }
         ObjectKind::Bus => keyed_insert!(project.routing.buses, Bus),
         ObjectKind::Strip => keyed_insert!(project.routing.strips, ChannelStrip),
-        ObjectKind::Processor => keyed_insert!(project.routing.processors, Processor),
+        ObjectKind::Processor => {
+            let entity: Processor = from_value(payload, "Processor")?;
+            *max_new_id = (*max_new_id).max(entity.id.raw());
+            // PC-C4-05: this direct entity-write path bypasses
+            // `ProjectOp`, so it synchronizes the persisted
+            // plugin-instance identity itself — `ensure` semantics keep
+            // an unchanged plugin's id, rebind to a different
+            // `PluginRef` (incl. `capability_revision`) mints a new
+            // one, and `Unresolved` drops the entry. The post-apply
+            // `validate_references` re-checks the bijection.
+            project.plugin_instances.sync_processor(&entity)?;
+            project.routing.processors.insert(entity.id, entity);
+        }
         ObjectKind::ProcessorChain => keyed_insert!(project.routing.chains, ProcessorChain),
         ObjectKind::SemanticPort => keyed_insert!(project.routing.ports, SemanticPort),
         ObjectKind::RoutingConnection => {

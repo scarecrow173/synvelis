@@ -2260,15 +2260,17 @@ impl Operation for ProjectOp {
                         },
                     );
                 }
-                project.routing.processors.insert(
-                    proc_id,
-                    Processor {
-                        id: proc_id,
-                        name: name.clone(),
-                        binding: binding.clone(),
-                        port_ids,
-                    },
-                );
+                let processor = Processor {
+                    id: proc_id,
+                    name: name.clone(),
+                    binding: binding.clone(),
+                    port_ids,
+                };
+                // PC-C4-05: a Resolved binding mints a persisted
+                // plugin-instance identity; Unresolved carries none.
+                // The post-apply oracle re-checks the bijection.
+                project.plugin_instances.sync_processor(&processor)?;
+                project.routing.processors.insert(proc_id, processor);
                 if let Some(strip) = project.routing.strips.get(strip_id)
                     && let Some(chain) = project.routing.chains.get_mut(&strip.chain)
                 {
@@ -2283,6 +2285,10 @@ impl Operation for ProjectOp {
                     for chain in project.routing.chains.values_mut() {
                         chain.processors.retain(|id| id != processor_id);
                     }
+                    // PC-C4-05: the identity entry dies with the
+                    // processor; the issued id stays retired (the
+                    // watermark never moves backward).
+                    project.plugin_instances.remove(*processor_id);
                 }
             }
             Self::ReorderProcessor {

@@ -444,7 +444,6 @@ enum LowerFail {
 /// [`Self::fast_control`] for point-in-time writes.
 pub struct RoutingControlDispatch {
     queue_capacity: usize,
-    next_instance: u64,
     surface: Option<GenerationSurface>,
     queue: VecDeque<FastControlWrite>,
     last_block: Option<FastControlBlock>,
@@ -475,7 +474,6 @@ impl RoutingControlDispatch {
     ) -> Result<Self, ControlDispatchError> {
         let mut dispatcher = Self {
             queue_capacity: 64,
-            next_instance: 1,
             surface: None,
             queue: VecDeque::new(),
             last_block: None,
@@ -578,7 +576,7 @@ impl RoutingControlDispatch {
                 ..SurfaceReport::default()
             },
         };
-        self.vend_nodes(engine, &mut surface, project);
+        Self::vend_nodes(engine, &mut surface, project);
         let report = surface.report.clone();
         self.surface = Some(surface);
         Ok(SyncOutcome::Swapped(report))
@@ -1004,12 +1002,7 @@ impl RoutingControlDispatch {
     /// generations, already-taken handles) land in
     /// `report.without_control`; bind failures land in
     /// `report.unbound` — both typed, never silent.
-    fn vend_nodes(
-        &mut self,
-        engine: &mut RoutingEngine,
-        surface: &mut GenerationSurface,
-        project: &Project,
-    ) {
+    fn vend_nodes(engine: &mut RoutingEngine, surface: &mut GenerationSurface, project: &Project) {
         for processor in project.routing.processors.keys() {
             let Some(control) = engine.take_processor_control(surface.generation, *processor)
             else {
@@ -1023,8 +1016,19 @@ impl RoutingControlDispatch {
                 surface.report.without_control.push(*processor);
                 continue;
             };
-            let instance = StablePluginInstanceId::new(self.next_instance);
-            self.next_instance = self.next_instance.wrapping_add(1);
+            // PC-C4-05: hydrate the persisted plugin-instance identity —
+            // `Project::plugin_instances` is the sole allocator, so the
+            // same authored processor/plugin pair carries the same
+            // `StablePluginInstanceId` across save→reload and engine
+            // restart. A missing entry, plugin drift (incl.
+            // `capability_revision`) or out-of-range id all resolve to
+            // `None` → typed `without_control` evidence, never a
+            // freshly minted runtime id.
+            let Some(instance) = project.plugin_instances.resolve(*processor, &plugin) else {
+                surface.report.without_control.push(*processor);
+                continue;
+            };
+            let instance = StablePluginInstanceId::new(instance.get());
             // TIM-03: a vended boundary spec opens the node's
             // per-generation session pinned to this surface's
             // capability/graph generations and the same instance id

@@ -62,11 +62,16 @@ use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::P
 /// `Project::monitoring` — authored Arm/Monitor/channel-map/lane
 /// declarations and punch marks (synvelis#117); v11 and older bodies
 /// are read through the same registry which needs no projection (the
-/// map defaults empty — v11 carried no monitor declarations).
+/// map defaults empty — v11 carried no monitor declarations). v13 adds
+/// `Project::plugin_instances` — the persisted plugin-instance
+/// identity store with its own monotonic u64 watermark (Issue #101,
+/// PC-C4-05); v12 and older bodies are read through the same registry
+/// which backfills one identity per `Resolved` processor in
+/// `ProcessorId` order.
 /// New maps are `#[serde(default)]`, so an older body still
 /// deserializes; each version bump records the intentional format
 /// advance. v1–v4 snapshots are not migrated.
-pub const SCHEMA_VERSION: u32 = 12;
+pub const SCHEMA_VERSION: u32 = 13;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.

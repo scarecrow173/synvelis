@@ -836,10 +836,15 @@ fn sf03_l6_04_queue_replays_through_new_generation_bindings() {
     assert_eq!(dispatch.generation(), Some(2));
     let binding2 = dispatch.binding(target).unwrap();
     assert_eq!(binding2.graph_generation, 2);
-    assert_ne!(
+    // PC-C4-05: `instance_id` is the persisted authored identity —
+    // stable across generations for the same processor/plugin pair.
+    // Freshness lives in the generation pins (asserted above) and the
+    // per-generation session/node, so the records still differ.
+    assert_eq!(
         binding2.instance_id, binding1.instance_id,
-        "fresh instance pin"
+        "persisted instance identity is generation-stable"
     );
+    assert_ne!(binding2, binding1, "gen-2 binding is a fresh record");
 
     // While RT still runs gen 1, writes for the gen-2 surface queue —
     // they must not leak into the still-live gen-1 plugin.
