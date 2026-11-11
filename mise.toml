@@ -13,7 +13,7 @@ prek = "0.5.5"
 git-lfs = "3.8.0"
 "github:microsoft/apm" = "0.33.0"
 "pipx:serena-agent" = "1.7.0"
-rust = { version = "1.99.0", components = ["rustfmt", "clippy"] }
+rust = { version = "1.99.0", components = ["rustfmt", "clippy"], mr_boxington = true }
 node = "26.12.1"
 
 [tasks.setup]
