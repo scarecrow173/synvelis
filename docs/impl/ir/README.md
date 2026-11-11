@@ -26,6 +26,7 @@ Directory: `docs/impl/ir`
 | IMPL-AUT03LoopWriteOnePass | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・境界 flush・明示 Rearm 実装記録 | completed | [aut-03-loop-write-one-pass.md](aut-03-loop-write-one-pass.md) |
 | IMPL-034RJ4QUQGExYEXb9HnIW3 | Issue #147 sccache verify/gw10 導入実装記録 | completed | [issue-147-sccache-verify-gw10.md](issue-147-sccache-verify-gw10.md) |
 | IMPL-034RGXq9DiVrM6SNyBhyQs | Issue #151 ui-verify lane 実装記録 | completed | [issue-151-ui-verify-lane.md](issue-151-ui-verify-lane.md) |
+| IMPL-qGhrNdq0yLEfcWCITQ0m0p | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 実装記録 | completed | [issue-86-verified-import-wiring-slice.md](issue-86-verified-import-wiring-slice.md) |
 | IMPL-034Rx4ef0v8Ch5IBl2s39L | SV-GUI-01 desktop app bootstrap webview frontend pipeline | completed | [sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md](sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md) |
 | IMPL-034QeegdSleOElhx1CWUGn | VS-A task6 verification merge impl record | completed | [vs-a-task6-verification-merge-impl-record.md](vs-a-task6-verification-merge-impl-record.md) |
 | IMPL-034QeecIYVT0VX2rTFukXg | VS-A task1 workspace skeleton | completed | [vs-a-task1-workspace-skeleton.md](vs-a-task1-workspace-skeleton.md) |
