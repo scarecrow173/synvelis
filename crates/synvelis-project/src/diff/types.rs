@@ -29,7 +29,9 @@ pub enum ComparisonDomain {
     Control,
     /// Routing model: buses, strips, processors, chains, ports, connections, sends.
     Routing,
-    /// Recording registry: sessions, passes, streams, segments, takes, epochs, applied records.
+    /// Recording registry and authored recording intent: sessions,
+    /// passes, streams, segments, takes, epochs, applied records,
+    /// monitor declarations, punch marks.
     Recording,
     /// Comping registry: take groups, comps, regions, transitions.
     Comping,
@@ -175,6 +177,14 @@ pub enum ObjectKind {
     RoutingConnection,
     /// A send configuration.
     SendConfig,
+    /// A track-scoped authored monitor declaration, keyed by its
+    /// `TrackId` (synvelis#117, schema v12). Appended last so every
+    /// existing kind keeps its `as u8` discriminant — change IDs and
+    /// issue dedup keys bake it in.
+    TrackMonitorDecl,
+    /// The project-wide punch-marks declaration (synvelis#117,
+    /// schema v12) — a singleton object identified by the project tag.
+    PunchMarks,
 }
 
 impl ObjectKind {
@@ -208,7 +218,9 @@ impl ObjectKind {
             | Self::CaptureSegment
             | Self::Take
             | Self::AppliedCommit
-            | Self::AppliedImport => ComparisonDomain::Recording,
+            | Self::AppliedImport
+            | Self::TrackMonitorDecl
+            | Self::PunchMarks => ComparisonDomain::Recording,
             Self::TakeGroup | Self::Comp | Self::CompRegion | Self::CompTransition => {
                 ComparisonDomain::Comping
             }
@@ -511,7 +523,14 @@ pub struct ComparisonSpec {
 }
 
 /// Current semantic-diff policy version.
-pub const DIFF_POLICY_VERSION: u32 = 1;
+///
+/// v2 (synvelis#117): monitor declarations
+/// (`TrackMonitorDecl`/`PunchMarks`) joined the compared entity set —
+/// a monitor-only difference that reported `Equal` under v1 now
+/// reports `Different`. The version lives inside `ComparisonKey`, so
+/// cached/persisted results computed under an older policy can never
+/// collide with new-policy keys.
+pub const DIFF_POLICY_VERSION: u32 = 2;
 
 impl ComparisonSpec {
     /// A spec comparing `before` → `after` over all domains.
