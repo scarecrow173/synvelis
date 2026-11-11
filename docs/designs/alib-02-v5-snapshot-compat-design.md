@@ -4,7 +4,7 @@ type: "design"
 status: "approved"
 title: "ALIB-02 — v5 snapshot asset-digest 互換移行 設計"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-11"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -15,6 +15,16 @@ relations:
         path: "crates/synvelis-project/src/migration.rs"
       - type: "file"
         path: "crates/synvelis-project/tests/alib02_digest.rs"
+      - type: "file"
+        path: "crates/synvelis-project/tests/alib02_v5_real.rs"
+      - type: "file"
+        path: "crates/synvelis-project/tests/fixtures/alib02-v5-legacy.json"
+      - type: "file"
+        path: "crates/synvelis-project/tests/fixtures/alib02-v5-legacy.blob"
+      - type: "file"
+        path: "evidence/issue-86-v5-migration/README.md"
+      - type: "file"
+        path: "evidence/issue-86-v5-migration/emit_v5_fixture.rs"
       - type: "file"
         path: "crates/synvelis-library/tests/import_recovery.rs"
     modified:
@@ -74,14 +84,15 @@ byte-level verify なしの「verified 昇格」になってしまう。
 
 代わりに `synvelis-project/src/project.rs` に型付き分類層を追加する:
 
-- `AssetDigest::parse(&str)` — 空文字列・非 filename-safe な `sha256:`
-  形式などを拒否し、`Crc32Fold`（16 lowercase hex）/ `Sha256`
-  （`sha256:<64 lowercase hex>`）/ `Opaque`（その他の filename-safe）
-  に分類する。
-- `Project::validate_references` が全 asset/source/applied-import の
-  digest 文字列に `AssetDigest::parse` を適用し、空・不正形式を
-  load/commit 境界で拒否する。receipt の `asset_id`/`source_id` が
-  live entity を指すことも同時に検証する。
+- `AssetDigest::parse(&str)` — infallible に受理し、`kind()` が
+  `Crc32Fold`（16 lowercase hex）/ `Sha256`
+  （`sha256:<64 lowercase hex>`）/ `Opaque`（それ以外）を返す。
+  `is_content_addressed()` は `Sha256` のときだけ true。
+- `Project::validate_digests` / `validate_references` が全
+  asset/source/applied-import の digest 文字列を検査し、**空文字列**
+  を load/commit 境界で拒否する（空以外の非典型形式は `Opaque` と
+  して温存し、verified には扱わない）。receipt の
+  `asset_id`/`source_id` が live entity を指すことも同時に検証する。
 
 ### 2. v10→v11 migration step は分類メタデータのみ
 
@@ -102,7 +113,30 @@ byte-level verify なしの「verified 昇格」になってしまう。
 通常経路では不変だが、library 外から構築された op が legacy/opaque
 digest を verified commit として登録することを構造的に防ぐ。
 
-### 4. Recovery fixture は既存 port の fault seam を使う
+### 4. 実 v5 wire bytes の実測と劣化分類（DoD(1) residual slice, 2026-11-11）
+
+先行 slice は post-v5 key を消した**合成** envelope で検証していた。
+本 slice では v5-era build（`a401e5c`、`SCHEMA_VERSION=5`）の実
+serializer が出力した bytes を fixture 化し、以下を実測で固定する
+（`tests/alib02_v5_real.rs`、generator・出所は
+`evidence/issue-86-v5-migration/`）。production code の追加は不要
+だった — 設計どおり既存 ladder と `snapshot/` resolver で成立する。
+
+- 実 wire 互換: 旧 `{"scope": …}` control-owner tag は `ControlOwner`
+  の serde alias で受理され、v6→v7 で typed owner + derived
+  `AutomationTimeScope` へ投影される。
+- 劣化分類は `snapshot/` モジュールの既存語彙を使う: blob 欠落は
+  `ContentStatus::Missing` → `SnapshotValidation::Degraded` +
+  `SnapshotCompleteness::Partial`、probe 不能は `Unknown`、ladder 外
+  schema は `SnapshotError::UnsupportedSchema`（reject）、切断 bytes
+  は `Deserialize`、非 default `RoutingModel` を持つ v5 body は
+  `migrate_v5_routing` が `Validation` で reject（foreign state を
+  保持も上書きもしない）。
+- `resolve_saved` の read-only projection は同一 bytes に対し
+  `PartialEq` 等価の `Project` を返し、`schema_version 5 →
+  projection_version 13` を正直に記録する。
+
+### 5. Recovery fixture は既存 port の fault seam を使う
 
 新しい production code path は追加しない。fixture は既存の
 `ImportStore` manifest / `ProjectStore`（`InMemoryStore` ラッパで save
