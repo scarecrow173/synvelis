@@ -201,6 +201,10 @@ pub const OPS: &[OpInfo] = &[
         summary: "probe projection — bindings/segments/drain/traces",
     },
     OpInfo {
+        name: "syn.probe.compare",
+        summary: "multi-probe alignment comparison — params.request (ProbeComparisonRequest) → AcousticObservation (SF-04)",
+    },
+    OpInfo {
         name: "syn.monitoring.set",
         summary: "session-scope track monitor declaration — arm/monitor/binding/hw-direct patch or clear (RCD-03)",
     },
@@ -389,6 +393,7 @@ impl AppService {
             "syn.control.observe" => self.app.op_control_observe(params),
             "syn.probe.control" => self.app.op_probe_control(params),
             "syn.probe.state" => Ok(self.app.op_probe_state()),
+            "syn.probe.compare" => self.app.op_probe_compare(params),
             "syn.monitoring.set" => self.app.op_monitoring_set(params),
             "syn.monitoring.punch" => self.app.op_monitoring_punch(params),
             "syn.monitoring.transport" => self.app.op_monitoring_transport(params),

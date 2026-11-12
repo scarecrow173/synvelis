@@ -70,6 +70,7 @@ Directory: `docs/plans`
 | PLAN-034UgO7fMYPyfOhhpe5zMh | SF-03 slice4 実装計画 — NoRebuild Equivalence・世代連動 control 払い出し・SF-ACT-05 headless 固定 | in-progress | [sf-03-slice4-act-acceptance.md](./sf-03-slice4-act-acceptance.md) |
 | PLAN-034Uj7LMOlnyb7SKUO8Ajd | SF-03 slice5 実装計画 — session EnginePort・app RoutingEngine 接続・headless e2e | done | [sf-03-slice5-session-engine-connect.md](./sf-03-slice5-session-engine-connect.md) |
 | PLAN-034Um6RlcTKbVmfUr7A4yJ | SF-04 slice1 実装計画 — project/player Semantic Probe Adapter + ruviform pin bump | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
+| PLAN-3vBnM7kQwE5rT9yU2iO8pA | SF-04 slice10 実装計画 — syn.probe.compare app op | approved | [sf-04-slice10-probe-compare-op-plan.md](./sf-04-slice10-probe-compare-op-plan.md) |
 | PLAN-034Uupw2uQUIw30kQZ9HYX | SF-04 slice2 実装計画 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | PLAN-034UL6zrSYbZcDzr9MsHXB | SF-04 slice3 実装計画 — probe clock epoch discontinuity・capture segment cut | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | PLAN-4fJZbNlcZy6NsCvF40RggB | SF-04 slice4 実装計画 — app/session wiring（probe port・syn.probe.*・drain hook） | approved | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |

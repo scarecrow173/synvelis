@@ -92,6 +92,7 @@ Directory: `docs/designs`
 | DESIGN-034VoSreRK4VhuFxIqvayx | SF-03 slice8 — app/workspace same-Revision fixture design | approved | [sf-03-slice8-revision-fixture-design.md](./sf-03-slice8-revision-fixture-design.md) |
 | DESIGN-034VWsBTFsvYFbqeDihe3Z | SF-03 slice9 — host capability generation live firing design | approved | [sf-03-slice9-capability-firing-design.md](./sf-03-slice9-capability-firing-design.md) |
 | DESIGN-034Um5591oRMfPg7cVthyU | SF-04 slice1 設計 — Semantic Probe Adapter（project contract + player runtime adapter） | approved | [sf-04-slice1-semantic-probe-adapter-design.md](./sf-04-slice1-semantic-probe-adapter-design.md) |
+| DESIGN-9kRtY3wQzX8cV6bNmLp2Sd | SF-04 slice10 設計 — syn.probe.compare app op（wire 契約・read-only 判定・JSON mapper） | approved | [sf-04-slice10-probe-compare-op-design.md](./sf-04-slice10-probe-compare-op-design.md) |
 | DESIGN-034UunDPfVm34dBXKZHHG0 | SF-04 slice2 設計 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace-design.md](./sf-04-slice2-controlsession-probe-trace-design.md) |
 | DESIGN-034UL2WkinplQmMD9VPyeX | SF-04 slice3 設計 — probe clock epoch discontinuity・capture segment cut | approved | [sf-04-slice3-clock-epoch-discontinuity-design.md](./sf-04-slice3-clock-epoch-discontinuity-design.md) |
 | DESIGN-4AUoTxfZvkN7cj3NjLptJ2 | SF-04 slice4 設計 — app/session wiring（probe port・syn.probe.*・drain hook） | approved | [sf-04-slice4-app-wiring-design.md](./sf-04-slice4-app-wiring-design.md) |
