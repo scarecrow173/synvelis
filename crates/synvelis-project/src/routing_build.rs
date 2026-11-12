@@ -90,7 +90,14 @@ pub struct RoutingBuildKey {
     pub project_revision: ProjectRevision,
     /// Graph-relevant semantic content fingerprint.
     pub routing_fingerprint: RoutingFingerprint,
-    /// Resolved-plugin/declared-port capability generation.
+    /// Resolved-plugin/declared-port capability generation — the
+    /// *project-side* half of the capability pin
+    /// ([`crate::port_capability_generation`]). Host-side capability
+    /// state (processor-host boundary/catalog/factory registrations)
+    /// is outside the persisted model and is pinned separately by
+    /// `synvelis_player::RoutingEngine` at `prepare`/`publish` —
+    /// drift on either half mints
+    /// `RoutingFault::PluginCapabilityChanged`.
     pub capability_generation: u64,
     /// Engine geometry generation (rate/channels/block).
     pub engine_config_generation: u64,

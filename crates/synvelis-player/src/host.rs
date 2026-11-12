@@ -252,6 +252,30 @@ pub trait ProcessorHost {
     fn boundary_attach(&self, _request: &ProcessorConnectRequest) -> Option<BoundarySessionSpec> {
         None
     }
+
+    /// Host-side capability generation — a deterministic change
+    /// detector over the capability set this host can provision:
+    /// boundary declarations, parameter catalogs, plugin factory /
+    /// route registrations and any other registration state a build
+    /// depends on staying put between `prepare` and `publish`.
+    ///
+    /// The engine folds this into its publish re-validation,
+    /// `NoRebuild` equivalence probe and `reconcile` so host-side
+    /// drift mints `RoutingFault::PluginCapabilityChanged` /
+    /// `RoutingReconcileMismatch::CapabilityGeneration` instead of
+    /// hiding behind the project fingerprint (which cannot see host
+    /// state). Only *registration* mutations count — instances
+    /// consumed by `connect` are part of the build the generation
+    /// describes, not drift, so hosts whose provisioning evidence is
+    /// fully consumed into the compiled plan (e.g.
+    /// [`StaticProcessorHost`]) report the default `0`.
+    ///
+    /// Default `0` — hosts without observable capability state.
+    /// Implementations must be cheap, deterministic and non-RT;
+    /// equal capability state must yield equal values across calls.
+    fn capability_generation(&self) -> u64 {
+        0
+    }
 }
 
 /// Headless/test host: a `ProcessorId → GraphProcessor` instance map.
@@ -354,6 +378,12 @@ pub struct PluginHostProcessors {
     /// keeps live read access after the host is boxed into the
     /// engine.
     vendored: Rc<RefCell<crate::ParamCatalog>>,
+    /// Registration-mutation epoch — bumped by every
+    /// [`Self::register_boundary`]/[`Self::register_params`] call.
+    /// Folded into [`ProcessorHost::capability_generation`] so
+    /// adapter-owned registration drift (which `Scan` cannot see)
+    /// moves the generation the engine pins at `prepare`.
+    registration_epoch: u64,
 }
 
 impl PluginHostProcessors {
@@ -367,23 +397,30 @@ impl PluginHostProcessors {
             boundaries: BTreeMap::new(),
             catalogs: BTreeMap::new(),
             vendored: Rc::new(RefCell::new(BTreeMap::new())),
+            registration_epoch: 0,
         }
     }
 
     /// Registers (or replaces) the TIM-03 [`BoundaryDeclaration`] for
     /// `processor`. Non-RT orchestration — takes effect on the next
     /// `connect` for that processor; other processors are unaffected.
+    /// Every call bumps the registration epoch, so a declaration
+    /// change between `prepare` and `publish` fails the publish as
+    /// `PluginCapabilityChanged`.
     pub fn register_boundary(&mut self, processor: ProcessorId, declaration: BoundaryDeclaration) {
         self.boundaries.insert(processor, declaration);
+        self.registration_epoch = self.registration_epoch.saturating_add(1);
     }
 
     /// Registers (or replaces) the [`ParamInfo`] table for the plugin
     /// whose descriptor id is `plugin_id` — the same id
     /// [`ProcessorBinding::Resolved`] carries. Non-RT orchestration —
     /// takes effect on the next `connect` for instances of that
-    /// plugin; other plugins are unaffected.
+    /// plugin; other plugins are unaffected. Every call bumps the
+    /// registration epoch (see [`Self::register_boundary`]).
     pub fn register_params(&mut self, plugin_id: &str, params: Vec<ParamInfo>) {
         self.catalogs.insert(plugin_id.to_owned(), params);
+        self.registration_epoch = self.registration_epoch.saturating_add(1);
     }
 
     /// The catalog accumulated by successful `connect`s so far —
@@ -542,6 +579,50 @@ impl ProcessorHost for PluginHostProcessors {
             ProcessConfig::new(request.port_format.sample_rate, 1, request.max_frames).ok()?;
         self.boundary_spec(request, &process_config)
     }
+
+    /// FNV-1a fold over the registration epoch plus the composite
+    /// host's audio `Scan` table — every audio factory/route
+    /// registration in order, shadowed duplicates included, so drift
+    /// registered through the shared [`Self::host`] handle (which
+    /// bypasses the adapter's own counters) still moves the
+    /// generation. Non-RT only; borrows the same host cell `connect`
+    /// does, so it must not run while a `borrow_mut` is held (the
+    /// same contract [`Self::host`] documents).
+    fn capability_generation(&self) -> u64 {
+        let mut hash = fnv_fold(
+            0xcbf2_9ce4_8422_2325,
+            &self.registration_epoch.to_le_bytes(),
+        );
+        let mut host = self.host.borrow_mut();
+        if let Ok(HostReply::Scanned(descriptors)) = host.execute(HostCommand::Scan) {
+            for descriptor in &descriptors {
+                for field in [
+                    descriptor.id,
+                    descriptor.name,
+                    descriptor.vendor,
+                    descriptor.version,
+                ] {
+                    hash = fnv_fold(hash, field.as_bytes());
+                }
+                for feature in descriptor.features {
+                    hash = fnv_fold(hash, feature.as_bytes());
+                }
+            }
+        }
+        hash
+    }
+}
+
+/// FNV-1a byte fold — the same non-cryptographic change-detector
+/// contract [`synvelis_project::routing_fingerprint`] documents:
+/// deterministic across processes, collisions possible in principle,
+/// never a cryptographic identity.
+fn fnv_fold(mut hash: u64, bytes: &[u8]) -> u64 {
+    for &byte in bytes {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash
 }
 
 /// `Instantiate` + the three lifecycle commands up to
