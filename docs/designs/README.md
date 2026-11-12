@@ -13,6 +13,7 @@ Directory: `docs/designs`
 | DSN-alib02-v5snap | ALIB-02 — v5 snapshot asset-digest 互換移行 設計 | approved | [alib-02-v5-snapshot-compat-design.md](./alib-02-v5-snapshot-compat-design.md) |
 | DSN-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache 設計（synvelis-library） | approved | [alib-03-catalog-preview-cache-design.md](./alib-03-catalog-preview-cache-design.md) |
 | DSN-alib04-git-remote-provider | ALIB-04 — Git Remote Provider 設計（synvelis-library） | approved | [alib-04-git-remote-provider-design.md](./alib-04-git-remote-provider-design.md) |
+| DESIGN-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — 設計（endpoint 解決・batch API・型付きエラー・credential 境界） | approved | [alib-04-lfs-remote-fetch-design.md](./alib-04-lfs-remote-fetch-design.md) |
 | DSN-alib06-webdav-provider | ALIB-06 — WebDAV File-Server Provider 設計（synvelis-library） | approved | [alib-06-webdav-provider-design.md](./alib-06-webdav-provider-design.md) |
 | DSN-alib07-fault-matrix | ALIB-07 — Asset Library 全経路 Fault Matrix 設計（synvelis-library headless slice） | approved | [alib-07-fault-matrix-design.md](./alib-07-fault-matrix-design.md) |
 | DSN-alib07-import-cancel | ALIB-07 slice 2 設計 — LIB-IMPORT-04 cancel checkpoint・subprocess crash fixture | approved | [alib-07-import-cancel-design.md](./alib-07-import-cancel-design.md) |
@@ -85,6 +86,7 @@ Directory: `docs/designs`
 | DESIGN-034UJqgcnnlXJWllu9yUGb | SF-03 slice6 design — RoutingControlDispatch control surface（世代 gate・有界 queue・binding 証拠・catalog refresh） | approved | [sf-03-slice6-act06-control-surface-design.md](./sf-03-slice6-act06-control-surface-design.md) |
 | DESIGN-poso4hBPDap0Gs9cisA92Y | SF-03 slice7 — render semantic-lowering 消費 design | approved | [sf-03-slice7-render-consumption-design.md](./sf-03-slice7-render-consumption-design.md) |
 | DESIGN-034VoSreRK4VhuFxIqvayx | SF-03 slice8 — app/workspace same-Revision fixture design | approved | [sf-03-slice8-revision-fixture-design.md](./sf-03-slice8-revision-fixture-design.md) |
+| DESIGN-034VWsBTFsvYFbqeDihe3Z | SF-03 slice9 — host capability generation live firing design | approved | [sf-03-slice9-capability-firing-design.md](./sf-03-slice9-capability-firing-design.md) |
 | DESIGN-034Um5591oRMfPg7cVthyU | SF-04 slice1 設計 — Semantic Probe Adapter（project contract + player runtime adapter） | approved | [sf-04-slice1-semantic-probe-adapter-design.md](./sf-04-slice1-semantic-probe-adapter-design.md) |
 | DESIGN-034UunDPfVm34dBXKZHHG0 | SF-04 slice2 設計 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace-design.md](./sf-04-slice2-controlsession-probe-trace-design.md) |
 | DESIGN-034UL2WkinplQmMD9VPyeX | SF-04 slice3 設計 — probe clock epoch discontinuity・capture segment cut | approved | [sf-04-slice3-clock-epoch-discontinuity-design.md](./sf-04-slice3-clock-epoch-discontinuity-design.md) |
@@ -102,6 +104,7 @@ Directory: `docs/designs`
 | DESIGN-8o9zUv4L5ae0FBB0zOM293 | SV-GUI-03 slice2 Arrangement/Undo 設計 — workspace read model + syn.project.* op 露出 | approved | [sv-gui-03-02-arrangement-undo-slice2-design.md](./sv-gui-03-02-arrangement-undo-slice2-design.md) |
 | DESIGN-FQvwpPOrC7St8RoKqyYNMK | SV-GUI-03 slice3 Mixer strip Toggle 設計 — role+owner 走査・pump reconcile・atomic Set | approved | [sv-gui-03-03-mixer-strip-toggle-slice3-design.md](./sv-gui-03-03-mixer-strip-toggle-slice3-design.md) |
 | DESIGN-Mx7pQr2wNz4kLs8tVb6yHd | SV-GUI-03 slice4 設計 — row selection→syn.view.select→Inspector rebinding + syn.viz.* surface reconcile | approved | [sv-gui-03-04-selection-inspector-viz-design.md](./sv-gui-03-04-selection-inspector-viz-design.md) |
+| DESIGN-Ht8wEr4xQz2nBs6vYp9dMc | SV-GUI-03 slice5 設計 — driver-neutral scenario 抽出 + GpuiGuiTest lane | approved | [sv-gui-03-05-gpui-scenario-design.md](./sv-gui-03-05-gpui-scenario-design.md) |
 | DESIGN-034UogNAUQrEmBkgZnhrAk | SV-GUI-04 slice1 precursor 設計 — HeadlessWindowHost + dock fixture | approved | [sv-gui-04-01-headless-window-handle-dock-design.md](./sv-gui-04-01-headless-window-handle-dock-design.md) |
 | DESIGN-Ywl9hP3wdlHWjoMPB7Hvjn | SV-GUI-04 slice1 設計 — 2nd view spec + env-gated 2窓 mount + FakeDriver fixture | approved | [sv-gui-04-01-two-window-slice1-design.md](./sv-gui-04-01-two-window-slice1-design.md) |
 | DESIGN-034UqwNDJrureYsAqmckuw | SV-GUI-04 slice2 設計 — close_guard op + 末尾 window veto | approved | [sv-gui-04-02-close-veto-design.md](./sv-gui-04-02-close-veto-design.md) |
@@ -114,11 +117,13 @@ Directory: `docs/designs`
 | DESIGN-AyDQMCLnAv4MbV3s4qnT8D | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界（9865cd57 → fd1d4d5f） | approved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | DESIGN-034Uvylguz0kZUgy1zbseh | SYN-IO-01 Ruviform 共通 I/O 適合境界設計 | approved | [syn-io-01-ruviform-io-boundary-design.md](./syn-io-01-ruviform-io-boundary-design.md) |
 | DESIGN-034T2aGDbNinkumWeftaiP | SYN-IO-02 DirectoryBundleStore StagedFile 移行設計 | approved | [syn-io-02-directory-bundle-store-stagedfile-design.md](./syn-io-02-directory-bundle-store-stagedfile-design.md) |
+| DESIGN-034Tk3mXw7LpQ2vRnB8y | SYN-IO-02 HEAD CAS consumer-side mutex 設計 | approved | [syn-io-02-head-cas-design.md](./syn-io-02-head-cas-design.md) |
 | DESIGN-034RBzdpo91wcbqBK7Gb9t | SYN-OBS-01 Design — Host所有 Logging Owner・設定解決・Source Catalog | approved | [syn-obs-01-design-host-logging-owner-source-catalog.md](./syn-obs-01-design-host-logging-owner-source-catalog.md) |
 | DESIGN-034T2RF305WAVSTAGED00Y | SYN-RF305 WAV Export StagedFile 移行設計 | approved | [syn-rf305-wav-export-staged-file-design.md](./syn-rf305-wav-export-staged-file-design.md) |
 | — | Synvelis-driven Ruviform Target Architecture v0.7.1 | — | [synvelis-driven-ruviform-target-architecture-v07.md](./synvelis-driven-ruviform-target-architecture-v07.md) |
 | DESIGN-034VtzPNCX6aVKTaxy71ke | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn 設計 | approved | [tim-01-app-ppqn-design.md](./tim-01-app-ppqn-design.md) |
 | DESIGN-034UHVNvFQXFumTOowIt0g | TIM-01 Configurable PPQN — Rational Beat 再投影設計 | approved | [tim-01-configurable-ppqn-design.md](./tim-01-configurable-ppqn-design.md) |
+| DESIGN-4kLmNpQrStUvWxYz0123 | TIM-01 PPQN Preview op + New Project PPQN — 設計 | approved | [tim-01-ppqn-preview-design.md](./tim-01-ppqn-preview-design.md) |
 | DESIGN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — crate 内完結設計 | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | DESIGN-034UwVoRGI8Bp9zuzRFQhj | TIM-02 SMF Format0/1 core — crate 内完結設計 | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
 | DESIGN-MsBu5XoYY4Ex3QB0qmDvC5 | TIM-03 session→driver/routing wiring design — session 寿命・provenance mint・transport mirror | approved | [tim-03-session-driver-wiring-design.md](./tim-03-session-driver-wiring-design.md) |
@@ -128,6 +133,7 @@ Directory: `docs/designs`
 | DESIGN-034UAwTwlzWbToxqWtFM2B | VCS-01 Immutable Snapshot Resolver — crate 内完結設計 | approved | [vcs-01-immutable-snapshot-resolver-design.md](./vcs-01-immutable-snapshot-resolver-design.md) |
 | DESIGN-034UEtYMoQUWsPmOBrl819 | VCS-02 Semantic Diff Engine design | approved | [vcs-02-semantic-diff-engine-design.md](./vcs-02-semantic-diff-engine-design.md) |
 | DESIGN-7jUOgXVjk3gpAYkbIzdUfe | VCS-03 Git Read Provider design | approved | [vcs-03-git-read-provider-design.md](./vcs-03-git-read-provider-design.md) |
+| DESIGN-UpOaSmwX-5aEOp4rEEmXG | synvelis#335 unborn HEAD 誤分類修正 — rev-parse --quiet 除去と NotFound 経路回復設計 | approved | [vcs-03-unborn-head-classification-design.md](./vcs-03-unborn-head-classification-design.md) |
 | DESIGN-VCS04BkndWiringDsn0001 | VCS-04 production backend wiring — module 設計 | approved | [vcs-04-backend-wiring-design.md](./vcs-04-backend-wiring-design.md) |
 | DESIGN-VCS04Hist0ryV1ewDsn01 | VCS-04 History/Visual Diff UI design | approved | [vcs-04-history-visual-diff-ui-design.md](./vcs-04-history-visual-diff-ui-design.md) |
 | DSGN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — module 設計 | approved | [vcs-05-apply-restore-headless-design.md](./vcs-05-apply-restore-headless-design.md) |

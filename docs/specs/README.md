@@ -9,6 +9,7 @@ Directory: `docs/specs`
 | SPEC-j8VrtHRiA60WGx27NKFnH4 | ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
 | SPEC-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | approved | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | SPEC-alib04-git-remote-provider | ALIB-04 — Git Remote Provider（fixed Commit/Tree・Git LFS・selective fetch・auth）（synvelis-library slice） | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
+| SPEC-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — Git LFS batch API / HTTP download による remote LFS object 実Byte取得（synvelis-library slice） | approved | [alib-04-lfs-remote-fetch.md](./alib-04-lfs-remote-fetch.md) |
 | SPEC-alib06-webdav-provider | ALIB-06 — WebDAV File-Server Provider（strong ETag/If-Match pin・conditional read・auth・cancel）（synvelis-library slice） | approved | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
 | SPEC-034AUT01T7xRw4mNcQ8pZbV2 | AUT-01 Automation Mode 境界 State — Read/Touch/Latch/Write・Touch Return 150ms Smoothstep | approved | [aut-01-automation-mode-boundary-touch-return-writer-state.md](./aut-01-automation-mode-boundary-touch-return-writer-state.md) |
 | SPEC-034AUT03AW1Qq4l4VCpTSK | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・明示 Rearm | approved | [aut-03-loop-write-one-pass-write-range-rearm.md](./aut-03-loop-write-one-pass-write-range-rearm.md) |
@@ -67,6 +68,7 @@ Directory: `docs/specs`
 | SPEC-034UJpxSHTVIxHKdrntkyR | SF-03 slice6 — SF-ACT-06 control surface headless slice（automation→TimedParamEvent・Fast Control gate・有界 Queue・catalog refresh） | approved | [sf-03-slice6-act06-control-surface.md](./sf-03-slice6-act06-control-surface.md) |
 | SPEC-0ETTGUPUGPQE6z2dyPRs0b | SF-03 slice7 — synvelis-render semantic-lowering 消費 + cross-consumer same-Revision fixture | approved | [sf-03-slice7-render-consumption.md](./sf-03-slice7-render-consumption.md) |
 | SPEC-034VoS9yTOt7fYOoDYlyRU | SF-03 slice8 — app/workspace same-Revision fixture | approved | [sf-03-slice8-revision-fixture.md](./sf-03-slice8-revision-fixture.md) |
+| SPEC-034VWsjfgfnLgo8ntUpQH6 | SF-03 slice9 — host capability generation live firing | approved | [sf-03-slice9-capability-firing.md](./sf-03-slice9-capability-firing.md) |
 | SPEC-034UlYgSZ589NRdTrtO4Vu | SF-04 slice1 — Semantic Probe Adapter 基盤（project/player 層 + ruviform pin bump） | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | SPEC-034UumeSTLbuxt64vqqJ47 | SF-04 slice2 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | SPEC-034UL2whPqBifdr1Jsrkn7 | SF-04 slice3 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
@@ -85,6 +87,7 @@ Directory: `docs/specs`
 | SPEC-8qSDBn4gud5ayYyjIQalpX | SV-GUI-03 slice2: Arrangement read-only Table mount + Undo/Redo 露出 | approved | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
 | SPEC-FM394bM9ITIDUkUMhHB3de | SV-GUI-03 slice3: Mixer channel strip — master Mute/Solo Toggle | approved | [sv-gui-03-03-mixer-strip-toggle-slice3.md](./sv-gui-03-03-mixer-strip-toggle-slice3.md) |
 | SPEC-Kd4nQx8vRw2mLp9sTf3hJc | SV-GUI-03 slice4: Arrangement row selection → Inspector target + Meter/Waveform viz mount | approved | [sv-gui-03-04-selection-inspector-viz.md](./sv-gui-03-04-selection-inspector-viz.md) |
+| SPEC-Gp5sQm2vNx8wRt4yLc7jKf | SV-GUI-03 slice5: GPUI-simulated scenario lane(Fake/GPUI parity) | approved | [sv-gui-03-05-gpui-scenario.md](./sv-gui-03-05-gpui-scenario.md) |
 | SPEC-034UogGZ0QtZaMjO9XxPXv | SV-GUI-04 slice1 precursor: multi-window WindowHandle + headless dock fixture | approved | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | SPEC-OGVSCKWOs5Dv4e9e0K7wDY | SV-GUI-04 slice1: 実 2-window mount（fake driver fixture + env-gated native） | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | SPEC-034Uqtwgi61id6YJP9tZZX | SV-GUI-04 slice2: close-veto/cancel（unsaved-guard veto） | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
@@ -94,11 +97,13 @@ Directory: `docs/specs`
 | SPEC-0D1aGavIsYu1NgyvnRxeRx | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 と API 追従（SV#190 前提解消） | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | SPEC-YmpDjzBvQVDopM2MpgcdhL | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f と API 追従 | approved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | SPEC-034Uvy3JSMhpGuQliLcN6s | SYN-IO-01 Ruviform 共通 I/O 適合境界 — Project Snapshot/HEAD/Backup/Import | approved | [syn-io-01-ruviform-common-io-boundary.md](./syn-io-01-ruviform-common-io-boundary.md) |
+| SPEC-034T7fQpLmNvRwXk2jHs9 | SYN-IO-02 HEAD CAS expected-head store port | approved | [syn-io-02-head-cas.md](./syn-io-02-head-cas.md) |
 | SPEC-034T29C9D8CIvYjMxmQIy8 | SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行 | approved | [syn-io-02-snapshot-head-staged-publish.md](./syn-io-02-snapshot-head-staged-publish.md) |
 | SPEC-034RBvYIlw0wiBoGsL9EBY | SYN-OBS-01 Ruviform observability 単一crate Logging/Host統合 | proposed | [syn-obs-01-ruviform-observability-crate-logging-host.md](./syn-obs-01-ruviform-observability-crate-logging-host.md) |
 | SPEC-034T2RF305WAVSTAGED00X | SYN-RF305 WAV Export/Player StagedFile 移行 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
 | SPEC-034Vtz2CrUpwevHTLxDLm6 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証（synvelis-app slice） | approved | [tim-01-app-ppqn.md](./tim-01-app-ppqn.md) |
 | SPEC-034UHVLQ9dtoN4YQDjtCy3 | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | approved | [tim-01-configurable-ppqn-project-command.md](./tim-01-configurable-ppqn-project-command.md) |
+| SPEC-9xQpPvK2mN7rT4wE8jH3d | TIM-01 PPQN Preview op + New Project PPQN — syn.project.preview_ppqn / syn.project.new.ppqn（synvelis#125 preview slice） | approved | [tim-01-ppqn-preview.md](./tim-01-ppqn-preview.md) |
 | SPEC-034UwMIulZ7DXWykQFy704 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice (synvelis#126) | proposed | [tim-02-smf-format01-import-export.md](./tim-02-smf-format01-import-export.md) |
 | SPEC-1umIWi6ogYs4kgcJeTyvJ8 | TIM-03 session→driver/routing wiring — ProcessBoundarySession の composition 接続（headless slice） | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | SPEC-034UBZ7xNf0yey5lCLjVNT | TIM-04 Plugin State Snapshot 一貫性 — quality receipt・save/reload/HEAD/offline recipe（headless mock slice） | approved | [tim-04-plugin-state-snapshot-consistency.md](./tim-04-plugin-state-snapshot-consistency.md) |
@@ -106,6 +111,7 @@ Directory: `docs/specs`
 | SPEC-034UAv3chafPsU2fFyQnIb | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only schema projection (synvelis#92) | proposed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | SPEC-034UEsXPitEuEsjBM4qjo6 | VCS-02 Semantic Diff Engine — canonical ChangeSet typed identity lineage Unknown tri-state (synvelis#93) | proposed | [vcs-02-semantic-diff-changeset.md](./vcs-02-semantic-diff-changeset.md) |
 | SPEC-PvLluOn4j6y1qpdtQ0aw8A | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta（synvelis#94） | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
+| SPEC-rlAMvOKGLT0EwfekD1VvH | synvelis#335 GitVcsProvider unborn HEAD 誤分類 — rev-parse --quiet 除去による NotFound 経路回復 | proposed | [vcs-03-unborn-head-classification.md](./vcs-03-unborn-head-classification.md) |
 | SPEC-VCS04BkndWiringSpec001 | VCS-04 production set_vcs_backend 配線 slice（synvelis#95） | approved | [vcs-04-backend-wiring.md](./vcs-04-backend-wiring.md) |
 | SPEC-VCS04Hist0ryV1ewUI001 | VCS-04 History/Visual Diff UI — headless read-only projection slice（synvelis#95） | approved | [vcs-04-history-visual-diff-ui.md](./vcs-04-history-visual-diff-ui.md) |
 | SPEC-vcs05-apply-restore-headless | VCS-05 Safe Apply Selected Change / Restore As Copy — headless slice（synvelis#96） | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |

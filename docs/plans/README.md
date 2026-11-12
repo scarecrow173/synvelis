@@ -8,6 +8,7 @@ Directory: `docs/plans`
 | --- | --- | --- | --- |
 | PLAN-alib03-catalog-preview-cache | ALIB-03 実装計画 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | PLAN-alib04-git-remote-provider | ALIB-04 実装計画 — Git Remote Provider（synvelis-library slice） | in-progress | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
+| PLAN-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — 実装計画 | approved | [alib-04-lfs-remote-fetch-plan.md](./alib-04-lfs-remote-fetch-plan.md) |
 | PLAN-alib06-webdav-provider | ALIB-06 実装計画 — WebDAV File-Server Provider（synvelis-library slice） | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
 | PLAN-034AUT01Zx4wQn8vF2sLrT6m | AUT-01 Touch Return・Writer State 境界 実装計画 | approved | [aut-01-touch-return-writer-state.md](./aut-01-touch-return-writer-state.md) |
 | PLAN-034AUT02Vn5rWt9kJx4sLq8b | AUT-02 Region Replace 境界曲線保存 実装計画 | approved | [aut-02-region-replace-boundary.md](./aut-02-region-replace-boundary.md) |
@@ -81,6 +82,7 @@ Directory: `docs/plans`
 | PLAN-ATb2LKnqsahGgDlMVeHEIX | SV-GUI-03 slice2 実施計画 — Arrangement read-only Table + Undo/Redo | approved | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
 | PLAN-tdVwzz5xn6cX22L90jPXXT | SV-GUI-03 slice3 実施計画 — Mixer strip master Mute/Solo Toggle | approved | [sv-gui-03-03-mixer-strip-toggle-slice3.md](./sv-gui-03-03-mixer-strip-toggle-slice3.md) |
 | PLAN-Jh8rTy5xKw9nQp3vLc7zMe | SV-GUI-03 slice4 実施計画 — Arrangement selection→Inspector + Meter/Waveform viz mount | approved | [sv-gui-03-04-selection-inspector-viz-plan.md](./sv-gui-03-04-selection-inspector-viz-plan.md) |
+| PLAN-Jf4tYu7cVb1nMk9sLd3rXe | SV-GUI-03 slice5 実施計画 — GPUI-simulated scenario lane | approved | [sv-gui-03-05-gpui-scenario-plan.md](./sv-gui-03-05-gpui-scenario-plan.md) |
 | PLAN-034Uoh8zSRRCnXhWcV1XTP | SV-GUI-04 slice1 precursor 実施 plan | approved | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | PLAN-XQcxlqc1zMCahjjNxAlbO8 | SV-GUI-04 slice1 実施計画 — 実 2-window mount | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | PLAN-034Uqx7xPwFa05K8WYNQ19 | SV-GUI-04 slice2 実施計画 — close-veto/cancel | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
@@ -89,10 +91,12 @@ Directory: `docs/plans`
 | PLAN-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain projection 実施 plan | approved | [sv185-mixer-gain-projection.md](./sv185-mixer-gain-projection.md) |
 | PLAN-034UvHKP6YrkCOD8vDGrJj | SYN-IO-01 Ruviform 共通 I/O 適合境界設計 文書化計画 | approved | [syn-io-01-ruviform-io-boundary-design.md](./syn-io-01-ruviform-io-boundary-design.md) |
 | PLAN-034T2c5vy3vKJPENF8AA50 | SYN-IO-02 DirectoryBundleStore StagedFile 移行計画 | approved | [syn-io-02-directory-bundle-store-stagedfile.md](./syn-io-02-directory-bundle-store-stagedfile.md) |
+| PLAN-034T9pLmNvRwXk2jHs7fQ | SYN-IO-02 HEAD CAS expected-head store port 実装計画 | approved | [syn-io-02-head-cas-plan.md](./syn-io-02-head-cas-plan.md) |
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
 | PLAN-034VtBaArtupj0qHG0phVl | TIM-01 app 層 PPQN 統合 — implementation plan | approved | [tim-01-app-ppqn-plan.md](./tim-01-app-ppqn-plan.md) |
 | PLAN-034UHYyMbiLPEtGczKNKYC | TIM-01 Configurable PPQN Project Command — implementation plan | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
+| PLAN-7hJkMnBvCxZqWeRtYuIo | TIM-01 PPQN Preview op + New Project PPQN — implementation plan | approved | [tim-01-ppqn-preview-plan.md](./tim-01-ppqn-preview-plan.md) |
 | PLAN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — 実装 plan | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | PLAN-034UwXgmnKOCYgkwlGLFkf | TIM-02 SMF Format0/1 core implementation plan | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
 | PLAN-Yn3mzcCyD4Dwd0Ga4zylHB | TIM-03 session→driver/routing wiring plan | approved | [tim-03-session-driver-wiring-plan.md](./tim-03-session-driver-wiring-plan.md) |
@@ -101,6 +105,7 @@ Directory: `docs/plans`
 | PLAN-034UAzWU1ltpUXPw8mRuWd | VCS-01 Immutable Snapshot Resolver implementation plan | approved | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | PLAN-034UEufn0HEwKaQ2GRVCWB | VCS-02 Semantic Diff Engine implementation plan | approved | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
 | PLAN-D4Oqo3jPnK2GybwKhM5nwh | VCS-03 Git Read Provider implementation plan | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
+| PLAN-0zQ5ZmJ0ht86AMtqu4MSy | synvelis#335 unborn HEAD 誤分類修正 — rev-parse --quiet 除去 実装計画 | approved | [vcs-03-unborn-head-classification-plan.md](./vcs-03-unborn-head-classification-plan.md) |
 | PLAN-VCS04BkndWiringPln0001 | VCS-04 production backend wiring — 実装 plan | approved | [vcs-04-backend-wiring-plan.md](./vcs-04-backend-wiring-plan.md) |
 | PLAN-VCS04Hist0ryV1ewPln01 | VCS-04 History/Visual Diff UI implementation plan | approved | [vcs-04-history-visual-diff-ui.md](./vcs-04-history-visual-diff-ui.md) |
 | PLAN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — 実装 plan | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
@@ -130,6 +135,7 @@ Directory: `docs/plans`
 | PLAN-034PCB04Pk9ySt5zBcPdEf | PC-B Parameter Control dispatch/note-scope/RT/offline 実装計画 | completed | [pc-b-parameter-dispatch.md](./pc-b-parameter-dispatch.md) |
 | PLAN-034UrkBlTpaeiSGII0EyIi | RCD-02 Durability Evidence / Recovery Review / Commit Receipt slice | completed | [rcd-02-durability-recovery-review.md](./rcd-02-durability-recovery-review.md) |
 | PLAN-034VoSKvu6PtN0qTGN02l3 | SF-03 slice8 — app/workspace same-Revision fixture plan | completed | [sf-03-slice8-revision-fixture-plan.md](./sf-03-slice8-revision-fixture-plan.md) |
+| PLAN-034VWvifs0UbP2Diwh0JiN | SF-03 slice9 — host capability generation live firing plan | completed | [sf-03-slice9-capability-firing-plan.md](./sf-03-slice9-capability-firing-plan.md) |
 | PLAN-034VobWDT9p1N0HGeD67OV | SV#28 Ruviform pin 更新 実装計画 — 0f5b5737 → b02942c2 | completed | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | PLAN-pOkUKpNa9zeQiK8ZbP5nvk | SV#28 Ruviform pin 更新 実装計画 — 863a7a9d → cc7d5296 | completed | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | PLAN-TyFpOpS6aiBDCdppuSCl9s | SV#28 Ruviform pin 更新 実装計画 — 9865cd57 → fd1d4d5f | completed | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |

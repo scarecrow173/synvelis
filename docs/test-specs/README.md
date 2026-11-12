@@ -11,6 +11,7 @@ Directory: `docs/test-specs`
 | TESTSPEC-alib02-v5snap | ALIB-02 v5 asset-digest 互換 + recovery fixture — テスト仕様 | approved | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | TESTSPEC-alib03 | ALIB-03 Catalog/Preview Cache — テスト仕様 | approved | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | TESTSPEC-alib04 | ALIB-04 Git Remote Provider — テスト仕様 | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
+| TESTSPEC-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — テスト仕様 | approved | [alib-04-lfs-remote-fetch.md](./alib-04-lfs-remote-fetch.md) |
 | TESTSPEC-alib06 | ALIB-06 WebDAV File-Server Provider — テスト仕様 | approved | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
 | TESTSPEC-alib07 | ALIB-07 Asset Library 全経路 Fault Matrix — テスト仕様・証拠 matrix（headless slice） | approved | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | TSPEC-034AUT01Hd5jKm8nRt3wXsYq | AUT-01 Touch Return・Writer State 境界 検証仕様 | approved | [aut-01-e2e-touch-return-writer-state.md](./aut-01-e2e-touch-return-writer-state.md) |
@@ -73,6 +74,7 @@ Directory: `docs/test-specs`
 | TSPEC-034UJrwI2ZQcJUrzIaZFZE | SF-03 slice6 test-spec — sf03_l6 control surface acceptance | approved | [sf-03-slice6-act06-control-surface.md](./sf-03-slice6-act06-control-surface.md) |
 | TSPEC-0HnGRMaXEy6WChONldI4n2 | SF-03 slice7 — render semantic-lowering 消費 test-spec | approved | [sf-03-slice7-render-consumption.md](./sf-03-slice7-render-consumption.md) |
 | TSPEC-034VoSrQGRatV4fFu1xhFo | SF-03 slice8 — app/workspace same-Revision fixture test-spec | approved | [sf-03-slice8-revision-fixture.md](./sf-03-slice8-revision-fixture.md) |
+| TSPEC-034VWwjeNu5OL7N0dTcTSF | SF-03 slice9 — host capability generation live firing test-spec | approved | [sf-03-slice9-capability-firing.md](./sf-03-slice9-capability-firing.md) |
 | TSPEC-034Um6SOlStZLqEVmi7IEk | SF-04 slice1 受入テスト仕様 — semantic probe 解決・lifecycle・segment cut | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | TSPEC-034UupvzrMsHjf6LBZma9J | SF-04 slice2 受入テスト仕様 — probe observation → trace 記録・freshness・fail-closed | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | TSPEC-034UL2Z7qW8xN4pLm5Rs6 | SF-04 slice3 受入テスト仕様 — clock epoch discontinuity・segment cut・fault/DSP invariance | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
@@ -90,6 +92,7 @@ Directory: `docs/test-specs`
 | TSPEC-t3FjoDxDu6K8hfJWqp6Fz1 | SV-GUI-03 slice2 テスト仕様 — Arrangement read-only Table + Undo/Redo | approved | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
 | TSPEC-6H25Xejdwkw6VwpWCW2abc | SV-GUI-03 slice3 テスト仕様 — Mixer strip master Mute/Solo Toggle | approved | [sv-gui-03-03-mixer-strip-toggle-slice3.md](./sv-gui-03-03-mixer-strip-toggle-slice3.md) |
 | TSPEC-Zx5wCv8nBm2qKs6yHt4pLr | SV-GUI-03 slice4 テスト仕様 — Arrangement selection→Inspector + Meter/Waveform viz mount | approved | [sv-gui-03-04-selection-inspector-viz.md](./sv-gui-03-04-selection-inspector-viz.md) |
+| TSPEC-Pn6rTy3wQx8vBs2kLc9mJd | SV-GUI-03 slice5 テスト仕様 — GPUI-simulated scenario lane | approved | [sv-gui-03-05-gpui-scenario.md](./sv-gui-03-05-gpui-scenario.md) |
 | TSPEC-034Uoh9algsOuSv2AuYVZJ | SV-GUI-04 slice1 precursor 検証仕様: headless multi-window dock fixture | approved | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | TSPEC-Vjrs2MxmcQmuKhfJmVUxJe | SV-GUI-04 slice1 テスト仕様 — 実 2-window mount | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TSPEC-034UqwToZSbEbuOAgyC2SB | SV-GUI-04 slice2 テスト仕様 — close-veto/cancel | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
@@ -102,11 +105,13 @@ Directory: `docs/test-specs`
 | TSPEC-CrvvXGRCC7NBEy9bfba4LH | SV#28 Ruviform pin 更新 検証仕様 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | TSPEC-31xKoCzy7Vtv6MX1J7safw | SV#28 Ruviform pin 更新 検証仕様（9865cd57 → fd1d4d5f） | approved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | TSPEC-034UvylKq35FCXtkknERpp | SYN-IO-01 I/O 境界 Golden/Negative/Crash 検証計画 | approved | [syn-io-01-io-boundary-verification.md](./syn-io-01-io-boundary-verification.md) |
+| TSPEC-034Th7fQpLmNvRwXk2jHs | SYN-IO-02 HEAD CAS 契約試験 | approved | [syn-io-02-head-cas.md](./syn-io-02-head-cas.md) |
 | TSPEC-034T2c6eMscPucNt6w8iYW | SYN-IO-02 Store Publish 契約試験 | approved | [syn-io-02-store-publish-contract.md](./syn-io-02-store-publish-contract.md) |
 | TSPEC-034RBFeQnmt3PcI7beSRpy | SYN-OBS-01 検証仕様 — Host Logging install・設定解決・Health・Source catalog | draft | [syn-obs-01-logging-source-catalog.md](./syn-obs-01-logging-source-catalog.md) |
 | TSPEC-034T2RF305WAVSTAGED01B | SYN-RF305 Export StagedFile Publish 契約試験 | approved | [syn-rf305-export-staged-publish-contract.md](./syn-rf305-export-staged-publish-contract.md) |
 | TSPEC-034VtALo1YCyrOraJu0URr | TIM-01 app 層 PPQN — test spec | approved | [tim-01-app-ppqn.md](./tim-01-app-ppqn.md) |
 | TSPEC-034UHWDhuZ4tU11F5QFAEh | TIM-01 configurable PPQN — test spec | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
+| TSPEC-5nMbVcXzKlJhGfDsApOi | TIM-01 PPQN Preview + New Project PPQN — test spec | approved | [tim-01-ppqn-preview.md](./tim-01-ppqn-preview.md) |
 | TESTSPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 fixtures | approved | [tim-02-player-midi-rt-fixtures.md](./tim-02-player-midi-rt-fixtures.md) |
 | TSPEC-034UwYugwIyQVbAeVxql8O | TIM-02 SMF Format0/1 fixture matrix | proposed | [tim-02-smf-format01-fixtures.md](./tim-02-smf-format01-fixtures.md) |
 | TSPEC-lQ0qYg1as24XtlZ1sHNNWN | TIM-03 session→driver/routing wiring test spec — TIM03-SW01..NN | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
@@ -115,6 +120,7 @@ Directory: `docs/test-specs`
 | TSPEC-034UAzXp7iDmaV6yx7QTZQ | VCS-01 snapshot resolver fixtures | approved | [vcs-01-snapshot-resolver-fixtures.md](./vcs-01-snapshot-resolver-fixtures.md) |
 | TSPEC-034UEueLhP34NeCWclgoux | VCS-02 semantic diff fixtures | approved | [vcs-02-semantic-diff-fixtures.md](./vcs-02-semantic-diff-fixtures.md) |
 | TSPEC-K2QAlGFhpEHJiLP6StV4ta | VCS-03 Git read provider fixtures | approved | [vcs-03-git-provider-fixtures.md](./vcs-03-git-provider-fixtures.md) |
+| TSPEC-E_sJp4NvwYKKfYNFbaPxp | synvelis#335 unborn HEAD 誤分類修正 — 0-commit repo 回帰 test 仕様 | approved | [vcs-03-unborn-head-classification.md](./vcs-03-unborn-head-classification.md) |
 | TSPEC-VCS04BkndWiringTspec01 | VCS-04 backend wiring fixtures | approved | [vcs-04-backend-wiring.md](./vcs-04-backend-wiring.md) |
 | TSPEC-VCS04Hist0ryV1ewTst01 | VCS-04 History/Visual Diff headless fixtures | approved | [vcs-04-history-diff-fixtures.md](./vcs-04-history-diff-fixtures.md) |
 | TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |
