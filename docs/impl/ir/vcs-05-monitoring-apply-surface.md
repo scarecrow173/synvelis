@@ -252,7 +252,26 @@ vcs06_monitoring_matrix 6 passed / 0 failed。
   apply surface は `PluginInstance` 非対応のまま（#324 の
   fail-closed 設計判断と整合）。
 
-## Open Items
+## Risks
+
+- declaration-presence 規則（`PunchMarks` の entity 存在 =
+  `punch_in`/`punch_out` いずれか `Some`）が diff classifier
+  （`diff_punch_marks`）と `entity_value` の 2 箇所に存在する —
+  drift リスクは test-spec T3/T4 の presence 遷移 fixture で
+  固定済みだが、規則変更時は両実装の同期が必要。
+- `Removed` change は全 kind で `Unsupported` のまま —
+  monitor の decl clear/punch clear を含む removal selection は
+  apply できない（cascade design deferred、`plan.rs` の
+  `change_supported` が拒否）。
+- `entity_value`/`write_entity` の `stable_id` parse 失敗は
+  `InvalidIntent`/`InvalidId` で fail-closed — 通常経路
+  （diff → intent → apply）では発生しない防御的チェックであり、
+  diff が生成しない異常 `stable_id` への対応は caller 責務。
+- 実 OS FS durability・実 Provider/plugin E2E・GUI/RT・#97 REAL
+  lanes・ruviform#294 は headless fixture の範囲外で未検証
+  （NotRun 委譲先、下記 Follow-ups 参照）。
+
+## Follow-ups
 
 - `Removed` change の cascade apply（全 kind — monitoring の
   decl clear/punch clear を含む）→ 別設計。

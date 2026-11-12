@@ -85,6 +85,8 @@ metadata:
 
 # GW-06 Authorized Commit Gate・Revoke Linearization・Idempotency / Crash Recovery PoC
 
+## Summary
+
 GW-05 の prepared changeset + approval receipt を消費し、commit 時点の
 最終認可(commit-stage `evaluate_effects`・`ApproveToApply` receipt 再検証・
 delegated apply budget の atomic spend)を経て、既存 `ProjectController::apply`
@@ -94,7 +96,19 @@ undo/redo を同一 `CommitFence` で直列化し、durable journal(FileJournal)
 outcome / policy lifecycle / saved-head を記録して crash recovery を
 冪等 ledger 付きで検証した。
 
-## 実施した変更
+## Context
+
+- Issue: #58(GW-06 本体)。要件の出典は #45・#46(failure matrix)・#17。
+- 依存 IR(`depends-on`): GW-01 gateway contract・GW-02 authorization policy・
+  GW-04 semantic operation preparation・GW-05 prepared changeset / approval
+  receipt(`docs/impl/ir/gw-01..05` 各 IR)・VS-C staging writer journal
+  crash recovery(`docs/impl/ir/vs-c-staging-writer-journal-crash-recovery.md`)。
+- 後続: `blocks` issue #59(MCP adapter)・#62(GW-10 E2E harness)が本実装の
+  `CommitGate`/journal を commit boundary・durable verdict として利用する。
+
+## Implementation
+
+### 実施した変更
 
 | 範囲 | 内容 |
 | --- | --- |
@@ -105,7 +119,7 @@ outcome / policy lifecycle / saved-head を記録して crash recovery を
 | `lib.rs` | `commit`/`journal`/`durable_policy` module + public 型 export |
 | `tests/commit_gate.rs`(新規) | 22 テスト — AC-01..10・REC-01..12 matrix。`ScheduledFence`(thread-local label で section を park/resume、revoke↔commit 順序を決定的に列挙)、`CommitHooks` crash injection、real `FileJournal`/`DirectoryBundleStore`/`FilePolicyStore` への fault injection(torn tail・kill→reopen) |
 
-## 設計上の主要判断
+### 設計上の主要判断
 
 | 判断 | 理由 |
 | --- | --- |
@@ -121,7 +135,25 @@ outcome / policy lifecycle / saved-head を記録して crash recovery を
 | PoC A vs B の LSN 記録を commit record へ埋め込む | `CommitRecord.policy_lsn`(観測した policy 位置)+ policy log 側 `PolicyLogEvent::Fence{commit_seq,policy_lsn}` — B(独立 log)でも crash 点の ordering を事後比較可能 |
 | `IdGenerator: Send` 追加 | gate は mutex 背後の単一 writer を複数 worker thread から share する必要がある — `Box<dyn IdGenerator>` が非 Send では `CommitGate` が thread を跨げない。workspace 唯一実装 `CounterIdGenerator` は既に Send で無害 |
 
-## 受入条件との対応
+## Related Experiments
+
+`metadata.experiments.adopted` に記録された 2 つの PoC を実施し、いずれも
+採用した(棄却なし):
+
+- **PoC A — 単一 ordered commit+policy journal**: recovery ordering を
+  journal seq で完全復元する構成。`FileJournal` + `CommitGate` として実装。
+- **PoC B — independently durable FilePolicyStore**: policy log と commit
+  journal の cross-LSN 記録(`CommitRecord.policy_lsn` +
+  `PolicyLogEvent::Fence`)で A/B の recovery ordering を比較可能にした構成。
+  `durable_policy.rs` として実装し、durable admin 配下では独自 log が権威。
+
+これらは `docs/impl/exp/` の実験ファイルではなく本 IR に inline 記録された
+PoC であり、比較結果は「設計上の主要判断」「Review-protocol 実施結果」の
+表に反映されている。
+
+## Validation
+
+### 受入条件との対応
 
 | AC | 対応 |
 | --- | --- |
@@ -136,7 +168,7 @@ outcome / policy lifecycle / saved-head を記録して crash recovery を
 | AC-09 awaiting approval / expired proposal は deny | `apply_awaiting_approval_is_denied_not_indeterminate`(AwaitingApproval は settled 扱いしない)/`expired_proposal_rejects_at_commit`/`stale_proposal_can_never_commit_after_restart` |
 | AC-10 delegated apply budget は commit 認可で atomic spend | `delegated_apply_commits_spends_once_and_undoes` — fence 内 commit-stage で1回のみ消費、commit record が消費権威で replay 復元 |
 
-## REC matrix(#46 Recovery 条件・GW-06 該当分)
+### REC matrix(#46 Recovery 条件・GW-06 該当分)
 
 | Case | 内容 | 判定 | 証拠 |
 | --- | --- | --- | --- |
@@ -153,12 +185,12 @@ outcome / policy lifecycle / saved-head を記録して crash recovery を
 | REC-11 | Indeterminate は reconcile 対象を残す | Pass | `crash_after_apply_reports_indeterminate_and_no_partial_state`/`stale_proposal_can_never_commit_after_restart` |
 | REC-12 | journal repair 詳細を報告 | Pass | `RecoveryReport{stop,truncated_bytes,unreadable,replayed_*}`、torn tail テストが検証 |
 
-## サポート対象外(明示)
+### サポート対象外(明示)
 
 - fsync が嘘をつく storage、検出不能な silent bit rot は**サポート対象外** — CRC32 + seq gap + torn-tail 検出の範囲を `journal.rs` doc と本レコードで明記。bit rot が header/payload を破壊すれば replay はそこで stop するが、破壊が検出不能な形(内容改竄し CRC まで再計算)は脅威モデル外
 - journal の GC/checkpoint・複数 project の multiplex は PoC 範囲外
 
-## 実行した検証(証拠)
+### 実行した検証(証拠)
 
 - 環境: Windows、rust 1.99.0(mise pin)、GW-01〜05 merge 済み main + 本変更
 - `mise run fmt` / `mise run fmt-check` — Pass
@@ -168,7 +200,7 @@ outcome / policy lifecycle / saved-head を記録して crash recovery を
   `tests/commit_gate.rs` 22 テスト pass、gateway lib 単体(journal codec/fingerprint/append-rollback)5 テスト pass、
   既存 authorization/proposal/recording/workspace/render/project/e2e 全 suite pass
 
-## Review-protocol 実施結果
+### Review-protocol 実施結果
 
 独立 reviewer 2 系(A: 受入条件トレース / B: adversarial・failure)を投入し、指摘は
 コード実測で検証した。実装中に確定し修正済みの主要 findings:

@@ -326,6 +326,40 @@ review-protocol の adversarial レビューで指摘され、コードで
 `pc_b_04_offline_render_matches_playback` (playback drive と
 `render()` で endpoint 観測列完全一致)。
 
+## Risks
+
+レビューで PC-B 起因でないと判断し変更しなかった残存リスク
+(PC-A 既存経路・既知制約):
+
+- `gesture_end` Off-mode の空 gesture が seed 評価値を
+  `BaseEdit{value:last}` として commit する (PC-A 既存動作)。
+- `dispatch(&[])` は空 plan + Play を staging する — 有害では
+  ないが無駄。
+- `record_start` が bound write lane を事前確認しない —
+  gesture_end 時点で lane binding error になる (PC-A 既存経路)。
+- `transport_advance` で tempo compile/beat→media 失敗時に
+  playback.frame が静かに stale のまま (PC-A 既存経路)。
+- `ControlGraph::compile` の index panic は post-oracle 状態では
+  到達不能 — 直接 Project 構築のみ。既知の制約。
+- `EvalPlan` staleness は検出機構なし — revision guard は
+  engine 配線時の follow-up。
+
+PC-B 固有の残存リスク:
+
+- offline render 一致性は stateless・transport 決定論的な
+  fixture に限り `OfflineRenderSupport::Verified` を宣言する
+  test-local wrapper に依存 — bridge node の `offline_support`
+  は upstream で `Unknown` のまま (rf#197 系統) で、実 plugin の
+  offline 等価性は未検証。
+- `eval_rt` の alloc-free 契約は成功パスのみ — エラーパスの
+  `format!`/`NotFound(String)` は測定対象外。
+- note-scoped target の clip 削除 pin は post-apply oracle
+  依存 — oracle が唯一の防衛線であり、oracle 迂回経路
+  (直接 Project 構築) では dangling owner を検出できない。
+- RT 計測は binary 内並列 test が global allocator を共有する
+  ため単一 test に集約 — 測定が 1 test に集中しており、回帰
+  検出はその test の成否に依存する。
+
 ## Follow-ups
 
 - ruviform 側で bridge node の `offline_support` が検証・宣言

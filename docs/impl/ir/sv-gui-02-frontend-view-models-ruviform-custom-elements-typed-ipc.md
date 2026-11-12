@@ -187,7 +187,18 @@ Observability Snapshot は各 owner の範囲。
   gesture→intent→receipt→reflection を担い、unbind は onCleanup
   紐付け — remount/dock で listener/subscription 二重化なし。
 
-## Verification
+## Related Experiments
+
+### Adopted
+
+- なし（`metadata.experiments.adopted` は空。`docs/impl/exp/`
+  に本 slice 関連の experiment 記録なし）。
+
+### Rejected
+
+- なし。
+
+## Validation
 
 実行環境: Windows 11 x64、Git Bash、Rust 1.99.0 pinned、mise
 管理 toolchain。
@@ -220,7 +231,34 @@ NotRun / environment-dependent:
   （`two_views_same_target_both_observe`）だが、frontend 側 2 view
   実 DOM シナリオは未実施。
 
-## Notes / follow-ups
+## Risks
+
+- **契約検証面の完了 ≠ 実機受入**: 検証は headless +
+  vitest/happy-dom + fake IPC と headless Rust suite のみ。
+  実 OS WebView GUI（macOS/Linux 含む）・実 Rust IPC 接続の
+  end-to-end・native GPU 描画・実 plugin/実 DSP・実 multi
+  window は NotRun（`docs/test-specs/sv-gui-02.md`
+  「未検証として明示するもの」）。RF-GT-01 実ブラウザ lane も
+  playwright browser 未導入環境のため未実施。
+- **receipt ≠ 表示真実**: `syn.control.dispatch` の op result
+  は queue ack のみで、値の真実は `syn.control.projection`
+  経由（ADR 決定節。追補の mounted positive control で
+  receipt `applied` 後も pending 維持・projection 着地でのみ
+  解除を実測）。consumer が receipt を値反映と誤読しない契約。
+- **残存 P2/P3（lifecycle review 由来）**: public `vm.link`
+  直接操作による route 管理迂回、失効 `attach()` の最終
+  generation 返却、disposed meter の in-flight refresh、
+  canonical lifecycle test の盲点、同一 view ID の concurrent
+  owner / 実 Dock detach の並行順序は未受入。detach 窓の
+  receipt unrouted 消失（Reviewer B IC-B2）は design 非目標
+  として切り分け済み。詳細は後述の各追補「残る P2/P3・
+  検証境界」。
+- **RF-GT-02 残 corpus**: `ipc/intents`・`ipc/events`・
+  `ipc/data` は upstream Rust conformance test が同一 corpus
+  を検証済みで、Synvelis 側は `syn.*` wire shape のみ追加
+  検証 — corpus case 全量の再実行はしていない（重複回避）。
+
+## Follow-ups
 
 - `syn.control.dispatch` の op result は queue ack のみ — receipt
   と projection は notify 経由（ADR 決定節）。`provenance` は
@@ -235,6 +273,10 @@ NotRun / environment-dependent:
   同一 corpus を検証済み。Synvelis 側では `syn.*` wire shape を
   同 mirror で追加検証したが、corpus case 全量の再実行はしない
   （重複回避）。
+- 実 OS WebView GUI・実 Rust IPC e2e・native GPU・実 plugin/実
+  DSP・実 multi window の正式受入は別 lane — #112 は継続。
+  Draft PR での保存状態は変わらず、merge-ready / 統合済みとは
+  扱わない。
 
 ## 2026-11-06 lifecycle 是正（追補・frontend 正式受入 BLOCKED）
 

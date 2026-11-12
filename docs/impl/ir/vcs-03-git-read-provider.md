@@ -106,7 +106,35 @@ metadata:
 
 # VCS-03 Git Read Provider — Implementation Record
 
-## What was built
+## Summary
+
+Issue #94 の headless fixture slice として、VCS-01 snapshot
+resolver と VCS-02 semantic diff の比較元を Git から供給する
+read-only provider を実装した。`synvelis-project::vcs` に
+provider-neutral 契約（`FixedVcsRevision`/`RevisionSelector`/
+merge-aware `HistoryNode`/`HistoryQuery`/`WorkingStatus`/
+`StagedSnapshot`/`VcsCapabilities`/`VcsError`/`VcsReadProvider`）、
+`synvelis-library::git::vcs` に `GitVcsProvider` +
+`GitVcsConfig` を追加し、`VcsReadProvider` 全 method と
+`VcsBytesPort`（staged/committed locator の project file・asset
+blob read、index generation fingerprint）を実装した。全 git
+呼出は fixed-argv plumbing で worktree/index を変更しない。
+実 git 2.54 fixture（`tests/vcs03_git_provider.rs` 19 tests）
+で検証済み。
+
+## Context
+
+Implements `docs/tasks/vcs-03-task1-git-read-provider-headless-slice.md`
+per `docs/plans/vcs-03-git-read-provider.md`,
+`docs/designs/vcs-03-git-read-provider-design.md`, and
+`docs/specs/vcs-03-git-read-provider.md`; verified by
+`docs/test-specs/vcs-03-git-provider-fixtures.md`.
+Source: synvelis issues #94, #92, #93, #88, and #7. Related IRs:
+`docs/impl/ir/vcs-01-immutable-snapshot-resolver.md` and
+`docs/impl/ir/vcs-02-semantic-diff-engine.md`; related spec:
+`docs/specs/alib-04-git-remote-provider.md`.
+
+## Implementation
 
 Issue #94 の headless fixture slice として、VCS-01 snapshot resolver と
 VCS-02 semantic diff の比較元を Git から供給する read-only provider を
@@ -149,7 +177,18 @@ Working Status/Asset Catalog は別 Port（`synvelis-project::vcs` vs
 project `ContentDigest`（`sha256:` prefix）は別名前空間として型・
 test 双方で固定。
 
-## Verification
+## Related Experiments
+
+### Adopted
+
+<!-- 実験 log なし（`metadata.experiments.adopted` は空。関連する
+`docs/impl/exp/*.jsonl` も存在しない）。 -->
+
+### Rejected
+
+<!-- なし -->
+
+## Validation
 
 - `tests/vcs03_git_provider.rs`: 19/19 pass（実 git 2.54 fixture）。
   受入 4 行 — fixed commit が branch/tag force-move 後も同一
@@ -165,7 +204,7 @@ test 双方で固定。
 - docs index を `doc_maintenance.js` で再生成し `doc_status.js audit`
   で検査。
 
-## NotRun / Deferred
+### NotRun / Deferred
 
 - 実 OS permission matrix・real remote fetch・auth/credential 実経路・
   GC/objects 欠損の実 filesystem 条件・GUI/Visual Diff・RT 性能保証は
@@ -173,3 +212,27 @@ test 双方で固定。
 - remote LFS fetch・submodule 内容取得・rename similarity 検出
   （tree-level delete+add のみ）・first-parent-only history opt-in は
   本 slice 対象外。
+
+## Risks
+
+- remote LFS fetch は未対応 — local `<git_common>/lfs/objects`
+  のみ解決し、remote LFS object は `Missing`+`Degraded` として
+  扱う（pointer text を content として返さない）。
+- submodule 内容取得・rename similarity 検出は対象外 — tree-level
+  では rename は delete+add として現れ、submodule（gitlink）の
+  内容は取得しない。
+- 実 OS permission matrix・real remote fetch・auth/credential
+  実経路・GC/objects 欠損の実 filesystem 条件・GUI/Visual Diff・
+  RT 性能保証は headless fixture で未検証（Issue #97 へ NotRun
+  委譲）。
+
+## Follow-ups
+
+- VCS-04 History/Visual Diff UI（Issue #95）。
+- VCS-05 Safe Apply/Restore（Issue #96）。
+- 実 OS permission matrix・real remote fetch・auth/credential
+  実経路・GC/objects 欠損の実 filesystem 条件・GUI/RT 性能保証
+  （Issue #97）。
+- remote LFS fetch（現状は local LFS object store のみ解決）。
+- submodule 内容取得・rename similarity 検出（tree-level
+  delete+add のみ）・first-parent-only history opt-in。

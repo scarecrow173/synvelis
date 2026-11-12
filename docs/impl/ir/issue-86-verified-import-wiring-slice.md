@@ -89,7 +89,34 @@ metadata:
 
 # Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 — 実装記録
 
-## 実装内容
+## Summary
+
+Issue #86 DoD(2) — ALIB-02（PR #220）で merge 済みの
+`synvelis-library::import_verified` を consumer から実結合し、
+`synvelis-player` に digest-kind blob 解決の単一権威
+`open_blob_verified` と consumer 入口 `import_verified_local`
+を実装した。`resolver` / `synvelis-render` の重複実装を集約し、
+sha256 digest の source が実際に再生可能になった。検証は
+`tests/verified_import.rs` 8 件を含む workspace 全緑。
+
+## Context
+
+Spec: docs/specs/issue-86-verified-import-wiring.md
+Design: docs/designs/issue-86-verified-import-wiring-design.md
+Plan: docs/plans/issue-86-verified-import-wiring-plan.md
+Task: docs/tasks/issue-86-task-verified-import-wiring.md
+Test spec: docs/test-specs/issue-86-verified-import-wiring.md
+Evidence: evidence/issue-86-verified-import-wiring/verification-ledger.md
+
+library 側の streaming stage machine・sha256-only commit
+gate・rebase/inspect/gc_orphans は ALIB-02 で merge 済みだが、
+consumer は library tests のみで、player 側には (a)
+digest-kind blob 解決（`sha256:` digest の source が
+`MissingMedia` で再生不能）と (b) consumer 入口の 2 つの
+ギャップがあった。本 slice はその 2 つを閉じる。
+依存方向は `player → library → project` で非循環。
+
+## Implementation
 
 - `synvelis-player/src/blob.rs`（新規）: digest-kind 解決の単一権威
   `open_blob_verified`。`AssetDigest::parse(digest).kind()` で分岐し、
@@ -124,7 +151,7 @@ metadata:
   は非循環。
 - テスト: `crates/synvelis-player/tests/verified_import.rs`（8 件）。
 
-## 意図的な設計決定
+### 意図的な設計決定
 
 - **Verified 止め**: `SetSourceState` は `Verified` まで。`Committed`
   まで進めると 2 command=2 undo step で旧経路と undo 粒度が変わるため
@@ -138,7 +165,15 @@ metadata:
   target が優先されるため、clip 付き import は初回呼び出し時に
   target を渡す設計とした（テストもそれに合わせて構築）。
 
-## 検証（canonical: mise）
+## Related Experiments
+
+`metadata.experiments.adopted` / `rejected` はともに空。
+`docs/impl/exp/` にも本 slice に対応する実験記録
+（`.jsonl` / `.md`）は存在しない。
+
+## Validation
+
+canonical: mise。
 
 - `mise run fmt` / `fmt-check`: pass。
 - `mise run check`: pass（exit 0）。
@@ -152,7 +187,25 @@ metadata:
   saved HEAD→load→play / interrupted inspect→resume）。
 - evidence: `evidence/issue-86-verified-import-wiring/verification-ledger.md`。
 
-## 残件
+## Risks
+
+- `import_verified` は byte-integrity のみを検証し
+  `SourceState::Imported` で commit するため、media decode
+  検証と `Verified` への state 前進は consumer 責務 — decode
+  検証を伴わない呼び出し経路を作ると、再生 gate
+  （`>= Verified`）を通らない source が残る。
+- `Verified` 止めのため旧 `import_local` 経路（1 command =
+  1 undo step）に対し 2 command = 2 undo step の undo 粒度差
+  がある（spec「Undo 粒度の変更」に明記）。
+- `DigestKind::Opaque` は fail-closed — 未知 digest の source は
+  再生 gate を通っても blob 解決できず型付き失敗になる
+  （意図的な安全側選択）。
+- manifest replay では記録済み target が優先され request の
+  target は無視される — clip 付き import は初回呼び出し時に
+  target を渡す必要がある。
+- DirSync durability は Windows で Unsupported（spec に記録のみ）。
+
+## Follow-ups
 
 - RT thread・実 audio device・実 GUI・app 層配線: 対象外（別 Issue）。
 - DirSync durability: Windows では Unsupported（spec に記録のみ）。

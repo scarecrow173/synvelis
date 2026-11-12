@@ -253,7 +253,33 @@ already up to date）:
   P3 候補（`(false,false)` dead arm、singleton entity
   accounting）は非 blocking として据え置き。
 
-## Open Items
+## Risks
+
+- `PunchMarks` の declaration-presence は `{None,None}` を
+  「宣言なし」と読む合成 presence — serialized 上は field が
+  常に存在するため「Removed なのに before に entity が有った」
+  ように見える。authored 意味（いずれかの mark が `Some` で
+  初めて punch intent が存在）に忠実な分類として design で規則を
+  明示済みだが、consumer が serialized shape から presence を
+  推測すると誤読し得る。
+- `DIFF_POLICY_VERSION` 1 → 2 により、monitor 宣言を持たない
+  project でも policy_version が key digest・ChangeId 材料に
+  入るため比較 key が変わる（changes/unresolved/overall の
+  意味論は不変）。旧 policy の cached/persisted result とは key
+  が衝突しないが、monitor-only 差分は v1 の `Equal` から v2 の
+  `Different` へ変わる。
+- monitor 宣言が `Recording` domain に入るため、Recording のみを
+  include した比較で monitor 差も現れる — Arm/Monitor/Punch が
+  recording intent の authored 宣言である以上、意図した分類
+  （domain filter の既存契約）。
+- `TrackMonitorDecl` の `lane` が他 track の lane を指す不整合は
+  `validate_references` が load 時に拒否するため、diff は素直に
+  `Modified` として報告するのみで良い（snapshot は resolve 時に
+  検証済み）。
+- review で残った P3 候補（`(false,false)` dead arm、singleton
+  entity accounting）は非 blocking として据え置き。
+
+## Follow-ups
 
 - 実 device monitor/latency・MonitorAdapter RT graph 搭載・
   Loop/PunchInLoop gate・count-in UX・実 GUI は Issue #117 の

@@ -61,7 +61,22 @@ drain` の「全 telemetry → 全 chunks」配信順序が
 close 適用）を実装した。master DSP/PCM・port 契約・
 `Cargo.lock`・他 Worker 占有 file は変更していない。
 
-## Implemented
+## Context
+
+Issue #107 の bounded deliverable 2 件。slice3 は
+`RoutingEngine::seek` を唯一の cursor-series epoch 宣言点
+として `probes.bump_clock_epoch()` を配線済みで、slice6 の
+`probe_compare`/`ProbeCoverage`（`PROBE_COVERAGE_MAX_EVENTS
+= 2048`・`lost_records` floor）は PR #348 で merge 済み。
+本 slice は (a) SF-PROBE-05 の fault 証拠層を headless
+fixture で固定し、(b) slice3/6 spec が deferred とした
+「seek 以外の不連続宣言点」を transport 非依存の小 API と
+して追加する。fixture 設計の過程で `ProbeSession::drain`
+の segment close 順序に実ギャップを確認し、許可範囲内で
+`probe.rs` を修正した（`docs/designs/
+sf-04-slice8-probe-faults-declare-design.md` Context 節）。
+
+## Implementation
 
 ### `crates/synvelis-player/src/routing_engine.rs`
 
@@ -138,7 +153,18 @@ epoch 進行 + deck 未達乖離 + 次 wire での resync を証明。
   loop/restart API は存在せず YAGNI。宣言 API は transport
   非依存のため将来の loop 導入時もそのまま使える。
 
-## Verification
+## Related Experiments
+
+### Adopted
+
+- なし（`metadata.experiments.adopted` は空。`docs/impl/exp/`
+  に本 slice 関連の experiment 記録なし）。
+
+### Rejected
+
+- なし。
+
+## Validation
 
 - `cargo test -p synvelis-player --test
   sf04_s8_probe_faults`: 5 passed / 0 failed。
@@ -160,7 +186,28 @@ epoch 進行 + deck 未達乖離 + 次 wire での resync を証明。
   `ui/src/ipc.ts` は **NotRun** — 後続 slice/外部受け入れへ
   委譲。Pass 扱いしない。
 
-## Remaining / Out of Scope
+## Risks
+
+- **`PendingClose` の end reason 優先順位**: first close wins
+  — 同 batch に複数 closing status が来ても最初のものが正直な
+  終了理由（後続は close 後の binding 証拠）。
+  `entry().or_insert` で実現（design Risks and Trade-offs）。
+- **pending 中の epoch 不一致 chunk**: 通常発生しない
+  （close 後は Monitor/Off で chunk を出さない）が、来た場合は
+  cut も計上もせず discard — segment の epoch 不変条件を守る。
+- **`AlreadyCapturing` との相互作用**: `open` は flush まで
+  残るため、同 batch 内に次の `capture()` は依然
+  `AlreadyCapturing` — batch を跨ぐ API 呼出しは flush 後に
+  しか来ないため実害なし。
+- **adapter 側同期 close は未修正**: `remove()`/
+  `reresolve_on_publish` の即時 close は drain batch を持た
+  ない — queued chunk の取りこぼしは理論上残る（別 slice の
+  検討事項として記録）。
+- **`unobserved`/`unbound` counter**: `unbound` は generation
+  guard の一時的 skew で発生し得るため assert しない。
+  `unobserved == 0` のみ fixture で主張。
+
+## Follow-ups
 
 - `syn.probe.compare` app op（`service.rs`/`ui_ops.rs`/
   `app.rs` 他 Worker 占有）。

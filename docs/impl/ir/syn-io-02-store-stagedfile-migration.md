@@ -39,7 +39,22 @@ metadata:
 
 # SYN-IO-02 store.rs StagedFile 移行 — 実装記録・検証証跡
 
-## 対象
+## Summary
+
+Issue #84 / PR #178 の SYN-IO-02 store 移行 slice:
+`DirectoryBundleStore::write_atomic`（手組 `.tmp` →
+`File::sync_all` → `fs::rename`）を撤去し、ruviform-io-file の
+`StagedFile` publish（`publish_staged` helper）へ移管した。
+snapshot は `PublishMode::CreateNew`・HEAD は `Replace`、両者
+`Durability::FileAndDirectorySync`・`RequireAtomic`。同一
+revision 衝突は `snapshot_collision` で `Satisfied`/`Refresh`/
+`Conflict` に分類し、merge 前レビュー Judge=BLOCKED 由来の
+P1（`Satisfied` 受理が snapshot 親 dir の耐久性を再確立
+しない欠陥）を「勝者 byte の完全 publish 再実行」で修復。
+`tests/store_publish.rs` 新規 16 tests、mise canonical 検証は
+全 pass。
+
+## Context
 
 - Issue: https://github.com/scarecrow173/synvelis/issues/84
 - PR: https://github.com/scarecrow173/synvelis/pull/178
@@ -48,8 +63,17 @@ metadata:
 - Ruviform 解決 SHA: `49de02cc530d324772d8556225030eb2b9307751`
   （`Cargo.lock` 内の全 ruviform crate と一致・lock 差分は新規
   `ruviform-io-file` 1 package + `synvelis-project` dep edge のみ）
+- 上流 doc chain（本 slice で新規作成）:
+  `docs/specs/syn-io-02-snapshot-head-staged-publish.md` /
+  `docs/designs/syn-io-02-directory-bundle-store-stagedfile-design.md` /
+  `docs/plans/syn-io-02-directory-bundle-store-stagedfile.md` /
+  `docs/tasks/syn-io-02-task1-store-stagedfile-migration.md` /
+  `docs/test-specs/syn-io-02-store-publish-contract.md` +
+  各 `README.md` index。
 
-## P1 修復（2026-11-07・merge 前レビュー Judge=BLOCKED 由来）
+## Implementation
+
+### P1 修復（2026-11-07・merge 前レビュー Judge=BLOCKED 由来）
 
 - **根因**: `save` の `DestinationExists` 受理経路で
   `SnapshotCollision::Satisfied => {}` が「内容冪等性」を
@@ -101,7 +125,7 @@ metadata:
   false success `Ok("r1.json")` を観測）。未実施: 実電源断・
   macOS/Linux 実測（Refs #84 受入 Gate 維持）。
 
-## 実施内容
+### 実施内容
 
 - `DirectoryBundleStore::write_atomic`（`.tmp` → `File::sync_all`
   → `fs::rename`）を撤去し、`publish_staged` helper として
@@ -124,7 +148,7 @@ metadata:
   `crates/synvelis-project/Cargo.toml`）+ `Cargo.lock` 再生成。
 - Doc chain: spec/design/plan/test-spec/task を新規作成・同期済み。
 
-## 変更ファイル
+### 変更ファイル
 
 - `crates/synvelis-project/src/store.rs`
 - `crates/synvelis-project/tests/store_publish.rs`（新規・14 tests）
@@ -132,7 +156,20 @@ metadata:
 - `docs/{specs,designs,plans,test-specs,tasks}/syn-io-02-*` 5 件 +
   各 `README.md` index
 
-## 検証証跡（実行環境 Windows・全 pass）
+## Related Experiments
+
+### Adopted
+
+- なし（experiment log なし — `metadata.experiments.adopted` は空、
+  `docs/impl/exp/` に関連 experiment なし）。
+
+### Rejected
+
+- なし。
+
+## Validation
+
+実行環境は Windows・全 pass。
 
 | コマンド | 結果 |
 | --- | --- |
@@ -151,7 +188,7 @@ HEAD publish 失敗（NotPublished）で orphan+旧 HEAD、外部 HEAD
 空 bundle head()=None、byte-faithful round-trip、stage create
 失敗、InMemoryStore port 整合、同名 CreateNew 並行 single-winner。
 
-## 独立レビュー（reviewer A/B → validator → judge・全て独立 subagent）
+### 独立レビュー（reviewer A/B → validator → judge・全て独立 subagent）
 
 - Reviewer A（correctness）: IC-1 stage ラベル、IC-2/IC-3 docs 矛盾、
   IC-4 cleanup guard、IC-5 TOCTOU residual — 全て対処済み/記録。
@@ -165,7 +202,9 @@ HEAD publish 失敗（NotPublished）で orphan+旧 HEAD、外部 HEAD
   分類落ち → read error 表面化で修正、残りは residual 記録）。
 - Judge: **ACCEPT WITH NON-BLOCKING NOTES**・blocking issue なし。
 
-## Non-blocking notes（PR 記載済み）
+## Risks
+
+### Non-blocking notes（PR 記載済み）
 
 - `project.new` 等の非空 bundle への silent clobber が明示拒否へ
   変わった（意図的強化・behavior change）。
@@ -174,7 +213,7 @@ HEAD publish 失敗（NotPublished）で orphan+旧 HEAD、外部 HEAD
 - `Refresh`/`Satisfied` は stored byte が envelope として parse
   できる前提（load が検証境界）。
 
-## NotRun / Unsupported
+### NotRun / Unsupported
 
 - OS 固有 Indeterminate/DirSync 失敗注入: ruviform-io-file 側
   fault-injection 責務へ委譲（consumer 側は失敗分類・HEAD 非前進
@@ -186,3 +225,16 @@ HEAD publish 失敗（NotPublished）で orphan+旧 HEAD、外部 HEAD
   SV86 Asset Schema: 所有範囲外・未変更。
 - RF #305 旧 Media API 撤去との結合: coordinator 統合判断へ連携、
   本 PR 単体では両 Consumer 受入を主張しない。
+
+## Follow-ups
+
+- 実電源断・macOS/Linux 実測は Refs #84 受入 Gate として外部
+  検証事項に残る（上記 NotRun どおり）。
+- OS 別の DirSync/publish 失敗挙動は ruviform #296/#306 側の
+  検証へ委譲（plan `syn-io-02-directory-bundle-store-stagedfile.md`
+  Open Questions / Gaps）。OS 固有 Indeterminate/DirSync 失敗
+  注入も ruviform-io-file 側 fault-injection 責務。
+- 複数 process の真 HEAD CAS は単一 file replace で実現不能 —
+  設計 deferred・単一 writer モデル外（上記 NotRun）。
+- RF #305 旧 Media API 撤去との結合判定は coordinator 統合側の
+  後続作業。

@@ -66,11 +66,40 @@ metadata:
 
 # PC-C4-02 plugin instance binding — implementation record
 
-## What landed
+## Summary
 
 Issue #101 第二 slice。第一 slice（PR #221）の binding 層を #122
 （CTL-02）の stage-1 semantic authority へ接続し、plugin instance
 の authored identity を connect-time 証拠として pin した。
+
+## Context
+
+- Issue #101（PC-C4 plugin parameter binding）の第二 slice。
+  第一 slice の `PluginBindingSession`/`PluginParameterBinding` は
+  instance/node/generation/frame-base を pin するが、plugin
+  identity（descriptor/version/capability_revision）をどこにも
+  pin していなかった。`PluginNodeControl` は identity query を
+  公開せず、`PluginHost` にも per-instance descriptor query は
+  無い（Ruviform #307 は frame base のみ保証）。一方
+  `ProcessorConnectRequest.processor.binding` は connect 時に
+  `ProcessorBinding::Resolved(PluginRef)` を保持しており、これが
+  「その generation の instance が実際に何として instantiate
+  されたか」の唯一の正しい証拠である（design Context）。
+- stage-1 側は `semantic_plugin_binding`（CTL-02）が
+  `ParameterTargetId → (ProcessorId, PluginRef, ParamId)` を
+  fail-closed で解決済みだが、`PluginBindingSession::bind` は
+  それを消費せず、owner/capability を inline で再検査するだけ
+  で `routing.processors` の存在・`Resolved`・plugin identity
+  を検証していなかった。
+- 上流文書: spec `docs/specs/pc-c4-02-plugin-instance-binding.md`、
+  design `docs/designs/pc-c4-02-plugin-instance-binding-design.md`、
+  plan `docs/plans/pc-c4-02-plugin-instance-binding.md`、task
+  `docs/tasks/pc-c4-02-task1-plugin-instance-binding.md`、
+  test-spec `docs/test-specs/pc-c4-02-e2e-plugin-instance-binding.md`。
+
+## Implementation
+
+### Changes
 
 - `synvelis-project::host_param::plugin_instance_binding` —
   `ProcessorId → &PluginRef` の canonical lookup（`NotFound`/
@@ -91,7 +120,7 @@ Issue #101 第二 slice。第一 slice（PR #221）の binding 層を #122
 - `RoutingControlDispatch::vend_nodes` は `control.plugin: None` を
   `without_control` evidence として fail-closed 処理。
 
-## Key decisions
+### Decisions During Implementation
 
 - **identity の情報源は connect-time binding に限定**: live project
   を attach 時に読むと、rebind 済み project の主張を旧 generation
@@ -107,7 +136,18 @@ Issue #101 第二 slice。第一 slice（PR #221）の binding 層を #122
   （`port_capability_generation` が拾えない drift を identity pin
   が補完）。
 
-## Verification
+## Related Experiments
+
+### Adopted
+
+なし — `metadata.experiments.adopted` は空で、本 slice は
+Experiment Log を採用していない。
+
+### Rejected
+
+なし — `metadata.experiments.rejected` は空。
+
+## Validation
 
 - `mise run check` / `lint` / `test`（`CARGO_BUILD_JOBS=4` —
   page-file 対策の env のみ、コマンドは canonical のまま）/
@@ -122,7 +162,29 @@ Issue #101 第二 slice。第一 slice（PR #221）の binding 層を #122
 - `mise run check-ruviform-rev`: worktree の `ui/vendor/ruviform`
   stale（synvelis#230 既知、lock rev 未変更のため本 slice 無関係）。
 
-## NotRun
+## Risks
+
+- identity vend は connect-time `ProcessorBinding` のみに依存
+  する — backend が connect 時に誤った `PluginRef` を報告した
+  場合、pin はその値を正とする（vend 経路の証拠品質が前提）。
+- `ProcessorControl.plugin: None`（identity 証拠なし）は
+  `without_control` に fail-closed — session は開かないが
+  report evidence で観測可能（silent drop ではない）。
+- 旧 generation の last-good binding は project rebind 後も
+  配送を続ける — 意図動作だが、rebind 直後の新規 bind は
+  `PluginMismatch` で止まるため、pin の更新は generation 機構の
+  世代交代を待つ。
+- 検証時の既知の環境要因: `mise run fmt-check` は main 既存の
+  rustfmt drift で Failed、`check-ruviform-rev` は stale vendor
+  を検出（いずれも本 slice 無関係 — Validation 節参照）。
+
+## Follow-ups
 
 - 実 VST3/OS plugin backend・実 GUI・AudioLens f64（#294）・
-  Ruviform cross-consumer CI — 別 gate。
+  Ruviform cross-consumer CI — 別 gate（NotRun 継続）。
+- workspace/app composition root での `plugin_instance_binding`
+  消費（caller 側の証拠突合）— app 配線 slice へ deferred。
+- persisted instance identity — runtime evidence のみ。
+  restart 横断の永続化は後続 slice へ deferred。
+- `PluginNodeControl` identity query — Ruviform 側 upstream gate
+  （vend 経路で代替済み）。

@@ -196,7 +196,19 @@ unsupported。
 - host の case 正規化は `same_origin`/credential confinement の
   一貫性のため parse 時に lowercase 化(RFC 3986)。
 
-## Verification
+## Related Experiments
+
+### Adopted
+
+なし（本 slice は実験を伴わない provider 実装作業。
+`metadata.experiments` は adopted/rejected とも空で、
+`docs/impl/exp/` に関連する実験ログは存在しない）。
+
+### Rejected
+
+なし。
+
+## Validation
 
 - `mise run fmt-check` / `check` / `lint` / `test` / `test-rt` /
   `build` / `test-msrv`: 全て pass(workspace 全 target、locked
@@ -209,3 +221,40 @@ unsupported。
   stack 非保有)・実 OS credential store・GUI・実 server 障害 —
   設計上の対象外。`synvelis-app`/workspace/project/gateway/player/
   recording/render/theme/poc・`.github/`・root manifest は未変更。
+
+## Risks
+
+- **WebDAV に真の paging がない**: browse の真の cursor paging は
+  WebDAV protocol に存在しないため、entry/byte budget で bounded
+  listing とし、打ち切りは `Coverage::Partial` として正直に報告
+  する。大規模 collection では listing が budget で打ち切られ、
+  全件列挙には複数 browse が必要になる。
+- **strong ETag のみ受理の fail-closed**: pin は strong ETag
+  のみを `PinProof::ConditionalStrong` で結び、weak(`W/`)・
+  missing ETag は `UnsupportedCapability` で拒否する。ETag を
+  返さない・weak ETag のみ返す WebDAV server では pin/open_pinned
+  が利用できない。
+- **server の Range 無視は client-side bounded skip**: preview で
+  server が `Range` を無視して `200` を返した場合、client 側で
+  bounded skip するが range 対応済みとは主張しない。Range 非対応
+  server では preview が先頭からの skip コストを負う。
+- **`https` は connect 前に typed `UnsupportedCapability`**:
+  TLS stack 非保有のため `https` scheme は parse 可能だが接続
+  できず、silent downgrade は行わない。TLS 対応までは `https`
+  WebDAV は利用不可。
+- **multistatus subset parser の網羅性**: `webdav::xml` は
+  multistatus subset 用の streaming pull parser であり、
+  entity/CDATA/comment/PI/namespace-local 名に対応するが、
+  対象外の XML 構造を含む server 応答は fail-closed で拒否
+  される。
+
+## Follow-ups
+
+- 実 network・実 WebDAV server・実 server 障害: NotRun。
+  fault 観点は synvelis#91（ALIB-07 fault matrix）が所有する。
+- `https`（TLS stack 非保有）: TLS stack 導入までは
+  `UnsupportedCapability` が仕様。
+- 実 OS credential store・GUI: 外部 gate。
+- `synvelis-app`/workspace/project/gateway/player/recording/
+  render/theme/poc・`.github/`・root manifest は本 slice の
+  対象外であり未変更（Validation の NotRun 記述どおり）。

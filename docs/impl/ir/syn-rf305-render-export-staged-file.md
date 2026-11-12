@@ -39,12 +39,33 @@ metadata:
 
 # SYN-RF305 render/player WAV Export StagedFile 移行 — 実装記録・検証証跡
 
-## 対象
+## Summary
+
+Issue #82（関連: Closed #25）の SYN-RF305 slice: render/player の
+WAV Export を Ruviform staged-file 契約（ruviform #305 /
+PR391 + RF407 bounded bridge `4c675193`）へ移行した。
+`StagedFile::create` → muxer → `seal()` → `with_borrowed_demuxer`
+readback verify → `SealedFile::publish`（`PublishReceipt`）の
+型契約へ `spec.rs`/`export.rs`/`verify.rs`/`l2_e2e.rs`/`pc_b.rs`
+を更新し、初期移行で混入した encoded bytes 全量 RAM 保持の
+退行は SV 独自 proxy（`ReadProxy`/`serve_readback`/
+scoped-thread）を完全撤去して RF407 bridge 消費で構造的に解消。
+最終候補 SHA `27698cb1` で mise canonical 検証を再実測
+（`test-msrv` のみ main 既存破壊で fail・本変更非起因）。
+
+## Context
 
 - Issue: https://github.com/scarecrow173/synvelis/issues/82
   （関連: Closed https://github.com/scarecrow173/synvelis/issues/25）
 - Upstream: https://github.com/scarecrow173/ruviform/issues/305 /
   https://github.com/scarecrow173/ruviform/pull/391
+  （+ RF407 / ruviform PR407 `4c675193` bounded bridge）
+- 上流 doc chain:
+  `docs/specs/syn-rf305-wav-export-staged-file.md` /
+  `docs/designs/syn-rf305-wav-export-staged-file-design.md` /
+  `docs/plans/syn-rf305-wav-export-staged-file.md` /
+  `docs/tasks/syn-rf305-task1-render-export-staged-file.md` /
+  `docs/test-specs/syn-rf305-export-staged-publish-contract.md`。
 - Branch: `scarecrow173/sv-rf305-export`（PR181。origin/main
   `2c0711e` merge 済み）
 - Ruviform 解決 SHA: `27698cb108c672c5758e724d8623663983db1224`
@@ -57,7 +78,9 @@ metadata:
   解除条件: RF391/RF407 が main へ merge され `cargo update` で新
   main HEAD へ再解決される時点）
 
-## 実施内容
+## Implementation
+
+### 実施内容
 
 - `spec.rs`: `WrapSink`/`DynVerify`/`DynPublish`/`DynMuxerCtor` を
   新契約へ更新 — `&'a mut StagedFile` 借用、`&mut SealedFile`
@@ -100,7 +123,7 @@ metadata:
   `ruviform-io-file.workspace = true`。`Cargo.lock` 全 ruviform
   crate を `27698cb1` へ更新。`ui/vendor` 再同期。
 
-## 不変条件の対応
+### 不変条件の対応
 
 - finalize → muxer drop（借用解除）→ `seal()` → readback 検証 →
   publish の順序は Ruviform driver 契約が強制。finalize/Drop
@@ -117,7 +140,7 @@ metadata:
   `NotPublished`/`Published`/`Indeterminate` は混同なし
   （`ExportOutcome`/`PublishEffect` が分類を担う）。
 
-## 追加修正 — verify readback の encoded 全量 RAM 退行（root P1）
+### 追加修正 — verify readback の encoded 全量 RAM 退行（root P1）
 
 初期移行リビジョンの `verify.rs` は `read_to_end → Vec<u8> →
 Cursor` で demux しており、decode planes（従来どおり O(output)）に
@@ -170,7 +193,20 @@ bridge 経路を実測）。`test-msrv` は `cargo-platform@0.3.3`
 解消）。`expect_pcm` を増分 callback 化する選択肢は test 契約変更を
 伴うため別途検討事項。
 
-## Verification（Windows・実測・最終 head・候補 SHA `27698cb1`）
+## Related Experiments
+
+### Adopted
+
+- なし（experiment log なし — `metadata.experiments.adopted` は空、
+  `docs/impl/exp/` に関連 experiment なし）。
+
+### Rejected
+
+- なし。
+
+## Validation
+
+実行環境は Windows・実測。最終 head・候補 SHA `27698cb1`。
 
 **候補 SHA**: 最終 candidate は
 `27698cb108c672c5758e724d8623663983db1224`
@@ -294,7 +330,10 @@ review-protocol 完走（A 協調 / B 敵対 → Validator → Judge、
   non-blocking。残る P3（F1 メッセージ表現・`d68b14d` は歴史的
   記録として残置）は follow-up 任意、fix 義務なし。
 
-## NotRun / Unsupported
+## Risks
+
+以下は本 slice で pin していない領域・残存リスクの正直記録
+（外部 gate・NotRun・main 既存破壊）。
 
 - `PublishEffect::Indeterminate` の Consumer 側決定的注入:
   `PublishFailure` 非公開 constructor + RF mock は `#[cfg(test)]`
@@ -311,3 +350,21 @@ review-protocol 完走（A 協調 / B 敵対 → Validator → Judge、
   で本変更非起因。修正は SV175 所有範囲（依存 pin または代替）。
 - RF391/RF407 本 merge 後の main HEAD 再解決・両 Consumer exact
   tuple 判定・候補 lock 解除: coordinator 所有ゲート。
+
+## Follow-ups
+
+- 独立レビュー Judge 指摘の follow-up issue 候補（第1ラウンド・
+  P2、fix 義務なし）: custom verify hook の未カバー経路、および
+  `synvelis-recording::staging::publish_atomic` の手組 staged
+  publish（範囲外）。
+- decoded planes の O(output) 保持は移行前からの
+  `expect_pcm(&[Vec<f32>])` 契約由来 — 増分 callback 化は test
+  契約変更を伴うため別途検討事項（上記「残存 note」）。
+- `test-msrv` 失敗（`cargo-platform@0.3.3` が rustc 1.91 要求）は
+  SV175 `2c0711e` 以降の lockfile 由来の main 既存破壊 —
+  修正は SV175 所有範囲（依存 pin または代替）。
+- RF391/RF407 が ruviform main へ merge された後の `cargo update`
+  再解決・両 Consumer exact tuple 判定・候補 lock 解除は
+  coordinator 所有ゲート。
+- macOS/Linux 実測・実電源断/クラッシュ中回復は外部 gate
+  （実装は OS 中立 API のみ・実電源断は RF adapter 契約）。

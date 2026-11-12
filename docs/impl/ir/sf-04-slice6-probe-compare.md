@@ -55,7 +55,23 @@ fail-closed の `probe_compare` free function と、drain 経路の
 docs index は変更していない。Ruviform pin は `fd1d4d5` のまま
 （#309 API が同梱済みのため更新不要）。
 
-## Implemented
+## Context
+
+Issue #107 SF-PROBE-07 の headless consumer。Ruviform #309
+（pin `fd1d4d5`）は `align_observation_points`・
+`ObservationSpan`・`ObservationCoverage::reconstruct`・
+`CoverageEvent`・`AlignPolicy`/`Alignment`/
+`IncomparableReason` 等を提供済みだが、Synvelis 側 consumer
+は未接続だった。slice1–3 が確立した `RoutingEngine` の probe
+read model（`probe_bindings()`/`probe_segments()`/
+`probe_time_context()`/`probe_counts()`）と
+`ProbeTraceBridge::probe_drain` の drain 経路に、coverage
+証拠の保持と `ProbeComparisonRequest → AcousticObservation`
+の写像を additive に追加する。port 契約・`RoutingEngine`・
+project lib export は変更しない（`docs/designs/
+sf-04-slice6-probe-compare-design.md` Context 節）。
+
+## Implementation
 
 ### `crates/synvelis-project/src/probe.rs`
 
@@ -136,7 +152,18 @@ adapter map 空）。F1–F10 全て pass — 詳細は
   `UnknownClock` は series 共有 format/domain・pair clock の
   ため e2e 再現不可 — 写像網羅性は match + fail-closed で担保。
 
-## Verification
+## Related Experiments
+
+### Adopted
+
+- なし（`metadata.experiments.adopted` は空。`docs/impl/exp/`
+  に本 slice 関連の experiment 記録なし）。
+
+### Rejected
+
+- なし。
+
+## Validation
 
 - `cargo test -p synvelis-player --test sf04_s7_probe_compare`:
   10 passed / 0 failed（2026-11-12）。
@@ -147,7 +174,34 @@ adapter map 空）。F1–F10 全て pass — 詳細は
   app op・SF-PROBE-08/09・consumer 照合は **NotRun** —
   後続 slice/外部受け入れへ委譲。Pass 扱いしない。
 
-## Remaining / Out of Scope
+## Risks
+
+- **coverage は drain 経路依存**: `RoutingEngine::probe_drain`
+  を bridge 経由せず直接呼ぶ consumer は coverage を貯めない
+  → `NoObservationData` で正直に失敗する（捏造しない）。
+  drain の単一 owner は slice2 の `ProbeTracePort` 契約どおり。
+- **loss floor の保守性**: floor は drain batch 前の
+  `lost_records` で、最古 retained event 起点の差分は retained
+  window 全体の損失を over-approximate し得る → coverage が
+  `Unknown` に倒れ得るが、valid を偽装する方向には倒れない
+  （fail-closed 側の誤差。design Risks and Trade-offs）。
+- **`observed_range=None` の extent は coverage ∪ segment**:
+  capture segment の `frame_range` は coverage eviction 後も
+  extent を延ばし得るが、覆われない部分は `Unknown` gap に
+  分類されるため validity を捏造しない。
+- **単一 engine では到達不能な reason**（`DomainMismatch`/
+  `FormatMismatch`/`RateMismatch`/`LatencyUnknown`/
+  `UnknownClock`）: format/domain/clock は series 共有のため
+  e2e 再現不可。写像の網羅性はコード上の match で担保し、
+  runtime 意味論の正本は Ruviform #309 の test。
+- **generation crossing で probe id が変わる場合**: semantic
+  point が移動して rebind が remove+install になると旧
+  coverage は prune され cross-generation 証拠は残らない
+  → `GenerationSpan` ではなく新世代のみの比較になる。
+  point 不変の republish（同じ topology の明示 rebuild）で
+  cross-generation window を再現する設計。
+
+## Follow-ups
 
 - `syn.probe.compare` app op（`service.rs`/`engine.rs` 他
   Worker 占有）。

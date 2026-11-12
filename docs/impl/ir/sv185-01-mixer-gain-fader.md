@@ -136,7 +136,37 @@ metadata:
 
 # SV185-01 実装記録: mixer.gain domain projection — Fader 接続
 
-## 実施内容
+## Summary
+
+Issue #185。SV175-02 で `unsupported: true` のまま残った Mixer
+`Fader`（論理 target `mixer.gain`）に domain projection 元を整備し、
+driver-neutral ViewSpec 経由で controlled display と
+`Begin → Preview → Commit/Cancel` の commit 経路を接続した。
+`synvelis-project` に master strip の well-known `Fader`
+`ParameterTarget`（`MASTER_FADER_RAW`）の bootstrap・load oracle・
+schema v7→v8 migration を追加し、`synvelis-app` の Mixer Fader を
+tagged `param-<32hex>` target の supported kind に置き換えた。
+ruviform pin を `769d595a` → `863a7a9d` へ更新し、webview entry を
+`NativeShell` 構成へ移行した。headless lane と Windows 実窓で
+検証済み。
+
+## Context
+
+- Spec: `docs/specs/sv185-01-mixer-gain-domain-projection.md`
+- Design: `docs/designs/sv185-mixer-gain-projection-design.md`
+- Plan: `docs/plans/sv185-mixer-gain-projection.md`
+- Task: `docs/tasks/sv185-01-mixer-gain-fader.md`（implements）
+- Test-spec: `docs/test-specs/sv185-01-mixer-gain-fader.md`
+  （verified-by）
+- depends-on: 上記 spec/design/plan +
+  `docs/tasks/sv175-02-native-view-mount.md`
+- related: `docs/impl/ir/sv175-01-native-shell-binding.md`
+- Source: synvelis Issue #185・#175、ruviform Issue #414・#387・
+  #451・#461。
+- ブランチは既存 `scarecrow173/sv175-native-view-mount`（Draft PR
+  #183）で継続。
+
+## Implementation
 
 ### domain（`synvelis-project`）
 
@@ -197,7 +227,12 @@ metadata:
   `Cargo.lock` 26 sources 全て `863a7a9d`、`ui/vendor` 同期、
   `check-ruviform-rev` で lock/manifest/vendor 一致を確認。
 
-## 検証結果（実測）
+## Related Experiments
+
+実験ログなし — `metadata.experiments` の adopted/rejected は空で、
+関連する `docs/impl/exp/` の実験ファイルもない。
+
+## Validation
 
 | lane | 結果 |
 | --- | --- |
@@ -218,7 +253,7 @@ metadata:
 
 ※ cargo 直接実行は補助証拠。canonical は `mise run <task>`。
 
-## 実機検証（Windows 実窓）
+### 実機検証（Windows 実窓）
 
 `target/debug/synvelis-native.exe` を `SYNVELIS_PROJECT_DIR` 付きで
 起動し、`CopyFromScreen` 実画面キャプチャ（`PrintWindow` は GPUI で
@@ -277,11 +312,27 @@ review-protocol に従い cooperative + adversarial の独立 reviewer
   本 slice 固有の欠陥ではない。mode 切替 UI は別 slice。impl
   record と PR コメントに既知制約として記録。
 
-## 残件・既知制約
+## Risks
 
 - `AutomationMode` を `Off` にする UI/wire 経路は存在しない —
   gesture commit は preview→base 復帰（Read）で、base 永続化は
-  host-only `set_mode` のみ。automation mode surface は後続 issue。
-- FU-1b Tab 循環 `focus_next` 未配線（ruviform 既知残課題）。
+  host-only `set_mode` のみ。automation mode surface は後続
+  issue であり、それまで Fader commit は project に永続化されない
+  （全 parameter target 共通の domain 契約で本 slice 固有の
+  欠陥ではないが、利用者が永続化を誤認する余地がある）。
+- FU-1b Tab 循環 `focus_next` 未配線（ruviform 既知残課題）—
+  Tabs の Arrow/Home/End は RF#451 で動作確認済みだが Tab キー
+  巡回は未対応。
 - webview lane は compile/test 検証済みだが実 WebView2 実窓での
-  対話検証は未実施（**NotRun**）。
+  対話検証は未実施（**NotRun**）。macOS/Linux/IME 実機も
+  **NotRun**（Windows native のみ検証）。
+
+## Follow-ups
+
+- automation mode surface（`AutomationMode::Off` への UI/wire
+  経路）— 後続 issue。
+- FU-1b Tab 循環 `focus_next` — ruviform 側の既知残課題の解消。
+- webview lane の実 WebView2 実窓での対話検証 — **NotRun**。
+- macOS/Linux/IME 実機検証 — **NotRun**。
+- 実窓での `AutomationMode::Off` gesture 操作確認 — **NotRun**
+  （headless では `BaseEdit`/`SetParameterBase` として検証済み）。

@@ -77,12 +77,26 @@ metadata:
 
 # GW-02 Authorization Policy 実装記録
 
+## Summary
+
 Issue #54。#44 AHG-006〜010・#45 GTC-003/ACG-003 に基づく認可ポリシー層を、
 GW-01 の `PolicyEvaluator` seam 上の実 evaluator として `synvelis-gateway`
 内に実装した。Mock Policy Store で先行(Issue 明示)、durable store・commit
 fence・recovery は GW-06 へ defer。
 
-## 実施した変更
+## Context
+
+- source Issue: #54(GW-02)。`implements`/`verifies` の対象は
+  `docs/designs/gw-02-authorization-policy-design.md`。
+- `depends-on`: GW-01 の契約(`docs/designs/gw-01-gateway-contract-design.md`
+  と `docs/impl/ir/gw-01-gateway-contract.md`)および Issue #45/#46。
+  GW-01 が定義した `PolicyEvaluator` trait・`AuthorizationStage`・
+  `AuthorizationDecision` の上に `GrantPolicy` を実装した。
+- Issue の指示により Mock Policy Store(`InMemoryPolicyStore`)で先行し、
+  durable store・commit fence・recovery は GW-06(ACG-003/004)へ defer。
+- 検証 base は GW-01 merge 済み `a932f3f` + 本変更。
+
+## Implementation
 
 | 範囲 | 内容 |
 | --- | --- |
@@ -145,13 +159,26 @@ fence・recovery は GW-06 へ defer。
 | DATA-09 | Tool 一覧取得後に Grant 失効 → 実行時再認可で Deny | Pass | `acg003_commit_revalidates_fresh_state`・`sec08_revoked_grant_denied` — discovery≠permission、評価は実行時の fresh read |
 | DATA-10 | External Transfer 未許可で Provider 送信 → 送信しない | Pass | `data_effect_disclosure_and_transfer_checked`(`external_transfers>0` かつ grant が ProviderTransfer を含まない → deny) |
 
-## 実行した検証(証拠)
+## Related Experiments
+
+本実装では実験ログを採用・却下していない。front matter の
+`metadata.experiments.adopted`/`rejected` はいずれも空で、`docs/impl/exp/`
+に本件(GW-02)に対応する実験ファイルは存在しない。設計文書どおりに
+実装し、検証は authorization test と review-protocol で行った。
+
+## Validation
 
 - 環境: Windows、rust 1.99.0(mise pin)、base revision `a932f3f` + 本変更
 - `mise run fmt-check` — Pass
 - `mise run check` — Pass(workspace 全 target)
 - `mise run lint`(`cargo clippy --workspace --all-targets -- -D warnings`) — Pass
 - `mise run test`(`cargo test --workspace --locked`) — Pass、workspace 全 suite 緑(gateway 129 テスト: authorization 74 + contract 40 + fixtures 8 + schema_compat 7)
+
+### 未実施の検証
+
+- `mise run test-msrv`(rust 1.89 toolchain 未導入のため未実行)
+- GW-05/06 との結合(approval receipt・durable fence) — Issue スコープ外、
+  最終原子性は GW-06 PoC で判定
 
 ## Review-protocol 実施結果
 
@@ -175,13 +202,28 @@ fence・recovery は GW-06 へ defer。
 blocking 指摘は全て修正済み、修正込みで `mise run fmt-check / check / lint /
 test` 再実行・全緑を確認。
 
-## 未実施の検証
+## Risks
 
-- `mise run test-msrv`(rust 1.89 toolchain 未導入のため未実行)
-- GW-05/06 との結合(approval receipt・durable fence) — Issue スコープ外、
-  最終原子性は GW-06 PoC で判定
+- `InMemoryPolicyStore` は mock — grant/task/proactive permit/policy epoch/
+  consumed budget は process 再起動で失われ、durable store・commit fence・
+  durable idempotency/recovery は GW-06(ACG-003/004)まで存在しない
+  (§Follow-ups)。
+- `evaluate_commit` は線形化 seam の提示のみで、fence による policy read
+  と project commit の直列化は GW-06 が構成するまで未結合 — 現状では
+  revoke と commit の最終原子性は保証されない(§Follow-ups と同根)。
+- human principal は adapter-attested manual authority として全 stage
+  permit で effects 検査を skip する(設計意図として review で確認済み)。
+  この short-circuit が安全なのは manual authority の attestation 経路が
+  正しいことが前提であり、その attestation は GW-08 以降の adapter 契約に
+  依存する。
+- `GrantBinding::Session` は adapter 発行 session identity を `AdapterId`
+  で表現する — multiplex adapter が session ごとに別 ID を mint しないと
+  session binding が混同しうる(GW-08 契約待ち、review B1)。
+- `ProactivePermit.condition` は opaque tag のままで条件の型化・評価契約が
+  未定 — GW-09/ポリシースキーマ設計まで条件の意味付けが宙に浮く
+  (§Follow-ups)。
 
-## 残課題
+## Follow-ups
 
 - `InMemoryPolicyStore` は mock — 永続 grant store・commit fence・durable
   idempotency/recovery は GW-06(ACG-003/004)。

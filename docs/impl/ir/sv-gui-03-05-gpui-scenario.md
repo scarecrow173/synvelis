@@ -70,7 +70,43 @@ metadata:
 
 # SV-GUI-03 slice5: GPUI-simulated scenario lane
 
-## 実装内容
+## Summary
+
+Issue #112 AC5（Ruviform #464 共通 GUI Scenario を Fake/GPUI 両
+adapter で実行）として、slice1 の `tests/screen_scenario.rs` が
+Fake adapter のみで回していた scenario を driver-neutral 化し、
+ruviform-ui-gpui の `GpuiGuiTest`/`GpuiObserver` adapter
+（`gpui-test` feature）で同一 scenario を実行する
+GPUI-simulated lane を追加した。scenario 本体は
+`tests/common/scenario.rs` の driver-neutral helper に集約し、
+`SemanticGuiTest` port のみで記述する。`tests/scenario_gpui.rs`
+は `ViewHost` + `AttachEpochAllocator` + `create_view_window` の
+production composition で mount する。製品コード（`src/`）の
+変更はなく、検証 lane（tests + `gpui-test` feature + mise task）
+のみの追加。
+
+## Context
+
+- Spec: `docs/specs/sv-gui-03-05-gpui-scenario.md`（approved）
+- Design: `docs/designs/sv-gui-03-05-gpui-scenario-design.md`
+- Plan: `docs/plans/sv-gui-03-05-gpui-scenario-plan.md`
+- Task: `docs/tasks/sv-gui-03-05-gpui-scenario.md`（implements）
+- Test-spec: `docs/test-specs/sv-gui-03-05-gpui-scenario.md`
+- ADR: `docs/adr/sv-gui-03-05-gpui-scenario.md`
+- Source: synvelis Issue #112（SV-GUI-03 slice5・AC5）、
+  Ruviform #464（共通 GUI Scenario）。
+- spec depends-on: `docs/specs/sv-gui-03-01-transport-inspector-slice1.md`、
+  `docs/specs/sv-gui-03-04-selection-inspector-viz.md`、
+  `docs/adr/sv175-native-shell-driver-neutral-gpui.md`。
+- slice1–4 で product spec 側の契約（selectable table・tabs
+  selection・seek/fader gesture・transport action）は確立済み。
+  ruviform pin rev `fd1d4d5` に `GpuiGuiTest`/`GpuiObserver`/
+  `gpui-test` feature/`ViewMount`/`create_view_window` が既に
+  存在し pin 更新は不要。audio-lens `crates/al-gui` に同一構造の
+  先行例（`gpui-test` feature・`tests/common/scenario.rs`・
+  `tests/scenario_gpui.rs`・`*-ui-gpui` mise lane）がある。
+
+## Implementation
 
 - `crates/synvelis-app/Cargo.toml`: `gpui-test` feature を追加
   (`native` + `ruviform-ui-gpui/gpui-test`、audio-lens と同形)。
@@ -94,7 +130,7 @@ metadata:
 - `mise.toml`: `check-app-gpui`/`lint-app-gpui`/
   `test-app-gpui` を native lane の後に追加。
 
-## 設計上の判断
+### 設計上の判断
 
 - tab 巡回は `screen.tabs` の non-default 4 tab(`[1,2,3,4]`)。
   task の「4 タブ巡回」はこの解釈で spec/design に明記。
@@ -105,6 +141,48 @@ metadata:
   要求。
 - `Cargo.lock`/vendor/docs index は変更なし(pin 更新不要)。
 
-## 検証
+## Related Experiments
+
+実験ログなし — `metadata.experiments` の adopted/rejected は空で、
+関連する `docs/impl/exp/` の実験ファイルもない。採否は spec/design
+で事前確定済みの確定実装。
+
+## Validation
 
 (実走結果を追記)
+
+task の未完了項・spec Acceptance Criteria が要求する検証 lane:
+
+- `mise run fmt-check` / `check` / `lint` / `test`
+- `mise run check-app-gpui` / `lint-app-gpui` / `test-app-gpui`
+- `mise run check-app-native` / `lint-app-native` / `test-msrv` /
+  `build`
+
+## Risks
+
+- `gpui-test` build は gpui 依存を引くため初回 compile が重い
+  （design Negative。mise task として分離済み）。
+- `tests/common/` の helper は両 lane の test target に個別
+  compile される（重複は許容、audio-lens と同じ構造）。
+- tab 巡回は `screen.tabs` の non-default 4 tab（`[1,2,3,4]`）の
+  解釈 — task の「4 タブ巡回」はこの解釈で spec/design に明記
+  済み。5 tab 全巡回が意図なら scenario 定数 1 箇所の変更で対応
+  可能。
+- `mise.toml` は共有ファイル — PR に対象・理由・rollback を明記
+  する必要がある。
+- 実 Window/実 OS 入力・pixel golden・製品 Native E2E・実 Plugin
+  Dock は `NotRun`/`Unsupported` のまま — semantic scenario の
+  pass をこれらの証拠へ昇格させることは設計上不可能
+  （`driver`/`capabilities` は adapter 実測値）。
+
+## Follow-ups
+
+- 検証一式の実走（task 未完了項）: `fmt-check`/`check`/`lint`/
+  `test`/`check-app-gpui`/`lint-app-gpui`/`test-app-gpui`/
+  `check-app-native`/`lint-app-native`/`test-msrv`/`build` の結果を
+  本節へ追記。
+- Conventional Commits → push → PR（日本語 `Refs #112`）→
+  Issue #112 コメント → worker_done。
+- 実 Window/実 OS Driver（ruviform#313）・Pixel Golden
+  （ruviform#314）・製品 Native E2E（synvelis#114）・実 Plugin
+  Dock は外部 gate として後続 slice。

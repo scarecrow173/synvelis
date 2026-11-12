@@ -75,14 +75,30 @@ metadata:
 
 # AUT-01 実装記録: Touch Return 150ms Smoothstep・境界 State
 
-## 実施内容
+## Summary
 
 Issue #131 の中核を、Plugin 実機・GUI 完成前の**純粋状態遷移/時計制御
 proof of concept** として実装した。Automation Mode(Off/Read/Touch/
 Latch/Write)のリリース後境界と、録音 transaction(PC-C1/#98)・
 CTL-01(#121)の ControlOwner/AutomationTimeScope 分離との整合を
-headless で確定させた。Plugin binding・GUI 接続は Integration 対象で
-あり本スコープ外。
+headless で確定させた。Touch Return 150ms Smoothstep・
+Read/Touch/Latch/Write 境界 State・セッション時計・GestureFixation・
+録音 transaction 整合を `synvelis-project`/`synvelis-workspace` に
+実装し、`tests/aut_01.rs` 15 件を含む全 gate を green にした。
+Plugin binding・GUI 接続は Integration 対象であり本スコープ外。
+
+## Context
+
+- Issue: https://github.com/scarecrow173/synvelis/issues/131
+- Spec: `docs/specs/aut-01-automation-mode-boundary-touch-return-writer-state.md`
+- Design: `docs/designs/aut-01-touch-return-writer-state-design.md`
+- Plan: `docs/plans/aut-01-touch-return-writer-state.md`
+- Task: `docs/tasks/aut-01-task1-touch-return-writer-state.md`
+- Test spec: `docs/test-specs/aut-01-e2e-touch-return-writer-state.md`
+- 前提: PC-C1 録音 transaction(#98)・CTL-01 ControlOwner/
+  AutomationTimeScope 分離(#121)。
+
+## Implementation
 
 ### Touch Return — runtime interpolation, 非破壊
 (`synvelis-project/src/control.rs`, `synvelis-workspace/src/control.rs`)
@@ -161,7 +177,20 @@ headless で確定させた。Plugin binding・GUI 接続は Integration 対象�
   `note_project_changed` の新シグネチャに合わせ `session.rs`・
   `controls_ui.rs`・既存テスト(pc_a/pc_b/pc_c1)を更新。
 
-## 検証結果
+## Related Experiments
+
+### Adopted
+
+なし — `metadata.experiments.adopted` は空。Shadow CI の観測記録
+`docs/impl/exp/issue-131-aut-01-shadow-ci.md`(#157 蓄積)は採用/
+却下の実験ではなく、selective 判定の偽陰性対照として Validation
+節に記録した証跡。
+
+### Rejected
+
+なし — `metadata.experiments.rejected` は空。
+
+## Validation
 
 実行環境: Windows、toolchain pin `rust 1.99.0`、MSRV `rust 1.89.0`。
 すべて `mise run <task>` 経由。HEAD = `origin/main` `b47c90f` 上。
@@ -187,7 +216,20 @@ TargetDeleted 全境界の Idle + closure ログ・fixation 内容・非破壊�
 Shadow CI 証跡(selective 判定の偽陰性対照)は
 `docs/impl/exp/issue-131-aut-01-shadow-ci.md` に記録(#157 蓄積)。
 
-## 残課題・後続依存
+## Risks
+
+- Plugin binding・実 VST3 callback 適用(#101 Integration)と GUI
+  接続(#102/#114)は未実装 — 本記録は headless proof of concept
+  のみで、実 host/GUI 経路での動作は未検証。
+- `DEFAULT_TOUCH_RETURN_MS = 150` は暫定既定値 — 製品仕様の確定は
+  Integration/UX レビュー側の承認事項(後述 Follow-ups)。
+- `WriterClosure` ログは `WRITER_CLOSE_CAP = 256` の bounded —
+  全 closure の永続記録ではなく、上限を超えた分は保持されない。
+- Return の進行は `clock_advance` による session 時計の駆動に
+  依存する — 駆動されない host では `Returning` が完走しない
+  (beat playhead から独立した設計どおりの契約)。
+
+## Follow-ups
 
 - Plugin binding・実 VST3 callback 適用(#101 Integration)、GUI 接続
   (#102/#114)は Integration スコープ。

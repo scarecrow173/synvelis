@@ -86,6 +86,8 @@ metadata:
 
 # SF-01 Semantic Routing Model 実装記録
 
+## Summary
+
 Issue #104(SF-01)。`synvelis-project` に永続化される Semantic Routing
 Model(`Project::routing`)を導入し、Bus/ChannelStrip/ProcessorChain/
 SemanticPort/RoutingConnection/SendConfig を Stable Semantic ID で
@@ -94,7 +96,34 @@ model 化した。Schema v5→v6 の単一 Versioned Migration 経路・
 実施。Runtime lowering・Mute/Solo DAW 動作・Temp Ref→Stable ID
 transaction は SF-02/#105・SF-03/#106 の範囲として接続点のみ残す。
 
-## 実施した変更
+## Context
+
+Issue #104「SF-01 確定詳細契約」(2026-11-04 合意)。Synvelis の
+Project 集約に Semantic Routing Model を導入する slice で、
+CTL-01 #121 → SF-02 #105 → SF-03 #106 / CTL-02 #122 の前提と
+なる Project 正本を作る。現行 `Track { id, name, lane_ids }` は
+制作コンテナであり、永続 Bus/Strip/ProcessorChain/Send/
+Connection は存在しない。Track（制作表示 Owner）と
+ChannelStrip（DSP/Fader/Pan/Insert/Send Owner）は別概念で、
+`TrackId` と `StripId` は別 Stable ID。Runtime
+`ruviform_graph::{NodeId, PortId}`・Plugin Local Port
+identifier・Process slot・Node generation は Project semantic
+ID と別型で、数値一致での自動付替は禁止、未解決は
+`Unresolved` を明示保持する。正本は
+`docs/specs/sf-01-semantic-routing-model-bus-send-chain-stable-ports.md`、
+schema v6 migration の決定は
+`docs/adr/sf-01-routing-model-schema-v6-migration.md`。
+本 slice の範囲は RoutingModel 型・参照整合・Schema v6 組込・
+Migration・`ProjectController` ops 統合まで。Mute/Solo DAW
+動作・Temp Ref→Stable ID transaction（SF-02/#105）、
+RoutingModel→GraphSpec lowering（SF-03/#106）、
+`ControlOwner`/`AutomationTimeScope` 型分離（CTL-01/#121）、
+Host Parameter 既定値（CTL-02/#122）、Plugin Capability/
+Binding 検証（PC-C4 #101）は対象外。
+
+## Implementation
+
+### 実施した変更
 
 | 範囲 | 内容 |
 | --- | --- |
@@ -109,7 +138,7 @@ transaction は SF-02/#105・SF-03/#106 の範囲として接続点のみ残す�
 | `md_a.rs` / `midi_source.rs` | schema version 断言を 5 → 6 |
 | `tests/routing_sf01.rs` | 15 acceptance テスト(master 厳密 1 件、send 1:1 双方向、stable ID、watermark、serialize/reload、v5 migration 決定性・新 snapshot 名、foreign routing 拒否、Unresolved 保持、empty channel map 拒否、undo、参照削除拒否 + Composite、gain_target 正本、cycle 拒否) |
 
-## 設計上の決定点
+### 設計上の決定点
 
 - **Well-known master**: `WELL_KNOWN_BASE = 1<<96` 以上の予約 raw 値を
   bootstrap master(bus/strip/chain/in/out)に割当。generator 空間と非交差のため
@@ -128,7 +157,7 @@ transaction は SF-02/#105・SF-03/#106 の範囲として接続点のみ残す�
   明示 map の提示(approval)を要求する契約とした。Layout 型自体は永続化
   しない。
 
-## 受入条件との対応
+### 受入条件との対応
 
 | AC | 対応 |
 | --- | --- |
@@ -141,7 +170,12 @@ transaction は SF-02/#105・SF-03/#106 の範囲として接続点のみ残す�
 | Recording/automation/import/save 非回帰 | workspace 全 test pass(playback/recording/export golden 含む) |
 | Ruviform Graph/Mixer/RT 型との分離 | semantic ID は project crate の `define_id!`、runtime ID とは別型 |
 
-## 実行した検証(証拠)
+## Related Experiments
+
+なし。`docs/impl/exp/` に関連する実験 log file はなく、front
+matter `metadata.experiments` の adopted/rejected も空。
+
+## Validation
 
 - 環境: Windows、rust 1.99.0(mise pin)+ MSRV 1.89
 - `mise run fmt-check` — Pass
@@ -151,7 +185,29 @@ transaction は SF-02/#105・SF-03/#106 の範囲として接続点のみ残す�
 - `mise run build` — Pass
 - `mise run test-msrv`(rust 1.89 `cargo test --workspace --locked`) — Pass
 
-## 残件(下流 issue)
+## Risks
+
+- Migration は read-only projection であり、`#[serde(default)]`
+  による parse と完全 Migration を混同しない設計。v5 body を
+  parse すると `routing` は空になるが migrated ではなく、
+  厳密 schema version 検査を保持し v5→v6 は
+  `migrate_to_current` 経由のみ。
+- `insert_count` 由来の仮想 FX processor は migration で作ら
+  ない — 旧 Project の外部 insert FX は processor として
+  永続化されず、track 毎の strip+chain+main ports+master への
+  `Main` connection のみが投影される（非捏造の意図的契約。旧
+  挙動の維持は下流 lowering の責務）。
+- routing を既に持つ v5 body は migration が拒否する — 部分的に
+  routing が書き込まれた v5 snapshot は v6 へ進めない。
+- Gateway `op_facts` は fail-closed catch-all で routing ops を
+  拒否する — model は project 層にのみ存在し、routing capability
+  model は下流 issue 待ちのため現状 gateway 経由では routing
+  操作を発行できない。
+- `SendConfig.gain_target` は既存 `ParameterTargetId` への参照
+  のみ。`ControlScope`/`ControlOwner` に Strip/Send/Processor
+  owner は未導入で、owner mapping は CTL-01 の接続点。
+
+## Follow-ups
 
 - `ControlScope`/`ControlOwner` の `Strip`/`Send`/`Processor` owner 拡張は
   CTL-01/#121 で採用 — 現状 `SendConfig.gain_target` は既存 scope 上の

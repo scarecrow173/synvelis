@@ -302,6 +302,23 @@ observation feed の projection 更新、latch commit、readonly
 target begin 拒否、touch gesture の recording transaction と
 1-step undo。
 
+## Risks
+
+- 実 device GUI 検証は manual gate であり本 impl では未実施
+  （headless contract/state/fixture のみ）。
+- Ruviform pinned rev `258df5ae` は `ui/components`/`ui/binding`
+  を未含有 — contract 意味論を mirror したため、rev 引き上げまで
+  upstream 型との drift が残る（follow-up で置換検討）。
+- gateway 外（workspace 直接 mutation）で変更された project 状態は
+  reattach 時の `refresh_binding` 観測と revision が一致し drop
+  され得る — gateway 経路は常に touch→broadcast するため内部
+  不変条件は保持される。`resync` API で強制再観測可能。
+- receipt rank が `Rejected`/`Unsupported`（rank 3）で `Applied`
+  （rank 2）を上書きし得る — 外部注入された矛盾 receipt のみで、
+  gateway 自前発行では順序が保証されるため不変条件未損失。
+- WS-A workspace transport route との機能差は既存境界の別問題
+  として残存。
+
 ## Follow-ups
 
 - Ruviform dependency rev を `ui/components`/`ui/binding` 含有
