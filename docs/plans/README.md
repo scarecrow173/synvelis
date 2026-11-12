@@ -39,6 +39,7 @@ Directory: `docs/plans`
 | PLAN-PCc4040bs3vN1pQ8wXyZ2aD | PC-C4-04 app composition plan — vend・所有・駆動・橋渡し・fixture | approved | [pc-c4-04-app-composition-plan.md](./pc-c4-04-app-composition-plan.md) |
 | PLAN-034VvHwf0OT5qLdTopdnmC | PC-C4-05 persisted StablePluginInstanceId plan | approved | [pc-c4-05-persisted-instance-id-plan.md](./pc-c4-05-persisted-instance-id-plan.md) |
 | PLAN-7c4e9a1b2d3f4e5a6b7c8f0a1 | PC-C4-06 control op surface plan | approved | [pc-c4-06-control-op-surface-plan.md](./pc-c4-06-control-op-surface-plan.md) |
+| PLAN-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b | PC-C4-07 transport mirror + observe_block plan | approved | [pc-c4-07-transport-mirror-observe-plan.md](./pc-c4-07-transport-mirror-observe-plan.md) |
 | PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-034UxXVFIkzqs2eO4wcXo0 | PC-C5 slice2 実施計画 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -50,6 +51,7 @@ Directory: `docs/plans`
 | PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-gpF9kWuFqfzFATeoPdxIGF | RCD-01 実Audio Device 到達準備 実装計画 — stamp placement fallback + real backend 配線 | approved | [rcd-01-real-backend-readiness-plan.md](./rcd-01-real-backend-readiness-plan.md) |
+| PLAN-034W91UxBVqeOCrJpWA1Gw | RCD-01 実機 capture coverage 拡張 plan | approved | [rcd-01-real-input-coverage-plan.md](./rcd-01-real-input-coverage-plan.md) |
 | PLAN-034VpmToY7qmWuyovg4BmV | RCD-02 StagedFile Publish Migration Plan | approved | [rcd-02-stagedfile-publish-migration-plan.md](./rcd-02-stagedfile-publish-migration-plan.md) |
 | PLAN-SY804uxbfTEGFF4irB0NVO | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe Plan | approved | [rcd-02-unsynced-loss-real-fs-probe-plan.md](./rcd-02-unsynced-loss-real-fs-probe-plan.md) |
 | PLAN-034VedskoBprfWhNkuqz6f | RCD-03 app Arm/Monitoring UX + monitor session projection slice | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
@@ -73,6 +75,7 @@ Directory: `docs/plans`
 | PLAN-4fJZbNlcZy6NsCvF40RggB | SF-04 slice4 実装計画 — app/session wiring（probe port・syn.probe.*・drain hook） | approved | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |
 | PLAN-034VpoEbeiqPIm8MYZAnAD | SF-04 slice5 実装計画 — probe subscriber/window ownership（session 層 lease・capture owner） | approved | [sf-04-slice5-probe-subscriber-ownership-plan.md](./sf-04-slice5-probe-subscriber-ownership-plan.md) |
 | PLAN-6hJ4nVbC8xZ2qW5eRtYuIo | SF-04 slice6 実装計画 — 複数 Probe 整列比較 consumer（ProbeComparisonRequest → AcousticObservation） | approved | [sf-04-slice6-probe-compare-plan.md](./sf-04-slice6-probe-compare-plan.md) |
+| PLAN-3tM8kN1xC5wQ7rV2jH6fY9b | SF-04 slice8 実装計画 — SF-PROBE-05 fault fixtures + 不連続宣言点 | approved | [sf-04-slice8-probe-faults-declare-plan.md](./sf-04-slice8-probe-faults-declare-plan.md) |
 | PLAN-034Uuhu2Eis7GPJ5fej73V | SF-05 slice1 実施計画 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | PLAN-6xRqunIew52aqbQt4yZ3qy | SF-05 slice2 実施計画 — Signal Flow gesture/inspection/persist | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | PLAN-dF3hNzQwErTyUiOpL6kMnB | SF-05 slice3 実施計画 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-plan.md](./sf-05-slice3-probe-subscriber-wiring-plan.md) |
@@ -102,6 +105,7 @@ Directory: `docs/plans`
 | PLAN-7hJkMnBvCxZqWeRtYuIo | TIM-01 PPQN Preview op + New Project PPQN — implementation plan | approved | [tim-01-ppqn-preview-plan.md](./tim-01-ppqn-preview-plan.md) |
 | PLAN-TiM01uIxYzAbCdEfGh3 | TIM-01 PPQN 選択 UI + Snap/Grid ポリシー — implementation plan | approved | [tim-01-ppqn-ui-plan.md](./tim-01-ppqn-ui-plan.md) |
 | PLAN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — 実装 plan | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
+| PLAN-TiM02PpqnSmfXg03 | TIM-02 × TIM-01 PPQN×SMF cross-golden fixture — implementation plan | approved | [tim-02-ppqn-smf-cross-golden-plan.md](./tim-02-ppqn-smf-cross-golden-plan.md) |
 | PLAN-034UwXgmnKOCYgkwlGLFkf | TIM-02 SMF Format0/1 core implementation plan | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
 | PLAN-Yn3mzcCyD4Dwd0Ga4zylHB | TIM-03 session→driver/routing wiring plan | approved | [tim-03-session-driver-wiring-plan.md](./tim-03-session-driver-wiring-plan.md) |
 | PLAN-034UC46sceMw6QCzqVjGOO | TIM-04 plugin state snapshot consistency — implementation plan | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
