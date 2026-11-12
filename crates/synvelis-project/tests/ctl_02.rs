@@ -490,6 +490,234 @@ fn pan_registers_on_first_use_with_canonical_spec() {
     );
 }
 
+// ── CTL-02 canonical internal spec enforcement ─────────────────
+
+/// The `(kind, mapping, time_scope, capability)` fields of an
+/// `AddParameterTarget` spec under test.
+type SpecFields = (
+    ValueKind,
+    ParamMapping,
+    AutomationTimeScope,
+    Option<TargetCapability>,
+);
+
+/// Non-canonical specs for an internal channel/send target —
+/// `SpecFields` tuples that deviate from the canonical contract in
+/// one field each.
+const NON_CANONICAL_SPECS: [SpecFields; 4] = [
+    // `kind`: Boolean where the canonical channel/send spec is
+    // Continuous (or Boolean for Mute/Solo — Pan is Continuous).
+    (
+        ValueKind::Boolean,
+        ParamMapping::Linear,
+        AutomationTimeScope::ProjectMusical,
+        None,
+    ),
+    // `mapping`: Exponential where canonical is Linear.
+    (
+        ValueKind::Continuous,
+        ParamMapping::Exponential,
+        AutomationTimeScope::ProjectMusical,
+        None,
+    ),
+    // `time_scope`: ProjectAbsolute where canonical is ProjectMusical.
+    (
+        ValueKind::Continuous,
+        ParamMapping::Linear,
+        AutomationTimeScope::ProjectAbsolute,
+        None,
+    ),
+    // `capability`: `Some` — internal channel gains carry no ParamId.
+    (
+        ValueKind::Continuous,
+        ParamMapping::Linear,
+        AutomationTimeScope::ProjectMusical,
+        Some(TargetCapability {
+            param_id: 1,
+            flags_bits: ParamFlags::AUTOMATABLE.bits(),
+            min_value: 0.0,
+            max_value: 1.0,
+            default_value: 0.0,
+        }),
+    ),
+];
+
+/// Asserts `AddParameterTarget` rejects `owner`/`role` carrying the
+/// given spec fields.
+fn expect_target_reject(
+    c: &mut ProjectController,
+    owner: ControlOwner,
+    role: ParameterRole,
+    (kind, mapping, time_scope, capability): SpecFields,
+) {
+    assert!(
+        matches!(
+            c.apply(cmd(
+                c,
+                ProjectOp::AddParameterTarget {
+                    name: "x".into(),
+                    owner,
+                    role,
+                    time_scope,
+                    kind,
+                    mapping,
+                    capability,
+                    base: 0.5,
+                },
+            )),
+            Err(Error::Validation(_))
+        ),
+        "{owner:?} {role:?} target spec must reject"
+    );
+}
+
+/// `AddParameterTarget` enforces the canonical persisted spec for
+/// strip channel roles (`Fader`/`Pan`/`Mute`/`Solo`): the same
+/// `kind`/`mapping`/`time_scope`/`capability: None` contract the
+/// canonical factory seeds — `name`/`base` stay authored. Anything
+/// else would persist a shape no authority lookup or lowering path
+/// defines (e.g. a `Pan` carrying a plugin `ParamId`).
+#[test]
+fn strip_channel_targets_require_the_canonical_spec() {
+    let mut c = controller();
+    let track = add_track(&mut c, "t");
+    let strip = add_track_strip(&mut c, track);
+
+    // `Pan` is the only channel role reachable through this op — the
+    // seeded roles are already singleton-occupied at strip creation.
+    // Every non-canonical deviation rejects before anything persists.
+    for spec in NON_CANONICAL_SPECS {
+        expect_target_reject(&mut c, ControlOwner::Strip(strip), ParameterRole::Pan, spec);
+    }
+    // Out-of-range `base` still rejects through the shared check.
+    assert!(matches!(
+        c.apply(cmd(
+            &c,
+            ProjectOp::AddParameterTarget {
+                name: "pan".into(),
+                owner: ControlOwner::Strip(strip),
+                role: ParameterRole::Pan,
+                time_scope: AutomationTimeScope::ProjectMusical,
+                kind: ValueKind::Continuous,
+                mapping: ParamMapping::Linear,
+                capability: None,
+                base: 1.5,
+            },
+        )),
+        Err(Error::Validation(_))
+    ));
+    assert!(strip_channel_target_id(c.live(), strip, ParameterRole::Pan).is_none());
+
+    // The canonical spec is accepted — `base` is authored (0.25 is a
+    // legal persisted value; only the spec fields are fixed).
+    c.apply(cmd(
+        &c,
+        ProjectOp::AddParameterTarget {
+            name: "Pan".into(),
+            owner: ControlOwner::Strip(strip),
+            role: ParameterRole::Pan,
+            time_scope: AutomationTimeScope::ProjectMusical,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: None,
+            base: 0.25,
+        },
+    ))
+    .unwrap();
+    let pan = strip_channel_target_id(c.live(), strip, ParameterRole::Pan).unwrap();
+    assert_eq!(c.live().control.targets[&pan].base, 0.25);
+}
+
+/// `Send`-owned `SendLevel` targets carry the same canonical
+/// contract — the `SendGainSpec::Create` staging path writes exactly
+/// this shape — and the `SendLevel` role is rejected on any non-Send
+/// owner as an orphan no send's `gain_target` can reference.
+#[test]
+fn send_level_targets_require_the_canonical_spec() {
+    let mut c = controller();
+    let track = add_track(&mut c, "t");
+    let strip = add_track_strip(&mut c, track);
+    let ret = add_bus(&mut c, BusKind::Return, "verb");
+    let ret_strip = c.live().routing.buses[&ret].strip;
+    let main_port = |s: StripId, dir: PortDirection| {
+        c.live().routing.strips[&s]
+            .port_ids
+            .iter()
+            .find(|p| {
+                c.live().routing.ports[p].direction == dir
+                    && c.live().routing.ports[p].role == PortRole::Main
+            })
+            .copied()
+            .unwrap()
+    };
+    c.apply(cmd(
+        &c,
+        ProjectOp::AddSend {
+            source: main_port(strip, PortDirection::Output),
+            destination: main_port(ret_strip, PortDirection::Input),
+            tap: SendTap::PostFader,
+            gain_target: None,
+        },
+    ))
+    .unwrap();
+    let send = *c.live().routing.sends.keys().next().unwrap();
+
+    for spec in NON_CANONICAL_SPECS {
+        expect_target_reject(
+            &mut c,
+            ControlOwner::Send(send),
+            ParameterRole::SendLevel,
+            spec,
+        );
+    }
+
+    // Canonical `SendLevel` is accepted and binds through the
+    // existing low-level `SetSendGainTarget` path.
+    c.apply(cmd(
+        &c,
+        ProjectOp::AddParameterTarget {
+            name: "lvl".into(),
+            owner: ControlOwner::Send(send),
+            role: ParameterRole::SendLevel,
+            time_scope: AutomationTimeScope::ProjectMusical,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: None,
+            base: 0.5,
+        },
+    ))
+    .unwrap();
+    let lvl = c
+        .live()
+        .control
+        .targets
+        .values()
+        .find(|t| t.owner == ControlOwner::Send(send) && t.role == ParameterRole::SendLevel)
+        .unwrap()
+        .id;
+    c.apply(cmd(
+        &c,
+        ProjectOp::SetSendGainTarget {
+            send_id: send,
+            gain_target: Some(lvl),
+        },
+    ))
+    .unwrap();
+    assert_eq!(send_level_target_id(c.live(), send), Some(lvl));
+
+    // `SendLevel` on a non-Send owner is an orphan — `send_level_target_id`
+    // resolves `Send`-owned `SendLevel` targets only.
+    let canonical = (
+        ValueKind::Continuous,
+        ParamMapping::Linear,
+        AutomationTimeScope::ProjectMusical,
+        None,
+    );
+    for owner in [ControlOwner::Track(track), ControlOwner::Project] {
+        expect_target_reject(&mut c, owner, ParameterRole::SendLevel, canonical);
+    }
+}
+
 // ── CTL-02 stage-1 semantic plugin binding ──────────────────────
 
 fn add_processor(c: &mut ProjectController, strip: StripId, resolved: bool) -> ProcessorId {

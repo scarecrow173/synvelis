@@ -964,6 +964,28 @@ pub(crate) const STRIP_SEED_ROLES: [ParameterRole; 3] = [
     ParameterRole::Solo,
 ];
 
+/// The canonical `(name, kind, seeded base)` of a strip channel
+/// role — the single per-role table shared by
+/// [`strip_channel_target`] (which adds the shared internal-target
+/// constants) and [`canonical_internal_spec`] (the write-time
+/// contract `ProjectOp::AddParameterTarget` enforces), so the
+/// persisted spec cannot drift between the seeding factory and
+/// validation. `base` is a *seeded default* — op-created targets
+/// keep `base` authored.
+///
+/// # Panics
+/// Panics on a non-channel role — callers pass [`STRIP_CHANNEL_ROLES`]
+/// members only.
+fn strip_channel_spec(role: ParameterRole) -> (&'static str, ValueKind, f64) {
+    match role {
+        ParameterRole::Fader => ("Fader", ValueKind::Continuous, 1.0),
+        ParameterRole::Pan => ("Pan", ValueKind::Continuous, 0.5),
+        ParameterRole::Mute => ("Mute", ValueKind::Boolean, 0.0),
+        ParameterRole::Solo => ("Solo", ValueKind::Boolean, 0.0),
+        _ => unreachable!("strip channel roles are Fader/Pan/Mute/Solo"),
+    }
+}
+
 /// The canonical [`ParameterTarget`] for a strip channel role — the
 /// single definition of each role's persisted defaults shared by
 /// strip seeding, the master-strip bootstrap, first-use `Pan`
@@ -980,13 +1002,7 @@ pub(crate) fn strip_channel_target(
     strip: StripId,
     role: ParameterRole,
 ) -> ParameterTarget {
-    let (name, kind, base) = match role {
-        ParameterRole::Fader => ("Fader", ValueKind::Continuous, 1.0),
-        ParameterRole::Pan => ("Pan", ValueKind::Continuous, 0.5),
-        ParameterRole::Mute => ("Mute", ValueKind::Boolean, 0.0),
-        ParameterRole::Solo => ("Solo", ValueKind::Boolean, 0.0),
-        _ => unreachable!("strip channel roles are Fader/Pan/Mute/Solo"),
-    };
+    let (name, kind, base) = strip_channel_spec(role);
     ParameterTarget {
         id,
         owner: ControlOwner::Strip(strip),
@@ -998,6 +1014,37 @@ pub(crate) fn strip_channel_target(
         capability: None,
         base,
     }
+}
+
+/// The canonical persisted spec `(kind, mapping, time_scope)` an
+/// internal channel/send parameter target must carry —
+/// `capability` is always `None` for these targets (internal channel
+/// gains carry no plugin `ParamId`). Returns `None` for every other
+/// `(owner, role)` pair: free-form targets keep authored specs.
+///
+/// This is the write-time half of the same contract
+/// [`strip_channel_target`] seeds and the `SendGainSpec::Create`
+/// staging path writes — `ProjectOp::AddParameterTarget` validation
+/// rejects any deviation so a public op cannot persist a shape no
+/// authority lookup or lowering path defines (e.g. a `Pan` carrying
+/// a plugin capability or an exponential mapping). `name`/`base`
+/// stay authored.
+pub(crate) fn canonical_internal_spec(
+    owner: ControlOwner,
+    role: ParameterRole,
+) -> Option<(ValueKind, ParamMapping, AutomationTimeScope)> {
+    let kind = if matches!(owner, ControlOwner::Strip(_)) && STRIP_CHANNEL_ROLES.contains(&role) {
+        strip_channel_spec(role).1
+    } else if matches!(owner, ControlOwner::Send(_)) && role == ParameterRole::SendLevel {
+        ValueKind::Continuous
+    } else {
+        return None;
+    };
+    Some((
+        kind,
+        ParamMapping::Linear,
+        AutomationTimeScope::ProjectMusical,
+    ))
 }
 
 /// The well-known raw ID of the master strip's seeded `role` channel

@@ -4,7 +4,7 @@ type: "impl"
 status: "completed"
 title: "CTL-02 Strip/Send Host Parameter 正本・Plugin Binding・Routing 実装記録"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-12"
 owners: []
 relations:
   source:
@@ -208,3 +208,65 @@ generic parameter/graph 契約の複製は行わない。実 Plugin/OS/実機の
 - GUI/mixer が strip channel target を fader/pan/mute/solo として
   投影・編集する結線は別 slice。
 - 実 Plugin での verified binding 受入は別 Gate(NotRun)。
+
+## 追記: canonical internal spec の write-time 強制(2026-11-12)
+
+Issue #122 残件 slice。`AddParameterTarget` の validation が
+owner 存在・time_scope 行列・singleton・base 範囲・
+`cap.param_info` のみを検査し、internal channel/send target の
+canonical spec を強制していなかったため、public op 経路で
+「`Pan`（中央）」「内部 Gain/Pan は Plugin Param ID なし」の
+契約に反する persisted 状態を作れた。あわせて
+`owner:Send + role:SendLevel` の直接作成が `send.gain_target`
+非参照の orphan target を生じ得た。
+
+### 変更
+
+- `control.rs`: strip channel role ごとの `(name, kind, seeded
+  base)` テーブルを `strip_channel_spec` として抽出し、
+  `strip_channel_target` factory と新設の
+  `canonical_internal_spec(owner, role)` が同一 source を参照する
+  構造に集約。`canonical_internal_spec` は `Strip`+
+  `STRIP_CHANNEL_ROLES` と `Send`+`SendLevel` の `(owner, role)`
+  に対し canonical `(kind, mapping=Linear, time_scope=
+  ProjectMusical)` を返し、それ以外は `None`(自由 spec を維持)。
+  `capability` は契約上一律 `None`。
+- `ops.rs` `AddParameterTarget::validate`: 上記 2 クラスに対し
+  canonical `kind`/`mapping`/`time_scope`/`capability: None` を
+  要求し、違反は typed `Error::Validation` で reject。`name`/`base`
+  は従来どおり authored。さらに `role: SendLevel` が `Send` 以外の
+  owner を持つ直接作成を orphan として reject
+  (`send_level_target_id` が解決するのは `Send` 所有
+  `SendLevel` のみで、`gain_target` の persisted 不変条件も Send
+  所有を要求するため)。
+- `tests/ctl_02.rs`: `strip_channel_targets_require_the_canonical_spec`
+  と `send_level_targets_require_the_canonical_spec` を追加 —
+  `Strip+Pan`/`Send+SendLevel` の non-canonical
+  kind/mapping/time_scope/capability:Some/base 範囲外を各々
+  reject、canonical 受理(Pan base 0.25 authored・SendLevel は
+  既存 low-level `SetSendGainTarget` 経路で bind)、非 Send owner
+  の `SendLevel` orphan 作成 reject を fixture 化。
+
+### 非破壊確認
+
+- `SendGainSpec::Create` 経路(routing_tx staging が内部で発行する
+  `AddParameterTarget{owner:Send, role:SendLevel}`)は canonical
+  spec のためそのまま受理 — `sf_02`/`ctl_02`/`sf_xr_01` の send
+  系 fixture は無変更で green。
+- `Generic`/`ProcessorParam` 等他 role、Track/Project/Clip/Note/
+  Processor owner、`capability: Some` の既存利用
+  (`sv47_controls` の readonly fixture 等)は非対象のまま。
+- 既存 seeded factory 呼出(`insert_strip`/`ControlModel::bootstrap`/
+  `set_strip_bool`/snapshot migration)は `strip_channel_spec`
+  経由で同一 spec を生成し、挙動不変。
+
+### 残存観測(本 slice 対象外)
+
+- `AddSend`/`SetSendGainTarget` の adoption は既存 target の
+  owner/role を apply 時に `Send`/`SendLevel` へ書き換えるが、
+  kind/mapping/time_scope/capability は書き換えない。canonical
+  spec を持たない target を adopt すると非 canonical な
+  `SendLevel` が persisted され得る — write-time 検査は
+  `AddParameterTarget` のみが対象のため別 slice 候補として記録。
+- 外部 gate(実 Plugin/OS/#103/#109 Oracle・AudioLens)は NotRun で
+  あり本 slice の委譲先は変わらない。
