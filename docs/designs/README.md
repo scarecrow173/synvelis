@@ -125,6 +125,7 @@ Directory: `docs/designs`
 | DESIGN-034VtzPNCX6aVKTaxy71ke | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn 設計 | approved | [tim-01-app-ppqn-design.md](./tim-01-app-ppqn-design.md) |
 | DESIGN-034UHVNvFQXFumTOowIt0g | TIM-01 Configurable PPQN — Rational Beat 再投影設計 | approved | [tim-01-configurable-ppqn-design.md](./tim-01-configurable-ppqn-design.md) |
 | DESIGN-4kLmNpQrStUvWxYz0123 | TIM-01 PPQN Preview op + New Project PPQN — 設計 | approved | [tim-01-ppqn-preview-design.md](./tim-01-ppqn-preview-design.md) |
+| DESIGN-TiM01uIxYzAbCdEfGh2 | TIM-01 PPQN 選択 UI + Snap/Grid ポリシー — 設計 | approved | [tim-01-ppqn-ui-design.md](./tim-01-ppqn-ui-design.md) |
 | DESIGN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — crate 内完結設計 | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | DESIGN-034UwVoRGI8Bp9zuzRFQhj | TIM-02 SMF Format0/1 core — crate 内完結設計 | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
 | DESIGN-MsBu5XoYY4Ex3QB0qmDvC5 | TIM-03 session→driver/routing wiring design — session 寿命・provenance mint・transport mirror | approved | [tim-03-session-driver-wiring-design.md](./tim-03-session-driver-wiring-design.md) |
