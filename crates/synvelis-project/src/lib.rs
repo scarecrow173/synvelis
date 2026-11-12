@@ -105,7 +105,10 @@ pub use plugin_state::{
     PluginStateStoreError, StateCaptureQuality, StateQualityPolicy, digest_hex, is_manifest_name,
     plugin_state_manifest_name,
 };
-pub use ppqn::{PPQN_MAX, PPQN_MIN, PpqnConversionPolicy, ppqn_in_range};
+pub use ppqn::{
+    PPQN_MAX, PPQN_MIN, PpqnChangePreview, PpqnConversionPolicy, PpqnPreviewSite, ppqn_in_range,
+    preview_ppqn,
+};
 pub use probe::{
     CaptureCompleteness, CaptureSegmentEnd, CaptureSessionId, ClockContextRef, ObservationGap,
     ObservationGapKind, ProbeCaptureSegment, ProbeFrameInterval, ProbeMode, ProbePointResolution,

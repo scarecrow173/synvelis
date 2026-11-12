@@ -840,3 +840,168 @@ fn ppqn_identity_change_is_noop() {
     apply(&mut c, ppqn_op(960, 960, PpqnConversionPolicy::Exact));
     assert_eq!(c.live(), &before);
 }
+
+// ---------- preview_ppqn (non-destructive dry-run) ----------
+
+/// The preview enumerates every musical-tick site and confirms an
+/// exact change applies — without mutating the project.
+#[test]
+fn preview_ppqn_reports_sites_and_confirms_exact_change() {
+    let (c, _s) = seeded();
+    let before = c.live().clone();
+
+    let preview = preview_ppqn(c.live(), 480, PpqnConversionPolicy::Exact).unwrap();
+    assert_eq!(preview.old_ppqn, 960);
+    assert_eq!(preview.new_ppqn, 480);
+    // tempo(3) + signature(2) + musical clip anchor/extent(2)
+    // + take-group range(2) + comp-region range(2) = 11 sites.
+    assert_eq!(preview.site_count, 11);
+    assert_eq!(preview.inexact, Vec::new());
+    assert_eq!(preview.overflow_sites, Vec::new());
+    assert!(preview.exact_ok);
+    assert!(preview.round_ok);
+    assert!(preview.applies);
+    assert_eq!(preview.rejection, None);
+    assert_eq!(c.live(), &before, "preview must not mutate the project");
+}
+
+/// Inexact positions are listed with their site identity; `Exact`
+/// reports infeasible while `Round` stays feasible and projects the
+/// declared rounding.
+#[test]
+fn preview_ppqn_lists_inexact_sites_and_policy_feasibility() {
+    let (c, _s) = seeded_inexact();
+
+    let preview = preview_ppqn(c.live(), 1_000, PpqnConversionPolicy::Exact).unwrap();
+    // tempo(1) + signature(1) + clip anchor/extent(2) = 4 sites.
+    assert_eq!(preview.site_count, 4);
+    assert_eq!(preview.inexact.len(), 1);
+    let site = &preview.inexact[0];
+    assert_eq!(site.kind, "clip_anchor");
+    assert_eq!(
+        site.instance,
+        c.live().clips.keys().next().unwrap().to_tagged()
+    );
+    assert_eq!(site.part, None);
+    assert_eq!(site.tick, 1);
+    // Exact cannot represent the site — no projected tick.
+    assert_eq!(site.projected, None);
+    assert!(!preview.exact_ok);
+    assert!(preview.round_ok);
+    assert!(!preview.applies);
+    assert!(preview.rejection.is_some());
+
+    let preview = preview_ppqn(
+        c.live(),
+        1_000,
+        PpqnConversionPolicy::Round(Rounding::Floor),
+    )
+    .unwrap();
+    assert!(preview.applies);
+    assert_eq!(preview.inexact.len(), 1);
+    // 1/960 beat → 1000/960 = 25/24 ticks — Floor projects to 1.
+    assert_eq!(preview.inexact[0].projected, Some(1));
+
+    let preview =
+        preview_ppqn(c.live(), 1_000, PpqnConversionPolicy::Round(Rounding::Ceil)).unwrap();
+    assert_eq!(preview.inexact[0].projected, Some(2));
+
+    assert_eq!(c.live().ppqn, ProjectPpqn(960));
+}
+
+/// Overflow sites are reported separately from inexact ones and
+/// fail every policy; a representable target stays feasible.
+#[test]
+fn preview_ppqn_reports_overflow_sites() {
+    let mut c = controller(Project::new(ProjectId::new(0), "preview-overflow"));
+    // 10^15 beats @960 → @32767 the tick count overflows i64.
+    apply(
+        &mut c,
+        ProjectOp::AddTempoEvent {
+            tick: 960_000_000_000_000_000,
+            bpm_milli: 120_000,
+        },
+    );
+
+    let preview = preview_ppqn(c.live(), 32_767, PpqnConversionPolicy::Exact).unwrap();
+    // default tempo(1) + default signature(1) + added tempo(1) = 3.
+    assert_eq!(preview.site_count, 3);
+    assert_eq!(preview.overflow_sites.len(), 1);
+    let site = &preview.overflow_sites[0];
+    assert_eq!(site.kind, "tempo_event");
+    assert_eq!(site.instance, "1");
+    assert_eq!(site.tick, 960_000_000_000_000_000);
+    assert_eq!(site.projected, None);
+    assert_eq!(preview.inexact, Vec::new());
+    assert!(!preview.exact_ok);
+    assert!(!preview.round_ok);
+    assert!(!preview.applies);
+
+    // The same beat fits @480 — the preview confirms feasibility.
+    let preview = preview_ppqn(c.live(), 480, PpqnConversionPolicy::Exact).unwrap();
+    assert_eq!(preview.overflow_sites, Vec::new());
+    assert!(preview.applies);
+}
+
+/// Out-of-range targets are rejected by the same resolution the
+/// mutating command performs.
+#[test]
+fn preview_ppqn_rejects_out_of_range_ppqn() {
+    let (c, _s) = seeded();
+    for bad in [0_u32, 32_768, u32::MAX] {
+        assert!(
+            preview_ppqn(c.live(), bad, PpqnConversionPolicy::Exact).is_err(),
+            "ppqn {bad} must be rejected"
+        );
+    }
+}
+
+/// An identity preview reports every site as exact and feasible —
+/// matching the identity no-op the command performs.
+#[test]
+fn preview_ppqn_identity_reports_all_sites_exact() {
+    let (c, _s) = seeded();
+    let preview = preview_ppqn(c.live(), 960, PpqnConversionPolicy::Exact).unwrap();
+    assert_eq!(preview.site_count, 11);
+    assert_eq!(preview.inexact, Vec::new());
+    assert_eq!(preview.overflow_sites, Vec::new());
+    assert!(preview.applies);
+}
+
+/// RT evidence (issue #125 acceptance): the Beat→Frame resolution a
+/// musical clip produces is identical before and after a PPQN
+/// re-projection — the RT-side rounding reproduces exactly, and the
+/// preview's `applies` verdict matches what the command does.
+#[test]
+fn rt_ppqn_beat_to_frame_rounding_reproduces() {
+    let (mut c, s) = seeded();
+    let map_before = tempo_map(c.live());
+    let clip_before = &c.live().clips[&s.clip_musical];
+    let span_before = clip_before
+        .placement
+        .resolve_span(Some(&map_before), RATE)
+        .unwrap();
+
+    let preview = preview_ppqn(c.live(), 480, PpqnConversionPolicy::Exact).unwrap();
+    assert!(preview.applies, "preview must predict the exact change");
+    apply(&mut c, ppqn_op(960, 480, PpqnConversionPolicy::Exact));
+
+    let map_after = tempo_map(c.live());
+    let clip_after = &c.live().clips[&s.clip_musical];
+    let span_after = clip_after
+        .placement
+        .resolve_span(Some(&map_after), RATE)
+        .unwrap();
+    assert_eq!(span_before, span_after);
+    // Concrete frame endpoints — the rounding reproduction is
+    // observable, not just span-structural equality.
+    assert_eq!(
+        span_before.start().frames_at(RATE),
+        span_after.start().frames_at(RATE)
+    );
+    assert_eq!(
+        span_before.end().frames_at(RATE),
+        span_after.end().frames_at(RATE)
+    );
+    assert!(span_before.end().frames_at(RATE) > span_before.start().frames_at(RATE));
+}
