@@ -278,18 +278,10 @@ where
     Ok(value.and_then(|v| serde_json::from_value(v).ok()))
 }
 
-/// TIM-01 UI slice (synvelis#125): the PPQN selection read model —
-/// select → preview → confirm/cancel lifecycle plus the Snap/Grid
-/// PPQN-change policy reporting. Mounted here (rather than a
-/// top-level `pub mod` in `lib.rs`) because `lib.rs` is leased to the
-/// SV-107 worker; the coordinator relocates the declaration to
-/// `synvelis_workspace::ppqn_ui` at integration. The `#[path]`
-/// attribute resolves relative to this file's directory, so the
-/// canonical file location `src/ppqn_ui.rs` is unchanged.
-#[path = "ppqn_ui.rs"]
-pub mod ppqn_ui;
-
-pub use ppqn_ui::{
+/// TIM-01 UI slice (synvelis#125): the PPQN selection read model lives
+/// at the canonical module `crate::ppqn_ui` (mounted in `lib.rs`).
+/// Re-exported here so existing `crate::state::*` paths keep working.
+pub use crate::ppqn_ui::{
     PpqnConfirm, PpqnPending, PpqnPhase, PpqnPreviewView, PpqnUi, PpqnUiError, RECOMMENDED_PPQN,
     SMF_EXPORT_NOTE, SnapGridEffect, ppqn_policy_name, ppqn_policy_wire, ppqn_rounding_name,
 };

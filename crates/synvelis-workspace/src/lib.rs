@@ -27,6 +27,7 @@ pub mod gesture;
 pub mod host;
 pub mod link;
 pub mod persist;
+pub mod ppqn_ui;
 pub mod preset;
 pub mod probe_trace;
 pub mod recording_status;
@@ -81,6 +82,10 @@ pub use gesture::{CancelReason, Gesture, GestureFixation, GestureOutcome, Gestur
 pub use host::FakeWindowHost;
 pub use link::{LinkEvent, LinkGroupId, LinkGroupManager};
 pub use persist::{WORKSPACE_SCHEMA, WorkspaceSnapshot};
+pub use ppqn_ui::{
+    PpqnConfirm, PpqnPending, PpqnPhase, PpqnPreviewView, PpqnUi, PpqnUiError, RECOMMENDED_PPQN,
+    SMF_EXPORT_NOTE, SnapGridEffect, ppqn_policy_name, ppqn_policy_wire, ppqn_rounding_name,
+};
 pub use preset::{
     PRESET_SCHEMA, PresetDock, PresetFocus, PresetGeometry, PresetLink, PresetReport, PresetView,
     PresetViewState, PresetWindow, WorkspacePreset,
