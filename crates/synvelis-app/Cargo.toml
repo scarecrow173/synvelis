@@ -49,6 +49,12 @@ native = [
   "ruviform-ui-gpui/gpui",
   "dep:synvelis-theme",
 ]
+# SV-GUI-03 slice 5 (synvelis#112 AC5, ruviform#464): the
+# GPUI-simulated scenario lane — `GpuiGuiTest`/`GpuiObserver` running
+# the shared driver-neutral scenarios. Builds on `native` (the
+# product's GPUI feature name); non-default so the headless lanes
+# stay gpui-free.
+gpui-test = ["native", "ruviform-ui-gpui/gpui-test"]
 
 [[bin]]
 name = "synvelis"
