@@ -7,6 +7,7 @@ Directory: `docs/tasks`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | TASK-alib03-t1 | ALIB-03 Task 1 — cache/catalog/preview/notify modules・tests | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
+| TASK-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — タスク | completed | [alib-04-lfs-remote-fetch-task.md](./alib-04-lfs-remote-fetch-task.md) |
 | TASK-alib06-t1 | ALIB-06 Task 1 — webdav provider modules・fixture・tests | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
 | TASK-034AUT01Mn7pQs4wXc9vBhJk | AUT-01: Touch Return 150ms smoothstep・Read/Touch/Latch/Write 境界 State 実装 | in-progress | [aut-01-task1-touch-return-writer-state.md](./aut-01-task1-touch-return-writer-state.md) |
 | TASK-034AUT04uqfg9sevPu0zlr | AUT-04 task1: Viewport LOD・RT bounded queue・型付き喪失 provenance 実装 + headless テスト | todo | [aut-04-task1-automation-curve-lod-record-budget.md](./aut-04-task1-automation-curve-lod-record-budget.md) |
@@ -41,6 +42,7 @@ Directory: `docs/tasks`
 | TASK-cvXxPcl14NogBTKEDTSKrO | SV-GUI-03 slice2 タスク分解 — Arrangement read-only Table + Undo/Redo | in-progress | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
 | TASK-1WNuXmcz8F5r40PEfPLP3u | SV-GUI-03 slice3 タスク分解 — Mixer strip master Mute/Solo Toggle | in-progress | [sv-gui-03-03-mixer-strip-toggle-slice3.md](./sv-gui-03-03-mixer-strip-toggle-slice3.md) |
 | TASK-Wq3nBs6yLv8pRt5wXe2kFg | SV-GUI-03 slice4 タスク分解 — Arrangement selection→Inspector + Meter/Waveform viz mount | in-progress | [sv-gui-03-04-selection-inspector-viz.md](./sv-gui-03-04-selection-inspector-viz.md) |
+| TASK-Km2wQp9xZr5vNt8yLc4sDh | SV-GUI-03 slice5 タスク分解 — GPUI-simulated scenario lane | in-progress | [sv-gui-03-05-gpui-scenario.md](./sv-gui-03-05-gpui-scenario.md) |
 | TASK-034UogPe6cIh8LtcFphyuH | SV-GUI-04 slice1 precursor: multi-window WindowHandle + headless dock fixture | in-progress | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | TASK-NFJWSkocsf8xf7WcgpPdL0 | SV-GUI-04 slice1 タスク分解 — 実 2-window mount | in-progress | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
@@ -141,6 +143,7 @@ Directory: `docs/tasks`
 | TASK-034Uj82AYjkBHzNn8uXCCu | SF-03 slice5 T3 — headless session→routing e2e・test-spec | done | [sf-03-slice5-acceptance-tests.md](./sf-03-slice5-acceptance-tests.md) |
 | TASK-034Uj7V9p3khaqx8qH7C2Z | SF-03 slice5 T1 — workspace EnginePort・ProjectSession 接続 | done | [sf-03-slice5-session-engine-port.md](./sf-03-slice5-session-engine-port.md) |
 | TASK-034Uj826EB6a7TEsfLwDmZ | SF-03 slice5 T2 — synvelis-app SessionRoutingEngine・canonical probe | done | [sf-03-slice5-session-routing-engine.md](./sf-03-slice5-session-routing-engine.md) |
+| TASK-034VWsCOcQUHrW7PISo66X | SF-03 slice9 T1 — host capability generation live firing | done | [sf-03-slice9-capability-firing-task.md](./sf-03-slice9-capability-firing-task.md) |
 | TASK-034VoSREP91HGvxpLROrrC | SF-03 slice8 T1 — app/workspace Revision fixture | done | [sf-03-task1-revision-fixture.md](./sf-03-task1-revision-fixture.md) |
 | TASK-034UudL7KhVSvQn5M5gy5n | SF-05 slice1 タスク分解 — Signal Flow headless | done | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | TASK-hB3uTuJhPxgOVjGdWdSOVj | SF-05 slice2 タスク分解 — Signal Flow gesture/inspection/persist | done | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
@@ -165,6 +168,7 @@ Directory: `docs/tasks`
 | TASK-DqvyFE4jtl1dHhjkpI0Awe | SV#28 Ruviform pin を cc7d5296 へ更新し API 追従・検証を完了する | done | [sv28-ruviform-pin-update.md](./sv28-ruviform-pin-update.md) |
 | TASK-034UvJH1gMKAHU5UZUrzNN | SYN-IO-01 task1 境界 Owner・失敗写像・Backup/Import 設計文書 | done | [syn-io-01-task1-boundary-design-docs.md](./syn-io-01-task1-boundary-design-docs.md) |
 | TASK-034UvJHLXI3ZB4q8FYKlbH | SYN-IO-01 task2 検証計画・Gate 証拠・文書チェーン完結 | done | [syn-io-01-task2-verification-gate-docs.md](./syn-io-01-task2-verification-gate-docs.md) |
+| TASK-034T2vRnB8yK3mXw7LpQ | SYN-IO-02 HEAD CAS store port 実装 | done | [syn-io-02-head-cas-task.md](./syn-io-02-head-cas-task.md) |
 | TASK-034T2c6ZLwPXf10mPcW2MC | SYN-IO-02 task1 store.rs StagedFile 移行 | done | [syn-io-02-task1-store-stagedfile-migration.md](./syn-io-02-task1-store-stagedfile-migration.md) |
 | TASK-034RBFUDGVewxs72FGa8RM | SYN-OBS-01 task1 依存更新と logging モジュール(設定解決/install/owner) | done | [syn-obs-01-task1-deps-logging-module.md](./syn-obs-01-task1-deps-logging-module.md) |
 | TASK-034RBFVsXUmxHPEa6zbZRx | SYN-OBS-01 task2 ObservabilityOwner Source catalog と syn.app.info logging セクション | done | [syn-obs-01-task2-owner-catalog-app-info.md](./syn-obs-01-task2-owner-catalog-app-info.md) |
@@ -174,6 +178,7 @@ Directory: `docs/tasks`
 | TASK-034RBFY3O4vz81b0Rumg95 | SYN-OBS-01 task6 最終検証と impl record | done | [syn-obs-01-task6-final-verify-impl-record.md](./syn-obs-01-task6-final-verify-impl-record.md) |
 | TASK-034T2RF305WAVSTAGED01A | SYN-RF305 task1 render/player WAV Export StagedFile 移行 | done | [syn-rf305-task1-render-export-staged-file.md](./syn-rf305-task1-render-export-staged-file.md) |
 | TASK-034UHVQgQGF9WnpLCSCDTB | TIM-01 configurable PPQN — implementation tasks | done | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
+| TASK-2pOiUyTrEwQaSdFgHjKl | TIM-01 — PPQN Preview op + New Project PPQN | done | [tim-01-ppqn-preview-task.md](./tim-01-ppqn-preview-task.md) |
 | TASK-034VtBNiTaFYQMA3eOBYXv | TIM-01 task2 — app 層 PPQN 統合 | done | [tim-01-task2-app-ppqn.md](./tim-01-task2-app-ppqn.md) |
 | TASK-034UwY7u8viaAzE6tUxLHa | TIM-02 Task1 SMF Format0/1 project+recording headless slice | done | [tim-02-task1-smf-core.md](./tim-02-task1-smf-core.md) |
 | TASK-126tim02playerMidiRt01 | TIM-02 Task2 player MIDI RT/Offline 結合 slice | done | [tim-02-task2-player-midi.md](./tim-02-task2-player-midi.md) |
@@ -184,6 +189,7 @@ Directory: `docs/tasks`
 | TASK-034gOTXfiNaCeDRTpeP2x | TIM-03 task3 — per-request plan wiring + precision provenance（ProcessBoundarySession） | done | [tim03-task3-request-plan.md](./tim03-task3-request-plan.md) |
 | TASK-034UEtaHWZFrCd1VFAIRfl | VCS-02 Task1 Semantic Diff Engine headless slice | done | [vcs-02-task1-semantic-diff-engine-headless-slice.md](./vcs-02-task1-semantic-diff-engine-headless-slice.md) |
 | TASK-v2hQAN1hrbnURHHF2lrf6L | VCS-03 Task1 Git Read Provider headless slice | done | [vcs-03-task1-git-read-provider-headless-slice.md](./vcs-03-task1-git-read-provider-headless-slice.md) |
+| TASK-QDa6_9HNOZ3w0cse6y4ih | GitVcsProvider rev-parse --quiet 除去による unborn HEAD 誤分類修正 + 回帰 test | done | [vcs-03-unborn-head-classification-task.md](./vcs-03-unborn-head-classification-task.md) |
 | TASK-VCS04BkndWiringTask001 | VCS-04 production set_vcs_backend 配線 slice — task | done | [vcs-04-backend-wiring-task.md](./vcs-04-backend-wiring-task.md) |
 | TASK-VCS04Hist0ryV1ewTsk01 | VCS-04 slice1 タスク分解 — History/Visual Diff headless | done | [vcs-04-task1-history-diff-headless-slice.md](./vcs-04-task1-history-diff-headless-slice.md) |
 | TASK-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless slice — 実装 task | done | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
