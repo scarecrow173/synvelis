@@ -1467,6 +1467,39 @@ impl RoutingEngine {
         let _ = self.probes.bump_clock_epoch();
     }
 
+    /// Declares a cursor-series discontinuity that does **not** move
+    /// the engine cursor — the probe-side counterpart of
+    /// [`Self::seek`] for transport events the cursor cannot express
+    /// (Issue #107 / Ruviform #309). Bumps the probe clock epoch so
+    /// records after the boundary classify as
+    /// `EpochMismatch`/`DiscontinuityInWindow` instead of silently
+    /// aligning with pre-discontinuity spans; open capture segments
+    /// cut lazily at `ClockEpoch` on the first new-epoch evidence,
+    /// exactly as on seek. Post-declaration chunks match no open
+    /// segment and are discarded — never re-attributed, never
+    /// auto-recaptured.
+    ///
+    /// This is the single declaration point for non-seek
+    /// discontinuities: `stop`/`run` never move the cursor and are
+    /// therefore *not* declaration points, and a device restart is
+    /// an engine recreation — a fresh `ProbeSession`/clock context,
+    /// not a bump on the old one. Transport seek must keep going
+    /// through [`Self::seek`], which re-anchors the cursor *and*
+    /// declares; calling this instead would leave clip handles and
+    /// the cursor un-reanchored.
+    ///
+    /// # Errors
+    /// [`ProbeRequestError::Broker`] on `CommandChannelFull` — the
+    /// broker epoch still advances (upstream bumps before the push),
+    /// so `probe_time_context().epoch` and the deck's mark disagree
+    /// until a later `wire_clock_mark`/`bump_epoch` lands;
+    /// observable, never silently aligned. Unlike [`Self::seek`]'s
+    /// best-effort bump, an explicit declaration reports the failure
+    /// honestly — the caller owns the retry decision.
+    pub fn declare_probe_discontinuity(&mut self) -> Result<(), ProbeRequestError> {
+        self.probes.bump_clock_epoch()
+    }
+
     /// Explicit stop — transport state, not a missing plan.
     pub fn stop(&mut self) {
         self.state = DriverState::Stopped;
