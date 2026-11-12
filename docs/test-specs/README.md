@@ -55,6 +55,7 @@ Directory: `docs/test-specs`
 | TSPEC-YEy9TAHyUte5MD6kpyZJFI | PC-C6 oracle E2E — REL01〜07 / TR01〜08 独立照合 fixture | approved | [pc-c6-e2e-oracle-rel-tr.md](./pc-c6-e2e-oracle-rel-tr.md) |
 | TSPEC-034VmVmcW4lYrji082NUve | PC-C6 oracle E2E — R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 独立照合 fixture | approved | [pc-c6-oracle-rows.md](./pc-c6-oracle-rows.md) |
 | TSPEC-034W1WRQXbMr2y30mwzX1z | PC-C6 TR ledger oracle 検証仕様 — TR01/03/04/05/07/08 実経路照合 | approved | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
+| TSPEC-034WxmAJbjUwK6FBs7Xiy2 | PC-C6 TR02/TR06 realpath oracle 検証仕様 | approved | [pc-c6-tr02-tr06-realpath-oracle.md](./pc-c6-tr02-tr06-realpath-oracle.md) |
 | TSPEC-034VNrSyPxIGK6pnJSonNR | plugin_instances VCS semantic diff 分類 fixture matrix | proposed | [plugin-instances-vcs-diff.md](./plugin-instances-vcs-diff.md) |
 | TSPEC-034V2ixodcql8RLLJfoYqH | RCD-01 device-recording headless fixture test spec | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
