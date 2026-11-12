@@ -35,6 +35,11 @@ use synvelis_player::{
     LatencyComponent, LatencyQuality, LatencyReport, LowLatencyReadiness, ReportDrainReport,
     SurfaceReport, TickReport,
 };
+use synvelis_project::probe::{
+    AcousticObservation, ClockContextRef, ProbeAlignCondition, ProbeComparisonBasis,
+    ProbeComparisonGap, ProbeComparisonProvenance, ProbeComparisonQuality, ProbeComparisonRequest,
+    ProbeIncomparableReason,
+};
 use synvelis_project::vcs::{RevisionSelector, VcsCancel};
 use synvelis_project::{
     BusId, ClipId, ClockEpochId, ExplicitChannelMap, LaneId, MusicalTick, ParameterTargetId,
@@ -377,6 +382,191 @@ fn probe_observed_json(slot: &TraceSlot<ProbeObservation>) -> Value {
     json!({
         "state": state,
         "value": slot.present().map(|o| format!("{o:?}")),
+    })
+}
+
+/// `ClockContextRef` → wire shape — raw domain/epoch ids. The
+/// contract type carries runtime clock identity and has no serde;
+/// the ids are evidence, emitted verbatim (never a guessed clock).
+fn probe_clock_context_json(clock: &ClockContextRef) -> Value {
+    json!({
+        "domain": clock.domain.get(),
+        "epoch": clock.epoch.get(),
+    })
+}
+
+/// `ProbeComparisonBasis` → wire shape — the coordinate basis an
+/// alignment was computed in. `#[non_exhaustive]` future variants
+/// land on `"unknown"` — never guessed.
+fn probe_comparison_basis_json(basis: &ProbeComparisonBasis) -> Value {
+    match basis {
+        ProbeComparisonBasis::SharedCursor { clock } => json!({
+            "kind": "shared-cursor",
+            "clock": probe_clock_context_json(clock),
+        }),
+        ProbeComparisonBasis::EngineFrame { epoch } => json!({
+            "kind": "engine-frame",
+            "epoch": epoch.get(),
+        }),
+        _ => json!({ "kind": "unknown" }),
+    }
+}
+
+/// `ProbeAlignCondition` → wire shape — one condition keeping a
+/// `Conditional` result conditional. Future variants → `"unknown"`.
+fn probe_align_condition_json(condition: &ProbeAlignCondition) -> Value {
+    match condition {
+        ProbeAlignCondition::LatencyBounded { bound_frames } => json!({
+            "kind": "latency-bounded",
+            "bound_frames": bound_frames,
+        }),
+        ProbeAlignCondition::ProvenanceEstimated => json!({ "kind": "provenance-estimated" }),
+        ProbeAlignCondition::PartialCoverage => json!({ "kind": "partial-coverage" }),
+        ProbeAlignCondition::CrossGeneration => json!({ "kind": "cross-generation" }),
+        ProbeAlignCondition::MixedPrecision => json!({ "kind": "mixed-precision" }),
+        _ => json!({ "kind": "unknown" }),
+    }
+}
+
+/// `ProbeIncomparableReason` → wire shape — every variant maps to a
+/// stable `kind` tag with its payload fields verbatim (`side`
+/// serializes as `"before"`/`"after"`). `#[non_exhaustive]` future
+/// variants land on `"unknown"` — never guessed.
+fn probe_incomparable_reason_json(reason: &ProbeIncomparableReason) -> Value {
+    match reason {
+        ProbeIncomparableReason::PointUnresolved { side } => {
+            json!({ "kind": "point-unresolved", "side": side })
+        }
+        ProbeIncomparableReason::ProbeNotBound { side } => {
+            json!({ "kind": "probe-not-bound", "side": side })
+        }
+        ProbeIncomparableReason::NoObservationData { side } => {
+            json!({ "kind": "no-observation-data", "side": side })
+        }
+        ProbeIncomparableReason::InconsistentFormat { side } => {
+            json!({ "kind": "inconsistent-format", "side": side })
+        }
+        ProbeIncomparableReason::UnsupportedChannelLayout { side, channels } => json!({
+            "kind": "unsupported-channel-layout",
+            "side": side,
+            "channels": channels,
+        }),
+        ProbeIncomparableReason::EvidenceBudgetExceeded => {
+            json!({ "kind": "evidence-budget-exceeded" })
+        }
+        ProbeIncomparableReason::UnknownClock => json!({ "kind": "unknown-clock" }),
+        ProbeIncomparableReason::DomainMismatch => json!({ "kind": "domain-mismatch" }),
+        ProbeIncomparableReason::EpochMismatch => json!({ "kind": "epoch-mismatch" }),
+        ProbeIncomparableReason::SeriesMismatch => json!({ "kind": "series-mismatch" }),
+        ProbeIncomparableReason::RateMismatch { a, b } => {
+            json!({ "kind": "rate-mismatch", "a": a, "b": b })
+        }
+        ProbeIncomparableReason::FormatMismatch => json!({ "kind": "format-mismatch" }),
+        ProbeIncomparableReason::LatencyUnknown => json!({ "kind": "latency-unknown" }),
+        ProbeIncomparableReason::CoverageEmpty => json!({ "kind": "coverage-empty" }),
+        ProbeIncomparableReason::DiscontinuityInWindow => {
+            json!({ "kind": "discontinuity-in-window" })
+        }
+        ProbeIncomparableReason::GenerationSpan => json!({ "kind": "generation-span" }),
+        ProbeIncomparableReason::AnchorMissing => json!({ "kind": "anchor-missing" }),
+        ProbeIncomparableReason::AnchorRejected => json!({ "kind": "anchor-rejected" }),
+        ProbeIncomparableReason::Overflow => json!({ "kind": "overflow" }),
+        ProbeIncomparableReason::ErrorBudgetExceeded => {
+            json!({ "kind": "error-budget-exceeded" })
+        }
+        ProbeIncomparableReason::EstimatedProvenance => {
+            json!({ "kind": "estimated-provenance" })
+        }
+        _ => json!({ "kind": "unknown" }),
+    }
+}
+
+/// `ProbeComparisonQuality` → wire shape — the three-valued
+/// alignment verdict (`aligned`/`conditional`/`incomparable`).
+fn probe_comparison_quality_json(quality: &ProbeComparisonQuality) -> Value {
+    match quality {
+        ProbeComparisonQuality::Aligned {
+            basis,
+            offset_frames,
+            error_budget_frames,
+        } => json!({
+            "kind": "aligned",
+            "basis": probe_comparison_basis_json(basis),
+            "offset_frames": offset_frames,
+            "error_budget_frames": error_budget_frames,
+        }),
+        ProbeComparisonQuality::Conditional {
+            basis,
+            offset_frames,
+            error_budget_frames,
+            conditions,
+            excluded_intervals,
+        } => json!({
+            "kind": "conditional",
+            "basis": probe_comparison_basis_json(basis),
+            "offset_frames": offset_frames,
+            "error_budget_frames": error_budget_frames,
+            "conditions": conditions
+                .iter()
+                .map(probe_align_condition_json)
+                .collect::<Vec<_>>(),
+            "excluded_intervals": excluded_intervals,
+        }),
+        ProbeComparisonQuality::Incomparable { reason } => json!({
+            "kind": "incomparable",
+            "reason": probe_incomparable_reason_json(reason),
+        }),
+        _ => json!({ "kind": "unknown" }),
+    }
+}
+
+/// `ProbeComparisonGap` → wire shape — `side`/`kind` are contract
+/// serde (`"before"`/`"after"`, kebab-case gap kinds); `range` is
+/// the serde `ProbeFrameInterval`.
+fn probe_comparison_gap_json(gap: &ProbeComparisonGap) -> Value {
+    json!({
+        "side": gap.side,
+        "range": gap.range,
+        "kind": gap.kind,
+    })
+}
+
+/// `ProbeComparisonProvenance` → wire shape — clock identities as
+/// raw domain/epoch ids (`None` = side unresolved or mark
+/// unknown), generation ranges and cursor-series facts verbatim.
+fn probe_comparison_provenance_json(provenance: &ProbeComparisonProvenance) -> Value {
+    json!({
+        "before_clock": provenance
+            .before_clock
+            .as_ref()
+            .map(probe_clock_context_json),
+        "after_clock": provenance
+            .after_clock
+            .as_ref()
+            .map(probe_clock_context_json),
+        "before_generations": provenance.before_generations,
+        "after_generations": provenance.after_generations,
+        "runtime_instance": provenance.runtime_instance,
+        "sample_rate": provenance.sample_rate,
+    })
+}
+
+/// `AcousticObservation` → wire shape — the contract type carries
+/// clock ids and has no serde, so `quality`/`basis`/`gap_mask`/
+/// `provenance` map field-by-field; `before`/`after`/`interval`
+/// are serde contract types and serialize verbatim.
+fn probe_observation_json(observation: &AcousticObservation) -> Value {
+    json!({
+        "before": observation.before,
+        "after": observation.after,
+        "quality": probe_comparison_quality_json(&observation.quality),
+        "interval": observation.interval,
+        "gap_mask": observation
+            .gap_mask
+            .iter()
+            .map(probe_comparison_gap_json)
+            .collect::<Vec<_>>(),
+        "provenance": probe_comparison_provenance_json(&observation.provenance),
     })
 }
 
@@ -4861,6 +5051,44 @@ impl SynvelisApp {
                 "traces": traces,
             })
         })
+    }
+
+    /// `syn.probe.compare` — SF-PROBE-07 multi-probe alignment
+    /// comparison over the wire (SF-04 slice 10).
+    /// `params.request` is the serde [`ProbeComparisonRequest`]
+    /// verbatim — `before`/`after` semantic points, optional
+    /// `observed_range`, `alignment_policy`, `metric_set`,
+    /// `max_bytes`. The result is the [`AcousticObservation`] mapped
+    /// field-by-field to JSON (`quality`/`basis`/`gap_mask`/
+    /// `provenance` — the contract type carries clock ids and has
+    /// no serde).
+    ///
+    /// Read-only like [`Self::op_probe_state`]: the comparison runs
+    /// over the coverage evidence retained by the last `ui_pump`
+    /// drain — the op never drains and never mutates, so stale or
+    /// missing evidence degrades to an honest `incomparable`/
+    /// `conditional`, never a fabricated `aligned`. With no routing
+    /// engine attached it reports `engine_attached:false` +
+    /// `observation:null` rather than erroring, so consumers can
+    /// render the honest unavailable state.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on a malformed `params.request`
+    /// (`INVALID_PARAMS`) — validated before the engine check, the
+    /// same ordering `syn.probe.control` applies to its action.
+    pub fn op_probe_compare(&self, params: &Value) -> Result<Value, ErrorBody> {
+        let request: ProbeComparisonRequest = json_param(params, "request")?;
+        let Some(engine) = self.routing_engine.as_ref() else {
+            return Ok(json!({
+                "engine_attached": false,
+                "observation": Value::Null,
+            }));
+        };
+        let observation = engine.with_probe_bridge(|port| port.compare_probes(&request));
+        Ok(json!({
+            "engine_attached": true,
+            "observation": probe_observation_json(&observation),
+        }))
     }
 
     // -- syn.viz.* ---------------------------------------------------------

@@ -70,6 +70,7 @@ Directory: `docs/specs`
 | SPEC-034VoS9yTOt7fYOoDYlyRU | SF-03 slice8 — app/workspace same-Revision fixture | approved | [sf-03-slice8-revision-fixture.md](./sf-03-slice8-revision-fixture.md) |
 | SPEC-034VWsjfgfnLgo8ntUpQH6 | SF-03 slice9 — host capability generation live firing | approved | [sf-03-slice9-capability-firing.md](./sf-03-slice9-capability-firing.md) |
 | SPEC-034UlYgSZ589NRdTrtO4Vu | SF-04 slice1 — Semantic Probe Adapter 基盤（project/player 層 + ruviform pin bump） | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
+| SPEC-H7wQpL2mNvR4tY8xZ1cJkD | SF-04 slice10 — syn.probe.compare app op（ProbeComparisonRequest → AcousticObservation の wire 露出） | approved | [sf-04-slice10-probe-compare-op.md](./sf-04-slice10-probe-compare-op.md) |
 | SPEC-034UumeSTLbuxt64vqqJ47 | SF-04 slice2 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | SPEC-034UL2whPqBifdr1Jsrkn7 | SF-04 slice3 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | SPEC-4kvuQeb3IYEZ7UbStoNt2X | SF-04 slice4 — app/session wiring（Probe ON/OFF・probe port 実装・syn.probe.* ops・drain hook） | approved | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |

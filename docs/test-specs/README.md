@@ -76,6 +76,7 @@ Directory: `docs/test-specs`
 | TSPEC-034VoSrQGRatV4fFu1xhFo | SF-03 slice8 — app/workspace same-Revision fixture test-spec | approved | [sf-03-slice8-revision-fixture.md](./sf-03-slice8-revision-fixture.md) |
 | TSPEC-034VWwjeNu5OL7N0dTcTSF | SF-03 slice9 — host capability generation live firing test-spec | approved | [sf-03-slice9-capability-firing.md](./sf-03-slice9-capability-firing.md) |
 | TSPEC-034Um6SOlStZLqEVmi7IEk | SF-04 slice1 受入テスト仕様 — semantic probe 解決・lifecycle・segment cut | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
+| TSPEC-5nCxL8dSwV2yH4jK6fG1bN | SF-04 slice10 テスト仕様 — syn.probe.compare app op | approved | [sf-04-slice10-probe-compare-op.md](./sf-04-slice10-probe-compare-op.md) |
 | TSPEC-034UupvzrMsHjf6LBZma9J | SF-04 slice2 受入テスト仕様 — probe observation → trace 記録・freshness・fail-closed | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | TSPEC-034UL2Z7qW8xN4pLm5Rs6 | SF-04 slice3 受入テスト仕様 — clock epoch discontinuity・segment cut・fault/DSP invariance | approved | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | TSPEC-1W8mH6ZO7NttYUnbbJOgke | SF-04 slice4 受入テスト仕様 — app/session wiring（syn.probe.*・drain hook） | approved | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |

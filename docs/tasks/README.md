@@ -145,6 +145,7 @@ Directory: `docs/tasks`
 | TASK-034Uj826EB6a7TEsfLwDmZ | SF-03 slice5 T2 — synvelis-app SessionRoutingEngine・canonical probe | done | [sf-03-slice5-session-routing-engine.md](./sf-03-slice5-session-routing-engine.md) |
 | TASK-034VWsCOcQUHrW7PISo66X | SF-03 slice9 T1 — host capability generation live firing | done | [sf-03-slice9-capability-firing-task.md](./sf-03-slice9-capability-firing-task.md) |
 | TASK-034VoSREP91HGvxpLROrrC | SF-03 slice8 T1 — app/workspace Revision fixture | done | [sf-03-task1-revision-fixture.md](./sf-03-task1-revision-fixture.md) |
+| TASK-6mWzK4pRyT7uI0oP3aS9dF | SF-04 slice10 T1 — syn.probe.compare app op（ProbeComparisonRequest → AcousticObservation の wire 露出） | done | [sf-04-slice10-probe-compare-op-task.md](./sf-04-slice10-probe-compare-op-task.md) |
 | TASK-1pO9iU7yT5rE3wQ6aSdFgH | SF-04 slice6 T1 — 複数 Probe 整列比較 consumer（ProbeComparisonRequest → AcousticObservation） | done | [sf-04-slice6-probe-compare-task.md](./sf-04-slice6-probe-compare-task.md) |
 | TASK-034UudL7KhVSvQn5M5gy5n | SF-05 slice1 タスク分解 — Signal Flow headless | done | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | TASK-hB3uTuJhPxgOVjGdWdSOVj | SF-05 slice2 タスク分解 — Signal Flow gesture/inspection/persist | done | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
