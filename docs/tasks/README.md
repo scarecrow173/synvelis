@@ -120,6 +120,7 @@ Directory: `docs/tasks`
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TASK-034UxYCkPWXOotRSbjIPex | PC-C5 slice2 タスク分解 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | done | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | TASK-034WaQD0ytfaRVbcWofg2n | PC-C5 slice4 タスク分解 — Recording status read model（UI-C5-04・headless） | done | [pc-c5-04-recording-status.md](./pc-c5-04-recording-status.md) |
+| TASK-034W1XvJrhZ2i1eRhcbxkP | PC-C6: TR01/03/04/05/07/08 dispatch ledger 実経路 oracle 結合タスク | done | [pc-c6-tr-ledger-oracle-task.md](./pc-c6-tr-ledger-oracle-task.md) |
 | TASK-034VNs3KBar3pyoUwECyIh | plugin_instances VCS semantic diff 分類 | done | [plugin-instances-vcs-diff-task.md](./plugin-instances-vcs-diff-task.md) |
 | TASK-2Ri1ehmSIXwfHO79pHYSiU | RCD-02 Task Unsynced-Write Loss Fixture + Real-FS Probe | done | [rcd-02-task-unsynced-loss-real-fs-probe.md](./rcd-02-task-unsynced-loss-real-fs-probe.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | done | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |

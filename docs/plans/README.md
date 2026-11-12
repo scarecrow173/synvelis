@@ -45,6 +45,7 @@ Directory: `docs/plans`
 | PLAN-034WaQlEhakW3yisBvWEHv | PC-C5 slice4 実施計画 — Recording status read model（UI-C5-04・headless） | approved | [pc-c5-04-recording-status.md](./pc-c5-04-recording-status.md) |
 | PLAN-7zXphX8skvXfNgeXarocfo | PC-C6 oracle REL/TR headless fixture 実装計画 | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
 | PLAN-034VmVEzTuUHmBKxPRoFID | PC-C6 oracle R/PL/UI/COMP headless fixture 実装計画 | approved | [pc-c6-oracle-rows-plan.md](./pc-c6-oracle-rows-plan.md) |
+| PLAN-034W1XlCxVQQ7sFeO9N9c0 | PC-C6 TR ledger oracle 実装計画 | approved | [pc-c6-tr-ledger-oracle-plan.md](./pc-c6-tr-ledger-oracle-plan.md) |
 | PLAN-034VNrIZteNN2bsGVGokZF | plugin_instances VCS semantic diff 分類 slice | approved | [plugin-instances-vcs-diff-plan.md](./plugin-instances-vcs-diff-plan.md) |
 | PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
