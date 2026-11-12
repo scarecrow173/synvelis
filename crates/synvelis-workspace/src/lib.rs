@@ -29,6 +29,7 @@ pub mod link;
 pub mod persist;
 pub mod preset;
 pub mod probe_trace;
+pub mod recording_status;
 pub mod relation_ui;
 pub mod routing_gesture;
 pub mod selection;
@@ -85,6 +86,12 @@ pub use preset::{
     PresetViewState, PresetWindow, WorkspacePreset,
 };
 pub use probe_trace::{ProbeDrainReport, ProbePrincipal, ProbeReleaseReport, ProbeTraceError};
+pub use recording_status::{
+    PreparedCommitView, PreparedVerdict, RECORDING_STATUS_NOTICE_TAIL, RecordingAction,
+    RecordingDisplayState, RecordingExplanation, RecordingLaneView, RecordingOutcomeView,
+    RecordingProvenance, RecordingStatusOptions, RecordingStatusView, RecordingTxnView,
+    recording_status, recording_status_with,
+};
 pub use relation_ui::{
     RELATION_VIEW_INCLUDE_DISABLED, RELATION_VIEW_MAX_DEPTH, RELATION_VIEW_MAX_EDGES, RelationNav,
     RelationRow, RelationView, RelationViewOptions, relation_rows, relation_rows_with,
