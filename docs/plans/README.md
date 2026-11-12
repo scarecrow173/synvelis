@@ -27,6 +27,7 @@ Directory: `docs/plans`
 | PLAN-034SYN166StG1CiSm | Issue #166 Full CI 化・ci-summary 統一 — 第一段階実装計画 | proposed | [issue-166-full-ci-ci-summary.md](./issue-166-full-ci-ci-summary.md) |
 | PLAN-FJFu7KEhoGpsO1UDDzKK6a | Issue #167 Tracker reconcile 実装計画 — 共有 pin eed590e + Consumer reconcile workflow + 契約 test | in-progress | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
 | PLAN-034U2vlyQzakAB9i25oAuM | Issue #184 CI verify/evidence 失敗 — canonical temp fixture 実装計画 | approved | [issue-184-ci-verify-evidence-canonical-temp-fixture.md](./issue-184-ci-verify-evidence-canonical-temp-fixture.md) |
+| PLAN-034Wv23ayc9G1WRGoi3DaA | Issue #368 docs/impl/ir missing-section 本文補完 — 実装 plan | approved | [issue-368-ir-missing-sections-plan.md](./issue-368-ir-missing-sections-plan.md) |
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |

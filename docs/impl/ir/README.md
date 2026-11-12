@@ -6,6 +6,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-034Wv7Ib5bsrIkIj1wO99Y | Issue #368 docs/impl/ir missing-section 本文補完 | in-progress | [issue-368-docs-impl-ir-missing-section.md](./issue-368-docs-impl-ir-missing-section.md) |
 | IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](./rcd-04-product-e2e-slice.md) |
 | IMPL-034VC2V5HUrkERcXqw246v | RCD-04 RT engine comp PCM slice 実装記録 | in-progress | [rcd-04-rt-engine-comp-pcm-slice.md](./rcd-04-rt-engine-comp-pcm-slice.md) |
 | IMPL-034UvgCFl4bXw9DZ4bTr3X | SF-04 slice2 ControlSession probe observation trace wiring | in-progress | [sf-04-slice2-controlsession-probe-observation-trace-wiring.md](./sf-04-slice2-controlsession-probe-observation-trace-wiring.md) |
