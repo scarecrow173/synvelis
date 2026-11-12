@@ -448,9 +448,13 @@ impl ViewBinding {
 
     // -- project / transport / app ------------------------------------------
 
-    /// `syn.project.new` — create a bundle at `path`.
-    pub fn project_new(&mut self, path: &str, name: Option<&str>) -> String {
-        self.push("syn.project.new", json!({ "path": path, "name": name }))
+    /// `syn.project.new` — create a bundle at `path`; `ppqn` selects
+    /// the initial project PPQN (`None` = default 960).
+    pub fn project_new(&mut self, path: &str, name: Option<&str>, ppqn: Option<u32>) -> String {
+        self.push(
+            "syn.project.new",
+            json!({ "path": path, "name": name, "ppqn": ppqn }),
+        )
     }
 
     /// `syn.project.open` — open the bundle at `path`.

@@ -34,7 +34,7 @@ pub const OPS: &[OpInfo] = &[
     },
     OpInfo {
         name: "syn.project.new",
-        summary: "create a new project bundle at params.path (params.name optional)",
+        summary: "create a new project bundle at params.path (params.name/ppqn optional)",
     },
     OpInfo {
         name: "syn.project.open",
@@ -55,6 +55,10 @@ pub const OPS: &[OpInfo] = &[
     OpInfo {
         name: "syn.project.set_ppqn",
         summary: "change project PPQN — params.old_ppqn/new_ppqn/policy(/rounding)/expected_revision?",
+    },
+    OpInfo {
+        name: "syn.project.preview_ppqn",
+        summary: "dry-run project PPQN change — params.new_ppqn/policy(/rounding) → site counts, inexact/overflow, per-policy feasibility (read-only)",
     },
     OpInfo {
         name: "syn.recording.info",
@@ -293,6 +297,24 @@ impl AppService {
         })
     }
 
+    /// Optional `u64 → u32` param — absent or `null` means `None`;
+    /// domain-range validation stays with the owning layer.
+    fn optional_u32_param(params: &Value, key: &str) -> Result<Option<u32>, ErrorBody> {
+        match params.get(key) {
+            None | Some(Value::Null) => Ok(None),
+            Some(v) => v
+                .as_u64()
+                .and_then(|n| u32::try_from(n).ok())
+                .map(Some)
+                .ok_or_else(|| {
+                    ErrorBody::new(
+                        codes::INVALID_PARAMS,
+                        format!("params.{key} must be a u64 fitting u32"),
+                    )
+                }),
+        }
+    }
+
     fn dispatch(&mut self, op: &str, params: &Value) -> Result<Value, ErrorBody> {
         match op {
             "syn.app.info" => Ok(self.app.app_info()),
@@ -304,8 +326,9 @@ impl AppService {
             "syn.project.new" => {
                 let path = Self::string_param(params, "path")?;
                 let name = params.get("name").and_then(Value::as_str);
+                let ppqn = Self::optional_u32_param(params, "ppqn")?;
                 self.app
-                    .project_new(path, name)
+                    .project_new_with_ppqn(path, name, ppqn)
                     .map_err(AppError::into_body)
             }
             "syn.project.open" => {
@@ -316,6 +339,7 @@ impl AppService {
             "syn.project.reload" => self.app.project_reload().map_err(AppError::into_body),
             "syn.project.info" => Ok(self.app.project_info()),
             "syn.project.set_ppqn" => self.app.project_set_ppqn(params),
+            "syn.project.preview_ppqn" => self.app.project_preview_ppqn(params),
             "syn.recording.info" => Ok(self.app.recording_info()),
             "syn.project.undo" => self.app.op_project_undo(),
             "syn.project.redo" => self.app.op_project_redo(),

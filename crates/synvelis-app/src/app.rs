@@ -37,8 +37,8 @@ use synvelis_project::vcs::{
 };
 use synvelis_project::{
     ControlEntityRef, CounterIdGenerator, DirectoryBundleStore, ParameterTargetId,
-    PpqnConversionPolicy, Project, ProjectController, ProjectId, ProjectOp, ProjectRevision,
-    ProjectStore, RelationDirection,
+    PpqnChangePreview, PpqnConversionPolicy, PpqnPreviewSite, Project, ProjectController,
+    ProjectId, ProjectOp, ProjectRevision, ProjectStore, RelationDirection, preview_ppqn,
 };
 use synvelis_workspace::{
     ProjectSession, SignalFlowRuntimeEvidence, SignalFlowView, SignalFlowViewOptions,
@@ -639,9 +639,30 @@ impl SynvelisApp {
     /// # Errors
     /// [`AppError::Store`] on bundle-creation or save failures.
     pub fn project_new(&mut self, path: &str, name: Option<&str>) -> Result<Value, AppError> {
+        self.project_new_with_ppqn(path, name, None)
+    }
+
+    /// `syn.project.new` with an optional initial PPQN — the wire
+    /// `params.ppqn` (`1..=32767`; `None` keeps the 960 default).
+    ///
+    /// The value goes through [`ProjectOp::SetProjectPpqn`] before
+    /// the initial save so the selectable-range validation and the
+    /// `ppqn`/tempo-map invariant stay authoritative in
+    /// `synvelis-project` — this method never duplicates them. The
+    /// fresh project is empty, so the conversion is always exact;
+    /// `Exact` is the strictest policy and needs no rounding param.
+    ///
+    /// # Errors
+    /// [`AppError::Store`] on bundle-creation, PPQN, or save failures.
+    pub fn project_new_with_ppqn(
+        &mut self,
+        path: &str,
+        name: Option<&str>,
+        ppqn: Option<u32>,
+    ) -> Result<Value, AppError> {
         // Non-RT boundary; paths stay out of event fields (sensitive-data
         // rule — the adapter never inspects field content).
-        let result = self.project_new_inner(path, name);
+        let result = self.project_new_inner(path, name, ppqn);
         match &result {
             Ok(_) => tracing::info!("syn.project.new completed"),
             Err(error) => {
@@ -651,13 +672,37 @@ impl SynvelisApp {
         result
     }
 
-    fn project_new_inner(&mut self, path: &str, name: Option<&str>) -> Result<Value, AppError> {
-        let mut store =
-            DirectoryBundleStore::create(path).map_err(|e| AppError::store(e.to_string()))?;
+    fn project_new_inner(
+        &mut self,
+        path: &str,
+        name: Option<&str>,
+        ppqn: Option<u32>,
+    ) -> Result<Value, AppError> {
         let mut workspace = WorkspaceManager::new(
             ShellWindowHost::new(),
             Self::fresh_session(name.unwrap_or("untitled")),
         );
+        // The PPQN is applied before the bundle is created so an
+        // out-of-range value fails without leaving a stray directory.
+        if let Some(ppqn) = ppqn {
+            let session = workspace.session_mut();
+            let old_ppqn = session.project().ppqn.0;
+            if ppqn != old_ppqn {
+                let revision = session.revision();
+                session
+                    .apply(
+                        ProjectOp::SetProjectPpqn {
+                            old_ppqn,
+                            new_ppqn: ppqn,
+                            policy: PpqnConversionPolicy::Exact,
+                        },
+                        revision,
+                    )
+                    .map_err(|e| AppError::store(format!("syn.project.new ppqn: {e}")))?;
+            }
+        }
+        let mut store =
+            DirectoryBundleStore::create(path).map_err(|e| AppError::store(e.to_string()))?;
         workspace
             .session_mut()
             .controller_mut()
@@ -836,6 +881,28 @@ impl SynvelisApp {
             )
             .map_err(|e| invalid_params(format!("syn.project.set_ppqn: {e}")))?;
         Ok(self.project_info())
+    }
+
+    /// `syn.project.preview_ppqn` — non-destructive dry-run of a
+    /// PPQN change (TIM-01 preview slice, synvelis#125).
+    ///
+    /// Read-only by contract: no session gate applies — transport,
+    /// recording, and automation state cannot be affected by a
+    /// preview, so the op answers even while `syn.project.set_ppqn`
+    /// would be rejected. The project-layer [`preview_ppqn`] walks
+    /// the same site enumeration the mutating re-projection runs,
+    /// so the report can never drift from what the command would
+    /// do.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] with `codes::INVALID_PARAMS` on malformed params
+    /// or an out-of-range `new_ppqn`.
+    pub fn project_preview_ppqn(&self, params: &Value) -> Result<Value, ErrorBody> {
+        let new_ppqn = ppqn_param(params, "new_ppqn")?;
+        let policy = ppqn_policy(params)?;
+        let preview = preview_ppqn(self.workspace.session().project(), new_ppqn, policy)
+            .map_err(|e| invalid_params(format!("syn.project.preview_ppqn: {e}")))?;
+        Ok(ppqn_preview_json(&preview))
     }
 
     /// Recording-state projection for `syn.recording.info` — the
@@ -1068,4 +1135,66 @@ fn ppqn_policy(params: &Value) -> Result<PpqnConversionPolicy, ErrorBody> {
             "params.policy: unknown policy {other:?}"
         ))),
     }
+}
+
+/// Wire name for a [`PpqnConversionPolicy`] — the inverse of the
+/// `ppqn_policy` param mapping.
+fn ppqn_policy_name(policy: PpqnConversionPolicy) -> &'static str {
+    match policy {
+        PpqnConversionPolicy::Exact => "exact",
+        PpqnConversionPolicy::Round(_) => "round",
+    }
+}
+
+/// Wire name for a ruviform [`Rounding`] — the inverse of the
+/// `params.rounding` mapping in [`ppqn_policy`].
+fn rounding_name(rounding: Rounding) -> &'static str {
+    match rounding {
+        Rounding::Floor => "floor",
+        Rounding::Ceil => "ceil",
+        Rounding::TowardZero => "toward_zero",
+        Rounding::AwayFromZero => "away_from_zero",
+        Rounding::NearestEven => "nearest_even",
+        _ => "unknown",
+    }
+}
+
+fn ppqn_site_json(site: &PpqnPreviewSite) -> Value {
+    json!({
+        "kind": site.kind,
+        "instance": site.instance,
+        "part": site.part,
+        "tick": site.tick,
+        "projected": site.projected,
+    })
+}
+
+/// JSON shape of [`synvelis_project::PpqnChangePreview`] — the
+/// read-only report `syn.project.preview_ppqn` returns. `effects`
+/// carries the informational surfaces the headless slice does not
+/// own: the Snap/Grid default quantum keeps its 960-tick count (its
+/// musical spacing changes with PPQN — re-binding is a UI-slice
+/// decision) and SMF export division stays an explicit option in
+/// the same `1..=32767` range.
+fn ppqn_preview_json(preview: &PpqnChangePreview) -> Value {
+    json!({
+        "old_ppqn": preview.old_ppqn,
+        "new_ppqn": preview.new_ppqn,
+        "policy": ppqn_policy_name(preview.policy),
+        "rounding": match preview.policy {
+            PpqnConversionPolicy::Exact => Value::Null,
+            PpqnConversionPolicy::Round(r) => json!(rounding_name(r)),
+        },
+        "site_count": preview.site_count,
+        "inexact": preview.inexact.iter().map(ppqn_site_json).collect::<Vec<_>>(),
+        "overflow_sites": preview.overflow_sites.iter().map(ppqn_site_json).collect::<Vec<_>>(),
+        "exact_ok": preview.exact_ok,
+        "round_ok": preview.round_ok,
+        "applies": preview.applies,
+        "rejection": preview.rejection,
+        "effects": {
+            "snap_grid": "default quantum stays 960 project ticks — its musical spacing changes with ppqn (re-binding policy is a UI-slice decision)",
+            "smf_export": "export division stays an explicit option inside the same 1..=32767 SMF PPQ range",
+        },
+    })
 }
