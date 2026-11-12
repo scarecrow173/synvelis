@@ -146,7 +146,7 @@ impl GitRemoteProvider {
             config.credential_key.clone(),
             config.filter_policy,
         );
-        let lfs = LfsBackend::for_remote(&config.remote);
+        let lfs = LfsBackend::for_remote(&config.remote, config.credential_key.clone());
         Self {
             id,
             config,
@@ -530,7 +530,7 @@ impl GitRemoteProvider {
                 digest_hint.cloned(),
             ))
         } else if let Some(oid) = identity.strip_prefix("git-lfs:") {
-            let file = self.lfs.open_object(oid, expected_size, cx)?;
+            let stream = self.lfs.open_object(oid, expected_size, cx)?;
             // The LFS oid *is* the SHA-256 of the content — the pin's
             // digest evidence is derived from the identity itself.
             // Without a derivable digest there is no verification
@@ -545,7 +545,7 @@ impl GitRemoteProvider {
                 ));
             };
             Ok((
-                Box::new(file),
+                stream,
                 VerificationPolicy::StreamVerified {
                     digest: digest.clone(),
                 },

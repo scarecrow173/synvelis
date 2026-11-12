@@ -27,9 +27,9 @@
 //!   to call from an RT callback.
 
 mod dav;
-mod http;
-mod locator;
-mod url;
+pub(crate) mod http;
+pub(crate) mod locator;
+pub(crate) mod url;
 mod xml;
 
 pub use url::{WebDavScheme, WebDavUrl};
@@ -217,6 +217,7 @@ impl WebDavProvider {
                 &HttpRequest {
                     method,
                     path: current_path.clone(),
+                    query: None,
                     headers: hs,
                     body: body.map(<[u8]>::to_vec),
                 },
