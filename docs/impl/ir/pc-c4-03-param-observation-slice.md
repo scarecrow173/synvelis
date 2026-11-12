@@ -64,6 +64,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # PC-C4-03 impl record — param observation slice

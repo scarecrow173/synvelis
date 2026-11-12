@@ -1,10 +1,40 @@
 ---
 id: "IR-SV84-syn-io-02"
-type: "ir"
-status: "final"
+type: "impl"
+status: "completed"
 title: "SYN-IO-02 store.rs StagedFile 移行 実装記録・検証証跡"
 created: "2026-11-07"
+updated: "2026-11-07"
 owners: ["scarecrow173"]
+relations:
+  source: []
+  changes:
+    added: []
+    modified: []
+    deleted: []
+    renamed: []
+    moved: []
+    generated: []
+  implements: []
+  implemented-by: []
+  depends-on: []
+  blocks: []
+  supersedes: []
+  superseded-by: []
+  related: []
+  refines: []
+  refined-by: []
+  derives-from: []
+  derived-by: []
+  verifies: []
+  verified-by: []
+  references: []
+  defers: []
+  deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # SYN-IO-02 store.rs StagedFile 移行 — 実装記録・検証証跡

@@ -77,8 +77,10 @@ relations:
   deferred-by: []
 metadata:
   experiments:
-    - "PoC A — 単一 ordered commit+policy journal(recovery ordering は seq で完全復元)"
-    - "PoC B — independently durable FilePolicyStore(policy log と commit journal の cross-LSN 記録)"
+    adopted:
+      - "PoC A — 単一 ordered commit+policy journal(recovery ordering は seq で完全復元)"
+      - "PoC B — independently durable FilePolicyStore(policy log と commit journal の cross-LSN 記録)"
+    rejected: []
 ---
 
 # GW-06 Authorized Commit Gate・Revoke Linearization・Idempotency / Crash Recovery PoC

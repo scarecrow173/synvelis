@@ -69,6 +69,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # GW-02 Authorization Policy 実装記録

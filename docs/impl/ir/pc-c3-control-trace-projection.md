@@ -85,6 +85,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # PC-C3 ControlTrace project 層 projection slice — 実装記録

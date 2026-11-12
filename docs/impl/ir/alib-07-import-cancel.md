@@ -36,6 +36,10 @@ relations:
     renamed: []
     moved: []
     generated: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # ALIB-07 slice 2 Implementation Record

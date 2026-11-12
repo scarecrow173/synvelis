@@ -84,6 +84,10 @@ relations:
     - "実 OS filesystem atomicity / 実 Git remote/provider / GUI / 実 plugin host probe（Issue #97）"
     - "lineage schema（Issue #7 で将来の Project schema extension へ deferred）"
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # VCS-02 Semantic Diff Engine — Implementation Record

@@ -61,6 +61,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # RCD-04 RT engine comp PCM slice 実装記録

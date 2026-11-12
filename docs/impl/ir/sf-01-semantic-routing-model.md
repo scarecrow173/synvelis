@@ -78,6 +78,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # SF-01 Semantic Routing Model 実装記録

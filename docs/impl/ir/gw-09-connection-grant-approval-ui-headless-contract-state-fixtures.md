@@ -62,7 +62,9 @@ relations:
   deferred-by: []
 metadata:
   experiments:
-    - "headless UI seam — GW-09 contract を GUI 非依存の projection/state として workspace crate に実装"
+    adopted:
+      - "headless UI seam — GW-09 contract を GUI 非依存の projection/state として workspace crate に実装"
+    rejected: []
 ---
 
 # GW-09 Connection/Grant/Approval UI — Headless Contract・State・Fixtures

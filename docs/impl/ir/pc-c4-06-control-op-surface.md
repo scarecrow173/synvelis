@@ -54,6 +54,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # PC-C4-06 control op surface — implementation record

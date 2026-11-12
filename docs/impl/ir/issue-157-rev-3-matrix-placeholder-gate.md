@@ -12,11 +12,15 @@ relations:
     - "docs/adr/issue-157-rev-3-skip-placeholder-gate-vs-workflow.md"
   changes:
     added:
-      - "tools/fixtures/run-41894049161-jobs.json"
+      - type: "file"
+        path: "tools/fixtures/run-41894049161-jobs.json"
     modified:
-      - "tools/ci-impact.mjs"
-      - "tools/ci-impact.test.mjs"
-      - ".github/workflows/ci.yml"
+      - type: "file"
+        path: "tools/ci-impact.mjs"
+      - type: "file"
+        path: "tools/ci-impact.test.mjs"
+      - type: "file"
+        path: ".github/workflows/ci.yml"
     deleted: []
     renamed: []
     moved: []

@@ -74,6 +74,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # 最小 MIDI Source / Note 編集契約 実装記録

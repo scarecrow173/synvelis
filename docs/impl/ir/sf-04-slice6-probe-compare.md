@@ -1,6 +1,6 @@
 ---
 id: "IMPL-5zX3cV7bN1mK9jH4gFtDsA"
-type: "ir"
+type: "impl"
 status: "completed"
 title: "SF-04 slice6 実装記録 — 複数 Probe 整列比較 consumer（ProbeComparisonRequest → AcousticObservation）"
 created: "2026-11-12"
@@ -35,6 +35,10 @@ relations:
     - "docs/test-specs/sf-04-slice6-probe-compare.md"
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # SF-04 slice6 実装記録 — 複数 Probe 整列比較 consumer

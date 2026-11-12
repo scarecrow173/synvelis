@@ -71,8 +71,10 @@ relations:
   deferred-by: []
 metadata:
   experiments:
-    - "PoC — line-oriented stdio JSON-RPC transport(client channel)+ loopback TCP control socket"
-    - "PoC — FilePermitStore(SHA-256 hashed secrets)+ CommitGate journal による restart reconcile"
+    adopted:
+      - "PoC — line-oriented stdio JSON-RPC transport(client channel)+ loopback TCP control socket"
+      - "PoC — FilePermitStore(SHA-256 hashed secrets)+ CommitGate journal による restart reconcile"
+    rejected: []
 ---
 
 # GW-08 MCP Server Adapter・Trusted Local Connection・MIDI 3-Mode E2E

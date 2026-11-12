@@ -4,7 +4,7 @@ type: "impl"
 status: "completed"
 title: "ALIB-01 Asset Provider baseline contract"
 created: "2026-11-06"
-updated: "2026-11-07 (N1 修復追補・task6 RF409 移行追補)"
+updated: "2026-11-07"  # N1 修復追補・task6 RF409 移行追補
 owners: []
 relations:
   source: []

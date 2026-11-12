@@ -1,10 +1,40 @@
 ---
 id: "IR-SV-RF305-export"
-type: "ir"
-status: "final"
+type: "impl"
+status: "completed"
 title: "SYN-RF305 render/player WAV Export StagedFile 移行 実装記録・検証証跡"
 created: "2026-11-07"
+updated: "2026-11-07"
 owners: ["scarecrow173"]
+relations:
+  source: []
+  changes:
+    added: []
+    modified: []
+    deleted: []
+    renamed: []
+    moved: []
+    generated: []
+  implements: []
+  implemented-by: []
+  depends-on: []
+  blocks: []
+  supersedes: []
+  superseded-by: []
+  related: []
+  refines: []
+  refined-by: []
+  derives-from: []
+  derived-by: []
+  verifies: []
+  verified-by: []
+  references: []
+  defers: []
+  deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # SYN-RF305 render/player WAV Export StagedFile 移行 — 実装記録・検証証跡

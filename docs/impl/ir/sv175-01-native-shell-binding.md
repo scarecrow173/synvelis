@@ -13,38 +13,65 @@ relations:
     - "https://github.com/scarecrow173/ruviform/issues/384"
   changes:
     added:
-      - "crates/synvelis-app/src/bin/synvelis-native.rs"
-      - "crates/synvelis-app/src/binding.rs"
-      - "crates/synvelis-app/src/shell.rs"
-      - "crates/synvelis-app/tests/binding.rs"
-      - "crates/synvelis-app/tests/shell.rs"
-      - "docs/adr/sv175-native-shell-driver-neutral-gpui.md"
-      - "docs/designs/sv175-native-shell-design.md"
-      - "docs/discovery/sv175-native-shell-inventory.md"
-      - "docs/plans/sv175-native-shell.md"
-      - "docs/specs/sv-gpui-01-native-app-shell.md"
-      - "docs/tasks/sv175-01-native-shell-binding.md"
-      - "docs/test-specs/sv175-01-native-shell-binding.md"
+      - type: "file"
+        path: "crates/synvelis-app/src/bin/synvelis-native.rs"
+      - type: "file"
+        path: "crates/synvelis-app/src/binding.rs"
+      - type: "file"
+        path: "crates/synvelis-app/src/shell.rs"
+      - type: "file"
+        path: "crates/synvelis-app/tests/binding.rs"
+      - type: "file"
+        path: "crates/synvelis-app/tests/shell.rs"
+      - type: "file"
+        path: "docs/adr/sv175-native-shell-driver-neutral-gpui.md"
+      - type: "file"
+        path: "docs/designs/sv175-native-shell-design.md"
+      - type: "file"
+        path: "docs/discovery/sv175-native-shell-inventory.md"
+      - type: "file"
+        path: "docs/plans/sv175-native-shell.md"
+      - type: "file"
+        path: "docs/specs/sv-gpui-01-native-app-shell.md"
+      - type: "file"
+        path: "docs/tasks/sv175-01-native-shell-binding.md"
+      - type: "file"
+        path: "docs/test-specs/sv175-01-native-shell-binding.md"
     modified:
-      - "Cargo.lock"
-      - "Cargo.toml"
-      - "crates/synvelis-app/Cargo.toml"
-      - "crates/synvelis-app/src/lib.rs"
-      - "crates/synvelis-app/src/ui_ops.rs"
-      - "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md"
-      - "mise.toml"
-      - "tools/check-headless-deps.mjs"
+      - type: "file"
+        path: "Cargo.lock"
+      - type: "file"
+        path: "Cargo.toml"
+      - type: "file"
+        path: "crates/synvelis-app/Cargo.toml"
+      - type: "file"
+        path: "crates/synvelis-app/src/lib.rs"
+      - type: "file"
+        path: "crates/synvelis-app/src/ui_ops.rs"
+      - type: "file"
+        path: "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md"
+      - type: "file"
+        path: "mise.toml"
+      - type: "file"
+        path: "tools/check-headless-deps.mjs"
     deleted: []
     renamed: []
     moved: []
     generated:
-      - "docs/adr/README.md"
-      - "docs/designs/README.md"
-      - "docs/discovery/README.md"
-      - "docs/plans/README.md"
-      - "docs/specs/README.md"
-      - "docs/tasks/README.md"
-      - "docs/test-specs/README.md"
+      - type: "file"
+        path: "docs/adr/README.md"
+      - type: "file"
+        path: "docs/designs/README.md"
+      - type: "file"
+        path: "docs/discovery/README.md"
+      - type: "file"
+        path: "docs/plans/README.md"
+      - type: "file"
+        path: "docs/specs/README.md"
+      - type: "file"
+        path: "docs/tasks/README.md"
+      - type: "file"
+        path: "docs/test-specs/README.md"
   implements:
     - "docs/tasks/sv175-01-native-shell-binding.md"
   implemented-by: []
@@ -68,6 +95,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # SV175-01 実装記録: Native App Shell 初期 slice

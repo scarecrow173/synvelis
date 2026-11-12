@@ -2,7 +2,7 @@
 id: "IMPL-nZ0nDD3aP4qQxwynUrbE0g"
 type: "impl"
 kind: "ir"
-status: "done"
+status: "completed"
 title: "PC-C3-05 実装記録 — synvelis-player RT trace adapter（TRACE-C3-05）"
 created: "2026-11-09"
 updated: "2026-11-09"
@@ -12,26 +12,41 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/100"
   changes:
     added:
-      - "crates/synvelis-player/src/trace.rs"
-      - "crates/synvelis-player/tests/trace_c3_05.rs"
-      - "crates/synvelis-player/tests/trace_c3_05_rt.rs"
-      - "docs/specs/pc-c3-05-rt-trace-adapter.md"
-      - "docs/adr/pc-c3-05-trace-adapter-drain-history.md"
-      - "docs/designs/pc-c3-05-rt-trace-adapter-design.md"
-      - "docs/plans/pc-c3-05-rt-trace-adapter.md"
-      - "docs/test-specs/pc-c3-05-rt-trace-adapter.md"
-      - "docs/tasks/pc-c3-task2-rt-trace-adapter.md"
+      - type: "file"
+        path: "crates/synvelis-player/src/trace.rs"
+      - type: "file"
+        path: "crates/synvelis-player/tests/trace_c3_05.rs"
+      - type: "file"
+        path: "crates/synvelis-player/tests/trace_c3_05_rt.rs"
+      - type: "file"
+        path: "docs/specs/pc-c3-05-rt-trace-adapter.md"
+      - type: "file"
+        path: "docs/adr/pc-c3-05-trace-adapter-drain-history.md"
+      - type: "file"
+        path: "docs/designs/pc-c3-05-rt-trace-adapter-design.md"
+      - type: "file"
+        path: "docs/plans/pc-c3-05-rt-trace-adapter.md"
+      - type: "file"
+        path: "docs/test-specs/pc-c3-05-rt-trace-adapter.md"
+      - type: "file"
+        path: "docs/tasks/pc-c3-task2-rt-trace-adapter.md"
     modified:
-      - "crates/synvelis-player/src/dispatch.rs"
-      - "crates/synvelis-player/src/lib.rs"
-      - "crates/synvelis-player/Cargo.toml"
-      - "Cargo.lock"
-      - "docs/*/README.md"
+      - type: "file"
+        path: "crates/synvelis-player/src/dispatch.rs"
+      - type: "file"
+        path: "crates/synvelis-player/src/lib.rs"
+      - type: "file"
+        path: "crates/synvelis-player/Cargo.toml"
+      - type: "file"
+        path: "Cargo.lock"
+      - type: "file"
+        path: "docs/*/README.md"
     deleted: []
     renamed: []
     moved: []
     generated:
-      - "docs/*/README.md"
+      - type: "file"
+        path: "docs/*/README.md"
   implements:
     - "docs/specs/pc-c3-05-rt-trace-adapter.md"
     - "docs/plans/pc-c3-05-rt-trace-adapter.md"
@@ -55,6 +70,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # PC-C3-05 実装記録 — synvelis-player RT trace adapter
