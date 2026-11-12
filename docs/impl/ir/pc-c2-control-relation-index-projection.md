@@ -159,6 +159,12 @@ Trace(#100)・Plugin Binding(#101)は各 owner Issue に残す。
 - **edge index は `usize`**: u32 への cast を避け clippy
   `cast_possible_truncation` を構造的に解消。
 
+## Related Experiments
+
+`metadata.experiments.adopted` / `rejected` はともに空。
+`docs/impl/exp/` にも PC-C2 relation index に対応する実験記録
+（`.jsonl` / `.md`）は存在しない。
+
 ## Validation
 
 実行環境: Windows (Orca worktree)、rust toolchain 1.99.0 (mise pin)。

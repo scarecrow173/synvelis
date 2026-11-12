@@ -186,6 +186,17 @@ lossy `f64` 表示軸)を bounded 縮約する read-only 関数:
   Boundary 近接>Anchor」を「feature 点優先 + 残り先頭順」へ
   単純化(Anchor kind 削除に伴う整理 — 機能差なし)。
 
+## Related Experiments
+
+### Adopted
+
+なし — `metadata.experiments.adopted` は空で、関連する
+`docs/impl/exp/*.jsonl` 記録もない。
+
+### Rejected
+
+なし — `metadata.experiments.rejected` は空。
+
 ## Validation
 
 ### 検証結果(実施済み・全緑)

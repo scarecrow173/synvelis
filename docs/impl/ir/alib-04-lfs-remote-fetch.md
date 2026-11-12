@@ -251,7 +251,19 @@ blocking HTTP/1.1 transport を `pub(crate)` の共有層として再利用
   検査し、`content-length` 欠落・chunked は streaming verifier
   に委譲（early check を「唯一の size 保証」にしない）。
 
-## Verification
+## Related Experiments
+
+### Adopted
+
+なし（本 slice は実験を伴わない provider 実装作業。
+`metadata.experiments` は adopted/rejected とも空で、
+`docs/impl/exp/` に関連する実験ログは存在しない）。
+
+### Rejected
+
+なし。
+
+## Validation
 
 - `mise run fmt-check` / `check` / `lint` / `test` / `test-rt` /
   `check-app-native` / `lint-app-native` / `test-msrv` / `build`:
@@ -268,3 +280,42 @@ blocking HTTP/1.1 transport を `pub(crate)` の共有層として再利用
   credential store・GUI。これらは外部 gate であり本 slice の
   Pass 対象外 — Issue #331 および #91 fault matrix の該当行は
   別途所有される。
+
+## Risks
+
+- **`transfers:["basic"]` 固定の fail-closed**: custom transfer
+  （`lfs-standalone-file` 等）の negotiation を行わないため、
+  `actions.download` を返さない server は `InvalidRequest` で
+  fail-closed になる。basic 以外を要求する LFS server では
+  remote fetch が機能しない。
+- **relative href の解釈は origin root `/` 基準**: batch API
+  path は API endpoint であって resource namespace ではない
+  という解釈に基づく。server が別基準の relative href を発行
+  する場合の解決結果は設計上の前提に依存する。
+- **`expires_in`/`expires_at` は助言的 metadata**: href の期限
+  切れ refresh/rewrite は行わず、期限切れは GET の typed HTTP
+  error として顕在化する。長時間 pin した asset の再 open で
+  署名 URL 期限切れが `TransientIo`/typed error として現れ得る。
+- **credential は remote origin 一致時のみ付与**: 署名付き
+  cross-origin CDN href には絶対に credential が付かない設計。
+  CDN 側が独自 auth を要求する構成では download が失敗し得る
+  （action-supplied `authorization` は上書きしない）。
+- **action-supplied headers は wire 境界で再検証・drop**:
+  CR/LF・空白・非 ASCII を含む header は drop されるため、
+  それらを必須とする exotic server では request が成立しない
+  可能性がある（request smuggling 経路を塞ぐための意図的な
+  fail-closed）。
+
+## Follow-ups
+
+- 実 remote（GitHub LFS 等）・`https://`（TLS stack 非保有）・
+  SSH・`git://`: NotRun/Unsupported。Issue #331 および #91
+  fault matrix の該当行が別途所有する。
+- `.lfsconfig`/`lfs.url`/`remote.*.lfsurl` override 解決・
+  custom transfer negotiation: provider に repository-config
+  供給源がないため本 slice 対象外（設計書に根拠記録）。
+- 実 OS credential store・GUI: 外部 gate。
+- LIB-PIN-02 remote LFS 行の fault matrix 判定は #91 側で
+  更新される（`docs/impl/ir/alib-07-fault-matrix.md` の
+  NotRun 記述どおり capability 宣言上 `Unsupported`/`NotRun`
+  のまま）。

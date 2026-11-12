@@ -83,6 +83,8 @@ metadata:
 
 # GW-07 NonRT Job・Verified Media・Generation Provenance Gateway Adapter
 
+## Summary
+
 非 RT Job / verified media / generation provenance を既存の
 GW-01..06 契約(registry・grant/policy・snapshot・prepare/proposal・
 commit)の上に adapter として実装する。並行 authorization scheme は
@@ -90,7 +92,19 @@ commit)の上に adapter として実装する。並行 authorization scheme は
 所有)に置き、MCP session には寄せない(GIA-001..003、issue #45 の
 GW-07〜09 v0.6 節)。
 
-## 実施した変更
+## Context
+
+- Issue: #61(GW-07 本体)。要件の出典は issue #45 の GW-07〜09 v0.6 節
+  (GIA-001..003 の job/media/provenance 分離契約)。
+- 依存 IR(`depends-on`): GW-01 gateway contract・GW-02 authorization
+  policy・GW-03 context projection・GW-04 semantic operation preparation・
+  GW-05 prepared changeset/approval receipt・GW-06 commit gate
+  (`docs/impl/ir/gw-01..06` 各 IR)。
+- 関連 issue(`related`): #17(verified media staging lane)・#21。
+
+## Implementation
+
+### 実施した変更
 
 | 範囲 | 内容 |
 | --- | --- |
@@ -107,7 +121,27 @@ GW-07〜09 v0.6 節)。
 | `tests/rig/mod.rs` | `JobRig`/`job_rig`/`job_grant`/`job_req`/`submit_req` — job engine を実 registry/policy/snapshot に配線、media book を `with_media` gate として共用 |
 | `tests/job.rs`(新規) | deterministic 17 テスト(下記 evidence) |
 
-## Acceptance evidence(`tests/job.rs`)
+### 設計上の主要判断
+
+| 判断 | 理由 |
+| --- | --- |
+| Job 状態の権威は adapter の `JobBook`、provider truth は `JobPort` のみ | MCP disconnect/window close は Job を消さない(JOB-01/02)。MCP op book は session 相関であって Job の owner ではない |
+| `synvelis.media.register` は GW-04 semantic op として登録し lowering は `MediaGate` 必須 | verified media の Project 配置は通常の RegisterSource をそのまま流すが、digest は caller input ではなく gate の verified record 由来。並行 mutation 経路を増やさず GW-02 effect 評価・GW-05 proposal・GW-06 commit fence をそのまま通る |
+| `CancelLink`(request 側)と `JobPhase::Cancelled`(provider 確認)を別軸にする | cancel request≠cancel 確認。Unreachable は `Unconfirmed` であり `Cancelled` を名乗らない(JOB-09)。grant revocation protection も同じ request 経路を通るだけで implicit cancel ではない |
+| `evaluate_effects`/`decide`/`authorize_disclosure` を再利用 | job admission・read scope・external transfer・result disclosure は GW-02 の同じ policy evaluator に通す — 並行 authorization を作らない |
+| media record は verdict 一度書き・owner scoped・existence-blind | tampered 再提出で `Rejected→Verified` に書き換わらない、verified でも commit までは project revision を動かさない(G5) |
+| provenance は bounded field 写像 | prompt・token・grant credentials は Project metadata/provenance/disclosure に出さない(GIA-003)。unknown model/rights は `Unknown` |
+
+## Related Experiments
+
+`metadata.experiments.adopted` に記録された deterministic contract proof を
+採用した: `ProviderStub`/`MediaStub`(`stub.rs`)による実 AI provider なしの
+決定的検証。`docs/impl/exp/` の実験ファイルは存在せず、証拠は
+`tests/job.rs` のテストとして本 IR に記録する(棄却実験なし)。
+
+## Validation
+
+### Acceptance evidence(`tests/job.rs`)
 
 | 基準 | テスト |
 | --- | --- |
@@ -123,24 +157,13 @@ GW-07〜09 v0.6 節)。
 | JM-05 / GIA-003 | `provenance_levels_and_secret_bound` — declared/unknown の evidence 写像、prompt は result・provenance・media いずれにも出ない |
 | admission 境界 | `submit_denies_out_of_scope_inputs_and_missing_transfer_class`(scope 外 input は provider 未到達で deny、ProviderTransfer 無しも deny)、`unknown_provider_denies_admission` |
 
-## 設計上の主要判断
-
-| 判断 | 理由 |
-| --- | --- |
-| Job 状態の権威は adapter の `JobBook`、provider truth は `JobPort` のみ | MCP disconnect/window close は Job を消さない(JOB-01/02)。MCP op book は session 相関であって Job の owner ではない |
-| `synvelis.media.register` は GW-04 semantic op として登録し lowering は `MediaGate` 必須 | verified media の Project 配置は通常の RegisterSource をそのまま流すが、digest は caller input ではなく gate の verified record 由来。並行 mutation 経路を増やさず GW-02 effect 評価・GW-05 proposal・GW-06 commit fence をそのまま通る |
-| `CancelLink`(request 側)と `JobPhase::Cancelled`(provider 確認)を別軸にする | cancel request≠cancel 確認。Unreachable は `Unconfirmed` であり `Cancelled` を名乗らない(JOB-09)。grant revocation protection も同じ request 経路を通るだけで implicit cancel ではない |
-| `evaluate_effects`/`decide`/`authorize_disclosure` を再利用 | job admission・read scope・external transfer・result disclosure は GW-02 の同じ policy evaluator に通す — 並行 authorization を作らない |
-| media record は verdict 一度書き・owner scoped・existence-blind | tampered 再提出で `Rejected→Verified` に書き換わらない、verified でも commit までは project revision を動かさない(G5) |
-| provenance は bounded field 写像 | prompt・token・grant credentials は Project metadata/provenance/disclosure に出さない(GIA-003)。unknown model/rights は `Unknown` |
-
-## 検証
+### 検証
 
 - `mise run fmt-check` / `check` / `lint` / `test`:全 green
 - `cargo test -p synvelis-gateway --test job`:23/23 pass
 - workspace test 全 pass(GW-01..06,08 の既存 suite 含む非退行)
 
-## レビュー反映(cooperative + adversarial)
+### レビュー反映(cooperative + adversarial)
 
 独立レビューの指摘を以下のとおり修正した。
 
@@ -178,7 +201,9 @@ GW-07〜09 v0.6 節)。
   project の gate 拒否、batch 経由 `media.register`、materialization
   の冪等性。
 
-## 既知の境界(レビュー指摘・要裁定)
+## Risks
+
+### 既知の境界(レビュー指摘・要裁定)
 
 - `synvelis.source.register` + `synvelis.source.set-state` は既存
   contract として caller 申告 digest で `Verified` 状態に到達でき、
@@ -192,7 +217,9 @@ GW-07〜09 v0.6 節)。
 - `JobEngine::record` は introspection 用に全 record(spec 含む)を
   返す — in-process admin API であり、wire には出さない。
 
-## 既知の限界 / 後続
+## Follow-ups
+
+### 既知の限界 / 後続
 
 - `JobPort`/`MediaPort`/`MediaGate` は trait seam。実 AI provider・codec・
   staging stack との接続は後続 issue(本実装は deterministic stub で

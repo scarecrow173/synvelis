@@ -39,14 +39,37 @@ metadata:
 
 # SYN-IO-02 HEAD CAS expected-head store port — 実装記録・検証証跡
 
-## 対象
+## Summary
+
+Issue #330 の SYN-IO-02 HEAD CAS slice: `ProjectStore` に additive
+な `save_cas(project_id, expected_head, revision, bytes)` port と
+typed `HeadCasError` を追加し、`DirectoryBundleStore` は
+`HEAD.lock` advisory mutex（`StagedFile`+`CreateNew`+
+`BestEffort`・stale は rename-aside break）で expected-head を
+lock 内照合する実装とした。`InMemoryStore` parity、
+`ProjectController::save` の expected 供給と `Unsupported` のみ
+legacy fallback、`synvelis-gateway` journal replay restore の
+loud `save_cas` 復元まで配線。`tests/head_cas.rs` に契約 test
+8 件を追加し、mise canonical 検証（fmt/check/lint/test/
+test-rt/test-msrv/build 等）は全て pass。
+
+## Context
 
 - Issue: https://github.com/scarecrow173/synvelis/issues/330
 - Branch: `scarecrow173/sv330-head-cas`
 - Ruviform 解決 SHA: `fd1d4d5f4de57092b96ad1cd309b85fe47cbef38`
   （`Cargo.lock` 不変 — ruviform 側変更なし）
+- 上流 doc chain（本 slice で新規作成）:
+  `docs/specs/syn-io-02-head-cas.md` /
+  `docs/designs/syn-io-02-head-cas-design.md` /
+  `docs/plans/syn-io-02-head-cas-plan.md` /
+  `docs/tasks/syn-io-02-head-cas-task.md` /
+  `docs/test-specs/syn-io-02-head-cas.md`。
+  既存 `docs/specs/syn-io-02-snapshot-head-staged-publish.md` と
+  `docs/designs/syn-io-02-directory-bundle-store-stagedfile-design.md`
+  の Out of Scope/HEAD 記述は実装状態へ整合済み。
 
-## 実施内容
+## Implementation
 
 - `ProjectStore` に additive な `save_cas(project_id,
   expected_head, revision, bytes) -> Result<String,
@@ -96,7 +119,7 @@ metadata:
   publish 前に失敗し orphan が残らない — publish 契約は
   `store.save` 直接経路（手組み envelope）で pin し直し。
 
-## 変更ファイル
+### 変更ファイル
 
 - `crates/synvelis-project/src/store.rs`
 - `crates/synvelis-project/src/controller.rs`
@@ -114,7 +137,20 @@ metadata:
 - `docs/designs/syn-io-02-directory-bundle-store-stagedfile-design.md`
   （同上）
 
-## 検証証跡（実行環境 Windows・全 pass）
+## Related Experiments
+
+### Adopted
+
+- なし（experiment log なし — `metadata.experiments.adopted` は空、
+  `docs/impl/exp/` に関連 experiment なし）。
+
+### Rejected
+
+- なし。
+
+## Validation
+
+実行環境は Windows、以下の全コマンドが pass。
 
 | コマンド | 結果 |
 | --- | --- |
@@ -139,7 +175,10 @@ stale `HEAD.lock` の rename-aside break、fresh foreign lock の
 retry 回復、controller moved-HEAD conflict（`saved` 非前進・
 divergent snapshot 非 publish・reload→retry 回復）。
 
-## NotRun / Unsupported（外部 gate・正直記録）
+## Risks
+
+以下は本 slice で pin していない領域・残存リスクの正直記録
+（外部 gate・NotRun）。
 
 - 実 2-process/複数 process 間の `HEAD.lock` 協調 — 本 slice
   は同一 process 内 thread 協調までを pin。実 process 検証は
@@ -156,9 +195,18 @@ divergent snapshot 非 publish・reload→retry 回復）。
   post-publish fencing で誤成功は塞ぐが物理的余地は残存
   （kernel file lock なしの advisory mutex の限界）。
 
-## 残件
+## Follow-ups
 
 - docs index（`docs/*/README.md`）の再生成は範囲外 —
   coordinator/統合側で実施。
-- 実 multi-process gate・macOS/Linux・電源断は上記 NotRun
-  のとおり外部検証事項。
+- 実 multi-process gate・macOS/Linux・電源断は上記 Risks の
+  NotRun 項目どおり外部検証事項。
+- `HEAD.lock` advisory mutex の residual race（stale 閾値超過
+  hold）は post-publish fencing で誤成功を塞ぐが物理的余地が
+  残る — kernel file lock 化は ruviform 境界上の別 Issue 事項
+  （plan `syn-io-02-head-cas-plan.md` Dependencies and Risks
+  記載どおり）。
+- journal restore で `save_cas` が `Unsupported` を返す store
+  の扱いは loud failure を選択（design 記載）— 同梱 store は
+  全て CAS 対応のため実経路では発生しない（plan Open
+  Questions / Gaps）。

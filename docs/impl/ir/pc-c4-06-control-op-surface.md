@@ -62,7 +62,41 @@ metadata:
 
 # PC-C4-06 control op surface — implementation record
 
-## 実装サマリ
+## Summary
+
+Issue #101 PC-C4 残件 slice — pc-c4-04 が app composition root に
+実装した control surface の deferred API を、`synvelis-app` の
+`AppService` 上の `syn.control.*` op（`fast_control`/`status`/
+`observe`）として公開した。
+
+## Context
+
+PC-C4-04
+（`docs/specs/pc-c4-04-app-composition.md`）が app composition
+root に実装した control surface の全機能（catalog vend・
+attach/sync・`control_tick`・`control_fast_control`・
+`control_observe_cycle`・`feed_control_cycle`・
+`with_control_dispatch` seam）に対し、`service.rs` の
+`OPS`/`dispatch` には `syn.control.dispatch` / `subscribe` /
+`unsubscribe` / `targets` のみが登録され、deferred API は
+service 境界に露出していなかった（pc-c4-04 IR の NotRun 明記
+どおり「`syn.*` op 登録は別 Worker」）。GUI・headless driver・
+将来の CLI adapter が typed evidence を取得する経路が無かった
+ため、本 slice はその deferred API を `syn.control.*` op として
+登録し、wire schema・所有境界・honest-evidence 規約を定めた
+（design Context — pc-c4-04 の「app は typed evidence の
+pass-through surface であり、物理 call partition・host borrow・
+plugin 値を invent しない」境界規約の延長）。
+
+上流文書: spec `docs/specs/pc-c4-06-control-op-surface.md`、
+design `docs/designs/pc-c4-06-control-op-surface-design.md`、
+plan `docs/plans/pc-c4-06-control-op-surface-plan.md`、task
+`docs/tasks/pc-c4-06-control-op-surface-task.md`、test-spec
+`docs/test-specs/pc-c4-06-control-op-surface.md`。
+
+## Implementation
+
+### Changes
 
 - `crates/synvelis-app/Cargo.toml`: `ruviform-plugin-core` を
   `[dependencies]` へ追加（Coordinator 承認済み —
@@ -109,7 +143,7 @@ metadata:
   outcome/status・observe stage 選別 + Reported feed・
   generation gate）。
 
-## 判断記録
+### Decisions During Implementation
 
 - `ParamWriteMeans` blocker: dev-dep のみ・re-export 無しで
   `synvelis-app` lib から名指し不能 → Coordinator 承認済みで
@@ -132,18 +166,17 @@ metadata:
   のみ variant 名/debug string 化。stage 区別（`reported` vs
   `dispatched`）は wire でも偽装しない。
 
-## NotRun / 未検証
+## Related Experiments
 
-- `observe_cycle` の per-block 物理 call-window の RT runtime 内
-  自動供給・`drain_output_reports` の engine 定期配線・
-  production composition root の `PluginHost` 接続（後続 slice）。
-- 実 VST3/OS backend（ruviform#253）・実 GUI（#114/#102）・
-  AudioLens（#294）・oracle（#103）— 全て NotRun。
-- wire schema の L1 検証（実 GUI/driver 結合）。
-- `status` への live `plan_generation` 露出（player accessor が
-  必要 — observe receipts が代替証拠）。
+### Adopted
 
-## 検証
+なし — `metadata.experiments.adopted` は空。
+
+### Rejected
+
+なし — `metadata.experiments.rejected` は空。
+
+## Validation
 
 - `mise run test`（`cargo test --workspace --locked`）: exits 0。
   新規 fixture `tests/pc_c4_06_control_op_surface.rs` は 4 test
@@ -154,3 +187,33 @@ metadata:
 - `mise run check-app-native` / `lint-app-native`: exits 0。
 - `mise run test-msrv`（rust 1.89 toolchain）: exits 0。
 - `mise run build`（`cargo build --workspace --locked`）: exits 0。
+
+## Risks
+
+- `plan_generation` の caller 供給は caller 負荷 — live plan
+  generation を知るには receipts 等の evidence が必要で、初見
+  caller は試行が要る。receipts を構造化 JSON で返すことで
+  driver と同じ学習経路を提供するが、誤った generation の span
+  は投影 gate で `Scheduled` 残留となる（誤配送ではなく未投影
+  — fail-safe 側、design Risks）。
+- `observe` op 末尾の `ui_pump` が automation dispatch で plan
+  generation を進める — test は receipts で適用済み世代を確認し、
+  次 span の generation を +1 規則で組み立てる（fixture 内で
+  決定的）。
+- `block_detail` は `Display` の string 化 — `FastControlBlock`
+  は contract serde を持たないため、evidence の主張は構造化済み
+  の `kind` が担い detail は診断用（design Risks）。
+- dev-dep → dep 移動: `ruviform-plugin-core` は既に
+  `synvelis-player`/`synvelis-project` が依存する workspace pin
+  であり、新規外部依存・lockfile churn は無い。
+
+## Follow-ups
+
+- `observe_cycle` の per-block 物理 call-window の RT runtime 内
+  自動供給・`drain_output_reports` の engine 定期配線・
+  production composition root の `PluginHost` 接続（後続 slice）。
+- 実 VST3/OS backend（ruviform#253）・実 GUI（#114/#102）・
+  AudioLens（#294）・oracle（#103）— 全て NotRun。
+- wire schema の L1 検証（実 GUI/driver 結合）。
+- `status` への live `plan_generation` 露出（player accessor が
+  必要 — observe receipts が代替証拠）。

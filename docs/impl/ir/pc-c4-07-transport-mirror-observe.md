@@ -64,7 +64,38 @@ metadata:
 
 # PC-C4-07 implementation record
 
-## 実装内容
+## Summary
+
+Issue #101（PLUG-C4-04 残件）slice 7 — routing path の
+`RoutingControlDispatch::observe_cycle` が caller 供給の
+`TransportSpan` を要求し `syn.control.observe` が呼出ごとに
+虚構 span を生成していた問題を、`driver.rs` の
+`TransportMirror` を `pub(crate)` 化して `NodeSurface` ごとに
+保持させ、`observe_block` で runtime 所有の transport 状態から
+span を内部導出するようにした。capability-drift → republish →
+rebind の結合テスト（test-only）も追加。
+
+## Context
+
+`observe_cycle` は caller が `TransportSpan` を捏造して渡す
+契約で、`ui_ops.rs` の `syn.control.observe` は呼出ごとに虚構
+span を生成していた — transport 位置・status・generation が
+runtime の実状態と無関係に「それらしい」値になっていた。
+driver path は `TransportMirror`（`driver.rs`）で commanded
+transport → `SpanContext` 投影を解決済みだが、routing control
+surface には同等物がなかった。本 slice は routing path に同じ
+mirror を持たせ、span を runtime 所有の transport 状態から
+内部導出する（design 問題節）。あわせて capability rebind の
+junction を headless で一気通貫証明する（test-only、src 変更は
+原則不要）。
+
+上流文書: spec `docs/specs/pc-c4-07-transport-mirror-observe.md`、
+design `docs/designs/pc-c4-07-transport-mirror-observe-design.md`、
+plan `docs/plans/pc-c4-07-transport-mirror-observe-plan.md`、
+task `docs/tasks/pc-c4-07-transport-mirror-observe-task.md`、
+test-spec `docs/test-specs/pc-c4-07-transport-mirror-observe.md`。
+
+## Implementation
 
 ### `driver.rs`
 
@@ -114,7 +145,17 @@ metadata:
 `RoutingControlDispatch` の method、`TransportMirror` は
 `pub(crate)` で公開面は不変。
 
-## 検証
+## Related Experiments
+
+### Adopted
+
+なし — `metadata.experiments.adopted` は空。
+
+### Rejected
+
+なし — `metadata.experiments.rejected` は空。
+
+## Validation
 
 - `cargo test -p synvelis-player --test pc_c4_07_transport_observe`
   — 10/10 pass。
@@ -122,7 +163,22 @@ metadata:
   — 2/2 pass。
 - canonical `mise` 検証 — PR 本文参照。
 
-## 残件 / 外部 gate (NotRun)
+## Risks
+
+- mirror は commanded-state 投影 — push と callback head の
+  race、scheduler 側の reject は mirror に届かない。generation
+  軸（transport/plan generation）は receipt が訂正するが、
+  status/position は commanded 近似のまま（driver mirror が
+  文書化するのと同じ honesty contract、design 正直さの境界）。
+- caller が window を飛ばして観測した場合、staged command の
+  解決は最初に観測した `call_start` 基準になる — run loop の
+  「毎 block 連続観測」契約が前提。
+- capability rebind junction は test-only（`SharedAdapter`
+  経由の drift 注入）— production 経路の rebind 配線・
+  `register_params`/`register_boundary` の epoch bump を
+  production で起こす経路は本 slice の範囲外。
+
+## Follow-ups
 
 - app 層の `drain_output_reports` 周期配線、engine-driver 配線、
   `syn.control.status` `plan_generation` 露出 — 後続 slice。

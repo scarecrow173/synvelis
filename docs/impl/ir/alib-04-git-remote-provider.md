@@ -187,7 +187,19 @@ tree・index・HEAD は一切変更しない。
   `:` 入り filename は git-for-windows が U+F03A に変換するため
   fixture から除外(locator 文法の `:` 合法性は unit test で担保)。
 
-## Verification
+## Related Experiments
+
+### Adopted
+
+なし（本 slice は実験を伴わない provider 実装作業。
+`metadata.experiments` は adopted/rejected とも空で、
+`docs/impl/exp/` に関連する実験ログは存在しない）。
+
+### Rejected
+
+なし。
+
+## Validation
 
 - `mise run fmt-check` / `check` / `lint` / `test` / `test-rt`:
   全て pass(workspace 全 target、locked dependency graph)。
@@ -198,3 +210,38 @@ tree・index・HEAD は一切変更しない。
   host)・実 OS credential store・GUI・実 network 障害 — 設計上の
   対象外。`synvelis-app`/workspace/project/recording/player/gateway/
   render/theme/poc・`.github/`・root manifest は未変更。
+
+## Risks
+
+- **`--filter` silent ignore の検出は git CLI 挙動依存**:
+  clone exit code では検出不能なため、mirror config の
+  `partialclonefilter`（要求の有無）と `rev-list
+  --missing=print` object census + `for-each-ref`/`ls-tree -r`
+  の has-blobs 判定（実際に partial か）を分離して判定している。
+  git のバージョン差で census 意味論が変わった場合の
+  `Full`/`Partial` 分類ドリフトが残る。
+- **selective fetch の粒度限界**: `ls-tree -l` は列挙 blob の
+  lazy fetch を引き起こすため、selective の保証は「browse した
+  tree 直下」まで。未 browse の subtree blob は promisor-missing
+  のまま残り、深い tree の初回アクセスでは追加 fetch が発生する。
+- **Windows 固有の path 正規化**: `TempTree` canonicalize の
+  `\\?\` verbatim prefix を `plain_dir`/`plain_path` で除去して
+  おり、git-for-windows が `:` 入り filename を U+F03A に変換する
+  ため fixture から除外している。locator 文法の `:` 合法性は
+  unit test で担保しており、Windows 実機の filename e2e は
+  未カバー。
+- **credential 経路は env 注入 + prompt 無効に依存**:
+  `GitRunner` は固定 argv・credential env 注入・prompt 無効で
+  git を起動する。ambient global git-lfs 設定は fixture-local
+  config で無効化しているが、実環境の credential helper /
+  askpass 構成は NotRun のまま。
+
+## Follow-ups
+
+- 実 Git server（HTTP/SSH/git protocol 対 live host）・実 OS
+  credential store・実 network 障害: NotRun/Unsupported。
+  fault 観点は synvelis#91（ALIB-07 fault matrix）が所有する。
+- GUI 統合・app 層配線: synvelis#89（ALIB-05 GUI）等の外部 gate。
+- `synvelis-app`/workspace/project/recording/player/gateway/
+  render/theme/poc・`.github/`・root manifest は本 slice の
+  対象外であり未変更（Validation の NotRun 記述どおり）。

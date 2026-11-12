@@ -140,6 +140,7 @@ Directory: `docs/plans`
 | PLAN-alib07-import-cancel | ALIB-07 slice 2 実装計画 — import cancel checkpoint・crash fixture・matrix 簿記 | completed | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | PLAN-034QArZ5DRWJ27yfk2aEID | ED-A Editing Model headless PoC 実装計画 | completed | [ed-a-editing-model.md](./ed-a-editing-model.md) |
 | PLAN-034Wsz1RfPQFUBGiJzAeHe | Issue #365 impl index 生成可能化 — front matter 是正と index 再生成 | completed | [issue-365-impl-index-generation-plan.md](./issue-365-impl-index-generation-plan.md) |
+| PLAN-034Wv23ayc9G1WRGoi3DaA | Issue #368 docs/impl/ir missing-section 本文補完 — 実装 plan | completed | [issue-368-ir-missing-sections-plan.md](./issue-368-ir-missing-sections-plan.md) |
 | PLAN-uaNPrumAjiAnEaagqm9BgJ | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 実装計画 | completed | [issue-86-verified-import-wiring-plan.md](./issue-86-verified-import-wiring-plan.md) |
 | PLAN-034PCA04Pk9ySt5zBcPdEf | PC-A Parameter Control Model headless PoC 実装計画 | completed | [pc-a-parameter-control.md](./pc-a-parameter-control.md) |
 | PLAN-034PCB04Pk9ySt5zBcPdEf | PC-B Parameter Control dispatch/note-scope/RT/offline 実装計画 | completed | [pc-b-parameter-dispatch.md](./pc-b-parameter-dispatch.md) |

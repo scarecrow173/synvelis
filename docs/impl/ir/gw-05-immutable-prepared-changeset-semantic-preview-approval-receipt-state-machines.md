@@ -84,6 +84,8 @@ metadata:
 
 # GW-05 Immutable Prepared ChangeSet・Semantic Preview / Approval Receipt State Machines 実装記録
 
+## Summary
+
 Issue #57。#45 GTC-007・#46 GW-05 に基づく「変更案・承認・Apply結果は別の状態として管理し、
 Digestに結び付いた承認だけをGW-06へ引き渡す」境界を実装した。GW-04 の `PreparedRecord` を
 凍結した `PreparedChangeSet`(決定的 digest 付き)を正本とし、preview・approve・apply の
@@ -91,7 +93,21 @@ Digestに結び付いた承認だけをGW-06へ引き渡す」境界を実装し
 管理する。Project 本体・Undo・commit には一切触れず、GW-06 へは再検証依存情報と
 consumption/commit 整合の seam だけを引き渡す。
 
-## 実施した変更
+## Context
+
+- Issue: #57(GW-05 本体)。要件の出典は #45 GTC-007 と #46 GW-05。
+- 依存 IR(`depends-on`): GW-01 gateway contract
+  (`docs/impl/ir/gw-01-gateway-contract.md`)・GW-02 authorization policy
+  (`docs/impl/ir/gw-02-authorization-policy.md`)・GW-03 context projection
+  (`docs/impl/ir/gw-03-context-projection.md`)・GW-04 semantic operation
+  preparation (`docs/impl/ir/gw-04-semantic-operation-preparation-effect-evaluation-linked-midi-scope.md`)。
+- 後続: GW-06 が approval consumption と commit result の atomic 契約を所有し、
+  本実装の `PreparedRecord`/`changeset`/receipt/apply record を commit path で消費する
+  (`blocks` issue #45、`Follow-ups` 参照)。
+
+## Implementation
+
+### 実施した変更
 
 | 範囲 | 内容 |
 | --- | --- |
@@ -108,7 +124,7 @@ consumption/commit 整合の seam だけを引き渡す。
 | `tests/proposal_regressions.rs`(新規) | 16 テスト — review-protocol で確定した各指摘の恒久検証(下表) |
 | `tests/rig/mod.rs` | GW-05 wire builder(`proposal_req`/`preview_req`/`approve_req`/`apply_req`/`apply_grant`/`prepare_mute(_agent)`/`preview_value_of`)を shared rig へ移動、`fixture_rig_with_cap` 追加 |
 
-## 設計上の主要判断
+### 設計上の主要判断
 
 | 判断 | 理由 |
 | --- | --- |
@@ -121,7 +137,15 @@ consumption/commit 整合の seam だけを引き渡す。
 | 終端 apply の後だけ承認 lifecycle を再開可 | `Rejected`/`Conflict`/`Indeterminate` で終わった receipt は `Consumed` のまま据え置き(二度消費不可)だが、live proposal の承認 request は再開して retry を詰まらせない |
 | `settle_apply` は commit 側 event のみ受理 | `Accept` は apply gate の遷移 — GW-06 が受理を報告することはあり得ない。同一 status の再報告は冪等(報告済みを証明できない fence のため) |
 
-## 受入条件との対応
+## Related Experiments
+
+実験ログなし — `metadata.experiments` の adopted/rejected はともに空で、
+`docs/impl/exp/` に本件に対応する実験記録はない。設計判断と検証結果は
+本 IR の「設計上の主要判断」「Validation」に記録した。
+
+## Validation
+
+### 受入条件との対応
 
 | AC | 対応 |
 | --- | --- |
@@ -132,7 +156,7 @@ consumption/commit 整合の seam だけを引き渡す。
 | GW-06 契約: 二重消費・retry 既存結果参照 | `consume_in_entry` は Granted→Consumed を lock 下で atomic — `double_consumption_can_never_succeed`(別 operation は二度消費不可)。accepted-or-later apply は record を参照(`commit_outcome_is_gw06s_to_report`/`committed_apply_references_itself_after_expiry`)。消費した attempt 自身の verify は冪等(`consume_verify_reconfirms_only_the_spending_attempt`) |
 | GT-007〜010・SEC-09〜12・G2/G3 | 下記 matrix 参照 |
 
-## SEC / GT matrix(#46 Failure Matrix 対応・GW-05 該当分)
+### SEC / GT matrix(#46 Failure Matrix 対応・GW-05 該当分)
 
 | Case | 内容 | 判定 | 証拠 |
 | --- | --- | --- | --- |
@@ -147,7 +171,7 @@ consumption/commit 整合の seam だけを引き渡す。
 | G2 | unknown/unsupported の丸め込みなし | Pass | `ProposalUnavailable`/`DigestMismatch`/`ApprovalInvalid` の型付き taxonomy — foreign/unknown/dead は同一 verdict で盲腸化 |
 | G3 | commit 成功の虚偽申告なし | Pass | `Accepted{operation}` は accept のみ主張 — `commit_outcome_is_gw06s_to_report` で Committed は `settle_apply` 経由のみ |
 
-## 実行した検証(証拠)
+### 実行した検証(証拠)
 
 - 環境: Windows、rust 1.99.0(mise pin)、GW-01〜04 merge 済み main(`ddfb6cc`)+ 本変更
 - `cargo fmt --all -- --check` — Pass
@@ -157,7 +181,7 @@ consumption/commit 整合の seam だけを引き渡す。
   `tests/proposal.rs` 30 テスト + `tests/proposal_regressions.rs` 16 テスト pass、
   既存 gateway/recording/render/project/workspace/e2e 全 suite pass
 
-## Review-protocol 実施結果
+### Review-protocol 実施結果
 
 独立 reviewer 2 系(A: 受入条件トレース / B: adversarial・failure)を投入し、全 candidate を
 コード実測で個別検証(Validator)。確定した P0/P1 は全て修正し、`tests/proposal_regressions.rs`

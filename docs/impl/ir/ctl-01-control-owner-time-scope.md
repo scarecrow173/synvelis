@@ -98,12 +98,29 @@ metadata:
 
 # CTL-01 実装記録: ControlOwner/AutomationTimeScope 分離・Schema v7
 
-## 実施内容
+## Summary
 
 Issue #121 の中核を実装した。`ControlScope` が兼務していた「パラメータ
 の所有者」と「オートメーションの時刻座標」を、型付きの
 `ControlOwner` / `AutomationTimeScope` / `ParameterRole` へ責務分離し、
-永続スキーマを v7 へ上げた。
+永続スキーマを v7 へ上げた。`synvelis-project` の型・oracle・ops・
+migration・評価、`synvelis-workspace` の録音 scope 解決、
+`synvelis-gateway` の resource 射影まで一貫して配線し、全 gate
+(fmt/check/lint/test/test-rt/build/test-msrv/gw10/test-ui)を
+PASS にした(`check-ui` のみ merge 取込み由来の既存型エラーで
+FAIL — CTL-01 非起因)。
+
+## Context
+
+- Issue: https://github.com/scarecrow173/synvelis/issues/121
+- Spec: `docs/specs/ctl-01-control-owner-automation-time-scope-typed-schema.md`
+- ADR: `docs/adr/ctl-01-control-owner-time-scope-schema-v7.md`
+- Design: `docs/designs/ctl-01-control-owner-time-scope-design.md`
+- Plan: `docs/plans/ctl-01-control-owner-time-scope.md`
+- Task: `docs/tasks/ctl-01-task1-owner-time-scope-schema-migration.md`
+- Test spec: `docs/test-specs/ctl-01-e2e-control-owner-time-scope.md`
+
+## Implementation
 
 ### 型・スキーマ (`synvelis-project/src/control.rs`)
 
@@ -176,7 +193,18 @@ Issue #121 の中核を実装した。`ControlScope` が兼務していた「パ
   resource 参照として射影する。`strip_of_processor` を pub 化して
   Processor→Strip 導出を共有実装にした。
 
-## 検証結果
+## Related Experiments
+
+### Adopted
+
+なし — `metadata.experiments.adopted` は空で、関連する
+`docs/impl/exp/*.jsonl` 記録もない。
+
+### Rejected
+
+なし — `metadata.experiments.rejected` は空。
+
+## Validation
 
 実行環境: Windows、toolchain pin `rust 1.99.0`、MSRV `rust 1.89.0`。
 すべて `mise run <task>` 経由。`origin/main` (`4c536b0`) マージ後に
@@ -198,7 +226,20 @@ Issue #121 の中核を実装した。`ControlScope` が兼務していた「パ
 | `mise run test-ui` | PASS (vitest 37 tests) |
 | `mise run check-ui` | FAIL — `ui/test/binding.test.ts` の TS 型分散エラー。`origin/main` マージ取込みの SV-GUI-02 lane 由来で CTL-01 非起因(本変更は ui/ 非接触)。対象 Issue 側で対応要。 |
 
-## 残課題・後続依存
+## Risks
+
+- `check-ui` の TS 型エラーは merge 取込みの既存問題(SV-GUI-02
+  lane 由来)で CTL-01 非起因だが、最終マージ前に対象 lane での
+  解消確認が望ましい(検証結果に記録済み)。
+- 永続スキーマを v7 へ bump した — v6→v7 は `migrate_v6_control`
+  の決定的投影(ID 非割当・`role = Generic`・owner 由来
+  `time_scope`)で実装済みだが、v6 以前に存在しない owner を持つ
+  body は foreign state として拒否される。Issue 記載の
+  Acceptance 依存項目(#122/#108/#102・Undo/Save/VCS・AudioLens
+  回帰)は本スコープ外であり、Issue #121 の Acceptance 完了は
+  それらの lane 完了に依存する。
+
+## Follow-ups
 
 - #122/#108/#102・Undo/Save/VCS・AudioLens 回帰は Issue 記載の
   Acceptance 依存であり本スコープ外。

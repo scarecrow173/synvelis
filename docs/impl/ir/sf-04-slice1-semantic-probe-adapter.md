@@ -225,7 +225,9 @@ test-spec に従う。
   probe 再 install（新 `RuntimeProbeId`）・remove の `Stopped`
   lifecycle・plan 未 publish/別 project の request 拒否。
 
-## Risks / NotRun
+## Risks
+
+以下は NotRun/対象外項目を含む残存リスク。
 
 - `synvelis-app`/`synvelis-workspace` への probe 配線は後続
   integration slice（本 dispatch の編集禁止範囲）。現状 probe API
@@ -243,3 +245,19 @@ test-spec に従う。
   publish 時の再解決対象外（`probe_ids` を持たない）— 回復には
   明示的な再 `probe_request` が必要。self-healing は follow-up
   候補。
+
+## Follow-ups
+
+- `synvelis-app`/`synvelis-workspace` への probe 配線は後続
+  integration slice（本 dispatch の編集禁止範囲）。probe API は
+  `RoutingEngine` の pub method としてのみ到達可能。
+- SF-04 の他 slice（control session probe observation/trace
+  wiring、probe clock/epoch discontinuity・capture
+  segmentation、subscriber window ownership、probe compare、
+  probe faults 等）は `docs/impl/ir/sf-04-slice*.md` に個別の
+  IR として記録済み。
+- UI/Monitor UX（#108）・実デバイス/実 RT 実測（#109）・複数
+  window ownership・比較診断は後続 dispatch の対象。
+- unresolved/unavailable で install されなかった binding の
+  publish 時再解決（self-healing）は follow-up 候補 — 現状は
+  明示的な再 `probe_request` が必要。

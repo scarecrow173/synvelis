@@ -218,7 +218,9 @@ probe domain ≠ anchor domain は `pointer_down` 開始時に
   CONFIRMED P1/P2 を全て修正 (StartTrim 二重 floor・EndTrim snap
   基準・marquee exact overlap・media_rescale saturation)。
 
-## Risks / 未検証項目
+## Risks
+
+(未検証項目を含む)
 
 - **source 実長の上限は未検証**: slip/trim が source 実長を
   超える場合の挙動は headless PoC では source store が実長を

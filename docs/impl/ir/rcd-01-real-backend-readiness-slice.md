@@ -152,7 +152,21 @@ optional dep + `real-device` feature（cpal/alsa-sys の OS 依存を
   追加、全 ruviform crate が branch HEAD `9865cd57` へ再解決
   （`b02942c2` → `9865cd57`、workspace check で整合確認）。
 
-## Verification
+## Related Experiments
+
+`docs/impl/exp/` に本 slice の実験 log file はない。front matter
+`metadata.experiments` の adopted/rejected は実機実測を受けた
+設計判断の記録であり、詳細は
+`docs/designs/rcd-01-real-backend-readiness-design.md`
+「実機実測と jitter 許容設計（設計改訂の根拠）」に記録済み。
+
+- Adopted: stamp 検証付き累積 frame count 配置（timestamp jitter
+  許容）。
+- Rejected: block 毎の独立 `map_stamp_to_frame` 配置 — 実機
+  jitter（sub-ms、独立写像で 443/444/439 vs 期待 441 frame）で
+  非連続となり `FAULT_INPUT_DISCONTINUITY` を起こした。
+
+## Validation
 
 - `cargo test -p synvelis-recording --locked`: 全 test pass
   （unit 23・device_recording 17・input_adapter 26・rt_alloc 1・
@@ -167,14 +181,33 @@ optional dep + `real-device` feature（cpal/alsa-sys の OS 依存を
 - `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/`test-msrv`:
   PR 前に実行（結果は PR 本文に記録）。
 
-## Notes / Deferred
+## Risks
 
-- cpal WASAPI adapter が `IAudioClock::GetPosition` の device
-  frame position を取得しながら `InputCallbackInfo` へ載せず
-  破棄している上流欠落を確認。`frame_position` が供給されれば
-  本線経路となり stamp fallback は不要になる — ruviform#565 を
-  起票済み（synvelis#115 関連）。
-- 実機 gate 行（fidelity 実測・multi-device 相関・xrun/長時間・
-  証拠リンク）は本 slice 範囲外で NotRun。
-- `frame_position` 優先順位は維持 — 上流修正後は自動的に
-  position 経路が本線になる。
+- stamp fallback は `frame_position` を報告しない backend でのみ
+  使われる代替経路。cpal WASAPI adapter が
+  `IAudioClock::GetPosition` の device frame position を取得し
+  ながら `InputCallbackInfo` へ載せず破棄する上流欠落
+  （ruviform#565 起票済み）に依存しており、修正されるまで stamp
+  経路が本線であり続ける。
+- timestamp jitter・stamp/sample clock drift への耐性は閾値定数
+  （`STAMP_DELTA_TOLERANCE_FRAMES = 256`・
+  `STAMP_ABS_TOLERANCE_FRAMES = 16_384`）依存。閾値超過は
+  `FAULT_INPUT_DISCONTINUITY` で fail-stop（fail-closed 方向）。
+  実機実測は Windows/WASAPI（Audient iD4）のみで、他 OS/backend
+  は未検証。
+- `now()` 非対応 backend では anchor が無く stamp 経路は全て
+  `FAULT_INPUT_DISCONTINUITY`（fail-closed。silent な誤配置は
+  起きない）。
+- `BufferSize::Default` の可変 block size は `max_block_frames`
+  超過を `FAULT_CONTRACT` で検出する前提。
+
+## Follow-ups
+
+- 実機 gate 行（実録音受入・Raw capture fidelity 実測・
+  multi-device 実機相関・xrun/removal/長時間・証拠リンク）は
+  本 slice 範囲外で NotRun — Issue #115 後続 slice。
+- cpal WASAPI adapter の `IAudioClock::GetPosition` device frame
+  position 破棄（ruviform#565 起票済み、synvelis#115 関連）。
+  `frame_position` が供給されれば本線経路となり stamp fallback
+  は不要になる — `frame_position` 優先順位は維持しており、上流
+  修正後は自動的に position 経路が本線になる。

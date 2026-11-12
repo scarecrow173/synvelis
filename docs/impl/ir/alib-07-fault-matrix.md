@@ -50,7 +50,37 @@ metadata:
 
 # ALIB-07 Implementation Record
 
-## 実装内容
+## Summary
+
+Synvelis #91（ALIB-07 Asset Library Fault Matrix）の headless
+slice（PR #236 で merge 済み）。`crates/synvelis-library` の
+headless test/fixture のみを拡張し、製品コードは変更しない。
+Issue #91 が固定する Case ID（LIB-ID/BROWSE/PIN/IMPORT/MIG/
+CACHE/SEC/QOS、計 42 class）に対する headless 再現可能な
+fault/golden case を追加し、Expected / Observed / Pass-Fail-
+NotRun を Case ID 単位で `docs/test-specs/
+alib-07-fault-matrix.md` に記録した。`webdav_fixture.rs` の
+fixture 抽出により git 3 件・webdav 9 件・import 2 件の新規
+test を追加した。
+
+## Context
+
+- Issue: <https://github.com/scarecrow173/synvelis/issues/91>
+  （ALIB-07。親・設計オーナー: #9。前提 spec: #85 ALIB-01
+  契約・#86 ALIB-02 import・#87 ALIB-03 cache・#88 ALIB-04 git
+  provider・#90 ALIB-06 WebDAV）。
+- 上流 doc chain: `docs/specs|designs|plans|tasks|
+  test-specs/alib-07-fault-matrix*`。
+- 境界: `crates/synvelis-library` の test/fixture/docs のみ。
+  Provider 実装本体・GUI・実 network/実 WebDAV server/実 Git
+  remote/OS credential store/実 device は対象外で、
+  `NotRun`/`Unsupported`/`NotImplemented` として正直に記録する
+  （Pass に昇格させない）。
+- 後続 slice: `docs/impl/ir/alib-07-import-cancel.md`
+  （PR #256、LIB-IMPORT-04 publish/commit 相 cancel・
+  LIB-IMPORT-08 subprocess crash）。
+
+## Implementation
 
 本 slice は製品コードを変更しない。`crates/synvelis-library` の
 headless test/fixture のみを拡張し、Issue #91 の Case ID 別
@@ -80,7 +110,19 @@ head writer を介さない malformed response を注入可能にした。
   `Cancelled` + 同一 ImportId resume、cross-provider 同一 bytes
   の `BlobMaterialization::Reused` による blob 共有。
 
-## 実行済み検証
+## Related Experiments
+
+### Adopted
+
+なし（本 slice は実験を伴わない test/fixture/docs 作業。
+`metadata.experiments` は adopted/rejected とも空で、
+`docs/impl/exp/` に関連する実験ログは存在しない）。
+
+### Rejected
+
+なし。
+
+## Validation
 
 - `cargo test --test webdav`（library）: 41 passed / 0 failed
   （新規 9 case 含む全件 green）。
@@ -100,7 +142,31 @@ head writer を介さない malformed response を注入可能にした。
   同一 category（ID 形式・Markdown link 未到達・相互 relation）
   のみで新規 category の増加なし。
 
-## NotRun / Unsupported / NotImplemented
+## Risks
+
+- **fixture 抽出による既存 test 破壊**: `tests/webdav.rs` 内の
+  mock server を `tests/common/webdav_fixture.rs` へ移動する
+  際、既存 test を壊すリスクがあった。`cargo test --test
+  webdav` で全件 green を確認してから他 case を追加する順序で
+  対処し、41 passed / 0 failed を確認済み（plan の risk
+  register どおり）。
+- **offline git case の error kind 不確定性**: offline remote
+  の error 分類は transport 依存のため、確定的なもの
+  （LFS `NotFound`）は exact match、分類が揺れるものは
+  `Offline|TransientIo|NotFound` の typed 集合で assert して
+  いる。環境差で typed 集合の境界が変わる可能性は残る。
+- **doc graph の既存 blocking findings**: repo 全体に
+  pre-existing の broken relation があり、route_graph は
+  blocked を返す。本 slice の docs は新規 finding を増やさない
+  ことを `doc_status.js` で確認し、既存不具合の修復は
+  スコープ外とした（plan の risk register どおり）。
+- **Mock/headless 証拠の非昇格**: in-process mock・subprocess
+  fixture の成功を実 provider・実 durability・実 OS crash
+  保証と読み替えない境界を維持する。`NotRun`/
+  `Unsupported`/`NotImplemented`/`Unknown` を Pass に昇格
+  させないことが spec の非昇格条件。
+
+## Follow-ups
 
 - 実 network / 実 WebDAV server / 実 Git remote（SSH・HTTP
   transport・LFS batch API）: NotRun。

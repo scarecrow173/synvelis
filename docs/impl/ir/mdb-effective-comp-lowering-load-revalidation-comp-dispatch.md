@@ -224,6 +224,17 @@ workspace が green。
 | load revalidation | 破損 tempo map・破損 clip contract の snapshot を load で reject・live state 不変・valid snapshot は load 可 | `load_rejects_malformed_tempo_map`・`load_rejects_invalid_clip_contract`・`load_still_accepts_valid_snapshot`（controller_store） |
 | CompOp dispatch | `ProjectSession::apply` が `CompOp` を受け revision 連鎖・検証・拒否を共有 | `comp_ops_apply_through_session_dispatch`・`comp_and_project_ops_share_one_revision_chain`（workspace md_b） |
 
+## Related Experiments
+
+### Adopted
+
+なし — `metadata.experiments.adopted` は空で、関連する
+`docs/impl/exp/*.jsonl` 記録もない。
+
+### Rejected
+
+なし — `metadata.experiments.rejected` は空。
+
 ## Validation
 
 全て exit code 0 で実測:

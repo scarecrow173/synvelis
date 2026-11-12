@@ -93,7 +93,33 @@ metadata:
 
 # VCS-01 Immutable Snapshot Resolver — Implementation Record
 
-## What was built
+## Summary
+
+`synvelis-project` に VCS 非依存の Immutable Snapshot Resolver を
+additive module `src/snapshot/` として実装した（VCS-01 の
+headless slice）。Live / Saved HEAD / Recovery checkpoint /
+VCS staged / VCS committed の 5 locator 系統を、厳密
+`SnapshotEnvelope` parse → 既存 migration ladder →
+`validate_references` + `check_id_watermark` → exact-bytes
+SHA-256 digest → read-only projection の単一 pipeline で
+`ImmutableSnapshot` へ解決する。headless fixture
+（test-spec SNAP-FIX-01〜10、`tests/vcs01_snapshot.rs` 28 tests +
+digest FIPS 2 tests）で検証済み。実 Git provider・実 OS
+filesystem atomicity・GUI・実 plugin host probe は
+VCS-02〜06 / Issue #97 系へ deferred。
+
+## Context
+
+Implements `docs/tasks/vcs-01-task1-immutable-snapshot-resolver-headless-slice.md`
+per `docs/plans/vcs-01-immutable-snapshot-resolver.md`,
+`docs/designs/vcs-01-immutable-snapshot-resolver-design.md`, and
+`docs/specs/vcs-01-immutable-snapshot-resolver.md`; verified by
+`docs/test-specs/vcs-01-snapshot-resolver-fixtures.md`.
+Source: synvelis issues #92 and #7. Related specs:
+`docs/specs/syn-io-02-snapshot-head-staged-publish.md` and
+`docs/specs/alib-02-v5-snapshot-compat.md`.
+
+## Implementation
 
 `synvelis-project` に VCS 非依存の Immutable Snapshot Resolver を
 additive module `src/snapshot/` として実装した。`SnapshotResolver`
@@ -145,7 +171,26 @@ oracle）→ exact-bytes SHA-256 digest → read-only projection の
   manifest/opaque_state に記録され `Partial`/`Degraded`。
   Equal 判定は resolver の責務外（VCS-02）。
 
-## Verification（実施済み）
+### Notes
+
+- `Cargo.toml`/`Cargo.lock`/`mise.toml` 無変更。依存追加なし。
+- duplicate ID は `BTreeMap` 構造上 JSON からは生成不能のため、
+  integrity failure は invalid reference / forged watermark /
+  project-id mismatch / corrupt bytes の各経路で `InvalidSnapshot`
+  として固定した。
+
+## Related Experiments
+
+### Adopted
+
+<!-- 実験 log なし（`metadata.experiments.adopted` は空。関連する
+`docs/impl/exp/*.jsonl` も存在しない）。 -->
+
+### Rejected
+
+<!-- なし -->
+
+## Validation
 
 | Task | Result |
 | --- | --- |
@@ -179,13 +224,26 @@ call journal が resolve 前後で不変）を assert 済み。
   しないため構造上影響しない（undo/edit/save 後の snapshot
   不変性は fixture で検証済み）。
 
-## Notes / follow-ups
+## Risks
 
-- `Cargo.toml`/`Cargo.lock`/`mise.toml` 無変更。依存追加なし。
+- 実 OS filesystem の atomicity は headless `FakeStore` fixture
+  のみで **NotRun** — directory bundle store の実 FS 挙動は未検証。
+- 実 Git remote/provider・実 index/worktree は `VcsBytesPort`
+  境界のみで **Unsupported** — 実装は VCS-03（Issue #94）以降の
+  slice に委譲。
+- GUI / 実 plugin host probe は **Unsupported** — opaque state は
+  `Resolved`→`Unknown`・`Unresolved`→`Missing` 固定で、実 probe
+  結果を反映しない。
+- crate 内 SHA-256 は `sha2` crate との重複実装（DRY）—
+  `synvelis-project` が将来 `sha2` に依存する変更が入った場合は
+  置き換えが必要。
+
+## Follow-ups
+
 - `sha2` crate-local 実装は FIPS ベクタで検証済みだが、将来
   `synvelis-project` が `sha2` に依存する変更が入った場合は
   置き換えを検討する（DRY）。
-- duplicate ID は `BTreeMap` 構造上 JSON からは生成不能のため、
-  integrity failure は invalid reference / forged watermark /
-  project-id mismatch / corrupt bytes の各経路で `InvalidSnapshot`
-  として固定した。
+- VCS-02 Semantic Diff ChangeSet（Issue #93）。
+- VCS-03 Git Read Provider（Issue #94）。
+- 実 Git remote / 実 OS filesystem atomicity / GUI / 実 plugin
+  host probe（VCS-04/05/06, Issue #97）。

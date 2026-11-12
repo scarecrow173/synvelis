@@ -66,10 +66,28 @@ metadata:
 
 # AUT-02 実装記録: Region Replace 境界曲線保存
 
-## 実施内容
+## Summary
 
 Issue #132。`cut_range_points` が切断範囲外の曲線を再現できない
-欠陥に対し、**merged series 基準の境界 anchor**を追加した。
+欠陥に対し、**merged series 基準の境界 anchor**(`BoundaryAnchor`
+計画 + `stitch_boundary_anchor`)を op apply 層に追加した。
+`cut_range_points` 本体(per-lane 機械的切断 primitive)は不変。
+`tests/aut_02.rs` 15 件を含む全 workspace gate が green。
+
+## Context
+
+- Issue: https://github.com/scarecrow173/synvelis/issues/132
+- Spec: `docs/specs/aut-02-region-replace-boundary-curve-preservation.md`
+- ADR: `docs/adr/aut-02-boundary-sentinel-anchor-placement.md`
+- Design: `docs/designs/aut-02-region-replace-boundary-design.md`
+- Plan: `docs/plans/aut-02-region-replace-boundary.md`
+- Task: `docs/tasks/aut-02-task1-region-replace-boundary.md`
+- Test spec: `docs/test-specs/aut-02-e2e-region-replace-boundary.md`
+- 関連: AUT-01 Touch Return(#131)・PC-C1 録音 transaction(#98) —
+  PC-C1 の 1-commit/1-undo 経路が anchor をそのまま恩恵する。
+
+## Implementation
+
 `cut_range_points` 本体(per-lane 機械的切断 primitive)は不変で、
 anchor 計画と stitch を op apply 層に置いた — 評価が target 全
 lane の merged series 上で行われるため、境界値・host 選択・重複
@@ -118,7 +136,7 @@ lane の merged series 上で行われるため、境界値・host 選択・重�
 - E-3: erase の左 Linear 接近は右 anchor への segment に変わる
   (Step は chase で完全保存)。
 
-## 設計からの差分
+### 設計からの差分
 
 - design §5 は `merged_series` の `&ControlModel` 起点化を計画
   したが、ops apply が `&mut Project` を持つため `&Project` のまま
@@ -128,7 +146,7 @@ lane の merged series 上で行われるため、境界値・host 選択・重�
   host(他 lane 未編集 region が `c1` を跨ぐケース)を包含する
   一般形(左 piece 温存 + sentinel + 右 piece の 3 分割)に拡張。
 
-## 監査 — `cut_range_points` 利用箇所
+### 監査 — `cut_range_points` 利用箇所
 
 - `ops.rs` `WriteAutomationRegion{Replace}`(全 lane):
   anchor 適用 — 本件の対象。
@@ -138,7 +156,20 @@ lane の merged series 上で行われるため、境界値・host 選択・重�
 - `prepare_record_commit`(workspace)は op 構築のみで直接呼ばず、
   PC-C1 の 1-commit/1-undo 経路はそのまま anchor 恩恵を受ける。
 
-## 検証結果(実施済み・全緑)
+## Related Experiments
+
+### Adopted
+
+なし — `metadata.experiments.adopted` は空で、関連する
+`docs/impl/exp/*.jsonl` 記録もない。
+
+### Rejected
+
+なし — `metadata.experiments.rejected` は空。
+
+## Validation
+
+実施済み・全緑:
 
 - `mise run check`: pass
 - `mise run lint`: pass
@@ -165,7 +196,9 @@ lane の merged series 上で行われるため、境界値・host 選択・重�
 - F6: post-replace 系列で `eval_rt` ≡ `evaluate_control` 全 probe
   一致。
 
-## NotRun/Unsupported
+## Risks
+
+### NotRun/Unsupported
 
 - 実 GUI Paste Cancel/Confirm、実 Plugin binding 録音経路 —
   headless の op/atomicity/preview-discard 相当で代替 pin
@@ -173,3 +206,11 @@ lane の merged series 上で行われるため、境界値・host 選択・重�
 - 複数 Window stale/temp ref — session CAS(StaleRevision 拒否)と
   preview 破棄の headless 契約で pin。実 GUI マルチウィンドウは
   未配線。
+
+## Follow-ups
+
+- 実 GUI Paste Cancel/Confirm・実 Plugin binding 録音経路の検証は
+  PC-C4/PC-C5・SV-GUI-05 lane の Integration で実施する
+  (headless では op/atomicity/preview-discard 相当で代替 pin 済み)。
+- 実 GUI マルチウィンドウの stale/temp ref 経路は未配線 —
+  GUI lane での配線が必要。

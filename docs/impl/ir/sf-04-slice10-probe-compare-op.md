@@ -54,7 +54,21 @@ clock id 含有）を手動 JSON mapper で wire 投影した。
 retained coverage のみを読み、drain も mutation もしない。
 player/project/workspace/ui・port trait は変更していない。
 
-## Implemented
+## Context
+
+Issue #107 SF-PROBE-07 の app-facing 露出。slice 6 で
+`ProbeTraceBridge::compare_probes(&self,
+&ProbeComparisonRequest) -> AcousticObservation` が
+player 層の公開面として確立済みで、slice 4 が開いた
+`SessionRoutingEngine::with_probe_bridge`（`&self` →
+`FnOnce(&mut ProbeTraceBridge) -> R` の scoped port 供給）
+経由で app 層から到達可能だった。本 slice はその consumer
+を `syn.probe.*` ops と同じ canonical op shape で wire へ
+出すものであり、比較意味論・drain 所有権・session 相関は
+変更しない（`docs/designs/
+sf-04-slice10-probe-compare-op-design.md` Context 節）。
+
+## Implementation
 
 ### `crates/synvelis-app/src/service.rs`
 
@@ -134,7 +148,18 @@ fixture 先例・`UiRuntime`/`AppService` dispatch 経由）:
   `provenance` は field-by-field で wire shape を明示決定。
   clock id は `{domain,epoch}` raw id で投影（推測しない）。
 
-## Verification
+## Related Experiments
+
+### Adopted
+
+- なし（`metadata.experiments.adopted` は空。`docs/impl/exp/`
+  に本 slice 関連の experiment 記録なし）。
+
+### Rejected
+
+- なし。
+
+## Validation
 
 - `cargo test -p synvelis-app --test sf04_probe_compare_op`:
   6 passed / 0 failed（2026-11-12）。
@@ -145,7 +170,22 @@ fixture 先例・`UiRuntime`/`AppService` dispatch 経由）:
   SF04-RCP-01・`ui/src/ipc.ts` OpName 登録は **NotRun** —
   後続 slice/外部受け入れへ委譲。Pass 扱いしない。
 
-## Remaining / Out of Scope
+## Risks
+
+- **鮮度は caller 制御**: `&self` read-only のため compare は
+  最後の `ui_pump` が保持した retained coverage のみを読む。
+  `engine.run` + pump op を挟まずに呼ぶと stale/欠落証拠で
+  `incomparable`/`conditional` に正直に劣化する
+  （`aligned` の偽装はない）。鮮度管理は consumer 責務。
+- **wire 形状の前方互換**: `#[non_exhaustive]` enum の将来
+  variant は `{"kind":"unknown"}` で fail-closed 投影する。
+  将来 variant 追加時は wire consumer 側の追従が必要。
+- **clock id は raw 投影**: provenance の clock は
+  `{domain,epoch}` の raw id で投影し推測しない — domain/
+  epoch の意味解釈は consumer 側の責務（slice 6 の
+  `ClockContextRef` 規則を継承）。
+
+## Follow-ups
 
 - `ui/src/ipc.ts` `OpName` union・per-node adapter 登録
   （#108/SF-05）。

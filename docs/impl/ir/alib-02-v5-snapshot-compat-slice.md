@@ -149,14 +149,41 @@ doc chain の実装同期を提供する。
   増やさず既存型を fixture で検証した。
 - **`migrate_v5_routing` の意味は変更していない**（タスク制約遵守）。
 
-## Verification
+## Related Experiments
+
+### Adopted
+
+なし（本 slice は実験を伴わない fixture/test 追加作業。
+`metadata.experiments` は adopted/rejected とも空で、
+`docs/impl/exp/` に関連する実験ログは存在しない）。
+
+### Rejected
+
+なし。
+
+## Validation
 
 | Check | Result |
 | --- | --- |
 | `cargo test -p synvelis-project --test alib02_v5_real` | 8 passed（補助証拠・開発ループ） |
 | `mise run fmt-check` / `check` / `lint` / `test` / `test-rt` / `test-msrv` | PR #328 時点で全 lane Pass。closeout 再実測（2026-11-11、origin/main `36c2254` + docs-only 差分）の結果は `docs/impl/ir/alib-02-residual-closeout.md` Validation と `evidence/issue-86-v5-migration/closeout-verification.md` を参照 |
 
-## Remaining
+## Risks
+
+- **fixture 再生成の依存**: `alib02-v5-legacy.{json,blob}` は
+  v5-era build（commit `a401e5c`、`SCHEMA_VERSION=5`）の実出力で
+  あり、現行 tree からは再生成できない。generator
+  （`emit_v5_fixture.rs`）は detached worktree でのみビルド可能で、
+  provenance と実測値は `evidence/issue-86-v5-migration/README.md`
+  に固定されている。fixture 喪失時の再現はこの evidence 経路に
+  依存する。
+- **headless 証明の限界**: 本 slice が固定するのは決定的な
+  decode→migrate→save→reload→projection の連鎖までであり、
+  実 FS durability・OS 差・directory sync は Issue #91 の範囲に
+  残る。headless PASS を実機証拠として扱わない
+  （test-spec の non-goal と同じ境界）。
+
+## Follow-ups
 
 - DoD(2)（consumer 実結合）は PR #326 で統合済み
   （`docs/impl/ir/issue-86-verified-import-wiring-slice.md`）。

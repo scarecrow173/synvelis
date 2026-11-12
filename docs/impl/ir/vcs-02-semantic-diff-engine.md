@@ -92,7 +92,32 @@ metadata:
 
 # VCS-02 Semantic Diff Engine — Implementation Record
 
-## What was built
+## Summary
+
+`synvelis-project` に VCS 非依存の Semantic Diff Engine を
+additive module `src/diff/` として実装した（VCS-02 の
+headless slice）。2 つの VCS-01 `ImmutableSnapshot` を入力に、
+`projection.project()` のみを読み canonical `ChangeSet` を返す
+pure・non-RT エンジン。typed stable ID matching・canonical JSON
+field-level diff・`ComparisonEquality` tri-state（`Equal`/
+`Different`/`Unknown`）・deterministic `ChangeId`/sort・
+budget/cooperative cancel を実装し、headless fixture
+（test-spec VCS-DIFF-01〜08、`tests/vcs02_diff.rs` 21 tests）
+で検証済み。実 Git provider・GUI・実 plugin host probe は
+VCS-03〜06 / Issue #97 系へ deferred。
+
+## Context
+
+Implements `docs/tasks/vcs-02-task1-semantic-diff-engine-headless-slice.md`
+per `docs/plans/vcs-02-semantic-diff-engine.md`,
+`docs/designs/vcs-02-semantic-diff-engine-design.md`, and
+`docs/specs/vcs-02-semantic-diff-changeset.md`; verified by
+`docs/test-specs/vcs-02-semantic-diff-fixtures.md`.
+Source: synvelis issues #93, #7, and #92. Related:
+`docs/impl/ir/vcs-01-immutable-snapshot-resolver.md` and
+`docs/specs/vcs-01-immutable-snapshot-resolver.md`.
+
+## Implementation
 
 `synvelis-project` に VCS 非依存の Semantic Diff Engine を additive
 module `src/diff/` として実装した。`compare_snapshots` は 2 つの
@@ -157,7 +182,26 @@ live transport / runtime engine は不変・非接触）、canonical
 - `lineage` は現行 schema に永続化経路がないため常に `None`
   （捏造しない。Issue #7 の将来 schema extension へ deferred）。
 
-## Verification（実施済み）
+### Notes
+
+- `Cargo.toml`/`Cargo.lock`/`mise.toml` 無変更。依存追加なし。
+- `ChangeSetCache` は derived state のみ保持し project/media
+  truth にはならない（comparison-key digest でのみ index）。
+- SMF document は v9 導入のため pre-v9 snapshot では absent =
+  faithfully empty として実在 diff を出す（suppression 対象外）。
+
+## Related Experiments
+
+### Adopted
+
+<!-- 実験 log なし（`metadata.experiments.adopted` は空。関連する
+`docs/impl/exp/*.jsonl` も存在しない）。 -->
+
+### Rejected
+
+<!-- なし -->
+
+## Validation
 
 | Task | Result |
 | --- | --- |
@@ -196,12 +240,26 @@ schema version）のみ直接 `ImmutableSnapshot` 構築を使用。
   `recording`/`render`/`theme`/`poc`: **無変更**（diff module は
   `synvelis-project` 内に閉じる）。
 
-## Notes / follow-ups
+## Risks
 
-- `Cargo.toml`/`Cargo.lock`/`mise.toml` 無変更。依存追加なし。
-- `ChangeSetCache` は derived state のみ保持し project/media
-  truth にはならない（comparison-key digest でのみ index）。
-- SMF document は v9 導入のため pre-v9 snapshot では absent =
-  faithfully empty として実在 diff を出す（suppression 対象外）。
-- 未対応の将来拡張: lineage schema、VCS-03 以降の provider 接続、
-  history/visual diff UI（ChangeSet consumer）。
+- `lineage` は現行 schema に永続化経路がなく常に `None` —
+  lineage-aware な同一性追跡は Issue #7 の schema extension まで
+  利用できない。
+- cross-kind ID collision・owner conflict・cross-project は entity
+  diff を出さず `AmbiguousIdentity` issue + `Unknown` に落ちる —
+  `Equal`/`Different` に確定しない設計のため、consumer は
+  tri-state（`ComparisonEquality`）を区別して扱う必要がある。
+- 実 OS filesystem atomicity・実 Git remote/provider・GUI・実
+  plugin host probe は headless fixture の範囲外（**NotRun**/
+  **Unsupported**、Issue #97 系）。
+
+## Follow-ups
+
+- lineage schema: Issue #7 で将来の Project schema extension へ
+  deferred（`lineage` は現行 schema では常に `None`）。
+- VCS-03 Git Read Provider（Issue #94）— `VcsBytesPort` 境界の
+  実装。
+- VCS-04 History/Visual Diff UI（Issue #95）— ChangeSet consumer。
+- VCS-05 Apply/Restore。
+- 実 OS filesystem atomicity / 実 Git remote/provider / GUI / 実
+  plugin host probe（Issue #97）。

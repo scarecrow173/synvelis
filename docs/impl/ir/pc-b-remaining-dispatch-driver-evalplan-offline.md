@@ -291,6 +291,34 @@ review-protocol の 2 サイクル (cooperative A + adversarial B、
 (`pc_a_05_*` 3 test)、既存 `pc_b_01`/`pc_b_02`/`pc_b_04`/
 `rt_` 系は回帰なし。
 
+## Risks
+
+レビューで変更しなかった判断・既知制約 (P2/P3) として残る
+リスク:
+
+- `param_observations()` は cross-node 同一 target をマージ
+  する — 単一 node 前提では問題ないが、複数 attach 時の帰属は
+  未設計。
+- activation 時点で pending >30 の anchor trio
+  (`set_clock`/`Seek`/`Play`) は分割され得る — activation 前の
+  dispatch 集中経路のみで発生し 64-cap の半分まで安全。既知制約。
+- seek の quiesce pass は巻戻し窓の event を 1 回分重複配送する
+  — seek doc 記載の意図的 tradeoff。
+- `dispatch` の frame_base と attach-time `AttachConfig::
+  frame_base` の不一致は bridge に accessor がなく検証不能 —
+  `ParamDispatch::new` doc の契約明記に留まる。
+- `control()` 経由の out-of-band op (seek/device_restart/直接
+  install_plan) は driver の span/cursor 前提を壊し得る —
+  accessor doc の注意喚起のみ (private 化は API 後退)。
+- `EvalPlan::is_stale` は判定ごとに `ControlGraph::compile` を
+  再実行する recompile-compare — project 規模に比例したコストが
+  呼び出し側に残る。
+- `PluginNode::offline_support` は upstream で意図的に
+  `Unknown` — instance-level `Verified` 宣言は PC-B test-local
+  wrapper に依存し、実 plugin 統合時に再検証が必要。
+- compile の dangling-ref panic は validated op/load 経路では
+  到達不能 — 直接 Project 構築のみ。既知制約。
+
 ## Follow-ups
 
 - `param_observations()` の複数 attach node 間 target 帰属 —

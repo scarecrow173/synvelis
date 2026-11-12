@@ -85,13 +85,27 @@ metadata:
 
 # GW-04 Semantic Operation Preparation / Effect Evaluation / Linked MIDI Scope 実装記録
 
+## Summary
+
 Issue #56。#45 GTC-005・#46 GW-04 に基づく semantic operation preparation を、
 既存 `synvelis-project::Operation`/`ProjectOp`/`ProjectController` 契約に
 接続して実装した。AI 専用の第二 validator は作らず、domain legality は
 `Operation::validate` に一元化し、Effect は pin 済み実 Project の
 before/after 観測から導出する。commit/apply 配線は GW-06 へ defer。
 
-## 実施した変更
+## Context
+
+- source Issue: #56(GW-04)。`implements`/`verifies` は Issue #45・#46・#56
+  (GitHub Issue)で、個別の設計文書はなく GW-01〜03 の IR を前提とする。
+- `depends-on`: `docs/impl/ir/gw-01-gateway-contract.md`、
+  `docs/impl/ir/gw-02-authorization-policy.md`、
+  `docs/impl/ir/gw-03-context-projection.md` — GW-01 の bind/invoke 経路、
+  GW-02 の `GrantPolicy` internals、GW-03 の exact-revision pin
+  (`pin_revision`)を再利用する。
+- 検証 base は GW-01〜03 merge 済み + 本変更。commit/apply 配線は
+  GW-06 へ defer。
+
+## Implementation
 
 | 範囲 | 内容 |
 | --- | --- |
@@ -153,7 +167,14 @@ before/after 観測から導出する。commit/apply 配線は GW-06 へ defer�
 | GT-006 | 時間 domain の暗黙変換なし | Pass | `wrong_time_domain_and_range_reject_without_mutation` — `project-musical` range は `source-native` schema で `WrongTimeDomain` |
 | 原子性 | composite の member 失敗で partial effect を出さない | Pass | `batch_rejects_atomically_when_a_member_fails` — `proposal_count()==0`、project 無変更 |
 
-## 実行した検証(証拠)
+## Related Experiments
+
+本実装では実験ログを採用・却下していない。front matter の
+`metadata.experiments.adopted`/`rejected` はいずれも空で、`docs/impl/exp/`
+に本件(GW-04)に対応する実験ファイルは存在しない。設計文書どおりに
+実装し、検証は prepare test・regression test と review-protocol で行った。
+
+## Validation
 
 - 環境: Windows、rust 1.99.0(mise pin)、GW-01〜03 merge 済み base + 本変更
 - `mise run fmt-check` — Pass

@@ -103,7 +103,42 @@ metadata:
 
 # SV175-01 実装記録: Native App Shell 初期 slice
 
-## 実施内容
+## Summary
+
+SV-GPUI-01 Native App Shell の初期 slice(Issue #175、2026-11-07
+横断レビュー確定仕様 v2)。Synvelis が Own するのは Native
+composition root・GPUI Driver 組立・non-RT typed
+ViewModel↔Ruviform Binding adapter・app lifecycle のみ。
+driver-neutral `NativeShell`(`shell.rs`)が `WindowDriver` port を
+消費して window lifecycle と intent routing を処理し、typed
+`BindingAdapter`(`binding.rs`)が `syn.view.*`/`syn.control.*`/
+`syn.project.*` intent を `rvf.ipc.v1` wire で mint して inbound
+`Event` を demux する。`rvf.ui.command.v1` Action の wire 翻訳層を
+shell に追加し、`synvelis-native` bin が `GpuiDriver` を
+composition root として組立てる。headless lane(FakeDriver)で
+lifecycle・binding 契約を検証済み。実 OS/GPU 上の GPUI 実行は
+未観測。
+
+## Context
+
+- Spec: `docs/specs/sv-gpui-01-native-app-shell.md`(depends-on)
+- ADR: `docs/adr/sv175-native-shell-driver-neutral-gpui.md`
+- Design: `docs/designs/sv175-native-shell-design.md`
+- Plan: `docs/plans/sv175-native-shell.md`
+- Discovery: `docs/discovery/sv175-native-shell-inventory.md`
+  (related)
+- Task: `docs/tasks/sv175-01-native-shell-binding.md`(implements)
+- Test-spec: `docs/test-specs/sv175-01-native-shell-binding.md`
+  (verified-by)
+- Source: synvelis Issue #175・#23、ruviform Issue #384。
+- Ruviform 側契約は `WindowDriver`/`DriverEvent`/`Intent` の
+  driver-neutral seam。RF387 Component/View renderer は別 Worker
+  (候補 `4c53e28` を実コード調査済)、RF389 実 desktop input は
+  owner 別 — いずれも本 slice の scope 外。
+- 旧 ADR sv-gui-01(SolidJS/WebView 採用)を本 ADR で supersede。
+  WebView/PoC 資産は削除しない。
+
+## Implementation
 
 - `binding.rs`: typed 非 RT `BindingAdapter`。`syn.view.attach/detach/close`・
   `syn.control.dispatch`(begin/preview/commit/cancel/action)・
@@ -145,20 +180,6 @@ metadata:
 - `check-headless-deps.mjs`: `synvelis-app` は GUI composition crate のため
   対象外のまま維持(変更は guard の説明のみ)。
 
-## 検証結果(実測)
-
-| lane | 結果 |
-| --- | --- |
-| `mise run fmt` (cargo fmt --all) | pass |
-| `mise run check` (cargo check --workspace --all-targets) | pass |
-| `mise run lint` (cargo clippy -D warnings) | pass, warning 0 |
-| `mise run test` (cargo test --workspace --locked) | pass, 失敗 0 |
-| `node tools/check-headless-deps.mjs` | pass, 9 headless crates に GUI 依存なし |
-| `node tools/check-ruviform-rev.mjs` | pass, 26 sources すべて `e8adcc09` |
-| `cargo test -p synvelis-app --test binding` | 12 pass |
-| `cargo test -p synvelis-app --test shell` | 10 pass |
-| `cargo check -p synvelis-app --features native --all-targets` | pass(3m23s、transitive `proc-macro-error2` の future-incompat 警告のみ) |
-
 ## 独立 review と対応
 
 実装後に独立 reviewer 2 系統(コード正当性 / 契約・spec 適合)で検査し、
@@ -188,7 +209,36 @@ metadata:
 - **[確認済・変更不要] id 衝突なし**: 本側 mint は `{view}-{tag}{seq}`、候補
   command_id は `{view_id}:{counter}` で書式が交差しない。
 
-## 残課題 / 未達 scope
+## 主要決定
+
+- `WindowLifecycle::Action(Intent)` を typed route とし raw-string message を廃止。
+- close は vetoable `CloseRequested` を shell policy で approve し、`Destroyed` で
+  最終 teardown と last-window exit を分離。
+- `BindingAdapter` は translation layer のみで、`ControlsUi`/`VizUi` の
+  gesture/receipt authority を複製しない。
+- 旧 ADR sv-gui-01 は `status: superseded` + `superseded-by` link のみ。
+  WebView/PoC 資産は削除しない。
+
+## Related Experiments
+
+実験ログなし — `metadata.experiments` の adopted/rejected は空で、
+関連する `docs/impl/exp/` の実験ファイルもない。
+
+## Validation
+
+| lane | 結果 |
+| --- | --- |
+| `mise run fmt` (cargo fmt --all) | pass |
+| `mise run check` (cargo check --workspace --all-targets) | pass |
+| `mise run lint` (cargo clippy -D warnings) | pass, warning 0 |
+| `mise run test` (cargo test --workspace --locked) | pass, 失敗 0 |
+| `node tools/check-headless-deps.mjs` | pass, 9 headless crates に GUI 依存なし |
+| `node tools/check-ruviform-rev.mjs` | pass, 26 sources すべて `e8adcc09` |
+| `cargo test -p synvelis-app --test binding` | 12 pass |
+| `cargo test -p synvelis-app --test shell` | 10 pass |
+| `cargo check -p synvelis-app --features native --all-targets` | pass(3m23s、transitive `proc-macro-error2` の future-incompat 警告のみ) |
+
+## Risks
 
 - **実 OS/GPU 上の GPUI 実行は未観測**。`synvelis-native` の起動・実 window 表示・
   IME/native surface 挙動は headless CI では検証不可。FakeDriver による
@@ -203,7 +253,6 @@ metadata:
   ok→Applied へ statuses を潰すため accepted/queued は `data.status` でのみ
   保存。projection の `control_id` は本 slice では `target` を使用
   (control_id≠target の view は独自 map が必要)。
-- RF389 owner の実 desktop 入力 slot、SV112/113/176/114 は scope 外のまま。
 - 独立 review で残置を確認した minor items(いずれも本 slice では許容):
   `expect_receipt` は decode するが情報保持のみで suppress 判定には未使用
   (receipt 必要性は backend が intent kind から導出、peer も独自規則で mint)。
@@ -213,12 +262,12 @@ metadata:
   mounted view には翻訳済 Result/Notify と raw notify broadcast が併存
   (classic consumer 互換のため意図的)。
 
-## 主要決定
+## Follow-ups
 
-- `WindowLifecycle::Action(Intent)` を typed route とし raw-string message を廃止。
-- close は vetoable `CloseRequested` を shell policy で approve し、`Destroyed` で
-  最終 teardown と last-window exit を分離。
-- `BindingAdapter` は translation layer のみで、`ControlsUi`/`VizUi` の
-  gesture/receipt authority を複製しない。
-- 旧 ADR sv-gui-01 は `status: superseded` + `superseded-by` link のみ。
-  WebView/PoC 資産は削除しない。
+- 実機/native acceptance 検証: `synvelis-native` の実 window 表示・
+  IME/native surface 挙動を driver lab / RF390 系で確認(headless CI
+  では検証不可)。
+- RF387 Component/View renderer(候補 `4c53e28`)の main 取込後、
+  実描画 ViewSpec/`create_view_window` mount を接続。
+- RF389 owner の実 desktop 入力 slot、SV112/113/176/114 は scope 外の
+  まま後続 issue。

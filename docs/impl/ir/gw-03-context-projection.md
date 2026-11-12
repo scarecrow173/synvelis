@@ -72,6 +72,8 @@ metadata:
 
 # GW-03 Scoped Context Projection / Snapshot Pagination / Read-Disclosure Guard 実装記録
 
+## Summary
+
 Issue #55。#45 GTC-004・#46 GW-03 に基づく read-only context projection を、
 GW-01 gateway 契約の `synvelis.context.query` capability として、GW-02
 認可ポリシー上に構築した。Project Snapshot の第二の正本は作らず、
@@ -79,7 +81,17 @@ GW-01 gateway 契約の `synvelis.context.query` capability として、GW-02
 Prepared Operation 連携の実配線は GW-04、approval receipt・commit fence は
 GW-05/06 へ defer。
 
-## 実施した変更
+## Context
+
+- source Issue: #55(GW-03)。`implements`/`verifies` は Issue #45・#46・#55
+  (GitHub Issue)で、個別の設計文書はなく GW-01/GW-02 の設計・IR を前提とする。
+- `depends-on`: `docs/designs/gw-01-gateway-contract-design.md`、
+  `docs/designs/gw-02-authorization-policy-design.md` と両者の IR
+  (`docs/impl/ir/gw-01-gateway-contract.md`、
+  `docs/impl/ir/gw-02-authorization-policy.md`)。
+- 検証 base は GW-02 merge 済み + 本変更。
+
+## Implementation
 
 | 範囲 | 内容 |
 | --- | --- |
@@ -130,7 +142,14 @@ GW-05/06 へ defer。
 | DATA-10 | External Transfer/Disclosure 未許可 | Pass | `external_envelope_strips_diagnostics` — external caller には disclosure 境界+診断除去 |
 | GT-004 | Query→Snapshot→Prepared Operation 整合 | Pass | `query_snapshot_prepared_operation_consistency` — headless fixture で参照一貫性を検証 |
 
-## 実行した検証(証拠)
+## Related Experiments
+
+本実装では実験ログを採用・却下していない。front matter の
+`metadata.experiments.adopted`/`rejected` はいずれも空で、`docs/impl/exp/`
+に本件(GW-03)に対応する実験ファイルは存在しない。設計文書どおりに
+実装し、検証は context test と review-protocol で行った。
+
+## Validation
 
 - 環境: Windows、rust 1.99.0(mise pin)、GW-02 merge 済み base + 本変更
 - `mise run fmt-check` — Pass
@@ -138,6 +157,12 @@ GW-05/06 へ defer。
 - `mise run lint`(`cargo clippy --workspace --all-targets -- -D warnings`) — Pass
 - `mise run test`(`cargo test --workspace --locked`) — Pass、workspace 全 43 テスト
   target 緑。`tests/context.rs` は 43 テスト全 pass
+
+### 未実施の検証
+
+- `mise run test-msrv`(rust 1.89 toolchain 未導入のため未実行)
+- GW-04 との実配線結合(Prepared Operation が SnapshotRef を消費する経路) —
+  Issue スコープ外、seam のみ確定
 
 ## Review-protocol 実施結果
 
@@ -153,7 +178,7 @@ GW-05/06 へ defer。
 | B7/A8 `SnapshotSource::pin` が lock 下で呼ばれる(host I/O で全 cursor traffic を塞ぐ/再入 deadlock) | Confirmed P2 | lock 外で fetch + lock 再取得後の競合 re-check(`existing_pin`)。`ContextAuthorizer` に no-reentry 契約を明記 |
 | A3 pin-absent selection member が無言で drop され selection が `complete` を報告 | Confirmed P2 | completeness は filter 前 member 集合で判定 — `selection_pin_absent_member_reports_unavailable` |
 | A9 `SelectionFacts::Unknown` が `unavailable` に潰れる | Confirmed P3 | `Completeness::Unknown` に写像 — `selection_unknown_view_reports_unknown` |
-| A2 media-domain `TypedRange` が per-value time base を持つ値の `value()` を混在 — 単位不定の範囲算術 | Confirmed P2 | `clip_window`/`item_window` は base を伴う media window で `None` を返し正直に欠落。`TypedRange` に base field がなく canonical base 決定は上游契約が必要(残課題) |
+| A2 media-domain `TypedRange` が per-value time base を持つ値の `value()` を混在 — 単位不定の範囲算術 | Confirmed P2 | `clip_window`/`item_window` は base を伴う media window で `None` を返し正直に欠落。`TypedRange` に base field がなく canonical base 決定は上游契約が必要(Follow-ups) |
 | B13 負の `max_range_len` が unsigned cast で wrap | Confirmed P3 | `u64::try_from(..).unwrap_or(0)` |
 | A6/B9 degenerate selector literal(`{"resources":[]}`/`{"project":false}`/`{"all":false}`)受理 | Confirmed P3 | parse で拒否 → SchemaViolation — `selector_literals_are_strict` |
 | A7 `parse_range` に semantic len≥1 guard なし(schema floor のみ依存) | Confirmed P3 | `parse_page` と同型の guard を追加 |
@@ -161,23 +186,36 @@ GW-05/06 へ defer。
 | A13 `ContextAuthorizer` が descriptor-vs-request の id+version 一致を検証しない | Confirmed P3 | `admitted_scope`/`authorize_disclosure` に `evaluate_with` 同型の検証を追加 |
 | B10/A4 `max_pinned_snapshots`/`max_cursors` の max=0 off-by-one + retention 未検証 | Confirmed P2 | constructor で ≥1 clamp、`pin_retention_evicts_oldest`/`cursor_retention_evicts_oldest`/`continuation_after_pin_eviction_reports_expired` |
 | A12/B14 SEC-05 逆向き・eviction の coverage 欠落 | Confirmed | `source_scope_never_implies_clip_scope`・`continuation_with_mismatched_snapshot_is_cursor_invalid` 追加 |
-| B4 pin/cursor retention が principal 横断で共有 — 他 principal が pin を evict しうる | Recorded | per-principal quota 設計が必要 — GW-08 session/adapter 契約と併せて残課題 |
+| B4 pin/cursor retention が principal 横断で共有 — 他 principal が pin を evict しうる | Recorded | per-principal quota 設計が必要 — GW-08 session/adapter 契約と併せて Follow-ups |
 | B6 `pin_for` が pub — 外部から任意 revision pin が可能 | Rejected | trusted host seam(GW-04 seam)であり host は state 所有者 — capability 経路では到達不能 |
 | B8 deny verdict の順序主張 | Rejected | 設計意図 — verdict 順は契約として固定 |
 | B11/B12 emit shape/deny message の代替案 | Rejected | 出力契約は意図的な選択 |
 | A11 `MidiDivision` emit が `#[non_exhaustive]` にも関わらず `"ppqn"` 固定 | Recorded | latent — 将来 variant 追加時に tagged division への移行が必要 |
-| A14 total-items budget より先に全 candidate を列挙 — 列挙コストは project size 比例 | Recorded | 文書化 limit — emit 件数は cap 済み、lazy enumeration は残課題 |
+| A14 total-items budget より先に全 candidate を列挙 — 列挙コストは project size 比例 | Recorded | 文書化 limit — emit 件数は cap 済み、lazy enumeration は Follow-ups |
 
 blocking 指摘は全て修正済み、修正込みで `mise run fmt-check / check / lint /
 test` 再実行・全緑を確認。Final verdict: **ACCEPT WITH NON-BLOCKING NOTES**。
 
-## 未実施の検証
+## Risks
 
-- `mise run test-msrv`(rust 1.89 toolchain 未導入のため未実行)
-- GW-04 との実配線結合(Prepared Operation が SnapshotRef を消費する経路) —
-  Issue スコープ外、seam のみ確定
+- candidate 列挙は total-items budget 判定より先に O(project size) で
+  走る — 大規模 project では 1 request の列挙コストが project サイズに
+  比例し、lazy/early-exit 化は未実装(§Follow-ups)。
+- pin/cursor retention は engine 全体の共有 quota で principal 別でない —
+  他 principal の traffic が pin/cursor を evict しうる。per-principal
+  quota は GW-08 session/adapter 契約待ち(§Follow-ups と同根)。
+- `TypedRange` は time-base field を持たず、media-domain の
+  `clip_window`/`item_window` は per-value base を持つ値の混在を避けるため
+  `None` を返す — media range query は canonical base 契約が決まるまで
+  実質未対応(§Follow-ups)。
+- `MidiDivision` emit が `"ppqn"` 固定 — `#[non_exhaustive]` な enum に
+  非 metrical variant が追加されると tagged division 表現への移行が必要な
+  latent リスク(review A11)。
+- `pin_for` は pub で外部から任意 revision pin が可能 — trusted host seam
+  (GW-04 向け)前提で capability 経路からは到達不能だが、host 側の呼出し
+  規律に依存する(review B6 で Rejected と判断、契約として明記済み)。
 
-## 残課題
+## Follow-ups
 
 - pin/cursor retention は engine 全体の共有 quota — principal 別 quota と
   cross-principal eviction 遮断は GW-08 session/adapter 契約と併せて設計。

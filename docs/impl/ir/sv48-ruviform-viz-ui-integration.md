@@ -300,7 +300,19 @@ regression test で固定:
 可能 (gateway は `channels: None` のみ発行) — bounded-read
 境界の port 側改善として follow-up。
 
-## Verification
+## Related Experiments
+
+### Adopted
+
+- `ruviform-viz` Rust クレート (generic LOD/viewport/lane primitives) を新規 workspace 依存として採用 — lockfile resolved rev `073a3ff6` (全 ruviform git 依存と同 rev。258df5a→073a3ff で viz/ui/media-core/plugin-core の差分なしを確認済み)。generic series/axis/LOD/cache/lane 実装の重複を避け、『generic viz 契約は Ruviform から』の issue 方針をコードレベルで実現。
+- TS `ui/viz` element/scene/renderer は移植せず — upstream が canonical。本 module は model+lifecycle (ports/surfaces/pump/link/queries) を headless mirror し、DrawOp scene builder / backend executor / customElements は移植対象外 (renderer fork 禁止の issue 指示)。
+
+### Rejected
+
+- TS `ui/viz` の `AbortSignal`/async query を async mirror として再現 — headless では querySeq+generation+revision 照合で同等の cancel/stale 保証を実現し、テストは完全同期・決定的。
+- Timeline 用の upstream Rust `ruviform-viz::timeline` 型をそのまま wire 型に — serde 非対応のため wire 契約は独自 `TimelineItem`/`TimelinePayload` (LaneItem<TimelinePayload> を内部計算に再利用)。
+
+## Validation
 
 | Check | Command | Result |
 | --- | --- | --- |
@@ -323,6 +335,26 @@ regression test で固定:
   spectrum display frame のみ、spectrogram 面は follow-up。
 - Transport playhead 値の session 連携 (host が `set_overlays` へ
   投影する経路) — view-local overlay contract は整備済み。
+
+## Risks
+
+- 実 device GUI・WebView・GPU (Canvas2D/WebGL2) rendering・HiDPI・
+  browser 実測 performance は manual gate で未検証 — headless
+  contract/state/fixture のみ。
+- TS `ui/viz` element/scene/renderer は upstream canonical で
+  移植対象外 — Synvelis 側は model+lifecycle の headless mirror
+  のため、将来の renderer 実装で wire 契約との整合確認が必要。
+- `tempo_map.ppqn` vs `project.ppqn` の乖離は `synvelis-project`
+  側の invariant gap(`SetPpqn` が 960 固定のため現行では一致;
+  crafted snapshot で乖離可能)— 別 issue として報告対象。
+- `MemoryWaveform::query` の `channels` リスト乗算増幅は
+  `WaveformPort` trait 経由のみ到達可能(gateway は `channels:
+  None` のみ発行)— bounded-read 境界の port 側改善として
+  follow-up。
+- JSON wire 上の non-finite f64 は `null` に縮退(NaN↔null
+  narrowing)— gap marker の wire 表現として test で document
+  済みだが、binary `encoding`/bytes path 未整備の間は JSON
+  経路の制約として残る。
 
 ## Follow-ups
 

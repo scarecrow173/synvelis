@@ -62,7 +62,37 @@ metadata:
 
 # PC-C4-04 app composition — implementation record
 
-## 実装サマリ
+## Summary
+
+PC-C4 の下部機構を production 経路へ配線する app/workspace
+composition slice — `PluginHostProcessors` の catalog vend、
+`SessionRoutingEngine` の `RoutingControlDispatch` 所有と
+publish 連動 attach/sync、`ui_pump` tail の tick 駆動、
+`Reported` stage の `feed_plugin_report` 橋渡しを実装した。
+
+## Context
+
+PC-C4 の下部機構（`PluginBindingSession`/`ParamDispatch`、
+`RoutingControlDispatch` の generation-scoped tick/flush/gate と
+pc-c4-03 report drain、`ProcessBoundarySession` の
+session→driver 配線、workspace `ControlSession::plugin_reported`
+feed）は全て merge 済みだが、production 経路では誰も
+`attach`/`sync`/`tick`/`drain` を駆動していなかった。本 slice は
+app/workspace composition root への配線を定義・実装するもので、
+catalog vend・dispatch 所有・tick 駆動・`fast_control`・
+reported observation の feed 橋渡しが対象。generation swap で
+旧 generation の dispatch/report が誤配達されないことの
+end-to-end 証明が本体（spec 要件 5）。
+
+上流文書: spec `docs/specs/pc-c4-04-app-composition.md`、
+design `docs/designs/pc-c4-04-app-composition-design.md`、
+plan `docs/plans/pc-c4-04-app-composition-plan.md`、task
+`docs/tasks/pc-c4-04-task1-app-composition.md`、test-spec
+`docs/test-specs/pc-c4-04-app-composition.md`。
+
+## Implementation
+
+### Changes
 
 - `synvelis-player/src/host.rs`: `PluginHostProcessors` に
   `catalogs`（plugin descriptor id → `ParamInfo`）・`vendored`
@@ -93,7 +123,7 @@ metadata:
   fast_control・drain→observe→feed・generation swap gate の
   end-to-end 証明。
 
-## 判断記録
+### Decisions During Implementation
 
 - `SessionEngineConfig` field 追加は 5 つの既存 test literal を
   破壊するため `set_param_catalog` setter 方式を採用。
@@ -106,10 +136,45 @@ metadata:
 - `control.rs`（workspace）は変更なし — `feed_plugin_report` が
   既に橋渡し先として完備しており、接続部の新設は不要と判断。
 
-## NotRun / 未検証
+## Related Experiments
+
+### Adopted
+
+なし — `metadata.experiments.adopted` は空。
+
+### Rejected
+
+なし — `metadata.experiments.rejected` は空。
+
+## Validation
+
+- `crates/synvelis-app/tests/pc_c4_04_app_composition.rs`（新規
+  headless fixture、4 test）: catalog vend・attach/sync・tick・
+  fast_control・drain→observe→feed・generation swap gate の
+  end-to-end 証明（Implementation 節のファイル一覧どおり）。
+- task1 の検証記録: `cargo check -p synvelis-player` — Passed
+  （host.rs vend）。canonical `mise run fmt-check` / `check` /
+  `lint` / `test` の実施結果は PR 本文に記録。
+
+## Risks
+
+- pinned ruviform（`b02942c2`）に attached（`Shared`/L1）instance
+  の公開 parameter 列挙 API が存在しないため、catalog は
+  composition root の caller 登録を host が集約する形 —
+  未登録 plugin は空 table を vend し bind は typed に失敗する
+  （列挙を捏造しない設計だが、登録漏れは bind 失敗として現れる）。
+- `feed_control_cycle` の dep 拡張（`ruviform-audio-plugin-bridge`
+  を `synvelis-app` に追加）は Coordinator 承認済みで実装 —
+  拒否時は primitive 列受け取りへの縮退が fallback だった
+  （plan risk）。
+- 実 plugin instance・実 GUI・audio thread 上の RT 駆動は
+  headless fixture の範囲外 — tick 駆動の RT 実値は未検証。
+
+## Follow-ups
 
 - 実 plugin instance・実 GUI・audio thread RT 駆動（pin/範囲外）。
 - L1 wire report verb・instance parameter 列挙（pinned ruviform
-  b02942c2 に未含有 — pin bump 待ち）。
+  `b02942c2` に未含有 — pin bump 待ち）。
 - `syn.*` op 登録（`service.rs` は別 Worker 占有 — 面は
-  `SynvelisApp`/`SessionRoutingEngine` の pub method として露出）。
+  `SynvelisApp`/`SessionRoutingEngine` の pub method として露出。
+  後続の pc-c4-06 で `syn.control.*` op として公開）。

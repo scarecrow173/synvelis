@@ -106,6 +106,8 @@ metadata:
 
 # GW-10 Gateway Contract・Security・Concurrency / Recovery E2E Test Harness
 
+## Summary
+
 GW-01〜08 の実装契約(#45)と failure matrix(#46)を、再現可能な
 executable test harness + evidence 系へ翻訳する。核心の制約は
 「テストだけの第二の Policy/Project 正本を作らず、期待値 Oracle は
@@ -121,7 +123,18 @@ CI gate として検出する。`NotRun`/`Unsupported` は first-class verdict �
 欠測は gate を fail させないが、記録は残る。mock と実環境の Pass は
 `layer`/`mode`/`backend`/`transport` field で常に区別される。
 
-## 実施した変更
+## Context
+
+- Issue: #62(GW-10 本体)。検証対象の契約出典は #45(GW contract)と
+  #46(failure matrix)— `implements`/`verifies` の双方に記録。
+- 依存 IR(`depends-on`): GW-01〜08 の全 IR
+  (`docs/impl/ir/gw-01..08` 各ファイル)。
+- 位置づけ: GW-01〜08 の実装契約を executable test harness + evidence
+  系へ翻訳する統合検証レイヤー。
+
+## Implementation
+
+### 実施した変更
 
 | 範囲 | 内容 |
 | --- | --- |
@@ -148,7 +161,7 @@ CI gate として検出する。`NotRun`/`Unsupported` は first-class verdict �
 | `crates/mcp-poc/tests/stdio_e2e.rs` | harness を common へ移動(5 tests、挙動不変) |
 | `mise.toml` | `gw10`(9 suite + real-transport + `gw10_report --strict`)と `gw10-report` task |
 
-## 設計上の主要判断
+### 設計上の主要判断
 
 | 判断 | 理由 |
 | --- | --- |
@@ -164,7 +177,19 @@ CI gate として検出する。`NotRun`/`Unsupported` は first-class verdict �
 | GT-010 の oracle は「GW-01..05 で Revision 不変」 | #45 の criterion は preview 差分ではなく pre-commit stage が project revision を動かさないこと — prepare→preview→apply-accept 後に revision が pinned のままであることを computed actual で verify |
 | `.owner()` / suite-level fixture は API から削除 | gate と owner は matrix 由来に固定し、fixture は case 毎の必須設定 — record が帰属・fixture を偽る経路を残さない |
 
-## 検証エビデンス
+## Related Experiments
+
+`metadata.experiments.adopted` に記録された PoC を採用した:
+期待値 Oracle・Controlled Scheduler・Fault Injection・Causal Trace・
+Evidence JSONL・Gate 集約 report。これらは `src/oracle.rs`・
+`src/schedule.rs`・`src/trace.rs`・`src/evidence.rs`・
+`src/bin/gw10_report.rs` および `tests/gw10_harness.rs` の基盤検証
+(GTV-001〜008)として実装された。`docs/impl/exp/` の実験ファイルは
+存在せず、棄却実験もない。
+
+## Validation
+
+### 検証エビデンス
 
 | 分類 | エビデンス |
 | --- | --- |
@@ -178,3 +203,25 @@ CONSUMER-*(cross-repo consumer 回帰)は optional 行として NOT-RUN を
 正直に記録しており、gate は required 行のみで PASS 判定されている。
 mock 層の PASS を実機証拠に読み替えない — layer/mode field が常に
 evidence の出所を示す。
+
+## Risks
+
+- optional matrix 行は `required=false` で NOT-RUN/UNSUPPORTED を正直に
+  記録するが、gate verdict は required 行のみで PASS 判定される —
+  実 UX(SYS-02-ux/SYS-03-ux)・OS 電源断(SYS-05-powerloss)・実 RT 負荷測定
+  (SYS-07-rt)・cross-repo consumer 回帰(CONSUMER-RUVIFORM/
+  CONSUMER-AUDIOLENS)の実環境証拠は本 harness の範囲外であり、
+  「gate PASS」はこれらを含まない。
+- mock 層(in-process suite / `mode=mock`)の PASS は real transport・
+  real device の証拠ではない — `layer`/`mode`/`backend`/`transport`
+  field で常に区別される設計だが、evidence JSONL の読み手がこの区別を
+  無視すれば mock の Pass を実機 coverage に見せかける運用リスクがある。
+
+## Follow-ups
+
+- SYS-07-rt(実 RT 負荷測定)・SYS-05-powerloss(OS 電源断)・
+  CONSUMER-RUVIFORM/CONSUMER-AUDIOLENS(cross-repo consumer 回帰)は
+  optional 行として NOT-RUN/UNSUPPORTED — 実環境での evidence 取得は
+  別途必要。
+- SYS-02-ux/SYS-03-ux(実 UX 系)も optional 行で NOT-RUN — real GUI
+  環境での evidence 取得は別 harness/manual gate の範囲。

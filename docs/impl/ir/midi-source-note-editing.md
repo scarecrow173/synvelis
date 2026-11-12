@@ -82,12 +82,30 @@ metadata:
 
 # 最小 MIDI Source / Note 編集契約 実装記録
 
+## Summary
+
 Issue #52 の Gateway 前提 model Issue。`synvelis-project` に project 所有の
 `MidiSource`/`MidiNote` を導入し、`SourceId` 空間共用による Linked
 Source 編集・明示 Detach・Undo/Save-Reload を既存
 `Operation`/`ProjectController`/`ProjectStore` 経由のみで実現した。
+永続スキーマを v4 → v5 へ bump し、`tests/midi_source.rs` 9 テストを
+含む 36 スイート全緑・fmt/check/lint/test 全 gate PASS。
 
-## 実施した変更
+## Context
+
+- Issue: https://github.com/scarecrow173/synvelis/issues/52
+  (Gateway 前提 model Issue)
+- Design: `docs/designs/midi-source-note-editing-design.md`
+- 上位設計(design の depends-on):
+  `docs/designs/configurable-ppqn-musical-time-architecture.md` /
+  `docs/designs/time-transport-midi-automation-plugin-integration-architecture.md` /
+  `docs/designs/pc-b-parameter-dispatch-note-scope-design.md`
+- Issue 依存: depends-on #10/#17/#19/#20/#43、blocks #45、
+  related #46(front matter relations どおり)。
+
+## Implementation
+
+### 実施した変更
 
 | 範囲 | 内容 |
 | --- | --- |
@@ -113,7 +131,20 @@ Source 編集・明示 Detach・Undo/Save-Reload を既存
 | Independent は明示 contract なしに自動実施しない | `DetachClipSource` 明示 op(fresh SourceId + fresh NoteIds で deep copy して clip のみ repoint)。media clip への detach は拒否。COW 経路なし |
 | Undo/Redo・Save/Reload・Schema 拒否・参照 Validation・Time Fidelity を headless 検証 | `tests/midi_source.rs` 9 テストで網羅 |
 
-## 実行した検証(証拠)
+## Related Experiments
+
+### Adopted
+
+なし — `metadata.experiments.adopted` は空で、関連する
+`docs/impl/exp/*.jsonl` 記録もない。
+
+### Rejected
+
+なし — `metadata.experiments.rejected` は空。
+
+## Validation
+
+実行した検証(証拠):
 
 - 環境: Windows、rust 1.99.0(mise pin)、revision `0a5d2ce` + 本変更
 - `mise run fmt-check` — Pass
@@ -121,7 +152,7 @@ Source 編集・明示 Detach・Undo/Save-Reload を既存
 - `mise run lint`(`cargo clippy --workspace --all-targets -- -D warnings`) — Pass
 - `mise run test`(`cargo test --workspace --locked`) — Pass、36 スイート全緑(新規 13 テスト含む)
 
-## Review-protocol 実施結果
+### Review-protocol 実施結果
 
 独立 2 reviewer(cooperative / adversarial)を派遣し、候補指摘を Validator
 として code 上で再検証したうえで、確定した blocking 指摘を修正した。
@@ -148,14 +179,32 @@ Source 編集・明示 Detach・Undo/Save-Reload を既存
 - **実証済み**: adjacently-tagged `MidiDivisionRepr` は未知 field を
   拒否することを test で確認(36 スイート全緑)。
 
-## 未実施の検証
+### 未実施の検証
 
 - `mise run test-msrv`(rust 1.89 toolchain 未導入のため未実行)
 - MIDI clip の player/render lowering — scope 外(MIDI playback 未実装、
   audio lowering は `MissingSource` で正直に skip)
 - GW-04/05・GW-08 実 fixture との接続 — 本 Issue は model 側の前提提供まで
 
-## 残課題
+## Risks
+
+- MIDI-source clip の player/render lowering は未実装 — audio
+  lowering は `MissingSource` で正直に skip するが、MIDI clip に
+  対する error label は不正確(fail-closed だが誤分類。
+  Review-protocol の非 blocking 報告どおり、`NonMediaSource` 系
+  error か skip semantics の判断が要る)。
+- 既存 entity map の key↔id 一貫性・`Note` の extent-fit load
+  検査・`envelope.project_id` と `project.project_id` の不一致・
+  `applied_commits`/`applied_imports` 内容・
+  `SnapshotEnvelope.revision` の u64::MAX overflow・
+  `SplitClip` の source_offset 上界・internally-tagged repr の
+  `deny_unknown_fields` 制限など、pre-existing の oracle gap は
+  本変更非因果で未解消 — 別 Issue 候補として報告済み。
+- `mise run test-msrv`(rust 1.89)は toolchain 未導入のため未実行
+  — MSRV での検証は残る(後述 Follow-ups の defer 項目と併せて
+  残課題)。
+
+## Follow-ups
 
 - `MidiNote` の resize / key edit、quantize、source length、SMPTE division は
   defer。必要になった段階で op を追加すればよい。

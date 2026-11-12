@@ -110,14 +110,46 @@ metadata:
 
 # TIM-04 Plugin State Snapshot 一貫性 — Implementation Record
 
-## What was built
+## Summary
 
-Issue #128 の headless/mock slice。plugin state を「exact と
+Issue #128 の headless/mock slice: plugin state を「exact と
 偽らない」品質証拠モデルとして `synvelis-project` に実装し、
-`synvelis-player` の非 RT adapter と `synvelis-render` の
-offline recipe gate で消費した。Ruviform #196 の generic
+`synvelis-player` の非 RT adapter（`PluginStateHost`）と
+`synvelis-render` の offline recipe gate（`PluginStateRecipe` /
+`preflight_plugin_state`）で消費した。品質語彙
+（`StateCaptureQuality`/`StateQualityPolicy`/
+`PluginStateFailureKind`）・content-addressed store
+（`InMemory`/`Directory`）・`PluginStateSession` save/restore・
+receipt 系を additive に追加。Ruviform #196 の generic
 `HostCommand::SaveState`/`RestoreState` を消費するのみで、
-host/lifecycle/state API の複製はしていない。
+host/lifecycle/state API の複製はしていない。mise canonical
+検証は全 pass（`mise run test` 146 test binaries・0 failed、
+`plugin_state` 14 + player `tim04_plugin_state` 9 + render
+`tim04_plugin_state` 5 を含む）。
+
+## Context
+
+- Issue: https://github.com/scarecrow173/synvelis/issues/128
+- 上流 doc chain:
+  `docs/specs/tim-04-plugin-state-snapshot-consistency.md` /
+  `docs/designs/tim-04-plugin-state-snapshot-consistency-design.md` /
+  `docs/plans/tim-04-plugin-state-snapshot.md` /
+  `docs/tasks/tim-04-plugin-state-snapshot.md` /
+  `docs/test-specs/tim-04-plugin-state-snapshot.md`。
+- 依存（task doc Dependencies より）: Ruviform #196
+  `HostCommand::SaveState`/`RestoreState`（消費のみ）、VCS-01
+  `ContentDigest`/`OpaqueStateRef`（再利用・変更しない）、
+  SYN-IO-02 staged publish（`ruviform-io-file` 再利用）、
+  TIM-03 process boundary（非 RT policy 先例）。
+- 範囲外（front matter `defers`）: 実 VST3/AU/CLAP plugin での
+  state save/restore・実 OS filesystem atomicity・GUI 統合は
+  NotRun/Unsupported — headless mock slice の範囲外。
+
+## Implementation
+
+以下、crate ごとの additive 実装内容（host/lifecycle/state
+API の複製なし・Ruviform #196 の generic command を消費
+するのみ）。
 
 ### `synvelis-project::plugin_state`（新設・additive）
 
@@ -183,7 +215,20 @@ host/lifecycle/state API の複製はしていない。
 - 既存 `ExportRequest` 構築箇所（l2_e2e/x_e2e 他）は
   `plugin_state: None` で無変更動作を維持。
 
-## Verification（実施済み — canonical = mise）
+## Related Experiments
+
+### Adopted
+
+- なし（experiment log なし — `metadata.experiments.adopted` は空、
+  `docs/impl/exp/` に関連 experiment なし）。
+
+### Rejected
+
+- なし。
+
+## Validation
+
+実施済み — canonical = mise。
 
 | Task | Result |
 | --- | --- |
@@ -206,6 +251,8 @@ blob・copy-restore 品質維持・実 `PluginHost` + mock plugin の
 SaveState/RestoreState round-trip・render Strict 拒否 /
 Standard evidence 保持。
 
+## Risks
+
 ### NotRun / Unsupported（明示）
 
 - 実 VST3/AU/CLAP plugin での state save/restore: **NotRun** —
@@ -219,7 +266,7 @@ Standard evidence 保持。
 - Ruviform #253 OS MIDI/VST3 翻訳を state-save owner とする
   変更: **対象外**（scope 禁止事項どおり未着手）。
 
-## Notes / follow-ups
+## Notes
 
 - `Cargo.toml`/`Cargo.lock`/`mise.toml` 無変更。依存追加なし。
 - `plugin_state.rs` は単一 module file（submodule 分割は
@@ -230,3 +277,16 @@ Standard evidence 保持。
   `RetainedConnection` からしか vend しないため、retired
   generation の handle は host 側 generation counter が
   reject する（test で Destroy 後 fail-closed を確認済み）。
+
+## Follow-ups
+
+- 実 VST3/AU/CLAP plugin での state save/restore・実 OS
+  filesystem atomicity・GUI/実 audio device/RT thread からの
+  state save は NotRun/Unsupported — headless mock slice の
+  範囲外であり、実 plugin 統合・OS レベル fault 注入・GUI
+  統合は別 slice/gate へ委譲（front matter `defers` と同一
+  範囲）。
+- `plugin_state.rs` は単一 module file — 行数が更に増えた
+  場合に submodule 分割を検討（上記 Notes）。
+- Ruviform #253 OS MIDI/VST3 翻訳を state-save owner とする
+  変更は対象外（scope 禁止事項どおり未着手 — 上記 Risks）。

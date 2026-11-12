@@ -79,6 +79,8 @@ metadata:
 
 # GW-08 MCP Server Adapter・Trusted Local Connection・MIDI 3-Mode E2E
 
+## Summary
+
 GW-01..06 の internal gateway surface を外部 MCP(Model Context
 Protocol)boundary として公開する adapter を実装する。MCP は protocol
 edge であり、Project / Policy / Job / approval / commit 意味論の権威は
@@ -89,6 +91,17 @@ tool 名は内部 capability の 1:1 写像ではなく semantic name
 `proposal.preview`・`proposal.apply`・`operation.get`・
 `operation.cancel`・control-only `proposal.approve`)を採る。
 
+## Context
+
+- Issue: #59(GW-08 本体)。要件の出典は issue #45。
+- 依存 IR(`depends-on`): GW-01 gateway contract・GW-02 authorization
+  policy・GW-03 context projection・GW-04 semantic operation preparation・
+  GW-05 prepared changeset/approval receipt・GW-06 commit gate
+  (`docs/impl/ir/gw-01..06` 各 IR)。
+- 後続: `blocks` issue #45(GW 全体の完了条件)が本 adapter を含む。
+
+## Implementation
+
 trusted local connection は explicit **connection permit** で確立する:
 `synvelis.connect` が唯一の credential 経路で、verified permit record +
 adapter attestation(seal)から `CallerIdentity` を構成する。MCP
@@ -97,7 +110,7 @@ session は `McpChannel::Client`(agent principal)と
 `McpChannel::Control`(human principal)に分離し、許可失効・kind 不一致・
 unknown secret はすべて同一の blind `PERMIT_INVALID` verdict で閉じる。
 
-## 実施した変更
+### 実施した変更
 
 | 範囲 | 内容 |
 | --- | --- |
@@ -111,7 +124,7 @@ unknown secret はすべて同一の blind `PERMIT_INVALID` verdict で閉じる
 | `tests/mcp_adapter.rs`(新規) | in-process 27 テスト:connect identity binding・blind verdict・channel/kind・discovery≠permission・control blindness・disabled adapter・version negotiation・notification・malformed message・capability allowlist・typed ID・unknown/missing field・bounds・wire authority・revoke linearization・3 モード(Suggest/ApproveToApply/DelegatedApply)・commit failure verdict・restart reconcile・op handle scope/blindness・control admin・permit issuance・file store 永続化・secret tamper |
 | `tests/stdio_e2e.rs`(新規) | real-transport 5 テスト:`suggest_mode_prepares_but_apply_is_denied_over_real_transport`、`approve_to_apply_needs_the_control_receipt_over_real_transport`(client stdio + control TCP)、`delegated_apply_commits_retries_without_duplicates_and_survives_restart`(real `ProjectController` commit → reconnect reconcile → restart journal replay → 重複 commit 無し)、`boundary_attacks_fail_closed_over_real_transport`(identity injection・wrong-kind ID・foreign op handle・oversized message・resource disclosure)、`permit_cli_provisions_lists_and_revokes` |
 
-## 設計上の主要判断
+### 設計上の主要判断
 
 | 判断 | 理由 |
 | --- | --- |
@@ -127,7 +140,22 @@ unknown secret はすべて同一の blind `PERMIT_INVALID` verdict で閉じる
 | adapter は `enabled:false` が既定、MCP 無効で DAW は独立動作 | `ADAPTER_DISABLED` で surface 全体を閉じる — GW 内側の authority は MCP の有無に依存しない |
 | transport は PoC(stdio client + loopback control)として明示 | Streamable HTTP との比較・remote exposure・production transport の決定は本 impl の外 — `main.rs` の doc と本 record で「PoC transport、決定ではない」と宣言 |
 
-## 検証エビデンス
+## Related Experiments
+
+`metadata.experiments.adopted` に記録された 2 つの PoC を採用した
+(棄却なし)。いずれも `docs/impl/exp/` の実験ファイルではなく本 IR に
+inline 記録された PoC で、`crates/mcp-poc` / `mcp_permit.rs` /
+`CommitGate` journal として実装・検証された:
+
+- **PoC — line-oriented stdio JSON-RPC transport(client channel)+
+  loopback TCP control socket**: `mcp-poc` の `serve`/`--control-port`。
+- **PoC — FilePermitStore(SHA-256 hashed secrets)+ CommitGate journal
+  による restart reconcile**: `mcp_permit.rs` の `FilePermitStore` と
+  `CommitGate::open` の journal replay。
+
+## Validation
+
+### 検証エビデンス
 
 | 分類 | エビデンス |
 | --- | --- |
@@ -140,11 +168,18 @@ unknown secret はすべて同一の blind `PERMIT_INVALID` verdict で閉じる
 MIDI 3 モードは real `ProjectController` 経由で commit まで検証済みだが、
 transport は PoC である — production transport の決定は本 issue の外。
 
-## 残件・既知の制限
+## Risks
 
-- Streamable HTTP transport との比較・選定・remote exposure は PoC scope 外。
-- control listener は loopback+permit 認証の PoC posture; mutual-TLS /
-  platform IPC(named pipe 等)への移行は transport 決定時に扱う。
+- control listener は loopback+permit 認証の PoC posture に留まる —
+  remote exposure・mutual-TLS は未対応(transport 決定時に扱う、
+  下記 Follow-ups)。
 - `FilePermitStore` は secret hash を永続化するが store file 自体の
   ACL/integrity は host 環境責任(本 PoC で tamper detection は
   hash mismatch→invalid permit で fail closed、integrity 署名は未実装)。
+
+## Follow-ups
+
+- Streamable HTTP transport との比較・選定・remote exposure は PoC scope 外 —
+  production transport の決定は本 issue の外(「設計上の主要判断」参照)。
+- control listener の mutual-TLS / platform IPC(named pipe 等)への移行は
+  transport 決定時に扱う。

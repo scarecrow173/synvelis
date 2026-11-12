@@ -93,7 +93,32 @@ metadata:
 
 # PC-C3 ControlTrace project 層 projection slice — 実装記録
 
-## 実装内容
+## Summary
+
+Issue #100 (PC-C3) の project 層 slice (TRACE-C3-01..04)。
+`synvelis-project` に `ControlTrace` projection を実装し、
+configured → observed の 7 stage を相関キー
+(`ControlTraceKey`) 付きの独立 `TraceSlot` で保持、freshness /
+`is_coherent` による stale・欠落の fail-closed 評価を提供する。
+RT adapter 側 (TRACE-C3-05) は別 slice
+(`docs/impl/ir/pc-c3-05-rt-trace-adapter.md`)。
+
+## Context
+
+Spec: docs/specs/pc-c3-control-trace-projection.md
+ADR: docs/adr/pc-c3-control-trace-stage-evidence-freshness.md
+Design: docs/designs/pc-c3-control-trace-design.md
+Plan: docs/plans/pc-c3-control-trace.md
+Test spec: docs/test-specs/pc-c3-e2e-control-trace.md
+Task: docs/tasks/pc-c3-task1-control-trace.md
+
+本 slice は TRACE-C3-01..04 を対象とし、project 層の型・
+freshness 評価・fixture 検証まで。`synvelis-workspace`/
+`synvelis-player`/`synvelis-recording`/`synvelis-app`・Cargo
+依存は変更せず、RT adapter・workspace `ControlSession` 接続・
+UI は後続 slice の責務。
+
+## Implementation
 
 - `crates/synvelis-project/src/trace.rs`（新規）: `ControlTraceKey`（project/target/revision/plan/graph/transport/epoch/loop/position の相関キー）、`TraceSlot<T>`（Present/Missing/Unsupported/Dropped/Expired — 欠落 stage を合成しない）、`ControlTrace`（configured/prepared/scheduled/applied/dispatched/plugin_reported/observed の 7 独立 slot）、stage evidence 型群、`FreshnessContext`/`ObservationFreshness`/`StaleReason`/`UnavailableReason`、`ProbeObservation`/`MeasuredValue`（missing/lost/disabled と Measured Silence の区別）、`PlanActivationState`/`ActivePlan`/`FailedPlanAttempt`（失敗 plan は `active` に入らない last-good 投影）。`freshness()`/`plugin_reported_freshness()`/`observed_freshness()`/`is_coherent()` を実装。
 - `ReceiptEvidence`: RT-minted `AppliedReceipt` は `CommandId` を外部構築できないため、correlation token を落とした projection payload として定義（`from_applied_receipt` で変換）。`ScheduledReceipt`/`AppliedStageReceipt` は status fail-closed wrapper。
@@ -101,13 +126,21 @@ metadata:
 - `crates/synvelis-project/src/lib.rs`: `pub mod trace;` + additive re-export のみ。
 - `crates/synvelis-project/tests/trace_c3.rs`（新規）: TRACE-C3-01..04 を 6 fixture test で検証。
 
-## 設計上の判断
+### 設計上の判断
 
 - freshness は key↔ctx の世代/epoch/transport/loop/position 整合を先に評価し、不一致は `Stale{reason}`。stamp は age（`checked_add` deadline）→ 未来/uncomputable（`Unavailable{ClockUntrusted}`）→ `Estimated` provenance（`Estimated`、Current にしない）の順。
 - `freshness()` は 2 channel の best（rank: Current<Estimated<Stale<DataLoss<Unavailable、同 rank は Present slot 優先→probe 優先）。個別 channel は `*_freshness()` で取得可能。
 - `is_coherent()`: slot 内 evidence の generation が key と一致するか検査（receipt の plan/transport/epoch、dispatched/prepared の plan_generation）。
 
-## 検証（canonical = mise、`git merge origin/main` 後 HEAD `70d6b21`）
+## Related Experiments
+
+`metadata.experiments.adopted` / `rejected` はともに空。
+`docs/impl/exp/` にも PC-C3 ControlTrace に対応する実験記録
+（`.jsonl` / `.md`）は存在しない。
+
+## Validation
+
+canonical = mise、`git merge origin/main` 後 HEAD `70d6b21`。
 
 | コマンド | exit status |
 | --- | --- |
@@ -118,20 +151,22 @@ metadata:
 
 補助証拠: `cargo check`/`clippy`/`test -p synvelis-project` 直接実行も全て成功（canonical は上記 mise）。
 
-## review-protocol 結果
+### review-protocol 結果
 
 - doc chain（spec→adr→design→plan→test-spec→task）を review-protocol でレビュー。blocker なし。
 - 実装中に発見・修正した問題: (1) `AppliedReceipt`/`CommandId` が外部構築不能 → `ReceiptEvidence` projection 型に変更、(2) `freshness()` の Unavailable tie が `NoEvidence` を選び `ClockUntrusted` を隠す → Present-slot 優先 tie-break に修正、(3) clippy `match_same_arms` → tuple score 比較に修正。CONFIRMED P0/P1 は残っていない。
 
-## NotRun / Deferred
-
-- **TRACE-C3-05**（bounded history・no-RT alloc-block・f64/clock/latency/lost metrics 実計測）: **NotRun** — synvelis-player RT adapter slice へ defer。
-- **workspace `ControlSession`/`ControlObservation`/`observation_state` 接続・single drain owner・2 Inspector 二重起動防止**: **NotRun** — Issue 編集可範囲外・後続 integration slice の責務（`ProbeObservation::Missing`/`Disabled` が判断材料）。
-- **#101 Binding/FrameBase・#103 Control Oracle・#114 GPUI との同一 Revision/Case ID 統合**: **NotRun** — 各 Issue gate。
-- **実 plugin report/OS/RT 観測**: **NotRun** — fixture のみ。mock 出力で実 OS 成功を主張しない。
-- `crates/synvelis-workspace/`・`crates/synvelis-player/`・`crates/synvelis-recording/`・`crates/synvelis-app/`・Cargo 依存: 変更なし。
-
-## 既知の制約
+## Risks
 
 - `DispatchEvidence`/`DispatchDropReason` は bridge 型の semantic mirror — bridge 側 `DispatchStage`/`DropReason` 変更時は integration slice で変換時に再検証が必要。
 - `docs/` 監査の legacy findings（invalid-id-prefix 等 328 件）は本 slice 以前から存在 — 本 slice 起因ではない。
+
+## Follow-ups
+
+以下は NotRun / Deferred およびスコープ外として記録された項目:
+
+- **TRACE-C3-05**（bounded history・no-RT alloc-block・f64/clock/latency/lost metrics 実計測）: **NotRun** — synvelis-player RT adapter slice へ defer（`docs/impl/ir/pc-c3-05-rt-trace-adapter.md` で実装済み）。
+- **workspace `ControlSession`/`ControlObservation`/`observation_state` 接続・single drain owner・2 Inspector 二重起動防止**: **NotRun** — Issue 編集可範囲外・後続 integration slice の責務（`ProbeObservation::Missing`/`Disabled` が判断材料）。
+- **#101 Binding/FrameBase・#103 Control Oracle・#114 GPUI との同一 Revision/Case ID 統合**: **NotRun** — 各 Issue gate。
+- **実 plugin report/OS/RT 観測**: **NotRun** — fixture のみ。mock 出力で実 OS 成功を主張しない。
+- `crates/synvelis-workspace/`・`crates/synvelis-player/`・`crates/synvelis-recording/`・`crates/synvelis-app/`・Cargo 依存: 変更なし（本 slice のスコープ外）。

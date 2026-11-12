@@ -218,3 +218,24 @@ boundary plan の runtime 配線」を本 slice で充足。
   relation（本 slice 無関係の doc 群）で blocked — TIM-02
   先例どおり tim03 chain を直接更新し、本 blocker は scope 外
   の既存問題として記録。
+
+## Follow-ups
+
+- `ProcessBoundarySession` を `driver`/`routing_control` の実
+  dispatch 経路へ接続する composition — 後続 slice として
+  計画されていたが、`tim-03-session-driver-wiring-slice.md`
+  （`BoundarySessionSpec` vend・driver session/mirror・
+  routing scoped API）で充足済み。
+- `TimingPrecision` certified class の認定 provenance は未定義
+  — task3 の `PrecisionProvenance` は配送文脈の generation pin
+  であり認定根拠ではない。認定は実機 gate と併せて後続 slice
+  （plan `tim03-process-boundary.md` Open Questions / Gaps）。
+- boundary offset の Tempo map/Loop occurrence 自動導出は
+  未実装 — caller が offset を与える non-goal が継続
+  （`tim-03-session-driver-wiring-slice.md` の Follow-ups にも
+  `tempo_revision = 0` 固定として残存）。
+- 実 CLAP/VST3/OS matrix・AudioLens f64/native PCM 実測・実 GUI
+  は NotRun — 別 gate（Ruviform #196/#253、synvelis
+  #294/#114/#176）。
+- doc-driven-dev-graph route を block する pre-existing の
+  broken relation は scope 外の既存問題 — 修復は別途。

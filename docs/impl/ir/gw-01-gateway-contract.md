@@ -64,12 +64,26 @@ metadata:
 
 # GW-01 Gateway Contract 実装記録
 
+## Summary
+
 Issue #53。`#45` の GTC-001/002/007/008 に基づく型付き内部 Gateway 契約を、
 新規 workspace member `crates/synvelis-gateway` として実装した。GW-02〜10 が
 積み上げる契約境界であり、認可判断・Project 正本・Transport/Job 実行・
-MCP transport・UI は所有しない(非対象は §残課題)。
+MCP transport・UI は所有しない(非対象は §Follow-ups)。
 
-## 実施した変更
+## Context
+
+- source Issue: #53(GW-01)。`implements`/`verifies` の対象は
+  `docs/designs/gw-01-gateway-contract-design.md` で、crate 配置の決定は
+  `docs/adr/gw-01-gateway-contract-crate-boundary.md` に記録した。
+- `depends-on`: Issue #45(GTC 要件)・#46(Failure Matrix)・#52。
+  #52 の文書 2 件が持っていた malformed `defers` front-matter を `[]` へ
+  正規化し、artifact-graph blocker を解消した(§Implementation)。
+- milestone 構成では GW-02〜10 が本契約境界に積み上がる先頭。認可
+  (GW-02)・Context Query(GW-03)・Proposal/commit(GW-05/06)・MCP
+  transport(GW-08)はいずれも後続 Issue の範囲。
+
+## Implementation
 
 | 範囲 | 内容 |
 | --- | --- |
@@ -99,7 +113,14 @@ MCP transport・UI は所有しない(非対象は §残課題)。
 | Context Query・MIDI Mutation・Transport・Job の typed fixture | `fixture_descriptors()` 5 件で 4 domain を網羅、`Echo`/`Accept` mock handler 経由で production operation なしに invocation を検証 |
 | GT-001/002/003/010 相当の contract/schema 互換 test + 実行証拠 | `tests/contract.rs`(GT-001 explicit target・GT-002 adapter 由来 caller・GT-003 discovery≠permission・GT-010 bind≠execute)、`tests/schema_compat.rs`、下記検証コマンド |
 
-## 実行した検証(証拠)
+## Related Experiments
+
+本実装では実験ログを採用・却下していない。front matter の
+`metadata.experiments.adopted`/`rejected` はいずれも空で、`docs/impl/exp/`
+に本件(GW-01)に対応する実験ファイルは存在しない。設計文書どおりに
+実装し、検証は contract test と review-protocol で行った。
+
+## Validation
 
 - 環境: Windows、rust 1.99.0(mise pin)、base revision `a4937eb` + 本変更
 - `mise run fmt-check` — Pass
@@ -107,11 +128,16 @@ MCP transport・UI は所有しない(非対象は §残課題)。
 - `mise run lint`(`cargo clippy --workspace --all-targets -- -D warnings`) — Pass
 - `mise run test`(`cargo test --workspace --locked`) — Pass、workspace 全 41 suite 緑(gateway 新規 55 テスト: contract 40 + fixtures 8 + schema_compat 7)
 
+### 未実施の検証
+
+- `mise run test-msrv`(rust 1.89 toolchain 未導入のため未実行)
+- GW-05/06 lifecycle・GW-08 transport との結合 — Issue スコープ外
+
 ## Review-protocol 実施結果
 
 独立 reviewer 2 系(cooperative / adversarial、adversarial 側は gate 未実行の
 ため code review のみ)を並行適用し、blocking 指摘を全て修正した上で再検証
-(§実行した検証は修正後の結果)。
+(§Validation は修正後の結果)。
 
 | 指摘 | 重大度 | 対応 |
 | --- | --- | --- |
@@ -125,14 +151,26 @@ MCP transport・UI は所有しない(非対象は §残課題)。
 | 入れ子 object(capability/schema/target/consistency)の未知 key が黙って捨てられる(`deny_unknown_fields` が internally-tagged enum で不効 — serde#2123) | P2 | wire parse で明示 scan、`MalformedRequest` で拒否 |
 | envelope `code` の二重入れ子、schema 再登録が `CapabilityConflict` に mislabel、`Denied` に safe reason 不在 | P2 | `code` flatten、`SchemaConflict` 追加、`Denied{stage,reason}` |
 | その他系統: stable message の `Debug` 依存・char/byte 長不一致・version 型の `deny_unknown_fields` 欠落・ResourceSet 無制限 | P2 | `.name()` helper(kebab-case)導入、chars カウント、`deny_unknown_fields` 付与、1024 ids 上限 |
-| 非 blocking(P2/P3): async consistency model・discovery の多段 stage・typed-args 投影・query 用 `OperationRef` 命名 | 報告のみ | GW-02〜08 の設計論点として残課題に記録、GW-01 の契約形状は維持 |
+| 非 blocking(P2/P3): async consistency model・discovery の多段 stage・typed-args 投影・query 用 `OperationRef` 命名 | 報告のみ | GW-02〜08 の設計論点として Follow-ups に記録、GW-01 の契約形状は維持 |
 
-## 未実施の検証
+## Risks
 
-- `mise run test-msrv`(rust 1.89 toolchain 未導入のため未実行)
-- GW-05/06 lifecycle・GW-08 transport との結合 — Issue スコープ外
+- `IdempotencyLedger` は in-memory の契約検証用実装で、process 再起動を
+  跨ぐ永続性はない — durable Record/Retry 契約は GW-06(ACG-004)まで
+  未保証(§Follow-ups)。
+- 入れ子 object の未知 key 拒否は serde#2123 対策として wire parse に
+  手動 scan を置く設計 — `capability`/`schema`/`target`/`consistency` に
+  field を追加する際に scan の更新を忘れると、未知 key を黙って捨てる
+  回帰が入りうる。
+- `ProposalReady`/`ApprovalRequired`/`Accepted` は outcome の分岐点のみで
+  lifecycle は未実装 — GW-05/06 完了までは proposal/approval を伴う操作は
+  実効を持たない(§Follow-ups と同根)。
+- Review-protocol の非 blocking 論点(AsyncOperation の consistency
+  意味付け・discovery の多段 stage・typed args 投影・`Accepted` の
+  operation 参照命名)は GW-02〜08 の設計に委ねられており、後続実装で
+  契約形状の見直しが入る可能性がある。
 
-## 残課題
+## Follow-ups
 
 - `ProposalReady`/`ApprovalRequired`/`Accepted` は GW-01 では outcome の
   **分岐点**のみ — Proposal/Approval/Apply lifecycle の遷移・receipt・

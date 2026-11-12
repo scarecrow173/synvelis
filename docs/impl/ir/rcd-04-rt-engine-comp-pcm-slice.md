@@ -87,6 +87,27 @@ scenario）を追加し、EffectiveComp の再生を **実装経路 3 系統**
 explicit-skip 沈黙再生と semantic/export の build 全体拒否という
 意図された fail-closed 挙動差を記録した。
 
+## Context
+
+Issue #118（RCD-04 Comp Transition）。MD-A/MD-B で確立した
+`EffectiveComp` 投影契約を実 RT engine 経路で再生した PCM と、
+offline render 実装経路の出力を bit-exact で照合する
+integration test が本 slice の目的。先行する crate fixture
+slice（`docs/specs/rcd-04-comp-transition-midi-phrase-fixture.md`）
+の offline renderer は `lowering.rs` 規則の test 内複写であり、
+実 engine（`ClipPlayer`/`ClipRenderer`・legacy `lower`↔
+`lower_semantic`・prefetch/resync・block 境界）との drift を
+検出できない — 本 slice はその未検証ギャップを塞ぎ、実装経路
+同士の一致を固定する。照合は `HeadlessDriver::run`（legacy
+`lower()`）・`RoutingEngine`（semantic `lower_semantic`）・
+`synvelis_render::export`（`lower_semantic_offline`→
+`ClipRenderer`→F32 WAV reopen）の 3 系統で行う。上流契約は
+`docs/specs/mda-takegroup-comp-effective-projection-placement-contract.md`、
+前提 slice は `docs/specs/rcd-04-comp-transition-midi-phrase-fixture.md`。
+実 device/OS GUI（#114）・MIDI comp selection 永続化（#126）・
+AudioLens native-f64（Ruviform #294）・実 RT audio device の
+sample 一致は対象外。
+
 ## Implementation
 
 ### S1 `rcd_04_rt_engine_comp_pcm_matches_offline_export`

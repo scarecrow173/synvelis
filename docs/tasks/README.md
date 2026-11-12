@@ -90,6 +90,7 @@ Directory: `docs/tasks`
 | TASK-034RINq1C9IMn7tPyqXY2h | Issue #147 T1 sccache verify/gw10 導入・実測評価 | done | [issue-147-t1-sccache-verify-gw10.md](./issue-147-t1-sccache-verify-gw10.md) |
 | TASK-034RGXoZuTHIczgPxzHY1W | Issue #151 T1 ui-verify lane + install-ui freshness 追加 | done | [issue-151-t1-ui-verify-lane.md](./issue-151-t1-ui-verify-lane.md) |
 | TASK-034WsBdOQFzQABNIgCwFPl | Issue #365 impl index 生成可能化 — front matter 是正と index 再生成 | done | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
+| TASK-034Wv2LV1SZLdyPnE8fyZD | Issue #368 docs/impl/ir missing-section 本文補完 | done | [issue-368-ir-missing-sections.md](./issue-368-ir-missing-sections.md) |
 | TASK-VB7LzgmqMRIfE31stZItL7 | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 | done | [issue-86-task-verified-import-wiring.md](./issue-86-task-verified-import-wiring.md) |
 | TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |
 | TASK-z866D1bQYKGTdgVlXsQMXJ | L1 task2 player crate fixture | done | [l1-task2-player-crate-fixture.md](./l1-task2-player-crate-fixture.md) |
