@@ -29,6 +29,7 @@ Directory: `docs/adr`
 | ADR-OrWdkH3ASYviV5ufFtl0tD | PC-C5 slice1: Relation 投影は workspace read model + verbatim coverage、index は query 毎 rebuild、探索は depth-1 hop + anchor nav-stack | accepted | [pc-c5-01-relation-readmodel-coverage.md](./pc-c5-01-relation-readmodel-coverage.md) |
 | ADR-YRDVKLkFDWrK8LUdnvCroE | PC-C6 oracle — test 内独立参照実装による REL/TR fixture 判定 | accepted | [pc-c6-oracle-rel-tr-headless-fixture.md](./pc-c6-oracle-rel-tr-headless-fixture.md) |
 | ADR-034W1VSWLIzXp3JJ3fPHSJ | PC-C6 TR ledger oracle — 実経路 rig と test 内独立 oracle の併用 | accepted | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
+| ADR-034WxlsHU6WOjsdvvOogdb | PC-C6 TR02/TR06 realpath oracle — 既存 dispatch oracle file への test 追加 | accepted | [pc-c6-tr02-tr06-realpath-oracle.md](./pc-c6-tr02-tr06-realpath-oracle.md) |
 | ADR-034SF01Ln8qRs3tU0vWxYzBcD | SF-01 Routing Model 配置・Schema v6 Migration・Reserved Well-Known ID | approved | [sf-01-routing-model-schema-v6-migration.md](./sf-01-routing-model-schema-v6-migration.md) |
 | ADR-034SF02Ux8pMn5oR8tY3zAbDe | SF-02 RoutingTransaction 配置・TempRef Staging・channels 永続化・Mute/Solo 権威・汎用検証の再利用 | accepted | [sf-02-routing-transaction-port-channels-mute-solo-authority.md](./sf-02-routing-transaction-port-channels-mute-solo-authority.md) |
 | ADR-034Ux91pIhFgxbsb0xs3y9 | SF-03 世代スコープ証拠の authoritative owner — RoutingEngine receipt + SourceMap に一元化 | accepted | [sf-03-authoritative-owner-routingengine-receipt-sourcemap.md](./sf-03-authoritative-owner-routingengine-receipt-sourcemap.md) |

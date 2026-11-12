@@ -81,6 +81,7 @@ Directory: `docs/impl/ir`
 | IMPL-034Ut8egNEzslbJ5OXxdeK | PC-C6 oracle REL/TR headless fixture 実装記録 | completed | [pc-c6-oracle-rel-tr-headless-fixture.md](./pc-c6-oracle-rel-tr-headless-fixture.md) |
 | IMPL-034VntRmtjh1jy2mJ1rPum | PC-C6 oracle R/PL/UI/COMP headless fixture 実装記録 | completed | [pc-c6-oracle-rows-slice.md](./pc-c6-oracle-rows-slice.md) |
 | IMPL-034W5m2YJNbKaaqcO5j3m5 | PC-C6 TR ledger oracle 実装記録 | completed | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
+| IMPL-034WxwExc8oWsdZ2zey3N1 | PC-C6 TR02/TR06 realpath oracle 実装記録 | completed | [pc-c6-tr02-tr06-realpath-oracle.md](./pc-c6-tr02-tr06-realpath-oracle.md) |
 | IMPL-034VNP5tgdXZr0d9jU3FD0 | plugin_instances VCS semantic diff 分類 slice 実装記録 | completed | [plugin-instances-vcs-diff.md](./plugin-instances-vcs-diff.md) |
 | IMPL-034V30Z5uYklMrResgr0lS | RCD-01 実Audio Device録音統合 headless slice — fake port→実StreamWriter fixture + recording state projection | completed | [rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md](./rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md) |
 | IMPL-RCD01rbkSl1cE9mQ2xW | RCD-01 実Audio Device 到達準備 — stamp placement fallback（jitter 許容の累積配置）+ real backend 配線 | completed | [rcd-01-real-backend-readiness-slice.md](./rcd-01-real-backend-readiness-slice.md) |
