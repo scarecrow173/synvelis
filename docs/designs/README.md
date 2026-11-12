@@ -54,6 +54,7 @@ Directory: `docs/designs`
 | DSGN-PCc4040bs3vN1pQ8wXyZ2aC | PC-C4-04 app composition design — vend cell・所有 dispatch・pump 駆動・feed 橋渡し | approved | [pc-c4-04-app-composition-design.md](./pc-c4-04-app-composition-design.md) |
 | DESIGN-034VvFkFH34loxhN1Sn2tn | PC-C4-05 persisted StablePluginInstanceId design — project identity store・schema v13・hydration | approved | [pc-c4-05-persisted-instance-id-design.md](./pc-c4-05-persisted-instance-id-design.md) |
 | DESIGN-7c4e9a1b2d3f4e5a6b7c8e9f | PC-C4-06 control op surface design — syn.control.* typed-evidence ops | approved | [pc-c4-06-control-op-surface-design.md](./pc-c4-06-control-op-surface-design.md) |
+| DESIGN-7c4e9a1b2d3f4e5a6b7c8d9e0f1a | PC-C4-07 transport mirror + observe_block design | approved | [pc-c4-07-transport-mirror-observe-design.md](./pc-c4-07-transport-mirror-observe-design.md) |
 | DESIGN-034Uw4SG2SiRKQuoKOZGzL | PC-C4 plugin parameter binding design — verified frame base・capability gate・generation consistency | approved | [pc-c4-plugin-param-binding-design.md](./pc-c4-plugin-param-binding-design.md) |
 | DESIGN-AkFUh4M60YuHo8COCvb0Um | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
 | DESIGN-034UxXM5FBBTGn5JWkSBss | PC-C5 slice2 Gesture 固定・stale drop・Inspector mode 設計 | approved | [pc-c5-02-03-gesture-stale-inspector-design.md](./pc-c5-02-03-gesture-stale-inspector-design.md) |
@@ -67,6 +68,7 @@ Directory: `docs/designs`
 | DESIGN-034V2hPBihovSNoj4xusOA | RCD-01 device-recording headless fixture — Mock Input→Raw Writer 統合設計 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | DESIGN-Bz2IMMfywvmEjmdIeThNvq | RCD-01 Input Adapter — binding/Arm/Monitor/channel-map と fake port fail-stop | approved | [rcd-01-input-adapter-binding-arm-monitor-fake-port.md](./rcd-01-input-adapter-binding-arm-monitor-fake-port.md) |
 | DESIGN-89lmf1mLK8flCuybXMmEqR | RCD-01 実Audio Device 到達準備 design — stamp placement fallback + real backend composition root | approved | [rcd-01-real-backend-readiness-design.md](./rcd-01-real-backend-readiness-design.md) |
+| DESIGN-034W8Los2DTXD6ljySt4Rf | RCD-01 実機 capture coverage 拡張 design — real-device rig + staging lane | approved | [rcd-01-real-input-coverage-design.md](./rcd-01-real-input-coverage-design.md) |
 | DESIGN-034Urj7kRY8rq2nngtTSuL | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | approved | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | DESIGN-034VplpQjplSqKKaNy9r1G | RCD-02 StagedFile Publish Migration Design | approved | [rcd-02-stagedfile-publish-migration-design.md](./rcd-02-stagedfile-publish-migration-design.md) |
 | DESIGN-VClnKX5mXMKj7CQFWgFYAE | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe Design | approved | [rcd-02-unsynced-loss-real-fs-probe-design.md](./rcd-02-unsynced-loss-real-fs-probe-design.md) |
@@ -95,6 +97,7 @@ Directory: `docs/designs`
 | DESIGN-4AUoTxfZvkN7cj3NjLptJ2 | SF-04 slice4 設計 — app/session wiring（probe port・syn.probe.*・drain hook） | approved | [sf-04-slice4-app-wiring-design.md](./sf-04-slice4-app-wiring-design.md) |
 | DESIGN-034VpkqegnYxvgZbOSsE3K | SF-04 slice5 設計 — probe subscriber/window ownership（session 層 lease・capture owner） | approved | [sf-04-slice5-probe-subscriber-ownership-design.md](./sf-04-slice5-probe-subscriber-ownership-design.md) |
 | DESIGN-3kM8vBnQ2wX7yT1zR5pL9d | SF-04 slice6 設計 — 複数 Probe 整列比較 consumer（ProbeComparisonRequest → AcousticObservation） | approved | [sf-04-slice6-probe-compare-design.md](./sf-04-slice6-probe-compare-design.md) |
+| DESIGN-7qW2mX5cV9bN4tY8zK1jH6f | SF-04 slice8 設計 — SF-PROBE-05 fault fixtures + seek 以外の不連続宣言点 | approved | [sf-04-slice8-probe-faults-declare-design.md](./sf-04-slice8-probe-faults-declare-design.md) |
 | DESIGN-034UudJz8OJsiidXryTNTU | SF-05 slice1 Signal Flow headless 設計 — graph 投影 + visual state + status 合成 | approved | [sf-05-slice1-signal-flow-headless-graph-visual-state-status.md](./sf-05-slice1-signal-flow-headless-graph-visual-state-status.md) |
 | DESIGN-CJVcdyUweKy4i6p0xOHdJc | SF-05 slice2 設計 — routing gesture fixation/preview/commit + inspection focus + schema v3 persist | approved | [sf-05-slice2-signal-flow-ux0307-gesture-inspection-persist.md](./sf-05-slice2-signal-flow-ux0307-gesture-inspection-persist.md) |
 | DESIGN-mB7tYwKsPqNvXcZaE5rGjH | SF-05 slice3 設計 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-design.md](./sf-05-slice3-probe-subscriber-wiring-design.md) |
@@ -129,6 +132,7 @@ Directory: `docs/designs`
 | DESIGN-4kLmNpQrStUvWxYz0123 | TIM-01 PPQN Preview op + New Project PPQN — 設計 | approved | [tim-01-ppqn-preview-design.md](./tim-01-ppqn-preview-design.md) |
 | DESIGN-TiM01uIxYzAbCdEfGh2 | TIM-01 PPQN 選択 UI + Snap/Grid ポリシー — 設計 | approved | [tim-01-ppqn-ui-design.md](./tim-01-ppqn-ui-design.md) |
 | DESIGN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — crate 内完結設計 | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
+| DESIGN-TiM02PpqnSmfXg02 | TIM-02 × TIM-01 PPQN×SMF cross-golden fixture — 設計 | approved | [tim-02-ppqn-smf-cross-golden-design.md](./tim-02-ppqn-smf-cross-golden-design.md) |
 | DESIGN-034UwVoRGI8Bp9zuzRFQhj | TIM-02 SMF Format0/1 core — crate 内完結設計 | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
 | DESIGN-MsBu5XoYY4Ex3QB0qmDvC5 | TIM-03 session→driver/routing wiring design — session 寿命・provenance mint・transport mirror | approved | [tim-03-session-driver-wiring-design.md](./tim-03-session-driver-wiring-design.md) |
 | DESIGN-034UC0ixTsN58rRlRctgAH | TIM-04 plugin state snapshot consistency design — quality receipt/store/session/offline recipe | approved | [tim-04-plugin-state-snapshot-consistency-design.md](./tim-04-plugin-state-snapshot-consistency-design.md) |

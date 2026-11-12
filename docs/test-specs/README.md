@@ -45,6 +45,7 @@ Directory: `docs/test-specs`
 | TSPEC-PCc4040bs3vN1pQ8wXyZ2aF | PC-C4-04 app composition — vend・所有・tick・gate・feed test 保証 | approved | [pc-c4-04-app-composition.md](./pc-c4-04-app-composition.md) |
 | TSPEC-034VvKHc3n0JmiEzTuFtD2 | PC-C4-05 persisted StablePluginInstanceId test spec | approved | [pc-c4-05-persisted-instance-id.md](./pc-c4-05-persisted-instance-id.md) |
 | TSPEC-7c4e9a1b2d3f4e5a6b7c8f0a3b4 | PC-C4-06 control op surface test spec | approved | [pc-c4-06-control-op-surface.md](./pc-c4-06-control-op-surface.md) |
+| TSPEC-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b3c4d | PC-C4-07 transport mirror + observe_block test spec | approved | [pc-c4-07-transport-mirror-observe.md](./pc-c4-07-transport-mirror-observe.md) |
 | TSPEC-034Uw6FJykHzgki5MvwCPZ | PC-C4 plugin parameter binding e2e — PLUG-C4-01..05 / PC-C4-PL01..08 | approved | [pc-c4-e2e-plugin-param-binding.md](./pc-c4-e2e-plugin-param-binding.md) |
 | TSPEC-tCO4ppjNmQv0ebUI6Q1rHD | PC-C5 slice1 テスト仕様 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TSPEC-034UxY8XCaH0Kk6JNotIAO | PC-C5 slice2 テスト仕様 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -56,6 +57,7 @@ Directory: `docs/test-specs`
 | TSPEC-034V2ixodcql8RLLJfoYqH | RCD-01 device-recording headless fixture test spec | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
 | TSPEC-htPhSCIWfZxHOOGdEAyaeK | RCD-01 実Audio Device 到達準備 検証仕様 — stamp placement fallback + real backend lane | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
+| TSPEC-034W91IonN281HbgpyCQ1P | RCD-01 実機 capture coverage 拡張 test-spec | proposed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
 | TSPEC-034UrlOOfZIvsdF1bdNXfE | RCD-02 Durability / Recovery Review / Commit Receipt fault matrix | approved | [rcd-02-durability-recovery-review-fault-matrix.md](./rcd-02-durability-recovery-review-fault-matrix.md) |
 | TSPEC-c33JwV8kL5uDnMRO2sV7Be | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe test-spec | approved | [rcd-02-unsynced-loss-real-fs-probe.md](./rcd-02-unsynced-loss-real-fs-probe.md) |
 | TSPEC-034VedrLB13w3phP9Xuh5S | RCD-03 app Arm/Monitoring UX fixture matrix | proposed | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
@@ -83,6 +85,7 @@ Directory: `docs/test-specs`
 | TSPEC-1W8mH6ZO7NttYUnbbJOgke | SF-04 slice4 受入テスト仕様 — app/session wiring（syn.probe.*・drain hook） | approved | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |
 | TSPEC-034Vpt0mvci6gGc0CDalrl | SF-04 slice5 受入テスト仕様 — probe subscriber/window ownership（session 層 lease・capture owner） | approved | [sf-04-slice5-probe-subscriber-ownership.md](./sf-04-slice5-probe-subscriber-ownership.md) |
 | TSPEC-8uY6tR4eW2qA5sD9fGhJk | SF-04 slice6 テスト仕様 — 複数 Probe 整列比較 consumer | approved | [sf-04-slice6-probe-compare.md](./sf-04-slice6-probe-compare.md) |
+| TSPEC-2hN6pR8sT4wQ1yU5iO3aZ7c | SF-04 slice8 テスト仕様 — SF-PROBE-05 fault fixtures + 不連続宣言点 | approved | [sf-04-slice8-probe-faults-declare.md](./sf-04-slice8-probe-faults-declare.md) |
 | TSPEC-034UuhtnvPrY3vXkkcgAXI | SF-05 slice1 テスト仕様 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | TSPEC-jFtg0s5kOhAShEhr9GuU2J | SF-05 slice2 テスト仕様 — Signal Flow gesture/inspection/persist | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | TSPEC-pL4cVbNmQwErTyUiOpAsDf | SF-05 slice3 テスト仕様 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
@@ -117,6 +120,7 @@ Directory: `docs/test-specs`
 | TSPEC-5nMbVcXzKlJhGfDsApOi | TIM-01 PPQN Preview + New Project PPQN — test spec | approved | [tim-01-ppqn-preview.md](./tim-01-ppqn-preview.md) |
 | TSPEC-TiM01uIxYzAbCdEfGh5 | TIM-01 PPQN 選択 UI + Snap/Grid ポリシー — test spec | approved | [tim-01-ppqn-ui.md](./tim-01-ppqn-ui.md) |
 | TESTSPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 fixtures | approved | [tim-02-player-midi-rt-fixtures.md](./tim-02-player-midi-rt-fixtures.md) |
+| TSPEC-TiM02PpqnSmfXg05 | TIM-02 × TIM-01 PPQN×SMF cross-golden fixture — test spec | approved | [tim-02-ppqn-smf-cross-golden.md](./tim-02-ppqn-smf-cross-golden.md) |
 | TSPEC-034UwYugwIyQVbAeVxql8O | TIM-02 SMF Format0/1 fixture matrix | proposed | [tim-02-smf-format01-fixtures.md](./tim-02-smf-format01-fixtures.md) |
 | TSPEC-lQ0qYg1as24XtlZ1sHNNWN | TIM-03 session→driver/routing wiring test spec — TIM03-SW01..NN | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | TSPEC-034UC53kVrQjWrtds8Lrsn | TIM-04 plugin state snapshot consistency — test spec | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |

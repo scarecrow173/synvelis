@@ -40,6 +40,7 @@ Directory: `docs/specs`
 | SPEC-PCc4040bs3vN1pQ8wXyZ2aB | PC-C4-04 workspace/app composition — catalog vend・dispatch 所有・tick 駆動・fast_control | approved | [pc-c4-04-app-composition.md](./pc-c4-04-app-composition.md) |
 | SPEC-034VvDn4o6zcn7dFSGRGZC | PC-C4-05 persisted StablePluginInstanceId — project schema v13 + player hydration | approved | [pc-c4-05-persisted-instance-id.md](./pc-c4-05-persisted-instance-id.md) |
 | SPEC-7c4e9a1b2d3f4e5a6b7c8d | PC-C4-06 control op surface — syn.control.* typed-evidence ops | approved | [pc-c4-06-control-op-surface.md](./pc-c4-06-control-op-surface.md) |
+| SPEC-7c4e9a1b2d3f4e5a6b7c8d9e0f | PC-C4-07 transport mirror + observe_block + capability rebind tests | approved | [pc-c4-07-transport-mirror-observe.md](./pc-c4-07-transport-mirror-observe.md) |
 | SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | SPEC-034UxXLvNqgbDGOypo7Uu4 | PC-C5 slice2 (UI-C5-02/03): Gesture 固定・stale drop・Inspector Follow/Explore/Pinned（headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -49,6 +50,7 @@ Directory: `docs/specs`
 | SPEC-034W1VPl3lj6S7A0E8mTJL | PC-C6 TR 系 oracle × dispatch ledger 実経路結合（TR01/03/04/05/07/08 再証拠化） | approved | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
 | SPEC-034V2ghdXlh1m9UFtt5ks1 | RCD-01 実Audio Device録音統合 headless slice — Mock Input→Raw Writer/Journal→Arm/Punch/Loop・Fail-stop Fixture（synvelis#115） | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | SPEC-gut3XVRAIUtMHADNZBNFHC | RCD-01 実Audio Device 到達準備 — stamp placement fallback + real backend 配線（synvelis#115） | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
+| SPEC-034W8HMV6c6BABYhVlcEe6 | RCD-01 実機 capture coverage 拡張 — real-device lane の staging/2Track/fail-stop/境界/長時間検証（synvelis#115） | proposed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
 | SPEC-034UoScGX6dIi25hMurqCI | RCD-01 Recording Input Adapter — channel binding・Arm/Monitor・fake port fail-stop（synvelis#115 slice） | proposed | [rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md](./rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md) |
 | SPEC-034VpjuNHFlkvgLqAJQGHJ | RCD-02 StagedFile Publish Migration — synvelis#116 slice | approved | [rcd-02-stagedfile-publish-migration.md](./rcd-02-stagedfile-publish-migration.md) |
 | SPEC-MtkyEBkLAdbCHkkziVNHIk | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe — synvelis#116 slice | approved | [rcd-02-unsynced-loss-real-fs-probe.md](./rcd-02-unsynced-loss-real-fs-probe.md) |
@@ -77,6 +79,7 @@ Directory: `docs/specs`
 | SPEC-4kvuQeb3IYEZ7UbStoNt2X | SF-04 slice4 — app/session wiring（Probe ON/OFF・probe port 実装・syn.probe.* ops・drain hook） | approved | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |
 | SPEC-034VphYPdMdjVaJWKkDJHg | SF-04 slice5 — probe subscriber/window ownership（session 層 lease・capture owner） | approved | [sf-04-slice5-probe-subscriber-ownership.md](./sf-04-slice5-probe-subscriber-ownership.md) |
 | SPEC-9fQ2xLmNpR7vT4wY8zK1jH | SF-04 slice6 — 複数 Probe 整列比較 consumer（ProbeComparisonRequest → AcousticObservation） | approved | [sf-04-slice6-probe-compare.md](./sf-04-slice6-probe-compare.md) |
+| SPEC-4nB7kQ2wX9mZ5vT8yR1jL3p | SF-04 slice8 — SF-PROBE-05 fault fixtures + seek 以外の不連続宣言点 | approved | [sf-04-slice8-probe-faults-declare.md](./sf-04-slice8-probe-faults-declare.md) |
 | SPEC-034Uuc3q3FZYT5JjxQtDv9 | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | approved | [sf-05-signal-flow-headless-hierarchy.md](./sf-05-signal-flow-headless-hierarchy.md) |
 | SPEC-hhfyzYWYjCwiqdwtsN8Add | SF-05 slice2 Signal Flow — Port Drag gesture + inspection focus + per-view persist（SF-UX-03/04/07） | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | SPEC-kX9mQvR2wTbLpNcJyH4sDf | SF-05 slice3 Signal Flow — probe subscriber/capture dedup の app/UI 配線（SF-UX-06 headless 側） | approved | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
@@ -108,6 +111,7 @@ Directory: `docs/specs`
 | SPEC-034UHVLQ9dtoN4YQDjtCy3 | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | approved | [tim-01-configurable-ppqn-project-command.md](./tim-01-configurable-ppqn-project-command.md) |
 | SPEC-9xQpPvK2mN7rT4wE8jH3d | TIM-01 PPQN Preview op + New Project PPQN — syn.project.preview_ppqn / syn.project.new.ppqn（synvelis#125 preview slice） | approved | [tim-01-ppqn-preview.md](./tim-01-ppqn-preview.md) |
 | SPEC-TiM01uIxYzAbCdEfGh | TIM-01 PPQN 選択 UI read model + Snap/Grid ポリシー — synvelis#125 UI slice（headless） | approved | [tim-01-ppqn-ui.md](./tim-01-ppqn-ui.md) |
+| SPEC-TiM02PpqnSmfXg01 | TIM-02 × TIM-01 PPQN×SMF cross-golden fixture — synvelis#126 受入行の Project Change 補完（headless） | approved | [tim-02-ppqn-smf-cross-golden.md](./tim-02-ppqn-smf-cross-golden.md) |
 | SPEC-034UwMIulZ7DXWykQFy704 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice (synvelis#126) | proposed | [tim-02-smf-format01-import-export.md](./tim-02-smf-format01-import-export.md) |
 | SPEC-1umIWi6ogYs4kgcJeTyvJ8 | TIM-03 session→driver/routing wiring — ProcessBoundarySession の composition 接続（headless slice） | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | SPEC-034UBZ7xNf0yey5lCLjVNT | TIM-04 Plugin State Snapshot 一貫性 — quality receipt・save/reload/HEAD/offline recipe（headless mock slice） | approved | [tim-04-plugin-state-snapshot-consistency.md](./tim-04-plugin-state-snapshot-consistency.md) |

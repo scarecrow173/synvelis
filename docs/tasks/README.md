@@ -23,6 +23,7 @@ Directory: `docs/tasks`
 | TASK-wl7Q7EP5HpNVOP8NAdEB7a | PC-C6: REL01〜07 / TR01〜08 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rel-tr.md](./pc-c6-task1-oracle-rel-tr.md) |
 | TASK-034VmVPWtNFIg5zO3xaDsP | PC-C6: R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rows.md](./pc-c6-task1-oracle-rows.md) |
 | TASK-034V2kE9l91elvsqfnsx5s | RCD-01 device-recording headless fixture | in_progress | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
+| TASK-034W91vSDozzYDSG2XM7je | RCD-01 実機 capture coverage 拡張 task | completed | [rcd-01-real-input-coverage-task.md](./rcd-01-real-input-coverage-task.md) |
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
 | TASK-GJlWE8j5emvVOKFMtbTXHR | RCD-01 Task — 実Audio Device 到達準備（stamp placement fallback + real backend 配線） | completed | [rcd-01-task1-real-backend-readiness.md](./rcd-01-task1-real-backend-readiness.md) |
 | TASK-034VpnH7YtacCiCUD4y9fu | RCD-02 Task3 StagedFile Publish Migration | in-progress | [rcd-02-task3-stagedfile-publish-migration.md](./rcd-02-task3-stagedfile-publish-migration.md) |
@@ -36,6 +37,7 @@ Directory: `docs/tasks`
 | TASK-034UL3a4aL5H7PC2FRWUp7 | SF-04 slice3 T1 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | in-progress | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |
 | TASK-5FrDNAlmiEt3QTiDj5a82C | SF-04 slice4 T1 — app/session wiring（probe port・syn.probe.*・drain hook） | in-progress | [sf-04-slice4-app-wiring.md](./sf-04-slice4-app-wiring.md) |
 | TASK-034VpsGgHQsSoFmX1K61s3 | SF-04 slice5 T1 — probe subscriber/window ownership（session 層 lease・capture owner） | in-progress | [sf-04-slice5-task1-probe-subscriber-ownership.md](./sf-04-slice5-task1-probe-subscriber-ownership.md) |
+| TASK-9vK4mP2nQ8wX5zB7jH3fY6c | SF-04 slice8 タスク — SF-PROBE-05 fault fixtures + 不連続宣言点 | in_progress | [sf-04-slice8-probe-faults-declare-task.md](./sf-04-slice8-probe-faults-declare-task.md) |
 | TASK-wQ8xJkLmNrTyUiOpAsDfGh | SF-05 slice3 タスク分解 — probe subscriber/capture dedup の app/UI 配線 | in-progress | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
 | TASK-G4oEdDOSfbQ4uy5d0HrbKh | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture 実装 task | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | TASK-034Ul52jO5RARmW21UHLGR | SV-GUI-03 slice1: Transport 操作 + Inspector 表示を既存 GPUI 経路に接続 | in-progress | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
@@ -116,6 +118,7 @@ Directory: `docs/tasks`
 | TASK-PCc4040bs3vN1pQ8wXyZ2aE | PC-C4-04 task1 — workspace/app composition 実装 | done | [pc-c4-04-task1-app-composition.md](./pc-c4-04-task1-app-composition.md) |
 | TASK-034VvIOJTIiu4YPdKizKEx | PC-C4-05 task1 — persisted StablePluginInstanceId 実装 | done | [pc-c4-05-task1-persisted-instance-id.md](./pc-c4-05-task1-persisted-instance-id.md) |
 | TASK-7c4e9a1b2d3f4e5a6b7c8f0a2b3 | PC-C4-06 task1 — syn.control.* control op surface 実装 | done | [pc-c4-06-control-op-surface-task.md](./pc-c4-06-control-op-surface-task.md) |
+| TASK-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b3c | PC-C4-07 transport mirror + observe_block + capability rebind | done | [pc-c4-07-transport-mirror-observe-task.md](./pc-c4-07-transport-mirror-observe-task.md) |
 | TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | done | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TASK-034UxYCkPWXOotRSbjIPex | PC-C5 slice2 タスク分解 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | done | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -184,6 +187,7 @@ Directory: `docs/tasks`
 | TASK-2pOiUyTrEwQaSdFgHjKl | TIM-01 — PPQN Preview op + New Project PPQN | done | [tim-01-ppqn-preview-task.md](./tim-01-ppqn-preview-task.md) |
 | TASK-TiM01uIxYzAbCdEfGh4 | TIM-01 — PPQN 選択 UI read model + Snap/Grid ポリシー | done | [tim-01-ppqn-ui-task.md](./tim-01-ppqn-ui-task.md) |
 | TASK-034VtBNiTaFYQMA3eOBYXv | TIM-01 task2 — app 層 PPQN 統合 | done | [tim-01-task2-app-ppqn.md](./tim-01-task2-app-ppqn.md) |
+| TASK-TiM02PpqnSmfXg04 | TIM-02 — PPQN×SMF cross-golden fixture（SetProjectPpqn × smf_documents 全鎖） | done | [tim-02-ppqn-smf-cross-golden-task.md](./tim-02-ppqn-smf-cross-golden-task.md) |
 | TASK-034UwY7u8viaAzE6tUxLHa | TIM-02 Task1 SMF Format0/1 project+recording headless slice | done | [tim-02-task1-smf-core.md](./tim-02-task1-smf-core.md) |
 | TASK-126tim02playerMidiRt01 | TIM-02 Task2 player MIDI RT/Offline 結合 slice | done | [tim-02-task2-player-midi.md](./tim-02-task2-player-midi.md) |
 | TASK-zHlj8Os7dQ66GPeta6Sxew | TIM-03 task1 — session→driver/routing wiring（BoundarySessionSpec vend・driver session/mirror・routing scoped API） | done | [tim-03-task1-session-driver-wiring.md](./tim-03-task1-session-driver-wiring.md) |
