@@ -27,7 +27,6 @@ Directory: `docs/plans`
 | PLAN-034SYN166StG1CiSm | Issue #166 Full CI 化・ci-summary 統一 — 第一段階実装計画 | proposed | [issue-166-full-ci-ci-summary.md](./issue-166-full-ci-ci-summary.md) |
 | PLAN-FJFu7KEhoGpsO1UDDzKK6a | Issue #167 Tracker reconcile 実装計画 — 共有 pin eed590e + Consumer reconcile workflow + 契約 test | in-progress | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
 | PLAN-034U2vlyQzakAB9i25oAuM | Issue #184 CI verify/evidence 失敗 — canonical temp fixture 実装計画 | approved | [issue-184-ci-verify-evidence-canonical-temp-fixture.md](./issue-184-ci-verify-evidence-canonical-temp-fixture.md) |
-| PLAN-034Wv23ayc9G1WRGoi3DaA | Issue #368 docs/impl/ir missing-section 本文補完 — 実装 plan | approved | [issue-368-ir-missing-sections-plan.md](./issue-368-ir-missing-sections-plan.md) |
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |
@@ -141,6 +140,7 @@ Directory: `docs/plans`
 | PLAN-alib07-import-cancel | ALIB-07 slice 2 実装計画 — import cancel checkpoint・crash fixture・matrix 簿記 | completed | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | PLAN-034QArZ5DRWJ27yfk2aEID | ED-A Editing Model headless PoC 実装計画 | completed | [ed-a-editing-model.md](./ed-a-editing-model.md) |
 | PLAN-034Wsz1RfPQFUBGiJzAeHe | Issue #365 impl index 生成可能化 — front matter 是正と index 再生成 | completed | [issue-365-impl-index-generation-plan.md](./issue-365-impl-index-generation-plan.md) |
+| PLAN-034Wv23ayc9G1WRGoi3DaA | Issue #368 docs/impl/ir missing-section 本文補完 — 実装 plan | completed | [issue-368-ir-missing-sections-plan.md](./issue-368-ir-missing-sections-plan.md) |
 | PLAN-uaNPrumAjiAnEaagqm9BgJ | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 実装計画 | completed | [issue-86-verified-import-wiring-plan.md](./issue-86-verified-import-wiring-plan.md) |
 | PLAN-034PCA04Pk9ySt5zBcPdEf | PC-A Parameter Control Model headless PoC 実装計画 | completed | [pc-a-parameter-control.md](./pc-a-parameter-control.md) |
 | PLAN-034PCB04Pk9ySt5zBcPdEf | PC-B Parameter Control dispatch/note-scope/RT/offline 実装計画 | completed | [pc-b-parameter-dispatch.md](./pc-b-parameter-dispatch.md) |

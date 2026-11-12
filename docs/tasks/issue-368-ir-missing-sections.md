@@ -1,7 +1,7 @@
 ---
 id: "TASK-034Wv2LV1SZLdyPnE8fyZD"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "Issue #368 docs/impl/ir missing-section 本文補完"
 created: "2026-11-13"
 updated: "2026-11-13"
@@ -72,14 +72,14 @@ Related Experiments / Validation / Risks / Follow-ups）を本文に
 
 ## Done When
 
-- [ ] `audit_impl_record.js --json` の `missing-section` が 0 件
-- [ ] 追加した全セクションに実装・検証内容に基づく具体的な本文がある
-- [ ] 60 文書の front matter・ファイル名が不変
-- [ ] `missing-experiment-link` ≤ 18・`broken-relation-link` ≤ 36
-- [ ] `index plan --dir docs/impl/ir` が `in-sync`
+- [x] `audit_impl_record.js --json` の `missing-section` が 0 件
+- [x] 追加した全セクションに実装・検証内容に基づく具体的な本文がある
+- [x] 60 文書の front matter・ファイル名が不変
+- [x] `missing-experiment-link` ≤ 18・`broken-relation-link` ≤ 36
+- [x] `index plan --dir docs/impl/ir` が `in-sync`
 
 ## Verification
 
-- [ ] `node .agents/skills/impl-doc/scripts/audit_impl_record.js --json`
-- [ ] `node .agents/skills/doc-maintenance/scripts/doc_maintenance.js index plan --dir docs/impl/ir`
-- [ ] `git diff` で front matter・ファイル名に差分がないことを確認
+- [x] `node .agents/skills/impl-doc/scripts/audit_impl_record.js --json`
+- [x] `node .agents/skills/doc-maintenance/scripts/doc_maintenance.js index plan --dir docs/impl/ir`
+- [x] `git diff` で front matter・ファイル名に差分がないことを確認

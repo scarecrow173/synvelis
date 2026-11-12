@@ -1,7 +1,7 @@
 ---
 id: "PLAN-034Wv23ayc9G1WRGoi3DaA"
 type: "plan"
-status: "approved"
+status: "completed"
 title: "Issue #368 docs/impl/ir missing-section 本文補完 — 実装 plan"
 created: "2026-11-13"
 updated: "2026-11-13"
