@@ -9,7 +9,7 @@
 //! (single-threaded app) drained by the webview host loop and by
 //! headless drivers identically.
 
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, Ref, RefCell};
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -38,10 +38,11 @@ use synvelis_player::{
 use synvelis_project::vcs::{RevisionSelector, VcsCancel};
 use synvelis_project::{
     BusId, ClipId, ClockEpochId, ExplicitChannelMap, LaneId, MusicalTick, ParameterTargetId,
-    ProbeCaptureSegment, ProbeMode, ProbeObservation, ProbePortError, ProbeStatusReceipt,
-    ProbeSubscriptionKey, ProbeTracePort, ProcessorId, Project, ProjectOp, ProjectRevision,
-    ProjectStore, RoutingConnectionId, SemanticPortId, SemanticProbePoint, SendId, StripId,
-    SubscriptionKind, TickTimeMapping, TraceSlot, TrackId, is_issuable_raw, monitoring_data,
+    PpqnConversionPolicy, ProbeCaptureSegment, ProbeMode, ProbeObservation, ProbePortError,
+    ProbeStatusReceipt, ProbeSubscriptionKey, ProbeTracePort, ProcessorId, Project, ProjectOp,
+    ProjectPpqn, ProjectRevision, ProjectStore, RoutingConnectionId, SemanticPortId,
+    SemanticProbePoint, SendId, StripId, SubscriptionKind, TickTimeMapping, TraceSlot, TrackId,
+    is_issuable_raw, monitoring_data,
 };
 use synvelis_recording::{
     ArmState, ChannelMap, HardwareDirectMonitor, HardwareDirectState, MonitorState,
@@ -51,6 +52,7 @@ use synvelis_workspace::controls_ui::{
     CommandIntent, ControlsUi, DispatchContext, GestureCancelReason, ParamProjection,
     TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET,
 };
+use synvelis_workspace::state::{PpqnUi, PpqnUiError};
 use synvelis_workspace::viz_ui::{
     ManualMeter, ManualSpectrum, MemoryWaveform, MeterChannel, MeterPort, SpectrumPort, VizStatus,
     VizUi, VizViewEvent, WaveformAxis, WaveformPort, WaveformView, meter_master_target,
@@ -221,6 +223,17 @@ pub struct UiOpsState {
     /// `syn.control.status` exposure (PC-C4-06). `attached: false`
     /// until the first recorded drain — never fabricated.
     pub(crate) last_control_drain: ReportDrainReport,
+    /// View-owned PPQN selection gesture (TIM-01 UI slice,
+    /// synvelis#125) — the select → preview → confirm/cancel state
+    /// machine ([`PpqnUi`]) the `ppqn_*` helpers and the
+    /// `syn.project.*` ops drive. `RefCell` because the `&self`
+    /// publish path (`publish_project_length`) re-syncs
+    /// `observe_current` against the live project PPQN — the single
+    /// point that keeps the read model honest across every mutation
+    /// path (ops, undo/redo, project new/open, fixture-level session
+    /// applies). Display state only: the mounted spec renders its
+    /// pending preview, never gesture authority.
+    pub(crate) ppqn_ui: RefCell<PpqnUi>,
 }
 
 impl UiOpsState {
@@ -246,6 +259,7 @@ impl UiOpsState {
             last_probe_drain: ProbeDrainReport::default(),
             last_control_tick: None,
             last_control_drain: ReportDrainReport::default(),
+            ppqn_ui: RefCell::new(PpqnUi::new(ProjectPpqn::default().0)),
         }
     }
 }
@@ -3329,6 +3343,14 @@ impl SynvelisApp {
             .controls
             .undo(session)
             .map_err(|e| internal(format!("undo: {e}")))?;
+        if undone {
+            // The undo may have reverted a PPQN change — re-sync the
+            // view-owned gesture so a stale pending selection cannot
+            // arm confirm (the publish tail re-syncs too; this keeps
+            // direct `op_project_undo` callers honest).
+            let ppqn = self.workspace.session().project().ppqn.0;
+            self.ui.ppqn_ui.borrow_mut().observe_current(ppqn);
+        }
         self.ui_pump();
         Ok(json!({ "undone": undone }))
     }
@@ -3345,8 +3367,92 @@ impl SynvelisApp {
             .controls
             .redo(session)
             .map_err(|e| internal(format!("redo: {e}")))?;
+        if redone {
+            let ppqn = self.workspace.session().project().ppqn.0;
+            self.ui.ppqn_ui.borrow_mut().observe_current(ppqn);
+        }
         self.ui_pump();
         Ok(json!({ "redone": redone }))
+    }
+
+    // -- PPQN selection gesture (TIM-01 UI slice, synvelis#125) ---------
+    //
+    // The select → preview → confirm/cancel lifecycle is view-owned
+    // (`PpqnUi`); these helpers drive it and mint the real
+    // `syn.project.*` ops through the same paths the service
+    // dispatches — no separate time model and no fake widget
+    // actions. Real GUI wiring (parameterized widget intents) is the
+    // deferred external gate.
+
+    /// The view-owned PPQN gesture read model — inspectable by views
+    /// and headless drivers. Mutations go through the `ppqn_*`
+    /// helpers or the `syn.project.*` ops (both re-sync it).
+    pub fn ppqn_ui(&self) -> Ref<'_, PpqnUi> {
+        self.ui.ppqn_ui.borrow()
+    }
+
+    /// Gesture step 1 — select `new_ppqn` under `policy`. Range is
+    /// checked view-side (`1..=32767`); nothing is applied and no op
+    /// is minted. Re-selecting replaces the pending candidate and
+    /// discards its preview.
+    ///
+    /// # Errors
+    /// [`PpqnUiError::OutOfRange`] when `new_ppqn` is outside the
+    /// selectable range.
+    pub fn ppqn_select(
+        &mut self,
+        new_ppqn: u32,
+        policy: PpqnConversionPolicy,
+    ) -> Result<(), PpqnUiError> {
+        let live = self.workspace.session().project().ppqn.0;
+        self.ui.ppqn_ui.borrow_mut().observe_current(live);
+        self.ui.ppqn_ui.borrow_mut().select(new_ppqn, policy)
+    }
+
+    /// Gesture step 2 — run `syn.project.preview_ppqn` for the
+    /// pending candidate through the real op path; the op feeds the
+    /// result back into [`PpqnUi::record_preview`]. Fails when
+    /// nothing is pending (select first).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] with `codes::INVALID_PARAMS` when no selection
+    /// is pending, or the preview op's own rejection.
+    pub fn ppqn_preview_pending(&mut self) -> Result<Value, ErrorBody> {
+        let live = self.workspace.session().project().ppqn.0;
+        self.ui.ppqn_ui.borrow_mut().observe_current(live);
+        let params = self
+            .ui
+            .ppqn_ui
+            .borrow()
+            .preview_params()
+            .ok_or_else(|| invalid("ppqn preview: no pending selection"))?;
+        self.project_preview_ppqn(&params)
+    }
+
+    /// Gesture step 3a — confirm: `syn.project.set_ppqn` carrying the
+    /// preview-time `expected_revision` CAS. Only possible after a
+    /// preview that `applies`; a stale, mismatched, or rejected
+    /// preview fails here instead of mutating.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] with `codes::INVALID_PARAMS` when no applicable
+    /// preview is pending, or the `set_ppqn` op's own rejection
+    /// (stale CAS, session gate, inexact sites under `exact`, …).
+    pub fn ppqn_confirm(&mut self) -> Result<Value, ErrorBody> {
+        let live = self.workspace.session().project().ppqn.0;
+        self.ui.ppqn_ui.borrow_mut().observe_current(live);
+        let confirm = self.ui.ppqn_ui.borrow().confirm_request().ok_or_else(|| {
+            invalid("ppqn confirm: no applicable preview — select and preview first")
+        })?;
+        let params = confirm.params();
+        self.project_set_ppqn(&params)
+    }
+
+    /// Gesture step 3b — cancel: drops the pending selection.
+    /// Non-destructive by construction (nothing was ever applied);
+    /// returns `true` when a pending selection was discarded.
+    pub fn ppqn_cancel(&mut self) -> bool {
+        self.ui.ppqn_ui.borrow_mut().cancel()
     }
 
     // -- syn.signal_flow.* -------------------------------------------------

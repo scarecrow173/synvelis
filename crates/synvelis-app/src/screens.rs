@@ -405,6 +405,45 @@ pub struct SignalFlowProbeRow {
     pub capture_owner: String,
 }
 
+/// PPQN selection surface state (TIM-01 UI slice, synvelis#125) —
+/// the live project PPQN plus the freshest revision-guarded
+/// `preview_ppqn` projection. The select → preview → confirm/cancel
+/// gesture itself is view-owned
+/// ([`synvelis_workspace::state::ppqn_ui::PpqnUi`]) and driven through
+/// `ViewBinding`; this state is what the mounted spec renders —
+/// display only, never gesture authority, and deliberately free of
+/// action buttons (a `rvf.ui.command.v1` `Action` cannot carry the
+/// candidate PPQN/policy params a confirm needs, so interactive
+/// driving stays on the typed `syn.project.*` op path proven
+/// headlessly; real GUI wiring is the deferred external gate).
+#[derive(Clone, Debug, PartialEq)]
+pub struct PpqnScreenState {
+    /// Live project PPQN.
+    pub current_ppqn: u32,
+    /// Pending gesture candidate — `Some` between select and
+    /// confirm/cancel, even while its preview is still outstanding.
+    pub pending_new_ppqn: Option<u32>,
+    /// Wire `policy` name of the pending candidate (`"exact"`/
+    /// `"round"`).
+    pub pending_policy: Option<&'static str>,
+    /// Last preview projection still fresh against the live project
+    /// revision — `None` before the first preview or once it went
+    /// stale (project mutated, committed, undone, or session
+    /// recreated).
+    pub preview: Option<synvelis_workspace::state::PpqnPreviewView>,
+}
+
+impl Default for PpqnScreenState {
+    fn default() -> Self {
+        Self {
+            current_ppqn: synvelis_project::ProjectPpqn::default().0,
+            pending_new_ppqn: None,
+            pending_policy: None,
+            preview: None,
+        }
+    }
+}
+
 /// The full display state [`main_screen_spec`] needs — project length
 /// (Seek range), arrangement rows, transport readout, and inspector
 /// rows. Owned by the composition root behind a shared cell; refreshed
@@ -441,6 +480,9 @@ pub struct MainScreenState {
     /// Meter/Waveform surface payloads (synvelis#112 slice 4) —
     /// refreshed by the UI pump's screen-state capture.
     pub viz: VizScreenState,
+    /// PPQN selection surface (synvelis#125 TIM-01 UI slice) —
+    /// project-derived, refreshed by `publish_project_length`.
+    pub ppqn: PpqnScreenState,
 }
 
 /// Targets the main view subscribes after attach — every driven
@@ -1494,6 +1536,153 @@ pub fn history_screen_spec(state: &VcsScreenState) -> ViewSpec {
     }
 }
 
+/// The Project tab's PPQN status line — the live project PPQN, the
+/// selectable range, and the recommended shortcuts (TIM-01 UI slice,
+/// synvelis#125). Static display text like [`transport_status_label`]:
+/// updates arrive through `ViewHost::update` spec pushes.
+fn ppqn_status_label(p: &PpqnScreenState) -> ComponentSpec {
+    let recommended = synvelis_workspace::state::RECOMMENDED_PPQN
+        .iter()
+        .map(u32::to_string)
+        .collect::<Vec<_>>()
+        .join(", ");
+    ComponentSpec::Label(LabelSpec {
+        key: key("ppqn.status"),
+        text: format!(
+            "PPQN {} — selectable {}..={} — recommended {}",
+            p.current_ppqn,
+            synvelis_project::PPQN_MIN,
+            synvelis_project::PPQN_MAX,
+            recommended,
+        ),
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("Project PPQN".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The pending gesture's readout — the selected candidate while its
+/// preview is outstanding, then the preview's feasibility summary
+/// (verdict, site counts, rejection reason). `"no pending selection"`
+/// before the first select lands.
+fn ppqn_preview_label(p: &PpqnScreenState) -> ComponentSpec {
+    let text = match (&p.pending_new_ppqn, &p.preview) {
+        (Some(new_ppqn), Some(preview)) => {
+            let rejection = preview
+                .rejection
+                .as_deref()
+                .map_or_else(String::new, |r| format!(" — {r}"));
+            format!(
+                "{} → {} ppqn ({}/{}){}",
+                preview.old_ppqn,
+                new_ppqn,
+                p.pending_policy.unwrap_or(preview.policy),
+                preview.rounding.unwrap_or("—"),
+                rejection,
+            )
+        }
+        (Some(new_ppqn), None) => format!(
+            "selected {new_ppqn} ppqn ({}) — preview pending",
+            p.pending_policy.unwrap_or("—"),
+        ),
+        (None, _) => "PPQN — no pending selection".to_string(),
+    };
+    ComponentSpec::Label(LabelSpec {
+        key: key("ppqn.preview"),
+        text,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("PPQN preview".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The preview's informational effects — the decided Snap/Grid
+/// policy (explicit quanta are fixed project ticks, preserved across
+/// the change; only musical spacing moves) and the SMF-export
+/// division note. `"—"` before a preview lands.
+fn ppqn_effects_label(p: &PpqnScreenState) -> ComponentSpec {
+    let text = p.preview.as_ref().map_or_else(
+        || "PPQN effects — —".to_string(),
+        |preview| {
+            format!(
+                "snap/grid: {} — {}",
+                preview.snap_grid.describe(),
+                preview.smf_export,
+            )
+        },
+    );
+    ComponentSpec::Label(LabelSpec {
+        key: key("ppqn.effects"),
+        text,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("PPQN change effects".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The preview's flagged-site table — inexact and overflow sites
+/// verbatim (flag/kind/instance/part/tick/projected) as the project
+/// layer reported them, capped by the read model. Read-only:
+/// `selection` is `None`, so it issues no intents.
+fn ppqn_sites_table(p: &PpqnScreenState) -> ComponentSpec {
+    let site_row = |flag: &str, site: &synvelis_project::PpqnPreviewSite| {
+        vec![
+            Some(CellValue::Text(flag.to_string())),
+            Some(CellValue::Text(site.kind.to_string())),
+            Some(CellValue::Text(site.instance.clone())),
+            Some(CellValue::Text(
+                site.part
+                    .map_or_else(|| "—".to_string(), ToString::to_string),
+            )),
+            Some(CellValue::Text(site.tick.to_string())),
+            Some(CellValue::Text(
+                site.projected
+                    .map_or_else(|| "—".to_string(), |v| v.to_string()),
+            )),
+        ]
+    };
+    let mut rows = Vec::new();
+    if let Some(preview) = &p.preview {
+        // Overflow is fatal under every policy — list it first.
+        rows.extend(
+            preview
+                .overflow_sites
+                .iter()
+                .map(|site| site_row("overflow", site)),
+        );
+        rows.extend(
+            preview
+                .inexact_sites
+                .iter()
+                .map(|site| site_row("inexact", site)),
+        );
+    }
+    ComponentSpec::Table(TableSpec {
+        key: key("ppqn.sites"),
+        columns: vec![
+            "Flag".to_string(),
+            "Kind".to_string(),
+            "Instance".to_string(),
+            "Part".to_string(),
+            "Tick".to_string(),
+            "Projected".to_string(),
+        ],
+        rows,
+        selection: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some("PPQN preview sites".to_string()),
+            ..A11ySpec::default()
+        },
+    })
+}
+
 /// The product's minimal screen spec — `Panel > [Toolbar, Tabs]`:
 ///
 /// - **Toolbar**: Save, Reload, Undo and Redo `Button`s (the
@@ -1626,6 +1815,20 @@ fn main_tabs(state: &MainScreenState, seek_range: f64) -> Vec<TabSpec> {
                     signal_flow_nodes_table(&state.signal_flow),
                     signal_flow_edges_table(&state.signal_flow),
                     signal_flow_probes_table(&state.signal_flow_probes),
+                ],
+            )),
+        },
+        TabSpec {
+            key: key("tab.project"),
+            title: "Project".to_string(),
+            child: Box::new(panel(
+                "tab.project.panel",
+                None,
+                vec![
+                    ppqn_status_label(&state.ppqn),
+                    ppqn_preview_label(&state.ppqn),
+                    ppqn_effects_label(&state.ppqn),
+                    ppqn_sites_table(&state.ppqn),
                 ],
             )),
         },

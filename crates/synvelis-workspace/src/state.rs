@@ -175,10 +175,14 @@ pub struct ViewState {
     /// Active editing tool (view-local).
     #[serde(default)]
     pub active_tool: Tool,
-    /// Display grid configuration — cosmetic only.
+    /// Display grid configuration — cosmetic only. Explicit quanta
+    /// are fixed project ticks preserved across project PPQN changes
+    /// (TIM-01 UI-slice policy, synvelis#125); only their musical
+    /// spacing moves — see [`crate::snap::snap_unit_ppqn_effect`].
     #[serde(default)]
     pub grid: GridConfig,
-    /// Snap configuration — independent of the display grid.
+    /// Snap configuration — independent of the display grid. Same
+    /// tick-preservation policy as [`Self::grid`].
     #[serde(default)]
     pub snap: SnapConfig,
     /// Editor display/edit binding — *not* a command target.
@@ -273,3 +277,19 @@ where
     let value = Option::<serde_json::Value>::deserialize(deserializer)?;
     Ok(value.and_then(|v| serde_json::from_value(v).ok()))
 }
+
+/// TIM-01 UI slice (synvelis#125): the PPQN selection read model —
+/// select → preview → confirm/cancel lifecycle plus the Snap/Grid
+/// PPQN-change policy reporting. Mounted here (rather than a
+/// top-level `pub mod` in `lib.rs`) because `lib.rs` is leased to the
+/// SV-107 worker; the coordinator relocates the declaration to
+/// `synvelis_workspace::ppqn_ui` at integration. The `#[path]`
+/// attribute resolves relative to this file's directory, so the
+/// canonical file location `src/ppqn_ui.rs` is unchanged.
+#[path = "ppqn_ui.rs"]
+pub mod ppqn_ui;
+
+pub use ppqn_ui::{
+    PpqnConfirm, PpqnPending, PpqnPhase, PpqnPreviewView, PpqnUi, PpqnUiError, RECOMMENDED_PPQN,
+    SMF_EXPORT_NOTE, SnapGridEffect, ppqn_policy_name, ppqn_policy_wire, ppqn_rounding_name,
+};

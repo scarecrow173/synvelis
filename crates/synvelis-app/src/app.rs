@@ -524,6 +524,34 @@ impl SynvelisApp {
             self.signal_flow_view(&crate::screens::main_view_id()),
         );
         screen.mixer = mixer_strip_targets(&self.workspace.session().project().control);
+        let live_ppqn = self.workspace.session().project().ppqn.0;
+        // Re-sync the view-owned PPQN gesture against the live
+        // project — the single point that keeps it honest across
+        // every mutation path (ops, undo/redo, project new/open,
+        // fixture-level session applies). A changed PPQN invalidates
+        // any pending selection: its preview ran against the old
+        // grid.
+        self.ui.ppqn_ui.borrow_mut().observe_current(live_ppqn);
+        let revision = self.workspace.session().revision().0;
+        let gesture = self.ui.ppqn_ui.borrow();
+        let (pending_new_ppqn, pending_policy) = gesture.pending().map_or((None, None), |p| {
+            let (policy, _) = synvelis_workspace::state::ppqn_policy_wire(p.policy);
+            (Some(p.new_ppqn), Some(policy))
+        });
+        screen.ppqn = crate::screens::PpqnScreenState {
+            current_ppqn: live_ppqn,
+            pending_new_ppqn,
+            pending_policy,
+            // Only a pending gesture's preview renders — the surface
+            // exists to arm confirm, and the revision guard drops a
+            // report any project mutation has already staled (the
+            // confirm's `expected_revision` CAS would reject it
+            // honestly anyway).
+            preview: gesture
+                .pending()
+                .and_then(|pending| pending.preview.clone())
+                .filter(|p| p.project_revision == revision),
+        };
     }
 
     fn fresh_session(name: &str) -> ProjectSession {
@@ -713,6 +741,12 @@ impl SynvelisApp {
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
         self.routing_engine = None;
+        // A PPQN preview ran against the previous project — never
+        // carry it into the new session. `committed` clears any
+        // pending selection even when the new project's PPQN equals
+        // the old one (its preview described a different project).
+        let fresh_ppqn = self.workspace.session().project().ppqn.0;
+        self.ui.ppqn_ui.borrow_mut().committed(fresh_ppqn);
         // authored monitor 宣言・punch は `project.monitoring` を
         // read-through するため新 project の空状態がそのまま
         // 反映される。ここで reset するのは session 観測値のみ。
@@ -753,6 +787,9 @@ impl SynvelisApp {
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
         self.routing_engine = None;
+        // Same stale-gesture rule as `project_new_inner`.
+        let fresh_ppqn = self.workspace.session().project().ppqn.0;
+        self.ui.ppqn_ui.borrow_mut().committed(fresh_ppqn);
         // authored monitor 宣言・punch は load 済み `project.monitoring`
         // から read-through で再水和される。ここで reset するのは
         // session 観測値（稼働 session・latency 注入・観測 overlay）
@@ -880,6 +917,11 @@ impl SynvelisApp {
                 expected_revision,
             )
             .map_err(|e| invalid_params(format!("syn.project.set_ppqn: {e}")))?;
+        // The committed change consumes any pending PPQN gesture —
+        // the preview it armed described the pre-change grid, and a
+        // gesture for a different candidate is stale by definition.
+        let applied = self.workspace.session().project().ppqn.0;
+        self.ui.ppqn_ui.borrow_mut().committed(applied);
         Ok(self.project_info())
     }
 
@@ -897,11 +939,25 @@ impl SynvelisApp {
     /// # Errors
     /// [`ErrorBody`] with `codes::INVALID_PARAMS` on malformed params
     /// or an out-of-range `new_ppqn`.
-    pub fn project_preview_ppqn(&self, params: &Value) -> Result<Value, ErrorBody> {
+    pub fn project_preview_ppqn(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let new_ppqn = ppqn_param(params, "new_ppqn")?;
         let policy = ppqn_policy(params)?;
         let preview = preview_ppqn(self.workspace.session().project(), new_ppqn, policy)
             .map_err(|e| invalid_params(format!("syn.project.preview_ppqn: {e}")))?;
+        // Feed the view-owned gesture: a preview matching the pending
+        // candidate arms confirm; a foreign or mismatched one leaves
+        // the selection untouched, and a bare preview (no pending
+        // selection) records nothing. Re-sync first so a mutation
+        // that bypassed the gesture cannot leave `current_ppqn`
+        // stale enough to reject an honest preview.
+        let revision = self.workspace.session().revision().0;
+        let live_ppqn = self.workspace.session().project().ppqn.0;
+        self.ui.ppqn_ui.borrow_mut().observe_current(live_ppqn);
+        let _ = self
+            .ui
+            .ppqn_ui
+            .borrow_mut()
+            .record_preview(&preview, revision);
         Ok(ppqn_preview_json(&preview))
     }
 
@@ -1137,26 +1193,17 @@ fn ppqn_policy(params: &Value) -> Result<PpqnConversionPolicy, ErrorBody> {
     }
 }
 
-/// Wire name for a [`PpqnConversionPolicy`] — the inverse of the
-/// `ppqn_policy` param mapping.
+/// Wire name for a [`PpqnConversionPolicy`] — delegates to the
+/// workspace read model so op JSON and the UI projection share one
+/// vocabulary.
 fn ppqn_policy_name(policy: PpqnConversionPolicy) -> &'static str {
-    match policy {
-        PpqnConversionPolicy::Exact => "exact",
-        PpqnConversionPolicy::Round(_) => "round",
-    }
+    synvelis_workspace::state::ppqn_policy_name(policy)
 }
 
-/// Wire name for a ruviform [`Rounding`] — the inverse of the
-/// `params.rounding` mapping in [`ppqn_policy`].
+/// Wire name for a ruviform [`Rounding`] — delegates to the
+/// workspace read model (see [`ppqn_policy_name`]).
 fn rounding_name(rounding: Rounding) -> &'static str {
-    match rounding {
-        Rounding::Floor => "floor",
-        Rounding::Ceil => "ceil",
-        Rounding::TowardZero => "toward_zero",
-        Rounding::AwayFromZero => "away_from_zero",
-        Rounding::NearestEven => "nearest_even",
-        _ => "unknown",
-    }
+    synvelis_workspace::state::ppqn_rounding_name(rounding)
 }
 
 fn ppqn_site_json(site: &PpqnPreviewSite) -> Value {
@@ -1171,12 +1218,18 @@ fn ppqn_site_json(site: &PpqnPreviewSite) -> Value {
 
 /// JSON shape of [`synvelis_project::PpqnChangePreview`] — the
 /// read-only report `syn.project.preview_ppqn` returns. `effects`
-/// carries the informational surfaces the headless slice does not
-/// own: the Snap/Grid default quantum keeps its 960-tick count (its
-/// musical spacing changes with PPQN — re-binding is a UI-slice
-/// decision) and SMF export division stays an explicit option in
-/// the same `1..=32767` range.
+/// carries the informational surfaces: the decided Snap/Grid policy
+/// (explicit quanta are fixed project ticks, preserved across the
+/// change — only musical spacing moves, quantified for the shipped
+/// default quantum) and the SMF-export division note.
 fn ppqn_preview_json(preview: &PpqnChangePreview) -> Value {
+    let snap_effect = synvelis_workspace::snap::snap_unit_ppqn_effect(
+        synvelis_workspace::SnapUnit::Explicit(
+            synvelis_workspace::snap::DEFAULT_SNAP_QUANTUM_TICKS,
+        ),
+        preview.old_ppqn,
+        preview.new_ppqn,
+    );
     json!({
         "old_ppqn": preview.old_ppqn,
         "new_ppqn": preview.new_ppqn,
@@ -1193,7 +1246,10 @@ fn ppqn_preview_json(preview: &PpqnChangePreview) -> Value {
         "applies": preview.applies,
         "rejection": preview.rejection,
         "effects": {
-            "snap_grid": "default quantum stays 960 project ticks — its musical spacing changes with ppqn (re-binding policy is a UI-slice decision)",
+            "snap_grid": format!(
+                "explicit snap/grid quanta are fixed project ticks and are preserved across the ppqn change; only musical spacing moves — default {}",
+                snap_effect.describe(),
+            ),
             "smf_export": "export division stays an explicit option inside the same 1..=32767 SMF PPQ range",
         },
     })

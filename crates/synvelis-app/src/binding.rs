@@ -472,6 +472,34 @@ impl ViewBinding {
         self.push("syn.project.info", json!({}))
     }
 
+    /// `syn.project.undo` — undo the last project command.
+    pub fn project_undo(&mut self) -> String {
+        self.push("syn.project.undo", json!({}))
+    }
+
+    /// `syn.project.redo` — redo the last undone project command.
+    pub fn project_redo(&mut self) -> String {
+        self.push("syn.project.redo", json!({}))
+    }
+
+    /// `syn.project.preview_ppqn` — non-destructive dry-run of a
+    /// PPQN change (TIM-01, synvelis#125). `params` is the wire
+    /// object (`new_ppqn`, `policy`, optional `rounding`) — the
+    /// view-owned [`synvelis_workspace::state::PpqnUi`] gesture
+    /// produces it via `preview_params()`/`confirm_request()`.
+    pub fn project_preview_ppqn(&mut self, params: Value) -> String {
+        self.push("syn.project.preview_ppqn", params)
+    }
+
+    /// `syn.project.set_ppqn` — the explicit-confirm mutation
+    /// (TIM-01, synvelis#125). `params` carries `old_ppqn`/`new_ppqn`/
+    /// `policy`/`rounding`/`expected_revision` — minted only from a
+    /// `PpqnUi` confirm request so the preview's CAS revision rides
+    /// along.
+    pub fn project_set_ppqn(&mut self, params: Value) -> String {
+        self.push("syn.project.set_ppqn", params)
+    }
+
     /// `syn.transport.set` — set transport rolling.
     pub fn transport_set(&mut self, playing: bool) -> String {
         self.push("syn.transport.set", json!({ "playing": playing }))
