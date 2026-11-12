@@ -4,7 +4,7 @@ dependencies:
 - repo_url: scarecrow173/apm-packages
   name: basic-dev-foundation
   host: github.com
-  resolved_commit: 391da8d3ddb033dcc84b0513721ea7658c143fde
+  resolved_commit: 7a50b2eb1768a1a30af9a1049f5b481783b6b7f0
   resolved_ref: main
   version: 0.1.0
   virtual_path: packages/basic-dev-foundation
@@ -15,7 +15,7 @@ dependencies:
 - repo_url: scarecrow173/apm-packages
   name: doc-driven-dev
   host: github.com
-  resolved_commit: 391da8d3ddb033dcc84b0513721ea7658c143fde
+  resolved_commit: 7a50b2eb1768a1a30af9a1049f5b481783b6b7f0
   resolved_ref: main
   version: 0.1.0
   virtual_path: packages/doc-driven-dev
@@ -522,8 +522,8 @@ dependencies:
     .agents/skills/doc-driven-dev-graph/scripts/migrate_ids.js: sha256:386cb9564ebafefb85c6d7154824b0cfe7c5c3bdc33676c1ab72b6ba0a2b73f6
     .agents/skills/doc-driven-dev-graph/scripts/route_graph.js: sha256:d6b6041a0378db5bc05bf2493c39336281777b5fe1769ace9185f645d6035dc0
     .agents/skills/doc-driven-dev-graph/scripts/scaffold_docs.js: sha256:104e59f17798f3d192d7567f9ffa53b844ab10c1bf2c25647fd1838711effd45
-    .agents/skills/doc-maintenance/SKILL.ja.md: sha256:dceca93ecfa1716bc11d04948be571fc58b710e8611fdf11ce7f87a226be1439
-    .agents/skills/doc-maintenance/SKILL.md: sha256:8c3847d45c676bb80604f11ace2418dbe7a8f9785862fe61c9866e89f782fb32
+    .agents/skills/doc-maintenance/SKILL.ja.md: sha256:f0b28cff0ac69659de2c57efb1ba24768b479c53ff2eb9d6bb4571a0d481ea76
+    .agents/skills/doc-maintenance/SKILL.md: sha256:dd7153184ecc680a2f2e36a47d90dd47c2667698227cb372c103ef565af00a2c
     .agents/skills/doc-maintenance/references/ownership-contract.ja.md: sha256:22755e4471d083e9765a2786f073f6201adefeb3a519f07dd4a5495b3bfffe21
     .agents/skills/doc-maintenance/references/ownership-contract.md: sha256:6a4c0a40c11b70ec99445a5b429aeb69c5ac3d37673f6ee5630f730194b1c91b
     .agents/skills/doc-maintenance/scripts/doc_maintenance.js: sha256:b90cccdaff16307731d726c19adde672c0d49d0ef8c84a33b3031cfc6ebb0dac
@@ -712,8 +712,8 @@ dependencies:
     .claude/skills/doc-driven-dev-graph/scripts/migrate_ids.js: sha256:386cb9564ebafefb85c6d7154824b0cfe7c5c3bdc33676c1ab72b6ba0a2b73f6
     .claude/skills/doc-driven-dev-graph/scripts/route_graph.js: sha256:d6b6041a0378db5bc05bf2493c39336281777b5fe1769ace9185f645d6035dc0
     .claude/skills/doc-driven-dev-graph/scripts/scaffold_docs.js: sha256:104e59f17798f3d192d7567f9ffa53b844ab10c1bf2c25647fd1838711effd45
-    .claude/skills/doc-maintenance/SKILL.ja.md: sha256:dceca93ecfa1716bc11d04948be571fc58b710e8611fdf11ce7f87a226be1439
-    .claude/skills/doc-maintenance/SKILL.md: sha256:8c3847d45c676bb80604f11ace2418dbe7a8f9785862fe61c9866e89f782fb32
+    .claude/skills/doc-maintenance/SKILL.ja.md: sha256:f0b28cff0ac69659de2c57efb1ba24768b479c53ff2eb9d6bb4571a0d481ea76
+    .claude/skills/doc-maintenance/SKILL.md: sha256:dd7153184ecc680a2f2e36a47d90dd47c2667698227cb372c103ef565af00a2c
     .claude/skills/doc-maintenance/references/ownership-contract.ja.md: sha256:22755e4471d083e9765a2786f073f6201adefeb3a519f07dd4a5495b3bfffe21
     .claude/skills/doc-maintenance/references/ownership-contract.md: sha256:6a4c0a40c11b70ec99445a5b429aeb69c5ac3d37673f6ee5630f730194b1c91b
     .claude/skills/doc-maintenance/scripts/doc_maintenance.js: sha256:b90cccdaff16307731d726c19adde672c0d49d0ef8c84a33b3031cfc6ebb0dac
@@ -819,12 +819,12 @@ dependencies:
     .claude/skills/test-spec-doc/references/test-spec-conventions.ja.md: sha256:7347039ef1fb35715f1b675d57c66e9977e8bc4857008abb5bc211b04986bf3e
     .claude/skills/test-spec-doc/references/test-spec-conventions.md: sha256:2319a9ee805f0fb7f0d4a784a5d396cf56b4e23a00eae4996ee953fb128df53f
     .claude/skills/test-spec-doc/scripts/new_test_spec.js: sha256:b2e7bd95d21dfe0150fd4d935d590ada1b8bf601618e96b001e985fd3b941827
-  content_hash: sha256:6f4a559910e8dae1b0d48fe82776be273b3c1433b12eb49f850a64665855d34f
+  content_hash: sha256:025d15321b4a65453d84563c43ab5db6ebcb6b947e355c1c8d074d0a07e6eeaa
   declared_license: MIT
 - repo_url: scarecrow173/apm-packages
   name: recommended-dev-suite
   host: github.com
-  resolved_commit: 391da8d3ddb033dcc84b0513721ea7658c143fde
+  resolved_commit: 7a50b2eb1768a1a30af9a1049f5b481783b6b7f0
   resolved_ref: main
   version: 0.1.0
   virtual_path: packages/recommended-dev-suite
@@ -835,7 +835,7 @@ dependencies:
 - repo_url: scarecrow173/apm-packages
   name: review-protocol
   host: github.com
-  resolved_commit: 391da8d3ddb033dcc84b0513721ea7658c143fde
+  resolved_commit: 7a50b2eb1768a1a30af9a1049f5b481783b6b7f0
   resolved_ref: main
   version: 0.1.0
   virtual_path: packages/review-protocol
@@ -1180,7 +1180,7 @@ dependencies:
 - repo_url: microsoft/apm
   name: apm-guide
   host: github.com
-  resolved_commit: 1a370716e15f915e7a1159ffb034fba37718780e
+  resolved_commit: b73386f0640ed7b703809c27025138cca1eadb59
   resolved_ref: main
   version: 1.0.0
   virtual_path: packages/apm-guide
@@ -1216,27 +1216,27 @@ dependencies:
   deployed_file_hashes:
     .agents/skills/apm-usage/SKILL.md: sha256:715b6d3497d5ca30f4751463091b8ff7cd85dc51e375d2176aea8f0867081c38
     .agents/skills/apm-usage/authentication.md: sha256:12b24d08eef2fa4ff33752297d2e080c381144669a7c5ed42b352a1171dad4c3
-    .agents/skills/apm-usage/commands.md: sha256:dc2125b64af89247b9786a3d2351019e66f4a41c2c15fb325254ccf49e510ff0
-    .agents/skills/apm-usage/dependencies.md: sha256:610933d7db5e1487e57e9cc35d3d6019638438298b5089d9961b345207ac793f
+    .agents/skills/apm-usage/commands.md: sha256:1aa4792f5a94759472382ac06a8fed0bbe25430d5ad92444da1a43ed80aeec6b
+    .agents/skills/apm-usage/dependencies.md: sha256:a4b8fb2a0b1745f7267c199c03cb92725179934cfdb1dff3eeb5569ee783b2b3
     .agents/skills/apm-usage/governance.md: sha256:968670a858801f4576746fbe86affacf4cf27296f634ad9008f58bcba22b2409
     .agents/skills/apm-usage/installation.md: sha256:a8d33ceeb41626d809ed07e0cdd16ba74f0510b5842bab64b7f6dc3e3fdb1057
-    .agents/skills/apm-usage/package-authoring.md: sha256:1cd3c5e51f965c24e396357fa2b31b0682c1c84ef34678ddb74842c3f98bff04
-    .agents/skills/apm-usage/troubleshooting.md: sha256:2c6f13b1a1758b84305f1d11e2eeb096896a02851de1e24dde644783862667cc
+    .agents/skills/apm-usage/package-authoring.md: sha256:d1c2805b3c7ffbb131c3ded1a179e24acc4dceae37968fb96cc3d2a89b4d5a17
+    .agents/skills/apm-usage/troubleshooting.md: sha256:e3ec7025fa6f520132551ae78a09260dc05acd37887ec49c883800fdd4e7f7d0
     .agents/skills/apm-usage/workflow.md: sha256:1bbb710fa9fd710aa2258aea52f6d905c6a2b3d366a1fdc723b028b4bfd2dbae
     .claude/agents/apm-expert.md: sha256:f6cded3e7eef97ad8fff06208bcfd5a0beafb9cfe810f78e10294c90e16fd8ae
     .claude/skills/apm-usage/SKILL.md: sha256:715b6d3497d5ca30f4751463091b8ff7cd85dc51e375d2176aea8f0867081c38
     .claude/skills/apm-usage/authentication.md: sha256:12b24d08eef2fa4ff33752297d2e080c381144669a7c5ed42b352a1171dad4c3
-    .claude/skills/apm-usage/commands.md: sha256:dc2125b64af89247b9786a3d2351019e66f4a41c2c15fb325254ccf49e510ff0
-    .claude/skills/apm-usage/dependencies.md: sha256:610933d7db5e1487e57e9cc35d3d6019638438298b5089d9961b345207ac793f
+    .claude/skills/apm-usage/commands.md: sha256:1aa4792f5a94759472382ac06a8fed0bbe25430d5ad92444da1a43ed80aeec6b
+    .claude/skills/apm-usage/dependencies.md: sha256:a4b8fb2a0b1745f7267c199c03cb92725179934cfdb1dff3eeb5569ee783b2b3
     .claude/skills/apm-usage/governance.md: sha256:968670a858801f4576746fbe86affacf4cf27296f634ad9008f58bcba22b2409
     .claude/skills/apm-usage/installation.md: sha256:a8d33ceeb41626d809ed07e0cdd16ba74f0510b5842bab64b7f6dc3e3fdb1057
-    .claude/skills/apm-usage/package-authoring.md: sha256:1cd3c5e51f965c24e396357fa2b31b0682c1c84ef34678ddb74842c3f98bff04
-    .claude/skills/apm-usage/troubleshooting.md: sha256:2c6f13b1a1758b84305f1d11e2eeb096896a02851de1e24dde644783862667cc
+    .claude/skills/apm-usage/package-authoring.md: sha256:d1c2805b3c7ffbb131c3ded1a179e24acc4dceae37968fb96cc3d2a89b4d5a17
+    .claude/skills/apm-usage/troubleshooting.md: sha256:e3ec7025fa6f520132551ae78a09260dc05acd37887ec49c883800fdd4e7f7d0
     .claude/skills/apm-usage/workflow.md: sha256:1bbb710fa9fd710aa2258aea52f6d905c6a2b3d366a1fdc723b028b4bfd2dbae
     .codex/agents/apm-expert.toml: sha256:0b4bec64f7c6ab70df3841237928eaccfb927789d45300870ce56163230498c4
     .cursor/agents/apm-expert.md: sha256:f6cded3e7eef97ad8fff06208bcfd5a0beafb9cfe810f78e10294c90e16fd8ae
     .github/agents/apm-expert.agent.md: sha256:f6cded3e7eef97ad8fff06208bcfd5a0beafb9cfe810f78e10294c90e16fd8ae
-  content_hash: sha256:3617a0b8f2562585fbbb6a13cacf9b06b362650618688f53dd61ecbc7b0f8966
+  content_hash: sha256:26b013bee909a0d5331e3dbbb54c780b5600e63375eb5abcf82a6f8f9a48c19d
   declared_license: Apache-2.0
 - repo_url: obra/superpowers
   name: brainstorming
@@ -1932,7 +1932,7 @@ deployments:
   owners:
   - microsoft/apm/packages/apm-guide
   active_owner: microsoft/apm/packages/apm-guide
-  content_hash: sha256:dc2125b64af89247b9786a3d2351019e66f4a41c2c15fb325254ccf49e510ff0
+  content_hash: sha256:1aa4792f5a94759472382ac06a8fed0bbe25430d5ad92444da1a43ed80aeec6b
 - kind: project-relative
   target: claude
   value: .claude/skills/apm-usage/dependencies.md
@@ -1941,7 +1941,7 @@ deployments:
   owners:
   - microsoft/apm/packages/apm-guide
   active_owner: microsoft/apm/packages/apm-guide
-  content_hash: sha256:610933d7db5e1487e57e9cc35d3d6019638438298b5089d9961b345207ac793f
+  content_hash: sha256:a4b8fb2a0b1745f7267c199c03cb92725179934cfdb1dff3eeb5569ee783b2b3
 - kind: project-relative
   target: claude
   value: .claude/skills/apm-usage/governance.md
@@ -1968,7 +1968,7 @@ deployments:
   owners:
   - microsoft/apm/packages/apm-guide
   active_owner: microsoft/apm/packages/apm-guide
-  content_hash: sha256:1cd3c5e51f965c24e396357fa2b31b0682c1c84ef34678ddb74842c3f98bff04
+  content_hash: sha256:d1c2805b3c7ffbb131c3ded1a179e24acc4dceae37968fb96cc3d2a89b4d5a17
 - kind: project-relative
   target: claude
   value: .claude/skills/apm-usage/troubleshooting.md
@@ -1977,7 +1977,7 @@ deployments:
   owners:
   - microsoft/apm/packages/apm-guide
   active_owner: microsoft/apm/packages/apm-guide
-  content_hash: sha256:2c6f13b1a1758b84305f1d11e2eeb096896a02851de1e24dde644783862667cc
+  content_hash: sha256:e3ec7025fa6f520132551ae78a09260dc05acd37887ec49c883800fdd4e7f7d0
 - kind: project-relative
   target: claude
   value: .claude/skills/apm-usage/workflow.md
@@ -2814,7 +2814,7 @@ deployments:
   owners:
   - scarecrow173/apm-packages/packages/doc-driven-dev
   active_owner: scarecrow173/apm-packages/packages/doc-driven-dev
-  content_hash: sha256:dceca93ecfa1716bc11d04948be571fc58b710e8611fdf11ce7f87a226be1439
+  content_hash: sha256:f0b28cff0ac69659de2c57efb1ba24768b479c53ff2eb9d6bb4571a0d481ea76
 - kind: project-relative
   target: claude
   value: .claude/skills/doc-maintenance/SKILL.md
@@ -2823,7 +2823,7 @@ deployments:
   owners:
   - scarecrow173/apm-packages/packages/doc-driven-dev
   active_owner: scarecrow173/apm-packages/packages/doc-driven-dev
-  content_hash: sha256:8c3847d45c676bb80604f11ace2418dbe7a8f9785862fe61c9866e89f782fb32
+  content_hash: sha256:dd7153184ecc680a2f2e36a47d90dd47c2667698227cb372c103ef565af00a2c
 - kind: project-relative
   target: claude
   value: .claude/skills/doc-maintenance/references/ownership-contract.ja.md
@@ -4704,7 +4704,7 @@ deployments:
   owners:
   - microsoft/apm/packages/apm-guide
   active_owner: microsoft/apm/packages/apm-guide
-  content_hash: sha256:dc2125b64af89247b9786a3d2351019e66f4a41c2c15fb325254ccf49e510ff0
+  content_hash: sha256:1aa4792f5a94759472382ac06a8fed0bbe25430d5ad92444da1a43ed80aeec6b
 - kind: project-relative
   target: codex
   value: .agents/skills/apm-usage/dependencies.md
@@ -4713,7 +4713,7 @@ deployments:
   owners:
   - microsoft/apm/packages/apm-guide
   active_owner: microsoft/apm/packages/apm-guide
-  content_hash: sha256:610933d7db5e1487e57e9cc35d3d6019638438298b5089d9961b345207ac793f
+  content_hash: sha256:a4b8fb2a0b1745f7267c199c03cb92725179934cfdb1dff3eeb5569ee783b2b3
 - kind: project-relative
   target: codex
   value: .agents/skills/apm-usage/governance.md
@@ -4740,7 +4740,7 @@ deployments:
   owners:
   - microsoft/apm/packages/apm-guide
   active_owner: microsoft/apm/packages/apm-guide
-  content_hash: sha256:1cd3c5e51f965c24e396357fa2b31b0682c1c84ef34678ddb74842c3f98bff04
+  content_hash: sha256:d1c2805b3c7ffbb131c3ded1a179e24acc4dceae37968fb96cc3d2a89b4d5a17
 - kind: project-relative
   target: codex
   value: .agents/skills/apm-usage/troubleshooting.md
@@ -4749,7 +4749,7 @@ deployments:
   owners:
   - microsoft/apm/packages/apm-guide
   active_owner: microsoft/apm/packages/apm-guide
-  content_hash: sha256:2c6f13b1a1758b84305f1d11e2eeb096896a02851de1e24dde644783862667cc
+  content_hash: sha256:e3ec7025fa6f520132551ae78a09260dc05acd37887ec49c883800fdd4e7f7d0
 - kind: project-relative
   target: codex
   value: .agents/skills/apm-usage/workflow.md
@@ -5586,7 +5586,7 @@ deployments:
   owners:
   - scarecrow173/apm-packages/packages/doc-driven-dev
   active_owner: scarecrow173/apm-packages/packages/doc-driven-dev
-  content_hash: sha256:dceca93ecfa1716bc11d04948be571fc58b710e8611fdf11ce7f87a226be1439
+  content_hash: sha256:f0b28cff0ac69659de2c57efb1ba24768b479c53ff2eb9d6bb4571a0d481ea76
 - kind: project-relative
   target: codex
   value: .agents/skills/doc-maintenance/SKILL.md
@@ -5595,7 +5595,7 @@ deployments:
   owners:
   - scarecrow173/apm-packages/packages/doc-driven-dev
   active_owner: scarecrow173/apm-packages/packages/doc-driven-dev
-  content_hash: sha256:8c3847d45c676bb80604f11ace2418dbe7a8f9785862fe61c9866e89f782fb32
+  content_hash: sha256:dd7153184ecc680a2f2e36a47d90dd47c2667698227cb372c103ef565af00a2c
 - kind: project-relative
   target: codex
   value: .agents/skills/doc-maintenance/references/ownership-contract.ja.md
