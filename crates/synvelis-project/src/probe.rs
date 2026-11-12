@@ -797,3 +797,353 @@ fn resolve_strip_internal(
 fn audio_port(port: &ruviform_graph::PortSpec) -> bool {
     matches!(port.format(), PortFormat::Audio(_))
 }
+
+// ── SF-04 slice 6: multi-probe alignment comparison ─────────────
+//
+// `ProbeComparisonRequest` → `AcousticObservation` is the Issue #107
+// §4 contract for comparing two semantic observation points. The
+// request is persistable intent; the observation is runtime evidence
+// (clock ids carry no serde — the same rule as `ClockContextRef`).
+// Alignment itself is Ruviform #309's `align_observation_points`;
+// these types are its semantic mirror plus the consumer-side
+// resolution failures the runtime vocabulary cannot name.
+
+/// Which side of a [`ProbeComparisonRequest`] an evidence failure or
+/// gap belongs to.
+#[non_exhaustive]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProbeComparisonSide {
+    /// The `before` (reference) point.
+    Before,
+    /// The `after` point.
+    After,
+}
+
+/// Metric families a comparison may cover — declared intent carried
+/// on the request for downstream consumers. Slice 6 compares the
+/// alignment envelope only (clock/epoch/latency/format/generation/
+/// coverage); SF-PROBE-08 diagnostics and SF-PROBE-09 measurement own
+/// the payload content.
+#[non_exhaustive]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ProbeMetricKind {
+    /// Per-channel Peak/RMS block metrics.
+    PeakRms,
+    /// Bounded captured-PCM difference evidence.
+    PcmDifference,
+}
+
+/// Explicit consumer choices for probe alignment — the semantic
+/// mirror of Ruviform #309 `AlignPolicy`. Defaults match the
+/// fail-closed runtime policy: same generation required, known
+/// latency required, no implicit rate conversion, zero error budget,
+/// conditional results allowed, shared cursor preferred over anchors.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+// flat policy bag mirroring ruviform AlignPolicy — each flag is an
+// independent consumer choice, not a state machine
+#[allow(clippy::struct_excessive_bools)]
+pub struct ProbeAlignPolicy {
+    /// Both spans must share one plan generation — no crossing and
+    /// equal ranges.
+    pub require_same_generation: bool,
+    /// Both spans must declare known latency.
+    pub require_known_latency: bool,
+    /// Permit rational sample-rate conversion (residue enters the
+    /// error budget).
+    pub allow_rate_conversion: bool,
+    /// Frame bound permitting a bounded-unknown latency condition;
+    /// `None` refuses unknown latency outright.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unknown_latency_bound_frames: Option<u64>,
+    /// Maximum tolerated alignment error in frames.
+    pub max_error_frames: u64,
+    /// Whether `Conditional` results may be returned; `false` turns
+    /// every condition into the matching incomparable reason.
+    pub allow_conditional: bool,
+    /// Try anchor-mapped engine frames before the shared cursor.
+    pub prefer_engine_frame: bool,
+}
+
+impl Default for ProbeAlignPolicy {
+    fn default() -> Self {
+        Self {
+            require_same_generation: true,
+            require_known_latency: true,
+            allow_rate_conversion: false,
+            unknown_latency_bound_frames: None,
+            max_error_frames: 0,
+            allow_conditional: true,
+            prefer_engine_frame: false,
+        }
+    }
+}
+
+/// One multi-probe comparison request — non-RT and bounded by the
+/// `max_bytes` evidence budget. Semantic points only: runtime probe
+/// ids and graph-local node/port ids never appear here.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProbeComparisonRequest {
+    /// The "before" (reference) semantic point.
+    pub before: SemanticProbePoint,
+    /// The "after" semantic point.
+    pub after: SemanticProbePoint,
+    /// Optional cursor-frame window restricting the comparison —
+    /// `None` compares each side's retained evidence extent. An empty
+    /// or inverted range fails closed as `CoverageEmpty`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub observed_range: Option<ProbeFrameInterval>,
+    /// Alignment policy (defaults to the fail-closed policy).
+    #[serde(default)]
+    pub alignment_policy: ProbeAlignPolicy,
+    /// Metric families the consumer intends to compare.
+    #[serde(default)]
+    pub metric_set: Vec<ProbeMetricKind>,
+    /// Evidence budget in bytes — exceeding it fails closed with
+    /// `EvidenceBudgetExceeded` before alignment runs.
+    pub max_bytes: u64,
+}
+
+/// Inclusive plan-generation range an observation span covered — the
+/// contract mirror of the runtime `GenerationRange`.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ProbeGenerationRange {
+    /// First (oldest) generation observed.
+    pub first: u64,
+    /// Last (newest) generation observed.
+    pub last: u64,
+}
+
+/// Coordinate basis an alignment was computed in — semantic mirror
+/// of the runtime `AlignmentBasis`.
+#[non_exhaustive]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ProbeComparisonBasis {
+    /// Same cursor series and epoch — offsets are cursor-frame
+    /// differences (latency-compensated).
+    SharedCursor {
+        /// Shared clock identity.
+        clock: ClockContextRef,
+    },
+    /// Both spans mapped through anchors into one engine epoch —
+    /// offsets are engine-frame differences.
+    EngineFrame {
+        /// Shared engine epoch the frames live in.
+        epoch: ClockEpochId,
+    },
+    /// A basis the contract cannot represent — never guessed.
+    Unknown,
+}
+
+/// A condition keeping an alignment `Conditional` rather than
+/// `Aligned` — semantic mirror of the runtime `AlignmentCondition`.
+#[non_exhaustive]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum ProbeAlignCondition {
+    /// One side's latency is unknown; the declared bound frames the
+    /// worst-case misalignment.
+    LatencyBounded {
+        /// Worst-case latency uncertainty in frames.
+        bound_frames: u64,
+    },
+    /// Anchor calibration or stamp provenance is estimated.
+    ProvenanceEstimated,
+    /// Part of the compared window lacks valid coverage on at least
+    /// one side — `excluded_intervals` names it.
+    PartialCoverage,
+    /// The spans' generation ranges differ or cross a rebind.
+    CrossGeneration,
+    /// The spans declare different precisions.
+    MixedPrecision,
+    /// A condition the contract cannot represent (future runtime
+    /// variant) — recorded, never guessed.
+    Unknown,
+}
+
+/// Why two observations cannot be aligned — consumer-side resolution
+/// failures the runtime vocabulary cannot name, plus the semantic
+/// mirror of the runtime `IncomparableReason`. `Unknown` covers
+/// future runtime variants.
+#[non_exhaustive]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ProbeIncomparableReason {
+    /// No subscription binding exists for the semantic point.
+    PointUnresolved {
+        /// Which side failed.
+        side: ProbeComparisonSide,
+    },
+    /// Bindings exist for the point but none has an installed
+    /// runtime probe.
+    ProbeNotBound {
+        /// Which side failed.
+        side: ProbeComparisonSide,
+    },
+    /// The compared window contains no observed data records on this
+    /// side (nothing retained, or the window covers only
+    /// status/gap evidence).
+    NoObservationData {
+        /// Which side failed.
+        side: ProbeComparisonSide,
+    },
+    /// In-window records disagree on channel count or sample rate —
+    /// the side cannot declare one honest format.
+    InconsistentFormat {
+        /// Which side failed.
+        side: ProbeComparisonSide,
+    },
+    /// The observed channel count has no declarable layout — the
+    /// runtime record carries no speaker mask, so non-canonical
+    /// counts fail closed rather than inventing one.
+    UnsupportedChannelLayout {
+        /// Which side failed.
+        side: ProbeComparisonSide,
+        /// Observed channel count.
+        channels: u16,
+    },
+    /// Retained evidence exceeds the request's byte budget.
+    EvidenceBudgetExceeded,
+    /// Either span's clock mark is unknown — unknown domains never
+    /// align, not even with each other.
+    UnknownClock,
+    /// Different clock domains and no shared anchor evidence.
+    DomainMismatch,
+    /// Same domain but different epochs and no anchor evidence —
+    /// the Seek/Loop/Restart discontinuity case.
+    EpochMismatch,
+    /// Anchor mapping placed the spans in different engine epochs.
+    SeriesMismatch,
+    /// Declared sample rates differ and no conversion was permitted
+    /// (or the rate is unusable).
+    RateMismatch {
+        /// First span's declared rate.
+        a: u32,
+        /// Second span's declared rate.
+        b: u32,
+    },
+    /// Channel count or layout differ — not the same signal shape.
+    FormatMismatch,
+    /// Latency is unknown and the policy allows no bound.
+    LatencyUnknown,
+    /// No jointly valid coverage inside the compared window.
+    CoverageEmpty,
+    /// A generation/epoch discontinuity or mixed clock marks fall
+    /// inside the compared window.
+    DiscontinuityInWindow,
+    /// The spans' generation ranges cross a plan boundary while the
+    /// policy requires a single generation.
+    GenerationSpan,
+    /// No anchor exists for a span's domain (or its context/frame
+    /// base is undeclared).
+    AnchorMissing,
+    /// Anchor mapping was attempted and rejected — the runtime
+    /// rejection detail stays on the Ruviform result.
+    AnchorRejected,
+    /// Frame arithmetic overflowed.
+    Overflow,
+    /// Computed error budget exceeds the policy's frame bound.
+    ErrorBudgetExceeded,
+    /// Provenance is estimated and conditional results are
+    /// disallowed.
+    EstimatedProvenance,
+    /// A reason the contract cannot represent (future runtime
+    /// variant) — recorded, never guessed.
+    Unknown,
+}
+
+/// The three-valued alignment result — semantic mirror of the
+/// runtime `Alignment`, with the compared window and excluded
+/// evidence spelled out in contract vocabulary.
+#[non_exhaustive]
+#[derive(Clone, Debug, PartialEq)]
+pub enum ProbeComparisonQuality {
+    /// Unconditionally aligned — basis, offset, error budget and the
+    /// jointly observed overlap are all explicit.
+    Aligned {
+        /// Coordinate basis used.
+        basis: ProbeComparisonBasis,
+        /// A→B offset in basis frame units for the same signal
+        /// instant (latency-compensated on the shared-cursor basis).
+        offset_frames: i64,
+        /// Worst-case alignment error in frames.
+        error_budget_frames: u64,
+    },
+    /// Alignable only under the stated conditions — never silently
+    /// promoted.
+    Conditional {
+        /// Coordinate basis used.
+        basis: ProbeComparisonBasis,
+        /// A→B offset (same convention as `Aligned`).
+        offset_frames: i64,
+        /// Worst-case alignment error in frames.
+        error_budget_frames: u64,
+        /// Conditions the consumer must weigh.
+        conditions: Vec<ProbeAlignCondition>,
+        /// Sub-intervals of the overlap excluded from valid
+        /// comparison, in after-side basis coordinates.
+        excluded_intervals: Vec<ProbeFrameInterval>,
+    },
+    /// Cannot be aligned — explicit reason.
+    Incomparable {
+        /// Why.
+        reason: ProbeIncomparableReason,
+    },
+}
+
+/// A classified non-valid coverage interval inside a compared
+/// window. `range` is in that side's own cursor coordinates.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProbeComparisonGap {
+    /// Which side the gap belongs to.
+    pub side: ProbeComparisonSide,
+    /// Frame interval the gap covers.
+    pub range: ProbeFrameInterval,
+    /// Gap classification (`Unknown` covers unexplained regions,
+    /// including window areas outside all retained coverage).
+    pub kind: ObservationGapKind,
+}
+
+/// Clock/generation provenance of the compared evidence.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProbeComparisonProvenance {
+    /// Clock identity of each side's span (`None` = side unresolved
+    /// or mark unknown).
+    pub before_clock: Option<ClockContextRef>,
+    /// Clock identity of the after side's span.
+    pub after_clock: Option<ClockContextRef>,
+    /// Generation range each side's span covered.
+    pub before_generations: Option<ProbeGenerationRange>,
+    /// Generation range of the after side's span.
+    pub after_generations: Option<ProbeGenerationRange>,
+    /// Cursor-series runtime instance.
+    pub runtime_instance: u64,
+    /// Declared sample rate of the cursor series (`0` = undeclared).
+    pub sample_rate: u32,
+}
+
+/// The `ProbeComparisonRequest → AcousticObservation` result —
+/// runtime evidence, never persisted (clock ids carry no serde).
+/// Signal-value payloads (peak/rms deltas, bounded PCM difference)
+/// are SF-PROBE-08/09 scope; this slice reports the alignment
+/// envelope honestly and fabricates no signal content.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AcousticObservation {
+    /// Semantic points compared (echo of the request).
+    pub before: SemanticProbePoint,
+    /// Semantic points compared (echo of the request).
+    pub after: SemanticProbePoint,
+    /// Three-valued alignment quality.
+    pub quality: ProbeComparisonQuality,
+    /// After-side cursor-frame window actually compared — present
+    /// iff both sides resolved to evidence spans (alignment was
+    /// attempted). Units are the after probe's cursor frames
+    /// regardless of the alignment basis.
+    pub interval: Option<ProbeFrameInterval>,
+    /// Per-side classified non-valid coverage inside each side's
+    /// window.
+    pub gap_mask: Vec<ProbeComparisonGap>,
+    /// Evidence provenance.
+    pub provenance: ProbeComparisonProvenance,
+}
