@@ -1010,6 +1010,34 @@ impl Operation for ProjectOp {
                 if !base.is_finite() || !(0.0..=1.0).contains(base) {
                     return Err(Error::Validation("param base outside [0,1]".into()));
                 }
+                // `SendLevel` is the send's own level role — it is
+                // only meaningful on a `Send` owner:
+                // `send_level_target_id` resolves exactly that pair
+                // and `gain_target` requires Send ownership, so the
+                // role anywhere else is an orphan no send can
+                // reference.
+                if *role == ParameterRole::SendLevel && !matches!(owner, ControlOwner::Send(_)) {
+                    return Err(Error::Validation(format!(
+                        "{role:?} target requires a Send owner, got {owner:?}"
+                    )));
+                }
+                // Issue #122: internal channel/send targets carry the
+                // canonical persisted spec — the same contract
+                // `strip_channel_target` seeds and
+                // `SendGainSpec::Create` stages, so a public op cannot
+                // persist e.g. a `Pan` with a plugin `ParamId`.
+                // `name`/`base` stay authored.
+                if let Some((ckind, cmapping, cscope)) =
+                    crate::control::canonical_internal_spec(*owner, *role)
+                    && (*kind != ckind
+                        || *mapping != cmapping
+                        || *time_scope != cscope
+                        || capability.is_some())
+                {
+                    return Err(Error::Validation(format!(
+                        "{owner:?} {role:?} target requires the canonical internal spec"
+                    )));
+                }
                 if let Some(cap) = capability {
                     cap.param_info("")?;
                     if matches!(mapping, ParamMapping::Exponential) && cap.min_value <= 0.0 {
