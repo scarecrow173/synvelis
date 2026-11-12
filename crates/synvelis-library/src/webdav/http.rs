@@ -51,6 +51,11 @@ pub(crate) struct HttpRequest {
     pub method: &'static str,
     /// Decoded absolute path (`/music/a.wav`) — no query/fragment.
     pub path: String,
+    /// Optional query string (without `?`), already
+    /// percent-encoded — emitted verbatim after the encoded path.
+    /// Re-encoding would corrupt signed tokens, so callers pass the
+    /// server's own spelling.
+    pub query: Option<String>,
     /// Extra header lines as `(name, value)`; names are emitted
     /// verbatim so callers pass canonical casing.
     pub headers: Vec<(String, String)>,
@@ -149,6 +154,53 @@ fn is_timeout(e: &io::Error) -> bool {
     )
 }
 
+/// A plain-HTTP connection target — the host/port/IPv6 triple the
+/// transport needs, independent of any provider's URL type. The
+/// scheme is always `http`: this transport has no TLS stack, so
+/// `https` endpoints are rejected by callers before construction.
+#[derive(Clone, Debug)]
+pub(crate) struct HttpEndpoint {
+    /// Host without brackets for IPv6 literals.
+    pub host: String,
+    /// Explicit port (the scheme default is applied by callers).
+    pub port: u16,
+    /// Whether `host` is an IPv6 literal.
+    pub ipv6: bool,
+}
+
+impl HttpEndpoint {
+    /// Builds an endpoint for plain HTTP on `port`.
+    #[must_use]
+    pub(crate) fn new(host: impl Into<String>, port: u16, ipv6: bool) -> Self {
+        Self {
+            host: host.into(),
+            port,
+            ipv6,
+        }
+    }
+
+    /// `host` or `[host]` for IPv6, with `:port` appended unless it
+    /// is the HTTP default (80) — the `Host` header value.
+    fn host_header(&self) -> String {
+        let host_part = if self.ipv6 {
+            format!("[{}]", self.host)
+        } else {
+            self.host.clone()
+        };
+        if self.port == 80 {
+            host_part
+        } else {
+            format!("{host_part}:{}", self.port)
+        }
+    }
+}
+
+impl From<&WebDavUrl> for HttpEndpoint {
+    fn from(url: &WebDavUrl) -> Self {
+        Self::new(url.host(), url.port(), url.is_ipv6())
+    }
+}
+
 /// Sends `req` to `url` and returns the response head plus an open
 /// body stream. One connection per call; `Connection: close` is
 /// always sent so close-delimited bodies terminate.
@@ -170,11 +222,29 @@ pub(crate) fn send(
             "webdav provider",
         ));
     }
+    send_endpoint(&HttpEndpoint::from(url), req, cancel, deadline)
+}
+
+/// Sends `req` to a plain-HTTP `endpoint` — the shared transport
+/// entry point for non-WebDAV callers (Git LFS). Identical wire
+/// behavior to [`send`]: one request per connection,
+/// `Connection: close`, and the cooperative cancel/deadline/stall
+/// guard. Never TLS.
+///
+/// # Errors
+/// Same contract as [`send`], minus the scheme check — the
+/// endpoint is HTTP by construction.
+pub(crate) fn send_endpoint(
+    endpoint: &HttpEndpoint,
+    req: &HttpRequest,
+    cancel: &CancellationToken,
+    deadline: Option<Instant>,
+) -> Result<HttpResponse, ProviderError> {
     let guard = IoGuard::new(cancel, deadline);
     guard.check()?;
-    let addrs = resolve(url)?;
+    let addrs = resolve(endpoint)?;
     let mut stream = connect(&addrs, &guard)?;
-    write_request(&mut stream, url, req, &guard)?;
+    write_request(&mut stream, endpoint, req, &guard)?;
     let head = read_head(&mut stream, &guard)?;
     let body = open_body(
         stream,
@@ -191,25 +261,25 @@ pub(crate) fn send(
     })
 }
 
-fn resolve(url: &WebDavUrl) -> Result<Vec<SocketAddr>, ProviderError> {
-    let authority = if url.is_ipv6() {
-        format!("[{}]:{}", url.host(), url.port())
+fn resolve(endpoint: &HttpEndpoint) -> Result<Vec<SocketAddr>, ProviderError> {
+    let authority = if endpoint.ipv6 {
+        format!("[{}]:{}", endpoint.host, endpoint.port)
     } else {
-        format!("{}:{}", url.host(), url.port())
+        format!("{}:{}", endpoint.host, endpoint.port)
     };
     let addrs: Vec<SocketAddr> = authority
         .to_socket_addrs()
         .map_err(|e| {
             ProviderError::new(
                 ProviderErrorKind::Offline,
-                format!("cannot resolve {}: {e}", url.host()),
+                format!("cannot resolve {}: {e}", endpoint.host),
             )
         })?
         .collect();
     if addrs.is_empty() {
         return Err(ProviderError::new(
             ProviderErrorKind::Offline,
-            format!("no addresses for {}", url.host()),
+            format!("no addresses for {}", endpoint.host),
         ));
     }
     Ok(addrs)
@@ -246,7 +316,7 @@ fn connect(addrs: &[SocketAddr], guard: &IoGuard) -> Result<TcpStream, ProviderE
 
 fn write_request(
     stream: &mut TcpStream,
-    url: &WebDavUrl,
+    endpoint: &HttpEndpoint,
     req: &HttpRequest,
     guard: &IoGuard,
 ) -> Result<(), ProviderError> {
@@ -254,8 +324,21 @@ fn write_request(
     head.push_str(req.method);
     head.push(' ');
     head.push_str(&encode_path(&req.path));
+    if let Some(query) = &req.query {
+        // The query is already percent-encoded and emitted
+        // verbatim; anything that could break the request line is
+        // refused at this last boundary before the wire.
+        if query.bytes().any(|b| b <= 0x20 || b == 0x7f || b == b'#') {
+            return Err(ProviderError::new(
+                ProviderErrorKind::Internal,
+                "refusing to emit malformed query",
+            ));
+        }
+        head.push('?');
+        head.push_str(query);
+    }
     head.push_str(" HTTP/1.1\r\nHost: ");
-    head.push_str(&url.host_header());
+    head.push_str(&endpoint.host_header());
     head.push_str("\r\nUser-Agent: synvelis-library\r\nConnection: close\r\n");
     for (name, value) in &req.headers {
         // Header values are validated by callers; re-check here so a
