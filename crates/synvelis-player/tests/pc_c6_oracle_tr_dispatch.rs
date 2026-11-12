@@ -5,10 +5,13 @@
 //! TR01..TR08 classification rules against hand-built [`ControlTrace`]s
 //! and recorded the `synvelis-player` dispatch-ledger path plus bounded
 //! history retention (TRACE-C3-05) as `NotRun`. This file closes that
-//! gap for the rows the real path can evidence:
+//! gap for every TR row:
 //!
 //! - TR01 — stage independence: `prepared`/`dispatched`/receipt slots
 //!   never synthesize the `plugin_reported`/`observed` channels.
+//! - TR02 — every context-dimension mismatch classifies `Stale` with
+//!   the named reason on a real ledger trace, including a composite
+//!   move resolving to the first dimension in check order.
 //! - TR03 — context changes classify `Stale` with the named reason,
 //!   including a *real* plan-generation re-key through re-dispatch.
 //! - TR04 — ledger `Unavailable`/`Reported` terminals vs probe
@@ -17,6 +20,9 @@
 //!   carries no timestamp, so the adapter stamps drain-time transport
 //!   position as `Estimated` — never `Current` (adapter honesty
 //!   contract).
+//! - TR06 — `MeasuredValue::Silence` is a real measurement (`Current`)
+//!   while `Missing`/`Disabled`/`Lost`/empty slot stay distinct honest
+//!   answers — silence is never conflated with "no data".
 //! - TR07 — the same probe observation recorded on two targets yields
 //!   per-trace verdicts under their own contexts.
 //! - TR08 — bounded retention: history ring, target cap, generation
@@ -912,6 +918,164 @@ fn tr01_stage_independence_real_ledger() {
 }
 
 // ---------------------------------------------------------------------------
+// TR02 — every context mismatch dimension classifies Stale, named — on a
+// real ledger-produced trace.
+// ---------------------------------------------------------------------------
+
+/// All seven context dimensions are pinned on a real trace carrying
+/// live evidence on both observation channels: each single-dimension
+/// move names its `StaleReason`, and a composite move resolves to the
+/// first dimension in check order — the trace never silently answers
+/// `Current`.
+#[test]
+#[allow(clippy::too_many_lines)] // sequential oracle scenario
+fn tr02_context_mismatch_dimensions_real_ledger() {
+    let mut rig = ledger_rig(TraceAdapterConfig::default());
+    let t1 = ParameterTargetId::new(701);
+    rig.adapter.bind(t1, ParamId(21), &PARAMS).unwrap();
+
+    // Real path: plan gen → Reported → receipts → observe → trusted
+    // probe stamp. Both observation channels carry live evidence.
+    let plan1 = rig.adapter.dispatch(&[write(t1, 21, 256, 0.5)]).unwrap();
+    let gen1 = plan1.generation;
+    assert!(
+        rig.adapter
+            .record_reported(t1, ParamValue::new(0.9).unwrap())
+    );
+    rig.drive(4, 128);
+    let s1 = span(gen1, 0, LoopOccurrence::new(1), 512);
+    rig.observe(&s1);
+    rig.adapter.record_probe(
+        t1,
+        ProbeObservation::Measuring {
+            stamp: stamp_at(pos(48_000), TimestampProvenance::Carried),
+            value: MeasuredValue::Signal(ParamValue::new(0.4).unwrap()),
+        },
+    );
+
+    let trace = rig.adapter.trace(t1).unwrap();
+    // The key's context dimensions are real-path products — the plan
+    // generation minted by `dispatch`, the declared project context,
+    // and receipt/span-attributed transport context — not fixture
+    // literals handed to a hand-built trace.
+    assert_eq!(trace.key.project_revision, ProjectRevision(5));
+    assert_eq!(trace.key.graph_generation, 11);
+    assert_eq!(trace.key.control_plan_generation, gen1);
+    assert!(matches!(
+        trace.plugin_reported,
+        TraceSlot::Present(PluginReportedEvidence { .. })
+    ));
+    assert!(matches!(
+        trace.observed,
+        TraceSlot::Present(ProbeObservation::Measuring { .. })
+    ));
+    assert!(trace.is_coherent());
+
+    // Live world agrees with the evidence: trusted probe answers
+    // Current, the Estimated report stays Estimated, combined is
+    // Current.
+    let live = live_ctx(trace, pos(48_000));
+    assert_trace_agrees(trace, &live);
+    assert_eq!(trace.freshness(&live), ObservationFreshness::Current);
+
+    // (moved context, expected reason, dimension label) — exactly one
+    // dimension moved at a time; the oracle derives the verdict and
+    // the literal pins the documented check order.
+    let cases: [(FreshnessContext, StaleReason, &str); 7] = [
+        (
+            FreshnessContext {
+                project_revision: ProjectRevision(live.project_revision.0 + 1),
+                ..live
+            },
+            StaleReason::ProjectRevision,
+            "project_revision",
+        ),
+        (
+            FreshnessContext {
+                control_plan_generation: PlanGeneration::new(
+                    live.control_plan_generation.get() + 1,
+                ),
+                ..live
+            },
+            StaleReason::ControlPlan,
+            "control_plan_generation",
+        ),
+        (
+            FreshnessContext {
+                graph_generation: live.graph_generation + 1,
+                ..live
+            },
+            StaleReason::Graph,
+            "graph_generation",
+        ),
+        (
+            FreshnessContext {
+                transport_generation: TransportGeneration::new(live.transport_generation.get() + 1),
+                ..live
+            },
+            StaleReason::Transport,
+            "transport_generation",
+        ),
+        (
+            FreshnessContext {
+                clock_epoch: ClockEpochId::new(live.clock_epoch.get() + 1),
+                ..live
+            },
+            StaleReason::ClockEpoch,
+            "clock_epoch",
+        ),
+        (
+            FreshnessContext {
+                loop_occurrence: LoopOccurrence::new(live.loop_occurrence.get() + 1),
+                ..live
+            },
+            StaleReason::Loop,
+            "loop_occurrence",
+        ),
+        (
+            FreshnessContext {
+                evaluation_position: pos(live.evaluation_position.value() + 1),
+                ..live
+            },
+            StaleReason::Position,
+            "evaluation_position",
+        ),
+    ];
+    for (moved, reason, label) in cases {
+        let expected = ObservationFreshness::Stale { reason };
+        assert_eq!(oracle_freshness(trace, &moved), expected, "oracle: {label}");
+        assert_trace_agrees(trace, &moved);
+        assert_eq!(trace.freshness(&moved), expected, "{label}");
+        assert_eq!(
+            trace.observed_freshness(&moved),
+            expected,
+            "{label}: context stale precedes channel evaluation"
+        );
+        assert!(trace.is_coherent(), "{label}: coherence is ctx-free");
+    }
+
+    // Every dimension moved at once resolves to the first mismatch in
+    // check order — project revision beats everything.
+    let everything = FreshnessContext {
+        project_revision: ProjectRevision(99),
+        control_plan_generation: PlanGeneration::new(99),
+        graph_generation: 99,
+        transport_generation: TransportGeneration::new(99),
+        clock_epoch: ClockEpochId::new(99),
+        evaluation_position: pos(99),
+        loop_occurrence: LoopOccurrence::new(99),
+        ..live
+    };
+    let expected = ObservationFreshness::Stale {
+        reason: StaleReason::ProjectRevision,
+    };
+    assert_eq!(oracle_freshness(trace, &everything), expected);
+    assert_trace_agrees(trace, &everything);
+    assert_eq!(trace.freshness(&everything), expected);
+    assert!(trace.is_coherent());
+}
+
+// ---------------------------------------------------------------------------
 // TR03 — context changes classify Stale with the named reason; a real
 // re-dispatch re-keys the trace and strands the old context.
 // ---------------------------------------------------------------------------
@@ -1375,6 +1539,139 @@ fn tr05_plugin_reported_stamp_provenance() {
         ObservationFreshness::Estimated
     );
     assert_eq!(trace.freshness(&live), ObservationFreshness::Estimated);
+}
+
+// ---------------------------------------------------------------------------
+// TR06 — measured silence is an observation; missing/disabled/lost are
+// channel states, never conflated.
+// ---------------------------------------------------------------------------
+
+/// `MeasuredValue::Silence` recorded through `record_probe` on a real
+/// ledger trace is a measurement — `Current` — while the untouched
+/// slot, `Missing`, `Disabled` and `Lost` stay distinct honest answers
+/// on a sibling real trace. Silence is never "no data".
+#[test]
+#[allow(clippy::too_many_lines)] // sequential oracle scenario
+fn tr06_silence_vs_unobserved_real_ledger() {
+    let mut rig = ledger_rig(TraceAdapterConfig::default());
+    let t1 = ParameterTargetId::new(801);
+    let t2 = ParameterTargetId::new(802);
+    rig.adapter.bind(t1, ParamId(21), &PARAMS).unwrap();
+    rig.adapter.bind(t2, ParamId(22), &PARAMS).unwrap();
+
+    // One real plan covering both targets → real receipts → observe.
+    // Both traces get real dispatched evidence; neither has probe
+    // evidence yet.
+    let plan1 = rig
+        .adapter
+        .dispatch(&[write(t1, 21, 256, 0.5), write(t2, 22, 320, 0.6)])
+        .unwrap();
+    let gen1 = plan1.generation;
+    rig.drive(4, 128);
+    let s1 = span(gen1, 0, LoopOccurrence::new(1), 512);
+    rig.observe(&s1);
+
+    for target in [t1, t2] {
+        let trace = rig.adapter.trace(target).unwrap();
+        assert!(matches!(
+            trace.dispatched,
+            TraceSlot::Present(DispatchEvidence::Dispatched { .. })
+        ));
+        assert!(matches!(trace.observed, TraceSlot::Missing));
+        let live = live_ctx(trace, pos(0));
+        assert_trace_agrees(trace, &live);
+        assert_eq!(
+            trace.observed_freshness(&live),
+            ObservationFreshness::Unavailable {
+                reason: UnavailableReason::NoEvidence,
+            },
+            "no probe record → NoEvidence, never a measurement"
+        );
+    }
+
+    // t1's probe reports *measured silence* — a real measurement with
+    // a trusted stamp, recorded verbatim through the real path.
+    rig.adapter.record_probe(
+        t1,
+        ProbeObservation::Measuring {
+            stamp: stamp_at(pos(0), TimestampProvenance::Carried),
+            value: MeasuredValue::Silence,
+        },
+    );
+    let trace1 = rig.adapter.trace(t1).unwrap();
+    // Field-level pin: the stored evidence is verbatim `Silence`,
+    // not a signal value and not a channel state.
+    match &trace1.observed {
+        TraceSlot::Present(ProbeObservation::Measuring { stamp, value }) => {
+            assert_eq!(*value, MeasuredValue::Silence);
+            assert_eq!(stamp.provenance, TimestampProvenance::Carried);
+            assert_eq!(stamp.time, pos(0));
+        }
+        other => panic!("expected Measuring(Silence), got {other:?}"),
+    }
+    let live1 = live_ctx(trace1, pos(0));
+    assert_trace_agrees(trace1, &live1);
+    assert_eq!(
+        trace1.observed_freshness(&live1),
+        ObservationFreshness::Current,
+        "measured silence is evidence — Current"
+    );
+    assert_eq!(trace1.freshness(&live1), ObservationFreshness::Current);
+    // t2 stays unobserved — t1's measurement does not leak across
+    // targets on the same rig.
+    let trace2 = rig.adapter.trace(t2).unwrap();
+    let live2 = live_ctx(trace2, pos(0));
+    assert_trace_agrees(trace2, &live2);
+    assert_eq!(
+        trace2.observed_freshness(&live2),
+        ObservationFreshness::Unavailable {
+            reason: UnavailableReason::NoEvidence,
+        }
+    );
+
+    // Channel states on t2 — each a different honest answer, none a
+    // measurement, and none disturbing t1's verdict.
+    let states: [(ProbeObservation, ObservationFreshness); 3] = [
+        (
+            ProbeObservation::Missing,
+            ObservationFreshness::Unavailable {
+                reason: UnavailableReason::ProbeMissing,
+            },
+        ),
+        (
+            ProbeObservation::Disabled,
+            ObservationFreshness::Unavailable {
+                reason: UnavailableReason::ProbeDisabled,
+            },
+        ),
+        (
+            ProbeObservation::Lost { count: 4 },
+            ObservationFreshness::DataLoss { count: 4 },
+        ),
+    ];
+    for (obs, expected) in states {
+        rig.adapter.record_probe(t2, obs);
+        let trace2 = rig.adapter.trace(t2).unwrap();
+        let live2 = live_ctx(trace2, pos(0));
+        assert_trace_agrees(trace2, &live2);
+        assert_eq!(trace2.observed_freshness(&live2), expected, "probe {obs:?}");
+        assert_ne!(
+            trace2.observed_freshness(&live2),
+            ObservationFreshness::Current,
+            "{obs:?} is a channel state, not a measurement"
+        );
+    }
+
+    // t1's measured silence still classifies Current — the channel
+    // states recorded on t2 never touched it.
+    let trace1 = rig.adapter.trace(t1).unwrap();
+    let live1 = live_ctx(trace1, pos(0));
+    assert_trace_agrees(trace1, &live1);
+    assert_eq!(
+        trace1.observed_freshness(&live1),
+        ObservationFreshness::Current
+    );
+    assert_eq!(trace1.freshness(&live1), ObservationFreshness::Current);
 }
 
 // ---------------------------------------------------------------------------
