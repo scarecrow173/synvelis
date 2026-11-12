@@ -98,6 +98,7 @@ Directory: `docs/plans`
 | PLAN-034VtBaArtupj0qHG0phVl | TIM-01 app 層 PPQN 統合 — implementation plan | approved | [tim-01-app-ppqn-plan.md](./tim-01-app-ppqn-plan.md) |
 | PLAN-034UHYyMbiLPEtGczKNKYC | TIM-01 Configurable PPQN Project Command — implementation plan | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | PLAN-7hJkMnBvCxZqWeRtYuIo | TIM-01 PPQN Preview op + New Project PPQN — implementation plan | approved | [tim-01-ppqn-preview-plan.md](./tim-01-ppqn-preview-plan.md) |
+| PLAN-TiM01uIxYzAbCdEfGh3 | TIM-01 PPQN 選択 UI + Snap/Grid ポリシー — implementation plan | approved | [tim-01-ppqn-ui-plan.md](./tim-01-ppqn-ui-plan.md) |
 | PLAN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — 実装 plan | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | PLAN-034UwXgmnKOCYgkwlGLFkf | TIM-02 SMF Format0/1 core implementation plan | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
 | PLAN-Yn3mzcCyD4Dwd0Ga4zylHB | TIM-03 session→driver/routing wiring plan | approved | [tim-03-session-driver-wiring-plan.md](./tim-03-session-driver-wiring-plan.md) |

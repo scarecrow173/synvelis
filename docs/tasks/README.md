@@ -180,6 +180,7 @@ Directory: `docs/tasks`
 | TASK-034T2RF305WAVSTAGED01A | SYN-RF305 task1 render/player WAV Export StagedFile 移行 | done | [syn-rf305-task1-render-export-staged-file.md](./syn-rf305-task1-render-export-staged-file.md) |
 | TASK-034UHVQgQGF9WnpLCSCDTB | TIM-01 configurable PPQN — implementation tasks | done | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | TASK-2pOiUyTrEwQaSdFgHjKl | TIM-01 — PPQN Preview op + New Project PPQN | done | [tim-01-ppqn-preview-task.md](./tim-01-ppqn-preview-task.md) |
+| TASK-TiM01uIxYzAbCdEfGh4 | TIM-01 — PPQN 選択 UI read model + Snap/Grid ポリシー | done | [tim-01-ppqn-ui-task.md](./tim-01-ppqn-ui-task.md) |
 | TASK-034VtBNiTaFYQMA3eOBYXv | TIM-01 task2 — app 層 PPQN 統合 | done | [tim-01-task2-app-ppqn.md](./tim-01-task2-app-ppqn.md) |
 | TASK-034UwY7u8viaAzE6tUxLHa | TIM-02 Task1 SMF Format0/1 project+recording headless slice | done | [tim-02-task1-smf-core.md](./tim-02-task1-smf-core.md) |
 | TASK-126tim02playerMidiRt01 | TIM-02 Task2 player MIDI RT/Offline 結合 slice | done | [tim-02-task2-player-midi.md](./tim-02-task2-player-midi.md) |

@@ -113,6 +113,7 @@ Directory: `docs/test-specs`
 | TSPEC-034VtALo1YCyrOraJu0URr | TIM-01 app 層 PPQN — test spec | approved | [tim-01-app-ppqn.md](./tim-01-app-ppqn.md) |
 | TSPEC-034UHWDhuZ4tU11F5QFAEh | TIM-01 configurable PPQN — test spec | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | TSPEC-5nMbVcXzKlJhGfDsApOi | TIM-01 PPQN Preview + New Project PPQN — test spec | approved | [tim-01-ppqn-preview.md](./tim-01-ppqn-preview.md) |
+| TSPEC-TiM01uIxYzAbCdEfGh5 | TIM-01 PPQN 選択 UI + Snap/Grid ポリシー — test spec | approved | [tim-01-ppqn-ui.md](./tim-01-ppqn-ui.md) |
 | TESTSPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 fixtures | approved | [tim-02-player-midi-rt-fixtures.md](./tim-02-player-midi-rt-fixtures.md) |
 | TSPEC-034UwYugwIyQVbAeVxql8O | TIM-02 SMF Format0/1 fixture matrix | proposed | [tim-02-smf-format01-fixtures.md](./tim-02-smf-format01-fixtures.md) |
 | TSPEC-lQ0qYg1as24XtlZ1sHNNWN | TIM-03 session→driver/routing wiring test spec — TIM03-SW01..NN | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |

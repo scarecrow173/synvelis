@@ -105,6 +105,7 @@ Directory: `docs/specs`
 | SPEC-034Vtz2CrUpwevHTLxDLm6 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証（synvelis-app slice） | approved | [tim-01-app-ppqn.md](./tim-01-app-ppqn.md) |
 | SPEC-034UHVLQ9dtoN4YQDjtCy3 | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | approved | [tim-01-configurable-ppqn-project-command.md](./tim-01-configurable-ppqn-project-command.md) |
 | SPEC-9xQpPvK2mN7rT4wE8jH3d | TIM-01 PPQN Preview op + New Project PPQN — syn.project.preview_ppqn / syn.project.new.ppqn（synvelis#125 preview slice） | approved | [tim-01-ppqn-preview.md](./tim-01-ppqn-preview.md) |
+| SPEC-TiM01uIxYzAbCdEfGh | TIM-01 PPQN 選択 UI read model + Snap/Grid ポリシー — synvelis#125 UI slice（headless） | approved | [tim-01-ppqn-ui.md](./tim-01-ppqn-ui.md) |
 | SPEC-034UwMIulZ7DXWykQFy704 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice (synvelis#126) | proposed | [tim-02-smf-format01-import-export.md](./tim-02-smf-format01-import-export.md) |
 | SPEC-1umIWi6ogYs4kgcJeTyvJ8 | TIM-03 session→driver/routing wiring — ProcessBoundarySession の composition 接続（headless slice） | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | SPEC-034UBZ7xNf0yey5lCLjVNT | TIM-04 Plugin State Snapshot 一貫性 — quality receipt・save/reload/HEAD/offline recipe（headless mock slice） | approved | [tim-04-plugin-state-snapshot-consistency.md](./tim-04-plugin-state-snapshot-consistency.md) |
