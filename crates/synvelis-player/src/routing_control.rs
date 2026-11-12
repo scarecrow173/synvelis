@@ -66,7 +66,10 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
 
-use ruviform_media_core::{EngineFrame, MediaTime, TimeBase, TransportCommand, TransportSpan};
+use ruviform_media_core::{
+    EngineFrame, MediaTime, PlanGeneration, TimeBase, TransportCommand, TransportSpan,
+    media_time_ticks,
+};
 use ruviform_plugin_core::{Event, EventKind, ParamInfo, ParamWriteMeans, TimedParamEvent};
 use ruviform_plugin_host::{HostError, PluginHandle, ReportDrain};
 use synvelis_project::{
@@ -78,6 +81,7 @@ use crate::binding::{
     BindingError, PluginBindingSession, PluginParameterBinding, StablePluginInstanceId,
 };
 use crate::dispatch::{DispatchCycle, DispatchError, ParamDispatch};
+use crate::driver::TransportMirror;
 use crate::plugin_state::PluginStateEndpoint;
 use crate::process_boundary::{
     BoundaryPoint, BoundarySessionError, PrecisionProvenance, ProcessBoundaryPlan,
@@ -412,6 +416,30 @@ struct NodeSurface {
     /// instance/node/capability/graph generations; a surface swap
     /// mints a fresh session with fresh pins.
     boundary: Option<ProcessBoundarySession>,
+    /// PC-C4-07 commanded-transport mirror — the same
+    /// [`TransportMirror`] the driver path projects span contexts
+    /// through, reused here so [`RoutingControlDispatch::observe_block`]
+    /// derives each node's [`TransportSpan`] internally instead of
+    /// demanding caller-fabricated transport evidence. Commanded
+    /// state only: commands the surface cannot see (out-of-band
+    /// `ParamDispatch::control()` pushes, scheduler-side rejections)
+    /// are corrected by the next drained receipt on the generation
+    /// axes — the same honesty contract the driver documents.
+    transport: TransportMirror,
+    /// Transport commands confirmed pushed since the last
+    /// `observe_block`, in push order, with their callback-head-relative
+    /// `due_frames` — resolved to absolute node-cursor dues by the
+    /// next observed `call_start` (the head the node pops them at).
+    staged_transport: Vec<(TransportCommand, u64)>,
+    /// [`Self::staged_transport`] entries already resolved to absolute
+    /// node-cursor apply frames, sorted by due — folded into
+    /// `transport` once an observed `call_start` reaches each apply
+    /// frame. Entries past the observed window stay queued for later
+    /// observations.
+    scheduled_transport: Vec<(u64, TransportCommand)>,
+    /// The first span `observe_block` projected for this node —
+    /// diagnostic evidence mirroring the driver's `last_span`.
+    last_span: Option<TransportSpan>,
 }
 
 /// A batch entry staged for one node — automation evaluations and
@@ -712,7 +740,14 @@ impl RoutingControlDispatch {
         };
         let writes = [(entry.binding, entry.event)];
         match node.session.dispatch(&mut node.dispatch, &writes) {
-            Ok(_) => FastControlOutcome::Delivered,
+            Ok(_) => {
+                // `ParamDispatch::dispatch` stages `Play` (due 0)
+                // before the plan install — a successful dispatch
+                // means both reached the node's control queue, so the
+                // mirror records the same command at the same due.
+                node.staged_transport.push((TransportCommand::Play, 0));
+                FastControlOutcome::Delivered
+            }
             Err(BindingError::Dispatch(DispatchError::QueueFull)) => {
                 // Node channel full — retain the write for the next
                 // active drain rather than dropping the intent.
@@ -858,6 +893,200 @@ impl RoutingControlDispatch {
         Some(node.dispatch.observe_cycle(span, call_start, call_frames))
     }
 
+    /// Advances every surface node's dispatch ledger through one
+    /// physical call window — the per-block observation the RT run
+    /// loop needs — deriving each node's [`TransportSpan`] from its
+    /// own [`TransportMirror`] instead of demanding caller-fabricated
+    /// transport evidence.
+    ///
+    /// `call_start`/`call_frames` are the caller-supplied physical
+    /// window: the node's own cursor frame series, supplied once per
+    /// node callback in order. Transport commands staged through
+    /// [`Self::boundary_stage_window`] or [`ParamDispatch::dispatch`]'s
+    /// internal `Play` resolve their callback-head-relative `due_frames`
+    /// against the first `call_start` observed after staging — the
+    /// same next-callback head the node pops them at — and fold into
+    /// the mirror at their absolute apply frame. Each window splits at
+    /// apply frames strictly inside it, the same partition the node
+    /// scheduler emits, so a mid-window `Seek`/`Stop`/`SetLoop` projects
+    /// the post-command context from its exact apply frame onward.
+    ///
+    /// `generation` must name the attached surface — a mismatch
+    /// returns `None`, fail-closed like [`Self::observe_cycle`]. The
+    /// returned map carries one merged [`DispatchCycle`] per surface
+    /// node (later window segments win per target).
+    ///
+    /// Commanded-state projection, non-RT only: a push racing a
+    /// callback head resolves against the next observed window, and
+    /// scheduler-side rejections never reach the mirror — receipts
+    /// correct the transport/plan generation axes; status and position
+    /// remain commanded approximations under those races, the same
+    /// honesty contract the driver's mirror documents.
+    #[must_use]
+    pub fn observe_block(
+        &mut self,
+        generation: u64,
+        call_start: EngineFrame,
+        call_frames: u32,
+    ) -> Option<BTreeMap<ProcessorId, DispatchCycle>> {
+        let surface = self.surface.as_mut()?;
+        if surface.generation != generation {
+            return None;
+        }
+        let start_frame = call_start.frame();
+        let end_frame = start_frame.saturating_add(u64::from(call_frames));
+        let mut out = BTreeMap::new();
+        for (processor, node) in &mut surface.nodes {
+            out.insert(
+                *processor,
+                Self::observe_node_block(node, call_start, start_frame, end_frame),
+            );
+        }
+        Some(out)
+    }
+
+    /// [`Self::observe_block`]'s per-node half: resolves staged
+    /// commands against `call_start`, folds every apply at or before
+    /// each segment head into the mirror, and projects the window
+    /// split at in-window apply frames.
+    fn observe_node_block(
+        node: &mut NodeSurface,
+        call_start: EngineFrame,
+        start_frame: u64,
+        end_frame: u64,
+    ) -> DispatchCycle {
+        for (command, due) in std::mem::take(&mut node.staged_transport) {
+            node.scheduled_transport
+                .push((start_frame.saturating_add(due), command));
+        }
+        node.scheduled_transport.sort_by_key(|(due, _)| *due);
+
+        let mut bounds = vec![start_frame, end_frame];
+        bounds.extend(
+            node.scheduled_transport
+                .iter()
+                .map(|(due, _)| *due)
+                .filter(|due| *due > start_frame && *due < end_frame),
+        );
+        bounds.sort_unstable();
+        bounds.dedup();
+
+        let epoch = call_start.epoch();
+        let mut merged = DispatchCycle {
+            observations: Vec::new(),
+            receipts: Vec::new(),
+        };
+        let mut first = true;
+        for window in bounds.windows(2) {
+            let (seg_start, seg_end) = (window[0], window[1]);
+            // Commands due at or before this segment head have applied
+            // upstream — fold them in due order before projecting.
+            let fold = node
+                .scheduled_transport
+                .partition_point(|(due, _)| *due <= seg_start);
+            for (due, command) in node.scheduled_transport.drain(..fold) {
+                Self::note_transport_command(
+                    &mut node.transport,
+                    due,
+                    command,
+                    node.dispatch.frame_base(),
+                );
+            }
+            let seg_start_frame = EngineFrame::new(epoch, seg_start);
+            let span = TransportSpan {
+                start: seg_start_frame,
+                end: EngineFrame::new(epoch, seg_end),
+                ctx: node.transport.span_context(
+                    seg_start,
+                    node.dispatch.frame_base(),
+                    epoch,
+                    node.dispatch
+                        .last_plan_generation()
+                        .unwrap_or_else(|| PlanGeneration::new(0)),
+                ),
+                deliverable: true,
+            };
+            let call_frames = u32::try_from(seg_end - seg_start).unwrap_or(u32::MAX);
+            let cycle = node
+                .dispatch
+                .observe_cycle(&span, seg_start_frame, call_frames);
+            for (target, observation) in cycle.observations {
+                match merged
+                    .observations
+                    .iter_mut()
+                    .find(|(existing, _)| *existing == target)
+                {
+                    Some(slot) => slot.1 = observation,
+                    None => merged.observations.push((target, observation)),
+                }
+            }
+            merged.receipts.extend(cycle.receipts);
+            if first {
+                node.last_span = Some(span);
+                first = false;
+            }
+        }
+        node.transport.note_receipts(&merged.receipts);
+        // Applies due at or past the window end belong to later
+        // callbacks — they stay scheduled for the next observation.
+        node.scheduled_transport
+            .retain(|(due, _)| *due >= end_frame);
+        merged
+    }
+
+    /// Folds one staged [`TransportCommand`] into the mirror at its
+    /// absolute apply `frame` — the routing-control counterpart of the
+    /// driver's per-command `note_*` calls. `Seek`/`SetLoop` positions
+    /// convert through the node's verified frame base under the
+    /// scheduler's own validity rules (`media_time_ticks`, non-negative
+    /// seek, non-empty loop); a command upstream would reject is never
+    /// noted, so the mirror cannot project an apply that cannot happen.
+    fn note_transport_command(
+        transport: &mut TransportMirror,
+        frame: u64,
+        command: TransportCommand,
+        frame_base: TimeBase,
+    ) {
+        match command {
+            TransportCommand::Play => transport.note_play(frame),
+            TransportCommand::Pause => transport.note_pause(frame),
+            TransportCommand::Stop => transport.note_stop(frame),
+            TransportCommand::Seek(position) => {
+                if let Some(ticks) = media_time_ticks(position, frame_base)
+                    && ticks >= 0
+                {
+                    transport.note_seek(frame, ticks);
+                }
+            }
+            TransportCommand::SetLoop(range) => {
+                if let (Some(start), Some(end)) = (
+                    media_time_ticks(range.start(), frame_base),
+                    media_time_ticks(range.end(), frame_base),
+                ) && start >= 0
+                    && end > start
+                {
+                    transport.note_set_loop(frame, (start, end));
+                }
+            }
+            TransportCommand::ClearLoop => transport.note_clear_loop(frame),
+            _ => {}
+        }
+    }
+
+    /// The [`TransportSpan`] [`Self::observe_block`] last projected
+    /// onto `processor`'s node — diagnostic evidence mirroring the
+    /// driver's `attached_span`. `None` before the first observed
+    /// block or for processors without a control node.
+    #[must_use]
+    pub fn last_observed_span(&self, processor: ProcessorId) -> Option<&TransportSpan> {
+        self.surface
+            .as_ref()?
+            .nodes
+            .get(&processor)?
+            .last_span
+            .as_ref()
+    }
+
     /// The processor's [`ProcessBoundarySession`] on the attached
     /// surface — `None` before attach, for processors attached
     /// without a boundary declaration, or when no control was
@@ -970,7 +1199,7 @@ impl RoutingControlDispatch {
         };
         let pin = session.provenance();
         let current = PrecisionProvenance::new(pin.instance(), pin.node(), capability, generation);
-        session
+        let plan = session
             .stage_window(
                 node.dispatch.control(),
                 &current,
@@ -978,7 +1207,15 @@ impl RoutingControlDispatch {
                 boundaries,
                 commands,
             )
-            .map_err(BoundaryStageError::Session)
+            .map_err(BoundaryStageError::Session)?;
+        // PC-C4-07: the mirror observes exactly what `stage_window`
+        // confirmed pushed — a fully successful call staged every
+        // command in order. A `QueueFull` mid-batch can leave earlier
+        // commands queued without this evidence; like the driver's
+        // mirror, unobserved pushes stay a documented commanded-state
+        // approximation until receipts correct the generation axes.
+        node.staged_transport.extend_from_slice(commands);
+        Ok(plan)
     }
 
     fn block(&mut self, block: FastControlBlock) -> FastControlOutcome {
@@ -1080,6 +1317,10 @@ impl RoutingControlDispatch {
                 session,
                 dispatch,
                 boundary,
+                transport: TransportMirror::new(),
+                staged_transport: Vec::new(),
+                scheduled_transport: Vec::new(),
+                last_span: None,
             };
             Self::bind_node(
                 &mut node,
@@ -1279,6 +1520,9 @@ impl RoutingControlDispatch {
                 .collect();
             match node.session.dispatch(&mut node.dispatch, &writes) {
                 Ok(_) => {
+                    // Same internal `Play` as `fast_control` — see
+                    // `fast_control_inner`.
+                    node.staged_transport.push((TransportCommand::Play, 0));
                     report.nodes_dispatched += 1;
                     report.events += entries.len();
                 }
