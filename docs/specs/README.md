@@ -149,6 +149,7 @@ Directory: `docs/specs`
 | SPEC-034SVCIOPT02bN7mQwErTy | Issue #148 変更影響分類・Fail-Closed evidence Gate 仕様 | superseded | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
 | SPEC-034RUjwAo6z9Q2Hpkp99SH | Issue #157 rev.3 matrix lane skip placeholder — evidence gate 修正 | superseded | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |
 | SPEC-034SYN157Kx9mTvQp2w | Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画 | superseded | [issue-157-selective-execution.md](./issue-157-selective-execution.md) |
+| SPEC-034Wsudf9ocUWKIH6GUhA9 | Issue #365 docs/impl ir・exp 管理 index を doc-maintenance で生成可能にする | implemented | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
 | SPEC-034Uri8JTbpWmKASolvM4A | RCD-02 Recording Durability Evidence / Recovery Review — synvelis#116 slice | implemented | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | SPEC-034T6XTAVpIPhybzaw7jdh | SV-GPUI-03 Synvelis Product Theme / Workspace Presets — Driver-neutral DTCG overrides・Preset schema・fixtures | implemented | [sv-gpui-03-product-theme-workspace-presets.md](./sv-gpui-03-product-theme-workspace-presets.md) |
 | SPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 slice (synvelis#126) | implemented | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
