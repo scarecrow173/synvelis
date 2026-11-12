@@ -32,16 +32,19 @@
 //!
 //! [`TimestampProvenance::Estimated`]: ruviform_media_core::TimestampProvenance::Estimated
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use ruviform_audio::typed::probe::{
-    self, MetricRecord, ProbeEvent, ProbeMode as RtProbeMode, StatusKind, StatusRecord,
+    self, CoverageEvent, MetricRecord, ProbeEvent, ProbeMode as RtProbeMode, StatusKind,
+    StatusRecord,
 };
 use ruviform_graph::NodeId;
 use ruviform_media_core::{MediaTime, MediaTimestamp, TimeBase};
 use ruviform_plugin_core::ParamValue;
 
-use synvelis_project::probe::{ProbeCaptureSegment, SemanticProbeBinding};
+use synvelis_project::probe::{
+    AcousticObservation, ProbeCaptureSegment, ProbeComparisonRequest, SemanticProbeBinding,
+};
 use synvelis_project::trace::{ControlTrace, MeasuredValue, ProbeObservation};
 use synvelis_project::{
     ParameterTargetId, ProbeMode, ProbeObservationUpdate, ProbePortError, ProbeSubscriptionKey,
@@ -49,6 +52,7 @@ use synvelis_project::{
 };
 
 use crate::probe::{ProbeRequestError, clock_ref};
+use crate::probe_compare::{ProbeCoverage, probe_compare};
 use crate::routing_engine::RoutingEngine;
 use crate::trace::DispatchTraceAdapter;
 
@@ -195,6 +199,10 @@ pub struct ProbeTraceBridge {
     /// explicitly by the composition root at bind time — never
     /// guessed from project topology.
     routes: BTreeMap<ParameterTargetId, NodeId>,
+    /// `CoverageEvent` evidence retained per runtime probe across
+    /// drains (SF-04 slice 6) — the `ObservationCoverage`
+    /// reconstruction input for [`Self::compare_probes`].
+    coverage: ProbeCoverage,
 }
 
 impl ProbeTraceBridge {
@@ -205,6 +213,7 @@ impl ProbeTraceBridge {
             engine,
             adapters,
             routes: BTreeMap::new(),
+            coverage: ProbeCoverage::default(),
         }
     }
 
@@ -248,6 +257,31 @@ impl ProbeTraceBridge {
     #[must_use]
     pub fn adapter_mut(&mut self, node: NodeId) -> Option<&mut DispatchTraceAdapter> {
         self.adapters.get_mut(&node)
+    }
+
+    /// Retained per-probe coverage evidence — the
+    /// [`ObservationCoverage`](ruviform_audio::typed::probe::ObservationCoverage)
+    /// reconstruction input accumulated by [`ProbeTracePort::probe_drain`]
+    /// (SF-04 slice 6). Read-only; bounded per probe.
+    #[must_use]
+    pub fn probe_coverage(&self) -> &ProbeCoverage {
+        &self.coverage
+    }
+
+    /// Runs the SF-PROBE-07 multi-probe alignment comparison over this
+    /// bridge's engine read models and retained coverage evidence —
+    /// non-RT, bounded, fail-closed. See
+    /// [`crate::probe_compare::probe_compare`] for the contract.
+    #[must_use]
+    pub fn compare_probes(&self, request: &ProbeComparisonRequest) -> AcousticObservation {
+        probe_compare(
+            request,
+            self.engine.probe_bindings(),
+            self.engine.probe_segments(),
+            self.engine.probe_time_context(),
+            &self.coverage,
+            self.engine.probe_counts(),
+        )
     }
 
     /// Registers `adapter` as the trace owner for runtime `node`,
@@ -311,21 +345,47 @@ impl ProbeTracePort for ProbeTraceBridge {
         let index = probe_index(&self.engine);
         let counts = self.engine.probe_counts();
         let mut updates = Vec::new();
-        self.engine.probe_drain(|event| match event {
-            ProbeEvent::Metric(record) => {
-                if let Some(update) = metric_update(&record, &index) {
-                    updates.push(update);
+        // `counts` was sampled before this drain batch — it is the
+        // `lost_records` floor stamped onto every event recorded
+        // below, so a later positive delta localizes loss into the
+        // retained window (fail-closed `Unknown` coverage).
+        self.engine.probe_drain(|event| {
+            match event {
+                ProbeEvent::Metric(record) => {
+                    self.coverage
+                        .record(CoverageEvent::Data(record.meta), counts.lost_records);
+                    if let Some(update) = metric_update(&record, &index) {
+                        updates.push(update);
+                    }
                 }
-            }
-            ProbeEvent::Status(record) => {
-                if let Some(update) = status_update(&record, &index, &counts) {
-                    updates.push(update);
+                ProbeEvent::Status(record) => {
+                    self.coverage
+                        .record(CoverageEvent::Status(record), counts.lost_records);
+                    if let Some(update) = status_update(&record, &index, &counts) {
+                        updates.push(update);
+                    }
                 }
+                ProbeEvent::Captured(chunk) => {
+                    // Captured PCM meta is coverage evidence too —
+                    // the chunk payload itself stays out of scope.
+                    if let Some(meta) = chunk.meta {
+                        self.coverage
+                            .record(CoverageEvent::Data(meta), counts.lost_records);
+                    }
+                }
+                // Unknown future variants carry no coverage evidence.
+                _ => {}
             }
-            // Captured PCM and unknown future variants carry no
-            // slot-level observation — segment ledger owns PCM.
-            _ => {}
         });
+        // Prune series whose probe is no longer bound — removed or
+        // rebound-away probes must not accumulate stale evidence.
+        let live: BTreeSet<u64> = self
+            .engine
+            .probe_bindings()
+            .values()
+            .filter_map(|binding| binding.runtime_probe_id.map(|id| id.0))
+            .collect();
+        self.coverage.retain(|probe| live.contains(&probe));
         updates
     }
 

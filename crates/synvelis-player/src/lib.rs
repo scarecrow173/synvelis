@@ -31,6 +31,7 @@ pub mod midi;
 pub mod monitor;
 pub mod plugin_state;
 pub mod probe;
+pub mod probe_compare;
 pub mod probe_trace;
 pub mod process_boundary;
 pub mod processor;
@@ -69,6 +70,7 @@ pub use monitor::{
 };
 pub use plugin_state::{PluginStateEndpoint, PluginStateHost};
 pub use probe::{ProbeRequestError, ProbeSession};
+pub use probe_compare::{PROBE_COVERAGE_MAX_EVENTS, ProbeCoverage, probe_compare};
 pub use probe_trace::ProbeTraceBridge;
 pub use process_boundary::{
     AttachDelivery, BoundaryDegradation, BoundaryKind, BoundaryPoint, BoundarySessionError,
