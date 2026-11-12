@@ -203,6 +203,24 @@ description = "synvelis-native 実窓起動(GPUI;mount/close の手動・実機�
 depends = ["build-app-native"]
 run = "cargo run -p synvelis-app --features native --bin synvelis-native --locked"
 
+# synvelis-app `gpui-test` feature lane (SV-GUI-03 slice 5,
+# synvelis#112 AC5)。Fake/GPUI parity の GPUI-simulated scenario
+# lane — `native` feature を内包するため headless 既定 lane と
+# 分離する。実 Window/実 OS 入力・pixel 証拠は対象外
+# (ruviform#313/#314, synvelis#114)。
+
+[tasks.check-app-gpui]
+description = "synvelis-app gpui-test feature 型チェック(GPUI scenario lane 含む)"
+run = "cargo check -p synvelis-app --features gpui-test --all-targets"
+
+[tasks.lint-app-gpui]
+description = "synvelis-app gpui-test feature lint"
+run = "cargo clippy -p synvelis-app --all-targets --features gpui-test -- -D warnings"
+
+[tasks.test-app-gpui]
+description = "synvelis-app gpui-test feature テスト(GPUI-simulated scenario lane)"
+run = "cargo test -p synvelis-app --features gpui-test"
+
 [tasks.dev-ui]
 description = "開発ループ: ui/ を build して synvelis app を debug 起動(assets は live FS 読み)"
 depends = ["install-ui"]
