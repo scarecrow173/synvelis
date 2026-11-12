@@ -41,7 +41,8 @@ use synvelis_player::resolver::{self, PreparedClip};
 use synvelis_player::routing_control::RoutingControlDispatch;
 use synvelis_player::routing_engine::{RoutingDeps, RoutingEngine, RoutingPrepare};
 use synvelis_player::{
-    DispatchCycle, FastControlOutcome, FastControlWrite, ParamCatalog, SurfaceReport, TickReport,
+    DispatchCycle, FastControlOutcome, FastControlWrite, ParamCatalog, ProbeRequestError,
+    SurfaceReport, TickReport,
 };
 use synvelis_project::{
     BeatPoint, BuildBudget, BuildMode, ProcessorId, Project, ProjectRevision,
@@ -223,6 +224,24 @@ impl SessionRoutingEngine {
             .bridge
             .engine_mut()
             .run(blocks, policy)
+    }
+
+    /// Declares a probe cursor-series discontinuity that does not
+    /// move the engine cursor — see
+    /// [`RoutingEngine::declare_probe_discontinuity`]. The session
+    /// layer owns no transport of its own, so this is a straight
+    /// passthrough for composition roots that learn of a
+    /// discontinuity out-of-band (loop/restart transport contracts,
+    /// device re-anchor notifications).
+    ///
+    /// # Errors
+    /// [`ProbeRequestError::Broker`] on `CommandChannelFull`.
+    pub fn declare_probe_discontinuity(&self) -> Result<(), ProbeRequestError> {
+        self.inner
+            .borrow_mut()
+            .bridge
+            .engine_mut()
+            .declare_probe_discontinuity()
     }
 
     /// Scoped mutable access to the probe/trace port — the

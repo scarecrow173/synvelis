@@ -73,6 +73,19 @@ struct OpenSegment {
     gaps: Vec<ObservationGap>,
 }
 
+/// A segment close deferred to the end of one drain batch. The
+/// collector delivers *all* queued telemetry before *all* queued
+/// chunks, so a `CaptureStopped`/`Removed`/`RebindDropped` status can
+/// surface while same-batch chunks produced *before* it still sit in
+/// `chunks_out` — closing immediately would orphan delivered PCM and
+/// under-report the segment. The segment keeps accumulating chunk
+/// data until the batch ends, then closes with the recorded reason.
+/// First close wins; post-close statuses never re-cut or re-gap it.
+struct PendingClose {
+    end: CaptureSegmentEnd,
+    clock: Option<ClockContextRef>,
+}
+
 /// Failures of the probe control plane — defined, never a panic or a
 /// silent no-op.
 #[non_exhaustive]
@@ -587,6 +600,11 @@ impl ProbeSession {
     /// Drains collector telemetry/chunks, updating binding states and
     /// open segments from RT evidence *before* invoking `f` for each
     /// event. Returns the number of events drained.
+    ///
+    /// Segment closes recorded by status are deferred to the end of
+    /// the batch — see [`PendingClose`]: telemetry drains before
+    /// chunks, so an immediate close would orphan same-batch chunks
+    /// produced before the closing status.
     pub fn drain(&mut self, mut f: impl FnMut(ProbeEvent<'_>)) -> usize {
         let Self {
             collector,
@@ -597,10 +615,25 @@ impl ProbeSession {
             block_frames,
             ..
         } = self;
-        collector.drain(|event| {
-            observe_event(&event, bindings, by_probe, open, segments, *block_frames);
+        let mut pending: BTreeMap<ProbeId, PendingClose> = BTreeMap::new();
+        let drained = collector.drain(|event| {
+            observe_event(
+                &event,
+                bindings,
+                by_probe,
+                open,
+                segments,
+                *block_frames,
+                &mut pending,
+            );
             f(event);
-        })
+        });
+        for (probe, close) in pending {
+            if let Some(segment) = open.remove(&probe) {
+                segments.push(close_segment(segment, Some(close.end), close.clock));
+            }
+        }
+        drained
     }
 
     /// All subscription bindings (contract view).
@@ -660,7 +693,8 @@ impl ProbeSession {
 }
 
 /// Applies one drained event to the binding ledger and open segments.
-/// Runs inside `collector.drain` — non-RT side only.
+/// Runs inside `collector.drain` — non-RT side only. `pending` holds
+/// segment closes deferred to the end of the batch.
 fn observe_event(
     event: &ProbeEvent<'_>,
     bindings: &mut BTreeMap<ProbeSubscriptionKey, SemanticProbeBinding>,
@@ -668,21 +702,34 @@ fn observe_event(
     open: &mut BTreeMap<ProbeId, OpenSegment>,
     segments: &mut Vec<ProbeCaptureSegment>,
     block_frames: u64,
+    pending: &mut BTreeMap<ProbeId, PendingClose>,
 ) {
     match event {
         ProbeEvent::Status(status) => {
-            observe_status(*status, bindings, by_probe, open, segments, block_frames);
+            observe_status(
+                *status,
+                bindings,
+                by_probe,
+                open,
+                segments,
+                block_frames,
+                pending,
+            );
         }
         ProbeEvent::Captured(chunk) => {
             if let Some(meta) = chunk.meta {
-                observe_meta(meta, open, segments);
+                observe_meta(meta, open, segments, pending);
             }
         }
         _ => {}
     }
 }
 
-/// Status evidence → binding state + segment bookkeeping.
+/// Status evidence → binding state + segment bookkeeping. Closing
+/// kinds do not remove the open segment immediately — they record a
+/// [`PendingClose`] so same-batch chunks produced before the status
+/// still land; the segment accepts no further status-driven evidence
+/// (epoch cuts, gaps) once its close is pending.
 fn observe_status(
     status: StatusRecord,
     bindings: &mut BTreeMap<ProbeSubscriptionKey, SemanticProbeBinding>,
@@ -690,6 +737,7 @@ fn observe_status(
     open: &mut BTreeMap<ProbeId, OpenSegment>,
     segments: &mut Vec<ProbeCaptureSegment>,
     block_frames: u64,
+    pending: &mut BTreeMap<ProbeId, PendingClose>,
 ) {
     let Some(&key) = by_probe.get(&status.probe) else {
         return;
@@ -706,11 +754,15 @@ fn observe_status(
     // Clock-epoch discontinuity: evidence stamped under a new cursor
     // epoch cuts the open segment before any gap bookkeeping below —
     // post-epoch loss/unobserved reports must not land inside the old
-    // segment. Closing kinds keep their own end reason.
-    if !matches!(
-        status.kind,
-        StatusKind::CaptureStopped { .. } | StatusKind::Removed | StatusKind::RebindDropped
-    ) && let Some(clock) = clock_ref(status.clock)
+    // segment. Closing kinds keep their own end reason, and a segment
+    // whose close is already pending is finished — later statuses
+    // cannot re-cut or re-gap it.
+    if !pending.contains_key(&status.probe)
+        && !matches!(
+            status.kind,
+            StatusKind::CaptureStopped { .. } | StatusKind::Removed | StatusKind::RebindDropped
+        )
+        && let Some(clock) = clock_ref(status.clock)
     {
         cut_segment_on_epoch_change(open, segments, status.probe, clock);
     }
@@ -732,62 +784,65 @@ fn observe_status(
         }
         StatusKind::CaptureStopped { reason } => {
             binding.confirmed_mode = Some(ProbeMode::Monitor);
-            if let Some(segment) = open.remove(&status.probe) {
-                segments.push(close_segment(
-                    segment,
-                    Some(segment_end(reason)),
-                    clock_ref(status.clock),
-                ));
+            if open.contains_key(&status.probe) {
+                pending.entry(status.probe).or_insert(PendingClose {
+                    end: segment_end(reason),
+                    clock: clock_ref(status.clock),
+                });
             }
         }
         StatusKind::Unbound => {
             binding.state = ProbeResolveState::StaleGeneration;
         }
         StatusKind::Unobserved { .. } => {
-            record_gap(
-                open,
-                status.probe,
-                status.sample_position,
-                block_frames,
-                ObservationGapKind::Unobserved,
-            );
+            if !pending.contains_key(&status.probe) {
+                record_gap(
+                    open,
+                    status.probe,
+                    status.sample_position,
+                    block_frames,
+                    ObservationGapKind::Unobserved,
+                );
+            }
         }
         StatusKind::LostBlocks => {
-            record_gap(
-                open,
-                status.probe,
-                status.sample_position,
-                block_frames,
-                ObservationGapKind::LostBlocks,
-            );
+            if !pending.contains_key(&status.probe) {
+                record_gap(
+                    open,
+                    status.probe,
+                    status.sample_position,
+                    block_frames,
+                    ObservationGapKind::LostBlocks,
+                );
+            }
         }
         StatusKind::LostRecords => {
-            record_gap(
-                open,
-                status.probe,
-                status.sample_position,
-                block_frames,
-                ObservationGapKind::LostRecords,
-            );
+            if !pending.contains_key(&status.probe) {
+                record_gap(
+                    open,
+                    status.probe,
+                    status.sample_position,
+                    block_frames,
+                    ObservationGapKind::LostRecords,
+                );
+            }
         }
         StatusKind::Removed => {
             binding.state = ProbeResolveState::Stopped;
-            if let Some(segment) = open.remove(&status.probe) {
-                segments.push(close_segment(
-                    segment,
-                    Some(CaptureSegmentEnd::Removed),
-                    clock_ref(status.clock),
-                ));
+            if open.contains_key(&status.probe) {
+                pending.entry(status.probe).or_insert(PendingClose {
+                    end: CaptureSegmentEnd::Removed,
+                    clock: clock_ref(status.clock),
+                });
             }
         }
         StatusKind::RebindDropped => {
             binding.state = ProbeResolveState::Lost;
-            if let Some(segment) = open.remove(&status.probe) {
-                segments.push(close_segment(
-                    segment,
-                    Some(CaptureSegmentEnd::RebindDropped),
-                    clock_ref(status.clock),
-                ));
+            if open.contains_key(&status.probe) {
+                pending.entry(status.probe).or_insert(PendingClose {
+                    end: CaptureSegmentEnd::RebindDropped,
+                    clock: clock_ref(status.clock),
+                });
             }
         }
         _ => {}
@@ -805,6 +860,7 @@ fn observe_meta(
     meta: RecordMeta,
     open: &mut BTreeMap<ProbeId, OpenSegment>,
     segments: &mut Vec<ProbeCaptureSegment>,
+    pending: &BTreeMap<ProbeId, PendingClose>,
 ) {
     let Some(segment) = open.get(&meta.probe) else {
         return;
@@ -813,9 +869,19 @@ fn observe_meta(
         return;
     }
     if let Some(clock) = clock_ref(meta.clock) {
-        cut_segment_on_epoch_change(open, segments, meta.probe, clock);
-        if !open.contains_key(&meta.probe) {
-            return;
+        if pending.contains_key(&meta.probe) {
+            // The segment's close is already recorded — only
+            // same-epoch pre-close data may still join it; a record
+            // stamped under a different epoch is discarded outright
+            // (never cut, never accumulated).
+            if segment.clock.is_some_and(|old| old != clock) {
+                return;
+            }
+        } else {
+            cut_segment_on_epoch_change(open, segments, meta.probe, clock);
+            if !open.contains_key(&meta.probe) {
+                return;
+            }
         }
     }
     let Some(segment) = open.get_mut(&meta.probe) else {
