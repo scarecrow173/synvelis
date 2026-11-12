@@ -409,7 +409,7 @@ pub struct SignalFlowProbeRow {
 /// the live project PPQN plus the freshest revision-guarded
 /// `preview_ppqn` projection. The select → preview → confirm/cancel
 /// gesture itself is view-owned
-/// ([`synvelis_workspace::state::ppqn_ui::PpqnUi`]) and driven through
+/// ([`synvelis_workspace::ppqn_ui::PpqnUi`]) and driven through
 /// `ViewBinding`; this state is what the mounted spec renders —
 /// display only, never gesture authority, and deliberately free of
 /// action buttons (a `rvf.ui.command.v1` `Action` cannot carry the

@@ -485,7 +485,7 @@ impl ViewBinding {
     /// `syn.project.preview_ppqn` — non-destructive dry-run of a
     /// PPQN change (TIM-01, synvelis#125). `params` is the wire
     /// object (`new_ppqn`, `policy`, optional `rounding`) — the
-    /// view-owned [`synvelis_workspace::state::PpqnUi`] gesture
+    /// view-owned [`synvelis_workspace::ppqn_ui::PpqnUi`] gesture
     /// produces it via `preview_params()`/`confirm_request()`.
     pub fn project_preview_ppqn(&mut self, params: Value) -> String {
         self.push("syn.project.preview_ppqn", params)

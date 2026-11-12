@@ -19,7 +19,7 @@ use crate::selection::EditTimeDomain;
 /// Default snap/grid quantum — one project tick-count of 960, the
 /// musical spacing of one quarter note at the default project PPQN
 /// of 960. Shared by [`GridConfig`]/[`SnapConfig`] defaults and the
-/// PPQN-change effect reporting in `crate::state::ppqn_ui`.
+/// PPQN-change effect reporting in `crate::ppqn_ui`.
 pub const DEFAULT_SNAP_QUANTUM_TICKS: i64 = 960;
 
 /// A snap/grid quantum.
