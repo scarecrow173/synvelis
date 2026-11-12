@@ -64,6 +64,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # GW-03 Scoped Context Projection / Snapshot Pagination / Read-Disclosure Guard 実装記録

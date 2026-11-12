@@ -42,6 +42,10 @@ relations:
     renamed: []
     moved: []
     generated: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # ALIB-07 Implementation Record

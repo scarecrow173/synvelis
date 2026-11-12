@@ -11,16 +11,25 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/132"
   changes:
     added:
-      - "crates/synvelis-project/tests/aut_02.rs"
-      - "docs/specs/aut-02-region-replace-boundary-curve-preservation.md"
-      - "docs/adr/aut-02-boundary-sentinel-anchor-placement.md"
-      - "docs/designs/aut-02-region-replace-boundary-design.md"
-      - "docs/plans/aut-02-region-replace-boundary.md"
-      - "docs/tasks/aut-02-task1-region-replace-boundary.md"
-      - "docs/test-specs/aut-02-e2e-region-replace-boundary.md"
+      - type: "file"
+        path: "crates/synvelis-project/tests/aut_02.rs"
+      - type: "file"
+        path: "docs/specs/aut-02-region-replace-boundary-curve-preservation.md"
+      - type: "file"
+        path: "docs/adr/aut-02-boundary-sentinel-anchor-placement.md"
+      - type: "file"
+        path: "docs/designs/aut-02-region-replace-boundary-design.md"
+      - type: "file"
+        path: "docs/plans/aut-02-region-replace-boundary.md"
+      - type: "file"
+        path: "docs/tasks/aut-02-task1-region-replace-boundary.md"
+      - type: "file"
+        path: "docs/test-specs/aut-02-e2e-region-replace-boundary.md"
     modified:
-      - "crates/synvelis-project/src/control.rs"
-      - "crates/synvelis-project/src/ops.rs"
+      - type: "file"
+        path: "crates/synvelis-project/src/control.rs"
+      - type: "file"
+        path: "crates/synvelis-project/src/ops.rs"
     deleted: []
     renamed: []
     moved: []
@@ -49,6 +58,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # AUT-02 実装記録: Region Replace 境界曲線保存

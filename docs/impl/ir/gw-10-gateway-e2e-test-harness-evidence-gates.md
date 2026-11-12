@@ -99,7 +99,9 @@ relations:
   deferred-by: []
 metadata:
   experiments:
-    - "PoC — 期待値Oracle・Controlled Scheduler・Fault Injection・Causal Trace・Evidence JSONL・Gate 集約 report"
+    adopted:
+      - "PoC — 期待値Oracle・Controlled Scheduler・Fault Injection・Causal Trace・Evidence JSONL・Gate 集約 report"
+    rejected: []
 ---
 
 # GW-10 Gateway Contract・Security・Concurrency / Recovery E2E Test Harness

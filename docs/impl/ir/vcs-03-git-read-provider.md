@@ -98,6 +98,10 @@ relations:
     - "実 OS permission matrix・real remote fetch・auth/credential 実経路・GC/objects 欠損の実 filesystem 条件・GUI・RT 性能保証（Issue #97）"
     - "remote LFS fetch（local LFS object store のみ解決）"
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # VCS-03 Git Read Provider — Implementation Record

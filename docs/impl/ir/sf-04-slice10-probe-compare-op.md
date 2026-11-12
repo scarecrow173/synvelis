@@ -1,6 +1,6 @@
 ---
 id: "IMPL-8jFdP2wErT5yU7iO1aQ4sG"
-type: "ir"
+type: "impl"
 status: "completed"
 title: "SF-04 slice10 実装記録 — syn.probe.compare app op（ProbeComparisonRequest → AcousticObservation の wire 露出）"
 created: "2026-11-12"
@@ -35,6 +35,10 @@ relations:
     - "docs/test-specs/sf-04-slice10-probe-compare-op.md"
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # SF-04 slice10 実装記録 — syn.probe.compare app op

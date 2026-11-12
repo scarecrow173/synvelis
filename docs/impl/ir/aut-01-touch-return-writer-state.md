@@ -11,21 +11,35 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/131"
   changes:
     added:
-      - "crates/synvelis-workspace/tests/aut_01.rs"
-      - "docs/specs/aut-01-automation-mode-boundary-touch-return-writer-state.md"
-      - "docs/designs/aut-01-touch-return-writer-state-design.md"
-      - "docs/plans/aut-01-touch-return-writer-state.md"
-      - "docs/tasks/aut-01-task1-touch-return-writer-state.md"
-      - "docs/test-specs/aut-01-e2e-touch-return-writer-state.md"
+      - type: "file"
+        path: "crates/synvelis-workspace/tests/aut_01.rs"
+      - type: "file"
+        path: "docs/specs/aut-01-automation-mode-boundary-touch-return-writer-state.md"
+      - type: "file"
+        path: "docs/designs/aut-01-touch-return-writer-state-design.md"
+      - type: "file"
+        path: "docs/plans/aut-01-touch-return-writer-state.md"
+      - type: "file"
+        path: "docs/tasks/aut-01-task1-touch-return-writer-state.md"
+      - type: "file"
+        path: "docs/test-specs/aut-01-e2e-touch-return-writer-state.md"
     modified:
-      - "crates/synvelis-project/src/control.rs"
-      - "crates/synvelis-workspace/src/control.rs"
-      - "crates/synvelis-workspace/src/controls_ui.rs"
-      - "crates/synvelis-workspace/src/lib.rs"
-      - "crates/synvelis-workspace/src/session.rs"
-      - "crates/synvelis-workspace/tests/pc_a.rs"
-      - "crates/synvelis-workspace/tests/pc_b.rs"
-      - "crates/synvelis-workspace/tests/pc_c1.rs"
+      - type: "file"
+        path: "crates/synvelis-project/src/control.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/src/control.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/src/controls_ui.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/src/lib.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/src/session.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/tests/pc_a.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/tests/pc_b.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/tests/pc_c1.rs"
     deleted: []
     renamed: []
     moved: []
@@ -53,6 +67,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # AUT-01 実装記録: Touch Return 150ms Smoothstep・境界 State

@@ -11,15 +11,23 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/113"
   changes:
     added:
-      - "crates/synvelis-app/tests/sv113_dock.rs"
-      - "docs/specs/sv-gui-04-01-headless-window-handle-dock.md"
-      - "docs/designs/sv-gui-04-01-headless-window-handle-dock-design.md"
-      - "docs/plans/sv-gui-04-01-headless-window-handle-dock.md"
-      - "docs/tasks/sv-gui-04-01-headless-window-handle-dock.md"
-      - "docs/test-specs/sv-gui-04-01-headless-window-handle-dock.md"
+      - type: "file"
+        path: "crates/synvelis-app/tests/sv113_dock.rs"
+      - type: "file"
+        path: "docs/specs/sv-gui-04-01-headless-window-handle-dock.md"
+      - type: "file"
+        path: "docs/designs/sv-gui-04-01-headless-window-handle-dock-design.md"
+      - type: "file"
+        path: "docs/plans/sv-gui-04-01-headless-window-handle-dock.md"
+      - type: "file"
+        path: "docs/tasks/sv-gui-04-01-headless-window-handle-dock.md"
+      - type: "file"
+        path: "docs/test-specs/sv-gui-04-01-headless-window-handle-dock.md"
     modified:
-      - "crates/synvelis-app/src/host.rs"
-      - "crates/synvelis-app/src/lib.rs"
+      - type: "file"
+        path: "crates/synvelis-app/src/host.rs"
+      - type: "file"
+        path: "crates/synvelis-app/src/lib.rs"
     deleted: []
     renamed: []
     moved: []

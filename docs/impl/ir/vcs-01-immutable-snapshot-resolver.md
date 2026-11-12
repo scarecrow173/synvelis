@@ -85,6 +85,10 @@ relations:
     - "VCS-03 Git Read Provider（Issue #94）"
     - "実 Git remote / 実 OS filesystem atomicity / GUI / 実 plugin host probe（VCS-04/05/06, Issue #97）"
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # VCS-01 Immutable Snapshot Resolver — Implementation Record

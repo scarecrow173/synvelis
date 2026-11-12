@@ -56,6 +56,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # GW-01 Gateway Contract 実装記録

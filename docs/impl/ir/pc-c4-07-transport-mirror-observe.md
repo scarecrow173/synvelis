@@ -56,6 +56,10 @@ relations:
     - "docs/test-specs/pc-c4-07-transport-mirror-observe.md"
   verified-by: []
   references: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # PC-C4-07 implementation record

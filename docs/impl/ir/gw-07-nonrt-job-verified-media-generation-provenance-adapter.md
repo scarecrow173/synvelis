@@ -76,7 +76,9 @@ relations:
   deferred-by: []
 metadata:
   experiments:
-    - "ProviderStub / MediaStub による deterministic contract proof(実 AI provider なし)"
+    adopted:
+      - "ProviderStub / MediaStub による deterministic contract proof(実 AI provider なし)"
+    rejected: []
 ---
 
 # GW-07 NonRT Job・Verified Media・Generation Provenance Gateway Adapter

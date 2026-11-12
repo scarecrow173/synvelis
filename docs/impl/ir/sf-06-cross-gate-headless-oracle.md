@@ -11,14 +11,22 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/109"
   changes:
     added:
-      - "crates/synvelis-project/tests/sf06_oracle.rs"
-      - "evidence/reports/sf-06-cross-gate-ledger.md"
-      - "docs/specs/sf-06-cross-gate-oracle-case-ledger.md"
-      - "docs/adr/sf-06-cross-gate-domain-oracle-case-id-evidence-ledger-headless.md"
-      - "docs/designs/sf-06-cross-gate-oracle-domain-evidence.md"
-      - "docs/plans/sf-06-cross-gate-oracle.md"
-      - "docs/test-specs/sf-06-cross-gate-oracle.md"
-      - "docs/tasks/sf-06-cross-gate-oracle-headless.md"
+      - type: "file"
+        path: "crates/synvelis-project/tests/sf06_oracle.rs"
+      - type: "file"
+        path: "evidence/reports/sf-06-cross-gate-ledger.md"
+      - type: "file"
+        path: "docs/specs/sf-06-cross-gate-oracle-case-ledger.md"
+      - type: "file"
+        path: "docs/adr/sf-06-cross-gate-domain-oracle-case-id-evidence-ledger-headless.md"
+      - type: "file"
+        path: "docs/designs/sf-06-cross-gate-oracle-domain-evidence.md"
+      - type: "file"
+        path: "docs/plans/sf-06-cross-gate-oracle.md"
+      - type: "file"
+        path: "docs/test-specs/sf-06-cross-gate-oracle.md"
+      - type: "file"
+        path: "docs/tasks/sf-06-cross-gate-oracle-headless.md"
     modified: []
     deleted: []
     renamed: []

@@ -11,9 +11,11 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/109"
   changes:
     added:
-      - "crates/synvelis-player/tests/sf_xr_01.rs"
+      - type: "file"
+        path: "crates/synvelis-player/tests/sf_xr_01.rs"
     modified:
-      - "evidence/reports/sf-06-cross-gate-ledger.md"
+      - type: "file"
+        path: "evidence/reports/sf-06-cross-gate-ledger.md"
     deleted: []
     renamed: []
     moved: []
@@ -45,6 +47,10 @@ relations:
     - "evidence/reports/sf-06-cross-gate-ledger.md"
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # SF-XR-01 CTL-01/CTL-02 cross-gate oracle fixture — implementation record

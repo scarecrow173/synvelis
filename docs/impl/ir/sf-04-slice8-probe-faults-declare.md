@@ -1,6 +1,6 @@
 ---
 id: "IMPL-6wR3nX8kT5yP2qA7jM4vB9d"
-type: "ir"
+type: "impl"
 status: "completed"
 title: "SF-04 slice8 実装記録 — SF-PROBE-05 fault fixtures + seek 以外の不連続宣言点"
 created: "2026-11-12"
@@ -35,6 +35,10 @@ relations:
     - "docs/test-specs/sf-04-slice8-probe-faults-declare.md"
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # SF-04 slice8 実装記録 — SF-PROBE-05 fault fixtures + 不連続宣言点

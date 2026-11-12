@@ -65,6 +65,10 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # ALIB-02 v5 snapshot asset-digest 互換移行 + recovery fixture — 実装記録

@@ -102,6 +102,10 @@ relations:
   defers:
     - "実 VST3/AU/CLAP plugin での state save/restore・実 OS filesystem atomicity・GUI 統合（NotRun/Unsupported — headless mock slice の範囲外）"
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # TIM-04 Plugin State Snapshot 一貫性 — Implementation Record
