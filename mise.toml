@@ -13,7 +13,9 @@ prek = "0.5.5"
 git-lfs = "3.8.0"
 "github:microsoft/apm" = "0.33.0"
 "pipx:serena-agent" = "1.7.0"
-rust = { version = "1.99.0", components = ["rustfmt", "clippy"], mr_boxington = true }
+# Rust toolchain はここでは pin しない。通常開発は環境導入済みの
+# rust(rustup / global mise)を使い、CI 用の pin は mise.ci.toml
+# (MISE_ENV=ci で有効化)に分離する。
 node = "26.12.1"
 
 [tasks.setup]

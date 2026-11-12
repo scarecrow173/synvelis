@@ -99,6 +99,7 @@ mise run setup
 ```
 
 - 初期化後は `mise.lock` を生成・確認してコミットし、以後の復元でも `mise install` を使用する。`mise.toml` と整合する lockfile がある場合、そこに固定されたツールバージョンが使われる。
+- Rust toolchain は `mise.toml` では pin しない。通常開発は環境導入済みの rust（rustup / global mise）を使う。CI 専用の pin は `mise.ci.toml` に置き、`MISE_ENV=ci` で有効化する（lockfile は `MISE_ENV=ci mise lock` が生成する `mise.ci.lock`）。lockfile 再生成時は `mise.toml` 変更には `mise lock`、`mise.ci.toml` 変更には `MISE_ENV=ci mise lock` を使い分ける。
 - APM CLI は `mise.toml` で `github:microsoft/apm` バックエンドを使用する。GitHub 配布バイナリを利用するため、APM CLI 自身の Python/pipx 依存グラフ sidecar は不要となる。
 - mise lockfile 形式 v2 以降では、npm・PyPI系ツールの依存グラフが `.mise/locks/` に生成される場合がある。`mise.lock` が参照する sidecar は一緒にコミットする。`mise lock --sidecars` で参照を確認し、`.gitignore` の `!.mise/locks/` 例外を維持する（`.mise/` 全体を無視しない）。
 - 管理対象ツールを直接起動する必要がある場合は、原則 `mise exec -- <command>` を使用する。
@@ -109,7 +110,7 @@ mise run setup
 
 ## Rust ワークスペース規約
 
-- ルート `Cargo.toml` がワークスペースの正本。`resolver = "2"`・`edition = "2024"`・`rust-version = "1.89"`（MSRV、ツールチェーン pin は `1.99.0`）・`publish = false`・`[workspace.lints]` は ruviform の規約に合わせる。
+- ルート `Cargo.toml` がワークスペースの正本。`resolver = "2"`・`edition = "2024"`・`rust-version = "1.89"`（MSRV。CI toolchain pin は `mise.ci.toml` の `1.99.0`）・`publish = false`・`[workspace.lints]` は ruviform の規約に合わせる。
 - メンバーは `crates/` 配下。`synvelis-project`（Project集約・単一 writer モデル・永続化ポート）、`synvelis-recording`（録音操作・検証、Store非所有）、`recording-poc`（決定的 headless PoC bin）。依存方向は `recording-poc → synvelis-recording → synvelis-project` のみ。
 - Ruviform 依存は既定ブランチ追従の git 依存とし、解決 revision は `Cargo.lock` に記録する。特定 SHA の恒久的ハードコード・vendor コピーは禁止。
 - `ui/vendor/ruviform` は gitignore された生成物で、`.worktreeinclude` により worktree へそのままコピーされる。`Cargo.lock` の ruviform 解決 rev が変わる変更（pin 更新・`cargo update`・ブランチ切替）を取り込んだ後は `mise run sync-ui-deps` で lock rev へ再同期する。`check-ruviform-rev` の REV 不一致はこの stale vendor を検出した fail-closed であり、復旧は `sync-ui-deps` の再実行（synvelis#230）。

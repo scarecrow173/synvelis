@@ -58,6 +58,9 @@ env:
   # CI は pinned Rust toolchain + 検証用補助ツールのみを有効化する。
   # pipx:serena-agent 等の任意開発ツールは activate しない。
   MISE_ENABLE_TOOLS: rust,prek,git-lfs,actionlint
+  # Rust toolchain pin は mise.ci.toml(CI 専用)に分離 — MISE_ENV=ci で
+  # 有効化し、通常開発は環境導入済みの rust を使う。
+  MISE_ENV: ci
   # synvelis には .cargo/config.toml が無いため、cargo の git 取得を
   # system git(deploy key mode の url.insteadOf + GIT_SSH_COMMAND が
   # 効く経路)へ委譲し、依存 checkout の LFS smudge を skip する。
