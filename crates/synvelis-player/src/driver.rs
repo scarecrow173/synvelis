@@ -187,7 +187,7 @@ struct AttachedDispatch {
 /// metadata only — event gating reads status/position/generations —
 /// so the divergence is evidence-level, never delivery-level.
 #[derive(Debug)]
-struct TransportMirror {
+pub(crate) struct TransportMirror {
     /// Scheduler-equivalent transport status.
     status: TransportStatus,
     /// Position anchor frame (engine frames — the node's cursor
@@ -221,7 +221,7 @@ impl TransportMirror {
     /// Scheduler-initial state: `Stopped`, zeroed anchor, no loop,
     /// generation/occurrence 0 — identical to
     /// `TransportScheduler::new`.
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             status: TransportStatus::Stopped,
             anchor_frame: 0,
@@ -236,7 +236,7 @@ impl TransportMirror {
     /// The transport generation the next span context reports:
     /// the pending prediction while staged bumps await receipts,
     /// else the last receipt-confirmed value.
-    fn effective_generation(&self) -> TransportGeneration {
+    pub(crate) fn effective_generation(&self) -> TransportGeneration {
         self.pending_generation.unwrap_or(self.transport_generation)
     }
 
@@ -244,7 +244,7 @@ impl TransportMirror {
     /// anchor_frame)` while `Playing`, frozen otherwise — *no* loop
     /// fold (the scheduler folds only by re-anchoring at wrap
     /// boundaries). Command applies read this value.
-    fn raw_position_at(&self, frame: u64) -> i64 {
+    pub(crate) fn raw_position_at(&self, frame: u64) -> i64 {
         if self.status != TransportStatus::Playing {
             return self.anchor_pos;
         }
@@ -257,7 +257,7 @@ impl TransportMirror {
     /// to the scheduler's sequential `do_wrap` re-anchoring for every
     /// frame at or after `anchor_frame`. Saturating arithmetic
     /// mirrors `pos_at`'s `saturating_add`.
-    fn position_at(&self, frame: u64) -> (i64, LoopOccurrence) {
+    pub(crate) fn position_at(&self, frame: u64) -> (i64, LoopOccurrence) {
         if self.status != TransportStatus::Playing {
             return (self.anchor_pos, self.occurrence);
         }
@@ -283,7 +283,7 @@ impl TransportMirror {
     /// installs is built through `plan_builder`, which never attaches
     /// a tempo map (revision 0 by construction; real tempo maps are
     /// the Tempo slice's scope).
-    fn span_context(
+    pub(crate) fn span_context(
         &self,
         frame: u64,
         position_base: TimeBase,
@@ -310,7 +310,7 @@ impl TransportMirror {
     /// lifecycle stage (`Requested`/`Pending`/`Applied`/`Rejected`)
     /// carry the generation live at production time, so the last one
     /// in the drain is always the freshest known value.
-    fn note_receipts(&mut self, receipts: &[AppliedReceipt]) {
+    pub(crate) fn note_receipts(&mut self, receipts: &[AppliedReceipt]) {
         if let Some(last) = receipts.last() {
             self.transport_generation = last.transport_generation;
             self.pending_generation = None;
@@ -322,7 +322,7 @@ impl TransportMirror {
     /// `occurrence` must be the value *at* `frame` (from
     /// [`Self::position_at`]) so wraps between the old anchor and
     /// `frame` are not lost or double-counted.
-    fn anchor_at(&mut self, frame: u64, position: i64, occurrence: LoopOccurrence) {
+    pub(crate) fn anchor_at(&mut self, frame: u64, position: i64, occurrence: LoopOccurrence) {
         self.anchor_frame = frame;
         self.anchor_pos = position;
         self.occurrence = occurrence;
@@ -337,7 +337,7 @@ impl TransportMirror {
     /// position lands exactly on the loop end at `frame` (positions
     /// advance one tick per frame, so boundaries are `loop_len`
     /// apart and at most one coincides with a frame).
-    fn occurrence_before(&self, frame: u64) -> LoopOccurrence {
+    pub(crate) fn occurrence_before(&self, frame: u64) -> LoopOccurrence {
         let (_, inclusive) = self.position_at(frame);
         let head_wrap = self.status == TransportStatus::Playing
             && self.loop_ticks.is_some_and(|(start, end)| {
@@ -355,9 +355,21 @@ impl TransportMirror {
     /// the command first, then wraps; `Play` does not move the
     /// position, so the head-wrap count carries over unchanged).
     /// Transport generation bumps.
-    fn note_play(&mut self, frame: u64) {
+    pub(crate) fn note_play(&mut self, frame: u64) {
         let (pos, occurrence) = self.position_at(frame);
         self.status = TransportStatus::Playing;
+        self.anchor_at(frame, pos, occurrence);
+        self.note_tg_bump();
+    }
+
+    /// `Pause` applied at `frame`: status freezes at `Paused` and the
+    /// anchor captures the folded running position — the same
+    /// anchoring as `Play`, only the status differs (`Paused`
+    /// positions freeze exactly like `Stopped` upstream). Transport
+    /// generation bumps.
+    pub(crate) fn note_pause(&mut self, frame: u64) {
+        let (pos, occurrence) = self.position_at(frame);
+        self.status = TransportStatus::Paused;
         self.anchor_at(frame, pos, occurrence);
         self.note_tg_bump();
     }
@@ -367,7 +379,7 @@ impl TransportMirror {
     /// that reason), generation bumps. Occurrence freezes at its
     /// pre-stop value — a `Stopped` scheduler processes no wraps, and
     /// the apply preempts a wrap due at the same head.
-    fn note_stop(&mut self, frame: u64) {
+    pub(crate) fn note_stop(&mut self, frame: u64) {
         let occurrence = self.occurrence_before(frame);
         self.status = TransportStatus::Stopped;
         self.anchor_at(frame, 0, occurrence);
@@ -381,7 +393,7 @@ impl TransportMirror {
     /// a full cascade when `t` lands past the loop end — are folded
     /// lazily by `position_at`, matching the scheduler's same-head
     /// wrap cascade.
-    fn note_seek(&mut self, frame: u64, position: i64) {
+    pub(crate) fn note_seek(&mut self, frame: u64, position: i64) {
         let occurrence = self.occurrence_before(frame);
         self.anchor_at(frame, position, occurrence);
         self.note_tg_bump();
@@ -394,7 +406,7 @@ impl TransportMirror {
     /// already passed, including wraps before `frame` that collapse
     /// onto the apply head upstream; the lazy fold counts them
     /// identically.
-    fn note_set_loop(&mut self, frame: u64, region: (i64, i64)) {
+    pub(crate) fn note_set_loop(&mut self, frame: u64, region: (i64, i64)) {
         let pos = self.raw_position_at(frame);
         self.loop_ticks = Some(region);
         self.anchor_at(frame, pos, LoopOccurrence::new(0));
@@ -404,7 +416,7 @@ impl TransportMirror {
     /// position line continues unfolded; occurrence keeps its
     /// pre-command value (a `loop_ticks: None` scheduler processes no
     /// wraps, and the apply preempts a wrap due at the same head).
-    fn note_clear_loop(&mut self, frame: u64) {
+    pub(crate) fn note_clear_loop(&mut self, frame: u64) {
         let pos = self.raw_position_at(frame);
         let occurrence = self.occurrence_before(frame);
         self.loop_ticks = None;
@@ -415,7 +427,7 @@ impl TransportMirror {
     /// predicted generation advances one past the current effective
     /// value (each of Play/Pause/Stop/Seek bumps exactly once at
     /// apply).
-    fn note_tg_bump(&mut self) {
+    pub(crate) fn note_tg_bump(&mut self) {
         let next = TransportGeneration::new(self.effective_generation().get().saturating_add(1));
         self.pending_generation = Some(next);
     }
