@@ -42,6 +42,7 @@ Directory: `docs/plans`
 | PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-034UxXVFIkzqs2eO4wcXo0 | PC-C5 slice2 実施計画 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
+| PLAN-034WaQlEhakW3yisBvWEHv | PC-C5 slice4 実施計画 — Recording status read model（UI-C5-04・headless） | approved | [pc-c5-04-recording-status.md](./pc-c5-04-recording-status.md) |
 | PLAN-7zXphX8skvXfNgeXarocfo | PC-C6 oracle REL/TR headless fixture 実装計画 | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
 | PLAN-034VmVEzTuUHmBKxPRoFID | PC-C6 oracle R/PL/UI/COMP headless fixture 実装計画 | approved | [pc-c6-oracle-rows-plan.md](./pc-c6-oracle-rows-plan.md) |
 | PLAN-034VNrIZteNN2bsGVGokZF | plugin_instances VCS semantic diff 分類 slice | approved | [plugin-instances-vcs-diff-plan.md](./plugin-instances-vcs-diff-plan.md) |

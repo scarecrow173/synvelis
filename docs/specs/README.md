@@ -43,6 +43,7 @@ Directory: `docs/specs`
 | SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | SPEC-034UxXLvNqgbDGOypo7Uu4 | PC-C5 slice2 (UI-C5-02/03): Gesture 固定・stale drop・Inspector Follow/Explore/Pinned（headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
+| SPEC-034WaMkHXz9f23GE3u0bie | PC-C5 slice4 (UI-C5-04): Recording status read model — Conflict/Prepare/Pending/Applied/Unknown + typed provenance（headless） | approved | [pc-c5-04-recording-status.md](./pc-c5-04-recording-status.md) |
 | SPEC-IY7kQwMIWqb4sFVpvsHnQy | PC-C6 headless oracle — REL01〜07 / TR01〜08 fixture（RelationIndex・ControlTrace 独立照合） | approved | [pc-c6-oracle-rel-tr.md](./pc-c6-oracle-rel-tr.md) |
 | SPEC-034VmUDawn7YGP2Vh36vnP | PC-C6 headless oracle — R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 fixture（Recording・Plugin・GUI/RT 横断 Gate） | approved | [pc-c6-oracle-rows.md](./pc-c6-oracle-rows.md) |
 | SPEC-034V2ghdXlh1m9UFtt5ks1 | RCD-01 実Audio Device録音統合 headless slice — Mock Input→Raw Writer/Journal→Arm/Punch/Loop・Fail-stop Fixture（synvelis#115） | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
