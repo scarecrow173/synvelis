@@ -162,13 +162,16 @@ jobs:
           if [ -n "${ACTIONS_RUNTIME_TOKEN:-}" ]; then echo "ACTIONS_RUNTIME_TOKEN: set"; else echo "::warning::ACTIONS_RUNTIME_TOKEN missing — sccache GHA backend disabled (local disk fallback)"; fi
 
       - name: Check config files with prek
+        if: matrix.os == 'ubuntu-latest'
         run: mise exec -- prek run --all-files
 
       - name: Lint workflows (mise run lint-actions)
+        if: matrix.os == 'ubuntu-latest'
         id: lint-actions
         run: mise run lint-actions
 
       - name: Check formatting (mise run fmt-check)
+        if: matrix.os == 'ubuntu-latest'
         id: fmt
         run: mise run fmt-check
 
@@ -177,6 +180,7 @@ jobs:
         run: mise run check-full
 
       - name: Lint workspace (mise run lint-full)
+        if: matrix.os == 'ubuntu-latest'
         id: lint
         run: mise run lint-full
 
@@ -186,9 +190,9 @@ jobs:
 
       # Issue #377 (SV-CI-L1-01): synvelis-app 非既定 Feature の OS-L1
       # lane を既存 verify leg へ追加する。`native` feature の
-      # check/Clippy と `synvelis-native` bin の Build/Link、
+      # check(3 OS)/Clippy(Linux) と `synvelis-native` bin の Build/Link、
       # `gpui-test` feature の headless scenario/contract test を
-      # 3 OS で実走させる。gpui-test は native を内包するが、bin の
+      # 3 OS で実走させる。共通LintはLinuxのみに集約する。gpui-test は native を内包するが、bin の
       # link 検証は native feature のみで行う。job/leg は増やさず
       # leg 単位の fail-closed 集約(evidence/ci-summary)をそのまま
       # 維持する。
@@ -209,6 +213,7 @@ jobs:
         run: mise run check-app-native
 
       - name: Lint synvelis-app native feature (mise run lint-app-native)
+        if: matrix.os == 'ubuntu-latest'
         id: lint-native
         run: mise run lint-app-native
 
@@ -221,6 +226,7 @@ jobs:
         run: mise run check-app-gpui
 
       - name: Lint synvelis-app gpui-test feature (mise run lint-app-gpui)
+        if: matrix.os == 'ubuntu-latest'
         id: lint-gpui
         run: mise run lint-app-gpui
 
@@ -376,24 +382,13 @@ jobs:
           if [ -n "${ACTIONS_RESULTS_URL:-}" ]; then echo "ACTIONS_RESULTS_URL: set"; else echo "::warning::ACTIONS_RESULTS_URL missing — sccache GHA backend disabled (local disk fallback)"; fi
           if [ -n "${ACTIONS_RUNTIME_TOKEN:-}" ]; then echo "ACTIONS_RUNTIME_TOKEN: set"; else echo "::warning::ACTIONS_RUNTIME_TOKEN missing — sccache GHA backend disabled (local disk fallback)"; fi
 
-      - name: Check config files with prek
-        run: mise exec -- prek run --all-files
 
-      - name: Lint workflows (mise run lint-actions)
-        id: lint-actions
-        run: mise run lint-actions
 
-      - name: Check formatting (mise run fmt-check)
-        id: fmt
-        run: mise run fmt-check
 
       - name: Type-check workspace (mise run check-full)
         id: check
         run: mise run check-full
 
-      - name: Lint workspace (mise run lint-full)
-        id: lint
-        run: mise run lint-full
 
       - name: Test workspace (mise run test-full)
         id: test
@@ -406,9 +401,6 @@ jobs:
         id: check-native
         run: mise run check-app-native
 
-      - name: Lint synvelis-app native feature (mise run lint-app-native)
-        id: lint-native
-        run: mise run lint-app-native
 
       - name: Build synvelis-native bin (mise run build-app-native)
         id: build-native
@@ -418,9 +410,6 @@ jobs:
         id: check-gpui
         run: mise run check-app-gpui
 
-      - name: Lint synvelis-app gpui-test feature (mise run lint-app-gpui)
-        id: lint-gpui
-        run: mise run lint-app-gpui
 
       - name: Require non-empty gpui-test scenario selection
         id: gpui-guard
@@ -458,16 +447,16 @@ jobs:
             echo ""
             echo "| step | result |"
             echo "|---|---|"
-            echo "| lint-actions | ${{ steps.lint-actions.outcome || 'not run' }} |"
-            echo "| fmt-check | ${{ steps.fmt.outcome || 'not run' }} |"
+            echo "| lint-actions | Linux-only: verify (ubuntu-latest) gate |"
+            echo "| fmt-check | Linux-only: verify (ubuntu-latest) gate |"
             echo "| check | ${{ steps.check.outcome || 'not run' }} |"
-            echo "| lint | ${{ steps.lint.outcome || 'not run' }} |"
+            echo "| lint | Linux-only: verify (ubuntu-latest) gate |"
             echo "| test | ${{ steps.test.outcome || 'not run' }} |"
             echo "| check-native | ${{ steps.check-native.outcome || 'not run' }} |"
-            echo "| lint-native | ${{ steps.lint-native.outcome || 'not run' }} |"
+            echo "| lint-native | Linux-only: verify (ubuntu-latest) gate |"
             echo "| build-native | ${{ steps.build-native.outcome || 'not run' }} |"
             echo "| check-gpui | ${{ steps.check-gpui.outcome || 'not run' }} |"
-            echo "| lint-gpui | ${{ steps.lint-gpui.outcome || 'not run' }} |"
+            echo "| lint-gpui | Linux-only: verify (ubuntu-latest) gate |"
             echo "| gpui-test guard | ${{ steps.gpui-guard.outcome || 'not run' }} |"
             echo "| test-gpui | ${{ steps.test-gpui.outcome || 'not run' }} |"
             echo "| lockfile-diff | ${{ steps.lockdiff.outcome || 'not run' }} |"
