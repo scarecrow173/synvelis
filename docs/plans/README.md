@@ -23,6 +23,7 @@ Directory: `docs/plans`
 | PLAN-034CTL01Rz2xAu8bD4eF5gHi | CTL-01 ControlOwner/AutomationTimeScope 実装計画 | approved | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
 | PLAN-3o92uvIdnyfhflikf7TlYQ | CTL-02 adoption SendLevel canonical spec 強制 実装計画 | approved | [ctl-02-adopt-sendlevel-plan.md](./ctl-02-adopt-sendlevel-plan.md) |
 | PLAN-034QN1oz8zutDLafJy6oDg | ED-B media-domain editing PoC 実装計画 | approved | [ed-b-media-domain-editing.md](./ed-b-media-domain-editing.md) |
+| PLAN-034X841J2QRrgpxCPlRiKb | Execution Plan Plan — docs chain + sv23 evidence ledger | in-progress | [execution-plan.md](./execution-plan.md) |
 | PLAN-034UqTzD6N7R0o468wXtrQ | Implement SV-GUI-04 slice2 dock transfer workspace adoption | approved | [implement-sv-gui-04-slice2-dock-transfer-workspace-adoption.md](./implement-sv-gui-04-slice2-dock-transfer-workspace-adoption.md) |
 | PLAN-ztcxOYrIjvxF2hswb1Wnb0 | Issue #145 ci.yml manual-only 実装計画 — trigger 撤去 + 契約 test 転換 + 実起動ゼロ検証 | in-progress | [issue-145-ci-manual-only.md](./issue-145-ci-manual-only.md) |
 | PLAN-034RIMqW7C96l1jlnfBaLc | Issue #147 sccache 導入実装計画 | approved | [issue-147-sccache-compile-cache.md](./issue-147-sccache-compile-cache.md) |
