@@ -106,6 +106,7 @@ Directory: `docs/impl/ir`
 | IMPL-034UJqjrnNLIXxfkFE25tv | SF-03 slice6 実装記録 — RoutingControlDispatch・sf03_l6 acceptance | completed | [sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md](./sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md) |
 | IMPL-034VoSZokxDrVB1U3GAB2Z | SF-03 slice8 実装記録 — app/workspace same-Revision fixture | completed | [sf-03-slice8-revision-fixture-slice.md](./sf-03-slice8-revision-fixture-slice.md) |
 | IMPL-034VWypvBUG9TnfSAsy2zP | SF-03 slice9 実装記録 — host capability generation live firing | completed | [sf-03-slice9-capability-firing.md](./sf-03-slice9-capability-firing.md) |
+| IMPL-O1aILQdAh3pWRFZXBCqEHy | SF-04 probe adapter — Issue #107 SF-PROBE-01..08 受入集約 実装記録 | completed | [sf-04-probe-adapter.md](./sf-04-probe-adapter.md) |
 | IMPL-DVuQSd17Juc0oZ9flKLQ6O | SF-04 slice1 実装記録 — Semantic Probe Adapter 基盤（project/player 層 + ruviform pin bump） | completed | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | IMPL-8jFdP2wErT5yU7iO1aQ4sG | SF-04 slice10 実装記録 — syn.probe.compare app op（ProbeComparisonRequest → AcousticObservation の wire 露出） | completed | [sf-04-slice10-probe-compare-op.md](./sf-04-slice10-probe-compare-op.md) |
 | IMPL-5zX3cV7bN1mK9jH4gFtDsA | SF-04 slice6 実装記録 — 複数 Probe 整列比較 consumer（ProbeComparisonRequest → AcousticObservation） | completed | [sf-04-slice6-probe-compare.md](./sf-04-slice6-probe-compare.md) |
