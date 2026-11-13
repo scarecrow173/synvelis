@@ -1,7 +1,7 @@
 ---
 id: "IMPL-O1aILQdAh3pWRFZXBCqEHy"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "SF-04 probe adapter — Issue #107 SF-PROBE-01..08 受入集約 実装記録"
 created: "2026-11-14"
 updated: "2026-11-14"
@@ -142,9 +142,21 @@ src 変更は監査で contract 違反が見つからなかったため行って
 
 ## Validation
 
-（検証実行後に記録 — `mise run fmt-check`/`check`/`lint`/`test`/
-`test-rt`/`check-ruviform-rev` の結果を `evidence/sv107/
-verification.md` と併せて更新する）
+`git merge origin/main`（`8119d3e`、clean merge）後の HEAD で実施。
+全コマンド exit 0 — 詳細は `evidence/sv107/verification.md`:
+
+- `mise run fmt-check` — Passed
+- `mise run check synvelis-project` / `synvelis-player` — Passed
+- `mise run lint synvelis-project` / `synvelis-player` — Passed
+  （clippy `-D warnings`。`doc_markdown` 指摘 1 件を修正）
+- `mise run test synvelis-project` / `synvelis-player` — Passed
+  （`sf04_probe_acceptance` 2 件含む全 target green）
+- `mise run test-rt` — Passed（workspace `rt_` 契約テスト）
+- `mise run check-ruviform-rev` — Passed（`sync-ui-deps` で vendor
+  を lockfile rev `fd1d4d5f` へ再同期後に REV match。vendor は
+  gitignore 生成物で tracked 変更なし）
+- `doc-maintenance index plan/apply` — 全 10 dir in-sync、
+  6 README を再生成してコミット済み
 
 ## Risks
 

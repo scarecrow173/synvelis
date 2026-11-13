@@ -53,9 +53,9 @@ relations:
   dedup 境界
 - [x] T3: `crates/synvelis-player/tests/sf04_probe_acceptance.rs`
   新規（2 テスト、RT-observed binding で検証）
-- [ ] T4: `evidence/sv107/` に被覆表・検証結果・外部 Gate
+- [x] T4: `evidence/sv107/` に被覆表・検証結果・外部 Gate
   NotRun/Unsupported を記録
-- [ ] T5: docs index 再生成（doc-maintenance）＋ fmt/check/lint/
+- [x] T5: docs index 再生成（doc-maintenance）＋ fmt/check/lint/
   test（synvelis-project・synvelis-player）・test-rt・
   check-ruviform-rev の検証
 - [ ] T6: Conventional Commits で論理分割コミット → push →

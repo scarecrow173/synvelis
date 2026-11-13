@@ -9,7 +9,6 @@ Directory: `docs/impl/ir`
 | IMPL-034WEVyS44eEOELiBCYBIG | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice 実装記録 | in-progress | [rcd-04-midi-undo-stableid-slice.md](./rcd-04-midi-undo-stableid-slice.md) |
 | IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](./rcd-04-product-e2e-slice.md) |
 | IMPL-034VC2V5HUrkERcXqw246v | RCD-04 RT engine comp PCM slice 実装記録 | in-progress | [rcd-04-rt-engine-comp-pcm-slice.md](./rcd-04-rt-engine-comp-pcm-slice.md) |
-| IMPL-O1aILQdAh3pWRFZXBCqEHy | SF-04 probe adapter — Issue #107 SF-PROBE-01..08 受入集約 実装記録 | in-progress | [sf-04-probe-adapter.md](./sf-04-probe-adapter.md) |
 | IMPL-034UvgCFl4bXw9DZ4bTr3X | SF-04 slice2 ControlSession probe observation trace wiring | in-progress | [sf-04-slice2-controlsession-probe-observation-trace-wiring.md](./sf-04-slice2-controlsession-probe-observation-trace-wiring.md) |
 | IMPL-034UL7HNJppFLqjkPqHDxX | SF-04 slice3 probe clock epoch discontinuity capture segmentation | in-progress | [sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md](./sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md) |
 | IMPL-034VpPQEAhdWyygKYS7mb9 | SF-04 slice5 probe subscriber window ownership | in-progress | [sf-04-slice5-probe-subscriber-window-ownership.md](./sf-04-slice5-probe-subscriber-window-ownership.md) |
@@ -106,6 +105,7 @@ Directory: `docs/impl/ir`
 | IMPL-034UJqjrnNLIXxfkFE25tv | SF-03 slice6 実装記録 — RoutingControlDispatch・sf03_l6 acceptance | completed | [sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md](./sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md) |
 | IMPL-034VoSZokxDrVB1U3GAB2Z | SF-03 slice8 実装記録 — app/workspace same-Revision fixture | completed | [sf-03-slice8-revision-fixture-slice.md](./sf-03-slice8-revision-fixture-slice.md) |
 | IMPL-034VWypvBUG9TnfSAsy2zP | SF-03 slice9 実装記録 — host capability generation live firing | completed | [sf-03-slice9-capability-firing.md](./sf-03-slice9-capability-firing.md) |
+| IMPL-O1aILQdAh3pWRFZXBCqEHy | SF-04 probe adapter — Issue #107 SF-PROBE-01..08 受入集約 実装記録 | completed | [sf-04-probe-adapter.md](./sf-04-probe-adapter.md) |
 | IMPL-DVuQSd17Juc0oZ9flKLQ6O | SF-04 slice1 実装記録 — Semantic Probe Adapter 基盤（project/player 層 + ruviform pin bump） | completed | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | IMPL-8jFdP2wErT5yU7iO1aQ4sG | SF-04 slice10 実装記録 — syn.probe.compare app op（ProbeComparisonRequest → AcousticObservation の wire 露出） | completed | [sf-04-slice10-probe-compare-op.md](./sf-04-slice10-probe-compare-op.md) |
 | IMPL-5zX3cV7bN1mK9jH4gFtDsA | SF-04 slice6 実装記録 — 複数 Probe 整列比較 consumer（ProbeComparisonRequest → AcousticObservation） | completed | [sf-04-slice6-probe-compare.md](./sf-04-slice6-probe-compare.md) |
