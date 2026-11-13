@@ -102,6 +102,7 @@ Directory: `docs/plans`
 | PLAN-iD5fujcWIovHuywc0CIEeu | SV175 Native App Shell 実施計画 | approved | [sv175-native-shell.md](./sv175-native-shell.md) |
 | PLAN-034T7GApSe3z9XUatjz8ti | SV177 Product Theme / Workspace Presets — synvelis-theme crate・DTCG assets・slot-based preset apply | approved | [sv177-product-theme-workspace-presets.md](./sv177-product-theme-workspace-presets.md) |
 | PLAN-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain projection 実施 plan | approved | [sv185-mixer-gain-projection.md](./sv185-mixer-gain-projection.md) |
+| PLAN-SvtE2e03aB2cD3eF4gH5iJ8 | SV-GUI-05: SVT-01〜09 Headless UI Scenario 実装計画 | approved | [svt-product-e2e-plan.md](./svt-product-e2e-plan.md) |
 | PLAN-034UvHKP6YrkCOD8vDGrJj | SYN-IO-01 Ruviform 共通 I/O 適合境界設計 文書化計画 | approved | [syn-io-01-ruviform-io-boundary-design.md](./syn-io-01-ruviform-io-boundary-design.md) |
 | PLAN-034T2c5vy3vKJPENF8AA50 | SYN-IO-02 DirectoryBundleStore StagedFile 移行計画 | approved | [syn-io-02-directory-bundle-store-stagedfile.md](./syn-io-02-directory-bundle-store-stagedfile.md) |
 | PLAN-034WVJFNJkmTS7M5lq1tjI | SYN-IO-02 HEAD CAS 実 2-process E2E 検証 — implementation plan | approved | [syn-io-02-head-cas-e2e-plan.md](./syn-io-02-head-cas-e2e-plan.md) |
