@@ -6,6 +6,7 @@ Directory: `docs/tasks`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| TASK-JOX49mZJEhYDdYV7eCjq12 | AI-Native Hybrid DAW Baseline — Grant/Principal/Scope/Approval/ChangeSet・AI Off 既定・3 Mode 責務設計契約文書化 (synvelis#44) | in-progress | [ai-native-baseline-task.md](./ai-native-baseline-task.md) |
 | TASK-alib03-t1 | ALIB-03 Task 1 — cache/catalog/preview/notify modules・tests | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | TASK-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — タスク | completed | [alib-04-lfs-remote-fetch-task.md](./alib-04-lfs-remote-fetch-task.md) |
 | TASK-alib06-t1 | ALIB-06 Task 1 — webdav provider modules・fixture・tests | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
