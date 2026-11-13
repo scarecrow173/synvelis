@@ -159,6 +159,7 @@ Directory: `docs/impl/ir`
 | IMPL-034Vsqaiq4B9YQrsfPw8Sb | TIM-03 session→driver/routing wiring — BoundarySessionSpec vend・driver session/mirror・routing scoped API | completed | [tim-03-session-driver-wiring-slice.md](./tim-03-session-driver-wiring-slice.md) |
 | IMPL-Tim04PluginStateSnapshot | TIM-04 Plugin State Snapshot 一貫性 — quality receipt / save-reload / HEAD / offline recipe（headless mock slice） | completed | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | IMPL-kBHWiP6FFajB356aw7WOHn | Timeline Editing / Selection / Tool System — 実装記録（docs slice・synvelis#11） | completed | [timeline-editing.md](./timeline-editing.md) |
+| IMPL-034X7xdWV5l5SuHJr0ppBz | Transport Integration — Issue #20 設計契約文書化 + TT evidence 台帳 | completed | [transport-integration.md](./transport-integration.md) |
 | IMPL-102UiCfInt006FfGgHhIiJ | UI-C5 製品 GUI 統合 — syn.control.relation / syn.control.edge / syn.recording.* op surface（headless slice） | completed | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | IMPL-Vcs01ImmutableSnapshotResolver | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only projection | completed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | IMPL-Vcs02SemanticDiffEngine | VCS-02 Semantic Diff Engine — canonical ChangeSet・typed identity/lineage・Unknown tri-state | completed | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
