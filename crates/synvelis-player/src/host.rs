@@ -32,7 +32,9 @@ use ruviform_audio_core::AudioFormat;
 use ruviform_audio_plugin_bridge::{AttachConfig, AttachError, PluginNodeControl, attach};
 use ruviform_graph::NodeId;
 use ruviform_media_core::{DeliveryPolicy, InBlockTransportSupport, ScheduleBudget, TimeBase};
-use ruviform_plugin_core::{BusDescriptor, BusDirection, BusRole, ParamInfo, ProcessConfig};
+use ruviform_plugin_core::{
+    BusDescriptor, BusDirection, BusRole, ParamInfo, PluginFactory, ProcessConfig,
+};
 use ruviform_plugin_host::{
     EndpointBounds, HostCommand, HostError, HostReply, PluginHandle, PluginHost,
 };
@@ -499,6 +501,75 @@ impl PluginHostProcessors {
     #[must_use]
     pub fn host(&self) -> Rc<RefCell<PluginHost>> {
         Rc::clone(&self.host)
+    }
+
+    /// Composition-root constructor (PC-C4 drain slice): wraps a
+    /// fresh [`PluginHost`] with `factories` registered for
+    /// `Scan`/`Instantiate`. Non-RT only — may allocate.
+    #[must_use]
+    pub fn product(factories: impl IntoIterator<Item = Box<dyn PluginFactory>>) -> Self {
+        let mut host = PluginHost::new();
+        for factory in factories {
+            host.register_factory(factory);
+        }
+        Self::new(host)
+    }
+
+    /// The periodic plugin→host report drain over the same shared
+    /// host cell — hand to the app composition root so the control
+    /// cadence can drive `drain_output_reports` without the app
+    /// naming host types (PC-C4 drain slice, synvelis#101).
+    #[must_use]
+    pub fn report_drain(&self) -> PluginReportDrain {
+        PluginReportDrain::new(Rc::clone(&self.host))
+    }
+}
+
+/// Composition-root driver for the periodic plugin→host output
+/// report drain (PC-C4 drain slice, synvelis#101).
+///
+/// Wraps the same shared `PluginHost` cell [`PluginHostProcessors`]
+/// vends, so the app control cadence can run
+/// [`crate::RoutingControlDispatch::drain_output_reports`] without
+/// naming host types. `Clone` — the handle is a second `Rc` to the
+/// one cell, never a second host.
+///
+/// **RT contract:** non-RT only —
+/// `PluginHost::drain_output_reports` may allocate and take shared
+/// locks; call from the UI/control cadence, never inside `process`.
+#[derive(Clone)]
+pub struct PluginReportDrain {
+    host: Rc<RefCell<PluginHost>>,
+}
+
+impl PluginReportDrain {
+    /// Wraps the shared host cell — composition roots obtain it via
+    /// [`PluginHostProcessors::report_drain`].
+    #[must_use]
+    pub fn new(host: Rc<RefCell<PluginHost>>) -> Self {
+        Self { host }
+    }
+
+    /// Runs one `drain_output_reports` pass for `endpoints` against
+    /// `dispatch` — generation/active-generation gating stays inside
+    /// the dispatcher; this handle only supplies the host borrow.
+    /// Returns the typed [`crate::ReportDrainReport`] verbatim.
+    #[must_use]
+    pub fn drain(
+        &self,
+        dispatch: &mut crate::RoutingControlDispatch,
+        endpoints: &[crate::plugin_state::PluginStateEndpoint],
+        generation: u64,
+        active_generation: Option<u64>,
+    ) -> crate::ReportDrainReport {
+        dispatch.drain_output_reports(
+            endpoints,
+            generation,
+            active_generation,
+            &mut |handle: PluginHandle, out: &mut Vec<ruviform_plugin_core::Event>| {
+                self.host.borrow_mut().drain_output_reports(handle, out)
+            },
+        )
     }
 }
 
