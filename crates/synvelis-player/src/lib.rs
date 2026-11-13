@@ -52,8 +52,9 @@ pub use dispatch::{DispatchCycle, DispatchError, ParamDispatch};
 pub use driver::{AttachedNode, DriverState, HeadlessDriver, PlayReport, PumpPolicy};
 pub use error::{ImportError, ResolveError, VerifiedImportError};
 pub use host::{
-    BoundaryDeclaration, PluginHostProcessors, ProcessorConnectError, ProcessorConnectRequest,
-    ProcessorConnection, ProcessorControl, ProcessorHost, ProcessorLease, StaticProcessorHost,
+    BoundaryDeclaration, PluginHostProcessors, PluginReportDrain, ProcessorConnectError,
+    ProcessorConnectRequest, ProcessorConnection, ProcessorControl, ProcessorHost, ProcessorLease,
+    StaticProcessorHost,
 };
 pub use host_param::{HostParamDelivery, HostParamEvidence, binding_evidence};
 pub use import::{BlobReceipt, ImportOutcome, ImportRequest, ProjectReceipt, VerifiedMedia};

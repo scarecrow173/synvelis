@@ -41,8 +41,8 @@ use synvelis_player::resolver::{self, PreparedClip};
 use synvelis_player::routing_control::RoutingControlDispatch;
 use synvelis_player::routing_engine::{RoutingDeps, RoutingEngine, RoutingPrepare};
 use synvelis_player::{
-    DispatchCycle, FastControlOutcome, FastControlWrite, ParamCatalog, ProbeRequestError,
-    SurfaceReport, TickReport,
+    DispatchCycle, FastControlOutcome, FastControlWrite, ParamCatalog, PluginReportDrain,
+    ProbeRequestError, ReportDrainReport, SurfaceReport, TickReport,
 };
 use synvelis_project::{
     BeatPoint, BuildBudget, BuildMode, ProcessorId, Project, ProjectRevision,
@@ -433,6 +433,24 @@ impl SessionRoutingEngine {
             .dispatch
             .as_mut()?
             .observe_cycle(processor, generation, span, call_start, call_frames)
+    }
+
+    /// Runs one `drain_output_reports` pass against the
+    /// composition-registered [`PluginReportDrain`] (PC-C4 drain
+    /// slice, synvelis#101): the attached surface's own generation
+    /// names the endpoints and the routing-generation gate — the app
+    /// never fabricates a generation — and the RT-observed active
+    /// generation comes from `rt_status`. The typed
+    /// [`ReportDrainReport`] (including `generation_gated`/
+    /// `inactive_gated` evidence) is returned verbatim for
+    /// `note_control_drain`. Returns `None` when no control surface
+    /// is attached. Non-RT only — the host drain may allocate.
+    #[must_use]
+    pub fn control_drain_reports(&self, drain: &PluginReportDrain) -> Option<ReportDrainReport> {
+        let generation = self.control_generation()?;
+        let endpoints = self.plugin_state_handles(generation);
+        let active = observed_active_generation(&self.rt_status());
+        self.with_control_dispatch(|dispatch| drain.drain(dispatch, &endpoints, generation, active))
     }
 
     /// The attached surface's verified attach-time frame base — the

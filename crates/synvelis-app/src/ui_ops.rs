@@ -222,11 +222,14 @@ pub struct UiOpsState {
     pub(crate) last_control_tick: Option<TickReport>,
     /// Latest `RoutingControlDispatch::drain_output_reports` report
     /// recorded through [`SynvelisApp::note_control_drain`] — the
-    /// composition root performs the drain itself through the
-    /// engine's `with_control_dispatch` seam (the host borrow lives
-    /// outside the app) and hands the typed counters here for
-    /// `syn.control.status` exposure (PC-C4-06). `attached: false`
-    /// until the first recorded drain — never fabricated.
+    /// composition-registered
+    /// [`PluginReportDrain`](synvelis_player::PluginReportDrain)
+    /// drives one pass per `ui_pump`/`drain_control_reports` call and
+    /// lands the typed counters here for `syn.control.status`
+    /// exposure (PC-C4 drain slice, synvelis#101; the PC-C4-06 seam
+    /// let the composition root record externally-driven passes).
+    /// `attached: false` until the first recorded drain — never
+    /// fabricated; reset on engine attach and project recreate.
     pub(crate) last_control_drain: ReportDrainReport,
     /// View-owned PPQN selection gesture (TIM-01 UI slice,
     /// synvelis#125) — the select → preview → confirm/cancel state
@@ -1811,6 +1814,7 @@ impl SynvelisApp {
         self.push_surface_frames();
         self.capture_screen_state();
         self.pump_control();
+        self.drain_control_reports();
         self.drain_probe();
     }
 
@@ -1835,12 +1839,48 @@ impl SynvelisApp {
         self.ui.last_control_tick = engine.control_tick(project, pos, position);
     }
 
+    /// PC-C4 drain slice — one
+    /// [`synvelis_player::RoutingControlDispatch::drain_output_reports`]
+    /// pass per call through the composition-registered
+    /// [`synvelis_player::PluginReportDrain`]: the engine vends the
+    /// attached surface's generation-scoped endpoints and the
+    /// RT-observed active generation, the drain maps host reports
+    /// into the dispatch ledger, and the typed
+    /// [`ReportDrainReport`] lands in `last_control_drain` for
+    /// `syn.control.status`. Runs at the `ui_pump` tail on the same
+    /// cadence as [`Self::pump_control`] — non-RT only, the host
+    /// drain may allocate. No engine, no attached surface, or no
+    /// registered drain → nothing runs and `last_control_drain`
+    /// keeps its last honest value; no report is fabricated.
+    /// `pub` so deterministic drivers/fixtures can run one pass
+    /// outside the pump.
+    pub fn drain_control_reports(&mut self) {
+        let (Some(engine), Some(drain)) = (
+            self.routing_engine.clone(),
+            self.control_report_drain.clone(),
+        ) else {
+            return;
+        };
+        if let Some(report) = engine.control_drain_reports(&drain) {
+            self.note_control_drain(report);
+        }
+    }
+
     /// The last control-tick report driven by [`Self::ui_pump`] —
     /// `None` when no engine/surface is attached. Session-scoped
     /// evidence for consumers that need the gate/delivery counters.
     #[must_use]
     pub fn last_control_tick(&self) -> Option<TickReport> {
         self.ui.last_control_tick.clone()
+    }
+
+    /// The last `drain_output_reports` report driven by
+    /// [`Self::ui_pump`]/[`Self::drain_control_reports`] — the typed
+    /// counters `syn.control.status.drain` exposes verbatim.
+    /// `Default` (`attached: false`) until the first pass runs.
+    #[must_use]
+    pub fn last_control_drain(&self) -> ReportDrainReport {
+        self.ui.last_control_drain.clone()
     }
 
     /// Submits a point-in-time fast-control write through the
@@ -1895,13 +1935,14 @@ impl SynvelisApp {
         fed
     }
 
-    /// Records the composition root's latest
+    /// Records the latest
     /// [`synvelis_player::RoutingControlDispatch::drain_output_reports`]
     /// report for `syn.control.status` exposure (PC-C4-06). The drain
-    /// itself runs outside the app — the `PluginHost` borrow lives
-    /// with the composition root and is reached through the engine's
-    /// `with_control_dispatch` seam; this stores the typed counters
-    /// verbatim and never derives or fabricates a report.
+    /// is driven through the composition-registered
+    /// [`synvelis_player::PluginReportDrain`] — `ui_pump` runs one
+    /// pass per cycle and [`Self::drain_control_reports`] runs an
+    /// explicit pass; this stores the typed counters verbatim and
+    /// never derives or fabricates a report.
     pub fn note_control_drain(&mut self, report: ReportDrainReport) {
         self.ui.last_control_drain = report;
     }
