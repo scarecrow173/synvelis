@@ -6,6 +6,7 @@ Directory: `docs/test-specs`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| TSPEC-zAhBUfpnF97afaGCvStJpY | AI-Native Hybrid DAW Baseline — Grant/Principal/Scope/Approval/ChangeSet・AI Off 既定・3 Mode 責務設計 テスト仕様 (synvelis#44) | approved | [ai-native-baseline.md](./ai-native-baseline.md) |
 | TSPEC-DM8VnIP07x0mq4VnOt6PJD | ALIB-01 検証仕様 — Asset Provider 契約・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
 | TESTSPEC-alib02 | ALIB-02 Streaming Verified Import — テスト仕様 | approved | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | TESTSPEC-alib02-v5snap | ALIB-02 v5 asset-digest 互換 + recovery fixture — テスト仕様 | approved | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |

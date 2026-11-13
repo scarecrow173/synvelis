@@ -21,6 +21,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-aqYVtVu6shEVwq4hQuJ7jk | AI Native Baseline — Issue #44 設計契約文書化 + AIB/AHG evidence 台帳 | completed | [ai-native-baseline.md](./ai-native-baseline.md) |
 | IMPL-034T7QIk72dphjZPfVnZ1O | ALIB-01 Asset Provider baseline contract | completed | [alib-01-asset-provider-baseline-contract.md](./alib-01-asset-provider-baseline-contract.md) |
 | IMPL-034VMQZEdjKG5qiL5uYYuF | ALIB-02 residual closeout — Issue #86 DoD 照合・canonical lane 実測・残存 gate 棚卸し | completed | [alib-02-residual-closeout.md](./alib-02-residual-closeout.md) |
 | IMPL-alib02-streaming-verified-import | ALIB-02 Streaming Verified Import — SHA-256 namespace（synvelis-library slice） | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |

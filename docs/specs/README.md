@@ -6,6 +6,7 @@ Directory: `docs/specs`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| SPEC-xzgW9NkNQVvC0xmEChXHi6 | AI-Native Hybrid DAW Baseline — Intentional Usage・Rights・Shared Project・Agent Direction 設計契約 (synvelis#44) | approved | [ai-native-baseline.md](./ai-native-baseline.md) |
 | SPEC-j8VrtHRiA60WGx27NKFnH4 | ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
 | SPEC-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | approved | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | SPEC-alib04-git-remote-provider | ALIB-04 — Git Remote Provider（fixed Commit/Tree・Git LFS・selective fetch・auth）（synvelis-library slice） | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |

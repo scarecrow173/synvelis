@@ -6,6 +6,7 @@ Directory: `docs/plans`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| PLAN-IEMv5jVeXCZss5Jrrf2uC9 | AI-Native Hybrid DAW Baseline — Grant/Principal/Scope/Approval/ChangeSet・AI Off 既定・3 Mode 責務設計 実装計画 (synvelis#44) | approved | [ai-native-baseline.md](./ai-native-baseline.md) |
 | PLAN-alib03-catalog-preview-cache | ALIB-03 実装計画 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | PLAN-alib04-git-remote-provider | ALIB-04 実装計画 — Git Remote Provider（synvelis-library slice） | in-progress | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | PLAN-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — 実装計画 | approved | [alib-04-lfs-remote-fetch-plan.md](./alib-04-lfs-remote-fetch-plan.md) |

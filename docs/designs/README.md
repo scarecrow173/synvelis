@@ -7,6 +7,7 @@ Directory: `docs/designs`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | DESIGN-OVERVIEW | Synvelis 設計概要 | draft | [overview.md](./overview.md) |
+| DESIGN-AjvrOoTZDaCcUxKLXeoxA3 | AI-Native Hybrid DAW Baseline — Grant/Principal/Scope/Approval/ChangeSet・AI Off 既定・3 Mode 責務設計 (synvelis#44) | approved | [ai-native-baseline-design.md](./ai-native-baseline-design.md) |
 | DESIGN-pzR2GiO8Eru6Jw2zRK6l2s | ALIB-01 Design — Asset Provider 契約・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract-design.md](./alib-01-asset-provider-contract-design.md) |
 | DESIGN-034VMQIe8i9hOn2Tb317Ue | ALIB-02 residual closeout — 証拠照合と gate 分類の設計 | approved | [alib-02-residual-closeout-design.md](./alib-02-residual-closeout-design.md) |
 | DSN-alib02-streaming-import | ALIB-02 — Streaming Verified Import 設計（synvelis-library） | approved | [alib-02-streaming-verified-import-design.md](./alib-02-streaming-verified-import-design.md) |
