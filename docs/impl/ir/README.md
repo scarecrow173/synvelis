@@ -35,6 +35,7 @@ Directory: `docs/impl/ir`
 | IMPL-AUT02RegionReplaceBoundary | AUT-02 Region Replace 境界曲線保存・境界 anchor 実装記録 | completed | [aut-02-region-replace-boundary.md](./aut-02-region-replace-boundary.md) |
 | IMPL-AUT03LoopWriteOnePass | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・境界 flush・明示 Rearm 実装記録 | completed | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |
 | IMPL-AUT04CurveLodRecordBudget | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装記録 | completed | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
+| IMPL-49LTYDUL26uBLtxAQGXxOz | Automation / Modulation 統合 Parameter Control — 実装記録（docs slice・synvelis#6） | completed | [automation-modulation.md](./automation-modulation.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
 | IMPL-5kKD8UEketY1kHcAnYUEao | Context Inspector 設計定義 — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5 docs slice） | completed | [context-inspector.md](./context-inspector.md) |
 | IMPL-034CTL01Kx9wMn2pQ7rVt4yB | CTL-01 ControlOwner/AutomationTimeScope 分離・Schema v7 実装記録 | completed | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
@@ -176,6 +177,7 @@ Directory: `docs/impl/ir`
 | IMPL-pQbrnczYyJPOw79LzmmIy | VS-B Clock/Gate/RT Capture — Mock Input・Buffer Pool・SPSC (E2E-R1) | completed | [vs-b-clock-gate-rt-capture-mock-spsc.md](./vs-b-clock-gate-rt-capture-mock-spsc.md) |
 | IMPL-034QfRW3cPFErlmVZ7TCoI | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range (E2E-R2) | completed | [vs-c-staging-writer-journal-crash-recovery.md](./vs-c-staging-writer-journal-crash-recovery.md) |
 | IMPL-VSdRecCommitE2E | VS-D Recording Commit / End-to-End Vertical Slice — Idempotency・Undo・Reload (E2E-R3) | completed | [vs-d-recording-commit-e2e-idempotency-undo-reload.md](./vs-d-recording-commit-e2e-idempotency-undo-reload.md) |
+| IMPL-034X5pypMll8dagLa8AERw | Workspace Model — Issue #2 設計文書化 + headless 検証 | completed | [workspace-model.md](./workspace-model.md) |
 | IMPL-034X3VOP02J6rtCa1QMhIJ | Workspace UX 操作仕様の正本化（Issue #3 文書チェーン） | completed | [workspace-ux-scenarios.md](./workspace-ux-scenarios.md) |
 | IMPL-034QxsUh3NmPwprwJkrlk5 | WS-A workspace foundation headless PoC | completed | [ws-a-workspace-foundation-headless-poc.md](./ws-a-workspace-foundation-headless-poc.md) |
 | IMPL-XRecordedVerifiedSourcePlaybackExport | E2E-X Recorded Source → Generic Playback/Export with Frame/ID/Content Integrity | completed | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |

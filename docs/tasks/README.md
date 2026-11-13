@@ -63,6 +63,7 @@ Directory: `docs/tasks`
 | TASK-034QfR0eLqVxiQlwHq30L3 | VS-C task4 recovery scanner | todo | [vs-c-task4-recovery-scanner.md](./vs-c-task4-recovery-scanner.md) |
 | TASK-034QfR0WeQaYFoG1702td0 | VS-C task5 poc acceptance tests | todo | [vs-c-task5-poc-acceptance-tests.md](./vs-c-task5-poc-acceptance-tests.md) |
 | TASK-034QfR1ESUtmNef7DRyTyz | VS-C task6 verification impl record | todo | [vs-c-task6-verification-impl-record.md](./vs-c-task6-verification-impl-record.md) |
+| TASK-034X53taZcU5UQQfAN0qS5 | Workspace Model Task — Issue #2 design + headless verification | in-progress | [workspace-model-task.md](./workspace-model-task.md) |
 | TASK-034X3SQ8cOyUYvh20KEekf | Workspace UX 操作仕様の正本化（Issue #3 文書チェーン実施） | in-progress | [workspace-ux-scenarios-task.md](./workspace-ux-scenarios-task.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
@@ -83,6 +84,7 @@ Directory: `docs/tasks`
 | TASK-alib07-import-cancel | ALIB-07 slice 2 Task 1 — cancel checkpoint・fault case・crash fixture・matrix 簿記 | done | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | TASK-034AUT02Gt6kHr4nWy8sBp3x | AUT-02 task1: 境界 anchor 実装 + op 適用 + property/exact fixture テスト | done | [aut-02-task1-region-replace-boundary.md](./aut-02-task1-region-replace-boundary.md) |
 | TASK-034AUT03Pq9rWx3nVm7sJk2d | AUT-03 task1: Write Range 閉鎖・境界 flush・明示 Rearm 実装 + headless テスト | done | [aut-03-task1-loop-write-one-pass.md](./aut-03-task1-loop-write-one-pass.md) |
+| TASK-1DDemfS68i5F8Lkla2LRN9 | Automation / Modulation 統合 Parameter Control — 設計文書チェーン作成（synvelis#6） | done | [automation-modulation-task.md](./automation-modulation-task.md) |
 | TASK-034VmiXNgZm3ucj1WcbTT9 | rt_cache 計測対象インスタンスの warm-up 修正 | done | [ci-245-task1-macos-alloc-flake.md](./ci-245-task1-macos-alloc-flake.md) |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |
 | TASK-034Rp07EGtrO1nUIIjiLh8 | ci.yml + dep-access composite action 実装 | done | [ci-task2-workflow.md](./ci-task2-workflow.md) |

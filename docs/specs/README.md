@@ -14,6 +14,7 @@ Directory: `docs/specs`
 | SPEC-034AUT01T7xRw4mNcQ8pZbV2 | AUT-01 Automation Mode 境界 State — Read/Touch/Latch/Write・Touch Return 150ms Smoothstep | approved | [aut-01-automation-mode-boundary-touch-return-writer-state.md](./aut-01-automation-mode-boundary-touch-return-writer-state.md) |
 | SPEC-034AUT03AW1Qq4l4VCpTSK | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・明示 Rearm | approved | [aut-03-loop-write-one-pass-write-range-rearm.md](./aut-03-loop-write-one-pass-write-range-rearm.md) |
 | SPEC-034AUT04VJToXbqZEgrP85 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
+| SPEC-2i1xSQAXTQNZIpUBQGPt15 | Automation / Modulation 統合 Parameter Control — 製品 UX・設計仕様と受入 Fixture・設計文書チェーン（synvelis#6） | approved | [automation-modulation.md](./automation-modulation.md) |
 | SPEC-034VmfUEU36QwKnlrMNd8G | Issue #245 verify-macos rt_cache alloc 計測 flake — 計測対象インスタンスの warm-up | proposed | [ci-245-macos-alloc-flake.md](./ci-245-macos-alloc-flake.md) |
 | SPEC-npBYC7xiQlFDeYeTKsJdUk | Issue #377 synvelis-native / gpui-test Feature の 3OS CI OS-L1 受入補完 | proposed | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | SPEC-034RoWOUkW5OezJQSLBWKd | Synvelis 独立 PR/Push CI — Workspace/RT/Recording/Gateway 回帰 Gate | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
@@ -151,6 +152,7 @@ Directory: `docs/specs`
 | SPEC-9EcPwSoDwcrg3WPYmvs7Gn | VS-B Clock / Gate Scheduler / RT Capture — Mock Input・Buffer Pool・SPSC | approved | [vs-b-rt-capture-mock-input-buffer-pool-spsc.md](./vs-b-rt-capture-mock-input-buffer-pool-spsc.md) |
 | SPEC-034QfIc1oyjYo7pSqlYH8a | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range | approved | [vs-c-staging-writer-journal-crash-recovery-verified-media-range.md](./vs-c-staging-writer-journal-crash-recovery-verified-media-range.md) |
 | SPEC-iciMnP7AaIMP2qKQPCoAId | VS-D Recording Commit / E2E Vertical Slice — Idempotency・Undo・Reload | approved | [vs-d-recording-commit-e2e-idempotency-undo-reload.md](./vs-d-recording-commit-e2e-idempotency-undo-reload.md) |
+| SPEC-034X4TqMpHOeFHvohktOZV | Workspace Model — GPUI-neutral View/Driver Port, Window/View lifetime independence, Selection/Link Group/Command routing | approved | [workspace-model.md](./workspace-model.md) |
 | SPEC-034X3kmamOZgcqrHR75ac9 | Workspace UX 操作 Scenario・状態図・UX 仕様の正本化 (Issue #3) | approved | [workspace-ux-scenarios.md](./workspace-ux-scenarios.md) |
 | SPEC-034QwWbIzoS7Pl7KxncpF6 | WS-A Workspace Foundation — View/Selection/LinkGroup/Command/Dock headless PoC | approved | [ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md](./ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md) |
 | SPEC-wVS4pCX5veOtjhEh013pJ0 | X — Recorded Source→Generic Playback/Export integration with Frame/ID/Content integrity | approved | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |
