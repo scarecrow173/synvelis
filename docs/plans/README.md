@@ -56,6 +56,7 @@ Directory: `docs/plans`
 | PLAN-034WxmzaM84mm5775ZdoeD | PC-C6 TR02/TR06 realpath oracle 実装計画 | approved | [pc-c6-tr02-tr06-realpath-oracle-plan.md](./pc-c6-tr02-tr06-realpath-oracle-plan.md) |
 | PLAN-034VNrIZteNN2bsGVGokZF | plugin_instances VCS semantic diff 分類 slice | approved | [plugin-instances-vcs-diff-plan.md](./plugin-instances-vcs-diff-plan.md) |
 | PLAN-034X6iKc1PdhVoA25hznHo | Project Model Plan — contract mapping + headless verification | in-progress | [project-model.md](./project-model.md) |
+| PLAN-034X6OYfBlVRHkgOHFvAuM | Project / Asset / Persistence — 設計契約文書チェーン実装計画（synvelis#17） | approved | [project-persistence.md](./project-persistence.md) |
 | PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-gpF9kWuFqfzFATeoPdxIGF | RCD-01 実Audio Device 到達準備 実装計画 — stamp placement fallback + real backend 配線 | approved | [rcd-01-real-backend-readiness-plan.md](./rcd-01-real-backend-readiness-plan.md) |

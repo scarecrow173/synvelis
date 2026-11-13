@@ -65,6 +65,7 @@ Directory: `docs/test-specs`
 | TSPEC-034VNrSyPxIGK6pnJSonNR | plugin_instances VCS semantic diff 分類 fixture matrix | proposed | [plugin-instances-vcs-diff.md](./plugin-instances-vcs-diff.md) |
 | TSPEC-034X3jTF3hBjJmyjdZVSsr | Synvelis 製品価値と中核体験 — Acceptance Matrix・UX評価テスト仕様 | approved | [product-value-core.md](./product-value-core.md) |
 | TSPEC-034X6iT1XRNf2JVURuDjzb | Project Model Test Spec — contract case map to synvelis-project tests | approved | [project-model.md](./project-model.md) |
+| TSPEC-034X6P6mNcoFrZZ25JuxWA | Project / Asset / Persistence — 受入証拠テスト仕様（synvelis#17） | approved | [project-persistence.md](./project-persistence.md) |
 | TSPEC-034V2ixodcql8RLLJfoYqH | RCD-01 device-recording headless fixture test spec | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
 | TSPEC-htPhSCIWfZxHOOGdEAyaeK | RCD-01 実Audio Device 到達準備 検証仕様 — stamp placement fallback + real backend lane | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |

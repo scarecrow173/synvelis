@@ -76,6 +76,7 @@ Directory: `docs/designs`
 | DESIGN-034X3jMjITd6SCoqrUyFnH | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価設計 | approved | [product-value-core-design.md](./product-value-core-design.md) |
 | — | Synvelis — Project / Asset / Persistence Architecture | — | [project-asset-persistence-architecture.md](./project-asset-persistence-architecture.md) |
 | DESIGN-034X6iC9O7gEAUDL5Sxqqv | Project Model Design — entity schema, single-writer/CAS/undo, time domains, persistence | approved | [project-model-design.md](./project-model-design.md) |
+| DESIGN-CjYVivoek7ZbOPp7uvvYVo | Project / Asset / Persistence — 設計契約マップ（synvelis#17） | approved | [project-persistence-design.md](./project-persistence-design.md) |
 | DESIGN-034V2hPBihovSNoj4xusOA | RCD-01 device-recording headless fixture — Mock Input→Raw Writer 統合設計 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | DESIGN-Bz2IMMfywvmEjmdIeThNvq | RCD-01 Input Adapter — binding/Arm/Monitor/channel-map と fake port fail-stop | approved | [rcd-01-input-adapter-binding-arm-monitor-fake-port.md](./rcd-01-input-adapter-binding-arm-monitor-fake-port.md) |
 | DESIGN-89lmf1mLK8flCuybXMmEqR | RCD-01 実Audio Device 到達準備 design — stamp placement fallback + real backend composition root | approved | [rcd-01-real-backend-readiness-design.md](./rcd-01-real-backend-readiness-design.md) |
