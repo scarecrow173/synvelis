@@ -193,6 +193,22 @@ pub const OPS: &[OpInfo] = &[
         summary: "observe one call window (processor/generation/call/span) → DispatchStage observations + Reported-only feed count",
     },
     OpInfo {
+        name: "syn.control.relation",
+        summary: "UI-C5 control relation inspection — view|inspect|set_mode|set_follow_source|back|forward → focus + RelationView",
+    },
+    OpInfo {
+        name: "syn.control.edge",
+        summary: "UI-C5 control layer edge gesture — begin|preview|commit|cancel|state (mod-source → param, fixed revision/window CAS)",
+    },
+    OpInfo {
+        name: "syn.recording.status",
+        summary: "UI-C5 recording status read model — conflict|prepare|pending|applied|unknown + provenance + legal actions",
+    },
+    OpInfo {
+        name: "syn.recording.action",
+        summary: "UI-C5 recording explicit actions — inspect|retry|rebase|abort",
+    },
+    OpInfo {
         name: "syn.probe.control",
         summary: "semantic probe lifecycle — request|set_mode|capture|stop_capture|remove (SF-04)",
     },
@@ -391,6 +407,10 @@ impl AppService {
             "syn.control.fast_control" => self.app.op_control_fast_control(params),
             "syn.control.status" => Ok(self.app.op_control_status()),
             "syn.control.observe" => self.app.op_control_observe(params),
+            "syn.control.relation" => self.app.op_control_relation(params),
+            "syn.control.edge" => self.app.op_control_edge(params),
+            "syn.recording.status" => self.app.op_recording_status(params),
+            "syn.recording.action" => self.app.op_recording_action(params),
             "syn.probe.control" => self.app.op_probe_control(params),
             "syn.probe.state" => Ok(self.app.op_probe_state()),
             "syn.probe.compare" => self.app.op_probe_compare(params),
