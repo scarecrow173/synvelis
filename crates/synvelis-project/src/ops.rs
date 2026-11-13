@@ -50,9 +50,10 @@ pub enum ProjectOp {
     },
     /// Change the project PPQN (issue #125 / TIM-01). Every stored
     /// musical-tick value — tempo/signature event positions, clip
-    /// musical anchors/extents, comp musical ranges — is lifted through
-    /// exact rational beats and re-projected onto the new grid under
-    /// `policy`; `project.ppqn` is never simply overwritten. Absolute
+    /// musical anchors/extents, comp musical ranges, punch marks —
+    /// is lifted through exact rational beats and re-projected onto
+    /// the new grid under `policy`; `project.ppqn` is never simply
+    /// overwritten. Absolute
     /// media anchors, source-native MIDI ticks/bytes, and recording
     /// frame data are never touched. One CAS, one undo entry.
     ///

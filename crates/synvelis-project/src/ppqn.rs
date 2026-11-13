@@ -73,7 +73,8 @@ fn ruviform_ppqn(value: u32) -> Result<Ppqn, Error> {
 pub(crate) struct PpqnSite {
     /// What owns the value — `tempo_event`, `signature_event`,
     /// `clip_anchor`, `clip_extent`, `take_group_range`,
-    /// `comp_region_range`, or `comp_transition_range`.
+    /// `comp_region_range`, `comp_transition_range`, `punch_in`,
+    /// or `punch_out`.
     pub kind: &'static str,
     /// Instance discriminator — the entity's tagged id, or the
     /// tempo/signature event's index in its list.
@@ -112,6 +113,8 @@ impl fmt::Display for PpqnSite {
             "take_group_range" => "take group range",
             "comp_region_range" => "comp region range",
             "comp_transition_range" => "comp transition range",
+            "punch_in" => "punch-in mark",
+            "punch_out" => "punch-out mark",
             other => other,
         };
         write!(f, "{kind} {}", self.instance)?;
@@ -189,9 +192,10 @@ fn reproject_project_range(
 /// and the dry-run report can never disagree about what converts.
 ///
 /// Only the musical tick domain is visited: tempo/signature events,
-/// musical clip anchors/extents, and musical comp ranges. Absolute
-/// media anchors, source-native MIDI data, recording frames, and
-/// automation `BeatPoint`s are outside this walk by construction.
+/// musical clip anchors/extents, musical comp ranges, and the
+/// project-wide punch marks. Absolute media anchors, source-native
+/// MIDI data, recording frames, and automation `BeatPoint`s are
+/// outside this walk by construction.
 fn reproject_ppqn_with(
     project: &mut Project,
     convert: &mut TickConversion<'_>,
@@ -244,6 +248,19 @@ fn reproject_ppqn_with(
             convert,
         )?;
     }
+
+    // Punch marks are persisted project-tick positions — leaving
+    // them on the old grid while `project.ppqn` advances would
+    // silently retime the monitor gate. `{None, None}` declares no
+    // punch and yields no sites.
+    for (mark, kind) in [
+        (&mut project.monitoring.punch.punch_in, "punch_in"),
+        (&mut project.monitoring.punch.punch_out, "punch_out"),
+    ] {
+        if let Some(tick) = mark {
+            *tick = MusicalTick::new(convert(&PpqnSite::single(kind, "project"), tick.value())?);
+        }
+    }
     Ok(())
 }
 
@@ -288,7 +305,8 @@ pub(crate) fn reproject_ppqn(
 pub struct PpqnPreviewSite {
     /// What owns the value — `tempo_event`, `signature_event`,
     /// `clip_anchor`, `clip_extent`, `take_group_range`,
-    /// `comp_region_range`, or `comp_transition_range`.
+    /// `comp_region_range`, `comp_transition_range`, `punch_in`,
+    /// or `punch_out`.
     pub kind: &'static str,
     /// Instance discriminator — the entity's tagged id, or the
     /// tempo/signature event's index in its list.
@@ -316,7 +334,7 @@ pub struct PpqnChangePreview {
     pub policy: PpqnConversionPolicy,
     /// How many persisted musical-tick values the change
     /// re-projects — tempo/signature events, musical clip
-    /// anchors/extents, and musical comp ranges.
+    /// anchors/extents, musical comp ranges, and punch marks.
     pub site_count: usize,
     /// Sites not exactly representable on the new grid —
     /// [`PpqnConversionPolicy::Exact`] rejects them,

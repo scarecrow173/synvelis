@@ -111,6 +111,7 @@ Directory: `docs/plans`
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
 | PLAN-034VtBaArtupj0qHG0phVl | TIM-01 app 層 PPQN 統合 — implementation plan | approved | [tim-01-app-ppqn-plan.md](./tim-01-app-ppqn-plan.md) |
 | PLAN-034UHYyMbiLPEtGczKNKYC | TIM-01 Configurable PPQN Project Command — implementation plan | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
+| PLAN-TlIO4qpF8SnK0bA3SWQZ5d | TIM-01 PPQN config — punch marks 再投影と受入残件検証 plan | approved | [tim-01-ppqn-config-plan.md](./tim-01-ppqn-config-plan.md) |
 | PLAN-7hJkMnBvCxZqWeRtYuIo | TIM-01 PPQN Preview op + New Project PPQN — implementation plan | approved | [tim-01-ppqn-preview-plan.md](./tim-01-ppqn-preview-plan.md) |
 | PLAN-TiM01uIxYzAbCdEfGh3 | TIM-01 PPQN 選択 UI + Snap/Grid ポリシー — implementation plan | approved | [tim-01-ppqn-ui-plan.md](./tim-01-ppqn-ui-plan.md) |
 | PLAN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — 実装 plan | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
