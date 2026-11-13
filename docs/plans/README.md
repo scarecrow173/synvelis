@@ -124,6 +124,7 @@ Directory: `docs/plans`
 | PLAN-0zQ5ZmJ0ht86AMtqu4MSy | synvelis#335 unborn HEAD 誤分類修正 — rev-parse --quiet 除去 実装計画 | approved | [vcs-03-unborn-head-classification-plan.md](./vcs-03-unborn-head-classification-plan.md) |
 | PLAN-VCS04BkndWiringPln0001 | VCS-04 production backend wiring — 実装 plan | approved | [vcs-04-backend-wiring-plan.md](./vcs-04-backend-wiring-plan.md) |
 | PLAN-VCS04Hist0ryV1ewPln01 | VCS-04 History/Visual Diff UI implementation plan | approved | [vcs-04-history-visual-diff-ui.md](./vcs-04-history-visual-diff-ui.md) |
+| PLAN-VCS04NativeMount001 | VCS-04 History/Visual Diff — native mount/dock 配線 plan | approved | [vcs-04-native-mount-plan.md](./vcs-04-native-mount-plan.md) |
 | PLAN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — 実装 plan | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
 | PLAN-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface 拡張 — 実装 plan | approved | [vcs-05-monitoring-apply-surface-plan.md](./vcs-05-monitoring-apply-surface-plan.md) |
 | PLAN-4RRd44dWWEduAvHmubiVw | VCS-06 evidence completion — 実装 plan | approved | [vcs-06-evidence-completion-plan.md](./vcs-06-evidence-completion-plan.md) |

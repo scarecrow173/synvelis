@@ -167,6 +167,12 @@ pub struct WindowRequest {
     /// Driver spec the shell creates — built app-side so the shell
     /// never invents product window parameters.
     pub spec: WindowSpec,
+    /// Subscription targets the saga's exception `syn.view.attach`
+    /// issues — resolved app-side at prepare time so the shell never
+    /// re-derives dock metadata (registry-adopted views like VCS
+    /// History carry theirs in the workspace descriptor, invisible
+    /// to the shell).
+    pub targets: Vec<String>,
 }
 
 /// SV-GUI-02 additions to [`SynvelisApp`] state — kept in one struct so
@@ -1428,22 +1434,6 @@ pub(crate) fn parse_view_instance(s: &str) -> Option<ViewInstanceId> {
     ViewInstanceId::new(s.strip_prefix("view-")?.parse().ok()?)
 }
 
-/// Dock-domain resolution for `syn.view.*`: `Ok(Some)` for the
-/// composition root's registered views, `Ok(None)` for ids outside
-/// the dock domain (legacy UI-only path), `Err` for `view-{n}`-shaped
-/// ids with no registered metadata — those must never reach "UI
-/// attached but dock unregistered".
-fn dock_domain_view(view: &str) -> Result<Option<DockViewInfo>, ErrorBody> {
-    if parse_view_instance(view).is_none() {
-        return Ok(None);
-    }
-    dock_view_info(view).map(Some).ok_or_else(|| {
-        invalid(format!(
-            "view {view} has no dock metadata — register it in screens.rs"
-        ))
-    })
-}
-
 /// Flattens a [`ParamProjection`]'s `InspectorBreakdown` into display
 /// rows — the agreed breakdown fields (evaluation, observation, mode,
 /// arm, writer state, capability) plus the resolved read-only flag.
@@ -2524,6 +2514,35 @@ impl SynvelisApp {
         );
     }
 
+    /// Dock-domain resolution for `syn.view.*`/`syn.window.dock_*`:
+    /// `Ok(Some)` for the composition root's registered views
+    /// ([`dock_view_info`]) *and* for any `view-{n}` the workspace
+    /// registry adopted (VCS History and future spawnable surfaces —
+    /// their descriptor is the metadata: kind/title verbatim, no
+    /// control subscriptions), `Ok(None)` for ids outside the dock
+    /// domain (legacy UI-only path), `Err` for `view-{n}`-shaped ids
+    /// with neither — those must never reach "UI attached but dock
+    /// unregistered".
+    fn dock_domain_view(&self, view: &str) -> Result<Option<DockViewInfo>, ErrorBody> {
+        let Some(inst) = parse_view_instance(view) else {
+            return Ok(None);
+        };
+        if let Some(info) = dock_view_info(view) {
+            return Ok(Some(info));
+        }
+        match self.workspace.registry().descriptor(inst) {
+            Some(d) => Ok(Some(DockViewInfo {
+                instance: inst,
+                kind: d.kind,
+                title: d.title.clone(),
+                targets: Vec::new(),
+            })),
+            None => Err(invalid(format!(
+                "view {view} has no dock metadata — register it in screens.rs or adopt it first"
+            ))),
+        }
+    }
+
     /// Rebinds the UI side of `view` to whatever the dock currently
     /// says owns it — `Some(window)` re-attaches, `None` (detached
     /// pool) detaches. Restores UI after a failed dock move.
@@ -2562,8 +2581,9 @@ impl SynvelisApp {
     pub fn op_view_attach(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let view = str_param(params, "view_id")?.to_owned();
         let window = str_param(params, "window_id")?.to_owned();
-        if let Some(info) = dock_domain_view(&view)? {
-            self.dock_view_attach(&view, &info, &window)?;
+        let info = self.dock_domain_view(&view)?;
+        if let Some(info) = &info {
+            self.dock_view_attach(&view, info, &window)?;
         }
         // Both gateways handle re-attach internally (dock-transfer
         // detach + generation bump) — no pre-detach here.
@@ -2582,6 +2602,12 @@ impl SynvelisApp {
             "generation": gen_c,
             "viz_generation": gen_v,
             "attached": true,
+            // The shell mirrors this flag: dock-domain views pool on
+            // detach/window-destroy instead of taking the legacy
+            // close replay. Static `dock_view_info` cannot answer
+            // for registry-adopted views (VCS History), so the fact
+            // travels in the result.
+            "dock_domain": info.is_some(),
         }))
     }
 
@@ -2622,7 +2648,12 @@ impl SynvelisApp {
         }
         if !self.workspace.registry().contains(inst) {
             self.workspace
-                .adopt_view(inst, info.kind, info.title, Some(DockTarget::Window(win)))
+                .adopt_view(
+                    inst,
+                    info.kind,
+                    info.title.as_str(),
+                    Some(DockTarget::Window(win)),
+                )
                 .map_err(|e| dock_err(&e))?;
         } else if self.workspace.dock().owner_of(inst) != Some(win) {
             self.workspace
@@ -2651,7 +2682,7 @@ impl SynvelisApp {
             "lost-pointer-capture" => GestureCancelReason::LostPointerCapture,
             _ => GestureCancelReason::Unmount,
         };
-        let info = dock_domain_view(&view)?;
+        let info = self.dock_domain_view(&view)?;
         if let Some(info) = &info {
             self.dock_view_detach(&view, info)?;
         }
@@ -2697,7 +2728,7 @@ impl SynvelisApp {
     /// [`ErrorBody`] on invalid parameters or gateway refusal.
     pub fn op_view_close(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let view = str_param(params, "view_id")?.to_owned();
-        if let Some(info) = dock_domain_view(&view)? {
+        if let Some(info) = self.dock_domain_view(&view)? {
             // SF-05 slice3: the view's probe leases release before
             // any teardown — a port failure aborts the close with
             // the view fully intact so it can be retried.
@@ -2831,10 +2862,11 @@ impl SynvelisApp {
             // same seam `sf_view_instance` uses for per-view workspace
             // state. Dock placement itself is reconciled by the next
             // attach/move, not here.
-            let info = dock_view_info(&view)
+            let info = self
+                .dock_domain_view(&view)?
                 .ok_or_else(|| invalid(format!("view {view} has no dock metadata")))?;
             self.workspace
-                .adopt_view(inst, info.kind, info.title, None)
+                .adopt_view(inst, info.kind, info.title.as_str(), None)
                 .map_err(|e| dock_err(&e))?;
         }
         let clip_tag = self
@@ -3012,7 +3044,8 @@ impl SynvelisApp {
     pub fn op_window_dock_prepare(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let view = str_param(params, "view_id")?.to_owned();
         let window = str_param(params, "window_id")?.to_owned();
-        let info = dock_domain_view(&view)?
+        let info = self
+            .dock_domain_view(&view)?
             .ok_or_else(|| invalid(format!("view {view} is not a dock-domain view")))?;
         let inst = info.instance;
         let win = parse_window_id(&window)
@@ -3052,7 +3085,8 @@ impl SynvelisApp {
             .get("title")
             .and_then(Value::as_str)
             .map(str::to_owned);
-        let info = dock_domain_view(&view)?
+        let info = self
+            .dock_domain_view(&view)?
             .ok_or_else(|| invalid(format!("view {view} is not a dock-domain view")))?;
         let inst = info.instance;
         self.check_dock_view_free(&view, inst)?;
@@ -3086,6 +3120,7 @@ impl SynvelisApp {
                     title,
                     ..WindowSpec::default()
                 },
+                targets: info.targets.clone(),
             });
         self.ui_pump();
         Ok(json!({ "view_id": view, "pending": true, "request_id": request_id }))
@@ -3101,7 +3136,8 @@ impl SynvelisApp {
     /// ready, or the commit fails (the dock rolls back to source).
     pub fn op_window_dock_commit(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let view = str_param(params, "view_id")?.to_owned();
-        let info = dock_domain_view(&view)?
+        let info = self
+            .dock_domain_view(&view)?
             .ok_or_else(|| invalid(format!("view {view} is not a dock-domain view")))?;
         let inst = info.instance;
         match self.ui.dock_moves.get(&view) {
@@ -3191,7 +3227,8 @@ impl SynvelisApp {
             .and_then(Value::as_bool)
             .unwrap_or(false);
         let detail = params.get("detail").and_then(Value::as_str);
-        let info = dock_domain_view(&view)?
+        let info = self
+            .dock_domain_view(&view)?
             .ok_or_else(|| invalid(format!("view {view} is not a dock-domain view")))?;
         let inst = info.instance;
         let Some(entry) = self.ui.dock_moves.remove(&view) else {
@@ -3243,7 +3280,8 @@ impl SynvelisApp {
     /// [`ErrorBody`] on invalid parameters, unknown ids, or a busy view.
     pub fn op_window_dock_detach(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let view = str_param(params, "view_id")?.to_owned();
-        let info = dock_domain_view(&view)?
+        let info = self
+            .dock_domain_view(&view)?
             .ok_or_else(|| invalid(format!("view {view} is not a dock-domain view")))?;
         let inst = info.instance;
         self.check_dock_view_free(&view, inst)?;
@@ -3282,7 +3320,8 @@ impl SynvelisApp {
     pub fn op_window_dock_reattach(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let view = str_param(params, "view_id")?.to_owned();
         let window = str_param(params, "window_id")?.to_owned();
-        let info = dock_domain_view(&view)?
+        let info = self
+            .dock_domain_view(&view)?
             .ok_or_else(|| invalid(format!("view {view} is not a dock-domain view")))?;
         let inst = info.instance;
         let win = parse_window_id(&window)
@@ -3829,10 +3868,12 @@ impl SynvelisApp {
         let inst = parse_view_instance(view)
             .ok_or_else(|| invalid(format!("params.view_id must be \"view-{{n}}\", got {view}")))?;
         if !self.workspace.registry().contains(inst) {
-            let (kind, title) =
-                dock_view_info(view).map_or((ViewType::SignalFlow, view), |i| (i.kind, i.title));
+            let (kind, title) = dock_view_info(view).map_or_else(
+                || (ViewType::SignalFlow, view.to_string()),
+                |i| (i.kind, i.title),
+            );
             self.workspace
-                .adopt_view(inst, kind, title, None)
+                .adopt_view(inst, kind, title.as_str(), None)
                 .map_err(|e| dock_err(&e))?;
         }
         Ok(inst)

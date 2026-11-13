@@ -141,6 +141,7 @@ Directory: `docs/test-specs`
 | TSPEC-E_sJp4NvwYKKfYNFbaPxp | synvelis#335 unborn HEAD 誤分類修正 — 0-commit repo 回帰 test 仕様 | approved | [vcs-03-unborn-head-classification.md](./vcs-03-unborn-head-classification.md) |
 | TSPEC-VCS04BkndWiringTspec01 | VCS-04 backend wiring fixtures | approved | [vcs-04-backend-wiring.md](./vcs-04-backend-wiring.md) |
 | TSPEC-VCS04Hist0ryV1ewTst01 | VCS-04 History/Visual Diff headless fixtures | approved | [vcs-04-history-diff-fixtures.md](./vcs-04-history-diff-fixtures.md) |
+| TSPEC-VCS04NativeMount001 | VCS-04 native mount/dock fixtures | approved | [vcs-04-native-mount.md](./vcs-04-native-mount.md) |
 | TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |
 | TSPEC-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface fixtures | approved | [vcs-05-monitoring-apply-surface.md](./vcs-05-monitoring-apply-surface.md) |
 | TSPEC-TDeaZLlpVBAaTB6kuxZzZ | VCS-06 evidence completion tests | approved | [vcs-06-evidence-completion.md](./vcs-06-evidence-completion.md) |

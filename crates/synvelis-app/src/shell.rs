@@ -61,7 +61,7 @@
 //! driven on the UI thread by the driver's `run`/`pump` loop.
 
 use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -82,7 +82,6 @@ use crate::binding::{
     COMMAND_INTENT_OP, PROJECT_TARGET, VIEW_STATE_TARGET, decode_view_command,
     notify_to_view_event, project_action_op, view_command_dispatch,
 };
-use crate::screens::dock_view_info;
 use crate::service::AppService;
 use crate::ui_ops::{UiOutbox, WindowRequest};
 use synvelis_workspace::controls_ui::CommandIntent;
@@ -113,6 +112,18 @@ enum ViewOp {
     /// `syn.window.dock_abort` — on success `data.owner` names the
     /// restored owner (`null` = detached pool).
     DockAbort,
+}
+
+/// A new-window saga destination the shell created but that has not
+/// committed yet — the view it carries plus the subscription targets
+/// its exception attach issues (resolved app-side at prepare time;
+/// the shell cannot re-derive dock metadata for registry-adopted
+/// views).
+struct SagaDestination {
+    /// Wire view id the pending move belongs to (`"view-{n}"`).
+    view_id: String,
+    /// Targets the saga's `syn.view.attach` subscribes.
+    targets: Vec<String>,
 }
 
 /// The driver-neutral product shell — one instance per app process.
@@ -163,11 +174,17 @@ pub struct NativeShell {
     /// window with (driver `Created` itself carries no payload).
     window_titles: HashMap<WindowId, String>,
     /// New-window saga destinations the shell created but that have
-    /// not committed yet: `window → view_id`. On the window's `Ready`
-    /// the shell attaches the view and commits the dock move; on
-    /// `Destroyed` (or attach/commit failure) it aborts the move and
-    /// destroys the orphan.
-    saga_windows: HashMap<WindowId, String>,
+    /// not committed yet: `window → pending move`. On the window's
+    /// `Ready` the shell attaches the view and commits the dock move;
+    /// on `Destroyed` (or attach/commit failure) it aborts the move
+    /// and destroys the orphan.
+    saga_windows: HashMap<WindowId, SagaDestination>,
+    /// `view_id`s the domain reported as dock-domain on their last
+    /// successful `syn.view.attach` — learned from the result's
+    /// `dock_domain` flag because the static `dock_view_info` table
+    /// cannot see registry-adopted views (VCS History). Drives the
+    /// detach-pool vs legacy-close bookkeeping decisions.
+    dock_domain: HashSet<String>,
     /// Shell-minted intent ids for teardown/lifecycle replays.
     teardown_seq: u64,
 }
@@ -219,6 +236,7 @@ impl NativeShell {
             pending_view_ops: HashMap::new(),
             window_titles: HashMap::new(),
             saga_windows: HashMap::new(),
+            dock_domain: HashSet::new(),
             teardown_seq: 0,
         })
     }
@@ -407,7 +425,13 @@ impl NativeShell {
                 Ok(window) => {
                     self.window_titles
                         .insert(window, request.spec.title.clone());
-                    self.saga_windows.insert(window, request.view_id.clone());
+                    self.saga_windows.insert(
+                        window,
+                        SagaDestination {
+                            view_id: request.view_id.clone(),
+                            targets: request.targets.clone(),
+                        },
+                    );
                     tracing::info!(
                         window = %window,
                         view_id = %request.view_id,
@@ -454,7 +478,7 @@ impl NativeShell {
                     json!({
                         "window_id": window.to_string(),
                         "title": self.window_titles.get(&window),
-                        "dock_view": self.saga_windows.get(&window),
+                        "dock_view": self.saga_windows.get(&window).map(|s| &s.view_id),
                     }),
                     driver,
                 );
@@ -472,7 +496,7 @@ impl NativeShell {
                     json!({
                         "window_id": window.to_string(),
                         "title": self.window_titles.get(&window),
-                        "dock_view": self.saga_windows.get(&window),
+                        "dock_view": self.saga_windows.get(&window).map(|s| &s.view_id),
                     }),
                     driver,
                 );
@@ -580,15 +604,17 @@ impl NativeShell {
     /// (`dock_abort{failed}`) and destroys the orphan window — the
     /// source view keeps its ownership and UI binding throughout.
     fn drive_saga_ready(&mut self, window: WindowId, driver: &mut dyn WindowDriver) {
-        let Some(view_id) = self.saga_windows.get(&window).cloned() else {
+        let Some(saga) = self.saga_windows.get(&window) else {
             return;
         };
-        let Some(info) = dock_view_info(&view_id) else {
-            self.saga_windows.remove(&window);
-            self.abort_saga(driver, &view_id, window, "view has no dock metadata");
-            return;
-        };
-        match self.attach_view(driver, window, &view_id, &info.targets) {
+        // The view and its attach targets were resolved app-side when
+        // `dock_prepare_new_window` ran — the request carries both so
+        // registry-adopted views (whose metadata lives in the
+        // workspace descriptor) need no shell-side lookup. A view
+        // closed since then fails the attach and takes the abort path.
+        let view_id = saga.view_id.clone();
+        let targets = saga.targets.clone();
+        match self.attach_view(driver, window, &view_id, &targets) {
             Ok(_) => {
                 self.teardown_seq += 1;
                 let id = format!("shell-dock-commit-{}", self.teardown_seq);
@@ -1014,6 +1040,17 @@ impl NativeShell {
             // ownerless — no channel may mint its commands or a
             // stale epoch.
             ViewOp::Attach => {
+                // Learn dock-domain membership from the domain's own
+                // answer — registry-adopted views (VCS History) are
+                // invisible to the static metadata table.
+                match data.as_ref().and_then(|d| d["dock_domain"].as_bool()) {
+                    Some(true) => {
+                        self.dock_domain.insert(view.clone());
+                    }
+                    _ => {
+                        self.dock_domain.remove(&view);
+                    }
+                }
                 if let Some(owner) = declared {
                     self.views.insert(view.clone(), owner);
                     let generation = data
@@ -1039,7 +1076,7 @@ impl NativeShell {
                 // go (a later `Destroyed` must not tear it down). A
                 // legacy view keeps the old contract: the association
                 // survives detach so `Destroyed` still tears it down.
-                if dock_view_info(&view).is_some() {
+                if self.dock_domain.contains(&view) {
                     self.views.remove(&view);
                     self.view_generation.remove(&view);
                 }
@@ -1047,6 +1084,7 @@ impl NativeShell {
             ViewOp::Close | ViewOp::DockDetach => {
                 self.views.remove(&view);
                 self.view_generation.remove(&view);
+                self.dock_domain.remove(&view);
             }
             ViewOp::DockCommit => {
                 // `data.to` names the committed destination — the
@@ -1125,8 +1163,8 @@ impl NativeShell {
         // abort result restores `views`/`view_generation` to the
         // source owner, so the orphan scan below no longer sees the
         // view on the dead window.
-        if let Some(view_id) = self.saga_windows.remove(&window) {
-            self.dispatch_dock_abort(&view_id, "destination window destroyed", driver);
+        if let Some(saga) = self.saga_windows.remove(&window) {
+            self.dispatch_dock_abort(&saga.view_id, "destination window destroyed", driver);
         }
 
         // Forward `destroyed` — the workspace removes the window with
@@ -1169,8 +1207,12 @@ impl NativeShell {
             .map(|(v, _)| v.clone())
             .collect();
         for view in orphans.drain(..) {
-            let docked = dock_views.iter().any(|v| v == &view)
-                || (!lifecycle_failed && dock_view_info(&view).is_some());
+            // Dock-domain membership is learned from attach results —
+            // it covers registry-adopted views the static metadata
+            // table cannot see, and stays true even when the lifecycle
+            // op failed (the safe default for a known dock view is
+            // pool-detach, never the legacy close replay).
+            let docked = dock_views.iter().any(|v| v == &view) || self.dock_domain.contains(&view);
             if docked {
                 self.views.remove(&view);
                 self.view_generation.remove(&view);

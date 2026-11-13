@@ -154,6 +154,7 @@ Directory: `docs/designs`
 | DESIGN-UpOaSmwX-5aEOp4rEEmXG | synvelis#335 unborn HEAD 誤分類修正 — rev-parse --quiet 除去と NotFound 経路回復設計 | approved | [vcs-03-unborn-head-classification-design.md](./vcs-03-unborn-head-classification-design.md) |
 | DESIGN-VCS04BkndWiringDsn0001 | VCS-04 production backend wiring — module 設計 | approved | [vcs-04-backend-wiring-design.md](./vcs-04-backend-wiring-design.md) |
 | DESIGN-VCS04Hist0ryV1ewDsn01 | VCS-04 History/Visual Diff UI design | approved | [vcs-04-history-visual-diff-ui-design.md](./vcs-04-history-visual-diff-ui-design.md) |
+| DESIGN-VCS04NativeMount001 | VCS-04 History/Visual Diff — native mount/dock 配線 design | approved | [vcs-04-native-mount-design.md](./vcs-04-native-mount-design.md) |
 | DSGN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — module 設計 | approved | [vcs-05-apply-restore-headless-design.md](./vcs-05-apply-restore-headless-design.md) |
 | DSGN-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface 拡張 design | approved | [vcs-05-monitoring-apply-surface-design.md](./vcs-05-monitoring-apply-surface-design.md) |
 | DESIGN-TR6hK0f243aEk3CmFQlfp | VCS-06 evidence completion — RESTORE-08 / COMPAT-03/04 設計 | approved | [vcs-06-evidence-completion-design.md](./vcs-06-evidence-completion-design.md) |
