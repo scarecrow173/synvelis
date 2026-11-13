@@ -35,16 +35,27 @@ description = "Check formatting without rewriting"
 run = "cargo fmt --all -- --check"
 
 [tasks.check]
-description = "Type-check the workspace (dev profile)"
-run = "cargo check --workspace --all-targets"
+description = "Verify one Cargo package: mise run check <package> [cargo flags] (required package)"
+raw_args = true
+run = "cargo check --locked --all-targets -p"
 
 [tasks.lint]
-description = "Clippy with warnings denied (dev profile)"
-run = "cargo clippy --workspace --all-targets -- -D warnings"
+description = "Lint one Cargo package with warnings denied: mise run lint <package> [cargo flags]"
+raw_args = true
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "$#" -lt 1 ]; then
+  echo "usage: mise run lint <package> [cargo flags]" >&2
+  exit 2
+fi
+cargo clippy --locked --all-targets -p "$@" -- -D warnings
+'''
 
 [tasks.test]
-description = "Run all workspace tests against the locked dependency graph"
-run = "cargo test --workspace --locked"
+description = "Verify one Cargo package: mise run test <package> [cargo flags] (required package)"
+raw_args = true
+run = "cargo test --locked -p"
 
 [tasks.test-rt]
 description = "Run the rt_ contract tests (RT no-alloc/no-block) against the locked dependency graph"
@@ -96,29 +107,34 @@ description = "ci-issue-tracker reconcile 入口の consumer 契約 node:test �
 run = "node --test tools/ci-issue-tracker-reconcile.test.mjs"
 
 [tasks.build]
-description = "Build the workspace (dev profile)"
-run = "cargo build --workspace --locked"
-
-# 通常開発向け: 必ず対象Cargo packageを指定する（無引数ではCargoの-p検査で失敗）。
-# miseはタスク名の後の引数を末尾に転送するため、追加Feature等も指定可能。
-# 例: mise run check-local synvelis-project
-#     mise run test-local synvelis-project rt_
-#     mise run check-local synvelis-app --features gpui
-# workspace全体を検証する check/test/build はCI再現・原因切り分け用に維持する。
-[tasks.check-local]
-description = "変更したCargo packageの型チェック: mise run check-local <package> [cargo args]"
-raw_args = true
-run = "cargo check --locked --all-targets -p"
-
-[tasks.test-local]
-description = "変更したCargo packageのテスト: mise run test-local <package> [cargo args]"
-raw_args = true
-run = "cargo test --locked -p"
-
-[tasks.build-local]
-description = "変更したCargo packageの必要時Build: mise run build-local <package> [cargo args]"
+description = "Verify one Cargo package: mise run build <package> [cargo flags] (required package)"
 raw_args = true
 run = "cargo build --locked -p"
+
+[tasks.check-full]
+description = "Workspace-wide check (current OS, default features)"
+run = "cargo check --workspace --all-targets"
+
+[tasks.lint-full]
+description = "Workspace-wide lint (current OS, default features)"
+run = "cargo clippy --workspace --all-targets -- -D warnings"
+
+[tasks.test-full]
+description = "Workspace-wide test (current OS, default features)"
+run = "cargo test --workspace --locked"
+
+[tasks.build-full]
+description = "Workspace-wide build (current OS, default features)"
+run = "cargo build --workspace --locked"
+
+[tasks.verify-full]
+description = "Standard workspace verification (current OS): format, check, lint, test"
+run = [
+  "mise run fmt-check",
+  "mise run check-full",
+  "mise run lint-full",
+  "mise run test-full",
+]
 
 [tasks.gw10]
 description = "Run the GW-10 gateway harness suites and emit the gate report"
