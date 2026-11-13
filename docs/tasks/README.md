@@ -137,6 +137,7 @@ Directory: `docs/tasks`
 | TASK-034W1XvJrhZ2i1eRhcbxkP | PC-C6: TR01/03/04/05/07/08 dispatch ledger 実経路 oracle 結合タスク | done | [pc-c6-tr-ledger-oracle-task.md](./pc-c6-tr-ledger-oracle-task.md) |
 | TASK-034WxmIMFAnvLuxIgBXqMT | PC-C6: TR02/TR06 dispatch ledger 実経路 oracle 再証拠化タスク | done | [pc-c6-tr02-tr06-realpath-oracle-task.md](./pc-c6-tr02-tr06-realpath-oracle-task.md) |
 | TASK-034VNs3KBar3pyoUwECyIh | plugin_instances VCS semantic diff 分類 | done | [plugin-instances-vcs-diff-task.md](./plugin-instances-vcs-diff-task.md) |
+| TASK-034X3k0wEnZD3OtrbVBneg | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画タスク | done | [product-value-core-task.md](./product-value-core-task.md) |
 | TASK-2Ri1ehmSIXwfHO79pHYSiU | RCD-02 Task Unsynced-Write Loss Fixture + Real-FS Probe | done | [rcd-02-task-unsynced-loss-real-fs-probe.md](./rcd-02-task-unsynced-loss-real-fs-probe.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | done | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
 | TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |

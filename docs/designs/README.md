@@ -70,6 +70,7 @@ Directory: `docs/designs`
 | DESIGN-034WxmyGWBzk3HppFdEDXE | PC-C6 TR02/TR06 realpath oracle 設計 — 既存 file への test 追加と行対応表 | approved | [pc-c6-tr02-tr06-realpath-oracle-design.md](./pc-c6-tr02-tr06-realpath-oracle-design.md) |
 | — | Synvelis × Ruviform — Playback / Mixer / Generic Execution Graph Architecture | — | [playback-mixer-generic-execution-graph-architecture.md](./playback-mixer-generic-execution-graph-architecture.md) |
 | DESIGN-034VG5a2ikhPyz9RCyjDDT | plugin_instances VCS semantic diff classification — keyed-synthetic PluginInstance | approved | [plugin-instances-vcs-diff-design.md](./plugin-instances-vcs-diff-design.md) |
+| DESIGN-034X3jMjITd6SCoqrUyFnH | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価設計 | approved | [product-value-core-design.md](./product-value-core-design.md) |
 | — | Synvelis — Project / Asset / Persistence Architecture | — | [project-asset-persistence-architecture.md](./project-asset-persistence-architecture.md) |
 | DESIGN-034V2hPBihovSNoj4xusOA | RCD-01 device-recording headless fixture — Mock Input→Raw Writer 統合設計 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | DESIGN-Bz2IMMfywvmEjmdIeThNvq | RCD-01 Input Adapter — binding/Arm/Monitor/channel-map と fake port fail-stop | approved | [rcd-01-input-adapter-binding-arm-monitor-fake-port.md](./rcd-01-input-adapter-binding-arm-monitor-fake-port.md) |
