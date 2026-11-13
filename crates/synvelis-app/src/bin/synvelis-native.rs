@@ -26,18 +26,24 @@
 //! `SYNVELIS_LOG_FORMAT`, `SYNVELIS_PROJECT_DIR`,
 //! `SYNVELIS_SECOND_WINDOW` (SV-GUI-04 slice 1 — `1`/`true`/`yes`/`on`
 //! mounts a second window carrying the transport-deck view `view-2`
-//! on the same app/session; unset keeps the single-window boot).
+//! on the same app/session; unset keeps the single-window boot),
+//! `SYNVELIS_VCS_HISTORY` (VCS-04 native mount — same truthy values
+//! opens a `VcsHistory` view through `syn.vcs.visual{action:"open"}`
+//! and mounts its read-only History/A-B spec on its own window;
+//! unset keeps no VCS window).
 //!
 //! Exit codes: `0` clean shutdown (last window destroyed /
 //! `syn.app.quit`), `3` service-registration, window-creation, or
 //! driver-loop failure, `4` logging configuration error.
 
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::rc::Rc;
 use std::time::Duration;
 
+use ruviform_ui::dock::ViewInstanceId;
 use ruviform_ui::driver::{DriverEvent, WindowLifecycle};
 use ruviform_ui::view::{AttachEpochAllocator, ViewHost, ViewSpec};
 use ruviform_ui::{
@@ -45,13 +51,15 @@ use ruviform_ui::{
     WindowId, WindowSpec,
 };
 use ruviform_ui_gpui::{GpuiDriver, ViewMount};
+use serde_json::json;
 use synvelis_theme::{ResolvedTheme, ThemeCatalog, ThemeSelection};
 
 use synvelis_app::logging::{self, EnvOverrides};
 use synvelis_app::{
-    LogSettings, MainScreenState, NativeShell, SessionEngineConfig, SynvelisApp,
-    compose_routing_engine, main_screen_spec, main_view_id, main_view_targets, mount_main_view,
-    mount_secondary_view, secondary_screen_spec, secondary_view_id, secondary_view_targets,
+    LogSettings, MainScreenState, NativeShell, SessionEngineConfig, SynvelisApp, VcsScreenState,
+    compose_routing_engine, history_screen_spec, main_screen_spec, main_view_id, main_view_targets,
+    mount_main_view, mount_secondary_view, mount_vcs_history_view, secondary_screen_spec,
+    secondary_view_id, secondary_view_targets,
 };
 use synvelis_project::{BuildBudget, BuildMode, RuntimeClockEpochRef, RuntimeInstanceId};
 
@@ -227,13 +235,12 @@ fn product_theme() -> Option<synvelis_theme::ResolvedTheme> {
     }
 }
 
-/// `SYNVELIS_SECOND_WINDOW` — the SV-GUI-04 slice-1 gate for the
-/// second native window (synvelis#113). Truthy values `1`, `true`,
-/// `yes`, `on` (case-insensitive, surrounding whitespace ignored);
-/// unset or anything else keeps the single-window boot. Read at the
-/// process boundary only — the library never touches `std::env`.
-fn second_window_enabled() -> bool {
-    std::env::var("SYNVELIS_SECOND_WINDOW").is_ok_and(|v| {
+/// Truthy env gate — `1`/`true`/`yes`/`on` (case-insensitive,
+/// surrounding whitespace ignored); unset or anything else is off.
+/// Read at the process boundary only — the library never touches
+/// `std::env`.
+fn env_flag(name: &str) -> bool {
+    std::env::var(name).is_ok_and(|v| {
         matches!(
             v.trim().to_ascii_lowercase().as_str(),
             "1" | "true" | "yes" | "on"
@@ -241,27 +248,59 @@ fn second_window_enabled() -> bool {
     })
 }
 
+/// `SYNVELIS_SECOND_WINDOW` — the SV-GUI-04 slice-1 gate for the
+/// second native window (synvelis#113).
+fn second_window_enabled() -> bool {
+    env_flag("SYNVELIS_SECOND_WINDOW")
+}
+
+/// `SYNVELIS_VCS_HISTORY` — the VCS-04 native-mount gate
+/// (synvelis#95): opens a `VcsHistory` view through
+/// `syn.vcs.visual{action:"open"}` and mounts its read-only
+/// History/A-B spec on its own window.
+fn vcs_history_enabled() -> bool {
+    env_flag("SYNVELIS_VCS_HISTORY")
+}
+
+/// Which product screen a [`PendingMount`] displays — decides both
+/// the mount-time spec and every `update_view` push.
+enum MountSpec {
+    /// [`main_screen_spec`] over [`MainScreenState`].
+    Main,
+    /// [`secondary_screen_spec`] over [`MainScreenState`].
+    Secondary,
+    /// [`history_screen_spec`] over the view's published
+    /// [`VcsScreenState`] — the adopted `ViewInstanceId` keys the
+    /// lookup in the shared VCS screen cell.
+    VcsHistory(ViewInstanceId),
+}
+
 /// One mounted view↔window pair the run loop drives: attach the view
 /// on the window's first `Ready`, then push the matching screen spec
-/// whenever the shared [`MainScreenState`] changes.
+/// whenever the shared screen state changes.
 struct PendingMount {
     window: WindowId,
     view_id: String,
     targets: Vec<String>,
-    /// `true` for the transport-deck view — its state pushes use
-    /// [`secondary_screen_spec`] instead of [`main_screen_spec`].
-    secondary: bool,
+    spec_kind: MountSpec,
     attached: bool,
 }
 
 impl PendingMount {
     /// The screen spec this mount currently displays — rebuilt from
-    /// the shared [`MainScreenState`] on every push.
-    fn spec(&self, state: &MainScreenState) -> ViewSpec {
-        if self.secondary {
-            secondary_screen_spec(state)
-        } else {
-            main_screen_spec(state)
+    /// the shared screen-state cells on every push.
+    fn spec(
+        &self,
+        state: &MainScreenState,
+        vcs_screens: &BTreeMap<ViewInstanceId, VcsScreenState>,
+    ) -> ViewSpec {
+        match self.spec_kind {
+            MountSpec::Main => main_screen_spec(state),
+            MountSpec::Secondary => secondary_screen_spec(state),
+            MountSpec::VcsHistory(instance) => {
+                let empty = VcsScreenState::default();
+                history_screen_spec(vcs_screens.get(&instance).unwrap_or(&empty))
+            }
         }
     }
 }
@@ -333,15 +372,60 @@ fn create_view_window(
         })
 }
 
+/// Opens a detached `VcsHistory` view through the real op surface
+/// (`syn.vcs.visual{action:"open"}` — the same path any driver takes)
+/// and mounts its screen spec on a fresh [`ViewHost`]. Runs while the
+/// app is still composition-owned, before [`NativeShell::new`] seals
+/// it; the returned wire `view_id` is what the run loop attaches on
+/// the window's first `Ready`.
+///
+/// The published [`VcsScreenState`] comes from the shared cell the
+/// app refreshes after every op — the direct `op_vcs_visual` call
+/// bypasses the service tail, so the publish runs explicitly here.
+fn open_vcs_history_view(
+    app: &mut SynvelisApp,
+    attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
+    vcs_screens: &Rc<RefCell<BTreeMap<ViewInstanceId, VcsScreenState>>>,
+) -> Result<(String, ViewInstanceId, ViewHost), ExitCode> {
+    let fail = |e: &dyn std::fmt::Display, what: &str| {
+        eprintln!("synvelis-native: {what} failed: {e}");
+        tracing::error!(error = %e, "{what} failed");
+        ExitCode::from(3)
+    };
+    let opened = app
+        .op_vcs_visual(&json!({ "action": "open" }))
+        .map_err(|e| fail(&e, "vcs history open"))?;
+    let view_id = opened["view_id"]
+        .as_str()
+        .ok_or_else(|| fail(&"missing view_id in open result", "vcs history open"))?
+        .to_string();
+    let instance = view_id
+        .strip_prefix("view-")
+        .and_then(|n| n.parse::<u64>().ok())
+        .and_then(ViewInstanceId::new)
+        .ok_or_else(|| fail(&view_id, "vcs history view id parse"))?;
+    app.publish_project_length();
+    let state = vcs_screens
+        .borrow()
+        .get(&instance)
+        .cloned()
+        .unwrap_or_default();
+    let host = mount_vcs_history_view(attach_epochs, instance, &state)
+        .map_err(|e| fail(&e, "vcs history view mount"))?;
+    Ok((view_id, instance, host))
+}
+
 /// Creates the OS windows for the mounted views — the main window
 /// always, the transport-deck window only when the env gate mounted a
-/// secondary view — and returns the run-loop mount records in
-/// creation order.
+/// secondary view, the VCS History window only when the env gate
+/// opened one — and returns the run-loop mount records in creation
+/// order.
 fn open_windows(
     driver: &mut GpuiDriver,
     theme: Option<&ResolvedTheme>,
     main_host: ViewHost,
     secondary_host: Option<ViewHost>,
+    vcs_host: Option<(String, ViewInstanceId, ViewHost)>,
 ) -> Result<Vec<PendingMount>, ExitCode> {
     let window = create_view_window(
         driver,
@@ -357,7 +441,7 @@ fn open_windows(
         window,
         view_id: main_view_id(),
         targets: main_view_targets(),
-        secondary: false,
+        spec_kind: MountSpec::Main,
         attached: false,
     }];
 
@@ -374,7 +458,27 @@ fn open_windows(
             window,
             view_id: secondary_view_id(),
             targets: secondary_view_targets(),
-            secondary: true,
+            spec_kind: MountSpec::Secondary,
+            attached: false,
+        });
+    }
+
+    if let Some((view_id, instance, host)) = vcs_host {
+        let spec = WindowSpec {
+            title: "Synvelis — VCS History".to_string(),
+            logical_size: LogicalSize::new(1100, 720),
+            position: Some(LogicalPosition::new(160, 160)),
+            resizable: true,
+        };
+        let window = create_view_window(driver, &spec, host, theme, "vcs history window creation")?;
+        tracing::info!(window = %window, view_id = %view_id, "vcs history window reserved");
+        mounts.push(PendingMount {
+            window,
+            view_id,
+            // A VCS History view subscribes to no control targets —
+            // its spec is a pure projection of `vcs_screens`.
+            targets: Vec::new(),
+            spec_kind: MountSpec::VcsHistory(instance),
             attached: false,
         });
     }
@@ -395,9 +499,11 @@ fn run_loop(
     mut shell: NativeShell,
     mut mounts: Vec<PendingMount>,
     screen_state: Rc<RefCell<MainScreenState>>,
+    vcs_screens: Rc<RefCell<BTreeMap<ViewInstanceId, VcsScreenState>>>,
 ) -> ExitCode {
     let view_driver = driver.clone();
     let mut applied_state = screen_state.borrow().clone();
+    let mut applied_vcs = vcs_screens.borrow().clone();
     let result = driver.run(Some(TICK), move |event, driver| {
         // First `Ready` per mount is detected before `handle` consumes
         // the event — `attach_view` needs the window registered in the
@@ -430,16 +536,19 @@ fn run_loop(
             // A window that attached after the state cell moved must
             // not keep its mount-time spec — push the current one.
             let state = screen_state.borrow().clone();
-            if let Err(e) = view_driver.update_view(m.window, m.spec(&state)) {
+            let vcs_state = vcs_screens.borrow().clone();
+            if let Err(e) = view_driver.update_view(m.window, m.spec(&state, &vcs_state)) {
                 tracing::error!(error = %e, "screen state update failed");
             }
         }
         let state = screen_state.borrow().clone();
-        if state != applied_state {
+        let vcs_state = vcs_screens.borrow().clone();
+        if state != applied_state || vcs_state != applied_vcs {
             applied_state = state.clone();
+            applied_vcs = vcs_state.clone();
             let mut pushed = false;
             for m in mounts.iter().filter(|m| m.attached) {
-                match view_driver.update_view(m.window, m.spec(&state)) {
+                match view_driver.update_view(m.window, m.spec(&state, &vcs_state)) {
                     Ok(()) => pushed = true,
                     Err(e) => tracing::error!(error = %e, "screen state update failed"),
                 }
@@ -489,12 +598,22 @@ fn main() -> ExitCode {
     // allocator handle, never a second allocator. The main-screen
     // state cell is taken here too: the app publishes into it after
     // every op and UI pump, and the loop below pushes changes into
-    // the mounted specs.
+    // the mounted specs. The VCS History cell map works the same
+    // way for env-gated VCS mounts.
     let screen_state = app.main_screen_cell();
+    let vcs_screens = app.vcs_screen_cell();
     let attach_epochs = app.attach_epoch_allocator();
     let (main_host, secondary_host) = match mount_views(&attach_epochs, &screen_state) {
         Ok(mounts) => mounts,
         Err(code) => return code,
+    };
+    let vcs_host = if vcs_history_enabled() {
+        match open_vcs_history_view(&mut app, &attach_epochs, &vcs_screens) {
+            Ok(mount) => Some(mount),
+            Err(code) => return code,
+        }
+    } else {
+        None
     };
 
     let shell = match NativeShell::new(app, TICK) {
@@ -506,11 +625,17 @@ fn main() -> ExitCode {
         }
     };
     let theme = product_theme();
-    let mounts = match open_windows(&mut driver, theme.as_ref(), main_host, secondary_host) {
+    let mounts = match open_windows(
+        &mut driver,
+        theme.as_ref(),
+        main_host,
+        secondary_host,
+        vcs_host,
+    ) {
         Ok(mounts) => mounts,
         Err(code) => return code,
     };
 
-    run_loop(&mut driver, shell, mounts, screen_state)
+    run_loop(&mut driver, shell, mounts, screen_state, vcs_screens)
     // `host_log` drops here — sinks drain, flush, and close in order.
 }
