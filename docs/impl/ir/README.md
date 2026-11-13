@@ -21,6 +21,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-aqYVtVu6shEVwq4hQuJ7jk | AI Native Baseline — Issue #44 設計契約文書化 + AIB/AHG evidence 台帳 | completed | [ai-native-baseline.md](./ai-native-baseline.md) |
 | IMPL-034T7QIk72dphjZPfVnZ1O | ALIB-01 Asset Provider baseline contract | completed | [alib-01-asset-provider-baseline-contract.md](./alib-01-asset-provider-baseline-contract.md) |
 | IMPL-034VMQZEdjKG5qiL5uYYuF | ALIB-02 residual closeout — Issue #86 DoD 照合・canonical lane 実測・残存 gate 棚卸し | completed | [alib-02-residual-closeout.md](./alib-02-residual-closeout.md) |
 | IMPL-alib02-streaming-verified-import | ALIB-02 Streaming Verified Import — SHA-256 namespace（synvelis-library slice） | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
@@ -66,6 +67,7 @@ Directory: `docs/impl/ir`
 | IMPL-L2MasterSequentialOfflineWavExport | E2E-L2 Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | completed | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | IMPL-MDATakeGroupCompEffectiveProjectionPlacement | MD-A TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | completed | [mda-takegroup-comp-effective-projection-placement.md](./mda-takegroup-comp-effective-projection-placement.md) |
 | IMPL-MDBEffectiveCompLoweringLoadRevalidationCompDispatch | MD-B Effective Comp lowering・load-time revalidation・CompOp session dispatch (headless) | completed | [mdb-effective-comp-lowering-load-revalidation-comp-dispatch.md](./mdb-effective-comp-lowering-load-revalidation-comp-dispatch.md) |
+| IMPL-034X7v8PmJKzfbj9uOlPeF | Media Render — Issue #21 設計契約文書化 + MR evidence 台帳 | completed | [media-render.md](./media-render.md) |
 | IMPL-034MSA5207Kq2wXmZyAbCdEf | 最小 MIDI Source / Note 編集契約 — Stable ID・Linked Source・Undo・Save/Reload | completed | [midi-source-note-editing.md](./midi-source-note-editing.md) |
 | IMPL-sl0Rr2E3MxV46MGYb9oin9 | Musical Time — 設計契約文書チェーン実装記録（synvelis#19） | completed | [musical-time.md](./musical-time.md) |
 | IMPL-034PCA12Xz9hCd5kLmZnOp | PC-A parameter control model headless PoC | completed | [pc-a-parameter-control-headless-poc.md](./pc-a-parameter-control-headless-poc.md) |
@@ -147,6 +149,7 @@ Directory: `docs/impl/ir`
 | IMPL-034RBYkTtBOQ5Akfjc5HEi | SYN-OBS-01 host logging owner + OBS-02 source catalog（synvelis-app 単一所有） | completed | [syn-obs-01-host-logging-owner-obs-02-source-catalog-synvelis-app.md](./syn-obs-01-host-logging-owner-obs-02-source-catalog-synvelis-app.md) |
 | IR-SV-RF305-export | SYN-RF305 render/player WAV Export StagedFile 移行 実装記録・検証証跡 | completed | [syn-rf305-render-export-staged-file.md](./syn-rf305-render-export-staged-file.md) |
 | IMPL-034Rp8RppbqCF1xtexsFvB | Synvelis 独立 PR/Push CI 実装記録 | completed | [synvelis-pr-push-ci.md](./synvelis-pr-push-ci.md) |
+| IMPL-wudSTaSGqUbfYIh4qzyqGq | Target Architecture 設計レビュー 実装記録 — docs chain 7 文書 + evidence/sv22 台帳 | completed | [target-architecture.md](./target-architecture.md) |
 | IMPL-034Vu50fg7S7yCp4bni412 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証 | completed | [tim-01-app-ppqn-slice.md](./tim-01-app-ppqn-slice.md) |
 | IMPL-034UHWGxnC2sjDoLd5P01u | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | completed | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | IMPL-8qWeRtYuIoPaSdFgHjKl | TIM-01 PPQN Preview op + New Project PPQN — preview_ppqn + syn.project.preview_ppqn / syn.project.new.ppqn | completed | [tim-01-ppqn-preview.md](./tim-01-ppqn-preview.md) |

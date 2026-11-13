@@ -6,6 +6,7 @@ Directory: `docs/specs`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| SPEC-xzgW9NkNQVvC0xmEChXHi6 | AI-Native Hybrid DAW Baseline — Intentional Usage・Rights・Shared Project・Agent Direction 設計契約 (synvelis#44) | approved | [ai-native-baseline.md](./ai-native-baseline.md) |
 | SPEC-j8VrtHRiA60WGx27NKFnH4 | ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
 | SPEC-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | approved | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | SPEC-alib04-git-remote-provider | ALIB-04 — Git Remote Provider（fixed Commit/Tree・Git LFS・selective fetch・auth）（synvelis-library slice） | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
@@ -34,6 +35,7 @@ Directory: `docs/specs`
 | SPEC-ubzJtNuQxbSXLe7nevbdUw | L1 — Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | approved | [l1-local-wav-verified-media-graph-playback.md](./l1-local-wav-verified-media-graph-playback.md) |
 | SPEC-034Qmb9CC7dN4YE5VPN235 | L2 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | SPEC-rBmfzOP1H86N1KAXlFpX5N | MD-A — TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | approved | [mda-takegroup-comp-effective-projection-placement-contract.md](./mda-takegroup-comp-effective-projection-placement-contract.md) |
+| SPEC-034X7uv8zUJ4bkVbH4LxYj | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 設計契約 (synvelis#21) | approved | [media-render.md](./media-render.md) |
 | SPEC-QOg57ZwECMo94svdnmHZqk | Musical Time — Configurable PPQN・Rational Beat・Source-Native Tick・Tempo/Frame 量子化・SMF Fidelity 設計契約（synvelis#19） | approved | [musical-time.md](./musical-time.md) |
 | SPEC-034PCA01Kf8vNq2wXyZmAb | PC-A Parameter Control Model — Scope/Breakdown/StateMachine headless PoC | approved | [pc-a-parameter-control-model-scope-breakdown-state-machine.md](./pc-a-parameter-control-model-scope-breakdown-state-machine.md) |
 | SPEC-034PCB01Kf8vNq2wXyZmAb | PC-B Parameter Control — Dispatch/NoteScope/RT/Offline headless PoC | approved | [pc-b-parameter-dispatch-note-scope-rt-offline.md](./pc-b-parameter-dispatch-note-scope-rt-offline.md) |
@@ -129,6 +131,7 @@ Directory: `docs/specs`
 | SPEC-034T29C9D8CIvYjMxmQIy8 | SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行 | approved | [syn-io-02-snapshot-head-staged-publish.md](./syn-io-02-snapshot-head-staged-publish.md) |
 | SPEC-034RBvYIlw0wiBoGsL9EBY | SYN-OBS-01 Ruviform observability 単一crate Logging/Host統合 | proposed | [syn-obs-01-ruviform-observability-crate-logging-host.md](./syn-obs-01-ruviform-observability-crate-logging-host.md) |
 | SPEC-034T2RF305WAVSTAGED00X | SYN-RF305 WAV Export/Player StagedFile 移行 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
+| SPEC-l4FdiimUNULuodZsTBZq0k | Target Architecture — Synvelis↔Ruviform 共通契約・Production Dependency DAG・GUI 採用方針の設計レビュー契約（synvelis#22） | approved | [target-architecture.md](./target-architecture.md) |
 | SPEC-034Vtz2CrUpwevHTLxDLm6 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証（synvelis-app slice） | approved | [tim-01-app-ppqn.md](./tim-01-app-ppqn.md) |
 | SPEC-034UHVLQ9dtoN4YQDjtCy3 | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | approved | [tim-01-configurable-ppqn-project-command.md](./tim-01-configurable-ppqn-project-command.md) |
 | SPEC-LmEvu9ETGyhBWDJtTBWj6l | TIM-01 PPQN configurable project command — punch marks 再投影と受入残件（headless slice） | approved | [tim-01-ppqn-config.md](./tim-01-ppqn-config.md) |

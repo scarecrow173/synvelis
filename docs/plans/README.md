@@ -6,6 +6,7 @@ Directory: `docs/plans`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| PLAN-IEMv5jVeXCZss5Jrrf2uC9 | AI-Native Hybrid DAW Baseline — Grant/Principal/Scope/Approval/ChangeSet・AI Off 既定・3 Mode 責務設計 実装計画 (synvelis#44) | approved | [ai-native-baseline.md](./ai-native-baseline.md) |
 | PLAN-alib03-catalog-preview-cache | ALIB-03 実装計画 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | PLAN-alib04-git-remote-provider | ALIB-04 実装計画 — Git Remote Provider（synvelis-library slice） | in-progress | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | PLAN-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — 実装計画 | approved | [alib-04-lfs-remote-fetch-plan.md](./alib-04-lfs-remote-fetch-plan.md) |
@@ -35,6 +36,7 @@ Directory: `docs/plans`
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |
+| PLAN-mr20261114mediaRenderA | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 実装計画 (synvelis#21) | approved | [media-render.md](./media-render.md) |
 | PLAN-aXqZXebxtF6m7A9e6xy5S4 | Musical Time — 設計契約文書チェーン実装計画（synvelis#19） | approved | [musical-time.md](./musical-time.md) |
 | PLAN-034RoUbM3cA2J9g5wWzEfG | PC-C1 Recording Transaction 実装計画 | approved | [pc-c1-recording-transaction.md](./pc-c1-recording-transaction.md) |
 | PLAN-034UpbrhX5dkELUwZUoS0i | PC-C2 Control Relation Index 実装計画 | approved | [pc-c2-control-relation-index.md](./pc-c2-control-relation-index.md) |
@@ -120,6 +122,7 @@ Directory: `docs/plans`
 | PLAN-034T9pLmNvRwXk2jHs7fQ | SYN-IO-02 HEAD CAS expected-head store port 実装計画 | approved | [syn-io-02-head-cas-plan.md](./syn-io-02-head-cas-plan.md) |
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
+| PLAN-4eUlpRzzgdpGu0FbUVLgtc | Target Architecture 設計レビュー実施計画 — docs chain + evidence/sv22 台帳の構成 | approved | [target-architecture.md](./target-architecture.md) |
 | PLAN-034VtBaArtupj0qHG0phVl | TIM-01 app 層 PPQN 統合 — implementation plan | approved | [tim-01-app-ppqn-plan.md](./tim-01-app-ppqn-plan.md) |
 | PLAN-034UHYyMbiLPEtGczKNKYC | TIM-01 Configurable PPQN Project Command — implementation plan | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | PLAN-TlIO4qpF8SnK0bA3SWQZ5d | TIM-01 PPQN config — punch marks 再投影と受入残件検証 plan | approved | [tim-01-ppqn-config-plan.md](./tim-01-ppqn-config-plan.md) |

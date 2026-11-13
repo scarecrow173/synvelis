@@ -6,6 +6,7 @@ Directory: `docs/test-specs`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| TSPEC-zAhBUfpnF97afaGCvStJpY | AI-Native Hybrid DAW Baseline — Grant/Principal/Scope/Approval/ChangeSet・AI Off 既定・3 Mode 責務設計 テスト仕様 (synvelis#44) | approved | [ai-native-baseline.md](./ai-native-baseline.md) |
 | TSPEC-DM8VnIP07x0mq4VnOt6PJD | ALIB-01 検証仕様 — Asset Provider 契約・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
 | TESTSPEC-alib02 | ALIB-02 Streaming Verified Import — テスト仕様 | approved | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | TESTSPEC-alib02-v5snap | ALIB-02 v5 asset-digest 互換 + recovery fixture — テスト仕様 | approved | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
@@ -41,6 +42,7 @@ Directory: `docs/test-specs`
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | TSPEC-034QmjuUDQRs8JzfSsG8wM | L2 検証仕様 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | TSPEC-SXc0ENzb4xBlpJDsiIaUA8 | MD-A 検証仕様 — TakeGroup/Comp・Effective Comp 投影・Placement/Playback 時間契約 | approved | [mda-model-poc-acceptance.md](./mda-model-poc-acceptance.md) |
+| TSPEC-mr20261114mediaRenderC | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle テスト仕様 (synvelis#21) | approved | [media-render.md](./media-render.md) |
 | TSPEC-jioP2kLGYJUweo578lGo0V | Musical Time — 受入証拠テスト仕様（synvelis#19） | approved | [musical-time.md](./musical-time.md) |
 | TSPEC-034PCA11Wr6fZa2gIjWkLm | PC-A 検証仕様 — Parameter Control 合意8領域 headless 受入 | approved | [pc-a-e2e-parameter-control.md](./pc-a-e2e-parameter-control.md) |
 | TSPEC-034PCB05Ql0zTu6aCdEfGh | PC-B Parameter Control dispatch/note-scope/RT/offline 検証仕様 | approved | [pc-b-e2e-parameter-dispatch.md](./pc-b-e2e-parameter-dispatch.md) |
@@ -139,6 +141,7 @@ Directory: `docs/test-specs`
 | TSPEC-034T2c6eMscPucNt6w8iYW | SYN-IO-02 Store Publish 契約試験 | approved | [syn-io-02-store-publish-contract.md](./syn-io-02-store-publish-contract.md) |
 | TSPEC-034RBFeQnmt3PcI7beSRpy | SYN-OBS-01 検証仕様 — Host Logging install・設定解決・Health・Source catalog | draft | [syn-obs-01-logging-source-catalog.md](./syn-obs-01-logging-source-catalog.md) |
 | TSPEC-034T2RF305WAVSTAGED01B | SYN-RF305 Export StagedFile Publish 契約試験 | approved | [syn-rf305-export-staged-publish-contract.md](./syn-rf305-export-staged-publish-contract.md) |
+| TSPEC-DvNh4xQwTvsBbMkBb9PPmy | Target Architecture 設計レビュー検証仕様 — TA-001〜012 + GUI 方針の oracle・fixture・証拠分類 | approved | [target-architecture.md](./target-architecture.md) |
 | TSPEC-034VtALo1YCyrOraJu0URr | TIM-01 app 層 PPQN — test spec | approved | [tim-01-app-ppqn.md](./tim-01-app-ppqn.md) |
 | TSPEC-034UHWDhuZ4tU11F5QFAEh | TIM-01 configurable PPQN — test spec | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | TSPEC-3ppuFy4wUxgYHFtuGGZHG6 | TIM-01 PPQN config — punch marks 再投影と受入残件 test spec | approved | [tim-01-ppqn-config.md](./tim-01-ppqn-config.md) |
