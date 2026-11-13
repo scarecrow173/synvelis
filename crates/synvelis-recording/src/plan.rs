@@ -113,6 +113,9 @@ pub struct PreparedRecordingPlan {
     pub budget: BufferBudget,
     /// `max_block_frames`（検証済み: ≤ `chunk_frames`）。
     pub max_block_frames: u32,
+    /// 構築時の session sample rate [Hz]。engine sample rate との
+    /// 一致検証・frame↔tick 写像の基準として保持する。
+    pub sample_rate: u32,
     /// Gate scheduler コンパイラ（全ストリームで共有・無状態）。
     pub scheduler: GateScheduler,
 }
@@ -317,6 +320,7 @@ pub fn preflight(
         session_end,
         budget: request.budget,
         max_block_frames: request.max_block_frames,
+        sample_rate,
         scheduler,
     })
 }
