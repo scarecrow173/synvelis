@@ -163,6 +163,7 @@ Directory: `docs/designs`
 | DESIGN-034UyEjdALaapQRSk5hAdk | TIM-03 plugin process boundary design — capability/degraded policy oracle | approved | [tim03-process-boundary-design.md](./tim03-process-boundary-design.md) |
 | — | Synvelis × Ruviform — Time / Transport / MIDI / Automation / Plugin Integration Architecture v0.5 | — | [time-transport-midi-automation-plugin-integration-architecture.md](./time-transport-midi-automation-plugin-integration-architecture.md) |
 | DESIGN-T4E6PtTJ870Fpg4pFi3aM6 | Timeline Editing / Selection / Tool System — Snap・Gesture・Undo・Cross-View編集の共通設計（synvelis#11） | approved | [timeline-editing-design.md](./timeline-editing-design.md) |
+| DESIGN-034X7wOrHbsoz1senpZA9w | Transport Integration Design — Engine Frame canonical, process-start-relative offsets, capability/degraded policy, TT-001〜030 mapping | approved | [transport-integration-design.md](./transport-integration-design.md) |
 | DESIGN-102UiCfInt002BbCcDdEeF | UI-C5 製品 GUI 統合 設計 — syn.control.relation / syn.control.edge / syn.recording.* op surface | approved | [ui-sf-control-integration-design.md](./ui-sf-control-integration-design.md) |
 | DESIGN-034UAwTwlzWbToxqWtFM2B | VCS-01 Immutable Snapshot Resolver — crate 内完結設計 | approved | [vcs-01-immutable-snapshot-resolver-design.md](./vcs-01-immutable-snapshot-resolver-design.md) |
 | DESIGN-034UEtYMoQUWsPmOBrl819 | VCS-02 Semantic Diff Engine design | approved | [vcs-02-semantic-diff-engine-design.md](./vcs-02-semantic-diff-engine-design.md) |
