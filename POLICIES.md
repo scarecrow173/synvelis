@@ -52,4 +52,4 @@ Scope: scarecrow173/synvelis / 三リポジトリ共通の検証方針
 
 - OS-L1ではProject/Track/Clip/Undo/Save、Playback/Export、録音Mock/Fault、RT NoAlloc/NoBlock、Plugin/GUI Driver-neutral契約の独立Oracleを保護する。
 - Windowsで製品として実際に提供するDAW実GUI、録音/モニター/実MIDI、VST3/CLAP等のNative Plugin DockをGUI-L2/EXT-L3で検証する。Windows DComp/child HWNDのNative Dock画素制約は未解消なら当該機能の未受入として追跡する。
-- 利用しないPlugin形式・機材は必須外とする。DAW製品の受入Ownerは[実行計画 #23](https://github.com/scarecrow173/synvelis/issues/23)、[GUI #114](https://github.com/scarecrow173/synvelis/issues/114)、[Native Dock #176](https://github.com/scarecrow173/synvelis/issues/176)、[継続追従 #28](https://github.com/scarecrow173/synvelis/issues/28)など。汎用部分はRuviformへ還元する。
+- 利用しないPlugin形式・機材は必須外とする。DAW固有のProject/編集操作/UX/Recording Workflowと製品受入はSynvelisのIssueで管理する。一方、ドメイン非依存で再利用可能なTime/Graph/Device/Plugin/GUI Port・実行契約・テスト基盤等の課題はRuviformのIssueとして起票し、共通基盤へ還元する。Ruviformの変更は両Consumerの精度・RT・互換性を独立に検証し、必要な導入・追従対応は各ConsumerのIssueで管理する。
