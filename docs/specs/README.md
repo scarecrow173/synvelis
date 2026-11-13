@@ -25,6 +25,7 @@ Directory: `docs/specs`
 | SPEC-xA6Rt9SOy2hTBVmns3bmV4 | CTL-02 adoption 経路の非 canonical SendLevel persisted 化抑止 | approved | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
 | SPEC-034QAlF2irl9rIJaUi9RQ1 | ED-A Editing Model — Selection/Tool/Snap/Transaction/LinkedContext headless PoC | approved | [ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md](./ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md) |
 | SPEC-034QMZiCjhKFlSgoIw9YaX | ED-B media-domain move + slip commit semantics (workspace editing PoC) | approved | [ed-b-media-domain-move-slip-commit-semantics.md](./ed-b-media-domain-move-slip-commit-semantics.md) |
+| SPEC-034X83uiIsH0n6OuQGcU1T | Execution Plan — RCP-00〜07/F01・F0/E2E-L/R/X・Signal Flow/Automation/GUI 横断単一 DAG・Owner/Gate/Acceptance Matrix | approved | [execution-plan.md](./execution-plan.md) |
 | SPEC-nBrnIDkIfILvtzEXr42L56 | Issue #145 ci.yml manual-only 化 — pull_request/push trigger 撤去と dispatch 専用 Full CI | proposed | [issue-145-ci-manual-only.md](./issue-145-ci-manual-only.md) |
 | SPEC-034RIJkUYtv28x8ZpNn8Tv | Issue #147 sccache コンパイルキャッシュ導入仕様 | approved | [issue-147-sccache-compile-cache.md](./issue-147-sccache-compile-cache.md) |
 | SPEC-034RGX4X79sB0s9tVVWQh9 | Issue #151 CI ui-verify lane 追加仕様 | approved | [issue-151-ui-ci-lane.md](./issue-151-ui-ci-lane.md) |

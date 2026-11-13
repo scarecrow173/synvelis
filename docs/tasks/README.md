@@ -16,6 +16,7 @@ Directory: `docs/tasks`
 | TASK-TIQabGiCahibaHUj3amJz5 | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 実施タスク | in-progress | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | TASK-034Rp08nCxirezDOCQ9l0Z | CI 検証・証跡・最終レビュー | in-progress | [ci-task3-verify-review.md](./ci-task3-verify-review.md) |
 | TASK-034X8sLyrKt55RXlxUdD4N | Capability / Command Gateway 設計契約タスク (synvelis#45) | in-progress | [command-gateway-task.md](./command-gateway-task.md) |
+| TASK-034X84fclPRNdTgHrtrDka | Execution Plan Task — Issue #23 横断 DAG・Owner/Gate matrix・sv23 evidence | in-progress | [execution-plan-task.md](./execution-plan-task.md) |
 | TASK-HpVlbSyIgBaWAyYMVxHYLp | Issue #145 T1 ci.yml pull_request/push trigger 撤去 + 契約 test 転換 + PR 起動ゼロ実測 | in-progress | [issue-145-t1-ci-manual-only.md](./issue-145-t1-ci-manual-only.md) |
 | TASK-034SVCIOPT02zA1sDfGh | Issue #148 T1 impact classifier + fail-closed evidence gate 実装 | in-progress | [issue-148-t1-impact-gate.md](./issue-148-t1-impact-gate.md) |
 | TASK-034RUl0VioQz9IinY5Qc7G | Issue #157 rev.3 T1 matrix placeholder gate 修正 | in-progress | [issue-157-t1-matrix-placeholder-gate.md](./issue-157-t1-matrix-placeholder-gate.md) |
