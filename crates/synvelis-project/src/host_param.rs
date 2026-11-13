@@ -33,6 +33,7 @@ use crate::{
     control::{ControlOwner, ParameterRole, STRIP_CHANNEL_ROLES},
     error::Error,
     id::{ParameterTargetId, ProcessorId, SendId, StripId},
+    plugin_instance::PluginInstanceId,
     project::Project,
     routing::{PluginRef, ProcessorBinding},
 };
@@ -174,4 +175,47 @@ pub fn semantic_plugin_binding(
         plugin: plugin.clone(),
         param_id: ParamId(capability.param_id),
     })
+}
+
+/// The canonical `ParameterTarget → PluginInstance` mapping: the
+/// stage-1 [`SemanticPluginBinding`] composed with the persisted
+/// [`crate::PluginInstanceIdentities`] store (issue #101, PC-C4).
+///
+/// `instance` is `Some` only when the store vouches for the semantic
+/// binding's `(processor, plugin)` pair — a missing entry, plugin
+/// drift, or an out-of-range id resolves to `None`. `None` is data,
+/// not an error: consumers that require the instance (e.g.
+/// `PluginBindingSession::bind` in synvelis-player) fail closed with
+/// a typed reject, while read-only consumers may display it.
+/// Keeping the instance resolution non-fatal preserves the plugin
+/// identity check ordering — a rebound plugin reports `PluginMismatch`
+/// before any instance comparison can run.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PluginParameterInstanceBinding {
+    /// The stage-1 semantic binding.
+    pub semantic: SemanticPluginBinding,
+    /// The persisted plugin-instance identity for the semantic
+    /// binding's `(processor, plugin)`, when the store vouches.
+    pub instance: Option<PluginInstanceId>,
+}
+
+/// Resolves the canonical `ParameterTarget → PluginInstance` mapping.
+///
+/// Equivalent to [`semantic_plugin_binding`] followed by
+/// [`crate::PluginInstanceIdentities::resolve`] on the resolved
+/// `(processor, plugin)` pair — the single authority for "which
+/// persisted plugin instance does this parameter target bind to".
+///
+/// # Errors
+/// Same as [`semantic_plugin_binding`]: [`Error::NotFound`] /
+/// [`Error::Validation`] on semantic resolution failure.
+pub fn plugin_parameter_instance_binding(
+    project: &Project,
+    target: ParameterTargetId,
+) -> Result<PluginParameterInstanceBinding, Error> {
+    let semantic = semantic_plugin_binding(project, target)?;
+    let instance = project
+        .plugin_instances
+        .resolve(semantic.processor, &semantic.plugin);
+    Ok(PluginParameterInstanceBinding { semantic, instance })
 }

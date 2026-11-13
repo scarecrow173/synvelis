@@ -17,6 +17,7 @@ Directory: `docs/specs`
 | SPEC-034VmfUEU36QwKnlrMNd8G | Issue #245 verify-macos rt_cache alloc 計測 flake — 計測対象インスタンスの warm-up | proposed | [ci-245-macos-alloc-flake.md](./ci-245-macos-alloc-flake.md) |
 | SPEC-npBYC7xiQlFDeYeTKsJdUk | Issue #377 synvelis-native / gpui-test Feature の 3OS CI OS-L1 受入補完 | proposed | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | SPEC-034RoWOUkW5OezJQSLBWKd | Synvelis 独立 PR/Push CI — Workspace/RT/Recording/Gateway 回帰 Gate | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
+| SPEC-3Vlcu2H26v4t56Rs4ycO7z | Context Inspector — 情報階層・Follow/Explore/Pinned・Selection/Linked Context・Probe 連携の設計定義（synvelis#5） | approved | [context-inspector.md](./context-inspector.md) |
 | SPEC-034CTL01Ow9uXr5zA1bC2dEf | CTL-01 ControlOwner / AutomationTimeScope 責務分離・Bus/Strip/Send 型付き Schema 移行 | approved | [ctl-01-control-owner-automation-time-scope-typed-schema.md](./ctl-01-control-owner-automation-time-scope-typed-schema.md) |
 | SPEC-xA6Rt9SOy2hTBVmns3bmV4 | CTL-02 adoption 経路の非 canonical SendLevel persisted 化抑止 | approved | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
 | SPEC-034QAlF2irl9rIJaUi9RQ1 | ED-A Editing Model — Selection/Tool/Snap/Transaction/LinkedContext headless PoC | approved | [ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md](./ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md) |
@@ -44,6 +45,7 @@ Directory: `docs/specs`
 | SPEC-7c4e9a1b2d3f4e5a6b7c8d | PC-C4-06 control op surface — syn.control.* typed-evidence ops | approved | [pc-c4-06-control-op-surface.md](./pc-c4-06-control-op-surface.md) |
 | SPEC-7c4e9a1b2d3f4e5a6b7c8d9e0f | PC-C4-07 transport mirror + observe_block + capability rebind tests | approved | [pc-c4-07-transport-mirror-observe.md](./pc-c4-07-transport-mirror-observe.md) |
 | SPEC-a1d4f7c2e9b30586d1a4f7c2e | PC-C4 drain composition — drain_output_reports 周期配線と production composition root | approved | [pc-c4-drain-composition.md](./pc-c4-drain-composition.md) |
+| SPEC-6NH8ne9kNmYOjVBpOoiHju | PC-C4 plugin binding — persisted PluginInstance identity を stage-1.5 正本として bind 時に照合 | approved | [pc-c4-plugin-binding.md](./pc-c4-plugin-binding.md) |
 | SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | SPEC-034UxXLvNqgbDGOypo7Uu4 | PC-C5 slice2 (UI-C5-02/03): Gesture 固定・stale drop・Inspector Follow/Explore/Pinned（headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |

@@ -1134,6 +1134,85 @@ fn semantic_plugin_binding_resolves_stage_one() {
     ));
 }
 
+// ── PC-C4 plugin-binding: stage-1.5 canonical instance mapping ────
+
+#[test]
+fn plugin_parameter_instance_binding_resolves_persisted_instance() {
+    let mut c = controller();
+    let track = add_track(&mut c, "t");
+    let strip = add_track_strip(&mut c, track);
+    let processor = add_processor(&mut c, strip, true);
+    let target = add_plugin_param(&mut c, processor, 7);
+
+    // The op path syncs `plugin_instances` — the store vouches for
+    // the semantic binding's `(processor, plugin)` pair.
+    let resolved = plugin_parameter_instance_binding(c.live(), target).unwrap();
+    assert_eq!(resolved.semantic.target, target);
+    assert_eq!(resolved.semantic.processor, processor);
+    assert_eq!(resolved.semantic.param_id, ParamId(7));
+    let instance = resolved.instance.expect("store must vouch");
+    assert_eq!(
+        instance,
+        c.live()
+            .plugin_instances
+            .resolve(processor, &resolved.semantic.plugin)
+            .unwrap()
+    );
+
+    // A second processor on the same plugin descriptor resolves to a
+    // *different* persisted instance — no aliasing.
+    let processor2 = add_processor(&mut c, strip, true);
+    let target2 = add_plugin_param(&mut c, processor2, 7);
+    let resolved2 = plugin_parameter_instance_binding(c.live(), target2).unwrap();
+    let inst1 = c
+        .live()
+        .plugin_instances
+        .resolve(processor, &resolved.semantic.plugin);
+    let inst2 = c
+        .live()
+        .plugin_instances
+        .resolve(processor2, &resolved2.semantic.plugin);
+    assert!(inst1.is_some() && inst2.is_some());
+    assert_ne!(inst1, inst2);
+    assert_eq!(resolved2.instance, inst2);
+
+    // Store entry missing → `instance: None` (fail-closed data, not
+    // an error) while the semantic half still resolves.
+    let mut stripped = c.live().clone();
+    stripped.plugin_instances.instances.clear();
+    let resolved = plugin_parameter_instance_binding(&stripped, target).unwrap();
+    assert!(resolved.instance.is_none());
+    assert_eq!(resolved.semantic.param_id, ParamId(7));
+
+    // Store entry drifted to a different PluginRef → `None`.
+    let mut drifted = c.live().clone();
+    drifted
+        .plugin_instances
+        .instances
+        .get_mut(&processor)
+        .unwrap()
+        .plugin = PluginRef {
+        descriptor: "org.example.other".into(),
+        ..drifted.plugin_instances.instances[&processor]
+            .plugin
+            .clone()
+    };
+    let resolved = plugin_parameter_instance_binding(&drifted, target).unwrap();
+    assert!(resolved.instance.is_none());
+
+    // Semantic failures still surface as `Err` — same contract as
+    // `semantic_plugin_binding`.
+    let fader = strip_channel_target_id(c.live(), strip, ParameterRole::Fader).unwrap();
+    assert!(matches!(
+        plugin_parameter_instance_binding(c.live(), fader),
+        Err(Error::Validation(_))
+    ));
+    assert!(matches!(
+        plugin_parameter_instance_binding(c.live(), ParameterTargetId::new(0xDEAD)),
+        Err(Error::NotFound(_))
+    ));
+}
+
 // ── CTL-02 migration: v9 bodies gain the seeded channel set ──────
 
 /// Serializes `c`'s project as a schema-v9 envelope with every

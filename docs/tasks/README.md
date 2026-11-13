@@ -21,6 +21,7 @@ Directory: `docs/tasks`
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
 | TASK-P1ub1PJgLQhinQuEDIDy8S | PC-C3 task2 — synvelis-player RT trace adapter 実装（TRACE-C3-05） | in-progress | [pc-c3-task2-rt-trace-adapter.md](./pc-c3-task2-rt-trace-adapter.md) |
 | TASK-gH5lLpWnYI2KFNM99SswOf | PC-C4-02 task1 — plugin instance binding 実装 | in-progress | [pc-c4-02-task1-plugin-instance-binding.md](./pc-c4-02-task1-plugin-instance-binding.md) |
+| TASK-heuaegDgtyVrPGdnyMJko1 | PC-C4 plugin binding task1 — persisted instance authority の bind 照合 | in-progress | [pc-c4-plugin-binding-task.md](./pc-c4-plugin-binding-task.md) |
 | TASK-wl7Q7EP5HpNVOP8NAdEB7a | PC-C6: REL01〜07 / TR01〜08 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rel-tr.md](./pc-c6-task1-oracle-rel-tr.md) |
 | TASK-034VmVPWtNFIg5zO3xaDsP | PC-C6: R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rows.md](./pc-c6-task1-oracle-rows.md) |
 | TASK-034V2kE9l91elvsqfnsx5s | RCD-01 device-recording headless fixture | in_progress | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
@@ -86,6 +87,7 @@ Directory: `docs/tasks`
 | TASK-034VmiXNgZm3ucj1WcbTT9 | rt_cache 計測対象インスタンスの warm-up 修正 | done | [ci-245-task1-macos-alloc-flake.md](./ci-245-task1-macos-alloc-flake.md) |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |
 | TASK-034Rp07EGtrO1nUIIjiLh8 | ci.yml + dep-access composite action 実装 | done | [ci-task2-workflow.md](./ci-task2-workflow.md) |
+| TASK-6gOTxmdtactknQD5p2jwe8 | Context Inspector 設計定義タスク — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5） | done | [context-inspector-task.md](./context-inspector-task.md) |
 | TASK-034CTL01Sa3yBv9cE5fG6hIj | CTL-01: ControlOwner/AutomationTimeScope/ParameterRole 型・oracle・Schema v7 Migration・ops・検証 | done | [ctl-01-task1-owner-time-scope-schema-migration.md](./ctl-01-task1-owner-time-scope-schema-migration.md) |
 | TASK-6bPp4B6e9YSSWgScL0msLl | CTL-02: adoption 経路の非 canonical SendLevel 抑止タスク | done | [ctl-02-adopt-sendlevel-task.md](./ctl-02-adopt-sendlevel-task.md) |
 | TASK-034QAtPmN1oYgkip3TL6wG | ED-A task1 ProjectOp batch ops + selection model + ViewState 移行 | done | [ed-a-task1-selection-model-project-ops.md](./ed-a-task1-selection-model-project-ops.md) |

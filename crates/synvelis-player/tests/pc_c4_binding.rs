@@ -225,9 +225,17 @@ fn frame_base() -> TimeBase {
 }
 
 const PROC: u128 = 42;
+const PROC_B: u128 = 43;
 
 fn processor() -> ProcessorId {
     ProcessorId::new(PROC)
+}
+
+/// A second processor identity — models a genuinely different plugin
+/// instance (same descriptor, distinct `ProcessorId`) for the
+/// "same raw `ParamId`, different instance" cases.
+fn processor_b() -> ProcessorId {
+    ProcessorId::new(PROC_B)
 }
 
 /// The authored plugin identity every fixture session pins — matches
@@ -239,6 +247,17 @@ fn plugin_ref() -> PluginRef {
         descriptor: DESCRIPTOR.id.to_owned(),
         version: DESCRIPTOR.version.to_owned(),
         capability_revision: 1,
+    }
+}
+
+/// A rebound authored identity — same descriptor, new version. Used
+/// to model plugin rebind (A→B→A) under the persisted instance
+/// authority: each distinct `PluginRef` mints a fresh
+/// `PluginInstanceId`.
+fn plugin_b() -> PluginRef {
+    PluginRef {
+        version: "0.2.0".into(),
+        ..plugin_ref()
     }
 }
 
@@ -372,9 +391,10 @@ fn compiler_config() -> CompilerConfig {
     }
 }
 
-/// A `ProcessorParam` target owned by `processor()` whose declared
+/// A `ProcessorParam` target owned by `owner` whose declared
 /// capability matches `PARAMS[0]` (param 7, automatable).
-fn param_target(
+fn param_target_on(
+    owner: ProcessorId,
     id: u128,
     param: u32,
     flags: ParamFlags,
@@ -383,7 +403,7 @@ fn param_target(
 ) -> ParameterTarget {
     ParameterTarget {
         id: ParameterTargetId::new(id),
-        owner: ControlOwner::Processor(processor()),
+        owner: ControlOwner::Processor(owner),
         role: ParameterRole::ProcessorParam,
         time_scope: AutomationTimeScope::ProjectMusical,
         name: "P".into(),
@@ -400,37 +420,104 @@ fn param_target(
     }
 }
 
+fn param_target(
+    id: u128,
+    param: u32,
+    flags: ParamFlags,
+    kind: ValueKind,
+    base: f64,
+) -> ParameterTarget {
+    param_target_on(processor(), id, param, flags, kind, base)
+}
+
 fn gain_target(id: u128) -> ParameterTarget {
     param_target(id, 7, ParamFlags::AUTOMATABLE, ValueKind::Continuous, 0.0)
 }
 
 /// A project carrying `targets` (the master-fader bootstrap target
 /// stays — it is `Strip`-owned and can never bind to a plugin) plus
-/// the `Resolved` processor registration the stage-1 semantic binding
-/// requires (PC-C4-02).
-fn project_with(targets: Vec<ParameterTarget>) -> Project {
+/// `Resolved` processor registrations for every `(processor, plugin)`
+/// pair in `entries`, with the persisted `plugin_instances` store
+/// synced — the stage-1.5 instance authority `bind` now verifies
+/// (PC-C4 plugin-binding).
+fn project_with_instances(
+    entries: &[(ProcessorId, PluginRef)],
+    targets: Vec<ParameterTarget>,
+) -> Project {
     let mut project = Project::new(ProjectId::new(0), "pcc4");
     for target in targets {
         project.control.targets.insert(target.id, target);
     }
-    project.routing.processors.insert(
-        processor(),
-        Processor {
-            id: processor(),
-            name: "fx".into(),
-            binding: ProcessorBinding::Resolved(plugin_ref()),
-            port_ids: vec![],
-        },
-    );
+    for &(proc, ref plugin) in entries {
+        project.routing.processors.insert(
+            proc,
+            Processor {
+                id: proc,
+                name: "fx".into(),
+                binding: ProcessorBinding::Resolved(plugin.clone()),
+                port_ids: vec![],
+            },
+        );
+        project.plugin_instances.ensure(proc, plugin).unwrap();
+    }
     project
 }
 
-/// Opens a session + dispatcher on `control`: the session mints its
-/// verified clock context from `control.frame_base()` before the
-/// control moves into `ParamDispatch::new` (which re-verifies the same
-/// base). Returns both — `bind` is the caller's next step so failure
-/// cases can assert the typed error.
+/// Single-processor fixture project — `processor()` bound to
+/// [`plugin_ref`], persisted instance id issued by the store.
+fn project_with(targets: Vec<ParameterTarget>) -> Project {
+    project_with_instances(&[(processor(), plugin_ref())], targets)
+}
+
+/// Two-processor fixture project — `processor()` and `processor_b()`
+/// each bound to [`plugin_ref`] with distinct persisted instance ids:
+/// the honest "same raw `ParamId`, different instance" model.
+fn project_with_two(target_a: ParameterTarget, target_b: ParameterTarget) -> Project {
+    project_with_instances(
+        &[(processor(), plugin_ref()), (processor_b(), plugin_ref())],
+        vec![target_a, target_b],
+    )
+}
+
+/// The persisted instance id the store issued for `(proc, plugin)`.
+fn instance_id_of(project: &Project, proc: ProcessorId, plugin: &PluginRef) -> u64 {
+    project
+        .plugin_instances
+        .resolve(proc, plugin)
+        .expect("store must vouch")
+        .get()
+}
+
+/// Opens a session + dispatcher on `control` for `processor()` /
+/// [`plugin_ref`]: the session mints its verified clock context from
+/// `control.frame_base()` before the control moves into
+/// `ParamDispatch::new` (which re-verifies the same base). Returns
+/// both — `bind` is the caller's next step so failure cases can
+/// assert the typed error.
 fn open(
+    control: PluginNodeControl,
+    node: NodeId,
+    instance: u64,
+    cap_gen: u64,
+    graph_gen: u64,
+) -> (PluginBindingSession, ParamDispatch) {
+    open_as(
+        processor(),
+        plugin_ref(),
+        control,
+        node,
+        instance,
+        cap_gen,
+        graph_gen,
+    )
+}
+
+/// [`open`] generalized over the session's `(processor, plugin,
+/// instance)` pin — required when the fixture models a second
+/// processor or a plugin rebind.
+fn open_as(
+    proc: ProcessorId,
+    plugin: PluginRef,
     control: PluginNodeControl,
     node: NodeId,
     instance: u64,
@@ -440,8 +527,8 @@ fn open(
     let session = PluginBindingSession::attach(
         &control,
         node,
-        processor(),
-        plugin_ref(),
+        proc,
+        plugin,
         graph_gen,
         cap_gen,
         StablePluginInstanceId::new(instance),
@@ -764,11 +851,13 @@ fn pc_c4_01_eval_dispatch_receipt_rt_offline_parity() {
     ));
 
     // ---- offline render drive --------------------------------------
+    // Same authored `(processor, plugin)` → the persisted store issues
+    // the same instance id; offline parity reuses it.
     let hosted_b = host_plugin(&PARAMS);
     let (graph_b, proc_b, _srcs_b, sinks_b) = build_graph(&hosted_b.attached);
     let delivered_b = Arc::clone(&hosted_b.delivered);
     let node_b = hosted_b.attached.node;
-    let (mut session_b, mut dispatch_b) = open(hosted_b.attached.control, proc_b, 2, 1, 1);
+    let (mut session_b, mut dispatch_b) = open(hosted_b.attached.control, proc_b, 1, 1, 1);
     let binding_b = session_b
         .bind(&mut dispatch_b, &project, target_id, &PARAMS)
         .unwrap();
@@ -808,25 +897,48 @@ fn pc_c4_01_eval_dispatch_receipt_rt_offline_parity() {
 #[expect(clippy::too_many_lines)]
 fn pc_c4_02_typed_rejects_no_misdelivery() {
     let target = gain_target(1);
-    let project = project_with(vec![target.clone()]);
+    // A second target on a *different* processor declaring the same
+    // raw ParamId(7) — the persisted store issues each processor its
+    // own instance id, so this is the honest "same raw id, different
+    // instance" model (PC-C4 plugin-binding).
+    let target_b = param_target_on(
+        processor_b(),
+        2,
+        7,
+        ParamFlags::AUTOMATABLE,
+        ValueKind::Continuous,
+        0.0,
+    );
+    let project = project_with_two(target.clone(), target_b.clone());
     let target_id = target.id;
+    let target_b_id = target_b.id;
 
-    // Two hosted instances sharing the same raw ParamId(7) — the
-    // "same raw id, different instance" case.
+    // Two hosted instances sharing the same raw ParamId(7).
     let hosted_a = host_plugin(&PARAMS);
     let (_ga, proc_a, _sa, _ka) = build_graph(&hosted_a.attached);
     let delivered_a = Arc::clone(&hosted_a.delivered);
-    let (mut session_a, mut dispatch_a) = open(hosted_a.attached.control, proc_a, 1, 1, 1);
+    let id_a = instance_id_of(&project, processor(), &plugin_ref());
+    let (mut session_a, mut dispatch_a) = open(hosted_a.attached.control, proc_a, id_a, 1, 1);
     let binding_a = session_a
         .bind(&mut dispatch_a, &project, target_id, &PARAMS)
         .unwrap();
     let hosted_b = host_plugin(&PARAMS);
     let (_gb, proc_b, _sb, _kb) = build_graph(&hosted_b.attached);
     let delivered_b = Arc::clone(&hosted_b.delivered);
-    let (mut session_b, mut dispatch_b) = open(hosted_b.attached.control, proc_b, 2, 1, 1);
-    session_b
-        .bind(&mut dispatch_b, &project, target_id, &PARAMS)
+    let id_b = instance_id_of(&project, processor_b(), &plugin_ref());
+    let (mut session_b, mut dispatch_b) = open_as(
+        processor_b(),
+        plugin_ref(),
+        hosted_b.attached.control,
+        proc_b,
+        id_b,
+        1,
+        1,
+    );
+    let binding_b = session_b
+        .bind(&mut dispatch_b, &project, target_b_id, &PARAMS)
         .unwrap();
+    assert_ne!(id_a, id_b, "distinct processors get distinct ids");
 
     let foreign_event = TimedParamEvent {
         position: MediaTime::new(64, frame_base()),
@@ -837,9 +949,17 @@ fn pc_c4_02_typed_rejects_no_misdelivery() {
     };
 
     // A record minted by session A can never dispatch through session
-    // B's node — InstanceMismatch before anything is staged.
+    // B — A's target is unknown to B's binding table (TargetNotBound),
+    // and a forged record carrying A's instance id is InstanceMismatch
+    // before anything is staged.
     let err = session_b
         .dispatch(&mut dispatch_b, &[(binding_a.clone(), foreign_event)])
+        .unwrap_err();
+    assert!(matches!(err, BindingError::TargetNotBound));
+    let mut foreign_rec = binding_b.clone();
+    foreign_rec.instance_id = StablePluginInstanceId::new(99);
+    let err = session_b
+        .dispatch(&mut dispatch_b, &[(foreign_rec, foreign_event)])
         .unwrap_err();
     assert!(matches!(err, BindingError::InstanceMismatch));
     assert_eq!(dispatch_b.last_plan_generation(), None);
@@ -927,7 +1047,7 @@ fn pc_c4_02_typed_rejects_no_misdelivery() {
     let readonly_project = project_with(vec![readonly_target]);
     let hosted_r = host_plugin(&READONLY_PARAMS);
     let (_gr, proc_r, _sr, _kr) = build_graph(&hosted_r.attached);
-    let (mut session_r, mut dispatch_r) = open(hosted_r.attached.control, proc_r, 3, 1, 1);
+    let (mut session_r, mut dispatch_r) = open(hosted_r.attached.control, proc_r, 1, 1, 1);
     let err = session_r
         .bind(
             &mut dispatch_r,
@@ -947,7 +1067,7 @@ fn pc_c4_02_typed_rejects_no_misdelivery() {
     let project_c = project_with(vec![gain_target(5)]);
     let plan_c = ControlGraph::compile(&project_c).unwrap();
     let mut scratch_c = plan_c.scratch();
-    let (mut session_c, mut dispatch_c) = open(hosted_c.attached.control, proc_c, 4, 1, 1);
+    let (mut session_c, mut dispatch_c) = open(hosted_c.attached.control, proc_c, 1, 1, 1);
     session_c
         .bind(
             &mut dispatch_c,
@@ -979,7 +1099,7 @@ fn pc_c4_02_typed_rejects_no_misdelivery() {
     let hosted_q = host_plugin(&PARAMS);
     let (_gq, proc_q, _sq, _kq) = build_graph(&hosted_q.attached);
     let project_q = project_with(vec![gain_target(6)]);
-    let (mut session_q, mut dispatch_q) = open(hosted_q.attached.control, proc_q, 5, 1, 1);
+    let (mut session_q, mut dispatch_q) = open(hosted_q.attached.control, proc_q, 1, 1, 1);
     let binding_q = session_q
         .bind(
             &mut dispatch_q,
@@ -1214,7 +1334,7 @@ fn pc_c4_03_composite_control_and_gates() {
     );
     let hosted_d = host_plugin(&PARAMS);
     let (_gd, proc_d, _sd, _kd) = build_graph(&hosted_d.attached);
-    let (mut session_d, mut dispatch_d) = open(hosted_d.attached.control, proc_d, 6, 1, 1);
+    let (mut session_d, mut dispatch_d) = open(hosted_d.attached.control, proc_d, 1, 1, 1);
     let err = session_d
         .bind(
             &mut dispatch_d,
@@ -1236,7 +1356,7 @@ fn pc_c4_03_composite_control_and_gates() {
         .clone();
     let hosted_o = host_plugin(&PARAMS);
     let (_go, proc_o, _so, _ko) = build_graph(&hosted_o.attached);
-    let (mut session_o, mut dispatch_o) = open(hosted_o.attached.control, proc_o, 7, 1, 1);
+    let (mut session_o, mut dispatch_o) = open(hosted_o.attached.control, proc_o, 1, 1, 1);
     let err = session_o
         .bind(&mut dispatch_o, &project, strip_target.id, &PARAMS)
         .unwrap_err();
@@ -1248,7 +1368,7 @@ fn pc_c4_03_composite_control_and_gates() {
     let project_nc = project_with(vec![no_cap]);
     let hosted_n = host_plugin(&PARAMS);
     let (_gn, proc_n, _sn, _kn) = build_graph(&hosted_n.attached);
-    let (mut session_n, mut dispatch_n) = open(hosted_n.attached.control, proc_n, 8, 1, 1);
+    let (mut session_n, mut dispatch_n) = open(hosted_n.attached.control, proc_n, 1, 1, 1);
     let err = session_n
         .bind(
             &mut dispatch_n,
@@ -1260,29 +1380,55 @@ fn pc_c4_03_composite_control_and_gates() {
     assert!(matches!(err, BindingError::CapabilityMissing));
 }
 
-/// PC-C4-04 — generation consistency: re-attach mints a new instance
-/// id (old records are `InstanceMismatch`), invalidate drops every
-/// binding, stale `EvalPlan` is refused, and transport commands
-/// (`Stop`/`Seek`) never invalidate the verified clock context.
+/// PC-C4-04 — generation consistency: a plugin *rebind* mints a new
+/// persisted instance id (old records are `InstanceMismatch`),
+/// invalidate drops every binding, stale `EvalPlan` is refused, and
+/// transport commands (`Stop`/`Seek`) never invalidate the verified
+/// clock context.
 #[test]
 fn pc_c4_04_generation_consistency() {
     let target = gain_target(1);
     let project = project_with(vec![target.clone()]);
     let target_id = target.id;
 
-    // Session A (instance 1) bound; session B is a *re-attach* — new
-    // plugin instance, new node, new instance id.
+    // Session A (persisted instance id 1) bound. Session B models a
+    // plugin rebind: the project rebinds the processor to `plugin_b`,
+    // the store issues a fresh instance id, and the new session pins
+    // `(plugin_b, new id)` on a new node — re-attach of the *same*
+    // authored plugin would keep the persisted id (PC-C4-05).
     let hosted_a = host_plugin(&PARAMS);
     let (_ga, proc_a, _sa, _ka) = build_graph(&hosted_a.attached);
-    let (mut session_a, mut dispatch_a) = open(hosted_a.attached.control, proc_a, 1, 1, 1);
+    let id_a = instance_id_of(&project, processor(), &plugin_ref());
+    let (mut session_a, mut dispatch_a) = open(hosted_a.attached.control, proc_a, id_a, 1, 1);
     let binding_a = session_a
         .bind(&mut dispatch_a, &project, target_id, &PARAMS)
         .unwrap();
+    let mut project_b = project.clone();
+    project_b
+        .routing
+        .processors
+        .get_mut(&processor())
+        .unwrap()
+        .binding = ProcessorBinding::Resolved(plugin_b());
+    project_b
+        .plugin_instances
+        .ensure(processor(), &plugin_b())
+        .unwrap();
+    let id_b = instance_id_of(&project_b, processor(), &plugin_b());
+    assert_ne!(id_a, id_b, "rebind must mint a fresh instance id");
     let hosted_b = host_plugin(&PARAMS);
     let (_gb, proc_b, _sb, _kb) = build_graph(&hosted_b.attached);
-    let (mut session_b, mut dispatch_b) = open(hosted_b.attached.control, proc_b, 2, 1, 1);
+    let (mut session_b, mut dispatch_b) = open_as(
+        processor(),
+        plugin_b(),
+        hosted_b.attached.control,
+        proc_b,
+        id_b,
+        1,
+        1,
+    );
     session_b
-        .bind(&mut dispatch_b, &project, target_id, &PARAMS)
+        .bind(&mut dispatch_b, &project_b, target_id, &PARAMS)
         .unwrap();
 
     let ev = TimedParamEvent {
@@ -1293,8 +1439,8 @@ fn pc_c4_04_generation_consistency() {
         },
     };
 
-    // Session A's record through the re-attached session →
-    // InstanceMismatch (same raw ParamId, different instance).
+    // Session A's record through the rebound session →
+    // InstanceMismatch (the rebind minted a fresh persisted id).
     let err = session_b
         .dispatch(&mut dispatch_b, &[(binding_a.clone(), ev)])
         .unwrap_err();
@@ -1447,6 +1593,118 @@ fn pc_c4_02_stage1_authority_and_plugin_identity() {
             "expected PluginMismatch for {mutated:?}, got {err}"
         );
     }
+}
+
+/// PC-C4 plugin-binding — the persisted `PluginInstanceIdentities`
+/// store is the stage-1.5 authority `bind` verifies: a missing entry,
+/// store plugin drift, or a re-issued id for the same `PluginRef`
+/// (rebind A→B→A) all fail closed as `InstanceMismatch` — the session
+/// must re-attach against current authority. Plugin identity drift
+/// still reports `PluginMismatch` first.
+#[test]
+fn pc_c4_02_instance_authority_bind_gate() {
+    let target = gain_target(1);
+    let project = project_with(vec![target.clone()]);
+    let target_id = target.id;
+
+    let hosted = host_plugin(&PARAMS);
+    let (_g, proc, _s, _k) = build_graph(&hosted.attached);
+    let id = instance_id_of(&project, processor(), &plugin_ref());
+    let (mut session, mut dispatch) = open(hosted.attached.control, proc, id, 1, 1);
+
+    // Baseline: the store vouches for the session's pin → binds.
+    session
+        .bind(&mut dispatch, &project, target_id, &PARAMS)
+        .unwrap();
+
+    // Store entry removed → `resolve` yields `None` → typed reject,
+    // no binding minted.
+    let mut missing = project.clone();
+    missing.plugin_instances.instances.clear();
+    let err = session
+        .bind(&mut dispatch, &missing, target_id, &PARAMS)
+        .unwrap_err();
+    assert!(matches!(err, BindingError::InstanceMismatch));
+
+    // Store entry drifted to a different PluginRef while the
+    // processor binding stays `plugin_ref` → `resolve` yields `None`
+    // → typed reject (never a guess).
+    let mut drifted = project.clone();
+    drifted
+        .plugin_instances
+        .instances
+        .get_mut(&processor())
+        .unwrap()
+        .plugin = plugin_b();
+    let err = session
+        .bind(&mut dispatch, &drifted, target_id, &PARAMS)
+        .unwrap_err();
+    assert!(matches!(err, BindingError::InstanceMismatch));
+
+    // Rebind A→B→A: the processor ends back on `plugin_ref`, but the
+    // store issued a *fresh* id — the session's old pin is stale even
+    // though descriptor/version/capability_revision all match again.
+    let mut rebound = project.clone();
+    rebound
+        .routing
+        .processors
+        .get_mut(&processor())
+        .unwrap()
+        .binding = ProcessorBinding::Resolved(plugin_b());
+    rebound
+        .plugin_instances
+        .ensure(processor(), &plugin_b())
+        .unwrap();
+    rebound
+        .routing
+        .processors
+        .get_mut(&processor())
+        .unwrap()
+        .binding = ProcessorBinding::Resolved(plugin_ref());
+    rebound
+        .plugin_instances
+        .ensure(processor(), &plugin_ref())
+        .unwrap();
+    let fresh = instance_id_of(&rebound, processor(), &plugin_ref());
+    assert!(fresh > id, "re-issuing the same PluginRef mints a new id");
+    let err = session
+        .bind(&mut dispatch, &rebound, target_id, &PARAMS)
+        .unwrap_err();
+    assert!(matches!(err, BindingError::InstanceMismatch));
+
+    // Plugin identity drift is still `PluginMismatch` — reported
+    // before the instance comparison can run.
+    let mut other_plugin = project.clone();
+    other_plugin
+        .routing
+        .processors
+        .get_mut(&processor())
+        .unwrap()
+        .binding = ProcessorBinding::Resolved(plugin_b());
+    other_plugin
+        .plugin_instances
+        .ensure(processor(), &plugin_b())
+        .unwrap();
+    let err = session
+        .bind(&mut dispatch, &other_plugin, target_id, &PARAMS)
+        .unwrap_err();
+    assert!(matches!(err, BindingError::PluginMismatch { .. }));
+
+    // A session pinned to the *current* authority binds cleanly.
+    let hosted2 = host_plugin(&PARAMS);
+    let (_g2, proc2, _s2, _k2) = build_graph(&hosted2.attached);
+    let (mut session2, mut dispatch2) = open_as(
+        processor(),
+        plugin_ref(),
+        hosted2.attached.control,
+        proc2,
+        fresh,
+        1,
+        1,
+    );
+    session2
+        .bind(&mut dispatch2, &rebound, target_id, &PARAMS)
+        .unwrap();
 }
 
 /// PC-C4-02 — dispatch pin + last-good: a record whose `plugin`

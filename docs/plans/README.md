@@ -17,6 +17,7 @@ Directory: `docs/plans`
 | PLAN-034VmidubXq53HjWVDgDeV | Issue #245 verify-macos rt_cache alloc 計測 flake — warm-up 実装計画 | approved | [ci-245-macos-alloc-flake-plan.md](./ci-245-macos-alloc-flake-plan.md) |
 | PLAN-VqCkmPqwMy7x4374pKJMzz | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 実施計画 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | PLAN-034RoZox0pXYihUzci5UC8 | Synvelis 独立 CI 実装計画 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
+| PLAN-0KH6KhO6yo49yc5HP6kMSN | Context Inspector 設計定義 実施計画 — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5） | approved | [context-inspector-plan.md](./context-inspector-plan.md) |
 | PLAN-034CTL01Rz2xAu8bD4eF5gHi | CTL-01 ControlOwner/AutomationTimeScope 実装計画 | approved | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
 | PLAN-3o92uvIdnyfhflikf7TlYQ | CTL-02 adoption SendLevel canonical spec 強制 実装計画 | approved | [ctl-02-adopt-sendlevel-plan.md](./ctl-02-adopt-sendlevel-plan.md) |
 | PLAN-034QN1oz8zutDLafJy6oDg | ED-B media-domain editing PoC 実装計画 | approved | [ed-b-media-domain-editing.md](./ed-b-media-domain-editing.md) |
@@ -43,6 +44,7 @@ Directory: `docs/plans`
 | PLAN-7c4e9a1b2d3f4e5a6b7c8f0a1 | PC-C4-06 control op surface plan | approved | [pc-c4-06-control-op-surface-plan.md](./pc-c4-06-control-op-surface-plan.md) |
 | PLAN-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b | PC-C4-07 transport mirror + observe_block plan | approved | [pc-c4-07-transport-mirror-observe-plan.md](./pc-c4-07-transport-mirror-observe-plan.md) |
 | PLAN-a1d4f7c2e9b30586d1a4f7c2f0a1 | PC-C4 drain composition plan | approved | [pc-c4-drain-composition-plan.md](./pc-c4-drain-composition-plan.md) |
+| PLAN-jelz45WhvUPsZIVEaQyYpJ | PC-C4 plugin binding plan | approved | [pc-c4-plugin-binding-plan.md](./pc-c4-plugin-binding-plan.md) |
 | PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-034UxXVFIkzqs2eO4wcXo0 | PC-C5 slice2 実施計画 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |

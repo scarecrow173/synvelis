@@ -36,6 +36,7 @@ Directory: `docs/impl/ir`
 | IMPL-AUT03LoopWriteOnePass | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・境界 flush・明示 Rearm 実装記録 | completed | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |
 | IMPL-AUT04CurveLodRecordBudget | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装記録 | completed | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
+| IMPL-5kKD8UEketY1kHcAnYUEao | Context Inspector 設計定義 — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5 docs slice） | completed | [context-inspector.md](./context-inspector.md) |
 | IMPL-034CTL01Kx9wMn2pQ7rVt4yB | CTL-01 ControlOwner/AutomationTimeScope 分離・Schema v7 実装記録 | completed | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
 | IMPL-034WBaliNYvopY8qIaeCeh | CTL-02 adoption 経路の非 canonical SendLevel 抑止 | completed | [ctl-02-adoption-canonical-sendlevel.md](./ctl-02-adoption-canonical-sendlevel.md) |
 | IMPL-034V1FQ09PSOnyDawvKX60 | CTL-02 Strip/Send Host Parameter 正本・Plugin Binding・Routing 実装記録 | completed | [ctl-02-strip-send-host-parameter-plugin-binding-routing.md](./ctl-02-strip-send-host-parameter-plugin-binding-routing.md) |
@@ -78,6 +79,7 @@ Directory: `docs/impl/ir`
 | IMPL-7c4e9a1b2d3f4e5a6b7c8f0a4b5 | PC-C4-06 control op surface — syn.control.* typed-evidence ops | completed | [pc-c4-06-control-op-surface.md](./pc-c4-06-control-op-surface.md) |
 | IMPL-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b3c4d5e | PC-C4-07 transport mirror + observe_block + capability rebind | completed | [pc-c4-07-transport-mirror-observe.md](./pc-c4-07-transport-mirror-observe.md) |
 | IMPL-a1d4f7c2e9b30586d1a4f7c2f0a4 | PC-C4 drain composition — drain_output_reports 周期配線と production composition root | completed | [pc-c4-drain-composition.md](./pc-c4-drain-composition.md) |
+| IMPL-1p5mZ4InpO2EeDDwvz9TSj | PC-C4 plugin binding — persisted instance authority の bind 照合 implementation record | completed | [pc-c4-plugin-binding.md](./pc-c4-plugin-binding.md) |
 | IMPL-034UxmcANQsdlNy9GC0tWv | PC-C4 plugin parameter binding frame base capability gate | completed | [pc-c4-plugin-parameter-binding-frame-base-capability-gate.md](./pc-c4-plugin-parameter-binding-frame-base-capability-gate.md) |
 | IMPL-OABQ94C9ziv3kEtnGM5cHa | PC-C5 UI-C5-01 Relation Index の Inspector 投影 headless slice | completed | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | IMPL-034UyQi9tCjjAPwfMy7pSX | PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice） | completed | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |

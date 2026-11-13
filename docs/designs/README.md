@@ -25,6 +25,7 @@ Directory: `docs/designs`
 | DESIGN-TiKdIX8rj4YqmP3Pmb58JR | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 — 既存 verify leg 拡張設計 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | DESIGN-034RoWWK4Xx4NaZSoBYZSX | Synvelis 独立 CI — Lane 構成・証跡・依存アクセス設計 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | — | Synvelis — Configurable PPQN / Resolution-independent Musical Time | — | [configurable-ppqn-musical-time-architecture.md](./configurable-ppqn-musical-time-architecture.md) |
+| DESIGN-6ClrSXGAyry8iwAqt4t32c | Context Inspector 設計 — Follow/Explore/Pinned 状態機械・TargetKind Provider・情報階層・Probe/編集契約（synvelis#5） | approved | [context-inspector-design.md](./context-inspector-design.md) |
 | DESIGN-034CTL01Qy1wZt7aC3dE4fGh | CTL-01 ControlOwner/AutomationTimeScope 設計 — Schema v7 Migration | approved | [ctl-01-control-owner-time-scope-design.md](./ctl-01-control-owner-time-scope-design.md) |
 | DESIGN-taIsR3SbHTaGKnhYkfth7f | CTL-02 adoption SendLevel canonical spec 強制 設計 | approved | [ctl-02-adopt-sendlevel-design.md](./ctl-02-adopt-sendlevel-design.md) |
 | DESIGN-034QAlPiE7atUoGKXNG7Lr | ED-A Editing Model 設計 — Selection/Tool/Snap/Gesture/LinkedContext headless PoC | approved | [ed-a-editing-model-design.md](./ed-a-editing-model-design.md) |
@@ -60,6 +61,7 @@ Directory: `docs/designs`
 | DESIGN-7c4e9a1b2d3f4e5a6b7c8e9f | PC-C4-06 control op surface design — syn.control.* typed-evidence ops | approved | [pc-c4-06-control-op-surface-design.md](./pc-c4-06-control-op-surface-design.md) |
 | DESIGN-7c4e9a1b2d3f4e5a6b7c8d9e0f1a | PC-C4-07 transport mirror + observe_block design | approved | [pc-c4-07-transport-mirror-observe-design.md](./pc-c4-07-transport-mirror-observe-design.md) |
 | DESIGN-a1d4f7c2e9b30586d1a4f7c2f | PC-C4 drain composition design — drain_output_reports 周期配線と production composition root | approved | [pc-c4-drain-composition-design.md](./pc-c4-drain-composition-design.md) |
+| DESIGN-4IoiIeHs7TpfdoOHf3nu9E | PC-C4 plugin binding design — persisted instance authority を bind 経路へ接続 | approved | [pc-c4-plugin-binding-design.md](./pc-c4-plugin-binding-design.md) |
 | DESIGN-034Uw4SG2SiRKQuoKOZGzL | PC-C4 plugin parameter binding design — verified frame base・capability gate・generation consistency | approved | [pc-c4-plugin-param-binding-design.md](./pc-c4-plugin-param-binding-design.md) |
 | DESIGN-AkFUh4M60YuHo8COCvb0Um | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
 | DESIGN-034UxXM5FBBTGn5JWkSBss | PC-C5 slice2 Gesture 固定・stale drop・Inspector mode 設計 | approved | [pc-c5-02-03-gesture-stale-inspector-design.md](./pc-c5-02-03-gesture-stale-inspector-design.md) |
