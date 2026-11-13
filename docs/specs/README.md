@@ -17,6 +17,7 @@ Directory: `docs/specs`
 | SPEC-034VmfUEU36QwKnlrMNd8G | Issue #245 verify-macos rt_cache alloc 計測 flake — 計測対象インスタンスの warm-up | proposed | [ci-245-macos-alloc-flake.md](./ci-245-macos-alloc-flake.md) |
 | SPEC-034RoWOUkW5OezJQSLBWKd | Synvelis 独立 PR/Push CI — Workspace/RT/Recording/Gateway 回帰 Gate | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | SPEC-034CTL01Ow9uXr5zA1bC2dEf | CTL-01 ControlOwner / AutomationTimeScope 責務分離・Bus/Strip/Send 型付き Schema 移行 | approved | [ctl-01-control-owner-automation-time-scope-typed-schema.md](./ctl-01-control-owner-automation-time-scope-typed-schema.md) |
+| SPEC-xA6Rt9SOy2hTBVmns3bmV4 | CTL-02 adoption 経路の非 canonical SendLevel persisted 化抑止 | approved | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
 | SPEC-034QAlF2irl9rIJaUi9RQ1 | ED-A Editing Model — Selection/Tool/Snap/Transaction/LinkedContext headless PoC | approved | [ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md](./ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md) |
 | SPEC-034QMZiCjhKFlSgoIw9YaX | ED-B media-domain move + slip commit semantics (workspace editing PoC) | approved | [ed-b-media-domain-move-slip-commit-semantics.md](./ed-b-media-domain-move-slip-commit-semantics.md) |
 | SPEC-nBrnIDkIfILvtzEXr42L56 | Issue #145 ci.yml manual-only 化 — pull_request/push trigger 撤去と dispatch 専用 Full CI | proposed | [issue-145-ci-manual-only.md](./issue-145-ci-manual-only.md) |

@@ -1358,6 +1358,16 @@ impl Operation for ProjectOp {
                             t.owner
                         )));
                     }
+                    // Issue #122: apply seals `owner`/`role` without
+                    // rewriting kind/mapping/time_scope/capability —
+                    // the authored spec must already be the canonical
+                    // `SendLevel` contract or a non-canonical
+                    // `SendLevel` would persist.
+                    if !crate::control::has_canonical_send_level_spec(t) {
+                        return Err(Error::Validation(format!(
+                            "param {target} does not carry the canonical send level spec"
+                        )));
+                    }
                 }
                 Ok(())
             }
@@ -1474,6 +1484,14 @@ impl Operation for ProjectOp {
                         return Err(Error::Validation(format!(
                             "param {target} is owned by {:?} and cannot be adopted as a send gain",
                             t.owner
+                        )));
+                    }
+                    // Same issue-#122 guard as `AddSend` — the
+                    // authored spec must already be the canonical
+                    // `SendLevel` contract; apply does not rewrite it.
+                    if !crate::control::has_canonical_send_level_spec(t) {
+                        return Err(Error::Validation(format!(
+                            "param {target} does not carry the canonical send level spec"
                         )));
                     }
                 }

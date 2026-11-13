@@ -718,6 +718,289 @@ fn send_level_targets_require_the_canonical_spec() {
     }
 }
 
+// ── CTL-02 adoption: canonical SendLevel spec enforcement ──────
+
+/// A free-form (non-internal) target carrying the given spec fields —
+/// Track-owned `Generic` targets keep authored specs, so the
+/// adoption guard is what must reject the non-canonical ones.
+fn add_free_target(
+    c: &mut ProjectController,
+    owner: ControlOwner,
+    (kind, mapping, time_scope, capability): SpecFields,
+) -> ParameterTargetId {
+    c.apply(cmd(
+        c,
+        ProjectOp::AddParameterTarget {
+            name: "adopt-me".into(),
+            owner,
+            role: ParameterRole::Generic,
+            time_scope,
+            kind,
+            mapping,
+            capability,
+            base: 0.5,
+        },
+    ))
+    .unwrap();
+    *c.live()
+        .control
+        .targets
+        .keys()
+        .rfind(|id| is_issuable_raw(id.raw()))
+        .unwrap()
+}
+
+/// Strip main port by direction — `ProjectOp::AddSend` wants the
+/// resolved `SemanticPortId`, not the `PortRef` used by intents.
+fn main_port_id(c: &ProjectController, strip: StripId, dir: PortDirection) -> SemanticPortId {
+    c.live().routing.strips[&strip]
+        .port_ids
+        .iter()
+        .find(|p| {
+            c.live().routing.ports[p].direction == dir
+                && c.live().routing.ports[p].role == PortRole::Main
+        })
+        .copied()
+        .unwrap()
+}
+
+/// Fixture for adoption tests: a track strip sending to a return
+/// bus, plus one unconfigured send for `SetSendGainTarget` rejects.
+struct AdoptFixture {
+    c: ProjectController,
+    track: TrackId,
+    strip: StripId,
+    ret_strip: StripId,
+    send: SendId,
+    src: SemanticPortId,
+    dst: SemanticPortId,
+}
+
+fn adopt_fixture() -> AdoptFixture {
+    let mut c = controller();
+    let track = add_track(&mut c, "t");
+    let strip = add_track_strip(&mut c, track);
+    let ret = add_bus(&mut c, BusKind::Return, "verb");
+    let ret_strip = c.live().routing.buses[&ret].strip;
+    let src = main_port_id(&c, strip, PortDirection::Output);
+    let dst = main_port_id(&c, ret_strip, PortDirection::Input);
+    c.apply(cmd(
+        &c,
+        ProjectOp::AddSend {
+            source: src,
+            destination: dst,
+            tap: SendTap::PostFader,
+            gain_target: None,
+        },
+    ))
+    .unwrap();
+    let send = *c.live().routing.sends.keys().next().unwrap();
+    AdoptFixture {
+        c,
+        track,
+        strip,
+        ret_strip,
+        send,
+        src,
+        dst,
+    }
+}
+
+/// Issue #122 residual: adoption re-owns the target as
+/// `Send`+`SendLevel` at apply without rewriting its spec — a target
+/// whose authored spec deviates from the canonical send-level
+/// contract must be rejected before anything persists, on both the
+/// low-level ops and the `RoutingEditIntent` transaction path.
+/// `ProjectAbsolute` passes the legacy "project-time" check but is
+/// not the canonical `ProjectMusical` scope, so it rejects too.
+#[test]
+fn adopted_send_gain_targets_reject_non_canonical_specs() {
+    let mut f = adopt_fixture();
+    for spec in NON_CANONICAL_SPECS {
+        let target = add_free_target(&mut f.c, ControlOwner::Track(f.track), spec);
+        let before = serde_json::to_value(f.c.live()).unwrap();
+
+        // Low-level `AddSend` adoption → reject, nothing persists.
+        assert!(
+            matches!(
+                f.c.apply(cmd(
+                    &f.c,
+                    ProjectOp::AddSend {
+                        source: f.src,
+                        destination: f.dst,
+                        tap: SendTap::PostFader,
+                        gain_target: Some(target),
+                    },
+                )),
+                Err(Error::Validation(_))
+            ),
+            "AddSend must reject a non-canonical gain target"
+        );
+        assert_eq!(serde_json::to_value(f.c.live()).unwrap(), before);
+
+        // Low-level `SetSendGainTarget` adoption → same reject.
+        assert!(
+            matches!(
+                f.c.apply(cmd(
+                    &f.c,
+                    ProjectOp::SetSendGainTarget {
+                        send_id: f.send,
+                        gain_target: Some(target),
+                    },
+                )),
+                Err(Error::Validation(_))
+            ),
+            "SetSendGainTarget must reject a non-canonical gain target"
+        );
+        assert_eq!(serde_json::to_value(f.c.live()).unwrap(), before);
+
+        // `RoutingEditIntent` paths reject atomically — no partial
+        // send/target state survives a failed intent.
+        let it = intent(
+            &f.c,
+            vec![RoutingEdit::CreateSend {
+                temp_id: TempSendId(1),
+                temp_connection: TempConnectionId(1),
+                source: strip_main(f.strip, PortDirection::Output),
+                destination: strip_main(f.ret_strip, PortDirection::Input),
+                tap: SendTap::PostFader,
+                level: SendGainSpec::Adopt(target),
+                channel_map: None,
+            }],
+        );
+        assert!(apply_intent(&mut f.c, it).is_err());
+        assert_eq!(serde_json::to_value(f.c.live()).unwrap(), before);
+
+        let it = intent(
+            &f.c,
+            vec![RoutingEdit::SetSendGainTarget {
+                send: SendRef::Existing(f.send),
+                target: Some(target),
+            }],
+        );
+        assert!(apply_intent(&mut f.c, it).is_err());
+        assert_eq!(serde_json::to_value(f.c.live()).unwrap(), before);
+    }
+}
+
+/// The canonical spec is accepted on the low-level ops — apply seals
+/// `Send`+`SendLevel` only; `name`/`base` stay authored.
+#[test]
+fn canonical_send_gain_targets_adopt_and_seal() {
+    let mut f = adopt_fixture();
+    let canonical = (
+        ValueKind::Continuous,
+        ParamMapping::Linear,
+        AutomationTimeScope::ProjectMusical,
+        None,
+    );
+
+    let target = add_free_target(&mut f.c, ControlOwner::Track(f.track), canonical);
+    f.c.apply(cmd(
+        &f.c,
+        ProjectOp::SetSendGainTarget {
+            send_id: f.send,
+            gain_target: Some(target),
+        },
+    ))
+    .unwrap();
+    let t = &f.c.live().control.targets[&target];
+    assert_eq!(t.owner, ControlOwner::Send(f.send));
+    assert_eq!(t.role, ParameterRole::SendLevel);
+    assert_eq!(t.name, "adopt-me");
+    assert_eq!(t.base, 0.5);
+    assert_eq!(t.kind, ValueKind::Continuous);
+    assert_eq!(t.mapping, ParamMapping::Linear);
+    assert_eq!(t.time_scope, AutomationTimeScope::ProjectMusical);
+    assert_eq!(t.capability, None);
+    assert_eq!(send_level_target_id(f.c.live(), f.send), Some(target));
+
+    // `AddSend` adoption of a canonical free target seals the same
+    // way — the persisted `SendLevel` is canonical by construction.
+    let target2 = add_free_target(&mut f.c, ControlOwner::Track(f.track), canonical);
+    f.c.apply(cmd(
+        &f.c,
+        ProjectOp::AddSend {
+            source: f.src,
+            destination: f.dst,
+            tap: SendTap::PreFader,
+            gain_target: Some(target2),
+        },
+    ))
+    .unwrap();
+    let send2 =
+        f.c.live()
+            .routing
+            .sends
+            .values()
+            .find(|s| s.gain_target == Some(target2))
+            .unwrap()
+            .id;
+    assert_eq!(
+        f.c.live().control.targets[&target2].owner,
+        ControlOwner::Send(send2)
+    );
+    assert_eq!(send_level_target_id(f.c.live(), send2), Some(target2));
+}
+
+/// `SendGainSpec::Adopt` through the intent path binds a canonical
+/// target identically — the persisted `SendLevel` is canonical.
+#[test]
+fn canonical_send_gain_targets_adopt_via_routing_intent() {
+    let mut f = adopt_fixture();
+    let canonical = (
+        ValueKind::Continuous,
+        ParamMapping::Linear,
+        AutomationTimeScope::ProjectMusical,
+        None,
+    );
+
+    let target = add_free_target(&mut f.c, ControlOwner::Track(f.track), canonical);
+    let it = intent(
+        &f.c,
+        vec![RoutingEdit::CreateSend {
+            temp_id: TempSendId(1),
+            temp_connection: TempConnectionId(1),
+            source: strip_main(f.strip, PortDirection::Output),
+            destination: strip_main(f.ret_strip, PortDirection::Input),
+            tap: SendTap::PostFader,
+            level: SendGainSpec::Adopt(target),
+            channel_map: None,
+        }],
+    );
+    apply_intent(&mut f.c, it).unwrap();
+    let send =
+        f.c.live()
+            .routing
+            .sends
+            .values()
+            .find(|s| s.gain_target == Some(target))
+            .unwrap()
+            .id;
+    let t = &f.c.live().control.targets[&target];
+    assert_eq!(t.owner, ControlOwner::Send(send));
+    assert_eq!(t.role, ParameterRole::SendLevel);
+    assert_eq!(t.name, "adopt-me");
+    assert_eq!(send_level_target_id(f.c.live(), send), Some(target));
+
+    // `RoutingEdit::SetSendGainTarget` rebinds a canonical target the
+    // same way.
+    let target2 = add_free_target(&mut f.c, ControlOwner::Track(f.track), canonical);
+    let it = intent(
+        &f.c,
+        vec![RoutingEdit::SetSendGainTarget {
+            send: SendRef::Existing(f.send),
+            target: Some(target2),
+        }],
+    );
+    apply_intent(&mut f.c, it).unwrap();
+    assert_eq!(
+        f.c.live().control.targets[&target2].owner,
+        ControlOwner::Send(f.send)
+    );
+    assert_eq!(send_level_target_id(f.c.live(), f.send), Some(target2));
+}
+
 // ── CTL-02 stage-1 semantic plugin binding ──────────────────────
 
 fn add_processor(c: &mut ProjectController, strip: StripId, resolved: bool) -> ProcessorId {
