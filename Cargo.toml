@@ -31,6 +31,17 @@ pedantic = "warn"
 [profile.dev]
 incremental = true
 
+# CI: use a dedicated profile so CI artifacts do not invalidate local dev builds.
+# Match the shared Ruviform / AudioLens profile contract.
+[profile.ci]
+inherits = "dev"
+debug = "line-tables-only"
+incremental = false
+
+# External dependencies do not need debug symbols in CI artifacts.
+[profile.ci.package."*"]
+debug = "none"
+
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
