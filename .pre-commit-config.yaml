@@ -23,4 +23,6 @@ repos:
         name: actionlint (changed workflows)
         entry: mise exec -- actionlint
         language: system
-        files: '^\.github/workflows/.*\.(yml|yaml)$'
+        files: '^\.github/workflows/.*\.(yml|yaml)
+
+        pass_filenames: true
