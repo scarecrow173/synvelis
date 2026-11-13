@@ -121,6 +121,7 @@ Directory: `docs/tasks`
 | TASK-034VvIOJTIiu4YPdKizKEx | PC-C4-05 task1 — persisted StablePluginInstanceId 実装 | done | [pc-c4-05-task1-persisted-instance-id.md](./pc-c4-05-task1-persisted-instance-id.md) |
 | TASK-7c4e9a1b2d3f4e5a6b7c8f0a2b3 | PC-C4-06 task1 — syn.control.* control op surface 実装 | done | [pc-c4-06-control-op-surface-task.md](./pc-c4-06-control-op-surface-task.md) |
 | TASK-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b3c | PC-C4-07 transport mirror + observe_block + capability rebind | done | [pc-c4-07-transport-mirror-observe-task.md](./pc-c4-07-transport-mirror-observe-task.md) |
+| TASK-a1d4f7c2e9b30586d1a4f7c2f0a2 | PC-C4 drain composition task1 — drain 周期配線・production composition root | done | [pc-c4-drain-composition-task.md](./pc-c4-drain-composition-task.md) |
 | TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | done | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TASK-034UxYCkPWXOotRSbjIPex | PC-C5 slice2 タスク分解 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | done | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |

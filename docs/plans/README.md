@@ -40,6 +40,7 @@ Directory: `docs/plans`
 | PLAN-034VvHwf0OT5qLdTopdnmC | PC-C4-05 persisted StablePluginInstanceId plan | approved | [pc-c4-05-persisted-instance-id-plan.md](./pc-c4-05-persisted-instance-id-plan.md) |
 | PLAN-7c4e9a1b2d3f4e5a6b7c8f0a1 | PC-C4-06 control op surface plan | approved | [pc-c4-06-control-op-surface-plan.md](./pc-c4-06-control-op-surface-plan.md) |
 | PLAN-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b | PC-C4-07 transport mirror + observe_block plan | approved | [pc-c4-07-transport-mirror-observe-plan.md](./pc-c4-07-transport-mirror-observe-plan.md) |
+| PLAN-a1d4f7c2e9b30586d1a4f7c2f0a1 | PC-C4 drain composition plan | approved | [pc-c4-drain-composition-plan.md](./pc-c4-drain-composition-plan.md) |
 | PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-034UxXVFIkzqs2eO4wcXo0 | PC-C5 slice2 実施計画 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
