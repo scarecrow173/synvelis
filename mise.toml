@@ -112,20 +112,24 @@ raw_args = true
 run = "cargo build --locked -p"
 
 [tasks.check-full]
-description = "Workspace-wide check (current OS, default features)"
-run = "cargo check --workspace --all-targets"
+description = "Workspace-wide check; dev profile locally, CI Cargo profile when MISE_ENV=ci"
+run = 'cargo check --workspace --all-targets --locked{% if env.MISE_ENV is defined and env.MISE_ENV == "ci" %} --profile ci{% endif %}'
+env = { CARGO_INCREMENTAL = '{% if env.MISE_ENV is defined and env.MISE_ENV == "ci" %}0{% else %}{{ env.CARGO_INCREMENTAL | default(value="1") }}{% endif %}' }
 
 [tasks.lint-full]
-description = "Workspace-wide lint (current OS, default features)"
-run = "cargo clippy --workspace --all-targets -- -D warnings"
+description = "Workspace-wide lint; dev profile locally, CI Cargo profile when MISE_ENV=ci"
+run = 'cargo clippy --workspace --all-targets --locked{% if env.MISE_ENV is defined and env.MISE_ENV == "ci" %} --profile ci{% endif %} -- -D warnings'
+env = { CARGO_INCREMENTAL = '{% if env.MISE_ENV is defined and env.MISE_ENV == "ci" %}0{% else %}{{ env.CARGO_INCREMENTAL | default(value="1") }}{% endif %}' }
 
 [tasks.test-full]
-description = "Workspace-wide test (current OS, default features)"
-run = "cargo test --workspace --locked"
+description = "Workspace-wide test; dev profile locally, CI Cargo profile when MISE_ENV=ci"
+run = 'cargo test --workspace --locked{% if env.MISE_ENV is defined and env.MISE_ENV == "ci" %} --profile ci{% endif %}'
+env = { CARGO_INCREMENTAL = '{% if env.MISE_ENV is defined and env.MISE_ENV == "ci" %}0{% else %}{{ env.CARGO_INCREMENTAL | default(value="1") }}{% endif %}' }
 
 [tasks.build-full]
-description = "Workspace-wide build (current OS, default features)"
-run = "cargo build --workspace --locked"
+description = "Workspace-wide build; dev profile locally, CI Cargo profile when MISE_ENV=ci"
+run = 'cargo build --workspace --locked{% if env.MISE_ENV is defined and env.MISE_ENV == "ci" %} --profile ci{% endif %}'
+env = { CARGO_INCREMENTAL = '{% if env.MISE_ENV is defined and env.MISE_ENV == "ci" %}0{% else %}{{ env.CARGO_INCREMENTAL | default(value="1") }}{% endif %}' }
 
 [tasks.verify-full]
 description = "Standard workspace verification (current OS): format, check, lint, test"
