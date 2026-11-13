@@ -14,6 +14,7 @@ Directory: `docs/specs`
 | SPEC-034AUT01T7xRw4mNcQ8pZbV2 | AUT-01 Automation Mode 境界 State — Read/Touch/Latch/Write・Touch Return 150ms Smoothstep | approved | [aut-01-automation-mode-boundary-touch-return-writer-state.md](./aut-01-automation-mode-boundary-touch-return-writer-state.md) |
 | SPEC-034AUT03AW1Qq4l4VCpTSK | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・明示 Rearm | approved | [aut-03-loop-write-one-pass-write-range-rearm.md](./aut-03-loop-write-one-pass-write-range-rearm.md) |
 | SPEC-034AUT04VJToXbqZEgrP85 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
+| SPEC-2i1xSQAXTQNZIpUBQGPt15 | Automation / Modulation 統合 Parameter Control — 製品 UX・設計仕様と受入 Fixture・設計文書チェーン（synvelis#6） | approved | [automation-modulation.md](./automation-modulation.md) |
 | SPEC-034VmfUEU36QwKnlrMNd8G | Issue #245 verify-macos rt_cache alloc 計測 flake — 計測対象インスタンスの warm-up | proposed | [ci-245-macos-alloc-flake.md](./ci-245-macos-alloc-flake.md) |
 | SPEC-npBYC7xiQlFDeYeTKsJdUk | Issue #377 synvelis-native / gpui-test Feature の 3OS CI OS-L1 受入補完 | proposed | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | SPEC-034RoWOUkW5OezJQSLBWKd | Synvelis 独立 PR/Push CI — Workspace/RT/Recording/Gateway 回帰 Gate | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |

@@ -18,6 +18,7 @@ Directory: `docs/test-specs`
 | TSPEC-034AUT02Fh3jDs8mXq5vWk2n | AUT-02 E2E 検証仕様 — Region Replace 境界曲線保存・Reject/Replace 原子的編集 | approved | [aut-02-e2e-region-replace-boundary.md](./aut-02-e2e-region-replace-boundary.md) |
 | TSPEC-034AUT03Zk6mVt4nQr2wXs8 | AUT-03 E2E 検証仕様 — Loop 録音 1 Pass・Write Range 半開区間・境界 flush・明示 Rearm | approved | [aut-03-e2e-loop-write-one-pass.md](./aut-03-e2e-loop-write-one-pass.md) |
 | TSPEC-034AUT04VgQF9P59tpgXou | AUT-04 E2E 検証仕様 — Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-e2e-automation-curve-lod-record-budget.md](./aut-04-e2e-automation-curve-lod-record-budget.md) |
+| TSPEC-5CuediZdfo8z7uI9MvTAHB | Automation / Modulation 統合 Parameter Control — テスト仕様・受入 Fixture（synvelis#6） | approved | [automation-modulation.md](./automation-modulation.md) |
 | TSPEC-m5UJFsYVE3wcIp2bbhjQ6C | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 検証仕様 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | TSPEC-034RoWXtHq8FkSjQ9NWwqn | Synvelis 独立 CI ワークフロー検証仕様 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | TSPEC-5P0o8UbBZq07LRZPbXsEoV | Context Inspector テスト仕様 — Follow/Explore/Pinned・Selection/Linked Context・Probe・一括編集の UX Fixture 定義（synvelis#5） | approved | [context-inspector.md](./context-inspector.md) |
