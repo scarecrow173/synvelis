@@ -93,6 +93,7 @@ Directory: `docs/impl/ir`
 | IMPL-034VNP5tgdXZr0d9jU3FD0 | plugin_instances VCS semantic diff 分類 slice 実装記録 | completed | [plugin-instances-vcs-diff.md](./plugin-instances-vcs-diff.md) |
 | IMPL-034X3k17SZNVWh4K947RiS | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画 実装記録 | completed | [product-value-core.md](./product-value-core.md) |
 | IMPL-034X6jca6fIX3WfnkPyxGI | Project Model — Issue #10 設計契約文書化 + headless 検証 | completed | [project-model.md](./project-model.md) |
+| IMPL-034X6UvpBMux0atSwt8nXg | Project / Asset / Persistence — 設計契約文書チェーン実装記録（synvelis#17） | completed | [project-persistence.md](./project-persistence.md) |
 | IMPL-034V30Z5uYklMrResgr0lS | RCD-01 実Audio Device録音統合 headless slice — fake port→実StreamWriter fixture + recording state projection | completed | [rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md](./rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md) |
 | IMPL-RCD01rbkSl1cE9mQ2xW | RCD-01 実Audio Device 到達準備 — stamp placement fallback（jitter 許容の累積配置）+ real backend 配線 | completed | [rcd-01-real-backend-readiness-slice.md](./rcd-01-real-backend-readiness-slice.md) |
 | IMPL-034Wfpu0yifoZyGTZUA0pe | RCD-01 実機 lane 拡張 — real-device capture coverage | completed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
@@ -107,6 +108,7 @@ Directory: `docs/impl/ir`
 | IMPL-034V6MHZ91AdEfrxqsFgLC | RCD-03 Monitoring/Punch/Latency 意味論 crate 内完結 slice 実装記録 | completed | [rcd-03-monitoring-punch-latency-crate-slice.md](./rcd-03-monitoring-punch-latency-crate-slice.md) |
 | IMPL-034VDfqOMnbp5s6CThZTBe | RCD-03 VCS semantic diff monitor 宣言分類 slice 実装記録 | completed | [rcd-03-vcs-diff-monitor-classification-slice.md](./rcd-03-vcs-diff-monitor-classification-slice.md) |
 | IMPL-034UvMC7UhiwWgHviB9Qnv | RCD-04 Comp Transition / MIDI Phrase crate fixture slice 実装記録 | completed | [rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md](./rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md) |
+| IMPL-C1ZTg7tLJ3bWNVepfbzpSs | Recording / Take / Comping — 文書チェーン・受入 Owner Matrix 実装記録（synvelis#12） | completed | [recording-take-comping.md](./recording-take-comping.md) |
 | IMPL-034SF01Qr3wXmZyAbCdEfGhJ | SF-01 Semantic Routing Model — Bus/Send/Chain/Stable Port IDs・Schema v6 | completed | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
 | IMPL-034UjyiVpFVP7RCwlZ2neB | SF-03 slice5 実装記録 — session EnginePort・SessionRoutingEngine 接続 | completed | [sf-03-slice5-session-engineport-sessionroutingengine.md](./sf-03-slice5-session-engineport-sessionroutingengine.md) |
 | IMPL-034UJqjrnNLIXxfkFE25tv | SF-03 slice6 実装記録 — RoutingControlDispatch・sf03_l6 acceptance | completed | [sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md](./sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md) |

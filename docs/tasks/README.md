@@ -37,6 +37,7 @@ Directory: `docs/tasks`
 | TASK-034WEVr538punRWOxqkfaf | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice | in-progress | [rcd-04-task-midi-undo-stableid.md](./rcd-04-task-midi-undo-stableid.md) |
 | TASK-034VC2K5DEZwdj418Clksb | RCD-04 Task RT engine comp PCM | in-progress | [rcd-04-task-rt-engine-comp-pcm.md](./rcd-04-task-rt-engine-comp-pcm.md) |
 | TASK-034VmO0u2fPRBj8uO9cGkk | RCD-04 Task1 product E2E | in-progress | [rcd-04-task1-product-e2e.md](./rcd-04-task1-product-e2e.md) |
+| TASK-fQ5GG20T5UOhj5Xy7za6XD | Recording / Take / Comping — 文書チェーン・受入 Owner Matrix タスク（synvelis#12） | in-progress | [recording-take-comping-task.md](./recording-take-comping-task.md) |
 | TASK-106SF03Tz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T1 — RoutingFault 18分類・engine 改修・reconcile 実装 | in-progress | [sf-03-slice2-fault-contract.md](./sf-03-slice2-fault-contract.md) |
 | TASK-106SF03Uz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T2 — 受入テスト sf03_l2.rs・検証 | in-progress | [sf-03-slice2-reconcile-tests.md](./sf-03-slice2-reconcile-tests.md) |
 | TASK-S4P772tAsxug74Ku5MA5AI | SF-04 probe adapter — Issue #107 SF-PROBE-01..08 受入集約 実装タスク | in-progress | [sf-04-probe-adapter-task.md](./sf-04-probe-adapter-task.md) |
@@ -144,6 +145,7 @@ Directory: `docs/tasks`
 | TASK-034WxmIMFAnvLuxIgBXqMT | PC-C6: TR02/TR06 dispatch ledger 実経路 oracle 再証拠化タスク | done | [pc-c6-tr02-tr06-realpath-oracle-task.md](./pc-c6-tr02-tr06-realpath-oracle-task.md) |
 | TASK-034VNs3KBar3pyoUwECyIh | plugin_instances VCS semantic diff 分類 | done | [plugin-instances-vcs-diff-task.md](./plugin-instances-vcs-diff-task.md) |
 | TASK-034X3k0wEnZD3OtrbVBneg | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画タスク | done | [product-value-core-task.md](./product-value-core-task.md) |
+| TASK-034X6NYGLBArth4EII4yl9 | Project / Asset / Persistence — 設計契約文書チェーン実装タスク（synvelis#17） | done | [project-persistence-task.md](./project-persistence-task.md) |
 | TASK-2Ri1ehmSIXwfHO79pHYSiU | RCD-02 Task Unsynced-Write Loss Fixture + Real-FS Probe | done | [rcd-02-task-unsynced-loss-real-fs-probe.md](./rcd-02-task-unsynced-loss-real-fs-probe.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | done | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
 | TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |

@@ -77,6 +77,7 @@ Directory: `docs/designs`
 | DESIGN-034X3jMjITd6SCoqrUyFnH | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価設計 | approved | [product-value-core-design.md](./product-value-core-design.md) |
 | — | Synvelis — Project / Asset / Persistence Architecture | — | [project-asset-persistence-architecture.md](./project-asset-persistence-architecture.md) |
 | DESIGN-034X6iC9O7gEAUDL5Sxqqv | Project Model Design — entity schema, single-writer/CAS/undo, time domains, persistence | approved | [project-model-design.md](./project-model-design.md) |
+| DESIGN-CjYVivoek7ZbOPp7uvvYVo | Project / Asset / Persistence — 設計契約マップ（synvelis#17） | approved | [project-persistence-design.md](./project-persistence-design.md) |
 | DESIGN-034V2hPBihovSNoj4xusOA | RCD-01 device-recording headless fixture — Mock Input→Raw Writer 統合設計 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | DESIGN-Bz2IMMfywvmEjmdIeThNvq | RCD-01 Input Adapter — binding/Arm/Monitor/channel-map と fake port fail-stop | approved | [rcd-01-input-adapter-binding-arm-monitor-fake-port.md](./rcd-01-input-adapter-binding-arm-monitor-fake-port.md) |
 | DESIGN-89lmf1mLK8flCuybXMmEqR | RCD-01 実Audio Device 到達準備 design — stamp placement fallback + real backend composition root | approved | [rcd-01-real-backend-readiness-design.md](./rcd-01-real-backend-readiness-design.md) |
@@ -94,6 +95,7 @@ Directory: `docs/designs`
 | DESIGN-034WEV4lGiVlfIG0LsEBNr | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID design | approved | [rcd-04-midi-undo-stableid-design.md](./rcd-04-midi-undo-stableid-design.md) |
 | DESIGN-034VmNZvp2r11R0Phmdf0P | RCD-04 product E2E design | approved | [rcd-04-product-e2e-design.md](./rcd-04-product-e2e-design.md) |
 | DESIGN-034VBU0PCNZXCZsyRneE3S | RCD-04 RT engine comp PCM design | approved | [rcd-04-rt-engine-comp-pcm-design.md](./rcd-04-rt-engine-comp-pcm-design.md) |
+| DESIGN-jrb8PxsJgSO7YaSuwiQUcL | Recording / Take / Comping — Session・Take・Comp・Raw Writer・Monitor・Recovery・Source Native Frame の基本設計（synvelis#12） | approved | [recording-take-comping-design.md](./recording-take-comping-design.md) |
 | DESIGN-034SF01Mo9rSt4uV1wXyZaCdE | SF-01 Semantic Routing Model 設計 — 型・整合・Schema v6 Migration | approved | [sf-01-semantic-routing-model-design.md](./sf-01-semantic-routing-model-design.md) |
 | DESIGN-034SF02Vy9qNo6pS9uA4bCeFg | SF-02 RoutingTransaction/TempRef Staging・二層検証・Mute/Solo Audibility 設計 | approved | [sf-02-routing-transaction-design.md](./sf-02-routing-transaction-design.md) |
 | DESIGN-034Ux9PPNPAMU9m3oovJh8 | SF-03 semantic→Ruviform runtime 写像 — 責務境界・世代証拠・失敗不変条件・検証計画 | approved | [sf-03-map-semantic-runtime-mapping-design.md](./sf-03-map-semantic-runtime-mapping-design.md) |

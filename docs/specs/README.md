@@ -58,6 +58,7 @@ Directory: `docs/specs`
 | SPEC-034X6Wo5jGoog4i61651vc | Playback / Mixer / Generic Execution Graph — Typed Port, PDC, Plan Activation (EX-001〜020 design contract) | approved | [playback-graph.md](./playback-graph.md) |
 | SPEC-034X3iKrMQOzlbCgtuckh0 | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画の正本 | approved | [product-value-core.md](./product-value-core.md) |
 | SPEC-034X6inBx3ortD0y20pxqk | Project Model — Track/Lane/Clip/Source/Take/Time, non-destructive editing, stable ID, save/reload contract | approved | [project-model.md](./project-model.md) |
+| SPEC-034X6Kqk3e6SN2g7MWSiIq | Project / Asset / Persistence — Immutable Snapshot・Media Lifecycle・Safe Save・Recovery 設計契約（synvelis#17） | approved | [project-persistence.md](./project-persistence.md) |
 | SPEC-034V2ghdXlh1m9UFtt5ks1 | RCD-01 実Audio Device録音統合 headless slice — Mock Input→Raw Writer/Journal→Arm/Punch/Loop・Fail-stop Fixture（synvelis#115） | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | SPEC-gut3XVRAIUtMHADNZBNFHC | RCD-01 実Audio Device 到達準備 — stamp placement fallback + real backend 配線（synvelis#115） | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
 | SPEC-034W8HMV6c6BABYhVlcEe6 | RCD-01 実機 capture coverage 拡張 — real-device lane の staging/2Track/fail-stop/境界/長時間検証（synvelis#115） | proposed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
@@ -74,6 +75,7 @@ Directory: `docs/specs`
 | SPEC-034WEUWHrqeDl6HXbaRPVO | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID residual slice (synvelis#118) | proposed | [rcd-04-midi-undo-stableid.md](./rcd-04-midi-undo-stableid.md) |
 | SPEC-034VmNS87JaOfBSbYwh0pt | RCD-04 Comp Transition / MIDI Phrase / Recovery Review — product E2E (synvelis#118) | proposed | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | SPEC-034VBTXNYEeuSEzbHwk1hv | RCD-04 Comp Transition — RT engine PCM equivalence (synvelis#118) | proposed | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
+| SPEC-QIpUDjWLLusOo4TEiv6CjZ | Recording / Take / Comping — Session・Take・Comp・Raw Writer・Monitor・Recovery・Source Native Frame の基本契約（synvelis#12） | approved | [recording-take-comping.md](./recording-take-comping.md) |
 | SPEC-034SF01Km7pQr2sT9uVwXyZaB | SF-01 Semantic Routing Model — Bus/Send/Processor Chain/Stable Port IDs・Project Schema v6 | approved | [sf-01-semantic-routing-model-bus-send-chain-stable-ports.md](./sf-01-semantic-routing-model-bus-send-chain-stable-ports.md) |
 | SPEC-034SF02Tx9kLm4nQ7rVw2yZaBc | SF-02 DAW Routing Commands — RoutingTransaction/TempRef・Semantic+Generic Validation・Mute/Solo Signal Gate | approved | [sf-02-routing-transaction-commands-semantic-validation.md](./sf-02-routing-transaction-commands-semantic-validation.md) |
 | SPEC-034Ux7RxHxcEmVfIrLzcfM | SF-03 semantic→Ruviform runtime 写像 — 世代証拠・SourceMap・失敗不変条件の統合契約 | approved | [sf-03-map-semantic-runtime-contract.md](./sf-03-map-semantic-runtime-contract.md) |
