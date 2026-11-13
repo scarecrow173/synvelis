@@ -47,7 +47,7 @@ use ruviform_plugin_core::{
 };
 use synvelis_project::{
     BeatPoint, ControlOwner, EvalPlan, EvalScratch, ParameterTargetId, PluginRef, ProcessorId,
-    Project, dispatch_check, lower_event, modulation_allowed, semantic_plugin_binding,
+    Project, dispatch_check, lower_event, modulation_allowed, plugin_parameter_instance_binding,
 };
 
 use crate::dispatch::{DispatchError, ParamDispatch};
@@ -501,9 +501,11 @@ impl PluginBindingSession {
     ///
     /// Checks, in order: dispatcher node/frame-base pin → target
     /// exists → `owner == ControlOwner::Processor(this.processor)` →
-    /// capability present → **stage-1 `semantic_plugin_binding`
-    /// resolution** (processor registered + `Resolved` + plugin
-    /// identity matches this session's pin — PC-C4-02) → live
+    /// capability present → **canonical
+    /// `plugin_parameter_instance_binding` resolution** (processor
+    /// registered + `Resolved` + plugin identity matches this
+    /// session's pin — PC-C4-02 — then persisted instance identity
+    /// matches the attach-time pin — PC-C4 plugin-binding) → live
     /// enumeration contains the param → declared capability matches
     /// live `ParamInfo` → `check_param_write`/`dispatch_check` accept
     /// `TimedEvent` → no enabled modulation on a discrete `ValueKind`
@@ -542,12 +544,23 @@ impl PluginBindingSession {
         // `routing.processors` or `Unresolved` fails closed as a
         // project-layer error; a semantic plugin identity different
         // from this instance's connect-time pin is `PluginMismatch`.
-        let semantic = semantic_plugin_binding(project, target)?;
+        // PC-C4 plugin-binding: the canonical
+        // `ParameterTarget → PluginInstance` mapping additionally
+        // resolves the persisted instance identity — the store must
+        // vouch for this session's attach-time pin, so a re-issued
+        // id (plugin rebind A→B→A), a missing entry, or plugin drift
+        // fails closed as `InstanceMismatch` after the plugin check.
+        let resolved = plugin_parameter_instance_binding(project, target)?;
+        let semantic = resolved.semantic;
         if semantic.plugin != self.plugin {
             return Err(BindingError::PluginMismatch {
                 expected: self.plugin.clone(),
                 actual: semantic.plugin,
             });
+        }
+        let instance = resolved.instance.ok_or(BindingError::InstanceMismatch)?;
+        if instance.get() != self.instance_id.get() {
+            return Err(BindingError::InstanceMismatch);
         }
         let param = semantic.param_id;
         let info = params
