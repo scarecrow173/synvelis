@@ -63,6 +63,7 @@ Directory: `docs/test-specs`
 | TSPEC-034VmVmcW4lYrji082NUve | PC-C6 oracle E2E — R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 独立照合 fixture | approved | [pc-c6-oracle-rows.md](./pc-c6-oracle-rows.md) |
 | TSPEC-034W1WRQXbMr2y30mwzX1z | PC-C6 TR ledger oracle 検証仕様 — TR01/03/04/05/07/08 実経路照合 | approved | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
 | TSPEC-034WxmAJbjUwK6FBs7Xiy2 | PC-C6 TR02/TR06 realpath oracle 検証仕様 | approved | [pc-c6-tr02-tr06-realpath-oracle.md](./pc-c6-tr02-tr06-realpath-oracle.md) |
+| TSPEC-034X6WyRxC2dhnz0S3A9uA | Playback Graph Test Spec — EX-001〜020 case map to existing fixtures | approved | [playback-graph.md](./playback-graph.md) |
 | TSPEC-034VNrSyPxIGK6pnJSonNR | plugin_instances VCS semantic diff 分類 fixture matrix | proposed | [plugin-instances-vcs-diff.md](./plugin-instances-vcs-diff.md) |
 | TSPEC-034X3jTF3hBjJmyjdZVSsr | Synvelis 製品価値と中核体験 — Acceptance Matrix・UX評価テスト仕様 | approved | [product-value-core.md](./product-value-core.md) |
 | TSPEC-034X6iT1XRNf2JVURuDjzb | Project Model Test Spec — contract case map to synvelis-project tests | approved | [project-model.md](./project-model.md) |

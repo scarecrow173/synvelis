@@ -90,6 +90,7 @@ Directory: `docs/impl/ir`
 | IMPL-034VntRmtjh1jy2mJ1rPum | PC-C6 oracle R/PL/UI/COMP headless fixture 実装記録 | completed | [pc-c6-oracle-rows-slice.md](./pc-c6-oracle-rows-slice.md) |
 | IMPL-034W5m2YJNbKaaqcO5j3m5 | PC-C6 TR ledger oracle 実装記録 | completed | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
 | IMPL-034WxwExc8oWsdZ2zey3N1 | PC-C6 TR02/TR06 realpath oracle 実装記録 | completed | [pc-c6-tr02-tr06-realpath-oracle.md](./pc-c6-tr02-tr06-realpath-oracle.md) |
+| IMPL-034X6XXyiMLYuVtZ3AdA2O | Playback Graph — Issue #18 設計契約文書化 + EX evidence 台帳 | completed | [playback-graph.md](./playback-graph.md) |
 | IMPL-034VNP5tgdXZr0d9jU3FD0 | plugin_instances VCS semantic diff 分類 slice 実装記録 | completed | [plugin-instances-vcs-diff.md](./plugin-instances-vcs-diff.md) |
 | IMPL-034X3k17SZNVWh4K947RiS | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画 実装記録 | completed | [product-value-core.md](./product-value-core.md) |
 | IMPL-034X6jca6fIX3WfnkPyxGI | Project Model — Issue #10 設計契約文書化 + headless 検証 | completed | [project-model.md](./project-model.md) |
