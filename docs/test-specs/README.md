@@ -40,6 +40,7 @@ Directory: `docs/test-specs`
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | TSPEC-034QmjuUDQRs8JzfSsG8wM | L2 検証仕様 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | TSPEC-SXc0ENzb4xBlpJDsiIaUA8 | MD-A 検証仕様 — TakeGroup/Comp・Effective Comp 投影・Placement/Playback 時間契約 | approved | [mda-model-poc-acceptance.md](./mda-model-poc-acceptance.md) |
+| TSPEC-jioP2kLGYJUweo578lGo0V | Musical Time — 受入証拠テスト仕様（synvelis#19） | approved | [musical-time.md](./musical-time.md) |
 | TSPEC-034PCA11Wr6fZa2gIjWkLm | PC-A 検証仕様 — Parameter Control 合意8領域 headless 受入 | approved | [pc-a-e2e-parameter-control.md](./pc-a-e2e-parameter-control.md) |
 | TSPEC-034PCB05Ql0zTu6aCdEfGh | PC-B Parameter Control dispatch/note-scope/RT/offline 検証仕様 | approved | [pc-b-e2e-parameter-dispatch.md](./pc-b-e2e-parameter-dispatch.md) |
 | TSPEC-034RoV9mM6nXzVq1kYpQwE | PC-C1 Recording Transaction 検証仕様 | approved | [pc-c1-e2e-recording-transaction.md](./pc-c1-e2e-recording-transaction.md) |
