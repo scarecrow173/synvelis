@@ -117,6 +117,7 @@ Directory: `docs/specs`
 | SPEC-034T2RF305WAVSTAGED00X | SYN-RF305 WAV Export/Player StagedFile 移行 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
 | SPEC-034Vtz2CrUpwevHTLxDLm6 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証（synvelis-app slice） | approved | [tim-01-app-ppqn.md](./tim-01-app-ppqn.md) |
 | SPEC-034UHVLQ9dtoN4YQDjtCy3 | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | approved | [tim-01-configurable-ppqn-project-command.md](./tim-01-configurable-ppqn-project-command.md) |
+| SPEC-LmEvu9ETGyhBWDJtTBWj6l | TIM-01 PPQN configurable project command — punch marks 再投影と受入残件（headless slice） | approved | [tim-01-ppqn-config.md](./tim-01-ppqn-config.md) |
 | SPEC-9xQpPvK2mN7rT4wE8jH3d | TIM-01 PPQN Preview op + New Project PPQN — syn.project.preview_ppqn / syn.project.new.ppqn（synvelis#125 preview slice） | approved | [tim-01-ppqn-preview.md](./tim-01-ppqn-preview.md) |
 | SPEC-TiM01uIxYzAbCdEfGh | TIM-01 PPQN 選択 UI read model + Snap/Grid ポリシー — synvelis#125 UI slice（headless） | approved | [tim-01-ppqn-ui.md](./tim-01-ppqn-ui.md) |
 | SPEC-TiM02PpqnSmfXg01 | TIM-02 × TIM-01 PPQN×SMF cross-golden fixture — synvelis#126 受入行の Project Change 補完（headless） | approved | [tim-02-ppqn-smf-cross-golden.md](./tim-02-ppqn-smf-cross-golden.md) |
