@@ -27,6 +27,7 @@ Directory: `docs/tasks`
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
 | TASK-GJlWE8j5emvVOKFMtbTXHR | RCD-01 Task — 実Audio Device 到達準備（stamp placement fallback + real backend 配線） | completed | [rcd-01-task1-real-backend-readiness.md](./rcd-01-task1-real-backend-readiness.md) |
 | TASK-034VpnH7YtacCiCUD4y9fu | RCD-02 Task3 StagedFile Publish Migration | in-progress | [rcd-02-task3-stagedfile-publish-migration.md](./rcd-02-task3-stagedfile-publish-migration.md) |
+| TASK-034WCx98h2mIsDpZJrrBkC | RCD-03 monitor engine — implementation slice | completed | [rcd-03-task-monitor-engine.md](./rcd-03-task-monitor-engine.md) |
 | TASK-034VegaqbLjPWyJoFDrmhQ | RCD-03 Task2 app Arm/Monitoring UX + monitor session projection | in-progress | [rcd-03-task2-app-arm-monitoring-ux.md](./rcd-03-task2-app-arm-monitoring-ux.md) |
 | TASK-034VC2K5DEZwdj418Clksb | RCD-04 Task RT engine comp PCM | in-progress | [rcd-04-task-rt-engine-comp-pcm.md](./rcd-04-task-rt-engine-comp-pcm.md) |
 | TASK-034VmO0u2fPRBj8uO9cGkk | RCD-04 Task1 product E2E | in-progress | [rcd-04-task1-product-e2e.md](./rcd-04-task1-product-e2e.md) |

@@ -78,6 +78,7 @@ Directory: `docs/designs`
 | DESIGN-034VplpQjplSqKKaNy9r1G | RCD-02 StagedFile Publish Migration Design | approved | [rcd-02-stagedfile-publish-migration-design.md](./rcd-02-stagedfile-publish-migration-design.md) |
 | DESIGN-VClnKX5mXMKj7CQFWgFYAE | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe Design | approved | [rcd-02-unsynced-loss-real-fs-probe-design.md](./rcd-02-unsynced-loss-real-fs-probe-design.md) |
 | DESIGN-034VdWksbk4tfLCaf6HPoj | RCD-03 app Arm/Monitoring UX + monitor session projection | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
+| DESIGN-034WCrWfgXKQV2I7XmJGE0 | RCD-03 monitor engine — MonitorSession/MonitorEngine design | approved | [rcd-03-monitor-engine.md](./rcd-03-monitor-engine.md) |
 | DESIGN-034VpQd8lN3xO0wS5uZ7vK | RCD-03 Arm/Monitor/Punch Project 永続投影 design | approved | [rcd-03-monitor-persistence-design.md](./rcd-03-monitor-persistence-design.md) |
 | DESIGN-034UtlI2uLUF1lr2g3CUM0 | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | DESIGN-rprIAB9zoxNjZbw6rODTWf | RCD-03 VCS semantic diff monitor 宣言分類 design | approved | [rcd-03-vcs-diff-monitor-classification-design.md](./rcd-03-vcs-diff-monitor-classification-design.md) |
