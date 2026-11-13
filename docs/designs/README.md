@@ -117,6 +117,7 @@ Directory: `docs/designs`
 | DESIGN-mB7tYwKsPqNvXcZaE5rGjH | SF-05 slice3 設計 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-design.md](./sf-05-slice3-probe-subscriber-wiring-design.md) |
 | DESIGN-034V2wuzXfqcjIvGyXFhhz | SF-06 cross-gate headless 設計 — oracle 独立性・fixture topology・ledger schema | approved | [sf-06-cross-gate-oracle-domain-evidence.md](./sf-06-cross-gate-oracle-domain-evidence.md) |
 | DESIGN-OIDrCGhRjzwr0IzN1tzVkg | SF-XR-01 Design — CTL-01/CTL-02 cross-gate oracle fixture | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
+| DESIGN-034X5yWfKUcmf5eqz7NUJR | Issue #84 StagedFile Migration 実装済み設計 | approved | [stagedfile-migration-design.md](./stagedfile-migration-design.md) |
 | DESIGN-jmv4N50pKcC7sDGSX5TVEq | Issue #245 webdav MockServer TransientIo flake — accept 済みソケット blocking 正規化設計 | approved | [sv-ci-webdav-transient-io-flake-design.md](./sv-ci-webdav-transient-io-flake-design.md) |
 | DESIGN-lW54zR76NmEm8cc3NlMskX | SV-GUI-01 Design — Desktop App Bootstrap・Composition Root・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap-design.md](./sv-gui-01-desktop-app-bootstrap-design.md) |
 | DESIGN-034RAAXZ1XMIuk2zr2dr4w | SV-GUI-02 Frontend View Model・Binding IPC・Reference Workspace View | approved | [sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md](./sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md) |
