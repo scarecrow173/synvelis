@@ -48,6 +48,7 @@ Directory: `docs/designs`
 | DESIGN-034QmfChvqgB632y8fAydk | L2 Design — Render Snapshot・Preflight・Sequential Render・WAV Output・Reopen Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export-design.md](./l2-master-sequential-offline-wav-export-design.md) |
 | DESIGN-YFKePNnF4peFnskSfrnSc2 | MD-A Design — TakeGroup/Comp スキーマ・Effective Comp 投影・正規化 Placement/Playback 時間契約 | approved | [mda-comp-effective-projection-placement-design.md](./mda-comp-effective-projection-placement-design.md) |
 | — | Synvelis × Ruviform — Media / Import / Export / Offline Render / UI / Diagnostics 統合アーキテクチャ | — | [media-import-export-offline-render-ui-diagnostics-architecture.md](./media-import-export-offline-render-ui-diagnostics-architecture.md) |
+| DESIGN-034X7uvDLVml1hERo5iqNc | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 設計契約 (synvelis#21) | approved | [media-render-design.md](./media-render-design.md) |
 | DESIGN-034MSA52Mn8xRt6yQwZkPf | 最小 MIDI Source / Note 編集契約 設計 | draft | [midi-source-note-editing-design.md](./midi-source-note-editing-design.md) |
 | DESIGN-034PCA03Nj8xRs4yAbOcDe | PC-A Parameter Control Model 設計 — Scope/Breakdown/StateMachine headless PoC | approved | [pc-a-parameter-control-design.md](./pc-a-parameter-control-design.md) |
 | DESIGN-034PCB03Mn8xRs4uZvWdEf | PC-B Parameter Control dispatch/note-scope/RT/offline 設計 | approved | [pc-b-parameter-dispatch-note-scope-design.md](./pc-b-parameter-dispatch-note-scope-design.md) |
