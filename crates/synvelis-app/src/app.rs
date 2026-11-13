@@ -13,6 +13,7 @@
 //! implying playback/recording exists.
 
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 use std::rc::Rc;
@@ -27,6 +28,7 @@ use ruviform_observability::source::{
 };
 use ruviform_observability::{Counter, counter};
 use ruviform_ui::BackendReport;
+use ruviform_ui::dock::ViewInstanceId;
 use ruviform_ui::ipc::{ErrorBody, codes};
 use ruviform_ui::view::{AttachEpoch, AttachEpochAllocator};
 use serde_json::{Value, json};
@@ -41,8 +43,8 @@ use synvelis_project::{
     ProjectId, ProjectOp, ProjectRevision, ProjectStore, RelationDirection, preview_ppqn,
 };
 use synvelis_workspace::{
-    ProjectSession, SignalFlowRuntimeEvidence, SignalFlowView, SignalFlowViewOptions,
-    WorkspaceManager, signal_flow_graph,
+    ProjectSession, SignalFlowRuntimeEvidence, SignalFlowView, SignalFlowViewOptions, VcsSession,
+    ViewType, WorkspaceManager, signal_flow_graph, vcs_history_view,
 };
 
 use crate::engine::SessionRoutingEngine;
@@ -51,7 +53,8 @@ use crate::host::ShellWindowHost;
 use crate::logging::InstallState;
 use crate::revision::HOST_REVISION;
 use crate::screens::{
-    MainScreenState, RelationScreenState, SignalFlowScreenState, mixer_strip_targets,
+    MainScreenState, RelationScreenState, SignalFlowScreenState, VcsScreenState,
+    mixer_strip_targets,
 };
 use crate::ui_ops::UiOpsState;
 
@@ -312,6 +315,15 @@ pub struct SynvelisApp {
     /// `pub(crate)` so `ui_ops` can compose the `VcsSession` context
     /// disjoint from `workspace`.
     pub(crate) vcs_backend: Option<Arc<dyn VcsHistoryBackend>>,
+    /// Last published VCS History screen state per adopted
+    /// [`ViewType::VcsHistory`] view — the VCS counterpart of
+    /// [`Self::main_screen`], refreshed by the same post-op publish
+    /// hook (`publish_project_length`, which the service tail runs
+    /// after every op) so Live-endpoint freshness — derived from the
+    /// project revision — stays honest. The native lane polls it and
+    /// pushes `history_screen_spec` rebuilds into mounted VCS view
+    /// windows through `update_view`.
+    pub(crate) vcs_screens: Rc<RefCell<BTreeMap<ViewInstanceId, VcsScreenState>>>,
     /// RCD-03 Arm/Monitoring UX state (synvelis#117 slice) —
     /// session-scope monitor declarations, the active monitor
     /// session (preflight-frozen plan + transport/punch marks) and
@@ -346,6 +358,7 @@ impl SynvelisApp {
             control_report_drain: None,
             main_screen: Rc::new(RefCell::new(MainScreenState::default())),
             vcs_backend: None,
+            vcs_screens: Rc::new(RefCell::new(BTreeMap::new())),
             monitoring: crate::monitoring::MonitorUxState::default(),
         }
     }
@@ -561,6 +574,54 @@ impl SynvelisApp {
                 .and_then(|pending| pending.preview.clone())
                 .filter(|p| p.project_revision == revision),
         };
+        self.publish_vcs_screens();
+    }
+
+    /// Shared VCS History screen-state cell map — one
+    /// [`VcsScreenState`] per registered [`ViewType::VcsHistory`]
+    /// view, keyed by its adopted [`ViewInstanceId`]. Same hand-out
+    /// contract as [`Self::main_screen_cell`]: publishes first, then
+    /// returns the shared handle the composition root keeps across
+    /// the app seal.
+    #[must_use]
+    pub fn vcs_screen_cell(&self) -> Rc<RefCell<BTreeMap<ViewInstanceId, VcsScreenState>>> {
+        self.publish_vcs_screens();
+        Rc::clone(&self.vcs_screens)
+    }
+
+    /// Projects every registered [`ViewType::VcsHistory`] view into
+    /// [`VcsScreenState`] and stores it in [`Self::vcs_screens`] —
+    /// closed views drop out, non-VCS registry entries are ignored.
+    /// Runs inside [`Self::publish_project_length`] (the post-op
+    /// publish hook the service tail calls after every op) so VCS
+    /// ops *and* project mutations that stale Live endpoints both
+    /// refresh the mounted specs. Pure read: `vcs_history_view`'s
+    /// freshness probes are the only backend touches.
+    fn publish_vcs_screens(&self) {
+        let vcs_ids: Vec<ViewInstanceId> = self
+            .workspace
+            .registry()
+            .ids()
+            .into_iter()
+            .filter(|inst| {
+                self.workspace
+                    .registry()
+                    .descriptor(*inst)
+                    .is_some_and(|d| d.kind == ViewType::VcsHistory)
+            })
+            .collect();
+        let ctx = VcsSession {
+            backend: self.vcs_backend.as_deref(),
+            controller: self.workspace.session().controller(),
+            store: self.store.as_ref().map(|s| -> &dyn ProjectStore { s }),
+            blobs: None,
+        };
+        let mut screens = self.vcs_screens.borrow_mut();
+        screens.retain(|inst, _| vcs_ids.contains(inst));
+        for inst in vcs_ids {
+            let view = vcs_history_view(self.workspace.vcs(), inst, &ctx);
+            screens.insert(inst, VcsScreenState::from_view(view));
+        }
     }
 
     fn fresh_session(name: &str) -> ProjectSession {

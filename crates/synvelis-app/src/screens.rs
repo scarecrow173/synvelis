@@ -523,29 +523,33 @@ pub struct DockViewInfo {
     /// Surface kind recorded in the view descriptor.
     pub kind: ViewType,
     /// Descriptor title (tab caption / window chrome).
-    pub title: &'static str,
+    pub title: String,
     /// Subscription targets issued on window attach.
     pub targets: Vec<String>,
 }
 
 /// Resolves `view_id` to its dock metadata — `Some` only for the
 /// composition root's own views (`view-1`/`view-2`). Every other id
-/// stays on the legacy UI-only path and is never adopted into the
-/// workspace dock.
+/// stays on the legacy UI-only path *unless* the workspace registry
+/// adopted it — dynamically adopted views (VCS History and any
+/// future workspace-spawned surface) resolve their dock metadata
+/// from the registry descriptor in
+/// [`SynvelisApp::dock_domain_view`](crate::SynvelisApp) instead, so
+/// this table never needs an entry per spawnable view.
 #[must_use]
 pub fn dock_view_info(view_id: &str) -> Option<DockViewInfo> {
     if view_id == main_view_id() {
         Some(DockViewInfo {
             instance: main_view_instance(),
             kind: ViewType::Arrangement,
-            title: "Main",
+            title: "Main".to_string(),
             targets: main_view_targets(),
         })
     } else if view_id == secondary_view_id() {
         Some(DockViewInfo {
             instance: secondary_view_instance(),
             kind: ViewType::Mixer,
-            title: "Secondary",
+            title: "Secondary".to_string(),
             targets: secondary_view_targets(),
         })
     } else {
@@ -1939,5 +1943,35 @@ pub fn mount_secondary_view(
         secondary_view_instance(),
         secondary_screen_spec(state),
         "secondary screen",
+    )
+}
+
+/// Mounts a VCS History view's screen spec
+/// ([`history_screen_spec`]) onto a fresh [`ViewHost`] — same
+/// session-owned allocator mint contract as [`mount_main_view`],
+/// under the *adopted* view's own [`ViewInstanceId`] (never a
+/// reserved composition-root id, so the host's command namespace
+/// belongs to the docked view it renders). `state` is the view's
+/// published [`VcsScreenState`] — take it from
+/// [`SynvelisApp::vcs_screen_cell`](crate::SynvelisApp::vcs_screen_cell).
+///
+/// Unlike main/secondary there is no fixed instance: the caller
+/// passes the id `syn.vcs.visual{action:"open"}` minted, which is
+/// also the id `syn.view.attach`/`syn.window.dock_*` resolve through
+/// the workspace registry.
+///
+/// # Errors
+/// [`UiError::Internal`] when the spec fails validation — a code
+/// defect.
+pub fn mount_vcs_history_view(
+    attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
+    instance: ViewInstanceId,
+    state: &VcsScreenState,
+) -> Result<ViewHost, UiError> {
+    mount_screen_view(
+        attach_epochs,
+        instance,
+        history_screen_spec(state),
+        "vcs history screen",
     )
 }

@@ -131,6 +131,7 @@ Directory: `docs/specs`
 | SPEC-rlAMvOKGLT0EwfekD1VvH | synvelis#335 GitVcsProvider unborn HEAD 誤分類 — rev-parse --quiet 除去による NotFound 経路回復 | proposed | [vcs-03-unborn-head-classification.md](./vcs-03-unborn-head-classification.md) |
 | SPEC-VCS04BkndWiringSpec001 | VCS-04 production set_vcs_backend 配線 slice（synvelis#95） | approved | [vcs-04-backend-wiring.md](./vcs-04-backend-wiring.md) |
 | SPEC-VCS04Hist0ryV1ewUI001 | VCS-04 History/Visual Diff UI — headless read-only projection slice（synvelis#95） | approved | [vcs-04-history-visual-diff-ui.md](./vcs-04-history-visual-diff-ui.md) |
+| SPEC-VCS04NativeMount001 | VCS-04 History/Visual Diff — native mount/dock 配線 + gpui-test slice（synvelis#95） | approved | [vcs-04-native-mount.md](./vcs-04-native-mount.md) |
 | SPEC-vcs05-apply-restore-headless | VCS-05 Safe Apply Selected Change / Restore As Copy — headless slice（synvelis#96） | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
 | SPEC-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface 拡張 slice — synvelis#96 Slice A | approved | [vcs-05-monitoring-apply-surface.md](./vcs-05-monitoring-apply-surface.md) |
 | SPEC-034VNNGsOaycnOBjCAH3m1 | VCS-06 evidence completion — RESTORE-08 plugin_instances verbatim + COMPAT-03/04 CI legs | approved | [vcs-06-evidence-completion.md](./vcs-06-evidence-completion.md) |
