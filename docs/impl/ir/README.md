@@ -91,6 +91,7 @@ Directory: `docs/impl/ir`
 | IMPL-034WxwExc8oWsdZ2zey3N1 | PC-C6 TR02/TR06 realpath oracle 実装記録 | completed | [pc-c6-tr02-tr06-realpath-oracle.md](./pc-c6-tr02-tr06-realpath-oracle.md) |
 | IMPL-034VNP5tgdXZr0d9jU3FD0 | plugin_instances VCS semantic diff 分類 slice 実装記録 | completed | [plugin-instances-vcs-diff.md](./plugin-instances-vcs-diff.md) |
 | IMPL-034X3k17SZNVWh4K947RiS | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画 実装記録 | completed | [product-value-core.md](./product-value-core.md) |
+| IMPL-034X6jca6fIX3WfnkPyxGI | Project Model — Issue #10 設計契約文書化 + headless 検証 | completed | [project-model.md](./project-model.md) |
 | IMPL-034V30Z5uYklMrResgr0lS | RCD-01 実Audio Device録音統合 headless slice — fake port→実StreamWriter fixture + recording state projection | completed | [rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md](./rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md) |
 | IMPL-RCD01rbkSl1cE9mQ2xW | RCD-01 実Audio Device 到達準備 — stamp placement fallback（jitter 許容の累積配置）+ real backend 配線 | completed | [rcd-01-real-backend-readiness-slice.md](./rcd-01-real-backend-readiness-slice.md) |
 | IMPL-034Wfpu0yifoZyGTZUA0pe | RCD-01 実機 lane 拡張 — real-device capture coverage | completed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |

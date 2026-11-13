@@ -56,6 +56,7 @@ Directory: `docs/specs`
 | SPEC-034W1VPl3lj6S7A0E8mTJL | PC-C6 TR 系 oracle × dispatch ledger 実経路結合（TR01/03/04/05/07/08 再証拠化） | approved | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
 | SPEC-034WxkcNtl9FIF13m9IaBJ | PC-C6 TR02/TR06 dispatch ledger 実経路 oracle 再証拠化 | approved | [pc-c6-tr02-tr06-realpath-oracle.md](./pc-c6-tr02-tr06-realpath-oracle.md) |
 | SPEC-034X3iKrMQOzlbCgtuckh0 | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画の正本 | approved | [product-value-core.md](./product-value-core.md) |
+| SPEC-034X6inBx3ortD0y20pxqk | Project Model — Track/Lane/Clip/Source/Take/Time, non-destructive editing, stable ID, save/reload contract | approved | [project-model.md](./project-model.md) |
 | SPEC-034V2ghdXlh1m9UFtt5ks1 | RCD-01 実Audio Device録音統合 headless slice — Mock Input→Raw Writer/Journal→Arm/Punch/Loop・Fail-stop Fixture（synvelis#115） | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | SPEC-gut3XVRAIUtMHADNZBNFHC | RCD-01 実Audio Device 到達準備 — stamp placement fallback + real backend 配線（synvelis#115） | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
 | SPEC-034W8HMV6c6BABYhVlcEe6 | RCD-01 実機 capture coverage 拡張 — real-device lane の staging/2Track/fail-stop/境界/長時間検証（synvelis#115） | proposed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
