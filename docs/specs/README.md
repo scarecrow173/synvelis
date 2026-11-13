@@ -44,6 +44,7 @@ Directory: `docs/specs`
 | SPEC-7c4e9a1b2d3f4e5a6b7c8d | PC-C4-06 control op surface — syn.control.* typed-evidence ops | approved | [pc-c4-06-control-op-surface.md](./pc-c4-06-control-op-surface.md) |
 | SPEC-7c4e9a1b2d3f4e5a6b7c8d9e0f | PC-C4-07 transport mirror + observe_block + capability rebind tests | approved | [pc-c4-07-transport-mirror-observe.md](./pc-c4-07-transport-mirror-observe.md) |
 | SPEC-a1d4f7c2e9b30586d1a4f7c2e | PC-C4 drain composition — drain_output_reports 周期配線と production composition root | approved | [pc-c4-drain-composition.md](./pc-c4-drain-composition.md) |
+| SPEC-6NH8ne9kNmYOjVBpOoiHju | PC-C4 plugin binding — persisted PluginInstance identity を stage-1.5 正本として bind 時に照合 | approved | [pc-c4-plugin-binding.md](./pc-c4-plugin-binding.md) |
 | SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | SPEC-034UxXLvNqgbDGOypo7Uu4 | PC-C5 slice2 (UI-C5-02/03): Gesture 固定・stale drop・Inspector Follow/Explore/Pinned（headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |

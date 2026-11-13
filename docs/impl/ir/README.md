@@ -78,6 +78,7 @@ Directory: `docs/impl/ir`
 | IMPL-7c4e9a1b2d3f4e5a6b7c8f0a4b5 | PC-C4-06 control op surface — syn.control.* typed-evidence ops | completed | [pc-c4-06-control-op-surface.md](./pc-c4-06-control-op-surface.md) |
 | IMPL-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b3c4d5e | PC-C4-07 transport mirror + observe_block + capability rebind | completed | [pc-c4-07-transport-mirror-observe.md](./pc-c4-07-transport-mirror-observe.md) |
 | IMPL-a1d4f7c2e9b30586d1a4f7c2f0a4 | PC-C4 drain composition — drain_output_reports 周期配線と production composition root | completed | [pc-c4-drain-composition.md](./pc-c4-drain-composition.md) |
+| IMPL-1p5mZ4InpO2EeDDwvz9TSj | PC-C4 plugin binding — persisted instance authority の bind 照合 implementation record | completed | [pc-c4-plugin-binding.md](./pc-c4-plugin-binding.md) |
 | IMPL-034UxmcANQsdlNy9GC0tWv | PC-C4 plugin parameter binding frame base capability gate | completed | [pc-c4-plugin-parameter-binding-frame-base-capability-gate.md](./pc-c4-plugin-parameter-binding-frame-base-capability-gate.md) |
 | IMPL-OABQ94C9ziv3kEtnGM5cHa | PC-C5 UI-C5-01 Relation Index の Inspector 投影 headless slice | completed | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | IMPL-034UyQi9tCjjAPwfMy7pSX | PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice） | completed | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
