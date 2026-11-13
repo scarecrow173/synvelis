@@ -209,6 +209,7 @@ Directory: `docs/tasks`
 | TASK-v2hQAN1hrbnURHHF2lrf6L | VCS-03 Task1 Git Read Provider headless slice | done | [vcs-03-task1-git-read-provider-headless-slice.md](./vcs-03-task1-git-read-provider-headless-slice.md) |
 | TASK-QDa6_9HNOZ3w0cse6y4ih | GitVcsProvider rev-parse --quiet 除去による unborn HEAD 誤分類修正 + 回帰 test | done | [vcs-03-unborn-head-classification-task.md](./vcs-03-unborn-head-classification-task.md) |
 | TASK-VCS04BkndWiringTask001 | VCS-04 production set_vcs_backend 配線 slice — task | done | [vcs-04-backend-wiring-task.md](./vcs-04-backend-wiring-task.md) |
+| TASK-VCS04NativeMount001 | VCS-04 native mount/dock 配線 + gpui-test slice | done | [vcs-04-native-mount-task.md](./vcs-04-native-mount-task.md) |
 | TASK-VCS04Hist0ryV1ewTsk01 | VCS-04 slice1 タスク分解 — History/Visual Diff headless | done | [vcs-04-task1-history-diff-headless-slice.md](./vcs-04-task1-history-diff-headless-slice.md) |
 | TASK-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless slice — 実装 task | done | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
 | TASK-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface 拡張 task | done | [vcs-05-monitoring-apply-surface-task.md](./vcs-05-monitoring-apply-surface-task.md) |
