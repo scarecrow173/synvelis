@@ -30,12 +30,15 @@
 //!
 //! **RT contract:** non-RT only.
 
+use serde::{Deserialize, Serialize};
 use synvelis_project::{
-    ControlEntityRef, ModulationAssignmentId, ProjectRevision, RelationCoverage, RelationDirection,
-    RelationIndex, RelationKind, RelationQuery, RelationState,
+    AutomationLaneId, ControlEntityRef, ModulationAssignmentId, ModulationSourceId,
+    ParameterTargetId, ProjectRevision, RelationCoverage, RelationDirection, RelationIndex,
+    RelationKind, RelationQuery, RelationState,
 };
 
 use crate::session::ProjectSession;
+use crate::state::{FollowSource, InspectionMode};
 
 /// Default hop bound for [`relation_rows`] — direct relations of the
 /// anchor only; multi-hop exploration composes depth-1 queries
@@ -287,10 +290,100 @@ pub fn relation_rows_with(
 /// Tagged display id of a control entity — delegates to each ID's
 /// canonical `"<kind>-<32hex>"` form.
 fn entity_label(entity: ControlEntityRef) -> String {
+    control_entity_tag(entity)
+}
+
+/// Tagged wire/persisted id of a control entity — the inverse of
+/// [`control_entity_parse`]. `ControlEntityRef` itself carries no
+/// serde impl (it lives in `synvelis-project`, outside this slice's
+/// edit scope), so per-view focus state stores this string and
+/// re-parses on read.
+#[must_use]
+pub fn control_entity_tag(entity: ControlEntityRef) -> String {
     match entity {
         ControlEntityRef::Parameter(id) => id.to_tagged(),
         ControlEntityRef::AutomationLane(id) => id.to_tagged(),
         ControlEntityRef::ModulationSource(id) => id.to_tagged(),
         ControlEntityRef::Assignment(id) => id.to_tagged(),
     }
+}
+
+/// Parses a [`control_entity_tag`] string back into a
+/// [`ControlEntityRef`]. Each id type validates its own `"<kind>-"`
+/// prefix, so trying all four parsers is unambiguous; `None` means
+/// the tag is malformed or names an unknown kind — callers degrade
+/// honestly rather than guessing an entity.
+#[must_use]
+pub fn control_entity_parse(text: &str) -> Option<ControlEntityRef> {
+    if let Ok(id) = ParameterTargetId::from_tagged(text) {
+        return Some(ControlEntityRef::Parameter(id));
+    }
+    if let Ok(id) = AutomationLaneId::from_tagged(text) {
+        return Some(ControlEntityRef::AutomationLane(id));
+    }
+    if let Ok(id) = ModulationSourceId::from_tagged(text) {
+        return Some(ControlEntityRef::ModulationSource(id));
+    }
+    ModulationAssignmentId::from_tagged(text)
+        .ok()
+        .map(ControlEntityRef::Assignment)
+}
+
+/// The view-local Control Relation inspection focus (UI-C5-01/03) —
+/// the relation-table counterpart of [`crate::signal_flow_ui`]'s
+/// inspection focus. `target` is the anchor entity as a tagged id
+/// string (see [`control_entity_tag`]); the Explore stacks keep typed
+/// [`ControlEntityRef`]s because they are session-only and skipped
+/// by serde.
+///
+/// Follow/Explore/Pinned semantics mirror
+/// [`crate::state::InspectionFocus`]: `inspect` enters Explore and
+/// pushes the previous anchor; leaving Explore clears the history;
+/// only Follow mode is eligible for link-driven retargeting — and
+/// link events carry [`crate::state::SemanticTarget`], which has no
+/// [`ControlEntityRef`] mapping in this slice, so a Follow-mode
+/// control-relation focus is *stable* under link/multi-selection
+/// delivery rather than silently retargeted (UI-C5-03's "対象が
+/// すり替わらない").
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ControlRelationInspectionFocus {
+    /// Inspected anchor entity as a [`control_entity_tag`] string.
+    #[serde(default)]
+    pub target: Option<String>,
+    /// Follow/Explore/Pinned mode.
+    #[serde(default)]
+    pub mode: InspectionMode,
+    /// Optional narrowing of Follow mode to one source view or link
+    /// group — carried for parity with the other inspection foci;
+    /// no link event currently maps onto a control entity.
+    #[serde(default)]
+    pub follow_source: Option<FollowSource>,
+    /// Explore back-stack — session state only, never persisted.
+    #[serde(default, skip)]
+    pub explore_back: Vec<ControlEntityRef>,
+    /// Explore forward-stack — session state only.
+    #[serde(default, skip)]
+    pub explore_fwd: Vec<ControlEntityRef>,
+}
+
+impl ControlRelationInspectionFocus {
+    /// The typed anchor, re-parsed from the tagged id — `None` when
+    /// no target is set or the persisted tag no longer parses
+    /// (safe degradation, never a guessed entity).
+    #[must_use]
+    pub fn target_entity(&self) -> Option<ControlEntityRef> {
+        self.target.as_deref().and_then(control_entity_parse)
+    }
+}
+
+/// Per-view Control Relation state — the inspection focus behind the
+/// relation table. `None` for views that never hosted the surface;
+/// same tolerant-decode contract as [`crate::signal_flow_ui::SignalFlowViewState`].
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ControlRelationViewState {
+    /// The view-local inspection focus.
+    #[serde(default)]
+    pub inspection: ControlRelationInspectionFocus,
 }

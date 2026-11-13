@@ -63,6 +63,7 @@ Directory: `docs/tasks`
 | TASK-034QfR0eLqVxiQlwHq30L3 | VS-C task4 recovery scanner | todo | [vs-c-task4-recovery-scanner.md](./vs-c-task4-recovery-scanner.md) |
 | TASK-034QfR0WeQaYFoG1702td0 | VS-C task5 poc acceptance tests | todo | [vs-c-task5-poc-acceptance-tests.md](./vs-c-task5-poc-acceptance-tests.md) |
 | TASK-034QfR1ESUtmNef7DRyTyz | VS-C task6 verification impl record | todo | [vs-c-task6-verification-impl-record.md](./vs-c-task6-verification-impl-record.md) |
+| TASK-034X3SQ8cOyUYvh20KEekf | Workspace UX 操作仕様の正本化（Issue #3 文書チェーン実施） | in-progress | [workspace-ux-scenarios-task.md](./workspace-ux-scenarios-task.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
 
@@ -85,6 +86,7 @@ Directory: `docs/tasks`
 | TASK-034VmiXNgZm3ucj1WcbTT9 | rt_cache 計測対象インスタンスの warm-up 修正 | done | [ci-245-task1-macos-alloc-flake.md](./ci-245-task1-macos-alloc-flake.md) |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |
 | TASK-034Rp07EGtrO1nUIIjiLh8 | ci.yml + dep-access composite action 実装 | done | [ci-task2-workflow.md](./ci-task2-workflow.md) |
+| TASK-6gOTxmdtactknQD5p2jwe8 | Context Inspector 設計定義タスク — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5） | done | [context-inspector-task.md](./context-inspector-task.md) |
 | TASK-034CTL01Sa3yBv9cE5fG6hIj | CTL-01: ControlOwner/AutomationTimeScope/ParameterRole 型・oracle・Schema v7 Migration・ops・検証 | done | [ctl-01-task1-owner-time-scope-schema-migration.md](./ctl-01-task1-owner-time-scope-schema-migration.md) |
 | TASK-6bPp4B6e9YSSWgScL0msLl | CTL-02: adoption 経路の非 canonical SendLevel 抑止タスク | done | [ctl-02-adopt-sendlevel-task.md](./ctl-02-adopt-sendlevel-task.md) |
 | TASK-034QAtPmN1oYgkip3TL6wG | ED-A task1 ProjectOp batch ops + selection model + ViewState 移行 | done | [ed-a-task1-selection-model-project-ops.md](./ed-a-task1-selection-model-project-ops.md) |
@@ -137,6 +139,7 @@ Directory: `docs/tasks`
 | TASK-034W1XvJrhZ2i1eRhcbxkP | PC-C6: TR01/03/04/05/07/08 dispatch ledger 実経路 oracle 結合タスク | done | [pc-c6-tr-ledger-oracle-task.md](./pc-c6-tr-ledger-oracle-task.md) |
 | TASK-034WxmIMFAnvLuxIgBXqMT | PC-C6: TR02/TR06 dispatch ledger 実経路 oracle 再証拠化タスク | done | [pc-c6-tr02-tr06-realpath-oracle-task.md](./pc-c6-tr02-tr06-realpath-oracle-task.md) |
 | TASK-034VNs3KBar3pyoUwECyIh | plugin_instances VCS semantic diff 分類 | done | [plugin-instances-vcs-diff-task.md](./plugin-instances-vcs-diff-task.md) |
+| TASK-034X3k0wEnZD3OtrbVBneg | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画タスク | done | [product-value-core-task.md](./product-value-core-task.md) |
 | TASK-2Ri1ehmSIXwfHO79pHYSiU | RCD-02 Task Unsynced-Write Loss Fixture + Real-FS Probe | done | [rcd-02-task-unsynced-loss-real-fs-probe.md](./rcd-02-task-unsynced-loss-real-fs-probe.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | done | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
 | TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |
@@ -210,6 +213,7 @@ Directory: `docs/tasks`
 | TASK-034UyED9PUv2ECvzH9A3RX | TIM-03 task1 — process boundary/capability/degraded policy 実装 | done | [tim03-task1-process-boundary.md](./tim03-task1-process-boundary.md) |
 | TASK-034V1qQsacdOwJ7UiGFCAW | TIM-03 task2 — capability→AttachConfig attach 配線（composition root） | done | [tim03-task2-attach-wiring.md](./tim03-task2-attach-wiring.md) |
 | TASK-034gOTXfiNaCeDRTpeP2x | TIM-03 task3 — per-request plan wiring + precision provenance（ProcessBoundarySession） | done | [tim03-task3-request-plan.md](./tim03-task3-request-plan.md) |
+| TASK-102UiCfInt004DdEeFfGgH | UI-C5 製品 GUI 統合タスク — syn.control.relation / syn.control.edge / syn.recording.* | done | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | TASK-034UEtaHWZFrCd1VFAIRfl | VCS-02 Task1 Semantic Diff Engine headless slice | done | [vcs-02-task1-semantic-diff-engine-headless-slice.md](./vcs-02-task1-semantic-diff-engine-headless-slice.md) |
 | TASK-v2hQAN1hrbnURHHF2lrf6L | VCS-03 Task1 Git Read Provider headless slice | done | [vcs-03-task1-git-read-provider-headless-slice.md](./vcs-03-task1-git-read-provider-headless-slice.md) |
 | TASK-QDa6_9HNOZ3w0cse6y4ih | GitVcsProvider rev-parse --quiet 除去による unborn HEAD 誤分類修正 + 回帰 test | done | [vcs-03-unborn-head-classification-task.md](./vcs-03-unborn-head-classification-task.md) |

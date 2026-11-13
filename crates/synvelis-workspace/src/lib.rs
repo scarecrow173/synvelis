@@ -98,8 +98,10 @@ pub use recording_status::{
     recording_status, recording_status_with,
 };
 pub use relation_ui::{
-    RELATION_VIEW_INCLUDE_DISABLED, RELATION_VIEW_MAX_DEPTH, RELATION_VIEW_MAX_EDGES, RelationNav,
-    RelationRow, RelationView, RelationViewOptions, relation_rows, relation_rows_with,
+    ControlRelationInspectionFocus, ControlRelationViewState, RELATION_VIEW_INCLUDE_DISABLED,
+    RELATION_VIEW_MAX_DEPTH, RELATION_VIEW_MAX_EDGES, RelationNav, RelationRow, RelationView,
+    RelationViewOptions, control_entity_parse, control_entity_tag, relation_rows,
+    relation_rows_with,
 };
 pub use routing_gesture::{
     RoutingGesture, RoutingGestureFixation, RoutingGestureOutcome, RoutingGesturePreview,
