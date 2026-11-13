@@ -175,6 +175,7 @@ Directory: `docs/designs`
 | DESIGN-034QfL0bH9u3cVqK0pYwT7x | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range | approved | [vs-c-staging-writer-journal-crash-recovery-verified-media-range.md](./vs-c-staging-writer-journal-crash-recovery-verified-media-range.md) |
 | DESIGN-sbd87tLPXRrvP2kyru1XD2 | VS-D Recording Commit / E2E — Idempotent Commit・Undo・Reload 設計 | approved | [vs-d-recording-commit-e2e-idempotency-undo-reload.md](./vs-d-recording-commit-e2e-idempotency-undo-reload.md) |
 | — | Synvelis Workspace / Docking / Multi-Window 統合設計 | — | [workspace-docking-state-architecture.md](./workspace-docking-state-architecture.md) |
+| DESIGN-034X4TrgrbyPHCdc8l0xPg | Workspace Model Design — GPUI-neutral View/Driver Port, lifetime independence, routing | approved | [workspace-model-design.md](./workspace-model-design.md) |
 | DESIGN-034X3lVqc2s7Qx5w6YylGa | Workspace UX 操作仕様 — Docking/Window・View 閉鎖/Inspector/Link Group/入力境界/Layout 復帰 (Issue #3 正本) | approved | [workspace-ux-scenarios-design.md](./workspace-ux-scenarios-design.md) |
 | DESIGN-034QwYMaHNxxpkZgLxPjx6 | WS-A Workspace 基盤設計 — View/Selection/LinkGroup/Command/Dock headless PoC | approved | [ws-a-workspace-foundation-design.md](./ws-a-workspace-foundation-design.md) |
 | DESIGN-HEDK2Gt2m6FAc3GREIhJDl | X Design — Canonical publication receipt・commit digest 接続・同一経路 playback/export | approved | [x-recorded-verified-source-playback-export-design.md](./x-recorded-verified-source-playback-export-design.md) |

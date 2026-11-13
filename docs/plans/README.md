@@ -143,6 +143,7 @@ Directory: `docs/plans`
 | PLAN-kco2O0dSUXmFGIGQYqpxrx | VS-B Clock / Gate Scheduler / RT Capture 実装計画 | approved | [vs-b-clock-gate-rt-capture.md](./vs-b-clock-gate-rt-capture.md) |
 | PLAN-034QfNV0kVj6j2cR8sXyLqWm | VS-C Staging Writer / Journal / Crash Recovery 実装計画 | approved | [vs-c-staging-writer-journal-crash-recovery.md](./vs-c-staging-writer-journal-crash-recovery.md) |
 | PLAN-wDLeQm8n2jpOzr5utDhOSF | VS-D Recording Commit / E2E 実装計画 | approved | [vs-d-recording-commit-e2e.md](./vs-d-recording-commit-e2e.md) |
+| PLAN-034X52muh3ycW5cWGEkyBN | Workspace Model Plan — design + headless verification | in-progress | [workspace-model.md](./workspace-model.md) |
 | PLAN-034X3PYp3yD3aBha3pGepA | Workspace UX 操作仕様の正本化（Issue #3 文書チェーン） | in-progress | [workspace-ux-scenarios.md](./workspace-ux-scenarios.md) |
 | PLAN-KF3NnioeKW8ERFMd7dyN15 | X 実装計画 — Recorded Source→Generic Playback/Export integration | approved | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |
 

@@ -63,6 +63,7 @@ Directory: `docs/tasks`
 | TASK-034QfR0eLqVxiQlwHq30L3 | VS-C task4 recovery scanner | todo | [vs-c-task4-recovery-scanner.md](./vs-c-task4-recovery-scanner.md) |
 | TASK-034QfR0WeQaYFoG1702td0 | VS-C task5 poc acceptance tests | todo | [vs-c-task5-poc-acceptance-tests.md](./vs-c-task5-poc-acceptance-tests.md) |
 | TASK-034QfR1ESUtmNef7DRyTyz | VS-C task6 verification impl record | todo | [vs-c-task6-verification-impl-record.md](./vs-c-task6-verification-impl-record.md) |
+| TASK-034X53taZcU5UQQfAN0qS5 | Workspace Model Task — Issue #2 design + headless verification | in-progress | [workspace-model-task.md](./workspace-model-task.md) |
 | TASK-034X3SQ8cOyUYvh20KEekf | Workspace UX 操作仕様の正本化（Issue #3 文書チェーン実施） | in-progress | [workspace-ux-scenarios-task.md](./workspace-ux-scenarios-task.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
