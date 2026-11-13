@@ -31,6 +31,7 @@ Directory: `docs/designs`
 | DESIGN-taIsR3SbHTaGKnhYkfth7f | CTL-02 adoption SendLevel canonical spec 強制 設計 | approved | [ctl-02-adopt-sendlevel-design.md](./ctl-02-adopt-sendlevel-design.md) |
 | DESIGN-034QAlPiE7atUoGKXNG7Lr | ED-A Editing Model 設計 — Selection/Tool/Snap/Gesture/LinkedContext headless PoC | approved | [ed-a-editing-model-design.md](./ed-a-editing-model-design.md) |
 | DESIGN-034QN0IIBPRdrHiOv3uTvq | ED-B media-domain editing design | approved | [ed-b-media-domain-editing-design.md](./ed-b-media-domain-editing-design.md) |
+| DESIGN-034X83GOEQ84LyUmDRBepu | Execution Plan Design — 横断 DAG・Owner/Gate/Acceptance Matrix・OS 検証レベル・Evidence 台帳構造 | approved | [execution-plan-design.md](./execution-plan-design.md) |
 | DESIGN-0Gw01GateWayContract01 | GW-01 Gateway Contract — Capability Registry・Typed Invocation・Versioned Result/Error | draft | [gw-01-gateway-contract-design.md](./gw-01-gateway-contract-design.md) |
 | DESIGN-0Gw02AuthorizationPo01 | GW-02 Principal / Execution Grant / Authorization Policy — Fixed/Dynamic Scope | draft | [gw-02-authorization-policy-design.md](./gw-02-authorization-policy-design.md) |
 | DESIGN-7Y20yWdQNliSve36HXn2Hy | Issue #145 ci.yml manual-only 設計 — trigger 撤去の最小差分と不変契約の境界 | approved | [issue-145-ci-manual-only.md](./issue-145-ci-manual-only.md) |

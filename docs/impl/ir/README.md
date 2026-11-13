@@ -43,6 +43,7 @@ Directory: `docs/impl/ir`
 | IMPL-034V1FQ09PSOnyDawvKX60 | CTL-02 Strip/Send Host Parameter 正本・Plugin Binding・Routing 実装記録 | completed | [ctl-02-strip-send-host-parameter-plugin-binding-routing.md](./ctl-02-strip-send-host-parameter-plugin-binding-routing.md) |
 | IMPL-034QAWvNQYPna11TqH7YTn | ED-A editing model headless PoC | completed | [ed-a-editing-model-headless-poc.md](./ed-a-editing-model-headless-poc.md) |
 | IMPL-034QO4tHWa37Uyya3N6ttQ | ED-B media-domain move/trim/slip + marquee commit semantics | completed | [ed-b-media-domain-move-trim-slip-marquee-commit-semantics.md](./ed-b-media-domain-move-trim-slip-marquee-commit-semantics.md) |
+| IMPL-034X84u7PqVqLhNVOe8UZB | Execution Plan — Issue #23 横断 DAG 文書化 + sv23 evidence 台帳 | completed | [execution-plan.md](./execution-plan.md) |
 | IMPL-0Gw01GateWayContract01 | GW-01 Gateway Contract — Capability Registry・Typed Invocation・Versioned Result/Error | completed | [gw-01-gateway-contract.md](./gw-01-gateway-contract.md) |
 | IMPL-0Gw02AuthorizationPo01 | GW-02 Principal / Execution Grant / Authorization Policy — Fixed/Dynamic Scope | completed | [gw-02-authorization-policy.md](./gw-02-authorization-policy.md) |
 | IMPL-0Gw03ContextProjecti01 | GW-03 Scoped Context Projection / Snapshot Pagination / Read-Disclosure Guard | completed | [gw-03-context-projection.md](./gw-03-context-projection.md) |
