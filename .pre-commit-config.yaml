@@ -26,5 +26,3 @@ repos:
         files: '^\.github/workflows/.*\.ya?ml'
         types: [yaml]
         pass_filenames: true
-
-        pass_filenames: true
