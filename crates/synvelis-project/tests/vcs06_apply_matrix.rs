@@ -591,3 +591,141 @@ fn directory_journal_survives_restart_and_replays() {
     }
     let _ = std::fs::remove_dir_all(&journal_dir);
 }
+
+// ── VCS-APPLY-REAL (Windows FS fault subset) ──────────────────────
+//
+// Real Windows share-mode/readonly faults against the on-disk
+// `DirectoryApplyJournal`. Windows-only by construction (`share_mode`
+// is Win32; a read-only directory attribute is not enforceable via
+// `std::fs` on Windows), so non-Windows legs of these rows stay
+// `NotRun` — see `evidence/reports/vcs-06-fixture-matrix-ledger.md`.
+
+/// Builds the deterministic `UnsupportedField` (ppqn drift) apply
+/// fixture shared by the Windows FS-fault journal rows: the intent
+/// fails inside `apply_inner` *after* the journal `Pending` record
+/// is written, leaving a persisted `Failed` record to fault against.
+#[cfg(windows)]
+fn ppqn_drift_apply() -> (ProjectController, ApplyChangeIntent, Src) {
+    let c = base_project();
+    let before = snap_live(&c);
+    let mut project = c.live().clone();
+    project.ppqn.0 = 480;
+    let after = snap_manual(project, "after");
+    let cs = compare(&before, &after);
+    let change = cs
+        .changes
+        .iter()
+        .find(|ch| ch.object.kind == ObjectKind::Project && ch.kind == ChangeKind::Modified)
+        .expect("project ppqn change");
+    let intent = intent_for(&c, &cs, &after, &[change]);
+    let src = sources_for(&cs, &before, &after);
+    (c, intent, src)
+}
+
+/// The single `<key>.json` record a `DirectoryApplyJournal` wrote.
+#[cfg(windows)]
+fn single_journal_record(dir: &std::path::Path) -> PathBuf {
+    let records: Vec<PathBuf> = std::fs::read_dir(dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "json"))
+        .collect();
+    assert_eq!(records.len(), 1, "expected one journal record: {records:?}");
+    records.into_iter().next().unwrap()
+}
+
+/// Holds the persisted journal record with every share denied
+/// (`share_mode(0)`). A retry must fail at `journal.load` with the
+/// typed [`ApplyError::Journal`] before any mutation — the project
+/// stays untouched — and the same intent recovers to its original
+/// typed failure once the handle is released.
+#[cfg(windows)]
+#[test]
+fn locked_journal_record_fails_typed_before_mutation_and_recovers() {
+    use std::os::windows::fs::OpenOptionsExt;
+
+    let (mut live, intent, src) = ppqn_drift_apply();
+    let journal_dir = tmp_dir("jlock");
+    let record = {
+        let mut journal = DirectoryApplyJournal::new(&journal_dir);
+        let err = run_apply(&mut live, &intent, &src, &mut journal).unwrap_err();
+        assert!(
+            matches!(err, ApplyError::UnsupportedField { .. }),
+            "fixture apply must fail typed: {err:?}"
+        );
+        single_journal_record(&journal_dir)
+    };
+
+    // Exclusive hold: even the journal's own read is refused.
+    let held = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(0)
+        .open(&record)
+        .expect("exclusive hold on journal record");
+
+    // "Restart" over the same directory: load hits the lock.
+    let mut journal = DirectoryApplyJournal::new(&journal_dir);
+    let err = run_apply(&mut live, &intent, &src, &mut journal).unwrap_err();
+    assert!(
+        matches!(err, ApplyError::Journal { .. }),
+        "locked journal record must be a typed Journal failure: {err:?}"
+    );
+    assert_eq!(
+        live.live().ppqn.0,
+        960,
+        "journal failure must precede any mutation"
+    );
+
+    drop(held);
+    let err = run_apply(&mut live, &intent, &src, &mut journal).unwrap_err();
+    assert!(
+        matches!(err, ApplyError::UnsupportedField { .. }),
+        "released journal must recover to the original typed failure: {err:?}"
+    );
+    let _ = std::fs::remove_dir_all(&journal_dir);
+}
+
+/// Read-only journal record: `load` still reads it, but the
+/// `Pending` re-store cannot replace the read-only file — the retry
+/// fails typed at the journal boundary before mutation, and clearing
+/// the attribute recovers the original typed failure.
+#[cfg(windows)]
+#[test]
+fn readonly_journal_record_fails_typed_before_mutation_and_recovers() {
+    let (mut live, intent, src) = ppqn_drift_apply();
+    let journal_dir = tmp_dir("jro");
+    let record = {
+        let mut journal = DirectoryApplyJournal::new(&journal_dir);
+        let err = run_apply(&mut live, &intent, &src, &mut journal).unwrap_err();
+        assert!(
+            matches!(err, ApplyError::UnsupportedField { .. }),
+            "fixture apply must fail typed: {err:?}"
+        );
+        single_journal_record(&journal_dir)
+    };
+
+    let original_perms = std::fs::metadata(&record).unwrap().permissions();
+    let mut perms = original_perms.clone();
+    perms.set_readonly(true);
+    std::fs::set_permissions(&record, perms).unwrap();
+
+    let mut journal = DirectoryApplyJournal::new(&journal_dir);
+    let err = run_apply(&mut live, &intent, &src, &mut journal).unwrap_err();
+    assert!(
+        matches!(err, ApplyError::Journal { .. }),
+        "read-only journal record must be a typed Journal failure: {err:?}"
+    );
+    assert_eq!(
+        live.live().ppqn.0,
+        960,
+        "journal failure must precede any mutation"
+    );
+
+    std::fs::set_permissions(&record, original_perms).unwrap();
+    let err = run_apply(&mut live, &intent, &src, &mut journal).unwrap_err();
+    assert!(
+        matches!(err, ApplyError::UnsupportedField { .. }),
+        "cleared attribute must recover to the original typed failure: {err:?}"
+    );
+    let _ = std::fs::remove_dir_all(&journal_dir);
+}

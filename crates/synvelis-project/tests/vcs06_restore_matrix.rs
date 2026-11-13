@@ -576,3 +576,169 @@ fn case_conflicting_sibling_is_rejected() {
     assert!(parent.join("Copy-Case").exists());
     let _ = std::fs::remove_dir_all(&parent);
 }
+
+// ── VCS-RESTORE-REAL (Windows FS fault subset) ────────────────────
+//
+// Real Windows share-mode/readonly faults against the staging
+// tree. These rows are Windows-only by construction: `share_mode`
+// is a Win32 concept and a read-only *directory* attribute is not
+// enforceable through `std::fs` on Windows (NTFS ignores it for
+// child creation), so the honest fault targets are files inside
+// the staging tree — the same boundary `store_publish.rs` uses.
+// Non-Windows legs of these rows stay `NotRun`
+// (see `evidence/reports/vcs-06-fixture-matrix-ledger.md`).
+
+/// The staging manifest filename — the on-disk journal contract
+/// (`restore.json` inside `.<leaf>.restore-<id>/`).
+#[cfg(windows)]
+const STAGING_MANIFEST: &str = "restore.json";
+
+/// Interrupts a restore, then holds `staging/restore.json` with
+/// every share denied (`share_mode(0)`). Resume must fail with a
+/// typed [`RestoreError::Io`] before any mutation, keep the staging
+/// tree, and publish normally once the handle is released.
+#[cfg(windows)]
+#[test]
+fn locked_staging_manifest_fails_typed_and_resume_recovers() {
+    use std::os::windows::fs::OpenOptionsExt;
+
+    let (c, _digests) = media_project();
+    let snap = snap_live(&c);
+    let parent = tmp_dir("fslock");
+    let dest = parent.join("copy-fl");
+    let staging = staging_dir(&parent, "copy-fl", "r-fl");
+    interrupt_restore(&snap, &dest, &staging, "r-fl");
+
+    let manifest = staging.join(STAGING_MANIFEST);
+    let held = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(0)
+        .open(&manifest)
+        .expect("exclusive hold on staging manifest");
+
+    let blobs = media_blobs();
+    let ports = media_ports(&blobs);
+    let err = restore_as_copy(
+        &request(snap.clone(), dest.clone(), "r-fl"),
+        &ports,
+        &SnapshotCancel::new(),
+    )
+    .unwrap_err();
+    assert!(
+        matches!(err, RestoreError::Io { .. }),
+        "locked manifest must be a typed Io failure: {err:?}"
+    );
+    assert!(staging.exists(), "staging must survive the fault");
+    assert!(!dest.exists(), "nothing may publish under the fault");
+
+    drop(held);
+    let receipt = restore_as_copy(
+        &request(snap, dest.clone(), "r-fl"),
+        &ports,
+        &SnapshotCancel::new(),
+    )
+    .unwrap();
+    assert_eq!(receipt.outcome, RestoreOutcome::Published);
+    assert!(dest.join("HEAD").exists());
+    assert!(!staging.exists(), "staging consumed by publish");
+    let _ = std::fs::remove_dir_all(&parent);
+}
+
+/// Same exclusive-hold row at the rename boundary: `staging/HEAD`
+/// is held with `FILE_SHARE_READ` only (the `store_publish.rs`
+/// pattern) — reads still classify, but the atomic replace in
+/// `publish_replace` cannot complete. The failure is typed and the
+/// staging tree remains resumable.
+#[cfg(windows)]
+#[test]
+fn locked_staging_head_blocks_publish_rename_and_recovers() {
+    use std::os::windows::fs::OpenOptionsExt;
+
+    let (c, _digests) = media_project();
+    let snap = snap_live(&c);
+    let parent = tmp_dir("fshead");
+    let dest = parent.join("copy-fh");
+    let staging = staging_dir(&parent, "copy-fh", "r-fh");
+    interrupt_restore(&snap, &dest, &staging, "r-fh");
+
+    // HEAD exists after the interrupted materialize (envelope +
+    // HEAD publish before the first blob read).
+    let head = staging.join("HEAD");
+    assert!(head.exists(), "interrupted staging must hold HEAD");
+    let lock = std::fs::OpenOptions::new()
+        .read(true)
+        .share_mode(0x1) // FILE_SHARE_READ: reads pass, replace fails
+        .open(&head)
+        .expect("share-read hold on staging HEAD");
+
+    let blobs = media_blobs();
+    let ports = media_ports(&blobs);
+    let err = restore_as_copy(
+        &request(snap.clone(), dest.clone(), "r-fh"),
+        &ports,
+        &SnapshotCancel::new(),
+    )
+    .unwrap_err();
+    assert!(
+        matches!(err, RestoreError::Io { .. }),
+        "locked HEAD must fail typed before publish: {err:?}"
+    );
+    assert!(staging.exists(), "staging must survive the fault");
+    assert!(!dest.exists(), "nothing may publish under the fault");
+
+    drop(lock);
+    let receipt = restore_as_copy(
+        &request(snap, dest.clone(), "r-fh"),
+        &ports,
+        &SnapshotCancel::new(),
+    )
+    .unwrap();
+    assert_eq!(receipt.outcome, RestoreOutcome::Published);
+    let _ = std::fs::remove_dir_all(&parent);
+}
+
+/// Read-only staging manifest: reads still succeed, but the
+/// `publish_replace` bookkeeping write cannot replace the read-only
+/// file — the resume fails typed *before* the publish rename, the
+/// destination stays absent, and clearing the attribute recovers.
+#[cfg(windows)]
+#[test]
+fn readonly_staging_manifest_is_rejected_before_publish() {
+    let (c, _digests) = media_project();
+    let snap = snap_live(&c);
+    let parent = tmp_dir("fsro");
+    let dest = parent.join("copy-ro");
+    let staging = staging_dir(&parent, "copy-ro", "r-ro");
+    interrupt_restore(&snap, &dest, &staging, "r-ro");
+
+    let manifest = staging.join(STAGING_MANIFEST);
+    let original_perms = std::fs::metadata(&manifest).unwrap().permissions();
+    let mut perms = original_perms.clone();
+    perms.set_readonly(true);
+    std::fs::set_permissions(&manifest, perms).unwrap();
+
+    let blobs = media_blobs();
+    let ports = media_ports(&blobs);
+    let err = restore_as_copy(
+        &request(snap.clone(), dest.clone(), "r-ro"),
+        &ports,
+        &SnapshotCancel::new(),
+    )
+    .unwrap_err();
+    assert!(
+        matches!(err, RestoreError::Io { .. }),
+        "read-only manifest must be a typed Io failure: {err:?}"
+    );
+    assert!(staging.exists(), "staging must survive the fault");
+    assert!(!dest.exists(), "publish must not complete under the fault");
+
+    std::fs::set_permissions(&manifest, original_perms).unwrap();
+    let receipt = restore_as_copy(
+        &request(snap, dest.clone(), "r-ro"),
+        &ports,
+        &SnapshotCancel::new(),
+    )
+    .unwrap();
+    assert_eq!(receipt.outcome, RestoreOutcome::Published);
+    let _ = std::fs::remove_dir_all(&parent);
+}
