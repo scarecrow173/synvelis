@@ -75,7 +75,9 @@ jobs:
   verify:
     name: verify (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 40
+    # Issue #377: native/gpui-test feature lane 追加で compile 対象が
+    # 増えるため timeout を 60m へ(msrv-verify と同じ上限)。
+    timeout-minutes: 60
     strategy:
       # 片 OS の失敗で他 OS の証跡を失わない。
       fail-fast: false
@@ -182,6 +184,64 @@ jobs:
         id: test
         run: mise run test-full
 
+      # Issue #377 (SV-CI-L1-01): synvelis-app 非既定 Feature の OS-L1
+      # lane を既存 verify leg へ追加する。`native` feature の
+      # check/Clippy と `synvelis-native` bin の Build/Link、
+      # `gpui-test` feature の headless scenario/contract test を
+      # 3 OS で実走させる。gpui-test は native を内包するが、bin の
+      # link 検証は native feature のみで行う。job/leg は増やさず
+      # leg 単位の fail-closed 集約(evidence/ci-summary)をそのまま
+      # 維持する。
+      - name: Install Linux GPUI native dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # gpui(Linux)の link 依存は libxkbcommon / libxkbcommon-x11
+          # のみ — x11rb/wayland/fontconfig/vulkan は pure Rust か
+          # dlopen で -dev package を要求しない。runner image の
+          # 同梱状況に依存しないよう明示 install する。
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libxkbcommon-dev libxkbcommon-x11-dev
+
+      - name: Check synvelis-app native feature (mise run check-app-native)
+        id: check-native
+        run: mise run check-app-native
+
+      - name: Lint synvelis-app native feature (mise run lint-app-native)
+        id: lint-native
+        run: mise run lint-app-native
+
+      - name: Build synvelis-native bin (mise run build-app-native)
+        id: build-native
+        run: mise run build-app-native
+
+      - name: Check synvelis-app gpui-test feature (mise run check-app-gpui)
+        id: check-gpui
+        run: mise run check-app-gpui
+
+      - name: Lint synvelis-app gpui-test feature (mise run lint-app-gpui)
+        id: lint-gpui
+        run: mise run lint-app-gpui
+
+      # `gpui-test` feature 無しでは tests/scenario_gpui.rs が cfg で
+      # 空になり 0 件 pass し得るため、rt_ guard と同型に scenario
+      # test target の非空選択を先に確認する(0件/未選択の silent
+      # pass 防止)。
+      - name: Require non-empty gpui-test scenario selection
+        id: gpui-guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_list="$(mise exec -- cargo test -p synvelis-app --locked --features gpui-test --test scenario_gpui -- --list)"
+          strict_count="$(printf '%s\n' "$test_list" | grep -Ec ': test$' || true)"
+          echo "gpui-test scenario tests: $strict_count"
+          test "$strict_count" -gt 0
+
+      - name: Test synvelis-app gpui-test feature (mise run test-app-gpui)
+        id: test-gpui
+        run: mise run test-app-gpui
+
       # check/lint は --locked 無しの task のため、実行後の lockfile
       # 差分があれば fail にして汚染を検出する。
       - name: Assert Cargo.lock unchanged
@@ -211,6 +271,13 @@ jobs:
             echo "| check | ${{ steps.check.outcome || 'not run' }} |"
             echo "| lint | ${{ steps.lint.outcome || 'not run' }} |"
             echo "| test | ${{ steps.test.outcome || 'not run' }} |"
+            echo "| check-native | ${{ steps.check-native.outcome || 'not run' }} |"
+            echo "| lint-native | ${{ steps.lint-native.outcome || 'not run' }} |"
+            echo "| build-native | ${{ steps.build-native.outcome || 'not run' }} |"
+            echo "| check-gpui | ${{ steps.check-gpui.outcome || 'not run' }} |"
+            echo "| lint-gpui | ${{ steps.lint-gpui.outcome || 'not run' }} |"
+            echo "| gpui-test guard | ${{ steps.gpui-guard.outcome || 'not run' }} |"
+            echo "| test-gpui | ${{ steps.test-gpui.outcome || 'not run' }} |"
             echo "| lockfile-diff | ${{ steps.lockdiff.outcome || 'not run' }} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -237,7 +304,8 @@ jobs:
   verify-macos:
     name: verify-macos
     runs-on: macos-latest
-    timeout-minutes: 40
+    # Issue #377: verify と同じ feature lane 追加に伴い 60m へ。
+    timeout-minutes: 60
     env:
       CARGO_INCREMENTAL: "0"
     steps:
@@ -331,6 +399,43 @@ jobs:
         id: test
         run: mise run test-full
 
+      # Issue #377 (SV-CI-L1-01): verify leg と同一の synvelis-app
+      # 非既定 Feature OS-L1 lane(macOS は GPUI の Linux 系 SDK 依存を
+      # 持たないため apt step は verify leg のみ)。
+      - name: Check synvelis-app native feature (mise run check-app-native)
+        id: check-native
+        run: mise run check-app-native
+
+      - name: Lint synvelis-app native feature (mise run lint-app-native)
+        id: lint-native
+        run: mise run lint-app-native
+
+      - name: Build synvelis-native bin (mise run build-app-native)
+        id: build-native
+        run: mise run build-app-native
+
+      - name: Check synvelis-app gpui-test feature (mise run check-app-gpui)
+        id: check-gpui
+        run: mise run check-app-gpui
+
+      - name: Lint synvelis-app gpui-test feature (mise run lint-app-gpui)
+        id: lint-gpui
+        run: mise run lint-app-gpui
+
+      - name: Require non-empty gpui-test scenario selection
+        id: gpui-guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_list="$(mise exec -- cargo test -p synvelis-app --locked --features gpui-test --test scenario_gpui -- --list)"
+          strict_count="$(printf '%s\n' "$test_list" | grep -Ec ': test$' || true)"
+          echo "gpui-test scenario tests: $strict_count"
+          test "$strict_count" -gt 0
+
+      - name: Test synvelis-app gpui-test feature (mise run test-app-gpui)
+        id: test-gpui
+        run: mise run test-app-gpui
+
       - name: Assert Cargo.lock unchanged
         id: lockdiff
         run: git diff --exit-code -- Cargo.lock
@@ -358,6 +463,13 @@ jobs:
             echo "| check | ${{ steps.check.outcome || 'not run' }} |"
             echo "| lint | ${{ steps.lint.outcome || 'not run' }} |"
             echo "| test | ${{ steps.test.outcome || 'not run' }} |"
+            echo "| check-native | ${{ steps.check-native.outcome || 'not run' }} |"
+            echo "| lint-native | ${{ steps.lint-native.outcome || 'not run' }} |"
+            echo "| build-native | ${{ steps.build-native.outcome || 'not run' }} |"
+            echo "| check-gpui | ${{ steps.check-gpui.outcome || 'not run' }} |"
+            echo "| lint-gpui | ${{ steps.lint-gpui.outcome || 'not run' }} |"
+            echo "| gpui-test guard | ${{ steps.gpui-guard.outcome || 'not run' }} |"
+            echo "| test-gpui | ${{ steps.test-gpui.outcome || 'not run' }} |"
             echo "| lockfile-diff | ${{ steps.lockdiff.outcome || 'not run' }} |"
           } >> "$GITHUB_STEP_SUMMARY"
 

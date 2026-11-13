@@ -15,6 +15,7 @@ Directory: `docs/plans`
 | PLAN-034AUT03Cm4rT8vXy1qKp9sL | AUT-03 Loop 録音 1 Pass・Write Range 閉鎖・明示 Rearm 実装計画 | approved | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |
 | PLAN-034AUT04psf1yTvW6ZK4c3 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装計画 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
 | PLAN-034VmidubXq53HjWVDgDeV | Issue #245 verify-macos rt_cache alloc 計測 flake — warm-up 実装計画 | approved | [ci-245-macos-alloc-flake-plan.md](./ci-245-macos-alloc-flake-plan.md) |
+| PLAN-VqCkmPqwMy7x4374pKJMzz | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 実施計画 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | PLAN-034RoZox0pXYihUzci5UC8 | Synvelis 独立 CI 実装計画 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | PLAN-034CTL01Rz2xAu8bD4eF5gHi | CTL-01 ControlOwner/AutomationTimeScope 実装計画 | approved | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
 | PLAN-3o92uvIdnyfhflikf7TlYQ | CTL-02 adoption SendLevel canonical spec 強制 実装計画 | approved | [ctl-02-adopt-sendlevel-plan.md](./ctl-02-adopt-sendlevel-plan.md) |

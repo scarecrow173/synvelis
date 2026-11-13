@@ -18,6 +18,7 @@ Directory: `docs/test-specs`
 | TSPEC-034AUT02Fh3jDs8mXq5vWk2n | AUT-02 E2E 検証仕様 — Region Replace 境界曲線保存・Reject/Replace 原子的編集 | approved | [aut-02-e2e-region-replace-boundary.md](./aut-02-e2e-region-replace-boundary.md) |
 | TSPEC-034AUT03Zk6mVt4nQr2wXs8 | AUT-03 E2E 検証仕様 — Loop 録音 1 Pass・Write Range 半開区間・境界 flush・明示 Rearm | approved | [aut-03-e2e-loop-write-one-pass.md](./aut-03-e2e-loop-write-one-pass.md) |
 | TSPEC-034AUT04VgQF9P59tpgXou | AUT-04 E2E 検証仕様 — Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-e2e-automation-curve-lod-record-budget.md](./aut-04-e2e-automation-curve-lod-record-budget.md) |
+| TSPEC-m5UJFsYVE3wcIp2bbhjQ6C | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 検証仕様 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | TSPEC-034RoWXtHq8FkSjQ9NWwqn | Synvelis 独立 CI ワークフロー検証仕様 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | TSPEC-034CTL01Pr2sUv7wY4zAbCdEfG | CTL-01 ControlOwner/AutomationTimeScope 検証仕様 | approved | [ctl-01-e2e-control-owner-time-scope.md](./ctl-01-e2e-control-owner-time-scope.md) |
 | TSPEC-l7ZEZAPF6fGjIhiojtusYR | CTL-02 adoption SendLevel canonical spec 検証仕様 | approved | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
