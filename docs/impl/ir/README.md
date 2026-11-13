@@ -35,6 +35,7 @@ Directory: `docs/impl/ir`
 | IMPL-AUT04CurveLodRecordBudget | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装記録 | completed | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
 | IMPL-034CTL01Kx9wMn2pQ7rVt4yB | CTL-01 ControlOwner/AutomationTimeScope 分離・Schema v7 実装記録 | completed | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
+| IMPL-034WBaliNYvopY8qIaeCeh | CTL-02 adoption 経路の非 canonical SendLevel 抑止 | completed | [ctl-02-adoption-canonical-sendlevel.md](./ctl-02-adoption-canonical-sendlevel.md) |
 | IMPL-034V1FQ09PSOnyDawvKX60 | CTL-02 Strip/Send Host Parameter 正本・Plugin Binding・Routing 実装記録 | completed | [ctl-02-strip-send-host-parameter-plugin-binding-routing.md](./ctl-02-strip-send-host-parameter-plugin-binding-routing.md) |
 | IMPL-034QAWvNQYPna11TqH7YTn | ED-A editing model headless PoC | completed | [ed-a-editing-model-headless-poc.md](./ed-a-editing-model-headless-poc.md) |
 | IMPL-034QO4tHWa37Uyya3N6ttQ | ED-B media-domain move/trim/slip + marquee commit semantics | completed | [ed-b-media-domain-move-trim-slip-marquee-commit-semantics.md](./ed-b-media-domain-move-trim-slip-marquee-commit-semantics.md) |

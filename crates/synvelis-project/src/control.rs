@@ -1016,6 +1016,36 @@ pub(crate) fn strip_channel_target(
     }
 }
 
+/// The canonical persisted spec `(kind, mapping, time_scope)` of a
+/// send's level target — `capability` is always `None` for internal
+/// send gains (they carry no plugin `ParamId`). The single source
+/// shared by [`canonical_internal_spec`] and the send-gain adoption
+/// guard: `AddSend`/`SetSendGainTarget` re-own an adopted target as
+/// `Send`+`SendLevel` at apply without rewriting its spec fields, so
+/// the authored spec must already satisfy this contract or a
+/// non-canonical `SendLevel` would persist.
+pub(crate) fn send_level_spec() -> (ValueKind, ParamMapping, AutomationTimeScope) {
+    (
+        ValueKind::Continuous,
+        ParamMapping::Linear,
+        AutomationTimeScope::ProjectMusical,
+    )
+}
+
+/// Whether `target` already carries the canonical
+/// [`ParameterRole::SendLevel`] persisted spec — the precondition the
+/// send-gain adoption ops (`AddSend`/`SetSendGainTarget`) enforce
+/// because apply seals `owner`/`role` without rewriting `kind`/
+/// `mapping`/`time_scope`/`capability`. `name`/`base` are authored
+/// and outside the contract.
+pub(crate) fn has_canonical_send_level_spec(target: &ParameterTarget) -> bool {
+    let (kind, mapping, time_scope) = send_level_spec();
+    target.kind == kind
+        && target.mapping == mapping
+        && target.time_scope == time_scope
+        && target.capability.is_none()
+}
+
 /// The canonical persisted spec `(kind, mapping, time_scope)` an
 /// internal channel/send parameter target must carry —
 /// `capability` is always `None` for these targets (internal channel
@@ -1033,18 +1063,18 @@ pub(crate) fn canonical_internal_spec(
     owner: ControlOwner,
     role: ParameterRole,
 ) -> Option<(ValueKind, ParamMapping, AutomationTimeScope)> {
-    let kind = if matches!(owner, ControlOwner::Strip(_)) && STRIP_CHANNEL_ROLES.contains(&role) {
-        strip_channel_spec(role).1
+    if matches!(owner, ControlOwner::Strip(_)) && STRIP_CHANNEL_ROLES.contains(&role) {
+        let (_, kind, _) = strip_channel_spec(role);
+        Some((
+            kind,
+            ParamMapping::Linear,
+            AutomationTimeScope::ProjectMusical,
+        ))
     } else if matches!(owner, ControlOwner::Send(_)) && role == ParameterRole::SendLevel {
-        ValueKind::Continuous
+        Some(send_level_spec())
     } else {
-        return None;
-    };
-    Some((
-        kind,
-        ParamMapping::Linear,
-        AutomationTimeScope::ProjectMusical,
-    ))
+        None
+    }
 }
 
 /// The well-known raw ID of the master strip's seeded `role` channel
