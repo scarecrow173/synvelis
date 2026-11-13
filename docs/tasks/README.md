@@ -29,6 +29,7 @@ Directory: `docs/tasks`
 | TASK-034VpnH7YtacCiCUD4y9fu | RCD-02 Task3 StagedFile Publish Migration | in-progress | [rcd-02-task3-stagedfile-publish-migration.md](./rcd-02-task3-stagedfile-publish-migration.md) |
 | TASK-034WCx98h2mIsDpZJrrBkC | RCD-03 monitor engine — implementation slice | completed | [rcd-03-task-monitor-engine.md](./rcd-03-task-monitor-engine.md) |
 | TASK-034VegaqbLjPWyJoFDrmhQ | RCD-03 Task2 app Arm/Monitoring UX + monitor session projection | in-progress | [rcd-03-task2-app-arm-monitoring-ux.md](./rcd-03-task2-app-arm-monitoring-ux.md) |
+| TASK-034WEVr538punRWOxqkfaf | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice | in-progress | [rcd-04-task-midi-undo-stableid.md](./rcd-04-task-midi-undo-stableid.md) |
 | TASK-034VC2K5DEZwdj418Clksb | RCD-04 Task RT engine comp PCM | in-progress | [rcd-04-task-rt-engine-comp-pcm.md](./rcd-04-task-rt-engine-comp-pcm.md) |
 | TASK-034VmO0u2fPRBj8uO9cGkk | RCD-04 Task1 product E2E | in-progress | [rcd-04-task1-product-e2e.md](./rcd-04-task1-product-e2e.md) |
 | TASK-106SF03Tz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T1 — RoutingFault 18分類・engine 改修・reconcile 実装 | in-progress | [sf-03-slice2-fault-contract.md](./sf-03-slice2-fault-contract.md) |

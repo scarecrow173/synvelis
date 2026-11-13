@@ -451,6 +451,129 @@ fn comp_ids_survive_undo_redo_save_reload_and_diff() {
     assert_ne!(v1["name"], v2["name"], "the rename must be visible");
 }
 
+/// RCD-04 residual (synvelis#118): an active-comp switch is ONE
+/// `ProjectController` CAS step with ONE undo — `SetActiveComp`
+/// flips `take_group.active_comp_id` and nothing else, so a single
+/// `undo()` restores the exact pre-switch state and `redo()`
+/// re-applies it without re-minting IDs. Raw takes/sources/assets
+/// stay byte-identical across the whole switch sequence.
+#[test]
+fn comp_switch_is_single_cas_undo_and_leaves_raw_immutable() {
+    let (p, s) = seeded();
+    let takes_before = p.recording.takes.clone();
+    let sources_before = p.sources.clone();
+    let assets_before = p.assets.clone();
+    let mut c = controller(p);
+    let (group, comp1, _region_ids, _transition) = build_comp(&mut c, &s);
+
+    // Second comp on the same group — the switch target. One adopted
+    // region makes the switch substantive rather than a pointer flip
+    // between an empty shell.
+    apply(
+        &mut c,
+        CompOp::CreateComp {
+            take_group_id: group,
+        },
+    );
+    let comp2 = *c
+        .live()
+        .comp
+        .comps
+        .keys()
+        .find(|id| **id != comp1)
+        .expect("second comp created");
+    apply(
+        &mut c,
+        CompOp::AddCompRegion {
+            comp_id: comp2,
+            project_range: mr(0, 960),
+            candidate: CompCandidateRef::Silence,
+            mapping: PlaybackMapping::Natural,
+        },
+    );
+
+    let rev_before = c.live_revision();
+    let comp_json_before = comp_json(c.live());
+    assert_eq!(
+        c.live().comp.take_groups[&group].active_comp_id,
+        Some(comp1)
+    );
+
+    // comp1 → comp2 in ONE apply: exactly one revision step.
+    apply(
+        &mut c,
+        CompOp::SetActiveComp {
+            take_group_id: group,
+            comp_id: Some(comp2),
+        },
+    );
+    assert_eq!(c.live_revision().0, rev_before.0 + 1);
+    assert_eq!(
+        c.live().comp.take_groups[&group].active_comp_id,
+        Some(comp2)
+    );
+    // The switch touches only the active pointer — comp contents,
+    // regions, and transitions are untouched.
+    let comp_json_switched = comp_json(c.live());
+    assert_eq!(
+        comp_json_switched["comps"], comp_json_before["comps"],
+        "comp registry must be identical across an activation switch"
+    );
+    assert_eq!(comp_json_switched["regions"], comp_json_before["regions"],);
+    assert_eq!(
+        comp_json_switched["transitions"],
+        comp_json_before["transitions"],
+    );
+    // take_groups too — every field except the active pointer must be
+    // identical (take_ids, target_range, source_rate, owner_lane_id).
+    let mask_groups = |v: &serde_json::Value| {
+        let mut v = v.clone();
+        for g in v["take_groups"].as_object_mut().unwrap().values_mut() {
+            g["active_comp_id"] = serde_json::Value::Null;
+        }
+        v["take_groups"].clone()
+    };
+    assert_eq!(
+        mask_groups(&comp_json_switched),
+        mask_groups(&comp_json_before),
+        "only active_comp_id may differ inside take_groups"
+    );
+
+    // ONE undo restores the exact pre-switch project — no cascade.
+    // (Undo issues a new live revision by design; the pin is that a
+    // single undo fully restores the pre-switch content.)
+    let rev_switched = c.live_revision();
+    assert!(c.undo().unwrap());
+    assert_eq!(c.live_revision().0, rev_switched.0 + 1);
+    assert_eq!(comp_json(c.live()), comp_json_before);
+    assert_eq!(
+        c.live().comp.take_groups[&group].active_comp_id,
+        Some(comp1)
+    );
+
+    // Redo re-applies the identical switch — the whole comp state is
+    // restored byte-for-byte, IDs included (not re-minted).
+    let rev_undone = c.live_revision();
+    assert!(c.redo().unwrap());
+    assert_eq!(c.live_revision().0, rev_undone.0 + 1);
+    assert_eq!(comp_json(c.live()), comp_json_switched);
+    assert_eq!(
+        c.live().comp.take_groups[&group].active_comp_id,
+        Some(comp2)
+    );
+    assert!(c.live().comp.comps.contains_key(&comp2));
+
+    // Raw takes/sources/assets are immutable across the sequence —
+    // comp switching never rewrites recorded material.
+    let p = c.live();
+    assert_eq!(p.recording.takes, takes_before);
+    assert_eq!(p.sources, sources_before);
+    assert_eq!(p.assets, assets_before);
+    for t in p.recording.takes.values() {
+        assert_eq!(t.state, TakeState::Verified);
+    }
+}
+
 // ---------------------------------------------------------------------
 // Immutability + projection determinism
 // ---------------------------------------------------------------------

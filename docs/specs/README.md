@@ -63,6 +63,7 @@ Directory: `docs/specs`
 | SPEC-034UtksmGxvdygOzI1Dp7R | RCD-03 Monitoring / Punch / Latency semantics — synvelis#117 slice | proposed | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | SPEC-eEtM5VJlLpCbVXLnCEar4M | RCD-03 VCS semantic diff monitor 宣言分類 slice — synvelis#117 | proposed | [rcd-03-vcs-diff-monitor-classification.md](./rcd-03-vcs-diff-monitor-classification.md) |
 | SPEC-RCD04Fx7kQ2mV9wX4pL8sT1u | RCD-04 Comp Transition / MIDI Phrase — crate fixture slice (synvelis#118) | proposed | [rcd-04-comp-transition-midi-phrase-fixture.md](./rcd-04-comp-transition-midi-phrase-fixture.md) |
+| SPEC-034WEUWHrqeDl6HXbaRPVO | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID residual slice (synvelis#118) | proposed | [rcd-04-midi-undo-stableid.md](./rcd-04-midi-undo-stableid.md) |
 | SPEC-034VmNS87JaOfBSbYwh0pt | RCD-04 Comp Transition / MIDI Phrase / Recovery Review — product E2E (synvelis#118) | proposed | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | SPEC-034VBTXNYEeuSEzbHwk1hv | RCD-04 Comp Transition — RT engine PCM equivalence (synvelis#118) | proposed | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
 | SPEC-034SF01Km7pQr2sT9uVwXyZaB | SF-01 Semantic Routing Model — Bus/Send/Processor Chain/Stable Port IDs・Project Schema v6 | approved | [sf-01-semantic-routing-model-bus-send-chain-stable-ports.md](./sf-01-semantic-routing-model-bus-send-chain-stable-ports.md) |
