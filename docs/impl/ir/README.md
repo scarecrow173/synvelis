@@ -66,6 +66,7 @@ Directory: `docs/impl/ir`
 | IMPL-MDATakeGroupCompEffectiveProjectionPlacement | MD-A TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | completed | [mda-takegroup-comp-effective-projection-placement.md](./mda-takegroup-comp-effective-projection-placement.md) |
 | IMPL-MDBEffectiveCompLoweringLoadRevalidationCompDispatch | MD-B Effective Comp lowering・load-time revalidation・CompOp session dispatch (headless) | completed | [mdb-effective-comp-lowering-load-revalidation-comp-dispatch.md](./mdb-effective-comp-lowering-load-revalidation-comp-dispatch.md) |
 | IMPL-034MSA5207Kq2wXmZyAbCdEf | 最小 MIDI Source / Note 編集契約 — Stable ID・Linked Source・Undo・Save/Reload | completed | [midi-source-note-editing.md](./midi-source-note-editing.md) |
+| IMPL-sl0Rr2E3MxV46MGYb9oin9 | Musical Time — 設計契約文書チェーン実装記録（synvelis#19） | completed | [musical-time.md](./musical-time.md) |
 | IMPL-034PCA12Xz9hCd5kLmZnOp | PC-A parameter control model headless PoC | completed | [pc-a-parameter-control-headless-poc.md](./pc-a-parameter-control-headless-poc.md) |
 | IMPL-034PCB07Kq2wXyZmAbCdEf | PC-B parameter dispatch/note-scope/RT/offline headless PoC | completed | [pc-b-parameter-dispatch-note-scope-rt-offline.md](./pc-b-parameter-dispatch-note-scope-rt-offline.md) |
 | IMPL-034PC64RmwkXyZnPqRsTvWxA | PC-B 残件 — dispatch driver 配線・EvalPlan staleness・offline honesty | completed | [pc-b-remaining-dispatch-driver-evalplan-offline.md](./pc-b-remaining-dispatch-driver-evalplan-offline.md) |
