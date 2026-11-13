@@ -343,6 +343,146 @@ fn seeded() -> (ProjectController, Seeded) {
     );
     s.region = *c.live().comp.regions.keys().next().unwrap();
 
+    // Punch marks: project-wide musical ticks (1 and 3 beats) —
+    // re-projected like every other persisted musical position.
+    apply(
+        &mut c,
+        ProjectOp::SetPunchMarks {
+            punch_in: Some(MusicalTick::new(960)),
+            punch_out: Some(MusicalTick::new(2_880)),
+        },
+    );
+
+    // Automation: a project-scope lane whose points live in the
+    // rational beat domain — 4/3 beat is not representable on *any*
+    // PPQN grid, so bit-identical survival proves the BeatPoint
+    // domain is outside the re-projection walk.
+    apply(
+        &mut c,
+        ProjectOp::AddParameterTarget {
+            name: "p".into(),
+            owner: ControlOwner::Project,
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::ProjectMusical,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: None,
+            base: 0.5,
+        },
+    );
+    let target = *c
+        .live()
+        .control
+        .targets
+        .keys()
+        .rfind(|id| is_issuable_raw(id.raw()))
+        .unwrap();
+    apply(&mut c, ProjectOp::AddAutomationLane { target });
+    let automation_lane = *c.live().control.lanes.keys().last().unwrap();
+    apply(
+        &mut c,
+        ProjectOp::WriteAutomationRegion {
+            lane: automation_lane,
+            region: AutomationRegion {
+                range: BeatRange::try_new(
+                    BeatPoint::new(0, 1).unwrap(),
+                    BeatPoint::new(4, 1).unwrap(),
+                )
+                .unwrap(),
+                interpolation: Interpolation::Linear,
+                points: vec![
+                    AutomationPoint {
+                        pos: BeatPoint::new(4, 3).unwrap(),
+                        value: 0.25,
+                    },
+                    AutomationPoint {
+                        pos: BeatPoint::new(2, 1).unwrap(),
+                        value: 0.75,
+                    },
+                ],
+            },
+            policy: ConflictPolicy::Reject,
+        },
+    );
+
+    // Plugin instance identity: a resolved processor allocates a
+    // StablePluginInstanceId — routing/plugin state is outside the
+    // musical tick domain and must survive unchanged.
+    apply(
+        &mut c,
+        ProjectOp::AddTrackStrip {
+            track_id: TrackId::new(1),
+        },
+    );
+    let strip = c.live().routing.strip_of_track(TrackId::new(1)).unwrap().id;
+    apply(
+        &mut c,
+        ProjectOp::InsertProcessor {
+            strip_id: strip,
+            index: 0,
+            name: "fx".into(),
+            binding: ProcessorBinding::Resolved(PluginRef {
+                descriptor: "vendor.tim01".into(),
+                version: "1.0.0".into(),
+                capability_revision: 1,
+            }),
+            sidechain_input: false,
+        },
+    );
+
+    // SMF-backed source: division 480 ≠ project PPQN 960 — the
+    // source-native document (events in its own ticks) and the note
+    // projection are outside the re-projection walk.
+    apply(
+        &mut c,
+        ProjectOp::ImportMidiSmf {
+            document: SmfDocument {
+                format: SmfFormat::Format1,
+                division: 480,
+                tracks: vec![
+                    SmfTrack {
+                        events: vec![
+                            SmfEvent {
+                                tick: MidiTick::ZERO,
+                                kind: SmfEventKind::Tempo {
+                                    us_per_quarter: 500_000,
+                                },
+                            },
+                            SmfEvent {
+                                tick: MidiTick::ZERO,
+                                kind: SmfEventKind::EndOfTrack,
+                            },
+                        ],
+                    },
+                    SmfTrack {
+                        events: vec![
+                            SmfEvent {
+                                tick: MidiTick::ZERO,
+                                kind: SmfEventKind::NoteOn {
+                                    channel: 0,
+                                    key: 60,
+                                    velocity: 100,
+                                },
+                            },
+                            SmfEvent {
+                                tick: MidiTick::new(120).unwrap(),
+                                kind: SmfEventKind::NoteOff {
+                                    channel: 0,
+                                    key: 60,
+                                    velocity: 0,
+                                },
+                            },
+                            SmfEvent {
+                                tick: MidiTick::new(120).unwrap(),
+                                kind: SmfEventKind::EndOfTrack,
+                            },
+                        ],
+                    },
+                ],
+            },
+        },
+    );
+
     (c, s)
 }
 
@@ -375,6 +515,12 @@ fn musical_positions(p: &Project) -> Vec<(String, i64)> {
             out.push(("region-start".into(), m.start().value()));
             out.push(("region-end".into(), m.end().value()));
         }
+    }
+    for t in [&p.monitoring.punch.punch_in, &p.monitoring.punch.punch_out]
+        .into_iter()
+        .flatten()
+    {
+        out.push(("punch".into(), t.value()));
     }
     out
 }
@@ -459,6 +605,15 @@ fn ppqn_change_preserves_beat_positions_and_reprojects_ticks() {
     };
     assert_eq!(region_range.start(), MusicalTick::new(480));
     assert_eq!(region_range.end(), MusicalTick::new(960));
+    // Punch marks re-project too: 960→480 and 2880→1440.
+    assert_eq!(
+        project.monitoring.punch.punch_in,
+        Some(MusicalTick::new(480))
+    );
+    assert_eq!(
+        project.monitoring.punch.punch_out,
+        Some(MusicalTick::new(1_440))
+    );
 
     // Media truth invariant: same musical span resolves to the same
     // frames under the variable tempo map.
@@ -507,14 +662,31 @@ fn ppqn_sweep_covers_selectable_range() {
 fn ppqn_change_preserves_absolute_media_and_source_native_data() {
     let (mut c, s) = seeded();
     let abs_before = c.live().clips[&s.clip_absolute].placement;
-    let midi_before = c.live().midi_sources[&s.midi_source].clone();
+    let midi_before = c.live().midi_sources.clone();
+    let smf_before = c.live().smf_documents.clone();
     let recording_before = c.live().recording.clone();
+    let control_before = c.live().control.clone();
+    let routing_before = c.live().routing.clone();
+    let plugin_before = c.live().plugin_instances.clone();
 
     apply(&mut c, ppqn_op(960, 480, PpqnConversionPolicy::Exact));
 
     let p = c.live();
     assert_eq!(p.clips[&s.clip_absolute].placement, abs_before);
-    assert_eq!(&p.midi_sources[&s.midi_source], &midi_before);
+    assert_eq!(&p.midi_sources, &midi_before);
+    assert_eq!(
+        &p.midi_sources[&s.midi_source],
+        &midi_before[&s.midi_source]
+    );
+    // The SMF document keeps its source-native division (480) and
+    // event ticks even as project.ppqn moves — 異Division import.
+    assert_eq!(&p.smf_documents, &smf_before);
+    assert!(p.smf_documents.values().all(|d| d.division == 480));
+    // Automation BeatPoints, routing, and plugin-instance identities
+    // are outside the musical tick domain — bit-identical.
+    assert_eq!(&p.control, &control_before);
+    assert_eq!(&p.routing, &routing_before);
+    assert_eq!(&p.plugin_instances, &plugin_before);
     assert_eq!(&p.recording, &recording_before);
 }
 
@@ -854,8 +1026,9 @@ fn preview_ppqn_reports_sites_and_confirms_exact_change() {
     assert_eq!(preview.old_ppqn, 960);
     assert_eq!(preview.new_ppqn, 480);
     // tempo(3) + signature(2) + musical clip anchor/extent(2)
-    // + take-group range(2) + comp-region range(2) = 11 sites.
-    assert_eq!(preview.site_count, 11);
+    // + take-group range(2) + comp-region range(2) + punch marks(2)
+    // = 13 sites.
+    assert_eq!(preview.site_count, 13);
     assert_eq!(preview.inexact, Vec::new());
     assert_eq!(preview.overflow_sites, Vec::new());
     assert!(preview.exact_ok);
@@ -962,7 +1135,7 @@ fn preview_ppqn_rejects_out_of_range_ppqn() {
 fn preview_ppqn_identity_reports_all_sites_exact() {
     let (c, _s) = seeded();
     let preview = preview_ppqn(c.live(), 960, PpqnConversionPolicy::Exact).unwrap();
-    assert_eq!(preview.site_count, 11);
+    assert_eq!(preview.site_count, 13);
     assert_eq!(preview.inexact, Vec::new());
     assert_eq!(preview.overflow_sites, Vec::new());
     assert!(preview.applies);
@@ -1004,4 +1177,304 @@ fn rt_ppqn_beat_to_frame_rounding_reproduces() {
         span_after.end().frames_at(RATE)
     );
     assert!(span_before.end().frames_at(RATE) > span_before.start().frames_at(RATE));
+}
+
+// ---------- TIM-01 acceptance matrix (issue #125) ----------
+
+/// AC1: every selectable PPQN — 1/480/960/1000/1920/32767 —
+/// round-trips through apply → save → reload → undo → redo with
+/// identical rational-beat positions and an identical reload.
+#[test]
+fn ppqn_sweep_save_reload_undo_redo_matrix() {
+    for new_ppqn in [1_u32, 480, 960, 1_000, 1_920, 32_767] {
+        let (mut c, s) = seeded();
+        let before = c.live().clone();
+        // Media truth before the change: the musical clip's span
+        // under the variable tempo map — Beat→Frame RT rounding must
+        // reproduce identically on every target grid.
+        let map_before = tempo_map(c.live());
+        let span_before = c.live().clips[&s.clip_musical]
+            .placement
+            .resolve_span(Some(&map_before), RATE)
+            .unwrap();
+        let mut store = InMemoryStore::new();
+
+        apply(&mut c, ppqn_op(960, new_ppqn, PpqnConversionPolicy::Exact));
+        let mid = c.live().clone();
+        assert_eq!(mid.ppqn, ProjectPpqn(new_ppqn), "ppqn {new_ppqn}");
+        assert_eq!(mid.tempo_map.ppqn, new_ppqn, "ppqn {new_ppqn}");
+
+        // Save → reload: the persisted snapshot carries the new grid
+        // and every re-projected tick verbatim.
+        c.save(&mut store).unwrap();
+        let mut c2 = controller(Project::new(ProjectId::new(0), "re"));
+        c2.load(&store).unwrap();
+        assert_eq!(c2.live(), &mid, "ppqn {new_ppqn} reload mismatch");
+
+        // Beat positions survive the whole round trip identically.
+        let expected: Vec<_> = musical_positions(&before)
+            .iter()
+            .map(|(_, t)| beats_of(*t, 960))
+            .collect();
+        let got: Vec<_> = musical_positions(c2.live())
+            .iter()
+            .map(|(_, t)| beats_of(*t, new_ppqn))
+            .collect();
+        assert_eq!(got, expected, "ppqn {new_ppqn} beat drift after reload");
+
+        // Beat→Frame: the reloaded project resolves the same musical
+        // span to the same media frames — RT rounding reproduces.
+        let map_re = tempo_map(c2.live());
+        let span_re = c2.live().clips[&s.clip_musical]
+            .placement
+            .resolve_span(Some(&map_re), RATE)
+            .unwrap();
+        assert_eq!(span_before, span_re, "ppqn {new_ppqn} beat→frame drift");
+
+        // Undo restores the pre-change project exactly; redo
+        // re-applies the change — one undo entry per command.
+        assert!(c.undo().unwrap(), "ppqn {new_ppqn} undo");
+        assert_eq!(c.live(), &before, "ppqn {new_ppqn} undo mismatch");
+        assert!(c.redo().unwrap(), "ppqn {new_ppqn} redo");
+        assert_eq!(c.live(), &mid, "ppqn {new_ppqn} redo mismatch");
+    }
+}
+
+/// The real v5 snapshot bytes (`schema_version` 5, last v5 writer —
+/// provenance in `evidence/issue-86-v5-migration/`).
+const V5_SNAPSHOT: &[u8] = include_bytes!("fixtures/alib02-v5-legacy.json");
+const V5_PROJECT_ID: &str = "project-00000000000000000000000000000086";
+const V5_REVISION: u64 = 22;
+
+/// AC2: a real v5 snapshot migrates to current schema and then
+/// accepts a PPQN change: migrated musical ticks re-project through
+/// rational beats while source-native MIDI data, digests, and the
+/// v5 source bytes stay untouched.
+#[test]
+fn ppqn_change_on_v5_snapshot_preserves_migrated_data() {
+    let mut store = InMemoryStore::new();
+    let v5_head = store
+        .save(V5_PROJECT_ID, ProjectRevision(V5_REVISION), V5_SNAPSHOT)
+        .unwrap();
+
+    let mut c = controller(Project::new(ProjectId::new(0), "v5"));
+    c.load(&store).unwrap();
+    assert_eq!(c.live().ppqn, ProjectPpqn(960), "v5 project PPQN");
+
+    let before = c.live().clone();
+    // The migrated musical positions are all whole-beat — Exact is
+    // feasible on every target grid.
+    let before_positions = musical_positions(&before);
+
+    apply(&mut c, ppqn_op(960, 480, PpqnConversionPolicy::Exact));
+    let mid = c.live().clone();
+    assert_eq!(mid.ppqn, ProjectPpqn(480));
+    assert_eq!(mid.tempo_map.ppqn, 480);
+
+    // Migrated musical ticks re-projected: same beats, halved ticks.
+    let after_positions = musical_positions(&mid);
+    assert_eq!(before_positions.len(), after_positions.len());
+    for ((_, bt), (_, at)) in before_positions.iter().zip(&after_positions) {
+        assert_eq!(beats_of(*bt, 960), beats_of(*at, 480));
+    }
+    // Concrete migrated values: clip extent 7680→3840 (8 beats),
+    // tempo event 3840→1920 (4 beats), signature 1920→960 (2 beats).
+    let clip = mid.clips.values().next().unwrap();
+    assert_eq!(
+        clip.placement.extent,
+        ClipExtent::Musical(MusicalDuration::new(3_840).unwrap())
+    );
+
+    // Source-native and digest-bearing state is outside the walk.
+    assert_eq!(mid.midi_sources, before.midi_sources);
+    assert_eq!(mid.applied_imports, before.applied_imports);
+    assert_eq!(mid.assets, before.assets);
+    assert_eq!(mid.sources, before.sources);
+    assert_eq!(mid.control, before.control);
+
+    // Save publishes a new snapshot; the v5 bytes stay immutable and
+    // reloadable; the reloaded project equals the migrated+changed one.
+    let v5_before = store.read_snapshot(&v5_head).unwrap();
+    c.save(&mut store).unwrap();
+    assert_ne!(store.head().unwrap().unwrap(), v5_head);
+    assert_eq!(store.read_snapshot(&v5_head).unwrap(), v5_before);
+    assert_eq!(store.read_snapshot(&v5_head).unwrap(), V5_SNAPSHOT);
+
+    let mut c2 = controller(Project::new(ProjectId::new(0), "v5-re"));
+    c2.load(&store).unwrap();
+    assert_eq!(c2.live(), &mid);
+}
+
+/// AC3 denominator boundary: tick 1 @960 is 1/960 beat — on the
+/// 32767 grid that is 32767/960 ticks, far from integral. `Exact`
+/// rejects; `Round` applies only the declared rounding, and the
+/// boundary PPQN 32767 itself is exercised.
+#[test]
+fn ppqn_denominator_boundary_is_explicit() {
+    let (c, _s) = seeded_inexact();
+
+    let preview = preview_ppqn(c.live(), 32_767, PpqnConversionPolicy::Exact).unwrap();
+    assert_eq!(preview.site_count, 4);
+    assert_eq!(preview.inexact.len(), 1);
+    assert_eq!(preview.inexact[0].kind, "clip_anchor");
+    assert_eq!(preview.inexact[0].tick, 1);
+    assert_eq!(preview.inexact[0].projected, None);
+    assert!(!preview.exact_ok);
+    assert!(preview.round_ok);
+    assert!(!preview.applies);
+
+    // 1/960 beat → 32767/960 = 34.13… ticks: Floor 34, Ceil 35.
+    let preview = preview_ppqn(
+        c.live(),
+        32_767,
+        PpqnConversionPolicy::Round(Rounding::Floor),
+    )
+    .unwrap();
+    assert_eq!(preview.inexact[0].projected, Some(34));
+    let preview = preview_ppqn(
+        c.live(),
+        32_767,
+        PpqnConversionPolicy::Round(Rounding::Ceil),
+    )
+    .unwrap();
+    assert_eq!(preview.inexact[0].projected, Some(35));
+
+    // The mutating command honors the same declared rounding.
+    let (mut c2, _s2) = seeded_inexact();
+    apply(
+        &mut c2,
+        ppqn_op(960, 32_767, PpqnConversionPolicy::Round(Rounding::Floor)),
+    );
+    assert_eq!(c2.live().ppqn, ProjectPpqn(32_767));
+    let clip = c2.live().clips.values().next().unwrap();
+    let TimeAnchor::Musical(t) = clip.placement.anchor else {
+        panic!("musical anchor");
+    };
+    assert_eq!(t.value(), 34);
+}
+
+/// AC3 same-tick sites: a tempo event, a signature event, a clip
+/// anchor/extent, and a punch-in mark all sitting on tick 960
+/// re-project to the same target tick — no collision, no drift.
+#[test]
+fn ppqn_change_handles_same_tick_sites() {
+    let mut c = controller(Project::new(ProjectId::new(0), "same-tick"));
+    apply(&mut c, ProjectOp::AddTrack { name: "t".into() });
+    let track = *c.live().tracks.keys().next().unwrap();
+    apply(&mut c, ProjectOp::AddLane { track_id: track });
+    let lane = *c.live().lanes.keys().next().unwrap();
+    apply(&mut c, ProjectOp::RegisterAsset { digest: "d".into() });
+    let asset = *c.live().assets.keys().next().unwrap();
+    apply(
+        &mut c,
+        ProjectOp::RegisterSource {
+            asset_id: asset,
+            content_digest: "d".into(),
+        },
+    );
+    let source = *c.live().sources.keys().next().unwrap();
+    apply(
+        &mut c,
+        ProjectOp::AddClip {
+            lane_id: lane,
+            source_id: source,
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Musical(MusicalTick::new(960)),
+                extent: ClipExtent::Musical(MusicalDuration::new(960).unwrap()),
+            },
+            playback: ClipPlayback {
+                source_region: SourceRange::try_new(
+                    SourceFrame::ZERO,
+                    SourceFrame::new(96_000).unwrap(),
+                )
+                .unwrap(),
+                mapping: PlaybackMapping::Natural,
+            },
+        },
+    );
+    apply(
+        &mut c,
+        ProjectOp::AddTempoEvent {
+            tick: 960,
+            bpm_milli: 90_000,
+        },
+    );
+    apply(
+        &mut c,
+        ProjectOp::AddSignatureEvent {
+            tick: 960,
+            numerator: 3,
+            denominator: 4,
+        },
+    );
+    apply(
+        &mut c,
+        ProjectOp::SetPunchMarks {
+            punch_in: Some(MusicalTick::new(960)),
+            punch_out: Some(MusicalTick::new(1_920)),
+        },
+    );
+
+    apply(&mut c, ppqn_op(960, 480, PpqnConversionPolicy::Exact));
+
+    // Every site that sat on tick 960 (1 beat) lands on 480; the
+    // punch-out at 2 beats lands on 960.
+    assert_eq!(c.live().tempo_map.tempo_events[1].tick, 480);
+    assert_eq!(c.live().tempo_map.signature_events[1].tick, 480);
+    let clip = c.live().clips.values().next().unwrap();
+    assert_eq!(
+        clip.placement.anchor,
+        TimeAnchor::Musical(MusicalTick::new(480))
+    );
+    assert_eq!(
+        clip.placement.extent,
+        ClipExtent::Musical(MusicalDuration::new(480).unwrap())
+    );
+    assert_eq!(
+        c.live().monitoring.punch.punch_in,
+        Some(MusicalTick::new(480))
+    );
+    assert_eq!(
+        c.live().monitoring.punch.punch_out,
+        Some(MusicalTick::new(960))
+    );
+}
+
+/// The preview enumerates punch marks as first-class sites: an
+/// inexact punch position is reported with its own site kind and
+/// the same feasibility verdict the command reaches.
+#[test]
+fn preview_ppqn_reports_inexact_punch_marks() {
+    let mut c = controller(Project::new(ProjectId::new(0), "punch-preview"));
+    // punch_in tick 1 @960 = 1/960 beat — inexact @1000 (25/24);
+    // punch_out tick 960 = 1 beat — exact.
+    apply(
+        &mut c,
+        ProjectOp::SetPunchMarks {
+            punch_in: Some(MusicalTick::new(1)),
+            punch_out: Some(MusicalTick::new(960)),
+        },
+    );
+
+    let preview = preview_ppqn(c.live(), 1_000, PpqnConversionPolicy::Exact).unwrap();
+    // default tempo(1) + signature(1) + punch_in(1) + punch_out(1).
+    assert_eq!(preview.site_count, 4);
+    assert_eq!(preview.inexact.len(), 1);
+    let site = &preview.inexact[0];
+    assert_eq!(site.kind, "punch_in");
+    assert_eq!(site.instance, "project");
+    assert_eq!(site.tick, 1);
+    assert_eq!(site.projected, None);
+    assert!(!preview.applies);
+
+    let preview = preview_ppqn(
+        c.live(),
+        1_000,
+        PpqnConversionPolicy::Round(Rounding::Floor),
+    )
+    .unwrap();
+    // 25/24 ticks → Floor 1.
+    assert_eq!(preview.inexact[0].projected, Some(1));
+    assert!(preview.applies);
+    assert_eq!(c.live().ppqn, ProjectPpqn(960), "preview is read-only");
 }
