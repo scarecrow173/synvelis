@@ -170,17 +170,17 @@ jobs:
         id: fmt
         run: mise run fmt-check
 
-      - name: Type-check workspace (mise run check)
+      - name: Type-check workspace (mise run check-full)
         id: check
-        run: mise run check
+        run: mise run check-full
 
-      - name: Lint workspace (mise run lint)
+      - name: Lint workspace (mise run lint-full)
         id: lint
-        run: mise run lint
+        run: mise run lint-full
 
-      - name: Test workspace (mise run test)
+      - name: Test workspace (mise run test-full)
         id: test
-        run: mise run test
+        run: mise run test-full
 
       # check/lint は --locked 無しの task のため、実行後の lockfile
       # 差分があれば fail にして汚染を検出する。
@@ -319,17 +319,17 @@ jobs:
         id: fmt
         run: mise run fmt-check
 
-      - name: Type-check workspace (mise run check)
+      - name: Type-check workspace (mise run check-full)
         id: check
-        run: mise run check
+        run: mise run check-full
 
-      - name: Lint workspace (mise run lint)
+      - name: Lint workspace (mise run lint-full)
         id: lint
-        run: mise run lint
+        run: mise run lint-full
 
-      - name: Test workspace (mise run test)
+      - name: Test workspace (mise run test-full)
         id: test
-        run: mise run test
+        run: mise run test-full
 
       - name: Assert Cargo.lock unchanged
         id: lockdiff

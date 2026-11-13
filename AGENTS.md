@@ -4,9 +4,9 @@
 
 Issueの起票・改訂、設計、実装、テスト、レビュー、受入判定の際は、このリポジトリの [POLICIES.md](POLICIES.md) を読み、その規則に従う。
 
-このリポジトリは、言語・フレームワークに依存しない開発基盤のテンプレートです。
-以下の開発・設計原則を基本とし、末尾にこのリポジトリ固有の作業契約と mise / APM の運用を定めます。
-派生リポジトリでは、プロジェクト固有の目的・制約・検証手順を必要に応じて追記してください。
+作業開始時は、検証・受入方針を `POLICIES.md`、タスク名・引数を `mise.toml`、Rust Workspace の構成を `Cargo.toml` で確認する。詳細をこのファイルに重複記載しない。
+
+このリポジトリは、Ruviformを共通基盤として利用するRust製DAWアプリケーション、Synvelisです。このファイルはエージェント向けの作業入口と製品固有の実装上の参照先を案内します。
 
 ## 開発・設計原則
 
@@ -57,8 +57,6 @@ Issueの起票・改訂、設計、実装、テスト、レビュー、受入判
 - 観測されたテストを通すためだけのハードコードや特殊ケースを追加しない。
 - 不具合修正では、表面的な症状だけでなく、破られた契約や不変条件を検証するテストを優先する。
 - 適切な場合は、意味のある最下位レイヤーと外部から観測できる挙動の両方で検証する。
-- 検証の範囲は、変更の規模とリスクに比例させる。
-- 実際に実行して成功していない検証を、成功したと報告しない。
 
 ### スコープと比例性を守る
 
@@ -74,9 +72,6 @@ Issueの起票・改訂、設計、実装、テスト、レビュー、受入判
 - 調査・レビューのみの依頼ではファイルを編集しない。
 - 変更依頼では、依頼範囲に必要な実装・設定・テストの整合性を保ち、無関係な変更や既存の作業を保持する。
 - 調査の深さはタスクに応じて調整する。機械的な変更に、不具合調査と同じ深さの原因追跡を強制しない。
-- 公開APIや外部との契約、永続データ形式などの互換性を変える場合は、影響を確認して変更方針を明示する。
-- 完了時には変更内容、実行した検証と結果、未実行の検証、残る問題を区別して報告する。
-- このテンプレートに言語・フレームワーク固有の構成や、不要な `.github/`・`docs/` ディレクトリを追加しない。派生プロジェクトで必要に応じて定義する。
 
 ## Ruviform とのマルチリポジトリ運用
 
@@ -94,7 +89,6 @@ Issueの起票・改訂、設計、実装、テスト、レビュー、受入判
 ## 開発環境（mise）
 
 - 開発ツールとタスクの正本は `mise.toml` とする。
-- テンプレートには共通基盤ツールのみを置く。言語・フレームワーク別ツールや `lint` / `test` / `check` / `build` タスクは派生リポジトリで必要に応じて追加する。
 - 初回セットアップでは、miseをインストールした後に以下を実行する。
 
 ```sh
@@ -102,34 +96,25 @@ mise install
 mise run setup
 ```
 
-- 初期化後は `mise.lock` を生成・確認してコミットし、以後の復元でも `mise install` を使用する。`mise.toml` と整合する lockfile がある場合、そこに固定されたツールバージョンが使われる。
-- Rust toolchain は `mise.toml` では pin しない。通常開発は環境導入済みの rust（rustup / global mise）を使う。CI 専用の pin は `mise.ci.toml` に置き、`MISE_ENV=ci` で有効化する（lockfile は `MISE_ENV=ci mise lock` が生成する `mise.ci.lock`）。lockfile 再生成時は `mise.toml` 変更には `mise lock`、`mise.ci.toml` 変更には `MISE_ENV=ci mise lock` を使い分ける。
+- 開発ツールのバージョンは既存の `mise.lock` で復元する。ツール定義を変更した場合のみ、対応するlockfileと生成物を確認する。
+- RustツールチェーンとCargo Profileの設定は `mise.toml` / `mise.ci.toml` / `Cargo.toml`、適用方針は `POLICIES.md` を参照する。ツール更新時のlockfileは通常環境とCI環境を区別して更新する。
 - APM CLI は `mise.toml` で `github:microsoft/apm` バックエンドを使用する。GitHub 配布バイナリを利用するため、APM CLI 自身の Python/pipx 依存グラフ sidecar は不要となる。
 - mise lockfile 形式 v2 以降では、npm・PyPI系ツールの依存グラフが `.mise/locks/` に生成される場合がある。`mise.lock` が参照する sidecar は一緒にコミットする。`mise lock --sidecars` で参照を確認し、`.gitignore` の `!.mise/locks/` 例外を維持する（`.mise/` 全体を無視しない）。
 - 管理対象ツールを直接起動する必要がある場合は、原則 `mise exec -- <command>` を使用する。
 - `mise run setup` は `apm install` で依存関係を復元し、`prek install` でコミットフックを、`git lfs install --local` でリポジトリローカルの Git LFS フィルターとフックを有効化する。prekのフック定義は `.pre-commit-config.yaml` を正本とする。
-- Gitフックでは言語非依存の軽量チェックのみ実行し、言語別の Lint・テスト・ビルドは派生リポジトリのmiseタスクで管理する。
+- Gitフックの実行内容は `.pre-commit-config.yaml`、Rust等の検証入口は `mise.toml` を参照する。
 - 設定済みフックを全ファイルに実行する場合は `mise exec -- prek run --all-files` を使用する。
 - Git LFS は `mise.toml` でバージョン管理し、`.gitattributes` で対象を定義する。LFSを必要とするGitコマンドはmise管理のツールがPATH上にある環境で実行する（例: `mise exec -- git push`）。初回cloneでLFSオブジェクトが未取得なら、セットアップ後に `mise exec -- git lfs pull` を実行する。
 
 ## Rust ワークスペース規約
 
 - ルート `Cargo.toml` がワークスペースの正本。`resolver = "2"`・`edition = "2024"`・`rust-version = "1.89"`（MSRV。CI toolchain pin は `mise.ci.toml` の `1.99.0`）・`publish = false`・`[workspace.lints]` は ruviform の規約に合わせる。
-- メンバーは `crates/` 配下。`synvelis-project`（Project集約・単一 writer モデル・永続化ポート）、`synvelis-recording`（録音操作・検証、Store非所有）、`recording-poc`（決定的 headless PoC bin）。依存方向は `recording-poc → synvelis-recording → synvelis-project` のみ。
+- Workspace全体のメンバー・Feature・依存方向はルートの `Cargo.toml` と各 `crates/<name>/Cargo.toml` を正本とする。初期PoC時点のクレート一覧や依存DAGをこのファイルに固定しない。
 - Ruviform 依存は既定ブランチ追従の git 依存とし、解決 revision は `Cargo.lock` に記録する。特定 SHA の恒久的ハードコード・vendor コピーは禁止。
 - `ui/vendor/ruviform` は gitignore された生成物で、`.worktreeinclude` により worktree へそのままコピーされる。`Cargo.lock` の ruviform 解決 rev が変わる変更（pin 更新・`cargo update`・ブランチ切替）を取り込んだ後は `mise run sync-ui-deps` で lock rev へ再同期する。`check-ruviform-rev` の REV 不一致はこの stale vendor を検出した fail-closed であり、復旧は `sync-ui-deps` の再実行（synvelis#230）。
-- `Cargo.lock` は再現性のためコミット対象。依存変更時は `cargo build` / `cargo generate-lockfile` で再生成する。
+- `Cargo.lock` は再現性のため追跡する。依存変更時は `mise exec -- cargo update -p <dependency>` 等で必要な範囲のlockfileを更新し、差分を確認する。
 - `ruviform-media-core` の `Tick`/`TickDuration` は unchecked `Add`/`Sub` のみ公開。Synvelis 側の時間演算はすべてチェック付き（`checked_add`/`checked_sub`）で行い、同演算子の直接利用は lint 対象。
-- cargo コマンドは直接実行せず `mise run <task>` 経由を原則とする。
-
-| mise タスク | 実行内容 |
-| --- | --- |
-| `fmt` / `fmt-check` | `cargo fmt --all` / `cargo fmt --all -- --check` |
-| `check` | `cargo check --workspace --all-targets` |
-| `lint` | `cargo clippy --workspace --all-targets -- -D warnings` |
-| `test` | `cargo test --workspace --locked` |
-| `build` | `cargo build --workspace --locked` |
-| `test-msrv` | MSRV 検証（rust 1.89 toolchain 利用時に `cargo +1.89 check`） |
+- 通常の検証タスクは `mise.toml` を参照し、`mise run <task>` 経由で実行する。
 
 ## AIエージェント環境（APM）
 
