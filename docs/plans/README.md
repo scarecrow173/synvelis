@@ -141,6 +141,7 @@ Directory: `docs/plans`
 | PLAN-kco2O0dSUXmFGIGQYqpxrx | VS-B Clock / Gate Scheduler / RT Capture 実装計画 | approved | [vs-b-clock-gate-rt-capture.md](./vs-b-clock-gate-rt-capture.md) |
 | PLAN-034QfNV0kVj6j2cR8sXyLqWm | VS-C Staging Writer / Journal / Crash Recovery 実装計画 | approved | [vs-c-staging-writer-journal-crash-recovery.md](./vs-c-staging-writer-journal-crash-recovery.md) |
 | PLAN-wDLeQm8n2jpOzr5utDhOSF | VS-D Recording Commit / E2E 実装計画 | approved | [vs-d-recording-commit-e2e.md](./vs-d-recording-commit-e2e.md) |
+| PLAN-034X3PYp3yD3aBha3pGepA | Workspace UX 操作仕様の正本化（Issue #3 文書チェーン） | in-progress | [workspace-ux-scenarios.md](./workspace-ux-scenarios.md) |
 | PLAN-KF3NnioeKW8ERFMd7dyN15 | X 実装計画 — Recorded Source→Generic Playback/Export integration | approved | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
@@ -159,6 +160,7 @@ Directory: `docs/plans`
 | PLAN-uaNPrumAjiAnEaagqm9BgJ | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 実装計画 | completed | [issue-86-verified-import-wiring-plan.md](./issue-86-verified-import-wiring-plan.md) |
 | PLAN-034PCA04Pk9ySt5zBcPdEf | PC-A Parameter Control Model headless PoC 実装計画 | completed | [pc-a-parameter-control.md](./pc-a-parameter-control.md) |
 | PLAN-034PCB04Pk9ySt5zBcPdEf | PC-B Parameter Control dispatch/note-scope/RT/offline 実装計画 | completed | [pc-b-parameter-dispatch.md](./pc-b-parameter-dispatch.md) |
+| PLAN-034X3jT4T64MOzF6CbB2oy | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画 | completed | [product-value-core-plan.md](./product-value-core-plan.md) |
 | PLAN-034UrkBlTpaeiSGII0EyIi | RCD-02 Durability Evidence / Recovery Review / Commit Receipt slice | completed | [rcd-02-durability-recovery-review.md](./rcd-02-durability-recovery-review.md) |
 | PLAN-034VoSKvu6PtN0qTGN02l3 | SF-03 slice8 — app/workspace same-Revision fixture plan | completed | [sf-03-slice8-revision-fixture-plan.md](./sf-03-slice8-revision-fixture-plan.md) |
 | PLAN-034VWvifs0UbP2Diwh0JiN | SF-03 slice9 — host capability generation live firing plan | completed | [sf-03-slice9-capability-firing-plan.md](./sf-03-slice9-capability-firing-plan.md) |

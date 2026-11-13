@@ -88,6 +88,7 @@ Directory: `docs/impl/ir`
 | IMPL-034W5m2YJNbKaaqcO5j3m5 | PC-C6 TR ledger oracle 実装記録 | completed | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
 | IMPL-034WxwExc8oWsdZ2zey3N1 | PC-C6 TR02/TR06 realpath oracle 実装記録 | completed | [pc-c6-tr02-tr06-realpath-oracle.md](./pc-c6-tr02-tr06-realpath-oracle.md) |
 | IMPL-034VNP5tgdXZr0d9jU3FD0 | plugin_instances VCS semantic diff 分類 slice 実装記録 | completed | [plugin-instances-vcs-diff.md](./plugin-instances-vcs-diff.md) |
+| IMPL-034X3k17SZNVWh4K947RiS | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画 実装記録 | completed | [product-value-core.md](./product-value-core.md) |
 | IMPL-034V30Z5uYklMrResgr0lS | RCD-01 実Audio Device録音統合 headless slice — fake port→実StreamWriter fixture + recording state projection | completed | [rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md](./rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md) |
 | IMPL-RCD01rbkSl1cE9mQ2xW | RCD-01 実Audio Device 到達準備 — stamp placement fallback（jitter 許容の累積配置）+ real backend 配線 | completed | [rcd-01-real-backend-readiness-slice.md](./rcd-01-real-backend-readiness-slice.md) |
 | IMPL-034Wfpu0yifoZyGTZUA0pe | RCD-01 実機 lane 拡張 — real-device capture coverage | completed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
@@ -173,5 +174,6 @@ Directory: `docs/impl/ir`
 | IMPL-pQbrnczYyJPOw79LzmmIy | VS-B Clock/Gate/RT Capture — Mock Input・Buffer Pool・SPSC (E2E-R1) | completed | [vs-b-clock-gate-rt-capture-mock-spsc.md](./vs-b-clock-gate-rt-capture-mock-spsc.md) |
 | IMPL-034QfRW3cPFErlmVZ7TCoI | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range (E2E-R2) | completed | [vs-c-staging-writer-journal-crash-recovery.md](./vs-c-staging-writer-journal-crash-recovery.md) |
 | IMPL-VSdRecCommitE2E | VS-D Recording Commit / End-to-End Vertical Slice — Idempotency・Undo・Reload (E2E-R3) | completed | [vs-d-recording-commit-e2e-idempotency-undo-reload.md](./vs-d-recording-commit-e2e-idempotency-undo-reload.md) |
+| IMPL-034X3VOP02J6rtCa1QMhIJ | Workspace UX 操作仕様の正本化（Issue #3 文書チェーン） | completed | [workspace-ux-scenarios.md](./workspace-ux-scenarios.md) |
 | IMPL-034QxsUh3NmPwprwJkrlk5 | WS-A workspace foundation headless PoC | completed | [ws-a-workspace-foundation-headless-poc.md](./ws-a-workspace-foundation-headless-poc.md) |
 | IMPL-XRecordedVerifiedSourcePlaybackExport | E2E-X Recorded Source → Generic Playback/Export with Frame/ID/Content Integrity | completed | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |

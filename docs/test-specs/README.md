@@ -61,6 +61,7 @@ Directory: `docs/test-specs`
 | TSPEC-034W1WRQXbMr2y30mwzX1z | PC-C6 TR ledger oracle 検証仕様 — TR01/03/04/05/07/08 実経路照合 | approved | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
 | TSPEC-034WxmAJbjUwK6FBs7Xiy2 | PC-C6 TR02/TR06 realpath oracle 検証仕様 | approved | [pc-c6-tr02-tr06-realpath-oracle.md](./pc-c6-tr02-tr06-realpath-oracle.md) |
 | TSPEC-034VNrSyPxIGK6pnJSonNR | plugin_instances VCS semantic diff 分類 fixture matrix | proposed | [plugin-instances-vcs-diff.md](./plugin-instances-vcs-diff.md) |
+| TSPEC-034X3jTF3hBjJmyjdZVSsr | Synvelis 製品価値と中核体験 — Acceptance Matrix・UX評価テスト仕様 | approved | [product-value-core.md](./product-value-core.md) |
 | TSPEC-034V2ixodcql8RLLJfoYqH | RCD-01 device-recording headless fixture test spec | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
 | TSPEC-htPhSCIWfZxHOOGdEAyaeK | RCD-01 実Audio Device 到達準備 検証仕様 — stamp placement fallback + real backend lane | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
@@ -159,6 +160,7 @@ Directory: `docs/test-specs`
 | TSPEC-dtmF30GppYRVULWnH8CG9o | VS-B E2E-R Gate 検証仕様 — Mock Gate・Buffer Pool・SPSC・Fail-stop | approved | [vs-b-e2e-r1-mock-gate-rt-capture.md](./vs-b-e2e-r1-mock-gate-rt-capture.md) |
 | TSPEC-034QfPbKx2mR9tWvN5zYcHuJ | VS-C E2E-R2 検証仕様 — Staging Writer・Journal・Crash Recovery | approved | [vs-c-e2e-r2-staging-writer-journal-crash-recovery.md](./vs-c-e2e-r2-staging-writer-journal-crash-recovery.md) |
 | TSPEC-vzMmDCOZB12ay3I4Zd5yHK | VS-D E2E-R3 検証仕様 — Recording Commit・Idempotency・Undo・Reload | approved | [vs-d-e2e-r3-recording-commit.md](./vs-d-e2e-r3-recording-commit.md) |
+| TSPEC-034X3TcwIjZEAATs2dGBz9 | Workspace UX 操作仕様の文書契約検証 | approved | [workspace-ux-scenarios.md](./workspace-ux-scenarios.md) |
 | TSPEC-034QwZT6kAhQwa2bRBkZyu | WS-A 検証仕様 — Multi-View/LinkGroup/Command/Dock headless 受入 | approved | [ws-a-e2e-workspace-foundation.md](./ws-a-e2e-workspace-foundation.md) |
 | TSPEC-zzdcoJZ1siQdbof0DBfv5l | X 検証仕様 — Recorded Source→Generic Playback/Export・Frame/ID/Content integrity | approved | [x-e2e-recorded-source-playback-export.md](./x-e2e-recorded-source-playback-export.md) |
 
