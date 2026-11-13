@@ -61,6 +61,7 @@ Directory: `docs/plans`
 | PLAN-034VedskoBprfWhNkuqz6f | RCD-03 app Arm/Monitoring UX + monitor session projection slice | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
 | PLAN-034WCvbw5IfHDl5knLAOrW | RCD-03 monitor engine implementation plan | approved | [rcd-03-monitor-engine.md](./rcd-03-monitor-engine.md) |
 | PLAN-034VpQd9mO4xP1wT6vA8wL | RCD-03 Arm/Monitor/Punch Project 永続投影 slice | approved | [rcd-03-monitor-persistence-plan.md](./rcd-03-monitor-persistence-plan.md) |
+| PLAN-034X1FLMu1TV4AQ642APXU | RCD-03 monitor/punch fake session fixture plan | approved | [rcd-03-monitor-punch-plan.md](./rcd-03-monitor-punch-plan.md) |
 | PLAN-034UtpZmsA5LhaaXLS0KRF | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter slice | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | PLAN-TYvHuxegoERJua2h0P3t1D | RCD-03 VCS semantic diff monitor 宣言分類 slice | approved | [rcd-03-vcs-diff-monitor-classification-plan.md](./rcd-03-vcs-diff-monitor-classification-plan.md) |
 | PLAN-RCD04Fx4kD9sG2hJ6mN8pQ1 | RCD-04 Comp Transition / MIDI Phrase crate fixture slice — implementation plan | approved | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |

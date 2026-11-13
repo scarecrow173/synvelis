@@ -97,6 +97,7 @@ Directory: `docs/impl/ir`
 | IMPL-034Vg2bnZtbJvdYWRJIUM3 | RCD-03 app Arm/Monitoring UX slice 実装記録 | completed | [rcd-03-app-arm-monitoring-ux-slice.md](./rcd-03-app-arm-monitoring-ux-slice.md) |
 | IMPL-rcd03-monitor-engine | RCD-03 MonitorAdapter engine 搭載 + Loop/PunchInLoop gate slice 実装記録 | completed | [rcd-03-monitor-engine.md](./rcd-03-monitor-engine.md) |
 | IMPL-034VpRmK9xT2wQ8nB4vC6d | RCD-03 Arm/Monitor/Punch Project 永続投影 slice 実装記録 | completed | [rcd-03-monitor-persistence-slice.md](./rcd-03-monitor-persistence-slice.md) |
+| IMPL-rcd03-monitor-punch-session | RCD-03 synvelis-recording fake session fixture（Monitor×DeviceRig×Commit）実装記録 | completed | [rcd-03-monitor-punch.md](./rcd-03-monitor-punch.md) |
 | IMPL-034V6MHZ91AdEfrxqsFgLC | RCD-03 Monitoring/Punch/Latency 意味論 crate 内完結 slice 実装記録 | completed | [rcd-03-monitoring-punch-latency-crate-slice.md](./rcd-03-monitoring-punch-latency-crate-slice.md) |
 | IMPL-034VDfqOMnbp5s6CThZTBe | RCD-03 VCS semantic diff monitor 宣言分類 slice 実装記録 | completed | [rcd-03-vcs-diff-monitor-classification-slice.md](./rcd-03-vcs-diff-monitor-classification-slice.md) |
 | IMPL-034UvMC7UhiwWgHviB9Qnv | RCD-04 Comp Transition / MIDI Phrase crate fixture slice 実装記録 | completed | [rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md](./rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md) |
