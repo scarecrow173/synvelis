@@ -24,7 +24,8 @@ relations:
   blocks: []
   supersedes: []
   superseded-by: []
-  related: []
+  related:
+    - "TASK-034WVJP0tzo7lASwFwzkpG"
   refines: []
   refined-by: []
   derives-from: []
@@ -101,7 +102,9 @@ fallback。`synvelis-gateway` の journal replay restore を
 - [x] `HEAD.lock` stale break・fresh 待機・失敗時解放をテスト
   で観測。
 - [x] canonical 検証 9 コマンドを実走・結果記録（IR 参照）。
-- [x] 実 2-process・macOS/Linux・電源断は NotRun 記録。
+- [x] 実 2-process・macOS/Linux・電源断は NotRun 記録 —
+  実 2-process（Windows）は後続 slice
+  `syn-io-02-head-cas-e2e` で実測済み。
 
 ## Verification
 

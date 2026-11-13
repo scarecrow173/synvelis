@@ -26,6 +26,7 @@ relations:
   related:
     - "docs/specs/syn-io-01-ruviform-common-io-boundary.md"
     - "docs/designs/syn-io-02-directory-bundle-store-stagedfile-design.md"
+    - "DESIGN-034WVJwLjBMYR3fBrNJD2M"
   refines: []
   refined-by: []
   derives-from:
@@ -286,4 +287,11 @@ filesystem 無しで検証できる。
   stale/fresh `HEAD.lock`、失敗時 lock 解放。
 - [x] `controller.save` が moved HEAD を conflict で拒否し
   `saved` を進めないこと、reload→retry で回復すること。
-- [ ] 実 2-process・macOS/Linux・電源断 — NotRun（外部 gate）。
+- [x] 実 2-process — 後続 slice `syn-io-02-head-cas-e2e`
+  （`docs/designs/syn-io-02-head-cas-e2e-design.md`）で
+  Windows 実測済み: test binary self re-exec の 2 process
+  が同一 root で `save_cas` し、exactly one winner + loser
+  typed `Conflict` + 最終 HEAD=勝者 + `HEAD.lock` 非残滓を
+  複数 round で pin。macOS/Linux は portable code のため
+  CI 実走または NotRun。
+- [ ] macOS/Linux 実機・電源断 — NotRun（外部 gate）。

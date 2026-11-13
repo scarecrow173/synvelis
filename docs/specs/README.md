@@ -110,6 +110,7 @@ Directory: `docs/specs`
 | SPEC-0D1aGavIsYu1NgyvnRxeRx | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 と API 追従（SV#190 前提解消） | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | SPEC-YmpDjzBvQVDopM2MpgcdhL | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f と API 追従 | approved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | SPEC-034Uvy3JSMhpGuQliLcN6s | SYN-IO-01 Ruviform 共通 I/O 適合境界 — Project Snapshot/HEAD/Backup/Import | approved | [syn-io-01-ruviform-common-io-boundary.md](./syn-io-01-ruviform-common-io-boundary.md) |
+| SPEC-034WVJji6Ejtn5EnEV5RkC | SYN-IO-02 HEAD CAS 実 2-process E2E 検証と保証境界確定 (synvelis#330) | approved | [syn-io-02-head-cas-e2e.md](./syn-io-02-head-cas-e2e.md) |
 | SPEC-034T7fQpLmNvRwXk2jHs9 | SYN-IO-02 HEAD CAS expected-head store port | approved | [syn-io-02-head-cas.md](./syn-io-02-head-cas.md) |
 | SPEC-034T29C9D8CIvYjMxmQIy8 | SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行 | approved | [syn-io-02-snapshot-head-staged-publish.md](./syn-io-02-snapshot-head-staged-publish.md) |
 | SPEC-034RBvYIlw0wiBoGsL9EBY | SYN-OBS-01 Ruviform observability 単一crate Logging/Host統合 | proposed | [syn-obs-01-ruviform-observability-crate-logging-host.md](./syn-obs-01-ruviform-observability-crate-logging-host.md) |

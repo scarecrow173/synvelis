@@ -25,6 +25,7 @@ relations:
   superseded-by: []
   related:
     - "docs/designs/project-asset-persistence-architecture.md"
+    - "PLAN-034WVJFNJkmTS7M5lq1tjI"
   refines: []
   refined-by: []
   derives-from:
@@ -136,7 +137,9 @@ semantics・port signature・永続 format は不変。
 - [ ] `mise run test-rt`（rt_ contract tests）
 - [ ] `mise run check-app-native` / `lint-app-native`
 - [ ] `mise run test-msrv` / `mise run build`
-- [ ] 実 2-process・macOS/Linux・電源断 = NotRun（外部 gate）。
+- [ ] 実 2-process（Windows）= 後続 slice
+  `syn-io-02-head-cas-e2e` で実測済み。macOS/Linux・
+  電源断 = NotRun（外部 gate）。
 
 ## Open Questions / Gaps
 
@@ -144,8 +147,10 @@ semantics・port signature・永続 format は不変。
   の扱い — 本実装は loud failure を選択（design 記載）。
   同梱 store は全て CAS 対応のため実経路では発生しない。
 - 実 multi-process での lock 奪い合い・stale break の実測 —
-  Windows 単一 process 内 thread 協調までを本 slice で pin
-  し、実 2-process は外部 gate に委譲。
+  本 slice は Windows 単一 process 内 thread 協調までを
+  pin し、実 2-process は後続 slice `syn-io-02-head-cas-e2e`
+  で Windows 実測済み（stale break の process 間実測は
+  引き続き外部 gate）。
 
 ## Self-Review
 

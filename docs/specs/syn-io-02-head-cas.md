@@ -25,6 +25,7 @@ relations:
   superseded-by: []
   related:
     - "docs/specs/syn-io-01-ruviform-common-io-boundary.md"
+    - "SPEC-034WVJji6Ejtn5EnEV5RkC"
   refines: []
   refined-by: []
   derives-from: []
@@ -132,7 +133,9 @@ writer/process が同じ HEAD を読んでから各々 save すると、後勝�
 - `synvelis-recording` staging writer・他 consumer 固有コード、
   `tests/fixtures/`、`Cargo.lock`、docs index。
 - 実 2-process 協調・macOS/Linux 実機・電源断の検証
-  （外部 gate、本 spec では NotRun として記録）。
+  （本 spec の時点では外部 gate・NotRun。実 2-process の
+  Windows 実測は後続 slice `syn-io-02-head-cas-e2e` で
+  消化済み。macOS/Linux・電源断は引き続き外部 gate）。
 
 ## Requirements
 
@@ -190,13 +193,16 @@ writer/process が同じ HEAD を読んでから各々 save すると、後勝�
   lock 解放が契約テストで観測できる。
 - [ ] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
   `check-app-native`/`lint-app-native`/`test-msrv`/`build` を
-  実走し、結果を正直に記録する。実 2-process・macOS/Linux・
-  電源断は NotRun として外部 gate に委譲する。
+  実走し、結果を正直に記録する。実 2-process（Windows）は
+  後続 slice `syn-io-02-head-cas-e2e` で実測済み。
+  macOS/Linux・電源断は NotRun として外部 gate に委譲する。
 
 ## Deferred Design Concerns
 
 - 実 2-process/複数 OS での協調検証、電源断・durability の
-  実機 gate — 外部検証事項として NotRun 記録し、必要なら
+  実機 gate — 実 2-process（Windows）は後続 slice
+  `syn-io-02-head-cas-e2e` で実測済み。macOS/Linux・
+  電源断は外部検証事項として NotRun 記録し、必要なら
   別 Issue で追跡する。
 - 非協調 writer（`save` 直接呼出・外部プロセスの HEAD 書換え）
   に対する排他 — CAS は協調する `save_cas` caller 間の契約で
