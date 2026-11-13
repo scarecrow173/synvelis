@@ -42,10 +42,11 @@ use synvelis_project::probe::{
 };
 use synvelis_project::vcs::{RevisionSelector, VcsCancel};
 use synvelis_project::{
-    BusId, ClipId, ClockEpochId, ExplicitChannelMap, LaneId, MusicalTick, ParameterTargetId,
-    PpqnConversionPolicy, ProbeCaptureSegment, ProbeMode, ProbeObservation, ProbePortError,
-    ProbeStatusReceipt, ProbeSubscriptionKey, ProbeTracePort, ProcessorId, Project, ProjectOp,
-    ProjectPpqn, ProjectRevision, ProjectStore, RoutingConnectionId, SemanticPortId,
+    BusId, ClipId, ClockEpochId, ControlEntityRef, ExplicitChannelMap, LaneId,
+    ModulationAssignmentId, MusicalTick, ParameterTargetId, Polarity, PpqnConversionPolicy,
+    ProbeCaptureSegment, ProbeMode, ProbeObservation, ProbePortError, ProbeStatusReceipt,
+    ProbeSubscriptionKey, ProbeTracePort, ProcessorId, Project, ProjectOp, ProjectPpqn,
+    ProjectRevision, ProjectStore, RelationDirection, RoutingConnectionId, SemanticPortId,
     SemanticProbePoint, SendId, StripId, SubscriptionKind, TickTimeMapping, TraceSlot, TrackId,
     is_issuable_raw, monitoring_data,
 };
@@ -64,14 +65,18 @@ use synvelis_workspace::viz_ui::{
     waveform_clip_target,
 };
 use synvelis_workspace::{
-    ArrangementRow, CancelReason, EditingSelection, EndpointRequest, FollowSource, InspectionMode,
-    LinkGroupId, PinSide, ProbeDrainReport, ProbePrincipal, ProbeTraceError, ProjectSession,
-    RoutingGestureFixation, RoutingGestureOutcome, RoutingGesturePreview, RoutingPortAssessment,
-    SemanticTarget, SignalFlowEdgeRole, SignalFlowEntityRef, SignalFlowInspectionFocus,
-    SignalFlowScope, SignalFlowView, SignalFlowViewOptions, SignalFlowViewState, VcsDiffView,
-    VcsEndpointView, VcsHistoryView, VcsSession, VcsUiError, VcsViewMode, ViewType,
-    signal_flow_graph, vcs_history_view, visual_fold, visual_move_node, visual_set_group,
-    visual_set_link_focus, visual_set_pan, visual_set_scope, visual_set_zoom,
+    ArrangementRow, CancelReason, ControlEdgeOutcome, ControlEdgePreview,
+    ControlRelationInspectionFocus, EditingSelection, EndpointRequest, FollowSource,
+    InspectionMode, LinkGroupId, PinSide, ProbeDrainReport, ProbePrincipal, ProbeTraceError,
+    ProjectSession, RebasePreview, RecordingAction, RecordingDisplayState, RecordingOutcome,
+    RecordingProvenance, RecordingStatusView, RelationView, RoutingGestureFixation,
+    RoutingGestureOutcome, RoutingGesturePreview, RoutingPortAssessment, SemanticTarget,
+    SignalFlowEdgeRole, SignalFlowEntityRef, SignalFlowInspectionFocus, SignalFlowScope,
+    SignalFlowView, SignalFlowViewOptions, SignalFlowViewState, VcsDiffView, VcsEndpointView,
+    VcsHistoryView, VcsSession, VcsUiError, VcsViewMode, ViewType, control_entity_parse,
+    control_entity_tag, recording_status, relation_rows, signal_flow_graph, vcs_history_view,
+    visual_fold, visual_move_node, visual_set_group, visual_set_link_focus, visual_set_pan,
+    visual_set_scope, visual_set_zoom,
 };
 
 use crate::app::SynvelisApp;
@@ -1223,6 +1228,395 @@ fn routing_outcome_json(outcome: &RoutingGestureOutcome) -> Value {
         }),
         RoutingGestureOutcome::Stale => json!({ "outcome": "stale" }),
     }
+}
+
+// -- UI-C5 wire helpers ---------------------------------------------------
+
+/// `CamelCase`/`SCREAMING` debug text → `kebab-case` — the enum-tag
+/// vocabulary the `syn.signal_flow.*`/`syn.control.*` wire already
+/// uses for types without a serde codec.
+fn ui_kebab(text: &str) -> String {
+    let mut out = String::with_capacity(text.len() + 4);
+    for (i, ch) in text.chars().enumerate() {
+        if ch.is_ascii_uppercase() {
+            if i > 0 {
+                out.push('-');
+            }
+            out.push(ch.to_ascii_lowercase());
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+/// One `ControlEntityRef` wire value — `{"kind": "parameter"|
+/// "automation-lane"|"modulation-source"|"assignment", "id":
+/// "<tagged>"}` — or a bare tagged id string. Mirrors [`sf_entity`]'s
+/// contract so relation rows, inspect targets and edge endpoints all
+/// speak the same shape.
+fn control_entity(value: &Value, path: &str) -> Result<ControlEntityRef, ErrorBody> {
+    let bad = |msg: &str| invalid(format!("params.{path}: {msg}"));
+    if let Some(tag) = value.as_str() {
+        return control_entity_parse(tag).ok_or_else(|| bad("malformed tagged control-entity id"));
+    }
+    let kind = value
+        .get("kind")
+        .and_then(Value::as_str)
+        .ok_or_else(|| bad("kind (string) required"))?;
+    let id = value
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| bad("id (string) required"))?;
+    macro_rules! tagged {
+        ($e:expr) => {
+            $e.map_err(|_| invalid(format!("params.{path}: malformed tagged id")))?
+        };
+    }
+    Ok(match kind {
+        "parameter" => ControlEntityRef::Parameter(tagged!(ParameterTargetId::from_tagged(id))),
+        "automation-lane" => ControlEntityRef::AutomationLane(tagged!(
+            synvelis_project::AutomationLaneId::from_tagged(id)
+        )),
+        "modulation-source" => ControlEntityRef::ModulationSource(tagged!(
+            synvelis_project::ModulationSourceId::from_tagged(id)
+        )),
+        "assignment" => ControlEntityRef::Assignment(tagged!(
+            synvelis_project::ModulationAssignmentId::from_tagged(id)
+        )),
+        other => return Err(bad(&format!("unknown entity kind {other}"))),
+    })
+}
+
+fn control_entity_param(params: &Value, key: &str) -> Result<ControlEntityRef, ErrorBody> {
+    control_entity(
+        params
+            .get(key)
+            .ok_or_else(|| invalid(format!("params.{key} required")))?,
+        key,
+    )
+}
+
+/// Inverse of [`control_entity`] — `ControlEntityRef` → wire object.
+fn control_entity_json(entity: ControlEntityRef) -> Value {
+    let (kind, id) = match entity {
+        ControlEntityRef::Parameter(id) => ("parameter", id.to_tagged()),
+        ControlEntityRef::AutomationLane(id) => ("automation-lane", id.to_tagged()),
+        ControlEntityRef::ModulationSource(id) => ("modulation-source", id.to_tagged()),
+        ControlEntityRef::Assignment(id) => ("assignment", id.to_tagged()),
+    };
+    json!({ "kind": kind, "id": id })
+}
+
+/// [`ControlRelationInspectionFocus`] → wire shape. `target` stays a
+/// tagged string (the persisted form); `can_back`/`can_forward`
+/// expose the Explore stacks' depth without leaking session state.
+fn control_relation_inspection_json(focus: &ControlRelationInspectionFocus) -> Value {
+    let mode = match focus.mode {
+        InspectionMode::Follow => "follow",
+        InspectionMode::Explore => "explore",
+        InspectionMode::Pinned => "pinned",
+    };
+    let follow_source = focus.follow_source.map(|src| match src {
+        FollowSource::View(v) => json!({ "view": format!("view-{}", v.get()) }),
+        FollowSource::Group(g) => json!({ "group": g.0 }),
+    });
+    json!({
+        "target": focus.target.clone(),
+        "mode": mode,
+        "follow_source": follow_source,
+        "can_back": !focus.explore_back.is_empty(),
+        "can_forward": !focus.explore_fwd.is_empty(),
+    })
+}
+
+/// [`RelationView`] → wire shape — rows keep `source`/`target`/`kind`/
+/// `state`/`assignment` verbatim; `coverage` + `project_revision` are
+/// the staleness evidence.
+fn relation_view_json(view: &RelationView) -> Value {
+    let kind = |k| match k {
+        synvelis_project::RelationKind::AutomationDrives => "automation-drives",
+        synvelis_project::RelationKind::ModulationDrives => "modulation-drives",
+        synvelis_project::RelationKind::DepthControlledBy => "depth-controlled-by",
+    };
+    let state = |s| match s {
+        synvelis_project::RelationState::Enabled => "enabled",
+        synvelis_project::RelationState::Disabled => "disabled",
+        synvelis_project::RelationState::Unresolved => "unresolved",
+        synvelis_project::RelationState::Unsupported => "unsupported",
+    };
+    let coverage = match view.coverage {
+        synvelis_project::RelationCoverage::Complete => "complete",
+        synvelis_project::RelationCoverage::Truncated => "truncated",
+        synvelis_project::RelationCoverage::Stale => "stale",
+        synvelis_project::RelationCoverage::Unavailable => "unavailable",
+    };
+    let direction = match view.direction {
+        RelationDirection::Both => "both",
+        RelationDirection::Incoming => "incoming",
+        RelationDirection::Outgoing => "outgoing",
+    };
+    json!({
+        "anchor": control_entity_tag(view.anchor),
+        "direction": direction,
+        "project_revision": view.project_revision.0,
+        "coverage": coverage,
+        "rows": view.rows.iter().map(|r| json!({
+            "source": control_entity_json(r.source),
+            "target": control_entity_json(r.target),
+            "kind": kind(r.kind),
+            "state": state(r.state),
+            "assignment": r.assignment.map(ModulationAssignmentId::to_tagged),
+        })).collect::<Vec<_>>(),
+    })
+}
+
+fn polarity_str(polarity: Polarity) -> &'static str {
+    match polarity {
+        Polarity::Bipolar => "bipolar",
+        Polarity::Unipolar => "unipolar",
+    }
+}
+
+/// The running Control Layer edge gesture as wire JSON — `null`
+/// when no gesture runs on the view.
+fn control_edge_state_json(state: Option<&synvelis_workspace::state::ViewState>) -> Value {
+    let Some(gesture) = state.and_then(|s| s.control_edge_gesture.as_ref()) else {
+        return Value::Null;
+    };
+    control_edge_gesture_json(gesture)
+}
+
+fn control_edge_gesture_json(gesture: &synvelis_workspace::ControlEdgeGesture) -> Value {
+    let f = &gesture.fixation;
+    json!({
+        "fixation": {
+            "view": format!("view-{}", f.view.get()),
+            "source": f.source.to_tagged(),
+            "target": f.target.to_tagged(),
+            "revision": f.revision.0,
+            "window": f.window.map(|w| w.to_string()),
+        },
+        "preview": {
+            "depth": gesture.preview.depth,
+            "polarity": polarity_str(gesture.preview.polarity),
+        },
+    })
+}
+
+/// [`ControlEdgeOutcome`] → wire shape.
+fn control_edge_outcome_json(outcome: &ControlEdgeOutcome) -> Value {
+    match outcome {
+        ControlEdgeOutcome::Applied { revision } => {
+            json!({ "outcome": "applied", "revision": revision.0 })
+        }
+        ControlEdgeOutcome::Cancelled { reason } => json!({
+            "outcome": "cancelled",
+            "reason": serde_json::to_value(reason).unwrap_or(Value::Null),
+        }),
+        ControlEdgeOutcome::Stale => json!({ "outcome": "stale" }),
+    }
+}
+
+/// [`RecordingStatusView`] → wire shape (UI-C5-04). Enum tags render
+/// kebab-case; complex domain payloads inside provenance keep their
+/// `Debug` form under `detail` — the typed scalars (revisions, ids,
+/// counts, flags) are always structured fields.
+fn recording_status_json(view: &RecordingStatusView) -> Value {
+    let state = match view.state {
+        RecordingDisplayState::Conflict => "conflict",
+        RecordingDisplayState::Prepare => "prepare",
+        RecordingDisplayState::Pending => "pending",
+        RecordingDisplayState::Applied => "applied",
+        RecordingDisplayState::Unknown => "unknown",
+    };
+    let transport = match view.transport {
+        synvelis_workspace::PlaybackStatus::Stopped => "stopped",
+        synvelis_workspace::PlaybackStatus::Playing => "playing",
+        synvelis_workspace::PlaybackStatus::Paused => "paused",
+    };
+    json!({
+        "state": state,
+        "revision": view.revision.0,
+        "record_enabled": view.record_enabled,
+        "transport": transport,
+        "transaction": view.transaction.as_ref().map(recording_txn_json),
+        "prepared": Value::Null,
+        "outcome": view.outcome.as_ref().map(recording_outcome_view_json),
+        "notices": view.notices.iter().map(|n| json!({
+            "detail": format!("{n:?}"),
+        })).collect::<Vec<_>>(),
+        "notices_dropped": view.notices_dropped,
+        "explanations": view.explanations.iter().map(|e| json!({
+            "text": e.text,
+            "provenance": recording_provenance_json(&e.provenance),
+        })).collect::<Vec<_>>(),
+        "actions": view.actions.iter().map(|a| match a {
+            RecordingAction::Inspect => "inspect",
+            RecordingAction::Retry => "retry",
+            RecordingAction::ExplicitRebase => "rebase",
+            RecordingAction::Abort => "abort",
+        }).collect::<Vec<_>>(),
+    })
+}
+
+fn recording_txn_json(tx: &synvelis_workspace::RecordingTxnView) -> Value {
+    json!({
+        "id": tx.id.to_string(),
+        "state": ui_kebab(&format!("{:?}", tx.state)),
+        "sealed": tx.sealed.map(|s| ui_kebab(&format!("{s:?}"))),
+        "fixed_revision": tx.fixed_revision.0,
+        "current_revision": tx.current_revision.0,
+        "revision_stale": tx.revision_stale,
+        "recorded_points": tx.recorded_points,
+        "lanes": tx.lanes.len(),
+        "fixed_targets": tx.fixed_targets.len(),
+    })
+}
+
+/// [`RecordDisposition`] → wire shape — typed `kind` plus the
+/// transaction id and revision, never a `Debug` dump.
+fn record_disposition_json(d: &synvelis_workspace::RecordDisposition) -> Value {
+    match d {
+        synvelis_workspace::RecordDisposition::Committed { id, revision } => json!({
+            "kind": "committed",
+            "id": format!("rec-tx-{}", id.0),
+            "revision": revision.map(|r| r.0),
+        }),
+        synvelis_workspace::RecordDisposition::Aborted { id } => json!({
+            "kind": "aborted",
+            "id": format!("rec-tx-{}", id.0),
+        }),
+    }
+}
+
+fn recording_outcome_view_json(outcome: &synvelis_workspace::RecordingOutcomeView) -> Value {
+    json!({
+        "disposition": record_disposition_json(&outcome.disposition),
+        "receipt": outcome.receipt.map(|r| json!({
+            "fingerprint": r.fingerprint,
+            "revision": r.revision.0,
+        })),
+    })
+}
+
+/// [`RecordingProvenance`] → wire shape — `kind` tag plus the typed
+/// scalar evidence each variant carries.
+fn recording_provenance_json(p: &RecordingProvenance) -> Value {
+    match p {
+        RecordingProvenance::Transaction { id, state, sealed } => json!({
+            "kind": "transaction",
+            "id": id.to_string(),
+            "state": ui_kebab(&format!("{state:?}")),
+            "sealed": sealed.map(|s| ui_kebab(&format!("{s:?}"))),
+        }),
+        RecordingProvenance::RevisionDrift { fixed, current } => json!({
+            "kind": "revision-drift",
+            "fixed": fixed.0,
+            "current": current.0,
+        }),
+        RecordingProvenance::Prepared {
+            id,
+            expected_revision,
+            was_sealed,
+            verdict,
+        } => {
+            let verdict_json = match verdict {
+                synvelis_workspace::PreparedVerdict::Live => json!({ "verdict": "live" }),
+                synvelis_workspace::PreparedVerdict::StaleRevision { expected, current } => json!({
+                    "verdict": "stale-revision",
+                    "expected": expected.0,
+                    "current": current.0,
+                }),
+                synvelis_workspace::PreparedVerdict::Rejected(e) => json!({
+                    "verdict": "rejected",
+                    "error": format!("{e:?}"),
+                }),
+            };
+            json!({
+                "kind": "prepared",
+                "id": id.to_string(),
+                "expected_revision": expected_revision.0,
+                "was_sealed": was_sealed,
+                "verdict": verdict_json,
+            })
+        }
+        RecordingProvenance::Disposition(d) => json!({
+            "kind": "disposition",
+            "disposition": record_disposition_json(d),
+        }),
+        RecordingProvenance::AppliedReceipt { id, receipt } => json!({
+            "kind": "applied-receipt",
+            "id": id.to_string(),
+            "fingerprint": receipt.fingerprint,
+            "revision": receipt.revision.0,
+        }),
+        RecordingProvenance::Notification(n) => json!({
+            "kind": "notification",
+            "detail": format!("{n:?}"),
+        }),
+        RecordingProvenance::Health(h) => json!({
+            "kind": "health",
+            "detail": format!("{h:?}"),
+        }),
+        RecordingProvenance::Gates {
+            record_enabled,
+            status,
+        } => json!({
+            "kind": "gates",
+            "record_enabled": record_enabled,
+            "status": ui_kebab(&format!("{status:?}")),
+        }),
+    }
+}
+
+/// [`RebasePreview`] → wire shape — the Inspect action's report.
+fn rebase_preview_json(preview: &RebasePreview) -> Value {
+    json!({
+        "id": preview.id.to_string(),
+        "fixed_revision": preview.fixed_revision.0,
+        "current_revision": preview.current_revision.0,
+        "sealed": preview.sealed.map(|s| ui_kebab(&format!("{s:?}"))),
+        "lanes": preview.lanes.iter().map(|l| json!({
+            "lane": l.lane.to_tagged(),
+            "fixed_target": l.fixed_target.to_tagged(),
+            "target_exists": l.target_exists,
+            "lane_exists": l.lane_exists,
+            "recorded_points": l.recorded_points,
+            "recorded_range": l.recorded_range.map(|(a, b)| format!("{a:?}..{b:?}")),
+            "overlapping_regions": l.overlapping_regions,
+        })).collect::<Vec<_>>(),
+    })
+}
+
+/// [`RecordingOutcome`] → wire shape.
+fn recording_outcome_json(outcome: &RecordingOutcome) -> Value {
+    json!({
+        "id": outcome.id.to_string(),
+        "applied": outcome.applied,
+        "revision": outcome.revision.map(|r| r.0),
+        "was_sealed": outcome.was_sealed,
+    })
+}
+
+/// `"rec-tx-<n>"` or bare `"<n>"` → [`RecordingTransactionId`].
+fn recording_txn_id_param(
+    value: &Value,
+) -> Result<synvelis_workspace::control::RecordingTransactionId, ErrorBody> {
+    let text = value
+        .as_str()
+        .ok_or_else(|| invalid("params.id must be a string (\"rec-tx-<n>\" or \"<n>\")"))?;
+    let digits = text.strip_prefix("rec-tx-").unwrap_or(text);
+    let n = digits
+        .parse::<u64>()
+        .map_err(|_| invalid(format!("params.id malformed: {text}")))?;
+    Ok(synvelis_workspace::control::RecordingTransactionId(n))
+}
+
+/// [`synvelis_workspace::control::RecordCommitError`] → `ErrorBody`
+/// — the typed rejection reaches the caller verbatim in `detail`.
+fn record_commit_err(e: &synvelis_workspace::control::RecordCommitError) -> ErrorBody {
+    invalid(format!("recording commit rejected: {e:?}"))
 }
 
 /// Wire shape for [`SignalFlowView`] — every field verbatim; ids and
@@ -4585,6 +4979,363 @@ impl SynvelisApp {
             "receipts": receipts,
             "fed": fed,
         }))
+    }
+
+    // -- syn.control.relation / syn.control.edge / syn.recording.* (UI-C5) --
+
+    /// `syn.control.relation` — the per-view Control Relation
+    /// inspection surface (UI-C5-01/03). `params.view_id` is the
+    /// wire view id (`"view-{n}"`); `params.action` ∈
+    /// `view|inspect|set_mode|set_follow_source|back|forward`:
+    ///
+    /// - `view` is read-only: returns the view's inspection focus
+    ///   plus the [`synvelis_workspace::RelationView`] of its anchor
+    ///   (or of `params.anchor`, a tagged control-entity id, when
+    ///   given — a stateless preview that never moves the focus).
+    /// - `inspect` takes `entity` (tagged id) — enters Explore mode,
+    ///   pushes the previous anchor onto the back-stack. Observation
+    ///   only: editing selection, `inspection_focus`, project and
+    ///   undo are never touched (inspect ≠ edit).
+    /// - `set_mode` takes `mode` ∈ `follow|explore|pinned`;
+    ///   `set_follow_source` takes `follow_source` — `null` clears,
+    ///   `{"view": "view-{n}"}` or `{"group": <u64>}` narrows Follow.
+    /// - `back`/`forward` walk the Explore history — "元画面へ戻る".
+    ///
+    /// The response always echoes the resulting inspection focus and
+    /// a fresh relation view at the live revision — `coverage` and
+    /// `project_revision` are verbatim so staleness is displayed,
+    /// never hidden. Link events carry `SemanticTarget`, which has
+    /// no `ControlEntityRef` mapping, so a Follow-mode anchor is
+    /// stable under link/multi-selection/dock churn rather than
+    /// silently retargeted.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, an unknown action, an
+    /// unparseable entity tag, or an unregistered view.
+    pub fn op_control_relation(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = sf_view_param(params);
+        let inst = self.sf_view_instance(&view)?;
+        let action = str_param(params, "action")?;
+        match action {
+            "inspect" => {
+                let entity = control_entity_param(params, "entity")?;
+                self.workspace
+                    .control_relation_inspect(inst, entity)
+                    .map_err(|e| dock_err(&e))?;
+            }
+            "set_mode" => {
+                let mode = match str_param(params, "mode")? {
+                    "follow" => InspectionMode::Follow,
+                    "explore" => InspectionMode::Explore,
+                    "pinned" => InspectionMode::Pinned,
+                    other => {
+                        return Err(invalid(format!(
+                            "params.mode must be follow|explore|pinned, got {other}"
+                        )));
+                    }
+                };
+                self.workspace
+                    .control_relation_set_inspection_mode(inst, mode)
+                    .map_err(|e| dock_err(&e))?;
+            }
+            "set_follow_source" => {
+                let source = match params.get("follow_source") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => {
+                        if let Some(v) = value.get("view").and_then(Value::as_str) {
+                            let view_inst = parse_view_instance(v).ok_or_else(|| {
+                                invalid(format!(
+                                    "params.follow_source.view must be \"view-{{n}}\", got {v}"
+                                ))
+                            })?;
+                            Some(FollowSource::View(view_inst))
+                        } else if let Some(g) = value.get("group").and_then(Value::as_u64) {
+                            Some(FollowSource::Group(LinkGroupId(g)))
+                        } else {
+                            return Err(invalid(
+                                "params.follow_source must be null|{\"view\": ...}|{\"group\": n}",
+                            ));
+                        }
+                    }
+                };
+                self.workspace
+                    .control_relation_set_follow_source(inst, source)
+                    .map_err(|e| dock_err(&e))?;
+            }
+            "back" => {
+                self.workspace
+                    .control_relation_explore_back(inst)
+                    .map_err(|e| dock_err(&e))?;
+            }
+            "forward" => {
+                self.workspace
+                    .control_relation_explore_forward(inst)
+                    .map_err(|e| dock_err(&e))?;
+            }
+            "view" => {}
+            other => {
+                return Err(invalid(format!("unknown control_relation action {other}")));
+            }
+        }
+        // Read-only query anchor: `params.anchor` is honored only for
+        // `view` (a stateless preview); every other action re-queries
+        // the focus anchor so the response always describes the
+        // focus the caller just moved.
+        let anchor = match (action, params.get("anchor")) {
+            ("view", Some(value)) if !value.is_null() => Some(control_entity(value, "anchor")?),
+            _ => None,
+        };
+        let focus = self
+            .workspace
+            .control_relation_state(inst)
+            .map(|s| s.inspection.clone())
+            .unwrap_or_default();
+        let query_anchor = anchor.or_else(|| focus.target_entity());
+        let relation = query_anchor.map(|entity| {
+            relation_view_json(&relation_rows(
+                self.workspace.session(),
+                entity,
+                RelationDirection::Both,
+            ))
+        });
+        Ok(json!({
+            "ok": true,
+            "view": view,
+            "inspection": control_relation_inspection_json(&focus),
+            "relation": relation,
+        }))
+    }
+
+    /// `syn.control.edge` — the Control Layer edge gesture
+    /// (UI-C5-02). `params.view_id` + `params.action` ∈
+    /// `begin|preview|commit|cancel|state`:
+    ///
+    /// - `begin` takes `source`/`target` tagged control-entity ids —
+    ///   must be `mod-source-…` → `param-…`. Fixes view, both typed
+    ///   endpoint ids, project revision (CAS) and window epoch.
+    ///   This is *not* an Audio Routing gesture: it drives
+    ///   [`WorkspaceManager::control_edge_begin`], a different state
+    ///   slot and commit op (`AddModulationAssignment`) than
+    ///   `syn.signal_flow.routing`.
+    /// - `preview` takes optional `depth` (default `1.0`) and
+    ///   `polarity` (`"bipolar"` default | `"unipolar"`) — replaces
+    ///   the whole preview value; the project is never touched, so
+    ///   no undo boundary can appear.
+    /// - `commit` applies one `AddModulationAssignment` at the
+    ///   fixated revision — `{"result": "applied", "revision"}` or
+    ///   `{"result": "stale"}` on moved revision/window epoch; never
+    ///   retargets.
+    /// - `cancel` takes optional `reason` ∈ `escape|pointer-cancel|
+    ///   window-closed|target-deleted|input-scope-lost` — discards
+    ///   the preview, project untouched.
+    /// - `state` returns the running gesture's fixation + preview.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, an unknown action,
+    /// non-connect endpoints, or a workspace refusal (gesture
+    /// already active, mid-transfer, non-stale project rejection).
+    pub fn op_control_edge(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = sf_view_param(params);
+        let inst = self.sf_view_instance(&view)?;
+        let action = str_param(params, "action")?;
+        match action {
+            "begin" => {
+                let source = control_entity_param(params, "source")?;
+                let target = control_entity_param(params, "target")?;
+                let (
+                    ControlEntityRef::ModulationSource(source),
+                    ControlEntityRef::Parameter(target),
+                ) = (source, target)
+                else {
+                    return Err(invalid(
+                        "control edge requires mod-source-… -> param-… endpoints",
+                    ));
+                };
+                self.workspace
+                    .control_edge_begin(
+                        inst,
+                        ControlEntityRef::ModulationSource(source),
+                        ControlEntityRef::Parameter(target),
+                    )
+                    .map_err(|e| dock_err(&e))?;
+                Ok(json!({
+                    "ok": true,
+                    "view": view,
+                    "gesture": control_edge_state_json(self.workspace.state(inst).ok()),
+                }))
+            }
+            "preview" => {
+                let depth = params
+                    .get("depth")
+                    .map(|v| {
+                        v.as_f64()
+                            .filter(|d| d.is_finite())
+                            .ok_or_else(|| invalid("params.depth must be a finite number"))
+                    })
+                    .transpose()?
+                    .unwrap_or(1.0);
+                let polarity = match params.get("polarity").and_then(Value::as_str) {
+                    None | Some("bipolar") => Polarity::Bipolar,
+                    Some("unipolar") => Polarity::Unipolar,
+                    Some(other) => {
+                        return Err(invalid(format!(
+                            "params.polarity must be bipolar|unipolar, got {other}"
+                        )));
+                    }
+                };
+                self.workspace
+                    .control_edge_preview(inst, ControlEdgePreview { depth, polarity })
+                    .map_err(|e| dock_err(&e))?;
+                Ok(json!({
+                    "ok": true,
+                    "view": view,
+                    "preview": { "depth": depth, "polarity": polarity_str(polarity) },
+                }))
+            }
+            "commit" => {
+                let outcome = self
+                    .workspace
+                    .control_edge_commit(inst)
+                    .map_err(|e| dock_err(&e))?;
+                self.ui_pump();
+                Ok(json!({
+                    "ok": true,
+                    "view": view,
+                    "outcome": control_edge_outcome_json(&outcome),
+                }))
+            }
+            "cancel" => {
+                let reason = match params.get("reason").and_then(Value::as_str) {
+                    None | Some("escape") => CancelReason::Escape,
+                    Some("pointer-cancel") => CancelReason::PointerCancel,
+                    Some("window-closed") => CancelReason::WindowClosed,
+                    Some("target-deleted") => CancelReason::TargetDeleted,
+                    Some("input-scope-lost") => CancelReason::InputScopeLost,
+                    Some(other) => {
+                        return Err(invalid(format!(
+                            "params.reason must be escape|pointer-cancel|window-closed|target-deleted|input-scope-lost, got {other}"
+                        )));
+                    }
+                };
+                let outcome = self
+                    .workspace
+                    .control_edge_cancel(inst, reason)
+                    .map_err(|e| dock_err(&e))?;
+                Ok(json!({
+                    "ok": true,
+                    "view": view,
+                    "outcome": control_edge_outcome_json(&outcome),
+                }))
+            }
+            "state" => Ok(json!({
+                "ok": true,
+                "view": view,
+                "gesture": control_edge_state_json(self.workspace.state(inst).ok()),
+            })),
+            other => Err(invalid(format!("unknown control_edge action {other}"))),
+        }
+    }
+
+    /// `syn.recording.status` — the UI-C5-04 recording status read
+    /// model ([`synvelis_workspace::recording_status`]) as JSON:
+    /// display state (`conflict|prepare|pending|applied|unknown`),
+    /// live revision, the open transaction's verbatim evidence, the
+    /// last disposition, the bounded notice tail, explanation rows
+    /// whose `provenance` carries typed domain values, and the legal
+    /// actions for the state. Pure read — no session mutation.
+    ///
+    /// `Prepare` is unreachable through this op by design: the
+    /// prepared payload is caller-held evidence the session cannot
+    /// observe (see `recording_status` module docs); the state is
+    /// still explained for callers that hold one.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters (none accepted today).
+    pub fn op_recording_status(&self, _params: &Value) -> Result<Value, ErrorBody> {
+        Ok(recording_status_json(&recording_status(
+            self.workspace.session(),
+        )))
+    }
+
+    /// `syn.recording.action` — the explicit user actions behind the
+    /// recording status surface (UI-C5-04). `params.action` ∈
+    /// `inspect|retry|rebase|abort`:
+    ///
+    /// - `inspect` → `control_record_rebase_preview` — reports what
+    ///   an explicit rebase would write; never merges.
+    /// - `retry` → `control_record_commit` — the idempotent
+    ///   prepare→apply→finish path; `AlreadyApplied`/`Conflict`/
+    ///   `Rejected` surface as typed errors, never silent
+    ///   double-writes.
+    /// - `rebase` → `control_record_approve_rebase` — explicit
+    ///   approval after Inspect; optional `params.id`
+    ///   (`"rec-tx-<n>"` or bare `<n>`) selects the transaction,
+    ///   defaulting to the open one. Re-pins the fixed revision,
+    ///   keeps the seal, never automatic.
+    /// - `abort` → `control_record_abort` — discards the open
+    ///   transaction; nothing is applied.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, an unknown action, or a
+    /// [`synvelis_workspace::control::RecordCommitError`] mapped
+    /// verbatim into the error detail.
+    pub fn op_recording_action(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let action = str_param(params, "action")?;
+        match action {
+            "inspect" => {
+                let preview = self
+                    .workspace
+                    .session()
+                    .control_record_rebase_preview()
+                    .map_err(|e| record_commit_err(&e))?;
+                Ok(json!({
+                    "ok": true,
+                    "action": "inspect",
+                    "preview": rebase_preview_json(&preview),
+                }))
+            }
+            "retry" => {
+                let outcome = self
+                    .workspace
+                    .session_mut()
+                    .control_record_commit()
+                    .map_err(|e| record_commit_err(&e))?;
+                self.ui_pump();
+                Ok(json!({
+                    "ok": true,
+                    "action": "retry",
+                    "outcome": recording_outcome_json(&outcome),
+                }))
+            }
+            "rebase" => {
+                let id = match params.get("id") {
+                    None | Some(Value::Null) => self
+                        .workspace
+                        .session()
+                        .control()
+                        .recording()
+                        .map(|tx| tx.id)
+                        .ok_or_else(|| invalid("no open recording transaction to rebase"))?,
+                    Some(value) => recording_txn_id_param(value)?,
+                };
+                self.workspace
+                    .session_mut()
+                    .control_record_approve_rebase(id)
+                    .map_err(|e| record_commit_err(&e))?;
+                self.ui_pump();
+                Ok(json!({
+                    "ok": true,
+                    "action": "rebase",
+                    "id": id.to_string(),
+                }))
+            }
+            "abort" => {
+                self.workspace.session_mut().control_record_abort();
+                self.ui_pump();
+                Ok(json!({ "ok": true, "action": "abort" }))
+            }
+            other => Err(invalid(format!("unknown recording action {other}"))),
+        }
     }
 
     // -- syn.monitoring.* -----------------------------------------------------

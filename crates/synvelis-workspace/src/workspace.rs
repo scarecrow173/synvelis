@@ -27,6 +27,7 @@ use crate::focus::{FocusState, InputContext};
 use crate::gesture::{CancelReason, Gesture, GestureFixation, GestureOutcome, GesturePreview};
 use crate::link::{LinkEvent, LinkGroupId, LinkGroupManager};
 use crate::persist::{LinkRecord, ViewRecord, WORKSPACE_SCHEMA, WorkspaceSnapshot};
+use crate::relation_ui::{ControlRelationViewState, control_entity_tag};
 use crate::routing_gesture::{
     RoutingGesture, RoutingGestureFixation, RoutingGestureOutcome, RoutingGesturePreview,
     RoutingPortAssessment, assess_connection, routing_gesture_intent,
@@ -1092,6 +1093,147 @@ impl<H: WindowHandle> WorkspaceManager<H> {
             && let Some(current) = focus.target.replace(next)
         {
             focus.explore_back.push(current);
+        }
+        Ok(())
+    }
+
+    // -- Control Relation inspection focus (UI-C5-01/03) ------------------
+    //
+    // The relation-table counterpart of the Signal Flow inspection
+    // focus: a view-local anchor over [`ControlEntityRef`] with the
+    // same Follow/Explore/Pinned semantics. Inspect is observation-
+    // only — it never touches the editing selection, `inspection_focus`,
+    // or project/undo state. Link events carry [`SemanticTarget`],
+    // which has no [`ControlEntityRef`] mapping, so Follow-mode
+    // retargeting is a no-op and the anchor stays stable under
+    // multi-selection/dock/focus churn (UI-C5-03).
+
+    fn control_relation_state_mut(
+        &mut self,
+        view: ViewInstanceId,
+    ) -> Result<&mut ControlRelationViewState, WorkspaceError> {
+        Ok(self
+            .state_mut(view)?
+            .control_relation
+            .get_or_insert_with(ControlRelationViewState::default))
+    }
+
+    /// The view's Control Relation state, if the surface was used.
+    #[must_use]
+    pub fn control_relation_state(
+        &self,
+        view: ViewInstanceId,
+    ) -> Option<&ControlRelationViewState> {
+        self.states
+            .get(view)
+            .and_then(|s| s.control_relation.as_ref())
+    }
+
+    /// Inspects a control-relation entity — pushes the previous
+    /// anchor onto the Explore back-stack and enters Explore mode.
+    /// Never modifies editing selection, `inspection_focus`, or the
+    /// project (inspect ≠ edit, UI-C5-02).
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
+    pub fn control_relation_inspect(
+        &mut self,
+        view: ViewInstanceId,
+        entity: ControlEntityRef,
+    ) -> Result<(), WorkspaceError> {
+        let focus = &mut self.control_relation_state_mut(view)?.inspection;
+        let tag = control_entity_tag(entity);
+        if focus.target.as_deref() != Some(tag.as_str()) {
+            if let Some(prev) = focus.target.take().and_then(|t| {
+                // The stored tag always round-trips through
+                // `control_entity_parse`; a malformed persisted tag
+                // degrades to "no previous anchor" rather than
+                // poisoning the stack.
+                crate::relation_ui::control_entity_parse(&t)
+            }) {
+                focus.explore_back.push(prev);
+            }
+            focus.target = Some(tag);
+            focus.explore_fwd.clear();
+        }
+        focus.mode = InspectionMode::Explore;
+        Ok(())
+    }
+
+    /// Sets the Control Relation inspection mode. Leaving `Explore`
+    /// clears its session history, matching
+    /// [`Self::signal_flow_set_inspection_mode`].
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
+    pub fn control_relation_set_inspection_mode(
+        &mut self,
+        view: ViewInstanceId,
+        mode: InspectionMode,
+    ) -> Result<(), WorkspaceError> {
+        let focus = &mut self.control_relation_state_mut(view)?.inspection;
+        focus.mode = mode;
+        if mode != InspectionMode::Explore {
+            focus.explore_back.clear();
+            focus.explore_fwd.clear();
+        }
+        Ok(())
+    }
+
+    /// Sets the Control Relation Follow-mode source filter — carried
+    /// for parity; no link event maps onto a control entity yet, so
+    /// it currently narrows nothing.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
+    pub fn control_relation_set_follow_source(
+        &mut self,
+        view: ViewInstanceId,
+        source: Option<FollowSource>,
+    ) -> Result<(), WorkspaceError> {
+        self.control_relation_state_mut(view)?
+            .inspection
+            .follow_source = source;
+        Ok(())
+    }
+
+    /// Steps the Control Relation Explore history back one entity —
+    /// "元画面へ戻る" without losing the path (UI-C5-01).
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
+    pub fn control_relation_explore_back(
+        &mut self,
+        view: ViewInstanceId,
+    ) -> Result<(), WorkspaceError> {
+        let focus = &mut self.control_relation_state_mut(view)?.inspection;
+        if let Some(prev) = focus.explore_back.pop() {
+            // Push the outgoing anchor onto the forward stack before
+            // installing the restored one.
+            let outgoing = focus.target_entity();
+            focus.target = Some(crate::relation_ui::control_entity_tag(prev));
+            if let Some(out) = outgoing {
+                focus.explore_fwd.push(out);
+            }
+        }
+        Ok(())
+    }
+
+    /// Steps the Control Relation Explore history forward one entity.
+    ///
+    /// # Errors
+    /// [`WorkspaceError::UnknownView`] for an unregistered view.
+    pub fn control_relation_explore_forward(
+        &mut self,
+        view: ViewInstanceId,
+    ) -> Result<(), WorkspaceError> {
+        let focus = &mut self.control_relation_state_mut(view)?.inspection;
+        if let Some(next) = focus.explore_fwd.pop() {
+            let outgoing = focus.target_entity();
+            focus.target = Some(crate::relation_ui::control_entity_tag(next));
+            if let Some(out) = outgoing {
+                focus.explore_back.push(out);
+            }
         }
         Ok(())
     }
