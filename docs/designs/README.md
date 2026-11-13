@@ -83,6 +83,7 @@ Directory: `docs/designs`
 | DESIGN-034UtlI2uLUF1lr2g3CUM0 | RCD-03 Monitor Policy / Punch Gate Probe / Player Monitor-Latency Adapter | approved | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | DESIGN-rprIAB9zoxNjZbw6rODTWf | RCD-03 VCS semantic diff monitor 宣言分類 design | approved | [rcd-03-vcs-diff-monitor-classification-design.md](./rcd-03-vcs-diff-monitor-classification-design.md) |
 | DESIGN-RCD04Fx2nB8cY6dF5hJ9kM3q | RCD-04 Comp Transition / MIDI Phrase fixture — crate 内完結設計 | approved | [rcd-04-comp-transition-midi-phrase-fixture.md](./rcd-04-comp-transition-midi-phrase-fixture.md) |
+| DESIGN-034WEV4lGiVlfIG0LsEBNr | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID design | approved | [rcd-04-midi-undo-stableid-design.md](./rcd-04-midi-undo-stableid-design.md) |
 | DESIGN-034VmNZvp2r11R0Phmdf0P | RCD-04 product E2E design | approved | [rcd-04-product-e2e-design.md](./rcd-04-product-e2e-design.md) |
 | DESIGN-034VBU0PCNZXCZsyRneE3S | RCD-04 RT engine comp PCM design | approved | [rcd-04-rt-engine-comp-pcm-design.md](./rcd-04-rt-engine-comp-pcm-design.md) |
 | DESIGN-034SF01Mo9rSt4uV1wXyZaCdE | SF-01 Semantic Routing Model 設計 — 型・整合・Schema v6 Migration | approved | [sf-01-semantic-routing-model-design.md](./sf-01-semantic-routing-model-design.md) |

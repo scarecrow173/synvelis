@@ -71,6 +71,7 @@ Directory: `docs/test-specs`
 | TSPEC-034Utqp8lRoY8TBzlygCtN | RCD-03 Monitor/Punch/Latency fixture matrix | proposed | [rcd-03-monitor-punch-latency.md](./rcd-03-monitor-punch-latency.md) |
 | TSPEC-1O5VKTXpMQMvUNMWnJXn1a | RCD-03 VCS semantic diff monitor 宣言分類 fixture matrix | proposed | [rcd-03-vcs-diff-monitor-classification.md](./rcd-03-vcs-diff-monitor-classification.md) |
 | TSPEC-RCD04Fx9mB3vC7xZ2qW5eR | RCD-04 Comp Transition / MIDI Phrase fixture matrix | proposed | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |
+| TSPEC-034WEVqv4ZmteepjgHJGUL | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID test spec | approved | [rcd-04-midi-undo-stableid.md](./rcd-04-midi-undo-stableid.md) |
 | TSPEC-034VmO7ak9xboyiIKIf80v | RCD-04 product E2E test spec | approved | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | TSPEC-034VC3cbBMDP6D1WnhLGlh | RCD-04 RT engine comp PCM test spec | approved | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
