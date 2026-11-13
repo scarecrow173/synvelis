@@ -28,7 +28,7 @@ Scope: scarecrow173/synvelis / 三リポジトリ共通の検証方針
 | **Linux** | **必須** | 利用要件発生までDeferred | 利用要件発生までDeferred |
 
 - Windowsでも、**使わないDevice・Plugin形式・Host mode・特殊FS等の全組合せは必須にしない**。利用する能力だけをCase/Device/Format/環境ごとに指定する。
-- Windowsで利用する機能のGUI-L2/EXT-L3がNotRun/Failなら**その機能は未受入**。Fake/Headless/Offscreen成功は実GUI、Generic/Floating Editorは実Native Dock、Mock Pluginは実Plugin動作の代用にならない。既知のWindows Native Dock画素合成制約も未解決のままPassにしない。
+- Windowsで利用する機能のGUI-L2/EXT-L3がNotRun/Failなら**その機能は未受入**。Fake/Headless/Offscreen成功は実GUI、Generic/Floating Editorは実Native Dock、Mock Pluginは実Plugin動作の代用にならない。Native Dockの画素合成など、実利用機能の未解決不具合をPassにしない。
 - macOS/LinuxはOS-L1までが現行必須。実GUI/物理機器/実PluginをそのOSで利用する必要が生じた時点で、対象OS・機能のGUI-L2/EXT-L3をRequiredへ昇格し、Owner、Issue、環境、受入Caseを定義する。
 - 本方針は3OSを**設計対象から除外する判断ではない**。OS-L1がPassしても、未実測のCPUアーキテクチャ、OSバージョン、配布パッケージ、実デスクトップ環境を正式対応済みと主張しない。
 
@@ -51,5 +51,5 @@ Scope: scarecrow173/synvelis / 三リポジトリ共通の検証方針
 ## 5. Synvelis固有の適用
 
 - OS-L1ではProject/Track/Clip/Undo/Save、Playback/Export、録音Mock/Fault、RT NoAlloc/NoBlock、Plugin/GUI Driver-neutral契約の独立Oracleを保護する。
-- Windowsで製品として実際に提供するDAW実GUI、録音/モニター/実MIDI、VST3/CLAP等のNative Plugin DockをGUI-L2/EXT-L3で検証する。Windows DComp/child HWNDのNative Dock画素制約は未解消なら当該機能の未受入として追跡する。
+- Windowsで製品として実際に提供するDAW実GUI、録音/モニター/実MIDI、VST3/CLAP等のNative Plugin DockをGUI-L2/EXT-L3で検証する。実Native Dockに画素・Focus・入力の未解決不具合がある場合、当該提供機能を未受入として追跡する。
 - 利用しないPlugin形式・機材は必須外とする。DAW固有のProject/編集操作/UX/Recording Workflowと製品受入はSynvelisのIssueで管理する。一方、ドメイン非依存で再利用可能なTime/Graph/Device/Plugin/GUI Port・実行契約・テスト基盤等の課題はRuviformのIssueとして起票し、共通基盤へ還元する。Ruviformの変更は両Consumerの精度・RT・互換性を独立に検証し、必要な導入・追従対応は各ConsumerのIssueで管理する。
