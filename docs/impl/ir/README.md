@@ -147,6 +147,7 @@ Directory: `docs/impl/ir`
 | IMPL-034RBYkTtBOQ5Akfjc5HEi | SYN-OBS-01 host logging owner + OBS-02 source catalog（synvelis-app 単一所有） | completed | [syn-obs-01-host-logging-owner-obs-02-source-catalog-synvelis-app.md](./syn-obs-01-host-logging-owner-obs-02-source-catalog-synvelis-app.md) |
 | IR-SV-RF305-export | SYN-RF305 render/player WAV Export StagedFile 移行 実装記録・検証証跡 | completed | [syn-rf305-render-export-staged-file.md](./syn-rf305-render-export-staged-file.md) |
 | IMPL-034Rp8RppbqCF1xtexsFvB | Synvelis 独立 PR/Push CI 実装記録 | completed | [synvelis-pr-push-ci.md](./synvelis-pr-push-ci.md) |
+| IMPL-wudSTaSGqUbfYIh4qzyqGq | Target Architecture 設計レビュー 実装記録 — docs chain 7 文書 + evidence/sv22 台帳 | completed | [target-architecture.md](./target-architecture.md) |
 | IMPL-034Vu50fg7S7yCp4bni412 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証 | completed | [tim-01-app-ppqn-slice.md](./tim-01-app-ppqn-slice.md) |
 | IMPL-034UHWGxnC2sjDoLd5P01u | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | completed | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | IMPL-8qWeRtYuIoPaSdFgHjKl | TIM-01 PPQN Preview op + New Project PPQN — preview_ppqn + syn.project.preview_ppqn / syn.project.new.ppqn | completed | [tim-01-ppqn-preview.md](./tim-01-ppqn-preview.md) |
