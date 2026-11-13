@@ -11,7 +11,11 @@ Collected 2026-11-11 via `gh pr checks` / `gh run list` /
 `gh run view` against `scarecrow173/synvelis`; re-verified
 2026-11-11T19:21Z and again 2026-11-12 (run list unchanged —
 latest ci.yml run is still 42938180676, latest daily-ci
-decision still 42938147481, next cron had not yet fired).
+decision still 42938147481, next cron had not yet fired);
+re-verified 2026-11-13 — a manual `workflow_dispatch` run
+[43428177865](https://github.com/scarecrow173/synvelis/actions/runs/43428177865)
+(triggering actor `scarecrow173`) covered `main` head
+`7c206289b0d72af54aaf753ca5d94b9786a58c45`, recorded below.
 
 ## Anchor
 
@@ -77,6 +81,8 @@ Merge commits (squash) and merge times (UTC):
 
 | ci.yml run | head_sha | covers #268 | covers #306 | covers #323 | conclusion |
 | --- | --- | --- | --- | --- | --- |
+| [43428177865](https://github.com/scarecrow173/synvelis/actions/runs/43428177865) (2026-11-13T12:47:38Z, `workflow_dispatch`) | `7c206289b0d72af54aaf753ca5d94b9786a58c45` | yes | yes | **yes** | **success** |
+| [43422470644](https://github.com/scarecrow173/synvelis/actions/runs/43422470644) (2026-11-13T12:07:05Z, `workflow_dispatch`) | `69153c09bf42f56ee54e8aa0056994086f2d5714` | yes | yes | **yes** | **success** |
 | [42938180676](https://github.com/scarecrow173/synvelis/actions/runs/42938180676) (2026-11-11T01:20:02Z, `workflow_dispatch` by daily-ci run [42938147481](https://github.com/scarecrow173/synvelis/actions/runs/42938147481)) | `13e651891a8bdc5506f8dd542bfa66af62cab94b` | yes | yes | **no** | **failure** |
 
 Earlier `main` runs (42543371916 success on `307002c6` @
@@ -103,18 +109,58 @@ all **predate** the three merges and cover none of them.
 | evidence | gate (pr-mode) | **failure** | fail-closed: `verify (windows-latest)` required leg failed |
 | ci-summary | gate (full-mode) | **failure** | fail-closed: required-leg failure propagates |
 
+### Run 43428177865 leg outcomes (head_sha `7c206289`)
+
+Manually dispatched 2026-11-13T12:47:38Z (`workflow_dispatch`,
+actor `scarecrow173`) after the #323 merge and subsequent main
+merges (#338/#340 fixture slices, #376–#379 CI/policy work).
+All legs **success**; `evidence` and
+`ci-summary` both green — the first uniformly-green covering run
+for all three fixture PRs.
+
+| leg | required? | outcome | notes |
+| --- | --- | --- | --- |
+| verify (ubuntu-latest) | required | **success** | `mise run test-full` green; all six vcs06 binaries observed in log |
+| verify (windows-latest) | required | **success** | `mise run test-full` green; the webdav `TransientIo` failure seen in 42938180676 did not recur. vcs06 suites observed: `vcs06_ui_matrix` 4, `vcs06_git_matrix` 3, `vcs06_apply_matrix` 8, `vcs06_diff_matrix` 5, `vcs06_monitoring_matrix` 6, `vcs06_plugin_instance_matrix` 1, `vcs06_restore_matrix` 8 — all `ok` |
+| rt-verify | required | success | `mise run test-rt` selection green; vcs06 binaries observed in both rt_ selection and RT contract steps |
+| gw10-verify (ubuntu-latest) | required | success | |
+| gw10-verify (windows-latest) | required | success | |
+| msrv-verify | required | success | rust 1.89 `test-msrv` green; vcs06 binaries observed |
+| ui-verify (ubuntu-latest) | required | success | |
+| ui-verify (windows-latest) | required | success | |
+| dep-guard | required | success | |
+| verify-macos | observed (required under full) | success | `test-full` green incl. all vcs06 suites |
+| gw10-verify-macos | observed (required under full) | success | |
+| ui-verify-macos | observed (required under full) | success | |
+| evidence | gate | **success** | all required legs green |
+| ci-summary | gate (full-mode) | **success** | all legs incl. macOS green |
+
+Run [43422470644](https://github.com/scarecrow173/synvelis/actions/runs/43422470644)
+(2026-11-13T12:07:05Z, head `69153c09`) is an earlier same-day
+covering run that also concluded **success** on every leg;
+run [43420276313](https://github.com/scarecrow173/synvelis/actions/runs/43420276313)
+(head `91a5e467`) was **cancelled** mid-flight and provides no
+evidence.
+
 ### Coverage verdict per PR
 
-- **#268 / #306**: the only covering ci.yml run is 42938180676 —
-  ubuntu verify green with all then-existing vcs06 suites passing,
-  windows verify **failed** on an unrelated webdav mock transient,
-  macOS observed legs green, both gates failed. Measured CI
-  evidence exists and is **not uniformly green** — recorded as-is.
-- **#323**: merged 2026-11-11T10:07:20Z; as of the latest
-  re-verification (2026-11-12) **no ci.yml run covers
-  `9d6b963f`** — the next scheduled daily-ci dispatch had not
-  yet run. CI lane for #323 content: **NotRun**
-  (pending, not failed).
+- **#268 / #306 / #323**: covering ci.yml runs now exist for all
+  three. Run 43428177865 (main `7c206289`, 2026-11-13) is
+  uniformly green — every required and observed leg succeeded,
+  both gates passed, and all six vcs06 test binaries ran and
+  passed on ubuntu, windows, macOS, MSRV, and the rt-verify
+  selection. The earlier covering run 42938180676 remains
+  recorded as-is: ubuntu green, windows failed on an unrelated
+  webdav mock transient, both gates failed. CI lane verdict:
+  **Pass** on the latest covering run; the historical failure is
+  preserved, not overwritten.
+- **This branch** (`test/97-vcs06-real-git-fs-fault`): the new
+  real-git/FS-fault rows added by this slice are **not** in any
+  ci.yml run yet — `ci.yml` has no `pull_request` trigger, so PR
+  head CI is NotRun by design, and post-merge coverage arrives
+  with the next daily-ci dispatch after merge. Local
+  `mise run test` results are recorded in the fixture matrix
+  ledger, not here.
 
 ## What this does and does not establish
 
