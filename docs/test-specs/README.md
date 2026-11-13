@@ -70,6 +70,7 @@ Directory: `docs/test-specs`
 | TSPEC-034WCwsH5OmvKwwZocdwPT | RCD-03 monitor engine — test spec | draft | [rcd-03-monitor-engine.md](./rcd-03-monitor-engine.md) |
 | TSPEC-034VpQe1oQ6xR3wV8vC0xN | RCD-03 Arm/Monitor/Punch Project 永続投影 fixture matrix | proposed | [rcd-03-monitor-persistence.md](./rcd-03-monitor-persistence.md) |
 | TSPEC-034Utqp8lRoY8TBzlygCtN | RCD-03 Monitor/Punch/Latency fixture matrix | proposed | [rcd-03-monitor-punch-latency.md](./rcd-03-monitor-punch-latency.md) |
+| TSPEC-034X1GK6Bkure6mY3kxHZJ | RCD-03 monitor/punch fake session fixture test spec | approved | [rcd-03-monitor-punch.md](./rcd-03-monitor-punch.md) |
 | TSPEC-1O5VKTXpMQMvUNMWnJXn1a | RCD-03 VCS semantic diff monitor 宣言分類 fixture matrix | proposed | [rcd-03-vcs-diff-monitor-classification.md](./rcd-03-vcs-diff-monitor-classification.md) |
 | TSPEC-RCD04Fx9mB3vC7xZ2qW5eR | RCD-04 Comp Transition / MIDI Phrase fixture matrix | proposed | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |
 | TSPEC-034WEVqv4ZmteepjgHJGUL | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID test spec | approved | [rcd-04-midi-undo-stableid.md](./rcd-04-midi-undo-stableid.md) |

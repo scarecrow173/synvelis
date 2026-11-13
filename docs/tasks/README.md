@@ -28,6 +28,7 @@ Directory: `docs/tasks`
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
 | TASK-GJlWE8j5emvVOKFMtbTXHR | RCD-01 Task — 実Audio Device 到達準備（stamp placement fallback + real backend 配線） | completed | [rcd-01-task1-real-backend-readiness.md](./rcd-01-task1-real-backend-readiness.md) |
 | TASK-034VpnH7YtacCiCUD4y9fu | RCD-02 Task3 StagedFile Publish Migration | in-progress | [rcd-02-task3-stagedfile-publish-migration.md](./rcd-02-task3-stagedfile-publish-migration.md) |
+| TASK-034X1GJrKQRwmioEuJ4m78 | RCD-03 monitor/punch fake session fixture | completed | [rcd-03-monitor-punch-task.md](./rcd-03-monitor-punch-task.md) |
 | TASK-034WCx98h2mIsDpZJrrBkC | RCD-03 monitor engine — implementation slice | completed | [rcd-03-task-monitor-engine.md](./rcd-03-task-monitor-engine.md) |
 | TASK-034VegaqbLjPWyJoFDrmhQ | RCD-03 Task2 app Arm/Monitoring UX + monitor session projection | in-progress | [rcd-03-task2-app-arm-monitoring-ux.md](./rcd-03-task2-app-arm-monitoring-ux.md) |
 | TASK-034WEVr538punRWOxqkfaf | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice | in-progress | [rcd-04-task-midi-undo-stableid.md](./rcd-04-task-midi-undo-stableid.md) |
