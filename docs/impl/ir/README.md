@@ -150,6 +150,7 @@ Directory: `docs/impl/ir`
 | IMPL-0340LyK9sQ2OUSutsQvSw | TIM-03 request plan — per-request ProcessBoundarySession + precision provenance | completed | [tim-03-request-plan-provenance.md](./tim-03-request-plan-provenance.md) |
 | IMPL-034Vsqaiq4B9YQrsfPw8Sb | TIM-03 session→driver/routing wiring — BoundarySessionSpec vend・driver session/mirror・routing scoped API | completed | [tim-03-session-driver-wiring-slice.md](./tim-03-session-driver-wiring-slice.md) |
 | IMPL-Tim04PluginStateSnapshot | TIM-04 Plugin State Snapshot 一貫性 — quality receipt / save-reload / HEAD / offline recipe（headless mock slice） | completed | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
+| IMPL-102UiCfInt006FfGgHhIiJ | UI-C5 製品 GUI 統合 — syn.control.relation / syn.control.edge / syn.recording.* op surface（headless slice） | completed | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | IMPL-Vcs01ImmutableSnapshotResolver | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only projection | completed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | IMPL-Vcs02SemanticDiffEngine | VCS-02 Semantic Diff Engine — canonical ChangeSet・typed identity/lineage・Unknown tri-state | completed | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
 | IMPL-Qt0RuNZjqvP8ojWR34w9p1 | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta | completed | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |

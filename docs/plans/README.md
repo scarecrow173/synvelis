@@ -122,6 +122,7 @@ Directory: `docs/plans`
 | PLAN-Yn3mzcCyD4Dwd0Ga4zylHB | TIM-03 session→driver/routing wiring plan | approved | [tim-03-session-driver-wiring-plan.md](./tim-03-session-driver-wiring-plan.md) |
 | PLAN-034UC46sceMw6QCzqVjGOO | TIM-04 plugin state snapshot consistency — implementation plan | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | PLAN-034UyECBCu7Wg67fct0qi7 | TIM-03 plugin process boundary plan | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
+| PLAN-102UiCfInt003CcDdEeFfG | UI-C5 製品 GUI 統合 実施計画 — syn.control.relation / syn.control.edge / syn.recording.* | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | PLAN-034UAzWU1ltpUXPw8mRuWd | VCS-01 Immutable Snapshot Resolver implementation plan | approved | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | PLAN-034UEufn0HEwKaQ2GRVCWB | VCS-02 Semantic Diff Engine implementation plan | approved | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
 | PLAN-D4Oqo3jPnK2GybwKhM5nwh | VCS-03 Git Read Provider implementation plan | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |

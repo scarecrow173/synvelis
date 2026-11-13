@@ -21,6 +21,7 @@ use synvelis_project::{ClipId, LaneId, ProjectRevision, SourceId, TrackId};
 
 use crate::control_edge::ControlEdgeGesture;
 use crate::gesture::Gesture;
+use crate::relation_ui::ControlRelationViewState;
 use crate::routing_gesture::RoutingGesture;
 use crate::selection::{EditBinding, LaneScope, ObjectSelections, TimeSelection};
 use crate::signal_flow_ui::SignalFlowViewState;
@@ -214,6 +215,13 @@ pub struct ViewState {
     /// to `None` (safe recovery) instead of rejecting the snapshot.
     #[serde(default, deserialize_with = "deserialize_signal_flow")]
     pub signal_flow: Option<SignalFlowViewState>,
+    /// Per-view Control Relation state — the inspection focus behind
+    /// the relation table (UI-C5-01/03). `None` for views that never
+    /// hosted the surface; absent in older snapshots and defaulted
+    /// on migrate. A malformed persisted payload degrades to `None`
+    /// (safe recovery) instead of rejecting the snapshot.
+    #[serde(default, deserialize_with = "deserialize_control_relation")]
+    pub control_relation: Option<ControlRelationViewState>,
     /// Viewport (view-local).
     pub viewport: Viewport,
     /// Project revisions delivered to this view — the observable
@@ -271,6 +279,20 @@ impl ViewStateRegistry {
 /// payload written by a newer schema (unknown fields) is dropped
 /// rather than corrupting the restore.
 fn deserialize_signal_flow<'de, D>(deserializer: D) -> Result<Option<SignalFlowViewState>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value.and_then(|v| serde_json::from_value(v).ok()))
+}
+
+/// Tolerant per-view Control Relation state decode — same safe
+/// recovery contract as [`deserialize_signal_flow`]: a malformed
+/// persisted payload degrades to `None` rather than rejecting the
+/// whole workspace snapshot.
+fn deserialize_control_relation<'de, D>(
+    deserializer: D,
+) -> Result<Option<ControlRelationViewState>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

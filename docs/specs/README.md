@@ -129,6 +129,7 @@ Directory: `docs/specs`
 | SPEC-1umIWi6ogYs4kgcJeTyvJ8 | TIM-03 session→driver/routing wiring — ProcessBoundarySession の composition 接続（headless slice） | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | SPEC-034UBZ7xNf0yey5lCLjVNT | TIM-04 Plugin State Snapshot 一貫性 — quality receipt・save/reload/HEAD/offline recipe（headless mock slice） | approved | [tim-04-plugin-state-snapshot-consistency.md](./tim-04-plugin-state-snapshot-consistency.md) |
 | SPEC-034UyE1s4ix4GwnKIOuV2N | TIM-03 plugin process boundary — capability/degraded policy（headless mock slice） | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
+| SPEC-102UiCfInt001AaBbCcDdE | UI-C5 製品 GUI 統合 — Signal Flow Control Relation View/Inspector/Gesture（synvelis-app op surface + headless 検証） | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | SPEC-034UAv3chafPsU2fFyQnIb | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only schema projection (synvelis#92) | proposed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | SPEC-034UEsXPitEuEsjBM4qjo6 | VCS-02 Semantic Diff Engine — canonical ChangeSet typed identity lineage Unknown tri-state (synvelis#93) | proposed | [vcs-02-semantic-diff-changeset.md](./vcs-02-semantic-diff-changeset.md) |
 | SPEC-PvLluOn4j6y1qpdtQ0aw8A | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta（synvelis#94） | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |

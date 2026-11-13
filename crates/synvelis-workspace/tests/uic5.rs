@@ -12,17 +12,18 @@
 use ruviform_ui::dock::{DockTarget, ViewInstanceId};
 use ruviform_ui::window::MonitorInfo;
 use synvelis_project::{
-    AutomationTimeScope, ClipExtent, ClipId, ClipPlacement, ClipPlayback, ControlEntityRef,
-    ControlOwner, CounterIdGenerator, LaneId, ModulationSourceId, MusicalDuration, MusicalTick,
-    ParamMapping, ParameterRole, ParameterTargetId, PlaybackMapping, Polarity, Project,
-    ProjectController, ProjectId, ProjectOp, ProjectRevision, SourceFrame, SourceKind, SourceRange,
-    TimeAnchor, TrackId, ValueKind, is_issuable_raw,
+    AutomationLaneId, AutomationTimeScope, ClipExtent, ClipId, ClipPlacement, ClipPlayback,
+    ControlEntityRef, ControlOwner, CounterIdGenerator, LaneId, ModulationAssignmentId,
+    ModulationSourceId, MusicalDuration, MusicalTick, ParamMapping, ParameterRole,
+    ParameterTargetId, PlaybackMapping, Polarity, Project, ProjectController, ProjectId, ProjectOp,
+    ProjectRevision, SourceFrame, SourceKind, SourceRange, TimeAnchor, TrackId, Transform,
+    ValueKind, is_issuable_raw,
 };
 use synvelis_workspace::{
     CancelReason, ControlEdgeOutcome, ControlEdgePreview, EditOperation, EditTimeDomain,
     EditTimePoint, EditingSelection, FakeWindowHost, FollowSource, Gesture, GestureFixation,
     GesturePreview, InspectionMode, LinkGroupId, ProjectSession, SemanticTarget, ViewType,
-    WorkspaceError, WorkspaceManager,
+    WorkspaceError, WorkspaceManager, WorkspaceSnapshot, control_entity_tag,
 };
 
 // ---------------------------------------------------------------------------
@@ -825,4 +826,224 @@ fn uic5_03_two_window_dock_focus_no_retarget() {
     );
     assert_eq!(ws.dock().owner_of(insp_a), Some(win_a));
     assert_eq!(ws.dock().owner_of(insp_b), Some(win_b));
+}
+
+// ---------------------------------------------------------------------------
+// UI-C5 Control Relation inspection focus (synvelis#102 integration slice)
+// ---------------------------------------------------------------------------
+
+/// Automation lane + assignment over the `control_pair` endpoints —
+/// the relation neighborhood `control_relation_inspect` anchors on.
+fn control_lane_assignment(
+    ws: &mut Ws,
+    target: ParameterTargetId,
+    source: ModulationSourceId,
+) -> (AutomationLaneId, ModulationAssignmentId) {
+    apply(ws, ProjectOp::AddAutomationLane { target });
+    let lane = *ws
+        .session()
+        .project()
+        .control
+        .lanes
+        .keys()
+        .next_back()
+        .expect("automation lane");
+    apply(
+        ws,
+        ProjectOp::AddModulationAssignment {
+            source,
+            target,
+            depth: 0.5,
+            depth_source: None,
+            polarity: Polarity::Bipolar,
+            transform: Transform::Identity,
+            enabled: true,
+        },
+    );
+    let assignment = *ws
+        .session()
+        .project()
+        .control
+        .assignments
+        .keys()
+        .next_back()
+        .expect("modulation assignment");
+    (lane, assignment)
+}
+
+/// Inspect enters Explore and pushes the previous anchor; back /
+/// forward walk the history; leaving Explore clears it. Editing
+/// selection, `inspection_focus`, project revision and undo depth
+/// are never touched — inspect ≠ edit (UI-C5-01/02/03).
+#[test]
+fn uic5_control_relation_inspect_explore_back_and_modes() {
+    let (mut ws, _track, _lane, _clip) = seeded();
+    let (target, source) = control_pair(&mut ws);
+    let (_lane, assignment) = control_lane_assignment(&mut ws, target, source);
+    let win = window(&mut ws, "A");
+    let view = view(&mut ws, ViewType::SignalFlow, "sf", win);
+    let param = ControlEntityRef::Parameter(target);
+    let assign = ControlEntityRef::Assignment(assignment);
+
+    let rev_before = ws.session().revision();
+    let undo_before = ws.session().controller().history_states().count();
+    let sel_before = ws.state(view).unwrap().object_selections.clone();
+    let insp_before = ws.state(view).unwrap().inspection_focus.clone();
+
+    // First inspect: Explore with no back-stack.
+    ws.control_relation_inspect(view, param).unwrap();
+    {
+        let focus = &ws.control_relation_state(view).unwrap().inspection;
+        assert_eq!(focus.mode, InspectionMode::Explore);
+        assert_eq!(
+            focus.target.as_deref(),
+            Some(control_entity_tag(param).as_str())
+        );
+        assert_eq!(focus.explore_back, [] as [ControlEntityRef; 0]);
+        assert_eq!(focus.explore_fwd, [] as [ControlEntityRef; 0]);
+    }
+
+    // Descend to the assignment — the parameter anchor is pushed.
+    ws.control_relation_inspect(view, assign).unwrap();
+    {
+        let focus = &ws.control_relation_state(view).unwrap().inspection;
+        assert_eq!(focus.explore_back, vec![param]);
+        assert_eq!(focus.explore_fwd, [] as [ControlEntityRef; 0]);
+    }
+
+    // Back restores the parameter; forward re-descends.
+    ws.control_relation_explore_back(view).unwrap();
+    assert_eq!(
+        ws.control_relation_state(view)
+            .unwrap()
+            .inspection
+            .target
+            .as_deref(),
+        Some(control_entity_tag(param).as_str())
+    );
+    ws.control_relation_explore_forward(view).unwrap();
+    assert_eq!(
+        ws.control_relation_state(view)
+            .unwrap()
+            .inspection
+            .target
+            .as_deref(),
+        Some(control_entity_tag(assign).as_str())
+    );
+
+    // Re-inspecting the current anchor is a no-op on the stacks.
+    ws.control_relation_inspect(view, assign).unwrap();
+    assert_eq!(
+        ws.control_relation_state(view)
+            .unwrap()
+            .inspection
+            .explore_back,
+        vec![param]
+    );
+
+    // Leaving Explore clears history; Pinned keeps the anchor.
+    ws.control_relation_set_inspection_mode(view, InspectionMode::Pinned)
+        .unwrap();
+    {
+        let focus = &ws.control_relation_state(view).unwrap().inspection;
+        assert_eq!(focus.mode, InspectionMode::Pinned);
+        assert_eq!(focus.explore_back, [] as [ControlEntityRef; 0]);
+        assert_eq!(focus.explore_fwd, [] as [ControlEntityRef; 0]);
+        assert_eq!(
+            focus.target.as_deref(),
+            Some(control_entity_tag(assign).as_str())
+        );
+    }
+
+    // Follow-mode source filter round-trips.
+    ws.control_relation_set_inspection_mode(view, InspectionMode::Follow)
+        .unwrap();
+    ws.control_relation_set_follow_source(view, Some(FollowSource::View(view)))
+        .unwrap();
+    assert_eq!(
+        ws.control_relation_state(view)
+            .unwrap()
+            .inspection
+            .follow_source,
+        Some(FollowSource::View(view))
+    );
+    ws.control_relation_set_follow_source(view, None).unwrap();
+    assert_eq!(
+        ws.control_relation_state(view)
+            .unwrap()
+            .inspection
+            .follow_source,
+        None
+    );
+
+    // Nothing above touched the editing surfaces or project truth.
+    let after = ws.state(view).unwrap();
+    assert_eq!(after.object_selections, sel_before);
+    assert_eq!(after.inspection_focus, insp_before);
+    assert_eq!(ws.session().revision(), rev_before);
+    assert_eq!(
+        ws.session().controller().history_states().count(),
+        undo_before
+    );
+}
+
+/// Snapshot round-trip: `target`/`mode`/`follow_source` persist; the
+/// Explore stacks are session-only and come back empty. A malformed
+/// `control_relation` payload degrades to `None` like the other
+/// per-view surfaces.
+#[test]
+fn uic5_control_relation_snapshot_roundtrip_and_degrade() {
+    let (mut ws, _track, _lane, _clip) = seeded();
+    let (target, source) = control_pair(&mut ws);
+    let (_lane, assignment) = control_lane_assignment(&mut ws, target, source);
+    let win = window(&mut ws, "A");
+    let view = view(&mut ws, ViewType::SignalFlow, "sf", win);
+    let param = ControlEntityRef::Parameter(target);
+    let assign = ControlEntityRef::Assignment(assignment);
+
+    ws.control_relation_inspect(view, param).unwrap();
+    ws.control_relation_inspect(view, assign).unwrap();
+    ws.control_relation_set_follow_source(view, Some(FollowSource::Group(LinkGroupId(7))))
+        .unwrap();
+
+    let snap = ws.capture().unwrap();
+    // The persisted contract is the JSON boundary — an in-memory
+    // capture/restore keeps session state by design.
+    let persisted = WorkspaceSnapshot::from_json(&snap.to_json().unwrap()).unwrap();
+    let mut ws2 = fresh_ws();
+    ws2.restore(&persisted, &[]).unwrap();
+
+    let focus = &ws2
+        .state(view)
+        .unwrap()
+        .control_relation
+        .as_ref()
+        .expect("restored control_relation state")
+        .inspection;
+    assert_eq!(focus.mode, InspectionMode::Explore);
+    assert_eq!(
+        focus.target.as_deref(),
+        Some(control_entity_tag(assign).as_str())
+    );
+    assert_eq!(
+        focus.follow_source,
+        Some(FollowSource::Group(LinkGroupId(7)))
+    );
+    // Explore history is session-only — never persisted.
+    assert_eq!(focus.explore_back, [] as [ControlEntityRef; 0]);
+    assert_eq!(focus.explore_fwd, [] as [ControlEntityRef; 0]);
+
+    // Malformed payload degrades to None; the rest of the snapshot
+    // survives.
+    let snap = ws.capture().unwrap();
+    let mut value = serde_json::to_value(&snap).unwrap();
+    value["views"][0]["state"]["control_relation"] = serde_json::json!({"bogus": true});
+    let parsed = WorkspaceSnapshot::from_json(&value.to_string()).unwrap();
+    let record = parsed
+        .views
+        .iter()
+        .find(|v| v.id == view.get())
+        .expect("view record");
+    assert!(record.state.control_relation.is_none());
+    assert_eq!(record.state.viewport.zoom_x, 1.0);
 }
