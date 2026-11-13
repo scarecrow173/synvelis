@@ -288,6 +288,14 @@ pub struct SynvelisApp {
     /// `pub(crate)` so `ui_ops` can reach the probe bridge for the
     /// `syn.probe.*` ops and the `ui_pump` drain hook (SF-04 slice 4).
     pub(crate) routing_engine: Option<SessionRoutingEngine>,
+    /// Composition-registered plugin→host report drain handle
+    /// (PC-C4 drain slice, synvelis#101) — `ui_pump` and
+    /// [`Self::drain_control_reports`] drive one
+    /// `drain_output_reports` pass per call through it. `None` until
+    /// [`Self::set_control_report_drain`]; cleared with
+    /// `routing_engine` on project recreate so a stale host cell is
+    /// never drained. `pub(crate)` so `ui_ops` can reach it.
+    pub(crate) control_report_drain: Option<synvelis_player::PluginReportDrain>,
     /// Last published main-screen display state — shared with the
     /// composition root, refreshed after every service op (project
     /// length + arrangement rows here) and every UI pump
@@ -335,6 +343,7 @@ impl SynvelisApp {
             attach_epochs: Rc::new(RefCell::new(AttachEpochAllocator::new())),
             bundle_path: None,
             routing_engine: None,
+            control_report_drain: None,
             main_screen: Rc::new(RefCell::new(MainScreenState::default())),
             vcs_backend: None,
             monitoring: crate::monitoring::MonitorUxState::default(),
@@ -578,10 +587,30 @@ impl SynvelisApp {
     /// the headless session→routing connection (SF-03 slice 5).
     /// `project_new`/`project_open` recreate the session and detach
     /// the engine; re-attach afterwards with a config matching the
-    /// new project's media root.
+    /// new project's media root. An engine swap invalidates the
+    /// registered [`PluginReportDrain`](synvelis_player::PluginReportDrain)
+    /// pairing and its recorded evidence — the new engine's
+    /// processor host may wrap a different `PluginHost` cell, so the
+    /// composition root must re-register a paired drain
+    /// ([`Self::set_control_report_drain`]; `compose_routing_engine`
+    /// does, after attach).
     pub fn attach_routing_engine(&mut self, engine: SessionRoutingEngine) {
         self.routing_engine = Some(engine.clone());
+        self.control_report_drain = None;
+        self.ui.last_control_drain = synvelis_player::ReportDrainReport::default();
         self.workspace.session_mut().set_engine(Box::new(engine));
+    }
+
+    /// Registers the composition root's plugin→host report drain —
+    /// `ui_pump` and [`Self::drain_control_reports`] drive one
+    /// `drain_output_reports` pass per call through it (PC-C4 drain
+    /// slice, synvelis#101). The handle wraps the same shared
+    /// `PluginHost` cell the attached engine's processor host vends;
+    /// pairing them is the composition root's job
+    /// (`compose_routing_engine`). Cleared on project recreate with
+    /// `routing_engine`.
+    pub fn set_control_report_drain(&mut self, drain: synvelis_player::PluginReportDrain) {
+        self.control_report_drain = Some(drain);
     }
 
     /// The Signal Flow projection for `view` — the per-view persisted
@@ -741,6 +770,11 @@ impl SynvelisApp {
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
         self.routing_engine = None;
+        self.control_report_drain = None;
+        // Drain evidence is session-scoped — a report recorded
+        // against the destroyed engine's surface must never surface
+        // beside `engine: false` on `syn.control.status`.
+        self.ui.last_control_drain = synvelis_player::ReportDrainReport::default();
         // A PPQN preview ran against the previous project — never
         // carry it into the new session. `committed` clears any
         // pending selection even when the new project's PPQN equals
@@ -787,6 +821,9 @@ impl SynvelisApp {
         self.store = Some(store);
         self.bundle_path = Some(path.to_string());
         self.routing_engine = None;
+        self.control_report_drain = None;
+        // Same session-scoped evidence rule as `project_new_inner`.
+        self.ui.last_control_drain = synvelis_player::ReportDrainReport::default();
         // Same stale-gesture rule as `project_new_inner`.
         let fresh_ppqn = self.workspace.session().project().ppqn.0;
         self.ui.ppqn_ui.borrow_mut().committed(fresh_ppqn);

@@ -33,6 +33,7 @@
 //! driver-loop failure, `4` logging configuration error.
 
 use std::cell::RefCell;
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::rc::Rc;
 use std::time::Duration;
@@ -48,10 +49,11 @@ use synvelis_theme::{ResolvedTheme, ThemeCatalog, ThemeSelection};
 
 use synvelis_app::logging::{self, EnvOverrides};
 use synvelis_app::{
-    LogSettings, MainScreenState, NativeShell, SynvelisApp, main_screen_spec, main_view_id,
-    main_view_targets, mount_main_view, mount_secondary_view, secondary_screen_spec,
-    secondary_view_id, secondary_view_targets,
+    LogSettings, MainScreenState, NativeShell, SessionEngineConfig, SynvelisApp,
+    compose_routing_engine, main_screen_spec, main_view_id, main_view_targets, mount_main_view,
+    mount_secondary_view, secondary_screen_spec, secondary_view_id, secondary_view_targets,
 };
+use synvelis_project::{BuildBudget, BuildMode, RuntimeClockEpochRef, RuntimeInstanceId};
 
 /// UI tick cadence — job drain, outbox flush, and clock advance rate.
 const TICK: Duration = Duration::from_millis(16);
@@ -71,6 +73,59 @@ fn open_boot_project(app: &mut SynvelisApp) {
     };
     if let Err(e) = result {
         tracing::error!(error = %e, "boot project bundle failed");
+    }
+}
+
+/// Product routing composition (PC-C4 drain slice, synvelis#101):
+/// attaches the session routing engine — `PluginHostProcessors` over
+/// a fresh `PluginHost`, catalog cell, report drain — through
+/// [`compose_routing_engine`], so `syn.control.*` ops and the
+/// `ui_pump` control/drain cadence run the real path. The product
+/// currently ships no plugin factories (real VST3/OS backend is
+/// ruviform#253, NotRun): the registry is empty and plugin-bound
+/// processors fail typed `PluginUnavailable`, never fabricated.
+/// `media_root` is the verified blob store beside the bundle —
+/// `<SYNVELIS_PROJECT_DIR>/media`; without a boot project dir the
+/// untitled session keeps the engine stub (no media root exists to
+/// serve, and project recreate detaches anyway — per-project
+/// re-attach is the deferred engine-wiring slice).
+fn compose_product_routing(app: &mut SynvelisApp) {
+    let Some(dir) = std::env::var_os("SYNVELIS_PROJECT_DIR") else {
+        return;
+    };
+    compose_routing_engine(
+        app,
+        product_engine_config(PathBuf::from(dir).join("media")),
+        Vec::new(),
+    );
+}
+
+/// Product engine geometry — 48 kHz/stereo/256-frame Realtime build,
+/// single runtime instance/epoch, generation 1. Matches the headless
+/// fixture geometry so composed evidence is comparable.
+fn product_engine_config(media_root: PathBuf) -> SessionEngineConfig {
+    SessionEngineConfig {
+        media_root,
+        engine: synvelis_player::lowering::EngineConfig {
+            sample_rate: 48_000,
+            channels: 2,
+            block_frames: 256,
+        },
+        prefetch: ruviform_media_reader::PrefetchConfig {
+            block_frames: 256,
+            block_count: 8,
+            channels: 2,
+            sample_rate: 48_000,
+        },
+        budget: BuildBudget {
+            max_nodes: 4_096,
+            max_connections: 16_384,
+            max_frames: 512,
+        },
+        mode: BuildMode::Realtime,
+        runtime_instance: RuntimeInstanceId(1),
+        device_clock_epoch: RuntimeClockEpochRef(1),
+        engine_config_generation: 1,
     }
 }
 
@@ -427,6 +482,7 @@ fn main() -> ExitCode {
     );
 
     open_boot_project(&mut app);
+    compose_product_routing(&mut app);
 
     // The view hosts are minted while the app is still
     // composition-owned — the `AttachEpoch` comes from the session
