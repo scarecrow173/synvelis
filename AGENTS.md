@@ -122,14 +122,7 @@ mise run setup
 - `ruviform-media-core` の `Tick`/`TickDuration` は unchecked `Add`/`Sub` のみ公開。Synvelis 側の時間演算はすべてチェック付き（`checked_add`/`checked_sub`）で行い、同演算子の直接利用は lint 対象。
 - cargo コマンドは直接実行せず `mise run <task>` 経由を原則とする。
 
-| mise タスク | 実行内容 |
-| --- | --- |
-| `fmt` / `fmt-check` | `cargo fmt --all` / `cargo fmt --all -- --check` |
-| `check` | `cargo check --workspace --all-targets` |
-| `lint` | `cargo clippy --workspace --all-targets -- -D warnings` |
-| `test` | `cargo test --workspace --locked` |
-| `build` | `cargo build --workspace --locked` |
-| `test-msrv` | MSRV 検証（rust 1.89 toolchain 利用時に `cargo +1.89 check`） |
+- タスク名・引数・実行コマンドの正本は `mise.toml`。
 
 ## AIエージェント環境（APM）
 
