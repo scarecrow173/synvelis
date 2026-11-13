@@ -58,6 +58,7 @@ Directory: `docs/specs`
 | SPEC-034VpjuNHFlkvgLqAJQGHJ | RCD-02 StagedFile Publish Migration — synvelis#116 slice | approved | [rcd-02-stagedfile-publish-migration.md](./rcd-02-stagedfile-publish-migration.md) |
 | SPEC-MtkyEBkLAdbCHkkziVNHIk | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe — synvelis#116 slice | approved | [rcd-02-unsynced-loss-real-fs-probe.md](./rcd-02-unsynced-loss-real-fs-probe.md) |
 | SPEC-034VdSvFA9X0ESbckrSvBI | RCD-03 app Arm/Monitoring UX + project projection slice — synvelis#117 | proposed | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
+| SPEC-034WCqwruKIjlaayYRfenJ | RCD-03 MonitorAdapter engine mount + Loop/PunchInLoop gate slice — synvelis#117 | proposed | [rcd-03-monitor-engine.md](./rcd-03-monitor-engine.md) |
 | SPEC-034VpQd7kM2xN9wR4tY6uJ | RCD-03 Arm/Monitor/Punch Project 永続投影 slice — synvelis#117 | proposed | [rcd-03-monitor-persistence.md](./rcd-03-monitor-persistence.md) |
 | SPEC-034UtksmGxvdygOzI1Dp7R | RCD-03 Monitoring / Punch / Latency semantics — synvelis#117 slice | proposed | [rcd-03-monitoring-punch-latency.md](./rcd-03-monitoring-punch-latency.md) |
 | SPEC-eEtM5VJlLpCbVXLnCEar4M | RCD-03 VCS semantic diff monitor 宣言分類 slice — synvelis#117 | proposed | [rcd-03-vcs-diff-monitor-classification.md](./rcd-03-vcs-diff-monitor-classification.md) |

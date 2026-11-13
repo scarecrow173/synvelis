@@ -608,6 +608,298 @@ fn monitor_does_not_double_correct_placement_across_tempo_boundary() {
     assert_eq!(off, auto, "monitor changed placement/pcm across tempo");
 }
 
+// ---------- Loop / PunchInLoop gate ----------
+
+/// `segs` が `[0, end)` を隙間・重複・空区間なく tile することを検証。
+fn assert_tiled(segs: &SegmentView, end: i64) {
+    let mut pos = 0;
+    for (a, b, _, _) in segs {
+        assert_eq!(*a, pos, "gap/overlap before segment {a}..{b}");
+        assert!(*b > *a, "empty segment {a}..{b}");
+        pos = *b;
+    }
+    assert_eq!(pos, end, "segments do not reach session end");
+}
+
+/// `segs` の `gate_open` 区間一覧（半開 `[in, out)`）。
+fn open_intervals(segs: &SegmentView) -> Vec<(i64, i64)> {
+    segs.iter()
+        .filter(|(_, _, g, _)| *g)
+        .map(|(a, b, _, _)| (*a, *b))
+        .collect()
+}
+
+/// `open_intervals` の隣接区間を連結した半開区間一覧
+/// （feed block 単位の分割を吸収する）。
+fn merged_open_intervals(segs: &SegmentView) -> Vec<(i64, i64)> {
+    let mut merged: Vec<(i64, i64)> = Vec::new();
+    for (a, b) in open_intervals(segs) {
+        if let Some(last) = merged.last_mut()
+            && last.1 == a
+        {
+            last.1 = b;
+        } else {
+            merged.push((a, b));
+        }
+    }
+    merged
+}
+
+/// `pass` の span を session 順に並べ、project が `[want_in,
+/// want_out)` を連続・重複なく被覆することを検証する。
+/// span 分割粒度（block/chunk 境界）に依らない不変条件 —
+/// pass ごとに同じ project 区間が再記録される（Raw Placement
+/// 二重補正 0）ことの証拠。
+fn assert_pass_project_chain(
+    spans: &[synvelis_recording::CaptureSpan],
+    pass: u32,
+    want_in: i64,
+    want_out: i64,
+) {
+    let mut v: Vec<&synvelis_recording::CaptureSpan> =
+        spans.iter().filter(|s| s.pass_index == pass).collect();
+    v.sort_by_key(|s| s.session_start.value());
+    assert!(!v.is_empty(), "pass {pass} has no spans");
+    assert_eq!(v[0].project_in.value(), want_in, "pass {pass} project_in");
+    assert_eq!(
+        v.last().map(|s| s.project_out.value()),
+        Some(want_out),
+        "pass {pass} project_out"
+    );
+    for w in v.windows(2) {
+        assert_eq!(
+            w[0].project_out.value(),
+            w[1].project_in.value(),
+            "pass {pass} project chain broken"
+        );
+        let prev_end = w[0].session_start.value() + i64::from(w[0].frame_count);
+        assert_eq!(
+            prev_end,
+            w[1].session_start.value(),
+            "pass {pass} session chain broken"
+        );
+    }
+}
+
+#[test]
+fn monitor_probe_loop_gate_open_is_contiguous_from_loop_start() {
+    // loop [10,50)tick = frame [250,1250)、pass_len=1000f。
+    // stop=110tick=2750f → pass0 [250,1250), pass1 [1250,2250),
+    // pass2 [2250,2750)（session_end でクランプ）。Loop gate の
+    // capture 区間は loop body 全体なので gate_open は pass を
+    // 連続に tile し [250,2750) となる（pass 境界で開閉しない）。
+    let (plan, _epoch) = plan_with_gate(
+        synvelis_recording::GateSpec::Loop {
+            loop_start: MusicalTick::new(10),
+            loop_end: MusicalTick::new(50),
+        },
+        110,
+        1024,
+    );
+    let mut c = ctx();
+    c.arm = ArmState::On;
+    c.monitor = MonitorState::Auto;
+    // block 384 は loop_start 250 と pass 境界 1250/2250 を
+    // すべて block 途中に跨ぐ。
+    let segs = probe_segments(&plan, &c, 2750, 384, TransportPhase::Playing);
+    assert_tiled(&segs, 2750);
+    // gate open 区間は [250,2750) に連続（feed block 単位で
+    // 分割されるが、開閉の遷移は loop_start のみ）。
+    let open = open_intervals(&segs);
+    assert_eq!(open.first().map(|(a, _)| *a), Some(250));
+    assert_eq!(open.last().map(|(_, b)| *b), Some(2750));
+    // 各 open 区間が連続していること（pass 境界で閉区間が入らない）。
+    for w in open.windows(2) {
+        assert_eq!(w[0].1, w[1].0, "gap inside loop open region");
+    }
+    // route: closed → Playback、open → Input（Auto+arm+Playing）。
+    for (_, _, g, r) in &segs {
+        assert_eq!(*r, if *g { Input } else { Playback });
+    }
+    // loop_start より前 [0,250) は閉区間。
+    assert!(
+        segs.iter()
+            .any(|(a, b, g, r)| { *a == 0 && *b == 250 && !*g && *r == Playback })
+    );
+}
+
+#[test]
+fn monitor_probe_punch_in_loop_block_interior_boundaries() {
+    // loop [0,40)tick=1000f、punch [10,30)tick=frame[250,750)。
+    // stop=100tick=2500f → open 区間 [250,750),[1250,1750),
+    // [2250,2500)（最終 pass 途中停止でクランプ）。block 384 は
+    // punch/pass 境界をすべて block 途中に跨ぐ。
+    let (plan, _epoch) = plan_with_gate(
+        synvelis_recording::GateSpec::PunchInLoop {
+            loop_start: MusicalTick::ZERO,
+            loop_end: MusicalTick::new(40),
+            punch_in: MusicalTick::new(10),
+            punch_out: MusicalTick::new(30),
+        },
+        100,
+        1024,
+    );
+    let mut c = ctx();
+    c.arm = ArmState::On;
+    c.monitor = MonitorState::Auto;
+    let segs = probe_segments(&plan, &c, 2500, 384, TransportPhase::Playing);
+    assert_tiled(&segs, 2500);
+    // pass ごとの punch 区間が session-frame 精度で再 gate される
+    // （block 分割は連結して比較）。
+    assert_eq!(
+        merged_open_intervals(&segs),
+        vec![(250, 750), (1250, 1750), (2250, 2500)]
+    );
+    for (_, _, g, r) in &segs {
+        assert_eq!(*r, if *g { Input } else { Playback });
+    }
+    // block 384 刻みでは punch 境界が block 内に落ちる segment が
+    // 存在すること（block 途中分割の証拠）。
+    assert!(
+        segs.iter().any(|(a, _, _, _)| *a % 384 != 0 && *a != 0),
+        "expected segments starting inside blocks: {segs:?}"
+    );
+}
+
+#[test]
+fn loop_gate_capture_spans_repeat_project_mapping_per_pass() {
+    // Loop gate の capture span は pass ごとに同じ project 区間
+    // （loop body の musical 範囲）を指し、session_start のみが
+    // pass_len ずつ進む — Raw Placement の二重補正がないことの
+    // 証拠。pass_index も 0,1,2 と進む。
+    let (plan, epoch) = plan_with_gate(
+        synvelis_recording::GateSpec::Loop {
+            loop_start: MusicalTick::new(10),
+            loop_end: MusicalTick::new(50),
+        },
+        110,
+        1024,
+    );
+    let frames = u32::try_from(plan.session_end.value()).expect("session_end fits u32");
+    let off = capture_with_monitor(&plan, epoch, MonitorState::Off, frames, 500);
+    let auto = capture_with_monitor(&plan, epoch, MonitorState::Auto, frames, 500);
+    let on = capture_with_monitor(&plan, epoch, MonitorState::On, frames, 500);
+    assert_eq!(off, auto, "Auto changed raw capture on Loop gate");
+    assert_eq!(off, on, "On changed raw capture on Loop gate");
+    // pass ごとに span を集約し、project が loop body
+    // [10,50) を連続被覆することを検証する（span 分割粒度に
+    // 依らない不変条件）。pass2 は session_end=2750 でクランプ
+    // され project [10,30) の部分 pass。
+    let pass_ids: std::collections::BTreeSet<u32> =
+        off.spans.iter().map(|s| s.pass_index).collect();
+    assert_eq!(
+        pass_ids,
+        [0, 1, 2].into_iter().collect(),
+        "expected 3 loop passes"
+    );
+    assert_pass_project_chain(&off.spans, 0, 10, 50);
+    assert_pass_project_chain(&off.spans, 1, 10, 50);
+    assert_pass_project_chain(&off.spans, 2, 10, 30);
+    // 各 pass の先頭 span session_start は pass_len=1000f 刻み。
+    let first_of_pass: Vec<(u32, i64)> = off
+        .spans
+        .iter()
+        .filter(|s| s.project_in.value() == 10)
+        .map(|s| (s.pass_index, s.session_start.value()))
+        .collect();
+    assert_eq!(
+        first_of_pass,
+        vec![(0, 250), (1, 1250), (2, 2250)],
+        "loop pass session starts must advance by pass_len"
+    );
+}
+
+#[test]
+fn punch_in_loop_capture_spans_repeat_project_mapping_per_pass() {
+    // PunchInLoop: 各 pass が同じ punch project 区間 [10,30) を
+    // 再記録する。pass ごとの (project_in, project_out) 列が
+    // 一致し、Raw Placement 二重補正がないことを検証する。
+    let (plan, epoch) = plan_with_gate(
+        synvelis_recording::GateSpec::PunchInLoop {
+            loop_start: MusicalTick::ZERO,
+            loop_end: MusicalTick::new(40),
+            punch_in: MusicalTick::new(10),
+            punch_out: MusicalTick::new(30),
+        },
+        100,
+        1024,
+    );
+    let frames = u32::try_from(plan.session_end.value()).expect("session_end fits u32");
+    let off = capture_with_monitor(&plan, epoch, MonitorState::Off, frames, 500);
+    let auto = capture_with_monitor(&plan, epoch, MonitorState::Auto, frames, 500);
+    let on = capture_with_monitor(&plan, epoch, MonitorState::On, frames, 500);
+    assert_eq!(off, auto, "Auto changed raw capture on PunchInLoop gate");
+    assert_eq!(off, on, "On changed raw capture on PunchInLoop gate");
+    // 各 pass が同じ punch project 区間 [10,30) を連続被覆する
+    // ことを検証する。pass2 は session_end=2500 でクランプされ
+    // project [10,20) の部分 pass。
+    let pass_ids: std::collections::BTreeSet<u32> =
+        off.spans.iter().map(|s| s.pass_index).collect();
+    assert_eq!(
+        pass_ids,
+        [0, 1, 2].into_iter().collect(),
+        "expected 3 punch passes"
+    );
+    assert_pass_project_chain(&off.spans, 0, 10, 30);
+    assert_pass_project_chain(&off.spans, 1, 10, 30);
+    assert_pass_project_chain(&off.spans, 2, 10, 20);
+    // 保存総量 = punch 区間 500f × 2 完全 pass + 最終 pass 250f。
+    let total: u32 = off.spans.iter().map(|s| s.frame_count).sum();
+    assert_eq!(total, 1250);
+}
+
+#[test]
+fn punch_in_loop_gate_across_tempo_boundary_keeps_project_mapping() {
+    // tempo 120→60bpm at tick 480。loop [400,560)tick・punch
+    // [450,530)tick は tempo 境界を跨ぐ。pass ごとの punch
+    // project mapping が tempo に依らず同一 tick 区間を指し、
+    // Monitor Off/Auto で capture が一致することを検証する
+    // （Raw Placement 二重補正 0）。
+    let (mut p, lanes, epoch) = project_with_lanes(1);
+    p.tempo_map.tempo_events.push(TempoEventDto {
+        tick: 480,
+        bpm_milli: 60_000,
+    });
+    p.tempo_map.revision = 1;
+    let req = RecordingRequest {
+        targets: vec![synvelis_recording::CaptureTarget {
+            lane_id: lanes[0],
+            channels: 2,
+        }],
+        clock_epoch: epoch,
+        tempo_map: TempoMapRef { revision: 1 },
+        transport_start: MusicalTick::ZERO,
+        stop: MusicalTick::new(900),
+        gate: synvelis_recording::GateSpec::PunchInLoop {
+            loop_start: MusicalTick::new(400),
+            loop_end: MusicalTick::new(560),
+            punch_in: MusicalTick::new(450),
+            punch_out: MusicalTick::new(530),
+        },
+        budget: budget(),
+        max_block_frames: 1024,
+    };
+    let plan = preflight(&p, req, RATE).expect("preflight must pass");
+    let frames = u32::try_from(plan.session_end.value()).expect("session_end fits u32");
+    let off = capture_with_monitor(&plan, epoch, MonitorState::Off, frames, 997);
+    let auto = capture_with_monitor(&plan, epoch, MonitorState::Auto, frames, 997);
+    // tempo 境界で span が分割され、punch project 区間が
+    // pass ごとに同一 tick 区間 [450,530) を連続被覆することを
+    // 検証する（pass_len=6000f・session_end=33000f で 4 pass、
+    // punch は全 pass で session_end 内に完結）。
+    let pass_ids: std::collections::BTreeSet<u32> =
+        off.spans.iter().map(|s| s.pass_index).collect();
+    assert_eq!(
+        pass_ids.len(),
+        4,
+        "expected 4 punch passes across tempo boundary: {pass_ids:?}"
+    );
+    for pass in 0..4 {
+        assert_pass_project_chain(&off.spans, pass, 450, 530);
+    }
+    assert_eq!(off, auto, "monitor changed placement/pcm across tempo+loop");
+}
+
 // ---------- Mono/Stereo binding ----------
 
 #[test]
