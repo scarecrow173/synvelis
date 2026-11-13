@@ -54,6 +54,7 @@ Directory: `docs/plans`
 | PLAN-034VmVEzTuUHmBKxPRoFID | PC-C6 oracle R/PL/UI/COMP headless fixture 実装計画 | approved | [pc-c6-oracle-rows-plan.md](./pc-c6-oracle-rows-plan.md) |
 | PLAN-034W1XlCxVQQ7sFeO9N9c0 | PC-C6 TR ledger oracle 実装計画 | approved | [pc-c6-tr-ledger-oracle-plan.md](./pc-c6-tr-ledger-oracle-plan.md) |
 | PLAN-034WxmzaM84mm5775ZdoeD | PC-C6 TR02/TR06 realpath oracle 実装計画 | approved | [pc-c6-tr02-tr06-realpath-oracle-plan.md](./pc-c6-tr02-tr06-realpath-oracle-plan.md) |
+| PLAN-034X6WQ2BInormKn6f4a6M | Playback / Mixer / Generic Execution Graph Plan — contract mapping + headless evidence ledger | in-progress | [playback-graph.md](./playback-graph.md) |
 | PLAN-034VNrIZteNN2bsGVGokZF | plugin_instances VCS semantic diff 分類 slice | approved | [plugin-instances-vcs-diff-plan.md](./plugin-instances-vcs-diff-plan.md) |
 | PLAN-034X6iKc1PdhVoA25hznHo | Project Model Plan — contract mapping + headless verification | in-progress | [project-model.md](./project-model.md) |
 | PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
