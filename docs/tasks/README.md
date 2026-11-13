@@ -35,6 +35,7 @@ Directory: `docs/tasks`
 | TASK-034VmO0u2fPRBj8uO9cGkk | RCD-04 Task1 product E2E | in-progress | [rcd-04-task1-product-e2e.md](./rcd-04-task1-product-e2e.md) |
 | TASK-106SF03Tz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T1 — RoutingFault 18分類・engine 改修・reconcile 実装 | in-progress | [sf-03-slice2-fault-contract.md](./sf-03-slice2-fault-contract.md) |
 | TASK-106SF03Uz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T2 — 受入テスト sf03_l2.rs・検証 | in-progress | [sf-03-slice2-reconcile-tests.md](./sf-03-slice2-reconcile-tests.md) |
+| TASK-S4P772tAsxug74Ku5MA5AI | SF-04 probe adapter — Issue #107 SF-PROBE-01..08 受入集約 実装タスク | in-progress | [sf-04-probe-adapter-task.md](./sf-04-probe-adapter-task.md) |
 | TASK-034Um6UmzaMloEGrFyYAS2 | SF-04 slice1 T1 — project/player Semantic Probe Adapter + ruviform pin bump | in-progress | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | TASK-034Uur4AKzlyg8khBcNC6X | SF-04 slice2 T1 — ControlSession probe observation → ControlTrace 配線 | in-progress | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
 | TASK-034UL3a4aL5H7PC2FRWUp7 | SF-04 slice3 T1 — probe clock epoch discontinuity・capture segment cut・fault/DSP invariance | in-progress | [sf-04-slice3-clock-epoch-discontinuity.md](./sf-04-slice3-clock-epoch-discontinuity.md) |

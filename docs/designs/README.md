@@ -99,6 +99,7 @@ Directory: `docs/designs`
 | DESIGN-poso4hBPDap0Gs9cisA92Y | SF-03 slice7 — render semantic-lowering 消費 design | approved | [sf-03-slice7-render-consumption-design.md](./sf-03-slice7-render-consumption-design.md) |
 | DESIGN-034VoSreRK4VhuFxIqvayx | SF-03 slice8 — app/workspace same-Revision fixture design | approved | [sf-03-slice8-revision-fixture-design.md](./sf-03-slice8-revision-fixture-design.md) |
 | DESIGN-034VWsBTFsvYFbqeDihe3Z | SF-03 slice9 — host capability generation live firing design | approved | [sf-03-slice9-capability-firing-design.md](./sf-03-slice9-capability-firing-design.md) |
+| DESIGN-CwatwmnW371rKsz3F2ajlh | SF-04 probe adapter — Issue #107 SF-PROBE-01..08 受入集約設計 | approved | [sf-04-probe-adapter-design.md](./sf-04-probe-adapter-design.md) |
 | DESIGN-034Um5591oRMfPg7cVthyU | SF-04 slice1 設計 — Semantic Probe Adapter（project contract + player runtime adapter） | approved | [sf-04-slice1-semantic-probe-adapter-design.md](./sf-04-slice1-semantic-probe-adapter-design.md) |
 | DESIGN-9kRtY3wQzX8cV6bNmLp2Sd | SF-04 slice10 設計 — syn.probe.compare app op（wire 契約・read-only 判定・JSON mapper） | approved | [sf-04-slice10-probe-compare-op-design.md](./sf-04-slice10-probe-compare-op-design.md) |
 | DESIGN-034UunDPfVm34dBXKZHHG0 | SF-04 slice2 設計 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace-design.md](./sf-04-slice2-controlsession-probe-trace-design.md) |

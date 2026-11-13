@@ -79,6 +79,7 @@ Directory: `docs/specs`
 | SPEC-0ETTGUPUGPQE6z2dyPRs0b | SF-03 slice7 — synvelis-render semantic-lowering 消費 + cross-consumer same-Revision fixture | approved | [sf-03-slice7-render-consumption.md](./sf-03-slice7-render-consumption.md) |
 | SPEC-034VoS9yTOt7fYOoDYlyRU | SF-03 slice8 — app/workspace same-Revision fixture | approved | [sf-03-slice8-revision-fixture.md](./sf-03-slice8-revision-fixture.md) |
 | SPEC-034VWsjfgfnLgo8ntUpQH6 | SF-03 slice9 — host capability generation live firing | approved | [sf-03-slice9-capability-firing.md](./sf-03-slice9-capability-firing.md) |
+| SPEC-HAm4lXgM35E1VEXdXe80jZ | SF-04 probe adapter — Issue #107 SF-PROBE-01..08 受入集約（headless project/player 層） | approved | [sf-04-probe-adapter.md](./sf-04-probe-adapter.md) |
 | SPEC-034UlYgSZ589NRdTrtO4Vu | SF-04 slice1 — Semantic Probe Adapter 基盤（project/player 層 + ruviform pin bump） | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | SPEC-H7wQpL2mNvR4tY8xZ1cJkD | SF-04 slice10 — syn.probe.compare app op（ProbeComparisonRequest → AcousticObservation の wire 露出） | approved | [sf-04-slice10-probe-compare-op.md](./sf-04-slice10-probe-compare-op.md) |
 | SPEC-034UumeSTLbuxt64vqqJ47 | SF-04 slice2 — ControlSession probe observation → ControlTrace 配線 | approved | [sf-04-slice2-controlsession-probe-trace.md](./sf-04-slice2-controlsession-probe-trace.md) |
