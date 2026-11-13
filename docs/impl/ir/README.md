@@ -38,6 +38,7 @@ Directory: `docs/impl/ir`
 | IMPL-AUT04CurveLodRecordBudget | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装記録 | completed | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
 | IMPL-49LTYDUL26uBLtxAQGXxOz | Automation / Modulation 統合 Parameter Control — 実装記録（docs slice・synvelis#6） | completed | [automation-modulation.md](./automation-modulation.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
+| IMPL-034X8sM6gVaKFLBghHMqW3 | Capability / Command Gateway 設計契約 実装記録 (synvelis#45) | completed | [command-gateway.md](./command-gateway.md) |
 | IMPL-5kKD8UEketY1kHcAnYUEao | Context Inspector 設計定義 — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5 docs slice） | completed | [context-inspector.md](./context-inspector.md) |
 | IMPL-034CTL01Kx9wMn2pQ7rVt4yB | CTL-01 ControlOwner/AutomationTimeScope 分離・Schema v7 実装記録 | completed | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
 | IMPL-034WBaliNYvopY8qIaeCeh | CTL-02 adoption 経路の非 canonical SendLevel 抑止 | completed | [ctl-02-adoption-canonical-sendlevel.md](./ctl-02-adoption-canonical-sendlevel.md) |

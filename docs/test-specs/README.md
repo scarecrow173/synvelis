@@ -22,6 +22,7 @@ Directory: `docs/test-specs`
 | TSPEC-5CuediZdfo8z7uI9MvTAHB | Automation / Modulation 統合 Parameter Control — テスト仕様・受入 Fixture（synvelis#6） | approved | [automation-modulation.md](./automation-modulation.md) |
 | TSPEC-m5UJFsYVE3wcIp2bbhjQ6C | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 検証仕様 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | TSPEC-034RoWXtHq8FkSjQ9NWwqn | Synvelis 独立 CI ワークフロー検証仕様 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
+| TSPEC-034X8sKuWkm8UBzSfXcpb1 | Capability / Command Gateway 設計契約 検証仕様 (synvelis#45) | approved | [command-gateway.md](./command-gateway.md) |
 | TSPEC-5P0o8UbBZq07LRZPbXsEoV | Context Inspector テスト仕様 — Follow/Explore/Pinned・Selection/Linked Context・Probe・一括編集の UX Fixture 定義（synvelis#5） | approved | [context-inspector.md](./context-inspector.md) |
 | TSPEC-034CTL01Pr2sUv7wY4zAbCdEfG | CTL-01 ControlOwner/AutomationTimeScope 検証仕様 | approved | [ctl-01-e2e-control-owner-time-scope.md](./ctl-01-e2e-control-owner-time-scope.md) |
 | TSPEC-l7ZEZAPF6fGjIhiojtusYR | CTL-02 adoption SendLevel canonical spec 検証仕様 | approved | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
