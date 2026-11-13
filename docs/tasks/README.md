@@ -121,6 +121,7 @@ Directory: `docs/tasks`
 | TASK-HVCTNeUo2kXQN0NvHCUa6K | MD-A task2 Comp スキーマ (ID/registry/POD) + CompOp + 検証 | done | [mda-task2-comp-schema-ops.md](./mda-task2-comp-schema-ops.md) |
 | TASK-jlbvNYC9NvQW1NsWa4wo4K | MD-A task3 Effective Comp 投影 + editor target 型 | done | [mda-task3-effective-comp-projection-editor-targets.md](./mda-task3-effective-comp-projection-editor-targets.md) |
 | TASK-2s64FRQrl31k3APXwajsNF | MD-A task4 MD-A-* 受入テスト + 全検証 + impl record | done | [mda-task4-acceptance-tests-verification.md](./mda-task4-acceptance-tests-verification.md) |
+| TASK-rlRe32Ahahq9E7GRDaytrp | Musical Time — 設計契約文書チェーン実装タスク（synvelis#19） | done | [musical-time-task.md](./musical-time-task.md) |
 | TASK-034PCA05Ql0zTu6aCdQeFg | PC-A task1 ruviform-plugin-core dep + control model + Project::control + schema 2 | done | [pc-a-task1-control-model-deps.md](./pc-a-task1-control-model-deps.md) |
 | TASK-034PCA06Rm1aUv7bDeRfGh | PC-A task2 control ProjectOp + conflict detection | done | [pc-a-task2-control-ops-conflicts.md](./pc-a-task2-control-ops-conflicts.md) |
 | TASK-034PCA07Sn2bVw8cEfSgHi | PC-A task3 eval + control graph + capability/dispatch | done | [pc-a-task3-eval-graph-dispatch.md](./pc-a-task3-eval-graph-dispatch.md) |
