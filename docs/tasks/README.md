@@ -19,6 +19,7 @@ Directory: `docs/tasks`
 | TASK-034RUl0VioQz9IinY5Qc7G | Issue #157 rev.3 T1 matrix placeholder gate 修正 | in-progress | [issue-157-t1-matrix-placeholder-gate.md](./issue-157-t1-matrix-placeholder-gate.md) |
 | TASK-034SYN166T1CiSumX | Issue #166 T1 Full CI 化・ci-summary 統一 — 第一段階実装 | in-progress | [issue-166-t1-ci-summary-stage1.md](./issue-166-t1-ci-summary-stage1.md) |
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
+| TASK-mr20261114mediaRenderB | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 設計契約文書化 (synvelis#21) | in-progress | [media-render-task.md](./media-render-task.md) |
 | TASK-P1ub1PJgLQhinQuEDIDy8S | PC-C3 task2 — synvelis-player RT trace adapter 実装（TRACE-C3-05） | in-progress | [pc-c3-task2-rt-trace-adapter.md](./pc-c3-task2-rt-trace-adapter.md) |
 | TASK-gH5lLpWnYI2KFNM99SswOf | PC-C4-02 task1 — plugin instance binding 実装 | in-progress | [pc-c4-02-task1-plugin-instance-binding.md](./pc-c4-02-task1-plugin-instance-binding.md) |
 | TASK-heuaegDgtyVrPGdnyMJko1 | PC-C4 plugin binding task1 — persisted instance authority の bind 照合 | in-progress | [pc-c4-plugin-binding-task.md](./pc-c4-plugin-binding-task.md) |
