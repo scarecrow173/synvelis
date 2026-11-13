@@ -145,6 +145,7 @@ Directory: `docs/test-specs`
 | TSPEC-TDeaZLlpVBAaTB6kuxZzZ | VCS-06 evidence completion tests | approved | [vcs-06-evidence-completion.md](./vcs-06-evidence-completion.md) |
 | TSPEC-vcs06-fixture-matrix | VCS-06 fixture matrix tests | approved | [vcs-06-fixture-matrix.md](./vcs-06-fixture-matrix.md) |
 | TSPEC-KoKmM6h8CwFykztjanQvMC | VCS-06 monitoring-domain matrix tests | approved | [vcs-06-monitoring-matrix.md](./vcs-06-monitoring-matrix.md) |
+| TSPEC-034WTsZKJhBKgzDNLtpIYq | VCS-06 real-git/FS fault rows tests | approved | [vcs-06-real-git-fs-fault.md](./vcs-06-real-git-fs-fault.md) |
 | TSPEC-034VpCxHsdsOcOqeEN6wGS | VCS-06 UI headless matrix tests | approved | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
 | TSPEC-034QdZPqGguxUOzVihyxjE | VS-A F0 Gate 検証仕様 — Stable ID・時間・Command・Save/Reload・Recording | approved | [vs-a-f0-gate-stable-id-command-save-reload-recording.md](./vs-a-f0-gate-stable-id-command-save-reload-recording.md) |
 | TSPEC-dtmF30GppYRVULWnH8CG9o | VS-B E2E-R Gate 検証仕様 — Mock Gate・Buffer Pool・SPSC・Fail-stop | approved | [vs-b-e2e-r1-mock-gate-rt-capture.md](./vs-b-e2e-r1-mock-gate-rt-capture.md) |

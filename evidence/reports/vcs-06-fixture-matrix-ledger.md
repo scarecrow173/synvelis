@@ -11,7 +11,7 @@ in `docs/specs/sf-06-cross-gate-oracle-case-ledger.md`.
 
 | Field | Value |
 | --- | --- |
-| Synvelis commit | `1093530a89499fae210aa3529ef2666012c7548f` (origin/main post-#332) + this change set — VCS-APPLY-07 apply rows measured on the monitoring-apply slice merged with origin/main @ `1093530`; earlier rows measured under `7822857`/`7925660`/`099e7ea` |
+| Synvelis commit | `1093530a89499fae210aa3529ef2666012c7548f` (origin/main post-#332) + this change set — VCS-APPLY-07 apply rows measured on the monitoring-apply slice merged with origin/main @ `1093530`; earlier rows measured under `7822857`/`7925660`/`099e7ea`. VCS-GIT-REAL-local / RESTORE/ APPLY-WIN-FS rows measured on `test/97-vcs06-real-git-fs-fault` (base `7c206289`) |
 | Cargo.lock Ruviform SHA | `fd1d4d5f4de57092b96ad1cd309b85fe47cbef38` (VCS-APPLY-07 apply rows; earlier rows measured under `9865cd57`/`b02942c2`/`0f5b5737`) |
 | OS | Windows (win32), NTFS |
 | Toolchain | rustc 1.99.0 (b940084d7), git 2.54.0.windows.1 |
@@ -74,7 +74,11 @@ temp git repos, read-only oracle on index/HEAD/worktree.
 | VCS-GIT-05 symlinks/gitlinks/submodule | symlink mode preserved, link-target bytes never followed; gitlink reported not fetched | `gitlink_entries_are_reported_not_fetched` (vcs03), `symlink_index_entry_keeps_link_target_bytes` (vcs06, `update-index --cacheinfo 120000`) Pass | Pass | — |
 | VCS-GIT-06 cancel/secret/budget | cancel aborts every op; no credential material in provider surface; history page clamped, limit=0 rejected | `cancelled_token_aborts_every_operation` (vcs03), `remote_credentials_never_surface_in_provider_output`, `history_limit_is_clamped_and_zero_rejected` (vcs06) Pass | Pass | — |
 | VCS-GIT read-only oracle | provider never mutates checkout/index/worktree/HEAD or project session | `exercise_provider`/`repo_oracle` invariance checks (vcs03) Pass | Pass | oracle compares full repo state |
-| VCS-GIT-REAL-* (real remote/auth/force-push/GC/OS perms) | — | not measured | **NotRun** | needs real remote + OS matrix |
+| VCS-GIT-REAL-01 packed object/ref read | `pack-refs --all` + `repack -ad` + `gc --prune=now` 後も fixed revision/HEAD/tag/branch 解決と staged index read が不変 | `gc_pack_refs_and_repack_keep_fixed_revision_reads` (vcs06, `packed-refs` 存在 + loose `refs/heads/main` 消失を assert) Pass — Win32 local git 2.54.0 | Pass | packed-refs/packfile read path only; remote/auth lanes not implied |
+| VCS-GIT-REAL-02 pruned revision → typed error | ref 削除 + reflog expire + `gc --prune=now` で真に object を除去した revision は `RevisionGone`（silent success ではない） | `pruned_commit_is_revision_gone_not_silent` (vcs06; `cat-file -e` で不存在を確認後 `VcsError::RevisionGone`) Pass | Pass | sv#335 post-fix semantics (`Ok(None)`/`RevisionGone`) |
+| VCS-GIT-REAL-03 file:// remote force-push + fetch | `file://` bare remote への push、第二 clone からの divergent force-push、fetch 後も pin した revision の OID/bytes は不変で `origin/main` のみ前進 | `file_remote_force_push_fetch_preserves_pinned_revision` (vcs06) Pass — local transport only; **認証付き http/ssh remote は含まない** | Pass | `file://` は認証・network を伴わない local transport — REAL remote/auth lane を Pass に繰り上げない |
+| VCS-GIT-REAL-04 linked worktree index scope | linked `git worktree` での stage が元 worktree に bind した provider の index state に現れず、linked provider には自身の index generation で見える | `linked_worktree_index_scope_is_isolated` (vcs06) Pass | Pass | per-worktree index isolation only |
+| VCS-GIT-REAL-* residual (authenticated http/ssh remote, real provider E2E, OS perms matrix) | — | not measured | **NotRun** | needs real remote + OS matrix |
 
 ## VCS-UI-01..05 — history/diff UI
 
@@ -111,6 +115,7 @@ Fixture: `vcs05_apply.rs` + `vcs06_apply_matrix.rs` +
 | VCS-APPLY-05 cancel | cooperative cancel → `Cancelled`, no mutation | `cancelled_intent_fails_closed_before_mutation` (vcs06) Pass | Pass | — |
 | VCS-APPLY-06 independence | Saved HEAD / VCS index / git worktree untouched; no write before explicit apply | receipt `effects.untouched.*` asserted in every apply test; `directory_journal_*` confirms persisted receipt only Pass | Pass* | engine-apply flag stays false |
 | VCS-APPLY-07 monitoring kinds | `TrackMonitorDecl`/`PunchMarks` の `Added`/`Modified` selection が typed entity transplant で適用され、`Removed` は fail-closed | `target_fingerprint` が両 kind で解決（旧来の `Unsupported` を返さない）; `Added` 2-change selection → `Applied`、live `monitoring.tracks`/`punch` が after と一致、1 apply = 1 undo step で undo/redo が monitoring 状態を往復 — `monitor_kind_added_selection_applies_typed_entities` (vcs06)・`monitor_decl_and_punch_apply_as_one_undo_step` (vcs05) Pass; `Modified` 適用 + 連続 undo が S1→S0 へ 1 step ずつ復帰 — `monitor_kind_modified_selection_applies_typed_entities` Pass; `Removed` → `ApplyError::Unsupported{kind, change: Removed, "removal changes are deferred (cascade design)"}`、journal `Failed`、live `monitoring` 不変（両 kind）— `monitor_kind_removed_selection_stays_fail_closed` Pass | **Pass** | `Removed` cascade は全 kind deferred のまま; `PluginInstance` apply は #324 系の別 slice; 実 OS/GUI/RT lanes は NotRun |
+| VCS-APPLY-08 journal FS fault (Windows) | journal record の排他 share-lock (`share_mode(0)`) / read-only attribute は mutation 前に typed `ApplyError::Journal` で失敗し、解除後は元の typed `UnsupportedField` に回復 | `locked_journal_record_fails_typed_before_mutation_and_recovers`, `readonly_journal_record_fails_typed_before_mutation_and_recovers` (vcs06, `#[cfg(windows)]`, PPQN 960→480 drift fixture, 実 `DirectoryApplyJournal`) Pass — Win32 NTFS のみ; POSIX 側は `#[cfg(windows)]` で **NotRun**（readonly/lock 意味論が異なるため別 lane） | Pass | journal record が recovery record; fault 解除で replay が元の typed failure を返す |
 | VCS-APPLY-REAL-* (real engine hot-swap, GUI approval UX) | — | not measured | **NotRun** | engine/GUI lanes external |
 
 ## VCS-RESTORE-01..08 — restore as new copy
@@ -129,7 +134,8 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 | VCS-RESTORE-06 independent identity | new ProjectId ≠ source; stable IDs preserved; source Saved HEAD/Git index/worktree untouched | asserted in `restore_publishes_verified_new_copy` receipt effects Pass | Pass* | — |
 | VCS-RESTORE-07 monitoring verbatim | decl (lane/arm/monitor/channel_map) + punch marks survive restore-as-copy verbatim; fork `project_id` only | `envelope.project.monitoring == source`（`monitoring.tracks` + `monitoring.punch` 全 field一致）— `restore_as_copy_preserves_monitoring_verbatim` (vcs06) Pass | Pass | — |
 | VCS-RESTORE-08 plugin_instances verbatim | issued `PluginInstanceId`s + `project.plugin_instances` survive restore-as-copy verbatim (envelope readback pin) | `restore_as_copy_preserves_plugin_instances_verbatim` (vcs06_plugin_instance_matrix) Pass | Pass | — |
-| VCS-RESTORE-REAL-* (OS crash durability, AV/locking, real plugin host, consumer open) | — | not measured | **NotRun** | OS matrix + #219/#294 |
+| VCS-RESTORE-09 staging FS fault (Windows) | staging `restore.json` の排他 share-lock (`share_mode(0)`) / read-only、staged `HEAD` の `FILE_SHARE_READ`-only hold は publish 前に typed `RestoreError::Io` で失敗し、staging 保持・dest 不在を確認、解除後 retry で `Published` | `locked_staging_manifest_fails_typed_and_resume_recovers`, `locked_staging_head_blocks_publish_rename_and_recovers`, `readonly_staging_manifest_is_rejected_before_publish` (vcs06, `#[cfg(windows)]`) Pass — Win32 NTFS のみ; POSIX 側は **NotRun**。dir 自体の read-only は Windows で信頼できる fault 境界にならないため対象ファイルを lock する設計 | Pass | staging manifest が resume record; fault 解除で `restore_as_copy` retry が publish |
+| VCS-RESTORE-REAL-* residual (OS crash/power-loss durability, AV, real plugin host, consumer open) | — | not measured | **NotRun** | OS matrix + #219/#294。share-mode/readonly fault は process-level lock のみで OS crash durability を意味しない |
 
 ## VCS-COMPAT-01..04 — cross-gate compatibility
 
@@ -137,7 +143,7 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 | --- | --- | --- | --- |
 | VCS-COMPAT-01 schema compat (v5→current) | old snapshots project read-only; unknown/too-old rejected; no source rewrite | SNAP-05/06 rows Pass | Pass* |
 | VCS-COMPAT-02 Gate A / consumer precision | AudioLens/consumer cross-check | not measured | **NotRun** (#219/#294) |
-| VCS-COMPAT-03 CI evidence (#83) | CI-run evidence rows | ci.yml run [42938180676](https://github.com/scarecrow173/synvelis/actions/runs/42938180676)（head `13e65189`・daily-ci dispatch）: ubuntu verify **success**（vcs06 全 pass）・macOS success・windows verify **failure**（非関連 `synvelis-library --test webdav` TransientIo・記録済み）・両 gate failure。#323 covering run は収集時点（2026-11-12 再検証）で未実走 = NotRun pending。証跡: `vcs-06-compat-evidence.md` | measured（**非一様 green**） |
+| VCS-COMPAT-03 CI evidence (#83) | CI-run evidence rows | 最新 covering run [43428177865](https://github.com/scarecrow173/synvelis/actions/runs/43428177865)（head `7c206289`・manual workflow_dispatch・2026-11-13）: **全 leg success**・evidence/ci-summary 両 gate green・vcs06 全 6 binary が ubuntu/windows/macos/msrv/rt-verify で実行・pass（windows leg の webdav TransientIo は非再現）。旧 run 42938180676 の windows failure は履歴として保存。証跡: `vcs-06-compat-evidence.md` | **Pass**（最新 covering run; 本 branch の新規行は merge 後の次回 dispatch 待ち = CI lane NotRun） |
 | VCS-COMPAT-04 other OS (macOS/Linux) | same matrix on POSIX FS | hosted macOS verify leg は run 42938180676 で success 観測済みだが、製品 OS matrix 実機計測ではない。Windows-only run; `directory_sync` already reports `Unsupported` here | **NotRun** |
 
 ## Explicitly out of scope (never Pass)
@@ -150,14 +156,22 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 ## New fixture files (this change)
 
 - `crates/synvelis-project/tests/vcs06_diff_matrix.rs` — 5 tests
-- `crates/synvelis-project/tests/vcs06_apply_matrix.rs` — 8 tests
-- `crates/synvelis-project/tests/vcs06_restore_matrix.rs` — 8 tests
+- `crates/synvelis-project/tests/vcs06_apply_matrix.rs` — 10 tests
+  (+2 Windows journal FS fault on `test/97-vcs06-real-git-fs-fault`)
+- `crates/synvelis-project/tests/vcs06_restore_matrix.rs` — 11 tests
+  (+3 Windows staging FS fault on `test/97-vcs06-real-git-fs-fault`)
 - `crates/synvelis-project/tests/vcs06_monitoring_matrix.rs` — 6 tests
   (monitoring-domain: VCS-DIFF-09/10・VCS-APPLY-07・VCS-RESTORE-07;
   VCS-APPLY-07 は apply surface 拡張 slice で supported-apply +
   Removed fail-closed の 3 test へ再構成)
-- `crates/synvelis-library/tests/vcs06_git_matrix.rs` — 3 tests
+- `crates/synvelis-library/tests/vcs06_git_matrix.rs` — 7 tests
+  (+4 real-git rows on `test/97-vcs06-real-git-fs-fault`:
+  gc/pack-refs/repack・pruned RevisionGone・file:// remote
+  force-push+fetch・linked worktree index scope)
 - `crates/synvelis-app/tests/vcs06_ui_matrix.rs` — 4 tests (VCS-UI-04 lane)
 
-All 34 pass on Windows/rustc 1.99.0 via `cargo test` (supplemental;
-canonical `mise run test` result recorded in the PR).
+The original 34 pass on Windows/rustc 1.99.0 via `cargo test`
+(supplemental; canonical `mise run test` result recorded in the
+PR). The 9 rows added by `test/97-vcs06-real-git-fs-fault` pass on
+Windows/rustc 1.99.0 via `mise run test synvelis-library` /
+`mise run test synvelis-project` (exit 0, all suites green).
