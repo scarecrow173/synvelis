@@ -1,4 +1,5 @@
-# Language-agnostic checks powered by prek's built-in hooks.
+# Lightweight, staged-file formatting, syntax and safety checks via prek.
+# Rust package verification uses mise tasks; workspace/OS verification stays in Full CI.
 repos:
   - repo: builtin
     hooks:
@@ -13,3 +14,13 @@ repos:
         exclude: '\.ps1$'
       - id: detect-private-key
       - id: check-illegal-windows-names
+
+  - repo: local
+    hooks:
+      # Only staged GitHub Actions workflow files: no workspace-wide scan on commit.
+      # The Full CI's prek --all-files run covers all workflows.
+      - id: actionlint
+        name: actionlint (changed workflows)
+        entry: mise exec -- actionlint
+        language: system
+        files: '^\.github/workflows/.*\.(yml|yaml)$'
