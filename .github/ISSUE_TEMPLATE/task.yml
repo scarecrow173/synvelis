@@ -5,6 +5,9 @@ body:
   - type: markdown
     attributes:
       value: |
+        **開発・検証方針:** ルートの `POLICIES.md` を参照し、Windowsの使用機能のGUI-L2/EXT-L3とmacOS/LinuxのOS-L1の必須範囲をIssueの受入条件・検証方法へ反映してください。
+        要求状態（Required/Deferred/NotApplicable）と結果（Pass/Fail/NotRun/Unsupported）は分離し、Headless Passを実GUI・実機Passと読み替えないでください。
+
         **着手に必要な Issue は「着手条件（Blocked by）」欄に決まった形式で書いてください。**
         Coordinator（`/task-execution-order`）がこの欄を読み、GitHub の正式な依存（Relationships の Blocked by）に登録します。
         作成時に自分で Blocked by に登録しても構いません（登録済みなら何もしません）。
