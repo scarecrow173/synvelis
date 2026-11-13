@@ -40,6 +40,7 @@ Directory: `docs/test-specs`
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | TSPEC-034QmjuUDQRs8JzfSsG8wM | L2 検証仕様 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | TSPEC-SXc0ENzb4xBlpJDsiIaUA8 | MD-A 検証仕様 — TakeGroup/Comp・Effective Comp 投影・Placement/Playback 時間契約 | approved | [mda-model-poc-acceptance.md](./mda-model-poc-acceptance.md) |
+| TSPEC-mr20261114mediaRenderC | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle テスト仕様 (synvelis#21) | approved | [media-render.md](./media-render.md) |
 | TSPEC-jioP2kLGYJUweo578lGo0V | Musical Time — 受入証拠テスト仕様（synvelis#19） | approved | [musical-time.md](./musical-time.md) |
 | TSPEC-034PCA11Wr6fZa2gIjWkLm | PC-A 検証仕様 — Parameter Control 合意8領域 headless 受入 | approved | [pc-a-e2e-parameter-control.md](./pc-a-e2e-parameter-control.md) |
 | TSPEC-034PCB05Ql0zTu6aCdEfGh | PC-B Parameter Control dispatch/note-scope/RT/offline 検証仕様 | approved | [pc-b-e2e-parameter-dispatch.md](./pc-b-e2e-parameter-dispatch.md) |
@@ -151,6 +152,7 @@ Directory: `docs/test-specs`
 | TSPEC-034UC53kVrQjWrtds8Lrsn | TIM-04 plugin state snapshot consistency — test spec | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | TSPEC-034UyEDDz7mTejYlyhg4gF | TIM-03 process boundary test spec — TIM-03-PB01..NN | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
 | TSPEC-vJFdbqSGXmBCZDnTy2Telx | Timeline Editing / Selection / Tool System — テスト仕様・受入 Fixture（synvelis#11） | approved | [timeline-editing.md](./timeline-editing.md) |
+| TSPEC-034X7wP0GQjilI9S0FX7m0 | Transport Integration Test Spec — TT-001〜030 case map to existing fixtures | approved | [transport-integration.md](./transport-integration.md) |
 | TSPEC-102UiCfInt005EeFfGgHhI | UI-C5 製品 GUI 統合テスト仕様 — syn.control.relation / syn.control.edge / syn.recording.*（headless） | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | TSPEC-034UAzXp7iDmaV6yx7QTZQ | VCS-01 snapshot resolver fixtures | approved | [vcs-01-snapshot-resolver-fixtures.md](./vcs-01-snapshot-resolver-fixtures.md) |
 | TSPEC-034UEueLhP34NeCWclgoux | VCS-02 semantic diff fixtures | approved | [vcs-02-semantic-diff-fixtures.md](./vcs-02-semantic-diff-fixtures.md) |

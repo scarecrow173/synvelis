@@ -19,6 +19,7 @@ Directory: `docs/tasks`
 | TASK-034RUl0VioQz9IinY5Qc7G | Issue #157 rev.3 T1 matrix placeholder gate 修正 | in-progress | [issue-157-t1-matrix-placeholder-gate.md](./issue-157-t1-matrix-placeholder-gate.md) |
 | TASK-034SYN166T1CiSumX | Issue #166 T1 Full CI 化・ci-summary 統一 — 第一段階実装 | in-progress | [issue-166-t1-ci-summary-stage1.md](./issue-166-t1-ci-summary-stage1.md) |
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
+| TASK-mr20261114mediaRenderB | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 設計契約文書化 (synvelis#21) | in-progress | [media-render-task.md](./media-render-task.md) |
 | TASK-P1ub1PJgLQhinQuEDIDy8S | PC-C3 task2 — synvelis-player RT trace adapter 実装（TRACE-C3-05） | in-progress | [pc-c3-task2-rt-trace-adapter.md](./pc-c3-task2-rt-trace-adapter.md) |
 | TASK-gH5lLpWnYI2KFNM99SswOf | PC-C4-02 task1 — plugin instance binding 実装 | in-progress | [pc-c4-02-task1-plugin-instance-binding.md](./pc-c4-02-task1-plugin-instance-binding.md) |
 | TASK-heuaegDgtyVrPGdnyMJko1 | PC-C4 plugin binding task1 — persisted instance authority の bind 照合 | in-progress | [pc-c4-plugin-binding-task.md](./pc-c4-plugin-binding-task.md) |
@@ -58,6 +59,7 @@ Directory: `docs/tasks`
 | TASK-NFJWSkocsf8xf7WcgpPdL0 | SV-GUI-04 slice1 タスク分解 — 実 2-window mount | in-progress | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | TASK-ibJUI1kRs2FdkuegWR0Ln7 | TIM-01 PPQN config — punch marks 再投影と受入残件検証タスク | in-progress | [tim-01-ppqn-config-task.md](./tim-01-ppqn-config-task.md) |
+| TASK-034X7xdqyxRcd5A5TSwmzT | Transport Integration Task — Issue #20 design contract + TT evidence ledger | in-progress | [transport-integration-task.md](./transport-integration-task.md) |
 | TASK-034UAAcPSS47j6GIlPGPrX | VCS-01 Task1 Immutable Snapshot Resolver headless slice | in-progress | [vcs-01-task1-immutable-snapshot-resolver-headless-slice.md](./vcs-01-task1-immutable-snapshot-resolver-headless-slice.md) |
 | TASK-vcs06-fixture-fault-matrix | VCS-06 fixture-level fault matrix + evidence ledger | in-progress | [vcs-06-fixture-fault-matrix.md](./vcs-06-fixture-fault-matrix.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |

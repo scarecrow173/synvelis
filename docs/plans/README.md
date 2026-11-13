@@ -34,6 +34,7 @@ Directory: `docs/plans`
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |
+| PLAN-mr20261114mediaRenderA | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 実装計画 (synvelis#21) | approved | [media-render.md](./media-render.md) |
 | PLAN-aXqZXebxtF6m7A9e6xy5S4 | Musical Time — 設計契約文書チェーン実装計画（synvelis#19） | approved | [musical-time.md](./musical-time.md) |
 | PLAN-034RoUbM3cA2J9g5wWzEfG | PC-C1 Recording Transaction 実装計画 | approved | [pc-c1-recording-transaction.md](./pc-c1-recording-transaction.md) |
 | PLAN-034UpbrhX5dkELUwZUoS0i | PC-C2 Control Relation Index 実装計画 | approved | [pc-c2-control-relation-index.md](./pc-c2-control-relation-index.md) |
@@ -132,6 +133,7 @@ Directory: `docs/plans`
 | PLAN-034UC46sceMw6QCzqVjGOO | TIM-04 plugin state snapshot consistency — implementation plan | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | PLAN-034UyECBCu7Wg67fct0qi7 | TIM-03 plugin process boundary plan | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
 | PLAN-uGKWo3QVS9uwBCoBMRyVGT | Timeline Editing / Selection / Tool System — 計画（synvelis#11） | approved | [timeline-editing.md](./timeline-editing.md) |
+| PLAN-034X7x2GLBkoA5kq6w2VxK | Transport Integration Plan — TT-001〜030 contract mapping + capability/degraded evidence ledger | in-progress | [transport-integration.md](./transport-integration.md) |
 | PLAN-102UiCfInt003CcDdEeFfG | UI-C5 製品 GUI 統合 実施計画 — syn.control.relation / syn.control.edge / syn.recording.* | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | PLAN-034UAzWU1ltpUXPw8mRuWd | VCS-01 Immutable Snapshot Resolver implementation plan | approved | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | PLAN-034UEufn0HEwKaQ2GRVCWB | VCS-02 Semantic Diff Engine implementation plan | approved | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |

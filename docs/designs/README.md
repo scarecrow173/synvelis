@@ -48,6 +48,7 @@ Directory: `docs/designs`
 | DESIGN-034QmfChvqgB632y8fAydk | L2 Design — Render Snapshot・Preflight・Sequential Render・WAV Output・Reopen Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export-design.md](./l2-master-sequential-offline-wav-export-design.md) |
 | DESIGN-YFKePNnF4peFnskSfrnSc2 | MD-A Design — TakeGroup/Comp スキーマ・Effective Comp 投影・正規化 Placement/Playback 時間契約 | approved | [mda-comp-effective-projection-placement-design.md](./mda-comp-effective-projection-placement-design.md) |
 | — | Synvelis × Ruviform — Media / Import / Export / Offline Render / UI / Diagnostics 統合アーキテクチャ | — | [media-import-export-offline-render-ui-diagnostics-architecture.md](./media-import-export-offline-render-ui-diagnostics-architecture.md) |
+| DESIGN-034X7uvDLVml1hERo5iqNc | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 設計契約 (synvelis#21) | approved | [media-render-design.md](./media-render-design.md) |
 | DESIGN-034MSA52Mn8xRt6yQwZkPf | 最小 MIDI Source / Note 編集契約 設計 | draft | [midi-source-note-editing-design.md](./midi-source-note-editing-design.md) |
 | DESIGN-v1cBPgJUA5gYtWIH40kczJ | Musical Time — 設計契約マップ（synvelis#19） | approved | [musical-time-design.md](./musical-time-design.md) |
 | DESIGN-034PCA03Nj8xRs4yAbOcDe | PC-A Parameter Control Model 設計 — Scope/Breakdown/StateMachine headless PoC | approved | [pc-a-parameter-control-design.md](./pc-a-parameter-control-design.md) |
@@ -164,6 +165,7 @@ Directory: `docs/designs`
 | DESIGN-034UyEjdALaapQRSk5hAdk | TIM-03 plugin process boundary design — capability/degraded policy oracle | approved | [tim03-process-boundary-design.md](./tim03-process-boundary-design.md) |
 | — | Synvelis × Ruviform — Time / Transport / MIDI / Automation / Plugin Integration Architecture v0.5 | — | [time-transport-midi-automation-plugin-integration-architecture.md](./time-transport-midi-automation-plugin-integration-architecture.md) |
 | DESIGN-T4E6PtTJ870Fpg4pFi3aM6 | Timeline Editing / Selection / Tool System — Snap・Gesture・Undo・Cross-View編集の共通設計（synvelis#11） | approved | [timeline-editing-design.md](./timeline-editing-design.md) |
+| DESIGN-034X7wOrHbsoz1senpZA9w | Transport Integration Design — Engine Frame canonical, process-start-relative offsets, capability/degraded policy, TT-001〜030 mapping | approved | [transport-integration-design.md](./transport-integration-design.md) |
 | DESIGN-102UiCfInt002BbCcDdEeF | UI-C5 製品 GUI 統合 設計 — syn.control.relation / syn.control.edge / syn.recording.* op surface | approved | [ui-sf-control-integration-design.md](./ui-sf-control-integration-design.md) |
 | DESIGN-034UAwTwlzWbToxqWtFM2B | VCS-01 Immutable Snapshot Resolver — crate 内完結設計 | approved | [vcs-01-immutable-snapshot-resolver-design.md](./vcs-01-immutable-snapshot-resolver-design.md) |
 | DESIGN-034UEtYMoQUWsPmOBrl819 | VCS-02 Semantic Diff Engine design | approved | [vcs-02-semantic-diff-engine-design.md](./vcs-02-semantic-diff-engine-design.md) |
