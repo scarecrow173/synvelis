@@ -80,6 +80,7 @@ Directory: `docs/test-specs`
 | TSPEC-034WEVqv4ZmteepjgHJGUL | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID test spec | approved | [rcd-04-midi-undo-stableid.md](./rcd-04-midi-undo-stableid.md) |
 | TSPEC-034VmO7ak9xboyiIKIf80v | RCD-04 product E2E test spec | approved | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | TSPEC-034VC3cbBMDP6D1WnhLGlh | RCD-04 RT engine comp PCM test spec | approved | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
+| TSPEC-a6ZCHY6LRL2KeFER0sLwl7 | Recording / Take / Comping — Fixture 契約・受入検証仕様（synvelis#12） | approved | [recording-take-comping.md](./recording-take-comping.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
 | TSPEC-034SF02Xa1sPq8rU1wC6dEgHi | SF-02 E2E/契約テスト仕様 — RoutingTransaction Reject/不変/Undo/Revision | approved | [sf-02-e2e-routing-transaction.md](./sf-02-e2e-routing-transaction.md) |
 | TSPEC-034UxcTb2ra5AlekrxQ8JG | SF-03 semantic→runtime 写像 — 世代証拠・失敗不変条件の検証仕様 | approved | [sf-03-map-failure-invariant-verification.md](./sf-03-map-failure-invariant-verification.md) |
