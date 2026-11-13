@@ -29,6 +29,7 @@ pub mod import;
 pub mod lowering;
 pub mod midi;
 pub mod monitor;
+pub mod monitor_engine;
 pub mod plugin_state;
 pub mod probe;
 pub mod probe_compare;
@@ -68,6 +69,10 @@ pub use monitor::{
     LatencyResolutionBasis, LowLatencyMonitor, LowLatencyReadiness, LowLatencyReason,
     LowLatencyState, MonitorAdapter, MonitorBlock, MonitorOutput, MonitorOutputNotices,
     MonitorRoute, prepare_low_latency,
+};
+pub use monitor_engine::{
+    EngineBlocks, MonitorEngine, MonitorEngineError, MonitorRunReport, MonitorSegmentRecord,
+    MonitorSession,
 };
 pub use plugin_state::{PluginStateEndpoint, PluginStateHost};
 pub use probe::{ProbeRequestError, ProbeSession};
