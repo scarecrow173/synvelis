@@ -125,6 +125,7 @@ Directory: `docs/impl/ir`
 | IMPL-SV18501MixerGainFader | SV185-01 mixer.gain domain projection — master strip Fader bootstrap・v7→v8 migration・Fader 接続 実装記録 | completed | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | IMPL-0SV47ControlsUiInteg01 | SV-47 Ruviform controls/binding headless contract integration — Mixer/Transport/parameter editing surfaces | completed | [sv47-ruviform-controls-ui-integration.md](./sv47-ruviform-controls-ui-integration.md) |
 | IMPL-0SV48VizUiInteg0001 | SV-48 Ruviform ui/viz + ui/binding headless contract integration — Waveform/Meter/Spectrum/Timeline into the DAW view layer | completed | [sv48-ruviform-viz-ui-integration.md](./sv48-ruviform-viz-ui-integration.md) |
+| IMPL-034WVJPwDQqM213ZktQskq | SYN-IO-02 HEAD CAS 実 2-process E2E 検証記録 (synvelis#330) | completed | [syn-io-02-head-cas-e2e.md](./syn-io-02-head-cas-e2e.md) |
 | IR-SV330-syn-io-02-head-cas | SYN-IO-02 HEAD CAS expected-head store port 実装記録・検証証跡 | completed | [syn-io-02-head-cas.md](./syn-io-02-head-cas.md) |
 | IMPL-034WUav4G9Bn61vUaDoKv9 | SYN-IO-02 OS-L1 evidence照合・残ゲート記録 (synvelis#84) | completed | [syn-io-02-os-l1-evidence.md](./syn-io-02-os-l1-evidence.md) |
 | IR-SV84-syn-io-02 | SYN-IO-02 store.rs StagedFile 移行 実装記録・検証証跡 | completed | [syn-io-02-store-stagedfile-migration.md](./syn-io-02-store-stagedfile-migration.md) |

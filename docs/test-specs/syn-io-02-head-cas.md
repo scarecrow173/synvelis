@@ -24,6 +24,7 @@ relations:
   superseded-by: []
   related:
     - "docs/designs/syn-io-02-head-cas-design.md"
+    - "TSPEC-034WVJHbBO657gxk3KnLP1"
   refines: []
   refined-by: []
   derives-from:
@@ -143,8 +144,11 @@ conflict.
 ## Non-goals
 
 - 実 2-process/複数 OS での協調検証・電源断・実機 durability
-  gate — Windows 単一 process 内 thread 協調までを本 slice で
-  pin し、残りは外部 gate（NotRun）に委譲する。
+  gate — 本 slice は Windows 単一 process 内 thread 協調
+  までを pin した。実 2-process は後続 slice
+  `syn-io-02-head-cas-e2e`（`TSPEC-034WVJHbBO657gxk3KnLP1`）
+  で Windows 実測済み。macOS/Linux は CI 実走または NotRun、
+  電源断・実機 durability は外部 gate（NotRun）に委譲する。
 - 非協調 writer（`save` 直接・外部 HEAD 書換え）への強制
   排他 — 次回 CAS の conflict で観測される契約まで。
 - journal replay restore の gateway 側統合テスト追加 —
