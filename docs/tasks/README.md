@@ -24,6 +24,7 @@ Directory: `docs/tasks`
 | TASK-heuaegDgtyVrPGdnyMJko1 | PC-C4 plugin binding task1 — persisted instance authority の bind 照合 | in-progress | [pc-c4-plugin-binding-task.md](./pc-c4-plugin-binding-task.md) |
 | TASK-wl7Q7EP5HpNVOP8NAdEB7a | PC-C6: REL01〜07 / TR01〜08 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rel-tr.md](./pc-c6-task1-oracle-rel-tr.md) |
 | TASK-034VmVPWtNFIg5zO3xaDsP | PC-C6: R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rows.md](./pc-c6-task1-oracle-rows.md) |
+| TASK-034X6XdaPIa6eFgvfVs5QC | Playback Graph Task — Issue #18 design contract + EX evidence ledger | in-progress | [playback-graph-task.md](./playback-graph-task.md) |
 | TASK-034X6iTAb53abA44E2sAPp | Project Model Task — Issue #10 design contract + headless verification | in-progress | [project-model-task.md](./project-model-task.md) |
 | TASK-034V2kE9l91elvsqfnsx5s | RCD-01 device-recording headless fixture | in_progress | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TASK-034W91vSDozzYDSG2XM7je | RCD-01 実機 capture coverage 拡張 task | completed | [rcd-01-real-input-coverage-task.md](./rcd-01-real-input-coverage-task.md) |
