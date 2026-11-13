@@ -25,6 +25,7 @@ Directory: `docs/designs`
 | DESIGN-TiKdIX8rj4YqmP3Pmb58JR | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 — 既存 verify leg 拡張設計 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | DESIGN-034RoWWK4Xx4NaZSoBYZSX | Synvelis 独立 CI — Lane 構成・証跡・依存アクセス設計 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | — | Synvelis — Configurable PPQN / Resolution-independent Musical Time | — | [configurable-ppqn-musical-time-architecture.md](./configurable-ppqn-musical-time-architecture.md) |
+| DESIGN-6ClrSXGAyry8iwAqt4t32c | Context Inspector 設計 — Follow/Explore/Pinned 状態機械・TargetKind Provider・情報階層・Probe/編集契約（synvelis#5） | approved | [context-inspector-design.md](./context-inspector-design.md) |
 | DESIGN-034CTL01Qy1wZt7aC3dE4fGh | CTL-01 ControlOwner/AutomationTimeScope 設計 — Schema v7 Migration | approved | [ctl-01-control-owner-time-scope-design.md](./ctl-01-control-owner-time-scope-design.md) |
 | DESIGN-taIsR3SbHTaGKnhYkfth7f | CTL-02 adoption SendLevel canonical spec 強制 設計 | approved | [ctl-02-adopt-sendlevel-design.md](./ctl-02-adopt-sendlevel-design.md) |
 | DESIGN-034QAlPiE7atUoGKXNG7Lr | ED-A Editing Model 設計 — Selection/Tool/Snap/Gesture/LinkedContext headless PoC | approved | [ed-a-editing-model-design.md](./ed-a-editing-model-design.md) |

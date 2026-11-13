@@ -84,6 +84,7 @@ Directory: `docs/tasks`
 | TASK-034VmiXNgZm3ucj1WcbTT9 | rt_cache 計測対象インスタンスの warm-up 修正 | done | [ci-245-task1-macos-alloc-flake.md](./ci-245-task1-macos-alloc-flake.md) |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |
 | TASK-034Rp07EGtrO1nUIIjiLh8 | ci.yml + dep-access composite action 実装 | done | [ci-task2-workflow.md](./ci-task2-workflow.md) |
+| TASK-6gOTxmdtactknQD5p2jwe8 | Context Inspector 設計定義タスク — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5） | done | [context-inspector-task.md](./context-inspector-task.md) |
 | TASK-034CTL01Sa3yBv9cE5fG6hIj | CTL-01: ControlOwner/AutomationTimeScope/ParameterRole 型・oracle・Schema v7 Migration・ops・検証 | done | [ctl-01-task1-owner-time-scope-schema-migration.md](./ctl-01-task1-owner-time-scope-schema-migration.md) |
 | TASK-6bPp4B6e9YSSWgScL0msLl | CTL-02: adoption 経路の非 canonical SendLevel 抑止タスク | done | [ctl-02-adopt-sendlevel-task.md](./ctl-02-adopt-sendlevel-task.md) |
 | TASK-034QAtPmN1oYgkip3TL6wG | ED-A task1 ProjectOp batch ops + selection model + ViewState 移行 | done | [ed-a-task1-selection-model-project-ops.md](./ed-a-task1-selection-model-project-ops.md) |
