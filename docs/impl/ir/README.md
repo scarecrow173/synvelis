@@ -153,6 +153,7 @@ Directory: `docs/impl/ir`
 | IMPL-034V4SMgc7OlchXo2EUCfn | VCS-05 safe apply selected change / restore as copy (headless) | completed | [vcs-05-safe-apply-selected-change-restore-as-copy-headless.md](./vcs-05-safe-apply-selected-change-restore-as-copy-headless.md) |
 | IMPL-034VTFdV4uROWPZI1T0Xga | VCS-06 evidence completion slice (synvelis#97) | completed | [vcs-06-evidence-completion.md](./vcs-06-evidence-completion.md) |
 | IMPL-bgZP66dLupCITdABVLTgJp | VCS-06 monitoring-domain matrix (synvelis#97 slice) | completed | [vcs-06-monitoring-matrix-slice.md](./vcs-06-monitoring-matrix-slice.md) |
+| IMPL-034WTApAlyZicn0xwYz0ic | VCS-06 real-git/FS fault rows slice (synvelis#97) | completed | [vcs-06-real-git-fs-fault.md](./vcs-06-real-git-fs-fault.md) |
 | IMPL-034VpEJmewmUasabGgBzbM | VCS-06 UI headless matrix (synvelis#97 slice) | completed | [vcs-06-ui-headless-matrix-slice.md](./vcs-06-ui-headless-matrix-slice.md) |
 | IMPL-034QeecIYVT0VX2rTFukXg | VS-A task1 workspace skeleton | completed | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | IMPL-034Qeedli77Yb2i69YgXSZ | VS-A task2 synvelis-project data model | completed | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |

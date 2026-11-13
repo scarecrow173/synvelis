@@ -134,6 +134,7 @@ Directory: `docs/specs`
 | SPEC-034VNNGsOaycnOBjCAH3m1 | VCS-06 evidence completion — RESTORE-08 plugin_instances verbatim + COMPAT-03/04 CI legs | approved | [vcs-06-evidence-completion.md](./vcs-06-evidence-completion.md) |
 | SPEC-vcs06-fixture-fault-matrix | VCS-06 fixture-level fault matrix + evidence ledger | approved | [vcs-06-fixture-fault-matrix.md](./vcs-06-fixture-fault-matrix.md) |
 | SPEC-pkRnrZ2RKJfPW1ymwMSENS | VCS-06 monitoring-domain matrix — monitor 宣言の diff/apply/restore 証拠行 | approved | [vcs-06-monitoring-matrix.md](./vcs-06-monitoring-matrix.md) |
+| SPEC-034WTsO0gdR1Z2PjqV9OQ2 | VCS-06 real-git/FS fault rows + CI evidence refresh (synvelis#97) | approved | [vcs-06-real-git-fs-fault.md](./vcs-06-real-git-fs-fault.md) |
 | SPEC-034VpB76W8P3twLKj0HlHB | VCS-06 UI headless matrix — Unknown/Partial honesty fixtures + ledger split | approved | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
 | SPEC-034Qdwuy2lCglk3HjqtRcs | VS-A Project / Recording Foundation — Stable ID・時間型・Command・Save/Reload | approved | [vs-a-project-recording-foundation-stable-id-command-save-reload.md](./vs-a-project-recording-foundation-stable-id-command-save-reload.md) |
 | SPEC-9EcPwSoDwcrg3WPYmvs7Gn | VS-B Clock / Gate Scheduler / RT Capture — Mock Input・Buffer Pool・SPSC | approved | [vs-b-rt-capture-mock-input-buffer-pool-spsc.md](./vs-b-rt-capture-mock-input-buffer-pool-spsc.md) |

@@ -127,6 +127,7 @@ Directory: `docs/plans`
 | PLAN-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface 拡張 — 実装 plan | approved | [vcs-05-monitoring-apply-surface-plan.md](./vcs-05-monitoring-apply-surface-plan.md) |
 | PLAN-4RRd44dWWEduAvHmubiVw | VCS-06 evidence completion — 実装 plan | approved | [vcs-06-evidence-completion-plan.md](./vcs-06-evidence-completion-plan.md) |
 | PLAN-FdgAC8xT08aXjvUlT4GwSz | VCS-06 monitoring-domain matrix — 実装 plan | approved | [vcs-06-monitoring-matrix-plan.md](./vcs-06-monitoring-matrix-plan.md) |
+| PLAN-034WTxvADcuVkmyiazhAKi | VCS-06 real-git/FS fault rows — implementation plan | approved | [vcs-06-real-git-fs-fault-plan.md](./vcs-06-real-git-fs-fault-plan.md) |
 | PLAN-034VpCx6TPoO1WOEqV19u4 | VCS-06 UI headless matrix — 実装 plan | approved | [vcs-06-ui-headless-matrix-plan.md](./vcs-06-ui-headless-matrix-plan.md) |
 | PLAN-034QdZoc84FQ9sKQSfLWtn | VS-A Project/Recording Foundation 実装計画 | approved | [vs-a-project-recording-foundation.md](./vs-a-project-recording-foundation.md) |
 | PLAN-kco2O0dSUXmFGIGQYqpxrx | VS-B Clock / Gate Scheduler / RT Capture 実装計画 | approved | [vs-b-clock-gate-rt-capture.md](./vs-b-clock-gate-rt-capture.md) |
