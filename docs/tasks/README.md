@@ -59,6 +59,7 @@ Directory: `docs/tasks`
 | TASK-NFJWSkocsf8xf7WcgpPdL0 | SV-GUI-04 slice1 タスク分解 — 実 2-window mount | in-progress | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | TASK-ibJUI1kRs2FdkuegWR0Ln7 | TIM-01 PPQN config — punch marks 再投影と受入残件検証タスク | in-progress | [tim-01-ppqn-config-task.md](./tim-01-ppqn-config-task.md) |
+| TASK-034X7xdqyxRcd5A5TSwmzT | Transport Integration Task — Issue #20 design contract + TT evidence ledger | in-progress | [transport-integration-task.md](./transport-integration-task.md) |
 | TASK-034UAAcPSS47j6GIlPGPrX | VCS-01 Task1 Immutable Snapshot Resolver headless slice | in-progress | [vcs-01-task1-immutable-snapshot-resolver-headless-slice.md](./vcs-01-task1-immutable-snapshot-resolver-headless-slice.md) |
 | TASK-vcs06-fixture-fault-matrix | VCS-06 fixture-level fault matrix + evidence ledger | in-progress | [vcs-06-fixture-fault-matrix.md](./vcs-06-fixture-fault-matrix.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
@@ -122,6 +123,7 @@ Directory: `docs/tasks`
 | TASK-HVCTNeUo2kXQN0NvHCUa6K | MD-A task2 Comp スキーマ (ID/registry/POD) + CompOp + 検証 | done | [mda-task2-comp-schema-ops.md](./mda-task2-comp-schema-ops.md) |
 | TASK-jlbvNYC9NvQW1NsWa4wo4K | MD-A task3 Effective Comp 投影 + editor target 型 | done | [mda-task3-effective-comp-projection-editor-targets.md](./mda-task3-effective-comp-projection-editor-targets.md) |
 | TASK-2s64FRQrl31k3APXwajsNF | MD-A task4 MD-A-* 受入テスト + 全検証 + impl record | done | [mda-task4-acceptance-tests-verification.md](./mda-task4-acceptance-tests-verification.md) |
+| TASK-rlRe32Ahahq9E7GRDaytrp | Musical Time — 設計契約文書チェーン実装タスク（synvelis#19） | done | [musical-time-task.md](./musical-time-task.md) |
 | TASK-034PCA05Ql0zTu6aCdQeFg | PC-A task1 ruviform-plugin-core dep + control model + Project::control + schema 2 | done | [pc-a-task1-control-model-deps.md](./pc-a-task1-control-model-deps.md) |
 | TASK-034PCA06Rm1aUv7bDeRfGh | PC-A task2 control ProjectOp + conflict detection | done | [pc-a-task2-control-ops-conflicts.md](./pc-a-task2-control-ops-conflicts.md) |
 | TASK-034PCA07Sn2bVw8cEfSgHi | PC-A task3 eval + control graph + capability/dispatch | done | [pc-a-task3-eval-graph-dispatch.md](./pc-a-task3-eval-graph-dispatch.md) |

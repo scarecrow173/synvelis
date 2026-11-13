@@ -67,6 +67,7 @@ Directory: `docs/impl/ir`
 | IMPL-MDBEffectiveCompLoweringLoadRevalidationCompDispatch | MD-B Effective Comp lowering・load-time revalidation・CompOp session dispatch (headless) | completed | [mdb-effective-comp-lowering-load-revalidation-comp-dispatch.md](./mdb-effective-comp-lowering-load-revalidation-comp-dispatch.md) |
 | IMPL-034X7v8PmJKzfbj9uOlPeF | Media Render — Issue #21 設計契約文書化 + MR evidence 台帳 | completed | [media-render.md](./media-render.md) |
 | IMPL-034MSA5207Kq2wXmZyAbCdEf | 最小 MIDI Source / Note 編集契約 — Stable ID・Linked Source・Undo・Save/Reload | completed | [midi-source-note-editing.md](./midi-source-note-editing.md) |
+| IMPL-sl0Rr2E3MxV46MGYb9oin9 | Musical Time — 設計契約文書チェーン実装記録（synvelis#19） | completed | [musical-time.md](./musical-time.md) |
 | IMPL-034PCA12Xz9hCd5kLmZnOp | PC-A parameter control model headless PoC | completed | [pc-a-parameter-control-headless-poc.md](./pc-a-parameter-control-headless-poc.md) |
 | IMPL-034PCB07Kq2wXyZmAbCdEf | PC-B parameter dispatch/note-scope/RT/offline headless PoC | completed | [pc-b-parameter-dispatch-note-scope-rt-offline.md](./pc-b-parameter-dispatch-note-scope-rt-offline.md) |
 | IMPL-034PC64RmwkXyZnPqRsTvWxA | PC-B 残件 — dispatch driver 配線・EvalPlan staleness・offline honesty | completed | [pc-b-remaining-dispatch-driver-evalplan-offline.md](./pc-b-remaining-dispatch-driver-evalplan-offline.md) |
@@ -160,6 +161,7 @@ Directory: `docs/impl/ir`
 | IMPL-034Vsqaiq4B9YQrsfPw8Sb | TIM-03 session→driver/routing wiring — BoundarySessionSpec vend・driver session/mirror・routing scoped API | completed | [tim-03-session-driver-wiring-slice.md](./tim-03-session-driver-wiring-slice.md) |
 | IMPL-Tim04PluginStateSnapshot | TIM-04 Plugin State Snapshot 一貫性 — quality receipt / save-reload / HEAD / offline recipe（headless mock slice） | completed | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | IMPL-kBHWiP6FFajB356aw7WOHn | Timeline Editing / Selection / Tool System — 実装記録（docs slice・synvelis#11） | completed | [timeline-editing.md](./timeline-editing.md) |
+| IMPL-034X7xdWV5l5SuHJr0ppBz | Transport Integration — Issue #20 設計契約文書化 + TT evidence 台帳 | completed | [transport-integration.md](./transport-integration.md) |
 | IMPL-102UiCfInt006FfGgHhIiJ | UI-C5 製品 GUI 統合 — syn.control.relation / syn.control.edge / syn.recording.* op surface（headless slice） | completed | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | IMPL-Vcs01ImmutableSnapshotResolver | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only projection | completed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | IMPL-Vcs02SemanticDiffEngine | VCS-02 Semantic Diff Engine — canonical ChangeSet・typed identity/lineage・Unknown tri-state | completed | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
