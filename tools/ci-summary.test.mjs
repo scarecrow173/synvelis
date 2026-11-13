@@ -7,6 +7,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { evaluateGate, expectedJobs, verifySha } from "./ci-summary.mjs";
 
 const REQUIRED_LEG_NAMES = [
@@ -278,5 +279,47 @@ describe("gate: malformed inputs stay fail-closed", () => {
   it("unknown mode -> not ok", () => {
     const v = evaluateGate({ jobs: legs(), mode: "bogus" });
     assert.equal(v.ok, false);
+  });
+});
+
+
+describe("CI workflow: Linux-only shared lint with native OS-L1 coverage", () => {
+  const ci = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+  function job(id) {
+    const start = ci.indexOf("\n  " + id + ":\n");
+    assert.ok(start >= 0, "missing job " + id);
+    const rest = ci.slice(start + 1);
+    const next = rest.slice(1).search(/\n  [A-Za-z][\w-]*:\n/);
+    return next < 0 ? rest : rest.slice(0, next + 1);
+  }
+  it("runs fmt, workflow lint, Clippy and prek only on Linux", () => {
+    const v = job("verify");
+    const mac = job("verify-macos");
+    for (const [task, label] of [
+      ["mise exec -- prek run --all-files", "Check config files with prek"],
+      ["mise run lint-actions", "Lint workflows (mise run lint-actions)"],
+      ["mise run fmt-check", "Check formatting (mise run fmt-check)"],
+      ["mise run lint-full", "Lint workspace (mise run lint-full)"],
+      ["mise run lint-app-native", "Lint synvelis-app native feature (mise run lint-app-native)"],
+      ["mise run lint-app-gpui", "Lint synvelis-app gpui-test feature (mise run lint-app-gpui)"],
+    ]) {
+      const from = v.indexOf("      - name: " + label + "\n");
+      assert.ok(from >= 0, "missing Linux step: " + label);
+      const to = v.indexOf("\n      - name:", from + 1);
+      const step = v.slice(from, to < 0 ? v.length : to);
+      assert.ok(step.includes("if: matrix.os == 'ubuntu-latest'"), label + " not Linux-only");
+      assert.ok(step.includes("run: " + task), label + " task mismatch");
+      assert.ok(!mac.includes("run: " + task), task + " duplicated in macOS");
+    }
+  });
+  it("keeps per-OS type-check, native binary Link and GPUI scenario tests", () => {
+    for (const j of ["verify", "verify-macos"]) {
+      const block = job(j);
+      for (const task of ["check-full", "test-full", "check-app-native",
+        "build-app-native", "check-app-gpui", "test-app-gpui"]) {
+        assert.ok(block.includes("run: mise run " + task), j + " missing " + task);
+      }
+      assert.ok(block.includes("gpui-test scenario tests:"), j + " missing test guard");
+    }
   });
 });
