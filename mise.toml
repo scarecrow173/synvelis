@@ -99,6 +99,27 @@ run = "node --test tools/ci-issue-tracker-reconcile.test.mjs"
 description = "Build the workspace (dev profile)"
 run = "cargo build --workspace --locked"
 
+# 通常開発向け: 必ず対象Cargo packageを指定する（無引数ではCargoの-p検査で失敗）。
+# miseはタスク名の後の引数を末尾に転送するため、追加Feature等も指定可能。
+# 例: mise run check-local synvelis-project
+#     mise run test-local synvelis-project rt_
+#     mise run check-local synvelis-app --features gpui
+# workspace全体を検証する check/test/build はCI再現・原因切り分け用に維持する。
+[tasks.check-local]
+description = "変更したCargo packageの型チェック: mise run check-local <package> [cargo args]"
+raw_args = true
+run = "cargo check --locked --all-targets -p"
+
+[tasks.test-local]
+description = "変更したCargo packageのテスト: mise run test-local <package> [cargo args]"
+raw_args = true
+run = "cargo test --locked -p"
+
+[tasks.build-local]
+description = "変更したCargo packageの必要時Build: mise run build-local <package> [cargo args]"
+raw_args = true
+run = "cargo build --locked -p"
+
 [tasks.gw10]
 description = "Run the GW-10 gateway harness suites and emit the gate report"
 run = [
