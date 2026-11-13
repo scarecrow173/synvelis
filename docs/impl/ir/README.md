@@ -173,6 +173,7 @@ Directory: `docs/impl/ir`
 | IMPL-pQbrnczYyJPOw79LzmmIy | VS-B Clock/Gate/RT Capture — Mock Input・Buffer Pool・SPSC (E2E-R1) | completed | [vs-b-clock-gate-rt-capture-mock-spsc.md](./vs-b-clock-gate-rt-capture-mock-spsc.md) |
 | IMPL-034QfRW3cPFErlmVZ7TCoI | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range (E2E-R2) | completed | [vs-c-staging-writer-journal-crash-recovery.md](./vs-c-staging-writer-journal-crash-recovery.md) |
 | IMPL-VSdRecCommitE2E | VS-D Recording Commit / End-to-End Vertical Slice — Idempotency・Undo・Reload (E2E-R3) | completed | [vs-d-recording-commit-e2e-idempotency-undo-reload.md](./vs-d-recording-commit-e2e-idempotency-undo-reload.md) |
+| IMPL-034X5pypMll8dagLa8AERw | Workspace Model — Issue #2 設計文書化 + headless 検証 | completed | [workspace-model.md](./workspace-model.md) |
 | IMPL-034X3VOP02J6rtCa1QMhIJ | Workspace UX 操作仕様の正本化（Issue #3 文書チェーン） | completed | [workspace-ux-scenarios.md](./workspace-ux-scenarios.md) |
 | IMPL-034QxsUh3NmPwprwJkrlk5 | WS-A workspace foundation headless PoC | completed | [ws-a-workspace-foundation-headless-poc.md](./ws-a-workspace-foundation-headless-poc.md) |
 | IMPL-XRecordedVerifiedSourcePlaybackExport | E2E-X Recorded Source → Generic Playback/Export with Frame/ID/Content Integrity | completed | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |
