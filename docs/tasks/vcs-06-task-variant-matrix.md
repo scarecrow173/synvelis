@@ -106,7 +106,8 @@ VCS-RESTORE-10（`Fail`）行を実測値で追加し、Environment
 - [x] `git fetch origin main && git merge origin/main` 後の
   canonical `mise run` 検証が pass（`test-msrv` は Daily CI
   委譲で NotRun）
-- [ ] push → PR 作成（Refs synvelis#97、Issue は Open のまま）
+- [x] push → PR 作成（Refs synvelis#97、Issue は Open のまま —
+  scarecrow173/synvelis#460）
 
 ## Verification
 
