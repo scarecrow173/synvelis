@@ -500,6 +500,14 @@ pub struct Project {
     /// deterministically (see `crate::migration`).
     #[serde(default)]
     pub plugin_instances: crate::plugin_instance::PluginInstanceIdentities,
+    /// Creative Branch variant sets — the Project's versioned,
+    /// project-authoritative production candidates (synvelis#278,
+    /// schema v14). Branch *content* is referenced by digest through
+    /// the branch content store, never embedded here.
+    /// `#[serde(default)]` keeps pre-v14 bodies loadable; the v13→v14
+    /// migration is a pass-through (see `crate::migration`).
+    #[serde(default)]
+    pub variant_sets: BTreeMap<crate::id::VariantSetId, crate::variant::VariantSet>,
 }
 
 impl Project {
@@ -541,6 +549,7 @@ impl Project {
             routing,
             monitoring: MonitoringData::default(),
             plugin_instances: crate::plugin_instance::PluginInstanceIdentities::default(),
+            variant_sets: BTreeMap::new(),
         }
     }
 
@@ -955,7 +964,9 @@ impl Project {
         // the routing processors: exactly one entry per `Resolved`
         // processor, none for `Unresolved`, ids inside the issued
         // watermark range, plugin refs verbatim.
-        self.plugin_instances.validate_against(self)
+        self.plugin_instances.validate_against(self)?;
+        // -- creative branch variant sets (synvelis#278, v14) --------
+        crate::variant::engine::validate_persisted(self)
     }
 
     /// Digest/receipt integrity shared by [`Self::validate_references`]
@@ -1059,6 +1070,15 @@ impl Project {
         fold!(max, self.routing.ports);
         fold!(max, self.routing.connections);
         fold!(max, self.routing.sends);
+        // -- creative branch variant sets (synvelis#278, v14) --------
+        fold!(max, self.variant_sets);
+        for set in self.variant_sets.values() {
+            for branch in set.branches.keys() {
+                if is_issuable_raw(branch.raw()) {
+                    max = Some(max.map_or_else(|| branch.raw(), |m| m.max(branch.raw())));
+                }
+            }
+        }
         max
     }
 
