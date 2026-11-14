@@ -149,6 +149,7 @@ Directory: `docs/plans`
 | PLAN-uGKWo3QVS9uwBCoBMRyVGT | Timeline Editing / Selection / Tool System — 計画（synvelis#11） | approved | [timeline-editing.md](./timeline-editing.md) |
 | PLAN-034X7x2GLBkoA5kq6w2VxK | Transport Integration Plan — TT-001〜030 contract mapping + capability/degraded evidence ledger | in-progress | [transport-integration.md](./transport-integration.md) |
 | PLAN-102UiCfInt003CcDdEeFfG | UI-C5 製品 GUI 統合 実施計画 — syn.control.relation / syn.control.edge / syn.recording.* | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
+| PLAN-034XGQcU2c2ctkSQ1qVvWi | variant_sets VCS semantic diff 分類 slice | approved | [variant-sets-vcs-diff.md](./variant-sets-vcs-diff.md) |
 | PLAN-034UAzWU1ltpUXPw8mRuWd | VCS-01 Immutable Snapshot Resolver implementation plan | approved | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | PLAN-034UEufn0HEwKaQ2GRVCWB | VCS-02 Semantic Diff Engine implementation plan | approved | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
 | PLAN-D4Oqo3jPnK2GybwKhM5nwh | VCS-03 Git Read Provider implementation plan | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |

@@ -1,11 +1,10 @@
 //! VCS-06 (issue #97): variant-set fixture rows — schema v14
-//! `Project::variant_sets` (synvelis#278 Creative Branch) is a
-//! persisted domain with **no** `ObjectKind` variant kind and no
-//! `raw_kind_map` enumeration, so variant-only snapshot differences
-//! are invisible to `compare_snapshots` (the observed `Equal`/
-//! `Complete` result is pinned honestly — a known compare-surface
-//! gap, never promoted to `Pass`). `restore_as_copy` measured
-//! behavior for variant-set projects is recorded as observed.
+//! `Project::variant_sets` (synvelis#278 Creative Branch). Since
+//! synvelis#457 the variant model is a first-class VCS-02 compare
+//! surface (`ObjectKind::VariantSet`/`VariantBranch`, `Variants`
+//! domain, policy v4), so the diff rows assert typed changes; the
+//! `restore_as_copy` row still records the measured nested-origin
+//! `RestoreError::Validation` failure (follow-up #458).
 //!
 //! Same headless contract as the other `vcs06_*` matrices: real
 //! GUI/plugin/consumer lanes remain `NotRun`
@@ -250,19 +249,16 @@ fn variant_project() -> (
     (c, store, track, fork.variant_set, fork.candidate)
 }
 
-// ── VCS-DIFF-11: variant_sets compare-surface gap (honest pin) ───
+// ── VCS-DIFF-11: variant_sets compare surface (synvelis#457) ─────
 //
-// `Project::variant_sets` (schema v14) is persisted authored state
-// but has no `ObjectKind` and is absent from `raw_kind_map` and
-// every domain adapter's view. Snapshot pairs that differ *only*
-// in variant state therefore observe `Equal`/`Complete` — the
-// same misreport shape the plugin-instance gap had before
-// `ObjectKind::PluginInstance` was added (synvelis#324). These
-// tests pin the observed contract; they are evidence for the
-// ledger's `Blocked` row, not a `Pass` claim.
+// `Project::variant_sets` (schema v14) diffs as `VariantSet`
+// entities plus nested `VariantBranch` entities under the
+// `Variants` domain — the gap this row pinned before #457 (silent
+// `Equal`/`Complete`, silent drop in mixed diffs) is closed. The
+// detailed kind/field matrix lives in `vcs07_variant_diff.rs`.
 
 #[test]
-fn variant_set_presence_and_mutation_are_invisible_to_diff() {
+fn variant_set_presence_and_mutation_are_typed_changes() {
     let mut c = controller();
     apply_op(&mut c, ProjectOp::AddTrack { name: "vox".into() });
     let track = *c.live().tracks.keys().next().unwrap();
@@ -279,23 +275,37 @@ fn variant_set_presence_and_mutation_are_invisible_to_diff() {
     assert_eq!(forked.projection.project().variant_sets.len(), 1);
 
     // The persisted bytes genuinely differ — this is NOT the AA
-    // fast path; the adapters ran and still found nothing.
+    // fast path; the adapters ran and classified the insertion.
     assert_ne!(before.identity.digest, forked.identity.digest);
     assert_ne!(
         before.projection.project().variant_sets,
         forked.projection.project().variant_sets
     );
 
-    // KNOWN GAP — pinned observation, ledger `Blocked`: a real
-    // persisted variant-set insertion reports `Equal`/`Complete`.
+    // One `VariantSet` Added + two `VariantBranch` Added (adopted +
+    // candidate) — variant-only differences are typed changes.
     let cs = compare(&before, &forked);
-    assert_eq!(cs.overall, ComparisonEquality::Equal);
+    assert_eq!(cs.overall, ComparisonEquality::Different);
     assert_eq!(cs.completeness, ComparisonCompleteness::Complete);
-    assert_eq!(cs.changes.len(), 0);
     assert_eq!(cs.unresolved.len(), 0);
+    let set_adds: Vec<_> = cs
+        .changes
+        .iter()
+        .filter(|ch| ch.object.kind == ObjectKind::VariantSet)
+        .collect();
+    assert_eq!(set_adds.len(), 1);
+    assert_eq!(set_adds[0].kind, ChangeKind::Added);
+    let branch_adds: Vec<_> = cs
+        .changes
+        .iter()
+        .filter(|ch| ch.object.kind == ObjectKind::VariantBranch)
+        .collect();
+    assert_eq!(branch_adds.len(), 2);
+    assert!(branch_adds.iter().all(|ch| ch.kind == ChangeKind::Added));
 
     // Adopt rewrites set metadata (adopted pointer, frozen Captured
-    // branch ref, `last_adopt`, revision) — equally invisible.
+    // branch ref, `last_adopt`, revision) — a `Modified` set change
+    // plus `Replaced` branch content refs.
     adopt_branch_of(&mut c, &mut store, fork.variant_set, fork.candidate, &scope);
     let adopted = snap_live(&c);
     assert_ne!(forked.identity.digest, adopted.identity.digest);
@@ -304,14 +314,19 @@ fn variant_set_presence_and_mutation_are_invisible_to_diff() {
         adopted.projection.project().variant_sets
     );
     let cs = compare(&forked, &adopted);
-    assert_eq!(cs.overall, ComparisonEquality::Equal);
-    assert_eq!(cs.completeness, ComparisonCompleteness::Complete);
-    assert_eq!(cs.changes.len(), 0);
-    assert_eq!(cs.unresolved.len(), 0);
+    assert_eq!(cs.overall, ComparisonEquality::Different);
+    assert!(cs.changes.iter().any(|ch| {
+        ch.object.kind == ObjectKind::VariantSet
+            && ch.kind == ChangeKind::Modified
+            && fields_of(ch).contains(&"adopted")
+    }));
+    assert!(cs.changes.iter().any(|ch| {
+        ch.object.kind == ObjectKind::VariantBranch && ch.kind == ChangeKind::Replaced
+    }));
 }
 
 #[test]
-fn mixed_diff_reports_track_change_but_drops_variant_set() {
+fn mixed_diff_reports_track_and_variant_changes() {
     let (c, _store, track, _set, _branch) = variant_project();
     // `before` predates the variant set: rebuild the pre-fork state
     // by snapshotting a clone with `variant_sets` cleared — the
@@ -325,18 +340,29 @@ fn mixed_diff_reports_track_change_but_drops_variant_set() {
     after_project.tracks.get_mut(&track).unwrap().name = "renamed".into();
     let after = snap_manual(after_project, "var-after");
 
-    // Both deltas are real: variant_sets differ AND the track name
-    // differs — yet the ChangeSet reports only the Track change.
+    // Both deltas are real and BOTH are reported: the Track
+    // `Modified` plus the variant-set/branch insertions.
     assert_ne!(
         before.projection.project().variant_sets,
         after.projection.project().variant_sets
     );
     let cs = compare(&before, &after);
     assert_eq!(cs.overall, ComparisonEquality::Different);
-    assert_eq!(cs.changes.len(), 1);
-    assert_eq!(cs.changes[0].object.kind, ObjectKind::Track);
-    assert_eq!(cs.changes[0].kind, ChangeKind::Modified);
-    assert!(fields_of(&cs.changes[0]).contains(&"name"));
+    assert!(cs.changes.iter().any(|ch| {
+        ch.object.kind == ObjectKind::Track
+            && ch.kind == ChangeKind::Modified
+            && fields_of(ch).contains(&"name")
+    }));
+    assert!(
+        cs.changes
+            .iter()
+            .any(|ch| ch.object.kind == ObjectKind::VariantSet)
+    );
+    assert!(
+        cs.changes
+            .iter()
+            .any(|ch| ch.object.kind == ObjectKind::VariantBranch)
+    );
 }
 
 // ── VCS-RESTORE-10: variant_sets restore-as-copy (measured) ──────

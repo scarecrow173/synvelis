@@ -75,6 +75,8 @@ impl_entity_key!(
     crate::id::StripId,
     crate::id::SemanticPortId,
     crate::id::RoutingConnectionId,
+    crate::id::VariantSetId,
+    crate::id::BranchId,
 );
 
 /// Internal field classification produced by the per-domain policy.
@@ -471,7 +473,10 @@ where
 /// every entity-issued ID collection. Keyed-synthetic collections
 /// (`smf_documents`, `applied_commits`, `monitoring.tracks`,
 /// `plugin_instances.instances`) reuse another entity's ID space and
-/// are excluded so they cannot fabricate collisions.
+/// are excluded so they cannot fabricate collisions. Variant set and
+/// branch IDs are *not* keyed-synthetic — `fork_variant_set` draws
+/// them from the shared `id_watermark` space — so they register like
+/// every other entity-issued collection (synvelis#457).
 fn raw_kind_map(project: &Project) -> BTreeMap<u128, BTreeSet<ObjectKind>> {
     let mut map: BTreeMap<u128, BTreeSet<ObjectKind>> = BTreeMap::new();
     let mut add = |kind: ObjectKind, raw: u128| {
@@ -571,7 +576,26 @@ fn raw_kind_map(project: &Project) -> BTreeMap<u128, BTreeSet<ObjectKind>> {
     for id in routing.sends.keys() {
         add(ObjectKind::SendConfig, id.raw());
     }
+    add_variant_raws(&mut map, project);
     map
+}
+
+/// Registers variant set and branch IDs. Both are entity-issued from
+/// the shared `id_watermark` space (`fork_variant_set` draws them via
+/// `ProjectController::draw_raw_id`), not keyed-synthetic, so they
+/// participate in cross-kind collision detection like every other
+/// entity-issued collection (synvelis#457).
+fn add_variant_raws(map: &mut BTreeMap<u128, BTreeSet<ObjectKind>>, project: &Project) {
+    for (id, set) in &project.variant_sets {
+        map.entry(id.raw())
+            .or_default()
+            .insert(ObjectKind::VariantSet);
+        for branch_id in set.branches.keys() {
+            map.entry(branch_id.raw())
+                .or_default()
+                .insert(ObjectKind::VariantBranch);
+        }
+    }
 }
 
 /// Raws whose claimed kind sets differ between the two snapshots, or
