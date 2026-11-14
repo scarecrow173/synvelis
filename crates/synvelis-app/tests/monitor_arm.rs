@@ -1020,3 +1020,369 @@ fn service_registers_monitoring_ops() {
     // error 型は dispatch 経路の型を明示するため残す。
     let _: Option<ErrorBody> = error;
 }
+
+// -- E8: Loop/PunchInLoop + count-in/pre-roll session 宣言 --------------------
+//
+// session-scope の loop マーク（`loop_start`/`loop_end`）と
+// count-in/pre-roll 宣言区間を `syn.monitoring.session` start で
+// 宣言し、gate 種別・pass 構造・位相投影・gate 閉鎖を pin する。
+// 120 BPM / 960 PPQN / 48 kHz では 1 tick = 25 frame。
+
+/// 宣言 track 1 件を arm/auto/ready で登録する helper。
+fn declare_monitor_track(app: &mut SynvelisApp, track: TrackId) {
+    set_decl(
+        app,
+        &json!({
+            "track": track.to_tagged(),
+            "arm": "on",
+            "monitor": "auto",
+            "input_output_ready": true,
+        }),
+    );
+}
+
+/// session json の `segments` 先頭 track を取り出す。
+fn first_track_segments(state: &Value) -> &Value {
+    state["segments"]
+        .as_array()
+        .expect("segments")
+        .first()
+        .expect("track segments")
+}
+
+/// Loop session: `loop_start`/`loop_end` 宣言で `GateSpec::Loop`
+/// の plan が開始され、`session.gate == "loop"`・loop マーク値・
+/// pass ごとの `gate_open` 区間が正直に投影される。
+#[test]
+fn e8_loop_session_projects_gate_and_pass_segments() {
+    let (mut app, tracks) = fixture_app();
+    let (track, ..) = tracks[0];
+    declare_monitor_track(&mut app, track);
+
+    // loop [240, 480) tick = frame [6000, 12000)、長さ 6000 frame。
+    // stop=960 tick = 24000 frame → pass 0/1/2 の 3 回 loop。
+    app.op_monitoring_session(&json!({
+        "action": "start",
+        "transport_start": 0,
+        "stop": 960,
+        "sample_rate": 48000,
+        "loop_start": 240,
+        "loop_end": 480,
+    }))
+    .expect("loop session start");
+    transport(&mut app, &json!({"action": "play"}));
+
+    let s = state(&app);
+    let session = &s["session"];
+    assert_eq!(session["active"], true);
+    assert_eq!(session["gate"], "loop");
+    assert_eq!(session["loop_start"], 240);
+    assert_eq!(session["loop_end"], 480);
+    assert_eq!(session["punch_in"], Value::Null);
+    assert_eq!(session["phase"], "playing");
+
+    // segments: [0,6000) 閉 → [6000,24000) 開（3 pass 連続で併合）。
+    let segs = first_track_segments(&s)["segments"]
+        .as_array()
+        .expect("segment list");
+    assert_eq!(first_track_segments(&s)["truncated"], false);
+    let flags: Vec<bool> = segs
+        .iter()
+        .map(|g| g["gate_open"].as_bool().expect("gate_open"))
+        .collect();
+    assert_eq!(flags, vec![false, true]);
+    assert_eq!(segs[0]["start"], 0);
+    assert_eq!(segs[0]["end"], 6000);
+    assert_eq!(segs[1]["start"], 6000);
+    assert_eq!(segs[1]["end"], 24000);
+
+    // loop 前は gate 閉 → Playback、loop 内 pass では gate 開 → Input。
+    transport(&mut app, &json!({"action": "seek", "position": 100}));
+    assert_eq!(route_of(&app, &track.to_tagged()), "playback");
+    transport(&mut app, &json!({"action": "seek", "position": 300}));
+    assert_eq!(route_of(&app, &track.to_tagged()), "input");
+    // session 終端付近の tick 位置でも gate は開いたまま。
+    transport(&mut app, &json!({"action": "seek", "position": 900}));
+    assert_eq!(route_of(&app, &track.to_tagged()), "input");
+}
+
+/// `PunchInLoop` session: authored punch が loop 内にあると
+/// `GateSpec::PunchInLoop` となり、pass ごとの punch 区間だけが
+/// `gate_open` になる。loop 外 punch は `preflight` が拒否する。
+#[test]
+fn e8_punch_in_loop_session_projects_per_pass_punch() {
+    let (mut app, tracks) = fixture_app();
+    let (track, ..) = tracks[0];
+    declare_monitor_track(&mut app, track);
+    // punch [300, 420) は loop [240, 480) の内側。
+    punch(
+        &mut app,
+        &json!({"action": "set", "punch_in": 300, "punch_out": 420}),
+    );
+
+    app.op_monitoring_session(&json!({
+        "action": "start",
+        "transport_start": 0,
+        "stop": 960,
+        "sample_rate": 48000,
+        "loop_start": 240,
+        "loop_end": 480,
+    }))
+    .expect("punch-in-loop session start");
+    transport(&mut app, &json!({"action": "play"}));
+
+    let s = state(&app);
+    let session = &s["session"];
+    assert_eq!(session["gate"], "punch_in_loop");
+    assert_eq!(session["loop_start"], 240);
+    assert_eq!(session["loop_end"], 480);
+    assert_eq!(session["punch_in"], 300);
+    assert_eq!(session["punch_out"], 420);
+
+    // punch [300,420) tick = frame [7500,10500)。loop pass 長
+    // 6000 frame・pass 3 回 → open 区間は pass ごとに
+    // [7500,10500) [13500,16500) [19500,22500)。
+    let segs = first_track_segments(&s)["segments"]
+        .as_array()
+        .expect("segment list");
+    let open: Vec<(i64, i64)> = segs
+        .iter()
+        .filter(|g| g["gate_open"] == true)
+        .map(|g| (g["start"].as_i64().unwrap(), g["end"].as_i64().unwrap()))
+        .collect();
+    assert_eq!(
+        open,
+        vec![(7500, 10500), (13500, 16500), (19500, 22500)],
+        "each loop pass must open only the punch range"
+    );
+
+    // live route: punch 区間の tick 位置で Input、loop 内でも
+    // punch 外（tick 250）では gate 閉 → Playback。
+    transport(&mut app, &json!({"action": "seek", "position": 360}));
+    assert_eq!(route_of(&app, &track.to_tagged()), "input");
+    transport(&mut app, &json!({"action": "seek", "position": 250}));
+    assert_eq!(route_of(&app, &track.to_tagged()), "playback");
+}
+
+/// loop 宣言 + authored punch が loop 外 → `preflight` が拒否し、
+/// session は開始されない（fail-closed — 宣言の矛盾を黙って
+/// 解消しない）。
+#[test]
+fn e8_punch_outside_loop_is_rejected() {
+    let (mut app, tracks) = fixture_app();
+    let (track, ..) = tracks[0];
+    declare_monitor_track(&mut app, track);
+    punch(
+        &mut app,
+        &json!({"action": "set", "punch_in": 600, "punch_out": 700}),
+    );
+    let err = app
+        .op_monitoring_session(&json!({
+            "action": "start",
+            "transport_start": 0,
+            "stop": 960,
+            "sample_rate": 48000,
+            "loop_start": 240,
+            "loop_end": 480,
+        }))
+        .expect_err("punch outside loop must fail");
+    assert!(
+        err.message.contains("loop"),
+        "unexpected error: {}",
+        err.message
+    );
+    assert_eq!(state(&app)["session"]["active"], false);
+}
+
+/// count-in/pre-roll 宣言: session 開始前の transport 位相として
+/// 位相投影に反映され、宣言区間では gate が構造上開かない
+/// （session frame が負 → `in_session == false` → `gate_open=false`
+/// → armed Auto の route は Playback）。
+#[test]
+fn e8_count_in_pre_roll_phases_keep_gate_closed() {
+    let (mut app, tracks) = fixture_app();
+    let (track, ..) = tracks[0];
+    declare_monitor_track(&mut app, track);
+
+    // pre_roll [-960,-480) → count_in [-480,-240) → transport_start 0。
+    app.op_monitoring_session(&json!({
+        "action": "start",
+        "transport_start": 0,
+        "stop": 960,
+        "sample_rate": 48000,
+        "pre_roll_start": -960,
+        "pre_roll_end": -480,
+        "count_in_start": -480,
+        "count_in_end": -240,
+    }))
+    .expect("count-in/pre-roll session start");
+
+    let s = state(&app);
+    let session = &s["session"];
+    assert_eq!(session["active"], true);
+    assert_eq!(session["gate"], "normal");
+    assert_eq!(session["pre_roll_start"], -960);
+    assert_eq!(session["pre_roll_end"], -480);
+    assert_eq!(session["count_in_start"], -480);
+    assert_eq!(session["count_in_end"], -240);
+    // 再生開始位置は宣言区間の先頭（pre_roll_start = -960）。
+    assert_eq!(session["position"], -960);
+
+    // pre-roll 区間: phase=pre_roll・position_frame は負・
+    // in_session=false（gate は構造上開かない）。
+    transport(&mut app, &json!({"action": "play"}));
+    let s = state(&app);
+    let session = &s["session"];
+    assert_eq!(session["transport"], "playing");
+    assert_eq!(session["phase"], "pre_roll");
+    assert_eq!(session["in_session"], false);
+    assert!(session["position_frame"].as_i64().unwrap() < 0);
+    // armed Auto + gate 閉 + 非停止相 → Playback（Input にしない）。
+    assert_eq!(track_row(&s, &track.to_tagged())["route"], "playback");
+
+    // count-in 区間へ seek: phase=count_in、やはり gate 閉。
+    transport(&mut app, &json!({"action": "seek", "position": -300}));
+    let s = state(&app);
+    assert_eq!(s["session"]["phase"], "count_in");
+    assert_eq!(s["session"]["in_session"], false);
+    assert_eq!(track_row(&s, &track.to_tagged())["route"], "playback");
+
+    // 宣言区間と transport_start の間の隙間は playing 位相だが
+    // 依然 session 外（gate 閉）。
+    transport(&mut app, &json!({"action": "seek", "position": -100}));
+    let s = state(&app);
+    assert_eq!(s["session"]["phase"], "playing");
+    assert_eq!(s["session"]["in_session"], false);
+    assert_eq!(track_row(&s, &track.to_tagged())["route"], "playback");
+
+    // transport_start 到達で session 内・Normal gate 開 → Input。
+    transport(&mut app, &json!({"action": "seek", "position": 0}));
+    let s = state(&app);
+    assert_eq!(s["session"]["phase"], "playing");
+    assert_eq!(s["session"]["in_session"], true);
+    assert_eq!(track_row(&s, &track.to_tagged())["route"], "input");
+
+    // pause は位相を Stopped に写像する（宣言区間の表示も止まる）。
+    transport(&mut app, &json!({"action": "seek", "position": -300}));
+    transport(&mut app, &json!({"action": "pause"}));
+    let s = state(&app);
+    assert_eq!(s["session"]["transport"], "paused");
+    assert_eq!(s["session"]["phase"], "stopped");
+}
+
+/// session-scope 宣言の境界検証: `loop_start` が `transport_start`
+/// より前（負 session frame）・roll 区間が `transport_start` 以降・
+/// 空区間・`pre_roll`/`count_in` の重複・対の片方のみは全て拒否される。
+#[test]
+fn e8_declaration_boundaries_are_rejected() {
+    let (mut app, tracks) = fixture_app();
+    let (track, ..) = tracks[0];
+    declare_monitor_track(&mut app, track);
+
+    // loop_start < transport_start → 負 session frame を生じるため拒否。
+    let err = app
+        .op_monitoring_session(&json!({
+            "action": "start",
+            "transport_start": 100,
+            "stop": 960,
+            "sample_rate": 48000,
+            "loop_start": 50,
+            "loop_end": 200,
+        }))
+        .expect_err("loop_start before transport_start must fail");
+    assert!(err.message.contains("loop_start"), "{}", err.message);
+
+    // count_in_end > transport_start → session 開始前位相の
+    // 宣言契約違反で拒否。
+    let err = app
+        .op_monitoring_session(&json!({
+            "action": "start",
+            "transport_start": 0,
+            "stop": 960,
+            "sample_rate": 48000,
+            "count_in_start": -480,
+            "count_in_end": 100,
+        }))
+        .expect_err("count_in crossing transport_start must fail");
+    assert!(err.message.contains("count_in"), "{}", err.message);
+
+    // 空区間（end <= start）も拒否。
+    let err = app
+        .op_monitoring_session(&json!({
+            "action": "start",
+            "transport_start": 0,
+            "stop": 960,
+            "sample_rate": 48000,
+            "pre_roll_start": -100,
+            "pre_roll_end": -100,
+        }))
+        .expect_err("empty pre_roll must fail");
+    assert!(err.message.contains("pre_roll"), "{}", err.message);
+
+    // pre_roll が count_in に食い込む重複宣言は拒否。
+    let err = app
+        .op_monitoring_session(&json!({
+            "action": "start",
+            "transport_start": 0,
+            "stop": 960,
+            "sample_rate": 48000,
+            "pre_roll_start": -960,
+            "pre_roll_end": -200,
+            "count_in_start": -480,
+            "count_in_end": -100,
+        }))
+        .expect_err("overlapping pre_roll/count_in must fail");
+    assert!(err.message.contains("pre_roll"), "{}", err.message);
+
+    // 対の片方のみ → op 層で拒否。
+    let err = app
+        .op_monitoring_session(&json!({
+            "action": "start",
+            "transport_start": 0,
+            "stop": 960,
+            "sample_rate": 48000,
+            "loop_start": 240,
+        }))
+        .expect_err("lone loop_start must fail");
+    assert!(err.message.contains("loop_start"), "{}", err.message);
+
+    // 全て拒否されたため session は未開始のまま。
+    assert_eq!(state(&app)["session"]["active"], false);
+}
+
+/// loop/count-in/pre-roll 宣言は session-scope — project の
+/// revision・`project.monitoring` を消費せず、session stop/破棄で
+/// 消える（authored punch とは別経路で永続化されない）。
+#[test]
+fn e8_session_scope_declarations_do_not_touch_project() {
+    let (mut app, tracks) = fixture_app();
+    let (track, ..) = tracks[0];
+    declare_monitor_track(&mut app, track);
+    let rev_before = revision_of(&app);
+
+    app.op_monitoring_session(&json!({
+        "action": "start",
+        "transport_start": 0,
+        "stop": 960,
+        "sample_rate": 48000,
+        "loop_start": 240,
+        "loop_end": 480,
+        "count_in_start": -480,
+        "count_in_end": -240,
+    }))
+    .expect("session start");
+    assert_eq!(
+        revision_of(&app),
+        rev_before,
+        "session start must not consume revision"
+    );
+    let project = app.workspace().session().project();
+    assert!(project.monitoring.punch.punch_in.is_none());
+    assert!(project.monitoring.punch.punch_out.is_none());
+
+    app.op_monitoring_session(&json!({"action": "stop"}))
+        .expect("session stop");
+    let s = state(&app);
+    assert_eq!(s["session"]["active"], false);
+    assert_eq!(s["session"]["gate"], Value::Null);
+}
