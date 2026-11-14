@@ -148,6 +148,7 @@ Directory: `docs/test-specs`
 | TSPEC-034UqwToZSbEbuOAgyC2SB | SV-GUI-04 slice2 テスト仕様 — close-veto/cancel | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
 | TSPEC-3hJ8nB5cV1xZ7kM2qW9eRt | SV-GUI-04 slice2 テスト仕様 — dock transfer workspace adoption + GUI op 配線 | approved | [sv-gui-04-slice2-dock-transfer-workspace-adoption.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption.md) |
 | TSPEC-034XiQux1sWs73DvJunwUQ | SV-SCRIPT-01 ScriptApiModel・Luau stub/binding 整合 invariants | approved | [sv-script-01-script-api-model.md](./sv-script-01-script-api-model.md) |
+| TSPEC-034XjK2mQpRsTuVwXyZab1 | SV-SCRIPT-02 ActionRecipe→Gateway/Atomic Batch 統合 invariants | approved | [sv-script-02-luau-action-script.md](./sv-script-02-luau-action-script.md) |
 | TSPEC-Wa6Ax4SQSRfWvuKIzs8fCf | SV175-01 検証仕様: NativeShell lifecycle + ViewBinding wire 形 | approved | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TSPEC-zjbHKZf81iknbLJPzohrKC | SV175-02 検証仕様: ViewHost mount → typed binding → lifecycle | approved | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TSPEC-034T7Ieio7KRMC297yqbIs | SV177 theme contract + workspace preset headless verification | approved | [sv177-theme-preset-contract.md](./sv177-theme-preset-contract.md) |

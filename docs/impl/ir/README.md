@@ -160,6 +160,7 @@ Directory: `docs/impl/ir`
 | IMPL-034UtkIqlxoLTf7Dvq5vMZ | SV-GUI-04 slice2 dock transfer — workspace adoption + syn.window.dock_* GUI op 配線 | completed | [sv-gui-04-slice2-dock-transfer-workspace-adoption-syn-window-dock-gui-op.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption-syn-window-dock-gui-op.md) |
 | IMPL-034XaE8xDAN85GPhpcnHbe | SV-GUI-05 real OS E2E case definition freeze and acceptance ledger (synvelis#114) | completed | [sv-gui-05-real-os-e2e.md](./sv-gui-05-real-os-e2e.md) |
 | IMPL-034XhXMfp77Z0MfGZwZQIF | SV-SCRIPT-01 ScriptApiModel・Runtime Binding/Luau 型定義 Generator | completed | [sv-script-01-script-api-model.md](./sv-script-01-script-api-model.md) |
+| IMPL-034XjAbWQJoR9lTEETMuYS | SV-SCRIPT-02 Luau Action Script定義・Typed Action Recipe・Gateway/Atomic Batch統合 | completed | [sv-script-02-luau-action-script.md](./sv-script-02-luau-action-script.md) |
 | IMPL-SV17501NativeShellBinding | SV175-01 Native App Shell 初期 slice — NativeShell lifecycle + ViewBinding adapter 実装記録 | completed | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | IMPL-034T7IhBoewhoZNaZfjXP1 | SV177 theme/preset implementation record | completed | [sv177-theme-preset-implementation-record.md](./sv177-theme-preset-implementation-record.md) |
 | IMPL-SV18501MixerGainFader | SV185-01 mixer.gain domain projection — master strip Fader bootstrap・v7→v8 migration・Fader 接続 実装記録 | completed | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |

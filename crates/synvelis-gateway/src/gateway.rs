@@ -167,6 +167,12 @@ impl Gateway {
         &self.registry
     }
 
+    /// Read access to the schema registry (discovery metadata).
+    #[must_use]
+    pub fn schemas(&self) -> &SchemaRegistry {
+        &self.schemas
+    }
+
     /// Replaces the policy evaluator.
     pub fn set_evaluator(&mut self, evaluator: Box<dyn PolicyEvaluator>) {
         self.evaluator = evaluator;
