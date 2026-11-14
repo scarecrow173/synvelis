@@ -13,6 +13,7 @@ serde.workspace = true
 serde_json.workspace = true
 synvelis-project = { path = "../synvelis-project" }
 synvelis-gateway = { path = "../synvelis-gateway" }
+synvelis-script = { path = "../synvelis-script" }
 synvelis-player = { path = "../synvelis-player" }
 synvelis-render = { path = "../synvelis-render" }
 ruviform-ui.workspace = true

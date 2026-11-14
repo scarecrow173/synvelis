@@ -25,6 +25,7 @@ use crate::gesture::Gesture;
 use crate::relation_ui::ControlRelationViewState;
 use crate::render_ui::RenderViewState;
 use crate::routing_gesture::RoutingGesture;
+use crate::script_editor::ScriptEditorViewState;
 use crate::selection::{EditBinding, LaneScope, ObjectSelections, TimeSelection};
 use crate::signal_flow_ui::SignalFlowViewState;
 use crate::snap::{GridConfig, SnapConfig};
@@ -243,6 +244,16 @@ pub struct ViewState {
     /// carries project/render/job/policy authority.
     #[serde(default, deserialize_with = "deserialize_render")]
     pub render: Option<RenderViewState>,
+    /// Per-view Script Editor state — diagnostic/completion row
+    /// selections and surface toggles (SV-SCRIPT-04, synvelis#274).
+    /// `None` for views that never hosted the surface; absent in older
+    /// snapshots and defaulted on migrate. A malformed persisted
+    /// payload degrades to `None` (safe recovery) instead of rejecting
+    /// the snapshot. View-local only — document text, revisions,
+    /// analyzer results, and definition digests are runtime state and
+    /// are never persisted here.
+    #[serde(default, deserialize_with = "deserialize_script_editor")]
+    pub script_editor: Option<ScriptEditorViewState>,
     /// Viewport (view-local).
     pub viewport: Viewport,
     /// Project revisions delivered to this view — the observable
@@ -324,6 +335,20 @@ where
 /// payload degrades to `None` rather than rejecting the whole
 /// workspace snapshot.
 fn deserialize_render<'de, D>(deserializer: D) -> Result<Option<RenderViewState>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value.and_then(|v| serde_json::from_value(v).ok()))
+}
+
+/// Tolerant per-view Script Editor state decode — same safe recovery
+/// contract as [`deserialize_signal_flow`]: a malformed persisted
+/// payload degrades to `None` rather than rejecting the whole
+/// workspace snapshot.
+fn deserialize_script_editor<'de, D>(
+    deserializer: D,
+) -> Result<Option<ScriptEditorViewState>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

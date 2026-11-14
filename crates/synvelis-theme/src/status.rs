@@ -1,12 +1,20 @@
-//! Automation status token vocabulary (AUTX-07 / synvelis#266).
+//! Automation status token vocabulary (AUTX-07 / synvelis#266) plus
+//! the Script Editor diagnostic/analyzer vocabulary (SV-SCRIPT-04 /
+//! synvelis#274).
 //!
 //! The Action Palette, Macro Browser, Workflow Editor, and Run Monitor
 //! surfaces render authority states — capability availability, grant
 //! verdicts, and run/job phases — that need dedicated product colors
-//! distinct from the generic `ok`/`warn`/`err` ramp. This module is
-//! the single source of truth for the DTCG token *paths* those
-//! states map to; the resolved values live in the product theme
-//! documents (`assets/themes/*.dtcg.json`, owned outside this crate).
+//! distinct from the generic `ok`/`warn`/`err` ramp. The Script Editor
+//! adds diagnostic severities (`information`/`warning`/`error`) and
+//! analyzer states (`unsupported`/`stale`/`dirty`) whose semantics
+//! differ from run status: `unsupported` is a technical capability
+//! gap (not "unavailable"), and `stale`/`dirty` mark absent or
+//! outdated information — neither is a warning or an error. This
+//! module is the single source of truth for the DTCG token *paths*
+//! those states map to; the resolved values live in the product
+//! theme documents (`assets/themes/*.dtcg.json`, owned outside this
+//! crate).
 //!
 //! Vocabulary contract:
 //!
@@ -51,11 +59,28 @@ pub enum StatusTone {
     /// Outcome cannot be determined; reconciliation required —
     /// never collapsed into success/failure/cancelled.
     Indeterminate,
+    /// Analyzer registered but does not advertise the wanted
+    /// capability (F-13 `Unsupported`) — a technical gap, distinct
+    /// from `Unavailable` (no analyzer at all, F-18).
+    Unsupported,
+    /// An analyzer result was rejected as stale — revision or
+    /// definition-digest drift (F-14). Outdated information, not a
+    /// warning and not an error.
+    Stale,
+    /// Document or definitions changed since the last accepted
+    /// analysis — a re-run is needed.
+    Dirty,
+    /// Diagnostic severity `Information`.
+    DiagnosticInformation,
+    /// Diagnostic severity `Warning`.
+    DiagnosticWarning,
+    /// Diagnostic severity `Error`.
+    DiagnosticError,
 }
 
 impl StatusTone {
     /// All tones, in display order.
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 17] = [
         Self::Ok,
         Self::Unavailable,
         Self::Unknown,
@@ -67,6 +92,12 @@ impl StatusTone {
         Self::CancelUnconfirmed,
         Self::Cancelled,
         Self::Indeterminate,
+        Self::Unsupported,
+        Self::Stale,
+        Self::Dirty,
+        Self::DiagnosticInformation,
+        Self::DiagnosticWarning,
+        Self::DiagnosticError,
     ];
 
     /// The DTCG token path (relative to the theme's `color` group,
@@ -85,6 +116,12 @@ impl StatusTone {
             Self::CancelUnconfirmed => "status-cancel-unconfirmed",
             Self::Cancelled => "status-cancelled",
             Self::Indeterminate => "status-indeterminate",
+            Self::Unsupported => "status-unsupported",
+            Self::Stale => "status-stale",
+            Self::Dirty => "status-dirty",
+            Self::DiagnosticInformation => "status-diagnostic-information",
+            Self::DiagnosticWarning => "status-diagnostic-warning",
+            Self::DiagnosticError => "status-diagnostic-error",
         }
     }
 
@@ -110,6 +147,7 @@ impl StatusTone {
             | "satisfied"
             | "edit-possible"
             | "live"
+            | "ready"
             | "quality-exact-artifact"
             | "quality-verified-tolerance" => Self::Ok,
             // Confirmed terminal success — `completed`, exact render
@@ -137,7 +175,7 @@ impl StatusTone {
             }
             // Actively executing — running automation/render/runtime.
             "running" | "runtime-active" | "rendering" | "verifying" => Self::Running,
-            "failed" | "render-corrupt" => Self::Failed,
+            "failed" | "render-corrupt" | "rejected" => Self::Failed,
             "cancel-requested" => Self::CancelRequested,
             "cancel-unconfirmed" => Self::CancelUnconfirmed,
             "cancelled" => Self::Cancelled,
@@ -146,8 +184,21 @@ impl StatusTone {
             "indeterminate" | "render-stale" | "runtime-last-good-mismatch" | "partial" => {
                 Self::Indeterminate
             }
-            // `render-unknown` and every unrecognized label fail
-            // closed to `Unknown` — never guessed.
+            // Script Editor analyzer vocabulary (SV-SCRIPT-04):
+            // `unsupported` is a capability gap, `stale`/`dirty` mark
+            // outdated analysis — none reuse ok/warn/err semantics.
+            "unsupported" => Self::Unsupported,
+            "stale" => Self::Stale,
+            "dirty" => Self::Dirty,
+            // Diagnostic severities — dedicated tones, never the
+            // generic ok/warn/err ramp.
+            "information" | "diagnostic-information" | "severity-information" => {
+                Self::DiagnosticInformation
+            }
+            "warning" | "diagnostic-warning" | "severity-warning" => Self::DiagnosticWarning,
+            "error" | "diagnostic-error" | "severity-error" => Self::DiagnosticError,
+            // `render-unknown`, `idle`, and every unrecognized label
+            // fail closed to `Unknown` — never guessed.
             _ => Self::Unknown,
         }
     }
@@ -213,6 +264,30 @@ mod tests {
             ("runtime-active", StatusTone::Running),
             ("runtime-last-good-mismatch", StatusTone::Indeterminate),
             ("partial", StatusTone::Indeterminate),
+        ];
+        for (label, tone) in cases {
+            assert_eq!(StatusTone::of_label(label), tone, "{label}");
+        }
+    }
+
+    #[test]
+    fn svscript04_analyzer_and_severity_labels_map_to_dedicated_tones() {
+        // SV-SCRIPT-04: analyzer availability/capability/staleness and
+        // diagnostic severities get their own tones — `unsupported`
+        // is not `unavailable`, `stale`/`dirty` are not warnings.
+        let cases = [
+            ("unavailable", StatusTone::Unavailable),
+            ("unsupported", StatusTone::Unsupported),
+            ("stale", StatusTone::Stale),
+            ("dirty", StatusTone::Dirty),
+            ("ready", StatusTone::Ok),
+            ("idle", StatusTone::Unknown),
+            ("rejected", StatusTone::Failed),
+            ("information", StatusTone::DiagnosticInformation),
+            ("warning", StatusTone::DiagnosticWarning),
+            ("error", StatusTone::DiagnosticError),
+            ("diagnostic-warning", StatusTone::DiagnosticWarning),
+            ("severity-error", StatusTone::DiagnosticError),
         ];
         for (label, tone) in cases {
             assert_eq!(StatusTone::of_label(label), tone, "{label}");

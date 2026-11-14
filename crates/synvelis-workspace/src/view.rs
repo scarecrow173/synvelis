@@ -42,6 +42,11 @@ pub enum ViewType {
     /// Run Monitor surface (AUTX-07) — run/step/job status projection;
     /// pending is never collapsed into completed.
     RunMonitor,
+    /// Script Editor surface (SV-SCRIPT-04, synvelis#274) —
+    /// driver-neutral document/diagnostics/completion/analyzer-status
+    /// projection; analysis is static-only and never mints execution
+    /// authority.
+    ScriptEditor,
 }
 
 /// Persistent identity of a view instance: id + kind + display title.

@@ -36,6 +36,7 @@ pub mod recording_status;
 pub mod relation_ui;
 pub mod render_ui;
 pub mod routing_gesture;
+pub mod script_editor;
 pub mod selection;
 pub mod session;
 pub mod signal_flow_ui;
@@ -149,6 +150,11 @@ pub use relation_ui::{
 pub use routing_gesture::{
     RoutingGesture, RoutingGestureFixation, RoutingGestureOutcome, RoutingGesturePreview,
     RoutingPortAssessment, routing_connection_kind, routing_gesture_intent,
+};
+pub use script_editor::{
+    DefinitionPins, ScriptAnalyzerStatus, ScriptApiRow, ScriptCompletionRow, ScriptDiagnosticRow,
+    ScriptEditorDocument, ScriptEditorError, ScriptEditorView, ScriptEditorViewAction,
+    ScriptEditorViewState, project_script_api,
 };
 pub use selection::{
     EditBinding, EditTimeDomain, EditTimePoint, LaneScope, ObjectSelections, SelectionDomain,
