@@ -243,6 +243,7 @@ Directory: `docs/tasks`
 | TASK-034WTzC0pqxJ29jwHg0KLg | VCS-06 real-git/FS fault rows slice | done | [vcs-06-real-git-fs-fault-task.md](./vcs-06-real-git-fs-fault-task.md) |
 | TASK-4Sfq6WWBaX1avImCs5OcLh | VCS-06 monitoring-domain matrix | done | [vcs-06-task-monitoring-matrix.md](./vcs-06-task-monitoring-matrix.md) |
 | TASK-034VpC1mzY9bzJDEjAIDKv | VCS-06 UI headless matrix | done | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
+| TASK-034X9GCGPXdCl5ePe8gJ14 | VCS Integration 統合契約文書チェーン + evidence/sv7 Case 被覆台帳 (synvelis#7) | done | [vcs-integration-task.md](./vcs-integration-task.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | TASK-034Qe0kHawWuXO1xHGTd8F | VS-A task3 controller ops store | done | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |
