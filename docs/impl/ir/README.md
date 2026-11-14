@@ -126,6 +126,7 @@ Directory: `docs/impl/ir`
 | IMPL-6wR3nX8kT5yP2qA7jM4vB9d | SF-04 slice8 実装記録 — SF-PROBE-05 fault fixtures + seek 以外の不連続宣言点 | completed | [sf-04-slice8-probe-faults-declare.md](./sf-04-slice8-probe-faults-declare.md) |
 | IMPL-034UvpX7fem2fghDtfNDJm | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | completed | [sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md](./sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md) |
 | IMPL-034V2wJTpu3xW419A7YT37 | SF-06 cross-gate headless oracle 実装記録 | completed | [sf-06-cross-gate-headless-oracle.md](./sf-06-cross-gate-headless-oracle.md) |
+| IMPL-034XaaoFK7IUzs8UMi97aN | SF-05 residual headless coverage — SF-UX-01..07 棚卸し + 欠落6件補完 + evidence 台帳 | completed | [sf05-editor.md](./sf05-editor.md) |
 | IMPL-xRTJTdZHW0ii0jrP4pCFkK | SF-XR-01 CTL-01/CTL-02 cross-gate oracle fixture — implementation record | completed | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | IMPL-034X5H2u7vD5H929MaHV8N | Issue #84 StagedFile Migration — 証拠統合・受入検証 slice 実装記録 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |
 | IMPL-034Ug8sNPL1sqhquNm1PYh | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 API 追従 | completed | [sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md](./sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md) |
