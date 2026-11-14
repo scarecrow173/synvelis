@@ -7276,6 +7276,7 @@ dependencies = [
  "ruviform-media-io",
  "ruviform-media-reader",
  "ruviform-rt",
+ "serde",
  "serde_json",
  "synvelis-player",
  "synvelis-project",

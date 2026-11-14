@@ -935,11 +935,23 @@ impl Operation for ProjectOp {
                 if ops.is_empty() {
                     return Err(Error::Validation("empty composite".into()));
                 }
+                // Sequential dry-run on a scratch clone: member i is
+                // checked against the state members 0..i-1 leave
+                // behind — the same order `Composite::apply` commits
+                // — so a member may reference an ID an earlier member
+                // mints (create-then-reference, synvelis#432). The dry
+                // generator is seeded at the persisted watermark, the
+                // same non-colliding, non-consuming issuance the
+                // `Routing` preflight uses; the live project and the
+                // real ID sequence are untouched.
+                let mut scratch = project.clone();
+                let mut dry = crate::id::CounterIdGenerator::new(project.id_watermark);
                 for op in ops {
                     if matches!(op, Self::Composite { .. }) {
                         return Err(Error::Validation("nested composite".into()));
                     }
-                    op.validate(project)?;
+                    op.validate(&scratch)?;
+                    op.apply(&mut scratch, &mut dry)?;
                 }
                 Ok(())
             }

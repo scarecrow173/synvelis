@@ -33,6 +33,7 @@ pub mod project;
 pub mod range;
 pub mod recording_data;
 pub mod relation;
+pub mod render_input;
 pub mod restore;
 pub mod routing;
 pub mod routing_build;
@@ -133,6 +134,12 @@ pub use recording_data::{
 pub use relation::{
     ControlEntityRef, ControlRelation, RelationCoverage, RelationDirection, RelationIndex,
     RelationKind, RelationQuery, RelationReply, RelationState,
+};
+pub use render_input::{
+    BranchRenderPin, RENDER_INPUT_SCHEMA_VERSION, RenderBranchTarget, RenderInputError,
+    ResolvedRenderProject, all_semantic_objects, canonical_entity_bytes, canonical_entity_digest,
+    canonical_entity_value, canonical_fingerprint, canonical_fingerprint_except,
+    resolve_render_project,
 };
 pub use restore::{
     DirSyncEvidence, MissingAssetsPolicy, RestoreAssetReport, RestoreBlobSource,

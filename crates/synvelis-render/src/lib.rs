@@ -13,21 +13,41 @@
 //! hand-built WAV writer, no processor instance shared with the live
 //! `HeadlessDriver`.
 
+pub mod dependency;
 pub mod error;
 pub mod export;
+pub mod invalidation;
 pub mod job;
 pub mod preflight;
 pub mod prepare;
 pub mod processor;
+pub mod recipe;
 pub mod snapshot;
 pub mod spec;
 pub mod verify;
 
+pub use dependency::{
+    DependencyClosure, DependencyEdge, DependencyEdgeKind, DependencyNode, ExternalAssetProbe,
+    ExternalPin, NoExternalAssets, NoPluginStates, PluginStateEvidence, PluginStateProbe,
+    RecipeEnvironment, RecipeRequest, StaticExternalAssets, StaticPluginStates, resolve_recipe,
+};
 pub use error::{ExportError, PreflightError};
 pub use export::{export, export_with_host};
+pub use invalidation::{
+    ChangedObject, InvalidationPlan, InvalidationReason, classify_invalidation,
+};
 pub use job::{CapabilityEvidence, ExportJob, ExportOutcome, ExportReceipt, ExportStage, stage_of};
 pub use prepare::{DecodedWindow, OpenedSource};
 pub use processor::{ClipRenderer, DelayProc, GainProc, OnePoleProc};
+pub use recipe::{
+    AUDIO_SEMANTICS_VERSION, CANONICALIZATION_VERSION, ClockDependency, DenormalMode,
+    FrameInterval, OutputContract, OutputPortContract, PcmFormat, RECIPE_DOMAIN_TAG,
+    RECIPE_HASH_ALGORITHM, RECIPE_HASH_DOMAIN, RECIPE_SCHEMA_VERSION, RecipeBranchPin, RecipeKey,
+    RecipeRecord, RecipeRecordError, RecipeResolution, RenderBoundary, RenderPrecision,
+    RenderRecipeV1, RendererProfile, ResolutionProvenance, TemporalDomain, UnknownCause,
+    UnknownDependency, UnsupportedReason, Validity, evaluate_validity, lookup_record,
+    recipe_record,
+};
 pub use ruviform_audio::typed::OfflineRenderSupport;
 pub use snapshot::{RenderSnapshot, SnapshotIds};
 pub use spec::{

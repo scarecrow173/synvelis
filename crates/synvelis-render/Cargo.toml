@@ -11,6 +11,8 @@ workspace = true
 [dependencies]
 synvelis-project = { path = "../synvelis-project" }
 synvelis-player = { path = "../synvelis-player" }
+serde.workspace = true
+serde_json.workspace = true
 ruviform-media-core.workspace = true
 ruviform-io-file.workspace = true
 ruviform-media-io.workspace = true
