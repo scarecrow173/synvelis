@@ -28,6 +28,7 @@ use std::collections::BTreeSet;
 
 use crate::{
     IdGenerator, Operation, Project, ProjectController, ProjectOp,
+    comp::CompOp,
     diff::{ObjectKind, SemanticObjectRef},
     variant::{
         VariantError,
@@ -36,14 +37,45 @@ use crate::{
     },
 };
 
+/// The operation payload a branch edit may carry.
+///
+/// [`ProjectOp`] covers the arrangement/media/control/routing surface.
+/// Domain op surfaces that are *not* `ProjectOp` variants — comping
+/// (`CompOp` is a distinct [`Operation`], deliberately kept out of
+/// `ProjectOp` so downstream exhaustive matches stay stable) — travel
+/// through their own variant here. Later domain adapters (CB-03..07)
+/// extend this union the same way.
+#[derive(Clone, Debug)]
+pub enum BranchEditOp {
+    /// A project-level operation.
+    Project(ProjectOp),
+    /// A comping-registry operation.
+    Comp(CompOp),
+}
+
+impl Operation for BranchEditOp {
+    fn validate(&self, project: &Project) -> Result<(), crate::Error> {
+        match self {
+            Self::Project(op) => op.validate(project),
+            Self::Comp(op) => op.validate(project),
+        }
+    }
+
+    fn apply(&self, project: &mut Project, ids: &mut dyn IdGenerator) -> Result<(), crate::Error> {
+        match self {
+            Self::Project(op) => op.apply(project, ids),
+            Self::Comp(op) => op.apply(project, ids),
+        }
+    }
+}
+
 /// Typed domain-adapter contract for variant candidates.
 pub trait DomainAdapter {
     /// Adapter identity for diagnostics/receipts.
     fn name(&self) -> &'static str;
 
     /// Validates `scope` for `project` — existence, ownership
-    /// exclusivity and domain rules. The engine calls this at fork and
-    /// re-checks at adopt preflight.
+    /// exclusivity and domain rules. The engine calls this at fork.
     ///
     /// # Errors
     /// [`VariantError::InvalidScope`]/[`VariantError::ScopeConflict`].
@@ -69,9 +101,37 @@ pub trait DomainAdapter {
         &self,
         candidate: &mut Project,
         scope: &VariantScope,
-        op: &ProjectOp,
+        op: &BranchEditOp,
         ids: &mut dyn IdGenerator,
     ) -> Result<(), VariantError>;
+
+    /// Domain adopt preflight — evaluated inside `adopt_branch` after
+    /// the candidate payload and scope digest are verified, before any
+    /// transplant is planned or committed. Domain rules that must gate
+    /// *live* mutation (e.g. a recording session open on the affected
+    /// lane) live here; the default imposes no extra constraints.
+    ///
+    /// # Errors
+    /// [`VariantError::Unsupported`]/[`VariantError::Project`] — any
+    /// typed rejection fails the adopt closed before mutation.
+    fn preflight_adopt(
+        &self,
+        _live: &Project,
+        _candidate: &Project,
+        _scope: &VariantScope,
+    ) -> Result<(), VariantError> {
+        Ok(())
+    }
+}
+
+/// Candidate content a fork starts from: the live project minus
+/// variant state. Every domain adapter that keeps full-project
+/// candidates shares this base.
+pub(crate) fn fork_candidate_project(project: &Project) -> Result<Project, VariantError> {
+    let mut candidate = project.clone();
+    candidate.variant_sets.clear();
+    candidate.validate_references()?;
+    Ok(candidate)
 }
 
 /// [`IdGenerator`] that forwards every draw to the live controller —
@@ -169,7 +229,7 @@ fn check_op_targets(
         }
         ProjectOp::AddClip { .. } | ProjectOp::InsertProcessor { .. } => Ok(()),
         other => Err(VariantError::Unsupported {
-            detail: format!("fake adapter does not support this edit op: {other:?}"),
+            detail: format!("edit op is outside the supported candidate surface: {other:?}"),
         }),
     }
 }
@@ -223,6 +283,56 @@ fn check_created_within_scope(
     Ok(())
 }
 
+/// Optional domain capability guard applied before a confined
+/// project-op candidate edit.
+pub(crate) type OpGuard<'a> = Option<&'a dyn Fn(&ProjectOp) -> Result<(), VariantError>>;
+
+/// Shared confined-edit flow for `ProjectOp` candidate edits: optional
+/// domain capability guard, pre-edit target confinement, apply,
+/// post-edit scope-removal/creation confinement. Domain adapters that
+/// accept project ops (the fake fixture, the audio-clip adapter)
+/// share this one implementation so confinement rules cannot drift.
+pub(crate) fn edit_scoped_project_op(
+    candidate: &mut Project,
+    scope: &VariantScope,
+    op: &ProjectOp,
+    ids: &mut dyn IdGenerator,
+    guard: OpGuard<'_>,
+) -> Result<(), VariantError> {
+    if let Some(guard) = guard {
+        guard(op)?;
+    }
+    check_op_targets(candidate, scope, op)?;
+    let before_objects = scope_objects(candidate, scope)?;
+    let before_clips: BTreeSet<_> = candidate.clips.keys().copied().collect();
+    let before_notes: BTreeSet<_> = candidate.notes.keys().copied().collect();
+    let before_procs: BTreeSet<_> = candidate.routing.processors.keys().copied().collect();
+    let before_ports: BTreeSet<_> = candidate.routing.ports.keys().copied().collect();
+
+    Operation::apply(op, candidate, ids)?;
+    candidate.validate_references()?;
+
+    let after_objects = scope_objects(candidate, scope)?;
+    // Scope removals are unsupported in this slice — fail closed.
+    if let Some(removed) = before_objects.difference(&after_objects).next() {
+        return Err(VariantError::Unsupported {
+            detail: format!(
+                "scope entity removal is not supported in this slice: {}",
+                removed.stable_id
+            ),
+        });
+    }
+    check_created_within_scope(
+        candidate,
+        &after_objects,
+        &before_clips,
+        &before_notes,
+        &before_procs,
+        &before_ports,
+    )?;
+    Ok(())
+}
+
 impl DomainAdapter for FakeDomainAdapter {
     fn name(&self) -> &'static str {
         "fake"
@@ -237,47 +347,21 @@ impl DomainAdapter for FakeDomainAdapter {
     }
 
     fn fork_candidate(&self, project: &Project) -> Result<Project, VariantError> {
-        let mut candidate = project.clone();
-        candidate.variant_sets.clear();
-        candidate.validate_references()?;
-        Ok(candidate)
+        fork_candidate_project(project)
     }
 
     fn edit_candidate(
         &self,
         candidate: &mut Project,
         scope: &VariantScope,
-        op: &ProjectOp,
+        op: &BranchEditOp,
         ids: &mut dyn IdGenerator,
     ) -> Result<(), VariantError> {
-        check_op_targets(candidate, scope, op)?;
-        let before_objects = scope_objects(candidate, scope)?;
-        let before_clips: BTreeSet<_> = candidate.clips.keys().copied().collect();
-        let before_notes: BTreeSet<_> = candidate.notes.keys().copied().collect();
-        let before_procs: BTreeSet<_> = candidate.routing.processors.keys().copied().collect();
-        let before_ports: BTreeSet<_> = candidate.routing.ports.keys().copied().collect();
-
-        Operation::apply(op, candidate, ids)?;
-        candidate.validate_references()?;
-
-        let after_objects = scope_objects(candidate, scope)?;
-        // Scope removals are unsupported in CB-01 — fail closed.
-        if let Some(removed) = before_objects.difference(&after_objects).next() {
+        let BranchEditOp::Project(project_op) = op else {
             return Err(VariantError::Unsupported {
-                detail: format!(
-                    "scope entity removal is not supported in this slice: {}",
-                    removed.stable_id
-                ),
+                detail: format!("fake adapter does not support this edit op: {op:?}"),
             });
-        }
-        check_created_within_scope(
-            candidate,
-            &after_objects,
-            &before_clips,
-            &before_notes,
-            &before_procs,
-            &before_ports,
-        )?;
-        Ok(())
+        };
+        edit_scoped_project_op(candidate, scope, project_op, ids, None)
     }
 }

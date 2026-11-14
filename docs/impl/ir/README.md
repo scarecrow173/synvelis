@@ -47,6 +47,7 @@ Directory: `docs/impl/ir`
 | IMPL-034XihWxPpf0evq4eGpxAa | AUTX-04-F01 Composite forward reference sequential validate | completed | [autx-04-f01-composite-forward-ref.md](./autx-04-f01-composite-forward-ref.md) |
 | IMPL-AUTX07GuiViews | AUTX-07 GPUI Action Palette・Macro/Workflow 製品 View・承認/実行状態 UI（headless-first slice、synvelis#266） | completed | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | IMPL-cb01-variant-set | CB-01 VariantSet/Scope/Lineage・ProjectController Fork/Edit/Adopt/Undo・永続Schema — Headless スライス | completed | [cb-01-variant-set.md](./cb-01-variant-set.md) |
+| IMPL-cb02-audio-clip-adapter | CB-02 Audio Clip/Take/Comp 候補 Adapter — Raw Source 不変・加工比較・Adopt（synvelis#279） | completed | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
 | IMPL-034X9hYuHSZsRHijApPhOw | Capability / Command Gateway G0-G6 受入照合・証拠台帳 実装記録 (synvelis#46) | completed | [command-gateway-gates.md](./command-gateway-gates.md) |
 | IMPL-034X8sM6gVaKFLBghHMqW3 | Capability / Command Gateway 設計契約 実装記録 (synvelis#45) | completed | [command-gateway.md](./command-gateway.md) |

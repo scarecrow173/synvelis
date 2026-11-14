@@ -15,16 +15,19 @@
 //! later issues' scope.
 
 mod adapter;
+mod audio;
 pub(crate) mod engine;
 mod error;
 pub(crate) mod scope;
 mod store;
 mod types;
 
-pub use adapter::{DomainAdapter, FakeDomainAdapter};
+pub use adapter::{BranchEditOp, DomainAdapter, FakeDomainAdapter};
+pub use audio::{AudioClipAdapter, AudioClipCapabilities, ProcessingCapability, TakeUsageAdapter};
 pub use engine::{
-    AdoptSources, BranchEditIntent, FakeRuntimePublish, NoopRuntimePublish, adopt_branch,
-    discard_branch, edit_branch, fork_variant_set,
+    AdoptSources, BranchEditIntent, BranchEditOpIntent, FakeRuntimePublish, NoopRuntimePublish,
+    adopt_branch, adopt_branch_adapted, discard_branch, edit_branch, edit_branch_op,
+    fork_variant_set,
 };
 pub use error::VariantError;
 pub use scope::scope_digest;

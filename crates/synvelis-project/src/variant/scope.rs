@@ -8,10 +8,11 @@
 //! transplant planning. Domain payloads never enter the scope
 //! declaration — only typed identity and masks do.
 //!
-//! Objects outside the apply surface (comping entities) are still
-//! *owned* by their scope for fingerprint/validation purposes; adopt
-//! materialization rejects them with a typed `Unsupported` until the
-//! domain adapters (CB-02+) land.
+//! Comping entities are owned by their scope for
+//! fingerprint/validation purposes and materialize through the apply
+//! surface since CB-02 (synvelis#279) — `TakeUsage` adopt writes
+//! `TakeGroup`/`Comp`/`CompRegion`/`CompTransition` entities while
+//! raw takes and sources stay shared.
 
 use std::collections::BTreeSet;
 
