@@ -84,7 +84,7 @@ use crate::dispatch::{DispatchCycle, DispatchError, ParamDispatch};
 use crate::driver::TransportMirror;
 use crate::plugin_state::PluginStateEndpoint;
 use crate::process_boundary::{
-    BoundaryPoint, BoundarySessionError, PrecisionProvenance, ProcessBoundaryPlan,
+    BoundaryKind, BoundaryPoint, BoundarySessionError, PrecisionProvenance, ProcessBoundaryPlan,
     ProcessBoundarySession, WrapSim,
 };
 use crate::routing_engine::RoutingEngine;
@@ -482,6 +482,17 @@ pub struct RoutingControlDispatch {
     surface: Option<GenerationSurface>,
     queue: VecDeque<FastControlWrite>,
     last_block: Option<FastControlBlock>,
+    /// Whether the most recent [`Self::observe_block`] call observed
+    /// a probe-relevant transport discontinuity — a loop wrap the
+    /// node's scheduler-faithful [`WrapSim`] window walk reported,
+    /// or a `SetLoop`/`ClearLoop` command that folded into a node's
+    /// transport mirror — on any surface node. Recomputed on every
+    /// `observe_block` (a generation-mismatched call clears it
+    /// without observing); meaningful only read immediately after
+    /// an `observe_block` that returned `Some`. Detection only —
+    /// declaring the probe clock-epoch cut is the caller's
+    /// responsibility ([`RoutingEngine::declare_probe_discontinuity`]).
+    last_observed_loop_discontinuity: bool,
 }
 
 impl RoutingControlDispatch {
@@ -512,6 +523,7 @@ impl RoutingControlDispatch {
             surface: None,
             queue: VecDeque::new(),
             last_block: None,
+            last_observed_loop_discontinuity: false,
         };
         dispatcher.sync(engine, generation, project, catalogs)?;
         Ok(dispatcher)
@@ -936,6 +948,7 @@ impl RoutingControlDispatch {
         call_start: EngineFrame,
         call_frames: u32,
     ) -> Option<BTreeMap<ProcessorId, DispatchCycle>> {
+        self.last_observed_loop_discontinuity = false;
         let surface = self.surface.as_mut()?;
         if surface.generation != generation {
             return None;
@@ -943,25 +956,31 @@ impl RoutingControlDispatch {
         let start_frame = call_start.frame();
         let end_frame = start_frame.saturating_add(u64::from(call_frames));
         let mut out = BTreeMap::new();
+        let mut discontinuity = false;
         for (processor, node) in &mut surface.nodes {
-            out.insert(
-                *processor,
-                Self::observe_node_block(node, call_start, start_frame, end_frame),
-            );
+            let (cycle, node_discontinuity) =
+                Self::observe_node_block(node, call_start, start_frame, end_frame);
+            discontinuity |= node_discontinuity;
+            out.insert(*processor, cycle);
         }
+        self.last_observed_loop_discontinuity = discontinuity;
         Some(out)
     }
 
     /// [`Self::observe_block`]'s per-node half: resolves staged
     /// commands against `call_start`, folds every apply at or before
     /// each segment head into the mirror, and projects the window
-    /// split at in-window apply frames.
+    /// split at in-window apply frames. Returns the merged cycle
+    /// plus whether the window contained a probe-relevant transport
+    /// discontinuity — a `LoopWrap` point the [`WrapSim`] walk
+    /// reported, or a `SetLoop`/`ClearLoop` command the fold
+    /// actually noted into the mirror.
     fn observe_node_block(
         node: &mut NodeSurface,
         call_start: EngineFrame,
         start_frame: u64,
         end_frame: u64,
-    ) -> DispatchCycle {
+    ) -> (DispatchCycle, bool) {
         for (command, due) in std::mem::take(&mut node.staged_transport) {
             node.scheduled_transport
                 .push((start_frame.saturating_add(due), command));
@@ -977,11 +996,14 @@ impl RoutingControlDispatch {
             .filter(|(due, _)| *due < end_frame)
             .copied()
             .collect();
-        let _ = node.wrap_sim.walk_window(
+        let wrap_points = node.wrap_sim.walk_window(
             start_frame,
             u32::try_from(end_frame - start_frame).unwrap_or(u32::MAX),
             &pending,
         );
+        let loop_wrap = wrap_points
+            .iter()
+            .any(|point| point.kind == BoundaryKind::LoopWrap);
 
         let mut bounds = vec![start_frame, end_frame];
         bounds.extend(
@@ -998,6 +1020,7 @@ impl RoutingControlDispatch {
             observations: Vec::new(),
             receipts: Vec::new(),
         };
+        let mut loop_apply = false;
         let mut first = true;
         for window in bounds.windows(2) {
             let (seg_start, seg_end) = (window[0], window[1]);
@@ -1007,7 +1030,7 @@ impl RoutingControlDispatch {
                 .scheduled_transport
                 .partition_point(|(due, _)| *due <= seg_start);
             for (due, command) in node.scheduled_transport.drain(..fold) {
-                Self::note_transport_command(
+                loop_apply |= Self::note_transport_command(
                     &mut node.transport,
                     due,
                     command,
@@ -1053,7 +1076,7 @@ impl RoutingControlDispatch {
         // callbacks — they stay scheduled for the next observation.
         node.scheduled_transport
             .retain(|(due, _)| *due >= end_frame);
-        merged
+        (merged, loop_wrap || loop_apply)
     }
 
     /// Folds one staged [`TransportCommand`] into the mirror at its
@@ -1063,12 +1086,21 @@ impl RoutingControlDispatch {
     /// scheduler's own validity rules (`media_time_ticks`, non-negative
     /// seek, non-empty loop); a command upstream would reject is never
     /// noted, so the mirror cannot project an apply that cannot happen.
+    ///
+    /// Returns `true` only when the command was a loop-region change
+    /// (`SetLoop`/`ClearLoop`) that actually applied to the mirror —
+    /// the probe-discontinuity detection input
+    /// [`Self::observe_node_block`] aggregates. `Seek` applies are
+    /// deliberately not reported: session transport seeks declare
+    /// through [`RoutingEngine::seek`], and node-level seek commands
+    /// are boundary-transport infrastructure outside this slice's
+    /// contract.
     fn note_transport_command(
         transport: &mut TransportMirror,
         frame: u64,
         command: TransportCommand,
         frame_base: TimeBase,
-    ) {
+    ) -> bool {
         match command {
             TransportCommand::Play => transport.note_play(frame),
             TransportCommand::Pause => transport.note_pause(frame),
@@ -1088,11 +1120,16 @@ impl RoutingControlDispatch {
                     && end > start
                 {
                     transport.note_set_loop(frame, (start, end));
+                    return true;
                 }
             }
-            TransportCommand::ClearLoop => transport.note_clear_loop(frame),
+            TransportCommand::ClearLoop => {
+                transport.note_clear_loop(frame);
+                return true;
+            }
             _ => {}
         }
+        false
     }
 
     /// The [`TransportSpan`] [`Self::observe_block`] last projected
@@ -1107,6 +1144,26 @@ impl RoutingControlDispatch {
             .get(&processor)?
             .last_span
             .as_ref()
+    }
+
+    /// Whether the most recent [`Self::observe_block`] call observed
+    /// a probe-relevant transport discontinuity — a loop wrap the
+    /// node's scheduler-faithful [`WrapSim`] window walk reported,
+    /// or a `SetLoop`/`ClearLoop` command that folded into a node's
+    /// transport mirror — on any surface node (SF-PROBE-07 loop
+    /// leg). Read it immediately after `observe_block` returns
+    /// `Some`; the flag is recomputed per call and cleared by a
+    /// generation-mismatched call, so a stale `true` can never
+    /// survive into the next window.
+    ///
+    /// Detection only: `observe_block` never declares — the
+    /// composition root reads this and calls
+    /// [`RoutingEngine::declare_probe_discontinuity`] itself, once
+    /// per observed block, so the probe clock-epoch cut lands
+    /// before the next block's records (SF-04 slice8 contract).
+    #[must_use]
+    pub fn observed_loop_discontinuity(&self) -> bool {
+        self.last_observed_loop_discontinuity
     }
 
     /// The processor's [`ProcessBoundarySession`] on the attached
