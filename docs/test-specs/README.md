@@ -25,6 +25,7 @@ Directory: `docs/test-specs`
 | TSPEC-034Xeu6Qk5xuw8LRKrRxcZ | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host 検証仕様 (synvelis#261) | approved | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
 | TSPEC-034XgJPQyivnWHKo5099nI | AUTX-03 synvelis-cli Headless 実行ファイル・JSON/Exit Code 検証仕様 (synvelis#262) | approved | [autx-03-headless-cli.md](./autx-03-headless-cli.md) |
 | TSPEC-autx04atomicmacro001 | AUTX-04 Atomic Macro v1 — versioned recipe・exact capability・binding placeholder invariants | approved | [autx-04-atomic-macro.md](./autx-04-atomic-macro.md) |
+| TSPEC-034XijnFYzanHYxsFsEIA0 | AUTX-04-F01 Composite sequential validate — create-then-reference invariants | approved | [autx-04-f01-composite-forward-ref.md](./autx-04-f01-composite-forward-ref.md) |
 | TSPEC-7kQm2XvB9pLw4RtY6uN3sD | AUTX-05 Workflow DSL v1 — YAML safe subset・typed definition・static plan compile invariants | approved | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
 | TSPEC-AUTX07GuiViewsHeadless | AUTX-07 GUI views headless test spec（synvelis#266） | approved | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | TSPEC-cb01VariantSetFixtureT | CB-01 Creative Branch variant model/controller fixture tests | approved | [cb-01-variant-set.md](./cb-01-variant-set.md) |
@@ -98,6 +99,7 @@ Directory: `docs/test-specs`
 | TSPEC-034WEVqv4ZmteepjgHJGUL | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID test spec | approved | [rcd-04-midi-undo-stableid.md](./rcd-04-midi-undo-stableid.md) |
 | TSPEC-034VmO7ak9xboyiIKIf80v | RCD-04 product E2E test spec | approved | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | TSPEC-034VC3cbBMDP6D1WnhLGlh | RCD-04 RT engine comp PCM test spec | approved | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
+| TSPEC-rcp01RenderRecipeTests | RCP-01 Canonical Render Recipe / typed dependency closure / temporal invalidation fixture tests | approved | [rcp-01-render-recipe.md](./rcp-01-render-recipe.md) |
 | TSPEC-034Xf6cGmdSv6ezz0A7JNC | RCP-04 Missing Plugin Resolver・Execution Intent・Safe Plan Reconciliation 検証仕様 (synvelis#293) | approved | [rcp-04-missing-plugin-resolver.md](./rcp-04-missing-plugin-resolver.md) |
 | TSPEC-a6ZCHY6LRL2KeFER0sLwl7 | Recording / Take / Comping — Fixture 契約・受入検証仕様（synvelis#12） | approved | [recording-take-comping.md](./recording-take-comping.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
