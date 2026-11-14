@@ -70,6 +70,7 @@ Directory: `docs/plans`
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-gpF9kWuFqfzFATeoPdxIGF | RCD-01 実Audio Device 到達準備 実装計画 — stamp placement fallback + real backend 配線 | approved | [rcd-01-real-backend-readiness-plan.md](./rcd-01-real-backend-readiness-plan.md) |
 | PLAN-034W91UxBVqeOCrJpWA1Gw | RCD-01 実機 capture coverage 拡張 plan | approved | [rcd-01-real-input-coverage-plan.md](./rcd-01-real-input-coverage-plan.md) |
+| PLAN-yI0tRFYPUF425trgH7V1QP | RCD-02 Blob SHA-256 Promotion Plan | approved | [rcd-02-blob-sha256-plan.md](./rcd-02-blob-sha256-plan.md) |
 | PLAN-034VpmToY7qmWuyovg4BmV | RCD-02 StagedFile Publish Migration Plan | approved | [rcd-02-stagedfile-publish-migration-plan.md](./rcd-02-stagedfile-publish-migration-plan.md) |
 | PLAN-SY804uxbfTEGFF4irB0NVO | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe Plan | approved | [rcd-02-unsynced-loss-real-fs-probe-plan.md](./rcd-02-unsynced-loss-real-fs-probe-plan.md) |
 | PLAN-034VedskoBprfWhNkuqz6f | RCD-03 app Arm/Monitoring UX + monitor session projection slice | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |

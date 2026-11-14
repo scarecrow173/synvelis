@@ -154,7 +154,7 @@ pub fn review_rel(stream_index: u16) -> String {
 
 /// canonical publication receipt（`streams/stream-NNNN.canonical.json`）。
 /// recovery 確定済みの raw media を canonical verified-media 形式
-/// （decodable container・`media_root/blobs/<digest>` で resolve 可能）
+/// （decodable container・`media_root/blobs/` 配下で resolve 可能）
 /// へ publish した記録。commit は `digest` を `Source.content_digest`
 /// へ採用し、raw media provenance は `raw_digest` で保持する。
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -172,7 +172,10 @@ pub struct CanonicalSourceRef {
     pub lane_id: String,
     /// 対象 `FinalizedSourceRef` の raw media fold digest（hex）。
     pub raw_digest: String,
-    /// canonical blob の content digest（import と同一 scheme・hex16）。
+    /// canonical blob の content digest。新規 publish は
+    /// `"sha256:<64hex>"`（`blobs/sha256/<hex>` 名前空間）、
+    /// 昇格前の receipt は legacy CRC32 fold hex16
+    /// （flat `blobs/<digest>` 名前空間）を保持する。
     pub digest: String,
     /// canonical media の container/format 識別子。
     pub media_format: String,
