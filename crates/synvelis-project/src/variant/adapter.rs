@@ -27,7 +27,7 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    IdGenerator, Operation, Project, ProjectController, ProjectOp,
+    Error, IdGenerator, Operation, Project, ProjectController, ProjectOp,
     comp::CompOp,
     control::ControlOwner,
     diff::{ObjectKind, SemanticObjectRef},
@@ -231,48 +231,65 @@ pub(crate) fn is_instrument_slot_op(op: &ProjectOp) -> bool {
     )
 }
 
+/// Processor IDs owned by `scope` — derived from the scope object set
+/// so the creation-owner check can never drift from scope derivation
+/// (one processor for `InstrumentSlot`, every range processor for
+/// `ProcessingRange`).
+fn scoped_processor_ids(
+    project: &Project,
+    scope: &VariantScope,
+) -> Result<BTreeSet<ProcessorId>, VariantError> {
+    let objects = scope_objects(project, scope).map_err(VariantError::from)?;
+    Ok(objects
+        .iter()
+        .filter(|o| o.kind == ObjectKind::Processor)
+        .filter_map(|o| ProcessorId::from_tagged(&o.stable_id).ok())
+        .collect())
+}
+
 /// Creation ops (`AddParameterTarget`/`AddModulationSource`) name an
-/// owner rather than an entity id: the owner must be the scoped
-/// processor itself, otherwise the new entity lands outside the
-/// declared scope.
+/// owner rather than an entity id: the owner must be a processor the
+/// scope owns, otherwise the new entity lands outside the declared
+/// scope.
 fn require_processor_owner(
     owner: ControlOwner,
-    processor: ProcessorId,
+    processors: &BTreeSet<ProcessorId>,
     scope: &VariantScope,
 ) -> Result<(), VariantError> {
-    if owner == ControlOwner::Processor(processor) {
+    if matches!(owner, ControlOwner::Processor(p) if processors.contains(&p)) {
         Ok(())
     } else {
         Err(VariantError::ScopeViolation {
             detail: format!(
-                "edit creates a control entity owned by {owner:?}, outside instrument scope {scope:?}"
+                "edit creates a control entity owned by {owner:?}, outside processor scope {scope:?}"
             ),
         })
     }
 }
 
-/// Instrument-slot candidate surface (CB-04): processor-owned control
-/// ops — parameter base/target edits, automation lanes/regions and
-/// modulation — confined by [`require_scope`] against the scope's
-/// owned object set (`processor_objects`: the processor, its ports
-/// and its processor-owned control closure). Every other op —
-/// routing/connection/send/bus edits, strip/track/clip/source edits,
-/// processor insert/remove/reorder, `Composite` — mutates shared
-/// context outside the declared scope and fails `Unsupported`
-/// (fail-closed: shared MIDI input, upstream strip/chain structure
-/// and downstream wiring are never candidate-owned).
-fn check_instrument_slot_op_targets(
+/// Processor-owned control ops shared by the instrument-slot (CB-04)
+/// and FX-range (CB-05) candidate surfaces: parameter base/target
+/// edits, automation lanes/regions and modulation — confined by
+/// [`require_scope`] against the scope's owned object set and by
+/// [`require_processor_owner`] against the scope's processor set.
+/// Every other op fails `Unsupported` (fail-closed: shared inputs,
+/// chain structure and wiring are never candidate-owned).
+fn check_processor_control_op_targets(
     project: &Project,
     scope: &VariantScope,
     op: &ProjectOp,
 ) -> Result<(), VariantError> {
-    let VariantScope::InstrumentSlot { processor } = scope else {
+    if !matches!(
+        scope,
+        VariantScope::InstrumentSlot { .. } | VariantScope::ProcessingRange { .. }
+    ) {
         return Err(VariantError::InvalidScope {
             detail: format!(
-                "instrument-slot target check requires an InstrumentSlot scope, got {scope:?}"
+                "processor-control target check requires a processor scope, got {scope:?}"
             ),
         });
-    };
+    }
+    let processors = scoped_processor_ids(project, scope)?;
     match op {
         ProjectOp::SetParameterBase { target, .. }
         | ProjectOp::RemoveParameterTarget { target }
@@ -284,7 +301,7 @@ fn check_instrument_slot_op_targets(
         ),
         ProjectOp::AddParameterTarget { owner, .. }
         | ProjectOp::AddModulationSource { owner, .. } => {
-            require_processor_owner(*owner, *processor, scope)
+            require_processor_owner(*owner, &processors, scope)
         }
         ProjectOp::RemoveAutomationLane { lane }
         | ProjectOp::WriteAutomationRegion { lane, .. }
@@ -341,18 +358,79 @@ fn check_instrument_slot_op_targets(
     }
 }
 
+/// `true` for the `ProjectOp` variants the FX-range candidate surface
+/// accepts — the shared processor-control list plus `InsertProcessor`,
+/// the one structure op whose post-edit scope derivation is
+/// unambiguous. Kept adjacent to [`check_processing_range_op_targets`]
+/// so the validate-gate and confinement gate cannot drift.
+pub(crate) fn is_processing_range_op(op: &ProjectOp) -> bool {
+    is_instrument_slot_op(op) || matches!(op, ProjectOp::InsertProcessor { .. })
+}
+
+/// FX-range candidate surface (CB-05): the shared processor-owned
+/// control ops extended across *every* processor in the declared
+/// range, plus `InsertProcessor` — a processor landing inside
+/// `start..=end` becomes scope-owned with its ports and control
+/// closure (post-edit `processing_range_objects` re-derivation),
+/// anything else fails `ScopeViolation` via
+/// [`check_created_within_scope`]. Removal, reorder, every
+/// connection/send/sidechain op and all shared-context edits stay
+/// `Unsupported` — boundary wiring is never candidate-owned and
+/// scope-entity removal is unsupported this slice.
+fn check_processing_range_op_targets(
+    project: &Project,
+    scope: &VariantScope,
+    op: &ProjectOp,
+) -> Result<(), VariantError> {
+    let VariantScope::ProcessingRange { range } = scope else {
+        return Err(VariantError::InvalidScope {
+            detail: format!(
+                "processing-range target check requires a ProcessingRange scope, got {scope:?}"
+            ),
+        });
+    };
+    if let ProjectOp::InsertProcessor { strip_id, .. } = op {
+        // The strip must own the scoped chain — an insert into any
+        // other chain lands outside the declared range. The *position*
+        // check is post-edit: `processing_range_objects` re-derives
+        // membership from stable processor IDs, so an in-range insert
+        // is scope-owned and anything else fails ScopeViolation.
+        let strip = project
+            .routing
+            .strips
+            .get(strip_id)
+            .ok_or_else(|| Error::NotFound(format!("strip {strip_id}")))?;
+        if strip.chain != range.chain {
+            return Err(VariantError::ScopeViolation {
+                detail: format!(
+                    "insert targets strip {strip_id} on chain {}, outside range chain {}",
+                    strip.chain, range.chain
+                ),
+            });
+        }
+        return Ok(());
+    }
+    check_processor_control_op_targets(project, scope, op)
+}
+
 /// Pre-edit scope check for ops with explicit targets. Creation ops
 /// (`AddClip`, `InsertProcessor`) are verified post-edit instead.
-/// [`VariantScope::InstrumentSlot`] dispatches to the processor-owned
-/// control surface — the shared MIDI input, chain structure and
-/// wiring stay outside every instrument candidate.
+/// [`VariantScope::InstrumentSlot`] and [`VariantScope::ProcessingRange`]
+/// dispatch to the processor-owned control surface — shared inputs,
+/// chain structure and wiring stay outside every processor candidate.
 fn check_op_targets(
     project: &Project,
     scope: &VariantScope,
     op: &ProjectOp,
 ) -> Result<(), VariantError> {
-    if matches!(scope, VariantScope::InstrumentSlot { .. }) {
-        return check_instrument_slot_op_targets(project, scope, op);
+    match scope {
+        VariantScope::InstrumentSlot { .. } => {
+            return check_processor_control_op_targets(project, scope, op);
+        }
+        VariantScope::ProcessingRange { .. } => {
+            return check_processing_range_op_targets(project, scope, op);
+        }
+        _ => {}
     }
     match op {
         ProjectOp::SetClipMuted { clip_id, .. }

@@ -433,7 +433,7 @@ fn processor_objects(
 }
 
 /// Processors of `range` in chain order (inclusive `start..=end`).
-fn range_processors(
+pub(crate) fn range_processors(
     project: &Project,
     range: &ProcessingRangeRef,
 ) -> Result<Vec<ProcessorId>, Error> {
