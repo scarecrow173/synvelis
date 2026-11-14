@@ -22,6 +22,7 @@ Directory: `docs/test-specs`
 | TSPEC-034AUT04VgQF9P59tpgXou | AUT-04 E2E 検証仕様 — Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-e2e-automation-curve-lod-record-budget.md](./aut-04-e2e-automation-curve-lod-record-budget.md) |
 | TSPEC-5CuediZdfo8z7uI9MvTAHB | Automation / Modulation 統合 Parameter Control — テスト仕様・受入 Fixture（synvelis#6） | approved | [automation-modulation.md](./automation-modulation.md) |
 | TSPEC-034Xh5EIhL7g4kg2TmAMyA | AUTX-01 Action Catalog headless test spec（synvelis#260） | approved | [autx-01-action-catalog.md](./autx-01-action-catalog.md) |
+| TSPEC-034Xzr6fjlyezcJ8IdtIfp | AUTX-01-F01 has_executor headless test spec（synvelis#446） | approved | [autx-01-f01-has-executor.md](./autx-01-f01-has-executor.md) |
 | TSPEC-034Xeu6Qk5xuw8LRKrRxcZ | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host 検証仕様 (synvelis#261) | approved | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
 | TSPEC-034XgJPQyivnWHKo5099nI | AUTX-03 synvelis-cli Headless 実行ファイル・JSON/Exit Code 検証仕様 (synvelis#262) | approved | [autx-03-headless-cli.md](./autx-03-headless-cli.md) |
 | TSPEC-autx04atomicmacro001 | AUTX-04 Atomic Macro v1 — versioned recipe・exact capability・binding placeholder invariants | approved | [autx-04-atomic-macro.md](./autx-04-atomic-macro.md) |

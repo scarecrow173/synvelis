@@ -139,6 +139,22 @@ impl CapabilityRegistry {
         Ok(&self.resolve(capability)?.descriptor)
     }
 
+    /// Whether an executor is registered for the exact capability ref
+    /// (discovery metadata — grants nothing).
+    ///
+    /// `false` covers every "no executor reachable" case alike:
+    /// unknown id, unregistered version, and a registration without a
+    /// handler. [`crate::Gateway::invoke`] remains the sole authority
+    /// that reports [`crate::GatewayError::NoExecutor`] at execution
+    /// time; this predicate only lets read-only projections (e.g. the
+    /// AUTX-01 action catalog) distinguish a No-Handler registration
+    /// from an unobservable one.
+    #[must_use]
+    pub fn has_executor(&self, capability: &CapabilityRef) -> bool {
+        self.resolve(capability)
+            .is_ok_and(|registration| registration.handler.is_some())
+    }
+
     /// Every registered capability ref (discovery metadata — grants
     /// nothing).
     #[must_use]
