@@ -5646,6 +5646,13 @@ impl SynvelisApp {
     /// `transport_start`/`stop`（tick、必須）、`sample_rate`
     /// （u32、必須）、`clock_epoch`（tagged、省略時は project の
     /// 最小 epoch）、`max_block_frames`（u32、省略時は既定）。
+    /// session-scope 宣言（gate は開始時に plan へ凍結）:
+    /// `loop_start`/`loop_end`（tick、対で指定 — `GateSpec::Loop`/
+    /// `PunchInLoop`。punch は authored `project.monitoring.punch`
+    /// を使う）、`count_in_start`/`count_in_end`・
+    /// `pre_roll_start`/`pre_roll_end`（tick、対で指定 —
+    /// `transport_start` 以前の session 開始前 transport 位相。
+    /// gate は構造上開かない）。
     ///
     /// `"stop"` は session を破棄する（宣言・punch・latency 注入は
     /// 保持）。session の start/stop は project revision・capture・
@@ -5682,6 +5689,9 @@ impl SynvelisApp {
                 let request = MonitorSessionParams {
                     transport_start,
                     stop,
+                    loop_marks: opt_tick_range(params, "loop")?,
+                    count_in: opt_tick_range(params, "count_in")?,
+                    pre_roll: opt_tick_range(params, "pre_roll")?,
                     clock_epoch,
                     sample_rate,
                     max_block_frames,
@@ -6421,6 +6431,24 @@ fn opt_tick_param(params: &Value, key: &str) -> Result<Option<MusicalTick>, Erro
             .as_i64()
             .map(|t| Some(MusicalTick::new(t)))
             .ok_or_else(|| invalid(format!("params.{key} (tick) required"))),
+    }
+}
+
+/// `params.<prefix>_start`/`params.<prefix>_end` を対の tick 区間
+/// `[start, end)` として読む。両方無し・`null` は `None`、
+/// 片方のみの指定は `Err`（対でなければ宣言として不完全）。
+fn opt_tick_range(
+    params: &Value,
+    prefix: &str,
+) -> Result<Option<(MusicalTick, MusicalTick)>, ErrorBody> {
+    let start = opt_tick_param(params, &format!("{prefix}_start"))?;
+    let end = opt_tick_param(params, &format!("{prefix}_end"))?;
+    match (start, end) {
+        (Some(start), Some(end)) => Ok(Some((start, end))),
+        (None, None) => Ok(None),
+        _ => Err(invalid(format!(
+            "params.{prefix}_start and params.{prefix}_end must be declared together"
+        ))),
     }
 }
 

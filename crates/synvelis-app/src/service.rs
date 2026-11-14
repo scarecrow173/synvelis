@@ -234,7 +234,7 @@ pub const OPS: &[OpInfo] = &[
     },
     OpInfo {
         name: "syn.monitoring.session",
-        summary: "monitor session lifecycle — start (preflight) | stop",
+        summary: "monitor session lifecycle — start (preflight; loop/count-in/pre-roll declarations) | stop",
     },
     OpInfo {
         name: "syn.monitoring.latency",
