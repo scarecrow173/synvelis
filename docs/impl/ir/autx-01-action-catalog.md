@@ -1,7 +1,7 @@
 ---
 id: "IMPL-034Xh5urQ31DNU1IgcvDZX"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "AUTX-01 Action Catalog（synvelis#260 headless fixture スライス）"
 created: "2026-11-14"
 updated: "2026-11-14"
@@ -203,20 +203,32 @@ job truth は一切作らない。
 
 ## Validation
 
+- `mise run fmt-check`: Pass（`cargo fmt --all -- --check`、exit 0）。
 - `mise run check synvelis-workspace`: Pass（`cargo check
-  --locked --all-targets`）。
-- `mise run lint synvelis-workspace`: Pass（clippy `-D warnings`）。
+  --locked --all-targets -p synvelis-workspace`、exit 0）。
+- `mise run lint synvelis-workspace`: Pass（clippy warnings denied、
+  exit 0）。
 - `mise run test synvelis-workspace`: Pass — `autx01_action_catalog`
-  15 test + 既存 suite 全 Pass。
-- `mise run fmt-check`: Pass。
-- `mise run check synvelis-app`: 結果は evidence/sv260 に記録。
-- doc-status lint / docs index 再生成: 結果は evidence/sv260 に記録。
-- OS: Windows（worktree ホスト）。toolchain は `mise` 管理
-  （rust-toolchain は `mise.ci.toml` pin に従う）。
+  15/15 test + 既存 suite 全 Pass（35 test binary、0 failed）。
+- `mise run check synvelis-app`: Pass（exit 0 — 消費側非破壊）。
+- impl audit（`audit_impl_record.js --dir docs/impl/ir`）: error 0、
+  warning は defers 自由記述の broken-relation-link のみ
+  （autx-07 と同型の既存 convention）。
+- exp audit（`audit_experiment_log.js --dir docs/impl/exp`）:
+  autx-01 findings 0。
+- doc-status lint（test-spec）: non-blocking reciprocal-relation
+  warning 3 件のみ（targets は lease 外の `docs/specs`・
+  `docs/designs`）。
+- docs index: `sync_impl_index.js --kind ir --apply`・
+  `doc_maintenance.js index apply --dir docs/test-specs` で再生成済み
+  （origin/main merge 後の conflict は生成物手順で解消）。
+- OS: Windows（worktree ホスト）。toolchain は `mise` 管理。
+- review-protocol: cooperative + adversarial の 2 pass 実施、
+  CONFIRMED P0/P1 blocker 0 件（非 blocking note のみ）。
 
 ## Risks
 
-- `ExecutorState::Unknown` は No Handler 匏別の暫定表現 —
+- `ExecutorState::Unknown` は No Handler 区別の暫定表現 —
   `has_executor` predicate が入るまで「Available ∧ handler 無し」の
   capability は invoke 時 `NoExecutor` で初めて判明する。fail-closed
   なので誤実行はないが、UI が「実行不可」を事前表示できない。
