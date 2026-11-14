@@ -749,8 +749,11 @@ fn fast_control_and_status_return_typed_evidence() {
 /// caller-supplied call window: host-resolved stages
 /// (`scheduled`/`dispatched`) never feed the plugin-report channel —
 /// only the `Reported` row the composition-root drain produced does.
-/// Receipts carry the scheduler's applied plan generations, the same
-/// evidence a driver uses to name the live `plan_generation`.
+/// Scheduler receipts are drain-once evidence: the engine-driven
+/// per-block `observe_block` (observe-engine-wiring) consumes them
+/// during `run`, so the explicit op reports only what its own call
+/// drained — the applied-generation evidence is asserted on the
+/// drained observation cycles instead.
 #[test]
 fn observe_reports_stages_and_feeds_only_reported() {
     let root = scratch("observe");
@@ -764,13 +767,28 @@ fn observe_reports_stages_and_feeds_only_reported() {
     let outcome = ok(&mut fx.rt, "syn.control.fast_control", params);
     assert_eq!(outcome["outcome"], "delivered");
 
-    // RT applies both staged plans; receipts confirm generations 1,2.
+    // RT applies both staged plans. The engine-driven per-block
+    // observation drains the scheduler receipts into the buffered
+    // cycles — drain-once evidence the explicit observe below can no
+    // longer see. The drained cycles carry the applied-generation
+    // receipts (the same evidence a driver uses to name the live
+    // `plan_generation`).
     fx.engine.run(2, PumpPolicy::Every(1)).unwrap();
+    let observed = fx.engine.control_drain_observations();
+    assert!(
+        observed.iter().any(|cycle| {
+            cycle.receipts.iter().any(|receipt| {
+                receipt.plan_generation == ruviform_media_core::PlanGeneration::new(2)
+                    && receipt.status == ruviform_media_core::ApplyStatus::Applied
+            })
+        }),
+        "drained observation cycles confirm applied plan generation 2"
+    );
 
     // First observe: span names the live plan generation (2). The
     // automation entry projects `dispatched` — host-resolved, so
-    // `fed` must be 0. The response's receipts prove the applied
-    // generations the span was built from.
+    // `fed` must be 0. Its own drain finds the report channel empty —
+    // the engine observation above already consumed the receipts.
     let result = ok(
         &mut fx.rt,
         "syn.control.observe",
@@ -786,12 +804,10 @@ fn observe_reports_stages_and_feeds_only_reported() {
         "dispatched observation projected: {observations:?}"
     );
     assert_eq!(result["fed"], 0, "host-resolved stages never feed");
-    let receipts = result["receipts"].as_array().unwrap();
     assert!(
-        receipts
-            .iter()
-            .any(|r| r["plan_generation"] == json!(2) && r["status"] == "applied"),
-        "receipt confirms applied plan generation 2: {receipts:?}"
+        result["receipts"].as_array().unwrap().is_empty(),
+        "scheduler receipts are drain-once; engine observation consumed them: {:?}",
+        result["receipts"]
     );
 
     // Composition-root drain: the plugin's announce/echo reports

@@ -48,7 +48,7 @@ use ruviform_audio_core::AudioFormat;
 use ruviform_graph::{
     GraphProject, GraphSpec, NodeId, NodeSpec, PortId, PrepareError, ValidationError,
 };
-use ruviform_media_core::TimeBase;
+use ruviform_media_core::{ClockEpochId, EngineFrame, TimeBase};
 use ruviform_media_reader::{PrefetchHandle, PrefetchProducer, PumpOutcome, SourceFrame};
 use ruviform_rt::RtContext;
 
@@ -295,6 +295,31 @@ struct Ledger {
     published_host_capability_generation: Option<u64>,
 }
 
+/// One processed block's node-domain call window — the
+/// [`RoutingControlDispatch::observe_block`] input triple the engine
+/// reports per successful `rt.process`: the generation whose plan ran
+/// the block and the `[call_start, call_start + call_frames)` window
+/// in *node cursor* frames.
+///
+/// The node cursor domain is per-generation and attach-anchored —
+/// plugin nodes count frames from their own plan's activation (cursor
+/// `0` at the first callback under it, epoch `ClockEpochId::new(0)`),
+/// which diverges from the engine `cursor`: seeks re-anchor `cursor`
+/// while node cursors keep counting, and a generation switch restarts
+/// every node's count. Callers must never substitute `cursor()` for
+/// `call_start`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ObservedBlock {
+    /// RT-observed generation that ran the block — the post-`process`
+    /// `active_generation` (`0` before any plan activates; no plugin
+    /// nodes exist then, so control surfaces reject the window).
+    pub generation: u64,
+    /// Node-cursor frame the block's callback head started at.
+    pub call_start: EngineFrame,
+    /// Block length in frames (saturated to `u32::MAX`).
+    pub call_frames: u32,
+}
+
 /// Deterministic semantic-routing playback/activation engine.
 pub struct RoutingEngine {
     engine: EngineConfig,
@@ -341,6 +366,15 @@ pub struct RoutingEngine {
     /// at the next publish, and all non-active generations release
     /// once a newer generation is RT-observed.
     connections: BTreeMap<u64, Vec<RetainedConnection>>,
+    /// Node-cursor domain tracking for [`Self::run_observed`]: the
+    /// generation the last processed block ran under and the node
+    /// frame the next block's callback head starts at. Plugin nodes
+    /// count frames per plan activation from cursor `0`, so a block
+    /// whose post-process `active_generation` differs from
+    /// `observe_gen` is that generation's activation block and its
+    /// nodes started at `0`.
+    observe_gen: u64,
+    observe_head: u64,
 }
 
 impl RoutingEngine {
@@ -398,6 +432,8 @@ impl RoutingEngine {
             ledger: Ledger::default(),
             host: Box::new(StaticProcessorHost::new()),
             connections: BTreeMap::new(),
+            observe_gen: 0,
+            observe_head: 0,
         }
     }
 
@@ -1381,6 +1417,26 @@ impl RoutingEngine {
     /// # Errors
     /// [`ProcessError`] from the runtime.
     pub fn run(&mut self, blocks: usize, policy: PumpPolicy) -> Result<PlayReport, ProcessError> {
+        self.run_observed(blocks, policy, &mut |_| {})
+    }
+
+    /// [`Self::run`] plus a per-block observer: after each successful
+    /// `rt.process`, `observe` receives the [`ObservedBlock`] window
+    /// the block covered in node-cursor domain — the input triple
+    /// `RoutingControlDispatch::observe_block` needs. Windows are
+    /// reported in processing order, once per processed block, so
+    /// per-node report channels drain against the window that
+    /// actually produced them. `run` delegates here with a no-op
+    /// observer; existing callers are unaffected.
+    ///
+    /// # Errors
+    /// [`ProcessError`] from the runtime.
+    pub fn run_observed(
+        &mut self,
+        blocks: usize,
+        policy: PumpPolicy,
+        observe: &mut dyn FnMut(ObservedBlock),
+    ) -> Result<PlayReport, ProcessError> {
         self.state = DriverState::Playing;
         let channels = usize::from(self.engine.channels);
         let block = self.engine.block_frames;
@@ -1399,6 +1455,9 @@ impl RoutingEngine {
             self.clock.store(self.cursor, Ordering::Relaxed);
             self.rt.process(block, &self.ctx)?;
             self.observe_activation(block as u64);
+            if let Some(window) = self.note_processed_block(block as u64) {
+                observe(window);
+            }
             if let Some(port) = self.device_in
                 && let Some(slot) = self.rt.output_reader(port)
             {
@@ -1430,16 +1489,31 @@ impl RoutingEngine {
     /// frame its window maps `engine_frame` onto (clamped to the
     /// window, same convention as the driver).
     pub fn seek(&mut self, engine_frame: u64) {
+        self.seek_observed(engine_frame, &mut |_| {});
+    }
+
+    /// [`Self::seek`] plus the same per-block observer as
+    /// [`Self::run_observed`]: when the quiesce pass actually
+    /// processes a block, its node-domain window is reported so
+    /// observation heads stay aligned with the node cursors the pass
+    /// advanced. A failed pass advances no node cursor and reports
+    /// nothing; [`Self::seek`] delegates here with a no-op observer.
+    pub fn seek_observed(&mut self, engine_frame: u64, observe: &mut dyn FnMut(ObservedBlock)) {
         if !self.drain_nonces.is_empty() {
             for nonce in &self.drain_nonces {
                 nonce.fetch_add(1, Ordering::Relaxed);
             }
             self.clock.store(self.cursor, Ordering::Relaxed);
-            let _ = self.rt.process(self.engine.block_frames, &self.ctx);
+            let processed = self.rt.process(self.engine.block_frames, &self.ctx).is_ok();
             // The drain pass can activate a pending plan — observe it
             // so activation evidence and lease teardown do not wait
             // for the next `run`.
             self.observe_activation(self.engine.block_frames as u64);
+            if processed
+                && let Some(window) = self.note_processed_block(self.engine.block_frames as u64)
+            {
+                observe(window);
+            }
         }
         self.cursor = engine_frame;
         for (index, binding) in self.bindings.iter().enumerate() {
@@ -1531,6 +1605,38 @@ impl RoutingEngine {
     #[must_use]
     pub fn stats(&self) -> &[(NodeContent, Arc<PlaybackStats>)] {
         &self.stats
+    }
+
+    /// Records one successfully processed block for observation and
+    /// returns the [`ObservedBlock`] window it covered, or `None`
+    /// when `frames == 0` (a zero-frame `rt.process` is a no-op — no
+    /// node callback ran, so no window exists to report).
+    ///
+    /// Node cursors are per-generation and attach-anchored: a block
+    /// whose post-process `active_generation` differs from
+    /// `observe_gen` is that generation's activation block, so its
+    /// nodes started at cursor `0`. Otherwise the block started at
+    /// `observe_head` — the node frame the previous block under the
+    /// same generation ended at. This tracking runs for *every*
+    /// successful `rt.process`, observed or not, so later windows
+    /// never drift from the node cursors.
+    fn note_processed_block(&mut self, frames: u64) -> Option<ObservedBlock> {
+        if frames == 0 {
+            return None;
+        }
+        let ran = self.graph.status().snapshot().active_generation;
+        let start = if ran == self.observe_gen {
+            self.observe_head
+        } else {
+            0
+        };
+        self.observe_gen = ran;
+        self.observe_head = start.saturating_add(frames);
+        Some(ObservedBlock {
+            generation: ran,
+            call_start: EngineFrame::new(ClockEpochId::new(0), start),
+            call_frames: u32::try_from(frames).unwrap_or(u32::MAX),
+        })
     }
 
     /// Compares the RT-observed active generation against the pending

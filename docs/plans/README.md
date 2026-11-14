@@ -52,6 +52,7 @@ Directory: `docs/plans`
 | PLAN-7c4e9a1b2d3f4e5a6b7c8f0a1 | PC-C4-06 control op surface plan | approved | [pc-c4-06-control-op-surface-plan.md](./pc-c4-06-control-op-surface-plan.md) |
 | PLAN-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b | PC-C4-07 transport mirror + observe_block plan | approved | [pc-c4-07-transport-mirror-observe-plan.md](./pc-c4-07-transport-mirror-observe-plan.md) |
 | PLAN-a1d4f7c2e9b30586d1a4f7c2f0a1 | PC-C4 drain composition plan | approved | [pc-c4-drain-composition-plan.md](./pc-c4-drain-composition-plan.md) |
+| PLAN-b2e5a8c1f4d90736e5b2a8c1d4e5f | PC-C4 observe engine wiring plan | approved | [pc-c4-observe-engine-wiring-plan.md](./pc-c4-observe-engine-wiring-plan.md) |
 | PLAN-jelz45WhvUPsZIVEaQyYpJ | PC-C4 plugin binding plan | approved | [pc-c4-plugin-binding-plan.md](./pc-c4-plugin-binding-plan.md) |
 | PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |

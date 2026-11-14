@@ -10,6 +10,7 @@ Directory: `docs/impl/ir`
 | IMPL-034Xe5swowhuVJIrpCp969 | AUTX-05 Workflow DSL v1 — typed definition and plan compiler | in-progress | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
 | IMPL-034XiNO9SadjRbTGExtQtw | AUTX-06 Workflow Coordinator — Run/Step FSM・Journal・Resume・JobPort fixture | in-progress | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | IMPL-034Xpa4SOZfOriBGBTfZdR | CB-06 Track/Bus 候補 Adapter — Strip Domain Mask・Routing参照保護・Adopt（synvelis#283） | in-progress | [cb-06-track-bus-adapter.md](./cb-06-track-bus-adapter.md) |
+| IMPL-034XB1Iadg6lT7Tracib0c | PC-C4 observe engine wiring — observe_block の engine-driver 配線 | in-progress | [pc-c4-observe-engine-wiring.md](./pc-c4-observe-engine-wiring.md) |
 | IMPL-034WEVyS44eEOELiBCYBIG | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice 実装記録 | in-progress | [rcd-04-midi-undo-stableid-slice.md](./rcd-04-midi-undo-stableid-slice.md) |
 | IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](./rcd-04-product-e2e-slice.md) |
 | IMPL-034VC2V5HUrkERcXqw246v | RCD-04 RT engine comp PCM slice 実装記録 | in-progress | [rcd-04-rt-engine-comp-pcm-slice.md](./rcd-04-rt-engine-comp-pcm-slice.md) |
@@ -19,7 +20,6 @@ Directory: `docs/impl/ir`
 | IMPL-sf05s3probeShareWiring01 | SF-05 slice3 probe subscriber/capture dedup の app/UI 配線 | in-progress | [sf-05-slice3-probe-subscriber-wiring-slice.md](./sf-05-slice3-probe-subscriber-wiring-slice.md) |
 | IMPL-034Vzz1zYMrt96iWDBlii8 | SV-GUI-03 slice4: Arrangement row selection → Inspector + Meter/Waveform viz mount | in-progress | [sv-gui-03-04-selection-inspector-viz-slice.md](./sv-gui-03-04-selection-inspector-viz-slice.md) |
 | IMPL-Gh7uIo2pAs5dFg9hJk3lZx | SV-GUI-03 slice5: GPUI-simulated scenario lane(Fake/GPUI parity) | in-progress | [sv-gui-03-05-gpui-scenario.md](./sv-gui-03-05-gpui-scenario.md) |
-| IMPL-034XnRe6ZxDUpnK0Ct3CcF | SV-SCRIPT-04 Script Editor — Analyzer Registry・Luau型診断/補完・driver-neutral ViewSpec 投影 | in-progress | [sv-script-04-script-editor.md](./sv-script-04-script-editor.md) |
 | IMPL-034WZR7KP4DOMwnoStw98I | TIM-01 PPQN config — punch marks re-projection and acceptance residual verification | in-progress | [tim-01-ppqn-config.md](./tim-01-ppqn-config.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
@@ -169,6 +169,7 @@ Directory: `docs/impl/ir`
 | IMPL-034XhXMfp77Z0MfGZwZQIF | SV-SCRIPT-01 ScriptApiModel・Runtime Binding/Luau 型定義 Generator | completed | [sv-script-01-script-api-model.md](./sv-script-01-script-api-model.md) |
 | IMPL-034XjAbWQJoR9lTEETMuYS | SV-SCRIPT-02 Luau Action Script定義・Typed Action Recipe・Gateway/Atomic Batch統合 | completed | [sv-script-02-luau-action-script.md](./sv-script-02-luau-action-script.md) |
 | IMPL-034Xl5nZaPjrHyr6UPJ5q4 | SV-SCRIPT-03 YAML/Luau/Rhai Workflow共通Plan化・異種Workflow参照 | completed | [sv-script-03-workflow-plan.md](./sv-script-03-workflow-plan.md) |
+| IMPL-034XnRe6ZxDUpnK0Ct3CcF | SV-SCRIPT-04 Script Editor — Analyzer Registry・Luau型診断/補完・driver-neutral ViewSpec 投影 | completed | [sv-script-04-script-editor.md](./sv-script-04-script-editor.md) |
 | IMPL-SV17501NativeShellBinding | SV175-01 Native App Shell 初期 slice — NativeShell lifecycle + ViewBinding adapter 実装記録 | completed | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | IMPL-034T7IhBoewhoZNaZfjXP1 | SV177 theme/preset implementation record | completed | [sv177-theme-preset-implementation-record.md](./sv177-theme-preset-implementation-record.md) |
 | IMPL-SV18501MixerGainFader | SV185-01 mixer.gain domain projection — master strip Fader bootstrap・v7→v8 migration・Fader 接続 実装記録 | completed | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |

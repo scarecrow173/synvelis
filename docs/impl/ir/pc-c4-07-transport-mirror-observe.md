@@ -180,7 +180,12 @@ test-spec `docs/test-specs/pc-c4-07-transport-mirror-observe.md`。
 
 ## Follow-ups
 
-- app 層の `drain_output_reports` 周期配線、engine-driver 配線、
-  `syn.control.status` `plan_generation` 露出 — 後続 slice。
+- ~~app 層の `drain_output_reports` 周期配線、engine-driver 配線、
+  `syn.control.status` `plan_generation` 露出 — 後続 slice。~~
+  → 解消済み: drain 周期配線は `pc-c4-drain-composition`、
+  engine-driver 配線（`observe_block` の `run`/`seek` observer
+  経路・`syn.control.status` の `observe` 節）は
+  `pc-c4-observe-engine-wiring`（`docs/impl/ir/
+  pc-c4-observe-engine-wiring.md`）が担った。
 - production composition root `PluginHost`、wire schema L1、
   real VST3/OS/GUI/AudioLens — 外部 gate、未実行。
