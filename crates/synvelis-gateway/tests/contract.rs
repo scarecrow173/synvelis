@@ -1064,3 +1064,74 @@ fn duplicate_registration_rejected() {
         }
     );
 }
+
+#[test]
+fn has_executor_reports_installed_and_absent_paths() {
+    let mut gw = permissive_gateway();
+
+    // Fixture-installed capabilities carry executors → true.
+    assert!(
+        gw.registry()
+            .has_executor(&capability_ref("synvelis.midi.add-note", 1, 1))
+    );
+
+    // Unknown id, unregistered version, and a no-handler registration
+    // all report false — the predicate never guesses.
+    assert!(
+        !gw.registry()
+            .has_executor(&capability_ref("synvelis.no.such.capability", 1, 0))
+    );
+    assert!(
+        !gw.registry()
+            .has_executor(&capability_ref("synvelis.midi.add-note", 9, 9))
+    );
+    gw.register_capability(test_descriptor("test.no-handler"), None)
+        .unwrap();
+    assert!(
+        !gw.registry()
+            .has_executor(&capability_ref("test.no-handler", 1, 0))
+    );
+
+    // Read-only: listing and describe are unaffected by the queries.
+    assert!(
+        gw.registry()
+            .list()
+            .contains(&capability_ref("test.no-handler", 1, 0))
+    );
+    assert!(
+        gw.registry()
+            .describe(&capability_ref("test.no-handler", 1, 0))
+            .is_ok()
+    );
+}
+
+#[test]
+fn no_handler_invoke_still_returns_no_executor() {
+    // `has_executor` is discovery metadata only — the invoke path stays
+    // the sole authority that surfaces `NoExecutor`.
+    let mut gw = permissive_gateway();
+    gw.register_capability(test_descriptor("test.no-handler"), None)
+        .unwrap();
+    assert!(
+        !gw.registry()
+            .has_executor(&capability_ref("test.no-handler", 1, 0))
+    );
+
+    let req = json!({
+        "request_id": "req-nh1",
+        "capability": {"id": "test.no-handler", "version": {"major": 1, "minor": 0}},
+        "schema": {"name": "synvelis.midi.add-note.input", "version": {"major": 1, "minor": 1}},
+        "project": ProjectId::new(7).to_tagged(),
+        "target": {"shape": "resource", "kind": "source", "id": SourceId::new(9).to_tagged()},
+        "args": {"key": 60, "velocity": 100, "position": {"domain": "source-native", "start": 240, "len": 480}},
+        "consistency": {"kind": "expected-revision", "revision": 0},
+    });
+    let bound = bind(&mut gw, &req).expect("bind does not check the executor");
+    let err = gw.invoke(&bound).expect_err("no executor installed");
+    assert_eq!(
+        err.code,
+        GatewayError::NoExecutor {
+            id: "test.no-handler".to_owned()
+        }
+    );
+}

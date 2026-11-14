@@ -4,7 +4,7 @@ type: "experiment"
 status: "completed"
 title: "AUTX-01 Action Catalog 実験ログ（synvelis#260 headless slice）"
 created: "2026-11-14"
-updated: "2026-11-14"
+updated: "2026-11-15"
 owners: []
 relations:
   source:
@@ -44,6 +44,7 @@ relations:
   superseded-by: []
   related:
     - "docs/test-specs/autx-01-action-catalog.md"
+    - "docs/impl/exp/autx-01-f01-has-executor.md"
   refines: []
   refined-by: []
   derives-from:
@@ -53,7 +54,7 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "CapabilityRegistry::has_executor / Gateway::schemas read accessor（Coordinator 判断で否 — sv#263 lease 衝突。ExecutorState::Unknown / SchemaConsistency::Unknown の typed Unknown で代替）"
+    - "CapabilityRegistry::has_executor（解消: synvelis#446 / AUTX-01-F01 で着地 — ExecutorState は Installed/Absent/Unknown の 3 verdict、`docs/impl/exp/autx-01-f01-has-executor.md` 参照）。Gateway::schemas read accessor は sv#272/PR #438 で解消済み"
     - "実 ScriptApiModel（synvelis#271）照合・Script Action（synvelis#272）・CLI surface（synvelis#262）・実 GPUI/OS lane（#114/#267）"
   deferred-by: []
 metadata:
@@ -108,6 +109,9 @@ design §3 の「表示 status ≠ 実行権限」を型で固定する。
   `ExecutorState::Unknown` 単一 variant は「観測不能」を偽装しない
   ためのもので、`has_executor` 導入時に `Installed`/`Absent` を
   追加しても wire 形が壊れない。
+  （その後 synvelis#446 / AUTX-01-F01 で `has_executor` が着地し、
+  予告どおり `Installed`/`Absent`/`Unknown` の 3 verdict になった
+  — `docs/impl/exp/autx-01-f01-has-executor.md`）
 - `SchemaConsistency::Unknown` は schema store を渡せない caller
   向けの同型 fallback。`project_gateway` は常に `Some` を渡すため
   実運用では `Consistent`/`Mismatch` が出る。
