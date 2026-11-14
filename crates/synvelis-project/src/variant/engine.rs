@@ -27,7 +27,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::{
-    adapter::{DomainAdapter, ReservingIdGenerator},
+    adapter::{BranchEditOp, DomainAdapter, ReservingIdGenerator},
     error::VariantError,
     scope,
     store::{self, BranchContentStore},
@@ -138,7 +138,7 @@ pub(crate) enum VariantOp {
         /// The set's scope (for the fingerprint comparison).
         scope: VariantScope,
         /// The live domain op to apply.
-        inner: ProjectOp,
+        inner: BranchEditOp,
     },
     /// Swap a non-adopted branch's captured content and merge minted-ID
     /// lineage — one CAS, one undo.
@@ -602,8 +602,8 @@ pub fn fork_variant_set(
 ///
 /// - candidate-side removal of an entity present at fork and still
 ///   live → [`VariantError::Unsupported`] (no guessing);
-/// - owned kinds outside the apply surface (comping) →
-///   [`VariantError::Unsupported`] until domain adapters land;
+/// - owned kinds outside the apply surface →
+///   [`VariantError::Unsupported`];
 /// - a scoped entity absent from live that is neither branch-minted
 ///   (lineage) nor from the fork origin →
 ///   [`VariantError::AmbiguousLineage`].
@@ -641,10 +641,10 @@ pub(crate) fn plan_adopt_writes(
 
     let mut writes: Vec<PlannedWrite> = Vec::new();
     for cref in &cand_scope {
-        if !entity::supported_kind(cref.kind) {
+        if !entity::adopt_supported_kind(cref.kind) {
             return Err(VariantError::Unsupported {
                 detail: format!(
-                    "adopt materialization for {:?} is deferred to domain adapters",
+                    "adopt materialization for {:?} is outside the apply surface",
                     cref.kind
                 ),
             });
@@ -696,9 +696,23 @@ pub struct BranchEditIntent {
     pub op: ProjectOp,
 }
 
-/// Edits one branch. Adopted branch → live edit + mirror bookkeeping in
-/// one CAS. Non-adopted → new immutable candidate payload; live is
-/// untouched.
+/// Intent for [`edit_branch_op`] — the same CAS surface as
+/// [`BranchEditIntent`] with a [`BranchEditOp`] payload so domain op
+/// surfaces outside [`ProjectOp`] (comping today) can edit candidates.
+pub struct BranchEditOpIntent {
+    /// Set containing the branch.
+    pub variant_set: VariantSetId,
+    /// Branch to edit (adopted or candidate).
+    pub branch: BranchId,
+    /// Branch content revision the caller observed (CAS).
+    pub expected_branch_revision: BranchRevision,
+    /// The edit payload to apply.
+    pub op: BranchEditOp,
+}
+
+/// Edits one branch with a [`ProjectOp`]. Adopted branch → live edit +
+/// mirror bookkeeping in one CAS. Non-adopted → new immutable candidate
+/// payload; live is untouched. Thin wrapper over [`edit_branch_op`].
 ///
 /// # Errors
 /// [`VariantError::StaleBranchRevision`]/scope/adapter/store/project
@@ -708,6 +722,32 @@ pub fn edit_branch(
     adapter: &dyn DomainAdapter,
     store: &mut dyn BranchContentStore,
     intent: &BranchEditIntent,
+) -> Result<EditReceipt, VariantError> {
+    edit_branch_op(
+        controller,
+        adapter,
+        store,
+        &BranchEditOpIntent {
+            variant_set: intent.variant_set,
+            branch: intent.branch,
+            expected_branch_revision: intent.expected_branch_revision,
+            op: BranchEditOp::Project(intent.op.clone()),
+        },
+    )
+}
+
+/// Edits one branch with any [`BranchEditOp`]. Adopted branch → live
+/// edit + mirror bookkeeping in one CAS. Non-adopted → new immutable
+/// candidate payload; live is untouched.
+///
+/// # Errors
+/// [`VariantError::StaleBranchRevision`]/scope/adapter/store/project
+/// failures — all fail closed with no partial mutation.
+pub fn edit_branch_op(
+    controller: &mut ProjectController,
+    adapter: &dyn DomainAdapter,
+    store: &mut dyn BranchContentStore,
+    intent: &BranchEditOpIntent,
 ) -> Result<EditReceipt, VariantError> {
     let (is_adopted, scope, content_rev) = {
         let live = controller.live();
@@ -942,11 +982,44 @@ fn freeze_adopted_branch(
 /// the adopted pointer, and freezing the previous adopted branch —
 /// then a separate runtime-publish receipt.
 ///
+/// This entry point applies **no domain adopt-preflight** — it is the
+/// CB-01-compatible surface. Domain adapters whose scopes carry
+/// adopt-time guards (e.g. the CB-02 recording gate) must be adopted
+/// through [`adopt_branch_adapted`].
+///
 /// # Errors
 /// Typed stale/conflict/unsupported/ambiguous rejections — all fail
 /// closed before any mutation.
 pub fn adopt_branch(
     controller: &mut ProjectController,
+    store: &mut dyn BranchContentStore,
+    sources: &AdoptSources<'_>,
+    intent: &AdoptIntent,
+) -> Result<AdoptReceipt, VariantError> {
+    adopt_branch_inner(controller, None, store, sources, intent)
+}
+
+/// [`adopt_branch`] with the scope's [`DomainAdapter`] attached: the
+/// adapter's `preflight_adopt` runs after candidate verification and
+/// before any write is planned, so domain adopt gates (recording
+/// active, lost shared material) fail closed ahead of the CAS.
+///
+/// # Errors
+/// Typed stale/conflict/unsupported/ambiguous/adapter-preflight
+/// rejections — all fail closed before any mutation.
+pub fn adopt_branch_adapted(
+    controller: &mut ProjectController,
+    adapter: &dyn DomainAdapter,
+    store: &mut dyn BranchContentStore,
+    sources: &AdoptSources<'_>,
+    intent: &AdoptIntent,
+) -> Result<AdoptReceipt, VariantError> {
+    adopt_branch_inner(controller, Some(adapter), store, sources, intent)
+}
+
+fn adopt_branch_inner(
+    controller: &mut ProjectController,
+    adapter: Option<&dyn DomainAdapter>,
     store: &mut dyn BranchContentStore,
     sources: &AdoptSources<'_>,
     intent: &AdoptIntent,
@@ -974,6 +1047,9 @@ pub fn adopt_branch(
     }
 
     let candidate = verified_candidate(store, &guard.content, &guard.scope)?;
+    if let Some(adapter) = adapter {
+        adapter.preflight_adopt(controller.live(), &candidate, &guard.scope)?;
+    }
 
     // Plan the transplants against the live project, then run the
     // same asset/plugin/port preflight the apply surface uses.

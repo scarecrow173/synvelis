@@ -9,12 +9,13 @@ use serde_json::{Value, json};
 
 use crate::{
     Error, IdGenerator, Project,
+    comp::{Comp, CompRegion, CompTransition, TakeGroup},
     control::{AutomationLane, ModulationAssignment, ModulationSource, ParameterTarget},
     diff::{ChangeKind, ObjectKind, SemanticObjectRef},
     id::{
-        AssetId, AutomationLaneId, BusId, ChainId, ClipId, LaneId, ModulationAssignmentId,
-        ModulationSourceId, NoteId, ParameterTargetId, ProcessorId, RoutingConnectionId,
-        SemanticPortId, SendId, SourceId, StripId, TrackId,
+        AssetId, AutomationLaneId, BusId, ChainId, ClipId, CompId, CompRegionId, CompTransitionId,
+        LaneId, ModulationAssignmentId, ModulationSourceId, NoteId, ParameterTargetId, ProcessorId,
+        RoutingConnectionId, SemanticPortId, SendId, SourceId, StripId, TakeGroupId, TrackId,
     },
     midi::{MidiNote, MidiSource},
     monitoring_data::{PunchMarks, TrackMonitorDecl},
@@ -42,8 +43,12 @@ fn to_value<T: serde::Serialize>(entity: &T) -> Result<Value, ApplyError> {
     })
 }
 
-/// `true` for object kinds inside the apply surface. Everything else
-/// fails closed at plan/fingerprint time.
+/// `true` for object kinds inside the VCS apply surface
+/// (`apply_selected`/`target_fingerprint`). Everything else fails
+/// closed at plan/fingerprint time. Comping entities stay outside:
+/// user-selected partial application cannot preserve their domain
+/// invariants — they materialize only through the variant adopt path
+/// ([`adopt_supported_kind`]), whose candidates are domain-validated.
 pub(crate) fn supported_kind(kind: ObjectKind) -> bool {
     matches!(
         kind,
@@ -71,6 +76,20 @@ pub(crate) fn supported_kind(kind: ObjectKind) -> bool {
             | ObjectKind::TrackMonitorDecl
             | ObjectKind::PunchMarks
     )
+}
+
+/// `true` for object kinds the variant adopt path may materialize —
+/// the VCS apply surface plus the comping registry, whose entities
+/// arrive only inside domain-validated branch candidates.
+pub(crate) fn adopt_supported_kind(kind: ObjectKind) -> bool {
+    supported_kind(kind)
+        || matches!(
+            kind,
+            ObjectKind::TakeGroup
+                | ObjectKind::Comp
+                | ObjectKind::CompRegion
+                | ObjectKind::CompTransition
+        )
 }
 
 /// The canonical JSON view of one object inside `project`.
@@ -143,6 +162,10 @@ pub(crate) fn entity_value(
                 Ok(None)
             }
         }
+        ObjectKind::TakeGroup => keyed!(TakeGroupId, &project.comp.take_groups),
+        ObjectKind::Comp => keyed!(CompId, &project.comp.comps),
+        ObjectKind::CompRegion => keyed!(CompRegionId, &project.comp.regions),
+        ObjectKind::CompTransition => keyed!(CompTransitionId, &project.comp.transitions),
         _ => Err(ApplyError::Unsupported {
             kind: object.kind,
             change: ChangeKind::Modified,
@@ -413,6 +436,10 @@ fn write_entity(
             let marks: PunchMarks = from_value(payload, "punch marks")?;
             project.monitoring.punch = marks;
         }
+        ObjectKind::TakeGroup => keyed_insert!(project.comp.take_groups, TakeGroup),
+        ObjectKind::Comp => keyed_insert!(project.comp.comps, Comp),
+        ObjectKind::CompRegion => keyed_insert!(project.comp.regions, CompRegion),
+        ObjectKind::CompTransition => keyed_insert!(project.comp.transitions, CompTransition),
         _ => {
             return Err(Error::Validation(format!(
                 "unsupported apply kind {:?}",
