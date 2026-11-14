@@ -18,14 +18,18 @@
 //! - Consumer neutrality: `catalog.descriptors()` feeds the AUTX-07
 //!   `project_action_catalog` view projection unchanged.
 
+use std::sync::Arc;
+
 use serde_json::json;
 use synvelis_gateway::fixture::{
-    FixtureAdapter, PermitSetPolicy, fixture_descriptors, fixture_schemas, install as install_base,
+    EchoHandler, FixtureAdapter, PermitSetPolicy, fixture_descriptors, fixture_schemas,
+    install as install_base,
 };
 use synvelis_gateway::{
-    Availability, CapabilityDescriptor, CapabilityId, CapabilityRef, CapabilityVersion, Gateway,
-    GatewayError, OperationDomain, PermissionKind, PermissionSet, SchemaRef, SchemaRegistry,
-    TargetContract, WireConsistency, WireRequest, WireTarget,
+    Availability, CapabilityDescriptor, CapabilityId, CapabilityOperation, CapabilityRef,
+    CapabilityRegistry, CapabilityVersion, Gateway, GatewayError, OperationDomain, PermissionKind,
+    PermissionSet, SchemaRef, SchemaRegistry, TargetContract, WireConsistency, WireRequest,
+    WireTarget,
 };
 use synvelis_project::{ProjectId, ProjectRevision, TrackId};
 use synvelis_workspace::action_catalog::fixture as cat_fixture;
@@ -65,6 +69,7 @@ fn catalog() -> ActionCatalog {
     ActionCatalog::project(
         &all_capabilities(),
         Some(&all_schemas()),
+        None,
         &cat_fixture::presentations(),
     )
     .expect("catalog")
@@ -179,8 +184,13 @@ fn unpresented_capabilities_stay_enumerable_but_flagged() {
     // data.
     let mut presentations = cat_fixture::presentations();
     presentations.retain(|p| p.capability.id.to_string() != cat_fixture::CLIP_QUERY_ID);
-    let cat = ActionCatalog::project(&all_capabilities(), Some(&all_schemas()), &presentations)
-        .expect("catalog");
+    let cat = ActionCatalog::project(
+        &all_capabilities(),
+        Some(&all_schemas()),
+        None,
+        &presentations,
+    )
+    .expect("catalog");
     let e = entry(&cat, &cap(cat_fixture::CLIP_QUERY_ID, 0));
     assert!(e.presentation.is_none());
     assert!(e.descriptor.is_some());
@@ -251,8 +261,13 @@ fn orphan_presentations_surface_as_unknown_or_unsupported() {
         visibility_hint: None,
     });
 
-    let cat = ActionCatalog::project(&all_capabilities(), Some(&all_schemas()), &presentations)
-        .expect("catalog");
+    let cat = ActionCatalog::project(
+        &all_capabilities(),
+        Some(&all_schemas()),
+        None,
+        &presentations,
+    )
+    .expect("catalog");
 
     let ghost = entry(&cat, &cap("synvelis.unregistered.ghost", 0));
     assert_eq!(ghost.status, ActionStatus::Unknown);
@@ -299,6 +314,7 @@ fn availability_states_project_verbatim_and_distinct() {
     let cat = ActionCatalog::project(
         &capabilities,
         Some(&all_schemas()),
+        None,
         &cat_fixture::presentations(),
     )
     .expect("catalog");
@@ -330,7 +346,8 @@ fn schema_consistency_is_typed_consistent_mismatch_unknown() {
     // declared schema absent from the store → Mismatch, not Available.
     let mut capabilities = all_capabilities();
     capabilities[0].input_schema = SchemaRef::new("synvelis.missing.input", 1, 0);
-    let cat = ActionCatalog::project(&capabilities, Some(&all_schemas()), &[]).expect("catalog");
+    let cat =
+        ActionCatalog::project(&capabilities, Some(&all_schemas()), None, &[]).expect("catalog");
     let e = entry(&cat, &capabilities[0].capability_ref());
     assert!(matches!(
         e.schema,
@@ -340,7 +357,7 @@ fn schema_consistency_is_typed_consistent_mismatch_unknown() {
     assert_eq!(e.status, ActionStatus::Available);
 
     // No schema store supplied → typed Unknown, never guessed Consistent.
-    let cat = ActionCatalog::project(&capabilities, None, &[]).expect("catalog");
+    let cat = ActionCatalog::project(&capabilities, None, None, &[]).expect("catalog");
     assert!(
         cat.entries()
             .iter()
@@ -395,7 +412,7 @@ fn display_name_change_preserves_capability_identity() {
         p.description_key = format!("{}.renamed", p.description_key);
     }
     let a = catalog();
-    let b = ActionCatalog::project(&all_capabilities(), Some(&all_schemas()), &renamed)
+    let b = ActionCatalog::project(&all_capabilities(), Some(&all_schemas()), None, &renamed)
         .expect("catalog");
 
     for (ea, eb) in a.entries().iter().zip(b.entries()) {
@@ -420,7 +437,7 @@ fn duplicate_inputs_fail_closed() {
     let mut dup_caps = caps.clone();
     dup_caps.push(caps[0].clone());
     assert_eq!(
-        ActionCatalog::project(&dup_caps, Some(&all_schemas()), &[]).unwrap_err(),
+        ActionCatalog::project(&dup_caps, Some(&all_schemas()), None, &[]).unwrap_err(),
         ActionCatalogError::DuplicateCapability {
             capability: caps[0].capability_ref(),
         }
@@ -430,7 +447,7 @@ fn duplicate_inputs_fail_closed() {
     let mut dup_pres = presentations.clone();
     dup_pres.push(presentations[0].clone());
     assert_eq!(
-        ActionCatalog::project(&caps, Some(&all_schemas()), &dup_pres).unwrap_err(),
+        ActionCatalog::project(&caps, Some(&all_schemas()), None, &dup_pres).unwrap_err(),
         ActionCatalogError::DuplicatePresentation {
             capability: presentations[0].capability.clone(),
         }
@@ -469,8 +486,8 @@ fn enumeration_grants_no_authority_invoke_still_policy_gated() {
     let mut gateway = Gateway::new();
     install_base(&mut gateway).expect("base install");
     cat_fixture::install(&mut gateway).expect("catalog fixture install");
-    let cat = ActionCatalog::project_gateway(&mut gateway, &cat_fixture::presentations())
-        .expect("project");
+    let cat =
+        ActionCatalog::project_gateway(&gateway, &cat_fixture::presentations()).expect("project");
     assert!(
         cat.entries()
             .iter()
@@ -520,8 +537,13 @@ fn unregistered_ids_stay_unknown_and_unexecutable() {
         parameter_hints: None,
         visibility_hint: None,
     });
-    let cat = ActionCatalog::project(&all_capabilities(), Some(&all_schemas()), &presentations)
-        .expect("catalog");
+    let cat = ActionCatalog::project(
+        &all_capabilities(),
+        Some(&all_schemas()),
+        None,
+        &presentations,
+    )
+    .expect("catalog");
     let e = entry(&cat, &cap("ui.palette.select", 0));
     assert_eq!(e.status, ActionStatus::Unknown);
     assert!(e.descriptor.is_none());
@@ -644,8 +666,8 @@ fn catalog_feeds_autx07_view_projection_unchanged() {
     let mut gateway = Gateway::new();
     install_base(&mut gateway).expect("base install");
     cat_fixture::install(&mut gateway).expect("catalog fixture install");
-    let cat = ActionCatalog::project_gateway(&mut gateway, &cat_fixture::presentations())
-        .expect("project");
+    let cat =
+        ActionCatalog::project_gateway(&gateway, &cat_fixture::presentations()).expect("project");
 
     let view = project_action_catalog(&cat.descriptors(), |_| GrantState::Satisfied, "", 3);
     assert_eq!(view.rows.len(), cat.descriptors().len());
@@ -680,4 +702,145 @@ fn catalog_feeds_autx07_view_projection_unchanged() {
     .expect("lower");
     assert_eq!(lowered.len(), 1);
     assert_eq!(lowered[0].capability, cap(cat_fixture::TRACK_QUERY_ID, 0));
+}
+
+// ── executor state (AUTX-01-F01) ───────────────────────────────────────
+
+#[test]
+fn executor_state_distinguishes_installed_absent_unknown() {
+    // A supplied registry answers per exact ref: handler-backed
+    // registrations report Installed, the one handler-less
+    // registration reports Absent, and descriptor-less entries stay
+    // Unknown — the verdict is never guessed.
+    let capabilities = all_capabilities();
+    let mut registry = CapabilityRegistry::new();
+    let mut absent_ref = None;
+    for desc in &capabilities {
+        let capability = desc.capability_ref();
+        let handler: Option<Arc<dyn CapabilityOperation>> =
+            if capability.id.to_string() == cat_fixture::TRACK_QUERY_ID && absent_ref.is_none() {
+                absent_ref = Some(capability.clone());
+                None
+            } else {
+                Some(Arc::new(EchoHandler))
+            };
+        registry.register(desc.clone(), handler).expect("register");
+    }
+    let absent_ref = absent_ref.expect("absent fixture");
+
+    let mut presentations = cat_fixture::presentations();
+    presentations.push(ActionPresentation {
+        capability: cap("synvelis.unregistered.ghost", 0),
+        display_key: "catalog.display.ghost".to_string(),
+        category: "query".to_string(),
+        description_key: "catalog.desc.ghost".to_string(),
+        parameter_hints: None,
+        visibility_hint: None,
+    });
+
+    let cat = ActionCatalog::project(
+        &capabilities,
+        Some(&all_schemas()),
+        Some(&registry),
+        &presentations,
+    )
+    .expect("catalog");
+
+    for e in cat.entries().iter().filter(|e| e.descriptor.is_some()) {
+        if e.capability == absent_ref {
+            assert_eq!(e.executor, ExecutorState::Absent, "{}", e.capability.id);
+        } else {
+            assert_eq!(e.executor, ExecutorState::Installed, "{}", e.capability.id);
+        }
+    }
+    assert_eq!(
+        entry(&cat, &cap("synvelis.unregistered.ghost", 0)).executor,
+        ExecutorState::Unknown
+    );
+}
+
+#[test]
+fn project_without_registry_keeps_executor_unknown() {
+    // `executors: None` → every entry reports Unknown even though the
+    // same descriptors could answer through a registry — the verdict
+    // is never guessed.
+    let cat = catalog();
+    assert!(
+        cat.entries()
+            .iter()
+            .all(|e| e.executor == ExecutorState::Unknown)
+    );
+}
+
+#[test]
+fn project_gateway_reports_executor_verdicts() {
+    // project_gateway wires the live registry: handler-backed fixture
+    // capabilities report Installed and a handler-less registration —
+    // the real No-Handler shape PrepareEngine uses — reports Absent.
+    // Absent is display metadata only: bind still succeeds and
+    // invoke remains the sole NoExecutor authority.
+    let mut gateway = Gateway::with_evaluator(Box::new(PermitSetPolicy::new(PermissionSet::of([
+        PermissionKind::ReadContext,
+        PermissionKind::DiscloseContext,
+        PermissionKind::MutateProject,
+        PermissionKind::ControlTransport,
+        PermissionKind::RunJob,
+        PermissionKind::ExternalAction,
+    ]))));
+    install_base(&mut gateway).expect("base install");
+    cat_fixture::install(&mut gateway).expect("catalog fixture install");
+
+    let mut no_handler = fixture_descriptors()
+        .into_iter()
+        .find(|d| d.id.to_string() == "synvelis.transport.set-position")
+        .expect("transport descriptor");
+    no_handler.id = CapabilityId::new("synvelis.test.no-handler").expect("id");
+    let no_handler_ref = no_handler.capability_ref();
+    let transport_ref = fixture_descriptors()
+        .iter()
+        .find(|d| d.id.to_string() == "synvelis.transport.set-position")
+        .expect("transport descriptor")
+        .capability_ref();
+    gateway
+        .register_capability(no_handler, None)
+        .expect("register no-handler");
+
+    let mut presentations = cat_fixture::presentations();
+    presentations.push(ActionPresentation {
+        capability: cap("synvelis.unregistered.ghost", 0),
+        display_key: "catalog.display.ghost".to_string(),
+        category: "query".to_string(),
+        description_key: "catalog.desc.ghost".to_string(),
+        parameter_hints: None,
+        visibility_hint: None,
+    });
+
+    let cat = ActionCatalog::project_gateway(&gateway, &presentations).expect("project");
+
+    assert_eq!(entry(&cat, &no_handler_ref).executor, ExecutorState::Absent);
+    assert_eq!(
+        entry(&cat, &cap(cat_fixture::TRACK_QUERY_ID, 0)).executor,
+        ExecutorState::Installed
+    );
+    assert_eq!(
+        entry(&cat, &cap("synvelis.unregistered.ghost", 0)).executor,
+        ExecutorState::Unknown
+    );
+
+    // The catalog verdict matches runtime truth: the same ref that
+    // projects Absent fails invoke with NoExecutor.
+    let mut wire = cat_fixture::invocations()
+        .into_iter()
+        .find(|i| i.wire.capability == transport_ref)
+        .expect("transport invocation")
+        .wire;
+    wire.capability = no_handler_ref;
+    let adapter = FixtureAdapter::for_testing();
+    let caller = adapter.agent("autx01-f01").expect("caller");
+    let req = gateway.bind(wire, caller).expect("bind");
+    let err = gateway.invoke(&req).expect_err("no executor must fail");
+    assert!(
+        matches!(err.code, GatewayError::NoExecutor { .. }),
+        "expected NoExecutor, got {err:?}"
+    );
 }

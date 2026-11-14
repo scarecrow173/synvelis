@@ -22,6 +22,7 @@ Directory: `docs/test-specs`
 | TSPEC-034AUT04VgQF9P59tpgXou | AUT-04 E2E 検証仕様 — Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-e2e-automation-curve-lod-record-budget.md](./aut-04-e2e-automation-curve-lod-record-budget.md) |
 | TSPEC-5CuediZdfo8z7uI9MvTAHB | Automation / Modulation 統合 Parameter Control — テスト仕様・受入 Fixture（synvelis#6） | approved | [automation-modulation.md](./automation-modulation.md) |
 | TSPEC-034Xh5EIhL7g4kg2TmAMyA | AUTX-01 Action Catalog headless test spec（synvelis#260） | approved | [autx-01-action-catalog.md](./autx-01-action-catalog.md) |
+| TSPEC-034Xzr6fjlyezcJ8IdtIfp | AUTX-01-F01 has_executor headless test spec（synvelis#446） | approved | [autx-01-f01-has-executor.md](./autx-01-f01-has-executor.md) |
 | TSPEC-034Xeu6Qk5xuw8LRKrRxcZ | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host 検証仕様 (synvelis#261) | approved | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
 | TSPEC-034XgJPQyivnWHKo5099nI | AUTX-03 synvelis-cli Headless 実行ファイル・JSON/Exit Code 検証仕様 (synvelis#262) | approved | [autx-03-headless-cli.md](./autx-03-headless-cli.md) |
 | TSPEC-autx04atomicmacro001 | AUTX-04 Atomic Macro v1 — versioned recipe・exact capability・binding placeholder invariants | approved | [autx-04-atomic-macro.md](./autx-04-atomic-macro.md) |
@@ -93,6 +94,7 @@ Directory: `docs/test-specs`
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
 | TSPEC-htPhSCIWfZxHOOGdEAyaeK | RCD-01 実Audio Device 到達準備 検証仕様 — stamp placement fallback + real backend lane | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
 | TSPEC-034W91IonN281HbgpyCQ1P | RCD-01 実機 capture coverage 拡張 test-spec | proposed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
+| TSPEC-nb7F26elY2sGZvVr3qyB2r | RCD-02 Blob SHA-256 Digest test-spec | approved | [rcd-02-blob-sha256-digest.md](./rcd-02-blob-sha256-digest.md) |
 | TSPEC-034UrlOOfZIvsdF1bdNXfE | RCD-02 Durability / Recovery Review / Commit Receipt fault matrix | approved | [rcd-02-durability-recovery-review-fault-matrix.md](./rcd-02-durability-recovery-review-fault-matrix.md) |
 | TSPEC-c33JwV8kL5uDnMRO2sV7Be | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe test-spec | approved | [rcd-02-unsynced-loss-real-fs-probe.md](./rcd-02-unsynced-loss-real-fs-probe.md) |
 | TSPEC-034VedrLB13w3phP9Xuh5S | RCD-03 app Arm/Monitoring UX fixture matrix | proposed | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
