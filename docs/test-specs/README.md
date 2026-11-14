@@ -197,6 +197,7 @@ Directory: `docs/test-specs`
 | TSPEC-VCS04NativeMount001 | VCS-04 native mount/dock fixtures | approved | [vcs-04-native-mount.md](./vcs-04-native-mount.md) |
 | TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |
 | TSPEC-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface fixtures | approved | [vcs-05-monitoring-apply-surface.md](./vcs-05-monitoring-apply-surface.md) |
+| TSPEC-vcs05-plugin-instance-apply | VCS-05 PluginInstance apply surface fixtures | approved | [vcs-05-plugin-instance-apply.md](./vcs-05-plugin-instance-apply.md) |
 | TSPEC-TDeaZLlpVBAaTB6kuxZzZ | VCS-06 evidence completion tests | approved | [vcs-06-evidence-completion.md](./vcs-06-evidence-completion.md) |
 | TSPEC-vcs06-fixture-matrix | VCS-06 fixture matrix tests | approved | [vcs-06-fixture-matrix.md](./vcs-06-fixture-matrix.md) |
 | TSPEC-KoKmM6h8CwFykztjanQvMC | VCS-06 monitoring-domain matrix tests | approved | [vcs-06-monitoring-matrix.md](./vcs-06-monitoring-matrix.md) |

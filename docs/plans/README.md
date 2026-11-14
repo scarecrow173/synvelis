@@ -152,6 +152,7 @@ Directory: `docs/plans`
 | PLAN-VCS04NativeMount001 | VCS-04 History/Visual Diff — native mount/dock 配線 plan | approved | [vcs-04-native-mount-plan.md](./vcs-04-native-mount-plan.md) |
 | PLAN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — 実装 plan | approved | [vcs-05-apply-restore-headless.md](./vcs-05-apply-restore-headless.md) |
 | PLAN-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface 拡張 — 実装 plan | approved | [vcs-05-monitoring-apply-surface-plan.md](./vcs-05-monitoring-apply-surface-plan.md) |
+| PLAN-vcs05-plugin-instance-apply | VCS-05 PluginInstance apply surface 拡張 — 実装 plan | approved | [vcs-05-plugin-instance-apply.md](./vcs-05-plugin-instance-apply.md) |
 | PLAN-4RRd44dWWEduAvHmubiVw | VCS-06 evidence completion — 実装 plan | approved | [vcs-06-evidence-completion-plan.md](./vcs-06-evidence-completion-plan.md) |
 | PLAN-FdgAC8xT08aXjvUlT4GwSz | VCS-06 monitoring-domain matrix — 実装 plan | approved | [vcs-06-monitoring-matrix-plan.md](./vcs-06-monitoring-matrix-plan.md) |
 | PLAN-034WTxvADcuVkmyiazhAKi | VCS-06 real-git/FS fault rows — implementation plan | approved | [vcs-06-real-git-fs-fault-plan.md](./vcs-06-real-git-fs-fault-plan.md) |

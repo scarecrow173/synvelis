@@ -186,6 +186,7 @@ Directory: `docs/designs`
 | DESIGN-VCS04NativeMount001 | VCS-04 History/Visual Diff — native mount/dock 配線 design | approved | [vcs-04-native-mount-design.md](./vcs-04-native-mount-design.md) |
 | DSGN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — module 設計 | approved | [vcs-05-apply-restore-headless-design.md](./vcs-05-apply-restore-headless-design.md) |
 | DSGN-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface 拡張 design | approved | [vcs-05-monitoring-apply-surface-design.md](./vcs-05-monitoring-apply-surface-design.md) |
+| DSGN-vcs05-plugin-instance-apply | VCS-05 PluginInstance apply surface 拡張 design | approved | [vcs-05-plugin-instance-apply.md](./vcs-05-plugin-instance-apply.md) |
 | DESIGN-TR6hK0f243aEk3CmFQlfp | VCS-06 evidence completion — RESTORE-08 / COMPAT-03/04 設計 | approved | [vcs-06-evidence-completion-design.md](./vcs-06-evidence-completion-design.md) |
 | DESIGN-lzcGjnJjPNFKiNNUpE2gE3 | VCS-06 monitoring-domain matrix — fixture 設計 | approved | [vcs-06-monitoring-matrix-design.md](./vcs-06-monitoring-matrix-design.md) |
 | DESIGN-034WTsUdd5SHHSF6EBJmfK | VCS-06 real-git/FS fault rows — design | approved | [vcs-06-real-git-fs-fault-design.md](./vcs-06-real-git-fs-fault-design.md) |

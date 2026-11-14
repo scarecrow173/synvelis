@@ -4,7 +4,7 @@ type: "impl"
 status: "completed"
 title: "VCS-05 monitoring kinds apply surface 拡張 slice 実装記録"
 created: "2026-11-12"
-updated: "2026-11-12"
+updated: "2026-11-14"
 owners: []
 relations:
   source:
@@ -277,6 +277,9 @@ vcs06_monitoring_matrix 6 passed / 0 failed。
   decl clear/punch clear を含む）→ 別設計。
 - `PluginInstance` の apply surface（transplant/preflight —
   plugin-state blob 依存の設計が必要）→ #324 系の別 slice。
+  → 解決済み: `docs/impl/ir/vcs-05-plugin-instance-apply.md`
+  （byte-faithful transplant + `max(live, after)` watermark
+  reseed、`validate_against` oracle 整合）。
 - recording/comping/SMF/clock-epoch 領域の apply → scope-out
   のまま。
 - 実 OS FS durability・実 Provider/plugin E2E・GUI/RT・
