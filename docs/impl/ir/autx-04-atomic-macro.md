@@ -165,7 +165,7 @@ Coordinator 判断で fallback が確定した。
 - `crates/synvelis-automation/src/{definition,error,lib}.rs`
   — macro 関連型の export と `CompileError` 追加
   （`UndefinedMacro`/`UnknownMacro`/`UnsupportedMacroVersion`/
-  `MacroOnlyExpr`/`ReservedIdLiteral` 等）。
+  `MacroOnlyExpr`/`WorkflowOnlyExpr`/`ReservedIdLiteral` 等）。
 - `crates/synvelis-gateway/src/prepare_engine.rs` —
   `synvelis.operation.batch` input schema に optional
   `bindings`（array, max 64, any_obj items）を追加し、

@@ -72,8 +72,9 @@ pub const BATCH_CAPABILITY_ID: &str = "synvelis.operation.batch";
 /// live at `OUTPUT_BINDING_ID_BASE + slot` for `slot in 0..64`, far
 /// above every well-known id and unreachable by the project id
 /// allocator — a placeholder can therefore never collide with, or be
-/// mistaken for, a real resource id. This constant is a wire contract
-/// mirrored verbatim by `synvelis-gateway`'s prepare engine.
+/// mistaken for, a real resource id. The gateway currently rejects
+/// non-empty `bindings` outright; this constant becomes the wire
+/// contract the GW-04 scratch-ID seam will mirror when it lands.
 pub const OUTPUT_BINDING_ID_BASE: u128 = (1u128 << 96) + (1u128 << 32);
 
 /// A versioned atomic macro definition — the shared compiler input.
@@ -344,7 +345,7 @@ impl<'a> MacroCheck<'a> {
                 StaticType::Id(self.outputs[name].kind)
             }
             Expr::Input { .. } | Expr::StepOutput { .. } | Expr::Item { .. } => {
-                return Err(CompileError::MacroOnlyExpr {
+                return Err(CompileError::WorkflowOnlyExpr {
                     at: at.to_owned(),
                     expr: match expr {
                         Expr::Input { .. } => "input",
@@ -878,7 +879,7 @@ fn eval_expr(expr: &Expr, env: &EvalEnv<'_>, at: &str) -> Result<Value, Automati
             Value::String(placeholder.clone())
         }
         Expr::Input { .. } | Expr::StepOutput { .. } | Expr::Item { .. } => {
-            return Err(CompileError::MacroOnlyExpr {
+            return Err(CompileError::WorkflowOnlyExpr {
                 at: at.to_owned(),
                 expr: match expr {
                     Expr::Input { .. } => "input",
@@ -1279,6 +1280,7 @@ impl MacroRegistry {
     where
         I: IntoIterator<Item = &'a AtomicMacroDefinition>,
     {
+        registry.validate()?;
         let mut entries = BTreeMap::new();
         for def in definitions {
             def.validate()?;

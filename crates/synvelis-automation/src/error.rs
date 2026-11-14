@@ -341,6 +341,14 @@ pub enum CompileError {
         /// The expression head (`param` or `output`).
         expr: &'static str,
     },
+    /// `$input.`/`$steps.`/`$item.` expressions are workflow-only;
+    /// they cannot appear inside an atomic macro definition.
+    WorkflowOnlyExpr {
+        /// Location of the reference.
+        at: String,
+        /// The expression head (`input`, `steps`, or `item`).
+        expr: &'static str,
+    },
     /// `$output.<name>` names no declared [`crate::OutputBinding`].
     UnknownMacroOutput {
         /// Location of the reference.
@@ -536,6 +544,12 @@ impl fmt::Display for CompileError {
             ),
             Self::MacroOnlyExpr { at, expr } => {
                 write!(f, "${expr} reference is only valid inside a macro at {at}")
+            }
+            Self::WorkflowOnlyExpr { at, expr } => {
+                write!(
+                    f,
+                    "${expr} reference is only valid inside a workflow at {at}"
+                )
             }
             Self::UnknownMacroOutput { at, name } => {
                 write!(f, "unknown macro output binding {name} at {at}")

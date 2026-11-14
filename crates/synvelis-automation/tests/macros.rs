@@ -516,6 +516,7 @@ fn variant(err: &CompileError) -> &'static str {
         CompileError::UnknownMacroOutput { .. } => "UnknownMacroOutput",
         CompileError::ForwardMacroOutput { .. } => "ForwardMacroOutput",
         CompileError::MacroOnlyExpr { .. } => "MacroOnlyExpr",
+        CompileError::WorkflowOnlyExpr { .. } => "WorkflowOnlyExpr",
         CompileError::ReservedIdLiteral { .. } => "ReservedIdLiteral",
         CompileError::NestedBatch { .. } => "NestedBatch",
         CompileError::BoundCeilingExceeded { .. } => "BoundCeilingExceeded",
@@ -665,7 +666,7 @@ fn reject_workflow_only_exprs_and_reserved_ids() {
         })),
         &empty_inputs(),
     );
-    assert_eq!(variant(&err), "MacroOnlyExpr");
+    assert_eq!(variant(&err), "WorkflowOnlyExpr");
     // A literal inside the reserved placeholder range — placed in a
     // target position whose contract accepts the kind, so the static
     // pass passes and evaluation rejects it.

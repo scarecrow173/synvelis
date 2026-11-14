@@ -54,6 +54,7 @@ fn variant(err: &CompileError) -> &'static str {
         CompileError::UnknownMacro { .. } => "UnknownMacro",
         CompileError::UnsupportedMacroVersion { .. } => "UnsupportedMacroVersion",
         CompileError::MacroOnlyExpr { .. } => "MacroOnlyExpr",
+        CompileError::WorkflowOnlyExpr { .. } => "WorkflowOnlyExpr",
         CompileError::UnknownMacroOutput { .. } => "UnknownMacroOutput",
         CompileError::ForwardMacroOutput { .. } => "ForwardMacroOutput",
         CompileError::ReservedIdLiteral { .. } => "ReservedIdLiteral",
