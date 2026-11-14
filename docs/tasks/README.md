@@ -253,6 +253,7 @@ Directory: `docs/tasks`
 | TASK-WHTOrax2xknKoKwYLbnSX | VCS-06 evidence completion slice | done | [vcs-06-evidence-completion-task.md](./vcs-06-evidence-completion-task.md) |
 | TASK-034WTzC0pqxJ29jwHg0KLg | VCS-06 real-git/FS fault rows slice | done | [vcs-06-real-git-fs-fault-task.md](./vcs-06-real-git-fs-fault-task.md) |
 | TASK-4Sfq6WWBaX1avImCs5OcLh | VCS-06 monitoring-domain matrix | done | [vcs-06-task-monitoring-matrix.md](./vcs-06-task-monitoring-matrix.md) |
+| TASK-034XF53zzlHnxfrP66Ueaf | VCS-06 variant-domain matrix | done | [vcs-06-task-variant-matrix.md](./vcs-06-task-variant-matrix.md) |
 | TASK-034VpC1mzY9bzJDEjAIDKv | VCS-06 UI headless matrix | done | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
 | TASK-034X9GCGPXdCl5ePe8gJ14 | VCS Integration 統合契約文書チェーン + evidence/sv7 Case 被覆台帳 (synvelis#7) | done | [vcs-integration-task.md](./vcs-integration-task.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
