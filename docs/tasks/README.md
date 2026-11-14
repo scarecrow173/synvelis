@@ -55,6 +55,7 @@ Directory: `docs/tasks`
 | TASK-034VpsGgHQsSoFmX1K61s3 | SF-04 slice5 T1 — probe subscriber/window ownership（session 層 lease・capture owner） | in-progress | [sf-04-slice5-task1-probe-subscriber-ownership.md](./sf-04-slice5-task1-probe-subscriber-ownership.md) |
 | TASK-9vK4mP2nQ8wX5zB7jH3fY6c | SF-04 slice8 タスク — SF-PROBE-05 fault fixtures + 不連続宣言点 | in_progress | [sf-04-slice8-probe-faults-declare-task.md](./sf-04-slice8-probe-faults-declare-task.md) |
 | TASK-wQ8xJkLmNrTyUiOpAsDfGh | SF-05 slice3 タスク分解 — probe subscriber/capture dedup の app/UI 配線 | in-progress | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
+| TASK-uivmJkLmNrTyUiOpAsDfGh | SF-05 ui/ slice タスク分解 — Signal Flow・Probe headless view-model consumer path | in-progress | [sf-05-ui-viewmodel.md](./sf-05-ui-viewmodel.md) |
 | TASK-G4oEdDOSfbQ4uy5d0HrbKh | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture 実装 task | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | TASK-034X9IBxPNjnO5mk3R7awi | Signal Flow 設計正本 — 文書チェーンと証拠の作成 | completed | [signal-flow-design-task.md](./signal-flow-design-task.md) |
 | TASK-034Ul52jO5RARmW21UHLGR | SV-GUI-03 slice1: Transport 操作 + Inspector 表示を既存 GPUI 経路に接続 | in-progress | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
@@ -68,6 +69,7 @@ Directory: `docs/tasks`
 | TASK-ibJUI1kRs2FdkuegWR0Ln7 | TIM-01 PPQN config — punch marks 再投影と受入残件検証タスク | in-progress | [tim-01-ppqn-config-task.md](./tim-01-ppqn-config-task.md) |
 | TASK-034XzQStcKCOQBnq9rBjtq | TIM-03 Loop/Tempo boundary 自動導出 — 実装タスク | in-progress | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
 | TASK-034X7xdqyxRcd5A5TSwmzT | Transport Integration Task — Issue #20 design contract + TT evidence ledger | in-progress | [transport-integration-task.md](./transport-integration-task.md) |
+| TASK-034XGAb53fij7Xn1AyjwnA | variant_sets VCS semantic diff 分類 | completed | [variant-sets-vcs-diff.md](./variant-sets-vcs-diff.md) |
 | TASK-034UAAcPSS47j6GIlPGPrX | VCS-01 Task1 Immutable Snapshot Resolver headless slice | in-progress | [vcs-01-task1-immutable-snapshot-resolver-headless-slice.md](./vcs-01-task1-immutable-snapshot-resolver-headless-slice.md) |
 | TASK-vcs05-plugin-instance-apply | VCS-05 PluginInstance apply surface 拡張 task | in-progress | [vcs-05-plugin-instance-apply-task.md](./vcs-05-plugin-instance-apply-task.md) |
 | TASK-vcs06-fixture-fault-matrix | VCS-06 fixture-level fault matrix + evidence ledger | in-progress | [vcs-06-fixture-fault-matrix.md](./vcs-06-fixture-fault-matrix.md) |
@@ -162,6 +164,7 @@ Directory: `docs/tasks`
 | TASK-034VNs3KBar3pyoUwECyIh | plugin_instances VCS semantic diff 分類 | done | [plugin-instances-vcs-diff-task.md](./plugin-instances-vcs-diff-task.md) |
 | TASK-034X3k0wEnZD3OtrbVBneg | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画タスク | done | [product-value-core-task.md](./product-value-core-task.md) |
 | TASK-034X6NYGLBArth4EII4yl9 | Project / Asset / Persistence — 設計契約文書チェーン実装タスク（synvelis#17） | done | [project-persistence-task.md](./project-persistence-task.md) |
+| TASK-AUD8AWTXpU1EXRd0Jbf7ts | RCD-01 Virtual L1 Oracle — synvelis#115 Option A slice | done | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
 | TASK-2Ri1ehmSIXwfHO79pHYSiU | RCD-02 Task Unsynced-Write Loss Fixture + Real-FS Probe | done | [rcd-02-task-unsynced-loss-real-fs-probe.md](./rcd-02-task-unsynced-loss-real-fs-probe.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | done | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
 | TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |

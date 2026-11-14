@@ -96,6 +96,7 @@ Directory: `docs/test-specs`
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
 | TSPEC-htPhSCIWfZxHOOGdEAyaeK | RCD-01 実Audio Device 到達準備 検証仕様 — stamp placement fallback + real backend lane | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
 | TSPEC-034W91IonN281HbgpyCQ1P | RCD-01 実機 capture coverage 拡張 test-spec | proposed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
+| TSPEC-GDVJyEaURIyTbCcZGMAkDR | RCD-01 Virtual L1 Oracle test-spec | approved | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
 | TSPEC-nb7F26elY2sGZvVr3qyB2r | RCD-02 Blob SHA-256 Digest test-spec | approved | [rcd-02-blob-sha256-digest.md](./rcd-02-blob-sha256-digest.md) |
 | TSPEC-034UrlOOfZIvsdF1bdNXfE | RCD-02 Durability / Recovery Review / Commit Receipt fault matrix | approved | [rcd-02-durability-recovery-review-fault-matrix.md](./rcd-02-durability-recovery-review-fault-matrix.md) |
 | TSPEC-c33JwV8kL5uDnMRO2sV7Be | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe test-spec | approved | [rcd-02-unsynced-loss-real-fs-probe.md](./rcd-02-unsynced-loss-real-fs-probe.md) |
@@ -141,6 +142,7 @@ Directory: `docs/test-specs`
 | TSPEC-034UuhtnvPrY3vXkkcgAXI | SF-05 slice1 テスト仕様 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | TSPEC-jFtg0s5kOhAShEhr9GuU2J | SF-05 slice2 テスト仕様 — Signal Flow gesture/inspection/persist | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | TSPEC-pL4cVbNmQwErTyUiOpAsDf | SF-05 slice3 テスト仕様 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
+| TSPEC-uivmVbNmQwErTyUiOpAsDf | SF-05 ui/ slice テスト仕様 — Signal Flow・Probe headless view-model | approved | [sf-05-ui-viewmodel.md](./sf-05-ui-viewmodel.md) |
 | TSPEC-034V2wDAU9rjXjn7UX79qG | SF-06 cross-gate テスト仕様 — headless oracle・fault・migration | approved | [sf-06-cross-gate-oracle.md](./sf-06-cross-gate-oracle.md) |
 | TSPEC-g7v0galTaViQdO2RpCak1D | SF-06 cross-gate テスト仕様 — headless fixture 被覆棚卸し・PCM oracle (synvelis#109) | approved | [sf06-cross-gate.md](./sf06-cross-gate.md) |
 | TSPEC-58bMtNin4rGl51xvg20P4n | SF-XR-01 検証仕様 — CTL-01/CTL-02 cross-gate oracle fixture | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
@@ -195,6 +197,7 @@ Directory: `docs/test-specs`
 | TSPEC-vJFdbqSGXmBCZDnTy2Telx | Timeline Editing / Selection / Tool System — テスト仕様・受入 Fixture（synvelis#11） | approved | [timeline-editing.md](./timeline-editing.md) |
 | TSPEC-034X7wP0GQjilI9S0FX7m0 | Transport Integration Test Spec — TT-001〜030 case map to existing fixtures | approved | [transport-integration.md](./transport-integration.md) |
 | TSPEC-102UiCfInt005EeFfGgHhI | UI-C5 製品 GUI 統合テスト仕様 — syn.control.relation / syn.control.edge / syn.recording.*（headless） | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
+| TSPEC-034XGAv6yF1NqnHsAoShC4 | variant_sets VCS semantic diff fixture matrix | approved | [variant-sets-vcs-diff.md](./variant-sets-vcs-diff.md) |
 | TSPEC-034UAzXp7iDmaV6yx7QTZQ | VCS-01 snapshot resolver fixtures | approved | [vcs-01-snapshot-resolver-fixtures.md](./vcs-01-snapshot-resolver-fixtures.md) |
 | TSPEC-034UEueLhP34NeCWclgoux | VCS-02 semantic diff fixtures | approved | [vcs-02-semantic-diff-fixtures.md](./vcs-02-semantic-diff-fixtures.md) |
 | TSPEC-K2QAlGFhpEHJiLP6StV4ta | VCS-03 Git read provider fixtures | approved | [vcs-03-git-provider-fixtures.md](./vcs-03-git-provider-fixtures.md) |

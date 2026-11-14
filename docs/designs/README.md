@@ -94,6 +94,7 @@ Directory: `docs/designs`
 | DESIGN-Bz2IMMfywvmEjmdIeThNvq | RCD-01 Input Adapter — binding/Arm/Monitor/channel-map と fake port fail-stop | approved | [rcd-01-input-adapter-binding-arm-monitor-fake-port.md](./rcd-01-input-adapter-binding-arm-monitor-fake-port.md) |
 | DESIGN-89lmf1mLK8flCuybXMmEqR | RCD-01 実Audio Device 到達準備 design — stamp placement fallback + real backend composition root | approved | [rcd-01-real-backend-readiness-design.md](./rcd-01-real-backend-readiness-design.md) |
 | DESIGN-034W8Los2DTXD6ljySt4Rf | RCD-01 実機 capture coverage 拡張 design — real-device rig + staging lane | approved | [rcd-01-real-input-coverage-design.md](./rcd-01-real-input-coverage-design.md) |
+| DESIGN-7xa4ndX9WpWkTxHtHv2HZs | RCD-01 Virtual L1 Oracle Design | approved | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
 | DESIGN-4CsMcB1lWPYHOuIXmJdj4W | RCD-02 Blob SHA-256 Promotion Design | approved | [rcd-02-blob-sha256-design.md](./rcd-02-blob-sha256-design.md) |
 | DESIGN-034Urj7kRY8rq2nngtTSuL | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | approved | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | DESIGN-034VplpQjplSqKKaNy9r1G | RCD-02 StagedFile Publish Migration Design | approved | [rcd-02-stagedfile-publish-migration-design.md](./rcd-02-stagedfile-publish-migration-design.md) |
@@ -136,6 +137,7 @@ Directory: `docs/designs`
 | DESIGN-034UudJz8OJsiidXryTNTU | SF-05 slice1 Signal Flow headless 設計 — graph 投影 + visual state + status 合成 | approved | [sf-05-slice1-signal-flow-headless-graph-visual-state-status.md](./sf-05-slice1-signal-flow-headless-graph-visual-state-status.md) |
 | DESIGN-CJVcdyUweKy4i6p0xOHdJc | SF-05 slice2 設計 — routing gesture fixation/preview/commit + inspection focus + schema v3 persist | approved | [sf-05-slice2-signal-flow-ux0307-gesture-inspection-persist.md](./sf-05-slice2-signal-flow-ux0307-gesture-inspection-persist.md) |
 | DESIGN-mB7tYwKsPqNvXcZaE5rGjH | SF-05 slice3 設計 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-design.md](./sf-05-slice3-probe-subscriber-wiring-design.md) |
+| DESIGN-uivmNbXmQvR2wTbLpNcJyH | SF-05 ui/ slice 設計 — Signal Flow・Probe headless view-model consumer path | approved | [sf-05-ui-viewmodel.md](./sf-05-ui-viewmodel.md) |
 | DESIGN-034V2wuzXfqcjIvGyXFhhz | SF-06 cross-gate headless 設計 — oracle 独立性・fixture topology・ledger schema | approved | [sf-06-cross-gate-oracle-domain-evidence.md](./sf-06-cross-gate-oracle-domain-evidence.md) |
 | DESIGN-OIDrCGhRjzwr0IzN1tzVkg | SF-XR-01 Design — CTL-01/CTL-02 cross-gate oracle fixture | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | DESIGN-034X9CQwZrVbNmLpKsTuVw | Signal Flow 設計正本 — 階層・Typed Port/Connection・Semantic Routing・Probe 表示/編集・世代証拠 | approved | [signal-flow-design-design.md](./signal-flow-design-design.md) |
@@ -185,6 +187,7 @@ Directory: `docs/designs`
 | DESIGN-T4E6PtTJ870Fpg4pFi3aM6 | Timeline Editing / Selection / Tool System — Snap・Gesture・Undo・Cross-View編集の共通設計（synvelis#11） | approved | [timeline-editing-design.md](./timeline-editing-design.md) |
 | DESIGN-034X7wOrHbsoz1senpZA9w | Transport Integration Design — Engine Frame canonical, process-start-relative offsets, capability/degraded policy, TT-001〜030 mapping | approved | [transport-integration-design.md](./transport-integration-design.md) |
 | DESIGN-102UiCfInt002BbCcDdEeF | UI-C5 製品 GUI 統合 設計 — syn.control.relation / syn.control.edge / syn.recording.* op surface | approved | [ui-sf-control-integration-design.md](./ui-sf-control-integration-design.md) |
+| DESIGN-034XGA5y1ft0IHe1TEUxj5 | variant_sets VCS semantic diff 分類設計 — VariantSet/VariantBranch + Variants domain | approved | [variant-sets-vcs-diff.md](./variant-sets-vcs-diff.md) |
 | DESIGN-034UAwTwlzWbToxqWtFM2B | VCS-01 Immutable Snapshot Resolver — crate 内完結設計 | approved | [vcs-01-immutable-snapshot-resolver-design.md](./vcs-01-immutable-snapshot-resolver-design.md) |
 | DESIGN-034UEtYMoQUWsPmOBrl819 | VCS-02 Semantic Diff Engine design | approved | [vcs-02-semantic-diff-engine-design.md](./vcs-02-semantic-diff-engine-design.md) |
 | DESIGN-7jUOgXVjk3gpAYkbIzdUfe | VCS-03 Git Read Provider design | approved | [vcs-03-git-read-provider-design.md](./vcs-03-git-read-provider-design.md) |

@@ -73,6 +73,7 @@ Directory: `docs/specs`
 | SPEC-gut3XVRAIUtMHADNZBNFHC | RCD-01 実Audio Device 到達準備 — stamp placement fallback + real backend 配線（synvelis#115） | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
 | SPEC-034W8HMV6c6BABYhVlcEe6 | RCD-01 実機 capture coverage 拡張 — real-device lane の staging/2Track/fail-stop/境界/長時間検証（synvelis#115） | proposed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
 | SPEC-034UoScGX6dIi25hMurqCI | RCD-01 Recording Input Adapter — channel binding・Arm/Monitor・fake port fail-stop（synvelis#115 slice） | proposed | [rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md](./rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md) |
+| SPEC-82BJ1E0D6FN2fJQokzfPoY | RCD-01 Virtual L1 Oracle — synvelis#115 slice (Option A synthetic-L1) | approved | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
 | SPEC-uMtmtxYDthnvcLOk19wZH4 | RCD-02 Blob SHA-256 Promotion — synvelis#116 slice | approved | [rcd-02-blob-sha256.md](./rcd-02-blob-sha256.md) |
 | SPEC-034VpjuNHFlkvgLqAJQGHJ | RCD-02 StagedFile Publish Migration — synvelis#116 slice | approved | [rcd-02-stagedfile-publish-migration.md](./rcd-02-stagedfile-publish-migration.md) |
 | SPEC-MtkyEBkLAdbCHkkziVNHIk | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe — synvelis#116 slice | approved | [rcd-02-unsynced-loss-real-fs-probe.md](./rcd-02-unsynced-loss-real-fs-probe.md) |
@@ -114,6 +115,7 @@ Directory: `docs/specs`
 | SPEC-034Uuc3q3FZYT5JjxQtDv9 | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | approved | [sf-05-signal-flow-headless-hierarchy.md](./sf-05-signal-flow-headless-hierarchy.md) |
 | SPEC-hhfyzYWYjCwiqdwtsN8Add | SF-05 slice2 Signal Flow — Port Drag gesture + inspection focus + per-view persist（SF-UX-03/04/07） | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | SPEC-kX9mQvR2wTbLpNcJyH4sDf | SF-05 slice3 Signal Flow — probe subscriber/capture dedup の app/UI 配線（SF-UX-06 headless 側） | approved | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
+| SPEC-uivmQvR2wTbLpNcJyH4sDf | SF-05 ui/ slice — Signal Flow・Probe headless view-model consumer path（synvelis#108） | approved | [sf-05-ui-viewmodel.md](./sf-05-ui-viewmodel.md) |
 | SPEC-034V2wnQPWFJdKz68KlwJG | SF-06 cross-gate Domain Oracle・Case ID・Fault Fixture・evidence ledger（headless slice） | approved | [sf-06-cross-gate-oracle-case-ledger.md](./sf-06-cross-gate-oracle-case-ledger.md) |
 | SPEC-hfPJc5Twxe1eCRZ0UTi4xk | SF-06 cross-gate headless fixture 被覆棚卸し・欠落 fixture 追加・evidence 台帳 (synvelis#109) | approved | [sf06-cross-gate.md](./sf06-cross-gate.md) |
 | SPEC-JQYNMchouBVGrijHyiBC2d | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture（headless slice） | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
@@ -161,6 +163,7 @@ Directory: `docs/specs`
 | SPEC-BCK7X1Qx5rbH151Bo7ftE7 | Timeline Editing / Selection / Tool System — Snap・Gesture・Undo・Cross-View編集の共通仕様（synvelis#11） | approved | [timeline-editing.md](./timeline-editing.md) |
 | SPEC-034X7wGMLTCbfLxfME4Odo | Transport Integration — Span/Seek/Loop/Tempo・MIDI/Plugin Event Offset・Automation FrameBase・State Contract・Capability/Degraded (TT-001〜030 design contract) | approved | [transport-integration.md](./transport-integration.md) |
 | SPEC-102UiCfInt001AaBbCcDdE | UI-C5 製品 GUI 統合 — Signal Flow Control Relation View/Inspector/Gesture（synvelis-app op surface + headless 検証） | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
+| SPEC-034XGzLZmToUqCCAnOgwpK | variant_sets VCS semantic diff 分類 — VariantSet/VariantBranch kinds (synvelis#457) | approved | [variant-sets-vcs-diff.md](./variant-sets-vcs-diff.md) |
 | SPEC-034UAv3chafPsU2fFyQnIb | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only schema projection (synvelis#92) | proposed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | SPEC-034UEsXPitEuEsjBM4qjo6 | VCS-02 Semantic Diff Engine — canonical ChangeSet typed identity lineage Unknown tri-state (synvelis#93) | proposed | [vcs-02-semantic-diff-changeset.md](./vcs-02-semantic-diff-changeset.md) |
 | SPEC-PvLluOn4j6y1qpdtQ0aw8A | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta（synvelis#94） | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |

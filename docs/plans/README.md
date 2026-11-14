@@ -72,6 +72,7 @@ Directory: `docs/plans`
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-gpF9kWuFqfzFATeoPdxIGF | RCD-01 実Audio Device 到達準備 実装計画 — stamp placement fallback + real backend 配線 | approved | [rcd-01-real-backend-readiness-plan.md](./rcd-01-real-backend-readiness-plan.md) |
 | PLAN-034W91UxBVqeOCrJpWA1Gw | RCD-01 実機 capture coverage 拡張 plan | approved | [rcd-01-real-input-coverage-plan.md](./rcd-01-real-input-coverage-plan.md) |
+| PLAN-3ibVZ5odzisDWKe9oPD32D | RCD-01 Virtual L1 Oracle Plan | approved | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
 | PLAN-yI0tRFYPUF425trgH7V1QP | RCD-02 Blob SHA-256 Promotion Plan | approved | [rcd-02-blob-sha256-plan.md](./rcd-02-blob-sha256-plan.md) |
 | PLAN-034VpmToY7qmWuyovg4BmV | RCD-02 StagedFile Publish Migration Plan | approved | [rcd-02-stagedfile-publish-migration-plan.md](./rcd-02-stagedfile-publish-migration-plan.md) |
 | PLAN-SY804uxbfTEGFF4irB0NVO | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe Plan | approved | [rcd-02-unsynced-loss-real-fs-probe-plan.md](./rcd-02-unsynced-loss-real-fs-probe-plan.md) |
@@ -108,6 +109,7 @@ Directory: `docs/plans`
 | PLAN-034Uuhu2Eis7GPJ5fej73V | SF-05 slice1 実施計画 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | PLAN-6xRqunIew52aqbQt4yZ3qy | SF-05 slice2 実施計画 — Signal Flow gesture/inspection/persist | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | PLAN-dF3hNzQwErTyUiOpL6kMnB | SF-05 slice3 実施計画 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-plan.md](./sf-05-slice3-probe-subscriber-wiring-plan.md) |
+| PLAN-uivmPqRsTuVwXyZaBcDeFg | SF-05 ui/ slice 実施計画 — Signal Flow・Probe headless view-model consumer path | approved | [sf-05-ui-viewmodel.md](./sf-05-ui-viewmodel.md) |
 | PLAN-034V2wD3RqGEqlst7HFeVD | SF-06 cross-gate headless slice — Domain Oracle・Case registry・fault fixture・ledger | approved | [sf-06-cross-gate-oracle.md](./sf-06-cross-gate-oracle.md) |
 | PLAN-QRGcQW6CvUDaVfCwWADz2f | SF-XR-01 実装計画 — CTL-01/CTL-02 cross-gate oracle fixture | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | PLAN-034X9HnJ3ksOwiuiGUkOTC | Signal Flow 設計正本 — 文書チェーンと証拠の作成 | approved | [signal-flow-design-plan.md](./signal-flow-design-plan.md) |
@@ -150,6 +152,7 @@ Directory: `docs/plans`
 | PLAN-uGKWo3QVS9uwBCoBMRyVGT | Timeline Editing / Selection / Tool System — 計画（synvelis#11） | approved | [timeline-editing.md](./timeline-editing.md) |
 | PLAN-034X7x2GLBkoA5kq6w2VxK | Transport Integration Plan — TT-001〜030 contract mapping + capability/degraded evidence ledger | in-progress | [transport-integration.md](./transport-integration.md) |
 | PLAN-102UiCfInt003CcDdEeFfG | UI-C5 製品 GUI 統合 実施計画 — syn.control.relation / syn.control.edge / syn.recording.* | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
+| PLAN-034XGQcU2c2ctkSQ1qVvWi | variant_sets VCS semantic diff 分類 slice | approved | [variant-sets-vcs-diff.md](./variant-sets-vcs-diff.md) |
 | PLAN-034UAzWU1ltpUXPw8mRuWd | VCS-01 Immutable Snapshot Resolver implementation plan | approved | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | PLAN-034UEufn0HEwKaQ2GRVCWB | VCS-02 Semantic Diff Engine implementation plan | approved | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
 | PLAN-D4Oqo3jPnK2GybwKhM5nwh | VCS-03 Git Read Provider implementation plan | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
