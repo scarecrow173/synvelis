@@ -227,10 +227,67 @@ fn check_op_targets(
         ProjectOp::SetStripMute { strip_id, .. } | ProjectOp::SetStripSolo { strip_id, .. } => {
             require_scope(project, scope, ObjectKind::Strip, &strip_id.to_tagged())
         }
+        // MIDI note ops are source-addressed: the source must be a
+        // scope-owned `MidiSource` and any named note a scope-owned
+        // `MidiNote`. Source-level ops (`AddMidiSource`,
+        // `RemoveMidiSource`, `ImportMidiSmf`, `DetachClipSource`)
+        // create entities outside the scope or rebind the clip's
+        // source, so they fall through to `Unsupported` — detach on
+        // live before fork is the supported editable-copy path.
+        ProjectOp::AddMidiNote { source_id, .. } => require_scope(
+            project,
+            scope,
+            ObjectKind::MidiSource,
+            &source_id.to_tagged(),
+        ),
+        ProjectOp::RemoveMidiNote { source_id, note_id }
+        | ProjectOp::SetMidiNoteVelocity {
+            source_id, note_id, ..
+        }
+        | ProjectOp::MoveMidiNote {
+            source_id, note_id, ..
+        } => {
+            require_scope(
+                project,
+                scope,
+                ObjectKind::MidiSource,
+                &source_id.to_tagged(),
+            )?;
+            require_scope(project, scope, ObjectKind::MidiNote, &note_id.to_tagged())
+        }
         ProjectOp::AddClip { .. } | ProjectOp::InsertProcessor { .. } => Ok(()),
         other => Err(VariantError::Unsupported {
             detail: format!("edit op is outside the supported candidate surface: {other:?}"),
         }),
+    }
+}
+
+/// Entity-id sets captured before a confined edit — the baseline
+/// `check_created_within_scope` diffs against to catch entities the
+/// op created outside the declared scope.
+struct PreEditIds {
+    clips: BTreeSet<crate::id::ClipId>,
+    notes: BTreeSet<crate::id::NoteId>,
+    procs: BTreeSet<crate::id::ProcessorId>,
+    ports: BTreeSet<crate::id::SemanticPortId>,
+    midi_sources: BTreeSet<crate::id::SourceId>,
+    midi_notes: BTreeSet<crate::id::NoteId>,
+}
+
+impl PreEditIds {
+    fn capture(project: &Project) -> Self {
+        Self {
+            clips: project.clips.keys().copied().collect(),
+            notes: project.notes.keys().copied().collect(),
+            procs: project.routing.processors.keys().copied().collect(),
+            ports: project.routing.ports.keys().copied().collect(),
+            midi_sources: project.midi_sources.keys().copied().collect(),
+            midi_notes: project
+                .midi_sources
+                .values()
+                .flat_map(|source| source.notes.keys().copied())
+                .collect(),
+        }
     }
 }
 
@@ -239,10 +296,7 @@ fn check_op_targets(
 fn check_created_within_scope(
     candidate: &Project,
     after_objects: &BTreeSet<SemanticObjectRef>,
-    before_clips: &BTreeSet<crate::id::ClipId>,
-    before_notes: &BTreeSet<crate::id::NoteId>,
-    before_procs: &BTreeSet<crate::id::ProcessorId>,
-    before_ports: &BTreeSet<crate::id::SemanticPortId>,
+    before: &PreEditIds,
 ) -> Result<(), VariantError> {
     let pid = candidate.project_id;
     let check = |kind: ObjectKind, stable_id: String| -> Result<(), VariantError> {
@@ -261,23 +315,37 @@ fn check_created_within_scope(
         }
     };
     for clip in candidate.clips.keys() {
-        if !before_clips.contains(clip) {
+        if !before.clips.contains(clip) {
             check(ObjectKind::Clip, clip.to_tagged())?;
         }
     }
     for note in candidate.notes.keys() {
-        if !before_notes.contains(note) {
+        if !before.notes.contains(note) {
             check(ObjectKind::Note, note.to_tagged())?;
         }
     }
     for proc in candidate.routing.processors.keys() {
-        if !before_procs.contains(proc) {
+        if !before.procs.contains(proc) {
             check(ObjectKind::Processor, proc.to_tagged())?;
         }
     }
     for port in candidate.routing.ports.keys() {
-        if !before_ports.contains(port) {
+        if !before.ports.contains(port) {
             check(ObjectKind::SemanticPort, port.to_tagged())?;
+        }
+    }
+    for source in candidate.midi_sources.keys() {
+        if !before.midi_sources.contains(source) {
+            check(ObjectKind::MidiSource, source.to_tagged())?;
+        }
+    }
+    for note in candidate
+        .midi_sources
+        .values()
+        .flat_map(|source| source.notes.keys())
+    {
+        if !before.midi_notes.contains(note) {
+            check(ObjectKind::MidiNote, note.to_tagged())?;
         }
     }
     Ok(())
@@ -304,10 +372,7 @@ pub(crate) fn edit_scoped_project_op(
     }
     check_op_targets(candidate, scope, op)?;
     let before_objects = scope_objects(candidate, scope)?;
-    let before_clips: BTreeSet<_> = candidate.clips.keys().copied().collect();
-    let before_notes: BTreeSet<_> = candidate.notes.keys().copied().collect();
-    let before_procs: BTreeSet<_> = candidate.routing.processors.keys().copied().collect();
-    let before_ports: BTreeSet<_> = candidate.routing.ports.keys().copied().collect();
+    let before_ids = PreEditIds::capture(candidate);
 
     Operation::apply(op, candidate, ids)?;
     candidate.validate_references()?;
@@ -322,14 +387,7 @@ pub(crate) fn edit_scoped_project_op(
             ),
         });
     }
-    check_created_within_scope(
-        candidate,
-        &after_objects,
-        &before_clips,
-        &before_notes,
-        &before_procs,
-        &before_ports,
-    )?;
+    check_created_within_scope(candidate, &after_objects, &before_ids)?;
     Ok(())
 }
 

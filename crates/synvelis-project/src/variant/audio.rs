@@ -86,7 +86,7 @@ pub struct AudioClipCapabilities {
 /// `SimpleStretch` are representable but refused `UnsupportedMapping`
 /// at lowering, so the candidate edit surface rejects them
 /// `Unsupported` instead of storing silently dead state.
-fn playback_mapping_capability(mapping: &PlaybackMapping) -> ProcessingCapability {
+pub(crate) fn playback_mapping_capability(mapping: &PlaybackMapping) -> ProcessingCapability {
     match mapping {
         PlaybackMapping::Natural => ProcessingCapability::Supported,
         PlaybackMapping::Loop | PlaybackMapping::SimpleStretch(_) => {
@@ -98,7 +98,7 @@ fn playback_mapping_capability(mapping: &PlaybackMapping) -> ProcessingCapabilit
 /// CB-CLIP-02 enforcement half of [`AudioClipCapabilities`]: a
 /// `SetClipPlayback` carrying a mapping with no lowering consumer is
 /// rejected `Unsupported` before the op touches the candidate.
-fn clip_edit_guard(op: &ProjectOp) -> Result<(), VariantError> {
+pub(crate) fn clip_edit_guard(op: &ProjectOp) -> Result<(), VariantError> {
     if let ProjectOp::SetClipPlayback { playback, .. } = op
         && playback_mapping_capability(&playback.mapping) == ProcessingCapability::Unsupported
     {
@@ -115,7 +115,7 @@ fn clip_edit_guard(op: &ProjectOp) -> Result<(), VariantError> {
 /// `true` while a recording session is `Open` on `lane` — the
 /// CB-ADP-03 write-gate conflict: scoped live mutation on a lane
 /// mid-recording is rejected typed, never silently applied.
-fn lane_recording_open(project: &Project, lane: LaneId) -> bool {
+pub(crate) fn lane_recording_open(project: &Project, lane: LaneId) -> bool {
     project.recording.streams.values().any(|stream| {
         stream.lane_id == lane
             && project
