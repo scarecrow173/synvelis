@@ -126,6 +126,7 @@ Directory: `docs/test-specs`
 | TSPEC-0HnGRMaXEy6WChONldI4n2 | SF-03 slice7 — render semantic-lowering 消費 test-spec | approved | [sf-03-slice7-render-consumption.md](./sf-03-slice7-render-consumption.md) |
 | TSPEC-034VoSrQGRatV4fFu1xhFo | SF-03 slice8 — app/workspace same-Revision fixture test-spec | approved | [sf-03-slice8-revision-fixture.md](./sf-03-slice8-revision-fixture.md) |
 | TSPEC-034VWwjeNu5OL7N0dTcTSF | SF-03 slice9 — host capability generation live firing test-spec | approved | [sf-03-slice9-capability-firing.md](./sf-03-slice9-capability-firing.md) |
+| TSPEC-FqOD6GcN3rNgRT08cdU9qO | SF-04 loop-discontinuity テスト仕様 — OpName wire + loop→probe 不連続宣言 | approved | [sf-04-loop-discontinuity.md](./sf-04-loop-discontinuity.md) |
 | TSPEC-jzXzcw5lLdoj5CBmmoL86c | SF-04 probe adapter — Issue #107 SF-PROBE-01..08 受入集約 テスト仕様 | approved | [sf-04-probe-adapter.md](./sf-04-probe-adapter.md) |
 | TSPEC-034Um6SOlStZLqEVmi7IEk | SF-04 slice1 受入テスト仕様 — semantic probe 解決・lifecycle・segment cut | approved | [sf-04-slice1-semantic-probe-adapter.md](./sf-04-slice1-semantic-probe-adapter.md) |
 | TSPEC-5nCxL8dSwV2yH4jK6fG1bN | SF-04 slice10 テスト仕様 — syn.probe.compare app op | approved | [sf-04-slice10-probe-compare-op.md](./sf-04-slice10-probe-compare-op.md) |
