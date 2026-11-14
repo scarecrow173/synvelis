@@ -32,6 +32,7 @@ Directory: `docs/impl/ir`
 | IMPL-ALIB06WebDavProvider | ALIB-06 WebDAV File-Server Provider 実装記録 | completed | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
 | IR-alib07-fault-matrix | ALIB-07 Fault Matrix — headless 実装記録（synvelis-library） | completed | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | IR-alib07-import-cancel | ALIB-07 slice 2 — import cancel checkpoint・subprocess crash fixture 実装記録（synvelis-library） | completed | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
+| IMPL-034X9CHvMBdaJaTDZHyjpx | Asset Library 設計契約 実装記録 (synvelis#9) | completed | [asset-library.md](./asset-library.md) |
 | IMPL-AUT01TouchReturnWriterState | AUT-01 Touch Return 150ms Smoothstep・Read/Touch/Latch/Write 境界 State 実装記録 | completed | [aut-01-touch-return-writer-state.md](./aut-01-touch-return-writer-state.md) |
 | IMPL-AUT02RegionReplaceBoundary | AUT-02 Region Replace 境界曲線保存・境界 anchor 実装記録 | completed | [aut-02-region-replace-boundary.md](./aut-02-region-replace-boundary.md) |
 | IMPL-AUT03LoopWriteOnePass | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・境界 flush・明示 Rearm 実装記録 | completed | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |

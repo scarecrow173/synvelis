@@ -15,6 +15,7 @@ Directory: `docs/test-specs`
 | TESTSPEC-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — テスト仕様 | approved | [alib-04-lfs-remote-fetch.md](./alib-04-lfs-remote-fetch.md) |
 | TESTSPEC-alib06 | ALIB-06 WebDAV File-Server Provider — テスト仕様 | approved | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
 | TESTSPEC-alib07 | ALIB-07 Asset Library 全経路 Fault Matrix — テスト仕様・証拠 matrix（headless slice） | approved | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
+| TSPEC-034X9CA5G6nlvnqAHaPPqf | Asset Library LIB-ID/BROWSE/PIN/IMPORT/MIG/CACHE/SEC/QOS 保証仕様 (synvelis#9) | approved | [asset-library.md](./asset-library.md) |
 | TSPEC-034AUT01Hd5jKm8nRt3wXsYq | AUT-01 Touch Return・Writer State 境界 検証仕様 | approved | [aut-01-e2e-touch-return-writer-state.md](./aut-01-e2e-touch-return-writer-state.md) |
 | TSPEC-034AUT02Fh3jDs8mXq5vWk2n | AUT-02 E2E 検証仕様 — Region Replace 境界曲線保存・Reject/Replace 原子的編集 | approved | [aut-02-e2e-region-replace-boundary.md](./aut-02-e2e-region-replace-boundary.md) |
 | TSPEC-034AUT03Zk6mVt4nQr2wXs8 | AUT-03 E2E 検証仕様 — Loop 録音 1 Pass・Write Range 半開区間・境界 flush・明示 Rearm | approved | [aut-03-e2e-loop-write-one-pass.md](./aut-03-e2e-loop-write-one-pass.md) |
