@@ -111,6 +111,11 @@ pub enum GatewayError {
         /// The offending field name.
         field: String,
     },
+    /// Caller authentication failed — a presented credential or
+    /// session did not verify (AUTX-02). Deliberately fieldless: every
+    /// verification failure shares this one blind verdict so a probe
+    /// learns nothing about which sessions or credentials exist.
+    Authentication,
     /// The wire carried an implicit-targeting field (UI selection /
     /// focus / active window) — targets must be explicit (GT-001).
     ImplicitTargetRejected {
@@ -345,7 +350,9 @@ impl GatewayError {
     #[must_use]
     pub const fn category(&self) -> ErrorCategory {
         match self {
-            Self::SelfDeclaredAuthority { .. } => ErrorCategory::Authentication,
+            Self::SelfDeclaredAuthority { .. } | Self::Authentication => {
+                ErrorCategory::Authentication
+            }
             Self::Denied { .. } => ErrorCategory::Authorization,
             Self::ApprovalInvalid { .. } => ErrorCategory::Approval,
             Self::ConsistencyNotAllowed { .. }
@@ -397,7 +404,8 @@ impl GatewayError {
             | Self::ImplicitTargetRejected { .. }
             | Self::DuplicateRequest { .. }
             | Self::CursorInvalid { .. }
-            | Self::NoExecutor { .. } => RetryAdvice::Never,
+            | Self::NoExecutor { .. }
+            | Self::Authentication => RetryAdvice::Never,
             Self::IncompatibleSchema { .. }
             | Self::MalformedRequest { .. }
             | Self::InvalidId { .. }
@@ -467,6 +475,7 @@ impl GatewayError {
             Self::SelfDeclaredAuthority { field } => {
                 format!("self-declared authority is not accepted: {field}")
             }
+            Self::Authentication => "caller authentication failed".to_owned(),
             Self::ImplicitTargetRejected { field } => {
                 format!("implicit targeting is not accepted: {field}")
             }

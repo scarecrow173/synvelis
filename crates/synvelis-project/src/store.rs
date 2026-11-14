@@ -73,7 +73,10 @@ use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::P
 /// New maps are `#[serde(default)]`, so an older body still
 /// deserializes; each version bump records the intentional format
 /// advance. v1–v4 snapshots are not migrated.
-pub const SCHEMA_VERSION: u32 = 13;
+/// v14 adds `Project::variant_sets` (synvelis#278 Creative Branch
+/// variant model) — `#[serde(default)]`, so the v13→v14 step is a
+/// pass-through.
+pub const SCHEMA_VERSION: u32 = 14;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.

@@ -220,7 +220,7 @@ fn beat_diff_f64(a: BeatPoint, b: BeatPoint) -> f64 {
 /// step receives a typed `Project` — this is the reader-side migration
 /// boundary, not a runtime compatibility layer; serialization only
 /// ever writes the new form.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(tag = "owner", content = "id", deny_unknown_fields)]
 pub enum ControlOwner {
     /// Project-global parameter.
