@@ -30,6 +30,7 @@ Directory: `docs/test-specs`
 | TSPEC-Mx7rT2vQ8wN4kP6yB1dF3h | AUTX-06 Workflow Coordinator — Run/Step FSM・journal replay・cancel/resume fault matrix | approved | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | TSPEC-AUTX07GuiViewsHeadless | AUTX-07 GUI views headless test spec（synvelis#266） | approved | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | TSPEC-cb01VariantSetFixtureT | CB-01 Creative Branch variant model/controller fixture tests | approved | [cb-01-variant-set.md](./cb-01-variant-set.md) |
+| TSPEC-cb02AudioClipTakeCompT | CB-02 Audio Clip/Take/Comp 候補 Adapter fixture tests | approved | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |
 | TSPEC-m5UJFsYVE3wcIp2bbhjQ6C | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 検証仕様 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | TSPEC-034RoWXtHq8FkSjQ9NWwqn | Synvelis 独立 CI ワークフロー検証仕様 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | TSPEC-034X9hRV8Ud0Ty0IZllwy5 | Capability / Command Gateway G0-G6 受入照合 検証仕様 (synvelis#46) | approved | [command-gateway-gates.md](./command-gateway-gates.md) |
@@ -101,6 +102,7 @@ Directory: `docs/test-specs`
 | TSPEC-034VmO7ak9xboyiIKIf80v | RCD-04 product E2E test spec | approved | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | TSPEC-034VC3cbBMDP6D1WnhLGlh | RCD-04 RT engine comp PCM test spec | approved | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
 | TSPEC-rcp01RenderRecipeTests | RCP-01 Canonical Render Recipe / typed dependency closure / temporal invalidation fixture tests | approved | [rcp-01-render-recipe.md](./rcp-01-render-recipe.md) |
+| TSPEC-Rcp02ArtifactManifestX | RCP-02 Immutable Artifact Manifest / Verified Publish / CAS GC / shared verification fixture tests | approved | [rcp-02-artifact-manifest.md](./rcp-02-artifact-manifest.md) |
 | TSPEC-034Xf6cGmdSv6ezz0A7JNC | RCP-04 Missing Plugin Resolver・Execution Intent・Safe Plan Reconciliation 検証仕様 (synvelis#293) | approved | [rcp-04-missing-plugin-resolver.md](./rcp-04-missing-plugin-resolver.md) |
 | TSPEC-a6ZCHY6LRL2KeFER0sLwl7 | Recording / Take / Comping — Fixture 契約・受入検証仕様（synvelis#12） | approved | [recording-take-comping.md](./recording-take-comping.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
