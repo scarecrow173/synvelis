@@ -10,6 +10,7 @@ Directory: `docs/adr`
 | ADR-034AUT02Xy4mKp8wQe2sVn7j | AUT-02 境界 Sentinel/Anchor 配置 — merged series 単位の境界復元・host region 選択 | accepted | [aut-02-boundary-sentinel-anchor-placement.md](./aut-02-boundary-sentinel-anchor-placement.md) |
 | ADR-034AUT0312NAA2Mk53Gle5 | AUT-03 Write Range 半開区間の表現 — 境界 flush・coverage_end・Pass fixation | accepted | [aut-03-write-range-boundary-flush-pass-fixation.md](./aut-03-write-range-boundary-flush-pass-fixation.md) |
 | ADR-034AUT04yQRFZlLO2ytJpt | AUT-04 Viewport LOD・有界記録キューの表現 — model 層 LOD 投影・RT SPSC・型付き喪失 provenance | accepted | [aut-04-viewport-lod-bounded-record-queue.md](./aut-04-viewport-lod-bounded-record-queue.md) |
+| ADR-034Xe4SL0Sj3r7V85VOaFO | CB-00 Creative Branch — VariantSet/Scope/Lineage canonical model・単一 Controller CAS Adopt・Compare 3 層・Owner/DAG の決定 (synvelis#277) | proposed | [cb-00-creative-branch.md](./cb-00-creative-branch.md) |
 | ADR-034CTL01Px0vYs6zB2cD3eFg | CTL-01 ControlOwner/AutomationTimeScope 責務分離・Schema v7・Versioned Migration 境界 | accepted | [ctl-01-control-owner-time-scope-schema-v7.md](./ctl-01-control-owner-time-scope-schema-v7.md) |
 | ADR-WLmD48s7O730hUCAvB65qT | CTL-02 adoption 経路 — 非 canonical SendLevel は reject で抑止 | accepted | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
 | ADR-034QAmdUp9fg7PPVCOQtcx | ED-A editing-model placement: synvelis-workspace gesture/tool/snap state machines + synvelis-project batch ops | accepted | [ed-a-editing-model-placement-synvelis-workspace-gesture-tool-snap-state-machines.md](./ed-a-editing-model-placement-synvelis-workspace-gesture-tool-snap-state-machines.md) |
@@ -31,6 +32,7 @@ Directory: `docs/adr`
 | ADR-YRDVKLkFDWrK8LUdnvCroE | PC-C6 oracle — test 内独立参照実装による REL/TR fixture 判定 | accepted | [pc-c6-oracle-rel-tr-headless-fixture.md](./pc-c6-oracle-rel-tr-headless-fixture.md) |
 | ADR-034W1VSWLIzXp3JJ3fPHSJ | PC-C6 TR ledger oracle — 実経路 rig と test 内独立 oracle の併用 | accepted | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
 | ADR-034WxlsHU6WOjsdvvOogdb | PC-C6 TR02/TR06 realpath oracle — 既存 dispatch oracle file への test 追加 | accepted | [pc-c6-tr02-tr06-realpath-oracle.md](./pc-c6-tr02-tr06-realpath-oracle.md) |
+| ADR-NUgXoDaahX19PI6VorpZTM | RCP-00 — Render Recipe・依存閉包・有効性・Branch/Execution/Policy 統合契約の採用 (synvelis#289) | accepted | [rcp-00-render-recipe.md](./rcp-00-render-recipe.md) |
 | ADR-034SF01Ln8qRs3tU0vWxYzBcD | SF-01 Routing Model 配置・Schema v6 Migration・Reserved Well-Known ID | approved | [sf-01-routing-model-schema-v6-migration.md](./sf-01-routing-model-schema-v6-migration.md) |
 | ADR-034SF02Ux8pMn5oR8tY3zAbDe | SF-02 RoutingTransaction 配置・TempRef Staging・channels 永続化・Mute/Solo 権威・汎用検証の再利用 | accepted | [sf-02-routing-transaction-port-channels-mute-solo-authority.md](./sf-02-routing-transaction-port-channels-mute-solo-authority.md) |
 | ADR-034Ux91pIhFgxbsb0xs3y9 | SF-03 世代スコープ証拠の authoritative owner — RoutingEngine receipt + SourceMap に一元化 | accepted | [sf-03-authoritative-owner-routingengine-receipt-sourcemap.md](./sf-03-authoritative-owner-routingengine-receipt-sourcemap.md) |

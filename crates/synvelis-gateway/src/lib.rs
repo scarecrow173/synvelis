@@ -73,6 +73,16 @@
 //! and the trusted-identity binding; transports (the `mcp-poc` stdio
 //! helper + authenticated loopback control channel) live outside it.
 //!
+//! AUTX-02 (Issue #261) adds the trusted local CLI seam and the
+//! headless session host: [`cli::LocalCliAdapter`] is the third
+//! `AdapterSeal` issuer — unattended claims always mint agent-equivalent
+//! delegated callers while verified interactive sessions are the only
+//! local path to `Human` — and [`headless::HeadlessSessionHost`]
+//! composes the gateway, that adapter, and the commit/admin ports
+//! without any GUI dependency. [`request::CallerIdentity::authority_class`]
+//! names the lane every trusted caller arrived through so automated
+//! execution can never be confused with verified human authority.
+//!
 //! # Ownership boundary (GTC-001)
 //!
 //! This crate owns the contract, its validation pipeline, and the
@@ -98,14 +108,17 @@
 //! [`CallerIdentity`] can only be built with an [`AdapterSeal`] minted
 //! inside this crate — wire payloads and external crates cannot forge
 //! a trusted caller. Seal issuance is crate-internal: GW-01's
-//! [`fixture::FixtureAdapter`] (test origin) and GW-08's
+//! [`fixture::FixtureAdapter`] (test origin), GW-08's
 //! [`McpHost`] (external-adapter origin, gated on a verified
-//! connection permit) are the issuers.
+//! connection permit), and AUTX-02's [`cli::LocalCliAdapter`]
+//! (local-CLI origin, gated on a verified session credential or the
+//! always-delegated unattended path) are the issuers.
 
 #![warn(missing_docs)]
 
 pub mod authorization;
 pub mod capability;
+pub mod cli;
 pub mod clock;
 pub mod commit;
 pub mod context;
@@ -115,6 +128,7 @@ pub mod evidence;
 pub mod fixture;
 pub mod gateway;
 pub mod grant;
+pub mod headless;
 pub mod id;
 pub mod job;
 pub mod job_engine;
@@ -152,6 +166,10 @@ pub use capability::{
     DataAccessClass, DataAccessSet, EffectKind, EffectSet, ExecutionContract, OperationDomain,
     PermissionKind, PermissionSet, TargetContract,
 };
+pub use cli::{
+    CLI_ADAPTER_RAW, CLI_SECRET_PREFIX, CliSessionClaim, CliSessionIssue, CliSessionRecord,
+    CliSessionSpec, CliSessionStore, LocalCliAdapter, MemoryCliSessionStore, check_session_kind,
+};
 pub use clock::{ManualClock, PolicyClock, PolicyInstant, SystemClock};
 pub use commit::{
     CommitFence, CommitGate, CommitHooks, CommitOutcome, CommitReceipt, CommitRecord, FenceCtx,
@@ -175,6 +193,7 @@ pub use grant::{
     MoveArgs, OwnerConstraint, PlacementConstraint, PolicyEpoch, ResourceAttributes, ResourceFacts,
     ResourceOracle, ResourceScope, ScopedEffects, Validity,
 };
+pub use headless::HeadlessSessionHost;
 pub use id::{
     AdapterId, ApprovalRef, CommitId, CursorRef, GrantRef, IdempotencyKey, JobRef, MediaRef,
     OperationId, ProactivePermitRef, ProposalRef, RequestId, SelectionViewRef, SnapshotRef,
@@ -222,8 +241,9 @@ pub use proposal_policy::ProposalGate;
 pub use provenance::{EvidenceLevel, GenerationProvenance, ProvenanceField, ProviderClaim};
 pub use registry::{CapabilityOperation, CapabilityRegistry, Registration};
 pub use request::{
-    AdapterSeal, CallerIdentity, Consistency, ConsistencyKind, OperationRequest, OperationTarget,
-    OriginKind, Principal, PrincipalKind, ResourceKind, ResourceRef, TimeDomain, TypedRange,
+    AdapterSeal, CallerClass, CallerIdentity, Consistency, ConsistencyKind, OperationRequest,
+    OperationTarget, OriginKind, Principal, PrincipalKind, ResourceKind, ResourceRef, TimeDomain,
+    TypedRange,
 };
 pub use schedule::{CrashHook, ScheduledFence};
 pub use schema::{FieldSchema, SchemaRef, SchemaRegistry, SchemaVersion, ValueSchema};

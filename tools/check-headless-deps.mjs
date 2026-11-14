@@ -20,6 +20,7 @@ const HEADLESS_CRATES = [
   "synvelis-render",
   "synvelis-workspace",
   "synvelis-gateway",
+  "synvelis-automation",
   "mcp-poc",
 ];
 

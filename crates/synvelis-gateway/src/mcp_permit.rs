@@ -154,7 +154,7 @@ pub trait PermitStore: Send + Sync {
     }
 }
 
-fn sha256_hex(text: &str) -> String {
+pub(crate) fn sha256_hex(text: &str) -> String {
     let digest = Sha256::digest(text.as_bytes());
     let mut out = String::with_capacity(64);
     for byte in digest {
@@ -164,7 +164,7 @@ fn sha256_hex(text: &str) -> String {
     out
 }
 
-fn mint_secret() -> io::Result<String> {
+pub(crate) fn mint_secret(prefix: &str) -> io::Result<String> {
     // 256 bits of OS entropy — the file's `secret_hash` must never be
     // a preimage oracle, so a CSPRNG is required here.
     let mut bytes = [0u8; 32];
@@ -174,7 +174,7 @@ fn mint_secret() -> io::Result<String> {
         use std::fmt::Write as _;
         let _ = write!(hex, "{byte:02x}");
     }
-    Ok(format!("{SECRET_PREFIX}{hex}"))
+    Ok(format!("{prefix}{hex}"))
 }
 
 fn mint_record(spec: &PermitSpec, now: PolicyInstant, seq_hint: u64) -> PermitRecord {
@@ -197,7 +197,7 @@ fn mint_record(spec: &PermitSpec, now: PolicyInstant, seq_hint: u64) -> PermitRe
 
 /// Constant-time hex equality — a `String ==` early-exit leaks
 /// prefix length through timing.
-fn ct_eq(a: &str, b: &str) -> bool {
+pub(crate) fn ct_eq(a: &str, b: &str) -> bool {
     a.len() == b.len()
         && a.bytes()
             .zip(b.bytes())
@@ -270,7 +270,7 @@ impl PermitStore for MemoryPermitStore {
             self.seq = self.seq.saturating_add(1);
             record = mint_record(&spec, now, self.seq);
         }
-        let secret = mint_secret()?;
+        let secret = mint_secret(SECRET_PREFIX)?;
         record.secret_hash = sha256_hex(&secret);
         self.records.insert(record.permit.clone(), record.clone());
         Ok(PermitIssue { record, secret })
@@ -388,7 +388,7 @@ impl PermitStore for FilePermitStore {
             self.seq = self.seq.saturating_add(1);
             record = mint_record(&spec, now, self.seq);
         }
-        let secret = mint_secret()?;
+        let secret = mint_secret(SECRET_PREFIX)?;
         record.secret_hash = sha256_hex(&secret);
         self.records.insert(record.permit.clone(), record.clone());
         self.flush()?;

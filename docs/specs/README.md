@@ -22,6 +22,7 @@ Directory: `docs/specs`
 | SPEC-034RoWOUkW5OezJQSLBWKd | Synvelis 独立 PR/Push CI — Workspace/RT/Recording/Gateway 回帰 Gate | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | SPEC-034X8szMIas9VjSANAwgwa | Capability / Command Gateway v0.3 — 横断整合性・型付き契約・責務境界 設計契約 (synvelis#45) | approved | [command-gateway.md](./command-gateway.md) |
 | SPEC-3Vlcu2H26v4t56Rs4ycO7z | Context Inspector — 情報階層・Follow/Explore/Pinned・Selection/Linked Context・Probe 連携の設計定義（synvelis#5） | approved | [context-inspector.md](./context-inspector.md) |
+| SPEC-034Xe4RFguDtxkqBKi6834 | Creative Branch — 領域横断 Fork/Edit/Compare/Adopt 製作候補の製品契約正本 (synvelis#277 CB-00) | draft | [creative-branch.md](./creative-branch.md) |
 | SPEC-034CTL01Ow9uXr5zA1bC2dEf | CTL-01 ControlOwner / AutomationTimeScope 責務分離・Bus/Strip/Send 型付き Schema 移行 | approved | [ctl-01-control-owner-automation-time-scope-typed-schema.md](./ctl-01-control-owner-automation-time-scope-typed-schema.md) |
 | SPEC-xA6Rt9SOy2hTBVmns3bmV4 | CTL-02 adoption 経路の非 canonical SendLevel persisted 化抑止 | approved | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
 | SPEC-034X9D5Y5qj1ea9V1VLeHF | 標準 DAW 制作ワークフローと Track/Clip/録音/編集の共通操作体系 (Issue #8) | approved | [daw-workflow.md](./daw-workflow.md) |
@@ -82,6 +83,7 @@ Directory: `docs/specs`
 | SPEC-034VmNS87JaOfBSbYwh0pt | RCD-04 Comp Transition / MIDI Phrase / Recovery Review — product E2E (synvelis#118) | proposed | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | SPEC-034VBTXNYEeuSEzbHwk1hv | RCD-04 Comp Transition — RT engine PCM equivalence (synvelis#118) | proposed | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
 | SPEC-QIpUDjWLLusOo4TEiv6CjZ | Recording / Take / Comping — Session・Take・Comp・Raw Writer・Monitor・Recovery・Source Native Frame の基本契約（synvelis#12） | approved | [recording-take-comping.md](./recording-take-comping.md) |
+| SPEC-g52wQZrVCdTt4O37271f7f | Render Checkpoint — Render Recipe・依存閉包・有効性・Branch/Execution/Policy 統合仕様正本 (synvelis#289) | approved | [render-checkpoint.md](./render-checkpoint.md) |
 | SPEC-034SF01Km7pQr2sT9uVwXyZaB | SF-01 Semantic Routing Model — Bus/Send/Processor Chain/Stable Port IDs・Project Schema v6 | approved | [sf-01-semantic-routing-model-bus-send-chain-stable-ports.md](./sf-01-semantic-routing-model-bus-send-chain-stable-ports.md) |
 | SPEC-034SF02Tx9kLm4nQ7rVw2yZaBc | SF-02 DAW Routing Commands — RoutingTransaction/TempRef・Semantic+Generic Validation・Mute/Solo Signal Gate | approved | [sf-02-routing-transaction-commands-semantic-validation.md](./sf-02-routing-transaction-commands-semantic-validation.md) |
 | SPEC-034Ux7RxHxcEmVfIrLzcfM | SF-03 semantic→Ruviform runtime 写像 — 世代証拠・SourceMap・失敗不変条件の統合契約 | approved | [sf-03-map-semantic-runtime-contract.md](./sf-03-map-semantic-runtime-contract.md) |

@@ -1,8 +1,9 @@
 //! Static fixtures for contract testing (Issue #53 AC).
 //!
 //! The contract must be testable while no production operations are
-//! registered. This module provides the only [`AdapterSeal`] issuer in
-//! the crate ([`FixtureAdapter`]), a permission-set evaluator, mock
+//! registered. This module provides a test-origin [`AdapterSeal`]
+//! issuer ([`FixtureAdapter`] — one of three in the crate, beside
+//! `McpHost` and `LocalCliAdapter`), a permission-set evaluator, mock
 //! handlers, and typed fixtures covering all four operation domains:
 //! context query, MIDI mutation, transport, and job.
 //!
@@ -34,9 +35,9 @@ use crate::schema::{FieldSchema, SchemaRef, SchemaVersion, ValueSchema};
 
 /// The in-crate trusted adapter for contract tests.
 ///
-/// Holds the only [`AdapterSeal`] issuance path GW-01 exposes: an
-/// identity vouched by this adapter is trusted *because the crate said
-/// so*, never because a wire payload claimed it.
+/// Holds a test-origin [`AdapterSeal`] issuance path: an identity
+/// vouched by this adapter is trusted *because the crate said so*,
+/// never because a wire payload claimed it.
 #[derive(Debug)]
 pub struct FixtureAdapter {
     seal: AdapterSeal,
