@@ -19,7 +19,6 @@ Directory: `docs/impl/ir`
 | IMPL-sf05s3probeShareWiring01 | SF-05 slice3 probe subscriber/capture dedup の app/UI 配線 | in-progress | [sf-05-slice3-probe-subscriber-wiring-slice.md](./sf-05-slice3-probe-subscriber-wiring-slice.md) |
 | IMPL-034Vzz1zYMrt96iWDBlii8 | SV-GUI-03 slice4: Arrangement row selection → Inspector + Meter/Waveform viz mount | in-progress | [sv-gui-03-04-selection-inspector-viz-slice.md](./sv-gui-03-04-selection-inspector-viz-slice.md) |
 | IMPL-Gh7uIo2pAs5dFg9hJk3lZx | SV-GUI-03 slice5: GPUI-simulated scenario lane(Fake/GPUI parity) | in-progress | [sv-gui-03-05-gpui-scenario.md](./sv-gui-03-05-gpui-scenario.md) |
-| IMPL-034XnRe6ZxDUpnK0Ct3CcF | SV-SCRIPT-04 Script Editor — Analyzer Registry・Luau型診断/補完・driver-neutral ViewSpec 投影 | in-progress | [sv-script-04-script-editor.md](./sv-script-04-script-editor.md) |
 | IMPL-034WZR7KP4DOMwnoStw98I | TIM-01 PPQN config — punch marks re-projection and acceptance residual verification | in-progress | [tim-01-ppqn-config.md](./tim-01-ppqn-config.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
@@ -44,6 +43,7 @@ Directory: `docs/impl/ir`
 | IMPL-AUT04CurveLodRecordBudget | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装記録 | completed | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
 | IMPL-49LTYDUL26uBLtxAQGXxOz | Automation / Modulation 統合 Parameter Control — 実装記録（docs slice・synvelis#6） | completed | [automation-modulation.md](./automation-modulation.md) |
 | IMPL-034Xh5urQ31DNU1IgcvDZX | AUTX-01 Action Catalog（synvelis#260 headless fixture スライス） | completed | [autx-01-action-catalog.md](./autx-01-action-catalog.md) |
+| IMPL-034Xzro5OaEpNBG7MrB3s0 | AUTX-01-F01 has_executor accessor（synvelis#446 headless slice） | completed | [autx-01-f01-has-executor.md](./autx-01-f01-has-executor.md) |
 | IMPL-034Xe6lRNc3atRxDvadhth | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host (synvelis#261) | completed | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
 | IMPL-034XgKVz7slU1QHG15t6tc | AUTX-03 synvelis-cli 独立 Headless 実行ファイル・JSON/Exit Code (synvelis#262) | completed | [autx-03-headless-cli.md](./autx-03-headless-cli.md) |
 | IMPL-034XihWxPpf0evq4eGpxAa | AUTX-04-F01 Composite forward reference sequential validate | completed | [autx-04-f01-composite-forward-ref.md](./autx-04-f01-composite-forward-ref.md) |
@@ -169,6 +169,7 @@ Directory: `docs/impl/ir`
 | IMPL-034XhXMfp77Z0MfGZwZQIF | SV-SCRIPT-01 ScriptApiModel・Runtime Binding/Luau 型定義 Generator | completed | [sv-script-01-script-api-model.md](./sv-script-01-script-api-model.md) |
 | IMPL-034XjAbWQJoR9lTEETMuYS | SV-SCRIPT-02 Luau Action Script定義・Typed Action Recipe・Gateway/Atomic Batch統合 | completed | [sv-script-02-luau-action-script.md](./sv-script-02-luau-action-script.md) |
 | IMPL-034Xl5nZaPjrHyr6UPJ5q4 | SV-SCRIPT-03 YAML/Luau/Rhai Workflow共通Plan化・異種Workflow参照 | completed | [sv-script-03-workflow-plan.md](./sv-script-03-workflow-plan.md) |
+| IMPL-034XnRe6ZxDUpnK0Ct3CcF | SV-SCRIPT-04 Script Editor — Analyzer Registry・Luau型診断/補完・driver-neutral ViewSpec 投影 | completed | [sv-script-04-script-editor.md](./sv-script-04-script-editor.md) |
 | IMPL-SV17501NativeShellBinding | SV175-01 Native App Shell 初期 slice — NativeShell lifecycle + ViewBinding adapter 実装記録 | completed | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | IMPL-034T7IhBoewhoZNaZfjXP1 | SV177 theme/preset implementation record | completed | [sv177-theme-preset-implementation-record.md](./sv177-theme-preset-implementation-record.md) |
 | IMPL-SV18501MixerGainFader | SV185-01 mixer.gain domain projection — master strip Fader bootstrap・v7→v8 migration・Fader 接続 実装記録 | completed | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
