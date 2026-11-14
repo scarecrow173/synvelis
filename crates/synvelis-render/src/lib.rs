@@ -13,6 +13,7 @@
 //! hand-built WAV writer, no processor instance shared with the live
 //! `HeadlessDriver`.
 
+pub mod artifact;
 pub mod dependency;
 pub mod error;
 pub mod export;
