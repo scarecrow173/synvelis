@@ -222,6 +222,17 @@ define_id!(
     /// not a persisted project entity).
     MidiCompRegionId, "midi-comp-region"
 );
+define_id!(
+    /// Identifies a [`crate::variant::VariantSet`] — a group of
+    /// production-candidate branches over one typed scope
+    /// (synvelis#278).
+    VariantSetId, "variant-set"
+);
+define_id!(
+    /// Identifies a [`crate::variant::Branch`] — one versioned
+    /// candidate inside a variant set (synvelis#278).
+    BranchId, "branch"
+);
 
 /// Source of fresh stable-ID raw values. Injected into
 /// [`crate::ProjectController`] so tests are fully deterministic.

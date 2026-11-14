@@ -32,9 +32,9 @@
 //! apply surface, for `Added`/`Modified`), in-place restore,
 //! engine-level application, and real OS/provider E2E (synvelis#97).
 
-mod entity;
+pub(crate) mod entity;
 mod journal;
-mod plan;
+pub(crate) mod plan;
 
 use std::collections::BTreeSet;
 

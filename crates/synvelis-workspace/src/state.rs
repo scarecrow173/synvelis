@@ -19,6 +19,7 @@ use ruviform_ui::dock::ViewInstanceId;
 use serde::{Deserialize, Serialize};
 use synvelis_project::{ClipId, LaneId, ProjectRevision, SourceId, TrackId};
 
+use crate::automation_ui::AutomationViewState;
 use crate::control_edge::ControlEdgeGesture;
 use crate::gesture::Gesture;
 use crate::relation_ui::ControlRelationViewState;
@@ -222,6 +223,16 @@ pub struct ViewState {
     /// (safe recovery) instead of rejecting the snapshot.
     #[serde(default, deserialize_with = "deserialize_control_relation")]
     pub control_relation: Option<ControlRelationViewState>,
+    /// Per-view automation-surface state — Action Palette query /
+    /// selection / frozen captured target, Macro/Workflow/Run Monitor
+    /// selections, and applied catalog/monitor epochs (AUTX-07,
+    /// synvelis#266). `None` for views that never hosted an automation
+    /// surface; absent in older snapshots and defaulted on migrate. A
+    /// malformed persisted payload degrades to `None` (safe recovery)
+    /// instead of rejecting the snapshot. View-local only — it never
+    /// carries project/grant/job truth.
+    #[serde(default, deserialize_with = "deserialize_automation")]
+    pub automation: Option<AutomationViewState>,
     /// Viewport (view-local).
     pub viewport: Viewport,
     /// Project revisions delivered to this view — the observable
@@ -279,6 +290,18 @@ impl ViewStateRegistry {
 /// payload written by a newer schema (unknown fields) is dropped
 /// rather than corrupting the restore.
 fn deserialize_signal_flow<'de, D>(deserializer: D) -> Result<Option<SignalFlowViewState>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value.and_then(|v| serde_json::from_value(v).ok()))
+}
+
+/// Tolerant per-view automation state decode — same safe recovery
+/// contract as [`deserialize_signal_flow`]: a malformed persisted
+/// payload degrades to `None` rather than rejecting the whole
+/// workspace snapshot.
+fn deserialize_automation<'de, D>(deserializer: D) -> Result<Option<AutomationViewState>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

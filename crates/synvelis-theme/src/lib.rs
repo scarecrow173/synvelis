@@ -15,6 +15,7 @@ pub mod adapter;
 pub mod catalog;
 pub mod document;
 pub mod error;
+pub mod status;
 pub mod validate;
 
 pub use adapter::resolve_documents;
@@ -23,6 +24,7 @@ pub use document::{
     ProductMeta, SV_THEME_SCHEMA, ThemeDocument, TokenTree, UpstreamProfile, parse_document,
 };
 pub use error::{ProblemKind, ThemeError, TokenProblem};
+pub use status::StatusTone;
 // Re-export the upstream contract surface the adapter exposes so
 // consumers do not need their own `ruviform-ui-theme` dependency —
 // including the resolved-value types `ResolvedTheme` accessors return.
