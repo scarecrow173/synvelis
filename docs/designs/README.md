@@ -30,6 +30,7 @@ Directory: `docs/designs`
 | DESIGN-034X8sAionwOcsXpKgR0ND | Capability / Command Gateway — GW-01〜10 型付き契約・State Transition・Failure Matrix 設計契約 (synvelis#45) | approved | [command-gateway-design.md](./command-gateway-design.md) |
 | — | Synvelis — Configurable PPQN / Resolution-independent Musical Time | — | [configurable-ppqn-musical-time-architecture.md](./configurable-ppqn-musical-time-architecture.md) |
 | DESIGN-6ClrSXGAyry8iwAqt4t32c | Context Inspector 設計 — Follow/Explore/Pinned 状態機械・TargetKind Provider・情報階層・Probe/編集契約（synvelis#5） | approved | [context-inspector-design.md](./context-inspector-design.md) |
+| DESIGN-034XecqdTFl5brsp93RKYN | Creative Branch 統合設計 — VariantSet/Scope/Lineage・Compare/Adopt・Owner/DAG (synvelis#277 CB-00) | draft | [creative-branch-design.md](./creative-branch-design.md) |
 | DESIGN-034CTL01Qy1wZt7aC3dE4fGh | CTL-01 ControlOwner/AutomationTimeScope 設計 — Schema v7 Migration | approved | [ctl-01-control-owner-time-scope-design.md](./ctl-01-control-owner-time-scope-design.md) |
 | DESIGN-taIsR3SbHTaGKnhYkfth7f | CTL-02 adoption SendLevel canonical spec 強制 設計 | approved | [ctl-02-adopt-sendlevel-design.md](./ctl-02-adopt-sendlevel-design.md) |
 | DESIGN-034X9D6y9KpvdrfOuRveV6 | 標準 DAW 制作ワークフロー UX 正本 — Gate A 代表 Task・Keyboard/Gesture/Tool 操作体系 (Issue #8) | approved | [daw-workflow-design.md](./daw-workflow-design.md) |

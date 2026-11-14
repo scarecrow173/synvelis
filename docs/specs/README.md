@@ -22,6 +22,7 @@ Directory: `docs/specs`
 | SPEC-034RoWOUkW5OezJQSLBWKd | Synvelis 独立 PR/Push CI — Workspace/RT/Recording/Gateway 回帰 Gate | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | SPEC-034X8szMIas9VjSANAwgwa | Capability / Command Gateway v0.3 — 横断整合性・型付き契約・責務境界 設計契約 (synvelis#45) | approved | [command-gateway.md](./command-gateway.md) |
 | SPEC-3Vlcu2H26v4t56Rs4ycO7z | Context Inspector — 情報階層・Follow/Explore/Pinned・Selection/Linked Context・Probe 連携の設計定義（synvelis#5） | approved | [context-inspector.md](./context-inspector.md) |
+| SPEC-034Xe4RFguDtxkqBKi6834 | Creative Branch — 領域横断 Fork/Edit/Compare/Adopt 製作候補の製品契約正本 (synvelis#277 CB-00) | draft | [creative-branch.md](./creative-branch.md) |
 | SPEC-034CTL01Ow9uXr5zA1bC2dEf | CTL-01 ControlOwner / AutomationTimeScope 責務分離・Bus/Strip/Send 型付き Schema 移行 | approved | [ctl-01-control-owner-automation-time-scope-typed-schema.md](./ctl-01-control-owner-automation-time-scope-typed-schema.md) |
 | SPEC-xA6Rt9SOy2hTBVmns3bmV4 | CTL-02 adoption 経路の非 canonical SendLevel persisted 化抑止 | approved | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
 | SPEC-034X9D5Y5qj1ea9V1VLeHF | 標準 DAW 制作ワークフローと Track/Clip/録音/編集の共通操作体系 (Issue #8) | approved | [daw-workflow.md](./daw-workflow.md) |
