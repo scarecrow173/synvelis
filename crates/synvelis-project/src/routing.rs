@@ -161,7 +161,7 @@ impl RoutingModel {
     /// # Errors
     /// [`Error::NotFound`]/[`Error::WrongOwner`]/[`Error::Validation`].
     #[allow(clippy::too_many_lines)] // sequential per-entity checks
-    pub(crate) fn validate(&self, project: &Project) -> Result<(), Error> {
+    pub fn validate(&self, project: &Project) -> Result<(), Error> {
         // Map key == entity id for every map.
         for (key, bus) in &self.buses {
             if *key != bus.id {
