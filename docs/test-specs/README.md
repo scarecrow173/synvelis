@@ -93,6 +93,7 @@ Directory: `docs/test-specs`
 | TSPEC-Ua2lj36FOpxjA8UBWt5nhl | RCD-01 fake port input adapter 検証仕様 | proposed | [rcd-01-input-adapter-fake-port.md](./rcd-01-input-adapter-fake-port.md) |
 | TSPEC-htPhSCIWfZxHOOGdEAyaeK | RCD-01 実Audio Device 到達準備 検証仕様 — stamp placement fallback + real backend lane | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
 | TSPEC-034W91IonN281HbgpyCQ1P | RCD-01 実機 capture coverage 拡張 test-spec | proposed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
+| TSPEC-nb7F26elY2sGZvVr3qyB2r | RCD-02 Blob SHA-256 Digest test-spec | approved | [rcd-02-blob-sha256-digest.md](./rcd-02-blob-sha256-digest.md) |
 | TSPEC-034UrlOOfZIvsdF1bdNXfE | RCD-02 Durability / Recovery Review / Commit Receipt fault matrix | approved | [rcd-02-durability-recovery-review-fault-matrix.md](./rcd-02-durability-recovery-review-fault-matrix.md) |
 | TSPEC-c33JwV8kL5uDnMRO2sV7Be | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe test-spec | approved | [rcd-02-unsynced-loss-real-fs-probe.md](./rcd-02-unsynced-loss-real-fs-probe.md) |
 | TSPEC-034VedrLB13w3phP9Xuh5S | RCD-03 app Arm/Monitoring UX fixture matrix | proposed | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |

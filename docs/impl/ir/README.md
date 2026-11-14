@@ -19,7 +19,6 @@ Directory: `docs/impl/ir`
 | IMPL-sf05s3probeShareWiring01 | SF-05 slice3 probe subscriber/capture dedup の app/UI 配線 | in-progress | [sf-05-slice3-probe-subscriber-wiring-slice.md](./sf-05-slice3-probe-subscriber-wiring-slice.md) |
 | IMPL-034Vzz1zYMrt96iWDBlii8 | SV-GUI-03 slice4: Arrangement row selection → Inspector + Meter/Waveform viz mount | in-progress | [sv-gui-03-04-selection-inspector-viz-slice.md](./sv-gui-03-04-selection-inspector-viz-slice.md) |
 | IMPL-Gh7uIo2pAs5dFg9hJk3lZx | SV-GUI-03 slice5: GPUI-simulated scenario lane(Fake/GPUI parity) | in-progress | [sv-gui-03-05-gpui-scenario.md](./sv-gui-03-05-gpui-scenario.md) |
-| IMPL-034XnRe6ZxDUpnK0Ct3CcF | SV-SCRIPT-04 Script Editor — Analyzer Registry・Luau型診断/補完・driver-neutral ViewSpec 投影 | in-progress | [sv-script-04-script-editor.md](./sv-script-04-script-editor.md) |
 | IMPL-034WZR7KP4DOMwnoStw98I | TIM-01 PPQN config — punch marks re-projection and acceptance residual verification | in-progress | [tim-01-ppqn-config.md](./tim-01-ppqn-config.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
@@ -121,6 +120,7 @@ Directory: `docs/impl/ir`
 | IMPL-034V30Z5uYklMrResgr0lS | RCD-01 実Audio Device録音統合 headless slice — fake port→実StreamWriter fixture + recording state projection | completed | [rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md](./rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md) |
 | IMPL-RCD01rbkSl1cE9mQ2xW | RCD-01 実Audio Device 到達準備 — stamp placement fallback（jitter 許容の累積配置）+ real backend 配線 | completed | [rcd-01-real-backend-readiness-slice.md](./rcd-01-real-backend-readiness-slice.md) |
 | IMPL-034Wfpu0yifoZyGTZUA0pe | RCD-01 実機 lane 拡張 — real-device capture coverage | completed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
+| IMPL-034XA69ntDtCS6oYZ7LgEZ | RCD-02 Blob SHA-256 Promotion | completed | [rcd-02-blob-sha256.md](./rcd-02-blob-sha256.md) |
 | IMPL-034VhZh19UVNoeeFues4Ow | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | completed | [rcd-02-durability-evidence-recovery-review-commit-receipt.md](./rcd-02-durability-evidence-recovery-review-commit-receipt.md) |
 | IMPL-034UMbAviqhaRhIqExdBM3 | RCD-02 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | completed | [rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md](./rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md) |
 | IMPL-034VpDUdGZZKsxaoSMekla | RCD-02 StagedFile Publish Migration | completed | [rcd-02-stagedfile-publish-migration.md](./rcd-02-stagedfile-publish-migration.md) |
@@ -169,6 +169,7 @@ Directory: `docs/impl/ir`
 | IMPL-034XhXMfp77Z0MfGZwZQIF | SV-SCRIPT-01 ScriptApiModel・Runtime Binding/Luau 型定義 Generator | completed | [sv-script-01-script-api-model.md](./sv-script-01-script-api-model.md) |
 | IMPL-034XjAbWQJoR9lTEETMuYS | SV-SCRIPT-02 Luau Action Script定義・Typed Action Recipe・Gateway/Atomic Batch統合 | completed | [sv-script-02-luau-action-script.md](./sv-script-02-luau-action-script.md) |
 | IMPL-034Xl5nZaPjrHyr6UPJ5q4 | SV-SCRIPT-03 YAML/Luau/Rhai Workflow共通Plan化・異種Workflow参照 | completed | [sv-script-03-workflow-plan.md](./sv-script-03-workflow-plan.md) |
+| IMPL-034XnRe6ZxDUpnK0Ct3CcF | SV-SCRIPT-04 Script Editor — Analyzer Registry・Luau型診断/補完・driver-neutral ViewSpec 投影 | completed | [sv-script-04-script-editor.md](./sv-script-04-script-editor.md) |
 | IMPL-SV17501NativeShellBinding | SV175-01 Native App Shell 初期 slice — NativeShell lifecycle + ViewBinding adapter 実装記録 | completed | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | IMPL-034T7IhBoewhoZNaZfjXP1 | SV177 theme/preset implementation record | completed | [sv177-theme-preset-implementation-record.md](./sv177-theme-preset-implementation-record.md) |
 | IMPL-SV18501MixerGainFader | SV185-01 mixer.gain domain projection — master strip Fader bootstrap・v7→v8 migration・Fader 接続 実装記録 | completed | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |

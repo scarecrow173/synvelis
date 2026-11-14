@@ -158,6 +158,7 @@ Directory: `docs/tasks`
 | TASK-2Ri1ehmSIXwfHO79pHYSiU | RCD-02 Task Unsynced-Write Loss Fixture + Real-FS Probe | done | [rcd-02-task-unsynced-loss-real-fs-probe.md](./rcd-02-task-unsynced-loss-real-fs-probe.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | done | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
 | TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |
+| TASK-r2UgyGsdhNOwpsUcfgfvuM | RCD-02 Task4 Blob SHA-256 Promotion | done | [rcd-02-task4-blob-sha256.md](./rcd-02-task4-blob-sha256.md) |
 | TASK-leaTVahsznfck7liCrDtL6 | RCD-03 Task VCS semantic diff monitor 宣言分類 | done | [rcd-03-task-vcs-diff-monitor-classification.md](./rcd-03-task-vcs-diff-monitor-classification.md) |
 | TASK-034VpQe0nP5xQ2wU7vB9xM | RCD-03 Task1 Arm/Monitor/Punch Project 永続投影 | done | [rcd-03-task1-monitor-persistence.md](./rcd-03-task1-monitor-persistence.md) |
 | TASK-034UtpBjTeXJ6XSJAMupsv | RCD-03 Task1 Monitor/Punch/Latency semantics | done | [rcd-03-task1-monitor-punch-latency.md](./rcd-03-task1-monitor-punch-latency.md) |
