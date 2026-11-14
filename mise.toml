@@ -111,6 +111,23 @@ description = "Verify one Cargo package: mise run build <package> [cargo flags] 
 raw_args = true
 run = "cargo build --locked -p"
 
+# AUTX-03 (#262): synvelis-cli headless crate dedicated lanes.
+[tasks.check-cli]
+description = "Headless CLI crate check: cargo check -p synvelis-cli --locked --all-targets"
+run = "cargo check --locked --all-targets -p synvelis-cli"
+
+[tasks.lint-cli]
+description = "Headless CLI crate lint (warnings denied): cargo clippy -p synvelis-cli --all-targets --locked -- -D warnings"
+run = "cargo clippy --locked --all-targets -p synvelis-cli -- -D warnings"
+
+[tasks.test-cli]
+description = "Headless CLI crate tests incl. real-binary e2e: cargo test -p synvelis-cli --locked"
+run = "cargo test --locked -p synvelis-cli"
+
+[tasks.build-cli]
+description = "Build the synvelis-cli binary without GUI deps: cargo build -p synvelis-cli --locked"
+run = "cargo build --locked -p synvelis-cli"
+
 [tasks.check-full]
 description = "Workspace-wide check; dev profile locally, CI Cargo profile when MISE_ENV=ci"
 run = 'cargo check --workspace --all-targets --locked{% if env.MISE_ENV is defined and env.MISE_ENV == "ci" %} --profile ci{% endif %}'
