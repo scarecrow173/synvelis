@@ -127,6 +127,7 @@ Directory: `docs/impl/ir`
 | IMPL-034VDfqOMnbp5s6CThZTBe | RCD-03 VCS semantic diff monitor 宣言分類 slice 実装記録 | completed | [rcd-03-vcs-diff-monitor-classification-slice.md](./rcd-03-vcs-diff-monitor-classification-slice.md) |
 | IMPL-034UvMC7UhiwWgHviB9Qnv | RCD-04 Comp Transition / MIDI Phrase crate fixture slice 実装記録 | completed | [rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md](./rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md) |
 | IMPL-rcp01-render-recipe | RCP-01 Canonical Render Recipe・Typed Dependency Closure・Temporal Invalidation — Headless スライス | completed | [rcp-01-render-recipe.md](./rcp-01-render-recipe.md) |
+| IMPL-rcp02-artifact-manifest | RCP-02 Immutable Artifact Manifest・Verified Publish・CAS参照/GC・共有検証 — Headless スライス | completed | [rcp-02-artifact-manifest.md](./rcp-02-artifact-manifest.md) |
 | IMPL-034Xf6XTMuIwdmzniCRakm | RCP-04 Missing Plugin Subgraph Resolver・Execution Intent・Safe Plan Reconciliation headless slice (synvelis#293) | completed | [rcp-04-missing-plugin-resolver.md](./rcp-04-missing-plugin-resolver.md) |
 | IMPL-C1ZTg7tLJ3bWNVepfbzpSs | Recording / Take / Comping — 文書チェーン・受入 Owner Matrix 実装記録（synvelis#12） | completed | [recording-take-comping.md](./recording-take-comping.md) |
 | IMPL-034SF01Qr3wXmZyAbCdEfGhJ | SF-01 Semantic Routing Model — Bus/Send/Chain/Stable Port IDs・Schema v6 | completed | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
