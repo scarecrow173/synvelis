@@ -775,7 +775,7 @@ fn prepare_input_schema() -> SchemaRef {
 
 /// `[a-z0-9._-]`, 1..=64 — the script-id shape shared with macro ids
 /// and capability ids.
-fn validate_script_id(script_id: &str) -> Result<(), ScriptApiError> {
+pub(crate) fn validate_script_id(script_id: &str) -> Result<(), ScriptApiError> {
     let valid = !script_id.is_empty()
         && script_id.len() <= 64
         && script_id

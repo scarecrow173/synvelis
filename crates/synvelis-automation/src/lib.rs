@@ -32,6 +32,7 @@ pub mod error;
 pub mod eval;
 pub mod expr;
 pub mod frontend;
+pub mod importer;
 pub mod macros;
 pub mod refs;
 pub mod registry;
@@ -42,11 +43,16 @@ pub mod yaml;
 pub use action_recipe::compile_action_recipe;
 pub use compiler::{ExecutablePlan, PlanCompiler, PlanOutput, PlanWarning};
 pub use definition::{DEFINITION_SCHEMA_VERSION, Step, WorkflowDefinition, WorkflowLimits};
-pub use error::{AutomationError, CompileError};
+pub use error::{AutomationError, CompileError, ImportError};
 pub use expr::{Condition, Expr, StepOutputRef};
 pub use frontend::{
     decode_macro_definition, decode_registry_snapshot, decode_workflow_definition,
     parse_macro_yaml, parse_registry_snapshot_yaml, parse_workflow_yaml,
+};
+pub use importer::{
+    FileWorkflowResolver, ImportedWorkflow, ImportedWorkflowPayload, MAX_IMPORT_DEPTH,
+    MapWorkflowResolver, WorkflowResolver, WorkflowSourceKind, compile_script_workflow,
+    compile_workflow_yaml, import_workflow_document, workflow_source_kind,
 };
 pub use macros::{
     AtomicMacroDefinition, COMPILED_MACRO_SCHEMA_VERSION, CompiledMacro, MACRO_SCHEMA_VERSION,

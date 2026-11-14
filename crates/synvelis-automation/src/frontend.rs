@@ -262,7 +262,7 @@ fn lower_macro_step(step: &Value) -> Result<Value, AutomationError> {
     Ok(Value::Object(out))
 }
 
-fn lower_condition(cond: &Value) -> Result<Value, AutomationError> {
+pub(crate) fn lower_condition(cond: &Value) -> Result<Value, AutomationError> {
     let Value::Object(map) = cond else {
         return Ok(cond.clone());
     };
@@ -309,7 +309,7 @@ fn lower_condition(cond: &Value) -> Result<Value, AutomationError> {
 // ---------------------------------------------------------------------------
 
 /// Converts a raw YAML-JSON value into tagged [`Expr`] wire form.
-fn lower_expr(value: &Value) -> Result<Value, AutomationError> {
+pub(crate) fn lower_expr(value: &Value) -> Result<Value, AutomationError> {
     Ok(match value {
         Value::String(s) if s.starts_with('$') => lower_reference(s)?,
         Value::String(s) => expr_literal(&Value::String(s.clone())),
