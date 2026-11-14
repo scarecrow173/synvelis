@@ -26,4 +26,5 @@ Directory: `docs/discovery`
 | DISC-E2h7ArIlocpw5psCMM5ytg | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f 差分調査と API 互換性評価 | resolved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | DISC-Zzd7iQXYxdgVA5gHuoryYx | SV#28 Ruviform pin 更新 — 863a7a9d..cc7d5296 差分調査と API 互換性評価 | resolved | [sv28-ruviform-pin-update.md](./sv28-ruviform-pin-update.md) |
 | DISC-034UvxTvzXCIyCbGIaiTpO | SYN-IO-01 Ruviform 共通 I/O 適合境界 — 現行実装と公開契約の棚卸し | resolved | [syn-io-01-io-boundary-inventory.md](./syn-io-01-io-boundary-inventory.md) |
+| DISC-034XEEHyrtM1jt747O7iQD | variant_sets VCS semantic diff gap — schema v14 persisted variant state invisible to compare_snapshots | resolved | [variant-sets-vcs-diff-gap.md](./variant-sets-vcs-diff-gap.md) |
 | DISC-PXOZ9PhzQFVHOLgu0pAGLo | X Discovery — Recorded Source→Generic Playback/Export integration with Frame/ID/Content integrity | resolved | [x-recorded-verified-source-playback-export-discovery.md](./x-recorded-verified-source-playback-export-discovery.md) |

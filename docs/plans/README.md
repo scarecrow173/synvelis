@@ -162,6 +162,7 @@ Directory: `docs/plans`
 | PLAN-FdgAC8xT08aXjvUlT4GwSz | VCS-06 monitoring-domain matrix — 実装 plan | approved | [vcs-06-monitoring-matrix-plan.md](./vcs-06-monitoring-matrix-plan.md) |
 | PLAN-034WTxvADcuVkmyiazhAKi | VCS-06 real-git/FS fault rows — implementation plan | approved | [vcs-06-real-git-fs-fault-plan.md](./vcs-06-real-git-fs-fault-plan.md) |
 | PLAN-034VpCx6TPoO1WOEqV19u4 | VCS-06 UI headless matrix — 実装 plan | approved | [vcs-06-ui-headless-matrix-plan.md](./vcs-06-ui-headless-matrix-plan.md) |
+| PLAN-034XF3NP50VKOn6YXUrtiE | VCS-06 variant-domain matrix — 実装 plan | approved | [vcs-06-variant-matrix-plan.md](./vcs-06-variant-matrix-plan.md) |
 | PLAN-034QdZoc84FQ9sKQSfLWtn | VS-A Project/Recording Foundation 実装計画 | approved | [vs-a-project-recording-foundation.md](./vs-a-project-recording-foundation.md) |
 | PLAN-kco2O0dSUXmFGIGQYqpxrx | VS-B Clock / Gate Scheduler / RT Capture 実装計画 | approved | [vs-b-clock-gate-rt-capture.md](./vs-b-clock-gate-rt-capture.md) |
 | PLAN-034QfNV0kVj6j2cR8sXyLqWm | VS-C Staging Writer / Journal / Crash Recovery 実装計画 | approved | [vs-c-staging-writer-journal-crash-recovery.md](./vs-c-staging-writer-journal-crash-recovery.md) |
