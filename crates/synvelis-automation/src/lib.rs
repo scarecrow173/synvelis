@@ -1,33 +1,40 @@
-//! `synvelis-automation` — versioned workflow DSL and plan compiler
-//! (AUTX-05 / synvelis#264, AUTX-04 / synvelis#263).
+//! `synvelis-automation` — versioned workflow DSL, plan compiler, and
+//! headless run coordinator (AUTX-05 / synvelis#264, AUTX-04 / synvelis#263,
+//! AUTX-06 / synvelis#265).
 //!
-//! This crate owns the *definition → plan* boundary only:
+//! This crate owns two boundaries:
 //!
-//! - [`parse_workflow_yaml`] — restricted YAML safe-subset frontend.
-//! - [`WorkflowDefinition`] — the source-agnostic typed AST that YAML
-//!   (here) and Luau/Rhai builders (synvelis#273) both lower into.
-//! - [`PlanCompiler`] — validates definitions against typed inputs and
-//!   a serialized [`RegistrySnapshot`], producing an [`ExecutablePlan`]
-//!   with deterministic digests, step order, and static budgets.
-//! - [`AtomicMacroDefinition`] / [`MacroCompiler`] — versioned atomic
-//!   macro recipes compiled to the flat `synvelis.operation.batch`
-//!   member list (AUTX-04); execution still flows through the existing
-//!   GW-04/05/06 path.
+//! - *Definition → plan*: [`parse_workflow_yaml`] restricted YAML
+//!   frontend, the source-agnostic [`WorkflowDefinition`] AST that
+//!   YAML (here) and Luau/Rhai builders (synvelis#273) both lower into,
+//!   and [`PlanCompiler`] producing an [`ExecutablePlan`] with
+//!   deterministic digests, step order, and static budgets.
+//!   [`AtomicMacroDefinition`] / [`MacroCompiler`] compile versioned
+//!   atomic macro recipes to the flat `synvelis.operation.batch`
+//!   member list (AUTX-04).
+//! - *Run → journal*: [`run`] owns the WorkflowRun/Step FSM, the
+//!   append-only run journal, and the resume cursor; [`coordinator`]
+//!   drives a plan occurrence-by-occurrence over the [`StepLane`] /
+//!   [`JobLane`] authority seams — progress state only, never a second
+//!   source of truth for Job/Project/Grant/Approval domains.
 //!
-//! Out of scope (owned elsewhere): runtime execution/coordinator FSM
-//! (#265), script builders/importers (#273), live Gateway descriptor
-//! reads (integration slice), arbitrary script/shell/eval — none of
+//! Out of scope (owned elsewhere): live Gateway descriptor reads and
+//! real job/provider binding (integration slice), script
+//! builders/importers (#273), arbitrary script/shell/eval — none of
 //! which can be expressed here.
 
 pub mod canon;
 pub mod compiler;
+pub mod coordinator;
 pub mod definition;
 pub mod error;
+pub mod eval;
 pub mod expr;
 pub mod frontend;
 pub mod macros;
 pub mod refs;
 pub mod registry;
+pub mod run;
 pub mod schema;
 pub mod yaml;
 

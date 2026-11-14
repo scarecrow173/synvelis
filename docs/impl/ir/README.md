@@ -8,6 +8,7 @@ Directory: `docs/impl/ir`
 | --- | --- | --- | --- |
 | IMPL-034XgQ1qM5AZJvhmAnHddj | AUTX-04 Atomic Macro v1 recipe compiler and ID resolution | in-progress | [autx-04-atomic-macro.md](./autx-04-atomic-macro.md) |
 | IMPL-034Xe5swowhuVJIrpCp969 | AUTX-05 Workflow DSL v1 — typed definition and plan compiler | in-progress | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
+| IMPL-034XiNO9SadjRbTGExtQtw | AUTX-06 Workflow Coordinator — Run/Step FSM・Journal・Resume・JobPort fixture | in-progress | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | IMPL-034WEVyS44eEOELiBCYBIG | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice 実装記録 | in-progress | [rcd-04-midi-undo-stableid-slice.md](./rcd-04-midi-undo-stableid-slice.md) |
 | IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](./rcd-04-product-e2e-slice.md) |
 | IMPL-034VC2V5HUrkERcXqw246v | RCD-04 RT engine comp PCM slice 実装記録 | in-progress | [rcd-04-rt-engine-comp-pcm-slice.md](./rcd-04-rt-engine-comp-pcm-slice.md) |
@@ -43,6 +44,7 @@ Directory: `docs/impl/ir`
 | IMPL-034Xh5urQ31DNU1IgcvDZX | AUTX-01 Action Catalog（synvelis#260 headless fixture スライス） | completed | [autx-01-action-catalog.md](./autx-01-action-catalog.md) |
 | IMPL-034Xe6lRNc3atRxDvadhth | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host (synvelis#261) | completed | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
 | IMPL-034XgKVz7slU1QHG15t6tc | AUTX-03 synvelis-cli 独立 Headless 実行ファイル・JSON/Exit Code (synvelis#262) | completed | [autx-03-headless-cli.md](./autx-03-headless-cli.md) |
+| IMPL-034XihWxPpf0evq4eGpxAa | AUTX-04-F01 Composite forward reference sequential validate | completed | [autx-04-f01-composite-forward-ref.md](./autx-04-f01-composite-forward-ref.md) |
 | IMPL-AUTX07GuiViews | AUTX-07 GPUI Action Palette・Macro/Workflow 製品 View・承認/実行状態 UI（headless-first slice、synvelis#266） | completed | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | IMPL-cb01-variant-set | CB-01 VariantSet/Scope/Lineage・ProjectController Fork/Edit/Adopt/Undo・永続Schema — Headless スライス | completed | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
@@ -156,6 +158,7 @@ Directory: `docs/impl/ir`
 | IMPL-034UrlNf4hC31G8gfjoR8y | SV-GUI-04 slice2 close-veto/cancel — syn.window.close_guard + 末尾 window veto | completed | [sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md](./sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md) |
 | IMPL-034UtkIqlxoLTf7Dvq5vMZ | SV-GUI-04 slice2 dock transfer — workspace adoption + syn.window.dock_* GUI op 配線 | completed | [sv-gui-04-slice2-dock-transfer-workspace-adoption-syn-window-dock-gui-op.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption-syn-window-dock-gui-op.md) |
 | IMPL-034XaE8xDAN85GPhpcnHbe | SV-GUI-05 real OS E2E case definition freeze and acceptance ledger (synvelis#114) | completed | [sv-gui-05-real-os-e2e.md](./sv-gui-05-real-os-e2e.md) |
+| IMPL-034XhXMfp77Z0MfGZwZQIF | SV-SCRIPT-01 ScriptApiModel・Runtime Binding/Luau 型定義 Generator | completed | [sv-script-01-script-api-model.md](./sv-script-01-script-api-model.md) |
 | IMPL-SV17501NativeShellBinding | SV175-01 Native App Shell 初期 slice — NativeShell lifecycle + ViewBinding adapter 実装記録 | completed | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | IMPL-034T7IhBoewhoZNaZfjXP1 | SV177 theme/preset implementation record | completed | [sv177-theme-preset-implementation-record.md](./sv177-theme-preset-implementation-record.md) |
 | IMPL-SV18501MixerGainFader | SV185-01 mixer.gain domain projection — master strip Fader bootstrap・v7→v8 migration・Fader 接続 実装記録 | completed | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |

@@ -1,0 +1,791 @@
+{
+  "schema_version": 1,
+  "capabilities": [
+    {
+      "id": "synvelis.batch.move",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "domain": "project-mutation",
+      "input_schema": {
+        "name": "batch.move.input",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "output_schema": {
+        "name": "batch.move.output",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "target": {
+        "shape": "resource-set",
+        "kind": "clip"
+      },
+      "effect_bound": [
+        "read",
+        "write",
+        "create"
+      ],
+      "required_permissions": [
+        "mutate-project"
+      ],
+      "data_access": [
+        "metadata-read",
+        "structured-content-read"
+      ],
+      "execution": "sync",
+      "availability": {
+        "state": "available"
+      }
+    },
+    {
+      "id": "synvelis.clip.create",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "domain": "project-mutation",
+      "input_schema": {
+        "name": "clip.create.input",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "output_schema": {
+        "name": "clip.create.output",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "target": {
+        "shape": "create",
+        "parent": "track",
+        "creates": "clip"
+      },
+      "effect_bound": [
+        "read",
+        "write",
+        "create"
+      ],
+      "required_permissions": [
+        "mutate-project"
+      ],
+      "data_access": [
+        "metadata-read",
+        "structured-content-read"
+      ],
+      "execution": "sync",
+      "availability": {
+        "state": "available"
+      }
+    },
+    {
+      "id": "synvelis.clip.split",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "domain": "project-mutation",
+      "input_schema": {
+        "name": "clip.split.input",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "output_schema": {
+        "name": "clip.split.output",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "target": {
+        "shape": "resource",
+        "kind": "clip"
+      },
+      "effect_bound": [
+        "read",
+        "write",
+        "create"
+      ],
+      "required_permissions": [
+        "mutate-project"
+      ],
+      "data_access": [
+        "metadata-read",
+        "structured-content-read"
+      ],
+      "execution": "sync",
+      "availability": {
+        "state": "available"
+      }
+    },
+    {
+      "id": "synvelis.future.thing",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "domain": "query",
+      "input_schema": {
+        "name": "query.track-info.input",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "output_schema": {
+        "name": "query.track-info.output",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "target": {
+        "shape": "none"
+      },
+      "effect_bound": [
+        "read"
+      ],
+      "required_permissions": [
+        "read-context"
+      ],
+      "data_access": [
+        "metadata-read"
+      ],
+      "execution": "sync",
+      "availability": {
+        "state": "planned"
+      }
+    },
+    {
+      "id": "synvelis.legacy.thing",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "domain": "query",
+      "input_schema": {
+        "name": "query.track-info.input",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "output_schema": {
+        "name": "query.track-info.output",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "target": {
+        "shape": "none"
+      },
+      "effect_bound": [
+        "read"
+      ],
+      "required_permissions": [
+        "read-context"
+      ],
+      "data_access": [
+        "metadata-read"
+      ],
+      "execution": "sync",
+      "availability": {
+        "state": "disabled",
+        "reason": "superseded by synvelis.query.track-info"
+      }
+    },
+    {
+      "id": "synvelis.midi.add-note",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "domain": "project-mutation",
+      "input_schema": {
+        "name": "midi.add-note.input",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "output_schema": {
+        "name": "midi.add-note.output",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "target": {
+        "shape": "resource",
+        "kind": "track"
+      },
+      "effect_bound": [
+        "read",
+        "write",
+        "create"
+      ],
+      "required_permissions": [
+        "mutate-project"
+      ],
+      "data_access": [
+        "metadata-read",
+        "structured-content-read"
+      ],
+      "execution": "sync",
+      "availability": {
+        "state": "available"
+      }
+    },
+    {
+      "id": "synvelis.old.thing",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "domain": "query",
+      "input_schema": {
+        "name": "query.track-info.input",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "output_schema": {
+        "name": "query.track-info.output",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "target": {
+        "shape": "none"
+      },
+      "effect_bound": [
+        "read"
+      ],
+      "required_permissions": [
+        "read-context"
+      ],
+      "data_access": [
+        "metadata-read"
+      ],
+      "execution": "sync",
+      "availability": {
+        "state": "retired"
+      }
+    },
+    {
+      "id": "synvelis.query.track-info",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "domain": "query",
+      "input_schema": {
+        "name": "query.track-info.input",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "output_schema": {
+        "name": "query.track-info.output",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "target": {
+        "shape": "resource",
+        "kind": "track"
+      },
+      "effect_bound": [
+        "read"
+      ],
+      "required_permissions": [
+        "read-context"
+      ],
+      "data_access": [
+        "metadata-read"
+      ],
+      "execution": "sync",
+      "availability": {
+        "state": "available"
+      }
+    },
+    {
+      "id": "synvelis.transport.play",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "domain": "runtime-control",
+      "input_schema": {
+        "name": "transport.play.input",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "output_schema": {
+        "name": "transport.play.output",
+        "version": {
+          "major": 1,
+          "minor": 0
+        }
+      },
+      "target": {
+        "shape": "none"
+      },
+      "effect_bound": [
+        "external-action"
+      ],
+      "required_permissions": [
+        "control-transport"
+      ],
+      "data_access": [],
+      "execution": "sync",
+      "availability": {
+        "state": "available"
+      }
+    }
+  ],
+  "schemas": [
+    {
+      "name": "batch.move.input",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "schema": {
+        "object": {
+          "fields": {
+            "delta": {
+              "schema": {
+                "integer": {
+                  "min": null,
+                  "max": null
+                }
+              },
+              "required": true
+            }
+          },
+          "deny_unknown": true
+        }
+      }
+    },
+    {
+      "name": "batch.move.output",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "schema": {
+        "object": {
+          "fields": {
+            "moved": {
+              "schema": {
+                "integer": {
+                  "min": null,
+                  "max": null
+                }
+              },
+              "required": true
+            }
+          },
+          "deny_unknown": false
+        }
+      }
+    },
+    {
+      "name": "clip.create.input",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "schema": {
+        "object": {
+          "fields": {
+            "name": {
+              "schema": {
+                "string": {
+                  "max_len": null
+                }
+              },
+              "required": true
+            },
+            "start": {
+              "schema": {
+                "time-range": {
+                  "domain": "media"
+                }
+              },
+              "required": true
+            }
+          },
+          "deny_unknown": true
+        }
+      }
+    },
+    {
+      "name": "clip.create.output",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "schema": {
+        "id": {
+          "kind": "clip"
+        }
+      }
+    },
+    {
+      "name": "clip.split.input",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "schema": {
+        "object": {
+          "fields": {
+            "at": {
+              "schema": {
+                "time-range": {
+                  "domain": "project-musical"
+                }
+              },
+              "required": true
+            },
+            "mode": {
+              "schema": {
+                "enum": {
+                  "values": [
+                    "copy",
+                    "move"
+                  ]
+                }
+              },
+              "required": true
+            }
+          },
+          "deny_unknown": true
+        }
+      }
+    },
+    {
+      "name": "clip.split.output",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "schema": {
+        "object": {
+          "fields": {
+            "clips": {
+              "schema": {
+                "array": {
+                  "item": {
+                    "id": {
+                      "kind": "clip"
+                    }
+                  },
+                  "max_len": null
+                }
+              },
+              "required": true
+            }
+          },
+          "deny_unknown": false
+        }
+      }
+    },
+    {
+      "name": "midi.add-note.input",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "schema": {
+        "object": {
+          "fields": {
+            "channel": {
+              "schema": {
+                "integer": {
+                  "min": 0,
+                  "max": 15
+                }
+              },
+              "required": false
+            },
+            "curve": {
+              "schema": {
+                "enum": {
+                  "values": [
+                    "linear",
+                    "exp",
+                    "log"
+                  ]
+                }
+              },
+              "required": true
+            },
+            "gain_db": {
+              "schema": {
+                "optional": "number"
+              },
+              "required": true
+            },
+            "macro": {
+              "schema": {
+                "optional": {
+                  "integer": {
+                    "min": 0,
+                    "max": 127
+                  }
+                }
+              },
+              "required": false
+            },
+            "meta": {
+              "schema": {
+                "object": {
+                  "fields": {
+                    "inner": {
+                      "schema": "bool",
+                      "required": true
+                    },
+                    "label": {
+                      "schema": {
+                        "string": {
+                          "max_len": 32
+                        }
+                      },
+                      "required": false
+                    }
+                  },
+                  "deny_unknown": true
+                }
+              },
+              "required": false
+            },
+            "owner": {
+              "schema": {
+                "id": {
+                  "kind": "track"
+                }
+              },
+              "required": false
+            },
+            "pitch": {
+              "schema": {
+                "integer": {
+                  "min": 0,
+                  "max": 127
+                }
+              },
+              "required": true
+            },
+            "position": {
+              "schema": {
+                "time-range": {
+                  "domain": "project-musical"
+                }
+              },
+              "required": true
+            },
+            "sample_hint": {
+              "schema": {
+                "integer": {
+                  "min": null,
+                  "max": null
+                }
+              },
+              "required": false
+            },
+            "tags": {
+              "schema": {
+                "array": {
+                  "item": {
+                    "string": {
+                      "max_len": 64
+                    }
+                  },
+                  "max_len": 8
+                }
+              },
+              "required": false
+            },
+            "velocity": {
+              "schema": {
+                "integer": {
+                  "min": 1,
+                  "max": 127
+                }
+              },
+              "required": false
+            }
+          },
+          "deny_unknown": true
+        }
+      }
+    },
+    {
+      "name": "midi.add-note.output",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "schema": {
+        "object": {
+          "fields": {
+            "accepted": {
+              "schema": "bool",
+              "required": true
+            },
+            "note_id": {
+              "schema": {
+                "id": {
+                  "kind": "note"
+                }
+              },
+              "required": true
+            }
+          },
+          "deny_unknown": false
+        }
+      }
+    },
+    {
+      "name": "query.track-info.input",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "schema": {
+        "object": {
+          "fields": {},
+          "deny_unknown": true
+        }
+      }
+    },
+    {
+      "name": "query.track-info.output",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "schema": {
+        "object": {
+          "fields": {
+            "duration": {
+              "schema": {
+                "time-range": {
+                  "domain": "media"
+                }
+              },
+              "required": true
+            },
+            "flags": {
+              "schema": {
+                "enum": {
+                  "values": [
+                    "clean",
+                    "dirty"
+                  ]
+                }
+              },
+              "required": true
+            },
+            "name": {
+              "schema": {
+                "string": {
+                  "max_len": 256
+                }
+              },
+              "required": true
+            },
+            "notes": {
+              "schema": {
+                "array": {
+                  "item": {
+                    "object": {
+                      "fields": {
+                        "pitch": {
+                          "schema": {
+                            "integer": {
+                              "min": 0,
+                              "max": 127
+                            }
+                          },
+                          "required": true
+                        },
+                        "start": {
+                          "schema": {
+                            "integer": {
+                              "min": null,
+                              "max": null
+                            }
+                          },
+                          "required": true
+                        }
+                      },
+                      "deny_unknown": true
+                    }
+                  },
+                  "max_len": null
+                }
+              },
+              "required": false
+            },
+            "peak": {
+              "schema": "number",
+              "required": false
+            },
+            "sample_count": {
+              "schema": {
+                "integer": {
+                  "min": null,
+                  "max": null
+                }
+              },
+              "required": false
+            }
+          },
+          "deny_unknown": true
+        }
+      }
+    },
+    {
+      "name": "transport.play.input",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "schema": {
+        "object": {
+          "fields": {},
+          "deny_unknown": true
+        }
+      }
+    },
+    {
+      "name": "transport.play.output",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "schema": "bool"
+    }
+  ]
+}
