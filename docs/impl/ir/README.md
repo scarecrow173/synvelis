@@ -40,6 +40,7 @@ Directory: `docs/impl/ir`
 | IMPL-AUT04CurveLodRecordBudget | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装記録 | completed | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
 | IMPL-49LTYDUL26uBLtxAQGXxOz | Automation / Modulation 統合 Parameter Control — 実装記録（docs slice・synvelis#6） | completed | [automation-modulation.md](./automation-modulation.md) |
 | IMPL-034Xe6lRNc3atRxDvadhth | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host (synvelis#261) | completed | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
+| IMPL-AUTX07GuiViews | AUTX-07 GPUI Action Palette・Macro/Workflow 製品 View・承認/実行状態 UI（headless-first slice、synvelis#266） | completed | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | IMPL-cb01-variant-set | CB-01 VariantSet/Scope/Lineage・ProjectController Fork/Edit/Adopt/Undo・永続Schema — Headless スライス | completed | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
 | IMPL-034X9hYuHSZsRHijApPhOw | Capability / Command Gateway G0-G6 受入照合・証拠台帳 実装記録 (synvelis#46) | completed | [command-gateway-gates.md](./command-gateway-gates.md) |
