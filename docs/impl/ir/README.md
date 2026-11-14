@@ -40,6 +40,7 @@ Directory: `docs/impl/ir`
 | IMPL-AUT03LoopWriteOnePass | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・境界 flush・明示 Rearm 実装記録 | completed | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |
 | IMPL-AUT04CurveLodRecordBudget | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装記録 | completed | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
 | IMPL-49LTYDUL26uBLtxAQGXxOz | Automation / Modulation 統合 Parameter Control — 実装記録（docs slice・synvelis#6） | completed | [automation-modulation.md](./automation-modulation.md) |
+| IMPL-034Xh5urQ31DNU1IgcvDZX | AUTX-01 Action Catalog（synvelis#260 headless fixture スライス） | completed | [autx-01-action-catalog.md](./autx-01-action-catalog.md) |
 | IMPL-034Xe6lRNc3atRxDvadhth | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host (synvelis#261) | completed | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
 | IMPL-034XgKVz7slU1QHG15t6tc | AUTX-03 synvelis-cli 独立 Headless 実行ファイル・JSON/Exit Code (synvelis#262) | completed | [autx-03-headless-cli.md](./autx-03-headless-cli.md) |
 | IMPL-AUTX07GuiViews | AUTX-07 GPUI Action Palette・Macro/Workflow 製品 View・承認/実行状態 UI（headless-first slice、synvelis#266） | completed | [autx-07-gui-views.md](./autx-07-gui-views.md) |

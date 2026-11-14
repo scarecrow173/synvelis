@@ -14,6 +14,7 @@
 //! is provided for tests), so no OS window, webview, GPU or IME is
 //! touched.
 
+pub mod action_catalog;
 pub mod arrangement_ui;
 pub mod automation_ui;
 pub mod command;
@@ -45,6 +46,10 @@ pub mod view;
 pub mod viz_ui;
 pub mod workspace;
 
+pub use action_catalog::{
+    ActionCatalog, ActionCatalogError, ActionEntry, ActionFilter, ActionPresentation, ActionStatus,
+    ExecutorState, SchemaConsistency, VisibilityHint,
+};
 pub use arrangement_ui::{ArrangementRow, arrangement_rows};
 pub use automation_ui::{
     ActionCatalogView, ActionRow, AutomationUiError, AutomationViewAction, AutomationViewState,
