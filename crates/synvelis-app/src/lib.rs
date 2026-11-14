@@ -36,6 +36,7 @@
 pub mod app;
 #[cfg(feature = "webview")]
 pub mod assets;
+pub mod automation;
 pub mod binding;
 pub mod composition;
 pub mod engine;
@@ -51,6 +52,14 @@ pub mod shell;
 pub mod ui_ops;
 
 pub use app::{AudioRuntimeSlot, ObservabilityOwner, RecorderSlot, SynvelisApp};
+pub use automation::{
+    AUTX_ACTION_TARGET, AUTX_MACRO_TARGET, AUTX_PALETTE_TARGET, AUTX_RUN_TARGET,
+    AUTX_WORKFLOW_TARGET, ActionPaletteScreenState, AutomationCommand, MacroBrowserScreenState,
+    RunMonitorScreenState, WorkflowEditorScreenState, action_palette_screen_spec,
+    decode_automation_command, macro_browser_screen_spec, mount_action_palette_view,
+    mount_macro_browser_view, mount_run_monitor_view, mount_workflow_editor_view,
+    palette_categories, run_monitor_screen_spec, workflow_editor_screen_spec,
+};
 pub use binding::{BindingNotice, ProjectionRow, ViewBinding};
 pub use composition::{ProductPlugin, compose_routing_engine};
 pub use engine::{SessionEngineConfig, SessionEngineError, SessionRoutingEngine};
