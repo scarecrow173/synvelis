@@ -108,6 +108,7 @@ Directory: `docs/specs`
 | SPEC-kX9mQvR2wTbLpNcJyH4sDf | SF-05 slice3 Signal Flow — probe subscriber/capture dedup の app/UI 配線（SF-UX-06 headless 側） | approved | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
 | SPEC-034V2wnQPWFJdKz68KlwJG | SF-06 cross-gate Domain Oracle・Case ID・Fault Fixture・evidence ledger（headless slice） | approved | [sf-06-cross-gate-oracle-case-ledger.md](./sf-06-cross-gate-oracle-case-ledger.md) |
 | SPEC-JQYNMchouBVGrijHyiBC2d | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture（headless slice） | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
+| SPEC-034X9BMCsZFv8cyn2cAg8d | Signal Flow 設計正本 — 階層・Typed Port/Connection・Semantic Routing・Probe 表示/編集・SourceMap/Configured/Observed 受入仕様 | draft | [signal-flow-design.md](./signal-flow-design.md) |
 | SPEC-034X5xBtwHRKs4lePhNM05 | Issue #84 DirectoryBundleStore Snapshot/HEAD Ruviform StagedFile 移行 | approved | [stagedfile-migration.md](./stagedfile-migration.md) |
 | SPEC-Zu5lKLwb3CUPWZGbvKMdCI | Issue #245 verify (windows-latest) webdav MockServer TransientIo flake — accept 済みソケットの blocking 正規化 | proposed | [sv-ci-webdav-transient-io-flake.md](./sv-ci-webdav-transient-io-flake.md) |
 | SPEC-ZXEWFEbx3k4Jeu4YDEQcD0 | SV-GPUI-01 Native App Shell — Driver-neutral shell・GPUI Driver組立・typed ViewModel↔Binding adapter・app lifecycle | approved | [sv-gpui-01-native-app-shell.md](./sv-gpui-01-native-app-shell.md) |
