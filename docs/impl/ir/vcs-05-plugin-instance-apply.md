@@ -301,6 +301,37 @@ rust 1.99.0 pinned、`git merge origin/main` で `f12aa66` 取り込み
 vcs06_plugin_instance_matrix` — 9 tests all Pass（apply 8 +
 restore-as-copy verbatim 1 を含む）。
 
+review-protocol（worker 契約に基づく承認代替）: 実施 1 回。
+Reviewer A（spec 適合）/ Reviewer B（敵対的正当性）の分離 pass →
+Validator → Judge の順で実施。確認済み指摘・検証結果:
+
+- CONFIRMED P0/P1 なし。
+- 検証済みの主要不変条件: `Processor` write が
+  `plugin_instances.sync_processor` を呼ぶため、Processor +
+  PluginInstance 同時 selection では write 順に依らず最終状態が
+  after の verbatim identity に収束すること（sync は binding
+  一致時に既存 id を保持、PluginInstance write が後続なら
+  after 値で上書き）。`protected_fields(PluginInstance)` は
+  `&[]` で payload は verbatim `PluginInstanceIdentity` JSON。
+  `payload_for` は after 側 entry 不在を `Source` error で
+  fail-closed。watermark は `max(live, after)` で単調かつ
+  `id < watermark` 不変条件を維持（after id < after wm ≤
+  reseeded wm）。crafted `Modified` intent は diff 非生成だが
+  plan 受理後も write は同一 transplant で oracle が最終権威。
+- REJECTED: 「Processor change を伴わない `PluginInstance`
+  `Added`（既存 resolved processor への entry 後付け）が未
+  test」→ 有効な live state では resolved processor は必ず
+  entry を持つ（`validate_against`）ため、単独 `Added` は
+  pre-v13 不正状態でのみ到達可能。実際の `Added` は必ず
+  Processor `Added`/`Modified` と同梱され、その経路は
+  rebind test で固定済み。
+- P3（non-blocking）: doc-status lint の `invalid-id-format`・
+  `traceability-missing-upstream`・`test-spec-missing-verifies`
+  等は先行 slice（vcs-05-monitoring-apply-surface、merge 済）
+  と同一の repo-wide 既知 finding であり、本 slice の新規
+  defect ではない（slug ID 規約は slice 間で一貫）。
+- 残 blocker なし — verdict ACCEPT WITH NON-BLOCKING NOTES。
+
 ## Risks
 
 - `Removed` change は全 kind で `Unsupported` のまま —
