@@ -36,6 +36,10 @@ export type OpName =
   | "syn.viz.register"
   | "syn.viz.push_frame"
   | "syn.viz.source_changed"
+  | "syn.signal_flow.view"
+  | "syn.signal_flow.visual"
+  | "syn.signal_flow.inspection"
+  | "syn.signal_flow.routing"
   | "syn.probe.control"
   | "syn.probe.state"
   | "syn.probe.compare";

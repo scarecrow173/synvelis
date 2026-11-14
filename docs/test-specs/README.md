@@ -140,6 +140,7 @@ Directory: `docs/test-specs`
 | TSPEC-034UuhtnvPrY3vXkkcgAXI | SF-05 slice1 テスト仕様 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | TSPEC-jFtg0s5kOhAShEhr9GuU2J | SF-05 slice2 テスト仕様 — Signal Flow gesture/inspection/persist | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | TSPEC-pL4cVbNmQwErTyUiOpAsDf | SF-05 slice3 テスト仕様 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
+| TSPEC-uivmVbNmQwErTyUiOpAsDf | SF-05 ui/ slice テスト仕様 — Signal Flow・Probe headless view-model | approved | [sf-05-ui-viewmodel.md](./sf-05-ui-viewmodel.md) |
 | TSPEC-034V2wDAU9rjXjn7UX79qG | SF-06 cross-gate テスト仕様 — headless oracle・fault・migration | approved | [sf-06-cross-gate-oracle.md](./sf-06-cross-gate-oracle.md) |
 | TSPEC-g7v0galTaViQdO2RpCak1D | SF-06 cross-gate テスト仕様 — headless fixture 被覆棚卸し・PCM oracle (synvelis#109) | approved | [sf06-cross-gate.md](./sf06-cross-gate.md) |
 | TSPEC-58bMtNin4rGl51xvg20P4n | SF-XR-01 検証仕様 — CTL-01/CTL-02 cross-gate oracle fixture | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
