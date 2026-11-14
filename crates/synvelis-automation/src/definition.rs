@@ -364,7 +364,7 @@ fn validate_condition(cond: &Condition) -> Result<(), AutomationError> {
 
 /// `[a-z0-9._-]`, 1..=[`MAX_NAME_LEN`], first char alphabetic —
 /// mirrors the capability-id shape used across the gateway contract.
-fn validate_workflow_id(id: &str) -> Result<(), AutomationError> {
+pub(crate) fn validate_workflow_id(id: &str) -> Result<(), AutomationError> {
     let valid = !id.is_empty()
         && id.len() <= MAX_NAME_LEN
         && id.chars().next().is_some_and(|c| c.is_ascii_lowercase())
@@ -382,7 +382,7 @@ fn validate_workflow_id(id: &str) -> Result<(), AutomationError> {
 /// Step/io names: `[A-Za-z0-9_-]`, must start alphabetic. Dots are
 /// excluded because `$input.<name>` / `$steps.<id>.<field>` paths split
 /// on `.`.
-fn validate_name(name: &str, what: &str) -> Result<(), AutomationError> {
+pub(crate) fn validate_name(name: &str, what: &str) -> Result<(), AutomationError> {
     let valid = !name.is_empty()
         && name.len() <= MAX_NAME_LEN
         && name.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
@@ -397,6 +397,6 @@ fn validate_name(name: &str, what: &str) -> Result<(), AutomationError> {
     Ok(())
 }
 
-fn def_err(reason: String) -> AutomationError {
+pub(crate) fn def_err(reason: String) -> AutomationError {
     AutomationError::Definition { reason }
 }

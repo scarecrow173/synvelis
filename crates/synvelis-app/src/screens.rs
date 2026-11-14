@@ -557,7 +557,7 @@ pub fn dock_view_info(view_id: &str) -> Option<DockViewInfo> {
     }
 }
 
-fn key(name: &str) -> ComponentKey {
+pub(crate) fn key(name: &str) -> ComponentKey {
     ComponentKey(name.to_string())
 }
 
@@ -572,7 +572,11 @@ fn a11y_slider(label: &str, o: Orientation) -> A11ySpec {
     }
 }
 
-fn panel(key_name: &str, title: Option<&str>, children: Vec<ComponentSpec>) -> ComponentSpec {
+pub(crate) fn panel(
+    key_name: &str,
+    title: Option<&str>,
+    children: Vec<ComponentSpec>,
+) -> ComponentSpec {
     ComponentSpec::Panel(PanelSpec {
         key: key(key_name),
         title: title.map(str::to_string),

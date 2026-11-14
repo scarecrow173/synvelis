@@ -564,13 +564,26 @@ impl PrepareEngine {
             OpSpec {
                 descriptor: batch,
                 input: obj(
-                    &[(
-                        "ops",
-                        ValueSchema::Array {
-                            item: Box::new(any_obj()),
-                            max_len: Some(64),
-                        },
-                    )],
+                    &[
+                        (
+                            "ops",
+                            ValueSchema::Array {
+                                item: Box::new(any_obj()),
+                                max_len: Some(64),
+                            },
+                        ),
+                        // AUTX-04: output-binding declarations for
+                        // create-then-reference. Accepted by the
+                        // schema so the semantic layer can answer
+                        // with the typed unsupported verdict below.
+                        (
+                            "bindings",
+                            ValueSchema::Array {
+                                item: Box::new(any_obj()),
+                                max_len: Some(64),
+                            },
+                        ),
+                    ],
                     &["ops"],
                     true,
                 ),
@@ -778,6 +791,31 @@ impl PrepareEngine {
         // Batch: members are themselves named operations — lowered by
         // the same machinery into one `Composite`.
         if named.capability.id.as_str() == "synvelis.operation.batch" {
+            // AUTX-04 (synvelis#263) fallback: `bindings` declares
+            // create-then-reference output bindings — member
+            // args/targets then carry compiler placeholders that GW-04
+            // must resolve through the scratch-ID/rewrite seam. That
+            // seam cannot commit yet (`ProjectOp::Composite::validate`
+            // still checks every member against the pre-state, so an
+            // intra-composite reference fails `NotFound` inside
+            // `ProjectController::apply`), hence the batch fails
+            // closed here with a typed rejection that directs callers
+            // to Workflow decomposition — the documented §3 fallback
+            // of docs/automation/design-atomic-macro.md.
+            if named
+                .args
+                .get("bindings")
+                .and_then(Value::as_array)
+                .is_some_and(|bindings| !bindings.is_empty())
+            {
+                return Err(GatewayError::PreparationRejected {
+                    reason: "batch output bindings (create-then-reference) are unsupported: \
+                             intra-composite id resolution awaits the GW-04 scratch-id seam; \
+                             decompose the recipe into Workflow steps"
+                        .to_owned(),
+                }
+                .into());
+            }
             let members = named
                 .args
                 .get("ops")
@@ -1081,5 +1119,187 @@ fn map_project_error(e: &synvelis_project::Error) -> ErrorEnvelope {
 impl CapabilityOperation for PrepareEngine {
     fn execute(&self, req: &OperationRequest) -> Result<GatewayOutcome<Value>, ErrorEnvelope> {
         self.run(req)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AUTX-04 in-file tests — batch `bindings` contract (synvelis#263).
+// ---------------------------------------------------------------------------
+//
+// The create-then-reference fallback lives entirely inside
+// `lower_named`'s batch arm: `bindings` must pass the input schema
+// (so the semantic layer — not a generic unknown-field violation —
+// answers), then any non-empty declaration fails closed with
+// `PreparationRejected` before member lowering. These tests wire the
+// real engine through `Gateway::handle` on a minimal pinned project —
+// the reject fires before authorization, effects, or the candidate
+// apply, so no grant/proposal surface is needed.
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+    use synvelis_project::{Project, ProjectId, ProjectRevision};
+
+    use super::*;
+    use crate::clock::{ManualClock, PolicyInstant};
+    use crate::context::{ContextBudget, NoSelectionSource};
+    use crate::fixture::{FixtureAdapter, StaticOracle};
+    use crate::proposal_policy::ProposalGate;
+    use crate::request::CallerIdentity;
+    use crate::snapshot::MemorySnapshotSource;
+    use crate::store::InMemoryPolicyStore;
+    use crate::{GrantPolicy, PreparePolicy};
+
+    /// A `Gateway` with the real `PrepareEngine` installed over one
+    /// pinned (empty) project at revision 1.
+    struct Rig {
+        gw: crate::Gateway,
+    }
+
+    fn rig() -> Rig {
+        let store = Arc::new(InMemoryPolicyStore::new());
+        let clock = Arc::new(ManualClock::new(PolicyInstant::new(1_000)));
+        let source = Arc::new(MemorySnapshotSource::new());
+        let project_id = ProjectId::new(7);
+        let mut project = Project::new(project_id, "demo");
+        project.id_watermark = 1_000;
+        source.commit(project_id, ProjectRevision(1), project);
+        let oracle: Arc<dyn ResourceOracle> = Arc::new(StaticOracle::new());
+        let ctx = Arc::new(ContextProjectionEngine::new(
+            source,
+            Arc::new(NoSelectionSource),
+            Arc::new(GrantPolicy::new(
+                store.clone(),
+                clock.clone(),
+                oracle.clone(),
+            )),
+            clock.clone(),
+            ContextBudget::default(),
+        ));
+        let proposals = Arc::new(ProposalStore::new(clock.clone(), 60_000, 30_000, 8));
+        let engine = Arc::new(PrepareEngine::new(
+            ctx,
+            Arc::new(PreparePolicy::new(store.clone(), clock.clone())),
+            PrepareBudget::default(),
+            proposals.clone(),
+        ));
+        let mut gw = crate::Gateway::with_evaluator(Box::new(ProposalGate::new(
+            proposals,
+            Box::new(GrantPolicy::new(store, clock, oracle)),
+        )));
+        engine.install(&mut gw).unwrap();
+        Rig { gw }
+    }
+
+    fn caller() -> CallerIdentity {
+        FixtureAdapter::for_testing().human("user-1").unwrap()
+    }
+
+    fn prepare_req(operation: &Value) -> Value {
+        json!({
+            "request_id": "req-autx04-bindings",
+            "capability": {
+                "id": "synvelis.operation.prepare",
+                "version": {"major": 1, "minor": 0},
+            },
+            "schema": {
+                "name": "synvelis.operation.prepare.input",
+                "version": {"major": 1, "minor": 0},
+            },
+            "project": "project-00000000000000000000000000000007",
+            "args": {"operation": operation},
+            "consistency": {"kind": "expected-revision", "revision": 1},
+        })
+    }
+
+    fn batch_op(args: &Value) -> Value {
+        json!({
+            "capability": {
+                "id": "synvelis.operation.batch",
+                "version": {"major": 1, "minor": 0},
+            },
+            "args": args,
+        })
+    }
+
+    /// One schema-valid member triple — never reached by the
+    /// bindings tests (the reject precedes member lowering).
+    fn member() -> Value {
+        json!({
+            "capability": {
+                "id": "synvelis.clip.mute",
+                "version": {"major": 1, "minor": 0},
+            },
+            "args": {},
+        })
+    }
+
+    #[test]
+    fn batch_output_bindings_reject_typed_unsupported() {
+        // AUTX-04: a non-empty `bindings` declaration is the
+        // create-then-reference marker — GW-04 answers with the typed
+        // unsupported verdict (Workflow decomposition is the
+        // documented route), never a lowered Composite.
+        let mut rig = rig();
+        let err = rig
+            .gw
+            .handle(
+                &prepare_req(&batch_op(&json!({
+                    "ops": [member()],
+                    "bindings": [
+                        {"name": "created_track", "member": 0, "kind": "track"}
+                    ],
+                }))),
+                caller(),
+            )
+            .expect_err("output bindings must reject");
+        let GatewayError::PreparationRejected { reason } = &err.code else {
+            panic!("expected PreparationRejected, got {:?}", err.code);
+        };
+        assert!(reason.contains("bindings"), "reason: {reason}");
+        assert!(reason.contains("Workflow"), "reason: {reason}");
+    }
+
+    #[test]
+    fn batch_without_bindings_still_lowers() {
+        // `bindings: []` carries no create-then-reference — the batch
+        // proceeds past the bindings gate into member lowering, where
+        // an unknown member capability produces its own typed error.
+        let mut rig = rig();
+        let err = rig
+            .gw
+            .handle(
+                &prepare_req(&batch_op(&json!({
+                    "ops": [{
+                        "capability": {
+                            "id": "synvelis.no.such",
+                            "version": {"major": 1, "minor": 0},
+                        },
+                        "args": {},
+                    }],
+                    "bindings": [],
+                }))),
+                caller(),
+            )
+            .expect_err("unknown member capability must fail");
+        assert!(matches!(err.code, GatewayError::UnknownCapability { .. }));
+    }
+
+    #[test]
+    fn batch_bindings_shape_is_schema_enforced() {
+        // A non-array `bindings` never reaches the semantic check —
+        // the registered input schema rejects it first.
+        let mut rig = rig();
+        let err = rig
+            .gw
+            .handle(
+                &prepare_req(&batch_op(&json!({
+                    "ops": [member()],
+                    "bindings": "yes",
+                }))),
+                caller(),
+            )
+            .expect_err("non-array bindings must fail schema validation");
+        assert!(matches!(err.code, GatewayError::SchemaViolation { .. }));
     }
 }

@@ -314,6 +314,72 @@ pub enum CompileError {
         /// The field path that failed.
         field: String,
     },
+    /// A macro reference names an id the [`crate::MacroRegistry`]
+    /// does not contain at all.
+    ///
+    /// (Distinct from [`Self::UndefinedMacro`], which remains the
+    /// fail-closed answer when *no* macro registry is supplied.)
+    UnknownMacro {
+        /// The macro ref (`id@major.minor`).
+        mac: String,
+    },
+    /// A macro reference names a known macro id at a version the
+    /// registry does not carry — exact-version resolution only.
+    UnsupportedMacroVersion {
+        /// The macro id.
+        id: String,
+        /// The requested version (`major.minor`).
+        requested: String,
+        /// Registered versions (`major.minor`, sorted).
+        supported: Vec<String>,
+    },
+    /// `$param.`/`$output.` expressions are only meaningful inside an
+    /// atomic macro definition; they cannot appear in workflow steps.
+    MacroOnlyExpr {
+        /// Location of the reference.
+        at: String,
+        /// The expression head (`param` or `output`).
+        expr: &'static str,
+    },
+    /// `$input.`/`$steps.`/`$item.` expressions are workflow-only;
+    /// they cannot appear inside an atomic macro definition.
+    WorkflowOnlyExpr {
+        /// Location of the reference.
+        at: String,
+        /// The expression head (`input`, `steps`, or `item`).
+        expr: &'static str,
+    },
+    /// `$output.<name>` names no declared [`crate::OutputBinding`].
+    UnknownMacroOutput {
+        /// Location of the reference.
+        at: String,
+        /// The binding name.
+        name: String,
+    },
+    /// `$output.<name>` is produced by the referencing step itself or
+    /// a later step — output bindings resolve strictly backward.
+    ForwardMacroOutput {
+        /// Location of the reference.
+        at: String,
+        /// The binding name.
+        name: String,
+    },
+    /// A literal/evaluated id string lands inside the reserved
+    /// output-binding placeholder range — real ids can never occupy
+    /// it, so the value is rejected rather than silently rewritten.
+    ReservedIdLiteral {
+        /// Location of the value.
+        at: String,
+        /// The offending id string.
+        id: String,
+    },
+    /// A macro member names the batch capability itself — nested
+    /// batches are rejected at compile time (GW-04 rejects them again
+    /// at prepare).
+    NestedBatch {
+        /// The step id.
+        step: String,
+    },
 }
 
 impl fmt::Display for AutomationError {
@@ -465,6 +531,37 @@ impl fmt::Display for CompileError {
             }
             Self::UnknownOutputField { step, field } => {
                 write!(f, "unknown output field {field} on step {step}")
+            }
+            Self::UnknownMacro { mac } => write!(f, "unknown macro reference: {mac}"),
+            Self::UnsupportedMacroVersion {
+                id,
+                requested,
+                supported,
+            } => write!(
+                f,
+                "unsupported macro version: {id}@{requested} (supported: {})",
+                supported.join(", ")
+            ),
+            Self::MacroOnlyExpr { at, expr } => {
+                write!(f, "${expr} reference is only valid inside a macro at {at}")
+            }
+            Self::WorkflowOnlyExpr { at, expr } => {
+                write!(
+                    f,
+                    "${expr} reference is only valid inside a workflow at {at}"
+                )
+            }
+            Self::UnknownMacroOutput { at, name } => {
+                write!(f, "unknown macro output binding {name} at {at}")
+            }
+            Self::ForwardMacroOutput { at, name } => {
+                write!(f, "forward macro output binding {name} at {at}")
+            }
+            Self::ReservedIdLiteral { at, id } => {
+                write!(f, "id literal in the reserved binding range at {at}: {id}")
+            }
+            Self::NestedBatch { step } => {
+                write!(f, "nested batch member at {step}")
             }
         }
     }

@@ -30,6 +30,18 @@ pub enum ViewType {
     /// VCS History / A-B Visual Diff surface (VCS-04, synvelis#95) —
     /// read-only projection; never mutates project or repository.
     VcsHistory,
+    /// Action Palette surface (AUTX-07, synvelis#266) — capability
+    /// catalog projection; never mints a second registry.
+    ActionPalette,
+    /// Macro Browser surface (AUTX-07) — preset catalog projection;
+    /// apply lowers to Gateway capability calls only.
+    MacroBrowser,
+    /// Workflow Editor v1 surface (AUTX-07) — bounded plan
+    /// visualization + validation/approval display.
+    WorkflowEditor,
+    /// Run Monitor surface (AUTX-07) — run/step/job status projection;
+    /// pending is never collapsed into completed.
+    RunMonitor,
 }
 
 /// Persistent identity of a view instance: id + kind + display title.

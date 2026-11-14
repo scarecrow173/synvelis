@@ -7169,6 +7169,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "synvelis-cli"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "synvelis-automation",
+ "synvelis-gateway",
+ "synvelis-project",
+]
+
+[[package]]
 name = "synvelis-gateway"
 version = "0.1.0"
 dependencies = [

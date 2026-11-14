@@ -21,6 +21,7 @@ const HEADLESS_CRATES = [
   "synvelis-workspace",
   "synvelis-gateway",
   "synvelis-automation",
+  "synvelis-cli",
   "mcp-poc",
 ];
 
