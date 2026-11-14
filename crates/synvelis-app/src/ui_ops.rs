@@ -721,6 +721,83 @@ fn report_drain_json(report: &ReportDrainReport) -> Value {
     })
 }
 
+/// `TransportStatus` → wire string — the scheduler status verbatim;
+/// unknown future variants render `"unknown"` rather than being
+/// relabeled.
+fn transport_status_str(status: ruviform_media_core::TransportStatus) -> &'static str {
+    match status {
+        ruviform_media_core::TransportStatus::Stopped => "stopped",
+        ruviform_media_core::TransportStatus::Playing => "playing",
+        ruviform_media_core::TransportStatus::Paused => "paused",
+        _ => "unknown",
+    }
+}
+
+/// `EngineFrame` → wire shape — epoch plus raw frame, verbatim.
+fn engine_frame_json(frame: EngineFrame) -> Value {
+    json!({
+        "epoch": frame.epoch().get(),
+        "frame": frame.frame(),
+    })
+}
+
+/// `TransportSpan` → wire shape — the last engine-driven
+/// `observe_block` projection verbatim: window, status, position,
+/// loop, and every generation axis the span context carries.
+fn transport_span_json(span: &ruviform_media_core::TransportSpan) -> Value {
+    json!({
+        "start": engine_frame_json(span.start),
+        "end": engine_frame_json(span.end),
+        "status": transport_status_str(span.ctx.status),
+        "position_ticks": span.ctx.position_ticks,
+        "position_base": time_base_json(span.ctx.position_base),
+        "loop_ticks": span.ctx.loop_ticks,
+        "occurrence": span.ctx.occurrence.get(),
+        "clock_epoch": span.ctx.clock_epoch.get(),
+        "transport_generation": span.ctx.transport_generation.get(),
+        "plan_generation": span.ctx.plan_generation.get(),
+        "tempo_revision": span.ctx.tempo_revision.get(),
+        "deliverable": span.deliverable,
+    })
+}
+
+/// `syn.control.status`'s `observe` section — per controlled
+/// processor, the [`TransportSpan`] the engine-driven `observe_block`
+/// last projected (`last_observed_span`) and that span's plan
+/// generation. Both are `null` for a processor never observed —
+/// nothing is fabricated. No engine/surface yields empty maps.
+fn observe_status_json(engine: Option<&SessionRoutingEngine>) -> Value {
+    let mut last_observed_span = serde_json::Map::new();
+    let mut plan_generation = serde_json::Map::new();
+    if let Some(spans) = engine.and_then(|engine| {
+        engine.with_control_dispatch(|dispatch| {
+            let processors = dispatch
+                .report()
+                .map(|report| report.controlled_processors.clone())
+                .unwrap_or_default();
+            processors
+                .into_iter()
+                .map(|processor| (processor, dispatch.last_observed_span(processor).copied()))
+                .collect::<Vec<_>>()
+        })
+    }) {
+        for (processor, span) in spans {
+            let tag = processor.to_tagged();
+            if let Some(span) = span {
+                plan_generation.insert(tag.clone(), json!(span.ctx.plan_generation.get()));
+                last_observed_span.insert(tag, transport_span_json(&span));
+            } else {
+                plan_generation.insert(tag.clone(), Value::Null);
+                last_observed_span.insert(tag, Value::Null);
+            }
+        }
+    }
+    json!({
+        "last_observed_span": Value::Object(last_observed_span),
+        "plan_generation": Value::Object(plan_generation),
+    })
+}
+
 /// `FastControlBlockKind` → wire string — the `Copy` rejection kind
 /// verbatim; the full typed reason stays available through
 /// `syn.control.status`'s recorded block detail.
@@ -827,9 +904,11 @@ fn i64_param(params: &Value, key: &str) -> Result<i64, ErrorBody> {
 /// `syn.control.observe` wire DTOs — the caller-supplied physical
 /// call window and transport span (PC-C4-06). Every field is caller
 /// evidence: the op forwards the span verbatim into
-/// `observe_cycle` and never invents transport context. Per-block
-/// automatic call-window supply inside the RT runtime remains
-/// deferred work — this op is the explicit headless/driver drive.
+/// `observe_cycle` and never invents transport context.
+/// `SessionRoutingEngine::run` now drives `observe_block` per
+/// processed block with engine-derived node-cursor windows (PC-C4
+/// observe-engine-wiring); this op remains the explicit
+/// headless/driver drive for a single named window.
 #[derive(serde::Deserialize)]
 struct ObserveCallParam {
     /// Clock epoch of the call-start frame.
@@ -2199,6 +2278,7 @@ impl SynvelisApp {
         self.capture_screen_state();
         self.pump_control();
         self.drain_control_reports();
+        let _ = self.drain_control_observations();
         self.drain_probe();
     }
 
@@ -2248,6 +2328,31 @@ impl SynvelisApp {
         if let Some(report) = engine.control_drain_reports(&drain) {
             self.note_control_drain(report);
         }
+    }
+
+    /// PC-C4 observe-engine-wiring — drains the per-block
+    /// [`synvelis_player::RoutingControlDispatch::observe_block`]
+    /// cycles [`SessionRoutingEngine::run`] buffered (one merged
+    /// [`DispatchCycle`] per processed block, in order) and feeds
+    /// each through [`Self::feed_control_cycle`]. Returns the number
+    /// of `Reported`-stage observations that crossed into the
+    /// workspace plugin-report channel. Runs at the `ui_pump` tail on
+    /// the same cadence as [`Self::drain_control_reports`] — the
+    /// drain moves host reports into the dispatch ledger first, so a
+    /// report the plugin produced during a block can surface as
+    /// `Reported` on the next observed block. No engine → nothing
+    /// drains. `pub` so deterministic drivers/fixtures can run one
+    /// pass outside the pump.
+    #[must_use]
+    pub fn drain_control_observations(&mut self) -> usize {
+        let Some(engine) = self.routing_engine.clone() else {
+            return 0;
+        };
+        let mut fed = 0usize;
+        for cycle in engine.control_drain_observations() {
+            fed += self.feed_control_cycle(&cycle);
+        }
+        fed
     }
 
     /// The last control-tick report driven by [`Self::ui_pump`] —
@@ -4903,6 +5008,7 @@ impl SynvelisApp {
                 .as_ref()
                 .map_or(Value::Null, tick_report_json),
             "drain": report_drain_json(&self.ui.last_control_drain),
+            "observe": observe_status_json(engine),
         })
     }
 
@@ -4910,11 +5016,18 @@ impl SynvelisApp {
     /// ledger through one caller-supplied physical call window and
     /// feeds the cycle into the workspace control session (PC-C4-06).
     /// Returns the per-target observations verbatim — stage, value,
-    /// position, ledger revision — plus the drained receipt count
-    /// and `fed`, the number of `Reported`-stage observations that
-    /// crossed into `ControlSession::feed_plugin_report`. Only
+    /// position, ledger revision — plus the receipts this call
+    /// drained and `fed`, the number of `Reported`-stage observations
+    /// that crossed into `ControlSession::feed_plugin_report`. Only
     /// `Reported` feeds; `Scheduled`/`Dispatched` stay host-resolved
     /// on the wire and never reach the plugin-report channel.
+    /// Scheduler receipts are drain-once: `SessionRoutingEngine::run`'s
+    /// engine-driven `observe_block` consumes the node's report
+    /// channel per processed block, so after engine-driven
+    /// observation this call's `receipts` honestly reports only what
+    /// accumulated since the last observed block — applied-generation
+    /// evidence lives on the drained observation cycles
+    /// (`control_drain_observations`).
     ///
     /// `params.processor` is the tagged `ProcessorId`,
     /// `params.generation` must name the attached surface (a stale
@@ -4922,8 +5035,10 @@ impl SynvelisApp {
     /// `params.call` is the physical call window
     /// (`{epoch, frame, frames}`) and `params.span` the deliverable
     /// [`TransportSpan`] covering it — both caller evidence, never
-    /// defaulted. Per-block automatic call-window supply inside the
-    /// RT runtime is deferred work; this op is the explicit drive.
+    /// defaulted. `SessionRoutingEngine::run` already drives
+    /// `observe_block` per processed block with engine-derived
+    /// node-cursor windows (PC-C4 observe-engine-wiring); this op is
+    /// the explicit single-window drive for headless/driver callers.
     ///
     /// # Errors
     /// [`ErrorBody`] on invalid parameters, no routing engine/control

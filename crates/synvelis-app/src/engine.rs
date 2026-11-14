@@ -148,6 +148,15 @@ struct Inner {
     /// catalog — plugin-capable targets fail their binds typed, never
     /// fabricated.
     param_catalog: Option<Rc<RefCell<ParamCatalog>>>,
+    /// PC-C4 observe-engine-wiring: merged per-block
+    /// [`DispatchCycle`]s the `run` observer produced — one entry per
+    /// processed block, drained by
+    /// [`SessionRoutingEngine::control_drain_observations`] for the
+    /// app's `feed_control_cycle` pass. Buffering (rather than
+    /// feeding inside the observer) keeps the engine handle's
+    /// `RefCell` borrow scoped to the run and lets the app own the
+    /// feed cadence.
+    pending_observe_cycles: Vec<DispatchCycle>,
 }
 
 /// The session-facing routing engine: an [`EnginePort`] that drives a
@@ -185,6 +194,7 @@ impl SessionRoutingEngine {
                 dispatch: None,
                 last_control_error: None,
                 param_catalog: None,
+                pending_observe_cycles: Vec::new(),
             })),
         }
     }
@@ -216,14 +226,56 @@ impl SessionRoutingEngine {
     /// after the published generation is observed here; a successful
     /// publish alone never reports activation.
     ///
+    /// Each processed block also drives the attached control
+    /// surface's [`synvelis_player::RoutingControlDispatch::
+    /// observe_block`] with the engine-reported node-cursor window
+    /// (PC-C4 observe-engine-wiring): the merged per-node
+    /// [`DispatchCycle`] is buffered for
+    /// [`Self::control_drain_observations`]. No surface, a stale
+    /// surface generation, or a pre-activation window observes
+    /// nothing — fail-closed, nothing fabricated.
+    ///
     /// # Errors
     /// [`ProcessError`] from the runtime.
     pub fn run(&self, blocks: usize, policy: PumpPolicy) -> Result<PlayReport, ProcessError> {
-        self.inner
-            .borrow_mut()
+        let mut inner = self.inner.borrow_mut();
+        // Reborrow as `&mut Inner` so `dispatch`/`bridge`/
+        // `pending_observe_cycles` split into disjoint field borrows:
+        // the engine runs while the control surface observes each
+        // block's window inside the same scope — `observe_block`
+        // only drains the node's report channel, never the host cell.
+        let inner = &mut *inner;
+        let mut dispatch = inner.dispatch.as_mut();
+        let mut observed: Vec<DispatchCycle> = Vec::new();
+        let result = inner
             .bridge
             .engine_mut()
-            .run(blocks, policy)
+            .run_observed(blocks, policy, &mut |window| {
+                let Some(dispatch) = dispatch.as_mut() else {
+                    return;
+                };
+                let Some(nodes) = dispatch.observe_block(
+                    window.generation,
+                    window.call_start,
+                    window.call_frames,
+                ) else {
+                    return;
+                };
+                observed.push(merge_observed_cycles(nodes));
+            });
+        inner.pending_observe_cycles.append(&mut observed);
+        result
+    }
+
+    /// Drains the [`DispatchCycle`]s the per-block `observe_block`
+    /// drive buffered during [`Self::run`] — one merged cycle per
+    /// processed block, in processing order. The app feeds each
+    /// through `feed_control_cycle` (`Reported`-only reaches the
+    /// workspace plugin-report channel). Empty when no engine-driven
+    /// observation ran. Non-RT only.
+    #[must_use]
+    pub fn control_drain_observations(&self) -> Vec<DispatchCycle> {
+        std::mem::take(&mut self.inner.borrow_mut().pending_observe_cycles)
     }
 
     /// Declares a probe cursor-series discontinuity that does not
@@ -498,6 +550,23 @@ impl SessionRoutingEngine {
     }
 }
 
+/// Merges one block's per-node [`DispatchCycle`]s into a single
+/// cycle — observations and receipts concatenate in node order.
+/// Per-target "latest wins" already happened inside each node's
+/// `observe_block` segment merge; across nodes a target is unique,
+/// so concatenation loses nothing.
+fn merge_observed_cycles(nodes: BTreeMap<ProcessorId, DispatchCycle>) -> DispatchCycle {
+    let mut merged = DispatchCycle {
+        observations: Vec::new(),
+        receipts: Vec::new(),
+    };
+    for (_, cycle) in nodes {
+        merged.observations.extend(cycle.observations);
+        merged.receipts.extend(cycle.receipts);
+    }
+    merged
+}
+
 /// The RT-observed active generation as the control gates consume it:
 /// `0` means "never observed" → `None` (always gated).
 fn observed_active_generation(status: &SharedStatusSnapshot) -> Option<u64> {
@@ -601,6 +670,11 @@ fn rebuild(inner: &mut Inner, project: &Project, revision: ProjectRevision) {
                 .engine_mut()
                 .publish(*prepared, project, revision);
             sync_control_dispatch(inner, project);
+            // A publish mints a new control-surface generation:
+            // observation cycles buffered under the previous surface
+            // are stale-generation evidence — drop them rather than
+            // feeding pre-swap plugin reports as current.
+            inner.pending_observe_cycles.clear();
         }
         // NoRebuild equivalence leaves the live plan untouched, and
         // prepare faults are already recorded on the engine's
