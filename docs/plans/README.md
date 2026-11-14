@@ -107,6 +107,7 @@ Directory: `docs/plans`
 | PLAN-034Uuhu2Eis7GPJ5fej73V | SF-05 slice1 実施計画 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | PLAN-6xRqunIew52aqbQt4yZ3qy | SF-05 slice2 実施計画 — Signal Flow gesture/inspection/persist | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | PLAN-dF3hNzQwErTyUiOpL6kMnB | SF-05 slice3 実施計画 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-plan.md](./sf-05-slice3-probe-subscriber-wiring-plan.md) |
+| PLAN-uivmPqRsTuVwXyZaBcDeFg | SF-05 ui/ slice 実施計画 — Signal Flow・Probe headless view-model consumer path | approved | [sf-05-ui-viewmodel.md](./sf-05-ui-viewmodel.md) |
 | PLAN-034V2wD3RqGEqlst7HFeVD | SF-06 cross-gate headless slice — Domain Oracle・Case registry・fault fixture・ledger | approved | [sf-06-cross-gate-oracle.md](./sf-06-cross-gate-oracle.md) |
 | PLAN-QRGcQW6CvUDaVfCwWADz2f | SF-XR-01 実装計画 — CTL-01/CTL-02 cross-gate oracle fixture | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | PLAN-034X9HnJ3ksOwiuiGUkOTC | Signal Flow 設計正本 — 文書チェーンと証拠の作成 | approved | [signal-flow-design-plan.md](./signal-flow-design-plan.md) |

@@ -135,6 +135,7 @@ Directory: `docs/designs`
 | DESIGN-034UudJz8OJsiidXryTNTU | SF-05 slice1 Signal Flow headless 設計 — graph 投影 + visual state + status 合成 | approved | [sf-05-slice1-signal-flow-headless-graph-visual-state-status.md](./sf-05-slice1-signal-flow-headless-graph-visual-state-status.md) |
 | DESIGN-CJVcdyUweKy4i6p0xOHdJc | SF-05 slice2 設計 — routing gesture fixation/preview/commit + inspection focus + schema v3 persist | approved | [sf-05-slice2-signal-flow-ux0307-gesture-inspection-persist.md](./sf-05-slice2-signal-flow-ux0307-gesture-inspection-persist.md) |
 | DESIGN-mB7tYwKsPqNvXcZaE5rGjH | SF-05 slice3 設計 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-design.md](./sf-05-slice3-probe-subscriber-wiring-design.md) |
+| DESIGN-uivmNbXmQvR2wTbLpNcJyH | SF-05 ui/ slice 設計 — Signal Flow・Probe headless view-model consumer path | approved | [sf-05-ui-viewmodel.md](./sf-05-ui-viewmodel.md) |
 | DESIGN-034V2wuzXfqcjIvGyXFhhz | SF-06 cross-gate headless 設計 — oracle 独立性・fixture topology・ledger schema | approved | [sf-06-cross-gate-oracle-domain-evidence.md](./sf-06-cross-gate-oracle-domain-evidence.md) |
 | DESIGN-OIDrCGhRjzwr0IzN1tzVkg | SF-XR-01 Design — CTL-01/CTL-02 cross-gate oracle fixture | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | DESIGN-034X9CQwZrVbNmLpKsTuVw | Signal Flow 設計正本 — 階層・Typed Port/Connection・Semantic Routing・Probe 表示/編集・世代証拠 | approved | [signal-flow-design-design.md](./signal-flow-design-design.md) |
