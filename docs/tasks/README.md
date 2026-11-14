@@ -10,6 +10,7 @@ Directory: `docs/tasks`
 | TASK-alib03-t1 | ALIB-03 Task 1 — cache/catalog/preview/notify modules・tests | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | TASK-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — タスク | completed | [alib-04-lfs-remote-fetch-task.md](./alib-04-lfs-remote-fetch-task.md) |
 | TASK-alib06-t1 | ALIB-06 Task 1 — webdav provider modules・fixture・tests | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
+| TASK-034X9CAFse5Zv3M2AASrrA | Asset Library 設計契約タスク (synvelis#9) | in-progress | [asset-library-task.md](./asset-library-task.md) |
 | TASK-034AUT01Mn7pQs4wXc9vBhJk | AUT-01: Touch Return 150ms smoothstep・Read/Touch/Latch/Write 境界 State 実装 | in-progress | [aut-01-task1-touch-return-writer-state.md](./aut-01-task1-touch-return-writer-state.md) |
 | TASK-034AUT04uqfg9sevPu0zlr | AUT-04 task1: Viewport LOD・RT bounded queue・型付き喪失 provenance 実装 + headless テスト | todo | [aut-04-task1-automation-curve-lod-record-budget.md](./aut-04-task1-automation-curve-lod-record-budget.md) |
 | TASK-034U2vruJGfkEYZHCqNfwE | canonical temp fixture による synvelis-library symlink テスト修正 | in-progress | [canonical-temp-fixture-synvelis-library-symlink.md](./canonical-temp-fixture-synvelis-library-symlink.md) |
@@ -53,6 +54,7 @@ Directory: `docs/tasks`
 | TASK-9vK4mP2nQ8wX5zB7jH3fY6c | SF-04 slice8 タスク — SF-PROBE-05 fault fixtures + 不連続宣言点 | in_progress | [sf-04-slice8-probe-faults-declare-task.md](./sf-04-slice8-probe-faults-declare-task.md) |
 | TASK-wQ8xJkLmNrTyUiOpAsDfGh | SF-05 slice3 タスク分解 — probe subscriber/capture dedup の app/UI 配線 | in-progress | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
 | TASK-G4oEdDOSfbQ4uy5d0HrbKh | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture 実装 task | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
+| TASK-034X9IBxPNjnO5mk3R7awi | Signal Flow 設計正本 — 文書チェーンと証拠の作成 | completed | [signal-flow-design-task.md](./signal-flow-design-task.md) |
 | TASK-034Ul52jO5RARmW21UHLGR | SV-GUI-03 slice1: Transport 操作 + Inspector 表示を既存 GPUI 経路に接続 | in-progress | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
 | TASK-cvXxPcl14NogBTKEDTSKrO | SV-GUI-03 slice2 タスク分解 — Arrangement read-only Table + Undo/Redo | in-progress | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
 | TASK-1WNuXmcz8F5r40PEfPLP3u | SV-GUI-03 slice3 タスク分解 — Mixer strip master Mute/Solo Toggle | in-progress | [sv-gui-03-03-mixer-strip-toggle-slice3.md](./sv-gui-03-03-mixer-strip-toggle-slice3.md) |
@@ -99,6 +101,7 @@ Directory: `docs/tasks`
 | TASK-6gOTxmdtactknQD5p2jwe8 | Context Inspector 設計定義タスク — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5） | done | [context-inspector-task.md](./context-inspector-task.md) |
 | TASK-034CTL01Sa3yBv9cE5fG6hIj | CTL-01: ControlOwner/AutomationTimeScope/ParameterRole 型・oracle・Schema v7 Migration・ops・検証 | done | [ctl-01-task1-owner-time-scope-schema-migration.md](./ctl-01-task1-owner-time-scope-schema-migration.md) |
 | TASK-6bPp4B6e9YSSWgScL0msLl | CTL-02: adoption 経路の非 canonical SendLevel 抑止タスク | done | [ctl-02-adopt-sendlevel-task.md](./ctl-02-adopt-sendlevel-task.md) |
+| TASK-034X9LKtObc3yvqQPs4uwt | Issue #8 DAW ワークフロー UX 文書チェーンと evidence/sv8 台帳の確定 | done | [daw-workflow-task.md](./daw-workflow-task.md) |
 | TASK-034QAtPmN1oYgkip3TL6wG | ED-A task1 ProjectOp batch ops + selection model + ViewState 移行 | done | [ed-a-task1-selection-model-project-ops.md](./ed-a-task1-selection-model-project-ops.md) |
 | TASK-034QAu1d6DTe49e8cgWMtq | ED-A task2 tool resolution + gesture fixation/preview 型 | done | [ed-a-task2-tool-gesture-model.md](./ed-a-task2-tool-gesture-model.md) |
 | TASK-034QAu2bJQYSQOBkB7eOoz | ED-A task3 snap engine + edit op 構築 + commit/cancel 経路 | done | [ed-a-task3-snap-edit-commit.md](./ed-a-task3-snap-edit-commit.md) |
@@ -241,6 +244,7 @@ Directory: `docs/tasks`
 | TASK-034WTzC0pqxJ29jwHg0KLg | VCS-06 real-git/FS fault rows slice | done | [vcs-06-real-git-fs-fault-task.md](./vcs-06-real-git-fs-fault-task.md) |
 | TASK-4Sfq6WWBaX1avImCs5OcLh | VCS-06 monitoring-domain matrix | done | [vcs-06-task-monitoring-matrix.md](./vcs-06-task-monitoring-matrix.md) |
 | TASK-034VpC1mzY9bzJDEjAIDKv | VCS-06 UI headless matrix | done | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
+| TASK-034X9GCGPXdCl5ePe8gJ14 | VCS Integration 統合契約文書チェーン + evidence/sv7 Case 被覆台帳 (synvelis#7) | done | [vcs-integration-task.md](./vcs-integration-task.md) |
 | TASK-034Qe0bZIka1POLkub4sqO | VS-A task1 workspace skeleton | done | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | TASK-034Qe0k3uLHDv2zcx1jH15 | VS-A task2 synvelis-project data model | done | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | TASK-034Qe0kHawWuXO1xHGTd8F | VS-A task3 controller ops store | done | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |

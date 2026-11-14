@@ -15,6 +15,7 @@ Directory: `docs/test-specs`
 | TESTSPEC-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — テスト仕様 | approved | [alib-04-lfs-remote-fetch.md](./alib-04-lfs-remote-fetch.md) |
 | TESTSPEC-alib06 | ALIB-06 WebDAV File-Server Provider — テスト仕様 | approved | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
 | TESTSPEC-alib07 | ALIB-07 Asset Library 全経路 Fault Matrix — テスト仕様・証拠 matrix（headless slice） | approved | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
+| TSPEC-034X9CA5G6nlvnqAHaPPqf | Asset Library LIB-ID/BROWSE/PIN/IMPORT/MIG/CACHE/SEC/QOS 保証仕様 (synvelis#9) | approved | [asset-library.md](./asset-library.md) |
 | TSPEC-034AUT01Hd5jKm8nRt3wXsYq | AUT-01 Touch Return・Writer State 境界 検証仕様 | approved | [aut-01-e2e-touch-return-writer-state.md](./aut-01-e2e-touch-return-writer-state.md) |
 | TSPEC-034AUT02Fh3jDs8mXq5vWk2n | AUT-02 E2E 検証仕様 — Region Replace 境界曲線保存・Reject/Replace 原子的編集 | approved | [aut-02-e2e-region-replace-boundary.md](./aut-02-e2e-region-replace-boundary.md) |
 | TSPEC-034AUT03Zk6mVt4nQr2wXs8 | AUT-03 E2E 検証仕様 — Loop 録音 1 Pass・Write Range 半開区間・境界 flush・明示 Rearm | approved | [aut-03-e2e-loop-write-one-pass.md](./aut-03-e2e-loop-write-one-pass.md) |
@@ -22,10 +23,12 @@ Directory: `docs/test-specs`
 | TSPEC-5CuediZdfo8z7uI9MvTAHB | Automation / Modulation 統合 Parameter Control — テスト仕様・受入 Fixture（synvelis#6） | approved | [automation-modulation.md](./automation-modulation.md) |
 | TSPEC-m5UJFsYVE3wcIp2bbhjQ6C | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 検証仕様 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | TSPEC-034RoWXtHq8FkSjQ9NWwqn | Synvelis 独立 CI ワークフロー検証仕様 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
+| TSPEC-034X9hRV8Ud0Ty0IZllwy5 | Capability / Command Gateway G0-G6 受入照合 検証仕様 (synvelis#46) | approved | [command-gateway-gates.md](./command-gateway-gates.md) |
 | TSPEC-034X8sKuWkm8UBzSfXcpb1 | Capability / Command Gateway 設計契約 検証仕様 (synvelis#45) | approved | [command-gateway.md](./command-gateway.md) |
 | TSPEC-5P0o8UbBZq07LRZPbXsEoV | Context Inspector テスト仕様 — Follow/Explore/Pinned・Selection/Linked Context・Probe・一括編集の UX Fixture 定義（synvelis#5） | approved | [context-inspector.md](./context-inspector.md) |
 | TSPEC-034CTL01Pr2sUv7wY4zAbCdEfG | CTL-01 ControlOwner/AutomationTimeScope 検証仕様 | approved | [ctl-01-e2e-control-owner-time-scope.md](./ctl-01-e2e-control-owner-time-scope.md) |
 | TSPEC-l7ZEZAPF6fGjIhiojtusYR | CTL-02 adoption SendLevel canonical spec 検証仕様 | approved | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
+| TSPEC-034X9DglWzVt6ACpSlw4YC | 標準 DAW 制作ワークフロー UX 仕様の文書契約検証 | approved | [daw-workflow.md](./daw-workflow.md) |
 | TSPEC-034QAmjdN5ihez8HzDIvIs | ED-A 検証仕様 — Editing Model 合意5項目 headless 受入 | approved | [ed-a-e2e-editing-model.md](./ed-a-e2e-editing-model.md) |
 | TSPEC-034QN1oYnTtpV7t5CPcc5e | ED-B e2e media-domain editing acceptance | approved | [ed-b-e2e-media-domain-editing.md](./ed-b-e2e-media-domain-editing.md) |
 | TSPEC-034X83U7r7ZrZZjmIhd8Em | Execution Plan Test Spec — DAG acyclicity・Owner/Gate/Acceptance matrix invariants・OS level rules | approved | [execution-plan.md](./execution-plan.md) |
@@ -116,6 +119,7 @@ Directory: `docs/test-specs`
 | TSPEC-034V2wDAU9rjXjn7UX79qG | SF-06 cross-gate テスト仕様 — headless oracle・fault・migration | approved | [sf-06-cross-gate-oracle.md](./sf-06-cross-gate-oracle.md) |
 | TSPEC-g7v0galTaViQdO2RpCak1D | SF-06 cross-gate テスト仕様 — headless fixture 被覆棚卸し・PCM oracle (synvelis#109) | approved | [sf06-cross-gate.md](./sf06-cross-gate.md) |
 | TSPEC-58bMtNin4rGl51xvg20P4n | SF-XR-01 検証仕様 — CTL-01/CTL-02 cross-gate oracle fixture | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
+| TSPEC-034X9GPU9Og63h7UIzLf1r | Signal Flow 設計正本 — 受入仕様と検証 | approved | [signal-flow-design.md](./signal-flow-design.md) |
 | TSPEC-034X5DZHArceEXtnYl3YuG | Issue #84 StagedFile Migration 受入検証契約 | approved | [stagedfile-migration.md](./stagedfile-migration.md) |
 | TSPEC-kFpNWfpWnZfgKYzwIi7JoE | Issue #245 webdav MockServer TransientIo flake — 接続ライフサイクル回帰 test 仕様 | approved | [sv-ci-webdav-transient-io-flake.md](./sv-ci-webdav-transient-io-flake.md) |
 | TSPEC-A8sVfBvTuQextSVcPY8yp9 | SV-GUI-01 検証仕様 — App Bootstrap・Service 契約・Asset Pipeline | approved | [sv-gui-01-e2e-desktop-bootstrap.md](./sv-gui-01-e2e-desktop-bootstrap.md) |
@@ -172,6 +176,7 @@ Directory: `docs/test-specs`
 | TSPEC-KoKmM6h8CwFykztjanQvMC | VCS-06 monitoring-domain matrix tests | approved | [vcs-06-monitoring-matrix.md](./vcs-06-monitoring-matrix.md) |
 | TSPEC-034WTsZKJhBKgzDNLtpIYq | VCS-06 real-git/FS fault rows tests | approved | [vcs-06-real-git-fs-fault.md](./vcs-06-real-git-fs-fault.md) |
 | TSPEC-034VpCxHsdsOcOqeEN6wGS | VCS-06 UI headless matrix tests | approved | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
+| TSPEC-034X9G0UGtaLhkU5NlUIjh | VCS Integration 統合契約の保証事項 (synvelis#7) | approved | [vcs-integration.md](./vcs-integration.md) |
 | TSPEC-034QdZPqGguxUOzVihyxjE | VS-A F0 Gate 検証仕様 — Stable ID・時間・Command・Save/Reload・Recording | approved | [vs-a-f0-gate-stable-id-command-save-reload-recording.md](./vs-a-f0-gate-stable-id-command-save-reload-recording.md) |
 | TSPEC-dtmF30GppYRVULWnH8CG9o | VS-B E2E-R Gate 検証仕様 — Mock Gate・Buffer Pool・SPSC・Fail-stop | approved | [vs-b-e2e-r1-mock-gate-rt-capture.md](./vs-b-e2e-r1-mock-gate-rt-capture.md) |
 | TSPEC-034QfPbKx2mR9tWvN5zYcHuJ | VS-C E2E-R2 検証仕様 — Staging Writer・Journal・Crash Recovery | approved | [vs-c-e2e-r2-staging-writer-journal-crash-recovery.md](./vs-c-e2e-r2-staging-writer-journal-crash-recovery.md) |
