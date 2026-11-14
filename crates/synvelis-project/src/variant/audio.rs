@@ -29,9 +29,10 @@
 use crate::{
     Error, IdGenerator, Operation, Project, ProjectOp,
     comp::{CompCandidateRef, CompOp},
-    id::{CompId, CompRegionId, CompTransitionId, LaneId, TakeGroupId},
+    id::{CompId, CompRegionId, CompTransitionId, LaneId, StripId, TakeGroupId},
     placement::{PlaybackMapping, StretchRatio},
     recording_data::SessionState,
+    routing::StripOwner,
     variant::{
         BranchEditOp, DomainAdapter, VariantError, VariantScope,
         adapter::edit_scoped_project_op,
@@ -124,6 +125,27 @@ pub(crate) fn lane_recording_open(project: &Project, lane: LaneId) -> bool {
                 .get(&stream.session_id)
                 .is_some_and(|session| session.state == SessionState::Open)
     })
+}
+
+/// Lanes whose open recording session gates adoption touching
+/// `strip` (CB-ADP-03 write gate): the owning track's lanes for a
+/// track strip; *every* project lane for a bus strip — a bus strip's
+/// processors sit on every routed lane's path, so ownership cannot be
+/// proven narrower and the gate fails closed. Shared by the
+/// instrument-slot (CB-04) and FX-range (CB-05) adopt preflights so
+/// the lane resolution cannot drift between processor scopes.
+pub(crate) fn strip_recording_gate_lanes(project: &Project, strip: StripId) -> Vec<LaneId> {
+    let Some(strip_entity) = project.routing.strips.get(&strip) else {
+        return Vec::new();
+    };
+    match strip_entity.owner {
+        StripOwner::Track(track) => project
+            .tracks
+            .get(&track)
+            .map(|t| t.lane_ids.clone())
+            .unwrap_or_default(),
+        StripOwner::Bus(_) => project.lanes.keys().copied().collect(),
+    }
 }
 
 /// Domain adapter for [`VariantScope::AudioClip`]: clip-local edits
