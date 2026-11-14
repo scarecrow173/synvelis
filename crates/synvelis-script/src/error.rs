@@ -94,6 +94,116 @@ pub enum ScriptApiError {
     /// The analyzer port failed (unavailable / unsupported capability /
     /// stale result / invalid request / version mismatch / internal).
     Analyzer(AnalyzerError),
+    /// A [`crate::action::ScriptActionDefinition`] failed structural
+    /// validation — bad `schema_version`-adjacent field shape
+    /// (`script_id`, `source_digest` encoding, …). Unsupported
+    /// `schema_version` has its own variant.
+    Definition {
+        /// Safe-to-disclose reason.
+        reason: String,
+    },
+    /// The definition's `schema_version` is not supported — no
+    /// fallback to another version exists.
+    UnsupportedDefinitionVersion {
+        /// The version found in the document.
+        found: u32,
+    },
+    /// `source_digest` does not match the digest recomputed from the
+    /// presented source/definition — source drift fails closed
+    /// (RF-SCRIPT-00 M-13 family); there is no stale-version fallback.
+    SourceDrift {
+        /// The digest the definition declares.
+        declared: String,
+        /// The digest recomputed from the actual input.
+        actual: String,
+    },
+    /// `backend_requirement` names a backend the host did not declare
+    /// available — fail closed, never degrade to another backend.
+    BackendUnavailable {
+        /// The required backend (`luau` / `rhai`).
+        required: String,
+    },
+    /// `language_id` and `backend_requirement` disagree (e.g. a Luau
+    /// script requiring no backend, or YAML requiring Rhai).
+    LanguageBackendMismatch {
+        /// The declared language id.
+        language: String,
+        /// The declared backend requirement.
+        backend: String,
+    },
+    /// A definition `input_schema`/`output_schema` ref did not resolve
+    /// in the registry snapshot the model was built from.
+    UnresolvedDefinitionSchema {
+        /// The `name@major.minor` reference that failed.
+        schema: String,
+    },
+    /// An [`crate::action::ActionRecipe`] was asked to lower through
+    /// the wrong shape — e.g. `to_draft` on a batch recipe or
+    /// `to_batch_draft` on a single recipe.
+    RecipeKindMismatch {
+        /// What was requested (`single` / `batch`).
+        requested: &'static str,
+        /// The recipe's actual kind.
+        actual: &'static str,
+    },
+    /// The recipe spec contained zero member calls.
+    EmptyRecipe,
+    /// The recipe exceeds the batch member bound (mirrors the
+    /// `synvelis.operation.batch` `max_ops` / `MAX_MACRO_MEMBERS` = 64
+    /// contract).
+    TooManyMembers {
+        /// Members supplied.
+        members: usize,
+        /// The enforced maximum.
+        max: usize,
+    },
+    /// A multi-member recipe contains a member whose domain cannot
+    /// participate in one atomic batch (Query / Proposal /
+    /// `RuntimeControl` / `AsyncOperation`). Such mixes route to the
+    /// Workflow Coordinator instead — atomicity cannot be promised.
+    UnsupportedMemberDomain {
+        /// The script API name of the offending member.
+        member: String,
+        /// The member's operation domain.
+        domain: synvelis_gateway::OperationDomain,
+    },
+    /// A multi-member recipe contains `synvelis.operation.batch`
+    /// itself — nested batches are rejected.
+    NestedBatch {
+        /// The script API name of the offending member.
+        member: String,
+    },
+    /// Multi-member recipe members disagree on the project — a batch
+    /// binds exactly one project; cross-project work decomposes into
+    /// Workflow steps.
+    CrossProject {
+        /// The member whose project differed from the first member's.
+        member: String,
+        /// The first member's project (the batch's single project).
+        project: String,
+    },
+    /// Multi-member recipe members disagree on the consistency
+    /// requirement — one batch carries exactly one
+    /// `expected-revision`.
+    ConsistencyMismatch {
+        /// The member whose consistency differed.
+        member: String,
+    },
+    /// A built recipe was verified against a definition that is not
+    /// the one it was compiled from — `script_id`, `version`, or
+    /// `definition_digest` drifted.
+    DefinitionMismatch {
+        /// Which field disagreed.
+        field: &'static str,
+    },
+    /// The recipe's `script_version` disagrees with the presented
+    /// definition's `version` — version drift fails closed.
+    VersionDrift {
+        /// The version the recipe was built from.
+        expected: u32,
+        /// The version the presented definition declares.
+        actual: u32,
+    },
 }
 
 /// Why a surface entry cannot be invoked — the fail-closed verdict
@@ -212,6 +322,64 @@ impl fmt::Display for ScriptApiError {
             Self::Gateway(err) => write!(f, "gateway rejection: {err:?}"),
             Self::Internal { reason } => write!(f, "internal invariant failure: {reason}"),
             Self::Analyzer(err) => write!(f, "analyzer failure: {err}"),
+            Self::Definition { reason } => write!(f, "invalid action definition: {reason}"),
+            Self::UnsupportedDefinitionVersion { found } => {
+                write!(f, "unsupported action definition schema_version {found}")
+            }
+            Self::SourceDrift { declared, actual } => write!(
+                f,
+                "source digest drift: declared {declared}, recomputed {actual}"
+            ),
+            Self::BackendUnavailable { required } => {
+                write!(f, "required script backend unavailable: {required}")
+            }
+            Self::LanguageBackendMismatch { language, backend } => write!(
+                f,
+                "language/backend mismatch: language {language}, backend {backend}"
+            ),
+            Self::UnresolvedDefinitionSchema { schema } => {
+                write!(f, "unresolved definition schema {schema}")
+            }
+            Self::RecipeKindMismatch { requested, actual } => {
+                write!(
+                    f,
+                    "recipe kind mismatch: requested {requested}, actual {actual}"
+                )
+            }
+            Self::EmptyRecipe => write!(f, "action recipe has no members"),
+            Self::TooManyMembers { members, max } => {
+                write!(f, "action recipe has {members} members (max {max})")
+            }
+            Self::UnsupportedMemberDomain { member, domain } => {
+                write!(
+                    f,
+                    "member {member:?} domain {domain:?} cannot join an atomic batch"
+                )
+            }
+            Self::NestedBatch { member } => {
+                write!(
+                    f,
+                    "member {member:?} is synvelis.operation.batch (nested batch)"
+                )
+            }
+            Self::CrossProject { member, project } => {
+                write!(
+                    f,
+                    "member {member:?} targets a different project than {project}"
+                )
+            }
+            Self::ConsistencyMismatch { member } => {
+                write!(f, "member {member:?} consistency differs from the batch's")
+            }
+            Self::DefinitionMismatch { field } => {
+                write!(f, "recipe/definition mismatch on {field}")
+            }
+            Self::VersionDrift { expected, actual } => {
+                write!(
+                    f,
+                    "script version drift: recipe built from {expected}, definition declares {actual}"
+                )
+            }
         }
     }
 }

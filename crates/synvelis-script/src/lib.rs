@@ -41,6 +41,7 @@
 //! Ruviform or Luau.Analysis dependency lives here; real analyzer
 //! integration is tracked separately.
 
+pub mod action;
 pub mod analyzer;
 pub mod binding;
 pub mod canon;
@@ -51,6 +52,11 @@ pub mod schema;
 pub mod snapshot;
 pub mod surface;
 
+pub use action::{
+    ACTION_DEFINITION_SCHEMA_VERSION, ACTION_RECIPE_SCHEMA_VERSION, ActionRecipe, ActionRecipeKind,
+    AvailableBackends, BackendRequirement, LanguageId, MAX_RECIPE_MEMBERS, RecipeMember,
+    RecipeMemberSpec, RecipeSpec, ScriptActionDefinition,
+};
 pub use analyzer::{
     AnalyzeRequest, AnalyzeResult, AnalyzerCapabilities, AnalyzerDescriptor, AnalyzerError,
     Completion, CompletionKind, Cursor, DefinitionInjection, Diagnostic, DiagnosticKind,
