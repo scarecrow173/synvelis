@@ -34,6 +34,7 @@ Directory: `docs/test-specs`
 | TSPEC-034XkQVtkDaUEeWhxjkiAf | CB-03 MIDI Clip/Source 候補 Adapter fixture tests | approved | [cb-03-midi-clip-adapter.md](./cb-03-midi-clip-adapter.md) |
 | TSPEC-034XmMj7mJXFMShCKT4zZW | CB-04 Instrument Slot 候補 Adapter 検証仕様（synvelis#281） | approved | [cb-04-instrument-adapter.md](./cb-04-instrument-adapter.md) |
 | TSPEC-034ZxKpQ2mNv8sLw4tYh6b | CB-05 FX Processing Range 候補 Adapter 検証仕様（synvelis#282） | approved | [cb-05-fx-range-adapter.md](./cb-05-fx-range-adapter.md) |
+| TSPEC-034XpajVZWjKQ7G6z21j8o | CB-06 Track/Bus Strip 候補 Adapter — mask・routing 参照保護・adopt | draft | [cb-06-track-bus-adapter.md](./cb-06-track-bus-adapter.md) |
 | TSPEC-m5UJFsYVE3wcIp2bbhjQ6C | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 検証仕様 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | TSPEC-034RoWXtHq8FkSjQ9NWwqn | Synvelis 独立 CI ワークフロー検証仕様 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | TSPEC-034X9hRV8Ud0Ty0IZllwy5 | Capability / Command Gateway G0-G6 受入照合 検証仕様 (synvelis#46) | approved | [command-gateway-gates.md](./command-gateway-gates.md) |

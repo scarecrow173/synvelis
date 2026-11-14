@@ -33,12 +33,12 @@ use crate::{
     diff::{ObjectKind, SemanticObjectRef},
     id::{
         AutomationLaneId, ModulationAssignmentId, ModulationSourceId, ParameterTargetId,
-        ProcessorId,
+        ProcessorId, StripId,
     },
     variant::{
         VariantError,
-        scope::{scope_objects, validate_scope_structure},
-        types::VariantScope,
+        scope::{scope_objects, strip_channel_field, validate_scope_structure},
+        types::{StripDomainMask, StripField, VariantScope},
     },
 };
 
@@ -267,29 +267,18 @@ fn require_processor_owner(
     }
 }
 
-/// Processor-owned control ops shared by the instrument-slot (CB-04)
-/// and FX-range (CB-05) candidate surfaces: parameter base/target
-/// edits, automation lanes/regions and modulation — confined by
-/// [`require_scope`] against the scope's owned object set and by
-/// [`require_processor_owner`] against the scope's processor set.
-/// Every other op fails `Unsupported` (fail-closed: shared inputs,
-/// chain structure and wiring are never candidate-owned).
-fn check_processor_control_op_targets(
+/// Control-closure ops shared by every candidate surface whose scope
+/// owns control entities: parameter base/target, automation
+/// lanes/regions and modulation — confined by [`require_scope`]
+/// against the scope's owned object set. Creation ops
+/// (`AddParameterTarget`/`AddModulationSource`) are *not* handled
+/// here: they name an owner rather than an entity id, so each
+/// surface resolves owner legality itself before delegating.
+fn check_control_closure_op_targets(
     project: &Project,
     scope: &VariantScope,
     op: &ProjectOp,
 ) -> Result<(), VariantError> {
-    if !matches!(
-        scope,
-        VariantScope::InstrumentSlot { .. } | VariantScope::ProcessingRange { .. }
-    ) {
-        return Err(VariantError::InvalidScope {
-            detail: format!(
-                "processor-control target check requires a processor scope, got {scope:?}"
-            ),
-        });
-    }
-    let processors = scoped_processor_ids(project, scope)?;
     match op {
         ProjectOp::SetParameterBase { target, .. }
         | ProjectOp::RemoveParameterTarget { target }
@@ -299,10 +288,6 @@ fn check_processor_control_op_targets(
             ObjectKind::ParameterTarget,
             &target.to_tagged(),
         ),
-        ProjectOp::AddParameterTarget { owner, .. }
-        | ProjectOp::AddModulationSource { owner, .. } => {
-            require_processor_owner(*owner, &processors, scope)
-        }
         ProjectOp::RemoveAutomationLane { lane }
         | ProjectOp::WriteAutomationRegion { lane, .. }
         | ProjectOp::EraseAutomationRange { lane, .. } => require_scope(
@@ -355,6 +340,38 @@ fn check_processor_control_op_targets(
         other => Err(VariantError::Unsupported {
             detail: format!("edit op is outside the supported candidate surface: {other:?}"),
         }),
+    }
+}
+
+/// Processor-owned control ops shared by the instrument-slot (CB-04)
+/// and FX-range (CB-05) candidate surfaces: parameter base/target
+/// edits, automation lanes/regions and modulation — confined by
+/// [`require_scope`] against the scope's owned object set and by
+/// [`require_processor_owner`] against the scope's processor set.
+/// Every other op fails `Unsupported` (fail-closed: shared inputs,
+/// chain structure and wiring are never candidate-owned).
+fn check_processor_control_op_targets(
+    project: &Project,
+    scope: &VariantScope,
+    op: &ProjectOp,
+) -> Result<(), VariantError> {
+    if !matches!(
+        scope,
+        VariantScope::InstrumentSlot { .. } | VariantScope::ProcessingRange { .. }
+    ) {
+        return Err(VariantError::InvalidScope {
+            detail: format!(
+                "processor-control target check requires a processor scope, got {scope:?}"
+            ),
+        });
+    }
+    match op {
+        ProjectOp::AddParameterTarget { owner, .. }
+        | ProjectOp::AddModulationSource { owner, .. } => {
+            let processors = scoped_processor_ids(project, scope)?;
+            require_processor_owner(*owner, &processors, scope)
+        }
+        _ => check_control_closure_op_targets(project, scope, op),
     }
 }
 
@@ -413,6 +430,140 @@ fn check_processing_range_op_targets(
     check_processor_control_op_targets(project, scope, op)
 }
 
+/// `true` for the `ProjectOp` variants the strip-fields candidate
+/// surface accepts — the shared control-closure set plus the two
+/// strip channel ops and `InsertProcessor`. The declared
+/// [`StripDomainMask`] decides per-op/target legality inside
+/// [`check_strip_fields_op_targets`]; this predicate only bounds the
+/// variant family so the validate-gate and confinement gate cannot
+/// drift.
+pub(crate) fn is_strip_fields_op(op: &ProjectOp) -> bool {
+    is_instrument_slot_op(op)
+        || matches!(
+            op,
+            ProjectOp::SetStripMute { .. }
+                | ProjectOp::SetStripSolo { .. }
+                | ProjectOp::InsertProcessor { .. }
+        )
+}
+
+/// `SetStripMute`/`SetStripSolo` gate: the `Strip` entity is always
+/// scope-owned, so [`require_scope`] alone cannot see the field mask
+/// — the op mutates the strip's singleton Boolean `ParameterTarget`,
+/// which is scope-owned only when its field family is declared.
+/// An undeclared field rejects `Unsupported` (a capability verdict,
+/// matching the mask report); a foreign strip rejects
+/// `ScopeViolation` through [`require_scope`].
+fn check_strip_bool_op(
+    project: &Project,
+    scope: &VariantScope,
+    strip_id: &StripId,
+    field: StripField,
+    fields: &StripDomainMask,
+    label: &str,
+) -> Result<(), VariantError> {
+    require_scope(project, scope, ObjectKind::Strip, &strip_id.to_tagged())?;
+    if fields.owns(field) {
+        Ok(())
+    } else {
+        Err(VariantError::Unsupported {
+            detail: format!("strip {label} is outside the declared domain mask {fields:?}"),
+        })
+    }
+}
+
+/// Strip-fields candidate surface (CB-06): mask-gated channel ops,
+/// `InsertProcessor` under `Inserts`, and the shared control-closure
+/// ops re-resolved against *this* scope's owned set — channel
+/// targets exist as scope objects only for their declared field
+/// family, processor control entities only under `Inserts`.
+/// Creation ops (`AddParameterTarget`/`AddModulationSource`) get a
+/// strip-aware owner check: a strip channel role needs its field
+/// declared; any other owner resolves through the scope-derived
+/// processor set (chain processors under `Inserts`, empty
+/// otherwise). Every routing/send/sidechain/bus op stays
+/// `Unsupported` — external wiring is never candidate-owned.
+fn check_strip_fields_op_targets(
+    project: &Project,
+    scope: &VariantScope,
+    op: &ProjectOp,
+) -> Result<(), VariantError> {
+    let VariantScope::StripFields { strip, fields } = scope else {
+        return Err(VariantError::InvalidScope {
+            detail: format!(
+                "strip-fields target check requires a StripFields scope, got {scope:?}"
+            ),
+        });
+    };
+    match op {
+        ProjectOp::SetStripMute { strip_id, .. } => {
+            check_strip_bool_op(project, scope, strip_id, StripField::Mute, fields, "mute")
+        }
+        ProjectOp::SetStripSolo { strip_id, .. } => {
+            check_strip_bool_op(project, scope, strip_id, StripField::Solo, fields, "solo")
+        }
+        ProjectOp::InsertProcessor { strip_id, .. } => {
+            if !fields.owns(StripField::Inserts) {
+                return Err(VariantError::Unsupported {
+                    detail: format!("insert chain is outside the declared domain mask {fields:?}"),
+                });
+            }
+            let target = project
+                .routing
+                .strips
+                .get(strip_id)
+                .ok_or_else(|| Error::NotFound(format!("strip {strip_id}")))?;
+            let scoped = project
+                .routing
+                .strips
+                .get(strip)
+                .ok_or_else(|| Error::NotFound(format!("strip {strip}")))?;
+            if target.chain != scoped.chain {
+                return Err(VariantError::ScopeViolation {
+                    detail: format!(
+                        "insert targets strip {strip_id} on chain {}, outside scoped strip {strip} chain {}",
+                        target.chain, scoped.chain
+                    ),
+                });
+            }
+            Ok(())
+        }
+        ProjectOp::AddParameterTarget { owner, role, .. } => match owner {
+            ControlOwner::Strip(owner_strip) if *owner_strip == *strip => {
+                match strip_channel_field(*role) {
+                    Some(field) if fields.owns(field) => Ok(()),
+                    Some(_) => Err(VariantError::Unsupported {
+                        detail: format!(
+                            "strip channel role {role:?} is outside the declared domain mask {fields:?}"
+                        ),
+                    }),
+                    None => Err(VariantError::ScopeViolation {
+                        detail: format!(
+                            "strip-owned role {role:?} is not a channel field — never scope-owned"
+                        ),
+                    }),
+                }
+            }
+            _ => {
+                let processors = scoped_processor_ids(project, scope)?;
+                require_processor_owner(*owner, &processors, scope)
+            }
+        },
+        ProjectOp::AddModulationSource { owner, .. } => match owner {
+            // Strip-owned modulation sources are scope-owned for
+            // every non-empty mask (`strip_fields_objects` scopes
+            // them mask-independently) — the mask filters
+            // channel-field *targets*, not strip-level plumbing.
+            ControlOwner::Strip(owner_strip) if *owner_strip == *strip => Ok(()),
+            _ => {
+                let processors = scoped_processor_ids(project, scope)?;
+                require_processor_owner(*owner, &processors, scope)
+            }
+        },
+        _ => check_control_closure_op_targets(project, scope, op),
+    }
+}
+
 /// Pre-edit scope check for ops with explicit targets. Creation ops
 /// (`AddClip`, `InsertProcessor`) are verified post-edit instead.
 /// [`VariantScope::InstrumentSlot`] and [`VariantScope::ProcessingRange`]
@@ -429,6 +580,9 @@ fn check_op_targets(
         }
         VariantScope::ProcessingRange { .. } => {
             return check_processing_range_op_targets(project, scope, op);
+        }
+        VariantScope::StripFields { .. } => {
+            return check_strip_fields_op_targets(project, scope, op);
         }
         _ => {}
     }

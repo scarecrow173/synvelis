@@ -287,6 +287,22 @@ fn processing_range_objects(
     Ok(())
 }
 
+/// Maps a strip channel [`ParameterRole`] to the [`StripField`]
+/// family it belongs to — the single role→field mapping shared by
+/// scope derivation ([`strip_fields_objects`]) and the candidate
+/// edit gate (`check_strip_fields_op_targets`). `None` for
+/// non-channel roles: a strip-owned `Generic`/`ProcessorParam`
+/// target is never a scope object under any mask.
+pub(crate) fn strip_channel_field(role: ParameterRole) -> Option<StripField> {
+    match role {
+        ParameterRole::Fader => Some(StripField::Fader),
+        ParameterRole::Pan => Some(StripField::Pan),
+        ParameterRole::Mute => Some(StripField::Mute),
+        ParameterRole::Solo => Some(StripField::Solo),
+        _ => None,
+    }
+}
+
 /// Selected field families of one channel strip: the strip entity,
 /// optionally its whole insert chain, and the channel-field control
 /// closure filtered by the declared mask.
@@ -309,6 +325,18 @@ fn strip_fields_objects(
             .chains
             .get(&strip_entity.chain)
             .ok_or_else(|| Error::NotFound(format!("chain {}", strip_entity.chain)))?;
+        // The chain entity itself is scope-owned under `Inserts`:
+        // its `processors` list is the only carrier of DSP order, so
+        // owning it makes a live-side reorder move the scope digest
+        // (typed `StaleScope` at adopt) instead of surfacing as an
+        // undetectable positional merge. Adopt never transplants the
+        // list — `protected_fields` resets it — membership materializes
+        // per-processor through the ordinary reconcile path.
+        out.insert(object(
+            pid,
+            ObjectKind::ProcessorChain,
+            chain.id.to_tagged(),
+        ));
         for processor in &chain.processors {
             processor_objects(project, *processor, out);
         }
@@ -336,12 +364,8 @@ fn strip_fields_objects(
         if target.owner != ControlOwner::Strip(strip) {
             continue;
         }
-        let field = match target.role {
-            ParameterRole::Fader => StripField::Fader,
-            ParameterRole::Pan => StripField::Pan,
-            ParameterRole::Mute => StripField::Mute,
-            ParameterRole::Solo => StripField::Solo,
-            _ => continue,
+        let Some(field) = strip_channel_field(target.role) else {
+            continue;
         };
         if fields.owns(field) {
             target_ids.insert(target.id);
@@ -368,6 +392,34 @@ fn strip_fields_objects(
             ));
         }
     }
+    strip_assignment_objects(project, &target_ids, &source_ids, out);
+    Ok(())
+}
+
+/// Modulation assignments touching the strip's channel-field targets
+/// or strip-owned sources are provisionally collected, then filtered
+/// to effect containment.
+///
+/// Effect containment: an assignment's audible effect lands on its
+/// `target`, so it is scope-owned only when that target is — the
+/// same rule automation lanes already follow. An optional
+/// `depth_source` is a second parameter endpoint whose live value
+/// scales the contribution, so it must be scope-owned too: a
+/// candidate edit must never hang the declared field's modulation
+/// depth on an undeclared target. Source-side affiliation alone
+/// would let a candidate `SetModulationAssignment` (or an adopt
+/// transplant of a live-side edit) reach parameters outside the
+/// declared mask, e.g. a strip-owned LFO driving an undeclared
+/// channel field. The post-filter also covers assignments collected
+/// through processor closures under `Inserts`, whose far endpoint
+/// may sit outside the scope.
+fn strip_assignment_objects(
+    project: &Project,
+    target_ids: &BTreeSet<ParameterTargetId>,
+    source_ids: &BTreeSet<ModulationSourceId>,
+    out: &mut BTreeSet<SemanticObjectRef>,
+) {
+    let pid = project.project_id;
     for assignment in project.control.assignments.values() {
         if target_ids.contains(&assignment.target)
             || assignment
@@ -382,7 +434,23 @@ fn strip_fields_objects(
             ));
         }
     }
-    Ok(())
+    let owned_targets: BTreeSet<String> = out
+        .iter()
+        .filter(|o| o.kind == ObjectKind::ParameterTarget)
+        .map(|o| o.stable_id.clone())
+        .collect();
+    let contained: BTreeSet<String> = project
+        .control
+        .assignments
+        .values()
+        .filter(|a| {
+            owned_targets.contains(&a.target.to_tagged())
+                && a.depth_source
+                    .is_none_or(|ds| owned_targets.contains(&ds.to_tagged()))
+        })
+        .map(|a| a.id.to_tagged())
+        .collect();
+    out.retain(|o| o.kind != ObjectKind::ModulationAssignment || contained.contains(&o.stable_id));
 }
 
 /// A musical-time selection across tracks: the overlapping clips (when
