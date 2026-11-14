@@ -446,13 +446,20 @@ impl ConsistencyKind {
 ///
 /// GTC-001: trusted human authority and agent grant/task authority are
 /// distinct authorization grounds — the kind is part of the identity so
-/// the evaluator can never conflate them.
+/// the evaluator can never conflate them. An `Agent` principal covers
+/// both task-grant authority (MCP client, builtin agent) and delegated
+/// local automation (unattended CLI/CI execution, AUTX-02): both are
+/// agent-equivalent and must present task/grant references — neither
+/// reaches the unconditional human path.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PrincipalKind {
-    /// Trusted human (manual DAW session).
+    /// Trusted human (manual DAW session or verified interactive
+    /// local session — the adapter's provenance decides which).
     Human,
-    /// Agent principal (external MCP client or builtin agent).
+    /// Agent principal (external MCP client, builtin agent, or
+    /// delegated local automation such as unattended CI/scheduler
+    /// execution).
     Agent,
 }
 
@@ -522,10 +529,48 @@ impl<'de> Deserialize<'de> for Principal {
 pub enum OriginKind {
     /// The trusted manual DAW session.
     ManualUi,
-    /// An external adapter (e.g. future MCP transport — GW-08).
+    /// An external adapter (e.g. the MCP transport — GW-08).
     ExternalAdapter,
     /// The in-crate fixture adapter used by contract tests.
     TestFixture,
+    /// The trusted local CLI adapter (AUTX-02) — a headless local
+    /// session. The *kind* of attestation (verified interactive vs.
+    /// unattended delegated) is decided by the session credential the
+    /// adapter verified, not by anything the caller presents on the
+    /// wire: an interactive session credential binds a `Human`
+    /// principal, while the delegated path binds `Agent`.
+    LocalCli,
+}
+
+/// The authority class a trusted caller attests to (AUTX-02).
+///
+/// Derived from `(principal kind, origin)` — both minted inside this
+/// crate — never from wire data, CLI arguments, environment variables,
+/// TTY state, or script input. The class names the *lane* a caller
+/// arrived through so hosts and tests can distinguish verified human
+/// authority from delegated automation without conflating them.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CallerClass {
+    /// Verified human authority — a `Human` principal attested by any
+    /// trusted issuer (manual UI, verified interactive CLI session,
+    /// MCP control channel, or the test fixture's human). This is the
+    /// only class that reaches the unconditional human authorization
+    /// path.
+    VerifiedHuman,
+    /// Unattended delegated local execution — an `Agent` principal
+    /// attested by the local CLI adapter's delegated path (CI,
+    /// scheduler, or script-driven headless run). Agent-equivalent
+    /// authority: every operation still requires task/grant
+    /// authorization evaluated per call.
+    UnattendedDelegated,
+    /// An `Agent` principal attested through an external adapter
+    /// channel (the MCP client path, GW-08).
+    ExternalAgent,
+    /// An `Agent` principal attested by the in-crate test fixture —
+    /// or on the manual origin, which no production issuer produces.
+    /// Lowest-trust agent lane; still requires task/grant authority.
+    FixtureAgent,
 }
 
 /// Capability token proving adapter trust.
@@ -533,8 +578,11 @@ pub enum OriginKind {
 /// Private field, no public constructor: only this crate can mint a
 /// seal. [`CallerIdentity`] construction requires one, so a wire payload
 /// or an external crate cannot fabricate a trusted caller (GT-002).
-/// Issuance for real transports is GW-08's seam; GW-01's
-/// [`crate::fixture::FixtureAdapter`] is the only issuer.
+/// Issuance is crate-internal: GW-01's [`crate::fixture::FixtureAdapter`]
+/// (test origin), GW-08's [`crate::mcp_server::McpHost`] (external
+/// adapter origin, gated on a verified connection permit), and AUTX-02's
+/// [`crate::cli::LocalCliAdapter`] (local CLI origin, gated on a
+/// verified session credential or the delegated path) are the issuers.
 #[derive(Copy, Clone, Debug)]
 pub struct AdapterSeal {
     adapter: AdapterId,
@@ -599,6 +647,27 @@ impl CallerIdentity {
     #[must_use]
     pub const fn adapter(&self) -> AdapterId {
         self.adapter
+    }
+
+    /// The authority class this caller attests to (AUTX-02).
+    ///
+    /// A `Human` principal on any trusted origin is
+    /// [`CallerClass::VerifiedHuman`]; an `Agent` principal is
+    /// classified by the origin that attested it — local CLI
+    /// delegated execution, external adapter, or fixture/manual.
+    /// The mapping is total over `(kind, origin)` and uses only
+    /// crate-minted fields, so no caller-controlled input can move a
+    /// caller into a stronger class.
+    #[must_use]
+    pub const fn authority_class(&self) -> CallerClass {
+        match self.principal.kind() {
+            PrincipalKind::Human => CallerClass::VerifiedHuman,
+            PrincipalKind::Agent => match self.origin {
+                OriginKind::LocalCli => CallerClass::UnattendedDelegated,
+                OriginKind::ExternalAdapter => CallerClass::ExternalAgent,
+                OriginKind::ManualUi | OriginKind::TestFixture => CallerClass::FixtureAgent,
+            },
+        }
     }
 }
 

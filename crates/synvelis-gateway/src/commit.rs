@@ -1916,6 +1916,61 @@ impl<F: CommitFence> CommitGate<F> {
     }
 }
 
+// ---------------------------------------------------------------------
+// adapter ports — the gate IS the commit/admin boundary
+// ---------------------------------------------------------------------
+
+/// The [`crate::mcp_server::CommitPort`] view of the gate.
+///
+/// Every method lands on the same fenced path the internal entry
+/// points take — `commit` revalidates and journals inside the fence,
+/// `reconcile` reads the durable ledger, and `cancel` settles a
+/// pending apply through [`CommitGate::cancel_apply`] (the port's
+/// `reason` is advisory; the gate's verdict is the recorded one).
+/// Adapter hosts (`McpHost`-style compositions and the AUTX-02
+/// [`crate::headless::HeadlessSessionHost`]) can therefore drive the
+/// real commit boundary without a wrapper that could diverge from it.
+impl<F: CommitFence> crate::mcp_server::CommitPort for CommitGate<F> {
+    fn commit(&self, proposal: &ProposalRef) -> Result<CommitReceipt, ErrorEnvelope> {
+        self.commit(proposal)
+    }
+
+    fn reconcile(&self, operation: OperationId) -> RetryOutcome {
+        self.reconcile(operation)
+    }
+
+    fn cancel(&self, proposal: &ProposalRef, _reason: &str) -> Result<bool, ErrorEnvelope> {
+        self.cancel_apply(proposal)
+    }
+}
+
+/// The [`crate::mcp_server::AdminPort`] view of the gate — policy
+/// issuance and revocation through the same durable, fenced admin
+/// surface [`CommitGate::issue_grant`] & co. already provide. The
+/// live-revision probe answers only for the project this gate owns;
+/// any other project id gets `None` rather than a wrong revision.
+impl<F: CommitFence> crate::mcp_server::AdminPort for CommitGate<F> {
+    fn issue_task(&self, task: AuthorizedTask) -> Result<(), ErrorEnvelope> {
+        self.issue_task(&task)
+    }
+
+    fn issue_grant(&self, grant: Grant) -> Result<(), ErrorEnvelope> {
+        self.issue_grant(&grant)
+    }
+
+    fn revoke_grant(&self, id: &GrantRef) -> Result<(), ErrorEnvelope> {
+        self.revoke_grant(id)
+    }
+
+    fn revoke_task(&self, id: &TaskRef) -> Result<(), ErrorEnvelope> {
+        self.revoke_task(id)
+    }
+
+    fn live_revision(&self, project: ProjectId) -> Option<ProjectRevision> {
+        (project == self.project).then(|| self.live_revision())
+    }
+}
+
 /// What the restart path proved about durable state (REC-09 evidence —
 /// a caller must see exactly which guarantees held).
 #[derive(Clone, Debug, Default)]
