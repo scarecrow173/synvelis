@@ -167,6 +167,10 @@ sha256 へ書き換えない。新規 receipt のみ sha256 を記録する。
   tamper fail-closed・opaque receipt fail-closed・legacy CRC32
   receipt の flat 維持・Published/Indeterminate reconcile・
   unlanded retry fail-closed・provenance fields の 10 test。
+- `crates/synvelis-render/tests/x_e2e.rs`（coordinator 承認の
+  scope 拡張）: X-01/X-04 の flat layout 前提 assertion を
+  `open_blob_verified` + `blobs/sha256/` namespace assert へ
+  追従。
 - `evidence/sv116/rcd-02-blob-sha256-ledger.md`（新規）: 本 slice
   の headless fixture 証跡 ledger。
 
@@ -217,23 +221,32 @@ canonical = mise（補助証拠として cargo 直接実行も記録）:
   緑。`rcd02_blob_digest` 10 tests を含む）
 - `mise run test synvelis-recording` — Pass（exit 0、全 test
   binary 緑）
+- `mise run check synvelis-render` — Pass（exit 0）
+- `mise run lint synvelis-render` — Pass（exit 0）
+- `mise run test synvelis-render` — Pass（exit 0、全 test binary
+  緑。`x_e2e` 5 tests を含む）
 - 補助: `cargo test -p synvelis-player --test rcd02_blob_digest`
   — 10 passed / 0 failed
 
 OS: Windows (win32)。toolchain: mise pin（`mise.ci.toml` 1.99.0
-系、実測値は PR 本文に記録）。
+系、実測 rustc/cargo 1.99.1・PR 本文に記録）。`origin/main`
+（f12aa66）merge 後に再検証済み。
 
 NotRun: 実 OS power-loss・Linux/macOS real-FS・実 device 録音
 （#115）・製品 GUI E2E（#118）・consumer 照合・synvelis-project
-HEAD CAS・`crates/synvelis-render/tests/x_e2e.rs` の legacy flat
-blob layout 前提 assertion（scope 外・coordinator 判断待ち）。
+HEAD CAS・`test-rt`/`test-msrv`（canonical 検証コマンド非含有）。
 
 ## Risks
 
-- `x_e2e.rs` X-04 が `media_root/blobs` 直下の flat digest file
-  のみを期待するため、namespaced layout で fail し得る。
-  synvelis-render は本 slice の編集範囲外 — coordinator へ
-  scope 拡張を照会中。未対応なら follow-up として記録する。
+- `x_e2e.rs` X-01/X-04 が `media_root/blobs` 直下の flat digest
+  file と CRC32 fold 再計算を前提としていたため、namespaced
+  layout で fail した。coordinator 承認の scope 拡張で同 test
+  file のみ更新済み（`open_blob_verified` による verified
+  resolve + sha256 namespace assert へ追従、render src 無変更）。
+  設計判断: 新規 publish は全て sha256 canonical のため assert
+  は新 layout のみを対象とし、legacy flat の読取互換は
+  `blob.rs`/`verified_import` の既存 test
+  （`crc32_fold_source_still_resolves` 等）が担保する。
 - staged source `.publish-NNNN.wav` は crash 時に session dir に
   残留し得る（recovery 分類への影響なし・次回 publish で上書き
   後除去）。
@@ -244,6 +257,5 @@ blob layout 前提 assertion（scope 外・coordinator 判断待ち）。
 
 ## Follow-ups
 
-- `x_e2e.rs` の blob layout assertion 更新（scope 承認次第）。
 - 実 OS/FS durability・power-loss 実測（実機 gate）。
 - #115 実 device・#118 製品 GUI E2E・#86 consumer 照合。

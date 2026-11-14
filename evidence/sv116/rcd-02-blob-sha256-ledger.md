@@ -102,4 +102,4 @@ Fixture: `report_carries_provenance_fields`.
 | 実 device 録音 | Deferred | synvelis#115 |
 | 製品 GUI E2E | Deferred | synvelis#118 |
 | consumer 照合（#86 verified blob 実接続） | NotRun | 本 slice は recording publish 側のみ |
-| `synvelis-render` `x_e2e.rs` blob layout assertion | NotRun | 編集範囲外・coordinator 判断待ち |
+| `synvelis-render` `x_e2e.rs` blob layout assertion | Pass | coordinator 承認の scope 拡張で sha256 namespace へ追従済み（`mise run test synvelis-render` 5/5） |
