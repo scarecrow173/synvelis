@@ -106,6 +106,7 @@ Directory: `docs/test-specs`
 | TSPEC-Rcp02ArtifactManifestX | RCP-02 Immutable Artifact Manifest / Verified Publish / CAS GC / shared verification fixture tests | approved | [rcp-02-artifact-manifest.md](./rcp-02-artifact-manifest.md) |
 | TSPEC-Rcp03RenderPolicyTestX | RCP-03 Render Policy / Save・Commit・Share Trigger / Async Job orchestration / Completeness verdict fixture tests | approved | [rcp-03-render-policy.md](./rcp-03-render-policy.md) |
 | TSPEC-034Xf6cGmdSv6ezz0A7JNC | RCP-04 Missing Plugin Resolver・Execution Intent・Safe Plan Reconciliation 検証仕様 (synvelis#293) | approved | [rcp-04-missing-plugin-resolver.md](./rcp-04-missing-plugin-resolver.md) |
+| TSPEC-Rcp06RenderGuiTestX | RCP-06 Missing Plugin/Render GUI — presentation model・ViewSpec・action 契約 fixture tests | approved | [rcp-06-render-gui.md](./rcp-06-render-gui.md) |
 | TSPEC-a6ZCHY6LRL2KeFER0sLwl7 | Recording / Take / Comping — Fixture 契約・受入検証仕様（synvelis#12） | approved | [recording-take-comping.md](./recording-take-comping.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
 | TSPEC-034SF02Xa1sPq8rU1wC6dEgHi | SF-02 E2E/契約テスト仕様 — RoutingTransaction Reject/不変/Undo/Revision | approved | [sf-02-e2e-routing-transaction.md](./sf-02-e2e-routing-transaction.md) |

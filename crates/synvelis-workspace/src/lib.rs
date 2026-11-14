@@ -34,6 +34,7 @@ pub mod preset;
 pub mod probe_trace;
 pub mod recording_status;
 pub mod relation_ui;
+pub mod render_ui;
 pub mod routing_gesture;
 pub mod selection;
 pub mod session;
@@ -107,6 +108,32 @@ pub use preset::{
     PresetViewState, PresetWindow, WorkspacePreset,
 };
 pub use probe_trace::{ProbeDrainReport, ProbePrincipal, ProbeReleaseReport, ProbeTraceError};
+pub use render_ui::{
+    ACTION_RENDER_ATTACH, ACTION_RENDER_CANCEL, ACTION_RENDER_INSPECT, ACTION_RENDER_PLAN,
+    ACTION_RENDER_PUBLISH, ACTION_RENDER_REMOTE, ACTION_RENDER_REQUEST, ACTION_RENDER_RETRY,
+    ACTION_RENDER_VERIFY, BoundaryCandidateView, BoundaryDiffRow, BoundaryResolutionKind,
+    BoundarySideView, BranchDiffInput, BranchDiffView, BranchSideInput, ChangedParameterRow,
+    CommitView, CompletenessGapView, CompletenessView, Editability, Executability, JobControlOp,
+    JobFailureView, JobReceiptView, NodeRenderEvidence, PlaybackQuality, PolicyFieldView,
+    ReasonCategory, RenderActionCandidate, RenderActionKind, RenderCommand, RenderJobView,
+    RenderNodePresentation, RenderPolicyView, RenderReason, RenderRequestPreview,
+    RenderSelectionView, RenderSurface, RenderUiError, RenderValidity, RenderViewAction,
+    RenderViewState, RuntimeState, SelectionPins, SemanticChange, SemanticDiffRow, SnapshotPinView,
+    SubstitutionView, TriggerProvider, TriggerRow, apply_render_view_action, completion_label,
+    content_digest_prefix, digest_prefix_str, entry_surface_label, intent_label,
+    job_control_allowed, job_purpose_label, job_state_label, playback_quality_of,
+    policy_field_label, policy_layer_label, project_branch_diff, project_render_job,
+    project_render_node, project_render_policy, project_render_request, project_selection,
+    reason_of_eligibility, reason_of_gap, reason_of_job_failure, reason_of_lookup,
+    reason_of_unknown, reason_of_unresolved, reason_of_unsupported, reason_of_verdict,
+    recipe_key_prefix, render_action_requires_grant, render_job_candidates, render_job_command,
+    render_policy_draft_patch, render_request_candidates, render_request_report,
+    render_validity_of, render_validity_of_lookup, scope_label, selection_verdict_label,
+    trigger_label,
+};
+// Authority vocabulary the render surfaces decode/display — re-exported
+// so app/CLI surfaces never need a direct `synvelis-render` dependency
+// for policy enums (single vocabulary, RCP-UX-02/03).
 pub use recording_status::{
     PreparedCommitView, PreparedVerdict, RECORDING_STATUS_NOTICE_TAIL, RecordingAction,
     RecordingDisplayState, RecordingExplanation, RecordingLaneView, RecordingOutcomeView,
@@ -146,6 +173,7 @@ pub use state::{
     EditingSelection, FollowSource, InspectionFocus, InspectionMode, LinkedContext, SemanticTarget,
     ViewState, ViewStateRegistry, Viewport,
 };
+pub use synvelis_render::policy::{CompletionRequirement, PolicyPatch, RenderScope, RenderTrigger};
 pub use tool::{
     EditOperation, HandleKind, HitCandidate, HitProbe, HitZone, Tool, ToolResolution, resolve_tool,
 };

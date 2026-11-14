@@ -23,6 +23,7 @@ use crate::automation_ui::AutomationViewState;
 use crate::control_edge::ControlEdgeGesture;
 use crate::gesture::Gesture;
 use crate::relation_ui::ControlRelationViewState;
+use crate::render_ui::RenderViewState;
 use crate::routing_gesture::RoutingGesture;
 use crate::selection::{EditBinding, LaneScope, ObjectSelections, TimeSelection};
 use crate::signal_flow_ui::SignalFlowViewState;
@@ -233,6 +234,15 @@ pub struct ViewState {
     /// carries project/grant/job truth.
     #[serde(default, deserialize_with = "deserialize_automation")]
     pub automation: Option<AutomationViewState>,
+    /// Per-view render-surface state — surface kind, row selections,
+    /// and the draft policy intent a user is composing (RCP-06,
+    /// synvelis#295). `None` for views that never hosted a render
+    /// surface; absent in older snapshots and defaulted on migrate. A
+    /// malformed persisted payload degrades to `None` (safe recovery)
+    /// instead of rejecting the snapshot. View-local only — it never
+    /// carries project/render/job/policy authority.
+    #[serde(default, deserialize_with = "deserialize_render")]
+    pub render: Option<RenderViewState>,
     /// Viewport (view-local).
     pub viewport: Viewport,
     /// Project revisions delivered to this view — the observable
@@ -302,6 +312,18 @@ where
 /// payload degrades to `None` rather than rejecting the whole
 /// workspace snapshot.
 fn deserialize_automation<'de, D>(deserializer: D) -> Result<Option<AutomationViewState>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value.and_then(|v| serde_json::from_value(v).ok()))
+}
+
+/// Tolerant per-view render state decode — same safe recovery
+/// contract as [`deserialize_signal_flow`]: a malformed persisted
+/// payload degrades to `None` rather than rejecting the whole
+/// workspace snapshot.
+fn deserialize_render<'de, D>(deserializer: D) -> Result<Option<RenderViewState>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

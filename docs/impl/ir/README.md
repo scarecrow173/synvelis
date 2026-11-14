@@ -132,6 +132,7 @@ Directory: `docs/impl/ir`
 | IMPL-rcp02-artifact-manifest | RCP-02 Immutable Artifact Manifest・Verified Publish・CAS参照/GC・共有検証 — Headless スライス | completed | [rcp-02-artifact-manifest.md](./rcp-02-artifact-manifest.md) |
 | IMPL-rcp03-render-policy | RCP-03 Render Policy・Save/Commit/Share Trigger・Async Job/Completeness — Headless スライス | completed | [rcp-03-render-policy.md](./rcp-03-render-policy.md) |
 | IMPL-034Xf6XTMuIwdmzniCRakm | RCP-04 Missing Plugin Subgraph Resolver・Execution Intent・Safe Plan Reconciliation headless slice (synvelis#293) | completed | [rcp-04-missing-plugin-resolver.md](./rcp-04-missing-plugin-resolver.md) |
+| IMPL-rcp06-render-gui | RCP-06 Missing Plugin/Render Availability・Policy UI・Action 契約 — Headless/Driver-neutral 投影スライス | completed | [rcp-06-render-gui.md](./rcp-06-render-gui.md) |
 | IMPL-C1ZTg7tLJ3bWNVepfbzpSs | Recording / Take / Comping — 文書チェーン・受入 Owner Matrix 実装記録（synvelis#12） | completed | [recording-take-comping.md](./recording-take-comping.md) |
 | IMPL-034SF01Qr3wXmZyAbCdEfGhJ | SF-01 Semantic Routing Model — Bus/Send/Chain/Stable Port IDs・Schema v6 | completed | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
 | IMPL-034UjyiVpFVP7RCwlZ2neB | SF-03 slice5 実装記録 — session EnginePort・SessionRoutingEngine 接続 | completed | [sf-03-slice5-session-engineport-sessionroutingengine.md](./sf-03-slice5-session-engineport-sessionroutingengine.md) |
