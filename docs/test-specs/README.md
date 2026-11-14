@@ -31,6 +31,7 @@ Directory: `docs/test-specs`
 | TSPEC-AUTX07GuiViewsHeadless | AUTX-07 GUI views headless test spec（synvelis#266） | approved | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | TSPEC-cb01VariantSetFixtureT | CB-01 Creative Branch variant model/controller fixture tests | approved | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | TSPEC-cb02AudioClipTakeCompT | CB-02 Audio Clip/Take/Comp 候補 Adapter fixture tests | approved | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |
+| TSPEC-034XkQVtkDaUEeWhxjkiAf | CB-03 MIDI Clip/Source 候補 Adapter fixture tests | approved | [cb-03-midi-clip-adapter.md](./cb-03-midi-clip-adapter.md) |
 | TSPEC-m5UJFsYVE3wcIp2bbhjQ6C | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 検証仕様 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | TSPEC-034RoWXtHq8FkSjQ9NWwqn | Synvelis 独立 CI ワークフロー検証仕様 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | TSPEC-034X9hRV8Ud0Ty0IZllwy5 | Capability / Command Gateway G0-G6 受入照合 検証仕様 (synvelis#46) | approved | [command-gateway-gates.md](./command-gateway-gates.md) |
