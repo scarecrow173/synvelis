@@ -29,7 +29,12 @@ use std::collections::BTreeSet;
 use crate::{
     IdGenerator, Operation, Project, ProjectController, ProjectOp,
     comp::CompOp,
+    control::ControlOwner,
     diff::{ObjectKind, SemanticObjectRef},
+    id::{
+        AutomationLaneId, ModulationAssignmentId, ModulationSourceId, ParameterTargetId,
+        ProcessorId,
+    },
     variant::{
         VariantError,
         scope::{scope_objects, validate_scope_structure},
@@ -204,13 +209,151 @@ fn require_scope(
     }
 }
 
+/// `true` for the `ProjectOp` variants the instrument-slot candidate
+/// surface accepts — the same list
+/// [`check_instrument_slot_op_targets`] confines. Kept adjacent so the
+/// adapter's validate-gate and the confinement gate cannot drift.
+pub(crate) fn is_instrument_slot_op(op: &ProjectOp) -> bool {
+    matches!(
+        op,
+        ProjectOp::SetParameterBase { .. }
+            | ProjectOp::AddParameterTarget { .. }
+            | ProjectOp::RemoveParameterTarget { .. }
+            | ProjectOp::AddAutomationLane { .. }
+            | ProjectOp::RemoveAutomationLane { .. }
+            | ProjectOp::WriteAutomationRegion { .. }
+            | ProjectOp::EraseAutomationRange { .. }
+            | ProjectOp::AddModulationSource { .. }
+            | ProjectOp::RemoveModulationSource { .. }
+            | ProjectOp::AddModulationAssignment { .. }
+            | ProjectOp::SetModulationAssignment { .. }
+            | ProjectOp::RemoveModulationAssignment { .. }
+    )
+}
+
+/// Creation ops (`AddParameterTarget`/`AddModulationSource`) name an
+/// owner rather than an entity id: the owner must be the scoped
+/// processor itself, otherwise the new entity lands outside the
+/// declared scope.
+fn require_processor_owner(
+    owner: ControlOwner,
+    processor: ProcessorId,
+    scope: &VariantScope,
+) -> Result<(), VariantError> {
+    if owner == ControlOwner::Processor(processor) {
+        Ok(())
+    } else {
+        Err(VariantError::ScopeViolation {
+            detail: format!(
+                "edit creates a control entity owned by {owner:?}, outside instrument scope {scope:?}"
+            ),
+        })
+    }
+}
+
+/// Instrument-slot candidate surface (CB-04): processor-owned control
+/// ops — parameter base/target edits, automation lanes/regions and
+/// modulation — confined by [`require_scope`] against the scope's
+/// owned object set (`processor_objects`: the processor, its ports
+/// and its processor-owned control closure). Every other op —
+/// routing/connection/send/bus edits, strip/track/clip/source edits,
+/// processor insert/remove/reorder, `Composite` — mutates shared
+/// context outside the declared scope and fails `Unsupported`
+/// (fail-closed: shared MIDI input, upstream strip/chain structure
+/// and downstream wiring are never candidate-owned).
+fn check_instrument_slot_op_targets(
+    project: &Project,
+    scope: &VariantScope,
+    op: &ProjectOp,
+) -> Result<(), VariantError> {
+    let VariantScope::InstrumentSlot { processor } = scope else {
+        return Err(VariantError::InvalidScope {
+            detail: format!(
+                "instrument-slot target check requires an InstrumentSlot scope, got {scope:?}"
+            ),
+        });
+    };
+    match op {
+        ProjectOp::SetParameterBase { target, .. }
+        | ProjectOp::RemoveParameterTarget { target }
+        | ProjectOp::AddAutomationLane { target } => require_scope(
+            project,
+            scope,
+            ObjectKind::ParameterTarget,
+            &target.to_tagged(),
+        ),
+        ProjectOp::AddParameterTarget { owner, .. }
+        | ProjectOp::AddModulationSource { owner, .. } => {
+            require_processor_owner(*owner, *processor, scope)
+        }
+        ProjectOp::RemoveAutomationLane { lane }
+        | ProjectOp::WriteAutomationRegion { lane, .. }
+        | ProjectOp::EraseAutomationRange { lane, .. } => require_scope(
+            project,
+            scope,
+            ObjectKind::AutomationLane,
+            &lane.to_tagged(),
+        ),
+        ProjectOp::RemoveModulationSource { source } => require_scope(
+            project,
+            scope,
+            ObjectKind::ModulationSource,
+            &source.to_tagged(),
+        ),
+        ProjectOp::AddModulationAssignment {
+            source,
+            target,
+            depth_source,
+            ..
+        } => {
+            require_scope(
+                project,
+                scope,
+                ObjectKind::ModulationSource,
+                &source.to_tagged(),
+            )?;
+            require_scope(
+                project,
+                scope,
+                ObjectKind::ParameterTarget,
+                &target.to_tagged(),
+            )?;
+            if let Some(depth) = depth_source {
+                require_scope(
+                    project,
+                    scope,
+                    ObjectKind::ParameterTarget,
+                    &depth.to_tagged(),
+                )?;
+            }
+            Ok(())
+        }
+        ProjectOp::SetModulationAssignment { id, .. }
+        | ProjectOp::RemoveModulationAssignment { id } => require_scope(
+            project,
+            scope,
+            ObjectKind::ModulationAssignment,
+            &id.to_tagged(),
+        ),
+        other => Err(VariantError::Unsupported {
+            detail: format!("edit op is outside the supported candidate surface: {other:?}"),
+        }),
+    }
+}
+
 /// Pre-edit scope check for ops with explicit targets. Creation ops
 /// (`AddClip`, `InsertProcessor`) are verified post-edit instead.
+/// [`VariantScope::InstrumentSlot`] dispatches to the processor-owned
+/// control surface — the shared MIDI input, chain structure and
+/// wiring stay outside every instrument candidate.
 fn check_op_targets(
     project: &Project,
     scope: &VariantScope,
     op: &ProjectOp,
 ) -> Result<(), VariantError> {
+    if matches!(scope, VariantScope::InstrumentSlot { .. }) {
+        return check_instrument_slot_op_targets(project, scope, op);
+    }
     match op {
         ProjectOp::SetClipMuted { clip_id, .. }
         | ProjectOp::MoveClip { clip_id, .. }
@@ -272,6 +415,10 @@ struct PreEditIds {
     ports: BTreeSet<crate::id::SemanticPortId>,
     midi_sources: BTreeSet<crate::id::SourceId>,
     midi_notes: BTreeSet<crate::id::NoteId>,
+    control_targets: BTreeSet<ParameterTargetId>,
+    automation_lanes: BTreeSet<AutomationLaneId>,
+    modulation_sources: BTreeSet<ModulationSourceId>,
+    modulation_assignments: BTreeSet<ModulationAssignmentId>,
 }
 
 impl PreEditIds {
@@ -287,6 +434,10 @@ impl PreEditIds {
                 .values()
                 .flat_map(|source| source.notes.keys().copied())
                 .collect(),
+            control_targets: project.control.targets.keys().copied().collect(),
+            automation_lanes: project.control.lanes.keys().copied().collect(),
+            modulation_sources: project.control.sources.keys().copied().collect(),
+            modulation_assignments: project.control.assignments.keys().copied().collect(),
         }
     }
 }
@@ -346,6 +497,30 @@ fn check_created_within_scope(
     {
         if !before.midi_notes.contains(note) {
             check(ObjectKind::MidiNote, note.to_tagged())?;
+        }
+    }
+    // Control-closure creations (instrument-slot candidates): every
+    // new target/lane/source/assignment must land inside the scope's
+    // owned set — an op minting control entities for another owner
+    // fails closed here even if its pre-edit targets resolved.
+    for target in candidate.control.targets.keys() {
+        if !before.control_targets.contains(target) {
+            check(ObjectKind::ParameterTarget, target.to_tagged())?;
+        }
+    }
+    for lane in candidate.control.lanes.keys() {
+        if !before.automation_lanes.contains(lane) {
+            check(ObjectKind::AutomationLane, lane.to_tagged())?;
+        }
+    }
+    for source in candidate.control.sources.keys() {
+        if !before.modulation_sources.contains(source) {
+            check(ObjectKind::ModulationSource, source.to_tagged())?;
+        }
+    }
+    for assignment in candidate.control.assignments.keys() {
+        if !before.modulation_assignments.contains(assignment) {
+            check(ObjectKind::ModulationAssignment, assignment.to_tagged())?;
         }
     }
     Ok(())

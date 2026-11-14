@@ -18,6 +18,7 @@ mod adapter;
 mod audio;
 pub(crate) mod engine;
 mod error;
+mod instrument;
 mod midi_clip;
 pub(crate) mod scope;
 mod store;
@@ -31,6 +32,9 @@ pub use engine::{
     fork_variant_set,
 };
 pub use error::VariantError;
+pub use instrument::{
+    InstrumentSlotAdapter, InstrumentSlotCapabilities, InstrumentStateAssessment,
+};
 pub use midi_clip::{MidiClipAdapter, MidiClipCapabilities};
 pub use scope::scope_digest;
 pub use store::{BranchContentStore, InMemoryBranchContentStore, decode_candidate};
