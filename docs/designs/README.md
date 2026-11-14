@@ -161,6 +161,7 @@ Directory: `docs/designs`
 | DESIGN-034T2aGDbNinkumWeftaiP | SYN-IO-02 DirectoryBundleStore StagedFile 移行設計 | approved | [syn-io-02-directory-bundle-store-stagedfile-design.md](./syn-io-02-directory-bundle-store-stagedfile-design.md) |
 | DESIGN-034Tk3mXw7LpQ2vRnB8y | SYN-IO-02 HEAD CAS consumer-side mutex 設計 | approved | [syn-io-02-head-cas-design.md](./syn-io-02-head-cas-design.md) |
 | DESIGN-034WVJwLjBMYR3fBrNJD2M | SYN-IO-02 HEAD CAS 実 2-process E2E 検証 — design | approved | [syn-io-02-head-cas-e2e-design.md](./syn-io-02-head-cas-e2e-design.md) |
+| DESIGN-0948qgqpuG8j47FSJjhaHR | SYN-IO-02 Windows NTFS 実機 Case lane — design | approved | [syn-io-02-windows-real-fs.md](./syn-io-02-windows-real-fs.md) |
 | DESIGN-034RBzdpo91wcbqBK7Gb9t | SYN-OBS-01 Design — Host所有 Logging Owner・設定解決・Source Catalog | approved | [syn-obs-01-design-host-logging-owner-source-catalog.md](./syn-obs-01-design-host-logging-owner-source-catalog.md) |
 | DESIGN-034T2RF305WAVSTAGED00Y | SYN-RF305 WAV Export StagedFile 移行設計 | approved | [syn-rf305-wav-export-staged-file-design.md](./syn-rf305-wav-export-staged-file-design.md) |
 | — | Synvelis-driven Ruviform Target Architecture v0.7.1 | — | [synvelis-driven-ruviform-target-architecture-v07.md](./synvelis-driven-ruviform-target-architecture-v07.md) |

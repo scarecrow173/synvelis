@@ -173,6 +173,7 @@ Directory: `docs/test-specs`
 | TSPEC-034WVJHbBO657gxk3KnLP1 | SYN-IO-02 HEAD CAS 実 2-process E2E 試験 | approved | [syn-io-02-head-cas-e2e.md](./syn-io-02-head-cas-e2e.md) |
 | TSPEC-034Th7fQpLmNvRwXk2jHs | SYN-IO-02 HEAD CAS 契約試験 | approved | [syn-io-02-head-cas.md](./syn-io-02-head-cas.md) |
 | TSPEC-034T2c6eMscPucNt6w8iYW | SYN-IO-02 Store Publish 契約試験 | approved | [syn-io-02-store-publish-contract.md](./syn-io-02-store-publish-contract.md) |
+| TSPEC-1IX4OipTK7jb8iO85siVKU | SYN-IO-02 Windows NTFS 実機 Case lane test-spec | approved | [syn-io-02-windows-real-fs.md](./syn-io-02-windows-real-fs.md) |
 | TSPEC-034RBFeQnmt3PcI7beSRpy | SYN-OBS-01 検証仕様 — Host Logging install・設定解決・Health・Source catalog | draft | [syn-obs-01-logging-source-catalog.md](./syn-obs-01-logging-source-catalog.md) |
 | TSPEC-034T2RF305WAVSTAGED01B | SYN-RF305 Export StagedFile Publish 契約試験 | approved | [syn-rf305-export-staged-publish-contract.md](./syn-rf305-export-staged-publish-contract.md) |
 | TSPEC-DvNh4xQwTvsBbMkBb9PPmy | Target Architecture 設計レビュー検証仕様 — TA-001〜012 + GUI 方針の oracle・fixture・証拠分類 | approved | [target-architecture.md](./target-architecture.md) |

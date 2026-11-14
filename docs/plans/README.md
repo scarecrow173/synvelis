@@ -128,6 +128,7 @@ Directory: `docs/plans`
 | PLAN-034T2c5vy3vKJPENF8AA50 | SYN-IO-02 DirectoryBundleStore StagedFile 移行計画 | approved | [syn-io-02-directory-bundle-store-stagedfile.md](./syn-io-02-directory-bundle-store-stagedfile.md) |
 | PLAN-034WVJFNJkmTS7M5lq1tjI | SYN-IO-02 HEAD CAS 実 2-process E2E 検証 — implementation plan | approved | [syn-io-02-head-cas-e2e-plan.md](./syn-io-02-head-cas-e2e-plan.md) |
 | PLAN-034T9pLmNvRwXk2jHs7fQ | SYN-IO-02 HEAD CAS expected-head store port 実装計画 | approved | [syn-io-02-head-cas-plan.md](./syn-io-02-head-cas-plan.md) |
+| PLAN-1dCdxMBaLJixFXCNXKmkJL | SYN-IO-02 Windows NTFS 実機 Case lane — implementation plan | approved | [syn-io-02-windows-real-fs.md](./syn-io-02-windows-real-fs.md) |
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
 | PLAN-4eUlpRzzgdpGu0FbUVLgtc | Target Architecture 設計レビュー実施計画 — docs chain + evidence/sv22 台帳の構成 | approved | [target-architecture.md](./target-architecture.md) |

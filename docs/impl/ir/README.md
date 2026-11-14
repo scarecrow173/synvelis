@@ -183,6 +183,7 @@ Directory: `docs/impl/ir`
 | IR-SV330-syn-io-02-head-cas | SYN-IO-02 HEAD CAS expected-head store port 実装記録・検証証跡 | completed | [syn-io-02-head-cas.md](./syn-io-02-head-cas.md) |
 | IMPL-034WUav4G9Bn61vUaDoKv9 | SYN-IO-02 OS-L1 evidence照合・残ゲート記録 (synvelis#84) | completed | [syn-io-02-os-l1-evidence.md](./syn-io-02-os-l1-evidence.md) |
 | IR-SV84-syn-io-02 | SYN-IO-02 store.rs StagedFile 移行 実装記録・検証証跡 | completed | [syn-io-02-store-stagedfile-migration.md](./syn-io-02-store-stagedfile-migration.md) |
+| IMPL-24139Uh7nkREN2zgKcEqbY | SYN-IO-02 Windows NTFS 実機 Case lane（SV84-REAL-* opt-in probe） | completed | [syn-io-02-windows-real-fs.md](./syn-io-02-windows-real-fs.md) |
 | IMPL-034RBYkTtBOQ5Akfjc5HEi | SYN-OBS-01 host logging owner + OBS-02 source catalog（synvelis-app 単一所有） | completed | [syn-obs-01-host-logging-owner-obs-02-source-catalog-synvelis-app.md](./syn-obs-01-host-logging-owner-obs-02-source-catalog-synvelis-app.md) |
 | IR-SV-RF305-export | SYN-RF305 render/player WAV Export StagedFile 移行 実装記録・検証証跡 | completed | [syn-rf305-render-export-staged-file.md](./syn-rf305-render-export-staged-file.md) |
 | IMPL-034Rp8RppbqCF1xtexsFvB | Synvelis 独立 PR/Push CI 実装記録 | completed | [synvelis-pr-push-ci.md](./synvelis-pr-push-ci.md) |
