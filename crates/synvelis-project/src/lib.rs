@@ -43,6 +43,7 @@ pub mod store;
 pub mod tempo;
 pub mod time;
 pub mod trace;
+pub mod variant;
 pub mod vcs;
 
 pub use apply::{
@@ -75,11 +76,12 @@ pub use host_param::{
     strip_channel_target_id,
 };
 pub use id::{
-    AssetId, AutomationLaneId, BusId, CaptureSegmentId, CaptureStreamId, ChainId, ClipId,
+    AssetId, AutomationLaneId, BranchId, BusId, CaptureSegmentId, CaptureStreamId, ChainId, ClipId,
     ClockEpochId, CompId, CompRegionId, CompTransitionId, CounterIdGenerator, IdGenerator,
     ImportId, LaneId, MidiCompRegionId, ModulationAssignmentId, ModulationSourceId, NoteId,
     ParameterTargetId, ProcessorId, ProjectId, RecordingPassId, RecordingSessionId,
     RoutingConnectionId, SemanticPortId, SendId, SourceId, StripId, TakeGroupId, TakeId, TrackId,
+    VariantSetId,
 };
 pub use midi::{MidiDivision, MidiNote, MidiSource};
 pub use midi_comp::{

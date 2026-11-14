@@ -135,6 +135,15 @@ impl ProjectController {
         self.generator.next()
     }
 
+    /// Returns the raw ID value the next [`Self::draw_raw_id`] would
+    /// yield — the generator's current position without consuming it.
+    /// Candidate edits stamp this as their `id_watermark` so the
+    /// persisted watermark always sits above every reserved ID.
+    #[must_use]
+    pub fn peek_raw_id(&self) -> u128 {
+        self.generator.peek()
+    }
+
     /// Applies a command atomically.
     ///
     /// Validation failure or a stale expected revision leaves both the
