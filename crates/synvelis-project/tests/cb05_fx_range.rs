@@ -424,7 +424,10 @@ fn port_of(
         .ports
         .values()
         .find(|p| p.owner == owner && p.direction == direction && p.role == role)
-        .map_or_else(|| panic!("no {owner:?} {direction:?} {role:?} port"), |p| p.id)
+        .map_or_else(
+            || panic!("no {owner:?} {direction:?} {role:?} port"),
+            |p| p.id,
+        )
 }
 
 /// Wires `key_strip`'s main output into `fx2`'s sidechain input — the
@@ -579,12 +582,7 @@ fn cb_fx_01_boundary_validation_fail_closed() {
 
 /// Base-value edit on a mid-range processor plus a new range-owned
 /// parameter target on `fx1`.
-fn scoped_base_and_param_edits(
-    h: &mut Fx,
-    set: VariantSetId,
-    candidate: BranchId,
-    ids: &FxIds,
-) {
+fn scoped_base_and_param_edits(h: &mut Fx, set: VariantSetId, candidate: BranchId, ids: &FxIds) {
     h.edit(
         set,
         candidate,
@@ -837,10 +835,12 @@ fn cb_fx_02_shared_context_flows_b_edits_stay_in_range() {
     let pin_adopted_after = h.render_pin(set, adopted);
     let pin_candidate_after = h.render_pin(set, candidate);
     assert_ne!(
-        pin_a.shared_context_digest, pin_adopted_after.shared_context_digest
+        pin_a.shared_context_digest,
+        pin_adopted_after.shared_context_digest
     );
     assert_ne!(
-        pin_b.shared_context_digest, pin_candidate_after.shared_context_digest
+        pin_b.shared_context_digest,
+        pin_candidate_after.shared_context_digest
     );
     assert_eq!(
         pin_adopted_after.shared_context_digest, pin_candidate_after.shared_context_digest,
@@ -1098,7 +1098,11 @@ fn cb_fx_04_boundary_dependency_detected_and_shared() {
 /// Every op that could touch boundary/external wiring — sends,
 /// sidechains, multi-output routes, foreign chain structure, strip
 /// state. Each must reject typed; nothing may apply or normalize.
-fn external_wiring_ops(project: &Project, ids: &FxIds, feed: RoutingConnectionId) -> Vec<ProjectOp> {
+fn external_wiring_ops(
+    project: &Project,
+    ids: &FxIds,
+    feed: RoutingConnectionId,
+) -> Vec<ProjectOp> {
     let key_out = port_of(
         project,
         PortOwner::Strip(ids.key_strip),
@@ -1629,11 +1633,7 @@ impl PluginAvailability for YesPlugins {
 /// Per-processor state assessment over the candidate's resolved range:
 /// one verdict per range processor in chain order, quality/failure
 /// recorded verbatim — never upgraded, never normalized to success.
-fn assert_range_state_assessments(
-    cand: &Project,
-    ids: &FxIds,
-    inserted: ProcessorId,
-) {
+fn assert_range_state_assessments(cand: &Project, ids: &FxIds, inserted: ProcessorId) {
     let mut port = MockPort::default();
     for p in [ids.fx1, ids.fx2, ids.fx3] {
         port.bind(p, StateCaptureQuality::Coordinated);
@@ -1704,13 +1704,7 @@ fn assert_plugin_gate_adopt(
 ) {
     let live_before_adopt = h.controller.live().clone();
     let err = h
-        .try_adopt_full(
-            set,
-            candidate,
-            scope,
-            Some(&NoPlugins),
-            &NoopRuntimePublish,
-        )
+        .try_adopt_full(set, candidate, scope, Some(&NoPlugins), &NoopRuntimePublish)
         .unwrap_err();
     assert!(
         matches!(err, VariantError::MissingPlugin { .. }),

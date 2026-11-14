@@ -23,6 +23,7 @@ mod midi_clip;
 mod processing_range;
 pub(crate) mod scope;
 mod store;
+mod strip;
 mod types;
 
 pub use adapter::{BranchEditOp, DomainAdapter, FakeDomainAdapter};
@@ -42,6 +43,7 @@ pub use processing_range::{
 };
 pub use scope::scope_digest;
 pub use store::{BranchContentStore, InMemoryBranchContentStore, decode_candidate};
+pub use strip::{StripBoundaryDependency, StripFieldsAdapter, StripFieldsCapabilities};
 pub use types::{
     AdoptIntent, AdoptOutcome, AdoptReceipt, AdoptRecord, ArrangementDomainMask, Branch,
     BranchContentRef, BranchLineage, BranchRevision, DiscardReceipt, EditReceipt, ForkReceipt,
