@@ -32,8 +32,13 @@ Cargo/mise 設定は未変更のため、検証は変更 crate
 
 ## Commit SHA
 
-検証は本 ledger 作成時点の作業ツリー（変更未コミット）で実施。
-commit 後の SHA は PR 本文に記載する。
+- 実装コミット: `a1e688c`（test + docs + evidence）
+- `git merge origin/main`（`ebd0636` 取り込み、clean merge・
+  crates/ 差分なし）の merge commit: `080e694`
+- 上記 mise 検証は merge 前の `a1e688c` で実施。merge 差分は
+  docs/evidence のみで `crates/` に変更がないため結果を流用。
+  merge 後の `git status` clean・`sync_impl_index --kind ir` は
+  IN-SYNC（188 sources）を確認。
 
 ## 未検証（NotRun/Unsupported）
 
