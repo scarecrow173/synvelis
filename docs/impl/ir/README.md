@@ -38,6 +38,7 @@ Directory: `docs/impl/ir`
 | IMPL-AUT03LoopWriteOnePass | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・境界 flush・明示 Rearm 実装記録 | completed | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |
 | IMPL-AUT04CurveLodRecordBudget | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装記録 | completed | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
 | IMPL-49LTYDUL26uBLtxAQGXxOz | Automation / Modulation 統合 Parameter Control — 実装記録（docs slice・synvelis#6） | completed | [automation-modulation.md](./automation-modulation.md) |
+| IMPL-034Xe6lRNc3atRxDvadhth | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host (synvelis#261) | completed | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
 | IMPL-034X9hYuHSZsRHijApPhOw | Capability / Command Gateway G0-G6 受入照合・証拠台帳 実装記録 (synvelis#46) | completed | [command-gateway-gates.md](./command-gateway-gates.md) |
 | IMPL-034X8sM6gVaKFLBghHMqW3 | Capability / Command Gateway 設計契約 実装記録 (synvelis#45) | completed | [command-gateway.md](./command-gateway.md) |
