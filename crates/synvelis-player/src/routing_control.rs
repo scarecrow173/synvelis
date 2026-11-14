@@ -85,7 +85,7 @@ use crate::driver::TransportMirror;
 use crate::plugin_state::PluginStateEndpoint;
 use crate::process_boundary::{
     BoundaryPoint, BoundarySessionError, PrecisionProvenance, ProcessBoundaryPlan,
-    ProcessBoundarySession,
+    ProcessBoundarySession, WrapSim,
 };
 use crate::routing_engine::RoutingEngine;
 
@@ -437,6 +437,13 @@ struct NodeSurface {
     /// frame. Entries past the observed window stay queued for later
     /// observations.
     scheduled_transport: Vec<(u64, TransportCommand)>,
+    /// Scheduler-faithful scalar transport projection for loop-wrap
+    /// derivation — re-anchors at every wrap like upstream
+    /// `TransportScheduler`, advanced through each observed window by
+    /// [`Self::observe_node_block`]. Unlike `transport` (the lazy-fold
+    /// mirror), this state reproduces `pos_at` across loop-region
+    /// changes; see [`WrapSim`].
+    wrap_sim: WrapSim,
     /// The first span `observe_block` projected for this node —
     /// diagnostic evidence mirroring the driver's `last_span`.
     last_span: Option<TransportSpan>,
@@ -961,6 +968,21 @@ impl RoutingControlDispatch {
         }
         node.scheduled_transport.sort_by_key(|(due, _)| *due);
 
+        // Advance the scheduler-faithful wrap sim through this window
+        // — the same pending applies the segment loop folds below.
+        // Entries due at/past `end_frame` belong to later callbacks.
+        let pending: Vec<(u64, TransportCommand)> = node
+            .scheduled_transport
+            .iter()
+            .filter(|(due, _)| *due < end_frame)
+            .copied()
+            .collect();
+        let _ = node.wrap_sim.walk_window(
+            start_frame,
+            u32::try_from(end_frame - start_frame).unwrap_or(u32::MAX),
+            &pending,
+        );
+
         let mut bounds = vec![start_frame, end_frame];
         bounds.extend(
             node.scheduled_transport
@@ -1218,6 +1240,78 @@ impl RoutingControlDispatch {
         Ok(plan)
     }
 
+    /// Derives the loop-wrap [`BoundaryPoint`]s inside the upcoming
+    /// window `[call_start, call_start + call_frames)` from the
+    /// node's scheduler-faithful [`WrapSim`] state and its pending
+    /// transport commands — the position-derived boundary supply
+    /// [`Self::boundary_plan_window`] /
+    /// [`Self::boundary_stage_window`] callers previously had to
+    /// enumerate by hand.
+    ///
+    /// `call_start`/`call_frames` are the same physical window the
+    /// next [`Self::observe_block`] will cover, in the node's cursor
+    /// domain: staged `due_frames` resolve against that head exactly
+    /// like `observe_node_block` resolves them, so call this
+    /// *before* the window's `observe_block` while the sim still
+    /// holds the pre-window state. The returned points drop straight
+    /// into the `boundaries` argument of the two `boundary_*window`
+    /// calls — the session adds command-derived points and dedups
+    /// by offset on top.
+    ///
+    /// Pure read (`&self`): the sim is cloned for the walk — nothing
+    /// is staged, folded, or mutated. Nodes without a
+    /// [`ProcessBoundarySession`] still derive (the sim is
+    /// maintained for every vended control node); the points are
+    /// only consumable where a session exists.
+    ///
+    /// # Errors
+    /// [`BoundaryStageError::NoSurface`] / [`StaleSurface`] on
+    /// surface gating (same as [`Self::boundary_plan_window`]) and
+    /// [`BoundaryStageError::NoSession`] when the processor has no
+    /// vended control node on the surface.
+    pub fn boundary_loop_wraps(
+        &self,
+        processor: ProcessorId,
+        project: &Project,
+        call_start: EngineFrame,
+        call_frames: u32,
+    ) -> Result<Vec<BoundaryPoint>, BoundaryStageError> {
+        let surface = self.surface.as_ref().ok_or(BoundaryStageError::NoSurface)?;
+        if !Self::surface_is_current(surface, project) {
+            return Err(BoundaryStageError::StaleSurface);
+        }
+        let node = surface
+            .nodes
+            .get(&processor)
+            .ok_or(BoundaryStageError::NoSession(processor))?;
+        let ws = call_start.frame();
+        let we = ws.saturating_add(u64::from(call_frames));
+        // Scheduled applies carry absolute dues resolved by earlier
+        // `observe_block` calls; staged ones resolve against this
+        // window's head — the same resolution `observe_node_block`
+        // performs next. The stable sort keeps scheduled-before-staged
+        // order on ties: staged entries are always the newer pushes,
+        // matching the scheduler's FIFO pending queue. Dues at/past
+        // the window end belong to later windows.
+        let mut pending =
+            Vec::with_capacity(node.scheduled_transport.len() + node.staged_transport.len());
+        pending.extend(
+            node.scheduled_transport
+                .iter()
+                .filter(|(due, _)| *due < we)
+                .map(|&(due, cmd)| (due, cmd)),
+        );
+        pending.extend(
+            node.staged_transport
+                .iter()
+                .map(|&(cmd, due)| (ws.saturating_add(due), cmd))
+                .filter(|(due, _)| *due < we),
+        );
+        pending.sort_by_key(|&(due, _)| due);
+        let mut sim = node.wrap_sim;
+        Ok(sim.walk_window(ws, call_frames, &pending))
+    }
+
     fn block(&mut self, block: FastControlBlock) -> FastControlOutcome {
         let kind = block.kind();
         self.last_block = Some(block);
@@ -1315,6 +1409,7 @@ impl RoutingControlDispatch {
             };
             let mut node = NodeSurface {
                 session,
+                wrap_sim: WrapSim::new(control.frame_base),
                 dispatch,
                 boundary,
                 transport: TransportMirror::new(),
