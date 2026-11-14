@@ -23,6 +23,7 @@
 //! builders/importers (#273), arbitrary script/shell/eval — none of
 //! which can be expressed here.
 
+pub mod action_recipe;
 pub mod canon;
 pub mod compiler;
 pub mod coordinator;
@@ -38,6 +39,7 @@ pub mod run;
 pub mod schema;
 pub mod yaml;
 
+pub use action_recipe::compile_action_recipe;
 pub use compiler::{ExecutablePlan, PlanCompiler, PlanOutput, PlanWarning};
 pub use definition::{DEFINITION_SCHEMA_VERSION, Step, WorkflowDefinition, WorkflowLimits};
 pub use error::{AutomationError, CompileError};

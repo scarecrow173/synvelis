@@ -80,6 +80,12 @@ pub enum VariantError {
         /// The out-of-scope object or operation.
         detail: String,
     },
+    /// A live mutation was rejected because a recording session is
+    /// open on the affected lane (CB-ADP-03 write-gate conflict).
+    RecordingActive {
+        /// The lane/session detail of the conflict.
+        detail: String,
+    },
     /// An adopt was attempted without an approval ticket.
     Unapproved,
     /// A newly introduced asset digest could not be proven present.
@@ -144,6 +150,7 @@ impl fmt::Display for VariantError {
             Self::Unsupported { detail } => write!(f, "unsupported: {detail}"),
             Self::AmbiguousLineage { detail } => write!(f, "ambiguous lineage: {detail}"),
             Self::ScopeViolation { detail } => write!(f, "scope violation: {detail}"),
+            Self::RecordingActive { detail } => write!(f, "recording active: {detail}"),
             Self::Unapproved => write!(f, "adopt intent is not approved"),
             Self::MissingAsset { digest } => write!(f, "missing asset {digest}"),
             Self::AssetUnknown { digest } => write!(f, "asset availability unknown {digest}"),

@@ -241,7 +241,7 @@ pub enum ScriptConsistency {
 impl ScriptConsistency {
     /// Converts to the authoritative Gateway [`Consistency`] for the
     /// `allowed_in` legality check.
-    fn to_gateway(&self) -> Result<Consistency, GatewayError> {
+    pub(crate) fn to_gateway(&self) -> Result<Consistency, GatewayError> {
         Ok(match self {
             Self::Latest => Consistency::Latest,
             Self::ReadAt { revision } => Consistency::ReadAt {
@@ -341,6 +341,47 @@ impl InvocationDraft {
     pub fn verify_wire(&self) -> Result<WireRequest, GatewayError> {
         WireRequest::parse(&self.to_wire_value())
     }
+
+    /// Submits the draft through the authoritative Gateway invocation
+    /// path — `Gateway::handle` runs `WireRequest::parse` →
+    /// [`synvelis_gateway::Gateway::bind`] → authorization →
+    /// [`synvelis_gateway::Gateway::invoke`] unchanged.
+    ///
+    /// `caller` is supplied by the trusted host (adapter/CLI); scripts
+    /// cannot express or mint one — the draft type has no field that
+    /// could carry it. Authorization, schema re-validation, approval,
+    /// and receipt semantics are entirely the Gateway's.
+    ///
+    /// # Errors
+    /// [`synvelis_gateway::ErrorEnvelope`] — any pipeline stage's
+    /// typed failure (wire rejection, unavailable capability, denied,
+    /// schema violation, executor error).
+    #[allow(clippy::result_large_err)] // typed envelope is the contract
+    pub fn submit(
+        &self,
+        gateway: &mut synvelis_gateway::Gateway,
+        caller: synvelis_gateway::CallerIdentity,
+    ) -> Result<synvelis_gateway::GatewayOutcome<Value>, synvelis_gateway::ErrorEnvelope> {
+        gateway.handle(&self.to_wire_value(), caller)
+    }
+}
+
+/// The resolved, schema-validated pieces of one script call — shared
+/// by [`ScriptApiModel::assemble_call`] (single draft) and
+/// [`crate::action::ActionRecipe::build`] (typed recipe members).
+pub(crate) struct ResolvedCall {
+    /// Exact capability pin.
+    pub capability: CapabilityRef,
+    /// Operation domain (batch eligibility / consistency legality).
+    pub domain: OperationDomain,
+    /// Declared input schema ref — the wire `schema` field.
+    pub input_schema: SchemaRef,
+    /// Wire-shaped explicit target (contract-fixed `creates` injected).
+    pub target: Option<Value>,
+    /// Lowered, schema-validated arguments.
+    pub args: Value,
+    /// Serialized wire consistency object.
+    pub consistency_json: Value,
 }
 
 impl ScriptApiModel {
@@ -366,6 +407,47 @@ impl ScriptApiModel {
         name: &str,
         call: InvocationCall,
     ) -> Result<InvocationDraft, ScriptApiError> {
+        // request_id: caller-assigned correlation id (length-bound).
+        RequestId::new(call.request_id.clone())?;
+
+        let resolved = self.resolve_call(
+            name,
+            &call.args,
+            call.target.as_ref(),
+            &call.project,
+            &call.consistency,
+        )?;
+
+        Ok(InvocationDraft {
+            request_id: call.request_id,
+            capability: resolved.capability,
+            schema: resolved.input_schema,
+            project: call.project,
+            target: resolved.target,
+            args: resolved.args,
+            consistency: resolved.consistency_json,
+            task: call.task,
+            grant: call.grant,
+            idempotency_key: call.idempotency_key,
+        })
+    }
+
+    /// Resolves and validates one typed call's semantic content —
+    /// name → verdict → project id → target contract → consistency
+    /// legality → argument schema — without assembling request-level
+    /// fields (request id / task / grant / idempotency key). Shared by
+    /// [`Self::assemble_call`] and [`crate::action::ActionRecipe`].
+    ///
+    /// # Errors
+    /// Same fail-closed vocabulary as [`Self::assemble_call`].
+    pub(crate) fn resolve_call(
+        &self,
+        name: &str,
+        args: &Value,
+        target: Option<&ScriptTarget>,
+        project: &str,
+        consistency: &ScriptConsistency,
+    ) -> Result<ResolvedCall, ScriptApiError> {
         let entry = self
             .describe(name)
             .ok_or_else(|| ScriptApiError::UnknownApi {
@@ -393,46 +475,39 @@ impl ScriptApiModel {
             })?;
 
         // project: tagged stable id of kind `project`.
-        ResourceRef::expect(ResourceKind::Project, &call.project)?;
-
-        // request_id: caller-assigned correlation id (length-bound).
-        RequestId::new(call.request_id.clone())?;
+        ResourceRef::expect(ResourceKind::Project, project)?;
 
         // target: contract shape → wire JSON.
-        let target = lower_target(descriptor.target, call.target.as_ref())?;
+        let target_wire = lower_target(descriptor.target, target)?;
 
         // consistency: domain legality via the authoritative rule.
-        let consistency = call.consistency.to_gateway()?;
-        if !consistency.allowed_in(descriptor.domain) {
+        let consistency_gateway = consistency.to_gateway()?;
+        if !consistency_gateway.allowed_in(descriptor.domain) {
             return Err(GatewayError::ConsistencyNotAllowed {
                 domain: descriptor.domain,
-                consistency: consistency.kind(),
+                consistency: consistency_gateway.kind(),
             }
             .into());
         }
         let consistency_json =
-            serde_json::to_value(&consistency).map_err(|e| ScriptApiError::Json {
+            serde_json::to_value(&consistency_gateway).map_err(|e| ScriptApiError::Json {
                 reason: e.to_string(),
             })?;
 
         // args: i64-string decode → authoritative ValueSchema validation.
-        let lowered = lower_value(&input_binding.resolved, &call.args, "$")?;
+        let lowered = lower_value(&input_binding.resolved, args, "$")?;
         input_binding
             .resolved
             .to_value_schema()
             .validate("$", &lowered)?;
 
-        Ok(InvocationDraft {
-            request_id: call.request_id,
+        Ok(ResolvedCall {
             capability: entry.requested.clone(),
-            schema: input_binding.schema.clone(),
-            project: call.project,
-            target,
+            domain: descriptor.domain,
+            input_schema: input_binding.schema.clone(),
+            target: target_wire,
             args: lowered,
-            consistency: consistency_json,
-            task: call.task,
-            grant: call.grant,
-            idempotency_key: call.idempotency_key,
+            consistency_json,
         })
     }
 }
