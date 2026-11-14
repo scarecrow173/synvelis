@@ -39,6 +39,122 @@ pub enum AutomationError {
     },
     /// A typed compile rejection from [`crate::PlanCompiler`].
     Compile(CompileError),
+    /// A typed rejection from workflow import resolution
+    /// (synvelis#273) — reference pins, cycles, expansion budgets.
+    Import(ImportError),
+    /// A [`synvelis_script::ScriptApiError`] surfaced while lowering a
+    /// script workflow document — preserved verbatim.
+    Script(synvelis_script::ScriptApiError),
+}
+
+/// Typed rejections from the heterogeneous workflow importer
+/// ([`crate::importer`]). Each variant maps to one fail-closed rule in
+/// the synvelis#273 acceptance contract.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ImportError {
+    /// The resolver has no source for the pinned reference.
+    UnknownWorkflow {
+        /// Human-readable reference label.
+        reference: String,
+    },
+    /// The resolved source's language disagrees with the pin.
+    LanguageMismatch {
+        /// Human-readable reference label.
+        reference: String,
+        /// Pinned language id.
+        pinned: String,
+        /// Language the resolver actually produced.
+        actual: String,
+    },
+    /// The resolved source's version disagrees with the pin.
+    VersionMismatch {
+        /// Human-readable reference label.
+        reference: String,
+        /// Pinned version.
+        pinned: u32,
+        /// Version the resolver actually produced.
+        actual: u32,
+    },
+    /// The resolved source's digest disagrees with the pin — source
+    /// drift or TOCTOU substitution fails closed.
+    SourceDrift {
+        /// Human-readable reference label.
+        reference: String,
+        /// Pinned digest.
+        pinned: String,
+        /// Digest recomputed from the loaded source.
+        actual: String,
+    },
+    /// Reference resolution re-entered an in-progress import — an
+    /// import/workflow cycle.
+    ImportCycle {
+        /// Human-readable reference label.
+        reference: String,
+    },
+    /// Import recursion exceeded the depth budget.
+    ImportDepthExceeded {
+        /// Depth attempted.
+        depth: usize,
+        /// Enforced maximum.
+        max: usize,
+    },
+    /// Inline expansion produced more steps than the static ceiling.
+    TooManySteps {
+        /// Steps produced.
+        count: usize,
+        /// Enforced maximum.
+        max: usize,
+    },
+    /// A `workflow()` call's args do not exactly match the referenced
+    /// workflow's declared inputs.
+    WorkflowInputMismatch {
+        /// The call-site step id.
+        call: String,
+        /// Declared inputs with no argument supplied.
+        missing: Vec<String>,
+        /// Arguments naming undeclared inputs.
+        unexpected: Vec<String>,
+    },
+    /// A declared output of the referenced workflow has no top-level
+    /// `emit-result` binding to hand off.
+    MissingWorkflowOutput {
+        /// The referenced workflow id.
+        workflow: String,
+        /// The output name.
+        output: String,
+    },
+    /// `$steps.<call>.<output>` named an output the referenced
+    /// workflow does not declare.
+    UnknownWorkflowOutput {
+        /// The call-site step id.
+        call: String,
+        /// The unknown output name.
+        output: String,
+    },
+    /// Two nodes claim the same step/call id.
+    DuplicateStepId {
+        /// The duplicated id.
+        step: String,
+    },
+    /// The import document is malformed — bad envelope, unknown step
+    /// kind, or missing required fields.
+    WorkflowDocument {
+        /// Human-readable reason.
+        reason: String,
+    },
+    /// The source kind cannot be resolved here — e.g. a `.luau`/`.rhai`
+    /// file reference whose backend is not installed (deferred to the
+    /// ruviform#559 integration gate).
+    UnsupportedSource {
+        /// Human-readable source description.
+        source: String,
+    },
+    /// A reference `path` escapes the import root (absolute path,
+    /// `..` traversal, or canonicalized outside the root).
+    PathEscape {
+        /// The offending path.
+        path: String,
+    },
 }
 
 /// Typed compile-time rejections.
@@ -393,6 +509,81 @@ impl fmt::Display for AutomationError {
             }
             Self::Registry { reason } => write!(f, "registry snapshot error: {reason}"),
             Self::Compile(err) => write!(f, "compile rejected: {err}"),
+            Self::Import(err) => write!(f, "workflow import rejected: {err}"),
+            Self::Script(err) => write!(f, "script workflow rejected: {err}"),
+        }
+    }
+}
+
+impl fmt::Display for ImportError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnknownWorkflow { reference } => {
+                write!(f, "unknown workflow reference: {reference}")
+            }
+            Self::LanguageMismatch {
+                reference,
+                pinned,
+                actual,
+            } => write!(
+                f,
+                "language mismatch for {reference}: pinned {pinned}, resolved {actual}"
+            ),
+            Self::VersionMismatch {
+                reference,
+                pinned,
+                actual,
+            } => write!(
+                f,
+                "version mismatch for {reference}: pinned {pinned}, resolved {actual}"
+            ),
+            Self::SourceDrift {
+                reference,
+                pinned,
+                actual,
+            } => write!(
+                f,
+                "source drift for {reference}: pinned {}, resolved {}",
+                &pinned[..pinned.len().min(16)],
+                &actual[..actual.len().min(16)]
+            ),
+            Self::ImportCycle { reference } => {
+                write!(f, "workflow import cycle at {reference}")
+            }
+            Self::ImportDepthExceeded { depth, max } => {
+                write!(f, "workflow import depth {depth} exceeds {max}")
+            }
+            Self::TooManySteps { count, max } => {
+                write!(f, "workflow expansion produced {count} steps > {max}")
+            }
+            Self::WorkflowInputMismatch {
+                call,
+                missing,
+                unexpected,
+            } => write!(
+                f,
+                "workflow call {call} input mismatch: missing [{}], unexpected [{}]",
+                missing.join(", "),
+                unexpected.join(", ")
+            ),
+            Self::MissingWorkflowOutput { workflow, output } => {
+                write!(f, "workflow {workflow} output {output} has no emit-result")
+            }
+            Self::UnknownWorkflowOutput { call, output } => {
+                write!(f, "workflow call {call} has no declared output {output}")
+            }
+            Self::DuplicateStepId { step } => {
+                write!(f, "duplicate workflow step/call id: {step}")
+            }
+            Self::WorkflowDocument { reason } => {
+                write!(f, "invalid workflow import document: {reason}")
+            }
+            Self::UnsupportedSource { source } => {
+                write!(f, "unsupported workflow source: {source}")
+            }
+            Self::PathEscape { path } => {
+                write!(f, "workflow reference path escapes import root: {path}")
+            }
         }
     }
 }
@@ -569,10 +760,23 @@ impl fmt::Display for CompileError {
 
 impl std::error::Error for AutomationError {}
 impl std::error::Error for CompileError {}
+impl std::error::Error for ImportError {}
 
 impl From<CompileError> for AutomationError {
     fn from(err: CompileError) -> Self {
         Self::Compile(err)
+    }
+}
+
+impl From<ImportError> for AutomationError {
+    fn from(err: ImportError) -> Self {
+        Self::Import(err)
+    }
+}
+
+impl From<synvelis_script::ScriptApiError> for AutomationError {
+    fn from(err: synvelis_script::ScriptApiError) -> Self {
+        Self::Script(err)
     }
 }
 

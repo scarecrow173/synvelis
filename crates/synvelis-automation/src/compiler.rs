@@ -858,6 +858,14 @@ impl<'a> Check<'a> {
                 StaticType::Array(Box::new(elem.unwrap_or(StaticType::Json)))
             }
             Expr::Object { fields } => self.type_of_object(fields, at)?,
+            Expr::Field { base, path } => {
+                let ty = self.type_of(base, at)?;
+                project_path(&ty, path).ok_or_else(|| CompileError::TypeMismatch {
+                    path: at.to_owned(),
+                    expected: "resolvable field path".to_owned(),
+                    actual: format!("field projection .{}", path.join(".")),
+                })?
+            }
         })
     }
 
@@ -1306,7 +1314,7 @@ pub(crate) fn join_types(
 /// Projects a field path into a static type. `Optional` unwraps and
 /// re-wraps; `Json` passes through opaquely; anything unresolvable
 /// returns `None`.
-fn project_path(ty: &StaticType, path: &[String]) -> Option<StaticType> {
+pub(crate) fn project_path(ty: &StaticType, path: &[String]) -> Option<StaticType> {
     if path.is_empty() {
         return Some(ty.clone());
     }

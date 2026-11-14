@@ -367,6 +367,16 @@ impl<'a> MacroCheck<'a> {
                 StaticType::Array(Box::new(elem.unwrap_or(StaticType::Json)))
             }
             Expr::Object { fields } => self.type_of_object(fields, at)?,
+            Expr::Field { base, path } => {
+                let ty = self.type_of(base, at)?;
+                crate::compiler::project_path(&ty, path).ok_or_else(|| {
+                    AutomationError::from(CompileError::TypeMismatch {
+                        path: at.to_owned(),
+                        expected: "resolvable field path".to_owned(),
+                        actual: format!("field projection .{}", path.join(".")),
+                    })
+                })?
+            }
         })
     }
 
@@ -902,7 +912,54 @@ fn eval_expr(expr: &Expr, env: &EvalEnv<'_>, at: &str) -> Result<Value, Automati
                 .map(|(name, e)| Ok((name.clone(), eval_expr(e, env, &format!("{at}.{name}"))?)))
                 .collect::<Result<serde_json::Map<_, _>, AutomationError>>()?,
         ),
+        Expr::Field { base, path } => {
+            let value = eval_expr(base, env, at)?;
+            project_macro_path(&value, path, at)?
+        }
     })
+}
+
+/// Projects `path` segments into a concrete value — object keys by
+/// name, array indices by canonical decimal. Mirrors the workflow
+/// evaluator's `resolve_path`; a missing segment is a typed reject.
+fn project_macro_path(value: &Value, path: &[String], at: &str) -> Result<Value, AutomationError> {
+    let mut cur = value;
+    for seg in path {
+        cur = match cur {
+            Value::Object(map) => map.get(seg).ok_or_else(|| {
+                AutomationError::from(CompileError::TypeMismatch {
+                    path: at.to_owned(),
+                    expected: "resolvable field path".to_owned(),
+                    actual: format!("missing field {seg}"),
+                })
+            })?,
+            Value::Array(arr) => {
+                let idx: usize = seg.parse().map_err(|_| {
+                    AutomationError::from(CompileError::TypeMismatch {
+                        path: at.to_owned(),
+                        expected: "resolvable field path".to_owned(),
+                        actual: format!("bad array index {seg}"),
+                    })
+                })?;
+                arr.get(idx).ok_or_else(|| {
+                    AutomationError::from(CompileError::TypeMismatch {
+                        path: at.to_owned(),
+                        expected: "resolvable field path".to_owned(),
+                        actual: format!("missing index {seg}"),
+                    })
+                })?
+            }
+            _ => {
+                return Err(CompileError::TypeMismatch {
+                    path: at.to_owned(),
+                    expected: "resolvable field path".to_owned(),
+                    actual: "non-container value".to_owned(),
+                }
+                .into());
+            }
+        };
+    }
+    Ok(cur.clone())
 }
 
 /// Formats the placeholder tagged id for binding `slot` of `kind`.

@@ -85,6 +85,18 @@ pub enum Expr {
         /// Field name → expression.
         fields: BTreeMap<String, Expr>,
     },
+    /// A field/index path projected onto an arbitrary expression.
+    ///
+    /// Not expressible in the YAML surface — produced internally by
+    /// workflow import inlining (synvelis#273) when a referenced
+    /// workflow's typed inputs/outputs are substituted into call-site
+    /// expressions. Type-checked and evaluated like any other expr.
+    Field {
+        /// Base expression.
+        base: Box<Expr>,
+        /// Path segments projected into the base value.
+        path: Vec<String>,
+    },
 }
 
 impl Default for Expr {
