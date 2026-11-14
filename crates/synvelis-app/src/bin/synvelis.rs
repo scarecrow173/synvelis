@@ -30,6 +30,7 @@
 //! `2` backend unavailable, `3` service-registration or host failure,
 //! `4` logging configuration error.
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
@@ -40,7 +41,7 @@ use ruviform_ui_webview::{SessionConfig, WebViewWindowConfig, detect_backend, ru
 use synvelis_app::assets::{app_asset_source, error_asset_source};
 use synvelis_app::logging::{self, EnvOverrides};
 use synvelis_app::revision::check_bundle;
-use synvelis_app::{LogSettings, NativeShell, SynvelisApp};
+use synvelis_app::{LogSettings, NativeShell, SynvelisApp, compose_product_routing};
 
 /// UI tick cadence — job drain, outbox flush, and clock advance rate.
 const TICK: Duration = Duration::from_millis(16);
@@ -113,6 +114,16 @@ fn main() -> ExitCode {
         host_log.state(),
         host_log.health().cloned(),
         host_log.take_degraded(),
+    );
+
+    // PC-C4 (synvelis#101): attach the session routing engine under
+    // the `SYNVELIS_PROJECT_DIR` gate — the same product composition
+    // `synvelis-native` runs (media root `<dir>/media`, empty plugin
+    // registry; real factories are ruviform#253, NotRun). Unset keeps
+    // the untitled session's engine stub.
+    compose_product_routing(
+        &mut app,
+        std::env::var_os("SYNVELIS_PROJECT_DIR").map(PathBuf::from),
     );
 
     let real_assets = app_asset_source();
