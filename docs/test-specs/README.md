@@ -26,6 +26,7 @@ Directory: `docs/test-specs`
 | TSPEC-034XgJPQyivnWHKo5099nI | AUTX-03 synvelis-cli Headless 実行ファイル・JSON/Exit Code 検証仕様 (synvelis#262) | approved | [autx-03-headless-cli.md](./autx-03-headless-cli.md) |
 | TSPEC-autx04atomicmacro001 | AUTX-04 Atomic Macro v1 — versioned recipe・exact capability・binding placeholder invariants | approved | [autx-04-atomic-macro.md](./autx-04-atomic-macro.md) |
 | TSPEC-7kQm2XvB9pLw4RtY6uN3sD | AUTX-05 Workflow DSL v1 — YAML safe subset・typed definition・static plan compile invariants | approved | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
+| TSPEC-Mx7rT2vQ8wN4kP6yB1dF3h | AUTX-06 Workflow Coordinator — Run/Step FSM・journal replay・cancel/resume fault matrix | approved | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | TSPEC-AUTX07GuiViewsHeadless | AUTX-07 GUI views headless test spec（synvelis#266） | approved | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | TSPEC-cb01VariantSetFixtureT | CB-01 Creative Branch variant model/controller fixture tests | approved | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | TSPEC-m5UJFsYVE3wcIp2bbhjQ6C | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 検証仕様 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
