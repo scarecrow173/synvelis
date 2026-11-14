@@ -97,10 +97,12 @@ NotRun として分離した。**受入照合・台帳のみ**であり、
 ## Context
 
 - 対象 Issue: synvelis #46（OPEN・docs slice）
-- ブランチ: `docs/46-gateway-gates-audit`（派生元
-  `scarecrow173/sv46-gateway-gates` = `origin/main` HEAD
-  `86715f9`）
+- ブランチ: worktree `scarecrow173/sv46-gateway-gates`・
+  push/PR branch `docs/46-gateway-gates-audit`（派生元
+  `origin/main` HEAD `86715f9`・その後 `7d3fe5b` を merge）
 - 対象 Revision: `86715f9ac2761f9f275e885e0bbd7ee775d9633e`
+  （監査実施時 `origin/main` HEAD）・その後 `origin/main`
+  `7d3fe5b` を merge（docs/evidence のみ・コード差分なし）
   ・Ruviform resolved `fd1d4d5f4de57092b96ad1cd309b85fe47cbef38`
 - 上流正本: Issue #45 docs chain（spec/design/plan/task/
   test-spec/impl-ir/exp）・`evidence/sv45/`（case ledger・

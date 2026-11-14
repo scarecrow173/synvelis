@@ -19,7 +19,7 @@ Gateway 変更時のみ #294 両 Consumer 回帰が条件となる
 | 項目 | 値 |
 |---|---|
 | 対象 Repository | scarecrow173/synvelis |
-| 対象 Revision | `86715f9ac2761f9f275e885e0bbd7ee775d9633e`（`origin/main`・PR #408 merge commit と同一） |
+| 対象 Revision | `86715f9ac2761f9f275e885e0bbd7ee775d9633e`（監査実施時の `origin/main` HEAD・PR #408 merge commit）。その後 `origin/main` `7d3fe5b` を merge（#410/#411/#412・docs/evidence のみで `crates/`・`Cargo.*`・`mise.toml`・CI 差分なし）のため、上記実測は merge 後 tree にもそのまま有効 |
 | Ruviform resolved rev | `fd1d4d5f4de57092b96ad1cd309b85fe47cbef38`（`Cargo.lock` git 依存） |
 | OS / Arch | Windows / x86_64（Git Bash 経由・evidence record の `platform` = `windows-x86_64`） |
 | Rust toolchain | cargo/rustc `1.99.1`（環境導入済み rust・`mise.toml` は Rust を pin しない。CI pin は `mise.ci.toml`） |

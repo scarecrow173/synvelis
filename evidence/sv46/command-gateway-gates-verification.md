@@ -8,7 +8,7 @@ mise task 経由で実行した（cargo 等の直接実行は補助証拠）。
 
 | 項目 | 値 |
 |---|---|
-| 対象 Revision | `86715f9ac2761f9f275e885e0bbd7ee775d9633e`（`origin/main` HEAD・PR #408 merge commit） |
+| 対象 Revision | `86715f9ac2761f9f275e885e0bbd7ee775d9633e`（監査実施時の `origin/main` HEAD・PR #408 merge commit）。commit 後に `origin/main` `7d3fe5b` を merge（docs/evidence のみ・`crates/`/`Cargo.*`/`mise.toml`/CI 差分なし）のため実測は merge 後 tree にも有効 |
 | Ruviform resolved | `fd1d4d5f4de57092b96ad1cd309b85fe47cbef38`（`Cargo.lock`） |
 | OS / Arch | Windows / x86_64（Git Bash） |
 | Rust toolchain | cargo/rustc `1.99.1` |
