@@ -4,7 +4,7 @@ type: "impl"
 status: "completed"
 title: "AUTX-01 Action Catalog（synvelis#260 headless fixture スライス）"
 created: "2026-11-14"
-updated: "2026-11-14"
+updated: "2026-11-15"
 owners: []
 relations:
   source:
@@ -55,6 +55,7 @@ relations:
     - "docs/automation/plan.md"
     - "docs/automation/tasks.md"
     - "docs/impl/ir/autx-07-gui-views.md"
+    - "docs/impl/ir/autx-01-f01-has-executor.md"
   refines: []
   refined-by: []
   derives-from:
@@ -71,8 +72,9 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/266"
     - "https://github.com/scarecrow173/synvelis/issues/271"
     - "https://github.com/scarecrow173/synvelis/issues/272"
+    - "https://github.com/scarecrow173/synvelis/issues/446"
   defers:
-    - "CapabilityRegistry::has_executor / Gateway::schemas read accessor（Coordinator 判断で gateway lease 拡張否 — No Handler 別判定は ExecutorState::Unknown の typed Unknown として Deferred、必要 API は evidence/sv260 と PR に記録）"
+    - "CapabilityRegistry::has_executor（解消: synvelis#446 / AUTX-01-F01 で着地 — ExecutorState は Installed/Absent/Unknown の 3 verdict、`docs/impl/ir/autx-01-f01-has-executor.md` 参照）。Gateway::schemas read accessor は sv#272/PR #438 で解消済み"
     - "実 ScriptApiModel（synvelis#271）との Capability ID/Version/Schema/Availability 同一性照合"
     - "Script Action 登録・script→catalog 投影（synvelis#272）"
     - "CLI surface 本体（synvelis#262 のリース）— 本スライスは consumer-neutral fixture のみ供給"
@@ -129,20 +131,28 @@ job truth は一切作らない。
     design §3 の表示 status を機械可読に分離。
   - `SchemaConsistency`: `Consistent` / `Mismatch{detail}` /
     `Unknown`（schema store 未供給時の typed Unknown）。
-  - `ExecutorState::Unknown`: registry public API が handler 有無を
-    観測できないため typed Unknown（下記 Decisions 参照）。
+  - `ExecutorState`: 当初 `Unknown` 単一 variant（registry public
+    API が handler 有無を観測できなかったため typed Unknown）。
+    synvelis#446（AUTX-01-F01）で `CapabilityRegistry::has_executor`
+    が着地し、executor lookup 供給時は `Installed`/`Absent`、
+    未供給・descriptor 無し entry は `Unknown` を維持する
+    3 verdict 化（`docs/impl/ir/autx-01-f01-has-executor.md`）。
   - `ActionEntry`: `capability` + `descriptor: Option<…>`（登録
     descriptor verbatim）+ `presentation: Option<…>` + 3 verdict。
     descriptor clone は登録時点の snapshot であり権威の複写ではない
     （表示値は常に登録物と一致）。
-  - `ActionCatalog::project(capabilities, schemas, presentations)`:
-    descriptor slice と presentation を `CapabilityRef` で join。
-    重複入力は `DuplicateCapability`/`DuplicatePresentation` で
+  - `ActionCatalog::project(capabilities, schemas, executors,
+    presentations)`（`executors: Option<&CapabilityRegistry>` は
+    synvelis#446 で追加）: descriptor slice と presentation を
+    `CapabilityRef` で join。重複入力は
+    `DuplicateCapability`/`DuplicatePresentation` で
     fail-closed。orphan presentation は `Unknown` /
     `UnsupportedVersion` entry として surface する。
-  - `ActionCatalog::project_gateway(&mut Gateway, …)`: registry
-    snapshot → `schemas_mut()` の sequential borrow で schema 判定。
-    `Gateway`/`CapabilityRegistry` への変更はゼロ。
+  - `ActionCatalog::project_gateway(&Gateway, …)`: registry
+    snapshot → `schemas()`/`registry()` の read accessor で
+    schema・executor 判定（sv#272 の `Gateway::schemas()` と
+    sv#446 の `has_executor` で `&Gateway` 化。かつては
+    `&mut Gateway` + `schemas_mut()` sequential borrow だった）。
   - `list(&ActionFilter)` / `describe(&CapabilityRef)` /
     `entries()` / `descriptors()`。`describe` は known-id/unknown-
     version をその場で `UnsupportedVersion` verdict に合成し、
@@ -169,7 +179,11 @@ job truth は一切作らない。
   `ExecutorState::Unknown` がその typed Unknown であり、
   `SchemaConsistency::Unknown` が schema store 未供給時の同型。
   `CapabilityRegistry::has_executor` と `Gateway::schemas` は
-  Deferred として記録し、Coordinator 側で後続 slice 化される。
+  Deferred として記録し、Coordinator 側で後続 slice 化される
+  （その後 `Gateway::schemas` は sv#272/PR #438、`has_executor`
+  は sv#446/AUTX-01-F01 で着地し、`ExecutorState` は
+  `Installed`/`Absent`/`Unknown` の 3 verdict になった —
+  `docs/impl/ir/autx-01-f01-has-executor.md`）。
 - **`ActionStatus` と `SchemaConsistency`/`ExecutorState` を分離**。
   availability lifecycle・schema 整合・executor 有無は直交する
   verdict であり、単一 status に潰すと「Available だが schema
@@ -228,10 +242,13 @@ job truth は一切作らない。
 
 ## Risks
 
-- `ExecutorState::Unknown` は No Handler 区別の暫定表現 —
-  `has_executor` predicate が入るまで「Available ∧ handler 無し」の
-  capability は invoke 時 `NoExecutor` で初めて判明する。fail-closed
-  なので誤実行はないが、UI が「実行不可」を事前表示できない。
+- `ExecutorState` の `Installed`/`Absent` は executor lookup
+  （`CapabilityRegistry`）供給時のみ報告される — `executors:
+  None` の caller では全 entry が `Unknown`（fail-closed、
+  観測不能を `Absent` で偽装しない）。`Absent` は display
+  metadata であり、invoke の `NoExecutor` authority・policy
+  経路は不変（sv#446 で解消した旧リスク: No Handler を
+  `Unknown` と区別できなかった件）。
 - `ActionCatalog` は build 時 snapshot — registry への後続登録は
   rebuild まで反映されない（登録は append-only/immutable のため
   descriptor 改変は起きない）。
@@ -241,9 +258,9 @@ job truth は一切作らない。
 
 ## Follow-ups
 
-- `CapabilityRegistry::has_executor` + `Gateway::schemas` read
-  accessor — Coordinator が sv#263 完了後の後続 slice として起票予定
-  （`evidence/sv260` Deferred 表参照）。
+- ~~`CapabilityRegistry::has_executor` + `Gateway::schemas` read
+  accessor~~ — 解消済み: `Gateway::schemas` は sv#272/PR #438、
+  `has_executor` は sv#446/AUTX-01-F01（`evidence/sv446`）。
 - #271 ScriptApiModel 投影との ID/Version/Schema/Availability 同一性
   照合 — #271 実装後に `catalog.descriptors()` を共通 source として
   照合する対応表は `docs/test-specs/autx-01-action-catalog.md` に記録。
