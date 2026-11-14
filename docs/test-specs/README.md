@@ -128,6 +128,7 @@ Directory: `docs/test-specs`
 | TSPEC-6H25Xejdwkw6VwpWCW2abc | SV-GUI-03 slice3 テスト仕様 — Mixer strip master Mute/Solo Toggle | approved | [sv-gui-03-03-mixer-strip-toggle-slice3.md](./sv-gui-03-03-mixer-strip-toggle-slice3.md) |
 | TSPEC-Zx5wCv8nBm2qKs6yHt4pLr | SV-GUI-03 slice4 テスト仕様 — Arrangement selection→Inspector + Meter/Waveform viz mount | approved | [sv-gui-03-04-selection-inspector-viz.md](./sv-gui-03-04-selection-inspector-viz.md) |
 | TSPEC-Pn6rTy3wQx8vBs2kLc9mJd | SV-GUI-03 slice5 テスト仕様 — GPUI-simulated scenario lane | approved | [sv-gui-03-05-gpui-scenario.md](./sv-gui-03-05-gpui-scenario.md) |
+| TSPEC-N6NfW3ReS9Dic6fm6Kxgdi | SV-GUI-03 slice6 Keyboard/Gesture key-assignment contract 検証仕様 | approved | [sv-gui-03-06-keyboard-gesture.md](./sv-gui-03-06-keyboard-gesture.md) |
 | TSPEC-034Uoh9algsOuSv2AuYVZJ | SV-GUI-04 slice1 precursor 検証仕様: headless multi-window dock fixture | approved | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | TSPEC-Vjrs2MxmcQmuKhfJmVUxJe | SV-GUI-04 slice1 テスト仕様 — 実 2-window mount | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TSPEC-034UqwToZSbEbuOAgyC2SB | SV-GUI-04 slice2 テスト仕様 — close-veto/cancel | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
