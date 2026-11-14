@@ -26,6 +26,7 @@ Directory: `docs/test-specs`
 | TSPEC-5P0o8UbBZq07LRZPbXsEoV | Context Inspector テスト仕様 — Follow/Explore/Pinned・Selection/Linked Context・Probe・一括編集の UX Fixture 定義（synvelis#5） | approved | [context-inspector.md](./context-inspector.md) |
 | TSPEC-034CTL01Pr2sUv7wY4zAbCdEfG | CTL-01 ControlOwner/AutomationTimeScope 検証仕様 | approved | [ctl-01-e2e-control-owner-time-scope.md](./ctl-01-e2e-control-owner-time-scope.md) |
 | TSPEC-l7ZEZAPF6fGjIhiojtusYR | CTL-02 adoption SendLevel canonical spec 検証仕様 | approved | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
+| TSPEC-034X9DglWzVt6ACpSlw4YC | 標準 DAW 制作ワークフロー UX 仕様の文書契約検証 | approved | [daw-workflow.md](./daw-workflow.md) |
 | TSPEC-034QAmjdN5ihez8HzDIvIs | ED-A 検証仕様 — Editing Model 合意5項目 headless 受入 | approved | [ed-a-e2e-editing-model.md](./ed-a-e2e-editing-model.md) |
 | TSPEC-034QN1oYnTtpV7t5CPcc5e | ED-B e2e media-domain editing acceptance | approved | [ed-b-e2e-media-domain-editing.md](./ed-b-e2e-media-domain-editing.md) |
 | TSPEC-034X83U7r7ZrZZjmIhd8Em | Execution Plan Test Spec — DAG acyclicity・Owner/Gate/Acceptance matrix invariants・OS level rules | approved | [execution-plan.md](./execution-plan.md) |

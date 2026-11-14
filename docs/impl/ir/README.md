@@ -43,6 +43,7 @@ Directory: `docs/impl/ir`
 | IMPL-034CTL01Kx9wMn2pQ7rVt4yB | CTL-01 ControlOwner/AutomationTimeScope 分離・Schema v7 実装記録 | completed | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
 | IMPL-034WBaliNYvopY8qIaeCeh | CTL-02 adoption 経路の非 canonical SendLevel 抑止 | completed | [ctl-02-adoption-canonical-sendlevel.md](./ctl-02-adoption-canonical-sendlevel.md) |
 | IMPL-034V1FQ09PSOnyDawvKX60 | CTL-02 Strip/Send Host Parameter 正本・Plugin Binding・Routing 実装記録 | completed | [ctl-02-strip-send-host-parameter-plugin-binding-routing.md](./ctl-02-strip-send-host-parameter-plugin-binding-routing.md) |
+| IMPL-034X9NMZPZYBp9grVPuUZ4 | Issue #8 DAW ワークフロー UX 文書チェーン確定 | completed | [daw-workflow.md](./daw-workflow.md) |
 | IMPL-034QAWvNQYPna11TqH7YTn | ED-A editing model headless PoC | completed | [ed-a-editing-model-headless-poc.md](./ed-a-editing-model-headless-poc.md) |
 | IMPL-034QO4tHWa37Uyya3N6ttQ | ED-B media-domain move/trim/slip + marquee commit semantics | completed | [ed-b-media-domain-move-trim-slip-marquee-commit-semantics.md](./ed-b-media-domain-move-trim-slip-marquee-commit-semantics.md) |
 | IMPL-034X84u7PqVqLhNVOe8UZB | Execution Plan — Issue #23 横断 DAG 文書化 + sv23 evidence 台帳 | completed | [execution-plan.md](./execution-plan.md) |
