@@ -34,7 +34,6 @@ Directory: `docs/specs`
 | SPEC-034SYN166FuLlC1sTaGe | Issue #166 Full CI 化・ci-summary 統一 — 安全な第一段階 | proposed | [issue-166-full-ci-ci-summary.md](./issue-166-full-ci-ci-summary.md) |
 | SPEC-jY8M1QCzHBuilakae6Hmyw | Issue #167 Tracker reconcile 入口 — 共有 pin eed590e 更新 + Consumer 別 workflow 定期/手動 reconcile | proposed | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
 | SPEC-034U2u4gD9peI0yjoqllEA | Issue #184 CI verify/evidence 失敗 — synvelis-library テスト fixture の canonical path 修正 | proposed | [issue-184-ci-verify-symlink-fixture.md](./issue-184-ci-verify-symlink-fixture.md) |
-| SPEC-rNbdNqOT10RavAY4Hj9RKJ | Issue #86 DoD(2) — import_verified consumer 入口 + digest-kind blob 解決（synvelis-player slice） | approved | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | SPEC-ubzJtNuQxbSXLe7nevbdUw | L1 — Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | approved | [l1-local-wav-verified-media-graph-playback.md](./l1-local-wav-verified-media-graph-playback.md) |
 | SPEC-034Qmb9CC7dN4YE5VPN235 | L2 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | SPEC-rBmfzOP1H86N1KAXlFpX5N | MD-A — TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | approved | [mda-takegroup-comp-effective-projection-placement-contract.md](./mda-takegroup-comp-effective-projection-placement-contract.md) |
@@ -189,6 +188,7 @@ Directory: `docs/specs`
 | SPEC-034SYN157Kx9mTvQp2w | Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画 | superseded | [issue-157-selective-execution.md](./issue-157-selective-execution.md) |
 | SPEC-034Wsudf9ocUWKIH6GUhA9 | Issue #365 docs/impl ir・exp 管理 index を doc-maintenance で生成可能にする | implemented | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
 | SPEC-034WuZoDEfeT3L23cjJAFD | Issue #368 docs/impl/ir missing-section 本文補完 | implemented | [issue-368-ir-missing-sections.md](./issue-368-ir-missing-sections.md) |
+| SPEC-rNbdNqOT10RavAY4Hj9RKJ | Issue #86 DoD(2) — import_verified consumer 入口 + digest-kind blob 解決（synvelis-player slice） | implemented | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | SPEC-034Uri8JTbpWmKASolvM4A | RCD-02 Recording Durability Evidence / Recovery Review — synvelis#116 slice | implemented | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | SPEC-034T6XTAVpIPhybzaw7jdh | SV-GPUI-03 Synvelis Product Theme / Workspace Presets — Driver-neutral DTCG overrides・Preset schema・fixtures | implemented | [sv-gpui-03-product-theme-workspace-presets.md](./sv-gpui-03-product-theme-workspace-presets.md) |
 | SPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 slice (synvelis#126) | implemented | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |

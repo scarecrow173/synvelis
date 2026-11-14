@@ -4,7 +4,7 @@ type: "spec"
 status: "implemented"
 title: "ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice）"
 created: "2026-11-09"
-updated: "2026-11-11"
+updated: "2026-11-14"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -149,30 +149,30 @@ CRC32 系 digest・`live_revision()` 無条件 commit・dir-sync 非対応を
 
 ## Acceptance Criteria
 
-- [ ] fixture で bounded-memory streaming を実証（小 chunk provider・
+- [x] fixture で bounded-memory streaming を実証（小 chunk provider・
   大 byte 数で全件メモリ化しないことを構造的に確認）。
-- [ ] 同一 `ImportId` replay・同一 id 異 content conflict・重複登録なし。
-- [ ] crash 直前直後（staging 途中失敗・publish 失敗後 resume）で
+- [x] 同一 `ImportId` replay・同一 id 異 content conflict・重複登録なし。
+- [x] crash 直前直後（staging 途中失敗・publish 失敗後 resume）で
   stage machine が収束する。
-- [ ] `StaleRevision` で安全に拒否され、`rebase_import` 後に冪等収束。
-- [ ] 対象 lane/track 消失・他 track lane 指定を commit で拒否
+- [x] `StaleRevision` で安全に拒否され、`rebase_import` 後に冪等収束。
+- [x] 対象 lane/track 消失・他 track lane 指定を commit で拒否
   （clip の誤配置を起こさない）。
 - [ ] hash mismatch・size mismatch・staged drift・既存 blob 不一致を
-  `IntegrityMismatch`/`Corrupt` として拒否。
-- [ ] `PublishedIndeterminate` が stat reconcile で正直に分類され、
+  `IntegrityMismatch`/`Corrupt` として拒否。 <!-- hash mismatch のみ実測済み（`digest_mismatch_is_integrity_error`）。size mismatch・staged drift・既存 blob 不一致の拒否は `src/import.rs` 実装済みだが専用 test が未整備のため未チェック維持（`evidence/sv86/bookkeeping-verification.md` 参照） -->
+- [x] `PublishedIndeterminate` が stat reconcile で正直に分類され、
   「未公開」誤報も「無条件成功」もない。
 - [ ] DirSync `Unsupported`/`Failed` が receipt/manifest に記録され、
   publish 成否と分離される。double FS は fault 注入証拠であり
-  durability 証拠ではない。
-- [ ] Orphan blob/staging が保護され、`gc_orphans` が reachability に
+  durability 証拠ではない。 <!-- `Failed` は `directory_sync_failure_is_recorded_not_hidden` で実測。`Unsupported` は Windows/NTFS の実 publisher 経路で未観測かつ scripted 注入 test も未整備のため未チェック維持 -->
+- [x] Orphan blob/staging が保護され、`gc_orphans` が reachability に
   基づき明示削除する。
-- [ ] SHA-256 identity（`sha256:<64hex>` / `blobs/sha256/<64hex>`）が
+- [x] SHA-256 identity（`sha256:<64hex>` / `blobs/sha256/<64hex>`）が
   旧 CRC16 flat blob namespace と衝突しないことを型・test で証明。
-- [ ] opaque bytes（非メディア byte 列）と provenance（pin/provider
+- [x] opaque bytes（非メディア byte 列）と provenance（pin/provider
   asset/expected revision）が manifest・receipt・project に維持される。
-- [ ] `CommittedLive` 後に `SavedRevision`/`HEAD` が進まないこと、
+- [x] `CommittedLive` 後に `SavedRevision`/`HEAD` が進まないこと、
   save 失敗が import receipt を毀さないことを test で示す。
-- [ ] 既存 `synvelis-library` tests が全て pass。
+- [x] 既存 `synvelis-library` tests が全て pass。
 
 ## Deferred Design Concerns
 
