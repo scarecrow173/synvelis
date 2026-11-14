@@ -130,6 +130,7 @@ Directory: `docs/impl/ir`
 | IMPL-034UvpX7fem2fghDtfNDJm | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | completed | [sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md](./sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md) |
 | IMPL-034V2wJTpu3xW419A7YT37 | SF-06 cross-gate headless oracle 実装記録 | completed | [sf-06-cross-gate-headless-oracle.md](./sf-06-cross-gate-headless-oracle.md) |
 | IMPL-034XaaoFK7IUzs8UMi97aN | SF-05 residual headless coverage — SF-UX-01..07 棚卸し + 欠落6件補完 + evidence 台帳 | completed | [sf05-editor.md](./sf05-editor.md) |
+| IMPL-It7Fs3X3THd8sySW8lROw9 | SF-06 cross-gate headless fixture 被覆棚卸し・欠落 fixture 追加 実装記録 (synvelis#109) | completed | [sf06-cross-gate.md](./sf06-cross-gate.md) |
 | IMPL-xRTJTdZHW0ii0jrP4pCFkK | SF-XR-01 CTL-01/CTL-02 cross-gate oracle fixture — implementation record | completed | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | IMPL-034X9Ln9ARL8qEXoWVpZcz | Issue #4 Signal Flow 設計正本 — 文書チェーンと証拠の作成 | completed | [signal-flow-design.md](./signal-flow-design.md) |
 | IMPL-034X5H2u7vD5H929MaHV8N | Issue #84 StagedFile Migration — 証拠統合・受入検証 slice 実装記録 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |
