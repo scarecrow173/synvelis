@@ -51,6 +51,14 @@ fn variant(err: &CompileError) -> &'static str {
         CompileError::BoundCeilingExceeded { .. } => "BoundCeilingExceeded",
         CompileError::NoStepOutput { .. } => "NoStepOutput",
         CompileError::UnknownOutputField { .. } => "UnknownOutputField",
+        CompileError::UnknownMacro { .. } => "UnknownMacro",
+        CompileError::UnsupportedMacroVersion { .. } => "UnsupportedMacroVersion",
+        CompileError::MacroOnlyExpr { .. } => "MacroOnlyExpr",
+        CompileError::WorkflowOnlyExpr { .. } => "WorkflowOnlyExpr",
+        CompileError::UnknownMacroOutput { .. } => "UnknownMacroOutput",
+        CompileError::ForwardMacroOutput { .. } => "ForwardMacroOutput",
+        CompileError::ReservedIdLiteral { .. } => "ReservedIdLiteral",
+        CompileError::NestedBatch { .. } => "NestedBatch",
     }
 }
 

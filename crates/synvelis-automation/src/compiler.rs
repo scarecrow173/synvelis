@@ -22,6 +22,7 @@ use crate::canon::definition_digest;
 use crate::definition::{Step, WorkflowDefinition};
 use crate::error::{AutomationError, CompileError};
 use crate::expr::{Condition, Expr};
+use crate::macros::MacroRegistry;
 use crate::refs::VersionedRef;
 use crate::registry::{
     Availability, CapabilityDescriptor, DataAccessSet, EffectKind, EffectSet, ExecutionContract,
@@ -142,6 +143,10 @@ pub struct PlanCompiler;
 impl PlanCompiler {
     /// Compiles `definition` against provided `inputs` and `registry`.
     ///
+    /// Equivalent to [`Self::compile_with_macros`] with an empty macro
+    /// registry — every `atomic-macro` step reference fails closed
+    /// with [`CompileError::UndefinedMacro`].
+    ///
     /// # Errors
     /// [`AutomationError`] — definition/registry validation failures,
     /// or any [`CompileError`] rejection (fail-closed).
@@ -150,9 +155,34 @@ impl PlanCompiler {
         inputs: &serde_json::Map<String, Value>,
         registry: &RegistrySnapshot,
     ) -> Result<PlanOutput, AutomationError> {
+        Self::compile_with_macros(definition, inputs, registry, &MacroRegistry::empty())
+    }
+
+    /// Compiles `definition` against provided `inputs`, `registry`,
+    /// and a [`MacroRegistry`] of statically verified atomic macro
+    /// definitions (AUTX-04).
+    ///
+    /// An `atomic-macro` step resolves its `mac` reference exactly —
+    /// unknown ids fail [`CompileError::UndefinedMacro`], unregistered
+    /// versions fail [`CompileError::UnsupportedMacroVersion`]. A
+    /// resolved macro contributes its member count to the step-cost
+    /// budget and its members' capability refs and effect/data-access
+    /// bounds to the plan's conservative upper bounds; the plan never
+    /// carries the expanded `ops[]` (recipe compilation is
+    /// [`crate::MacroCompiler`]'s job at execution-prep time).
+    ///
+    /// # Errors
+    /// [`AutomationError`] — definition/registry validation failures,
+    /// or any [`CompileError`] rejection (fail-closed).
+    pub fn compile_with_macros(
+        definition: &WorkflowDefinition,
+        inputs: &serde_json::Map<String, Value>,
+        registry: &RegistrySnapshot,
+        macros: &MacroRegistry,
+    ) -> Result<PlanOutput, AutomationError> {
         definition.validate()?;
         registry.validate()?;
-        let mut check = Check::new(definition, registry);
+        let mut check = Check::new(definition, registry, macros);
         check.check_inputs(inputs)?;
         check.check_limits_ceiling()?;
         let cost = check.process_steps(&definition.steps, true)?;
@@ -201,6 +231,7 @@ impl Cost {
 struct Check<'a> {
     def: &'a WorkflowDefinition,
     registry: &'a RegistrySnapshot,
+    macros: &'a MacroRegistry,
     input_types: BTreeMap<String, StaticType>,
     output_schemas: BTreeMap<String, SchemaNode>,
     all_ids: BTreeSet<String>,
@@ -220,7 +251,11 @@ struct Check<'a> {
 }
 
 impl<'a> Check<'a> {
-    fn new(def: &'a WorkflowDefinition, registry: &'a RegistrySnapshot) -> Self {
+    fn new(
+        def: &'a WorkflowDefinition,
+        registry: &'a RegistrySnapshot,
+        macros: &'a MacroRegistry,
+    ) -> Self {
         let input_types = def
             .inputs
             .iter()
@@ -236,6 +271,7 @@ impl<'a> Check<'a> {
         Self {
             def,
             registry,
+            macros,
             input_types,
             output_schemas,
             all_ids,
@@ -454,10 +490,45 @@ impl<'a> Check<'a> {
                 self.step_order.push(id);
                 Ok(Cost::leaf())
             }
-            Step::AtomicMacro { mac, .. } => Err(CompileError::UndefinedMacro {
-                mac: mac.to_string(),
+            Step::AtomicMacro {
+                mac, args, target, ..
+            } => {
+                // AUTX-04: resolve the macro exactly, check call-site
+                // arguments against its parameter signature, and
+                // account the flat member expansion in cost/bounds —
+                // the batch itself takes no target. No registry at
+                // all keeps the AUTX-05 fail-closed answer.
+                if self.macros.is_empty() {
+                    return Err(CompileError::UndefinedMacro {
+                        mac: mac.to_string(),
+                    }
+                    .into());
+                }
+                let sig = self.macros.resolve(mac)?;
+                if target.is_some() {
+                    return Err(CompileError::UnexpectedTarget { step: id.clone() }.into());
+                }
+                self.check_macro_arguments(args, &sig.parameters)?;
+                self.step_order.push(id.clone());
+                self.register_output(id.clone(), None);
+                for member in &sig.members {
+                    let key = member.capability.to_string();
+                    self.cap_refs.insert(key.clone());
+                    self.effect_bounds
+                        .entry(key.clone())
+                        .or_default()
+                        .union_with(&member.effects);
+                    self.access_bounds
+                        .entry(key)
+                        .or_default()
+                        .union_with(&member.data_access);
+                }
+                Ok(Cost {
+                    steps: sig.members.len() as u128,
+                    iters: 0,
+                    depth: 0,
+                })
             }
-            .into()),
             Step::If {
                 condition,
                 then,
@@ -761,6 +832,20 @@ impl<'a> Check<'a> {
                     actual: format!("$item.{}", path.join(".")),
                 })?
             }
+            Expr::Param { .. } => {
+                return Err(CompileError::MacroOnlyExpr {
+                    at: at.to_owned(),
+                    expr: "param",
+                }
+                .into());
+            }
+            Expr::Output { .. } => {
+                return Err(CompileError::MacroOnlyExpr {
+                    at: at.to_owned(),
+                    expr: "output",
+                }
+                .into());
+            }
             Expr::Array { items } => {
                 let mut elem: Option<StaticType> = None;
                 for item in items {
@@ -772,21 +857,31 @@ impl<'a> Check<'a> {
                 }
                 StaticType::Array(Box::new(elem.unwrap_or(StaticType::Json)))
             }
-            Expr::Object { fields } => StaticType::Object(
-                fields
-                    .iter()
-                    .map(|(name, e)| {
-                        Ok((
-                            name.clone(),
-                            FieldType {
-                                ty: self.type_of(e, at)?,
-                                required: true,
-                            },
-                        ))
-                    })
-                    .collect::<Result<BTreeMap<_, _>, AutomationError>>()?,
-            ),
+            Expr::Object { fields } => self.type_of_object(fields, at)?,
         })
+    }
+
+    /// Static type of an `Expr::Object` — each field's type is
+    /// computed recursively and all fields are required.
+    fn type_of_object(
+        &mut self,
+        fields: &BTreeMap<String, Expr>,
+        at: &str,
+    ) -> Result<StaticType, AutomationError> {
+        Ok(StaticType::Object(
+            fields
+                .iter()
+                .map(|(name, e)| {
+                    Ok((
+                        name.clone(),
+                        FieldType {
+                            ty: self.type_of(e, at)?,
+                            required: true,
+                        },
+                    ))
+                })
+                .collect::<Result<BTreeMap<_, _>, AutomationError>>()?,
+        ))
     }
 
     /// Checks `expr` against a structural [`SchemaNode`]. Literals are
@@ -869,6 +964,46 @@ impl<'a> Check<'a> {
                 }
             }
         }
+    }
+
+    /// Checks an `atomic-macro` step's `args` — an object expression
+    /// binding each declared macro parameter — against the macro
+    /// signature's parameter types. Exact-name matching mirrors the
+    /// workflow input contract: undeclared names, missing parameters,
+    /// and static type mismatches all reject.
+    fn check_macro_arguments(
+        &mut self,
+        args: &Expr,
+        params: &BTreeMap<String, StaticType>,
+    ) -> Result<(), AutomationError> {
+        let Expr::Object { fields } = args else {
+            return Err(CompileError::TypeMismatch {
+                path: "args".to_owned(),
+                expected: "object of macro parameters".to_owned(),
+                actual: "non-object args".to_owned(),
+            }
+            .into());
+        };
+        for (name, expr) in fields {
+            let Some(expected) = params.get(name) else {
+                return Err(CompileError::UnexpectedInput { name: name.clone() }.into());
+            };
+            let actual = self.type_of(expr, "args")?;
+            if !type_compatible(&actual, expected) {
+                return Err(CompileError::TypeMismatch {
+                    path: format!("args.{name}"),
+                    expected: expected.describe(),
+                    actual: actual.describe(),
+                }
+                .into());
+            }
+        }
+        for name in params.keys() {
+            if !fields.contains_key(name) {
+                return Err(CompileError::MissingInput { name: name.clone() }.into());
+            }
+        }
+        Ok(())
     }
 
     // -- conditions --------------------------------------------------------
@@ -974,7 +1109,7 @@ impl<'a> Check<'a> {
 
 /// Validates a literal target value against the required resource
 /// kind — exact tagged-id checks for concrete strings.
-fn check_literal_target(
+pub(crate) fn check_literal_target(
     step_id: &str,
     value: &Value,
     kind: crate::schema::ResourceKind,
@@ -1095,7 +1230,7 @@ fn schema_kind_name(schema: &SchemaNode) -> &'static str {
 /// Static type of a literal JSON value. Strings that parse as
 /// `<kind>-<32 hex>` typed ids get [`StaticType::Id`]; everything else
 /// stays `String`.
-fn literal_type(value: &Value, at: &str) -> Result<StaticType, AutomationError> {
+pub(crate) fn literal_type(value: &Value, at: &str) -> Result<StaticType, AutomationError> {
     Ok(match value {
         Value::Null => StaticType::Null,
         Value::Bool(_) => StaticType::Bool,
@@ -1147,7 +1282,11 @@ fn tagged_id_kind(s: &str) -> Option<crate::schema::ResourceKind> {
 }
 
 /// Unifies two element types; fails on genuinely heterogeneous shapes.
-fn join_types(a: &StaticType, b: &StaticType, at: &str) -> Result<StaticType, AutomationError> {
+pub(crate) fn join_types(
+    a: &StaticType,
+    b: &StaticType,
+    at: &str,
+) -> Result<StaticType, AutomationError> {
     use StaticType as T;
     if a == b {
         return Ok(a.clone());
