@@ -32,17 +32,20 @@ Directory: `docs/impl/ir`
 | IMPL-ALIB06WebDavProvider | ALIB-06 WebDAV File-Server Provider 実装記録 | completed | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
 | IR-alib07-fault-matrix | ALIB-07 Fault Matrix — headless 実装記録（synvelis-library） | completed | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | IR-alib07-import-cancel | ALIB-07 slice 2 — import cancel checkpoint・subprocess crash fixture 実装記録（synvelis-library） | completed | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
+| IMPL-034X9CHvMBdaJaTDZHyjpx | Asset Library 設計契約 実装記録 (synvelis#9) | completed | [asset-library.md](./asset-library.md) |
 | IMPL-AUT01TouchReturnWriterState | AUT-01 Touch Return 150ms Smoothstep・Read/Touch/Latch/Write 境界 State 実装記録 | completed | [aut-01-touch-return-writer-state.md](./aut-01-touch-return-writer-state.md) |
 | IMPL-AUT02RegionReplaceBoundary | AUT-02 Region Replace 境界曲線保存・境界 anchor 実装記録 | completed | [aut-02-region-replace-boundary.md](./aut-02-region-replace-boundary.md) |
 | IMPL-AUT03LoopWriteOnePass | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・境界 flush・明示 Rearm 実装記録 | completed | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |
 | IMPL-AUT04CurveLodRecordBudget | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装記録 | completed | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
 | IMPL-49LTYDUL26uBLtxAQGXxOz | Automation / Modulation 統合 Parameter Control — 実装記録（docs slice・synvelis#6） | completed | [automation-modulation.md](./automation-modulation.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
+| IMPL-034X9hYuHSZsRHijApPhOw | Capability / Command Gateway G0-G6 受入照合・証拠台帳 実装記録 (synvelis#46) | completed | [command-gateway-gates.md](./command-gateway-gates.md) |
 | IMPL-034X8sM6gVaKFLBghHMqW3 | Capability / Command Gateway 設計契約 実装記録 (synvelis#45) | completed | [command-gateway.md](./command-gateway.md) |
 | IMPL-5kKD8UEketY1kHcAnYUEao | Context Inspector 設計定義 — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5 docs slice） | completed | [context-inspector.md](./context-inspector.md) |
 | IMPL-034CTL01Kx9wMn2pQ7rVt4yB | CTL-01 ControlOwner/AutomationTimeScope 分離・Schema v7 実装記録 | completed | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
 | IMPL-034WBaliNYvopY8qIaeCeh | CTL-02 adoption 経路の非 canonical SendLevel 抑止 | completed | [ctl-02-adoption-canonical-sendlevel.md](./ctl-02-adoption-canonical-sendlevel.md) |
 | IMPL-034V1FQ09PSOnyDawvKX60 | CTL-02 Strip/Send Host Parameter 正本・Plugin Binding・Routing 実装記録 | completed | [ctl-02-strip-send-host-parameter-plugin-binding-routing.md](./ctl-02-strip-send-host-parameter-plugin-binding-routing.md) |
+| IMPL-034X9NMZPZYBp9grVPuUZ4 | Issue #8 DAW ワークフロー UX 文書チェーン確定 | completed | [daw-workflow.md](./daw-workflow.md) |
 | IMPL-034QAWvNQYPna11TqH7YTn | ED-A editing model headless PoC | completed | [ed-a-editing-model-headless-poc.md](./ed-a-editing-model-headless-poc.md) |
 | IMPL-034QO4tHWa37Uyya3N6ttQ | ED-B media-domain move/trim/slip + marquee commit semantics | completed | [ed-b-media-domain-move-trim-slip-marquee-commit-semantics.md](./ed-b-media-domain-move-trim-slip-marquee-commit-semantics.md) |
 | IMPL-034X84u7PqVqLhNVOe8UZB | Execution Plan — Issue #23 横断 DAG 文書化 + sv23 evidence 台帳 | completed | [execution-plan.md](./execution-plan.md) |
@@ -128,6 +131,7 @@ Directory: `docs/impl/ir`
 | IMPL-034V2wJTpu3xW419A7YT37 | SF-06 cross-gate headless oracle 実装記録 | completed | [sf-06-cross-gate-headless-oracle.md](./sf-06-cross-gate-headless-oracle.md) |
 | IMPL-034XaaoFK7IUzs8UMi97aN | SF-05 residual headless coverage — SF-UX-01..07 棚卸し + 欠落6件補完 + evidence 台帳 | completed | [sf05-editor.md](./sf05-editor.md) |
 | IMPL-xRTJTdZHW0ii0jrP4pCFkK | SF-XR-01 CTL-01/CTL-02 cross-gate oracle fixture — implementation record | completed | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
+| IMPL-034X9Ln9ARL8qEXoWVpZcz | Issue #4 Signal Flow 設計正本 — 文書チェーンと証拠の作成 | completed | [signal-flow-design.md](./signal-flow-design.md) |
 | IMPL-034X5H2u7vD5H929MaHV8N | Issue #84 StagedFile Migration — 証拠統合・受入検証 slice 実装記録 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |
 | IMPL-034Ug8sNPL1sqhquNm1PYh | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 API 追従 | completed | [sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md](./sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md) |
 | IMPL-034VocnpYlIXEqErLG2I5w | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 API 追従 | completed | [sv-28-ruviform-pin-b02942c2.md](./sv-28-ruviform-pin-b02942c2.md) |
@@ -181,6 +185,7 @@ Directory: `docs/impl/ir`
 | IMPL-bgZP66dLupCITdABVLTgJp | VCS-06 monitoring-domain matrix (synvelis#97 slice) | completed | [vcs-06-monitoring-matrix-slice.md](./vcs-06-monitoring-matrix-slice.md) |
 | IMPL-034WTApAlyZicn0xwYz0ic | VCS-06 real-git/FS fault rows slice (synvelis#97) | completed | [vcs-06-real-git-fs-fault.md](./vcs-06-real-git-fs-fault.md) |
 | IMPL-034VpEJmewmUasabGgBzbM | VCS-06 UI headless matrix (synvelis#97 slice) | completed | [vcs-06-ui-headless-matrix-slice.md](./vcs-06-ui-headless-matrix-slice.md) |
+| IMPL-034X9JqvKCwVsxWs2xcNVz | VCS Integration 統合契約文書チェーン + evidence/sv7 Case 被覆台帳 (synvelis#7) | completed | [vcs-integration.md](./vcs-integration.md) |
 | IMPL-034QeecIYVT0VX2rTFukXg | VS-A task1 workspace skeleton | completed | [vs-a-task1-workspace-skeleton.md](./vs-a-task1-workspace-skeleton.md) |
 | IMPL-034Qeedli77Yb2i69YgXSZ | VS-A task2 synvelis-project data model | completed | [vs-a-task2-synvelis-project-data-model.md](./vs-a-task2-synvelis-project-data-model.md) |
 | IMPL-034Qeee1v46cNscWJeF2Fc | VS-A task3 controller ops store | completed | [vs-a-task3-controller-ops-store.md](./vs-a-task3-controller-ops-store.md) |

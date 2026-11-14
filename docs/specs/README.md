@@ -12,6 +12,7 @@ Directory: `docs/specs`
 | SPEC-alib04-git-remote-provider | ALIB-04 — Git Remote Provider（fixed Commit/Tree・Git LFS・selective fetch・auth）（synvelis-library slice） | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | SPEC-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — Git LFS batch API / HTTP download による remote LFS object 実Byte取得（synvelis-library slice） | approved | [alib-04-lfs-remote-fetch.md](./alib-04-lfs-remote-fetch.md) |
 | SPEC-alib06-webdav-provider | ALIB-06 — WebDAV File-Server Provider（strong ETag/If-Match pin・conditional read・auth・cancel）（synvelis-library slice） | approved | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
+| SPEC-034X9CdwK3h8dbogUdZSER | Remote-aware Asset Library — metadata-first browse, pinned intent, verified import, offline/permission UX (synvelis#9) | approved | [asset-library.md](./asset-library.md) |
 | SPEC-034AUT01T7xRw4mNcQ8pZbV2 | AUT-01 Automation Mode 境界 State — Read/Touch/Latch/Write・Touch Return 150ms Smoothstep | approved | [aut-01-automation-mode-boundary-touch-return-writer-state.md](./aut-01-automation-mode-boundary-touch-return-writer-state.md) |
 | SPEC-034AUT03AW1Qq4l4VCpTSK | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・明示 Rearm | approved | [aut-03-loop-write-one-pass-write-range-rearm.md](./aut-03-loop-write-one-pass-write-range-rearm.md) |
 | SPEC-034AUT04VJToXbqZEgrP85 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
@@ -23,6 +24,7 @@ Directory: `docs/specs`
 | SPEC-3Vlcu2H26v4t56Rs4ycO7z | Context Inspector — 情報階層・Follow/Explore/Pinned・Selection/Linked Context・Probe 連携の設計定義（synvelis#5） | approved | [context-inspector.md](./context-inspector.md) |
 | SPEC-034CTL01Ow9uXr5zA1bC2dEf | CTL-01 ControlOwner / AutomationTimeScope 責務分離・Bus/Strip/Send 型付き Schema 移行 | approved | [ctl-01-control-owner-automation-time-scope-typed-schema.md](./ctl-01-control-owner-automation-time-scope-typed-schema.md) |
 | SPEC-xA6Rt9SOy2hTBVmns3bmV4 | CTL-02 adoption 経路の非 canonical SendLevel persisted 化抑止 | approved | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
+| SPEC-034X9D5Y5qj1ea9V1VLeHF | 標準 DAW 制作ワークフローと Track/Clip/録音/編集の共通操作体系 (Issue #8) | approved | [daw-workflow.md](./daw-workflow.md) |
 | SPEC-034QAlF2irl9rIJaUi9RQ1 | ED-A Editing Model — Selection/Tool/Snap/Transaction/LinkedContext headless PoC | approved | [ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md](./ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md) |
 | SPEC-034QMZiCjhKFlSgoIw9YaX | ED-B media-domain move + slip commit semantics (workspace editing PoC) | approved | [ed-b-media-domain-move-slip-commit-semantics.md](./ed-b-media-domain-move-slip-commit-semantics.md) |
 | SPEC-034X83uiIsH0n6OuQGcU1T | Execution Plan — RCP-00〜07/F01・F0/E2E-L/R/X・Signal Flow/Automation/GUI 横断単一 DAG・Owner/Gate/Acceptance Matrix | approved | [execution-plan.md](./execution-plan.md) |
@@ -107,6 +109,7 @@ Directory: `docs/specs`
 | SPEC-kX9mQvR2wTbLpNcJyH4sDf | SF-05 slice3 Signal Flow — probe subscriber/capture dedup の app/UI 配線（SF-UX-06 headless 側） | approved | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
 | SPEC-034V2wnQPWFJdKz68KlwJG | SF-06 cross-gate Domain Oracle・Case ID・Fault Fixture・evidence ledger（headless slice） | approved | [sf-06-cross-gate-oracle-case-ledger.md](./sf-06-cross-gate-oracle-case-ledger.md) |
 | SPEC-JQYNMchouBVGrijHyiBC2d | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture（headless slice） | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
+| SPEC-034X9BMCsZFv8cyn2cAg8d | Signal Flow 設計正本 — 階層・Typed Port/Connection・Semantic Routing・Probe 表示/編集・SourceMap/Configured/Observed 受入仕様 | draft | [signal-flow-design.md](./signal-flow-design.md) |
 | SPEC-034X5xBtwHRKs4lePhNM05 | Issue #84 DirectoryBundleStore Snapshot/HEAD Ruviform StagedFile 移行 | approved | [stagedfile-migration.md](./stagedfile-migration.md) |
 | SPEC-Zu5lKLwb3CUPWZGbvKMdCI | Issue #245 verify (windows-latest) webdav MockServer TransientIo flake — accept 済みソケットの blocking 正規化 | proposed | [sv-ci-webdav-transient-io-flake.md](./sv-ci-webdav-transient-io-flake.md) |
 | SPEC-ZXEWFEbx3k4Jeu4YDEQcD0 | SV-GPUI-01 Native App Shell — Driver-neutral shell・GPUI Driver組立・typed ViewModel↔Binding adapter・app lifecycle | approved | [sv-gpui-01-native-app-shell.md](./sv-gpui-01-native-app-shell.md) |
@@ -160,6 +163,7 @@ Directory: `docs/specs`
 | SPEC-pkRnrZ2RKJfPW1ymwMSENS | VCS-06 monitoring-domain matrix — monitor 宣言の diff/apply/restore 証拠行 | approved | [vcs-06-monitoring-matrix.md](./vcs-06-monitoring-matrix.md) |
 | SPEC-034WTsO0gdR1Z2PjqV9OQ2 | VCS-06 real-git/FS fault rows + CI evidence refresh (synvelis#97) | approved | [vcs-06-real-git-fs-fault.md](./vcs-06-real-git-fs-fault.md) |
 | SPEC-034VpB76W8P3twLKj0HlHB | VCS-06 UI headless matrix — Unknown/Partial honesty fixtures + ledger split | approved | [vcs-06-ui-headless-matrix.md](./vcs-06-ui-headless-matrix.md) |
+| SPEC-034X9CW66GeytQXJHrogRB | VCS Integration — Snapshot/Canonical ChangeSet/History/Visual Diff/Safe Apply・Restore-as-Copy 統合契約 (synvelis#7) | approved | [vcs-integration.md](./vcs-integration.md) |
 | SPEC-034Qdwuy2lCglk3HjqtRcs | VS-A Project / Recording Foundation — Stable ID・時間型・Command・Save/Reload | approved | [vs-a-project-recording-foundation-stable-id-command-save-reload.md](./vs-a-project-recording-foundation-stable-id-command-save-reload.md) |
 | SPEC-9EcPwSoDwcrg3WPYmvs7Gn | VS-B Clock / Gate Scheduler / RT Capture — Mock Input・Buffer Pool・SPSC | approved | [vs-b-rt-capture-mock-input-buffer-pool-spsc.md](./vs-b-rt-capture-mock-input-buffer-pool-spsc.md) |
 | SPEC-034QfIc1oyjYo7pSqlYH8a | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range | approved | [vs-c-staging-writer-journal-crash-recovery-verified-media-range.md](./vs-c-staging-writer-journal-crash-recovery-verified-media-range.md) |
