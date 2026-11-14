@@ -11,6 +11,7 @@ Directory: `docs/plans`
 | PLAN-alib04-git-remote-provider | ALIB-04 実装計画 — Git Remote Provider（synvelis-library slice） | in-progress | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | PLAN-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — 実装計画 | approved | [alib-04-lfs-remote-fetch-plan.md](./alib-04-lfs-remote-fetch-plan.md) |
 | PLAN-alib06-webdav-provider | ALIB-06 実装計画 — WebDAV File-Server Provider（synvelis-library slice） | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
+| PLAN-034X9CqLejWbVm8CI8jjiF | Asset Library 文書鎖・受入写像 実施計画 (synvelis#9) | approved | [asset-library.md](./asset-library.md) |
 | PLAN-034AUT01Zx4wQn8vF2sLrT6m | AUT-01 Touch Return・Writer State 境界 実装計画 | approved | [aut-01-touch-return-writer-state.md](./aut-01-touch-return-writer-state.md) |
 | PLAN-034AUT02Vn5rWt9kJx4sLq8b | AUT-02 Region Replace 境界曲線保存 実装計画 | approved | [aut-02-region-replace-boundary.md](./aut-02-region-replace-boundary.md) |
 | PLAN-034AUT03Cm4rT8vXy1qKp9sL | AUT-03 Loop 録音 1 Pass・Write Range 閉鎖・明示 Rearm 実装計画 | approved | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |
@@ -23,6 +24,7 @@ Directory: `docs/plans`
 | PLAN-0KH6KhO6yo49yc5HP6kMSN | Context Inspector 設計定義 実施計画 — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5） | approved | [context-inspector-plan.md](./context-inspector-plan.md) |
 | PLAN-034CTL01Rz2xAu8bD4eF5gHi | CTL-01 ControlOwner/AutomationTimeScope 実装計画 | approved | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
 | PLAN-3o92uvIdnyfhflikf7TlYQ | CTL-02 adoption SendLevel canonical spec 強制 実装計画 | approved | [ctl-02-adopt-sendlevel-plan.md](./ctl-02-adopt-sendlevel-plan.md) |
+| PLAN-034X9KLNXdoJS7xcxSSn1n | 標準 DAW 制作ワークフロー UX 正本化（Issue #8 文書チェーン） | approved | [daw-workflow-plan.md](./daw-workflow-plan.md) |
 | PLAN-034QN1oz8zutDLafJy6oDg | ED-B media-domain editing PoC 実装計画 | approved | [ed-b-media-domain-editing.md](./ed-b-media-domain-editing.md) |
 | PLAN-034X841J2QRrgpxCPlRiKb | Execution Plan Plan — docs chain + sv23 evidence ledger | in-progress | [execution-plan.md](./execution-plan.md) |
 | PLAN-034UqTzD6N7R0o468wXtrQ | Implement SV-GUI-04 slice2 dock transfer workspace adoption | approved | [implement-sv-gui-04-slice2-dock-transfer-workspace-adoption.md](./implement-sv-gui-04-slice2-dock-transfer-workspace-adoption.md) |
@@ -102,6 +104,7 @@ Directory: `docs/plans`
 | PLAN-dF3hNzQwErTyUiOpL6kMnB | SF-05 slice3 実施計画 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-plan.md](./sf-05-slice3-probe-subscriber-wiring-plan.md) |
 | PLAN-034V2wD3RqGEqlst7HFeVD | SF-06 cross-gate headless slice — Domain Oracle・Case registry・fault fixture・ledger | approved | [sf-06-cross-gate-oracle.md](./sf-06-cross-gate-oracle.md) |
 | PLAN-QRGcQW6CvUDaVfCwWADz2f | SF-XR-01 実装計画 — CTL-01/CTL-02 cross-gate oracle fixture | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
+| PLAN-034X9HnJ3ksOwiuiGUkOTC | Signal Flow 設計正本 — 文書チェーンと証拠の作成 | approved | [signal-flow-design-plan.md](./signal-flow-design-plan.md) |
 | PLAN-0DE1gOLgt5QsNGBzENzb8a | Issue #245 webdav MockServer TransientIo flake — blocking 正規化 実装計画 | approved | [sv-ci-webdav-transient-io-flake-plan.md](./sv-ci-webdav-transient-io-flake-plan.md) |
 | PLAN-v1VQEMk92Nx1lQHUlSVh1t | SV-GUI-01 実装計画 — Desktop App Bootstrap・WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap.md](./sv-gui-01-desktop-app-bootstrap.md) |
 | PLAN-SVGUI02 | SV-GUI-02 View Model・Binding IPC 実装計画 | approved | [sv-gui-02-view-model-binding-ipc.md](./sv-gui-02-view-model-binding-ipc.md) |
@@ -183,4 +186,5 @@ Directory: `docs/plans`
 | PLAN-034VobWDT9p1N0HGeD67OV | SV#28 Ruviform pin 更新 実装計画 — 0f5b5737 → b02942c2 | completed | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | PLAN-pOkUKpNa9zeQiK8ZbP5nvk | SV#28 Ruviform pin 更新 実装計画 — 863a7a9d → cc7d5296 | completed | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | PLAN-TyFpOpS6aiBDCdppuSCl9s | SV#28 Ruviform pin 更新 実装計画 — 9865cd57 → fd1d4d5f | completed | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
+| PLAN-034X9Fn5NTJQhX4cdeEEoq | VCS Integration 統合契約文書チェーン + evidence/sv7 Case 被覆台帳 (synvelis#7) | completed | [vcs-integration-plan.md](./vcs-integration-plan.md) |
 | PLAN-034QwZOjdblHRzDVhDXNIP | WS-A Workspace 基盤 headless PoC 実装計画 | completed | [ws-a-workspace-foundation.md](./ws-a-workspace-foundation.md) |

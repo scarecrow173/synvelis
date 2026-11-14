@@ -18,6 +18,7 @@ Directory: `docs/designs`
 | DSN-alib06-webdav-provider | ALIB-06 — WebDAV File-Server Provider 設計（synvelis-library） | approved | [alib-06-webdav-provider-design.md](./alib-06-webdav-provider-design.md) |
 | DSN-alib07-fault-matrix | ALIB-07 — Asset Library 全経路 Fault Matrix 設計（synvelis-library headless slice） | approved | [alib-07-fault-matrix-design.md](./alib-07-fault-matrix-design.md) |
 | DSN-alib07-import-cancel | ALIB-07 slice 2 設計 — LIB-IMPORT-04 cancel checkpoint・subprocess crash fixture | approved | [alib-07-import-cancel-design.md](./alib-07-import-cancel-design.md) |
+| DESIGN-034X9CpHP2HhkIZ6GzyZI6 | Remote-aware Asset Library Browser/Import UX 設計 (synvelis#9) | approved | [asset-library-design.md](./asset-library-design.md) |
 | DESIGN-034AUT01Kp3mWv9zR2sQfL6h | AUT-01 Touch Return・Writer State 境界設計 — session clock + 明示閉鎖 | approved | [aut-01-touch-return-writer-state-design.md](./aut-01-touch-return-writer-state-design.md) |
 | DESIGN-034AUT02Qm8wXs5vLn3jKp9r | AUT-02 Region Replace 境界曲線保存 設計 — merged series 境界 anchor・host 選択・stitch | approved | [aut-02-region-replace-boundary-design.md](./aut-02-region-replace-boundary-design.md) |
 | DESIGN-034AUT03B1wG9hW1zS0Yf4 | AUT-03 Loop 録音 1 Pass — Write Range 半開区間閉鎖・境界 flush・明示 Rearm 設計 | approved | [aut-03-loop-write-one-pass-design.md](./aut-03-loop-write-one-pass-design.md) |
@@ -31,6 +32,7 @@ Directory: `docs/designs`
 | DESIGN-6ClrSXGAyry8iwAqt4t32c | Context Inspector 設計 — Follow/Explore/Pinned 状態機械・TargetKind Provider・情報階層・Probe/編集契約（synvelis#5） | approved | [context-inspector-design.md](./context-inspector-design.md) |
 | DESIGN-034CTL01Qy1wZt7aC3dE4fGh | CTL-01 ControlOwner/AutomationTimeScope 設計 — Schema v7 Migration | approved | [ctl-01-control-owner-time-scope-design.md](./ctl-01-control-owner-time-scope-design.md) |
 | DESIGN-taIsR3SbHTaGKnhYkfth7f | CTL-02 adoption SendLevel canonical spec 強制 設計 | approved | [ctl-02-adopt-sendlevel-design.md](./ctl-02-adopt-sendlevel-design.md) |
+| DESIGN-034X9D6y9KpvdrfOuRveV6 | 標準 DAW 制作ワークフロー UX 正本 — Gate A 代表 Task・Keyboard/Gesture/Tool 操作体系 (Issue #8) | approved | [daw-workflow-design.md](./daw-workflow-design.md) |
 | DESIGN-034QAlPiE7atUoGKXNG7Lr | ED-A Editing Model 設計 — Selection/Tool/Snap/Gesture/LinkedContext headless PoC | approved | [ed-a-editing-model-design.md](./ed-a-editing-model-design.md) |
 | DESIGN-034QN0IIBPRdrHiOv3uTvq | ED-B media-domain editing design | approved | [ed-b-media-domain-editing-design.md](./ed-b-media-domain-editing-design.md) |
 | DESIGN-034X83GOEQ84LyUmDRBepu | Execution Plan Design — 横断 DAG・Owner/Gate/Acceptance Matrix・OS 検証レベル・Evidence 台帳構造 | approved | [execution-plan-design.md](./execution-plan-design.md) |
@@ -127,6 +129,7 @@ Directory: `docs/designs`
 | DESIGN-mB7tYwKsPqNvXcZaE5rGjH | SF-05 slice3 設計 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-design.md](./sf-05-slice3-probe-subscriber-wiring-design.md) |
 | DESIGN-034V2wuzXfqcjIvGyXFhhz | SF-06 cross-gate headless 設計 — oracle 独立性・fixture topology・ledger schema | approved | [sf-06-cross-gate-oracle-domain-evidence.md](./sf-06-cross-gate-oracle-domain-evidence.md) |
 | DESIGN-OIDrCGhRjzwr0IzN1tzVkg | SF-XR-01 Design — CTL-01/CTL-02 cross-gate oracle fixture | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
+| DESIGN-034X9CQwZrVbNmLpKsTuVw | Signal Flow 設計正本 — 階層・Typed Port/Connection・Semantic Routing・Probe 表示/編集・世代証拠 | approved | [signal-flow-design-design.md](./signal-flow-design-design.md) |
 | DESIGN-034X5yWfKUcmf5eqz7NUJR | Issue #84 StagedFile Migration 実装済み設計 | approved | [stagedfile-migration-design.md](./stagedfile-migration-design.md) |
 | DESIGN-jmv4N50pKcC7sDGSX5TVEq | Issue #245 webdav MockServer TransientIo flake — accept 済みソケット blocking 正規化設計 | approved | [sv-ci-webdav-transient-io-flake-design.md](./sv-ci-webdav-transient-io-flake-design.md) |
 | DESIGN-lW54zR76NmEm8cc3NlMskX | SV-GUI-01 Design — Desktop App Bootstrap・Composition Root・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap-design.md](./sv-gui-01-desktop-app-bootstrap-design.md) |
@@ -183,6 +186,7 @@ Directory: `docs/designs`
 | DESIGN-lzcGjnJjPNFKiNNUpE2gE3 | VCS-06 monitoring-domain matrix — fixture 設計 | approved | [vcs-06-monitoring-matrix-design.md](./vcs-06-monitoring-matrix-design.md) |
 | DESIGN-034WTsUdd5SHHSF6EBJmfK | VCS-06 real-git/FS fault rows — design | approved | [vcs-06-real-git-fs-fault-design.md](./vcs-06-real-git-fs-fault-design.md) |
 | DESIGN-034VpC0m5WnwXqJkI2nNXw | VCS-06 UI headless matrix — fixture 設計 | approved | [vcs-06-ui-headless-matrix-design.md](./vcs-06-ui-headless-matrix-design.md) |
+| DESIGN-034X9E4j59hipUI46lNAQC | VCS Integration — 統合契約・層構成・Case 被覆設計 (synvelis#7) | approved | [vcs-integration-design.md](./vcs-integration-design.md) |
 | DESIGN-034QdO7AB6cp4DRgKeuuEn | VS-A Project/Recording Foundation — Stable ID・時間型・Command・永続化 PoC | approved | [vs-a-project-recording-foundation-stable-id-command-poc.md](./vs-a-project-recording-foundation-stable-id-command-poc.md) |
 | DESIGN-8OW4JtYUYaLPOTZ9ZGxXuz | VS-B Clock / Gate Scheduler / RT Capture — Mock Input・Buffer Pool・SPSC | approved | [vs-b-clock-gate-rt-capture-mock-spsc.md](./vs-b-clock-gate-rt-capture-mock-spsc.md) |
 | DESIGN-034QfL0bH9u3cVqK0pYwT7x | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range | approved | [vs-c-staging-writer-journal-crash-recovery-verified-media-range.md](./vs-c-staging-writer-journal-crash-recovery-verified-media-range.md) |
