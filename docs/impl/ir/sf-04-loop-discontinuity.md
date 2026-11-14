@@ -1,10 +1,10 @@
 ---
 id: "IMPL-034XESj4wnQEqAF8AA5DUV"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "SF-04 loop discontinuity"
 created: "2026-11-14"
-updated: "2026-11-14"
+updated: "2026-11-15"
 owners: []
 relations:
   source:
@@ -196,11 +196,32 @@ slice での解消として更新し、test-spec に解消記録節を追加。
 
 ## Validation
 
-<!-- 検証結果は全 lane 実行後に記録する。 -->
+canonical = `mise run`（Windows 11、mise 管理 toolchain）。
+`origin/main`（`29852e7`、sv#117 monitor session）merge 後の
+HEAD で実施。詳細は
+`evidence/sv107/verification-sf04-loop-discontinuity.md`。
 
-- `mise exec -- cargo test -p synvelis-player --test
-  sf04_loop_discontinuity` → 4 passed / 0 failed（補助証拠、
-  canonical は `mise run test synvelis-player`）。
+- `mise run fmt-check` → Passed
+- `mise run check synvelis-player` → Passed
+- `mise run lint synvelis-player` → Passed
+- `mise run test synvelis-player` → Passed（`sf04_loop_
+  discontinuity` 4 件含む全 target green）
+- `mise run test-rt` → Passed
+- `mise run check synvelis-app` → Passed
+- `mise run lint synvelis-app` → Passed
+- `mise run test synvelis-app` → Passed（補助証拠 —
+  `SessionRoutingEngine::run` 再構成の非退行確認）
+- `mise run check-ui` → Passed（`sync-ui-deps` で stale
+  vendor を lockfile rev `fd1d4d5f` へ再同期後）
+- `mise run test-ui` → Passed（vitest 56 tests）
+- `mise exec -- prek run --all-files` → Passed
+- 補助: `cargo test -p synvelis-player --test
+  sf04_loop_discontinuity` → 4 passed（canonical は上記
+  `mise run test synvelis-player`）
+
+外部 gate（実機 fault・#108 UI/session・#109 oracle・
+`*-msrv`/`*-full`・3OS）は NotRun — 根拠は evidence の
+「未検証」節と `evidence/sv107/external-gates.md`。
 
 ## Risks
 

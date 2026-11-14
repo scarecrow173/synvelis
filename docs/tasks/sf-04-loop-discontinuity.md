@@ -1,7 +1,7 @@
 ---
 id: "TASK-BnGVtGmGrkbl8OUonfkG4K"
 type: "task"
-status: "in-progress"
+status: "completed"
 title: "SF-04 loop-discontinuity T1 — syn.probe.compare OpName + loop→probe 不連続宣言"
 created: "2026-11-15"
 updated: "2026-11-15"
@@ -61,7 +61,7 @@ relations:
   「loop transport」行を本 slice での解消として更新。
 - [x] T1-6: docs chain 完成（test-spec/impl-ir/impl-exp）
   + managed index 再生成 + `evidence/sv107/` 記録。
-- [ ] T1-7: canonical `mise` 検証全件実行・commit/push/
+- [x] T1-7: canonical `mise` 検証全件実行・commit/push/
   PR。
 
 ## Done When
