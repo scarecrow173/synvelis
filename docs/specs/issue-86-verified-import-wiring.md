@@ -1,10 +1,10 @@
 ---
 id: "SPEC-rNbdNqOT10RavAY4Hj9RKJ"
 type: "spec"
-status: "approved"
+status: "implemented"
 title: "Issue #86 DoD(2) — import_verified consumer 入口 + digest-kind blob 解決（synvelis-player slice）"
 created: "2026-11-11"
-updated: "2026-11-11"
+updated: "2026-11-14"
 owners: ["scarecrow173"]
 relations:
   source:
