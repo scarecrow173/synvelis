@@ -7324,6 +7324,7 @@ dependencies = [
  "synvelis-player",
  "synvelis-project",
  "synvelis-render",
+ "synvelis-script",
 ]
 
 [[package]]

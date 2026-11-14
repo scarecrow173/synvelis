@@ -48,6 +48,7 @@ pub mod recording;
 pub mod render;
 pub mod revision;
 pub mod screens;
+pub mod script_editor;
 pub mod service;
 pub mod shell;
 pub mod ui_ops;
@@ -85,6 +86,11 @@ pub use screens::{
     mixer_gain_target, mixer_strip_targets, mount_main_view, mount_secondary_view,
     mount_vcs_history_view, secondary_screen_spec, secondary_view_id, secondary_view_instance,
     secondary_view_targets, seek_range_seconds,
+};
+pub use script_editor::{
+    SV_SCRIPT_API_TARGET, SV_SCRIPT_COMPLETIONS_TARGET, SV_SCRIPT_DIAGNOSTICS_TARGET,
+    SV_SCRIPT_TARGET, ScriptEditorCommand, ScriptEditorScreenState, decode_script_editor_command,
+    mount_script_editor_view, script_editor_screen_spec,
 };
 pub use service::{AppService, OPS};
 pub use shell::NativeShell;
