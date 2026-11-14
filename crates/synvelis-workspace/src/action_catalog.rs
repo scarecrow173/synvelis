@@ -17,8 +17,10 @@
 //!   goes through `Gateway::bind`/`invoke` and its policy evaluation.
 //! - **Displayability ≠ invocability.** [`ActionStatus::Available`] means
 //!   the descriptor reports `Availability::Available` — nothing more.
-//!   Executor presence is not observable through the registry's public
-//!   API, so [`ExecutorState`] reports `Unknown` and `Gateway::invoke`
+//!   [`ExecutorState`] reports whether the registry carries an executor
+//!   for the exact ref when an executor lookup is supplied
+//!   ([`ExecutorState::Installed`]/[`ExecutorState::Absent`]); without
+//!   one it stays [`ExecutorState::Unknown`]. `Gateway::invoke`
 //!   remains the sole authority that can return `GatewayError::NoExecutor`.
 //! - **UI intents stay UI intents.** `ViewAction`-style view-local
 //!   actions are a different type domain (`automation_ui`); only
@@ -34,7 +36,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 use synvelis_gateway::{
-    Availability, CapabilityDescriptor, CapabilityRef, CapabilityVersion, Gateway, SchemaRegistry,
+    Availability, CapabilityDescriptor, CapabilityRef, CapabilityRegistry, CapabilityVersion,
+    Gateway, SchemaRegistry,
 };
 
 pub mod fixture;
@@ -135,17 +138,25 @@ pub enum SchemaConsistency {
 
 /// Executor installation state.
 ///
-/// `CapabilityRegistry`'s public API does not expose whether a
-/// registration carries a handler (`handler`/`resolve` are
-/// crate-private), so a read-only projection cannot distinguish
-/// "registered without executor" (`GatewayError::NoExecutor` at invoke)
-/// from "executor installed". Every projection reports [`Self::Unknown`]
-/// until a read-only `has_executor` predicate lands on the registry —
-/// `Gateway::invoke` remains the only authority either way.
+/// When the projection is given the [`CapabilityRegistry`] the
+/// descriptors were registered into, [`CapabilityRegistry::has_executor`]
+/// distinguishes "registered with an executor"
+/// ([`Self::Installed`]) from "registered without one" — the No-Handler
+/// state `Gateway::invoke` reports as `GatewayError::NoExecutor`.
+/// Without that lookup — or for entries that have no registered
+/// descriptor at all — the state stays [`Self::Unknown`]: the verdict
+/// is never guessed. `Gateway::invoke` remains the only authority
+/// either way; this is display metadata, not an execution grant.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ExecutorState {
-    /// Presence cannot be determined by this projection.
+    /// The registry reports an executor for this exact capability ref.
+    Installed,
+    /// The registry reports no executor for this exact capability ref
+    /// (No-Handler registration — invoke would fail `NoExecutor`).
+    Absent,
+    /// Presence cannot be determined by this projection (no executor
+    /// lookup supplied, or the entry has no registered descriptor).
     Unknown,
 }
 
@@ -166,7 +177,9 @@ pub struct ActionEntry {
     pub status: ActionStatus,
     /// Declared-schema coherence verdict.
     pub schema: SchemaConsistency,
-    /// Executor presence — always [`ExecutorState::Unknown`] today.
+    /// Executor presence — `Installed`/`Absent` when an executor lookup
+    /// was supplied and the entry has a registered descriptor,
+    /// [`ExecutorState::Unknown`] otherwise.
     pub executor: ExecutorState,
 }
 
@@ -241,6 +254,13 @@ impl ActionCatalog {
     /// reachable — every entry then reports
     /// [`SchemaConsistency::Unknown`] rather than guessing.
     ///
+    /// `executors` is the [`CapabilityRegistry`] the descriptors were
+    /// registered into; pass `None` when no registry is reachable —
+    /// every entry then reports [`ExecutorState::Unknown`] rather than
+    /// guessing. Entries without a registered descriptor (orphan
+    /// presentations) always report `Unknown`: there is no registration
+    /// to ask about.
+    ///
     /// # Errors
     /// [`ActionCatalogError::DuplicateCapability`] /
     /// [`ActionCatalogError::DuplicatePresentation`] — ambiguous input
@@ -248,6 +268,7 @@ impl ActionCatalog {
     pub fn project(
         capabilities: &[CapabilityDescriptor],
         schemas: Option<&SchemaRegistry>,
+        executors: Option<&CapabilityRegistry>,
         presentations: &[ActionPresentation],
     ) -> Result<Self, ActionCatalogError> {
         let mut registered: BTreeMap<CapabilityRef, CapabilityDescriptor> = BTreeMap::new();
@@ -286,6 +307,11 @@ impl ActionCatalog {
             let schema = schemas.map_or(SchemaConsistency::Unknown, |store| {
                 schema_consistency(store, descriptor)
             });
+            let executor = match executors {
+                Some(registry) if registry.has_executor(capability) => ExecutorState::Installed,
+                Some(_) => ExecutorState::Absent,
+                None => ExecutorState::Unknown,
+            };
             entries.insert(
                 capability.clone(),
                 ActionEntry {
@@ -294,7 +320,7 @@ impl ActionCatalog {
                     presentation: presented.remove(capability),
                     status,
                     schema,
-                    executor: ExecutorState::Unknown,
+                    executor,
                 },
             );
         }
@@ -333,27 +359,28 @@ impl ActionCatalog {
     /// Snapshots the live [`Gateway`]'s registry and schema store into a
     /// catalog.
     ///
-    /// Takes `&mut Gateway` only because `Gateway::schemas_mut()` is the
-    /// sole schema accessor; the projection itself is read-only and
-    /// grants nothing. Internally the registry is snapshotted before the
-    /// schema borrow so no authority state is held across the boundary.
+    /// Read-only: `Gateway::registry()`/`Gateway::schemas()` supply both
+    /// lookup stores, so the projection needs only `&Gateway` and holds
+    /// no authority state across the boundary.
     ///
     /// # Errors
     /// Same as [`ActionCatalog::project`].
     pub fn project_gateway(
-        gateway: &mut Gateway,
+        gateway: &Gateway,
         presentations: &[ActionPresentation],
     ) -> Result<Self, ActionCatalogError> {
-        let capabilities: Vec<CapabilityDescriptor> = {
-            let registry = gateway.registry();
-            registry
-                .list()
-                .into_iter()
-                .filter_map(|capability| registry.describe(&capability).ok().cloned())
-                .collect()
-        };
-        let schemas: &SchemaRegistry = gateway.schemas_mut();
-        Self::project(&capabilities, Some(schemas), presentations)
+        let registry = gateway.registry();
+        let capabilities: Vec<CapabilityDescriptor> = registry
+            .list()
+            .into_iter()
+            .filter_map(|capability| registry.describe(&capability).ok().cloned())
+            .collect();
+        Self::project(
+            &capabilities,
+            Some(gateway.schemas()),
+            Some(registry),
+            presentations,
+        )
     }
 
     /// All entries in deterministic [`CapabilityRef`] order.

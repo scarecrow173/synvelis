@@ -24,6 +24,7 @@ Directory: `docs/designs`
 | DESIGN-034AUT03B1wG9hW1zS0Yf4 | AUT-03 Loop 録音 1 Pass — Write Range 半開区間閉鎖・境界 flush・明示 Rearm 設計 | approved | [aut-03-loop-write-one-pass-design.md](./aut-03-loop-write-one-pass-design.md) |
 | DESIGN-034AUT04CvbbR3Qzx1aKwY | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 設計 | approved | [aut-04-automation-curve-lod-record-budget-design.md](./aut-04-automation-curve-lod-record-budget-design.md) |
 | DESIGN-2PaoXTMFb4NbwT7TNBcUTc | Automation / Modulation 統合 Parameter Control — 設計（synvelis#6） | approved | [automation-modulation-design.md](./automation-modulation-design.md) |
+| DESIGN-034XzqUYtBrYIsgDfTvyEz | AUTX-01-F01 has_executor accessor 設計（No-Handler 区別の解禁） | approved | [autx-01-f01-has-executor.md](./autx-01-f01-has-executor.md) |
 | DESIGN-034VmgS1sGu9EW9NfKKRPY | Issue #245 verify-macos rt_cache alloc 計測 flake — 計測対象インスタンス warm-up 設計 | approved | [ci-245-macos-alloc-flake-design.md](./ci-245-macos-alloc-flake-design.md) |
 | DESIGN-TiKdIX8rj4YqmP3Pmb58JR | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 — 既存 verify leg 拡張設計 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | DESIGN-034RoWWK4Xx4NaZSoBYZSX | Synvelis 独立 CI — Lane 構成・証跡・依存アクセス設計 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
@@ -91,6 +92,7 @@ Directory: `docs/designs`
 | DESIGN-Bz2IMMfywvmEjmdIeThNvq | RCD-01 Input Adapter — binding/Arm/Monitor/channel-map と fake port fail-stop | approved | [rcd-01-input-adapter-binding-arm-monitor-fake-port.md](./rcd-01-input-adapter-binding-arm-monitor-fake-port.md) |
 | DESIGN-89lmf1mLK8flCuybXMmEqR | RCD-01 実Audio Device 到達準備 design — stamp placement fallback + real backend composition root | approved | [rcd-01-real-backend-readiness-design.md](./rcd-01-real-backend-readiness-design.md) |
 | DESIGN-034W8Los2DTXD6ljySt4Rf | RCD-01 実機 capture coverage 拡張 design — real-device rig + staging lane | approved | [rcd-01-real-input-coverage-design.md](./rcd-01-real-input-coverage-design.md) |
+| DESIGN-4CsMcB1lWPYHOuIXmJdj4W | RCD-02 Blob SHA-256 Promotion Design | approved | [rcd-02-blob-sha256-design.md](./rcd-02-blob-sha256-design.md) |
 | DESIGN-034Urj7kRY8rq2nngtTSuL | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | approved | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | DESIGN-034VplpQjplSqKKaNy9r1G | RCD-02 StagedFile Publish Migration Design | approved | [rcd-02-stagedfile-publish-migration-design.md](./rcd-02-stagedfile-publish-migration-design.md) |
 | DESIGN-VClnKX5mXMKj7CQFWgFYAE | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe Design | approved | [rcd-02-unsynced-loss-real-fs-probe-design.md](./rcd-02-unsynced-loss-real-fs-probe-design.md) |

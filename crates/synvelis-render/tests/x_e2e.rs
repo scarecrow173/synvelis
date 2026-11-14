@@ -18,8 +18,8 @@ use std::sync::{Arc, Mutex};
 use ruviform_audio_core::{AudioFormat, ChannelLayout, SampleFormat, SampleRate};
 use ruviform_media_reader::PrefetchConfig;
 
-use synvelis_player::import::{blob_path, content_digest};
 use synvelis_player::lowering::{EngineConfig, NodeContent, lower};
+use synvelis_player::open_blob_verified;
 use synvelis_player::publish::publish_recorded;
 use synvelis_player::resolver::prepare;
 use synvelis_player::{HeadlessDriver, PumpPolicy};
@@ -450,12 +450,14 @@ fn x_01_recorded_playback_export_bit_exact() {
         Some(raw_digest.as_str()),
         "raw provenance kept"
     );
-    let blob = blob_path(&media_root, &source.content_digest);
-    assert!(blob.exists(), "canonical blob materialized");
-    assert_eq!(
-        content_digest(&fs::read(&blob).unwrap()),
-        source.content_digest
+    assert!(
+        source.content_digest.starts_with("sha256:"),
+        "canonical digest is a SHA-256 content address"
     );
+    let blob = open_blob_verified(&media_root, &source.content_digest)
+        .expect("canonical blob verified")
+        .path;
+    assert!(blob.exists(), "canonical blob materialized");
     assert!(
         area.canonical_path(0).exists(),
         "canonical receipt persisted"
@@ -472,10 +474,7 @@ fn x_01_recorded_playback_export_bit_exact() {
     assert_eq!(again2.reused.len(), 1);
     assert_eq!(again2.reused[0].digest, source.content_digest);
     assert!(blob.exists());
-    assert_eq!(
-        content_digest(&fs::read(&blob).unwrap()),
-        source.content_digest
-    );
+    open_blob_verified(&media_root, &source.content_digest).expect("re-materialized blob verified");
 
     // save/reload — committed identities survive the store round trip.
     let takes_before: Vec<_> = p.recording.takes.keys().copied().collect();
@@ -833,10 +832,23 @@ fn x_04_finalized_only_visibility() {
         "x04 replay",
     );
 
-    // blobs/ holds only canonical digests — never raw staging media.
-    // (a) and (d) recorded identical content → one deduplicated blob.
+    // blobs/ holds only the sha256 namespace — never raw staging
+    // media or legacy flat digests. (a) and (d) recorded identical
+    // content → one deduplicated blob.
+    let mut top_level: Vec<_> = fs::read_dir(media_root.join("blobs"))
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    top_level.sort();
+    assert_eq!(
+        top_level,
+        vec!["sha256".to_string()],
+        "only the sha256 blob namespace"
+    );
+    let sha256_dir = media_root.join("blobs").join("sha256");
     let mut blob_names = Vec::new();
-    for entry in fs::read_dir(media_root.join("blobs")).unwrap().flatten() {
+    for entry in fs::read_dir(&sha256_dir).unwrap().flatten() {
         blob_names.push(entry.file_name().to_string_lossy().into_owned());
     }
     blob_names.sort();
@@ -848,9 +860,12 @@ fn x_04_finalized_only_visibility() {
         .unwrap()
         .content_digest
         .clone();
+    let committed_hex = committed_digest
+        .strip_prefix("sha256:")
+        .expect("canonical digest is sha256");
     assert_eq!(
         blob_names,
-        vec![committed_digest],
+        vec![committed_hex.to_string()],
         "only canonical blobs published, content-address deduped"
     );
 }

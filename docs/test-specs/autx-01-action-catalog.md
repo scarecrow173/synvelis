@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "AUTX-01 Action Catalog headless test spec（synvelis#260）"
 created: "2026-11-14"
-updated: "2026-11-14"
+updated: "2026-11-15"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -46,6 +46,7 @@ relations:
     - "docs/impl/ir/autx-01-action-catalog.md"
     - "docs/automation/spec.md"
     - "docs/automation/design-owner-dag.md"
+    - "docs/test-specs/autx-01-f01-has-executor.md"
   refines: []
   refined-by: []
   derives-from:
@@ -101,10 +102,15 @@ AUTX-01 Action Catalog — read-only Capability→Action 投影・
   resolve できない incoherent 登録は `SchemaConsistency::Mismatch`、
   store 未供給は `Unknown` — 推測で `Consistent` にしない
   （`schema_consistency_is_typed_consistent_mismatch_unknown`）。
-- **Rule AUTX-CAT-EXECUTOR** executor 有無は registry public API で
-  観測不能のため `ExecutorState::Unknown` — `NoExecutor` は
-  `Gateway::invoke` のみが authority（Deferred、
-  `has_executor` predicate 待ち）。
+- **Rule AUTX-CAT-EXECUTOR** `ActionCatalog::project` に executor
+  lookup（`Option<&CapabilityRegistry>`）が供給された場合、
+  登録 descriptor を持つ entry の `executor` は
+  `Installed`（handler 有）/ `Absent`（handler 無し = No-Handler
+  登録）を報告し、`Unknown`（lookup 未供給・descriptor 無し
+  entry）と区別する。`Gateway::invoke` の `NoExecutor` が
+  引き続き唯一の実行時 authority（synvelis#446 /
+  AUTX-01-F01 で `CapabilityRegistry::has_executor` 経由に
+  解禁。詳細は `docs/test-specs/autx-01-f01-has-executor.md`）。
 - **Rule AUTX-CAT-NOAUTH** list/describe/entries は caller/grant/
   approval を生成しない。列挙後の invoke は毎回 Gateway
   bind/policy を通り、DenyAllPolicy 下では `Denied`、wire の
@@ -156,7 +162,8 @@ AUTX-01 Action Catalog — read-only Capability→Action 投影・
   Manual Authority も生成しない。
 - 未登録 id・未対応 version・Disabled/Planned/Retired・schema 不整合・
   executor 不明が区別可能な typed verdict として得られる
-  （No Handler のみ `ExecutorState::Unknown` で Deferred）。
+  （executor 有無は lookup 供給時に `Installed`/`Absent`/
+  `Unknown` の 3 verdict — synvelis#446 で解禁）。
 
 ## Non-goals
 
@@ -174,10 +181,12 @@ AUTX-01 Action Catalog — read-only Capability→Action 投影・
 
 ## Risk
 
-- `ExecutorState::Unknown` のままでは「登録済みだが handler 無し」
-  （`NoExecutor` になる capability）を UI が事前表示できない。
-  fail-closed のため誤実行はないが、`has_executor` predicate
-  （Deferred）導入まで表示上の区別は付かない。
+- `ExecutorState` の `Installed`/`Absent` は executor lookup
+  （`CapabilityRegistry`）供給時のみ報告される — `project` に
+  `None` を渡す caller では全 entry が `Unknown` のまま
+  （fail-closed、観測不能を `Absent` で偽装しない）。`Absent`
+  は display metadata であり、invoke の `NoExecutor` 判定・
+  policy 経路は不変。
 - catalog は build 時 snapshot — registry 登録の追加は rebuild
   まで反映されない（登録は append-only/immutable のため
   descriptor 自体は変化しない）。
