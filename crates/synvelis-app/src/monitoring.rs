@@ -118,6 +118,19 @@ pub struct MonitorSessionParams {
     pub transport_start: MusicalTick,
     /// 停止 tick（`transport_start` より後であること）。
     pub stop: MusicalTick,
+    /// session-scope の loop 宣言 `[loop_start, loop_end)`。
+    /// loop マークの authored 永続化は project schema に無いため
+    /// session 開始時の宣言のみ（gate は plan に凍結される）。
+    /// `loop_start` は `transport_start` 以降であること
+    /// （session frame は非負 — 負位置は scheduler が構成できない）。
+    pub loop_marks: Option<(MusicalTick, MusicalTick)>,
+    /// count-in 宣言区間 `[start, end)`。`transport_start` 以前の
+    /// session 開始前 transport 位相であり、gate は構造上開かない
+    /// （session frame 域の外）。
+    pub count_in: Option<(MusicalTick, MusicalTick)>,
+    /// pre-roll 宣言区間 `[start, end)`（count-in と同じ契約。
+    /// 両方宣言時は `pre_roll.end <= count_in.start`）。
+    pub pre_roll: Option<(MusicalTick, MusicalTick)>,
     /// Clock Epoch（`None` は project の最小 epoch を使う）。
     pub clock_epoch: Option<ClockEpochId>,
     /// sample rate [frame/sec]。
@@ -147,6 +160,11 @@ pub struct MonitorSessionState {
     pub transport_start: MusicalTick,
     /// session の停止 tick。
     pub stop: MusicalTick,
+    /// count-in 宣言区間 `[start, end)`（session 開始前の
+    /// transport 位相。`None` は宣言なし）。
+    pub count_in: Option<(MusicalTick, MusicalTick)>,
+    /// pre-roll 宣言区間 `[start, end)`。
+    pub pre_roll: Option<(MusicalTick, MusicalTick)>,
 }
 
 /// track 単位の session 観測 overlay — 永続化しない。
@@ -324,6 +342,10 @@ impl MonitorUxState {
         if project.monitoring.tracks.is_empty() {
             return Err("no monitor tracks declared — syn.monitoring.set first".to_owned());
         }
+        // session-scope 宣言の境界検証（gate 区間の意味論は
+        // `preflight`/`GateScheduler` が所有 — ここでは負 session
+        // frame を生じる宣言と roll 区間の整合のみを拒否する）。
+        let decls = session_declarations(&params)?;
         let mut targets = Vec::with_capacity(project.monitoring.tracks.len());
         for (track_id, decl) in &project.monitoring.tracks {
             let track = project.tracks.get(track_id).ok_or_else(|| {
@@ -351,14 +373,34 @@ impl MonitorUxState {
         let clock_epoch = clock_epoch.ok_or_else(|| {
             "project has no clock epoch — register one before starting a monitor session".to_owned()
         })?;
+        // gate 構築: loop 宣言があれば `GateSpec::Loop`、
+        // authored punch 両端も揃えば `GateSpec::PunchInLoop`
+        // （punch が loop 内にあることは `preflight` が検証）。
+        // loop 宣言が無ければ従来どおり authored punch → Punch、
+        // 無ければ Normal。punch の正本は `project.monitoring.punch`
+        // のみ（session-scope の別 punch 宣言は持たない）。
         let punch = project.monitoring.punch;
-        let gate = match (punch.punch_in, punch.punch_out) {
-            (Some(punch_in), Some(punch_out)) => GateSpec::Punch {
-                punch_in,
-                punch_out,
+        let gate = match decls.loop_marks {
+            Some((loop_start, loop_end)) => match (punch.punch_in, punch.punch_out) {
+                (Some(punch_in), Some(punch_out)) => GateSpec::PunchInLoop {
+                    loop_start,
+                    loop_end,
+                    punch_in,
+                    punch_out,
+                },
+                _ => GateSpec::Loop {
+                    loop_start,
+                    loop_end,
+                },
             },
-            _ => GateSpec::Normal {
-                open: params.transport_start,
+            None => match (punch.punch_in, punch.punch_out) {
+                (Some(punch_in), Some(punch_out)) => GateSpec::Punch {
+                    punch_in,
+                    punch_out,
+                },
+                _ => GateSpec::Normal {
+                    open: params.transport_start,
+                },
             },
         };
         let request = RecordingRequest {
@@ -375,15 +417,26 @@ impl MonitorUxState {
         };
         let plan = preflight(project, request, params.sample_rate)
             .map_err(|e| format!("monitor session preflight: {e}"))?;
+        // 宣言された count-in/pre-roll の先頭を再生開始位置とする
+        // — transport は session 開始前の位相から `transport_start`
+        // （record 開始）へ向かって進む。宣言が無ければ従来どおり
+        // `transport_start` 開始。
+        let position = [decls.pre_roll, decls.count_in]
+            .into_iter()
+            .flatten()
+            .map(|(start, _)| start)
+            .fold(params.transport_start, Ord::min);
         self.session = Some(MonitorSessionState {
             plan,
-            position: params.transport_start,
+            position,
             playing: false,
             paused: false,
             sample_rate: params.sample_rate,
             clock_epoch,
             transport_start: params.transport_start,
             stop: params.stop,
+            count_in: decls.count_in,
+            pre_roll: decls.pre_roll,
         });
         Ok(())
     }
@@ -599,9 +652,11 @@ impl MonitorUxState {
     }
 
     /// session の表示用 JSON。`phase` は `decide` 語彙
-    /// （`TransportPhase`）の wire 表現 — `PunchOpen`/`PostRoll` は
-    /// `gate_open` が担うため非停止相の区別は punch マークとの
-    /// 位置比較で導出する。比較に使うマークは session 開始時に
+    /// （`TransportPhase`）の wire 表現で、`live_routes` の
+    /// `decide` 呼出しと同じ [`transport_phase`] 導出を共有する
+    /// — count-in/pre-roll 宣言区間と plan 凍結 punch マークとの
+    /// 位置比較で `count_in`/`pre_roll`/`punch_wait`/`punch_open`/
+    /// `post_roll` を導く。比較に使うマークは session 開始時に
     /// `plan.gate` へ確定した値 — live の `project.monitoring.punch`
     /// ではない（稼働中の undo で表示が gate と乖離しないため）。
     fn session_json(&self, position_frame: Option<i64>) -> Value {
@@ -613,6 +668,12 @@ impl MonitorUxState {
                 "gate": null,
                 "punch_in": null,
                 "punch_out": null,
+                "loop_start": null,
+                "loop_end": null,
+                "count_in_start": null,
+                "count_in_end": null,
+                "pre_roll_start": null,
+                "pre_roll_end": null,
                 "position": null,
                 "position_frame": null,
                 "in_session": null,
@@ -623,7 +684,7 @@ impl MonitorUxState {
                 "clock_epoch": null,
             });
         };
-        let (gate, punch_in, punch_out, gate_marks) = match session.plan.gate {
+        let (gate, punch_in, punch_out, loop_start, loop_end) = match session.plan.gate {
             GateSpec::Punch {
                 punch_in,
                 punch_out,
@@ -631,13 +692,32 @@ impl MonitorUxState {
                 "punch",
                 Some(punch_in.value()),
                 Some(punch_out.value()),
-                Some((punch_in, punch_out)),
+                None,
+                None,
             ),
-            GateSpec::Normal { .. } => ("normal", None, None, None),
-            // 本 slice は Normal/Punch のみ構築する。万が一 plan が
-            // 他 variant を持っても gate 名を偽らない。
-            GateSpec::Loop { .. } => ("loop", None, None, None),
-            GateSpec::PunchInLoop { .. } => ("punch_in_loop", None, None, None),
+            GateSpec::Normal { .. } => ("normal", None, None, None, None),
+            GateSpec::Loop {
+                loop_start,
+                loop_end,
+            } => (
+                "loop",
+                None,
+                None,
+                Some(loop_start.value()),
+                Some(loop_end.value()),
+            ),
+            GateSpec::PunchInLoop {
+                loop_start,
+                loop_end,
+                punch_in,
+                punch_out,
+            } => (
+                "punch_in_loop",
+                Some(punch_in.value()),
+                Some(punch_out.value()),
+                Some(loop_start.value()),
+                Some(loop_end.value()),
+            ),
         };
         let transport = if session.playing {
             "playing"
@@ -646,26 +726,7 @@ impl MonitorUxState {
         } else {
             "stopped"
         };
-        let phase = if session.playing {
-            match gate_marks {
-                Some((punch_in, punch_out)) => {
-                    let pos = session.position;
-                    if pos < punch_in {
-                        "punch_wait"
-                    } else if pos < punch_out {
-                        "punch_open"
-                    } else {
-                        "post_roll"
-                    }
-                }
-                _ => "playing",
-            }
-        } else {
-            // paused も gate 閉の「停止中」として `Stopped` に写像
-            // する（decide 語彙に Paused は無い。transport field が
-            // paused を正直に保持する）。
-            "stopped"
-        };
+        let phase = phase_str(transport_phase(session));
         let in_session = position_frame.is_some_and(|f| self.in_session(f));
         json!({
             "active": true,
@@ -674,6 +735,12 @@ impl MonitorUxState {
             "gate": gate,
             "punch_in": punch_in,
             "punch_out": punch_out,
+            "loop_start": loop_start,
+            "loop_end": loop_end,
+            "count_in_start": session.count_in.map(|(start, _)| start.value()),
+            "count_in_end": session.count_in.map(|(_, end)| end.value()),
+            "pre_roll_start": session.pre_roll.map(|(start, _)| start.value()),
+            "pre_roll_end": session.pre_roll.map(|(_, end)| end.value()),
             "position": session.position.value(),
             "position_frame": position_frame,
             "in_session": in_session,
@@ -719,19 +786,21 @@ impl MonitorUxState {
             .is_some_and(|s| (0..s.plan.session_end.value()).contains(&frame))
     }
 
-    /// live route — transport 位相と `gate_open_now` で `decide`
-    /// を呼ぶ。停止中（paused 含む）は `Stopped` 相当に写像する。
+    /// live route — [`transport_phase`] の位相と `gate_open_now`
+    /// で `decide` を呼ぶ。停止中（paused 含む）は `Stopped` 相当に
+    /// 写像する。count-in/pre-roll 宣言区間では位相が `CountIn`/
+    /// `PreRoll` になり、`gate_open_now` は session frame が負
+    /// （`in_session` 外）で `false` — `decide` は非停止相として
+    /// 扱いつつ gate 閉を投影する（隠れた PCM を録音しない）。
     fn live_routes(
         &self,
         contexts: &[(TrackId, TrackMonitorContext)],
         gate_open_now: bool,
     ) -> BTreeMap<TrackId, synvelis_recording::MonitorDecision> {
-        let playing = self.session.as_ref().is_some_and(|s| s.playing);
-        let phase = if playing {
-            TransportPhase::Playing
-        } else {
-            TransportPhase::Stopped
-        };
+        let phase = self
+            .session
+            .as_ref()
+            .map_or(TransportPhase::Stopped, transport_phase);
         contexts
             .iter()
             .map(|(track_id, ctx)| (*track_id, decide(ctx, phase, gate_open_now)))
@@ -776,8 +845,149 @@ fn segment_contains(seg: &MonitorSegment, frame: i64) -> bool {
     start <= frame && frame < end
 }
 
+/// session 開始 params の session-scope 宣言（検証済み）。
+/// gate 構築・位相導出・session state が共有する凍結入力。
+#[derive(Clone, Copy, Default)]
+struct SessionDeclarations {
+    /// loop 宣言 `[loop_start, loop_end)`。
+    loop_marks: Option<(MusicalTick, MusicalTick)>,
+    /// count-in 宣言区間 `[start, end)`。
+    count_in: Option<(MusicalTick, MusicalTick)>,
+    /// pre-roll 宣言区間 `[start, end)`。
+    pre_roll: Option<(MusicalTick, MusicalTick)>,
+}
+
+/// session 開始 params の session-scope 宣言を検証する。
+/// loop マークは `loop_start >= transport_start`（session frame
+/// は非負 — 負位置は `GateScheduler` が構成できず fault する）を
+/// 要求し、roll 区間は [`roll_range`] の契約に従う。両方の roll
+/// 宣言がある場合は `pre_roll.end <= count_in.start`
+/// （pre-roll は count-in に先行する）を要求する。
+fn session_declarations(params: &MonitorSessionParams) -> Result<SessionDeclarations, String> {
+    let loop_marks = match params.loop_marks {
+        Some((loop_start, loop_end)) => {
+            if loop_start < params.transport_start {
+                return Err(
+                    "loop_start precedes transport_start — session frames are non-negative"
+                        .to_owned(),
+                );
+            }
+            Some((loop_start, loop_end))
+        }
+        None => None,
+    };
+    let count_in = roll_range(params.count_in, params.transport_start, "count_in")?;
+    let pre_roll = roll_range(params.pre_roll, params.transport_start, "pre_roll")?;
+    if let (Some((_, pre_end)), Some((count_start, _))) = (pre_roll, count_in)
+        && pre_end > count_start
+    {
+        return Err("pre_roll must end at or before count_in start".to_owned());
+    }
+    Ok(SessionDeclarations {
+        loop_marks,
+        count_in,
+        pre_roll,
+    })
+}
+
+/// count-in/pre-roll 宣言区間の境界検証 — `[start, end)` が非空で
+/// `end <= transport_start`（session 開始前の transport 位相）
+/// であることを確認する。これらの区間は session frame 域
+/// `[0, session_end)` の外にあるため gate は構造上開かず、
+/// 「宣言区間で隠れた PCM を録音しない」契約を app 側の gate
+/// 再実装なしに保証する。
+fn roll_range(
+    range: Option<(MusicalTick, MusicalTick)>,
+    transport_start: MusicalTick,
+    name: &str,
+) -> Result<Option<(MusicalTick, MusicalTick)>, String> {
+    match range {
+        None => Ok(None),
+        Some((start, end)) => {
+            if end <= start {
+                return Err(format!("{name}: end must be after start"));
+            }
+            if end > transport_start {
+                return Err(format!(
+                    "{name}: must end at or before transport_start — declarations are pre-session transport phases"
+                ));
+            }
+            Ok(Some((start, end)))
+        }
+    }
+}
+
+/// session の transport 位相 — `session_json` の `phase` 投影と
+/// `live_routes` の `decide` 呼出しが共有する唯一の導出。
+///
+/// `playing` 以外（paused 含む）は `Stopped` に写像する
+/// （`decide` 語彙に Paused は無く、pause は gate 閉の停止中）。
+/// playing 中は count-in/pre-roll 宣言区間・plan 凍結 punch
+/// マーク（`GateSpec::Punch`/`PunchInLoop`）との位置比較で
+/// `CountIn`/`PreRoll`/`PunchWait`/`PunchOpen`/`PostRoll` を導く。
+/// Loop 系 gate でも punch 位相は project tick の位置比較のみで
+/// 導出する — pass ごとの gate 開閉は `GateScheduler` が担い、
+/// 位相語彙は transport 位置の表示に留まる（`gate_open` が
+/// 実際の録音区間を正直に運ぶ）。
+fn transport_phase(session: &MonitorSessionState) -> TransportPhase {
+    if !session.playing {
+        return TransportPhase::Stopped;
+    }
+    let pos = session.position;
+    if session
+        .count_in
+        .is_some_and(|(start, end)| start <= pos && pos < end)
+    {
+        return TransportPhase::CountIn;
+    }
+    if session
+        .pre_roll
+        .is_some_and(|(start, end)| start <= pos && pos < end)
+    {
+        return TransportPhase::PreRoll;
+    }
+    let marks = match session.plan.gate {
+        GateSpec::Punch {
+            punch_in,
+            punch_out,
+        }
+        | GateSpec::PunchInLoop {
+            punch_in,
+            punch_out,
+            ..
+        } => Some((punch_in, punch_out)),
+        GateSpec::Normal { .. } | GateSpec::Loop { .. } => None,
+    };
+    match marks {
+        Some((punch_in, _)) if pos < punch_in => TransportPhase::PunchWait,
+        Some((_, punch_out)) if pos < punch_out => TransportPhase::PunchOpen,
+        Some(_) => TransportPhase::PostRoll,
+        None => TransportPhase::Playing,
+    }
+}
+
+/// [`TransportPhase`] の wire 表現（`session.phase`）。
+fn phase_str(phase: TransportPhase) -> &'static str {
+    match phase {
+        TransportPhase::Stopped => "stopped",
+        TransportPhase::CountIn => "count_in",
+        TransportPhase::PreRoll => "pre_roll",
+        TransportPhase::PunchWait => "punch_wait",
+        TransportPhase::PunchOpen => "punch_open",
+        TransportPhase::PostRoll => "post_roll",
+        TransportPhase::Playing => "playing",
+    }
+}
+
 /// `plan` の gate scheduler を `MonitorProbe` で全 session 分
 /// 駆動し、segment を収集する（非 RT・bounded）。
+/// feed する位相は `Playing` 固定 — probe の駆動域は session
+/// frame `[0, session_end)`（`[transport_start, stop)` の tick
+/// 区間）であり、count-in/pre-roll 宣言はその外（session 開始前）
+/// にあるため位相を反映する対象が存在しない。punch 系位相も
+/// `decide` 上は `Stopped` 以外で同一視されるため feed 位相の
+/// 違いは segment 出力に現れない（gate 開閉は scheduler 由来の
+/// `gate_open` が担う — tick 空間の gate 再実装をしない）。
 fn probe_segments(
     plan: &PreparedRecordingPlan,
     ctx: &TrackMonitorContext,
