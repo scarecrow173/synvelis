@@ -27,9 +27,7 @@ Directory: `docs/tasks`
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
 | TASK-mr20261114mediaRenderB | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 設計契約文書化 (synvelis#21) | in-progress | [media-render-task.md](./media-render-task.md) |
 | TASK-P1ub1PJgLQhinQuEDIDy8S | PC-C3 task2 — synvelis-player RT trace adapter 実装（TRACE-C3-05） | in-progress | [pc-c3-task2-rt-trace-adapter.md](./pc-c3-task2-rt-trace-adapter.md) |
-| TASK-gH5lLpWnYI2KFNM99SswOf | PC-C4-02 task1 — plugin instance binding 実装 | in-progress | [pc-c4-02-task1-plugin-instance-binding.md](./pc-c4-02-task1-plugin-instance-binding.md) |
 | TASK-b2e5a8c1f4d90736e5b2a8c2d4e6f7a | PC-C4 observe engine wiring task1 — observe_block の engine-driver 配線 | completed | [pc-c4-observe-engine-wiring-task.md](./pc-c4-observe-engine-wiring-task.md) |
-| TASK-heuaegDgtyVrPGdnyMJko1 | PC-C4 plugin binding task1 — persisted instance authority の bind 照合 | in-progress | [pc-c4-plugin-binding-task.md](./pc-c4-plugin-binding-task.md) |
 | TASK-wl7Q7EP5HpNVOP8NAdEB7a | PC-C6: REL01〜07 / TR01〜08 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rel-tr.md](./pc-c6-task1-oracle-rel-tr.md) |
 | TASK-034VmVPWtNFIg5zO3xaDsP | PC-C6: R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rows.md](./pc-c6-task1-oracle-rows.md) |
 | TASK-034X6XdaPIa6eFgvfVs5QC | Playback Graph Task — Issue #18 design contract + EX evidence ledger | in-progress | [playback-graph-task.md](./playback-graph-task.md) |
@@ -146,13 +144,16 @@ Directory: `docs/tasks`
 | TASK-034RoXjRUKOjib6ULatmIn | PC-C1: prepare/apply/finalize 実装タスク | done | [pc-c1-task1-prepare-apply-finalize.md](./pc-c1-task1-prepare-apply-finalize.md) |
 | TASK-034Upd3TZPjW8QcMPatmyb | PC-C2: Control Relation Index/Projection 実装タスク | done | [pc-c2-task1-relation-index.md](./pc-c2-task1-relation-index.md) |
 | TASK-034UquDG2pRhDCtpLYPhPi | PC-C3: ControlTrace projection 実装タスク | done | [pc-c3-task1-control-trace.md](./pc-c3-task1-control-trace.md) |
+| TASK-gH5lLpWnYI2KFNM99SswOf | PC-C4-02 task1 — plugin instance binding 実装 | done | [pc-c4-02-task1-plugin-instance-binding.md](./pc-c4-02-task1-plugin-instance-binding.md) |
 | TASK-PCc4030bs3vN1pQ8wXyZ2aE | PC-C4-03 task1 — reported observation 消費 実装 | done | [pc-c4-03-task1-param-observation.md](./pc-c4-03-task1-param-observation.md) |
 | TASK-PCc4040bs3vN1pQ8wXyZ2aE | PC-C4-04 task1 — workspace/app composition 実装 | done | [pc-c4-04-task1-app-composition.md](./pc-c4-04-task1-app-composition.md) |
 | TASK-034VvIOJTIiu4YPdKizKEx | PC-C4-05 task1 — persisted StablePluginInstanceId 実装 | done | [pc-c4-05-task1-persisted-instance-id.md](./pc-c4-05-task1-persisted-instance-id.md) |
 | TASK-7c4e9a1b2d3f4e5a6b7c8f0a2b3 | PC-C4-06 task1 — syn.control.* control op surface 実装 | done | [pc-c4-06-control-op-surface-task.md](./pc-c4-06-control-op-surface-task.md) |
 | TASK-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b3c | PC-C4-07 transport mirror + observe_block + capability rebind | done | [pc-c4-07-transport-mirror-observe-task.md](./pc-c4-07-transport-mirror-observe-task.md) |
 | TASK-a1d4f7c2e9b30586d1a4f7c2f0a2 | PC-C4 drain composition task1 — drain 周期配線・production composition root | done | [pc-c4-drain-composition-task.md](./pc-c4-drain-composition-task.md) |
+| TASK-heuaegDgtyVrPGdnyMJko1 | PC-C4 plugin binding task1 — persisted instance authority の bind 照合 | done | [pc-c4-plugin-binding-task.md](./pc-c4-plugin-binding-task.md) |
 | TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | done | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
+| TASK-034XHDJqlIjGWpY91oE0nE | PC-C4 webview composition task1 — synvelis.rs engine attach + stale status 簿記 | done | [pc-c4-webview-composition.md](./pc-c4-webview-composition.md) |
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TASK-034UxYCkPWXOotRSbjIPex | PC-C5 slice2 タスク分解 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | done | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | TASK-034WaQD0ytfaRVbcWofg2n | PC-C5 slice4 タスク分解 — Recording status read model（UI-C5-04・headless） | done | [pc-c5-04-recording-status.md](./pc-c5-04-recording-status.md) |

@@ -56,6 +56,7 @@ Directory: `docs/plans`
 | PLAN-b2e5a8c1f4d90736e5b2a8c1d4e5f | PC-C4 observe engine wiring plan | approved | [pc-c4-observe-engine-wiring-plan.md](./pc-c4-observe-engine-wiring-plan.md) |
 | PLAN-jelz45WhvUPsZIVEaQyYpJ | PC-C4 plugin binding plan | approved | [pc-c4-plugin-binding-plan.md](./pc-c4-plugin-binding-plan.md) |
 | PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
+| PLAN-034XHDyswoYugrRstusA6p | PC-C4 webview composition plan | approved | [pc-c4-webview-composition.md](./pc-c4-webview-composition.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-034UxXVFIkzqs2eO4wcXo0 | PC-C5 slice2 実施計画 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | PLAN-034WaQlEhakW3yisBvWEHv | PC-C5 slice4 実施計画 — Recording status read model（UI-C5-04・headless） | approved | [pc-c5-04-recording-status.md](./pc-c5-04-recording-status.md) |

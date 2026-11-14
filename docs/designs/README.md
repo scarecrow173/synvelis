@@ -75,6 +75,7 @@ Directory: `docs/designs`
 | DESIGN-c4e8b1a2f5d30947e6c1a8b2d5 | PC-C4 observe engine wiring design — observe_block の engine-driver 配線 | approved | [pc-c4-observe-engine-wiring-design.md](./pc-c4-observe-engine-wiring-design.md) |
 | DESIGN-4IoiIeHs7TpfdoOHf3nu9E | PC-C4 plugin binding design — persisted instance authority を bind 経路へ接続 | approved | [pc-c4-plugin-binding-design.md](./pc-c4-plugin-binding-design.md) |
 | DESIGN-034Uw4SG2SiRKQuoKOZGzL | PC-C4 plugin parameter binding design — verified frame base・capability gate・generation consistency | approved | [pc-c4-plugin-param-binding-design.md](./pc-c4-plugin-param-binding-design.md) |
+| DESIGN-034XHDrzEI83tAEfivcKq7 | PC-C4 webview composition design — synvelis.rs への routing engine attach | approved | [pc-c4-webview-composition.md](./pc-c4-webview-composition.md) |
 | DESIGN-AkFUh4M60YuHo8COCvb0Um | PC-C5 slice1 Relation Inspector 設計 — RelationRow/RelationView/RelationNav + Inspector 第 2 Table | approved | [pc-c5-01-relation-inspector-design.md](./pc-c5-01-relation-inspector-design.md) |
 | DESIGN-034UxXM5FBBTGn5JWkSBss | PC-C5 slice2 Gesture 固定・stale drop・Inspector mode 設計 | approved | [pc-c5-02-03-gesture-stale-inspector-design.md](./pc-c5-02-03-gesture-stale-inspector-design.md) |
 | DESIGN-034WaOyEzrP97e8ooaGm2W | PC-C5 slice4 Recording status read model 設計 | approved | [pc-c5-04-recording-status-design.md](./pc-c5-04-recording-status-design.md) |
