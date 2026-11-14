@@ -45,6 +45,7 @@ pub mod host;
 pub mod logging;
 pub mod monitoring;
 pub mod recording;
+pub mod render;
 pub mod revision;
 pub mod screens;
 pub mod service;
@@ -68,6 +69,13 @@ pub use host::{HeadlessWindowHost, ShellWindowHost};
 pub use logging::{
     CliOverrides, EnvOverrides, HostLog, InstallState, LogInstallError, LogSettings, SettingsError,
     install, parse_args, to_logging_config,
+};
+pub use render::{
+    BranchDiffScreenState, RCP_BRANCH_TARGET, RCP_RENDER_TARGET, RCP_REQUEST_TARGET,
+    RenderRequestScreenState, RenderStatusScreenState, apply_render_view_command,
+    branch_diff_screen_spec, decode_render_command, mount_branch_diff_view,
+    mount_render_request_view, mount_render_status_view, render_request_screen_spec,
+    render_status_screen_spec,
 };
 pub use revision::{APP_ASSET_SCHEMA, AssetManifest, HOST_REVISION, MANIFEST_NAME, check_bundle};
 pub use screens::{

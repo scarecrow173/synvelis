@@ -7311,6 +7311,7 @@ dependencies = [
 name = "synvelis-workspace"
 version = "0.1.0"
 dependencies = [
+ "ruviform-exec",
  "ruviform-media-core",
  "ruviform-plugin-core",
  "ruviform-rt",
@@ -7320,7 +7321,9 @@ dependencies = [
  "serde_json",
  "stats_alloc",
  "synvelis-gateway",
+ "synvelis-player",
  "synvelis-project",
+ "synvelis-render",
 ]
 
 [[package]]

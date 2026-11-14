@@ -90,22 +90,64 @@ impl StatusTone {
 
     /// Maps a stable status *label* (the vocabulary used by the
     /// workspace projections — `MonitorStatus::label`,
-    /// `Availability::name`, `GrantState::label` heads) onto a tone.
-    /// Unknown labels map to [`Self::Unknown`] — fail-closed, never
-    /// guessed.
+    /// `Availability::name`, `GrantState::label` heads, and the RCP-06
+    /// five-axis render labels) onto a tone. Unknown labels map to
+    /// [`Self::Unknown`] — fail-closed, never guessed.
+    ///
+    /// RCP-06 note: the five presentation axes carry meaning in their
+    /// *labels* (`edit-possible`, `render-stale`, `quality-preview`,
+    /// …) — color is only a secondary cue. Labels map onto the
+    /// existing tone ramp; no render-specific token paths are added
+    /// because meaning must survive without color (RCP-UX-01).
     #[must_use]
     pub fn of_label(label: &str) -> Self {
         match label {
-            "available" | "granted" | "satisfied" => Self::Ok,
-            "completed" => Self::Completed,
-            "disabled" | "planned" | "retired" | "unavailable" | "missing" => Self::Unavailable,
-            "pending" => Self::Pending,
-            "running" => Self::Running,
-            "failed" => Self::Failed,
+            // Permitted/available — automation grants plus the RCP-06
+            // editability (`edit-possible`/`live`) and exact-quality
+            // labels.
+            "available"
+            | "granted"
+            | "satisfied"
+            | "edit-possible"
+            | "live"
+            | "quality-exact-artifact"
+            | "quality-verified-tolerance" => Self::Ok,
+            // Confirmed terminal success — `completed`, exact render
+            // validity, published runtime/job states.
+            "completed" | "render-valid" | "runtime-published" | "published" => Self::Completed,
+            // Disabled/unavailable — capability gaps, blocked axes,
+            // missing/unsupported render coverage, preview-unavailable
+            // quality.
+            "disabled"
+            | "planned"
+            | "retired"
+            | "unavailable"
+            | "missing"
+            | "edit-blocked"
+            | "blocked"
+            | "render-missing"
+            | "render-unsupported"
+            | "render-denied"
+            | "quality-unavailable" => Self::Unavailable,
+            // Admitted/pending — queued states, preview-class render
+            // validity and quality, configured/prepared runtime.
+            "pending" | "render-preview" | "render-unverified" | "quality-preview"
+            | "runtime-configured" | "runtime-prepared" | "resolve" | "queue" | "preparing" => {
+                Self::Pending
+            }
+            // Actively executing — running automation/render/runtime.
+            "running" | "runtime-active" | "rendering" | "verifying" => Self::Running,
+            "failed" | "render-corrupt" => Self::Failed,
             "cancel-requested" => Self::CancelRequested,
             "cancel-unconfirmed" => Self::CancelUnconfirmed,
             "cancelled" => Self::Cancelled,
-            "indeterminate" => Self::Indeterminate,
+            // Indeterminate — stale render, last-good mismatch, partial
+            // publication; never collapsed into success/failure.
+            "indeterminate" | "render-stale" | "runtime-last-good-mismatch" | "partial" => {
+                Self::Indeterminate
+            }
+            // `render-unknown` and every unrecognized label fail
+            // closed to `Unknown` — never guessed.
             _ => Self::Unknown,
         }
     }
@@ -144,6 +186,33 @@ mod tests {
             ("cancel-unconfirmed", StatusTone::CancelUnconfirmed),
             ("cancelled", StatusTone::Cancelled),
             ("indeterminate", StatusTone::Indeterminate),
+        ];
+        for (label, tone) in cases {
+            assert_eq!(StatusTone::of_label(label), tone, "{label}");
+        }
+    }
+
+    #[test]
+    fn rcp06_axis_labels_map_to_distinct_tones() {
+        // RCP-UX-01: every five-axis label resolves to a tone; the
+        // labels themselves carry the meaning (color is secondary).
+        let cases = [
+            ("edit-possible", StatusTone::Ok),
+            ("edit-blocked", StatusTone::Unavailable),
+            ("live", StatusTone::Ok),
+            ("blocked", StatusTone::Unavailable),
+            ("render-valid", StatusTone::Completed),
+            ("render-preview", StatusTone::Pending),
+            ("render-stale", StatusTone::Indeterminate),
+            ("render-missing", StatusTone::Unavailable),
+            ("render-corrupt", StatusTone::Failed),
+            ("render-unknown", StatusTone::Unknown),
+            ("quality-exact-artifact", StatusTone::Ok),
+            ("quality-preview", StatusTone::Pending),
+            ("quality-unavailable", StatusTone::Unavailable),
+            ("runtime-active", StatusTone::Running),
+            ("runtime-last-good-mismatch", StatusTone::Indeterminate),
+            ("partial", StatusTone::Indeterminate),
         ];
         for (label, tone) in cases {
             assert_eq!(StatusTone::of_label(label), tone, "{label}");
