@@ -3,13 +3,13 @@
 Date: 2026-11-15. Slice: schema v14 `Project::variant_sets` の
 VCS-06 fixture matrix 拡張（正直記録型 — `src/` 変更なし）。
 Canonical 検証は `mise run` 経由。base: `origin/main` @
-`29852e7`（post-#456）、Cargo.lock Ruviform pin `fd1d4d5`。
+`3da82c5`（post-#459）、Cargo.lock Ruviform pin `fd1d4d5`。
 
 ## 計測環境
 
 | 項目 | 値 |
 | --- | --- |
-| Synvelis SHA | `29852e7` + 本 slice 差分（ledger/impl-ir に同記録） |
+| Synvelis SHA | `3da82c5` + 本 slice 差分（ledger/impl-ir に同記録） |
 | OS / FS | Windows 11 x64 / NTFS |
 | Toolchain | rustc 1.99.1（`58cf8f9c3`・2026-10-13）、git 2.54.0.windows.1 |
 | Project schema | v14（`SCHEMA_VERSION = 14`、`Project::variant_sets` 永続化済み） |

@@ -141,7 +141,7 @@ Issue #97 は `*-REAL-*` 行・COMPAT 行・VCS Writer/3-way merge
   `RestoreError::Validation` fail-closed）の 3 Case 行を
   既存行フォーマットで追加。silent `Equal`/silent drop/
   restore 拒否を Pass に繰り上げない。Environment ブロックを
-  本 slice の計測環境（merged `origin/main` @ `29852e7`・
+  本 slice の計測環境（merged `origin/main` @ `3da82c5`・
   ruviform pin `fd1d4d5`・`SCHEMA_VERSION = 14`・rustc
   1.99.1）へ更新し、従来行の計測値は各行のまま残した。
   fixture 一覧に本 file を追加。"Explicitly out of scope"
@@ -199,7 +199,7 @@ Issue #97 は `*-REAL-*` 行・COMPAT 行・VCS Writer/3-way merge
 
 ## Validation
 
-`origin/main` @ `29852e7`（post-#456）取り込み後の最終状態で実測
+`origin/main` @ `3da82c5`（post-#459）取り込み後の最終状態で実測
 （Windows 11 x64・NTFS、rustc 1.99.1）:
 
 - `mise run fmt-check` — Pass（`cargo fmt --all -- --check`、

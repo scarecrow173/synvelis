@@ -11,7 +11,7 @@ in `docs/specs/sf-06-cross-gate-oracle-case-ledger.md`.
 
 | Field | Value |
 | --- | --- |
-| Synvelis commit | `29852e74534a9777dec07b7857a60af858b190fc` (origin/main) + this change set — VCS-DIFF-11/RESTORE-10/variant rows measured on the schema-v14 variant matrix slice; earlier rows measured under `1093530`/`7822857`/`7925660`/`099e7ea`. VCS-GIT-REAL-local / RESTORE/ APPLY-WIN-FS rows measured on `test/97-vcs06-real-git-fs-fault` (base `7c206289`) |
+| Synvelis commit | `3da82c5e65a02c64267258f496ffe12a77829221` (origin/main) + this change set — VCS-DIFF-11/RESTORE-10/variant rows measured on the schema-v14 variant matrix slice; earlier rows measured under `1093530`/`7822857`/`7925660`/`099e7ea`. VCS-GIT-REAL-local / RESTORE/ APPLY-WIN-FS rows measured on `test/97-vcs06-real-git-fs-fault` (base `7c206289`) |
 | Cargo.lock Ruviform SHA | `fd1d4d5f4de57092b96ad1cd309b85fe47cbef38` (VCS-DIFF-11/RESTORE-10 rows; earlier rows measured under `9865cd57`/`b02942c2`/`0f5b5737`) |
 | OS | Windows (win32), NTFS |
 | Toolchain | rustc 1.99.1 (58cf8f9c3; VCS-DIFF-11/RESTORE-10 rows — earlier rows under rustc 1.99.0), git 2.54.0.windows.1 |
