@@ -129,6 +129,8 @@ Directory: `docs/impl/ir`
 | IMPL-6wR3nX8kT5yP2qA7jM4vB9d | SF-04 slice8 実装記録 — SF-PROBE-05 fault fixtures + seek 以外の不連続宣言点 | completed | [sf-04-slice8-probe-faults-declare.md](./sf-04-slice8-probe-faults-declare.md) |
 | IMPL-034UvpX7fem2fghDtfNDJm | SF-05 slice1 Signal Flow headless — hierarchy 投影 + visual-only 不変 + 状態表示 | completed | [sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md](./sf-05-slice1-signal-flow-headless-hierarchy-visual-only.md) |
 | IMPL-034V2wJTpu3xW419A7YT37 | SF-06 cross-gate headless oracle 実装記録 | completed | [sf-06-cross-gate-headless-oracle.md](./sf-06-cross-gate-headless-oracle.md) |
+| IMPL-034XaaoFK7IUzs8UMi97aN | SF-05 residual headless coverage — SF-UX-01..07 棚卸し + 欠落6件補完 + evidence 台帳 | completed | [sf05-editor.md](./sf05-editor.md) |
+| IMPL-It7Fs3X3THd8sySW8lROw9 | SF-06 cross-gate headless fixture 被覆棚卸し・欠落 fixture 追加 実装記録 (synvelis#109) | completed | [sf06-cross-gate.md](./sf06-cross-gate.md) |
 | IMPL-xRTJTdZHW0ii0jrP4pCFkK | SF-XR-01 CTL-01/CTL-02 cross-gate oracle fixture — implementation record | completed | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | IMPL-034X9Ln9ARL8qEXoWVpZcz | Issue #4 Signal Flow 設計正本 — 文書チェーンと証拠の作成 | completed | [signal-flow-design.md](./signal-flow-design.md) |
 | IMPL-034X5H2u7vD5H929MaHV8N | Issue #84 StagedFile Migration — 証拠統合・受入検証 slice 実装記録 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |
@@ -142,6 +144,7 @@ Directory: `docs/impl/ir`
 | IMPL-034UoCucc7Cxrp4NwMxb5V | SV-GUI-04 slice1 precursor: headless WindowHandle + dock fixture | completed | [sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md](./sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md) |
 | IMPL-034UrlNf4hC31G8gfjoR8y | SV-GUI-04 slice2 close-veto/cancel — syn.window.close_guard + 末尾 window veto | completed | [sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md](./sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md) |
 | IMPL-034UtkIqlxoLTf7Dvq5vMZ | SV-GUI-04 slice2 dock transfer — workspace adoption + syn.window.dock_* GUI op 配線 | completed | [sv-gui-04-slice2-dock-transfer-workspace-adoption-syn-window-dock-gui-op.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption-syn-window-dock-gui-op.md) |
+| IMPL-034XaE8xDAN85GPhpcnHbe | SV-GUI-05 real OS E2E case definition freeze and acceptance ledger (synvelis#114) | completed | [sv-gui-05-real-os-e2e.md](./sv-gui-05-real-os-e2e.md) |
 | IMPL-SV17501NativeShellBinding | SV175-01 Native App Shell 初期 slice — NativeShell lifecycle + ViewBinding adapter 実装記録 | completed | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | IMPL-034T7IhBoewhoZNaZfjXP1 | SV177 theme/preset implementation record | completed | [sv177-theme-preset-implementation-record.md](./sv177-theme-preset-implementation-record.md) |
 | IMPL-SV18501MixerGainFader | SV185-01 mixer.gain domain projection — master strip Fader bootstrap・v7→v8 migration・Fader 接続 実装記録 | completed | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |

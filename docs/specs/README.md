@@ -34,7 +34,6 @@ Directory: `docs/specs`
 | SPEC-034SYN166FuLlC1sTaGe | Issue #166 Full CI 化・ci-summary 統一 — 安全な第一段階 | proposed | [issue-166-full-ci-ci-summary.md](./issue-166-full-ci-ci-summary.md) |
 | SPEC-jY8M1QCzHBuilakae6Hmyw | Issue #167 Tracker reconcile 入口 — 共有 pin eed590e 更新 + Consumer 別 workflow 定期/手動 reconcile | proposed | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
 | SPEC-034U2u4gD9peI0yjoqllEA | Issue #184 CI verify/evidence 失敗 — synvelis-library テスト fixture の canonical path 修正 | proposed | [issue-184-ci-verify-symlink-fixture.md](./issue-184-ci-verify-symlink-fixture.md) |
-| SPEC-rNbdNqOT10RavAY4Hj9RKJ | Issue #86 DoD(2) — import_verified consumer 入口 + digest-kind blob 解決（synvelis-player slice） | approved | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | SPEC-ubzJtNuQxbSXLe7nevbdUw | L1 — Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | approved | [l1-local-wav-verified-media-graph-playback.md](./l1-local-wav-verified-media-graph-playback.md) |
 | SPEC-034Qmb9CC7dN4YE5VPN235 | L2 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | SPEC-rBmfzOP1H86N1KAXlFpX5N | MD-A — TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | approved | [mda-takegroup-comp-effective-projection-placement-contract.md](./mda-takegroup-comp-effective-projection-placement-contract.md) |
@@ -108,6 +107,7 @@ Directory: `docs/specs`
 | SPEC-hhfyzYWYjCwiqdwtsN8Add | SF-05 slice2 Signal Flow — Port Drag gesture + inspection focus + per-view persist（SF-UX-03/04/07） | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | SPEC-kX9mQvR2wTbLpNcJyH4sDf | SF-05 slice3 Signal Flow — probe subscriber/capture dedup の app/UI 配線（SF-UX-06 headless 側） | approved | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
 | SPEC-034V2wnQPWFJdKz68KlwJG | SF-06 cross-gate Domain Oracle・Case ID・Fault Fixture・evidence ledger（headless slice） | approved | [sf-06-cross-gate-oracle-case-ledger.md](./sf-06-cross-gate-oracle-case-ledger.md) |
+| SPEC-hfPJc5Twxe1eCRZ0UTi4xk | SF-06 cross-gate headless fixture 被覆棚卸し・欠落 fixture 追加・evidence 台帳 (synvelis#109) | approved | [sf06-cross-gate.md](./sf06-cross-gate.md) |
 | SPEC-JQYNMchouBVGrijHyiBC2d | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture（headless slice） | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | SPEC-034X9BMCsZFv8cyn2cAg8d | Signal Flow 設計正本 — 階層・Typed Port/Connection・Semantic Routing・Probe 表示/編集・SourceMap/Configured/Observed 受入仕様 | draft | [signal-flow-design.md](./signal-flow-design.md) |
 | SPEC-034X5xBtwHRKs4lePhNM05 | Issue #84 DirectoryBundleStore Snapshot/HEAD Ruviform StagedFile 移行 | approved | [stagedfile-migration.md](./stagedfile-migration.md) |
@@ -125,6 +125,7 @@ Directory: `docs/specs`
 | SPEC-OGVSCKWOs5Dv4e9e0K7wDY | SV-GUI-04 slice1: 実 2-window mount（fake driver fixture + env-gated native） | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | SPEC-034Uqtwgi61id6YJP9tZZX | SV-GUI-04 slice2: close-veto/cancel（unsaved-guard veto） | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
 | SPEC-034UqIcJay7uhO1XhAdcCn | SV-GUI-04 slice2 設計: dock transfer workspace adoption + GUI op 配線 | approved | [sv-gui-04-slice2-dock-transfer-workspace-adoption-gui-op.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption-gui-op.md) |
+| SPEC-034XaDS2SnpbaxNulU1BmU | SV-GUI-05 Real OS E2E — case definition freeze and acceptance ledger (synvelis#114) | approved | [sv-gui-05-real-os-e2e.md](./sv-gui-05-real-os-e2e.md) |
 | SPEC-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain domain projection — master strip Fader target の bootstrap と Fader controlled display/commit 接続 | approved | [sv185-01-mixer-gain-domain-projection.md](./sv185-01-mixer-gain-domain-projection.md) |
 | SPEC-034VobGQ7ailU8PviI0F9x | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 と API 追従 | approved | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | SPEC-0D1aGavIsYu1NgyvnRxeRx | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 と API 追従（SV#190 前提解消） | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
@@ -189,6 +190,7 @@ Directory: `docs/specs`
 | SPEC-034SYN157Kx9mTvQp2w | Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画 | superseded | [issue-157-selective-execution.md](./issue-157-selective-execution.md) |
 | SPEC-034Wsudf9ocUWKIH6GUhA9 | Issue #365 docs/impl ir・exp 管理 index を doc-maintenance で生成可能にする | implemented | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
 | SPEC-034WuZoDEfeT3L23cjJAFD | Issue #368 docs/impl/ir missing-section 本文補完 | implemented | [issue-368-ir-missing-sections.md](./issue-368-ir-missing-sections.md) |
+| SPEC-rNbdNqOT10RavAY4Hj9RKJ | Issue #86 DoD(2) — import_verified consumer 入口 + digest-kind blob 解決（synvelis-player slice） | implemented | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | SPEC-034Uri8JTbpWmKASolvM4A | RCD-02 Recording Durability Evidence / Recovery Review — synvelis#116 slice | implemented | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | SPEC-034T6XTAVpIPhybzaw7jdh | SV-GPUI-03 Synvelis Product Theme / Workspace Presets — Driver-neutral DTCG overrides・Preset schema・fixtures | implemented | [sv-gpui-03-product-theme-workspace-presets.md](./sv-gpui-03-product-theme-workspace-presets.md) |
 | SPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 slice (synvelis#126) | implemented | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |

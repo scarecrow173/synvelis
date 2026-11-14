@@ -117,6 +117,7 @@ Directory: `docs/test-specs`
 | TSPEC-jFtg0s5kOhAShEhr9GuU2J | SF-05 slice2 テスト仕様 — Signal Flow gesture/inspection/persist | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | TSPEC-pL4cVbNmQwErTyUiOpAsDf | SF-05 slice3 テスト仕様 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
 | TSPEC-034V2wDAU9rjXjn7UX79qG | SF-06 cross-gate テスト仕様 — headless oracle・fault・migration | approved | [sf-06-cross-gate-oracle.md](./sf-06-cross-gate-oracle.md) |
+| TSPEC-g7v0galTaViQdO2RpCak1D | SF-06 cross-gate テスト仕様 — headless fixture 被覆棚卸し・PCM oracle (synvelis#109) | approved | [sf06-cross-gate.md](./sf06-cross-gate.md) |
 | TSPEC-58bMtNin4rGl51xvg20P4n | SF-XR-01 検証仕様 — CTL-01/CTL-02 cross-gate oracle fixture | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | TSPEC-034X9GPU9Og63h7UIzLf1r | Signal Flow 設計正本 — 受入仕様と検証 | approved | [signal-flow-design.md](./signal-flow-design.md) |
 | TSPEC-034X5DZHArceEXtnYl3YuG | Issue #84 StagedFile Migration 受入検証契約 | approved | [stagedfile-migration.md](./stagedfile-migration.md) |
@@ -141,6 +142,7 @@ Directory: `docs/test-specs`
 | TSPEC-CrvvXGRCC7NBEy9bfba4LH | SV#28 Ruviform pin 更新 検証仕様 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | TSPEC-31xKoCzy7Vtv6MX1J7safw | SV#28 Ruviform pin 更新 検証仕様（9865cd57 → fd1d4d5f） | approved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | TSTS-SvtE2e05aB2cD3eF4gH5iK0 | SV-GUI-05: SVT-01〜09 Headless UI Scenario テスト仕様 | approved | [svt-product-e2e.md](./svt-product-e2e.md) |
+| TSPEC-034XaDSzD3ZeB9n3sazAZD | SV-GUI-05 Real OS E2E — SV-OS-01〜09 case freeze test spec (synvelis#114) | approved | [svt-real-os-e2e.md](./svt-real-os-e2e.md) |
 | TSPEC-034UvylKq35FCXtkknERpp | SYN-IO-01 I/O 境界 Golden/Negative/Crash 検証計画 | approved | [syn-io-01-io-boundary-verification.md](./syn-io-01-io-boundary-verification.md) |
 | TSPEC-034WVJHbBO657gxk3KnLP1 | SYN-IO-02 HEAD CAS 実 2-process E2E 試験 | approved | [syn-io-02-head-cas-e2e.md](./syn-io-02-head-cas-e2e.md) |
 | TSPEC-034Th7fQpLmNvRwXk2jHs | SYN-IO-02 HEAD CAS 契約試験 | approved | [syn-io-02-head-cas.md](./syn-io-02-head-cas.md) |
