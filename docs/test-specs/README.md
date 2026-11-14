@@ -22,6 +22,7 @@ Directory: `docs/test-specs`
 | TSPEC-034AUT04VgQF9P59tpgXou | AUT-04 E2E 検証仕様 — Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-e2e-automation-curve-lod-record-budget.md](./aut-04-e2e-automation-curve-lod-record-budget.md) |
 | TSPEC-5CuediZdfo8z7uI9MvTAHB | Automation / Modulation 統合 Parameter Control — テスト仕様・受入 Fixture（synvelis#6） | approved | [automation-modulation.md](./automation-modulation.md) |
 | TSPEC-034Xeu6Qk5xuw8LRKrRxcZ | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host 検証仕様 (synvelis#261) | approved | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
+| TSPEC-034XgJPQyivnWHKo5099nI | AUTX-03 synvelis-cli Headless 実行ファイル・JSON/Exit Code 検証仕様 (synvelis#262) | approved | [autx-03-headless-cli.md](./autx-03-headless-cli.md) |
 | TSPEC-7kQm2XvB9pLw4RtY6uN3sD | AUTX-05 Workflow DSL v1 — YAML safe subset・typed definition・static plan compile invariants | approved | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
 | TSPEC-AUTX07GuiViewsHeadless | AUTX-07 GUI views headless test spec（synvelis#266） | approved | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | TSPEC-cb01VariantSetFixtureT | CB-01 Creative Branch variant model/controller fixture tests | approved | [cb-01-variant-set.md](./cb-01-variant-set.md) |
