@@ -23,6 +23,7 @@ Directory: `docs/test-specs`
 | TSPEC-5CuediZdfo8z7uI9MvTAHB | Automation / Modulation 統合 Parameter Control — テスト仕様・受入 Fixture（synvelis#6） | approved | [automation-modulation.md](./automation-modulation.md) |
 | TSPEC-034Xeu6Qk5xuw8LRKrRxcZ | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host 検証仕様 (synvelis#261) | approved | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
 | TSPEC-7kQm2XvB9pLw4RtY6uN3sD | AUTX-05 Workflow DSL v1 — YAML safe subset・typed definition・static plan compile invariants | approved | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
+| TSPEC-cb01VariantSetFixtureT | CB-01 Creative Branch variant model/controller fixture tests | approved | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | TSPEC-m5UJFsYVE3wcIp2bbhjQ6C | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 検証仕様 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | TSPEC-034RoWXtHq8FkSjQ9NWwqn | Synvelis 独立 CI ワークフロー検証仕様 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | TSPEC-034X9hRV8Ud0Ty0IZllwy5 | Capability / Command Gateway G0-G6 受入照合 検証仕様 (synvelis#46) | approved | [command-gateway-gates.md](./command-gateway-gates.md) |

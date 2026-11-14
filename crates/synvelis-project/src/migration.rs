@@ -67,6 +67,10 @@ const STEPS: &[MigrationStep] = &[
         from: 12,
         migrate: migrate_v12_plugin_instances,
     },
+    MigrationStep {
+        from: 13,
+        migrate: migrate_v13_variant_sets,
+    },
 ];
 
 /// Runs the ordered ladder from `version` to [`SCHEMA_VERSION`].
@@ -462,5 +466,18 @@ fn migrate_v12_plugin_instances(mut project: Project) -> Result<Project, Error> 
     for processor in project.routing.processors.values() {
         project.plugin_instances.sync_processor(processor)?;
     }
+    Ok(project)
+}
+
+/// v13 → v14: add `Project::variant_sets` — the Creative Branch
+/// variant model (synvelis#278, CB-01). v13 bodies predate the store,
+/// so the serde `#[serde(default)]` yields the empty map; there is no
+/// backfill — variant state is authored state, never derived.
+///
+/// # Errors
+/// Never fails: the step is the identity projection. The `Result`
+/// shape keeps the ladder uniform.
+#[allow(clippy::unnecessary_wraps)]
+fn migrate_v13_variant_sets(project: Project) -> Result<Project, Error> {
     Ok(project)
 }
