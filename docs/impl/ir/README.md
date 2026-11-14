@@ -51,6 +51,7 @@ Directory: `docs/impl/ir`
 | IMPL-cb02-audio-clip-adapter | CB-02 Audio Clip/Take/Comp 候補 Adapter — Raw Source 不変・加工比較・Adopt（synvelis#279） | completed | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |
 | IMPL-034XkoKBFx6VCR0iVHzGas | CB-03 MIDI Clip/Source 候補 Adapter — Native Event 保持・Note Diff・同一 Instrument 比較（synvelis#280） | completed | [cb-03-midi-clip-adapter.md](./cb-03-midi-clip-adapter.md) |
 | IMPL-034XmKS2VgTv6sQ2onvxNY | CB-04 Instrument Slot 候補 Adapter — MIDI共有・独立Plugin State・A/B比較（synvelis#281） | completed | [cb-04-instrument-adapter.md](./cb-04-instrument-adapter.md) |
+| IMPL-034ZxKpQ2mNv8sLw4tYh6bJ | CB-05 FX Processing Range 候補 Adapter — 安定境界・外部Routing fail-closed・A/B比較（synvelis#282） | completed | [cb-05-fx-range-adapter.md](./cb-05-fx-range-adapter.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
 | IMPL-034X9hYuHSZsRHijApPhOw | Capability / Command Gateway G0-G6 受入照合・証拠台帳 実装記録 (synvelis#46) | completed | [command-gateway-gates.md](./command-gateway-gates.md) |
 | IMPL-034X8sM6gVaKFLBghHMqW3 | Capability / Command Gateway 設計契約 実装記録 (synvelis#45) | completed | [command-gateway.md](./command-gateway.md) |

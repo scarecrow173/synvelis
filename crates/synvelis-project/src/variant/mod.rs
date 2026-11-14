@@ -20,6 +20,7 @@ pub(crate) mod engine;
 mod error;
 mod instrument;
 mod midi_clip;
+mod processing_range;
 pub(crate) mod scope;
 mod store;
 mod types;
@@ -36,6 +37,9 @@ pub use instrument::{
     InstrumentSlotAdapter, InstrumentSlotCapabilities, InstrumentStateAssessment,
 };
 pub use midi_clip::{MidiClipAdapter, MidiClipCapabilities};
+pub use processing_range::{
+    ProcessingBoundaryDependency, ProcessingRangeAdapter, ProcessingRangeCapabilities,
+};
 pub use scope::scope_digest;
 pub use store::{BranchContentStore, InMemoryBranchContentStore, decode_candidate};
 pub use types::{

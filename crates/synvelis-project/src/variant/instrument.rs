@@ -46,12 +46,11 @@ use crate::{
         CaptureMode, PluginStateBinding, PluginStateCaptureError, PluginStateOutcome,
         PluginStatePort,
     },
-    routing::StripOwner,
     snapshot::ContentDigest,
     variant::{
         BranchEditOp, DomainAdapter, VariantError, VariantScope,
         adapter::{edit_scoped_project_op, fork_candidate_project, is_instrument_slot_op},
-        audio::{ProcessingCapability, lane_recording_open},
+        audio::{ProcessingCapability, lane_recording_open, strip_recording_gate_lanes},
         scope::{scope_objects, validate_scope_structure},
     },
 };
@@ -205,10 +204,10 @@ impl InstrumentSlotAdapter {
 }
 
 /// Lanes whose open recording session gates adoption of `processor`'s
-/// slot (CB-ADP-03 / CB-INST-05 write gate): the owning track's lanes
-/// for a track strip; *every* project lane for a bus strip — a bus
-/// processor sits on every routed lane's path, so ownership cannot be
-/// proven narrower and the gate fails closed.
+/// slot (CB-ADP-03 / CB-INST-05 write gate): the strip owning the
+/// processor's chain resolves to its gate lanes via the shared
+/// [`strip_recording_gate_lanes`] helper (owning track's lanes; every
+/// lane for bus-owned strips — fail closed).
 fn recording_gate_lanes(project: &Project, processor: ProcessorId) -> Vec<LaneId> {
     for strip in project.routing.strips.values() {
         let on_chain = project
@@ -216,17 +215,9 @@ fn recording_gate_lanes(project: &Project, processor: ProcessorId) -> Vec<LaneId
             .chains
             .get(&strip.chain)
             .is_some_and(|chain| chain.processors.contains(&processor));
-        if !on_chain {
-            continue;
+        if on_chain {
+            return strip_recording_gate_lanes(project, strip.id);
         }
-        return match strip.owner {
-            StripOwner::Track(track) => project
-                .tracks
-                .get(&track)
-                .map(|t| t.lane_ids.clone())
-                .unwrap_or_default(),
-            StripOwner::Bus(_) => project.lanes.keys().copied().collect(),
-        };
     }
     Vec::new()
 }
