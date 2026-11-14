@@ -43,6 +43,7 @@ Directory: `docs/impl/ir`
 | IMPL-034Xh5urQ31DNU1IgcvDZX | AUTX-01 Action Catalog（synvelis#260 headless fixture スライス） | completed | [autx-01-action-catalog.md](./autx-01-action-catalog.md) |
 | IMPL-034Xe6lRNc3atRxDvadhth | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host (synvelis#261) | completed | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
 | IMPL-034XgKVz7slU1QHG15t6tc | AUTX-03 synvelis-cli 独立 Headless 実行ファイル・JSON/Exit Code (synvelis#262) | completed | [autx-03-headless-cli.md](./autx-03-headless-cli.md) |
+| IMPL-034XihWxPpf0evq4eGpxAa | AUTX-04-F01 Composite forward reference sequential validate | completed | [autx-04-f01-composite-forward-ref.md](./autx-04-f01-composite-forward-ref.md) |
 | IMPL-AUTX07GuiViews | AUTX-07 GPUI Action Palette・Macro/Workflow 製品 View・承認/実行状態 UI（headless-first slice、synvelis#266） | completed | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | IMPL-cb01-variant-set | CB-01 VariantSet/Scope/Lineage・ProjectController Fork/Edit/Adopt/Undo・永続Schema — Headless スライス | completed | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
