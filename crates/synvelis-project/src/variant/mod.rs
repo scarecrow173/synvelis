@@ -17,7 +17,7 @@
 mod adapter;
 pub(crate) mod engine;
 mod error;
-mod scope;
+pub(crate) mod scope;
 mod store;
 mod types;
 
