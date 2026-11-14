@@ -53,6 +53,7 @@ Directory: `docs/tasks`
 | TASK-9vK4mP2nQ8wX5zB7jH3fY6c | SF-04 slice8 タスク — SF-PROBE-05 fault fixtures + 不連続宣言点 | in_progress | [sf-04-slice8-probe-faults-declare-task.md](./sf-04-slice8-probe-faults-declare-task.md) |
 | TASK-wQ8xJkLmNrTyUiOpAsDfGh | SF-05 slice3 タスク分解 — probe subscriber/capture dedup の app/UI 配線 | in-progress | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
 | TASK-G4oEdDOSfbQ4uy5d0HrbKh | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture 実装 task | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
+| TASK-034X9IBxPNjnO5mk3R7awi | Signal Flow 設計正本 — 文書チェーンと証拠の作成 | completed | [signal-flow-design-task.md](./signal-flow-design-task.md) |
 | TASK-034Ul52jO5RARmW21UHLGR | SV-GUI-03 slice1: Transport 操作 + Inspector 表示を既存 GPUI 経路に接続 | in-progress | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
 | TASK-cvXxPcl14NogBTKEDTSKrO | SV-GUI-03 slice2 タスク分解 — Arrangement read-only Table + Undo/Redo | in-progress | [sv-gui-03-02-arrangement-undo-slice2.md](./sv-gui-03-02-arrangement-undo-slice2.md) |
 | TASK-1WNuXmcz8F5r40PEfPLP3u | SV-GUI-03 slice3 タスク分解 — Mixer strip master Mute/Solo Toggle | in-progress | [sv-gui-03-03-mixer-strip-toggle-slice3.md](./sv-gui-03-03-mixer-strip-toggle-slice3.md) |
