@@ -19,6 +19,7 @@ use crate::{
     },
     midi::{MidiNote, MidiSource},
     monitoring_data::{PunchMarks, TrackMonitorDecl},
+    plugin_instance::PluginInstanceIdentity,
     project::{Asset, Lane, Note, Source, Track},
     routing::{
         Bus, ChannelStrip, PortOwner, Processor, ProcessorChain, RoutingConnection, SemanticPort,
@@ -75,6 +76,7 @@ pub(crate) fn supported_kind(kind: ObjectKind) -> bool {
             | ObjectKind::SendConfig
             | ObjectKind::TrackMonitorDecl
             | ObjectKind::PunchMarks
+            | ObjectKind::PluginInstance
     )
 }
 
@@ -138,6 +140,22 @@ pub(crate) fn entity_value(
         ObjectKind::SemanticPort => keyed!(SemanticPortId, &project.routing.ports),
         ObjectKind::RoutingConnection => keyed!(RoutingConnectionId, &project.routing.connections),
         ObjectKind::SendConfig => keyed!(SendId, &project.routing.sends),
+        ObjectKind::PluginInstance => {
+            // Keyed-synthetic view: `stable_id` borrows the
+            // `ProcessorId` space — the identity entry is keyed by
+            // its owning processor (diff `diff_map` /
+            // render-input convention), so this is not a `keyed!`
+            // entity-map lookup. The value is the persisted
+            // `PluginInstanceIdentity` (`id` + `plugin`).
+            let processor = ProcessorId::from_tagged(&object.stable_id)
+                .map_err(|e| invalid_id(format!("{}: {e}", object.stable_id)))?;
+            Ok(project
+                .plugin_instances
+                .instances
+                .get(&processor)
+                .map(to_value)
+                .transpose()?)
+        }
         ObjectKind::TrackMonitorDecl => {
             // Keyed-synthetic view: `stable_id` borrows the `TrackId`
             // space — the declaration itself carries no id, so this
@@ -422,6 +440,9 @@ fn write_entity(
             keyed_insert!(project.routing.connections, RoutingConnection);
         }
         ObjectKind::SendConfig => keyed_insert!(project.routing.sends, SendConfig),
+        ObjectKind::PluginInstance => {
+            write_plugin_instance(project, after, object, payload)?;
+        }
         ObjectKind::TrackMonitorDecl => {
             // The declaration holds no id of its own: the borrowed
             // `TrackId` key is parsed from `stable_id`. It never
@@ -446,6 +467,39 @@ fn write_entity(
                 object.kind
             )));
         }
+    }
+    Ok(())
+}
+
+/// `PluginInstance` transplant — keyed-synthetic view borrowing the
+/// `ProcessorId` space (the entry is keyed by its owning processor).
+/// The persisted `StablePluginInstanceId` is authored state:
+/// transplanted byte-faithfully (never remapped) so the post-apply
+/// fingerprint matches the after snapshot and ACK-gap replay
+/// reconciles. The instance `watermark` reseeds monotonically via
+/// `max(live, after)` — it never moves backward, so a live-retired
+/// id can never be reissued by a later `allocate`.
+/// `PluginInstanceId` is a separate u64 domain: it must NOT feed
+/// `max_new_id` (the entity u128 watermark) — the owning `Processor`
+/// write owns that reseed when the processor itself was added.
+/// Entry↔binding consistency, id range, and uniqueness are
+/// re-checked by `validate_references` → `validate_against` after
+/// the write.
+fn write_plugin_instance(
+    project: &mut Project,
+    after: &Project,
+    object: &SemanticObjectRef,
+    payload: Value,
+) -> Result<(), Error> {
+    let processor =
+        ProcessorId::from_tagged(&object.stable_id).map_err(|e| Error::InvalidId(e.to_string()))?;
+    let identity: PluginInstanceIdentity = from_value(payload, "plugin instance identity")?;
+    project
+        .plugin_instances
+        .instances
+        .insert(processor, identity);
+    if project.plugin_instances.watermark < after.plugin_instances.watermark {
+        project.plugin_instances.watermark = after.plugin_instances.watermark;
     }
     Ok(())
 }

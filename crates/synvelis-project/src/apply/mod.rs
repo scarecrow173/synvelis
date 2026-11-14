@@ -26,11 +26,12 @@
 //!   callers use to compute `expected_target_fingerprint`.
 //!
 //! Out of scope (deferred): `Removed` changes (cascade design —
-//! every kind, including the monitor declarations), the rest of the
-//! recording/comping/SMF/clock-epoch domains (only the authored
-//! monitor declarations `TrackMonitorDecl`/`PunchMarks` ride the
-//! apply surface, for `Added`/`Modified`), in-place restore,
-//! engine-level application, and real OS/provider E2E (synvelis#97).
+//! every kind, including the monitor declarations and plugin
+//! instances), the rest of the recording/comping/SMF/clock-epoch
+//! domains (only the authored monitor declarations
+//! `TrackMonitorDecl`/`PunchMarks` ride the apply surface, for
+//! `Added`/`Modified`), in-place restore, engine-level
+//! application, and real OS/provider E2E (synvelis#97).
 
 pub(crate) mod entity;
 mod journal;

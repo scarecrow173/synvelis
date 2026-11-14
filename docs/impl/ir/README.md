@@ -211,6 +211,7 @@ Directory: `docs/impl/ir`
 | IMPL-034VGuS8MYmQ9PYiMy81Gt | VCS-04 History/Visual Diff UI — headless read-only projection slice (synvelis#95) | completed | [vcs-04-history-visual-diff-ui.md](./vcs-04-history-visual-diff-ui.md) |
 | IMPL-VCS04NativeMount001 | VCS-04 History/Visual Diff — native mount/dock 配線 + gpui-test (synvelis#95) | completed | [vcs-04-native-mount.md](./vcs-04-native-mount.md) |
 | IMPL-vcs05-monitoring-apply-surface | VCS-05 monitoring kinds apply surface 拡張 slice 実装記録 | completed | [vcs-05-monitoring-apply-surface.md](./vcs-05-monitoring-apply-surface.md) |
+| IMPL-034XAVfgfhd8qdJqSX5m0c | VCS-05 PluginInstance apply surface 拡張 slice 実装記録 | completed | [vcs-05-plugin-instance-apply.md](./vcs-05-plugin-instance-apply.md) |
 | IMPL-034V4SMgc7OlchXo2EUCfn | VCS-05 safe apply selected change / restore as copy (headless) | completed | [vcs-05-safe-apply-selected-change-restore-as-copy-headless.md](./vcs-05-safe-apply-selected-change-restore-as-copy-headless.md) |
 | IMPL-034VTFdV4uROWPZI1T0Xga | VCS-06 evidence completion slice (synvelis#97) | completed | [vcs-06-evidence-completion.md](./vcs-06-evidence-completion.md) |
 | IMPL-bgZP66dLupCITdABVLTgJp | VCS-06 monitoring-domain matrix (synvelis#97 slice) | completed | [vcs-06-monitoring-matrix-slice.md](./vcs-06-monitoring-matrix-slice.md) |
