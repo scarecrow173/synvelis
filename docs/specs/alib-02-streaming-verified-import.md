@@ -4,7 +4,7 @@ type: "spec"
 status: "implemented"
 title: "ALIB-02 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice）"
 created: "2026-11-09"
-updated: "2026-11-14"
+updated: "2026-11-15"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -157,13 +157,15 @@ CRC32 系 digest・`live_revision()` 無条件 commit・dir-sync 非対応を
 - [x] `StaleRevision` で安全に拒否され、`rebase_import` 後に冪等収束。
 - [x] 対象 lane/track 消失・他 track lane 指定を commit で拒否
   （clip の誤配置を起こさない）。
-- [ ] hash mismatch・size mismatch・staged drift・既存 blob 不一致を
-  `IntegrityMismatch`/`Corrupt` として拒否。 <!-- hash mismatch のみ実測済み（`digest_mismatch_is_integrity_error`）。size mismatch・staged drift・既存 blob 不一致の拒否は `src/import.rs` 実装済みだが専用 test が未整備のため未チェック維持（`evidence/sv86/bookkeeping-verification.md` 参照） -->
+- [x] hash mismatch・size mismatch・staged drift・既存 blob 不一致を
+  `IntegrityMismatch`/`Corrupt` として拒否。
+  <!-- 4 経路すべて実測: hash mismatch = `digest_mismatch_is_integrity_error`、size mismatch = `size_mismatch_is_integrity_error`（pin `expected_size` 照合 → `IntegrityMismatch`）、staged drift = `staged_drift_is_corrupt`（`verify_staged` readback 再計測 → `Corrupt`）、既存 blob 不一致 = `existing_blob_mismatch_is_integrity_error`（`verify_existing_blob` → `IntegrityMismatch`・occupant 非上書き）。いずれも `crates/synvelis-library/tests/import.rs` で実走 Pass（`docs/impl/ir/alib-02-fault-injection-followup.md`・`evidence/sv86/` 参照） -->
 - [x] `PublishedIndeterminate` が stat reconcile で正直に分類され、
   「未公開」誤報も「無条件成功」もない。
-- [ ] DirSync `Unsupported`/`Failed` が receipt/manifest に記録され、
+- [x] DirSync `Unsupported`/`Failed` が receipt/manifest に記録され、
   publish 成否と分離される。double FS は fault 注入証拠であり
-  durability 証拠ではない。 <!-- `Failed` は `directory_sync_failure_is_recorded_not_hidden` で実測。`Unsupported` は Windows/NTFS の実 publisher 経路で未観測かつ scripted 注入 test も未整備のため未チェック維持 -->
+  durability 証拠ではない。
+  <!-- `Failed` = `directory_sync_failure_is_recorded_not_hidden`（実測）。`Unsupported` = `directory_sync_unsupported_is_recorded_not_hidden`（`DirSyncUnsupportedPublisher` scripted double が実 publish 後に receipt の `directory_sync` を `Unsupported` へ改変して注入 — 分類の証拠であり実 durability 証拠ではない。receipt `out.blob.directory_sync`・manifest `directory_sync`・commit 収束を assert）。scripted double は fault *分類* の証拠に限定し、実 OS/FS の DirSync 可否は synvelis#91 の外部 gate に残す（`docs/impl/ir/alib-02-fault-injection-followup.md` 参照） -->
 - [x] Orphan blob/staging が保護され、`gc_orphans` が reachability に
   基づき明示削除する。
 - [x] SHA-256 identity（`sha256:<64hex>` / `blobs/sha256/<64hex>`）が

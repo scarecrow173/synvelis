@@ -420,6 +420,237 @@ fn digest_mismatch_is_integrity_error() {
 }
 
 #[test]
+fn size_mismatch_is_integrity_error() {
+    let tree = TempTree::new("imp-size");
+    let provider = ScriptedProvider {
+        id: pid(3),
+        bytes: b"size-mismatch-bytes".to_vec(),
+        chunk: 4096,
+        digest_override: None,
+    };
+    let mut c = controller();
+    // The pin claims one byte more than the stream delivers — the
+    // expected_size expectation rejects before anything publishes.
+    let mut pin = provider.pin_for();
+    pin.expected_size = pin.expected_size.map(|n| n + 1);
+    let it = ImportIntent {
+        import_id: ImportId::new(111),
+        expected_project_revision: ProjectRevision(0),
+        source: pin,
+        target: None,
+    };
+    let err = import_verified(
+        &provider,
+        &it,
+        &store(&tree),
+        &blobs(&tree),
+        &StagedBlobPublisher,
+        &mut c,
+        &cx(),
+    )
+    .unwrap_err();
+    assert!(
+        matches!(err, ImportError::IntegrityMismatch { .. }),
+        "unexpected: {err:?}"
+    );
+    // Nothing committed, nothing published, no reuse.
+    assert_eq!(c.live().applied_imports.len(), 0);
+    assert_eq!(c.live().assets.len(), 0);
+    assert_eq!(c.live().sources.len(), 0);
+    let digest = sha256_of(b"size-mismatch-bytes");
+    assert!(!store(&tree).blob_path(&digest).exists());
+    // The job parks at Started — resumable state, never committed.
+    let jobs = inspect_imports(&store(&tree), c.live()).unwrap();
+    assert_eq!(jobs[0].stage, ImportStage::Started);
+    assert!(!jobs[0].applied);
+
+    // An honest pin under a fresh ImportId still converges — the
+    // rejection left no poisoned state behind.
+    let it_ok = ImportIntent {
+        import_id: ImportId::new(112),
+        expected_project_revision: ProjectRevision(0),
+        source: provider.pin_for(),
+        target: None,
+    };
+    let out = import_verified(
+        &provider,
+        &it_ok,
+        &store(&tree),
+        &blobs(&tree),
+        &StagedBlobPublisher,
+        &mut c,
+        &cx(),
+    )
+    .expect("honest import after size rejection");
+    assert_eq!(out.byte_len, b"size-mismatch-bytes".len() as u64);
+    assert_eq!(c.live().applied_imports.len(), 1);
+}
+
+#[test]
+fn staged_drift_is_corrupt() {
+    let tree = TempTree::new("imp-drift");
+    let bytes: Vec<u8> = (0..8_192u32)
+        .map(|i| u8::try_from(i % 251).unwrap())
+        .collect();
+    let eof_cancelling = CancelOnEofProvider {
+        inner: ScriptedProvider {
+            id: pid(3),
+            bytes: bytes.clone(),
+            chunk: 1024,
+            digest_override: None,
+        },
+    };
+    let healthy = ScriptedProvider {
+        id: pid(3),
+        bytes: bytes.clone(),
+        chunk: 1024,
+        digest_override: None,
+    };
+    let mut c = controller();
+    let it = ImportIntent {
+        import_id: ImportId::new(113),
+        expected_project_revision: ProjectRevision(0),
+        source: healthy.pin_for(),
+        target: None,
+    };
+
+    // Park at Staged: the cancel lands at provider EOF after the
+    // staged bytes are durable but before verification.
+    let err = import_verified(
+        &eof_cancelling,
+        &it,
+        &store(&tree),
+        &blobs(&tree),
+        &StagedBlobPublisher,
+        &mut c,
+        &cx(),
+    )
+    .unwrap_err();
+    assert!(
+        matches!(&err, ImportError::Provider(e) if e.kind() == ProviderErrorKind::Cancelled),
+        "unexpected: {err:?}"
+    );
+    let jobs = inspect_imports(&store(&tree), c.live()).unwrap();
+    assert_eq!(jobs[0].stage, ImportStage::Staged);
+
+    // Drift the staged bytes on disk, then resume: verify_staged
+    // re-measures and must reject as Corrupt — drifted bytes are
+    // never published.
+    let staged = store(&tree).staging_dir(it.import_id).join("source.bin");
+    let mut drifted = fs::read(&staged).expect("staged bytes");
+    drifted[0] ^= 0xFF;
+    fs::write(&staged, &drifted).expect("drift staged bytes");
+
+    let err = import_verified(
+        &healthy,
+        &it,
+        &store(&tree),
+        &blobs(&tree),
+        &StagedBlobPublisher,
+        &mut c,
+        &cx(),
+    )
+    .unwrap_err();
+    assert!(
+        matches!(err, ImportError::Corrupt { .. }),
+        "unexpected: {err:?}"
+    );
+    assert_eq!(c.live().applied_imports.len(), 0);
+    assert_eq!(c.live().assets.len(), 0);
+    assert!(!store(&tree).blob_path(&sha256_of(&bytes)).exists());
+    // The manifest stays at Staged — the drift is reported, not hidden.
+    let jobs = inspect_imports(&store(&tree), c.live()).unwrap();
+    assert_eq!(jobs[0].stage, ImportStage::Staged);
+    assert!(!jobs[0].applied);
+
+    // Restoring the honest bytes lets the same ImportId converge —
+    // Corrupt is a refusal, not a poisoned terminal state.
+    fs::write(&staged, &bytes).expect("restore staged bytes");
+    let out = import_verified(
+        &healthy,
+        &it,
+        &store(&tree),
+        &blobs(&tree),
+        &StagedBlobPublisher,
+        &mut c,
+        &cx(),
+    )
+    .expect("resumed import after drift repair");
+    assert_eq!(out.content_digest, sha256_of(&bytes));
+    assert_eq!(c.live().applied_imports.len(), 1);
+}
+
+#[test]
+fn existing_blob_mismatch_is_integrity_error() {
+    let tree = TempTree::new("imp-blobocc");
+    let payload = b"content-the-blob-claims-to-be".to_vec();
+    let provider = ScriptedProvider {
+        id: pid(3),
+        bytes: payload.clone(),
+        chunk: 4096,
+        digest_override: None,
+    };
+    let mut c = controller();
+    let it = ImportIntent {
+        import_id: ImportId::new(115),
+        expected_project_revision: ProjectRevision(0),
+        source: provider.pin_for(),
+        target: None,
+    };
+
+    // A squatting occupant already sits at the content-addressed
+    // path: the name matches the digest, the bytes do not. Publish
+    // must verify-and-reject — never overwrite, never reuse.
+    let digest = sha256_of(&payload);
+    let sha_dir = store(&tree).blob_dir().join("sha256");
+    fs::create_dir_all(&sha_dir).unwrap();
+    let occupant = sha_dir.join(digest.hex());
+    fs::write(&occupant, b"squatter-occupant-bytes").unwrap();
+
+    let err = import_verified(
+        &provider,
+        &it,
+        &store(&tree),
+        &blobs(&tree),
+        &StagedBlobPublisher,
+        &mut c,
+        &cx(),
+    )
+    .unwrap_err();
+    assert!(
+        matches!(err, ImportError::IntegrityMismatch { .. }),
+        "unexpected: {err:?}"
+    );
+    // The occupant is untouched — rejected, not overwritten.
+    assert_eq!(
+        fs::read(&occupant).expect("occupant readable"),
+        b"squatter-occupant-bytes"
+    );
+    assert_eq!(c.live().applied_imports.len(), 0);
+    assert_eq!(c.live().assets.len(), 0);
+    // Publish was never recorded — the job parks at Verified.
+    let jobs = inspect_imports(&store(&tree), c.live()).unwrap();
+    assert_eq!(jobs[0].stage, ImportStage::Verified);
+    assert!(!jobs[0].applied);
+
+    // Only byte-exact content may be reused: repairing the occupant
+    // lets the same ImportId converge through the honest Reused path.
+    fs::write(&occupant, &payload).expect("repair occupant");
+    let out = import_verified(
+        &provider,
+        &it,
+        &store(&tree),
+        &blobs(&tree),
+        &StagedBlobPublisher,
+        &mut c,
+        &cx(),
+    )
+    .expect("reuse after occupant repair");
+    assert_eq!(out.blob.materialized, BlobMaterialization::Reused);
+    assert_eq!(c.live().applied_imports.len(), 1);
+}
+
+#[test]
 fn byte_budget_is_enforced_during_staging() {
     let tree = TempTree::new("imp-budget");
     let provider = ScriptedProvider {
@@ -837,6 +1068,85 @@ fn directory_sync_failure_is_recorded_not_hidden() {
     .expect("import with dirsync failure recorded");
     assert_eq!(out.blob.directory_sync, DirectorySync::Failed);
     assert_eq!(c.live().applied_imports.len(), 1);
+}
+
+/// Delegates to the real publisher, then rewrites the receipt's
+/// `directory_sync` to `Unsupported` — models a platform whose
+/// publish completed but cannot prove directory sync. Like every
+/// scripted double this proves *classification* only, never real
+/// durability.
+struct DirSyncUnsupportedPublisher;
+
+impl BlobPublisher for DirSyncUnsupportedPublisher {
+    fn publish(
+        &self,
+        staged_source: &std::path::Path,
+        expected: &ContentDigest,
+        expected_len: u64,
+        destination: &std::path::Path,
+        durability: synvelis_library::PublishDurability,
+        cx: &ProviderContext,
+    ) -> Result<synvelis_library::BlobPublishReceipt, BlobPublishError> {
+        let mut receipt = StagedBlobPublisher.publish(
+            staged_source,
+            expected,
+            expected_len,
+            destination,
+            durability,
+            cx,
+        )?;
+        receipt.directory_sync = DirectorySync::Unsupported;
+        Ok(receipt)
+    }
+}
+
+#[test]
+fn directory_sync_unsupported_is_recorded_not_hidden() {
+    let tree = TempTree::new("imp-dirsync-unsup");
+    let provider = ScriptedProvider {
+        id: pid(3),
+        bytes: b"dirsync-unsupported-bytes".to_vec(),
+        chunk: 4096,
+        digest_override: None,
+    };
+    // Publish lands for real; only the directory-sync verdict is
+    // scripted — it must be recorded on receipt + manifest and must
+    // not be conflated with publish success.
+    let mut c = controller();
+    let it = ImportIntent {
+        import_id: ImportId::new(117),
+        expected_project_revision: ProjectRevision(0),
+        source: provider.pin_for(),
+        target: None,
+    };
+    let out = import_verified(
+        &provider,
+        &it,
+        &store(&tree),
+        &blobs(&tree),
+        &DirSyncUnsupportedPublisher,
+        &mut c,
+        &cx(),
+    )
+    .expect("import with dirsync unsupported recorded");
+    assert_eq!(out.blob.directory_sync, DirectorySync::Unsupported);
+    assert_eq!(out.blob.materialized, BlobMaterialization::Created);
+    // The manifest persists the same honest verdict.
+    let manifest: ImportManifest = serde_json::from_slice(
+        &fs::read(
+            store(&tree)
+                .staging_dir(it.import_id)
+                .join("import-manifest.json"),
+        )
+        .expect("manifest readable"),
+    )
+    .expect("manifest parses");
+    assert_eq!(manifest.stage, ImportStage::Committed);
+    assert_eq!(manifest.directory_sync, Some(DirectorySync::Unsupported));
+    // Publish/commit converged independently of the dirsync verdict.
+    assert_eq!(out.commit.revision, c.live_revision());
+    assert_eq!(c.live().applied_imports.len(), 1);
+    assert_eq!(c.live().assets.len(), 1);
 }
 
 // ── orphan GC ────────────────────────────────────────────────────

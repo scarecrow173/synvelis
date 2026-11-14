@@ -173,6 +173,7 @@ Directory: `docs/plans`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | PLAN-luVzqvmmFtXrtfQQ7Sqb6k | ALIB-01 実装計画 — Asset Provider 契約・Local/Project 基準 Provider | completed | [alib-01-asset-provider-baseline.md](./alib-01-asset-provider-baseline.md) |
+| PLAN-034XCImELY72NyiUF1VVCf | ALIB-02 fault-injection followup — 残存拒否経路 test + spec AC 照合の実装計画 | completed | [alib-02-fault-injection-followup.md](./alib-02-fault-injection-followup.md) |
 | PLAN-034VMQQ4mGuzIS1AUxu1MS | ALIB-02 residual closeout — Issue #86 DoD 照合と証拠固定の実装計画 | completed | [alib-02-residual-closeout.md](./alib-02-residual-closeout.md) |
 | PLAN-alib02-streaming-import | ALIB-02 実装計画 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | PLAN-alib02-v5snap | ALIB-02 v5 snapshot asset-digest 互換移行 — 実装計画 | completed | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |

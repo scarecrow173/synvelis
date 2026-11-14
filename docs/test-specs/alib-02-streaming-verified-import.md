@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "ALIB-02 Streaming Verified Import — テスト仕様"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-15"
 owners: ["scarecrow173"]
 relations:
   verifies:
@@ -17,10 +17,11 @@ relations:
 
 # ALIB-02 Test Spec
 
-`crates/synvelis-library/tests/import.rs`（21 tests — PR #220 時点の
+`crates/synvelis-library/tests/import.rs`（25 tests — PR #220 時点の
 15 tests に、後続 slice で cancel/resume・crash subprocess・
-cross-provider 収束の 6 tests が追加済み）が仕様の各 Feature/Rule
-を検証する。Scripted `BlobPublisher`/`AssetProvider`
+cross-provider 収束の 6 tests、ALIB-02 fault-injection followup で
+integrity/dirsync 拒否経路の 4 tests が追加済み）が仕様の各
+Feature/Rule を検証する。Scripted `BlobPublisher`/`AssetProvider`
 double は fault *分類* の証拠であり、実 durability の証拠ではない
 （実 publish は `StagedBlobPublisher` = ruviform `StagedFile` 系）。
 
@@ -45,6 +46,9 @@ double は fault *分類* の証拠であり、実 durability の証拠ではな
 - Example: `replay_same_import_is_idempotent`、
   `same_import_id_different_content_is_conflict`、
   `digest_mismatch_is_integrity_error`、
+  `size_mismatch_is_integrity_error`、
+  `staged_drift_is_corrupt`、
+  `existing_blob_mismatch_is_integrity_error`、
   `byte_budget_is_enforced_during_staging`。
 
 ## Feature: Staging fault recovery
@@ -70,6 +74,7 @@ double は fault *分類* の証拠であり、実 durability の証拠ではな
   reconcile、DirSync は観測値のみ記録、live commit ≠ saved/HEAD。
 - Example: `indeterminate_publish_is_reconciled_not_misreported`、
   `directory_sync_failure_is_recorded_not_hidden`、
+  `directory_sync_unsupported_is_recorded_not_hidden`、
   `import_streams_verifies_publishes_and_commits`（`saved()==None`）。
 
 ## Feature: Orphan GC
