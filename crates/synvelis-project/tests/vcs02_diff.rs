@@ -1432,7 +1432,7 @@ fn plugin_instance_change_is_on_apply_surface() {
         stable_id: proc.to_tagged(),
         lineage: None,
     };
-    let fp = target_fingerprint(&project, &[object.clone()]).unwrap();
+    let fp = target_fingerprint(&project, std::slice::from_ref(&object)).unwrap();
     // The fingerprint covers the persisted identity — an id swap
     // must change it (byte-faithful transplant contract).
     let mut swapped = project.clone();

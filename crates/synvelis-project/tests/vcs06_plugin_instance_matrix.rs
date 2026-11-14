@@ -785,8 +785,8 @@ fn plugin_instance_rebind_without_processor_change_fails_closed() {
     assert_eq!(pi.len(), 1);
     assert_eq!(pi[0].kind, ChangeKind::Replaced);
     // No processor/port churn — the identity change stands alone.
-    assert!(changes_of(&cs, ObjectKind::Processor).is_empty());
-    assert!(changes_of(&cs, ObjectKind::SemanticPort).is_empty());
+    assert_eq!(changes_of(&cs, ObjectKind::Processor).len(), 0);
+    assert_eq!(changes_of(&cs, ObjectKind::SemanticPort).len(), 0);
 
     let intent = intent_for(&before_c, &cs, &after, &[pi[0]]);
     let src = sources_for(&cs, &before, &after);
@@ -935,15 +935,15 @@ fn plugin_instance_watermark_never_moves_backward() {
     // (`snap_manual` — live now carries a processor, so a live
     // capture would be Partial and the apply gate would refuse.)
     let before_b = snap_manual(live_c.live().clone(), "before-b");
-    let mut after_b_project = live_c.live().clone();
-    after_b_project
+    let mut regressed_project = live_c.live().clone();
+    regressed_project
         .plugin_instances
         .instances
         .get_mut(&proc)
         .unwrap()
         .id = PluginInstanceId::new(5);
-    after_b_project.plugin_instances.watermark = 6;
-    let after_b = snap_manual(after_b_project, "after-b");
+    regressed_project.plugin_instances.watermark = 6;
+    let after_b = snap_manual(regressed_project, "after-b");
     let cs_b = compare(&before_b, &after_b);
     let pi_b = changes_of(&cs_b, ObjectKind::PluginInstance);
     assert_eq!(pi_b.len(), 1);
