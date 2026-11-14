@@ -113,6 +113,7 @@ Directory: `docs/plans`
 | PLAN-tdVwzz5xn6cX22L90jPXXT | SV-GUI-03 slice3 実施計画 — Mixer strip master Mute/Solo Toggle | approved | [sv-gui-03-03-mixer-strip-toggle-slice3.md](./sv-gui-03-03-mixer-strip-toggle-slice3.md) |
 | PLAN-Jh8rTy5xKw9nQp3vLc7zMe | SV-GUI-03 slice4 実施計画 — Arrangement selection→Inspector + Meter/Waveform viz mount | approved | [sv-gui-03-04-selection-inspector-viz-plan.md](./sv-gui-03-04-selection-inspector-viz-plan.md) |
 | PLAN-Jf4tYu7cVb1nMk9sLd3rXe | SV-GUI-03 slice5 実施計画 — GPUI-simulated scenario lane | approved | [sv-gui-03-05-gpui-scenario-plan.md](./sv-gui-03-05-gpui-scenario-plan.md) |
+| PLAN-La8HY0jgJiSxqNij6Hj6OQ | SV-GUI-03 slice6 Keyboard/Gesture key-assignment contract 文書チェーン（Issue #112 docs-only slice） | approved | [sv-gui-03-06-keyboard-gesture-plan.md](./sv-gui-03-06-keyboard-gesture-plan.md) |
 | PLAN-034Uoh8zSRRCnXhWcV1XTP | SV-GUI-04 slice1 precursor 実施 plan | approved | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | PLAN-XQcxlqc1zMCahjjNxAlbO8 | SV-GUI-04 slice1 実施計画 — 実 2-window mount | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | PLAN-034Uqx7xPwFa05K8WYNQ19 | SV-GUI-04 slice2 実施計画 — close-veto/cancel | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |

@@ -139,6 +139,7 @@ Directory: `docs/designs`
 | DESIGN-FQvwpPOrC7St8RoKqyYNMK | SV-GUI-03 slice3 Mixer strip Toggle 設計 — role+owner 走査・pump reconcile・atomic Set | approved | [sv-gui-03-03-mixer-strip-toggle-slice3-design.md](./sv-gui-03-03-mixer-strip-toggle-slice3-design.md) |
 | DESIGN-Mx7pQr2wNz4kLs8tVb6yHd | SV-GUI-03 slice4 設計 — row selection→syn.view.select→Inspector rebinding + syn.viz.* surface reconcile | approved | [sv-gui-03-04-selection-inspector-viz-design.md](./sv-gui-03-04-selection-inspector-viz-design.md) |
 | DESIGN-Ht8wEr4xQz2nBs6vYp9dMc | SV-GUI-03 slice5 設計 — driver-neutral scenario 抽出 + GpuiGuiTest lane | approved | [sv-gui-03-05-gpui-scenario-design.md](./sv-gui-03-05-gpui-scenario-design.md) |
+| DESIGN-BZaKwo7Z0KBbDJHyNDjzNK | SV-GUI-03 slice6 設計 — Keyboard/Gesture key-assignment contract | approved | [sv-gui-03-06-keyboard-gesture-design.md](./sv-gui-03-06-keyboard-gesture-design.md) |
 | DESIGN-034UogNAUQrEmBkgZnhrAk | SV-GUI-04 slice1 precursor 設計 — HeadlessWindowHost + dock fixture | approved | [sv-gui-04-01-headless-window-handle-dock-design.md](./sv-gui-04-01-headless-window-handle-dock-design.md) |
 | DESIGN-Ywl9hP3wdlHWjoMPB7Hvjn | SV-GUI-04 slice1 設計 — 2nd view spec + env-gated 2窓 mount + FakeDriver fixture | approved | [sv-gui-04-01-two-window-slice1-design.md](./sv-gui-04-01-two-window-slice1-design.md) |
 | DESIGN-034UqwNDJrureYsAqmckuw | SV-GUI-04 slice2 設計 — close_guard op + 末尾 window veto | approved | [sv-gui-04-02-close-veto-design.md](./sv-gui-04-02-close-veto-design.md) |

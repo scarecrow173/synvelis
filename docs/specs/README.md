@@ -120,6 +120,7 @@ Directory: `docs/specs`
 | SPEC-FM394bM9ITIDUkUMhHB3de | SV-GUI-03 slice3: Mixer channel strip — master Mute/Solo Toggle | approved | [sv-gui-03-03-mixer-strip-toggle-slice3.md](./sv-gui-03-03-mixer-strip-toggle-slice3.md) |
 | SPEC-Kd4nQx8vRw2mLp9sTf3hJc | SV-GUI-03 slice4: Arrangement row selection → Inspector target + Meter/Waveform viz mount | approved | [sv-gui-03-04-selection-inspector-viz.md](./sv-gui-03-04-selection-inspector-viz.md) |
 | SPEC-Gp5sQm2vNx8wRt4yLc7jKf | SV-GUI-03 slice5: GPUI-simulated scenario lane(Fake/GPUI parity) | approved | [sv-gui-03-05-gpui-scenario.md](./sv-gui-03-05-gpui-scenario.md) |
+| SPEC-MJFObqc1utEb7LmC1bJVZq | SV-GUI-03 slice6: Keyboard/Gesture key-assignment contract(daw-workflow 委譲項目の回収) | approved | [sv-gui-03-06-keyboard-gesture.md](./sv-gui-03-06-keyboard-gesture.md) |
 | SPEC-034UogGZ0QtZaMjO9XxPXv | SV-GUI-04 slice1 precursor: multi-window WindowHandle + headless dock fixture | approved | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | SPEC-OGVSCKWOs5Dv4e9e0K7wDY | SV-GUI-04 slice1: 実 2-window mount（fake driver fixture + env-gated native） | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | SPEC-034Uqtwgi61id6YJP9tZZX | SV-GUI-04 slice2: close-veto/cancel（unsaved-guard veto） | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
