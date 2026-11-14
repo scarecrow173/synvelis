@@ -37,6 +37,7 @@ pub mod probe_trace;
 pub mod process_boundary;
 pub mod processor;
 pub mod publish;
+pub mod rcp;
 pub mod resolver;
 pub mod routing_control;
 pub mod routing_engine;

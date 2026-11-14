@@ -41,6 +41,9 @@ Directory: `docs/impl/ir`
 | IMPL-AUT04CurveLodRecordBudget | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装記録 | completed | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
 | IMPL-49LTYDUL26uBLtxAQGXxOz | Automation / Modulation 統合 Parameter Control — 実装記録（docs slice・synvelis#6） | completed | [automation-modulation.md](./automation-modulation.md) |
 | IMPL-034Xe6lRNc3atRxDvadhth | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host (synvelis#261) | completed | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
+| IMPL-034XgKVz7slU1QHG15t6tc | AUTX-03 synvelis-cli 独立 Headless 実行ファイル・JSON/Exit Code (synvelis#262) | completed | [autx-03-headless-cli.md](./autx-03-headless-cli.md) |
+| IMPL-AUTX07GuiViews | AUTX-07 GPUI Action Palette・Macro/Workflow 製品 View・承認/実行状態 UI（headless-first slice、synvelis#266） | completed | [autx-07-gui-views.md](./autx-07-gui-views.md) |
+| IMPL-cb01-variant-set | CB-01 VariantSet/Scope/Lineage・ProjectController Fork/Edit/Adopt/Undo・永続Schema — Headless スライス | completed | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
 | IMPL-034X9hYuHSZsRHijApPhOw | Capability / Command Gateway G0-G6 受入照合・証拠台帳 実装記録 (synvelis#46) | completed | [command-gateway-gates.md](./command-gateway-gates.md) |
 | IMPL-034X8sM6gVaKFLBghHMqW3 | Capability / Command Gateway 設計契約 実装記録 (synvelis#45) | completed | [command-gateway.md](./command-gateway.md) |
@@ -120,6 +123,7 @@ Directory: `docs/impl/ir`
 | IMPL-034V6MHZ91AdEfrxqsFgLC | RCD-03 Monitoring/Punch/Latency 意味論 crate 内完結 slice 実装記録 | completed | [rcd-03-monitoring-punch-latency-crate-slice.md](./rcd-03-monitoring-punch-latency-crate-slice.md) |
 | IMPL-034VDfqOMnbp5s6CThZTBe | RCD-03 VCS semantic diff monitor 宣言分類 slice 実装記録 | completed | [rcd-03-vcs-diff-monitor-classification-slice.md](./rcd-03-vcs-diff-monitor-classification-slice.md) |
 | IMPL-034UvMC7UhiwWgHviB9Qnv | RCD-04 Comp Transition / MIDI Phrase crate fixture slice 実装記録 | completed | [rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md](./rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md) |
+| IMPL-034Xf6XTMuIwdmzniCRakm | RCP-04 Missing Plugin Subgraph Resolver・Execution Intent・Safe Plan Reconciliation headless slice (synvelis#293) | completed | [rcp-04-missing-plugin-resolver.md](./rcp-04-missing-plugin-resolver.md) |
 | IMPL-C1ZTg7tLJ3bWNVepfbzpSs | Recording / Take / Comping — 文書チェーン・受入 Owner Matrix 実装記録（synvelis#12） | completed | [recording-take-comping.md](./recording-take-comping.md) |
 | IMPL-034SF01Qr3wXmZyAbCdEfGhJ | SF-01 Semantic Routing Model — Bus/Send/Chain/Stable Port IDs・Schema v6 | completed | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
 | IMPL-034UjyiVpFVP7RCwlZ2neB | SF-03 slice5 実装記録 — session EnginePort・SessionRoutingEngine 接続 | completed | [sf-03-slice5-session-engineport-sessionroutingengine.md](./sf-03-slice5-session-engineport-sessionroutingengine.md) |

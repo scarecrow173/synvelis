@@ -15,6 +15,7 @@
 //! touched.
 
 pub mod arrangement_ui;
+pub mod automation_ui;
 pub mod command;
 pub mod control;
 pub mod control_edge;
@@ -45,6 +46,16 @@ pub mod viz_ui;
 pub mod workspace;
 
 pub use arrangement_ui::{ArrangementRow, arrangement_rows};
+pub use automation_ui::{
+    ActionCatalogView, ActionRow, AutomationUiError, AutomationViewAction, AutomationViewState,
+    CapturedTarget, ExplicitTarget, GrantState, JobObservation, MacroBrowserView, MacroInputView,
+    MacroPresetView, MacroStepView, MonitorStatus, PlanValidation, RunMonitorView, RunObservation,
+    RunRow, WorkflowPlanView, WorkflowStepKind, WorkflowStepView, automation_requests,
+    capture_target, catalog_row, effect_tag, macro_step_requests, permission_tag,
+    project_action_catalog, project_action_row, project_job_status, project_macro_preset,
+    project_run_monitor, project_workflow_plan, resolve_capability, resource_kind_tag,
+    target_contract_summary,
+};
 pub use command::{CommandContext, CommandKind, CommandOutcome};
 pub use control::{
     APPLIED_REGISTRY_CAP, AppliedRecord, AssignmentView, AutomationLaneView, AutomationMode,

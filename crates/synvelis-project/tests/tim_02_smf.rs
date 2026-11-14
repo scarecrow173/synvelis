@@ -618,7 +618,7 @@ fn smf_document_survives_save_load_and_schema_is_v10() {
         .unwrap();
     let env: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(env["schema_version"], serde_json::json!(SCHEMA_VERSION));
-    assert_eq!(SCHEMA_VERSION, 13);
+    assert_eq!(SCHEMA_VERSION, 14);
     // The document is persisted inside the project snapshot.
     assert!(env["project"]["smf_documents"].is_object());
 
