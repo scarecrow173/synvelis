@@ -129,6 +129,7 @@ Directory: `docs/plans`
 | PLAN-034T2c5vy3vKJPENF8AA50 | SYN-IO-02 DirectoryBundleStore StagedFile 移行計画 | approved | [syn-io-02-directory-bundle-store-stagedfile.md](./syn-io-02-directory-bundle-store-stagedfile.md) |
 | PLAN-034WVJFNJkmTS7M5lq1tjI | SYN-IO-02 HEAD CAS 実 2-process E2E 検証 — implementation plan | approved | [syn-io-02-head-cas-e2e-plan.md](./syn-io-02-head-cas-e2e-plan.md) |
 | PLAN-034T9pLmNvRwXk2jHs7fQ | SYN-IO-02 HEAD CAS expected-head store port 実装計画 | approved | [syn-io-02-head-cas-plan.md](./syn-io-02-head-cas-plan.md) |
+| PLAN-1dCdxMBaLJixFXCNXKmkJL | SYN-IO-02 Windows NTFS 実機 Case lane — implementation plan | approved | [syn-io-02-windows-real-fs.md](./syn-io-02-windows-real-fs.md) |
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
 | PLAN-4eUlpRzzgdpGu0FbUVLgtc | Target Architecture 設計レビュー実施計画 — docs chain + evidence/sv22 台帳の構成 | approved | [target-architecture.md](./target-architecture.md) |
@@ -174,6 +175,7 @@ Directory: `docs/plans`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | PLAN-luVzqvmmFtXrtfQQ7Sqb6k | ALIB-01 実装計画 — Asset Provider 契約・Local/Project 基準 Provider | completed | [alib-01-asset-provider-baseline.md](./alib-01-asset-provider-baseline.md) |
+| PLAN-034XCImELY72NyiUF1VVCf | ALIB-02 fault-injection followup — 残存拒否経路 test + spec AC 照合の実装計画 | completed | [alib-02-fault-injection-followup.md](./alib-02-fault-injection-followup.md) |
 | PLAN-034VMQQ4mGuzIS1AUxu1MS | ALIB-02 residual closeout — Issue #86 DoD 照合と証拠固定の実装計画 | completed | [alib-02-residual-closeout.md](./alib-02-residual-closeout.md) |
 | PLAN-alib02-streaming-import | ALIB-02 実装計画 — Streaming Verified Import・SHA-256 識別子（synvelis-library slice） | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
 | PLAN-alib02-v5snap | ALIB-02 v5 snapshot asset-digest 互換移行 — 実装計画 | completed | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |

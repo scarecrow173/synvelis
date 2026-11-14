@@ -9,6 +9,7 @@ Directory: `docs/designs`
 | DESIGN-OVERVIEW | Synvelis 設計概要 | draft | [overview.md](./overview.md) |
 | DESIGN-AjvrOoTZDaCcUxKLXeoxA3 | AI-Native Hybrid DAW Baseline — Grant/Principal/Scope/Approval/ChangeSet・AI Off 既定・3 Mode 責務設計 (synvelis#44) | approved | [ai-native-baseline-design.md](./ai-native-baseline-design.md) |
 | DESIGN-pzR2GiO8Eru6Jw2zRK6l2s | ALIB-01 Design — Asset Provider 契約・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract-design.md](./alib-01-asset-provider-contract-design.md) |
+| DESIGN-034XCHS23zpAY0YcXEkGAP | ALIB-02 fault-injection followup — 残存 integrity/dirsync 拒否経路の専用 test 設計 | approved | [alib-02-fault-injection-followup.md](./alib-02-fault-injection-followup.md) |
 | DESIGN-034VMQIe8i9hOn2Tb317Ue | ALIB-02 residual closeout — 証拠照合と gate 分類の設計 | approved | [alib-02-residual-closeout-design.md](./alib-02-residual-closeout-design.md) |
 | DSN-alib02-streaming-import | ALIB-02 — Streaming Verified Import 設計（synvelis-library） | approved | [alib-02-streaming-verified-import-design.md](./alib-02-streaming-verified-import-design.md) |
 | DSN-alib02-v5snap | ALIB-02 — v5 snapshot asset-digest 互換移行 設計 | approved | [alib-02-v5-snapshot-compat-design.md](./alib-02-v5-snapshot-compat-design.md) |
@@ -161,6 +162,7 @@ Directory: `docs/designs`
 | DESIGN-034T2aGDbNinkumWeftaiP | SYN-IO-02 DirectoryBundleStore StagedFile 移行設計 | approved | [syn-io-02-directory-bundle-store-stagedfile-design.md](./syn-io-02-directory-bundle-store-stagedfile-design.md) |
 | DESIGN-034Tk3mXw7LpQ2vRnB8y | SYN-IO-02 HEAD CAS consumer-side mutex 設計 | approved | [syn-io-02-head-cas-design.md](./syn-io-02-head-cas-design.md) |
 | DESIGN-034WVJwLjBMYR3fBrNJD2M | SYN-IO-02 HEAD CAS 実 2-process E2E 検証 — design | approved | [syn-io-02-head-cas-e2e-design.md](./syn-io-02-head-cas-e2e-design.md) |
+| DESIGN-0948qgqpuG8j47FSJjhaHR | SYN-IO-02 Windows NTFS 実機 Case lane — design | approved | [syn-io-02-windows-real-fs.md](./syn-io-02-windows-real-fs.md) |
 | DESIGN-034RBzdpo91wcbqBK7Gb9t | SYN-OBS-01 Design — Host所有 Logging Owner・設定解決・Source Catalog | approved | [syn-obs-01-design-host-logging-owner-source-catalog.md](./syn-obs-01-design-host-logging-owner-source-catalog.md) |
 | DESIGN-034T2RF305WAVSTAGED00Y | SYN-RF305 WAV Export StagedFile 移行設計 | approved | [syn-rf305-wav-export-staged-file-design.md](./syn-rf305-wav-export-staged-file-design.md) |
 | — | Synvelis-driven Ruviform Target Architecture v0.7.1 | — | [synvelis-driven-ruviform-target-architecture-v07.md](./synvelis-driven-ruviform-target-architecture-v07.md) |

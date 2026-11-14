@@ -7,6 +7,7 @@ Directory: `docs/tasks`
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
 | TASK-JOX49mZJEhYDdYV7eCjq12 | AI-Native Hybrid DAW Baseline — Grant/Principal/Scope/Approval/ChangeSet・AI Off 既定・3 Mode 責務設計契約文書化 (synvelis#44) | in-progress | [ai-native-baseline-task.md](./ai-native-baseline-task.md) |
+| TASK-034XCIEQUzAmm8Nhw5iVPN | ALIB-02 fault-injection followup — integrity/dirsync 拒否経路の専用 test 実装と AC 照合 | completed | [alib-02-fault-injection-followup.md](./alib-02-fault-injection-followup.md) |
 | TASK-alib03-t1 | ALIB-03 Task 1 — cache/catalog/preview/notify modules・tests | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | TASK-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — タスク | completed | [alib-04-lfs-remote-fetch-task.md](./alib-04-lfs-remote-fetch-task.md) |
 | TASK-alib06-t1 | ALIB-06 Task 1 — webdav provider modules・fixture・tests | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
@@ -217,6 +218,7 @@ Directory: `docs/tasks`
 | TASK-034WVJP0tzo7lASwFwzkpG | SYN-IO-02 HEAD CAS 実 2-process E2E 検証 slice | done | [syn-io-02-head-cas-e2e-task.md](./syn-io-02-head-cas-e2e-task.md) |
 | TASK-034T2vRnB8yK3mXw7LpQ | SYN-IO-02 HEAD CAS store port 実装 | done | [syn-io-02-head-cas-task.md](./syn-io-02-head-cas-task.md) |
 | TASK-034T2c6ZLwPXf10mPcW2MC | SYN-IO-02 task1 store.rs StagedFile 移行 | done | [syn-io-02-task1-store-stagedfile-migration.md](./syn-io-02-task1-store-stagedfile-migration.md) |
+| TASK-6n3cvKDnkV96GBepu6YwTj | SYN-IO-02 Windows NTFS 実機 Case lane slice | done | [syn-io-02-windows-real-fs.md](./syn-io-02-windows-real-fs.md) |
 | TASK-034RBFUDGVewxs72FGa8RM | SYN-OBS-01 task1 依存更新と logging モジュール(設定解決/install/owner) | done | [syn-obs-01-task1-deps-logging-module.md](./syn-obs-01-task1-deps-logging-module.md) |
 | TASK-034RBFVsXUmxHPEa6zbZRx | SYN-OBS-01 task2 ObservabilityOwner Source catalog と syn.app.info logging セクション | done | [syn-obs-01-task2-owner-catalog-app-info.md](./syn-obs-01-task2-owner-catalog-app-info.md) |
 | TASK-034RBFW6PKUMmU8bg04whw | SYN-OBS-01 task3 service/app 非RT tracing イベント | done | [syn-obs-01-task3-tracing-events.md](./syn-obs-01-task3-tracing-events.md) |

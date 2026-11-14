@@ -141,6 +141,7 @@ Directory: `docs/specs`
 | SPEC-034WVJji6Ejtn5EnEV5RkC | SYN-IO-02 HEAD CAS 実 2-process E2E 検証と保証境界確定 (synvelis#330) | approved | [syn-io-02-head-cas-e2e.md](./syn-io-02-head-cas-e2e.md) |
 | SPEC-034T7fQpLmNvRwXk2jHs9 | SYN-IO-02 HEAD CAS expected-head store port | approved | [syn-io-02-head-cas.md](./syn-io-02-head-cas.md) |
 | SPEC-034T29C9D8CIvYjMxmQIy8 | SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行 | approved | [syn-io-02-snapshot-head-staged-publish.md](./syn-io-02-snapshot-head-staged-publish.md) |
+| SPEC-497QYMVthAP9s510aXzuVO | SYN-IO-02 Windows NTFS 実機 Case lane — synvelis#84 残件 slice | approved | [syn-io-02-windows-real-fs.md](./syn-io-02-windows-real-fs.md) |
 | SPEC-034RBvYIlw0wiBoGsL9EBY | SYN-OBS-01 Ruviform observability 単一crate Logging/Host統合 | proposed | [syn-obs-01-ruviform-observability-crate-logging-host.md](./syn-obs-01-ruviform-observability-crate-logging-host.md) |
 | SPEC-034T2RF305WAVSTAGED00X | SYN-RF305 WAV Export/Player StagedFile 移行 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
 | SPEC-l4FdiimUNULuodZsTBZq0k | Target Architecture — Synvelis↔Ruviform 共通契約・Production Dependency DAG・GUI 採用方針の設計レビュー契約（synvelis#22） | approved | [target-architecture.md](./target-architecture.md) |
