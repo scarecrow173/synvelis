@@ -59,6 +59,22 @@ pub enum Expr {
         #[serde(default)]
         path: Vec<String>,
     },
+    /// `$param.<name>` — an atomic-macro parameter reference
+    /// (AUTX-04). Meaningful only inside [`crate::AtomicMacroDefinition`]
+    /// step args/targets; the workflow [`crate::PlanCompiler`] rejects
+    /// it fail-closed.
+    Param {
+        /// Path segments into the parameter value (first segment is
+        /// the parameter name; v1 accepts the bare name only).
+        path: Vec<String>,
+    },
+    /// `$output.<name>` — a named atomic-macro output binding
+    /// reference (AUTX-04). Resolves to the stable id the bound step
+    /// creates; meaningful only inside macro definitions.
+    Output {
+        /// The output binding name.
+        name: String,
+    },
     /// An array of expressions (evaluated element-wise).
     Array {
         /// Element expressions.
@@ -98,6 +114,8 @@ impl Expr {
             }
             Self::Item { path } if path.is_empty() => Some("$item".to_owned()),
             Self::Item { path } => Some(format!("$item.{}", path.join("."))),
+            Self::Param { path } => Some(format!("$param.{}", path.join("."))),
+            Self::Output { name } => Some(format!("$output.{name}")),
             _ => None,
         }
     }

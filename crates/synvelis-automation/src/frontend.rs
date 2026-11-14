@@ -18,6 +18,7 @@ use serde_json::{Map, Value};
 
 use crate::definition::WorkflowDefinition;
 use crate::error::AutomationError;
+use crate::macros::AtomicMacroDefinition;
 use crate::registry::RegistrySnapshot;
 use crate::yaml::{self, YamlValue};
 
@@ -79,6 +80,39 @@ pub fn parse_registry_snapshot_yaml(source: &str) -> Result<RegistrySnapshot, Au
         reason: e.reason,
     })?;
     decode_registry_snapshot(yaml_to_json(&yaml)?)
+}
+
+/// Parses an atomic macro definition from the YAML safe subset —
+/// the same parser/budgets as workflow sources, with the ergonomic
+/// `$`-reference surface extended by `$param.`/`$output.`.
+///
+/// # Errors
+/// Same shape as [`parse_workflow_yaml`] / [`decode_macro_definition`].
+pub fn parse_macro_yaml(source: &str) -> Result<AtomicMacroDefinition, AutomationError> {
+    let yaml = yaml::parse(source).map_err(|e| AutomationError::Yaml {
+        line: e.line,
+        reason: e.reason,
+    })?;
+    let raw = yaml_to_json(&yaml)?;
+    let lowered = lower_macro_definition(&raw)?;
+    decode_macro_definition(lowered)
+}
+
+/// Decodes an [`AtomicMacroDefinition`] from its canonical JSON form
+/// (tagged `expr` forms — `$param.`/`$output.` included).
+///
+/// # Errors
+/// [`AutomationError::UnsupportedDefinitionVersion`] for `schema_version
+/// != 1`, [`AutomationError::Json`] on decode failure (including unknown
+/// fields — authority fields cannot be expressed),
+/// [`AutomationError::Definition`] on semantic validation.
+pub fn decode_macro_definition(value: Value) -> Result<AtomicMacroDefinition, AutomationError> {
+    let def: AtomicMacroDefinition =
+        serde_json::from_value(value).map_err(|e| AutomationError::Json {
+            reason: e.to_string(),
+        })?;
+    def.validate()?;
+    Ok(def)
 }
 
 // ---------------------------------------------------------------------------
@@ -145,16 +179,7 @@ fn lower_step(step: &Value) -> Result<Value, AutomationError> {
     let mut out = map.clone();
     let kind = out.get("kind").and_then(Value::as_str).unwrap_or("");
     match kind {
-        "query" | "invoke" | "async-submit" | "atomic-macro" => {
-            if let Some(args) = out.get("args") {
-                let lowered = lower_expr(args)?;
-                out.insert("args".to_owned(), lowered);
-            }
-            if let Some(target) = out.get("target") {
-                let lowered = lower_expr(target)?;
-                out.insert("target".to_owned(), lowered);
-            }
-        }
+        "query" | "invoke" | "async-submit" | "atomic-macro" => lower_step_exprs(&mut out)?,
         "await-job" => {
             if let Some(job) = out.get("job") {
                 let lowered = lower_expr(job)?;
@@ -194,6 +219,46 @@ fn lower_step(step: &Value) -> Result<Value, AutomationError> {
         }
         _ => {}
     }
+    Ok(Value::Object(out))
+}
+
+/// Lowers `args`/`target` expression positions inside a step object.
+fn lower_step_exprs(out: &mut Map<String, Value>) -> Result<(), AutomationError> {
+    for key in ["args", "target"] {
+        if let Some(expr) = out.get(key) {
+            let lowered = lower_expr(expr)?;
+            out.insert(key.to_owned(), lowered);
+        }
+    }
+    Ok(())
+}
+
+/// Rewrites expression positions inside a raw definition JSON tree
+/// into tagged `expr`/`op` form. Everything else passes through
+/// untouched (serde then enforces the strict schema).
+fn lower_macro_definition(raw: &Value) -> Result<Value, AutomationError> {
+    let Value::Object(map) = raw else {
+        return Ok(raw.clone());
+    };
+    let mut out = map.clone();
+    if let Some(Value::Array(steps)) = out.get("steps") {
+        let lowered = steps
+            .iter()
+            .map(lower_macro_step)
+            .collect::<Result<Vec<_>, _>>()?;
+        out.insert("steps".to_owned(), Value::Array(lowered));
+    }
+    Ok(Value::Object(out))
+}
+
+/// Lowers one raw macro step — `{id, capability, args?, target?}` with
+/// no `kind` tag — rewriting `args`/`target` expression positions.
+fn lower_macro_step(step: &Value) -> Result<Value, AutomationError> {
+    let Value::Object(map) = step else {
+        return Ok(step.clone());
+    };
+    let mut out = map.clone();
+    lower_step_exprs(&mut out)?;
     Ok(Value::Object(out))
 }
 
@@ -273,8 +338,9 @@ fn expr_literal(value: &Value) -> Value {
 /// Parses a `$`-reference string into tagged expr form.
 ///
 /// Grammar: `$input.<name>[.<field>...]`, `$steps.<step>[.<field>...]`,
-/// `$item[.<field>...]`. Anything else starting with `$` is rejected —
-/// `$` is reserved for references.
+/// `$item[.<field>...]`, plus the atomic-macro forms `$param.<name>`
+/// and `$output.<name>` (AUTX-04). Anything else starting with `$` is
+/// rejected — `$` is reserved for references.
 fn lower_reference(text: &str) -> Result<Value, AutomationError> {
     let body = &text[1..];
     let segs: Vec<&str> = body.split('.').collect();
@@ -305,6 +371,19 @@ fn lower_reference(text: &str) -> Result<Value, AutomationError> {
             "expr": "item",
             "path": strings(rest),
         })),
+        "param" => Ok(serde_json::json!({
+            "expr": "param",
+            "path": strings(rest),
+        })),
+        "output" => {
+            let [name] = rest else {
+                return Err(def_err(format!("malformed reference '{text}'")));
+            };
+            Ok(serde_json::json!({
+                "expr": "output",
+                "name": name,
+            }))
+        }
         _ => Err(def_err(format!("unknown reference '{text}'"))),
     }
 }
