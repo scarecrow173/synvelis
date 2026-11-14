@@ -84,6 +84,18 @@ run = "cargo clippy -p synvelis-recording --all-targets --locked --features real
 description = "Run the opt-in real-FS durability probe for RCD-02 (real FS; not in CI)"
 run = "cargo test -p recording-poc --locked --test real_fs_probe -- --ignored --test-threads=1"
 
+# SYN-IO-02 / synvelis#84 opt-in real-FS lane（CI 対象外・実 FS 実測）。
+# synvelis-project tests/real_fs_probe.rs の #[ignore] test のみを実行し、
+# 実 Windows FS 上の Snapshot CreateNew→HEAD CAS publish を実 OS
+# process kill で中断して reopen/Recovery を検証する。真の
+# power-loss・Indeterminate誘発は非破壊的に自動化不能のため
+# NotRun のまま残す。bundle volume は SYNVELIS_REALFS_ROOT で
+# 固定可能（既定 temp dir）。
+[tasks.test-project-real-fs]
+description = "Run the opt-in real-FS crash/recovery lane for SYN-IO-02 (real FS; not in CI)"
+# --nocapture: CASE=SV84-REAL-* の観測行を証拠転記用に stdout へ出す。
+run = "cargo test -p synvelis-project --locked --test real_fs_probe -- --ignored --test-threads=1 --nocapture"
+
 [tasks.lint-actions]
 description = "Lint GitHub Actions workflow files with actionlint"
 run = "actionlint"
