@@ -134,8 +134,10 @@ pub struct ClipEntry {
 
 /// `StreamEntry.digest` の用途区分。CRC32 fold（journal/PCM 整合の
 /// integrity 値・非暗号学的）と content digest（canonical blob・
-/// #86 で検証済み SHA-256 系へ置換予定）を型で分離する。
-/// いずれも #86 の Blob Identity 確定までは暫定 scheme。
+/// #86 の SHA-256 content address `"sha256:<64hex>"`、昇格前の
+/// receipt では legacy CRC32 fold hex16）を型で分離する。
+/// `ContentDigest` の値形式は receipt の `digest` が正本で、
+/// scheme 名は用途区分のみを表す。
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DigestScheme {
@@ -173,8 +175,9 @@ pub struct StreamEntry {
     pub source_id: String,
     /// PCM 形式識別子。
     pub pcm_format: String,
-    /// media 内容 digest（hex・asset/source の `content_digest` と同一）。
-    /// canonical publication 済み stream では canonical blob の digest。
+    /// media 内容 digest（asset/source の `content_digest` と同一）。
+    /// canonical publication 済み stream では canonical receipt の
+    /// digest（新規は `sha256:<64hex>`、旧 receipt は legacy hex16）。
     pub digest: String,
     /// canonical 化前の raw media fold digest（canonical receipt 採用時
     /// のみ `Some`・raw media への provenance）。

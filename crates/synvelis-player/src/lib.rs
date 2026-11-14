@@ -86,7 +86,10 @@ pub use process_boundary::{
     TimingPrecision,
 };
 pub use processor::{ClipPlayer, PlaybackStats};
-pub use publish::{PublishError, PublishReport, PublishedStream, SkippedStream, publish_recorded};
+pub use publish::{
+    PublishError, PublishReport, PublishedStream, SkippedStream, publish_recorded,
+    publish_recorded_with,
+};
 pub use resolver::PreparedClip;
 pub use routing_control::{
     ControlDispatchError, FastControlBlock, FastControlBlockKind, FastControlOutcome,
