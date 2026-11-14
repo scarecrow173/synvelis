@@ -23,6 +23,7 @@ Directory: `docs/specs`
 | SPEC-3Vlcu2H26v4t56Rs4ycO7z | Context Inspector — 情報階層・Follow/Explore/Pinned・Selection/Linked Context・Probe 連携の設計定義（synvelis#5） | approved | [context-inspector.md](./context-inspector.md) |
 | SPEC-034CTL01Ow9uXr5zA1bC2dEf | CTL-01 ControlOwner / AutomationTimeScope 責務分離・Bus/Strip/Send 型付き Schema 移行 | approved | [ctl-01-control-owner-automation-time-scope-typed-schema.md](./ctl-01-control-owner-automation-time-scope-typed-schema.md) |
 | SPEC-xA6Rt9SOy2hTBVmns3bmV4 | CTL-02 adoption 経路の非 canonical SendLevel persisted 化抑止 | approved | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
+| SPEC-034X9D5Y5qj1ea9V1VLeHF | 標準 DAW 制作ワークフローと Track/Clip/録音/編集の共通操作体系 (Issue #8) | approved | [daw-workflow.md](./daw-workflow.md) |
 | SPEC-034QAlF2irl9rIJaUi9RQ1 | ED-A Editing Model — Selection/Tool/Snap/Transaction/LinkedContext headless PoC | approved | [ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md](./ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md) |
 | SPEC-034QMZiCjhKFlSgoIw9YaX | ED-B media-domain move + slip commit semantics (workspace editing PoC) | approved | [ed-b-media-domain-move-slip-commit-semantics.md](./ed-b-media-domain-move-slip-commit-semantics.md) |
 | SPEC-034X83uiIsH0n6OuQGcU1T | Execution Plan — RCP-00〜07/F01・F0/E2E-L/R/X・Signal Flow/Automation/GUI 横断単一 DAG・Owner/Gate/Acceptance Matrix | approved | [execution-plan.md](./execution-plan.md) |

@@ -23,6 +23,7 @@ Directory: `docs/plans`
 | PLAN-0KH6KhO6yo49yc5HP6kMSN | Context Inspector 設計定義 実施計画 — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5） | approved | [context-inspector-plan.md](./context-inspector-plan.md) |
 | PLAN-034CTL01Rz2xAu8bD4eF5gHi | CTL-01 ControlOwner/AutomationTimeScope 実装計画 | approved | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
 | PLAN-3o92uvIdnyfhflikf7TlYQ | CTL-02 adoption SendLevel canonical spec 強制 実装計画 | approved | [ctl-02-adopt-sendlevel-plan.md](./ctl-02-adopt-sendlevel-plan.md) |
+| PLAN-034X9KLNXdoJS7xcxSSn1n | 標準 DAW 制作ワークフロー UX 正本化（Issue #8 文書チェーン） | approved | [daw-workflow-plan.md](./daw-workflow-plan.md) |
 | PLAN-034QN1oz8zutDLafJy6oDg | ED-B media-domain editing PoC 実装計画 | approved | [ed-b-media-domain-editing.md](./ed-b-media-domain-editing.md) |
 | PLAN-034X841J2QRrgpxCPlRiKb | Execution Plan Plan — docs chain + sv23 evidence ledger | in-progress | [execution-plan.md](./execution-plan.md) |
 | PLAN-034UqTzD6N7R0o468wXtrQ | Implement SV-GUI-04 slice2 dock transfer workspace adoption | approved | [implement-sv-gui-04-slice2-dock-transfer-workspace-adoption.md](./implement-sv-gui-04-slice2-dock-transfer-workspace-adoption.md) |
