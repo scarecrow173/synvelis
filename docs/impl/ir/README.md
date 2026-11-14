@@ -93,6 +93,7 @@ Directory: `docs/impl/ir`
 | IMPL-OABQ94C9ziv3kEtnGM5cHa | PC-C5 UI-C5-01 Relation Index の Inspector 投影 headless slice | completed | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | IMPL-034UyQi9tCjjAPwfMy7pSX | PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice） | completed | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | IMPL-034WaR006rHzCRQpPMb9CP | PC-C5 UI-C5-04 Recording status read model（headless slice） | completed | [pc-c5-04-recording-status.md](./pc-c5-04-recording-status.md) |
+| IMPL-034Xbn2n8xBopZHuY8g53Y | PC-C6 acceptance ledger | completed | [pc-c6-acceptance-ledger.md](./pc-c6-acceptance-ledger.md) |
 | IMPL-034Ut8egNEzslbJ5OXxdeK | PC-C6 oracle REL/TR headless fixture 実装記録 | completed | [pc-c6-oracle-rel-tr-headless-fixture.md](./pc-c6-oracle-rel-tr-headless-fixture.md) |
 | IMPL-034VntRmtjh1jy2mJ1rPum | PC-C6 oracle R/PL/UI/COMP headless fixture 実装記録 | completed | [pc-c6-oracle-rows-slice.md](./pc-c6-oracle-rows-slice.md) |
 | IMPL-034W5m2YJNbKaaqcO5j3m5 | PC-C6 TR ledger oracle 実装記録 | completed | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
