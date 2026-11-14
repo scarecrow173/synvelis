@@ -6,6 +6,7 @@ Directory: `docs/tasks`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| TASK-JOX49mZJEhYDdYV7eCjq12 | AI-Native Hybrid DAW Baseline — Grant/Principal/Scope/Approval/ChangeSet・AI Off 既定・3 Mode 責務設計契約文書化 (synvelis#44) | in-progress | [ai-native-baseline-task.md](./ai-native-baseline-task.md) |
 | TASK-alib03-t1 | ALIB-03 Task 1 — cache/catalog/preview/notify modules・tests | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | TASK-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — タスク | completed | [alib-04-lfs-remote-fetch-task.md](./alib-04-lfs-remote-fetch-task.md) |
 | TASK-alib06-t1 | ALIB-06 Task 1 — webdav provider modules・fixture・tests | in-progress | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
@@ -14,15 +15,21 @@ Directory: `docs/tasks`
 | TASK-034U2vruJGfkEYZHCqNfwE | canonical temp fixture による synvelis-library symlink テスト修正 | in-progress | [canonical-temp-fixture-synvelis-library-symlink.md](./canonical-temp-fixture-synvelis-library-symlink.md) |
 | TASK-TIQabGiCahibaHUj3amJz5 | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 実施タスク | in-progress | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | TASK-034Rp08nCxirezDOCQ9l0Z | CI 検証・証跡・最終レビュー | in-progress | [ci-task3-verify-review.md](./ci-task3-verify-review.md) |
+| TASK-034X8sLyrKt55RXlxUdD4N | Capability / Command Gateway 設計契約タスク (synvelis#45) | in-progress | [command-gateway-task.md](./command-gateway-task.md) |
+| TASK-034X84fclPRNdTgHrtrDka | Execution Plan Task — Issue #23 横断 DAG・Owner/Gate matrix・sv23 evidence | in-progress | [execution-plan-task.md](./execution-plan-task.md) |
 | TASK-HpVlbSyIgBaWAyYMVxHYLp | Issue #145 T1 ci.yml pull_request/push trigger 撤去 + 契約 test 転換 + PR 起動ゼロ実測 | in-progress | [issue-145-t1-ci-manual-only.md](./issue-145-t1-ci-manual-only.md) |
 | TASK-034SVCIOPT02zA1sDfGh | Issue #148 T1 impact classifier + fail-closed evidence gate 実装 | in-progress | [issue-148-t1-impact-gate.md](./issue-148-t1-impact-gate.md) |
 | TASK-034RUl0VioQz9IinY5Qc7G | Issue #157 rev.3 T1 matrix placeholder gate 修正 | in-progress | [issue-157-t1-matrix-placeholder-gate.md](./issue-157-t1-matrix-placeholder-gate.md) |
 | TASK-034SYN166T1CiSumX | Issue #166 T1 Full CI 化・ci-summary 統一 — 第一段階実装 | in-progress | [issue-166-t1-ci-summary-stage1.md](./issue-166-t1-ci-summary-stage1.md) |
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
+| TASK-mr20261114mediaRenderB | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 設計契約文書化 (synvelis#21) | in-progress | [media-render-task.md](./media-render-task.md) |
 | TASK-P1ub1PJgLQhinQuEDIDy8S | PC-C3 task2 — synvelis-player RT trace adapter 実装（TRACE-C3-05） | in-progress | [pc-c3-task2-rt-trace-adapter.md](./pc-c3-task2-rt-trace-adapter.md) |
 | TASK-gH5lLpWnYI2KFNM99SswOf | PC-C4-02 task1 — plugin instance binding 実装 | in-progress | [pc-c4-02-task1-plugin-instance-binding.md](./pc-c4-02-task1-plugin-instance-binding.md) |
+| TASK-heuaegDgtyVrPGdnyMJko1 | PC-C4 plugin binding task1 — persisted instance authority の bind 照合 | in-progress | [pc-c4-plugin-binding-task.md](./pc-c4-plugin-binding-task.md) |
 | TASK-wl7Q7EP5HpNVOP8NAdEB7a | PC-C6: REL01〜07 / TR01〜08 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rel-tr.md](./pc-c6-task1-oracle-rel-tr.md) |
 | TASK-034VmVPWtNFIg5zO3xaDsP | PC-C6: R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rows.md](./pc-c6-task1-oracle-rows.md) |
+| TASK-034X6XdaPIa6eFgvfVs5QC | Playback Graph Task — Issue #18 design contract + EX evidence ledger | in-progress | [playback-graph-task.md](./playback-graph-task.md) |
+| TASK-034X6iTAb53abA44E2sAPp | Project Model Task — Issue #10 design contract + headless verification | in-progress | [project-model-task.md](./project-model-task.md) |
 | TASK-034V2kE9l91elvsqfnsx5s | RCD-01 device-recording headless fixture | in_progress | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | TASK-034W91vSDozzYDSG2XM7je | RCD-01 実機 capture coverage 拡張 task | completed | [rcd-01-real-input-coverage-task.md](./rcd-01-real-input-coverage-task.md) |
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
@@ -34,6 +41,7 @@ Directory: `docs/tasks`
 | TASK-034WEVr538punRWOxqkfaf | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice | in-progress | [rcd-04-task-midi-undo-stableid.md](./rcd-04-task-midi-undo-stableid.md) |
 | TASK-034VC2K5DEZwdj418Clksb | RCD-04 Task RT engine comp PCM | in-progress | [rcd-04-task-rt-engine-comp-pcm.md](./rcd-04-task-rt-engine-comp-pcm.md) |
 | TASK-034VmO0u2fPRBj8uO9cGkk | RCD-04 Task1 product E2E | in-progress | [rcd-04-task1-product-e2e.md](./rcd-04-task1-product-e2e.md) |
+| TASK-fQ5GG20T5UOhj5Xy7za6XD | Recording / Take / Comping — 文書チェーン・受入 Owner Matrix タスク（synvelis#12） | in-progress | [recording-take-comping-task.md](./recording-take-comping-task.md) |
 | TASK-106SF03Tz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T1 — RoutingFault 18分類・engine 改修・reconcile 実装 | in-progress | [sf-03-slice2-fault-contract.md](./sf-03-slice2-fault-contract.md) |
 | TASK-106SF03Uz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T2 — 受入テスト sf03_l2.rs・検証 | in-progress | [sf-03-slice2-reconcile-tests.md](./sf-03-slice2-reconcile-tests.md) |
 | TASK-S4P772tAsxug74Ku5MA5AI | SF-04 probe adapter — Issue #107 SF-PROBE-01..08 受入集約 実装タスク | in-progress | [sf-04-probe-adapter-task.md](./sf-04-probe-adapter-task.md) |
@@ -55,6 +63,7 @@ Directory: `docs/tasks`
 | TASK-NFJWSkocsf8xf7WcgpPdL0 | SV-GUI-04 slice1 タスク分解 — 実 2-window mount | in-progress | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | TASK-ibJUI1kRs2FdkuegWR0Ln7 | TIM-01 PPQN config — punch marks 再投影と受入残件検証タスク | in-progress | [tim-01-ppqn-config-task.md](./tim-01-ppqn-config-task.md) |
+| TASK-034X7xdqyxRcd5A5TSwmzT | Transport Integration Task — Issue #20 design contract + TT evidence ledger | in-progress | [transport-integration-task.md](./transport-integration-task.md) |
 | TASK-034UAAcPSS47j6GIlPGPrX | VCS-01 Task1 Immutable Snapshot Resolver headless slice | in-progress | [vcs-01-task1-immutable-snapshot-resolver-headless-slice.md](./vcs-01-task1-immutable-snapshot-resolver-headless-slice.md) |
 | TASK-vcs06-fixture-fault-matrix | VCS-06 fixture-level fault matrix + evidence ledger | in-progress | [vcs-06-fixture-fault-matrix.md](./vcs-06-fixture-fault-matrix.md) |
 | TASK-034QfQY88NrDeir6YJ5IjM | VS-C task1 crc32 journal codec | todo | [vs-c-task1-crc32-journal-codec.md](./vs-c-task1-crc32-journal-codec.md) |
@@ -63,6 +72,8 @@ Directory: `docs/tasks`
 | TASK-034QfR0eLqVxiQlwHq30L3 | VS-C task4 recovery scanner | todo | [vs-c-task4-recovery-scanner.md](./vs-c-task4-recovery-scanner.md) |
 | TASK-034QfR0WeQaYFoG1702td0 | VS-C task5 poc acceptance tests | todo | [vs-c-task5-poc-acceptance-tests.md](./vs-c-task5-poc-acceptance-tests.md) |
 | TASK-034QfR1ESUtmNef7DRyTyz | VS-C task6 verification impl record | todo | [vs-c-task6-verification-impl-record.md](./vs-c-task6-verification-impl-record.md) |
+| TASK-034X53taZcU5UQQfAN0qS5 | Workspace Model Task — Issue #2 design + headless verification | in-progress | [workspace-model-task.md](./workspace-model-task.md) |
+| TASK-034X3SQ8cOyUYvh20KEekf | Workspace UX 操作仕様の正本化（Issue #3 文書チェーン実施） | in-progress | [workspace-ux-scenarios-task.md](./workspace-ux-scenarios-task.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
 
@@ -82,9 +93,11 @@ Directory: `docs/tasks`
 | TASK-alib07-import-cancel | ALIB-07 slice 2 Task 1 — cancel checkpoint・fault case・crash fixture・matrix 簿記 | done | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | TASK-034AUT02Gt6kHr4nWy8sBp3x | AUT-02 task1: 境界 anchor 実装 + op 適用 + property/exact fixture テスト | done | [aut-02-task1-region-replace-boundary.md](./aut-02-task1-region-replace-boundary.md) |
 | TASK-034AUT03Pq9rWx3nVm7sJk2d | AUT-03 task1: Write Range 閉鎖・境界 flush・明示 Rearm 実装 + headless テスト | done | [aut-03-task1-loop-write-one-pass.md](./aut-03-task1-loop-write-one-pass.md) |
+| TASK-1DDemfS68i5F8Lkla2LRN9 | Automation / Modulation 統合 Parameter Control — 設計文書チェーン作成（synvelis#6） | done | [automation-modulation-task.md](./automation-modulation-task.md) |
 | TASK-034VmiXNgZm3ucj1WcbTT9 | rt_cache 計測対象インスタンスの warm-up 修正 | done | [ci-245-task1-macos-alloc-flake.md](./ci-245-task1-macos-alloc-flake.md) |
 | TASK-034Rp06VWlp4iyjC6X8NzA | mise 基盤: test-rt タスク・actionlint tool・lint-actions タスク追加 | done | [ci-task1-mise-tasks.md](./ci-task1-mise-tasks.md) |
 | TASK-034Rp07EGtrO1nUIIjiLh8 | ci.yml + dep-access composite action 実装 | done | [ci-task2-workflow.md](./ci-task2-workflow.md) |
+| TASK-6gOTxmdtactknQD5p2jwe8 | Context Inspector 設計定義タスク — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5） | done | [context-inspector-task.md](./context-inspector-task.md) |
 | TASK-034CTL01Sa3yBv9cE5fG6hIj | CTL-01: ControlOwner/AutomationTimeScope/ParameterRole 型・oracle・Schema v7 Migration・ops・検証 | done | [ctl-01-task1-owner-time-scope-schema-migration.md](./ctl-01-task1-owner-time-scope-schema-migration.md) |
 | TASK-6bPp4B6e9YSSWgScL0msLl | CTL-02: adoption 経路の非 canonical SendLevel 抑止タスク | done | [ctl-02-adopt-sendlevel-task.md](./ctl-02-adopt-sendlevel-task.md) |
 | TASK-034QAtPmN1oYgkip3TL6wG | ED-A task1 ProjectOp batch ops + selection model + ViewState 移行 | done | [ed-a-task1-selection-model-project-ops.md](./ed-a-task1-selection-model-project-ops.md) |
@@ -114,6 +127,7 @@ Directory: `docs/tasks`
 | TASK-HVCTNeUo2kXQN0NvHCUa6K | MD-A task2 Comp スキーマ (ID/registry/POD) + CompOp + 検証 | done | [mda-task2-comp-schema-ops.md](./mda-task2-comp-schema-ops.md) |
 | TASK-jlbvNYC9NvQW1NsWa4wo4K | MD-A task3 Effective Comp 投影 + editor target 型 | done | [mda-task3-effective-comp-projection-editor-targets.md](./mda-task3-effective-comp-projection-editor-targets.md) |
 | TASK-2s64FRQrl31k3APXwajsNF | MD-A task4 MD-A-* 受入テスト + 全検証 + impl record | done | [mda-task4-acceptance-tests-verification.md](./mda-task4-acceptance-tests-verification.md) |
+| TASK-rlRe32Ahahq9E7GRDaytrp | Musical Time — 設計契約文書チェーン実装タスク（synvelis#19） | done | [musical-time-task.md](./musical-time-task.md) |
 | TASK-034PCA05Ql0zTu6aCdQeFg | PC-A task1 ruviform-plugin-core dep + control model + Project::control + schema 2 | done | [pc-a-task1-control-model-deps.md](./pc-a-task1-control-model-deps.md) |
 | TASK-034PCA06Rm1aUv7bDeRfGh | PC-A task2 control ProjectOp + conflict detection | done | [pc-a-task2-control-ops-conflicts.md](./pc-a-task2-control-ops-conflicts.md) |
 | TASK-034PCA07Sn2bVw8cEfSgHi | PC-A task3 eval + control graph + capability/dispatch | done | [pc-a-task3-eval-graph-dispatch.md](./pc-a-task3-eval-graph-dispatch.md) |
@@ -137,6 +151,8 @@ Directory: `docs/tasks`
 | TASK-034W1XvJrhZ2i1eRhcbxkP | PC-C6: TR01/03/04/05/07/08 dispatch ledger 実経路 oracle 結合タスク | done | [pc-c6-tr-ledger-oracle-task.md](./pc-c6-tr-ledger-oracle-task.md) |
 | TASK-034WxmIMFAnvLuxIgBXqMT | PC-C6: TR02/TR06 dispatch ledger 実経路 oracle 再証拠化タスク | done | [pc-c6-tr02-tr06-realpath-oracle-task.md](./pc-c6-tr02-tr06-realpath-oracle-task.md) |
 | TASK-034VNs3KBar3pyoUwECyIh | plugin_instances VCS semantic diff 分類 | done | [plugin-instances-vcs-diff-task.md](./plugin-instances-vcs-diff-task.md) |
+| TASK-034X3k0wEnZD3OtrbVBneg | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画タスク | done | [product-value-core-task.md](./product-value-core-task.md) |
+| TASK-034X6NYGLBArth4EII4yl9 | Project / Asset / Persistence — 設計契約文書チェーン実装タスク（synvelis#17） | done | [project-persistence-task.md](./project-persistence-task.md) |
 | TASK-2Ri1ehmSIXwfHO79pHYSiU | RCD-02 Task Unsynced-Write Loss Fixture + Real-FS Probe | done | [rcd-02-task-unsynced-loss-real-fs-probe.md](./rcd-02-task-unsynced-loss-real-fs-probe.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | done | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
 | TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |
@@ -167,6 +183,7 @@ Directory: `docs/tasks`
 | TASK-034UudL7KhVSvQn5M5gy5n | SF-05 slice1 タスク分解 — Signal Flow headless | done | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | TASK-hB3uTuJhPxgOVjGdWdSOVj | SF-05 slice2 タスク分解 — Signal Flow gesture/inspection/persist | done | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | TASK-034V2wJc28eBSJp9D68CuX | SF-06 headless — sf06_oracle.rs Domain Oracle + fault fixture + ledger | done | [sf-06-cross-gate-oracle-headless.md](./sf-06-cross-gate-oracle-headless.md) |
+| TASK-034X5Fyit9UxommAteCHe0 | Issue #84 StagedFile Migration — 証拠統合・受入検証 slice | done | [stagedfile-migration-task.md](./stagedfile-migration-task.md) |
 | TASK-G5fq0gTQhuqohY3rd5he3w | webdav MockServer accept 済みソケットの blocking 正規化 + 回帰 test | done | [sv-ci-webdav-transient-io-flake.md](./sv-ci-webdav-transient-io-flake.md) |
 | TASK-MlLPS12iG90WZhRs4S9pub | SV-GUI-01 task1 synvelis-app crate skeleton・Composition Root・AppService | done | [sv-gui-01-task1-app-crate-composition-root.md](./sv-gui-01-task1-app-crate-composition-root.md) |
 | TASK-jLkK7lARWtOgmAI02PaXQ5 | SV-GUI-01 task2 headless service op・asset check テスト | done | [sv-gui-01-task2-headless-service-asset-tests.md](./sv-gui-01-task2-headless-service-asset-tests.md) |
@@ -198,6 +215,7 @@ Directory: `docs/tasks`
 | TASK-034RBFXktNsZRlOztedppD | SYN-OBS-01 task5 logging テスト新設と mise 検証 | done | [syn-obs-01-task5-tests-verification.md](./syn-obs-01-task5-tests-verification.md) |
 | TASK-034RBFY3O4vz81b0Rumg95 | SYN-OBS-01 task6 最終検証と impl record | done | [syn-obs-01-task6-final-verify-impl-record.md](./syn-obs-01-task6-final-verify-impl-record.md) |
 | TASK-034T2RF305WAVSTAGED01A | SYN-RF305 task1 render/player WAV Export StagedFile 移行 | done | [syn-rf305-task1-render-export-staged-file.md](./syn-rf305-task1-render-export-staged-file.md) |
+| TASK-5HWsXY7AMzlpvzSSGuZTx6 | Target Architecture 設計レビュータスク — TA-001〜012 + GUI 方針の docs chain・evidence 台帳 | done | [target-architecture-task.md](./target-architecture-task.md) |
 | TASK-034UHVQgQGF9WnpLCSCDTB | TIM-01 configurable PPQN — implementation tasks | done | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | TASK-2pOiUyTrEwQaSdFgHjKl | TIM-01 — PPQN Preview op + New Project PPQN | done | [tim-01-ppqn-preview-task.md](./tim-01-ppqn-preview-task.md) |
 | TASK-TiM01uIxYzAbCdEfGh4 | TIM-01 — PPQN 選択 UI read model + Snap/Grid ポリシー | done | [tim-01-ppqn-ui-task.md](./tim-01-ppqn-ui-task.md) |
@@ -210,6 +228,8 @@ Directory: `docs/tasks`
 | TASK-034UyED9PUv2ECvzH9A3RX | TIM-03 task1 — process boundary/capability/degraded policy 実装 | done | [tim03-task1-process-boundary.md](./tim03-task1-process-boundary.md) |
 | TASK-034V1qQsacdOwJ7UiGFCAW | TIM-03 task2 — capability→AttachConfig attach 配線（composition root） | done | [tim03-task2-attach-wiring.md](./tim03-task2-attach-wiring.md) |
 | TASK-034gOTXfiNaCeDRTpeP2x | TIM-03 task3 — per-request plan wiring + precision provenance（ProcessBoundarySession） | done | [tim03-task3-request-plan.md](./tim03-task3-request-plan.md) |
+| TASK-Nw48LwleZYov2jWLb0O7Vg | Timeline Editing / Selection / Tool System — 設計文書チェーン作成（synvelis#11） | done | [timeline-editing-task.md](./timeline-editing-task.md) |
+| TASK-102UiCfInt004DdEeFfGgH | UI-C5 製品 GUI 統合タスク — syn.control.relation / syn.control.edge / syn.recording.* | done | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | TASK-034UEtaHWZFrCd1VFAIRfl | VCS-02 Task1 Semantic Diff Engine headless slice | done | [vcs-02-task1-semantic-diff-engine-headless-slice.md](./vcs-02-task1-semantic-diff-engine-headless-slice.md) |
 | TASK-v2hQAN1hrbnURHHF2lrf6L | VCS-03 Task1 Git Read Provider headless slice | done | [vcs-03-task1-git-read-provider-headless-slice.md](./vcs-03-task1-git-read-provider-headless-slice.md) |
 | TASK-QDa6_9HNOZ3w0cse6y4ih | GitVcsProvider rev-parse --quiet 除去による unborn HEAD 誤分類修正 + 回帰 test | done | [vcs-03-unborn-head-classification-task.md](./vcs-03-unborn-head-classification-task.md) |

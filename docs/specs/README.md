@@ -6,6 +6,7 @@ Directory: `docs/specs`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| SPEC-xzgW9NkNQVvC0xmEChXHi6 | AI-Native Hybrid DAW Baseline — Intentional Usage・Rights・Shared Project・Agent Direction 設計契約 (synvelis#44) | approved | [ai-native-baseline.md](./ai-native-baseline.md) |
 | SPEC-j8VrtHRiA60WGx27NKFnH4 | ALIB-01 — Asset Provider 型付き契約・Registry・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract.md](./alib-01-asset-provider-contract.md) |
 | SPEC-alib03-catalog-preview-cache | ALIB-03 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | approved | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | SPEC-alib04-git-remote-provider | ALIB-04 — Git Remote Provider（fixed Commit/Tree・Git LFS・selective fetch・auth）（synvelis-library slice） | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
@@ -14,13 +15,17 @@ Directory: `docs/specs`
 | SPEC-034AUT01T7xRw4mNcQ8pZbV2 | AUT-01 Automation Mode 境界 State — Read/Touch/Latch/Write・Touch Return 150ms Smoothstep | approved | [aut-01-automation-mode-boundary-touch-return-writer-state.md](./aut-01-automation-mode-boundary-touch-return-writer-state.md) |
 | SPEC-034AUT03AW1Qq4l4VCpTSK | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・明示 Rearm | approved | [aut-03-loop-write-one-pass-write-range-rearm.md](./aut-03-loop-write-one-pass-write-range-rearm.md) |
 | SPEC-034AUT04VJToXbqZEgrP85 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
+| SPEC-2i1xSQAXTQNZIpUBQGPt15 | Automation / Modulation 統合 Parameter Control — 製品 UX・設計仕様と受入 Fixture・設計文書チェーン（synvelis#6） | approved | [automation-modulation.md](./automation-modulation.md) |
 | SPEC-034VmfUEU36QwKnlrMNd8G | Issue #245 verify-macos rt_cache alloc 計測 flake — 計測対象インスタンスの warm-up | proposed | [ci-245-macos-alloc-flake.md](./ci-245-macos-alloc-flake.md) |
 | SPEC-npBYC7xiQlFDeYeTKsJdUk | Issue #377 synvelis-native / gpui-test Feature の 3OS CI OS-L1 受入補完 | proposed | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | SPEC-034RoWOUkW5OezJQSLBWKd | Synvelis 独立 PR/Push CI — Workspace/RT/Recording/Gateway 回帰 Gate | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
+| SPEC-034X8szMIas9VjSANAwgwa | Capability / Command Gateway v0.3 — 横断整合性・型付き契約・責務境界 設計契約 (synvelis#45) | approved | [command-gateway.md](./command-gateway.md) |
+| SPEC-3Vlcu2H26v4t56Rs4ycO7z | Context Inspector — 情報階層・Follow/Explore/Pinned・Selection/Linked Context・Probe 連携の設計定義（synvelis#5） | approved | [context-inspector.md](./context-inspector.md) |
 | SPEC-034CTL01Ow9uXr5zA1bC2dEf | CTL-01 ControlOwner / AutomationTimeScope 責務分離・Bus/Strip/Send 型付き Schema 移行 | approved | [ctl-01-control-owner-automation-time-scope-typed-schema.md](./ctl-01-control-owner-automation-time-scope-typed-schema.md) |
 | SPEC-xA6Rt9SOy2hTBVmns3bmV4 | CTL-02 adoption 経路の非 canonical SendLevel persisted 化抑止 | approved | [ctl-02-adopt-sendlevel.md](./ctl-02-adopt-sendlevel.md) |
 | SPEC-034QAlF2irl9rIJaUi9RQ1 | ED-A Editing Model — Selection/Tool/Snap/Transaction/LinkedContext headless PoC | approved | [ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md](./ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md) |
 | SPEC-034QMZiCjhKFlSgoIw9YaX | ED-B media-domain move + slip commit semantics (workspace editing PoC) | approved | [ed-b-media-domain-move-slip-commit-semantics.md](./ed-b-media-domain-move-slip-commit-semantics.md) |
+| SPEC-034X83uiIsH0n6OuQGcU1T | Execution Plan — RCP-00〜07/F01・F0/E2E-L/R/X・Signal Flow/Automation/GUI 横断単一 DAG・Owner/Gate/Acceptance Matrix | approved | [execution-plan.md](./execution-plan.md) |
 | SPEC-nBrnIDkIfILvtzEXr42L56 | Issue #145 ci.yml manual-only 化 — pull_request/push trigger 撤去と dispatch 専用 Full CI | proposed | [issue-145-ci-manual-only.md](./issue-145-ci-manual-only.md) |
 | SPEC-034RIJkUYtv28x8ZpNn8Tv | Issue #147 sccache コンパイルキャッシュ導入仕様 | approved | [issue-147-sccache-compile-cache.md](./issue-147-sccache-compile-cache.md) |
 | SPEC-034RGX4X79sB0s9tVVWQh9 | Issue #151 CI ui-verify lane 追加仕様 | approved | [issue-151-ui-ci-lane.md](./issue-151-ui-ci-lane.md) |
@@ -31,6 +36,8 @@ Directory: `docs/specs`
 | SPEC-ubzJtNuQxbSXLe7nevbdUw | L1 — Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | approved | [l1-local-wav-verified-media-graph-playback.md](./l1-local-wav-verified-media-graph-playback.md) |
 | SPEC-034Qmb9CC7dN4YE5VPN235 | L2 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | SPEC-rBmfzOP1H86N1KAXlFpX5N | MD-A — TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | approved | [mda-takegroup-comp-effective-projection-placement-contract.md](./mda-takegroup-comp-effective-projection-placement-contract.md) |
+| SPEC-034X7uv8zUJ4bkVbH4LxYj | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 設計契約 (synvelis#21) | approved | [media-render.md](./media-render.md) |
+| SPEC-QOg57ZwECMo94svdnmHZqk | Musical Time — Configurable PPQN・Rational Beat・Source-Native Tick・Tempo/Frame 量子化・SMF Fidelity 設計契約（synvelis#19） | approved | [musical-time.md](./musical-time.md) |
 | SPEC-034PCA01Kf8vNq2wXyZmAb | PC-A Parameter Control Model — Scope/Breakdown/StateMachine headless PoC | approved | [pc-a-parameter-control-model-scope-breakdown-state-machine.md](./pc-a-parameter-control-model-scope-breakdown-state-machine.md) |
 | SPEC-034PCB01Kf8vNq2wXyZmAb | PC-B Parameter Control — Dispatch/NoteScope/RT/Offline headless PoC | approved | [pc-b-parameter-dispatch-note-scope-rt-offline.md](./pc-b-parameter-dispatch-note-scope-rt-offline.md) |
 | SPEC-034RoTBwuGm6u9xW7IxYBu | PC-C1 Recording Transaction — prepare/apply/finalize 分離・Revision競合・失敗後保持 | approved | [pc-c1-recording-transaction-prepare-apply-finalize.md](./pc-c1-recording-transaction-prepare-apply-finalize.md) |
@@ -44,6 +51,7 @@ Directory: `docs/specs`
 | SPEC-7c4e9a1b2d3f4e5a6b7c8d | PC-C4-06 control op surface — syn.control.* typed-evidence ops | approved | [pc-c4-06-control-op-surface.md](./pc-c4-06-control-op-surface.md) |
 | SPEC-7c4e9a1b2d3f4e5a6b7c8d9e0f | PC-C4-07 transport mirror + observe_block + capability rebind tests | approved | [pc-c4-07-transport-mirror-observe.md](./pc-c4-07-transport-mirror-observe.md) |
 | SPEC-a1d4f7c2e9b30586d1a4f7c2e | PC-C4 drain composition — drain_output_reports 周期配線と production composition root | approved | [pc-c4-drain-composition.md](./pc-c4-drain-composition.md) |
+| SPEC-6NH8ne9kNmYOjVBpOoiHju | PC-C4 plugin binding — persisted PluginInstance identity を stage-1.5 正本として bind 時に照合 | approved | [pc-c4-plugin-binding.md](./pc-c4-plugin-binding.md) |
 | SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | SPEC-034UxXLvNqgbDGOypo7Uu4 | PC-C5 slice2 (UI-C5-02/03): Gesture 固定・stale drop・Inspector Follow/Explore/Pinned（headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -52,6 +60,10 @@ Directory: `docs/specs`
 | SPEC-034VmUDawn7YGP2Vh36vnP | PC-C6 headless oracle — R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 fixture（Recording・Plugin・GUI/RT 横断 Gate） | approved | [pc-c6-oracle-rows.md](./pc-c6-oracle-rows.md) |
 | SPEC-034W1VPl3lj6S7A0E8mTJL | PC-C6 TR 系 oracle × dispatch ledger 実経路結合（TR01/03/04/05/07/08 再証拠化） | approved | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
 | SPEC-034WxkcNtl9FIF13m9IaBJ | PC-C6 TR02/TR06 dispatch ledger 実経路 oracle 再証拠化 | approved | [pc-c6-tr02-tr06-realpath-oracle.md](./pc-c6-tr02-tr06-realpath-oracle.md) |
+| SPEC-034X6Wo5jGoog4i61651vc | Playback / Mixer / Generic Execution Graph — Typed Port, PDC, Plan Activation (EX-001〜020 design contract) | approved | [playback-graph.md](./playback-graph.md) |
+| SPEC-034X3iKrMQOzlbCgtuckh0 | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画の正本 | approved | [product-value-core.md](./product-value-core.md) |
+| SPEC-034X6inBx3ortD0y20pxqk | Project Model — Track/Lane/Clip/Source/Take/Time, non-destructive editing, stable ID, save/reload contract | approved | [project-model.md](./project-model.md) |
+| SPEC-034X6Kqk3e6SN2g7MWSiIq | Project / Asset / Persistence — Immutable Snapshot・Media Lifecycle・Safe Save・Recovery 設計契約（synvelis#17） | approved | [project-persistence.md](./project-persistence.md) |
 | SPEC-034V2ghdXlh1m9UFtt5ks1 | RCD-01 実Audio Device録音統合 headless slice — Mock Input→Raw Writer/Journal→Arm/Punch/Loop・Fail-stop Fixture（synvelis#115） | proposed | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | SPEC-gut3XVRAIUtMHADNZBNFHC | RCD-01 実Audio Device 到達準備 — stamp placement fallback + real backend 配線（synvelis#115） | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
 | SPEC-034W8HMV6c6BABYhVlcEe6 | RCD-01 実機 capture coverage 拡張 — real-device lane の staging/2Track/fail-stop/境界/長時間検証（synvelis#115） | proposed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
@@ -68,6 +80,7 @@ Directory: `docs/specs`
 | SPEC-034WEUWHrqeDl6HXbaRPVO | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID residual slice (synvelis#118) | proposed | [rcd-04-midi-undo-stableid.md](./rcd-04-midi-undo-stableid.md) |
 | SPEC-034VmNS87JaOfBSbYwh0pt | RCD-04 Comp Transition / MIDI Phrase / Recovery Review — product E2E (synvelis#118) | proposed | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | SPEC-034VBTXNYEeuSEzbHwk1hv | RCD-04 Comp Transition — RT engine PCM equivalence (synvelis#118) | proposed | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
+| SPEC-QIpUDjWLLusOo4TEiv6CjZ | Recording / Take / Comping — Session・Take・Comp・Raw Writer・Monitor・Recovery・Source Native Frame の基本契約（synvelis#12） | approved | [recording-take-comping.md](./recording-take-comping.md) |
 | SPEC-034SF01Km7pQr2sT9uVwXyZaB | SF-01 Semantic Routing Model — Bus/Send/Processor Chain/Stable Port IDs・Project Schema v6 | approved | [sf-01-semantic-routing-model-bus-send-chain-stable-ports.md](./sf-01-semantic-routing-model-bus-send-chain-stable-ports.md) |
 | SPEC-034SF02Tx9kLm4nQ7rVw2yZaBc | SF-02 DAW Routing Commands — RoutingTransaction/TempRef・Semantic+Generic Validation・Mute/Solo Signal Gate | approved | [sf-02-routing-transaction-commands-semantic-validation.md](./sf-02-routing-transaction-commands-semantic-validation.md) |
 | SPEC-034Ux7RxHxcEmVfIrLzcfM | SF-03 semantic→Ruviform runtime 写像 — 世代証拠・SourceMap・失敗不変条件の統合契約 | approved | [sf-03-map-semantic-runtime-contract.md](./sf-03-map-semantic-runtime-contract.md) |
@@ -95,6 +108,7 @@ Directory: `docs/specs`
 | SPEC-034V2wnQPWFJdKz68KlwJG | SF-06 cross-gate Domain Oracle・Case ID・Fault Fixture・evidence ledger（headless slice） | approved | [sf-06-cross-gate-oracle-case-ledger.md](./sf-06-cross-gate-oracle-case-ledger.md) |
 | SPEC-JQYNMchouBVGrijHyiBC2d | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture（headless slice） | approved | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | SPEC-034X9BMCsZFv8cyn2cAg8d | Signal Flow 設計正本 — 階層・Typed Port/Connection・Semantic Routing・Probe 表示/編集・SourceMap/Configured/Observed 受入仕様 | draft | [signal-flow-design.md](./signal-flow-design.md) |
+| SPEC-034X5xBtwHRKs4lePhNM05 | Issue #84 DirectoryBundleStore Snapshot/HEAD Ruviform StagedFile 移行 | approved | [stagedfile-migration.md](./stagedfile-migration.md) |
 | SPEC-Zu5lKLwb3CUPWZGbvKMdCI | Issue #245 verify (windows-latest) webdav MockServer TransientIo flake — accept 済みソケットの blocking 正規化 | proposed | [sv-ci-webdav-transient-io-flake.md](./sv-ci-webdav-transient-io-flake.md) |
 | SPEC-ZXEWFEbx3k4Jeu4YDEQcD0 | SV-GPUI-01 Native App Shell — Driver-neutral shell・GPUI Driver組立・typed ViewModel↔Binding adapter・app lifecycle | approved | [sv-gpui-01-native-app-shell.md](./sv-gpui-01-native-app-shell.md) |
 | SPEC-ZdwjK7WkdHy90Oaw1mTGUy | SV-GUI-01 Desktop Application Bootstrap — WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md](./sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md) |
@@ -119,6 +133,7 @@ Directory: `docs/specs`
 | SPEC-034T29C9D8CIvYjMxmQIy8 | SYN-IO-02 Snapshot/HEAD StagedFile Publish 移行 | approved | [syn-io-02-snapshot-head-staged-publish.md](./syn-io-02-snapshot-head-staged-publish.md) |
 | SPEC-034RBvYIlw0wiBoGsL9EBY | SYN-OBS-01 Ruviform observability 単一crate Logging/Host統合 | proposed | [syn-obs-01-ruviform-observability-crate-logging-host.md](./syn-obs-01-ruviform-observability-crate-logging-host.md) |
 | SPEC-034T2RF305WAVSTAGED00X | SYN-RF305 WAV Export/Player StagedFile 移行 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
+| SPEC-l4FdiimUNULuodZsTBZq0k | Target Architecture — Synvelis↔Ruviform 共通契約・Production Dependency DAG・GUI 採用方針の設計レビュー契約（synvelis#22） | approved | [target-architecture.md](./target-architecture.md) |
 | SPEC-034Vtz2CrUpwevHTLxDLm6 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証（synvelis-app slice） | approved | [tim-01-app-ppqn.md](./tim-01-app-ppqn.md) |
 | SPEC-034UHVLQ9dtoN4YQDjtCy3 | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | approved | [tim-01-configurable-ppqn-project-command.md](./tim-01-configurable-ppqn-project-command.md) |
 | SPEC-LmEvu9ETGyhBWDJtTBWj6l | TIM-01 PPQN configurable project command — punch marks 再投影と受入残件（headless slice） | approved | [tim-01-ppqn-config.md](./tim-01-ppqn-config.md) |
@@ -129,6 +144,9 @@ Directory: `docs/specs`
 | SPEC-1umIWi6ogYs4kgcJeTyvJ8 | TIM-03 session→driver/routing wiring — ProcessBoundarySession の composition 接続（headless slice） | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | SPEC-034UBZ7xNf0yey5lCLjVNT | TIM-04 Plugin State Snapshot 一貫性 — quality receipt・save/reload/HEAD/offline recipe（headless mock slice） | approved | [tim-04-plugin-state-snapshot-consistency.md](./tim-04-plugin-state-snapshot-consistency.md) |
 | SPEC-034UyE1s4ix4GwnKIOuV2N | TIM-03 plugin process boundary — capability/degraded policy（headless mock slice） | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
+| SPEC-BCK7X1Qx5rbH151Bo7ftE7 | Timeline Editing / Selection / Tool System — Snap・Gesture・Undo・Cross-View編集の共通仕様（synvelis#11） | approved | [timeline-editing.md](./timeline-editing.md) |
+| SPEC-034X7wGMLTCbfLxfME4Odo | Transport Integration — Span/Seek/Loop/Tempo・MIDI/Plugin Event Offset・Automation FrameBase・State Contract・Capability/Degraded (TT-001〜030 design contract) | approved | [transport-integration.md](./transport-integration.md) |
+| SPEC-102UiCfInt001AaBbCcDdE | UI-C5 製品 GUI 統合 — Signal Flow Control Relation View/Inspector/Gesture（synvelis-app op surface + headless 検証） | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | SPEC-034UAv3chafPsU2fFyQnIb | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only schema projection (synvelis#92) | proposed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | SPEC-034UEsXPitEuEsjBM4qjo6 | VCS-02 Semantic Diff Engine — canonical ChangeSet typed identity lineage Unknown tri-state (synvelis#93) | proposed | [vcs-02-semantic-diff-changeset.md](./vcs-02-semantic-diff-changeset.md) |
 | SPEC-PvLluOn4j6y1qpdtQ0aw8A | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta（synvelis#94） | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
@@ -147,6 +165,8 @@ Directory: `docs/specs`
 | SPEC-9EcPwSoDwcrg3WPYmvs7Gn | VS-B Clock / Gate Scheduler / RT Capture — Mock Input・Buffer Pool・SPSC | approved | [vs-b-rt-capture-mock-input-buffer-pool-spsc.md](./vs-b-rt-capture-mock-input-buffer-pool-spsc.md) |
 | SPEC-034QfIc1oyjYo7pSqlYH8a | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range | approved | [vs-c-staging-writer-journal-crash-recovery-verified-media-range.md](./vs-c-staging-writer-journal-crash-recovery-verified-media-range.md) |
 | SPEC-iciMnP7AaIMP2qKQPCoAId | VS-D Recording Commit / E2E Vertical Slice — Idempotency・Undo・Reload | approved | [vs-d-recording-commit-e2e-idempotency-undo-reload.md](./vs-d-recording-commit-e2e-idempotency-undo-reload.md) |
+| SPEC-034X4TqMpHOeFHvohktOZV | Workspace Model — GPUI-neutral View/Driver Port, Window/View lifetime independence, Selection/Link Group/Command routing | approved | [workspace-model.md](./workspace-model.md) |
+| SPEC-034X3kmamOZgcqrHR75ac9 | Workspace UX 操作 Scenario・状態図・UX 仕様の正本化 (Issue #3) | approved | [workspace-ux-scenarios.md](./workspace-ux-scenarios.md) |
 | SPEC-034QwWbIzoS7Pl7KxncpF6 | WS-A Workspace Foundation — View/Selection/LinkGroup/Command/Dock headless PoC | approved | [ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md](./ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md) |
 | SPEC-wVS4pCX5veOtjhEh013pJ0 | X — Recorded Source→Generic Playback/Export integration with Frame/ID/Content integrity | approved | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |
 

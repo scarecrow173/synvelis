@@ -347,7 +347,9 @@ fn gain_target(id: u128) -> ParameterTarget {
 }
 
 /// A project carrying `targets` plus the `Resolved` processor
-/// registration the stage-1 semantic binding requires.
+/// registration the stage-1 semantic binding requires, with the
+/// persisted `plugin_instances` store synced — the stage-1.5 instance
+/// authority `bind` verifies.
 fn project_with(targets: Vec<ParameterTarget>) -> Project {
     let mut project = Project::new(ProjectId::new(0), "pcc6pl");
     for target in targets {
@@ -362,6 +364,10 @@ fn project_with(targets: Vec<ParameterTarget>) -> Project {
             port_ids: vec![],
         },
     );
+    project
+        .plugin_instances
+        .ensure(processor(), &plugin_ref())
+        .unwrap();
     project
 }
 
@@ -740,13 +746,14 @@ fn pc_c6_pl03_queue_full_and_atomic_batch_rejection() {
 
 // ---------------------------------------------------------------------------
 // PL04 — GraphSwap/Reload: invalidate drops every binding; a re-attached
-// session mints a new instance id. Records from the old generation
-// can never dispatch through the new session — old-target misdelivery
-// stays 0 while the new binding delivers only to its own log.
+// session keeps the persisted instance id (same authored plugin) and
+// mints fresh generations. Records from the old generation can never
+// dispatch through the new session — old-target misdelivery stays 0
+// while the new binding delivers only to its own log.
 // ---------------------------------------------------------------------------
 
 #[test]
-fn pc_c6_pl04_reload_mints_new_instance_old_records_dead() {
+fn pc_c6_pl04_reload_keeps_instance_old_records_dead() {
     let mut rig = open_rig(1);
     let ev = rig.event(BeatPoint::ZERO, Some(0.5), 64);
 
@@ -760,8 +767,10 @@ fn pc_c6_pl04_reload_mints_new_instance_old_records_dead() {
         .unwrap_err();
     assert!(matches!(err, BindingError::TargetNotBound));
 
-    // Re-attach as a *new* instance on the same node control: the
-    // session pins instance 2 and fresh generations.
+    // Re-attach as a *new session* on the same node control: the
+    // persisted instance identity is stable across re-attach of the
+    // same authored `(processor, plugin)` — the session pins the same
+    // instance id 1 with fresh generations (PC-C4-05 invariant).
     let control = rig.dispatch.control();
     let mut session2 = PluginBindingSession::attach(
         control,
@@ -770,21 +779,27 @@ fn pc_c6_pl04_reload_mints_new_instance_old_records_dead() {
         plugin_ref(),
         2,
         2,
-        StablePluginInstanceId::new(2),
+        StablePluginInstanceId::new(1),
     );
     let binding2 = session2
         .bind(&mut rig.dispatch, &rig.project, rig.target, &PARAMS)
         .unwrap();
-    assert_eq!(binding2.instance_id, StablePluginInstanceId::new(2));
+    assert_eq!(binding2.instance_id, StablePluginInstanceId::new(1));
     assert_eq!(binding2.capability_generation, 2);
     assert_eq!(binding2.graph_generation, 2);
 
-    // The old-generation record is dead on every axis — oracle:
-    // InstanceMismatch first (record.instance_id != session pin).
+    // The old-generation record is dead on the generation axes — the
+    // instance id is stable, so `CapabilityGeneration` fires first.
     let err = session2
         .dispatch(&mut rig.dispatch, &[(rig.binding.clone(), ev)])
         .unwrap_err();
-    assert!(matches!(err, BindingError::InstanceMismatch));
+    assert!(matches!(
+        err,
+        BindingError::CapabilityGeneration {
+            expected: 2,
+            actual: 1
+        }
+    ));
 
     // The new record delivers; the fixture log receives exactly the
     // declared events — and only through the live binding.
@@ -798,7 +813,13 @@ fn pc_c6_pl04_reload_mints_new_instance_old_records_dead() {
     let err = session2
         .dispatch(&mut rig.dispatch, &[(rig.binding.clone(), ev)])
         .unwrap_err();
-    assert!(matches!(err, BindingError::InstanceMismatch));
+    assert!(matches!(
+        err,
+        BindingError::CapabilityGeneration {
+            expected: 2,
+            actual: 1
+        }
+    ));
 }
 
 // ---------------------------------------------------------------------------

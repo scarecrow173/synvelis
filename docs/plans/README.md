@@ -6,6 +6,7 @@ Directory: `docs/plans`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| PLAN-IEMv5jVeXCZss5Jrrf2uC9 | AI-Native Hybrid DAW Baseline — Grant/Principal/Scope/Approval/ChangeSet・AI Off 既定・3 Mode 責務設計 実装計画 (synvelis#44) | approved | [ai-native-baseline.md](./ai-native-baseline.md) |
 | PLAN-alib03-catalog-preview-cache | ALIB-03 実装計画 — Catalog/Preview Cache・Principal 隔離・bounded cache（synvelis-library slice） | in-progress | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | PLAN-alib04-git-remote-provider | ALIB-04 実装計画 — Git Remote Provider（synvelis-library slice） | in-progress | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | PLAN-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — 実装計画 | approved | [alib-04-lfs-remote-fetch-plan.md](./alib-04-lfs-remote-fetch-plan.md) |
@@ -14,12 +15,16 @@ Directory: `docs/plans`
 | PLAN-034AUT02Vn5rWt9kJx4sLq8b | AUT-02 Region Replace 境界曲線保存 実装計画 | approved | [aut-02-region-replace-boundary.md](./aut-02-region-replace-boundary.md) |
 | PLAN-034AUT03Cm4rT8vXy1qKp9sL | AUT-03 Loop 録音 1 Pass・Write Range 閉鎖・明示 Rearm 実装計画 | approved | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |
 | PLAN-034AUT04psf1yTvW6ZK4c3 | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装計画 | approved | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
+| PLAN-41PTXXqDP41Hx7iG3WXLBl | Automation / Modulation 統合 Parameter Control — 計画（synvelis#6） | approved | [automation-modulation.md](./automation-modulation.md) |
 | PLAN-034VmidubXq53HjWVDgDeV | Issue #245 verify-macos rt_cache alloc 計測 flake — warm-up 実装計画 | approved | [ci-245-macos-alloc-flake-plan.md](./ci-245-macos-alloc-flake-plan.md) |
 | PLAN-VqCkmPqwMy7x4374pKJMzz | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 実施計画 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | PLAN-034RoZox0pXYihUzci5UC8 | Synvelis 独立 CI 実装計画 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
+| PLAN-034X8sL2niGTZok1BMGuzN | Capability / Command Gateway 設計契約 実施計画 (synvelis#45) | approved | [command-gateway.md](./command-gateway.md) |
+| PLAN-0KH6KhO6yo49yc5HP6kMSN | Context Inspector 設計定義 実施計画 — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5） | approved | [context-inspector-plan.md](./context-inspector-plan.md) |
 | PLAN-034CTL01Rz2xAu8bD4eF5gHi | CTL-01 ControlOwner/AutomationTimeScope 実装計画 | approved | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
 | PLAN-3o92uvIdnyfhflikf7TlYQ | CTL-02 adoption SendLevel canonical spec 強制 実装計画 | approved | [ctl-02-adopt-sendlevel-plan.md](./ctl-02-adopt-sendlevel-plan.md) |
 | PLAN-034QN1oz8zutDLafJy6oDg | ED-B media-domain editing PoC 実装計画 | approved | [ed-b-media-domain-editing.md](./ed-b-media-domain-editing.md) |
+| PLAN-034X841J2QRrgpxCPlRiKb | Execution Plan Plan — docs chain + sv23 evidence ledger | in-progress | [execution-plan.md](./execution-plan.md) |
 | PLAN-034UqTzD6N7R0o468wXtrQ | Implement SV-GUI-04 slice2 dock transfer workspace adoption | approved | [implement-sv-gui-04-slice2-dock-transfer-workspace-adoption.md](./implement-sv-gui-04-slice2-dock-transfer-workspace-adoption.md) |
 | PLAN-ztcxOYrIjvxF2hswb1Wnb0 | Issue #145 ci.yml manual-only 実装計画 — trigger 撤去 + 契約 test 転換 + 実起動ゼロ検証 | in-progress | [issue-145-ci-manual-only.md](./issue-145-ci-manual-only.md) |
 | PLAN-034RIMqW7C96l1jlnfBaLc | Issue #147 sccache 導入実装計画 | approved | [issue-147-sccache-compile-cache.md](./issue-147-sccache-compile-cache.md) |
@@ -32,6 +37,8 @@ Directory: `docs/plans`
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |
+| PLAN-mr20261114mediaRenderA | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 実装計画 (synvelis#21) | approved | [media-render.md](./media-render.md) |
+| PLAN-aXqZXebxtF6m7A9e6xy5S4 | Musical Time — 設計契約文書チェーン実装計画（synvelis#19） | approved | [musical-time.md](./musical-time.md) |
 | PLAN-034RoUbM3cA2J9g5wWzEfG | PC-C1 Recording Transaction 実装計画 | approved | [pc-c1-recording-transaction.md](./pc-c1-recording-transaction.md) |
 | PLAN-034UpbrhX5dkELUwZUoS0i | PC-C2 Control Relation Index 実装計画 | approved | [pc-c2-control-relation-index.md](./pc-c2-control-relation-index.md) |
 | PLAN-qCDk2ELwZ5XT36rSkQsD8F | PC-C3-05 RT trace adapter 実装計画 | approved | [pc-c3-05-rt-trace-adapter.md](./pc-c3-05-rt-trace-adapter.md) |
@@ -43,6 +50,7 @@ Directory: `docs/plans`
 | PLAN-7c4e9a1b2d3f4e5a6b7c8f0a1 | PC-C4-06 control op surface plan | approved | [pc-c4-06-control-op-surface-plan.md](./pc-c4-06-control-op-surface-plan.md) |
 | PLAN-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b | PC-C4-07 transport mirror + observe_block plan | approved | [pc-c4-07-transport-mirror-observe-plan.md](./pc-c4-07-transport-mirror-observe-plan.md) |
 | PLAN-a1d4f7c2e9b30586d1a4f7c2f0a1 | PC-C4 drain composition plan | approved | [pc-c4-drain-composition-plan.md](./pc-c4-drain-composition-plan.md) |
+| PLAN-jelz45WhvUPsZIVEaQyYpJ | PC-C4 plugin binding plan | approved | [pc-c4-plugin-binding-plan.md](./pc-c4-plugin-binding-plan.md) |
 | PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-034UxXVFIkzqs2eO4wcXo0 | PC-C5 slice2 実施計画 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -51,7 +59,10 @@ Directory: `docs/plans`
 | PLAN-034VmVEzTuUHmBKxPRoFID | PC-C6 oracle R/PL/UI/COMP headless fixture 実装計画 | approved | [pc-c6-oracle-rows-plan.md](./pc-c6-oracle-rows-plan.md) |
 | PLAN-034W1XlCxVQQ7sFeO9N9c0 | PC-C6 TR ledger oracle 実装計画 | approved | [pc-c6-tr-ledger-oracle-plan.md](./pc-c6-tr-ledger-oracle-plan.md) |
 | PLAN-034WxmzaM84mm5775ZdoeD | PC-C6 TR02/TR06 realpath oracle 実装計画 | approved | [pc-c6-tr02-tr06-realpath-oracle-plan.md](./pc-c6-tr02-tr06-realpath-oracle-plan.md) |
+| PLAN-034X6WQ2BInormKn6f4a6M | Playback / Mixer / Generic Execution Graph Plan — contract mapping + headless evidence ledger | in-progress | [playback-graph.md](./playback-graph.md) |
 | PLAN-034VNrIZteNN2bsGVGokZF | plugin_instances VCS semantic diff 分類 slice | approved | [plugin-instances-vcs-diff-plan.md](./plugin-instances-vcs-diff-plan.md) |
+| PLAN-034X6iKc1PdhVoA25hznHo | Project Model Plan — contract mapping + headless verification | in-progress | [project-model.md](./project-model.md) |
+| PLAN-034X6OYfBlVRHkgOHFvAuM | Project / Asset / Persistence — 設計契約文書チェーン実装計画（synvelis#17） | approved | [project-persistence.md](./project-persistence.md) |
 | PLAN-034V2jiWN4B0YR7h0PVI1y | RCD-01 device-recording headless fixture 実装計画 | approved | [rcd-01-device-recording-headless-fixture.md](./rcd-01-device-recording-headless-fixture.md) |
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-gpF9kWuFqfzFATeoPdxIGF | RCD-01 実Audio Device 到達準備 実装計画 — stamp placement fallback + real backend 配線 | approved | [rcd-01-real-backend-readiness-plan.md](./rcd-01-real-backend-readiness-plan.md) |
@@ -68,6 +79,7 @@ Directory: `docs/plans`
 | PLAN-034WEVk4u3tDdRv1lWmQgK | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID implementation plan | approved | [rcd-04-midi-undo-stableid-plan.md](./rcd-04-midi-undo-stableid-plan.md) |
 | PLAN-034VmOlfg7SLp6iUHpXla5 | RCD-04 product E2E plan | approved | [rcd-04-product-e2e-plan.md](./rcd-04-product-e2e-plan.md) |
 | PLAN-034VC2HhruQrlFFlRTEMNY | RCD-04 RT engine comp PCM plan | approved | [rcd-04-rt-engine-comp-pcm-plan.md](./rcd-04-rt-engine-comp-pcm-plan.md) |
+| PLAN-xOv3jxNuAQWUfmfAuMGI8P | Recording / Take / Comping — Session・Take・Comp・Raw Writer・Monitor・Recovery・Source Native Frame 文書チェーン・Owner Matrix 計画（synvelis#12） | approved | [recording-take-comping.md](./recording-take-comping.md) |
 | PLAN-034SF01Np0sTu5vW2xYzAbDeF | SF-01 Semantic Routing Model 実装計画 | approved | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
 | PLAN-034SF02Wz0rOp7qT0vB5cDfGh | SF-02 RoutingTransaction 実装計画 — staging/検証/mute-solo/テスト | approved | [sf-02-routing-transaction.md](./sf-02-routing-transaction.md) |
 | PLAN-034Uxp78PIJVQOgDqnzNqg | SF-03 semantic→runtime 写像 — 統合設計文書化計画 | approved | [sf-03-map-semantic-runtime-mapping-docs.md](./sf-03-map-semantic-runtime-mapping-docs.md) |
@@ -112,6 +124,7 @@ Directory: `docs/plans`
 | PLAN-034T9pLmNvRwXk2jHs7fQ | SYN-IO-02 HEAD CAS expected-head store port 実装計画 | approved | [syn-io-02-head-cas-plan.md](./syn-io-02-head-cas-plan.md) |
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
+| PLAN-4eUlpRzzgdpGu0FbUVLgtc | Target Architecture 設計レビュー実施計画 — docs chain + evidence/sv22 台帳の構成 | approved | [target-architecture.md](./target-architecture.md) |
 | PLAN-034VtBaArtupj0qHG0phVl | TIM-01 app 層 PPQN 統合 — implementation plan | approved | [tim-01-app-ppqn-plan.md](./tim-01-app-ppqn-plan.md) |
 | PLAN-034UHYyMbiLPEtGczKNKYC | TIM-01 Configurable PPQN Project Command — implementation plan | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | PLAN-TlIO4qpF8SnK0bA3SWQZ5d | TIM-01 PPQN config — punch marks 再投影と受入残件検証 plan | approved | [tim-01-ppqn-config-plan.md](./tim-01-ppqn-config-plan.md) |
@@ -123,6 +136,9 @@ Directory: `docs/plans`
 | PLAN-Yn3mzcCyD4Dwd0Ga4zylHB | TIM-03 session→driver/routing wiring plan | approved | [tim-03-session-driver-wiring-plan.md](./tim-03-session-driver-wiring-plan.md) |
 | PLAN-034UC46sceMw6QCzqVjGOO | TIM-04 plugin state snapshot consistency — implementation plan | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | PLAN-034UyECBCu7Wg67fct0qi7 | TIM-03 plugin process boundary plan | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
+| PLAN-uGKWo3QVS9uwBCoBMRyVGT | Timeline Editing / Selection / Tool System — 計画（synvelis#11） | approved | [timeline-editing.md](./timeline-editing.md) |
+| PLAN-034X7x2GLBkoA5kq6w2VxK | Transport Integration Plan — TT-001〜030 contract mapping + capability/degraded evidence ledger | in-progress | [transport-integration.md](./transport-integration.md) |
+| PLAN-102UiCfInt003CcDdEeFfG | UI-C5 製品 GUI 統合 実施計画 — syn.control.relation / syn.control.edge / syn.recording.* | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | PLAN-034UAzWU1ltpUXPw8mRuWd | VCS-01 Immutable Snapshot Resolver implementation plan | approved | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | PLAN-034UEufn0HEwKaQ2GRVCWB | VCS-02 Semantic Diff Engine implementation plan | approved | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
 | PLAN-D4Oqo3jPnK2GybwKhM5nwh | VCS-03 Git Read Provider implementation plan | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
@@ -140,6 +156,8 @@ Directory: `docs/plans`
 | PLAN-kco2O0dSUXmFGIGQYqpxrx | VS-B Clock / Gate Scheduler / RT Capture 実装計画 | approved | [vs-b-clock-gate-rt-capture.md](./vs-b-clock-gate-rt-capture.md) |
 | PLAN-034QfNV0kVj6j2cR8sXyLqWm | VS-C Staging Writer / Journal / Crash Recovery 実装計画 | approved | [vs-c-staging-writer-journal-crash-recovery.md](./vs-c-staging-writer-journal-crash-recovery.md) |
 | PLAN-wDLeQm8n2jpOzr5utDhOSF | VS-D Recording Commit / E2E 実装計画 | approved | [vs-d-recording-commit-e2e.md](./vs-d-recording-commit-e2e.md) |
+| PLAN-034X52muh3ycW5cWGEkyBN | Workspace Model Plan — design + headless verification | in-progress | [workspace-model.md](./workspace-model.md) |
+| PLAN-034X3PYp3yD3aBha3pGepA | Workspace UX 操作仕様の正本化（Issue #3 文書チェーン） | in-progress | [workspace-ux-scenarios.md](./workspace-ux-scenarios.md) |
 | PLAN-KF3NnioeKW8ERFMd7dyN15 | X 実装計画 — Recorded Source→Generic Playback/Export integration | approved | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
@@ -158,9 +176,11 @@ Directory: `docs/plans`
 | PLAN-uaNPrumAjiAnEaagqm9BgJ | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 実装計画 | completed | [issue-86-verified-import-wiring-plan.md](./issue-86-verified-import-wiring-plan.md) |
 | PLAN-034PCA04Pk9ySt5zBcPdEf | PC-A Parameter Control Model headless PoC 実装計画 | completed | [pc-a-parameter-control.md](./pc-a-parameter-control.md) |
 | PLAN-034PCB04Pk9ySt5zBcPdEf | PC-B Parameter Control dispatch/note-scope/RT/offline 実装計画 | completed | [pc-b-parameter-dispatch.md](./pc-b-parameter-dispatch.md) |
+| PLAN-034X3jT4T64MOzF6CbB2oy | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画 | completed | [product-value-core-plan.md](./product-value-core-plan.md) |
 | PLAN-034UrkBlTpaeiSGII0EyIi | RCD-02 Durability Evidence / Recovery Review / Commit Receipt slice | completed | [rcd-02-durability-recovery-review.md](./rcd-02-durability-recovery-review.md) |
 | PLAN-034VoSKvu6PtN0qTGN02l3 | SF-03 slice8 — app/workspace same-Revision fixture plan | completed | [sf-03-slice8-revision-fixture-plan.md](./sf-03-slice8-revision-fixture-plan.md) |
 | PLAN-034VWvifs0UbP2Diwh0JiN | SF-03 slice9 — host capability generation live firing plan | completed | [sf-03-slice9-capability-firing-plan.md](./sf-03-slice9-capability-firing-plan.md) |
+| PLAN-034X5CZadqoSw73TKCY7cN | Issue #84 StagedFile Migration — 実装・証拠統合計画 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |
 | PLAN-034VobWDT9p1N0HGeD67OV | SV#28 Ruviform pin 更新 実装計画 — 0f5b5737 → b02942c2 | completed | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | PLAN-pOkUKpNa9zeQiK8ZbP5nvk | SV#28 Ruviform pin 更新 実装計画 — 863a7a9d → cc7d5296 | completed | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | PLAN-TyFpOpS6aiBDCdppuSCl9s | SV#28 Ruviform pin 更新 実装計画 — 9865cd57 → fd1d4d5f | completed | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |

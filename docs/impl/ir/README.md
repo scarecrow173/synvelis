@@ -21,6 +21,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-aqYVtVu6shEVwq4hQuJ7jk | AI Native Baseline — Issue #44 設計契約文書化 + AIB/AHG evidence 台帳 | completed | [ai-native-baseline.md](./ai-native-baseline.md) |
 | IMPL-034T7QIk72dphjZPfVnZ1O | ALIB-01 Asset Provider baseline contract | completed | [alib-01-asset-provider-baseline-contract.md](./alib-01-asset-provider-baseline-contract.md) |
 | IMPL-034VMQZEdjKG5qiL5uYYuF | ALIB-02 residual closeout — Issue #86 DoD 照合・canonical lane 実測・残存 gate 棚卸し | completed | [alib-02-residual-closeout.md](./alib-02-residual-closeout.md) |
 | IMPL-alib02-streaming-verified-import | ALIB-02 Streaming Verified Import — SHA-256 namespace（synvelis-library slice） | completed | [alib-02-streaming-verified-import.md](./alib-02-streaming-verified-import.md) |
@@ -35,12 +36,16 @@ Directory: `docs/impl/ir`
 | IMPL-AUT02RegionReplaceBoundary | AUT-02 Region Replace 境界曲線保存・境界 anchor 実装記録 | completed | [aut-02-region-replace-boundary.md](./aut-02-region-replace-boundary.md) |
 | IMPL-AUT03LoopWriteOnePass | AUT-03 Loop 録音 1 Pass・Write Range 半開区間閉鎖・境界 flush・明示 Rearm 実装記録 | completed | [aut-03-loop-write-one-pass.md](./aut-03-loop-write-one-pass.md) |
 | IMPL-AUT04CurveLodRecordBudget | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 実装記録 | completed | [aut-04-automation-curve-lod-record-budget.md](./aut-04-automation-curve-lod-record-budget.md) |
+| IMPL-49LTYDUL26uBLtxAQGXxOz | Automation / Modulation 統合 Parameter Control — 実装記録（docs slice・synvelis#6） | completed | [automation-modulation.md](./automation-modulation.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
+| IMPL-034X8sM6gVaKFLBghHMqW3 | Capability / Command Gateway 設計契約 実装記録 (synvelis#45) | completed | [command-gateway.md](./command-gateway.md) |
+| IMPL-5kKD8UEketY1kHcAnYUEao | Context Inspector 設計定義 — spec/design/test-spec 文書チェーン + UX Fixture + 被覆台帳（synvelis#5 docs slice） | completed | [context-inspector.md](./context-inspector.md) |
 | IMPL-034CTL01Kx9wMn2pQ7rVt4yB | CTL-01 ControlOwner/AutomationTimeScope 分離・Schema v7 実装記録 | completed | [ctl-01-control-owner-time-scope.md](./ctl-01-control-owner-time-scope.md) |
 | IMPL-034WBaliNYvopY8qIaeCeh | CTL-02 adoption 経路の非 canonical SendLevel 抑止 | completed | [ctl-02-adoption-canonical-sendlevel.md](./ctl-02-adoption-canonical-sendlevel.md) |
 | IMPL-034V1FQ09PSOnyDawvKX60 | CTL-02 Strip/Send Host Parameter 正本・Plugin Binding・Routing 実装記録 | completed | [ctl-02-strip-send-host-parameter-plugin-binding-routing.md](./ctl-02-strip-send-host-parameter-plugin-binding-routing.md) |
 | IMPL-034QAWvNQYPna11TqH7YTn | ED-A editing model headless PoC | completed | [ed-a-editing-model-headless-poc.md](./ed-a-editing-model-headless-poc.md) |
 | IMPL-034QO4tHWa37Uyya3N6ttQ | ED-B media-domain move/trim/slip + marquee commit semantics | completed | [ed-b-media-domain-move-trim-slip-marquee-commit-semantics.md](./ed-b-media-domain-move-trim-slip-marquee-commit-semantics.md) |
+| IMPL-034X84u7PqVqLhNVOe8UZB | Execution Plan — Issue #23 横断 DAG 文書化 + sv23 evidence 台帳 | completed | [execution-plan.md](./execution-plan.md) |
 | IMPL-0Gw01GateWayContract01 | GW-01 Gateway Contract — Capability Registry・Typed Invocation・Versioned Result/Error | completed | [gw-01-gateway-contract.md](./gw-01-gateway-contract.md) |
 | IMPL-0Gw02AuthorizationPo01 | GW-02 Principal / Execution Grant / Authorization Policy — Fixed/Dynamic Scope | completed | [gw-02-authorization-policy.md](./gw-02-authorization-policy.md) |
 | IMPL-0Gw03ContextProjecti01 | GW-03 Scoped Context Projection / Snapshot Pagination / Read-Disclosure Guard | completed | [gw-03-context-projection.md](./gw-03-context-projection.md) |
@@ -63,7 +68,9 @@ Directory: `docs/impl/ir`
 | IMPL-L2MasterSequentialOfflineWavExport | E2E-L2 Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | completed | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | IMPL-MDATakeGroupCompEffectiveProjectionPlacement | MD-A TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | completed | [mda-takegroup-comp-effective-projection-placement.md](./mda-takegroup-comp-effective-projection-placement.md) |
 | IMPL-MDBEffectiveCompLoweringLoadRevalidationCompDispatch | MD-B Effective Comp lowering・load-time revalidation・CompOp session dispatch (headless) | completed | [mdb-effective-comp-lowering-load-revalidation-comp-dispatch.md](./mdb-effective-comp-lowering-load-revalidation-comp-dispatch.md) |
+| IMPL-034X7v8PmJKzfbj9uOlPeF | Media Render — Issue #21 設計契約文書化 + MR evidence 台帳 | completed | [media-render.md](./media-render.md) |
 | IMPL-034MSA5207Kq2wXmZyAbCdEf | 最小 MIDI Source / Note 編集契約 — Stable ID・Linked Source・Undo・Save/Reload | completed | [midi-source-note-editing.md](./midi-source-note-editing.md) |
+| IMPL-sl0Rr2E3MxV46MGYb9oin9 | Musical Time — 設計契約文書チェーン実装記録（synvelis#19） | completed | [musical-time.md](./musical-time.md) |
 | IMPL-034PCA12Xz9hCd5kLmZnOp | PC-A parameter control model headless PoC | completed | [pc-a-parameter-control-headless-poc.md](./pc-a-parameter-control-headless-poc.md) |
 | IMPL-034PCB07Kq2wXyZmAbCdEf | PC-B parameter dispatch/note-scope/RT/offline headless PoC | completed | [pc-b-parameter-dispatch-note-scope-rt-offline.md](./pc-b-parameter-dispatch-note-scope-rt-offline.md) |
 | IMPL-034PC64RmwkXyZnPqRsTvWxA | PC-B 残件 — dispatch driver 配線・EvalPlan staleness・offline honesty | completed | [pc-b-remaining-dispatch-driver-evalplan-offline.md](./pc-b-remaining-dispatch-driver-evalplan-offline.md) |
@@ -78,6 +85,7 @@ Directory: `docs/impl/ir`
 | IMPL-7c4e9a1b2d3f4e5a6b7c8f0a4b5 | PC-C4-06 control op surface — syn.control.* typed-evidence ops | completed | [pc-c4-06-control-op-surface.md](./pc-c4-06-control-op-surface.md) |
 | IMPL-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b3c4d5e | PC-C4-07 transport mirror + observe_block + capability rebind | completed | [pc-c4-07-transport-mirror-observe.md](./pc-c4-07-transport-mirror-observe.md) |
 | IMPL-a1d4f7c2e9b30586d1a4f7c2f0a4 | PC-C4 drain composition — drain_output_reports 周期配線と production composition root | completed | [pc-c4-drain-composition.md](./pc-c4-drain-composition.md) |
+| IMPL-1p5mZ4InpO2EeDDwvz9TSj | PC-C4 plugin binding — persisted instance authority の bind 照合 implementation record | completed | [pc-c4-plugin-binding.md](./pc-c4-plugin-binding.md) |
 | IMPL-034UxmcANQsdlNy9GC0tWv | PC-C4 plugin parameter binding frame base capability gate | completed | [pc-c4-plugin-parameter-binding-frame-base-capability-gate.md](./pc-c4-plugin-parameter-binding-frame-base-capability-gate.md) |
 | IMPL-OABQ94C9ziv3kEtnGM5cHa | PC-C5 UI-C5-01 Relation Index の Inspector 投影 headless slice | completed | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | IMPL-034UyQi9tCjjAPwfMy7pSX | PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice） | completed | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
@@ -86,7 +94,11 @@ Directory: `docs/impl/ir`
 | IMPL-034VntRmtjh1jy2mJ1rPum | PC-C6 oracle R/PL/UI/COMP headless fixture 実装記録 | completed | [pc-c6-oracle-rows-slice.md](./pc-c6-oracle-rows-slice.md) |
 | IMPL-034W5m2YJNbKaaqcO5j3m5 | PC-C6 TR ledger oracle 実装記録 | completed | [pc-c6-tr-ledger-oracle.md](./pc-c6-tr-ledger-oracle.md) |
 | IMPL-034WxwExc8oWsdZ2zey3N1 | PC-C6 TR02/TR06 realpath oracle 実装記録 | completed | [pc-c6-tr02-tr06-realpath-oracle.md](./pc-c6-tr02-tr06-realpath-oracle.md) |
+| IMPL-034X6XXyiMLYuVtZ3AdA2O | Playback Graph — Issue #18 設計契約文書化 + EX evidence 台帳 | completed | [playback-graph.md](./playback-graph.md) |
 | IMPL-034VNP5tgdXZr0d9jU3FD0 | plugin_instances VCS semantic diff 分類 slice 実装記録 | completed | [plugin-instances-vcs-diff.md](./plugin-instances-vcs-diff.md) |
+| IMPL-034X3k17SZNVWh4K947RiS | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画 実装記録 | completed | [product-value-core.md](./product-value-core.md) |
+| IMPL-034X6jca6fIX3WfnkPyxGI | Project Model — Issue #10 設計契約文書化 + headless 検証 | completed | [project-model.md](./project-model.md) |
+| IMPL-034X6UvpBMux0atSwt8nXg | Project / Asset / Persistence — 設計契約文書チェーン実装記録（synvelis#17） | completed | [project-persistence.md](./project-persistence.md) |
 | IMPL-034V30Z5uYklMrResgr0lS | RCD-01 実Audio Device録音統合 headless slice — fake port→実StreamWriter fixture + recording state projection | completed | [rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md](./rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md) |
 | IMPL-RCD01rbkSl1cE9mQ2xW | RCD-01 実Audio Device 到達準備 — stamp placement fallback（jitter 許容の累積配置）+ real backend 配線 | completed | [rcd-01-real-backend-readiness-slice.md](./rcd-01-real-backend-readiness-slice.md) |
 | IMPL-034Wfpu0yifoZyGTZUA0pe | RCD-01 実機 lane 拡張 — real-device capture coverage | completed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
@@ -101,6 +113,7 @@ Directory: `docs/impl/ir`
 | IMPL-034V6MHZ91AdEfrxqsFgLC | RCD-03 Monitoring/Punch/Latency 意味論 crate 内完結 slice 実装記録 | completed | [rcd-03-monitoring-punch-latency-crate-slice.md](./rcd-03-monitoring-punch-latency-crate-slice.md) |
 | IMPL-034VDfqOMnbp5s6CThZTBe | RCD-03 VCS semantic diff monitor 宣言分類 slice 実装記録 | completed | [rcd-03-vcs-diff-monitor-classification-slice.md](./rcd-03-vcs-diff-monitor-classification-slice.md) |
 | IMPL-034UvMC7UhiwWgHviB9Qnv | RCD-04 Comp Transition / MIDI Phrase crate fixture slice 実装記録 | completed | [rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md](./rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md) |
+| IMPL-C1ZTg7tLJ3bWNVepfbzpSs | Recording / Take / Comping — 文書チェーン・受入 Owner Matrix 実装記録（synvelis#12） | completed | [recording-take-comping.md](./recording-take-comping.md) |
 | IMPL-034SF01Qr3wXmZyAbCdEfGhJ | SF-01 Semantic Routing Model — Bus/Send/Chain/Stable Port IDs・Schema v6 | completed | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
 | IMPL-034UjyiVpFVP7RCwlZ2neB | SF-03 slice5 実装記録 — session EnginePort・SessionRoutingEngine 接続 | completed | [sf-03-slice5-session-engineport-sessionroutingengine.md](./sf-03-slice5-session-engineport-sessionroutingengine.md) |
 | IMPL-034UJqjrnNLIXxfkFE25tv | SF-03 slice6 実装記録 — RoutingControlDispatch・sf03_l6 acceptance | completed | [sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md](./sf-03-slice6-routingcontroldispatch-sf03-l6-acceptance.md) |
@@ -115,6 +128,7 @@ Directory: `docs/impl/ir`
 | IMPL-034V2wJTpu3xW419A7YT37 | SF-06 cross-gate headless oracle 実装記録 | completed | [sf-06-cross-gate-headless-oracle.md](./sf-06-cross-gate-headless-oracle.md) |
 | IMPL-xRTJTdZHW0ii0jrP4pCFkK | SF-XR-01 CTL-01/CTL-02 cross-gate oracle fixture — implementation record | completed | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | IMPL-034X9Ln9ARL8qEXoWVpZcz | Issue #4 Signal Flow 設計正本 — 文書チェーンと証拠の作成 | completed | [signal-flow-design.md](./signal-flow-design.md) |
+| IMPL-034X5H2u7vD5H929MaHV8N | Issue #84 StagedFile Migration — 証拠統合・受入検証 slice 実装記録 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |
 | IMPL-034Ug8sNPL1sqhquNm1PYh | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 API 追従 | completed | [sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md](./sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md) |
 | IMPL-034VocnpYlIXEqErLG2I5w | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 API 追従 | completed | [sv-28-ruviform-pin-b02942c2.md](./sv-28-ruviform-pin-b02942c2.md) |
 | IMPL-VvBJRLqOSjnq3Pv2b4D1aO | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f API 追従 | completed | [sv-28-ruviform-pin-fd1d4d5f.md](./sv-28-ruviform-pin-fd1d4d5f.md) |
@@ -137,6 +151,7 @@ Directory: `docs/impl/ir`
 | IMPL-034RBYkTtBOQ5Akfjc5HEi | SYN-OBS-01 host logging owner + OBS-02 source catalog（synvelis-app 単一所有） | completed | [syn-obs-01-host-logging-owner-obs-02-source-catalog-synvelis-app.md](./syn-obs-01-host-logging-owner-obs-02-source-catalog-synvelis-app.md) |
 | IR-SV-RF305-export | SYN-RF305 render/player WAV Export StagedFile 移行 実装記録・検証証跡 | completed | [syn-rf305-render-export-staged-file.md](./syn-rf305-render-export-staged-file.md) |
 | IMPL-034Rp8RppbqCF1xtexsFvB | Synvelis 独立 PR/Push CI 実装記録 | completed | [synvelis-pr-push-ci.md](./synvelis-pr-push-ci.md) |
+| IMPL-wudSTaSGqUbfYIh4qzyqGq | Target Architecture 設計レビュー 実装記録 — docs chain 7 文書 + evidence/sv22 台帳 | completed | [target-architecture.md](./target-architecture.md) |
 | IMPL-034Vu50fg7S7yCp4bni412 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証 | completed | [tim-01-app-ppqn-slice.md](./tim-01-app-ppqn-slice.md) |
 | IMPL-034UHWGxnC2sjDoLd5P01u | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | completed | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | IMPL-8qWeRtYuIoPaSdFgHjKl | TIM-01 PPQN Preview op + New Project PPQN — preview_ppqn + syn.project.preview_ppqn / syn.project.new.ppqn | completed | [tim-01-ppqn-preview.md](./tim-01-ppqn-preview.md) |
@@ -150,6 +165,9 @@ Directory: `docs/impl/ir`
 | IMPL-0340LyK9sQ2OUSutsQvSw | TIM-03 request plan — per-request ProcessBoundarySession + precision provenance | completed | [tim-03-request-plan-provenance.md](./tim-03-request-plan-provenance.md) |
 | IMPL-034Vsqaiq4B9YQrsfPw8Sb | TIM-03 session→driver/routing wiring — BoundarySessionSpec vend・driver session/mirror・routing scoped API | completed | [tim-03-session-driver-wiring-slice.md](./tim-03-session-driver-wiring-slice.md) |
 | IMPL-Tim04PluginStateSnapshot | TIM-04 Plugin State Snapshot 一貫性 — quality receipt / save-reload / HEAD / offline recipe（headless mock slice） | completed | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
+| IMPL-kBHWiP6FFajB356aw7WOHn | Timeline Editing / Selection / Tool System — 実装記録（docs slice・synvelis#11） | completed | [timeline-editing.md](./timeline-editing.md) |
+| IMPL-034X7xdWV5l5SuHJr0ppBz | Transport Integration — Issue #20 設計契約文書化 + TT evidence 台帳 | completed | [transport-integration.md](./transport-integration.md) |
+| IMPL-102UiCfInt006FfGgHhIiJ | UI-C5 製品 GUI 統合 — syn.control.relation / syn.control.edge / syn.recording.* op surface（headless slice） | completed | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | IMPL-Vcs01ImmutableSnapshotResolver | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only projection | completed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | IMPL-Vcs02SemanticDiffEngine | VCS-02 Semantic Diff Engine — canonical ChangeSet・typed identity/lineage・Unknown tri-state | completed | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
 | IMPL-Qt0RuNZjqvP8ojWR34w9p1 | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta | completed | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
@@ -172,5 +190,7 @@ Directory: `docs/impl/ir`
 | IMPL-pQbrnczYyJPOw79LzmmIy | VS-B Clock/Gate/RT Capture — Mock Input・Buffer Pool・SPSC (E2E-R1) | completed | [vs-b-clock-gate-rt-capture-mock-spsc.md](./vs-b-clock-gate-rt-capture-mock-spsc.md) |
 | IMPL-034QfRW3cPFErlmVZ7TCoI | VS-C Staging Writer / Journal / Crash Recovery — Verified Media Range (E2E-R2) | completed | [vs-c-staging-writer-journal-crash-recovery.md](./vs-c-staging-writer-journal-crash-recovery.md) |
 | IMPL-VSdRecCommitE2E | VS-D Recording Commit / End-to-End Vertical Slice — Idempotency・Undo・Reload (E2E-R3) | completed | [vs-d-recording-commit-e2e-idempotency-undo-reload.md](./vs-d-recording-commit-e2e-idempotency-undo-reload.md) |
+| IMPL-034X5pypMll8dagLa8AERw | Workspace Model — Issue #2 設計文書化 + headless 検証 | completed | [workspace-model.md](./workspace-model.md) |
+| IMPL-034X3VOP02J6rtCa1QMhIJ | Workspace UX 操作仕様の正本化（Issue #3 文書チェーン） | completed | [workspace-ux-scenarios.md](./workspace-ux-scenarios.md) |
 | IMPL-034QxsUh3NmPwprwJkrlk5 | WS-A workspace foundation headless PoC | completed | [ws-a-workspace-foundation-headless-poc.md](./ws-a-workspace-foundation-headless-poc.md) |
 | IMPL-XRecordedVerifiedSourcePlaybackExport | E2E-X Recorded Source → Generic Playback/Export with Frame/ID/Content Integrity | completed | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |
