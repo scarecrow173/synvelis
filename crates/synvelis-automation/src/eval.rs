@@ -133,6 +133,10 @@ pub fn eval_expr(expr: &Expr, env: &EvalEnv<'_>) -> Result<Value, EvalError> {
             }
             Ok(Value::Object(out))
         }
+        Expr::Field { base, path } => {
+            let value = eval_expr(base, env)?;
+            resolve_path(&value, path, "<field>").cloned()
+        }
     }
 }
 

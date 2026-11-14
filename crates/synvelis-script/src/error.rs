@@ -204,6 +204,25 @@ pub enum ScriptApiError {
         /// The version the presented definition declares.
         actual: u32,
     },
+    /// A workflow spec reuses a step/call id — ids occupy one
+    /// namespace across actions, workflow calls, and control nodes.
+    DuplicateStepId {
+        /// The duplicated id.
+        step: String,
+    },
+    /// An `action()` call inside a workflow spec names a capability
+    /// whose domain/execution contract has no workflow step kind
+    /// (Proposal / `RuntimeControl` / synchronous `AsyncOperation` /
+    /// async-accept Query or `ProjectMutation`). Such calls belong to
+    /// other surfaces — workflows compose query/invoke/async-submit.
+    UnsupportedWorkflowStep {
+        /// The script API name of the offending call.
+        member: String,
+        /// The capability's operation domain.
+        domain: synvelis_gateway::OperationDomain,
+        /// The capability's execution contract.
+        execution: synvelis_gateway::ExecutionContract,
+    },
 }
 
 /// Why a surface entry cannot be invoked — the fail-closed verdict
@@ -380,6 +399,17 @@ impl fmt::Display for ScriptApiError {
                     "script version drift: recipe built from {expected}, definition declares {actual}"
                 )
             }
+            Self::DuplicateStepId { step } => {
+                write!(f, "duplicate workflow step/call id: {step}")
+            }
+            Self::UnsupportedWorkflowStep {
+                member,
+                domain,
+                execution,
+            } => write!(
+                f,
+                "member {member:?} ({domain:?}/{execution:?}) has no workflow step kind"
+            ),
         }
     }
 }

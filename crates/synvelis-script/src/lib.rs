@@ -51,6 +51,7 @@ pub mod model;
 pub mod schema;
 pub mod snapshot;
 pub mod surface;
+pub mod workflow;
 
 pub use action::{
     ACTION_DEFINITION_SCHEMA_VERSION, ACTION_RECIPE_SCHEMA_VERSION, ActionRecipe, ActionRecipeKind,
@@ -79,4 +80,9 @@ pub use schema::{ScriptField, ScriptSchema};
 pub use snapshot::{RegistrySnapshot, SNAPSHOT_SCHEMA_VERSION, SchemaEntry};
 pub use surface::{
     NameRejection, SURFACE_SCHEMA_VERSION, ScriptSurfaceEntry, ScriptSurfaceSpec, ScriptVisibility,
+};
+pub use workflow::{
+    MAX_WORKFLOW_NODES, ScriptStepCall, ScriptWorkflowRef, ScriptWorkflowSpec, SpecIoDecl,
+    WORKFLOW_SCRIPT_DEFINITION_SCHEMA_VERSION, WORKFLOW_SPEC_SCHEMA_VERSION, WorkflowScriptBuilder,
+    WorkflowScriptDefinition,
 };
