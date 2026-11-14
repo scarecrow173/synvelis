@@ -118,14 +118,18 @@ fn change_supported(object: &SemanticObjectRef, change: &SemanticChange) -> Resu
         ChangeKind::Replaced => {
             if matches!(
                 kind,
-                ObjectKind::Clip | ObjectKind::Asset | ObjectKind::MediaSource
+                ObjectKind::Clip
+                    | ObjectKind::Asset
+                    | ObjectKind::MediaSource
+                    | ObjectKind::PluginInstance
             ) {
                 Ok(())
             } else {
                 Err(ApplyError::Unsupported {
                     kind,
                     change: change.kind,
-                    detail: "replace only applies to clip/asset/source content swaps".into(),
+                    detail: "replace only applies to clip/asset/source/plugin-instance swaps"
+                        .into(),
                 })
             }
         }

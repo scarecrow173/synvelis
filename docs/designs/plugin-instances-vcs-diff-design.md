@@ -241,10 +241,12 @@ version bump は旧 policy で計算・保存された結果との key 衝突を
 ## Deferred Design Concerns
 
 - `PluginInstance` change の apply 対応（byte-faithful な `id` 値
-  復元 + instance watermark reseed）: monotonic never-reissued
-  契約と live 採番履歴の統合設計が必要で、本 slice の「diff
-  分類追加」スコープを超える。要求が出た時点で別 spec/design に
-  切り出す。
+  復元 + instance watermark reseed）: **解決済み** — VCS-05
+  plugin-instance apply slice で `docs/specs/vcs-05-plugin-
+  instance-apply.md` / `docs/designs/vcs-05-plugin-instance-
+  apply.md` として切り出され、byte-faithful transplant +
+  `max(live, after)` watermark reseed で実装された
+  （`crates/synvelis-project/src/apply/entity.rs`）。
 - VCS-06（#97）の diff matrix / ledger fixture への新 kind 組込み:
   実装 slice の test-spec で扱う。
 

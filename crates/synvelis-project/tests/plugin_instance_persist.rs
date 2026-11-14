@@ -456,9 +456,9 @@ fn sources_for(cs: &ChangeSet, before: &ImmutableSnapshot, after: &ImmutableSnap
 
 /// `true` for object kinds inside the VCS-05 apply surface — mirrors
 /// `apply::entity::supported_kind` (crate-private, unreachable from
-/// integration tests). Diff-only kinds such as `PluginInstance` fail
-/// closed at plan/fingerprint time, so select-all fixtures must narrow
-/// their selection to apply-surface kinds.
+/// integration tests). Diff-only kinds (recording/comping/SMF
+/// domains) fail closed at plan/fingerprint time, so select-all
+/// fixtures must narrow their selection to apply-surface kinds.
 fn apply_surface_kind(kind: ObjectKind) -> bool {
     matches!(
         kind,
@@ -483,6 +483,9 @@ fn apply_surface_kind(kind: ObjectKind) -> bool {
             | ObjectKind::SemanticPort
             | ObjectKind::RoutingConnection
             | ObjectKind::SendConfig
+            | ObjectKind::TrackMonitorDecl
+            | ObjectKind::PunchMarks
+            | ObjectKind::PluginInstance
     )
 }
 
@@ -566,9 +569,11 @@ fn deterministic_pair() -> (
 fn apply_added_resolved_processor_allocates_identity() {
     let (mut live, _after_c, before, after, cs) = deterministic_pair();
     // The changeset also carries the `PluginInstance(Added)` evidence
-    // for the new entry — outside the apply surface, so the selection
-    // is narrowed to apply-surface kinds (fail-closed kinds are never
-    // silently applied).
+    // for the new entry — on the apply surface, so the selection
+    // includes it; the byte-faithful transplant lands on the same
+    // id the Processor write's `sync_processor` minted (both derive
+    // from the identical after store), leaving the assertions below
+    // unchanged.
     let changes: Vec<&SemanticChange> = apply_surface_changes(&cs);
     let receipt = run_apply(&mut live, &cs, &before, &after, &changes);
     assert_eq!(receipt.outcome, ApplyOutcome::Applied);

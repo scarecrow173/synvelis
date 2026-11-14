@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use synvelis_project::apply::{ApplyError, target_fingerprint};
+use synvelis_project::apply::target_fingerprint;
 use synvelis_project::control::{
     AutomationPoint, AutomationRegion, AutomationTimeScope, BeatPoint, BeatRange, ConflictPolicy,
     ControlOwner, Interpolation, ParamMapping, ParameterRole, ValueKind,
@@ -1420,11 +1420,11 @@ fn plugin_instance_on_ambiguous_processor_raw_is_ambiguous() {
 }
 
 #[test]
-fn plugin_instance_change_is_outside_apply_surface() {
-    // Apply surface stays fail-closed (Deferred Design Concern): the
-    // fingerprint gate rejects the new kind before any mutation, so a
-    // selection containing a `PluginInstance` change can never be
-    // silently applied.
+fn plugin_instance_change_is_on_apply_surface() {
+    // VCS-05 plugin-instance apply slice: the kind joined the apply
+    // whitelist, so `target_fingerprint` resolves the keyed-synthetic
+    // entity (absent entries encode as `null`) instead of failing
+    // closed with `Unsupported`.
     let (project, proc) = project_with_resolved_processor();
     let object = SemanticObjectRef {
         project_id: project.project_id,
@@ -1432,12 +1432,17 @@ fn plugin_instance_change_is_outside_apply_surface() {
         stable_id: proc.to_tagged(),
         lineage: None,
     };
-    let err = target_fingerprint(&project, &[object]).unwrap_err();
-    assert!(matches!(
-        err,
-        ApplyError::Unsupported {
-            kind: ObjectKind::PluginInstance,
-            ..
-        }
-    ));
+    let fp = target_fingerprint(&project, &[object.clone()]).unwrap();
+    // The fingerprint covers the persisted identity — an id swap
+    // must change it (byte-faithful transplant contract).
+    let mut swapped = project.clone();
+    swapped
+        .plugin_instances
+        .instances
+        .get_mut(&proc)
+        .unwrap()
+        .id = PluginInstanceId::new(9);
+    swapped.plugin_instances.watermark = 10;
+    let fp_swapped = target_fingerprint(&swapped, &[object]).unwrap();
+    assert_ne!(fp, fp_swapped);
 }
