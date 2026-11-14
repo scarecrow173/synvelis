@@ -235,6 +235,20 @@ impl SessionRoutingEngine {
     /// surface generation, or a pre-activation window observes
     /// nothing — fail-closed, nothing fabricated.
     ///
+    /// SF-PROBE-07 loop leg: when a block's observed window
+    /// contained a loop wrap or a `SetLoop`/`ClearLoop` apply
+    /// ([`synvelis_player::RoutingControlDispatch::
+    /// observed_loop_discontinuity`]), the run declares a probe
+    /// cursor-series discontinuity before the next block — the
+    /// epoch cut lands per block, never deferred to the run's end,
+    /// so post-discontinuity evidence can never keep the old epoch
+    /// (fail-open). Declaration is best-effort like `seek`'s bump:
+    /// on `CommandChannelFull` the broker epoch still advances and
+    /// the deck catches up on the next delivered clock mark — the
+    /// broker/deck divergence stays observable via
+    /// `probe_time_context`, never silently aligned. The engine
+    /// cursor, master PCM and seek state are untouched.
+    ///
     /// # Errors
     /// [`ProcessError`] from the runtime.
     pub fn run(&self, blocks: usize, policy: PumpPolicy) -> Result<PlayReport, ProcessError> {
@@ -247,24 +261,73 @@ impl SessionRoutingEngine {
         let inner = &mut *inner;
         let mut dispatch = inner.dispatch.as_mut();
         let mut observed: Vec<DispatchCycle> = Vec::new();
-        let result = inner
-            .bridge
-            .engine_mut()
-            .run_observed(blocks, policy, &mut |window| {
-                let Some(dispatch) = dispatch.as_mut() else {
-                    return;
-                };
-                let Some(nodes) = dispatch.observe_block(
-                    window.generation,
-                    window.call_start,
-                    window.call_frames,
-                ) else {
-                    return;
-                };
-                observed.push(merge_observed_cycles(nodes));
-            });
+        let channels = usize::from(inner.config.engine.channels);
+        let block_frames = inner.config.engine.block_frames;
+        let mut pcm: Vec<Vec<f32>> = vec![Vec::with_capacity(blocks * block_frames); channels];
+        let PumpPolicy::Every(n) = policy;
+        let mut frames = 0_u64;
+        let mut failure = None;
+        // One `run_observed(1)` per block: the per-call observe
+        // index restarts at 0, so `Every(1)`/`Every(0)` reproduces
+        // `run(N, Every(n))`'s `index % n` pump cadence exactly —
+        // the `MonitorEngine::run` emulation precedent. A single
+        // N-block call could not declare per block: the observe
+        // closure runs while `inner.bridge` is borrowed, and a
+        // run-end declaration would leave every post-wrap block
+        // stamped with the pre-wrap epoch.
+        for index in 0..blocks as u64 {
+            let block_policy = if n > 0 && index % n == 0 {
+                PumpPolicy::Every(1)
+            } else {
+                PumpPolicy::Every(0)
+            };
+            let mut discontinuity = false;
+            let step = inner
+                .bridge
+                .engine_mut()
+                .run_observed(1, block_policy, &mut |window| {
+                    let Some(dispatch) = dispatch.as_mut() else {
+                        return;
+                    };
+                    let Some(nodes) = dispatch.observe_block(
+                        window.generation,
+                        window.call_start,
+                        window.call_frames,
+                    ) else {
+                        return;
+                    };
+                    discontinuity = dispatch.observed_loop_discontinuity();
+                    observed.push(merge_observed_cycles(nodes));
+                });
+            if discontinuity {
+                let _ = inner.bridge.engine_mut().declare_probe_discontinuity();
+            }
+            match step {
+                Ok(report) => {
+                    for (out, channel_pcm) in pcm.iter_mut().zip(report.pcm.iter()) {
+                        out.extend_from_slice(channel_pcm);
+                    }
+                    frames += report.frames;
+                }
+                Err(error) => {
+                    failure = Some(error);
+                    break;
+                }
+            }
+        }
         inner.pending_observe_cycles.append(&mut observed);
-        result
+        if let Some(error) = failure {
+            return Err(error);
+        }
+        let mut crc = 0_u64;
+        for channel in &pcm {
+            for sample in channel {
+                crc = crc
+                    .wrapping_mul(31)
+                    .wrapping_add(u64::from(sample.to_bits()));
+            }
+        }
+        Ok(PlayReport { pcm, crc, frames })
     }
 
     /// Drains the [`DispatchCycle`]s the per-block `observe_block`

@@ -228,9 +228,18 @@ gate が乗る土台を完成させる。
   fixture では mapping-only 証拠 | Ruviform 側の fault
   注入経路が必要になれば別 slice | counter
   `unobserved == 0` の主張に留める。
-- loop transport | `RoutingEngine` に loop/restart API は
-  存在しない・YAGNI | 要件発生時 | 宣言 API は transport
-  非依存のため loop 導入時もそのまま使える。
+- loop transport | 解消済み（sf-04-loop-discontinuity
+  slice・Issue #107 SF-PROBE-07 Loop 脚）:
+  `RoutingControlDispatch::observe_block` が
+  `observed_loop_discontinuity` で loop wrap と
+  `SetLoop`/`ClearLoop` apply を検出し、
+  `SessionRoutingEngine::run` が block ごとに
+  `declare_probe_discontinuity` を呼ぶ —
+  `RoutingEngine` への loop/restart API 追加は
+  不要のまま、宣言点は transport 非依存を維持 |
+  実装済み | `docs/specs/sf-04-loop-discontinuity.md`、
+  `crates/synvelis-player/tests/
+  sf04_loop_discontinuity.rs`。
 - 実機 fault（デバイス断・late bind・format 変化）| #109
   実測 oracle gate | gate 後 | headless fixture は既定
   `ProbeConfig` のみ。
