@@ -89,6 +89,15 @@ relations:
   25 test）は `probe.rs` `PendingClose` 変更後も無変更で
   green。
 
+## Deferred 解消記録
+
+- spec の deferred 表「loop transport」は
+  `sf-04-loop-discontinuity` slice（Issue #107
+  SF-PROBE-07 Loop 脚）で解消 — 検証は
+  `docs/test-specs/sf-04-loop-discontinuity.md` と
+  `crates/synvelis-player/tests/
+  sf04_loop_discontinuity.rs` を参照。
+
 ## 外部 Gate（NotRun — Pass 扱いしない）
 
 - 実機 fault（デバイス断・late bind・format 変化）→ #109

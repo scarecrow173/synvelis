@@ -37,7 +37,8 @@ export type OpName =
   | "syn.viz.push_frame"
   | "syn.viz.source_changed"
   | "syn.probe.control"
-  | "syn.probe.state";
+  | "syn.probe.state"
+  | "syn.probe.compare";
 
 /** One `rvf.ipc.v1` envelope pushed from Rust (non-result kinds). */
 export interface RvfEvent {
