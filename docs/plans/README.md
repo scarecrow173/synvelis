@@ -139,6 +139,7 @@ Directory: `docs/plans`
 | PLAN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — 実装 plan | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | PLAN-TiM02PpqnSmfXg03 | TIM-02 × TIM-01 PPQN×SMF cross-golden fixture — implementation plan | approved | [tim-02-ppqn-smf-cross-golden-plan.md](./tim-02-ppqn-smf-cross-golden-plan.md) |
 | PLAN-034UwXgmnKOCYgkwlGLFkf | TIM-02 SMF Format0/1 core implementation plan | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
+| PLAN-034XzPAftHuisduKCPsMLt | TIM-03 Loop/Tempo boundary 自動導出 — 実装計画 | approved | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
 | PLAN-Yn3mzcCyD4Dwd0Ga4zylHB | TIM-03 session→driver/routing wiring plan | approved | [tim-03-session-driver-wiring-plan.md](./tim-03-session-driver-wiring-plan.md) |
 | PLAN-034UC46sceMw6QCzqVjGOO | TIM-04 plugin state snapshot consistency — implementation plan | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | PLAN-034UyECBCu7Wg67fct0qi7 | TIM-03 plugin process boundary plan | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |

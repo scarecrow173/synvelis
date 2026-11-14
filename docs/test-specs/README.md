@@ -184,6 +184,7 @@ Directory: `docs/test-specs`
 | TESTSPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 fixtures | approved | [tim-02-player-midi-rt-fixtures.md](./tim-02-player-midi-rt-fixtures.md) |
 | TSPEC-TiM02PpqnSmfXg05 | TIM-02 × TIM-01 PPQN×SMF cross-golden fixture — test spec | approved | [tim-02-ppqn-smf-cross-golden.md](./tim-02-ppqn-smf-cross-golden.md) |
 | TSPEC-034UwYugwIyQVbAeVxql8O | TIM-02 SMF Format0/1 fixture matrix | proposed | [tim-02-smf-format01-fixtures.md](./tim-02-smf-format01-fixtures.md) |
+| TSPEC-034XzNZjVRkpX8SwoPnSjs | TIM-03 Loop/Tempo boundary 自動導出 — テスト仕様 | approved | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
 | TSPEC-lQ0qYg1as24XtlZ1sHNNWN | TIM-03 session→driver/routing wiring test spec — TIM03-SW01..NN | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | TSPEC-034UC53kVrQjWrtds8Lrsn | TIM-04 plugin state snapshot consistency — test spec | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | TSPEC-034UyEDDz7mTejYlyhg4gF | TIM-03 process boundary test spec — TIM-03-PB01..NN | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |

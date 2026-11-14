@@ -150,6 +150,7 @@ Directory: `docs/specs`
 | SPEC-TiM01uIxYzAbCdEfGh | TIM-01 PPQN 選択 UI read model + Snap/Grid ポリシー — synvelis#125 UI slice（headless） | approved | [tim-01-ppqn-ui.md](./tim-01-ppqn-ui.md) |
 | SPEC-TiM02PpqnSmfXg01 | TIM-02 × TIM-01 PPQN×SMF cross-golden fixture — synvelis#126 受入行の Project Change 補完（headless） | approved | [tim-02-ppqn-smf-cross-golden.md](./tim-02-ppqn-smf-cross-golden.md) |
 | SPEC-034UwMIulZ7DXWykQFy704 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice (synvelis#126) | proposed | [tim-02-smf-format01-import-export.md](./tim-02-smf-format01-import-export.md) |
+| SPEC-034XzM1qSQBS0dtcltnMBI | TIM-03 Loop/Tempo boundary 自動導出 — TransportMirror scheduled commands からの LoopWrap BoundaryPoint 導出（headless slice） | approved | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
 | SPEC-1umIWi6ogYs4kgcJeTyvJ8 | TIM-03 session→driver/routing wiring — ProcessBoundarySession の composition 接続（headless slice） | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | SPEC-034UBZ7xNf0yey5lCLjVNT | TIM-04 Plugin State Snapshot 一貫性 — quality receipt・save/reload/HEAD/offline recipe（headless mock slice） | approved | [tim-04-plugin-state-snapshot-consistency.md](./tim-04-plugin-state-snapshot-consistency.md) |
 | SPEC-034UyE1s4ix4GwnKIOuV2N | TIM-03 plugin process boundary — capability/degraded policy（headless mock slice） | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |

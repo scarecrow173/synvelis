@@ -65,7 +65,7 @@ use ruviform_audio_plugin_bridge::{FrameBaseMismatch, InstallPlanError, PluginNo
 use ruviform_graph::NodeId;
 use ruviform_media_core::{
     BlockContract, CallPartition, DeliveryPolicy, InBlockTransportSupport, MidiEvent,
-    ScheduleBudget, TransportCommand, TransportPlan,
+    ScheduleBudget, TimeBase, TransportCommand, TransportPlan, TransportStatus, media_time_ticks,
 };
 use ruviform_plugin_core::{
     EventKind, ProcessConfig, TimedParamEvent, contract_from_process_config,
@@ -1273,4 +1273,460 @@ fn command_boundary(cmd: TransportCommand, due: u64, window: u32) -> Option<Boun
 /// `[0, window)`; `None` at or past the window end.
 fn window_offset(due: u64, window: u32) -> Option<u32> {
     u32::try_from(due).ok().filter(|d| *d < window)
+}
+
+// ---------------------------------------------------------------------
+// Loop-wrap boundary derivation (Issue #127 — position-derived
+// boundaries no longer caller-supplied).
+// ---------------------------------------------------------------------
+
+/// Scalar transport state for loop-wrap derivation — the same
+/// `(status, anchor_frame, anchor_pos, loop_ticks)` projection the
+/// upstream `TransportScheduler` walks in `preflight`/`run_callback`,
+/// re-expressed on plain values so the derivation stays a pure
+/// non-RT function the composition root can call without owning a
+/// scheduler.
+///
+/// Unlike [`crate::driver::TransportMirror`] — whose unfold line
+/// folds lazily under the *current* loop region and therefore cannot
+/// reproduce `pos_at` after a mid-stream `SetLoop`/`ClearLoop` — this
+/// state re-anchors at every wrap exactly like the scheduler, so
+/// `pos_at` stays scheduler-faithful across loop-region changes.
+/// `RoutingControlDispatch` advances one per control node through
+/// every [`Self::walk_window`] call;
+/// [`RoutingControlDispatch::boundary_loop_wraps`](crate::routing_control::RoutingControlDispatch::boundary_loop_wraps)
+/// clones it read-only for the upcoming window.
+///
+/// Position domain: this slice's `position_base == frame_base` —
+/// one tick is one engine frame, the raw position advances exactly
+/// one tick per frame while `Playing` and freezes otherwise, and
+/// tempo-map revisions carry musical information only (they never
+/// move a wrap frame). Plan installs likewise leave
+/// status/anchor/loop untouched, so they cannot shift a derived
+/// wrap.
+#[derive(Copy, Clone, Debug)]
+pub(crate) struct WrapSim {
+    /// Scheduler-equivalent transport status.
+    status: TransportStatus,
+    /// Position anchor frame (engine frames — the node cursor
+    /// domain).
+    anchor_frame: u64,
+    /// Raw (unfolded) position at `anchor_frame`, in position ticks.
+    anchor_pos: i64,
+    /// Loop region `(start, end)` in position ticks.
+    loop_ticks: Option<(i64, i64)>,
+    /// The node's verified frame base — command positions convert
+    /// through it exactly like the scheduler's `validate`.
+    frame_base: TimeBase,
+}
+
+impl WrapSim {
+    /// Scheduler-initial state: `Stopped`, anchor `(0, 0)`, no loop —
+    /// the same starting point `TransportMirror::new` and upstream
+    /// `SimState::new` share (a frozen position makes the anchor
+    /// frame irrelevant until the first `Play` re-anchors it).
+    pub(crate) const fn new(frame_base: TimeBase) -> Self {
+        Self {
+            status: TransportStatus::Stopped,
+            anchor_frame: 0,
+            anchor_pos: 0,
+            loop_ticks: None,
+            frame_base,
+        }
+    }
+
+    /// `pos_at` — identical to the scheduler's: raw anchor position
+    /// plus elapsed frames while `Playing`, frozen otherwise. No
+    /// loop fold — the scheduler folds only by re-anchoring at wrap
+    /// boundaries.
+    fn pos_at(&self, frame: u64) -> i64 {
+        let d = i64::try_from(frame.saturating_sub(self.anchor_frame)).unwrap_or(i64::MAX);
+        if self.status == TransportStatus::Playing {
+            self.anchor_pos.saturating_add(d)
+        } else {
+            self.anchor_pos
+        }
+    }
+
+    /// `next_wrap` — the frame the playing position next reaches the
+    /// loop end (`after` itself when the position already sits at or
+    /// past it — the scheduler's same-head cascade case). `None`
+    /// when not `Playing`, loop-less, or the region is degenerate
+    /// (`end <= start` — unreachable through validated commands;
+    /// treated as no loop rather than risking a non-terminating
+    /// cascade).
+    fn next_wrap(&self, after: u64) -> Option<u64> {
+        if self.status != TransportStatus::Playing {
+            return None;
+        }
+        let (start, end) = self.loop_ticks?;
+        if end <= start {
+            return None;
+        }
+        let delta = end.saturating_sub(self.pos_at(after)).max(0);
+        Some(after.saturating_add(u64::try_from(delta).unwrap_or(u64::MAX)))
+    }
+
+    /// `do_wrap` — re-anchors at `loop_start + overflow`. A position
+    /// already past the end cascades algebraically: repeated wraps at
+    /// the same frame each subtract `end - start`, landing the anchor
+    /// in `[start, end)` — identical to the scheduler's sequential
+    /// `do_wrap` loop but bounded (no per-wrap iteration, so a
+    /// seek-flung position cannot spin).
+    fn wrap(&mut self, frame: u64) {
+        if let Some((start, end)) = self.loop_ticks
+            && end > start
+        {
+            let pos = self.pos_at(frame);
+            let overflow = pos.saturating_sub(end).max(0);
+            self.anchor_frame = frame;
+            self.anchor_pos = start.saturating_add(overflow % (end - start));
+        }
+    }
+
+    /// Applies one transport command at `frame` under the scheduler's
+    /// validity rules — the same conversions
+    /// `RoutingControlDispatch::note_transport_command` performs:
+    /// `Seek` needs exactly-representable non-negative ticks,
+    /// `SetLoop` a non-empty region with non-negative start; a
+    /// command upstream would reject is a no-op here, so the
+    /// simulation can never project an apply that cannot happen.
+    /// `SetLoop` installs the region without re-anchoring (the
+    /// scheduler keeps its anchor; the new loop folds whatever the
+    /// position had already passed).
+    fn apply_command(&mut self, cmd: TransportCommand, frame: u64) {
+        let pos = self.pos_at(frame);
+        match cmd {
+            TransportCommand::Play => {
+                self.status = TransportStatus::Playing;
+                self.anchor_frame = frame;
+                self.anchor_pos = pos;
+            }
+            TransportCommand::Pause => {
+                self.status = TransportStatus::Paused;
+                self.anchor_frame = frame;
+                self.anchor_pos = pos;
+            }
+            TransportCommand::Stop => {
+                self.status = TransportStatus::Stopped;
+                self.anchor_frame = frame;
+                self.anchor_pos = 0;
+            }
+            TransportCommand::Seek(position) => {
+                if let Some(ticks) = media_time_ticks(position, self.frame_base)
+                    && ticks >= 0
+                {
+                    self.anchor_frame = frame;
+                    self.anchor_pos = ticks;
+                }
+            }
+            TransportCommand::SetLoop(range) => {
+                if let (Some(start), Some(end)) = (
+                    media_time_ticks(range.start(), self.frame_base),
+                    media_time_ticks(range.end(), self.frame_base),
+                ) && start >= 0
+                    && end > start
+                {
+                    self.loop_ticks = Some((start, end));
+                }
+            }
+            TransportCommand::ClearLoop => self.loop_ticks = None,
+            _ => {}
+        }
+    }
+
+    /// Advances the simulation through the window
+    /// `[window_start, window_start + window_frames)` and returns the
+    /// loop-wrap [`BoundaryPoint`]s inside it — the position-derived
+    /// boundary supply [`ProcessBoundarySession::plan_window`]
+    /// callers previously had to enumerate by hand. On return `self`
+    /// holds the post-window state: every in-window apply has been
+    /// folded and every wrap re-anchored, exactly like the scheduler
+    /// after `run_callback`.
+    ///
+    /// `pending` lists the commands that will apply inside or before
+    /// the window as `(absolute_apply_frame, command)`, sorted by
+    /// apply frame with push order preserved on ties — the same
+    /// order the node scheduler's pending queue applies them.
+    ///
+    /// The walk mirrors upstream `TransportScheduler` boundary
+    /// selection exactly: applies due at or before the window head
+    /// fire first (the scheduler applies `due <= start` before the
+    /// first span), then each step picks `min(next apply due, next
+    /// wrap frame)` with the apply winning ties; a wrap re-anchors
+    /// and is re-evaluated under the new state, so `SetLoop`/`Seek`/
+    /// `ClearLoop` applies shift or remove later wraps exactly as on
+    /// the RT path. Returned offsets are window-relative and strictly
+    /// increasing — a same-frame cascade records one point. Wraps at
+    /// the window end belong to the next window and are not
+    /// returned; a wrap at the window head records offset 0 (the same
+    /// head-apply contract command boundaries use — never a cut).
+    ///
+    /// These are *requested* wrap frames: under consented degraded
+    /// delivery the scheduler may defer a wrap to a later legal
+    /// frame, which stays the oracle's/scheduler's concern —
+    /// `LoopWrap` points bound the deferral scan exactly like
+    /// caller-supplied ones did. Commands upstream would reject
+    /// (invalid seek/loop) never move the simulation.
+    pub(crate) fn walk_window(
+        &mut self,
+        window_start: u64,
+        window_frames: u32,
+        pending: &[(u64, TransportCommand)],
+    ) -> Vec<BoundaryPoint> {
+        let window_end = window_start.saturating_add(u64::from(window_frames));
+        // Re-anchor at the window head: for every `f >= window_start`
+        // the trajectory is identical — `pos_at(window_start)` is the
+        // scheduler-domain position *before* any head wrap (this
+        // state never lazy-folds; wraps only re-anchor inside the
+        // walk), so a wrap landing exactly on the head still
+        // evaluates as `pos_at == loop_end` and records offset 0.
+        let head_pos = self.pos_at(window_start);
+        self.anchor_frame = window_start;
+        self.anchor_pos = head_pos;
+        // Applies due at or before the head fire at the head — the
+        // scheduler's `run_callback` applies `due <= start` before the
+        // first span, so the window's trajectory starts post-apply.
+        let head = pending.partition_point(|&(due, _)| due <= window_start);
+        for &(_, cmd) in &pending[..head] {
+            self.apply_command(cmd, window_start);
+        }
+        // In-window applies in due order; dues at/past the window end
+        // sort last and are never selected (`b` starts at `window_end`).
+        let bounds = &pending[head..];
+        let mut points = Vec::new();
+        let mut prev = window_start;
+        let mut bi = 0usize;
+        loop {
+            let mut b = window_end;
+            let mut wrap = false;
+            if bi < bounds.len() && bounds[bi].0 < b {
+                b = bounds[bi].0;
+            }
+            if let Some(w) = self.next_wrap(prev)
+                && w < b
+            {
+                b = w;
+                wrap = true;
+            }
+            if b >= window_end {
+                break;
+            }
+            if b <= prev {
+                // Boundary at the span start: an immediate wrap (the
+                // position already sits at/past the loop end) takes
+                // effect without emitting a span — record it once;
+                // `wrap`'s algebraic collapse absorbs same-frame
+                // cascades. No apply can coincide here: every due in
+                // `bounds` is `> prev` by the consumption invariant
+                // below, kept as a guard for parity with upstream.
+                if wrap {
+                    points.push(BoundaryPoint {
+                        offset: u32::try_from(prev - window_start).unwrap_or(u32::MAX),
+                        kind: BoundaryKind::LoopWrap,
+                    });
+                    self.wrap(prev);
+                }
+                while bi < bounds.len() && bounds[bi].0 <= prev {
+                    self.apply_command(bounds[bi].1, prev);
+                    bi += 1;
+                }
+                continue;
+            }
+            prev = b;
+            if wrap {
+                points.push(BoundaryPoint {
+                    offset: u32::try_from(b - window_start).unwrap_or(u32::MAX),
+                    kind: BoundaryKind::LoopWrap,
+                });
+                self.wrap(b);
+            }
+            while bi < bounds.len() && bounds[bi].0 <= b {
+                self.apply_command(bounds[bi].1, b);
+                bi += 1;
+            }
+        }
+        points
+    }
+}
+
+#[cfg(test)]
+mod loop_wrap_tests {
+    use ruviform_media_core::{MediaDuration, MediaRange, MediaTime};
+
+    use super::*;
+
+    fn base() -> TimeBase {
+        TimeBase::sample_rate(48_000).unwrap()
+    }
+
+    fn t(value: i64) -> MediaTime {
+        MediaTime::new(value, base())
+    }
+
+    fn loop_cmd(start: i64, end: i64) -> TransportCommand {
+        TransportCommand::SetLoop(MediaRange::new(
+            t(start),
+            MediaDuration::new(end - start, base()),
+        ))
+    }
+
+    fn seek_cmd(position: i64) -> TransportCommand {
+        TransportCommand::Seek(t(position))
+    }
+
+    fn offsets(points: &[BoundaryPoint]) -> Vec<u32> {
+        points.iter().map(|p| p.offset).collect()
+    }
+
+    /// A `Playing` sim anchored at `window_start` with folded position
+    /// `pos` — the scheduler-domain state `walk_window` consumes.
+    fn sim_at(
+        status: TransportStatus,
+        loop_ticks: Option<(i64, i64)>,
+        pos: i64,
+        window_start: u64,
+    ) -> WrapSim {
+        WrapSim {
+            status,
+            anchor_frame: window_start,
+            anchor_pos: pos,
+            loop_ticks,
+            frame_base: base(),
+        }
+    }
+
+    /// `Playing`, position `pos` at `window_start`, loop `loop_ticks`,
+    /// no pending applies.
+    fn derive(
+        loop_ticks: Option<(i64, i64)>,
+        pos: i64,
+        window_start: u64,
+        window_frames: u32,
+    ) -> Vec<BoundaryPoint> {
+        let mut sim = sim_at(TransportStatus::Playing, loop_ticks, pos, window_start);
+        sim.walk_window(window_start, window_frames, &[])
+    }
+
+    #[test]
+    fn steady_loop_multiple_wraps() {
+        // pos_at(f) = f; loop end 300, length 200 → wraps every 200.
+        let points = derive(Some((100, 300)), 0, 0, 1024);
+        assert_eq!(offsets(&points), vec![300, 500, 700, 900]);
+        assert!(points.iter().all(|p| p.kind == BoundaryKind::LoopWrap));
+    }
+
+    #[test]
+    fn no_loop_or_not_playing_is_empty() {
+        for (status, loop_ticks) in [
+            (TransportStatus::Playing, None),
+            (TransportStatus::Paused, Some((100, 300))),
+            (TransportStatus::Stopped, Some((100, 300))),
+            // Degenerate region — unreachable through validated
+            // commands, treated as no loop.
+            (TransportStatus::Playing, Some((300, 100))),
+        ] {
+            let mut sim = sim_at(status, loop_ticks, 0, 0);
+            assert!(
+                sim.walk_window(0, 256, &[]).is_empty(),
+                "{status:?} {loop_ticks:?} must derive no wraps"
+            );
+        }
+    }
+
+    #[test]
+    fn window_edges_include_last_frame_exclude_end() {
+        // pos_at(f) = 44 + (f - 512); reaches the loop end 300 at
+        // f = 768 = window end → excluded, belongs to the next
+        // window.
+        assert!(
+            derive(Some((100, 300)), 44, 512, 256).is_empty(),
+            "wrap exactly on window end belongs to the next window"
+        );
+        // Next window: a wrap lands exactly on the head — the sim's
+        // pre-wrap position is the loop end, so the walk records
+        // offset 0, then wraps every 200 frames.
+        let points = derive(Some((100, 300)), 300, 768, 256);
+        assert_eq!(offsets(&points), vec![0, 200]);
+    }
+
+    #[test]
+    fn apply_at_head_wins_tie_then_wraps() {
+        // Seek to the loop end at the window head: the apply wins
+        // the tie, the position then sits at the end → immediate
+        // wrap at offset 0, then every 200 frames.
+        let mut sim = sim_at(TransportStatus::Playing, Some((100, 300)), 250, 512);
+        let points = sim.walk_window(512, 256, &[(512, seek_cmd(300))]);
+        assert_eq!(offsets(&points), vec![0, 200]);
+    }
+
+    #[test]
+    fn mid_window_seek_preempts_and_repositions() {
+        // pos_at(f) = f - 412 would wrap at 712, but the Seek at 612
+        // applies first and repositions to 45 — 712 never wraps and
+        // the next wrap lands at 867, outside this window.
+        let pending = [(612, seek_cmd(45))];
+        let mut first = sim_at(TransportStatus::Playing, Some((100, 300)), 100, 512);
+        let points = first.walk_window(512, 256, &pending);
+        assert!(points.is_empty(), "seek preempts the 712 wrap: {points:?}");
+        // Next window [768,1024): position at the head is
+        // 45 + (768 - 612) = 201; the wrap lands at 867 → offset 99.
+        let second = derive(Some((100, 300)), 201, 768, 256);
+        assert_eq!(offsets(&second), vec![99]);
+    }
+
+    #[test]
+    fn mid_window_set_loop_replaces_region() {
+        // pos_at(f) = f - 412 wraps at 712/912 under [100,300); a
+        // SetLoop to [400,500) at 662 (position 250, below the new
+        // start) preempts both — the next wrap lands at 912 under
+        // the new region, then every 100 frames.
+        let pending = [(662, loop_cmd(400, 500))];
+        let mut sim = sim_at(TransportStatus::Playing, Some((100, 300)), 100, 512);
+        let points = sim.walk_window(512, 512, &pending);
+        assert_eq!(offsets(&points), vec![400, 500]);
+    }
+
+    #[test]
+    fn invalid_commands_never_move_the_sim() {
+        let clean = derive(Some((100, 300)), 100, 512, 512);
+        // Negative seek ticks and an inverted loop region are
+        // rejected upstream — the sim must treat them as no-ops.
+        let mut invalid = sim_at(TransportStatus::Playing, Some((100, 300)), 100, 512);
+        let invalid_only =
+            invalid.walk_window(512, 512, &[(600, seek_cmd(-5)), (601, loop_cmd(500, 400))]);
+        assert_eq!(offsets(&invalid_only), offsets(&clean));
+        // A valid ClearLoop at 800 still lands: the 712 wrap fires,
+        // then the loop is gone for the rest of the window.
+        let mut cleared = sim_at(TransportStatus::Playing, Some((100, 300)), 100, 512);
+        let points = cleared.walk_window(512, 512, &[(800, TransportCommand::ClearLoop)]);
+        assert_eq!(offsets(&points), vec![200]);
+    }
+
+    #[test]
+    fn same_frame_cascade_records_one_point() {
+        // Seek flings the position past the loop end at the window
+        // head — the cascade collapses to a single offset-0 point
+        // and the anchor lands inside the region (overflow 400 % 200
+        // = 0 → position 100), wrapping every 200 frames after.
+        let mut sim = sim_at(TransportStatus::Playing, Some((100, 300)), 0, 512);
+        let points = sim.walk_window(512, 512, &[(512, seek_cmd(700))]);
+        assert_eq!(offsets(&points), vec![0, 200, 400]);
+    }
+
+    #[test]
+    fn consecutive_windows_stay_scheduler_faithful() {
+        // The maintained sim chains windows: walk [512,768) then
+        // [768,1024) — wraps at 712/912 keep landing at the same
+        // offsets a single long window would predict, and the state
+        // after each walk is the scheduler's post-callback state.
+        let mut sim = sim_at(TransportStatus::Playing, Some((100, 300)), 100, 512);
+        let first = sim.walk_window(512, 256, &[]);
+        assert_eq!(offsets(&first), vec![200]);
+        let second = sim.walk_window(768, 256, &[]);
+        assert_eq!(offsets(&second), vec![144]);
+        // pos_at(1024) under the sim: last wrap at 912 → anchor
+        // (912, 100) → 100 + 112 = 212.
+        assert_eq!(sim.pos_at(1024), 212);
+    }
 }
