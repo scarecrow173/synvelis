@@ -11,6 +11,7 @@ members = [
   "crates/synvelis-workspace",
   "crates/synvelis-gateway",
   "crates/synvelis-automation",
+  "crates/synvelis-script",
   "crates/synvelis-cli",
   "crates/mcp-poc",
   "crates/synvelis-app",

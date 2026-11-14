@@ -7166,6 +7166,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "synvelis-gateway",
 ]
 
 [[package]]
@@ -7277,9 +7278,21 @@ dependencies = [
  "ruviform-rt",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "synvelis-player",
  "synvelis-project",
  "synvelis-recording",
+]
+
+[[package]]
+name = "synvelis-script"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "synvelis-gateway",
+ "synvelis-project",
 ]
 
 [[package]]

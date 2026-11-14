@@ -27,6 +27,7 @@ Directory: `docs/test-specs`
 | TSPEC-autx04atomicmacro001 | AUTX-04 Atomic Macro v1 — versioned recipe・exact capability・binding placeholder invariants | approved | [autx-04-atomic-macro.md](./autx-04-atomic-macro.md) |
 | TSPEC-034XijnFYzanHYxsFsEIA0 | AUTX-04-F01 Composite sequential validate — create-then-reference invariants | approved | [autx-04-f01-composite-forward-ref.md](./autx-04-f01-composite-forward-ref.md) |
 | TSPEC-7kQm2XvB9pLw4RtY6uN3sD | AUTX-05 Workflow DSL v1 — YAML safe subset・typed definition・static plan compile invariants | approved | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
+| TSPEC-Mx7rT2vQ8wN4kP6yB1dF3h | AUTX-06 Workflow Coordinator — Run/Step FSM・journal replay・cancel/resume fault matrix | approved | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | TSPEC-AUTX07GuiViewsHeadless | AUTX-07 GUI views headless test spec（synvelis#266） | approved | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | TSPEC-cb01VariantSetFixtureT | CB-01 Creative Branch variant model/controller fixture tests | approved | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | TSPEC-cb02AudioClipTakeCompT | CB-02 Audio Clip/Take/Comp 候補 Adapter fixture tests | approved | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |
@@ -101,6 +102,7 @@ Directory: `docs/test-specs`
 | TSPEC-034VmO7ak9xboyiIKIf80v | RCD-04 product E2E test spec | approved | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | TSPEC-034VC3cbBMDP6D1WnhLGlh | RCD-04 RT engine comp PCM test spec | approved | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
 | TSPEC-rcp01RenderRecipeTests | RCP-01 Canonical Render Recipe / typed dependency closure / temporal invalidation fixture tests | approved | [rcp-01-render-recipe.md](./rcp-01-render-recipe.md) |
+| TSPEC-Rcp02ArtifactManifestX | RCP-02 Immutable Artifact Manifest / Verified Publish / CAS GC / shared verification fixture tests | approved | [rcp-02-artifact-manifest.md](./rcp-02-artifact-manifest.md) |
 | TSPEC-034Xf6cGmdSv6ezz0A7JNC | RCP-04 Missing Plugin Resolver・Execution Intent・Safe Plan Reconciliation 検証仕様 (synvelis#293) | approved | [rcp-04-missing-plugin-resolver.md](./rcp-04-missing-plugin-resolver.md) |
 | TSPEC-a6ZCHY6LRL2KeFER0sLwl7 | Recording / Take / Comping — Fixture 契約・受入検証仕様（synvelis#12） | approved | [recording-take-comping.md](./recording-take-comping.md) |
 | TSPEC-034SF01Oq1tUv6wX3yZaBcEfG | SF-01 Semantic Routing Model 検証仕様 | approved | [sf-01-e2e-semantic-routing-model.md](./sf-01-e2e-semantic-routing-model.md) |
@@ -145,6 +147,7 @@ Directory: `docs/test-specs`
 | TSPEC-Vjrs2MxmcQmuKhfJmVUxJe | SV-GUI-04 slice1 テスト仕様 — 実 2-window mount | approved | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TSPEC-034UqwToZSbEbuOAgyC2SB | SV-GUI-04 slice2 テスト仕様 — close-veto/cancel | approved | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
 | TSPEC-3hJ8nB5cV1xZ7kM2qW9eRt | SV-GUI-04 slice2 テスト仕様 — dock transfer workspace adoption + GUI op 配線 | approved | [sv-gui-04-slice2-dock-transfer-workspace-adoption.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption.md) |
+| TSPEC-034XiQux1sWs73DvJunwUQ | SV-SCRIPT-01 ScriptApiModel・Luau stub/binding 整合 invariants | approved | [sv-script-01-script-api-model.md](./sv-script-01-script-api-model.md) |
 | TSPEC-Wa6Ax4SQSRfWvuKIzs8fCf | SV175-01 検証仕様: NativeShell lifecycle + ViewBinding wire 形 | approved | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TSPEC-zjbHKZf81iknbLJPzohrKC | SV175-02 検証仕様: ViewHost mount → typed binding → lifecycle | approved | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TSPEC-034T7Ieio7KRMC297yqbIs | SV177 theme contract + workspace preset headless verification | approved | [sv177-theme-preset-contract.md](./sv177-theme-preset-contract.md) |
