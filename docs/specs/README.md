@@ -72,6 +72,7 @@ Directory: `docs/specs`
 | SPEC-gut3XVRAIUtMHADNZBNFHC | RCD-01 実Audio Device 到達準備 — stamp placement fallback + real backend 配線（synvelis#115） | proposed | [rcd-01-real-backend-readiness.md](./rcd-01-real-backend-readiness.md) |
 | SPEC-034W8HMV6c6BABYhVlcEe6 | RCD-01 実機 capture coverage 拡張 — real-device lane の staging/2Track/fail-stop/境界/長時間検証（synvelis#115） | proposed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
 | SPEC-034UoScGX6dIi25hMurqCI | RCD-01 Recording Input Adapter — channel binding・Arm/Monitor・fake port fail-stop（synvelis#115 slice） | proposed | [rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md](./rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md) |
+| SPEC-82BJ1E0D6FN2fJQokzfPoY | RCD-01 Virtual L1 Oracle — synvelis#115 slice (Option A synthetic-L1) | approved | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
 | SPEC-uMtmtxYDthnvcLOk19wZH4 | RCD-02 Blob SHA-256 Promotion — synvelis#116 slice | approved | [rcd-02-blob-sha256.md](./rcd-02-blob-sha256.md) |
 | SPEC-034VpjuNHFlkvgLqAJQGHJ | RCD-02 StagedFile Publish Migration — synvelis#116 slice | approved | [rcd-02-stagedfile-publish-migration.md](./rcd-02-stagedfile-publish-migration.md) |
 | SPEC-MtkyEBkLAdbCHkkziVNHIk | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe — synvelis#116 slice | approved | [rcd-02-unsynced-loss-real-fs-probe.md](./rcd-02-unsynced-loss-real-fs-probe.md) |

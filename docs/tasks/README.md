@@ -163,6 +163,7 @@ Directory: `docs/tasks`
 | TASK-034VNs3KBar3pyoUwECyIh | plugin_instances VCS semantic diff 分類 | done | [plugin-instances-vcs-diff-task.md](./plugin-instances-vcs-diff-task.md) |
 | TASK-034X3k0wEnZD3OtrbVBneg | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画タスク | done | [product-value-core-task.md](./product-value-core-task.md) |
 | TASK-034X6NYGLBArth4EII4yl9 | Project / Asset / Persistence — 設計契約文書チェーン実装タスク（synvelis#17） | done | [project-persistence-task.md](./project-persistence-task.md) |
+| TASK-AUD8AWTXpU1EXRd0Jbf7ts | RCD-01 Virtual L1 Oracle — synvelis#115 Option A slice | done | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
 | TASK-2Ri1ehmSIXwfHO79pHYSiU | RCD-02 Task Unsynced-Write Loss Fixture + Real-FS Probe | done | [rcd-02-task-unsynced-loss-real-fs-probe.md](./rcd-02-task-unsynced-loss-real-fs-probe.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | done | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
 | TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |
