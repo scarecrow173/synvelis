@@ -35,6 +35,11 @@ pub enum ComparisonDomain {
     Recording,
     /// Comping registry: take groups, comps, regions, transitions.
     Comping,
+    /// Creative-branch variant model (synvelis#457, schema v14):
+    /// variant sets and their branches. `VariantScope` spans
+    /// arrangement/routing/comping/control subjects, so variant state
+    /// gets its own domain rather than borrowing one.
+    Variants,
 }
 
 /// The set of domains included in one comparison.
@@ -54,6 +59,7 @@ impl ComparisonDomains {
             ComparisonDomain::Routing,
             ComparisonDomain::Recording,
             ComparisonDomain::Comping,
+            ComparisonDomain::Variants,
         ]))
     }
 
@@ -191,6 +197,16 @@ pub enum ObjectKind {
     /// Appended last so every existing kind keeps its `as u8`
     /// discriminant — change IDs and issue dedup keys bake it in.
     PluginInstance,
+    /// A persisted variant set (synvelis#457, schema v14) — an
+    /// entity-issued `VariantSetId` collection, registered in
+    /// `raw_kind_map` like every other generator-issued ID space.
+    /// Appended last so every existing kind keeps its `as u8`
+    /// discriminant — change IDs and issue dedup keys bake it in.
+    VariantSet,
+    /// A branch inside a variant set (synvelis#457, schema v14) —
+    /// diffed globally by `BranchId` like `MidiNote`, with the owning
+    /// set tracked for owner-conflict detection.
+    VariantBranch,
 }
 
 impl ObjectKind {
@@ -231,6 +247,7 @@ impl ObjectKind {
             Self::TakeGroup | Self::Comp | Self::CompRegion | Self::CompTransition => {
                 ComparisonDomain::Comping
             }
+            Self::VariantSet | Self::VariantBranch => ComparisonDomain::Variants,
         }
     }
 }
@@ -543,7 +560,12 @@ pub struct ComparisonSpec {
 /// `Equal` under v2 now reports `Different` (or `Unknown`/`Partial`
 /// when a pre-v13 side makes the persisted `id` a migration
 /// projection). Same `ComparisonKey` collision argument as v2.
-pub const DIFF_POLICY_VERSION: u32 = 3;
+///
+/// v4 (synvelis#457): `VariantSet`/`VariantBranch` entities joined
+/// the compared entity set under the new `Variants` domain — a
+/// variant-only difference that reported `Equal`/`Complete` under v3
+/// now reports `Different`. Same `ComparisonKey` collision argument.
+pub const DIFF_POLICY_VERSION: u32 = 4;
 
 impl ComparisonSpec {
     /// A spec comparing `before` → `after` over all domains.

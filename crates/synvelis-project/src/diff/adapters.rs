@@ -10,13 +10,14 @@ use std::collections::BTreeMap;
 use serde_json::Value;
 
 use crate::control::MASTER_FADER_RAW;
-use crate::id::{NoteId, ParameterTargetId, SourceId};
+use crate::id::{BranchId, NoteId, ParameterTargetId, SourceId, VariantSetId};
 use crate::midi::MidiNote;
 use crate::monitoring_data::PunchMarks;
 use crate::placement::{ClipExtent, TimeAnchor};
 use crate::project::Clip;
 use crate::project::Project;
 use crate::range::MusicalRange;
+use crate::variant::Branch;
 
 use super::engine::{DiffContext, EntityId, EntityKey, FieldClass, diff_map};
 use super::types::{
@@ -46,6 +47,7 @@ pub(crate) fn default_adapters() -> Vec<Box<dyn DomainAdapter>> {
         Box::new(RoutingAdapter),
         Box::new(RecordingAdapter),
         Box::new(CompingAdapter),
+        Box::new(VariantsAdapter),
     ]
 }
 
@@ -136,6 +138,7 @@ pub(crate) fn classify_field(
         ComparisonDomain::Routing => classify_routing(kind, top, pre_v13),
         ComparisonDomain::Recording => classify_recording(kind, top),
         ComparisonDomain::Comping => classify_comping(kind, top, before, after),
+        ComparisonDomain::Variants => classify_variants(kind, top),
     }
 }
 
@@ -295,6 +298,37 @@ fn classify_comping(kind: ObjectKind, top: &str, before: &Value, after: &Value) 
         },
         ObjectKind::CompTransition => match top {
             "comp_id" | "left_region_id" | "right_region_id" => FieldClass::Identity,
+            _ => FieldClass::Modified,
+        },
+        _ => FieldClass::Modified,
+    }
+}
+
+fn classify_variants(kind: ObjectKind, top: &str) -> FieldClass {
+    match kind {
+        ObjectKind::VariantSet => match top {
+            // `id` duplicates the map key; `branches` is diffed as
+            // nested `VariantBranch` entities, not as set fields.
+            "id" | "branches" => FieldClass::Skip,
+            // `origin` (fork-origin `SnapshotIdentity`) and `scope`
+            // (the governed subject set) are the set's identity-
+            // defining references — a swap replaces what the set
+            // *is*, like `Clip.source_id`/`Asset.digest`.
+            "origin" | "scope" => FieldClass::Replaced,
+            // `adopted`/`revision`/`origin_objects`/`last_adopt` are
+            // authored bookkeeping — adopt swaps and mutation
+            // receipts classify `Modified`.
+            _ => FieldClass::Modified,
+        },
+        ObjectKind::VariantBranch => match top {
+            "id" => FieldClass::Skip,
+            // `parent` is the branch's fork lineage — a change on the
+            // same `BranchId` cannot be confirmed as the same branch.
+            "parent" => FieldClass::Identity,
+            // `created_from` is fork provenance and `content` is the
+            // `BranchContentRef` (payload/scope digests, `Live`↔
+            // `Captured` transitions) — content-identity replacement.
+            "created_from" | "content" => FieldClass::Replaced,
             _ => FieldClass::Modified,
         },
         _ => FieldClass::Modified,
@@ -1054,6 +1088,120 @@ impl DomainAdapter for CompingAdapter {
             no_range,
             false,
         )?;
+        Ok(())
+    }
+}
+
+struct VariantsAdapter;
+
+impl DomainAdapter for VariantsAdapter {
+    fn domain(&self) -> ComparisonDomain {
+        ComparisonDomain::Variants
+    }
+
+    fn diff(&self, ctx: &mut DiffContext<'_>) -> Result<(), DiffError> {
+        // `variant_sets` is `#[serde(default)]` + a v13→v14 pass-through
+        // migration: a pre-v14 side's empty map is TRUE absence (the
+        // sets were authored later), never a migration projection —
+        // no `Suppressed`/`PartialProjection` gate applies (unlike
+        // `plugin_instances`, whose pre-v13 `id` is migration-minted).
+        diff_map(
+            ctx,
+            ObjectKind::VariantSet,
+            &ctx.before.variant_sets,
+            &ctx.after.variant_sets,
+            no_range,
+            false,
+        )?;
+        Self::diff_branches(ctx)
+    }
+}
+
+impl VariantsAdapter {
+    /// Variant branches are child entities of `VariantSet` (whose
+    /// `branches` field is `Skip`ped). They diff globally by
+    /// `BranchId` like `MidiNote`; a branch whose owning set changed
+    /// is an owner conflict, not a move.
+    fn diff_branches(ctx: &mut DiffContext<'_>) -> Result<(), DiffError> {
+        fn index(
+            project: &Project,
+        ) -> (
+            BTreeMap<BranchId, &Branch>,
+            BTreeMap<BranchId, VariantSetId>,
+        ) {
+            let mut branches = BTreeMap::new();
+            let mut owners = BTreeMap::new();
+            for (sid, set) in &project.variant_sets {
+                for (bid, branch) in &set.branches {
+                    branches.insert(*bid, branch);
+                    owners.insert(*bid, *sid);
+                }
+            }
+            (branches, owners)
+        }
+        let (b_branches, b_owners) = index(ctx.before);
+        let (a_branches, a_owners) = index(ctx.after);
+        ctx.tick(b_branches.len() + a_branches.len())?;
+        ctx.entities += b_branches.len() + a_branches.len();
+        let mut keys: std::collections::BTreeSet<BranchId> = b_branches.keys().copied().collect();
+        keys.extend(a_branches.keys().copied());
+        for key in keys {
+            if ctx.cancel.is_cancelled() {
+                return Err(DiffError::Cancelled);
+            }
+            let stable_id = key.tagged();
+            let raw = key.raw_u128();
+            match (b_branches.get(&key), a_branches.get(&key)) {
+                (Some(b), Some(a)) => {
+                    if ctx.raw_is_ambiguous(raw) {
+                        ctx.emit_ambiguous(
+                            ctx.object_ref(ObjectKind::VariantBranch, stable_id),
+                            AmbiguityReason::CrossKindId,
+                        )?;
+                        continue;
+                    }
+                    if b_owners.get(&key) != a_owners.get(&key) {
+                        ctx.emit_ambiguous(
+                            ctx.object_ref(ObjectKind::VariantBranch, stable_id),
+                            AmbiguityReason::OwnerConflict,
+                        )?;
+                        continue;
+                    }
+                    ctx.diff_matched(
+                        EntityId {
+                            kind: ObjectKind::VariantBranch,
+                            stable_id,
+                            raw,
+                        },
+                        b,
+                        a,
+                        no_range,
+                        false,
+                    )?;
+                }
+                (Some(b), None) => ctx.diff_presence(
+                    EntityId {
+                        kind: ObjectKind::VariantBranch,
+                        stable_id,
+                        raw,
+                    },
+                    Some(*b),
+                    None,
+                    no_range,
+                )?,
+                (None, Some(a)) => ctx.diff_presence(
+                    EntityId {
+                        kind: ObjectKind::VariantBranch,
+                        stable_id,
+                        raw,
+                    },
+                    None,
+                    Some(*a),
+                    no_range,
+                )?,
+                (None, None) => {}
+            }
+        }
         Ok(())
     }
 }

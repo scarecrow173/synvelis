@@ -1337,10 +1337,12 @@ fn pre_v13_plugin_instance_id_is_suppressed_partial() {
 
 #[test]
 fn plugin_instance_only_difference_is_different_at_policy_v3() {
-    // The gap this slice closes: an instance-identity-only difference
-    // reported `Equal` under policy v2 — under v3 it is `Different`,
-    // and the policy version is bound into the comparison key.
-    assert_eq!(DIFF_POLICY_VERSION, 3);
+    // The gap this slice closed: an instance-identity-only difference
+    // reported `Equal` under policy v2 — the `PluginInstance` kind
+    // joined the surface at v3 (synvelis#324) and the contract still
+    // holds under the current policy (v4, synvelis#457). The policy
+    // version is bound into the comparison key.
+    assert_eq!(DIFF_POLICY_VERSION, 4);
     let (project, proc) = project_with_resolved_processor();
     let mut after_project = project.clone();
     after_project
