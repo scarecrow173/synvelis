@@ -758,6 +758,7 @@ pub(crate) fn boot(jobs: Option<CancelMode>) -> UiFixture {
             evaluator: GrantPolicy::new(store.clone(), clock.clone(), gate_oracle),
             proposals: proposals.clone(),
             apply_capability,
+            variant: None,
         },
         MutexFence::new(),
     )

@@ -460,8 +460,8 @@ fn batch_composes_member_effects_in_order() {
     );
     // The retained op is the atomic composite itself.
     assert!(matches!(
-        record.op,
-        synvelis_project::ProjectOp::Composite { .. }
+        record.project_op(),
+        Some(synvelis_project::ProjectOp::Composite { .. })
     ));
 }
 
@@ -869,7 +869,7 @@ fn prepared_op_commits_through_controller_and_undoes() {
     // A stale expectation revalidates — base revision is the fence.
     let stale = controller.apply(Command {
         expected_revision: ProjectRevision(9),
-        op: record.op.clone(),
+        op: record.project_op().expect("project mutation").clone(),
     });
     assert!(matches!(
         stale,
@@ -879,7 +879,7 @@ fn prepared_op_commits_through_controller_and_undoes() {
     let rev = controller
         .apply(Command {
             expected_revision: record.prepared.base.revision,
-            op: record.op.clone(),
+            op: record.project_op().expect("project mutation").clone(),
         })
         .expect("prepared op must apply");
     assert_eq!(rev, ProjectRevision(2));
