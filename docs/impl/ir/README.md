@@ -62,6 +62,7 @@ Directory: `docs/impl/ir`
 | IMPL-034XkoKBFx6VCR0iVHzGas | CB-03 MIDI Clip/Source 候補 Adapter — Native Event 保持・Note Diff・同一 Instrument 比較（synvelis#280） | completed | [cb-03-midi-clip-adapter.md](./cb-03-midi-clip-adapter.md) |
 | IMPL-034XmKS2VgTv6sQ2onvxNY | CB-04 Instrument Slot 候補 Adapter — MIDI共有・独立Plugin State・A/B比較（synvelis#281） | completed | [cb-04-instrument-adapter.md](./cb-04-instrument-adapter.md) |
 | IMPL-034ZxKpQ2mNv8sLw4tYh6bJ | CB-05 FX Processing Range 候補 Adapter — 安定境界・外部Routing fail-closed・A/B比較（synvelis#282） | completed | [cb-05-fx-range-adapter.md](./cb-05-fx-range-adapter.md) |
+| IMPL-285CB08cmpOrch0001 | CB-08 Comparison Orchestrator headless slice — pinned session・layered result・staleness・derived cache (synvelis#285) | completed | [cb-08-compare-orchestrator.md](./cb-08-compare-orchestrator.md) |
 | IMPL-034XPMJDlse0HdFeZh9vJ3 | CB-10 creative branch gateway typed contract slice | completed | [cb-10-creative-branch-gateway-typed-contract-slice.md](./cb-10-creative-branch-gateway-typed-contract-slice.md) |
 | IMPL-034XNDR6phv2BXm24gk8cN | CB-11 cross-gate headless fixture 被覆棚卸し・欠落 fixture 追加 (synvelis#288) | completed | [cb-11-cross-gate.md](./cb-11-cross-gate.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |

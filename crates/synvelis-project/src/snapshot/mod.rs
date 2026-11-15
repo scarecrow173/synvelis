@@ -314,6 +314,51 @@ impl SnapshotResolver {
         )
     }
 
+    /// Captures an already-composed [`Project`] value — for example a
+    /// variant branch's resolved render view — through the same
+    /// envelope/digest/manifest path as [`Self::capture_live`], without
+    /// requiring a live [`ProjectController`]. `revision` is recorded as
+    /// the envelope's revision claim and locator pin; the project's own
+    /// `id_watermark` is kept because it already covers every issuable
+    /// entity ID.
+    ///
+    /// # Errors
+    /// Same failure surface as [`Self::capture_live`] minus the
+    /// [`SnapshotError::StaleLiveRevision`] check.
+    pub fn capture_project(
+        &self,
+        project: &Project,
+        revision: ProjectRevision,
+        cancel: &SnapshotCancel,
+        blobs: Option<&dyn BlobProbe>,
+    ) -> Result<ImmutableSnapshot, SnapshotError> {
+        Self::check_cancel(cancel)?;
+        let envelope = SnapshotEnvelope {
+            schema_version: SCHEMA_VERSION,
+            project_id: project.project_id,
+            revision,
+            project: project.clone(),
+        };
+        let bytes = serde_json::to_vec(&envelope)
+            .map_err(|err| SnapshotError::Serialize(err.to_string()))?;
+        Self::check_budget(bytes.len(), self.limits)?;
+        Self::check_cancel(cancel)?;
+        let (project, schema_version) = Self::parse_project(&bytes, &envelope.project_id, cancel)?;
+        let locator = FixedSnapshotLocator::Live {
+            project_id: envelope.project_id,
+            live_revision: revision,
+        };
+        self.assemble(
+            SnapshotOrigin::Live,
+            locator,
+            &bytes,
+            project,
+            schema_version,
+            blobs,
+            cancel,
+        )
+    }
+
     /// Resolves a saved snapshot through a `ProjectStore` HEAD window.
     ///
     /// Reads HEAD → bytes → HEAD → bytes; any HEAD movement is

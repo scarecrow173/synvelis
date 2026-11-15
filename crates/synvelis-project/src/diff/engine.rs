@@ -906,6 +906,20 @@ impl ChangeSetCache {
         }
     }
 
+    /// `true` when a [`ChangeSet`] for this exact comparison is already
+    /// cached. Does not refresh LRU order and never computes — a
+    /// read-only probe for callers that report hit/miss themselves.
+    #[must_use]
+    pub fn contains(
+        &self,
+        before: &ImmutableSnapshot,
+        after: &ImmutableSnapshot,
+        spec: &ComparisonSpec,
+    ) -> bool {
+        let digest = ComparisonKey::new(&before.identity, &after.identity, spec).digest();
+        self.entries.contains_key(&digest)
+    }
+
     /// Returns the cached [`ChangeSet`] for this comparison or computes,
     /// stores, and returns it. `Arc`-shared so views reuse one result.
     ///

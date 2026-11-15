@@ -17,6 +17,7 @@
 mod adapter;
 mod arrangement;
 mod audio;
+pub mod compare;
 pub(crate) mod engine;
 mod error;
 mod instrument;
@@ -33,6 +34,14 @@ pub use arrangement::{
     ArrangementCapabilities,
 };
 pub use audio::{AudioClipAdapter, AudioClipCapabilities, ProcessingCapability, TakeUsageAdapter};
+pub use compare::{
+    AlignmentPolicy, BranchRevisionRef, CacheStatus, CompareError, CompareSide,
+    ComparisonFreshness, ComparisonOrchestrator, ComparisonResult, ComparisonSession,
+    EvaluationContext, EvidenceOrigin, EvidenceReason, LayerState, MonitoringPolicy,
+    PerceptualLayerResult, SemanticLayerResult, SessionOptions, SignalAlignment,
+    SignalCompareRequest, SignalComparisonProvider, SignalDomain, SignalLayerResult, SignalMetric,
+    SignalProviderReport, StaleDimension,
+};
 pub use engine::{
     AdoptSources, BranchEditIntent, BranchEditOpIntent, FakeRuntimePublish, NoopRuntimePublish,
     adopt_branch, adopt_branch_adapted, discard_branch, edit_branch, edit_branch_op,
