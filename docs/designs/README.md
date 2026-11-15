@@ -187,6 +187,7 @@ Directory: `docs/designs`
 | DESIGN-034X7wOrHbsoz1senpZA9w | Transport Integration Design — Engine Frame canonical, process-start-relative offsets, capability/degraded policy, TT-001〜030 mapping | approved | [transport-integration-design.md](./transport-integration-design.md) |
 | DESIGN-102UiCfInt002BbCcDdEeF | UI-C5 製品 GUI 統合 設計 — syn.control.relation / syn.control.edge / syn.recording.* op surface | approved | [ui-sf-control-integration-design.md](./ui-sf-control-integration-design.md) |
 | DESIGN-034XGA5y1ft0IHe1TEUxj5 | variant_sets VCS semantic diff 分類設計 — VariantSet/VariantBranch + Variants domain | approved | [variant-sets-vcs-diff.md](./variant-sets-vcs-diff.md) |
+| DESIGN-034XI4wmwNPA3krWXzz5bA | variant_sets restore-as-copy origin identity 修復設計 — persisted provenance 規則の境界確定 (synvelis#458) | approved | [variant-sets-vcs-restore.md](./variant-sets-vcs-restore.md) |
 | DESIGN-034UAwTwlzWbToxqWtFM2B | VCS-01 Immutable Snapshot Resolver — crate 内完結設計 | approved | [vcs-01-immutable-snapshot-resolver-design.md](./vcs-01-immutable-snapshot-resolver-design.md) |
 | DESIGN-034UEtYMoQUWsPmOBrl819 | VCS-02 Semantic Diff Engine design | approved | [vcs-02-semantic-diff-engine-design.md](./vcs-02-semantic-diff-engine-design.md) |
 | DESIGN-7jUOgXVjk3gpAYkbIzdUfe | VCS-03 Git Read Provider design | approved | [vcs-03-git-read-provider-design.md](./vcs-03-git-read-provider-design.md) |

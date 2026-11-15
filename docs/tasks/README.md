@@ -245,6 +245,7 @@ Directory: `docs/tasks`
 | TASK-034gOTXfiNaCeDRTpeP2x | TIM-03 task3 — per-request plan wiring + precision provenance（ProcessBoundarySession） | done | [tim03-task3-request-plan.md](./tim03-task3-request-plan.md) |
 | TASK-Nw48LwleZYov2jWLb0O7Vg | Timeline Editing / Selection / Tool System — 設計文書チェーン作成（synvelis#11） | done | [timeline-editing-task.md](./timeline-editing-task.md) |
 | TASK-102UiCfInt004DdEeFfGgH | UI-C5 製品 GUI 統合タスク — syn.control.relation / syn.control.edge / syn.recording.* | done | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
+| TASK-034XI5DO7WZZ6NGhbhBooM | variant_sets restore-as-copy origin identity 修復 | done | [variant-sets-vcs-restore.md](./variant-sets-vcs-restore.md) |
 | TASK-034UEtaHWZFrCd1VFAIRfl | VCS-02 Task1 Semantic Diff Engine headless slice | done | [vcs-02-task1-semantic-diff-engine-headless-slice.md](./vcs-02-task1-semantic-diff-engine-headless-slice.md) |
 | TASK-v2hQAN1hrbnURHHF2lrf6L | VCS-03 Task1 Git Read Provider headless slice | done | [vcs-03-task1-git-read-provider-headless-slice.md](./vcs-03-task1-git-read-provider-headless-slice.md) |
 | TASK-QDa6_9HNOZ3w0cse6y4ih | GitVcsProvider rev-parse --quiet 除去による unborn HEAD 誤分類修正 + 回帰 test | done | [vcs-03-unborn-head-classification-task.md](./vcs-03-unborn-head-classification-task.md) |
