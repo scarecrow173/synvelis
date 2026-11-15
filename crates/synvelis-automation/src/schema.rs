@@ -55,6 +55,10 @@ pub enum ResourceKind {
     Send,
     /// A routing processor.
     Processor,
+    /// A creative-branch variant set (synvelis#287, CB-10).
+    VariantSet,
+    /// A branch inside a variant set.
+    Branch,
 }
 
 impl ResourceKind {
@@ -76,6 +80,8 @@ impl ResourceKind {
             Self::Strip => "strip",
             Self::Send => "send",
             Self::Processor => "processor",
+            Self::VariantSet => "variant-set",
+            Self::Branch => "branch",
         }
     }
 
@@ -98,6 +104,8 @@ impl ResourceKind {
             "strip" => Self::Strip,
             "send" => Self::Send,
             "processor" => Self::Processor,
+            "variant-set" => Self::VariantSet,
+            "branch" => Self::Branch,
             _ => return None,
         })
     }

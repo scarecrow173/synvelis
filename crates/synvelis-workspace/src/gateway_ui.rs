@@ -1979,6 +1979,8 @@ fn tagged_resource(r: &ResourceRef) -> String {
         ResourceRef::Strip(id) => id.to_tagged(),
         ResourceRef::Send(id) => id.to_tagged(),
         ResourceRef::Processor(id) => id.to_tagged(),
+        ResourceRef::VariantSet(id) => id.to_tagged(),
+        ResourceRef::Branch(id) => id.to_tagged(),
     }
 }
 

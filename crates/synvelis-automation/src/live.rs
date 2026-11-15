@@ -100,6 +100,8 @@ fn kind_name(kind: ResourceKind) -> &'static str {
         ResourceKind::Strip => "strip",
         ResourceKind::Send => "send",
         ResourceKind::Processor => "processor",
+        ResourceKind::VariantSet => "variant-set",
+        ResourceKind::Branch => "branch",
     }
 }
 

@@ -1172,6 +1172,9 @@ fn detail_of(project: &Project, resource: &ResourceRef) -> Value {
             .processors
             .get(id)
             .map_or(Value::Null, to_detail),
+        ResourceRef::VariantSet(id) => project.variant_sets.get(id).map_or(Value::Null, to_detail),
+        ResourceRef::Branch(id) => crate::snapshot::branch_entry(project, id)
+            .map_or(Value::Null, |(_, branch)| to_detail(branch)),
         ResourceRef::Project(_) => Value::Null,
     }
 }
@@ -1459,6 +1462,8 @@ pub(crate) fn ref_tagged(r: &ResourceRef) -> String {
         ResourceRef::Strip(id) => id.to_tagged(),
         ResourceRef::Send(id) => id.to_tagged(),
         ResourceRef::Processor(id) => id.to_tagged(),
+        ResourceRef::VariantSet(id) => id.to_tagged(),
+        ResourceRef::Branch(id) => id.to_tagged(),
     }
 }
 
