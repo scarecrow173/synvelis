@@ -10,7 +10,6 @@ Directory: `docs/impl/ir`
 | IMPL-034Xe5swowhuVJIrpCp969 | AUTX-05 Workflow DSL v1 — typed definition and plan compiler | in-progress | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
 | IMPL-034XiNO9SadjRbTGExtQtw | AUTX-06 Workflow Coordinator — Run/Step FSM・Journal・Resume・JobPort fixture | in-progress | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | IMPL-034Xpa4SOZfOriBGBTfZdR | CB-06 Track/Bus 候補 Adapter — Strip Domain Mask・Routing参照保護・Adopt（synvelis#283） | in-progress | [cb-06-track-bus-adapter.md](./cb-06-track-bus-adapter.md) |
-| IMPL-034XB1Iadg6lT7Tracib0c | PC-C4 observe engine wiring — observe_block の engine-driver 配線 | in-progress | [pc-c4-observe-engine-wiring.md](./pc-c4-observe-engine-wiring.md) |
 | IMPL-034WEVyS44eEOELiBCYBIG | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice 実装記録 | in-progress | [rcd-04-midi-undo-stableid-slice.md](./rcd-04-midi-undo-stableid-slice.md) |
 | IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](./rcd-04-product-e2e-slice.md) |
 | IMPL-034VC2V5HUrkERcXqw246v | RCD-04 RT engine comp PCM slice 実装記録 | in-progress | [rcd-04-rt-engine-comp-pcm-slice.md](./rcd-04-rt-engine-comp-pcm-slice.md) |
@@ -106,8 +105,10 @@ Directory: `docs/impl/ir`
 | IMPL-7c4e9a1b2d3f4e5a6b7c8f0a4b5 | PC-C4-06 control op surface — syn.control.* typed-evidence ops | completed | [pc-c4-06-control-op-surface.md](./pc-c4-06-control-op-surface.md) |
 | IMPL-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b3c4d5e | PC-C4-07 transport mirror + observe_block + capability rebind | completed | [pc-c4-07-transport-mirror-observe.md](./pc-c4-07-transport-mirror-observe.md) |
 | IMPL-a1d4f7c2e9b30586d1a4f7c2f0a4 | PC-C4 drain composition — drain_output_reports 周期配線と production composition root | completed | [pc-c4-drain-composition.md](./pc-c4-drain-composition.md) |
+| IMPL-034XB1Iadg6lT7Tracib0c | PC-C4 observe engine wiring — observe_block の engine-driver 配線 | completed | [pc-c4-observe-engine-wiring.md](./pc-c4-observe-engine-wiring.md) |
 | IMPL-1p5mZ4InpO2EeDDwvz9TSj | PC-C4 plugin binding — persisted instance authority の bind 照合 implementation record | completed | [pc-c4-plugin-binding.md](./pc-c4-plugin-binding.md) |
 | IMPL-034UxmcANQsdlNy9GC0tWv | PC-C4 plugin parameter binding frame base capability gate | completed | [pc-c4-plugin-parameter-binding-frame-base-capability-gate.md](./pc-c4-plugin-parameter-binding-frame-base-capability-gate.md) |
+| IMPL-034XHDQ6rzGXUkov3cBJgE | PC-C4 webview composition — synvelis.rs engine attach 実装記録 | completed | [pc-c4-webview-composition-synvelis-rs-engine-attach.md](./pc-c4-webview-composition-synvelis-rs-engine-attach.md) |
 | IMPL-OABQ94C9ziv3kEtnGM5cHa | PC-C5 UI-C5-01 Relation Index の Inspector 投影 headless slice | completed | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | IMPL-034UyQi9tCjjAPwfMy7pSX | PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice） | completed | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | IMPL-034WaR006rHzCRQpPMb9CP | PC-C5 UI-C5-04 Recording status read model（headless slice） | completed | [pc-c5-04-recording-status.md](./pc-c5-04-recording-status.md) |

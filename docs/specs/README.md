@@ -57,6 +57,7 @@ Directory: `docs/specs`
 | SPEC-c4e8b1a2f5d30947e6c1a8b2d4 | PC-C4 observe engine wiring — observe_block の engine-driver 配線 | approved | [pc-c4-observe-engine-wiring.md](./pc-c4-observe-engine-wiring.md) |
 | SPEC-6NH8ne9kNmYOjVBpOoiHju | PC-C4 plugin binding — persisted PluginInstance identity を stage-1.5 正本として bind 時に照合 | approved | [pc-c4-plugin-binding.md](./pc-c4-plugin-binding.md) |
 | SPEC-034Uw3sFH0Ejg8sJTrDntB | PC-C4 plugin parameter binding — verified frame base・capability gate・generation consistency（fake port slice） | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
+| SPEC-034XHD7VlFH8w8tiP7ebRb | PC-C4 webview composition — synvelis.rs への routing engine attach | approved | [pc-c4-webview-composition.md](./pc-c4-webview-composition.md) |
 | SPEC-cBV4t2wr7OJdUVPBI13T4q | PC-C5 slice1 (UI-C5-01): Relation Index の Inspector 投影 — 双方向探索 + roundtrip（headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | SPEC-034UxXLvNqgbDGOypo7Uu4 | PC-C5 slice2 (UI-C5-02/03): Gesture 固定・stale drop・Inspector Follow/Explore/Pinned（headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | SPEC-034WaMkHXz9f23GE3u0bie | PC-C5 slice4 (UI-C5-04): Recording status read model — Conflict/Prepare/Pending/Applied/Unknown + typed provenance（headless） | approved | [pc-c5-04-recording-status.md](./pc-c5-04-recording-status.md) |
