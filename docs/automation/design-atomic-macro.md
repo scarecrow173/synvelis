@@ -55,16 +55,43 @@ Query/Async/RuntimeControl の混在）は Workflow へ送る。
 ## 3. 作成直後 ID 参照（create-then-reference）
 
 batch 内で「member A が作成するリソースの ID を member B が参照する」
-ケースの契約:
+ケースの契約。GW-04 の scratch-ID/rewrite seam として実装済み
+（AUTX-04-F02 / `docs/impl/ir/autx-04-f02-gw04-bindings.md`）:
 
-- **対応形（目標）**: GW-04 の scratch-ID/rewrite seam を拡張し、prepare 時に
-  scratch 空間で採番した仮 ID を後続 member の参照へ rewrite し、commit 時に
-  実 ID へ確定する。これは AUTX-04 (#263) の実装範囲。
-- **未対応時の契約**: seam 未実装の間は当該 batch を **typed Unsupported**
-  として拒否し、Workflow で「create → query で実 ID 取得 → 参照 step」へ
-  分解することを正規経路とする。暗黙の ID 推測・順序依存の参照は許さない。
+- **対応形（実装済み）**: batch の任意 object field `bindings` に
+  `{name, member, kind}` の宣言を並べる。`name` は binding の識別子、
+  `member` はその出力を供給する batch member index、`kind` は
+  `ResourceKind`。member の member JSON 内で `$output.<name>` を値
+  （文字列）として置くと、automation compiler が reserved-range
+  の placeholder ID（`OUTPUT_BINDING_ID_BASE = (1<<96)+(1<<32)` から
+  slot 0..64、形式 `<kind-tag>-<32hex>`）へ置換する。gateway の
+  prepare は pinned base の clone 上で `base.id_watermark` シードの
+  `CounterIdGenerator` を使い member 順に trial-validate/apply し、
+  apply 前後の `resource_map` diff から declared kind の created が
+  ちょうど 1 つの binding を実 ID へ解決する。解決済み placeholder
+  は lowering 前の member wire JSON へ再帰 rewrite され、retained op
+  は flatten された単一 `ProjectOp::Composite` のまま — proposal/
+  commit/undo 契約は不変。placeholder→実 ID の対応は commit と同一の
+  採番系列で決定的に導出され、ID の推測・事前採番は行わない。
+- **provisional authorization**: bindings batch では seam の scratch
+  post-state を `BaseFirstOracle` の candidate として provisional
+  gate に供給し、transaction-created resource を `Known` に解決する。
+  scope/`create_within`/`include_future`/data-access の判定は通常通り
+  適用され、placeholder 解決は authorization を迂回しない。
+- **fail-closed 条件**: bindings 非空時、次は typed
+  `PreparationRejected` で拒否する — 宣言の malformed/未知 field/
+  重複 `(member,kind)`、範囲外 member、未知 kind、未宣言 slot、
+  kind-tag 不一致、self/backward/premature 参照、producer の
+  apply 失敗・created arity 不一致（0 または複数）、object key の
+  placeholder、nested batch。bindings 非所持・空の batch は従来の
+  recursive lowering を維持する。
+- **未対応時の契約（残存）**: create-then-reference が bindings で
+  表現不能な要求（条件付き参照・複数候補の選択等）は **typed
+  Unsupported** として拒否し、Workflow で「create → query で実 ID
+  取得 → 参照 step」へ分解することを正規経路とする。暗黙の ID 推測・
+  順序依存の参照は許さない。
 - 受入: 対応/未対応の両状態が Input/Output/Unsupported としてテスト可能で
-  あること（spec R-6）。
+  あること（spec R-6。対応側は `docs/test-specs/autx-04-f02-gw04-bindings.md`）。
 
 ## 4. Workflow 側の step kind との対応
 

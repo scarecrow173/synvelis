@@ -8,6 +8,7 @@ Directory: `docs/impl/ir`
 | --- | --- | --- | --- |
 | IMPL-034XgQ1qM5AZJvhmAnHddj | AUTX-04 Atomic Macro v1 recipe compiler and ID resolution | in-progress | [autx-04-atomic-macro.md](./autx-04-atomic-macro.md) |
 | IMPL-034Xe5swowhuVJIrpCp969 | AUTX-05 Workflow DSL v1 — typed definition and plan compiler | in-progress | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
+| IMPL-034XLar3aaWdSdwjp7eeMM | AUTX-06 live adapters — GatewayStepLane/GatewayJobLane + registry projection | in-progress | [autx-06-live-adapters.md](./autx-06-live-adapters.md) |
 | IMPL-034XiNO9SadjRbTGExtQtw | AUTX-06 Workflow Coordinator — Run/Step FSM・Journal・Resume・JobPort fixture | in-progress | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | IMPL-034Xpa4SOZfOriBGBTfZdR | CB-06 Track/Bus 候補 Adapter — Strip Domain Mask・Routing参照保護・Adopt（synvelis#283） | in-progress | [cb-06-track-bus-adapter.md](./cb-06-track-bus-adapter.md) |
 | IMPL-034WEVyS44eEOELiBCYBIG | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice 実装記録 | in-progress | [rcd-04-midi-undo-stableid-slice.md](./rcd-04-midi-undo-stableid-slice.md) |
@@ -49,8 +50,10 @@ Directory: `docs/impl/ir`
 | IMPL-034Xe6lRNc3atRxDvadhth | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host (synvelis#261) | completed | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
 | IMPL-034XgKVz7slU1QHG15t6tc | AUTX-03 synvelis-cli 独立 Headless 実行ファイル・JSON/Exit Code (synvelis#262) | completed | [autx-03-headless-cli.md](./autx-03-headless-cli.md) |
 | IMPL-034XihWxPpf0evq4eGpxAa | AUTX-04-F01 Composite forward reference sequential validate | completed | [autx-04-f01-composite-forward-ref.md](./autx-04-f01-composite-forward-ref.md) |
+| IMPL-034XKYCcvVVYhxGwGvv8JV | AUTX-04-F02 GW-04 bindings scratch-ID/rewrite seam | completed | [autx-04-f02-gw04-bindings.md](./autx-04-f02-gw04-bindings.md) |
 | IMPL-AUTX07GuiViews | AUTX-07 GPUI Action Palette・Macro/Workflow 製品 View・承認/実行状態 UI（headless-first slice、synvelis#266） | completed | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | IMPL-AUTX07MountWiring | AUTX-07 composition-mount wiring + autx.* action dispatch（synvelis#266 SV266-NR-05） | completed | [autx-07-mount-wiring.md](./autx-07-mount-wiring.md) |
+| IMPL-034XKoNx7I2brmiVo8RNSa | AUTX-07 theme status tokens + #274 parity check（SV266-NR-02/03 slice、synvelis#266） | completed | [autx-07-theme-parity.md](./autx-07-theme-parity.md) |
 | IMPL-cb01-variant-set | CB-01 VariantSet/Scope/Lineage・ProjectController Fork/Edit/Adopt/Undo・永続Schema — Headless スライス | completed | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | IMPL-cb02-audio-clip-adapter | CB-02 Audio Clip/Take/Comp 候補 Adapter — Raw Source 不変・加工比較・Adopt（synvelis#279） | completed | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |
 | IMPL-034XkoKBFx6VCR0iVHzGas | CB-03 MIDI Clip/Source 候補 Adapter — Native Event 保持・Note Diff・同一 Instrument 比較（synvelis#280） | completed | [cb-03-midi-clip-adapter.md](./cb-03-midi-clip-adapter.md) |
@@ -196,6 +199,7 @@ Directory: `docs/impl/ir`
 | IMPL-034RBYkTtBOQ5Akfjc5HEi | SYN-OBS-01 host logging owner + OBS-02 source catalog（synvelis-app 単一所有） | completed | [syn-obs-01-host-logging-owner-obs-02-source-catalog-synvelis-app.md](./syn-obs-01-host-logging-owner-obs-02-source-catalog-synvelis-app.md) |
 | IR-SV-RF305-export | SYN-RF305 render/player WAV Export StagedFile 移行 実装記録・検証証跡 | completed | [syn-rf305-render-export-staged-file.md](./syn-rf305-render-export-staged-file.md) |
 | IMPL-034Rp8RppbqCF1xtexsFvB | Synvelis 独立 PR/Push CI 実装記録 | completed | [synvelis-pr-push-ci.md](./synvelis-pr-push-ci.md) |
+| IMPL-JB9syTgzH7oggQKcr0ocJE | Take Lane / Comp Editor — UI 詳細契約 canonical doc chain 実装記録（synvelis#12 §14/§15 後続 slice — docs-only） | completed | [take-lane-comp-editor.md](./take-lane-comp-editor.md) |
 | IMPL-wudSTaSGqUbfYIh4qzyqGq | Target Architecture 設計レビュー 実装記録 — docs chain 7 文書 + evidence/sv22 台帳 | completed | [target-architecture.md](./target-architecture.md) |
 | IMPL-034Vu50fg7S7yCp4bni412 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証 | completed | [tim-01-app-ppqn-slice.md](./tim-01-app-ppqn-slice.md) |
 | IMPL-034UHWGxnC2sjDoLd5P01u | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | completed | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |

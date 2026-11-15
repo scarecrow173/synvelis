@@ -137,6 +137,7 @@ Directory: `docs/plans`
 | PLAN-1dCdxMBaLJixFXCNXKmkJL | SYN-IO-02 Windows NTFS 実機 Case lane — implementation plan | approved | [syn-io-02-windows-real-fs.md](./syn-io-02-windows-real-fs.md) |
 | PLAN-034RBEtRnww0T7opa8Akmw | SYN-OBS-01 実装計画 — Host所有 Logging 導入・設定解決・Source Catalog | approved | [syn-obs-01-host-logging-source-catalog.md](./syn-obs-01-host-logging-source-catalog.md) |
 | PLAN-034T2RF305WAVSTAGED00Z | SYN-RF305 WAV Export StagedFile 移行計画 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
+| PLAN-iVpbmseH193L48I6MLSzF8 | Take Lane / Comp Editor — UI 詳細契約 文書チェーン・検証計画（synvelis#12 §14/§15 後続 slice — docs-only） | approved | [take-lane-comp-editor.md](./take-lane-comp-editor.md) |
 | PLAN-4eUlpRzzgdpGu0FbUVLgtc | Target Architecture 設計レビュー実施計画 — docs chain + evidence/sv22 台帳の構成 | approved | [target-architecture.md](./target-architecture.md) |
 | PLAN-034VtBaArtupj0qHG0phVl | TIM-01 app 層 PPQN 統合 — implementation plan | approved | [tim-01-app-ppqn-plan.md](./tim-01-app-ppqn-plan.md) |
 | PLAN-034UHYyMbiLPEtGczKNKYC | TIM-01 Configurable PPQN Project Command — implementation plan | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |

@@ -233,6 +233,7 @@ Directory: `docs/tasks`
 | TASK-034RBFXktNsZRlOztedppD | SYN-OBS-01 task5 logging テスト新設と mise 検証 | done | [syn-obs-01-task5-tests-verification.md](./syn-obs-01-task5-tests-verification.md) |
 | TASK-034RBFY3O4vz81b0Rumg95 | SYN-OBS-01 task6 最終検証と impl record | done | [syn-obs-01-task6-final-verify-impl-record.md](./syn-obs-01-task6-final-verify-impl-record.md) |
 | TASK-034T2RF305WAVSTAGED01A | SYN-RF305 task1 render/player WAV Export StagedFile 移行 | done | [syn-rf305-task1-render-export-staged-file.md](./syn-rf305-task1-render-export-staged-file.md) |
+| TASK-3E7SSn7u5OV3w997JoXm8f | Take Lane / Comp Editor — UI 詳細契約 canonical doc chain タスク（synvelis#12 §14/§15 後続 slice — docs-only） | done | [take-lane-comp-editor-task.md](./take-lane-comp-editor-task.md) |
 | TASK-5HWsXY7AMzlpvzSSGuZTx6 | Target Architecture 設計レビュータスク — TA-001〜012 + GUI 方針の docs chain・evidence 台帳 | done | [target-architecture-task.md](./target-architecture-task.md) |
 | TASK-034UHVQgQGF9WnpLCSCDTB | TIM-01 configurable PPQN — implementation tasks | done | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
 | TASK-2pOiUyTrEwQaSdFgHjKl | TIM-01 — PPQN Preview op + New Project PPQN | done | [tim-01-ppqn-preview-task.md](./tim-01-ppqn-preview-task.md) |

@@ -60,6 +60,7 @@ struct LedgerKey {
 struct LedgerEntry {
     fingerprint: String,
     operation: OperationId,
+    outcome: GatewayOutcome<Value>,
 }
 
 /// Maximum retained entries — oldest-first eviction keeps the ledger
@@ -75,9 +76,16 @@ const LEDGER_CAP: usize = 4096;
 /// burns its key, so `original` always names an operation that actually
 /// ran. Durable records, replay of stored outcomes, and crash recovery
 /// belong to GW-06 (ACG-004).
+///
+/// AUTX-06: each entry also retains the settled [`GatewayOutcome`] and
+/// an operation-id index, so [`Gateway::operation_outcome`] can answer
+/// the coordinator's `DuplicateRequest` reconcile without re-executing.
+/// The outcome is part of the same bounded record — eviction drops both
+/// indexes together, and a miss is honestly "no record", never a guess.
 #[derive(Default)]
 struct IdempotencyLedger {
     entries: BTreeMap<LedgerKey, LedgerEntry>,
+    by_operation: BTreeMap<OperationId, LedgerKey>,
     order: std::collections::VecDeque<LedgerKey>,
 }
 
@@ -98,23 +106,39 @@ impl IdempotencyLedger {
 
     /// Records a completed operation under `key` — called only after a
     /// handler returned success.
-    fn record(&mut self, key: LedgerKey, fingerprint: String, operation: OperationId) {
+    fn record(
+        &mut self,
+        key: LedgerKey,
+        fingerprint: String,
+        operation: OperationId,
+        outcome: GatewayOutcome<Value>,
+    ) {
         if self.entries.contains_key(&key) {
             return;
         }
         if self.entries.len() >= LEDGER_CAP
             && let Some(oldest) = self.order.pop_front()
+            && let Some(evicted) = self.entries.remove(&oldest)
         {
-            self.entries.remove(&oldest);
+            self.by_operation.remove(&evicted.operation);
         }
         self.order.push_back(key.clone());
+        self.by_operation.insert(operation, key.clone());
         self.entries.insert(
             key,
             LedgerEntry {
                 fingerprint,
                 operation,
+                outcome,
             },
         );
+    }
+
+    /// The recorded outcome for `operation`, when a retained keyed
+    /// entry names it.
+    fn outcome(&self, operation: OperationId) -> Option<GatewayOutcome<Value>> {
+        let key = self.by_operation.get(&operation)?;
+        self.entries.get(key).map(|entry| entry.outcome.clone())
     }
 }
 
@@ -366,9 +390,25 @@ impl Gateway {
         Self::check_outcome(descriptor, &outcome, &self.schemas)?;
 
         if let Some((key, fingerprint)) = ledger {
-            self.ledger.record(key, fingerprint, req.operation_id);
+            self.ledger
+                .record(key, fingerprint, req.operation_id, outcome.clone());
         }
         Ok(outcome)
+    }
+
+    /// The recorded outcome for a keyed operation admitted through
+    /// [`Self::invoke`] — the minimal read the workflow coordinator's
+    /// `DuplicateRequest` reconcile needs (AUTX-06).
+    ///
+    /// `None` means "no record": the operation never ran under a
+    /// retained key, its entry was evicted, or the id is foreign —
+    /// callers must treat that as unknown, never as a settled verdict.
+    /// This is trusted-adapter introspection on the same footing as
+    /// [`crate::JobEngine::record`]: it discloses no invocation
+    /// authority and is not reachable from the wire.
+    #[must_use]
+    pub fn operation_outcome(&self, operation: OperationId) -> Option<GatewayOutcome<Value>> {
+        self.ledger.outcome(operation)
     }
 
     /// `parse_wire` + `bind` + `invoke` — the full typed invocation an
