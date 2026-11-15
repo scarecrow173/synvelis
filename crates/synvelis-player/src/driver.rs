@@ -29,7 +29,8 @@ use crate::binding::StablePluginInstanceId;
 use crate::dispatch::ParamDispatch;
 use crate::lowering::{EngineConfig, Lowered, NodeContent, PlaybackBinding};
 use crate::process_boundary::{
-    BoundarySessionError, BoundarySessionSpec, PrecisionProvenance, ProcessBoundarySession,
+    BoundaryPoint, BoundarySessionError, BoundarySessionSpec, PrecisionProvenance,
+    ProcessBoundaryPlan, ProcessBoundarySession, WrapSim,
 };
 use crate::processor::{ClipPlayer, ClipSync, PlaybackStats};
 use crate::resolver::PreparedClip;
@@ -149,6 +150,32 @@ struct AttachedDispatch {
     /// [`SpanContext`] fields `observe_attached_block` used to
     /// fabricate.
     transport: TransportMirror,
+    /// Scheduler-faithful scalar transport projection for loop-wrap
+    /// boundary derivation — re-anchors at every wrap like upstream
+    /// `TransportScheduler` (unlike the lazy-fold [`TransportMirror`],
+    /// it reproduces `pos_at` across `SetLoop`/`ClearLoop`). Advanced
+    /// through each observed window by
+    /// [`HeadlessDriver::observe_attached_block`]; see [`WrapSim`].
+    wrap_sim: WrapSim,
+    /// Node-cursor frame the next callback window starts at — the
+    /// [`WrapSim`] walk domain. Tracks the node's own cursor, which
+    /// advances one block per processed callback and re-anchors on
+    /// `set_clock`; the driver's seek quiesce passes push it ahead
+    /// of `HeadlessDriver::cursor` until the seek re-anchor lands.
+    sim_window: u64,
+    /// Transport commands staged on the node but not yet observed
+    /// applied. Every driver transport command is `due = 0`, so each
+    /// applies at the next callback head — `sim_window` at the next
+    /// [`HeadlessDriver::observe_attached_block`] — in push order.
+    /// Drained into the wrap-sim walk there; the same role
+    /// `RoutingControlDispatch::staged_transport` plays on the
+    /// routing path (TIM-03 driver slice, issue #127).
+    staged_transport: Vec<TransportCommand>,
+    /// The [`ProcessBoundaryPlan`] the node's last `stage_window`
+    /// call evaluated — diagnostic evidence of the boundary points
+    /// (derived loop wraps plus command-derived points) the oracle
+    /// actually saw, mirroring `last_span`.
+    last_window_plan: Option<ProcessBoundaryPlan>,
     /// The span context last projected for this node.
     last_span: Option<TransportSpan>,
 }
@@ -433,6 +460,105 @@ impl TransportMirror {
     }
 }
 
+impl AttachedDispatch {
+    /// Stages the activation/resume anchor on this attached node:
+    /// `set_clock(epoch, cursor)` then `Seek(position = cursor)` +
+    /// `Play` — position == engine frame is the driver's invariant,
+    /// so plan events addressed by absolute engine frame land on it.
+    ///
+    /// `set_clock` rebases the node cursor to `cursor` at the next
+    /// callback head — the wrap-sim walk domain follows it
+    /// immediately, before the command batch's outcome. A
+    /// boundary-declared node stages through its
+    /// [`ProcessBoundarySession`] (`stage_window` evaluates the
+    /// oracle before anything pushes; the session's provenance pin
+    /// is the honest `current` — the driver binds session and
+    /// dispatch for the node's whole attached lifetime, so no drift
+    /// channel exists). `set_clock` is a clock rebase, not a
+    /// transport command — it maps its `QueueFull` onto the same
+    /// bounded-channel refusal. Non-declared nodes keep the legacy
+    /// lenient path; the mirror records only commands that actually
+    /// queued, and the staged list tracks every command the node
+    /// will observe apply at the next callback head.
+    ///
+    /// # Errors
+    /// [`BoundarySessionError`] — oracle/provenance refusal or a
+    /// bounded-queue drop on a sessioned node. On `QueueFull` an
+    /// earlier command of the batch may remain staged (bounded-queue
+    /// reality); the mirror keeps the last fully-successful state.
+    fn anchor_link(
+        &mut self,
+        epoch: ClockEpochId,
+        cursor: u64,
+        window_frames: u32,
+    ) -> Result<(), BoundarySessionError> {
+        let position = i64::try_from(cursor).unwrap_or(i64::MAX);
+        let seek = TransportCommand::Seek(MediaTime::new(position, self.dispatch.frame_base()));
+        let commands = [seek, TransportCommand::Play];
+        if let Some(session) = self.boundary.as_ref() {
+            self.dispatch
+                .control()
+                .set_clock(epoch, cursor)
+                .map_err(|_| BoundarySessionError::QueueFull)?;
+            self.sim_window = cursor;
+            let boundaries = self.loop_wrap_boundaries(window_frames, &commands);
+            let plan = session.stage_window(
+                self.dispatch.control(),
+                &session.provenance(),
+                window_frames,
+                boundaries,
+                &[(seek, 0), (TransportCommand::Play, 0)],
+            )?;
+            self.staged_transport.extend_from_slice(&commands);
+            self.last_window_plan = Some(plan);
+            self.transport.note_seek(cursor, position);
+            self.transport.note_play(cursor);
+        } else {
+            if self.dispatch.control().set_clock(epoch, cursor).is_ok() {
+                self.sim_window = cursor;
+            }
+            if self.dispatch.control().request(seek, 0).is_ok() {
+                self.staged_transport.push(seek);
+                self.transport.note_seek(cursor, position);
+            }
+            if self
+                .dispatch
+                .control()
+                .request(TransportCommand::Play, 0)
+                .is_ok()
+            {
+                self.staged_transport.push(TransportCommand::Play);
+                self.transport.note_play(cursor);
+            }
+        }
+        Ok(())
+    }
+
+    /// [`BoundaryPoint`]s for the loop wraps the wrap sim predicts
+    /// inside the upcoming node window `[sim_window,
+    /// sim_window + window_frames)`, given `commands` about to be
+    /// staged. Every driver transport command is a `due = 0` head
+    /// apply at `sim_window`, so pending resolves `staged_transport`
+    /// plus `commands` in push order — the same contract routing's
+    /// `boundary_loop_wraps` preview uses. Pure read: the live sim
+    /// only advances in `observe_attached_block`.
+    fn loop_wrap_boundaries(
+        &self,
+        window_frames: u32,
+        commands: &[TransportCommand],
+    ) -> Vec<BoundaryPoint> {
+        let mut pending = Vec::with_capacity(self.staged_transport.len() + commands.len());
+        pending.extend(
+            self.staged_transport
+                .iter()
+                .chain(commands.iter())
+                .map(|&command| (self.sim_window, command)),
+        );
+        let mut sim = self.wrap_sim;
+        sim.walk_window(self.sim_window, window_frames, &pending)
+    }
+}
+
 /// Deterministic headless playback driver for the L1 slice.
 pub struct HeadlessDriver {
     engine: EngineConfig,
@@ -668,7 +794,7 @@ impl HeadlessDriver {
     /// node id, capability generation `0` — driver-attached nodes
     /// carry no project capability surface — and this activation's
     /// plan `generation`), then stages the transport anchor through
-    /// [`Self::anchor_link`]. Session open/stage refusals surface as
+    /// [`AttachedDispatch::anchor_link`]. Session open/stage refusals surface as
     /// [`ActivateError::BoundarySession`] before anything publishes.
     fn prepare_attached(
         &mut self,
@@ -699,22 +825,21 @@ impl HeadlessDriver {
             }
             None => None,
         };
-        let mut transport = TransportMirror::new();
-        Self::anchor_link(
-            &mut dispatch,
-            boundary.as_ref(),
-            &mut transport,
-            self.epoch,
-            self.cursor,
-            self.window_frames(),
-        )
-        .map_err(ActivateError::BoundarySession)?;
-        Ok(AttachedDispatch {
+        let frame_base = dispatch.frame_base();
+        let mut attached = AttachedDispatch {
             dispatch,
             boundary,
-            transport,
+            transport: TransportMirror::new(),
+            wrap_sim: WrapSim::new(frame_base),
+            sim_window: self.cursor,
+            staged_transport: Vec::new(),
+            last_window_plan: None,
             last_span: None,
-        })
+        };
+        attached
+            .anchor_link(self.epoch, self.cursor, self.window_frames())
+            .map_err(ActivateError::BoundarySession)?;
+        Ok(attached)
     }
 
     /// The upcoming callback window every staged command is
@@ -722,67 +847,6 @@ impl HeadlessDriver {
     /// window shape, `engine.block_frames`.
     fn window_frames(&self) -> u32 {
         u32::try_from(self.engine.block_frames).unwrap_or(u32::MAX)
-    }
-
-    /// Stages the activation/resume anchor on one attached node:
-    /// `set_clock(epoch, cursor)` then `Seek(position = cursor)` +
-    /// `Play` — position == engine frame is the driver's invariant,
-    /// so plan events addressed by absolute engine frame land on it.
-    ///
-    /// A boundary-declared node stages through its
-    /// [`ProcessBoundarySession`] (`stage_window` evaluates the
-    /// oracle before anything pushes; the session's provenance pin
-    /// is the honest `current` — the driver binds session and
-    /// dispatch for the node's whole attached lifetime, so no drift
-    /// channel exists). `set_clock` is a clock rebase, not a
-    /// transport command — it maps its `QueueFull` onto the same
-    /// bounded-channel refusal. Non-declared nodes keep the legacy
-    /// lenient path; the mirror records only commands that actually
-    /// queued.
-    ///
-    /// # Errors
-    /// [`BoundarySessionError`] — oracle/provenance refusal or a
-    /// bounded-queue drop on a sessioned node. On `QueueFull` an
-    /// earlier command of the batch may remain staged (bounded-queue
-    /// reality); the mirror keeps the last fully-successful state.
-    fn anchor_link(
-        dispatch: &mut ParamDispatch,
-        boundary: Option<&ProcessBoundarySession>,
-        transport: &mut TransportMirror,
-        epoch: ClockEpochId,
-        cursor: u64,
-        window_frames: u32,
-    ) -> Result<(), BoundarySessionError> {
-        let position = i64::try_from(cursor).unwrap_or(i64::MAX);
-        let seek = TransportCommand::Seek(MediaTime::new(position, dispatch.frame_base()));
-        if let Some(session) = boundary {
-            dispatch
-                .control()
-                .set_clock(epoch, cursor)
-                .map_err(|_| BoundarySessionError::QueueFull)?;
-            session.stage_window(
-                dispatch.control(),
-                &session.provenance(),
-                window_frames,
-                Vec::new(),
-                &[(seek, 0), (TransportCommand::Play, 0)],
-            )?;
-            transport.note_seek(cursor, position);
-            transport.note_play(cursor);
-        } else {
-            let _ = dispatch.control().set_clock(epoch, cursor);
-            if dispatch.control().request(seek, 0).is_ok() {
-                transport.note_seek(cursor, position);
-            }
-            if dispatch
-                .control()
-                .request(TransportCommand::Play, 0)
-                .is_ok()
-            {
-                transport.note_play(cursor);
-            }
-        }
-        Ok(())
     }
 
     /// Stages one transport `command` (`due = 0` — the next callback
@@ -812,23 +876,24 @@ impl HeadlessDriver {
         window_frames: u32,
         command: TransportCommand,
     ) -> Result<(), BoundarySessionError> {
-        match attached.boundary.as_ref() {
-            Some(session) => {
-                session.stage_window(
-                    attached.dispatch.control(),
-                    &session.provenance(),
-                    window_frames,
-                    Vec::new(),
-                    &[(command, 0)],
-                )?;
-            }
-            None => {
-                attached
-                    .dispatch
-                    .control()
-                    .request(command, 0)
-                    .map_err(|_| BoundarySessionError::QueueFull)?;
-            }
+        if let Some(session) = attached.boundary.as_ref() {
+            let boundaries = attached.loop_wrap_boundaries(window_frames, &[command]);
+            let plan = session.stage_window(
+                attached.dispatch.control(),
+                &session.provenance(),
+                window_frames,
+                boundaries,
+                &[(command, 0)],
+            )?;
+            attached.staged_transport.push(command);
+            attached.last_window_plan = Some(plan);
+        } else {
+            attached
+                .dispatch
+                .control()
+                .request(command, 0)
+                .map_err(|_| BoundarySessionError::QueueFull)?;
+            attached.staged_transport.push(command);
         }
         match command {
             TransportCommand::Play => attached.transport.note_play(cursor),
@@ -922,6 +987,23 @@ impl HeadlessDriver {
         let block = self.engine.block_frames;
         let call_frames = u32::try_from(block).unwrap_or(u32::MAX);
         for attached in &mut self.attached {
+            // Advance the scheduler-faithful wrap sim through the
+            // window the node just ran. `sim_window` is the node's
+            // own cursor head — `due = 0` commands staged since the
+            // last observation apply there; the driver cursor may
+            // lag it by the seek quiesce passes, so the domains are
+            // tracked separately. The preview above only read the
+            // sim; this is its single mutation point per window.
+            let pending: Vec<(u64, TransportCommand)> = attached
+                .staged_transport
+                .iter()
+                .map(|&command| (attached.sim_window, command))
+                .collect();
+            let _ = attached
+                .wrap_sim
+                .walk_window(attached.sim_window, call_frames, &pending);
+            attached.sim_window = attached.sim_window.saturating_add(block as u64);
+            attached.staged_transport.clear();
             let span = TransportSpan {
                 start: call_start,
                 end: call_start.advance(block as u64),
@@ -1036,21 +1118,28 @@ impl HeadlessDriver {
                 .control()
                 .set_clock(epoch, frame)
                 .map_err(|_| BoundarySessionError::QueueFull)?;
-            session.stage_window(
+            attached.sim_window = frame;
+            let boundaries = attached.loop_wrap_boundaries(window_frames, &[seek]);
+            let plan = session.stage_window(
                 attached.dispatch.control(),
                 &session.provenance(),
                 window_frames,
-                Vec::new(),
+                boundaries,
                 &[(seek, 0)],
             )?;
+            attached.staged_transport.push(seek);
+            attached.last_window_plan = Some(plan);
         } else {
-            let _ = attached.dispatch.control().set_clock(epoch, frame);
+            if attached.dispatch.control().set_clock(epoch, frame).is_ok() {
+                attached.sim_window = frame;
+            }
             // Legacy lenient path: a dropped command stays
             // best-effort (pre-TIM-03 behavior) — the mirror
             // only records what actually queued.
             if attached.dispatch.control().request(seek, 0).is_err() {
                 return Ok(());
             }
+            attached.staged_transport.push(seek);
         }
         attached.transport.note_seek(frame, position);
         Ok(())
@@ -1156,14 +1245,7 @@ impl HeadlessDriver {
         let cursor = self.cursor;
         let window = self.window_frames();
         for attached in &mut self.attached {
-            Self::anchor_link(
-                &mut attached.dispatch,
-                attached.boundary.as_ref(),
-                &mut attached.transport,
-                epoch,
-                cursor,
-                window,
-            )?;
+            attached.anchor_link(epoch, cursor, window)?;
         }
         Ok(())
     }
@@ -1183,6 +1265,10 @@ impl HeadlessDriver {
     /// The [`ParamDispatch`] orchestrator of the attached node at
     /// `node_id` — binds, writes, revalidation and per-target stage
     /// queries. `None` when the active plan installed no node there.
+    ///
+    /// [`ParamDispatch::dispatch`] stages an internal `Play` the
+    /// driver's wrap-sim cannot see — see the caveat on
+    /// [`Self::attached_boundary`].
     pub fn attached_dispatch(&mut self, node_id: NodeId) -> Option<&mut ParamDispatch> {
         self.attached
             .iter_mut()
@@ -1203,6 +1289,20 @@ impl HeadlessDriver {
             .and_then(|d| d.last_span.as_ref())
     }
 
+    /// The [`ProcessBoundaryPlan`] the attached node at `node_id`
+    /// last evaluated through `stage_window` — the boundary points
+    /// (driver-derived loop wraps plus command-derived points) the
+    /// oracle actually saw for the window upcoming at that stage.
+    /// `None` before the first sessioned staging or for undeclared
+    /// nodes. Diagnostic evidence mirroring [`Self::attached_span`].
+    #[must_use]
+    pub fn attached_window_plan(&self, node_id: NodeId) -> Option<&ProcessBoundaryPlan> {
+        self.attached
+            .iter()
+            .find(|d| d.dispatch.node() == node_id)
+            .and_then(|d| d.last_window_plan.as_ref())
+    }
+
     /// The attached node's TIM-03 [`ProcessBoundarySession`] paired
     /// with its [`ParamDispatch`] — `Some` only for boundary-declared
     /// attaches. The pair lets consumers run the session's gated
@@ -1215,6 +1315,17 @@ impl HeadlessDriver {
     /// pin — [`ProcessBoundarySession::provenance`] — the driver
     /// binds session and dispatch for the node's whole attached
     /// lifetime, so no drift channel exists.
+    ///
+    /// Wrap-sim caveat: [`ProcessBoundarySession::dispatch_params`]
+    /// stages an internal `Play` on the node's control queue that
+    /// never passes through the driver's staged-transport tracking.
+    /// While the node is `Playing` that re-anchor is a position
+    /// no-op, but on a non-playing node (e.g. after
+    /// [`HeadlessDriver::panic`] and before
+    /// [`HeadlessDriver::resume_attached_transport`]) the unseen
+    /// `Play` would leave loop-wrap derivation stale — resume
+    /// transport through the typed methods before dispatching
+    /// params on a stopped node.
     pub fn attached_boundary(
         &mut self,
         node_id: NodeId,
