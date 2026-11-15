@@ -128,6 +128,7 @@ Directory: `docs/impl/ir`
 | IMPL-034XA69ntDtCS6oYZ7LgEZ | RCD-02 Blob SHA-256 Promotion | completed | [rcd-02-blob-sha256.md](./rcd-02-blob-sha256.md) |
 | IMPL-034VhZh19UVNoeeFues4Ow | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | completed | [rcd-02-durability-evidence-recovery-review-commit-receipt.md](./rcd-02-durability-evidence-recovery-review-commit-receipt.md) |
 | IMPL-034UMbAviqhaRhIqExdBM3 | RCD-02 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | completed | [rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md](./rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md) |
+| IMPL-034XHQONJOa6EzQAgZoFxf | RCD-02 residual closeout — Issue #116 AC 照合・canonical lane 実測・残存 gate 棚卸し・簿記 drift 修正 | completed | [rcd-02-residual-closeout.md](./rcd-02-residual-closeout.md) |
 | IMPL-034VpDUdGZZKsxaoSMekla | RCD-02 StagedFile Publish Migration | completed | [rcd-02-stagedfile-publish-migration.md](./rcd-02-stagedfile-publish-migration.md) |
 | IMPL-0h9qRk2mNvPwXzYc8uJd4s | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe | completed | [rcd-02-unsynced-loss-real-fs-probe-slice.md](./rcd-02-unsynced-loss-real-fs-probe-slice.md) |
 | IMPL-034Vg2bnZtbJvdYWRJIUM3 | RCD-03 app Arm/Monitoring UX slice 実装記録 | completed | [rcd-03-app-arm-monitoring-ux-slice.md](./rcd-03-app-arm-monitoring-ux-slice.md) |

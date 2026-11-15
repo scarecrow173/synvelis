@@ -98,6 +98,7 @@ Directory: `docs/test-specs`
 | TSPEC-GDVJyEaURIyTbCcZGMAkDR | RCD-01 Virtual L1 Oracle test-spec | approved | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
 | TSPEC-nb7F26elY2sGZvVr3qyB2r | RCD-02 Blob SHA-256 Digest test-spec | approved | [rcd-02-blob-sha256-digest.md](./rcd-02-blob-sha256-digest.md) |
 | TSPEC-034UrlOOfZIvsdF1bdNXfE | RCD-02 Durability / Recovery Review / Commit Receipt fault matrix | approved | [rcd-02-durability-recovery-review-fault-matrix.md](./rcd-02-durability-recovery-review-fault-matrix.md) |
+| TSPEC-034XHOEGGpnzgIiRL1WpeX | RCD-02 residual closeout — AC 照合・canonical lane・gate 棚卸し検証仕様 | approved | [rcd-02-residual-closeout.md](./rcd-02-residual-closeout.md) |
 | TSPEC-c33JwV8kL5uDnMRO2sV7Be | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe test-spec | approved | [rcd-02-unsynced-loss-real-fs-probe.md](./rcd-02-unsynced-loss-real-fs-probe.md) |
 | TSPEC-034VedrLB13w3phP9Xuh5S | RCD-03 app Arm/Monitoring UX fixture matrix | proposed | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |
 | TSPEC-034WCwsH5OmvKwwZocdwPT | RCD-03 monitor engine — test spec | draft | [rcd-03-monitor-engine.md](./rcd-03-monitor-engine.md) |
