@@ -39,6 +39,7 @@ relations:
   verified-by:
     - "crates/synvelis-app/tests/library_browser.rs"
     - "crates/synvelis-app/tests/common/library.rs"
+    - "crates/synvelis-workspace/src/library_ui.rs"
   references:
     - "evidence/sv89/acceptance-ledger.md"
     - "evidence/sv89/verification.md"
@@ -88,8 +89,9 @@ ViewSpec projection
   `offline`、`permission-denied`、`auth-expired`、`missing`、
   `cursor-invalid`、`source-changed`、`integrity-mismatch`、
   `budget-exceeded`、`cancelled`、`stale-revision`、
-  `integrity-conflict`、`target-gone`、`malformed`、
-  `internal` は `LibraryReason`/`LibraryFault` または各
+  `integrity-conflict`、`target-gone`、
+  `publish-indeterminate`、`malformed`、`internal` は
+  `LibraryReason`/`LibraryFault` または各
   surface state（`PinUiState`/`PreviewUiState`/
   `ImportUiState`/`DragUiState`）の型付き値として残り、
   empty listing・`Pass`・generic error 文字列へ丸めない
@@ -110,10 +112,9 @@ ViewSpec projection
 - Rule: すべての mutating `LibraryAction` は対象 locator を
   明示する（`provider.select`/`browse.scope`/`entry.*`/
   `preview.*`/`import.submit`/`drag.begin`）。ambient な
-  selection を暗黙の target にしない。`preview.fetch` のみ
-  `locator` を省略可能とし、その場合は view の現在
-  selection を使う — spec が投影する button は常に
-  locator を明示して emit する。
+  selection を暗黙の target にしない — `preview.fetch`
+  を含め locator は必須であり、spec が投影する button は
+  常に locator を明示して emit する。
 - Rule: preview は import ではない。`preview.plan` は
   `bounded`/`consent-required`/`over-budget` の plan tag を
   返し、whole-object fetch は `allow_full_object` の明示
@@ -169,6 +170,10 @@ ViewSpec projection
   は前 provider のものを残さず、切替後の browse は新
   provider の root からやり直す。未知 provider は
   `unknown-provider` fault で現 provider を保持する。
+  pending import intent も provider-bound な pin 証拠を
+  持つため切替で破棄され、`import.retry` は typed fault
+  になる — ただし `CommittedLive` receipt は project
+  commit の事実であり provider を跨いで残る。
 - Rule: `LibraryViewState` は view-local（provider 選択・
   scope・entries・cursor・search・selection・stat・
   pin/preview/import/drag surface・fault）のみを保持し、
@@ -207,13 +212,6 @@ ViewSpec projection
   cancel 済み token が後続 `preview.plan` の stat probe を
   汚染せず、plan は正しい size hint で classify される
   （regression: cancel token は fetch 専用）。
-- Example: `import_stale_revision_rebase_retry_recovers` /
-  `provider_switch_scopes_import_surface` /
-  `library_backend_survives_project_new` —
-  `StaleRevision`→`import.rebase`→`import.retry` の回復
-  経路、provider 切替時の pending import scoping、
-  `project.new` 後の backend 再 bind が typed に固定
-  される。
 - Example: `pin_unsupported_and_supported` — pin 非対応は
   `PinUiState::Unsupported`、対応時は `Pinned{proof:
   "immutable-object"}` であり project revision は不変。
@@ -240,10 +238,21 @@ ViewSpec projection
   `view_rejects_unregistered_and_wrong_kind` /
   `close_removes_view_and_model` /
   `unbound_backend_is_typed_not_fabricated` /
-  `provider_switch_invalidates_bound_state` — op 登録・
+  `provider_switch_invalidates_bound_state` /
+  `provider_switch_scopes_import_surface` /
+  `library_backend_survives_project_new` — op 登録・
   `sys.capabilities` 露出・view lifecycle・deterministic
   ViewSpec・wrong-kind/unbound の typed reject・provider
-  切替時の bound state 無効化。
+  切替時の bound state 無効化（pending intent 破棄・
+  `CommittedLive` 温存）・`project.new` 後の backend
+  rebind。
+- Example: `import_stale_revision_rebase_retry_recovers` —
+  先行 commit で live revision が進んだ後、旧 revision を
+  pin した `import.submit` は `StaleRevision{expected,
+  actual}` を返し engine に commit を通知しない。別
+  import_id の `import.rebase` は `malformed` fault、
+  pending intent への rebase + `import.retry` で commit
+  され revision が 1 度だけ進む。
 - Example（unit、`library_ui.rs` `#[cfg(test)]`）:
   `providers_and_select_roundtrip`（spec determinism）、
   `browse_complete_empty_is_not_failure`、

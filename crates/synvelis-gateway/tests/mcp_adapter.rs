@@ -77,6 +77,7 @@ impl CommitPort for ScriptedCommit {
             base_revision: ProjectRevision(1),
             revision: ProjectRevision(2),
             journal_seq: 9,
+            provenance: None,
         })
     }
 
@@ -980,6 +981,7 @@ fn settle_op_reports_committed_after_restart_scoped_reconcile() {
             base_revision: ProjectRevision(1),
             revision: ProjectRevision(2),
             journal_seq: 3,
+            provenance: None,
         })),
     );
     let result = call_tool(

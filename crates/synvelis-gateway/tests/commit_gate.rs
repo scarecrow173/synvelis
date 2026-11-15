@@ -862,6 +862,7 @@ fn commit_records_the_policy_position_it_observed() {
         evaluator: GrantPolicy::new(file_store.clone(), rig.clock.clone(), oracle),
         proposals: rig.proposals.clone(),
         apply_capability: apply_desc(&rig),
+        variant: None,
     };
     let (gate, _report) = CommitGate::open(
         demo_project(),
@@ -917,6 +918,7 @@ fn durable_policy_admin_never_double_counts_consumption() {
         evaluator: GrantPolicy::new(file_store.clone(), rig.clock.clone(), oracle),
         proposals: rig.proposals.clone(),
         apply_capability: apply_desc(&rig),
+        variant: None,
     };
     let (gate, _report) = CommitGate::open(
         demo_project(),
@@ -952,6 +954,7 @@ fn durable_policy_admin_never_double_counts_consumption() {
         evaluator: GrantPolicy::new(file_store.clone(), rig.clock.clone(), oracle),
         proposals: rig.proposals.clone(),
         apply_capability: apply_desc(&rig),
+        variant: None,
     };
     let (gate, report) = CommitGate::open(
         demo_project(),

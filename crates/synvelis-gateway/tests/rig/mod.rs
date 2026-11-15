@@ -267,6 +267,30 @@ pub(crate) fn fixture_rig() -> Rig {
 /// Same wiring with a bounded proposal store — eviction-order tests
 /// pick a small cap instead of pushing hundreds of proposals.
 pub(crate) fn fixture_rig_with_cap(max_entries: usize) -> Rig {
+    rig_with(max_entries, false).0
+}
+
+/// CB-10: the fixture rig plus shared [`VariantPorts`] — the prepare
+/// engine simulates branch mutations through them, the query engine
+/// decodes candidate payloads through the same store, and
+/// [`gate_deps_variant`] hands the same `Arc` to the commit fence.
+pub(crate) struct VariantRig {
+    pub(crate) rig: Rig,
+    pub(crate) ports: Arc<synvelis_gateway::variant::VariantPorts>,
+}
+
+pub(crate) fn variant_rig() -> VariantRig {
+    let (rig, ports) = rig_with(PrepareBudget::default().max_proposals, true);
+    VariantRig {
+        rig,
+        ports: ports.expect("variant rig wires ports"),
+    }
+}
+
+fn rig_with(
+    max_entries: usize,
+    with_variant: bool,
+) -> (Rig, Option<Arc<synvelis_gateway::variant::VariantPorts>>) {
     let store = Arc::new(InMemoryPolicyStore::new());
     let clock = Arc::new(ManualClock::new(PolicyInstant::new(1_000)));
     let source = Arc::new(MemorySnapshotSource::new());
@@ -291,12 +315,16 @@ pub(crate) fn fixture_rig_with_cap(max_entries: usize) -> Rig {
         APPROVAL_TTL,
         max_entries,
     ));
-    let engine = Arc::new(PrepareEngine::new(
-        ctx.clone(),
-        Arc::new(PreparePolicy::new(store.clone(), clock.clone())),
-        PrepareBudget::default(),
-        proposals.clone(),
-    ));
+    let ports = with_variant.then(|| Arc::new(synvelis_gateway::variant::VariantPorts::standard()));
+    let engine = Arc::new(
+        PrepareEngine::new(
+            ctx.clone(),
+            Arc::new(PreparePolicy::new(store.clone(), clock.clone())),
+            PrepareBudget::default(),
+            proposals.clone(),
+        )
+        .with_variant_ports(ports.clone()),
+    );
     let proposal_engine = Arc::new(ProposalEngine::new(
         proposals.clone(),
         source.clone(),
@@ -315,15 +343,26 @@ pub(crate) fn fixture_rig_with_cap(max_entries: usize) -> Rig {
     // The context-query capability rides the same pinned snapshot
     // source — the rig exposes the full GW-03/04/05 surface.
     ctx.install(&mut gw).unwrap();
-    Rig {
-        store,
-        clock,
-        source,
-        proposals,
-        engine,
-        proposal_engine,
-        gw,
+    if let Some(ports) = &ports {
+        Arc::new(synvelis_gateway::variant::VariantQueryEngine::new(
+            ctx.clone(),
+            Some(ports.store.clone()),
+        ))
+        .install(&mut gw)
+        .unwrap();
     }
+    (
+        Rig {
+            store,
+            clock,
+            source,
+            proposals,
+            engine,
+            proposal_engine,
+            gw,
+        },
+        ports,
+    )
 }
 
 // ── GW-07 job rig ────────────────────────────────────────────
@@ -868,6 +907,32 @@ pub(crate) fn gate_deps(
         evaluator: GrantPolicy::new(store, clock, oracle),
         proposals,
         apply_capability,
+        variant: None,
+    }
+}
+
+/// CB-10: [`gate_deps`] with the shared variant ports wired — the
+/// same `Arc` the rig's prepare engine and query engine hold, so a
+/// prepared branch mutation and its commit see one content store.
+#[allow(clippy::needless_pass_by_value)] // callers hand owned handles for clarity
+pub(crate) fn gate_deps_variant(
+    store: Arc<InMemoryPolicyStore>,
+    clock: Arc<ManualClock>,
+    source: Arc<MemorySnapshotSource>,
+    proposals: Arc<ProposalStore>,
+    apply_capability: CapabilityDescriptor,
+    variant: Arc<synvelis_gateway::variant::VariantPorts>,
+) -> GateDeps {
+    let oracle: Arc<dyn ResourceOracle> = Arc::new(LatestOracle {
+        source: source.clone(),
+    });
+    GateDeps {
+        policy: store.clone(),
+        admin: store.clone(),
+        evaluator: GrantPolicy::new(store, clock, oracle),
+        proposals,
+        apply_capability,
+        variant: Some(variant),
     }
 }
 

@@ -32,13 +32,16 @@ use crate::{
     control::ControlOwner,
     diff::{ObjectKind, SemanticObjectRef},
     id::{
-        AutomationLaneId, ModulationAssignmentId, ModulationSourceId, ParameterTargetId,
-        ProcessorId, StripId,
+        AutomationLaneId, ClipId, LaneId, ModulationAssignmentId, ModulationSourceId,
+        ParameterTargetId, ProcessorId, StripId, TrackId,
     },
+    ops::clip_beats,
+    placement::TimeAnchor,
+    time::MusicalTick,
     variant::{
         VariantError,
         scope::{scope_objects, strip_channel_field, validate_scope_structure},
-        types::{StripDomainMask, StripField, VariantScope},
+        types::{ArrangementDomainMask, StripDomainMask, StripField, VariantScope},
     },
 };
 
@@ -564,11 +567,200 @@ fn check_strip_fields_op_targets(
     }
 }
 
+/// `true` for the `ProjectOp` variants the arrangement candidate
+/// surface accepts — the same list [`check_arrangement_op_targets`]
+/// confines. Kept adjacent so the adapter's validate-gate and the
+/// confinement gate cannot drift.
+pub(crate) fn is_arrangement_op(op: &ProjectOp) -> bool {
+    matches!(
+        op,
+        ProjectOp::AddClip { .. }
+            | ProjectOp::RemoveClip { .. }
+            | ProjectOp::SplitClip { .. }
+            | ProjectOp::MoveClip { .. }
+            | ProjectOp::SetClipExtent { .. }
+            | ProjectOp::SetClipPlayback { .. }
+            | ProjectOp::SetClipMuted { .. }
+            | ProjectOp::RemoveClipsInRange { .. }
+            | ProjectOp::AddNote { .. }
+            | ProjectOp::RemoveNote { .. }
+    )
+}
+
+/// Lanes owned by the arrangement scope's selected tracks — the
+/// confinement set `AddClip`/`RemoveClipsInRange` placements resolve
+/// against. Track/lane structure itself is never scope-owned; only
+/// the clips overlapping `time` on these lanes are.
+fn arrangement_scoped_lanes(project: &Project, tracks: &[TrackId]) -> BTreeSet<LaneId> {
+    tracks
+        .iter()
+        .filter_map(|track| project.tracks.get(track))
+        .flat_map(|track| track.lane_ids.iter().copied())
+        .collect()
+}
+
+/// `fields.clips`/`fields.notes` capability verdict for an op family
+/// the scope did not declare — `Unsupported`, matching the mask
+/// report (a capability verdict, never a silent normalize).
+fn require_arrangement_mask(
+    fields: ArrangementDomainMask,
+    family: &str,
+    declared: bool,
+) -> Result<(), VariantError> {
+    if declared {
+        Ok(())
+    } else {
+        Err(VariantError::Unsupported {
+            detail: format!("{family} ops are outside the declared arrangement mask {fields:?}"),
+        })
+    }
+}
+
+/// Arrangement candidate surface (CB-07): clip-structure ops under
+/// the `clips` mask, clip-local note ops under the `notes` mask —
+/// every other `ProjectOp`/`CompOp` stays `Unsupported` (typed
+/// capability verdict). Entity-targeted ops resolve through
+/// [`require_scope`] against the range-derived object set (foreign
+/// target → `ScopeViolation`, owned-but-undeclared mask →
+/// `Unsupported`, matching the strip bool-op precedent). Creation
+/// and sweep ops confine their *placement* instead: `AddClip` needs
+/// a scoped-track lane and `RemoveClipsInRange` needs scoped lanes
+/// plus a `range` contained in `time` — containment, not overlap,
+/// because a wider sweep would delete out-of-scope clips the
+/// object-set diff cannot see. Whether the resulting clip actually
+/// lands inside `time` is verified post-edit by the created-within-
+/// scope check.
+fn check_arrangement_op_targets(
+    project: &Project,
+    scope: &VariantScope,
+    op: &ProjectOp,
+) -> Result<(), VariantError> {
+    let VariantScope::Arrangement {
+        tracks,
+        time,
+        fields,
+    } = scope
+    else {
+        return Err(VariantError::InvalidScope {
+            detail: format!(
+                "arrangement target check requires an Arrangement scope, got {scope:?}"
+            ),
+        });
+    };
+    match op {
+        // Mask verdict precedes target confinement everywhere: an op
+        // family the scope did not declare is `Unsupported` regardless
+        // of where its target sits — matching the mask-relative
+        // capability report. A declared family with a foreign target
+        // still fails `ScopeViolation`.
+        ProjectOp::SetClipMuted { clip_id, .. }
+        | ProjectOp::MoveClip { clip_id, .. }
+        | ProjectOp::SetClipExtent { clip_id, .. }
+        | ProjectOp::SetClipPlayback { clip_id, .. }
+        | ProjectOp::RemoveClip { clip_id } => {
+            require_arrangement_mask(*fields, "clip", fields.clips)?;
+            require_scope(project, scope, ObjectKind::Clip, &clip_id.to_tagged())
+        }
+        ProjectOp::SplitClip { clip_id, at, .. } => {
+            require_arrangement_mask(*fields, "clip", fields.clips)?;
+            require_scope(project, scope, ObjectKind::Clip, &clip_id.to_tagged())?;
+            if !fields.notes {
+                check_split_note_migration(project, *clip_id, *at)?;
+            }
+            Ok(())
+        }
+        ProjectOp::AddNote { clip, .. } => {
+            require_arrangement_mask(*fields, "note", fields.notes)?;
+            require_scope(project, scope, ObjectKind::Clip, &clip.to_tagged())
+        }
+        ProjectOp::RemoveNote { note } => {
+            require_arrangement_mask(*fields, "note", fields.notes)?;
+            require_scope(project, scope, ObjectKind::Note, &note.to_tagged())
+        }
+        ProjectOp::AddClip { lane_id, .. } => {
+            require_arrangement_mask(*fields, "clip", fields.clips)?;
+            if arrangement_scoped_lanes(project, tracks).contains(lane_id) {
+                Ok(())
+            } else {
+                Err(VariantError::ScopeViolation {
+                    detail: format!("add-clip lane {lane_id} is outside the scoped tracks' lanes"),
+                })
+            }
+        }
+        ProjectOp::RemoveClipsInRange { lanes, range } => {
+            require_arrangement_mask(*fields, "clip", fields.clips)?;
+            let scoped = arrangement_scoped_lanes(project, tracks);
+            for lane in lanes {
+                if !scoped.contains(lane) {
+                    return Err(VariantError::ScopeViolation {
+                        detail: format!("sweep lane {lane} is outside the scoped tracks' lanes"),
+                    });
+                }
+            }
+            if time.start() <= range.start() && range.end() <= time.end() {
+                Ok(())
+            } else {
+                Err(VariantError::ScopeViolation {
+                    detail: format!(
+                        "sweep range [{}, {}) exceeds the declared arrangement range [{}, {})",
+                        range.start().value(),
+                        range.end().value(),
+                        time.start().value(),
+                        time.end().value()
+                    ),
+                })
+            }
+        }
+        other => Err(VariantError::Unsupported {
+            detail: format!(
+                "edit op is outside the supported arrangement candidate surface: {other:?}"
+            ),
+        }),
+    }
+}
+
+/// `SplitClip` repartitions clip-local notes onto the new clip — a
+/// mutation of entities the `clips` mask alone does not own. Under a
+/// `clips`-only scope those notes sit outside the scope object set,
+/// so a migration the candidate expresses but adopt cannot
+/// materialize would silently diverge live from the adopted branch.
+/// Reject typed when any note sits at or past the split point
+/// (straddles are already refused by op validation); notes fully
+/// before the split stay on the kept clip and need no `notes`
+/// surface.
+fn check_split_note_migration(
+    project: &Project,
+    clip_id: ClipId,
+    at: MusicalTick,
+) -> Result<(), VariantError> {
+    let Some(clip) = project.clips.get(&clip_id) else {
+        return Ok(());
+    };
+    let TimeAnchor::Musical(start) = clip.placement.anchor else {
+        return Ok(());
+    };
+    let offset = clip_beats(project, at.ticks_since(start)?)?;
+    if project
+        .notes
+        .values()
+        .any(|note| note.clip == clip_id && note.start >= offset)
+    {
+        return Err(VariantError::Unsupported {
+            detail: format!(
+                "split of clip {clip_id} migrates clip-local notes past the split \
+                 point; the notes mask is not declared"
+            ),
+        });
+    }
+    Ok(())
+}
+
 /// Pre-edit scope check for ops with explicit targets. Creation ops
 /// (`AddClip`, `InsertProcessor`) are verified post-edit instead.
-/// [`VariantScope::InstrumentSlot`] and [`VariantScope::ProcessingRange`]
-/// dispatch to the processor-owned control surface — shared inputs,
-/// chain structure and wiring stay outside every processor candidate.
+/// [`VariantScope::InstrumentSlot`], [`VariantScope::ProcessingRange`],
+/// [`VariantScope::StripFields`] and [`VariantScope::Arrangement`]
+/// dispatch to their domain surfaces — shared inputs, chain
+/// structure and wiring stay outside every candidate.
 fn check_op_targets(
     project: &Project,
     scope: &VariantScope,
@@ -583,6 +775,9 @@ fn check_op_targets(
         }
         VariantScope::StripFields { .. } => {
             return check_strip_fields_op_targets(project, scope, op);
+        }
+        VariantScope::Arrangement { .. } => {
+            return check_arrangement_op_targets(project, scope, op);
         }
         _ => {}
     }
@@ -762,6 +957,16 @@ fn check_created_within_scope(
 /// project-op candidate edit.
 pub(crate) type OpGuard<'a> = Option<&'a dyn Fn(&ProjectOp) -> Result<(), VariantError>>;
 
+/// Post-edit scope-removal policy for range-scoped candidates: given
+/// the candidate *after* the edit and the scope objects the edit
+/// removed, decide whether the loss is an authorized candidate edit
+/// or an untracked live mutation. `None` keeps the entity-rooted
+/// invariant — any scope-object loss fails `Unsupported`. The CB-07
+/// arrangement adapter supplies its own rule so in-range clip
+/// deletion stays expressible while move-outs remain rejected.
+pub(crate) type ScopeRemovalCheck =
+    fn(&Project, &BTreeSet<SemanticObjectRef>) -> Result<(), VariantError>;
+
 /// Shared confined-edit flow for `ProjectOp` candidate edits: optional
 /// domain capability guard, pre-edit target confinement, apply,
 /// post-edit scope-removal/creation confinement. Domain adapters that
@@ -774,6 +979,21 @@ pub(crate) fn edit_scoped_project_op(
     ids: &mut dyn IdGenerator,
     guard: OpGuard<'_>,
 ) -> Result<(), VariantError> {
+    edit_scoped_project_op_with_removal(candidate, scope, op, ids, guard, None)
+}
+
+/// [`edit_scoped_project_op`] with an explicit scope-removal policy —
+/// the seam range-scoped domains (CB-07 arrangement) use to express
+/// in-range deletions the entity-rooted invariant would reject.
+/// Every other confinement step is identical.
+pub(crate) fn edit_scoped_project_op_with_removal(
+    candidate: &mut Project,
+    scope: &VariantScope,
+    op: &ProjectOp,
+    ids: &mut dyn IdGenerator,
+    guard: OpGuard<'_>,
+    removal: Option<ScopeRemovalCheck>,
+) -> Result<(), VariantError> {
     if let Some(guard) = guard {
         guard(op)?;
     }
@@ -785,14 +1005,21 @@ pub(crate) fn edit_scoped_project_op(
     candidate.validate_references()?;
 
     let after_objects = scope_objects(candidate, scope)?;
-    // Scope removals are unsupported in this slice — fail closed.
-    if let Some(removed) = before_objects.difference(&after_objects).next() {
-        return Err(VariantError::Unsupported {
-            detail: format!(
-                "scope entity removal is not supported in this slice: {}",
-                removed.stable_id
-            ),
-        });
+    let removed: BTreeSet<SemanticObjectRef> =
+        before_objects.difference(&after_objects).cloned().collect();
+    match removal {
+        Some(check) => check(candidate, &removed)?,
+        None => {
+            // Scope removals are unsupported in this slice — fail closed.
+            if let Some(first) = removed.iter().next() {
+                return Err(VariantError::Unsupported {
+                    detail: format!(
+                        "scope entity removal is not supported in this slice: {}",
+                        first.stable_id
+                    ),
+                });
+            }
+        }
     }
     check_created_within_scope(candidate, &after_objects, &before_ids)?;
     Ok(())

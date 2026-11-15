@@ -657,11 +657,50 @@ impl SelectionSource for StaticSelection {
     }
 }
 
-/// Boots the fixture. `jobs: Some(mode)` wires a job engine over one
-/// `gen-1` provider stub answering cancels with `mode`; `None` leaves
-/// the job seam absent (the AI-off regression's shape).
+/// The composed gateway stack — the GW-01..06 gateway, policy store,
+/// snapshot seam, proposal store, commit gate, and seam ports `boot`
+/// assembles before the workspace/UI wrappers. AUTX-08 reuses this so
+/// the GUI, local-CLI, and MCP surfaces can each wrap an
+/// identically-composed `Gateway` — one compose recipe, one wire.
+pub(crate) struct GatewayStack {
+    /// The typed invocation boundary (capabilities + evaluator).
+    pub(crate) gw: Gateway,
+    /// The policy store (wire + gate admin share it).
+    pub(crate) store: Arc<InMemoryPolicyStore>,
+    /// The manual policy clock.
+    pub(crate) clock: Arc<ManualClock>,
+    /// The committed-snapshot seam.
+    pub(crate) source: Arc<MemorySnapshotSource>,
+    /// The proposal/approval/apply store.
+    pub(crate) proposals: Arc<ProposalStore>,
+    /// The GW-05 proposal engine.
+    pub(crate) proposal_engine: Arc<ProposalEngine>,
+    /// The commit gate.
+    pub(crate) gate: Arc<CommitGate>,
+    /// The seam wrapper — `CommitPort` + `AdminPort`.
+    pub(crate) ports: Arc<GatePorts>,
+    /// The durable project store (save/publication checks).
+    pub(crate) project_store: DirectoryBundleStore,
+    /// The job engine, when composed with jobs.
+    pub(crate) jobs: Option<Arc<JobEngine>>,
+    /// The provider stub, when jobs are wired.
+    pub(crate) provider: Option<Arc<ProviderStub>>,
+    /// The fixture's scratch dir.
+    pub(crate) dir: PathBuf,
+}
+
+/// Composes the gateway stack `boot` wraps — policy store, snapshot
+/// seam, prepare/proposal/context/job engines, `ProposalGate`
+/// evaluator, and the `CommitGate` boundary over a real durable
+/// project store. Each call produces an independent stack over
+/// identical fixture state, so per-surface counters (operation ids,
+/// proposal refs, snapshot pins) align across compositions.
+///
+/// `jobs: Some(mode)` wires a job engine over one `gen-1` provider
+/// stub answering cancels with `mode`; `None` leaves the job seam
+/// absent (the AI-off regression's shape).
 #[allow(clippy::too_many_lines)] // one linear fixture assembly
-pub(crate) fn boot(jobs: Option<CancelMode>) -> UiFixture {
+pub(crate) fn compose(jobs: Option<CancelMode>) -> GatewayStack {
     let store = Arc::new(InMemoryPolicyStore::new());
     let clock = Arc::new(ManualClock::new(PolicyInstant::new(1_000)));
     let source = Arc::new(MemorySnapshotSource::new());
@@ -758,6 +797,7 @@ pub(crate) fn boot(jobs: Option<CancelMode>) -> UiFixture {
             evaluator: GrantPolicy::new(store.clone(), clock.clone(), gate_oracle),
             proposals: proposals.clone(),
             apply_capability,
+            variant: None,
         },
         MutexFence::new(),
     )
@@ -775,20 +815,41 @@ pub(crate) fn boot(jobs: Option<CancelMode>) -> UiFixture {
         fail_revoke_grants: AtomicUsize::new(0),
     });
 
+    GatewayStack {
+        gw,
+        store,
+        clock,
+        source,
+        proposals,
+        proposal_engine,
+        gate,
+        ports,
+        project_store,
+        jobs: jobs_engine,
+        provider,
+        dir,
+    }
+}
+
+/// Boots the fixture. `jobs: Some(mode)` wires a job engine over one
+/// `gen-1` provider stub answering cancels with `mode`; `None` leaves
+/// the job seam absent (the AI-off regression's shape).
+pub(crate) fn boot(jobs: Option<CancelMode>) -> UiFixture {
+    let s = compose(jobs);
     let adapter = adapter();
     let caller = adapter.human("user-1").unwrap();
     let ui = GatewayUi::new(
         caller,
-        gw,
+        s.gw,
         GatewayUiDeps {
-            policy: store.clone(),
-            admin: ports.clone(),
+            policy: s.store.clone(),
+            admin: s.ports.clone(),
             permits: Box::new(MemoryPermitStore::new()),
-            proposals: proposals.clone(),
-            proposal_engine,
-            committer: ports.clone(),
-            jobs: jobs_engine.clone(),
-            clock: clock.clone(),
+            proposals: s.proposals.clone(),
+            proposal_engine: s.proposal_engine.clone(),
+            committer: s.ports.clone(),
+            jobs: s.jobs.clone(),
+            clock: s.clock.clone(),
         },
     );
 
@@ -805,17 +866,17 @@ pub(crate) fn boot(jobs: Option<CancelMode>) -> UiFixture {
     UiFixture {
         ws,
         ui,
-        store,
-        clock,
-        source,
-        proposals,
-        gate,
-        ports,
-        project_store,
-        jobs: jobs_engine,
-        provider,
+        store: s.store,
+        clock: s.clock,
+        source: s.source,
+        proposals: s.proposals,
+        gate: s.gate,
+        ports: s.ports,
+        project_store: s.project_store,
+        jobs: s.jobs,
+        provider: s.provider,
         adapter,
-        dir,
+        dir: s.dir,
     }
 }
 

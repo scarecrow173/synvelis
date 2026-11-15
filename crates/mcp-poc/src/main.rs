@@ -252,9 +252,14 @@ struct Harness {
     gate: Arc<CommitGate>,
 }
 
-/// The gateway plus the proposal store `boot` still needs for the
-/// commit gate.
-type GwStack = (Gateway, Arc<ProposalStore>);
+/// The gateway plus the proposal store and CB-10 variant ports `boot`
+/// still needs for the commit gate — one shared `Arc` so prepare
+/// simulation, queries, and fenced commit see a single content store.
+type GwStack = (
+    Gateway,
+    Arc<ProposalStore>,
+    Arc<synvelis_gateway::variant::VariantPorts>,
+);
 
 /// The GW-01..05 engine stack and its gateway — capabilities
 /// registered, proposals wired, policy evaluated by `ProposalGate`.
@@ -281,11 +286,23 @@ fn gateway_stack(
         1_800_000,
         PrepareBudget::default().max_proposals,
     ));
-    let prepare = Arc::new(PrepareEngine::new(
+    // CB-10: one shared ports value — the prepare engine simulates
+    // branch mutations through it, the query engine decodes candidate
+    // payloads through its store, and the commit gate executes the
+    // retained intents inside its fence.
+    let variant = Arc::new(synvelis_gateway::variant::VariantPorts::standard());
+    let prepare = Arc::new(
+        PrepareEngine::new(
+            ctx.clone(),
+            Arc::new(PreparePolicy::new(policy.clone(), clock.clone())),
+            PrepareBudget::default(),
+            proposals.clone(),
+        )
+        .with_variant_ports(Some(variant.clone())),
+    );
+    let queries = Arc::new(synvelis_gateway::variant::VariantQueryEngine::new(
         ctx.clone(),
-        Arc::new(PreparePolicy::new(policy.clone(), clock.clone())),
-        PrepareBudget::default(),
-        proposals.clone(),
+        Some(variant.store.clone()),
     ));
     let proposal_engine = Arc::new(ProposalEngine::new(
         proposals.clone(),
@@ -300,7 +317,8 @@ fn gateway_stack(
     ctx.install(&mut gw)?;
     prepare.install(&mut gw)?;
     proposal_engine.install(&mut gw)?;
-    Ok((gw, proposals))
+    queries.install(&mut gw)?;
+    Ok((gw, proposals, variant))
 }
 
 /// Builds the full GW-01..06 stack + MCP host over `dir`'s durable
@@ -329,7 +347,7 @@ fn boot(dir: &Path) -> Result<Harness, Box<dyn std::error::Error>> {
     let oracle: Arc<dyn ResourceOracle> = Arc::new(LatestOracle {
         source: source.clone(),
     });
-    let (gw, proposals) = gateway_stack(&policy, &clock, &source, oracle)?;
+    let (gw, proposals, variant) = gateway_stack(&policy, &clock, &source, oracle)?;
     let apply_capability = gw
         .registry()
         .describe(&synvelis_gateway::capability::CapabilityRef {
@@ -350,6 +368,7 @@ fn boot(dir: &Path) -> Result<Harness, Box<dyn std::error::Error>> {
             evaluator: GrantPolicy::new(policy.clone(), clock.clone(), oracle_gate(source.clone())),
             proposals: proposals.clone(),
             apply_capability,
+            variant: Some(variant),
         },
         MutexFence::new(),
     )?;

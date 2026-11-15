@@ -245,12 +245,23 @@ pub fn enumerate_kind(project: &Project, kind: ResourceKind) -> Vec<ResourceRef>
             .keys()
             .map(|id| ResourceRef::Processor(*id))
             .collect(),
+        ResourceKind::VariantSet => project
+            .variant_sets
+            .keys()
+            .map(|id| ResourceRef::VariantSet(*id))
+            .collect(),
+        ResourceKind::Branch => project
+            .variant_sets
+            .values()
+            .flat_map(|set| set.branches.keys())
+            .map(|id| ResourceRef::Branch(*id))
+            .collect(),
     }
 }
 
 /// The kinds [`enumerate_kind`] walks for a whole-project selector,
 /// in their canonical emission order.
-pub const ENUMERATED_KINDS: [ResourceKind; 13] = [
+pub const ENUMERATED_KINDS: [ResourceKind; 15] = [
     ResourceKind::Track,
     ResourceKind::Lane,
     ResourceKind::Clip,
@@ -264,6 +275,8 @@ pub const ENUMERATED_KINDS: [ResourceKind; 13] = [
     ResourceKind::Strip,
     ResourceKind::Send,
     ResourceKind::Processor,
+    ResourceKind::VariantSet,
+    ResourceKind::Branch,
 ];
 
 /// The scope fact set for `resource` inside `project` — `None` when
@@ -433,10 +446,48 @@ pub fn attributes(project: &Project, resource: &ResourceRef) -> Option<ResourceA
                 .map(ResourceRef::Strip);
             attrs(ResourceKind::Processor, strip, None, vec![])
         }
+        ResourceRef::VariantSet(id) => {
+            let set = project.variant_sets.get(id)?;
+            attrs(
+                ResourceKind::VariantSet,
+                Some(ResourceRef::Project(project.project_id)),
+                None,
+                set.branches
+                    .keys()
+                    .map(|b| ResourceRef::Branch(*b))
+                    .collect(),
+            )
+        }
+        ResourceRef::Branch(id) => {
+            let (set_id, _branch) = branch_entry(project, id)?;
+            attrs(
+                ResourceKind::Branch,
+                Some(ResourceRef::VariantSet(*set_id)),
+                None,
+                vec![],
+            )
+        }
         // Foreign/absent ids: `Project` guarded on equality above,
         // `Source`/`Asset` on membership.
         ResourceRef::Project(_) | ResourceRef::Source(_) | ResourceRef::Asset(_) => return None,
     })
+}
+
+/// Locates `branch` inside `project.variant_sets` — branches are only
+/// addressable through their owning set, so the lookup returns the set
+/// id alongside the branch. `None` when no set carries the id.
+#[must_use]
+pub(crate) fn branch_entry<'a>(
+    project: &'a Project,
+    branch: &synvelis_project::BranchId,
+) -> Option<(
+    &'a synvelis_project::VariantSetId,
+    &'a synvelis_project::variant::Branch,
+)> {
+    project
+        .variant_sets
+        .iter()
+        .find_map(|(set_id, set)| set.branches.get(branch).map(|b| (set_id, b)))
 }
 
 /// A [`ControlOwner`] as the scope-fact owner reference.
@@ -752,6 +803,26 @@ fn metadata_group(project: &Project, resource: &ResourceRef) -> Option<Value> {
                     .routing
                     .strip_of_processor(*id)
                     .map(synvelis_project::StripId::to_tagged),
+            })
+        }
+        ResourceRef::VariantSet(id) => {
+            let set = project.variant_sets.get(id)?;
+            json!({
+                "scope": set.scope,
+                "adopted": set.adopted.to_tagged(),
+                "branch_count": set.branches.len(),
+                "revision": set.revision.0,
+            })
+        }
+        ResourceRef::Branch(id) => {
+            let (_set_id, branch) = branch_entry(project, id)?;
+            json!({
+                "parent": branch.parent.map(synvelis_project::BranchId::to_tagged),
+                "content_revision": branch.content.revision().0,
+                "content_kind": match &branch.content {
+                    synvelis_project::variant::BranchContentRef::Captured { .. } => "captured",
+                    synvelis_project::variant::BranchContentRef::Live { .. } => "live",
+                },
             })
         }
         // `ResourceRef::Project` with a foreign id — the project arm

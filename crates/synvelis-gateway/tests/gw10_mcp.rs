@@ -50,6 +50,7 @@ impl CommitPort for ScriptedCommit {
             base_revision: ProjectRevision(1),
             revision: ProjectRevision(2),
             journal_seq: 9,
+            provenance: None,
         })
     }
 

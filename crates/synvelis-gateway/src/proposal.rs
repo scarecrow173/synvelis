@@ -786,7 +786,7 @@ impl ProposalStore {
     pub fn insert(
         &self,
         request: OperationRequest,
-        op: synvelis_project::ProjectOp,
+        mutation: crate::prepare::PreparedMutation,
         prepared: PreparedOperation,
     ) -> Result<(ProposalRef, Arc<PreparedRecord>, PreparedChangeSet), GatewayError> {
         let mut state = self.lock();
@@ -819,7 +819,7 @@ impl ProposalStore {
         let record = Arc::new(PreparedRecord {
             proposal: reference.clone(),
             request,
-            op,
+            mutation,
             prepared,
         });
         state.entries.insert(

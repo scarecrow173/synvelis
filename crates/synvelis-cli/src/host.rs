@@ -50,6 +50,7 @@ use synvelis_gateway::proposal_policy::ProposalGate;
 use synvelis_gateway::request::CallerIdentity;
 use synvelis_gateway::snapshot::{MemorySnapshotSource, ProjectOracle};
 use synvelis_gateway::store::{InMemoryPolicyStore, PolicyStore};
+use synvelis_gateway::variant::{VariantPorts, VariantQueryEngine};
 use synvelis_gateway::{GatewayOutcome, PolicyClock};
 use synvelis_project::{
     CounterIdGenerator, DirectoryBundleStore, Project, ProjectController, ProjectId,
@@ -182,7 +183,7 @@ fn install_engines(
     source: Arc<MemorySnapshotSource>,
     proposals: &Arc<ProposalStore>,
     oracle: &Arc<dyn ResourceOracle>,
-) -> Result<(), ErrorEnvelope> {
+) -> Result<Arc<VariantPorts>, ErrorEnvelope> {
     let ctx = Arc::new(ContextProjectionEngine::new(
         source.clone(),
         Arc::new(NoSelectionSource),
@@ -194,13 +195,25 @@ fn install_engines(
         Arc::clone(clock),
         ContextBudget::default(),
     ));
+    // CB-10: one shared ports value — prepare simulates branch
+    // mutations through it, the query engine decodes candidate
+    // payloads through its store, and a durable boot hands the same
+    // `Arc` to the commit gate's fenced variant dispatch.
+    let variant = Arc::new(VariantPorts::standard());
     let prepare_policy: Arc<dyn PrepareAuthorizer> =
         Arc::new(PreparePolicy::new(policy.clone(), Arc::clone(clock)));
-    let prepare = Arc::new(PrepareEngine::new(
+    let prepare = Arc::new(
+        PrepareEngine::new(
+            ctx.clone(),
+            prepare_policy.clone(),
+            PrepareBudget::default(),
+            Arc::clone(proposals),
+        )
+        .with_variant_ports(Some(variant.clone())),
+    );
+    let queries = Arc::new(VariantQueryEngine::new(
         ctx.clone(),
-        prepare_policy.clone(),
-        PrepareBudget::default(),
-        Arc::clone(proposals),
+        Some(variant.store.clone()),
     ));
     let proposal_engine = Arc::new(ProposalEngine::new(
         Arc::clone(proposals),
@@ -211,7 +224,8 @@ fn install_engines(
     ctx.install(gateway)?;
     prepare.install(gateway)?;
     proposal_engine.install(gateway)?;
-    Ok(())
+    queries.install(gateway)?;
+    Ok(variant)
 }
 
 /// Builds the gateway with the `ProposalGate` evaluator wrapping the
@@ -223,7 +237,7 @@ fn build_gateway(
     source: Arc<MemorySnapshotSource>,
     proposals: &Arc<ProposalStore>,
     oracle: &Arc<dyn ResourceOracle>,
-) -> Result<Gateway, ErrorEnvelope> {
+) -> Result<(Gateway, Arc<VariantPorts>), ErrorEnvelope> {
     let mut gateway = Gateway::with_evaluator(Box::new(ProposalGate::new(
         Arc::clone(proposals),
         Box::new(GrantPolicy::new(
@@ -232,8 +246,8 @@ fn build_gateway(
             Arc::clone(oracle),
         )),
     )));
-    install_engines(&mut gateway, policy, clock, source, proposals, oracle)?;
-    Ok(gateway)
+    let variant = install_engines(&mut gateway, policy, clock, source, proposals, oracle)?;
+    Ok((gateway, variant))
 }
 
 /// Snapshots every registered descriptor (post-install, pre-host).
@@ -277,7 +291,7 @@ pub fn boot_discovery() -> Result<Booted, CliError> {
     ));
     let oracle: Arc<dyn ResourceOracle> =
         Arc::new(ProjectOracle::of(Project::new(ProjectId::new(0), "")));
-    let gateway = build_gateway(store, &clock, source, &proposals, &oracle)
+    let (gateway, _variant) = build_gateway(store, &clock, source, &proposals, &oracle)
         .map_err(|e| CliError::Internal(format!("gateway composition failed: {}", e.message)))?;
     let descriptors = snapshot_descriptors(&gateway);
     let host = HeadlessSessionHost::without_commit_boundary(
@@ -402,8 +416,10 @@ pub fn boot_project(root: &Path, durable: bool) -> Result<Booted, CliError> {
 fn boot_readonly(ctx: BootContext) -> Result<Booted, CliError> {
     let binding = ctx.binding();
     let policy: Arc<dyn PolicyStore> = Arc::new(InMemoryPolicyStore::new());
-    let gateway = build_gateway(policy, &ctx.clock, ctx.source, &ctx.proposals, &ctx.oracle)
-        .map_err(|e| CliError::Internal(format!("gateway composition failed: {}", e.message)))?;
+    let (gateway, _variant) =
+        build_gateway(policy, &ctx.clock, ctx.source, &ctx.proposals, &ctx.oracle).map_err(
+            |e| CliError::Internal(format!("gateway composition failed: {}", e.message)),
+        )?;
     let descriptors = snapshot_descriptors(&gateway);
     let host = HeadlessSessionHost::without_commit_boundary(
         gateway,
@@ -430,7 +446,7 @@ fn boot_durable(mut ctx: BootContext) -> Result<Booted, CliError> {
     // The gateway composes first so GateDeps can name the registered
     // `synvelis.proposal.apply` descriptor — the gate never redefines
     // a capability.
-    let gateway = build_gateway(
+    let (gateway, variant) = build_gateway(
         policy.clone(),
         &ctx.clock,
         ctx.source,
@@ -450,6 +466,7 @@ fn boot_durable(mut ctx: BootContext) -> Result<Booted, CliError> {
         evaluator,
         proposals: ctx.proposals.clone(),
         apply_capability,
+        variant: Some(variant),
     };
     let id_seed = ctx.project.id_watermark;
     let (gate, _report) = CommitGate::open(
