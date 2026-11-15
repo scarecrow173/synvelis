@@ -39,9 +39,11 @@ relations:
   derived-by:
     - "docs/plans/asset-library.md"
     - "docs/test-specs/asset-library.md"
+    - "docs/test-specs/alib-05-browser-import-ux.md"
   verifies: []
   verified-by:
     - "docs/test-specs/asset-library.md"
+    - "docs/test-specs/alib-05-browser-import-ux.md"
   references:
     - "evidence/sv9/asset-library-case-ledger.md"
     - "evidence/sv9/asset-library-verification.md"

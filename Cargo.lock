@@ -7321,6 +7321,7 @@ dependencies = [
  "serde_json",
  "stats_alloc",
  "synvelis-gateway",
+ "synvelis-library",
  "synvelis-player",
  "synvelis-project",
  "synvelis-render",

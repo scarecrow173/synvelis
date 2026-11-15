@@ -51,6 +51,7 @@ relations:
   verifies: []
   verified-by:
     - "docs/test-specs/asset-library.md"
+    - "docs/test-specs/alib-05-browser-import-ux.md"
   references: []
   defers: []
   deferred-by: []

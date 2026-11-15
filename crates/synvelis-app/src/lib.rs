@@ -53,7 +53,9 @@ pub mod service;
 pub mod shell;
 pub mod ui_ops;
 
-pub use app::{AudioRuntimeSlot, ObservabilityOwner, RecorderSlot, SynvelisApp};
+pub use app::{
+    AudioRuntimeSlot, LibraryImportServices, ObservabilityOwner, RecorderSlot, SynvelisApp,
+};
 pub use automation::{
     AUTX_ACTION_TARGET, AUTX_MACRO_TARGET, AUTX_PALETTE_TARGET, AUTX_RUN_TARGET,
     AUTX_WORKFLOW_TARGET, ActionPaletteScreenState, AutomationCommand, AutomationScreenPublish,

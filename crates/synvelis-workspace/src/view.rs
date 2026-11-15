@@ -52,6 +52,11 @@ pub enum ViewType {
     /// variant branches; authority intents are emitted as typed
     /// requests, never executed inside the view.
     VariantDiff,
+    /// Remote-aware Asset Library browser/import surface
+    /// (ALIB-05/ALIB-UX-H, synvelis#89) — provider/catalog/preview/
+    /// import projection; project mutation only through verified
+    /// import + `ProjectController` commit.
+    AssetLibrary,
 }
 
 /// Persistent identity of a view instance: id + kind + display title.

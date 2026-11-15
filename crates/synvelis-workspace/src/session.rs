@@ -339,6 +339,22 @@ impl ProjectSession {
         Ok(revision)
     }
 
+    /// Notifies the engine port and control session that the project
+    /// advanced *outside* [`Self::apply`]/undo/redo — for mutation
+    /// paths that must commit through [`Self::controller_mut`]
+    /// directly because the commit is composed inside a domain
+    /// pipeline the session cannot express as one `Operation`
+    /// (verified library import via `synvelis_library::import_verified`,
+    /// ALIB-UX-H synvelis#89). Callers invoke this only when the live
+    /// revision actually advanced; an idempotent replay that commits
+    /// nothing must not notify.
+    pub fn notify_committed_change(&mut self) {
+        let revision = self.controller.live_revision();
+        self.engine
+            .on_project_revision(self.controller.live(), revision);
+        self.control.note_project_changed(self.controller.live());
+    }
+
     /// Sets transport rolling/stopped. Never touches the project.
     pub fn set_playing(&mut self, playing: bool) {
         self.transport.playing = playing;

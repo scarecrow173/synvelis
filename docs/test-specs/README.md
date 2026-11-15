@@ -13,6 +13,7 @@ Directory: `docs/test-specs`
 | TESTSPEC-alib03 | ALIB-03 Catalog/Preview Cache — テスト仕様 | approved | [alib-03-catalog-preview-cache.md](./alib-03-catalog-preview-cache.md) |
 | TESTSPEC-alib04 | ALIB-04 Git Remote Provider — テスト仕様 | approved | [alib-04-git-remote-provider.md](./alib-04-git-remote-provider.md) |
 | TESTSPEC-alib04-lfs-remote-fetch | ALIB-04 LFS Remote Fetch — テスト仕様 | approved | [alib-04-lfs-remote-fetch.md](./alib-04-lfs-remote-fetch.md) |
+| TSPEC-Alib05BrowserUxH000001 | ALIB-05 Browser/Import UX headless view-model + syn.library.* ops + driver-neutral ViewSpec（synvelis#89 ALIB-UX-H slice） | draft | [alib-05-browser-import-ux.md](./alib-05-browser-import-ux.md) |
 | TESTSPEC-alib06 | ALIB-06 WebDAV File-Server Provider — テスト仕様 | approved | [alib-06-webdav-provider.md](./alib-06-webdav-provider.md) |
 | TESTSPEC-alib07 | ALIB-07 Asset Library 全経路 Fault Matrix — テスト仕様・証拠 matrix（headless slice） | approved | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | TSPEC-034X9CA5G6nlvnqAHaPPqf | Asset Library LIB-ID/BROWSE/PIN/IMPORT/MIG/CACHE/SEC/QOS 保証仕様 (synvelis#9) | approved | [asset-library.md](./asset-library.md) |

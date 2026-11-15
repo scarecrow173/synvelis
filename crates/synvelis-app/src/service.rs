@@ -97,6 +97,22 @@ pub const OPS: &[OpInfo] = &[
         summary: "VCS history op — open|close|refresh|load_more|select_node|pin|compare|view_mode|clear (read-only)",
     },
     OpInfo {
+        name: "syn.library.providers",
+        summary: "asset library provider catalog — registered providers with capability tags (ALIB-UX-H)",
+    },
+    OpInfo {
+        name: "syn.library.visual",
+        summary: "asset library view lifecycle — open|close (detached AssetLibrary view)",
+    },
+    OpInfo {
+        name: "syn.library.view",
+        summary: "asset library projection — providers + typed view state + deterministic ViewSpec",
+    },
+    OpInfo {
+        name: "syn.library.action",
+        summary: "one LibraryAction — provider.select|browse.*|search.*|entry.*|preview.*|import.*|drag.*",
+    },
+    OpInfo {
         name: "syn.autx.visual",
         summary: "AUTX surface lifecycle — open {surface} | close {view_id} (action-palette|macro-browser|workflow-editor|run-monitor)",
     },
@@ -363,6 +379,10 @@ impl AppService {
             "syn.signal_flow.routing" => self.app.op_signal_flow_routing(params),
             "syn.vcs.view" => self.app.op_vcs_view(params),
             "syn.vcs.visual" => self.app.op_vcs_visual(params),
+            "syn.library.providers" => self.app.op_library_providers(params),
+            "syn.library.visual" => self.app.op_library_visual(params),
+            "syn.library.view" => self.app.op_library_view(params),
+            "syn.library.action" => self.app.op_library_action(params),
             "syn.autx.visual" | "syn.autx.catalog" | "syn.autx.action" => {
                 self.dispatch_autx(op, params)
             }
