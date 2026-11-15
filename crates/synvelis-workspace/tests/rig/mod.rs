@@ -797,6 +797,7 @@ pub(crate) fn compose(jobs: Option<CancelMode>) -> GatewayStack {
             evaluator: GrantPolicy::new(store.clone(), clock.clone(), gate_oracle),
             proposals: proposals.clone(),
             apply_capability,
+            variant: None,
         },
         MutexFence::new(),
     )

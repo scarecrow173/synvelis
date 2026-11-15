@@ -410,12 +410,12 @@ fn verified_media_lowers_to_register_source_with_gate_digest() {
     let (_op, digest) = verified_job(&mut rig, "t1", "g1");
     let result = media_prepare(&mut rig, "t1", "g1", "media-1-1").unwrap();
     let record = record_for(&rig.rig, &result);
-    let ProjectOp::RegisterSource {
+    let Some(ProjectOp::RegisterSource {
         asset_id,
         content_digest,
-    } = &record.op
+    }) = record.project_op()
     else {
-        panic!("expected RegisterSource, got {:?}", record.op);
+        panic!("expected RegisterSource, got {:?}", record.mutation);
     };
     assert_eq!(*asset_id, AssetId::new(5));
     assert_eq!(
@@ -486,6 +486,7 @@ fn verified_media_commits_through_gate() {
             .describe(&cap_ref(APPLY_ID))
             .unwrap()
             .clone(),
+        variant: None,
     };
     let (gate, _report) = CommitGate::open(
         demo_project(),

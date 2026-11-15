@@ -9,8 +9,9 @@
 
 use serde::{Deserialize, Serialize};
 use synvelis_project::{
-    AssetId, AutomationLaneId, ClipId, CompId, LaneId, NoteId, ParameterTargetId, ProcessorId,
-    ProjectId, ProjectRevision, SendId, SourceId, StripId, TakeGroupId, TrackId,
+    AssetId, AutomationLaneId, BranchId, ClipId, CompId, LaneId, NoteId, ParameterTargetId,
+    ProcessorId, ProjectId, ProjectRevision, SendId, SourceId, StripId, TakeGroupId, TrackId,
+    VariantSetId,
 };
 
 use crate::capability::{CapabilityRef, OperationDomain};
@@ -57,6 +58,10 @@ pub enum ResourceKind {
     Send,
     /// A routing processor (issue #121 control-owner reference).
     Processor,
+    /// A creative-branch variant set (synvelis#287, CB-10).
+    VariantSet,
+    /// A branch inside a variant set.
+    Branch,
 }
 
 impl ResourceKind {
@@ -81,6 +86,8 @@ impl ResourceKind {
             "strip" => Self::Strip,
             "send" => Self::Send,
             "processor" => Self::Processor,
+            "variant-set" => Self::VariantSet,
+            "branch" => Self::Branch,
             _ => {
                 return Err(GatewayError::UnknownResourceKind {
                     name: name.to_owned(),
@@ -127,6 +134,10 @@ pub enum ResourceRef {
     Send(SendId),
     /// [`ProcessorId`].
     Processor(ProcessorId),
+    /// [`VariantSetId`].
+    VariantSet(VariantSetId),
+    /// [`BranchId`].
+    Branch(BranchId),
 }
 
 impl ResourceRef {
@@ -148,6 +159,8 @@ impl ResourceRef {
             Self::Strip(_) => ResourceKind::Strip,
             Self::Send(_) => ResourceKind::Send,
             Self::Processor(_) => ResourceKind::Processor,
+            Self::VariantSet(_) => ResourceKind::VariantSet,
+            Self::Branch(_) => ResourceKind::Branch,
         }
     }
 
@@ -182,6 +195,8 @@ impl ResourceRef {
             "strip" => ResourceKind::Strip,
             "send" => ResourceKind::Send,
             "processor" => ResourceKind::Processor,
+            "variant-set" => ResourceKind::VariantSet,
+            "branch" => ResourceKind::Branch,
             _ => {
                 return Err(GatewayError::InvalidId {
                     text: text.to_owned(),
@@ -235,6 +250,10 @@ impl ResourceRef {
             ResourceKind::Processor => {
                 Self::Processor(ProcessorId::from_tagged(id).map_err(|_| invalid())?)
             }
+            ResourceKind::VariantSet => {
+                Self::VariantSet(VariantSetId::from_tagged(id).map_err(|_| invalid())?)
+            }
+            ResourceKind::Branch => Self::Branch(BranchId::from_tagged(id).map_err(|_| invalid())?),
         })
     }
 
@@ -276,6 +295,8 @@ impl ResourceRef {
                 ResourceKind::Strip => "strip",
                 ResourceKind::Send => "send",
                 ResourceKind::Processor => "processor",
+                ResourceKind::VariantSet => "variant-set",
+                ResourceKind::Branch => "branch",
             },
             id,
         )

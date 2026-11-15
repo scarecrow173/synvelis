@@ -709,6 +709,7 @@ pub(crate) fn plan_adopt_writes(
 }
 
 /// Intent for [`edit_branch`].
+#[derive(Clone, Debug)]
 pub struct BranchEditIntent {
     /// Set containing the branch.
     pub variant_set: VariantSetId,
@@ -724,6 +725,7 @@ pub struct BranchEditIntent {
 /// Intent for [`edit_branch_op`] — the same CAS surface as
 /// [`BranchEditIntent`] with a [`BranchEditOp`] payload so domain op
 /// surfaces outside [`ProjectOp`] (comping today) can edit candidates.
+#[derive(Clone, Debug)]
 pub struct BranchEditOpIntent {
     /// Set containing the branch.
     pub variant_set: VariantSetId,
