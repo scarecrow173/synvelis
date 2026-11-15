@@ -149,6 +149,7 @@ Directory: `docs/specs`
 | SPEC-497QYMVthAP9s510aXzuVO | SYN-IO-02 Windows NTFS 実機 Case lane — synvelis#84 残件 slice | approved | [syn-io-02-windows-real-fs.md](./syn-io-02-windows-real-fs.md) |
 | SPEC-034RBvYIlw0wiBoGsL9EBY | SYN-OBS-01 Ruviform observability 単一crate Logging/Host統合 | proposed | [syn-obs-01-ruviform-observability-crate-logging-host.md](./syn-obs-01-ruviform-observability-crate-logging-host.md) |
 | SPEC-034T2RF305WAVSTAGED00X | SYN-RF305 WAV Export/Player StagedFile 移行 | approved | [syn-rf305-wav-export-staged-file.md](./syn-rf305-wav-export-staged-file.md) |
+| SPEC-xOTmUaWxKVIkrr8hUBfugh | Take Lane / Comp Editor — UI 詳細契約（synvelis#12 §14/§15 後続 slice — docs-only 設計 slice） | approved | [take-lane-comp-editor.md](./take-lane-comp-editor.md) |
 | SPEC-l4FdiimUNULuodZsTBZq0k | Target Architecture — Synvelis↔Ruviform 共通契約・Production Dependency DAG・GUI 採用方針の設計レビュー契約（synvelis#22） | approved | [target-architecture.md](./target-architecture.md) |
 | SPEC-034Vtz2CrUpwevHTLxDLm6 | TIM-01 app 層 PPQN 統合 — syn.project.set_ppqn + 前提条件検証（synvelis-app slice） | approved | [tim-01-app-ppqn.md](./tim-01-app-ppqn.md) |
 | SPEC-034UHVLQ9dtoN4YQDjtCy3 | TIM-01 Configurable PPQN Project Command・非破壊 Migration（headless slice） | approved | [tim-01-configurable-ppqn-project-command.md](./tim-01-configurable-ppqn-project-command.md) |
