@@ -186,6 +186,7 @@ Directory: `docs/test-specs`
 | TSPEC-1IX4OipTK7jb8iO85siVKU | SYN-IO-02 Windows NTFS 実機 Case lane test-spec | approved | [syn-io-02-windows-real-fs.md](./syn-io-02-windows-real-fs.md) |
 | TSPEC-034RBFeQnmt3PcI7beSRpy | SYN-OBS-01 検証仕様 — Host Logging install・設定解決・Health・Source catalog | draft | [syn-obs-01-logging-source-catalog.md](./syn-obs-01-logging-source-catalog.md) |
 | TSPEC-034T2RF305WAVSTAGED01B | SYN-RF305 Export StagedFile Publish 契約試験 | approved | [syn-rf305-export-staged-publish-contract.md](./syn-rf305-export-staged-publish-contract.md) |
+| TSPEC-UB4fnjlz7vYEkTNeKiDU3G | Take Lane / Comp Editor — UI 契約・受入検証仕様（synvelis#12 §14/§15 後続 slice — docs-only） | approved | [take-lane-comp-editor.md](./take-lane-comp-editor.md) |
 | TSPEC-DvNh4xQwTvsBbMkBb9PPmy | Target Architecture 設計レビュー検証仕様 — TA-001〜012 + GUI 方針の oracle・fixture・証拠分類 | approved | [target-architecture.md](./target-architecture.md) |
 | TSPEC-034VtALo1YCyrOraJu0URr | TIM-01 app 層 PPQN — test spec | approved | [tim-01-app-ppqn.md](./tim-01-app-ppqn.md) |
 | TSPEC-034UHWDhuZ4tU11F5QFAEh | TIM-01 configurable PPQN — test spec | approved | [tim-01-configurable-ppqn.md](./tim-01-configurable-ppqn.md) |
