@@ -199,6 +199,7 @@ Directory: `docs/impl/ir`
 | IMPL-TiM02PpqnSmfXg06 | TIM-02 × TIM-01 PPQN×SMF cross-golden fixture — tim_02_ppqn_smf.rs 2 tests | completed | [tim-02-ppqn-smf-cross-golden.md](./tim-02-ppqn-smf-cross-golden.md) |
 | IMPL-TIM02SmfFormat01Core0001 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice 実装記録 | completed | [tim-02-smf-format01-import-export.md](./tim-02-smf-format01-import-export.md) |
 | IMPL-034V1rsGSFTsDZgYwBlfaz | TIM-03 attach wiring — capability→AttachConfig composition root | completed | [tim-03-attach-wiring-capability-attachconfig-composition-root.md](./tim-03-attach-wiring-capability-attachconfig-composition-root.md) |
+| IMPL-034XI9rHssjmyof9bdB7Jc | tim-03-driver-loop-boundary | completed | [tim-03-driver-loop-boundary.md](./tim-03-driver-loop-boundary.md) |
 | IMPL-034XB9xQB2ivo6a7X5ITmw | TIM-03 Loop boundary 自動導出 — WrapSim 実装記録 | completed | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
 | IMPL-034UyF6gu1UEMJOKr7ZnGg | TIM-03 process boundary implementation record | completed | [tim-03-process-boundary-implementation-record.md](./tim-03-process-boundary-implementation-record.md) |
 | IMPL-0340LyK9sQ2OUSutsQvSw | TIM-03 request plan — per-request ProcessBoundarySession + precision provenance | completed | [tim-03-request-plan-provenance.md](./tim-03-request-plan-provenance.md) |

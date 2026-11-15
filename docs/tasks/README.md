@@ -235,6 +235,7 @@ Directory: `docs/tasks`
 | TASK-TiM02PpqnSmfXg04 | TIM-02 — PPQN×SMF cross-golden fixture（SetProjectPpqn × smf_documents 全鎖） | done | [tim-02-ppqn-smf-cross-golden-task.md](./tim-02-ppqn-smf-cross-golden-task.md) |
 | TASK-034UwY7u8viaAzE6tUxLHa | TIM-02 Task1 SMF Format0/1 project+recording headless slice | done | [tim-02-task1-smf-core.md](./tim-02-task1-smf-core.md) |
 | TASK-126tim02playerMidiRt01 | TIM-02 Task2 player MIDI RT/Offline 結合 slice | done | [tim-02-task2-player-midi.md](./tim-02-task2-player-midi.md) |
+| TASK-034XI7BEPPFTBDNJzgkoJh | TIM-03 driver-side loop-wrap boundary derivation | done | [tim-03-driver-loop-boundary.md](./tim-03-driver-loop-boundary.md) |
 | TASK-zHlj8Os7dQ66GPeta6Sxew | TIM-03 task1 — session→driver/routing wiring（BoundarySessionSpec vend・driver session/mirror・routing scoped API） | done | [tim-03-task1-session-driver-wiring.md](./tim-03-task1-session-driver-wiring.md) |
 | TASK-034UC5rYrk7usxShbL01xG | TIM-04 plugin state snapshot consistency — implementation tasks | done | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | TASK-034UyED9PUv2ECvzH9A3RX | TIM-03 task1 — process boundary/capability/degraded policy 実装 | done | [tim03-task1-process-boundary.md](./tim03-task1-process-boundary.md) |
