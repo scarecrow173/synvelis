@@ -51,6 +51,7 @@ NotRun/Deferred）。headless の Pass を runtime/実機の Pass
 | `doc_maintenance.js index apply`（docs/test-specs・docs/impl/ir・docs/impl/exp） | Pass（test-specs/ir 各 1 written・exp 0 written = 既に整合） |
 | `doc-status lint`（autx-06-live-adapters 3 doc） | Pass（blocking finding 0。`test-spec-missing-verifies`・`index-missing-entry`・`broken-relation-link` を修正済み。repo 全体の既存 finding は本 slice 対象外） |
 | `*-msrv` 系 | NotRun（ユーザー指定により未実行） |
+| merge 後再検証（`origin/main` `d54d7ae` 取込 merge commit `1b2f655` 上で `fmt-check`/`check`/`lint`/`test` を synvelis-automation・synvelis-gateway に再実行） | Pass（exit 0。automation 168 test・gateway 459 test（autx06 5・gw04 12 含む）全 green） |
 
 補助証拠（canonical = 上記 mise task）: `cargo test
 -p synvelis-automation` 168 passed、`cargo test
