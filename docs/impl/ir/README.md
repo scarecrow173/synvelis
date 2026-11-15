@@ -176,6 +176,7 @@ Directory: `docs/impl/ir`
 | IMPL-034VocnpYlIXEqErLG2I5w | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 API 追従 | completed | [sv-28-ruviform-pin-b02942c2.md](./sv-28-ruviform-pin-b02942c2.md) |
 | IMPL-VvBJRLqOSjnq3Pv2b4D1aO | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f API 追従 | completed | [sv-28-ruviform-pin-fd1d4d5f.md](./sv-28-ruviform-pin-fd1d4d5f.md) |
 | IMPL-p1XVD7cITxEvasi3u5lh9F | Issue #245 webdav MockServer TransientIo flake — accept 済みソケット blocking 正規化 slice | completed | [sv-ci-webdav-transient-io-flake-slice.md](./sv-ci-webdav-transient-io-flake-slice.md) |
+| IMPL-034XPOTEa44xCPXxCek7Hb | SV-GPUI-02 Plugin Dock Gate — PD-01〜07 freeze + headless contract (synvelis#176) | completed | [sv-gpui-02-plugin-dock-gate.md](./sv-gpui-02-plugin-dock-gate.md) |
 | IMPL-034Rx4ef0v8Ch5IBl2s39L | SV-GUI-01 desktop app bootstrap webview frontend pipeline | completed | [sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md](./sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md) |
 | IMPL-SVGui02FrontendViewModelsRuviformCustomElementsTypedIpc | SV-GUI-02 Frontend View Models・Ruviform Custom Elements・Rust IPC/Receipt統合 | completed | [sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc.md](./sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc.md) |
 | IMPL-rJLOVIiQN2lzaXHo3tegtw | SV-GUI-03 slice6: Keyboard/Gesture key-assignment contract(docs-only) | completed | [sv-gui-03-06-keyboard-gesture.md](./sv-gui-03-06-keyboard-gesture.md) |
