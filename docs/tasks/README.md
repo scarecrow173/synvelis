@@ -115,6 +115,7 @@ Directory: `docs/tasks`
 | TASK-034QAu61uDP868aqejEmAN | ED-A task6 最終検証 + impl record | done | [ed-a-task6-verification-impl-record.md](./ed-a-task6-verification-impl-record.md) |
 | TASK-034QN1YPq2DVRcHKewnTAs | ED-B task: ed_b acceptance tests | done | [ed-b-task-acceptance-tests.md](./ed-b-task-acceptance-tests.md) |
 | TASK-034QN1Ynloix2iEZj58mZJ | ED-B task: media move/trim/slip + marquee commit | done | [ed-b-task-media-commit.md](./ed-b-task-media-commit.md) |
+| TASK-KmJx9ONwsNiLw0BB4qupc7 | Issue #115 rf#628 consumer oracle — synvelis#115 slice | done | [issue-115-rf628-consumer-oracle.md](./issue-115-rf628-consumer-oracle.md) |
 | TASK-034RINq1C9IMn7tPyqXY2h | Issue #147 T1 sccache verify/gw10 導入・実測評価 | done | [issue-147-t1-sccache-verify-gw10.md](./issue-147-t1-sccache-verify-gw10.md) |
 | TASK-034RGXoZuTHIczgPxzHY1W | Issue #151 T1 ui-verify lane + install-ui freshness 追加 | done | [issue-151-t1-ui-verify-lane.md](./issue-151-t1-ui-verify-lane.md) |
 | TASK-034WsBdOQFzQABNIgCwFPl | Issue #365 impl index 生成可能化 — front matter 是正と index 再生成 | done | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
