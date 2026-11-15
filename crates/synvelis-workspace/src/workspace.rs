@@ -1733,14 +1733,37 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                 self.host.exit();
                 CommandOutcome::Applied { revision: None }
             }
-            CommandKind::Transport => {
-                match ctx.id.as_str() {
-                    "transport.play" => self.session.set_playing(true),
-                    "transport.stop" => self.session.set_playing(false),
-                    _ => {}
+            CommandKind::Transport => match ctx.id.as_str() {
+                "transport.play" => {
+                    self.session.set_playing(true);
+                    CommandOutcome::Applied { revision: None }
                 }
-                CommandOutcome::Applied { revision: None }
-            }
+                "transport.stop" => {
+                    self.session.set_playing(false);
+                    CommandOutcome::Applied { revision: None }
+                }
+                // §3.1: toggle resolves against the live transport —
+                // playing → stop (position kept), stopped → play.
+                "transport.toggle" => {
+                    let playing = self.session.transport().playing;
+                    self.session.set_playing(!playing);
+                    CommandOutcome::Applied { revision: None }
+                }
+                // No session API for playhead return or the #12
+                // recording state machine yet — honest unresolved,
+                // never a fake success.
+                "transport.stop-return" => CommandOutcome::Unresolved {
+                    reason: "transport.stop-return: playhead return has no session transport API"
+                        .to_string(),
+                },
+                "transport.record" => CommandOutcome::Unresolved {
+                    reason: "transport.record: recording state machine (#12) is not available"
+                        .to_string(),
+                },
+                _ => CommandOutcome::Rejected {
+                    error: WorkspaceError::UnknownCommand(ctx.id),
+                },
+            },
             CommandKind::View => {
                 if ctx.id == "tool.activate" {
                     let Some(tool) = ctx.arg.as_deref().and_then(Tool::parse) else {
@@ -1757,6 +1780,20 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                         Ok(()) => CommandOutcome::Applied { revision: None },
                         Err(e) => CommandOutcome::Rejected { error: e },
                     };
+                }
+                // Viewport commands mutate the origin view's
+                // view-local viewport — no project change, no undo
+                // unit, no tab activation.
+                if matches!(
+                    ctx.id.as_str(),
+                    "view.zoom-in"
+                        | "view.zoom-out"
+                        | "view.scroll-left"
+                        | "view.scroll-right"
+                        | "view.scroll-up"
+                        | "view.scroll-down"
+                ) {
+                    return self.dispatch_viewport(&ctx);
                 }
                 let Some(target) = self.resolve_target(&ctx) else {
                     return CommandOutcome::Unresolved {
@@ -1776,6 +1813,18 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                 }
             }
             CommandKind::Project => {
+                // No project save/export operation exists in the
+                // workspace layer (`persist.rs` covers workspace
+                // snapshots only) — honest unresolved, never a fake
+                // success. Wiring belongs to the app/service slice.
+                if matches!(ctx.id.as_str(), "project.save" | "project.export") {
+                    return CommandOutcome::Unresolved {
+                        reason: format!(
+                            "{}: no save/export operation exists in the workspace layer",
+                            ctx.id
+                        ),
+                    };
+                }
                 let op = match ctx.id.as_str() {
                     "project.rename" => ProjectOp::SetProjectName {
                         name: ctx.arg.clone().unwrap_or_default(),
@@ -1802,6 +1851,19 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                 // implied by object selection.
                 if ctx.id == "clips.delete-range" {
                     return self.dispatch_delete_range(&ctx);
+                }
+                // §3.1 `edit.delete`: resolves only the `Clips`
+                // selection domain, through the same path as
+                // `clip.remove` — one dispatch, one undo unit.
+                if ctx.id == "edit.delete" {
+                    return self.dispatch_edit_delete(&ctx);
+                }
+                // Clipboard commands have no workspace lane yet —
+                // honest unresolved, never a fake success.
+                if matches!(ctx.id.as_str(), "edit.copy" | "edit.paste") {
+                    return CommandOutcome::Unresolved {
+                        reason: format!("{}: clipboard lane is not implemented", ctx.id),
+                    };
                 }
                 // Selection-derived targets must come from the
                 // command's required domain — a selection in another
@@ -1908,6 +1970,80 @@ impl<H: WindowHandle> WorkspaceManager<H> {
             },
             ctx,
         )
+    }
+
+    /// `edit.delete` (sv-gui-03-07): applies to the explicit
+    /// selection's domain — `Clips` resolves through the `clip.remove`
+    /// path so target resolution, domain checks, and the single undo
+    /// unit stay identical. Other domains are honestly `Unresolved`
+    /// until the #11/#12 vocabulary lands; nothing guesses a fallback.
+    fn dispatch_edit_delete(&mut self, ctx: &CommandContext) -> CommandOutcome {
+        let domain = ctx
+            .explicit_targets
+            .first()
+            .map(|t| SelectionDomain::of(*t))
+            .or_else(|| {
+                ctx.selection
+                    .as_ref()
+                    .and_then(|s| s.targets.first())
+                    .map(|t| SelectionDomain::of(*t))
+            })
+            .or_else(|| {
+                ctx.origin_view
+                    .and_then(|v| self.states.get(v))
+                    .map(|s| s.object_selections.active)
+            });
+        match domain {
+            Some(SelectionDomain::Clips) => {
+                let mut resolved = ctx.clone();
+                resolved.id = "clip.remove".to_string();
+                self.dispatch(resolved)
+            }
+            other => CommandOutcome::Unresolved {
+                reason: format!("edit.delete: unsupported selection domain {other:?}"),
+            },
+        }
+    }
+
+    /// `view.zoom-*` / `view.scroll-*` (sv-gui-03-07): view-local
+    /// viewport mutation on `origin_view`. An unresolvable origin
+    /// view is `Unresolved` — never a fallback to another view
+    /// (§5.2). Zoom is multiplicative; scroll is a fixed step. The
+    /// contract fixes the command ids, not the step sizes.
+    fn dispatch_viewport(&mut self, ctx: &CommandContext) -> CommandOutcome {
+        const ZOOM_FACTOR: f64 = 1.25;
+        const SCROLL_STEP: f64 = 64.0;
+        let Some(view) = ctx.origin_view else {
+            return CommandOutcome::Unresolved {
+                reason: format!("{} without an origin view", ctx.id),
+            };
+        };
+        let Some(state) = self.states.get_mut(view) else {
+            return CommandOutcome::Unresolved {
+                reason: format!("{} on an unknown view", ctx.id),
+            };
+        };
+        let viewport = &mut state.viewport;
+        match ctx.id.as_str() {
+            "view.zoom-in" => {
+                viewport.zoom_x *= ZOOM_FACTOR;
+                viewport.zoom_y *= ZOOM_FACTOR;
+            }
+            "view.zoom-out" => {
+                viewport.zoom_x /= ZOOM_FACTOR;
+                viewport.zoom_y /= ZOOM_FACTOR;
+            }
+            "view.scroll-left" => viewport.scroll_x -= SCROLL_STEP,
+            "view.scroll-right" => viewport.scroll_x += SCROLL_STEP,
+            "view.scroll-up" => viewport.scroll_y -= SCROLL_STEP,
+            "view.scroll-down" => viewport.scroll_y += SCROLL_STEP,
+            _ => {
+                return CommandOutcome::Unresolved {
+                    reason: format!("{} has no viewport handler", ctx.id),
+                };
+            }
+        }
+        CommandOutcome::Applied { revision: None }
     }
 
     /// Applies `op` via the session and distributes the new revision
