@@ -50,7 +50,9 @@ Directory: `docs/impl/ir`
 | IMPL-034Xe6lRNc3atRxDvadhth | AUTX-02 CLI Trusted Local Adapter・Unattended認可・Headless Session Host (synvelis#261) | completed | [autx-02-cli-adapter.md](./autx-02-cli-adapter.md) |
 | IMPL-034XgKVz7slU1QHG15t6tc | AUTX-03 synvelis-cli 独立 Headless 実行ファイル・JSON/Exit Code (synvelis#262) | completed | [autx-03-headless-cli.md](./autx-03-headless-cli.md) |
 | IMPL-034XihWxPpf0evq4eGpxAa | AUTX-04-F01 Composite forward reference sequential validate | completed | [autx-04-f01-composite-forward-ref.md](./autx-04-f01-composite-forward-ref.md) |
+| IMPL-034XKYCcvVVYhxGwGvv8JV | AUTX-04-F02 GW-04 bindings scratch-ID/rewrite seam | completed | [autx-04-f02-gw04-bindings.md](./autx-04-f02-gw04-bindings.md) |
 | IMPL-AUTX07GuiViews | AUTX-07 GPUI Action Palette・Macro/Workflow 製品 View・承認/実行状態 UI（headless-first slice、synvelis#266） | completed | [autx-07-gui-views.md](./autx-07-gui-views.md) |
+| IMPL-034XKoNx7I2brmiVo8RNSa | AUTX-07 theme status tokens + #274 parity check（SV266-NR-02/03 slice、synvelis#266） | completed | [autx-07-theme-parity.md](./autx-07-theme-parity.md) |
 | IMPL-cb01-variant-set | CB-01 VariantSet/Scope/Lineage・ProjectController Fork/Edit/Adopt/Undo・永続Schema — Headless スライス | completed | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | IMPL-cb02-audio-clip-adapter | CB-02 Audio Clip/Take/Comp 候補 Adapter — Raw Source 不変・加工比較・Adopt（synvelis#279） | completed | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |
 | IMPL-034XkoKBFx6VCR0iVHzGas | CB-03 MIDI Clip/Source 候補 Adapter — Native Event 保持・Note Diff・同一 Instrument 比較（synvelis#280） | completed | [cb-03-midi-clip-adapter.md](./cb-03-midi-clip-adapter.md) |
@@ -173,6 +175,7 @@ Directory: `docs/impl/ir`
 | IMPL-034Rx4ef0v8Ch5IBl2s39L | SV-GUI-01 desktop app bootstrap webview frontend pipeline | completed | [sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md](./sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md) |
 | IMPL-SVGui02FrontendViewModelsRuviformCustomElementsTypedIpc | SV-GUI-02 Frontend View Models・Ruviform Custom Elements・Rust IPC/Receipt統合 | completed | [sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc.md](./sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc.md) |
 | IMPL-rJLOVIiQN2lzaXHo3tegtw | SV-GUI-03 slice6: Keyboard/Gesture key-assignment contract(docs-only) | completed | [sv-gui-03-06-keyboard-gesture.md](./sv-gui-03-06-keyboard-gesture.md) |
+| IMPL-034XJHWG7pGSDfwCv6AgS7 | SV-GUI-03-07 keymap dispatch | completed | [sv-gui-03-07-keymap-dispatch.md](./sv-gui-03-07-keymap-dispatch.md) |
 | IMPL-034UoCucc7Cxrp4NwMxb5V | SV-GUI-04 slice1 precursor: headless WindowHandle + dock fixture | completed | [sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md](./sv-gui-04-slice1-precursor-headless-windowhandle-dock-fixture.md) |
 | IMPL-034UrlNf4hC31G8gfjoR8y | SV-GUI-04 slice2 close-veto/cancel — syn.window.close_guard + 末尾 window veto | completed | [sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md](./sv-gui-04-slice2-close-veto-cancel-syn-window-close-guard-window-veto.md) |
 | IMPL-034UtkIqlxoLTf7Dvq5vMZ | SV-GUI-04 slice2 dock transfer — workspace adoption + syn.window.dock_* GUI op 配線 | completed | [sv-gui-04-slice2-dock-transfer-workspace-adoption-syn-window-dock-gui-op.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption-syn-window-dock-gui-op.md) |

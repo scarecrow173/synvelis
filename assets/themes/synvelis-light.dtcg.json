@@ -12,7 +12,7 @@
       "mode": "light",
       "layer": "product"
     },
-    "synvelis.provenance": "provisional-pending-native-design-review"
+    "synvelis.provenance": "provisional-pending-native-design-review (incl. color.status-* ramp)"
   },
   "color": {
     "$type": "color",
@@ -25,6 +25,23 @@
     "err":         { "$value": "#c23a3a" },
     "ok":          { "$value": "#2a8a4a" },
     "bg-hover":    { "$value": "{color.bg-panel}" },
-    "border":      { "$value": "{color.bg-panel}" }
+    "border":      { "$value": "{color.bg-panel}" },
+    "status-ok":                     { "$value": "#2a8a4a" },
+    "status-unavailable":            { "$value": "#6e7680" },
+    "status-unknown":                { "$value": "#5a6068" },
+    "status-pending":                { "$value": "#5b84b8" },
+    "status-running":                { "$value": "#2a6bc2" },
+    "status-completed":              { "$value": "#1f7a5c" },
+    "status-failed":                 { "$value": "#c23a3a" },
+    "status-cancel-requested":       { "$value": "#b06a20" },
+    "status-cancel-unconfirmed":     { "$value": "#9a6f1e" },
+    "status-cancelled":              { "$value": "#a8543c" },
+    "status-indeterminate":          { "$value": "#8a6d1f" },
+    "status-unsupported":            { "$value": "#7a4fa8" },
+    "status-stale":                  { "$value": "#6e7346" },
+    "status-dirty":                  { "$value": "#7a6a48" },
+    "status-diagnostic-information": { "$value": "#3d6ea8" },
+    "status-diagnostic-warning":     { "$value": "#b06a20" },
+    "status-diagnostic-error":       { "$value": "#c23a3a" }
   }
 }
