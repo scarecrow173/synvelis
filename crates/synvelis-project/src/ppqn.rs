@@ -24,6 +24,7 @@ use crate::{
     range::MusicalRange,
     tempo::ProjectPpqn,
     time::{MusicalDuration, MusicalTick},
+    variant::VariantScope,
 };
 
 /// Smallest selectable project PPQN.
@@ -74,7 +75,7 @@ pub(crate) struct PpqnSite {
     /// What owns the value — `tempo_event`, `signature_event`,
     /// `clip_anchor`, `clip_extent`, `take_group_range`,
     /// `comp_region_range`, `comp_transition_range`, `punch_in`,
-    /// or `punch_out`.
+    /// `punch_out`, or `arrangement_scope`.
     pub kind: &'static str,
     /// Instance discriminator — the entity's tagged id, or the
     /// tempo/signature event's index in its list.
@@ -115,6 +116,7 @@ impl fmt::Display for PpqnSite {
             "comp_transition_range" => "comp transition range",
             "punch_in" => "punch-in mark",
             "punch_out" => "punch-out mark",
+            "arrangement_scope" => "arrangement scope range",
             other => other,
         };
         write!(f, "{kind} {}", self.instance)?;
@@ -192,8 +194,9 @@ fn reproject_project_range(
 /// and the dry-run report can never disagree about what converts.
 ///
 /// Only the musical tick domain is visited: tempo/signature events,
-/// musical clip anchors/extents, musical comp ranges, and the
-/// project-wide punch marks. Absolute media anchors, source-native
+/// musical clip anchors/extents, musical comp ranges, the
+/// project-wide punch marks, and arrangement variant-scope time
+/// windows. Absolute media anchors, source-native
 /// MIDI data, recording frames, and automation `BeatPoint`s are
 /// outside this walk by construction.
 fn reproject_ppqn_with(
@@ -261,6 +264,22 @@ fn reproject_ppqn_with(
             *tick = MusicalTick::new(convert(&PpqnSite::single(kind, "project"), tick.value())?);
         }
     }
+
+    // Variant scopes are persisted project state too: the
+    // arrangement scope's `time` window is a `MusicalRange` on the
+    // same tick grid, and scope ownership/digests/boundary reports
+    // all derive from it — leaving it on the old grid would
+    // silently retarget the declared selection. Stored candidate
+    // payloads live in the branch content store outside this walk;
+    // their grid relationship to live is the adopt path's concern.
+    for set in project.variant_sets.values_mut() {
+        if let VariantScope::Arrangement { time, .. } = &mut set.scope {
+            let site = PpqnSite::single("arrangement_scope", set.id.to_tagged());
+            let start = convert(&site.endpoint("start"), time.start().value())?;
+            let end = convert(&site.endpoint("end"), time.end().value())?;
+            *time = MusicalRange::try_new(MusicalTick::new(start), MusicalTick::new(end))?;
+        }
+    }
     Ok(())
 }
 
@@ -306,7 +325,7 @@ pub struct PpqnPreviewSite {
     /// What owns the value — `tempo_event`, `signature_event`,
     /// `clip_anchor`, `clip_extent`, `take_group_range`,
     /// `comp_region_range`, `comp_transition_range`, `punch_in`,
-    /// or `punch_out`.
+    /// `punch_out`, or `arrangement_scope`.
     pub kind: &'static str,
     /// Instance discriminator — the entity's tagged id, or the
     /// tempo/signature event's index in its list.
@@ -334,7 +353,8 @@ pub struct PpqnChangePreview {
     pub policy: PpqnConversionPolicy,
     /// How many persisted musical-tick values the change
     /// re-projects — tempo/signature events, musical clip
-    /// anchors/extents, musical comp ranges, and punch marks.
+    /// anchors/extents, musical comp ranges, punch marks, and
+    /// arrangement variant-scope time windows.
     pub site_count: usize,
     /// Sites not exactly representable on the new grid —
     /// [`PpqnConversionPolicy::Exact`] rejects them,

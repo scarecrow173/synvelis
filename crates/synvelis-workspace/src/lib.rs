@@ -44,6 +44,7 @@ pub mod signal_flow_ui;
 pub mod snap;
 pub mod state;
 pub mod tool;
+pub mod variant_diff;
 pub mod vcs_ui;
 pub mod view;
 pub mod viz_ui;
@@ -187,6 +188,19 @@ pub use state::{
 pub use synvelis_render::policy::{CompletionRequirement, PolicyPatch, RenderScope, RenderTrigger};
 pub use tool::{
     EditOperation, HandleKind, HitCandidate, HitProbe, HitZone, Tool, ToolResolution, resolve_tool,
+};
+pub use variant_diff::{
+    ACTION_VARIANT_DIFF_ADOPT, ACTION_VARIANT_DIFF_ADOPT_PREVIEW, ACTION_VARIANT_DIFF_AUDITION,
+    ACTION_VARIANT_DIFF_COMPARE, ACTION_VARIANT_DIFF_SELECT, ACTION_VARIANT_DIFF_SET_TARGET,
+    ActionCandidate, AlignmentState, AuxLayerEvidence, AuxSection, BranchAuthority, BranchLabel,
+    BranchPin, BranchView, CapabilityEvidence, CapabilityView, CompareAuthority, CompareContext,
+    CompareSide, ContextState, DiffFieldRow, DiffRow, EvidenceOrigin, EvidenceRow, EvidenceState,
+    IssueRow, MAX_AUX_ROWS, MAX_CONTENT_ROWS, MAX_FIELDS_PER_ROW, MAX_ISSUE_ROWS,
+    SemanticDiffEvidence, SemanticEvidence, SemanticSection, VARIANT_DIFF_TARGET,
+    VariantDiffActionKind, VariantDiffDomain, VariantDiffInput, VariantDiffIntent,
+    VariantDiffReason, VariantDiffReject, VariantDiffTarget, VariantDiffView,
+    VariantDiffViewAction, VariantDiffViewState, apply_variant_diff_action,
+    decode_variant_diff_action, project_variant_diff, variant_diff_spec,
 };
 pub use vcs_ui::{
     EndpointFreshness, EndpointKind, EndpointPin, EndpointRequest, HistorySelection,

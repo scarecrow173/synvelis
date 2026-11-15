@@ -11,6 +11,8 @@ Directory: `docs/impl/ir`
 | IMPL-034XLar3aaWdSdwjp7eeMM | AUTX-06 live adapters — GatewayStepLane/GatewayJobLane + registry projection | in-progress | [autx-06-live-adapters.md](./autx-06-live-adapters.md) |
 | IMPL-034XiNO9SadjRbTGExtQtw | AUTX-06 Workflow Coordinator — Run/Step FSM・Journal・Resume・JobPort fixture | in-progress | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | IMPL-034Xpa4SOZfOriBGBTfZdR | CB-06 Track/Bus 候補 Adapter — Strip Domain Mask・Routing参照保護・Adopt（synvelis#283） | in-progress | [cb-06-track-bus-adapter.md](./cb-06-track-bus-adapter.md) |
+| IMPL-034XPMrg013WoI7EuJkO5f | CB-07 Arrangement 候補 Adapter — Track集合×MusicalRange×ArrangementDomainMask・Atomic Adopt（synvelis#284） | in-progress | [cb-07-arrangement-adapter.md](./cb-07-arrangement-adapter.md) |
+| IMPL-034XNNwRQLH6IQ0GqHISl9 | CB-09 Difference Explorer headless view-model + driver-neutral ViewSpec（synvelis#286） | in-progress | [cb-09-diff-explorer.md](./cb-09-diff-explorer.md) |
 | IMPL-034WEVyS44eEOELiBCYBIG | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice 実装記録 | in-progress | [rcd-04-midi-undo-stableid-slice.md](./rcd-04-midi-undo-stableid-slice.md) |
 | IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](./rcd-04-product-e2e-slice.md) |
 | IMPL-034VC2V5HUrkERcXqw246v | RCD-04 RT engine comp PCM slice 実装記録 | in-progress | [rcd-04-rt-engine-comp-pcm-slice.md](./rcd-04-rt-engine-comp-pcm-slice.md) |
@@ -54,6 +56,7 @@ Directory: `docs/impl/ir`
 | IMPL-AUTX07GuiViews | AUTX-07 GPUI Action Palette・Macro/Workflow 製品 View・承認/実行状態 UI（headless-first slice、synvelis#266） | completed | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | IMPL-AUTX07MountWiring | AUTX-07 composition-mount wiring + autx.* action dispatch（synvelis#266 SV266-NR-05） | completed | [autx-07-mount-wiring.md](./autx-07-mount-wiring.md) |
 | IMPL-034XKoNx7I2brmiVo8RNSa | AUTX-07 theme status tokens + #274 parity check（SV266-NR-02/03 slice、synvelis#266） | completed | [autx-07-theme-parity.md](./autx-07-theme-parity.md) |
+| IMPL-034XPPHljpLlwZnXXOhLBE | AUTX-08 headless common E2E slice — same-wire 3-surface contract test (synvelis#267) | completed | [autx-08-headless-common-e2e-slice-same-wire-3-surface-contract-test-synvelis-267.md](./autx-08-headless-common-e2e-slice-same-wire-3-surface-contract-test-synvelis-267.md) |
 | IMPL-cb01-variant-set | CB-01 VariantSet/Scope/Lineage・ProjectController Fork/Edit/Adopt/Undo・永続Schema — Headless スライス | completed | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | IMPL-cb02-audio-clip-adapter | CB-02 Audio Clip/Take/Comp 候補 Adapter — Raw Source 不変・加工比較・Adopt（synvelis#279） | completed | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |
 | IMPL-034XkoKBFx6VCR0iVHzGas | CB-03 MIDI Clip/Source 候補 Adapter — Native Event 保持・Note Diff・同一 Instrument 比較（synvelis#280） | completed | [cb-03-midi-clip-adapter.md](./cb-03-midi-clip-adapter.md) |
@@ -177,6 +180,7 @@ Directory: `docs/impl/ir`
 | IMPL-034VocnpYlIXEqErLG2I5w | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 API 追従 | completed | [sv-28-ruviform-pin-b02942c2.md](./sv-28-ruviform-pin-b02942c2.md) |
 | IMPL-VvBJRLqOSjnq3Pv2b4D1aO | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f API 追従 | completed | [sv-28-ruviform-pin-fd1d4d5f.md](./sv-28-ruviform-pin-fd1d4d5f.md) |
 | IMPL-p1XVD7cITxEvasi3u5lh9F | Issue #245 webdav MockServer TransientIo flake — accept 済みソケット blocking 正規化 slice | completed | [sv-ci-webdav-transient-io-flake-slice.md](./sv-ci-webdav-transient-io-flake-slice.md) |
+| IMPL-034XPOTEa44xCPXxCek7Hb | SV-GPUI-02 Plugin Dock Gate — PD-01〜07 freeze + headless contract (synvelis#176) | completed | [sv-gpui-02-plugin-dock-gate.md](./sv-gpui-02-plugin-dock-gate.md) |
 | IMPL-034Rx4ef0v8Ch5IBl2s39L | SV-GUI-01 desktop app bootstrap webview frontend pipeline | completed | [sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md](./sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md) |
 | IMPL-SVGui02FrontendViewModelsRuviformCustomElementsTypedIpc | SV-GUI-02 Frontend View Models・Ruviform Custom Elements・Rust IPC/Receipt統合 | completed | [sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc.md](./sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc.md) |
 | IMPL-rJLOVIiQN2lzaXHo3tegtw | SV-GUI-03 slice6: Keyboard/Gesture key-assignment contract(docs-only) | completed | [sv-gui-03-06-keyboard-gesture.md](./sv-gui-03-06-keyboard-gesture.md) |
