@@ -15,6 +15,14 @@ physical・GUI（Option B）の gate が残るため **open 継続**。
 > real OS audio・GUI・physical・rf#629 の verdict を変更しない。
 > 詳細は `issue-115-rf628-consumer-oracle-verification.md` と
 > `rcd-01-virtual-l1-oracle-ledger.md` を参照。
+>
+> **2026-11-16 更新（record-after-recovery residual gap closure
+> slice）**: 同 lane の残 gap 2 件を `tests/rf628_oracle.rs` の
+> test 追加のみで閉じた — SV-7 `rf628_open_fault_recovery_
+> commit_reload`（open-fault re-open 後の record/commit/reload
+> E2E）と SV-8 `rf628_stereo_device_two_mono_taps_commit_reload`
+> （literal stereo→2mono tap）。詳細は
+> `issue-115-rf628-record-after-recovery-verification.md` を参照。
 
 ## 分類 vocabulary
 
@@ -38,10 +46,11 @@ physical・GUI（Option B）の gate が残るため **open 継続**。
 | --- | --- | --- | --- | --- | --- |
 | 独立 PCM oracle（`MockPcm` 非依存 generator で sample/byte 検算） | **Pass**（`oracle_sample` + emission-log + golden const） | **Pass**（`pcm_reference_block` — `PcmFixture::fill` 非依存の独立再実装 + `pcm_assert_eq`） | NotRun | NotRequired | NotRun |
 | E2E byte/sample fidelity（mono/stereo/multichannel、commit→reload→digest resolve→bitwise 照合） | **Pass**（`oracle_stereo_identity`/`oracle_multichannel_identity`） | **Pass**（`rf628_stereo_scenario_commit_reload`/`rf628_multichannel_two_mono_taps_commit_reload`） | NotRun | NotRequired | NotRun |
-| Multi-track (i): 1 stereo → 2 mono tap 別 stream・別 staging media 分離 | **Pass**（`oracle_stereo_device_two_mono_taps`） | **Pass**（`rf628_multichannel_two_mono_taps_commit_reload` — 4ch→mono(1)/mono(3) tap。literal な stereo→2mono 構成は synthetic-L1 lane のみで網羅） | NotRun | NotRequired | NotRun |
+| Multi-track (i): 1 stereo → 2 mono tap 別 stream・別 staging media 分離 | **Pass**（`oracle_stereo_device_two_mono_taps`） | **Pass**（`rf628_multichannel_two_mono_taps_commit_reload`（4ch→mono(1)/mono(3)）+ `rf628_stereo_device_two_mono_taps_commit_reload`（literal stereo→mono(0)/mono(1)、2026-11-16 追加）— 両構成を網羅） | NotRun | NotRequired | NotRun |
 | Multi-track (ii): same-clock 2 device が別 stream に別 seed PCM | **Pass**（`oracle_two_devices_same_clock`） | **Pass**（`rf628_two_devices_same_clock_commit_reload` + 別 domain rejection） | NotRun | NotRequired | NotRun |
 | `verified_sha256` 独立再計算照合（`sha2`、journaled verified prefix） | **Pass**（全 fidelity/fault case で pin） | **Pass**（全 commit/reload case で `sha2` 再計算照合） | NotRun | NotRequired | NotRun |
-| Fault: input discontinuity → fail-stop → verified prefix oracle bit 一致 + commit 層 recoverable 分類（`Source` 非昇格） | **Pass**（`oracle_input_discontinuity`/`oracle_missing_finalized_mixed_session`） | **Pass**（scenario gap/`FramePosition`/`ClockDiscontinuity`/vanish の 4 系統で verified prefix + recoverable 分類。open fault は record 前の defined rejection で本 row の prefix 契約対象外） | NotRun | NotRequired | NotRun |
+| Fault: input discontinuity → fail-stop → verified prefix oracle bit 一致 + commit 層 recoverable 分類（`Source` 非昇格） | **Pass**（`oracle_input_discontinuity`/`oracle_missing_finalized_mixed_session`） | **Pass**（scenario gap/`FramePosition`/`ClockDiscontinuity`/vanish の 4 系統で verified prefix + recoverable 分類） | NotRun | NotRequired | NotRun |
+| Open fault → defined rejection → clear → re-open → record/commit/reload（Recovery/安全停止） | NotRun（本 slice 対象外 — 別 slice/Issue） | **Pass**（`rf628_open_fault_rejected_then_recovers`（rejection→re-open）+ `rf628_open_fault_recovery_commit_reload`（re-open 後 record→commit→save→reload E2E、2026-11-16 追加）） | NotRun | NotRequired | NotRun |
 | Punch/Loop/Arm/Monitor・block 途中 frame 境界の一意性、Raw vs Software Monitor 非混入 | NotRun（本 slice 対象外 — 別 slice/Issue） | NotRun | NotRun | NotRequired | NotRun |
 | Windows/macOS/Linux 既存 CI Native Build/Link・Recording/RT/Project/WAV・必要 real-device Feature compile/headless | NotRun（CI lane — merge 後対象 SHA の CI 証拠で確認） | NotRun | NotRun | NotRequired | NotRun |
 | Windows GUI-L2/EXT-L3（仮想 WASAPI endpoint → 本番 Callback → Synvelis 独立 oracle 照合） | NotRun | NotRun | **NotRun(NOT_PROVISIONED)** | NotRequired | NotRun |

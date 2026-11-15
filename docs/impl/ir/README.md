@@ -88,6 +88,7 @@ Directory: `docs/impl/ir`
 | IMPL-0Gw09UiContractState01 | GW-09 Connection/Grant/Approval UI — Headless Contract・State・Fixtures (Explicit Scope・3 Modes・Receipt/Revocation UX) | completed | [gw-09-connection-grant-approval-ui-headless-contract-state-fixtures.md](./gw-09-connection-grant-approval-ui-headless-contract-state-fixtures.md) |
 | IMPL-0Gw10TestHarnessE2E01 | GW-10 Gateway Contract・Security・Concurrency / Recovery E2E Test Harness | completed | [gw-10-gateway-e2e-test-harness-evidence-gates.md](./gw-10-gateway-e2e-test-harness-evidence-gates.md) |
 | IMPL-5XHxD8MXj3eXsJmWlbQFBE | Issue #115 rf#628 consumer oracle — synvelis#115 slice | completed | [issue-115-rf628-consumer-oracle.md](./issue-115-rf628-consumer-oracle.md) |
+| IMPL-ptnUWquRtwhumn0SE8jb8W | Issue #115 rf#628 record-after-recovery — synvelis#115 slice | completed | [issue-115-rf628-record-after-recovery.md](./issue-115-rf628-record-after-recovery.md) |
 | IMPL-034RJ4QUQGExYEXb9HnIW3 | Issue #147 sccache verify/gw10 導入実装記録 | completed | [issue-147-sccache-verify-gw10.md](./issue-147-sccache-verify-gw10.md) |
 | IMPL-034RGXq9DiVrM6SNyBhyQs | Issue #151 ui-verify lane 実装記録 | completed | [issue-151-ui-verify-lane.md](./issue-151-ui-verify-lane.md) |
 | IMPL-034RUA08INQhlEiCYTUuqn | Issue #157 rev.3 matrix placeholder gate 修正 | completed | [issue-157-rev-3-matrix-placeholder-gate.md](./issue-157-rev-3-matrix-placeholder-gate.md) |

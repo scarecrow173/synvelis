@@ -59,6 +59,7 @@ Directory: `docs/test-specs`
 | TSPEC-034QN1oYnTtpV7t5CPcc5e | ED-B e2e media-domain editing acceptance | approved | [ed-b-e2e-media-domain-editing.md](./ed-b-e2e-media-domain-editing.md) |
 | TSPEC-034X83U7r7ZrZZjmIhd8Em | Execution Plan Test Spec — DAG acyclicity・Owner/Gate/Acceptance matrix invariants・OS level rules | approved | [execution-plan.md](./execution-plan.md) |
 | TSPEC-FBuBxX4T4QwzjTi0GVihWW | Issue #115 rf#628 consumer oracle test-spec | approved | [issue-115-rf628-consumer-oracle.md](./issue-115-rf628-consumer-oracle.md) |
+| TSPEC-KV4kCWrFJsrB7hfC0dcpAp | Issue #115 rf#628 record-after-recovery test-spec | approved | [issue-115-rf628-record-after-recovery.md](./issue-115-rf628-record-after-recovery.md) |
 | TSPEC-O00hUfnnLCmwn9LGFITe1d | Issue #145 ci.yml manual-only test specification — dispatch 専用・陰性 trigger・lane 構造不変 | proposed | [issue-145-ci-manual-only.md](./issue-145-ci-manual-only.md) |
 | TSPEC-034RIJsxayw9vKD3Ez9Wcy | Issue #147 sccache 導入検証仕様 | approved | [issue-147-sccache-compile-cache.md](./issue-147-sccache-compile-cache.md) |
 | TSPEC-034SVCIOPT02gT5yUiOp | Issue #148 変更影響分類・Fail-Closed evidence Gate 検証仕様 | approved | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
