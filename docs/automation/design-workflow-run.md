@@ -132,3 +132,43 @@ CancelRequested | Indeterminate}`。Step の `Completed` は「その step が�
 - `BoundedLoop` 上限超過・cycle 定義が plan 検証で拒否されること。
 - 接続切断後に `run_id` で状態再照会・cancel・結果取得ができること
   （fake/fixture で契約試験。実 OS/GUI 証拠は AUTX-08 (#267) の責務）。
+
+## 9. Live adapter 配線契約（AUTX-06 統合スライス）
+
+`StepLane`/`JobLane` の production 実装（`synvelis-automation`
+`live.rs`/`live_registry.rs`）が §1 の境界をどう満たすかを固定する。
+
+- **invoke は `Gateway::handle` のみ**: `StepCall` を wire request
+  （厳密 capability/schema ref・domain 妥当な consistency・契約適合の
+  target・task/grant/idempotency key）に写像し、parse → bind → invoke
+  の trusted 経路へ通す。"latest" 解決・第二 registry・独自 policy
+  評価は行わない。`synvelis.operation.batch` は
+  `synvelis.operation.prepare` の `operation` 引数へ lowering され、
+  batch 自体は直接 invoke しない。
+- **attestation は fail-closed**: run principal は
+  `LocalCliAdapter` で attest する。`Agent` は delegated
+  agent-equivalent caller、`Human` は step call が verified-session
+  credential を持たないため `Authentication` で拒否する
+  （agent-equivalent への silent downgrade 禁止）。
+- **job lane は capability 経路のみ**: observe/cancel は
+  `synvelis.job.get`/`synvelis.job.cancel` を run の
+  (principal, project, task, grant) scope で `Gateway::handle` へ
+  送る。`JobEngine::record`・provider 状態の直接参照は existence-
+  blind scope を迂回するため禁止。wire payload の解釈不能は
+  `Unknown`/`Unreachable` に落とし、verdict を推測しない。
+- **`operation_result` は正本 3 段照合**: `Gateway::operation_outcome`
+  （keyed outcome ledger）→ `CommitPort::reconcile`（commit-bound）
+  → `JobEngine::record`（admitted submit）の順。いずれにも記録が
+  無ければ `Unknown` — `Settled` を捏造しない。
+- **registry snapshot は厳密版投影**: `capture_registry_snapshot` は
+  Gateway `CapabilityRegistry`/`SchemaRegistry` を automation
+  `RegistrySnapshot` へ version・domain・contract・schema を
+  そのまま写して投影し、"latest" 解決・workflow-local schema の
+  捏造をしない。投影後 `validate()` を通す。
+- **commit は workflow の外**: prepare が生成する proposal/digest の
+  apply + `CommitGate` commit は trusted caller の経路であり、
+  workflow/lane は commit 権威・project lock・commit fence を
+  保持しない。
+- **lock は dispatch 中のみ**: gateway mutex は invoke/observe/
+  cancel の各 dispatch で取得・解放し、step 境界を跨いで保持
+  しない（§7 非 RT・再帰呼出禁止と整合）。
