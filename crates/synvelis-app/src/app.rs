@@ -12,7 +12,7 @@
 //! `unavailable` — the shell must surface that honestly instead of
 //! implying playback/recording exists.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
@@ -331,6 +331,31 @@ pub struct SynvelisApp {
     /// project session is recreated. `pub(crate)` so `ui_ops` can
     /// drive the `syn.monitoring.*` ops.
     pub(crate) monitoring: crate::monitoring::MonitorUxState,
+    /// AUTX-07 (synvelis#266) authority-pushed automation catalog —
+    /// the opaque [`synvelis_workspace::AutomationCatalog`] the
+    /// `syn.autx.catalog` op installs and the palette/macro
+    /// projections plus request lowering read. `None` until an
+    /// authority pushes one: the surfaces render their honest
+    /// empty states and request actions reject typed. Held opaquely
+    /// — `synvelis-app` never names `synvelis-gateway` types (AC-05).
+    pub(crate) automation_catalog: Option<synvelis_workspace::AutomationCatalog>,
+    /// Monotonic mint for `autx.*` lowering request ids — correlation
+    /// only; the Gateway assigns the authoritative operation id.
+    pub(crate) autx_request_seq: u64,
+    /// Last published automation screen state per adopted automation
+    /// view (`ViewType::{ActionPalette,MacroBrowser,WorkflowEditor,
+    /// RunMonitor}`), keyed by `ViewInstanceId` — the AUTX counterpart
+    /// of [`Self::vcs_screens`]. Refreshed by the same post-op publish
+    /// hook so view-local `autx.*` mutations and catalog pushes both
+    /// reach mounted specs. Entries carry a publish `rev` stamp —
+    /// the projection types have no `PartialEq`, so the composition
+    /// root's push loop compares stamps.
+    pub(crate) automation_screens:
+        Rc<RefCell<BTreeMap<ViewInstanceId, crate::automation::AutomationScreenPublish>>>,
+    /// Publish counter stamped into every
+    /// [`crate::automation::AutomationScreenPublish`] — `Cell` because
+    /// [`Self::publish_automation_screens`] runs under `&self`.
+    pub(crate) autx_publish_rev: Cell<u64>,
 }
 
 impl SynvelisApp {
@@ -360,6 +385,10 @@ impl SynvelisApp {
             vcs_backend: None,
             vcs_screens: Rc::new(RefCell::new(BTreeMap::new())),
             monitoring: crate::monitoring::MonitorUxState::default(),
+            automation_catalog: None,
+            autx_request_seq: 0,
+            automation_screens: Rc::new(RefCell::new(BTreeMap::new())),
+            autx_publish_rev: Cell::new(0),
         }
     }
 
@@ -575,6 +604,97 @@ impl SynvelisApp {
                 .filter(|p| p.project_revision == revision),
         };
         self.publish_vcs_screens();
+        self.publish_automation_screens();
+    }
+
+    /// Shared automation screen-state cell map — one
+    /// [`crate::automation::AutomationScreenState`] per registered
+    /// automation view, keyed by its adopted [`ViewInstanceId`]. Same
+    /// hand-out contract as [`Self::vcs_screen_cell`]: publishes
+    /// first, then returns the shared handle the composition root
+    /// keeps across the app seal.
+    #[must_use]
+    pub fn automation_screen_cell(
+        &self,
+    ) -> Rc<RefCell<BTreeMap<ViewInstanceId, crate::automation::AutomationScreenPublish>>> {
+        self.publish_automation_screens();
+        Rc::clone(&self.automation_screens)
+    }
+
+    /// Projects every registered automation view into its
+    /// [`crate::automation::AutomationScreenState`] and stores it in
+    /// [`Self::automation_screens`] — closed views drop out,
+    /// non-automation registry entries are ignored. Runs inside
+    /// [`Self::publish_project_length`] so `autx.*` view-local
+    /// mutations, catalog pushes, and project replacements that
+    /// re-render all refresh the mounted specs. The pushed catalog
+    /// supplies the palette/macro projections; workflow plans and run
+    /// monitors have no producer yet (the live adapter is #264), so
+    /// those surfaces publish their honest empty states.
+    fn publish_automation_screens(&self) {
+        use crate::automation::AutomationScreenState as S;
+        use synvelis_workspace::ViewType as V;
+        let autx_ids: Vec<ViewInstanceId> = self
+            .workspace
+            .registry()
+            .ids()
+            .into_iter()
+            .filter(|inst| {
+                self.workspace
+                    .registry()
+                    .descriptor(*inst)
+                    .is_some_and(|d| {
+                        matches!(
+                            d.kind,
+                            V::ActionPalette | V::MacroBrowser | V::WorkflowEditor | V::RunMonitor
+                        )
+                    })
+            })
+            .collect();
+        let rev = self.autx_publish_rev.get().wrapping_add(1);
+        self.autx_publish_rev.set(rev);
+        let mut screens = self.automation_screens.borrow_mut();
+        screens.retain(|inst, _| autx_ids.contains(inst));
+        for inst in autx_ids {
+            let kind = self.workspace.registry().descriptor(inst).map(|d| d.kind);
+            let view_state = self
+                .workspace
+                .state(inst)
+                .ok()
+                .and_then(|s| s.automation.clone())
+                .unwrap_or_default();
+            let screen = match kind {
+                Some(V::ActionPalette) => S::Palette(crate::automation::ActionPaletteScreenState {
+                    catalog: self
+                        .automation_catalog
+                        .as_ref()
+                        .map(|c| c.action_catalog(&view_state.palette_query)),
+                    view: view_state,
+                }),
+                Some(V::MacroBrowser) => S::Macro(crate::automation::MacroBrowserScreenState {
+                    catalog: self
+                        .automation_catalog
+                        .as_ref()
+                        .map(synvelis_workspace::AutomationCatalog::macro_browser),
+                    view: view_state,
+                }),
+                Some(V::WorkflowEditor) => {
+                    S::Workflow(crate::automation::WorkflowEditorScreenState {
+                        plan: None,
+                        view: view_state,
+                    })
+                }
+                Some(V::RunMonitor) => S::Run(crate::automation::RunMonitorScreenState {
+                    monitor: None,
+                    view: view_state,
+                }),
+                _ => continue,
+            };
+            screens.insert(
+                inst,
+                crate::automation::AutomationScreenPublish { rev, state: screen },
+            );
+        }
     }
 
     /// Shared VCS History screen-state cell map — one

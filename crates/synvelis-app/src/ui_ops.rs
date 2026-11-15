@@ -65,18 +65,18 @@ use synvelis_workspace::viz_ui::{
     waveform_clip_target,
 };
 use synvelis_workspace::{
-    ArrangementRow, CancelReason, ControlEdgeOutcome, ControlEdgePreview,
-    ControlRelationInspectionFocus, EditingSelection, EndpointRequest, FollowSource,
-    InspectionMode, LinkGroupId, PinSide, ProbeDrainReport, ProbePrincipal, ProbeTraceError,
-    ProjectSession, RebasePreview, RecordingAction, RecordingDisplayState, RecordingOutcome,
-    RecordingProvenance, RecordingStatusView, RelationView, RoutingGestureFixation,
-    RoutingGestureOutcome, RoutingGesturePreview, RoutingPortAssessment, SemanticTarget,
-    SignalFlowEdgeRole, SignalFlowEntityRef, SignalFlowInspectionFocus, SignalFlowScope,
-    SignalFlowView, SignalFlowViewOptions, SignalFlowViewState, VcsDiffView, VcsEndpointView,
-    VcsHistoryView, VcsSession, VcsUiError, VcsViewMode, ViewType, control_entity_parse,
-    control_entity_tag, recording_status, relation_rows, signal_flow_graph, vcs_history_view,
-    visual_fold, visual_move_node, visual_set_group, visual_set_link_focus, visual_set_pan,
-    visual_set_scope, visual_set_zoom,
+    ArrangementRow, AutomationCatalog, AutomationUiError, CancelReason, ControlEdgeOutcome,
+    ControlEdgePreview, ControlRelationInspectionFocus, EditingSelection, EndpointRequest,
+    FollowSource, InspectionMode, LinkGroupId, PinSide, ProbeDrainReport, ProbePrincipal,
+    ProbeTraceError, ProjectSession, RebasePreview, RecordingAction, RecordingDisplayState,
+    RecordingOutcome, RecordingProvenance, RecordingStatusView, RelationView,
+    RoutingGestureFixation, RoutingGestureOutcome, RoutingGesturePreview, RoutingPortAssessment,
+    SemanticTarget, SignalFlowEdgeRole, SignalFlowEntityRef, SignalFlowInspectionFocus,
+    SignalFlowScope, SignalFlowView, SignalFlowViewOptions, SignalFlowViewState, VcsDiffView,
+    VcsEndpointView, VcsHistoryView, VcsSession, VcsUiError, VcsViewMode, ViewType,
+    control_entity_parse, control_entity_tag, recording_status, relation_rows, signal_flow_graph,
+    vcs_history_view, visual_fold, visual_move_node, visual_set_group, visual_set_link_focus,
+    visual_set_pan, visual_set_scope, visual_set_zoom,
 };
 
 use crate::app::SynvelisApp;
@@ -337,6 +337,45 @@ fn json_param<T: serde::de::DeserializeOwned>(params: &Value, key: &str) -> Resu
 
 fn viz_err(e: &synvelis_workspace::VizError) -> ErrorBody {
     internal(format!("viz: {e}"))
+}
+
+/// The four [`ViewType`]s the AUTX-07 automation surfaces adopt —
+/// `syn.autx.visual` opens them by surface name and both autx ops
+/// refuse every other kind so a stray `view_id` cannot mutate
+/// non-automation state.
+const AUTX_VIEW_KINDS: &[ViewType] = &[
+    ViewType::ActionPalette,
+    ViewType::MacroBrowser,
+    ViewType::WorkflowEditor,
+    ViewType::RunMonitor,
+];
+
+/// `surface` name → (view kind, window title) for
+/// `syn.autx.visual{action:"open"}`.
+fn autx_surface(surface: &str) -> Option<(ViewType, &'static str)> {
+    Some(match surface {
+        "action-palette" => (ViewType::ActionPalette, "Action Palette"),
+        "macro-browser" => (ViewType::MacroBrowser, "Macro Browser"),
+        "workflow-editor" => (ViewType::WorkflowEditor, "Workflow Editor"),
+        "run-monitor" => (ViewType::RunMonitor, "Run Monitor"),
+        _ => return None,
+    })
+}
+
+/// [`AutomationUiError`] → wire [`ErrorBody`]. Request-shape and
+/// resolution failures are caller-fixable params; availability,
+/// staleness, and not-executable verdicts are authority-state
+/// refusals — the distinction stays visible in `code` so a surface
+/// can tell "fix the request" from "the catalog says no".
+fn autx_err(e: &AutomationUiError) -> ErrorBody {
+    match e {
+        AutomationUiError::InvalidRequest { .. }
+        | AutomationUiError::UnknownCapability { .. }
+        | AutomationUiError::TargetMismatch { .. } => invalid(e.to_string()),
+        AutomationUiError::NotExecutable { .. } | AutomationUiError::Stale { .. } => {
+            ErrorBody::new(codes::UNAVAILABLE, e.to_string())
+        }
+    }
 }
 
 /// `syn.probe.state` trace-row cap — projections stay bounded like
@@ -4698,20 +4737,43 @@ impl SynvelisApp {
     /// [`ErrorBody`] on invalid parameters, a non-VCS view, or a
     /// workspace refusal.
     fn close_vcs_view(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        self.close_view_of_kinds(params, &[ViewType::VcsHistory], "vcs-history")
+    }
+
+    /// Shared teardown for `*.visual{action:"close"}` ops — removes a
+    /// registered view whose kind is in `kinds` (composition-root
+    /// views stay unreachable: the kind check refuses them). `label`
+    /// names the surface family in the refusal so each op keeps its
+    /// own error contract. Runs the same probe-lease release,
+    /// dock/registry/state removal, and UI-side subscription cleanup
+    /// `syn.view.close` performs.
+    fn close_view_of_kinds(
+        &mut self,
+        params: &Value,
+        kinds: &[ViewType],
+        label: &str,
+    ) -> Result<Value, ErrorBody> {
         let view_name = str_param(params, "view_id")?.to_string();
-        let inst = self.vcs_view_instance(params)?;
-        let is_vcs = self
+        let inst = parse_view_instance(&view_name).ok_or_else(|| {
+            invalid(format!(
+                "params.view_id must be \"view-{{n}}\", got {view_name}"
+            ))
+        })?;
+        if !self.workspace.registry().contains(inst) {
+            return Err(invalid(format!("view {view_name} is not registered")));
+        }
+        let allowed = self
             .workspace
             .registry()
             .descriptor(inst)
-            .is_some_and(|d| d.kind == ViewType::VcsHistory);
-        if !is_vcs {
+            .is_some_and(|d| kinds.contains(&d.kind));
+        if !allowed {
             return Err(invalid(format!(
-                "view {view_name} is not a vcs-history view"
+                "view {view_name} is not a closeable {label} view"
             )));
         }
-        // Same probe-lease release as `syn.view.close` — a VCS view
-        // can hold subscriber leases like any logical view.
+        // Same probe-lease release as `syn.view.close` — a spawned
+        // view can hold subscriber leases like any logical view.
         self.release_view_probe_leases(inst)?;
         self.workspace.remove_view(inst).map_err(|e| dock_err(&e))?;
         // Mirror `syn.view.close`'s UI-side cleanup: a client may have
@@ -4830,6 +4892,346 @@ impl SynvelisApp {
             })
             .map_err(vcs_ui_err)?;
         Ok(json!({ "ok": true, "view_id": view_name }))
+    }
+
+    // -- syn.autx.* ---------------------------------------------------------
+
+    /// `syn.autx.visual` — lifecycle for the four AUTX-07 automation
+    /// surfaces (synvelis#266 SV266-NR-05). `open` takes `surface`
+    /// (`action-palette|macro-browser|workflow-editor|run-monitor`),
+    /// adopts a detached view of the matching [`ViewType`], and
+    /// returns its wire `view_id` — the same spawn contract as
+    /// `syn.vcs.visual{action:"open"}`. `close` takes `view_id` and
+    /// removes any of the four automation kinds (composition-root
+    /// views stay unreachable — the kind check refuses them).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, an unknown surface, or a
+    /// workspace refusal.
+    pub fn op_autx_visual(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        match str_param(params, "action")? {
+            "open" => {
+                let surface = str_param(params, "surface")?;
+                let (kind, title) = autx_surface(surface).ok_or_else(|| {
+                    invalid(format!(
+                        "params.surface must be action-palette|macro-browser|workflow-editor|run-monitor, got {surface}"
+                    ))
+                })?;
+                let view_id = self.open_autx_view(kind, title)?;
+                Ok(json!({ "ok": true, "view_id": view_id, "opened": true }))
+            }
+            "close" => self.close_autx_view(params),
+            other => Err(invalid(format!("unknown autx visual action {other}"))),
+        }
+    }
+
+    /// Spawns one detached automation view — same monotonic-id mint
+    /// as [`Self::open_vcs_view`]: the workspace high-water mark
+    /// floored above the composition root's reserved ids, adopted
+    /// into the detached pool, never recycled after `close`.
+    fn open_autx_view(&mut self, kind: ViewType, title: &'static str) -> Result<String, ErrorBody> {
+        let next = self
+            .workspace
+            .view_id_watermark()
+            .max(2)
+            .checked_add(1)
+            .ok_or_else(|| internal("autx view id space exhausted"))?;
+        let id =
+            ViewInstanceId::new(next).ok_or_else(|| internal("autx view id space exhausted"))?;
+        self.workspace
+            .adopt_view(id, kind, title, None)
+            .map_err(|e| dock_err(&e))?;
+        Ok(format!("view-{next}"))
+    }
+
+    /// `syn.autx.visual{action:"close"}` — removes an automation
+    /// surface view. Shares the spawned-view teardown with
+    /// [`Self::close_vcs_view`] through [`Self::close_view_of_kinds`].
+    fn close_autx_view(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        self.close_view_of_kinds(params, AUTX_VIEW_KINDS, "automation")
+    }
+
+    /// `syn.autx.catalog` — the authority-pushed automation catalog
+    /// (synvelis#266 SV266-NR-05). `params` *is* the catalog document
+    /// — `{"seq": n, "capabilities": [{"descriptor", "grant"?}],
+    /// "macros": [...]}` — parsed strictly by
+    /// [`AutomationCatalog::from_json`]; a malformed push rejects
+    /// whole and leaves the previous catalog untouched. Until the
+    /// live adapter lands (#264) this op is the only producer —
+    /// tests and composition roots inject the document directly.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on a malformed catalog document.
+    pub fn op_autx_catalog(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let catalog = AutomationCatalog::from_json(params).map_err(|e| autx_err(&e))?;
+        let result = json!({
+            "ok": true,
+            "seq": catalog.seq(),
+            "capabilities": catalog.capability_count(),
+            "macros": catalog.preset_count(),
+        });
+        self.automation_catalog = Some(catalog);
+        Ok(result)
+    }
+
+    /// `syn.autx.action` — one decoded `autx.*` surface command
+    /// (synvelis#266 SV266-NR-05). Params `{view_id, target, action,
+    /// params?}` mirror the view-command triple the shell forwards;
+    /// `decode_automation_command` is the single classification table
+    /// — unknown targets/actions and malformed params reject typed,
+    /// never guessed.
+    ///
+    /// `ViewLocal` commands mutate only the view's persisted
+    /// `ViewState.automation`; `Request` commands lower through the
+    /// pushed [`AutomationCatalog`] (absent → typed `unavailable`,
+    /// never fake data) and return the wire request documents in
+    /// `requests` for the caller's gateway lane; `CancelSelectedRun`
+    /// resolves the monitor-selected run to its operation and lowers
+    /// the same way. The updated automation view state rides every
+    /// result as `state`.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, an unknown/malformed
+    /// command, a missing catalog, or a lowering refusal.
+    pub fn op_autx_action(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let (inst, _kind) = self.autx_view_instance(params)?;
+        let view = str_param(params, "view_id")?.to_owned();
+        let target = str_param(params, "target")?;
+        let action = str_param(params, "action")?;
+        let action_params = params.get("params").cloned().unwrap_or_else(|| json!({}));
+        let command = crate::automation::decode_automation_command(target, action, &action_params)
+            .ok_or_else(|| {
+                invalid(format!(
+                    "unknown or malformed autx command {target}/{action}"
+                ))
+            })?;
+        let (kind, requests) = match command {
+            crate::automation::AutomationCommand::ViewLocal(action) => {
+                self.apply_autx_view_local(inst, &action)?;
+                ("view-local", Vec::new())
+            }
+            crate::automation::AutomationCommand::Request(action) => {
+                let requests = self.lower_autx_requests(inst, &action)?;
+                ("request", requests)
+            }
+            crate::automation::AutomationCommand::CancelSelectedRun => {
+                let requests = self.cancel_autx_selected_run(inst)?;
+                ("request", requests)
+            }
+        };
+        Ok(json!({
+            "ok": true,
+            "view_id": view,
+            "kind": kind,
+            "requests": requests,
+            "state": self.autx_view_state_json(inst),
+        }))
+    }
+
+    /// `view_id` → registered automation [`ViewInstanceId`] — the op
+    /// refuses non-`autx.*` surfaces so a mistyped `view_id` fails
+    /// loudly instead of mutating another view's state.
+    fn autx_view_instance(&self, params: &Value) -> Result<(ViewInstanceId, ViewType), ErrorBody> {
+        let view = str_param(params, "view_id")?;
+        let inst = parse_view_instance(view)
+            .ok_or_else(|| invalid(format!("params.view_id must be \"view-{{n}}\", got {view}")))?;
+        let kind = self
+            .workspace
+            .registry()
+            .descriptor(inst)
+            .ok_or_else(|| invalid(format!("view {view} is not registered")))?
+            .kind;
+        if !AUTX_VIEW_KINDS.contains(&kind) {
+            return Err(invalid(format!("view {view} is not an automation surface")));
+        }
+        Ok((inst, kind))
+    }
+
+    /// The pushed catalog or a typed `unavailable` — an absent
+    /// catalog is an honest empty state, never fake rows.
+    fn autx_catalog(&self) -> Result<&AutomationCatalog, ErrorBody> {
+        self.automation_catalog.as_ref().ok_or_else(|| {
+            ErrorBody::new(
+                codes::UNAVAILABLE,
+                "automation catalog has not been pushed — syn.autx.catalog first".to_string(),
+            )
+        })
+    }
+
+    /// Mutable access to the view's persisted automation state —
+    /// created on first touch so a fresh view's first select lands.
+    fn autx_state_mut(
+        &mut self,
+        inst: ViewInstanceId,
+    ) -> Result<&mut synvelis_workspace::AutomationViewState, ErrorBody> {
+        let state = self
+            .workspace
+            .state_mut(inst)
+            .map_err(|e| invalid(format!("view state: {e}")))?;
+        Ok(state
+            .automation
+            .get_or_insert_with(synvelis_workspace::AutomationViewState::default))
+    }
+
+    /// The view's persisted automation state as wire JSON (`null`
+    /// before first touch).
+    fn autx_view_state_json(&self, inst: ViewInstanceId) -> Value {
+        self.workspace
+            .state(inst)
+            .ok()
+            .and_then(|s| s.automation.as_ref())
+            .map_or(Value::Null, |a| json!(a))
+    }
+
+    /// Applies a `ViewLocal` [`AutomationViewAction`] to the view's
+    /// `ViewState.automation` — the only state these commands may
+    /// touch. Catalog-gated mutations (`MacroSelect`,
+    /// `CaptureTarget`) resolve through the pushed catalog so a row
+    /// index becomes the stable preset id / frozen target the display
+    /// layer reads back; `RunSelect` cannot resolve a run id without
+    /// a monitor projection and rejects typed rather than storing a
+    /// dangling index.
+    fn apply_autx_view_local(
+        &mut self,
+        inst: ViewInstanceId,
+        action: &synvelis_workspace::AutomationViewAction,
+    ) -> Result<(), ErrorBody> {
+        use synvelis_workspace::AutomationViewAction as A;
+        match action {
+            A::PaletteSelect { row } => {
+                self.autx_state_mut(inst)?.palette_selected = Some(*row);
+            }
+            A::PaletteCategory { index } => {
+                let state = self.autx_state_mut(inst)?;
+                state.palette_category = Some(*index);
+                // Row indices re-base under the new domain filter —
+                // a stale index would point at a different capability.
+                state.palette_selected = None;
+            }
+            A::WorkflowSelect { index } => {
+                self.autx_state_mut(inst)?.workflow_step = Some(*index);
+            }
+            A::MacroSelect { index } => {
+                let preset = self
+                    .autx_catalog()?
+                    .preset_at(*index)
+                    .ok_or_else(|| invalid(format!("macro preset row {index} outside catalog")))?;
+                let id = preset.id.clone();
+                self.autx_state_mut(inst)?.macro_selected = Some(id);
+            }
+            A::CaptureTarget { capability, target } => {
+                let project = self.autx_project_tag();
+                let captured = self
+                    .autx_catalog()?
+                    .capture(capability, target.clone(), &project)
+                    .map_err(|e| autx_err(&e))?;
+                let state = self.autx_state_mut(inst)?;
+                state.palette_target = Some(captured);
+                state.palette_outcome = Some("captured".to_string());
+            }
+            A::RunSelect { .. } => {
+                return Err(ErrorBody::new(
+                    codes::UNAVAILABLE,
+                    "no run monitor projection has been pushed — run selection cannot resolve a run id"
+                        .to_string(),
+                ));
+            }
+            other => {
+                return Err(internal(format!(
+                    "non-view-local automation action reached view-local apply: {other:?}"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// Lowers a `Request` [`AutomationViewAction`] through the pushed
+    /// catalog — the GUI→wire conversion stays in
+    /// `synvelis-workspace`; the app only mints the correlation id and
+    /// picks the consistency document. Preview-class actions read
+    /// `latest`; mutations pin `expected-revision` at the live
+    /// revision so a stale confirm fails at bind, not silently.
+    fn lower_autx_requests(
+        &mut self,
+        inst: ViewInstanceId,
+        action: &synvelis_workspace::AutomationViewAction,
+    ) -> Result<Vec<Value>, ErrorBody> {
+        use synvelis_workspace::AutomationViewAction as A;
+        // Mint before borrowing the catalog — `autx_catalog` holds an
+        // immutable `&self` for the lowering call.
+        self.autx_request_seq += 1;
+        let request_id = format!("autx-{}", self.autx_request_seq);
+        let catalog = self.autx_catalog()?;
+        let project = self.autx_project_tag();
+        let revision = self.workspace.session().revision().0;
+        let consistency = match action {
+            A::Preview { .. } | A::MacroPreview { .. } => json!({ "kind": "latest" }),
+            _ => json!({ "kind": "expected-revision", "revision": revision }),
+        };
+        let requests = catalog
+            .lower(action, &project, &request_id, &consistency)
+            .map_err(|e| autx_err(&e))?;
+        // Palette outcome bookkeeping — the detail readout surfaces
+        // the last request-class result verbatim.
+        let outcome = match action {
+            A::Preview { .. } => Some("preview"),
+            A::Submit { .. } => Some("submitted"),
+            _ => None,
+        };
+        if let Some(label) = outcome
+            && let Ok(state) = self.workspace.state_mut(inst)
+            && let Some(automation) = state.automation.as_mut()
+        {
+            automation.palette_outcome = Some(format!("{label}: {} request(s)", requests.len()));
+        }
+        Ok(requests)
+    }
+
+    /// `autx.run cancel` — resolves the view-local selection to the
+    /// published monitor row's operation id, then lowers
+    /// [`AutomationViewAction::JobCancel`] like every other request.
+    /// Request ≠ confirmed: the lowered request only asks; the
+    /// monitor's `CancelLink` axis reports the authority's verdict.
+    fn cancel_autx_selected_run(&mut self, inst: ViewInstanceId) -> Result<Vec<Value>, ErrorBody> {
+        let selected = self
+            .workspace
+            .state(inst)
+            .ok()
+            .and_then(|s| s.automation.as_ref())
+            .and_then(|a| a.run_selected.clone())
+            .ok_or_else(|| {
+                ErrorBody::new(
+                    codes::INVALID_PARAMS,
+                    "no run selected — autx.run select first".to_string(),
+                )
+            })?;
+        let operation = {
+            let screens = self.automation_screens.borrow();
+            screens.get(&inst).and_then(|p| match &p.state {
+                crate::automation::AutomationScreenState::Run(run) => run
+                    .monitor
+                    .as_ref()
+                    .and_then(|m| m.rows.iter().find(|row| row.run == selected))
+                    .and_then(|row| row.operation.clone()),
+                _ => None,
+            })
+        }
+        .ok_or_else(|| {
+            ErrorBody::new(
+                codes::UNAVAILABLE,
+                format!("run {selected} has no cancellable operation in the published monitor"),
+            )
+        })?;
+        self.lower_autx_requests(
+            inst,
+            &synvelis_workspace::AutomationViewAction::JobCancel { operation },
+        )
+    }
+
+    /// The tagged project id automation requests bind to — the same
+    /// value `capture_target`'s contract check compares against.
+    fn autx_project_tag(&self) -> String {
+        self.workspace.session().project().project_id.to_tagged()
     }
 
     // -- syn.control.* -----------------------------------------------------
