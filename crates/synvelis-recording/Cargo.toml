@@ -31,3 +31,4 @@ optional = true
 
 [dev-dependencies]
 stats_alloc = "0.1.10"
+ruviform-audio-test.workspace = true
