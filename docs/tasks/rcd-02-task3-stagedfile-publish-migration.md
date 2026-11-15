@@ -1,10 +1,10 @@
 ---
 id: "TASK-034VpnH7YtacCiCUD4y9fu"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "RCD-02 Task3 StagedFile Publish Migration"
 created: "2026-11-10"
-updated: "2026-11-11"
+updated: "2026-11-15"
 owners: []
 relations:
   source:

@@ -206,5 +206,6 @@ Directory: `docs/specs`
 | SPEC-034WuZoDEfeT3L23cjJAFD | Issue #368 docs/impl/ir missing-section 本文補完 | implemented | [issue-368-ir-missing-sections.md](./issue-368-ir-missing-sections.md) |
 | SPEC-rNbdNqOT10RavAY4Hj9RKJ | Issue #86 DoD(2) — import_verified consumer 入口 + digest-kind blob 解決（synvelis-player slice） | implemented | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | SPEC-034Uri8JTbpWmKASolvM4A | RCD-02 Recording Durability Evidence / Recovery Review — synvelis#116 slice | implemented | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
+| SPEC-034XHM3cBgw6hRT0wUniFS | RCD-02 residual closeout — Issue #116 AC 照合・canonical lane 実測・gate 棚卸し・簿記 drift 修正 | implemented | [rcd-02-residual-closeout.md](./rcd-02-residual-closeout.md) |
 | SPEC-034T6XTAVpIPhybzaw7jdh | SV-GPUI-03 Synvelis Product Theme / Workspace Presets — Driver-neutral DTCG overrides・Preset schema・fixtures | implemented | [sv-gpui-03-product-theme-workspace-presets.md](./sv-gpui-03-product-theme-workspace-presets.md) |
 | SPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 slice (synvelis#126) | implemented | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |

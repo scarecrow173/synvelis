@@ -96,6 +96,7 @@ Directory: `docs/designs`
 | DESIGN-7xa4ndX9WpWkTxHtHv2HZs | RCD-01 Virtual L1 Oracle Design | approved | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
 | DESIGN-4CsMcB1lWPYHOuIXmJdj4W | RCD-02 Blob SHA-256 Promotion Design | approved | [rcd-02-blob-sha256-design.md](./rcd-02-blob-sha256-design.md) |
 | DESIGN-034Urj7kRY8rq2nngtTSuL | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | approved | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
+| DESIGN-034XHN8wd1qFbv3bkzg7bn | RCD-02 residual closeout — AC 照合と gate 分類・簿記整合の設計 | approved | [rcd-02-residual-closeout-design.md](./rcd-02-residual-closeout-design.md) |
 | DESIGN-034VplpQjplSqKKaNy9r1G | RCD-02 StagedFile Publish Migration Design | approved | [rcd-02-stagedfile-publish-migration-design.md](./rcd-02-stagedfile-publish-migration-design.md) |
 | DESIGN-VClnKX5mXMKj7CQFWgFYAE | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe Design | approved | [rcd-02-unsynced-loss-real-fs-probe-design.md](./rcd-02-unsynced-loss-real-fs-probe-design.md) |
 | DESIGN-034VdWksbk4tfLCaf6HPoj | RCD-03 app Arm/Monitoring UX + monitor session projection | approved | [rcd-03-app-arm-monitoring-ux.md](./rcd-03-app-arm-monitoring-ux.md) |

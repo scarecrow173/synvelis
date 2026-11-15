@@ -38,7 +38,6 @@ Directory: `docs/tasks`
 | TASK-034W91vSDozzYDSG2XM7je | RCD-01 実機 capture coverage 拡張 task | completed | [rcd-01-real-input-coverage-task.md](./rcd-01-real-input-coverage-task.md) |
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
 | TASK-GJlWE8j5emvVOKFMtbTXHR | RCD-01 Task — 実Audio Device 到達準備（stamp placement fallback + real backend 配線） | completed | [rcd-01-task1-real-backend-readiness.md](./rcd-01-task1-real-backend-readiness.md) |
-| TASK-034VpnH7YtacCiCUD4y9fu | RCD-02 Task3 StagedFile Publish Migration | in-progress | [rcd-02-task3-stagedfile-publish-migration.md](./rcd-02-task3-stagedfile-publish-migration.md) |
 | TASK-034X1GJrKQRwmioEuJ4m78 | RCD-03 monitor/punch fake session fixture | completed | [rcd-03-monitor-punch-task.md](./rcd-03-monitor-punch-task.md) |
 | TASK-034WCx98h2mIsDpZJrrBkC | RCD-03 monitor engine — implementation slice | completed | [rcd-03-task-monitor-engine.md](./rcd-03-task-monitor-engine.md) |
 | TASK-034VegaqbLjPWyJoFDrmhQ | RCD-03 Task2 app Arm/Monitoring UX + monitor session projection | in-progress | [rcd-03-task2-app-arm-monitoring-ux.md](./rcd-03-task2-app-arm-monitoring-ux.md) |
@@ -164,9 +163,11 @@ Directory: `docs/tasks`
 | TASK-034X3k0wEnZD3OtrbVBneg | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画タスク | done | [product-value-core-task.md](./product-value-core-task.md) |
 | TASK-034X6NYGLBArth4EII4yl9 | Project / Asset / Persistence — 設計契約文書チェーン実装タスク（synvelis#17） | done | [project-persistence-task.md](./project-persistence-task.md) |
 | TASK-AUD8AWTXpU1EXRd0Jbf7ts | RCD-01 Virtual L1 Oracle — synvelis#115 Option A slice | done | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
+| TASK-034XHPOcaY2TsdPi7kkJte | RCD-02 residual closeout — Issue #116 AC 照合・canonical lane 実測・証拠固定・簿記 drift 修正 | done | [rcd-02-residual-closeout.md](./rcd-02-residual-closeout.md) |
 | TASK-2Ri1ehmSIXwfHO79pHYSiU | RCD-02 Task Unsynced-Write Loss Fixture + Real-FS Probe | done | [rcd-02-task-unsynced-loss-real-fs-probe.md](./rcd-02-task-unsynced-loss-real-fs-probe.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | done | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
 | TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |
+| TASK-034VpnH7YtacCiCUD4y9fu | RCD-02 Task3 StagedFile Publish Migration | done | [rcd-02-task3-stagedfile-publish-migration.md](./rcd-02-task3-stagedfile-publish-migration.md) |
 | TASK-r2UgyGsdhNOwpsUcfgfvuM | RCD-02 Task4 Blob SHA-256 Promotion | done | [rcd-02-task4-blob-sha256.md](./rcd-02-task4-blob-sha256.md) |
 | TASK-034XCSySHeHzz9kpi5K0V8 | RCD-03 monitor session UX task | done | [rcd-03-monitor-session-ux.md](./rcd-03-monitor-session-ux.md) |
 | TASK-leaTVahsznfck7liCrDtL6 | RCD-03 Task VCS semantic diff monitor 宣言分類 | done | [rcd-03-task-vcs-diff-monitor-classification.md](./rcd-03-task-vcs-diff-monitor-classification.md) |
