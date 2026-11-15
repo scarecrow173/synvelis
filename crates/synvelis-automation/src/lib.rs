@@ -34,6 +34,8 @@ pub mod eval;
 pub mod expr;
 pub mod frontend;
 pub mod importer;
+pub mod live;
+pub mod live_registry;
 pub mod macros;
 pub mod refs;
 pub mod registry;
@@ -59,6 +61,8 @@ pub use importer::{
     MapWorkflowResolver, WorkflowResolver, WorkflowSourceKind, compile_script_workflow,
     compile_workflow_yaml, import_workflow_document, workflow_source_kind,
 };
+pub use live::{GatewayJobLane, GatewayStepLane};
+pub use live_registry::capture as capture_registry_snapshot;
 pub use macros::{
     AtomicMacroDefinition, COMPILED_MACRO_SCHEMA_VERSION, CompiledMacro, MACRO_SCHEMA_VERSION,
     MacroBindingWire, MacroCompiler, MacroMemberSig, MacroPolicy, MacroRegistry, MacroSignature,
