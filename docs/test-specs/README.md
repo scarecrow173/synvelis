@@ -173,6 +173,7 @@ Directory: `docs/test-specs`
 | TSPEC-zjbHKZf81iknbLJPzohrKC | SV175-02 検証仕様: ViewHost mount → typed binding → lifecycle | approved | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TSPEC-034T7Ieio7KRMC297yqbIs | SV177 theme contract + workspace preset headless verification | approved | [sv177-theme-preset-contract.md](./sv177-theme-preset-contract.md) |
 | TSPEC-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 検証仕様: mixer.gain projection・Fader controlled display/commit | approved | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
+| TSPEC-3k4PHbyLAFIsmHw7CNvrYM | SV#28 Ruviform pin 更新 検証仕様（fd1d4d5f → ac10a2f7） | approved | [sv28-ruviform-pin-ac10a2f7.md](./sv28-ruviform-pin-ac10a2f7.md) |
 | TSPEC-034Voc4dPYUq3RE0eQXwi7 | SV#28 Ruviform pin 更新 検証仕様 | approved | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | TSPEC-CrvvXGRCC7NBEy9bfba4LH | SV#28 Ruviform pin 更新 検証仕様 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | TSPEC-31xKoCzy7Vtv6MX1J7safw | SV#28 Ruviform pin 更新 検証仕様（9865cd57 → fd1d4d5f） | approved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |

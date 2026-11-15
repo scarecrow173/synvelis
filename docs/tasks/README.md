@@ -216,6 +216,7 @@ Directory: `docs/tasks`
 | TASK-hSG0A7xXhnXVL7exOdhVuV | SV175-01: NativeShell・ViewBinding・native feature lane 実装 | done | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TASK-pIf6c5QRXRonGNwoqfvJgY | SV175-02: Native view mount — 最小 Tab/Panel/Fader 縦slice | done | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TASK-034T7IgIHI7umPL7xCvU3u | SV177 theme crate + preset module implementation | done | [sv177-theme-preset-impl.md](./sv177-theme-preset-impl.md) |
+| TASK-zNmgZzwxOh9fJPWJTLu5Un | SV#28 Ruviform pin を ac10a2f7 へ更新し検証を完了する | done | [sv28-ruviform-pin-ac10a2f7.md](./sv28-ruviform-pin-ac10a2f7.md) |
 | TASK-034VocaCYmo2jkluo0P1eY | SV#28 Ruviform pin を b02942c2 へ更新し検証を完了する | done | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | TASK-ytgLcFdP0Y0EeeQKr0JW9t | SV#28 Ruviform pin を fd1d4d5f へ更新し検証を完了する | done | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | TASK-DqvyFE4jtl1dHhjkpI0Awe | SV#28 Ruviform pin を cc7d5296 へ更新し API 追従・検証を完了する | done | [sv28-ruviform-pin-update.md](./sv28-ruviform-pin-update.md) |
