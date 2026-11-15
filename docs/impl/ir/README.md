@@ -170,6 +170,7 @@ Directory: `docs/impl/ir`
 | IMPL-034X9Ln9ARL8qEXoWVpZcz | Issue #4 Signal Flow 設計正本 — 文書チェーンと証拠の作成 | completed | [signal-flow-design.md](./signal-flow-design.md) |
 | IMPL-034X5H2u7vD5H929MaHV8N | Issue #84 StagedFile Migration — 証拠統合・受入検証 slice 実装記録 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |
 | IMPL-034Ug8sNPL1sqhquNm1PYh | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 API 追従 | completed | [sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md](./sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md) |
+| IMPL-9lysTGra2gwN96PqkF09YI | SV#28 Ruviform pin 更新 — fd1d4d5f → ac10a2f7 API 追従評価 | completed | [sv-28-ruviform-pin-ac10a2f7.md](./sv-28-ruviform-pin-ac10a2f7.md) |
 | IMPL-034VocnpYlIXEqErLG2I5w | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 API 追従 | completed | [sv-28-ruviform-pin-b02942c2.md](./sv-28-ruviform-pin-b02942c2.md) |
 | IMPL-VvBJRLqOSjnq3Pv2b4D1aO | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f API 追従 | completed | [sv-28-ruviform-pin-fd1d4d5f.md](./sv-28-ruviform-pin-fd1d4d5f.md) |
 | IMPL-p1XVD7cITxEvasi3u5lh9F | Issue #245 webdav MockServer TransientIo flake — accept 済みソケット blocking 正規化 slice | completed | [sv-ci-webdav-transient-io-flake-slice.md](./sv-ci-webdav-transient-io-flake-slice.md) |
