@@ -133,7 +133,7 @@ pub struct CommandSpec {
     pub required_domain: Option<SelectionDomain>,
 }
 
-/// The command vocabulary (WS-A + ED-A additions).
+/// The command vocabulary (WS-A + ED-A + SV-GUI-03-06 contract ids).
 ///
 /// - `clip.remove` / `clip.mute` — editing, destructive / flag-set,
 ///   resolve in the `Clips` domain only.
@@ -142,10 +142,23 @@ pub struct CommandSpec {
 ///   `LaneScope` (the explicit range-delete command; a time
 ///   selection alone never maps onto object deletion).
 /// - `edit.undo` / `edit.redo` — undo lane, input-context routed.
+/// - `edit.delete` / `edit.copy` / `edit.paste` — editing, contract
+///   ids from the sv-gui-03-06 catalog. `edit.delete` resolves only
+///   the `Clips` domain (to the `clip.remove` path); copy/paste have
+///   no clipboard lane yet and resolve `Unresolved`.
 /// - `tool.activate` — view-local, `arg` names the tool.
 /// - `project.rename` — project mutation, no entity target.
+/// - `project.save` / `project.export` — project-level contract ids;
+///   no workspace save/export op exists yet, so they resolve
+///   `Unresolved` rather than faking success.
 /// - `transport.play` / `transport.stop` — transport.
+/// - `transport.toggle` / `transport.stop-return` / `transport.record`
+///   — transport contract ids. `toggle` resolves to play/stop from
+///   the live transport state; `stop-return` and `record` have no
+///   session API yet and resolve `Unresolved`.
 /// - `view.activate` — view-local tab activation.
+/// - `view.zoom-in` / `view.zoom-out` / `view.scroll-{left,right,up,down}`
+///   — view-local viewport mutations on the origin view.
 /// - `app.quit` — application.
 #[must_use]
 pub fn spec_for(id: &str) -> Option<CommandSpec> {
@@ -153,10 +166,18 @@ pub fn spec_for(id: &str) -> Option<CommandSpec> {
         "clip.remove" | "clip.mute" => (CommandKind::Editing, true, Some(SelectionDomain::Clips)),
         "clips.delete-range" => (CommandKind::Editing, false, None),
         "edit.undo" | "edit.redo" => (CommandKind::Undo, false, None),
-        "tool.activate" => (CommandKind::View, false, None),
-        "project.rename" => (CommandKind::Project, false, None),
-        "transport.play" | "transport.stop" => (CommandKind::Transport, false, None),
+        "edit.delete" | "edit.copy" | "edit.paste" => (CommandKind::Editing, true, None),
+        "project.rename" | "project.save" | "project.export" => (CommandKind::Project, false, None),
+        "transport.play"
+        | "transport.stop"
+        | "transport.toggle"
+        | "transport.stop-return"
+        | "transport.record" => (CommandKind::Transport, false, None),
         "view.activate" => (CommandKind::View, true, None),
+        "tool.activate" | "view.zoom-in" | "view.zoom-out" | "view.scroll-left"
+        | "view.scroll-right" | "view.scroll-up" | "view.scroll-down" => {
+            (CommandKind::View, false, None)
+        }
         "app.quit" => (CommandKind::Application, false, None),
         _ => return None,
     };
