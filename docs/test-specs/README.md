@@ -237,11 +237,6 @@ Directory: `docs/test-specs`
 | TSPEC-034QwZT6kAhQwa2bRBkZyu | WS-A 検証仕様 — Multi-View/LinkGroup/Command/Dock headless 受入 | approved | [ws-a-e2e-workspace-foundation.md](./ws-a-e2e-workspace-foundation.md) |
 | TSPEC-zzdcoJZ1siQdbof0DBfv5l | X 検証仕様 — Recorded Source→Generic Playback/Export・Frame/ID/Content integrity | approved | [x-e2e-recorded-source-playback-export.md](./x-e2e-recorded-source-playback-export.md) |
 
-<<<<<<< HEAD
-| TSPEC-034XO3CeEjpQyb1MNDayVm | CB-09 Difference Explorer headless view-model + driver-neutral ViewSpec | draft | [cb-09-diff-explorer.md](./cb-09-diff-explorer.md) |
-=======
-| TSPEC-034XNnfbnwSCTXarhURIQx | CB-11 Creative Branch 7領域 cross-gate — headless coverage inventory・evidence ledger・runnable subset | draft | [cb-11-cross-gate.md](./cb-11-cross-gate.md) |
->>>>>>> origin/main
 | TSPEC-m5UJFsYVE3wcIp2bbhjQ6C | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 検証仕様 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | TSPEC-034RoWXtHq8FkSjQ9NWwqn | Synvelis 独立 CI ワークフロー検証仕様 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
 | TSPEC-034X9hRV8Ud0Ty0IZllwy5 | Capability / Command Gateway G0-G6 受入照合 検証仕様 (synvelis#46) | approved | [command-gateway-gates.md](./command-gateway-gates.md) |
