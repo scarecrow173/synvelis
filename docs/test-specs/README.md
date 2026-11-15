@@ -30,6 +30,7 @@ Directory: `docs/test-specs`
 | TSPEC-7kQm2XvB9pLw4RtY6uN3sD | AUTX-05 Workflow DSL v1 — YAML safe subset・typed definition・static plan compile invariants | approved | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
 | TSPEC-Mx7rT2vQ8wN4kP6yB1dF3h | AUTX-06 Workflow Coordinator — Run/Step FSM・journal replay・cancel/resume fault matrix | approved | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | TSPEC-AUTX07GuiViewsHeadless | AUTX-07 GUI views headless test spec（synvelis#266） | approved | [autx-07-gui-views.md](./autx-07-gui-views.md) |
+| TSPEC-034XKoUXUzjsrGD2SvedHg | AUTX-07 theme status tokens + Script Editor parity test spec（synvelis#266 SV266-NR-02/03） | approved | [autx-07-theme-parity.md](./autx-07-theme-parity.md) |
 | TSPEC-cb01VariantSetFixtureT | CB-01 Creative Branch variant model/controller fixture tests | approved | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | TSPEC-cb02AudioClipTakeCompT | CB-02 Audio Clip/Take/Comp 候補 Adapter fixture tests | approved | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |
 | TSPEC-034XkQVtkDaUEeWhxjkiAf | CB-03 MIDI Clip/Source 候補 Adapter fixture tests | approved | [cb-03-midi-clip-adapter.md](./cb-03-midi-clip-adapter.md) |

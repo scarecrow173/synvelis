@@ -12,8 +12,9 @@
 use std::path::PathBuf;
 
 use synvelis_theme::{
-    DocumentLayer, ProblemKind, ResolveError, ThemeCatalog, ThemeError, ThemePreferences,
-    ThemeSelection, TokenDocument, TokenError, load_dir, load_document, resolve_documents,
+    DocumentLayer, ProblemKind, ResolveError, ResolvedColor, StatusTone, ThemeCatalog, ThemeError,
+    ThemePreferences, ThemeSelection, TokenDocument, TokenError, load_dir, load_document,
+    resolve_documents,
 };
 
 fn fixture(name: &str) -> String {
@@ -143,6 +144,48 @@ fn shipped_assets_resolve_for_every_mode_density_pair() {
     assert_eq!(seen_bg[0], seen_bg[1], "density must not recolor");
     assert_eq!(seen_bg[2], seen_bg[3], "density must not recolor");
     assert_ne!(seen_bg[0], seen_bg[2], "dark and light differ");
+}
+
+#[test]
+fn shipped_assets_resolve_every_status_tone_for_every_mode_density_pair() {
+    // AUTX-07 / SV266-NR-03: every `StatusTone` token path must resolve
+    // as `color.{path}` through the shipped product documents for all
+    // four mode×density selections. `StatusTone::ALL` is the vocabulary
+    // authority — the scan follows future tone additions without a
+    // hardcoded count.
+    let catalog = shipped_catalog();
+    let mut mode_ramps: Vec<Vec<ResolvedColor>> = Vec::new();
+    for mode in ["dark", "light"] {
+        let mut per_density: [Vec<ResolvedColor>; 2] = [Vec::new(), Vec::new()];
+        for (d_idx, density) in ["compact", "comfortable"].iter().enumerate() {
+            let theme = catalog
+                .resolve(&selection(mode, density))
+                .unwrap_or_else(|e| panic!("{mode}/{density}: {e}"));
+            for tone in StatusTone::ALL {
+                let path = format!("color.{}", tone.token_path());
+                let color = theme
+                    .color(&path)
+                    .unwrap_or_else(|| panic!("{mode}/{density}: {path} unresolved"));
+                per_density[d_idx].push(color);
+            }
+        }
+        // Density documents carry no `color` group — the resolved
+        // status ramp must be identical across densities within a mode.
+        assert_eq!(
+            per_density[0], per_density[1],
+            "{mode}: density must not recolor status tokens"
+        );
+        mode_ramps.push(per_density[0].clone());
+    }
+    // The mode documents own mode-adapted status ramps: the resolved
+    // value sets must differ between dark and light. Per-token equality
+    // stays legal for genuinely mode-invariant values — the contract
+    // is that the ramp as a whole is mode-owned, not that every tone
+    // differs.
+    assert_ne!(
+        mode_ramps[0], mode_ramps[1],
+        "dark and light status ramps differ"
+    );
 }
 
 #[test]
