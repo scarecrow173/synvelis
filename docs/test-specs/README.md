@@ -112,6 +112,7 @@ Directory: `docs/test-specs`
 | TSPEC-034WEVqv4ZmteepjgHJGUL | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID test spec | approved | [rcd-04-midi-undo-stableid.md](./rcd-04-midi-undo-stableid.md) |
 | TSPEC-034VmO7ak9xboyiIKIf80v | RCD-04 product E2E test spec | approved | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | TSPEC-034VC3cbBMDP6D1WnhLGlh | RCD-04 RT engine comp PCM test spec | approved | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
+| TSPEC-034XJDBoNrTZPeWp6kZe5c | RCD-F02 Advanced Monitoring / Overdub / Pre-Punch Handles — Fixture 契約・受入検証仕様（synvelis#120） | approved | [rcd-f02-monitoring-overdub.md](./rcd-f02-monitoring-overdub.md) |
 | TSPEC-rcp01RenderRecipeTests | RCP-01 Canonical Render Recipe / typed dependency closure / temporal invalidation fixture tests | approved | [rcp-01-render-recipe.md](./rcp-01-render-recipe.md) |
 | TSPEC-Rcp02ArtifactManifestX | RCP-02 Immutable Artifact Manifest / Verified Publish / CAS GC / shared verification fixture tests | approved | [rcp-02-artifact-manifest.md](./rcp-02-artifact-manifest.md) |
 | TSPEC-Rcp03RenderPolicyTestX | RCP-03 Render Policy / Save・Commit・Share Trigger / Async Job orchestration / Completeness verdict fixture tests | approved | [rcp-03-render-policy.md](./rcp-03-render-policy.md) |

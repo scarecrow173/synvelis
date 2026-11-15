@@ -140,6 +140,7 @@ Directory: `docs/impl/ir`
 | IMPL-034V6MHZ91AdEfrxqsFgLC | RCD-03 Monitoring/Punch/Latency 意味論 crate 内完結 slice 実装記録 | completed | [rcd-03-monitoring-punch-latency-crate-slice.md](./rcd-03-monitoring-punch-latency-crate-slice.md) |
 | IMPL-034VDfqOMnbp5s6CThZTBe | RCD-03 VCS semantic diff monitor 宣言分類 slice 実装記録 | completed | [rcd-03-vcs-diff-monitor-classification-slice.md](./rcd-03-vcs-diff-monitor-classification-slice.md) |
 | IMPL-034UvMC7UhiwWgHviB9Qnv | RCD-04 Comp Transition / MIDI Phrase crate fixture slice 実装記録 | completed | [rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md](./rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md) |
+| IMPL-034XJDNpQ0olm26HvRkxuW | RCD-F02 Advanced Monitoring / Overdub / Pre-Punch Handles — 実施記録（synvelis#120 docs-only slice） | completed | [rcd-f02-monitoring-overdub.md](./rcd-f02-monitoring-overdub.md) |
 | IMPL-rcp01-render-recipe | RCP-01 Canonical Render Recipe・Typed Dependency Closure・Temporal Invalidation — Headless スライス | completed | [rcp-01-render-recipe.md](./rcp-01-render-recipe.md) |
 | IMPL-rcp02-artifact-manifest | RCP-02 Immutable Artifact Manifest・Verified Publish・CAS参照/GC・共有検証 — Headless スライス | completed | [rcp-02-artifact-manifest.md](./rcp-02-artifact-manifest.md) |
 | IMPL-rcp03-render-policy | RCP-03 Render Policy・Save/Commit/Share Trigger・Async Job/Completeness — Headless スライス | completed | [rcp-03-render-policy.md](./rcp-03-render-policy.md) |

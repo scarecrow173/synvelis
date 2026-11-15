@@ -175,6 +175,7 @@ Directory: `docs/tasks`
 | TASK-034VpQe0nP5xQ2wU7vB9xM | RCD-03 Task1 Arm/Monitor/Punch Project 永続投影 | done | [rcd-03-task1-monitor-persistence.md](./rcd-03-task1-monitor-persistence.md) |
 | TASK-034UtpBjTeXJ6XSJAMupsv | RCD-03 Task1 Monitor/Punch/Latency semantics | done | [rcd-03-task1-monitor-punch-latency.md](./rcd-03-task1-monitor-punch-latency.md) |
 | TASK-RCD04Fx1kE5tY8uI3oP6aS9 | RCD-04 Task1 Comp Transition / MIDI Phrase crate fixture slice | done | [rcd-04-task1-comp-midi-fixture.md](./rcd-04-task1-comp-midi-fixture.md) |
+| TASK-034XJDw7QIooVc0kaaWeA9 | RCD-F02 Advanced Monitoring / Overdub / Pre-Punch Handles — 文書チェーン・ADR 合意タスク（synvelis#120） | done | [rcd-f02-monitoring-overdub.md](./rcd-f02-monitoring-overdub.md) |
 | TASK-034SF01Pr2uVw7xY4zAbCdFgH | SF-01: RoutingModel 型・oracle・Schema v6 Migration・ops・検証 | done | [sf-01-task1-routing-model-schema-migration.md](./sf-01-task1-routing-model-schema-migration.md) |
 | TASK-034SF02Yb2tQr9sV2xD7eFhIj | SF-02 T1 — RoutingTransaction/TempRef staging・channels・mute/solo authority・汎用検証投影 | done | [sf-02-task1-routing-transaction-staging-model.md](./sf-02-task1-routing-transaction-staging-model.md) |
 | TASK-034SF02Zc3uRs0tW3yE8fGiJk | SF-02 T2 — 受入/Reject/不変/Undo 契約テストと canonical 検証 | done | [sf-02-task2-validation-acceptance-tests.md](./sf-02-task2-validation-acceptance-tests.md) |
