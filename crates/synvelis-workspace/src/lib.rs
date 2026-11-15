@@ -27,6 +27,7 @@ pub mod focus;
 pub mod gateway_ui;
 pub mod gesture;
 pub mod host;
+pub mod keymap;
 pub mod link;
 pub mod persist;
 pub mod ppqn_ui;
@@ -98,6 +99,10 @@ pub use gateway_ui::{
 };
 pub use gesture::{CancelReason, Gesture, GestureFixation, GestureOutcome, GesturePreview};
 pub use host::FakeWindowHost;
+pub use keymap::{
+    BindRejection, Binding, Key, KeyChord, KeyOutcome, KeyStroke, Keymap, LogicalModifiers,
+    MenuCoverage, MenuSurface, OsFamily, PhysicalModifiers, menu_coverage,
+};
 pub use link::{LinkEvent, LinkGroupId, LinkGroupManager};
 pub use persist::{WORKSPACE_SCHEMA, WorkspaceSnapshot};
 pub use ppqn_ui::{
