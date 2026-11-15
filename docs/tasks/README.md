@@ -27,9 +27,7 @@ Directory: `docs/tasks`
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
 | TASK-mr20261114mediaRenderB | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 設計契約文書化 (synvelis#21) | in-progress | [media-render-task.md](./media-render-task.md) |
 | TASK-P1ub1PJgLQhinQuEDIDy8S | PC-C3 task2 — synvelis-player RT trace adapter 実装（TRACE-C3-05） | in-progress | [pc-c3-task2-rt-trace-adapter.md](./pc-c3-task2-rt-trace-adapter.md) |
-| TASK-gH5lLpWnYI2KFNM99SswOf | PC-C4-02 task1 — plugin instance binding 実装 | in-progress | [pc-c4-02-task1-plugin-instance-binding.md](./pc-c4-02-task1-plugin-instance-binding.md) |
 | TASK-b2e5a8c1f4d90736e5b2a8c2d4e6f7a | PC-C4 observe engine wiring task1 — observe_block の engine-driver 配線 | completed | [pc-c4-observe-engine-wiring-task.md](./pc-c4-observe-engine-wiring-task.md) |
-| TASK-heuaegDgtyVrPGdnyMJko1 | PC-C4 plugin binding task1 — persisted instance authority の bind 照合 | in-progress | [pc-c4-plugin-binding-task.md](./pc-c4-plugin-binding-task.md) |
 | TASK-wl7Q7EP5HpNVOP8NAdEB7a | PC-C6: REL01〜07 / TR01〜08 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rel-tr.md](./pc-c6-task1-oracle-rel-tr.md) |
 | TASK-034VmVPWtNFIg5zO3xaDsP | PC-C6: R01〜R08 / PL01〜PL08 / UI01〜UI07 / COMP01〜COMP05 headless oracle fixture 実装タスク | in-progress | [pc-c6-task1-oracle-rows.md](./pc-c6-task1-oracle-rows.md) |
 | TASK-034X6XdaPIa6eFgvfVs5QC | Playback Graph Task — Issue #18 design contract + EX evidence ledger | in-progress | [playback-graph-task.md](./playback-graph-task.md) |
@@ -38,7 +36,6 @@ Directory: `docs/tasks`
 | TASK-034W91vSDozzYDSG2XM7je | RCD-01 実機 capture coverage 拡張 task | completed | [rcd-01-real-input-coverage-task.md](./rcd-01-real-input-coverage-task.md) |
 | TASK-LRVMzVtzazw5gBnDcKYhLk | RCD-01 Task — input adapter + fake port 検証 | in_progress | [rcd-01-task1-input-adapter-fake-port.md](./rcd-01-task1-input-adapter-fake-port.md) |
 | TASK-GJlWE8j5emvVOKFMtbTXHR | RCD-01 Task — 実Audio Device 到達準備（stamp placement fallback + real backend 配線） | completed | [rcd-01-task1-real-backend-readiness.md](./rcd-01-task1-real-backend-readiness.md) |
-| TASK-034VpnH7YtacCiCUD4y9fu | RCD-02 Task3 StagedFile Publish Migration | in-progress | [rcd-02-task3-stagedfile-publish-migration.md](./rcd-02-task3-stagedfile-publish-migration.md) |
 | TASK-034X1GJrKQRwmioEuJ4m78 | RCD-03 monitor/punch fake session fixture | completed | [rcd-03-monitor-punch-task.md](./rcd-03-monitor-punch-task.md) |
 | TASK-034WCx98h2mIsDpZJrrBkC | RCD-03 monitor engine — implementation slice | completed | [rcd-03-task-monitor-engine.md](./rcd-03-task-monitor-engine.md) |
 | TASK-034VegaqbLjPWyJoFDrmhQ | RCD-03 Task2 app Arm/Monitoring UX + monitor session projection | in-progress | [rcd-03-task2-app-arm-monitoring-ux.md](./rcd-03-task2-app-arm-monitoring-ux.md) |
@@ -57,6 +54,7 @@ Directory: `docs/tasks`
 | TASK-034VpsGgHQsSoFmX1K61s3 | SF-04 slice5 T1 — probe subscriber/window ownership（session 層 lease・capture owner） | in-progress | [sf-04-slice5-task1-probe-subscriber-ownership.md](./sf-04-slice5-task1-probe-subscriber-ownership.md) |
 | TASK-9vK4mP2nQ8wX5zB7jH3fY6c | SF-04 slice8 タスク — SF-PROBE-05 fault fixtures + 不連続宣言点 | in_progress | [sf-04-slice8-probe-faults-declare-task.md](./sf-04-slice8-probe-faults-declare-task.md) |
 | TASK-wQ8xJkLmNrTyUiOpAsDfGh | SF-05 slice3 タスク分解 — probe subscriber/capture dedup の app/UI 配線 | in-progress | [sf-05-slice3-probe-subscriber-wiring.md](./sf-05-slice3-probe-subscriber-wiring.md) |
+| TASK-uivmJkLmNrTyUiOpAsDfGh | SF-05 ui/ slice タスク分解 — Signal Flow・Probe headless view-model consumer path | in-progress | [sf-05-ui-viewmodel.md](./sf-05-ui-viewmodel.md) |
 | TASK-G4oEdDOSfbQ4uy5d0HrbKh | SF-XR-01 — CTL-01/CTL-02 cross-gate oracle fixture 実装 task | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | TASK-034X9IBxPNjnO5mk3R7awi | Signal Flow 設計正本 — 文書チェーンと証拠の作成 | completed | [signal-flow-design-task.md](./signal-flow-design-task.md) |
 | TASK-034Ul52jO5RARmW21UHLGR | SV-GUI-03 slice1: Transport 操作 + Inspector 表示を既存 GPUI 経路に接続 | in-progress | [sv-gui-03-01-transport-inspector-slice1.md](./sv-gui-03-01-transport-inspector-slice1.md) |
@@ -70,6 +68,7 @@ Directory: `docs/tasks`
 | TASK-ibJUI1kRs2FdkuegWR0Ln7 | TIM-01 PPQN config — punch marks 再投影と受入残件検証タスク | in-progress | [tim-01-ppqn-config-task.md](./tim-01-ppqn-config-task.md) |
 | TASK-034XzQStcKCOQBnq9rBjtq | TIM-03 Loop/Tempo boundary 自動導出 — 実装タスク | in-progress | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
 | TASK-034X7xdqyxRcd5A5TSwmzT | Transport Integration Task — Issue #20 design contract + TT evidence ledger | in-progress | [transport-integration-task.md](./transport-integration-task.md) |
+| TASK-034XGAb53fij7Xn1AyjwnA | variant_sets VCS semantic diff 分類 | completed | [variant-sets-vcs-diff.md](./variant-sets-vcs-diff.md) |
 | TASK-034UAAcPSS47j6GIlPGPrX | VCS-01 Task1 Immutable Snapshot Resolver headless slice | in-progress | [vcs-01-task1-immutable-snapshot-resolver-headless-slice.md](./vcs-01-task1-immutable-snapshot-resolver-headless-slice.md) |
 | TASK-vcs05-plugin-instance-apply | VCS-05 PluginInstance apply surface 拡張 task | in-progress | [vcs-05-plugin-instance-apply-task.md](./vcs-05-plugin-instance-apply-task.md) |
 | TASK-vcs06-fixture-fault-matrix | VCS-06 fixture-level fault matrix + evidence ledger | in-progress | [vcs-06-fixture-fault-matrix.md](./vcs-06-fixture-fault-matrix.md) |
@@ -146,13 +145,16 @@ Directory: `docs/tasks`
 | TASK-034RoXjRUKOjib6ULatmIn | PC-C1: prepare/apply/finalize 実装タスク | done | [pc-c1-task1-prepare-apply-finalize.md](./pc-c1-task1-prepare-apply-finalize.md) |
 | TASK-034Upd3TZPjW8QcMPatmyb | PC-C2: Control Relation Index/Projection 実装タスク | done | [pc-c2-task1-relation-index.md](./pc-c2-task1-relation-index.md) |
 | TASK-034UquDG2pRhDCtpLYPhPi | PC-C3: ControlTrace projection 実装タスク | done | [pc-c3-task1-control-trace.md](./pc-c3-task1-control-trace.md) |
+| TASK-gH5lLpWnYI2KFNM99SswOf | PC-C4-02 task1 — plugin instance binding 実装 | done | [pc-c4-02-task1-plugin-instance-binding.md](./pc-c4-02-task1-plugin-instance-binding.md) |
 | TASK-PCc4030bs3vN1pQ8wXyZ2aE | PC-C4-03 task1 — reported observation 消費 実装 | done | [pc-c4-03-task1-param-observation.md](./pc-c4-03-task1-param-observation.md) |
 | TASK-PCc4040bs3vN1pQ8wXyZ2aE | PC-C4-04 task1 — workspace/app composition 実装 | done | [pc-c4-04-task1-app-composition.md](./pc-c4-04-task1-app-composition.md) |
 | TASK-034VvIOJTIiu4YPdKizKEx | PC-C4-05 task1 — persisted StablePluginInstanceId 実装 | done | [pc-c4-05-task1-persisted-instance-id.md](./pc-c4-05-task1-persisted-instance-id.md) |
 | TASK-7c4e9a1b2d3f4e5a6b7c8f0a2b3 | PC-C4-06 task1 — syn.control.* control op surface 実装 | done | [pc-c4-06-control-op-surface-task.md](./pc-c4-06-control-op-surface-task.md) |
 | TASK-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b3c | PC-C4-07 transport mirror + observe_block + capability rebind | done | [pc-c4-07-transport-mirror-observe-task.md](./pc-c4-07-transport-mirror-observe-task.md) |
 | TASK-a1d4f7c2e9b30586d1a4f7c2f0a2 | PC-C4 drain composition task1 — drain 周期配線・production composition root | done | [pc-c4-drain-composition-task.md](./pc-c4-drain-composition-task.md) |
+| TASK-heuaegDgtyVrPGdnyMJko1 | PC-C4 plugin binding task1 — persisted instance authority の bind 照合 | done | [pc-c4-plugin-binding-task.md](./pc-c4-plugin-binding-task.md) |
 | TASK-034Uw8yD0eUlCZJ2VqMd2P | PC-C4 task1 — plugin param binding 実装 | done | [pc-c4-task1-plugin-param-binding.md](./pc-c4-task1-plugin-param-binding.md) |
+| TASK-034XHDJqlIjGWpY91oE0nE | PC-C4 webview composition task1 — synvelis.rs engine attach + stale status 簿記 | done | [pc-c4-webview-composition.md](./pc-c4-webview-composition.md) |
 | TASK-cAUaOASUPxzyVShIpOO7yi | PC-C5 slice1 タスク分解 — Relation Index の Inspector 投影（UI-C5-01・headless） | done | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | TASK-034UxYCkPWXOotRSbjIPex | PC-C5 slice2 タスク分解 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | done | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | TASK-034WaQD0ytfaRVbcWofg2n | PC-C5 slice4 タスク分解 — Recording status read model（UI-C5-04・headless） | done | [pc-c5-04-recording-status.md](./pc-c5-04-recording-status.md) |
@@ -161,9 +163,12 @@ Directory: `docs/tasks`
 | TASK-034VNs3KBar3pyoUwECyIh | plugin_instances VCS semantic diff 分類 | done | [plugin-instances-vcs-diff-task.md](./plugin-instances-vcs-diff-task.md) |
 | TASK-034X3k0wEnZD3OtrbVBneg | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画タスク | done | [product-value-core-task.md](./product-value-core-task.md) |
 | TASK-034X6NYGLBArth4EII4yl9 | Project / Asset / Persistence — 設計契約文書チェーン実装タスク（synvelis#17） | done | [project-persistence-task.md](./project-persistence-task.md) |
+| TASK-AUD8AWTXpU1EXRd0Jbf7ts | RCD-01 Virtual L1 Oracle — synvelis#115 Option A slice | done | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
+| TASK-034XHPOcaY2TsdPi7kkJte | RCD-02 residual closeout — Issue #116 AC 照合・canonical lane 実測・証拠固定・簿記 drift 修正 | done | [rcd-02-residual-closeout.md](./rcd-02-residual-closeout.md) |
 | TASK-2Ri1ehmSIXwfHO79pHYSiU | RCD-02 Task Unsynced-Write Loss Fixture + Real-FS Probe | done | [rcd-02-task-unsynced-loss-real-fs-probe.md](./rcd-02-task-unsynced-loss-real-fs-probe.md) |
 | TASK-034UrlZ4TNqATDPM8UO4Cd | RCD-02 Task1 Durability Evidence / Recovery Review / Commit Receipt | done | [rcd-02-task1-durability-evidence-recovery-review.md](./rcd-02-task1-durability-evidence-recovery-review.md) |
 | TASK-034UMa7Lwxo6NvKrTf601Q | RCD-02 Task2 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | done | [rcd-02-task2-project-library-adapter.md](./rcd-02-task2-project-library-adapter.md) |
+| TASK-034VpnH7YtacCiCUD4y9fu | RCD-02 Task3 StagedFile Publish Migration | done | [rcd-02-task3-stagedfile-publish-migration.md](./rcd-02-task3-stagedfile-publish-migration.md) |
 | TASK-r2UgyGsdhNOwpsUcfgfvuM | RCD-02 Task4 Blob SHA-256 Promotion | done | [rcd-02-task4-blob-sha256.md](./rcd-02-task4-blob-sha256.md) |
 | TASK-034XCSySHeHzz9kpi5K0V8 | RCD-03 monitor session UX task | done | [rcd-03-monitor-session-ux.md](./rcd-03-monitor-session-ux.md) |
 | TASK-leaTVahsznfck7liCrDtL6 | RCD-03 Task VCS semantic diff monitor 宣言分類 | done | [rcd-03-task-vcs-diff-monitor-classification.md](./rcd-03-task-vcs-diff-monitor-classification.md) |
@@ -243,6 +248,7 @@ Directory: `docs/tasks`
 | TASK-034gOTXfiNaCeDRTpeP2x | TIM-03 task3 — per-request plan wiring + precision provenance（ProcessBoundarySession） | done | [tim03-task3-request-plan.md](./tim03-task3-request-plan.md) |
 | TASK-Nw48LwleZYov2jWLb0O7Vg | Timeline Editing / Selection / Tool System — 設計文書チェーン作成（synvelis#11） | done | [timeline-editing-task.md](./timeline-editing-task.md) |
 | TASK-102UiCfInt004DdEeFfGgH | UI-C5 製品 GUI 統合タスク — syn.control.relation / syn.control.edge / syn.recording.* | done | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
+| TASK-034XI5DO7WZZ6NGhbhBooM | variant_sets restore-as-copy origin identity 修復 | done | [variant-sets-vcs-restore.md](./variant-sets-vcs-restore.md) |
 | TASK-034UEtaHWZFrCd1VFAIRfl | VCS-02 Task1 Semantic Diff Engine headless slice | done | [vcs-02-task1-semantic-diff-engine-headless-slice.md](./vcs-02-task1-semantic-diff-engine-headless-slice.md) |
 | TASK-v2hQAN1hrbnURHHF2lrf6L | VCS-03 Task1 Git Read Provider headless slice | done | [vcs-03-task1-git-read-provider-headless-slice.md](./vcs-03-task1-git-read-provider-headless-slice.md) |
 | TASK-QDa6_9HNOZ3w0cse6y4ih | GitVcsProvider rev-parse --quiet 除去による unborn HEAD 誤分類修正 + 回帰 test | done | [vcs-03-unborn-head-classification-task.md](./vcs-03-unborn-head-classification-task.md) |

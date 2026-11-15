@@ -56,6 +56,7 @@ Directory: `docs/plans`
 | PLAN-b2e5a8c1f4d90736e5b2a8c1d4e5f | PC-C4 observe engine wiring plan | approved | [pc-c4-observe-engine-wiring-plan.md](./pc-c4-observe-engine-wiring-plan.md) |
 | PLAN-jelz45WhvUPsZIVEaQyYpJ | PC-C4 plugin binding plan | approved | [pc-c4-plugin-binding-plan.md](./pc-c4-plugin-binding-plan.md) |
 | PLAN-034Uw6FgHg9gQJaig9NTBx | PC-C4 plugin parameter binding plan | approved | [pc-c4-plugin-param-binding.md](./pc-c4-plugin-param-binding.md) |
+| PLAN-034XHDyswoYugrRstusA6p | PC-C4 webview composition plan | approved | [pc-c4-webview-composition.md](./pc-c4-webview-composition.md) |
 | PLAN-g51ftjsIyEJb2fUNiBD22r | PC-C5 slice1 実施計画 — Relation Inspector 投影（UI-C5-01・headless） | approved | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | PLAN-034UxXVFIkzqs2eO4wcXo0 | PC-C5 slice2 実施計画 — Gesture 固定・stale drop・Inspector mode（UI-C5-02/03・headless） | approved | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | PLAN-034WaQlEhakW3yisBvWEHv | PC-C5 slice4 実施計画 — Recording status read model（UI-C5-04・headless） | approved | [pc-c5-04-recording-status.md](./pc-c5-04-recording-status.md) |
@@ -71,6 +72,7 @@ Directory: `docs/plans`
 | PLAN-0YNXPJ9xIQGrr00MWQc9aM | RCD-01 Input Adapter 実装計画（fake port 検証） | approved | [rcd-01-input-adapter.md](./rcd-01-input-adapter.md) |
 | PLAN-gpF9kWuFqfzFATeoPdxIGF | RCD-01 実Audio Device 到達準備 実装計画 — stamp placement fallback + real backend 配線 | approved | [rcd-01-real-backend-readiness-plan.md](./rcd-01-real-backend-readiness-plan.md) |
 | PLAN-034W91UxBVqeOCrJpWA1Gw | RCD-01 実機 capture coverage 拡張 plan | approved | [rcd-01-real-input-coverage-plan.md](./rcd-01-real-input-coverage-plan.md) |
+| PLAN-3ibVZ5odzisDWKe9oPD32D | RCD-01 Virtual L1 Oracle Plan | approved | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
 | PLAN-yI0tRFYPUF425trgH7V1QP | RCD-02 Blob SHA-256 Promotion Plan | approved | [rcd-02-blob-sha256-plan.md](./rcd-02-blob-sha256-plan.md) |
 | PLAN-034VpmToY7qmWuyovg4BmV | RCD-02 StagedFile Publish Migration Plan | approved | [rcd-02-stagedfile-publish-migration-plan.md](./rcd-02-stagedfile-publish-migration-plan.md) |
 | PLAN-SY804uxbfTEGFF4irB0NVO | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe Plan | approved | [rcd-02-unsynced-loss-real-fs-probe-plan.md](./rcd-02-unsynced-loss-real-fs-probe-plan.md) |
@@ -107,6 +109,7 @@ Directory: `docs/plans`
 | PLAN-034Uuhu2Eis7GPJ5fej73V | SF-05 slice1 実施計画 — Signal Flow headless | approved | [sf-05-slice1-signal-flow-headless.md](./sf-05-slice1-signal-flow-headless.md) |
 | PLAN-6xRqunIew52aqbQt4yZ3qy | SF-05 slice2 実施計画 — Signal Flow gesture/inspection/persist | approved | [sf-05-slice2-signal-flow-ux0307.md](./sf-05-slice2-signal-flow-ux0307.md) |
 | PLAN-dF3hNzQwErTyUiOpL6kMnB | SF-05 slice3 実施計画 — probe subscriber/capture dedup の app/UI 配線 | approved | [sf-05-slice3-probe-subscriber-wiring-plan.md](./sf-05-slice3-probe-subscriber-wiring-plan.md) |
+| PLAN-uivmPqRsTuVwXyZaBcDeFg | SF-05 ui/ slice 実施計画 — Signal Flow・Probe headless view-model consumer path | approved | [sf-05-ui-viewmodel.md](./sf-05-ui-viewmodel.md) |
 | PLAN-034V2wD3RqGEqlst7HFeVD | SF-06 cross-gate headless slice — Domain Oracle・Case registry・fault fixture・ledger | approved | [sf-06-cross-gate-oracle.md](./sf-06-cross-gate-oracle.md) |
 | PLAN-QRGcQW6CvUDaVfCwWADz2f | SF-XR-01 実装計画 — CTL-01/CTL-02 cross-gate oracle fixture | in-progress | [sfxr01-ctl-crossgate-oracle-fixture.md](./sfxr01-ctl-crossgate-oracle-fixture.md) |
 | PLAN-034X9HnJ3ksOwiuiGUkOTC | Signal Flow 設計正本 — 文書チェーンと証拠の作成 | approved | [signal-flow-design-plan.md](./signal-flow-design-plan.md) |
@@ -150,6 +153,8 @@ Directory: `docs/plans`
 | PLAN-uGKWo3QVS9uwBCoBMRyVGT | Timeline Editing / Selection / Tool System — 計画（synvelis#11） | approved | [timeline-editing.md](./timeline-editing.md) |
 | PLAN-034X7x2GLBkoA5kq6w2VxK | Transport Integration Plan — TT-001〜030 contract mapping + capability/degraded evidence ledger | in-progress | [transport-integration.md](./transport-integration.md) |
 | PLAN-102UiCfInt003CcDdEeFfG | UI-C5 製品 GUI 統合 実施計画 — syn.control.relation / syn.control.edge / syn.recording.* | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
+| PLAN-034XGQcU2c2ctkSQ1qVvWi | variant_sets VCS semantic diff 分類 slice | approved | [variant-sets-vcs-diff.md](./variant-sets-vcs-diff.md) |
+| PLAN-034XI5CIhuhflxLfURQcJq | variant_sets restore-as-copy origin identity 修復 slice | approved | [variant-sets-vcs-restore.md](./variant-sets-vcs-restore.md) |
 | PLAN-034UAzWU1ltpUXPw8mRuWd | VCS-01 Immutable Snapshot Resolver implementation plan | approved | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | PLAN-034UEufn0HEwKaQ2GRVCWB | VCS-02 Semantic Diff Engine implementation plan | approved | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
 | PLAN-D4Oqo3jPnK2GybwKhM5nwh | VCS-03 Git Read Provider implementation plan | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
@@ -192,6 +197,7 @@ Directory: `docs/plans`
 | PLAN-034PCB04Pk9ySt5zBcPdEf | PC-B Parameter Control dispatch/note-scope/RT/offline 実装計画 | completed | [pc-b-parameter-dispatch.md](./pc-b-parameter-dispatch.md) |
 | PLAN-034X3jT4T64MOzF6CbB2oy | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画 | completed | [product-value-core-plan.md](./product-value-core-plan.md) |
 | PLAN-034UrkBlTpaeiSGII0EyIi | RCD-02 Durability Evidence / Recovery Review / Commit Receipt slice | completed | [rcd-02-durability-recovery-review.md](./rcd-02-durability-recovery-review.md) |
+| PLAN-034XHOtc6Apy81qWgzzTph | RCD-02 residual closeout — Issue #116 AC 照合と証拠固定の実装計画 | completed | [rcd-02-residual-closeout.md](./rcd-02-residual-closeout.md) |
 | PLAN-034VoSKvu6PtN0qTGN02l3 | SF-03 slice8 — app/workspace same-Revision fixture plan | completed | [sf-03-slice8-revision-fixture-plan.md](./sf-03-slice8-revision-fixture-plan.md) |
 | PLAN-034VWvifs0UbP2Diwh0JiN | SF-03 slice9 — host capability generation live firing plan | completed | [sf-03-slice9-capability-firing-plan.md](./sf-03-slice9-capability-firing-plan.md) |
 | PLAN-034X5CZadqoSw73TKCY7cN | Issue #84 StagedFile Migration — 実装・証拠統合計画 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |

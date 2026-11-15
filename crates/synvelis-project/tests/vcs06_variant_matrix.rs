@@ -1,11 +1,11 @@
 //! VCS-06 (issue #97): variant-set fixture rows — schema v14
-//! `Project::variant_sets` (synvelis#278 Creative Branch) is a
-//! persisted domain with **no** `ObjectKind` variant kind and no
-//! `raw_kind_map` enumeration, so variant-only snapshot differences
-//! are invisible to `compare_snapshots` (the observed `Equal`/
-//! `Complete` result is pinned honestly — a known compare-surface
-//! gap, never promoted to `Pass`). `restore_as_copy` measured
-//! behavior for variant-set projects is recorded as observed.
+//! `Project::variant_sets` (synvelis#278 Creative Branch). Since
+//! synvelis#457 the variant model is a first-class VCS-02 compare
+//! surface (`ObjectKind::VariantSet`/`VariantBranch`, `Variants`
+//! domain, policy v4), so the diff rows assert typed changes; since
+//! synvelis#458 the `restore_as_copy` row asserts verbatim
+//! `variant_sets` preservation with source-project provenance
+//! (VCS-RESTORE-10 `Pass`).
 //!
 //! Same headless contract as the other `vcs06_*` matrices: real
 //! GUI/plugin/consumer lanes remain `NotRun`
@@ -25,7 +25,7 @@ use synvelis_project::ops::ProjectOp;
 use synvelis_project::project::Project;
 use synvelis_project::range::MusicalRange;
 use synvelis_project::restore::{
-    MissingAssetsPolicy, RestoreBlobSource, RestoreError, RestorePorts, RestoreRequest,
+    MissingAssetsPolicy, RestoreBlobSource, RestoreOutcome, RestorePorts, RestoreRequest,
     restore_as_copy,
 };
 use synvelis_project::snapshot::{
@@ -33,7 +33,7 @@ use synvelis_project::snapshot::{
     ImmutableSnapshot, ReadOnlyProjectProjection, SnapshotCancel, SnapshotCompleteness,
     SnapshotIdentity, SnapshotOrigin, SnapshotResolver, SnapshotValidation,
 };
-use synvelis_project::store::SCHEMA_VERSION;
+use synvelis_project::store::{SCHEMA_VERSION, SnapshotEnvelope};
 use synvelis_project::time::MusicalTick;
 use synvelis_project::variant::{
     AdoptIntent, AdoptSources, ArrangementDomainMask, FakeDomainAdapter, ForkReceipt,
@@ -250,19 +250,16 @@ fn variant_project() -> (
     (c, store, track, fork.variant_set, fork.candidate)
 }
 
-// ── VCS-DIFF-11: variant_sets compare-surface gap (honest pin) ───
+// ── VCS-DIFF-11: variant_sets compare surface (synvelis#457) ─────
 //
-// `Project::variant_sets` (schema v14) is persisted authored state
-// but has no `ObjectKind` and is absent from `raw_kind_map` and
-// every domain adapter's view. Snapshot pairs that differ *only*
-// in variant state therefore observe `Equal`/`Complete` — the
-// same misreport shape the plugin-instance gap had before
-// `ObjectKind::PluginInstance` was added (synvelis#324). These
-// tests pin the observed contract; they are evidence for the
-// ledger's `Blocked` row, not a `Pass` claim.
+// `Project::variant_sets` (schema v14) diffs as `VariantSet`
+// entities plus nested `VariantBranch` entities under the
+// `Variants` domain — the gap this row pinned before #457 (silent
+// `Equal`/`Complete`, silent drop in mixed diffs) is closed. The
+// detailed kind/field matrix lives in `vcs07_variant_diff.rs`.
 
 #[test]
-fn variant_set_presence_and_mutation_are_invisible_to_diff() {
+fn variant_set_presence_and_mutation_are_typed_changes() {
     let mut c = controller();
     apply_op(&mut c, ProjectOp::AddTrack { name: "vox".into() });
     let track = *c.live().tracks.keys().next().unwrap();
@@ -279,23 +276,37 @@ fn variant_set_presence_and_mutation_are_invisible_to_diff() {
     assert_eq!(forked.projection.project().variant_sets.len(), 1);
 
     // The persisted bytes genuinely differ — this is NOT the AA
-    // fast path; the adapters ran and still found nothing.
+    // fast path; the adapters ran and classified the insertion.
     assert_ne!(before.identity.digest, forked.identity.digest);
     assert_ne!(
         before.projection.project().variant_sets,
         forked.projection.project().variant_sets
     );
 
-    // KNOWN GAP — pinned observation, ledger `Blocked`: a real
-    // persisted variant-set insertion reports `Equal`/`Complete`.
+    // One `VariantSet` Added + two `VariantBranch` Added (adopted +
+    // candidate) — variant-only differences are typed changes.
     let cs = compare(&before, &forked);
-    assert_eq!(cs.overall, ComparisonEquality::Equal);
+    assert_eq!(cs.overall, ComparisonEquality::Different);
     assert_eq!(cs.completeness, ComparisonCompleteness::Complete);
-    assert_eq!(cs.changes.len(), 0);
     assert_eq!(cs.unresolved.len(), 0);
+    let set_adds: Vec<_> = cs
+        .changes
+        .iter()
+        .filter(|ch| ch.object.kind == ObjectKind::VariantSet)
+        .collect();
+    assert_eq!(set_adds.len(), 1);
+    assert_eq!(set_adds[0].kind, ChangeKind::Added);
+    let branch_adds: Vec<_> = cs
+        .changes
+        .iter()
+        .filter(|ch| ch.object.kind == ObjectKind::VariantBranch)
+        .collect();
+    assert_eq!(branch_adds.len(), 2);
+    assert!(branch_adds.iter().all(|ch| ch.kind == ChangeKind::Added));
 
     // Adopt rewrites set metadata (adopted pointer, frozen Captured
-    // branch ref, `last_adopt`, revision) — equally invisible.
+    // branch ref, `last_adopt`, revision) — a `Modified` set change
+    // plus `Replaced` branch content refs.
     adopt_branch_of(&mut c, &mut store, fork.variant_set, fork.candidate, &scope);
     let adopted = snap_live(&c);
     assert_ne!(forked.identity.digest, adopted.identity.digest);
@@ -304,14 +315,19 @@ fn variant_set_presence_and_mutation_are_invisible_to_diff() {
         adopted.projection.project().variant_sets
     );
     let cs = compare(&forked, &adopted);
-    assert_eq!(cs.overall, ComparisonEquality::Equal);
-    assert_eq!(cs.completeness, ComparisonCompleteness::Complete);
-    assert_eq!(cs.changes.len(), 0);
-    assert_eq!(cs.unresolved.len(), 0);
+    assert_eq!(cs.overall, ComparisonEquality::Different);
+    assert!(cs.changes.iter().any(|ch| {
+        ch.object.kind == ObjectKind::VariantSet
+            && ch.kind == ChangeKind::Modified
+            && fields_of(ch).contains(&"adopted")
+    }));
+    assert!(cs.changes.iter().any(|ch| {
+        ch.object.kind == ObjectKind::VariantBranch && ch.kind == ChangeKind::Replaced
+    }));
 }
 
 #[test]
-fn mixed_diff_reports_track_change_but_drops_variant_set() {
+fn mixed_diff_reports_track_and_variant_changes() {
     let (c, _store, track, _set, _branch) = variant_project();
     // `before` predates the variant set: rebuild the pre-fork state
     // by snapshotting a clone with `variant_sets` cleared — the
@@ -325,33 +341,45 @@ fn mixed_diff_reports_track_change_but_drops_variant_set() {
     after_project.tracks.get_mut(&track).unwrap().name = "renamed".into();
     let after = snap_manual(after_project, "var-after");
 
-    // Both deltas are real: variant_sets differ AND the track name
-    // differs — yet the ChangeSet reports only the Track change.
+    // Both deltas are real and BOTH are reported: the Track
+    // `Modified` plus the variant-set/branch insertions.
     assert_ne!(
         before.projection.project().variant_sets,
         after.projection.project().variant_sets
     );
     let cs = compare(&before, &after);
     assert_eq!(cs.overall, ComparisonEquality::Different);
-    assert_eq!(cs.changes.len(), 1);
-    assert_eq!(cs.changes[0].object.kind, ObjectKind::Track);
-    assert_eq!(cs.changes[0].kind, ChangeKind::Modified);
-    assert!(fields_of(&cs.changes[0]).contains(&"name"));
+    assert!(cs.changes.iter().any(|ch| {
+        ch.object.kind == ObjectKind::Track
+            && ch.kind == ChangeKind::Modified
+            && fields_of(ch).contains(&"name")
+    }));
+    assert!(
+        cs.changes
+            .iter()
+            .any(|ch| ch.object.kind == ObjectKind::VariantSet)
+    );
+    assert!(
+        cs.changes
+            .iter()
+            .any(|ch| ch.object.kind == ObjectKind::VariantBranch)
+    );
 }
 
-// ── VCS-RESTORE-10: variant_sets restore-as-copy (measured) ──────
+// ── VCS-RESTORE-10: variant_sets restore-as-copy (synvelis#458) ────
 //
 // `fork_project` clones the whole `Project` and renumbers only the
 // top-level `project_id`; nested `VariantSet::origin` /
 // `Branch::created_from` `SnapshotIdentity`s keep the *source*
-// project id verbatim. `validate_set_shape` then rejects the fork
-// (`origin belongs to a different project`) inside
-// `validate_staged`, so `restore_as_copy` fails closed with
-// `RestoreError::Validation` — staging retained, destination
-// absent. Recorded as measured `Fail` (capability gap), not Pass.
+// project id verbatim — authored provenance, never rewritten
+// (design `variant-sets-vcs-restore` D1–D3). The persisted/load
+// oracle (`validate_persisted`) accepts cross-project provenance
+// while the live `VariantOp::Fork` boundary keeps the same-project
+// rule, so `restore_as_copy` publishes and the envelope readback
+// proves `variant_sets` verbatim preservation.
 
 #[test]
-fn restore_as_copy_fails_closed_on_variant_set_origin_mismatch() {
+fn restore_as_copy_preserves_variant_sets_verbatim() {
     let (c, _store, _track, set, _branch) = variant_project();
     let snap = snap_live(&c);
     assert!(snap.projection.project().variant_sets.contains_key(&set));
@@ -367,36 +395,58 @@ fn restore_as_copy_fails_closed_on_variant_set_origin_mismatch() {
         storage: None,
     };
     let rev_before = c.live_revision();
-    let err = restore_as_copy(
+
+    let receipt = restore_as_copy(
         &request(snap, dest.clone(), "r-var"),
         &ports,
         &SnapshotCancel::new(),
     )
-    .unwrap_err();
+    .unwrap();
 
-    // Measured: staged-envelope readback validation rejects the
-    // forked project because variant-set origin identities still
-    // name the source project — fail-closed `Validation`, never a
-    // partial publish.
-    match &err {
-        RestoreError::Validation { detail } => {
-            assert!(
-                detail.contains("origin belongs to a different project"),
-                "unexpected validation detail: {detail}"
-            );
-        }
-        other => panic!("expected RestoreError::Validation, got {other:?}"),
-    }
-    assert!(!dest.exists(), "failed restore must not publish");
-    let staging = parent.join(".copy-var.restore-r-var");
-    assert!(
-        staging.exists(),
-        "failed restore keeps staging as the recovery record"
+    // Published: the staged-envelope readback validation accepts the
+    // forked project — variant provenance names the source project
+    // verbatim and is not a same-project violation at the persisted
+    // boundary (synvelis#458).
+    assert_eq!(receipt.outcome, RestoreOutcome::Published);
+    assert_eq!(receipt.new_project_id, ProjectId::new(777));
+    assert_eq!(receipt.source_project_id, c.live().project_id);
+    assert_eq!(receipt.stable_ids.counts.get("variant-set"), Some(&1));
+    assert_eq!(receipt.stable_ids.counts.get("branch"), Some(&2));
+
+    // Envelope readback: HEAD → snapshot → project.
+    let head = std::fs::read_to_string(dest.join("HEAD")).unwrap();
+    let snap_bytes = std::fs::read(dest.join("snapshots").join(head.trim())).unwrap();
+    let envelope: SnapshotEnvelope = serde_json::from_slice(&snap_bytes).unwrap();
+    assert_eq!(envelope.project_id, ProjectId::new(777));
+    assert_eq!(envelope.project.project_id, ProjectId::new(777));
+
+    // variant_sets verbatim: every issued VariantSetId/BranchId,
+    // branch/set revision, BranchContentRef, last_adopt and the
+    // origin/created_from provenance is preserved — only the
+    // top-level project_id was renumbered.
+    assert_eq!(
+        envelope.project.variant_sets,
+        c.live().variant_sets,
+        "variant_sets must survive restore-as-copy verbatim"
     );
+    let restored_set = &envelope.project.variant_sets[&set];
+    let source_set = &c.live().variant_sets[&set];
+    assert!(restored_set.last_adopt.is_some());
+    assert_eq!(restored_set.last_adopt, source_set.last_adopt);
+    // Provenance keeps naming the SOURCE project — preservation is
+    // the design intent, not rewrite (synvelis#458).
+    assert_eq!(restored_set.origin.project_id, c.live().project_id);
+    for branch in restored_set.branches.values() {
+        assert_eq!(branch.created_from.project_id, c.live().project_id);
+    }
+    // The published project passes the same load oracle `load`
+    // enforces — the copy is openable, not just publishable.
+    envelope.project.validate_references().unwrap();
+
     // Source invariance: restore consumed only the immutable
     // snapshot — the live controller and its variant set are
     // untouched.
-    assert!(c.live().variant_sets.contains_key(&set));
     assert_eq!(c.live_revision(), rev_before);
+    assert!(c.live().variant_sets.contains_key(&set));
     let _ = std::fs::remove_dir_all(&parent);
 }

@@ -185,3 +185,12 @@ manual task `test-recording-real-fs` を 1 件追加（既存
 lane ともに Windows/NTFS・rustc 1.99.0 で実行済み — canonical
 `mise run test` / `mise run test-recording-real-fs` の結果は PR
 本文に記録。
+
+---
+
+Closeout note (additive, synvelis#116 residual closeout slice,
+branch `scarecrow173/sv116-rcd02-closeout`): Issue #116 受入条件
+4 行と本 ledger + `evidence/sv116/rcd-02-blob-sha256-ledger.md`
+の fixture 参照・canonical lane 実測・残存外部 gate の 1:1
+照合は `evidence/sv116/rcd-02-closeout-verification.md` に集約
+した。本 ledger の既存記述は変更していない。

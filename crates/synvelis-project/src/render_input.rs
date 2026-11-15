@@ -587,6 +587,19 @@ fn canonical_special_entity_value(
                 .map(canonical_json)
                 .transpose()?
         }
+        ObjectKind::VariantBranch => {
+            let id = BranchId::from_tagged(&object.stable_id).map_err(|e| {
+                RenderInputError::Canonical {
+                    detail: format!("{}: {e}", object.stable_id),
+                }
+            })?;
+            project
+                .variant_sets
+                .values()
+                .find_map(|s| s.branches.get(&id))
+                .map(canonical_json)
+                .transpose()?
+        }
         _ => unreachable!("canonical_special_entity_value: non-special kind"),
     })
 }
@@ -667,10 +680,14 @@ fn canonical_keyed_entity_value(
         ObjectKind::PluginInstance => {
             keyed_value!(project.plugin_instances.instances, ProcessorId, object)
         }
+        ObjectKind::VariantSet => {
+            keyed_value!(project.variant_sets, VariantSetId, object)
+        }
         ObjectKind::Project
         | ObjectKind::RoutingModel
         | ObjectKind::PunchMarks
-        | ObjectKind::MidiNote => {
+        | ObjectKind::MidiNote
+        | ObjectKind::VariantBranch => {
             unreachable!("canonical_keyed_entity_value: special kind")
         }
     })
@@ -695,6 +712,7 @@ pub fn canonical_entity_value(
             | ObjectKind::RoutingModel
             | ObjectKind::PunchMarks
             | ObjectKind::MidiNote
+            | ObjectKind::VariantBranch
     );
     let mut value = if special {
         canonical_special_entity_value(project, object)?

@@ -82,6 +82,13 @@ describe("RF-GT wire conformance of the syn.* surface", () => {
       "syn.viz.register",
       "syn.viz.push_frame",
       "syn.viz.source_changed",
+      "syn.signal_flow.view",
+      "syn.signal_flow.visual",
+      "syn.signal_flow.inspection",
+      "syn.signal_flow.routing",
+      "syn.probe.control",
+      "syn.probe.state",
+      "syn.probe.compare",
     ];
     for (const op of ops) expect(validOp(op), op).toBe(true);
   });

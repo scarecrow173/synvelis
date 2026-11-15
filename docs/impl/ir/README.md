@@ -10,7 +10,6 @@ Directory: `docs/impl/ir`
 | IMPL-034Xe5swowhuVJIrpCp969 | AUTX-05 Workflow DSL v1 — typed definition and plan compiler | in-progress | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
 | IMPL-034XiNO9SadjRbTGExtQtw | AUTX-06 Workflow Coordinator — Run/Step FSM・Journal・Resume・JobPort fixture | in-progress | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | IMPL-034Xpa4SOZfOriBGBTfZdR | CB-06 Track/Bus 候補 Adapter — Strip Domain Mask・Routing参照保護・Adopt（synvelis#283） | in-progress | [cb-06-track-bus-adapter.md](./cb-06-track-bus-adapter.md) |
-| IMPL-034XB1Iadg6lT7Tracib0c | PC-C4 observe engine wiring — observe_block の engine-driver 配線 | in-progress | [pc-c4-observe-engine-wiring.md](./pc-c4-observe-engine-wiring.md) |
 | IMPL-034WEVyS44eEOELiBCYBIG | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice 実装記録 | in-progress | [rcd-04-midi-undo-stableid-slice.md](./rcd-04-midi-undo-stableid-slice.md) |
 | IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](./rcd-04-product-e2e-slice.md) |
 | IMPL-034VC2V5HUrkERcXqw246v | RCD-04 RT engine comp PCM slice 実装記録 | in-progress | [rcd-04-rt-engine-comp-pcm-slice.md](./rcd-04-rt-engine-comp-pcm-slice.md) |
@@ -18,6 +17,7 @@ Directory: `docs/impl/ir`
 | IMPL-034UL7HNJppFLqjkPqHDxX | SF-04 slice3 probe clock epoch discontinuity capture segmentation | in-progress | [sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md](./sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md) |
 | IMPL-034VpPQEAhdWyygKYS7mb9 | SF-04 slice5 probe subscriber window ownership | in-progress | [sf-04-slice5-probe-subscriber-window-ownership.md](./sf-04-slice5-probe-subscriber-window-ownership.md) |
 | IMPL-sf05s3probeShareWiring01 | SF-05 slice3 probe subscriber/capture dedup の app/UI 配線 | in-progress | [sf-05-slice3-probe-subscriber-wiring-slice.md](./sf-05-slice3-probe-subscriber-wiring-slice.md) |
+| IMPL-uivmSf05UiViewModel001 | SF-05 ui/ slice Signal Flow・Probe headless view-model consumer path | in-progress | [sf-05-ui-viewmodel.md](./sf-05-ui-viewmodel.md) |
 | IMPL-034Vzz1zYMrt96iWDBlii8 | SV-GUI-03 slice4: Arrangement row selection → Inspector + Meter/Waveform viz mount | in-progress | [sv-gui-03-04-selection-inspector-viz-slice.md](./sv-gui-03-04-selection-inspector-viz-slice.md) |
 | IMPL-Gh7uIo2pAs5dFg9hJk3lZx | SV-GUI-03 slice5: GPUI-simulated scenario lane(Fake/GPUI parity) | in-progress | [sv-gui-03-05-gpui-scenario.md](./sv-gui-03-05-gpui-scenario.md) |
 | IMPL-034WZR7KP4DOMwnoStw98I | TIM-01 PPQN config — punch marks re-projection and acceptance residual verification | in-progress | [tim-01-ppqn-config.md](./tim-01-ppqn-config.md) |
@@ -105,8 +105,10 @@ Directory: `docs/impl/ir`
 | IMPL-7c4e9a1b2d3f4e5a6b7c8f0a4b5 | PC-C4-06 control op surface — syn.control.* typed-evidence ops | completed | [pc-c4-06-control-op-surface.md](./pc-c4-06-control-op-surface.md) |
 | IMPL-7c4e9a1b2d3f4e5a6b7c8d9e0f1a2b3c4d5e | PC-C4-07 transport mirror + observe_block + capability rebind | completed | [pc-c4-07-transport-mirror-observe.md](./pc-c4-07-transport-mirror-observe.md) |
 | IMPL-a1d4f7c2e9b30586d1a4f7c2f0a4 | PC-C4 drain composition — drain_output_reports 周期配線と production composition root | completed | [pc-c4-drain-composition.md](./pc-c4-drain-composition.md) |
+| IMPL-034XB1Iadg6lT7Tracib0c | PC-C4 observe engine wiring — observe_block の engine-driver 配線 | completed | [pc-c4-observe-engine-wiring.md](./pc-c4-observe-engine-wiring.md) |
 | IMPL-1p5mZ4InpO2EeDDwvz9TSj | PC-C4 plugin binding — persisted instance authority の bind 照合 implementation record | completed | [pc-c4-plugin-binding.md](./pc-c4-plugin-binding.md) |
 | IMPL-034UxmcANQsdlNy9GC0tWv | PC-C4 plugin parameter binding frame base capability gate | completed | [pc-c4-plugin-parameter-binding-frame-base-capability-gate.md](./pc-c4-plugin-parameter-binding-frame-base-capability-gate.md) |
+| IMPL-034XHDQ6rzGXUkov3cBJgE | PC-C4 webview composition — synvelis.rs engine attach 実装記録 | completed | [pc-c4-webview-composition-synvelis-rs-engine-attach.md](./pc-c4-webview-composition-synvelis-rs-engine-attach.md) |
 | IMPL-OABQ94C9ziv3kEtnGM5cHa | PC-C5 UI-C5-01 Relation Index の Inspector 投影 headless slice | completed | [pc-c5-01-relation-inspector.md](./pc-c5-01-relation-inspector.md) |
 | IMPL-034UyQi9tCjjAPwfMy7pSX | PC-C5 UI-C5-02/03 Gesture 固定・stale drop・Inspector mode（headless slice） | completed | [pc-c5-02-03-gesture-stale-inspector.md](./pc-c5-02-03-gesture-stale-inspector.md) |
 | IMPL-034WaR006rHzCRQpPMb9CP | PC-C5 UI-C5-04 Recording status read model（headless slice） | completed | [pc-c5-04-recording-status.md](./pc-c5-04-recording-status.md) |
@@ -123,9 +125,11 @@ Directory: `docs/impl/ir`
 | IMPL-034V30Z5uYklMrResgr0lS | RCD-01 実Audio Device録音統合 headless slice — fake port→実StreamWriter fixture + recording state projection | completed | [rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md](./rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md) |
 | IMPL-RCD01rbkSl1cE9mQ2xW | RCD-01 実Audio Device 到達準備 — stamp placement fallback（jitter 許容の累積配置）+ real backend 配線 | completed | [rcd-01-real-backend-readiness-slice.md](./rcd-01-real-backend-readiness-slice.md) |
 | IMPL-034Wfpu0yifoZyGTZUA0pe | RCD-01 実機 lane 拡張 — real-device capture coverage | completed | [rcd-01-real-input-coverage.md](./rcd-01-real-input-coverage.md) |
+| IMPL-CeXimflIeKN09e4F6PKXjr | RCD-01 Virtual L1 Oracle — synvelis#115 Option A slice | completed | [rcd-01-virtual-l1-oracle.md](./rcd-01-virtual-l1-oracle.md) |
 | IMPL-034XA69ntDtCS6oYZ7LgEZ | RCD-02 Blob SHA-256 Promotion | completed | [rcd-02-blob-sha256.md](./rcd-02-blob-sha256.md) |
 | IMPL-034VhZh19UVNoeeFues4Ow | RCD-02 Durability Evidence / Recovery Review / Commit Receipt | completed | [rcd-02-durability-evidence-recovery-review-commit-receipt.md](./rcd-02-durability-evidence-recovery-review-commit-receipt.md) |
 | IMPL-034UMbAviqhaRhIqExdBM3 | RCD-02 Project/Library Adapter (verified SHA-256 + MediaReferenceProbe + saved-HEAD) | completed | [rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md](./rcd-02-project-library-adapter-verified-sha-256-mediareferenceprobe-saved-head.md) |
+| IMPL-034XHQONJOa6EzQAgZoFxf | RCD-02 residual closeout — Issue #116 AC 照合・canonical lane 実測・残存 gate 棚卸し・簿記 drift 修正 | completed | [rcd-02-residual-closeout.md](./rcd-02-residual-closeout.md) |
 | IMPL-034VpDUdGZZKsxaoSMekla | RCD-02 StagedFile Publish Migration | completed | [rcd-02-stagedfile-publish-migration.md](./rcd-02-stagedfile-publish-migration.md) |
 | IMPL-0h9qRk2mNvPwXzYc8uJd4s | RCD-02 Unsynced-Write Loss Fixture + Real-FS Probe | completed | [rcd-02-unsynced-loss-real-fs-probe-slice.md](./rcd-02-unsynced-loss-real-fs-probe-slice.md) |
 | IMPL-034Vg2bnZtbJvdYWRJIUM3 | RCD-03 app Arm/Monitoring UX slice 実装記録 | completed | [rcd-03-app-arm-monitoring-ux-slice.md](./rcd-03-app-arm-monitoring-ux-slice.md) |
@@ -208,6 +212,8 @@ Directory: `docs/impl/ir`
 | IMPL-kBHWiP6FFajB356aw7WOHn | Timeline Editing / Selection / Tool System — 実装記録（docs slice・synvelis#11） | completed | [timeline-editing.md](./timeline-editing.md) |
 | IMPL-034X7xdWV5l5SuHJr0ppBz | Transport Integration — Issue #20 設計契約文書化 + TT evidence 台帳 | completed | [transport-integration.md](./transport-integration.md) |
 | IMPL-102UiCfInt006FfGgHhIiJ | UI-C5 製品 GUI 統合 — syn.control.relation / syn.control.edge / syn.recording.* op surface（headless slice） | completed | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
+| IMPL-034XGSIKsnCqwLSMEFDsUx | variant_sets VCS semantic diff 分類 slice 実装記録 | completed | [variant-sets-vcs-diff.md](./variant-sets-vcs-diff.md) |
+| IMPL-034XIhKQqkDOu2aMdhyjkE | variant_sets VCS restore-as-copy provenance 修復 (synvelis#458) | completed | [variant-sets-vcs-restore.md](./variant-sets-vcs-restore.md) |
 | IMPL-Vcs01ImmutableSnapshotResolver | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only projection | completed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | IMPL-Vcs02SemanticDiffEngine | VCS-02 Semantic Diff Engine — canonical ChangeSet・typed identity/lineage・Unknown tri-state | completed | [vcs-02-semantic-diff-engine.md](./vcs-02-semantic-diff-engine.md) |
 | IMPL-Qt0RuNZjqvP8ojWR34w9p1 | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta | completed | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |

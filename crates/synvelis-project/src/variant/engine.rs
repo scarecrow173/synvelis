@@ -229,7 +229,7 @@ impl Operation for VariantOp {
                         )));
                     }
                 }
-                validate_set_shape(project, set)
+                validate_set_shape(project, set, ProvenanceRule::SameProject)
             }
             Self::EditAdopted {
                 set,
@@ -400,9 +400,32 @@ impl Operation for VariantOp {
     }
 }
 
+/// Provenance strictness [`validate_set_shape`] applies to
+/// `VariantSet::origin`/`Branch::created_from` (synvelis#458).
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) enum ProvenanceRule {
+    /// `origin`/`created_from` must name the enclosing project — the
+    /// live op boundary, where a fork can only capture this project.
+    SameProject,
+    /// Provenance is verbatim history — the persisted/load oracle
+    /// accepts a restore-as-copy whose sets still name the *source*
+    /// project. `SnapshotIdentity` pins the snapshot bytes a set was
+    /// forked from; rewriting `project_id` alone would falsify the
+    /// digest/locator reference, so the persisted layer records the
+    /// provenance as-is instead of demanding same-project.
+    Persisted,
+}
+
 /// Structural invariants of a persisted/constructed set — shared by
-/// `validate` and the load oracle.
-pub(crate) fn validate_set_shape(project: &Project, set: &VariantSet) -> Result<(), Error> {
+/// `validate` and the load oracle. `provenance` selects whether the
+/// `origin`/`created_from` `project_id` must equal the enclosing
+/// project's (live op boundary) or is accepted verbatim (persisted
+/// oracle — restore-as-copy keeps source-project provenance).
+pub(crate) fn validate_set_shape(
+    project: &Project,
+    set: &VariantSet,
+    provenance: ProvenanceRule,
+) -> Result<(), Error> {
     if set.branches.is_empty() {
         return Err(Error::Validation(format!(
             "variant set {} has no branches",
@@ -429,7 +452,9 @@ pub(crate) fn validate_set_shape(project: &Project, set: &VariantSet) -> Result<
                 "branch {bid} parent {parent} missing"
             )));
         }
-        if branch.created_from.project_id != project.project_id {
+        if provenance == ProvenanceRule::SameProject
+            && branch.created_from.project_id != project.project_id
+        {
             return Err(Error::Validation(format!(
                 "branch {bid} origin belongs to a different project"
             )));
@@ -458,7 +483,7 @@ pub(crate) fn validate_set_shape(project: &Project, set: &VariantSet) -> Result<
             }
         }
     }
-    if set.origin.project_id != project.project_id {
+    if provenance == ProvenanceRule::SameProject && set.origin.project_id != project.project_id {
         return Err(Error::Validation(format!(
             "variant set {} origin belongs to a different project",
             set.id
@@ -482,7 +507,7 @@ pub(crate) fn validate_persisted(project: &Project) -> Result<(), Error> {
                 set.id
             )));
         }
-        validate_set_shape(project, set)?;
+        validate_set_shape(project, set, ProvenanceRule::Persisted)?;
         scope::validate_scope_structure(project, &set.scope)?;
     }
     // Pairwise scope conflict — two persisted sets may never own the

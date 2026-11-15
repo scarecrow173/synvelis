@@ -1,10 +1,10 @@
 ---
 id: "TASK-gH5lLpWnYI2KFNM99SswOf"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "PC-C4-02 task1 — plugin instance binding 実装"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-15"
 owners: ["scarecrow173"]
 relations:
   source:

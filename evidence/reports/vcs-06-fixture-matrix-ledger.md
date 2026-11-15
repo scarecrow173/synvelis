@@ -11,7 +11,7 @@ in `docs/specs/sf-06-cross-gate-oracle-case-ledger.md`.
 
 | Field | Value |
 | --- | --- |
-| Synvelis commit | `3da82c5e65a02c64267258f496ffe12a77829221` (origin/main) + this change set — VCS-DIFF-11/RESTORE-10/variant rows measured on the schema-v14 variant matrix slice; earlier rows measured under `1093530`/`7822857`/`7925660`/`099e7ea`. VCS-GIT-REAL-local / RESTORE/ APPLY-WIN-FS rows measured on `test/97-vcs06-real-git-fs-fault` (base `7c206289`) |
+| Synvelis commit | `34387c4e31afb90d7e0d5266d4e87d81d4e8b329` (origin/main) + this change set — VCS-DIFF-11 re-measured on the variant diff adapter slice (synvelis#457); VCS-RESTORE-10 re-measured on the variant provenance restore slice (synvelis#458); earlier rows measured under `3da82c5`/`1093530`/`7822857`/`7925660`/`099e7ea`. VCS-GIT-REAL-local / RESTORE/ APPLY-WIN-FS rows measured on `test/97-vcs06-real-git-fs-fault` (base `7c206289`) |
 | Cargo.lock Ruviform SHA | `fd1d4d5f4de57092b96ad1cd309b85fe47cbef38` (VCS-DIFF-11/RESTORE-10 rows; earlier rows measured under `9865cd57`/`b02942c2`/`0f5b5737`) |
 | OS | Windows (win32), NTFS |
 | Toolchain | rustc 1.99.1 (58cf8f9c3; VCS-DIFF-11/RESTORE-10 rows — earlier rows under rustc 1.99.0), git 2.54.0.windows.1 |
@@ -59,7 +59,7 @@ headless compare only.
 | VCS-DIFF determinism/cache/budget | AA equal; cache identity; budget/cancel explicit | `change_set_cache_returns_identical_result`, `budget_exceeded_and_cancel_are_explicit_errors`, `pre_v6_snapshot_marks_routing_partial_projection` Pass | Pass | — |
 | VCS-DIFF-09 TrackMonitorDecl | decl upsert → `Added` keyed on `TrackId`; field edit → `Modified` + field evidence; clear → `Removed`; no `Track` duplicate; `Recording` domain; AA = `Equal`; Recording 除外で monitor-only 差分 `Equal` / Recording のみで `Different`; 異 `project_id` → `Unknown` + `AmbiguousIdentity{CrossProject}` | `track_monitor_decl_add_modify_clear_are_typed_changes` (vcs06, `a218944b` policy v2 / schema v13) Pass | Pass | — |
 | VCS-DIFF-10 PunchMarks | `{None,None}`→declared → `Added` + `SemanticTimeRange::Musical [in,out)`; mark edit → `Modified` + `punch_in` evidence; declared→`{None,None}` → `Removed` + covered span; partial `{in,None}` → `Added` + range 無し; inverted `{out<in}` → `Modified` + range 無し; `Recording` domain | `punch_marks_presence_transitions_are_typed_changes` (vcs06, policy v2 / schema v13) Pass | Pass | — |
-| VCS-DIFF-11 variant_sets | variant-set insertion/mutation のみ差分 → typed change として観測されるべき（`Unknown` を `Equal` にしない方針と整合） | `variant_set_presence_and_mutation_are_invisible_to_diff`・`mixed_diff_reports_track_change_but_drops_variant_set` (vcs06, schema v14) — fork/adopt のみ差分で `overall=Equal`・`completeness=Complete`・0 changes・0 unresolved（`identity.digest` 差・`variant_sets` 実差を assert し AA fast path でないことを確認）、mixed diff（variant set + track rename）でも `Different` の changes は Track `Modified` 1 件のみで variant 差分は silent drop | **Blocked** | `ObjectKind` に variant kind 無し（`diff/types.rs`）・`raw_kind_map` 未列挙（`diff/engine.rs`）— compare surface gap。adapter 本体は VCS-02 系の別 Issue（#457・`docs/discovery/variant-sets-vcs-diff-gap.md`）。silent `Equal`/drop を Pass に繰り上げない |
+| VCS-DIFF-11 variant_sets | variant-set insertion/mutation のみ差分 → typed change として観測されるべき（`Unknown` を `Equal` にしない方針と整合） | `variant_set_presence_and_mutation_are_typed_changes`・`mixed_diff_reports_track_and_variant_changes` (vcs06, schema v14, policy v4) — fork/adopt のみ差分で `overall=Different`・`VariantSet` `Added` + `VariantBranch` `Added`×2 の typed change、mixed diff（variant set + track rename）で Track `Modified` + variant typed change の双方を emit。vcs07 で presence/field/adopt-swap/content-swap/domain-exclusion/cross-kind-collision/apply-fail-closed を pin | **Pass** | `ObjectKind::VariantSet`/`VariantBranch` + `ComparisonDomain::Variants` + `VariantsAdapter` + `raw_kind_map` 登録を実装（synvelis#457・`docs/designs/variant-sets-vcs-diff.md`）。apply surface は `Unsupported` fail-closed のまま（VCS-APPLY-10 Blocked 維持） |
 | VCS-DIFF real plugin/consumer diff view | — | not measured | **NotRun** | consumer/precision lanes #219/#294 |
 
 ## VCS-GIT-01..06 — git read provider
@@ -121,7 +121,7 @@ Lane: headless
 | VCS-APPLY-07 monitoring kinds | `TrackMonitorDecl`/`PunchMarks` の `Added`/`Modified` selection が typed entity transplant で適用され、`Removed` は fail-closed | `target_fingerprint` が両 kind で解決（旧来の `Unsupported` を返さない）; `Added` 2-change selection → `Applied`、live `monitoring.tracks`/`punch` が after と一致、1 apply = 1 undo step で undo/redo が monitoring 状態を往復 — `monitor_kind_added_selection_applies_typed_entities` (vcs06)・`monitor_decl_and_punch_apply_as_one_undo_step` (vcs05) Pass; `Modified` 適用 + 連続 undo が S1→S0 へ 1 step ずつ復帰 — `monitor_kind_modified_selection_applies_typed_entities` Pass; `Removed` → `ApplyError::Unsupported{kind, change: Removed, "removal changes are deferred (cascade design)"}`、journal `Failed`、live `monitoring` 不変（両 kind）— `monitor_kind_removed_selection_stays_fail_closed` Pass | **Pass** | `Removed` cascade は全 kind deferred のまま; `PluginInstance` apply は VCS-APPLY-09 で実装; 実 OS/GUI/RT lanes は NotRun |
 | VCS-APPLY-08 journal FS fault (Windows) | journal record の排他 share-lock (`share_mode(0)`) / read-only attribute は mutation 前に typed `ApplyError::Journal` で失敗し、解除後は元の typed `UnsupportedField` に回復 | `locked_journal_record_fails_typed_before_mutation_and_recovers`, `readonly_journal_record_fails_typed_before_mutation_and_recovers` (vcs06, `#[cfg(windows)]`, PPQN 960→480 drift fixture, 実 `DirectoryApplyJournal`) Pass — Win32 NTFS のみ; POSIX 側は `#[cfg(windows)]` で **NotRun**（readonly/lock 意味論が異なるため別 lane） | Pass | journal record が recovery record; fault 解除で replay が元の typed failure を返す |
 | VCS-APPLY-09 plugin-instance kind | `PluginInstance` の `Added`/`Replaced` selection が typed entity transplant で適用され、byte-faithful な persisted `PluginInstanceIdentity`（issued `PluginInstanceId` + pinned `PluginRef`）と monotone watermark reseed（`max(live, after)`）が行われ、`Removed`・presence 違反・entry↔binding 不整合・plugin unavailable は fail-closed | `target_fingerprint` が `PluginInstance` keyed-synthetic entity で解決 — `plugin_instance_change_is_on_apply_surface` (vcs02) Pass; `Added` selection → `Applied`、live entry が after の `{id=7, plugin}`/`watermark=8` と byte-faithful 一致（live mint の id=1 ではない）、1 apply = 1 undo step で undo/redo 往復 — `plugin_instance_added_selection_transplants_identity_verbatim` Pass; `Replaced`（capability bump rebind + `PluginDeclared` port stamp を同梱）→ `{id=9, plugin_b}`/`watermark=10` verbatim、undo で `{id=1, plugin_a}`/wm2 復帰 — `plugin_instance_replaced_selection_transplants_new_identity` Pass; `Removed` → `ApplyError::Unsupported{PluginInstance, Removed, "removal changes are deferred (cascade design)"}`、journal `Failed`、live store 不変 — `plugin_instance_removed_selection_stays_fail_closed` Pass; Processor change を伴わない `plugin` drift → write 後 `validate_against` が `ApplyError::Rejected`、live/journal 不変 — `plugin_instance_rebind_without_processor_change_fails_closed` Pass; `Replaced` on absent → `TargetMissing`、`Added` on present → `TargetConflict` — `plugin_instance_target_missing_and_conflict_fail_closed` Pass; after watermark < live（id-only `Replaced`）→ entry id は after 値・watermark は live 保持で never backward — `plugin_instance_watermark_never_moves_backward` Pass; plugin unavailable → `MissingPlugin` で preflight reject、processor/entry/undo 不変 — `plugin_instance_added_selection_rejects_unavailable_plugin` Pass; Applied receipt 喪失（ACK gap）後 retry → `Replayed`、store 再採番・二重 mutation なし — `plugin_instance_ack_gap_replays_without_double_mutation` Pass | **Pass** | `Removed` cascade は全 kind deferred のまま; divergent lineage の retired-id 衝突追跡（store 履歴化）は別設計; 実 OS/GUI/RT/plugin-host lanes は NotRun |
-| VCS-APPLY-10 variant_sets | variant change selection の typed transplant（diff adapter 実装後の期待形） | `compare_snapshots` が variant-kind `SemanticChange` を emit しない（VCS-DIFF-11 の compare-surface gap — `ObjectKind` に variant kind 無し・`raw_kind_map` 未列挙）ため apply 対象の change object が存在せず、apply surface 側の variant 対応も未実装。`vcs06_variant_matrix.rs` の diff fixture が emit 0 件を実測 pin | **Blocked** | variant diff adapter + apply surface は VCS-02/VCS-05 系の別 Issue（#457・`docs/discovery/variant-sets-vcs-diff-gap.md`）。apply 行を Pass にしない |
+| VCS-APPLY-10 variant_sets | variant change selection の typed transplant（diff adapter 実装後の期待形） | `compare_snapshots` は variant-kind `SemanticChange`（`VariantSet`/`VariantBranch`）を emit するようになった（VCS-DIFF-11 Pass — policy v4）が、apply surface 側の variant 対応は未実装のまま。`variant_changes_stay_fail_closed_on_apply_surface` (vcs07) が `target_fingerprint`/`apply_selected` の `ApplyError::Unsupported` と project 不変を実測 pin | **Blocked** | diff adapter は synvelis#457 で実装済み。apply surface transplant は別 Issue。`supported_kind` は新 kind を `Unsupported` に落とし続ける（`src/apply/` 変更なし）。apply 行を Pass にしない |
 | VCS-APPLY-REAL-* (real engine hot-swap, GUI approval UX) | — | not measured | **NotRun** | engine/GUI lanes external |
 
 ## VCS-RESTORE-01..10 — restore as new copy
@@ -142,7 +142,7 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 | VCS-RESTORE-07 monitoring verbatim | decl (lane/arm/monitor/channel_map) + punch marks survive restore-as-copy verbatim; fork `project_id` only | `envelope.project.monitoring == source`（`monitoring.tracks` + `monitoring.punch` 全 field一致）— `restore_as_copy_preserves_monitoring_verbatim` (vcs06) Pass | Pass | — |
 | VCS-RESTORE-08 plugin_instances verbatim | issued `PluginInstanceId`s + `project.plugin_instances` survive restore-as-copy verbatim (envelope readback pin) | `restore_as_copy_preserves_plugin_instances_verbatim` (vcs06_plugin_instance_matrix) Pass | Pass | — |
 | VCS-RESTORE-09 staging FS fault (Windows) | staging `restore.json` の排他 share-lock (`share_mode(0)`) / read-only、staged `HEAD` の `FILE_SHARE_READ`-only hold は publish 前に typed `RestoreError::Io` で失敗し、staging 保持・dest 不在を確認、解除後 retry で `Published` | `locked_staging_manifest_fails_typed_and_resume_recovers`, `locked_staging_head_blocks_publish_rename_and_recovers`, `readonly_staging_manifest_is_rejected_before_publish` (vcs06, `#[cfg(windows)]`) Pass — Win32 NTFS のみ; POSIX 側は **NotRun**。dir 自体の read-only は Windows で信頼できる fault 境界にならないため対象ファイルを lock する設計 | Pass | staging manifest が resume record; fault 解除で `restore_as_copy` retry が publish |
-| VCS-RESTORE-10 variant_sets verbatim | `variant_sets`（issued `VariantSetId`/`BranchId`・branch revision・`BranchContentRef`・`last_adopt`）が restore-as-copy で verbatim 保持され `project_id` のみ再採番 | `restore_as_copy_fails_closed_on_variant_set_origin_mismatch` (vcs06, schema v14) — `fork_project` は `project_id` のみ再採番し、nested `VariantSet::origin`/`Branch::created_from` の `SnapshotIdentity.project_id` が source project のまま残るため、`validate_set_shape` が `origin belongs to a different project` で拒否 → `RestoreError::Validation`（publish 前 fail-closed・staging 保持・dest 不在を assert） | **Fail** | publish 前の staged-envelope `validate_references` で fail-closed（silent corruption/publish なし）。修復は `fork_project` の nested origin identity 再採番か validate 規則の設計判断 — `src/` 変更は本 slice 範囲外、follow-up Issue #458 で追跡。envelope readback による verbatim 確認は restore 成功が前提のため未実施 |
+| VCS-RESTORE-10 variant_sets verbatim | `variant_sets`（issued `VariantSetId`/`BranchId`・branch revision・`BranchContentRef`・`last_adopt`）が restore-as-copy で verbatim 保持され `project_id` のみ再採番 | `restore_as_copy_preserves_variant_sets_verbatim` (vcs06, schema v14) — synvelis#458 で `validate_set_shape` を `ProvenanceRule`（live op=`SameProject` / persisted oracle=`Persisted`）へ境界分割し、nested `VariantSet::origin`/`Branch::created_from` の `SnapshotIdentity` は source project を指す authored provenance として verbatim 保持。`RestoreOutcome::Published` + receipt `variant-set`/`branch` count + HEAD→snapshot→envelope readback で `variant_sets` map 全体の verbatim 等価・`origin`/`created_from.project_id` が source project を指すこと・`envelope.project.validate_references()` 成功を assert | **Pass** | `fork_project` は変更なし（provenance rewrite は設計上行わない — `project_id` のみ書き換えると digest/locator が指す source snapshot を falsify する）。既知の capability 限界: `BranchContentRef::Captured.payload_digest` の payload bytes は `BranchContentStore`（project bundle 外）にあり restore は fork 先へ複製しないため、復元 project での candidate 操作は `CandidateUnavailable` になりうる（#457 Deferred・本 slice 範囲外） |
 | VCS-RESTORE-REAL-* residual (OS crash/power-loss durability, AV, real plugin host, consumer open) | — | not measured | **NotRun** | OS matrix + #219/#294。share-mode/readonly fault は process-level lock のみで OS crash durability を意味しない |
 
 ## VCS-COMPAT-01..04 — cross-gate compatibility
@@ -157,14 +157,18 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 ## Explicitly out of scope (never Pass)
 
 - VCS Writer / 3-way semantic merge — unimplemented, **Blocked**.
-- Variant-set diff adapter（`ObjectKind` variant kind・
-  `raw_kind_map` 列挙）と apply surface — unimplemented,
-  **Blocked**（VCS-DIFF-11/APPLY-10;
-  `docs/discovery/variant-sets-vcs-diff-gap.md`）。
-- `restore_as_copy` on variant-set projects — measured
-  `RestoreError::Validation`（VCS-RESTORE-10 **Fail**;
-  `fork_project` が nested variant origin identity を再採番
-  しない件、follow-up Issue #458 で追跡）。
+- Variant-set apply surface transplant — diff adapter は
+  synvelis#457 で実装済み（VCS-DIFF-11 Pass）だが、variant
+  change の apply は未実装、**Blocked**（VCS-APPLY-10;
+  `docs/designs/variant-sets-vcs-diff.md` D8）。
+- `restore_as_copy` on variant-set projects — repaired by
+  synvelis#458 (VCS-RESTORE-10 **Pass**): nested provenance is
+  preserved verbatim and accepted at the persisted boundary.
+  Remaining capability limit: `BranchContentRef::Captured`
+  payload bytes live in `BranchContentStore` outside the project
+  bundle and are not copied to the fork destination, so candidate
+  operations on the restored copy may report
+  `CandidateUnavailable` (tracked under the #457 Deferred scope).
 - Additional VCS providers (non-git) — **Unsupported** in this slice.
 - Real GUI/IME/two-window (#114), native plugin dock (#176), RT/device,
   consumer/precision (#219/#294), CI gate (#83) — **NotRun**.
@@ -186,9 +190,16 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
   monotone watermark reseed・Removed/presence/oracle/plugin-
   availability fail-closed・ACK-gap replay）
 - `crates/synvelis-project/tests/vcs06_variant_matrix.rs` —
-  3 tests（VCS-DIFF-11 variant_sets compare-surface gap の
-  正直 pin 2 test + VCS-RESTORE-10 restore-as-copy 実測
-  Fail 1 test — schema v14 `variant_sets`）
+  3 tests（VCS-DIFF-11 variant_sets diff の typed-change pin
+  2 test — synvelis#457 で Blocked gap pin から flip — +
+  VCS-RESTORE-10 restore-as-copy verbatim provenance pin 1 test、
+  schema v14 `variant_sets` — synvelis#458 で Fail pin から
+  `Published` + envelope readback へ flip）
+- `crates/synvelis-project/tests/vcs07_variant_diff.rs` —
+  7 tests（VCS-DIFF-11 補強: variant-only `Different` +
+  policy v4・presence typed change・adopt swap・content ref
+  swap・domain exclusion・cross-kind collision ambiguous・
+  apply fail-closed — synvelis#457）
 - `crates/synvelis-library/tests/vcs06_git_matrix.rs` — 7 tests
   (+4 real-git rows on `test/97-vcs06-real-git-fs-fault`:
   gc/pack-refs/repack・pruned RevisionGone・file:// remote

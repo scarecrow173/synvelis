@@ -1,7 +1,7 @@
 ---
 id: "IMPL-034XB1Iadg6lT7Tracib0c"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "PC-C4 observe engine wiring — observe_block の engine-driver 配線"
 created: "2026-11-14"
 updated: "2026-11-15"
