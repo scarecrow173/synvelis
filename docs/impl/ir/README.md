@@ -60,6 +60,7 @@ Directory: `docs/impl/ir`
 | IMPL-034XkoKBFx6VCR0iVHzGas | CB-03 MIDI Clip/Source 候補 Adapter — Native Event 保持・Note Diff・同一 Instrument 比較（synvelis#280） | completed | [cb-03-midi-clip-adapter.md](./cb-03-midi-clip-adapter.md) |
 | IMPL-034XmKS2VgTv6sQ2onvxNY | CB-04 Instrument Slot 候補 Adapter — MIDI共有・独立Plugin State・A/B比較（synvelis#281） | completed | [cb-04-instrument-adapter.md](./cb-04-instrument-adapter.md) |
 | IMPL-034ZxKpQ2mNv8sLw4tYh6bJ | CB-05 FX Processing Range 候補 Adapter — 安定境界・外部Routing fail-closed・A/B比較（synvelis#282） | completed | [cb-05-fx-range-adapter.md](./cb-05-fx-range-adapter.md) |
+| IMPL-034XNDR6phv2BXm24gk8cN | CB-11 cross-gate headless fixture 被覆棚卸し・欠落 fixture 追加 (synvelis#288) | completed | [cb-11-cross-gate.md](./cb-11-cross-gate.md) |
 | IMPL-034Vn0xIlQz4EDxKYyEsSD | Issue #245 rt_cache alloc 計測 flake — 計測対象インスタンス warm-up slice | completed | [ci-245-macos-alloc-flake-slice.md](./ci-245-macos-alloc-flake-slice.md) |
 | IMPL-034X9hYuHSZsRHijApPhOw | Capability / Command Gateway G0-G6 受入照合・証拠台帳 実装記録 (synvelis#46) | completed | [command-gateway-gates.md](./command-gateway-gates.md) |
 | IMPL-034X8sM6gVaKFLBghHMqW3 | Capability / Command Gateway 設計契約 実装記録 (synvelis#45) | completed | [command-gateway.md](./command-gateway.md) |
@@ -151,6 +152,7 @@ Directory: `docs/impl/ir`
 | IMPL-rcp03-render-policy | RCP-03 Render Policy・Save/Commit/Share Trigger・Async Job/Completeness — Headless スライス | completed | [rcp-03-render-policy.md](./rcp-03-render-policy.md) |
 | IMPL-034Xf6XTMuIwdmzniCRakm | RCP-04 Missing Plugin Subgraph Resolver・Execution Intent・Safe Plan Reconciliation headless slice (synvelis#293) | completed | [rcp-04-missing-plugin-resolver.md](./rcp-04-missing-plugin-resolver.md) |
 | IMPL-rcp06-render-gui | RCP-06 Missing Plugin/Render Availability・Policy UI・Action 契約 — Headless/Driver-neutral 投影スライス | completed | [rcp-06-render-gui.md](./rcp-06-render-gui.md) |
+| IMPL-034XN97v9lRgAb0lHXs0nv | RCP-07 cross-gate fixture/ledger slice | completed | [rcp-07-cross-gate.md](./rcp-07-cross-gate.md) |
 | IMPL-C1ZTg7tLJ3bWNVepfbzpSs | Recording / Take / Comping — 文書チェーン・受入 Owner Matrix 実装記録（synvelis#12） | completed | [recording-take-comping.md](./recording-take-comping.md) |
 | IMPL-034SF01Qr3wXmZyAbCdEfGhJ | SF-01 Semantic Routing Model — Bus/Send/Chain/Stable Port IDs・Schema v6 | completed | [sf-01-semantic-routing-model.md](./sf-01-semantic-routing-model.md) |
 | IMPL-034UjyiVpFVP7RCwlZ2neB | SF-03 slice5 実装記録 — session EnginePort・SessionRoutingEngine 接続 | completed | [sf-03-slice5-session-engineport-sessionroutingengine.md](./sf-03-slice5-session-engineport-sessionroutingengine.md) |
@@ -171,6 +173,7 @@ Directory: `docs/impl/ir`
 | IMPL-034X9Ln9ARL8qEXoWVpZcz | Issue #4 Signal Flow 設計正本 — 文書チェーンと証拠の作成 | completed | [signal-flow-design.md](./signal-flow-design.md) |
 | IMPL-034X5H2u7vD5H929MaHV8N | Issue #84 StagedFile Migration — 証拠統合・受入検証 slice 実装記録 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |
 | IMPL-034Ug8sNPL1sqhquNm1PYh | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 API 追従 | completed | [sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md](./sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md) |
+| IMPL-9lysTGra2gwN96PqkF09YI | SV#28 Ruviform pin 更新 — fd1d4d5f → ac10a2f7 API 追従評価 | completed | [sv-28-ruviform-pin-ac10a2f7.md](./sv-28-ruviform-pin-ac10a2f7.md) |
 | IMPL-034VocnpYlIXEqErLG2I5w | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 API 追従 | completed | [sv-28-ruviform-pin-b02942c2.md](./sv-28-ruviform-pin-b02942c2.md) |
 | IMPL-VvBJRLqOSjnq3Pv2b4D1aO | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f API 追従 | completed | [sv-28-ruviform-pin-fd1d4d5f.md](./sv-28-ruviform-pin-fd1d4d5f.md) |
 | IMPL-p1XVD7cITxEvasi3u5lh9F | Issue #245 webdav MockServer TransientIo flake — accept 済みソケット blocking 正規化 slice | completed | [sv-ci-webdav-transient-io-flake-slice.md](./sv-ci-webdav-transient-io-flake-slice.md) |
