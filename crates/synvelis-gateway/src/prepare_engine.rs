@@ -15,8 +15,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use serde_json::Value;
-use synvelis_project::{CounterIdGenerator, Operation, ProjectOp};
+use serde_json::{Map, Value};
+use synvelis_project::{CounterIdGenerator, Operation, Project, ProjectOp};
 
 use crate::authorization::AuthorizationDecision;
 use crate::capability::{
@@ -62,6 +62,138 @@ impl Default for PrepareBudget {
             max_ops: 64,
             max_proposals: 64,
         }
+    }
+}
+
+/// First raw id of the output-binding placeholder range — mirrors
+/// `synvelis_automation::macros::OUTPUT_BINDING_ID_BASE` (the
+/// automation crate is only a dev-dependency here, so the shared
+/// wire constant is mirrored verbatim). Placeholders are
+/// `<kind>-<32hex>` tagged ids at `BASE + slot` for `slot in
+/// 0..MAX_BINDING_SLOTS`, far above every issuable id — they can
+/// never collide with a real resource id.
+const OUTPUT_BINDING_ID_BASE: u128 = (1u128 << 96) + (1u128 << 32);
+/// Placeholder slots are `0..64` (`MAX_MACRO_BINDINGS` on the
+/// compiler side).
+const MAX_BINDING_SLOTS: u128 = 64;
+
+/// The lowering result of [`PrepareEngine::lower_named`]:
+/// normalized member commands, the retained `ProjectOp`, and the
+/// AUTX-04 bindings seam's deterministic scratch post-state
+/// (`Some` only for a batch carrying non-empty `bindings`).
+type Lowered = (Vec<SemanticCommand>, ProjectOp, Option<Arc<Project>>);
+
+/// One validated `bindings[]` declaration — the wire contract of
+/// `synvelis_automation::macros::MacroBindingWire`
+/// (`{name, member, kind}`). Resolution keys on `(member, kind)`
+/// positionally; `name` is traceability for diagnostics only.
+struct BindingDecl {
+    /// The declared binding name.
+    name: String,
+    /// Producing member index into `ops[]`.
+    member: usize,
+    /// The resource kind the producer must create exactly one of.
+    kind: ResourceKind,
+}
+
+/// Parses a reserved-range placeholder tagged id
+/// (`<kind-tag>-<32hex>` whose raw sits in
+/// `BASE..BASE+MAX_BINDING_SLOTS`) into `(slot, kind_tag)` — mirrors
+/// `synvelis_automation::macros::is_reserved_placeholder`, which
+/// deliberately does not validate the kind prefix; the caller
+/// matches it against the declared binding kind.
+fn parse_placeholder(s: &str) -> Option<(usize, &str)> {
+    let (tag, hex) = s.rsplit_once('-')?;
+    if hex.len() != 32 || !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    let raw = u128::from_str_radix(hex, 16).ok()?;
+    let slot = raw.checked_sub(OUTPUT_BINDING_ID_BASE)?;
+    (slot < MAX_BINDING_SLOTS).then_some((slot as usize, tag))
+}
+
+/// Rewrites resolved output-binding placeholders inside one batch
+/// member's wire JSON (`target`/`args` surfaces). Every
+/// reserved-range string must name a declared binding whose
+/// producer member already applied — undeclared slots, kind-tag
+/// mismatches, backward/self references, placeholders left
+/// unresolvable by a failed producer, and placeholder object keys
+/// are all typed rejections. Ids are never guessed: an unresolvable
+/// placeholder fails the whole batch.
+#[allow(clippy::result_large_err)] // typed envelope is the contract
+fn rewrite_member(
+    value: &Value,
+    member_index: usize,
+    decls: &[BindingDecl],
+    resolved: &[Option<ResourceRef>],
+    path: &str,
+) -> Result<Value, ErrorEnvelope> {
+    match value {
+        Value::String(s) => match parse_placeholder(s) {
+            None => Ok(value.clone()),
+            Some((slot, tag)) => {
+                let decl = decls.get(slot).ok_or_else(|| {
+                    prepare::violation(
+                        path,
+                        format!("placeholder {s} names undeclared binding slot {slot}"),
+                    )
+                })?;
+                let kind = ResourceKind::parse(tag).map_err(ErrorEnvelope::from)?;
+                if kind != decl.kind {
+                    return Err(prepare::violation(
+                        path,
+                        format!(
+                            "placeholder {s} kind does not match binding '{}'",
+                            decl.name
+                        ),
+                    ));
+                }
+                if decl.member >= member_index {
+                    return Err(prepare::violation(
+                        path,
+                        format!(
+                            "placeholder {s} references binding '{}' produced by member {} — \
+                             not yet applied at member {member_index}",
+                            decl.name, decl.member
+                        ),
+                    ));
+                }
+                let Some(resource) = resolved[slot] else {
+                    return Err(GatewayError::PreparationRejected {
+                        reason: format!(
+                            "output binding '{}' could not be resolved: its producer member \
+                             did not complete",
+                            decl.name
+                        ),
+                    }
+                    .into());
+                };
+                Ok(Value::String(prepare::ref_tagged(&resource)))
+            }
+        },
+        Value::Array(items) => items
+            .iter()
+            .enumerate()
+            .map(|(i, v)| rewrite_member(v, member_index, decls, resolved, &format!("{path}[{i}]")))
+            .collect::<Result<Vec<_>, _>>()
+            .map(Value::Array),
+        Value::Object(map) => {
+            let mut out = Map::new();
+            for (key, v) in map {
+                if parse_placeholder(key).is_some() {
+                    return Err(prepare::violation(
+                        &format!("{path}.{key}"),
+                        "a placeholder cannot appear as an object key",
+                    ));
+                }
+                out.insert(
+                    key.clone(),
+                    rewrite_member(v, member_index, decls, resolved, &format!("{path}.{key}"))?,
+                );
+            }
+            Ok(Value::Object(out))
+        }
+        _ => Ok(value.clone()),
     }
 }
 
@@ -573,9 +705,8 @@ impl PrepareEngine {
                             },
                         ),
                         // AUTX-04: output-binding declarations for
-                        // create-then-reference. Accepted by the
-                        // schema so the semantic layer can answer
-                        // with the typed unsupported verdict below.
+                        // create-then-reference — resolved by the
+                        // scratch-ID/rewrite seam in `lower_bound_batch`.
                         (
                             "bindings",
                             ValueSchema::Array {
@@ -752,17 +883,27 @@ impl PrepareEngine {
         })
     }
 
-    /// Lowers one named operation to `(commands, ProjectOp)` —
-    /// recursing through the batch capability so member commands are
+    /// Lowers one named operation to `(commands, ProjectOp, scratch)`
+    /// — recursing through the batch capability so member commands are
     /// normalized individually. `req` is the bound request the gated
-    /// lowerings (verified media) evaluate ownership against.
+    /// lowerings (verified media) evaluate ownership against; `base`
+    /// is the pinned project state the AUTX-04 bindings seam clones
+    /// for scratch id resolution (unused by every other lowering).
+    ///
+    /// The third return element is `Some` only for a batch carrying
+    /// non-empty `bindings`: the seam's deterministic post-state —
+    /// the same id series and member order `ProjectOp::Composite`
+    /// reproduces at commit — which the provisional gate resolves
+    /// transaction-created resources against. It is `None` for every
+    /// other operation.
     #[allow(clippy::result_large_err)] // typed envelope is the contract
     fn lower_named(
         &self,
         named: &NamedOperation,
         path: &str,
         req: &OperationRequest,
-    ) -> Result<(Vec<SemanticCommand>, ProjectOp), ErrorEnvelope> {
+        base: &Project,
+    ) -> Result<Lowered, ErrorEnvelope> {
         let Some(spec) = self.ops.get(&named.capability) else {
             let supported: Vec<CapabilityVersion> = self
                 .ops
@@ -791,31 +932,6 @@ impl PrepareEngine {
         // Batch: members are themselves named operations — lowered by
         // the same machinery into one `Composite`.
         if named.capability.id.as_str() == "synvelis.operation.batch" {
-            // AUTX-04 (synvelis#263) fallback: `bindings` declares
-            // create-then-reference output bindings — member
-            // args/targets then carry compiler placeholders that GW-04
-            // must resolve through the scratch-ID/rewrite seam. That
-            // seam cannot commit yet (`ProjectOp::Composite::validate`
-            // still checks every member against the pre-state, so an
-            // intra-composite reference fails `NotFound` inside
-            // `ProjectController::apply`), hence the batch fails
-            // closed here with a typed rejection that directs callers
-            // to Workflow decomposition — the documented §3 fallback
-            // of docs/automation/design-atomic-macro.md.
-            if named
-                .args
-                .get("bindings")
-                .and_then(Value::as_array)
-                .is_some_and(|bindings| !bindings.is_empty())
-            {
-                return Err(GatewayError::PreparationRejected {
-                    reason: "batch output bindings (create-then-reference) are unsupported: \
-                             intra-composite id resolution awaits the GW-04 scratch-id seam; \
-                             decompose the recipe into Workflow steps"
-                        .to_owned(),
-                }
-                .into());
-            }
             let members = named
                 .args
                 .get("ops")
@@ -842,6 +958,19 @@ impl PrepareEngine {
                     "batch takes no target",
                 ));
             }
+            // AUTX-04 (synvelis#263): a non-empty `bindings` array
+            // declares create-then-reference output bindings — the
+            // GW-04 scratch-ID/rewrite seam resolves compiler
+            // placeholders to the ids the sequential scratch apply
+            // mints (design-atomic-macro §3 target form).
+            if let Some(bindings) = named
+                .args
+                .get("bindings")
+                .and_then(Value::as_array)
+                .filter(|b| !b.is_empty())
+            {
+                return self.lower_bound_batch(path, req, base, members, bindings);
+            }
             let mut commands = Vec::with_capacity(members.len());
             let mut ops = Vec::with_capacity(members.len());
             for (i, member) in members.iter().enumerate() {
@@ -852,12 +981,12 @@ impl PrepareEngine {
                         "nested batch is not allowed",
                     ));
                 }
-                let (member_commands, op) =
-                    self.lower_named(&member_named, &format!("{path}.args.ops[{i}]"), req)?;
+                let (member_commands, op, _) =
+                    self.lower_named(&member_named, &format!("{path}.args.ops[{i}]"), req, base)?;
                 commands.extend(member_commands);
                 ops.push(op);
             }
-            return Ok((commands, ProjectOp::Composite { ops }));
+            return Ok((commands, ProjectOp::Composite { ops }, None));
         }
         // An ordinary op: bind the declared target, lower
         // syntactically (args were schema-validated above).
@@ -878,6 +1007,178 @@ impl PrepareEngine {
                 args: named.args.clone(),
             }],
             op,
+            None,
+        ))
+    }
+
+    /// The AUTX-04 GW-04 bindings seam — lowers a
+    /// `synvelis.operation.batch` whose non-empty `bindings` declare
+    /// create-then-reference output bindings (the
+    /// `docs/automation/design-atomic-macro.md` §3 target form).
+    ///
+    /// Members are processed in order on a private scratch clone of
+    /// the pinned base, seeded at `base.id_watermark` — the same
+    /// deterministic id series `ProjectOp::Composite::validate` /
+    /// `apply` reproduces at commit. Per member: resolved
+    /// placeholders in its wire JSON are rewritten to real tagged
+    /// ids, the member lowers through the ordinary machinery, then
+    /// validate+apply on the scratch yields the member's created
+    /// resources (before/after [`prepare::resource_map`] diff). A
+    /// binding resolves iff its producer created *exactly one*
+    /// resource of the declared kind — zero or several is a typed
+    /// rejection; ids are never guessed.
+    ///
+    /// Member domain failures are deliberately *not* raised here:
+    /// the scratch is disposable and id resolution only needs the
+    /// deterministic mint order, so lowering continues where it can
+    /// and the emitted `Composite` lets `op.validate` reproduce the
+    /// same failure at the correct pipeline stage — after the
+    /// provisional authorization gate (SEC-03 ordering preserved).
+    /// Only request-shape failures (malformed declarations,
+    /// undeclared/premature/unresolvable placeholders) reject during
+    /// lowering, matching where schema violations already surface.
+    ///
+    /// Returns `(commands, Composite, Some(scratch))` — the scratch
+    /// post-state is the deterministic candidate the provisional
+    /// gate resolves transaction-created resources against. It equals
+    /// the base plus every member whose validate+apply succeeded, in
+    /// member order: each member trial-applies on a clone, and a
+    /// failed member (which dooms the composite — `Composite::validate`
+    /// aborts on the same error) is skipped while later independent
+    /// producers still resolve their bindings.
+    #[allow(clippy::result_large_err, clippy::too_many_lines)]
+    fn lower_bound_batch(
+        &self,
+        path: &str,
+        req: &OperationRequest,
+        base: &Project,
+        members: &[Value],
+        bindings: &[Value],
+    ) -> Result<Lowered, ErrorEnvelope> {
+        // Strict declaration parse — `{name, member, kind}` objects
+        // only, mirroring `MacroBindingWire`'s wire contract.
+        let mut decls = Vec::with_capacity(bindings.len());
+        let mut declared = BTreeSet::new();
+        for (j, binding) in bindings.iter().enumerate() {
+            let bpath = format!("{path}.args.bindings[{j}]");
+            let obj = binding
+                .as_object()
+                .ok_or_else(|| prepare::violation(&bpath, "expected an object"))?;
+            for key in obj.keys() {
+                if !matches!(key.as_str(), "name" | "member" | "kind") {
+                    return Err(prepare::violation(
+                        &format!("{bpath}.{key}"),
+                        "unknown field; only name, member, kind are allowed",
+                    ));
+                }
+            }
+            let name = obj
+                .get("name")
+                .and_then(Value::as_str)
+                .ok_or_else(|| prepare::violation(&format!("{bpath}.name"), "expected a string"))?
+                .to_owned();
+            let member = obj
+                .get("member")
+                .and_then(Value::as_u64)
+                .and_then(|m| usize::try_from(m).ok())
+                .ok_or_else(|| {
+                    prepare::violation(&format!("{bpath}.member"), "expected a member index")
+                })?;
+            let kind_name = obj
+                .get("kind")
+                .and_then(Value::as_str)
+                .ok_or_else(|| prepare::violation(&format!("{bpath}.kind"), "expected a string"))?;
+            let kind = ResourceKind::parse(kind_name).map_err(ErrorEnvelope::from)?;
+            if member >= members.len() {
+                return Err(prepare::violation(
+                    &format!("{bpath}.member"),
+                    format!(
+                        "binding member {member} is outside ops[] ({} members)",
+                        members.len()
+                    ),
+                ));
+            }
+            if !declared.insert((member, kind)) {
+                return Err(prepare::violation(
+                    &bpath,
+                    format!("duplicate binding for member {member} kind {kind:?}"),
+                ));
+            }
+            decls.push(BindingDecl { name, member, kind });
+        }
+
+        // Producer member → its binding slots, for the post-apply
+        // created-resource diff.
+        let mut by_member: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+        for (j, decl) in decls.iter().enumerate() {
+            by_member.entry(decl.member).or_default().push(j);
+        }
+
+        let mut scratch = (*base).clone();
+        let mut ids = CounterIdGenerator::new(base.id_watermark);
+        let mut resolved: Vec<Option<ResourceRef>> = vec![None; decls.len()];
+
+        let mut commands = Vec::with_capacity(members.len());
+        let mut ops = Vec::with_capacity(members.len());
+        for (i, member) in members.iter().enumerate() {
+            let mpath = format!("{path}.args.ops[{i}]");
+            let rewritten = rewrite_member(member, i, &decls, &resolved, &mpath)?;
+            let member_named = NamedOperation::parse(&rewritten, &mpath)?;
+            if member_named.capability.id.as_str() == "synvelis.operation.batch" {
+                return Err(prepare::violation(&mpath, "nested batch is not allowed"));
+            }
+            let (member_commands, member_op, _) =
+                self.lower_named(&member_named, &mpath, req, base)?;
+            commands.extend(member_commands);
+
+            // Trial-apply on a clone: the scratch always equals the
+            // base plus every member that applied successfully, in
+            // member order — the same validate-then-apply sequence
+            // `Composite::apply` commits — so the created-resource
+            // diff below and the provisional oracle see a consistent
+            // state. A member whose validate/apply fails dooms the
+            // composite (the same error resurfaces at `op.validate`
+            // after the provisional gate); it is skipped — scratch
+            // and the id sequence stay where the last success left
+            // them — while later members still process.
+            let before = by_member.get(&i).map(|_| prepare::resource_map(&scratch));
+            if member_op.validate(&scratch).is_ok() {
+                let mut trial = scratch.clone();
+                let mut trial_ids = ids.clone();
+                if member_op.apply(&mut trial, &mut trial_ids).is_ok() {
+                    scratch = trial;
+                    ids = trial_ids;
+                    if let (Some(produced), Some(before)) = (by_member.get(&i), before) {
+                        let after = prepare::resource_map(&scratch);
+                        for &j in produced {
+                            let created: Vec<ResourceRef> = after
+                                .keys()
+                                .filter(|r| !before.contains_key(*r) && r.kind() == decls[j].kind)
+                                .copied()
+                                .collect();
+                            let [resource] = created.as_slice() else {
+                                return Err(GatewayError::PreparationRejected {
+                                    reason: format!(
+                                        "output binding '{}' (member {i}) created {} resource(s) \
+                                         of its declared kind — exactly one is required; ids are \
+                                         never guessed",
+                                        decls[j].name,
+                                        created.len()
+                                    ),
+                                }
+                                .into());
+                            };
+                            resolved[j] = Some(*resource);
+                        }
+                    }
+                }
+            }
+            ops.push(member_op);
+        }
+        Ok((
+            commands,
+            ProjectOp::Composite { ops },
+            Some(Arc::new(scratch)),
         ))
     }
 
@@ -914,8 +1215,10 @@ impl PrepareEngine {
             .get("operation")
             .ok_or_else(|| prepare::violation("args.operation", "missing required field"))?;
         let named = NamedOperation::parse(operation_value, "args.operation")?;
-        let (commands, op) = self.lower_named(&named, "args.operation", req)?;
-        let (facts, capabilities) = self.provisional_gate(req, &pin, &named, &op, &commands)?;
+        let (commands, op, scratch) =
+            self.lower_named(&named, "args.operation", req, &pin.state)?;
+        let (facts, capabilities) =
+            self.provisional_gate(req, &pin, &named, &op, &commands, scratch.as_ref())?;
 
         // The project's own validator is the semantic authority —
         // a rejection here is a typed prepare rejection, never a
@@ -1008,6 +1311,7 @@ impl PrepareEngine {
         named: &NamedOperation,
         op: &ProjectOp,
         commands: &[SemanticCommand],
+        scratch: Option<&Arc<Project>>,
     ) -> Result<(prepare::OpFacts, Vec<CapabilityRef>), ErrorEnvelope> {
         // A project-level create's declared parent is semantic, not
         // decorative — `bind_target` validates the shape, and the
@@ -1068,11 +1372,19 @@ impl PrepareEngine {
             after_states: Vec::new(),
             capabilities: capabilities.clone(),
         };
-        let base_oracle: Arc<dyn ResourceOracle> =
-            Arc::new(crate::snapshot::ProjectOracle::new(pin.state.clone()));
+        // A `bindings` batch hands over the seam's deterministic
+        // scratch post-state — identical to the candidate the
+        // derived-effects gate below authorizes against — so
+        // create-then-reference reads resolve as transaction-created
+        // resources instead of failing closed as unresolved. Every
+        // other operation keeps the pinned-base-only oracle.
+        let oracle: Arc<dyn ResourceOracle> = match scratch {
+            Some(candidate) => Arc::new(prepare::BaseFirstOracle::new(&pin.state, candidate)),
+            None => Arc::new(crate::snapshot::ProjectOracle::new(pin.state.clone())),
+        };
         let decision =
             self.authorizer
-                .authorize_effects(req, &self.descriptor, &provisional, base_oracle);
+                .authorize_effects(req, &self.descriptor, &provisional, oracle);
         verdict(decision)?;
 
         Ok((facts, capabilities))
@@ -1138,7 +1450,7 @@ impl CapabilityOperation for PrepareEngine {
 #[cfg(test)]
 mod tests {
     use serde_json::json;
-    use synvelis_project::{Project, ProjectId, ProjectRevision};
+    use synvelis_project::{LaneId, Project, ProjectId, ProjectRevision, TrackId};
 
     use super::*;
     use crate::clock::{ManualClock, PolicyInstant};
@@ -1154,6 +1466,7 @@ mod tests {
     /// pinned (empty) project at revision 1.
     struct Rig {
         gw: crate::Gateway,
+        engine: Arc<PrepareEngine>,
     }
 
     fn rig() -> Rig {
@@ -1188,7 +1501,7 @@ mod tests {
             Box::new(GrantPolicy::new(store, clock, oracle)),
         )));
         engine.install(&mut gw).unwrap();
-        Rig { gw }
+        Rig { gw, engine }
     }
 
     fn caller() -> CallerIdentity {
@@ -1234,30 +1547,235 @@ mod tests {
         })
     }
 
+    /// The pinned demo project's tagged id (`ProjectId::new(7)`).
+    fn project_tagged() -> String {
+        ProjectId::new(7).to_tagged()
+    }
+
+    /// A `synvelis.track.create` member — creates exactly one track.
+    fn track_create_member() -> Value {
+        json!({
+            "capability": {
+                "id": "synvelis.track.create",
+                "version": {"major": 1, "minor": 0},
+            },
+            "target": {
+                "shape": "create",
+                "parent_kind": "project",
+                "parent": project_tagged(),
+                "creates": "track",
+            },
+            "args": {"name": "t-new"},
+        })
+    }
+
+    /// A `synvelis.lane.create` member whose create-parent is the
+    /// tagged id `parent_id` (real or compiler placeholder).
+    fn lane_create_member(parent_id: &str) -> Value {
+        json!({
+            "capability": {
+                "id": "synvelis.lane.create",
+                "version": {"major": 1, "minor": 0},
+            },
+            "target": {
+                "shape": "create",
+                "parent_kind": "track",
+                "parent": parent_id,
+                "creates": "lane",
+            },
+            "args": {},
+        })
+    }
+
+    /// The compiler placeholder for binding `slot` of `kind` —
+    /// `<kind>-<32hex>` over `OUTPUT_BINDING_ID_BASE + slot`.
+    fn placeholder(kind: &str, slot: usize) -> String {
+        format!("{kind}-{:032x}", OUTPUT_BINDING_ID_BASE + slot as u128)
+    }
+
     #[test]
-    fn batch_output_bindings_reject_typed_unsupported() {
-        // AUTX-04: a non-empty `bindings` declaration is the
-        // create-then-reference marker — GW-04 answers with the typed
-        // unsupported verdict (Workflow decomposition is the
-        // documented route), never a lowered Composite.
+    fn batch_bindings_resolve_create_then_reference() {
+        // AUTX-04 GW-04: `track.create` → `lane.create` with the
+        // lane's create-parent carried as the slot-0 placeholder.
+        // The seam rewrites it to the track's real minted id
+        // (watermark 1000 → raw 1000; the lane draws 1001) and the
+        // composite prepares, previews, and commits deterministically.
+        let mut rig = rig();
+        let outcome = rig
+            .gw
+            .handle(
+                &prepare_req(&batch_op(&json!({
+                    "ops": [
+                        track_create_member(),
+                        lane_create_member(&placeholder("track", 0)),
+                    ],
+                    "bindings": [
+                        {"name": "new_track", "member": 0, "kind": "track"}
+                    ],
+                }))),
+                caller(),
+            )
+            .expect("bindings batch must prepare");
+        let GatewayOutcome::Completed { result } = outcome else {
+            panic!("expected Completed, got {outcome:?}");
+        };
+        let proposal = ProposalRef::new(result["proposal"].as_str().unwrap()).unwrap();
+        let record = rig.engine.prepared(&proposal).expect("proposal retained");
+        // The candidate shows the resolved ids — track raw 1000,
+        // lane raw 1001 parented to it.
+        let track_id = TrackId::new(1000);
+        let lane_id = LaneId::new(1001);
+        assert!(record.prepared.candidate.tracks.contains_key(&track_id));
+        assert_eq!(record.prepared.candidate.lanes[&lane_id].track_id, track_id);
+        // Commands carry the rewritten ids — no placeholder survives
+        // into the digest/approval surface.
+        assert_eq!(record.prepared.commands.len(), 2);
+        assert!(matches!(
+            record.op,
+            ProjectOp::Composite { ref ops } if ops.len() == 2
+        ));
+        // Create effects name the concrete resources.
+        assert!(
+            record
+                .prepared
+                .effects
+                .iter()
+                .any(|e| e.kind == EffectKind::Create
+                    && e.resource == ResourceRef::Track(track_id))
+        );
+        assert!(
+            record
+                .prepared
+                .effects
+                .iter()
+                .any(|e| e.kind == EffectKind::Create && e.resource == ResourceRef::Lane(lane_id))
+        );
+    }
+
+    #[test]
+    fn batch_bindings_reject_producer_wrong_kind_arity() {
+        // The producer creates a track but the binding demands a
+        // lane — zero matching resources is a typed rejection, ids
+        // are never guessed.
         let mut rig = rig();
         let err = rig
             .gw
             .handle(
                 &prepare_req(&batch_op(&json!({
-                    "ops": [member()],
+                    "ops": [track_create_member()],
                     "bindings": [
-                        {"name": "created_track", "member": 0, "kind": "track"}
+                        {"name": "wrong", "member": 0, "kind": "lane"}
                     ],
                 }))),
                 caller(),
             )
-            .expect_err("output bindings must reject");
-        let GatewayError::PreparationRejected { reason } = &err.code else {
-            panic!("expected PreparationRejected, got {:?}", err.code);
+            .expect_err("a producer creating zero of the kind must reject");
+        assert!(matches!(err.code, GatewayError::PreparationRejected { .. }));
+    }
+
+    #[test]
+    fn batch_bindings_reject_malformed_declarations() {
+        // Every malformed declaration shape fails closed with the
+        // existing typed vocabulary — non-object items, unknown
+        // fields, out-of-range member indexes, duplicate
+        // (member, kind) pairs, and unknown kind tags.
+        let cases: Vec<(&str, Value)> = vec![
+            ("non-object", json!("yes")),
+            (
+                "unknown field",
+                json!({"name": "x", "member": 0, "kind": "track", "extra": 1}),
+            ),
+            (
+                "member out of range",
+                json!({"name": "x", "member": 3, "kind": "track"}),
+            ),
+            (
+                "unknown kind",
+                json!({"name": "x", "member": 0, "kind": "bogus"}),
+            ),
+        ];
+        for (label, binding) in cases {
+            let mut rig = rig();
+            let Err(err) = rig.gw.handle(
+                &prepare_req(&batch_op(&json!({
+                    "ops": [track_create_member()],
+                    "bindings": [binding],
+                }))),
+                caller(),
+            ) else {
+                panic!("{label} must reject")
+            };
+            assert!(
+                matches!(
+                    err.code,
+                    GatewayError::SchemaViolation { .. }
+                        | GatewayError::UnknownResourceKind { .. }
+                        | GatewayError::PreparationRejected { .. }
+                ),
+                "{label}: unexpected error {:?}",
+                err.code
+            );
+        }
+        // Duplicate (member, kind) declarations reject.
+        let mut rig = rig();
+        let err = rig
+            .gw
+            .handle(
+                &prepare_req(&batch_op(&json!({
+                    "ops": [track_create_member()],
+                    "bindings": [
+                        {"name": "a", "member": 0, "kind": "track"},
+                        {"name": "b", "member": 0, "kind": "track"},
+                    ],
+                }))),
+                caller(),
+            )
+            .expect_err("duplicate (member, kind) must reject");
+        assert!(matches!(err.code, GatewayError::SchemaViolation { .. }));
+    }
+
+    #[test]
+    fn batch_bindings_reject_premature_and_undeclared_placeholders() {
+        // A placeholder whose producer member has not applied yet
+        // (self/backward reference) and a placeholder naming a slot
+        // no binding declares are both typed rejections.
+        let err = {
+            let mut rig = rig();
+            rig.gw
+                .handle(
+                    &prepare_req(&batch_op(&json!({
+                        "ops": [
+                            lane_create_member(&placeholder("track", 0)),
+                            track_create_member(),
+                        ],
+                        "bindings": [
+                            {"name": "t", "member": 1, "kind": "track"}
+                        ],
+                    }))),
+                    caller(),
+                )
+                .expect_err("use-before-produce must reject")
         };
-        assert!(reason.contains("bindings"), "reason: {reason}");
-        assert!(reason.contains("Workflow"), "reason: {reason}");
+        assert!(matches!(err.code, GatewayError::SchemaViolation { .. }));
+
+        let err = {
+            let mut rig = rig();
+            rig.gw
+                .handle(
+                    &prepare_req(&batch_op(&json!({
+                        "ops": [
+                            track_create_member(),
+                            lane_create_member(&placeholder("track", 7)),
+                        ],
+                        "bindings": [
+                            {"name": "t", "member": 0, "kind": "track"}
+                        ],
+                    }))),
+                    caller(),
+                )
+                .expect_err("undeclared slot must reject")
+        };
+        assert!(matches!(err.code, GatewayError::SchemaViolation { .. }));
     }
 
     #[test]
