@@ -6,6 +6,7 @@ Directory: `docs/impl/ir`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| IMPL-Sv89Alib05Browser00001 | ALIB-05 Browser/Import UX headless view-model + syn.library.* ops（synvelis#89） | in-progress | [alib-05-browser-import-ux.md](./alib-05-browser-import-ux.md) |
 | IMPL-034XgQ1qM5AZJvhmAnHddj | AUTX-04 Atomic Macro v1 recipe compiler and ID resolution | in-progress | [autx-04-atomic-macro.md](./autx-04-atomic-macro.md) |
 | IMPL-034Xe5swowhuVJIrpCp969 | AUTX-05 Workflow DSL v1 — typed definition and plan compiler | in-progress | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
 | IMPL-034XLar3aaWdSdwjp7eeMM | AUTX-06 live adapters — GatewayStepLane/GatewayJobLane + registry projection | in-progress | [autx-06-live-adapters.md](./autx-06-live-adapters.md) |

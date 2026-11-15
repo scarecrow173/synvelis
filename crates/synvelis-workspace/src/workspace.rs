@@ -25,6 +25,7 @@ use crate::edit::{self, CommitEffect};
 use crate::error::WorkspaceError;
 use crate::focus::{FocusState, InputContext};
 use crate::gesture::{CancelReason, Gesture, GestureFixation, GestureOutcome, GesturePreview};
+use crate::library_ui::LibraryViews;
 use crate::link::{LinkEvent, LinkGroupId, LinkGroupManager};
 use crate::persist::{LinkRecord, ViewRecord, WORKSPACE_SCHEMA, WorkspaceSnapshot};
 use crate::relation_ui::{ControlRelationViewState, control_entity_tag};
@@ -66,6 +67,7 @@ pub struct WorkspaceManager<H: WindowHandle> {
     pub(crate) registry: ViewRegistry,
     pub(crate) states: ViewStateRegistry,
     pub(crate) vcs: VcsHistoryViews,
+    pub(crate) library: LibraryViews,
     pub(crate) links: LinkGroupManager,
     pub(crate) focus: FocusState,
     session: ProjectSession,
@@ -87,6 +89,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
             registry: ViewRegistry::default(),
             states: ViewStateRegistry::default(),
             vcs: VcsHistoryViews::new(),
+            library: LibraryViews::new(),
             links: LinkGroupManager::default(),
             focus: FocusState::default(),
             session,
@@ -144,6 +147,33 @@ impl<H: WindowHandle> WorkspaceManager<H> {
     /// mutate project state.
     pub fn with_vcs<R>(&mut self, f: impl FnOnce(&mut VcsHistoryViews, &ProjectSession) -> R) -> R {
         f(&mut self.vcs, &self.session)
+    }
+
+    /// The Asset Library view-model registry (ALIB-UX-H, synvelis#89).
+    #[must_use]
+    pub fn library(&self) -> &LibraryViews {
+        &self.library
+    }
+
+    /// Mutable Asset Library view-model registry.
+    #[must_use]
+    pub fn library_mut(&mut self) -> &mut LibraryViews {
+        &mut self.library
+    }
+
+    /// Runs `f` with split borrows of the library registry and the
+    /// session — the `syn.library.*` import path needs both the view
+    /// model (`&mut`) and the [`ProjectController`] (`&mut`) in one
+    /// call, which two sequential `workspace` borrows cannot express.
+    /// The session side is mutable here (unlike [`Self::with_vcs`])
+    /// because verified import commits through the controller at an
+    /// expected revision — the only project mutation the surface is
+    /// allowed to perform.
+    pub fn with_library<R>(
+        &mut self,
+        f: impl FnOnce(&mut LibraryViews, &mut ProjectSession) -> R,
+    ) -> R {
+        f(&mut self.library, &mut self.session)
     }
 
     /// The link-group manager.
@@ -421,6 +451,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
         self.registry.unregister(view)?;
         self.states.remove(view);
         self.vcs.remove(view);
+        self.library.remove(view);
         self.links.set_group(view, None);
         if self.focus.active_view == Some(view) {
             self.focus.active_view = None;
@@ -640,6 +671,7 @@ impl<H: WindowHandle> WorkspaceManager<H> {
                             let _ = self.registry.unregister(v);
                             self.states.remove(v);
                             self.vcs.remove(v);
+                            self.library.remove(v);
                             self.links.set_group(v, None);
                         }
                     }

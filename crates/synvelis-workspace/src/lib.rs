@@ -28,6 +28,7 @@ pub mod gateway_ui;
 pub mod gesture;
 pub mod host;
 pub mod keymap;
+pub mod library_ui;
 pub mod link;
 pub mod persist;
 pub mod ppqn_ui;
@@ -141,6 +142,11 @@ pub use render_ui::{
 // Authority vocabulary the render surfaces decode/display — re-exported
 // so app/CLI surfaces never need a direct `synvelis-render` dependency
 // for policy enums (single vocabulary, RCP-UX-02/03).
+pub use library_ui::{
+    BrowseEntryWire, DragUiState, ImportTargetWire, ImportUiState, LibraryAction, LibraryBackend,
+    LibraryFault, LibraryImportPorts, LibraryReason, LibraryViewModel, LibraryViewState,
+    LibraryViews, PinUiState, PreviewUiState, ProviderWire, StatWire, library_spec,
+};
 pub use recording_status::{
     PreparedCommitView, PreparedVerdict, RECORDING_STATUS_NOTICE_TAIL, RecordingAction,
     RecordingDisplayState, RecordingExplanation, RecordingLaneView, RecordingOutcomeView,

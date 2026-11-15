@@ -356,6 +356,38 @@ pub struct SynvelisApp {
     /// [`crate::automation::AutomationScreenPublish`] — `Cell` because
     /// [`Self::publish_automation_screens`] runs under `&self`.
     pub(crate) autx_publish_rev: Cell<u64>,
+    /// Verified-import backends the `syn.library.*` ops compose into
+    /// [`synvelis_workspace::LibraryImportPorts`] (ALIB-UX-H,
+    /// synvelis#89): the durable [`synvelis_library::ImportStore`],
+    /// the project blob read port, and the blob publisher. `None`
+    /// until [`Self::set_library_import`] — import actions then land
+    /// the typed `Malformed`/`Unavailable` fault instead of touching
+    /// the project. Browse/stat/pin/preview never need this: they run
+    /// through the provider registry bound on the workspace's
+    /// [`synvelis_workspace::LibraryViews`].
+    pub(crate) library_import: Option<LibraryImportServices>,
+    /// The provider registry + principal bound via
+    /// [`Self::set_library_backend`], retained so
+    /// `project.new`/`project.open`/`project.reload` — which replace
+    /// the whole [`WorkspaceManager`] — can rebind it onto the fresh
+    /// workspace's [`synvelis_workspace::LibraryViews`]. Without this
+    /// every library op silently degrades to `unavailable` after any
+    /// project switch.
+    pub(crate) library_backend: Option<synvelis_workspace::LibraryBackend>,
+}
+
+/// The import-side backends `syn.library.*` import actions borrow for
+/// one call — injected once by the composition root or a test fixture
+/// (real `ImportStore`/`LocalBlobDir`/`StagedBlobPublisher` over a
+/// temp root, or fault-injecting doubles).
+#[derive(Clone)]
+pub struct LibraryImportServices {
+    /// Durable import manifest/staging store.
+    pub store: synvelis_library::ImportStore,
+    /// Project blob store read port.
+    pub blobs: Arc<dyn synvelis_library::ProjectBlobStore>,
+    /// Blob publisher write port.
+    pub publisher: Arc<dyn synvelis_library::BlobPublisher>,
 }
 
 impl SynvelisApp {
@@ -389,7 +421,38 @@ impl SynvelisApp {
             autx_request_seq: 0,
             automation_screens: Rc::new(RefCell::new(BTreeMap::new())),
             autx_publish_rev: Cell::new(0),
+            library_import: None,
+            library_backend: None,
         }
+    }
+
+    /// Binds the provider registry + principal every lazily-created
+    /// Asset Library view model shares (ALIB-UX-H, synvelis#89). Pass
+    /// an [`Arc`](std::sync::Arc) registry so tests/composition roots
+    /// keep a handle on the same providers the app drives — the
+    /// `synvelis#91` real-provider wiring lands here. The binding is
+    /// retained and re-applied whenever the workspace is rebuilt by
+    /// `project.new`/`open`/`reload`.
+    pub fn set_library_backend(&mut self, backend: synvelis_workspace::LibraryBackend) {
+        self.workspace.library_mut().set_backend(backend.clone());
+        self.library_backend = Some(backend);
+    }
+
+    /// Rebinds the retained [`Self::library_backend`] onto the current
+    /// workspace — called after `project.new`/`open` replace the
+    /// [`WorkspaceManager`], mirroring [`Self::bind_vcs_backend`].
+    fn bind_library_backend(&mut self) {
+        if let Some(backend) = &self.library_backend {
+            self.workspace.library_mut().set_backend(backend.clone());
+        }
+    }
+
+    /// Injects the verified-import backends `syn.library.*` import
+    /// actions use — the durable [`synvelis_library::ImportStore`],
+    /// blob read port, and blob publisher. Until bound, import actions
+    /// land the typed fault and never touch the project.
+    pub fn set_library_import(&mut self, services: LibraryImportServices) {
+        self.library_import = Some(services);
     }
 
     /// Injects the VCS history backend `syn.vcs.*` ops use (VCS-04).
@@ -967,6 +1030,7 @@ impl SynvelisApp {
         // 反映される。ここで reset するのは session 観測値のみ。
         self.monitoring = crate::monitoring::MonitorUxState::default();
         self.bind_vcs_backend(path);
+        self.bind_library_backend();
         Ok(self.project_info())
     }
 
@@ -1014,6 +1078,7 @@ impl SynvelisApp {
         // のみ — これらは永続化対象外。
         self.monitoring = crate::monitoring::MonitorUxState::default();
         self.bind_vcs_backend(path);
+        self.bind_library_backend();
         Ok(self.project_info())
     }
 

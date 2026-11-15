@@ -16,6 +16,7 @@ synvelis-gateway = { path = "../synvelis-gateway" }
 synvelis-script = { path = "../synvelis-script" }
 synvelis-player = { path = "../synvelis-player" }
 synvelis-render = { path = "../synvelis-render" }
+synvelis-library = { path = "../synvelis-library" }
 ruviform-ui.workspace = true
 ruviform-media-core.workspace = true
 ruviform-plugin-core.workspace = true

@@ -4894,6 +4894,172 @@ impl SynvelisApp {
         Ok(json!({ "ok": true, "view_id": view_name }))
     }
 
+    // -- syn.library.* ------------------------------------------------------
+
+    /// `view_id` → registered [`ViewInstanceId`] for `syn.library.*`
+    /// ops, restricted to [`ViewType::AssetLibrary`] views — a
+    /// mistyped or wrong-kind id fails loudly instead of lazily
+    /// minting a model on an unrelated surface.
+    fn library_view_instance(&self, params: &Value) -> Result<(String, ViewInstanceId), ErrorBody> {
+        let view = str_param(params, "view_id")?;
+        let inst = parse_view_instance(view)
+            .ok_or_else(|| invalid(format!("params.view_id must be \"view-{{n}}\", got {view}")))?;
+        if !self.workspace.registry().contains(inst) {
+            return Err(invalid(format!("view {view} is not registered")));
+        }
+        let is_library = self
+            .workspace
+            .registry()
+            .descriptor(inst)
+            .is_some_and(|d| d.kind == ViewType::AssetLibrary);
+        if !is_library {
+            return Err(invalid(format!("view {view} is not an asset-library view")));
+        }
+        Ok((view.to_string(), inst))
+    }
+
+    /// [`ErrorBody`] for a `syn.library.*` op whose provider backend
+    /// was never bound — typed `unavailable`, never a fabricated
+    /// empty catalog.
+    fn library_unavailable() -> ErrorBody {
+        ErrorBody::new(
+            codes::UNAVAILABLE,
+            "asset library backend not bound — syn.library providers are empty",
+        )
+    }
+
+    /// `syn.library.providers` — the registered provider descriptors
+    /// projected to wire form. Independent of any view: the selector
+    /// needs the catalog before a browser view exists. Empty list
+    /// when no [`synvelis_workspace::LibraryBackend`] is bound.
+    ///
+    /// # Errors
+    /// Never for valid params — an unbound backend is an empty list,
+    /// not an error.
+    pub fn op_library_providers(&self, _params: &Value) -> Result<Value, ErrorBody> {
+        Ok(json!({ "providers": self.workspace.library().providers() }))
+    }
+
+    /// `syn.library.visual{action:"open"}` — spawns a detached
+    /// [`ViewType::AssetLibrary`] view and returns its wire `view_id`.
+    /// Same monotonic-id discipline as `open_vcs_view`.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] when the dock refuses the adoption.
+    fn open_library_view(&mut self) -> Result<String, ErrorBody> {
+        let next = self
+            .workspace
+            .view_id_watermark()
+            .max(2)
+            .checked_add(1)
+            .ok_or_else(|| internal("library view id space exhausted"))?;
+        let id =
+            ViewInstanceId::new(next).ok_or_else(|| internal("library view id space exhausted"))?;
+        self.workspace
+            .adopt_view(id, ViewType::AssetLibrary, "Asset Library", None)
+            .map_err(|e| dock_err(&e))?;
+        Ok(format!("view-{next}"))
+    }
+
+    /// `syn.library.visual` — lifecycle for the Asset Library surface:
+    /// `open` (no `view_id`) spawns a detached view; `close`
+    /// (`view_id`) removes an `AssetLibrary`-kind view through the
+    /// shared `close_view_of_kinds` teardown (dock/registry/per-view
+    /// state/UI-side cleanup identical to `syn.view.close`).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters or a workspace refusal.
+    pub fn op_library_visual(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let action = str_param(params, "action")?;
+        match action {
+            "open" => {
+                let view_id = self.open_library_view()?;
+                Ok(json!({ "ok": true, "view_id": view_id, "opened": true }))
+            }
+            "close" => self.close_view_of_kinds(params, &[ViewType::AssetLibrary], "asset-library"),
+            other => Err(invalid(format!("unknown library action {other}"))),
+        }
+    }
+
+    /// `syn.library.view` — the full projection for one Asset Library
+    /// view: registered providers, the typed [`LibraryViewState`]
+    /// verbatim (coverage/search/pin/preview/import/drag/fault), and
+    /// the deterministic driver-neutral [`ViewSpec`] a Fake/Mock/GPUI
+    /// driver mounts unchanged. Pure read — provider freshness probes
+    /// already happened inside the actions that filled the state.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, an unregistered/wrong-kind
+    /// view, or an unbound library backend.
+    pub fn op_library_view(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let (view_name, inst) = self.library_view_instance(params)?;
+        let model = self
+            .workspace
+            .library_mut()
+            .model_mut(inst)
+            .ok_or_else(Self::library_unavailable)?;
+        Ok(json!({
+            "view_id": view_name,
+            "providers": model.providers(),
+            "state": model.state(),
+            "spec": synvelis_workspace::library_spec(model),
+        }))
+    }
+
+    /// `syn.library.action` — one decoded [`LibraryAction`] against a
+    /// view's model. Params are `{view_id, action: <tag>, ...fields}`
+    /// where the action fields deserialize verbatim into the
+    /// internally-tagged enum (`browse.refresh`, `entry.pin`,
+    /// `preview.fetch`, `import.submit`, `drag.begin`, …). Import
+    /// actions compose the injected [`LibraryImportServices`] ports
+    /// and the session [`ProjectController`] — the only path that may
+    /// mutate project state, always at the intent's expected revision.
+    /// The ack is minimal; query [`Self::op_library_view`] for the
+    /// projection.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, an unregistered/wrong-kind
+    /// view, or an unbound library backend. Action-level failures are
+    /// *not* op errors — they land in `state.fault`/the typed surface
+    /// states so drivers can render them.
+    pub fn op_library_action(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let (view_name, inst) = self.library_view_instance(params)?;
+        // Strip `view_id` — the enum is `deny_unknown_fields` and the
+        // action payload is everything else, verbatim.
+        let mut action_params = params.clone();
+        if let Some(obj) = action_params.as_object_mut() {
+            obj.remove("view_id");
+        }
+        let action: synvelis_workspace::LibraryAction =
+            serde_json::from_value(action_params).map_err(|e| invalid(format!("params: {e}")))?;
+        let import = self.library_import.as_ref();
+        self.workspace
+            .with_library(|views, session| -> Result<(), ErrorBody> {
+                let model = views
+                    .model_mut(inst)
+                    .ok_or_else(Self::library_unavailable)?;
+                let ports = import.map(|s| synvelis_workspace::LibraryImportPorts {
+                    store: &s.store,
+                    blobs: s.blobs.as_ref(),
+                    publisher: s.publisher.as_ref(),
+                });
+                // Verified import commits inside `import_verified`
+                // through `controller_mut()` — it cannot route through
+                // `ProjectSession::apply`, so the session's post-commit
+                // notifications (engine rebuild, control write-gate
+                // seal) must be replayed here when the revision moved.
+                // An idempotent replay commits nothing and must not
+                // notify.
+                let revision_before = session.revision();
+                model.apply(&action, ports.as_ref(), Some(session.controller_mut()));
+                if session.revision() != revision_before {
+                    session.notify_committed_change();
+                }
+                Ok(())
+            })?;
+        Ok(json!({ "ok": true, "view_id": view_name }))
+    }
+
     // -- syn.autx.* ---------------------------------------------------------
 
     /// `syn.autx.visual` — lifecycle for the four AUTX-07 automation

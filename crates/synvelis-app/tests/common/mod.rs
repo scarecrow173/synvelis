@@ -4,6 +4,7 @@
 //! ここに現れない。
 #![allow(dead_code)]
 
+pub mod library;
 pub mod mounted;
 pub mod scenario;
 pub mod vcs;
