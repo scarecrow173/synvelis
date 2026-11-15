@@ -100,6 +100,69 @@ pub struct RunMonitorScreenState {
     pub view: AutomationViewState,
 }
 
+/// Per-view automation surface screen state — the composition root's
+/// publish unit. [`crate::app::SynvelisApp::automation_screen_cell`]
+/// holds one entry per adopted automation view, keyed by its
+/// `ViewInstanceId`; the variant records which of the four surfaces
+/// the view hosts so the matching spec builder applies.
+#[derive(Clone, Debug)]
+pub enum AutomationScreenState {
+    /// Action Palette (`ViewType::ActionPalette`).
+    Palette(ActionPaletteScreenState),
+    /// Macro Browser (`ViewType::MacroBrowser`).
+    Macro(MacroBrowserScreenState),
+    /// Workflow Editor (`ViewType::WorkflowEditor`).
+    Workflow(WorkflowEditorScreenState),
+    /// Run Monitor (`ViewType::RunMonitor`).
+    Run(RunMonitorScreenState),
+}
+
+/// Whether `target` is one of the five `autx.*` logical targets the
+/// automation surfaces emit — the binding decoder's params gate and
+/// the shell's dispatch arm share this predicate so a params-bearing
+/// automation intent is admitted at exactly one boundary and routed
+/// at exactly one arm.
+#[must_use]
+pub fn is_autx_target(target: &str) -> bool {
+    matches!(
+        target,
+        AUTX_PALETTE_TARGET
+            | AUTX_MACRO_TARGET
+            | AUTX_WORKFLOW_TARGET
+            | AUTX_RUN_TARGET
+            | AUTX_ACTION_TARGET
+    )
+}
+
+/// The `ViewSpec` for one published automation screen state — the
+/// single dispatch the composition root and tests push into a mounted
+/// `ViewHost` after every publish.
+#[must_use]
+pub fn automation_screen_spec(state: &AutomationScreenState) -> ViewSpec {
+    match state {
+        AutomationScreenState::Palette(s) => action_palette_screen_spec(s),
+        AutomationScreenState::Macro(s) => macro_browser_screen_spec(s),
+        AutomationScreenState::Workflow(s) => workflow_editor_screen_spec(s),
+        AutomationScreenState::Run(s) => run_monitor_screen_spec(s),
+    }
+}
+
+/// One entry of the published automation screen cell — the projected
+/// [`AutomationScreenState`] plus the app's publish revision at write
+/// time. The projection types intentionally carry no `PartialEq`
+/// (they embed gateway contract types), so the composition root's
+/// spec-push loop compares `rev` stamps — bumped once per
+/// `publish_automation_screens` pass — instead of deep-comparing
+/// screen state.
+#[derive(Clone, Debug)]
+pub struct AutomationScreenPublish {
+    /// Publish revision — increments on every publish pass that
+    /// touches the map.
+    pub rev: u64,
+    /// The projected screen state for [`automation_screen_spec`].
+    pub state: AutomationScreenState,
+}
+
 // ── shared spec helpers ───────────────────────────────────────────────
 
 fn label(key_name: &str, a11y_label: &str, text: String) -> ComponentSpec {
@@ -170,8 +233,35 @@ fn palette_status_text(state: &ActionPaletteScreenState) -> String {
     }
 }
 
-fn palette_detail_text(state: &ActionPaletteScreenState) -> String {
-    let Some(catalog) = &state.catalog else {
+/// The catalog rows the palette actually displays — the full catalog
+/// filtered to the active domain category. `palette_category` indexes
+/// [`palette_categories`] (`0` = `"all"`); an out-of-range index also
+/// shows every row rather than guessing a domain. Row indices the
+/// table emits — and `palette_selected` stores — refer to this
+/// filtered view, so the detail readout and action buttons resolve
+/// against the same rows the user sees.
+fn palette_display_catalog(state: &ActionPaletteScreenState) -> Option<ActionCatalogView> {
+    let catalog = state.catalog.clone()?;
+    let active = state.view.palette_category.unwrap_or(0);
+    if active == 0 {
+        return Some(catalog);
+    }
+    let categories = palette_categories(&catalog);
+    let Some(domain) = categories.get(active) else {
+        return Some(catalog);
+    };
+    let mut filtered = catalog;
+    filtered
+        .rows
+        .retain(|row| row.domain.name() == domain.as_str());
+    Some(filtered)
+}
+
+fn palette_detail_text(
+    state: &ActionPaletteScreenState,
+    catalog: Option<&ActionCatalogView>,
+) -> String {
+    let Some(catalog) = catalog else {
         return "no catalog".to_string();
     };
     let Some(index) = state.view.palette_selected else {
@@ -267,9 +357,12 @@ fn palette_table(catalog: &ActionCatalogView) -> ComponentSpec {
 /// Category switcher for the palette — one `Button` per domain plus
 /// `"all"`. Buttons (not `Tabs`) keep a single shared table under one
 /// key namespace: each category button emits `category` with
-/// `{"index": n}` on [`AUTX_PALETTE_TARGET`], and the composition
-/// layer re-projects the catalog filtered by that category.
-fn palette_category_buttons(state: &ActionPaletteScreenState) -> ComponentSpec {
+/// `{"index": n}` on [`AUTX_PALETTE_TARGET`], and the spec filters the
+/// displayed rows to that category ([`palette_display_catalog`]).
+fn palette_category_buttons(
+    state: &ActionPaletteScreenState,
+    display: Option<&ActionCatalogView>,
+) -> ComponentSpec {
     let categories = state
         .catalog
         .as_ref()
@@ -290,18 +383,17 @@ fn palette_category_buttons(state: &ActionPaletteScreenState) -> ComponentSpec {
         })
         .collect();
     // The table is a sibling, not a tab child — one key, one selection.
-    children.push(palette_table(
-        state.catalog.as_ref().expect("categories imply catalog"),
-    ));
+    children.push(palette_table(display.expect("display implies catalog")));
     panel("autx.palette.browser", None, children)
 }
 
-fn palette_action_buttons(state: &ActionPaletteScreenState) -> Vec<ComponentSpec> {
+fn palette_action_buttons(
+    state: &ActionPaletteScreenState,
+    display: Option<&ActionCatalogView>,
+) -> Vec<ComponentSpec> {
     let mut buttons = Vec::new();
     let selected_label = state.view.palette_selected.and_then(|i| {
-        state
-            .catalog
-            .as_ref()
+        display
             .and_then(|c| c.rows.get(i))
             .map(|r| format!("{}@{}", r.id, r.version))
     });
@@ -319,7 +411,7 @@ fn palette_action_buttons(state: &ActionPaletteScreenState) -> Vec<ComponentSpec
         let executable = state
             .view
             .palette_selected
-            .and_then(|i| state.catalog.as_ref()?.rows.get(i))
+            .and_then(|i| display?.rows.get(i))
             .is_some_and(|r| r.executable);
         if executable {
             buttons.push(action_button(
@@ -346,6 +438,7 @@ fn palette_action_buttons(state: &ActionPaletteScreenState) -> Vec<ComponentSpec
 /// capability detail readout, and fail-closed action buttons.
 #[must_use]
 pub fn action_palette_screen_spec(state: &ActionPaletteScreenState) -> ViewSpec {
+    let display = palette_display_catalog(state);
     let mut children = vec![
         label(
             "autx.palette.status",
@@ -355,12 +448,12 @@ pub fn action_palette_screen_spec(state: &ActionPaletteScreenState) -> ViewSpec 
         label(
             "autx.palette.detail",
             "Selected capability",
-            palette_detail_text(state),
+            palette_detail_text(state, display.as_ref()),
         ),
     ];
     if state.catalog.is_some() {
-        children.push(palette_category_buttons(state));
-        let buttons = palette_action_buttons(state);
+        children.push(palette_category_buttons(state, display.as_ref()));
+        let buttons = palette_action_buttons(state, display.as_ref());
         if !buttons.is_empty() {
             children.push(panel("autx.action.buttons", None, buttons));
         }
@@ -852,7 +945,7 @@ pub fn run_monitor_screen_spec(state: &RunMonitorScreenState) -> ViewSpec {
 
 // ── mount ─────────────────────────────────────────────────────────────
 
-fn mount_automation_view(
+fn mount_automation_spec(
     attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
     instance: ViewInstanceId,
     spec: ViewSpec,
@@ -876,7 +969,7 @@ pub fn mount_action_palette_view(
     instance: ViewInstanceId,
     state: &ActionPaletteScreenState,
 ) -> Result<ViewHost, UiError> {
-    mount_automation_view(
+    mount_automation_spec(
         attach_epochs,
         instance,
         action_palette_screen_spec(state),
@@ -894,7 +987,7 @@ pub fn mount_macro_browser_view(
     instance: ViewInstanceId,
     state: &MacroBrowserScreenState,
 ) -> Result<ViewHost, UiError> {
-    mount_automation_view(
+    mount_automation_spec(
         attach_epochs,
         instance,
         macro_browser_screen_spec(state),
@@ -912,12 +1005,35 @@ pub fn mount_workflow_editor_view(
     instance: ViewInstanceId,
     state: &WorkflowEditorScreenState,
 ) -> Result<ViewHost, UiError> {
-    mount_automation_view(
+    mount_automation_spec(
         attach_epochs,
         instance,
         workflow_editor_screen_spec(state),
         "workflow editor",
     )
+}
+
+/// Mounts whichever automation surface `state` projects — the
+/// composition root's single entry point for the four
+/// [`mount_*_view`] helpers, keyed by the published
+/// [`AutomationScreenState`] variant so a mount can never pair a
+/// view instance with the wrong surface's spec.
+///
+/// # Errors
+/// [`UiError::Internal`] when the spec fails validation.
+pub fn mount_automation_view(
+    attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
+    instance: ViewInstanceId,
+    state: &AutomationScreenState,
+) -> Result<ViewHost, UiError> {
+    match state {
+        AutomationScreenState::Palette(s) => mount_action_palette_view(attach_epochs, instance, s),
+        AutomationScreenState::Macro(s) => mount_macro_browser_view(attach_epochs, instance, s),
+        AutomationScreenState::Workflow(s) => {
+            mount_workflow_editor_view(attach_epochs, instance, s)
+        }
+        AutomationScreenState::Run(s) => mount_run_monitor_view(attach_epochs, instance, s),
+    }
 }
 
 /// Mounts the Run Monitor — same contract as
@@ -930,7 +1046,7 @@ pub fn mount_run_monitor_view(
     instance: ViewInstanceId,
     state: &RunMonitorScreenState,
 ) -> Result<ViewHost, UiError> {
-    mount_automation_view(
+    mount_automation_spec(
         attach_epochs,
         instance,
         run_monitor_screen_spec(state),

@@ -492,7 +492,7 @@ pub fn project_action_catalog(
 
 /// One step of a macro preset — a capability call the atomic apply
 /// lowers to. `args` is the step's declared argument object.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MacroStepView {
     /// The capability this step invokes.
     pub capability: CapabilityRef,
@@ -505,7 +505,7 @@ pub struct MacroStepView {
 
 /// One declared macro input (name + display hint only — values are
 /// supplied at apply time by the caller, never stored in the view).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MacroInputView {
     /// Input name.
     pub name: String,
@@ -515,7 +515,7 @@ pub struct MacroInputView {
 
 /// A macro preset row — version, inputs, targets, batch effects, undo
 /// scope, and availability, all projected from the preset authority.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MacroPresetView {
     /// Stable preset id.
     pub id: String,
@@ -1281,4 +1281,277 @@ pub fn automation_requests(
 #[must_use]
 pub fn catalog_row<'a>(view: &'a ActionCatalogView, label: &str) -> Option<&'a ActionRow> {
     view.rows.iter().find(|r| r.capability_label() == label)
+}
+
+// ── authority catalog seam (SV266-NR-05) ───────────────────────────────
+
+/// The authority-pushed automation catalog — the neutral seam between
+/// the (future) live adapter and the GUI projections/request lowering
+/// (synvelis#266 mount-wiring slice).
+///
+/// The catalog holds exactly what the projections and
+/// [`automation_requests`] consume: capability descriptors with their
+/// grant verdicts, and macro preset views, plus the producer's epoch.
+/// It is *opaque input*: consumers that cannot name `synvelis-gateway`
+/// types (e.g. `synvelis-app`, which must never depend on the gateway
+/// crate — AC-05) push it through [`Self::from_json`] and read results
+/// back as [`serde_json::Value`]. In-ecosystem producers holding real
+/// gateway types may construct it field-by-field through the same
+/// parsed shape — there is no second, typed-only push path that could
+/// drift from the wire contract.
+///
+/// Nothing here is authority: grant verdicts are displayed verbatim,
+/// requests are lowered for the Gateway to re-check, and an absent
+/// catalog is an honest empty state — never fake data.
+#[derive(Clone, Debug, Default)]
+pub struct AutomationCatalog {
+    /// Capability descriptors in push order.
+    descriptors: Vec<CapabilityDescriptor>,
+    /// Grant verdict parallel to `descriptors` — a missing verdict
+    /// decodes as [`GrantState::Unknown`] (fail-closed display).
+    grants: Vec<GrantState>,
+    /// Macro preset rows (display fields re-derived on projection).
+    macros: Vec<MacroPresetView>,
+    /// Producer epoch — bumped on every catalog change; consumers
+    /// reject older epochs via [`AutomationViewState::catalog_stale`].
+    seq: u64,
+}
+
+/// The pushed catalog document: `{"seq": n, "capabilities":
+/// [{"descriptor": <CapabilityDescriptor>, "grant": <GrantState>}],
+/// "macros": [<MacroPresetView>]}`. All sections optional except the
+/// document itself; unknown keys reject (strict boundary parse).
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CatalogDoc {
+    #[serde(default)]
+    seq: u64,
+    #[serde(default)]
+    capabilities: Vec<CatalogEntry>,
+    #[serde(default)]
+    macros: Vec<MacroPresetView>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CatalogEntry {
+    descriptor: CapabilityDescriptor,
+    #[serde(default)]
+    grant: Option<GrantState>,
+}
+
+impl AutomationCatalog {
+    /// Strictly parses a pushed catalog document. Malformed descriptors,
+    /// grants, or presets reject the whole push — a partially applied
+    /// catalog would show a capability set no authority ever declared.
+    ///
+    /// # Errors
+    /// [`AutomationUiError::InvalidRequest`] on any parse failure.
+    pub fn from_json(value: &Value) -> Result<Self, AutomationUiError> {
+        let doc: CatalogDoc = serde_json::from_value(value.clone())
+            .map_err(|e| invalid(format!("automation catalog: {e}")))?;
+        let mut descriptors = Vec::with_capacity(doc.capabilities.len());
+        let mut grants = Vec::with_capacity(doc.capabilities.len());
+        for entry in doc.capabilities {
+            descriptors.push(entry.descriptor);
+            grants.push(entry.grant.unwrap_or(GrantState::Unknown));
+        }
+        // Re-derive the display verdict from the authority fields —
+        // `executable`/`blocked` in the pushed document are ignored so
+        // a producer cannot claim a blocked preset looks runnable.
+        let macros = doc
+            .macros
+            .iter()
+            .map(|p| project_macro_preset(p, p.grant.clone()))
+            .collect();
+        Ok(Self {
+            descriptors,
+            grants,
+            macros,
+            seq: doc.seq,
+        })
+    }
+
+    /// The catalog epoch.
+    #[must_use]
+    pub const fn seq(&self) -> u64 {
+        self.seq
+    }
+
+    /// Number of pushed capability descriptors.
+    #[must_use]
+    pub fn capability_count(&self) -> usize {
+        self.descriptors.len()
+    }
+
+    /// Number of pushed macro presets.
+    #[must_use]
+    pub fn preset_count(&self) -> usize {
+        self.macros.len()
+    }
+
+    /// Whether nothing was pushed — the honest empty state.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.descriptors.is_empty() && self.macros.is_empty()
+    }
+
+    /// The grant verdict recorded for `descriptor` — `Unknown` when the
+    /// entry carried none (fail-closed: absent information never
+    /// displays as granted).
+    fn grant_for(&self, descriptor: &CapabilityDescriptor) -> GrantState {
+        self.descriptors
+            .iter()
+            .zip(self.grants.iter())
+            .find(|(d, _)| d.capability_ref() == descriptor.capability_ref())
+            .map_or_else(|| GrantState::Unknown, |(_, g)| g.clone())
+    }
+
+    /// The Action Palette projection for `query` — delegates to
+    /// [`project_action_catalog`] with the pushed grant verdicts.
+    #[must_use]
+    pub fn action_catalog(&self, query: &str) -> ActionCatalogView {
+        project_action_catalog(&self.descriptors, |d| self.grant_for(d), query, self.seq)
+    }
+
+    /// The Macro Browser projection — presets with display verdicts
+    /// re-derived from their authority fields.
+    #[must_use]
+    pub fn macro_browser(&self) -> MacroBrowserView {
+        MacroBrowserView {
+            presets: self
+                .macros
+                .iter()
+                .map(|p| project_macro_preset(p, p.grant.clone()))
+                .collect(),
+            seq: self.seq,
+        }
+    }
+
+    /// The preset at display row `index` — resolves a view-local
+    /// `MacroSelect` into the stable preset id the view state stores.
+    #[must_use]
+    pub fn preset_at(&self, index: usize) -> Option<&MacroPresetView> {
+        self.macros.get(index)
+    }
+
+    /// Validates and freezes an explicit target for `capability`
+    /// against the pushed catalog — the capture half of the palette's
+    /// confirm flow. Same fail-closed contract checks as
+    /// [`capture_target`]; the result is what
+    /// [`AutomationViewState::palette_target`] stores.
+    ///
+    /// # Errors
+    /// [`AutomationUiError::UnknownCapability`] when the label does not
+    /// resolve; [`AutomationUiError::TargetMismatch`] /
+    /// [`InvalidRequest`] from the contract check.
+    pub fn capture(
+        &self,
+        capability: &str,
+        target: Option<ExplicitTarget>,
+        project: &str,
+    ) -> Result<CapturedTarget, AutomationUiError> {
+        let descriptor = resolve_capability(&self.descriptors, capability)?;
+        capture_target(descriptor, project, target)
+    }
+
+    /// Lowers `action` to its wire request documents — the request
+    /// half of the surface dispatch. `consistency` is the caller's wire
+    /// document (`{"kind": ...}`), parsed strictly here so
+    /// `WireConsistency` never crosses the seam; `request_id` is the
+    /// caller-minted correlation id; `project` is the tagged project
+    /// id the requests bind to.
+    ///
+    /// View-local actions lower to an empty vector per
+    /// [`automation_requests`]' contract — callers dispatch on
+    /// [`AutomationCommand`] first and only reach this for request
+    /// actions.
+    ///
+    /// # Errors
+    /// Propagates [`AutomationUiError`] from resolution, target, and
+    /// availability checks; `InvalidRequest` on a malformed
+    /// `consistency` document.
+    pub fn lower(
+        &self,
+        action: &AutomationViewAction,
+        project: &str,
+        request_id: &str,
+        consistency: &Value,
+    ) -> Result<Vec<Value>, AutomationUiError> {
+        let consistency: WireConsistency = serde_json::from_value(consistency.clone())
+            .map_err(|e| invalid(format!("consistency: {e}")))?;
+        automation_requests(
+            action,
+            &self.descriptors,
+            &self.macros,
+            project,
+            request_id,
+            &consistency,
+        )
+        .map(|requests| requests.iter().map(wire_request_json).collect())
+    }
+}
+
+/// Serializes one lowered [`WireRequest`] to its wire JSON document.
+/// `WireRequest` is a deserialize-only inbound type by design, so the
+/// seam renders the same field set by hand — the shape mirrors the
+/// wire schema the Gateway parses.
+fn wire_request_json(request: &WireRequest) -> Value {
+    serde_json::json!({
+        "request_id": request.request_id.to_string(),
+        "capability": &request.capability,
+        "schema": &request.schema,
+        "project": request.project.as_str(),
+        "target": request.target.as_ref().map(wire_target_json),
+        "args": &request.args,
+        "consistency": wire_consistency_json(&request.consistency),
+        "task": &request.task,
+        "grant": &request.grant,
+        "idempotency_key": &request.idempotency_key,
+    })
+}
+
+/// The `"shape"`-tagged wire form of an explicit target — mirrors
+/// [`WireTarget`]'s serde shape.
+fn wire_target_json(target: &WireTarget) -> Value {
+    match target {
+        WireTarget::Resource { kind, id } => serde_json::json!({
+            "shape": "resource",
+            "kind": kind,
+            "id": id,
+        }),
+        WireTarget::ResourceSet { kind, ids } => serde_json::json!({
+            "shape": "resource-set",
+            "kind": kind,
+            "ids": ids,
+        }),
+        WireTarget::Create {
+            parent_kind,
+            parent,
+            creates,
+        } => serde_json::json!({
+            "shape": "create",
+            "parent_kind": parent_kind,
+            "parent": parent,
+            "creates": creates,
+        }),
+    }
+}
+
+/// The `"kind"`-tagged wire form of a consistency requirement —
+/// mirrors [`WireConsistency`]'s serde shape.
+fn wire_consistency_json(consistency: &WireConsistency) -> Value {
+    match consistency {
+        WireConsistency::Latest => serde_json::json!({ "kind": "latest" }),
+        WireConsistency::ReadAt { revision } => {
+            serde_json::json!({ "kind": "read-at", "revision": revision.0 })
+        }
+        WireConsistency::FixedSnapshot { snapshot } => {
+            serde_json::json!({ "kind": "fixed-snapshot", "snapshot": snapshot })
+        }
+        WireConsistency::ExpectedRevision { revision } => {
+            serde_json::json!({ "kind": "expected-revision", "revision": revision.0 })
+        }
+        WireConsistency::Unconditional => serde_json::json!({ "kind": "unconditional" }),
+    }
 }

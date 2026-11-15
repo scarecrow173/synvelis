@@ -836,6 +836,14 @@ impl NativeShell {
                 self.answer_view_state_action(window, &view, &cmd, driver);
                 return;
             }
+            // AUTX-07 (synvelis#266): the five `autx.*` logical targets
+            // are app-level surface commands, not control gestures —
+            // they route to `syn.autx.action` like `project` routes to
+            // its ops, never through `syn.control.dispatch`.
+            if crate::automation::is_autx_target(target) {
+                self.dispatch_autx_action(window, &view, &cmd, driver);
+                return;
+            }
         }
         let Some(generation) = self.view_generation.get(&view).copied() else {
             Self::reject_view_command(
@@ -928,6 +936,40 @@ impl NativeShell {
             cmd.command_id.clone(),
             format!("unknown view action {action}"),
         );
+    }
+
+    /// Routes an `autx.*` surface action to `syn.autx.action` — the
+    /// op decodes the `(target, action, params)` triple through
+    /// `decode_automation_command`, applies view-local mutations or
+    /// lowers request actions, and its `Result` settles the command
+    /// on the arriving channel exactly like `syn.view.select`.
+    /// Ownership and origin checks already ran in `on_view_command`;
+    /// the op re-validates the view's automation kind itself.
+    fn dispatch_autx_action(
+        &mut self,
+        window: WindowId,
+        view: &str,
+        cmd: &crate::binding::ViewCommand,
+        driver: &mut dyn WindowDriver,
+    ) {
+        let (target, action) = match &cmd.intent {
+            CommandIntent::Action { target, action, .. } => (target.clone(), action.clone()),
+            _ => unreachable!("autx branch only sees Action intents"),
+        };
+        let intent = ruviform_ui::ipc::Intent::new(
+            cmd.command_id.clone(),
+            "syn.autx.action",
+            json!({
+                "view_id": view,
+                "target": target,
+                "action": action,
+                "params": cmd.action_params.clone().unwrap_or_else(|| json!({})),
+            }),
+        );
+        for re in self.rt.dispatch_window_intent(window, intent) {
+            self.observe_result(&re);
+            self.post_routed(&re, driver);
+        }
     }
 
     /// Routes a table `select` action to `syn.view.select` — the op

@@ -52,6 +52,7 @@ Directory: `docs/impl/ir`
 | IMPL-034XihWxPpf0evq4eGpxAa | AUTX-04-F01 Composite forward reference sequential validate | completed | [autx-04-f01-composite-forward-ref.md](./autx-04-f01-composite-forward-ref.md) |
 | IMPL-034XKYCcvVVYhxGwGvv8JV | AUTX-04-F02 GW-04 bindings scratch-ID/rewrite seam | completed | [autx-04-f02-gw04-bindings.md](./autx-04-f02-gw04-bindings.md) |
 | IMPL-AUTX07GuiViews | AUTX-07 GPUI Action Palette・Macro/Workflow 製品 View・承認/実行状態 UI（headless-first slice、synvelis#266） | completed | [autx-07-gui-views.md](./autx-07-gui-views.md) |
+| IMPL-AUTX07MountWiring | AUTX-07 composition-mount wiring + autx.* action dispatch（synvelis#266 SV266-NR-05） | completed | [autx-07-mount-wiring.md](./autx-07-mount-wiring.md) |
 | IMPL-034XKoNx7I2brmiVo8RNSa | AUTX-07 theme status tokens + #274 parity check（SV266-NR-02/03 slice、synvelis#266） | completed | [autx-07-theme-parity.md](./autx-07-theme-parity.md) |
 | IMPL-cb01-variant-set | CB-01 VariantSet/Scope/Lineage・ProjectController Fork/Edit/Adopt/Undo・永続Schema — Headless スライス | completed | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | IMPL-cb02-audio-clip-adapter | CB-02 Audio Clip/Take/Comp 候補 Adapter — Raw Source 不変・加工比較・Adopt（synvelis#279） | completed | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |

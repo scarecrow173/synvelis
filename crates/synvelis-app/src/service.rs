@@ -97,6 +97,18 @@ pub const OPS: &[OpInfo] = &[
         summary: "VCS history op — open|close|refresh|load_more|select_node|pin|compare|view_mode|clear (read-only)",
     },
     OpInfo {
+        name: "syn.autx.visual",
+        summary: "AUTX surface lifecycle — open {surface} | close {view_id} (action-palette|macro-browser|workflow-editor|run-monitor)",
+    },
+    OpInfo {
+        name: "syn.autx.catalog",
+        summary: "push the authority automation catalog document {seq,capabilities,macros} — projections + request lowering read it",
+    },
+    OpInfo {
+        name: "syn.autx.action",
+        summary: "dispatch one autx.* surface command {view_id,target,action,params?} — view-local mutate or lowered wire requests",
+    },
+    OpInfo {
         name: "syn.transport.set",
         summary: "set transport rolling — params.playing (bool)",
     },
@@ -335,7 +347,48 @@ impl AppService {
         }
     }
 
+    /// Per-surface screen ops — signal-flow, VCS history, and the
+    /// AUTX-07 automation surfaces (synvelis#266 SV266-NR-05). Returns
+    /// `None` for ops outside the surface family so [`Self::dispatch`]
+    /// keeps its flat table for everything else.
+    fn dispatch_surface_ops(
+        &mut self,
+        op: &str,
+        params: &Value,
+    ) -> Option<Result<Value, ErrorBody>> {
+        Some(match op {
+            "syn.signal_flow.view" => self.app.op_signal_flow_view(params),
+            "syn.signal_flow.visual" => self.app.op_signal_flow_visual(params),
+            "syn.signal_flow.inspection" => self.app.op_signal_flow_inspection(params),
+            "syn.signal_flow.routing" => self.app.op_signal_flow_routing(params),
+            "syn.vcs.view" => self.app.op_vcs_view(params),
+            "syn.vcs.visual" => self.app.op_vcs_visual(params),
+            "syn.autx.visual" | "syn.autx.catalog" | "syn.autx.action" => {
+                self.dispatch_autx(op, params)
+            }
+            _ => return None,
+        })
+    }
+
+    /// The three `syn.autx.*` ops share one dispatch arm — visual
+    /// lifecycle, catalog push, and surface action all live on
+    /// [`SynvelisApp`].
+    fn dispatch_autx(&mut self, op: &str, params: &Value) -> Result<Value, ErrorBody> {
+        match op {
+            "syn.autx.visual" => self.app.op_autx_visual(params),
+            "syn.autx.catalog" => self.app.op_autx_catalog(params),
+            "syn.autx.action" => self.app.op_autx_action(params),
+            _ => Err(ErrorBody::new(
+                codes::INVALID_PARAMS,
+                format!("unknown autx op {op}"),
+            )),
+        }
+    }
+
     fn dispatch(&mut self, op: &str, params: &Value) -> Result<Value, ErrorBody> {
+        if let Some(result) = self.dispatch_surface_ops(op, params) {
+            return result;
+        }
         match op {
             "syn.app.info" => Ok(self.app.app_info()),
             "syn.app.capabilities" => Ok(self.app.capabilities()),
@@ -363,12 +416,6 @@ impl AppService {
             "syn.recording.info" => Ok(self.app.recording_info()),
             "syn.project.undo" => self.app.op_project_undo(),
             "syn.project.redo" => self.app.op_project_redo(),
-            "syn.signal_flow.view" => self.app.op_signal_flow_view(params),
-            "syn.signal_flow.visual" => self.app.op_signal_flow_visual(params),
-            "syn.signal_flow.inspection" => self.app.op_signal_flow_inspection(params),
-            "syn.signal_flow.routing" => self.app.op_signal_flow_routing(params),
-            "syn.vcs.view" => self.app.op_vcs_view(params),
-            "syn.vcs.visual" => self.app.op_vcs_visual(params),
             "syn.transport.set" => {
                 let playing = params
                     .get("playing")

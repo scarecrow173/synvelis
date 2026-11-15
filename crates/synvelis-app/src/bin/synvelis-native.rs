@@ -56,8 +56,9 @@ use synvelis_theme::{ResolvedTheme, ThemeCatalog, ThemeSelection};
 
 use synvelis_app::logging::{self, EnvOverrides};
 use synvelis_app::{
-    LogSettings, MainScreenState, NativeShell, SessionEngineConfig, SynvelisApp, VcsScreenState,
-    compose_routing_engine, history_screen_spec, main_screen_spec, main_view_id, main_view_targets,
+    AutomationScreenPublish, LogSettings, MainScreenState, NativeShell, SessionEngineConfig,
+    SynvelisApp, VcsScreenState, automation_screen_spec, compose_routing_engine,
+    history_screen_spec, main_screen_spec, main_view_id, main_view_targets, mount_automation_view,
     mount_main_view, mount_secondary_view, mount_vcs_history_view, secondary_screen_spec,
     secondary_view_id, secondary_view_targets,
 };
@@ -262,6 +263,15 @@ fn vcs_history_enabled() -> bool {
     env_flag("SYNVELIS_VCS_HISTORY")
 }
 
+/// AUTX-07 (synvelis#266): when set, the four automation surfaces
+/// (Action Palette, Macro Browser, Workflow Editor, Run Monitor) open
+/// as detached views — one window each, the same spawn contract as
+/// the env-gated VCS History mount. The surfaces render their honest
+/// empty states until `syn.autx.catalog` pushes authority data.
+fn autx_views_enabled() -> bool {
+    env_flag("SYNVELIS_AUTX_VIEWS")
+}
+
 /// Which product screen a [`PendingMount`] displays — decides both
 /// the mount-time spec and every `update_view` push.
 enum MountSpec {
@@ -273,6 +283,10 @@ enum MountSpec {
     /// [`VcsScreenState`] — the adopted `ViewInstanceId` keys the
     /// lookup in the shared VCS screen cell.
     VcsHistory(ViewInstanceId),
+    /// [`automation_screen_spec`] over the view's published
+    /// [`AutomationScreenPublish`] — the adopted `ViewInstanceId`
+    /// keys the lookup in the shared automation screen cell.
+    Automation(ViewInstanceId),
 }
 
 /// One mounted view↔window pair the run loop drives: attach the view
@@ -288,19 +302,28 @@ struct PendingMount {
 
 impl PendingMount {
     /// The screen spec this mount currently displays — rebuilt from
-    /// the shared screen-state cells on every push.
+    /// the shared screen-state cells on every push. `None` when an
+    /// automation mount's publish entry is absent (the view closed
+    /// between open and push) — the caller skips that update rather
+    /// than fabricating a spec.
     fn spec(
         &self,
         state: &MainScreenState,
         vcs_screens: &BTreeMap<ViewInstanceId, VcsScreenState>,
-    ) -> ViewSpec {
+        autx_screens: &BTreeMap<ViewInstanceId, AutomationScreenPublish>,
+    ) -> Option<ViewSpec> {
         match self.spec_kind {
-            MountSpec::Main => main_screen_spec(state),
-            MountSpec::Secondary => secondary_screen_spec(state),
+            MountSpec::Main => Some(main_screen_spec(state)),
+            MountSpec::Secondary => Some(secondary_screen_spec(state)),
             MountSpec::VcsHistory(instance) => {
                 let empty = VcsScreenState::default();
-                history_screen_spec(vcs_screens.get(&instance).unwrap_or(&empty))
+                Some(history_screen_spec(
+                    vcs_screens.get(&instance).unwrap_or(&empty),
+                ))
             }
+            MountSpec::Automation(instance) => autx_screens
+                .get(&instance)
+                .map(|publish| automation_screen_spec(&publish.state)),
         }
     }
 }
@@ -415,6 +438,61 @@ fn open_vcs_history_view(
     Ok((view_id, instance, host))
 }
 
+/// Opens all four AUTX-07 automation surfaces through the real op
+/// surface (`syn.autx.visual{action:"open",surface:…}` — the same
+/// path any driver takes) and mounts each surface's spec on a fresh
+/// [`ViewHost`]. Runs while the app is still composition-owned,
+/// before [`NativeShell::new`] seals it; the returned wire `view_id`s
+/// are what the run loop attaches on each window's first `Ready`.
+///
+/// Same publish contract as [`open_vcs_history_view`]: the direct
+/// `op_autx_visual` calls bypass the service tail, so
+/// `publish_project_length` runs explicitly after each open before
+/// the shared [`AutomationScreenPublish`] cell is read.
+fn open_autx_views(
+    app: &mut SynvelisApp,
+    attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
+    autx_screens: &Rc<RefCell<BTreeMap<ViewInstanceId, AutomationScreenPublish>>>,
+) -> Result<Vec<(String, ViewInstanceId, ViewHost, &'static str)>, ExitCode> {
+    const SURFACES: [(&str, &str); 4] = [
+        ("action-palette", "Action Palette"),
+        ("macro-browser", "Macro Browser"),
+        ("workflow-editor", "Workflow Editor"),
+        ("run-monitor", "Run Monitor"),
+    ];
+    let fail = |e: &dyn std::fmt::Display, what: &str| {
+        eprintln!("synvelis-native: {what} failed: {e}");
+        tracing::error!(error = %e, "{what} failed");
+        ExitCode::from(3)
+    };
+    let mut mounts = Vec::with_capacity(SURFACES.len());
+    for (surface, title) in SURFACES {
+        let opened = app
+            .op_autx_visual(&json!({ "action": "open", "surface": surface }))
+            .map_err(|e| fail(&e, "autx surface open"))?;
+        let view_id = opened["view_id"]
+            .as_str()
+            .ok_or_else(|| fail(&"missing view_id in open result", "autx surface open"))?
+            .to_string();
+        let instance = view_id
+            .strip_prefix("view-")
+            .and_then(|n| n.parse::<u64>().ok())
+            .and_then(ViewInstanceId::new)
+            .ok_or_else(|| fail(&view_id, "autx surface view id parse"))?;
+        app.publish_project_length();
+        let publish = autx_screens
+            .borrow()
+            .get(&instance)
+            .cloned()
+            .ok_or_else(|| fail(&view_id, "autx surface publish missing"))?;
+        let host = mount_automation_view(attach_epochs, instance, &publish.state)
+            .map_err(|e| fail(&e, "autx surface view mount"))?;
+        tracing::info!(view_id = %view_id, surface, title, "autx surface opened");
+        mounts.push((view_id, instance, host, title));
+    }
+    Ok(mounts)
+}
+
 /// Creates the OS windows for the mounted views — the main window
 /// always, the transport-deck window only when the env gate mounted a
 /// secondary view, the VCS History window only when the env gate
@@ -426,6 +504,7 @@ fn open_windows(
     main_host: ViewHost,
     secondary_host: Option<ViewHost>,
     vcs_host: Option<(String, ViewInstanceId, ViewHost)>,
+    autx_hosts: Vec<(String, ViewInstanceId, ViewHost, &'static str)>,
 ) -> Result<Vec<PendingMount>, ExitCode> {
     let window = create_view_window(
         driver,
@@ -482,6 +561,27 @@ fn open_windows(
             attached: false,
         });
     }
+
+    for (view_id, instance, host, title) in autx_hosts {
+        let spec = WindowSpec {
+            title: format!("Synvelis — {title}"),
+            logical_size: LogicalSize::new(1100, 720),
+            position: Some(LogicalPosition::new(160, 160)),
+            resizable: true,
+        };
+        let window =
+            create_view_window(driver, &spec, host, theme, "autx surface window creation")?;
+        tracing::info!(window = %window, view_id = %view_id, title, "autx surface window reserved");
+        mounts.push(PendingMount {
+            window,
+            view_id,
+            // Automation surfaces subscribe to no control targets —
+            // their specs are pure projections of `autx_screens`.
+            targets: Vec::new(),
+            spec_kind: MountSpec::Automation(instance),
+            attached: false,
+        });
+    }
     Ok(mounts)
 }
 
@@ -500,10 +600,15 @@ fn run_loop(
     mut mounts: Vec<PendingMount>,
     screen_state: Rc<RefCell<MainScreenState>>,
     vcs_screens: Rc<RefCell<BTreeMap<ViewInstanceId, VcsScreenState>>>,
+    autx_screens: Rc<RefCell<BTreeMap<ViewInstanceId, AutomationScreenPublish>>>,
 ) -> ExitCode {
     let view_driver = driver.clone();
     let mut applied_state = screen_state.borrow().clone();
     let mut applied_vcs = vcs_screens.borrow().clone();
+    // Automation publishes carry no `PartialEq` — the rev stamp is
+    // the change signal; a stamp move means "republished after an
+    // op", and the pushed spec is rebuilt either way.
+    let mut applied_autx: BTreeMap<ViewInstanceId, u64> = BTreeMap::new();
     let result = driver.run(Some(TICK), move |event, driver| {
         // First `Ready` per mount is detected before `handle` consumes
         // the event — `attach_view` needs the window registered in the
@@ -525,32 +630,46 @@ fn run_loop(
             .collect();
         shell.handle(event, driver);
         for i in ready {
-            let m = &mut mounts[i];
-            m.attached = true;
-            if let Err(e) = shell.attach_view(driver, m.window, &m.view_id, &m.targets) {
-                eprintln!("synvelis-native: view attach failed: {e}");
-                tracing::error!(error = %e, view_id = %m.view_id, "view attach failed");
-            } else {
-                tracing::info!(view_id = %m.view_id, window = %m.window, "view attached");
-            }
+            let window = {
+                let m = &mut mounts[i];
+                m.attached = true;
+                if let Err(e) = shell.attach_view(driver, m.window, &m.view_id, &m.targets) {
+                    eprintln!("synvelis-native: view attach failed: {e}");
+                    tracing::error!(error = %e, view_id = %m.view_id, "view attach failed");
+                } else {
+                    tracing::info!(view_id = %m.view_id, window = %m.window, "view attached");
+                }
+                m.window
+            };
             // A window that attached after the state cell moved must
             // not keep its mount-time spec — push the current one.
             let state = screen_state.borrow().clone();
             let vcs_state = vcs_screens.borrow().clone();
-            if let Err(e) = view_driver.update_view(m.window, m.spec(&state, &vcs_state)) {
+            let autx_state = autx_screens.borrow().clone();
+            if let Some(spec) = mounts[i].spec(&state, &vcs_state, &autx_state)
+                && let Err(e) = view_driver.update_view(window, spec)
+            {
                 tracing::error!(error = %e, "screen state update failed");
             }
         }
         let state = screen_state.borrow().clone();
         let vcs_state = vcs_screens.borrow().clone();
-        if state != applied_state || vcs_state != applied_vcs {
+        let autx_state = autx_screens.borrow().clone();
+        let autx_revs: BTreeMap<ViewInstanceId, u64> = autx_state
+            .iter()
+            .map(|(inst, publish)| (*inst, publish.rev))
+            .collect();
+        if state != applied_state || vcs_state != applied_vcs || autx_revs != applied_autx {
             applied_state = state.clone();
             applied_vcs = vcs_state.clone();
+            applied_autx = autx_revs;
             let mut pushed = false;
             for m in mounts.iter().filter(|m| m.attached) {
-                match view_driver.update_view(m.window, m.spec(&state, &vcs_state)) {
-                    Ok(()) => pushed = true,
-                    Err(e) => tracing::error!(error = %e, "screen state update failed"),
+                if let Some(spec) = m.spec(&state, &vcs_state, &autx_state) {
+                    match view_driver.update_view(m.window, spec) {
+                        Ok(()) => pushed = true,
+                        Err(e) => tracing::error!(error = %e, "screen state update failed"),
+                    }
                 }
             }
             if pushed {
@@ -602,6 +721,7 @@ fn main() -> ExitCode {
     // way for env-gated VCS mounts.
     let screen_state = app.main_screen_cell();
     let vcs_screens = app.vcs_screen_cell();
+    let autx_screens = app.automation_screen_cell();
     let attach_epochs = app.attach_epoch_allocator();
     let (main_host, secondary_host) = match mount_views(&attach_epochs, &screen_state) {
         Ok(mounts) => mounts,
@@ -614,6 +734,14 @@ fn main() -> ExitCode {
         }
     } else {
         None
+    };
+    let autx_hosts = if autx_views_enabled() {
+        match open_autx_views(&mut app, &attach_epochs, &autx_screens) {
+            Ok(mounts) => mounts,
+            Err(code) => return code,
+        }
+    } else {
+        Vec::new()
     };
 
     let shell = match NativeShell::new(app, TICK) {
@@ -631,11 +759,19 @@ fn main() -> ExitCode {
         main_host,
         secondary_host,
         vcs_host,
+        autx_hosts,
     ) {
         Ok(mounts) => mounts,
         Err(code) => return code,
     };
 
-    run_loop(&mut driver, shell, mounts, screen_state, vcs_screens)
+    run_loop(
+        &mut driver,
+        shell,
+        mounts,
+        screen_state,
+        vcs_screens,
+        autx_screens,
+    )
     // `host_log` drops here — sinks drain, flush, and close in order.
 }
