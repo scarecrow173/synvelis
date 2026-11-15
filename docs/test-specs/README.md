@@ -41,6 +41,7 @@ Directory: `docs/test-specs`
 | TSPEC-034XmMj7mJXFMShCKT4zZW | CB-04 Instrument Slot 候補 Adapter 検証仕様（synvelis#281） | approved | [cb-04-instrument-adapter.md](./cb-04-instrument-adapter.md) |
 | TSPEC-034ZxKpQ2mNv8sLw4tYh6b | CB-05 FX Processing Range 候補 Adapter 検証仕様（synvelis#282） | approved | [cb-05-fx-range-adapter.md](./cb-05-fx-range-adapter.md) |
 | TSPEC-034XpajVZWjKQ7G6z21j8o | CB-06 Track/Bus Strip 候補 Adapter — mask・routing 参照保護・adopt | draft | [cb-06-track-bus-adapter.md](./cb-06-track-bus-adapter.md) |
+| TSPEC-034XqB7wNvKtM2xYpL4d | CB-07 Arrangement 候補 Adapter — range 導出 ownership・mask・境界 inventory・adopt | draft | [cb-07-arrangement-adapter.md](./cb-07-arrangement-adapter.md) |
 | TSPEC-034XO3CeEjpQyb1MNDayVm | CB-09 Difference Explorer headless view-model + driver-neutral ViewSpec | draft | [cb-09-diff-explorer.md](./cb-09-diff-explorer.md) |
 | TSPEC-034XNnfbnwSCTXarhURIQx | CB-11 Creative Branch 7領域 cross-gate — headless coverage inventory・evidence ledger・runnable subset | draft | [cb-11-cross-gate.md](./cb-11-cross-gate.md) |
 | TSPEC-m5UJFsYVE3wcIp2bbhjQ6C | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 検証仕様 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |

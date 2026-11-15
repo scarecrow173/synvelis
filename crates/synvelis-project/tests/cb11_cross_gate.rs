@@ -49,11 +49,12 @@ use synvelis_project::snapshot::{
 };
 use synvelis_project::store::InMemoryStore;
 use synvelis_project::variant::{
-    AdoptIntent, AdoptSources, AudioClipAdapter, BranchEditOp, BranchEditOpIntent, DomainAdapter,
-    InMemoryBranchContentStore, InstrumentSlotAdapter, MidiClipAdapter, NoopRuntimePublish,
-    ProcessingRangeAdapter, ProcessingRangeRef, StripDomainMask, StripField, StripFieldsAdapter,
-    TakeUsageAdapter, TakeUsageTarget, VariantError, VariantScope, adopt_branch_adapted,
-    decode_candidate, edit_branch_op, fork_variant_set, scope_digest,
+    AdoptIntent, AdoptSources, ArrangementAdapter, AudioClipAdapter, BranchEditOp,
+    BranchEditOpIntent, DomainAdapter, InMemoryBranchContentStore, InstrumentSlotAdapter,
+    MidiClipAdapter, NoopRuntimePublish, ProcessingRangeAdapter, ProcessingRangeRef,
+    StripDomainMask, StripField, StripFieldsAdapter, TakeUsageAdapter, TakeUsageTarget,
+    VariantError, VariantScope, adopt_branch_adapted, decode_candidate, edit_branch_op,
+    fork_variant_set, scope_digest,
 };
 use synvelis_project::{
     Asset, AssetId, BranchId, CaptureSegment, CaptureSegmentId, CaptureStream, CaptureStreamId,
@@ -79,9 +80,7 @@ fn adapter_for(scope: &VariantScope) -> Box<dyn DomainAdapter> {
         VariantScope::InstrumentSlot { .. } => Box::new(InstrumentSlotAdapter::new()),
         VariantScope::ProcessingRange { .. } => Box::new(ProcessingRangeAdapter::new()),
         VariantScope::StripFields { .. } => Box::new(StripFieldsAdapter::new()),
-        VariantScope::Arrangement { .. } => {
-            panic!("arrangement adapter is synvelis#284 — not merged, no headless fixture")
-        }
+        VariantScope::Arrangement { .. } => Box::new(ArrangementAdapter::new()),
     }
 }
 

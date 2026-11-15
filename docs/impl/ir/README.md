@@ -11,6 +11,7 @@ Directory: `docs/impl/ir`
 | IMPL-034XLar3aaWdSdwjp7eeMM | AUTX-06 live adapters — GatewayStepLane/GatewayJobLane + registry projection | in-progress | [autx-06-live-adapters.md](./autx-06-live-adapters.md) |
 | IMPL-034XiNO9SadjRbTGExtQtw | AUTX-06 Workflow Coordinator — Run/Step FSM・Journal・Resume・JobPort fixture | in-progress | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | IMPL-034Xpa4SOZfOriBGBTfZdR | CB-06 Track/Bus 候補 Adapter — Strip Domain Mask・Routing参照保護・Adopt（synvelis#283） | in-progress | [cb-06-track-bus-adapter.md](./cb-06-track-bus-adapter.md) |
+| IMPL-034XPMrg013WoI7EuJkO5f | CB-07 Arrangement 候補 Adapter — Track集合×MusicalRange×ArrangementDomainMask・Atomic Adopt（synvelis#284） | in-progress | [cb-07-arrangement-adapter.md](./cb-07-arrangement-adapter.md) |
 | IMPL-034XNNwRQLH6IQ0GqHISl9 | CB-09 Difference Explorer headless view-model + driver-neutral ViewSpec（synvelis#286） | in-progress | [cb-09-diff-explorer.md](./cb-09-diff-explorer.md) |
 | IMPL-034WEVyS44eEOELiBCYBIG | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice 実装記録 | in-progress | [rcd-04-midi-undo-stableid-slice.md](./rcd-04-midi-undo-stableid-slice.md) |
 | IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](./rcd-04-product-e2e-slice.md) |

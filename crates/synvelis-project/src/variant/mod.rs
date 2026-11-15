@@ -15,6 +15,7 @@
 //! later issues' scope.
 
 mod adapter;
+mod arrangement;
 mod audio;
 pub(crate) mod engine;
 mod error;
@@ -27,6 +28,10 @@ mod strip;
 mod types;
 
 pub use adapter::{BranchEditOp, DomainAdapter, FakeDomainAdapter};
+pub use arrangement::{
+    ArrangementAdapter, ArrangementBoundaryDependency, ArrangementBoundaryReason,
+    ArrangementCapabilities,
+};
 pub use audio::{AudioClipAdapter, AudioClipCapabilities, ProcessingCapability, TakeUsageAdapter};
 pub use engine::{
     AdoptSources, BranchEditIntent, BranchEditOpIntent, FakeRuntimePublish, NoopRuntimePublish,

@@ -2432,7 +2432,10 @@ impl Operation for ProjectOp {
 /// Clip-relative beats for a musical tick offset — the shared
 /// conversion for note-domain checks (`AddNote` extent, `SplitClip`
 /// re-parenting).
-fn clip_beats(project: &Project, ticks: i64) -> Result<crate::control::BeatPoint, Error> {
+pub(crate) fn clip_beats(
+    project: &Project,
+    ticks: i64,
+) -> Result<crate::control::BeatPoint, Error> {
     let ppqn =
         ruviform_media_core::Ppqn::new(u16::try_from(project.ppqn.0).map_err(|_| Error::Overflow)?)
             .map_err(|e| Error::Validation(format!("ppqn: {e:?}")))?;
