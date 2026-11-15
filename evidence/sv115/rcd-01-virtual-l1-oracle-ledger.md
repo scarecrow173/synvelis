@@ -102,7 +102,7 @@ precedent: `fake_input_drop_fails_stop_and_preserves_verified_prefix`・
 | Lane | Status | Note |
 | --- | --- | --- |
 | synthetic-L1（本 slice・fake port oracle） | Pass | 全 case・全 stream/track で Expected/Observed 記録済み |
-| rf#628-fixture variant | NotRun | `scarecrow173/ruviform#628` OPEN、pinned ruviform `fd1d4d5` に fixture 未収録（soft dep — 本 slice は自前 oracle で代替） |
+| rf#628-fixture variant | Pass（2026-11-15 consumer oracle slice） | `scarecrow173/ruviform#628` の deterministic runtime が pinned ruviform `abb9f372` の `ruviform-audio-test` として収録され、`tests/rf628_oracle.rs`/`rf628_oracle_rt_alloc.rs` で SV-1〜SV-6 を実測。case 行の詳細は `issue-115-rf628-consumer-oracle-verification.md` を参照（deterministic-backend headless lane のみ） |
 | rf#629 仮想 endpoint EXT-L3 | NotRun | `scarecrow173/ruviform#629` OPEN、OS 列挙/Open 可能な仮想 WASAPI endpoint 環境未構築（NOT_PROVISIONED、hard dep だが本 slice 対象外） |
 | physical HW | NotRequired | 追加物理検証は通常必須外（POLICIES.md §2.1）。iD4 の real-input opt-in lane は上記のとおり構造検証として実測 Pass（oracle-grade PCM fidelity ではない） |
 | `mise run test-recording-real-input` | Pass | opt-in HW lane を実行。WASAPI 上の Audient iD4（Loop-back 1/2・Analogue 1/2）を実測し 10/10 pass（構造・continuity 検証。real PCM の内容は deterministic oracle で検証不能のため structural verification が Pass 権威 — `real_deterministic_pcm_source_records_not_run` が正直に NotRun を記録）。診断的 `--nocapture` 再実行で `real_long_capture_monitors_frame_continuity` が device/driver continuity fault（bits 0x0020、verified prefix は journal/media intact と自己分類）を 1 度観測する flaky 挙動あり、直後の再実行は 10/10 pass — real-HW 特性であり本 slice の変更とは無関係 |
@@ -111,8 +111,11 @@ precedent: `fake_input_drop_fails_stop_and_preserves_verified_prefix`・
 ## 未検証の項目（NotRun / Unsupported / Deferred）
 
 - **rf#628 fixture variant**: `scarecrow173/ruviform#628`（RF-VTEST-01
-  deterministic test runtime）OPEN。pinned ruviform `fd1d4d5` に fixture
-  未収録のため NotRun。soft dep — 本 slice は自前 oracle で代替済み。
+  deterministic test runtime）の fixture は pinned ruviform `abb9f372`
+  の `ruviform-audio-test` に収録済みで、consumer oracle slice
+  （2026-11-15）により deterministic-backend headless lane で実測
+  Pass。case 行は `issue-115-rf628-consumer-oracle-verification.md`
+  を参照。real OS audio・GUI・physical lane の verdict は変更しない。
 - **rf#629 仮想 endpoint EXT-L3**: `scarecrow173/ruviform#629`
   （RF-VTEST-02 Windows 仮想 endpoint）OPEN。OS が列挙・Open できる
   仮想 WASAPI endpoint → 本番 Callback の環境が未構築のため
