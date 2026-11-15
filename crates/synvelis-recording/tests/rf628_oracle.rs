@@ -265,6 +265,29 @@ fn rf628_record(
         i64,
     ) -> Vec<Vec<PumpReport>>,
 ) -> Rf628Run {
+    rf628_record_with_pre_open(name, clock, inputs, drive, |_, _| {})
+}
+
+/// `rf628_record` に rig open 前 hook を加えた版。`pre_open` は
+/// scripted device/spec の構築後・`RealDeviceRig::open`（内部で
+/// `InputSession::open`/`add`）の直前に 1 度だけ呼ばれ、open fault
+/// の注入→defined rejection→clear→re-open を rig open 前に
+/// 仕込める（SV-7 の open-fault recovery 経路用）。hook が
+/// rejection を確認した後、rig open 内の `InputSession::open` が
+/// recovery 後の re-open を兼ね、その session がそのまま
+/// record に使われる。
+fn rf628_record_with_pre_open(
+    name: &str,
+    clock: &Arc<VirtualClock>,
+    inputs: &[Rf628Input],
+    drive: impl FnOnce(
+        &mut RealDeviceRig,
+        &[ScriptedDeviceHandle],
+        Option<&mut VirtualClockDriver>,
+        i64,
+    ) -> Vec<Vec<PumpReport>>,
+    pre_open: impl FnOnce(&[ScriptedDeviceHandle], &[InputStreamSpec]),
+) -> Rf628Run {
     let n_streams = inputs.iter().map(|s| s.taps.len()).sum::<usize>();
     assert!(n_streams > 0, "at least one armed tap required");
     let mut seen = vec![false; n_streams];
@@ -317,6 +340,7 @@ fn rf628_record(
                 .expect("add scripted device"),
         );
     }
+    pre_open(&devices, &specs);
     let dyn_inputs: Vec<(&dyn ruviform_audio_core::device::Device, &InputStreamSpec)> = devices
         .iter()
         .zip(specs.iter())
@@ -1186,4 +1210,113 @@ fn rf628_device_vanish_fails_stop() {
         &mut c2,
         i64::try_from(vanish_at * u64::from(BLOCK)).expect("prefix"),
     );
+}
+
+/// SV-7: open-fault recovery 後の record/commit/reload — SV-5c
+/// （`rf628_open_fault_rejected_then_recovers`）が re-open 成功で
+/// 打ち止めにした後段を埋める。persistent open error で
+/// `InputSession::open` が `InputBindError::Device` の defined
+/// rejection を返し、error clear 後に `RealDeviceRig::open` 内の
+/// `InputSession::open`（同じ device/spec の re-open）が成功して
+/// record→drive→finish→commit→save→別 `ProjectController`
+/// reload まで独立 oracle で照合する。rejection→re-open→record
+/// の分類は SV-5c と同じ機構を再利用し、recovery 専用の新経路は
+/// 作らない。
+#[test]
+fn rf628_open_fault_recovery_commit_reload() {
+    let clock = test_clock(7);
+    let input = Rf628Input {
+        channels: 1,
+        scenario: contiguous_scenario(
+            1,
+            PcmPattern::Noise {
+                seed: 13,
+                amplitude: 0.9,
+            },
+        ),
+        taps: vec![(0, ChannelMap::mono(0))],
+        faults: Vec::new(),
+        clock: None,
+    };
+    let mut run = rf628_record_with_pre_open(
+        "sv7-open-recovery",
+        &clock,
+        &[input],
+        drive_session,
+        |handles, specs| {
+            // persistent open error → defined rejection（SV-5c と同じ
+            // `InputBindError::Device` 分類）。clear 後の re-open は
+            // この後の `RealDeviceRig::open` 内 `InputSession::open`
+            // が担い、その session がそのまま record に使われる。
+            let dev = &handles[0];
+            dev.set_open_input_error(Some(ruviform_audio_core::device::DeviceError::Backend(
+                "permission_denied",
+            )));
+            let Err(err) = InputSession::open(dev, &specs[0]) else {
+                panic!("open must be rejected while persistent error is set")
+            };
+            assert!(
+                matches!(err, InputBindError::Device(_)),
+                "expected InputBindError::Device, got {err:?}"
+            );
+            dev.set_open_input_error(None);
+        },
+    );
+    assert_finish_complete(&run);
+
+    let (report, mut c2) = rf628_commit_reload(&mut run);
+    assert!(matches!(report.outcome, CommitOutcome::Applied { .. }));
+    assert_eq!(report.sources_committed, 1);
+    assert_eq!(report.recoverable.len(), 0);
+
+    assert_scenario_stream(&run, &run.controller, 0);
+    assert_scenario_stream(&run, &c2, 0);
+    let recommit = commit_session(&mut c2, &run.area).expect("recommit");
+    assert!(matches!(recommit.outcome, CommitOutcome::AlreadyApplied));
+}
+
+/// SV-8: literal stereo device → `ChannelMap::mono(0)`/`mono(1)`
+/// の 2 mono tap（別 stream・別 staging media）。SV-2 の
+/// 4ch→mono(1)/mono(3) とは別に、stereo pair の両 channel を
+/// 個別 tap する構成を rf628 lane でも網羅する
+/// （synthetic-L1 lane の `oracle_stereo_device_two_mono_taps`
+/// に対応する fixture variant）。
+#[test]
+fn rf628_stereo_device_two_mono_taps_commit_reload() {
+    let clock = test_clock(7);
+    let scenario = contiguous_scenario(
+        2,
+        PcmPattern::Noise {
+            seed: 31,
+            amplitude: 0.9,
+        },
+    );
+    let input = Rf628Input {
+        channels: 2,
+        scenario,
+        taps: vec![(0, ChannelMap::mono(0)), (1, ChannelMap::mono(1))],
+        faults: Vec::new(),
+        clock: None,
+    };
+    let mut run = rf628_record("sv8-stereo-2mono", &clock, &[input], drive_session);
+    assert_finish_complete(&run);
+    assert_ne!(run.area.media_path(0), run.area.media_path(1));
+
+    let (report, mut c2) = rf628_commit_reload(&mut run);
+    assert!(matches!(report.outcome, CommitOutcome::Applied { .. }));
+    assert_eq!(report.sources_committed, 2);
+    assert_eq!(report.recoverable.len(), 0);
+
+    for si in 0..2_u16 {
+        assert_scenario_stream(&run, &run.controller, si);
+        assert_scenario_stream(&run, &c2, si);
+    }
+    // L/R tap 分離: ch0 と ch1 の PCM が bit 単位で異なる（Noise は
+    // (seed, channel, frame) hash のため channel ごとに独立）。
+    let m0 = read_commit_manifest(&run.area)
+        .expect("manifest read")
+        .expect("commit manifest");
+    assert_ne!(m0.payload.streams[0].digest, m0.payload.streams[1].digest);
+    let recommit = commit_session(&mut c2, &run.area).expect("recommit");
+    assert!(matches!(recommit.outcome, CommitOutcome::AlreadyApplied));
 }
