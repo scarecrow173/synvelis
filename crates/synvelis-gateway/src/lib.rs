@@ -156,6 +156,7 @@ pub mod snapshot;
 pub mod store;
 pub mod stub;
 pub mod trace;
+pub mod variant;
 pub mod wire;
 
 pub use authorization::{

@@ -286,8 +286,8 @@ fn batch_recipe_commits_as_one_composite_and_undoes_once() {
     assert_eq!(record.prepared.commands[0].op, "set-clip-muted");
     assert_eq!(record.prepared.commands[1].op, "move-clip");
     assert!(matches!(
-        record.op,
-        synvelis_project::ProjectOp::Composite { .. }
+        record.project_op(),
+        Some(synvelis_project::ProjectOp::Composite { .. })
     ));
     assert_eq!(record.prepared.base.revision, ProjectRevision(1));
 

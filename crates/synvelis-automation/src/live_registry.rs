@@ -70,6 +70,8 @@ fn kind_of(kind: ResourceKind) -> SnapshotKind {
         ResourceKind::Strip => SnapshotKind::Strip,
         ResourceKind::Send => SnapshotKind::Send,
         ResourceKind::Processor => SnapshotKind::Processor,
+        ResourceKind::VariantSet => SnapshotKind::VariantSet,
+        ResourceKind::Branch => SnapshotKind::Branch,
     }
 }
 

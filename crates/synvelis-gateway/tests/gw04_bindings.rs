@@ -190,10 +190,10 @@ fn agent_create_then_reference_commits_as_one_undo_unit() {
 
     // One retained composite — the flattened member ops with the
     // placeholder already rewritten to the real minted ids.
-    let ProjectOp::Composite { ops } = &record.op else {
+    let Some(ProjectOp::Composite { ops }) = record.project_op() else {
         panic!(
             "bindings batch must retain a Composite, got {:?}",
-            record.op
+            record.mutation
         );
     };
     assert_eq!(ops.len(), 2);
@@ -233,7 +233,7 @@ fn agent_create_then_reference_commits_as_one_undo_unit() {
     let rev = controller
         .apply(Command {
             expected_revision: record.prepared.base.revision,
-            op: record.op.clone(),
+            op: record.project_op().expect("project mutation").clone(),
         })
         .expect("prepared composite must apply");
     assert_eq!(rev, ProjectRevision(2));
@@ -277,7 +277,7 @@ fn chained_bindings_resolve_across_three_members() {
             .unwrap(),
     );
     let record = record_for(&rig, &result);
-    let ProjectOp::Composite { ops } = &record.op else {
+    let Some(ProjectOp::Composite { ops }) = record.project_op() else {
         panic!("expected Composite");
     };
     assert_eq!(ops.len(), 3);
@@ -313,7 +313,10 @@ fn human_caller_bindings_batch_prepares() {
             .unwrap(),
     );
     let record = record_for(&rig, &result);
-    assert!(matches!(record.op, ProjectOp::Composite { .. }));
+    assert!(matches!(
+        record.project_op(),
+        Some(ProjectOp::Composite { .. })
+    ));
     assert!(
         record
             .prepared
@@ -743,7 +746,10 @@ fn empty_or_absent_bindings_keep_legacy_lowering() {
                 .unwrap(),
         );
         let record = record_for(&rig, &result);
-        assert!(matches!(record.op, ProjectOp::Composite { .. }));
+        assert!(matches!(
+            record.project_op(),
+            Some(ProjectOp::Composite { .. })
+        ));
         // The lane parented to the *existing* track 3 — a real id,
         // never a placeholder. The new track drew raw 1000, so the
         // lane draws 1001 off the same watermark counter.
