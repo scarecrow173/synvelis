@@ -199,6 +199,7 @@ Directory: `docs/test-specs`
 | TSPEC-034X7wP0GQjilI9S0FX7m0 | Transport Integration Test Spec — TT-001〜030 case map to existing fixtures | approved | [transport-integration.md](./transport-integration.md) |
 | TSPEC-102UiCfInt005EeFfGgHhI | UI-C5 製品 GUI 統合テスト仕様 — syn.control.relation / syn.control.edge / syn.recording.*（headless） | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | TSPEC-034XGAv6yF1NqnHsAoShC4 | variant_sets VCS semantic diff fixture matrix | approved | [variant-sets-vcs-diff.md](./variant-sets-vcs-diff.md) |
+| TSPEC-034XI5DgSYUwdugxxX2rmz | variant_sets restore-as-copy verbatim provenance fixture | approved | [variant-sets-vcs-restore.md](./variant-sets-vcs-restore.md) |
 | TSPEC-034UAzXp7iDmaV6yx7QTZQ | VCS-01 snapshot resolver fixtures | approved | [vcs-01-snapshot-resolver-fixtures.md](./vcs-01-snapshot-resolver-fixtures.md) |
 | TSPEC-034UEueLhP34NeCWclgoux | VCS-02 semantic diff fixtures | approved | [vcs-02-semantic-diff-fixtures.md](./vcs-02-semantic-diff-fixtures.md) |
 | TSPEC-K2QAlGFhpEHJiLP6StV4ta | VCS-03 Git read provider fixtures | approved | [vcs-03-git-provider-fixtures.md](./vcs-03-git-provider-fixtures.md) |

@@ -750,6 +750,15 @@ fn stable_id_counts(project: &Project) -> BTreeMap<String, u64> {
     bump("semantic-port", project.routing.ports.len());
     bump("connection", project.routing.connections.len());
     bump("send", project.routing.sends.len());
+    bump("variant-set", project.variant_sets.len());
+    bump(
+        "branch",
+        project
+            .variant_sets
+            .values()
+            .map(|set| set.branches.len())
+            .sum(),
+    );
     counts
 }
 

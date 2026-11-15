@@ -11,7 +11,7 @@ in `docs/specs/sf-06-cross-gate-oracle-case-ledger.md`.
 
 | Field | Value |
 | --- | --- |
-| Synvelis commit | `34387c4e31afb90d7e0d5266d4e87d81d4e8b329` (origin/main) + this change set — VCS-DIFF-11 re-measured on the variant diff adapter slice (synvelis#457); RESTORE-10 and earlier rows measured under `3da82c5`/`1093530`/`7822857`/`7925660`/`099e7ea`. VCS-GIT-REAL-local / RESTORE/ APPLY-WIN-FS rows measured on `test/97-vcs06-real-git-fs-fault` (base `7c206289`) |
+| Synvelis commit | `34387c4e31afb90d7e0d5266d4e87d81d4e8b329` (origin/main) + this change set — VCS-DIFF-11 re-measured on the variant diff adapter slice (synvelis#457); VCS-RESTORE-10 re-measured on the variant provenance restore slice (synvelis#458); earlier rows measured under `3da82c5`/`1093530`/`7822857`/`7925660`/`099e7ea`. VCS-GIT-REAL-local / RESTORE/ APPLY-WIN-FS rows measured on `test/97-vcs06-real-git-fs-fault` (base `7c206289`) |
 | Cargo.lock Ruviform SHA | `fd1d4d5f4de57092b96ad1cd309b85fe47cbef38` (VCS-DIFF-11/RESTORE-10 rows; earlier rows measured under `9865cd57`/`b02942c2`/`0f5b5737`) |
 | OS | Windows (win32), NTFS |
 | Toolchain | rustc 1.99.1 (58cf8f9c3; VCS-DIFF-11/RESTORE-10 rows — earlier rows under rustc 1.99.0), git 2.54.0.windows.1 |
@@ -142,7 +142,7 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 | VCS-RESTORE-07 monitoring verbatim | decl (lane/arm/monitor/channel_map) + punch marks survive restore-as-copy verbatim; fork `project_id` only | `envelope.project.monitoring == source`（`monitoring.tracks` + `monitoring.punch` 全 field一致）— `restore_as_copy_preserves_monitoring_verbatim` (vcs06) Pass | Pass | — |
 | VCS-RESTORE-08 plugin_instances verbatim | issued `PluginInstanceId`s + `project.plugin_instances` survive restore-as-copy verbatim (envelope readback pin) | `restore_as_copy_preserves_plugin_instances_verbatim` (vcs06_plugin_instance_matrix) Pass | Pass | — |
 | VCS-RESTORE-09 staging FS fault (Windows) | staging `restore.json` の排他 share-lock (`share_mode(0)`) / read-only、staged `HEAD` の `FILE_SHARE_READ`-only hold は publish 前に typed `RestoreError::Io` で失敗し、staging 保持・dest 不在を確認、解除後 retry で `Published` | `locked_staging_manifest_fails_typed_and_resume_recovers`, `locked_staging_head_blocks_publish_rename_and_recovers`, `readonly_staging_manifest_is_rejected_before_publish` (vcs06, `#[cfg(windows)]`) Pass — Win32 NTFS のみ; POSIX 側は **NotRun**。dir 自体の read-only は Windows で信頼できる fault 境界にならないため対象ファイルを lock する設計 | Pass | staging manifest が resume record; fault 解除で `restore_as_copy` retry が publish |
-| VCS-RESTORE-10 variant_sets verbatim | `variant_sets`（issued `VariantSetId`/`BranchId`・branch revision・`BranchContentRef`・`last_adopt`）が restore-as-copy で verbatim 保持され `project_id` のみ再採番 | `restore_as_copy_fails_closed_on_variant_set_origin_mismatch` (vcs06, schema v14) — `fork_project` は `project_id` のみ再採番し、nested `VariantSet::origin`/`Branch::created_from` の `SnapshotIdentity.project_id` が source project のまま残るため、`validate_set_shape` が `origin belongs to a different project` で拒否 → `RestoreError::Validation`（publish 前 fail-closed・staging 保持・dest 不在を assert） | **Fail** | publish 前の staged-envelope `validate_references` で fail-closed（silent corruption/publish なし）。修復は `fork_project` の nested origin identity 再採番か validate 規則の設計判断 — `src/` 変更は本 slice 範囲外、follow-up Issue #458 で追跡。envelope readback による verbatim 確認は restore 成功が前提のため未実施 |
+| VCS-RESTORE-10 variant_sets verbatim | `variant_sets`（issued `VariantSetId`/`BranchId`・branch revision・`BranchContentRef`・`last_adopt`）が restore-as-copy で verbatim 保持され `project_id` のみ再採番 | `restore_as_copy_preserves_variant_sets_verbatim` (vcs06, schema v14) — synvelis#458 で `validate_set_shape` を `ProvenanceRule`（live op=`SameProject` / persisted oracle=`Persisted`）へ境界分割し、nested `VariantSet::origin`/`Branch::created_from` の `SnapshotIdentity` は source project を指す authored provenance として verbatim 保持。`RestoreOutcome::Published` + receipt `variant-set`/`branch` count + HEAD→snapshot→envelope readback で `variant_sets` map 全体の verbatim 等価・`origin`/`created_from.project_id` が source project を指すこと・`envelope.project.validate_references()` 成功を assert | **Pass** | `fork_project` は変更なし（provenance rewrite は設計上行わない — `project_id` のみ書き換えると digest/locator が指す source snapshot を falsify する）。既知の capability 限界: `BranchContentRef::Captured.payload_digest` の payload bytes は `BranchContentStore`（project bundle 外）にあり restore は fork 先へ複製しないため、復元 project での candidate 操作は `CandidateUnavailable` になりうる（#457 Deferred・本 slice 範囲外） |
 | VCS-RESTORE-REAL-* residual (OS crash/power-loss durability, AV, real plugin host, consumer open) | — | not measured | **NotRun** | OS matrix + #219/#294。share-mode/readonly fault は process-level lock のみで OS crash durability を意味しない |
 
 ## VCS-COMPAT-01..04 — cross-gate compatibility
@@ -161,10 +161,14 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
   synvelis#457 で実装済み（VCS-DIFF-11 Pass）だが、variant
   change の apply は未実装、**Blocked**（VCS-APPLY-10;
   `docs/designs/variant-sets-vcs-diff.md` D8）。
-- `restore_as_copy` on variant-set projects — measured
-  `RestoreError::Validation`（VCS-RESTORE-10 **Fail**;
-  `fork_project` が nested variant origin identity を再採番
-  しない件、follow-up Issue #458 で追跡）。
+- `restore_as_copy` on variant-set projects — repaired by
+  synvelis#458 (VCS-RESTORE-10 **Pass**): nested provenance is
+  preserved verbatim and accepted at the persisted boundary.
+  Remaining capability limit: `BranchContentRef::Captured`
+  payload bytes live in `BranchContentStore` outside the project
+  bundle and are not copied to the fork destination, so candidate
+  operations on the restored copy may report
+  `CandidateUnavailable` (tracked under the #457 Deferred scope).
 - Additional VCS providers (non-git) — **Unsupported** in this slice.
 - Real GUI/IME/two-window (#114), native plugin dock (#176), RT/device,
   consumer/precision (#219/#294), CI gate (#83) — **NotRun**.
@@ -188,8 +192,9 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
 - `crates/synvelis-project/tests/vcs06_variant_matrix.rs` —
   3 tests（VCS-DIFF-11 variant_sets diff の typed-change pin
   2 test — synvelis#457 で Blocked gap pin から flip — +
-  VCS-RESTORE-10 restore-as-copy 実測 Fail 1 test、schema v14
-  `variant_sets`）
+  VCS-RESTORE-10 restore-as-copy verbatim provenance pin 1 test、
+  schema v14 `variant_sets` — synvelis#458 で Fail pin から
+  `Published` + envelope readback へ flip）
 - `crates/synvelis-project/tests/vcs07_variant_diff.rs` —
   7 tests（VCS-DIFF-11 補強: variant-only `Different` +
   policy v4・presence typed change・adopt swap・content ref

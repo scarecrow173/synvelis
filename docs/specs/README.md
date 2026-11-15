@@ -164,6 +164,7 @@ Directory: `docs/specs`
 | SPEC-034X7wGMLTCbfLxfME4Odo | Transport Integration — Span/Seek/Loop/Tempo・MIDI/Plugin Event Offset・Automation FrameBase・State Contract・Capability/Degraded (TT-001〜030 design contract) | approved | [transport-integration.md](./transport-integration.md) |
 | SPEC-102UiCfInt001AaBbCcDdE | UI-C5 製品 GUI 統合 — Signal Flow Control Relation View/Inspector/Gesture（synvelis-app op surface + headless 検証） | approved | [ui-sf-control-integration.md](./ui-sf-control-integration.md) |
 | SPEC-034XGzLZmToUqCCAnOgwpK | variant_sets VCS semantic diff 分類 — VariantSet/VariantBranch kinds (synvelis#457) | approved | [variant-sets-vcs-diff.md](./variant-sets-vcs-diff.md) |
+| SPEC-034XI2qQNGjpsbqpLe06vQ | variant_sets restore-as-copy origin identity 修復 — persisted 境界の provenance 規則 (synvelis#458) | approved | [variant-sets-vcs-restore.md](./variant-sets-vcs-restore.md) |
 | SPEC-034UAv3chafPsU2fFyQnIb | VCS-01 Immutable Snapshot Resolver — Live/Saved/Recovery/VCS read-only schema projection (synvelis#92) | proposed | [vcs-01-immutable-snapshot-resolver.md](./vcs-01-immutable-snapshot-resolver.md) |
 | SPEC-034UEsXPitEuEsjBM4qjo6 | VCS-02 Semantic Diff Engine — canonical ChangeSet typed identity lineage Unknown tri-state (synvelis#93) | proposed | [vcs-02-semantic-diff-changeset.md](./vcs-02-semantic-diff-changeset.md) |
 | SPEC-PvLluOn4j6y1qpdtQ0aw8A | VCS-03 Git Read Provider — fixed Commit/Tree・Index capture・History/meta（synvelis#94） | approved | [vcs-03-git-read-provider.md](./vcs-03-git-read-provider.md) |
