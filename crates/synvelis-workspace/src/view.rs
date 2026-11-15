@@ -47,6 +47,11 @@ pub enum ViewType {
     /// projection; analysis is static-only and never mints execution
     /// authority.
     ScriptEditor,
+    /// Creative Branch Difference Explorer surface (CB-09,
+    /// synvelis#286) — read-only domain-diff projection over pinned
+    /// variant branches; authority intents are emitted as typed
+    /// requests, never executed inside the view.
+    VariantDiff,
 }
 
 /// Persistent identity of a view instance: id + kind + display title.

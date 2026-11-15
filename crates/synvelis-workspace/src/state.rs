@@ -30,6 +30,7 @@ use crate::selection::{EditBinding, LaneScope, ObjectSelections, TimeSelection};
 use crate::signal_flow_ui::SignalFlowViewState;
 use crate::snap::{GridConfig, SnapConfig};
 use crate::tool::Tool;
+use crate::variant_diff::VariantDiffViewState;
 
 /// A semantic project entity — the currency of selections, focus,
 /// link events and command targets.
@@ -254,6 +255,16 @@ pub struct ViewState {
     /// are never persisted here.
     #[serde(default, deserialize_with = "deserialize_script_editor")]
     pub script_editor: Option<ScriptEditorViewState>,
+    /// Per-view Difference Explorer state — compare target, audition
+    /// selection, row selection, and layer toggles (CB-09,
+    /// synvelis#286). `None` for views that never hosted the surface;
+    /// absent in older snapshots and defaulted on migrate. A malformed
+    /// persisted payload degrades to `None` (safe recovery) instead of
+    /// rejecting the snapshot. View-local only — it never carries
+    /// project/variant/diff authority; pinned targets are re-validated
+    /// against authority on the next projection.
+    #[serde(default, deserialize_with = "deserialize_variant_diff")]
+    pub variant_diff: Option<VariantDiffViewState>,
     /// Viewport (view-local).
     pub viewport: Viewport,
     /// Project revisions delivered to this view — the observable
@@ -349,6 +360,20 @@ where
 fn deserialize_script_editor<'de, D>(
     deserializer: D,
 ) -> Result<Option<ScriptEditorViewState>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value.and_then(|v| serde_json::from_value(v).ok()))
+}
+
+/// Tolerant per-view Difference Explorer state decode — same safe
+/// recovery contract as [`deserialize_signal_flow`]: a malformed
+/// persisted payload degrades to `None` rather than rejecting the
+/// whole workspace snapshot.
+fn deserialize_variant_diff<'de, D>(
+    deserializer: D,
+) -> Result<Option<VariantDiffViewState>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
