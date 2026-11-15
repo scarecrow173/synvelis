@@ -279,6 +279,12 @@ pub struct CommitRecord {
     /// Serialized [`SnapshotEnvelope`] of the post-commit live project —
     /// recovery restores this rather than re-deriving the mutation.
     pub state: Vec<u8>,
+    /// CB-10: domain receipt provenance for variant mutations
+    /// (fork/edit/adopt/discard) — JSON text keeping project-commit
+    /// and runtime-publish evidence as separate blocks. `None` for
+    /// ordinary `ProjectOp` commits and records written before CB-10.
+    #[serde(default)]
+    pub provenance: Option<String>,
 }
 
 /// A durable non-commit outcome (`Rejected` / `Conflicted` /
@@ -387,6 +393,10 @@ pub struct CommitReceipt {
     pub revision: ProjectRevision,
     /// The journal sequence of this record.
     pub journal_seq: u64,
+    /// CB-10: domain receipt provenance for variant mutations —
+    /// JSON text (project/runtime evidence split preserved). `None`
+    /// for ordinary commits.
+    pub provenance: Option<String>,
 }
 
 /// The settled outcome of a commit attempt, as recoverable state —
@@ -443,6 +453,12 @@ pub struct GateDeps {
     /// The capability descriptor `synvelis.proposal.apply` resolves to —
     /// supplied by the host so the gate never redefines a capability.
     pub apply_capability: CapabilityDescriptor,
+    /// CB-10: Creative Branch ports — domain adapters, the shared
+    /// candidate-content store, snapshot resolver, runtime publish,
+    /// and adopt probes. `None` fails variant commits closed: a
+    /// prepared branch mutation can never execute without its
+    /// declared dependencies inside the fence.
+    pub variant: Option<Arc<crate::variant::VariantPorts>>,
 }
 
 /// In-flight / settled bookkeeping the gate keeps keyed by idempotency
@@ -675,6 +691,7 @@ impl<F: CommitFence> CommitGate<F> {
                             base_revision: c.base_revision,
                             revision: c.revision,
                             journal_seq: rec.seq,
+                            provenance: c.provenance.clone(),
                         };
                         let outcome = CommitOutcome::Committed(receipt);
                         if let Some(op) = c.operation {
@@ -1269,44 +1286,147 @@ impl<F: CommitFence> CommitGate<F> {
 
         // 3. The single-writer mutation — revision revalidated by the
         //    controller itself inside the same section (no TOCTOU).
+        //    CB-10: a variant intent executes through the same fence via
+        //    the declared `VariantPorts` — the same authorization,
+        //    journal, and provenance evidence as a `ProjectOp` commit,
+        //    with branch/project revision CAS enforced by the domain.
         let expected = req
             .expected_revision()
             .unwrap_or(record.prepared.base.revision);
-        let revision = match controller.apply(Command {
-            expected_revision: expected,
-            op: record.op.clone(),
-        }) {
-            Ok(rev) => rev,
-            Err(synvelis_project::Error::StaleRevision {
-                expected: e,
-                actual: a,
-            }) => {
-                return self.finish_noncommit(
-                    req,
-                    proposal,
-                    &CommitOutcome::Conflicted {
-                        expected: ProjectRevision(e),
-                        actual: ProjectRevision(a),
-                    },
-                    if budget_spend { grant.as_ref() } else { None },
-                    GatewayError::RevisionConflict {
+        let approval = self
+            .deps
+            .proposals
+            .view(proposal)
+            .and_then(|v| v.apply)
+            .and_then(|a| a.approval);
+        let approval_ticket = approval
+            .as_ref()
+            .map(|a| a.as_str().to_owned())
+            .unwrap_or_default();
+        let (revision, provenance) = match &record.mutation {
+            crate::prepare::PreparedMutation::Project(op) => {
+                match controller.apply(Command {
+                    expected_revision: expected,
+                    op: op.clone(),
+                }) {
+                    Ok(rev) => (rev, None),
+                    Err(synvelis_project::Error::StaleRevision {
                         expected: e,
                         actual: a,
-                    },
-                );
+                    }) => {
+                        return self.finish_noncommit(
+                            req,
+                            proposal,
+                            &CommitOutcome::Conflicted {
+                                expected: ProjectRevision(e),
+                                actual: ProjectRevision(a),
+                            },
+                            if budget_spend { grant.as_ref() } else { None },
+                            GatewayError::RevisionConflict {
+                                expected: e,
+                                actual: a,
+                            },
+                        );
+                    }
+                    Err(err) => {
+                        return self.finish_noncommit(
+                            req,
+                            proposal,
+                            &CommitOutcome::Rejected {
+                                reason: format!("project validation failed at commit: {err}"),
+                            },
+                            if budget_spend { grant.as_ref() } else { None },
+                            GatewayError::Internal {
+                                reason: format!("commit validation failed: {err}"),
+                            },
+                        );
+                    }
+                }
             }
-            Err(err) => {
-                return self.finish_noncommit(
-                    req,
-                    proposal,
-                    &CommitOutcome::Rejected {
-                        reason: format!("project validation failed at commit: {err}"),
-                    },
-                    if budget_spend { grant.as_ref() } else { None },
-                    GatewayError::Internal {
-                        reason: format!("commit validation failed: {err}"),
-                    },
-                );
+            crate::prepare::PreparedMutation::Variant(intent) => {
+                // The same revision fence `ProjectController::apply`
+                // gives `ProjectOp`s: domain variant ops derive their
+                // own CAS from the live revision, so the apply's
+                // `expected` assertion must be checked explicitly —
+                // inside the fence, so there is no TOCTOU.
+                let live = controller.live_revision();
+                if live != expected {
+                    return self.finish_noncommit(
+                        req,
+                        proposal,
+                        &CommitOutcome::Conflicted {
+                            expected,
+                            actual: live,
+                        },
+                        if budget_spend { grant.as_ref() } else { None },
+                        GatewayError::RevisionConflict {
+                            expected: expected.0,
+                            actual: live.0,
+                        },
+                    );
+                }
+                let Some(ports) = &self.deps.variant else {
+                    // Host misconfiguration — the commit cannot run
+                    // without its declared dependencies. Determined,
+                    // non-commit outcome.
+                    return self.finish_noncommit(
+                        req,
+                        proposal,
+                        &CommitOutcome::Rejected {
+                            reason: "variant ports are not wired".to_owned(),
+                        },
+                        if budget_spend { grant.as_ref() } else { None },
+                        GatewayError::Internal {
+                            reason: "variant ports are not wired".to_owned(),
+                        },
+                    );
+                };
+                match crate::variant::execute(&mut controller, ports, intent, &approval_ticket) {
+                    Ok(receipt) => {
+                        // The domain committed inside the fence — the
+                        // controller's live revision is the commit's
+                        // produced revision (single writer, no TOCTOU).
+                        let revision = controller.live_revision();
+                        let json = serde_json::to_string(&receipt).map_err(|e| {
+                            ErrorEnvelope::from(GatewayError::Internal {
+                                reason: format!("variant provenance encode failed: {e}"),
+                            })
+                        })?;
+                        (revision, Some(json))
+                    }
+                    Err(crate::variant::VariantCommitError::Conflicted {
+                        expected: e,
+                        actual: a,
+                    }) => {
+                        return self.finish_noncommit(
+                            req,
+                            proposal,
+                            &CommitOutcome::Conflicted {
+                                expected: ProjectRevision(e),
+                                actual: ProjectRevision(a),
+                            },
+                            if budget_spend { grant.as_ref() } else { None },
+                            GatewayError::RevisionConflict {
+                                expected: e,
+                                actual: a,
+                            },
+                        );
+                    }
+                    Err(crate::variant::VariantCommitError::Rejected { reason }) => {
+                        return self.finish_noncommit(
+                            req,
+                            proposal,
+                            &CommitOutcome::Rejected {
+                                reason: reason.clone(),
+                            },
+                            if budget_spend { grant.as_ref() } else { None },
+                            GatewayError::Denied {
+                                stage: AuthorizationStage::Commit,
+                                reason: Some(reason),
+                            },
+                        );
+                    }
+                }
             }
         };
         let ctx = FenceCtx {
@@ -1349,12 +1469,7 @@ impl<F: CommitFence> CommitGate<F> {
             idempotency: idem,
             grant: grant.clone(),
             budget_spend,
-            approval: self
-                .deps
-                .proposals
-                .view(proposal)
-                .and_then(|v| v.apply)
-                .and_then(|a| a.approval),
+            approval: approval.clone(),
             digest: Some(
                 self.deps
                     .proposals
@@ -1364,6 +1479,7 @@ impl<F: CommitFence> CommitGate<F> {
             ),
             policy_lsn,
             state,
+            provenance: provenance.clone(),
         }));
         let seq = match self.record(&record_payload) {
             Ok(seq) => seq,
@@ -1405,6 +1521,7 @@ impl<F: CommitFence> CommitGate<F> {
             base_revision: expected,
             revision,
             journal_seq: seq,
+            provenance,
         };
         let outcome = CommitOutcome::Committed(receipt.clone());
         self.settle_outcome(req, proposal, &outcome, pending_key);
@@ -1647,6 +1764,7 @@ impl<F: CommitFence> CommitGate<F> {
                 digest: None,
                 policy_lsn: None,
                 state,
+                provenance: None,
             }));
             let seq = match self.record(&payload) {
                 Ok(seq) => seq,
@@ -1667,6 +1785,7 @@ impl<F: CommitFence> CommitGate<F> {
                 base_revision: expected,
                 revision,
                 journal_seq: seq,
+                provenance: None,
             })
         })
     }
@@ -1761,6 +1880,7 @@ impl<F: CommitFence> CommitGate<F> {
                 digest: None,
                 policy_lsn: None,
                 state,
+                provenance: None,
             }));
             match self.record(&payload) {
                 Ok(_) => {}

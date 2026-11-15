@@ -16,7 +16,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use serde_json::{Map, Value};
-use synvelis_project::{CounterIdGenerator, Operation, Project, ProjectOp};
+use synvelis_project::variant::{AdoptIntent, BranchEditOp, BranchEditOpIntent, BranchRevision};
+use synvelis_project::{
+    ApplyApproval, CounterIdGenerator, Operation, Project, ProjectOp, ProjectRevision, VariantSetId,
+};
 
 use crate::authorization::AuthorizationDecision;
 use crate::capability::{
@@ -29,8 +32,8 @@ use crate::grant::ResourceOracle;
 use crate::id::ProposalRef;
 use crate::outcome::{ErrorEnvelope, GatewayError, GatewayOutcome};
 use crate::prepare::{
-    self, NamedOperation, OpSpec, PrepareAuthorizer, PreparedOperation, PreparedRecord,
-    SemanticCommand,
+    self, NamedOperation, OpSpec, PrepareAuthorizer, PreparedMutation, PreparedOperation,
+    PreparedRecord, SemanticCommand,
 };
 use crate::proposal::ProposalStore;
 use crate::registry::CapabilityOperation;
@@ -78,10 +81,10 @@ const OUTPUT_BINDING_ID_BASE: u128 = (1u128 << 96) + (1u128 << 32);
 const MAX_BINDING_SLOTS: u128 = 64;
 
 /// The lowering result of [`PrepareEngine::lower_named`]:
-/// normalized member commands, the retained `ProjectOp`, and the
-/// AUTX-04 bindings seam's deterministic scratch post-state
+/// normalized member commands, the retained [`PreparedMutation`], and
+/// the AUTX-04 bindings seam's deterministic scratch post-state
 /// (`Some` only for a batch carrying non-empty `bindings`).
-type Lowered = (Vec<SemanticCommand>, ProjectOp, Option<Arc<Project>>);
+type Lowered = (Vec<SemanticCommand>, PreparedMutation, Option<Arc<Project>>);
 
 /// One validated `bindings[]` declaration — the wire contract of
 /// `synvelis_automation::macros::MacroBindingWire`
@@ -207,11 +210,28 @@ pub struct PrepareEngine {
     budget: PrepareBudget,
     descriptor: CapabilityDescriptor,
     ops: BTreeMap<CapabilityRef, OpSpec>,
+    /// CB-10: Creative Branch capabilities — lowered to
+    /// [`crate::variant::VariantIntent`]s, never to `ProjectOp`s.
+    variant_ops: BTreeMap<CapabilityRef, VariantOpSpec>,
+    /// CB-10: shared variant ports for prepare-time simulation —
+    /// `None` fails variant preparation closed (host misconfiguration,
+    /// same posture as the media gate).
+    variant: Option<Arc<crate::variant::VariantPorts>>,
     proposals: Arc<ProposalStore>,
     /// The GW-07 verified-media gate — `synvelis.media.register`
     /// resolves its staged-media ref through this seam. `None`
     /// fails the op closed: unverifiable media is never registerable.
     media: Option<Arc<dyn crate::media::MediaGate>>,
+}
+
+/// One CB-10 entry in the variant-op table: descriptor + input schema.
+/// Lowering is an engine method (the edit op's inner named operation
+/// resolves through `ops`), so no `LowerFn` is stored.
+struct VariantOpSpec {
+    /// The capability descriptor registered for the branch op.
+    descriptor: CapabilityDescriptor,
+    /// The registered input schema.
+    input: ValueSchema,
 }
 
 fn obj(fields: &[(&str, ValueSchema)], required: &[&str], deny_unknown: bool) -> ValueSchema {
@@ -658,9 +678,21 @@ impl PrepareEngine {
             budget,
             descriptor: Self::descriptor(),
             ops: Self::op_specs(),
+            variant_ops: Self::variant_specs(),
+            variant: None,
             proposals,
             media,
         }
+    }
+
+    /// Wires the CB-10 variant ports — preparation simulates branch
+    /// mutations on a scratch controller through these ports so the
+    /// retained candidate/effects are real. `None` fails variant
+    /// preparation closed (same posture as the media gate).
+    #[must_use]
+    pub fn with_variant_ports(mut self, ports: Option<Arc<crate::variant::VariantPorts>>) -> Self {
+        self.variant = ports;
+        self
     }
 
     fn op_specs() -> BTreeMap<CapabilityRef, OpSpec> {
@@ -728,6 +760,22 @@ impl PrepareEngine {
         map
     }
 
+    /// The CB-10 variant-op table — `synvelis.branch.{fork,edit,
+    /// adopt,discard}` descriptors + input schemas. These never join
+    /// `ops`: their lowering produces [`PreparedMutation::Variant`],
+    /// not a `ProjectOp`.
+    fn variant_specs() -> BTreeMap<CapabilityRef, VariantOpSpec> {
+        crate::variant::mutation_specs()
+            .into_iter()
+            .map(|(descriptor, input)| {
+                (
+                    descriptor.capability_ref(),
+                    VariantOpSpec { descriptor, input },
+                )
+            })
+            .collect()
+    }
+
     /// Registers every op input schema, the shared output schema, the
     /// mutation-op descriptors (no executors — apply is GW-06), and
     /// the `synvelis.operation.prepare` capability with `self`.
@@ -737,6 +785,16 @@ impl PrepareEngine {
     #[allow(clippy::result_large_err)] // typed envelope is the contract
     pub fn install(self: &Arc<Self>, gateway: &mut crate::Gateway) -> Result<(), ErrorEnvelope> {
         for spec in self.ops.values() {
+            gateway
+                .schemas_mut()
+                .register(
+                    spec.descriptor.input_schema.name.clone(),
+                    SchemaVersion::new(1, 0),
+                    spec.input.clone(),
+                )
+                .map_err(ErrorEnvelope::from)?;
+        }
+        for spec in self.variant_ops.values() {
             gateway
                 .schemas_mut()
                 .register(
@@ -768,6 +826,9 @@ impl PrepareEngine {
             )
             .map_err(ErrorEnvelope::from)?;
         for spec in self.ops.values() {
+            gateway.register_capability(spec.descriptor.clone(), None)?;
+        }
+        for spec in self.variant_ops.values() {
             gateway.register_capability(spec.descriptor.clone(), None)?;
         }
         gateway.register_capability(self.descriptor.clone(), Some(self.clone()))
@@ -897,6 +958,7 @@ impl PrepareEngine {
     /// transaction-created resources against. It is `None` for every
     /// other operation.
     #[allow(clippy::result_large_err)] // typed envelope is the contract
+    #[allow(clippy::too_many_lines)]
     fn lower_named(
         &self,
         named: &NamedOperation,
@@ -905,9 +967,15 @@ impl PrepareEngine {
         base: &Project,
     ) -> Result<Lowered, ErrorEnvelope> {
         let Some(spec) = self.ops.get(&named.capability) else {
+            // CB-10: branch capabilities lower to `VariantIntent`s —
+            // never `ProjectOp`s — through the same schema/bind gates.
+            if let Some(vspec) = self.variant_ops.get(&named.capability) {
+                return self.lower_variant(named, vspec, path);
+            }
             let supported: Vec<CapabilityVersion> = self
                 .ops
                 .keys()
+                .chain(self.variant_ops.keys())
                 .filter(|c| c.id == named.capability.id)
                 .map(|c| c.version)
                 .collect();
@@ -981,12 +1049,22 @@ impl PrepareEngine {
                         "nested batch is not allowed",
                     ));
                 }
-                let (member_commands, op, _) =
+                let (member_commands, member_mutation, _) =
                     self.lower_named(&member_named, &format!("{path}.args.ops[{i}]"), req, base)?;
+                let PreparedMutation::Project(member_op) = member_mutation else {
+                    return Err(prepare::violation(
+                        &format!("{path}.args.ops[{i}]"),
+                        "variant operations cannot be batch members",
+                    ));
+                };
                 commands.extend(member_commands);
-                ops.push(op);
+                ops.push(member_op);
             }
-            return Ok((commands, ProjectOp::Composite { ops }, None));
+            return Ok((
+                commands,
+                PreparedMutation::Project(ProjectOp::Composite { ops }),
+                None,
+            ));
         }
         // An ordinary op: bind the declared target, lower
         // syntactically (args were schema-validated above).
@@ -1006,9 +1084,162 @@ impl PrepareEngine {
                 target,
                 args: named.args.clone(),
             }],
-            op,
+            PreparedMutation::Project(op),
             None,
         ))
+    }
+
+    /// The bound `VariantSet` a variant op targets — `bind_target`
+    /// already proved the shape; anything else is an internal error.
+    #[allow(clippy::result_large_err)] // typed envelope is the contract
+    fn variant_set_target(target: &OperationTarget) -> Result<VariantSetId, ErrorEnvelope> {
+        match target {
+            OperationTarget::Resource {
+                resource: ResourceRef::VariantSet(id),
+            } => Ok(*id),
+            _ => Err(GatewayError::Internal {
+                reason: "variant op bound a non-variant-set target".to_owned(),
+            }
+            .into()),
+        }
+    }
+
+    /// CB-10 lowering — schema-validates args, binds the declared
+    /// target, then produces a [`PreparedMutation::Variant`]. The
+    /// edit op's `op` member is a *named operation* lowered through
+    /// the ordinary `ops` table: its capability joins the proposal's
+    /// floor and its `ProjectOp` rides inside
+    /// [`BranchEditOp::Project`]. Comp-domain inner ops are rejected —
+    /// the gateway table carries no comp capabilities in this slice.
+    #[allow(clippy::too_many_lines, clippy::result_large_err)] // typed envelope is the contract
+    fn lower_variant(
+        &self,
+        named: &NamedOperation,
+        spec: &VariantOpSpec,
+        path: &str,
+    ) -> Result<Lowered, ErrorEnvelope> {
+        spec.input
+            .validate(&format!("{path}.args"), &named.args)
+            .map_err(ErrorEnvelope::from)?;
+        let target = crate::gateway::Gateway::bind_target(&spec.descriptor, named.target.as_ref())
+            .map_err(ErrorEnvelope::from)?;
+        let command = |op: &'static str| SemanticCommand {
+            capability: named.capability.clone(),
+            op,
+            target: target.clone(),
+            args: named.args.clone(),
+        };
+        let id = named.capability.id.as_str();
+        match id {
+            crate::variant::FORK_ID => {
+                let scope = crate::variant::lower_fork(&named.args)?;
+                Ok((
+                    vec![command("branch-fork")],
+                    PreparedMutation::Variant(crate::variant::VariantIntent::Fork { scope }),
+                    None,
+                ))
+            }
+            crate::variant::EDIT_ID => {
+                let set = Self::variant_set_target(&target)?;
+                let (branch, revision, op_json) = crate::variant::lower_edit(&named.args)?;
+                let inner = NamedOperation::parse(&op_json, &format!("{path}.args.op"))?;
+                if inner.capability.id.as_str() == "synvelis.operation.batch"
+                    || self.variant_ops.contains_key(&inner.capability)
+                {
+                    return Err(prepare::violation(
+                        &format!("{path}.args.op"),
+                        "branch edits accept ordinary project operations only",
+                    ));
+                }
+                let Some(ispec) = self.ops.get(&inner.capability) else {
+                    let supported: Vec<CapabilityVersion> = self
+                        .ops
+                        .keys()
+                        .filter(|c| c.id == inner.capability.id)
+                        .map(|c| c.version)
+                        .collect();
+                    return Err(if supported.is_empty() {
+                        GatewayError::UnknownCapability {
+                            id: inner.capability.id.to_string(),
+                        }
+                    } else {
+                        GatewayError::UnsupportedCapabilityVersion {
+                            id: inner.capability.id.to_string(),
+                            requested: inner.capability.version,
+                            supported,
+                        }
+                    }
+                    .into());
+                };
+                ispec
+                    .input
+                    .validate(&format!("{path}.args.op.args"), &inner.args)
+                    .map_err(ErrorEnvelope::from)?;
+                let itarget =
+                    crate::gateway::Gateway::bind_target(&ispec.descriptor, inner.target.as_ref())
+                        .map_err(ErrorEnvelope::from)?;
+                let iop = (ispec.lower)(&itarget, &inner.args).map_err(ErrorEnvelope::from)?;
+                let mut commands = vec![command("branch-edit")];
+                commands.push(SemanticCommand {
+                    capability: inner.capability.clone(),
+                    op: prepare::op_name(&iop),
+                    target: itarget,
+                    args: inner.args.clone(),
+                });
+                Ok((
+                    commands,
+                    PreparedMutation::Variant(crate::variant::VariantIntent::Edit {
+                        intent: BranchEditOpIntent {
+                            variant_set: set,
+                            branch,
+                            expected_branch_revision: BranchRevision::new(revision),
+                            op: BranchEditOp::Project(iop),
+                        },
+                    }),
+                    None,
+                ))
+            }
+            crate::variant::ADOPT_ID => {
+                let set = Self::variant_set_target(&target)?;
+                let (branch, project_revision, branch_revision, scope_digest) =
+                    crate::variant::lower_adopt(&named.args)?;
+                Ok((
+                    vec![command("branch-adopt")],
+                    PreparedMutation::Variant(crate::variant::VariantIntent::Adopt {
+                        intent: AdoptIntent {
+                            variant_set: set,
+                            branch,
+                            expected_project_revision: ProjectRevision(project_revision),
+                            expected_branch_revision: BranchRevision::new(branch_revision),
+                            expected_scope_digest: scope_digest,
+                            // Placeholder — the commit gate substitutes
+                            // the consumed approval receipt's id; an
+                            // adopt without one fails `Unapproved`.
+                            approval: ApplyApproval {
+                                ticket: crate::variant::SIMULATION_TICKET.to_owned(),
+                            },
+                        },
+                    }),
+                    None,
+                ))
+            }
+            crate::variant::DISCARD_ID => {
+                let set = Self::variant_set_target(&target)?;
+                let branch = crate::variant::lower_discard(&named.args)?;
+                Ok((
+                    vec![command("branch-discard")],
+                    PreparedMutation::Variant(crate::variant::VariantIntent::Discard {
+                        variant_set: set,
+                        branch,
+                    }),
+                    None,
+                ))
+            }
+            _ => Err(GatewayError::Internal {
+                reason: format!("unhandled variant capability {id}"),
+            }
+            .into()),
+        }
     }
 
     /// The AUTX-04 GW-04 bindings seam — lowers a
@@ -1127,8 +1358,14 @@ impl PrepareEngine {
             if member_named.capability.id.as_str() == "synvelis.operation.batch" {
                 return Err(prepare::violation(&mpath, "nested batch is not allowed"));
             }
-            let (member_commands, member_op, _) =
+            let (member_commands, member_mutation, _) =
                 self.lower_named(&member_named, &mpath, req, base)?;
+            let PreparedMutation::Project(member_op) = member_mutation else {
+                return Err(prepare::violation(
+                    &mpath,
+                    "variant operations cannot be batch members",
+                ));
+            };
             commands.extend(member_commands);
 
             // Trial-apply on a clone: the scratch always equals the
@@ -1177,7 +1414,7 @@ impl PrepareEngine {
         }
         Ok((
             commands,
-            ProjectOp::Composite { ops },
+            PreparedMutation::Project(ProjectOp::Composite { ops }),
             Some(Arc::new(scratch)),
         ))
     }
@@ -1186,7 +1423,7 @@ impl PrepareEngine {
     fn store_record(
         &self,
         request: OperationRequest,
-        op: ProjectOp,
+        mutation: PreparedMutation,
         prepared: PreparedOperation,
     ) -> Result<
         (
@@ -1196,7 +1433,7 @@ impl PrepareEngine {
         ),
         GatewayError,
     > {
-        self.proposals.insert(request, op, prepared)
+        self.proposals.insert(request, mutation, prepared)
     }
 
     fn is_external(req: &OperationRequest) -> bool {
@@ -1207,7 +1444,7 @@ impl PrepareEngine {
             )
     }
 
-    #[allow(clippy::result_large_err)] // typed envelope is the contract
+    #[allow(clippy::too_many_lines, clippy::result_large_err)] // typed envelope is the contract
     fn run(&self, req: &OperationRequest) -> Result<GatewayOutcome<Value>, ErrorEnvelope> {
         let pin = self.pin_base(req)?;
         let operation_value = req
@@ -1215,26 +1452,69 @@ impl PrepareEngine {
             .get("operation")
             .ok_or_else(|| prepare::violation("args.operation", "missing required field"))?;
         let named = NamedOperation::parse(operation_value, "args.operation")?;
-        let (commands, op, scratch) =
+        let (commands, mutation, scratch) =
             self.lower_named(&named, "args.operation", req, &pin.state)?;
-        let (facts, capabilities) =
-            self.provisional_gate(req, &pin, &named, &op, &commands, scratch.as_ref())?;
 
-        // The project's own validator is the semantic authority —
-        // a rejection here is a typed prepare rejection, never a
-        // synthesized verdict.
-        op.validate(&pin.state).map_err(|e| map_project_error(&e))?;
+        // Provisional gate + candidate — a `ProjectOp` validates and
+        // applies on a scratch clone; a CB-10 variant intent simulates
+        // on a scratch controller through the wired ports, so the
+        // retained candidate and derived effects are the *real*
+        // post-state either way (never a declared approximation).
+        let (facts, capabilities, candidate) = match &mutation {
+            PreparedMutation::Project(op) => {
+                let (facts, capabilities) = self.provisional_gate(
+                    req,
+                    &pin,
+                    &named,
+                    prepare::op_facts(op, &pin.state),
+                    &commands,
+                    scratch.as_ref(),
+                )?;
 
-        // Candidate: apply on a private clone seeded at the base
-        // watermark — the same ids the controller would draw at this
-        // base, so the candidate previews the real post-state.
-        let mut candidate = (*pin.state).clone();
-        let mut ids = CounterIdGenerator::new(pin.state.id_watermark);
-        op.apply(&mut candidate, &mut ids)
-            .map_err(|e| map_project_error(&e))?;
-        candidate
-            .validate_references()
-            .map_err(|e| map_project_error(&e))?;
+                // The project's own validator is the semantic authority —
+                // a rejection here is a typed prepare rejection, never a
+                // synthesized verdict.
+                op.validate(&pin.state).map_err(|e| map_project_error(&e))?;
+
+                // Candidate: apply on a private clone seeded at the base
+                // watermark — the same ids the controller would draw at this
+                // base, so the candidate previews the real post-state.
+                let mut candidate = (*pin.state).clone();
+                let mut ids = CounterIdGenerator::new(pin.state.id_watermark);
+                op.apply(&mut candidate, &mut ids)
+                    .map_err(|e| map_project_error(&e))?;
+                candidate
+                    .validate_references()
+                    .map_err(|e| map_project_error(&e))?;
+                (facts, capabilities, Arc::new(candidate))
+            }
+            PreparedMutation::Variant(intent) => {
+                let (facts, capabilities) = self.provisional_gate(
+                    req,
+                    &pin,
+                    &named,
+                    crate::variant::declared_facts(intent, &pin.state),
+                    &commands,
+                    None,
+                )?;
+                let Some(ports) = &self.variant else {
+                    // Host misconfiguration, not an authorization verdict.
+                    return Err(GatewayError::Internal {
+                        reason: "variant ports are not wired".to_owned(),
+                    }
+                    .into());
+                };
+                let post = crate::variant::simulate(&pin.state, ports, intent).map_err(|e| {
+                    GatewayError::PreparationRejected {
+                        reason: format!(
+                            "variant simulation failed: {}",
+                            crate::variant::variant_reason(&e)
+                        ),
+                    }
+                })?;
+                (facts, capabilities, Arc::new(post))
+            }
+        };
 
         let before_map = prepare::resource_map(&pin.state);
         let after_map = prepare::resource_map(&candidate);
@@ -1257,7 +1537,6 @@ impl PrepareEngine {
         // GW-02 effect-aware authorization over the *derived* set —
         // pinned-base facts for existing resources (never a live
         // view), candidate facts only for transaction-created ids.
-        let candidate = Arc::new(candidate);
         let facts_oracle: Arc<dyn ResourceOracle> =
             Arc::new(prepare::BaseFirstOracle::new(&pin.state, &candidate));
         let decision =
@@ -1290,7 +1569,7 @@ impl PrepareEngine {
             unsupported: facts.unsupported,
             candidate,
         };
-        let (proposal, stored, changeset) = self.store_record(req.clone(), op, prepared)?;
+        let (proposal, stored, changeset) = self.store_record(req.clone(), mutation, prepared)?;
         let mut result = prepare::result_json(&proposal, &stored.prepared);
         result["digest"] = Value::from(changeset.digest.as_str());
         result["expires_at"] = Value::from(changeset.expires_at.0);
@@ -1309,7 +1588,7 @@ impl PrepareEngine {
         req: &OperationRequest,
         pin: &PinnedSnapshot,
         named: &NamedOperation,
-        op: &ProjectOp,
+        facts: prepare::OpFacts,
         commands: &[SemanticCommand],
         scratch: Option<&Arc<Project>>,
     ) -> Result<(prepare::OpFacts, Vec<CapabilityRef>), ErrorEnvelope> {
@@ -1330,13 +1609,6 @@ impl PrepareEngine {
                 .into());
             }
         }
-
-        // Semantic facts are known before domain validation runs —
-        // the read/impact sets let the provisional scope gate below
-        // deny *out-of-scope-or-absent* resources identically, so a
-        // domain `NotFound` can never distinguish "does not exist"
-        // from "exists outside the grant" (SEC-03 existence blinding).
-        let facts = prepare::op_facts(op, &pin.state);
 
         // An unverifiable effect set fails preparation for *every*
         // caller — it is a completeness verdict on the derivation,
@@ -1631,8 +1903,8 @@ mod tests {
         // into the digest/approval surface.
         assert_eq!(record.prepared.commands.len(), 2);
         assert!(matches!(
-            record.op,
-            ProjectOp::Composite { ref ops } if ops.len() == 2
+            record.project_op(),
+            Some(ProjectOp::Composite { ops }) if ops.len() == 2
         ));
         // Create effects name the concrete resources.
         assert!(

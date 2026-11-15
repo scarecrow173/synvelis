@@ -291,6 +291,20 @@ pub struct PreparedEffects {
     pub capabilities: Vec<CapabilityRef>,
 }
 
+/// What a retained proposal executes at the commit boundary — either
+/// an ordinary [`ProjectOp`] fed to `ProjectController::apply`
+/// verbatim, or a typed Creative Branch [`VariantIntent`] the commit
+/// gate re-executes inside its fence through the variant ports
+/// (CB-10). Both arms ride the same authorization, idempotency,
+/// journal, and provenance machinery — there is no second path.
+#[derive(Clone, Debug)]
+pub enum PreparedMutation {
+    /// An ordinary project operation.
+    Project(ProjectOp),
+    /// A Creative Branch mutation intent (CB-10).
+    Variant(crate::variant::VariantIntent),
+}
+
 /// The retained proposal — what GW-06's commit path consumes.
 #[derive(Clone)]
 pub struct PreparedRecord {
@@ -299,11 +313,26 @@ pub struct PreparedRecord {
     /// The bound request (caller, task, grant refs — commit-time
     /// revalidation re-runs the binding chain on this identity).
     pub request: OperationRequest,
-    /// The lowered `ProjectOp` — fed to `ProjectController::apply`
-    /// verbatim inside `Command { expected_revision, op }`.
-    pub op: ProjectOp,
+    /// The lowered mutation — fed to `ProjectController::apply`
+    /// (project arm) or the fenced variant dispatch (variant arm)
+    /// inside `Command { expected_revision, .. }` semantics.
+    pub mutation: PreparedMutation,
     /// The preparation product.
     pub prepared: PreparedOperation,
+}
+
+impl PreparedRecord {
+    /// The retained `ProjectOp` — `None` when the proposal carries a
+    /// Creative Branch [`PreparedMutation::Variant`] intent (CB-10),
+    /// which the commit gate dispatches through the variant ports
+    /// rather than `ProjectController::apply`.
+    #[must_use]
+    pub fn project_op(&self) -> Option<&ProjectOp> {
+        match &self.mutation {
+            PreparedMutation::Project(op) => Some(op),
+            PreparedMutation::Variant(_) => None,
+        }
+    }
 }
 
 // ── Lowering ─────────────────────────────────────────────────
