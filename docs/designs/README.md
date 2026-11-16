@@ -112,6 +112,7 @@ Directory: `docs/designs`
 | DESIGN-RCD04Fx2nB8cY6dF5hJ9kM3q | RCD-04 Comp Transition / MIDI Phrase fixture — crate 内完結設計 | approved | [rcd-04-comp-transition-midi-phrase-fixture.md](./rcd-04-comp-transition-midi-phrase-fixture.md) |
 | DESIGN-034WEV4lGiVlfIG0LsEBNr | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID design | approved | [rcd-04-midi-undo-stableid-design.md](./rcd-04-midi-undo-stableid-design.md) |
 | DESIGN-034VmNZvp2r11R0Phmdf0P | RCD-04 product E2E design | approved | [rcd-04-product-e2e-design.md](./rcd-04-product-e2e-design.md) |
+| DESIGN-034YpTJ7LGHVn4vKqeBjhO | RCD-04 residual closeout — AC 照合と gate 分類・簿記整合の設計 | approved | [rcd-04-residual-closeout-design.md](./rcd-04-residual-closeout-design.md) |
 | DESIGN-034VBU0PCNZXCZsyRneE3S | RCD-04 RT engine comp PCM design | approved | [rcd-04-rt-engine-comp-pcm-design.md](./rcd-04-rt-engine-comp-pcm-design.md) |
 | DESIGN-034XJyqSj5ERrc0PHD2tDm | RCD-F02 Advanced Monitoring / Overdub / Pre-Punch Handles design | approved | [rcd-f02-monitoring-overdub-design.md](./rcd-f02-monitoring-overdub-design.md) |
 | DESIGN-HBZzINKHriX9qpGtNZ1ZFY | Render Checkpoint — Render Recipe・依存閉包・有効性・Branch/Execution/Policy 統合設計 (synvelis#289 RCP-00) | approved | [rcp-render-recipe-design.md](./rcp-render-recipe-design.md) |
