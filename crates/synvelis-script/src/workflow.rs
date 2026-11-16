@@ -177,6 +177,25 @@ fn empty_object() -> Value {
     json!({})
 }
 
+/// Deserializes a spec sequence field. Luau tables cannot distinguish
+/// an empty array from an empty record (`{}` is both), so an empty
+/// JSON object is accepted as an empty sequence — a non-empty object
+/// is still a typed reject. Array input is unchanged.
+fn seq_or_empty_map<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::de::DeserializeOwned,
+{
+    let value = Value::deserialize(deserializer)?;
+    match value {
+        Value::Array(_) => serde_json::from_value(value).map_err(serde::de::Error::custom),
+        Value::Object(map) if map.is_empty() => Ok(Vec::new()),
+        other => Err(serde::de::Error::custom(format!(
+            "expected a sequence (or empty object for script sources), got {other}"
+        ))),
+    }
+}
+
 /// One script-side call inside a [`ScriptWorkflowSpec`] — the
 /// evaluation record of `action()` / `workflow()` / control calls.
 ///
@@ -226,9 +245,15 @@ pub enum ScriptStepCall {
         /// Condition in the ergonomic surface (`{op: …}` or `$`-refs).
         condition: Value,
         /// Then-branch calls.
+        #[serde(deserialize_with = "seq_or_empty_map")]
         then: Vec<ScriptStepCall>,
         /// Else-branch calls.
-        #[serde(default, rename = "else", skip_serializing_if = "Vec::is_empty")]
+        #[serde(
+            default,
+            rename = "else",
+            skip_serializing_if = "Vec::is_empty",
+            deserialize_with = "seq_or_empty_map"
+        )]
         else_steps: Vec<ScriptStepCall>,
     },
     /// `for_each items do … end` — lowered to `for-each-bounded`.
@@ -240,7 +265,7 @@ pub enum ScriptStepCall {
         /// Hard iteration bound (≥ 1).
         max_iterations: u64,
         /// Body calls.
-        #[serde(default)]
+        #[serde(default, deserialize_with = "seq_or_empty_map")]
         body: Vec<ScriptStepCall>,
     },
     /// `await_job(job, output_schema?)` — waits on a job-typed value.
@@ -303,16 +328,59 @@ pub struct ScriptWorkflowSpec {
     /// references check.
     pub version: u32,
     /// Declared inputs.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "seq_or_empty_map")]
     pub inputs: Vec<SpecIoDecl>,
     /// Ordered call tree.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "seq_or_empty_map")]
     pub steps: Vec<ScriptStepCall>,
     /// Declared outputs.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "seq_or_empty_map")]
     pub outputs: Vec<SpecIoDecl>,
     /// Canonical [`synvelis_automation::WorkflowLimits`] JSON.
     pub limits: Value,
+}
+
+impl ScriptWorkflowSpec {
+    /// Decodes a spec from a runtime-backend artifact payload — the
+    /// `ScriptValue` a [`crate::backend::ScriptSession::evaluate`]
+    /// returned under [`crate::backend::ArtifactKind::WorkflowDefinition`].
+    ///
+    /// The payload must lower to JSON cleanly (no `Bytes`/`Time`/
+    /// `ResourceId`/bare `Absent`) and carry
+    /// [`WORKFLOW_SPEC_SCHEMA_VERSION`]; anything else is a typed
+    /// reject — the backend's claim is never trusted structurally.
+    ///
+    /// # Errors
+    /// [`crate::ScriptApiError::Json`] — payload has no JSON form,
+    /// fails spec deserialization, or carries an unsupported
+    /// `schema_version`.
+    pub fn from_script_value(
+        value: &crate::backend::ScriptValue,
+    ) -> Result<Self, crate::ScriptApiError> {
+        let json = value.to_json().map_err(|e| crate::ScriptApiError::Json {
+            reason: format!("workflow spec payload has no JSON form: {e}"),
+        })?;
+        let spec: Self = serde_json::from_value(json).map_err(|e| crate::ScriptApiError::Json {
+            reason: format!("workflow spec decode failed: {e}"),
+        })?;
+        if spec.schema_version != WORKFLOW_SPEC_SCHEMA_VERSION {
+            return Err(crate::ScriptApiError::Json {
+                reason: format!(
+                    "unsupported workflow spec schema_version {} (expected {WORKFLOW_SPEC_SCHEMA_VERSION})",
+                    spec.schema_version
+                ),
+            });
+        }
+        // Backend-independent structural checks — the same rules
+        // `WorkflowScriptBuilder::build` enforces, applied here so an
+        // evaluate-only consumer (e.g. `workflow run --file x.luau`)
+        // never reports an invalid spec as a valid definition.
+        crate::action::validate_script_id(&spec.workflow_id)?;
+        let mut ids = BTreeSet::new();
+        let mut nodes = 0usize;
+        check_calls(&spec.steps, &mut ids, &mut nodes)?;
+        Ok(spec)
+    }
 }
 
 /// Lowers [`ScriptWorkflowSpec`]s into canonical import documents.

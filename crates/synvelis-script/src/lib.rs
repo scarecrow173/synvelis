@@ -43,6 +43,7 @@
 
 pub mod action;
 pub mod analyzer;
+pub mod backend;
 pub mod binding;
 pub mod canon;
 pub mod error;
@@ -64,6 +65,14 @@ pub use analyzer::{
     DiagnosticLevel, DiagnosticSeverity, ScriptAnalyzer, ScriptBackendVersion, ScriptLanguageId,
     ScriptSource, SourcePosition, SourceRange, SourceRevision, TypeDefinition, WantedCapabilities,
     verify_result_revision,
+};
+pub use backend::{
+    ArtifactKind, ArtifactSource, BackendCapabilities, BackendDescriptor, BudgetKind,
+    CancelGranularity, DefinitionDigest, ExecutionBudget, ProducedBy, RegistryError, ResolveError,
+    ResolveErrorReason, SCRIPT_ARTIFACT_SCHEMA_VERSION, SCRIPT_CONTRACT_VERSION, ScriptArtifact,
+    ScriptBackend, ScriptBackendId, ScriptBackendRegistry, ScriptDiagnostic, ScriptError,
+    ScriptErrorKind, ScriptRequirement, ScriptResult, ScriptSession, ScriptValue, SessionConfig,
+    SessionError, SourceDigest,
 };
 pub use binding::{
     BINDING_SCHEMA_VERSION, BindingEntry, BindingSet, InvocationCall, InvocationDraft,
