@@ -1,7 +1,7 @@
 ---
 id: "IMPL-034VnGKTfvMA41aVr0ctLN"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録"
 created: "2026-11-10"
 updated: "2026-11-10"

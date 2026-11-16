@@ -1,7 +1,7 @@
 ---
 id: "TASK-034WEVr538punRWOxqkfaf"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice"
 created: "2026-11-13"
 updated: "2026-11-13"
@@ -94,7 +94,7 @@ Issue #118 残件のうち headless 検証可能な部分 — MIDI phrase
 - [x] `git fetch origin main && git merge origin/main` —
   Already up to date
 - [x] canonical 9 lane 全 pass
-- [ ] commit・push・PR（`Refs #118`）作成
+- [x] commit・push・PR（`Refs #118`）作成（PR #374 merge 済み）
 
 ## Verification
 

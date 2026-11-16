@@ -1,7 +1,7 @@
 ---
 id: "IMPL-034VC2V5HUrkERcXqw246v"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "RCD-04 RT engine comp PCM slice 実装記録"
 created: "2026-11-11"
 updated: "2026-11-11"

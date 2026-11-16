@@ -1,7 +1,7 @@
 ---
 id: "IMPL-034WEVyS44eEOELiBCYBIG"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice 実装記録"
 created: "2026-11-13"
 updated: "2026-11-13"

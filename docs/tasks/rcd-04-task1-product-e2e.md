@@ -1,7 +1,7 @@
 ---
 id: "TASK-034VmO0u2fPRBj8uO9cGkk"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "RCD-04 Task1 product E2E"
 created: "2026-11-10"
 updated: "2026-11-10"
@@ -95,9 +95,11 @@ NotRun/Unsupported として記録する。
   wire JSON 面で観測できる。
 - [x] 実 GUI/device/OS/RT/AudioLens は NotRun/
   Unsupported として文書化されている。
-- [ ] canonical mise 検証（fmt-check/check/lint/test/
+- [x] canonical mise 検証（fmt-check/check/lint/test/
   test-rt/test-msrv/check-app-native/lint-app-native）
-  が green。
+  が green（PR #300 merge 時に実施・merge 済み。
+  closeout で canonical lane を再実測 —
+  `evidence/sv118/rcd-04-closeout-verification.md`）。
 
 ## Verification
 
@@ -105,6 +107,7 @@ NotRun/Unsupported として記録する。
   rcd_04_product_e2e` — 5 tests pass（補助）。
 - [x] `cargo clippy -p synvelis-app --all-targets` —
   warning 0（補助）。
-- [ ] `mise run fmt-check` / `check` / `lint` / `test` /
+- [x] `mise run fmt-check` / `check` / `lint` / `test` /
   `test-rt` / `test-msrv` / `check-app-native` /
-  `lint-app-native`（canonical）。
+  `lint-app-native`（canonical — PR #300 merge 時に
+  実施済み。closeout 再実測分は evidence 参照）。
