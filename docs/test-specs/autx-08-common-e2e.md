@@ -172,6 +172,15 @@ wire semantics で同一 GatewayOutcome/ErrorEnvelope に収束すること）
   合成 catalog document のみを使う。live lane の `step_wire`
   は独立した wire producer であり、その等価は #264 接続後の
   別検証とする。
+  > **Note (2026-11-16, Leg C)**: `synvelis#267` の Leg C
+  > slice（`docs/specs/autx-08-live-adapter-leg.md`）が、
+  > `step_wire` の wire byte ではなく公開 `StepLane` surface
+  > （`invoke`/`operation_result`）の outcome/error/
+  > `DuplicateRequest` parity を headless で固定した
+  > （`autx08_live_adapter_*` 4 test、`evidence/sv267/
+  > live-adapter-leg.md`）。live catalog 実供給・dispatch-hop
+  > consumer・job lane の等価は引き続き #264/#265 接続後の
+  > 別検証であり、本 Non-goal の対象外ではない。
 - `synvelis-cli` の `build_request`/`claim_for` による wire 生成
   — `synvelis-workspace` は `synvelis-cli` に依存しないため、
   本 slice の CLI leg は `HeadlessSessionHost::handle_claim` +
