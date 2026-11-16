@@ -208,6 +208,7 @@ Directory: `docs/plans`
 | PLAN-034VoSKvu6PtN0qTGN02l3 | SF-03 slice8 — app/workspace same-Revision fixture plan | completed | [sf-03-slice8-revision-fixture-plan.md](./sf-03-slice8-revision-fixture-plan.md) |
 | PLAN-034VWvifs0UbP2Diwh0JiN | SF-03 slice9 — host capability generation live firing plan | completed | [sf-03-slice9-capability-firing-plan.md](./sf-03-slice9-capability-firing-plan.md) |
 | PLAN-034X5CZadqoSw73TKCY7cN | Issue #84 StagedFile Migration — 実装・証拠統合計画 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |
+| PLAN-034YAd3CEsjvFfuoNVjFfn | SV-SCRIPT-03 Luau backend — 実装計画 | completed | [sv-script-03-luau-backend.md](./sv-script-03-luau-backend.md) |
 | PLAN-034Yra5r9AfXsdnRO3U7uT | Issue #114 synvelis-app recorder session owner + syn.recorder.* headless wire | completed | [sv114-gui-option-b-recorder-wire.md](./sv114-gui-option-b-recorder-wire.md) |
 | PLAN-GEeV0pLxGa6f8QgNIbdJbt | SV#28 Ruviform pin 更新 実装計画 — fd1d4d5f → ac10a2f7 | completed | [sv28-ruviform-pin-ac10a2f7.md](./sv28-ruviform-pin-ac10a2f7.md) |
 | PLAN-034VobWDT9p1N0HGeD67OV | SV#28 Ruviform pin 更新 実装計画 — 0f5b5737 → b02942c2 | completed | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |

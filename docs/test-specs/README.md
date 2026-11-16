@@ -183,6 +183,7 @@ Directory: `docs/test-specs`
 | TSPEC-3hJ8nB5cV1xZ7kM2qW9eRt | SV-GUI-04 slice2 テスト仕様 — dock transfer workspace adoption + GUI op 配線 | approved | [sv-gui-04-slice2-dock-transfer-workspace-adoption.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption.md) |
 | TSPEC-034XiQux1sWs73DvJunwUQ | SV-SCRIPT-01 ScriptApiModel・Luau stub/binding 整合 invariants | approved | [sv-script-01-script-api-model.md](./sv-script-01-script-api-model.md) |
 | TSPEC-034XjK2mQpRsTuVwXyZab1 | SV-SCRIPT-02 ActionRecipe→Gateway/Atomic Batch 統合 invariants | approved | [sv-script-02-luau-action-script.md](./sv-script-02-luau-action-script.md) |
+| TSPEC-034YAcuRyLWBV83QUKCqPU | SV-SCRIPT-03 Luau backend — テスト仕様 | approved | [sv-script-03-luau-backend.md](./sv-script-03-luau-backend.md) |
 | TSPEC-034Xl5p51hMFBCqjv2UI5O | sv-script-03-workflow-plan | approved | [sv-script-03-workflow-plan.md](./sv-script-03-workflow-plan.md) |
 | TSPEC-034XnRBxxGiEcCQWGPb3oW | sv-script-04-script-editor | approved | [sv-script-04-script-editor.md](./sv-script-04-script-editor.md) |
 | TSPEC-034Yr9OWSvOrAfLqvNTpWC | Issue #114 synvelis-app recorder session owner + syn.recorder.* headless wire | approved | [sv114-gui-option-b-recorder-wire.md](./sv114-gui-option-b-recorder-wire.md) |

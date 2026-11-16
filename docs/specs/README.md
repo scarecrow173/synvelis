@@ -221,6 +221,7 @@ Directory: `docs/specs`
 | SPEC-034XHM3cBgw6hRT0wUniFS | RCD-02 residual closeout — Issue #116 AC 照合・canonical lane 実測・gate 棚卸し・簿記 drift 修正 | implemented | [rcd-02-residual-closeout.md](./rcd-02-residual-closeout.md) |
 | SPEC-034YpSBp6LbjHyZJstrgDt | RCD-04 residual closeout — Issue #118 AC 照合・canonical lane 実測・gate 棚卸し・簿記 drift 修正 | implemented | [rcd-04-residual-closeout.md](./rcd-04-residual-closeout.md) |
 | SPEC-034T6XTAVpIPhybzaw7jdh | SV-GPUI-03 Synvelis Product Theme / Workspace Presets — Driver-neutral DTCG overrides・Preset schema・fixtures | implemented | [sv-gpui-03-product-theme-workspace-presets.md](./sv-gpui-03-product-theme-workspace-presets.md) |
+| SPEC-034YAcoXkl0en7soFz7neT | SV-SCRIPT-03 Luau backend — headless .luau workflow 評価 slice | implemented | [sv-script-03-luau-backend.md](./sv-script-03-luau-backend.md) |
 | SPEC-034Yr9NUlwfGUnqDVVWXOp | Issue #114 synvelis-app recorder session owner + syn.recorder.* headless wire | implemented | [sv114-gui-option-b-recorder-wire.md](./sv114-gui-option-b-recorder-wire.md) |
 | SPEC-034YnF7HCn1ybs61M9xuu5 | Issue #488 lint-app-native clippy::large_enum_variant 是正 | implemented | [sv488-lint-app-native.md](./sv488-lint-app-native.md) |
 | SPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 slice (synvelis#126) | implemented | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |

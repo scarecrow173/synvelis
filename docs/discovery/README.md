@@ -23,6 +23,7 @@ Directory: `docs/discovery`
 | DISC-034VG2eVX55D1hI610carh | plugin_instances VCS semantic diff gap — persisted instance identity invisible to compare_snapshots | resolved | [plugin-instances-vcs-diff-gap.md](./plugin-instances-vcs-diff-gap.md) |
 | DISC-034YpZlAbwLzlPh4pcs42X | RCD-04 residual closeout — Issue #118 AC 照合対象・簿記 drift・外部 gate 棚卸しメモ | resolved | [rcd-04-residual-closeout.md](./rcd-04-residual-closeout.md) |
 | DISC-034Ux6PrPhfKsxfYRXYkPJ | SF-03 semantic→Ruviform runtime 写像 — 現状棚卸しと設計ギャップ | resolved | [sf-03-map-current-state-inventory.md](./sf-03-map-current-state-inventory.md) |
+| DISC-034YAcow2bei2ILGhBkUlG | SV-SCRIPT-03 Luau backend slice — headless script backend 結合の探索 | resolved | [sv-script-03-luau-backend.md](./sv-script-03-luau-backend.md) |
 | DISC-034Yr9NsLefhPhHuc5ZiEo | Issue #114 synvelis-app recorder session owner + syn.recorder.* headless wire | resolved | [sv114-gui-option-b-recorder-wire.md](./sv114-gui-option-b-recorder-wire.md) |
 | DISC-p1cxf6X5hKAAYXCVPyHLTu | SV175 Native App Shell 棚卸し — 既存 composition root・headless Binding・利用可能 Ruviform 契約・RF387 依存 gap | resolved | [sv175-native-shell-inventory.md](./sv175-native-shell-inventory.md) |
 | DISC-034T6XSXfrmJPxTvbinHT6 | SV177 製品 Theme/Workspace 棚卸し — 既存 Theme・Workspace 永続化・RF385 契約状況 | resolved | [sv177-product-theme-workspace-inventory.md](./sv177-product-theme-workspace-inventory.md) |
