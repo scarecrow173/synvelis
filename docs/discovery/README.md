@@ -24,6 +24,7 @@ Directory: `docs/discovery`
 | DISC-034T6XSXfrmJPxTvbinHT6 | SV177 製品 Theme/Workspace 棚卸し — 既存 Theme・Workspace 永続化・RF385 契約状況 | resolved | [sv177-product-theme-workspace-inventory.md](./sv177-product-theme-workspace-inventory.md) |
 | DISC-oz2TWMUsnSkPXzinPhwaOL | SV#28 Ruviform pin 更新 — fd1d4d5f → ac10a2f7 差分調査と API 互換性評価 | resolved | [sv28-ruviform-pin-ac10a2f7.md](./sv28-ruviform-pin-ac10a2f7.md) |
 | DISC-034Vo8SrwAKrqHNijuTiCD | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 差分調査と API 互換性評価 | resolved | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
+| DISC-0rH6upYc1dViYzZVllA0t1 | SV#28 Ruviform pin 更新 — abb9f372 → cbcc8343 差分調査と API 互換性評価 | resolved | [sv28-ruviform-pin-cbcc8343.md](./sv28-ruviform-pin-cbcc8343.md) |
 | DISC-E2h7ArIlocpw5psCMM5ytg | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f 差分調査と API 互換性評価 | resolved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | DISC-Zzd7iQXYxdgVA5gHuoryYx | SV#28 Ruviform pin 更新 — 863a7a9d..cc7d5296 差分調査と API 互換性評価 | resolved | [sv28-ruviform-pin-update.md](./sv28-ruviform-pin-update.md) |
 | DISC-034UvxTvzXCIyCbGIaiTpO | SYN-IO-01 Ruviform 共通 I/O 適合境界 — 現行実装と公開契約の棚卸し | resolved | [syn-io-01-io-boundary-inventory.md](./syn-io-01-io-boundary-inventory.md) |

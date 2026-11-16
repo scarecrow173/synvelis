@@ -220,6 +220,7 @@ Directory: `docs/tasks`
 | TASK-034T7IgIHI7umPL7xCvU3u | SV177 theme crate + preset module implementation | done | [sv177-theme-preset-impl.md](./sv177-theme-preset-impl.md) |
 | TASK-zNmgZzwxOh9fJPWJTLu5Un | SV#28 Ruviform pin を ac10a2f7 へ更新し検証を完了する | done | [sv28-ruviform-pin-ac10a2f7.md](./sv28-ruviform-pin-ac10a2f7.md) |
 | TASK-034VocaCYmo2jkluo0P1eY | SV#28 Ruviform pin を b02942c2 へ更新し検証を完了する | done | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
+| TASK-1CsJleKJkDwIDPcHWq8GeC | SV#28 Ruviform pin を cbcc8343 へ更新し検証を完了する | done | [sv28-ruviform-pin-cbcc8343.md](./sv28-ruviform-pin-cbcc8343.md) |
 | TASK-ytgLcFdP0Y0EeeQKr0JW9t | SV#28 Ruviform pin を fd1d4d5f へ更新し検証を完了する | done | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | TASK-DqvyFE4jtl1dHhjkpI0Awe | SV#28 Ruviform pin を cc7d5296 へ更新し API 追従・検証を完了する | done | [sv28-ruviform-pin-update.md](./sv28-ruviform-pin-update.md) |
 | TASK-SvtE2e04aB2cD3eF4gH5iJ9 | SV-GUI-05: SVT-01〜09 Headless UI Scenario タスク | done | [svt-product-e2e-task.md](./svt-product-e2e-task.md) |

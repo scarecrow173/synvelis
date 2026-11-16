@@ -143,6 +143,7 @@ Directory: `docs/specs`
 | SPEC-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain domain projection — master strip Fader target の bootstrap と Fader controlled display/commit 接続 | approved | [sv185-01-mixer-gain-domain-projection.md](./sv185-01-mixer-gain-domain-projection.md) |
 | SPEC-xsFxwBkyqhXpEtoPXGAuah | SV#28 Ruviform pin 更新 — fd1d4d5f → ac10a2f7 と API 追従評価 | approved | [sv28-ruviform-pin-ac10a2f7.md](./sv28-ruviform-pin-ac10a2f7.md) |
 | SPEC-034VobGQ7ailU8PviI0F9x | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 と API 追従 | approved | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
+| SPEC-5mj8EIwK50gAS6F6xk87Ua | SV#28 Ruviform pin 更新 — abb9f372 → cbcc8343 と API 追従評価 | approved | [sv28-ruviform-pin-cbcc8343.md](./sv28-ruviform-pin-cbcc8343.md) |
 | SPEC-0D1aGavIsYu1NgyvnRxeRx | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 と API 追従（SV#190 前提解消） | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | SPEC-YmpDjzBvQVDopM2MpgcdhL | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f と API 追従 | approved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | SPEC-SvtE2e01aB2cD3eF4gH5iJ6 | SV-GUI-05: SVT-01〜09 製品 State/Receipt Headless UI Scenario | approved | [svt-product-e2e.md](./svt-product-e2e.md) |
