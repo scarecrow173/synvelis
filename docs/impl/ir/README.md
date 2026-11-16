@@ -10,6 +10,7 @@ Directory: `docs/impl/ir`
 | IMPL-034XgQ1qM5AZJvhmAnHddj | AUTX-04 Atomic Macro v1 recipe compiler and ID resolution | in-progress | [autx-04-atomic-macro.md](./autx-04-atomic-macro.md) |
 | IMPL-034Xe5swowhuVJIrpCp969 | AUTX-05 Workflow DSL v1 — typed definition and plan compiler | in-progress | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
 | IMPL-034XLar3aaWdSdwjp7eeMM | AUTX-06 live adapters — GatewayStepLane/GatewayJobLane + registry projection | in-progress | [autx-06-live-adapters.md](./autx-06-live-adapters.md) |
+| IMPL-034YxOoo04evMym5AMz4aO | AUTX-06 Mixed-Source Workflow Run Parity — headless fixture suite | in-progress | [autx-06-mixed-source-run.md](./autx-06-mixed-source-run.md) |
 | IMPL-034XiNO9SadjRbTGExtQtw | AUTX-06 Workflow Coordinator — Run/Step FSM・Journal・Resume・JobPort fixture | in-progress | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | IMPL-034Xpa4SOZfOriBGBTfZdR | CB-06 Track/Bus 候補 Adapter — Strip Domain Mask・Routing参照保護・Adopt（synvelis#283） | in-progress | [cb-06-track-bus-adapter.md](./cb-06-track-bus-adapter.md) |
 | IMPL-034XPMrg013WoI7EuJkO5f | CB-07 Arrangement 候補 Adapter — Track集合×MusicalRange×ArrangementDomainMask・Atomic Adopt（synvelis#284） | in-progress | [cb-07-arrangement-adapter.md](./cb-07-arrangement-adapter.md) |
@@ -92,6 +93,7 @@ Directory: `docs/impl/ir`
 | IMPL-034RUA08INQhlEiCYTUuqn | Issue #157 rev.3 matrix placeholder gate 修正 | completed | [issue-157-rev-3-matrix-placeholder-gate.md](./issue-157-rev-3-matrix-placeholder-gate.md) |
 | IMPL-034UgItAdeEhbkX8476hNc | Issue #190 project length → update_view 接続 — 既実装検証記録 | completed | [issue-190-project-length-update-view.md](./issue-190-project-length-update-view.md) |
 | IMPL-034UGB5wH67MKn7FnNHs1i | Issue #230 check-ruviform-rev REV/lock 不整合 — stale vendor 診断と復旧導線 | completed | [issue-230-check-ruviform-rev-rev-lock-stale-vendor.md](./issue-230-check-ruviform-rev-rev-lock-stale-vendor.md) |
+| IMPL-034YBzF7hR3tYvNc6WdE | issue-262-run-file-real-vm — run --file 実 VM/実 authority 実行配線 | completed | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
 | IMPL-034WsBSh6LGUqgyK6c4CZL | Issue #365 impl index 生成可能化 — ir front matter 是正・marker 追加・index 再生成 | completed | [issue-365-impl-index-ir-front-matter-marker-index.md](./issue-365-impl-index-ir-front-matter-marker-index.md) |
 | IMPL-034Wv7Ib5bsrIkIj1wO99Y | Issue #368 docs/impl/ir missing-section 本文補完 | completed | [issue-368-docs-impl-ir-missing-section.md](./issue-368-docs-impl-ir-missing-section.md) |
 | IMPL-qGhrNdq0yLEfcWCITQ0m0p | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 実装記録 | completed | [issue-86-verified-import-wiring-slice.md](./issue-86-verified-import-wiring-slice.md) |
@@ -198,11 +200,14 @@ Directory: `docs/impl/ir`
 | IMPL-034XaE8xDAN85GPhpcnHbe | SV-GUI-05 real OS E2E case definition freeze and acceptance ledger (synvelis#114) | completed | [sv-gui-05-real-os-e2e.md](./sv-gui-05-real-os-e2e.md) |
 | IMPL-034XhXMfp77Z0MfGZwZQIF | SV-SCRIPT-01 ScriptApiModel・Runtime Binding/Luau 型定義 Generator | completed | [sv-script-01-script-api-model.md](./sv-script-01-script-api-model.md) |
 | IMPL-034XjAbWQJoR9lTEETMuYS | SV-SCRIPT-02 Luau Action Script定義・Typed Action Recipe・Gateway/Atomic Batch統合 | completed | [sv-script-02-luau-action-script.md](./sv-script-02-luau-action-script.md) |
+| IMPL-034YAd9GVhddJjb5Q7ndg0 | SV-SCRIPT-03 Luau backend — headless .luau workflow 評価 slice | completed | [sv-script-03-luau-backend.md](./sv-script-03-luau-backend.md) |
 | IMPL-034Xl5nZaPjrHyr6UPJ5q4 | SV-SCRIPT-03 YAML/Luau/Rhai Workflow共通Plan化・異種Workflow参照 | completed | [sv-script-03-workflow-plan.md](./sv-script-03-workflow-plan.md) |
 | IMPL-034XnRe6ZxDUpnK0Ct3CcF | SV-SCRIPT-04 Script Editor — Analyzer Registry・Luau型診断/補完・driver-neutral ViewSpec 投影 | completed | [sv-script-04-script-editor.md](./sv-script-04-script-editor.md) |
+| IMPL-034YrarNjUSNm0R7bsq4JU | Issue #114 synvelis-app recorder session owner + syn.recorder.* headless wire | completed | [sv114-gui-option-b-recorder-wire.md](./sv114-gui-option-b-recorder-wire.md) |
 | IMPL-SV17501NativeShellBinding | SV175-01 Native App Shell 初期 slice — NativeShell lifecycle + ViewBinding adapter 実装記録 | completed | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | IMPL-034T7IhBoewhoZNaZfjXP1 | SV177 theme/preset implementation record | completed | [sv177-theme-preset-implementation-record.md](./sv177-theme-preset-implementation-record.md) |
 | IMPL-SV18501MixerGainFader | SV185-01 mixer.gain domain projection — master strip Fader bootstrap・v7→v8 migration・Fader 接続 実装記録 | completed | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
+| IMPL-GWuKwuDKXNXu38FweAsWla | sv293 semantic→selection integration 実装記録 (synvelis#293 deferred residual slice) | completed | [sv293-semantic-selection-integration.md](./sv293-semantic-selection-integration.md) |
 | IMPL-0SV47ControlsUiInteg01 | SV-47 Ruviform controls/binding headless contract integration — Mixer/Transport/parameter editing surfaces | completed | [sv47-ruviform-controls-ui-integration.md](./sv47-ruviform-controls-ui-integration.md) |
 | IMPL-0SV48VizUiInteg0001 | SV-48 Ruviform ui/viz + ui/binding headless contract integration — Waveform/Meter/Spectrum/Timeline into the DAW view layer | completed | [sv48-ruviform-viz-ui-integration.md](./sv48-ruviform-viz-ui-integration.md) |
 | IMPL-034YnLdVeKPAUlSteoc0Z7 | Issue #488 lint-app-native clippy::large_enum_variant 是正 | completed | [sv488-lint-app-native.md](./sv488-lint-app-native.md) |

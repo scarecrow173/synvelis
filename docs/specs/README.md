@@ -214,6 +214,7 @@ Directory: `docs/specs`
 | SPEC-034SVCIOPT02bN7mQwErTy | Issue #148 変更影響分類・Fail-Closed evidence Gate 仕様 | superseded | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
 | SPEC-034RUjwAo6z9Q2Hpkp99SH | Issue #157 rev.3 matrix lane skip placeholder — evidence gate 修正 | superseded | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |
 | SPEC-034SYN157Kx9mTvQp2w | Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画 | superseded | [issue-157-selective-execution.md](./issue-157-selective-execution.md) |
+| SPEC-034YBx9Rt4wQzHj2KdN | issue-262-run-file-real-vm — synvelis-cli run --file 実 VM/実 authority 実行配線 | implemented | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
 | SPEC-034Wsudf9ocUWKIH6GUhA9 | Issue #365 docs/impl ir・exp 管理 index を doc-maintenance で生成可能にする | implemented | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
 | SPEC-034WuZoDEfeT3L23cjJAFD | Issue #368 docs/impl/ir missing-section 本文補完 | implemented | [issue-368-ir-missing-sections.md](./issue-368-ir-missing-sections.md) |
 | SPEC-rNbdNqOT10RavAY4Hj9RKJ | Issue #86 DoD(2) — import_verified consumer 入口 + digest-kind blob 解決（synvelis-player slice） | implemented | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |

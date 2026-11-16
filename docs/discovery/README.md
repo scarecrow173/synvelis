@@ -6,6 +6,7 @@ Directory: `docs/discovery`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| DISC-034YBx7Qm2vNpLkR9sTd | issue-262-run-file-real-vm — run --file 実実行の探索結果 | completed | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
 | DISC-UFuXWskbvDWdDScv2CA8XP | sv293 semantic→selection integration 調査記録 (synvelis#293 deferred residual) | completed | [sv293-semantic-selection-integration.md](./sv293-semantic-selection-integration.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
