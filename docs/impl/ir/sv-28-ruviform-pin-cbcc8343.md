@@ -131,11 +131,12 @@ canonical 検証 lane を実施した。`lint-app-native` /
 - `docs/{discovery,specs,designs,plans,test-specs,tasks}/
   sv28-ruviform-pin-cbcc8343.md`・`docs/impl/ir/
   sv-28-ruviform-pin-cbcc8343.md`: 7-doc chain。
-- docs index（`docs/**/README.md`）は
-  `doc_maintenance.js index apply` で再生成（managed index の
-  み。`docs/designs`・`docs/discovery`・`docs/impl/ir`・
-  `docs/plans`・`docs/specs`・`docs/tasks`・`docs/test-specs`
-  の 7 README が更新）。
+- docs index（`docs/**/README.md`）は**変更しない** — Spec
+  で明示禁止（lease 外）。`doc_maintenance.js index plan` /
+  `index apply` をローカルで実行し plan → apply →
+  `blocked` 0 件・全 target `in-sync` を確認したが、
+  生成された index 差分は PR から除外し、Coordinator が
+  統合時に再生成する。
 
 ### Decisions During Implementation
 
@@ -272,10 +273,12 @@ branch `feat/28-ruviform-cbcc8343`・base `origin/main` =
 - ruviform `uitest`/`real-scenario` windowed lane・dock-test
   real_dock・io-e2e fault-injection lane: **NotRun**。
   synvelis が当該 feature/crate を採用していないため対象外。
-- docs index 再生成: **Pass**。`doc_maintenance.js index
-  apply`（plan → apply）で 7 managed index を再生成、
-  `blocked` 0 件。index plan 再実行で全 target `in-sync` を
-  確認。
+- docs index 再生成: **Coordinator 委譲**。ローカルでは
+  `doc_maintenance.js index plan`/`index apply` で生成可能
+  であることと `blocked` 0 件・全 target `in-sync` を確認
+  済みだが、index 差分は Spec の lease 外のため PR に
+  含めない（`docs/**/README.md` は origin/main と同一に
+  戻した）。
 
 ## Risks
 
@@ -298,8 +301,13 @@ branch `feat/28-ruviform-cbcc8343`・base `origin/main` =
   event record codec・test plugin fixture・dock-test 拡張・
   endpoint probe）の採用判断は、対応する GUI-L2/EXT-L3・
   Test Runtime・IO 試験要件の slice で行う。
-- `scarecrow173/synvelis#488` の `LibraryAction` 修正が merge
-  され次第、`lint-app-native`/`lint-app-gpui` の再検証が必要
-  （本 slice では pin 非起因の既存 fail として記録）。
+- `scarecrow173/synvelis#488` の `LibraryAction` 修正が main
+  に merge 済み（`16de9ff`、base `f05bdbf` より後）のため、
+  merge/rebase 後に `lint-app-native`/`lint-app-gpui` の
+  再検証が必要（本 slice では pin 非起因の既存 fail として
+  記録）。
+- docs index の再生成は Coordinator が統合時に実施
+  （`doc_maintenance index apply`。本 slice では
+  `docs/**/README.md` を変更しない）。
 - 実機 lane（`test-recording-real-input`・実 GUI・実 plugin）の
   検証は opt-in 環境で別途実施。

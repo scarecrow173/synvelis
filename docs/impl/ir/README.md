@@ -182,7 +182,6 @@ Directory: `docs/impl/ir`
 | IMPL-034Ug8sNPL1sqhquNm1PYh | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 API 追従 | completed | [sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md](./sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md) |
 | IMPL-9lysTGra2gwN96PqkF09YI | SV#28 Ruviform pin 更新 — fd1d4d5f → ac10a2f7 API 追従評価 | completed | [sv-28-ruviform-pin-ac10a2f7.md](./sv-28-ruviform-pin-ac10a2f7.md) |
 | IMPL-034VocnpYlIXEqErLG2I5w | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 API 追従 | completed | [sv-28-ruviform-pin-b02942c2.md](./sv-28-ruviform-pin-b02942c2.md) |
-| IMPL-0mcr9rVaeMBEuTzB4Zcpv4 | SV#28 Ruviform pin 更新 — abb9f372 → cbcc8343 API 追従評価 | completed | [sv-28-ruviform-pin-cbcc8343.md](./sv-28-ruviform-pin-cbcc8343.md) |
 | IMPL-VvBJRLqOSjnq3Pv2b4D1aO | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f API 追従 | completed | [sv-28-ruviform-pin-fd1d4d5f.md](./sv-28-ruviform-pin-fd1d4d5f.md) |
 | IMPL-p1XVD7cITxEvasi3u5lh9F | Issue #245 webdav MockServer TransientIo flake — accept 済みソケット blocking 正規化 slice | completed | [sv-ci-webdav-transient-io-flake-slice.md](./sv-ci-webdav-transient-io-flake-slice.md) |
 | IMPL-034XPOTEa44xCPXxCek7Hb | SV-GPUI-02 Plugin Dock Gate — PD-01〜07 freeze + headless contract (synvelis#176) | completed | [sv-gpui-02-plugin-dock-gate.md](./sv-gpui-02-plugin-dock-gate.md) |
@@ -203,6 +202,7 @@ Directory: `docs/impl/ir`
 | IMPL-SV18501MixerGainFader | SV185-01 mixer.gain domain projection — master strip Fader bootstrap・v7→v8 migration・Fader 接続 実装記録 | completed | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | IMPL-0SV47ControlsUiInteg01 | SV-47 Ruviform controls/binding headless contract integration — Mixer/Transport/parameter editing surfaces | completed | [sv47-ruviform-controls-ui-integration.md](./sv47-ruviform-controls-ui-integration.md) |
 | IMPL-0SV48VizUiInteg0001 | SV-48 Ruviform ui/viz + ui/binding headless contract integration — Waveform/Meter/Spectrum/Timeline into the DAW view layer | completed | [sv48-ruviform-viz-ui-integration.md](./sv48-ruviform-viz-ui-integration.md) |
+| IMPL-034YnLdVeKPAUlSteoc0Z7 | Issue #488 lint-app-native clippy::large_enum_variant 是正 | completed | [sv488-lint-app-native.md](./sv488-lint-app-native.md) |
 | IMPL-SvtE2e01aB2cD3eF4gH5iK4 | SV-GUI-05: SVT-01〜09 Headless UI Scenario 実装記録 | completed | [svt-product-e2e.md](./svt-product-e2e.md) |
 | IMPL-034WVJPwDQqM213ZktQskq | SYN-IO-02 HEAD CAS 実 2-process E2E 検証記録 (synvelis#330) | completed | [syn-io-02-head-cas-e2e.md](./syn-io-02-head-cas-e2e.md) |
 | IR-SV330-syn-io-02-head-cas | SYN-IO-02 HEAD CAS expected-head store port 実装記録・検証証跡 | completed | [syn-io-02-head-cas.md](./syn-io-02-head-cas.md) |

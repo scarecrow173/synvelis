@@ -164,9 +164,9 @@ Directory: `docs/designs`
 | DESIGN-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain projection 設計 — ControlModel bootstrap・wire target・display_value | approved | [sv185-mixer-gain-projection-design.md](./sv185-mixer-gain-projection-design.md) |
 | DESIGN-gAU8JKJSNsO9ZsGEgF0CDj | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界（fd1d4d5f → ac10a2f7） | approved | [sv28-ruviform-pin-ac10a2f7.md](./sv28-ruviform-pin-ac10a2f7.md) |
 | DESIGN-034VobNphX5isOqTl9Wg5i | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界 | approved | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
-| DESIGN-2z5KtdGhRdUvPQ0fJobGHe | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界（abb9f372 → cbcc8343） | approved | [sv28-ruviform-pin-cbcc8343.md](./sv28-ruviform-pin-cbcc8343.md) |
 | DESIGN-43KJVuVRlioN1JtUFVuqtW | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | DESIGN-AyDQMCLnAv4MbV3s4qnT8D | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界（9865cd57 → fd1d4d5f） | approved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
+| DESIGN-034YnFdVxCjVKSDV4JZaWa | Issue #488 lint-app-native clippy::large_enum_variant 是正 — 設計 | approved | [sv488-lint-app-native.md](./sv488-lint-app-native.md) |
 | DSGN-SvtE2e02aB2cD3eF4gH5iJ7 | SV-GUI-05: SVT-01〜09 Headless UI Scenario 設計 | approved | [svt-product-e2e-design.md](./svt-product-e2e-design.md) |
 | DESIGN-034Uvylguz0kZUgy1zbseh | SYN-IO-01 Ruviform 共通 I/O 適合境界設計 | approved | [syn-io-01-ruviform-io-boundary-design.md](./syn-io-01-ruviform-io-boundary-design.md) |
 | DESIGN-034T2aGDbNinkumWeftaiP | SYN-IO-02 DirectoryBundleStore StagedFile 移行設計 | approved | [syn-io-02-directory-bundle-store-stagedfile-design.md](./syn-io-02-directory-bundle-store-stagedfile-design.md) |
