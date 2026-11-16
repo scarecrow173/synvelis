@@ -103,7 +103,7 @@ existing ledgers above (consolidated, not re-derived).
 | 統合/app 層 acceptance・実 GPUI/audio device | app 層 E2E | synvelis#97・#114 | NotRun |
 | real provider/remote LFS/network | 実 fetch 系 | synvelis#331 | NotRun |
 | `*-msrv`・`*-full` 系 lane | Daily Full CI 委譲（ユーザー指定により本 slice では実行しない） | Daily Full CI | NotRun |
-| consumer precision（AudioLens 系） | 別 consumer gate | synvelis#219 | NotRun |
+| consumer precision（AudioLens 系） | 別 consumer gate | `scarecrow173/ruviform#219` / `scarecrow173/ruviform#294` | NotRun |
 
 Mock FS・scripted double・headless fixture・truncate モデルの
 PASS は上記 gate の証拠に昇格しない。process kill の実測結果を
