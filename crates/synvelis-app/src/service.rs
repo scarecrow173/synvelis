@@ -273,6 +273,34 @@ pub const OPS: &[OpInfo] = &[
         summary: "monitor projection — session/tracks/routes/notices/segments/latency",
     },
     OpInfo {
+        name: "syn.recorder.start",
+        summary: "recorder session start — preflight→input open/add→staging/writer→stream start (targets/streams/staging_root/gate params)",
+    },
+    OpInfo {
+        name: "syn.recorder.pump",
+        summary: "recorder non-RT drain — input work queues→engines→writers",
+    },
+    OpInfo {
+        name: "syn.recorder.stop",
+        summary: "recorder stop — stop streams then checkpoint+finalize writers (phase→stopped)",
+    },
+    OpInfo {
+        name: "syn.recorder.commit",
+        summary: "recorder commit — CloseSession+commit_session→Finalized takes/clips/sources",
+    },
+    OpInfo {
+        name: "syn.recorder.discard",
+        summary: "recorder discard — drop the active session without commit (best-effort CloseSession)",
+    },
+    OpInfo {
+        name: "syn.recorder.status",
+        summary: "recorder owner projection — phase/session/staging/fault/devices",
+    },
+    OpInfo {
+        name: "syn.recorder.mark_take_verified",
+        summary: "mark a take verified — params.take_id (session must be Open|Closed)",
+    },
+    OpInfo {
         name: "syn.viz.bind",
         summary: "bind surface to source (view_id, surface_id, source, kind, plot_px?)",
     },
@@ -487,6 +515,7 @@ impl AppService {
             "syn.monitoring.session" => self.app.op_monitoring_session(params),
             "syn.monitoring.latency" => self.app.op_monitoring_latency(params),
             "syn.monitoring.state" => Ok(self.app.op_monitoring_state()),
+            name if name.starts_with("syn.recorder.") => self.dispatch_recorder(name, params),
             "syn.viz.bind" => self.app.op_viz_bind(params),
             "syn.viz.meta" => self.app.op_viz_meta(params),
             "syn.viz.query" => self.app.op_viz_query(params),
@@ -499,6 +528,25 @@ impl AppService {
             _ => Err(ErrorBody::new(
                 codes::UNKNOWN_OP,
                 format!("unhandled op: {op}"),
+            )),
+        }
+    }
+
+    /// `syn.recorder.*` family dispatch — recorder lifecycle ops
+    /// (synvelis#114 SV-GUI-05 Option B) grouped out of the flat
+    /// `dispatch` match so the table stays bounded as ops grow.
+    fn dispatch_recorder(&mut self, op: &str, params: &Value) -> Result<Value, ErrorBody> {
+        match op {
+            "syn.recorder.start" => self.app.op_recorder_start(params),
+            "syn.recorder.pump" => self.app.op_recorder_pump(params),
+            "syn.recorder.stop" => self.app.op_recorder_stop(params),
+            "syn.recorder.commit" => self.app.op_recorder_commit(params),
+            "syn.recorder.discard" => self.app.op_recorder_discard(params),
+            "syn.recorder.status" => Ok(self.app.op_recorder_status()),
+            "syn.recorder.mark_take_verified" => self.app.op_recorder_mark_take_verified(params),
+            _ => Err(ErrorBody::new(
+                codes::UNKNOWN_OP,
+                format!("unhandled recorder op: {op}"),
             )),
         }
     }

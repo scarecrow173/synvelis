@@ -11,6 +11,7 @@
 
 use std::cell::{Cell, Ref, RefCell};
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -47,11 +48,12 @@ use synvelis_project::{
     ProbeCaptureSegment, ProbeMode, ProbeObservation, ProbePortError, ProbeStatusReceipt,
     ProbeSubscriptionKey, ProbeTracePort, ProcessorId, Project, ProjectOp, ProjectPpqn,
     ProjectRevision, ProjectStore, RelationDirection, RoutingConnectionId, SemanticPortId,
-    SemanticProbePoint, SendId, StripId, SubscriptionKind, TickTimeMapping, TraceSlot, TrackId,
-    is_issuable_raw, monitoring_data,
+    SemanticProbePoint, SendId, StripId, SubscriptionKind, TakeId, TickTimeMapping, TraceSlot,
+    TrackId, is_issuable_raw, monitoring_data,
 };
 use synvelis_recording::{
-    ArmState, ChannelMap, HardwareDirectMonitor, HardwareDirectState, MonitorState,
+    ArmState, CaptureTarget, ChannelMap, HardwareDirectMonitor, HardwareDirectState, MonitorState,
+    RecordingOp, SynvelisOp,
 };
 use synvelis_workspace::VizSourceId;
 use synvelis_workspace::controls_ui::{
@@ -82,6 +84,10 @@ use synvelis_workspace::{
 use crate::app::SynvelisApp;
 use crate::engine::SessionRoutingEngine;
 use crate::monitoring::{MonitorSessionParams, MonitorTransportAction, MonitorUxState, TrackPatch};
+use crate::recording::{
+    RecorderError, RecorderStartParams, RecorderStreamParams, RecorderTapParams,
+    commit_outcome_name, take_state_name,
+};
 use crate::screens::{
     DockViewInfo, InspectorRow, InspectorScreenState, MeterScreenState, SignalFlowProbeRow,
     TransportScreenState, VizScreenState, WaveformScreenState, dock_view_info, main_view_id,
@@ -4142,9 +4148,20 @@ impl SynvelisApp {
     /// project session. An empty history is `undone: false`, never a
     /// fabricated success (synvelis#112 slice 2).
     ///
+    /// recorder session 稼働中（`recording`/`stopped`）は拒否する
+    /// — undo は snapshot 復元で per-op validation を通らず、
+    /// recorder が登録した session/stream entity を巻き戻して
+    /// commit を永久に不能にし得るため。
+    ///
     /// # Errors
-    /// [`ErrorBody`] when the session undo fails.
+    /// [`ErrorBody`] when the session undo fails, or a recorder
+    /// session is active.
     pub fn op_project_undo(&mut self) -> Result<Value, ErrorBody> {
+        if self.recorder.active() {
+            return Err(invalid(
+                "project undo is unavailable while a recorder session is active",
+            ));
+        }
         let session = self.workspace.session_mut();
         let undone = self
             .ui
@@ -4164,11 +4181,18 @@ impl SynvelisApp {
     }
 
     /// `syn.project.redo` — `ControlsUi::redo`, the redo counterpart
-    /// of [`Self::op_project_undo`].
+    /// of [`Self::op_project_undo`]（同じく recorder session 稼働中は
+    /// 拒否）。
     ///
     /// # Errors
-    /// [`ErrorBody`] when the session redo fails.
+    /// [`ErrorBody`] when the session redo fails, or a recorder
+    /// session is active.
     pub fn op_project_redo(&mut self) -> Result<Value, ErrorBody> {
+        if self.recorder.active() {
+            return Err(invalid(
+                "project redo is unavailable while a recorder session is active",
+            ));
+        }
         let session = self.workspace.session_mut();
         let redone = self
             .ui
@@ -6333,6 +6357,188 @@ impl SynvelisApp {
         self.monitoring.state(self.workspace.session().project())
     }
 
+    // -- syn.recorder.* ------------------------------------------------------
+
+    /// `syn.recorder.start` — recorder session 開始
+    /// （synvelis#114 SV-GUI-05 Option B）。`preflight` →
+    /// `InputSession::open`/`add`（注入 device）→ project
+    /// session/stream 登録 → `StagingArea`/`StreamWriter` →
+    /// stream start までを一括で行う。device は
+    /// `SynvelisApp::set_recorder_devices` で注入されたもののみを
+    /// 使い、実 device 列挙は本 op の責務外。
+    ///
+    /// `params`:
+    /// - `name`（string、省略可）— session 表示名。
+    /// - `transport_start`/`stop`（tick、必須）。
+    /// - `loop_start`/`loop_end`（tick 対、省略可）— session-scope
+    ///   loop 宣言。`loop_start` は `transport_start` 以降必須
+    ///   （session frame が負になる宣言は start 時に拒否）。
+    /// - `clock_epoch`（tagged string、省略時は project 最小 epoch）。
+    /// - `sample_rate`（u32、必須）・`max_block_frames`（u32、省略可）。
+    /// - `staging_root`（string、必須）— `StagingArea::create` の root。
+    /// - `targets`（array、必須）— `{"lane": tagged, "channels": u32}`。
+    /// - `streams`（array、必須）— `{"device"?: usize, "channels": u32,
+    ///   "taps": [{"stream_index": u16, "channel_map": [u32],
+    ///   "arm"?: "on"|"off", "monitor"?: "off"|"auto"|"on"}]}`。
+    ///   `arm` 省略時は `"on"`、`monitor` 省略時は `"off"`。
+    ///
+    /// armed tap は `targets[stream_index]` を必須とし、その
+    /// `channels` は `channel_map` 長と一致する必要がある
+    /// （`RecorderOwner::start` が typed に検証する）。
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, preflight/bind/staging/
+    /// writer/device failures, or an already-active session.
+    pub fn op_recorder_start(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let request = RecorderStartParams {
+            name: params
+                .get("name")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+            transport_start: tick_param(params, "transport_start")?,
+            stop: tick_param(params, "stop")?,
+            loop_marks: opt_tick_range(params, "loop")?,
+            clock_epoch: opt_clock_epoch_param(params)?,
+            sample_rate: u32_param(params, "sample_rate")?,
+            max_block_frames: opt_u32_param(params, "max_block_frames")?,
+            staging_root: PathBuf::from(str_param(params, "staging_root")?),
+            targets: recorder_targets_param(params)?,
+            streams: recorder_streams_param(params)?,
+        };
+        let outcome = self
+            .recorder
+            .start(self.workspace.session_mut(), request)
+            .map_err(RecorderError::into_body)?;
+        Ok(json!({
+            "action": "start",
+            "session_id": outcome.session_id.to_tagged(),
+            "active": true,
+            "phase": "recording",
+        }))
+    }
+
+    /// `syn.recorder.pump` — device callback が積んだ work queue を
+    /// drain し engine → writer へ流す非 RT pump。戻り値の
+    /// `faulted` は `FaultLatch` が立っているか（capture fault は
+    /// fail-stop — faulted 後も pump は継続可能だが marker 記録・
+    /// commit 時の扱いは `synvelis-recording` の契約どおり）。
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on no active session or wrong phase.
+    pub fn op_recorder_pump(&mut self, _params: &Value) -> Result<Value, ErrorBody> {
+        let faulted = self.recorder.pump().map_err(RecorderError::into_body)?;
+        Ok(json!({ "action": "pump", "faulted": faulted }))
+    }
+
+    /// `syn.recorder.stop` — 全入力 stream を停止し、capture-fault
+    /// があれば marker を記録した上で checkpoint → finalize
+    /// （`finish_all`）まで進める。位相は `stopped` になり、
+    /// project session は `Open` のまま `syn.recorder.commit` を
+    /// 待つ。staging 上の finalized media は commit まで disk に残る。
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on no active session, wrong phase, or
+    /// stop/checkpoint/finalize failure.
+    pub fn op_recorder_stop(&mut self, _params: &Value) -> Result<Value, ErrorBody> {
+        let outcome = self.recorder.stop().map_err(RecorderError::into_body)?;
+        Ok(json!({
+            "action": "stop",
+            "streams": outcome.streams,
+            "finalized": outcome.finalized,
+            "phase": "stopped",
+        }))
+    }
+
+    /// `syn.recorder.commit` — `CloseSession` 適用後に
+    /// `commit_session` で finalized media を project へ commit する
+    /// （内部で `CommitRecording` を `ProjectController::apply`）。
+    /// commit 成功で session は破棄され、project には Finalized
+    /// session/pass/stream/segment/take/source/clip が残る。
+    /// commit 失敗時は session を `stopped` のまま保持し retry 可能。
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on no active session, wrong phase, or
+    /// CloseSession/commit failure.
+    pub fn op_recorder_commit(&mut self, _params: &Value) -> Result<Value, ErrorBody> {
+        let report = self
+            .recorder
+            .commit(self.workspace.session_mut())
+            .map_err(RecorderError::into_body)?;
+        Ok(json!({
+            "action": "commit",
+            "session_id": report.session_id.to_tagged(),
+            "content_hash": report.content_hash,
+            "outcome": commit_outcome_name(&report.outcome),
+            "sources_committed": report.sources_committed,
+            "takes_committed": report.takes_committed,
+            "clips_committed": report.clips_committed,
+            "recoverable": report.recoverable.len(),
+        }))
+    }
+
+    /// `syn.recorder.discard` — 稼働 session を commit せず破棄する。
+    /// Recording 中なら stream を停止し、project session には
+    /// best-effort で `CloseSession` を適用する（staging file は
+    /// recovery 対象として disk に残る）。`session_closed` は
+    /// session が closed 状態に到達したか（既に `Closed`/
+    /// `Finalized` の場合も true）。
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on no active session.
+    pub fn op_recorder_discard(&mut self, _params: &Value) -> Result<Value, ErrorBody> {
+        let closed = self
+            .recorder
+            .discard(self.workspace.session_mut())
+            .map_err(RecorderError::into_body)?;
+        Ok(json!({
+            "action": "discard",
+            "session_closed": closed,
+            "active": false,
+        }))
+    }
+
+    /// `syn.recorder.status` — recorder owner の投影
+    /// （`state`/`active`/`session_id`/`name`/`sample_rate`/
+    /// `staging_root`/`devices`/`fault_bits`）。
+    #[must_use]
+    pub fn op_recorder_status(&self) -> Value {
+        self.recorder.status_json()
+    }
+
+    /// `syn.recorder.mark_take_verified` — take を Verified に遷移
+    /// させる（`RecordingOp::MarkTakeVerified` を project に apply）。
+    /// take の属する session は `Open`/`Closed` である必要がある
+    /// （`Finalized` session の take は domain が拒否する）。
+    ///
+    /// `params.take_id`（tagged string、必須）。
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid/missing `take_id`, unknown take, or
+    /// illegal session state.
+    pub fn op_recorder_mark_take_verified(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let take_id = TakeId::from_tagged(str_param(params, "take_id")?)
+            .map_err(|e| invalid(format!("params.take_id: {e}")))?;
+        let session = self.workspace.session_mut();
+        let revision = session.revision();
+        session
+            .apply(
+                SynvelisOp::Recording(RecordingOp::MarkTakeVerified { take_id }),
+                revision,
+            )
+            .map_err(|e| invalid(format!("syn.recorder.mark_take_verified: {e}")))?;
+        let state = session
+            .project()
+            .recording
+            .takes
+            .get(&take_id)
+            .map(|t| take_state_name(t.state));
+        Ok(json!({
+            "action": "mark_take_verified",
+            "take_id": take_id.to_tagged(),
+            "state": state,
+        }))
+    }
+
     // -- syn.probe.* ---------------------------------------------------------
 
     /// `syn.probe.control` — semantic probe lifecycle (SF-04 slice 4,
@@ -7035,6 +7241,147 @@ fn monitor_state_param(s: &str) -> Result<MonitorState, ErrorBody> {
         "on" => Ok(MonitorState::On),
         _ => Err(invalid(format!("monitor: unknown mode {s:?}"))),
     }
+}
+
+/// `params.clock_epoch` を省略可の tagged id として読む
+/// （key 無し・`null` は `None`）。
+fn opt_clock_epoch_param(params: &Value) -> Result<Option<ClockEpochId>, ErrorBody> {
+    match params.get("clock_epoch") {
+        None | Some(Value::Null) => Ok(None),
+        Some(v) => {
+            let id = ClockEpochId::from_tagged(
+                v.as_str()
+                    .ok_or_else(|| invalid("params.clock_epoch (tagged string)"))?,
+            )
+            .map_err(|e| invalid(format!("params.clock_epoch: {e}")))?;
+            Ok(Some(id))
+        }
+    }
+}
+
+/// `params.<key>` を省略可の u32 として読む（key 無し・`null` は `None`）。
+fn opt_u32_param(params: &Value, key: &str) -> Result<Option<u32>, ErrorBody> {
+    match params.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(v) => v
+            .as_u64()
+            .and_then(|n| u32::try_from(n).ok())
+            .map(Some)
+            .ok_or_else(|| invalid(format!("params.{key} (u32) required"))),
+    }
+}
+
+/// `params.targets[]` — `{"lane": tagged LaneId, "channels": u32}` の
+/// 配列。index 順が `stream_index` の参照順になる。
+fn recorder_targets_param(params: &Value) -> Result<Vec<CaptureTarget>, ErrorBody> {
+    let arr = params
+        .get("targets")
+        .and_then(Value::as_array)
+        .ok_or_else(|| invalid("params.targets (array) required"))?;
+    arr.iter()
+        .enumerate()
+        .map(|(i, t)| {
+            let lane = LaneId::from_tagged(
+                t.get("lane")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| invalid(format!("params.targets[{i}].lane (tagged string)")))?,
+            )
+            .map_err(|e| invalid(format!("params.targets[{i}].lane: {e}")))?;
+            let channels = t
+                .get("channels")
+                .and_then(Value::as_u64)
+                .and_then(|n| u32::try_from(n).ok())
+                .ok_or_else(|| invalid(format!("params.targets[{i}].channels (u32) required")))?;
+            Ok(CaptureTarget {
+                lane_id: lane,
+                channels,
+            })
+        })
+        .collect()
+}
+
+/// `params.streams[]` — `{"device"?: usize, "channels": u32,
+/// "taps": [{"stream_index": u16, "channel_map": [u32],
+/// "arm"?: "on"|"off", "monitor"?: "off"|"auto"|"on"}]}`。
+/// `device` 省略時は `0`（注入 device 列の先頭）、`arm` 省略時は
+/// `"on"`、`monitor` 省略時は `"off"`。
+fn recorder_streams_param(params: &Value) -> Result<Vec<RecorderStreamParams>, ErrorBody> {
+    let arr = params
+        .get("streams")
+        .and_then(Value::as_array)
+        .ok_or_else(|| invalid("params.streams (array) required"))?;
+    arr.iter()
+        .enumerate()
+        .map(|(i, s)| {
+            let device = match s.get("device") {
+                None | Some(Value::Null) => 0,
+                Some(v) => usize::try_from(
+                    v.as_u64()
+                        .ok_or_else(|| invalid(format!("params.streams[{i}].device (usize)")))?,
+                )
+                .map_err(|_| invalid(format!("params.streams[{i}].device exceeds usize")))?,
+            };
+            let channels = s
+                .get("channels")
+                .and_then(Value::as_u64)
+                .and_then(|n| u32::try_from(n).ok())
+                .ok_or_else(|| invalid(format!("params.streams[{i}].channels (u32) required")))?;
+            let taps = s
+                .get("taps")
+                .and_then(Value::as_array)
+                .ok_or_else(|| invalid(format!("params.streams[{i}].taps (array) required")))?;
+            let taps = taps
+                .iter()
+                .enumerate()
+                .map(|(j, t)| {
+                    let prefix = format!("params.streams[{i}].taps[{j}]");
+                    let stream_index = t
+                        .get("stream_index")
+                        .and_then(Value::as_u64)
+                        .and_then(|n| u16::try_from(n).ok())
+                        .ok_or_else(|| invalid(format!("{prefix}.stream_index (u16) required")))?;
+                    let map_arr = t
+                        .get("channel_map")
+                        .and_then(Value::as_array)
+                        .ok_or_else(|| invalid(format!("{prefix}.channel_map (array) required")))?;
+                    let channel_map = map_arr
+                        .iter()
+                        .enumerate()
+                        .map(|(k, c)| {
+                            c.as_u64()
+                                .and_then(|n| u32::try_from(n).ok())
+                                .ok_or_else(|| invalid(format!("{prefix}.channel_map[{k}] (u32)")))
+                        })
+                        .collect::<Result<Vec<u32>, ErrorBody>>()?;
+                    let arm = match t.get("arm") {
+                        None | Some(Value::Null) => ArmState::On,
+                        Some(v) => arm_state_param(
+                            v.as_str()
+                                .ok_or_else(|| invalid(format!("{prefix}.arm (string)")))?,
+                        )?,
+                    };
+                    let monitor = match t.get("monitor") {
+                        None | Some(Value::Null) => MonitorState::Off,
+                        Some(v) => monitor_state_param(
+                            v.as_str()
+                                .ok_or_else(|| invalid(format!("{prefix}.monitor (string)")))?,
+                        )?,
+                    };
+                    Ok(RecorderTapParams {
+                        stream_index,
+                        channel_map,
+                        arm,
+                        monitor,
+                    })
+                })
+                .collect::<Result<Vec<RecorderTapParams>, ErrorBody>>()?;
+            Ok(RecorderStreamParams {
+                device,
+                channels,
+                taps,
+            })
+        })
+        .collect()
 }
 
 fn hw_state_param(s: &str) -> Result<HardwareDirectState, ErrorBody> {
