@@ -71,6 +71,7 @@ Directory: `docs/test-specs`
 | TSPEC-K0owvECAJq2cZ4wvoyMdzy | Issue #167 Tracker reconcile test specification — Consumer 契約(共有 pin・mode 分離・guard・入口) | proposed | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
 | TSPEC-034U2HrQ3Myiuakuy9dVPa | Issue #184 canonical temp fixture 検証仕様 | approved | [issue-184-canonical-temp-fixture.md](./issue-184-canonical-temp-fixture.md) |
 | TEST-034YBzC4xwQyNe8RtUb | issue-262-run-file-real-vm — test spec | implemented | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
+| TSPEC-034YDhYCgjWoM4vF7KomTQ | issue-274-cli-script-analyze — test spec | approved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
 | TSPEC-034WsAjGC5rxjfAzdzF1XI | Issue #365 impl index 生成可能化 — index in-sync と audit 非増加の保証 | approved | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
 | TSPEC-034Wv24lt11AFRZnEjnYfR | Issue #368 docs/impl/ir missing-section 本文補完 — audit 0 件と非増加の保証 | approved | [issue-368-ir-missing-sections.md](./issue-368-ir-missing-sections.md) |
 | TSPEC-Zb0ctcQ2s7S0lDwxkjXsiu | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 — テスト仕様 | approved | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
