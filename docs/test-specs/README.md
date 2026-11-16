@@ -190,6 +190,7 @@ Directory: `docs/test-specs`
 | TSPEC-034Voc4dPYUq3RE0eQXwi7 | SV#28 Ruviform pin 更新 検証仕様 | approved | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | TSPEC-CrvvXGRCC7NBEy9bfba4LH | SV#28 Ruviform pin 更新 検証仕様 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | TSPEC-31xKoCzy7Vtv6MX1J7safw | SV#28 Ruviform pin 更新 検証仕様（9865cd57 → fd1d4d5f） | approved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
+| TSPEC-034YnFeOkg2FPSb1D7r4ci | Issue #488 lint-app-native clippy::large_enum_variant 是正 — 検証仕様 | approved | [sv488-lint-app-native.md](./sv488-lint-app-native.md) |
 | TSTS-SvtE2e05aB2cD3eF4gH5iK0 | SV-GUI-05: SVT-01〜09 Headless UI Scenario テスト仕様 | approved | [svt-product-e2e.md](./svt-product-e2e.md) |
 | TSPEC-034XaDSzD3ZeB9n3sazAZD | SV-GUI-05 Real OS E2E — SV-OS-01〜09 case freeze test spec (synvelis#114) | approved | [svt-real-os-e2e.md](./svt-real-os-e2e.md) |
 | TSPEC-034UvylKq35FCXtkknERpp | SYN-IO-01 I/O 境界 Golden/Negative/Crash 検証計画 | approved | [syn-io-01-io-boundary-verification.md](./syn-io-01-io-boundary-verification.md) |
