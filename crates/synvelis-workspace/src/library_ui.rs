@@ -539,8 +539,12 @@ pub enum LibraryAction {
         #[serde(default)]
         allow_full_object: bool,
         /// Optional clip target (track/lane/placement/playback).
+        /// Boxed: `ImportTargetWire` carries two `serde_json::Value`s
+        /// whose size grows under feature unification (e.g. gpui's
+        /// `preserve_order`), which would otherwise make this variant
+        /// dominate the enum (`clippy::large_enum_variant`).
         #[serde(default)]
-        target: Option<ImportTargetWire>,
+        target: Option<Box<ImportTargetWire>>,
     },
     /// Rebase a stale import to the current live revision, then the
     /// caller retries with `ImportRetry`.
@@ -689,7 +693,7 @@ impl LibraryViewModel {
                 locator,
                 *expected_project_revision,
                 *allow_full_object,
-                target.as_ref(),
+                target.as_deref(),
                 ports,
                 controller,
             ),
