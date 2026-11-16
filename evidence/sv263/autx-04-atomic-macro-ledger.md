@@ -103,3 +103,12 @@ mise task と同一 target の直接実行であり、結果は一致。
 - 実 Gateway request 経路・live registry・GUI・OS 実機結合
   （#265/#266/#267）、Action Script lowering（#272）、
   Workflow Script owner（#273）。
+  - **追記（2026-11）**: Action Script lowering（#272）は
+    PR #438（merged 2026-11-14）で実装済み — Luau Action
+    Script → recipe → Gateway の #263 独立 oracle 一致は
+    sv272 台帳 AC-3 の ORA-G01〜G04 で全て Pass（同 rig
+    helper、`evidence/sv272/sv-script-02-luau-action-script-
+    ledger.md`）。script 生成側の非空 `bindings[]` は
+    引き続き `Unsupported`（sv272 台帳上 Unsupported →
+    Deferred、owner: #272）— 本 ledger の GW-G02
+    `PreparationRejected` fallback 契約は変わらない。

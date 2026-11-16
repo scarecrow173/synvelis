@@ -59,6 +59,17 @@ binary 単位の `test result` 行と fixture test 名まで降りて
   dispatch または手動 dispatch で対象 SHA が検証される。
   統合受入は merge 後の対象 SHA CI 証拠に委ねる
   （POLICIES.md §5）。
+  - **追記（2026-11）**: covering run
+    [43827663914](https://github.com/scarecrow173/synvelis/actions/runs/43827663914)
+    — `workflow_dispatch`、2026-11-16T07:59Z、head_sha
+    `8123fff3`（対象 SHA の子孫であり sv84 コードを含有）、
+    **全 job success（green）**。対象 SHA 自身の run は
+    実現しなかったが、`git diff 1947623..8123fff3` で
+    syn-io-02 fixture binary（`store_publish`/`head_cas`/
+    `controller_store`）は byte 同一、`src/store.rs` の
+    差分は `SCHEMA_VERSION` 13→14 定数と doc のみ
+    （#278 variant_sets）— 本 slice が対象とした code
+    path は変化なし。
 
 ## Fixture ↔ Rule ↔ Case 対応
 
@@ -159,7 +170,7 @@ job URL:
 
 | 項目 | 要求状態 | 結果 | 根拠・委譲先 |
 | --- | --- | --- | --- |
-| 対象コード SHA（`e0fbbe8`/`1947623`）の ci.yml run | Required（統合受入） | **NotRun（pending）** | dispatch-only CI。daily-ci/手動 dispatch 待ち。nearest-SHA 証拠は byte 同一範囲確認済み |
+| 対象コード SHA（`e0fbbe8`/`1947623`）の ci.yml run | Required（統合受入） | **NotRun（pending）** | dispatch-only CI。daily-ci/手動 dispatch 待ち。nearest-SHA 証拠は byte 同一範囲確認済み。**追記（2026-11）**: covering run [`43827663914`](https://github.com/scarecrow173/synvelis/actions/runs/43827663914)（head_sha `8123fff3`・対象 SHA の子孫）が全 job success — fixture/store 対象 code path 差分なし（`SCHEMA_VERSION` bump のみ）で本 run が対象コードを実質カバー |
 | 物理電断（true power-loss） | Deferred | NotRun | 非破壊的に自動化不能。crash window は fixture で模擬済み。real-FS probe 先例は RCD-02 `test-recording-real-fs` lane（recording 側） |
 | OS 固有 Indeterminate/DirSync 失敗注入 | Deferred | NotRun | ruviform-io-file 側 fault-injection 責務。consumer は分類転写を pin（C04/C05/C12） |
 | Network/Cloud/特異 FS | NotApplicable | NotRun | 未利用 capability |

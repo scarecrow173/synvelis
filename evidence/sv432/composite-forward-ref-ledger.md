@@ -86,7 +86,7 @@ file 反復中）— 結果は mise task と一致。
 
 | Case ID | Expected | Observed | 判定 | 根拠 |
 | --- | --- | --- | --- | --- |
-| CMP-GW-01 | `synvelis.operation.batch` 非空 `bindings` → placeholder 解決 → `Composite` commit が end-to-end で通る | `crates/synvelis-gateway` は sv#265 リースかつ `synvelis-project`→`synvelis-gateway` 依存が存在しないため本スライスでは実施不能 | Deferred | project 側前提（CMP-FWD-01/02・CMP-HL-01）は Pass。gateway 側昇格試験は sv#265 Worker または後続統合スライスへ引き継ぎ。`prepare_engine.rs` ~L794-815 の `PreparationRejected` fallback は依然として非空 `bindings` を reject する（本 slice では未変更・未検証） |
+| CMP-GW-01 | `synvelis.operation.batch` 非空 `bindings` → placeholder 解決 → `Composite` commit が end-to-end で通る | `crates/synvelis-gateway` は sv#265 リースかつ `synvelis-project`→`synvelis-gateway` 依存が存在しないため本スライスでは実施不能 | Deferred → **解決済み（2026-11 追記）** | project 側前提（CMP-FWD-01/02・CMP-HL-01）は Pass。gateway 側昇格試験は sv#265 Worker または後続統合スライスへ引き継ぎ。`prepare_engine.rs` ~L794-815 の `PreparationRejected` fallback は依然として非空 `bindings` を reject する（本 slice では未変更・未検証）。**追記（2026-11）**: sv#263 GW-04 scratch-ID/rewrite seam（PR #471、merged 2026-11-15）で実装・検証済み — 非空 `bindings` batch → placeholder 解決 → `Composite` flatten → 1 proposal/1 commit/1 undo の end-to-end が BND-F02-G17 で Pass（`evidence/sv263/gw04-bindings-ledger.md`、`tests/gw04_bindings.rs`） |
 | CMP-OS-01 | 実 OS window/GUI 経路での batch 実行 | 対象外（headless slice） | NotRun | POLICIES.md OS-L1/GUI-L2/EXT-L3 — 実 GUI 結合は提供機能の受入 Gate |
 | CMP-RT-01 | 実 Plugin・実 RT engine 経路 | 対象外（headless slice） | NotRun | 同上 EXT-L3 |
 | CMP-MSRV-01 | `*-msrv` レーン | 対象外（ユーザー指定で除外） | NotRun | タスク指定により MSRV lane は実行しない |
@@ -101,6 +101,10 @@ file 反復中）— 結果は mise task と一致。
   必要なら `crates/synvelis-automation`（placeholder
   発行側の契約確認）。本 slice は project 側前提のみを
   証明した。
+  - **追記（2026-11）**: 当該 seam は sv#263 で実装済み
+    （PR #471、merged 2026-11-15 — `prepare_engine.rs` の
+    placeholder rewrite 接続 + `tests/gw04_bindings.rs`
+    12 tests。`evidence/sv263/gw04-bindings-ledger.md`）。
 - **`draw_raw_id` 予約窓を跨ぐ採番系列**: watermark シード
   dry-run が fail-closed reject する既定契約として許容
   （誤 commit なし）。予約を跨ぐ end-to-end は gateway

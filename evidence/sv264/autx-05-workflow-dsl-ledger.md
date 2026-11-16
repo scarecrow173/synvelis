@@ -66,7 +66,7 @@ headless の Pass を runtime/実機の Pass に昇格しない。
 | Case ID | Expected | Observed | 判定 | 根拠 |
 | --- | --- | --- | --- | --- |
 | SRC-01 source 非依存 compiler | JSON tagged-expr 経路の decode → 同一 `PlanCompiler` で compile 可能 | 同一 compile 経路・同一 plan 形状 | Pass（本 slice 範囲: compiler が source 非依存であることの固定） | `tests/compiler.rs::plan_compiler_is_source_agnostic`・`tests/decode.rs::json_decode_accepts_tagged_expr_form` |
-| SRC-02 Builder 生成 Definition との同一検証 | Luau/Rhai Builder（#273）生成物での実証 | — | Deferred（Builder は #273） | — |
+| SRC-02 Builder 生成 Definition との同一検証 | Luau/Rhai Builder（#273）生成物での実証 | — | Deferred（Builder は #273） → **解決済み（2026-11 追記）** | — **追記（2026-11）**: sv#273 importer が着地（PR #441 YAML/Luau/Rhai 共通 Plan 化・PR #505 Luau backend、いずれも merged）。YAML/Luau/Rhai 同一 semantic → 同一 `WorkflowDefinition`/`plan.step_order`/`plan.definition_digest` 収束は sv#265 PAR-01a〜d で実測 Pass（`assert_source_convergence` 他、`evidence/sv265/autx-06-mixed-source-run-ledger.md`） |
 
 ### AC-3 Definition Version/Plan Digest/Capability Version/Schema/ID の決定的 Golden と安全なエラー
 
@@ -150,4 +150,10 @@ headless の Pass を runtime/実機の Pass に昇格しない。
   Job/Recovery/OS/CLI 結合（#265/#267）。
 - Deferred: Luau/Rhai Builder 同一検証（#273）、AtomicMacro
   定義/展開（#263）、live Gateway adapter（統合 slice）。
+  - **追記（2026-11）**: Luau/Rhai Builder 同一検証は解決済み
+    — sv#273（PR #441/#505）+ sv#265 PAR-01（3-source 同一
+    Definition/digest 収束 Pass）。AtomicMacro 定義/展開は
+    sv#263 で実装済み（本 ledger は当該 merge 以前の記録）
+    だが、live Gateway adapter は引き続き統合 slice の
+    Deferred。
 - Fail: なし。
