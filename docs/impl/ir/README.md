@@ -14,9 +14,6 @@ Directory: `docs/impl/ir`
 | IMPL-034Xpa4SOZfOriBGBTfZdR | CB-06 Track/Bus 候補 Adapter — Strip Domain Mask・Routing参照保護・Adopt（synvelis#283） | in-progress | [cb-06-track-bus-adapter.md](./cb-06-track-bus-adapter.md) |
 | IMPL-034XPMrg013WoI7EuJkO5f | CB-07 Arrangement 候補 Adapter — Track集合×MusicalRange×ArrangementDomainMask・Atomic Adopt（synvelis#284） | in-progress | [cb-07-arrangement-adapter.md](./cb-07-arrangement-adapter.md) |
 | IMPL-034XNNwRQLH6IQ0GqHISl9 | CB-09 Difference Explorer headless view-model + driver-neutral ViewSpec（synvelis#286） | in-progress | [cb-09-diff-explorer.md](./cb-09-diff-explorer.md) |
-| IMPL-034WEVyS44eEOELiBCYBIG | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice 実装記録 | in-progress | [rcd-04-midi-undo-stableid-slice.md](./rcd-04-midi-undo-stableid-slice.md) |
-| IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | in-progress | [rcd-04-product-e2e-slice.md](./rcd-04-product-e2e-slice.md) |
-| IMPL-034VC2V5HUrkERcXqw246v | RCD-04 RT engine comp PCM slice 実装記録 | in-progress | [rcd-04-rt-engine-comp-pcm-slice.md](./rcd-04-rt-engine-comp-pcm-slice.md) |
 | IMPL-034UvgCFl4bXw9DZ4bTr3X | SF-04 slice2 ControlSession probe observation trace wiring | in-progress | [sf-04-slice2-controlsession-probe-observation-trace-wiring.md](./sf-04-slice2-controlsession-probe-observation-trace-wiring.md) |
 | IMPL-034UL7HNJppFLqjkPqHDxX | SF-04 slice3 probe clock epoch discontinuity capture segmentation | in-progress | [sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md](./sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md) |
 | IMPL-034VpPQEAhdWyygKYS7mb9 | SF-04 slice5 probe subscriber window ownership | in-progress | [sf-04-slice5-probe-subscriber-window-ownership.md](./sf-04-slice5-probe-subscriber-window-ownership.md) |
@@ -153,6 +150,10 @@ Directory: `docs/impl/ir`
 | IMPL-034V6MHZ91AdEfrxqsFgLC | RCD-03 Monitoring/Punch/Latency 意味論 crate 内完結 slice 実装記録 | completed | [rcd-03-monitoring-punch-latency-crate-slice.md](./rcd-03-monitoring-punch-latency-crate-slice.md) |
 | IMPL-034VDfqOMnbp5s6CThZTBe | RCD-03 VCS semantic diff monitor 宣言分類 slice 実装記録 | completed | [rcd-03-vcs-diff-monitor-classification-slice.md](./rcd-03-vcs-diff-monitor-classification-slice.md) |
 | IMPL-034UvMC7UhiwWgHviB9Qnv | RCD-04 Comp Transition / MIDI Phrase crate fixture slice 実装記録 | completed | [rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md](./rcd-04-comp-transition-midi-phrase-crate-fixture-slice.md) |
+| IMPL-034WEVyS44eEOELiBCYBIG | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice 実装記録 | completed | [rcd-04-midi-undo-stableid-slice.md](./rcd-04-midi-undo-stableid-slice.md) |
+| IMPL-034VnGKTfvMA41aVr0ctLN | RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録 | completed | [rcd-04-product-e2e-slice.md](./rcd-04-product-e2e-slice.md) |
+| IMPL-034YpXqODquHNxLVIPcrN8 | RCD-04 residual closeout — Issue #118 AC 照合・canonical lane 実測・残存 gate 棚卸し・簿記 drift 修正 | completed | [rcd-04-residual-closeout.md](./rcd-04-residual-closeout.md) |
+| IMPL-034VC2V5HUrkERcXqw246v | RCD-04 RT engine comp PCM slice 実装記録 | completed | [rcd-04-rt-engine-comp-pcm-slice.md](./rcd-04-rt-engine-comp-pcm-slice.md) |
 | IMPL-034XJDNpQ0olm26HvRkxuW | RCD-F02 Advanced Monitoring / Overdub / Pre-Punch Handles — 実施記録（synvelis#120 docs-only slice） | completed | [rcd-f02-monitoring-overdub.md](./rcd-f02-monitoring-overdub.md) |
 | IMPL-rcp01-render-recipe | RCP-01 Canonical Render Recipe・Typed Dependency Closure・Temporal Invalidation — Headless スライス | completed | [rcp-01-render-recipe.md](./rcp-01-render-recipe.md) |
 | IMPL-rcp02-artifact-manifest | RCP-02 Immutable Artifact Manifest・Verified Publish・CAS参照/GC・共有検証 — Headless スライス | completed | [rcp-02-artifact-manifest.md](./rcp-02-artifact-manifest.md) |
