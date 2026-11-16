@@ -52,6 +52,15 @@ lint 修正履歴: 初回 lint で `clippy::too_many_lines`（producer の
 - docs index（`docs/**/README.md`）は契約により未編集・未再生成
   （Coordinator が統合時に `doc-maintenance` で再生成）。
 
+## merge 後再検証
+
+`origin/main` `a98df54` を merge（conflict なし・`Cargo.lock`
+差分は本 slice の dep 2 行のみ）した HEAD に対し、上記
+`fmt-check` / `lint` / `test` / `check synvelis-app` /
+`check synvelis-render` / `prek run --all-files` を全て再実行し
+Pass（exit 0）。`rcp_selection_integration` は merge 後も
+10/10 green。
+
 ## NotRun / Deferred（Case ID 付き・acceptance-ledger.md 参照）
 
 - `RCP-EX-06` 実機分（PCM・実 Plugin・実 OS・実 RT の async
