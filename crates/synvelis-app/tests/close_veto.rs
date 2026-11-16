@@ -230,11 +230,13 @@ fn attach(shell: &mut NativeShell, driver: &mut FakeDriver, window: WindowId, vi
 /// saved baseline (never-saved and saved-then-dirty alike).
 #[test]
 fn close_guard_reports_unsaved_changes() {
-    for (name, app) in [
+    for (name, app) in vec![
         ("clean", app()),
         ("dirty-never-saved", dirty_app(false)),
         ("dirty-after-save", dirty_app(true)),
-    ] {
+    ]
+    .into_boxed_slice()
+    {
         let (mut shell, mut driver) = harness_with(app);
         let window = ready_window(&mut shell, &mut driver);
         action(

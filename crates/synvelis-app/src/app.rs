@@ -110,26 +110,12 @@ impl AudioRuntimeSlot {
     }
 }
 
-/// Recorder owner slot — declared, not yet wired to a recording
-/// session.
-#[derive(Debug, Default)]
-pub struct RecorderSlot {
-    _private: (),
-}
-
-impl RecorderSlot {
-    /// Whether a recording session is active (never in SV-GUI-01).
-    #[must_use]
-    pub const fn active(&self) -> bool {
-        false
-    }
-
-    /// Status line for the capability report.
-    #[must_use]
-    pub const fn status(&self) -> &'static str {
-        "idle"
-    }
-}
+/// Recorder session owner — the `syn.recorder.*` lifecycle state
+/// (synvelis#114 SV-GUI-05 Option B). Defined in
+/// [`crate::recording::RecorderOwner`]; re-exported here under the
+/// historical `RecorderSlot` name so the public path
+/// `synvelis_app::RecorderSlot` stays stable.
+pub use crate::recording::RecorderOwner as RecorderSlot;
 
 /// Process-wide observability owner — counters the service layer
 /// increments plus the OBS-02 source catalog describing them; the
@@ -260,7 +246,10 @@ pub struct SynvelisApp {
     /// without borrowing all of `self`.
     pub(crate) store: Option<DirectoryBundleStore>,
     audio: AudioRuntimeSlot,
-    recorder: RecorderSlot,
+    /// Recorder session owner (`syn.recorder.*` の lifecycle 状態)。
+    /// `pub(crate)` so `ui_ops` can drive the ops disjoint from
+    /// `workspace`.
+    pub(crate) recorder: crate::recording::RecorderOwner,
     observability: ObservabilityOwner,
     backend: BackendReport,
     /// Shared quit flag — `syn.app.quit` sets it from inside the
@@ -404,7 +393,7 @@ impl SynvelisApp {
             ),
             store: None,
             audio: AudioRuntimeSlot::default(),
-            recorder: RecorderSlot::default(),
+            recorder: crate::recording::RecorderOwner::default(),
             observability: ObservabilityOwner::new(),
             backend,
             quit: Arc::new(AtomicBool::new(false)),
@@ -1029,6 +1018,10 @@ impl SynvelisApp {
         // read-through するため新 project の空状態がそのまま
         // 反映される。ここで reset するのは session 観測値のみ。
         self.monitoring = crate::monitoring::MonitorUxState::default();
+        // 稼働 recorder session は旧 project の session/stream ID を
+        // 参照するため破棄する（注入 device は host resource として
+        // 保持される）。
+        self.recorder.reset();
         self.bind_vcs_backend(path);
         self.bind_library_backend();
         Ok(self.project_info())
@@ -1077,6 +1070,9 @@ impl SynvelisApp {
         // session 観測値（稼働 session・latency 注入・観測 overlay）
         // のみ — これらは永続化対象外。
         self.monitoring = crate::monitoring::MonitorUxState::default();
+        // `project_new_inner` と同じく稼働 recorder session を破棄
+        // する（注入 device は保持）。
+        self.recorder.reset();
         self.bind_vcs_backend(path);
         self.bind_library_backend();
         Ok(self.project_info())
@@ -1282,6 +1278,19 @@ impl SynvelisApp {
         reasons
     }
 
+    /// Injects the input devices `syn.recorder.*` binds at
+    /// `syn.recorder.start` — the device-enumeration seam
+    /// (synvelis#114 SV-GUI-05 Option B). Real `DeviceEnumerator`
+    /// wiring is a later slice; headless callers inject fake
+    /// `Device`s here. Devices are host resources, not project
+    /// state — they survive `project.new`/`open` session resets.
+    pub fn set_recorder_devices(
+        &mut self,
+        devices: Vec<Box<dyn ruviform_audio_core::device::Device>>,
+    ) {
+        self.recorder.set_devices(devices);
+    }
+
     /// Sets transport playing/stopped through the session.
     pub fn transport_set(&mut self, playing: bool) {
         self.workspace.session_mut().set_playing(playing);
@@ -1376,6 +1385,31 @@ impl SynvelisApp {
         })
     }
 
+    /// `syn.app.capabilities` の `recorder` 節 — command 面は
+    /// `syn.recorder.*` として利用可能だが、実際に録音を開始できるのは
+    /// 入力 device が注入されている場合のみ。device 未注入は
+    /// `unavailable` + reason で正直に報告し、session owner の
+    /// 実態（`status`/`active`/`devices`）をそのまま投影する。
+    fn recorder_capabilities(&self) -> Value {
+        let devices = self.recorder.device_count();
+        if devices == 0 {
+            json!({
+                "state": "unavailable",
+                "reason": "no recorder input device injected",
+                "status": self.recorder.status(),
+                "active": self.recorder.active(),
+                "devices": 0,
+            })
+        } else {
+            json!({
+                "state": "available",
+                "status": self.recorder.status(),
+                "active": self.recorder.active(),
+                "devices": devices,
+            })
+        }
+    }
+
     /// Capability report for `syn.app.capabilities` — every
     /// not-yet-wired area is listed `unavailable` with a reason, never
     /// silently omitted.
@@ -1389,7 +1423,7 @@ impl SynvelisApp {
                 "notes": self.backend.notes,
             },
             "audio_runtime": { "state": "unavailable", "attached": self.audio.attached() },
-            "recorder": { "state": "unavailable", "active": self.recorder.active() },
+            "recorder": self.recorder_capabilities(),
             "workspace": { "state": "available", "mounted": true },
             "project": { "state": "available" },
             "multi_window": { "state": "unavailable", "reason": "deferred to SV-GUI-03" },

@@ -23,6 +23,18 @@ physical・GUI（Option B）の gate が残るため **open 継続**。
 > E2E）と SV-8 `rf628_stereo_device_two_mono_taps_commit_reload`
 > （literal stereo→2mono tap）。詳細は
 > `issue-115-rf628-record-after-recovery-verification.md` を参照。
+>
+> **2026-11-16 更新（GUI Option B headless wire slice）**:
+> `synvelis#114` の `sv114-gui-option-b-recorder-wire` slice で
+> `synvelis-app` 層の Recorder command/UI wire の **headless lane**
+> が実装・実測された（`syn.recorder.*` lifecycle ops・fake
+> `Device`/`InputStream` E2E・capabilities/close_veto/
+> recording_info の実態一致）。証拠は `evidence/sv114/
+> recorder-wire-option-b-headless.md`。これは headless
+> fake-device wire の Pass であり、GUI（Option B）列が表す
+> EXT-L3/GUI-L2（実 device 列挙・実 GPUI Window・実 audio
+> hardware）の verdict は一切変更しない — 各 cell の NotRun を
+> 維持する。
 
 ## 分類 vocabulary
 
@@ -38,7 +50,10 @@ physical・GUI（Option B）の gate が残るため **open 継続**。
   WASAPI endpoint → 本番 Callback を通す EXT-L3 case。
 - **physical**: 物理 Audio Device（Audient iD4 等）の実機検証。
 - **GUI（Option B）**: `synvelis-app` 層の Recorder command/UI wire
-  （EXT-L3/GUI-L2）。
+  （EXT-L3/GUI-L2）。headless fake-device wire lane は
+  `sv114-gui-option-b-recorder-wire` slice で実装済み
+  （`evidence/sv114/recorder-wire-option-b-headless.md`）だが、
+  本列が表す EXT-L3/GUI-L2 verdict は変更しない。
 
 ## Required case × lane matrix
 

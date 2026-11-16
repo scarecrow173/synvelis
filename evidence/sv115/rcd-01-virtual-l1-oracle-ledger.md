@@ -127,8 +127,14 @@ precedent: `fake_input_drop_fails_stop_and_preserves_verified_prefix`・
   open 継続の根拠。
 - **physical HW**: 追加物理検証は通常必須外（NotRequired）。iD4 10/10
   は既存履歴のまま。
-- **GUI（Option B）**: `synvelis-app` 層の Recorder command/UI wire は
-  本 slice 対象外（Deferred）。
+- **GUI（Option B）**: `synvelis-app` 層の Recorder command/UI wire の
+  headless lane は `sv114-gui-option-b-recorder-wire` slice
+  （synvelis#114）で実装・実測済み — `syn.recorder.*` lifecycle
+  ops・fake `Device`/`InputStream` E2E・capabilities/close_veto/
+  recording_info の実態一致を `evidence/sv114/
+  recorder-wire-option-b-headless.md` に記録。実 device 列挙・
+  実 GUI-L2・EXT-L3 は引き続き Deferred/NotRun であり、本 slice
+  の headless Pass をそれらの verdict に転用しない。
 - **canonical blob publish 脚**: `synvelis-player` 管轄の実機経路。
   本 slice は digest adoption 契約の範囲で raw fold digest → staging
   media verified prefix bytes を解決し、`verified_sha256` を `sha2`
