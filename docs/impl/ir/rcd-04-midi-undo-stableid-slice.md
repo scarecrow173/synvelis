@@ -190,6 +190,9 @@ review-protocol: 独立 reviewer 2 名（cooperative/adversarial）
 unresolved 未検査）を修正し対象 test を再実行して pass。
 残る P3（ledger 走査の冗長性・intra-chase 順序の厳密 pin）は
 意図的な契約固定として維持。
+- merge 記録: PR #374（merge commit `4946a59`）merge 済み。
+  closeout 再実測・AC 照合は `evidence/sv118/
+  rcd-04-closeout-verification.md` を参照。
 
 ## Risks
 

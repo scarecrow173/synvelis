@@ -185,6 +185,9 @@ sample 一致は対象外。
   2 tests pass（補助証拠; canonical = mise）。
 - canonical mise lanes（fmt-check/check/lint/test/test-rt/
   test-msrv）は提出前に実行し結果を PR 本文に記録する。
+- merge 記録: PR #319（merge commit `ff33ffb`）merge 済み。
+  closeout 再実測・AC 照合は `evidence/sv118/
+  rcd-04-closeout-verification.md` を参照。
 
 ## Risks
 

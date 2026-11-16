@@ -13,7 +13,7 @@ headless 実装は merge 済み PR #219/#300/#319/#374 で充足済み
 | Field | Value |
 | --- | --- |
 | Synvelis branch | `feat/118-rcd04-closeout` |
-| Base commit | `0b57299edb5394d0358e5f9dbf5665df540ca3fc0` (= `origin/main` at dispatch; docs+evidence changes are uncommitted at measure time — code surface identical to base) |
+| Base commit | `0b57299edb5394d0358e5f9dbf5665df540ca3fc` (= `origin/main` at dispatch; docs+evidence changes are uncommitted at measure time — code surface identical to base) |
 | OS | Windows (MINGW64/MSYS, win32), NTFS |
 | Toolchain | rustc 1.99.1 (58cf8f9c3 2026-10-13) / cargo 1.99.1 via mise; MSRV lane (rust 1.89) is Daily Full CI delegated — NotRun |
 | Change surface | docs/evidence only — zero `src/`, test, fixture, manifest, `Cargo.lock`, or `docs/**/README.md` changes |
