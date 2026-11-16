@@ -654,6 +654,131 @@ fn action_run_luau_dry_run_reports_recipe_without_executing() {
     assert_eq!(r["recipe_digest"].as_str().unwrap().len(), 64);
 }
 
+// ── AUTX-CLI-RUN-FILE-02: fail-closed lanes (synvelis#262 AC9) ──
+
+#[test]
+fn workflow_run_atomic_macro_rejects_typed() {
+    // `MacroRegistry::empty()` is wired intentionally — a named macro
+    // reference must fail closed at compile time, never guess-resolve.
+    let dir = scratch("wmacro");
+    let wf = write_file(
+        &dir,
+        "wf.yaml",
+        r"
+schema_version: 1
+workflow_id: test.e2e-macro
+version: 1
+inputs:
+  - name: track_name
+    schema:
+      type: string
+      max_len: 256
+steps:
+  - kind: atomic-macro
+    id: build
+    mac: test.track-lane@1.0
+    args:
+      track_name: $input.track_name
+      project: project-00000000000000000000000000000007
+  - kind: emit-result
+    id: done
+    output: ok
+    value: true
+outputs:
+  - name: ok
+    schema:
+      type: bool
+limits:
+  max_steps: 10
+  max_depth: 4
+  max_iterations: 10
+  max_runtime_ms: 1000
+  max_output_bytes: 1024
+  max_memory_bytes: 1024
+",
+    );
+    let project = project_dir("wmacro-project");
+    let out = cli(&[
+        "--format",
+        "json",
+        "workflow",
+        "run",
+        "--file",
+        wf.to_str().unwrap(),
+        "--project",
+        project.to_str().unwrap(),
+        "--inputs",
+        r#"{"track_name":"x"}"#,
+    ]);
+    assert_eq!(
+        exit_code(&out),
+        2,
+        "stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let env = stdout_json(&out);
+    assert_eq!(env["status"], "failed");
+    assert_eq!(env["error"]["code"], "cli.invalid-input");
+}
+
+#[test]
+fn workflow_run_job_step_rejects_typed() {
+    // `synvelis.job.*` capabilities are not registered in this build
+    // (no JobEngine) — an async-submit step must fail closed at plan
+    // compile, never reach a lane that cannot observe the job.
+    let dir = scratch("wjob");
+    let wf = write_file(
+        &dir,
+        "wf.yaml",
+        r"
+schema_version: 1
+workflow_id: test.e2e-job
+version: 1
+steps:
+  - kind: async-submit
+    id: render
+    capability: synvelis.job.render@1.0
+    args:
+      format: wav
+  - kind: emit-result
+    id: done
+    output: ok
+    value: true
+outputs:
+  - name: ok
+    schema:
+      type: bool
+limits:
+  max_steps: 10
+  max_depth: 4
+  max_iterations: 10
+  max_runtime_ms: 1000
+  max_output_bytes: 1024
+  max_memory_bytes: 1024
+",
+    );
+    let project = project_dir("wjob-project");
+    let out = cli(&[
+        "--format",
+        "json",
+        "workflow",
+        "run",
+        "--file",
+        wf.to_str().unwrap(),
+        "--project",
+        project.to_str().unwrap(),
+    ]);
+    assert_eq!(
+        exit_code(&out),
+        2,
+        "stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let env = stdout_json(&out);
+    assert_eq!(env["status"], "failed");
+    assert_eq!(env["error"]["code"], "cli.invalid-input");
+}
+
 // ── AUTX-CLI-NOSCRIPT-01: no `script run`, no `--script` ────────
 
 #[test]

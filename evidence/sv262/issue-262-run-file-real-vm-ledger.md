@@ -35,7 +35,7 @@ registry compile が同一権威を見る。Issue #262 は OPEN 継続
 |---|---|---|
 | `mise run fmt-check` | 0 | `cargo fmt --all -- --check` 成功（`cargo fmt --all` で整形後） |
 | `mise run build-cli` | 0 | `cargo build --locked -p synvelis-cli` 成功（22.34s、Native/WebView/GUI feature なし） |
-| `mise run test synvelis-cli` | 0 | `cargo test --locked -p synvelis-cli`。lib unit 5 + `cli_e2e` **24 tests 全 Pass**（計 29 passed / 0 failed） |
+| `mise run test synvelis-cli` | 0 | `cargo test --locked -p synvelis-cli`。lib unit 5 + `cli_e2e` **26 tests 全 Pass**（計 31 passed / 0 failed） |
 | `mise run test synvelis-automation` | 0 | `cargo test --locked -p synvelis-automation` 全 suite Pass（surface.rs unit 6 件を含む） |
 | `mise run test synvelis-gateway` | 0 | `cargo test --locked -p synvelis-gateway` 全 suite Pass（headless seam 非回帰） |
 
@@ -44,7 +44,7 @@ registry compile が同一権威を見る。Issue #262 は OPEN 継続
 タスク。lint/check の mise 実測は本 ledger 末尾の「追補」節を
 参照。
 
-## Case 台帳（実バイナリ E2E — `cli_e2e.rs` 24 tests）
+## Case 台帳（実バイナリ E2E — `cli_e2e.rs` 26 tests）
 
 | Case | 結果 | 内容 |
 |---|---|---|
@@ -54,6 +54,8 @@ registry compile が同一権威を見る。Issue #262 は OPEN 継続
 | `workflow_run_query_step_surfaces_typed_denial` | Pass | `synvelis.context.query@1.0` query step → live lane→Gateway→empty policy `denied` → run `Failed`、exit 3、`error.code="denied"`（gateway envelope verbatim） |
 | `action_run_luau_reaches_gateway_and_surfaces_denial` | Pass | `.luau` ActionRecipe（`contextQuery` member）→ 実 VM→`ActionRecipe::build`→wire→`denied`/exit 3 |
 | `action_run_luau_dry_run_reports_recipe_without_executing` | Pass | `--dry-run` → exit 0、`evaluated:true`/`executed:false`/`recipe_kind:"single"`/`members:1`/`recipe_digest` |
+| `workflow_run_atomic_macro_rejects_typed` | Pass | `kind: atomic-macro` step（`mac: test.track-lane@1.0`）→ `MacroRegistry::empty()` で compile 時 `UndefinedMacro` → exit 2 `cli.invalid-input` typed reject（macros.rs `WORKFLOW_WITH_MACRO` 相当 fixture、AC9 fail-closed golden） |
+| `workflow_run_job_step_rejects_typed` | Pass | `kind: async-submit` step（`capability: synvelis.job.render@1.0`、JobEngine/cap 不在）→ plan compile が capability ref を解決できず typed reject → exit 2 `cli.invalid-input`（compile reject 側を実挙動で固定、AC9 fail-closed golden） |
 | `workflow_dry_run_validates_dsl_without_executing` | Pass | `.yaml --dry-run` → exit 0、`executed:false`/`dry_run:true`/`definition_valid:true`/plan_digest |
 | `workflow_dry_run_rejects_invalid_dsl` | Pass | `schema_version: 2` → exit 2 `cli.invalid-input` |
 | `file_classification_matrix` | Pass | 14 case: `.luau`/`.yaml` 内容不正→2、`.rhai`→5（PoC）、`.lua`→5、未知拡張子/noext→2、`.yaml` under action→2 |
@@ -77,7 +79,7 @@ registry compile が同一権威を見る。Issue #262 は OPEN 継続
 | Issue AC（抜粋） | 本 slice での状態 |
 |---|---|
 | action run --file (.luau) / workflow run --file (.yaml/.yml/.luau) が実バイナリで正しい ScriptKind/Version に対応 | **部分消化** — 実実行・envelope/exit は検証済み。ScriptKind/Version の versioned schema 対応は file metadata pin（version=1）で固定、registry version pin は capability ref で保持 |
-| `.rhai` PoC・Lua 5.4 非サポート・script run/--script なし・未知/不一致 fail-closed | **消化** — 分類行列 e2e で検証 |
+| `.rhai` PoC・Lua 5.4 非サポート・script run/--script なし・未知/不一致 fail-closed | **消化** — 分類行列 e2e で検証。macro/job-step の compile-time typed reject も e2e golden 化（AC9） |
 | 単一 Gateway/Plan の JSON/Exit/Project 結果一致 | **部分消化** — 単一 Gateway/adapter/commit boundary で実証。Project Create/Change/Save/Reload の独立 Expected/Observed case は未整備 |
 | `--dry-run` 非変更 | **消化** — readonly boot + `executed:false`、既存 non-mutation test 非回帰 |
 | JSON/NDJSON/exit 0,2〜10 golden | **部分消化** — 本 slice 範囲の envelope/exit（0/2/3/5/6/7/9/10 経路のうち実測分）を golden 化。全 code 網羅は別 gate |
@@ -87,8 +89,8 @@ registry compile が同一権威を見る。Issue #262 は OPEN 継続
 
 | 項目 | 状態 | 理由・所有 gate |
 |---|---|---|
-| 実 job step 実行（await-job/async-submit） | NotRun | JobEngine/`synvelis.job.*` cap 不在 — typed lane error で fail-closed を設計。実 job run は後続 slice |
-| named macro 実解決 | NotRun | `MacroRegistry::empty()` で compile 時 typed reject — macro 定義 load 経路は AUTX-04 後続 |
+| 実 job step 実行（await-job/async-submit） | NotRun | JobEngine/`synvelis.job.*` cap 不在 — `workflow_run_job_step_rejects_typed` で compile-time typed reject（exit 2）を golden 固定済み。実 job run は後続 slice |
+| named macro 実解決 | NotRun | `MacroRegistry::empty()` で compile 時 typed reject — `workflow_run_atomic_macro_rejects_typed` で `UndefinedMacro`→exit 2 を golden 固定済み。macro 定義 load 経路は AUTX-04 後続 |
 | approval→apply 継続実行 | Deferred | auto-approve 禁止 — Approval parked を終端として正直報告。in-memory proposal store は cross-invocation resume を約束しない（envelope 明記） |
 | durable run journal / Run 状態正本 | Deferred | Issue 対象外 |
 | `workflow status|cancel|validate|preview` verb | Deferred | Issue 対象外（AUTX-05/06 後続） |
@@ -113,3 +115,6 @@ registry compile が同一権威を見る。Issue #262 は OPEN 継続
 | `mise run check-headless-deps` | 0 | `synvelis-cli` を含む 12 headless crates に GUI framework 依存なし |
 | `mise exec -- prek run --all-files` | 0 | trim/eof/yaml/toml/line-ending/BOM/private-key/actionlint 全 Pass |
 | `mise run test synvelis-cli`（clippy 修正後の再実行） | 0 | 29 passed / 0 failed（非回帰確認） |
+| `mise run fmt-check`（AC9 golden 追加後） | 0 | `cargo fmt --all -- --check` 成功 |
+| `cargo test --locked -p synvelis-cli`（AC9 golden 追加後） | 0 | lib unit 5 + `cli_e2e` **26 tests 全 Pass**（計 31 passed / 0 failed）。新規 2 件: `workflow_run_atomic_macro_rejects_typed`・`workflow_run_job_step_rejects_typed` とも実測 exit 2 `cli.invalid-input` |
+| `main.rs` HELP 文言 | — | `action run --file`/`workflow run --file` の「execution deferred (synvelis#272/#273)」記述を実配線済みの内容へ更新（`.rhai` PoC-only 注記と `--inputs`/`--inputs-file` を明記） |
