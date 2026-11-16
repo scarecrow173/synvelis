@@ -1,7 +1,7 @@
 ---
 id: "IMPL-034VnGKTfvMA41aVr0ctLN"
 type: "impl"
-status: "in-progress"
+status: "completed"
 title: "RCD-04 Comp Transition / MIDI Phrase / Recovery Review product E2E app slice 実装記録"
 created: "2026-11-10"
 updated: "2026-11-10"
@@ -223,6 +223,9 @@ slice。crate 層 fixture は main 統合済み（PR #219
     workspace 全件）
   - `mise run check-app-native` — pass
   - `mise run lint-app-native` — pass
+- merge 記録: PR #300（merge commit `a030e1f`）merge 済み。
+  closeout 再実測・AC 照合は `evidence/sv118/
+  rcd-04-closeout-verification.md` を参照。
 
 ## Risks
 
