@@ -160,17 +160,18 @@ fn file_classification_matrix() {
     ] {
         write_file(&dir, name, "x");
     }
-    let project = dir.join("proj");
-    std::fs::create_dir_all(&project).unwrap();
+    // Real execution boots the project — the fixture must be a saved
+    // bundle, not an empty directory.
+    let project = project_dir("matrix-project");
 
     let cases: &[(&str, &str, i32)] = &[
         // (file, subcommand-prefix, expected exit)
-        ("a.luau", "action", 5), // action-run path still unwired → Unsupported
-        ("a.luau", "workflow", 2), // evaluated; 'x' is not a valid spec → InvalidInput
-        ("a.yaml", "action", 2), // DSL is workflow-only → kind mismatch
+        ("a.luau", "action", 2),   // real VM eval; 'x' is not a valid script
+        ("a.luau", "workflow", 2), // evaluated; 'x' is not a valid spec
+        ("a.yaml", "action", 2),   // DSL is workflow-only → kind mismatch
         ("a.yml", "action", 2),
-        ("a.yaml", "workflow", 5), // recognized DSL, execution deferred
-        ("a.yml", "workflow", 5),
+        ("a.yaml", "workflow", 2), // 'x' is not a valid workflow document
+        ("a.yml", "workflow", 2),
         ("a.rhai", "action", 5), // PoC-only backend
         ("a.rhai", "workflow", 5),
         ("a.lua", "action", 5), // Lua 5.4 explicitly unsupported
@@ -204,10 +205,11 @@ fn file_classification_matrix() {
 }
 
 #[test]
-fn workflow_luau_file_evaluates_to_typed_definition() {
-    // synvelis#273: `workflow run --file *.luau` evaluates through the
-    // real vendored-Luau backend and reports the typed definition;
-    // plan compile stays deferred to the #262/#274 surface boundary.
+fn workflow_luau_file_executes_to_completion() {
+    // synvelis#262: `workflow run --file *.luau` evaluates through the
+    // real vendored-Luau backend, lowers to an executable plan, and
+    // drives the WorkflowCoordinator over live lanes. An emit-only
+    // workflow completes without any capability call.
     let dir = scratch("luauwf");
     let spec = r#"
 return {
@@ -229,8 +231,7 @@ return {
 }
 "#;
     let file = write_file(&dir, "wf.luau", spec);
-    let project = dir.join("proj");
-    std::fs::create_dir_all(&project).unwrap();
+    let project = project_dir("luauwf-project");
     let out = cli(&[
         "--format",
         "json",
@@ -251,20 +252,18 @@ return {
     assert_eq!(env["status"], "completed");
     let result = &env["result"];
     assert_eq!(result["evaluated"], true);
-    assert_eq!(result["executed"], false);
+    assert_eq!(result["executed"], true);
+    assert_eq!(result["state"], "completed");
     assert_eq!(result["workflow_id"], "test.cli-luau");
     assert_eq!(result["version"], 3);
     assert_eq!(result["steps"], 1);
+    assert_eq!(result["outputs"]["out"], 42);
     assert!(
-        result["source_digest"].as_str().unwrap().len() == 64,
-        "source digest is reported: {:?}",
-        result["source_digest"]
+        result["run_id"].as_str().is_some(),
+        "run id is reported: {result}"
     );
-    assert_eq!(
-        result["script_definition"]["language_id"], "luau",
-        "typed definition is returned: {:?}",
-        result["script_definition"]
-    );
+    assert_eq!(result["plan_digest"].as_str().unwrap().len(), 64);
+    assert_eq!(result["source_digest"].as_str().unwrap().len(), 64);
 }
 
 #[test]
@@ -295,8 +294,9 @@ limits:
   max_memory_bytes: 1024
 ",
     );
-    let project = dir.join("proj");
-    std::fs::create_dir_all(&project).unwrap();
+    // Dry-run still boots the project read-only — it needs a saved
+    // bundle for the live registry/revision pin.
+    let project = project_dir("dsl-project");
 
     let out = cli(&[
         "--format",
@@ -329,8 +329,7 @@ limits:
 fn workflow_dry_run_rejects_invalid_dsl() {
     let dir = scratch("dsbad");
     let wf = write_file(&dir, "bad.yaml", "schema_version: 2\n");
-    let project = dir.join("proj");
-    std::fs::create_dir_all(&project).unwrap();
+    let project = project_dir("dsbad-project");
     let out = cli(&[
         "--format",
         "json",
@@ -344,6 +343,315 @@ fn workflow_dry_run_rejects_invalid_dsl() {
     ]);
     assert_eq!(exit_code(&out), 2);
     assert_eq!(stdout_json(&out)["error"]["code"], "cli.invalid-input");
+}
+
+// ── AUTX-CLI-RUN-FILE-01: real execution (synvelis#262) ─────────
+
+/// Emit-only YAML workflow — no capability call, so the run reaches
+/// `Completed` without touching the (empty) policy store.
+const EMIT_WORKFLOW: &str = r"
+schema_version: 1
+workflow_id: test.e2e-run
+version: 1
+steps:
+  - kind: emit-result
+    id: done
+    output: out
+    value: 42
+outputs:
+  - name: out
+    schema:
+      type: integer
+limits:
+  max_steps: 10
+  max_depth: 4
+  max_iterations: 10
+  max_runtime_ms: 1000
+  max_output_bytes: 1024
+  max_memory_bytes: 1024
+";
+
+#[test]
+fn workflow_run_yaml_executes_to_completion() {
+    let dir = scratch("yamlrun");
+    let wf = write_file(&dir, "wf.yaml", EMIT_WORKFLOW);
+    let project = project_dir("yamlrun-project");
+    let out = cli(&[
+        "--format",
+        "json",
+        "workflow",
+        "run",
+        "--file",
+        wf.to_str().unwrap(),
+        "--project",
+        project.to_str().unwrap(),
+    ]);
+    assert_eq!(
+        exit_code(&out),
+        0,
+        "stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let env = stdout_json(&out);
+    assert_eq!(env["status"], "completed");
+    let r = &env["result"];
+    assert_eq!(r["kind"], "workflow-dsl");
+    assert_eq!(r["executed"], true);
+    assert_eq!(r["state"], "completed");
+    assert_eq!(r["workflow_id"], "test.e2e-run");
+    assert_eq!(r["outputs"]["out"], 42);
+    assert!(r["run_id"].as_str().is_some(), "run id: {r}");
+    assert_eq!(r["plan_digest"].as_str().unwrap().len(), 64);
+}
+
+#[test]
+fn workflow_run_inputs_inline_and_file() {
+    let dir = scratch("wfinputs");
+    let wf = write_file(
+        &dir,
+        "wf.yaml",
+        r"
+schema_version: 1
+workflow_id: test.e2e-inputs
+version: 1
+inputs:
+  - name: count
+    schema:
+      type: integer
+steps:
+  - kind: emit-result
+    id: done
+    output: out
+    value: $input.count
+outputs:
+  - name: out
+    schema:
+      type: integer
+limits:
+  max_steps: 10
+  max_depth: 4
+  max_iterations: 10
+  max_runtime_ms: 1000
+  max_output_bytes: 1024
+  max_memory_bytes: 1024
+",
+    );
+    let inputs_file = write_file(&dir, "inputs.json", r#"{"count": 9}"#);
+    let project = project_dir("wfinputs-project");
+
+    // --inputs <json>
+    let out = cli(&[
+        "--format",
+        "json",
+        "workflow",
+        "run",
+        "--file",
+        wf.to_str().unwrap(),
+        "--project",
+        project.to_str().unwrap(),
+        "--inputs",
+        r#"{"count": 7}"#,
+    ]);
+    assert_eq!(
+        exit_code(&out),
+        0,
+        "stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert_eq!(stdout_json(&out)["result"]["outputs"]["out"], 7);
+
+    // --inputs-file <path>
+    let out = cli(&[
+        "--format",
+        "json",
+        "workflow",
+        "run",
+        "--file",
+        wf.to_str().unwrap(),
+        "--project",
+        project.to_str().unwrap(),
+        "--inputs-file",
+        inputs_file.to_str().unwrap(),
+    ]);
+    assert_eq!(
+        exit_code(&out),
+        0,
+        "stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    assert_eq!(stdout_json(&out)["result"]["outputs"]["out"], 9);
+
+    // Missing declared input → typed invalid input, never a guess.
+    let out = cli(&[
+        "--format",
+        "json",
+        "workflow",
+        "run",
+        "--file",
+        wf.to_str().unwrap(),
+        "--project",
+        project.to_str().unwrap(),
+    ]);
+    assert_eq!(exit_code(&out), 2);
+    assert_eq!(stdout_json(&out)["error"]["code"], "cli.invalid-input");
+
+    // --inputs and --inputs-file are mutually exclusive (usage, 2).
+    let out = cli(&[
+        "--format",
+        "json",
+        "workflow",
+        "run",
+        "--file",
+        wf.to_str().unwrap(),
+        "--project",
+        project.to_str().unwrap(),
+        "--inputs",
+        r#"{"count": 1}"#,
+        "--inputs-file",
+        inputs_file.to_str().unwrap(),
+    ]);
+    assert_eq!(exit_code(&out), 2);
+    assert_eq!(stdout_json(&out)["error"]["code"], "cli.usage");
+}
+
+#[test]
+fn workflow_run_query_step_surfaces_typed_denial() {
+    // The empty policy store denies every capability call — the live
+    // lane must surface the Gateway's typed denial verbatim (exit 3),
+    // proving the step really reached the authoritative Gateway.
+    let dir = scratch("wfdeny");
+    let wf = write_file(
+        &dir,
+        "wf.yaml",
+        r"
+schema_version: 1
+workflow_id: test.e2e-denied
+version: 1
+steps:
+  - kind: query
+    id: q
+    capability: synvelis.context.query@1.0
+    args:
+      selector:
+        all: true
+limits:
+  max_steps: 10
+  max_depth: 4
+  max_iterations: 10
+  max_runtime_ms: 1000
+  max_output_bytes: 1024
+  max_memory_bytes: 1024
+",
+    );
+    let project = project_dir("wfdeny-project");
+    let out = cli(&[
+        "--format",
+        "json",
+        "workflow",
+        "run",
+        "--file",
+        wf.to_str().unwrap(),
+        "--project",
+        project.to_str().unwrap(),
+    ]);
+    assert_eq!(
+        exit_code(&out),
+        3,
+        "stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let env = stdout_json(&out);
+    assert_eq!(env["status"], "failed");
+    assert_eq!(env["error"]["code"], "denied");
+    assert_eq!(env["result"]["state"], "failed");
+    assert_eq!(env["result"]["executed"], true);
+    assert!(env["result"]["run_id"].as_str().is_some());
+}
+
+/// A `.luau` action script producing a single-member `ActionRecipe` —
+/// `contextQuery` resolves through the canonical surface to
+/// `synvelis.context.query@1.0`.
+fn action_script_luau() -> String {
+    format!(
+        r#"
+return {{
+  members = {{
+    {{
+      name = "contextQuery",
+      args = {{ selector = {{ all = true }} }},
+      project = "{}",
+      consistency = {{ kind = "latest" }},
+    }},
+  }},
+  request_id = "req-e2e-action-1",
+}}
+"#,
+        ProjectId::new(7).to_tagged()
+    )
+}
+
+#[test]
+fn action_run_luau_reaches_gateway_and_surfaces_denial() {
+    let dir = scratch("actluau");
+    let script = write_file(&dir, "probe.luau", &action_script_luau());
+    let project = project_dir("actluau-project");
+    let out = cli(&[
+        "--format",
+        "json",
+        "action",
+        "run",
+        "--file",
+        script.to_str().unwrap(),
+        "--project",
+        project.to_str().unwrap(),
+    ]);
+    // The recipe lowers to a real wire request; the empty policy store
+    // denies it — the typed gateway denial is the honest outcome.
+    assert_eq!(
+        exit_code(&out),
+        3,
+        "stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let env = stdout_json(&out);
+    assert_eq!(env["status"], "failed");
+    assert_eq!(env["error"]["code"], "denied");
+}
+
+#[test]
+fn action_run_luau_dry_run_reports_recipe_without_executing() {
+    let dir = scratch("actdry");
+    let script = write_file(&dir, "probe.luau", &action_script_luau());
+    let project = project_dir("actdry-project");
+    let out = cli(&[
+        "--format",
+        "json",
+        "action",
+        "run",
+        "--file",
+        script.to_str().unwrap(),
+        "--project",
+        project.to_str().unwrap(),
+        "--dry-run",
+    ]);
+    assert_eq!(
+        exit_code(&out),
+        0,
+        "stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let env = stdout_json(&out);
+    assert_eq!(env["status"], "completed");
+    let r = &env["result"];
+    assert_eq!(r["kind"], "action-script");
+    assert_eq!(r["language"], "luau");
+    assert_eq!(r["evaluated"], true);
+    assert_eq!(r["executed"], false);
+    assert_eq!(r["dry_run"], true);
+    assert_eq!(r["recipe_kind"], "single");
+    assert_eq!(r["members"], 1);
+    assert_eq!(r["project"], ProjectId::new(7).to_tagged());
+    assert_eq!(r["recipe_digest"].as_str().unwrap().len(), 64);
 }
 
 // ── AUTX-CLI-NOSCRIPT-01: no `script run`, no `--script` ────────
