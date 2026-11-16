@@ -202,6 +202,7 @@ Directory: `docs/plans`
 | PLAN-034X3jT4T64MOzF6CbB2oy | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画 | completed | [product-value-core-plan.md](./product-value-core-plan.md) |
 | PLAN-034UrkBlTpaeiSGII0EyIi | RCD-02 Durability Evidence / Recovery Review / Commit Receipt slice | completed | [rcd-02-durability-recovery-review.md](./rcd-02-durability-recovery-review.md) |
 | PLAN-034XHOtc6Apy81qWgzzTph | RCD-02 residual closeout — Issue #116 AC 照合と証拠固定の実装計画 | completed | [rcd-02-residual-closeout.md](./rcd-02-residual-closeout.md) |
+| PLAN-034YpUFyOog9NH2jZycwaj | RCD-04 residual closeout — Issue #118 AC 照合と証拠固定の実装計画 | completed | [rcd-04-residual-closeout.md](./rcd-04-residual-closeout.md) |
 | PLAN-034VoSKvu6PtN0qTGN02l3 | SF-03 slice8 — app/workspace same-Revision fixture plan | completed | [sf-03-slice8-revision-fixture-plan.md](./sf-03-slice8-revision-fixture-plan.md) |
 | PLAN-034VWvifs0UbP2Diwh0JiN | SF-03 slice9 — host capability generation live firing plan | completed | [sf-03-slice9-capability-firing-plan.md](./sf-03-slice9-capability-firing-plan.md) |
 | PLAN-034X5CZadqoSw73TKCY7cN | Issue #84 StagedFile Migration — 実装・証拠統合計画 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |

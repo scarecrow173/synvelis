@@ -39,9 +39,6 @@ Directory: `docs/tasks`
 | TASK-034X1GJrKQRwmioEuJ4m78 | RCD-03 monitor/punch fake session fixture | completed | [rcd-03-monitor-punch-task.md](./rcd-03-monitor-punch-task.md) |
 | TASK-034WCx98h2mIsDpZJrrBkC | RCD-03 monitor engine — implementation slice | completed | [rcd-03-task-monitor-engine.md](./rcd-03-task-monitor-engine.md) |
 | TASK-034VegaqbLjPWyJoFDrmhQ | RCD-03 Task2 app Arm/Monitoring UX + monitor session projection | in-progress | [rcd-03-task2-app-arm-monitoring-ux.md](./rcd-03-task2-app-arm-monitoring-ux.md) |
-| TASK-034WEVr538punRWOxqkfaf | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice | in-progress | [rcd-04-task-midi-undo-stableid.md](./rcd-04-task-midi-undo-stableid.md) |
-| TASK-034VC2K5DEZwdj418Clksb | RCD-04 Task RT engine comp PCM | in-progress | [rcd-04-task-rt-engine-comp-pcm.md](./rcd-04-task-rt-engine-comp-pcm.md) |
-| TASK-034VmO0u2fPRBj8uO9cGkk | RCD-04 Task1 product E2E | in-progress | [rcd-04-task1-product-e2e.md](./rcd-04-task1-product-e2e.md) |
 | TASK-fQ5GG20T5UOhj5Xy7za6XD | Recording / Take / Comping — 文書チェーン・受入 Owner Matrix タスク（synvelis#12） | in-progress | [recording-take-comping-task.md](./recording-take-comping-task.md) |
 | TASK-106SF03Tz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T1 — RoutingFault 18分類・engine 改修・reconcile 実装 | in-progress | [sf-03-slice2-fault-contract.md](./sf-03-slice2-fault-contract.md) |
 | TASK-106SF03Uz2aBc3dEf4gHi5jKl6 | SF-03 slice2 T2 — 受入テスト sf03_l2.rs・検証 | in-progress | [sf-03-slice2-reconcile-tests.md](./sf-03-slice2-reconcile-tests.md) |
@@ -176,7 +173,11 @@ Directory: `docs/tasks`
 | TASK-leaTVahsznfck7liCrDtL6 | RCD-03 Task VCS semantic diff monitor 宣言分類 | done | [rcd-03-task-vcs-diff-monitor-classification.md](./rcd-03-task-vcs-diff-monitor-classification.md) |
 | TASK-034VpQe0nP5xQ2wU7vB9xM | RCD-03 Task1 Arm/Monitor/Punch Project 永続投影 | done | [rcd-03-task1-monitor-persistence.md](./rcd-03-task1-monitor-persistence.md) |
 | TASK-034UtpBjTeXJ6XSJAMupsv | RCD-03 Task1 Monitor/Punch/Latency semantics | done | [rcd-03-task1-monitor-punch-latency.md](./rcd-03-task1-monitor-punch-latency.md) |
+| TASK-034YpWughtvQy1AKz8xCaW | RCD-04 residual closeout — Issue #118 AC 照合・canonical lane 実測・証拠固定・簿記 drift 修正 | done | [rcd-04-residual-closeout.md](./rcd-04-residual-closeout.md) |
+| TASK-034WEVr538punRWOxqkfaf | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID slice | done | [rcd-04-task-midi-undo-stableid.md](./rcd-04-task-midi-undo-stableid.md) |
+| TASK-034VC2K5DEZwdj418Clksb | RCD-04 Task RT engine comp PCM | done | [rcd-04-task-rt-engine-comp-pcm.md](./rcd-04-task-rt-engine-comp-pcm.md) |
 | TASK-RCD04Fx1kE5tY8uI3oP6aS9 | RCD-04 Task1 Comp Transition / MIDI Phrase crate fixture slice | done | [rcd-04-task1-comp-midi-fixture.md](./rcd-04-task1-comp-midi-fixture.md) |
+| TASK-034VmO0u2fPRBj8uO9cGkk | RCD-04 Task1 product E2E | done | [rcd-04-task1-product-e2e.md](./rcd-04-task1-product-e2e.md) |
 | TASK-034XJDw7QIooVc0kaaWeA9 | RCD-F02 Advanced Monitoring / Overdub / Pre-Punch Handles — 文書チェーン・ADR 合意タスク（synvelis#120） | done | [rcd-f02-monitoring-overdub.md](./rcd-f02-monitoring-overdub.md) |
 | TASK-034SF01Pr2uVw7xY4zAbCdFgH | SF-01: RoutingModel 型・oracle・Schema v6 Migration・ops・検証 | done | [sf-01-task1-routing-model-schema-migration.md](./sf-01-task1-routing-model-schema-migration.md) |
 | TASK-034SF02Yb2tQr9sV2xD7eFhIj | SF-02 T1 — RoutingTransaction/TempRef staging・channels・mute/solo authority・汎用検証投影 | done | [sf-02-task1-routing-transaction-staging-model.md](./sf-02-task1-routing-transaction-staging-model.md) |
