@@ -1,0 +1,18 @@
+[package]
+name = "synvelis-script-luau"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+synvelis-script = { path = "../synvelis-script" }
+serde_json.workspace = true
+# Interim Luau backend (synvelis#273): vendored Luau VM via mlua's
+# `luau` feature (luau0-src). Only this crate may depend on mlua —
+# consumers go through the `synvelis_script::backend` port. Swap for
+# the ruviform port once RF#559 lands a production backend.
+mlua = { version = "0.12.2", default-features = false, features = ["luau"] }
