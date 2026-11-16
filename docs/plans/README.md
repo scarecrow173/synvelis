@@ -193,6 +193,7 @@ Directory: `docs/plans`
 | PLAN-alib02-v5snap | ALIB-02 v5 snapshot asset-digest 互換移行 — 実装計画 | completed | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | PLAN-alib07-fault-matrix | ALIB-07 実装計画 — Asset Library 全経路 Fault Matrix（synvelis-library headless slice） | completed | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | PLAN-alib07-import-cancel | ALIB-07 slice 2 実装計画 — import cancel checkpoint・crash fixture・matrix 簿記 | completed | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
+| PLAN-034YqsfzCOeZQHDLHpvBy9 | AUTX-08 Leg C live-adapter leg — 実装 plan | completed | [autx-08-live-adapter-leg.md](./autx-08-live-adapter-leg.md) |
 | PLAN-034QArZ5DRWJ27yfk2aEID | ED-A Editing Model headless PoC 実装計画 | completed | [ed-a-editing-model.md](./ed-a-editing-model.md) |
 | PLAN-034Wsz1RfPQFUBGiJzAeHe | Issue #365 impl index 生成可能化 — front matter 是正と index 再生成 | completed | [issue-365-impl-index-generation-plan.md](./issue-365-impl-index-generation-plan.md) |
 | PLAN-034Wv23ayc9G1WRGoi3DaA | Issue #368 docs/impl/ir missing-section 本文補完 — 実装 plan | completed | [issue-368-ir-missing-sections-plan.md](./issue-368-ir-missing-sections-plan.md) |

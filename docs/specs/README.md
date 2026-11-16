@@ -209,6 +209,7 @@ Directory: `docs/specs`
 | SPEC-alib07-fault-matrix | ALIB-07 — Asset Library 全経路 Fault Matrix（headless slice・synvelis-library） | implemented | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | SPEC-alib07-import-cancel | ALIB-07 slice 2 — LIB-IMPORT-04 publish/commit 相 cancel・LIB-IMPORT-08 subprocess crash（synvelis-library headless） | implemented | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | SPEC-034AUT02Kw7xRn3vBz9sQm5t | AUT-02 Region Replace 境界曲線保存・Reject/Replace 原子的編集 | implemented | [aut-02-region-replace-boundary-curve-preservation.md](./aut-02-region-replace-boundary-curve-preservation.md) |
+| SPEC-034Yqs3yceKe9EYQaW2cxS | AUTX-08 Leg C AI/live-adapter surface same-wire contract leg (synvelis#267) | implemented | [autx-08-live-adapter-leg.md](./autx-08-live-adapter-leg.md) |
 | SPEC-034SVCIOPT02bN7mQwErTy | Issue #148 変更影響分類・Fail-Closed evidence Gate 仕様 | superseded | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
 | SPEC-034RUjwAo6z9Q2Hpkp99SH | Issue #157 rev.3 matrix lane skip placeholder — evidence gate 修正 | superseded | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |
 | SPEC-034SYN157Kx9mTvQp2w | Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画 | superseded | [issue-157-selective-execution.md](./issue-157-selective-execution.md) |
