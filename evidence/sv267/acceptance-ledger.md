@@ -1,11 +1,15 @@
 # Acceptance Ledger — synvelis#267 AUTX-08 headless common E2E slice
 
-Date: 2026-11-15. Slice: AUTX-08 Leg A contract freeze
+Date: 2026-11-15（Leg A+B）/ 2026-11-16（Leg C 追記）。
+Slice: AUTX-08 Leg A contract freeze
 （`docs/test-specs/autx-08-common-e2e.md`）+ Leg B same-wire
 3-surface contract test（`crates/synvelis-workspace/tests/
-autx08_e2e.rs`）。`tests/rig/mod.rs` へ `compose()`/
-`GatewayStack` を抽出し、`boot()` はその薄い wrapper とした —
-3 surface が同一 compose recipe の独立 stack を得るため。
+autx08_e2e.rs`）+ Leg C AI/live-adapter leg（同 file の
+Leg C section — production `GatewayStepLane` の公開
+`StepLane` surface parity）。`tests/rig/mod.rs` へ
+`compose()`/`GatewayStack` を抽出し、`boot()` はその薄い
+wrapper とした — 4 surface が同一 compose recipe の独立
+stack を得るため。
 
 対象 Issue: https://github.com/scarecrow173/synvelis/issues/267
 （OPEN・`Refs` のみ・Close しない）。本 slice は #267 全体の
@@ -37,7 +41,7 @@ cross-gate 受入を完了しない — headless common contract の freeze
 
 | AC | 判定 | 証拠 |
 | --- | --- | --- |
-| T-08-1: GUI/MCP/CLI/AI の同一 CapabilityRef→同一 Outcome/Error（AUTX-E2E-SAME-01） | Pass (headless・3 surface) / AI lane Deferred | `autx08_same_wire_lands_same_outcome_across_surfaces`（GUI↔CLI wire semantic field 一致 + 3 surface の `GatewayOutcome`/`structuredContent` 完全一致）、`autx08_unavailable_revision_fails_identically_across_surfaces`（同一 typed error + `ExternalError` 投影一致）、`autx08_agent_without_authority_fails_closed_gui_human_permits`（fail-closed + human/agent 境界）。**AI/automation lane は本 slice では未実施** — live `step_wire`（`synvelis-automation/src/live.rs`）は独立 wire producer であり、#264 接続後の別検証（下記 Deferred）。catalog lowering seam は GUI leg で代表済みだが AI caller identity/attestation は未行使。 |
+| T-08-1: GUI/MCP/CLI/AI の同一 CapabilityRef→同一 Outcome/Error（AUTX-E2E-SAME-01） | Pass (headless・4 surface) | `autx08_same_wire_lands_same_outcome_across_surfaces`（GUI↔CLI wire semantic field 一致 + 3 surface の `GatewayOutcome`/`structuredContent` 完全一致）、`autx08_unavailable_revision_fails_identically_across_surfaces`（同一 typed error + `ExternalError` 投影一致）、`autx08_agent_without_authority_fails_closed_gui_human_permits`（fail-closed + human/agent 境界）、`autx08_live_adapter_lands_same_outcome` / `autx08_live_adapter_unavailable_revision_fails_identically` / `autx08_live_adapter_without_authority_fails_closed`（AI leg — production `GatewayStepLane` の公開 `StepLane` surface が同一 verdict）。**AI lane は Leg C（2026-11-16）で headless Pass** — `step_wire` は adapter-internal private のため wire byte ではなく `invoke`/`operation_result` の outcome/error/`DuplicateRequest` parity で証明（`autx08_live_adapter_duplicate_reconciles_original`）。catalog lowering seam は GUI leg で代表済み、AI caller identity は delegated agent 経路のみ検証（Human principal の `attest` fail-closed は adapter contract の別経路）。 |
 | T-08-2: 独立 Policy/Commit oracle（AUTX-E2E-ORACLE-01） | Pass (headless) | 全 leg が `compose(None)` の独立 stack（独自 `InMemoryPolicyStore`/`CommitGate`+journal/`DirectoryBundleStore`/`ProposalStore`/ledger）を使用 — 共有 mutable authority state なしで同一 verdict。`autx08_idempotent_replay_names_same_operation` で per-instance ledger の `DuplicateRequest.original` も一致。 |
 | T-08-3: 実 OS 証拠の Required/Deferred/NotRun 分離記録 | Pass (headless) | `case-definitions.md` §Evidence schema が lane を分離記録、`verification.md` が実測値のみを記録、`acceptance-ledger.md` 本表が NotRun/Deferred を明示。本 slice は headless 側のみを Pass とし、実 OS 行を NotRun のまま残す。 |
 
@@ -55,11 +59,18 @@ cross-gate 受入を完了しない — headless common contract の freeze
   E2E は別 lane。
 - `synvelis-automation` live adapter からの catalog 実供給
   （#264）・workflow coordinator live run（#265）・macro preset
-  live 投入・live `step_wire` の 3-surface 等価: **Deferred** —
-  本 slice は engine 登録 capability と合成 catalog document のみ。
-  `step_wire` は独自の request-id・consistency 写像・
-  idempotency 伝播を持つ独立 producer のため、GUI catalog
-  lowering での等価は AI lane の代理にならない。
+  live 投入: **Deferred** — 本 slice（Leg C）は engine 登録
+  capability と合成 catalog document + `StepCall` 合成経路
+  のみ。`GatewayJobLane` の job 観測 leg・live catalog 実供給・
+  `lower`→gateway dispatch-hop consumer・`synvelis-cli`
+  `build_request`↔`lower`/`step_wire` cross-check は #264/#265
+  接続後の別検証。`step_wire` は独自の request-id・
+  consistency 写像・idempotency 伝播を持つ独立 producer の
+  ため、GUI catalog lowering での等価は AI lane の代理に
+  ならない — Leg C は公開 `StepLane` surface（`invoke`/
+  `operation_result`）の parity で AI leg の headless 部を
+  閉じたが、wire field 一致・live catalog・dispatch-hop の
+  等価は依然 deferred。
 - `synvelis-cli` の `build_request`/`claim_for` wire 生成と
   GUI lowering の field 一致: **Deferred** —
   `synvelis-workspace` は `synvelis-cli` に依存せず、CLI leg は

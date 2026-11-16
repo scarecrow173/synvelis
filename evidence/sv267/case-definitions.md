@@ -1,11 +1,19 @@
 # AUTX-08 Headless Common E2E Case Definitions (synvelis#267)
 
-Date: 2026-11-15. Status: **frozen at definition level for the
-headless slice — no real-OS, real-GUI, real-provider, or
-multi-process lane was executed by this slice.** Every Real
-OS / Native Plugin / live-adapter row below is `NotRun`; the
-Headless rows point at `crates/synvelis-workspace/tests/
-autx08_e2e.rs` executed under `mise run test synvelis-workspace`.
+Date: 2026-11-15（Leg A+B freeze）/ 2026-11-16（Leg C
+live-adapter lane 追記）。Status: **frozen at definition
+level for the headless slice — no real-OS, real-GUI,
+real-provider, or multi-process lane was executed by this
+slice.** Every Real OS / Native Plugin row below is
+`NotRun`; the Headless rows point at
+`crates/synvelis-workspace/tests/autx08_e2e.rs` executed
+under `mise run test synvelis-workspace`. Leg C adds the
+AI/live-adapter surface — production `GatewayStepLane`
+over `rig::compose()` — proven on the public `StepLane`
+surface (`invoke`/`operation_result`); `step_wire` is
+adapter-internal private so wire byte equality is not
+asserted (same convention as the MCP leg's internal
+`wire_for`).
 
 Source of truth for case identity: synvelis Issue #267 and
 `docs/automation/tasks.md` §AUTX-08 (T-08-1〜T-08-3). Contract
@@ -50,8 +58,8 @@ Headless Pass never promotes to GUI-L2/EXT-L3 Pass.
 
 | Case | Headless | Real OS (Windows first) | EXT-L3 / live adapter | Primary Owner |
 | --- | --- | --- | --- | --- |
-| AUTX-E2E-SAME-01 | `autx08_e2e.rs` (4 tests) | NotRun | NotRun | synvelis#267 (headless slice) / #114 (GUI-L2) |
-| AUTX-E2E-ORACLE-01 | same file — 3 independent `compose()` stacks | NotRun | NotRun | synvelis#267 |
+| AUTX-E2E-SAME-01 | `autx08_e2e.rs` (8 tests — Leg B 3 surface + Leg C AI lane) | NotRun | NotRun | synvelis#267 (headless slice) / #114 (GUI-L2) |
+| AUTX-E2E-ORACLE-01 | same file — 4 independent `compose()` stacks (Leg C 含む) | NotRun | NotRun | synvelis#267 |
 | AUTX-E2E-OS-EVID | n/a (definition only) | NotRun | NotRun | synvelis#267 acceptance lane |
 
 ## Case definitions
@@ -94,6 +102,24 @@ Headless Pass never promotes to GUI-L2/EXT-L3 Pass.
   same_outcome_across_surfaces`, `autx08_unavailable_revision_
   fails_identically_across_surfaces`, `autx08_agent_without_
   authority_fails_closed_gui_human_permits`.
+- **AI leg (Leg C, 2026-11-16)**: production
+  `GatewayStepLane`（`synvelis_automation::live`）を
+  `rig::compose()` の fresh `GatewayStack` 上に
+  `GatewayStepLane::new` で組み立て、`StepLane::invoke`
+  で同一論理操作（`synvelis.operation.prepare@1.0` +
+  `midi.note.add` on `source10`・`expected_revision:1`・
+  `t1`/`g1`・agent principal）を投入。`step_wire` は
+  adapter-internal private のため wire byte ではなく、
+  公開 `StepLane` surface が産出する
+  `GatewayOutcome`/`ErrorEnvelope`/`DuplicateRequest`
+  parity で証明する。**Result: Pass (headless)** —
+  `autx08_live_adapter_lands_same_outcome`、
+  `autx08_live_adapter_unavailable_revision_fails_
+  identically`、`autx08_live_adapter_without_authority_
+  fails_closed`（delegated agent 経路のみ — Human
+  principal の `attest` fail-closed は adapter contract
+  の別経路）。live catalog 実供給・dispatch-hop
+  consumer・`GatewayJobLane` job 観測は依然 Deferred。
 
 ### AUTX-E2E-ORACLE-01 — independent policy/commit oracle (T-08-2)
 
@@ -121,7 +147,18 @@ Headless Pass never promotes to GUI-L2/EXT-L3 Pass.
   idempotency field (adapter contract boundary —
   `proposal.apply` carries it, covered by gateway ledger tests).
 - **Result**: **Pass (headless)** —
-  `autx08_idempotent_replay_names_same_operation`.
+  `autx08_idempotent_replay_names_same_operation`。
+- **AI leg (Leg C, 2026-11-16)**: 同一 `idempotency_key`
+  の `StepCall` 再 `invoke`（lane が mint する新
+  `wf-req-*` request_id — production retry と同じ形）が
+  `GatewayError::DuplicateRequest{original}` を返し
+  Leg B replay と同一 `original` operation を名指し、
+  `StepLane::operation_result(&original)` が recorded
+  outcome を `OperationObservation::Settled` として返す。
+  **Result: Pass (headless)** —
+  `autx08_live_adapter_duplicate_reconciles_original`。
+  journal replay oracle は Leg B AUTX-E2E-ORACLE-01
+  責務のまま。
 
 ### AUTX-E2E-OS-EVID — real OS evidence separation (T-08-3)
 

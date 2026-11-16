@@ -1,10 +1,16 @@
 # Verification — synvelis#267 AUTX-08 headless common E2E slice
 
-Date: 2026-11-15. Branch: `scarecrow173/sv267-autx08-e2e`（base
-`f445563`）。本記録は headless lane のみを対象とし、実 OS /
+Date: 2026-11-15（Leg A+B）/ 2026-11-16（Leg C 追記）。
+Branch: `scarecrow173/sv267-autx08-e2e`（Leg A+B）・
+`feat/267-autx08-live-adapter-leg`（Leg C、base
+`0b57299`）。本記録は headless lane のみを対象とし、実 OS /
 GUI-L2 / EXT-L3 / live adapter の受入を一切主張しない
 （POLICIES.md §2-3、`docs/test-specs/autx-08-common-e2e.md`
-Non-goals）。
+Non-goals）。Leg C は production `GatewayStepLane` の
+公開 `StepLane` surface（`invoke`/`operation_result`）
+parity を headless で固定したものであり、`step_wire`
+wire byte 一致・live catalog・dispatch-hop・job lane・
+real-OS/EXT-L3 は対象外。
 
 ## 検証環境
 
@@ -29,6 +35,25 @@ Non-goals）。
 | doc index | `doc_maintenance.js index apply` | **Pass** — `docs/impl/ir/README.md`・`docs/test-specs/README.md` materialized（planHash `3b8983b1…45b88`、2 written） |
 | impl index | `sync_impl_index.js --kind ir --apply` | **Pass** — `docs/impl/ir` in-sync（243 sources） |
 | doc audit | `doc_status.js audit --blocking` | 本 slice の file に finding なし。repo 全体の 707 blocking finding は既存 debt（legacy ID 形式・broken relation）で本変更と無関係 |
+
+## Leg C 実測結果（2026-11-16、branch `feat/267-autx08-live-adapter-leg`）
+
+| Lane | コマンド | 結果 |
+| --- | --- | --- |
+| format | `mise run fmt-check` | **Pass**（`cargo fmt --all -- --check` clean） |
+| check | `mise run check synvelis-workspace` | **Pass**（`cargo check --locked --all-targets`） |
+| lint | `mise run lint synvelis-workspace` | **Pass**（clippy `-D warnings` clean） |
+| package test | `mise run test synvelis-workspace` | **Pass** — 全 test binary green。`tests/autx08_e2e.rs` 8/8: Leg B 4 test 非回帰 + 新規 `autx08_live_adapter_lands_same_outcome`・`autx08_live_adapter_unavailable_revision_fails_identically`・`autx08_live_adapter_without_authority_fails_closed`・`autx08_live_adapter_duplicate_reconciles_original` |
+| targeted test | `cargo test -p synvelis-workspace --locked --test autx08_e2e` | **Pass** — 8 passed; 0 failed（補助証拠、canonical = mise） |
+| headless deps | `mise run check-headless-deps` | **Pass** — `check-headless-deps: no GUI framework deps in 12 headless crates`（dev-dep 追加後も GUI/GPU/WebView crate を引き込まない） |
+| rt contract | `mise run test-rt` | **Pass**（`cargo test --workspace --locked rt_`、workspace 全体 green） |
+| pre-commit | `mise exec -- prek run --all-files` | **Pass** |
+| doc audit | `audit_impl_record.js`・`audit_experiment_log.js`・`doc_status.js lint` | 本 slice の新規 doc に blocking finding なし |
+
+`Cargo.lock` 差分は `synvelis-workspace` deps 欄への
+`synvelis-automation` 1 行追加のみ（dev-dep 追加に伴う
+lockfile 更新 — 共通契約の共有ファイル例外として PR 本文に
+明記）。
 
 ## lint 修正記録
 
