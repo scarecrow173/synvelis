@@ -207,6 +207,7 @@ Directory: `docs/plans`
 | PLAN-034X5CZadqoSw73TKCY7cN | Issue #84 StagedFile Migration — 実装・証拠統合計画 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |
 | PLAN-GEeV0pLxGa6f8QgNIbdJbt | SV#28 Ruviform pin 更新 実装計画 — fd1d4d5f → ac10a2f7 | completed | [sv28-ruviform-pin-ac10a2f7.md](./sv28-ruviform-pin-ac10a2f7.md) |
 | PLAN-034VobWDT9p1N0HGeD67OV | SV#28 Ruviform pin 更新 実装計画 — 0f5b5737 → b02942c2 | completed | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
+| PLAN-1LEHQHMRbmxKzWPfpYXCvE | SV#28 Ruviform pin 更新 実装計画 — abb9f372 → cbcc8343 | completed | [sv28-ruviform-pin-cbcc8343.md](./sv28-ruviform-pin-cbcc8343.md) |
 | PLAN-pOkUKpNa9zeQiK8ZbP5nvk | SV#28 Ruviform pin 更新 実装計画 — 863a7a9d → cc7d5296 | completed | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | PLAN-TyFpOpS6aiBDCdppuSCl9s | SV#28 Ruviform pin 更新 実装計画 — 9865cd57 → fd1d4d5f | completed | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | PLAN-034YnGGwltZg3zi7eNzQFs | Issue #488 lint-app-native clippy::large_enum_variant 是正 — 実装 plan | completed | [sv488-lint-app-native.md](./sv488-lint-app-native.md) |

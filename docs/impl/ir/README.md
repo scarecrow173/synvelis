@@ -182,6 +182,7 @@ Directory: `docs/impl/ir`
 | IMPL-034Ug8sNPL1sqhquNm1PYh | SV#28 Ruviform pin 更新 — 863a7a9d → cc7d5296 API 追従 | completed | [sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md](./sv-28-ruviform-pin-863a7a9d-cc7d5296-api.md) |
 | IMPL-9lysTGra2gwN96PqkF09YI | SV#28 Ruviform pin 更新 — fd1d4d5f → ac10a2f7 API 追従評価 | completed | [sv-28-ruviform-pin-ac10a2f7.md](./sv-28-ruviform-pin-ac10a2f7.md) |
 | IMPL-034VocnpYlIXEqErLG2I5w | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 API 追従 | completed | [sv-28-ruviform-pin-b02942c2.md](./sv-28-ruviform-pin-b02942c2.md) |
+| IMPL-0mcr9rVaeMBEuTzB4Zcpv4 | SV#28 Ruviform pin 更新 — abb9f372 → cbcc8343 API 追従評価 | completed | [sv-28-ruviform-pin-cbcc8343.md](./sv-28-ruviform-pin-cbcc8343.md) |
 | IMPL-VvBJRLqOSjnq3Pv2b4D1aO | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f API 追従 | completed | [sv-28-ruviform-pin-fd1d4d5f.md](./sv-28-ruviform-pin-fd1d4d5f.md) |
 | IMPL-p1XVD7cITxEvasi3u5lh9F | Issue #245 webdav MockServer TransientIo flake — accept 済みソケット blocking 正規化 slice | completed | [sv-ci-webdav-transient-io-flake-slice.md](./sv-ci-webdav-transient-io-flake-slice.md) |
 | IMPL-034XPOTEa44xCPXxCek7Hb | SV-GPUI-02 Plugin Dock Gate — PD-01〜07 freeze + headless contract (synvelis#176) | completed | [sv-gpui-02-plugin-dock-gate.md](./sv-gpui-02-plugin-dock-gate.md) |

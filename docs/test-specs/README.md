@@ -188,6 +188,7 @@ Directory: `docs/test-specs`
 | TSPEC-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 検証仕様: mixer.gain projection・Fader controlled display/commit | approved | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
 | TSPEC-3k4PHbyLAFIsmHw7CNvrYM | SV#28 Ruviform pin 更新 検証仕様（fd1d4d5f → ac10a2f7） | approved | [sv28-ruviform-pin-ac10a2f7.md](./sv28-ruviform-pin-ac10a2f7.md) |
 | TSPEC-034Voc4dPYUq3RE0eQXwi7 | SV#28 Ruviform pin 更新 検証仕様 | approved | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
+| TSPEC-6TEktuxBLkWUIBtS8qbO8g | SV#28 Ruviform pin 更新 検証仕様（abb9f372 → cbcc8343） | approved | [sv28-ruviform-pin-cbcc8343.md](./sv28-ruviform-pin-cbcc8343.md) |
 | TSPEC-CrvvXGRCC7NBEy9bfba4LH | SV#28 Ruviform pin 更新 検証仕様 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | TSPEC-31xKoCzy7Vtv6MX1J7safw | SV#28 Ruviform pin 更新 検証仕様（9865cd57 → fd1d4d5f） | approved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | TSPEC-034YnFeOkg2FPSb1D7r4ci | Issue #488 lint-app-native clippy::large_enum_variant 是正 — 検証仕様 | approved | [sv488-lint-app-native.md](./sv488-lint-app-native.md) |
