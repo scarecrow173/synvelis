@@ -12,12 +12,16 @@
 //! | `.lua` | reject — Lua 5.4 is not supported | reject — Lua 5.4 is not supported |
 //! | anything else | reject — unknown extension | reject — unknown extension |
 //!
-//! Every recognized backend (`luau-vm`, `rhai`) is **not installed** in
-//! this build — script *execution* is deferred to synvelis#272/#273 —
-//! so a recognized file resolves to a typed [`CliError::Unsupported`]
-//! unless `--dry-run` is given, in which case the CLI reports the
-//! classification (and, for Workflow DSL, the parsed+validated
-//! definition) without executing anything.
+//! The `luau-vm` backend **is installed** for `workflow run --file
+//! *.luau` (synvelis#273): the file is evaluated through the real
+//! vendored-Luau backend and the envelope reports the typed
+//! `WorkflowScriptDefinition` — spec→import-document→plan lowering
+//! stays deferred to synvelis#262/#274 (script surface/registry
+//! boundary). `action run` Luau, both Rhai classes, and every
+//! non-dry-run path without a wired backend still resolve to a typed
+//! [`CliError::Unsupported`]; `--dry-run` reports the classification
+//! (and, for Workflow DSL, the parsed+validated definition) without
+//! evaluating anything.
 
 use std::path::Path;
 
@@ -123,11 +127,11 @@ pub fn read_source(file: &Path) -> Result<String, CliError> {
     if !canonical.is_file() {
         return Err(CliError::InvalidInput(format!(
             "--file '{}' is not a regular file",
-            canonical.display()
+            file.display()
         )));
     }
     std::fs::read_to_string(&canonical).map_err(|e| {
-        CliError::InvalidInput(format!("cannot read --file '{}': {e}", canonical.display()))
+        CliError::InvalidInput(format!("cannot read --file '{}': {e}", file.display()))
     })
 }
 
@@ -144,7 +148,10 @@ pub fn dry_run_result(class: FileClass, source: Option<&str>) -> Result<CliEnvel
         "language": language,
         "backend_requirement": backend,
         "poc_only": class.is_poc(),
-        "backend_available": false,
+        "backend_available": matches!(
+            class,
+            FileClass::ActionScriptLuau | FileClass::WorkflowScriptLuau
+        ),
         "executed": false,
         "dry_run": true,
     });
@@ -180,7 +187,8 @@ pub fn unsupported_reason(class: FileClass) -> String {
     } else {
         format!(
             "{kind} ({language}) execution is not wired in this build — the \
-             '{backend}' backend lands with synvelis#272/#273; the CLI \
+             '{backend}' backend exists for workflow evaluation \
+             (synvelis#273) but this action path is not connected; the CLI \
              accepted and classified the file but refuses to guess-execute"
         )
     }
@@ -197,18 +205,74 @@ pub fn run_file_command(
     dry_run: bool,
 ) -> Result<CliEnvelope, CliError> {
     let class = classify(command, file)?;
-    let source = if class == FileClass::WorkflowDsl && dry_run {
+    // `.luau` workflow scripts need their source for real evaluation;
+    // Workflow DSL needs it for dry-run validation. Everything else
+    // only gets a readability check.
+    let needs_source = (class == FileClass::WorkflowDsl && dry_run)
+        || (class == FileClass::WorkflowScriptLuau && !dry_run);
+    let source = if needs_source {
         Some(read_source(file)?)
     } else {
-        // Still validate readability up-front so a missing file fails
-        // the same way in both modes.
         let _ = read_source(file)?;
         None
     };
     if dry_run {
         return dry_run_result(class, source.as_deref());
     }
+    if class == FileClass::WorkflowScriptLuau {
+        let Some(source) = source.as_deref() else {
+            return Err(CliError::Internal(
+                "luau workflow source missing after read".to_owned(),
+            ));
+        };
+        return run_luau_workflow(class, source);
+    }
     Err(CliError::Unsupported(unsupported_reason(class)))
+}
+
+/// Evaluates a `.luau` Workflow Script through the real `luau-mlua`
+/// backend and reports the typed definition — the synvelis#273
+/// boundary. The spec→import-document→plan lowering needs the script
+/// surface (`ScriptSurfaceSpec`) and registry snapshot, whose naming
+/// policy is owned by synvelis#262/#274; until then the envelope
+/// returns the evaluated definition honestly instead of guessing a
+/// plan.
+fn run_luau_workflow(class: FileClass, source: &str) -> Result<CliEnvelope, CliError> {
+    use synvelis_script::backend::ExecutionBudget;
+    let digest = synvelis_script::sha256_hex(source.as_bytes());
+    let backend = synvelis_script_luau::LuauBackend::new();
+    // Headless file-run safety bounds — not workflow semantics. The
+    // backend additionally enforces its own 1 MiB source ceiling.
+    let budget = ExecutionBudget {
+        max_wall_time: Some(std::time::Duration::from_secs(30)),
+        max_memory_bytes: Some(256 << 20),
+        ..ExecutionBudget::default()
+    };
+    let evaluated = synvelis_automation::evaluate_luau_spec(&backend, &budget, source, &digest)
+        .map_err(|e| CliError::InvalidInput(format!("luau workflow evaluation failed: {e}")))?;
+    let spec = &evaluated.spec;
+    let (kind, language, backend_name) = class.names();
+    let definition = serde_json::to_value(&evaluated.definition).ok();
+    let result = json!({
+        "kind": kind,
+        "language": language,
+        "backend_requirement": backend_name,
+        "poc_only": class.is_poc(),
+        "backend_available": true,
+        "executed": false,
+        "evaluated": true,
+        "script_definition": definition,
+        "workflow_id": evaluated.definition.script_id,
+        "version": evaluated.definition.version,
+        "source_digest": evaluated.source_digest,
+        "steps": spec.steps.len(),
+        "inputs": spec.inputs.len(),
+        "outputs": spec.outputs.len(),
+        "plan_compile": "deferred — script surface/registry boundary is synvelis#262/#274",
+    });
+    let mut envelope = CliEnvelope::bare(EnvelopeStatus::Completed);
+    envelope.result = Some(result);
+    Ok(envelope)
 }
 
 /// Value-level helper for tests: the extension classifier without IO.

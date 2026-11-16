@@ -50,16 +50,17 @@ pub use analyzer::{
 };
 pub use compiler::{ExecutablePlan, PlanCompiler, PlanOutput, PlanWarning};
 pub use definition::{DEFINITION_SCHEMA_VERSION, Step, WorkflowDefinition, WorkflowLimits};
-pub use error::{AutomationError, CompileError, ImportError};
+pub use error::{AutomationError, CompileError, ImportError, ScriptBackendError};
 pub use expr::{Condition, Expr, StepOutputRef};
 pub use frontend::{
     decode_macro_definition, decode_registry_snapshot, decode_workflow_definition,
     parse_macro_yaml, parse_registry_snapshot_yaml, parse_workflow_yaml,
 };
 pub use importer::{
-    FileWorkflowResolver, ImportedWorkflow, ImportedWorkflowPayload, MAX_IMPORT_DEPTH,
-    MapWorkflowResolver, WorkflowResolver, WorkflowSourceKind, compile_script_workflow,
-    compile_workflow_yaml, import_workflow_document, workflow_source_kind,
+    EvaluatedLuauWorkflow, FileWorkflowResolver, ImportedWorkflow, ImportedWorkflowPayload,
+    MAX_IMPORT_DEPTH, MapWorkflowResolver, ScriptBuildContext, WorkflowResolver,
+    WorkflowSourceKind, compile_script_workflow, compile_workflow_yaml, evaluate_luau_spec,
+    evaluate_luau_workflow, import_workflow_document, workflow_source_kind,
 };
 pub use live::{GatewayJobLane, GatewayStepLane};
 pub use live_registry::capture as capture_registry_snapshot;

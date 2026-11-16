@@ -14,3 +14,8 @@ serde_json.workspace = true
 sha2.workspace = true
 synvelis-gateway = { path = "../synvelis-gateway" }
 synvelis-script = { path = "../synvelis-script" }
+
+[dev-dependencies]
+# Real-VM `.luau` resolver test (synvelis#273) — mlua stays inside
+# synvelis-script-luau; tests consume it through the port trait.
+synvelis-script-luau = { path = "../synvelis-script-luau" }

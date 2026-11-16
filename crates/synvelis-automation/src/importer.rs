@@ -32,19 +32,27 @@
 //! rest.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
 
 use serde_json::Value;
-use synvelis_script::action::{AvailableBackends, LanguageId};
+use synvelis_script::action::{AvailableBackends, BackendRequirement, LanguageId};
+use synvelis_script::backend::{
+    self, ArtifactKind, ExecutionBudget, SCRIPT_ARTIFACT_SCHEMA_VERSION, ScriptBackend,
+    SessionConfig, SourceDigest,
+};
 use synvelis_script::binding::BindingSet;
 use synvelis_script::model::ScriptApiModel;
 use synvelis_script::workflow::{
-    ScriptWorkflowRef, ScriptWorkflowSpec, WorkflowScriptBuilder, WorkflowScriptDefinition,
+    ScriptWorkflowRef, ScriptWorkflowSpec, WORKFLOW_SCRIPT_DEFINITION_SCHEMA_VERSION,
+    WorkflowScriptBuilder, WorkflowScriptDefinition,
 };
+use synvelis_script::{ScriptLanguageId, SourceRevision};
 
 use crate::compiler::{PlanCompiler, PlanOutput};
 use crate::definition::{MAX_STATIC_STEPS, Step, WorkflowDefinition, WorkflowLimits};
-use crate::error::{AutomationError, ImportError};
+use crate::error::{AutomationError, ImportError, ScriptBackendError};
 use crate::expr::{Condition, Expr, StepOutputRef};
 use crate::frontend;
 use crate::macros::MacroRegistry;
@@ -148,19 +156,41 @@ impl WorkflowResolver for MapWorkflowResolver {
 
 /// A file-backed resolver confined to a canonical root directory.
 ///
-/// This slice resolves `.yaml`/`.yml` workflow DSL files only —
-/// `.luau`/`.rhai` references require a script backend to produce a
-/// spec (ruviform#559 gate) and fail with
-/// [`ImportError::UnsupportedSource`]. Path safety: the reference
-/// path must be relative, free of `..`/root/prefix components, and
+/// Resolves `.yaml`/`.yml` workflow DSL files directly and `.luau`
+/// workflow scripts through an injected [`ScriptBackend`] plus the
+/// [`ScriptBuildContext`] the builder needs
+/// ([`FileWorkflowResolver::with_script_backend`]). `.rhai`
+/// references and `.luau` references without an installed backend
+/// fail with [`ImportError::UnsupportedSource`] — classification is
+/// never treated as parseability. Path safety: the reference path
+/// must be relative, free of `..`/root/prefix components, and
 /// canonicalize inside the root (symlink escapes rejected).
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct FileWorkflowResolver {
     root: PathBuf,
+    script: Option<ScriptBackendContext>,
+}
+
+/// The injected backend + build context a `.luau` resolution needs.
+#[derive(Clone)]
+struct ScriptBackendContext {
+    backend: Arc<dyn ScriptBackend>,
+    build: ScriptBuildContext,
+}
+
+impl fmt::Debug for FileWorkflowResolver {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FileWorkflowResolver")
+            .field("root", &self.root)
+            .field("script_backend", &self.script.is_some())
+            .finish()
+    }
 }
 
 impl FileWorkflowResolver {
-    /// Creates a resolver rooted at `root` (canonicalized).
+    /// Creates a resolver rooted at `root` (canonicalized). `.luau`
+    /// references resolve to [`ImportError::UnsupportedSource`] until
+    /// a backend is attached via [`Self::with_script_backend`].
     ///
     /// # Errors
     /// [`AutomationError::Import`] — root does not exist or cannot be
@@ -171,7 +201,24 @@ impl FileWorkflowResolver {
                 source: format!("import root {}: {e}", root.as_ref().display()),
             })
         })?;
-        Ok(Self { root })
+        Ok(Self { root, script: None })
+    }
+
+    /// Creates a resolver rooted at `root` that also resolves `.luau`
+    /// workflow scripts: `backend` evaluates the source once into a
+    /// spec artifact, `build` lowers that spec into the import
+    /// document (the same model/bindings/budget the plan path uses).
+    ///
+    /// # Errors
+    /// Same as [`Self::new`].
+    pub fn with_script_backend(
+        root: impl AsRef<Path>,
+        backend: Arc<dyn ScriptBackend>,
+        build: ScriptBuildContext,
+    ) -> Result<Self, AutomationError> {
+        let mut resolver = Self::new(root)?;
+        resolver.script = Some(ScriptBackendContext { backend, build });
+        Ok(resolver)
     }
 }
 
@@ -199,11 +246,13 @@ impl WorkflowResolver for FileWorkflowResolver {
             }));
         }
         let lower = path.to_ascii_lowercase();
-        if !(file_ext_is(&lower, "yaml") || file_ext_is(&lower, "yml")) {
+        let is_yaml = file_ext_is(&lower, "yaml") || file_ext_is(&lower, "yml");
+        let is_luau = file_ext_is(&lower, "luau");
+        if !is_yaml && !is_luau {
             return Err(import_err(ImportError::UnsupportedSource {
                 source: format!(
-                    "{path}: only .yaml/.yml workflow files resolve here; \
-                     script-language files need a backend (deferred)"
+                    "{path}: only .yaml/.yml/.luau workflow files resolve here; \
+                     .rhai and other script languages have no installed backend"
                 ),
             }));
         }
@@ -220,6 +269,17 @@ impl WorkflowResolver for FileWorkflowResolver {
                 reason: format!("{path}: source is not UTF-8"),
             })
         })?;
+        if is_luau {
+            let Some(script) = &self.script else {
+                return Err(import_err(ImportError::UnsupportedSource {
+                    source: format!(
+                        "{path}: .luau workflow requires a Luau script backend; \
+                         none installed"
+                    ),
+                }));
+            };
+            return evaluate_luau_workflow(&*script.backend, &script.build, &text, &source_digest);
+        }
         let definition = crate::frontend::parse_workflow_yaml(&text)?;
         let version = definition.version;
         Ok(ImportedWorkflow {
@@ -1248,6 +1308,157 @@ fn project_literal(value: &Value, path: &[String]) -> Result<Value, AutomationEr
         };
     }
     Ok(cur.clone())
+}
+
+// ---------------------------------------------------------------------------
+// Script-source evaluation (`.luau` → spec → import document)
+// ---------------------------------------------------------------------------
+
+/// Build context for lowering evaluated `.luau` specs into import
+/// documents — the [`WorkflowScriptBuilder`] inputs
+/// [`compile_script_workflow`] takes, minus resolver/inputs/registry
+/// (those belong to the import and plan stages, not source
+/// evaluation).
+#[derive(Clone)]
+pub struct ScriptBuildContext {
+    /// Backend-availability declaration the builder validates
+    /// against — the caller must mark `luau` only when a backend is
+    /// actually installed.
+    pub backends: AvailableBackends,
+    /// Script API model — `action()` name → capability resolution.
+    pub model: ScriptApiModel,
+    /// Generated bindings (must be consistent with `model`).
+    pub bindings: BindingSet,
+    /// Execution budget applied to every backend session.
+    pub budget: ExecutionBudget,
+}
+
+/// The evaluated `.luau` workflow — the boundary result available
+/// before the script surface/model exists (synvelis#262/#274 own the
+/// `ScriptSurfaceSpec` naming policy, so the spec→import-document
+/// lowering stays deferred for callers without a build context).
+#[derive(Clone, Debug)]
+pub struct EvaluatedLuauWorkflow {
+    /// The decoded [`ScriptWorkflowSpec`] artifact payload.
+    pub spec: ScriptWorkflowSpec,
+    /// The pinned [`WorkflowScriptDefinition`] (language/backend/
+    /// version/source-digest) the spec was produced under.
+    pub definition: WorkflowScriptDefinition,
+    /// Bare lowercase SHA-256 hex of the evaluated source text.
+    pub source_digest: String,
+}
+
+/// Evaluates `.luau` `text` through `backend` and decodes the produced
+/// [`ScriptWorkflowSpec`] — the evaluation half of
+/// [`evaluate_luau_workflow`], split out so callers without a script
+/// surface (the headless CLI boundary, synvelis#262) can still run a
+/// real backend and obtain the typed definition honestly.
+///
+/// `source_digest_hex` is the bare lowercase SHA-256 hex of `text`
+/// (the digest [`FileWorkflowResolver`] computes over file bytes);
+/// it pins the returned [`WorkflowScriptDefinition`]. The backend
+/// verifies the same digest inside its session — drift between what
+/// the caller hashed and what the VM loaded is a typed session
+/// failure, never silent acceptance.
+///
+/// # Errors
+/// [`AutomationError::ScriptBackend`] — session/evaluation/artifact
+/// contract failure; [`AutomationError::Script`] — spec decode
+/// rejection.
+pub fn evaluate_luau_spec(
+    backend: &dyn ScriptBackend,
+    budget: &ExecutionBudget,
+    text: &str,
+    source_digest_hex: &str,
+) -> Result<EvaluatedLuauWorkflow, AutomationError> {
+    let config = SessionConfig {
+        budget: budget.clone(),
+        source: backend::ScriptSource {
+            text: text.to_owned(),
+            language: ScriptLanguageId::luau(),
+            backend_hint: None,
+            digest: SourceDigest(format!("sha256:{source_digest_hex}")),
+            revision: SourceRevision(0),
+        },
+        artifact_kinds: BTreeSet::from([ArtifactKind::WorkflowDefinition]),
+    };
+    let mut session = backend
+        .open_session(&config)
+        .map_err(ScriptBackendError::Open)?;
+    let evaluated = session.evaluate().map_err(ScriptBackendError::Evaluate);
+    session.close();
+    let result = evaluated?;
+    let artifact = result.artifact.ok_or_else(|| {
+        AutomationError::ScriptBackend(Box::new(ScriptBackendError::Contract {
+            reason: "session produced no artifact".to_owned(),
+        }))
+    })?;
+    if artifact.schema_version != SCRIPT_ARTIFACT_SCHEMA_VERSION
+        || !matches!(artifact.kind, ArtifactKind::WorkflowDefinition)
+    {
+        return Err(AutomationError::ScriptBackend(Box::new(
+            ScriptBackendError::Contract {
+                reason: format!(
+                    "unexpected artifact (kind {:?}, schema_version {})",
+                    artifact.kind, artifact.schema_version
+                ),
+            },
+        )));
+    }
+    let spec = ScriptWorkflowSpec::from_script_value(&artifact.payload)?;
+    let definition = WorkflowScriptDefinition {
+        schema_version: WORKFLOW_SCRIPT_DEFINITION_SCHEMA_VERSION,
+        script_id: spec.workflow_id.clone(),
+        version: spec.version,
+        language_id: LanguageId::Luau,
+        backend_requirement: BackendRequirement::Luau,
+        source_digest: source_digest_hex.to_owned(),
+    };
+    Ok(EvaluatedLuauWorkflow {
+        spec,
+        definition,
+        source_digest: source_digest_hex.to_owned(),
+    })
+}
+
+/// Evaluates `.luau` `text` through `backend` and lowers the produced
+/// [`ScriptWorkflowSpec`] into an import document — the shared
+/// pipeline behind [`FileWorkflowResolver`]'s script branch and
+/// headless callers with a full [`ScriptBuildContext`].
+///
+/// `source_digest_hex` is the bare lowercase SHA-256 hex of `text`
+/// (the digest [`FileWorkflowResolver`] computes over file bytes);
+/// it pins the [`WorkflowScriptDefinition`] and is reported on the
+/// returned [`ImportedWorkflow`] for the importer's pin check. The
+/// backend verifies the same digest inside its session — drift
+/// between what the resolver hashed and what the VM loaded is a
+/// typed session failure, never silent acceptance.
+///
+/// # Errors
+/// [`AutomationError::ScriptBackend`] — session/evaluation/artifact
+/// contract failure; [`AutomationError::Script`] — spec decode or
+/// builder rejection.
+pub fn evaluate_luau_workflow(
+    backend: &dyn ScriptBackend,
+    context: &ScriptBuildContext,
+    text: &str,
+    source_digest_hex: &str,
+) -> Result<ImportedWorkflow, AutomationError> {
+    let evaluated = evaluate_luau_spec(backend, &context.budget, text, source_digest_hex)?;
+    let version = evaluated.spec.version;
+    let document = WorkflowScriptBuilder::build(
+        &evaluated.definition,
+        &evaluated.spec,
+        &context.backends,
+        &context.model,
+        &context.bindings,
+    )?;
+    Ok(ImportedWorkflow {
+        language_id: LanguageId::Luau,
+        version,
+        source_digest: evaluated.source_digest,
+        payload: ImportedWorkflowPayload::Document(Box::new(document)),
+    })
 }
 
 // ---------------------------------------------------------------------------

@@ -45,6 +45,31 @@ pub enum AutomationError {
     /// A [`synvelis_script::ScriptApiError`] surfaced while lowering a
     /// script workflow document — preserved verbatim.
     Script(synvelis_script::ScriptApiError),
+    /// A script backend failed while producing a workflow spec —
+    /// session open, evaluation, or artifact-contract violation on a
+    /// `.luau` source (synvelis#273).
+    ScriptBackend(Box<ScriptBackendError>),
+}
+
+/// Typed script-backend failure surfaced through workflow import —
+/// the port's [`synvelis_script::backend::SessionError`] /
+/// [`synvelis_script::backend::ScriptError`] vocabulary preserved.
+#[derive(Debug)]
+pub enum ScriptBackendError {
+    /// `open_session` refused the session config (unsupported
+    /// budget/artifact, digest or language mismatch, size limit,
+    /// isolation conflict).
+    Open(synvelis_script::backend::SessionError),
+    /// `evaluate` returned a typed script error (parse/compile/
+    /// runtime/budget/cancelled/contract).
+    Evaluate(synvelis_script::backend::ScriptError),
+    /// The session's artifact violated the port contract — missing,
+    /// wrong [`synvelis_script::backend::ArtifactKind`], or
+    /// unsupported artifact `schema_version`.
+    Contract {
+        /// Human-readable reason.
+        reason: String,
+    },
 }
 
 /// Typed rejections from the heterogeneous workflow importer
@@ -511,9 +536,24 @@ impl fmt::Display for AutomationError {
             Self::Compile(err) => write!(f, "compile rejected: {err}"),
             Self::Import(err) => write!(f, "workflow import rejected: {err}"),
             Self::Script(err) => write!(f, "script workflow rejected: {err}"),
+            Self::ScriptBackend(err) => write!(f, "script backend rejected: {err}"),
         }
     }
 }
+
+impl fmt::Display for ScriptBackendError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Open(err) => write!(f, "session open failed: {err}"),
+            Self::Evaluate(err) => write!(f, "evaluation failed: {err}"),
+            Self::Contract { reason } => {
+                write!(f, "artifact contract violation: {reason}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ScriptBackendError {}
 
 impl fmt::Display for ImportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -544,8 +584,10 @@ impl fmt::Display for ImportError {
             } => write!(
                 f,
                 "source drift for {reference}: pinned {}, resolved {}",
-                &pinned[..pinned.len().min(16)],
-                &actual[..actual.len().min(16)]
+                // `pinned` is script-controlled and may not be ASCII —
+                // char-boundary-safe truncation, never a byte slice.
+                pinned.chars().take(16).collect::<String>(),
+                actual.chars().take(16).collect::<String>()
             ),
             Self::ImportCycle { reference } => {
                 write!(f, "workflow import cycle at {reference}")
@@ -777,6 +819,12 @@ impl From<ImportError> for AutomationError {
 impl From<synvelis_script::ScriptApiError> for AutomationError {
     fn from(err: synvelis_script::ScriptApiError) -> Self {
         Self::Script(err)
+    }
+}
+
+impl From<ScriptBackendError> for AutomationError {
+    fn from(err: ScriptBackendError) -> Self {
+        Self::ScriptBackend(Box::new(err))
     }
 }
 

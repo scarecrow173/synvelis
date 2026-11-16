@@ -165,8 +165,8 @@ fn file_classification_matrix() {
 
     let cases: &[(&str, &str, i32)] = &[
         // (file, subcommand-prefix, expected exit)
-        ("a.luau", "action", 5), // recognized, backend unwired → Unsupported
-        ("a.luau", "workflow", 5),
+        ("a.luau", "action", 5), // action-run path still unwired → Unsupported
+        ("a.luau", "workflow", 2), // evaluated; 'x' is not a valid spec → InvalidInput
         ("a.yaml", "action", 2), // DSL is workflow-only → kind mismatch
         ("a.yml", "action", 2),
         ("a.yaml", "workflow", 5), // recognized DSL, execution deferred
@@ -201,6 +201,70 @@ fn file_classification_matrix() {
             env["error"]
         );
     }
+}
+
+#[test]
+fn workflow_luau_file_evaluates_to_typed_definition() {
+    // synvelis#273: `workflow run --file *.luau` evaluates through the
+    // real vendored-Luau backend and reports the typed definition;
+    // plan compile stays deferred to the #262/#274 surface boundary.
+    let dir = scratch("luauwf");
+    let spec = r#"
+return {
+  schema_version = 1,
+  workflow_id = "test.cli-luau",
+  version = 3,
+  inputs = {},
+  steps = {
+    { call = "emit", id = "done", output = "out", value = 42 },
+  },
+  outputs = {
+    { name = "out", schema = { type = "integer" } },
+  },
+  limits = {
+    max_steps = 10, max_depth = 4, max_iterations = 10,
+    max_runtime_ms = 1000, max_output_bytes = 1048576,
+    max_memory_bytes = 134217728,
+  },
+}
+"#;
+    let file = write_file(&dir, "wf.luau", spec);
+    let project = dir.join("proj");
+    std::fs::create_dir_all(&project).unwrap();
+    let out = cli(&[
+        "--format",
+        "json",
+        "workflow",
+        "run",
+        "--file",
+        file.to_str().unwrap(),
+        "--project",
+        project.to_str().unwrap(),
+    ]);
+    assert_eq!(
+        exit_code(&out),
+        0,
+        "stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
+    );
+    let env = stdout_json(&out);
+    assert_eq!(env["status"], "completed");
+    let result = &env["result"];
+    assert_eq!(result["evaluated"], true);
+    assert_eq!(result["executed"], false);
+    assert_eq!(result["workflow_id"], "test.cli-luau");
+    assert_eq!(result["version"], 3);
+    assert_eq!(result["steps"], 1);
+    assert!(
+        result["source_digest"].as_str().unwrap().len() == 64,
+        "source digest is reported: {:?}",
+        result["source_digest"]
+    );
+    assert_eq!(
+        result["script_definition"]["language_id"], "luau",
+        "typed definition is returned: {:?}",
+        result["script_definition"]
+    );
 }
 
 #[test]
