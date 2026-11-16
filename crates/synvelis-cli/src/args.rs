@@ -19,13 +19,15 @@
 //!   action invoke  --capability <id[@ver]> [same options as prepare]
 //!   action run     --file <path> --project <path>
 //!   workflow run   --file <path> --project <path>
+//!   script analyze --file <path> [--cursor <byte-offset>]
 //!   project info   --project <path>
 //!   render         --project <path> --output <path>
 //! ```
 //!
 //! There is deliberately **no** `script run` command and no `--script`
 //! flag (AUTX-CLI-FILE-01): script entry is `action run --file` /
-//! `workflow run --file` only.
+//! `workflow run --file` only. `script analyze` is static analysis —
+//! it never executes and mints no authority (AUTX-SCR-ANA-01).
 //!
 //! `--yes`, `--principal`, `--session-credential`, environment
 //! variables, TTY state, and JSON fields never mint human authority —
@@ -157,6 +159,15 @@ pub enum Command {
         /// `--inputs-file` path (read + parsed by the command layer).
         inputs_file: Option<PathBuf>,
     },
+    /// `script analyze --file <path> [--cursor <byte-offset>]`.
+    ScriptAnalyze {
+        /// Script source file (`.luau` analyzed; `.rhai` fails closed
+        /// as unsupported; other extensions reject).
+        file: PathBuf,
+        /// Optional completion cursor — UTF-8 byte offset into the
+        /// source (`synvelis_script::Cursor`).
+        cursor: Option<usize>,
+    },
     /// `project info`.
     ProjectInfo,
     /// `render --output <path>`.
@@ -192,6 +203,7 @@ const COMMAND_VALUE_FLAGS: &[&str] = &[
     "output",
     "inputs",
     "inputs-file",
+    "cursor",
 ];
 
 /// Parses `argv` (excluding the program name).
@@ -361,11 +373,7 @@ fn dispatch(positionals: &[String], flags: &BTreeMap<String, String>) -> Result<
         Some("workflow") => parse_workflow(positionals, flags),
         Some("project") => parse_project(positionals, flags),
         Some("render") => parse_render(positionals, flags),
-        Some("script") => Err(CliError::Usage(
-            "there is no `script run` command; use `action run --file` or \
-             `workflow run --file`"
-                .to_owned(),
-        )),
+        Some("script") => parse_script(positionals, flags),
         Some("help") => Ok(Command::Help),
         Some(other) => Err(CliError::Usage(format!("unknown command '{other}'"))),
         None => Err(CliError::Usage("missing command (try --help)".to_owned())),
@@ -548,6 +556,46 @@ fn parse_workflow(
     }
 }
 
+/// `script` accepts exactly one verb — `analyze` (static analysis,
+/// AUTX-SCR-ANA-01). Every other verb, including `run`, fails closed:
+/// there is no script execution surface (AUTX-CLI-FILE-01).
+fn parse_script(
+    positionals: &[String],
+    flags: &BTreeMap<String, String>,
+) -> Result<Command, CliError> {
+    match positionals.get(1).map(String::as_str) {
+        Some("analyze") => {
+            if positionals.len() != 2 {
+                return Err(CliError::Usage(
+                    "script analyze takes no positional arguments".to_owned(),
+                ));
+            }
+            take_flags(flags, &["file", "cursor"])?;
+            let file = path_flag(flags, "file").ok_or_else(|| {
+                CliError::Usage("script analyze requires --file <path>".to_owned())
+            })?;
+            let cursor = match flag_value(flags, "cursor") {
+                None => None,
+                Some(text) => Some(text.parse::<usize>().map_err(|_| {
+                    CliError::Usage(format!("--cursor '{text}' is not a byte offset"))
+                })?),
+            };
+            Ok(Command::ScriptAnalyze { file, cursor })
+        }
+        Some(other) => Err(CliError::Usage(format!(
+            "unknown script '{other}' — `script` supports only `analyze` \
+             (static analysis); there is no `script run` execution \
+             surface — run scripts via `action run --file` / \
+             `workflow run --file`"
+        ))),
+        None => Err(CliError::Usage(
+            "`script` supports only `analyze --file <path>` (static \
+             analysis); there is no `script run` execution surface"
+                .to_owned(),
+        )),
+    }
+}
+
 fn parse_project(
     positionals: &[String],
     flags: &BTreeMap<String, String>,
@@ -610,7 +658,47 @@ mod tests {
     #[test]
     fn rejects_script_run_and_script_flag() {
         assert!(parse(&argv(&["script", "run", "--file", "x.luau"])).is_err());
+        assert!(parse(&argv(&["script"])).is_err());
+        assert!(parse(&argv(&["script", "other", "--file", "x.luau"])).is_err());
         assert!(parse(&argv(&["action", "run", "--script", "x.luau"])).is_err());
+    }
+
+    #[test]
+    fn parses_script_analyze() {
+        let a = parse(&argv(&["script", "analyze", "--file", "x.luau"])).unwrap();
+        match a.command {
+            Command::ScriptAnalyze { file, cursor } => {
+                assert_eq!(file, PathBuf::from("x.luau"));
+                assert_eq!(cursor, None);
+            }
+            other => panic!("expected ScriptAnalyze, got {other:?}"),
+        }
+
+        let a = parse(&argv(&[
+            "script", "analyze", "--file", "x.luau", "--cursor", "42",
+        ]))
+        .unwrap();
+        match a.command {
+            Command::ScriptAnalyze { cursor, .. } => assert_eq!(cursor, Some(42)),
+            other => panic!("expected ScriptAnalyze, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rejects_bad_script_analyze_invocations() {
+        // --file is required.
+        assert!(parse(&argv(&["script", "analyze"])).is_err());
+        // Unknown command flag.
+        assert!(parse(&argv(&["script", "analyze", "--file", "x.luau", "--bogus"])).is_err());
+        // Non-numeric cursor.
+        assert!(
+            parse(&argv(&[
+                "script", "analyze", "--file", "x.luau", "--cursor", "abc"
+            ]))
+            .is_err()
+        );
+        // Extra positional.
+        assert!(parse(&argv(&["script", "analyze", "--file", "x.luau", "extra"])).is_err());
     }
 
     #[test]
