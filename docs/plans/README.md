@@ -193,6 +193,7 @@ Directory: `docs/plans`
 | PLAN-alib02-v5snap | ALIB-02 v5 snapshot asset-digest 互換移行 — 実装計画 | completed | [alib-02-v5-snapshot-compat.md](./alib-02-v5-snapshot-compat.md) |
 | PLAN-alib07-fault-matrix | ALIB-07 実装計画 — Asset Library 全経路 Fault Matrix（synvelis-library headless slice） | completed | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | PLAN-alib07-import-cancel | ALIB-07 slice 2 実装計画 — import cancel checkpoint・crash fixture・matrix 簿記 | completed | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
+| PLAN-034YqsfzCOeZQHDLHpvBy9 | AUTX-08 Leg C live-adapter leg — 実装 plan | completed | [autx-08-live-adapter-leg.md](./autx-08-live-adapter-leg.md) |
 | PLAN-034QArZ5DRWJ27yfk2aEID | ED-A Editing Model headless PoC 実装計画 | completed | [ed-a-editing-model.md](./ed-a-editing-model.md) |
 | PLAN-034Wsz1RfPQFUBGiJzAeHe | Issue #365 impl index 生成可能化 — front matter 是正と index 再生成 | completed | [issue-365-impl-index-generation-plan.md](./issue-365-impl-index-generation-plan.md) |
 | PLAN-034Wv23ayc9G1WRGoi3DaA | Issue #368 docs/impl/ir missing-section 本文補完 — 実装 plan | completed | [issue-368-ir-missing-sections-plan.md](./issue-368-ir-missing-sections-plan.md) |
@@ -202,6 +203,7 @@ Directory: `docs/plans`
 | PLAN-034X3jT4T64MOzF6CbB2oy | Synvelis 製品価値と中核体験 — Gate A/B/C・UX評価計画 | completed | [product-value-core-plan.md](./product-value-core-plan.md) |
 | PLAN-034UrkBlTpaeiSGII0EyIi | RCD-02 Durability Evidence / Recovery Review / Commit Receipt slice | completed | [rcd-02-durability-recovery-review.md](./rcd-02-durability-recovery-review.md) |
 | PLAN-034XHOtc6Apy81qWgzzTph | RCD-02 residual closeout — Issue #116 AC 照合と証拠固定の実装計画 | completed | [rcd-02-residual-closeout.md](./rcd-02-residual-closeout.md) |
+| PLAN-034YpUFyOog9NH2jZycwaj | RCD-04 residual closeout — Issue #118 AC 照合と証拠固定の実装計画 | completed | [rcd-04-residual-closeout.md](./rcd-04-residual-closeout.md) |
 | PLAN-034VoSKvu6PtN0qTGN02l3 | SF-03 slice8 — app/workspace same-Revision fixture plan | completed | [sf-03-slice8-revision-fixture-plan.md](./sf-03-slice8-revision-fixture-plan.md) |
 | PLAN-034VWvifs0UbP2Diwh0JiN | SF-03 slice9 — host capability generation live firing plan | completed | [sf-03-slice9-capability-firing-plan.md](./sf-03-slice9-capability-firing-plan.md) |
 | PLAN-034X5CZadqoSw73TKCY7cN | Issue #84 StagedFile Migration — 実装・証拠統合計画 | completed | [stagedfile-migration.md](./stagedfile-migration.md) |

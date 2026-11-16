@@ -26,6 +26,7 @@ Directory: `docs/designs`
 | DESIGN-034AUT04CvbbR3Qzx1aKwY | AUT-04 Automation Curve 非破壊保持・Viewport LOD・有界記録 Event 予算 設計 | approved | [aut-04-automation-curve-lod-record-budget-design.md](./aut-04-automation-curve-lod-record-budget-design.md) |
 | DESIGN-2PaoXTMFb4NbwT7TNBcUTc | Automation / Modulation 統合 Parameter Control — 設計（synvelis#6） | approved | [automation-modulation-design.md](./automation-modulation-design.md) |
 | DESIGN-034XzqUYtBrYIsgDfTvyEz | AUTX-01-F01 has_executor accessor 設計（No-Handler 区別の解禁） | approved | [autx-01-f01-has-executor.md](./autx-01-f01-has-executor.md) |
+| DESIGN-034YqseBG2a0IpRjmMQrwF | AUTX-08 Leg C live-adapter leg — 設計 | approved | [autx-08-live-adapter-leg.md](./autx-08-live-adapter-leg.md) |
 | DESIGN-034VmgS1sGu9EW9NfKKRPY | Issue #245 verify-macos rt_cache alloc 計測 flake — 計測対象インスタンス warm-up 設計 | approved | [ci-245-macos-alloc-flake-design.md](./ci-245-macos-alloc-flake-design.md) |
 | DESIGN-TiKdIX8rj4YqmP3Pmb58JR | Issue #377 synvelis-native / gpui-test 3OS CI OS-L1 — 既存 verify leg 拡張設計 | approved | [ci-os-l1-native-gpui.md](./ci-os-l1-native-gpui.md) |
 | DESIGN-034RoWWK4Xx4NaZSoBYZSX | Synvelis 独立 CI — Lane 構成・証跡・依存アクセス設計 | approved | [ci-synvelis-pr-push-regression-gate.md](./ci-synvelis-pr-push-regression-gate.md) |
@@ -112,6 +113,7 @@ Directory: `docs/designs`
 | DESIGN-RCD04Fx2nB8cY6dF5hJ9kM3q | RCD-04 Comp Transition / MIDI Phrase fixture — crate 内完結設計 | approved | [rcd-04-comp-transition-midi-phrase-fixture.md](./rcd-04-comp-transition-midi-phrase-fixture.md) |
 | DESIGN-034WEV4lGiVlfIG0LsEBNr | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID design | approved | [rcd-04-midi-undo-stableid-design.md](./rcd-04-midi-undo-stableid-design.md) |
 | DESIGN-034VmNZvp2r11R0Phmdf0P | RCD-04 product E2E design | approved | [rcd-04-product-e2e-design.md](./rcd-04-product-e2e-design.md) |
+| DESIGN-034YpTJ7LGHVn4vKqeBjhO | RCD-04 residual closeout — AC 照合と gate 分類・簿記整合の設計 | approved | [rcd-04-residual-closeout-design.md](./rcd-04-residual-closeout-design.md) |
 | DESIGN-034VBU0PCNZXCZsyRneE3S | RCD-04 RT engine comp PCM design | approved | [rcd-04-rt-engine-comp-pcm-design.md](./rcd-04-rt-engine-comp-pcm-design.md) |
 | DESIGN-034XJyqSj5ERrc0PHD2tDm | RCD-F02 Advanced Monitoring / Overdub / Pre-Punch Handles design | approved | [rcd-f02-monitoring-overdub-design.md](./rcd-f02-monitoring-overdub-design.md) |
 | DESIGN-HBZzINKHriX9qpGtNZ1ZFY | Render Checkpoint — Render Recipe・依存閉包・有効性・Branch/Execution/Policy 統合設計 (synvelis#289 RCP-00) | approved | [rcp-render-recipe-design.md](./rcp-render-recipe-design.md) |

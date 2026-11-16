@@ -1,7 +1,7 @@
 ---
 id: "TASK-034VC2K5DEZwdj418Clksb"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "RCD-04 Task RT engine comp PCM"
 created: "2026-11-11"
 updated: "2026-11-11"
@@ -94,12 +94,15 @@ test（2 scenario）を実装し、docs チェーン 6 file を populate
   経路同士）。
 - [x] 実 Device/OS GUI/AudioLens は NotRun/Unsupported として
   文書化されている。
-- [ ] canonical mise 検証（fmt-check/check/lint/test/test-rt/
-  test-msrv）が green。
+- [x] canonical mise 検証（fmt-check/check/lint/test/test-rt/
+  test-msrv）が green（PR #319 merge 時に実施・merge 済み。
+  closeout で canonical lane を再実測 —
+  `evidence/sv118/rcd-04-closeout-verification.md`）。
 
 ## Verification
 
 - [x] `cargo test -p synvelis-render --test rcd_04_rt_comp_pcm`
   — 2 tests pass（補助証拠; canonical = mise）。
-- [ ] `mise run fmt-check` / `check` / `lint` / `test` /
-  `test-rt` / `test-msrv`（canonical）。
+- [x] `mise run fmt-check` / `check` / `lint` / `test` /
+  `test-rt` / `test-msrv`（canonical — PR #319 merge 時に
+  実施済み。closeout 再実測分は evidence 参照）。

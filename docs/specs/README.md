@@ -209,6 +209,7 @@ Directory: `docs/specs`
 | SPEC-alib07-fault-matrix | ALIB-07 — Asset Library 全経路 Fault Matrix（headless slice・synvelis-library） | implemented | [alib-07-fault-matrix.md](./alib-07-fault-matrix.md) |
 | SPEC-alib07-import-cancel | ALIB-07 slice 2 — LIB-IMPORT-04 publish/commit 相 cancel・LIB-IMPORT-08 subprocess crash（synvelis-library headless） | implemented | [alib-07-import-cancel.md](./alib-07-import-cancel.md) |
 | SPEC-034AUT02Kw7xRn3vBz9sQm5t | AUT-02 Region Replace 境界曲線保存・Reject/Replace 原子的編集 | implemented | [aut-02-region-replace-boundary-curve-preservation.md](./aut-02-region-replace-boundary-curve-preservation.md) |
+| SPEC-034Yqs3yceKe9EYQaW2cxS | AUTX-08 Leg C AI/live-adapter surface same-wire contract leg (synvelis#267) | implemented | [autx-08-live-adapter-leg.md](./autx-08-live-adapter-leg.md) |
 | SPEC-034SVCIOPT02bN7mQwErTy | Issue #148 変更影響分類・Fail-Closed evidence Gate 仕様 | superseded | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
 | SPEC-034RUjwAo6z9Q2Hpkp99SH | Issue #157 rev.3 matrix lane skip placeholder — evidence gate 修正 | superseded | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |
 | SPEC-034SYN157Kx9mTvQp2w | Issue #157 選択実行(selective execution)有効化 + Ruleset required contexts 移行計画 | superseded | [issue-157-selective-execution.md](./issue-157-selective-execution.md) |
@@ -217,6 +218,7 @@ Directory: `docs/specs`
 | SPEC-rNbdNqOT10RavAY4Hj9RKJ | Issue #86 DoD(2) — import_verified consumer 入口 + digest-kind blob 解決（synvelis-player slice） | implemented | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | SPEC-034Uri8JTbpWmKASolvM4A | RCD-02 Recording Durability Evidence / Recovery Review — synvelis#116 slice | implemented | [rcd-02-durability-evidence-recovery-review.md](./rcd-02-durability-evidence-recovery-review.md) |
 | SPEC-034XHM3cBgw6hRT0wUniFS | RCD-02 residual closeout — Issue #116 AC 照合・canonical lane 実測・gate 棚卸し・簿記 drift 修正 | implemented | [rcd-02-residual-closeout.md](./rcd-02-residual-closeout.md) |
+| SPEC-034YpSBp6LbjHyZJstrgDt | RCD-04 residual closeout — Issue #118 AC 照合・canonical lane 実測・gate 棚卸し・簿記 drift 修正 | implemented | [rcd-04-residual-closeout.md](./rcd-04-residual-closeout.md) |
 | SPEC-034T6XTAVpIPhybzaw7jdh | SV-GPUI-03 Synvelis Product Theme / Workspace Presets — Driver-neutral DTCG overrides・Preset schema・fixtures | implemented | [sv-gpui-03-product-theme-workspace-presets.md](./sv-gpui-03-product-theme-workspace-presets.md) |
 | SPEC-034YnF7HCn1ybs61M9xuu5 | Issue #488 lint-app-native clippy::large_enum_variant 是正 | implemented | [sv488-lint-app-native.md](./sv488-lint-app-native.md) |
 | SPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 slice (synvelis#126) | implemented | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |

@@ -36,6 +36,7 @@ Directory: `docs/test-specs`
 | TSPEC-AUTX07MountWiring | AUTX-07 composition-mount wiring headless test spec（synvelis#266 SV266-NR-05） | approved | [autx-07-mount-wiring.md](./autx-07-mount-wiring.md) |
 | TSPEC-034XKoUXUzjsrGD2SvedHg | AUTX-07 theme status tokens + Script Editor parity test spec（synvelis#266 SV266-NR-02/03） | approved | [autx-07-theme-parity.md](./autx-07-theme-parity.md) |
 | TSPEC-034XPPHPJ34MgINj3z1hDs | AUTX-08 common E2E same-wire contract test spec (synvelis#267) | approved | [autx-08-common-e2e.md](./autx-08-common-e2e.md) |
+| TSPEC-034Yqsf6S1U1JUkYbLDNHU | AUTX-08 Leg C live-adapter leg — 検証仕様 | approved | [autx-08-live-adapter-leg.md](./autx-08-live-adapter-leg.md) |
 | TSPEC-cb01VariantSetFixtureT | CB-01 Creative Branch variant model/controller fixture tests | approved | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | TSPEC-cb02AudioClipTakeCompT | CB-02 Audio Clip/Take/Comp 候補 Adapter fixture tests | approved | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |
 | TSPEC-034XkQVtkDaUEeWhxjkiAf | CB-03 MIDI Clip/Source 候補 Adapter fixture tests | approved | [cb-03-midi-clip-adapter.md](./cb-03-midi-clip-adapter.md) |
@@ -125,6 +126,7 @@ Directory: `docs/test-specs`
 | TSPEC-RCD04Fx9mB3vC7xZ2qW5eR | RCD-04 Comp Transition / MIDI Phrase fixture matrix | proposed | [rcd-04-comp-midi-phrase-fixture.md](./rcd-04-comp-midi-phrase-fixture.md) |
 | TSPEC-034WEVqv4ZmteepjgHJGUL | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID test spec | approved | [rcd-04-midi-undo-stableid.md](./rcd-04-midi-undo-stableid.md) |
 | TSPEC-034VmO7ak9xboyiIKIf80v | RCD-04 product E2E test spec | approved | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
+| TSPEC-034YpVitlyGxkRAEe75uDo | RCD-04 residual closeout — AC 照合・canonical lane・gate 棚卸し検証仕様 | approved | [rcd-04-residual-closeout.md](./rcd-04-residual-closeout.md) |
 | TSPEC-034VC3cbBMDP6D1WnhLGlh | RCD-04 RT engine comp PCM test spec | approved | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
 | TSPEC-034XJDBoNrTZPeWp6kZe5c | RCD-F02 Advanced Monitoring / Overdub / Pre-Punch Handles — Fixture 契約・受入検証仕様（synvelis#120） | approved | [rcd-f02-monitoring-overdub.md](./rcd-f02-monitoring-overdub.md) |
 | TSPEC-rcp01RenderRecipeTests | RCP-01 Canonical Render Recipe / typed dependency closure / temporal invalidation fixture tests | approved | [rcp-01-render-recipe.md](./rcp-01-render-recipe.md) |
