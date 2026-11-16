@@ -1,8 +1,10 @@
-//! AUTX-08 (synvelis#267) — Leg B: one wire, three surfaces.
+//! AUTX-08 (synvelis#267) — Leg B: one wire, three surfaces; Leg C:
+//! the AI/live-adapter surface.
 //!
 //! The headless common-E2E slice freezes the shared contract that the
-//! GUI automation surface, the local CLI session host, and the MCP
-//! adapter all lower into the *same* gateway wire semantics: same
+//! GUI automation surface, the local CLI session host, the MCP
+//! adapter, and the production `GatewayStepLane` live adapter all
+//! lower into the *same* gateway wire semantics: same
 //! capability/schema/project/args/consistency/target/idempotency
 //! dimensions, the same trusted-caller attestation boundary, the same
 //! parse → bind → invoke → authorize pipeline, and the same typed
@@ -15,6 +17,13 @@
 //! never duplicates authority logic: it compares what each surface's
 //! own lowering/attestation produced against the real `Gateway`.
 //!
+//! Leg C exercises the production [`GatewayStepLane`] — the AI
+//! surface's `StepCall` → `step_wire` → `Gateway::handle` path —
+//! through the public [`StepLane`] seam (`invoke` /
+//! `operation_result`). `step_wire` is adapter-internal, so wire
+//! byte equality is not asserted; outcome/error/`DuplicateRequest`
+//! parity on the public surface is the contract (AUTX-E2E-SAME-01).
+//!
 //! Scope honesty: this is the headless slice only. Passing here does
 //! not satisfy real Windows GUI-L2 or EXT-L3 acceptance — those stay
 //! with #114/#267's OS-evidence lane (see `docs/test-specs/
@@ -23,8 +32,11 @@
 mod rig;
 
 use std::collections::BTreeSet;
+use std::sync::{Arc, Mutex};
 
 use serde_json::{Value, json};
+use synvelis_automation::coordinator::{OperationObservation, StepCall, StepLane};
+use synvelis_automation::{GatewayStepLane, VersionedRef};
 use synvelis_gateway::mcp::{CONNECT_METHOD, MCP_ADAPTER_RAW};
 use synvelis_gateway::*;
 use synvelis_workspace::{AutomationCatalog, AutomationViewAction};
@@ -474,4 +486,243 @@ fn autx08_idempotent_replay_names_same_operation() {
         panic!("expected DuplicateRequest on both surfaces");
     };
     assert_eq!(gui_original, cli_original);
+}
+
+// ── Leg C: the AI / live-adapter surface ─────────────────────────────
+//
+// The production `GatewayStepLane` (`synvelis-automation` live
+// adapters, AUTX-06) lowers each `StepCall` through its own
+// adapter-internal `step_wire` producer and dispatches it through the
+// same `Gateway::handle` parse → bind → invoke → authorize pipeline
+// under a `LocalCliAdapter`-attested delegated caller. Parity is
+// asserted on the public `StepLane` surface (`invoke` /
+// `operation_result`), never on wire bytes — the same convention the
+// MCP leg uses for its adapter-internal wire.
+
+/// The production live step lane over a fresh [`compose`] stack —
+/// the same recipe every Leg B surface wraps. The gateway moves
+/// behind the `Arc<Mutex<..>>` the lane locks per dispatch,
+/// [`GatePorts`] supplies the `CommitPort` reconcile seam, and a
+/// `LocalCliAdapter` attests agent principals through
+/// `caller_delegated` — the same delegated-agent identity the CLI
+/// leg's unattended claim produces.
+fn live_lane(with_authority: bool) -> GatewayStepLane {
+    let s = compose(None);
+    if with_authority {
+        issue_agent_authority(&s.ports);
+    }
+    let gateway = Arc::new(Mutex::new(s.gw));
+    let cli = Arc::new(LocalCliAdapter::new(
+        AdapterId::new(CLI_ADAPTER_RAW),
+        Box::new(MemoryCliSessionStore::new()),
+        s.clock.clone(),
+    ));
+    let committer: Arc<dyn CommitPort> = s.ports.clone();
+    GatewayStepLane::new(gateway, cli, committer, s.jobs)
+}
+
+/// The `StepCall` the live lane lowers — the same logical operation
+/// every Leg B surface sends: `synvelis.operation.prepare@1.0`
+/// wrapping `synvelis.midi.note.add` on `source10` (the args shape is
+/// [`note_add_args`]'s `{operation: …}` verbatim), CAS-pinned at
+/// `expected_revision: 1`, under the delegated agent's `t1`/`g1`
+/// authority on `project()`.
+fn live_step_call() -> StepCall {
+    StepCall {
+        capability: VersionedRef::new(PREPARE_CAPABILITY, 1, 0),
+        args: note_add_args(),
+        target: None,
+        expected_revision: Some(1),
+        idempotency_key: IdempotencyKey::new("autx08-live-1").expect("idempotency key"),
+        policy_epoch: None,
+        principal: agent_principal(),
+        project_id: project().to_tagged(),
+        task: Some(task_ref("t1")),
+        grant: Some(grant_ref("g1")),
+    }
+}
+
+/// AUTX-E2E-SAME-01-AI (AI leg): the live lane's `invoke` lands the
+/// same `GatewayOutcome` payload as every Leg B surface — the
+/// delegated agent caller, the `t1`/`g1` binding, the CAS pin, and
+/// the prepare result are wire semantics the lane must not diverge
+/// on. Per-instance counters align because each leg composes the
+/// same recipe and issues exactly one gateway call.
+#[test]
+fn autx08_live_adapter_lands_same_outcome() {
+    let lane = live_lane(true);
+    let live = lane
+        .invoke(&live_step_call())
+        .expect("live prepare completes");
+
+    let (_gui_wire, gui_outcome) = gui_leg(&expected(1), None);
+    let (_cli_wire, cli_outcome) = cli_leg(expected(1), true);
+    let mcp_tool = mcp_prepare_call(true, 1);
+
+    let cli = cli_outcome.expect("cli prepare completes");
+    assert_eq!(live, cli, "live lane vs CLI surface outcome diverges");
+    let gui = gui_outcome.expect("gui prepare completes");
+    assert_eq!(live, gui, "live lane vs GUI surface outcome diverges");
+    assert_eq!(
+        mcp_tool["isError"],
+        json!(false),
+        "mcp prepare failed: {mcp_tool}"
+    );
+    assert_eq!(
+        &complete(live),
+        mcp_structured(&mcp_tool),
+        "live lane result payload diverges from the MCP surface"
+    );
+}
+
+/// AUTX-E2E-FAILCLOSED-AI-01 (AI leg): an unservable
+/// `expected-revision` fails with the same typed `ErrorEnvelope` —
+/// `SnapshotExpired` is snapshot-seam semantics carried on the wire,
+/// not adapter policy. The MCP projection parity matches the Leg B
+/// convention (`ExternalError`, diagnostics stripped).
+#[test]
+fn autx08_live_adapter_unavailable_revision_fails_identically() {
+    let lane = live_lane(true);
+    let mut call = live_step_call();
+    call.expected_revision = Some(99);
+    let live_err = lane
+        .invoke(&call)
+        .expect_err("unservable revision must fail");
+    assert!(
+        matches!(live_err.code, GatewayError::SnapshotExpired),
+        "expected SnapshotExpired, got {:?}",
+        live_err.code
+    );
+
+    let (_gui_wire, gui_outcome) = gui_leg(&expected(99), None);
+    let (_cli_wire, cli_outcome) = cli_leg(expected(99), true);
+    let mcp_tool = mcp_prepare_call(true, 99);
+
+    let gui_err = gui_outcome.expect_err("unservable revision must fail");
+    let cli_err = cli_outcome.expect_err("unservable revision must fail");
+    assert_eq!(
+        *live_err, cli_err,
+        "live lane vs CLI error envelope diverges"
+    );
+    assert_eq!(gui_err, cli_err, "GUI vs CLI error envelope diverges");
+    assert_eq!(
+        mcp_tool["isError"],
+        json!(true),
+        "mcp unservable revision must fail: {mcp_tool}"
+    );
+    let external = serde_json::to_value(live_err.to_external()).expect("external error serializes");
+    assert_eq!(
+        mcp_structured(&mcp_tool)
+            .get("error")
+            .expect("error payload"),
+        &external,
+        "MCP error projection diverges from the live lane envelope"
+    );
+}
+
+/// AUTX-E2E-FAILCLOSED-AI-02 (AI leg): a delegated agent `StepCall`
+/// without task/grant authority fails closed with the same typed
+/// denial the CLI/MCP legs produce — `attest` mints the delegated
+/// agent caller but the lane never fabricates authority the wire
+/// does not carry.
+#[test]
+fn autx08_live_adapter_without_authority_fails_closed() {
+    let lane = live_lane(false);
+    let mut call = live_step_call();
+    call.task = None;
+    call.grant = None;
+    let live_err = lane
+        .invoke(&call)
+        .expect_err("agent without task/grant must fail");
+
+    let (_cli_wire, cli_outcome) = cli_leg(expected(1), false);
+    let cli_err = cli_outcome.expect_err("agent without task/grant must fail");
+    assert_eq!(*live_err, cli_err, "live lane vs CLI denial diverges");
+
+    let mcp_tool = mcp_prepare_call(false, 1);
+    assert_eq!(
+        mcp_tool["isError"],
+        json!(true),
+        "mcp agent without authority must fail: {mcp_tool}"
+    );
+    let external = serde_json::to_value(cli_err.to_external()).expect("external error serializes");
+    assert_eq!(
+        mcp_structured(&mcp_tool)
+            .get("error")
+            .expect("error payload"),
+        &external,
+        "MCP denial diverges from the live lane envelope"
+    );
+}
+
+/// AUTX-E2E-IDEM-AI (AI leg): replaying the same `StepCall` — the lane
+/// mints a fresh `wf-req-*` request id per invoke, the production
+/// retry shape — surfaces `DuplicateRequest{original}` naming the
+/// same operation the Leg B CLI replay names on an identically
+/// composed stack, and `operation_result` reconciles the original
+/// to the recorded `Settled` outcome.
+#[test]
+fn autx08_live_adapter_duplicate_reconciles_original() {
+    let lane = live_lane(true);
+    let call = live_step_call();
+    let first = lane.invoke(&call).expect("first invoke completes");
+    let err = lane
+        .invoke(&call)
+        .expect_err("keyed replay must not re-execute");
+    let GatewayError::DuplicateRequest { original } = err.code else {
+        panic!("expected DuplicateRequest, got {:?}", err.code);
+    };
+
+    // The lane's reconcile read returns the recorded keyed outcome —
+    // the same `Completed` payload the first invoke produced.
+    match lane.operation_result(&original) {
+        OperationObservation::Settled(GatewayOutcome::Completed { result }) => {
+            assert_eq!(result, complete(first));
+        }
+        other => panic!("expected Settled(Completed), got {other:?}"),
+    }
+
+    // The Leg B CLI surface replaying the same idempotency key on an
+    // identically-composed stack names the same original operation —
+    // ledger semantics are wire semantics on the live lane too.
+    let s_cli = compose(None);
+    issue_agent_authority(&s_cli.ports);
+    let cli_wire = {
+        let mut w = wire(
+            PREPARE_CAPABILITY,
+            note_add_args(),
+            Some("t1"),
+            Some("g1"),
+            expected(1),
+        );
+        w["idempotency_key"] = json!("autx08-live-1");
+        w
+    };
+    let host = HeadlessSessionHost::new(
+        s_cli.gw,
+        Box::new(MemoryCliSessionStore::new()),
+        s_cli.ports.clone(),
+        s_cli.ports.clone(),
+        s_cli.clock.clone(),
+        AdapterId::new(CLI_ADAPTER_RAW),
+    );
+    let claim = CliSessionClaim::Unattended {
+        principal: "mcp-client-1".to_owned(),
+    };
+    assert!(matches!(
+        host.handle_claim(&cli_wire, &claim),
+        Ok(GatewayOutcome::Completed { .. })
+    ));
+    let mut cli_replay_wire = cli_wire.clone();
+    cli_replay_wire["request_id"] = json!("autx08-cli-replay");
+    let cli_replay = host
+        .handle_claim(&cli_replay_wire, &claim)
+        .expect_err("keyed replay must not re-execute");
+    let GatewayError::DuplicateRequest {
+        original: cli_original,
+    } = cli_replay.code
+    else {
+        panic!("expected DuplicateRequest on the CLI leg");
+    };
+    assert_eq!(original, cli_original);
 }
