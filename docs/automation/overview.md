@@ -39,6 +39,14 @@ Owner 境界・依存 DAG の canonical 文書セットである。
 
 | 文書 | status |
 | --- | --- |
-| spec.md | draft（review-protocol レビューで承認へ） |
-| design-*.md | draft（同上） |
-| plan.md / tasks.md | draft（同上） |
+| spec.md | approved |
+| design-*.md | approved |
+| plan.md / tasks.md | approved |
+
+2026-11 追記: review-protocol レビューは blocker なしで通過済み
+（spec.md AC-6 チェック済み）。AUTX-01〜07 / SV-SCRIPT-01〜03 の
+実装が main に着地（sv#260〜#267・#272/#273 系の PR 群 —
+例: AUTX-02 は PR #423、SV-SCRIPT-02 は PR #438、AUTX-04
+GW-04 seam は PR #471）し、Gate A（契約承認）・実装ゲートとも
+充足 — 語彙は `docs/designs/` の `status: "approved"` に
+合わせる。

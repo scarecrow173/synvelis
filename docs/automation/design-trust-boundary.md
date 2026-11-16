@@ -10,7 +10,7 @@
 
 ```
 PrincipalKind: Human | Agent
-OriginKind:    ManualUi | ExternalAdapter | TestFixture
+OriginKind:    ManualUi | ExternalAdapter | TestFixture | LocalCli
 AdapterSeal:   crate 内部のみ発行可能な unforgeable token
 CallerIdentity: Principal + OriginKind + AdapterId（seal 経由でのみ生成）
 ```
@@ -30,11 +30,23 @@ CLI は「どの OS ユーザーが起動したか」「TTY があるか」「�
 
 | CLI セッション | OriginKind | PrincipalKind | 根拠 |
 | --- | --- | --- | --- |
-| 人間が対話的に操作するローカル CLI | `ExternalAdapter`（新設 headless adapter） | `Human` | adapter が trusted local session を attest した場合のみ |
-| 無人/CI/エージェント起動の CLI | `ExternalAdapter` | `Agent` | 人間の対話的 session が存在しない |
+| 人間が対話的に操作するローカル CLI | `LocalCli` | `Human` | adapter が verified interactive session credential を attest した場合のみ（`LocalCliAdapter::caller_verified`） |
+| 無人/CI/エージェント起動の CLI | `LocalCli` | `Agent` | 人間の対話的 session が存在しない。delegated path（`caller_delegated`/`attest` unverified claim）は常に `Agent` — `Human` に到達する経路なし |
 | 将来の外部 MCP transport | `ExternalAdapter` | `Agent`（または attested Human） | GW-08 の channel kind 判定 |
 | GUI 内蔵 adapter | `ManualUi` | `Human` | 既存 `ManualUi` 経路 |
 | 契約テスト | `TestFixture` | （fixture） | 本番経路では発行しない |
+
+**2026-11 追記（実装反映）**: `OriginKind::LocalCli` は AUTX-02
+（PR #423、merged 2026-11-14）で `request.rs` に追加された。
+当初本表は CLI session を `ExternalAdapter` に写像していたが、
+実装は trusted local CLI adapter 専用の `LocalCli` を持つ。
+`Human+LocalCli` は `Human+ExternalAdapter` と全 engine 経路で
+同一 verdict — `is_external`/`authorize_disclosure` は
+`PrincipalKind::Agent` で判定され、`Human` principal は
+`PermitForStage` で short-circuit するため（sv261 台帳
+`evidence/sv261/autx-02-cli-adapter-ledger.md` の behavior
+差なし記録どおり）。`authority_class()` は `(kind, origin)` のみに
+写像し wire・引数・env・TTY を参照しない。
 
 **重要**: `OriginKind`/`PrincipalKind`/`AdapterSeal` の発行権限は
 **adapter 実装（trusted host 側）にのみ存在**し、CLI 引数・環境変数・

@@ -63,6 +63,15 @@ StagedFile 移行」の OS-L1 証拠照合記録。**CI leg の green を
   `daily-ci.yml` の次回 cron dispatch（21:29 UTC）も未到来。
   正確な SHA の CI 証拠は **NotRun（pending）** として記録し、
   推測で補わない。
+  - **追記（2026-11）**: covering run
+    [43827663914](https://github.com/scarecrow173/synvelis/actions/runs/43827663914)
+    — `workflow_dispatch`、2026-11-16T07:59Z、head_sha
+    `8123fff3`（`c0b000b3` の子孫であり対象コードを含有）、
+    **全 job success（green）**。`git diff
+    c0b000b3..8123fff3` で本書の fixture binary
+    （`store_publish`/`head_cas`/`controller_store`）は
+    byte 同一、`src/store.rs` 差分は `SCHEMA_VERSION`
+    13→14 定数と doc のみ（#278 variant_sets）。
 - **採用した covering run**:
   [43428177865](https://github.com/scarecrow173/synvelis/actions/runs/43428177865)
   — `workflow_dispatch`（actor `scarecrow173`）、
@@ -197,7 +206,7 @@ R1/R8 どおり）。`Indeterminate` publish の recovery handle も
 
 | gate | 要求状態 | 結果 | 根拠・委譲先 |
 | --- | --- | --- | --- |
-| 対象 SHA `c0b000b3` の ci.yml run | Required（統合受入） | **NotRun（pending）** | merge 直後で未 dispatch。次回 daily-ci（21:29 UTC cron）または手動 `workflow_dispatch` で実走予定。nearest-SHA 証拠は上記のとおり関連 code byte 同一を確認済み |
+| 対象 SHA `c0b000b3` の ci.yml run | Required（統合受入） | **NotRun（pending）** | merge 直後で未 dispatch。次回 daily-ci（21:29 UTC cron）または手動 `workflow_dispatch` で実走予定。nearest-SHA 証拠は上記のとおり関連 code byte 同一を確認済み。**追記（2026-11）**: covering run [`43827663914`](https://github.com/scarecrow173/synvelis/actions/runs/43827663914)（head_sha `8123fff3`・`c0b000b3` の子孫）が全 job success — fixture/store 対象 code path 差分なし（`SCHEMA_VERSION` bump のみ）で本 run が対象コードを実質カバー |
 | Linux/macOS 通常 FS の syn-io-02 fixture | Required（OS-L1） | **Pass** | ubuntu-latest / macos-latest leg で 8/16/11 tests 全て `ok`（`std::env::temp_dir` 実 FS） |
 | Windows CI leg（windows-latest runner）の同 fixture | Required（OS-L1） | **Pass（CI 証拠）** | windows-latest leg で 8/16/11 tests 全て `ok`。ただし GitHub-hosted runner であり下記実機 Case の代替ではない |
 | Windows NTFS 実機 Case（Snapshot CreateNew→HEAD CAS/Crash→Recovery、Failed/Indeterminate で HEAD 誤進行なし） | Required（Windows L2/L3・提供機能の最終受入） | **Pass（process-kill/Failed 範囲）— Indeterminate・真 power-loss は NotRun 継続** | opt-in lane `mise run test-project-real-fs`（`tests/real_fs_probe.rs`・`#[ignore]`・CI 対象外）を実 Windows 11/NTFS で実走: SV84-REAL-01/02/03 Pass（kill-mid-publish→reopen 不変条件・stale `HEAD.lock` break を伴う `save_cas` retry 回復・Failed/`Conflict` で HEAD 非進行）。Indeterminate 誘発は非破壊的に不能・power-loss は自動化不能のため NotRun。実測詳細は `evidence/reports/syn-io-02-windows-real-fs.md` |
