@@ -184,6 +184,7 @@ Directory: `docs/test-specs`
 | TSPEC-034XjK2mQpRsTuVwXyZab1 | SV-SCRIPT-02 ActionRecipe→Gateway/Atomic Batch 統合 invariants | approved | [sv-script-02-luau-action-script.md](./sv-script-02-luau-action-script.md) |
 | TSPEC-034Xl5p51hMFBCqjv2UI5O | sv-script-03-workflow-plan | approved | [sv-script-03-workflow-plan.md](./sv-script-03-workflow-plan.md) |
 | TSPEC-034XnRBxxGiEcCQWGPb3oW | sv-script-04-script-editor | approved | [sv-script-04-script-editor.md](./sv-script-04-script-editor.md) |
+| TSPEC-034Yr9OWSvOrAfLqvNTpWC | Issue #114 synvelis-app recorder session owner + syn.recorder.* headless wire | approved | [sv114-gui-option-b-recorder-wire.md](./sv114-gui-option-b-recorder-wire.md) |
 | TSPEC-Wa6Ax4SQSRfWvuKIzs8fCf | SV175-01 検証仕様: NativeShell lifecycle + ViewBinding wire 形 | approved | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TSPEC-zjbHKZf81iknbLJPzohrKC | SV175-02 検証仕様: ViewHost mount → typed binding → lifecycle | approved | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TSPEC-034T7Ieio7KRMC297yqbIs | SV177 theme contract + workspace preset headless verification | approved | [sv177-theme-preset-contract.md](./sv177-theme-preset-contract.md) |
