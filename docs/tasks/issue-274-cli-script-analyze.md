@@ -1,7 +1,7 @@
 ---
 id: "TASK-034YDhY9pqCERJWLjMaGyX"
 type: "task"
-status: "in-progress"
+status: "completed"
 title: "issue-274-cli-script-analyze — task 分解"
 created: "2026-11-16"
 updated: "2026-11-16"
@@ -42,15 +42,31 @@ relations:
 
 | # | task | 状態 |
 | --- | --- | --- |
-| T1 | `args.rs`: `Command::ScriptAnalyze`・`parse_script`（analyze のみ許可）・`--cursor`・doc/test | pending |
-| T2 | `analyze.rs` 新規: `classify_language`・pipeline・error 写像・envelope/human | pending |
-| T3 | `commands.rs`/`lib.rs`/`main.rs`: dispatch・module export・HELP | pending |
-| T4 | `tests/cli_analyze.rs` 実バイナリ e2e（happy/fail-closed/human） | pending |
-| T5 | 検証（fmt/check/lint/test/build-cli/automation+script check/headless-deps/prek）+ evidence ledger + docs chain 完了 | pending |
+| T1 | `args.rs`: `Command::ScriptAnalyze`・`parse_script`（analyze のみ許可）・`--cursor`・doc/test | done |
+| T2 | `analyze.rs` 新規: `classify_language`・pipeline・error 写像・envelope/human | done |
+| T3 | `commands.rs`/`lib.rs`/`main.rs`: dispatch・module export・HELP | done |
+| T4 | `tests/cli_analyze.rs` 実バイナリ e2e（happy/fail-closed/human） | done |
+| T5 | 検証（fmt/check/lint/test/build-cli/automation+script check/headless-deps/prek）+ evidence ledger + docs chain 完了 | done |
 
 ## 検証済み事項（Windows headless）
 
-（実装後に記録）
+実装・検証ともに完了（PR #509、branch
+`feat/274-cli-script-analyze`、base `b5a8919`）。canonical =
+mise、全て exit 0:
+
+- `mise run fmt-check` / `check-cli` / `lint-cli`（`-D warnings`
+  warning 0）/ `test-cli`（args unit + `cli_analyze` 9 +
+  `cli_e2e` 26 全 Pass）/ `build-cli`
+- `mise run check synvelis-automation` / `check synvelis-script`
+  （consume 側非回帰）
+- `mise run check-headless-deps`（12 headless crates に GUI
+  deps なし）
+- `mise exec -- prek run --all-files` / `git diff --check`
+- `git merge origin/main` → Already up to date（Cargo.lock
+  差分なし）
+
+実測の内訳は `evidence/sv274/issue-274-cli-script-analyze-ledger.md`
+を参照。
 
 ## NotRun / Deferred（外部 gate）
 

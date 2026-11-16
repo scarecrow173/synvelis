@@ -41,6 +41,7 @@ relations:
   superseded-by: []
   related:
     - "docs/impl/ir/issue-262-run-file-real-vm.md"
+    - "docs/impl/exp/issue-274-cli-script-analyze.md"
   refines: []
   refined-by: []
   derives-from:
@@ -137,7 +138,9 @@ spec `docs/specs/issue-274-cli-script-analyze.md` の R1-R9 を
 ### Adopted
 
 なし（代替実装の実験は行っていない — verb 命名は Spec で
-確定済み、既存 seam のみ使用）。
+確定済み、既存 seam のみ使用。
+`docs/impl/exp/issue-274-cli-script-analyze.md` に「no
+experiments」の記録を残した）。
 
 ### Rejected
 
