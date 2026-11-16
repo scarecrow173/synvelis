@@ -62,6 +62,7 @@ Directory: `docs/tasks`
 | TASK-034UogPe6cIh8LtcFphyuH | SV-GUI-04 slice1 precursor: multi-window WindowHandle + headless dock fixture | in-progress | [sv-gui-04-01-headless-window-handle-dock.md](./sv-gui-04-01-headless-window-handle-dock.md) |
 | TASK-NFJWSkocsf8xf7WcgpPdL0 | SV-GUI-04 slice1 タスク分解 — 実 2-window mount | in-progress | [sv-gui-04-01-two-window-slice1.md](./sv-gui-04-01-two-window-slice1.md) |
 | TASK-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01: mixer.gain domain projection — master strip Fader bootstrap + Fader 接続 | in-progress | [sv185-01-mixer-gain-fader.md](./sv185-01-mixer-gain-fader.md) |
+| TASK-5AchgRcnLXfPdB4SMDuk5n | sv293 semantic→selection integration タスク (synvelis#293 deferred residual slice) | completed | [sv293-semantic-selection-integration.md](./sv293-semantic-selection-integration.md) |
 | TASK-ibJUI1kRs2FdkuegWR0Ln7 | TIM-01 PPQN config — punch marks 再投影と受入残件検証タスク | in-progress | [tim-01-ppqn-config-task.md](./tim-01-ppqn-config-task.md) |
 | TASK-034XzQStcKCOQBnq9rBjtq | TIM-03 Loop/Tempo boundary 自動導出 — 実装タスク | in-progress | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
 | TASK-034X7xdqyxRcd5A5TSwmzT | Transport Integration Task — Issue #20 design contract + TT evidence ledger | in-progress | [transport-integration-task.md](./transport-integration-task.md) |

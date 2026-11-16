@@ -6,6 +6,7 @@ Directory: `docs/discovery`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| DISC-UFuXWskbvDWdDScv2CA8XP | sv293 semantic→selection integration 調査記録 (synvelis#293 deferred residual) | completed | [sv293-semantic-selection-integration.md](./sv293-semantic-selection-integration.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
 

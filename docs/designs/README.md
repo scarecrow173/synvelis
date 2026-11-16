@@ -169,6 +169,7 @@ Directory: `docs/designs`
 | DESIGN-2z5KtdGhRdUvPQ0fJobGHe | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界（abb9f372 → cbcc8343） | approved | [sv28-ruviform-pin-cbcc8343.md](./sv28-ruviform-pin-cbcc8343.md) |
 | DESIGN-43KJVuVRlioN1JtUFVuqtW | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
 | DESIGN-AyDQMCLnAv4MbV3s4qnT8D | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界（9865cd57 → fd1d4d5f） | approved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
+| DESIGN-XIH1YjE7gCOlIHlrIPt8Rn | sv293 semantic→selection integration 設計 (synvelis#293 deferred residual slice) | approved | [sv293-semantic-selection-integration.md](./sv293-semantic-selection-integration.md) |
 | DESIGN-034YnFdVxCjVKSDV4JZaWa | Issue #488 lint-app-native clippy::large_enum_variant 是正 — 設計 | approved | [sv488-lint-app-native.md](./sv488-lint-app-native.md) |
 | DSGN-SvtE2e02aB2cD3eF4gH5iJ7 | SV-GUI-05: SVT-01〜09 Headless UI Scenario 設計 | approved | [svt-product-e2e-design.md](./svt-product-e2e-design.md) |
 | DESIGN-034Uvylguz0kZUgy1zbseh | SYN-IO-01 Ruviform 共通 I/O 適合境界設計 | approved | [syn-io-01-ruviform-io-boundary-design.md](./syn-io-01-ruviform-io-boundary-design.md) |
