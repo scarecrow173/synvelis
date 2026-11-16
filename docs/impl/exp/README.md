@@ -11,4 +11,5 @@ Directory: `docs/impl/exp`
 | [rcd-04-residual-closeout-exp.jsonl](./rcd-04-residual-closeout-exp.jsonl) |
 | [sv-gpui-02-plugin-dock-gate.jsonl](./sv-gpui-02-plugin-dock-gate.jsonl) |
 | [sv-script-04-script-editor-analyzer-registry-port-level-adapter-viewspec.jsonl](./sv-script-04-script-editor-analyzer-registry-port-level-adapter-viewspec.jsonl) |
+| [sv293-semantic-selection-integration-exp.jsonl](./sv293-semantic-selection-integration-exp.jsonl) |
 | [sv488-lint-app-native-exp.jsonl](./sv488-lint-app-native-exp.jsonl) |
