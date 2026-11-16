@@ -55,6 +55,7 @@ Directory: `docs/impl/ir`
 | IMPL-AUTX07MountWiring | AUTX-07 composition-mount wiring + autx.* action dispatch（synvelis#266 SV266-NR-05） | completed | [autx-07-mount-wiring.md](./autx-07-mount-wiring.md) |
 | IMPL-034XKoNx7I2brmiVo8RNSa | AUTX-07 theme status tokens + #274 parity check（SV266-NR-02/03 slice、synvelis#266） | completed | [autx-07-theme-parity.md](./autx-07-theme-parity.md) |
 | IMPL-034XPPHljpLlwZnXXOhLBE | AUTX-08 headless common E2E slice — same-wire 3-surface contract test (synvelis#267) | completed | [autx-08-headless-common-e2e-slice-same-wire-3-surface-contract-test-synvelis-267.md](./autx-08-headless-common-e2e-slice-same-wire-3-surface-contract-test-synvelis-267.md) |
+| IMPL-034YqsnyJeTYCw8WID3wqz | AUTX-08 Leg C live-adapter leg — AI surface same-wire contract test (synvelis#267) | completed | [autx-08-live-adapter-leg.md](./autx-08-live-adapter-leg.md) |
 | IMPL-cb01-variant-set | CB-01 VariantSet/Scope/Lineage・ProjectController Fork/Edit/Adopt/Undo・永続Schema — Headless スライス | completed | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | IMPL-cb02-audio-clip-adapter | CB-02 Audio Clip/Take/Comp 候補 Adapter — Raw Source 不変・加工比較・Adopt（synvelis#279） | completed | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |
 | IMPL-034XkoKBFx6VCR0iVHzGas | CB-03 MIDI Clip/Source 候補 Adapter — Native Event 保持・Note Diff・同一 Instrument 比較（synvelis#280） | completed | [cb-03-midi-clip-adapter.md](./cb-03-midi-clip-adapter.md) |

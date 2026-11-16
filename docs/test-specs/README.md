@@ -36,6 +36,7 @@ Directory: `docs/test-specs`
 | TSPEC-AUTX07MountWiring | AUTX-07 composition-mount wiring headless test spec（synvelis#266 SV266-NR-05） | approved | [autx-07-mount-wiring.md](./autx-07-mount-wiring.md) |
 | TSPEC-034XKoUXUzjsrGD2SvedHg | AUTX-07 theme status tokens + Script Editor parity test spec（synvelis#266 SV266-NR-02/03） | approved | [autx-07-theme-parity.md](./autx-07-theme-parity.md) |
 | TSPEC-034XPPHPJ34MgINj3z1hDs | AUTX-08 common E2E same-wire contract test spec (synvelis#267) | approved | [autx-08-common-e2e.md](./autx-08-common-e2e.md) |
+| TSPEC-034Yqsf6S1U1JUkYbLDNHU | AUTX-08 Leg C live-adapter leg — 検証仕様 | approved | [autx-08-live-adapter-leg.md](./autx-08-live-adapter-leg.md) |
 | TSPEC-cb01VariantSetFixtureT | CB-01 Creative Branch variant model/controller fixture tests | approved | [cb-01-variant-set.md](./cb-01-variant-set.md) |
 | TSPEC-cb02AudioClipTakeCompT | CB-02 Audio Clip/Take/Comp 候補 Adapter fixture tests | approved | [cb-02-audio-clip-adapter.md](./cb-02-audio-clip-adapter.md) |
 | TSPEC-034XkQVtkDaUEeWhxjkiAf | CB-03 MIDI Clip/Source 候補 Adapter fixture tests | approved | [cb-03-midi-clip-adapter.md](./cb-03-midi-clip-adapter.md) |
