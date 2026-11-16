@@ -31,6 +31,7 @@ Directory: `docs/test-specs`
 | TSPEC-034XKWxA9AoYLrFXHqkdyU | AUTX-04-F02 GW-04 bindings scratch-ID/rewrite seam — create-then-reference invariants | approved | [autx-04-f02-gw04-bindings.md](./autx-04-f02-gw04-bindings.md) |
 | TSPEC-7kQm2XvB9pLw4RtY6uN3sD | AUTX-05 Workflow DSL v1 — YAML safe subset・typed definition・static plan compile invariants | approved | [autx-05-workflow-dsl.md](./autx-05-workflow-dsl.md) |
 | TSPEC-034XLays6iHG9Vsyioz6V3 | AUTX-06 live adapters — real authority wire path・duplicate reconcile・honest cancel | approved | [autx-06-live-adapters.md](./autx-06-live-adapters.md) |
+| TSPEC-034YxO2tq4RLbek1FBF5qf | AUTX-06 Mixed-Source Workflow Run Parity — YAML/Luau/Rhai → ExecutablePlan → 同一 WorkflowCoordinator FSM | approved | [autx-06-mixed-source-run.md](./autx-06-mixed-source-run.md) |
 | TSPEC-Mx7rT2vQ8wN4kP6yB1dF3h | AUTX-06 Workflow Coordinator — Run/Step FSM・journal replay・cancel/resume fault matrix | approved | [autx-06-workflow-coordinator.md](./autx-06-workflow-coordinator.md) |
 | TSPEC-AUTX07GuiViewsHeadless | AUTX-07 GUI views headless test spec（synvelis#266） | approved | [autx-07-gui-views.md](./autx-07-gui-views.md) |
 | TSPEC-AUTX07MountWiring | AUTX-07 composition-mount wiring headless test spec（synvelis#266 SV266-NR-05） | approved | [autx-07-mount-wiring.md](./autx-07-mount-wiring.md) |
