@@ -12,5 +12,7 @@ workspace = true
 serde.workspace = true
 serde_json.workspace = true
 synvelis-automation = { path = "../synvelis-automation" }
+synvelis-script = { path = "../synvelis-script" }
+synvelis-script-luau = { path = "../synvelis-script-luau" }
 synvelis-gateway = { path = "../synvelis-gateway" }
 synvelis-project = { path = "../synvelis-project" }
