@@ -7328,7 +7328,9 @@ dependencies = [
 name = "synvelis-workspace"
 version = "0.1.0"
 dependencies = [
+ "ruviform-audio-core",
  "ruviform-exec",
+ "ruviform-graph",
  "ruviform-media-core",
  "ruviform-plugin-core",
  "ruviform-rt",

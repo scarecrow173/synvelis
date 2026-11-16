@@ -34,6 +34,7 @@ pub mod persist;
 pub mod ppqn_ui;
 pub mod preset;
 pub mod probe_trace;
+pub mod rcp_selection;
 pub mod recording_status;
 pub mod relation_ui;
 pub mod render_ui;
@@ -116,6 +117,11 @@ pub use preset::{
     PresetViewState, PresetWindow, WorkspacePreset,
 };
 pub use probe_trace::{ProbeDrainReport, ProbePrincipal, ProbeReleaseReport, ProbeTraceError};
+pub use rcp_selection::{
+    PlanDrive, ProcessorPluginEvidence, SelectionBuildError, SelectionInputs, SelectionPlanDrive,
+    SelectionResolution, SemanticRenderCandidate, SemanticRenderCoverage, drive_selection_plan,
+    resolve_selection,
+};
 pub use render_ui::{
     ACTION_RENDER_ATTACH, ACTION_RENDER_CANCEL, ACTION_RENDER_INSPECT, ACTION_RENDER_PLAN,
     ACTION_RENDER_PUBLISH, ACTION_RENDER_REMOTE, ACTION_RENDER_REQUEST, ACTION_RENDER_RETRY,
