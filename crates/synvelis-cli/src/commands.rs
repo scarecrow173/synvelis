@@ -16,6 +16,7 @@ use synvelis_project::{
     CounterIdGenerator, DirectoryBundleStore, ProjectController, ProjectId, head_revision,
 };
 
+use crate::analyze;
 use crate::args::{Args, Command, OperationFlags};
 use crate::envelope::{CliEnvelope, EnvelopeStatus};
 use crate::error::CliError;
@@ -66,6 +67,7 @@ pub fn run(args: &Args) -> Result<CommandResult, CliError> {
             inputs,
             inputs_file,
         } => run_file(args, file, inputs.as_ref(), inputs_file.as_deref()),
+        Command::ScriptAnalyze { file, cursor } => analyze::analyze_command(args, file, *cursor),
         Command::ProjectInfo => project_info(args),
         Command::Render { output } => render(args, output),
     }
@@ -289,7 +291,7 @@ pub(crate) fn result(envelope: CliEnvelope, exit_code: u8, human: Option<String>
     }
 }
 
-fn reject_dry_run(args: &Args, command: &str) -> Result<(), CliError> {
+pub(crate) fn reject_dry_run(args: &Args, command: &str) -> Result<(), CliError> {
     if args.dry_run {
         Err(CliError::Usage(format!(
             "--dry-run is not meaningful for {command}"

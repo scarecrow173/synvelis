@@ -59,6 +59,12 @@ COMMANDS:
                                    compiles to a plan and drives the
                                    WorkflowCoordinator over live
                                    Gateway lanes
+    script analyze --file <path> [--cursor <byte-offset>]
+                                   Statically analyze a script source
+                                   (.luau; .rhai has no analyzer yet —
+                                   fails closed). No project and no
+                                   execution: diagnostics and
+                                   completions only
     project info --project <path>  Show project id/name/revision
     render --project <path> --output <path>
                                    Render media (provider not wired —
@@ -73,8 +79,9 @@ OPERATION OPTIONS (prepare/invoke):
     --task <ref> --grant <ref>     Authorized task / grant references
     --idempotency-key <key>        Idempotency identity
 
-There is no `script run` command and no `--script` flag — script entry
-is `action run --file` / `workflow run --file` only.
+There is no `script run` command and no `--script` flag — `script
+analyze` is static analysis only; script execution entry is
+`action run --file` / `workflow run --file`.
 
 EXIT CODES:
     0 completed/proposal-ready/approval-required   5 unsupported

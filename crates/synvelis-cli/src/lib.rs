@@ -17,9 +17,12 @@
 //! - [`exitcode`] — deterministic outcome/error → exit-code mapping.
 //! - [`script`] — `--file` extension/kind/language/backend
 //!   fail-closed classification (AUTX-CLI-FILE-01).
+//! - [`analyze`] — `script analyze --file` headless Script Analyzer
+//!   pipeline (AUTX-SCR-ANA-01).
 //! - [`host`] — gateway/session/project boot composition.
 //! - [`commands`] — command implementations.
 
+pub mod analyze;
 pub mod args;
 pub mod commands;
 pub mod envelope;
