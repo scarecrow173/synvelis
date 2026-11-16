@@ -218,6 +218,7 @@ Directory: `docs/tasks`
 | TASK-6q3mKoDF4oDwOgkoL86SR4 | SV-GUI-03 slice6 Keyboard/Gesture key-assignment contract 文書チェーン | done | [sv-gui-03-06-keyboard-gesture-task.md](./sv-gui-03-06-keyboard-gesture-task.md) |
 | TASK-034Uqxo9HW4eRKeVH5w5PU | SV-GUI-04 slice2 タスク分解 — close-veto/cancel | done | [sv-gui-04-02-close-veto.md](./sv-gui-04-02-close-veto.md) |
 | TASK-7fK2mQ9xR4vN8pLs3tYw6u | SV-GUI-04 slice2 タスク分解 — dock transfer workspace adoption + GUI op 配線 | done | [sv-gui-04-slice2-dock-transfer-workspace-adoption.md](./sv-gui-04-slice2-dock-transfer-workspace-adoption.md) |
+| TASK-034Yraj4Zj1N5X2FqPuPNs | Issue #114 synvelis-app recorder session owner + syn.recorder.* headless wire | done | [sv114-gui-option-b-recorder-wire.md](./sv114-gui-option-b-recorder-wire.md) |
 | TASK-hSG0A7xXhnXVL7exOdhVuV | SV175-01: NativeShell・ViewBinding・native feature lane 実装 | done | [sv175-01-native-shell-binding.md](./sv175-01-native-shell-binding.md) |
 | TASK-pIf6c5QRXRonGNwoqfvJgY | SV175-02: Native view mount — 最小 Tab/Panel/Fader 縦slice | done | [sv175-02-native-view-mount.md](./sv175-02-native-view-mount.md) |
 | TASK-034T7IgIHI7umPL7xCvU3u | SV177 theme crate + preset module implementation | done | [sv177-theme-preset-impl.md](./sv177-theme-preset-impl.md) |
