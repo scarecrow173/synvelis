@@ -24,11 +24,13 @@
 //! `synvelis-cli.policy.log`, `synvelis-cli.commit.journal`.
 
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde_json::Value;
 use synvelis_gateway::capability::CapabilityDescriptor;
-use synvelis_gateway::cli::{CLI_ADAPTER_RAW, CliSessionClaim, MemoryCliSessionStore};
+use synvelis_gateway::cli::{
+    CLI_ADAPTER_RAW, CliSessionClaim, LocalCliAdapter, MemoryCliSessionStore,
+};
 use synvelis_gateway::clock::SystemClock;
 use synvelis_gateway::commit::{CommitGate, GateDeps, MutexFence, PolicyAdmin};
 use synvelis_gateway::context::{ContextBudget, NoSelectionSource};
@@ -38,7 +40,7 @@ use synvelis_gateway::gateway::Gateway;
 use synvelis_gateway::grant::ResourceOracle;
 use synvelis_gateway::headless::HeadlessSessionHost;
 use synvelis_gateway::id::AdapterId;
-use synvelis_gateway::mcp_server::{AdminPort, CommitPort};
+use synvelis_gateway::mcp_server::{AdminPort, CommitPort, NoAdminPort, NoCommitPort};
 use synvelis_gateway::outcome::ErrorEnvelope;
 use synvelis_gateway::policy::GrantPolicy;
 use synvelis_gateway::prepare::PrepareAuthorizer;
@@ -70,8 +72,10 @@ const APPROVAL_TTL_MS: u64 = 30_000;
 const POLICY_LOG_NAME: &str = "synvelis-cli.policy.log";
 const COMMIT_JOURNAL_NAME: &str = "synvelis-cli.commit.journal";
 
-/// A booted session: the headless host plus the registry snapshot the
-/// CLI captured before the gateway moved into the host's mutex.
+/// A booted session: the headless host plus every registry/script
+/// artifact the composition captured *before* the gateway moved into
+/// the host's shared mutex (synvelis#262 — the captures are the
+/// run-file lanes' plan-compile and script-eval inputs).
 pub struct Booted {
     /// The session host — `handle_claim` is the only request entry.
     pub host: HeadlessSessionHost,
@@ -80,6 +84,39 @@ pub struct Booted {
     pub descriptors: Vec<CapabilityDescriptor>,
     /// The bound project identity/revision, when project-bound.
     pub project: Option<ProjectBinding>,
+    /// The shared gateway handle — the same mutex the host
+    /// serializes through; live lanes drive this, never a second
+    /// gateway.
+    pub gateway: Arc<Mutex<Gateway>>,
+    /// The shared CLI adapter — lane principal attestation goes
+    /// through the same adapter the host's claims resolve against.
+    pub cli: Arc<LocalCliAdapter>,
+    /// The commit boundary the host was composed with (`NoCommitPort`
+    /// on read-only/discovery boots).
+    pub committer: Arc<dyn CommitPort>,
+    /// The automation-side registry snapshot captured at boot —
+    /// `PlanCompiler`/`WorkflowCoordinator` validate against exactly
+    /// this view of the live registries.
+    pub registry: synvelis_automation::RegistrySnapshot,
+    /// The script-side stack: snapshot → canonical surface → model →
+    /// bindings, all derived from the same live registries.
+    pub script: ScriptStack,
+}
+
+/// The script evaluation stack captured at boot: the script-side
+/// registry snapshot, the canonical surface spec derived from it, the
+/// built API model, and its generated binding set. Every `.luau`
+/// lane consumes this exact stack — never a hand-written surface or
+/// a second registry.
+pub struct ScriptStack {
+    /// `RegistrySnapshot::capture` over the live registries.
+    pub snapshot: synvelis_script::RegistrySnapshot,
+    /// The canonical surface (`synvelis_automation::surface_for_snapshot`).
+    pub surface: synvelis_script::ScriptSurfaceSpec,
+    /// `ScriptApiModel::build(snapshot, surface)`.
+    pub model: synvelis_script::ScriptApiModel,
+    /// `BindingSet::generate(model)`.
+    pub bindings: synvelis_script::BindingSet,
 }
 
 /// Project identity + live revision at boot.
@@ -260,6 +297,60 @@ fn snapshot_descriptors(gateway: &Gateway) -> Vec<CapabilityDescriptor> {
         .collect()
 }
 
+/// Captures the automation registry snapshot + the full script stack
+/// (snapshot → canonical surface → model → bindings) from the live
+/// gateway — composition-time, before the gateway moves into the
+/// host's shared mutex. Failures are composition invariants: the
+/// fixed engine set either captures cleanly or the boot is a bug.
+fn capture_run_artifacts(
+    gateway: &Gateway,
+) -> Result<(synvelis_automation::RegistrySnapshot, ScriptStack), CliError> {
+    let internal = |e: String| CliError::Internal(format!("registry/script capture failed: {e}"));
+    let registry = synvelis_automation::capture_registry_snapshot(gateway)
+        .map_err(|e| internal(e.to_string()))?;
+    let snapshot =
+        synvelis_script::RegistrySnapshot::capture(gateway.registry(), gateway.schemas())
+            .map_err(|e| internal(e.to_string()))?;
+    let surface = synvelis_automation::surface_for_snapshot(&snapshot)
+        .map_err(|e| internal(e.to_string()))?;
+    let model = synvelis_script::ScriptApiModel::build(&snapshot, &surface)
+        .map_err(|e| internal(e.to_string()))?;
+    let bindings =
+        synvelis_script::BindingSet::generate(&model).map_err(|e| internal(e.to_string()))?;
+    Ok((
+        registry,
+        ScriptStack {
+            snapshot,
+            surface,
+            model,
+            bindings,
+        },
+    ))
+}
+
+/// Wraps the composed gateway + adapter into the shared handles the
+/// host and the run lanes both drive.
+fn shared_handles(
+    gateway: Gateway,
+    clock: Arc<dyn PolicyClock>,
+    committer: Arc<dyn CommitPort>,
+    admin: Arc<dyn AdminPort>,
+) -> (
+    Arc<Mutex<Gateway>>,
+    Arc<LocalCliAdapter>,
+    HeadlessSessionHost,
+) {
+    let gateway = Arc::new(Mutex::new(gateway));
+    let cli = Arc::new(LocalCliAdapter::new(
+        AdapterId::new(CLI_ADAPTER_RAW),
+        Box::new(MemoryCliSessionStore::new()),
+        clock,
+    ));
+    let host =
+        HeadlessSessionHost::shared(Arc::clone(&gateway), Arc::clone(&cli), committer, admin);
+    (gateway, cli, host)
+}
+
 fn apply_descriptor(
     descriptors: &[CapabilityDescriptor],
 ) -> Result<CapabilityDescriptor, CliError> {
@@ -294,15 +385,19 @@ pub fn boot_discovery() -> Result<Booted, CliError> {
     let (gateway, _variant) = build_gateway(store, &clock, source, &proposals, &oracle)
         .map_err(|e| CliError::Internal(format!("gateway composition failed: {}", e.message)))?;
     let descriptors = snapshot_descriptors(&gateway);
-    let host = HeadlessSessionHost::without_commit_boundary(
-        gateway,
-        Box::new(MemoryCliSessionStore::new()),
-        clock,
-    );
+    let (registry, script) = capture_run_artifacts(&gateway)?;
+    let committer: Arc<dyn CommitPort> = Arc::new(NoCommitPort);
+    let admin: Arc<dyn AdminPort> = Arc::new(NoAdminPort);
+    let (gateway, cli, host) = shared_handles(gateway, clock, committer.clone(), admin);
     Ok(Booted {
         host,
         descriptors,
         project: None,
+        gateway,
+        cli,
+        committer,
+        registry,
+        script,
     })
 }
 
@@ -421,15 +516,19 @@ fn boot_readonly(ctx: BootContext) -> Result<Booted, CliError> {
             |e| CliError::Internal(format!("gateway composition failed: {}", e.message)),
         )?;
     let descriptors = snapshot_descriptors(&gateway);
-    let host = HeadlessSessionHost::without_commit_boundary(
-        gateway,
-        Box::new(MemoryCliSessionStore::new()),
-        ctx.clock,
-    );
+    let (registry, script) = capture_run_artifacts(&gateway)?;
+    let committer: Arc<dyn CommitPort> = Arc::new(NoCommitPort);
+    let admin: Arc<dyn AdminPort> = Arc::new(NoAdminPort);
+    let (gateway, cli, host) = shared_handles(gateway, ctx.clock, committer.clone(), admin);
     Ok(Booted {
         host,
         descriptors,
         project: Some(binding),
+        gateway,
+        cli,
+        committer,
+        registry,
+        script,
     })
 }
 
@@ -455,6 +554,7 @@ fn boot_durable(mut ctx: BootContext) -> Result<Booted, CliError> {
     )
     .map_err(|e| CliError::Internal(format!("gateway composition failed: {}", e.message)))?;
     let descriptors = snapshot_descriptors(&gateway);
+    let (registry, script) = capture_run_artifacts(&gateway)?;
     let apply_capability = apply_descriptor(&descriptors)?;
 
     // The gate's commit-stage evaluator reads the same pinned oracle
@@ -482,17 +582,15 @@ fn boot_durable(mut ctx: BootContext) -> Result<Booted, CliError> {
     let committer: Arc<dyn CommitPort> = gate.clone();
     let admin: Arc<dyn AdminPort> = gate;
 
-    let host = HeadlessSessionHost::new(
-        gateway,
-        Box::new(MemoryCliSessionStore::new()),
-        committer,
-        admin,
-        ctx.clock,
-        AdapterId::new(CLI_ADAPTER_RAW),
-    );
+    let (gateway, cli, host) = shared_handles(gateway, ctx.clock, committer.clone(), admin);
     Ok(Booted {
         host,
         descriptors,
         project: Some(binding),
+        gateway,
+        cli,
+        committer,
+        registry,
+        script,
     })
 }

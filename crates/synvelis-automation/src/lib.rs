@@ -41,6 +41,7 @@ pub mod refs;
 pub mod registry;
 pub mod run;
 pub mod schema;
+pub mod surface;
 pub mod yaml;
 
 pub use action_recipe::compile_action_recipe;
@@ -57,10 +58,11 @@ pub use frontend::{
     parse_macro_yaml, parse_registry_snapshot_yaml, parse_workflow_yaml,
 };
 pub use importer::{
-    EvaluatedLuauWorkflow, FileWorkflowResolver, ImportedWorkflow, ImportedWorkflowPayload,
-    MAX_IMPORT_DEPTH, MapWorkflowResolver, ScriptBuildContext, WorkflowResolver,
-    WorkflowSourceKind, compile_script_workflow, compile_workflow_yaml, evaluate_luau_spec,
-    evaluate_luau_workflow, import_workflow_document, workflow_source_kind,
+    EvaluatedLuauAction, EvaluatedLuauWorkflow, FileWorkflowResolver, ImportedWorkflow,
+    ImportedWorkflowPayload, MAX_IMPORT_DEPTH, MapWorkflowResolver, ScriptBuildContext,
+    WorkflowResolver, WorkflowSourceKind, compile_script_workflow, compile_workflow_yaml,
+    evaluate_luau_action, evaluate_luau_spec, evaluate_luau_workflow, import_workflow_document,
+    workflow_source_kind,
 };
 pub use live::{GatewayJobLane, GatewayStepLane};
 pub use live_registry::capture as capture_registry_snapshot;
@@ -72,3 +74,4 @@ pub use macros::{
 pub use refs::{Version, VersionedRef};
 pub use registry::RegistrySnapshot;
 pub use schema::{SchemaNode, StaticType};
+pub use surface::{script_name_for, surface_for_snapshot};

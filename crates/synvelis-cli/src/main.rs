@@ -49,12 +49,16 @@ COMMANDS:
                                    runtime/async per descriptor)
     action run --file <path> --project <path>
                                    Run an Action Script file
-                                   (.luau; .rhai PoC-only) — execution
-                                   backend deferred (synvelis#272)
+                                   (.luau; .rhai PoC-only) — evaluates
+                                   through the Luau backend and submits
+                                   the ActionRecipe via the Gateway
     workflow run --file <path> --project <path>
+                    [--inputs <json> | --inputs-file <path>]
                                    Run a Workflow file (.yaml/.yml DSL,
-                                   .luau/.rhai script) — execution
-                                   deferred (synvelis#273)
+                                   .luau script; .rhai PoC-only) —
+                                   compiles to a plan and drives the
+                                   WorkflowCoordinator over live
+                                   Gateway lanes
     project info --project <path>  Show project id/name/revision
     render --project <path> --output <path>
                                    Render media (provider not wired —

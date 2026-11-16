@@ -57,8 +57,8 @@ use crate::request::CallerIdentity;
 /// concerns beyond "never hold one while calling into a reentrant
 /// path", which this type does not create.
 pub struct HeadlessSessionHost {
-    gateway: Mutex<Gateway>,
-    cli: LocalCliAdapter,
+    gateway: Arc<Mutex<Gateway>>,
+    cli: Arc<LocalCliAdapter>,
     committer: Arc<dyn CommitPort>,
     admin: Arc<dyn AdminPort>,
 }
@@ -85,9 +85,32 @@ impl HeadlessSessionHost {
         clock: Arc<dyn PolicyClock>,
         adapter: AdapterId,
     ) -> Self {
+        Self::shared(
+            Arc::new(Mutex::new(gateway)),
+            Arc::new(LocalCliAdapter::new(adapter, sessions, clock)),
+            committer,
+            admin,
+        )
+    }
+
+    /// Composes a headless session over *shared* handles — the
+    /// composition-time injection seam (synvelis#262).
+    ///
+    /// The caller keeps its own `Arc` clones of the gateway mutex and
+    /// CLI adapter so sibling components (e.g. automation live lanes)
+    /// drive the *same* authority — never a second gateway, registry,
+    /// or session store. Lock ordering is unchanged: every consumer
+    /// locks the same leaf mutexes independently.
+    #[must_use]
+    pub fn shared(
+        gateway: Arc<Mutex<Gateway>>,
+        cli: Arc<LocalCliAdapter>,
+        committer: Arc<dyn CommitPort>,
+        admin: Arc<dyn AdminPort>,
+    ) -> Self {
         Self {
-            gateway: Mutex::new(gateway),
-            cli: LocalCliAdapter::new(adapter, sessions, clock),
+            gateway,
+            cli,
             committer,
             admin,
         }
@@ -115,8 +138,23 @@ impl HeadlessSessionHost {
     /// The local CLI adapter — session issue/revoke and caller
     /// attestation live here.
     #[must_use]
-    pub const fn cli(&self) -> &LocalCliAdapter {
-        &self.cli
+    pub fn cli(&self) -> &LocalCliAdapter {
+        self.cli.as_ref()
+    }
+
+    /// The shared gateway handle — the same `Arc<Mutex<Gateway>>`
+    /// this host serializes requests through. Composition roots hand
+    /// clones to live lanes so every path drives one authority.
+    #[must_use]
+    pub fn gateway_handle(&self) -> Arc<Mutex<Gateway>> {
+        Arc::clone(&self.gateway)
+    }
+
+    /// The shared CLI adapter handle — same rationale as
+    /// [`Self::gateway_handle`].
+    #[must_use]
+    pub fn cli_handle(&self) -> Arc<LocalCliAdapter> {
+        Arc::clone(&self.cli)
     }
 
     /// The commit boundary the host drives applies through.

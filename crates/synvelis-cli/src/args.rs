@@ -151,6 +151,11 @@ pub enum Command {
     WorkflowRun {
         /// Workflow file (`.yaml`/`.yml` DSL, `.luau`/`.rhai` script).
         file: PathBuf,
+        /// `--inputs` inline JSON object (mutually exclusive with
+        /// `--inputs-file`).
+        inputs: Option<Value>,
+        /// `--inputs-file` path (read + parsed by the command layer).
+        inputs_file: Option<PathBuf>,
     },
     /// `project info`.
     ProjectInfo,
@@ -185,6 +190,8 @@ const COMMAND_VALUE_FLAGS: &[&str] = &[
     "idempotency-key",
     "file",
     "output",
+    "inputs",
+    "inputs-file",
 ];
 
 /// Parses `argv` (excluding the program name).
@@ -518,10 +525,21 @@ fn parse_workflow(
                     "workflow run takes no positional arguments".to_owned(),
                 ));
             }
-            take_flags(flags, &["file"])?;
+            take_flags(flags, &["file", "inputs", "inputs-file"])?;
             let file = path_flag(flags, "file")
                 .ok_or_else(|| CliError::Usage("workflow run requires --file <path>".to_owned()))?;
-            Ok(Command::WorkflowRun { file })
+            let inputs = json_flag(flags, "inputs")?;
+            let inputs_file = path_flag(flags, "inputs-file");
+            if inputs.is_some() && inputs_file.is_some() {
+                return Err(CliError::Usage(
+                    "--inputs and --inputs-file are mutually exclusive".to_owned(),
+                ));
+            }
+            Ok(Command::WorkflowRun {
+                file,
+                inputs,
+                inputs_file,
+            })
         }
         Some(other) => Err(CliError::Usage(format!("unknown workflow '{other}'"))),
         None => Err(CliError::Usage(

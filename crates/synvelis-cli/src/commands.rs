@@ -7,7 +7,6 @@
 //! never mints a caller itself.
 
 use std::fmt::Write as _;
-use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::{Value, json};
@@ -61,7 +60,12 @@ pub fn run(args: &Args) -> Result<CommandResult, CliError> {
         Command::ActionDescribe { capability } => action_describe(args, capability),
         Command::ActionPrepare { operation, flags } => action_prepare(args, operation, flags),
         Command::ActionInvoke { capability, flags } => action_invoke(args, capability, flags),
-        Command::ActionRun { file } | Command::WorkflowRun { file } => run_file(args, file),
+        Command::ActionRun { file } => run_file(args, file, None, None),
+        Command::WorkflowRun {
+            file,
+            inputs,
+            inputs_file,
+        } => run_file(args, file, inputs.as_ref(), inputs_file.as_deref()),
         Command::ProjectInfo => project_info(args),
         Command::Render { output } => render(args, output),
     }
@@ -204,11 +208,13 @@ fn action_invoke(
 
 // ── file commands ────────────────────────────────────────────────
 
-fn run_file(args: &Args, file: &Path) -> Result<CommandResult, CliError> {
-    require_project(args)?;
-    let envelope = script::run_file_command(&args.command, file, args.dry_run)?;
-    let exit = if envelope.status == "completed" { 0 } else { 5 };
-    Ok(result(envelope, exit, None))
+fn run_file(
+    args: &Args,
+    file: &std::path::Path,
+    inputs: Option<&Value>,
+    inputs_file: Option<&std::path::Path>,
+) -> Result<CommandResult, CliError> {
+    script::run_file_command(args, file, inputs, inputs_file)
 }
 
 // ── project info ─────────────────────────────────────────────────
@@ -275,7 +281,7 @@ fn render(args: &Args, _output: &std::path::PathBuf) -> Result<CommandResult, Cl
 
 // ── shared helpers ───────────────────────────────────────────────
 
-fn result(envelope: CliEnvelope, exit_code: u8, human: Option<String>) -> CommandResult {
+pub(crate) fn result(envelope: CliEnvelope, exit_code: u8, human: Option<String>) -> CommandResult {
     CommandResult {
         envelope,
         exit_code,
@@ -291,10 +297,6 @@ fn reject_dry_run(args: &Args, command: &str) -> Result<(), CliError> {
     } else {
         Ok(())
     }
-}
-
-fn require_project(args: &Args) -> Result<(), CliError> {
-    require_project_path(args).map(|_| ())
 }
 
 fn require_project_path(args: &Args) -> Result<&std::path::Path, CliError> {
@@ -462,7 +464,7 @@ fn invoke_and_report(args: &Args, booted: &Booted, request: &Value) -> CommandRe
     }
 }
 
-fn outcome_result(booted: &Booted, outcome: GatewayOutcome<Value>) -> CommandResult {
+pub(crate) fn outcome_result(booted: &Booted, outcome: GatewayOutcome<Value>) -> CommandResult {
     let (status, exit) = exitcode::outcome_exit(&outcome);
     let mut envelope = CliEnvelope::bare(status);
     envelope.project_revision = host::live_revision(booted).map(|r| r.0);
@@ -504,7 +506,10 @@ fn outcome_result(booted: &Booted, outcome: GatewayOutcome<Value>) -> CommandRes
     result(envelope, exit, Some(human))
 }
 
-fn error_result(booted: &Booted, err: &synvelis_gateway::ErrorEnvelope) -> CommandResult {
+pub(crate) fn error_result(
+    booted: &Booted,
+    err: &synvelis_gateway::ErrorEnvelope,
+) -> CommandResult {
     let exit = exitcode::envelope_exit(err);
     let mut envelope = CliEnvelope::bare(EnvelopeStatus::Failed);
     envelope.project_revision = host::live_revision(booted).map(|r| r.0);
