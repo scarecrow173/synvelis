@@ -77,6 +77,11 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted:
+      - "docs/impl/exp/issue-262-run-file-real-vm.md"
+    rejected: []
 ---
 
 # issue-262-run-file-real-vm — Implementation Record

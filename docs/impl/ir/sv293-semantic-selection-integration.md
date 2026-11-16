@@ -77,6 +77,11 @@ relations:
   defers:
     - "https://github.com/scarecrow173/synvelis/issues/296"
   deferred-by: []
+metadata:
+  experiments:
+    adopted:
+      - "docs/impl/exp/sv293-semantic-selection-integration.md"
+    rejected: []
 ---
 
 # sv293 semantic→selection integration 実装記録
