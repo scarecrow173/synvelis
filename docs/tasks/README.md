@@ -222,7 +222,6 @@ Directory: `docs/tasks`
 | TASK-034VocaCYmo2jkluo0P1eY | SV#28 Ruviform pin を b02942c2 へ更新し検証を完了する | done | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | TASK-ytgLcFdP0Y0EeeQKr0JW9t | SV#28 Ruviform pin を fd1d4d5f へ更新し検証を完了する | done | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |
 | TASK-DqvyFE4jtl1dHhjkpI0Awe | SV#28 Ruviform pin を cc7d5296 へ更新し API 追従・検証を完了する | done | [sv28-ruviform-pin-update.md](./sv28-ruviform-pin-update.md) |
-| TASK-034YnHBF42yVYc2C4erX2e | Issue #488 lint-app-native clippy::large_enum_variant 是正 | done | [sv488-lint-app-native.md](./sv488-lint-app-native.md) |
 | TASK-SvtE2e04aB2cD3eF4gH5iJ9 | SV-GUI-05: SVT-01〜09 Headless UI Scenario タスク | done | [svt-product-e2e-task.md](./svt-product-e2e-task.md) |
 | TASK-034UvJH1gMKAHU5UZUrzNN | SYN-IO-01 task1 境界 Owner・失敗写像・Backup/Import 設計文書 | done | [syn-io-01-task1-boundary-design-docs.md](./syn-io-01-task1-boundary-design-docs.md) |
 | TASK-034UvJHLXI3ZB4q8FYKlbH | SYN-IO-01 task2 検証計画・Gate 証拠・文書チェーン完結 | done | [syn-io-01-task2-verification-gate-docs.md](./syn-io-01-task2-verification-gate-docs.md) |

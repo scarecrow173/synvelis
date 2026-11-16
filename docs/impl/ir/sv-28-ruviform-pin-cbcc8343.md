@@ -277,8 +277,8 @@ branch `feat/28-ruviform-cbcc8343`・base `origin/main` =
   `doc_maintenance.js index plan`/`index apply` で生成可能
   であることと `blocked` 0 件・全 target `in-sync` を確認
   済みだが、index 差分は Spec の lease 外のため PR に
-  含めない（`docs/**/README.md` は origin/main と同一に
-  戻した）。
+  含めない（`docs/**/README.md` は merge base `f05bdbf`
+  の状態に戻し、PR diff から index 差分を除外した）。
 
 ## Risks
 
