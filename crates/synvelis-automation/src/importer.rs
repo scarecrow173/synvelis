@@ -1461,6 +1461,82 @@ pub fn evaluate_luau_workflow(
     })
 }
 
+/// The evaluated `.luau` action recipe — the [`ArtifactKind::ActionRecipe`]
+/// sibling of [`EvaluatedLuauWorkflow`]: the backend ran, the payload
+/// decoded as a typed [`synvelis_script::action::RecipeSpec`], and
+/// nothing was invoked yet.
+#[derive(Clone, Debug)]
+pub struct EvaluatedLuauAction {
+    /// The decoded member-call spec the script returned.
+    pub spec: synvelis_script::action::RecipeSpec,
+    /// Bare lowercase SHA-256 hex of the evaluated source text.
+    pub source_digest: String,
+}
+
+/// Evaluates `.luau` `text` through `backend` requesting an
+/// [`ArtifactKind::ActionRecipe`] artifact and decodes the payload as
+/// [`synvelis_script::action::RecipeSpec`] — the `action run --file`
+/// evaluation half (synvelis#262). Same session/digest contract as
+/// [`evaluate_luau_spec`]: the backend verifies `source_digest_hex`
+/// against the bytes it loaded.
+///
+/// # Errors
+/// [`AutomationError::ScriptBackend`] — session/evaluation/artifact
+/// contract failure (including a payload that does not decode as a
+/// `RecipeSpec`); the caller maps this onto its typed input rejection.
+pub fn evaluate_luau_action(
+    backend: &dyn ScriptBackend,
+    budget: &ExecutionBudget,
+    text: &str,
+    source_digest_hex: &str,
+) -> Result<EvaluatedLuauAction, AutomationError> {
+    let contract = |reason: String| {
+        AutomationError::ScriptBackend(Box::new(ScriptBackendError::Contract { reason }))
+    };
+    let config = SessionConfig {
+        budget: budget.clone(),
+        source: backend::ScriptSource {
+            text: text.to_owned(),
+            language: ScriptLanguageId::luau(),
+            backend_hint: None,
+            digest: SourceDigest(format!("sha256:{source_digest_hex}")),
+            revision: SourceRevision(0),
+        },
+        artifact_kinds: BTreeSet::from([ArtifactKind::ActionRecipe]),
+    };
+    let mut session = backend
+        .open_session(&config)
+        .map_err(ScriptBackendError::Open)?;
+    let evaluated = session.evaluate().map_err(ScriptBackendError::Evaluate);
+    session.close();
+    let result = evaluated?;
+    let artifact = result
+        .artifact
+        .ok_or_else(|| contract("action session produced no artifact".to_owned()))?;
+    if artifact.schema_version != SCRIPT_ARTIFACT_SCHEMA_VERSION
+        || !matches!(artifact.kind, ArtifactKind::ActionRecipe)
+    {
+        return Err(contract(format!(
+            "unexpected artifact (kind {:?}, schema_version {})",
+            artifact.kind, artifact.schema_version
+        )));
+    }
+    let json = artifact.payload.to_json().map_err(|e| {
+        contract(format!(
+            "action artifact payload is not JSON-representable: {e}"
+        ))
+    })?;
+    let spec: synvelis_script::action::RecipeSpec = serde_json::from_value(json).map_err(|e| {
+        contract(format!(
+            "action artifact payload does not decode as RecipeSpec: {e}"
+        ))
+    })?;
+    Ok(EvaluatedLuauAction {
+        spec,
+        source_digest: source_digest_hex.to_owned(),
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Headless plan entry — `workflow run --file` lanes (synvelis#262 seam)
 // ---------------------------------------------------------------------------
