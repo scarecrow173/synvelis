@@ -12,12 +12,14 @@ mod common;
 
 use std::collections::BTreeMap;
 
+use std::sync::Arc;
+
 use serde_json::{Map, Value, json};
 use synvelis_automation::{
     AutomationError, CompileError, FileWorkflowResolver, ImportError, ImportedWorkflow,
-    ImportedWorkflowPayload, MacroRegistry, MapWorkflowResolver, PlanCompiler, WorkflowDefinition,
-    WorkflowResolver, WorkflowSourceKind, compile_workflow_yaml, import_workflow_document,
-    workflow_source_kind,
+    ImportedWorkflowPayload, MacroRegistry, MapWorkflowResolver, PlanCompiler, ScriptBackendError,
+    ScriptBuildContext, Step, WorkflowDefinition, WorkflowResolver, WorkflowSourceKind,
+    compile_workflow_yaml, import_workflow_document, workflow_source_kind,
 };
 use synvelis_gateway::{
     Availability, CapabilityDescriptor, CapabilityId, CapabilityRef, CapabilityRegistry,
@@ -26,14 +28,17 @@ use synvelis_gateway::{
     SchemaVersion, TargetContract, ValueSchema,
 };
 use synvelis_script::{
-    AvailableBackends, BackendRequirement, BindingSet, LanguageId,
-    RegistrySnapshot as ScriptSnapshot, SURFACE_SCHEMA_VERSION, ScriptApiModel, ScriptStepCall,
-    ScriptSurfaceEntry, ScriptSurfaceSpec, ScriptVisibility, ScriptWorkflowRef, ScriptWorkflowSpec,
-    SpecIoDecl, WORKFLOW_SCRIPT_DEFINITION_SCHEMA_VERSION, WORKFLOW_SPEC_SCHEMA_VERSION,
-    WorkflowScriptBuilder, WorkflowScriptDefinition,
+    ArtifactKind, ArtifactSource, AvailableBackends, BackendRequirement, BindingSet,
+    DefinitionDigest, ExecutionBudget, LanguageId, ProducedBy, RegistrySnapshot as ScriptSnapshot,
+    SCRIPT_ARTIFACT_SCHEMA_VERSION, SURFACE_SCHEMA_VERSION, ScriptApiModel, ScriptArtifact,
+    ScriptBackendId, ScriptErrorKind, ScriptLanguageId, ScriptResult, ScriptStepCall,
+    ScriptSurfaceEntry, ScriptSurfaceSpec, ScriptValue, ScriptVisibility, ScriptWorkflowRef,
+    ScriptWorkflowSpec, SourceDigest, SourceRevision, SpecIoDecl,
+    WORKFLOW_SCRIPT_DEFINITION_SCHEMA_VERSION, WORKFLOW_SPEC_SCHEMA_VERSION, WorkflowScriptBuilder,
+    WorkflowScriptDefinition,
 };
 
-use crate::common::{BASIC_WORKFLOW, definition, registry};
+use crate::common::{BASIC_WORKFLOW, FakeScriptBackend, definition, registry};
 
 // ---------------------------------------------------------------------------
 // Script-side fixtures (minimal model: one query + one mutation cap)
@@ -980,4 +985,331 @@ fn forward_step_reference_still_rejected_by_compiler() {
         ),
         "{err:?}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// `.luau` file resolution through an injected script backend
+// ---------------------------------------------------------------------------
+
+const LUAU_SOURCE: &str = "-- canned luau source; the fake backend ignores it\n";
+
+fn luau_build_context() -> ScriptBuildContext {
+    let (model, bindings) = script_fixtures();
+    ScriptBuildContext {
+        backends: AvailableBackends::luau(),
+        model,
+        bindings,
+        budget: ExecutionBudget::default(),
+    }
+}
+
+fn luau_test_dir(tag: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("sv273-luau-{tag}-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+fn luau_reference(dir: &std::path::Path) -> (std::path::PathBuf, ScriptWorkflowRef) {
+    let file = dir.join("basic.luau");
+    std::fs::write(&file, LUAU_SOURCE).unwrap();
+    let digest = synvelis_script::sha256_hex(LUAU_SOURCE.as_bytes());
+    let reference = ScriptWorkflowRef {
+        language_id: LanguageId::Luau,
+        version: 1,
+        source_digest: digest,
+        path: "basic.luau".to_owned(),
+    };
+    (file, reference)
+}
+
+#[test]
+fn file_resolver_resolves_luau_to_same_definition_and_plan() {
+    let dir = luau_test_dir("ok");
+    let (_file, reference) = luau_reference(&dir);
+    let backend = Arc::new(FakeScriptBackend::luau_spec(&basic_spec()));
+    let resolver = FileWorkflowResolver::with_script_backend(&dir, backend, luau_build_context())
+        .expect("resolver with backend");
+    let imported = resolver.resolve(&reference).expect("luau file resolves");
+    assert_eq!(imported.language_id, LanguageId::Luau);
+    assert_eq!(imported.version, 1);
+    assert_eq!(
+        imported.source_digest,
+        synvelis_script::sha256_hex(LUAU_SOURCE.as_bytes())
+    );
+    let ImportedWorkflowPayload::Document(document) = &imported.payload else {
+        panic!("luau resolves to an import document")
+    };
+
+    // The `.luau` source lowers to the identical canonical definition —
+    // and therefore the identical plan — as the equivalent YAML.
+    let def = import_workflow_document(document, &MapWorkflowResolver::new())
+        .expect("luau document imports");
+    assert_eq!(def, definition(BASIC_WORKFLOW));
+
+    let inputs: Map<String, Value> = serde_json::from_value(json!({
+        "track": "track-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }))
+    .unwrap();
+    let luau_plan = PlanCompiler::compile(&def, &inputs, &registry()).expect("luau plan compiles");
+    let yaml_plan = PlanCompiler::compile(&definition(BASIC_WORKFLOW), &inputs, &registry())
+        .expect("yaml plan compiles");
+    assert_eq!(
+        luau_plan.plan.digest().unwrap(),
+        yaml_plan.plan.digest().unwrap(),
+        "luau and yaml plans must share the canonical digest"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn file_resolver_inlines_luau_workflow_reference() {
+    let dir = luau_test_dir("inline");
+    let (_file, reference) = luau_reference(&dir);
+    let backend = Arc::new(FakeScriptBackend::luau_spec(&basic_spec()));
+    let resolver = FileWorkflowResolver::with_script_backend(&dir, backend, luau_build_context())
+        .expect("resolver with backend");
+
+    // A parent document `workflow()`-calls the `.luau` file: the
+    // reference pins language/version/digest/path and the resolver
+    // inlines the backend-produced document at compile time.
+    let doc = parent_doc_with_call(reference_json(&reference), json!({"track": "$input.track"}));
+    let def = import_workflow_document(&doc, &resolver).expect("luau ref inlines");
+    let ids: Vec<&str> = def.steps.iter().map(Step::id).collect();
+    assert_eq!(
+        ids,
+        vec!["sub__tracks", "sub__add"],
+        "inlined luau steps are namespaced under the call id"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn file_resolver_luau_without_backend_is_typed_unsupported() {
+    let dir = luau_test_dir("nobackend");
+    let (_file, reference) = luau_reference(&dir);
+    let resolver = FileWorkflowResolver::new(&dir).unwrap();
+    let err = import_err_of(import_workflow_document(
+        &parent_doc_with_call(reference_json(&reference), json!({})),
+        &resolver,
+    ));
+    assert!(
+        matches!(err, ImportError::UnsupportedSource { .. }),
+        "{err:?}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn file_resolver_luau_eval_failure_is_typed_backend_error() {
+    let dir = luau_test_dir("evalerr");
+    let (_file, reference) = luau_reference(&dir);
+    let backend = Arc::new(FakeScriptBackend::luau_failing(
+        ScriptErrorKind::Parse,
+        "syntax error",
+    ));
+    let resolver = FileWorkflowResolver::with_script_backend(&dir, backend, luau_build_context())
+        .expect("resolver with backend");
+    let err = resolver
+        .resolve(&reference)
+        .expect_err("eval failure propagates");
+    assert!(
+        matches!(
+            err,
+            AutomationError::ScriptBackend(ref inner)
+                if matches!(inner.as_ref(), ScriptBackendError::Evaluate(_))
+        ),
+        "{err:?}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn file_resolver_luau_missing_artifact_is_contract_error() {
+    let dir = luau_test_dir("noartifact");
+    let (_file, reference) = luau_reference(&dir);
+    // Backend returns a result with no artifact at all.
+    let backend = Arc::new(FakeScriptBackend::luau(ScriptResult::default()));
+    let resolver = FileWorkflowResolver::with_script_backend(&dir, backend, luau_build_context())
+        .expect("resolver with backend");
+    let err = resolver
+        .resolve(&reference)
+        .expect_err("missing artifact fails");
+    assert!(
+        matches!(
+            err,
+            AutomationError::ScriptBackend(ref inner)
+                if matches!(inner.as_ref(), ScriptBackendError::Contract { .. })
+        ),
+        "{err:?}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn file_resolver_luau_wrong_artifact_kind_is_contract_error() {
+    let dir = luau_test_dir("wrongkind");
+    let (_file, reference) = luau_reference(&dir);
+    let spec = basic_spec();
+    let json = serde_json::to_value(&spec).unwrap();
+    let payload = ScriptValue::from_json(&json).unwrap();
+    let artifact = ScriptArtifact {
+        schema_version: SCRIPT_ARTIFACT_SCHEMA_VERSION,
+        kind: ArtifactKind::ActionRecipe,
+        digest: DefinitionDigest("fake".to_owned()),
+        payload,
+        source: ArtifactSource {
+            language: ScriptLanguageId::luau(),
+            backend_id: ScriptBackendId("fake-luau".to_owned()),
+            source_digest: SourceDigest("fake".to_owned()),
+            source_revision: SourceRevision(0),
+        },
+        produced_by: ProducedBy {
+            backend_id: ScriptBackendId("fake-luau".to_owned()),
+            impl_version: "fake-1".to_owned(),
+        },
+    };
+    let result = ScriptResult {
+        artifact: Some(artifact),
+        ..ScriptResult::default()
+    };
+    let backend = Arc::new(FakeScriptBackend::luau(result));
+    let resolver = FileWorkflowResolver::with_script_backend(&dir, backend, luau_build_context())
+        .expect("resolver with backend");
+    let err = resolver.resolve(&reference).expect_err("wrong kind fails");
+    assert!(
+        matches!(
+            err,
+            AutomationError::ScriptBackend(ref inner)
+                if matches!(inner.as_ref(), ScriptBackendError::Contract { .. })
+        ),
+        "{err:?}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn file_resolver_luau_source_digest_drift_rejected() {
+    let dir = luau_test_dir("drift");
+    let (_file, mut reference) = luau_reference(&dir);
+    // Pin a digest that does not match the file bytes — the importer
+    // pin check must reject before/without trusting the backend.
+    reference.source_digest = "00".repeat(32);
+    let backend = Arc::new(FakeScriptBackend::luau_spec(&basic_spec()));
+    let resolver = FileWorkflowResolver::with_script_backend(&dir, backend, luau_build_context())
+        .expect("resolver with backend");
+    let err = import_err_of(import_workflow_document(
+        &parent_doc_with_call(reference_json(&reference), json!({})),
+        &resolver,
+    ));
+    assert!(matches!(err, ImportError::SourceDrift { .. }), "{err:?}");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn file_resolver_rhai_stays_unsupported() {
+    let dir = luau_test_dir("rhai");
+    std::fs::write(
+        dir.join("w.rhai"),
+        "// rhai source
+",
+    )
+    .unwrap();
+    let digest = synvelis_script::sha256_hex(
+        b"// rhai source
+",
+    );
+    let reference = ScriptWorkflowRef {
+        language_id: LanguageId::Rhai,
+        version: 1,
+        source_digest: digest,
+        path: "w.rhai".to_owned(),
+    };
+    // Even with a Luau backend injected, `.rhai` is PoC-only and
+    // must fail closed.
+    let backend = Arc::new(FakeScriptBackend::luau_spec(&basic_spec()));
+    let resolver = FileWorkflowResolver::with_script_backend(&dir, backend, luau_build_context())
+        .expect("resolver with backend");
+    let err = import_err_of(import_workflow_document(
+        &parent_doc_with_call(reference_json(&reference), json!({})),
+        &resolver,
+    ));
+    assert!(
+        matches!(err, ImportError::UnsupportedSource { .. }),
+        "{err:?}"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A `.luau` source whose returned table is semantically identical to
+/// [`basic_spec`] — evaluated by the REAL vendored-Luau backend
+/// (`synvelis-script-luau`), not a fake.
+const REAL_LUAU_SPEC: &str = r#"
+return {
+  schema_version = 1,
+  workflow_id = "test.basic",
+  version = 1,
+  inputs = {
+    { name = "track", schema = { type = "id", kind = "track" } },
+  },
+  steps = {
+    { call = "action", id = "tracks", name = "queryTracks", args = { limit = 10 } },
+    { call = "action", id = "add", name = "addNote",
+      args = { pitch = 60, velocity = 100, start_tick = 0, duration_ticks = 480 },
+      target = "$input.track" },
+    { call = "emit", id = "done", output = "note", value = "$steps.add" },
+  },
+  outputs = {
+    { name = "note", schema = { type = "id", kind = "note" } },
+  },
+  limits = {
+    max_steps = 100, max_depth = 8, max_iterations = 1000,
+    max_runtime_ms = 60000, max_output_bytes = 1048576,
+    max_memory_bytes = 134217728,
+  },
+}
+"#;
+
+#[test]
+fn file_resolver_resolves_luau_with_real_vm_backend() {
+    let dir = luau_test_dir("realvm");
+    let file = dir.join("basic.luau");
+    std::fs::write(&file, REAL_LUAU_SPEC).unwrap();
+    let digest = synvelis_script::sha256_hex(REAL_LUAU_SPEC.as_bytes());
+    let reference = ScriptWorkflowRef {
+        language_id: LanguageId::Luau,
+        version: 1,
+        source_digest: digest.clone(),
+        path: "basic.luau".to_owned(),
+    };
+    let backend = Arc::new(synvelis_script_luau::LuauBackend::new());
+    let resolver = FileWorkflowResolver::with_script_backend(&dir, backend, luau_build_context())
+        .expect("resolver with real backend");
+    let imported = resolver.resolve(&reference).expect("real luau resolves");
+    assert_eq!(imported.language_id, LanguageId::Luau);
+    assert_eq!(imported.version, 1);
+    assert_eq!(imported.source_digest, digest);
+    let ImportedWorkflowPayload::Document(document) = &imported.payload else {
+        panic!("luau resolves to an import document")
+    };
+    let def = import_workflow_document(document, &MapWorkflowResolver::new())
+        .expect("real luau document imports");
+    assert_eq!(
+        def,
+        definition(BASIC_WORKFLOW),
+        "real-VM luau must lower to the identical canonical definition"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn source_drift_display_survives_non_ascii_pinned_digest() {
+    // `pinned` is script-controlled — a non-ASCII digest must never
+    // panic the error's Display (byte-slice char-boundary bug).
+    let err = synvelis_automation::ImportError::SourceDrift {
+        reference: "test".to_owned(),
+        pinned: "aaaaaaaaaaaaaaa€zz".to_owned(),
+        actual: "bbbbbbbbbbbbbbbb".to_owned(),
+    };
+    let rendered = err.to_string();
+    assert!(rendered.contains("source drift"), "{rendered}");
 }

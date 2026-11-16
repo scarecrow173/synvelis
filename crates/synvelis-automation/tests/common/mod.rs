@@ -558,3 +558,184 @@ pub fn loop_inputs() -> Value {
         "track-22222222222222222222222222222222",
     ]})
 }
+
+// ---------------------------------------------------------------------------
+// Fake script backend — a `synvelis_script::backend` port test double.
+// Never compiled into production paths; exercises the `.luau`
+// resolver/evaluate seam without a VM.
+// ---------------------------------------------------------------------------
+
+use std::collections::BTreeSet;
+use std::fmt;
+
+use synvelis_script::backend::{
+    ArtifactKind, ArtifactSource, BackendCapabilities, BackendDescriptor, BudgetKind,
+    CancelGranularity, DefinitionDigest, ProducedBy, SCRIPT_ARTIFACT_SCHEMA_VERSION,
+    SCRIPT_CONTRACT_VERSION, ScriptArtifact, ScriptBackend, ScriptBackendId, ScriptError,
+    ScriptErrorKind, ScriptResult, ScriptSession, ScriptValue, SessionConfig, SessionError,
+    SourceDigest,
+};
+use synvelis_script::workflow::ScriptWorkflowSpec;
+use synvelis_script::{ScriptBackendVersion, ScriptLanguageId, SourceRevision};
+
+/// A canned-result `ScriptBackend` for tests — verifies the source
+/// digest honestly (same contract a real backend must keep) and
+/// returns a fixed [`ScriptResult`] per session.
+#[derive(Debug)]
+pub struct FakeScriptBackend {
+    descriptor: BackendDescriptor,
+    result: ScriptResult,
+    eval_error: Option<ScriptError>,
+}
+
+impl FakeScriptBackend {
+    /// A `luau` backend returning `result` for every session.
+    #[must_use]
+    pub fn luau(result: ScriptResult) -> Self {
+        Self {
+            descriptor: BackendDescriptor {
+                id: ScriptBackendId("fake-luau".to_owned()),
+                language: ScriptLanguageId::luau(),
+                version: ScriptBackendVersion {
+                    impl_version: "fake-1".to_owned(),
+                    contract_version: SCRIPT_CONTRACT_VERSION,
+                },
+                capabilities: BackendCapabilities {
+                    enforced_budgets: BTreeSet::from([
+                        BudgetKind::Instruction,
+                        BudgetKind::HostCall,
+                        BudgetKind::Output,
+                        BudgetKind::Memory,
+                        BudgetKind::WallClock,
+                    ]),
+                    max_source_bytes: Some(1 << 20),
+                    artifact_kinds: BTreeSet::from([ArtifactKind::WorkflowDefinition]),
+                    send: false,
+                    sync: false,
+                    owner_thread_only: true,
+                    cancel_granularity: CancelGranularity::Safepoint,
+                    native_integer: false,
+                },
+            },
+            result,
+            eval_error: None,
+        }
+    }
+
+    /// A `luau` backend whose artifact payload is `spec` serialized —
+    /// the shape a real workflow-builder backend produces.
+    ///
+    /// # Panics
+    /// Only if `spec` fails to serialize (never for the typed spec).
+    #[must_use]
+    pub fn luau_spec(spec: &ScriptWorkflowSpec) -> Self {
+        let json = serde_json::to_value(spec).expect("spec serializes");
+        let payload = ScriptValue::from_json(&json).expect("spec is JSON-representable");
+        Self::luau(ScriptResult {
+            artifact: Some(ScriptArtifact {
+                schema_version: SCRIPT_ARTIFACT_SCHEMA_VERSION,
+                kind: ArtifactKind::WorkflowDefinition,
+                digest: DefinitionDigest("fake-spec".to_owned()),
+                payload,
+                source: ArtifactSource {
+                    language: ScriptLanguageId::luau(),
+                    backend_id: ScriptBackendId("fake-luau".to_owned()),
+                    source_digest: SourceDigest("fake".to_owned()),
+                    source_revision: SourceRevision(0),
+                },
+                produced_by: ProducedBy {
+                    backend_id: ScriptBackendId("fake-luau".to_owned()),
+                    impl_version: "fake-1".to_owned(),
+                },
+            }),
+            ..ScriptResult::default()
+        })
+    }
+
+    /// A `luau` backend whose `evaluate` fails with `kind`.
+    #[must_use]
+    pub fn luau_failing(kind: ScriptErrorKind, message: &str) -> Self {
+        let mut backend = Self::luau(ScriptResult::default());
+        backend.eval_error = Some(ScriptError::new(kind, message));
+        backend
+    }
+}
+
+struct FakeSession {
+    backend: ScriptBackendId,
+    result: ScriptResult,
+    eval_error: Option<ScriptError>,
+    closed: bool,
+}
+
+impl fmt::Debug for FakeSession {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FakeSession").finish_non_exhaustive()
+    }
+}
+
+impl ScriptSession for FakeSession {
+    fn session_id(&self) -> &'static str {
+        "fake-session"
+    }
+    fn backend_id(&self) -> &ScriptBackendId {
+        &self.backend
+    }
+    fn evaluate(&mut self) -> Result<ScriptResult, ScriptError> {
+        if self.closed {
+            return Err(ScriptError::new(
+                ScriptErrorKind::Backend {
+                    detail: "session closed".to_owned(),
+                },
+                "evaluate after close",
+            ));
+        }
+        if let Some(err) = self.eval_error.take() {
+            return Err(err);
+        }
+        Ok(self.result.clone())
+    }
+    fn cancel(&mut self) {}
+    fn close(&mut self) {
+        self.closed = true;
+    }
+}
+
+impl ScriptBackend for FakeScriptBackend {
+    fn descriptor(&self) -> &BackendDescriptor {
+        &self.descriptor
+    }
+    fn open_session(&self, config: &SessionConfig) -> Result<Box<dyn ScriptSession>, SessionError> {
+        if self.descriptor.language != config.source.language {
+            return Err(SessionError::LanguageMismatch {
+                expected: self.descriptor.language.clone(),
+                actual: config.source.language.clone(),
+            });
+        }
+        if let Some(limit) = self.descriptor.capabilities.max_source_bytes
+            && config.source.text.len() as u64 > limit
+        {
+            return Err(SessionError::SourceTooLarge {
+                size: config.source.text.len() as u64,
+                limit,
+            });
+        }
+        // Digest contract: `sha256:<hex>` over the exact source text.
+        let actual = format!(
+            "sha256:{}",
+            synvelis_script::sha256_hex(config.source.text.as_bytes())
+        );
+        if actual != config.source.digest.0 {
+            return Err(SessionError::SourceDigestMismatch {
+                expected: config.source.digest.clone(),
+                actual: SourceDigest(actual),
+            });
+        }
+        Ok(Box::new(FakeSession {
+            backend: self.descriptor.id.clone(),
+            result: self.result.clone(),
+            eval_error: self.eval_error.clone(),
+            closed: false,
+        }))
+    }
+}
