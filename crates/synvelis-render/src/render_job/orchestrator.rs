@@ -805,6 +805,7 @@ impl<'a> JobOrchestrator<'a> {
     /// Submits a routed job intent: resolves recipes against the
     /// pinned snapshot, computes the idempotent key, coalesces or
     /// preflights, and records the job.
+    #[expect(clippy::too_many_lines, reason = "one sequential submit pass")]
     pub fn submit(&mut self, intent: &JobIntent) -> SubmitOutcome {
         self.tick += 1;
         // 0. Selection sanity — wire-decoded inputs can bypass
