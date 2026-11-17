@@ -136,15 +136,52 @@ pub struct DeclaredPort {
 /// `digest`/`quality`/`status` mirror the TIM-04 capture vocabulary:
 /// the resolver consumes them, it never re-interprets or upgrades
 /// them.
+///
+/// `digest: None` alone is ambiguous — it covers both "the plugin
+/// has no state to capture" (stateless by design) and "state should
+/// have been captured but was not" (uncaptured). The distinction is
+/// carried by [`Self::stateless`]: the TIM-04
+/// [`StateCaptureQuality::Unsupported`] marker declares the former,
+/// while any capture-capable quality keeps the latter fail-closed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PluginStateDecl {
     /// Content digest of the opaque state blob (`None` = no state
-    /// was ever captured — distinct from an empty blob).
+    /// blob exists — stateless-by-design when [`Self::stateless`]
+    /// holds, otherwise capture-applicable state was never
+    /// captured; distinct from an empty blob either way).
     pub digest: Option<String>,
     /// Observed capture quality.
     pub quality: StateCaptureQuality,
     /// Opaque-state verification status (`Known`/`Unknown`/`Missing`).
     pub status: OpaqueStateStatus,
+}
+
+impl PluginStateDecl {
+    /// `true` when this declaration is *stateless by design*: the
+    /// plugin does not implement state save/restore, so no opaque
+    /// state blob exists or is required and nothing needs restoring.
+    ///
+    /// The profile is `digest: None` + `quality:
+    /// StateCaptureQuality::Unsupported` + a `status` other than
+    /// `Known`. `StateCaptureQuality::Unsupported` is the TIM-04
+    /// vocabulary's "the plugin does not implement state
+    /// save/restore" marker — it never means "capture was
+    /// forgotten", so `digest: None` under it is a declaration, not
+    /// missing evidence. A `Known` status asserts verified opaque
+    /// state, which contradicts the stateless claim and is excluded;
+    /// `Unknown`/`Missing` make no verified-state claim and stay
+    /// compatible.
+    ///
+    /// `false` covers every capture-applicable declaration —
+    /// including `digest: None` with `BestEffort`/`Quiescent`/
+    /// `Coordinated` quality, which is "capture required but
+    /// absent" and must keep failing closed.
+    #[must_use]
+    pub fn stateless(&self) -> bool {
+        self.digest.is_none()
+            && self.quality == StateCaptureQuality::Unsupported
+            && self.status != OpaqueStateStatus::Known
+    }
 }
 
 /// Everything the snapshot knows about one plugin processor — the
@@ -500,7 +537,13 @@ impl ResolvedGraphSnapshot {
 pub enum StateRestoreSupport {
     /// State can be saved and restored with verified fidelity.
     Verified,
-    /// The plugin does not implement state restore.
+    /// The plugin does not implement state restore — the
+    /// environment-side stateless fact. Whether this verifies `Live`
+    /// or fails as `StateUnsupported` depends on the declaration's
+    /// capture applicability ([`PluginStateDecl::stateless`]): a
+    /// stateless-by-design declaration has nothing to restore, any
+    /// other declaration still expects state the host cannot
+    /// restore.
     Unsupported,
     /// Restore support cannot be determined — fail closed.
     Unknown,

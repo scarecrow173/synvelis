@@ -26,6 +26,7 @@ use synvelis_player::rcp::{
     PluginVerdict, PortEndpoint, RcpEdgeId, RcpNodeId, RcpPortId, RenderCandidate,
     RenderCandidateIndex, ReproducibilityClass, ResolvedEdge, ResolvedGraphSnapshot, ResolvedNode,
     ResolvedPort, SelectionVerdict, StateRestoreSupport, classify_edit, validate_cutset,
+    verify_plugin,
 };
 use synvelis_project::{
     OpaqueStateStatus, ProjectId, ProjectRevision, RoutingActivationState, RoutingFault,
@@ -933,6 +934,251 @@ fn ex03_missing_plugin_verdicts_are_typed() {
         sel.receipt.plugin_verdicts.get(&RcpNodeId(2)),
         Some(PluginVerdict::Missing)
     ));
+}
+
+// ---------------------------------------------------------------------------
+// RCP-EX-03 (cont.): stateless plugin contract (synvelis#530)
+// ---------------------------------------------------------------------------
+
+/// The stateless-by-design declaration profile: no blob + the TIM-04
+/// `Unsupported` capture marker + no verified-state claim.
+fn stateless_state() -> PluginStateDecl {
+    PluginStateDecl {
+        digest: None,
+        quality: StateCaptureQuality::Unsupported,
+        status: OpaqueStateStatus::Unknown,
+    }
+}
+
+#[test]
+fn ex03_stateless_profile_is_typed_and_distinct_from_uncaptured() {
+    assert!(stateless_state().stateless());
+    // `Missing` status (unresolved binding) makes no verified-state
+    // claim — still stateless.
+    let missing_status = PluginStateDecl {
+        status: OpaqueStateStatus::Missing,
+        ..stateless_state()
+    };
+    assert!(missing_status.stateless());
+    // `digest: None` under a capture-capable quality is "capture
+    // required but absent" — NOT stateless, must fail closed.
+    for quality in [
+        StateCaptureQuality::BestEffort,
+        StateCaptureQuality::Quiescent,
+        StateCaptureQuality::Coordinated,
+    ] {
+        let uncaptured = PluginStateDecl {
+            quality,
+            ..stateless_state()
+        };
+        assert!(!uncaptured.stateless(), "{quality:?}");
+    }
+    // A blob digest or a verified-state claim breaks the profile.
+    let with_digest = PluginStateDecl {
+        digest: Some("blob".to_string()),
+        ..stateless_state()
+    };
+    assert!(!with_digest.stateless());
+    let known_status = PluginStateDecl {
+        status: OpaqueStateStatus::Known,
+        ..stateless_state()
+    };
+    assert!(!known_status.stateless());
+}
+
+#[test]
+fn ex03_stateless_env_decl_verdict_matrix() {
+    let decl = |state: PluginStateDecl| PluginDeclaration {
+        state,
+        ..plugin_decl("instr")
+    };
+    let env_with = |support: StateRestoreSupport| PluginCapabilitySnapshot {
+        generation: 7,
+        entries: BTreeMap::from([
+            (
+                PluginKey::of(&identity("instr")),
+                PluginEnvironment {
+                    state_restore: support,
+                    ..env_live("instr")
+                },
+            ),
+            (PluginKey::of(&identity("rev")), env_live("rev")),
+        ]),
+    };
+    let state_bearing = PluginStateDecl {
+        digest: Some("state-instr".to_string()),
+        quality: StateCaptureQuality::Quiescent,
+        status: OpaqueStateStatus::Known,
+    };
+    let uncaptured = PluginStateDecl {
+        digest: None,
+        quality: StateCaptureQuality::Quiescent,
+        status: OpaqueStateStatus::Known,
+    };
+
+    // env reports no state restore + stateless decl → Live.
+    assert_eq!(
+        verify_plugin(
+            &decl(stateless_state()),
+            &env_with(StateRestoreSupport::Unsupported)
+        ),
+        PluginVerdict::Live
+    );
+    // env reports no state restore + state-bearing decl → still
+    // fail-closed StateUnsupported (state exists, host cannot
+    // restore it).
+    assert_eq!(
+        verify_plugin(
+            &decl(state_bearing.clone()),
+            &env_with(StateRestoreSupport::Unsupported)
+        ),
+        PluginVerdict::StateUnsupported
+    );
+    // env reports no state restore + uncaptured decl →
+    // StateUnsupported (capture-applicable evidence the host cannot
+    // reproduce).
+    assert_eq!(
+        verify_plugin(
+            &decl(uncaptured.clone()),
+            &env_with(StateRestoreSupport::Unsupported)
+        ),
+        PluginVerdict::StateUnsupported
+    );
+    // env reports no state restore + contradictory decl (stateless
+    // quality but a verified-state claim) → StateUnsupported.
+    let contradictory = PluginStateDecl {
+        status: OpaqueStateStatus::Known,
+        ..stateless_state()
+    };
+    assert_eq!(
+        verify_plugin(
+            &decl(contradictory),
+            &env_with(StateRestoreSupport::Unsupported)
+        ),
+        PluginVerdict::StateUnsupported
+    );
+    // env/decl drift: env verified restore but decl declares the
+    // plugin has no state support → contradictory evidence →
+    // StateUnknown (never Live).
+    assert_eq!(
+        verify_plugin(
+            &decl(stateless_state()),
+            &env_with(StateRestoreSupport::Verified)
+        ),
+        PluginVerdict::StateUnknown
+    );
+    // env verified + state-bearing decl → Live (existing path).
+    assert_eq!(
+        verify_plugin(
+            &decl(state_bearing),
+            &env_with(StateRestoreSupport::Verified)
+        ),
+        PluginVerdict::Live
+    );
+    // env verified + uncaptured decl → StateUnknown (capture
+    // required but absent — fail closed, unchanged).
+    assert_eq!(
+        verify_plugin(&decl(uncaptured), &env_with(StateRestoreSupport::Verified)),
+        PluginVerdict::StateUnknown
+    );
+    // env cannot determine restore support → StateUnknown even for
+    // a stateless decl (the variant's documented fail-closed
+    // semantics).
+    assert_eq!(
+        verify_plugin(
+            &decl(stateless_state()),
+            &env_with(StateRestoreSupport::Unknown)
+        ),
+        PluginVerdict::StateUnknown
+    );
+}
+
+#[test]
+fn ex03_stateless_plugin_selects_live() {
+    // chain_snapshot with "instr" (node 2) declared stateless and
+    // its environment reporting no state restore → Live → Exact.
+    let mut snap = chain_snapshot();
+    snap.nodes
+        .get_mut(&RcpNodeId(2))
+        .and_then(|n| n.plugin.as_mut())
+        .expect("instr plugin node")
+        .state = stateless_state();
+    snap.structure_digest = snap.compute_structure_digest();
+    let env = PluginEnvironment {
+        state_restore: StateRestoreSupport::Unsupported,
+        ..env_live("instr")
+    };
+    let caps = caps(vec![("instr", env), ("rev", env_live("rev"))]);
+    let sel = ExecutionSelector::select(
+        &snap,
+        &ExecutionIntent::MainPlayback,
+        &caps,
+        &RenderCandidateIndex::default(),
+    );
+    assert_eq!(sel.verdict, SelectionVerdict::Exact);
+    assert_eq!(
+        sel.receipt.plugin_verdicts.get(&RcpNodeId(2)),
+        Some(&PluginVerdict::Live)
+    );
+    assert_eq!(
+        sel.unresolved,
+        [] as [synvelis_player::rcp::UnresolvedNode; 0]
+    );
+}
+
+#[test]
+fn ex03_stateless_decl_env_drift_and_uncaptured_stay_blocked() {
+    // env/decl drift: env verified restore, decl stateless →
+    // StateUnknown → Blocked.
+    let mut snap = chain_snapshot();
+    snap.nodes
+        .get_mut(&RcpNodeId(2))
+        .and_then(|n| n.plugin.as_mut())
+        .expect("instr plugin node")
+        .state = stateless_state();
+    snap.structure_digest = snap.compute_structure_digest();
+    let sel = ExecutionSelector::select(
+        &snap,
+        &ExecutionIntent::MainPlayback,
+        &caps_all(),
+        &RenderCandidateIndex::default(),
+    );
+    assert_eq!(sel.verdict, SelectionVerdict::Blocked);
+    assert_eq!(
+        sel.receipt.plugin_verdicts.get(&RcpNodeId(2)),
+        Some(&PluginVerdict::StateUnknown)
+    );
+
+    // Uncaptured (capture-applicable, digest: None) + env reports
+    // no restore → StateUnsupported → Blocked.
+    let mut snap2 = chain_snapshot();
+    snap2
+        .nodes
+        .get_mut(&RcpNodeId(2))
+        .and_then(|n| n.plugin.as_mut())
+        .expect("instr plugin node")
+        .state = PluginStateDecl {
+        digest: None,
+        quality: StateCaptureQuality::Quiescent,
+        status: OpaqueStateStatus::Known,
+    };
+    snap2.structure_digest = snap2.compute_structure_digest();
+    let env = PluginEnvironment {
+        state_restore: StateRestoreSupport::Unsupported,
+        ..env_live("instr")
+    };
+    let caps = caps(vec![("instr", env), ("rev", env_live("rev"))]);
+    let sel2 = ExecutionSelector::select(
+        &snap2,
+        &ExecutionIntent::MainPlayback,
+        &caps,
+        &RenderCandidateIndex::default(),
+    );
+    assert_eq!(sel2.verdict, SelectionVerdict::Blocked);
+    assert_eq!(
+        sel2.receipt.plugin_verdicts.get(&RcpNodeId(2)),
+        Some(&PluginVerdict::StateUnsupported)
+    );
 }
 
 // ---------------------------------------------------------------------------

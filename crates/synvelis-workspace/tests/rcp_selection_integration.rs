@@ -725,6 +725,90 @@ fn rcp_ex01_offline_render_enforces_min_reproducibility() {
     assert!(matches!(driven, SelectionPlanDrive::Published { .. }));
 }
 
+/// RCP-EX-01 (stateless leg, synvelis#530): plugin evidence that
+/// declares stateless-by-design (`digest: None` +
+/// `StateCaptureQuality::Unsupported` + unverified status) plus an
+/// environment reporting `StateRestoreSupport::Unsupported` verifies
+/// `Live` through `resolve_selection` — the selection stays `Exact`
+/// and drives a real publish. The same evidence shape with a
+/// capture-capable quality instead stays fail-closed.
+#[test]
+fn rcp_ex01_stateless_plugin_evidence_is_live() {
+    let (controller, _strip) = build_project(&[("acme.gain", false)]);
+    let revision = controller.live_revision();
+    let project = controller.live().clone();
+    let processor = all_processors(&project)[0];
+
+    // Stateless evidence + no-restore environment.
+    let mut evidence = evidence_for(&project);
+    evidence.get_mut(&processor).unwrap().state = PluginStateDecl {
+        digest: None,
+        quality: StateCaptureQuality::Unsupported,
+        status: OpaqueStateStatus::Unknown,
+    };
+    let mut environments = environments_for(&project, &BTreeSet::new());
+    let descriptor = binding_descriptor(&project, processor);
+    environments.get_mut(&descriptor).unwrap().state_restore = StateRestoreSupport::Unsupported;
+
+    let resolution = resolve(
+        &project,
+        revision,
+        &evidence,
+        &environments,
+        &[],
+        RENDER_INDEX_GENERATION,
+        1,
+    );
+    let selection = select(&resolution, &ExecutionIntent::MainPlayback);
+    assert_eq!(selection.verdict, SelectionVerdict::Exact);
+    let node = node_of_processor(&resolution, processor);
+    assert_eq!(
+        selection.receipt.plugin_verdicts.get(&node),
+        Some(&PluginVerdict::Live)
+    );
+
+    let mut engine = engine_with_host(&project);
+    let mut reconciler = PlanReconciler::new();
+    let driven = drive(
+        &mut engine,
+        &mut reconciler,
+        &project,
+        revision,
+        &resolution,
+        &selection,
+        mode_of(&selection.intent),
+    );
+    assert!(matches!(driven, SelectionPlanDrive::Published { .. }));
+
+    // Uncaptured evidence (`digest: None` + capture-capable quality)
+    // against the same no-restore environment → StateUnsupported →
+    // Blocked. "Capture required but absent" never reaches Live.
+    let mut uncaptured = evidence_for(&project);
+    uncaptured.get_mut(&processor).unwrap().state = PluginStateDecl {
+        digest: None,
+        quality: StateCaptureQuality::Quiescent,
+        status: OpaqueStateStatus::Known,
+    };
+    let resolution = resolve(
+        &project,
+        revision,
+        &uncaptured,
+        &environments,
+        &[],
+        RENDER_INDEX_GENERATION,
+        2,
+    );
+    let selection = select(&resolution, &ExecutionIntent::MainPlayback);
+    assert_eq!(selection.verdict, SelectionVerdict::Blocked);
+    assert_eq!(
+        selection
+            .receipt
+            .plugin_verdicts
+            .get(&node_of_processor(&resolution, processor)),
+        Some(&PluginVerdict::StateUnsupported)
+    );
+}
+
 // ---------------------------------------------------------------------------
 // RCP-EX-03 — no fake Exact from non-exact artifacts; preview opt-in
 // ---------------------------------------------------------------------------

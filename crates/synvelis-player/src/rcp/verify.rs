@@ -28,8 +28,8 @@ use super::model::{
 pub enum PluginVerdict {
     /// Plugin verified usable live: installed, accessible, format
     /// supported, version/digest evidence consistent, port layout
-    /// matches, state restore verified, automation identity
-    /// complete.
+    /// matches, state restore verified (or stateless by design —
+    /// nothing to restore), automation identity complete.
     Live,
     /// No environment entry for the plugin key — binary not
     /// installed or never scanned.
@@ -66,7 +66,10 @@ pub enum PluginVerdict {
     StateUnknown,
     /// State exists but the host cannot restore it — distinct from
     /// `StateUnknown` (evidence absent) because a substitute-render
-    /// decision may treat verified-state plugins differently.
+    /// decision may treat verified-state plugins differently. Also
+    /// covers a declaration that is not stateless-consistent while
+    /// the environment reports no state restore: either way the
+    /// host cannot reproduce the declared state evidence.
     StateUnsupported,
     /// Automation/parameter identities referenced by the project do
     /// not resolve inside the declared layout — semantic editing is
@@ -147,7 +150,18 @@ pub fn verify_plugin(decl: &PluginDeclaration, caps: &PluginCapabilitySnapshot) 
             }
             PluginVerdict::Live
         }
-        StateRestoreSupport::Unsupported => PluginVerdict::StateUnsupported,
+        StateRestoreSupport::Unsupported => {
+            // The environment reports the plugin has no state
+            // save/restore. A stateless-by-design declaration has
+            // nothing to restore and verifies `Live`; every other
+            // declaration still expects state the host cannot
+            // restore and keeps failing closed.
+            if decl.state.stateless() {
+                PluginVerdict::Live
+            } else {
+                PluginVerdict::StateUnsupported
+            }
+        }
         StateRestoreSupport::Unknown => PluginVerdict::StateUnknown,
     }
 }
