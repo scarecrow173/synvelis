@@ -863,6 +863,7 @@ fn commit_records_the_policy_position_it_observed() {
         proposals: rig.proposals.clone(),
         apply_capability: apply_desc(&rig),
         variant: None,
+        render: None,
     };
     let (gate, _report) = CommitGate::open(
         demo_project(),
@@ -919,6 +920,7 @@ fn durable_policy_admin_never_double_counts_consumption() {
         proposals: rig.proposals.clone(),
         apply_capability: apply_desc(&rig),
         variant: None,
+        render: None,
     };
     let (gate, _report) = CommitGate::open(
         demo_project(),
@@ -955,6 +957,7 @@ fn durable_policy_admin_never_double_counts_consumption() {
         proposals: rig.proposals.clone(),
         apply_capability: apply_desc(&rig),
         variant: None,
+        render: None,
     };
     let (gate, report) = CommitGate::open(
         demo_project(),

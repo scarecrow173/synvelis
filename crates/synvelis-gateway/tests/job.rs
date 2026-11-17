@@ -487,6 +487,7 @@ fn verified_media_commits_through_gate() {
             .unwrap()
             .clone(),
         variant: None,
+        render: None,
     };
     let (gate, _report) = CommitGate::open(
         demo_project(),

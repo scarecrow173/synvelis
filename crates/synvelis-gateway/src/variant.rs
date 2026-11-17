@@ -252,13 +252,19 @@ pub struct VariantPorts {
 }
 
 impl VariantPorts {
-    /// The production wiring: every adapter this slice ships, an
-    /// in-memory content store, a fresh resolver, and the no-op
-    /// runtime port. Hosts replace `store`/`runtime`/probes with
-    /// durable/runtime-backed implementations; an absent adapter for
-    /// a scope kind still fails closed.
+    /// The production wiring: every adapter this slice ships, the
+    /// snapshot resolver, optional asset/plugin probes, and — when
+    /// `content_root` names a project directory — the durable
+    /// [`synvelis_project::variant::DirectoryBranchContentStore`]
+    /// under `<root>/branch-content` plus the journaled runtime port
+    /// under `<root>/runtime-publish` (synvelis#517). `None` is for
+    /// project-less contexts only (capability discovery, tests that
+    /// never commit): it keeps the in-memory store and reports
+    /// `NotRequested` publishes, which is honest only because no
+    /// project exists to commit. An absent adapter for a scope kind
+    /// still fails closed.
     #[must_use]
-    pub fn standard() -> Self {
+    pub fn standard(content_root: Option<&std::path::Path>) -> Self {
         let mut adapters: BTreeMap<VariantScopeKind, Arc<dyn DomainAdapter + Send + Sync>> =
             BTreeMap::new();
         adapters.insert(
@@ -282,14 +288,32 @@ impl VariantPorts {
             VariantScopeKind::StripFields,
             Arc::new(StripFieldsAdapter::new()),
         );
+        let (store, runtime): (SharedBranchStore, Arc<dyn RuntimePublish + Send + Sync>) =
+            match content_root {
+                Some(root) => (
+                    Arc::new(Mutex::new(Box::new(
+                        synvelis_project::variant::DirectoryBranchContentStore::new(
+                            root.join("branch-content"),
+                        ),
+                    )
+                        as Box<dyn BranchContentStore + Send>)),
+                    Arc::new(synvelis_project::variant::JournaledRuntimePublish::new(
+                        root.join("runtime-publish"),
+                    )),
+                ),
+                None => (
+                    Arc::new(Mutex::new(Box::new(
+                        synvelis_project::variant::InMemoryBranchContentStore::default(),
+                    )
+                        as Box<dyn BranchContentStore + Send>)),
+                    Arc::new(NoopRuntimePublish),
+                ),
+            };
         Self {
             adapters,
-            store: Arc::new(Mutex::new(Box::new(
-                synvelis_project::variant::InMemoryBranchContentStore::default(),
-            )
-                as Box<dyn BranchContentStore + Send>)),
+            store,
             resolver: SnapshotResolver::new(),
-            runtime: Arc::new(NoopRuntimePublish),
+            runtime,
             assets: None,
             plugins: None,
         }
@@ -1315,5 +1339,314 @@ impl CapabilityOperation for VariantQueryEngine {
             }
         };
         Ok(GatewayOutcome::Completed { result })
+    }
+}
+
+// ── Render capabilities (synvelis#517) ──────────────────────────
+//
+// `synvelis.render.*` rides the *same* prepare → proposal → approval →
+// apply → CommitGate pipeline as `synvelis.branch.*`: each action is a
+// `ProjectMutation`-domain capability whose prepare lowering produces
+// [`PreparedMutation::Render`], and the commit gate dispatches the
+// retained intent through a host-injected [`RenderDispatch`] port —
+// the same dependency-injection shape [`VariantPorts`] uses, because
+// synvelis-gateway does not depend on synvelis-render. The workspace
+// `ACTION_RENDER_*` vocabulary (`synvelis-workspace::render_ui`) names
+// these exact ids so every surface resolves identical Target/Grant/
+// Receipt triples (RCP-UX-04 / RCP-POL-07).
+//
+// Render intents never mutate the project: the commit fence still
+// checks the expected-revision CAS, then the dispatch outcome becomes
+// the commit's provenance. `Unavailable`/`Failed` dispatches are
+// determined non-commit rejections — a render success is never
+// claimed when no backend confirmed it.
+
+/// `synvelis.render.plan` — read-only render plan/preview resolution.
+pub const RENDER_PLAN_ID: &str = "synvelis.render.plan";
+/// `synvelis.render.inspect` — read-only artifact/job inspection.
+pub const RENDER_INSPECT_ID: &str = "synvelis.render.inspect";
+/// `synvelis.render.request` — submit a render job.
+pub const RENDER_REQUEST_ID: &str = "synvelis.render.request";
+/// `synvelis.render.cancel` — cancel a render job (idempotent on the
+/// job key carried in args).
+pub const RENDER_CANCEL_ID: &str = "synvelis.render.cancel";
+/// `synvelis.render.retry` — retry a failed render job (idempotent on
+/// the job key).
+pub const RENDER_RETRY_ID: &str = "synvelis.render.retry";
+/// `synvelis.render.verify` — re-verify artifact media (read-only).
+pub const RENDER_VERIFY_ID: &str = "synvelis.render.verify";
+/// `synvelis.render.attach` — attach a job's artifacts post-publish
+/// (idempotent on the job key).
+pub const RENDER_ATTACH_ID: &str = "synvelis.render.attach";
+/// `synvelis.render.publish` — publish/share artifacts; the
+/// grant-requiring action (`ExternalAction` + `ExternalDisclosure`).
+pub const RENDER_PUBLISH_ID: &str = "synvelis.render.publish";
+/// `synvelis.render.remote` — remote-backend render; the
+/// grant-requiring action (`ExternalAction` + `ProviderTransfer`).
+pub const RENDER_REMOTE_ID: &str = "synvelis.render.remote";
+
+/// The render action a [`RenderIntent`] carries — one per registered
+/// `synvelis.render.*` capability id.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum RenderAction {
+    /// `synvelis.render.plan`.
+    Plan,
+    /// `synvelis.render.inspect`.
+    Inspect,
+    /// `synvelis.render.request`.
+    Request,
+    /// `synvelis.render.cancel`.
+    Cancel,
+    /// `synvelis.render.retry`.
+    Retry,
+    /// `synvelis.render.verify`.
+    Verify,
+    /// `synvelis.render.attach`.
+    Attach,
+    /// `synvelis.render.publish`.
+    Publish,
+    /// `synvelis.render.remote`.
+    Remote,
+}
+
+impl RenderAction {
+    /// All actions in registration order.
+    pub const ALL: [Self; 9] = [
+        Self::Plan,
+        Self::Inspect,
+        Self::Request,
+        Self::Cancel,
+        Self::Retry,
+        Self::Verify,
+        Self::Attach,
+        Self::Publish,
+        Self::Remote,
+    ];
+
+    /// The capability id this action is registered under — identical
+    /// to the workspace `ACTION_RENDER_*` vocabulary.
+    #[must_use]
+    pub const fn id(self) -> &'static str {
+        match self {
+            Self::Plan => RENDER_PLAN_ID,
+            Self::Inspect => RENDER_INSPECT_ID,
+            Self::Request => RENDER_REQUEST_ID,
+            Self::Cancel => RENDER_CANCEL_ID,
+            Self::Retry => RENDER_RETRY_ID,
+            Self::Verify => RENDER_VERIFY_ID,
+            Self::Attach => RENDER_ATTACH_ID,
+            Self::Publish => RENDER_PUBLISH_ID,
+            Self::Remote => RENDER_REMOTE_ID,
+        }
+    }
+
+    /// The semantic-command op name recorded on the proposal.
+    #[must_use]
+    pub const fn op_name(self) -> &'static str {
+        match self {
+            Self::Plan => "render-plan",
+            Self::Inspect => "render-inspect",
+            Self::Request => "render-request",
+            Self::Cancel => "render-cancel",
+            Self::Retry => "render-retry",
+            Self::Verify => "render-verify",
+            Self::Attach => "render-attach",
+            Self::Publish => "render-publish",
+            Self::Remote => "render-remote",
+        }
+    }
+
+    /// `true` for the read-only actions (plan/inspect/verify) — they
+    /// declare `Read` effects only; every other action mutates job or
+    /// artifact state.
+    #[must_use]
+    pub const fn read_only(self) -> bool {
+        matches!(self, Self::Plan | Self::Inspect | Self::Verify)
+    }
+
+    /// Resolves a capability id to its action.
+    #[must_use]
+    pub fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|a| a.id() == id)
+    }
+}
+
+/// A retained render command — lowered at prepare, dispatched at
+/// commit. `args` is the schema-validated request payload forwarded
+/// verbatim to the host's [`RenderDispatch`] port; semantic arg
+/// validation (job keys, recipe refs) is the backend's contract, the
+/// same way `VariantIntent` delegates domain checks to adapters.
+#[derive(Clone, Debug)]
+pub struct RenderIntent {
+    /// Which render action to dispatch.
+    pub action: RenderAction,
+    /// Validated args object.
+    pub args: Value,
+}
+
+impl RenderIntent {
+    /// The capability id this intent was lowered from.
+    #[must_use]
+    pub const fn capability_id(&self) -> &'static str {
+        // `RenderAction::id` is const but takes `self` by value —
+        // dispatch through the match to stay const-compatible.
+        match self.action {
+            RenderAction::Plan => RENDER_PLAN_ID,
+            RenderAction::Inspect => RENDER_INSPECT_ID,
+            RenderAction::Request => RENDER_REQUEST_ID,
+            RenderAction::Cancel => RENDER_CANCEL_ID,
+            RenderAction::Retry => RENDER_RETRY_ID,
+            RenderAction::Verify => RENDER_VERIFY_ID,
+            RenderAction::Attach => RENDER_ATTACH_ID,
+            RenderAction::Publish => RENDER_PUBLISH_ID,
+            RenderAction::Remote => RENDER_REMOTE_ID,
+        }
+    }
+}
+
+/// What a [`RenderDispatch`] backend reports — the typed outcome the
+/// commit gate turns into committed provenance or a determined
+/// non-commit rejection.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+#[serde(tag = "state", rename_all = "kebab-case")]
+pub enum RenderDispatchState {
+    /// The backend accepted the command (job submitted, control
+    /// applied, inspection answered).
+    Dispatched,
+    /// Accepted but the result/activation is still pending — typed
+    /// evidence, never reported as completed work.
+    Pending {
+        /// Why the outcome is pending.
+        reason: String,
+    },
+    /// No render backend is wired — a determined rejection, distinct
+    /// from a backend failure.
+    Unavailable {
+        /// Why dispatch is unavailable.
+        reason: String,
+    },
+    /// The backend rejected or failed the command.
+    Failed {
+        /// Why the command failed.
+        reason: String,
+    },
+}
+
+/// The full dispatch result — state plus optional backend receipt
+/// (job key, `TriggerReport`, inspection payload) recorded as commit
+/// provenance so the receipt vocabulary stays identical across
+/// surfaces.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+pub struct RenderDispatchOutcome {
+    /// The typed dispatch state.
+    pub state: RenderDispatchState,
+    /// Human-readable detail.
+    pub detail: Option<String>,
+    /// Backend receipt payload — e.g. the lowered `TriggerReport` or
+    /// job key — recorded verbatim as provenance.
+    pub receipt: Option<Value>,
+}
+
+/// Host-injected render backend — the gateway-side seam that keeps
+/// synvelis-gateway independent of synvelis-render (the same role
+/// [`VariantPorts`] plays for branch mutations). Production hosts
+/// adapt the render-job orchestrator; headless hosts inject
+/// [`UnavailableRenderDispatch`].
+pub trait RenderDispatch {
+    /// Dispatches `intent`; must return an honest typed outcome —
+    /// `Dispatched`/`Pending` only when the backend actually accepted
+    /// the command.
+    fn dispatch(&self, intent: &RenderIntent) -> RenderDispatchOutcome;
+}
+
+/// The headless default render backend: every command reports typed
+/// `Unavailable` — registered capabilities stay invocable through the
+/// authorization pipeline, but no render success is ever fabricated.
+#[derive(Clone, Debug, Default)]
+pub struct UnavailableRenderDispatch;
+
+impl RenderDispatch for UnavailableRenderDispatch {
+    fn dispatch(&self, intent: &RenderIntent) -> RenderDispatchOutcome {
+        RenderDispatchOutcome {
+            state: RenderDispatchState::Unavailable {
+                reason: format!("no render backend is wired for {}", intent.action.id()),
+            },
+            detail: None,
+            receipt: None,
+        }
+    }
+}
+
+/// The nine render mutation descriptors — registered on the prepare
+/// engine's render-op table (invocable only *through*
+/// `synvelis.operation.prepare`, like every `ProjectMutation`).
+/// Target is `None`: render jobs are not project resources in this
+/// slice — job identity travels inside validated args.
+#[must_use]
+pub fn render_descriptors() -> Vec<CapabilityDescriptor> {
+    use DataAccessClass::{ExternalDisclosure, MetadataRead, ProviderTransfer};
+    use EffectKind::{Disclose, ExternalAction, Read, Write};
+    use PermissionKind::{ExternalAction as ExternalPerm, ReadContext, RunJob};
+    RenderAction::ALL
+        .into_iter()
+        .map(|action| {
+            let (effects, permissions, data): (
+                &[EffectKind],
+                &[PermissionKind],
+                &[DataAccessClass],
+            ) = if action.read_only() {
+                (&[Read], &[ReadContext], &[MetadataRead])
+            } else if matches!(action, RenderAction::Publish) {
+                (
+                    &[Write, Disclose],
+                    &[RunJob, ExternalPerm],
+                    &[MetadataRead, ExternalDisclosure],
+                )
+            } else if matches!(action, RenderAction::Remote) {
+                (
+                    &[Write, ExternalAction],
+                    &[RunJob, ExternalPerm],
+                    &[MetadataRead, ProviderTransfer],
+                )
+            } else {
+                (&[Write], &[RunJob], &[MetadataRead])
+            };
+            descriptor(
+                action.id(),
+                OperationDomain::ProjectMutation,
+                &input_schema_name(action.id()),
+                OP_OUTPUT,
+                TargetContract::None,
+                effects,
+                permissions,
+                data,
+            )
+        })
+        .collect()
+}
+
+/// The registered `(descriptor, input schema)` pairs for the render
+/// ops — args are a schema-loose object: the capability floor carries
+/// the authorization weight and the dispatch port owns semantic arg
+/// validation (job keys, recipe references), mirroring how
+/// `branch.edit`'s inner op is port-validated downstream.
+#[must_use]
+pub fn render_specs() -> Vec<(CapabilityDescriptor, ValueSchema)> {
+    render_descriptors()
+        .into_iter()
+        .map(|d| (d, any_obj()))
+        .collect()
+}
+
+/// Render declared facts — every render command reads the request's
+/// project (plan resolution, job scoping) but writes no project
+/// resource: the project diff is empty by construction and the real
+/// effect is the dispatch outcome recorded as provenance.
+pub(crate) fn render_declared_facts(_intent: &RenderIntent, project: &Project) -> OpFacts {
+    OpFacts {
+        reads: BTreeSet::from([ResourceRef::Project(project.project_id)]),
+        impacted: BTreeMap::new(),
+        preconditions: Vec::new(),
+        unsupported: Vec::new(),
     }
 }

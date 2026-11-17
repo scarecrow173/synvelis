@@ -315,7 +315,11 @@ fn rig_with(
         APPROVAL_TTL,
         max_entries,
     ));
-    let ports = with_variant.then(|| Arc::new(synvelis_gateway::variant::VariantPorts::standard()));
+    // The rig is fully in-memory (MemorySnapshotSource, no project
+    // dir) — `None` keeps the fixture store/runtime honest: durable
+    // wiring is covered by project-level and host-level tests.
+    let ports =
+        with_variant.then(|| Arc::new(synvelis_gateway::variant::VariantPorts::standard(None)));
     let engine = Arc::new(
         PrepareEngine::new(
             ctx.clone(),
@@ -908,6 +912,7 @@ pub(crate) fn gate_deps(
         proposals,
         apply_capability,
         variant: None,
+        render: None,
     }
 }
 
@@ -933,6 +938,7 @@ pub(crate) fn gate_deps_variant(
         proposals,
         apply_capability,
         variant: Some(variant),
+        render: None,
     }
 }
 

@@ -213,6 +213,10 @@ pub struct PrepareEngine {
     /// CB-10: Creative Branch capabilities — lowered to
     /// [`crate::variant::VariantIntent`]s, never to `ProjectOp`s.
     variant_ops: BTreeMap<CapabilityRef, VariantOpSpec>,
+    /// synvelis#517: `synvelis.render.*` capabilities — lowered to
+    /// [`crate::variant::RenderIntent`]s and dispatched through the
+    /// commit gate's render port; they never mutate the project.
+    render_ops: BTreeMap<CapabilityRef, VariantOpSpec>,
     /// CB-10: shared variant ports for prepare-time simulation —
     /// `None` fails variant preparation closed (host misconfiguration,
     /// same posture as the media gate).
@@ -679,6 +683,7 @@ impl PrepareEngine {
             descriptor: Self::descriptor(),
             ops: Self::op_specs(),
             variant_ops: Self::variant_specs(),
+            render_ops: Self::render_specs(),
             variant: None,
             proposals,
             media,
@@ -776,6 +781,23 @@ impl PrepareEngine {
             .collect()
     }
 
+    /// The synvelis#517 render-op table — `synvelis.render.*`
+    /// descriptors + input schemas. Like the variant table these never
+    /// join `ops`: their lowering produces
+    /// [`PreparedMutation::Render`], dispatched at commit through the
+    /// host's render port.
+    fn render_specs() -> BTreeMap<CapabilityRef, VariantOpSpec> {
+        crate::variant::render_specs()
+            .into_iter()
+            .map(|(descriptor, input)| {
+                (
+                    descriptor.capability_ref(),
+                    VariantOpSpec { descriptor, input },
+                )
+            })
+            .collect()
+    }
+
     /// Registers every op input schema, the shared output schema, the
     /// mutation-op descriptors (no executors — apply is GW-06), and
     /// the `synvelis.operation.prepare` capability with `self`.
@@ -795,6 +817,16 @@ impl PrepareEngine {
                 .map_err(ErrorEnvelope::from)?;
         }
         for spec in self.variant_ops.values() {
+            gateway
+                .schemas_mut()
+                .register(
+                    spec.descriptor.input_schema.name.clone(),
+                    SchemaVersion::new(1, 0),
+                    spec.input.clone(),
+                )
+                .map_err(ErrorEnvelope::from)?;
+        }
+        for spec in self.render_ops.values() {
             gateway
                 .schemas_mut()
                 .register(
@@ -829,6 +861,9 @@ impl PrepareEngine {
             gateway.register_capability(spec.descriptor.clone(), None)?;
         }
         for spec in self.variant_ops.values() {
+            gateway.register_capability(spec.descriptor.clone(), None)?;
+        }
+        for spec in self.render_ops.values() {
             gateway.register_capability(spec.descriptor.clone(), None)?;
         }
         gateway.register_capability(self.descriptor.clone(), Some(self.clone()))
@@ -972,10 +1007,16 @@ impl PrepareEngine {
             if let Some(vspec) = self.variant_ops.get(&named.capability) {
                 return self.lower_variant(named, vspec, path);
             }
+            // synvelis#517: render capabilities lower to `RenderIntent`s
+            // — dispatched at commit, never a `ProjectOp`.
+            if let Some(rspec) = self.render_ops.get(&named.capability) {
+                return Self::lower_render(named, rspec, path);
+            }
             let supported: Vec<CapabilityVersion> = self
                 .ops
                 .keys()
                 .chain(self.variant_ops.keys())
+                .chain(self.render_ops.keys())
                 .filter(|c| c.id == named.capability.id)
                 .map(|c| c.version)
                 .collect();
@@ -1054,7 +1095,7 @@ impl PrepareEngine {
                 let PreparedMutation::Project(member_op) = member_mutation else {
                     return Err(prepare::violation(
                         &format!("{path}.args.ops[{i}]"),
-                        "variant operations cannot be batch members",
+                        "non-project operations cannot be batch members",
                     ));
                 };
                 commands.extend(member_commands);
@@ -1242,6 +1283,41 @@ impl PrepareEngine {
         }
     }
 
+    /// synvelis#517 render lowering — schema-validates args, binds the
+    /// (empty) target contract, and produces a
+    /// [`PreparedMutation::Render`]. Render intents carry no project
+    /// mutation: the candidate is the unchanged base and the commit
+    /// gate dispatches through the host's render port.
+    #[allow(clippy::result_large_err)] // typed envelope is the contract
+    fn lower_render(
+        named: &NamedOperation,
+        spec: &VariantOpSpec,
+        path: &str,
+    ) -> Result<Lowered, ErrorEnvelope> {
+        spec.input
+            .validate(&format!("{path}.args"), &named.args)
+            .map_err(ErrorEnvelope::from)?;
+        let target = crate::gateway::Gateway::bind_target(&spec.descriptor, named.target.as_ref())
+            .map_err(ErrorEnvelope::from)?;
+        let action = crate::variant::RenderAction::from_id(named.capability.id.as_str())
+            .ok_or_else(|| GatewayError::Internal {
+                reason: format!("unhandled render capability {}", named.capability.id),
+            })?;
+        Ok((
+            vec![SemanticCommand {
+                capability: named.capability.clone(),
+                op: action.op_name(),
+                target,
+                args: named.args.clone(),
+            }],
+            PreparedMutation::Render(crate::variant::RenderIntent {
+                action,
+                args: named.args.clone(),
+            }),
+            None,
+        ))
+    }
+
     /// The AUTX-04 GW-04 bindings seam — lowers a
     /// `synvelis.operation.batch` whose non-empty `bindings` declare
     /// create-then-reference output bindings (the
@@ -1363,7 +1439,7 @@ impl PrepareEngine {
             let PreparedMutation::Project(member_op) = member_mutation else {
                 return Err(prepare::violation(
                     &mpath,
-                    "variant operations cannot be batch members",
+                    "non-project operations cannot be batch members",
                 ));
             };
             commands.extend(member_commands);
@@ -1513,6 +1589,20 @@ impl PrepareEngine {
                     }
                 })?;
                 (facts, capabilities, Arc::new(post))
+            }
+            PreparedMutation::Render(intent) => {
+                // Render commands mutate no project state — the
+                // candidate is the pinned base verbatim and the real
+                // effect is the commit-time dispatch outcome.
+                let (facts, capabilities) = self.provisional_gate(
+                    req,
+                    &pin,
+                    &named,
+                    crate::variant::render_declared_facts(intent, &pin.state),
+                    &commands,
+                    None,
+                )?;
+                (facts, capabilities, Arc::new((*pin.state).clone()))
             }
         };
 
