@@ -22,7 +22,7 @@ handshake 中も `IO_POLL` 毎に cancel/deadline/stall を再確認。
 | 項目 | 値 |
 |---|---|
 | 対象 Repository | scarecrow173/synvelis |
-| 対象 Revision | branch `feat/521-lfs-https-transport`、base `origin/main` `4b45304d`。検証は commit 前 working tree で実施 — PR head SHA は PR 本文に記録 |
+| 対象 Revision | branch `feat/521-lfs-https-transport`、base `origin/main` `3e206c03`（rebase 済み — 旧 base `4b45304d` では sv513 merge 由来の gateway `op_name` 非網羅で workspace 系 check が blocked だったが、Coordinator 対処の PR #527 `61ac1d71` で修復済み）。検証は commit `aeec222a` で実施 — PR head SHA は PR 本文に記録 |
 | OS / Arch | Windows 11 / x86_64（Git Bash 経由） |
 | Rust toolchain | mise 管理（`mise.toml` / CI pin `mise.ci.toml` 1.99.0） |
 | 実行日 | 2026-11-17 |
@@ -50,11 +50,11 @@ handshake 中も `IO_POLL` 毎に cancel/deadline/stall を再確認。
 |---|---|---|
 | fmt | `mise run fmt-check` | Pass |
 | check (library) | `mise run check synvelis-library` | Pass |
-| check (workspace) | `mise run check synvelis-workspace` | **Blocked — pre-existing main breakage**: `synvelis-gateway` `op_name` match が `ProjectOp::SetProcessorBinding`（sv513 `f22de8ac` 由来）を未網羅で E0004。`origin/main` `4b45304d` 自体が非コンパイルであり本 diff 起因ではない。Coordinator へ報告済み（`msg_12bb28be610e`） |
+| check (workspace) | `mise run check synvelis-workspace` | Pass（rebase 後 `61ac1d71`+ で gateway 修復済み main 上で実走） |
 | lint (library) | `mise run lint synvelis-library` | Pass（`Wire::Tls` の `large_enum_variant`・doc backtick・`unused_self` を修正済み） |
-| lint (workspace) | `mise run lint synvelis-workspace` | 同上 blocked（gateway 依存） |
+| lint (workspace) | `mise run lint synvelis-workspace` | Pass（同上） |
 | test (library) | `mise run test synvelis-library` | Pass — 全 suite green（`tests/lfs.rs` 21/21、`tests/webdav.rs` 43/43 他） |
-| test (workspace) | `mise run test synvelis-workspace` | 同上 blocked（gateway 依存） |
+| test (workspace) | `mise run test synvelis-workspace` | Pass — 全 suite green（`library_ui` tests 含む） |
 | headless deps | `mise run check-headless-deps` | Pass（12 headless crates に GUI 依存なし — rustls/rcgen 追加後も維持） |
 | hooks | `mise exec -- prek run --all-files` | Pass |
 | whitespace | `git diff --check` | Pass |
@@ -73,9 +73,8 @@ handshake 中も `IO_POLL` 毎に cancel/deadline/stall を再確認。
   `UnsupportedCapability` で拒否。TLS transport は
   `HttpEndpoint.tls` opt-in の caller（Git LFS）のみが使用。
   解放は #90 の責務。
-- 実 OS credential store・GUI・`*-full`/`test-rt`/
-  `check-app-*`/`gw10` lane — Daily Full CI・別 lane 委譲。
-- `synvelis-workspace` の check/lint/test — 上記 pre-existing
-  gateway 破損により blocked。`library_ui.rs` の変更は
-  `TlsVerification` → `"tls-verification"` arm + wildcard の
-  1 箇所のみで、fmt は通過済み。
+- `*-full`/`test-rt`/`check-app-*`/`gw10` lane — Daily Full
+  CI・別 lane 委譲。
+- doc managed index（`docs/*/README.md`）の再生成 — 新規 doc
+  追加に伴う index drift は Coordinator の統合時 regen に委譲
+  （main では #525/#528 として別 commit で処理される先例）。
