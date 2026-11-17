@@ -1,97 +1,94 @@
-//! `luau-mlua` — interim Luau script backend for synvelis#273.
+//! `luau-mlua` — synvelis binding over the ruviform product port
+//! (synvelis#516).
 //!
-//! Implements the language-neutral [`ScriptBackend`]/[`ScriptSession`]
-//! port from `synvelis-script` on top of `mlua`'s vendored Luau VM
-//! (`luau` feature → `luau0-src`). This is the **only** crate allowed
-//! to depend on `mlua`; every consumer goes through the port trait so
-//! the backend stays swappable for the ruviform production port once
-//! RF#559 lands.
+//! This crate no longer contains a VM implementation. It adapts the
+//! language-neutral [`ScriptBackend`]/[`ScriptSession`] port from
+//! `synvelis-script` onto `ruviform_script_luau::LuauBackend` — the
+//! product Luau backend implementing the RF-SCRIPT-00 neutral
+//! contract (`ruviform-script`). The vendored Luau VM, sandbox
+//! globals, budget enforcement, and artifact provenance now live
+//! upstream in `ruviform-script-luau` (mlua stays isolated there —
+//! no synvelis crate depends on mlua directly).
+//!
+//! This crate is the anti-corruption boundary. It owns:
+//!
+//! - the synvelis-side source digest tag (`sha256:<hex>` — the
+//!   product contract uses `sha256:v1:<hex>`),
+//! - the synvelis `SessionError`/`ScriptErrorKind` vocabulary,
+//!   including [`ScriptErrorKind::ContractViolation`] and
+//!   [`ScriptErrorKind::ValueOutOfRange`] which the neutral contract
+//!   does not carry,
+//! - artifact digests recomputed under the synvelis canonical scheme
+//!   (`digest_of(to_json(payload))`), identical to the interim
+//!   backend's formula,
+//! - fail-closed open-time validation in the interim order
+//!   (language → size → digest → budgets → artifact kinds) so the
+//!   typed [`SessionError`] precedence consumers observe is
+//!   unchanged.
 //!
 //! Contract notes:
 //!
-//! - One fresh `Lua` state per session — no shared VM state, no
-//!   persistence across `open_session` calls. `evaluate` is
-//!   single-shot: a second call is a typed contract violation.
-//! - `evaluate` runs the chunk exactly once (text mode only —
-//!   bytecode is rejected) and returns the first (and only) return
-//!   value as both `return_value` and, when the consumer requested
-//!   an artifact kind, the artifact payload.
-//! - No host functions are injected: scripts see only the pure Luau
-//!   standard library and must return a spec-shaped table. mlua's
-//!   `configure_luau` unconditionally installs `require` /
-//!   `loadstring` (filesystem code execution outside the digest
-//!   pin), `print` (host stdout corruption), and `debug` — all four
-//!   globals are stripped before the session is returned. Name →
-//!   capability resolution stays in `WorkflowScriptBuilder`, never
-//!   in the VM.
-//! - Safepoint budgets: `max_wall_time` is enforced by the Luau
-//!   interrupt callback (checked again after eval so a `pcall`-
-//!   swallowed interrupt can never surface as success),
-//!   `max_memory_bytes` by `Lua::set_memory_limit`,
-//!   `max_output_bytes` by a post-eval serialized-size check, and
-//!   lifted-value size by [`MAX_LIFT_NODES`] (shared-subtable DAGs
-//!   are bounded in Rust code where no safepoint can fire).
-//!   `max_instructions`/`max_host_calls` are **not** enforceable
-//!   here and are rejected with [`SessionError::UnsupportedBudget`].
-//! - Sessions are owner-thread-only (`mlua` without `send`): the Lua
-//!   state is created and used on the `open_session` caller's thread.
+//! - One fresh `Lua` state per session upstream — no shared VM
+//!   state. `evaluate` is single-shot; the adapter preserves the
+//!   interim classification (`ContractViolation`) for a second call
+//!   and `Backend` for evaluate-after-close before delegating.
+//! - No host functions are injected: the neutral contract carries
+//!   host binding *descriptors* only (no handler seam), and the
+//!   synvelis [`SessionConfig`] has no host surface field, so every
+//!   session opens with [`rf::HostApiSurface::empty()`].
+//! - `max_instructions` and `max_host_calls` remain
+//!   [`SessionError::UnsupportedBudget`] — the product backend
+//!   rejects the former and has no host-call path for the latter;
+//!   the adapter rejects both up front because the synvelis port
+//!   requires every *requested* budget kind to be enforced, not
+//!   vacuously satisfied.
+//! - [`ScriptErrorKind::BudgetExceeded`]'s `kind` is `Some` only
+//!   when exactly one enforceable budget dimension was requested —
+//!   the neutral `ScriptError` carries no per-dimension detail, so
+//!   multi-budget sessions report `None` rather than guess.
+//! - The product backend classifies lifted-shape violations
+//!   (multi-return, sparse/mixed tables, depth/node limits,
+//!   non-record artifact payloads) as
+//!   [`rf::ScriptErrorKind::Internal`]; the adapter maps that
+//!   1:1 to [`ScriptErrorKind::Internal`]. [`ScriptErrorKind::ContractViolation`]
+//!   is reserved for violations the binding itself detects
+//!   (domain-qualified values, unknown variants).
+//! - Sessions remain owner-thread-only (mlua without `send`).
 
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
-use std::time::Instant;
+use std::sync::atomic::{AtomicU64, Ordering};
 
-use mlua::{Lua, MultiValue, Value as LuaValue, VmState};
+use ruviform_script as rf;
+use ruviform_script_luau::LuauBackend as ProductBackend;
 use synvelis_script::backend::{
     ArtifactKind, ArtifactSource, BackendCapabilities, BackendDescriptor, BudgetKind,
-    CancelGranularity, DefinitionDigest, ProducedBy, SCRIPT_ARTIFACT_SCHEMA_VERSION,
-    SCRIPT_CONTRACT_VERSION, ScriptArtifact, ScriptBackend, ScriptBackendId, ScriptError,
-    ScriptErrorKind, ScriptResult, ScriptSession, ScriptValue, SessionConfig, SessionError,
-    SourceDigest,
+    CancelGranularity, DefinitionDigest, ExecutionBudget, ProducedBy,
+    SCRIPT_ARTIFACT_SCHEMA_VERSION, SCRIPT_CONTRACT_VERSION, ScriptArtifact, ScriptBackend,
+    ScriptBackendId, ScriptDiagnostic, ScriptError, ScriptErrorKind, ScriptResult, ScriptSession,
+    ScriptValue, SessionConfig, SessionError, SourceDigest,
 };
-use synvelis_script::{ScriptBackendVersion, ScriptLanguageId, sha256_hex};
-
-/// Maximum nesting depth accepted when lifting a Lua table into the
-/// neutral [`ScriptValue`] model — deeper structures are a typed
-/// contract violation, never a stack overflow.
-const MAX_VALUE_DEPTH: usize = 64;
+use synvelis_script::{
+    DiagnosticSeverity, ScriptBackendVersion, ScriptLanguageId, SourcePosition, SourceRevision,
+};
 
 /// Maximum source size this backend accepts — the RF-SCRIPT-00 `PoC`
-/// contract ceiling of `1 MiB`.
+/// contract ceiling of `1 MiB` (same ceiling the product backend
+/// enforces; the adapter checks it first so [`SessionError::SourceTooLarge`]
+/// keeps the synvelis field names).
 const MAX_SOURCE_BYTES: u64 = 1 << 20;
 
-/// Maximum `ScriptValue` nodes produced by one `lift` — bounds the
-/// work a shared-subtable DAG can force. Depth alone cannot: a
-/// depth-50 `{a=s,b=s}` chain enumerates 2^50 leaf paths inside
-/// Rust code where no VM safepoint or memory limit can fire.
-const MAX_LIFT_NODES: usize = 1_000_000;
-
-/// Globals mlua's `configure_luau` installs that must not reach
-/// script code: `require`/`loadstring` execute source outside the
-/// digest pin, `print` corrupts the host's stdout contract, and
-/// `debug` exposes internals no declarative spec needs.
-const STRIPPED_GLOBALS: [&str; 4] = ["require", "loadstring", "print", "debug"];
-
-/// Process-wide session id counter.
+/// Process-wide session id counter — keeps the interim
+/// `luau-mlua-<n>` session id format consumers may observe.
 static NEXT_SESSION: AtomicU64 = AtomicU64::new(1);
 
-/// Interrupt-state flags shared between the session and the Luau
-/// interrupt callback.
-#[derive(Default)]
-struct InterruptState {
-    /// Set by [`LuauSession::cancel`].
-    cancelled: AtomicBool,
-    /// Set by the interrupt callback: 0 = none, 1 = cancelled,
-    /// 2 = wall-clock deadline exceeded.
-    hit: AtomicU8,
-}
-
-/// The `luau-mlua` backend — stateless; every session owns a fresh
-/// Luau VM.
+/// The `luau-mlua` backend — a synvelis-port facade over the
+/// ruviform product backend. Stateless; every session owns a fresh
+/// Luau VM upstream.
 #[derive(Debug)]
 pub struct LuauBackend {
     descriptor: BackendDescriptor,
+    product: ProductBackend,
 }
 
 impl LuauBackend {
@@ -124,7 +121,39 @@ impl LuauBackend {
                     native_integer: false,
                 },
             },
+            product: ProductBackend::new(),
         }
+    }
+
+    /// Validates `config.artifact_kinds` against the advertised set
+    /// and translates to the neutral vocabulary — one artifact per
+    /// session, unknown future kinds fail closed.
+    fn product_artifact_kinds(
+        &self,
+        config: &SessionConfig,
+    ) -> Result<BTreeSet<rf::ArtifactKind>, SessionError> {
+        if config.artifact_kinds.len() > 1 {
+            return Err(SessionError::Backend {
+                reason: "at most one artifact kind may be requested per session".to_owned(),
+            });
+        }
+        let mut kinds = BTreeSet::new();
+        for kind in &config.artifact_kinds {
+            if !self.descriptor.capabilities.artifact_kinds.contains(kind) {
+                return Err(SessionError::UnsupportedArtifact { kind: kind.clone() });
+            }
+            kinds.insert(match kind {
+                ArtifactKind::ActionRecipe => rf::ArtifactKind::ActionRecipe,
+                ArtifactKind::WorkflowDefinition => rf::ArtifactKind::WorkflowDefinition,
+                ArtifactKind::ConsumerExtension { domain } => rf::ArtifactKind::ConsumerExtension {
+                    domain: domain.clone(),
+                },
+                _ => {
+                    return Err(SessionError::UnsupportedArtifact { kind: kind.clone() });
+                }
+            });
+        }
+        Ok(kinds)
     }
 }
 
@@ -134,36 +163,84 @@ impl Default for LuauBackend {
     }
 }
 
-impl LuauBackend {
-    /// Creates a fresh sandboxed Luau VM for one session.
-    ///
-    /// `Lua::new_with` (not `Lua::new`) so state-creation failure is
-    /// a typed [`SessionError`] instead of mlua's internal `expect`
-    /// panic; `catch_unwind` covers the remaining `mlua_expect`
-    /// paths inside state setup. [`STRIPPED_GLOBALS`] are then
-    /// removed — mlua's `configure_luau` installs them
-    /// unconditionally and they would let script source escape the
-    /// source-digest pin (`require`/`loadstring`) or corrupt the
-    /// host stdout contract (`print`).
-    fn new_vm() -> Result<Lua, SessionError> {
-        let lua = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            Lua::new_with(mlua::StdLib::ALL_SAFE, mlua::LuaOptions::default())
-        }))
-        .map_err(|_| SessionError::Backend {
-            reason: "failed to create Luau state".to_owned(),
-        })?
-        .map_err(|e| SessionError::Backend {
-            reason: format!("failed to create Luau state: {e}"),
-        })?;
-        let globals = lua.globals();
-        for name in STRIPPED_GLOBALS {
-            globals
-                .raw_set(name, LuaValue::Nil)
-                .map_err(|e| SessionError::Backend {
-                    reason: format!("failed to strip global `{name}`: {e}"),
-                })?;
+/// Budget kinds the product backend actually enforces — the only
+/// dimensions a [`ScriptErrorKind::BudgetExceeded`] may be
+/// attributed to.
+fn enforced_budget_kinds(budget: &ExecutionBudget) -> BTreeSet<BudgetKind> {
+    let mut kinds = BTreeSet::new();
+    if budget.max_wall_time.is_some() {
+        kinds.insert(BudgetKind::WallClock);
+    }
+    if budget.max_memory_bytes.is_some() {
+        kinds.insert(BudgetKind::Memory);
+    }
+    if budget.max_output_bytes.is_some() {
+        kinds.insert(BudgetKind::Output);
+    }
+    kinds
+}
+
+/// Translates a ruviform [`rf::BudgetKind`] back into the synvelis
+/// vocabulary. Returns `None` for kinds the synvelis port cannot
+/// name — callers must not guess.
+fn budget_kind_from_rf(kind: rf::BudgetKind) -> Option<BudgetKind> {
+    Some(match kind {
+        rf::BudgetKind::Instructions => BudgetKind::Instruction,
+        rf::BudgetKind::WallTime => BudgetKind::WallClock,
+        rf::BudgetKind::MemoryBytes => BudgetKind::Memory,
+        rf::BudgetKind::OutputBytes => BudgetKind::Output,
+        rf::BudgetKind::HostCalls => BudgetKind::HostCall,
+        _ => return None,
+    })
+}
+
+/// Translates a ruviform `"sha256:v1:<hex>"` digest into the
+/// synvelis `"sha256:<hex>"` source-digest tag. Unknown formats pass
+/// through unchanged — the value is diagnostic-only on this path.
+fn digest_from_rf(digest: &str) -> String {
+    digest
+        .strip_prefix("sha256:v1:")
+        .map_or_else(|| digest.to_owned(), |hex| format!("sha256:{hex}"))
+}
+
+/// Maps a product [`rf::SessionError`] onto the synvelis
+/// [`SessionError`] vocabulary. Only reachable for failures the
+/// adapter's own pre-validation did not already classify (VM
+/// creation, host surface, resume — the last two are impossible
+/// with the fixed empty surface / no resume the adapter sends).
+fn session_error_from_rf(error: rf::SessionError) -> SessionError {
+    match error {
+        rf::SessionError::UnsupportedBudget { kind } => match budget_kind_from_rf(kind) {
+            Some(kind) => SessionError::UnsupportedBudget { kind },
+            None => SessionError::Backend {
+                reason: format!("unmappable budget kind: {kind:?}"),
+            },
+        },
+        rf::SessionError::InvalidHostSurface { reason } => SessionError::Backend { reason },
+        rf::SessionError::SourceDigestMismatch { expected, actual } => {
+            SessionError::SourceDigestMismatch {
+                expected: SourceDigest(digest_from_rf(expected.as_str())),
+                actual: SourceDigest(digest_from_rf(actual.as_str())),
+            }
         }
-        Ok(lua)
+        rf::SessionError::SourceTooLarge { bytes, max } => SessionError::SourceTooLarge {
+            size: bytes,
+            limit: max,
+        },
+        rf::SessionError::LanguageMismatch { expected, actual } => SessionError::LanguageMismatch {
+            expected: ScriptLanguageId(expected.as_str().to_owned()),
+            actual: ScriptLanguageId(actual.as_str().to_owned()),
+        },
+        rf::SessionError::IsolationViolation { detail } => {
+            SessionError::IsolationViolation { reason: detail }
+        }
+        rf::SessionError::ResourceExhausted { detail } => {
+            SessionError::ResourceExhausted { resource: detail }
+        }
+        rf::SessionError::Backend { detail } => SessionError::Backend { reason: detail },
+        _ => SessionError::Backend {
+            reason: error.to_string(),
+        },
     }
 }
 
@@ -173,13 +250,17 @@ impl ScriptBackend for LuauBackend {
     }
 
     fn open_session(&self, config: &SessionConfig) -> Result<Box<dyn ScriptSession>, SessionError> {
+        // Pre-validation replicates the interim order so the typed
+        // SessionError precedence consumers observe is unchanged.
+        // Everything the product backend would also check is either
+        // re-checked there harmlessly or already guaranteed here.
         if self.descriptor.language != config.source.language {
             return Err(SessionError::LanguageMismatch {
                 expected: self.descriptor.language.clone(),
                 actual: config.source.language.clone(),
             });
         }
-        let size = config.source.text.len() as u64;
+        let size = u64::try_from(config.source.text.len()).unwrap_or(u64::MAX);
         if size > MAX_SOURCE_BYTES {
             return Err(SessionError::SourceTooLarge {
                 size,
@@ -187,7 +268,12 @@ impl ScriptBackend for LuauBackend {
             });
         }
         // Digest contract: only the `sha256:<hex>` tag is verifiable.
-        let actual = format!("sha256:{}", sha256_hex(config.source.text.as_bytes()));
+        // The product contract's `sha256:v1:` digest is computed
+        // inside `rf::ScriptSource::new` below and always matches.
+        let actual = format!(
+            "sha256:{}",
+            synvelis_script::sha256_hex(config.source.text.as_bytes())
+        );
         let verified = config
             .source
             .digest
@@ -200,7 +286,10 @@ impl ScriptBackend for LuauBackend {
                 actual: SourceDigest(actual),
             });
         }
-        // Every requested budget kind must be one this backend enforces.
+        // Every requested budget kind must be one this backend
+        // enforces — `max_host_calls` is vacuous upstream (no host
+        // call path exists) but the port requires explicit
+        // enforcement, so it is rejected here.
         for kind in config.budget.requested_kinds() {
             if !self
                 .descriptor
@@ -211,266 +300,295 @@ impl ScriptBackend for LuauBackend {
                 return Err(SessionError::UnsupportedBudget { kind });
             }
         }
-        // One artifact per session — the payload kind is consumer-declared.
-        if config.artifact_kinds.len() > 1 {
-            return Err(SessionError::Backend {
-                reason: "at most one artifact kind may be requested per session".to_owned(),
-            });
-        }
-        for kind in &config.artifact_kinds {
-            if !self.descriptor.capabilities.artifact_kinds.contains(kind) {
-                return Err(SessionError::UnsupportedArtifact { kind: kind.clone() });
-            }
-        }
+        // One artifact per session — the payload kind is
+        // consumer-declared; translate to the neutral vocabulary in
+        // the same pass so unknown future kinds fail closed.
+        let product_artifact_kinds = self.product_artifact_kinds(config)?;
 
-        let lua = Self::new_vm()?;
-        if let Some(limit) = config.budget.max_memory_bytes {
-            // mlua maps 0 to "unlimited" — a zero-byte budget would
-            // silently fail open, so it is rejected instead.
-            if limit == 0 {
-                return Err(SessionError::UnsupportedBudget {
-                    kind: BudgetKind::Memory,
-                });
-            }
-            let limit = usize::try_from(limit).map_err(|_| SessionError::UnsupportedBudget {
-                kind: BudgetKind::Memory,
-            })?;
-            lua.set_memory_limit(limit)
-                .map_err(|e| SessionError::Backend {
-                    reason: format!("failed to set memory limit: {e}"),
-                })?;
-        }
-
-        let state = Arc::new(InterruptState::default());
-        // `Instant + Duration` panics on overflow — a huge budget is a
-        // typed rejection, never a panic at the port boundary.
-        let deadline = config
-            .budget
-            .max_wall_time
-            .map(|d| {
-                Instant::now()
-                    .checked_add(d)
-                    .ok_or(SessionError::UnsupportedBudget {
-                        kind: BudgetKind::WallClock,
-                    })
-            })
-            .transpose()?;
-        lua.set_interrupt({
-            let state = Arc::clone(&state);
-            move |_lua| {
-                if state.cancelled.load(Ordering::Relaxed) {
-                    state.hit.store(1, Ordering::Relaxed);
-                    return Err(mlua::Error::external("synvelis: evaluation cancelled"));
-                }
-                if deadline.is_some_and(|dl| Instant::now() >= dl) {
-                    state.hit.store(2, Ordering::Relaxed);
-                    return Err(mlua::Error::external(
-                        "synvelis: wall-clock budget exceeded",
-                    ));
-                }
-                Ok(VmState::Continue)
-            }
-        });
-
-        let session_id = format!("luau-mlua-{}", NEXT_SESSION.fetch_add(1, Ordering::Relaxed));
+        let product_config = rf::SessionConfig {
+            budget: rf::ExecutionBudget {
+                max_instructions: config.budget.max_instructions,
+                max_wall_time: config.budget.max_wall_time,
+                max_memory_bytes: config.budget.max_memory_bytes,
+                max_output_bytes: config.budget.max_output_bytes,
+                max_host_calls: config.budget.max_host_calls,
+            },
+            // The neutral contract carries host binding descriptors
+            // only — no handler seam exists — and the synvelis
+            // SessionConfig declares no host surface, so every
+            // session opens with the empty surface.
+            host_bindings: rf::HostApiSurface::empty(),
+            artifact_kinds: product_artifact_kinds,
+            source: rf::ScriptSource::new(
+                config.source.text.clone(),
+                rf::ScriptLanguageId::new(config.source.language.0.clone()),
+                config
+                    .source
+                    .backend_hint
+                    .as_ref()
+                    .map(|hint| rf::ScriptBackendId::new(hint.0.clone())),
+                rf::SourceRevision::new(config.source.revision.0),
+            ),
+            placement_hint: None,
+            resume: None,
+        };
+        let inner = rf::ScriptBackend::open_session(&self.product, product_config)
+            .map_err(session_error_from_rf)?;
+        // Producer provenance: the artifact's `impl_version` names
+        // the implementation that actually ran the VM — the product
+        // backend's descriptor, not this binding crate's version.
+        let impl_version = rf::ScriptBackend::descriptor(&self.product)
+            .version
+            .impl_version
+            .clone();
         Ok(Box::new(LuauSession {
-            session_id,
+            session_id: format!("luau-mlua-{}", NEXT_SESSION.fetch_add(1, Ordering::Relaxed)),
             backend_id: self.descriptor.id.clone(),
-            lua: Some(lua),
-            config: config.clone(),
-            state,
-            artifact_kind: config.artifact_kinds.iter().next().cloned(),
-            closed: false,
+            impl_version,
+            inner,
+            source_language: config.source.language.clone(),
+            source_digest: config.source.digest.clone(),
+            source_revision: config.source.revision,
+            enforced_budgets: enforced_budget_kinds(&config.budget),
             evaluated: false,
+            closed: false,
         }))
     }
 }
 
-/// A live Luau evaluation session — owns its `Lua` state until
-/// [`ScriptSession::close`].
+/// A live evaluation session — wraps the product backend's session
+/// and translates its neutral-contract results back into the
+/// synvelis port vocabulary.
 struct LuauSession {
     session_id: String,
     backend_id: ScriptBackendId,
-    lua: Option<Lua>,
-    config: SessionConfig,
-    state: Arc<InterruptState>,
-    artifact_kind: Option<ArtifactKind>,
-    closed: bool,
+    /// Product backend `impl_version` — recorded on artifacts as
+    /// [`ProducedBy::impl_version`].
+    impl_version: String,
+    inner: Box<dyn rf::ScriptSession>,
+    /// Source provenance carried into produced artifacts (the
+    /// synvelis-side digest tag the consumer verified at open).
+    source_language: ScriptLanguageId,
+    source_digest: SourceDigest,
+    source_revision: SourceRevision,
+    /// Budget dimensions actually armed for this session — the only
+    /// kinds [`ScriptErrorKind::BudgetExceeded`] may be attributed
+    /// to. More than one means the exceeded dimension is unknown.
+    enforced_budgets: BTreeSet<BudgetKind>,
     evaluated: bool,
+    closed: bool,
 }
 
 impl LuauSession {
-    /// Lifts an `mlua::Value` into the closed [`ScriptValue`] model.
-    /// `nodes` is the remaining [`MAX_LIFT_NODES`] budget — every
-    /// table element visit consumes one, which bounds the total work
-    /// a shared-subtable DAG can force inside Rust code.
-    // `f as i64` below is guarded by the fract/range check.
-    #[allow(clippy::cast_possible_truncation)]
-    fn lift(value: LuaValue, depth: usize, nodes: &mut usize) -> Result<ScriptValue, ScriptError> {
-        if depth > MAX_VALUE_DEPTH {
-            return Err(ScriptError::new(
-                ScriptErrorKind::ContractViolation {
-                    detail: format!("value nesting exceeds {MAX_VALUE_DEPTH}"),
-                },
-                "value nesting too deep",
-            ));
+    /// Attributes a budget breach to a dimension only when exactly
+    /// one enforceable budget was armed — the neutral error carries
+    /// no per-dimension detail, so ambiguity reports `None`.
+    fn attribute_budget(&self) -> Option<BudgetKind> {
+        let mut kinds = self.enforced_budgets.iter();
+        match (kinds.next(), kinds.next()) {
+            (Some(kind), None) => Some(*kind),
+            _ => None,
         }
+    }
+
+    /// Maps a neutral [`rf::ScriptError`] onto the synvelis
+    /// [`ScriptError`] vocabulary, attaching backend/session context
+    /// the way the interim backend did.
+    fn script_error_from_rf(&self, error: rf::ScriptError) -> ScriptError {
+        let kind = match error.kind {
+            rf::ScriptErrorKind::Parse => ScriptErrorKind::Parse,
+            rf::ScriptErrorKind::Compile => ScriptErrorKind::Compile,
+            rf::ScriptErrorKind::Type => ScriptErrorKind::Type,
+            rf::ScriptErrorKind::Runtime => ScriptErrorKind::Runtime,
+            rf::ScriptErrorKind::BudgetExceeded => ScriptErrorKind::BudgetExceeded {
+                kind: self.attribute_budget(),
+            },
+            rf::ScriptErrorKind::Cancelled => ScriptErrorKind::Cancelled,
+            rf::ScriptErrorKind::Unsupported => ScriptErrorKind::Unsupported {
+                what: error.message.clone(),
+            },
+            rf::ScriptErrorKind::Host => ScriptErrorKind::Host {
+                detail: error.message.clone(),
+            },
+            rf::ScriptErrorKind::Backend => ScriptErrorKind::Backend {
+                detail: error.message.clone(),
+            },
+            // `Internal` and any future neutral kind both map to the
+            // synvelis internal-error bucket — the binding does not
+            // invent distinctions the contract does not carry.
+            _ => ScriptErrorKind::Internal {
+                detail: error.message.clone(),
+            },
+        };
+        let mut mapped = ScriptError::new(kind, error.message);
+        if let Some(range) = error.range {
+            mapped.position = Some(SourcePosition {
+                line: range.start.line,
+                column: range.start.col,
+            });
+        }
+        mapped.backend_id = Some(self.backend_id.clone());
+        mapped.session_id = Some(self.session_id.clone());
+        mapped
+    }
+
+    /// Converts a neutral [`rf::ScriptValue`] into the synvelis
+    /// [`ScriptValue`] model. Non-finite numbers keep the interim
+    /// [`ScriptErrorKind::ValueOutOfRange`] rejection; domain-qualified
+    /// `Time`/`ResourceId` values have no faithful synvelis form and
+    /// are a binding-detected [`ScriptErrorKind::ContractViolation`]
+    /// (unreachable from Luau evaluation — the lift never produces
+    /// them).
+    fn value_from_rf(value: rf::ScriptValue) -> Result<ScriptValue, ScriptError> {
         Ok(match value {
-            LuaValue::Nil => ScriptValue::Null,
-            LuaValue::Boolean(b) => ScriptValue::Bool(b),
-            LuaValue::Integer(i) => ScriptValue::Integer(i),
-            LuaValue::Number(f) => {
+            rf::ScriptValue::Absent => ScriptValue::Absent,
+            rf::ScriptValue::Null => ScriptValue::Null,
+            rf::ScriptValue::Bool(b) => ScriptValue::Bool(b),
+            rf::ScriptValue::Integer(i) => ScriptValue::Integer(i),
+            rf::ScriptValue::Number(f) => {
                 if !f.is_finite() {
                     return Err(ScriptError::new(
                         ScriptErrorKind::ValueOutOfRange,
                         "non-finite Luau number",
                     ));
                 }
-                // Luau has a single f64 number type; integral values in
-                // i64 range lower to the exact-integer variant so spec
-                // fields like `version: 1` decode identically to YAML.
-                if f.fract() == 0.0
-                    && (-9.223_372_036_854_776e18..9.223_372_036_854_776e18).contains(&f)
-                {
-                    ScriptValue::Integer(f as i64)
-                } else {
-                    ScriptValue::Number(f)
-                }
+                ScriptValue::Number(f)
             }
-            LuaValue::String(s) => ScriptValue::String(
-                s.to_str()
-                    .map_err(|_| {
-                        ScriptError::new(
-                            ScriptErrorKind::ContractViolation {
-                                detail: "non-UTF-8 Luau string".to_owned(),
-                            },
-                            "non-UTF-8 Luau string",
-                        )
-                    })?
-                    .to_owned(),
+            rf::ScriptValue::String(s) => ScriptValue::String(s),
+            rf::ScriptValue::Bytes(b) => ScriptValue::Bytes(b),
+            rf::ScriptValue::Array(items) => ScriptValue::Array(
+                items
+                    .into_iter()
+                    .map(Self::value_from_rf)
+                    .collect::<Result<_, _>>()?,
             ),
-            LuaValue::Table(t) => Self::lift_table(&t, depth, nodes)?,
-            other => {
+            rf::ScriptValue::Record(map) => ScriptValue::Record(
+                map.into_iter()
+                    .map(|(key, value)| Ok((key, Self::value_from_rf(value)?)))
+                    .collect::<Result<_, ScriptError>>()?,
+            ),
+            rf::ScriptValue::Time { .. } | rf::ScriptValue::ResourceId { .. } => {
                 return Err(ScriptError::new(
-                    ScriptErrorKind::Unsupported {
-                        what: format!("Luau value type {other:?}"),
+                    ScriptErrorKind::ContractViolation {
+                        detail: "domain-qualified value has no synvelis port form".to_owned(),
                     },
-                    "unsupported Luau value type",
+                    "domain-qualified value cannot cross the synvelis binding",
+                ));
+            }
+            _ => {
+                return Err(ScriptError::new(
+                    ScriptErrorKind::ContractViolation {
+                        detail: "unknown neutral value variant".to_owned(),
+                    },
+                    "unknown neutral value variant",
                 ));
             }
         })
     }
 
-    /// Lifts a Lua table: all-string keys → record, consecutive
-    /// integer keys `1..=n` → array, empty → record. Mixed or sparse
-    /// shapes have no honest neutral form and are rejected.
-    fn lift_table(
-        table: &mlua::Table,
-        depth: usize,
-        nodes: &mut usize,
-    ) -> Result<ScriptValue, ScriptError> {
-        let mut strings: BTreeMap<String, ScriptValue> = BTreeMap::new();
-        let mut ints: Vec<(i64, ScriptValue)> = Vec::new();
-        for pair in table.clone().pairs::<LuaValue, LuaValue>() {
-            *nodes = nodes.checked_sub(1).ok_or_else(|| {
-                ScriptError::new(
-                    ScriptErrorKind::ContractViolation {
-                        detail: format!("lifted value exceeds {MAX_LIFT_NODES} nodes"),
-                    },
-                    "lifted value too large",
-                )
-            })?;
-            let (key, val) = pair.map_err(|e| {
-                ScriptError::new(ScriptErrorKind::Runtime, format!("table iteration: {e}"))
-            })?;
-            let lifted = Self::lift(val, depth + 1, nodes)?;
-            match key {
-                LuaValue::String(s) => {
-                    let name = s.to_str().map_err(|_| {
-                        ScriptError::new(
-                            ScriptErrorKind::ContractViolation {
-                                detail: "non-UTF-8 table key".to_owned(),
-                            },
-                            "non-UTF-8 table key",
-                        )
-                    })?;
-                    strings.insert(name.to_owned(), lifted);
-                }
-                LuaValue::Integer(i) => ints.push((i, lifted)),
-                other => {
-                    return Err(ScriptError::new(
-                        ScriptErrorKind::ContractViolation {
-                            detail: format!("unsupported table key type {other:?}"),
-                        },
-                        "unsupported table key type",
-                    ));
-                }
-            }
+    /// Converts a neutral [`rf::ScriptArtifact`] into the synvelis
+    /// [`ScriptArtifact`]. The digest is recomputed under the synvelis
+    /// canonical scheme — `digest_of(to_json(payload))` — identical
+    /// to the interim backend's formula, so the artifact digest keeps
+    /// committing to the same canonical bytes consumers could always
+    /// recompute.
+    fn artifact_from_rf(
+        &self,
+        artifact: rf::ScriptArtifact,
+    ) -> Result<ScriptArtifact, ScriptError> {
+        let mut payload_map = BTreeMap::new();
+        for (key, value) in artifact.payload {
+            payload_map.insert(key, Self::value_from_rf(value)?);
         }
-        if strings.is_empty() && !ints.is_empty() {
-            ints.sort_by_key(|(k, _)| *k);
-            let is_sequence = ints.first().is_some_and(|(k, _)| *k == 1)
-                && ints.windows(2).all(|w| w[1].0 == w[0].0 + 1);
-            if is_sequence {
-                return Ok(ScriptValue::Array(
-                    ints.into_iter().map(|(_, v)| v).collect(),
+        let payload = ScriptValue::Record(payload_map);
+        let json = payload.to_json()?;
+        let digest = synvelis_script::digest_of(&json).map_err(|e| {
+            ScriptError::new(
+                ScriptErrorKind::Backend {
+                    detail: format!("artifact digest: {e}"),
+                },
+                "artifact digest failed",
+            )
+        })?;
+        Ok(ScriptArtifact {
+            schema_version: SCRIPT_ARTIFACT_SCHEMA_VERSION,
+            kind: Self::artifact_kind_from_rf(&artifact.kind)?,
+            digest: DefinitionDigest(digest),
+            payload,
+            source: ArtifactSource {
+                language: self.source_language.clone(),
+                backend_id: self.backend_id.clone(),
+                source_digest: self.source_digest.clone(),
+                source_revision: self.source_revision,
+            },
+            produced_by: ProducedBy {
+                backend_id: self.backend_id.clone(),
+                impl_version: self.impl_version.clone(),
+            },
+        })
+    }
+
+    /// Translates a neutral [`rf::ArtifactKind`] back into the
+    /// synvelis vocabulary.
+    fn artifact_kind_from_rf(kind: &rf::ArtifactKind) -> Result<ArtifactKind, ScriptError> {
+        Ok(match kind {
+            rf::ArtifactKind::ActionRecipe => ArtifactKind::ActionRecipe,
+            rf::ArtifactKind::WorkflowDefinition => ArtifactKind::WorkflowDefinition,
+            rf::ArtifactKind::ConsumerExtension { domain } => ArtifactKind::ConsumerExtension {
+                domain: domain.clone(),
+            },
+            _ => {
+                return Err(ScriptError::new(
+                    ScriptErrorKind::ContractViolation {
+                        detail: "unknown neutral artifact kind".to_owned(),
+                    },
+                    "unknown neutral artifact kind",
                 ));
             }
-            return Err(ScriptError::new(
-                ScriptErrorKind::ContractViolation {
-                    detail: "sparse integer-keyed table has no array form".to_owned(),
-                },
-                "sparse integer-keyed table",
-            ));
-        }
-        if !strings.is_empty() && !ints.is_empty() {
-            return Err(ScriptError::new(
-                ScriptErrorKind::ContractViolation {
-                    detail: "mixed string/integer keys have no record form".to_owned(),
-                },
-                "mixed table keys",
-            ));
-        }
-        Ok(ScriptValue::Record(strings))
+        })
     }
 
-    /// Maps an interrupt flag to the typed error it represents, if any.
-    fn interrupt_error(&self) -> Option<ScriptError> {
-        match self.state.hit.load(Ordering::Relaxed) {
-            1 => Some(ScriptError::new(
-                ScriptErrorKind::Cancelled,
-                "evaluation cancelled",
-            )),
-            2 => Some(ScriptError::new(
-                ScriptErrorKind::BudgetExceeded {
-                    kind: BudgetKind::WallClock,
-                },
-                "wall-clock budget exceeded",
-            )),
-            _ => None,
-        }
-    }
-
-    /// Maps an `mlua::Error` to the neutral kind, honoring interrupt
-    /// flags first so budget/cancel wins over the wrapper error.
-    fn map_eval_error(&self, err: &mlua::Error) -> ScriptError {
-        if let Some(error) = self.interrupt_error() {
-            return error;
-        }
-        let kind = match err {
-            mlua::Error::SyntaxError { .. } => ScriptErrorKind::Parse,
-            mlua::Error::MemoryError(_) => ScriptErrorKind::BudgetExceeded {
-                kind: BudgetKind::Memory,
-            },
-            mlua::Error::RuntimeError(_) => ScriptErrorKind::Runtime,
-            other => ScriptErrorKind::Backend {
-                detail: other.to_string(),
-            },
+    /// Converts a neutral [`rf::ScriptDiagnostic`] into the synvelis
+    /// [`ScriptDiagnostic`] shape.
+    fn diagnostic_from_rf(diagnostic: &rf::ScriptDiagnostic) -> ScriptDiagnostic {
+        let severity = match diagnostic.severity {
+            rf::DiagnosticSeverity::Info | rf::DiagnosticSeverity::Hint => {
+                DiagnosticSeverity::Information
+            }
+            rf::DiagnosticSeverity::Warning => DiagnosticSeverity::Warning,
+            // `Error` and any future neutral severity map to the
+            // synvelis error bucket — fail-visible, never downgraded.
+            _ => DiagnosticSeverity::Error,
         };
-        let mut error = ScriptError::new(kind, err.to_string());
-        error.backend_id = Some(self.backend_id.clone());
-        error.session_id = Some(self.session_id.clone());
-        error
+        ScriptDiagnostic {
+            severity,
+            code: diagnostic.code.clone().unwrap_or_default(),
+            message: diagnostic.message.clone(),
+            position: diagnostic.range.map(|range| SourcePosition {
+                line: range.start.line,
+                column: range.start.col,
+            }),
+        }
+    }
+
+    /// Lowers a neutral [`rf::ScriptResult`] into the synvelis
+    /// [`ScriptResult`].
+    fn result_from_rf(&self, result: rf::ScriptResult) -> Result<ScriptResult, ScriptError> {
+        let return_value = result.return_value.map(Self::value_from_rf).transpose()?;
+        let artifact = result
+            .artifact
+            .map(|artifact| self.artifact_from_rf(artifact))
+            .transpose()?;
+        let diagnostics = result
+            .diagnostics
+            .iter()
+            .map(Self::diagnostic_from_rf)
+            .collect();
+        Ok(ScriptResult {
+            artifact,
+            return_value,
+            diagnostics,
+        })
     }
 }
 
@@ -492,7 +610,7 @@ impl ScriptSession for LuauSession {
                 "evaluate after close",
             ));
         }
-        if self.state.cancelled.load(Ordering::Relaxed) {
+        if self.inner.cancel_token().is_cancelled() {
             return Err(ScriptError::new(
                 ScriptErrorKind::Cancelled,
                 "evaluation cancelled",
@@ -501,6 +619,8 @@ impl ScriptSession for LuauSession {
         // The port contract is evaluate-once: a second run would see
         // mutated globals and a possibly stale interrupt flag, so the
         // session is spent after the first attempt — success or not.
+        // Classified `ContractViolation` here (the interim behavior)
+        // rather than the product backend's `Internal`.
         if self.evaluated {
             return Err(ScriptError::new(
                 ScriptErrorKind::ContractViolation {
@@ -510,118 +630,19 @@ impl ScriptSession for LuauSession {
             ));
         }
         self.evaluated = true;
-        let lua = self.lua.as_ref().expect("session holds its Lua state");
-        let values = lua
-            .load(self.config.source.text.as_str())
-            .set_name("workflow.luau")
-            // Text-only: a bytecode-magic source must not reach the VM.
-            .set_mode(mlua::chunk::ChunkMode::Text)
-            .eval::<MultiValue>()
-            .map_err(|e| self.map_eval_error(&e))?;
-        // Defense in depth: an interrupt that fired but was swallowed
-        // by script `pcall` must never surface as success.
-        if let Some(error) = self.interrupt_error() {
-            return Err(error);
-        }
-        self.lower_result(values)
+        let result = self
+            .inner
+            .evaluate(None)
+            .map_err(|error| self.script_error_from_rf(error))?;
+        self.result_from_rf(result)
     }
 
     fn cancel(&mut self) {
-        self.state.cancelled.store(true, Ordering::Relaxed);
+        self.inner.cancel();
     }
 
     fn close(&mut self) {
         self.closed = true;
-        self.lua = None;
-    }
-}
-
-impl LuauSession {
-    /// Lowers the evaluated `MultiValue` into a [`ScriptResult`] —
-    /// artifact payload, output budget, and digest provenance.
-    fn lower_result(&self, values: MultiValue) -> Result<ScriptResult, ScriptError> {
-        if values.is_empty() {
-            return Ok(ScriptResult::default());
-        }
-        if values.len() > 1 {
-            return Err(ScriptError::new(
-                ScriptErrorKind::ContractViolation {
-                    detail: format!(
-                        "script returned {} values; exactly one is allowed",
-                        values.len()
-                    ),
-                },
-                "script must return at most one value",
-            ));
-        }
-        let mut nodes = MAX_LIFT_NODES;
-        let value = Self::lift(
-            values.into_iter().next().unwrap_or(LuaValue::Nil),
-            0,
-            &mut nodes,
-        )?;
-        if matches!(value, ScriptValue::Null) {
-            // `return nil` declares no artifact and no return value.
-            return Ok(ScriptResult::default());
-        }
-
-        // Serialized-output budget — the artifact payload is the
-        // largest thing that crosses the boundary.
-        let json = value.to_json()?;
-        if let Some(limit) = self.config.budget.max_output_bytes {
-            let size = serde_json::to_string(&json)
-                .map_err(|e| {
-                    ScriptError::new(
-                        ScriptErrorKind::Backend {
-                            detail: format!("payload serialization: {e}"),
-                        },
-                        "payload serialization failed",
-                    )
-                })?
-                .len() as u64;
-            if size > limit {
-                return Err(ScriptError::new(
-                    ScriptErrorKind::BudgetExceeded {
-                        kind: BudgetKind::Output,
-                    },
-                    format!("output size {size} exceeds budget {limit}"),
-                ));
-            }
-        }
-
-        let artifact = match self.artifact_kind.clone() {
-            Some(kind) => {
-                let digest = synvelis_script::digest_of(&json).map_err(|e| {
-                    ScriptError::new(
-                        ScriptErrorKind::Backend {
-                            detail: format!("artifact digest: {e}"),
-                        },
-                        "artifact digest failed",
-                    )
-                })?;
-                Some(ScriptArtifact {
-                    schema_version: SCRIPT_ARTIFACT_SCHEMA_VERSION,
-                    kind,
-                    digest: DefinitionDigest(digest),
-                    payload: value.clone(),
-                    source: ArtifactSource {
-                        language: self.config.source.language.clone(),
-                        backend_id: self.backend_id.clone(),
-                        source_digest: self.config.source.digest.clone(),
-                        source_revision: self.config.source.revision,
-                    },
-                    produced_by: ProducedBy {
-                        backend_id: self.backend_id.clone(),
-                        impl_version: env!("CARGO_PKG_VERSION").to_owned(),
-                    },
-                })
-            }
-            None => None,
-        };
-        Ok(ScriptResult {
-            artifact,
-            return_value: Some(value),
-            diagnostics: Vec::new(),
-        })
+        self.inner.close();
     }
 }
