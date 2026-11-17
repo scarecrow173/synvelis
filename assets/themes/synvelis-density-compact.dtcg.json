@@ -22,6 +22,12 @@
   "control": {
     "height": { "$type": "dimension", "$value": { "value": 22, "unit": "px" } }
   },
+  "space": {
+    "$type": "dimension",
+    "sm":   { "$value": "{spacing.sm}" },
+    "md":   { "$value": "{spacing.md}" },
+    "page": { "$value": "{spacing.lg}" }
+  },
   "font": {
     "size": {
       "$type": "dimension",

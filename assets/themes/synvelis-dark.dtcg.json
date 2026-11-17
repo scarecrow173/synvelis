@@ -12,7 +12,7 @@
       "mode": "dark",
       "layer": "product"
     },
-    "synvelis.provenance": "ui/src/styles.css (pre-native dark palette, observed values); color.status-* provisional ramp (AUTX-07, pending native design review)"
+    "synvelis.provenance": "ui/src/styles.css (pre-native dark palette, observed values); color.status-* provisional ramp (AUTX-07, pending native design review); canonical surface/text/accent/state/control/viz groups alias color.* (state.disabled + viz.waveform_rms provisional direct values, pending native design review)"
   },
   "color": {
     "$type": "color",
@@ -45,5 +45,38 @@
     "status-diagnostic-information": { "$value": "#7aa8d8" },
     "status-diagnostic-warning":     { "$value": "#f0a868" },
     "status-diagnostic-error":       { "$value": "#e86a6a" }
+  },
+  "surface": {
+    "$type": "color",
+    "bg":      { "$value": "{color.bg}" },
+    "raised":  { "$value": "{color.bg-panel}" },
+    "border":  { "$value": "{color.border}" }
+  },
+  "text": {
+    "$type": "color",
+    "primary": { "$value": "{color.fg}" },
+    "dim":     { "$value": "{color.fg-dim}" }
+  },
+  "accent": {
+    "$type": "color",
+    "primary": { "$value": "{color.accent}" }
+  },
+  "state": {
+    "$type": "color",
+    "error":    { "$value": "{color.err}" },
+    "disabled": { "$value": "#4e565f" }
+  },
+  "control": {
+    "$type": "color",
+    "track": { "$value": "{color.bg-input}" },
+    "fill":  { "$value": "{color.accent}" },
+    "thumb": { "$value": "{color.fg}" }
+  },
+  "viz": {
+    "$type": "color",
+    "waveform":      { "$value": "{color.accent}" },
+    "waveform_rms":  { "$value": "#8fb8e8" },
+    "baseline":      { "$value": "{color.border}" },
+    "cursor":        { "$value": "{color.fg}" }
   }
 }
