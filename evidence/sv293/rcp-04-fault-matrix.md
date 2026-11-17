@@ -150,6 +150,10 @@ subagent を使えない worker 契約のため cooperative / adversarial
   不能で fail-closed（`StateUnknown`）に倒れる。実用上 Plugin
   class は state chunk を持つ前提で、workspace integration 側で
   表現を確定する deferred residual。
+  （2026-11-17 解消: synvelis#530・PR #535 で
+  `PluginStateDecl::stateless()` predicate が追加され、
+  stateless-consistent 宣言のみ `Live`・未 capture/env drift/
+  env=Unknown は fail-closed 維持の契約が merge 済み）
 - `NodeClass::Source` の media content 可用性は snapshot 構築側
   （deferred integration）の前提であり、本 slice の model は
   content pin を持たない — 上記 SourceContent→Rebuild がその
