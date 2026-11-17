@@ -94,8 +94,11 @@ relations:
     - "https://github.com/scarecrow173/synvelis/pull/430"
     - "https://github.com/scarecrow173/synvelis/pull/438"
   defers:
-    - "automation_ui::ActionRow.executable への executor verdict 反映（#266 view 契約は別 Owner — catalog 側の executor field を正すまでが本 slice）"
-    - "GUI/実 OS/実機 lane・CLI surface 本体（#262）・実 ScriptApiModel 照合（#271）"
+    - "https://github.com/scarecrow173/synvelis/issues/266"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/synvelis/issues/267"
+    - "https://github.com/scarecrow173/synvelis/issues/262"
+    - "https://github.com/scarecrow173/synvelis/issues/271"
   deferred-by: []
 metadata:
   experiments:

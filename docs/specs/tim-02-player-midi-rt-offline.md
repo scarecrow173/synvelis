@@ -38,10 +38,11 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/127"
     - "https://github.com/scarecrow173/ruviform/issues/253"
   defers:
-    - "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）"
-    - "SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）"
-    - "AudioLens Native f64 非回帰（#294 別 Gate）"
-    - "MidiNote への channel 追加（synvelis-project 側 model 変更・別 slice）"
+    - "https://github.com/scarecrow173/ruviform/issues/253"
+    - "https://github.com/scarecrow173/synvelis/issues/129"
+    - "https://github.com/scarecrow173/synvelis/issues/130"
+    - "https://github.com/scarecrow173/ruviform/issues/294"
+    - "https://github.com/scarecrow173/synvelis/issues/126"
   deferred-by: []
 ---
 

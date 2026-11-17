@@ -20,7 +20,7 @@ relations:
   implemented-by: []
   depends-on:
     - "docs/specs/rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md"
-    - "docs/specs/vs-b-deterministic-mock-capture-engine.md"
+    - "docs/specs/vs-b-rt-capture-mock-input-buffer-pool-spsc.md"
   blocks: []
   supersedes: []
   superseded-by: []

@@ -27,7 +27,7 @@ relations:
   supersedes: []
   superseded-by: []
   related:
-    - "docs/plans/issue-365-impl-index-generation.md"
+    - "docs/plans/issue-365-impl-index-generation-plan.md"
   refines: []
   refined-by: []
   derives-from:

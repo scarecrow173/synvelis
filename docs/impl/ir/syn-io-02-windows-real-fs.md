@@ -79,11 +79,10 @@ relations:
     - "evidence/reports/syn-io-02-windows-real-fs.md"
     - "evidence/reports/syn-io-02-os-l1-evidence.md"
   defers:
-    - "真の power-loss（電源断相当）実測 — 非破壊的に自動化不能、process kill は dirty page を保持するため代替不可（NotRun）"
     - "PublishEffect::Indeterminate の実 FS 誘発 — ambiguous OS error が必要で非破壊的に作れない（NotRun、ruviform-io-file fault-injection 拡張時に再検討）"
-    - "Import↔Save 結合 Case — sv#86/#91 の責務（範囲外）"
-    - "macOS/Linux 実機 real-FS — 各 OS 実機環境での同一 lane 実走（Windows/NTFS 観測値を一般化しない）"
-    - "Issue #84 の他残ゲート行（対象 SHA CI run・upstream/consumer gate）— tracker として open 継続"
+    - "https://github.com/scarecrow173/synvelis/issues/86"
+    - "https://github.com/scarecrow173/synvelis/issues/91"
+    - "https://github.com/scarecrow173/synvelis/issues/84"
   deferred-by: []
 metadata:
   experiments:

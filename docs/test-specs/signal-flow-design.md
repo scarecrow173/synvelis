@@ -24,8 +24,8 @@ relations:
   supersedes: []
   superseded-by: []
   related:
-    - "docs/test-specs/sf-05-signal-flow-headless-hierarchy.md"
-    - "docs/test-specs/sf-06-cross-gate-oracle-case-ledger.md"
+    - "docs/test-specs/sf-05-slice1-signal-flow-headless.md"
+    - "docs/test-specs/sf-06-cross-gate-oracle.md"
   refines: []
   refined-by: []
   derives-from:

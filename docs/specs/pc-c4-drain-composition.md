@@ -23,12 +23,12 @@ relations:
   depends-on:
     - "docs/specs/pc-c4-04-app-composition.md"
     - "docs/specs/pc-c4-06-control-op-surface.md"
-    - "docs/specs/pc-c4-07-transport-observe.md"
+    - "docs/specs/pc-c4-07-transport-mirror-observe.md"
   blocks: []
   supersedes: []
   superseded-by: []
   related:
-    - "docs/specs/pc-c4-plugin-parameter-binding-frame-base-capability-gate.md"
+    - "docs/specs/pc-c4-plugin-param-binding.md"
   refines: []
   refined-by: []
   derives-from:
@@ -43,7 +43,7 @@ relations:
     - "docs/specs/pc-c4-04-app-composition.md"
     - "docs/specs/pc-c4-06-control-op-surface.md"
   defers:
-    - "L1 wire 検証・実 VST3/OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・後続 slice）"
+    - "https://github.com/scarecrow173/synvelis/issues/101"
   deferred-by: []
 ---
 

@@ -46,9 +46,12 @@ relations:
     - ".github/workflows/ci.yml"
     - "tools/ci-summary.mjs"
   defers:
-    - "対象 SHA c0b000b3 の ci.yml run（NotRun pending — 次回 daily-ci/手動 dispatch）"
-    - "Windows NTFS 実機 Case・物理電断・Network/Cloud FS（Required/Deferred・NotRun）"
-    - "Ruviform #305/#294/#306・Synvelis #28/#294・AudioLens #143 の統合・受入関係事項"
+    - "https://github.com/scarecrow173/ruviform/issues/305"
+    - "https://github.com/scarecrow173/ruviform/issues/294"
+    - "https://github.com/scarecrow173/ruviform/issues/306"
+    - "https://github.com/scarecrow173/synvelis/issues/28"
+    - "https://github.com/scarecrow173/synvelis/issues/294"
+    - "https://github.com/scarecrow173/audio-lens/issues/143"
   deferred-by: []
 metadata:
   experiments:

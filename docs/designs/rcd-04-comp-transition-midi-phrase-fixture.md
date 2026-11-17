@@ -36,8 +36,8 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "MIDI comp selection の project 永続化 model（#126 event model 確定後）"
-    - "実 RT engine（ruviform graph）との sample 一致（後続 integration slice）"
+    - "https://github.com/scarecrow173/synvelis/issues/126"
+    - "https://github.com/scarecrow173/ruviform/issues/294"
   deferred-by: []
 ---
 

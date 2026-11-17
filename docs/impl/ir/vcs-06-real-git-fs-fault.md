@@ -80,10 +80,7 @@ relations:
     - ".github/workflows/ci.yml"
     - "tools/ci-summary.mjs"
   defers:
-    - "認証付き http/ssh remote・実 provider E2E・OS perms matrix — 実ネットワーク/認証情報が必要（NotRun）"
-    - "POSIX 側 FS fault 行 — share-mode/readonly 意味論が異なる別 lane（NotRun）"
-    - "電源断/物理 fault・実 OS crash durability・実 GUI/plugin host/RT/consumer — 外部 gate（NotRun）"
-    - "本 branch の新規行に対する ci.yml covering run — merge 後の次回 dispatch 待ち"
+    - "https://github.com/scarecrow173/synvelis/issues/97"
   deferred-by: []
 metadata:
   experiments:

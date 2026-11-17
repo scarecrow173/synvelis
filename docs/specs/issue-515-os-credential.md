@@ -19,7 +19,7 @@ relations:
   implements: []
   implemented-by: []
   depends-on:
-    - "docs/impl/ir/sv261-headless-session-host.md"
+    - "docs/impl/ir/autx-02-cli-adapter.md"
   blocks: []
   supersedes: []
   superseded-by: []

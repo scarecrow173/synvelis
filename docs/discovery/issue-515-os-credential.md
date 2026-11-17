@@ -19,13 +19,13 @@ relations:
   implements: []
   implemented-by: []
   depends-on:
-    - "docs/impl/ir/sv261-headless-session-host.md"
+    - "docs/impl/ir/autx-02-cli-adapter.md"
   blocks: []
   supersedes: []
   superseded-by: []
   related:
     - "docs/automation/design-trust-boundary.md"
-    - "docs/impl/ir/sv261-headless-session-host.md"
+    - "docs/impl/ir/autx-02-cli-adapter.md"
     - "docs/test-specs/autx-02-cli-adapter.md"
   refines: []
   refined-by: []

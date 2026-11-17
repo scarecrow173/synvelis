@@ -9,18 +9,18 @@ owners: ["scarecrow173"]
 relations:
   source:
     - "https://github.com/scarecrow173/synvelis/issues/115"
-    - "ruviform crates/ruviform-audio-core/src/device.rs @ 0f5b573"
+    - "https://github.com/scarecrow173/ruviform/blob/0f5b57372e9a43f84415f7964b2f9636774174f0/crates/ruviform-audio-core/src/device.rs"
   implements:
     - "docs/specs/rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md"
   implemented-by: []
   depends-on:
-    - "docs/specs/vs-b-deterministic-mock-capture-engine.md"
-    - "docs/specs/vs-d-multi-track-recording-session.md"
+    - "docs/specs/vs-b-rt-capture-mock-input-buffer-pool-spsc.md"
+    - "docs/specs/vs-d-recording-commit-e2e-idempotency-undo-reload.md"
   blocks: []
   supersedes: []
   superseded-by: []
   related:
-    - "docs/designs/vs-b-capture-engine-design.md"
+    - "docs/designs/vs-b-clock-gate-rt-capture-mock-spsc.md"
   refines: []
   refined-by: []
   derives-from: []

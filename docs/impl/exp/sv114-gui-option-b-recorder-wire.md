@@ -39,7 +39,7 @@ relations:
     - "docs/specs/sv114-gui-option-b-recorder-wire.md"
     - "docs/test-specs/sv114-gui-option-b-recorder-wire.md"
     - "docs/impl/exp/sv114-gui-option-b-recorder-wire-exp.jsonl"
-    - "evidence/sv114/"
+    - "evidence/sv114/recorder-wire-option-b-headless.md"
   refines: []
   refined-by: []
   derives-from: []

@@ -36,7 +36,7 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "実 Git/実 OS/実 plugin host での検証（VCS-06 #97）"
+    - "https://github.com/scarecrow173/synvelis/issues/97"
   deferred-by: []
 ---
 

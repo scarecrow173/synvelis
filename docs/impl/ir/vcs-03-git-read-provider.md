@@ -93,10 +93,9 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "VCS-04 History/Visual Diff UI（Issue #95）"
-    - "VCS-05 Safe Apply/Restore（Issue #96）"
-    - "実 OS permission matrix・real remote fetch・auth/credential 実経路・GC/objects 欠損の実 filesystem 条件・GUI・RT 性能保証（Issue #97）"
-    - "remote LFS fetch（local LFS object store のみ解決）"
+    - "https://github.com/scarecrow173/synvelis/issues/95"
+    - "https://github.com/scarecrow173/synvelis/issues/96"
+    - "https://github.com/scarecrow173/synvelis/issues/97"
   deferred-by: []
 metadata:
   experiments:

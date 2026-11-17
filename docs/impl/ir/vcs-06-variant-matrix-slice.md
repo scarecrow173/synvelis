@@ -62,9 +62,9 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "variant diff adapter 本体（ObjectKind variant kind・raw_kind_map・DIFF_POLICY_VERSION・apply surface — synvelis#457）"
-    - "restore_as_copy の variant_sets defect 修復（fork_project nested identity 再採番 vs validate 規則見直し — synvelis#458）"
-    - "実 GUI/実 OS/実 provider/実 plugin host/RT/consumer lane（*-REAL-*・COMPAT 行 — 外部 gate）"
+    - "https://github.com/scarecrow173/synvelis/issues/457"
+    - "https://github.com/scarecrow173/synvelis/issues/458"
+    - "https://github.com/scarecrow173/synvelis/issues/97"
   deferred-by: []
 metadata:
   experiments:

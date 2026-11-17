@@ -34,7 +34,7 @@ relations:
   verifies: []
   verified-by: []
   references:
-    - "evidence/sv518/"
+    - "evidence/sv518/verification.md"
   defers: []
   deferred-by: []
 ---

@@ -24,7 +24,7 @@ relations:
   superseded-by: []
   related:
     - "docs/test-specs/rcd-03-monitor-engine.md"
-    - "docs/test-specs/rcd-03-monitor-gate.md"
+    - "docs/test-specs/rcd-03-monitor-punch-latency.md"
   refines: []
   refined-by: []
   derives-from:

@@ -78,10 +78,10 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "実 GPUI/実 OS 入力・Pixel・Native Plugin Dock・IME/DPI/2Window/WindowClose/Undo/Save/Reload の実機受入（synvelis#114/#267 別 Gate）"
-    - "Script Editor/Diagnostics/Completion との同一 Capability/Schema/Availability/Target source 照合（synvelis#274 Owner）"
-    - "assets/themes/*.dtcg.json への status-* token 値の追加（assets は本スライスの編集範囲外 — vocabulary は synvelis-theme::status が正本）"
-    - "synvelis-automation crate 統合後の live adapter 接続（#264 別 Worker リース）"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/synvelis/issues/267"
+    - "https://github.com/scarecrow173/synvelis/issues/274"
+    - "https://github.com/scarecrow173/synvelis/issues/264"
   deferred-by: []
 metadata:
   experiments:

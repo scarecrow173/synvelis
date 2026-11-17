@@ -44,7 +44,7 @@ relations:
   related:
     - "docs/discovery/autx-08-live-adapter-leg.md"
     - "docs/test-specs/autx-08-live-adapter-leg.md"
-    - "evidence/sv267/"
+    - "evidence/sv267/live-adapter-leg.md"
   refines: []
   refined-by: []
   derives-from:

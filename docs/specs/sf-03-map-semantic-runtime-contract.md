@@ -58,11 +58,9 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/108"
     - "https://github.com/scarecrow173/synvelis/issues/101"
   defers:
-    - "SF-ACT-05〜09 の実機部分（RT latency/underrun・実 device epoch restart・実 OS/実デバイス/VST3 検証）"
-    - "SF-ACT-06 残件（automation→TimedParamEvent lowering 配線・Fast Control active-generation gate・GUI）"
-    - "SF-ACT-07 Partial Preview vs Export fail-closed の mode 別 policy 分岐"
-    - "SF-ACT-08 Ruviform RT/render/AudioLens 側の受入証拠"
-    - "SF-ACT-09 device config-only change の compile 判定・性能 baseline"
+    - "https://github.com/scarecrow173/synvelis/issues/103"
+    - "docs/specs/sf-03-slice6-act06-control-surface.md"
+    - "https://github.com/scarecrow173/ruviform/issues/294"
   deferred-by: []
 ---
 

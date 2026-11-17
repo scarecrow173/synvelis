@@ -75,8 +75,8 @@ relations:
   references:
     - "https://github.com/scarecrow173/ruviform/issues/251"
   defers:
-    - "実機 gate 行（実録音受入・Raw capture fidelity 実測・multi-device 実機相関・xrun/removal/長時間・証拠リンク）— Issue #115 後続 slice"
-    - "cpal WASAPI adapter の IAudioClock::GetPosition device frame position 破棄（ruviform#565 起票済み）"
+    - "https://github.com/scarecrow173/synvelis/issues/115"
+    - "https://github.com/scarecrow173/ruviform/issues/565"
   deferred-by: []
 metadata:
   experiments:

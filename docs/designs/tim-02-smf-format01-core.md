@@ -35,9 +35,10 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "synvelis-player の MIDI RT/Offline 結合・Loop/Seek/Stop・RT callback（後続 slice）"
-    - "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）"
-    - "SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）"
+    - "docs/specs/tim-02-player-midi-rt-offline.md"
+    - "https://github.com/scarecrow173/ruviform/issues/253"
+    - "https://github.com/scarecrow173/synvelis/issues/129"
+    - "https://github.com/scarecrow173/synvelis/issues/130"
   deferred-by: []
 ---
 

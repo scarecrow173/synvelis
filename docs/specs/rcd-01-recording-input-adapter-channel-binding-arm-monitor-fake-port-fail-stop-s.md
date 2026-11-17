@@ -9,7 +9,7 @@ owners: []
 relations:
   source:
     - "https://github.com/scarecrow173/synvelis/issues/115"
-    - "ruviform crates/ruviform-audio-core/src/device.rs @ 0f5b573"
+    - "https://github.com/scarecrow173/ruviform/blob/0f5b57372e9a43f84415f7964b2f9636774174f0/crates/ruviform-audio-core/src/device.rs"
   implements: []
   implemented-by: []
   depends-on: []
@@ -17,9 +17,9 @@ relations:
   supersedes: []
   superseded-by: []
   related:
-    - "docs/specs/vs-b-deterministic-mock-capture-engine.md"
-    - "docs/specs/vs-d-multi-track-recording-session.md"
-    - "docs/specs/vs-c-staging-writer-journal-recovery.md"
+    - "docs/specs/vs-b-rt-capture-mock-input-buffer-pool-spsc.md"
+    - "docs/specs/vs-d-recording-commit-e2e-idempotency-undo-reload.md"
+    - "docs/specs/vs-c-staging-writer-journal-crash-recovery-verified-media-range.md"
   refines: []
   refined-by: []
   derives-from: []
