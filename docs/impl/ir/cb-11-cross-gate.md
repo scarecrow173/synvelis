@@ -164,6 +164,10 @@ orchestration 軸・CB-E2E-07 headless 半分・CB-X-RCP-01 紐付け
   fork→edit→adopt（ApproveToApply + human receipt）→query→
   discard が独立動作、arrangement scope は wired adapter
   不在で `unsupported` fail-closed（src gap を正直に pin）。
+  ※後続 synvelis#539 で `VariantPorts::standard` へ
+  `ArrangementAdapter` を登録し、当該 pin は positive
+  検証 `cb11_e2e_07_arrangement_scope_composite_adopt_undo_scope_isolation`
+  へ flip — gap 解消済み。
 - `docs/test-specs/cb-11-cross-gate.md`（slice 1 新規・slice 2
   更新）: Issue #288 の全 case-ID を Purpose/Feature/Rules/
   Examples/Guarantees/Non-goals/Risk 構造で仕様化し、oracle
@@ -207,7 +211,10 @@ orchestration 軸・CB-E2E-07 headless 半分・CB-X-RCP-01 紐付け
   あり、CB-07 merge 後も gateway 側は未更新 — src 変更は
   本 slice 範囲外のため、fail-closed `unsupported` を
   fixture で正直に pin し ledger/PR に gap として記録した
-  （exp E8）。
+  （exp E8）。**解消（synvelis#539）**: adapters map へ
+  `ArrangementAdapter` を登録し fixture を positive 検証へ
+  flip — `adapter_for` の fail-closed 機構は維持
+  （`evidence/sv539/` 参照）。
 
 ## Related Experiments
 
@@ -246,14 +253,16 @@ orchestration 軸・CB-E2E-07 headless 半分・CB-X-RCP-01 紐付け
   GUI 面の cross-gate は本 fixture の対象外。
 - gateway `VariantPorts::standard` の Arrangement 未配線は
   fail-closed で安全側だが、CB-E2E-03 の gateway 経路は
-  src 変更（adapter 登録）を要する follow-up。
+  src 変更（adapter 登録）を要する follow-up —
+  **解消済み（synvelis#539）**: adapter 登録 + fixture
+  positive flip で gateway 経路は Pass。
 
 ## Follow-ups
 
 - CB-09 GPUI Difference Explorer（#286）merge 後の GUI
   fixture — 実 window・実 plugin は外部 gate。
 - gateway `VariantPorts::standard` への `ArrangementAdapter`
-  登録（src 変更 — 別 slice/Issue で対応）。
+  登録 — **解消済み（synvelis#539）**。
 - `CB-X-RCP-01` の recipe cache/invalidation・RCP-GATE 本体は
   #296/RCP-07 側の所有として参照のみ（case-ID mapping は
   `evidence/sv288/coverage.md` に記録済み）。

@@ -36,11 +36,11 @@ use std::sync::{Arc, Mutex, PoisonError};
 use serde_json::{Value, json};
 use synvelis_project::snapshot::{BlobProbe, ContentDigest, SnapshotCancel, SnapshotResolver};
 use synvelis_project::variant::{
-    AdoptIntent, AdoptSources, AudioClipAdapter, BranchContentRef, BranchContentStore,
-    BranchEditOp, BranchEditOpIntent, DomainAdapter, InstrumentSlotAdapter, MidiClipAdapter,
-    NoopRuntimePublish, ProcessingRangeAdapter, RuntimePublish, StripFieldsAdapter,
-    TakeUsageAdapter, VariantError, VariantScope, adopt_branch_adapted, decode_candidate,
-    discard_branch, edit_branch_op, fork_variant_set, scope_digest,
+    AdoptIntent, AdoptSources, ArrangementAdapter, AudioClipAdapter, BranchContentRef,
+    BranchContentStore, BranchEditOp, BranchEditOpIntent, DomainAdapter, InstrumentSlotAdapter,
+    MidiClipAdapter, NoopRuntimePublish, ProcessingRangeAdapter, RuntimePublish,
+    StripFieldsAdapter, TakeUsageAdapter, VariantError, VariantScope, adopt_branch_adapted,
+    decode_candidate, discard_branch, edit_branch_op, fork_variant_set, scope_digest,
 };
 use synvelis_project::{
     ApplyApproval, BranchId, CounterIdGenerator, PluginAvailability, Project, ProjectController,
@@ -95,8 +95,8 @@ fn output_schema_name(id: &str) -> String {
 // ── Scope kinds ─────────────────────────────────────────────────
 
 /// The scope-family discriminator — one domain adapter per kind.
-/// `Arrangement` has no adapter in this slice: fork/edit/adopt over
-/// it fails closed at adapter resolution.
+/// A kind with no adapter wired in [`VariantPorts::adapters`] fails
+/// closed at adapter resolution rather than synthesizing a candidate.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VariantScopeKind {
     /// One audio clip scope.
@@ -111,7 +111,7 @@ pub enum VariantScopeKind {
     ProcessingRange,
     /// One strip-fields scope.
     StripFields,
-    /// Musical-time arrangement selection (no adapter yet).
+    /// Musical-time arrangement selection.
     Arrangement,
 }
 
@@ -234,8 +234,8 @@ pub type SharedBranchStore = Arc<Mutex<Box<dyn BranchContentStore + Send>>>;
 /// scratch simulation. Adapters are per-scope-kind; a missing adapter
 /// fails the operation closed, never silently.
 pub struct VariantPorts {
-    /// Domain adapter per scope kind (`Arrangement` intentionally
-    /// absent — no adapter exists for it yet).
+    /// Domain adapter per scope kind — a kind with no entry fails
+    /// the operation closed at resolution, never silently.
     pub adapters: BTreeMap<VariantScopeKind, Arc<dyn DomainAdapter + Send + Sync>>,
     /// The shared candidate-content store.
     pub store: SharedBranchStore,
@@ -288,6 +288,10 @@ impl VariantPorts {
             VariantScopeKind::StripFields,
             Arc::new(StripFieldsAdapter::new()),
         );
+        adapters.insert(
+            VariantScopeKind::Arrangement,
+            Arc::new(ArrangementAdapter::new()),
+        );
         let (store, runtime): (SharedBranchStore, Arc<dyn RuntimePublish + Send + Sync>) =
             match content_root {
                 Some(root) => (
@@ -319,8 +323,9 @@ impl VariantPorts {
         }
     }
 
-    /// The adapter for `scope`'s kind — kinds without an adapter
-    /// (e.g. `Arrangement`) fail closed.
+    /// The adapter for `scope`'s kind — a kind with no wired adapter
+    /// fails closed `Unsupported`; the mechanism stays so a future
+    /// scope kind can never borrow the wrong adapter silently.
     fn adapter_for(
         &self,
         scope: &VariantScope,
