@@ -172,6 +172,13 @@ FS staging→manifest→readback→atomic rename; `DirSync` honestly reported.
   2026-11 note: live owner is now `scarecrow173/synvelis#517`,
   persistent BranchContentStore production wiring; the #457
   Deferred residual tracks there).
+  **2026-11 訂正（synvelis#517 着地）**: 上記の capability limit は
+  #517 で解消済み。`RestorePorts.branch_content` 経由で全
+  `Captured.payload_digest` を source store から digest 再検証
+  付きで fork 先へ複製する契約が確定し、残る
+  `CandidateUnavailable` は port 不在・confirmed-absent の場合
+  のみ（receipt `branch_content.unavailable` に列挙）。詳細は
+  VCS-RESTORE-10 row の最終更新を参照。
 - Additional VCS providers (non-git) — **Unsupported** in this slice.
 - Real GUI/IME/two-window (#114), native plugin dock (#176), RT/device,
   consumer/precision (#219/#294), CI gate (#83) — **NotRun**.
