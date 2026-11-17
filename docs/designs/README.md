@@ -58,8 +58,10 @@ Directory: `docs/designs`
 | DESIGN-034WsvXEZuKq8V4PoYjVxZ | Issue #365 impl index 生成可能化 — front matter 是正と marker 追加の設計 | approved | [issue-365-impl-index-generation-design.md](./issue-365-impl-index-generation-design.md) |
 | DESIGN-034WuZE8vEiOZJKbZMaRJQ | Issue #368 docs/impl/ir missing-section 本文補完 — 設計 | approved | [issue-368-ir-missing-sections-design.md](./issue-368-ir-missing-sections-design.md) |
 | DESIGN-513a1b2c3d4e5f6g7h8i9j0k3 | issue-513-variant-apply-ops — 設計 | approved | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
+| DESIGN-0886aYIscVs3Pjh9Ep5J8a | Issue #514 design — selection 非消費の責務境界と将来の配線条件 | approved | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |
 | DESIGN-034YXStSteikAVmmfTjwB3 | issue-515-os-credential — durable session store + OS credential 経路の設計 | approved | [issue-515-os-credential.md](./issue-515-os-credential.md) |
 | DESIGN-dHD8y1UOzR1s1jhUXZnanm | Issue #516 設計 — synvelis-script-luau を ruviform 製品 port への薄い binding へ置換 | approved | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
+| DESIGN-sv517eF6gH8iJ0kL1mN3oP5 | Issue #517 設計 — render/branch pipeline 本番配線 | approved | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
 | DESIGN-vaYFK7BnCVN715EASswzTe | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 設計 | approved | [issue-86-verified-import-wiring-design.md](./issue-86-verified-import-wiring-design.md) |
 | DESIGN-yiV0z7HH1jyKUmweFh9hCT | L1 Design — Safe Import・Verified Media・Lowering・Headless Driver | approved | [l1-local-wav-verified-playback-design.md](./l1-local-wav-verified-playback-design.md) |
 | DESIGN-034QmfChvqgB632y8fAydk | L2 Design — Render Snapshot・Preflight・Sequential Render・WAV Output・Reopen Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export-design.md](./l2-master-sequential-offline-wav-export-design.md) |

@@ -59,6 +59,11 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted:
+      - "docs/impl/exp/issue-514-session-engine-selection.md"
+    rejected: []
 ---
 
 # Issue #514 impl record
