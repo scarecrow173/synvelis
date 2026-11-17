@@ -4,7 +4,7 @@ type: "impl"
 status: "in-progress"
 title: "CB-06 Track/Bus 候補 Adapter — Strip Domain Mask・Routing参照保護・Adopt（synvelis#283）"
 created: "2026-11-14"
-updated: "2026-11-14"
+updated: "2026-11-17"
 owners: []
 relations:
   source:
@@ -15,6 +15,8 @@ relations:
         path: "crates/synvelis-project/src/variant/strip.rs"
       - type: "file"
         path: "crates/synvelis-project/tests/cb06_strip_fields.rs"
+      - type: "file"
+        path: "crates/synvelis-gateway/tests/cb06_strip_gateway.rs"
       - type: "file"
         path: "docs/impl/ir/cb-06-track-bus-adapter.md"
       - type: "file"
@@ -235,6 +237,69 @@ revert — live reorder は `scope_fingerprint` を動かして
   fixture で網羅済みだが、新規 connection kind 追加時は
   inventory の再検討が必要。
 
+## Gateway commit-gate exercise（追補 slice — synvelis#283 残件）
+
+`StripFieldsAdapter` 登録（CB-10 PR #483）以降に残っていた
+gateway commit-gate 経路の strip-fields headless exercise を
+`crates/synvelis-gateway/tests/cb06_strip_gateway.rs`（新規）
+として追加した。production code の変更はない —
+`VariantPorts::standard`・scope parse・adapter dispatch は
+全て consume のみ。
+
+### 実装要点
+
+- **fixture**: `demo_project()` は track を持つが
+  `p.routing.strips` を構築しないため、test-local に
+  `ProjectOp::AddTrackStrip { track_id: TrackId::new(3) }` +
+  `ProjectOp::InsertProcessor`（unresolved binding）を
+  `ProjectController` で適用した project（head revision 2）を
+  `DirectoryBundleStore` + `MemorySnapshotSource` に pin。
+  `tests/rig/mod.rs` の共有 fixture は変更せず既存 test の
+  前提に波及しない。
+- **lifecycle**: `synvelis.branch.fork`（human commit）→
+  candidate edit reject 群 → stale pin reject 群 →
+  `synvelis.branch.adopt`（`ApproveToApply` agent grant +
+  human approval receipt、cb10/cb11 先例）→
+  `synvelis.branch.discard` → `list`/`describe`/`compare`。
+- **wire 表面の実測**: `lower_for` の capability 表に
+  strip-domain inner op へ lower する経路は存在しない。
+  candidate edit は ordinary op 3 種（`synvelis.clip.mute`・
+  `synvelis.track.create`・`synvelis.clip.move`）で
+  `PreparationRejected`/`variant-unsupported` を確認し、
+  routing/send/bus op は capability 非存在で fail-closed。
+  positive mask-gated edit は project 軸
+  （`cb06_strip_fields.rs`）の責務であり、本経路では
+  confinement の一様な typed reject が正直な境界証拠。
+- **pin 検証**: `expected_scope_digest` の stale 値が
+  `variant-stale-scope`、`expected_branch_revision` の stale
+  値が `variant-stale-branch-revision` で prepare simulation
+  時に typed reject されることを確認。scope-identical
+  candidate の adopt も `Applied`（undo_steps=1・
+  `runtime.state.state == "not-requested"`）— pointer swap
+  と frozen previous branch は実 project truth。
+- **domain 補助証拠**: `StripFieldsAdapter::
+  boundary_dependencies` が strip→master `Main` connection
+  のみを scope-affiliated boundary（`source_in_scope &&
+  !destination_in_scope`）として報告、`capabilities` が
+  declared mask に対し field family Supported・
+  routing/entity_remove/preset_select Unsupported を
+  報告することを別 test で pin。
+
+### Decisions During Implementation（追補）
+
+- **新規 file を選択**: `cb11_ai_vcs_off.rs` への追記ではなく
+  `cb06_strip_gateway.rs` を新設 — strip fixture の構築経路
+  （controller seed）が既存 helper と異なり、関心事分離で
+  既存 test 前提への波及を避ける。
+- **adopted branch edit は負例に使わない**: `EditAdopted` は
+  adapter confinement を通らず live edit として適用される
+  設計のため、confinement 負例は candidate branch のみで
+  構成（design doc に記録）。
+- **`synvelis.note.add` は存在しない**: 実在は
+  `synvelis.midi.note.add` で tick 引数 shape も異なる —
+  既知 shape の `synvelis.clip.move`（musical anchor）を
+  3 つ目の reject 対象に採用。
+
 ## Follow-ups
 
 - Routing op（send/connection/sidechain/bus 編集）の候補
@@ -242,5 +307,9 @@ revert — live reorder は `scope_fingerprint` を動かして
   `Unsupported` が正直な verdict。
 - scope entity removal（processor/target/lane/source）の
   候補編集は後続 slice。
+- wire 表面への strip-domain op capability 追加
+  （`SetStripMute`/`SetParameterBase`/`InsertProcessor` 等を
+  lower する gateway capability）は別 dispatch 対象 —
+  必要になった時点で op 表面設計とあわせて検討。
 - 実 plugin/PCM/OS/RT 受入は #286/#287/#288 系・CB-STRIP-06
   実機 lane の責務（`evidence/sv283/` で NotRun 記録）。

@@ -82,6 +82,48 @@ OS: Windows 11。Toolchain: mise 管理 Rust 1.99.1
   - 共有 `strip_channel_field`（`ParameterRole`→`StripField`）
     を `scope.rs` に集約し `adapter.rs` と単一正本化。
 
+## 追補 slice 検証（gateway commit-gate exercise — 2026-11-17）
+
+Date: 2026-11-17。Canonical 検証は `mise run` 経由。
+OS: Windows 11。Toolchain: mise 管理 Rust（repo pin 系）。
+対象: `crates/synvelis-gateway/tests/cb06_strip_gateway.rs`
+（新規 2 test）+ cb-06 doc chain 追従 + 本 evidence 追記。
+production code 変更なし。
+
+| コマンド | OS | 結果 |
+| --- | --- | --- |
+| `mise run fmt-check` | Windows 11 | Pass（exit 0 — 新規 file を `cargo fmt` 適用後） |
+| `mise run check synvelis-gateway` | Windows 11 | Pass（exit 0、`--locked --all-targets`） |
+| `mise run lint synvelis-gateway` | Windows 11 | Pass（exit 0、clippy `-D warnings`。初回 `assert_is_empty` 検出 → `len()==0` 比較へ修正） |
+| `mise run test synvelis-gateway` | Windows 11 | Pass（exit 0 — 全 suite green。`cb06_strip_gateway.rs` 2 件: `cb06_strip_fields_gateway_commit_gate_lifecycle`・`cb06_strip_fields_scope_boundary_and_capabilities`。既存 cb10/cb11 他 test の回帰なし） |
+| `mise run check-headless-deps` | Windows 11 | Pass（exit 0 — 12 headless crates に GUI framework deps なし） |
+| `mise run check synvelis-project` | Windows 11 | Pass（exit 0 — 非回帰確認、source 変更なし） |
+| `mise exec -- prek run --all-files` | Windows 11 | Pass（exit 0 — trailing whitespace/eof/yaml/toml/utf-8 BOM/merge marker/actionlint 全 Pass） |
+
+## 補助証拠（canonical = mise）
+
+- `mise exec -- cargo test --locked -p synvelis-gateway
+  --test cb06_strip_gateway` — 2 test Pass（focused 実行、
+  canonical は上記 `mise run test synvelis-gateway`）。
+- 実装上の要点: fixture は `ProjectOp::AddTrackStrip` +
+  `ProjectOp::InsertProcessor` を `ProjectController` で適用
+  した test-local project（head revision 2）を
+  `DirectoryBundleStore` + `MemorySnapshotSource` に pin —
+  `tests/rig/mod.rs` の共有 fixture は非変更。
+- wire 表面の実測: `lower_for` capability 表に strip-domain
+  inner op への lowering は存在しない — candidate edit は
+  ordinary op 3 種で `variant-unsupported` typed reject、
+  stale `expected_scope_digest`/`expected_branch_revision`
+  が `variant-stale-scope`/`variant-stale-branch-revision`
+  で reject されることを確認。positive mask-gated edit は
+  project 軸の責務（本経路では非表現 — spec の Deferred
+  Design Concerns に記録）。
+- adopt は `ApproveToApply` agent grant + human approval
+  receipt 経路（cb10/cb11 先例）— provenance に
+  `outcome=="applied"`・`project.committed==true`・
+  `undo_steps==1`・`objects==0`・
+  `runtime.state.state=="not-requested"`（VCS-off headless）。
+
 ## NotRun
 
 - `*-msrv` / `*-full` / Feature Matrix / 3OS 横断 — タスク
@@ -91,6 +133,10 @@ OS: Windows 11。Toolchain: mise 管理 Rust 1.99.1
   GPUI projection — headless fixture のみ。Fake/Domain
   Oracle の PASS を実機 PASS に昇格しない（後続 Issue
   #286/#287/#288 系・CB-STRIP-06 実機 lane で記録）。
+- wire 表面の strip-domain op capability（`SetStripMute`/
+  `SetParameterBase`/`InsertProcessor` 等を lower する
+  gateway capability）— 本 slice 範囲外。必要時に別
+  dispatch で op 表面設計とあわせて検討。
 - `doc-driven-dev-graph` route — spec/design/plan/task 相当の
   内容はリース済み `docs/impl/{ir,exp}`・
   `docs/test-specs/cb-06-track-bus-adapter.md` に集約

@@ -4,7 +4,7 @@ type: "test-spec"
 status: "draft"
 title: "CB-06 Track/Bus Strip 候補 Adapter — mask・routing 参照保護・adopt"
 created: "2026-11-14"
-updated: "2026-11-14"
+updated: "2026-11-17"
 owners: []
 relations:
   source: []
@@ -30,6 +30,7 @@ relations:
   derived-by: []
   verifies:
     - "docs/specs/creative-branch.md"
+    - "docs/specs/issue-283-strip-gateway-exercise.md"
   verified-by: []
   references: []
   defers: []
@@ -132,6 +133,44 @@ Track/Bus Strip 候補 Adapter の mask 適合編集と routing 参照保護
   無断再接続されず、adopt が宣言範囲のみを書く。
 - Track/Bus 両 owner で同一 `StripId` 解決・二重 DSP なし。
 - capability 報告と enforcement が一致する。
+
+## Gateway commit-gate 経路カバレッジ（追補 slice）
+
+`crates/synvelis-gateway/tests/cb06_strip_gateway.rs`
+（synvelis#283 残件 slice、`VariantPorts::standard` 経由の
+headless exercise）で、本 spec の境界契約が gateway の
+`prepare → proposal → approval → apply → CommitGate` 経路でも
+成立することを pin した:
+
+- strip-fields scope の fork が 1 CAS で commit され、
+  candidate/adopted の 2 branch を持つ variant set が
+  domain provenance 付きで記録される。
+- candidate branch への ordinary op edit（`synvelis.clip.mute`・
+  `synvelis.track.create`・`synvelis.clip.move`）が全て
+  `PreparationRejected`/`variant-unsupported` で typed reject
+  され、live revision・branch content revision・対象 entity が
+  不変。gateway の wire capability 表に strip-domain inner op
+  （`SetStripMute`/`SetParameterBase`/`InsertProcessor` 等）へ
+  lower する経路は存在しないため、mask-gated positive edit は
+  project 軸（`cb06_strip_fields.rs`）の責務であり、本経路の
+  edit 面の証拠は confinement の一様な fail-closed である。
+- routing/send/bus op は capability 自体が存在せず fail-closed
+  — 外部 wiring は candidate-owned でない（本 spec の
+  routing 参照保護 Rule と一致）。
+- `synvelis.branch.adopt` が `ApproveToApply` grant + human
+  approval receipt 経路で `Applied`（1 undo step、
+  `runtime.state.state == "not-requested"`）を commit し、
+  `expected_scope_digest`/`expected_branch_revision` の stale
+  pin が `variant-stale-scope`/`variant-stale-branch-revision`
+  で prepare 時に typed reject される。
+- `synvelis.branch.{list,describe,compare}` が strip-fields
+  scope を typed decode し、`compare` が captured payload を
+  shared store から decode + scope digest 再計算して
+  `verified`/`scope_digests_equal` を正直に報告する。
+- `boundary_dependencies` が strip→master `Main` connection
+  のみを scope-affiliated boundary として報告し、
+  `capabilities` が declared mask に対し Supported/Unsupported
+  を正直に報告する（display truth = enforcement truth）。
 
 ## Non-goals
 
