@@ -14,11 +14,10 @@
 //! - The tagged stable ID (`comp-transition-<32hex>`) is identical in
 //!   both diff directions and survives save/reload, undo/redo, and a
 //!   published restore copy byte-for-byte.
-//! - The VCS-05 apply surface stays fail-closed for comp kinds:
-//!   `target_fingerprint`/`apply_selected` refuse `CompTransition`
-//!   with `ApplyError::Unsupported` before any mutation — comp
-//!   entities are diff-visible but not yet apply-whitelisted, and
-//!   that boundary is pinned rather than silently widened.
+//! - The VCS apply surface replays comp kinds (synvelis#513):
+//!   `target_fingerprint`/`apply_selected` accept `CompTransition`
+//!   `Added` as a typed entity transplant, while `Removed` stays
+//!   fail-closed `Unsupported` (cascade deferred).
 //!
 //! Headless fixtures only: no real provider, OS filesystem
 //! durability certification, or GUI claim.
@@ -28,7 +27,7 @@ use std::path::PathBuf;
 
 use synvelis_project::diff::{
     ChangeKind, ChangeSet, ComparisonCompleteness, ComparisonEquality, ComparisonSpec, ObjectKind,
-    compare_snapshots,
+    SemanticChange, compare_snapshots,
 };
 use synvelis_project::*;
 
@@ -530,13 +529,48 @@ fn comp_transition_diff_is_expressed_by_its_own_stable_id() {
     }
 }
 
-/// RCD-04 stable-ID boundary: comp kinds are diff-visible but outside
-/// the VCS-05 apply whitelist — `target_fingerprint` and
-/// `apply_selected` refuse `CompTransition` with
-/// `ApplyError::Unsupported` before any mutation. The live project
-/// stays byte-identical; the fail-closed boundary is the contract.
+/// Single-change `apply_selected` with a real target fingerprint —
+/// the shared intent/journal boilerplate for the replay pins.
+fn apply_one(
+    c: &mut ProjectController,
+    cs: &ChangeSet,
+    before: &ImmutableSnapshot,
+    after: &ImmutableSnapshot,
+    change: &SemanticChange,
+) -> Result<ApplyReceipt, ApplyError> {
+    let fp = target_fingerprint(c.live(), std::slice::from_ref(&change.object))?;
+    let intent = ApplyChangeIntent {
+        change_set_id: cs.key.digest(),
+        source_snapshot_id: after.identity.digest,
+        target_object: change.object.clone(),
+        expected_project_revision: c.live_revision(),
+        selected_change_ids: vec![change.id.clone()],
+        expected_target_fingerprint: fp,
+        approval: ApplyApproval {
+            ticket: "user-approved".into(),
+        },
+    };
+    let src = sources_for(cs, before, after);
+    let mut journal = InMemoryApplyJournal::new();
+    apply_selected(
+        c,
+        &intent,
+        &ApplySources {
+            changesets: &src,
+            assets: Some(&AllPresentProbe),
+            plugins: None,
+        },
+        &mut journal,
+        &SnapshotCancel::new(),
+    )
+}
+
+/// RCD-04 stable-ID boundary (sv#513): comp kinds are diff-visible
+/// AND on the apply whitelist — a `CompTransition` `Added` change
+/// replays through `apply_selected` as a typed entity transplant, while
+/// the reverse `Removed` change stays fail-closed `Unsupported`.
 #[test]
-fn apply_selected_fails_closed_on_comp_transition() {
+fn apply_selected_replays_comp_transition_removed_stays_fail_closed() {
     // Live state = B (no transition); changeset wants B → A (adds it).
     let (pb, sb) = seeded();
     let mut live = controller(pb);
@@ -555,62 +589,52 @@ fn apply_selected_fails_closed_on_comp_transition() {
         .expect("transition change present");
     assert_eq!(change.kind, ChangeKind::Added);
 
-    // The fingerprint surface itself refuses the kind — no caller can
-    // smuggle a comp entity into an apply fingerprint.
-    let fp_err = target_fingerprint(live.live(), std::slice::from_ref(&change.object))
-        .expect_err("comp kind must be outside the apply surface");
-    assert!(matches!(
-        fp_err,
-        ApplyError::Unsupported {
-            kind: ObjectKind::CompTransition,
-            ..
-        }
-    ));
-
-    // End-to-end: apply_selected fails closed at the fingerprint CAS
-    // — project unchanged, revision unmoved.
-    let intent = ApplyChangeIntent {
-        change_set_id: cs.key.digest(),
-        source_snapshot_id: after.identity.digest,
-        target_object: change.object.clone(),
-        expected_project_revision: live.live_revision(),
-        selected_change_ids: vec![change.id.clone()],
-        expected_target_fingerprint: ContentDigest::sha256(b"unused"),
-        approval: ApplyApproval {
-            ticket: "user-approved".into(),
-        },
-    };
-    let src = sources_for(&cs, &before, &after);
-    let mut journal = InMemoryApplyJournal::new();
+    // The fingerprint surface resolves the kind — comp entities are
+    // apply-whitelisted now. End-to-end: the single-transition
+    // selection applies as one CAS.
+    target_fingerprint(live.live(), std::slice::from_ref(&change.object))
+        .expect("comp kind is on the apply surface");
     let rev_before = live.live_revision();
-    let comp_json_before = serde_json::to_value(&live.live().comp).unwrap();
-    let err = apply_selected(
-        &mut live,
-        &intent,
-        &ApplySources {
-            changesets: &src,
-            assets: Some(&AllPresentProbe),
-            plugins: None,
-        },
-        &mut journal,
-        &SnapshotCancel::new(),
-    )
-    .expect_err("comp transition apply must fail closed");
-    assert!(matches!(
-        err,
-        ApplyError::Unsupported {
-            kind: ObjectKind::CompTransition,
-            ..
-        }
-    ));
-    assert_eq!(live.live_revision(), rev_before);
-    assert_eq!(
-        serde_json::to_value(&live.live().comp).unwrap(),
-        comp_json_before
-    );
-    assert!(live.live().comp.transitions.is_empty());
-}
+    let receipt = apply_one(&mut live, &cs, &before, &after, change)
+        .expect("comp transition apply must succeed");
+    assert_eq!(receipt.outcome, apply::ApplyOutcome::Applied);
+    assert_eq!(live.live_revision().0, rev_before.0 + 1);
+    let transition = CompTransitionId::from_tagged(&change.object.stable_id).unwrap();
+    assert!(live.live().comp.transitions.contains_key(&transition));
 
+    // Reverse direction: the `Removed` transition change stays
+    // fail-closed — removal cascade is still deferred for every kind.
+    let cs_rm = compare(&after, &before);
+    let removed = cs_rm
+        .changes
+        .iter()
+        .find(|c| c.object.kind == ObjectKind::CompTransition && c.kind == ChangeKind::Removed)
+        .expect("reverse transition removal present");
+    // Live now HAS the transition (just applied) — reset to state A
+    // semantics by applying on a fresh A-state controller instead.
+    let (pa2, sa2) = seeded();
+    let mut live_a = controller(pa2);
+    build_comp(&mut live_a, &sa2, true);
+    // Live state A already holds the transition — the Removed change
+    // must still refuse before any mutation.
+    let rev_a = live_a.live_revision();
+    // `apply_one` fingerprints the live (present) entity, then the
+    // plan layer rejects `Removed` for every kind.
+    let err = apply_one(&mut live_a, &cs_rm, &after, &before, removed)
+        .expect_err("comp transition removal must stay fail-closed");
+    assert!(
+        matches!(
+            err,
+            ApplyError::Unsupported {
+                kind: ObjectKind::CompTransition,
+                ..
+            }
+        ),
+        "expected Unsupported, got {err:?}"
+    );
+    assert_eq!(live_a.live_revision(), rev_a);
+    assert!(live_a.live().comp.transitions.contains_key(&transition));
+}
 /// RCD-04 stable-ID: `restore_as_copy` publishes a new project whose
 /// comp registry carries the SAME stable IDs — take group, comp,
 /// regions, and the independent transition ID all survive the

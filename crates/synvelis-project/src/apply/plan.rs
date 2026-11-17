@@ -122,14 +122,17 @@ fn change_supported(object: &SemanticObjectRef, change: &SemanticChange) -> Resu
                     | ObjectKind::Asset
                     | ObjectKind::MediaSource
                     | ObjectKind::PluginInstance
+                    | ObjectKind::VariantSet
+                    | ObjectKind::VariantBranch
             ) {
                 Ok(())
             } else {
                 Err(ApplyError::Unsupported {
                     kind,
                     change: change.kind,
-                    detail: "replace only applies to clip/asset/source/plugin-instance swaps"
-                        .into(),
+                    detail:
+                        "replace only applies to clip/asset/source/plugin-instance/variant swaps"
+                            .into(),
                 })
             }
         }

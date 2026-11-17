@@ -633,3 +633,170 @@ fn project_comp_is_deterministic_and_preserves_provenance() {
     assert_eq!(b0.window.start().value(), 0);
     assert_eq!(b0.window.end().value(), 960 * FRAMES_PER_TICK);
 }
+
+// ---------------------------------------------------------------------
+// sv#513: comping kinds replay through `apply_selected` — whole-entity
+// transplant of the comp registry with the same CAS/fingerprint and
+// fail-closed partial-selection guarantees as every other surface.
+// ---------------------------------------------------------------------
+
+struct CompApplySrc {
+    resolved: synvelis_project::apply::ResolvedChangeSet,
+}
+
+impl synvelis_project::apply::ChangeSetSource for CompApplySrc {
+    fn resolve(
+        &self,
+        id: &synvelis_project::snapshot::ContentDigest,
+    ) -> Option<synvelis_project::apply::ResolvedChangeSet> {
+        (id == &self.resolved.changeset.key.digest()).then(|| self.resolved.clone())
+    }
+}
+
+struct PresentProbe;
+
+impl synvelis_project::snapshot::BlobProbe for PresentProbe {
+    fn probe(&self, _digest: &str) -> synvelis_project::snapshot::BlobRead {
+        synvelis_project::snapshot::BlobRead::Present(vec![0])
+    }
+}
+
+fn snap(c: &ProjectController) -> synvelis_project::snapshot::ImmutableSnapshot {
+    synvelis_project::snapshot::SnapshotResolver::new()
+        .capture_live(
+            c,
+            c.live_revision(),
+            &synvelis_project::snapshot::SnapshotCancel::new(),
+            Some(&PresentProbe),
+        )
+        .unwrap()
+}
+
+fn comp_diff(
+    before: &synvelis_project::snapshot::ImmutableSnapshot,
+    after: &synvelis_project::snapshot::ImmutableSnapshot,
+) -> synvelis_project::diff::ChangeSet {
+    synvelis_project::diff::compare_snapshots(
+        before,
+        after,
+        &synvelis_project::diff::ComparisonSpec::new(
+            before.identity.clone(),
+            after.identity.clone(),
+        ),
+        &synvelis_project::snapshot::SnapshotCancel::new(),
+    )
+    .unwrap()
+}
+
+fn comp_apply(
+    c: &mut ProjectController,
+    cs: &synvelis_project::diff::ChangeSet,
+    before: &synvelis_project::snapshot::ImmutableSnapshot,
+    after: &synvelis_project::snapshot::ImmutableSnapshot,
+    selected: &[&synvelis_project::diff::SemanticChange],
+) -> Result<synvelis_project::apply::ApplyReceipt, synvelis_project::apply::ApplyError> {
+    let objects: Vec<_> = selected.iter().map(|ch| ch.object.clone()).collect();
+    let fp = synvelis_project::apply::target_fingerprint(c.live(), &objects).unwrap();
+    let intent = synvelis_project::apply::ApplyChangeIntent {
+        change_set_id: cs.key.digest(),
+        source_snapshot_id: after.identity.digest,
+        target_object: selected[0].object.clone(),
+        expected_project_revision: c.live_revision(),
+        selected_change_ids: selected.iter().map(|ch| ch.id.clone()).collect(),
+        expected_target_fingerprint: fp,
+        approval: synvelis_project::apply::ApplyApproval {
+            ticket: "approve".into(),
+        },
+    };
+    let src = CompApplySrc {
+        resolved: synvelis_project::apply::ResolvedChangeSet {
+            changeset: cs.clone(),
+            before: before.clone(),
+            after: after.clone(),
+        },
+    };
+    let mut journal = synvelis_project::apply::InMemoryApplyJournal::new();
+    let sources = synvelis_project::apply::ApplySources {
+        changesets: &src,
+        assets: Some(&PresentProbe),
+        plugins: None,
+    };
+    synvelis_project::apply::apply_selected(
+        c,
+        &intent,
+        &sources,
+        &mut journal,
+        &synvelis_project::snapshot::SnapshotCancel::new(),
+    )
+}
+
+#[test]
+fn comping_changes_replay_through_apply_selected() {
+    let (p, s) = seeded();
+    // `after`: full comp registry built through CompOp on live.
+    let mut c_after = controller(p.clone());
+    let (group, comp, _regions, _transition) = build_comp(&mut c_after, &s);
+    let after = snap(&c_after);
+    // `before`/`live`: the same seed with no comp entities.
+    let mut c = controller(p);
+    let before = snap(&c);
+
+    let cs = comp_diff(&before, &after);
+    let comping: Vec<_> = cs
+        .changes
+        .iter()
+        .filter(|ch| {
+            matches!(
+                ch.object.kind,
+                synvelis_project::diff::ObjectKind::TakeGroup
+                    | synvelis_project::diff::ObjectKind::Comp
+                    | synvelis_project::diff::ObjectKind::CompRegion
+                    | synvelis_project::diff::ObjectKind::CompTransition
+            )
+        })
+        .collect();
+    assert_eq!(comping.len(), 6, "group+comp+3 regions+transition");
+    assert!(
+        comping
+            .iter()
+            .all(|ch| ch.kind == synvelis_project::diff::ChangeKind::Added)
+    );
+
+    let receipt = comp_apply(&mut c, &cs, &before, &after, &comping).unwrap();
+    assert_eq!(
+        receipt.outcome,
+        synvelis_project::apply::ApplyOutcome::Applied
+    );
+    assert!(c.live().comp.take_groups.contains_key(&group));
+    assert!(c.live().comp.comps.contains_key(&comp));
+    assert_eq!(c.live().comp.comps[&comp].region_ids.len(), 3);
+    assert_eq!(c.live().comp.transitions.len(), 1);
+    assert_eq!(c.live().comp.take_groups[&group].active_comp_id, Some(comp));
+}
+
+/// Partial selection fails closed: a region without its comp dangles
+/// `comp_id` at the reference oracle — nothing transplants.
+#[test]
+fn comping_partial_selection_fails_closed() {
+    let (p2, s2) = seeded();
+    let mut c2_after = controller(p2.clone());
+    build_comp(&mut c2_after, &s2);
+    let after2 = snap(&c2_after);
+    let mut c2 = controller(p2);
+    let before2 = snap(&c2);
+    let cs2 = comp_diff(&before2, &after2);
+    let region_only: Vec<_> = cs2
+        .changes
+        .iter()
+        .filter(|ch| ch.object.kind == synvelis_project::diff::ObjectKind::CompRegion)
+        .collect();
+    assert_eq!(region_only.len(), 3);
+    let rev = c2.live_revision();
+    let err = comp_apply(&mut c2, &cs2, &before2, &after2, &region_only).unwrap_err();
+    assert!(
+        !matches!(err, synvelis_project::apply::ApplyError::Unsupported { .. }),
+        "comping kinds are on the apply surface now, got {err:?}"
+    );
+    assert_eq!(c2.live_revision(), rev);
+    assert!(c2.live().comp.regions.is_empty());
+}

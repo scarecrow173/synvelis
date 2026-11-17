@@ -456,9 +456,10 @@ fn sources_for(cs: &ChangeSet, before: &ImmutableSnapshot, after: &ImmutableSnap
 
 /// `true` for object kinds inside the VCS-05 apply surface — mirrors
 /// `apply::entity::supported_kind` (crate-private, unreachable from
-/// integration tests). Diff-only kinds (recording/comping/SMF
-/// domains) fail closed at plan/fingerprint time, so select-all
-/// fixtures must narrow their selection to apply-surface kinds.
+/// integration tests). Recording/SMF-domain kinds fail closed at
+/// plan/fingerprint time, so select-all fixtures must narrow their
+/// selection to apply-surface kinds. Comping and variant-set kinds
+/// joined the surface in sv#513.
 fn apply_surface_kind(kind: ObjectKind) -> bool {
     matches!(
         kind,
@@ -486,6 +487,12 @@ fn apply_surface_kind(kind: ObjectKind) -> bool {
             | ObjectKind::TrackMonitorDecl
             | ObjectKind::PunchMarks
             | ObjectKind::PluginInstance
+            | ObjectKind::TakeGroup
+            | ObjectKind::Comp
+            | ObjectKind::CompRegion
+            | ObjectKind::CompTransition
+            | ObjectKind::VariantSet
+            | ObjectKind::VariantBranch
     )
 }
 
