@@ -29,12 +29,12 @@ review, RF#631/SV#114): `state.disabled`, `viz.waveform_rms`, light
 | text.dim | color.fg-dim | #9aa0a8 | #5a6068 |
 | accent.primary | color.accent | #6aa9e8 | #2a6bc2 |
 | state.error | color.err | #e86a6a | #c23a3a |
-| state.disabled | (direct, provisional) | #5a636d | #5a636d |
+| state.disabled | (direct, provisional) | #4e565f | #9aa0a8 |
 | control.track | color.bg-input | #191b1f | #eaecf0 (provisional) |
 | control.fill | color.accent | #6aa9e8 | #2a6bc2 |
 | control.thumb | color.fg | #e8e8ea | #1b1d21 |
 | viz.waveform | color.accent | #6aa9e8 | #2a6bc2 |
-| viz.waveform_rms | (direct, provisional) | #2b5f9e | #2b5f9e |
+| viz.waveform_rms | (direct, provisional) | #8fb8e8 | #7aa8d8 |
 | viz.baseline | color.border | #33373f | {color.bg-panel} |
 | viz.cursor | color.fg | #e8e8ea | #1b1d21 |
 | space.sm/md/page | spacing.{sm,md,lg} | per density | per density |

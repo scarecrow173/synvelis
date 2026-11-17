@@ -1,7 +1,7 @@
 ---
 id: "TASK-034YXXXE7kuTr6kR5K8KV8"
 type: "task"
-status: "todo"
+status: "done"
 title: "SV177 issue-177-design-tokens"
 created: "2026-11-17"
 updated: "2026-11-17"
