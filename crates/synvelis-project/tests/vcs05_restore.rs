@@ -166,6 +166,7 @@ fn restore_publishes_verified_new_copy() {
         blobs: &blobs,
         plugin_state: None,
         storage: None,
+        branch_content: None,
     };
     let rev_before = c.live_revision();
     let pid_before = c.live().project_id;
@@ -250,6 +251,7 @@ fn missing_asset_fails_and_leaves_no_destination() {
         blobs: &blobs,
         plugin_state: None,
         storage: None,
+        branch_content: None,
     };
     let err = restore_as_copy(
         &request(snap, dest.clone(), "r-2"),
@@ -282,6 +284,7 @@ fn degraded_policy_publishes_marked_copy() {
         blobs: &blobs,
         plugin_state: None,
         storage: None,
+        branch_content: None,
     };
     let mut req = request(snap, dest.clone(), "r-3");
     req.missing_assets = MissingAssetsPolicy::AllowDegraded;
@@ -308,6 +311,7 @@ fn existing_destination_fails_closed() {
         blobs: &blobs,
         plugin_state: None,
         storage: None,
+        branch_content: None,
     };
     let err =
         restore_as_copy(&request(snap, dest, "r-4"), &ports, &SnapshotCancel::new()).unwrap_err();
@@ -326,6 +330,7 @@ fn unsafe_destinations_fail_before_any_write() {
         blobs: &blobs,
         plugin_state: None,
         storage: None,
+        branch_content: None,
     };
     // Relative path.
     let rel = request(snap.clone(), PathBuf::from("rel-copy"), "r-5");
@@ -358,6 +363,7 @@ fn low_disk_fails_closed() {
         blobs: &blobs,
         plugin_state: None,
         storage: Some(&LowDisk),
+        branch_content: None,
     };
     let err = restore_as_copy(
         &request(snap, dest.clone(), "r-8"),
@@ -383,6 +389,7 @@ fn cancelled_restore_writes_nothing() {
         blobs: &blobs,
         plugin_state: None,
         storage: None,
+        branch_content: None,
     };
     let cancel = SnapshotCancel::new();
     cancel.cancel();

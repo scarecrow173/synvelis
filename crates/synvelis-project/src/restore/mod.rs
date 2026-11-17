@@ -25,7 +25,7 @@
 //! certification, real Git/provider E2E, GUI, RT, plugin-host
 //! restore-into-engine, and `AudioLens` cross-consumer gates.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -46,6 +46,7 @@ use crate::{
         SnapshotCancel,
     },
     store::{SCHEMA_VERSION, SnapshotEnvelope, snapshot_name, snapshot_revision},
+    variant::BranchContentRef,
 };
 
 // ---------------------------------------------------------------------------
@@ -130,6 +131,37 @@ pub trait RestoreStorageProbe {
     fn available_bytes(&self, dir: &Path) -> Result<Option<u64>, String>;
 }
 
+/// Read port for the source project's branch candidate-content store
+/// (VCS-RESTORE-10, synvelis#517).
+///
+/// Branch payloads are *not* part of the project snapshot — they live
+/// in the source's [`crate::variant::BranchContentStore`] keyed by
+/// content digest. `None` in [`RestorePorts`] means no source store
+/// was provided: every `Captured` digest referenced by the fork is
+/// then reported `unavailable` on the receipt — the honest
+/// `CandidateUnavailable` verdict — rather than failing the restore.
+pub trait RestoreBranchContentSource {
+    /// Reads the payload stored under `digest` (`sha256:` form).
+    /// `None` = confirmed absent.
+    ///
+    /// # Errors
+    /// Transport/read failure detail — propagated as a restore
+    /// failure, never coerced to absent.
+    fn read_payload(&self, digest: &ContentDigest) -> Result<Option<Vec<u8>>, String>;
+}
+
+/// Every [`crate::variant::BranchContentStore`] — concrete or trait
+/// object — is a [`RestoreBranchContentSource`]: the restore engine
+/// reads the source store through the same digest-keyed `get` the
+/// variant engine uses, with backend errors surfaced as transport
+/// failures (never coerced to absent).
+impl<T: crate::variant::BranchContentStore + ?Sized> RestoreBranchContentSource for T {
+    fn read_payload(&self, digest: &ContentDigest) -> Result<Option<Vec<u8>>, String> {
+        self.get(digest)
+            .map_err(|e| format!("branch content store read failed: {e}"))
+    }
+}
+
 /// Ports the restore engine needs beyond the request.
 pub struct RestorePorts<'a> {
     /// Asset blob read/stat port — required.
@@ -139,6 +171,10 @@ pub struct RestorePorts<'a> {
     pub plugin_state: Option<&'a dyn RestorePluginStateSource>,
     /// Optional disk-space probe.
     pub storage: Option<&'a dyn RestoreStorageProbe>,
+    /// Branch candidate-content read port — optional (VCS-RESTORE-10).
+    /// When absent, referenced payloads are receipt-reported
+    /// `unavailable`, not copied.
+    pub branch_content: Option<&'a dyn RestoreBranchContentSource>,
 }
 
 // ---------------------------------------------------------------------------
@@ -289,6 +325,28 @@ pub struct RestorePluginReport {
     pub blobs: u64,
 }
 
+/// VCS-RESTORE-10 branch candidate-content copy report (synvelis#517).
+///
+/// `unavailable` is the honest verdict list: digests referenced by
+/// `Captured` branch content that were *not* copied into the restored
+/// project's `branch-content/` store. Candidate operations on the copy
+/// degrade to `CandidateUnavailable` for exactly these digests — the
+/// restore itself still succeeds because payload absence is a
+/// per-reference verdict, not a bundle-integrity failure.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RestoreBranchContentReport {
+    /// `Captured` payload digests referenced by the forked project.
+    pub referenced: u64,
+    /// Payloads materialized into `<dest>/branch-content/`.
+    pub copied: u64,
+    /// Referenced digests not copied (port absent, confirmed-absent
+    /// source bytes, or — defensively — a staged file that failed to
+    /// publish). Digest strings in `sha256:<hex>` form.
+    #[serde(default)]
+    pub unavailable: Vec<String>,
+}
+
 /// Per-domain effect report — restore never mutates its sources.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -384,6 +442,9 @@ pub struct RestoreReceipt {
     pub assets: RestoreAssetReport,
     /// Plugin-state copy report (`None` = no processors / not copied).
     pub plugin_state: Option<RestorePluginReport>,
+    /// Branch candidate-content copy report (VCS-RESTORE-10).
+    #[serde(default)]
+    pub branch_content: RestoreBranchContentReport,
     /// Stable-ID lineage report.
     pub stable_ids: StableIdReport,
     /// Directory-fsync evidence for the publish step.
@@ -1085,7 +1146,91 @@ fn materialize(
 
     // 3. plugin state (verbatim manifest + verified blobs)
     materialize_plugin_state(staging, snapshot, ports, cancel)?;
+
+    // 4. branch candidate payloads (VCS-RESTORE-10) — content-addressed
+    //    copies of every `Captured` digest the fork references; absent
+    //    payloads are skipped and receipt-reported, never fabricated.
+    materialize_branch_content(staging, snapshot, ports, cancel)?;
     Ok(())
+}
+
+/// Every `Captured` payload digest referenced by the snapshot's
+/// variant sets — the exact set the restored project's candidate
+/// operations will resolve through its own `branch-content/` store.
+fn captured_payload_digests(snapshot: &ImmutableSnapshot) -> BTreeSet<ContentDigest> {
+    snapshot
+        .projection
+        .project()
+        .variant_sets
+        .values()
+        .flat_map(|set| set.branches.values())
+        .filter_map(|branch| match &branch.content {
+            BranchContentRef::Captured { payload_digest, .. } => Some(*payload_digest),
+            BranchContentRef::Live { .. } => None,
+        })
+        .collect()
+}
+
+/// Copies each referenced branch payload from the source content store
+/// into the staged `branch-content/` tree, digest-verified on write.
+/// Confirmed-absent payloads and a missing source port are skipped —
+/// [`branch_content_report`] records them as `unavailable` on the
+/// receipt (the honest `CandidateUnavailable` verdict). Transport
+/// read failures abort the restore: an unreadable store is not an
+/// absent payload.
+fn materialize_branch_content(
+    staging: &Path,
+    snapshot: &ImmutableSnapshot,
+    ports: &RestorePorts<'_>,
+    cancel: &SnapshotCancel,
+) -> Result<(), RestoreError> {
+    let digests = captured_payload_digests(snapshot);
+    if digests.is_empty() {
+        return Ok(());
+    }
+    let Some(source) = ports.branch_content else {
+        return Ok(());
+    };
+    for digest in digests {
+        if cancel.is_cancelled() {
+            return Err(RestoreError::Cancelled);
+        }
+        let Some(bytes) = source.read_payload(&digest).map_err(|e| RestoreError::Io {
+            detail: format!("branch payload read {digest}: {e}"),
+        })?
+        else {
+            continue; // confirmed absent — receipt reports unavailable
+        };
+        if ContentDigest::sha256(&bytes) != digest {
+            return Err(RestoreError::Validation {
+                detail: format!("branch payload digest mismatch for {digest}"),
+            });
+        }
+        let hex = digest_hex(&digest);
+        publish_file(&staging.join("branch-content").join(&hex), &bytes, cancel)?;
+    }
+    Ok(())
+}
+
+/// Recomputes the VCS-RESTORE-10 report against the *published*
+/// destination — `copied` counts only payloads actually present under
+/// `branch-content/`, so the receipt reflects published reality, not
+/// staging intent.
+fn branch_content_report(dest: &Path, snapshot: &ImmutableSnapshot) -> RestoreBranchContentReport {
+    let digests = captured_payload_digests(snapshot);
+    let mut report = RestoreBranchContentReport {
+        referenced: digests.len() as u64,
+        ..RestoreBranchContentReport::default()
+    };
+    for digest in digests {
+        let path = dest.join("branch-content").join(digest_hex(&digest));
+        if path.is_file() {
+            report.copied += 1;
+        } else {
+            report.unavailable.push(digest.to_string());
+        }
+    }
+    report
 }
 
 /// Copies every `Present` asset blob into the staged `blobs/sha256/`
@@ -1483,6 +1628,7 @@ fn build_receipt(
             degraded,
         },
         plugin_state: plugin,
+        branch_content: branch_content_report(&dest, snapshot),
         stable_ids: StableIdReport {
             policy: "preserve".into(),
             counts: stable_id_counts(&fork_project(snapshot, req.new_project_id)),

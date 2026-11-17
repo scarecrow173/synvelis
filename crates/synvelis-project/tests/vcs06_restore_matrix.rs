@@ -204,6 +204,7 @@ fn media_ports(blobs: &MapBlobs) -> RestorePorts<'_> {
         blobs,
         plugin_state: None,
         storage: None,
+        branch_content: None,
     }
 }
 
@@ -247,6 +248,7 @@ fn interrupt_restore(
         blobs: &flaky,
         plugin_state: None,
         storage: None,
+        branch_content: None,
     };
     let err = restore_as_copy(
         &request(snap.clone(), dest.to_path_buf(), rid),
@@ -417,6 +419,7 @@ fn processor_project_requires_plugin_state_source() {
         blobs: &blobs,
         plugin_state: None,
         storage: None,
+        branch_content: None,
     };
     let err = restore_as_copy(
         &request(snap, dest.clone(), "r-p"),
@@ -501,6 +504,7 @@ fn plugin_state_manifest_and_blobs_are_copied() {
         blobs: &blobs,
         plugin_state: Some(&source),
         storage: None,
+        branch_content: None,
     };
     let receipt = restore_as_copy(
         &request(snap, dest.clone(), "r-ps"),
