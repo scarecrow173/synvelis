@@ -401,7 +401,12 @@ fn open_remote(
 /// target origin equals the git remote's origin — download hrefs on
 /// other origins (signed CDN URLs) never receive it, and an
 /// `authorization` header already supplied by the batch action is
-/// never overridden. `https` targets always connect over verified
+/// never overridden. Action-supplied headers are scoped to the
+/// origin the batch action named: on a redirect to a *different*
+/// origin, sensitive ones (`authorization`, `proxy-authorization`,
+/// `cookie`) are stripped — the same rule conventional HTTP clients
+/// apply, so a CDN open-redirect cannot carry them to a third
+/// party. `https` targets always connect over verified
 /// TLS — never downgraded to plaintext.
 ///
 /// # Errors
@@ -420,9 +425,20 @@ fn request(
     let mut target = target;
     let mut method = method;
     let mut body = body;
+    // The origin the supplied headers were issued for — the batch
+    // endpoint for POSTs, the resolved href for GETs.
+    let headers_origin = target.origin.clone();
     for hop in 0..=MAX_REDIRECTS {
         cx.check_interrupts()?;
-        let mut hs = headers.to_vec();
+        let mut hs: Vec<(String, String)> = if target.origin.same_origin(&headers_origin) {
+            headers.to_vec()
+        } else {
+            headers
+                .iter()
+                .filter(|(n, _)| !is_sensitive_header(n))
+                .cloned()
+                .collect()
+        };
         if target.origin.same_origin(remote_origin)
             && let Some(value) = auth
             && !hs
@@ -486,11 +502,23 @@ fn request(
     )
 }
 
+/// Header names that must not cross an origin boundary on redirect —
+/// the set conventional HTTP clients strip (Go `net/http`, browsers).
+fn is_sensitive_header(name: &str) -> bool {
+    name.eq_ignore_ascii_case("authorization")
+        || name.eq_ignore_ascii_case("proxy-authorization")
+        || name.eq_ignore_ascii_case("cookie")
+}
+
 /// Resolves a `Location` header against the current target into a
 /// new [`UrlTarget`]. Absolute URLs, protocol-relative URLs,
 /// absolute paths, and relative references are accepted; the
 /// fragment is dropped (never sent). `https` targets are followed
-/// over verified TLS by [`request`] — never downgraded.
+/// over verified TLS by [`request`] — never downgraded. An
+/// explicit `http://` target is followed as the server's own
+/// instruction (upstream git-lfs parity): the client never
+/// *implicitly* changes the scheme, and every secret on the wire
+/// was issued by that same server chain.
 ///
 /// # Errors
 /// [`ProviderErrorKind::InvalidRequest`] on unusable locations.

@@ -53,11 +53,32 @@ handshake 中も `IO_POLL` 毎に cancel/deadline/stall を再確認。
 | check (workspace) | `mise run check synvelis-workspace` | Pass（rebase 後 `61ac1d71`+ で gateway 修復済み main 上で実走） |
 | lint (library) | `mise run lint synvelis-library` | Pass（`Wire::Tls` の `large_enum_variant`・doc backtick・`unused_self` を修正済み） |
 | lint (workspace) | `mise run lint synvelis-workspace` | Pass（同上） |
-| test (library) | `mise run test synvelis-library` | Pass — 全 suite green（`tests/lfs.rs` 21/21、`tests/webdav.rs` 43/43 他） |
+| test (library) | `mise run test synvelis-library` | Pass — 全 suite green（`tests/lfs.rs` 22/22、`tests/webdav.rs` 43/43 他） |
 | test (workspace) | `mise run test synvelis-workspace` | Pass — 全 suite green（`library_ui` tests 含む） |
 | headless deps | `mise run check-headless-deps` | Pass（12 headless crates に GUI 依存なし — rustls/rcgen 追加後も維持） |
 | hooks | `mise exec -- prek run --all-files` | Pass |
 | whitespace | `git diff --check` | Pass |
+
+## Review 追補（worker_done 後の adversarial review 反映）
+
+- action headers の cross-origin redirect 漏洩: batch action が
+  発行した `authorization`/`proxy-authorization`/`cookie` を、
+  redirect 先 origin が href 由来 origin と異なる hop では
+  strip するよう `request()` を強化（Go `net/http`・browser と
+  同じ sensitive-header 規則）。非 sensitive header は従来通り
+  forward。回帰 test:
+  `remote_lfs_redirect_strips_sensitive_action_headers_cross_origin`。
+- 明示 `http://` redirect/href target の扱い: client は scheme
+  を暗黙に変更しない（protocol-relative は現行 scheme を継承）。
+  server が明示した `http://` target は upstream git-lfs と同じ
+  parity で follow する — 当該 secret は同一 server chain が
+  発行したものであり、silent downgrade ではない。`resolve_location`
+  の doc に判断を記録。厳格化（https 文脈での http target 拒否）
+  は Coordinator 判断に委ねる。
+- `TlsConn::write` の `complete_io` error 握り潰し → 非 timeout
+  error は即座に伝播するよう修正済み（error-kind fidelity 維持）。
+- `reader().read` の WouldBlock 依存 → lock 済み rustls 0.23.46
+  で `WouldBlock` 返却を確認済み（non-issue）。
 
 ## NotRun / Unsupported（正直記録）
 

@@ -678,6 +678,77 @@ fn remote_lfs_https_credentials_stay_on_remote_origin() {
 }
 
 #[test]
+fn remote_lfs_redirect_strips_sensitive_action_headers_cross_origin() {
+    let Some(fix) = GitFixture::new() else { return };
+    let oid = GitFixture::lfs_oid();
+    let content = GitFixture::lfs_content();
+    let size = content.len() as u64;
+
+    // Third-party download target (plaintext is fine — the href
+    // chain legitimately crosses origins) that records what it saw.
+    let seen = Arc::new(Mutex::new(Vec::<(Option<String>, Option<String>)>::new()));
+    let seen_dl = seen.clone();
+    let dl_content = content.clone();
+    let downloader = MockServer::start(Arc::new(move |req: &MockRequest| {
+        seen_dl.lock().unwrap().push((
+            req.header("authorization").map(str::to_owned),
+            req.header("x-custom").map(str::to_owned),
+        ));
+        MockResponse::new(200).body(dl_content.clone())
+    }));
+    let dl_url = downloader.url();
+
+    let oid_path = oid.clone();
+    let api = MockTlsServer::start(Arc::new(move |req: &MockRequest| {
+        if req.method == "POST" && req.path == BATCH_PATH {
+            let host = req.header("host").expect("host header").to_owned();
+            let href = format!("https://{host}/redirect");
+            return MockResponse::new(200)
+                .header("content-type", "application/vnd.git-lfs+json")
+                .body(
+                    format!(
+                        "{{\"objects\":[{{\"oid\":\"{oid_path}\",\"size\":{size},\
+                         \"actions\":{{\"download\":{{\"href\":\"{href}\",\
+                         \"headers\":{{\"authorization\":\"Bearer cdn-tok\",\
+                         \"x-custom\":\"keep-me\"}}}}}}}}]}}"
+                    )
+                    .into_bytes(),
+                );
+        }
+        if req.method == "GET" && req.path.starts_with("/redirect") {
+            return MockResponse::new(302).header("location", &format!("{dl_url}/dl"));
+        }
+        MockResponse::new(404)
+    }));
+
+    let provider = http_provider(
+        &fix,
+        &format!("{}/repo.git", api.url()),
+        "mirror-redir-strip",
+    );
+    let cx = tls_cx(&api.trust_pem());
+    let pin = provider
+        .pin(&aref(provider_id(), "main:payload.bin"), &cx)
+        .expect("pin");
+    let mut pr = provider.open_pinned(&pin, &cx).expect("open");
+    let bytes = read_all(&mut pr).expect("read");
+    assert_eq!(bytes, content);
+
+    let hits = seen.lock().unwrap();
+    assert_eq!(hits.len(), 1, "one download GET at third party");
+    let (authz, custom) = &hits[0];
+    assert!(
+        authz.is_none(),
+        "sensitive action header must not cross origins: {authz:?}"
+    );
+    assert_eq!(
+        custom.as_deref(),
+        Some("keep-me"),
+        "non-sensitive action header still forwarded"
+    );
+}
+
+#[test]
 fn remote_lfs_https_deadline_fails_during_tls_handshake() {
     let Some(fix) = GitFixture::new() else { return };
     // A bare TCP listener that accepts and never answers: the TLS

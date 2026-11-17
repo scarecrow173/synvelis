@@ -64,7 +64,7 @@ relations:
 
 ## Verification
 
-- [x] `cargo test -p synvelis-library --test lfs` exits 0（21 tests）
+- [x] `cargo test -p synvelis-library --test lfs` exits 0（22 tests）
 - [x] `cargo check --all-targets -p synvelis-library` exits 0
 - [x] `mise run fmt-check` / `mise run lint synvelis-library` /
   `mise run test synvelis-library` / `mise run check-headless-deps`
