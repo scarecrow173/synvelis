@@ -39,7 +39,8 @@ use synvelis_project::control::{
 };
 use synvelis_project::controller::{Command, ProjectController};
 use synvelis_project::diff::{
-    ChangeKind, ChangeSet, ComparisonEquality, ComparisonSpec, ObjectKind, compare_snapshots,
+    ChangeKind, ChangeSet, ComparisonCompleteness, ComparisonEquality, ComparisonSpec, ObjectKind,
+    compare_snapshots,
 };
 use synvelis_project::id::CounterIdGenerator;
 use synvelis_project::project::Project;
@@ -49,22 +50,26 @@ use synvelis_project::snapshot::{
 };
 use synvelis_project::store::InMemoryStore;
 use synvelis_project::variant::{
-    AdoptIntent, AdoptSources, ArrangementAdapter, AudioClipAdapter, BranchEditOp,
-    BranchEditOpIntent, DomainAdapter, InMemoryBranchContentStore, InstrumentSlotAdapter,
-    MidiClipAdapter, NoopRuntimePublish, ProcessingRangeAdapter, ProcessingRangeRef,
-    StripDomainMask, StripField, StripFieldsAdapter, TakeUsageAdapter, TakeUsageTarget,
-    VariantError, VariantScope, adopt_branch_adapted, decode_candidate, edit_branch_op,
-    fork_variant_set, scope_digest,
+    AdoptIntent, AdoptSources, AlignmentPolicy, ArrangementAdapter, ArrangementDomainMask,
+    AudioClipAdapter, BranchEditOp, BranchEditOpIntent, BranchRevisionRef, CompareSide,
+    ComparisonFreshness, ComparisonOrchestrator, ComparisonSession, DomainAdapter, EvidenceOrigin,
+    EvidenceReason, InMemoryBranchContentStore, InstrumentSlotAdapter, LayerState, MidiClipAdapter,
+    NoopRuntimePublish, ProcessingRangeAdapter, ProcessingRangeRef, SessionOptions,
+    SignalAlignment, SignalCompareRequest, SignalComparisonProvider, SignalDomain, SignalMetric,
+    SignalProviderReport, StaleDimension, StripDomainMask, StripField, StripFieldsAdapter,
+    TakeUsageAdapter, TakeUsageTarget, VariantError, VariantScope, adopt_branch_adapted,
+    decode_candidate, edit_branch_op, fork_variant_set, scope_digest,
 };
 use synvelis_project::{
-    Asset, AssetId, BranchId, CaptureSegment, CaptureSegmentId, CaptureStream, CaptureStreamId,
-    ChainId, ClipExtent, ClipId, ClipPlacement, ClipPlayback, ClockEpoch, ClockEpochId,
-    CompCandidateRef, CompId, CompOp, CompRegionId, Lane, LaneId, MidiDivision, MidiTick,
-    MusicalDuration, MusicalRange, MusicalTick, NoteId, PlaybackMapping, ProjectId, ProjectOp,
-    ProjectRange, RecordingPass, RecordingPassId, RecordingSession, RecordingSessionId,
-    RenderBranchTarget, SessionFrame, SessionRange, SessionState, Source, SourceFrame, SourceId,
-    SourceRange, SourceState, Take, TakeGroupId, TakeId, TakeState, TimeAnchor, Track, TrackId,
-    VariantSetId, is_issuable_raw, resolve_render_project,
+    Asset, AssetId, BeatPoint, BranchId, CaptureSegment, CaptureSegmentId, CaptureStream,
+    CaptureStreamId, ChainId, ClipExtent, ClipId, ClipPlacement, ClipPlayback, ClockEpoch,
+    ClockEpochId, CompCandidateRef, CompId, CompOp, CompRegionId, Lane, LaneId, MediaDuration,
+    MediaTimeValue, MidiDivision, MidiTick, MusicalDuration, MusicalRange, MusicalTick, NoteId,
+    PlaybackMapping, ProjectId, ProjectOp, ProjectRange, RecordingPass, RecordingPassId,
+    RecordingSession, RecordingSessionId, RenderBranchTarget, SessionFrame, SessionRange,
+    SessionState, Source, SourceFrame, SourceId, SourceRange, SourceState, Take, TakeGroupId,
+    TakeId, TakeState, TimeAnchor, Track, TrackId, VariantSetId, is_issuable_raw,
+    resolve_render_project,
 };
 
 // ---------- shared harness (cb02..cb06 conventions, multi-adapter) ----------
@@ -88,6 +93,7 @@ struct Gate {
     controller: ProjectController,
     store: InMemoryBranchContentStore,
     resolver: SnapshotResolver,
+    orchestrator: ComparisonOrchestrator,
 }
 
 impl Gate {
@@ -96,6 +102,7 @@ impl Gate {
             controller,
             store: InMemoryBranchContentStore::default(),
             resolver: SnapshotResolver::new(),
+            orchestrator: ComparisonOrchestrator::new(16),
         }
     }
 
@@ -240,6 +247,67 @@ impl Gate {
             )
             .unwrap()
     }
+
+    /// Pin one branch endpoint for the comparison orchestrator
+    /// (cb08 `Cmp::pin` convention).
+    fn cmp_pin(&self, set: VariantSetId, branch: BranchId) -> BranchRevisionRef {
+        self.orchestrator
+            .pin_branch(self.controller.live(), &self.store, set, branch)
+            .unwrap()
+    }
+
+    /// Open an orchestrated comparison session over pinned endpoints.
+    fn cmp_open(
+        &self,
+        left: BranchRevisionRef,
+        right: BranchRevisionRef,
+        options: &SessionOptions,
+        probe: Option<&dyn BlobProbe>,
+    ) -> ComparisonSession {
+        self.orchestrator
+            .open_session(
+                self.controller.live(),
+                &self.store,
+                left,
+                right,
+                self.controller.live_revision(),
+                options,
+                probe,
+                &SnapshotCancel::new(),
+            )
+            .unwrap()
+    }
+
+    /// Session over a fork's adopted+candidate endpoints in one step.
+    fn cmp_session_for(
+        &self,
+        receipt: &synvelis_project::variant::ForkReceipt,
+        options: &SessionOptions,
+        probe: Option<&dyn BlobProbe>,
+    ) -> ComparisonSession {
+        let left = self.cmp_pin(receipt.variant_set, receipt.adopted);
+        let right = self.cmp_pin(receipt.variant_set, receipt.candidate);
+        self.cmp_open(left, right, options, probe)
+    }
+
+    /// Evaluate a session against current live state (cb08 `Cmp::
+    /// evaluate` convention — the orchestrator caches, so `&mut`).
+    fn cmp_evaluate(
+        &mut self,
+        session: &ComparisonSession,
+        signal: Option<&dyn SignalComparisonProvider>,
+    ) -> synvelis_project::variant::ComparisonResult {
+        self.orchestrator
+            .evaluate(
+                session,
+                self.controller.live(),
+                &self.store,
+                self.controller.live_revision(),
+                signal,
+                &SnapshotCancel::new(),
+            )
+            .unwrap()
+    }
 }
 
 /// Reports every probed digest as present (vcs02 convention).
@@ -301,6 +369,38 @@ fn audio_playback() -> ClipPlayback {
         .unwrap(),
         mapping: PlaybackMapping::Natural,
     }
+}
+
+/// Adds a musical-anchored clip and returns its id — clips sharing a
+/// lane are disambiguated by anchor tick (cb07 convention).
+fn add_clip_at(
+    c: &mut ProjectController,
+    lane: LaneId,
+    source: SourceId,
+    anchor_tick: i64,
+) -> ClipId {
+    apply_op(
+        c,
+        ProjectOp::AddClip {
+            lane_id: lane,
+            source_id: source,
+            placement: clip_placement(anchor_tick),
+            playback: audio_playback(),
+        },
+    );
+    c.live()
+        .clips
+        .values()
+        .filter(|clip| clip.lane_id == lane)
+        .filter(|clip| {
+            matches!(
+                clip.placement.anchor,
+                TimeAnchor::Musical(t) if t.value() == anchor_tick
+            )
+        })
+        .map(|clip| clip.id)
+        .next_back()
+        .unwrap()
 }
 
 fn midi_playback() -> ClipPlayback {
@@ -390,6 +490,22 @@ struct GateIds {
     param_fader1: synvelis_project::ParameterTargetId,
     strip2: synvelis_project::StripId,
     param_mute2: synvelis_project::ParameterTargetId,
+    // CB-E2E-03 arrangement bed — two dedicated tracks whose lanes
+    // hold four in-scope clips on one musical window plus
+    // out-of-range and absolute-anchored witnesses; disjoint from
+    // every single-domain scope above.
+    track_arr_a: TrackId,
+    track_arr_b: TrackId,
+    arr_clip_a1: ClipId,
+    arr_clip_a2: ClipId,
+    arr_clip_b1: ClipId,
+    arr_clip_b2: ClipId,
+    /// Musical clip past the scope window — scope-external witness.
+    arr_clip_out: ClipId,
+    /// Absolute-anchored clip — never scope-owned (cb07 boundary).
+    arr_clip_abs: ClipId,
+    /// Clip-local note on `arr_clip_a1` — the notes mask's content.
+    arr_note_a1: NoteId,
 }
 
 /// One project carrying five disjoint merged-domain scopes:
@@ -400,6 +516,7 @@ struct GateIds {
 /// is shared raw material; strip1's channel targets are the
 /// shared-context witness no scope owns.
 #[allow(clippy::too_many_lines)] // sequential fixture setup reads top-to-bottom (cb02 convention)
+#[allow(clippy::similar_names)] // a1/a2/b1/b2 encode track×lane position (cb07 convention)
 fn gate_fixture() -> (ProjectController, GateIds) {
     let mut c = controller();
 
@@ -526,6 +643,74 @@ fn gate_fixture() -> (ProjectController, GateIds) {
     let strip2 = c.live().routing.strip_of_track(track2).unwrap().id;
     let param_mute2 = strip_channel_param(c.live(), strip2, ParameterRole::Mute);
 
+    // CB-E2E-03 arrangement bed (cb07 `arrangement_fixture`
+    // convention): two dedicated tracks with two lanes each, four
+    // in-scope clips on the shared musical window `[0, 30*960)`, an
+    // out-of-range clip and an absolute-anchored clip as
+    // scope-external witnesses, and one clip-local note. Dedicated
+    // tracks keep every arrangement scope object disjoint from the
+    // five single-domain scopes above; the shared media source stays
+    // raw material.
+    apply_op(
+        &mut c,
+        ProjectOp::AddTrack {
+            name: "t-arr-a".into(),
+        },
+    );
+    let track_arr_a = *c.live().tracks.keys().next_back().unwrap();
+    apply_op(
+        &mut c,
+        ProjectOp::AddTrack {
+            name: "t-arr-b".into(),
+        },
+    );
+    let track_arr_b = *c.live().tracks.keys().next_back().unwrap();
+    for track in [track_arr_a, track_arr_b] {
+        apply_op(&mut c, ProjectOp::AddLane { track_id: track });
+        apply_op(&mut c, ProjectOp::AddLane { track_id: track });
+    }
+    let a_lanes = c.live().tracks[&track_arr_a].lane_ids.clone();
+    let b_lanes = c.live().tracks[&track_arr_b].lane_ids.clone();
+    let (lane_arr_a1, lane_arr_a2) = (a_lanes[0], a_lanes[1]);
+    let (lane_arr_b1, lane_arr_b2) = (b_lanes[0], b_lanes[1]);
+
+    let arr_clip_a1 = add_clip_at(&mut c, lane_arr_a1, source_audio, 0);
+    let arr_clip_a2 = add_clip_at(&mut c, lane_arr_a2, source_audio, 10 * 960);
+    let arr_clip_b1 = add_clip_at(&mut c, lane_arr_b1, source_audio, 5 * 960);
+    let arr_clip_b2 = add_clip_at(&mut c, lane_arr_b2, source_audio, 15 * 960);
+    let arr_clip_out = add_clip_at(&mut c, lane_arr_a1, source_audio, 42 * 960);
+    apply_op(
+        &mut c,
+        ProjectOp::AddClip {
+            lane_id: lane_arr_b1,
+            source_id: source_audio,
+            placement: ClipPlacement {
+                anchor: TimeAnchor::Absolute(MediaTimeValue::new(0, 1, 48_000).unwrap()),
+                extent: ClipExtent::Absolute(MediaDuration::new(48_000, 1, 48_000).unwrap()),
+            },
+            playback: audio_playback(),
+        },
+    );
+    let arr_clip_abs = c
+        .live()
+        .clips
+        .values()
+        .filter(|clip| clip.lane_id == lane_arr_b1)
+        .filter(|clip| matches!(clip.placement.anchor, TimeAnchor::Absolute(_)))
+        .map(|clip| clip.id)
+        .next_back()
+        .unwrap();
+    apply_op(
+        &mut c,
+        ProjectOp::AddNote {
+            clip: arr_clip_a1,
+            key: 60,
+            start: BeatPoint::new(0, 1).unwrap(),
+            len: BeatPoint::new(1, 1).unwrap(),
+        },
+    );
+    let arr_note_a1 = *c.live().notes.keys().next_back().unwrap();
+
     let ids = GateIds {
         clip_audio,
         clip_midi,
@@ -540,6 +725,15 @@ fn gate_fixture() -> (ProjectController, GateIds) {
         param_fader1,
         strip2,
         param_mute2,
+        track_arr_a,
+        track_arr_b,
+        arr_clip_a1,
+        arr_clip_a2,
+        arr_clip_b1,
+        arr_clip_b2,
+        arr_clip_out,
+        arr_clip_abs,
+        arr_note_a1,
     };
     (c, ids)
 }
@@ -570,6 +764,21 @@ fn scope_strip(strip: synvelis_project::StripId) -> VariantScope {
     VariantScope::StripFields {
         strip,
         fields: StripDomainMask(BTreeSet::from([StripField::Fader, StripField::Mute])),
+    }
+}
+
+/// The CB-E2E-03 arrangement scope: both dedicated tracks over the
+/// musical window `[0, 30*960)` holding all four in-scope clips —
+/// the out-of-range and absolute-anchored clips on the same lanes
+/// stay scope-external (cb07 boundary convention).
+fn scope_arrangement(ids: &GateIds) -> VariantScope {
+    VariantScope::Arrangement {
+        tracks: vec![ids.track_arr_a, ids.track_arr_b],
+        time: MusicalRange::try_new(MusicalTick::new(0), MusicalTick::new(30 * 960)).unwrap(),
+        fields: ArrangementDomainMask {
+            clips: true,
+            notes: true,
+        },
     }
 }
 
@@ -623,7 +832,10 @@ fn domain_edit(scope: &VariantScope, ids: &GateIds) -> BranchEditOp {
             strip_id: ids.strip2,
             muted: true,
         }),
-        VariantScope::Arrangement { .. } => unreachable!("no arrangement adapter"),
+        VariantScope::Arrangement { .. } => BranchEditOp::Project(ProjectOp::SetClipMuted {
+            clip_id: ids.arr_clip_a1,
+            muted: true,
+        }),
         VariantScope::TakeUsage { .. } => unreachable!("take fixture is separate"),
     }
 }
@@ -1164,7 +1376,11 @@ fn cb11_e2e_01_take_comp_adopt_undo_save_reload_raw_immutable() {
 fn cb11_x_rcp_01_render_pin_scope_vs_shared_context() {
     let (c, ids) = gate_fixture();
     let mut g = Gate::new(c);
-    let scopes = all_scopes(&ids);
+    // The five single-domain scopes plus the CB-E2E-03 arrangement
+    // composite — every scope kind's pin must obey the same
+    // scope/shared-context digest contract.
+    let mut scopes = all_scopes(&ids);
+    scopes.push(scope_arrangement(&ids));
 
     let mut forks = Vec::new();
     for scope in &scopes {
@@ -1403,5 +1619,580 @@ fn cb11_e2e_05_stale_reject_is_atomic_and_domain_isolated() {
     assert_eq!(
         g.controller.live().midi_sources[&ids.midi_source].notes[&ids.midi_note].velocity,
         64
+    );
+}
+
+// ===========================================================================
+// CB-E2E-03 (Project axis): the merged ArrangementAdapter drives a
+// 2-track/4-clip composite candidate — fork/edit accumulate into ONE
+// candidate payload, a single adopt commits one CAS = one undo unit
+// materializing every scoped edit, undo/redo restore exactly, and
+// scope-external clips (out-of-range, absolute-anchored) plus every
+// other domain stay untouched.
+// ===========================================================================
+
+#[test]
+#[allow(clippy::too_many_lines)] // sequential composite adopt/undo/redo lifecycle (cb07 convention)
+fn cb11_e2e_03_arrangement_composite_adopt_undo_scope_isolation() {
+    let (c, ids) = gate_fixture();
+    let mut g = Gate::new(c);
+    let scope = scope_arrangement(&ids);
+
+    // Fixture shape: two scoped tracks, four musical in-scope clips,
+    // one out-of-range and one absolute-anchored witness on scoped
+    // lanes, one clip-local note on an in-scope clip.
+    let live = g.controller.live();
+    for clip in [
+        ids.arr_clip_a1,
+        ids.arr_clip_a2,
+        ids.arr_clip_b1,
+        ids.arr_clip_b2,
+    ] {
+        assert!(
+            matches!(live.clips[&clip].placement.anchor, TimeAnchor::Musical(_)),
+            "in-scope clip {clip:?} must be musical-anchored"
+        );
+    }
+    assert!(
+        matches!(
+            live.clips[&ids.arr_clip_out].placement.anchor,
+            TimeAnchor::Musical(_)
+        ) && matches!(
+            live.clips[&ids.arr_clip_abs].placement.anchor,
+            TimeAnchor::Absolute(_)
+        )
+    );
+
+    let forked = g.fork(&scope);
+
+    // Composite candidate edits across both tracks and both mask
+    // families — mute on track A, move on track B, note removal —
+    // all accumulate into the ONE candidate payload.
+    g.edit(
+        &scope,
+        forked.variant_set,
+        forked.candidate,
+        domain_edit(&scope, &ids),
+    );
+    g.edit(
+        &scope,
+        forked.variant_set,
+        forked.candidate,
+        BranchEditOp::Project(ProjectOp::MoveClip {
+            clip_id: ids.arr_clip_b1,
+            anchor: TimeAnchor::Musical(MusicalTick::new(2 * 960)),
+        }),
+    );
+    g.edit(
+        &scope,
+        forked.variant_set,
+        forked.candidate,
+        BranchEditOp::Project(ProjectOp::RemoveNote {
+            note: ids.arr_note_a1,
+        }),
+    );
+
+    // The candidate carries every scoped edit; scope-external clips
+    // are bitwise identical to live inside the candidate.
+    let candidate = g.candidate(forked.variant_set, forked.candidate);
+    assert!(candidate.clips[&ids.arr_clip_a1].muted);
+    assert_eq!(
+        candidate.clips[&ids.arr_clip_b1].placement.anchor,
+        TimeAnchor::Musical(MusicalTick::new(2 * 960))
+    );
+    assert!(!candidate.notes.contains_key(&ids.arr_note_a1));
+    for clip in [
+        ids.arr_clip_out,
+        ids.arr_clip_abs,
+        ids.arr_clip_a2,
+        ids.arr_clip_b2,
+        ids.clip_audio,
+        ids.clip_midi,
+    ] {
+        assert_eq!(
+            candidate.clips[&clip],
+            g.controller.live().clips[&clip],
+            "scope-external clip {clip:?} must be untouched in the candidate"
+        );
+    }
+
+    // Single composite adopt: one CAS, one undo unit.
+    let pre_adopt = g.controller.live().clone();
+    let rev_before = g.controller.live_revision();
+    let receipt = g.adopt(&scope, forked.variant_set, forked.candidate);
+    assert!(receipt.project.committed);
+    assert_eq!(
+        receipt.project.undo_steps, 1,
+        "composite adopt is one undo unit"
+    );
+    assert_eq!(
+        receipt.after_revision.0,
+        rev_before.0 + 1,
+        "composite adopt commits exactly one CAS"
+    );
+
+    // Every scoped edit materialized in live at once.
+    let live = g.controller.live();
+    assert!(live.clips[&ids.arr_clip_a1].muted);
+    assert_eq!(
+        live.clips[&ids.arr_clip_b1].placement.anchor,
+        TimeAnchor::Musical(MusicalTick::new(2 * 960))
+    );
+    assert!(!live.notes.contains_key(&ids.arr_note_a1));
+
+    // Scope-external arrangement clips and the other four domains'
+    // live state are untouched by the adopt.
+    for clip in [
+        ids.arr_clip_out,
+        ids.arr_clip_abs,
+        ids.arr_clip_a2,
+        ids.arr_clip_b2,
+        ids.clip_audio,
+        ids.clip_midi,
+    ] {
+        assert_eq!(
+            &live.clips[&clip], &pre_adopt.clips[&clip],
+            "clip {clip:?} must stay scope-external across adopt"
+        );
+    }
+    assert!(!live.clips[&ids.clip_audio].muted);
+    assert_eq!(
+        live.midi_sources[&ids.midi_source].notes[&ids.midi_note].velocity, 100,
+        "MIDI domain must stay untouched by the arrangement adopt"
+    );
+    assert_eq!(
+        raw_snapshot(&g.controller),
+        raw_snapshot_of(&pre_adopt),
+        "adopt must not touch shared raw material"
+    );
+
+    // One undo restores the exact pre-adopt project; one redo
+    // restores the post-adopt project.
+    let post_adopt = g.controller.live().clone();
+    assert!(g.controller.undo().unwrap());
+    assert_eq!(
+        *g.controller.live(),
+        pre_adopt,
+        "one undo must restore the exact pre-adopt project"
+    );
+    assert!(g.controller.redo().unwrap());
+    assert_eq!(
+        *g.controller.live(),
+        post_adopt,
+        "one redo must restore the exact post-adopt project"
+    );
+
+    // Save/reload preserves the arrangement variant set, adopted
+    // pointer and branch lineage verbatim.
+    let mut store = InMemoryStore::new();
+    g.controller.save(&mut store).unwrap();
+    let mut reloaded = ProjectController::new(
+        Project::new(ProjectId::new(1), "cb11-gate"),
+        Box::new(CounterIdGenerator::new(1)),
+    );
+    reloaded.load(&store).unwrap();
+    assert_eq!(*reloaded.live(), *g.controller.live());
+    let set = &reloaded.live().variant_sets[&forked.variant_set];
+    assert_eq!(set.adopted, forked.candidate);
+    assert!(set.last_adopt.is_some());
+}
+
+// ===========================================================================
+// CB-E2E-04 (orchestration axis): ComparisonOrchestrator sessions pin
+// evidence to their open-time context — a scoped edit stales only its
+// own session, a shared-context edit stales every session, stale
+// results flag aux layers without erasing pin-scoped semantic
+// evidence, Unaligned policy refuses signal evidence outright,
+// opaque plugin state downgrades provider claims, non-finite metrics
+// fail quality validation, and probe loss surfaces as unresolved
+// issues instead of fabricated equality. Real RT/plugin signal stays
+// NotRun (evidence/sv288/external-gates.md).
+// ===========================================================================
+
+/// Mock provider returning one finite metric row — visibly `Mock`
+/// origin, never real evidence (cb08 convention).
+struct MockSignal;
+
+impl SignalComparisonProvider for MockSignal {
+    fn compare_signal(&self, _request: &SignalCompareRequest<'_>) -> SignalProviderReport {
+        SignalProviderReport {
+            state: LayerState::Available,
+            origin: EvidenceOrigin::Mock,
+            alignment: SignalAlignment::Aligned,
+            metrics: vec![SignalMetric {
+                name: "pcm.rms".into(),
+                domain: SignalDomain::SourceFrame,
+                before: 0.5,
+                after: 0.4,
+                delta: -0.1,
+                unit: "linear".into(),
+            }],
+            provenance: None,
+        }
+    }
+}
+
+/// Provider honestly reporting approximate alignment — the
+/// orchestrator must carry the claim through, never upgrade it.
+struct ApproximateSignal;
+
+impl SignalComparisonProvider for ApproximateSignal {
+    fn compare_signal(&self, _request: &SignalCompareRequest<'_>) -> SignalProviderReport {
+        SignalProviderReport {
+            state: LayerState::Available,
+            origin: EvidenceOrigin::Mock,
+            alignment: SignalAlignment::Approximate,
+            metrics: vec![SignalMetric {
+                name: "pcm.rms".into(),
+                domain: SignalDomain::SourceFrame,
+                before: 0.5,
+                after: 0.4,
+                delta: -0.1,
+                unit: "linear".into(),
+            }],
+            provenance: None,
+        }
+    }
+}
+
+/// Provider returning a non-finite metric — must fail evidence
+/// quality validation rather than flow through as a delta claim.
+struct NonFiniteSignal;
+
+impl SignalComparisonProvider for NonFiniteSignal {
+    fn compare_signal(&self, _request: &SignalCompareRequest<'_>) -> SignalProviderReport {
+        SignalProviderReport {
+            state: LayerState::Available,
+            origin: EvidenceOrigin::Mock,
+            alignment: SignalAlignment::Aligned,
+            metrics: vec![SignalMetric {
+                name: "pcm.peak".into(),
+                domain: SignalDomain::ProjectFrame,
+                before: f64::NAN,
+                after: 0.0,
+                delta: 0.0,
+                unit: "linear".into(),
+            }],
+            provenance: None,
+        }
+    }
+}
+
+/// Reports every probed digest as affirmatively absent — the
+/// probe-loss witness: snapshots degrade honestly instead of
+/// fabricating presence.
+struct AbsentProbe;
+
+impl BlobProbe for AbsentProbe {
+    fn probe(&self, _digest: &str) -> BlobRead {
+        BlobRead::Absent
+    }
+}
+
+#[test]
+#[allow(clippy::too_many_lines)] // sequential stale-dimension assertions read top-to-bottom (cb08 convention)
+fn cb11_e2e_04_orchestrated_compare_stale_session_never_poses_as_current() {
+    let (c, ids) = gate_fixture();
+    let mut g = Gate::new(c);
+    let options = SessionOptions::default();
+
+    // Three domain fork+edit pairs over one project — audio clip,
+    // MIDI clip and strip fields. Sessions pin the project revision
+    // at open, so all fork/edit work completes BEFORE the sessions
+    // open; each session then pins adopted vs edited candidate.
+    let scopes = [
+        scope_audio(ids.clip_audio),
+        scope_midi(ids.clip_midi),
+        scope_strip(ids.strip2),
+    ];
+    let mut receipts = Vec::new();
+    for scope in &scopes {
+        let receipt = g.fork(scope);
+        g.edit(
+            scope,
+            receipt.variant_set,
+            receipt.candidate,
+            domain_edit(scope, &ids),
+        );
+        receipts.push(receipt);
+    }
+    let mut sessions = Vec::new();
+    for receipt in &receipts {
+        let session = g.cmp_session_for(receipt, &options, Some(&AllPresentProbe));
+        sessions.push((receipt.clone(), session));
+    }
+
+    // Every session evaluates Current with honest layer gaps — no
+    // provider means no signal evidence, audition means no
+    // perceptual evidence; neither is ever fabricated.
+    for (_receipt, session) in &sessions {
+        let result = g.cmp_evaluate(session, None);
+        assert_eq!(result.freshness, ComparisonFreshness::Current);
+        assert!(result.semantic.state.is_available());
+        assert_eq!(
+            result.signal.state,
+            LayerState::Unavailable {
+                reason: EvidenceReason::NoProvider
+            }
+        );
+        assert_eq!(result.signal.origin, None);
+        assert_eq!(
+            result.perceptual.state,
+            LayerState::Unavailable {
+                reason: EvidenceReason::RequiresAudition
+            }
+        );
+        assert!(!result.signal.stale);
+        assert!(!result.perceptual.stale);
+    }
+
+    // Scoped-edit isolation: a second, content-moving edit on the
+    // audio candidate after open (un-mute — the first edit muted)
+    // stales its own session on every moved dimension while sibling
+    // domains' pinned contexts still match authority.
+    let audio_scope = scope_audio(ids.clip_audio);
+    let (audio_receipt, audio_session) = &sessions[0];
+    g.edit(
+        &audio_scope,
+        audio_receipt.variant_set,
+        audio_receipt.candidate,
+        BranchEditOp::Project(ProjectOp::SetClipMuted {
+            clip_id: ids.clip_audio,
+            muted: false,
+        }),
+    );
+    // The edited session stales on every moved dimension — Right
+    // branch revision, Right scope content, Right payload and the
+    // project-wide revision tick — and nothing shared-context or
+    // Left-side.
+    let audio_fresh = g
+        .orchestrator
+        .freshness(
+            audio_session,
+            g.controller.live(),
+            &g.store,
+            g.controller.live_revision(),
+        )
+        .unwrap();
+    let ComparisonFreshness::Stale {
+        reasons: audio_reasons,
+    } = audio_fresh
+    else {
+        panic!("scoped candidate edit must stale its own session");
+    };
+    for expected in [
+        StaleDimension::BranchRevision {
+            side: CompareSide::Right,
+            pinned: audio_session.right.revision,
+            actual: audio_session.right.revision.next(),
+        },
+        StaleDimension::ScopeContent {
+            side: CompareSide::Right,
+        },
+        StaleDimension::BranchPayload {
+            side: CompareSide::Right,
+        },
+        StaleDimension::ProjectRevision {
+            pinned: audio_session.pinned_context.project_revision,
+            actual: g.controller.live_revision(),
+        },
+    ] {
+        assert!(
+            audio_reasons.contains(&expected),
+            "missing stale dimension {expected:?} in {audio_reasons:?}"
+        );
+    }
+    for unexpected in [
+        StaleDimension::SharedContext,
+        StaleDimension::Tempo,
+        StaleDimension::Plugin,
+        StaleDimension::Source,
+        StaleDimension::TimeMapping,
+    ] {
+        assert!(
+            !audio_reasons.contains(&unexpected),
+            "unexpected stale dimension {unexpected:?} in {audio_reasons:?}"
+        );
+    }
+    assert!(!audio_reasons.iter().any(|r| matches!(
+        r,
+        StaleDimension::BranchRevision {
+            side: CompareSide::Left,
+            ..
+        } | StaleDimension::ScopeContent {
+            side: CompareSide::Left
+        } | StaleDimension::BranchPayload {
+            side: CompareSide::Left
+        }
+    )));
+
+    // Scoped-edit isolation: sibling domains' pinned endpoints are
+    // untouched, so their sessions stale ONLY on the project-wide
+    // revision tick — no scope-content, branch-revision or payload
+    // drift crosses domain boundaries.
+    for (_receipt, session) in &sessions[1..] {
+        let freshness = g
+            .orchestrator
+            .freshness(
+                session,
+                g.controller.live(),
+                &g.store,
+                g.controller.live_revision(),
+            )
+            .unwrap();
+        let ComparisonFreshness::Stale { reasons } = freshness else {
+            panic!("project revision tick must stale every open session");
+        };
+        assert_eq!(
+            reasons,
+            vec![StaleDimension::ProjectRevision {
+                pinned: session.pinned_context.project_revision,
+                actual: g.controller.live_revision(),
+            }],
+            "sibling session must stale on ProjectRevision only"
+        );
+    }
+
+    // Shared-context live edit: strip1's fader is outside every scope
+    // — it adds SharedContext staleness to EVERY open session because
+    // the pinned context is project-wide, not per-domain.
+    apply_op(
+        &mut g.controller,
+        ProjectOp::SetParameterBase {
+            target: ids.param_fader1,
+            value: 0.7,
+        },
+    );
+    for (_receipt, session) in &sessions {
+        let freshness = g
+            .orchestrator
+            .freshness(
+                session,
+                g.controller.live(),
+                &g.store,
+                g.controller.live_revision(),
+            )
+            .unwrap();
+        let ComparisonFreshness::Stale { reasons } = freshness else {
+            panic!("shared-context edit must stale every session");
+        };
+        assert!(
+            reasons.contains(&StaleDimension::SharedContext),
+            "missing SharedContext in {reasons:?}"
+        );
+        assert!(reasons.contains(&StaleDimension::ProjectRevision {
+            pinned: session.pinned_context.project_revision,
+            actual: g.controller.live_revision(),
+        }));
+    }
+
+    // Re-evaluation keeps producing pin-scoped semantic evidence but
+    // flags every aux layer stale — a stale session's evidence never
+    // poses as current proof.
+    for (_receipt, session) in &sessions {
+        let result = g.cmp_evaluate(session, None);
+        assert!(result.freshness.is_stale());
+        assert!(result.semantic.state.is_available());
+        assert!(result.signal.stale);
+        assert!(result.perceptual.stale);
+    }
+}
+
+#[test]
+fn cb11_e2e_04_orchestrated_compare_unaligned_probe_loss_provider_honesty() {
+    // Plugin-free take project: provider evidence flows with its
+    // Mock origin visibly attached.
+    let (c, ids) = take_fixture();
+    let mut g = Gate::new(c);
+    let scope = VariantScope::TakeUsage {
+        target: TakeUsageTarget {
+            take_group: ids.group,
+        },
+    };
+    let receipt = g.fork(&scope);
+
+    // Declared Unaligned policy refuses signal evidence outright —
+    // delta claims over unmapped time bases would be fabricated
+    // certainty.
+    let unaligned = SessionOptions {
+        alignment: AlignmentPolicy::Unaligned,
+        ..SessionOptions::default()
+    };
+    let session = g.cmp_session_for(&receipt, &unaligned, Some(&AllPresentProbe));
+    let result = g.cmp_evaluate(&session, Some(&MockSignal));
+    assert_eq!(
+        result.signal.state,
+        LayerState::Unavailable {
+            reason: EvidenceReason::AlignmentPolicy
+        }
+    );
+
+    // Default options + mock provider: evidence flows with Mock
+    // origin and the provider's own alignment claim.
+    let session = g.cmp_session_for(&receipt, &SessionOptions::default(), Some(&AllPresentProbe));
+    let result = g.cmp_evaluate(&session, Some(&MockSignal));
+    assert_eq!(result.signal.state, LayerState::Available);
+    assert_eq!(result.signal.origin, Some(EvidenceOrigin::Mock));
+    assert_eq!(result.signal.alignment, SignalAlignment::Aligned);
+    assert_eq!(result.signal.metrics.len(), 1);
+    assert!(!result.signal.stale);
+
+    // Provider-declared approximate alignment is carried through —
+    // never upgraded to Aligned.
+    let result = g.cmp_evaluate(&session, Some(&ApproximateSignal));
+    assert_eq!(result.signal.state, LayerState::Available);
+    assert_eq!(result.signal.alignment, SignalAlignment::Approximate);
+
+    // Non-finite provider metrics fail quality validation.
+    let result = g.cmp_evaluate(&session, Some(&NonFiniteSignal));
+    assert_eq!(
+        result.signal.state,
+        LayerState::Unknown {
+            reason: EvidenceReason::EvidenceQuality
+        }
+    );
+
+    // gate_fixture carries plugin bindings — opaque plugin state is
+    // Unknown headlessly, so provider evidence is downgraded and
+    // never presented as measured-exact (non-deterministic plugin
+    // honesty).
+    let (c2, ids2) = gate_fixture();
+    let mut g2 = Gate::new(c2);
+    let scope2 = scope_audio(ids2.clip_audio);
+    let receipt2 = g2.fork(&scope2);
+    let session2 = g2.cmp_session_for(
+        &receipt2,
+        &SessionOptions::default(),
+        Some(&AllPresentProbe),
+    );
+    let result2 = g2.cmp_evaluate(&session2, Some(&MockSignal));
+    assert_eq!(
+        result2.signal.state,
+        LayerState::Unavailable {
+            reason: EvidenceReason::PluginStateUnknown
+        }
+    );
+
+    // Probe loss on the asset-bearing gate fixture: affirmatively
+    // absent blobs degrade both pinned views identically — the
+    // semantic layer reports unresolved issues and `Unknown`/
+    // `Partial`, never a fabricated `Equal`.
+    let session3 = g2.cmp_session_for(&receipt2, &SessionOptions::default(), Some(&AbsentProbe));
+    let result3 = g2.cmp_evaluate(&session3, None);
+    assert_eq!(
+        result3.semantic.changeset.completeness,
+        ComparisonCompleteness::Partial
+    );
+    assert!(
+        !result3.semantic.changeset.unresolved.is_empty(),
+        "probe loss must surface unresolved issues"
+    );
+    assert!(
+        matches!(
+            result3.semantic.changeset.overall,
+            ComparisonEquality::Unknown(_)
+        ),
+        "probe loss must not fabricate equality, got {:?}",
+        result3.semantic.changeset.overall
     );
 }
