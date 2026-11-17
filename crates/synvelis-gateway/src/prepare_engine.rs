@@ -646,6 +646,67 @@ impl PrepareEngine {
                 &[Write],
                 obj(&[("description", str_(256))], &["description"], true),
             ),
+            // synvelis#548: the strip-domain inner ops the CB-06
+            // `StripFieldsAdapter` candidate surface accepts
+            // (`is_strip_fields_op` + `check_strip_fields_op_targets`
+            // enforce the declared `StripDomainMask` and scope
+            // confinement at edit time — the gateway lowers and
+            // declares honest facts; it does not re-decide the mask).
+            // `set-mute`/`set-solo` write the strip's singleton
+            // Boolean channel target, creating it on first use;
+            // `insert-processor` creates the processor entity (its
+            // ports/plugin-instance identity are internal structure);
+            // `param.set-base`/`processor.set-binding` write existing
+            // control/routing entities only.
+            (
+                "synvelis.strip.set-mute",
+                TargetContract::Resource {
+                    kind: ResourceKind::Strip,
+                },
+                &[Create, Write],
+                obj(&[("muted", ValueSchema::Bool)], &["muted"], true),
+            ),
+            (
+                "synvelis.strip.set-solo",
+                TargetContract::Resource {
+                    kind: ResourceKind::Strip,
+                },
+                &[Create, Write],
+                obj(&[("soloed", ValueSchema::Bool)], &["soloed"], true),
+            ),
+            (
+                "synvelis.strip.insert-processor",
+                TargetContract::Resource {
+                    kind: ResourceKind::Strip,
+                },
+                &[Create, Write],
+                obj(
+                    &[
+                        ("index", int(0, i64::MAX)),
+                        ("name", str_(256)),
+                        ("binding", any_obj()),
+                        ("sidechain_input", ValueSchema::Bool),
+                    ],
+                    &["index", "name", "binding", "sidechain_input"],
+                    true,
+                ),
+            ),
+            (
+                "synvelis.param.set-base",
+                TargetContract::Resource {
+                    kind: ResourceKind::ParameterTarget,
+                },
+                &[Write],
+                obj(&[("value", ValueSchema::Number)], &["value"], true),
+            ),
+            (
+                "synvelis.processor.set-binding",
+                TargetContract::Resource {
+                    kind: ResourceKind::Processor,
+                },
+                &[Write],
+                obj(&[("binding", any_obj())], &["binding"], true),
+            ),
         ]
     }
 
