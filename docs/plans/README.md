@@ -44,6 +44,7 @@ Directory: `docs/plans`
 | PLAN-034YDhXmRCMo80uy2OMsrP | issue-274-cli-script-analyze — 実装 plan | approved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
 | PLAN-513a1b2c3d4e5f6g7h8i9j0k4 | issue-513-variant-apply-ops — 実装 plan | approved | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
 | PLAN-034YXTpsA7X2LIoy8uNpK2 | issue-515-os-credential 実装計画 | approved | [issue-515-os-credential.md](./issue-515-os-credential.md) |
+| PLAN-1kBHRQoUwWJI51A3YqHacf | Issue #516 実装 plan — 薄い binding への置換 | approved | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |

@@ -100,6 +100,7 @@ Directory: `docs/impl/ir`
 | IMPL-034Wv7Ib5bsrIkIj1wO99Y | Issue #368 docs/impl/ir missing-section 本文補完 | completed | [issue-368-docs-impl-ir-missing-section.md](./issue-368-docs-impl-ir-missing-section.md) |
 | IMPL-513a1b2c3d4e5f6g7h8i9j0k7 | issue-513-variant-apply-ops | completed | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
 | IMPL-034YY6FE3030pd5QC8HIrQ | issue-515-os-credential — durable CliSessionStore + OS credential 供給 | completed | [issue-515-os-credential-durable-clisessionstore-os-credential.md](./issue-515-os-credential-durable-clisessionstore-os-credential.md) |
+| IMPL-mFCaw7vxrI5DaWd03Ze4Il | issue-516-mlua-adapter | completed | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | IMPL-qGhrNdq0yLEfcWCITQ0m0p | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 実装記録 | completed | [issue-86-verified-import-wiring-slice.md](./issue-86-verified-import-wiring-slice.md) |
 | IMPL-L1LocalWavVerifiedPlayback | E2E-L1 Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | completed | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | IMPL-L2MasterSequentialOfflineWavExport | E2E-L2 Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | completed | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |

@@ -23,6 +23,7 @@ Directory: `docs/discovery`
 | DISC-034YDfGylRNr58hWDe5lyH | issue-274-cli-script-analyze — script analyze --file headless Script Analyzer 配線の探索結果 | resolved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
 | DISC-513a1b2c3d4e5f6g7h8i9j0k | issue-513-variant-apply-ops — variant/VCS apply op surface 残件の探索結果 | resolved | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
 | DISC-034YXHqBzrCYhc5YBzqLj3 | issue-515-os-credential — verified-Human OS-credential session 供給の探索結果 | resolved | [issue-515-os-credential.md](./issue-515-os-credential.md) |
+| DISC-lBw8TRfrsCuiBaOZspSfW1 | Issue #516 discovery — interim mlua adapter vs ruviform 製品 port の binding-fit 調査 | resolved | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | DISC-99vL2v7VILngzJrF9fbNos | L1 Discovery — Local WAV Safe Import・Verified Media・Headless Generic Graph Playback | resolved | [l1-local-wav-verified-playback-discovery.md](./l1-local-wav-verified-playback-discovery.md) |
 | DISC-034Qmb93ek3YXoxaRPDBBD | L2 Discovery — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | resolved | [l2-master-sequential-offline-wav-export-discovery.md](./l2-master-sequential-offline-wav-export-discovery.md) |
 | DISC-034VG2eVX55D1hI610carh | plugin_instances VCS semantic diff gap — persisted instance identity invisible to compare_snapshots | resolved | [plugin-instances-vcs-diff-gap.md](./plugin-instances-vcs-diff-gap.md) |
