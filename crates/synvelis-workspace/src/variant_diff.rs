@@ -2483,19 +2483,13 @@ pub struct VariantDiffEngine {
 impl VariantDiffEngine {
     /// Wires the standard variant ports under `content_root` (the
     /// project bundle directory — `None` only for project-less
-    /// contexts) plus the CB-07
-    /// [`synvelis_project::variant::ArrangementAdapter`] the gateway's
-    /// standard table predates. The arrangement adapter is merged in
-    /// `synvelis-project`; inserting it here keeps arrangement scopes
-    /// resolving honestly instead of failing closed on a stale table
-    /// (gateway files are consume-only).
+    /// contexts). `VariantPorts::standard` registers every merged
+    /// CB-0x domain adapter including CB-07's `ArrangementAdapter`
+    /// (synvelis#539); an unmerged domain still fails closed through
+    /// `adapter_for`.
     #[must_use]
     pub fn new(content_root: Option<&std::path::Path>) -> Self {
-        let mut ports = synvelis_gateway::variant::VariantPorts::standard(content_root);
-        ports.adapters.insert(
-            synvelis_gateway::variant::VariantScopeKind::Arrangement,
-            std::sync::Arc::new(synvelis_project::variant::ArrangementAdapter::new()),
-        );
+        let ports = synvelis_gateway::variant::VariantPorts::standard(content_root);
         Self {
             orchestrator: ComparisonOrchestrator::new(VARIANT_DIFF_CACHE_CAPACITY),
             ports,

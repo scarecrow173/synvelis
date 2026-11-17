@@ -115,8 +115,10 @@ app は gateway 型を名指しできない（AC-05）ため、workspace
   し、`compare`/`adopt_preview`/`adopt` を
   `VariantDiffIntent` 検証付きで dispatch。`VariantDiffDispatchError`
   で typed reject/engine/commit 失敗を保持。standard ports
-  に `ArrangementAdapter` を install（従来の stale
-  `DomainAdapterUnmerged` verdict を supported へ修正）。
+  が CB-07 `ArrangementAdapter` を含む全 merged adapter を
+  登録する（synvelis#539 merge 後は facade 側の手動 install
+  を除去 — stale `DomainAdapterUnmerged` verdict は
+  supported へ修正済み）。
   signal provider 出力を provenance 保持で
   `AuxLayerEvidence` へ map。`adopt` は `Adopt` intent のみ
   受理（preview/compare intent は malformed reject）。

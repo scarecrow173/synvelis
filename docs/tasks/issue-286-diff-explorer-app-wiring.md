@@ -51,8 +51,9 @@ CB-08 orchestrator / gateway CAS 経路への接続を完成させる。
 - `synvelis-workspace`: `VariantDiffEngine` facade を追加 —
   CB-08 `VariantPorts`/`simulate`/`execute` を opaque に保持し、
   `compare`/`adopt_preview`/`adopt` を typed `VariantDiffIntent`
-  経由で dispatch する。standard ports に CB-07
-  `ArrangementAdapter` を install し、signal provider 出力を
+  経由で dispatch する。standard ports が CB-07
+  `ArrangementAdapter` を含む全 merged adapter を登録し
+  （synvelis#539）、signal provider 出力を
   provenance 保持のまま `AuxLayerEvidence` へ map する。
   `adopt` は `Adopt` intent のみ受理し、preview/compare
   intent は malformed reject（preview が commit 経路に
