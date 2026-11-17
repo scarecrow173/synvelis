@@ -34,7 +34,8 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "実 device/OS GUI・AudioLens native-f64 consumer 経路の PCM 照合（#114・Ruviform #294 待ち）"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/ruviform/issues/294"
   deferred-by: []
 ---
 

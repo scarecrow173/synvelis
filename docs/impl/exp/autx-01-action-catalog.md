@@ -55,7 +55,11 @@ relations:
   references: []
   defers:
     - "CapabilityRegistry::has_executor（解消: synvelis#446 / AUTX-01-F01 で着地 — ExecutorState は Installed/Absent/Unknown の 3 verdict、`docs/impl/exp/autx-01-f01-has-executor.md` 参照）。Gateway::schemas read accessor は sv#272/PR #438 で解消済み"
-    - "実 ScriptApiModel（synvelis#271）照合・Script Action（synvelis#272）・CLI surface（synvelis#262）・実 GPUI/OS lane（#114/#267）"
+    - "https://github.com/scarecrow173/synvelis/issues/271"
+    - "https://github.com/scarecrow173/synvelis/issues/272"
+    - "https://github.com/scarecrow173/synvelis/issues/262"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/synvelis/issues/267"
   deferred-by: []
 metadata:
   experiments:

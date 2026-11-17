@@ -8,11 +8,11 @@ updated: "2026-11-12"
 owners: []
 relations:
   source:
-    - "ISSUE-96"
-    - "ISSUE-92"
-    - "ISSUE-93"
-    - "ISSUE-94"
-    - "ISSUE-7"
+    - "https://github.com/scarecrow173/synvelis/issues/96"
+    - "https://github.com/scarecrow173/synvelis/issues/92"
+    - "https://github.com/scarecrow173/synvelis/issues/93"
+    - "https://github.com/scarecrow173/synvelis/issues/94"
+    - "https://github.com/scarecrow173/synvelis/issues/7"
   verified_by:
     - "TSPEC-vcs05-apply-restore-fixtures"
   implemented_by:

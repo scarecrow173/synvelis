@@ -67,7 +67,7 @@ relations:
   verifies: []
   verified-by: []
   references:
-    - "evidence/sv511/"
+    - "evidence/sv511/verification.md"
   defers: []
   deferred-by: []
 metadata:

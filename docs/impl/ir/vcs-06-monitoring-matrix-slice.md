@@ -70,8 +70,8 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "monitoring kind の apply surface 追加（transplant payload・preflight 設計を要する別 slice）"
-    - "実 GUI/実 OS/実 provider/実 plugin host/RT/consumer lane（`*-REAL-*`・COMPAT 行 — 外部 gate）"
+    - "docs/specs/vcs-05-monitoring-apply-surface.md"
+    - "https://github.com/scarecrow173/synvelis/issues/97"
   deferred-by: []
 metadata:
   experiments:

@@ -27,7 +27,7 @@ relations:
   supersedes: []
   superseded-by: []
   related:
-    - "docs/tasks/rcp-04-missing-plugin-resolver.md"
+    - "docs/impl/ir/rcp-04-missing-plugin-resolver.md"
   refines: []
   refined-by: []
   derives-from:

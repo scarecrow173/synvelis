@@ -78,11 +78,11 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "VCS-03 Git Read Provider（Issue #94）"
-    - "VCS-04 History/Visual Diff UI（Issue #95）"
-    - "VCS-05 Apply/Restore"
-    - "実 OS filesystem atomicity / 実 Git remote/provider / GUI / 実 plugin host probe（Issue #97）"
-    - "lineage schema（Issue #7 で将来の Project schema extension へ deferred）"
+    - "https://github.com/scarecrow173/synvelis/issues/94"
+    - "https://github.com/scarecrow173/synvelis/issues/95"
+    - "https://github.com/scarecrow173/synvelis/issues/96"
+    - "https://github.com/scarecrow173/synvelis/issues/97"
+    - "https://github.com/scarecrow173/synvelis/issues/7"
   deferred-by: []
 metadata:
   experiments:

@@ -28,7 +28,7 @@ relations:
   related:
     - "docs/test-specs/autx-08-common-e2e.md"
     - "docs/specs/autx-08-live-adapter-leg.md"
-    - "evidence/sv267/"
+    - "evidence/sv267/live-adapter-leg.md"
   refines: []
   refined-by: []
   derives-from:

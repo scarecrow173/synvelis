@@ -74,7 +74,7 @@ relations:
     - "docs/test-specs/asset-library.md"
     - "docs/test-specs/alib-07-fault-matrix.md"
     - "docs/impl/ir/alib-07-fault-matrix.md"
-    - "evidence/sv89/"
+    - "evidence/sv89/acceptance-ledger.md"
   refines: []
   refined-by: []
   derives-from: []

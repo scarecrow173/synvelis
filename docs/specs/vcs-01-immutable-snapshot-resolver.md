@@ -46,10 +46,9 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/86"
     - "https://github.com/scarecrow173/synvelis/issues/97"
   defers:
-    - "VCS-02 Semantic Diff ChangeSet・Change Index・Comparison policy（synvelis#93）"
-    - "VCS-03 Git Read Provider の実装（synvelis#94 — 本 spec は VCS Bytes Port 境界のみ定義）"
-    - "実 Git remote / 実 OS filesystem / 実 plugin host での検証（VCS-06 #97・OS 別 NotRun/Unsupported 記録）"
-    - "Plugin opaque state bytes の実検証 probe（plugin host 未接続のため本 slice では Unknown 固定）"
+    - "https://github.com/scarecrow173/synvelis/issues/93"
+    - "https://github.com/scarecrow173/synvelis/issues/94"
+    - "https://github.com/scarecrow173/synvelis/issues/97"
   deferred-by: []
 ---
 

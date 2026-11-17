@@ -8,9 +8,9 @@ updated: "2026-11-14"
 owners: ["scarecrow173"]
 relations:
   source:
-    - "ISSUE-95"
-    - "ISSUE-7"
-    - "ISSUE-114"
+    - "https://github.com/scarecrow173/synvelis/issues/95"
+    - "https://github.com/scarecrow173/synvelis/issues/7"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
   changes:
     added: []
     modified: []

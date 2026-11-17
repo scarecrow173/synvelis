@@ -26,7 +26,7 @@ relations:
   supersedes: []
   superseded-by: []
   related:
-    - "docs/specs/autx-03-headless-cli.md"
+    - "docs/impl/ir/autx-03-headless-cli.md"
     - "docs/automation/design-script.md"
   refines: []
   refined-by: []

@@ -87,7 +87,7 @@ relations:
   superseded-by: []
   related:
     - "docs/impl/ir/vcs-01-immutable-snapshot-resolver.md"
-    - "docs/specs/tim-03-process-boundary.md"
+    - "docs/specs/tim03-process-boundary.md"
   refines: []
   refined-by: []
   derives-from:
@@ -100,7 +100,7 @@ relations:
     - "https://github.com/scarecrow173/ruviform/issues/196"
     - "https://github.com/scarecrow173/ruviform/issues/253"
   defers:
-    - "実 VST3/AU/CLAP plugin での state save/restore・実 OS filesystem atomicity・GUI 統合（NotRun/Unsupported — headless mock slice の範囲外）"
+    - "https://github.com/scarecrow173/synvelis/issues/128"
   deferred-by: []
 metadata:
   experiments:

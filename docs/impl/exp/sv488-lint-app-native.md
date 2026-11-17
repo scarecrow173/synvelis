@@ -30,7 +30,7 @@ relations:
     - "docs/specs/sv488-lint-app-native.md"
     - "docs/test-specs/sv488-lint-app-native.md"
     - "docs/impl/exp/sv488-lint-app-native-exp.jsonl"
-    - "evidence/sv488/"
+    - "evidence/sv488/lint-app-native-verification.md"
   refines: []
   refined-by: []
   derives-from: []

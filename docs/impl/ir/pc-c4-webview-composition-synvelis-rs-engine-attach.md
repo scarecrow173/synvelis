@@ -68,9 +68,10 @@ relations:
     - "docs/impl/exp/pc-c4-webview-composition.md"
     - "evidence/sv101/pc-c4-webview-composition-verification.md"
   defers:
-    - "実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件）"
-    - "synvelis-native bin の共有 helper への呼出側移行（後続 slice）"
-    - "project.new/open 後の engine 再 attach（synvelis#106 の責務）"
+    - "https://github.com/scarecrow173/ruviform/issues/253"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/synvelis/issues/101"
+    - "https://github.com/scarecrow173/synvelis/issues/106"
   deferred-by: []
 metadata:
   experiments:

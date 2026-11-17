@@ -36,7 +36,7 @@ relations:
     - "docs/specs/sf-04-slice1-semantic-probe-adapter.md"
     - "docs/specs/pc-c3-control-trace-projection.md"
     - "docs/specs/pc-c3-05-rt-trace-adapter.md"
-    - "docs/designs/sf-03-slice5-session-engine-connect.md"
+    - "docs/designs/sf-03-slice5-session-engine-connect-design.md"
   defers: []
   deferred-by: []
 ---

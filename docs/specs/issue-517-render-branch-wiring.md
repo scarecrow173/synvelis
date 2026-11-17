@@ -37,7 +37,7 @@ relations:
   verified-by:
     - "docs/test-specs/issue-517-render-branch-wiring.md"
   references:
-    - "evidence/sv517/"
+    - "evidence/sv517/verification.md"
   defers: []
   deferred-by: []
 ---

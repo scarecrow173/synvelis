@@ -68,9 +68,9 @@ relations:
   references:
     - "evidence/sv514/decision-ledger.md"
   defers:
-    - "stateless PluginStateDecl の型表現（synvelis-player 契約 — 別 Issue）"
-    - "SelectionInputs の production 供給経路（plugin env scan / TIM-04 state decl / artifact coverage）"
-    - "ExecutionSelection の live consumer（sv#295 表示面）"
+    - "https://github.com/scarecrow173/synvelis/issues/530"
+    - "https://github.com/scarecrow173/synvelis/issues/293"
+    - "https://github.com/scarecrow173/synvelis/issues/295"
   deferred-by: []
 metadata:
   adr:

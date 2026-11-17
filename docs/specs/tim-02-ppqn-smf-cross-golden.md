@@ -48,10 +48,11 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/125"
     - "https://github.com/scarecrow173/synvelis/issues/19"
   defers:
-    - "synvelis-player の MIDI RT/Offline 結合・実機 MIDI timing（別 slice・NotRun）"
-    - "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）"
-    - "SMPTE Division・MIDI 2.0/MPE・Format 2（#129/#130 future・明示 Unsupported）"
-    - "AudioLens Native f64 非回帰（#294 別 Gate）"
+    - "docs/specs/tim-02-player-midi-rt-offline.md"
+    - "https://github.com/scarecrow173/ruviform/issues/253"
+    - "https://github.com/scarecrow173/synvelis/issues/129"
+    - "https://github.com/scarecrow173/synvelis/issues/130"
+    - "https://github.com/scarecrow173/ruviform/issues/294"
   deferred-by: []
 ---
 

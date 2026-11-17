@@ -84,10 +84,10 @@ relations:
     - "docs/test-specs/sv-script-03-workflow-plan.md"
   references: []
   defers:
-    - "ruviform#559"
-    - "synvelis#262"
-    - "synvelis#265"
-    - "synvelis#267"
+    - "https://github.com/scarecrow173/ruviform/issues/559"
+    - "https://github.com/scarecrow173/synvelis/issues/262"
+    - "https://github.com/scarecrow173/synvelis/issues/265"
+    - "https://github.com/scarecrow173/synvelis/issues/267"
   deferred-by: []
 metadata:
   experiments:

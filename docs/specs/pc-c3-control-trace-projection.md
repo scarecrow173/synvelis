@@ -45,8 +45,7 @@ relations:
     - "docs/specs/pc-a-parameter-control-model-scope-breakdown-state-machine.md"
     - "docs/specs/pc-b-parameter-dispatch-note-scope-rt-offline.md"
   defers:
-    - "TRACE-C3-05 bounded history / no-RT alloc-block / 実計測 RT adapter（synvelis-player 後続 slice）"
-    - "synvelis-workspace ControlSession 接続・single drain owner・2 Inspector 二重起動防止（後続 integration slice）"
+    - "https://github.com/scarecrow173/synvelis/issues/102"
   deferred-by: []
 ---
 

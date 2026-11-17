@@ -86,8 +86,19 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/133"
     - "https://github.com/scarecrow173/synvelis/issues/134"
   defers:
-    - "製品 Automation/Modulation/Parameter Control の実装 — PC-C1〜06 #98〜103・CTL-01/02 #121/#122・AUT-01〜04 #131〜134"
-    - "実 GUI/実 OS/実 Plugin/実機の受入 — #102/#114/#103 の別受入 Gate"
+    - "https://github.com/scarecrow173/synvelis/issues/98"
+    - "https://github.com/scarecrow173/synvelis/issues/99"
+    - "https://github.com/scarecrow173/synvelis/issues/100"
+    - "https://github.com/scarecrow173/synvelis/issues/101"
+    - "https://github.com/scarecrow173/synvelis/issues/102"
+    - "https://github.com/scarecrow173/synvelis/issues/103"
+    - "https://github.com/scarecrow173/synvelis/issues/121"
+    - "https://github.com/scarecrow173/synvelis/issues/122"
+    - "https://github.com/scarecrow173/synvelis/issues/131"
+    - "https://github.com/scarecrow173/synvelis/issues/132"
+    - "https://github.com/scarecrow173/synvelis/issues/133"
+    - "https://github.com/scarecrow173/synvelis/issues/134"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
   deferred-by: []
 ---
 

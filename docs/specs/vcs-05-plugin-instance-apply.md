@@ -8,7 +8,7 @@ updated: "2026-11-15"
 owners: []
 relations:
   source:
-    - "ISSUE-96"
+    - "https://github.com/scarecrow173/synvelis/issues/96"
     - "SPEC-vcs05-apply-restore-headless"
     - "SPEC-vcs05-monitoring-apply-surface"
     - "DESIGN-034VG5a2ikhPyz9RCyjDDT"

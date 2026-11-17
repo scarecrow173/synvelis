@@ -31,7 +31,7 @@ relations:
     - "docs/specs/autx-08-live-adapter-leg.md"
     - "docs/test-specs/autx-08-live-adapter-leg.md"
     - "docs/impl/exp/autx-08-live-adapter-leg-exp.jsonl"
-    - "evidence/sv267/"
+    - "evidence/sv267/live-adapter-leg.md"
   refines: []
   refined-by: []
   derives-from: []

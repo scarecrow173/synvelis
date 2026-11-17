@@ -63,9 +63,9 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "実 Device backend・OS 別ドライバ・実機受入（ruviform#251 待ち、別 Gate）"
-    - "録音 command/UI（#114 / SV-GUI-05）"
-    - "cross-clock multi-device（#119）"
+    - "https://github.com/scarecrow173/ruviform/issues/251"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/synvelis/issues/119"
   deferred-by: []
 metadata:
   experiments:

@@ -26,7 +26,7 @@ relations:
   supersedes: []
   superseded-by: []
   related:
-    - "docs/adr/pc-c1-recording-transaction-prepare-apply-finalize.md"
+    - "docs/adr/pc-c1-commit-session-cas-orchestration-prepared-commit.md"
   refines: []
   refined-by: []
   derives-from:

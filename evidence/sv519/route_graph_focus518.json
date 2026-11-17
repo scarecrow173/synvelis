@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 2,
+  "graphId": "doc-driven-dev",
+  "current": "probe",
+  "next": "probe",
+  "edgeId": null,
+  "condition": "blocked",
+  "status": "blocked",
+  "delegate": null,
+  "requiredAudits": [],
+  "blockers": [
+    "artifact-graph",
+    "broken-relation:Broken related relation from docs/impl/ir/cb-09-diff-explorer.md to evidence/sv286/ (evidence/sv286)",
+    "task-graph-invalid"
+  ],
+  "taskGraph": {
+    "schemaVersion": 1,
+    "plan": "docs/plans/issue-518-job-system.md",
+    "nodes": [],
+    "edges": [],
+    "runnable": [],
+    "active": [],
+    "resumableActive": [],
+    "completed": [],
+    "blocked": [],
+    "issues": [
+      {
+        "code": "plan-has-no-tasks",
+        "message": "Plan docs/plans/issue-518-job-system.md has no task documents",
+        "tasks": []
+      }
+    ]
+  },
+  "commitGate": false
+}

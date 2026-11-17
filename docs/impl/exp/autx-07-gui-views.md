@@ -63,10 +63,10 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "実 GPUI/実 OS lane（synvelis#114/#267）"
-    - "Script Editor 同一 source 照合（synvelis#274）"
-    - "assets/themes への status-* token 値追加（範囲外）"
-    - "synvelis-automation live adapter 接続（#264）"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/synvelis/issues/267"
+    - "https://github.com/scarecrow173/synvelis/issues/274"
+    - "https://github.com/scarecrow173/synvelis/issues/264"
   deferred-by: []
 metadata:
   experiments:

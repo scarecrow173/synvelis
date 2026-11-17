@@ -36,7 +36,7 @@ relations:
     - "docs/specs/issue-511-cb07-materialization.md"
   verified-by: []
   references:
-    - "evidence/sv511/"
+    - "evidence/sv511/verification.md"
   defers: []
   deferred-by: []
 ---

@@ -54,8 +54,9 @@ relations:
   references:
     - "https://github.com/scarecrow173/ruviform/issues/251"
   defers:
-    - "physical USB 抜去・2ch 超 MultiChannel・cross-clock multi-device（#119）・macOS/Linux lane（ruviform#251 Stage M/L）・製品 E2E（#114）— 本 slice 対象外"
-    - "PCM fidelity deterministic source（OS loopback 等）— deterministic source 不在のため NotRun 維持"
+    - "https://github.com/scarecrow173/synvelis/issues/119"
+    - "https://github.com/scarecrow173/ruviform/issues/251"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
   deferred-by: []
 metadata:
   experiments:
