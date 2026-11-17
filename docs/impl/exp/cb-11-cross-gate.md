@@ -2,7 +2,7 @@
 id: "EXP-cb11-cross-gate"
 title: "CB-11 cross-gate headless fixture 実験メモ (synvelis#288)"
 created: "2026-11-15"
-updated: "2026-11-15"
+updated: "2026-11-17"
 ---
 
 # 実験記録: CB-11 Creative Branch cross-gate headless slice（synvelis#288）
@@ -98,3 +98,84 @@ candidate の content digest は不変。CB-E2E-05 の
 cross-domain 組合せ部分として採用。recording active・
 missing plugin・queue full の個別 gate は cb01..06 既存
 fixture の被覆を ledger で参照。
+
+## E6 orchestrated compare session の scoped-edit 分離は
+   `Current` ではなく `Stale{[ProjectRevision]}` か
+
+**仮説**: 異なる variant set の sibling session は scoped
+candidate edit の影響を受けず `Current` のままである。
+
+- 調査: `ComparisonOrchestrator::open_session` は open 時の
+  `project_revision` を `pinned_context` に pin し、
+  `freshness` は pinned vs live を全次元で比較する。
+  candidate edit は live project revision を進めるため、
+  scoped 内容が無関係でも `ProjectRevision` 次元は全
+  session で stale になる。
+- 案 A（sibling は `Current`）: `cb11_e2e_04_orchestrated_
+  compare_stale_session_never_poses_as_current` 初回実行で
+  `Stale{[ProjectRevision{pinned:32, actual:36}]}` を観測し
+  棄却。
+- 案 B（sibling は `Stale{[ProjectRevision]}` のみ）:
+  scope content・branch revision・payload・shared context・
+  tempo/plugin/source/time-mapping のいずれの次元も
+  cross-domain で drift しないことを assert。
+
+**観察**: 案 B を採用。domain 分離の正直な契約は
+「scope 固有次元は隔離されるが project revision tick は
+全 session に及ぶ」であり、stale session の再評価が
+pin-scoped semantic evidence を保ち aux layer（signal/
+perceptual）を stale flag することを確認。実 RT/plugin
+signal は `NotRun` のまま（`evidence/sv288/external-gates.md`）。
+
+## E7 probe loss は asset を参照しない scope では
+   `unresolved`/`Partial` に効かないか
+
+**仮説**: `BlobProbe` が `Absent` を返せば任意の compare
+session で `unresolved` issues + `Partial` completeness に
+なる。
+
+- 調査: `BlobProbe` は snapshot の asset availability
+  manifest 経由でのみ参照される。TakeUsage fixture の
+  asset digest は compare 対象 content から到達しない
+  ため、`AbsentProbe` でも `Complete` のままだった。
+- 案 A（take scope で assert）: `cb11_e2e_04_orchestrated_
+  compare_unaligned_probe_loss_provider_honesty` 初回実行で
+  `Complete != Partial` を観測し棄却。
+- 案 B（asset 保持の audio scope で assert）: media
+  source→asset 参照を持つ gate fixture の audio clip
+  session で `Partial`・`unresolved` 非空・`Unknown` を
+  確認。
+
+**観察**: 案 B を採用。probe loss の honesty は「比較対象
+content が実際に参照する asset の不在」のみを `unresolved`
+として報告し、無関係 asset の probe 結果で equality を
+毀損しない — これも誠実な契約として採用。
+
+## E8 gateway `VariantPorts::standard` の Arrangement
+   未配線は意図的か defect か
+
+**仮説**: CB-07 merge により `ArrangementAdapter` が
+`synvelis_project::variant` に存在するため、gateway の
+`VariantPorts::standard` も配線済みのはず。
+
+- 調査: `crates/synvelis-gateway/src/variant.rs` は
+  `Arrangement` を `VariantScopeKind` に列挙するが
+  `adapter_for` が `adapters` map を引き、
+  `VariantPorts::standard` は 6 adapter のみ insert —
+  コメントに「Arrangement has no adapter in this slice」
+  とあり CB-10 slice の意図的な未配線。CB-07 merge 後に
+  gateway 側が更新されていない。
+- 案 A（fixture で fail-closed を pin）: arrangement scope
+  の fork prepare が `variant-unsupported: no domain
+  adapter wired for arrangement scopes` で拒否されること
+  を `cb11_e2e_07_arrangement_scope_fails_closed_until_
+  gateway_wiring` で確認。
+- 案 B（src 修正で adapter 登録）: `crates/**/src/**` は
+  本 slice の編集範囲外 — 修正せず ledger/PR に gap と
+  して記録。
+
+**観察**: 案 A を採用。fail-closed は安全側の挙動であり、
+CB-E2E-03 の project 軸 coverage（`cb11_e2e_03_*`）は
+独立に成立する。gateway 経路の arrangement 対応は
+`VariantPorts::standard` への adapter 登録を要する
+follow-up として記録。
