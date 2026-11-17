@@ -12,9 +12,14 @@
 //! authorizers are injected ports — real async scheduling, RT lanes,
 //! OS stores, VCS providers, and gateway projection are later gates.
 
+pub mod cost;
 pub mod model;
 pub mod orchestrator;
+pub mod scheduler;
 
+pub use cost::{
+    CostCalibration, NoCostCalibration, merge_estimate, model_estimate, pcm_format_bytes,
+};
 pub use model::{
     BoundaryResolution, CompletenessGap, CompletenessGapKind, CompletenessReport,
     CompletenessVerdict, EntrySurface, GatewayActionRef, GrantRef, JobCostEstimate, JobFailure,
@@ -25,4 +30,8 @@ pub use orchestrator::{
     BackendRequirement, BoundaryExec, DriveOutcome, JobContext, JobOrchestrator, JobRecord,
     RejectedAttempt, RenderExecution, RenderExecutor, RenderQualityInputs, RenderSettingsProbe,
     RenderedOutput, SubmitOutcome, TemporalQuality,
+};
+pub use scheduler::{
+    DEFAULT_QUEUE_CAPACITY, JobScheduler, JobView, NoDeclaredPolicies, NoScopeDemands,
+    RoutePreview, SchedulerError, SchedulerPorts, UnavailableExecutor, UnavailableSettings,
 };

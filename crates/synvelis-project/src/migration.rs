@@ -71,6 +71,10 @@ const STEPS: &[MigrationStep] = &[
         from: 13,
         migrate: migrate_v13_variant_sets,
     },
+    MigrationStep {
+        from: 14,
+        migrate: migrate_v14_render_policy,
+    },
 ];
 
 /// Runs the ordered ladder from `version` to [`SCHEMA_VERSION`].
@@ -479,5 +483,21 @@ fn migrate_v12_plugin_instances(mut project: Project) -> Result<Project, Error> 
 /// shape keeps the ladder uniform.
 #[allow(clippy::unnecessary_wraps)]
 fn migrate_v13_variant_sets(project: Project) -> Result<Project, Error> {
+    Ok(project)
+}
+
+/// v14 → v15: add `Project::render_policy` — the declared render
+/// preference persisted as opaque JSON (synvelis#518). v14 bodies
+/// predate the field, so the serde `#[serde(default)]` already
+/// yields `None`; there is no backfill — the preference is authored
+/// state owned semantically by synvelis-render's `PolicyPatch`,
+/// which this crate cannot name (dependency direction). Deterministic
+/// — allocates no IDs and leaves `id_watermark` untouched.
+///
+/// # Errors
+/// Never fails: the step is the identity projection. The `Result`
+/// shape keeps the ladder uniform.
+#[allow(clippy::unnecessary_wraps)]
+fn migrate_v14_render_policy(project: Project) -> Result<Project, Error> {
     Ok(project)
 }

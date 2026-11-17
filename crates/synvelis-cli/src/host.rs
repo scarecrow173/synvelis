@@ -612,12 +612,11 @@ fn boot_durable(
         proposals: ctx.proposals.clone(),
         apply_capability,
         variant: Some(variant),
-        // Headless host: render capabilities stay registered and
-        // authorized, but dispatch reports typed `Unavailable` — no
-        // render success is fabricated without a backend (synvelis#517).
-        render: Some(Arc::new(
-            synvelis_gateway::variant::UnavailableRenderDispatch,
-        )),
+        // Headless host: the workspace job system wires the real
+        // scheduler + RenderDispatch adapter with fail-closed ports —
+        // render commands produce typed rejections/failures, never
+        // fabricated success (synvelis#517/#518).
+        render: Some(synvelis_workspace::job_system::JobSystem::headless().dispatch()),
     };
     let id_seed = ctx.project.id_watermark;
     let (gate, _report) = CommitGate::open(

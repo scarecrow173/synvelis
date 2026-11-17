@@ -375,9 +375,7 @@ fn boot(dir: &Path) -> Result<Harness, Box<dyn std::error::Error>> {
             proposals: proposals.clone(),
             apply_capability,
             variant: Some(variant),
-            render: Some(Arc::new(
-                synvelis_gateway::variant::UnavailableRenderDispatch,
-            )),
+            render: Some(synvelis_workspace::job_system::JobSystem::headless().dispatch()),
         },
         MutexFence::new(),
     )?;

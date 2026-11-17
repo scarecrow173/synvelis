@@ -25,6 +25,7 @@ Directory: `docs/adr`
 | ADR-0e3CjgAC6VMxn4HycdTGhk | Issue #514 — SessionRoutingEngine は RCP selection を消費しない（責務は RoutingEngine レベルで閉じる） | accepted | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |
 | ADR-JlTrO2yuccd5FZv5Nn49fc | Issue #516 — interim synvelis-script-luau(mlua) を ruviform-script/-luau 製品 port への薄い binding 交換で置換 | accepted | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | ADR-sv517jK2lM3nO4pQ5rS6tU7 | Issue #517 — render/branch pipeline 本番配線の方式決定 | accepted | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
+| ADR-sv518gH8iJ0kL6nO8pQ | Issue #518 — job system 配線の方式決定 | accepted | [issue-518-job-system.md](./issue-518-job-system.md) |
 | ADR-TPzhu7QHmjQxoSv91BBZ | Issue #530 — stateless は PluginStateDecl::stateless() profile + StateRestoreSupport::Unsupported dual-use で表現する | accepted | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | ADR-Ym8S8syVSNCeQiMNBHHfHt | L1 — Import・Blob・Lowering・Driver の配置と境界 | accepted | [l1-player-slice-boundaries.md](./l1-player-slice-boundaries.md) |
 | ADR-034QmbgsQDkLDllHgAxa1f | L2 — Render slice boundaries・Ruviform sequential offline driver adoption・Staged publish | accepted | [l2-render-slice-boundaries.md](./l2-render-slice-boundaries.md) |

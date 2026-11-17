@@ -48,6 +48,7 @@ Directory: `docs/plans`
 | PLAN-034YXTpsA7X2LIoy8uNpK2 | issue-515-os-credential 実装計画 | approved | [issue-515-os-credential.md](./issue-515-os-credential.md) |
 | PLAN-1kBHRQoUwWJI51A3YqHacf | Issue #516 実装 plan — 薄い binding への置換 | approved | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | PLAN-sv517gH8iJ0kL1mN3oP5qR7 | Issue #517 plan — render/branch pipeline 本番配線 | approved | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
+| PLAN-sv518dE5fG7hI9jK0lM6 | Issue #518 plan — production job system 配線 | approved | [issue-518-job-system.md](./issue-518-job-system.md) |
 | PLAN-issue521-lfs-transport | issue-521-lfs-transport — Git LFS remote fetch HTTPS/TLS transport 実装 plan | approved | [issue-521-lfs-transport.md](./issue-521-lfs-transport.md) |
 | PLAN-yBpwmwoB5470oC0kf0tb | Issue #530 plan — stateless PluginStateDecl 契約 slice | approved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |

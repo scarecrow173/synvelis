@@ -15,6 +15,7 @@
 //! receipts ([`crate::render_job::JobReceipt`]). A provider failure
 //! can never be mistaken for a render-job failure (RCP-POL-04).
 
+use serde::{Deserialize, Serialize};
 use synvelis_project::{ProjectId, ProjectRevision};
 
 use crate::policy::model::{PolicyPatch, RenderTrigger};
@@ -39,7 +40,8 @@ use crate::render_job::model::{
 /// input. Produced exclusively by a successful durable save; a save
 /// that failed produces [`SaveEvent::Failed`], which can never pin a
 /// snapshot or spawn a render job (RCP-POL-03).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SaveReceipt {
     /// The fixed snapshot the durable save returned — pinned by
     /// value, never re-resolved against live HEAD.
@@ -51,7 +53,8 @@ pub struct SaveReceipt {
 }
 
 /// Save-side trigger events.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum SaveEvent {
     /// Durable save succeeded — carries its receipt.
     Completed(Box<SaveReceipt>),
@@ -74,7 +77,8 @@ pub enum SaveEvent {
 /// Capability of the VCS provider behind the commit trigger.
 /// `Unsupported` is a first-class typed result — never a false
 /// success and never a silent skip (RCP-POL-04).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum CommitCapability {
     /// The provider can create commits.
     Supported,
@@ -89,7 +93,8 @@ pub enum CommitCapability {
 /// `OnCommit` trigger input. The commit locator (SHA or provider
 /// equivalent) is immutable: post-commit artifacts attach through
 /// the external manifest registry, never by rewriting the commit.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CommitReceipt {
     /// Provider-side immutable commit locator.
     pub commit_locator: String,
@@ -100,7 +105,8 @@ pub struct CommitReceipt {
 /// Commit-side trigger events. Provider and push failures are
 /// recorded on the external receipt stream — they are *not* render
 /// job failures and never spawn one.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum CommitEvent {
     /// Commit succeeded — carries its receipt.
     Committed(Box<CommitReceipt>),
@@ -133,7 +139,8 @@ pub enum CommitEvent {
 /// incomplete package is blocked with typed reasons and a retry
 /// hint, under `BestEffort` it proceeds with explicit partial
 /// marking (RCP-POL-05).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ShareRequest {
     /// Package identity being shared.
     pub package_id: String,
@@ -152,7 +159,8 @@ pub struct ShareRequest {
 /// An `OnDemand` render proposal — a suggestion only. Nothing is
 /// rendered, queued, or granted CPU/GPU/network until an
 /// [`DemandAuthorizer`] explicitly approves (RCP-POL-06).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DemandProposal {
     /// Proposal identity (idempotency/provenance).
     pub proposal_id: String,
@@ -197,7 +205,8 @@ pub trait DemandAuthorizer {
 /// One external event presented to the render pipeline. Every entry
 /// surface (GUI/CLI/Workflow/Script) projects into this same typed
 /// vocabulary (RCP-POL-07).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum TriggerEvent {
     /// Explicit manual render request — always enabled.
     Manual {
@@ -235,7 +244,8 @@ pub struct TriggerProvenance {
 /// every surface must produce for identical requests (RCP-POL-07).
 /// `entry` is receipt provenance only; it is deliberately *not* part
 /// of the job key so cross-surface duplicates coalesce.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TriggerReport {
     /// The typed event.
     pub event: TriggerEvent,

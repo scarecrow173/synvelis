@@ -131,6 +131,7 @@ Directory: `docs/tasks`
 | TASK-rVJcKAC3jQHu6ZFC0SvSV9 | Issue #514 tasks — 判定記録 slice | done | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |
 | TASK-hu0U9zgaLa4C26TlCRz2oX | Issue #516 tasks — 薄い binding への置換 | done | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | TASK-sv517hI0jK1lM2nO3pQ4rS5 | Issue #517 tasks — render/branch pipeline 本番配線 | done | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
+| TASK-sv518eF6gH8iJ0kL4mN6 | Issue #518 tasks — production job system 配線 | done | [issue-518-job-system.md](./issue-518-job-system.md) |
 | TASK-ldDyN5a7IH0RlM2Ys4UN | Issue #530 tasks — stateless PluginStateDecl 契約 slice | done | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | TASK-VB7LzgmqMRIfE31stZItL7 | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 | done | [issue-86-task-verified-import-wiring.md](./issue-86-task-verified-import-wiring.md) |
 | TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |

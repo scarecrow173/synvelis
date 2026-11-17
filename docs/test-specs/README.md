@@ -82,6 +82,7 @@ Directory: `docs/test-specs`
 | TSPEC-034YXSZ2kuWzgTf2b6XeLT | issue-515-os-credential — session 供給の検証仕様 | draft | [issue-515-os-credential.md](./issue-515-os-credential.md) |
 | TSPEC-MYFHRUK4femA1AglhsravS | Issue #516 test spec — 製品 port 交換の検証保証 | approved | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | TSPEC-sv517iJ1kL2mN3oP4qR5sT6 | Issue #517 test spec — render/branch pipeline 本番配線の検証保証 | approved | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
+| TSPEC-sv518fG7hI9jK0lM5nO7 | Issue #518 test spec — 非同期 scheduler・cost model・永続化の検証保証 | approved | [issue-518-job-system.md](./issue-518-job-system.md) |
 | TSPEC-j0rVeZntFdxTUwZBQefJ | Issue #530 test-spec — stateless PluginStateDecl 契約の検証仕様 | approved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | TSPEC-Zb0ctcQ2s7S0lDwxkjXsiu | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 — テスト仕様 | approved | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
