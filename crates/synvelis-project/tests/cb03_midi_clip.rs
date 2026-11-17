@@ -1482,3 +1482,155 @@ fn cb_midi_scope_validation_mirror_and_shared_source_reject() {
     let err = h2.try_fork(midi_scope(any_clip)).unwrap_err();
     assert!(matches!(err, VariantError::Project(_)));
 }
+
+// ===========================================================================
+// sv#513 / CB-MIDI-01 literal lane: simultaneous N>2 candidates via
+// set-internal `add_branch` — B's edit touches neither A/C nor the raw
+// native source; fork → edit → adopt still holds with three live
+// candidates in one set.
+// ===========================================================================
+
+struct ThreeCandidates {
+    h: Fx,
+    source: SourceId,
+    note: NoteId,
+    scope: VariantScope,
+    set: VariantSetId,
+    adopted: BranchId,
+    cand_a: BranchId,
+    cand_b: BranchId,
+    cand_c: BranchId,
+    origin_digest: ContentDigest,
+}
+
+/// fork yields adopted+A; `add_branch` twice yields B and C — three
+/// simultaneous non-adopted candidates in one set.
+fn three_candidate_setup() -> ThreeCandidates {
+    let mut c = controller();
+    let fx = midi_fixture(&mut c);
+    let mut h = Fx::new(c);
+    let scope = midi_scope(fx.clip);
+    let origin_digest = scope_digest(h.controller.live(), &scope).unwrap();
+    let forked = h.fork(scope.clone());
+    let set = forked.variant_set;
+    let adopted = forked.adopted;
+    let cand_a = forked.candidate;
+    let cand_b = synvelis_project::variant::add_branch(
+        &mut h.controller,
+        &h.adapter,
+        &mut h.store,
+        &h.resolver,
+        set,
+        adopted,
+        &SnapshotCancel::new(),
+    )
+    .unwrap()
+    .branch;
+    let cand_c = synvelis_project::variant::add_branch(
+        &mut h.controller,
+        &h.adapter,
+        &mut h.store,
+        &h.resolver,
+        set,
+        adopted,
+        &SnapshotCancel::new(),
+    )
+    .unwrap()
+    .branch;
+    ThreeCandidates {
+        h,
+        source: fx.source,
+        note: fx.notes[0],
+        scope,
+        set,
+        adopted,
+        cand_a,
+        cand_b,
+        cand_c,
+        origin_digest,
+    }
+}
+
+fn candidate_velocity(t: &ThreeCandidates, branch: BranchId) -> u8 {
+    t.h.candidate(t.set, branch).midi_sources[&t.source].notes[&t.note].velocity
+}
+
+#[test]
+fn cb_midi_01_literal_three_simultaneous_candidates() {
+    let mut t = three_candidate_setup();
+    let live_before = midi_state_json(&t.h.controller);
+
+    // Simultaneous N>2: adopted + three candidates, each non-adopted
+    // branch carrying Captured content.
+    let branches = &t.h.controller.live().variant_sets[&t.set].branches;
+    assert_eq!(branches.len(), 4);
+    for (id, branch) in branches {
+        if *id == t.adopted {
+            assert!(matches!(branch.content, BranchContentRef::Live { .. }));
+        } else {
+            assert!(matches!(branch.content, BranchContentRef::Captured { .. }));
+        }
+    }
+    // Fork candidates carry `parent: None` (fork-origin encoding);
+    // set-internal adds record their parent linkage.
+    assert_eq!(branches[&t.cand_a].parent, None);
+    assert_eq!(branches[&t.cand_b].parent, Some(t.adopted));
+    assert_eq!(branches[&t.cand_c].parent, Some(t.adopted));
+    assert_ne!(t.cand_a, t.cand_b);
+    assert_ne!(t.cand_b, t.cand_c);
+    assert_ne!(t.cand_a, t.cand_c);
+
+    // ── B edits: velocity change on the note ──
+    t.h.edit(
+        t.set,
+        t.cand_b,
+        ProjectOp::SetMidiNoteVelocity {
+            source_id: t.source,
+            note_id: t.note,
+            velocity: 90,
+        },
+    );
+
+    // Live, the raw native source, and siblings A/C are untouched.
+    assert_eq!(midi_state_json(&t.h.controller), live_before);
+    assert_eq!(candidate_velocity(&t, t.cand_a), 100);
+    assert_eq!(candidate_velocity(&t, t.cand_c), 100);
+    assert_eq!(candidate_velocity(&t, t.cand_b), 90);
+    // A and C still fingerprint to the fork origin — no drift.
+    let scope = &t.scope;
+    assert_eq!(
+        scope_digest(&t.h.candidate(t.set, t.cand_a), scope).unwrap(),
+        t.origin_digest
+    );
+    assert_eq!(
+        scope_digest(&t.h.candidate(t.set, t.cand_c), scope).unwrap(),
+        t.origin_digest
+    );
+    assert_ne!(
+        scope_digest(&t.h.candidate(t.set, t.cand_b), scope).unwrap(),
+        t.origin_digest
+    );
+
+    // ── Adopt B: live becomes B′; A/C keep their own captured
+    // payloads (frozen candidates are never rewritten by a sibling
+    // adopt) ──
+    t.h.adopt(t.set, t.cand_b, &t.scope);
+    assert_eq!(
+        t.h.controller.live().midi_sources[&t.source].notes[&t.note].velocity,
+        90
+    );
+    let set_state = &t.h.controller.live().variant_sets[&t.set];
+    assert_eq!(set_state.adopted, t.cand_b);
+    let branches = &set_state.branches;
+    assert!(matches!(
+        branches[&t.cand_a].content,
+        BranchContentRef::Captured { .. }
+    ));
+    assert!(matches!(
+        branches[&t.cand_c].content,
+        BranchContentRef::Captured { .. }
+    ));
+    // A/C candidates still decode to the origin content.
+    assert_eq!(candidate_velocity(&t, t.cand_a), 100);
+    assert_eq!(candidate_velocity(&t, t.cand_c), 100);
+}

@@ -686,7 +686,10 @@ fn cb_inst_02_semantic_diff_state_quality_and_capabilities() {
     let caps = h.adapter.capabilities();
     assert_eq!(caps.param_base, ProcessingCapability::Supported);
     assert_eq!(caps.automation_edit, ProcessingCapability::Supported);
-    assert_eq!(caps.plugin_rebind, ProcessingCapability::Unsupported);
+    // sv#513: `SetProcessorBinding` made plugin rebinding a typed
+    // scoped op — the report now matches enforcement (`Supported`).
+    // Preset selection still has no typed seam → `Unsupported`.
+    assert_eq!(caps.plugin_rebind, ProcessingCapability::Supported);
     assert_eq!(caps.preset_select, ProcessingCapability::Unsupported);
     assert_eq!(caps.routing, ProcessingCapability::Unsupported);
     assert_eq!(caps.midi_input, ProcessingCapability::Unsupported);
@@ -1392,4 +1395,201 @@ fn compare(before: &Project, after: &Project) -> synvelis_project::diff::ChangeS
         &SnapshotCancel::new(),
     )
     .unwrap()
+}
+
+// ===========================================================================
+// sv#513: `SetProcessorBinding` — typed candidate-scoped plugin binding
+// swap. Rebind allocates fresh plugin-instance identity (different
+// resolved binding), Unresolved drops the entry, sibling/out-of-scope
+// processors stay confined, preset selection remains Unsupported.
+// ===========================================================================
+
+fn alt_plugin(desc: &str, version: &str) -> ProcessorBinding {
+    ProcessorBinding::Resolved(PluginRef {
+        descriptor: desc.into(),
+        version: version.into(),
+        capability_revision: 1,
+    })
+}
+
+#[test]
+fn cb_inst_plugin_binding_swap_is_scoped_typed_and_identity_synced() {
+    let mut c = controller();
+    let ids = instrument_fixture(&mut c);
+    let mut h = Fx::new(c);
+    let scope = scope_of(ids.inst);
+    let forked = h.fork(scope.clone());
+    let (set, cand) = (forked.variant_set, forked.candidate);
+
+    let live_inst_binding = h.controller.live().routing.processors[&ids.inst]
+        .binding
+        .clone();
+    let live_inst_instance = h.controller.live().plugin_instances.instances[&ids.inst].id;
+    let live_sibling_binding = h.controller.live().routing.processors[&ids.sibling]
+        .binding
+        .clone();
+    let live_sibling_instance = h.controller.live().plugin_instances.instances[&ids.sibling].id;
+
+    // Resolved → different Resolved: candidate binding swaps and the
+    // plugin-instance identity is re-issued; live and sibling untouched.
+    let new_binding = alt_plugin("plug-synth-b", "2.0");
+    h.edit(
+        set,
+        cand,
+        ProjectOp::SetProcessorBinding {
+            processor_id: ids.inst,
+            binding: new_binding.clone(),
+        },
+    );
+    assert_eq!(
+        h.controller.live().routing.processors[&ids.inst].binding,
+        live_inst_binding
+    );
+    assert_eq!(
+        h.controller.live().plugin_instances.instances[&ids.inst].id,
+        live_inst_instance
+    );
+    let cand_project = h.candidate(set, cand);
+    assert_eq!(
+        cand_project.routing.processors[&ids.inst].binding,
+        new_binding
+    );
+    assert_ne!(
+        cand_project.plugin_instances.instances[&ids.inst].id,
+        live_inst_instance
+    );
+    assert_eq!(
+        cand_project.routing.processors[&ids.sibling].binding,
+        live_sibling_binding
+    );
+    assert_eq!(
+        cand_project.plugin_instances.instances[&ids.sibling].id,
+        live_sibling_instance
+    );
+
+    // Out-of-scope processor: typed reject, candidate payload unchanged.
+    let before = h.candidate(set, cand);
+    assert!(
+        h.try_edit(
+            set,
+            cand,
+            ProjectOp::SetProcessorBinding {
+                processor_id: ids.sibling,
+                binding: alt_plugin("plug-fx-b", "9.9"),
+            },
+        )
+        .is_err()
+    );
+    let after = h.candidate(set, cand);
+    assert_eq!(
+        after.routing.processors[&ids.sibling].binding,
+        before.routing.processors[&ids.sibling].binding
+    );
+
+    // Resolved → Unresolved: binding carries the descriptor and the
+    // plugin-instance entry is dropped (Missing Plugin quality stays
+    // typed — no silent resolution).
+    h.edit(
+        set,
+        cand,
+        ProjectOp::SetProcessorBinding {
+            processor_id: ids.inst,
+            binding: ProcessorBinding::Unresolved {
+                descriptor: "plug-missing".into(),
+            },
+        },
+    );
+    let cand_project = h.candidate(set, cand);
+    assert!(matches!(
+        cand_project.routing.processors[&ids.inst].binding,
+        ProcessorBinding::Unresolved { .. }
+    ));
+    assert!(
+        !cand_project
+            .plugin_instances
+            .instances
+            .contains_key(&ids.inst)
+    );
+
+    // Unknown processor id is rejected at validate, before any state
+    // change.
+    let ghost = synvelis_project::id::ProcessorId::new(u128::from(u64::MAX));
+    assert!(
+        h.try_edit(
+            set,
+            cand,
+            ProjectOp::SetProcessorBinding {
+                processor_id: ghost,
+                binding: alt_plugin("plug-x", "1.0"),
+            },
+        )
+        .is_err()
+    );
+}
+
+/// sv#513: `add_branch` on a *candidate* parent shares its immutable
+/// payload AND its minted-id lineage — the new branch's content holds
+/// branch-local ids that are neither live nor fork-origin, so adopt-
+/// time provenance checks need the inherited lineage entries.
+#[test]
+fn cb_inst_add_branch_inherits_candidate_lineage() {
+    let mut c = controller();
+    let ids = instrument_fixture(&mut c);
+    let mut h = Fx::new(c);
+    let forked = h.fork(scope_of(ids.inst));
+    let (set, cand) = (forked.variant_set, forked.candidate);
+
+    // Candidate edit mints a parameter target — recorded in the
+    // candidate branch's lineage as branch-local provenance.
+    h.edit(
+        set,
+        cand,
+        ProjectOp::AddParameterTarget {
+            name: "cutoff-2".into(),
+            owner: ControlOwner::Processor(ids.inst),
+            role: ParameterRole::ProcessorParam,
+            time_scope: AutomationTimeScope::ProjectMusical,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: Some(capability(9)),
+            base: 0.5,
+        },
+    );
+    let cand_project = h.candidate(set, cand);
+    let minted = new_targets(&cand_project, h.controller.live());
+    assert_eq!(minted.len(), 1);
+    let minted_tagged = minted[0].to_tagged();
+    let parent_branch = &h.controller.live().variant_sets[&set].branches[&cand];
+    assert!(parent_branch.lineage.local_ids.contains_key(&minted_tagged));
+    let parent_digest = match &parent_branch.content {
+        BranchContentRef::Captured { payload_digest, .. } => *payload_digest,
+        BranchContentRef::Live { .. } => panic!("candidate must carry captured content"),
+    };
+
+    // Set-internal add with the candidate as parent.
+    let added = synvelis_project::variant::add_branch(
+        &mut h.controller,
+        &h.adapter,
+        &mut h.store,
+        &h.resolver,
+        set,
+        cand,
+        &SnapshotCancel::new(),
+    )
+    .unwrap()
+    .branch;
+    let added_branch = &h.controller.live().variant_sets[&set].branches[&added];
+    assert_eq!(added_branch.parent, Some(cand));
+    // Same payload bytes → same content digest; lineage inherited so
+    // the parent-minted target id stays provably branch-local.
+    match &added_branch.content {
+        BranchContentRef::Captured { payload_digest, .. } => {
+            assert_eq!(*payload_digest, parent_digest);
+        }
+        BranchContentRef::Live { .. } => panic!("added branch must carry captured content"),
+    }
+    assert!(added_branch.lineage.local_ids.contains_key(&minted_tagged));
+    // The minted target decodes inside the new candidate.
+    let added_project = h.candidate(set, added);
+    assert!(added_project.control.targets.contains_key(&minted[0]));
 }

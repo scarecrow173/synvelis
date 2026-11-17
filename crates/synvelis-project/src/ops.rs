@@ -527,6 +527,18 @@ pub enum ProjectOp {
         /// New index (0..len).
         new_index: usize,
     },
+    /// Replace a processor's plugin binding in place — ports, chain
+    /// membership, and connections are untouched. `Resolved` rebinds
+    /// mint a fresh persisted plugin-instance identity (PC-C4-05
+    /// `sync_processor` semantics, same as `InsertProcessor`);
+    /// `Unresolved` drops the identity entry and keeps the descriptor
+    /// marker explicitly.
+    SetProcessorBinding {
+        /// Target processor.
+        processor_id: ProcessorId,
+        /// New plugin binding.
+        binding: crate::routing::ProcessorBinding,
+    },
     /// Replace a connection's explicit channel map (`None` clears it).
     /// The post-apply oracle and the generic graph validator own the
     /// map's legality — this op performs no implicit conversion.
@@ -1417,6 +1429,12 @@ impl Operation for ProjectOp {
                 Ok(())
             }
             Self::RemoveProcessor { processor_id } => project
+                .routing
+                .processors
+                .contains_key(processor_id)
+                .then_some(())
+                .ok_or_else(|| Error::NotFound(format!("processor {processor_id}"))),
+            Self::SetProcessorBinding { processor_id, .. } => project
                 .routing
                 .processors
                 .contains_key(processor_id)
@@ -2360,6 +2378,20 @@ impl Operation for ProjectOp {
                 {
                     chain.processors.remove(old);
                     chain.processors.insert(*new_index, *processor_id);
+                }
+            }
+            Self::SetProcessorBinding {
+                processor_id,
+                binding,
+            } => {
+                if let Some(proc) = project.routing.processors.get_mut(processor_id) {
+                    proc.binding = binding.clone();
+                    // PC-C4-05: same identity sync as `InsertProcessor`
+                    // — a rebind to a different `PluginRef` mints a new
+                    // persisted instance id, `Unresolved` drops the
+                    // entry. The post-apply oracle re-checks the
+                    // bijection.
+                    project.plugin_instances.sync_processor(proc)?;
                 }
             }
             Self::SetConnectionChannelMap {

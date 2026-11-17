@@ -231,6 +231,7 @@ pub(crate) fn is_instrument_slot_op(op: &ProjectOp) -> bool {
             | ProjectOp::AddModulationAssignment { .. }
             | ProjectOp::SetModulationAssignment { .. }
             | ProjectOp::RemoveModulationAssignment { .. }
+            | ProjectOp::SetProcessorBinding { .. }
     )
 }
 
@@ -339,6 +340,16 @@ fn check_control_closure_op_targets(
             scope,
             ObjectKind::ModulationAssignment,
             &id.to_tagged(),
+        ),
+        // Plugin rebind (sv#513): the processor entity itself is
+        // scope-owned on every processor scope, so the binding edit
+        // confines exactly like a control-closure target. Ports,
+        // chain membership and wiring are untouched by the op.
+        ProjectOp::SetProcessorBinding { processor_id, .. } => require_scope(
+            project,
+            scope,
+            ObjectKind::Processor,
+            &processor_id.to_tagged(),
         ),
         other => Err(VariantError::Unsupported {
             detail: format!("edit op is outside the supported candidate surface: {other:?}"),
@@ -530,6 +541,23 @@ fn check_strip_fields_op_targets(
                 });
             }
             Ok(())
+        }
+        ProjectOp::SetProcessorBinding { processor_id, .. } => {
+            // Processor entities are scope-owned only under `Inserts`
+            // — same mask gate as `InsertProcessor`.
+            if !fields.owns(StripField::Inserts) {
+                return Err(VariantError::Unsupported {
+                    detail: format!(
+                        "processor binding edits are outside the declared domain mask {fields:?}"
+                    ),
+                });
+            }
+            require_scope(
+                project,
+                scope,
+                ObjectKind::Processor,
+                &processor_id.to_tagged(),
+            )
         }
         ProjectOp::AddParameterTarget { owner, role, .. } => match owner {
             ControlOwner::Strip(owner_strip) if *owner_strip == *strip => {

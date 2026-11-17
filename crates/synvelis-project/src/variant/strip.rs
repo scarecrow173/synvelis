@@ -115,10 +115,10 @@ pub struct StripFieldsCapabilities {
     /// Routing/send/sidechain/bus/monitor ops — external wiring is
     /// shared context and never candidate-owned (CB-STRIP-03).
     pub routing: ProcessingCapability,
-    /// Plugin rebind — descriptor/version/`capability_revision`
-    /// change. No `ProjectOp` mutates `Processor.binding`; a binding
-    /// change is a different authored identity, never a candidate
-    /// edit.
+    /// `SetProcessorBinding` on an insert-chain processor — mask-
+    /// relative: `Supported` under `Inserts` (sv#513). Preset
+    /// selection stays plugin-internal: only the `PluginStatePort`
+    /// seam can express it, never a `ProjectOp`.
     pub plugin_rebind: ProcessingCapability,
     /// Preset selection — plugin-internal opaque state; only the
     /// `PluginStatePort` seam can express it, never a `ProjectOp`.
@@ -195,7 +195,11 @@ impl StripFieldsAdapter {
             modulation_edit: ProcessingCapability::Supported,
             entity_remove: ProcessingCapability::Unsupported,
             routing: ProcessingCapability::Unsupported,
-            plugin_rebind: ProcessingCapability::Unsupported,
+            plugin_rebind: if fields.owns(StripField::Inserts) {
+                ProcessingCapability::Supported
+            } else {
+                ProcessingCapability::Unsupported
+            },
             preset_select: ProcessingCapability::Unsupported,
         }
     }

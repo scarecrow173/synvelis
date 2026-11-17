@@ -2469,7 +2469,14 @@ fn assert_mask_capabilities(adapter: &StripFieldsAdapter, fields: &[StripField])
     assert_eq!(caps.modulation_edit, ProcessingCapability::Supported);
     assert_eq!(caps.entity_remove, ProcessingCapability::Unsupported);
     assert_eq!(caps.routing, ProcessingCapability::Unsupported);
-    assert_eq!(caps.plugin_rebind, ProcessingCapability::Unsupported);
+    // sv#513: `SetProcessorBinding` is a typed op gated on the
+    // `Inserts` field — the report tracks mask ownership.
+    let expected_rebind = if fields.contains(&StripField::Inserts) {
+        ProcessingCapability::Supported
+    } else {
+        ProcessingCapability::Unsupported
+    };
+    assert_eq!(caps.plugin_rebind, expected_rebind);
     assert_eq!(caps.preset_select, ProcessingCapability::Unsupported);
     // A narrower mask reports narrower truth — `{Mute}` only.
     let narrow = adapter.capabilities(&mask(&[StripField::Mute]));

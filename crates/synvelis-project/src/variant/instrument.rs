@@ -82,9 +82,10 @@ pub struct InstrumentSlotCapabilities {
     /// `RemoveModulationSource`/`RemoveModulationAssignment` —
     /// scope-entity removal unsupported.
     pub modulation_remove: ProcessingCapability,
-    /// Plugin rebind — descriptor/version/`capability_revision`
-    /// change. No `ProjectOp` mutates `Processor.binding`; a binding
-    /// change is a different authored identity, never a candidate edit.
+    /// `SetProcessorBinding` — descriptor/version/`capability_revision`
+    /// change on the scoped processor (sv#513). Preset *selection*
+    /// stays plugin-internal: only the `PluginStatePort` seam can
+    /// express it, never a `ProjectOp`.
     pub plugin_rebind: ProcessingCapability,
     /// Preset selection — plugin-internal opaque state; only the
     /// `PluginStatePort` seam can express it, never a `ProjectOp`.
@@ -162,7 +163,7 @@ impl InstrumentSlotAdapter {
             automation_remove: ProcessingCapability::Unsupported,
             modulation_edit: ProcessingCapability::Supported,
             modulation_remove: ProcessingCapability::Unsupported,
-            plugin_rebind: ProcessingCapability::Unsupported,
+            plugin_rebind: ProcessingCapability::Supported,
             preset_select: ProcessingCapability::Unsupported,
             chain_structure: ProcessingCapability::Unsupported,
             routing: ProcessingCapability::Unsupported,
