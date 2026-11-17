@@ -261,15 +261,21 @@ gateway commit-gate 経路の strip-fields headless exercise を
   `synvelis.branch.adopt`（`ApproveToApply` agent grant +
   human approval receipt、cb10/cb11 先例）→
   `synvelis.branch.discard` → `list`/`describe`/`compare`。
-- **wire 表面の実測**: `lower_for` の capability 表に
-  strip-domain inner op へ lower する経路は存在しない。
+- **wire 表面の実測**: 当時 `lower_for` の capability 表に
+  strip-domain inner op へ lower する経路は存在しなかった。
   candidate edit は ordinary op 3 種（`synvelis.clip.mute`・
   `synvelis.track.create`・`synvelis.clip.move`）で
   `PreparationRejected`/`variant-unsupported` を確認し、
   routing/send/bus op は capability 非存在で fail-closed。
-  positive mask-gated edit は project 軸
-  （`cb06_strip_fields.rs`）の責務であり、本経路では
-  confinement の一様な typed reject が正直な境界証拠。
+  **追補（synvelis#548）**: strip-domain capability 5 件が
+  登録され、mask 宣言済みの candidate edit
+  （set-mute/set-solo/param.set-base/insert-processor/
+  processor.set-binding）が positive に受理されることを
+  `cb06_strip_fields_mask_gated_edit_wire_lowering`・
+  `cb06_strip_fields_insert_ops_wire_lowering` で実測。
+  mask 未宣言・scope 外・非 strip op の typed reject は
+  維持。routing op の capability 非存在は依然として正直な
+  境界。
 - **pin 検証**: `expected_scope_digest` の stale 値が
   `variant-stale-scope`、`expected_branch_revision` の stale
   値が `variant-stale-branch-revision` で prepare simulation
@@ -309,7 +315,10 @@ gateway commit-gate 経路の strip-fields headless exercise を
   候補編集は後続 slice。
 - wire 表面への strip-domain op capability 追加
   （`SetStripMute`/`SetParameterBase`/`InsertProcessor` 等を
-  lower する gateway capability）は別 dispatch 対象 —
-  必要になった時点で op 表面設計とあわせて検討。
+  lower する gateway capability）は **synvelis#548 で解消**
+  — 5 件登録・positive mask-gated edit を headless で実測
+  （`docs/impl/ir/issue-548-strip-domain-lowering.md`）。
+  残る routing op capability・scope entity removal・他
+  domain の positive 化は引き続き別 slice。
 - 実 plugin/PCM/OS/RT 受入は #286/#287/#288 系・CB-STRIP-06
   実機 lane の責務（`evidence/sv283/` で NotRun 記録）。

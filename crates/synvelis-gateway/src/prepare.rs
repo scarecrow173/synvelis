@@ -52,8 +52,9 @@ use std::sync::Arc;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use synvelis_project::{
-    ClipId, LaneId, MidiTick, MusicalTick, NoteId, Project, ProjectId, ProjectOp, ProjectRevision,
-    SourceFrame, SourceId, TrackId,
+    ClipId, ControlOwner, LaneId, MidiTick, MusicalTick, NoteId, ParameterRole, ParameterTargetId,
+    ProcessorId, Project, ProjectId, ProjectOp, ProjectRevision, SourceFrame, SourceId, StripId,
+    TrackId,
 };
 
 use crate::authorization::AuthorizationDecision;
@@ -500,6 +501,27 @@ fn target_note(target: &OperationTarget) -> Result<NoteId, GatewayError> {
     }
 }
 
+fn target_strip(target: &OperationTarget) -> Result<StripId, GatewayError> {
+    match resource(target)? {
+        ResourceRef::Strip(id) => Ok(id),
+        _ => Err(malformed("target is not a strip")),
+    }
+}
+
+fn target_param(target: &OperationTarget) -> Result<ParameterTargetId, GatewayError> {
+    match resource(target)? {
+        ResourceRef::ParameterTarget(id) => Ok(id),
+        _ => Err(malformed("target is not a parameter target")),
+    }
+}
+
+fn target_processor(target: &OperationTarget) -> Result<ProcessorId, GatewayError> {
+    match resource(target)? {
+        ResourceRef::Processor(id) => Ok(id),
+        _ => Err(malformed("target is not a processor")),
+    }
+}
+
 fn parent_track(target: &OperationTarget) -> Result<TrackId, GatewayError> {
     match parent(target)? {
         ResourceRef::Track(id) => Ok(id),
@@ -768,6 +790,57 @@ fn lower_clock_epoch(_target: &OperationTarget, args: &Value) -> Result<ProjectO
     })
 }
 
+// synvelis#548 — strip-domain lowering. These ops are the wire form
+// of the CB-06 mask-gated candidate surface: syntactic lowering only,
+// the declared `StripDomainMask`/scope confinement stays
+// `StripFieldsAdapter`'s sole authority at edit time.
+
+fn lower_strip_set_mute(target: &OperationTarget, args: &Value) -> Result<ProjectOp, GatewayError> {
+    Ok(ProjectOp::SetStripMute {
+        strip_id: target_strip(target)?,
+        muted: arg_bool(args, "muted")?,
+    })
+}
+
+fn lower_strip_set_solo(target: &OperationTarget, args: &Value) -> Result<ProjectOp, GatewayError> {
+    Ok(ProjectOp::SetStripSolo {
+        strip_id: target_strip(target)?,
+        soloed: arg_bool(args, "soloed")?,
+    })
+}
+
+fn lower_strip_insert_processor(
+    target: &OperationTarget,
+    args: &Value,
+) -> Result<ProjectOp, GatewayError> {
+    let index = arg_i64(args, "index")?;
+    let index = usize::try_from(index).map_err(|_| malformed("args.index must be non-negative"))?;
+    Ok(ProjectOp::InsertProcessor {
+        strip_id: target_strip(target)?,
+        index,
+        name: arg_string(args, "name")?,
+        binding: arg_typed::<synvelis_project::ProcessorBinding>(args, "binding")?,
+        sidechain_input: arg_bool(args, "sidechain_input")?,
+    })
+}
+
+fn lower_param_set_base(target: &OperationTarget, args: &Value) -> Result<ProjectOp, GatewayError> {
+    Ok(ProjectOp::SetParameterBase {
+        target: target_param(target)?,
+        value: arg_typed::<f64>(args, "value")?,
+    })
+}
+
+fn lower_processor_set_binding(
+    target: &OperationTarget,
+    args: &Value,
+) -> Result<ProjectOp, GatewayError> {
+    Ok(ProjectOp::SetProcessorBinding {
+        processor_id: target_processor(target)?,
+        binding: arg_typed::<synvelis_project::ProcessorBinding>(args, "binding")?,
+    })
+}
+
 /// The capability-id → lowering dispatch. `None` for the batch
 /// capability (its members lower through the same table, handled by
 /// the engine's recursion) and for any id outside the table.
@@ -798,6 +871,11 @@ pub(crate) fn lower_for(id: &str) -> Option<LowerFn> {
         "synvelis.source.register" => lower_source_register,
         "synvelis.source.set-state" => lower_source_set_state,
         "synvelis.clock-epoch.register" => lower_clock_epoch,
+        "synvelis.strip.set-mute" => lower_strip_set_mute,
+        "synvelis.strip.set-solo" => lower_strip_set_solo,
+        "synvelis.strip.insert-processor" => lower_strip_insert_processor,
+        "synvelis.param.set-base" => lower_param_set_base,
+        "synvelis.processor.set-binding" => lower_processor_set_binding,
         // GW-07: the verified-media placement op — its content digest
         // must come from the media gate, so the engine's gated path
         // builds the op; this entry only keeps the table total.
@@ -1118,6 +1196,60 @@ pub(crate) fn op_facts(op: &ProjectOp, project: &Project) -> OpFacts {
                 read(ResourceRef::Lane(*lane_id));
                 preconditions.push(cond("lane-exists", Some(ResourceRef::Lane(*lane_id)), ""));
             }
+        }
+        // synvelis#548 strip-domain ops — the wire-lowered form of the
+        // CB-06 mask-gated candidate surface. Reads name the strip /
+        // processor / parameter target the op consults; the channel
+        // `ParameterTarget` a bool op writes is discovered by
+        // owner+role at apply time, so an existing one is an honest
+        // internal read (a first-use create needs none).
+        ProjectOp::SetStripMute { strip_id, .. } | ProjectOp::SetStripSolo { strip_id, .. } => {
+            read(ResourceRef::Strip(*strip_id));
+            let role = if matches!(op, ProjectOp::SetStripMute { .. }) {
+                ParameterRole::Mute
+            } else {
+                ParameterRole::Solo
+            };
+            if let Some(target) = project
+                .control
+                .targets
+                .values()
+                .find(|t| t.owner == ControlOwner::Strip(*strip_id) && t.role == role)
+            {
+                read(ResourceRef::ParameterTarget(target.id));
+            }
+            preconditions.push(cond(
+                "strip-exists",
+                Some(ResourceRef::Strip(*strip_id)),
+                "",
+            ));
+        }
+        ProjectOp::InsertProcessor { strip_id, .. } => {
+            read(ResourceRef::Strip(*strip_id));
+            preconditions.push(cond(
+                "strip-exists",
+                Some(ResourceRef::Strip(*strip_id)),
+                "",
+            ));
+            preconditions.push(cond("insert-index-in-range", None, ""));
+        }
+        ProjectOp::SetProcessorBinding { processor_id, .. } => {
+            read(ResourceRef::Processor(*processor_id));
+            preconditions.push(cond(
+                "processor-exists",
+                Some(ResourceRef::Processor(*processor_id)),
+                "",
+            ));
+        }
+        ProjectOp::SetParameterBase { target, .. } => {
+            read(ResourceRef::ParameterTarget(*target));
+            preconditions.push(cond(
+                "param-target-exists",
+                Some(ResourceRef::ParameterTarget(*target)),
+                "",
+            ));
+            preconditions.push(cond("param-not-readonly", None, ""));
+            preconditions.push(cond("param-base-in-range", None, ""));
         }
         // Control-plane, media-state, and any unlowered variant: the
         // observable attribute diff cannot fully classify them —

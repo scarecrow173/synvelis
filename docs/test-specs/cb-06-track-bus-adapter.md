@@ -149,11 +149,22 @@ headless exercise）で、本 spec の境界契約が gateway の
   `synvelis.track.create`・`synvelis.clip.move`）が全て
   `PreparationRejected`/`variant-unsupported` で typed reject
   され、live revision・branch content revision・対象 entity が
-  不変。gateway の wire capability 表に strip-domain inner op
-  （`SetStripMute`/`SetParameterBase`/`InsertProcessor` 等）へ
-  lower する経路は存在しないため、mask-gated positive edit は
-  project 軸（`cb06_strip_fields.rs`）の責務であり、本経路の
-  edit 面の証拠は confinement の一様な fail-closed である。
+  不変。当時の gateway の wire capability 表に strip-domain
+  inner op（`SetStripMute`/`SetParameterBase`/`InsertProcessor`
+  等）へ lower する経路は存在しなかったため、edit 面の証拠は
+  confinement の一様な fail-closed であった。
+  **追補（synvelis#548）**: strip-domain wire capability
+  5 件（`synvelis.strip.set-mute`/`set-solo`/
+  `insert-processor`・`synvelis.param.set-base`・
+  `synvelis.processor.set-binding`）が op 表に登録され、
+  mask 宣言済み family の candidate edit が positive に
+  受理されることが
+  `cb06_strip_fields_mask_gated_edit_wire_lowering`・
+  `cb06_strip_fields_insert_ops_wire_lowering` で pin された。
+  mask 未宣言 family・scope 外 target・非 strip op の
+  `variant-unsupported`/`variant-scope-violation` typed
+  reject は引き続き境界証拠として維持される
+  （`docs/test-specs/issue-548-strip-domain-lowering.md`）。
 - routing/send/bus op は capability 自体が存在せず fail-closed
   — 外部 wiring は candidate-owned でない（本 spec の
   routing 参照保護 Rule と一致）。

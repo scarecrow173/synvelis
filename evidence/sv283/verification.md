@@ -141,3 +141,22 @@ production code 変更なし。
   内容はリース済み `docs/impl/{ir,exp}`・
   `docs/test-specs/cb-06-track-bus-adapter.md` に集約
   （リース外 docs への書き込みは行っていない）。
+
+## 追補 — strip-domain inner op lowering（synvelis#548）
+
+- `mise run test synvelis-gateway` — 全 suite Pass
+  （`cb06_strip_gateway` 4 件: lifecycle・boundary/
+  capabilities・mask-gated edit wire lowering・insert ops
+  wire lowering。`tests/prepare.rs` 21 件: strip-domain
+  ordinary prepare 3 件を含む）。
+- wire 表面の実測（synvelis#548 後）: `lower_for` capability
+  表に strip-domain op 5 件の lowering が存在し、狭 mask
+  （channel 系）・全 mask（inserts 系）の両側で positive
+  mask-gated edit が candidate payload に commit される
+  ことを確認。mask 未宣言・scope 外・非 strip op は
+  `variant-unsupported`/`variant-scope-violation` の
+  typed reject を維持し revision を消費しない。
+- 残る NotRun: routing op capability・scope entity
+  removal・他 domain positive 化・実 PCM/RT/plugin・
+  実 GUI lane（別 slice/別 gate）。
+- 検証詳細: `evidence/sv548/verification.md`。

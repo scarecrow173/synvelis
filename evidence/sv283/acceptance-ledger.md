@@ -113,3 +113,18 @@ Project`、foreign scope kind（`InstrumentSlot`）は
 | 外部 Plugin GUI / Native Dock | Windows | #176 Dock gate | NotRun | GUI lane は #176・Floating/Generic 表示のみでは実 Dock Pass としない |
 | PDC / RT bounded | Windows | 実 chain | NotRun | 実 RT pipeline・plugin latency 報告が必要 |
 | PCM / A-B 比較 | Windows | 実 render | NotRun | 実 Render pipeline・比較 orchestration（#285/#288） |
+
+## 追補 — gateway strip-domain inner op lowering（synvelis#548）
+
+CB-06 gateway commit-gate 経路の残件として、strip-domain
+inner op の wire capability 化を実施。`synvelis.strip.
+set-mute`/`set-solo`/`insert-processor`・
+`synvelis.param.set-base`・`synvelis.processor.set-binding`
+の 5 capability が op 表に登録され、mask 宣言済みの
+candidate edit が positive に受理されることを headless で
+実測（`cb06_strip_fields_mask_gated_edit_wire_lowering`・
+`cb06_strip_fields_insert_ops_wire_lowering`）。
+mask 未宣言 family・scope 外 target・非 strip op の
+typed reject 境界・scope digest / branch revision pin /
+adopt provenance の既存証拠は維持。
+証拠: `evidence/sv548/verification.md`。

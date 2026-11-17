@@ -13,17 +13,21 @@
 //!   resolves the registered adapter, captures the candidate payload
 //!   through the shared content store, and commits as one CAS with
 //!   domain provenance.
-//! - **Typed edit boundary** — every ordinary op the gateway table can
-//!   lower (`synvelis.clip.*`, `synvelis.track.*`, …) is *not*
-//!   strip-domain surface: each candidate edit fails
-//!   closed `PreparationRejected`/`variant-unsupported` before any
-//!   mutation. No wire capability lowers to `SetStripMute`,
-//!   `SetParameterBase`, `InsertProcessor` or any other mask-gated
-//!   strip op in this slice, so the honest boundary evidence is the
-//!   uniform typed rejection — never a silent accept or a guessed
-//!   mapping. Routing/send/sidechain/bus ops have no capability at
-//!   all; external wiring stays shared live context by construction
-//!   (CB-STRIP-03).
+//! - **Typed edit boundary** — the strip-domain wire capabilities
+//!   (`synvelis.strip.*`, `synvelis.param.set-base`,
+//!   `synvelis.processor.set-binding`, synvelis#548) lower through
+//!   the ordinary op table into `BranchEditOp::Project`, so a
+//!   mask-declared candidate edit commits into the branch payload —
+//!   never live — with the branch content revision advancing. The
+//!   declared `StripDomainMask` and scope confinement stay
+//!   `StripFieldsAdapter`'s authority: an op family the mask did not
+//!   declare, a target outside the scope, and every non-strip
+//!   ordinary op (`synvelis.clip.*`, `synvelis.track.*`, …) still
+//!   fails `PreparationRejected`/`variant-unsupported` (or
+//!   `variant-scope-violation`) before any mutation — never a
+//!   silent accept or a guessed mapping. Routing/send/sidechain/bus
+//!   ops have no capability at all; external wiring stays shared
+//!   live context by construction (CB-STRIP-03).
 //! - **Adopt CAS + approval + scope-digest pins** — `adopt` consumes
 //!   the approval receipt as the domain ticket, re-verifies the live
 //!   scope fingerprint against `expected_scope_digest`, and commits
@@ -62,8 +66,9 @@ use synvelis_project::variant::{
     VariantScope, scope_digest,
 };
 use synvelis_project::{
-    BranchId, ClipId, Command, CounterIdGenerator, DirectoryBundleStore, Project,
-    ProjectController, ProjectOp, ProjectRevision, ProjectStore, StripId, TrackId, VariantSetId,
+    BranchId, ClipId, Command, ControlOwner, CounterIdGenerator, DirectoryBundleStore,
+    ParameterRole, ParameterTargetId, ProcessorId, Project, ProjectController, ProjectOp,
+    ProjectRevision, ProjectStore, StripId, TrackId, VariantSetId,
 };
 
 // ── Strip fixture ────────────────────────────────────────────
@@ -233,6 +238,111 @@ fn clip_move_op() -> Value {
         "synvelis.clip.move",
         json!({"shape": "resource", "kind": "clip", "id": ClipId::new(11).to_tagged()}),
         json!({"anchor": {"kind": "Musical", "value": 600}}),
+    )
+}
+
+// ── synvelis#548 strip-domain inner ops ──────────────────────
+//
+// The wire capabilities that lower to the mask-gated `ProjectOp`s
+// `StripFieldsAdapter` accepts. Targets name real fixture entities —
+// the scoped strip, its seeded channel `ParameterTarget`, the seeded
+// insert processor — discovered from project truth.
+
+fn strip_target() -> Value {
+    json!({"shape": "resource", "kind": "strip", "id": strip_id().to_tagged()})
+}
+
+/// The scoped strip's seeded channel `ParameterTarget` for `role` —
+/// discovered from project truth, never hard-coded.
+fn strip_channel_target(role: ParameterRole) -> ParameterTargetId {
+    strip_project()
+        .control
+        .targets
+        .values()
+        .find(|t| t.owner == ControlOwner::Strip(strip_id()) && t.role == role)
+        .expect("strip channel target exists")
+        .id
+}
+
+fn strip_set_mute_op() -> Value {
+    op(
+        "synvelis.strip.set-mute",
+        strip_target(),
+        json!({"muted": true}),
+    )
+}
+
+fn strip_set_solo_op() -> Value {
+    op(
+        "synvelis.strip.set-solo",
+        strip_target(),
+        json!({"soloed": true}),
+    )
+}
+
+fn strip_insert_processor_op() -> Value {
+    op(
+        "synvelis.strip.insert-processor",
+        strip_target(),
+        json!({
+            "index": 0,
+            "name": "fx2",
+            "binding": {"binding": "Unresolved", "descriptor": "plug-demo2"},
+            "sidechain_input": false,
+        }),
+    )
+}
+
+fn param_set_base_op() -> Value {
+    op(
+        "synvelis.param.set-base",
+        json!({
+            "shape": "resource",
+            "kind": "parameter-target",
+            "id": strip_channel_target(ParameterRole::Fader).to_tagged(),
+        }),
+        json!({"value": 0.25}),
+    )
+}
+
+/// The scoped strip's seeded insert processor — discovered through
+/// its chain, never hard-coded.
+fn strip_processor_id() -> ProcessorId {
+    let p = strip_project();
+    let strip = p
+        .routing
+        .strip_of_track(TrackId::new(3))
+        .expect("track strip exists");
+    p.routing.chains[&strip.chain].processors[0]
+}
+
+fn processor_set_binding_op() -> Value {
+    op(
+        "synvelis.processor.set-binding",
+        json!({
+            "shape": "resource",
+            "kind": "processor",
+            "id": strip_processor_id().to_tagged(),
+        }),
+        json!({
+            "binding": {"binding": "Unresolved", "descriptor": "plug-demo-b"},
+        }),
+    )
+}
+
+/// `set-mute` aimed at the *master* strip — a strip entity outside
+/// the declared scope (the scope owns only the track strip).
+fn strip_set_mute_foreign_op() -> Value {
+    let master = strip_project()
+        .routing
+        .buses
+        .get(&strip_project().routing.master)
+        .expect("master bus exists")
+        .strip;
+    op(
+        "synvelis.strip.set-mute",
+        json!({"shape": "resource", "kind": "strip", "id": master.to_tagged()}),
+        json!({"muted": true}),
     )
 }
 
@@ -828,4 +938,183 @@ fn cb06_strip_fields_scope_boundary_and_capabilities() {
     let d1 = scope_digest(&project, &scope).unwrap();
     let d2 = scope_digest(&strip_project(), &scope).unwrap();
     assert_eq!(d1, d2);
+}
+
+/// synvelis#548 — strip-domain wire capabilities lower through the
+/// ordinary op table: a mask-declared candidate edit commits into
+/// the branch payload (content revision advances, live untouched),
+/// while an undeclared mask family, a foreign target and a
+/// non-strip op keep the typed reject boundary.
+#[test]
+fn cb06_strip_fields_mask_gated_edit_wire_lowering() {
+    let mut vrig = variant_rig();
+    vrig.rig
+        .source
+        .commit(project(), ProjectRevision(2), strip_project());
+    let dir = tmpdir("cb06-strip-edit");
+    let gate = boot_strip(&vrig, &dir);
+
+    // Channel-fields mask only — `inserts` stays undeclared so the
+    // insert/rebind family doubles as the mask-negative evidence.
+    let scope = json!({
+        "kind": "strip-fields",
+        "strip": strip_id().to_tagged(),
+        "fields": ["fader", "mute", "solo"],
+    });
+    commit_human(&mut vrig, &gate, fork_op(&scope), 2);
+    publish(&gate, &vrig.rig);
+    let (set, adopted, candidate) = only_set(&gate);
+
+    // ── Positive: declared-field edits land in the payload ────
+    let live_before = live_rev(&gate);
+    let mut brev = branch_revision(&gate, &set, &candidate);
+    assert_eq!(brev, 1);
+    for inner in [
+        strip_set_mute_op(),
+        strip_set_solo_op(),
+        param_set_base_op(),
+    ] {
+        commit_human(
+            &mut vrig,
+            &gate,
+            edit_op(&set, &candidate, brev, &inner),
+            live_rev(&gate),
+        );
+        publish(&gate, &vrig.rig);
+        brev = branch_revision(&gate, &set, &candidate);
+    }
+    // Three accepted edits advanced the candidate content revision
+    // 1 → 4; each `EditCandidate` apply bumped live revision by one
+    // (branch bookkeeping is live truth) while scoped content stayed
+    // on the candidate side.
+    assert_eq!(brev, 4);
+    assert_eq!(live_rev(&gate), live_before + 3);
+    // Live strip truth is untouched — the fader channel target still
+    // reads its seeded base.
+    gate.inspect(|c| {
+        let target = c
+            .live()
+            .control
+            .targets
+            .values()
+            .find(|t| t.owner == ControlOwner::Strip(strip_id()) && t.role == ParameterRole::Fader)
+            .expect("fader target exists");
+        assert_eq!(target.base, 1.0);
+    });
+    // The candidate payload now differs from live — compare verifies
+    // both sides through the shared content store.
+    let compare = complete(
+        vrig.rig
+            .gw
+            .handle(
+                &query_req(
+                    "synvelis.branch.compare",
+                    &json!({
+                        "branch_a": adopted.to_tagged(),
+                        "branch_b": candidate.to_tagged(),
+                    }),
+                    Some(set_target(&set)),
+                ),
+                human(),
+            )
+            .unwrap(),
+    );
+    assert_eq!(compare["scope_digests_equal"], json!(false));
+    assert_eq!(compare["branch_b"]["content"]["verified"], json!(true));
+
+    // ── Mask negative: undeclared `inserts` family rejects ─────
+    expect_edit_rejected(
+        &mut vrig,
+        &gate,
+        &set,
+        &candidate,
+        &strip_insert_processor_op(),
+        "variant-unsupported",
+    );
+
+    // ── Scope negative: foreign strip target rejects typed ─────
+    expect_edit_rejected(
+        &mut vrig,
+        &gate,
+        &set,
+        &candidate,
+        &strip_set_mute_foreign_op(),
+        "variant-scope-violation",
+    );
+
+    // ── Non-strip ordinary op keeps the uniform reject ─────────
+    expect_edit_rejected(
+        &mut vrig,
+        &gate,
+        &set,
+        &candidate,
+        &clip_mute_op(),
+        "variant-unsupported",
+    );
+
+    // Rejections consumed nothing — the content revision is still 4.
+    assert_eq!(branch_revision(&gate, &set, &candidate), 4);
+}
+
+/// synvelis#548 — the `inserts` field family lowers too: under the
+/// all-five mask `insert-processor` and `processor.set-binding`
+/// commit into the branch payload as candidate edits, live stays
+/// untouched, and the non-strip boundary still rejects typed.
+#[test]
+fn cb06_strip_fields_insert_ops_wire_lowering() {
+    let mut vrig = variant_rig();
+    vrig.rig
+        .source
+        .commit(project(), ProjectRevision(2), strip_project());
+    let dir = tmpdir("cb06-strip-insert");
+    let gate = boot_strip(&vrig, &dir);
+
+    // All five field families declared — the widest honest mask.
+    commit_human(&mut vrig, &gate, fork_op(&strip_scope()), 2);
+    publish(&gate, &vrig.rig);
+    let (set, _adopted, candidate) = only_set(&gate);
+
+    let live_before = live_rev(&gate);
+    let mut brev = branch_revision(&gate, &set, &candidate);
+    assert_eq!(brev, 1);
+    for inner in [strip_insert_processor_op(), processor_set_binding_op()] {
+        commit_human(
+            &mut vrig,
+            &gate,
+            edit_op(&set, &candidate, brev, &inner),
+            live_rev(&gate),
+        );
+        publish(&gate, &vrig.rig);
+        brev = branch_revision(&gate, &set, &candidate);
+    }
+    assert_eq!(brev, 3);
+    assert_eq!(live_rev(&gate), live_before + 2);
+
+    // Live chain still holds exactly the seeded `fx` processor —
+    // the candidate's `fx2` insert and `plug-demo-b` rebind never
+    // touched it.
+    gate.inspect(|c| {
+        let p = c.live();
+        let strip = p
+            .routing
+            .strip_of_track(TrackId::new(3))
+            .expect("track strip exists");
+        let chain = &p.routing.chains[&strip.chain];
+        assert_eq!(chain.processors.len(), 1);
+        let proc = &p.routing.processors[&chain.processors[0]];
+        assert_eq!(proc.name, "fx");
+        assert!(matches!(proc.binding, ProcessorBinding::Unresolved { .. }));
+    });
+
+    // The non-strip ordinary op keeps the uniform typed reject even
+    // under the widest mask.
+    expect_edit_rejected(
+        &mut vrig,
+        &gate,
+        &set,
+        &candidate,
+        &clip_mute_op(),
+        "variant-unsupported",
+    );
+    assert_eq!(branch_revision(&gate, &set, &candidate), 3);
 }
