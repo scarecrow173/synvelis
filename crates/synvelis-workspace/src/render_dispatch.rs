@@ -133,15 +133,7 @@ impl WorkspaceRenderDispatch {
         match self.scheduler.handle_report(report) {
             Ok(TriggerOutcome::Job { key, coalesced }) => {
                 let receipt = serde_json::to_value(&key).ok();
-                if !coalesced {
-                    Self::outcome(
-                        RenderDispatchState::Pending {
-                            reason: "render job accepted; completion is asynchronous".to_owned(),
-                        },
-                        None,
-                        receipt,
-                    )
-                } else {
+                if coalesced {
                     // A coalesced submit into a terminal job does no
                     // new work — report the actual job state rather
                     // than claiming "in-flight" (synvelis#518).
@@ -169,6 +161,14 @@ impl WorkspaceRenderDispatch {
                             receipt,
                         ),
                     }
+                } else {
+                    Self::outcome(
+                        RenderDispatchState::Pending {
+                            reason: "render job accepted; completion is asynchronous".to_owned(),
+                        },
+                        None,
+                        receipt,
+                    )
                 }
             }
             Ok(TriggerOutcome::ShareGate { job, verdict }) => {
