@@ -539,8 +539,11 @@ pub enum ScriptErrorKind {
     Runtime,
     /// A declared budget was exceeded.
     BudgetExceeded {
-        /// Which budget.
-        kind: BudgetKind,
+        /// Which budget fired — `None` when the backend cannot
+        /// attribute the exceeded dimension (the neutral RF-SCRIPT-00
+        /// contract carries no per-dimension detail; backends that
+        /// enforce budgets themselves should still report `Some`).
+        kind: Option<BudgetKind>,
     },
     /// Evaluation was cancelled.
     Cancelled,

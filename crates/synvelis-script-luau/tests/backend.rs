@@ -244,9 +244,27 @@ fn infinite_loop_hits_wall_clock_budget() {
         matches!(
             err.kind,
             ScriptErrorKind::BudgetExceeded {
-                kind: BudgetKind::WallClock
+                kind: Some(BudgetKind::WallClock)
             }
         ),
+        "{err:?}"
+    );
+}
+
+#[test]
+fn budget_exceeded_kind_is_none_when_multiple_budgets_armed() {
+    // The neutral contract error carries no per-dimension detail —
+    // with wall-clock AND memory both armed the adapter must report
+    // `None` rather than guess which budget fired.
+    let backend = backend();
+    let mut cfg = config("while true do local t = {} t[1] = 1 end");
+    cfg.budget.max_wall_time = Some(Duration::from_millis(100));
+    cfg.budget.max_memory_bytes = Some(64 * 1024 * 1024);
+    let mut session = backend.open_session(&cfg).expect("session opens");
+    let err = session.evaluate().expect_err("budget");
+    session.close();
+    assert!(
+        matches!(err.kind, ScriptErrorKind::BudgetExceeded { kind: None }),
         "{err:?}"
     );
 }
@@ -263,7 +281,7 @@ fn memory_budget_is_enforced() {
         matches!(
             err.kind,
             ScriptErrorKind::BudgetExceeded {
-                kind: BudgetKind::Memory
+                kind: Some(BudgetKind::Memory)
             }
         ),
         "{err:?}"
@@ -309,35 +327,42 @@ fn nil_return_produces_no_artifact() {
 }
 
 #[test]
-fn multi_return_is_contract_violation() {
+fn multi_return_is_internal_error() {
+    // The product backend classifies lifted-shape violations as
+    // `Internal` (the neutral contract has no ContractViolation
+    // kind); the adapter maps that 1:1.
     let err = eval("return 1, 2").expect_err("multi return");
     assert!(
-        matches!(err.kind, ScriptErrorKind::ContractViolation { .. }),
+        matches!(err.kind, ScriptErrorKind::Internal { .. }),
         "{err:?}"
     );
 }
 
 #[test]
-fn mixed_table_keys_are_contract_violation() {
+fn mixed_table_keys_are_internal_error() {
     let err = eval("return { a = 1, [2] = 'x' }").expect_err("mixed keys");
     assert!(
-        matches!(err.kind, ScriptErrorKind::ContractViolation { .. }),
+        matches!(err.kind, ScriptErrorKind::Internal { .. }),
         "{err:?}"
     );
 }
 
 #[test]
-fn sparse_integer_table_is_contract_violation() {
+fn sparse_integer_table_is_internal_error() {
     let err = eval("return { [1] = 'a', [3] = 'c' }").expect_err("sparse");
     assert!(
-        matches!(err.kind, ScriptErrorKind::ContractViolation { .. }),
+        matches!(err.kind, ScriptErrorKind::Internal { .. }),
         "{err:?}"
     );
 }
 
 #[test]
 fn non_finite_number_is_value_out_of_range() {
-    let err = eval("return 0/0").expect_err("nan");
+    // Record-wrapped so the value reaches the binding's conversion —
+    // a bare `0/0` is a non-record artifact payload (Internal)
+    // upstream; nested inside the spec record the binding still
+    // rejects the non-finite float as ValueOutOfRange.
+    let err = eval("return { nan = 0/0 }").expect_err("nan");
     assert!(
         matches!(err.kind, ScriptErrorKind::ValueOutOfRange),
         "{err:?}"
@@ -360,12 +385,12 @@ fn sessions_are_independent() {
     let mut a = backend.open_session(&config("x = 41")).expect("a opens");
     a.evaluate().expect("a evals");
     let mut b = backend
-        .open_session(&config("return (x or 0) + 1"))
+        .open_session(&config("return { v = (x or 0) + 1 }"))
         .expect("b opens");
     // `x` set in session a must not leak into session b.
     let result_b = b.evaluate().expect("b evals");
     let value = result_b.return_value.expect("b returns");
-    assert_eq!(value.to_json().unwrap(), serde_json::json!(1));
+    assert_eq!(value.to_json().unwrap(), serde_json::json!({ "v": 1 }));
     a.close();
     b.close();
 }
@@ -390,19 +415,24 @@ fn sandbox_strips_escape_globals() {
 fn shared_subtable_dag_hits_lift_node_budget() {
     // `{a=s,b=s}` chains share subtables — naive lifting enumerates
     // 2^n leaf paths inside Rust code where no VM safepoint fires.
-    // The node budget must stop it as a typed contract violation.
+    // The node budget must stop it as a typed failure (the product
+    // backend classifies lift-bound violations as `Internal`).
     let err = eval("local s = {} for i = 1, 21 do s = { a = s, b = s } end return s")
         .expect_err("dag lift");
     assert!(
-        matches!(err.kind, ScriptErrorKind::ContractViolation { .. }),
+        matches!(err.kind, ScriptErrorKind::Internal { .. }),
         "{err:?}"
     );
 }
 
 #[test]
 fn evaluate_is_single_shot() {
+    // Record-shaped return — the product contract requires artifact
+    // payloads to be records.
     let backend = backend();
-    let mut session = backend.open_session(&config("return 1")).expect("opens");
+    let mut session = backend
+        .open_session(&config("return { ok = true }"))
+        .expect("opens");
     session.evaluate().expect("first eval");
     let err = session.evaluate().expect_err("second eval");
     session.close();
@@ -463,7 +493,7 @@ fn pcall_cannot_swallow_wall_clock_budget() {
         matches!(
             err.kind,
             ScriptErrorKind::BudgetExceeded {
-                kind: BudgetKind::WallClock
+                kind: Some(BudgetKind::WallClock)
             }
         ),
         "{err:?}"
