@@ -178,9 +178,12 @@ diff は `compare_snapshots`（`snap_manual` projection）で
 - 実 Instrument/FX render を伴う音響差分の確定性・実 MIDI
   device/SMF capture・RT lanes・workspace projection —
   `evidence/sv280/` で NotRun/Deferred。
-- literal な同時 N>2 branch VariantSet（engine の branch
+- ~~literal な同時 N>2 branch VariantSet（engine の branch
   追加 op が未実装 — 「3候補」は lifecycle + sibling scope
-  で実演）。
+  で実演）~~ — `synvelis#513`（`f22de8ac`・`VariantOp::
+  AddBranch`）で解消済み・literal lane
+  `cb_midi_01_literal_three_simultaneous_candidates` headless
+  Pass（2026-11-18 記録）。
 - CC/PitchBend/CC64・note key/len・MIDI2/未知 event の
   候補編集 surface（`ProjectOp` 未実装 — `Unsupported` が
   正直な verdict）。
