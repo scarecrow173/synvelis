@@ -27,6 +27,7 @@ Directory: `docs/discovery`
 | DISC-034YXHqBzrCYhc5YBzqLj3 | issue-515-os-credential — verified-Human OS-credential session 供給の探索結果 | resolved | [issue-515-os-credential.md](./issue-515-os-credential.md) |
 | DISC-lBw8TRfrsCuiBaOZspSfW1 | Issue #516 discovery — interim mlua adapter vs ruviform 製品 port の binding-fit 調査 | resolved | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | DISC-sv517aB2cD4eF6gH8iJ0kL1 | Issue #517 discovery — render/branch pipeline 本番配線の残件調査 | resolved | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
+| DISC-sv518aB2cD4eF6gH8iJ0kL2 | Issue #518 discovery — production job system 配線の残件調査 | resolved | [issue-518-job-system.md](./issue-518-job-system.md) |
 | DISC-4qXzyQzBwS2yIrMLH0Ra | Issue #530 discovery — stateless plugin を PluginStateDecl で表現する契約調査 | resolved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | DISC-99vL2v7VILngzJrF9fbNos | L1 Discovery — Local WAV Safe Import・Verified Media・Headless Generic Graph Playback | resolved | [l1-local-wav-verified-playback-discovery.md](./l1-local-wav-verified-playback-discovery.md) |
 | DISC-034Qmb93ek3YXoxaRPDBBD | L2 Discovery — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | resolved | [l2-master-sequential-offline-wav-export-discovery.md](./l2-master-sequential-offline-wav-export-discovery.md) |

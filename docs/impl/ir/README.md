@@ -15,6 +15,7 @@ Directory: `docs/impl/ir`
 | IMPL-034Xpa4SOZfOriBGBTfZdR | CB-06 Track/Bus 候補 Adapter — Strip Domain Mask・Routing参照保護・Adopt（synvelis#283） | in-progress | [cb-06-track-bus-adapter.md](./cb-06-track-bus-adapter.md) |
 | IMPL-034XPMrg013WoI7EuJkO5f | CB-07 Arrangement 候補 Adapter — Track集合×MusicalRange×ArrangementDomainMask・Atomic Adopt（synvelis#284） | in-progress | [cb-07-arrangement-adapter.md](./cb-07-arrangement-adapter.md) |
 | IMPL-034XNNwRQLH6IQ0GqHISl9 | CB-09 Difference Explorer headless view-model + driver-neutral ViewSpec（synvelis#286） | in-progress | [cb-09-diff-explorer.md](./cb-09-diff-explorer.md) |
+| IMPL-034Z9b1GPiML5a5vQBbZef | issue-518-job-system — production render job system 配線 | in-progress | [issue-518-job-system.md](./issue-518-job-system.md) |
 | IMPL-034UvgCFl4bXw9DZ4bTr3X | SF-04 slice2 ControlSession probe observation trace wiring | in-progress | [sf-04-slice2-controlsession-probe-observation-trace-wiring.md](./sf-04-slice2-controlsession-probe-observation-trace-wiring.md) |
 | IMPL-034UL7HNJppFLqjkPqHDxX | SF-04 slice3 probe clock epoch discontinuity capture segmentation | in-progress | [sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md](./sf-04-slice3-probe-clock-epoch-discontinuity-capture-segmentation.md) |
 | IMPL-034VpPQEAhdWyygKYS7mb9 | SF-04 slice5 probe subscriber window ownership | in-progress | [sf-04-slice5-probe-subscriber-window-ownership.md](./sf-04-slice5-probe-subscriber-window-ownership.md) |
