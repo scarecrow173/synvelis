@@ -29,7 +29,7 @@ Date: 2026-11-20. Branch: feat/513-variant-apply-ops. Lane: headless.
 ## 検証証拠（補助 — cargo 直接実行）
 
 - `cargo test -p synvelis-project --test vcs07_variant_diff` → 8/8 Pass
-- `cargo test -p synvelis-project --test rcd_04_comp_cas` → 7/7 Pass
+- `cargo test -p synvelis-project --test rcd_04_comp_cas` → 8/8 Pass
 - `cargo test -p synvelis-project --test cb03_midi_clip` → 13/13 Pass
 - `cargo test -p synvelis-project --test cb04_instrument_slot cb_inst_plugin` → 1/1 Pass
 - canonical `mise run fmt-check/check/lint/test synvelis-project`:

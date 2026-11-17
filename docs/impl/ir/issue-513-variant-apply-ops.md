@@ -12,6 +12,11 @@ relations:
     - "docs/plans/issue-513-variant-apply-ops.md"
     - "docs/tasks/issue-513-variant-apply-ops.md"
   derived-by: ["docs/impl/exp/issue-513-variant-apply-ops.md"]
+metadata:
+  experiments:
+    adopted:
+      - "docs/impl/exp/issue-513-variant-apply-ops.md"
+    rejected: []
 ---
 
 # IR: issue-513-variant-apply-ops
@@ -43,7 +48,7 @@ relations:
 ## 検証
 
 `cargo test -p synvelis-project --test vcs07_variant_diff` 8/8 Pass、
-`--test rcd_04_comp_cas` 7/7 Pass（comping replay 含む）、
+`--test rcd_04_comp_cas` 8/8 Pass（comping replay 含む）、
 `--test cb03_midi_clip` 13/13 Pass（3-candidate lane 含む）、
 `--test cb04_instrument_slot cb_inst_plugin` 1/1 Pass。
 canonical `mise run` 検証は PR 本文に記録。
