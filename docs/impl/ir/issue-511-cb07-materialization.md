@@ -14,11 +14,6 @@ relations:
     - "docs/adr/issue-511-cb07-materialization.md"
   changes:
     added:
-      - "crates/synvelis-project/tests/cb07_arrangement.rs"
-    modified:
-      - "crates/synvelis-project/src/variant/engine.rs"
-      - "crates/synvelis-project/src/apply/entity.rs"
-      - "crates/synvelis-project/src/ppqn.rs"
       - "docs/discovery/issue-511-cb07-materialization.md"
       - "docs/specs/issue-511-cb07-materialization.md"
       - "docs/designs/issue-511-cb07-materialization.md"
@@ -30,6 +25,11 @@ relations:
       - "docs/impl/exp/issue-511-cb07-materialization.md"
       - "docs/impl/exp/issue-511-cb07-materialization-exp.jsonl"
       - "evidence/sv511/"
+    modified:
+      - "crates/synvelis-project/src/variant/engine.rs"
+      - "crates/synvelis-project/src/apply/entity.rs"
+      - "crates/synvelis-project/src/ppqn.rs"
+      - "crates/synvelis-project/tests/cb07_arrangement.rs"
     deleted: []
     renamed: []
     moved: []
@@ -126,5 +126,5 @@ relations:
 
 ## 検証
 
-`evidence/sv511/acceptance-ledger.md` に lane 別 Pass/NotRun を
+`evidence/sv511/verification.md` に lane 別 Pass/NotRun を
 記録。headless fixture lane のみ Pass 判定。

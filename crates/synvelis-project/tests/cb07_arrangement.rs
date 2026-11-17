@@ -7,9 +7,11 @@
 //! boundary inventory (absolute anchors reported, never silently
 //! owned), one-CAS adopt with undo/save-reload and stale-scope/
 //! recording gates, branch-minted ID lineage, semantic diff
-//! classification, and the honest adopt deferral for scope-removal
-//! candidates. Real OS / plugin / RT / PCM / GUI timeline lanes are
-//! `NotRun` — recorded in `evidence/sv284/`.
+//! classification, and scope-removal materialization on adopt
+//! (`Removed` writes for `Clip | Note`, typed rejection for
+//! move-outs and unsupported kinds). Real OS / plugin / RT / PCM /
+//! GUI timeline lanes are
+//! `NotRun` — recorded in `evidence/sv284/` and `evidence/sv511/`.
 
 use std::collections::BTreeSet;
 
