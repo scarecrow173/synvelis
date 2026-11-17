@@ -14,7 +14,8 @@ use rig::*;
 use serde_json::{Value, json};
 use synvelis_gateway::*;
 use synvelis_project::{
-    ClipId, Command, CounterIdGenerator, NoteId, ProjectController, ProjectRevision, SourceId,
+    ClipId, Command, ControlOwner, CounterIdGenerator, NoteId, ParameterRole, ParameterTargetId,
+    ProcessorId, ProjectController, ProjectRevision, SourceId, StripId,
 };
 
 // ── Happy path + non-destructivity ───────────────────────────
@@ -944,4 +945,225 @@ fn retained_record_carries_revalidation_data() {
         record.request.capability().id.as_str(),
         "synvelis.operation.prepare"
     );
+}
+
+// ── synvelis#548 strip-domain capabilities ───────────────────
+//
+// The CB-06 mask-gated strip ops are ordinary wire capabilities:
+// they lower through the same op table, declare honest reads and
+// preconditions, and prepare non-destructively against the pinned
+// base. Mask/scope confinement itself stays `StripFieldsAdapter`'s
+// authority — these tests prove the GW-04 prepare surface only.
+
+/// The bootstrap master strip — discovered from project truth.
+fn master_strip() -> StripId {
+    let p = demo_project();
+    p.routing.buses[&p.routing.master].strip
+}
+
+fn strip_target_json(strip: StripId) -> Value {
+    json!({"shape": "resource", "kind": "strip", "id": strip.to_tagged()})
+}
+
+fn param_target_json(id: ParameterTargetId) -> Value {
+    json!({"shape": "resource", "kind": "parameter-target", "id": id.to_tagged()})
+}
+
+fn processor_target_json(id: ProcessorId) -> Value {
+    json!({"shape": "resource", "kind": "processor", "id": id.to_tagged()})
+}
+
+/// The master strip's seeded `Fader` channel `ParameterTarget`.
+fn master_fader_target() -> ParameterTargetId {
+    let p = demo_project();
+    let strip = p.routing.buses[&p.routing.master].strip;
+    p.control
+        .targets
+        .values()
+        .find(|t| t.owner == ControlOwner::Strip(strip) && t.role == ParameterRole::Fader)
+        .expect("master fader target exists")
+        .id
+}
+
+#[test]
+fn prepare_strip_bool_ops_lower_and_prepare() {
+    // `synvelis.strip.set-mute`/`set-solo` lower to the channel bool
+    // ops: the strip is the declared read, the candidate carries the
+    // would-be channel state, and the committed project is
+    // byte-identical afterwards.
+    let mut rig = fixture_rig();
+    let strip = master_strip();
+    let before = rig.source.pin(project(), ProjectRevision(1)).unwrap();
+    let before_json = serde_json::to_value(&*before).unwrap();
+
+    for (capability, arg) in [
+        ("synvelis.strip.set-mute", "muted"),
+        ("synvelis.strip.set-solo", "soloed"),
+    ] {
+        let result = complete(
+            rig.gw
+                .handle(
+                    &prepare_req(
+                        None,
+                        None,
+                        op(capability, strip_target_json(strip), json!({arg: true})),
+                        expected(1),
+                    ),
+                    human(),
+                )
+                .unwrap(),
+        );
+        let record = record_for(&rig, &result);
+        assert_eq!(record.prepared.base.revision, ProjectRevision(1));
+        // The strip is the declared internal read.
+        effect(&record, EffectKind::Read, &ResourceRef::Strip(strip));
+        // The candidate carries the would-be channel state — the
+        // channel target's base flips to the asserted value.
+        let role = if arg == "muted" {
+            ParameterRole::Mute
+        } else {
+            ParameterRole::Solo
+        };
+        let target = record
+            .prepared
+            .candidate
+            .control
+            .targets
+            .values()
+            .find(|t| t.owner == ControlOwner::Strip(strip) && t.role == role)
+            .expect("channel target exists in candidate");
+        assert_eq!(target.base, 1.0);
+    }
+    // Zero mutation on the committed source.
+    let after = rig.source.pin(project(), ProjectRevision(1)).unwrap();
+    assert_eq!(serde_json::to_value(&*after).unwrap(), before_json);
+}
+
+#[test]
+fn prepare_param_set_base_and_insert_processor_lower() {
+    // `synvelis.param.set-base` writes an existing channel target;
+    // `synvelis.strip.insert-processor` appends to the strip chain —
+    // both prepare against the pinned base with the strip/target as
+    // declared reads.
+    let mut rig = fixture_rig();
+    let strip = master_strip();
+    let fader = master_fader_target();
+
+    let result = complete(
+        rig.gw
+            .handle(
+                &prepare_req(
+                    None,
+                    None,
+                    op(
+                        "synvelis.param.set-base",
+                        param_target_json(fader),
+                        json!({"value": 0.25}),
+                    ),
+                    expected(1),
+                ),
+                human(),
+            )
+            .unwrap(),
+    );
+    let record = record_for(&rig, &result);
+    effect(
+        &record,
+        EffectKind::Read,
+        &ResourceRef::ParameterTarget(fader),
+    );
+    assert_eq!(record.prepared.candidate.control.targets[&fader].base, 0.25);
+
+    let result = complete(
+        rig.gw
+            .handle(
+                &prepare_req(
+                    None,
+                    None,
+                    op(
+                        "synvelis.strip.insert-processor",
+                        strip_target_json(strip),
+                        json!({
+                            "index": 0,
+                            "name": "insert-fx",
+                            "binding": {"binding": "Unresolved", "descriptor": "plug-demo"},
+                            "sidechain_input": false,
+                        }),
+                    ),
+                    expected(1),
+                ),
+                human(),
+            )
+            .unwrap(),
+    );
+    let record = record_for(&rig, &result);
+    effect(&record, EffectKind::Read, &ResourceRef::Strip(strip));
+    let p = &record.prepared.candidate;
+    let chain =
+        &p.routing.chains[&p.routing.strips[&p.routing.buses[&p.routing.master].strip].chain];
+    assert_eq!(chain.processors.len(), 1);
+    assert_eq!(
+        rig.source.latest_revision(project()),
+        Some(ProjectRevision(1))
+    );
+}
+
+#[test]
+fn prepare_strip_domain_args_fail_typed() {
+    // Schema/type violations reject before any lowering; a binding
+    // that is not a `ProcessorBinding` fails typed; a processor id
+    // that does not exist fails the declared precondition path —
+    // never a silent accept.
+    let mut rig = fixture_rig();
+    let strip = master_strip();
+    for (capability, target, args) in [
+        (
+            "synvelis.strip.set-mute",
+            strip_target_json(strip),
+            json!({"muted": "yes"}),
+        ),
+        (
+            "synvelis.strip.insert-processor",
+            strip_target_json(strip),
+            json!({
+                "index": -1,
+                "name": "fx",
+                "binding": {"binding": "Unresolved", "descriptor": "plug-demo"},
+                "sidechain_input": false,
+            }),
+        ),
+        (
+            "synvelis.strip.insert-processor",
+            strip_target_json(strip),
+            json!({
+                "index": 0,
+                "name": "fx",
+                "binding": {"not": "a-binding"},
+                "sidechain_input": false,
+            }),
+        ),
+        (
+            "synvelis.processor.set-binding",
+            processor_target_json(ProcessorId::new(999_999)),
+            json!({"binding": {"binding": "Unresolved", "descriptor": "plug-demo"}}),
+        ),
+    ] {
+        let err = rig
+            .gw
+            .handle(
+                &prepare_req(None, None, op(capability, target, args), expected(1)),
+                human(),
+            )
+            .expect_err("invalid strip-domain args must reject");
+        assert!(
+            matches!(
+                err.code,
+                GatewayError::SchemaViolation { .. }
+                    | GatewayError::MalformedRequest { .. }
+                    | GatewayError::PreparationRejected { .. }
+            ),
+            "unexpected error for {capability}: {err:?}"
+        );
+    }
+    assert_eq!(rig.engine.proposal_count(), 0);
 }
