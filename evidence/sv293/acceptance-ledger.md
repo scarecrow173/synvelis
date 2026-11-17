@@ -55,6 +55,10 @@ synvelis#296 RCP-GATE の残件）。
 - `SessionRoutingEngine`（`synvelis-app/src/engine.rs`）adapter
   配線: lease 外。`RoutingEngine` レベルの headless oracle で
   代替。app 側変更が必要と判明した場合は別 lease。
+  （2026-11-17 解消: synvelis#514・PR #531 で
+  「`RoutingEngine` が selection 挙動を所有し
+  `SessionRoutingEngine` 実装は不要」と root-cause 確定 —
+  app adapter 配線は設計上不要となった）
 - BranchAudition/provenance 経路: #294 影響圏・本 slice 対象外。
 - 実 Plugin ABI（`scarecrow173/ruviform#630`）・実 signal/PCM
   clock（`scarecrow173/ruviform#628`）・仮想 OS endpoint
