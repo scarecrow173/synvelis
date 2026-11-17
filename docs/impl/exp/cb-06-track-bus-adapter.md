@@ -235,3 +235,17 @@ Supported/Unsupported を正直に報告）を pin。
 wire 表面への strip op capability 追加は spec の
 Deferred Design Concerns として記録し、必要時に別
 dispatch で検討する。
+
+**解消追記（synvelis#548）**: 案 A は synvelis#548 の
+slice として実施された — `synvelis.strip.set-mute`/
+`set-solo`/`insert-processor`・`synvelis.param.set-base`・
+`synvelis.processor.set-binding` の 5 capability が op 表に
+登録され、狭 mask（channel 系）・全 mask（inserts 系）の
+両側で positive mask-gated edit が candidate edit として
+受理されることを headless で実測した
+（`cb06_strip_fields_mask_gated_edit_wire_lowering`・
+`cb06_strip_fields_insert_ops_wire_lowering`）。
+mask 未宣言 family・scope 外 target・非 strip op の
+typed reject 境界は維持。routing op capability・scope
+entity removal は引き続き別 slice
+（`docs/impl/exp/issue-548-strip-domain-lowering.md`）。
