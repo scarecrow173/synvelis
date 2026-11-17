@@ -29,6 +29,7 @@ Directory: `docs/discovery`
 | DISC-sv517aB2cD4eF6gH8iJ0kL1 | Issue #517 discovery — render/branch pipeline 本番配線の残件調査 | resolved | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
 | DISC-sv518aB2cD4eF6gH8iJ0kL2 | Issue #518 discovery — production job system 配線の残件調査 | resolved | [issue-518-job-system.md](./issue-518-job-system.md) |
 | DISC-4qXzyQzBwS2yIrMLH0Ra | Issue #530 discovery — stateless plugin を PluginStateDecl で表現する契約調査 | resolved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
+| DISC-539aArrngmntAdptr01 | Issue #539 discovery — VariantPorts::standard への ArrangementAdapter 登録調査 | resolved | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
 | DISC-99vL2v7VILngzJrF9fbNos | L1 Discovery — Local WAV Safe Import・Verified Media・Headless Generic Graph Playback | resolved | [l1-local-wav-verified-playback-discovery.md](./l1-local-wav-verified-playback-discovery.md) |
 | DISC-034Qmb93ek3YXoxaRPDBBD | L2 Discovery — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | resolved | [l2-master-sequential-offline-wav-export-discovery.md](./l2-master-sequential-offline-wav-export-discovery.md) |
 | DISC-034VG2eVX55D1hI610carh | plugin_instances VCS semantic diff gap — persisted instance identity invisible to compare_snapshots | resolved | [plugin-instances-vcs-diff-gap.md](./plugin-instances-vcs-diff-gap.md) |

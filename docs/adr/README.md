@@ -27,6 +27,7 @@ Directory: `docs/adr`
 | ADR-sv517jK2lM3nO4pQ5rS6tU7 | Issue #517 — render/branch pipeline 本番配線の方式決定 | accepted | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
 | ADR-sv518gH8iJ0kL6nO8pQ | Issue #518 — job system 配線の方式決定 | accepted | [issue-518-job-system.md](./issue-518-job-system.md) |
 | ADR-TPzhu7QHmjQxoSv91BBZ | Issue #530 — stateless は PluginStateDecl::stateless() profile + StateRestoreSupport::Unsupported dual-use で表現する | accepted | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
+| ADR-539aArrngmntAdptr04 | Issue #539 — ArrangementAdapter を VariantPorts::standard の adapters map に登録し fail-closed 機構は維持する | accepted | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
 | ADR-Ym8S8syVSNCeQiMNBHHfHt | L1 — Import・Blob・Lowering・Driver の配置と境界 | accepted | [l1-player-slice-boundaries.md](./l1-player-slice-boundaries.md) |
 | ADR-034QmbgsQDkLDllHgAxa1f | L2 — Render slice boundaries・Ruviform sequential offline driver adoption・Staged publish | accepted | [l2-render-slice-boundaries.md](./l2-render-slice-boundaries.md) |
 | ADR-cyMsJVD4HiJceSTYXBJCJD | MD-A — Clip 正規化 Placement/Playback スキーマ・Comp 採用モデル・Effective Comp 投影の境界 | accepted | [mda-normalized-placement-comp-schema.md](./mda-normalized-placement-comp-schema.md) |
