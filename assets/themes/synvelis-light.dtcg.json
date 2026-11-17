@@ -12,7 +12,7 @@
       "mode": "light",
       "layer": "product"
     },
-    "synvelis.provenance": "provisional-pending-native-design-review (incl. color.status-* ramp)"
+    "synvelis.provenance": "provisional-pending-native-design-review (incl. color.status-* ramp, color.bg-input/bg-active, state.disabled + viz.waveform_rms canonical direct values)"
   },
   "color": {
     "$type": "color",
@@ -25,6 +25,8 @@
     "err":         { "$value": "#c23a3a" },
     "ok":          { "$value": "#2a8a4a" },
     "bg-hover":    { "$value": "{color.bg-panel}" },
+    "bg-active":   { "$value": "#e0e4e9" },
+    "bg-input":    { "$value": "#eaecf0" },
     "border":      { "$value": "{color.bg-panel}" },
     "status-ok":                     { "$value": "#2a8a4a" },
     "status-unavailable":            { "$value": "#6e7680" },
@@ -43,5 +45,38 @@
     "status-diagnostic-information": { "$value": "#3d6ea8" },
     "status-diagnostic-warning":     { "$value": "#b06a20" },
     "status-diagnostic-error":       { "$value": "#c23a3a" }
+  },
+  "surface": {
+    "$type": "color",
+    "bg":      { "$value": "{color.bg}" },
+    "raised":  { "$value": "{color.bg-panel}" },
+    "border":  { "$value": "{color.border}" }
+  },
+  "text": {
+    "$type": "color",
+    "primary": { "$value": "{color.fg}" },
+    "dim":     { "$value": "{color.fg-dim}" }
+  },
+  "accent": {
+    "$type": "color",
+    "primary": { "$value": "{color.accent}" }
+  },
+  "state": {
+    "$type": "color",
+    "error":    { "$value": "{color.err}" },
+    "disabled": { "$value": "#9aa0a8" }
+  },
+  "control": {
+    "$type": "color",
+    "track": { "$value": "{color.bg-input}" },
+    "fill":  { "$value": "{color.accent}" },
+    "thumb": { "$value": "{color.fg}" }
+  },
+  "viz": {
+    "$type": "color",
+    "waveform":      { "$value": "{color.accent}" },
+    "waveform_rms":  { "$value": "#7aa8d8" },
+    "baseline":      { "$value": "{color.border}" },
+    "cursor":        { "$value": "{color.fg}" }
   }
 }

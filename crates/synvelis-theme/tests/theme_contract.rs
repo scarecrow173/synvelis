@@ -12,9 +12,9 @@
 use std::path::PathBuf;
 
 use synvelis_theme::{
-    DocumentLayer, ProblemKind, ResolveError, ResolvedColor, StatusTone, ThemeCatalog, ThemeError,
-    ThemePreferences, ThemeSelection, TokenDocument, TokenError, load_dir, load_document,
-    resolve_documents,
+    ColorSpace, DocumentLayer, LengthUnit, ProblemKind, ResolveError, ResolvedColor, StatusTone,
+    ThemeCatalog, ThemeError, ThemePreferences, ThemeSelection, TokenDocument, TokenError,
+    load_dir, load_document, resolve_documents,
 };
 
 fn fixture(name: &str) -> String {
@@ -443,6 +443,190 @@ fn dual_envelope_contradictions_fail_closed() {
     // `shipped_assets_are_valid` / `..._resolve_for_every_*`).
     let doc = load_document(&fixture("valid-alias.dtcg.json")).unwrap();
     assert_eq!(doc.meta().mode.as_deref(), Some("dark"));
+}
+
+/// `#rrggbb` → the [`ResolvedColor`] the upstream parser produces
+/// (sRGB components normalized to `0.0..=1.0`, alpha `1.0`).
+fn srgb(hex: &str) -> ResolvedColor {
+    let h = hex.strip_prefix('#').expect("hex color");
+    let byte = |i: usize| u8::from_str_radix(&h[i..i + 2], 16).expect("hex digit");
+    ResolvedColor {
+        space: ColorSpace::Srgb,
+        components: [
+            f64::from(byte(0)) / 255.0,
+            f64::from(byte(2)) / 255.0,
+            f64::from(byte(4)) / 255.0,
+        ],
+        alpha: 1.0,
+    }
+}
+
+/// Canonical color keys `ViewPalette::from_theme` reads, mapped to the
+/// shipped product value each mode must resolve (design doc
+/// `docs/designs/issue-177-design-tokens.md` mapping table).
+const CANONICAL_COLORS: &[(&str, &str, &str)] = &[
+    // (canonical key, dark value, light value)
+    ("surface.bg", "#1b1d21", "#f5f6f8"),
+    ("surface.raised", "#23262c", "#e8eaee"),
+    ("surface.border", "#33373f", "#e8eaee"),
+    ("text.primary", "#e8e8ea", "#1b1d21"),
+    ("text.dim", "#9aa0a8", "#5a6068"),
+    ("accent.primary", "#6aa9e8", "#2a6bc2"),
+    ("state.error", "#e86a6a", "#c23a3a"),
+    ("state.disabled", "#4e565f", "#9aa0a8"),
+    ("control.track", "#191b1f", "#eaecf0"),
+    ("control.fill", "#6aa9e8", "#2a6bc2"),
+    ("control.thumb", "#e8e8ea", "#1b1d21"),
+    ("viz.waveform", "#6aa9e8", "#2a6bc2"),
+    ("viz.waveform_rms", "#8fb8e8", "#7aa8d8"),
+    ("viz.baseline", "#33373f", "#e8eaee"),
+    ("viz.cursor", "#e8e8ea", "#1b1d21"),
+];
+
+/// `ViewPalette::fallback` literals (ruviform pin `cbcc834`,
+/// `render.rs` `color_or` defaults) as `#rrggbb`. Kept here so the
+/// contract proves the resolved theme carries *product* values, not
+/// palette fallbacks; an upstream vocabulary change surfaces as a
+/// test update, not a silent drift.
+const FALLBACK_COLORS: &[(&str, &str)] = &[
+    ("surface.bg", "#14181d"),
+    ("surface.raised", "#1d232a"),
+    ("surface.border", "#2e3640"),
+    ("text.primary", "#d7dde4"),
+    ("text.dim", "#8a949f"),
+    ("accent.primary", "#3d7be0"),
+    ("state.error", "#e05555"),
+    ("state.disabled", "#5a636d"),
+    ("control.track", "#262d36"),
+    ("control.fill", "#3d7be0"),
+    ("control.thumb", "#e8edf2"),
+    ("viz.waveform", "#4a90d9"),
+    ("viz.waveform_rms", "#2b5f9e"),
+    ("viz.baseline", "#39424d"),
+    ("viz.cursor", "#e8edf2"),
+];
+
+/// Canonical → primitive alias pairs: the resolved values must be
+/// identical, proving the whole-value alias (not a copied literal)
+/// carries the product value.
+const CANONICAL_ALIASES: &[(&str, &str)] = &[
+    ("surface.bg", "color.bg"),
+    ("surface.raised", "color.bg-panel"),
+    ("surface.border", "color.border"),
+    ("text.primary", "color.fg"),
+    ("text.dim", "color.fg-dim"),
+    ("accent.primary", "color.accent"),
+    ("state.error", "color.err"),
+    ("control.track", "color.bg-input"),
+    ("control.fill", "color.accent"),
+    ("control.thumb", "color.fg"),
+    ("viz.waveform", "color.accent"),
+    ("viz.baseline", "color.border"),
+    ("viz.cursor", "color.fg"),
+];
+
+/// Canonical dimension aliases → `spacing.*` primitives, with the
+/// expected px value per density.
+const CANONICAL_SPACE: &[(&str, &str, f64, f64)] = &[
+    // (canonical key, primitive key, compact px, comfortable px)
+    ("space.sm", "spacing.sm", 4.0, 8.0),
+    ("space.md", "spacing.md", 6.0, 12.0),
+    ("space.page", "spacing.lg", 10.0, 16.0),
+];
+
+#[test]
+fn shipped_canonical_color_vocabulary_resolves_product_values() {
+    // synvelis#177: every canonical color key `ViewPalette::from_theme`
+    // reads must resolve to the shipped product value for all four
+    // mode×density selections — never absent, never the palette
+    // fallback literal.
+    let catalog = shipped_catalog();
+    for mode in ["dark", "light"] {
+        let mode_idx = usize::from(mode == "light");
+        for density in ["compact", "comfortable"] {
+            let theme = catalog
+                .resolve(&selection(mode, density))
+                .unwrap_or_else(|e| panic!("{mode}/{density}: {e}"));
+            for &(key, dark_hex, light_hex) in CANONICAL_COLORS {
+                let expected = srgb(if mode_idx == 0 { dark_hex } else { light_hex });
+                let resolved = theme
+                    .color(key)
+                    .unwrap_or_else(|| panic!("{mode}/{density}: {key} unresolved"));
+                assert_eq!(
+                    resolved, expected,
+                    "{mode}/{density}: {key} must resolve to the product value"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn shipped_canonical_colors_differ_from_palette_fallback_literals() {
+    // The parity contract's core: resolved canonical colors must not
+    // coincide with `ViewPalette::fallback` literals — that equality
+    // would mean the product document contributes nothing and the
+    // palette silently falls back.
+    let catalog = shipped_catalog();
+    let fallback: std::collections::BTreeMap<&str, ResolvedColor> = FALLBACK_COLORS
+        .iter()
+        .map(|&(k, hex)| (k, srgb(hex)))
+        .collect();
+    for mode in ["dark", "light"] {
+        for density in ["compact", "comfortable"] {
+            let theme = catalog
+                .resolve(&selection(mode, density))
+                .unwrap_or_else(|e| panic!("{mode}/{density}: {e}"));
+            for &(key, _, _) in CANONICAL_COLORS {
+                let resolved = theme.color(key).expect("canonical color resolves");
+                assert_ne!(
+                    resolved, fallback[key],
+                    "{mode}/{density}: {key} equals the palette fallback literal"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn shipped_canonical_aliases_track_their_primitive_values() {
+    // Whole-value aliases must carry the primitive's resolved value —
+    // if a product edit changes `color.bg`, `surface.bg` must follow.
+    let catalog = shipped_catalog();
+    for mode in ["dark", "light"] {
+        for density in ["compact", "comfortable"] {
+            let theme = catalog
+                .resolve(&selection(mode, density))
+                .unwrap_or_else(|e| panic!("{mode}/{density}: {e}"));
+            for &(canonical, primitive) in CANONICAL_ALIASES {
+                assert_eq!(
+                    theme.color(canonical),
+                    theme.color(primitive),
+                    "{mode}/{density}: {canonical} must alias {primitive}"
+                );
+            }
+            for &(canonical, primitive, compact_px, comfortable_px) in CANONICAL_SPACE {
+                let expected = if density == "compact" {
+                    compact_px
+                } else {
+                    comfortable_px
+                };
+                let length = theme
+                    .length(canonical)
+                    .unwrap_or_else(|| panic!("{mode}/{density}: {canonical} unresolved"));
+                assert_eq!(length.unit, LengthUnit::Px, "{canonical} unit");
+                assert_eq!(
+                    length.value, expected,
+                    "{mode}/{density}: {canonical} must alias {primitive}"
+                );
+                assert_eq!(
+                    theme.length(canonical),
+                    theme.length(primitive),
+                    "{mode}/{density}: {canonical} must alias {primitive}"
+                );
+            }
+        }
+    }
 }
 
 #[test]
