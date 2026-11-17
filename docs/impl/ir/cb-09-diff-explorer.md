@@ -57,7 +57,8 @@ relations:
     - "docs/impl/ir/rcp-06-render-gui.md"
     - "evidence/sv286/"
   refines: []
-  refined-by: []
+  refined-by:
+    - "docs/impl/ir/issue-286-diff-explorer-app-wiring.md"
   verifies:
     - "docs/test-specs/cb-09-diff-explorer.md"
   verified-by: []

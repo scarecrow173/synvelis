@@ -125,6 +125,18 @@ pub const OPS: &[OpInfo] = &[
         summary: "dispatch one autx.* surface command {view_id,target,action,params?} — view-local mutate or lowered wire requests",
     },
     OpInfo {
+        name: "syn.variant-diff.visual",
+        summary: "Difference Explorer lifecycle — open {target?} | close {view_id} (CB-09, synvelis#286)",
+    },
+    OpInfo {
+        name: "syn.variant-diff.view",
+        summary: "Difference Explorer projection — persisted view state + deterministic ViewSpec (view_id)",
+    },
+    OpInfo {
+        name: "syn.variant-diff.action",
+        summary: "one CB-09 action {view_id,action,...} — select|audition|set-target|compare|adopt-preview|adopt (explicit pins + approval ticket)",
+    },
+    OpInfo {
         name: "syn.transport.set",
         summary: "set transport rolling — params.playing (bool)",
     },
@@ -414,6 +426,9 @@ impl AppService {
             "syn.autx.visual" | "syn.autx.catalog" | "syn.autx.action" => {
                 self.dispatch_autx(op, params)
             }
+            "syn.variant-diff.visual" => self.app.op_variant_diff_visual(params),
+            "syn.variant-diff.view" => self.app.op_variant_diff_view(params),
+            "syn.variant-diff.action" => self.app.op_variant_diff_action(params),
             _ => return None,
         })
     }

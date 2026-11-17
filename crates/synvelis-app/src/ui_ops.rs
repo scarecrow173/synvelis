@@ -10,7 +10,7 @@
 //! headless drivers identically.
 
 use std::cell::{Cell, Ref, RefCell};
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -41,15 +41,16 @@ use synvelis_project::probe::{
     ProbeComparisonGap, ProbeComparisonProvenance, ProbeComparisonQuality, ProbeComparisonRequest,
     ProbeIncomparableReason,
 };
+use synvelis_project::variant::{CompareError, RuntimePublishState, SessionOptions};
 use synvelis_project::vcs::{RevisionSelector, VcsCancel};
 use synvelis_project::{
-    BusId, ClipId, ClockEpochId, ControlEntityRef, ExplicitChannelMap, LaneId,
+    BranchId, BusId, ClipId, ClockEpochId, ControlEntityRef, ExplicitChannelMap, LaneId,
     ModulationAssignmentId, MusicalTick, ParameterTargetId, Polarity, PpqnConversionPolicy,
     ProbeCaptureSegment, ProbeMode, ProbeObservation, ProbePortError, ProbeStatusReceipt,
     ProbeSubscriptionKey, ProbeTracePort, ProcessorId, Project, ProjectOp, ProjectPpqn,
     ProjectRevision, ProjectStore, RelationDirection, RoutingConnectionId, SemanticPortId,
     SemanticProbePoint, SendId, StripId, SubscriptionKind, TakeId, TickTimeMapping, TraceSlot,
-    TrackId, is_issuable_raw, monitoring_data,
+    TrackId, VariantSetId, is_issuable_raw, monitoring_data,
 };
 use synvelis_recording::{
     ArmState, CaptureTarget, ChannelMap, HardwareDirectMonitor, HardwareDirectState, MonitorState,
@@ -61,6 +62,14 @@ use synvelis_workspace::controls_ui::{
     TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET,
 };
 use synvelis_workspace::state::{PpqnUi, PpqnUiError};
+use synvelis_workspace::variant_diff::{
+    ACTION_VARIANT_DIFF_ADOPT, AuxLayerEvidence, BranchPin, CapabilityEvidence, EvidenceState,
+    SemanticEvidence, VariantDiffBranchObservations, VariantDiffDispatchError, VariantDiffEngine,
+    VariantDiffInput, VariantDiffIntent, VariantDiffLayers, VariantDiffReason, VariantDiffReject,
+    VariantDiffTarget, VariantDiffViewAction, VariantDiffViewState, apply_variant_diff_action,
+    apply_variant_diff_view_local, decode_variant_diff_action, project_variant_diff,
+    variant_diff_authority, variant_diff_context, variant_diff_spec,
+};
 use synvelis_workspace::viz_ui::{
     ManualMeter, ManualSpectrum, MemoryWaveform, MeterChannel, MeterPort, SpectrumPort, VizStatus,
     VizUi, VizViewEvent, WaveformAxis, WaveformPort, WaveformView, meter_master_target,
@@ -259,6 +268,60 @@ pub struct UiOpsState {
     /// applies). Display state only: the mounted spec renders its
     /// pending preview, never gesture authority.
     pub(crate) ppqn_ui: RefCell<PpqnUi>,
+    /// Difference Explorer surface state (synvelis#286 CB-09) — the
+    /// CB-08/CB-10 dispatch engine plus each view's last compare
+    /// evidence. Pin-scoped evidence only: authority is re-derived
+    /// live on every projection so drift renders as `Stale`, never
+    /// as silently reused rows.
+    pub(crate) variant_diff: VariantDiffUi,
+}
+
+/// One Difference Explorer view's last compare — the pins the
+/// evidence was computed for plus the project revision asserted at
+/// compare time.
+#[derive(Clone)]
+pub(crate) struct VariantDiffSession {
+    /// Variant set under comparison.
+    pub variant_set: VariantSetId,
+    /// Left pin the evidence covers.
+    pub left: BranchPin,
+    /// Right pin the evidence covers.
+    pub right: BranchPin,
+    /// Project revision asserted when the compare ran.
+    pub project_revision: ProjectRevision,
+    /// The evaluated CB-08→CB-09 evidence bundle.
+    pub layers: VariantDiffLayers,
+}
+
+/// Per-surface Difference Explorer state — the dispatch engine and
+/// each view's last compare evidence. The engine's content root
+/// tracks the session bundle: rebuilt on `project.new`/`open` so
+/// candidate payloads and the runtime-publish journal resolve
+/// against the live project, and stored evidence never crosses
+/// projects.
+pub(crate) struct VariantDiffUi {
+    /// Bundle root the engine's ports were built for.
+    root: Option<PathBuf>,
+    /// CB-08 orchestrator + gateway simulate/execute facade.
+    engine: VariantDiffEngine,
+    /// Per-view last compare evidence, keyed by `ViewInstanceId`.
+    sessions: HashMap<ViewInstanceId, VariantDiffSession>,
+    /// Last runtime-publish observation per branch, recorded from
+    /// adopt receipts — the honest source for `RtActive`/`RtPending`/
+    /// `RtFailed` labels; absent entries report `NotRequested`, never
+    /// a fabricated `Published`.
+    publish: BTreeMap<BranchId, RuntimePublishState>,
+}
+
+impl VariantDiffUi {
+    fn new() -> Self {
+        Self {
+            root: None,
+            engine: VariantDiffEngine::new(None),
+            sessions: HashMap::new(),
+            publish: BTreeMap::new(),
+        }
+    }
 }
 
 impl UiOpsState {
@@ -285,6 +348,7 @@ impl UiOpsState {
             last_control_tick: None,
             last_control_drain: ReportDrainReport::default(),
             ppqn_ui: RefCell::new(PpqnUi::new(ProjectPpqn::default().0)),
+            variant_diff: VariantDiffUi::new(),
         }
     }
 }
@@ -292,6 +356,16 @@ impl UiOpsState {
 impl Default for UiOpsState {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl UiOpsState {
+    /// Drops all Difference Explorer engine/session/publish state —
+    /// invoked when the session bundle is replaced
+    /// (`project.new`/`open`/`reload`) so stored evidence and runtime
+    /// observations can never surface under a different project.
+    pub(crate) fn reset_variant_diff(&mut self) {
+        self.variant_diff = VariantDiffUi::new();
     }
 }
 
@@ -343,6 +417,81 @@ fn json_param<T: serde::de::DeserializeOwned>(params: &Value, key: &str) -> Resu
 
 fn viz_err(e: &synvelis_workspace::VizError) -> ErrorBody {
     internal(format!("viz: {e}"))
+}
+
+/// [`ErrorBody`] for a [`VariantDiffReject`] — the typed reason
+/// rides `details.reason` so drivers branch on the contract, never
+/// on prose.
+fn variant_diff_reject_err(reject: VariantDiffReject) -> ErrorBody {
+    let reason = match reject {
+        VariantDiffReject::ImplicitTarget => "implicit-target",
+        VariantDiffReject::StaleRevision => "stale-revision",
+        VariantDiffReject::UnknownBranch => "unknown-branch",
+        VariantDiffReject::StaleContext => "stale-context",
+        VariantDiffReject::UnsupportedDomain => "unsupported-domain",
+        VariantDiffReject::CapabilityUnavailable => "capability-unavailable",
+        VariantDiffReject::AlreadyAdopted => "already-adopted",
+        VariantDiffReject::SameBranch => "same-branch",
+        VariantDiffReject::Malformed => "malformed",
+        _ => "reject",
+    };
+    let mut body = invalid(format!("variant-diff reject: {reject:?}"));
+    body.details = Some(json!({ "reason": reason }));
+    body
+}
+
+/// [`ErrorBody`] for a CB-08 [`CompareError`] — orchestrator contract
+/// failures (unknown/stale pins, scope mismatch, invalid policy) are
+/// param-domain; capture/diff/store faults are service errors. The
+/// typed reason rides `details.reason`.
+fn variant_diff_compare_err(error: &CompareError) -> ErrorBody {
+    let (reason, service) = match error {
+        CompareError::UnknownSet { .. } => ("unknown-set", false),
+        CompareError::UnknownBranch { .. } => ("unknown-branch", false),
+        CompareError::ScopeMismatch { .. } => ("scope-mismatch", false),
+        CompareError::StaleRevision { .. } => ("stale-revision", false),
+        CompareError::StaleScope { .. } => ("stale-scope", false),
+        CompareError::InvalidPolicy { .. } => ("invalid-policy", false),
+        CompareError::Resolve(_) => ("resolve-error", true),
+        CompareError::Snapshot(_) => ("snapshot-error", true),
+        CompareError::Diff(_) => ("diff-error", true),
+        CompareError::Project(_) => ("project-error", true),
+    };
+    let mut body = if service {
+        internal(format!("variant-diff compare: {error}"))
+    } else {
+        invalid(format!("variant-diff compare: {error}"))
+    };
+    body.details = Some(json!({ "reason": reason }));
+    body
+}
+
+/// [`ErrorBody`] for a [`VariantDiffDispatchError`] — reject codes
+/// are param-domain, engine/commit failures are service errors; the
+/// facade's typed detail reason rides `details.reason`.
+fn variant_diff_dispatch_err(error: &VariantDiffDispatchError) -> ErrorBody {
+    let body = match error {
+        VariantDiffDispatchError::Reject(_) => invalid(error.to_string()),
+        _ => internal(error.to_string()),
+    };
+    let mut body = body;
+    body.details = Some(json!({ "reason": error.detail_reason() }));
+    body
+}
+
+/// Honest capability split for the app-wired explorer: edit/adopt is
+/// available (the CAS adopt path exists for every merged domain);
+/// exact audition stays `Unavailable{MissingPlugin}` — no plugin or
+/// render probe is bound headlessly, so exact-audition evidence can
+/// never be claimed (CB-UI-RCP-01).
+fn variant_diff_capabilities() -> CapabilityEvidence {
+    CapabilityEvidence {
+        editability: EvidenceState::Available,
+        exact_audition: EvidenceState::Unavailable {
+            reason: VariantDiffReason::MissingPlugin,
+        },
+        reasons: vec![VariantDiffReason::MissingPlugin],
+    }
 }
 
 /// The four [`ViewType`]s the AUTX-07 automation surfaces adopt —
@@ -3283,6 +3432,9 @@ impl SynvelisApp {
         self.ui.controls.close_view(session, &view);
         self.ui.viz.close_view(&view);
         self.ui.views.remove(&view);
+        if let Some(inst) = parse_view_instance(&view) {
+            self.ui.variant_diff.sessions.remove(&inst);
+        }
         self.ui.subscriptions.retain(|(v, _)| v != &view);
         self.ui.frame_seq.retain(|(v, _), _| v != &view);
         self.ui.surfaces.retain(|(v, _)| v != &view);
@@ -4800,6 +4952,10 @@ impl SynvelisApp {
         // view can hold subscriber leases like any logical view.
         self.release_view_probe_leases(inst)?;
         self.workspace.remove_view(inst).map_err(|e| dock_err(&e))?;
+        // View-scoped compare evidence dies with the view — an
+        // orphaned session must never attach to a later view that
+        // reuses the id space (e.g. after a project switch).
+        self.ui.variant_diff.sessions.remove(&inst);
         // Mirror `syn.view.close`'s UI-side cleanup: a client may have
         // attached controls/subscriptions/frame state to the wire
         // `view_id` even though the view itself is headless.
@@ -5422,6 +5578,527 @@ impl SynvelisApp {
     /// value `capture_target`'s contract check compares against.
     fn autx_project_tag(&self) -> String {
         self.workspace.session().project().project_id.to_tagged()
+    }
+
+    // -- syn.variant-diff.* ------------------------------------------------
+
+    /// `view_id` → registered [`ViewInstanceId`] for
+    /// `syn.variant-diff.*` ops, restricted to
+    /// [`ViewType::VariantDiff`] views — a mistyped or wrong-kind id
+    /// fails loudly instead of lazily minting state on an unrelated
+    /// surface.
+    fn variant_diff_view_instance(
+        &self,
+        params: &Value,
+    ) -> Result<(String, ViewInstanceId), ErrorBody> {
+        let view_name = str_param(params, "view_id")?.to_string();
+        let inst = parse_view_instance(&view_name).ok_or_else(|| {
+            invalid(format!(
+                "params.view_id must be \"view-{{n}}\", got {view_name}"
+            ))
+        })?;
+        if !self.workspace.registry().contains(inst) {
+            return Err(invalid(format!("view {view_name} is not registered")));
+        }
+        let allowed = self
+            .workspace
+            .registry()
+            .descriptor(inst)
+            .is_some_and(|d| d.kind == ViewType::VariantDiff);
+        if !allowed {
+            return Err(invalid(format!(
+                "view {view_name} is not a variant-diff view"
+            )));
+        }
+        Ok((view_name, inst))
+    }
+
+    /// Host-observed branch facts for [`variant_diff_authority`] —
+    /// edit sessions are not tracked app-side (honest "not
+    /// observed"), publish state comes from adopt receipts recorded
+    /// in [`VariantDiffUi::publish`].
+    fn variant_diff_observations(&self) -> VariantDiffBranchObservations {
+        VariantDiffBranchObservations {
+            editing: BTreeMap::new(),
+            publish: self.ui.variant_diff.publish.clone(),
+        }
+    }
+
+    /// The view's persisted [`VariantDiffViewState`] — `None` until
+    /// first touch (a fresh view has no target/selection yet).
+    fn variant_diff_view_state(
+        &self,
+        inst: ViewInstanceId,
+    ) -> Result<Option<&VariantDiffViewState>, ErrorBody> {
+        Ok(self
+            .workspace
+            .state(inst)
+            .map_err(|e| invalid(format!("view state: {e}")))?
+            .variant_diff
+            .as_ref())
+    }
+
+    /// The view's persisted compare target — `None` until `set-target`
+    /// or a successful `compare` records one.
+    fn variant_diff_target(
+        &self,
+        inst: ViewInstanceId,
+    ) -> Result<Option<VariantDiffTarget>, ErrorBody> {
+        Ok(self
+            .variant_diff_view_state(inst)?
+            .and_then(|s| s.target.clone()))
+    }
+
+    /// Builds the [`VariantDiffInput`] for one view's `.view`
+    /// projection — authority and context are re-derived from *live*
+    /// project state on every call, and stored evidence is attached
+    /// only when the session's pins still equal the context pins (a
+    /// `set-target` elsewhere never borrows another target's rows).
+    /// Fails closed (`UNAVAILABLE`) when the view has no compare
+    /// target — a fresh view honestly has nothing to compare.
+    fn variant_diff_input(&self, inst: ViewInstanceId) -> Result<VariantDiffInput, ErrorBody> {
+        let Some(target) = self.variant_diff_target(inst)? else {
+            return Err(ErrorBody::new(
+                codes::UNAVAILABLE,
+                "variant-diff view has no compare target — set-target or compare first".to_string(),
+            ));
+        };
+        self.variant_diff_input_for(inst, target.variant_set, target.left, target.right)
+    }
+
+    /// The variant set owning `branch` — `BranchId`s come from the
+    /// project's single id generator, so at most one set can contain
+    /// a pin. Used to resolve the authority scope for authority-bound
+    /// actions on a view that has no persisted target yet (explicit
+    /// pins carry identity, never ambient selection).
+    fn variant_diff_set_for_branch(&self, branch: BranchId) -> Result<VariantSetId, ErrorBody> {
+        self.workspace
+            .session()
+            .project()
+            .variant_sets
+            .iter()
+            .find(|(_, set)| set.branches.contains_key(&branch))
+            .map(|(id, _)| *id)
+            .ok_or_else(|| invalid(format!("variant-diff: unknown branch {branch}")))
+    }
+
+    /// Builds the [`VariantDiffInput`] for the `.action` path. The
+    /// persisted target wins when present — authority intents mint
+    /// only against the *displayed* context, so a drifted target
+    /// rejects `StaleContext` honestly. On a targetless view the
+    /// action's own explicit pins supply the context: `compare`
+    /// compares its left/right; adopt actions compare the adopted
+    /// branch against the pinned target (exactly what the adopt
+    /// decision is about). View-local actions never reach this —
+    /// they apply through [`apply_variant_diff_view_local`].
+    fn variant_diff_action_input(
+        &self,
+        inst: ViewInstanceId,
+        action: &VariantDiffViewAction,
+    ) -> Result<VariantDiffInput, ErrorBody> {
+        let persisted = self.variant_diff_target(inst)?;
+        let (variant_set, left, right) = match (persisted, action) {
+            (Some(t), _) => (t.variant_set, t.left, t.right),
+            (None, VariantDiffViewAction::Compare { left, right }) => (
+                self.variant_diff_set_for_branch(left.branch)?,
+                left.clone(),
+                right.clone(),
+            ),
+            (
+                None,
+                VariantDiffViewAction::AdoptPreview { target }
+                | VariantDiffViewAction::Adopt { target },
+            ) => {
+                let set = self.variant_diff_set_for_branch(target.branch)?;
+                let session = self.workspace.session();
+                let controller = session.controller();
+                let observations = self.variant_diff_observations();
+                let authority = variant_diff_authority(
+                    controller.live(),
+                    set,
+                    controller.live_revision(),
+                    &observations,
+                )
+                .map_err(|e| invalid(format!("variant-diff authority: {e}")))?;
+                let adopted = authority.adopted;
+                let adopted_pin = authority
+                    .branches
+                    .get(&adopted)
+                    .map(|b| BranchPin {
+                        branch: adopted,
+                        revision: b.revision,
+                    })
+                    .ok_or_else(|| invalid("variant-diff authority missing adopted branch"))?;
+                (set, adopted_pin, target.clone())
+            }
+            (None, _) => {
+                return Err(ErrorBody::new(
+                    codes::UNAVAILABLE,
+                    "variant-diff view has no compare target".to_string(),
+                ));
+            }
+        };
+        self.variant_diff_input_for(inst, variant_set, left, right)
+    }
+
+    /// Assembles [`VariantDiffInput`] for explicit context pins —
+    /// authority and context are re-derived from *live* project state
+    /// on every call, and stored evidence is attached only when the
+    /// session's pins still equal the context pins.
+    fn variant_diff_input_for(
+        &self,
+        inst: ViewInstanceId,
+        variant_set: VariantSetId,
+        left: BranchPin,
+        right: BranchPin,
+    ) -> Result<VariantDiffInput, ErrorBody> {
+        let session = self.workspace.session();
+        let controller = session.controller();
+        let live = controller.live();
+        let live_rev = controller.live_revision();
+        let observations = self.variant_diff_observations();
+        let compare_session = self.ui.variant_diff.sessions.get(&inst);
+        let (context_rev, layers) = match compare_session {
+            Some(s) if s.variant_set == variant_set && s.left == left && s.right == right => {
+                (s.project_revision, Some(&s.layers))
+            }
+            _ => (live_rev, None),
+        };
+        let authority = variant_diff_authority(live, variant_set, live_rev, &observations)
+            .map_err(|e| invalid(format!("variant-diff authority: {e}")))?;
+        let context = variant_diff_context(live, variant_set, left, right, context_rev)
+            .map_err(|e| invalid(format!("variant-diff context: {e}")))?;
+        let (semantic, signal, perceptual) = match layers {
+            Some(l) => (l.semantic.clone(), l.signal.clone(), l.perceptual.clone()),
+            None => (
+                SemanticEvidence {
+                    state: EvidenceState::default(),
+                    diff: None,
+                },
+                AuxLayerEvidence::default(),
+                AuxLayerEvidence::default(),
+            ),
+        };
+        Ok(VariantDiffInput {
+            context,
+            authority,
+            semantic,
+            signal,
+            perceptual,
+            capabilities: variant_diff_capabilities(),
+        })
+    }
+
+    /// Rebuilds the dispatch engine when the session bundle root
+    /// changed (`project.new`/`open`/`reload`) — candidate payloads
+    /// and the runtime-publish journal must resolve against the live
+    /// project's store, and stored evidence never crosses projects.
+    fn variant_diff_ensure_engine(&mut self) {
+        let root = self.bundle_path.as_ref().map(PathBuf::from);
+        let vd = &mut self.ui.variant_diff;
+        if vd.root != root {
+            vd.engine = VariantDiffEngine::new(root.as_deref());
+            vd.root = root;
+            vd.sessions.clear();
+            vd.publish.clear();
+        }
+    }
+
+    /// `syn.variant-diff.visual` — lifecycle for Difference Explorer
+    /// views: `open` (optional `target` seed — a serialized
+    /// [`VariantDiffTarget`]) and `close` (`view_id`, VariantDiff-kind
+    /// views only through the shared `close_view_of_kinds` teardown).
+    /// Same monotonic-id discipline as [`Self::open_vcs_view`].
+    fn open_variant_diff_view(&mut self, params: &Value) -> Result<String, ErrorBody> {
+        let next = self
+            .workspace
+            .view_id_watermark()
+            .max(2)
+            .checked_add(1)
+            .ok_or_else(|| internal("variant-diff view id space exhausted"))?;
+        let id = ViewInstanceId::new(next)
+            .ok_or_else(|| internal("variant-diff view id space exhausted"))?;
+        self.workspace
+            .adopt_view(id, ViewType::VariantDiff, "Difference Explorer", None)
+            .map_err(|e| dock_err(&e))?;
+        if let Some(target) = params.get("target") {
+            let target: VariantDiffTarget = serde_json::from_value(target.clone())
+                .map_err(|e| invalid(format!("params.target: {e}")))?;
+            self.workspace
+                .state_mut(id)
+                .map_err(|e| invalid(format!("view state: {e}")))?
+                .variant_diff
+                .get_or_insert_with(VariantDiffViewState::default)
+                .target = Some(target);
+        }
+        Ok(format!("view-{next}"))
+    }
+
+    /// `syn.variant-diff.visual` — `open`/`close` lifecycle for
+    /// Difference Explorer views. `open` accepts an optional `target`
+    /// (`VariantDiffTarget` JSON) seeding the view's persisted compare
+    /// target — the explicit entry point hosts use to start a pinned
+    /// compare (CB-UX-01).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters or a workspace refusal.
+    pub fn op_variant_diff_visual(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        match str_param(params, "action")? {
+            "open" => {
+                let view_id = self.open_variant_diff_view(params)?;
+                Ok(json!({ "ok": true, "view_id": view_id, "opened": true }))
+            }
+            "close" => self.close_view_of_kinds(params, &[ViewType::VariantDiff], "variant-diff"),
+            other => Err(invalid(format!(
+                "unknown variant-diff visual action {other}"
+            ))),
+        }
+    }
+
+    /// `syn.variant-diff.view` — the full projection for one
+    /// Difference Explorer view: the persisted
+    /// [`VariantDiffViewState`] verbatim plus the deterministic
+    /// driver-neutral [`ViewSpec`] a Fake/Mock/GPUI driver mounts
+    /// unchanged. Pure read — authority/context are re-derived from
+    /// live project state on every call so drift renders as `Stale`,
+    /// never as silently reused evidence.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, an unregistered/
+    /// wrong-kind view, an unbound compare target, or authority
+    /// resolution failure.
+    pub fn op_variant_diff_view(&self, params: &Value) -> Result<Value, ErrorBody> {
+        let (view_name, inst) = self.variant_diff_view_instance(params)?;
+        let input = self.variant_diff_input(inst)?;
+        let state = self
+            .variant_diff_view_state(inst)?
+            .cloned()
+            .unwrap_or_default();
+        let view = project_variant_diff(&input, &state);
+        let spec = variant_diff_spec(&view, &state);
+        let spec_json = serde_json::to_value(&spec)
+            .map_err(|e| internal(format!("variant-diff spec encode: {e}")))?;
+        Ok(json!({
+            "view_id": view_name,
+            "state": state,
+            "spec": spec_json,
+        }))
+    }
+
+    /// `syn.variant-diff.action` — one decoded Difference Explorer
+    /// action against a view. Params `{view_id, action, ...fields}`
+    /// where `action` is the CB-09 wire name (`select`, `audition`,
+    /// `set-target`, `compare`, `adopt-preview`, `adopt`) and the
+    /// remaining fields decode verbatim through
+    /// [`decode_variant_diff_action`].
+    ///
+    /// View-local actions mutate only the persisted
+    /// [`VariantDiffViewState`]; authority-bound actions are validated
+    /// by [`apply_variant_diff_action`] against *live* authority and
+    /// the minted [`VariantDiffIntent`] is dispatched here:
+    /// `compare` runs the CB-08 orchestrator through
+    /// [`VariantDiffEngine::compare`] and stores the pin-scoped
+    /// evidence on the view; `adopt-preview` runs the gateway
+    /// simulate path; `adopt` requires an explicit `approval` ticket
+    /// param — the host's user-confirmation token, never minted
+    /// here — and runs the CAS commit path. Adopt receipts feed the
+    /// runtime-publish observation map so `RtActive`/`RtPending`/
+    /// `RtFailed` labels stay honest (CB-UX-02).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters, an unregistered/
+    /// wrong-kind view, a typed [`VariantDiffReject`], or a dispatch
+    /// failure — the typed reason rides `details.reason`.
+    pub fn op_variant_diff_action(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let (view_name, inst) = self.variant_diff_view_instance(params)?;
+        let action_name = str_param(params, "action")?;
+        // The adopt commit path needs the host's explicit approval
+        // token up front — parsed before the action payload is
+        // stripped so a missing ticket fails before any validation.
+        let approval = if action_name == ACTION_VARIANT_DIFF_ADOPT {
+            Some(str_param(params, "approval")?.to_string())
+        } else {
+            None
+        };
+        // Strip the envelope keys — the remainder is the action's
+        // param object verbatim (`deny_unknown_fields` contracts).
+        let mut action_params = params.clone();
+        if let Some(obj) = action_params.as_object_mut() {
+            obj.remove("view_id");
+            obj.remove("action");
+            obj.remove("approval");
+        }
+        let action = decode_variant_diff_action(action_name, Some(&action_params))
+            .map_err(variant_diff_reject_err)?;
+        let mut next_state = self
+            .variant_diff_view_state(inst)?
+            .cloned()
+            .unwrap_or_default();
+        // View-local actions never consult authority — the workspace's
+        // view-local subset applies them directly (`set-target` is the
+        // bootstrap action on a fresh view; no projection exists yet).
+        if apply_variant_diff_view_local(&mut next_state, &action) {
+            self.workspace
+                .state_mut(inst)
+                .map_err(|e| invalid(format!("view state: {e}")))?
+                .variant_diff = Some(next_state);
+            return Ok(json!({ "ok": true, "view_id": view_name }));
+        }
+        // Authority-bound actions: projection inputs resolve against
+        // the persisted target when present, else the action's own
+        // explicit pins — apply validates against what the user sees.
+        let input = self.variant_diff_action_input(inst, &action)?;
+        let view = project_variant_diff(&input, &next_state);
+        let authority = input.authority.clone();
+        let intent = apply_variant_diff_action(&mut next_state, &view, &authority, &action)
+            .map_err(variant_diff_reject_err)?;
+        // Persist view-local mutations first — a failed dispatch
+        // never rolls back a selection the user already made.
+        self.workspace
+            .state_mut(inst)
+            .map_err(|e| invalid(format!("view state: {e}")))?
+            .variant_diff = Some(next_state);
+
+        self.variant_diff_run_intent(inst, &view_name, &authority, intent, approval)
+    }
+
+    /// Dispatches one minted [`VariantDiffIntent`] — `compare`
+    /// through the CB-08 orchestrator (evidence stored pin-scoped on
+    /// the view), `adopt-preview` through gateway simulate, `adopt`
+    /// through the CAS commit path with the host's explicit approval
+    /// ticket. Returns the action ack (`ok`/`view_id` plus
+    /// `preview`/`receipt` evidence where the intent produced it).
+    fn variant_diff_run_intent(
+        &mut self,
+        inst: ViewInstanceId,
+        view_name: &str,
+        authority: &synvelis_workspace::CompareAuthority,
+        intent: Option<VariantDiffIntent>,
+        approval: Option<String>,
+    ) -> Result<Value, ErrorBody> {
+        let mut ack = json!({ "ok": true, "view_id": view_name });
+        match intent {
+            None => {}
+            Some(VariantDiffIntent::Compare { left, right }) => {
+                self.variant_diff_run_compare(inst, authority, left, right)?;
+            }
+            Some(intent @ VariantDiffIntent::AdoptPreview { .. }) => {
+                self.variant_diff_ensure_engine();
+                let live = self.workspace.session().controller().live();
+                let preview = self
+                    .ui
+                    .variant_diff
+                    .engine
+                    .adopt_preview(live, authority, &intent)
+                    .map_err(|e| variant_diff_dispatch_err(&e))?;
+                let adopted = preview
+                    .variant_sets
+                    .get(&authority.variant_set)
+                    .map(|s| s.adopted);
+                ack["preview"] = json!({ "adopted": adopted });
+            }
+            Some(intent @ VariantDiffIntent::Adopt { .. }) => {
+                let receipt = self.variant_diff_run_adopt(authority, &intent, approval)?;
+                ack["receipt"] = receipt;
+            }
+            Some(_) => return Err(internal("unhandled variant-diff intent")),
+        }
+        Ok(ack)
+    }
+
+    /// `compare` dispatch — runs the CB-08 orchestrator through the
+    /// facade, stores the pin-scoped evidence on the view, and
+    /// records the compared pins as the persisted semantic target
+    /// (survives dock/window moves, CB-UX-05).
+    fn variant_diff_run_compare(
+        &mut self,
+        inst: ViewInstanceId,
+        authority: &synvelis_workspace::CompareAuthority,
+        left: BranchPin,
+        right: BranchPin,
+    ) -> Result<(), ErrorBody> {
+        self.variant_diff_ensure_engine();
+        let variant_set = authority.variant_set;
+        let session = self.workspace.session();
+        let controller = session.controller();
+        let layers = self
+            .ui
+            .variant_diff
+            .engine
+            .compare(
+                controller.live(),
+                variant_set,
+                &left,
+                &right,
+                controller.live_revision(),
+                &SessionOptions::default(),
+                None,
+            )
+            .map_err(|e| variant_diff_compare_err(&e))?;
+        // The compared pins become the view's persisted semantic
+        // target — re-validated on every projection.
+        if let Some(state) = self
+            .workspace
+            .state_mut(inst)
+            .map_err(|e| invalid(format!("view state: {e}")))?
+            .variant_diff
+            .as_mut()
+        {
+            state.target = Some(VariantDiffTarget {
+                variant_set,
+                left: left.clone(),
+                right: right.clone(),
+            });
+        }
+        self.ui.variant_diff.sessions.insert(
+            inst,
+            VariantDiffSession {
+                variant_set,
+                left,
+                right,
+                project_revision: authority.project_revision,
+                layers,
+            },
+        );
+        Ok(())
+    }
+
+    /// `adopt` dispatch — the CAS commit path. `approval` is the
+    /// host's explicit user-confirmation token, required up front.
+    /// Post-commit: the session notifies only when the revision
+    /// moved (a `NoChange` adopt must not replay engine rebuilds),
+    /// and the receipt's runtime-publish evidence feeds the honest
+    /// branch labels — absent/undecodable receipts leave the
+    /// observation untouched, never fabricated.
+    fn variant_diff_run_adopt(
+        &mut self,
+        authority: &synvelis_workspace::CompareAuthority,
+        intent: &VariantDiffIntent,
+        approval: Option<String>,
+    ) -> Result<Value, ErrorBody> {
+        self.variant_diff_ensure_engine();
+        let approval = approval
+            .filter(|a| !a.trim().is_empty())
+            .ok_or_else(|| invalid("params.approval required for adopt"))?;
+        let receipt = {
+            let engine = &self.ui.variant_diff.engine;
+            let session = self.workspace.session_mut();
+            let revision_before = session.revision();
+            let receipt = engine
+                .adopt(session.controller_mut(), authority, intent, &approval)
+                .map_err(|e| variant_diff_dispatch_err(&e))?;
+            if session.revision() != revision_before {
+                session.notify_committed_change();
+            }
+            receipt
+        };
+        if let Some(state) = receipt.pointer("/runtime/state")
+            && let Ok(publish) = serde_json::from_value::<RuntimePublishState>(state.clone())
+            && let VariantDiffIntent::Adopt { target, .. } = intent
+        {
+            self.ui.variant_diff.publish.insert(target.branch, publish);
+        }
+        Ok(receipt)
     }
 
     // -- syn.control.* -----------------------------------------------------

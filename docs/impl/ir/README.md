@@ -96,6 +96,7 @@ Directory: `docs/impl/ir`
 | IMPL-034UGB5wH67MKn7FnNHs1i | Issue #230 check-ruviform-rev REV/lock 不整合 — stale vendor 診断と復旧導線 | completed | [issue-230-check-ruviform-rev-rev-lock-stale-vendor.md](./issue-230-check-ruviform-rev-rev-lock-stale-vendor.md) |
 | IMPL-034YBzF7hR3tYvNc6WdE | issue-262-run-file-real-vm — run --file 実 VM/実 authority 実行配線 | completed | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
 | IMPL-034YDj5h1A3CjgiMC9pF80 | issue-274-cli-script-analyze | completed | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
+| IMPL-034ZeMql6ocIS9vFcTCzaV | issue-286-diff-explorer-app-wiring | completed | [issue-286-diff-explorer-app-wiring.md](./issue-286-diff-explorer-app-wiring.md) |
 | IMPL-034WsBSh6LGUqgyK6c4CZL | Issue #365 impl index 生成可能化 — ir front matter 是正・marker 追加・index 再生成 | completed | [issue-365-impl-index-ir-front-matter-marker-index.md](./issue-365-impl-index-ir-front-matter-marker-index.md) |
 | IMPL-034Wv7Ib5bsrIkIj1wO99Y | Issue #368 docs/impl/ir missing-section 本文補完 | completed | [issue-368-docs-impl-ir-missing-section.md](./issue-368-docs-impl-ir-missing-section.md) |
 | IMPL-sv511hI0jK1lM3nO5pQ7rS9t | issue-511-cb07-materialization | completed | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
