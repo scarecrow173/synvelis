@@ -4,7 +4,7 @@ type: "impl"
 status: "completed"
 title: "ALIB-04 LFS Remote Fetch — Git LFS batch API / HTTP download 実装記録"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-17"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -55,6 +55,7 @@ relations:
     - "docs/impl/ir/alib-04-git-remote-provider.md"
     - "docs/impl/ir/alib-06-webdav-provider.md"
     - "docs/impl/ir/alib-07-fault-matrix.md"
+    - "docs/impl/ir/issue-521-lfs-transport.md"
   refines: []
   refined-by: []
   derives-from: []
@@ -82,8 +83,12 @@ action の `GET` 経由で実バイト列として解決する。取得 stream �
 従来どおり SHA-256 `VerifyingReader`（oid = content の SHA-256）
 と pointer の declared size を通過した場合のみ asset bytes に
 なる。`file://` の local `lfs/objects` 経路は `open_local` として
-無変更で温存し、`https://`（TLS stack 非保有）・SSH・`git://` は
-socket を開かず typed `UnsupportedCapability` を返す。新規外部
+無変更で温存し、SSH・`git://` は socket を開かず typed
+`UnsupportedCapability` を返す。`https://` は本記録時点では
+`UnsupportedCapability` だったが、`scarecrow173/synvelis#521`
+slice（`docs/impl/ir/issue-521-lfs-transport.md`）で検証済み
+TLS により `RemoteHttp` backend として実装済み — 本 IR の
+https 関連記述は同 slice の記録を正とする。新規外部
 crate 依存は追加せず、ALIB-06 で導入した `webdav::http` の最小
 blocking HTTP/1.1 transport を `pub(crate)` の共有層として再利用
 した（query 対応と `HttpEndpoint` 分離のみの内部一般化。WebDAV
@@ -102,8 +107,10 @@ blocking HTTP/1.1 transport を `pub(crate)` の共有層として再利用
 - 全検証は in-process `TcpListener` 製 `MockServer`
   （`tests/common/webdav_fixture.rs`）と local `git clone
   --mirror` seed mirror で実施。git network 操作・実 remote・
-  HTTPS・SSH・TLS・実 OS credential store・GUI は NotRun/
-  Unsupported — 外部 gate であり Pass を主張しない。
+  SSH・実 OS credential store・GUI は NotRun/Unsupported —
+  外部 gate であり Pass を主張しない。HTTPS/TLS は #521 slice
+  の `MockTlsServer` fixture で検証済み（実 HTTPS endpoint・
+  実 remote は引き続き NotRun）。
 
 ## Implementation
 
@@ -118,8 +125,10 @@ blocking HTTP/1.1 transport を `pub(crate)` の共有層として再利用
   WebDAVUrl 以外の HTTP 呼出側（Git LFS）が同じ wire 挙動
   （1 request/connection、`Connection: close`、cancel/deadline/
   stall guard）を再利用できる。`send` は `HttpEndpoint::from(url)`
-  経由で従来挙動を完全保持。`https` は endpoint 構築時点で
-  排除される設計（transport に TLS がない）。
+  経由で従来挙動を完全保持。`https` は当時 endpoint 構築時点で
+  排除される設計だったが、#521 slice で `HttpEndpoint.tls` の
+  `TlsSession` を持つ endpoint が rustls 接続を行う形に更新
+  （`send` の WebDAV 側 scheme 拒否は不変）。
 - `src/webdav/mod.rs`: `http`/`locator`/`url` を `pub(crate)` 化
   （crate 内共有層としての公開。外部公開 API は不変）。
   `HttpRequest` 構築箇所に `query: None` を追加。
@@ -127,7 +136,9 @@ blocking HTTP/1.1 transport を `pub(crate)` の共有層として再利用
   credential_key }` variant と `LfsBackendKind::RemoteHttp` を追加。
   - backend 選択: `remote.lfs_objects_root()`（`file://`）は従来
     どおり `Local`、`GitRemoteScheme::Http` は `RemoteHttp`、
-    それ以外（`https`/`ssh`/`git`/`Other`）は `Unsupported`。
+    それ以外（`ssh`/`git`/`Other`）は `Unsupported`。
+    （#521 slice で `GitRemoteScheme::Https` も `RemoteHttp` に
+    追加 — https は検証済み TLS で接続）
   - endpoint 解決: git-lfs server discovery の clone-URL 規則 —
     remote path が `.git` 終端なら `<path>/info/lfs`、それ以外は
     `<path>.git/info/lfs` を endpoint とし `/objects/batch` を
@@ -151,17 +162,21 @@ blocking HTTP/1.1 transport を `pub(crate)` の共有層として再利用
     metadata として扱い href をそのまま使う（期限切れは GET の
     typed HTTP error として顕在化、refresh/rewrite しない）。
   - download href 解決: `http(s)://` 絶対 URL・protocol-relative
-    `//host/…`・絶対 path・relative reference を受理。`https`
-    と非 HTTP scheme は `UnsupportedCapability`（socket を開か
-    ない）。relative は remote origin root `/` 基準で解決。
+    `//host/…`（#521 slice で remote scheme 継承に修正 —
+    silent downgrade 防止）・絶対 path・relative reference を
+    受理。非 HTTP scheme は `UnsupportedCapability`（socket を
+    開かない）。`https` は #521 slice で TLS transport 経由の
+    検証付き接続に更新（当時は `UnsupportedCapability`）。
+    relative は remote origin root `/` 基準で解決。
     fragment は送信しない。path は厳密 percent-decode、
     query は raw のまま保持。
   - download GET: action `headers` を string value のみ verbatim
     付与（wire 境界で header name/value を再検証し不正なものは
     drop）。redirect は最大 `MAX_REDIRECTS` まで follow、
     303 および POST への 301/302 は GET に rewrite、307/308 は
-    method/body 保持。redirect chain の各 hop で https を
-    `UnsupportedCapability` として拒否。`Content-Length` が
+    method/body 保持。redirect chain の各 hop で `https` target
+    は #521 slice の TLS transport で follow する（当時は
+    `UnsupportedCapability`）。`Content-Length` が
     declared size と不一致なら streaming 前に
     `IntegrityMismatch`（宣言長がある場合のみの early check —
     EOF の SHA-256 `VerifyingReader` が authoritative）。
@@ -210,10 +225,11 @@ blocking HTTP/1.1 transport を `pub(crate)` の共有層として再利用
   - `remote_lfs_corrupt_bytes_fail_sha256_at_eof`: 同 length の
     corrupt bytes が EOF で SHA-256 不一致、completion slot に
     `IntegrityMismatch`。
-  - `remote_lfs_https_remote_is_unsupported`: `https://` remote
-    で `LfsBackendKind::Unsupported` + open が
-    `UnsupportedCapability`（socket 非接続 — port 9 の dead
-    address でも応答は typed error のみ）。
+  - `remote_lfs_https_remote_uses_tls_transport`（旧
+    `remote_lfs_https_remote_is_unsupported` を #521 slice で
+    更新）: `https://` remote で `LfsBackendKind::RemoteHttp`
+    + dead port への open が `Offline`（`UnsupportedCapability`
+    ではなく typed transport error）。
   - `remote_lfs_malformed_batch_is_typed_not_panic`: 非 JSON
     batch body が `InvalidRequest`。
   - `remote_lfs_credentials_stay_on_remote_origin`: credential
@@ -246,7 +262,7 @@ blocking HTTP/1.1 transport を `pub(crate)` の共有層として再利用
   origin を跨いだ follow を許可する（署名付き CDN redirect は
   LFS の正常系）が、credential 付与は常に remote origin 一致時
   のみという不変条件で漏洩を防ぐ。`https` redirect target は
-  `UnsupportedCapability`。
+  #521 slice の TLS transport で follow する。
 - `Content-Length` early check は declared size との一致のみ
   検査し、`content-length` 欠落・chunked は streaming verifier
   に委譲（early check を「唯一の size 保証」にしない）。
@@ -273,13 +289,14 @@ blocking HTTP/1.1 transport を `pub(crate)` の共有層として再利用
   1.89.0 toolchain で全 suite を実走。
 - `cargo test -p synvelis-library --test lfs`: 11/11 pass
   （in-process local fixture、実 network 不使用）。
-- NotRun/Unsupported: 実 remote（GitHub LFS 等）・`https://`
-  （TLS stack 非保有 — `UnsupportedCapability` が仕様）・SSH・
+- NotRun/Unsupported: 実 remote（GitHub LFS 等）・SSH・
   `git://`（LFS HTTP transport/auth 経路なし）・`.lfsconfig`/
   `lfs.url` override 解決・custom transfer negotiation・実 OS
   credential store・GUI。これらは外部 gate であり本 slice の
   Pass 対象外 — Issue #331 および #91 fault matrix の該当行は
-  別途所有される。
+  別途所有される。`https://` は #521 slice で
+  `MockTlsServer` fixture 検証済み（実 HTTPS endpoint・実
+  remote は NotRun — `docs/impl/ir/issue-521-lfs-transport.md`）。
 
 ## Risks
 
@@ -308,8 +325,13 @@ blocking HTTP/1.1 transport を `pub(crate)` の共有層として再利用
 
 ## Follow-ups
 
-- 実 remote（GitHub LFS 等）・`https://`（TLS stack 非保有）・
-  SSH・`git://`: NotRun/Unsupported。Issue #331 および #91
+- `https://`: #521 slice で実装済み — 検証済み TLS
+  （rustls + `TlsTrust`/`ProviderContext::tls` seam、
+  `ProviderErrorKind::TlsVerification` 追加）により
+  `RemoteHttp` backend で batch/fetch 可能。記録は
+  `docs/impl/ir/issue-521-lfs-transport.md`。
+- 実 remote（GitHub LFS 等）・実 HTTPS endpoint・SSH・
+  `git://`: NotRun/Unsupported。Issue #331 および #91
   fault matrix の該当行が別途所有する。
 - `.lfsconfig`/`lfs.url`/`remote.*.lfsurl` override 解決・
   custom transfer negotiation: provider に repository-config

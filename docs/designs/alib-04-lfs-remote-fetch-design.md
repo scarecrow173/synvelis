@@ -4,11 +4,12 @@ type: "design"
 status: "approved"
 title: "ALIB-04 LFS Remote Fetch — 設計（endpoint 解決・batch API・型付きエラー・credential 境界）"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-17"
 owners: ["scarecrow173"]
 relations:
   source:
     - "https://github.com/scarecrow173/synvelis/issues/331"
+    - "https://github.com/scarecrow173/synvelis/issues/521"
   changes:
     added: []
     modified: []
@@ -47,13 +48,16 @@ relations:
 ## Overview
 
 `LfsBackend`（`src/git/lfs.rs`）に `RemoteHttp` variant を追加し、
-`http://` remote の LFS object を Git LFS Batch API 経由で取得する。
-HTTP transport は WebDAV provider の `src/webdav/http.rs` を内部
-共有する最小一般化で賄い、新規 crate 依存・TLS・プロキシは
-導入しない。検証の権威は従来どおり `digest.rs` の
-`VerifyingReader`（SHA-256=oid + expected size を EOF で照合）に
-あり、本 slice は「正しいオブジェクトのストリームを返す」こと
-だけを責務とする。
+`http://`/`https://` remote の LFS object を Git LFS Batch API
+経由で取得する。HTTP transport は WebDAV provider の
+`src/webdav/http.rs` を内部共有する最小一般化で賄う。TLS は
+`scarecrow173/synvelis#521` slice で rustls（ring provider、
+TLS 1.2/1.3、検証必須・silent downgrade なし）として追加され、
+`https` endpoint は `HttpEndpoint.tls` の `TlsSession` 経由で
+検証付き接続する。プロキシは導入しない。検証の権威は従来
+どおり `digest.rs` の `VerifyingReader`（SHA-256=oid +
+expected size を EOF で照合）にあり、本 slice は「正しい
+オブジェクトのストリームを返す」ことだけを責務とする。
 
 ## Endpoint 解決規則
 
@@ -61,8 +65,9 @@ HTTP transport は WebDAV provider の `src/webdav/http.rs` を内部
 （`lfsapi/endpoint_finder.go`）と `docs/api/discovery.md`。
 
 1. remote URL は `GitRemoteUrl` が credential-free で検証済み。
-   `http://` のみ対象（`for_remote` で `GitRemoteScheme::Http` の
-   とき `RemoteHttp` を選択）。
+   `http://`/`https://` が対象（`for_remote` で
+   `GitRemoteScheme::Http | GitRemoteScheme::Https` のとき
+   `RemoteHttp` を選択。#521 slice で https を追加）。
 2. URL の path 部を percent-decode し、末尾 `/` を除去した上で:
    - path が `.git` で終わる → `<path>/info/lfs`
    - それ以外 → `<path>.git/info/lfs`
@@ -101,13 +106,19 @@ HTTP transport は WebDAV provider の `src/webdav/http.rs` を内部
 ## Download GET
 
 - `actions.download.href` を `UrlTarget` に解決:
-  絶対 `http(s)://` URL、`//host/…`、絶対 path（remote origin
+  絶対 `http(s)://` URL、`//host/…`（protocol-relative は
+  remote の scheme を継承 — https remote での silent
+  downgrade を防ぐ）、絶対 path（remote origin
   相対）、相対参照（origin root 相対）を受理。fragment は送信
-  しない。`https`・非 HTTP scheme → `UnsupportedCapability`。
+  しない。`https` href は #521 slice の TLS transport で
+  検証付き接続される。非 HTTP scheme →
+  `UnsupportedCapability`。redirect の `Location` も同規則で、
+  protocol-relative は現在 target の scheme を継承する。
 - `actions.download.headers`（文字列値のみ）は verbatim で付与
   し、wire 境界で header 妥当性を再検証する。
-- redirect は `MAX_REDIRECTS`(=4) まで追従。`https` 遷移先は
-  socket を開かず `UnsupportedCapability`。303 と POST への
+- redirect は `MAX_REDIRECTS`(=4) まで追従。`https` 遷移先も
+  同一の TLS transport で follow する（scheme は target が
+  運び、暗黙の downgrade/upgrade はしない）。303 と POST への
   301/302 は GET 化、307/308 は method/body を保持。
 - `Content-Length` が declared size と不一致なら open 時に
   `IntegrityMismatch`（早期検出）。宣言なし・chunked・
@@ -148,6 +159,27 @@ HTTP transport は WebDAV provider の `src/webdav/http.rs` を内部
 - `webdav` の公開 API（`WebDavProvider`/`WebDavConfig`/
   `WebDavUrl` 等）は不変。`http`/`locator`/`url` module は
   `pub(crate)` 化のみ。
+- TLS（#521 slice）: `HttpEndpoint` に `tls: Option<TlsSession>`
+  を追加し、`tls: Some` の endpoint は rustls handshake を
+  cooperative guard（`IO_POLL` 毎の cancel/deadline/stall 再確認）
+  の下で行う `TlsConn` で接続する。trust root は
+  `ProviderContext::tls: Option<TlsTrust>` が運ぶ — `None` は
+  platform native root store（`rustls-native-certs`、process 内
+  1 回 lazy 構築）、`Some` は `TlsTrust::from_pem` の明示 CA
+  （private CA・fixture 用。検証強度は変えず trust anchor の
+  選択のみ）。server name は IP literal → `ServerName::IpAddress`、
+  その他 → DNS name で、rustls `ClientConnection::complete_io`
+  を 1 record flight ずつ回す独自 `Read`/`Write` 実装により
+  `WouldBlock` を guard へ伝播させる（`rustls::Stream` の
+  `prepare_read` 内部 loop は guard を bypass し得るため不採用）。
+  TLS handshake は application request 送信前に完了し、証明書
+  検証失敗（`rustls::Error::InvalidCertificate`）は
+  `ProviderErrorKind::TlsVerification`（`RetryAdvice::Never`）、
+  その他の TLS/record エラーは `TransientIo` に分類する。
+  WebDAV provider 自身の `send` は引き続き `https` を
+  `UnsupportedCapability` で拒否する — TLS transport は
+  endpoint opt-in の caller（Git LFS）のみが使い、WebDAV-over-
+  HTTPS の解放は #90 の責務として残す。
 
 ## 型付きエラー写像
 
@@ -163,7 +195,9 @@ HTTP transport は WebDAV provider の `src/webdav/http.rs` を内部
 | 同 その他非 2xx | `InvalidRequest` |
 | per-object `error.code` | 同上の写像 |
 | JSON 不正・必須 field 欠落・oid/size 不一致・download action 欠落・body 超過 | `InvalidRequest` |
-| `hash_algo != sha256`・`https` href/redirect・非 HTTP scheme | `UnsupportedCapability` |
+| `hash_algo != sha256`・非 HTTP scheme | `UnsupportedCapability` |
+| TLS 証明書検証失敗（#521 slice） | `TlsVerification` |
+| その他の TLS handshake/record 失敗（#521 slice） | `TransientIo` |
 | content-length ≠ declared size（早期）・EOF での size/digest 不一致 | `IntegrityMismatch`（EOF 側は `VerifyingReader`） |
 | DNS/connect 失敗 | `Offline`（transport 既定） |
 | 途中 stall・protocol 違反 | `TransientIo`（transport 既定） |
@@ -171,13 +205,14 @@ HTTP transport は WebDAV provider の `src/webdav/http.rs` を内部
 
 ## 非対象（明示）
 
-- TLS/HTTPS 全般: TLS stack が存在しないため `UnsupportedCapability`。
-  http→https redirect も socket を開かず同じく拒否（downgrade も
-  upgrade 試行もしない）。
 - SSH/`git://` LFS transport・SSH agent/credential 経路。
+- WebDAV provider の `https` capability 解放（#90 の責務 —
+  TLS transport は endpoint opt-in で LFS のみが使用）。
+- 実 remote（GitHub LFS 等）・実 HTTPS endpoint での動作確認 —
+  外部 gate、NotRun（#521 slice の fixture 検証は loopback の
+  `MockTlsServer` のみ）。
 - `.lfsconfig`/`lfs.url`/`remote.*.lfsurl` override、pure SSH
   protocol download、custom transfer adapter（`lfs-standalone-file`
   等）。`transfers` は `["basic"]` のみ申告し、download action の
   href GET が唯一の実装経路。
-- 実 remote（GitHub LFS 等）での動作確認 — 外部 gate、NotRun。
 - #91 fault-matrix の判定行・test-spec — 別 Issue 所有、変更しない。

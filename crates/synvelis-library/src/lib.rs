@@ -52,6 +52,7 @@ mod project;
 mod provider;
 mod refs;
 mod registry;
+mod tls;
 mod webdav;
 
 pub use browse::{
@@ -111,4 +112,5 @@ pub use refs::{
     RemoteAssetRef, RevisionKey, StrongRevisionToken,
 };
 pub use registry::{ProviderDescriptor, ProviderKind, ProviderRegistry};
+pub use tls::TlsTrust;
 pub use webdav::{WebDavConfig, WebDavProvider, WebDavScheme, WebDavUrl};

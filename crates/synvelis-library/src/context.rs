@@ -14,6 +14,7 @@ use std::time::{Instant, SystemTime};
 
 use crate::error::{ProviderError, ProviderErrorKind};
 use crate::id::{CredentialKey, OpaqueCredential, PrincipalId};
+use crate::tls::TlsTrust;
 
 /// Cooperative cancellation token.
 #[derive(Clone, Debug, Default)]
@@ -127,6 +128,11 @@ pub struct ProviderContext {
     pub limits: ProviderLimits,
     /// Optional credential resolver (remote providers).
     pub credentials: Option<Arc<dyn CredentialResolver>>,
+    /// TLS trust roots for provider HTTPS transports. `None` uses the
+    /// platform's native root store; `Some` pins explicit CA
+    /// certificates (private CAs, fixtures). Verification itself is
+    /// never weakened — this selects *which roots to trust*.
+    pub tls: Option<TlsTrust>,
     /// Observation clock.
     pub clock: Arc<dyn Clock>,
 }
@@ -141,6 +147,7 @@ impl ProviderContext {
             cancel: CancellationToken::new(),
             limits: ProviderLimits::default(),
             credentials: None,
+            tls: None,
             clock: Arc::new(SystemClock),
         }
     }

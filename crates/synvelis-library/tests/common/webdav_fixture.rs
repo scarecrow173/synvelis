@@ -185,14 +185,27 @@ fn handle_conn(mut stream: TcpStream, handler: &Handler) {
     // so a `read` that beats the client's first bytes blocks instead
     // of failing `WouldBlock` and RST-ing the connection (os error
     // 10054/10053 on the client; synvelis#245).
+    normalize_socket(&mut stream);
+    serve(&mut stream, handler);
+}
+
+/// Blocking mode + generous timeouts for an accepted socket — the
+/// same normalization [`handle_conn`] applies, shared with the TLS
+/// path where the raw socket is wrapped before serving.
+fn normalize_socket(stream: &mut TcpStream) {
     let _ = stream.set_nonblocking(false);
     let _ = stream.set_read_timeout(Some(Duration::from_secs(15)));
     let _ = stream.set_write_timeout(Some(Duration::from_secs(15)));
-    let Ok(req) = read_request(&mut stream) else {
+}
+
+/// Reads one request, runs the handler, writes one response — the
+/// shared tail of every mock connection, plaintext or TLS.
+fn serve<S: Read + Write>(stream: &mut S, handler: &Handler) {
+    let Ok(req) = read_request(stream) else {
         return;
     };
     let resp = handler(&req);
-    let _ = write_response(&mut stream, &resp);
+    let _ = write_response(stream, &resp);
 }
 
 fn find_subslice(hay: &[u8], needle: &[u8]) -> Option<usize> {
@@ -201,7 +214,7 @@ fn find_subslice(hay: &[u8], needle: &[u8]) -> Option<usize> {
 
 /// Reads one request: head through `\r\n\r\n`, then `Content-Length`
 /// body bytes. Bounded — a request head over 1 MiB is dropped.
-fn read_request(stream: &mut TcpStream) -> std::io::Result<MockRequest> {
+fn read_request<S: Read>(stream: &mut S) -> std::io::Result<MockRequest> {
     let mut buf = Vec::with_capacity(8192);
     let mut chunk = [0u8; 8192];
     let head_end = loop {
@@ -266,7 +279,7 @@ fn read_request(stream: &mut TcpStream) -> std::io::Result<MockRequest> {
     })
 }
 
-fn write_response(stream: &mut TcpStream, resp: &MockResponse) -> std::io::Result<()> {
+fn write_response<S: Write>(stream: &mut S, resp: &MockResponse) -> std::io::Result<()> {
     if let Some(raw) = &resp.raw {
         return stream.write_all(raw).and_then(|()| stream.flush());
     }
@@ -329,4 +342,163 @@ pub fn propfind_response(_path: &str, responses: &[(&str, &str)]) -> MockRespons
     MockResponse::new(207)
         .header("content-type", "application/xml; charset=utf-8")
         .body(multistatus(responses))
+}
+
+// ------------------------------------------------------------------
+// TLS fixture — Git LFS HTTPS transport tests (issue #521)
+// ------------------------------------------------------------------
+
+/// TLS material for one mock HTTPS endpoint: a fresh self-signed CA
+/// plus a leaf certificate for `127.0.0.1`/`localhost`, bound into a
+/// rustls `ServerConfig`.
+///
+/// Every [`TlsMaterial::new`] mints an *independent* CA — pairing a
+/// server with another instance's CA exercises the client's
+/// verification-failure path (`TlsTrust::from_pem` trusts exactly the
+/// CA it was given).
+pub struct TlsMaterial {
+    ca_pem: Vec<u8>,
+    server_config: Arc<rustls::ServerConfig>,
+}
+
+impl TlsMaterial {
+    /// Generates a fresh CA and a `127.0.0.1`/`localhost` leaf — IP
+    /// and DNS SANs so both literal and name spellings verify.
+    ///
+    /// # Panics
+    /// Fixture generation failure (keygen, signing, config build) —
+    /// a broken fixture is a test bug, not an environmental
+    /// condition.
+    pub fn new() -> Self {
+        use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair};
+        use rustls::pki_types::pem::PemObject;
+
+        let ca_key = KeyPair::generate().expect("fixture ca key");
+        let mut ca_params =
+            CertificateParams::new(Vec::<String>::new()).expect("fixture ca params");
+        ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+        let ca_cert = ca_params.self_signed(&ca_key).expect("fixture ca cert");
+        let issuer = Issuer::from_params(&ca_params, ca_key);
+
+        let server_key = KeyPair::generate().expect("fixture server key");
+        let server_params =
+            CertificateParams::new(vec!["127.0.0.1".to_owned(), "localhost".to_owned()])
+                .expect("fixture server params");
+        let server_cert = server_params
+            .signed_by(&server_key, &issuer)
+            .expect("signed fixture server cert");
+
+        let key_der =
+            rustls::pki_types::PrivateKeyDer::from_pem_slice(server_key.serialize_pem().as_bytes())
+                .expect("fixture server key pem");
+        let provider = Arc::new(rustls::crypto::ring::default_provider());
+        let config = rustls::ServerConfig::builder_with_provider(provider)
+            .with_safe_default_protocol_versions()
+            .expect("fixture protocol versions")
+            .with_no_client_auth()
+            .with_single_cert(vec![server_cert.der().clone()], key_der)
+            .expect("fixture server config");
+
+        Self {
+            ca_pem: ca_cert.pem().into_bytes(),
+            server_config: Arc::new(config),
+        }
+    }
+
+    /// The CA certificate PEM — the trust input for
+    /// `TlsTrust::from_pem` that makes this material's leaf verify.
+    pub fn ca_pem(&self) -> &[u8] {
+        &self.ca_pem
+    }
+
+    /// A fresh *unrelated* CA's PEM — trusting this while talking to
+    /// a server built from any [`TlsMaterial`] must fail verification.
+    pub fn foreign_ca_pem() -> Vec<u8> {
+        Self::new().ca_pem
+    }
+
+    fn server_config(&self) -> Arc<rustls::ServerConfig> {
+        Arc::clone(&self.server_config)
+    }
+}
+
+/// An in-process HTTPS server: [`MockServer`]'s accept loop with a
+/// rustls `ServerConnection` wrapped around each accepted socket.
+/// One request per TLS connection, `Connection: close`, sequential —
+/// identical wire semantics to the plaintext mock.
+pub struct MockTlsServer {
+    addr: String,
+    stop: Arc<AtomicBool>,
+    thread: Option<JoinHandle<()>>,
+    material: TlsMaterial,
+}
+
+impl MockTlsServer {
+    /// Starts a TLS listener with a fresh [`TlsMaterial`].
+    pub fn start(handler: Handler) -> Self {
+        let material = TlsMaterial::new();
+        let config = material.server_config();
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind tls mock");
+        listener.set_nonblocking(true).expect("nonblocking");
+        let port = listener.local_addr().expect("local addr").port();
+        let stop = Arc::new(AtomicBool::new(false));
+        let flag = stop.clone();
+        let thread = std::thread::spawn(move || {
+            while !flag.load(Ordering::SeqCst) {
+                match listener.accept() {
+                    Ok((stream, _)) => handle_tls_conn(stream, &config, &handler),
+                    Err(e) if transient_accept_error(&e) => {
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+        Self {
+            addr: format!("127.0.0.1:{port}"),
+            stop,
+            thread: Some(thread),
+            material,
+        }
+    }
+
+    /// `https://127.0.0.1:PORT`
+    pub fn url(&self) -> String {
+        format!("https://{}", self.addr)
+    }
+
+    /// The fixture CA PEM — the `TlsTrust::from_pem` input that
+    /// makes this server's certificate verify.
+    pub fn trust_pem(&self) -> Vec<u8> {
+        self.material.ca_pem.clone()
+    }
+
+    /// An unrelated CA's PEM — trusting this while talking to any
+    /// [`MockTlsServer`] must fail certificate verification.
+    pub fn foreign_trust_pem() -> Vec<u8> {
+        TlsMaterial::foreign_ca_pem()
+    }
+}
+
+impl Drop for MockTlsServer {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::SeqCst);
+        let _ = TcpStream::connect(&self.addr);
+        if let Some(t) = self.thread.take() {
+            let _ = t.join();
+        }
+    }
+}
+
+/// Accepts one TLS connection and serves it like [`handle_conn`].
+/// The handshake runs lazily inside the first `read`/`write` — a
+/// client that fails verification simply never produces a request,
+/// and the connection is dropped.
+fn handle_tls_conn(mut stream: TcpStream, config: &Arc<rustls::ServerConfig>, handler: &Handler) {
+    normalize_socket(&mut stream);
+    let Ok(conn) = rustls::ServerConnection::new(Arc::clone(config)) else {
+        return;
+    };
+    let mut tls = rustls::StreamOwned::new(conn, stream);
+    serve(&mut tls, handler);
 }

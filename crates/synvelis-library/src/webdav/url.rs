@@ -13,10 +13,11 @@ use crate::error::{ProviderError, ProviderErrorKind};
 /// The URL scheme of a `WebDAV` base.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum WebDavScheme {
-    /// Plain HTTP — the only scheme this slice can transport.
+    /// Plain HTTP.
     Http,
-    /// HTTPS — accepted at configuration time, rejected at connect
-    /// time with [`crate::UnsupportedCapability`] (no TLS stack).
+    /// HTTPS — transported over verified TLS by callers that opt in
+    /// per endpoint (Git LFS); the `WebDAV` provider itself still
+    /// rejects it at connect time with `UnsupportedCapability`.
     Https,
 }
 

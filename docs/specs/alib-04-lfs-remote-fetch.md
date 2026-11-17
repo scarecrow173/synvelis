@@ -4,13 +4,14 @@ type: "spec"
 status: "approved"
 title: "ALIB-04 LFS Remote Fetch — Git LFS batch API / HTTP download による remote LFS object 実Byte取得（synvelis-library slice）"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-17"
 owners: ["scarecrow173"]
 relations:
   source:
     - "https://github.com/scarecrow173/synvelis/issues/331"
     - "https://github.com/scarecrow173/synvelis/issues/91"
     - "https://github.com/scarecrow173/synvelis/issues/88"
+    - "https://github.com/scarecrow173/synvelis/issues/521"
   changes:
     added:
       - type: "file"
@@ -69,14 +70,18 @@ relations:
 
 ALIB-04 Git Remote Provider の LFS backend を拡張し、`file://`
 以外の remote で LFS pointer が指す**実バイト**を取得可能にする。
-本 slice は **`http://` remote のみ**を対象とし、Git LFS Batch API
+本 slice は **`http://` remote** を対象とし、Git LFS Batch API
 （`POST <endpoint>/objects/batch`）と download action の HTTP `GET`
-でオブジェクトをストリーミング取得する。取得バイトは従来どおり
-下流の SHA-256 `VerifyingReader` が oid・expected size と照合する。
+でオブジェクトをストリーミング取得する。`https://` remote は
+`scarecrow173/synvelis#521` slice で、検証必須の TLS
+（rustls、native または `ProviderContext::tls` の明示 CA root、
+downgrade なし）により同一 `RemoteHttp` backend で取得可能と
+なった。取得バイトは従来どおり下流の SHA-256 `VerifyingReader`
+が oid・expected size と照合する。
 
-`https://`（TLS スタック不在）、SSH、`git://` は本 slice でも
-`UnsupportedCapability` のままとし、理由を設計・IR に明記する。
-#91（ALIB-07 fault matrix）の判定行・test-spec は変更しない。
+SSH、`git://` は `UnsupportedCapability` のままとし、理由を
+設計・IR に明記する。#91（ALIB-07 fault matrix）の判定行・
+test-spec は変更しない。
 
 ## Why
 
@@ -97,10 +102,13 @@ ALIB-04 Git Remote Provider の LFS backend を拡張し、`file://`
   （remote path が `.git` 終端なら `+/info/lfs`、それ以外は
   `+.git/info/lfs`、batch は `+/objects/batch`）。
 - `file://` の既存 local object 経路は不変（回帰 test あり）。
-- `https://`/SSH/`git://` は `UnsupportedCapability`。
+- `https://` は検証済み TLS の `RemoteHttp` backend（#521
+  slice）。SSH/`git://` は `UnsupportedCapability`。
 - 型付きエラー: 404→`NotFound`、401→`AuthExpired`、
   403→`PermissionDenied`、size/digest 不一致→`IntegrityMismatch`、
+  TLS 証明書検証失敗→`TlsVerification`（#521 slice）、
   非対応 hash_algo/transport→`UnsupportedCapability`。
 - credential は remote origin 宛のみ。cross-origin の署名付き
-  download href へは送らない。
-- 実 remote・HTTPS・SSH の動作は外部 gate（NotRun 記録）。
+  download href へは送らない（scheme を跨ぐ場合も同じ）。
+- 実 remote・SSH の動作は外部 gate（NotRun 記録）。HTTPS は
+  #521 slice の headless TLS fixture で検証済み。
