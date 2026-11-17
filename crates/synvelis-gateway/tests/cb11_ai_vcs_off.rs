@@ -15,11 +15,11 @@
 //!   publish, no VCS backend exists anywhere in the rig — the whole
 //!   fork → edit → adopt → query lifecycle still runs on the Project
 //!   CAS alone.
-//! - **Honest boundary** — `VariantScope::Arrangement` has a merged
-//!   project-side adapter (CB-07) but `VariantPorts::standard` does
-//!   not wire it, so the gateway fails closed `unsupported` rather
-//!   than synthesizing a candidate. Recorded as a follow-up gap, not
-//!   papered over.
+//! - **Arrangement wired** — `VariantPorts::standard` registers the
+//!   merged CB-07 `ArrangementAdapter` (synvelis#539), so the
+//!   arrangement scope runs the same fork → edit → adopt → commit
+//!   lifecycle headless. The fail-closed `Unsupported` path remains
+//!   for any scope kind a ports map does not wire.
 //!
 //! Real AI integration, real VCS/durable backends and consumer Gate A
 //! lanes stay `NotRun` — see `evidence/sv288/external-gates.md`.
@@ -32,7 +32,9 @@ use rig::*;
 use serde_json::{Value, json};
 use synvelis_gateway::*;
 use synvelis_project::variant::scope_digest;
-use synvelis_project::{BranchId, ClipId, CounterIdGenerator, TrackId, VariantSetId};
+use synvelis_project::{
+    BranchId, ClipId, CounterIdGenerator, MusicalTick, TimeAnchor, TrackId, VariantSetId,
+};
 
 // ── Request builders (cb10 conventions) ───────────────────────
 
@@ -40,8 +42,9 @@ fn audio_scope() -> Value {
     json!({"kind": "audio-clip", "clip": ClipId::new(11).to_tagged()})
 }
 
-/// The arrangement scope over `demo_project`'s only track — parses and
-/// authorizes fine; adapter resolution is where it must fail closed.
+/// The arrangement scope over `demo_project`'s only track — all
+/// three clips are musical-anchored inside `[0, 28_800)` on the
+/// scoped track's lanes, so fork/edit/adopt run end-to-end.
 fn arrangement_scope() -> Value {
     json!({
         "kind": "arrangement",
@@ -107,6 +110,16 @@ fn mute_op() -> Value {
         "synvelis.clip.mute",
         json!({"shape": "resource", "kind": "clip", "id": ClipId::new(11).to_tagged()}),
         json!({"muted": true}),
+    )
+}
+
+/// Move clip13 (lane5 — in scope) to Musical(960): still inside the
+/// declared `[0, 28_800)` range, so the post-edit owned set keeps it.
+fn move_op() -> Value {
+    op(
+        "synvelis.clip.move",
+        json!({"shape": "resource", "kind": "clip", "id": ClipId::new(13).to_tagged()}),
+        json!({"anchor": {"kind": "Musical", "value": 960}}),
     )
 }
 
@@ -497,29 +510,145 @@ fn cb11_e2e_07_vcs_off_variant_lifecycle_and_granted_agent() {
     });
 }
 
-// ── CB-E2E-07: honest adapter boundary ───────────────────────
+// ── CB-E2E-07: arrangement scope adopt (synvelis#539) ─────────
 
 #[test]
-fn cb11_e2e_07_arrangement_scope_fails_closed_until_gateway_wiring() {
-    // `VariantPorts::standard` wires six domain adapters but not
-    // `ArrangementAdapter` (merged for CB-07 in synvelis-project) —
-    // the gateway must fail closed `unsupported` rather than
-    // synthesize a candidate through the wrong adapter. This pins
-    // the CURRENT boundary honestly; wiring the adapter is a src
-    // change outside this slice (recorded in the sv288 ledger).
+#[allow(clippy::too_many_lines)] // sequential composite adopt/undo lifecycle (cb10 convention)
+fn cb11_e2e_07_arrangement_scope_composite_adopt_undo_scope_isolation() {
+    // `VariantPorts::standard` wires `ArrangementAdapter` — the
+    // arrangement scope rides the same prepare → proposal → apply →
+    // commit fence as every other scope kind. This pins the CB-E2E-03
+    // contract on the gateway path: scoped edits accumulate into the
+    // one candidate payload, adopt lands as a single project CAS and
+    // a single undo unit, and scope-external state stays bitwise
+    // untouched.
     let mut vrig = variant_rig();
-    let _dir = tmpdir("cb11-arr-unsupported");
-    let err = vrig
-        .rig
-        .gw
-        .handle(
-            &prepare_req(None, None, fork_op(&arrangement_scope()), expected(1)),
-            human(),
-        )
-        .expect_err("arrangement fork must fail closed without a wired adapter");
-    assert!(
-        err.message
-            .contains("no domain adapter wired for arrangement"),
-        "got {err:?}"
+    let dir = tmpdir("cb11-arr-adopt");
+    let (gate, set, _adopted, candidate) = forked_scope(&mut vrig, &dir, &arrangement_scope());
+
+    // Composite candidate edits across both lanes — mute lane4's
+    // audio clip, move lane5's MIDI clip inside the declared range.
+    // Each edit is its own `synvelis.branch.edit` commit; the
+    // candidate payload accumulates them.
+    let brev = branch_revision(&gate, &set, &candidate);
+    commit_human(
+        &mut vrig,
+        &gate,
+        edit_op(&set, &candidate, brev, &mute_op()),
+        live_rev(&gate),
     );
+    publish(&gate, &vrig.rig);
+    let brev = branch_revision(&gate, &set, &candidate);
+    commit_human(
+        &mut vrig,
+        &gate,
+        edit_op(&set, &candidate, brev, &move_op()),
+        live_rev(&gate),
+    );
+    publish(&gate, &vrig.rig);
+
+    // Candidate edits stay off live until adopt.
+    gate.inspect(|c| {
+        assert!(!c.live().clips[&ClipId::new(11)].muted);
+        assert_eq!(
+            c.live().clips[&ClipId::new(13)].placement.anchor,
+            TimeAnchor::Musical(MusicalTick::new(120)),
+        );
+    });
+
+    // Adopt via the granted-agent path — ApproveToApply demands the
+    // human approval receipt; its consumed id becomes the domain's
+    // adopt ticket. The op pins project/branch revisions and the
+    // scope digest, so a successful commit proves all three CAS.
+    let rev = live_rev(&gate);
+    let brev = branch_revision(&gate, &set, &candidate);
+    let digest =
+        gate.inspect(|c| scope_digest(c.live(), &c.live().variant_sets[&set].scope).unwrap());
+    issue_agent(
+        &vrig.rig.store,
+        "t1",
+        branch_grant(
+            "g1",
+            "t1",
+            &["synvelis.branch.adopt"],
+            ApprovalPolicy::ApproveToApply,
+        ),
+    );
+    let result = complete(
+        vrig.rig
+            .gw
+            .handle(
+                &prepare_req(
+                    Some("t1"),
+                    Some("g1"),
+                    adopt_op(&set, &candidate, rev, brev, &digest),
+                    expected(rev),
+                ),
+                agent(),
+            )
+            .unwrap(),
+    );
+    let proposal = result["proposal"].as_str().unwrap().to_owned();
+    let digest_s = result["digest"].as_str().unwrap().to_owned();
+    let outcome = apply_agent(&mut vrig.rig, &proposal, &digest_s, None, "t1", "g1", rev);
+    let GatewayOutcome::ApprovalRequired { approval } = outcome else {
+        panic!("expected ApprovalRequired, got {outcome:?}");
+    };
+    complete(
+        vrig.rig
+            .gw
+            .handle(&approve_req(&proposal, &digest_s), human())
+            .unwrap(),
+    );
+    let outcome = apply_agent(
+        &mut vrig.rig,
+        &proposal,
+        &digest_s,
+        Some(approval.as_str()),
+        "t1",
+        "g1",
+        rev,
+    );
+    assert!(matches!(outcome, GatewayOutcome::Accepted { .. }));
+
+    // Single composite adopt: one project CAS, one undo unit.
+    let pre_adopt = gate.inspect(|c| c.live().clone());
+    let rev_before = live_rev(&gate);
+    let receipt = gate
+        .commit(&ProposalRef::new(&proposal).unwrap())
+        .expect("arrangement adopt commits");
+    publish(&gate, &vrig.rig);
+    assert_eq!(receipt.revision.0, rev_before + 1);
+    let prov: Value = serde_json::from_str(receipt.provenance.as_deref().unwrap()).unwrap();
+    assert_eq!(prov["project"]["committed"], json!(true));
+    assert_eq!(prov["project"]["undo_steps"], json!(1));
+    assert_eq!(prov["after_revision"], json!(rev_before + 1));
+
+    // Both scoped edits materialized in live at once — and nothing
+    // else on the edited clips moved.
+    let live = gate.inspect(|c| c.live().clone());
+    let mut expected11 = pre_adopt.clips[&ClipId::new(11)].clone();
+    expected11.muted = true;
+    assert_eq!(live.clips[&ClipId::new(11)], expected11);
+    let mut expected13 = pre_adopt.clips[&ClipId::new(13)].clone();
+    expected13.placement.anchor = TimeAnchor::Musical(MusicalTick::new(960));
+    assert_eq!(live.clips[&ClipId::new(13)], expected13);
+
+    // The unedited in-scope clip and every scope-external entity —
+    // track/lane structure, sources, assets, clip-local notes and
+    // MIDI source content — stay bitwise untouched by the adopt.
+    assert_eq!(
+        live.clips[&ClipId::new(12)],
+        pre_adopt.clips[&ClipId::new(12)]
+    );
+    assert_eq!(live.notes, pre_adopt.notes);
+    assert_eq!(live.midi_sources, pre_adopt.midi_sources);
+    assert_eq!(live.sources, pre_adopt.sources);
+    assert_eq!(live.assets, pre_adopt.assets);
+    assert_eq!(live.tracks, pre_adopt.tracks);
+    assert_eq!(live.lanes, pre_adopt.lanes);
+
+    // The candidate is now the adopted branch.
+    let (_set, new_adopted, _candidate) = only_set(&gate);
+    assert_eq!(new_adopted, candidate);
 }
