@@ -46,6 +46,7 @@ Directory: `docs/specs`
 | SPEC-034YXIoA2YsEXy4UBKPrXl | issue-515-os-credential — verified-Human OS-credential session 供給 | draft | [issue-515-os-credential.md](./issue-515-os-credential.md) |
 | SPEC-Nc4BLBrVpI3wgQ9T7hI5SE | Issue #516 spec — interim mlua adapter → ruviform 製品 port 交換の受入仕様 | approved | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | SPEC-sv517cD4eF6gH8iJ0kL1mN3 | Issue #517 spec — render/branch pipeline 本番配線の受入仕様 | approved | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
+| SPEC-sv518bC3dE5fG7hI9jK0l | Issue #518 spec — production job system 配線の受入仕様 | approved | [issue-518-job-system.md](./issue-518-job-system.md) |
 | SPEC-8C2JgN39wTW9v4aw04Cg | Issue #530 spec — stateless plugin を PluginStateDecl で表現する契約 | approved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | SPEC-ubzJtNuQxbSXLe7nevbdUw | L1 — Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | approved | [l1-local-wav-verified-media-graph-playback.md](./l1-local-wav-verified-media-graph-playback.md) |
 | SPEC-034Qmb9CC7dN4YE5VPN235 | L2 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |

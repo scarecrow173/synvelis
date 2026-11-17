@@ -63,6 +63,7 @@ Directory: `docs/designs`
 | DESIGN-034YXStSteikAVmmfTjwB3 | issue-515-os-credential — durable session store + OS credential 経路の設計 | approved | [issue-515-os-credential.md](./issue-515-os-credential.md) |
 | DESIGN-dHD8y1UOzR1s1jhUXZnanm | Issue #516 設計 — synvelis-script-luau を ruviform 製品 port への薄い binding へ置換 | approved | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | DESIGN-sv517eF6gH8iJ0kL1mN3oP5 | Issue #517 設計 — render/branch pipeline 本番配線 | approved | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
+| DESIGN-sv518cD4eF6gH8iJ0kL3mN5 | Issue #518 設計 — production job system 配線 | approved | [issue-518-job-system.md](./issue-518-job-system.md) |
 | DESIGN-lc4Y6qkD6O151hJoRKMQ | Issue #530 design — stateless/capture-applicability の契約表現 | approved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | DESIGN-vaYFK7BnCVN715EASswzTe | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 設計 | approved | [issue-86-verified-import-wiring-design.md](./issue-86-verified-import-wiring-design.md) |
 | DESIGN-yiV0z7HH1jyKUmweFh9hCT | L1 Design — Safe Import・Verified Media・Lowering・Headless Driver | approved | [l1-local-wav-verified-playback-design.md](./l1-local-wav-verified-playback-design.md) |
