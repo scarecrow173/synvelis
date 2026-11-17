@@ -223,6 +223,7 @@ fn install_engines(
     source: Arc<MemorySnapshotSource>,
     proposals: &Arc<ProposalStore>,
     oracle: &Arc<dyn ResourceOracle>,
+    variant_root: Option<&std::path::Path>,
 ) -> Result<Arc<VariantPorts>, ErrorEnvelope> {
     let ctx = Arc::new(ContextProjectionEngine::new(
         source.clone(),
@@ -238,8 +239,11 @@ fn install_engines(
     // CB-10: one shared ports value — prepare simulates branch
     // mutations through it, the query engine decodes candidate
     // payloads through its store, and a durable boot hands the same
-    // `Arc` to the commit gate's fenced variant dispatch.
-    let variant = Arc::new(VariantPorts::standard());
+    // `Arc` to the commit gate's fenced variant dispatch. A project
+    // boot passes its bundle root so candidate payloads and the
+    // runtime-publish journal persist across restarts (synvelis#517);
+    // project-less discovery passes `None`.
+    let variant = Arc::new(VariantPorts::standard(variant_root));
     let prepare_policy: Arc<dyn PrepareAuthorizer> =
         Arc::new(PreparePolicy::new(policy.clone(), Arc::clone(clock)));
     let prepare = Arc::new(
@@ -277,6 +281,7 @@ fn build_gateway(
     source: Arc<MemorySnapshotSource>,
     proposals: &Arc<ProposalStore>,
     oracle: &Arc<dyn ResourceOracle>,
+    variant_root: Option<&std::path::Path>,
 ) -> Result<(Gateway, Arc<VariantPorts>), ErrorEnvelope> {
     let mut gateway = Gateway::with_evaluator(Box::new(ProposalGate::new(
         Arc::clone(proposals),
@@ -286,7 +291,15 @@ fn build_gateway(
             Arc::clone(oracle),
         )),
     )));
-    let variant = install_engines(&mut gateway, policy, clock, source, proposals, oracle)?;
+    let variant = install_engines(
+        &mut gateway,
+        policy,
+        clock,
+        source,
+        proposals,
+        oracle,
+        variant_root,
+    )?;
     Ok((gateway, variant))
 }
 
@@ -393,7 +406,7 @@ pub fn boot_discovery(session_store: Option<&Path>) -> Result<Booted, CliError> 
     ));
     let oracle: Arc<dyn ResourceOracle> =
         Arc::new(ProjectOracle::of(Project::new(ProjectId::new(0), "")));
-    let (gateway, _variant) = build_gateway(store, &clock, source, &proposals, &oracle)
+    let (gateway, _variant) = build_gateway(store, &clock, source, &proposals, &oracle, None)
         .map_err(|e| CliError::Internal(format!("gateway composition failed: {}", e.message)))?;
     let descriptors = snapshot_descriptors(&gateway);
     let (registry, script) = capture_run_artifacts(&gateway)?;
@@ -533,10 +546,15 @@ pub fn boot_project(
 fn boot_readonly(ctx: BootContext, session_store: FileCliSessionStore) -> Result<Booted, CliError> {
     let binding = ctx.binding();
     let policy: Arc<dyn PolicyStore> = Arc::new(InMemoryPolicyStore::new());
-    let (gateway, _variant) =
-        build_gateway(policy, &ctx.clock, ctx.source, &ctx.proposals, &ctx.oracle).map_err(
-            |e| CliError::Internal(format!("gateway composition failed: {}", e.message)),
-        )?;
+    let (gateway, _variant) = build_gateway(
+        policy,
+        &ctx.clock,
+        ctx.source,
+        &ctx.proposals,
+        &ctx.oracle,
+        Some(&ctx.canonical),
+    )
+    .map_err(|e| CliError::Internal(format!("gateway composition failed: {}", e.message)))?;
     let descriptors = snapshot_descriptors(&gateway);
     let (registry, script) = capture_run_artifacts(&gateway)?;
     let committer: Arc<dyn CommitPort> = Arc::new(NoCommitPort);
@@ -577,6 +595,7 @@ fn boot_durable(
         ctx.source,
         &ctx.proposals,
         &ctx.oracle,
+        Some(&ctx.canonical),
     )
     .map_err(|e| CliError::Internal(format!("gateway composition failed: {}", e.message)))?;
     let descriptors = snapshot_descriptors(&gateway);
@@ -593,6 +612,12 @@ fn boot_durable(
         proposals: ctx.proposals.clone(),
         apply_capability,
         variant: Some(variant),
+        // Headless host: render capabilities stay registered and
+        // authorized, but dispatch reports typed `Unavailable` — no
+        // render success is fabricated without a backend (synvelis#517).
+        render: Some(Arc::new(
+            synvelis_gateway::variant::UnavailableRenderDispatch,
+        )),
     };
     let id_seed = ctx.project.id_watermark;
     let (gate, _report) = CommitGate::open(
