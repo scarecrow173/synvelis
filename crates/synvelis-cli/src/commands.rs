@@ -53,6 +53,30 @@ fn next_request_id() -> String {
 /// project boot). Gateway failures are *not* errors here — they are
 /// reported inside the returned envelope with their mapped exit code.
 pub fn run(args: &Args) -> Result<CommandResult, CliError> {
+    // `--session <id>` resolves through the OS credential vault into
+    // the interactive claim's credential *before* dispatch — the
+    // secret stays in-process and never touches argv/env/logs
+    // (synvelis#515). Session provisioning verbs manage the store
+    // directly and skip claim resolution.
+    let resolved;
+    let args = if args.session.is_some()
+        && !matches!(
+            args.command,
+            Command::SessionIssue { .. } | Command::SessionList | Command::SessionRevoke { .. }
+        ) {
+        let credential = crate::session::resolve_credential(
+            args.session_store.as_deref(),
+            args.session.as_deref().unwrap_or_default(),
+        )?;
+        resolved = Args {
+            session_credential: Some(credential),
+            session: None,
+            ..args.clone()
+        };
+        &resolved
+    } else {
+        args
+    };
     match &args.command {
         Command::Help | Command::Version => Err(CliError::Internal(
             "help/version handled before dispatch".to_owned(),
@@ -68,6 +92,9 @@ pub fn run(args: &Args) -> Result<CommandResult, CliError> {
             inputs_file,
         } => run_file(args, file, inputs.as_ref(), inputs_file.as_deref()),
         Command::ScriptAnalyze { file, cursor } => analyze::analyze_command(args, file, *cursor),
+        Command::SessionIssue { ttl_ms, user } => session_issue(args, *ttl_ms, user.as_deref()),
+        Command::SessionList => session_list(args),
+        Command::SessionRevoke { session } => session_revoke(args, session),
         Command::ProjectInfo => project_info(args),
         Command::Render { output } => render(args, output),
     }
@@ -77,7 +104,7 @@ pub fn run(args: &Args) -> Result<CommandResult, CliError> {
 
 fn action_list(args: &Args) -> Result<CommandResult, CliError> {
     reject_dry_run(args, "action list")?;
-    let booted = host::boot_discovery()?;
+    let booted = host::boot_discovery(args.session_store.as_deref())?;
     let capabilities: Vec<Value> = booted
         .descriptors
         .iter()
@@ -103,7 +130,7 @@ fn action_list(args: &Args) -> Result<CommandResult, CliError> {
 fn action_describe(args: &Args, text: &str) -> Result<CommandResult, CliError> {
     reject_dry_run(args, "action describe")?;
     let (id, version) = parse_cap_ref(text)?;
-    let booted = host::boot_discovery()?;
+    let booted = host::boot_discovery(args.session_store.as_deref())?;
     let matches: Vec<&synvelis_gateway::capability::CapabilityDescriptor> = booted
         .descriptors
         .iter()
@@ -219,6 +246,107 @@ fn run_file(
     script::run_file_command(args, file, inputs, inputs_file)
 }
 
+// ── session provisioning (synvelis#515) ─────────────────────────
+//
+// Operator verbs over the durable `FileCliSessionStore` + OS
+// credential vault. Output carries record metadata only — the usable
+// secret is returned to the vault exactly once at issue and is never
+// printed, logged, or serialized.
+
+fn session_issue(
+    args: &Args,
+    ttl_ms: Option<u64>,
+    user: Option<&str>,
+) -> Result<CommandResult, CliError> {
+    reject_dry_run(args, "session issue")?;
+    let issued = crate::session::issue(args.session_store.as_deref(), ttl_ms, user)?;
+    let record = &issued.record;
+    let mut envelope = CliEnvelope::bare(EnvelopeStatus::Completed);
+    envelope.result = Some(json!({
+        "session": record.session,
+        "principal": serde_json::to_value(&record.principal).unwrap_or(Value::Null),
+        "issued_at": record.issued_at.raw(),
+        "expires_at": record.expires_at.map(synvelis_gateway::PolicyInstant::raw),
+        "credential_store": if crate::session::vault_supported() {
+            "os"
+        } else {
+            "unsupported"
+        },
+    }));
+    let human = format!(
+        "session: {}
+principal: {}
+issued_at: {}
+expires_at: {}
+\nUse with: synvelis-cli --session {} <command>
+",
+        record.session,
+        serde_json::to_string(&record.principal).unwrap_or_else(|_| "?".to_owned()),
+        record.issued_at.raw(),
+        record
+            .expires_at
+            .map_or_else(|| "never".to_owned(), |e| e.raw().to_string()),
+        record.session,
+    );
+    Ok(result(envelope, 0, Some(human)))
+}
+
+fn session_list(args: &Args) -> Result<CommandResult, CliError> {
+    reject_dry_run(args, "session list")?;
+    let records = crate::session::list(args.session_store.as_deref())?;
+    let clock = synvelis_gateway::SystemClock;
+    let now = synvelis_gateway::PolicyClock::now(&clock);
+    let sessions: Vec<Value> = records
+        .iter()
+        .map(|r| {
+            json!({
+                "session": r.session,
+                "principal": serde_json::to_value(&r.principal).unwrap_or(Value::Null),
+                "issued_at": r.issued_at.raw(),
+                "expires_at": r.expires_at.map(synvelis_gateway::PolicyInstant::raw),
+                "revoked": r.revoked,
+                "live": r.live(now),
+            })
+        })
+        .collect();
+    let mut envelope = CliEnvelope::bare(EnvelopeStatus::Completed);
+    envelope.result = Some(json!({ "sessions": sessions }));
+    let mut human = String::new();
+    for r in &records {
+        let _ = writeln!(
+            human,
+            "{}  {}  issued={} expires={} revoked={}",
+            r.session,
+            serde_json::to_string(&r.principal).unwrap_or_else(|_| "?".to_owned()),
+            r.issued_at.raw(),
+            r.expires_at
+                .map_or_else(|| "never".to_owned(), |e| e.raw().to_string()),
+            r.revoked,
+        );
+    }
+    Ok(result(envelope, 0, Some(human)))
+}
+
+fn session_revoke(args: &Args, session_id: &str) -> Result<CommandResult, CliError> {
+    reject_dry_run(args, "session revoke")?;
+    let revoked = crate::session::revoke(args.session_store.as_deref(), session_id)?;
+    if !revoked {
+        return Err(CliError::InvalidInput(format!(
+            "unknown session '{session_id}'"
+        )));
+    }
+    let mut envelope = CliEnvelope::bare(EnvelopeStatus::Completed);
+    envelope.result = Some(json!({ "session": session_id, "revoked": true }));
+    Ok(result(
+        envelope,
+        0,
+        Some(format!(
+            "session {session_id} revoked
+"
+        )),
+    ))
+}
+
 // ── project info ─────────────────────────────────────────────────
 
 fn project_info(args: &Args) -> Result<CommandResult, CliError> {
@@ -314,7 +442,7 @@ fn require_project_path(args: &Args) -> Result<&std::path::Path, CliError> {
 /// for real invocations, read-only in-memory seams for `--dry-run`.
 fn boot_for_operation(args: &Args) -> Result<Booted, CliError> {
     let root = require_project_path(args)?;
-    host::boot_project(root, !args.dry_run)
+    host::boot_project(root, !args.dry_run, args.session_store.as_deref())
 }
 
 fn parse_cap_ref(text: &str) -> Result<(String, Option<CapabilityVersion>), CliError> {

@@ -947,7 +947,7 @@ pub fn run_file_command(
         .project
         .as_ref()
         .ok_or_else(|| CliError::Internal("--project presence was validated above".to_owned()))?;
-    let booted = host::boot_project(root, !args.dry_run)?;
+    let booted = host::boot_project(root, !args.dry_run, args.session_store.as_deref())?;
     let outcome = match class {
         FileClass::WorkflowDsl | FileClass::WorkflowScriptLuau => {
             run_workflow(&booted, args, class, file, &source, inputs, inputs_file)

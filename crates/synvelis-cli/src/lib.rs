@@ -20,6 +20,8 @@
 //! - [`analyze`] — `script analyze --file` headless Script Analyzer
 //!   pipeline (AUTX-SCR-ANA-01).
 //! - [`host`] — gateway/session/project boot composition.
+//! - [`session`] — durable session store path + OS credential vault
+//!   seam (synvelis#515).
 //! - [`commands`] — command implementations.
 
 pub mod analyze;
@@ -30,3 +32,4 @@ pub mod error;
 pub mod exitcode;
 pub mod host;
 pub mod script;
+pub mod session;
