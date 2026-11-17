@@ -1,5 +1,5 @@
 ---
-id: "SPEC-issue-516-mlua-adapter"
+id: "SPEC-Nc4BLBrVpI3wgQ9T7hI5SE"
 type: "spec"
 status: "approved"
 title: "Issue #516 spec — interim mlua adapter → ruviform 製品 port 交換の受入仕様"
@@ -19,20 +19,20 @@ relations:
     generated: []
   implements: []
   implemented-by:
+    - "docs/adr/issue-516-mlua-adapter.md"
     - "docs/designs/issue-516-mlua-adapter.md"
-  depends-on:
-    - "docs/discovery/issue-516-mlua-adapter.md"
+  depends-on: []
   blocks: []
   supersedes: []
   superseded-by: []
   related:
     - "docs/specs/sv-script-03-luau-backend.md"
   refines: []
-  refined-by:
-    - "docs/designs/issue-516-mlua-adapter.md"
+  refined-by: []
   derives-from:
     - "docs/discovery/issue-516-mlua-adapter.md"
   derived-by:
+    - "docs/adr/issue-516-mlua-adapter.md"
     - "docs/designs/issue-516-mlua-adapter.md"
   verifies: []
   verified-by:

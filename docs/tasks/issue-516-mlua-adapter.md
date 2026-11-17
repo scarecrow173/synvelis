@@ -1,5 +1,5 @@
 ---
-id: "TASK-issue-516-mlua-adapter"
+id: "TASK-hu0U9zgaLa4C26TlCRz2oX"
 type: "task"
 status: "done"
 title: "Issue #516 tasks — 薄い binding への置換"
@@ -17,7 +17,8 @@ relations:
     renamed: []
     moved: []
     generated: []
-  implements: []
+  implements:
+    - "docs/plans/issue-516-mlua-adapter.md"
   implemented-by: []
   depends-on:
     - "docs/plans/issue-516-mlua-adapter.md"

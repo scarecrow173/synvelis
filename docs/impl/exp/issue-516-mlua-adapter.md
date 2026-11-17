@@ -1,15 +1,14 @@
 ---
-id: "IMPEXP-issue-516-mlua-adapter"
-type: "impl-exp"
-status: "done"
-title: "Issue #516 experiment log — 実装中の試行と判断"
+id: "EXP-ncTBPCEIWeKhvHG0DDUxAt"
+type: "experiment"
+status: "completed"
+title: "issue-516-mlua-adapter — 製品 port 交換の実験記録"
 created: "2026-11-17"
 updated: "2026-11-17"
 owners: ["scarecrow173"]
 relations:
   source:
     - "https://github.com/scarecrow173/synvelis/issues/516"
-    - "docs/impl/ir/issue-516-mlua-adapter.md"
   changes:
     added: []
     modified: []
@@ -18,22 +17,31 @@ relations:
     moved: []
     generated: []
   implements: []
-  implemented-by: []
-  depends-on:
+  implemented-by:
     - "docs/impl/ir/issue-516-mlua-adapter.md"
+  depends-on:
+    - "docs/designs/issue-516-mlua-adapter.md"
+    - "docs/specs/issue-516-mlua-adapter.md"
   blocks: []
   supersedes: []
   superseded-by: []
-  related: []
+  related:
+    - "docs/discovery/issue-516-mlua-adapter.md"
+    - "evidence/sv516/binding-fit.md"
   refines: []
   refined-by: []
   derives-from: []
   derived-by: []
   verifies: []
   verified-by: []
-  references: []
+  references:
+    - "docs/impl/exp/issue-516-mlua-adapter-exp.jsonl"
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted: []
+    rejected: []
 ---
 
 # Issue #516 experiment log

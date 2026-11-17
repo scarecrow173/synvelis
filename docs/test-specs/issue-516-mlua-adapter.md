@@ -1,5 +1,5 @@
 ---
-id: "TESTSPEC-issue-516-mlua-adapter"
+id: "TSPEC-MYFHRUK4femA1AglhsravS"
 type: "test-spec"
 status: "approved"
 title: "Issue #516 test spec — 製品 port 交換の検証保証"
@@ -29,10 +29,12 @@ relations:
   refines: []
   refined-by: []
   derives-from:
-    - "docs/specs/issue-516-mlua-adapter.md"
+    - "docs/designs/issue-516-mlua-adapter.md"
+    - "docs/plans/issue-516-mlua-adapter.md"
   derived-by: []
   verifies:
-    - "docs/tasks/issue-516-mlua-adapter.md"
+    - "docs/specs/issue-516-mlua-adapter.md"
+    - "docs/designs/issue-516-mlua-adapter.md"
   verified-by: []
   references:
     - "docs/adr/issue-516-mlua-adapter.md"

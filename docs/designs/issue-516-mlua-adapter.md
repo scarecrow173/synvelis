@@ -1,5 +1,5 @@
 ---
-id: "DESIGN-issue-516-mlua-adapter"
+id: "DESIGN-dHD8y1UOzR1s1jhUXZnanm"
 type: "design"
 status: "approved"
 title: "Issue #516 設計 — synvelis-script-luau を ruviform 製品 port への薄い binding へ置換"
@@ -29,9 +29,12 @@ relations:
     generated: []
   implements:
     - "docs/specs/issue-516-mlua-adapter.md"
-  implemented-by: []
+    - "docs/adr/issue-516-mlua-adapter.md"
+  implemented-by:
+    - "docs/plans/issue-516-mlua-adapter.md"
   depends-on:
     - "docs/specs/issue-516-mlua-adapter.md"
+    - "docs/adr/issue-516-mlua-adapter.md"
     - "docs/discovery/issue-516-mlua-adapter.md"
   blocks: []
   supersedes: []
@@ -39,12 +42,13 @@ relations:
   related:
     - "docs/designs/sv-script-03-luau-backend.md"
   refines: []
-  refined-by:
-    - "docs/plans/issue-516-mlua-adapter.md"
+  refined-by: []
   derives-from:
     - "docs/specs/issue-516-mlua-adapter.md"
+    - "docs/adr/issue-516-mlua-adapter.md"
   derived-by:
     - "docs/plans/issue-516-mlua-adapter.md"
+    - "docs/test-specs/issue-516-mlua-adapter.md"
   verifies: []
   verified-by:
     - "docs/test-specs/issue-516-mlua-adapter.md"

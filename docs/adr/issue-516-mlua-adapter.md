@@ -1,5 +1,5 @@
 ---
-id: "ADR-issue-516-mlua-adapter"
+id: "ADR-JlTrO2yuccd5FZv5Nn49fc"
 type: "adr"
 status: "accepted"
 title: "Issue #516 — interim synvelis-script-luau(mlua) を ruviform-script/-luau 製品 port への薄い binding 交換で置換"
@@ -44,7 +44,7 @@ relations:
   superseded-by: []
   related:
     - "docs/designs/sv-script-03-luau-backend.md"
-    - "docs/adr/issue-274-cli-script-analyze.md"
+    - "docs/specs/sv-script-03-luau-backend.md"
   refines: []
   refined-by: []
   derives-from:
@@ -52,8 +52,7 @@ relations:
   derived-by:
     - "docs/designs/issue-516-mlua-adapter.md"
   verifies: []
-  verified-by:
-    - "docs/test-specs/issue-516-mlua-adapter.md"
+  verified-by: []
   references:
     - "evidence/sv516/binding-fit.md"
     - "https://github.com/scarecrow173/ruviform/issues/560"

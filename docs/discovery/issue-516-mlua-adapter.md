@@ -1,7 +1,7 @@
 ---
-id: "DISC-issue-516-mlua-adapter"
+id: "DISC-lBw8TRfrsCuiBaOZspSfW1"
 type: "discovery"
-status: "complete"
+status: "resolved"
 title: "Issue #516 discovery — interim mlua adapter vs ruviform 製品 port の binding-fit 調査"
 created: "2026-11-17"
 updated: "2026-11-17"

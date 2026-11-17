@@ -1,5 +1,5 @@
 ---
-id: "PLAN-issue-516-mlua-adapter"
+id: "PLAN-1kBHRQoUwWJI51A3YqHacf"
 type: "plan"
 status: "approved"
 title: "Issue #516 実装 plan — 薄い binding への置換"
@@ -17,24 +17,27 @@ relations:
     renamed: []
     moved: []
     generated: []
-  implements: []
+  implements:
+    - "docs/designs/issue-516-mlua-adapter.md"
   implemented-by:
     - "docs/tasks/issue-516-mlua-adapter.md"
   depends-on:
     - "docs/designs/issue-516-mlua-adapter.md"
+    - "docs/specs/issue-516-mlua-adapter.md"
   blocks: []
   supersedes: []
   superseded-by: []
   related: []
   refines: []
-  refined-by:
-    - "docs/tasks/issue-516-mlua-adapter.md"
+  refined-by: []
   derives-from:
     - "docs/designs/issue-516-mlua-adapter.md"
   derived-by:
     - "docs/tasks/issue-516-mlua-adapter.md"
+    - "docs/test-specs/issue-516-mlua-adapter.md"
   verifies: []
-  verified-by: []
+  verified-by:
+    - "docs/test-specs/issue-516-mlua-adapter.md"
   references:
     - "docs/test-specs/issue-516-mlua-adapter.md"
   defers: []
