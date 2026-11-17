@@ -29,6 +29,7 @@ Directory: `docs/tasks`
 | TASK-034YDhY9pqCERJWLjMaGyX | issue-274-cli-script-analyze — task 分解 | completed | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
 | TASK-513a1b2c3d4e5f6g7h8i9j0k5 | issue-513-variant-apply-ops — task 分解 | completed | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
 | TASK-034YXTWjUPI81SOi9gb2W3 | issue-515-os-credential — durable store + OS credential 実装 | todo | [issue-515-os-credential.md](./issue-515-os-credential.md) |
+| TASK-521a1b2c3d4e5f6g7h8i9j0k1 | issue-521-lfs-transport — Git LFS remote fetch HTTPS/TLS transport | completed | [issue-521-lfs-transport.md](./issue-521-lfs-transport.md) |
 | TASK-mr20261114mediaRenderB | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 設計契約文書化 (synvelis#21) | in-progress | [media-render-task.md](./media-render-task.md) |
 | TASK-P1ub1PJgLQhinQuEDIDy8S | PC-C3 task2 — synvelis-player RT trace adapter 実装（TRACE-C3-05） | in-progress | [pc-c3-task2-rt-trace-adapter.md](./pc-c3-task2-rt-trace-adapter.md) |
 | TASK-b2e5a8c1f4d90736e5b2a8c2d4e6f7a | PC-C4 observe engine wiring task1 — observe_block の engine-driver 配線 | completed | [pc-c4-observe-engine-wiring-task.md](./pc-c4-observe-engine-wiring-task.md) |
@@ -125,7 +126,9 @@ Directory: `docs/tasks`
 | TASK-034YXXXE7kuTr6kR5K8KV8 | SV177 issue-177-design-tokens | done | [issue-177-design-tokens.md](./issue-177-design-tokens.md) |
 | TASK-034WsBdOQFzQABNIgCwFPl | Issue #365 impl index 生成可能化 — front matter 是正と index 再生成 | done | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
 | TASK-034Wv2LV1SZLdyPnE8fyZD | Issue #368 docs/impl/ir missing-section 本文補完 | done | [issue-368-ir-missing-sections.md](./issue-368-ir-missing-sections.md) |
+| TASK-rVJcKAC3jQHu6ZFC0SvSV9 | Issue #514 tasks — 判定記録 slice | done | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |
 | TASK-hu0U9zgaLa4C26TlCRz2oX | Issue #516 tasks — 薄い binding への置換 | done | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
+| TASK-sv517hI0jK1lM2nO3pQ4rS5 | Issue #517 tasks — render/branch pipeline 本番配線 | done | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
 | TASK-VB7LzgmqMRIfE31stZItL7 | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 | done | [issue-86-task-verified-import-wiring.md](./issue-86-task-verified-import-wiring.md) |
 | TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |
 | TASK-z866D1bQYKGTdgVlXsQMXJ | L1 task2 player crate fixture | done | [l1-task2-player-crate-fixture.md](./l1-task2-player-crate-fixture.md) |

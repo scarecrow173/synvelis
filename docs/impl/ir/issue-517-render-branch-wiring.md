@@ -36,6 +36,11 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted:
+      - "docs/impl/exp/issue-517-render-branch-wiring.md"
+    rejected: []
 ---
 
 # issue-517-render-branch-wiring — implementation record

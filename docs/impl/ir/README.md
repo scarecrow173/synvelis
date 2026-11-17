@@ -99,8 +99,11 @@ Directory: `docs/impl/ir`
 | IMPL-034WsBSh6LGUqgyK6c4CZL | Issue #365 impl index 生成可能化 — ir front matter 是正・marker 追加・index 再生成 | completed | [issue-365-impl-index-ir-front-matter-marker-index.md](./issue-365-impl-index-ir-front-matter-marker-index.md) |
 | IMPL-034Wv7Ib5bsrIkIj1wO99Y | Issue #368 docs/impl/ir missing-section 本文補完 | completed | [issue-368-docs-impl-ir-missing-section.md](./issue-368-docs-impl-ir-missing-section.md) |
 | IMPL-513a1b2c3d4e5f6g7h8i9j0k7 | issue-513-variant-apply-ops | completed | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
+| IMPL-bJVGmSy1j9h2Vvv5gDkQVO | Issue #514 impl record — 判定記録 slice | completed | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |
 | IMPL-034YY6FE3030pd5QC8HIrQ | issue-515-os-credential — durable CliSessionStore + OS credential 供給 | completed | [issue-515-os-credential-durable-clisessionstore-os-credential.md](./issue-515-os-credential-durable-clisessionstore-os-credential.md) |
 | IMPL-mFCaw7vxrI5DaWd03Ze4Il | issue-516-mlua-adapter | completed | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
+| IMPL-sv517kL3mN4oP5qR6sT7uV8 | issue-517-render-branch-wiring | completed | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
+| IMPL-521a1b2c3d4e5f6g7h8i9j0k3 | issue-521-lfs-transport — Git LFS remote fetch HTTPS/TLS transport 実装記録 | completed | [issue-521-lfs-transport.md](./issue-521-lfs-transport.md) |
 | IMPL-qGhrNdq0yLEfcWCITQ0m0p | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 実装記録 | completed | [issue-86-verified-import-wiring-slice.md](./issue-86-verified-import-wiring-slice.md) |
 | IMPL-L1LocalWavVerifiedPlayback | E2E-L1 Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | completed | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | IMPL-L2MasterSequentialOfflineWavExport | E2E-L2 Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | completed | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
