@@ -38,9 +38,12 @@ Directory: `docs/plans`
 | PLAN-034RUl6aYDJVN0hwia8nWp | Issue #157 rev.3 matrix placeholder gate 実装計画 | approved | [issue-157-matrix-placeholder-gate.md](./issue-157-matrix-placeholder-gate.md) |
 | PLAN-034SYN166StG1CiSm | Issue #166 Full CI 化・ci-summary 統一 — 第一段階実装計画 | proposed | [issue-166-full-ci-ci-summary.md](./issue-166-full-ci-ci-summary.md) |
 | PLAN-FJFu7KEhoGpsO1UDDzKK6a | Issue #167 Tracker reconcile 実装計画 — 共有 pin eed590e + Consumer reconcile workflow + 契約 test | in-progress | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
+| PLAN-034YYxZVou00vT9hA3FTRe | SV177 issue-177-design-tokens implementation plan | draft | [issue-177-design-tokens.md](./issue-177-design-tokens.md) |
 | PLAN-034U2vlyQzakAB9i25oAuM | Issue #184 CI verify/evidence 失敗 — canonical temp fixture 実装計画 | approved | [issue-184-ci-verify-evidence-canonical-temp-fixture.md](./issue-184-ci-verify-evidence-canonical-temp-fixture.md) |
 | PLAN-034YBz5Lu1tRwVb8NxFc | issue-262-run-file-real-vm — 実装 plan | approved | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
 | PLAN-034YDhXmRCMo80uy2OMsrP | issue-274-cli-script-analyze — 実装 plan | approved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
+| PLAN-513a1b2c3d4e5f6g7h8i9j0k4 | issue-513-variant-apply-ops — 実装 plan | approved | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
+| PLAN-034YXTpsA7X2LIoy8uNpK2 | issue-515-os-credential 実装計画 | approved | [issue-515-os-credential.md](./issue-515-os-credential.md) |
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |

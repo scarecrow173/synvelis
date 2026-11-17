@@ -37,8 +37,11 @@ Directory: `docs/specs`
 | SPEC-034RGX4X79sB0s9tVVWQh9 | Issue #151 CI ui-verify lane 追加仕様 | approved | [issue-151-ui-ci-lane.md](./issue-151-ui-ci-lane.md) |
 | SPEC-034SYN166FuLlC1sTaGe | Issue #166 Full CI 化・ci-summary 統一 — 安全な第一段階 | proposed | [issue-166-full-ci-ci-summary.md](./issue-166-full-ci-ci-summary.md) |
 | SPEC-jY8M1QCzHBuilakae6Hmyw | Issue #167 Tracker reconcile 入口 — 共有 pin eed590e 更新 + Consumer 別 workflow 定期/手動 reconcile | proposed | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
+| SPEC-iHIZmuGqQNil5fLLCeaC46 | SV177 design tokens — canonical semantic vocabulary + headless↔palette parity + design fixtures | draft | [issue-177-design-tokens.md](./issue-177-design-tokens.md) |
 | SPEC-034U2u4gD9peI0yjoqllEA | Issue #184 CI verify/evidence 失敗 — synvelis-library テスト fixture の canonical path 修正 | proposed | [issue-184-ci-verify-symlink-fixture.md](./issue-184-ci-verify-symlink-fixture.md) |
 | SPEC-034YDgnDTjpDlwq3cW0ik4 | issue-274-cli-script-analyze — synvelis-cli script analyze --file headless Script Analyzer | approved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
+| SPEC-513a1b2c3d4e5f6g7h8i9j0k1 | issue-513-variant-apply-ops — variant/VCS apply op surface 拡張 | approved | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
+| SPEC-034YXIoA2YsEXy4UBKPrXl | issue-515-os-credential — verified-Human OS-credential session 供給 | draft | [issue-515-os-credential.md](./issue-515-os-credential.md) |
 | SPEC-ubzJtNuQxbSXLe7nevbdUw | L1 — Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | approved | [l1-local-wav-verified-media-graph-playback.md](./l1-local-wav-verified-media-graph-playback.md) |
 | SPEC-034Qmb9CC7dN4YE5VPN235 | L2 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | SPEC-rBmfzOP1H86N1KAXlFpX5N | MD-A — TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | approved | [mda-takegroup-comp-effective-projection-placement-contract.md](./mda-takegroup-comp-effective-projection-placement-contract.md) |
