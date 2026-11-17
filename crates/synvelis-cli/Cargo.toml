@@ -16,6 +16,7 @@ synvelis-script = { path = "../synvelis-script" }
 synvelis-script-luau = { path = "../synvelis-script-luau" }
 synvelis-gateway = { path = "../synvelis-gateway" }
 synvelis-project = { path = "../synvelis-project" }
+synvelis-workspace = { path = "../synvelis-workspace" }
 
 [target.'cfg(windows)'.dependencies]
 keyring.workspace = true

@@ -33,7 +33,7 @@ use crate::recipe::{
 /// content digest) plus the project view resolved from exactly those
 /// captured bytes. Pinned by value at submission — later project
 /// revisions can never re-associate this job's completion (RCP-POL-03).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct PinnedSnapshot {
     /// Content/provenance identity of the capture.
     pub identity: SnapshotIdentity,
@@ -53,7 +53,7 @@ impl PinnedSnapshot {
 /// One render demand — a boundary plus the frame interval it covers.
 /// Demands are what a scope/purpose/package *requires*; each becomes
 /// one resolved recipe inside the job.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RenderDemand {
     /// Output boundary.
     pub boundary: RenderBoundary,
@@ -64,7 +64,7 @@ pub struct RenderDemand {
 /// Everything one job renders — one pinned snapshot plus the demand
 /// set. Multiple demands share the snapshot and purpose but resolve
 /// to distinct recipes.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RenderSelection {
     /// Pinned target.
     pub snapshot: PinnedSnapshot,
@@ -359,6 +359,10 @@ pub enum JobFailureReason {
     UnknownDependency,
     /// The contract cannot express the request.
     Unsupported,
+    /// The selection itself is malformed — empty demands or an
+    /// inverted frame interval. Rejected before any cost model or
+    /// executor sees it (synvelis#518).
+    InvalidSelection,
     /// Required artifacts incomplete at a `RequireComplete` gate.
     IncompleteArtifacts,
 }

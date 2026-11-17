@@ -76,7 +76,11 @@ use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::P
 /// v14 adds `Project::variant_sets` (synvelis#278 Creative Branch
 /// variant model) — `#[serde(default)]`, so the v13→v14 step is a
 /// pass-through.
-pub const SCHEMA_VERSION: u32 = 14;
+/// v15 adds `Project::render_policy` (synvelis#518 declared render
+/// preference, opaque JSON owned semantically by synvelis-render's
+/// `PolicyPatch`) — `#[serde(default)]`, so the v14→v15 step is a
+/// pass-through.
+pub const SCHEMA_VERSION: u32 = 15;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.

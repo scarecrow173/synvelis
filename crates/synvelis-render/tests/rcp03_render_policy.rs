@@ -11,9 +11,11 @@
 //! projection and the workspace Gateway are later gates — headless
 //! PASS here is never promoted to them.
 
-use std::cell::Cell;
 use std::collections::BTreeSet;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc::{Receiver, Sender, channel};
+use std::time::Duration;
 
 use synvelis_project::controller::{Command, ProjectController, ProjectRevision};
 use synvelis_project::id::{CounterIdGenerator, ProjectId};
@@ -49,9 +51,10 @@ use synvelis_render::recipe::{
 use synvelis_render::render_job::{
     BackendRequirement, CompletenessGapKind, CompletenessVerdict, DriveOutcome, EntrySurface,
     GatewayActionRef, GrantRef, JobContext, JobCostEstimate, JobFailureReason, JobOrchestrator,
-    JobPurpose, PinnedSnapshot, ReceiptKind, RenderDemand, RenderExecution, RenderExecutor,
-    RenderJobKey, RenderJobState, RenderQualityInputs, RenderSelection, RenderSettingsProbe,
-    RenderedOutput, ShareGateVerdict, SubmitOutcome, TemporalQuality,
+    JobPurpose, JobScheduler, PinnedSnapshot, ReceiptKind, RenderDemand, RenderExecution,
+    RenderExecutor, RenderJobKey, RenderJobState, RenderQualityInputs, RenderSelection,
+    RenderSettingsProbe, RenderedOutput, SchedulerPorts, ShareGateVerdict, SubmitOutcome,
+    TemporalQuality,
 };
 
 // ---------------------------------------------------------------------------
@@ -348,8 +351,10 @@ enum ExecStep {
 
 struct FakeExecutor {
     /// Shared call counter — readable while the orchestrator holds
-    /// the executor's `&mut` borrow.
-    calls: Rc<Cell<usize>>,
+    /// the executor's `&mut` borrow. `Arc<AtomicUsize>` keeps the
+    /// fixture `Send` so it can also back the async scheduler ports
+    /// (synvelis#518).
+    calls: Arc<AtomicUsize>,
     steps: Vec<ExecStep>,
     backend: BackendRequirement,
 }
@@ -357,7 +362,7 @@ struct FakeExecutor {
 impl FakeExecutor {
     fn output() -> Self {
         Self {
-            calls: Rc::new(Cell::new(0)),
+            calls: Arc::new(AtomicUsize::new(0)),
             steps: vec![ExecStep::Output],
             backend: BackendRequirement::Cpu,
         }
@@ -400,6 +405,31 @@ fn wav_i16(frames: usize) -> Vec<u8> {
     out
 }
 
+/// The fixture's verified WAV output for `frames` frames — shared by
+/// the synchronous and gated executors.
+fn wav_output(frames: u64) -> RenderExecution {
+    RenderExecution::Output(Box::new(RenderedOutput {
+        blob: wav_i16(usize::try_from(frames).unwrap()),
+        codec: CodecDescriptor {
+            container: "wav".to_owned(),
+            codec: "pcm".to_owned(),
+            class: CodecClass::Lossless,
+        },
+        expect: PublishExpectation {
+            frame_count: frames,
+            sample_rate_hz: RATE,
+            channels: 2,
+            codec: "pcm".to_owned(),
+            container: "wav".to_owned(),
+        },
+        expect_pcm: None,
+        cut_frames: 0,
+        latency_frames: 0,
+        reproducibility: ArtifactReproducibility::BitExactCertified,
+        trust: None,
+    }))
+}
+
 impl RenderExecutor for FakeExecutor {
     fn backend_requirement(&self) -> BackendRequirement {
         self.backend.clone()
@@ -411,33 +441,14 @@ impl RenderExecutor for FakeExecutor {
         _recipe: &synvelis_render::recipe::RenderRecipeV1,
         cancel: &ruviform_exec::CancellationToken,
     ) -> RenderExecution {
-        self.calls.set(self.calls.get() + 1);
+        self.calls.fetch_add(1, Ordering::SeqCst);
         if cancel.is_cancelled() {
             return RenderExecution::Cancelled;
         }
         match self.next() {
             ExecStep::Output => {
                 let frames = job.demand.interval.end - job.demand.interval.start;
-                RenderExecution::Output(Box::new(RenderedOutput {
-                    blob: wav_i16(usize::try_from(frames).unwrap()),
-                    codec: CodecDescriptor {
-                        container: "wav".to_owned(),
-                        codec: "pcm".to_owned(),
-                        class: CodecClass::Lossless,
-                    },
-                    expect: PublishExpectation {
-                        frame_count: frames,
-                        sample_rate_hz: RATE,
-                        channels: 2,
-                        codec: "pcm".to_owned(),
-                        container: "wav".to_owned(),
-                    },
-                    expect_pcm: None,
-                    cut_frames: 0,
-                    latency_frames: 0,
-                    reproducibility: ArtifactReproducibility::BitExactCertified,
-                    trust: None,
-                }))
+                wav_output(frames)
             }
             ExecStep::Fail(reason, detail) => RenderExecution::Failed {
                 reason,
@@ -620,7 +631,7 @@ fn pol01_mixed_triggers_coalesce_into_one_job_one_artifact() {
     assert_eq!(job.saved_revision, Some(ProjectRevision(7)));
 
     // Exactly one render, exactly one artifact — no duplicate publish.
-    assert_eq!(calls.get(), 1);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
     let recipe_key = job_recipe_key(&orch, &k1);
     let coalesced = orch
         .job_receipts(&k1)
@@ -656,7 +667,7 @@ fn pol01_duplicate_events_never_duplicate_work() {
         assert!(matches!(out, TriggerOutcome::Job { .. }));
     }
     assert_eq!(orch.job_keys().len(), 1);
-    assert_eq!(calls.get(), 1);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
     let key = orch.job_keys().into_iter().next().expect("one job");
     let recipe_key = job_recipe_key(&orch, &key);
     let coalesced = orch
@@ -753,7 +764,8 @@ fn pol02_policy_edits_leave_recipe_key_quality_edits_move_it() {
 
         assert_ne!(key_a, key_b, "policy resolution versions the job key");
         assert_eq!(rk_a, rk_b, "policy edits must not move RecipeKey");
-        assert_eq!(calls.get(), 1, "policy change must not re-render");
+        let renders = calls.load(Ordering::SeqCst);
+        assert_eq!(renders, 1, "policy change must not re-render");
     }
 
     // Quality-affecting change: a different sample rate produces a
@@ -783,7 +795,8 @@ fn pol02_policy_edits_leave_recipe_key_quality_edits_move_it() {
         rk_a, rk_c,
         "quality-affecting settings change must move RecipeKey"
     );
-    assert_eq!(calls2.get(), 1, "quality change re-renders once");
+    let renders = calls2.load(Ordering::SeqCst);
+    assert_eq!(renders, 1, "quality change re-renders once");
 }
 
 // ---------------------------------------------------------------------------
@@ -826,7 +839,7 @@ fn pol03_save_failure_launches_no_render_job() {
         }
     ));
     assert!(orch.job_keys().is_empty(), "no job may be created");
-    assert_eq!(calls.get(), 0);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
     assert!(orch.external_receipts().iter().any(|r| matches!(
         r,
         synvelis_render::policy::ExternalReceipt::SaveFailed { .. }
@@ -895,7 +908,7 @@ fn pol03_saved_revision_pinned_and_never_reassociated() {
     let artifacts_a = &job_a.artifacts;
     let artifacts_b = &job_b.artifacts;
     assert!(artifacts_a.is_disjoint(artifacts_b));
-    assert_eq!(calls.get(), 2);
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
 
 // ---------------------------------------------------------------------------
@@ -935,7 +948,7 @@ fn pol04_commit_unsupported_is_typed_not_silent() {
         }
     ));
     assert_eq!(orch.job_keys(), Vec::new());
-    assert_eq!(calls.get(), 0);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
     assert_eq!(orch.receipts(), Vec::new(), "no render-job receipts");
     assert!(orch.external_receipts().iter().any(|r| matches!(
         r,
@@ -1210,7 +1223,7 @@ fn pol05_missing_plugin_is_a_typed_gap_never_complete() {
         other => panic!("expected Blocked, got {other:?}"),
     }
     // No render work was lawful — the executor was never invoked.
-    assert_eq!(calls.get(), 0);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
 }
 
 #[test]
@@ -1305,7 +1318,7 @@ fn pol06_budget_and_permission_denials_reject_before_any_work() {
         }
     }
     assert_eq!(orch.job_keys(), Vec::new());
-    assert_eq!(calls.get(), 0);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
     assert_eq!(orch.rejected_attempts().len(), 1);
 
     // Permission: CPU render not granted → typed denial.
@@ -1329,7 +1342,7 @@ fn pol06_budget_and_permission_denials_reject_before_any_work() {
         }
         other @ SubmitOutcome::Accepted { .. } => panic!("expected auth denial, got {other:?}"),
     }
-    assert_eq!(calls.get(), 0);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
 }
 
 #[test]
@@ -1338,7 +1351,7 @@ fn pol06_remote_backend_requires_named_consent() {
     let sel = selection(&project, "head-remote");
     let mut store = InMemoryArtifactStore::new();
     let mut executor = FakeExecutor {
-        calls: Rc::new(Cell::new(0)),
+        calls: Arc::new(AtomicUsize::new(0)),
         steps: vec![ExecStep::Output],
         backend: BackendRequirement::Remote {
             backend_id: "cloud-render-1".to_owned(),
@@ -1367,7 +1380,7 @@ fn pol06_remote_backend_requires_named_consent() {
             panic!("expected remote consent denial, got {other:?}")
         }
     }
-    assert_eq!(calls.get(), 0);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
 
     // Network granted but backend not consented → still denied.
     let grants_partial = LocalGrants {
@@ -1384,7 +1397,7 @@ fn pol06_remote_backend_requires_named_consent() {
             panic!("expected remote consent denial, got {other:?}")
         }
     }
-    assert_eq!(calls.get(), 0);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
 
     // Named backend + network → admitted.
     let grants_full = LocalGrants {
@@ -1398,7 +1411,7 @@ fn pol06_remote_backend_requires_named_consent() {
         other @ SubmitOutcome::Rejected { .. } => panic!("expected acceptance, got {other:?}"),
     }
     let _ = orch.run();
-    assert_eq!(calls.get(), 1);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
 #[test]
@@ -1466,7 +1479,7 @@ fn pol06_concurrency_quota_pends_then_resumes() {
     }
     assert_eq!(orch.job(&k_a).expect("A").state, RenderJobState::Published);
     assert_eq!(orch.job(&k_b).expect("B").state, RenderJobState::Published);
-    assert_eq!(calls.get(), 2);
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
     assert!(
         orch.job_receipts(&k_b)
             .iter()
@@ -1480,7 +1493,7 @@ fn pol06_storage_quota_pends_until_headroom() {
     let sel = selection(&project, "head-storage");
     let mut store = InMemoryArtifactStore::new();
     let mut executor = FakeExecutor {
-        calls: Rc::new(Cell::new(0)),
+        calls: Arc::new(AtomicUsize::new(0)),
         steps: vec![ExecStep::Output],
         backend: BackendRequirement::Cpu,
     };
@@ -1513,11 +1526,15 @@ fn pol06_storage_quota_pends_until_headroom() {
         Some(JobFailureReason::InsufficientStorage)
     );
     let _ = orch.run();
-    assert_eq!(calls.get(), 0, "no work while storage pends");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "no work while storage pends"
+    );
 
     orch.set_grants(LocalGrants::cpu_only());
     let _ = orch.run();
-    assert_eq!(calls.get(), 1);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
     assert_eq!(
         orch.job(&key).expect("job").state,
         RenderJobState::Published
@@ -1530,7 +1547,7 @@ fn pol06_retryable_failure_pends_and_retry_completes_once() {
     let sel = selection(&project, "head-retry");
     let mut store = InMemoryArtifactStore::new();
     let mut executor = FakeExecutor {
-        calls: Rc::new(Cell::new(0)),
+        calls: Arc::new(AtomicUsize::new(0)),
         steps: vec![
             ExecStep::Fail(JobFailureReason::WorkerFailure, "transient"),
             ExecStep::Output,
@@ -1557,7 +1574,7 @@ fn pol06_retryable_failure_pends_and_retry_completes_once() {
     };
     let outcome = orch.drive(&key);
     assert_eq!(outcome, DriveOutcome::Pending);
-    assert_eq!(calls.get(), 1);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
     assert!(orch.job_receipts(&key).iter().any(|r| matches!(
         r.kind,
         ReceiptKind::BoundaryFailed {
@@ -1575,7 +1592,7 @@ fn pol06_retryable_failure_pends_and_retry_completes_once() {
     let job = orch.job(&key).expect("job");
     assert_eq!(job.state, RenderJobState::Published);
     assert_eq!(job.attempt, 2);
-    assert_eq!(calls.get(), 2);
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
     assert!(
         orch.job_receipts(&key)
             .iter()
@@ -1589,7 +1606,7 @@ fn pol06_crash_resumes_without_duplicate_artifacts() {
     let sel = selection(&project, "head-crash");
     let mut store = InMemoryArtifactStore::new();
     let mut executor = FakeExecutor {
-        calls: Rc::new(Cell::new(0)),
+        calls: Arc::new(AtomicUsize::new(0)),
         steps: vec![ExecStep::CrashOnce, ExecStep::Output],
         backend: BackendRequirement::Cpu,
     };
@@ -1624,7 +1641,11 @@ fn pol06_crash_resumes_without_duplicate_artifacts() {
     assert_eq!(outcome, DriveOutcome::Terminal);
     let job = orch.job(&key).expect("job");
     assert_eq!(job.state, RenderJobState::Published);
-    assert_eq!(calls.get(), 2, "crash + resume renders once more");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        2,
+        "crash + resume renders once more"
+    );
     assert_eq!(job.artifacts.len(), 1, "exactly one artifact");
     let recipe_key = job_recipe_key(&orch, &key);
     drop(orch);
@@ -1637,7 +1658,7 @@ fn pol06_cancel_before_and_during_render_is_typed() {
     let sel = selection(&project, "head-cancel");
     let mut store = InMemoryArtifactStore::new();
     let mut executor = FakeExecutor {
-        calls: Rc::new(Cell::new(0)),
+        calls: Arc::new(AtomicUsize::new(0)),
         steps: vec![ExecStep::Cancelled],
         backend: BackendRequirement::Cpu,
     };
@@ -1662,7 +1683,7 @@ fn pol06_cancel_before_and_during_render_is_typed() {
     };
     assert!(orch.cancel(&k1));
     assert_eq!(orch.job(&k1).expect("job").state, RenderJobState::Cancelled);
-    assert_eq!(calls.get(), 0);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
     assert!(
         orch.job_receipts(&k1)
             .iter()
@@ -1681,7 +1702,7 @@ fn pol06_cancel_before_and_during_render_is_typed() {
     };
     let _ = orch.drive(&k2);
     assert_eq!(orch.job(&k2).expect("job").state, RenderJobState::Cancelled);
-    assert_eq!(calls.get(), 1);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
     assert!(orch.job(&k2).expect("job").artifacts.is_empty());
 }
 
@@ -1716,7 +1737,7 @@ fn pol06_ondemand_requires_explicit_authorization() {
     .build(cpu_grants());
     let out = orch.handle(&report(TriggerEvent::Demand(proposal())));
     assert!(matches!(out, TriggerOutcome::Denied { .. }));
-    assert_eq!(calls.get(), 0);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
 
     // Denying authorizer → denied with typed reason.
     let deny = StaticAuthorizer(DemandAuthorization::Denied {
@@ -1733,7 +1754,7 @@ fn pol06_ondemand_requires_explicit_authorization() {
     .build(cpu_grants());
     let out = orch2.handle(&report(TriggerEvent::Demand(proposal())));
     assert!(matches!(out, TriggerOutcome::Denied { .. }));
-    assert_eq!(calls.get(), 0);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
 
     // Granting authorizer → job admitted under the grant identity.
     let grant = StaticAuthorizer(DemandAuthorization::Granted {
@@ -1810,7 +1831,7 @@ fn pol07_entry_surfaces_share_one_action_and_coalesce() {
     // One job, one render, one artifact — receipts show each surface
     // entered through the same action/grant projection.
     assert_eq!(orch.job_keys().len(), 1);
-    assert_eq!(calls.get(), 1);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
     let job = orch.job(&key).expect("job");
     assert_eq!(
         job.action,
@@ -1833,4 +1854,665 @@ fn pol07_entry_surfaces_share_one_action_and_coalesce() {
     let mut expected = surfaces.to_vec();
     expected.sort_by_key(|e| format!("{e:?}"));
     assert_eq!(entries, expected, "every surface recorded once");
+}
+
+// ---------------------------------------------------------------------------
+// async scheduler pins (synvelis#518) — the pol01/pol06 contracts under the
+// non-RT `JobScheduler` worker, not the synchronous `drive()` equivalent.
+// `GateExecutor` parks the worker thread inside a render so commands
+// (cancel, quota-bound submits, queue fills) interleave deterministically.
+// ---------------------------------------------------------------------------
+
+/// Executor that blocks inside its first `render` call until the test
+/// releases it; later calls render the fixture WAV immediately.
+struct GateExecutor {
+    calls: Arc<AtomicUsize>,
+    entered: Sender<()>,
+    release: Receiver<()>,
+}
+
+impl RenderExecutor for GateExecutor {
+    fn backend_requirement(&self) -> BackendRequirement {
+        BackendRequirement::Cpu
+    }
+
+    fn render(
+        &mut self,
+        job: &JobContext<'_>,
+        _recipe: &synvelis_render::recipe::RenderRecipeV1,
+        cancel: &ruviform_exec::CancellationToken,
+    ) -> RenderExecution {
+        let call = self.calls.fetch_add(1, Ordering::SeqCst);
+        let _ = self.entered.send(());
+        if call == 0 {
+            // Park on the worker thread — the non-RT lane the
+            // scheduler owns; commands keep flowing meanwhile.
+            let _ = self.release.recv();
+        }
+        if cancel.is_cancelled() {
+            return RenderExecution::Cancelled;
+        }
+        let frames = job.demand.interval.end - job.demand.interval.start;
+        wav_output(frames)
+    }
+}
+
+fn scheduler_ports(
+    executor: Box<dyn RenderExecutor + Send>,
+    settings: Box<dyn RenderSettingsProbe + Send>,
+    policies: Box<dyn PolicyResolver + Send>,
+    demands: Box<dyn ScopeDemandResolver + Send>,
+) -> SchedulerPorts {
+    SchedulerPorts {
+        store: Box::new(InMemoryArtifactStore::new()),
+        executor,
+        settings,
+        policies,
+        demands,
+        plugin_states: None,
+        external_assets: None,
+        authorizer: None,
+        calibration: None,
+    }
+}
+
+fn gated_executor() -> (GateExecutor, Receiver<()>, Sender<()>, Arc<AtomicUsize>) {
+    let (entered_tx, entered_rx) = channel();
+    let (release_tx, release_rx) = channel();
+    let calls = Arc::new(AtomicUsize::new(0));
+    (
+        GateExecutor {
+            calls: calls.clone(),
+            entered: entered_tx,
+            release: release_rx,
+        },
+        entered_rx,
+        release_tx,
+        calls,
+    )
+}
+
+/// Polls `scheduler.job(key)` until `pred` holds or the timeout
+/// elapses — returns the last view seen.
+fn wait_job(
+    scheduler: &JobScheduler,
+    key: &RenderJobKey,
+    timeout: Duration,
+    pred: impl Fn(&synvelis_render::render_job::JobView) -> bool,
+) -> Option<synvelis_render::render_job::JobView> {
+    let deadline = std::time::Instant::now() + timeout;
+    loop {
+        let view = scheduler.job(key).ok().flatten();
+        if let Some(v) = &view
+            && pred(v)
+        {
+            return view;
+        }
+        if std::time::Instant::now() >= deadline {
+            return view;
+        }
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
+fn accept_key(outcome: SubmitOutcome) -> RenderJobKey {
+    match outcome {
+        SubmitOutcome::Accepted { key, .. } => key,
+        other @ SubmitOutcome::Rejected { .. } => panic!("submit rejected: {other:?}"),
+    }
+}
+
+#[test]
+fn async_pol01_mixed_triggers_coalesce_into_one_job() {
+    let project = project_r1();
+    let sel = selection(&project, "head-async-mix");
+    let executor = FakeExecutor::output();
+    let calls = executor.calls.clone();
+    let scheduler = JobScheduler::spawn(
+        scheduler_ports(
+            Box::new(executor),
+            Box::new(StaticSettings(quality())),
+            Box::new(StaticPolicies {
+                declared: Some(triggers_patch(&[
+                    RenderTrigger::OnSave,
+                    RenderTrigger::OnCommit,
+                    RenderTrigger::OnShare,
+                    RenderTrigger::OnDemand,
+                ])),
+                local: None,
+            }),
+            Box::new(MasterDemands),
+        ),
+        cpu_grants(),
+        8,
+    );
+
+    // Manual and OnSave describe the same pinned target + purpose —
+    // they must coalesce into one job even though submission now
+    // happens on the worker thread.
+    let out1 = scheduler
+        .handle_report(report(manual_event(sel.clone())))
+        .expect("scheduler alive");
+    let out2 = scheduler
+        .handle_report(report(save_completed(&sel.snapshot, 7, "head-async-mix")))
+        .expect("scheduler alive");
+    let pair = (out1, out2);
+    let (
+        TriggerOutcome::Job {
+            key: k1,
+            coalesced: c1,
+        },
+        TriggerOutcome::Job {
+            key: k2,
+            coalesced: c2,
+        },
+    ) = (&pair.0, &pair.1)
+    else {
+        panic!("both reports must route to jobs: {pair:?}")
+    };
+    let (k1, k2) = (k1.clone(), k2.clone());
+    assert_eq!(k1, k2, "same pinned target must share one job key");
+    assert!(!*c1 && *c2, "the second trigger must coalesce");
+
+    let view = scheduler
+        .wait_terminal(&k1, Duration::from_secs(10))
+        .expect("job reaches terminal");
+    assert_eq!(view.state, RenderJobState::Published);
+    assert_eq!(view.artifacts.len(), 1, "exactly one artifact");
+    assert_eq!(view.saved_revision, Some(ProjectRevision(7)));
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "one render total");
+    assert!(
+        scheduler
+            .job_receipts(&k1)
+            .expect("receipts")
+            .iter()
+            .any(|r| matches!(r.kind, ReceiptKind::Coalesced { .. })),
+        "coalescing stays receipt-visible under async"
+    );
+}
+
+#[test]
+fn async_pol01_duplicate_intent_submit_is_idempotent() {
+    let project = project_r1();
+    let sel = selection(&project, "head-async-dup");
+    let executor = FakeExecutor::output();
+    let calls = executor.calls.clone();
+    let scheduler = JobScheduler::spawn(
+        scheduler_ports(
+            Box::new(executor),
+            Box::new(StaticSettings(quality())),
+            Box::new(StaticPolicies::default()),
+            Box::new(MasterDemands),
+        ),
+        cpu_grants(),
+        8,
+    );
+
+    let k1 = accept_key(
+        scheduler
+            .submit_intent(intent_for(sel.clone()))
+            .expect("alive"),
+    );
+    let outcome2 = scheduler.submit_intent(intent_for(sel)).expect("alive");
+    let accepted2 = match &outcome2 {
+        SubmitOutcome::Accepted { key, coalesced } => (key.clone(), *coalesced),
+        other @ SubmitOutcome::Rejected { .. } => {
+            panic!("duplicate submit must coalesce, got {other:?}")
+        }
+    };
+    let (k2, c2) = accepted2;
+    assert_eq!(k1, k2);
+    assert!(c2, "identical intent must coalesce");
+
+    let view = scheduler
+        .wait_terminal(&k1, Duration::from_secs(10))
+        .expect("job reaches terminal");
+    assert_eq!(view.state, RenderJobState::Published);
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "coalesced duplicate never re-renders"
+    );
+}
+
+#[test]
+fn async_pol06_concurrency_quota_pends_then_resumes() {
+    let project_a = project_r1();
+    let project_b = project_r2();
+    // Job A carries two demands so it stays non-terminal across
+    // several scheduler quanta — B's submit is guaranteed to be
+    // evaluated while A still occupies the single concurrency slot.
+    let sel_a = RenderSelection {
+        snapshot: pinned(&project_a, "head-async-q-a"),
+        demands: vec![master_demand(&project_a), master_demand(&project_a)],
+    };
+    let sel_b = selection(&project_b, "head-async-q-b");
+    let (executor, entered_rx, release_tx, calls) = gated_executor();
+    let declared = PolicyPatch {
+        resource_budget: Some(ResourceBudget {
+            max_cpu_ms: u64::MAX,
+            max_wall_ms: u64::MAX,
+            max_storage_bytes: u64::MAX,
+            max_concurrent_jobs: 1,
+        }),
+        ..PolicyPatch::default()
+    };
+    let scheduler = JobScheduler::spawn(
+        scheduler_ports(
+            Box::new(executor),
+            Box::new(StaticSettings(quality())),
+            Box::new(StaticPolicies {
+                declared: Some(declared.clone()),
+                local: None,
+            }),
+            Box::new(MasterDemands),
+        ),
+        cpu_grants(),
+        8,
+    );
+
+    let mut i_a = intent_for(sel_a);
+    i_a.policy = resolve_effective_policy(Some(&declared), None, None);
+    let mut i_b = intent_for(sel_b);
+    i_b.policy = resolve_effective_policy(Some(&declared), None, None);
+
+    let k_a = accept_key(scheduler.submit_intent(i_a).expect("alive"));
+
+    // B's submit runs on a helper thread: its reply can only arrive
+    // after the worker drains it, which may be after A's parked
+    // render — awaiting it on the test thread would deadlock.
+    let (b_tx, b_rx) = channel();
+    let sched_b = scheduler.clone();
+    std::thread::spawn(move || {
+        let _ = b_tx.send(sched_b.submit_intent(i_b));
+    });
+
+    // A is inside its first render — it lawfully occupies the slot.
+    entered_rx
+        .recv_timeout(Duration::from_secs(10))
+        .expect("A render entered");
+    release_tx.send(()).expect("release render");
+
+    let out_b = b_rx
+        .recv_timeout(Duration::from_secs(10))
+        .expect("B submit answered");
+    let k_b = accept_key(out_b.expect("scheduler alive"));
+
+    let va = scheduler
+        .wait_terminal(&k_a, Duration::from_secs(10))
+        .expect("A terminal");
+    let vb = scheduler
+        .wait_terminal(&k_b, Duration::from_secs(10))
+        .expect("B terminal");
+    assert_eq!(va.state, RenderJobState::Published);
+    assert_eq!(vb.state, RenderJobState::Published);
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "each job renders once");
+
+    // The quota pend is durable receipt evidence — B resumed and
+    // published only after A freed the slot.
+    let receipts_b = scheduler.job_receipts(&k_b).expect("receipts");
+    assert!(
+        receipts_b.iter().any(|r| matches!(
+            r.kind,
+            ReceiptKind::Pending {
+                reason: JobFailureReason::QuotaExceeded,
+                ..
+            }
+        )),
+        "quota pend stays receipt-visible under async"
+    );
+    assert!(
+        receipts_b
+            .iter()
+            .any(|r| matches!(r.kind, ReceiptKind::Resumed)),
+        "gate recheck emits Resumed under async"
+    );
+}
+
+#[test]
+fn async_pol06_cancel_queued_job_is_typed() {
+    let project_a = project_r1();
+    let project_b = project_r2();
+    // Job A carries many demands so it stays non-terminal across
+    // many scheduler quanta after the gate releases — the queued
+    // cancel always lands before B's resume step.
+    let sel_a = RenderSelection {
+        snapshot: pinned(&project_a, "head-async-cancel-a"),
+        demands: (0..16).map(|_| master_demand(&project_a)).collect(),
+    };
+    let sel_b = selection(&project_b, "head-async-cancel-b");
+    let (executor, entered_rx, release_tx, calls) = gated_executor();
+    let scheduler = JobScheduler::spawn(
+        scheduler_ports(
+            Box::new(executor),
+            Box::new(StaticSettings(quality())),
+            Box::new(StaticPolicies::default()),
+            Box::new(MasterDemands),
+        ),
+        cpu_grants(),
+        8,
+    );
+
+    // cpu_only grants allow one concurrent job — B pends queued
+    // behind A's parked render.
+    let k_a = accept_key(scheduler.submit_intent(intent_for(sel_a)).expect("alive"));
+
+    // B's submit and the cancel run on helper threads: replies can
+    // only arrive after the worker drains them, which may be after
+    // A's parked render — awaiting on the test thread would
+    // deadlock.
+    let (b_tx, b_rx) = channel();
+    let sched_b = scheduler.clone();
+    std::thread::spawn(move || {
+        let _ = b_tx.send(sched_b.submit_intent(intent_for(sel_b)));
+    });
+    let (kb_tx, kb_rx) = channel();
+    let (c_tx, c_rx) = channel();
+    let sched_c = scheduler.clone();
+    std::thread::spawn(move || {
+        let kb = kb_rx.recv().expect("job key channel");
+        let _ = c_tx.send(sched_c.cancel(&kb));
+    });
+
+    entered_rx
+        .recv_timeout(Duration::from_secs(10))
+        .expect("A render entered");
+
+    // B's key arrives once the worker drains its submit — usually
+    // before the park; otherwise right after the first release.
+    let mut released = false;
+    let k_b = if let Ok(out) = b_rx.recv_timeout(Duration::from_secs(2)) {
+        accept_key(out.expect("scheduler alive"))
+    } else {
+        release_tx.send(()).expect("release render");
+        released = true;
+        accept_key(
+            b_rx.recv_timeout(Duration::from_secs(10))
+                .expect("B submit answered")
+                .expect("scheduler alive"),
+        )
+    };
+    let _ = kb_tx.send(k_b.clone());
+
+    if !released {
+        // Let the cancel helper land its try_send — it must be
+        // queued before the worker's next drain.
+        std::thread::sleep(Duration::from_millis(100));
+        release_tx.send(()).expect("release render");
+    }
+    // In the fallback path the worker is already draining; A's many
+    // demands leave ample iterations for the cancel to land first.
+
+    assert!(
+        c_rx.recv_timeout(Duration::from_secs(10))
+            .expect("cancel answered")
+            .expect("scheduler alive"),
+        "cancel of a queued job is accepted"
+    );
+
+    let va = scheduler
+        .wait_terminal(&k_a, Duration::from_secs(10))
+        .expect("A terminal");
+    let vb = scheduler
+        .wait_terminal(&k_b, Duration::from_secs(10))
+        .expect("B terminal");
+    assert_eq!(va.state, RenderJobState::Published);
+    assert_eq!(vb.state, RenderJobState::Cancelled);
+    assert!(vb.artifacts.is_empty(), "cancelled job publishes nothing");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "only A rendered — B was cancelled while queued"
+    );
+    assert!(
+        scheduler
+            .job_receipts(&k_b)
+            .expect("receipts")
+            .iter()
+            .any(|r| matches!(r.kind, ReceiptKind::CancelRequested)),
+        "cancel stays receipt-visible under async"
+    );
+}
+
+#[test]
+fn async_pol06_retryable_failure_retries_once() {
+    let project = project_r1();
+    let sel = selection(&project, "head-async-retry");
+    let executor = FakeExecutor {
+        calls: Arc::new(AtomicUsize::new(0)),
+        steps: vec![
+            ExecStep::Fail(JobFailureReason::WorkerFailure, "transient"),
+            ExecStep::Output,
+        ],
+        backend: BackendRequirement::Cpu,
+    };
+    let calls = executor.calls.clone();
+    let scheduler = JobScheduler::spawn(
+        scheduler_ports(
+            Box::new(executor),
+            Box::new(StaticSettings(quality())),
+            Box::new(StaticPolicies::default()),
+            Box::new(MasterDemands),
+        ),
+        cpu_grants(),
+        8,
+    );
+
+    let key = accept_key(scheduler.submit_intent(intent_for(sel)).expect("alive"));
+    // The retryable failure lands as a typed pending — the worker
+    // rests the job until `retry` arrives.
+    let pended = wait_job(&scheduler, &key, Duration::from_secs(10), |v| {
+        v.pending_reason == Some(JobFailureReason::WorkerFailure)
+    })
+    .expect("job pends on retryable failure");
+    assert_eq!(pended.state, RenderJobState::Queue);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+    assert!(scheduler.retry(&key).expect("alive"), "retry accepted");
+    let view = scheduler
+        .wait_terminal(&key, Duration::from_secs(10))
+        .expect("job reaches terminal");
+    assert_eq!(view.state, RenderJobState::Published);
+    assert_eq!(view.attempt, 2);
+    assert_eq!(calls.load(Ordering::SeqCst), 2, "retry renders once more");
+    assert!(
+        scheduler
+            .job_receipts(&key)
+            .expect("receipts")
+            .iter()
+            .any(|r| matches!(r.kind, ReceiptKind::Retrying { attempt: 2 })),
+        "retry stays receipt-visible under async"
+    );
+}
+
+#[test]
+fn async_pol06_crash_requires_explicit_resume() {
+    let project = project_r1();
+    let sel = selection(&project, "head-async-crash");
+    let executor = FakeExecutor {
+        calls: Arc::new(AtomicUsize::new(0)),
+        steps: vec![ExecStep::CrashOnce, ExecStep::Output],
+        backend: BackendRequirement::Cpu,
+    };
+    let calls = executor.calls.clone();
+    let scheduler = JobScheduler::spawn(
+        scheduler_ports(
+            Box::new(executor),
+            Box::new(StaticSettings(quality())),
+            Box::new(StaticPolicies::default()),
+            Box::new(MasterDemands),
+        ),
+        cpu_grants(),
+        8,
+    );
+
+    let key = accept_key(scheduler.submit_intent(intent_for(sel)).expect("alive"));
+    let crashed =
+        wait_job(&scheduler, &key, Duration::from_secs(10), |v| v.crashed).expect("crash observed");
+    assert!(!crashed.state.is_terminal());
+
+    // A crashed job must NOT auto-resume — the scheduler leaves it
+    // parked until the explicit `resume` command arrives.
+    std::thread::sleep(Duration::from_millis(200));
+    let still = scheduler.job(&key).expect("alive").expect("job");
+    assert!(still.crashed, "crash must wait for explicit resume");
+    assert_eq!(calls.load(Ordering::SeqCst), 1, "no silent re-render");
+
+    let outcome = scheduler.resume(&key).expect("alive");
+    assert_eq!(
+        outcome,
+        DriveOutcome::Progress,
+        "resume re-enters the quantum loop"
+    );
+    let view = scheduler
+        .wait_terminal(&key, Duration::from_secs(10))
+        .expect("job reaches terminal");
+    assert_eq!(view.state, RenderJobState::Published);
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        2,
+        "crash + resume renders once more"
+    );
+    assert_eq!(view.artifacts.len(), 1, "exactly one artifact");
+    assert!(
+        scheduler
+            .job_receipts(&key)
+            .expect("receipts")
+            .iter()
+            .any(|r| matches!(r.kind, ReceiptKind::CrashObserved)),
+        "crash stays receipt-visible under async"
+    );
+}
+
+#[test]
+fn async_pol06_grant_update_wakes_gate_pending_job() {
+    let project = project_r1();
+    let sel = selection(&project, "head-async-storage");
+    let executor = FakeExecutor::output();
+    let calls = executor.calls.clone();
+    let tight = LocalGrants {
+        storage_quota_bytes: 1,
+        ..LocalGrants::cpu_only()
+    };
+    let scheduler = JobScheduler::spawn(
+        scheduler_ports(
+            Box::new(executor),
+            Box::new(StaticSettings(quality())),
+            Box::new(StaticPolicies::default()),
+            Box::new(MasterDemands),
+        ),
+        tight,
+        8,
+    );
+
+    let mut intent = intent_for(sel);
+    intent.estimate.storage_bytes = 4_096;
+    let key = accept_key(scheduler.submit_intent(intent).expect("alive"));
+    wait_job(&scheduler, &key, Duration::from_secs(10), |v| {
+        v.pending_reason == Some(JobFailureReason::InsufficientStorage)
+    })
+    .expect("job pends on storage quota");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "no work while storage pends"
+    );
+
+    // The grant update command wakes the rested job — the gate
+    // recheck runs at the next quantum and the job proceeds.
+    scheduler
+        .set_grants(LocalGrants::cpu_only())
+        .expect("alive");
+    let view = scheduler
+        .wait_terminal(&key, Duration::from_secs(10))
+        .expect("job reaches terminal");
+    assert_eq!(view.state, RenderJobState::Published);
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn async_scheduler_bounded_queue_reports_queue_full() {
+    let project = project_r1();
+    let sel = selection(&project, "head-async-queue");
+    let (executor, entered_rx, release_tx, _calls) = gated_executor();
+    // Capacity 1 — the worker is parked inside the render, so the
+    // single slot admits exactly one waiting command.
+    let scheduler = JobScheduler::spawn(
+        scheduler_ports(
+            Box::new(executor),
+            Box::new(StaticSettings(quality())),
+            Box::new(StaticPolicies::default()),
+            Box::new(MasterDemands),
+        ),
+        cpu_grants(),
+        1,
+    );
+
+    let key = accept_key(scheduler.submit_intent(intent_for(sel)).expect("alive"));
+    entered_rx
+        .recv_timeout(Duration::from_secs(10))
+        .expect("render entered");
+
+    // Two contenders for the one queue slot while the worker is
+    // parked: exactly one is admitted (and blocks on its reply),
+    // the other gets the typed QueueFull — never a parked caller.
+    let (done_tx, done_rx) = channel();
+    for _ in 0..2 {
+        let s = scheduler.clone();
+        let k = key.clone();
+        let tx = done_tx.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(s.job(&k).map(|_| ()));
+        });
+    }
+    let first = done_rx
+        .recv_timeout(Duration::from_secs(10))
+        .expect("one contender answered");
+    assert_eq!(
+        first.expect_err("the rejected contender must see QueueFull"),
+        synvelis_render::render_job::SchedulerError::QueueFull,
+        "a full bounded queue fails typed, never blocks"
+    );
+
+    release_tx.send(()).expect("release render");
+    scheduler
+        .wait_terminal(&key, Duration::from_secs(10))
+        .expect("job reaches terminal");
+    let second = done_rx
+        .recv_timeout(Duration::from_secs(10))
+        .expect("admitted contender answered after drain");
+    assert!(second.is_ok(), "the admitted command completes normally");
+}
+
+#[test]
+fn async_headless_scheduler_is_fail_closed() {
+    let scheduler = JobScheduler::headless();
+    let project = project_r1();
+    let sel = selection(&project, "head-async-headless");
+
+    // No settings document → typed rejection before any job exists.
+    match scheduler
+        .submit_intent(intent_for(sel.clone()))
+        .expect("alive")
+    {
+        SubmitOutcome::Rejected { reason, .. } => {
+            assert_eq!(reason, JobFailureReason::UnknownDependency);
+        }
+        other @ SubmitOutcome::Accepted { .. } => {
+            panic!("headless submit must reject typed, got {other:?}")
+        }
+    }
+    assert!(scheduler.jobs().expect("alive").is_empty());
+
+    // The trigger path routes to the same typed denial — a render
+    // success is never fabricated without a backend.
+    match scheduler
+        .handle_report(report(manual_event(sel)))
+        .expect("alive")
+    {
+        TriggerOutcome::Denied { .. } => {}
+        other => panic!("headless trigger must deny typed, got {other:?}"),
+    }
+    assert!(scheduler.jobs().expect("alive").is_empty());
+    scheduler.shutdown();
 }

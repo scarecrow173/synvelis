@@ -508,6 +508,16 @@ pub struct Project {
     /// migration is a pass-through (see `crate::migration`).
     #[serde(default)]
     pub variant_sets: BTreeMap<crate::id::VariantSetId, crate::variant::VariantSet>,
+    /// Declared render preference — the project-declared policy layer
+    /// the render pipeline resolves against (synvelis#518, schema
+    /// v15). Stored as opaque JSON because synvelis-project cannot
+    /// name synvelis-render types (the dependency runs the other
+    /// way); the render crate's `PolicyPatch` serde owns the
+    /// interpretation and its own schema version inside the value.
+    /// `#[serde(default)]` keeps pre-v15 bodies loadable; the
+    /// v14→v15 migration is a pass-through (see `crate::migration`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub render_policy: Option<serde_json::Value>,
 }
 
 impl Project {
@@ -550,7 +560,16 @@ impl Project {
             monitoring: MonitoringData::default(),
             plugin_instances: crate::plugin_instance::PluginInstanceIdentities::default(),
             variant_sets: BTreeMap::new(),
+            render_policy: None,
         }
+    }
+
+    /// The declared render preference as stored JSON — opaque to
+    /// this crate; consumers (synvelis-render's `PolicyPatch`) own
+    /// interpretation. `None` when the project declares none.
+    #[must_use]
+    pub fn render_policy(&self) -> Option<&serde_json::Value> {
+        self.render_policy.as_ref()
     }
 
     /// Validates every internal reference. Called on load so a corrupt or
@@ -1110,5 +1129,39 @@ impl Project {
             )));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod render_policy_tests {
+    use super::*;
+
+    /// AC-2 (synvelis#518): the declared render preference survives a
+    /// serde round-trip byte-for-byte — Save/Reload keeps it.
+    #[test]
+    fn render_policy_round_trip() {
+        let mut project = Project::new(ProjectId::new(7), "render-pref");
+        let declared = serde_json::json!({
+            "schema": "synvelis-render/policy-patch/v1",
+            "triggers": {"on-save": true},
+        });
+        project.render_policy = Some(declared.clone());
+        let bytes = serde_json::to_vec(&project).expect("serialize");
+        let back: Project = serde_json::from_slice(&bytes).expect("deserialize");
+        assert_eq!(back.render_policy, Some(declared));
+        assert_eq!(back.render_policy(), project.render_policy());
+    }
+
+    /// AC-2: a project without a declared preference serializes
+    /// without the field and loads back as `None` — pre-v15 bodies
+    /// stay loadable through `#[serde(default)]`.
+    #[test]
+    fn render_policy_absent_stays_none() {
+        let project = Project::new(ProjectId::new(3), "plain");
+        let bytes = serde_json::to_vec(&project).expect("serialize");
+        assert!(!String::from_utf8_lossy(&bytes).contains("render_policy"));
+        let back: Project = serde_json::from_slice(&bytes).expect("deserialize");
+        assert_eq!(back.render_policy, None);
+        assert_eq!(back.render_policy(), None);
     }
 }

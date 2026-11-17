@@ -343,6 +343,11 @@ pub enum DriveOutcome {
     Terminal,
     /// Job remains queued pending an environmental gate.
     Pending,
+    /// Advanced one scheduling quantum without reaching a terminal
+    /// or gated state — call `drive_step`/`drive` again. Returned
+    /// only by [`JobOrchestrator::drive_step`]; `drive`/`run` loop
+    /// on it internally and never surface it.
+    Progress,
     /// Crash observed — resumable via `resume`.
     Crashed,
     /// Job key unknown.
@@ -384,9 +389,15 @@ pub struct JobOrchestrator<'a> {
     plugin_states: &'a dyn PluginStateProbe,
     external_assets: &'a dyn ExternalAssetProbe,
     authorizer: Option<&'a dyn DemandAuthorizer>,
+    /// Measured-cost probe folded into the model floor — `None`
+    /// leaves the coefficient model alone (synvelis#518).
+    cost_probe: Option<&'a dyn crate::render_job::cost::CostCalibration>,
     grants: LocalGrants,
     jobs: BTreeMap<RenderJobKey, JobRecord>,
     receipts: Vec<JobReceipt>,
+    /// Per-job receipt sequence counters — keeps `push_receipt`
+    /// O(1) instead of scanning the global receipt stream (synvelis#518).
+    receipt_seqs: BTreeMap<RenderJobKey, u64>,
     external: Vec<ExternalReceipt>,
     rejected: Vec<RejectedAttempt>,
     tick: u64,
@@ -417,13 +428,27 @@ impl<'a> JobOrchestrator<'a> {
             plugin_states: plugin_states.unwrap_or(&NO_PLUGIN_STATES),
             external_assets: external_assets.unwrap_or(&NO_EXTERNAL_ASSETS),
             authorizer,
+            cost_probe: None,
             grants,
             jobs: BTreeMap::new(),
             receipts: Vec::new(),
+            receipt_seqs: BTreeMap::new(),
             external: Vec::new(),
             rejected: Vec::new(),
             tick: 0,
         }
+    }
+
+    /// Installs a measured-cost calibration probe — observations are
+    /// folded into the per-submit model floor element-wise (they can
+    /// only raise the estimate, never lower it).
+    #[must_use]
+    pub fn with_cost_calibration(
+        mut self,
+        probe: &'a dyn crate::render_job::cost::CostCalibration,
+    ) -> Self {
+        self.cost_probe = Some(probe);
+        self
     }
 
     /// The independent external receipt stream (save/commit/share
@@ -483,10 +508,32 @@ impl<'a> JobOrchestrator<'a> {
     /// quiescence, and (for share) the completeness gate.
     pub fn handle(&mut self, report: &TriggerReport) -> TriggerOutcome {
         self.tick += 1;
-        match self.route(report) {
+        let routed = self.route(report);
+        self.complete_route(routed, true)
+    }
+
+    /// Async-scheduler entry point (synvelis#518): routes and
+    /// submits exactly like [`Self::handle`] but does *not* drive —
+    /// the owning scheduler's worker loop advances the job through
+    /// [`Self::drive_step`] so commands interleave between demands.
+    /// Share requests still evaluate synchronously (the completeness
+    /// gate verdict is inherently immediate); every other routed
+    /// job is left queued for the scheduler.
+    pub(crate) fn handle_async(&mut self, report: &TriggerReport) -> TriggerOutcome {
+        self.tick += 1;
+        let routed = self.route(report);
+        self.complete_route(routed, false)
+    }
+
+    /// Shared tail of `handle`/`handle_async`: submits job intents,
+    /// evaluates share gates, and maps inert/unsupported/denied
+    /// routings to their typed outcomes. `drive_accepted` controls
+    /// whether an accepted job is driven to quiescence inline.
+    fn complete_route(&mut self, routed: RoutedTrigger, drive_accepted: bool) -> TriggerOutcome {
+        match routed {
             RoutedTrigger::Job(intent) => match self.submit(&intent) {
                 SubmitOutcome::Accepted { key, coalesced } => {
-                    if !coalesced {
+                    if drive_accepted && !coalesced {
                         // Headless slice drives synchronously; the
                         // state machine and receipts are identical
                         // to an async driver.
@@ -503,7 +550,7 @@ impl<'a> JobOrchestrator<'a> {
                 entry,
                 action,
                 grant,
-            } => self.inspect_share(&request, entry, action, grant),
+            } => self.inspect_share(&request, entry, action, grant, drive_accepted),
             RoutedTrigger::Inert { reason } => TriggerOutcome::Inert { reason },
             RoutedTrigger::Unsupported { capability, reason } => {
                 TriggerOutcome::Unsupported { capability, reason }
@@ -759,6 +806,33 @@ impl<'a> JobOrchestrator<'a> {
     /// pinned snapshot, computes the idempotent key, coalesces or
     /// preflights, and records the job.
     pub fn submit(&mut self, intent: &JobIntent) -> SubmitOutcome {
+        self.tick += 1;
+        // 0. Selection sanity — wire-decoded inputs can bypass
+        //    `FrameInterval`'s constructor validation; an empty
+        //    demand set or inverted interval would otherwise yield a
+        //    vacuous/underestimated job (synvelis#518).
+        if intent.selection.demands.is_empty() {
+            return self.reject(
+                intent,
+                JobFailureReason::InvalidSelection,
+                "selection carries no render demands".to_owned(),
+            );
+        }
+        if let Some(d) = intent
+            .selection
+            .demands
+            .iter()
+            .find(|d| d.interval.end <= d.interval.start)
+        {
+            return self.reject(
+                intent,
+                JobFailureReason::InvalidSelection,
+                format!(
+                    "demand interval [{}, {}) is empty or inverted",
+                    d.interval.start, d.interval.end
+                ),
+            );
+        }
         // 1. Resolve the pinned project view.
         let resolved_project =
             match resolve_render_project(&intent.selection.snapshot.project, None) {
@@ -788,6 +862,20 @@ impl<'a> JobOrchestrator<'a> {
         recipe_keys.sort();
         recipe_keys.dedup();
 
+        // 3b. Cost model floor (synvelis#518): derive the estimate
+        // from resolved recipes/boundaries/quality and merge with
+        // the caller declaration — caller may tighten, never
+        // undercut. Budget/quota gates below consume the merged
+        // value, so a zero-declared estimate can no longer slip
+        // under the gates.
+        let model = crate::render_job::cost::model_estimate(
+            &intent.selection,
+            &boundaries,
+            &quality,
+            self.cost_probe,
+        );
+        let estimate = crate::render_job::cost::merge_estimate(intent.estimate, model);
+
         // 4. Idempotent key.
         let key = RenderJobKey {
             snapshot_locator: intent.selection.snapshot.locator_key(),
@@ -806,12 +894,12 @@ impl<'a> JobOrchestrator<'a> {
         }
 
         // 6. Pre-issuance validation — before the job exists.
-        if let Some((reason, detail)) = self.preflight_reject(intent) {
+        if let Some((reason, detail)) = self.preflight_reject(intent, &estimate) {
             return self.reject(intent, reason, detail);
         }
 
         // 7. Create the record.
-        let pending = self.pending_gate(intent);
+        let pending = self.pending_gate(intent, &estimate);
         let record = JobRecord {
             key: key.clone(),
             state: RenderJobState::Resolve,
@@ -832,7 +920,7 @@ impl<'a> JobOrchestrator<'a> {
             action: intent.action.clone(),
             grant: intent.grant.clone(),
             saved_revision: intent.saved_revision,
-            estimate: intent.estimate,
+            estimate,
             failure: None,
             completeness: None,
             created_tick: self.tick,
@@ -997,9 +1085,13 @@ impl<'a> JobOrchestrator<'a> {
     /// Hard pre-issuance rejections: budget caps and grant/consent
     /// denials. Environmental blockers (quota/storage) are *pending*,
     /// not rejections — handled by [`Self::pending_gate`].
-    fn preflight_reject(&self, intent: &JobIntent) -> Option<(JobFailureReason, String)> {
+    fn preflight_reject(
+        &self,
+        intent: &JobIntent,
+        estimate: &JobCostEstimate,
+    ) -> Option<(JobFailureReason, String)> {
         let budget = &intent.policy.policy.resource_budget;
-        let e = &intent.estimate;
+        let e = estimate;
         if e.cpu_ms > budget.max_cpu_ms
             || e.wall_ms > budget.max_wall_ms
             || e.storage_bytes > budget.max_storage_bytes
@@ -1043,7 +1135,11 @@ impl<'a> JobOrchestrator<'a> {
     /// Environmental pending gate evaluated for a *new* intent —
     /// concurrency quota and local storage headroom. Returns
     /// `(reason, detail)` when the job must wait.
-    fn pending_gate(&self, intent: &JobIntent) -> Option<(JobFailureReason, String)> {
+    fn pending_gate(
+        &self,
+        intent: &JobIntent,
+        estimate: &JobCostEstimate,
+    ) -> Option<(JobFailureReason, String)> {
         let active = self
             .jobs
             .values()
@@ -1056,12 +1152,12 @@ impl<'a> JobOrchestrator<'a> {
                 format!("{active} jobs active, cap {cap}"),
             ));
         }
-        if intent.estimate.storage_bytes > self.grants.storage_quota_bytes {
+        if estimate.storage_bytes > self.grants.storage_quota_bytes {
             return Some((
                 JobFailureReason::InsufficientStorage,
                 format!(
                     "estimate {}B exceeds storage quota {}B",
-                    intent.estimate.storage_bytes, self.grants.storage_quota_bytes
+                    estimate.storage_bytes, self.grants.storage_quota_bytes
                 ),
             ));
         }
@@ -1120,10 +1216,37 @@ impl<'a> JobOrchestrator<'a> {
 
     /// Drives one job toward quiescence: pending-gate recheck,
     /// prepare, render+publish each unresolved demand, verify
-    /// completeness, terminate.
+    /// completeness, terminate. Implemented as a loop over
+    /// [`Self::drive_step`] — identical transitions and receipts to
+    /// stepping manually.
     pub fn drive(&mut self, key: &RenderJobKey) -> DriveOutcome {
+        loop {
+            match self.drive_step(key) {
+                DriveOutcome::Progress => {}
+                outcome => return outcome,
+            }
+        }
+    }
+
+    /// Advances one job by a single scheduling quantum — the async
+    /// scheduler's unit of work (synvelis#518). Each call performs at
+    /// most one stage transition or one demand render, so commands
+    /// (cancel/retry/grant updates) interleave between demands
+    /// instead of waiting for whole-job quiescence.
+    ///
+    /// Returns [`DriveOutcome::Progress`] when the job advanced but
+    /// is not terminal or gated — the caller should step again (or
+    /// yield to pending commands first). `Pending`/`Terminal`/
+    /// `Crashed`/`Unknown` carry the same meaning as in `drive`.
+    pub fn drive_step(&mut self, key: &RenderJobKey) -> DriveOutcome {
+        self.tick += 1;
         if !self.jobs.contains_key(key) {
             return DriveOutcome::Unknown;
+        }
+        // Crashed jobs never advance on their own — re-drive requires
+        // the explicit `resume` path, which clears the flag first.
+        if self.jobs.get(key).is_some_and(|j| j.crashed) {
+            return DriveOutcome::Crashed;
         }
 
         // Environmental gate recheck for queued jobs — grants and
@@ -1179,9 +1302,9 @@ impl<'a> JobOrchestrator<'a> {
                 }
                 self.transition(key, RenderJobState::Preparing);
                 self.transition(key, RenderJobState::Rendering);
-                self.drive_render(key)
+                DriveOutcome::Progress
             }
-            Some(RenderJobState::Rendering) => self.drive_render(key),
+            Some(RenderJobState::Rendering) => self.drive_render_step(key),
             Some(RenderJobState::Verifying) => self.drive_verify(key),
             _ => DriveOutcome::Terminal,
         }
@@ -1199,9 +1322,14 @@ impl<'a> JobOrchestrator<'a> {
             .collect()
     }
 
-    /// Rendering stage: per resolved demand — reuse a verified
-    /// artifact via lookup, else executor render + verified publish.
-    fn drive_render(&mut self, key: &RenderJobKey) -> DriveOutcome {
+    /// Rendering stage quantum: processes at most one resolved
+    /// demand (reuse lookup or executor render + verified publish)
+    /// per call. When no demand remains actionable the job moves to
+    /// `Verifying` and completeness is evaluated in the same step —
+    /// identical receipts to the former whole-stage `drive_render`,
+    /// just split so the scheduler can interleave commands between
+    /// demands (synvelis#518).
+    fn drive_render_step(&mut self, key: &RenderJobKey) -> DriveOutcome {
         let resolutions: Vec<BoundaryResolution> = self
             .jobs
             .get(key)
@@ -1254,7 +1382,7 @@ impl<'a> JobOrchestrator<'a> {
             // satisfies this recipe — never re-render or re-publish.
             if let Some(artifact) = self.find_reusable(recipe_key, recipe, &profile) {
                 self.record_done(key, demand_idx, recipe_key, artifact, true);
-                continue;
+                return DriveOutcome::Progress;
             }
 
             if let Some(outcome) =
@@ -1262,6 +1390,9 @@ impl<'a> JobOrchestrator<'a> {
             {
                 return outcome;
             }
+            // One demand quantum consumed — yield so the scheduler
+            // can interleave commands before the next demand.
+            return DriveOutcome::Progress;
         }
 
         // All demands processed → verify completeness.
@@ -1581,12 +1712,13 @@ impl<'a> JobOrchestrator<'a> {
 
     /// Share gate: submit the fill job (idempotent), drive it, then
     /// apply the completion policy to the completeness verdict.
-    fn inspect_share(
+    pub(crate) fn inspect_share(
         &mut self,
         request: &ShareRequest,
         entry: EntrySurface,
         action: GatewayActionRef,
         grant: Option<GrantRef>,
+        drive_accepted: bool,
     ) -> TriggerOutcome {
         let project_id = request.snapshot.identity.project_id;
         let declared = self.policies.declared(project_id);
@@ -1629,7 +1761,15 @@ impl<'a> JobOrchestrator<'a> {
                 };
             }
         };
-        let _ = self.drive(&job_key);
+        // Sync callers drive to quiescence; the async scheduler
+        // advances one quantum so commands interleave between
+        // demands — a still-running job reports `Blocked` with the
+        // job named for retry (synvelis#518).
+        if drive_accepted {
+            let _ = self.drive(&job_key);
+        } else {
+            let _ = self.drive_step(&job_key);
+        }
 
         // Pending work makes completeness undecidable — the gate
         // blocks with the in-flight job named for retry.
@@ -1692,6 +1832,7 @@ impl<'a> JobOrchestrator<'a> {
     /// Cooperative cancel — takes effect at the next stage boundary
     /// or via the executor's token. Terminal jobs are unaffected.
     pub fn cancel(&mut self, key: &RenderJobKey) -> bool {
+        self.tick += 1;
         let queued = {
             let Some(job) = self.jobs.get_mut(key) else {
                 return false;
@@ -1716,6 +1857,7 @@ impl<'a> JobOrchestrator<'a> {
     /// terminal, and gate-managed pendings (quota/storage) resume
     /// only through `drive`'s headroom recheck, never by bypass.
     pub fn retry(&mut self, key: &RenderJobKey) -> bool {
+        self.tick += 1;
         let retryable = self.jobs.get(key).is_some_and(|j| {
             j.failure.as_ref().is_some_and(JobFailure::retryable)
                 || j.pending_reason
@@ -1746,13 +1888,26 @@ impl<'a> JobOrchestrator<'a> {
     /// Resumes a non-terminal job — crashed renders re-drive from
     /// `Rendering`; lookup reuse makes re-entry idempotent.
     pub fn resume(&mut self, key: &RenderJobKey) -> DriveOutcome {
+        self.resume_crashed(key);
+        self.drive(key)
+    }
+
+    /// Clears the crashed flag without driving — the async
+    /// scheduler's resume quantum (synvelis#518). The job becomes
+    /// runnable again and advances one [`Self::drive_step`] at a
+    /// time like any other job. Returns `false` when the job is
+    /// unknown or was not crashed.
+    pub fn resume_crashed(&mut self, key: &RenderJobKey) -> bool {
+        self.tick += 1;
         if self.jobs.get(key).is_some_and(|j| j.crashed) {
             self.push_receipt(key, ReceiptKind::Resumed);
             if let Some(j) = self.jobs.get_mut(key) {
                 j.crashed = false;
             }
+            true
+        } else {
+            false
         }
-        self.drive(key)
     }
 
     // ------------------------------------------------------------------
@@ -1760,7 +1915,9 @@ impl<'a> JobOrchestrator<'a> {
     // ------------------------------------------------------------------
 
     fn push_receipt(&mut self, key: &RenderJobKey, kind: ReceiptKind) {
-        let seq = self.receipts.iter().filter(|r| &r.job == key).count() as u64;
+        let next = self.receipt_seqs.entry(key.clone()).or_insert(0);
+        let seq = *next;
+        *next += 1;
         self.receipts.push(JobReceipt {
             job: key.clone(),
             seq,
@@ -1775,7 +1932,11 @@ impl<'a> JobOrchestrator<'a> {
             j.state = to;
             j.updated_tick = self.tick;
         }
-        self.push_receipt(key, ReceiptKind::Transition { from, to });
+        // Self-transitions (e.g. `retry` re-entering `Queue`) update
+        // state/tick but record no spurious transition receipt.
+        if from != to {
+            self.push_receipt(key, ReceiptKind::Transition { from, to });
+        }
     }
 
     fn terminate(
