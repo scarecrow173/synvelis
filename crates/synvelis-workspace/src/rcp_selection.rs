@@ -66,7 +66,13 @@ pub struct ProcessorPluginEvidence {
     /// Authored plugin identity（format/vendor/uid/version/
     /// binary digest）。
     pub identity: PluginIdentity,
-    /// Opaque state 証拠（TIM-04 語彙をそのまま pin）。
+    /// Opaque state 証拠（TIM-04 語彙をそのまま pin）。stateless
+    /// by design の plugin は `digest: None` +
+    /// `quality: StateCaptureQuality::Unsupported` +
+    /// `status != OpaqueStateStatus::Known` で宣言する
+    /// （`PluginStateDecl::stateless()` が判定する profile）。
+    /// `digest: None` + capture 可能 quality は「capture 必要だが
+    /// 未 capture」であり fail-closed のまま。
     pub state: PluginStateDecl,
     /// Automation/parameter identity が declared layout 内で
     /// 完全解決できるか。`false` は編集・代替証拠ともに fail-closed。
