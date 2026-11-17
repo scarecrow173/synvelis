@@ -27,6 +27,8 @@ Directory: `docs/tasks`
 | TASK-QSUlMIQI1FYoKq116Yk7xJ | Issue #167 T1 共有 pin eed590e + ci-issue-tracker-reconcile.yml + Consumer 契約 test | in-progress | [issue-167-t1-tracker-reconcile-entry.md](./issue-167-t1-tracker-reconcile-entry.md) |
 | TASK-034YBz8Pv6wNxKd2SgH | issue-262-run-file-real-vm — task 分解 | completed | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
 | TASK-034YDhY9pqCERJWLjMaGyX | issue-274-cli-script-analyze — task 分解 | completed | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
+| TASK-513a1b2c3d4e5f6g7h8i9j0k5 | issue-513-variant-apply-ops — task 分解 | completed | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
+| TASK-034YXTWjUPI81SOi9gb2W3 | issue-515-os-credential — durable store + OS credential 実装 | todo | [issue-515-os-credential.md](./issue-515-os-credential.md) |
 | TASK-mr20261114mediaRenderB | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 設計契約文書化 (synvelis#21) | in-progress | [media-render-task.md](./media-render-task.md) |
 | TASK-P1ub1PJgLQhinQuEDIDy8S | PC-C3 task2 — synvelis-player RT trace adapter 実装（TRACE-C3-05） | in-progress | [pc-c3-task2-rt-trace-adapter.md](./pc-c3-task2-rt-trace-adapter.md) |
 | TASK-b2e5a8c1f4d90736e5b2a8c2d4e6f7a | PC-C4 observe engine wiring task1 — observe_block の engine-driver 配線 | completed | [pc-c4-observe-engine-wiring-task.md](./pc-c4-observe-engine-wiring-task.md) |
@@ -120,6 +122,7 @@ Directory: `docs/tasks`
 | TASK-9cHuFK1tnSWxWkEqEnjMYm | Issue #115 rf#628 record-after-recovery — synvelis#115 slice | done | [issue-115-rf628-record-after-recovery.md](./issue-115-rf628-record-after-recovery.md) |
 | TASK-034RINq1C9IMn7tPyqXY2h | Issue #147 T1 sccache verify/gw10 導入・実測評価 | done | [issue-147-t1-sccache-verify-gw10.md](./issue-147-t1-sccache-verify-gw10.md) |
 | TASK-034RGXoZuTHIczgPxzHY1W | Issue #151 T1 ui-verify lane + install-ui freshness 追加 | done | [issue-151-t1-ui-verify-lane.md](./issue-151-t1-ui-verify-lane.md) |
+| TASK-034YXXXE7kuTr6kR5K8KV8 | SV177 issue-177-design-tokens | done | [issue-177-design-tokens.md](./issue-177-design-tokens.md) |
 | TASK-034WsBdOQFzQABNIgCwFPl | Issue #365 impl index 生成可能化 — front matter 是正と index 再生成 | done | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
 | TASK-034Wv2LV1SZLdyPnE8fyZD | Issue #368 docs/impl/ir missing-section 本文補完 | done | [issue-368-ir-missing-sections.md](./issue-368-ir-missing-sections.md) |
 | TASK-VB7LzgmqMRIfE31stZItL7 | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 | done | [issue-86-task-verified-import-wiring.md](./issue-86-task-verified-import-wiring.md) |

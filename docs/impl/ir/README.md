@@ -91,12 +91,15 @@ Directory: `docs/impl/ir`
 | IMPL-034RJ4QUQGExYEXb9HnIW3 | Issue #147 sccache verify/gw10 導入実装記録 | completed | [issue-147-sccache-verify-gw10.md](./issue-147-sccache-verify-gw10.md) |
 | IMPL-034RGXq9DiVrM6SNyBhyQs | Issue #151 ui-verify lane 実装記録 | completed | [issue-151-ui-verify-lane.md](./issue-151-ui-verify-lane.md) |
 | IMPL-034RUA08INQhlEiCYTUuqn | Issue #157 rev.3 matrix placeholder gate 修正 | completed | [issue-157-rev-3-matrix-placeholder-gate.md](./issue-157-rev-3-matrix-placeholder-gate.md) |
+| IMPL-034YXYrqo8gm6LNI7SUJwM | SV177 design tokens implementation record | completed | [issue-177-design-tokens.md](./issue-177-design-tokens.md) |
 | IMPL-034UgItAdeEhbkX8476hNc | Issue #190 project length → update_view 接続 — 既実装検証記録 | completed | [issue-190-project-length-update-view.md](./issue-190-project-length-update-view.md) |
 | IMPL-034UGB5wH67MKn7FnNHs1i | Issue #230 check-ruviform-rev REV/lock 不整合 — stale vendor 診断と復旧導線 | completed | [issue-230-check-ruviform-rev-rev-lock-stale-vendor.md](./issue-230-check-ruviform-rev-rev-lock-stale-vendor.md) |
 | IMPL-034YBzF7hR3tYvNc6WdE | issue-262-run-file-real-vm — run --file 実 VM/実 authority 実行配線 | completed | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
 | IMPL-034YDj5h1A3CjgiMC9pF80 | issue-274-cli-script-analyze | completed | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
 | IMPL-034WsBSh6LGUqgyK6c4CZL | Issue #365 impl index 生成可能化 — ir front matter 是正・marker 追加・index 再生成 | completed | [issue-365-impl-index-ir-front-matter-marker-index.md](./issue-365-impl-index-ir-front-matter-marker-index.md) |
 | IMPL-034Wv7Ib5bsrIkIj1wO99Y | Issue #368 docs/impl/ir missing-section 本文補完 | completed | [issue-368-docs-impl-ir-missing-section.md](./issue-368-docs-impl-ir-missing-section.md) |
+| IMPL-513a1b2c3d4e5f6g7h8i9j0k7 | issue-513-variant-apply-ops | completed | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
+| IMPL-034YY6FE3030pd5QC8HIrQ | issue-515-os-credential — durable CliSessionStore + OS credential 供給 | completed | [issue-515-os-credential-durable-clisessionstore-os-credential.md](./issue-515-os-credential-durable-clisessionstore-os-credential.md) |
 | IMPL-qGhrNdq0yLEfcWCITQ0m0p | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 実装記録 | completed | [issue-86-verified-import-wiring-slice.md](./issue-86-verified-import-wiring-slice.md) |
 | IMPL-L1LocalWavVerifiedPlayback | E2E-L1 Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | completed | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | IMPL-L2MasterSequentialOfflineWavExport | E2E-L2 Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | completed | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |

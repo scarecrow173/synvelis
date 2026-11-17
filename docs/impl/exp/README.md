@@ -9,8 +9,11 @@ Directory: `docs/impl/exp`
 | [autx-06-mixed-source-run-exp.jsonl](./autx-06-mixed-source-run-exp.jsonl) |
 | [autx-08-live-adapter-leg-exp.jsonl](./autx-08-live-adapter-leg-exp.jsonl) |
 | [issue-147-sccache.jsonl](./issue-147-sccache.jsonl) |
+| [issue-177-design-tokens-exp.jsonl](./issue-177-design-tokens-exp.jsonl) |
 | [issue-262-run-file-real-vm-exp.jsonl](./issue-262-run-file-real-vm-exp.jsonl) |
 | [issue-274-cli-script-analyze-exp.jsonl](./issue-274-cli-script-analyze-exp.jsonl) |
+| [issue-513-variant-apply-ops-exp.jsonl](./issue-513-variant-apply-ops-exp.jsonl) |
+| [issue-515-os-credential-exp.jsonl](./issue-515-os-credential-exp.jsonl) |
 | [rcd-04-residual-closeout-exp.jsonl](./rcd-04-residual-closeout-exp.jsonl) |
 | [sv-gpui-02-plugin-dock-gate.jsonl](./sv-gpui-02-plugin-dock-gate.jsonl) |
 | [sv-script-03-luau-backend-exp.jsonl](./sv-script-03-luau-backend-exp.jsonl) |

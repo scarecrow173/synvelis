@@ -12,15 +12,21 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/177"
   changes:
     added:
-      - "assets/themes: canonical semantic token groups (surface/text/accent/state/control/viz/space)"
-      - "crates/synvelis-app/tests/theme_parity.rs"
-      - "evidence/sv177/design-token-parity.md"
+      - type: "file"
+        path: "crates/synvelis-app/tests/theme_parity.rs"
+      - type: "file"
+        path: "evidence/sv177/design-token-parity.md"
     modified:
-      - "assets/themes/synvelis-dark.dtcg.json"
-      - "assets/themes/synvelis-light.dtcg.json"
-      - "assets/themes/synvelis-density-compact.dtcg.json"
-      - "assets/themes/synvelis-density-comfortable.dtcg.json"
-      - "crates/synvelis-theme/tests/theme_contract.rs"
+      - type: "file"
+        path: "assets/themes/synvelis-dark.dtcg.json"
+      - type: "file"
+        path: "assets/themes/synvelis-light.dtcg.json"
+      - type: "file"
+        path: "assets/themes/synvelis-density-compact.dtcg.json"
+      - type: "file"
+        path: "assets/themes/synvelis-density-comfortable.dtcg.json"
+      - type: "file"
+        path: "crates/synvelis-theme/tests/theme_contract.rs"
     deleted: []
     renamed: []
     moved: []
