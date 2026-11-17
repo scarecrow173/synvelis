@@ -42,12 +42,14 @@ Directory: `docs/plans`
 | PLAN-034U2vlyQzakAB9i25oAuM | Issue #184 CI verify/evidence 失敗 — canonical temp fixture 実装計画 | approved | [issue-184-ci-verify-evidence-canonical-temp-fixture.md](./issue-184-ci-verify-evidence-canonical-temp-fixture.md) |
 | PLAN-034YBz5Lu1tRwVb8NxFc | issue-262-run-file-real-vm — 実装 plan | approved | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
 | PLAN-034YDhXmRCMo80uy2OMsrP | issue-274-cli-script-analyze — 実装 plan | approved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
+| PLAN-sv511dE5fG7hI9jK1lM3nO5p | Issue #511 plan — CB-07 materialization 実装計画 | approved | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
 | PLAN-513a1b2c3d4e5f6g7h8i9j0k4 | issue-513-variant-apply-ops — 実装 plan | approved | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
 | PLAN-l2esj17AEoBoJdXsY3Q1EE | Issue #514 plan — 判定記録 slice（実装不要分岐） | approved | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |
 | PLAN-034YXTpsA7X2LIoy8uNpK2 | issue-515-os-credential 実装計画 | approved | [issue-515-os-credential.md](./issue-515-os-credential.md) |
 | PLAN-1kBHRQoUwWJI51A3YqHacf | Issue #516 実装 plan — 薄い binding への置換 | approved | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | PLAN-sv517gH8iJ0kL1mN3oP5qR7 | Issue #517 plan — render/branch pipeline 本番配線 | approved | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
 | PLAN-issue521-lfs-transport | issue-521-lfs-transport — Git LFS remote fetch HTTPS/TLS transport 実装 plan | approved | [issue-521-lfs-transport.md](./issue-521-lfs-transport.md) |
+| PLAN-yBpwmwoB5470oC0kf0tb | Issue #530 plan — stateless PluginStateDecl 契約 slice | approved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |

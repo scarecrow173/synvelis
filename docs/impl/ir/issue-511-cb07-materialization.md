@@ -14,22 +14,37 @@ relations:
     - "docs/adr/issue-511-cb07-materialization.md"
   changes:
     added:
-      - "docs/discovery/issue-511-cb07-materialization.md"
-      - "docs/specs/issue-511-cb07-materialization.md"
-      - "docs/designs/issue-511-cb07-materialization.md"
-      - "docs/plans/issue-511-cb07-materialization.md"
-      - "docs/tasks/issue-511-cb07-materialization.md"
-      - "docs/test-specs/issue-511-cb07-materialization.md"
-      - "docs/adr/issue-511-cb07-materialization.md"
-      - "docs/impl/ir/issue-511-cb07-materialization.md"
-      - "docs/impl/exp/issue-511-cb07-materialization.md"
-      - "docs/impl/exp/issue-511-cb07-materialization-exp.jsonl"
-      - "evidence/sv511/"
+      - type: "file"
+        path: "docs/discovery/issue-511-cb07-materialization.md"
+      - type: "file"
+        path: "docs/specs/issue-511-cb07-materialization.md"
+      - type: "file"
+        path: "docs/designs/issue-511-cb07-materialization.md"
+      - type: "file"
+        path: "docs/plans/issue-511-cb07-materialization.md"
+      - type: "file"
+        path: "docs/tasks/issue-511-cb07-materialization.md"
+      - type: "file"
+        path: "docs/test-specs/issue-511-cb07-materialization.md"
+      - type: "file"
+        path: "docs/adr/issue-511-cb07-materialization.md"
+      - type: "file"
+        path: "docs/impl/ir/issue-511-cb07-materialization.md"
+      - type: "file"
+        path: "docs/impl/exp/issue-511-cb07-materialization.md"
+      - type: "file"
+        path: "docs/impl/exp/issue-511-cb07-materialization-exp.jsonl"
+      - type: "dir"
+        path: "evidence/sv511/"
     modified:
-      - "crates/synvelis-project/src/variant/engine.rs"
-      - "crates/synvelis-project/src/apply/entity.rs"
-      - "crates/synvelis-project/src/ppqn.rs"
-      - "crates/synvelis-project/tests/cb07_arrangement.rs"
+      - type: "file"
+        path: "crates/synvelis-project/src/variant/engine.rs"
+      - type: "file"
+        path: "crates/synvelis-project/src/apply/entity.rs"
+      - type: "file"
+        path: "crates/synvelis-project/src/ppqn.rs"
+      - type: "file"
+        path: "crates/synvelis-project/tests/cb07_arrangement.rs"
     deleted: []
     renamed: []
     moved: []
@@ -55,6 +70,11 @@ relations:
     - "evidence/sv511/"
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted:
+      - "docs/impl/exp/issue-511-cb07-materialization-exp.jsonl"
+    rejected: []
 ---
 
 # issue-511-cb07-materialization — Implementation Record
