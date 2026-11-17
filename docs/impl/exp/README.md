@@ -21,6 +21,7 @@ Directory: `docs/impl/exp`
 | [issue-518-job-system-exp.jsonl](./issue-518-job-system-exp.jsonl) |
 | [issue-521-lfs-transport-exp.jsonl](./issue-521-lfs-transport-exp.jsonl) |
 | [issue-530-plugin-state-decl-exp.jsonl](./issue-530-plugin-state-decl-exp.jsonl) |
+| [issue-539-arrangement-adapter-exp.jsonl](./issue-539-arrangement-adapter-exp.jsonl) |
 | [rcd-04-residual-closeout-exp.jsonl](./rcd-04-residual-closeout-exp.jsonl) |
 | [sv-gpui-02-plugin-dock-gate.jsonl](./sv-gpui-02-plugin-dock-gate.jsonl) |
 | [sv-script-03-luau-backend-exp.jsonl](./sv-script-03-luau-backend-exp.jsonl) |
