@@ -4,7 +4,7 @@ type: "test-spec"
 status: "draft"
 title: "CB-09 Difference Explorer headless view-model + driver-neutral ViewSpec"
 created: "2026-11-15"
-updated: "2026-11-15"
+updated: "2026-11-18"
 owners: []
 relations:
   source: []
@@ -63,10 +63,13 @@ headless view-model と driver-neutral ViewSpec projection
 - Rule: Explorer は `VariantScope` を `VariantDiffDomain`
   （AudioClip/TakeUsage/MidiClip/InstrumentSlot/
   ProcessingRange/StripFields/Arrangement）へ写像し、
-  adapter 未 merge の domain（Arrangement、CB-07/#284）は
+  adapter 未 merge の domain は
   `EvidenceState::Unsupported{DomainAdapterUnmerged}` として
   正直に報告する — fabricated row を生成しない
-  （CB-UX-03）。
+  （CB-UX-03）。列挙 domain は CB-07/#284 merge により
+  全て adapter 済みであり、`DomainAdapterUnmerged` は
+  将来の未 merge domain に対する typed verdict として
+  残る（synvelis#286 で stale verdict を修正済み）。
 - Rule: branch の Adopted/Auditioning/Editing/RT-Active/
   RT-Pending label は独立した軸であり、一つの branch が
   複数 label を同時に持ちうる。view-local の audition 選択が

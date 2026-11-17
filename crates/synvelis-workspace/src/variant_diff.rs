@@ -1,13 +1,16 @@
 //! CB-09 Creative Branch Difference Explorer — headless view-model +
-//! driver-neutral [`ViewSpec`] projection (synvelis#286).
+//! driver-neutral [`ViewSpec`] projection + CB-08/CB-10 dispatch
+//! facade (synvelis#286).
 //!
 //! This module is the *presentation/read-model* layer for comparing two
-//! branches of one [`VariantSet`]. It consumes already-produced evidence
-//! — the canonical semantic diff (`synvelis_project::diff`, VCS-02) for
-//! the Semantic (Configured) layer, and typed evidence inputs for the
-//! Signal (Measured) and Perceptual (Inferred) layers — and projects it
-//! into a deterministic, driver-neutral [`ViewSpec`] tree that Fake,
-//! Mock, and (later) GPUI drivers can mount unchanged.
+//! branches of one [`VariantSet`], plus the workspace-side dispatch
+//! facade ([`VariantDiffEngine`]) that keeps `synvelis-gateway` types
+//! out of app code (AC-05). The view-model consumes already-produced
+//! evidence — the canonical semantic diff (`synvelis_project::diff`,
+//! VCS-02) for the Semantic (Configured) layer, and typed evidence
+//! inputs for the Signal (Measured) and Perceptual (Inferred) layers —
+//! and projects it into a deterministic, driver-neutral [`ViewSpec`]
+//! tree that Fake, Mock, and (later) GPUI drivers can mount unchanged.
 //!
 //! Contract boundaries (creative-branch-design §7):
 //!
@@ -30,18 +33,18 @@
 //! - **View-local state only.** [`VariantDiffViewState`] persists row
 //!   selection, the audition (monitor) selection, and the last compare
 //!   target per view. It never carries project/variant/diff authority;
-//!   authority intents are returned to the host as [`VariantDiffIntent`]s
-//!   for routing to the existing CAS/adopt engine — this module never
-//!   mutates project truth.
-//! - **Mock seam.** [`AuxLayerEvidence`] is the input contract the CB-08
-//!   orchestrator will fill with real signal/perceptual evidence. Rows
-//!   tagged [`EvidenceOrigin::Mock`] are Fake-provider output and are
-//!   labelled as such — they are never real measurements.
+//!   the view-model apply path returns authority intents as
+//!   [`VariantDiffIntent`]s, and [`VariantDiffEngine`] is the single
+//!   dispatch point that routes them through the CB-08 orchestrator
+//!   (compare) or the gateway CAS/adopt path (adopt-preview/adopt).
+//! - **Evidence seam.** [`AuxLayerEvidence`] is the input contract the
+//!   CB-08 orchestrator fills with signal/perceptual evidence.
+//!   Rows tagged [`EvidenceOrigin::Mock`] are Fake-provider output and
+//!   are labelled as such — they are never real measurements.
 //!
 //! Real GPUI mount, OS/window/IME/pixel acceptance, real plugin dock,
-//! PCM/RT signal measurement, and the orchestrated compare pipeline are
-//! out of scope (CB-08/CB-10/CB-11, #114/#176 gates) — see
-//! `evidence/sv286/`.
+//! and PCM/RT signal measurement are out of scope (CB-10/CB-11,
+//! #114/#176/#288 gates) — see `evidence/sv286/`.
 
 use std::collections::BTreeMap;
 use std::sync::PoisonError;

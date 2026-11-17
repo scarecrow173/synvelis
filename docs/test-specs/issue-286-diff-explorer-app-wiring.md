@@ -4,7 +4,7 @@ type: "test-spec"
 status: "draft"
 title: "issue-286-diff-explorer-app-wiring"
 created: "2026-11-17"
-updated: "2026-11-17"
+updated: "2026-11-18"
 owners: []
 relations:
   source:
@@ -130,6 +130,13 @@ end-to-end headless 経路
   `syn.variant-diff.view` が返す `ViewSpec` を parse し
   `mount_variant_diff_view` が `variant-diff.*` component
   を mount する。
+- project 切替時の state 分離:
+  `cb09_app_project_switch_clears_variant_diff_state` —
+  `project.new`/`open` で engine・per-view session・
+  publish observation が破棄され、旧 project の pin・
+  receipt が新 project の view id 空間へ漏れない
+  （identical bundle copy で branch id が再利用されても
+  session evidence は衝突しない）。
 - workspace facade（`cb09_diff_explorer.rs` 追加分）:
   `cb09_engine_compare_projects_cb08_layers`,
   `cb09_engine_compare_resolves_arrangement_adapter`,

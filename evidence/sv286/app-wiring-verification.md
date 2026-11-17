@@ -29,7 +29,7 @@ runtime publish observation を実装した。
 | `mise run lint synvelis-app` | 0 | pass（同上。`op_variant_diff_action` の too_many_lines を `variant_diff_run_intent`/`_compare`/`_adopt` への分割で解消、collapsible_if を let-chain 化、test file の needless_borrows_for_generic_args/too_many_lines を修正） |
 | `mise run lint-app-gpui` | 0 | pass（`cargo clippy -p synvelis-app --all-targets --features gpui-test -- -D warnings`） |
 | `mise run test synvelis-workspace` | 0 | pass — 全 test binary `test result: ok`。`cb09_diff_explorer` 40/40（facade test 7 件: `cb09_engine_compare_projects_cb08_layers`/`_resolves_arrangement_adapter`/`_maps_signal_provider_provenance`/`cb09_engine_adopt_preview_and_commit_keep_cas`/`cb09_engine_adopt_rejects_typed`/`cb09_engine_compare_rejects_stale_and_unknown_pins`/`cb09_engine_authority_and_context_reflect_live_state` を含む） |
-| `mise run test synvelis-app` | 0 | pass — 全 test binary（50 binary）`test result: ok`。`cb09_variant_diff` 10/10（lifecycle/kind gate・target seed・view-local authority 非接触・compare pin-scope・stale/implicit reject・preview 非 commit・approval 必須・CAS commit・stale CAS reject・ViewSpec mount smoke） |
+| `mise run test synvelis-app` | 0 | pass — 全 test binary（50 binary）`test result: ok`。`cb09_variant_diff` 11/11（lifecycle/kind gate・target seed・view-local authority 非接触・compare pin-scope・stale/implicit reject・preview 非 commit・approval 必須・CAS commit・stale CAS reject・ViewSpec mount smoke・project 切替での variant-diff state クリア） |
 | `mise run check-headless-deps` | 0 | pass — "no GUI framework deps in 12 headless crates" |
 | `mise run check-app-gpui` | 0 | pass（`cargo check -p synvelis-app --features gpui-test --all-targets`） |
 

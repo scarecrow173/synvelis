@@ -4,7 +4,7 @@ type: "impl"
 status: "completed"
 title: "issue-286-diff-explorer-app-wiring"
 created: "2026-11-17"
-updated: "2026-11-17"
+updated: "2026-11-18"
 owners: []
 relations:
   source:
@@ -210,7 +210,7 @@ app は gateway 型を名指しできない（AC-05）ため、workspace
 - `mise run test synvelis-workspace` — pass
   （`cb09_diff_explorer` 40/40 を含む全 suite）
 - `mise run test synvelis-app` — pass
-  （`cb09_variant_diff` 10/10 を含む全 suite）
+  （`cb09_variant_diff` 11/11 を含む全 suite）
 - `mise run check-headless-deps` — pass
 - `mise run check-app-gpui` — pass
 

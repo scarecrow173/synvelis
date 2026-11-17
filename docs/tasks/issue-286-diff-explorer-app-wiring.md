@@ -4,7 +4,7 @@ type: "task"
 status: "done"
 title: "issue-286-diff-explorer-app-wiring"
 created: "2026-11-17"
-updated: "2026-11-17"
+updated: "2026-11-18"
 owners: []
 relations:
   source:
@@ -122,7 +122,7 @@ CB-08 orchestrator / gateway CAS 経路への接続を完成させる。
       typed reject）
 - [x] view-local action が project authority を一切変更しない
 - [x] `ViewSpec` が `mount_variant_diff_view` で mount できる
-- [x] headless（workspace 40 test）+ app（10 test）suite と
+- [x] headless（workspace 40 test）+ app（11 test）suite と
       clippy `-D warnings` が pass する
 
 ## Verification
@@ -133,7 +133,7 @@ CB-08 orchestrator / gateway CAS 経路への接続を完成させる。
 - [x] `mise run lint-app-gpui`（gpui-test feature lane）
 - [x] `mise run test synvelis-workspace`（cb09_diff_explorer
       40/40 を含む全 suite）
-- [x] `mise run test synvelis-app`（cb09_variant_diff 10/10
+- [x] `mise run test synvelis-app`（cb09_variant_diff 11/11
       を含む全 suite）
 - [x] `mise run check-headless-deps`
 - [x] `mise run check-app-gpui`
