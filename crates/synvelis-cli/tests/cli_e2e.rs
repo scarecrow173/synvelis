@@ -1127,3 +1127,203 @@ fn render_fails_closed_unsupported() {
     assert_eq!(exit_code(&out), 5);
     assert_eq!(stdout_json(&out)["error"]["code"], "cli.unsupported");
 }
+
+// ── synvelis#515 — OS credential session supply ────────────────
+
+/// `session issue` → `session list` → `session revoke` roundtrip on
+/// the durable store + OS credential vault (Windows Credential
+/// Manager). Asserts the secret never reaches stdout or the store
+/// file — only the one-time vault handoff carries it.
+#[test]
+#[cfg(windows)]
+fn session_issue_list_revoke_roundtrip() {
+    let dir = scratch("sv515-session");
+    let store = dir.join("sessions.json");
+    let store_arg = store.to_str().unwrap().to_owned();
+
+    let out = cli(&[
+        "--format",
+        "json",
+        "--session-store",
+        &store_arg,
+        "session",
+        "issue",
+        "--user",
+        "e2e-user",
+    ]);
+    assert_eq!(
+        exit_code(&out),
+        0,
+        "issue failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let env = stdout_json(&out);
+    let session_id = env["result"]["session"]
+        .as_str()
+        .expect("session id")
+        .to_owned();
+    assert!(session_id.starts_with("cli-"));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        !stdout.contains("syv-cli-"),
+        "usable secret must never be printed: {stdout}"
+    );
+
+    let out = cli(&[
+        "--format",
+        "json",
+        "--session-store",
+        &store_arg,
+        "session",
+        "list",
+    ]);
+    assert_eq!(exit_code(&out), 0);
+    let env = stdout_json(&out);
+    let sessions = env["result"]["sessions"].as_array().unwrap();
+    assert!(
+        sessions.iter().any(|s| s["session"] == session_id),
+        "issued session must be listed: {sessions:?}"
+    );
+    assert!(
+        !env.to_string().contains("syv-cli-"),
+        "list output must not carry secrets"
+    );
+
+    let out = cli(&[
+        "--format",
+        "json",
+        "--session-store",
+        &store_arg,
+        "session",
+        "revoke",
+        &session_id,
+    ]);
+    assert_eq!(exit_code(&out), 0);
+
+    // The durable file is digest-only — no usable credential format.
+    let text = std::fs::read_to_string(&store).unwrap();
+    assert!(text.contains(&session_id));
+    assert!(!text.contains("syv-cli-"), "secret format on disk");
+}
+
+/// `--session <id>` resolves the vault credential into an interactive
+/// claim: a gateway command must get *past* authentication (any
+/// later denial is authorization, not auth). A bogus session id fails
+/// closed before dispatch.
+#[test]
+#[cfg(windows)]
+fn session_claim_reaches_verified_human_attestation() {
+    let dir = scratch("sv515-claim");
+    let store = dir.join("sessions.json");
+    let store_arg = store.to_str().unwrap().to_owned();
+    let project = project_dir("sv515-claim-project");
+    let project_arg = project.to_str().unwrap().to_owned();
+
+    let out = cli(&[
+        "--format",
+        "json",
+        "--session-store",
+        &store_arg,
+        "session",
+        "issue",
+        "--user",
+        "e2e-user",
+    ]);
+    assert_eq!(exit_code(&out), 0);
+    let session_id = stdout_json(&out)["result"]["session"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    // A gateway command under --session: attestation runs inside the
+    // host. Whatever the authorization outcome, the error category
+    // must not be `authentication` — the credential verified.
+    let out = cli(&[
+        "--format",
+        "json",
+        "--session-store",
+        &store_arg,
+        "--session",
+        &session_id,
+        "--project",
+        &project_arg,
+        "action",
+        "invoke",
+        "--capability",
+        "synvelis.context.query@1.0",
+        "--args",
+        "{}",
+    ]);
+    let env = stdout_json(&out);
+    if let Some(err) = env.get("error") {
+        assert_ne!(
+            err["category"], "authentication",
+            "verified session must pass attestation: {env}"
+        );
+    }
+
+    // Unknown session id → CLI-side fail closed (no vault entry).
+    let out = cli(&[
+        "--format",
+        "json",
+        "--session-store",
+        &store_arg,
+        "--session",
+        "cli-0000000000000000",
+        "action",
+        "list",
+    ]);
+    assert_eq!(exit_code(&out), 2, "unknown session must fail closed");
+
+    // --session and --session-credential are mutually exclusive.
+    let out = cli(&[
+        "--session",
+        &session_id,
+        "--session-credential",
+        "syv-cli-00",
+        "action",
+        "list",
+    ]);
+    assert_eq!(exit_code(&out), 2, "conflicting claim flags must fail");
+
+    // Revoke → vault entry deleted → --session fails closed.
+    let out = cli(&[
+        "--format",
+        "json",
+        "--session-store",
+        &store_arg,
+        "session",
+        "revoke",
+        &session_id,
+    ]);
+    assert_eq!(exit_code(&out), 0);
+    let out = cli(&[
+        "--format",
+        "json",
+        "--session-store",
+        &store_arg,
+        "--session",
+        &session_id,
+        "action",
+        "list",
+    ]);
+    assert_eq!(exit_code(&out), 2, "revoked session must fail closed");
+}
+
+/// Non-Windows platforms honestly report the OS credential path as
+/// Unsupported — no silent fallback, no fabricated verification.
+#[test]
+#[cfg(not(windows))]
+fn session_credential_path_reports_unsupported() {
+    let out = cli(&["--format", "json", "session", "issue"]);
+    assert_eq!(exit_code(&out), 5, "issue must report Unsupported");
+    let out = cli(&[
+        "--format",
+        "json",
+        "--session",
+        "cli-0000000000000000",
+        "action",
+        "list",
+    ]);
+    assert_eq!(exit_code(&out), 5, "--session must report Unsupported");
+}

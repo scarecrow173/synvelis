@@ -48,6 +48,20 @@ CLI は「どの OS ユーザーが起動したか」「TTY があるか」「�
 差なし記録どおり）。`authority_class()` は `(kind, origin)` のみに
 写像し wire・引数・env・TTY を参照しない。
 
+**2026-11 追記（synvelis#515 実装反映）**: verified interactive
+session の供給経路を実装した。session record は durable
+`FileCliSessionStore`（digest-only JSON、process restart 跨ぎ）が保持し、
+usable secret は OS credential store（Windows: Credential Manager、
+`synvelis-cli` service）に session id 単位で保管される。
+`synvelis-cli session issue` が operator provisioning として発行し、
+`--session <id>` が OS vault から secret を in-process に読み
+`CliSessionClaim::Interactive` を構成する — secret は argv/env/
+log/record に出ない。検証の信頼根拠は従来どおり store の digest
+照合のみであり、OS/TTY/env/args の自己申告は証拠にしない
+（§3 契約は不変）。OS credential store が secret を OS user
+account に束縛するため、対話存在証明（credential prompt /
+Windows Hello）は #114 系 gate に deferred。
+
 **重要**: `OriginKind`/`PrincipalKind`/`AdapterSeal` の発行権限は
 **adapter 実装（trusted host 側）にのみ存在**し、CLI 引数・環境変数・
 TTY の有無はそれを生成しない。

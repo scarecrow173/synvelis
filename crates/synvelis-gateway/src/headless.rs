@@ -32,9 +32,10 @@
 //!
 //! Deferred to later slices (recorded in `evidence/sv261/`): the
 //! `synvelis-project` port adapter for real project open/lock/reopen,
-//! a durable `CliSessionStore` with OS credential verification, the
-//! `synvelis-runtime` CLI binary, and real multi-process commit
-//! verification.
+//! the `synvelis-runtime` CLI binary, and real multi-process commit
+//! verification. The durable `CliSessionStore` landed in synvelis#515
+//! as [`crate::cli::FileCliSessionStore`]; the OS credential supply
+//! path (`session issue` / `--session`) lives in `synvelis-cli`.
 
 use std::sync::{Arc, Mutex};
 

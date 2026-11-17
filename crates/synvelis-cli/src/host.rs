@@ -10,8 +10,9 @@
 //! - `HeadlessSessionHost` + `LocalCliAdapter` (AUTX-02) resolve every
 //!   [`CliSessionClaim`] — unattended claims always become delegated
 //!   `Agent` callers on `OriginKind::LocalCli`; `Interactive` claims
-//!   verify against the session store and fail closed (the store is
-//!   empty in this slice — no OS credential issuer exists yet).
+//!   verify against the durable [`FileCliSessionStore`] (synvelis#515 —
+//!   `--session-store` or the platform user-state default; the OS
+//!   credential vault seam lives in [`crate::session`]).
 //! - Project state comes from `DirectoryBundleStore` +
 //!   `ProjectController`; commits go through `CommitGate` (single
 //!   writer, journal, CAS, recovery) when `durable` is set.
@@ -29,7 +30,7 @@ use std::sync::{Arc, Mutex};
 use serde_json::Value;
 use synvelis_gateway::capability::CapabilityDescriptor;
 use synvelis_gateway::cli::{
-    CLI_ADAPTER_RAW, CliSessionClaim, LocalCliAdapter, MemoryCliSessionStore,
+    CLI_ADAPTER_RAW, CliSessionClaim, FileCliSessionStore, LocalCliAdapter,
 };
 use synvelis_gateway::clock::SystemClock;
 use synvelis_gateway::commit::{CommitGate, GateDeps, MutexFence, PolicyAdmin};
@@ -61,6 +62,7 @@ use synvelis_project::{
 
 use crate::args::Args;
 use crate::error::CliError;
+use crate::session;
 
 /// TTLs mirroring the gateway test-rig composition (proposal 60s,
 /// approval 30s). Proposals/approvals are in-memory this slice — see
@@ -130,8 +132,9 @@ pub struct ProjectBinding {
 
 /// The `CliSessionClaim` an invocation presents to the adapter.
 ///
-/// `--session-credential` selects `Interactive` (verified against the
-/// store — currently always fails closed); everything else is
+/// `--session-credential` (or `--session <id>` resolved through the
+/// OS credential vault by the command layer) selects `Interactive`,
+/// verified against the durable session store; everything else is
 /// `Unattended` under `--principal` (default `synvelis-cli`) and can
 /// only ever resolve to a delegated `Agent` caller.
 #[must_use]
@@ -335,6 +338,7 @@ fn shared_handles(
     clock: Arc<dyn PolicyClock>,
     committer: Arc<dyn CommitPort>,
     admin: Arc<dyn AdminPort>,
+    session_store: FileCliSessionStore,
 ) -> (
     Arc<Mutex<Gateway>>,
     Arc<LocalCliAdapter>,
@@ -343,7 +347,7 @@ fn shared_handles(
     let gateway = Arc::new(Mutex::new(gateway));
     let cli = Arc::new(LocalCliAdapter::new(
         AdapterId::new(CLI_ADAPTER_RAW),
-        Box::new(MemoryCliSessionStore::new()),
+        Box::new(session_store),
         clock,
     ));
     let host =
@@ -361,6 +365,13 @@ fn apply_descriptor(
         .ok_or_else(|| CliError::Internal("synvelis.proposal.apply not registered".to_owned()))
 }
 
+/// Opens the durable CLI session store (`--session-store` or the
+/// platform user-state default). A corrupt/forged file fails closed —
+/// the boot refuses rather than serving unverifiable sessions.
+fn open_session_store(explicit: Option<&Path>) -> Result<FileCliSessionStore, CliError> {
+    session::open_store(explicit)
+}
+
 // ── boots ────────────────────────────────────────────────────────
 
 /// Boot for discovery commands (`action list`/`action describe`):
@@ -370,7 +381,7 @@ fn apply_descriptor(
 /// # Errors
 /// [`CliError::Internal`] on registration conflicts (cannot happen with
 /// the fixed engine set — surfaces as a bug, not user error).
-pub fn boot_discovery() -> Result<Booted, CliError> {
+pub fn boot_discovery(session_store: Option<&Path>) -> Result<Booted, CliError> {
     let clock: Arc<dyn PolicyClock> = Arc::new(SystemClock);
     let store: Arc<dyn PolicyStore> = Arc::new(InMemoryPolicyStore::new());
     let source = Arc::new(MemorySnapshotSource::new());
@@ -388,7 +399,13 @@ pub fn boot_discovery() -> Result<Booted, CliError> {
     let (registry, script) = capture_run_artifacts(&gateway)?;
     let committer: Arc<dyn CommitPort> = Arc::new(NoCommitPort);
     let admin: Arc<dyn AdminPort> = Arc::new(NoAdminPort);
-    let (gateway, cli, host) = shared_handles(gateway, clock, committer.clone(), admin);
+    let (gateway, cli, host) = shared_handles(
+        gateway,
+        clock,
+        committer.clone(),
+        admin,
+        open_session_store(session_store)?,
+    );
     Ok(Booted {
         host,
         descriptors,
@@ -437,7 +454,11 @@ impl BootContext {
 /// [`CliError::InvalidInput`] — path missing/not a directory.
 /// [`CliError::Setup`] — bundle open/load, policy log, or journal
 /// failures; a bundle with no saved HEAD is reported here too.
-pub fn boot_project(root: &Path, durable: bool) -> Result<Booted, CliError> {
+pub fn boot_project(
+    root: &Path,
+    durable: bool,
+    session_store: Option<&Path>,
+) -> Result<Booted, CliError> {
     let canonical = root.canonicalize().map_err(|e| {
         CliError::InvalidInput(format!(
             "--project '{}' cannot be resolved: {e}",
@@ -488,6 +509,7 @@ pub fn boot_project(root: &Path, durable: bool) -> Result<Booted, CliError> {
         PrepareBudget::default().max_proposals,
     ));
 
+    let session_store = open_session_store(session_store)?;
     let ctx = BootContext {
         canonical,
         store,
@@ -500,15 +522,15 @@ pub fn boot_project(root: &Path, durable: bool) -> Result<Booted, CliError> {
         oracle,
     };
     if durable {
-        boot_durable(ctx)
+        boot_durable(ctx, session_store)
     } else {
-        boot_readonly(ctx)
+        boot_readonly(ctx, session_store)
     }
 }
 
 /// Read-only boot: in-memory policy, no commit gate — mutation
 /// requests fail closed inside the gateway.
-fn boot_readonly(ctx: BootContext) -> Result<Booted, CliError> {
+fn boot_readonly(ctx: BootContext, session_store: FileCliSessionStore) -> Result<Booted, CliError> {
     let binding = ctx.binding();
     let policy: Arc<dyn PolicyStore> = Arc::new(InMemoryPolicyStore::new());
     let (gateway, _variant) =
@@ -519,7 +541,8 @@ fn boot_readonly(ctx: BootContext) -> Result<Booted, CliError> {
     let (registry, script) = capture_run_artifacts(&gateway)?;
     let committer: Arc<dyn CommitPort> = Arc::new(NoCommitPort);
     let admin: Arc<dyn AdminPort> = Arc::new(NoAdminPort);
-    let (gateway, cli, host) = shared_handles(gateway, ctx.clock, committer.clone(), admin);
+    let (gateway, cli, host) =
+        shared_handles(gateway, ctx.clock, committer.clone(), admin, session_store);
     Ok(Booted {
         host,
         descriptors,
@@ -534,7 +557,10 @@ fn boot_readonly(ctx: BootContext) -> Result<Booted, CliError> {
 
 /// Durable boot: policy log + commit journal inside the project root,
 /// real `CommitGate` as the commit/admin boundary.
-fn boot_durable(mut ctx: BootContext) -> Result<Booted, CliError> {
+fn boot_durable(
+    mut ctx: BootContext,
+    session_store: FileCliSessionStore,
+) -> Result<Booted, CliError> {
     let binding = ctx.binding();
     let (policy_file, _policy_open) = FilePolicyStore::open(ctx.canonical.join(POLICY_LOG_NAME))
         .map_err(|e| CliError::Setup(format!("cannot open policy store: {e}")))?;
@@ -582,7 +608,8 @@ fn boot_durable(mut ctx: BootContext) -> Result<Booted, CliError> {
     let committer: Arc<dyn CommitPort> = gate.clone();
     let admin: Arc<dyn AdminPort> = gate;
 
-    let (gateway, cli, host) = shared_handles(gateway, ctx.clock, committer.clone(), admin);
+    let (gateway, cli, host) =
+        shared_handles(gateway, ctx.clock, committer.clone(), admin, session_store);
     Ok(Booted {
         host,
         descriptors,

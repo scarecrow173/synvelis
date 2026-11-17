@@ -5,6 +5,7 @@
 //! ```text
 //! synvelis-cli [--format human|json|ndjson] [--project <path>]
 //!              [--principal <id>] [--session-credential <cred>]
+//!              [--session <id>] [--session-store <path>]
 //!              [--yes] [--dry-run]
 //!              <command>
 //!
@@ -22,6 +23,9 @@
 //!   script analyze --file <path> [--cursor <byte-offset>]
 //!   project info   --project <path>
 //!   render         --project <path> --output <path>
+//!   session issue [--ttl-ms <ms>] [--user <id>]
+//!   session list
+//!   session revoke <session-id>
 //! ```
 //!
 //! There is deliberately **no** `script run` command and no `--script`
@@ -29,8 +33,9 @@
 //! `workflow run --file` only. `script analyze` is static analysis —
 //! it never executes and mints no authority (AUTX-SCR-ANA-01).
 //!
-//! `--yes`, `--principal`, `--session-credential`, environment
-//! variables, TTY state, and JSON fields never mint human authority —
+//! `--yes`, `--principal`, `--session-credential`, `--session`,
+//! environment variables, TTY state, and JSON fields never mint human
+//! authority —
 //! they only shape the [`synvelis_gateway::cli::CliSessionClaim`] the
 //! trusted adapter resolves (unattended → `Agent` always).
 
@@ -89,6 +94,11 @@ pub struct Args {
     pub principal: String,
     /// Optional interactive session credential claim.
     pub session_credential: Option<String>,
+    /// Optional issued-session id — resolved through the OS credential
+    /// store into an interactive claim (synvelis#515).
+    pub session: Option<String>,
+    /// Override for the durable CLI session store path.
+    pub session_store: Option<PathBuf>,
     /// Accepted for script compatibility; confers **no** authority.
     pub yes: bool,
     /// Validate/preview only — no project/job side effects.
@@ -168,6 +178,22 @@ pub enum Command {
         /// source (`synvelis_script::Cursor`).
         cursor: Option<usize>,
     },
+    /// `session issue [--ttl-ms <ms>] [--user <id>]` — provision a
+    /// verified-Human session (operator action; writes the durable
+    /// store and the OS credential vault).
+    SessionIssue {
+        /// Optional time-to-live in milliseconds.
+        ttl_ms: Option<u64>,
+        /// Principal id the session binds (default: OS user name).
+        user: Option<String>,
+    },
+    /// `session list` — digest-only session records.
+    SessionList,
+    /// `session revoke <session-id>`.
+    SessionRevoke {
+        /// The `cli-<16hex>` session id to revoke.
+        session: String,
+    },
     /// `project info`.
     ProjectInfo,
     /// `render --output <path>`.
@@ -187,7 +213,14 @@ pub struct ParseFailure {
     pub format: Format,
 }
 
-const GLOBAL_VALUE_FLAGS: &[&str] = &["format", "project", "principal", "session-credential"];
+const GLOBAL_VALUE_FLAGS: &[&str] = &[
+    "format",
+    "project",
+    "principal",
+    "session-credential",
+    "session",
+    "session-store",
+];
 const GLOBAL_BOOL_FLAGS: &[&str] = &["yes", "dry-run", "help", "version"];
 const COMMAND_VALUE_FLAGS: &[&str] = &[
     "capability",
@@ -204,6 +237,8 @@ const COMMAND_VALUE_FLAGS: &[&str] = &[
     "inputs",
     "inputs-file",
     "cursor",
+    "ttl-ms",
+    "user",
 ];
 
 /// Parses `argv` (excluding the program name).
@@ -249,6 +284,8 @@ struct Invocation {
     project: Option<PathBuf>,
     principal: String,
     session_credential: Option<String>,
+    session: Option<String>,
+    session_store: Option<PathBuf>,
     yes: bool,
     dry_run: bool,
 }
@@ -260,6 +297,8 @@ impl Invocation {
             project: None,
             principal: "synvelis-cli".to_owned(),
             session_credential: None,
+            session: None,
+            session_store: None,
             yes: false,
             dry_run: false,
         }
@@ -271,6 +310,8 @@ impl Invocation {
             project: self.project,
             principal: self.principal,
             session_credential: self.session_credential,
+            session: self.session,
+            session_store: self.session_store,
             yes: self.yes,
             dry_run: self.dry_run,
             command,
@@ -345,6 +386,8 @@ fn parse_inner(argv: &[String]) -> Result<Args, CliError> {
                 "project" => inv.project = Some(PathBuf::from(value)),
                 "principal" => inv.principal = value,
                 "session-credential" => inv.session_credential = Some(value),
+                "session" => inv.session = Some(value),
+                "session-store" => inv.session_store = Some(PathBuf::from(value)),
                 _ => {
                     if flags.insert(name.to_owned(), value).is_some() {
                         return Err(CliError::Usage(format!("--{name} given twice")));
@@ -364,6 +407,11 @@ fn parse_inner(argv: &[String]) -> Result<Args, CliError> {
     if version {
         return Ok(inv.into_args_with(Command::Version));
     }
+    if inv.session.is_some() && inv.session_credential.is_some() {
+        return Err(CliError::Usage(
+            "--session and --session-credential are mutually exclusive".to_owned(),
+        ));
+    }
     inv.into_args(&positionals, &flags)
 }
 
@@ -374,6 +422,7 @@ fn dispatch(positionals: &[String], flags: &BTreeMap<String, String>) -> Result<
         Some("project") => parse_project(positionals, flags),
         Some("render") => parse_render(positionals, flags),
         Some("script") => parse_script(positionals, flags),
+        Some("session") => parse_session(positionals, flags),
         Some("help") => Ok(Command::Help),
         Some(other) => Err(CliError::Usage(format!("unknown command '{other}'"))),
         None => Err(CliError::Usage("missing command (try --help)".to_owned())),
@@ -592,6 +641,56 @@ fn parse_script(
             "`script` supports only `analyze --file <path>` (static \
              analysis); there is no `script run` execution surface"
                 .to_owned(),
+        )),
+    }
+}
+
+fn parse_session(
+    positionals: &[String],
+    flags: &BTreeMap<String, String>,
+) -> Result<Command, CliError> {
+    match positionals.get(1).map(String::as_str) {
+        Some("issue") => {
+            if positionals.len() != 2 {
+                return Err(CliError::Usage(
+                    "session issue takes no positional arguments".to_owned(),
+                ));
+            }
+            take_flags(flags, &["ttl-ms", "user"])?;
+            let ttl_ms = match flag_value(flags, "ttl-ms") {
+                None => None,
+                Some(text) => Some(text.parse::<u64>().map_err(|_| {
+                    CliError::Usage(format!("--ttl-ms '{text}' is not a millisecond count"))
+                })?),
+            };
+            Ok(Command::SessionIssue {
+                ttl_ms,
+                user: string_flag(flags, "user"),
+            })
+        }
+        Some("list") => {
+            if positionals.len() != 2 {
+                return Err(CliError::Usage(
+                    "session list takes no arguments".to_owned(),
+                ));
+            }
+            take_flags(flags, &[])?;
+            Ok(Command::SessionList)
+        }
+        Some("revoke") => {
+            if positionals.len() != 3 {
+                return Err(CliError::Usage(
+                    "session revoke requires <session-id>".to_owned(),
+                ));
+            }
+            take_flags(flags, &[])?;
+            Ok(Command::SessionRevoke {
+                session: positionals[2].clone(),
+            })
+        }
+        Some(other) => Err(CliError::Usage(format!("unknown session '{other}'"))),
+        None => Err(CliError::Usage(
+            "session requires a subcommand (issue|list|revoke)".to_owned(),
         )),
     }
 }

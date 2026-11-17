@@ -28,7 +28,12 @@ GLOBAL OPTIONS:
                                    synvelis-cli). Never mints Human.
     --session-credential <cred>    Present an interactive session
                                    credential (verified by the trusted
-                                   adapter; fails closed today)
+                                   adapter against the session store)
+    --session <id>                 Resolve an issued session's secret
+                                   from the OS credential store and
+                                   present it as an interactive claim
+    --session-store <path>         Durable CLI session store file
+                                   (default: platform user-state dir)
     --yes                          Accepted for script compatibility;
                                    confers no authority
     --dry-run                      Validate/preview only — no project,
@@ -69,6 +74,12 @@ COMMANDS:
     render --project <path> --output <path>
                                    Render media (provider not wired —
                                    fails closed Unsupported)
+    session issue [--ttl-ms <ms>] [--user <id>]
+                                   Provision a verified-Human session:
+                                   durable record + OS credential vault
+                                   entry (secret never printed)
+    session list                   List session records (digest-only)
+    session revoke <session-id>    Revoke a session (record + vault)
 
 OPERATION OPTIONS (prepare/invoke):
     --target <json>                Explicit target object

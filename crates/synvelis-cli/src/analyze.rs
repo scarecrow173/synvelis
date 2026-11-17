@@ -58,7 +58,7 @@ pub fn analyze_command(
     commands::reject_dry_run(args, "script analyze")?;
     let language = classify_language(file)?;
     let text = script::read_source(file)?;
-    let booted = host::boot_discovery()?;
+    let booted = host::boot_discovery(args.session_store.as_deref())?;
     let stub = LuauStub::generate(&booted.script.model).map_err(|e| {
         CliError::Internal(format!(
             "cannot generate Luau stub from ScriptApiModel: {e}"
