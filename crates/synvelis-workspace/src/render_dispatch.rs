@@ -88,6 +88,7 @@ impl WorkspaceRenderDispatch {
         }
     }
 
+    #[allow(clippy::result_large_err)] // typed envelope is the contract
     fn decode_report(args: &Value) -> Result<TriggerReport, RenderDispatchOutcome> {
         serde_json::from_value(args.clone()).map_err(|e| {
             Self::outcome(
@@ -102,6 +103,7 @@ impl WorkspaceRenderDispatch {
 
     /// Decodes `{"job": <RenderJobKey>}`; a bare key object is also
     /// accepted for convenience.
+    #[allow(clippy::result_large_err)] // typed envelope is the contract
     fn decode_key(args: &Value) -> Result<RenderJobKey, RenderDispatchOutcome> {
         let candidate = args.get("job").cloned().unwrap_or_else(|| args.clone());
         serde_json::from_value(candidate).map_err(|e| {
