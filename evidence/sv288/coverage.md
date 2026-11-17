@@ -95,7 +95,7 @@ Headless と別記録・NotRun≠Pass）
 
 | 範囲 | 被覆 fixture | oracle | 判定 |
 | --- | --- | --- | --- |
-| Difference Explorer UI・plugin dock | — | 実 window・実 plugin | ⛔ **Blocked: synvelis#286（CB-09）・synvelis#287（CB-10）** + NotRun（`scarecrow173/ruviform#631`/`#630`・synvelis#114/#176） |
+| Difference Explorer UI・plugin dock | — | 実 window・実 plugin | ⛔ **Blocked: synvelis#286（CB-09）** + NotRun（`scarecrow173/ruviform#631`/`#630`・synvelis#114/#176）。CB-10（synvelis#287）は PR #483（`696efa73`）で解消済み |
 
 ### CB-E2E-07（AI/VCS OFF・通常 DAW Gate A の
 Record/Playback/Mixer/Save/Export 非回帰）
