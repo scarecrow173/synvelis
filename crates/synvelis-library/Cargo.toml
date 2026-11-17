@@ -14,6 +14,9 @@ serde_json.workspace = true
 sha2.workspace = true
 ruviform-io-file.workspace = true
 synvelis-project = { path = "../synvelis-project" }
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "ring"] }
+rustls-native-certs = "0.8"
 
 [dev-dependencies]
 stats_alloc = "0.1.10"
+rcgen = "0.14"

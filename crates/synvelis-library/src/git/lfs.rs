@@ -1,16 +1,18 @@
 //! Git LFS object access — local store for `file://` remotes and the
-//! Git LFS batch API over plain `http://` for remote transports.
+//! Git LFS batch API over `http://`/`https://` for remote transports.
 //!
 //! An LFS pointer names an object by SHA-256 oid + declared size.
 //! For `file://` remotes the bytes live under
 //! `<remote>/lfs/objects/<oid[0..2]>/<oid[2..4]>/<oid>` and are read
-//! directly. For `http://` remotes the bytes are fetched through the
-//! LFS batch API: `POST <endpoint>/objects/batch` yields a signed
-//! `actions.download.href`, and a streaming `GET` returns the object
-//! bytes. `https://` stays [`LfsBackendKind::Unsupported`] — the
-//! shared HTTP transport has no TLS stack and never downgrades;
-//! SSH/`git://` stay unsupported for the same reason (no LFS HTTP
-//! transport or auth route exists for them in this slice).
+//! directly. For `http(s)://` remotes the bytes are fetched through
+//! the LFS batch API: `POST <endpoint>/objects/batch` yields a
+//! signed `actions.download.href`, and a streaming `GET` returns the
+//! object bytes. `https://` targets use the shared transport's TLS
+//! path (rustls, native or context-supplied trust roots,
+//! certificate verification mandatory) — the scheme is never
+//! downgraded to plaintext. SSH/`git://` stay
+//! [`LfsBackendKind::Unsupported`] — no LFS HTTP transport or auth
+//! route exists for them in this slice.
 //!
 //! Endpoint derivation follows git-lfs server discovery for clone
 //! URLs: the remote path already ending in `.git` gains
@@ -49,10 +51,11 @@ pub enum LfsBackendKind {
     /// `<remote>/lfs/objects` on the local filesystem (file
     /// transport only).
     LocalObjects,
-    /// Git LFS batch API + HTTP download over `http://` — no TLS.
+    /// Git LFS batch API + HTTP(S) download — `http://` plaintext
+    /// or `https://` over verified TLS.
     RemoteHttp,
-    /// No supported transport — `https://` (no TLS stack), SSH, and
-    /// `git://` remotes, or transports without an LFS route.
+    /// No supported transport — SSH and `git://` remotes, or
+    /// transports without an LFS route.
     Unsupported,
 }
 
@@ -60,7 +63,8 @@ pub enum LfsBackendKind {
 pub(crate) enum LfsBackend {
     /// Local `lfs/objects` directory under the remote path.
     Local { root: PathBuf },
-    /// LFS batch API over plain HTTP for an `http://` remote.
+    /// LFS batch API over HTTP(S) for an `http://`/`https://`
+    /// remote — HTTPS always uses verified TLS, never plaintext.
     RemoteHttp {
         /// The validated remote the endpoint derives from.
         remote: GitRemoteUrl,
@@ -72,12 +76,12 @@ pub(crate) enum LfsBackend {
     Unsupported,
 }
 
-/// A resolved plain-HTTP request target: validated origin plus a
+/// A resolved HTTP(S) request target: validated origin plus a
 /// decoded absolute path and an optional raw (still-encoded) query.
 #[derive(Clone)]
 struct UrlTarget {
-    /// Validated `http(s)` origin — `https` is rejected before any
-    /// socket is opened (no TLS stack).
+    /// Validated `http(s)` origin — `https` origins always connect
+    /// over verified TLS (never downgraded to plaintext).
     origin: WebDavUrl,
     /// Decoded absolute path (`/...`), re-encoded at serialization.
     path: String,
@@ -152,7 +156,10 @@ impl LfsBackend {
         if let Some(root) = remote.lfs_objects_root() {
             return Self::Local { root };
         }
-        if remote.scheme() == GitRemoteScheme::Http {
+        if matches!(
+            remote.scheme(),
+            GitRemoteScheme::Http | GitRemoteScheme::Https
+        ) {
             return Self::RemoteHttp {
                 remote: remote.clone(),
                 credential_key,
@@ -183,10 +190,11 @@ impl LfsBackend {
     ///
     /// # Errors
     /// [`ProviderErrorKind::UnsupportedCapability`] for transports
-    /// without an LFS route (`https`, SSH, `git`); `NotFound` for a
+    /// without an LFS route (SSH, `git`); `NotFound` for a
     /// missing object; `IntegrityMismatch` for a size mismatch;
     /// `AuthExpired`/`PermissionDenied` for auth failures;
-    /// `InvalidRequest` for a malformed oid.
+    /// `TlsVerification` for certificate failures on `https`
+    /// remotes; `InvalidRequest` for a malformed oid.
     pub(crate) fn open_object(
         &self,
         oid: &str,
@@ -388,16 +396,18 @@ fn open_remote(
     Ok(resp.body)
 }
 
-/// Issues one HTTP request, following bounded redirects. The
+/// Issues one HTTP(S) request, following bounded redirects. The
 /// configured `auth` header value is attached only when the current
 /// target origin equals the git remote's origin — download hrefs on
 /// other origins (signed CDN URLs) never receive it, and an
 /// `authorization` header already supplied by the batch action is
-/// never overridden.
+/// never overridden. `https` targets always connect over verified
+/// TLS — never downgraded to plaintext.
 ///
 /// # Errors
-/// [`ProviderError`] — transport failures, `UnsupportedCapability`
-/// for `https` redirect targets, `Cancelled`/`BudgetExceeded`.
+/// [`ProviderError`] — transport failures, `TlsVerification` for
+/// certificate failures on `https` targets,
+/// `Cancelled`/`BudgetExceeded`.
 fn request(
     remote_origin: &WebDavUrl,
     auth: Option<&str>,
@@ -412,12 +422,6 @@ fn request(
     let mut body = body;
     for hop in 0..=MAX_REDIRECTS {
         cx.check_interrupts()?;
-        if target.origin.scheme() == WebDavScheme::Https {
-            return Err(ProviderError::unsupported(
-                "https transport",
-                "git-lfs remote fetch",
-            ));
-        }
         let mut hs = headers.to_vec();
         if target.origin.same_origin(remote_origin)
             && let Some(value) = auth
@@ -427,11 +431,22 @@ fn request(
         {
             hs.push(("authorization".to_owned(), value.to_owned()));
         }
-        let endpoint = HttpEndpoint::new(
-            target.origin.host(),
-            target.origin.port(),
-            target.origin.is_ipv6(),
-        );
+        let endpoint = match target.origin.scheme() {
+            WebDavScheme::Http => HttpEndpoint::new(
+                target.origin.host(),
+                target.origin.port(),
+                target.origin.is_ipv6(),
+            ),
+            WebDavScheme::Https => {
+                let session = crate::tls::session_for(&target.origin, cx.tls.as_ref())?;
+                HttpEndpoint::new_tls(
+                    target.origin.host(),
+                    target.origin.port(),
+                    target.origin.is_ipv6(),
+                    session,
+                )
+            }
+        };
         let resp = http::send_endpoint(
             &endpoint,
             &HttpRequest {
@@ -474,8 +489,8 @@ fn request(
 /// Resolves a `Location` header against the current target into a
 /// new [`UrlTarget`]. Absolute URLs, protocol-relative URLs,
 /// absolute paths, and relative references are accepted; the
-/// fragment is dropped (never sent). `https` targets parse fine but
-/// are rejected as `UnsupportedCapability` by [`request`].
+/// fragment is dropped (never sent). `https` targets are followed
+/// over verified TLS by [`request`] — never downgraded.
 ///
 /// # Errors
 /// [`ProviderErrorKind::InvalidRequest`] on unusable locations.
@@ -505,9 +520,15 @@ fn resolve_location(current: &UrlTarget, location: &str) -> Result<UrlTarget, Pr
             .map_err(|_| invalid("bad redirect origin"))?;
         (origin, rest[auth_end..].to_owned())
     } else if let Some(rest) = location.strip_prefix("//") {
+        // Protocol-relative inherits the current target's scheme —
+        // an `https` hop must never downgrade to plaintext.
         let auth_end = rest.find('/').unwrap_or(rest.len());
-        let origin = WebDavUrl::parse(&format!("http://{}", &rest[..auth_end]))
-            .map_err(|_| invalid("bad redirect origin"))?;
+        let origin = WebDavUrl::parse(&format!(
+            "{}://{}",
+            current.origin.scheme().as_str(),
+            &rest[..auth_end]
+        ))
+        .map_err(|_| invalid("bad redirect origin"))?;
         (origin, rest[auth_end..].to_owned())
     } else if location.starts_with('/') {
         (current.origin.clone(), location.to_owned())
@@ -530,10 +551,12 @@ fn resolve_location(current: &UrlTarget, location: &str) -> Result<UrlTarget, Pr
     })
 }
 
-/// Splits an `http://` remote URL into its validated origin and
-/// decoded path. The remote was already validated credential-free
-/// by [`GitRemoteUrl`]; the origin is re-parsed through
-/// [`WebDavUrl`] so host/port/IPv6 grammar stays single-sourced.
+/// Splits an `http(s)://` remote URL into its validated origin and
+/// decoded path, preserving the scheme so `https` remotes reach the
+/// TLS transport path. The remote was already validated
+/// credential-free by [`GitRemoteUrl`]; the origin is re-parsed
+/// through [`WebDavUrl`] so host/port/IPv6 grammar stays
+/// single-sourced.
 fn remote_parts(remote: &GitRemoteUrl) -> Result<(WebDavUrl, String), ProviderError> {
     let invalid = |detail: &str| {
         ProviderError::new(
@@ -542,11 +565,14 @@ fn remote_parts(remote: &GitRemoteUrl) -> Result<(WebDavUrl, String), ProviderEr
         )
     };
     let raw = remote.as_str();
-    let Some((_, rest)) = raw.split_once("://") else {
+    let Some((scheme, rest)) = raw.split_once("://") else {
         return Err(invalid("missing scheme"));
     };
+    // `GitRemoteUrl` accepts mixed-case schemes; `WebDavUrl` is
+    // lowercase-only — normalize before re-parsing the origin.
+    let scheme = scheme.to_ascii_lowercase();
     let auth_end = rest.find('/').unwrap_or(rest.len());
-    let origin = WebDavUrl::parse(&format!("http://{}", &rest[..auth_end]))
+    let origin = WebDavUrl::parse(&format!("{scheme}://{}", &rest[..auth_end]))
         .map_err(|e| invalid(e.detail()))?;
     let path_raw = &rest[auth_end..];
     let path_raw = path_raw.split(['?', '#']).next().unwrap_or(path_raw);
@@ -577,12 +603,13 @@ fn lfs_batch_path(remote_path: &str) -> Result<String, ProviderError> {
 /// absolute `http(s)://` URLs, protocol-relative `//host/…`,
 /// absolute paths (resolved against the remote origin), and
 /// relative references (merged against the batch endpoint path).
-/// `https` and non-HTTP schemes surface as
+/// `https` hrefs are followed over verified TLS by [`request`];
+/// non-HTTP schemes surface as
 /// [`ProviderErrorKind::UnsupportedCapability`] — a genuinely
 /// missing capability, not a parse failure.
 ///
 /// # Errors
-/// [`ProviderError`] — `UnsupportedCapability` for non-plain-HTTP
+/// [`ProviderError`] — `UnsupportedCapability` for non-HTTP(S)
 /// hrefs, `InvalidRequest` for malformed ones.
 fn download_target(href: &str, remote_origin: &WebDavUrl) -> Result<UrlTarget, ProviderError> {
     let invalid = |detail: &str| {
@@ -618,9 +645,15 @@ fn download_target(href: &str, remote_origin: &WebDavUrl) -> Result<UrlTarget, P
             }
         }
     } else if let Some(rest) = target.strip_prefix("//") {
+        // Protocol-relative inherits the remote's scheme — an
+        // `https` remote's signed hrefs stay on verified TLS.
         let auth_end = rest.find('/').unwrap_or(rest.len());
-        let origin = WebDavUrl::parse(&format!("http://{}", &rest[..auth_end]))
-            .map_err(|_| invalid("bad href origin"))?;
+        let origin = WebDavUrl::parse(&format!(
+            "{}://{}",
+            remote_origin.scheme().as_str(),
+            &rest[..auth_end]
+        ))
+        .map_err(|_| invalid("bad href origin"))?;
         (origin, rest[auth_end..].to_owned())
     } else if target.starts_with('/') {
         (remote_origin.clone(), target.to_owned())

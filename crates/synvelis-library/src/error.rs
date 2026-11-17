@@ -11,6 +11,7 @@ use std::time::Duration;
 
 /// Machine-readable failure classification for provider operations.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ProviderErrorKind {
     /// The locator or object does not exist on the provider.
     NotFound,
@@ -48,6 +49,10 @@ pub enum ProviderErrorKind {
     /// The request itself is malformed (bad locator, wrong proof type,
     /// illegal argument combination).
     InvalidRequest,
+    /// The peer's TLS certificate or identity failed verification
+    /// (untrusted chain, expired, name mismatch). Deterministic —
+    /// retrying without changing trust cannot succeed.
+    TlsVerification,
     /// Anything else — details in `detail`.
     Internal,
 }
@@ -141,6 +146,7 @@ const fn default_retry(kind: ProviderErrorKind) -> RetryAdvice {
         // A stale cursor is invalidated by re-browsing, never by
         // re-pinning — the asset pin is unrelated to page position.
         | ProviderErrorKind::CursorInvalid
+        | ProviderErrorKind::TlsVerification
         | ProviderErrorKind::Cancelled => RetryAdvice::Never,
         ProviderErrorKind::TransientIo | ProviderErrorKind::Offline => RetryAdvice::After(None),
         ProviderErrorKind::RateLimited => RetryAdvice::After(Some(Duration::from_secs(1))),

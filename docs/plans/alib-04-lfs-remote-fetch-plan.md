@@ -4,7 +4,7 @@ type: "plan"
 status: "approved"
 title: "ALIB-04 LFS Remote Fetch — 実装計画"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-17"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -22,12 +22,15 @@ relations:
   implemented-by:
     - "docs/tasks/alib-04-lfs-remote-fetch-task.md"
     - "docs/impl/ir/alib-04-lfs-remote-fetch.md"
+    - "docs/impl/ir/issue-521-lfs-transport.md"
   depends-on: []
   blocks: []
   supersedes: []
   superseded-by: []
   related:
     - "docs/plans/alib-04-git-remote-provider.md"
+    - "docs/plans/issue-521-lfs-transport.md"
+    - "docs/tasks/issue-521-lfs-transport.md"
   refines: []
   refined-by: []
   derives-from: []
@@ -66,7 +69,7 @@ relations:
 | risk | 対応 |
 | --- | --- |
 | 署名 URL・credential の漏洩 | origin 一致時のみ auth 付与、action headers 優先、error detail に URL/token を出さない |
-| https の silent downgrade | `UrlTarget` 段階で scheme 保持、`request` が socket 前に `UnsupportedCapability` |
+| https の silent downgrade | `UrlTarget` 段階で scheme 保持。#521 slice で `https` は `HttpEndpoint.tls` の検証付き TLS 接続となり、scheme の暗黙変換は依然行わない |
 | query の再 encode による token 破壊 | `HttpRequest.query` は verbatim 送出 |
 | 巨大/敵対的 batch body | 1 MiB cap + typed error |
 | `file://` 回帰 | `open_local` を無変更で分離、lfs.rs に regression test |
@@ -75,7 +78,9 @@ relations:
 
 `mise run fmt-check` / `check` / `lint` / `test` / `test-rt` /
 `check-app-native` / `lint-app-native` / `test-msrv` / `build` を
-全て実走する。外部 gate（実 remote・HTTPS・SSH）は NotRun。
+全て実走する。外部 gate（実 remote・SSH）は NotRun。HTTPS は
+#521 slice の headless TLS fixture（`MockTlsServer`）で検証済み —
+実 HTTPS endpoint・実 remote は引き続き NotRun。
 
 ## Rollback
 

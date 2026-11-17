@@ -71,7 +71,11 @@ fn kind_tag(kind: ProviderErrorKind) -> String {
         ProviderErrorKind::Cancelled => "cancelled",
         ProviderErrorKind::CursorInvalid => "cursor-invalid",
         ProviderErrorKind::InvalidRequest => "invalid-request",
+        ProviderErrorKind::TlsVerification => "tls-verification",
         ProviderErrorKind::Internal => "internal",
+        // `ProviderErrorKind` is `#[non_exhaustive]` — future kinds
+        // land here until they get an explicit tag.
+        _ => "unknown",
     };
     tag.to_string()
 }

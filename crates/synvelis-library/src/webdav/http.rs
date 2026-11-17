@@ -1,20 +1,32 @@
-//! Minimal blocking HTTP/1.1 transport for the `WebDAV` provider.
+//! Minimal blocking HTTP/1.1 transport shared by the `WebDAV`
+//! provider and the Git LFS remote-fetch backend.
 //!
 //! This is deliberately *not* a general HTTP client: it speaks
-//! exactly the request/response subset the provider needs — one
+//! exactly the request/response subset its callers need — one
 //! request per connection (`Connection: close`), `Content-Length`
-//! and `chunked` bodies, no keep-alive, no TLS, no proxy support.
-//! TLS (`https`) is rejected with
-//! [`crate::ProviderErrorKind::UnsupportedCapability`] — this slice
-//! ships no TLS stack and never silently downgrades.
+//! and `chunked` bodies, no keep-alive, no proxy support. `https`
+//! endpoints carry a [`TlsSession`] (rustls client configuration +
+//! verified server name) on the [`HttpEndpoint`]; the scheme is
+//! never downgraded — an HTTPS target always performs a TLS
+//! handshake or fails typed.
 //!
-//! All blocking socket operations run under a cooperative guard:
+//! All blocking socket operations — including the TLS handshake and
+//! every encrypted record exchange — run under a cooperative guard:
 //! socket timeouts poll at [`IO_POLL`], each poll re-checks the
 //! caller's [`CancellationToken`] and deadline, and a transfer that
 //! makes no progress for [`STALL_TIMEOUT`] fails with
 //! [`crate::ProviderErrorKind::TransientIo`]. A stalled or hostile
 //! server can therefore never wedge a provider call, and mid-body
 //! cancellation surfaces as a typed error inside the stream.
+//!
+//! TLS verification failures surface as
+//! [`crate::ProviderErrorKind::TlsVerification`]; other TLS/record
+//! errors stay `TransientIo`. Certificate contents, peer data, and
+//! URL secrets never appear in error details.
+//!
+//! The `WebDAV` provider itself still rejects `https` at its own
+//! boundary (`send`) — TLS transport exists for callers that opt in
+//! per endpoint (Git LFS); WebDAV-over-HTTPS is a separate decision.
 
 use std::cell::Cell;
 use std::io::{self, Read, Write};
@@ -24,6 +36,7 @@ use std::time::{Duration, Instant};
 use crate::context::CancellationToken;
 use crate::digest::io_provider_error;
 use crate::error::{ProviderError, ProviderErrorKind};
+use crate::tls::TlsSession;
 use crate::webdav::locator::encode_path;
 use crate::webdav::url::WebDavUrl;
 
@@ -154,10 +167,11 @@ fn is_timeout(e: &io::Error) -> bool {
     )
 }
 
-/// A plain-HTTP connection target — the host/port/IPv6 triple the
-/// transport needs, independent of any provider's URL type. The
-/// scheme is always `http`: this transport has no TLS stack, so
-/// `https` endpoints are rejected by callers before construction.
+/// A connection target — the host/port/IPv6 triple the transport
+/// needs, independent of any provider's URL type, plus the TLS
+/// session parameters for `https` endpoints. `tls: None` is plain
+/// HTTP; `tls: Some` performs a verified TLS handshake — the scheme
+/// is never inferred from the port and never downgraded.
 #[derive(Clone, Debug)]
 pub(crate) struct HttpEndpoint {
     /// Host without brackets for IPv6 literals.
@@ -166,6 +180,8 @@ pub(crate) struct HttpEndpoint {
     pub port: u16,
     /// Whether `host` is an IPv6 literal.
     pub ipv6: bool,
+    /// TLS session parameters — `Some` for `https` endpoints only.
+    pub tls: Option<TlsSession>,
 }
 
 impl HttpEndpoint {
@@ -176,28 +192,40 @@ impl HttpEndpoint {
             host: host.into(),
             port,
             ipv6,
+            tls: None,
         }
     }
 
+    /// Builds an `https` endpoint on `port` with the given TLS
+    /// session (shared client config + verified server name).
+    #[must_use]
+    pub(crate) fn new_tls(host: impl Into<String>, port: u16, ipv6: bool, tls: TlsSession) -> Self {
+        Self {
+            host: host.into(),
+            port,
+            ipv6,
+            tls: Some(tls),
+        }
+    }
+
+    /// The scheme default port — 443 for TLS endpoints, 80 for plain.
+    fn default_port(&self) -> u16 {
+        if self.tls.is_some() { 443 } else { 80 }
+    }
+
     /// `host` or `[host]` for IPv6, with `:port` appended unless it
-    /// is the HTTP default (80) — the `Host` header value.
+    /// is the scheme default — the `Host` header value.
     fn host_header(&self) -> String {
         let host_part = if self.ipv6 {
             format!("[{}]", self.host)
         } else {
             self.host.clone()
         };
-        if self.port == 80 {
+        if self.port == self.default_port() {
             host_part
         } else {
             format!("{host_part}:{}", self.port)
         }
-    }
-}
-
-impl From<&WebDavUrl> for HttpEndpoint {
-    fn from(url: &WebDavUrl) -> Self {
-        Self::new(url.host(), url.port(), url.is_ipv6())
     }
 }
 
@@ -206,10 +234,11 @@ impl From<&WebDavUrl> for HttpEndpoint {
 /// always sent so close-delimited bodies terminate.
 ///
 /// # Errors
-/// [`ProviderError`] — `UnsupportedCapability` for `https`,
-/// `Offline` for connect/resolution failures, `TransientIo` for
-/// protocol violations and stalls, `Cancelled`/`BudgetExceeded`
-/// from the guard.
+/// [`ProviderError`] — `UnsupportedCapability` for `https` (the
+/// `WebDAV` provider does not opt into TLS), `Offline` for
+/// connect/resolution failures, `TlsVerification` for certificate
+/// failures on TLS endpoints, `TransientIo` for protocol violations
+/// and stalls, `Cancelled`/`BudgetExceeded` from the guard.
 pub(crate) fn send(
     url: &WebDavUrl,
     req: &HttpRequest,
@@ -222,18 +251,27 @@ pub(crate) fn send(
             "webdav provider",
         ));
     }
-    send_endpoint(&HttpEndpoint::from(url), req, cancel, deadline)
+    // Plain-HTTP endpoint only — `send` never opts into TLS; HTTPS
+    // callers build `HttpEndpoint::new_tls` explicitly.
+    send_endpoint(
+        &HttpEndpoint::new(url.host(), url.port(), url.is_ipv6()),
+        req,
+        cancel,
+        deadline,
+    )
 }
 
-/// Sends `req` to a plain-HTTP `endpoint` — the shared transport
-/// entry point for non-WebDAV callers (Git LFS). Identical wire
-/// behavior to [`send`]: one request per connection,
-/// `Connection: close`, and the cooperative cancel/deadline/stall
-/// guard. Never TLS.
+/// Sends `req` to `endpoint` — the shared transport entry point for
+/// non-WebDAV callers (Git LFS). Identical wire behavior to [`send`]:
+/// one request per connection, `Connection: close`, and the
+/// cooperative cancel/deadline/stall guard. An endpoint carrying
+/// [`TlsSession`] parameters performs a verified TLS handshake;
+/// `tls: None` is plain HTTP — the scheme is taken from the endpoint
+/// construction, never inferred or downgraded.
 ///
 /// # Errors
-/// Same contract as [`send`], minus the scheme check — the
-/// endpoint is HTTP by construction.
+/// Same contract as [`send`], minus the scheme check — the endpoint
+/// carries its own transport parameters.
 pub(crate) fn send_endpoint(
     endpoint: &HttpEndpoint,
     req: &HttpRequest,
@@ -243,11 +281,11 @@ pub(crate) fn send_endpoint(
     let guard = IoGuard::new(cancel, deadline);
     guard.check()?;
     let addrs = resolve(endpoint)?;
-    let mut stream = connect(&addrs, &guard)?;
-    write_request(&mut stream, endpoint, req, &guard)?;
-    let head = read_head(&mut stream, &guard)?;
+    let mut wire = connect(&addrs, endpoint.tls.as_ref(), &guard)?;
+    write_request(&mut wire, endpoint, req, &guard)?;
+    let head = read_head(&mut wire, &guard)?;
     let body = open_body(
-        stream,
+        wire,
         head.status,
         &head.headers,
         head.pending,
@@ -285,7 +323,11 @@ fn resolve(endpoint: &HttpEndpoint) -> Result<Vec<SocketAddr>, ProviderError> {
     Ok(addrs)
 }
 
-fn connect(addrs: &[SocketAddr], guard: &IoGuard) -> Result<TcpStream, ProviderError> {
+fn connect(
+    addrs: &[SocketAddr],
+    tls: Option<&TlsSession>,
+    guard: &IoGuard,
+) -> Result<Wire, ProviderError> {
     let timeout = match guard.deadline {
         Some(d) => CONNECT_TIMEOUT.min(d.saturating_duration_since(Instant::now())),
         None => CONNECT_TIMEOUT,
@@ -296,11 +338,16 @@ fn connect(addrs: &[SocketAddr], guard: &IoGuard) -> Result<TcpStream, ProviderE
         match TcpStream::connect_timeout(addr, timeout.max(Duration::from_millis(1))) {
             Ok(stream) => {
                 // Short socket polls let the guard observe
-                // cancel/deadline mid-transfer.
+                // cancel/deadline mid-transfer — including inside
+                // the TLS handshake and every encrypted exchange.
                 let _ = stream.set_nodelay(true);
                 let _ = stream.set_read_timeout(Some(IO_POLL));
                 let _ = stream.set_write_timeout(Some(IO_POLL));
-                return Ok(stream);
+                return match tls {
+                    Some(session) => TlsConn::handshake(stream, session, guard)
+                        .map(|conn| Wire::Tls(Box::new(conn))),
+                    None => Ok(Wire::Plain(stream)),
+                };
             }
             Err(e) => last = Some(e),
         }
@@ -314,8 +361,185 @@ fn connect(addrs: &[SocketAddr], guard: &IoGuard) -> Result<TcpStream, ProviderE
     ))
 }
 
+/// The connected transport — plaintext TCP or a rustls session over
+/// it. Both variants satisfy the guarded contract: socket operations
+/// poll at `IO_POLL` so the caller's [`IoGuard`] observes
+/// cancel/deadline/stall between calls, and body readers stay
+/// `Read + Send`.
+enum Wire {
+    /// Plain HTTP/1.1 over TCP.
+    Plain(TcpStream),
+    /// HTTPS — TLS records over TCP.
+    Tls(Box<TlsConn>),
+}
+
+impl Wire {
+    /// Adjusts the underlying socket's read timeout — the body-phase
+    /// poll deadline. TLS timeouts live on the same socket.
+    fn set_read_timeout(&self, timeout: Option<Duration>) -> io::Result<()> {
+        match self {
+            Self::Plain(stream) => stream.set_read_timeout(timeout),
+            Self::Tls(conn) => conn.sock.set_read_timeout(timeout),
+        }
+    }
+}
+
+impl Read for Wire {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        match self {
+            Self::Plain(stream) => stream.read(buf),
+            Self::Tls(conn) => conn.read(buf),
+        }
+    }
+}
+
+impl Write for Wire {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        match self {
+            Self::Plain(stream) => stream.write(buf),
+            Self::Tls(conn) => conn.write(buf),
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        match self {
+            Self::Plain(stream) => stream.flush(),
+            Self::Tls(conn) => conn.flush(),
+        }
+    }
+}
+
+/// A rustls client session over a connected `TcpStream`.
+///
+/// Read/write are deliberately *one bounded IO pass per call* rather
+/// than `rustls::Stream`'s `prepare_read` loop: `complete_io` runs at
+/// most one record flight, then buffered plaintext is drained. A
+/// `WouldBlock` — or plaintext starvation after non-app-data
+/// records — propagates to the caller's guard loop, so cancel,
+/// deadline, and stall checks always run between calls and a hostile
+/// peer streaming endless non-app-data records cannot spin inside a
+/// single `read`.
+struct TlsConn {
+    conn: rustls::ClientConnection,
+    /// The raw socket — kept for `set_read_timeout` (timeouts are a
+    /// socket property, shared with the TLS session).
+    sock: TcpStream,
+}
+
+impl TlsConn {
+    /// Drives the TLS handshake to completion under the cooperative
+    /// guard. Each `WouldBlock` re-checks cancel/deadline/stall;
+    /// certificate and protocol failures classify via [`tls_error`].
+    fn handshake(
+        mut stream: TcpStream,
+        session: &TlsSession,
+        guard: &IoGuard,
+    ) -> Result<Self, ProviderError> {
+        let mut conn =
+            rustls::ClientConnection::new(session.config.clone(), session.server_name.clone())
+                .map_err(|e| {
+                    ProviderError::new(
+                        ProviderErrorKind::Internal,
+                        format!("cannot initialize tls session: {e}"),
+                    )
+                })?;
+        loop {
+            guard.check()?;
+            match conn.complete_io(&mut stream) {
+                // `complete_io` returns `Ok` only once the handshake
+                // finished (or when nothing remains to be done); a
+                // peer that went silent mid-handshake surfaces as
+                // `WouldBlock` → stall check, or `UnexpectedEof`.
+                Ok((rd, wr)) => {
+                    if rd + wr > 0 {
+                        guard.note_progress();
+                    }
+                    if !conn.is_handshaking() {
+                        break;
+                    }
+                    if rd == 0 && wr == 0 {
+                        return Err(ProviderError::new(
+                            ProviderErrorKind::TransientIo,
+                            "tls handshake ended without completing",
+                        ));
+                    }
+                }
+                Err(e) if is_timeout(&e) => {
+                    guard.check_stall()?;
+                }
+                Err(e) => return Err(tls_error(&e)),
+            }
+        }
+        Ok(Self { conn, sock: stream })
+    }
+}
+
+impl Read for TlsConn {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        // Flush pending TLS output, pull at most one flight of
+        // records, then hand out whatever plaintext arrived.
+        // `WouldBlock` from either step propagates — the caller's
+        // guard loop owns the poll cadence.
+        self.conn.complete_io(&mut self.sock)?;
+        self.conn.reader().read(buf)
+    }
+}
+
+impl Write for TlsConn {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        // Queue the plaintext, then best-effort push pending TLS
+        // records onto the socket. A blocked socket leaves records
+        // queued — the next call's `complete_io` drains `wants_write`.
+        // Timeout-kind errors are the expected poll cadence and stay
+        // masked; a fatal TLS/record error surfaces immediately
+        // instead of waiting for the next operation.
+        let n = self.conn.writer().write(buf)?;
+        if let Err(e) = self.conn.complete_io(&mut self.sock)
+            && !is_timeout(&e)
+        {
+            return Err(e);
+        }
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.conn.complete_io(&mut self.sock)?;
+        self.sock.flush()
+    }
+}
+
+/// Maps a TLS-layer failure to a typed provider error.
+///
+/// rustls wraps certificate-chain, expiry, and name-verification
+/// failures as `io::ErrorKind::InvalidData` carrying a
+/// `rustls::Error::InvalidCertificate` — those get the dedicated
+/// [`ProviderErrorKind::TlsVerification`] (deterministic trust
+/// failure, `RetryAdvice::Never`). Protocol violations, alerts, and
+/// record errors stay `TransientIo`; plain socket errors keep the
+/// transport's existing classification. Details carry only rustls's
+/// own sanitized text — never certificate bytes, peer data, or URL
+/// secrets.
+fn tls_error(e: &io::Error) -> ProviderError {
+    if let Some(rustls_err) = e
+        .get_ref()
+        .and_then(|inner| inner.downcast_ref::<rustls::Error>())
+    {
+        return match rustls_err {
+            rustls::Error::InvalidCertificate(_) => ProviderError::new(
+                ProviderErrorKind::TlsVerification,
+                format!("tls certificate verification failed: {rustls_err}"),
+            ),
+            _ => ProviderError::new(
+                ProviderErrorKind::TransientIo,
+                format!("tls handshake failed: {rustls_err}"),
+            ),
+        };
+    }
+    io_provider_error("tls", e)
+}
+
 fn write_request(
-    stream: &mut TcpStream,
+    stream: &mut Wire,
     endpoint: &HttpEndpoint,
     req: &HttpRequest,
     guard: &IoGuard,
@@ -373,7 +597,7 @@ fn write_request(
 }
 
 fn write_all_guarded(
-    stream: &mut TcpStream,
+    stream: &mut Wire,
     mut buf: &[u8],
     guard: &IoGuard,
 ) -> Result<(), ProviderError> {
@@ -407,7 +631,7 @@ struct ResponseHead {
 }
 
 /// Reads response heads until a non-`1xx` status arrives.
-fn read_head(stream: &mut TcpStream, guard: &IoGuard) -> Result<ResponseHead, ProviderError> {
+fn read_head(stream: &mut Wire, guard: &IoGuard) -> Result<ResponseHead, ProviderError> {
     let mut acc: Vec<u8> = Vec::with_capacity(4096);
     let mut chunk = [0u8; 8192];
     loop {
@@ -505,7 +729,7 @@ fn parse_head(head: &str) -> Result<(u16, Vec<(String, String)>), ProviderError>
 /// Selects the body reader from the response framing. `pending`
 /// carries head-read bytes that already belong to the body.
 fn open_body(
-    stream: TcpStream,
+    stream: Wire,
     status: u16,
     headers: &[(String, String)],
     pending: Vec<u8>,
@@ -541,7 +765,7 @@ fn header_value<'a>(headers: &'a [(String, String)], name: &str) -> Option<&'a s
 /// at [`IO_POLL`]; each timeout re-checks cancel/deadline/stall.
 /// `pending` drains first — bytes the head reader already consumed.
 struct BodyIo {
-    stream: TcpStream,
+    stream: Wire,
     pending: Vec<u8>,
     pending_pos: usize,
     guard: IoGuard,
@@ -549,7 +773,7 @@ struct BodyIo {
 
 impl BodyIo {
     fn new(
-        stream: TcpStream,
+        stream: Wire,
         pending: Vec<u8>,
         cancel: &CancellationToken,
         deadline: Option<Instant>,
@@ -604,7 +828,7 @@ struct FixedLenBody {
 
 impl FixedLenBody {
     fn new(
-        stream: TcpStream,
+        stream: Wire,
         pending: Vec<u8>,
         len: u64,
         cancel: &CancellationToken,
@@ -656,7 +880,7 @@ struct ChunkedBody {
 
 impl ChunkedBody {
     fn new(
-        stream: TcpStream,
+        stream: Wire,
         pending: Vec<u8>,
         cancel: &CancellationToken,
         deadline: Option<Instant>,
@@ -780,7 +1004,7 @@ struct CloseBody {
 
 impl CloseBody {
     fn new(
-        stream: TcpStream,
+        stream: Wire,
         pending: Vec<u8>,
         cancel: &CancellationToken,
         deadline: Option<Instant>,

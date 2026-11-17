@@ -4,7 +4,7 @@ type: "task"
 status: "completed"
 title: "ALIB-04 LFS Remote Fetch — タスク"
 created: "2026-11-10"
-updated: "2026-11-10"
+updated: "2026-11-17"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -20,12 +20,14 @@ relations:
     - "docs/plans/alib-04-lfs-remote-fetch-plan.md"
   implemented-by:
     - "docs/impl/ir/alib-04-lfs-remote-fetch.md"
+    - "docs/impl/ir/issue-521-lfs-transport.md"
   depends-on: []
   blocks: []
   supersedes: []
   superseded-by: []
   related:
     - "docs/tasks/alib-04-git-remote-provider.md"
+    - "docs/tasks/issue-521-lfs-transport.md"
   refines: []
   refined-by: []
   derives-from: []
@@ -49,7 +51,8 @@ relations:
 - [x] T4: `git/mod.rs` で credential_key 受渡と
   `Box<dyn Read+Send>` 適合
 - [x] T5: `tests/lfs.rs` — e2e download+検証、404/401/403、
-  size/digest 不一致、malformed、https unsupported、
-  credential 非漏洩、file:// 回帰
+  size/digest 不一致、malformed、credential 非漏洩、file://
+  回帰（https unsupported assert は #521 slice で
+  `remote_lfs_https_remote_uses_tls_transport` へ更新）
 - [x] T6: doc chain（spec/design/plan/task/test-spec/impl-ir）
 - [x] T7: canonical verification 全実走
