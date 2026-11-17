@@ -25,11 +25,13 @@
 //!   `OriginKind::LocalCli` *only* when the record verifies (unknown,
 //!   expired, revoked, or non-human records all fail closed with one
 //!   blind verdict). Issuing a session is the host's provenance
-//!   decision: this slice ships the contract and the in-memory store —
-//!   OS session/credential verification (Windows logon session,
-//!   macOS/Linux console session) and a durable store are deferred to
-//!   the runtime slice, and an environment that cannot verify
-//!   provenance simply never issues interactive sessions, which is the
+//!   decision: this slice ships the contract and two store backends —
+//!   [`MemoryCliSessionStore`] for process-local use and
+//!   [`FileCliSessionStore`] for durable, restart-surviving sessions
+//!   (synvelis#515). The OS credential path that supplies the secret
+//!   lives in the `synvelis-cli` adapter (`session issue` /
+//!   `--session`); an environment that cannot verify provenance
+//!   simply never issues interactive sessions, which is the
 //!   fail-closed answer.
 //!
 //! What this module deliberately does **not** do: read `std::env`,
@@ -41,6 +43,7 @@
 
 use std::collections::BTreeMap;
 use std::io;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
@@ -155,9 +158,8 @@ pub trait CliSessionStore: Send + Sync {
 }
 
 /// In-memory session store — the seam's default and the test fixture.
-/// Process restart loses sessions, which is the honest behavior for
-/// the in-crate variant (a durable store is deferred with the runtime
-/// slice).
+/// Process restart loses sessions; durable, restart-surviving
+/// sessions use [`FileCliSessionStore`] (synvelis#515).
 #[derive(Default)]
 pub struct MemoryCliSessionStore {
     records: BTreeMap<String, CliSessionRecord>,
@@ -253,6 +255,137 @@ impl CliSessionStore for MemoryCliSessionStore {
         match self.records.get_mut(session) {
             Some(record) => {
                 record.revoked = true;
+                Ok(true)
+            }
+            None => Ok(false),
+        }
+    }
+
+    fn record(&self, session: &str) -> Option<CliSessionRecord> {
+        self.records.get(session).cloned()
+    }
+
+    fn len(&self) -> usize {
+        self.records.len()
+    }
+}
+
+/// File-backed session store — the durable [`CliSessionStore`]
+/// backend (synvelis#515).
+///
+/// One JSON document (`{"sessions": [...]}`) written atomically on
+/// every mutation (tmp + fsync + rename), mirroring
+/// [`crate::mcp_permit::FilePermitStore`]. It stores digests, never
+/// secrets — the file on disk is not a usable credential list, and a
+/// process restart preserves expiry/revocation/one-time-return
+/// semantics exactly. Opening re-validates the Human-kind invariant
+/// on every record: a file that violates it is corrupt or forged and
+/// fails closed rather than serving confused identities.
+pub struct FileCliSessionStore {
+    path: PathBuf,
+    records: BTreeMap<String, CliSessionRecord>,
+    seq: u64,
+}
+
+impl FileCliSessionStore {
+    /// Opens (or creates) the store at `path`.
+    ///
+    /// # Errors
+    /// [`io::Error`] when an existing file cannot be read or parsed,
+    /// or when a record violates the Human-kind invariant.
+    pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        let mut records = BTreeMap::new();
+        let mut seq = 0u64;
+        if path.exists() {
+            let text = std::fs::read_to_string(&path)?;
+            let file: CliSessionFile = serde_json::from_str(&text)
+                .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+            for record in file.sessions {
+                // A record violating the kind invariant was never
+                // issued by this store — the file is corrupt or
+                // forged, and the safest answer is not to serve it.
+                if !record_kind_ok(record.principal.kind()) {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!(
+                            "cli session {} violates the human-kind invariant",
+                            record.session
+                        ),
+                    ));
+                }
+                if let Some(hex) = record.session.strip_prefix("cli-")
+                    && let Ok(n) = u64::from_str_radix(hex, 16)
+                {
+                    seq = seq.max(n);
+                }
+                records.insert(record.session.clone(), record);
+            }
+        }
+        Ok(Self { path, records, seq })
+    }
+
+    /// Every stored record (introspection — never a usable secret).
+    #[must_use]
+    pub fn records(&self) -> Vec<CliSessionRecord> {
+        self.records.values().cloned().collect()
+    }
+
+    /// Persists the current records (tmp + fsync + rename for
+    /// atomicity — the tmp write is durable before it replaces the
+    /// live file).
+    fn flush(&self) -> io::Result<()> {
+        use std::io::Write as _;
+        let file = CliSessionFile {
+            sessions: self.records.values().cloned().collect(),
+        };
+        let text = serde_json::to_string_pretty(&file)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let tmp = self.path.with_extension("json.tmp");
+        if let Some(parent) = self.path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            std::fs::create_dir_all(parent)?;
+        }
+        {
+            let mut f = std::fs::File::create(&tmp)?;
+            f.write_all(text.as_bytes())?;
+            f.sync_all()?;
+        }
+        std::fs::rename(&tmp, &self.path)
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct CliSessionFile {
+    sessions: Vec<CliSessionRecord>,
+}
+
+impl CliSessionStore for FileCliSessionStore {
+    fn issue(&mut self, spec: CliSessionSpec, now: PolicyInstant) -> io::Result<CliSessionIssue> {
+        check_session_kind(&spec).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))?;
+        self.seq = self.seq.saturating_add(1);
+        let mut record = mint_record(&spec, now, self.seq);
+        while self.records.contains_key(&record.session) {
+            self.seq = self.seq.saturating_add(1);
+            record = mint_record(&spec, now, self.seq);
+        }
+        let secret = mint_secret(CLI_SECRET_PREFIX)?;
+        record.secret_hash = sha256_hex(&secret);
+        self.records.insert(record.session.clone(), record.clone());
+        self.flush()?;
+        Ok(CliSessionIssue { record, secret })
+    }
+
+    fn verify(&self, credential: &str, now: PolicyInstant) -> Option<CliSessionRecord> {
+        verify_in(&self.records, credential, now)
+    }
+
+    fn revoke(&mut self, session: &str) -> io::Result<bool> {
+        match self.records.get_mut(session) {
+            Some(record) => {
+                record.revoked = true;
+                self.flush()?;
                 Ok(true)
             }
             None => Ok(false),

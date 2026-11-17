@@ -942,3 +942,166 @@ fn commit_gate_satisfies_both_adapter_ports() {
     fn assert_ports<T: CommitPort + AdminPort>() {}
     assert_ports::<CommitGate<MutexFence>>();
 }
+
+// ════════════════════════════════════════════════════════════
+// synvelis#515 — durable FileCliSessionStore: restart persistence,
+// tamper fail-closed, digest-only file contents
+// ════════════════════════════════════════════════════════════
+
+/// A unique temp path per test (process id + tag).
+fn session_file(tag: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!(
+        "synvelis-cli-session-test-{}-{tag}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    dir.join("sessions.json")
+}
+
+fn human_spec(ttl_ms: Option<u64>) -> CliSessionSpec {
+    CliSessionSpec {
+        principal: human_principal(),
+        ttl_ms,
+    }
+}
+
+#[test]
+fn file_session_store_verifies_across_process_restart() {
+    // Issue in one "process" (store instance), drop it, reopen the
+    // same file — the credential still verifies and mints the same
+    // verified-Human caller through the adapter.
+    let path = session_file("restart");
+    let issued = {
+        let mut store = FileCliSessionStore::open(&path).unwrap();
+        store
+            .issue(human_spec(None), PolicyInstant::new(1_000))
+            .unwrap()
+    };
+    assert!(path.exists(), "durable file must be written");
+
+    let clock = Arc::new(ManualClock::new(PolicyInstant::new(1_100)));
+    let adapter = LocalCliAdapter::new(
+        AdapterId::new(CLI_ADAPTER_RAW),
+        Box::new(FileCliSessionStore::open(&path).unwrap()),
+        clock,
+    );
+    let caller = adapter
+        .caller_verified(&issued.secret)
+        .expect("credential survives restart");
+    assert_eq!(caller.principal().kind(), PrincipalKind::Human);
+    assert_eq!(caller.authority_class(), CallerClass::VerifiedHuman);
+
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn file_session_store_persists_expiry_and_revocation() {
+    let path = session_file("expiry-revoke");
+    let expired = {
+        let mut store = FileCliSessionStore::open(&path).unwrap();
+        store
+            .issue(human_spec(Some(100)), PolicyInstant::new(1_000))
+            .unwrap()
+    };
+    let live = {
+        let mut store = FileCliSessionStore::open(&path).unwrap();
+        let issue = store
+            .issue(human_spec(None), PolicyInstant::new(1_000))
+            .unwrap();
+        assert!(store.revoke(&issue.record.session).unwrap());
+        issue
+    };
+
+    // Reopen: both records persisted — one expired by TTL, one revoked.
+    let clock = Arc::new(ManualClock::new(PolicyInstant::new(2_000)));
+    let adapter = LocalCliAdapter::new(
+        AdapterId::new(CLI_ADAPTER_RAW),
+        Box::new(FileCliSessionStore::open(&path).unwrap()),
+        clock,
+    );
+    for secret in [&expired.secret, &live.secret] {
+        assert_eq!(
+            adapter
+                .caller_verified(secret)
+                .expect_err("expired/revoked must fail after restart"),
+            GatewayError::Authentication
+        );
+    }
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn file_session_store_file_never_contains_the_usable_secret() {
+    let path = session_file("digest-only");
+    let mut store = FileCliSessionStore::open(&path).unwrap();
+    let issued = store
+        .issue(human_spec(None), PolicyInstant::new(1_000))
+        .unwrap();
+    drop(store);
+
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(!text.contains(&issued.secret), "secret leaked to disk");
+    assert!(text.contains(&issued.record.session));
+    assert!(text.contains("secret_hash"));
+
+    // Tampering with the digest fails verification closed.
+    let tampered = text.replacen(
+        &format!("\"{}\"", issued.record.session),
+        "\"cli-ffffffffffffffff\"",
+        1,
+    );
+    // (session id rename alone does not break digest match — instead
+    // corrupt the stored hash directly.)
+    let _ = tampered;
+    let forged = text.replacen("\"secret_hash\": \"", "\"secret_hash\": \"00", 1);
+    std::fs::write(&path, forged).unwrap();
+    let store = FileCliSessionStore::open(&path).unwrap();
+    assert!(
+        store
+            .verify(&issued.secret, PolicyInstant::new(1_000))
+            .is_none()
+    );
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn file_session_store_rejects_non_human_records() {
+    // A hand-forged file binding an Agent principal must fail closed
+    // at open — the store never serves confused identities.
+    let path = session_file("forged-kind");
+    std::fs::write(
+        &path,
+        r#"{"sessions":[{"session":"cli-0000000000000001","principal":{"kind":"agent","id":"ci"},"issued_at":1000,"revoked":false,"secret_hash":"00"}]}"#,
+    )
+    .unwrap();
+    assert!(FileCliSessionStore::open(&path).is_err());
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn file_session_store_rejects_malformed_file() {
+    let path = session_file("malformed");
+    std::fs::write(&path, "not json").unwrap();
+    assert!(FileCliSessionStore::open(&path).is_err());
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn file_session_store_issue_rejects_agent_principal() {
+    let path = session_file("agent-spec");
+    let mut store = FileCliSessionStore::open(&path).unwrap();
+    assert!(
+        store
+            .issue(
+                CliSessionSpec {
+                    principal: ci_principal(),
+                    ttl_ms: None,
+                },
+                PolicyInstant::new(1_000),
+            )
+            .is_err()
+    );
+    assert!(store.is_empty());
+    let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}

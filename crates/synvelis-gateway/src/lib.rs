@@ -169,7 +169,8 @@ pub use capability::{
 };
 pub use cli::{
     CLI_ADAPTER_RAW, CLI_SECRET_PREFIX, CliSessionClaim, CliSessionIssue, CliSessionRecord,
-    CliSessionSpec, CliSessionStore, LocalCliAdapter, MemoryCliSessionStore, check_session_kind,
+    CliSessionSpec, CliSessionStore, FileCliSessionStore, LocalCliAdapter, MemoryCliSessionStore,
+    check_session_kind,
 };
 pub use clock::{ManualClock, PolicyClock, PolicyInstant, SystemClock};
 pub use commit::{
