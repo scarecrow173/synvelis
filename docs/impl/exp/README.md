@@ -18,6 +18,7 @@ Directory: `docs/impl/exp`
 | [issue-515-os-credential-exp.jsonl](./issue-515-os-credential-exp.jsonl) |
 | [issue-516-mlua-adapter-exp.jsonl](./issue-516-mlua-adapter-exp.jsonl) |
 | [issue-517-render-branch-wiring-exp.jsonl](./issue-517-render-branch-wiring-exp.jsonl) |
+| [issue-518-job-system-exp.jsonl](./issue-518-job-system-exp.jsonl) |
 | [issue-521-lfs-transport-exp.jsonl](./issue-521-lfs-transport-exp.jsonl) |
 | [issue-530-plugin-state-decl-exp.jsonl](./issue-530-plugin-state-decl-exp.jsonl) |
 | [rcd-04-residual-closeout-exp.jsonl](./rcd-04-residual-closeout-exp.jsonl) |
