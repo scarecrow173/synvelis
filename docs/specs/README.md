@@ -42,6 +42,7 @@ Directory: `docs/specs`
 | SPEC-034YDgnDTjpDlwq3cW0ik4 | issue-274-cli-script-analyze — synvelis-cli script analyze --file headless Script Analyzer | approved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
 | SPEC-513a1b2c3d4e5f6g7h8i9j0k1 | issue-513-variant-apply-ops — variant/VCS apply op surface 拡張 | approved | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
 | SPEC-034YXIoA2YsEXy4UBKPrXl | issue-515-os-credential — verified-Human OS-credential session 供給 | draft | [issue-515-os-credential.md](./issue-515-os-credential.md) |
+| SPEC-Nc4BLBrVpI3wgQ9T7hI5SE | Issue #516 spec — interim mlua adapter → ruviform 製品 port 交換の受入仕様 | approved | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | SPEC-ubzJtNuQxbSXLe7nevbdUw | L1 — Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | approved | [l1-local-wav-verified-media-graph-playback.md](./l1-local-wav-verified-media-graph-playback.md) |
 | SPEC-034Qmb9CC7dN4YE5VPN235 | L2 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | SPEC-rBmfzOP1H86N1KAXlFpX5N | MD-A — TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | approved | [mda-takegroup-comp-effective-projection-placement-contract.md](./mda-takegroup-comp-effective-projection-placement-contract.md) |

@@ -14,6 +14,7 @@ Directory: `docs/impl/exp`
 | [issue-274-cli-script-analyze-exp.jsonl](./issue-274-cli-script-analyze-exp.jsonl) |
 | [issue-513-variant-apply-ops-exp.jsonl](./issue-513-variant-apply-ops-exp.jsonl) |
 | [issue-515-os-credential-exp.jsonl](./issue-515-os-credential-exp.jsonl) |
+| [issue-516-mlua-adapter-exp.jsonl](./issue-516-mlua-adapter-exp.jsonl) |
 | [rcd-04-residual-closeout-exp.jsonl](./rcd-04-residual-closeout-exp.jsonl) |
 | [sv-gpui-02-plugin-dock-gate.jsonl](./sv-gpui-02-plugin-dock-gate.jsonl) |
 | [sv-script-03-luau-backend-exp.jsonl](./sv-script-03-luau-backend-exp.jsonl) |
