@@ -1,0 +1,1406 @@
+[
+  {
+    "relation": "defers",
+    "source": "docs/adr/issue-514-session-engine-selection.md",
+    "value": "ExecutionSelection の live consumer（sv#295 表示面）",
+    "local": "docs/adr/ExecutionSelection の live consumer（sv#295 表示面）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/adr/issue-514-session-engine-selection.md",
+    "value": "SelectionInputs の production 供給経路（plugin env scan / TIM-04 state decl / artifact coverage）",
+    "local": "docs/adr/SelectionInputs の production 供給経路（plugin env scan / TIM-04 state decl / artifact coverage）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/adr/issue-514-session-engine-selection.md",
+    "value": "stateless PluginStateDecl の型表現（synvelis-player 契約 — 別 Issue）",
+    "local": "docs/adr/stateless PluginStateDecl の型表現（synvelis-player 契約 — 別 Issue）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/automation-modulation-design.md",
+    "value": "AUT-F01〜F05（#135〜139）— Multi-pass Takes・Envelope/Random Source・外部 MIDI CC Mapping・Audio-rate Modulation・明示 Bake",
+    "local": "docs/designs/AUT-F01〜F05（#135〜139）— Multi-pass Takes・Envelope/Random Source・外部 MIDI CC Mapping・Audio-rate Modulation・明示 Bake"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/automation-modulation-design.md",
+    "value": "Touch Return Time/Shape の最終既定値・曲線 Decimation 許容誤差・TimeBase/Plugin 精度の数値閾値（Issue #6 §H/§9 の PoC 後決定事項）",
+    "local": "docs/designs/Touch Return Time/Shape の最終既定値・曲線 Decimation 許容誤差・TimeBase/Plugin 精度の数値閾値（Issue #6 §H/§9 の PoC 後決定事項）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/automation-modulation-design.md",
+    "value": "実 GUI/実 OS/実 Plugin/実機の受入（#102/#114/#103 の別受入 Gate）",
+    "local": "docs/designs/実 GUI/実 OS/実 Plugin/実機の受入（#102/#114/#103 の別受入 Gate）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/rcd-04-comp-transition-midi-phrase-fixture.md",
+    "value": "MIDI comp selection の project 永続化 model（#126 event model 確定後）",
+    "local": "docs/designs/MIDI comp selection の project 永続化 model（#126 event model 確定後）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/rcd-04-comp-transition-midi-phrase-fixture.md",
+    "value": "実 RT engine（ruviform graph）との sample 一致（後続 integration slice）",
+    "local": "docs/designs/実 RT engine（ruviform graph）との sample 一致（後続 integration slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/rcd-04-product-e2e-design.md",
+    "value": "MIDI comp selection の project 永続化 model（synvelis#126 event model 確定後）",
+    "local": "docs/designs/MIDI comp selection の project 永続化 model（synvelis#126 event model 確定後）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/rcd-04-product-e2e-design.md",
+    "value": "実 RT engine sample 一致・AudioLens native-f64 consumer gate（Ruviform #294）",
+    "local": "docs/designs/実 RT engine sample 一致・AudioLens native-f64 consumer gate（Ruviform #294）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/rcd-04-product-e2e-design.md",
+    "value": "実 Window/OS GUI・実 device・実 plugin を要する product E2E（#114 系 GUI slice）",
+    "local": "docs/designs/実 Window/OS GUI・実 device・実 plugin を要する product E2E（#114 系 GUI slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/rcd-04-rt-engine-comp-pcm-design.md",
+    "value": "実 device/OS GUI・AudioLens native-f64 consumer 経路の PCM 照合（#114・Ruviform #294 待ち）",
+    "local": "docs/designs/実 device/OS GUI・AudioLens native-f64 consumer 経路の PCM 照合（#114・Ruviform #294 待ち）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/tim-02-player-midi-rt-offline.md",
+    "value": "MidiNote への channel 追加（synvelis-project 側 model 変更・別 slice）",
+    "local": "docs/designs/MidiNote への channel 追加（synvelis-project 側 model 変更・別 slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/tim-02-player-midi-rt-offline.md",
+    "value": "Panic-and-continue（transport 継続しつつ発音のみ停止）— upstream に専用 command がなく、Stopped 経由の Stop のみが release-without-retrigger を表現できる",
+    "local": "docs/designs/Panic-and-continue（transport 継続しつつ発音のみ停止）— upstream に専用 command がなく、Stopped 経由の Stop のみが release-without-retrigger を表現できる"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/tim-02-player-midi-rt-offline.md",
+    "value": "Seek 時の controller state chase — upstream `chase_span_events` の deferred contract",
+    "local": "docs/designs/Seek 時の controller state chase — upstream `chase_span_events` の deferred contract"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/tim-02-player-midi-rt-offline.md",
+    "value": "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）",
+    "local": "docs/designs/実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/tim-02-smf-format01-core.md",
+    "value": "SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）",
+    "local": "docs/designs/SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/tim-02-smf-format01-core.md",
+    "value": "synvelis-player の MIDI RT/Offline 結合・Loop/Seek/Stop・RT callback（後続 slice）",
+    "local": "docs/designs/synvelis-player の MIDI RT/Offline 結合・Loop/Seek/Stop・RT callback（後続 slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/tim-02-smf-format01-core.md",
+    "value": "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）",
+    "local": "docs/designs/実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/vcs-01-immutable-snapshot-resolver-design.md",
+    "value": "Plugin opaque state bytes の実 probe（plugin host 未接続）",
+    "local": "docs/designs/Plugin opaque state bytes の実 probe（plugin host 未接続）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/vcs-01-immutable-snapshot-resolver-design.md",
+    "value": "VCS-02 Semantic Diff ChangeSet（synvelis#93）",
+    "local": "docs/designs/VCS-02 Semantic Diff ChangeSet（synvelis#93）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/vcs-01-immutable-snapshot-resolver-design.md",
+    "value": "VCS-03 Git Read Provider 実装（synvelis#94）",
+    "local": "docs/designs/VCS-03 Git Read Provider 実装（synvelis#94）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/designs/vcs-01-immutable-snapshot-resolver-design.md",
+    "value": "実 Git/実 OS/実 plugin host での検証（VCS-06 #97）",
+    "local": "docs/designs/実 Git/実 OS/実 plugin host での検証（VCS-06 #97）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/exp/autx-01-action-catalog.md",
+    "value": "実 ScriptApiModel（synvelis#271）照合・Script Action（synvelis#272）・CLI surface（synvelis#262）・実 GPUI/OS lane（#114/#267）",
+    "local": "docs/impl/exp/実 ScriptApiModel（synvelis#271）照合・Script Action（synvelis#272）・CLI surface（synvelis#262）・実 GPUI/OS lane（#114/#267）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/exp/autx-01-f01-has-executor.md",
+    "value": "automation_ui::ActionRow.executable への executor verdict 反映（#266 view 契約は別 Owner の Deferred 判断）",
+    "local": "docs/impl/exp/automation_ui::ActionRow.executable への executor verdict 反映（#266 view 契約は別 Owner の Deferred 判断）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/exp/autx-01-f01-has-executor.md",
+    "value": "実 ScriptApiModel（synvelis#271）照合・Script Action（synvelis#272）・CLI surface（synvelis#262）・実 GPUI/OS lane（#114/#267）",
+    "local": "docs/impl/exp/実 ScriptApiModel（synvelis#271）照合・Script Action（synvelis#272）・CLI surface（synvelis#262）・実 GPUI/OS lane（#114/#267）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/exp/autx-07-gui-views.md",
+    "value": "assets/themes への status-* token 値追加（範囲外）",
+    "local": "docs/impl/exp/assets/themes への status-* token 値追加（範囲外）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/exp/autx-07-gui-views.md",
+    "value": "Script Editor 同一 source 照合（synvelis#274）",
+    "local": "docs/impl/exp/Script Editor 同一 source 照合（synvelis#274）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/exp/autx-07-gui-views.md",
+    "value": "synvelis-automation live adapter 接続（#264）",
+    "local": "docs/impl/exp/synvelis-automation live adapter 接続（#264）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/exp/autx-07-gui-views.md",
+    "value": "実 GPUI/実 OS lane（synvelis#114/#267）",
+    "local": "docs/impl/exp/実 GPUI/実 OS lane（synvelis#114/#267）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/exp/autx-07-theme-parity.md",
+    "value": "Script Editor surface 本体・Analyzer 実装（synvelis#274 Owner）",
+    "local": "docs/impl/exp/Script Editor surface 本体・Analyzer 実装（synvelis#274 Owner）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/exp/autx-07-theme-parity.md",
+    "value": "synvelis-automation live adapter 接続（#264）",
+    "local": "docs/impl/exp/synvelis-automation live adapter 接続（#264）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/exp/autx-07-theme-parity.md",
+    "value": "実 GPUI/実 OS lane（synvelis#114/#267）",
+    "local": "docs/impl/exp/実 GPUI/実 OS lane（synvelis#114/#267）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/automation-modulation.md",
+    "value": "実 GUI/実 OS/実 Plugin/実機の受入 — #102/#114/#103 の別受入 Gate",
+    "local": "docs/impl/ir/実 GUI/実 OS/実 Plugin/実機の受入 — #102/#114/#103 の別受入 Gate"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/automation-modulation.md",
+    "value": "製品 Automation/Modulation/Parameter Control の実装 — PC-C1〜06 #98〜103・CTL-01/02 #121/#122・AUT-01〜04 #131〜134",
+    "local": "docs/impl/ir/製品 Automation/Modulation/Parameter Control の実装 — PC-C1〜06 #98〜103・CTL-01/02 #121/#122・AUT-01〜04 #131〜134"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-01-action-catalog.md",
+    "value": "CLI surface 本体（synvelis#262 のリース）— 本スライスは consumer-neutral fixture のみ供給",
+    "local": "docs/impl/ir/CLI surface 本体（synvelis#262 のリース）— 本スライスは consumer-neutral fixture のみ供給"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-01-action-catalog.md",
+    "value": "Script Action 登録・script→catalog 投影（synvelis#272）",
+    "local": "docs/impl/ir/Script Action 登録・script→catalog 投影（synvelis#272）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-01-action-catalog.md",
+    "value": "実 GPUI render・実 OS・live Gateway adapter 経由の実行（synvelis#114/#267 別 Gate）",
+    "local": "docs/impl/ir/実 GPUI render・実 OS・live Gateway adapter 経由の実行（synvelis#114/#267 別 Gate）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-01-action-catalog.md",
+    "value": "実 ScriptApiModel（synvelis#271）との Capability ID/Version/Schema/Availability 同一性照合",
+    "local": "docs/impl/ir/実 ScriptApiModel（synvelis#271）との Capability ID/Version/Schema/Availability 同一性照合"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-01-f01-has-executor.md",
+    "value": "automation_ui::ActionRow.executable への executor verdict 反映（#266 view 契約は別 Owner — catalog 側の executor field を正すまでが本 slice）",
+    "local": "docs/impl/ir/automation_ui::ActionRow.executable への executor verdict 反映（#266 view 契約は別 Owner — catalog 側の executor field を正すまでが本 slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-01-f01-has-executor.md",
+    "value": "GUI/実 OS/実機 lane・CLI surface 本体（#262）・実 ScriptApiModel 照合（#271）",
+    "local": "docs/impl/ir/GUI/実 OS/実機 lane・CLI surface 本体（#262）・実 ScriptApiModel 照合（#271）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-07-gui-views.md",
+    "value": "assets/themes/*.dtcg.json への status-* token 値の追加（assets は本スライスの編集範囲外 — vocabulary は synvelis-theme::status が正本）",
+    "local": "docs/impl/ir/assets/themes/*.dtcg.json への status-* token 値の追加（assets は本スライスの編集範囲外 — vocabulary は synvelis-theme::status が正本）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-07-gui-views.md",
+    "value": "Script Editor/Diagnostics/Completion との同一 Capability/Schema/Availability/Target source 照合（synvelis#274 Owner）",
+    "local": "docs/impl/ir/Script Editor/Diagnostics/Completion との同一 Capability/Schema/Availability/Target source 照合（synvelis#274 Owner）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-07-gui-views.md",
+    "value": "synvelis-automation crate 統合後の live adapter 接続（#264 別 Worker リース）",
+    "local": "docs/impl/ir/synvelis-automation crate 統合後の live adapter 接続（#264 別 Worker リース）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-07-gui-views.md",
+    "value": "実 GPUI/実 OS 入力・Pixel・Native Plugin Dock・IME/DPI/2Window/WindowClose/Undo/Save/Reload の実機受入（synvelis#114/#267 別 Gate）",
+    "local": "docs/impl/ir/実 GPUI/実 OS 入力・Pixel・Native Plugin Dock・IME/DPI/2Window/WindowClose/Undo/Save/Reload の実機受入（synvelis#114/#267 別 Gate）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-07-theme-parity.md",
+    "value": "Script Editor surface 本体の実装変更（synvelis#274 Owner — 本 slice は表示投影の parity 照合のみ）",
+    "local": "docs/impl/ir/Script Editor surface 本体の実装変更（synvelis#274 Owner — 本 slice は表示投影の parity 照合のみ）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-07-theme-parity.md",
+    "value": "synvelis-automation live adapter 接続（SV266-NR-04・#264）・composition mount 配線（SV266-NR-05）・gpui-test scenario（SV266-NR-06）",
+    "local": "docs/impl/ir/synvelis-automation live adapter 接続（SV266-NR-04・#264）・composition mount 配線（SV266-NR-05）・gpui-test scenario（SV266-NR-06）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/autx-07-theme-parity.md",
+    "value": "実 GPUI/実 OS 入力・Pixel・IME/DPI/2Window/WindowClose の実機受入（synvelis#114/#267 別 Gate — SV266-NR-01 NotRun）",
+    "local": "docs/impl/ir/実 GPUI/実 OS 入力・Pixel・IME/DPI/2Window/WindowClose の実機受入（synvelis#114/#267 別 Gate — SV266-NR-01 NotRun）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/pc-c4-observe-engine-wiring.md",
+    "value": "project.new/open 後の engine 再 attach（synvelis#106 の責務）",
+    "local": "docs/impl/ir/project.new/open 後の engine 再 attach（synvelis#106 の責務）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/pc-c4-observe-engine-wiring.md",
+    "value": "実 RT thread / OS timer への run 周期供給（caller/deterministic driver が供給する既存契約のまま）",
+    "local": "docs/impl/ir/実 RT thread / OS timer への run 周期供給（caller/deterministic driver が供給する既存契約のまま）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/pc-c4-observe-engine-wiring.md",
+    "value": "実 VST3/AU/CLAP・OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・外部 gate）",
+    "local": "docs/impl/ir/実 VST3/AU/CLAP・OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・外部 gate）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+    "value": "project.new/open 後の engine 再 attach（synvelis#106 の責務）",
+    "local": "docs/impl/ir/project.new/open 後の engine 再 attach（synvelis#106 の責務）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+    "value": "synvelis-native bin の共有 helper への呼出側移行（後続 slice）",
+    "local": "docs/impl/ir/synvelis-native bin の共有 helper への呼出側移行（後続 slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+    "value": "実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件）",
+    "local": "docs/impl/ir/実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/pc-c5-04-recording-status.md",
+    "value": "UI-C5-05 external GUI acceptance（synvelis#114 / ruviform#313 / ruviform#314）— NotRun で後続 gate に委譲",
+    "local": "docs/impl/ir/UI-C5-05 external GUI acceptance（synvelis#114 / ruviform#313 / ruviform#314）— NotRun で後続 gate に委譲"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md",
+    "value": "cross-clock multi-device（#119）",
+    "local": "docs/impl/ir/cross-clock multi-device（#119）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md",
+    "value": "実 Device backend・OS 別ドライバ・実機受入（ruviform#251 待ち、別 Gate）",
+    "local": "docs/impl/ir/実 Device backend・OS 別ドライバ・実機受入（ruviform#251 待ち、別 Gate）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md",
+    "value": "録音 command/UI（#114 / SV-GUI-05）",
+    "local": "docs/impl/ir/録音 command/UI（#114 / SV-GUI-05）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/rcd-01-real-backend-readiness-slice.md",
+    "value": "cpal WASAPI adapter の IAudioClock::GetPosition device frame position 破棄（ruviform#565 起票済み）",
+    "local": "docs/impl/ir/cpal WASAPI adapter の IAudioClock::GetPosition device frame position 破棄（ruviform#565 起票済み）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/rcd-01-real-backend-readiness-slice.md",
+    "value": "実機 gate 行（実録音受入・Raw capture fidelity 実測・multi-device 実機相関・xrun/removal/長時間・証拠リンク）— Issue #115 後続 slice",
+    "local": "docs/impl/ir/実機 gate 行（実録音受入・Raw capture fidelity 実測・multi-device 実機相関・xrun/removal/長時間・証拠リンク）— Issue #115 後続 slice"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/rcd-01-real-input-coverage.md",
+    "value": "PCM fidelity deterministic source（OS loopback 等）— deterministic source 不在のため NotRun 維持",
+    "local": "docs/impl/ir/PCM fidelity deterministic source（OS loopback 等）— deterministic source 不在のため NotRun 維持"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/rcd-01-real-input-coverage.md",
+    "value": "physical USB 抜去・2ch 超 MultiChannel・cross-clock multi-device（#119）・macOS/Linux lane（ruviform#251 Stage M/L）・製品 E2E（#114）— 本 slice 対象外",
+    "local": "docs/impl/ir/physical USB 抜去・2ch 超 MultiChannel・cross-clock multi-device（#119）・macOS/Linux lane（ruviform#251 Stage M/L）・製品 E2E（#114）— 本 slice 対象外"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/rcd-04-product-e2e-slice.md",
+    "value": "MIDI comp selection の project 永続化 model（synvelis#126）",
+    "local": "docs/impl/ir/MIDI comp selection の project 永続化 model（synvelis#126）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/rcd-04-product-e2e-slice.md",
+    "value": "実 RT engine sample 一致・AudioLens native-f64 consumer gate（Ruviform #294）",
+    "local": "docs/impl/ir/実 RT engine sample 一致・AudioLens native-f64 consumer gate（Ruviform #294）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/rcd-04-product-e2e-slice.md",
+    "value": "実 Window/OS GUI・実 device・実 plugin を要する product E2E（#114 系 GUI slice）",
+    "local": "docs/impl/ir/実 Window/OS GUI・実 device・実 plugin を要する product E2E（#114 系 GUI slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/sv-script-03-workflow-plan.md",
+    "value": "ruviform#559",
+    "local": "docs/impl/ir/ruviform#559"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/sv-script-03-workflow-plan.md",
+    "value": "synvelis#262",
+    "local": "docs/impl/ir/synvelis#262"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/sv-script-03-workflow-plan.md",
+    "value": "synvelis#265",
+    "local": "docs/impl/ir/synvelis#265"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/sv-script-03-workflow-plan.md",
+    "value": "synvelis#267",
+    "local": "docs/impl/ir/synvelis#267"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/syn-io-02-head-cas-e2e.md",
+    "value": "macOS/Linux での実 2-process/HEAD.lock 実走 — portable code のため CI 実走見込み、merge 後の対象 SHA の CI 証拠で確認（NotRun）",
+    "local": "docs/impl/ir/macOS/Linux での実 2-process/HEAD.lock 実走 — portable code のため CI 実走見込み、merge 後の対象 SHA の CI 証拠で確認（NotRun）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/syn-io-02-head-cas-e2e.md",
+    "value": "電源断・実 durability fault・stale break の process 間実測 — 外部 gate（NotRun）",
+    "local": "docs/impl/ir/電源断・実 durability fault・stale break の process 間実測 — 外部 gate（NotRun）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/syn-io-02-head-cas-e2e.md",
+    "value": "非協調 writer への強制排他・kernel file lock 化 — ruviform 境界上の別 Issue 事項",
+    "local": "docs/impl/ir/非協調 writer への強制排他・kernel file lock 化 — ruviform 境界上の別 Issue 事項"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/syn-io-02-os-l1-evidence.md",
+    "value": "Ruviform #305/#294/#306・Synvelis #28/#294・AudioLens #143 の統合・受入関係事項",
+    "local": "docs/impl/ir/Ruviform #305/#294/#306・Synvelis #28/#294・AudioLens #143 の統合・受入関係事項"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/syn-io-02-os-l1-evidence.md",
+    "value": "Windows NTFS 実機 Case・物理電断・Network/Cloud FS（Required/Deferred・NotRun）",
+    "local": "docs/impl/ir/Windows NTFS 実機 Case・物理電断・Network/Cloud FS（Required/Deferred・NotRun）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/syn-io-02-os-l1-evidence.md",
+    "value": "対象 SHA c0b000b3 の ci.yml run（NotRun pending — 次回 daily-ci/手動 dispatch）",
+    "local": "docs/impl/ir/対象 SHA c0b000b3 の ci.yml run（NotRun pending — 次回 daily-ci/手動 dispatch）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/syn-io-02-windows-real-fs.md",
+    "value": "Import↔Save 結合 Case — sv#86/#91 の責務（範囲外）",
+    "local": "docs/impl/ir/Import↔Save 結合 Case — sv#86/#91 の責務（範囲外）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/syn-io-02-windows-real-fs.md",
+    "value": "Issue #84 の他残ゲート行（対象 SHA CI run・upstream/consumer gate）— tracker として open 継続",
+    "local": "docs/impl/ir/Issue #84 の他残ゲート行（対象 SHA CI run・upstream/consumer gate）— tracker として open 継続"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/syn-io-02-windows-real-fs.md",
+    "value": "macOS/Linux 実機 real-FS — 各 OS 実機環境での同一 lane 実走（Windows/NTFS 観測値を一般化しない）",
+    "local": "docs/impl/ir/macOS/Linux 実機 real-FS — 各 OS 実機環境での同一 lane 実走（Windows/NTFS 観測値を一般化しない）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/syn-io-02-windows-real-fs.md",
+    "value": "真の power-loss（電源断相当）実測 — 非破壊的に自動化不能、process kill は dirty page を保持するため代替不可（NotRun）",
+    "local": "docs/impl/ir/真の power-loss（電源断相当）実測 — 非破壊的に自動化不能、process kill は dirty page を保持するため代替不可（NotRun）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/tim-04-plugin-state-snapshot.md",
+    "value": "実 VST3/AU/CLAP plugin での state save/restore・実 OS filesystem atomicity・GUI 統合（NotRun/Unsupported — headless mock slice の範囲外）",
+    "local": "docs/impl/ir/実 VST3/AU/CLAP plugin での state save/restore・実 OS filesystem atomicity・GUI 統合（NotRun/Unsupported — headless mock slice の範囲外）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-01-immutable-snapshot-resolver.md",
+    "value": "VCS-02 Semantic Diff ChangeSet（Issue #93）",
+    "local": "docs/impl/ir/VCS-02 Semantic Diff ChangeSet（Issue #93）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-01-immutable-snapshot-resolver.md",
+    "value": "VCS-03 Git Read Provider（Issue #94）",
+    "local": "docs/impl/ir/VCS-03 Git Read Provider（Issue #94）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-01-immutable-snapshot-resolver.md",
+    "value": "実 Git remote / 実 OS filesystem atomicity / GUI / 実 plugin host probe（VCS-04/05/06, Issue #97）",
+    "local": "docs/impl/ir/実 Git remote / 実 OS filesystem atomicity / GUI / 実 plugin host probe（VCS-04/05/06, Issue #97）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-02-semantic-diff-engine.md",
+    "value": "lineage schema（Issue #7 で将来の Project schema extension へ deferred）",
+    "local": "docs/impl/ir/lineage schema（Issue #7 で将来の Project schema extension へ deferred）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-02-semantic-diff-engine.md",
+    "value": "VCS-03 Git Read Provider（Issue #94）",
+    "local": "docs/impl/ir/VCS-03 Git Read Provider（Issue #94）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-02-semantic-diff-engine.md",
+    "value": "VCS-04 History/Visual Diff UI（Issue #95）",
+    "local": "docs/impl/ir/VCS-04 History/Visual Diff UI（Issue #95）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-02-semantic-diff-engine.md",
+    "value": "VCS-05 Apply/Restore",
+    "local": "docs/impl/ir/VCS-05 Apply/Restore"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-02-semantic-diff-engine.md",
+    "value": "実 OS filesystem atomicity / 実 Git remote/provider / GUI / 実 plugin host probe（Issue #97）",
+    "local": "docs/impl/ir/実 OS filesystem atomicity / 実 Git remote/provider / GUI / 実 plugin host probe（Issue #97）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-03-git-read-provider.md",
+    "value": "remote LFS fetch（local LFS object store のみ解決）",
+    "local": "docs/impl/ir/remote LFS fetch（local LFS object store のみ解決）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-03-git-read-provider.md",
+    "value": "VCS-04 History/Visual Diff UI（Issue #95）",
+    "local": "docs/impl/ir/VCS-04 History/Visual Diff UI（Issue #95）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-03-git-read-provider.md",
+    "value": "VCS-05 Safe Apply/Restore（Issue #96）",
+    "local": "docs/impl/ir/VCS-05 Safe Apply/Restore（Issue #96）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-03-git-read-provider.md",
+    "value": "実 OS permission matrix・real remote fetch・auth/credential 実経路・GC/objects 欠損の実 filesystem 条件・GUI・RT 性能保証（Issue #97）",
+    "local": "docs/impl/ir/実 OS permission matrix・real remote fetch・auth/credential 実経路・GC/objects 欠損の実 filesystem 条件・GUI・RT 性能保証（Issue #97）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-05-safe-apply-selected-change-restore-as-copy-headless.md",
+    "value": "cross-consumer validation（Issue #294）",
+    "local": "docs/impl/ir/cross-consumer validation（Issue #294）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-05-safe-apply-selected-change-restore-as-copy-headless.md",
+    "value": "VCS-04 History/Visual Diff UI（Issue #95）",
+    "local": "docs/impl/ir/VCS-04 History/Visual Diff UI（Issue #95）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-05-safe-apply-selected-change-restore-as-copy-headless.md",
+    "value": "VCS-06 Windows real FS/provider/plugin E2E・fault acceptance（Issue #97）",
+    "local": "docs/impl/ir/VCS-06 Windows real FS/provider/plugin E2E・fault acceptance（Issue #97）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-evidence-completion.md",
+    "value": "*-REAL-* 行・実 GUI/実 OS/実 provider/consumer/RT — 外部 gate 残存",
+    "local": "docs/impl/ir/*-REAL-* 行・実 GUI/実 OS/実 provider/consumer/RT — 外部 gate 残存"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-evidence-completion.md",
+    "value": "docs/*/README.md index 再生成（同上・対象外）",
+    "local": "docs/impl/ir/docs/*/README.md index 再生成（同上・対象外）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-evidence-completion.md",
+    "value": "ledger 行追加（VCS-RESTORE-08・VCS-COMPAT-03/04 — ledger 占有のため Coordinator 後続 slice で統合）",
+    "local": "docs/impl/ir/ledger 行追加（VCS-RESTORE-08・VCS-COMPAT-03/04 — ledger 占有のため Coordinator 後続 slice で統合）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-monitoring-matrix-slice.md",
+    "value": "monitoring kind の apply surface 追加（transplant payload・preflight 設計を要する別 slice）",
+    "local": "docs/impl/ir/monitoring kind の apply surface 追加（transplant payload・preflight 設計を要する別 slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-monitoring-matrix-slice.md",
+    "value": "実 GUI/実 OS/実 provider/実 plugin host/RT/consumer lane（`*-REAL-*`・COMPAT 行 — 外部 gate）",
+    "local": "docs/impl/ir/実 GUI/実 OS/実 provider/実 plugin host/RT/consumer lane（`*-REAL-*`・COMPAT 行 — 外部 gate）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-real-git-fs-fault.md",
+    "value": "POSIX 側 FS fault 行 — share-mode/readonly 意味論が異なる別 lane（NotRun）",
+    "local": "docs/impl/ir/POSIX 側 FS fault 行 — share-mode/readonly 意味論が異なる別 lane（NotRun）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-real-git-fs-fault.md",
+    "value": "電源断/物理 fault・実 OS crash durability・実 GUI/plugin host/RT/consumer — 外部 gate（NotRun）",
+    "local": "docs/impl/ir/電源断/物理 fault・実 OS crash durability・実 GUI/plugin host/RT/consumer — 外部 gate（NotRun）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-real-git-fs-fault.md",
+    "value": "認証付き http/ssh remote・実 provider E2E・OS perms matrix — 実ネットワーク/認証情報が必要（NotRun）",
+    "local": "docs/impl/ir/認証付き http/ssh remote・実 provider E2E・OS perms matrix — 実ネットワーク/認証情報が必要（NotRun）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-real-git-fs-fault.md",
+    "value": "本 branch の新規行に対する ci.yml covering run — merge 後の次回 dispatch 待ち",
+    "local": "docs/impl/ir/本 branch の新規行に対する ci.yml covering run — merge 後の次回 dispatch 待ち"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-ui-headless-matrix-slice.md",
+    "value": "実 GPUI two-window/IME/keyboard/a11y 証拠（synvelis#114）",
+    "local": "docs/impl/ir/実 GPUI two-window/IME/keyboard/a11y 証拠（synvelis#114）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-ui-headless-matrix-slice.md",
+    "value": "実 OS window / native dock（OS matrix lane）",
+    "local": "docs/impl/ir/実 OS window / native dock（OS matrix lane）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-variant-matrix-slice.md",
+    "value": "restore_as_copy の variant_sets defect 修復（fork_project nested identity 再採番 vs validate 規則見直し — synvelis#458）",
+    "local": "docs/impl/ir/restore_as_copy の variant_sets defect 修復（fork_project nested identity 再採番 vs validate 規則見直し — synvelis#458）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-variant-matrix-slice.md",
+    "value": "variant diff adapter 本体（ObjectKind variant kind・raw_kind_map・DIFF_POLICY_VERSION・apply surface — synvelis#457）",
+    "local": "docs/impl/ir/variant diff adapter 本体（ObjectKind variant kind・raw_kind_map・DIFF_POLICY_VERSION・apply surface — synvelis#457）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/impl/ir/vcs-06-variant-matrix-slice.md",
+    "value": "実 GUI/実 OS/実 provider/実 plugin host/RT/consumer lane（*-REAL-*・COMPAT 行 — 外部 gate）",
+    "local": "docs/impl/ir/実 GUI/実 OS/実 provider/実 plugin host/RT/consumer lane（*-REAL-*・COMPAT 行 — 外部 gate）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/pc-c3-05-rt-trace-adapter.md",
+    "value": "HeadlessDriver/AttachedNode への adapter 搭載・transport control 配線（後続 integration slice）",
+    "local": "docs/specs/HeadlessDriver/AttachedNode への adapter 搭載・transport control 配線（後続 integration slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/pc-c3-05-rt-trace-adapter.md",
+    "value": "synvelis-workspace ControlSession 接続・UI 表示・2 Inspector 二重起動防止（後続 integration slice）",
+    "local": "docs/specs/synvelis-workspace ControlSession 接続・UI 表示・2 Inspector 二重起動防止（後続 integration slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/pc-c3-control-trace-projection.md",
+    "value": "synvelis-workspace ControlSession 接続・single drain owner・2 Inspector 二重起動防止（後続 integration slice）",
+    "local": "docs/specs/synvelis-workspace ControlSession 接続・single drain owner・2 Inspector 二重起動防止（後続 integration slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/pc-c3-control-trace-projection.md",
+    "value": "TRACE-C3-05 bounded history / no-RT alloc-block / 実計測 RT adapter（synvelis-player 後続 slice）",
+    "local": "docs/specs/TRACE-C3-05 bounded history / no-RT alloc-block / 実計測 RT adapter（synvelis-player 後続 slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/pc-c4-drain-composition.md",
+    "value": "L1 wire 検証・実 VST3/OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・後続 slice）",
+    "local": "docs/specs/L1 wire 検証・実 VST3/OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・後続 slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/pc-c4-observe-engine-wiring.md",
+    "value": "project.new/open 後の engine 再 attach（synvelis#106 の責務）",
+    "local": "docs/specs/project.new/open 後の engine 再 attach（synvelis#106 の責務）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/pc-c4-observe-engine-wiring.md",
+    "value": "実 RT thread / OS timer への run 周期供給（caller/deterministic driver が供給する既存契約のまま）",
+    "local": "docs/specs/実 RT thread / OS timer への run 周期供給（caller/deterministic driver が供給する既存契約のまま）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/pc-c4-observe-engine-wiring.md",
+    "value": "実 VST3/AU/CLAP・OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・外部 gate）",
+    "local": "docs/specs/実 VST3/AU/CLAP・OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・外部 gate）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/pc-c4-webview-composition.md",
+    "value": "project.new/open 後の engine 再 attach（synvelis#106 の責務）",
+    "local": "docs/specs/project.new/open 後の engine 再 attach（synvelis#106 の責務）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/pc-c4-webview-composition.md",
+    "value": "synvelis-native bin の共有 helper への呼出側移行（native 経路の回帰リスクを避けるため本 slice 対象外）",
+    "local": "docs/specs/synvelis-native bin の共有 helper への呼出側移行（native 経路の回帰リスクを避けるため本 slice 対象外）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/pc-c4-webview-composition.md",
+    "value": "実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件・後続 slice）",
+    "local": "docs/specs/実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件・後続 slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/sf-03-map-semantic-runtime-contract.md",
+    "value": "SF-ACT-05〜09 の実機部分（RT latency/underrun・実 device epoch restart・実 OS/実デバイス/VST3 検証）",
+    "local": "docs/specs/SF-ACT-05〜09 の実機部分（RT latency/underrun・実 device epoch restart・実 OS/実デバイス/VST3 検証）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/sf-03-map-semantic-runtime-contract.md",
+    "value": "SF-ACT-06 残件（automation→TimedParamEvent lowering 配線・Fast Control active-generation gate・GUI）",
+    "local": "docs/specs/SF-ACT-06 残件（automation→TimedParamEvent lowering 配線・Fast Control active-generation gate・GUI）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/sf-03-map-semantic-runtime-contract.md",
+    "value": "SF-ACT-07 Partial Preview vs Export fail-closed の mode 別 policy 分岐",
+    "local": "docs/specs/SF-ACT-07 Partial Preview vs Export fail-closed の mode 別 policy 分岐"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/sf-03-map-semantic-runtime-contract.md",
+    "value": "SF-ACT-08 Ruviform RT/render/AudioLens 側の受入証拠",
+    "local": "docs/specs/SF-ACT-08 Ruviform RT/render/AudioLens 側の受入証拠"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/sf-03-map-semantic-runtime-contract.md",
+    "value": "SF-ACT-09 device config-only change の compile 判定・性能 baseline",
+    "local": "docs/specs/SF-ACT-09 device config-only change の compile 判定・性能 baseline"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/tim-02-player-midi-rt-offline.md",
+    "value": "AudioLens Native f64 非回帰（#294 別 Gate）",
+    "local": "docs/specs/AudioLens Native f64 非回帰（#294 別 Gate）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/tim-02-player-midi-rt-offline.md",
+    "value": "MidiNote への channel 追加（synvelis-project 側 model 変更・別 slice）",
+    "local": "docs/specs/MidiNote への channel 追加（synvelis-project 側 model 変更・別 slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/tim-02-player-midi-rt-offline.md",
+    "value": "SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）",
+    "local": "docs/specs/SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/tim-02-player-midi-rt-offline.md",
+    "value": "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）",
+    "local": "docs/specs/実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/tim-02-ppqn-smf-cross-golden.md",
+    "value": "AudioLens Native f64 非回帰（#294 別 Gate）",
+    "local": "docs/specs/AudioLens Native f64 非回帰（#294 別 Gate）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/tim-02-ppqn-smf-cross-golden.md",
+    "value": "SMPTE Division・MIDI 2.0/MPE・Format 2（#129/#130 future・明示 Unsupported）",
+    "local": "docs/specs/SMPTE Division・MIDI 2.0/MPE・Format 2（#129/#130 future・明示 Unsupported）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/tim-02-ppqn-smf-cross-golden.md",
+    "value": "synvelis-player の MIDI RT/Offline 結合・実機 MIDI timing（別 slice・NotRun）",
+    "local": "docs/specs/synvelis-player の MIDI RT/Offline 結合・実機 MIDI timing（別 slice・NotRun）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/tim-02-ppqn-smf-cross-golden.md",
+    "value": "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）",
+    "local": "docs/specs/実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/tim-02-smf-format01-import-export.md",
+    "value": "AudioLens Native f64 非回帰（#294 別 Gate）",
+    "local": "docs/specs/AudioLens Native f64 非回帰（#294 別 Gate）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/tim-02-smf-format01-import-export.md",
+    "value": "SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）",
+    "local": "docs/specs/SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/tim-02-smf-format01-import-export.md",
+    "value": "synvelis-player の MIDI RT/Offline 結合・Loop/Seek/Stop・RT callback（後続 slice）",
+    "local": "docs/specs/synvelis-player の MIDI RT/Offline 結合・Loop/Seek/Stop・RT callback（後続 slice）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/tim-02-smf-format01-import-export.md",
+    "value": "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）",
+    "local": "docs/specs/実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/vcs-01-immutable-snapshot-resolver.md",
+    "value": "Plugin opaque state bytes の実検証 probe（plugin host 未接続のため本 slice では Unknown 固定）",
+    "local": "docs/specs/Plugin opaque state bytes の実検証 probe（plugin host 未接続のため本 slice では Unknown 固定）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/vcs-01-immutable-snapshot-resolver.md",
+    "value": "VCS-02 Semantic Diff ChangeSet・Change Index・Comparison policy（synvelis#93）",
+    "local": "docs/specs/VCS-02 Semantic Diff ChangeSet・Change Index・Comparison policy（synvelis#93）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/vcs-01-immutable-snapshot-resolver.md",
+    "value": "VCS-03 Git Read Provider の実装（synvelis#94 — 本 spec は VCS Bytes Port 境界のみ定義）",
+    "local": "docs/specs/VCS-03 Git Read Provider の実装（synvelis#94 — 本 spec は VCS Bytes Port 境界のみ定義）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/specs/vcs-01-immutable-snapshot-resolver.md",
+    "value": "実 Git remote / 実 OS filesystem / 実 plugin host での検証（VCS-06 #97・OS 別 NotRun/Unsupported 記録）",
+    "local": "docs/specs/実 Git remote / 実 OS filesystem / 実 plugin host での検証（VCS-06 #97・OS 別 NotRun/Unsupported 記録）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/test-specs/automation-modulation.md",
+    "value": "実 Window/OS GUI・実 device・実 plugin を要する product E2E（#102/#114/#103 の別受入 Gate）",
+    "local": "docs/test-specs/実 Window/OS GUI・実 device・実 plugin を要する product E2E（#102/#114/#103 の別受入 Gate）"
+  },
+  {
+    "relation": "defers",
+    "source": "docs/test-specs/vcs-01-snapshot-resolver-fixtures.md",
+    "value": "実 Git/実 OS/実 plugin host での検証（VCS-06 #97）",
+    "local": "docs/test-specs/実 Git/実 OS/実 plugin host での検証（VCS-06 #97）"
+  },
+  {
+    "relation": "depends-on",
+    "source": "docs/designs/issue-515-os-credential.md",
+    "value": "docs/impl/ir/sv261-headless-session-host.md",
+    "local": "docs/designs/docs/impl/ir/sv261-headless-session-host.md"
+  },
+  {
+    "relation": "depends-on",
+    "source": "docs/designs/rcd-01-input-adapter-binding-arm-monitor-fake-port.md",
+    "value": "docs/specs/vs-b-deterministic-mock-capture-engine.md",
+    "local": "docs/designs/docs/specs/vs-b-deterministic-mock-capture-engine.md"
+  },
+  {
+    "relation": "depends-on",
+    "source": "docs/designs/rcd-01-input-adapter-binding-arm-monitor-fake-port.md",
+    "value": "docs/specs/vs-d-multi-track-recording-session.md",
+    "local": "docs/designs/docs/specs/vs-d-multi-track-recording-session.md"
+  },
+  {
+    "relation": "depends-on",
+    "source": "docs/discovery/issue-515-os-credential.md",
+    "value": "docs/impl/ir/sv261-headless-session-host.md",
+    "local": "docs/discovery/docs/impl/ir/sv261-headless-session-host.md"
+  },
+  {
+    "relation": "depends-on",
+    "source": "docs/specs/issue-274-cli-script-analyze.md",
+    "value": "docs/specs/autx-03-headless-cli.md",
+    "local": "docs/specs/docs/specs/autx-03-headless-cli.md"
+  },
+  {
+    "relation": "depends-on",
+    "source": "docs/specs/issue-515-os-credential.md",
+    "value": "docs/impl/ir/sv261-headless-session-host.md",
+    "local": "docs/specs/docs/impl/ir/sv261-headless-session-host.md"
+  },
+  {
+    "relation": "depends-on",
+    "source": "docs/specs/pc-c4-drain-composition.md",
+    "value": "docs/specs/pc-c4-07-transport-observe.md",
+    "local": "docs/specs/docs/specs/pc-c4-07-transport-observe.md"
+  },
+  {
+    "relation": "depends-on",
+    "source": "docs/specs/rcd-03-monitoring-punch-latency.md",
+    "value": "docs/specs/vs-b-deterministic-mock-capture-engine.md",
+    "local": "docs/specs/docs/specs/vs-b-deterministic-mock-capture-engine.md"
+  },
+  {
+    "relation": "references",
+    "source": "docs/impl/ir/issue-511-cb07-materialization.md",
+    "value": "evidence/sv511/",
+    "local": "evidence/sv511"
+  },
+  {
+    "relation": "references",
+    "source": "docs/specs/issue-511-cb07-materialization.md",
+    "value": "evidence/sv511/",
+    "local": "evidence/sv511"
+  },
+  {
+    "relation": "references",
+    "source": "docs/specs/issue-517-render-branch-wiring.md",
+    "value": "evidence/sv517/",
+    "local": "evidence/sv517"
+  },
+  {
+    "relation": "references",
+    "source": "docs/specs/issue-518-job-system.md",
+    "value": "evidence/sv518/",
+    "local": "evidence/sv518"
+  },
+  {
+    "relation": "references",
+    "source": "docs/specs/pc-c4-06-control-op-surface.md",
+    "value": "docs/specs/pc-c4-03-param-observation-slice.md",
+    "local": "docs/specs/docs/specs/pc-c4-03-param-observation-slice.md"
+  },
+  {
+    "relation": "references",
+    "source": "docs/specs/sf-04-slice2-controlsession-probe-trace.md",
+    "value": "docs/designs/sf-03-slice5-session-engine-connect.md",
+    "local": "docs/specs/docs/designs/sf-03-slice5-session-engine-connect.md"
+  },
+  {
+    "relation": "references",
+    "source": "docs/tasks/issue-511-cb07-materialization.md",
+    "value": "evidence/sv511/",
+    "local": "evidence/sv511"
+  },
+  {
+    "relation": "references",
+    "source": "docs/test-specs/issue-511-cb07-materialization.md",
+    "value": "evidence/sv511/",
+    "local": "evidence/sv511"
+  },
+  {
+    "relation": "references",
+    "source": "docs/test-specs/issue-518-job-system.md",
+    "value": "evidence/sv518/",
+    "local": "evidence/sv518"
+  },
+  {
+    "relation": "related",
+    "source": "docs/adr/pc-c3-control-trace-stage-evidence-freshness.md",
+    "value": "docs/adr/pc-c1-recording-transaction-prepare-apply-finalize.md",
+    "local": "docs/adr/docs/adr/pc-c1-recording-transaction-prepare-apply-finalize.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/designs/issue-262-run-file-real-vm.md",
+    "value": "docs/designs/autx-03-headless-cli.md",
+    "local": "docs/designs/docs/designs/autx-03-headless-cli.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/designs/issue-274-cli-script-analyze.md",
+    "value": "docs/designs/autx-03-headless-cli.md",
+    "local": "docs/designs/docs/designs/autx-03-headless-cli.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/designs/rcd-01-input-adapter-binding-arm-monitor-fake-port.md",
+    "value": "docs/designs/vs-b-capture-engine-design.md",
+    "local": "docs/designs/docs/designs/vs-b-capture-engine-design.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/discovery/autx-08-live-adapter-leg.md",
+    "value": "evidence/sv267/",
+    "local": "evidence/sv267"
+  },
+  {
+    "relation": "related",
+    "source": "docs/discovery/issue-515-os-credential.md",
+    "value": "docs/impl/ir/sv261-headless-session-host.md",
+    "local": "docs/discovery/docs/impl/ir/sv261-headless-session-host.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/discovery/sv114-gui-option-b-recorder-wire.md",
+    "value": "evidence/sv114/",
+    "local": "evidence/sv114"
+  },
+  {
+    "relation": "related",
+    "source": "docs/discovery/sv488-lint-app-native.md",
+    "value": "evidence/sv488/",
+    "local": "evidence/sv488"
+  },
+  {
+    "relation": "related",
+    "source": "docs/impl/exp/autx-08-live-adapter-leg.md",
+    "value": "evidence/sv267/",
+    "local": "evidence/sv267"
+  },
+  {
+    "relation": "related",
+    "source": "docs/impl/exp/sv114-gui-option-b-recorder-wire.md",
+    "value": "evidence/sv114/",
+    "local": "evidence/sv114"
+  },
+  {
+    "relation": "related",
+    "source": "docs/impl/exp/sv488-lint-app-native.md",
+    "value": "evidence/sv488/",
+    "local": "evidence/sv488"
+  },
+  {
+    "relation": "related",
+    "source": "docs/impl/ir/alib-05-browser-import-ux.md",
+    "value": "evidence/sv89/",
+    "local": "evidence/sv89"
+  },
+  {
+    "relation": "related",
+    "source": "docs/impl/ir/autx-08-live-adapter-leg.md",
+    "value": "evidence/sv267/",
+    "local": "evidence/sv267"
+  },
+  {
+    "relation": "related",
+    "source": "docs/impl/ir/cb-09-diff-explorer.md",
+    "value": "evidence/sv286/",
+    "local": "evidence/sv286"
+  },
+  {
+    "relation": "related",
+    "source": "docs/impl/ir/sv114-gui-option-b-recorder-wire.md",
+    "value": "evidence/sv114/",
+    "local": "evidence/sv114"
+  },
+  {
+    "relation": "related",
+    "source": "docs/impl/ir/sv488-lint-app-native.md",
+    "value": "evidence/sv488/",
+    "local": "evidence/sv488"
+  },
+  {
+    "relation": "related",
+    "source": "docs/impl/ir/tim-04-plugin-state-snapshot.md",
+    "value": "docs/specs/tim-03-process-boundary.md",
+    "local": "docs/impl/ir/docs/specs/tim-03-process-boundary.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/plans/signal-flow-design-plan.md",
+    "value": "docs/plans/issue-365-impl-index-generation.md",
+    "local": "docs/plans/docs/plans/issue-365-impl-index-generation.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/plans/sv114-gui-option-b-recorder-wire.md",
+    "value": "evidence/sv114/",
+    "local": "evidence/sv114"
+  },
+  {
+    "relation": "related",
+    "source": "docs/specs/autx-08-live-adapter-leg.md",
+    "value": "evidence/sv267/",
+    "local": "evidence/sv267"
+  },
+  {
+    "relation": "related",
+    "source": "docs/specs/issue-262-run-file-real-vm.md",
+    "value": "docs/specs/autx-03-headless-cli.md",
+    "local": "docs/specs/docs/specs/autx-03-headless-cli.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/specs/pc-c4-06-control-op-surface.md",
+    "value": "docs/specs/pc-c4-03-param-observation-slice.md",
+    "local": "docs/specs/docs/specs/pc-c4-03-param-observation-slice.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/specs/pc-c4-drain-composition.md",
+    "value": "docs/specs/pc-c4-plugin-parameter-binding-frame-base-capability-gate.md",
+    "local": "docs/specs/docs/specs/pc-c4-plugin-parameter-binding-frame-base-capability-gate.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/specs/pc-c4-observe-engine-wiring.md",
+    "value": "docs/specs/pc-c4-plugin-parameter-binding-frame-base-capability-gate.md",
+    "local": "docs/specs/docs/specs/pc-c4-plugin-parameter-binding-frame-base-capability-gate.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/specs/rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md",
+    "value": "docs/specs/vs-b-deterministic-mock-capture-engine.md",
+    "local": "docs/specs/docs/specs/vs-b-deterministic-mock-capture-engine.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/specs/rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md",
+    "value": "docs/specs/vs-c-staging-writer-journal-recovery.md",
+    "local": "docs/specs/docs/specs/vs-c-staging-writer-journal-recovery.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/specs/rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md",
+    "value": "docs/specs/vs-d-multi-track-recording-session.md",
+    "local": "docs/specs/docs/specs/vs-d-multi-track-recording-session.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/specs/sv114-gui-option-b-recorder-wire.md",
+    "value": "evidence/sv114/",
+    "local": "evidence/sv114"
+  },
+  {
+    "relation": "related",
+    "source": "docs/tasks/sv114-gui-option-b-recorder-wire.md",
+    "value": "evidence/sv114/",
+    "local": "evidence/sv114"
+  },
+  {
+    "relation": "related",
+    "source": "docs/tasks/sv293-semantic-selection-integration.md",
+    "value": "docs/tasks/rcp-04-missing-plugin-resolver.md",
+    "local": "docs/tasks/docs/tasks/rcp-04-missing-plugin-resolver.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/test-specs/autx-08-live-adapter-leg.md",
+    "value": "evidence/sv267/",
+    "local": "evidence/sv267"
+  },
+  {
+    "relation": "related",
+    "source": "docs/test-specs/rcd-03-monitor-engine.md",
+    "value": "docs/test-specs/rcd-03-monitor-gate.md",
+    "local": "docs/test-specs/docs/test-specs/rcd-03-monitor-gate.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/test-specs/rcd-03-monitor-engine.md",
+    "value": "docs/test-specs/rcd-03-monitoring-punch-latency.md",
+    "local": "docs/test-specs/docs/test-specs/rcd-03-monitoring-punch-latency.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/test-specs/rcd-03-monitor-punch.md",
+    "value": "docs/test-specs/rcd-03-monitor-gate.md",
+    "local": "docs/test-specs/docs/test-specs/rcd-03-monitor-gate.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/test-specs/signal-flow-design.md",
+    "value": "docs/test-specs/sf-05-signal-flow-headless-hierarchy.md",
+    "local": "docs/test-specs/docs/test-specs/sf-05-signal-flow-headless-hierarchy.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/test-specs/signal-flow-design.md",
+    "value": "docs/test-specs/sf-06-cross-gate-oracle-case-ledger.md",
+    "local": "docs/test-specs/docs/test-specs/sf-06-cross-gate-oracle-case-ledger.md"
+  },
+  {
+    "relation": "related",
+    "source": "docs/test-specs/sv114-gui-option-b-recorder-wire.md",
+    "value": "evidence/sv114/",
+    "local": "evidence/sv114"
+  },
+  {
+    "relation": "source",
+    "source": "docs/designs/rcd-01-input-adapter-binding-arm-monitor-fake-port.md",
+    "value": "ruviform crates/ruviform-audio-core/src/device.rs @ 0f5b573",
+    "local": "docs/designs/ruviform crates/ruviform-audio-core/src/device.rs @ 0f5b573"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md",
+    "value": "ruviform crates/ruviform-audio-core/src/device.rs @ 0f5b573",
+    "local": "docs/specs/ruviform crates/ruviform-audio-core/src/device.rs @ 0f5b573"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-02-semantic-diff-changeset.md",
+    "value": "ISSUE-7",
+    "local": "docs/specs/ISSUE-7"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-02-semantic-diff-changeset.md",
+    "value": "ISSUE-92",
+    "local": "docs/specs/ISSUE-92"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-02-semantic-diff-changeset.md",
+    "value": "ISSUE-93",
+    "local": "docs/specs/ISSUE-93"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-03-git-read-provider.md",
+    "value": "ISSUE-7",
+    "local": "docs/specs/ISSUE-7"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-03-git-read-provider.md",
+    "value": "ISSUE-88",
+    "local": "docs/specs/ISSUE-88"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-03-git-read-provider.md",
+    "value": "ISSUE-92",
+    "local": "docs/specs/ISSUE-92"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-03-git-read-provider.md",
+    "value": "ISSUE-93",
+    "local": "docs/specs/ISSUE-93"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-03-git-read-provider.md",
+    "value": "ISSUE-94",
+    "local": "docs/specs/ISSUE-94"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-backend-wiring.md",
+    "value": "ISSUE-7",
+    "local": "docs/specs/ISSUE-7"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-backend-wiring.md",
+    "value": "ISSUE-92",
+    "local": "docs/specs/ISSUE-92"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-backend-wiring.md",
+    "value": "ISSUE-94",
+    "local": "docs/specs/ISSUE-94"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-backend-wiring.md",
+    "value": "ISSUE-95",
+    "local": "docs/specs/ISSUE-95"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-history-visual-diff-ui.md",
+    "value": "ISSUE-114",
+    "local": "docs/specs/ISSUE-114"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-history-visual-diff-ui.md",
+    "value": "ISSUE-7",
+    "local": "docs/specs/ISSUE-7"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-history-visual-diff-ui.md",
+    "value": "ISSUE-92",
+    "local": "docs/specs/ISSUE-92"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-history-visual-diff-ui.md",
+    "value": "ISSUE-93",
+    "local": "docs/specs/ISSUE-93"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-history-visual-diff-ui.md",
+    "value": "ISSUE-94",
+    "local": "docs/specs/ISSUE-94"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-history-visual-diff-ui.md",
+    "value": "ISSUE-95",
+    "local": "docs/specs/ISSUE-95"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-history-visual-diff-ui.md",
+    "value": "ISSUE-97",
+    "local": "docs/specs/ISSUE-97"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-native-mount.md",
+    "value": "ISSUE-114",
+    "local": "docs/specs/ISSUE-114"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-native-mount.md",
+    "value": "ISSUE-7",
+    "local": "docs/specs/ISSUE-7"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-04-native-mount.md",
+    "value": "ISSUE-95",
+    "local": "docs/specs/ISSUE-95"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-05-apply-restore-headless.md",
+    "value": "ISSUE-7",
+    "local": "docs/specs/ISSUE-7"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-05-apply-restore-headless.md",
+    "value": "ISSUE-92",
+    "local": "docs/specs/ISSUE-92"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-05-apply-restore-headless.md",
+    "value": "ISSUE-93",
+    "local": "docs/specs/ISSUE-93"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-05-apply-restore-headless.md",
+    "value": "ISSUE-94",
+    "local": "docs/specs/ISSUE-94"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-05-apply-restore-headless.md",
+    "value": "ISSUE-96",
+    "local": "docs/specs/ISSUE-96"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-05-monitoring-apply-surface.md",
+    "value": "ISSUE-96",
+    "local": "docs/specs/ISSUE-96"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-05-monitoring-apply-surface.md",
+    "value": "SPEC-vcs06-monitoring-matrix",
+    "local": "docs/specs/SPEC-vcs06-monitoring-matrix"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-05-plugin-instance-apply.md",
+    "value": "ISSUE-96",
+    "local": "docs/specs/ISSUE-96"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-06-fixture-fault-matrix.md",
+    "value": "SPEC-vcs01-immutable-snapshot-resolver",
+    "local": "docs/specs/SPEC-vcs01-immutable-snapshot-resolver"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-06-fixture-fault-matrix.md",
+    "value": "SPEC-vcs02-semantic-diff-changeset",
+    "local": "docs/specs/SPEC-vcs02-semantic-diff-changeset"
+  },
+  {
+    "relation": "source",
+    "source": "docs/specs/vcs-06-fixture-fault-matrix.md",
+    "value": "SPEC-vcs03-git-read-provider",
+    "local": "docs/specs/SPEC-vcs03-git-read-provider"
+  },
+  {
+    "relation": "source",
+    "source": "docs/tasks/vcs-05-monitoring-apply-surface-task.md",
+    "value": "ISSUE-96",
+    "local": "docs/tasks/ISSUE-96"
+  },
+  {
+    "relation": "source",
+    "source": "docs/tasks/vcs-05-plugin-instance-apply-task.md",
+    "value": "ISSUE-96",
+    "local": "docs/tasks/ISSUE-96"
+  }
+]

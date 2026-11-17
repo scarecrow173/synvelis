@@ -37,8 +37,7 @@ relations:
     - "docs/specs/pc-c3-control-trace-projection.md"
     - "docs/designs/pc-c3-control-trace-design.md"
   defers:
-    - "synvelis-workspace ControlSession 接続・UI 表示・2 Inspector 二重起動防止（後続 integration slice）"
-    - "HeadlessDriver/AttachedNode への adapter 搭載・transport control 配線（後続 integration slice）"
+    - "https://github.com/scarecrow173/synvelis/issues/102"
   deferred-by: []
 ---
 

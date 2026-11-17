@@ -1,0 +1,143 @@
+###0|docs/adr/issue-514-session-engine-selection.md|ExecutionSelection の live consumer（sv#295 表示面）
+###1|docs/adr/issue-514-session-engine-selection.md|SelectionInputs の production 供給経路（plugin env scan / TIM-04 state decl / artifact coverage）
+###2|docs/adr/issue-514-session-engine-selection.md|stateless PluginStateDecl の型表現（synvelis-player 契約 — 別 Issue）
+###3|docs/designs/automation-modulation-design.md|AUT-F01〜F05（#135〜139）— Multi-pass Takes・Envelope/Random Source・外部 MIDI CC Mapping・Audio-rate Modulation・明示 Bake
+###4|docs/designs/automation-modulation-design.md|Touch Return Time/Shape の最終既定値・曲線 Decimation 許容誤差・TimeBase/Plugin 精度の数値閾値（Issue #6 §H/§9 の PoC 後決定事項）
+###5|docs/designs/automation-modulation-design.md|実 GUI/実 OS/実 Plugin/実機の受入（#102/#114/#103 の別受入 Gate）
+###6|docs/designs/rcd-04-comp-transition-midi-phrase-fixture.md|MIDI comp selection の project 永続化 model（#126 event model 確定後）
+###7|docs/designs/rcd-04-comp-transition-midi-phrase-fixture.md|実 RT engine（ruviform graph）との sample 一致（後続 integration slice）
+###8|docs/designs/rcd-04-product-e2e-design.md|MIDI comp selection の project 永続化 model（synvelis#126 event model 確定後）
+###9|docs/designs/rcd-04-product-e2e-design.md|実 RT engine sample 一致・AudioLens native-f64 consumer gate（Ruviform #294）
+###10|docs/designs/rcd-04-product-e2e-design.md|実 Window/OS GUI・実 device・実 plugin を要する product E2E（#114 系 GUI slice）
+###11|docs/designs/rcd-04-rt-engine-comp-pcm-design.md|実 device/OS GUI・AudioLens native-f64 consumer 経路の PCM 照合（#114・Ruviform #294 待ち）
+###12|docs/designs/tim-02-player-midi-rt-offline.md|MidiNote への channel 追加（synvelis-project 側 model 変更・別 slice）
+###13|docs/designs/tim-02-player-midi-rt-offline.md|Panic-and-continue（transport 継続しつつ発音のみ停止）— upstream に専用 command がなく、Stopped 経由の Stop のみが release-without-retrigger を表現できる
+###14|docs/designs/tim-02-player-midi-rt-offline.md|Seek 時の controller state chase — upstream `chase_span_events` の deferred contract
+###15|docs/designs/tim-02-player-midi-rt-offline.md|実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）
+###16|docs/designs/tim-02-smf-format01-core.md|SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）
+###17|docs/designs/tim-02-smf-format01-core.md|synvelis-player の MIDI RT/Offline 結合・Loop/Seek/Stop・RT callback（後続 slice）
+###18|docs/designs/tim-02-smf-format01-core.md|実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）
+###19|docs/designs/vcs-01-immutable-snapshot-resolver-design.md|Plugin opaque state bytes の実 probe（plugin host 未接続）
+###20|docs/designs/vcs-01-immutable-snapshot-resolver-design.md|VCS-02 Semantic Diff ChangeSet（synvelis#93）
+###21|docs/designs/vcs-01-immutable-snapshot-resolver-design.md|VCS-03 Git Read Provider 実装（synvelis#94）
+###22|docs/designs/vcs-01-immutable-snapshot-resolver-design.md|実 Git/実 OS/実 plugin host での検証（VCS-06 #97）
+###23|docs/impl/exp/autx-01-action-catalog.md|実 ScriptApiModel（synvelis#271）照合・Script Action（synvelis#272）・CLI surface（synvelis#262）・実 GPUI/OS lane（#114/#267）
+###24|docs/impl/exp/autx-01-f01-has-executor.md|automation_ui::ActionRow.executable への executor verdict 反映（#266 view 契約は別 Owner の Deferred 判断）
+###25|docs/impl/exp/autx-01-f01-has-executor.md|実 ScriptApiModel（synvelis#271）照合・Script Action（synvelis#272）・CLI surface（synvelis#262）・実 GPUI/OS lane（#114/#267）
+###26|docs/impl/exp/autx-07-gui-views.md|assets/themes への status-* token 値追加（範囲外）
+###27|docs/impl/exp/autx-07-gui-views.md|Script Editor 同一 source 照合（synvelis#274）
+###28|docs/impl/exp/autx-07-gui-views.md|synvelis-automation live adapter 接続（#264）
+###29|docs/impl/exp/autx-07-gui-views.md|実 GPUI/実 OS lane（synvelis#114/#267）
+###30|docs/impl/exp/autx-07-theme-parity.md|Script Editor surface 本体・Analyzer 実装（synvelis#274 Owner）
+###31|docs/impl/exp/autx-07-theme-parity.md|synvelis-automation live adapter 接続（#264）
+###32|docs/impl/exp/autx-07-theme-parity.md|実 GPUI/実 OS lane（synvelis#114/#267）
+###33|docs/impl/ir/automation-modulation.md|実 GUI/実 OS/実 Plugin/実機の受入 — #102/#114/#103 の別受入 Gate
+###34|docs/impl/ir/automation-modulation.md|製品 Automation/Modulation/Parameter Control の実装 — PC-C1〜06 #98〜103・CTL-01/02 #121/#122・AUT-01〜04 #131〜134
+###35|docs/impl/ir/autx-01-action-catalog.md|CLI surface 本体（synvelis#262 のリース）— 本スライスは consumer-neutral fixture のみ供給
+###36|docs/impl/ir/autx-01-action-catalog.md|Script Action 登録・script→catalog 投影（synvelis#272）
+###37|docs/impl/ir/autx-01-action-catalog.md|実 GPUI render・実 OS・live Gateway adapter 経由の実行（synvelis#114/#267 別 Gate）
+###38|docs/impl/ir/autx-01-action-catalog.md|実 ScriptApiModel（synvelis#271）との Capability ID/Version/Schema/Availability 同一性照合
+###39|docs/impl/ir/autx-01-f01-has-executor.md|automation_ui::ActionRow.executable への executor verdict 反映（#266 view 契約は別 Owner — catalog 側の executor field を正すまでが本 slice）
+###40|docs/impl/ir/autx-01-f01-has-executor.md|GUI/実 OS/実機 lane・CLI surface 本体（#262）・実 ScriptApiModel 照合（#271）
+###41|docs/impl/ir/autx-07-gui-views.md|assets/themes/*.dtcg.json への status-* token 値の追加（assets は本スライスの編集範囲外 — vocabulary は synvelis-theme::status が正本）
+###42|docs/impl/ir/autx-07-gui-views.md|Script Editor/Diagnostics/Completion との同一 Capability/Schema/Availability/Target source 照合（synvelis#274 Owner）
+###43|docs/impl/ir/autx-07-gui-views.md|synvelis-automation crate 統合後の live adapter 接続（#264 別 Worker リース）
+###44|docs/impl/ir/autx-07-gui-views.md|実 GPUI/実 OS 入力・Pixel・Native Plugin Dock・IME/DPI/2Window/WindowClose/Undo/Save/Reload の実機受入（synvelis#114/#267 別 Gate）
+###45|docs/impl/ir/autx-07-theme-parity.md|Script Editor surface 本体の実装変更（synvelis#274 Owner — 本 slice は表示投影の parity 照合のみ）
+###46|docs/impl/ir/autx-07-theme-parity.md|synvelis-automation live adapter 接続（SV266-NR-04・#264）・composition mount 配線（SV266-NR-05）・gpui-test scenario（SV266-NR-06）
+###47|docs/impl/ir/autx-07-theme-parity.md|実 GPUI/実 OS 入力・Pixel・IME/DPI/2Window/WindowClose の実機受入（synvelis#114/#267 別 Gate — SV266-NR-01 NotRun）
+###48|docs/impl/ir/pc-c4-observe-engine-wiring.md|project.new/open 後の engine 再 attach（synvelis#106 の責務）
+###49|docs/impl/ir/pc-c4-observe-engine-wiring.md|実 RT thread / OS timer への run 周期供給（caller/deterministic driver が供給する既存契約のまま）
+###50|docs/impl/ir/pc-c4-observe-engine-wiring.md|実 VST3/AU/CLAP・OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・外部 gate）
+###51|docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md|project.new/open 後の engine 再 attach（synvelis#106 の責務）
+###52|docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md|synvelis-native bin の共有 helper への呼出側移行（後続 slice）
+###53|docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md|実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件）
+###54|docs/impl/ir/pc-c5-04-recording-status.md|UI-C5-05 external GUI acceptance（synvelis#114 / ruviform#313 / ruviform#314）— NotRun で後続 gate に委譲
+###55|docs/impl/ir/rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md|cross-clock multi-device（#119）
+###56|docs/impl/ir/rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md|実 Device backend・OS 別ドライバ・実機受入（ruviform#251 待ち、別 Gate）
+###57|docs/impl/ir/rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md|録音 command/UI（#114 / SV-GUI-05）
+###58|docs/impl/ir/rcd-01-real-backend-readiness-slice.md|cpal WASAPI adapter の IAudioClock::GetPosition device frame position 破棄（ruviform#565 起票済み）
+###59|docs/impl/ir/rcd-01-real-backend-readiness-slice.md|実機 gate 行（実録音受入・Raw capture fidelity 実測・multi-device 実機相関・xrun/removal/長時間・証拠リンク）— Issue #115 後続 slice
+###60|docs/impl/ir/rcd-01-real-input-coverage.md|PCM fidelity deterministic source（OS loopback 等）— deterministic source 不在のため NotRun 維持
+###61|docs/impl/ir/rcd-01-real-input-coverage.md|physical USB 抜去・2ch 超 MultiChannel・cross-clock multi-device（#119）・macOS/Linux lane（ruviform#251 Stage M/L）・製品 E2E（#114）— 本 slice 対象外
+###62|docs/impl/ir/rcd-04-product-e2e-slice.md|MIDI comp selection の project 永続化 model（synvelis#126）
+###63|docs/impl/ir/rcd-04-product-e2e-slice.md|実 RT engine sample 一致・AudioLens native-f64 consumer gate（Ruviform #294）
+###64|docs/impl/ir/rcd-04-product-e2e-slice.md|実 Window/OS GUI・実 device・実 plugin を要する product E2E（#114 系 GUI slice）
+###65|docs/impl/ir/sv-script-03-workflow-plan.md|ruviform#559
+###66|docs/impl/ir/sv-script-03-workflow-plan.md|synvelis#262
+###67|docs/impl/ir/sv-script-03-workflow-plan.md|synvelis#265
+###68|docs/impl/ir/sv-script-03-workflow-plan.md|synvelis#267
+###69|docs/impl/ir/syn-io-02-head-cas-e2e.md|macOS/Linux での実 2-process/HEAD.lock 実走 — portable code のため CI 実走見込み、merge 後の対象 SHA の CI 証拠で確認（NotRun）
+###70|docs/impl/ir/syn-io-02-head-cas-e2e.md|電源断・実 durability fault・stale break の process 間実測 — 外部 gate（NotRun）
+###71|docs/impl/ir/syn-io-02-head-cas-e2e.md|非協調 writer への強制排他・kernel file lock 化 — ruviform 境界上の別 Issue 事項
+###72|docs/impl/ir/syn-io-02-os-l1-evidence.md|Ruviform #305/#294/#306・Synvelis #28/#294・AudioLens #143 の統合・受入関係事項
+###73|docs/impl/ir/syn-io-02-os-l1-evidence.md|Windows NTFS 実機 Case・物理電断・Network/Cloud FS（Required/Deferred・NotRun）
+###74|docs/impl/ir/syn-io-02-os-l1-evidence.md|対象 SHA c0b000b3 の ci.yml run（NotRun pending — 次回 daily-ci/手動 dispatch）
+###75|docs/impl/ir/syn-io-02-windows-real-fs.md|Import↔Save 結合 Case — sv#86/#91 の責務（範囲外）
+###76|docs/impl/ir/syn-io-02-windows-real-fs.md|Issue #84 の他残ゲート行（対象 SHA CI run・upstream/consumer gate）— tracker として open 継続
+###77|docs/impl/ir/syn-io-02-windows-real-fs.md|macOS/Linux 実機 real-FS — 各 OS 実機環境での同一 lane 実走（Windows/NTFS 観測値を一般化しない）
+###78|docs/impl/ir/syn-io-02-windows-real-fs.md|真の power-loss（電源断相当）実測 — 非破壊的に自動化不能、process kill は dirty page を保持するため代替不可（NotRun）
+###79|docs/impl/ir/tim-04-plugin-state-snapshot.md|実 VST3/AU/CLAP plugin での state save/restore・実 OS filesystem atomicity・GUI 統合（NotRun/Unsupported — headless mock slice の範囲外）
+###80|docs/impl/ir/vcs-01-immutable-snapshot-resolver.md|VCS-02 Semantic Diff ChangeSet（Issue #93）
+###81|docs/impl/ir/vcs-01-immutable-snapshot-resolver.md|VCS-03 Git Read Provider（Issue #94）
+###82|docs/impl/ir/vcs-01-immutable-snapshot-resolver.md|実 Git remote / 実 OS filesystem atomicity / GUI / 実 plugin host probe（VCS-04/05/06, Issue #97）
+###83|docs/impl/ir/vcs-02-semantic-diff-engine.md|lineage schema（Issue #7 で将来の Project schema extension へ deferred）
+###84|docs/impl/ir/vcs-02-semantic-diff-engine.md|VCS-03 Git Read Provider（Issue #94）
+###85|docs/impl/ir/vcs-02-semantic-diff-engine.md|VCS-04 History/Visual Diff UI（Issue #95）
+###86|docs/impl/ir/vcs-02-semantic-diff-engine.md|VCS-05 Apply/Restore
+###87|docs/impl/ir/vcs-02-semantic-diff-engine.md|実 OS filesystem atomicity / 実 Git remote/provider / GUI / 実 plugin host probe（Issue #97）
+###88|docs/impl/ir/vcs-03-git-read-provider.md|remote LFS fetch（local LFS object store のみ解決）
+###89|docs/impl/ir/vcs-03-git-read-provider.md|VCS-04 History/Visual Diff UI（Issue #95）
+###90|docs/impl/ir/vcs-03-git-read-provider.md|VCS-05 Safe Apply/Restore（Issue #96）
+###91|docs/impl/ir/vcs-03-git-read-provider.md|実 OS permission matrix・real remote fetch・auth/credential 実経路・GC/objects 欠損の実 filesystem 条件・GUI・RT 性能保証（Issue #97）
+###92|docs/impl/ir/vcs-05-safe-apply-selected-change-restore-as-copy-headless.md|cross-consumer validation（Issue #294）
+###93|docs/impl/ir/vcs-05-safe-apply-selected-change-restore-as-copy-headless.md|VCS-04 History/Visual Diff UI（Issue #95）
+###94|docs/impl/ir/vcs-05-safe-apply-selected-change-restore-as-copy-headless.md|VCS-06 Windows real FS/provider/plugin E2E・fault acceptance（Issue #97）
+###95|docs/impl/ir/vcs-06-evidence-completion.md|*-REAL-* 行・実 GUI/実 OS/実 provider/consumer/RT — 外部 gate 残存
+###96|docs/impl/ir/vcs-06-evidence-completion.md|docs/*/README.md index 再生成（同上・対象外）
+###97|docs/impl/ir/vcs-06-evidence-completion.md|ledger 行追加（VCS-RESTORE-08・VCS-COMPAT-03/04 — ledger 占有のため Coordinator 後続 slice で統合）
+###98|docs/impl/ir/vcs-06-monitoring-matrix-slice.md|monitoring kind の apply surface 追加（transplant payload・preflight 設計を要する別 slice）
+###99|docs/impl/ir/vcs-06-monitoring-matrix-slice.md|実 GUI/実 OS/実 provider/実 plugin host/RT/consumer lane（`*-REAL-*`・COMPAT 行 — 外部 gate）
+###100|docs/impl/ir/vcs-06-real-git-fs-fault.md|POSIX 側 FS fault 行 — share-mode/readonly 意味論が異なる別 lane（NotRun）
+###101|docs/impl/ir/vcs-06-real-git-fs-fault.md|電源断/物理 fault・実 OS crash durability・実 GUI/plugin host/RT/consumer — 外部 gate（NotRun）
+###102|docs/impl/ir/vcs-06-real-git-fs-fault.md|認証付き http/ssh remote・実 provider E2E・OS perms matrix — 実ネットワーク/認証情報が必要（NotRun）
+###103|docs/impl/ir/vcs-06-real-git-fs-fault.md|本 branch の新規行に対する ci.yml covering run — merge 後の次回 dispatch 待ち
+###104|docs/impl/ir/vcs-06-ui-headless-matrix-slice.md|実 GPUI two-window/IME/keyboard/a11y 証拠（synvelis#114）
+###105|docs/impl/ir/vcs-06-ui-headless-matrix-slice.md|実 OS window / native dock（OS matrix lane）
+###106|docs/impl/ir/vcs-06-variant-matrix-slice.md|restore_as_copy の variant_sets defect 修復（fork_project nested identity 再採番 vs validate 規則見直し — synvelis#458）
+###107|docs/impl/ir/vcs-06-variant-matrix-slice.md|variant diff adapter 本体（ObjectKind variant kind・raw_kind_map・DIFF_POLICY_VERSION・apply surface — synvelis#457）
+###108|docs/impl/ir/vcs-06-variant-matrix-slice.md|実 GUI/実 OS/実 provider/実 plugin host/RT/consumer lane（*-REAL-*・COMPAT 行 — 外部 gate）
+###109|docs/specs/pc-c3-05-rt-trace-adapter.md|HeadlessDriver/AttachedNode への adapter 搭載・transport control 配線（後続 integration slice）
+###110|docs/specs/pc-c3-05-rt-trace-adapter.md|synvelis-workspace ControlSession 接続・UI 表示・2 Inspector 二重起動防止（後続 integration slice）
+###111|docs/specs/pc-c3-control-trace-projection.md|synvelis-workspace ControlSession 接続・single drain owner・2 Inspector 二重起動防止（後続 integration slice）
+###112|docs/specs/pc-c3-control-trace-projection.md|TRACE-C3-05 bounded history / no-RT alloc-block / 実計測 RT adapter（synvelis-player 後続 slice）
+###113|docs/specs/pc-c4-drain-composition.md|L1 wire 検証・実 VST3/OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・後続 slice）
+###114|docs/specs/pc-c4-observe-engine-wiring.md|project.new/open 後の engine 再 attach（synvelis#106 の責務）
+###115|docs/specs/pc-c4-observe-engine-wiring.md|実 RT thread / OS timer への run 周期供給（caller/deterministic driver が供給する既存契約のまま）
+###116|docs/specs/pc-c4-observe-engine-wiring.md|実 VST3/AU/CLAP・OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・外部 gate）
+###117|docs/specs/pc-c4-webview-composition.md|project.new/open 後の engine 再 attach（synvelis#106 の責務）
+###118|docs/specs/pc-c4-webview-composition.md|synvelis-native bin の共有 helper への呼出側移行（native 経路の回帰リスクを避けるため本 slice 対象外）
+###119|docs/specs/pc-c4-webview-composition.md|実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件・後続 slice）
+###120|docs/specs/sf-03-map-semantic-runtime-contract.md|SF-ACT-05〜09 の実機部分（RT latency/underrun・実 device epoch restart・実 OS/実デバイス/VST3 検証）
+###121|docs/specs/sf-03-map-semantic-runtime-contract.md|SF-ACT-06 残件（automation→TimedParamEvent lowering 配線・Fast Control active-generation gate・GUI）
+###122|docs/specs/sf-03-map-semantic-runtime-contract.md|SF-ACT-07 Partial Preview vs Export fail-closed の mode 別 policy 分岐
+###123|docs/specs/sf-03-map-semantic-runtime-contract.md|SF-ACT-08 Ruviform RT/render/AudioLens 側の受入証拠
+###124|docs/specs/sf-03-map-semantic-runtime-contract.md|SF-ACT-09 device config-only change の compile 判定・性能 baseline
+###125|docs/specs/tim-02-player-midi-rt-offline.md|AudioLens Native f64 非回帰（#294 別 Gate）
+###126|docs/specs/tim-02-player-midi-rt-offline.md|MidiNote への channel 追加（synvelis-project 側 model 変更・別 slice）
+###127|docs/specs/tim-02-player-midi-rt-offline.md|SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）
+###128|docs/specs/tim-02-player-midi-rt-offline.md|実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）
+###129|docs/specs/tim-02-ppqn-smf-cross-golden.md|AudioLens Native f64 非回帰（#294 別 Gate）
+###130|docs/specs/tim-02-ppqn-smf-cross-golden.md|SMPTE Division・MIDI 2.0/MPE・Format 2（#129/#130 future・明示 Unsupported）
+###131|docs/specs/tim-02-ppqn-smf-cross-golden.md|synvelis-player の MIDI RT/Offline 結合・実機 MIDI timing（別 slice・NotRun）
+###132|docs/specs/tim-02-ppqn-smf-cross-golden.md|実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）
+###133|docs/specs/tim-02-smf-format01-import-export.md|AudioLens Native f64 非回帰（#294 別 Gate）
+###134|docs/specs/tim-02-smf-format01-import-export.md|SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）
+###135|docs/specs/tim-02-smf-format01-import-export.md|synvelis-player の MIDI RT/Offline 結合・Loop/Seek/Stop・RT callback（後続 slice）
+###136|docs/specs/tim-02-smf-format01-import-export.md|実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）
+###137|docs/specs/vcs-01-immutable-snapshot-resolver.md|Plugin opaque state bytes の実検証 probe（plugin host 未接続のため本 slice では Unknown 固定）
+###138|docs/specs/vcs-01-immutable-snapshot-resolver.md|VCS-02 Semantic Diff ChangeSet・Change Index・Comparison policy（synvelis#93）
+###139|docs/specs/vcs-01-immutable-snapshot-resolver.md|VCS-03 Git Read Provider の実装（synvelis#94 — 本 spec は VCS Bytes Port 境界のみ定義）
+###140|docs/specs/vcs-01-immutable-snapshot-resolver.md|実 Git remote / 実 OS filesystem / 実 plugin host での検証（VCS-06 #97・OS 別 NotRun/Unsupported 記録）
+###141|docs/test-specs/automation-modulation.md|実 Window/OS GUI・実 device・実 plugin を要する product E2E（#102/#114/#103 の別受入 Gate）
+###142|docs/test-specs/vcs-01-snapshot-resolver-fixtures.md|実 Git/実 OS/実 plugin host での検証（VCS-06 #97）

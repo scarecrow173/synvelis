@@ -28,7 +28,7 @@ relations:
   superseded-by: []
   related:
     - "docs/specs/sv488-lint-app-native.md"
-    - "evidence/sv488/"
+    - "evidence/sv488/lint-app-native-verification.md"
   refines: []
   refined-by: []
   derives-from: []

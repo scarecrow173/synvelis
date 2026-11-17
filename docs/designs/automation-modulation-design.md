@@ -78,9 +78,15 @@ relations:
     - "https://github.com/scarecrow173/ruviform/issues/190"
     - "https://github.com/scarecrow173/ruviform/issues/307"
   defers:
-    - "Touch Return Time/Shape の最終既定値・曲線 Decimation 許容誤差・TimeBase/Plugin 精度の数値閾値（Issue #6 §H/§9 の PoC 後決定事項）"
-    - "AUT-F01〜F05（#135〜139）— Multi-pass Takes・Envelope/Random Source・外部 MIDI CC Mapping・Audio-rate Modulation・明示 Bake"
-    - "実 GUI/実 OS/実 Plugin/実機の受入（#102/#114/#103 の別受入 Gate）"
+    - "https://github.com/scarecrow173/synvelis/issues/6"
+    - "https://github.com/scarecrow173/synvelis/issues/135"
+    - "https://github.com/scarecrow173/synvelis/issues/136"
+    - "https://github.com/scarecrow173/synvelis/issues/137"
+    - "https://github.com/scarecrow173/synvelis/issues/138"
+    - "https://github.com/scarecrow173/synvelis/issues/139"
+    - "https://github.com/scarecrow173/synvelis/issues/102"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/synvelis/issues/103"
   deferred-by: []
 ---
 

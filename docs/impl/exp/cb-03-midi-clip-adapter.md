@@ -45,7 +45,9 @@ surface）は `ObjectKind::SmfDocument` の adopt 経路整備と共に
   branch を作る engine op は存在しない（`VariantOp` は
   Fork/EditAdopted/EditCandidate/Adopt/Discard のみ）。
   `branches` は `BTreeMap` でデータモデル上は N branch を
-  許容するが、branch 追加 surface は未実装。
+  許容するが、branch 追加 surface は当時未実装 — **2026-11-18
+  追記: `synvelis#513`（`f22de8ac`・`VariantOp::AddBranch`）で
+  解消済み（案 A が実現）**。
 - 案 A（engine に branch 追加 op を実装）: `VariantOp` 新
   variant + public fn + CAS/lineage 設計が必要で、全
   ドメイン adapter（CB-04〜08）共通の engine slice として

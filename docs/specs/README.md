@@ -48,6 +48,7 @@ Directory: `docs/specs`
 | SPEC-sv517cD4eF6gH8iJ0kL1mN3 | Issue #517 spec — render/branch pipeline 本番配線の受入仕様 | approved | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
 | SPEC-sv518bC3dE5fG7hI9jK0l | Issue #518 spec — production job system 配線の受入仕様 | approved | [issue-518-job-system.md](./issue-518-job-system.md) |
 | SPEC-8C2JgN39wTW9v4aw04Cg | Issue #530 spec — stateless plugin を PluginStateDecl で表現する契約 | approved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
+| SPEC-539aArrngmntAdptr02 | Issue #539 spec — VariantPorts::standard への ArrangementAdapter 登録 | approved | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
 | SPEC-ubzJtNuQxbSXLe7nevbdUw | L1 — Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | approved | [l1-local-wav-verified-media-graph-playback.md](./l1-local-wav-verified-media-graph-playback.md) |
 | SPEC-034Qmb9CC7dN4YE5VPN235 | L2 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | SPEC-rBmfzOP1H86N1KAXlFpX5N | MD-A — TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | approved | [mda-takegroup-comp-effective-projection-placement-contract.md](./mda-takegroup-comp-effective-projection-placement-contract.md) |

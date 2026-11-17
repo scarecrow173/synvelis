@@ -8,7 +8,7 @@ updated: "2026-11-12"
 owners: []
 relations:
   source:
-    - "ISSUE-96"
+    - "https://github.com/scarecrow173/synvelis/issues/96"
     - "PLAN-vcs05-monitoring-apply-surface"
   verified_by:
     - "TSPEC-vcs05-monitoring-apply-surface"

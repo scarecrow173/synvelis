@@ -8,9 +8,9 @@ updated: "2026-11-12"
 owners: []
 relations:
   source:
-    - "ISSUE-96"
+    - "https://github.com/scarecrow173/synvelis/issues/96"
     - "SPEC-vcs05-apply-restore-headless"
-    - "SPEC-vcs06-monitoring-matrix"
+    - "docs/specs/vcs-06-monitoring-matrix.md"
   verified_by:
     - "TSPEC-vcs05-monitoring-apply-surface"
   implemented_by:

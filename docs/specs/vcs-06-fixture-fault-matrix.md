@@ -8,9 +8,9 @@ updated: "2026-11-13"
 owners: []
 relations:
   source:
-    - "SPEC-vcs01-immutable-snapshot-resolver"
-    - "SPEC-vcs02-semantic-diff-changeset"
-    - "SPEC-vcs03-git-read-provider"
+    - "docs/specs/vcs-01-immutable-snapshot-resolver.md"
+    - "docs/specs/vcs-02-semantic-diff-changeset.md"
+    - "docs/specs/vcs-03-git-read-provider.md"
     - "SPEC-vcs05-apply-restore-headless"
   supersedes: []
   superseded_by: []

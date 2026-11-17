@@ -61,9 +61,7 @@ relations:
     - ".github/workflows/ci.yml"
     - "tools/ci-summary.mjs"
   defers:
-    - "ledger 行追加（VCS-RESTORE-08・VCS-COMPAT-03/04 — ledger 占有のため Coordinator 後続 slice で統合）"
-    - "docs/*/README.md index 再生成（同上・対象外）"
-    - "*-REAL-* 行・実 GUI/実 OS/実 provider/consumer/RT — 外部 gate 残存"
+    - "https://github.com/scarecrow173/synvelis/issues/97"
   deferred-by: []
 metadata:
   experiments:

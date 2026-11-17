@@ -155,8 +155,11 @@ RCP-00/01/02（#421/#431/#436）の read adapter 契約を前提とする。
   candidate にも保持される。
 - **「3候補」の解釈**: engine の `VariantSet` は adopted +
   candidate の 2 branch を fork ごとに生成し、set 内への
-  追加 branch op は未実装（データモデル上は可能だが
-  engine surface 拡張は本スライス範囲外）。CB-MIDI-01 は
+  追加 branch op は当時未実装（データモデル上は可能だが
+  engine surface 拡張は本スライス範囲外）— **2026-11-18 追記:
+  `synvelis#513`（`f22de8ac`・`VariantOp::AddBranch`）で解消、
+  `cb_midi_01_literal_three_simultaneous_candidates` が literal
+  lane を headless Pass**。CB-MIDI-01 は
   fork → edit → adopt → freeze → edit の lifecycle で
   origin/B′/A′ の 3 つの distinct scoped content（pairwise
   異なる scope digest）を実演し、別 scope の sibling
@@ -211,10 +214,9 @@ Windows 11 / mise 管理 toolchain で実行（詳細は
 
 ## Risks
 
-- literal な同時 N>2 branch を持つ VariantSet は engine が
-  未対応 — CB-MIDI-01 の「3候補」は lifecycle 実演で代替
-  しており、set 内 branch 追加 op が必要になった場合は
-  engine slice での対応が必要（データモデルは既に map）。
+- ~~literal な同時 N>2 branch を持つ VariantSet は engine が
+  未対応~~ — **2026-11-18 解消: `synvelis#513` の
+  `VariantOp::AddBranch` で実装済み・literal lane headless Pass**。
 - CC/PitchBend/CC64・note key/len・MIDI2/未知 event の編集
   surface は `ProjectOp` に存在しない — `Unsupported` が
   正直な verdict であり、native stream は `SmfDocument`
@@ -230,7 +232,7 @@ Windows 11 / mise 管理 toolchain で実行（詳細は
   Orchestrator — 本 adapter の pin semantics
   （scope/shared-context digest）を比較 context identity
   として消費する。
-- engine の set 内 branch 追加 op（複数同時 candidate）—
-  必要になった時点で別 slice。
+- ~~engine の set 内 branch 追加 op（複数同時 candidate）~~ —
+  `synvelis#513`（`f22de8ac`）で実装済み（2026-11-18 記録）。
 - MIDI note key/len 編集・CC/automation 候補 surface —
   `ProjectOp` 拡張が前提の別 Issue。

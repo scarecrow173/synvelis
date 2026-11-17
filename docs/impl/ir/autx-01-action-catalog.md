@@ -75,10 +75,11 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/446"
   defers:
     - "CapabilityRegistry::has_executor（解消: synvelis#446 / AUTX-01-F01 で着地 — ExecutorState は Installed/Absent/Unknown の 3 verdict、`docs/impl/ir/autx-01-f01-has-executor.md` 参照）。Gateway::schemas read accessor は sv#272/PR #438 で解消済み"
-    - "実 ScriptApiModel（synvelis#271）との Capability ID/Version/Schema/Availability 同一性照合"
-    - "Script Action 登録・script→catalog 投影（synvelis#272）"
-    - "CLI surface 本体（synvelis#262 のリース）— 本スライスは consumer-neutral fixture のみ供給"
-    - "実 GPUI render・実 OS・live Gateway adapter 経由の実行（synvelis#114/#267 別 Gate）"
+    - "https://github.com/scarecrow173/synvelis/issues/271"
+    - "https://github.com/scarecrow173/synvelis/issues/272"
+    - "https://github.com/scarecrow173/synvelis/issues/262"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/synvelis/issues/267"
   deferred-by: []
 metadata:
   experiments:

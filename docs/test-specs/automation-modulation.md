@@ -49,7 +49,9 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/133"
     - "https://github.com/scarecrow173/synvelis/issues/134"
   defers:
-    - "実 Window/OS GUI・実 device・実 plugin を要する product E2E（#102/#114/#103 の別受入 Gate）"
+    - "https://github.com/scarecrow173/synvelis/issues/102"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/synvelis/issues/103"
   deferred-by: []
 ---
 

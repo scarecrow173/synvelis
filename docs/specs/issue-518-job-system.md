@@ -37,7 +37,7 @@ relations:
   verified-by:
     - "docs/test-specs/issue-518-job-system.md"
   references:
-    - "evidence/sv518/"
+    - "evidence/sv518/verification.md"
   defers: []
   deferred-by: []
 ---

@@ -179,3 +179,13 @@ CB-E2E-03 の project 軸 coverage（`cb11_e2e_03_*`）は
 独立に成立する。gateway 経路の arrangement 対応は
 `VariantPorts::standard` への adapter 登録を要する
 follow-up として記録。
+
+**追記（synvelis#539）**: 後続 slice で案 B 相当の src
+修正が実施された — `VariantPorts::standard` の adapters
+map に `ArrangementAdapter` を登録し、陳腐化した
+「no adapter yet」系 doc comment を更新。当該 fixture は
+`cb11_e2e_07_arrangement_scope_composite_adopt_undo_scope_isolation`
+へ positive flip され、gateway 経路の CB-E2E-03 composite
+adopt（単一 CAS=1 undo・scope 外 bitwise 不変）は
+headless Pass（`evidence/sv539/`）。`adapter_for` の
+fail-closed 機構は未配線 kind 向けに維持。

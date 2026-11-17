@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "graphId": "doc-driven-dev",
+  "current": "probe",
+  "next": "probe",
+  "edgeId": null,
+  "condition": "blocked",
+  "status": "blocked",
+  "delegate": null,
+  "requiredAudits": [],
+  "blockers": [
+    "artifact-graph",
+    "broken-relation:Broken related relation from docs/impl/ir/cb-09-diff-explorer.md to evidence/sv286/ (evidence/sv286)",
+    "focus-required"
+  ],
+  "taskGraph": null,
+  "commitGate": false
+}

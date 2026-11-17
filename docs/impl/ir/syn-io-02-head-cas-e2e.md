@@ -79,10 +79,7 @@ relations:
     - "crates/synvelis-project/tests/head_cas.rs"
     - "crates/synvelis-project/src/store.rs"
     - "crates/synvelis-library/tests/import.rs"
-  defers:
-    - "macOS/Linux での実 2-process/HEAD.lock 実走 — portable code のため CI 実走見込み、merge 後の対象 SHA の CI 証拠で確認（NotRun）"
-    - "電源断・実 durability fault・stale break の process 間実測 — 外部 gate（NotRun）"
-    - "非協調 writer への強制排他・kernel file lock 化 — ruviform 境界上の別 Issue 事項"
+  defers: []
   deferred-by: []
 metadata:
   experiments:

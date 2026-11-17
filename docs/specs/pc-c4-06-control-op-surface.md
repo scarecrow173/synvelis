@@ -25,7 +25,7 @@ relations:
   supersedes: []
   superseded-by: []
   related:
-    - "docs/specs/pc-c4-03-param-observation-slice.md"
+    - "docs/specs/pc-c4-03-param-observation.md"
     - "docs/specs/pc-c4-05-persisted-instance-id.md"
   refines:
     - "docs/specs/pc-c4-04-app-composition.md"
@@ -36,7 +36,7 @@ relations:
   verified-by: []
   references:
     - "docs/specs/pc-c4-04-app-composition.md"
-    - "docs/specs/pc-c4-03-param-observation-slice.md"
+    - "docs/specs/pc-c4-03-param-observation.md"
     - "docs/test-specs/pc-c4-04-app-composition.md"
   defers: []
   deferred-by: []

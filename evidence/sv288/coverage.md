@@ -69,7 +69,7 @@ Adopt + 1 Undo/Redo・Scope 外不変）
 | 範囲 | 被覆 fixture | oracle | 判定 |
 | --- | --- | --- | --- |
 | Arrangement adapter・Composite CAS・1 undo/redo・scope 外不変 | **`cb11_e2e_03_arrangement_composite_adopt_undo_scope_isolation`**（`cb11_cross_gate.rs` — merge 済み `ArrangementAdapter` 経由。2 Track / 4 in-scope Clip + out-of-range/absolute-anchored witness・mute+move+note-remove composite → 単一 adopt=1 CAS=1 undo、undo/redo bitwise、scope 外 clip・他 4 domain・raw material 不変）・既存被覆 `cb07_arrangement.rs` | 独立 oracle（`Project` bitwise 復帰・`AdoptReceipt`・candidate payload 比較） | ✅ T0 headless Pass |
-| gateway 経路の arrangement dispatch | `cb11_ai_vcs_off.rs::cb11_e2e_07_arrangement_scope_fails_closed_until_gateway_wiring` | typed `unsupported` fail-closed | ◐ 部分的 — project 軸は Pass。`VariantPorts::standard` が `ArrangementAdapter` を未配線のため gateway fork は fail-closed（src 変更を要する follow-up、下記「判明した gap」参照） |
+| gateway 経路の arrangement dispatch | **`cb11_ai_vcs_off.rs::cb11_e2e_07_arrangement_scope_composite_adopt_undo_scope_isolation`**（synvelis#539 — `VariantPorts::standard` が `ArrangementAdapter` を登録。arrangement scope の fork→candidate composite edit（`clip.mute`+`clip.move`）→ adopt が headless で完走、単一 CAS=1 undo・scope 外 bitwise 不変を assert） | 独立 oracle（`CommitReceipt` provenance・`Project` bitwise 比較） | ✅ T0 headless Pass（synvelis#539 で adapter 配線・gap 解消） |
 | 実 GUI/実信号での arrangement composite | — | 実 window・実 PCM/RT | ⛔ NotRun（`scarecrow173/ruviform#631`/`#628`・synvelis#286） |
 
 ### CB-E2E-04（Shared Context change / Unaligned / Probe loss /
@@ -155,7 +155,7 @@ RCP-GATE-04（OnDemand/Manual 認可）・RCP-GATE-06（5 mode
 | Instrument | ✅ cb04+cb11 | ⛔ 実 plugin PCM NotRun（#630） | ⛔ 実 RT/PDC NotRun |
 | FX Range | ✅ cb05+cb11 | ⛔ 実 PCM NotRun | ⛔ 実 RT NotRun |
 | Track/Bus Strip | ✅ cb06+cb11 | ⛔ 実 PCM NotRun | ⛔ 実 RT NotRun |
-| Arrangement | ✅ cb07+cb11（project 軸）/ ◐ gateway dispatch は fail-closed（adapter 未配線 follow-up） | ⛔ 実 PCM NotRun（#628/#296） | ⛔ 実 RT NotRun |
+| Arrangement | ✅ cb07+cb11（project 軸）/ ✅ gateway dispatch（synvelis#539 で `ArrangementAdapter` 配線済み） | ⛔ 実 PCM NotRun（#628/#296） | ⛔ 実 RT NotRun |
 | Orchestrated Compare | ✅ cb08+cb11（orchestration 契約） | ⛔ 実信号 evidence NotRun | ⛔ 実 RT NotRun |
 
 ## 本 slice の runnable subset（`cb11_cross_gate.rs`）
@@ -178,7 +178,7 @@ RCP-GATE-04（OnDemand/Manual 認可）・RCP-GATE-06（5 mode
 | --- | --- | --- |
 | `cb11_e2e_07_grantless_agent_ops_fail_closed_ai_off` | agent principal の task/grant 未提示 op が prepare/apply 両段で `Denied` fail-closed・proposal 非残存・human 権限は非依存 | CB-E2E-07(AI OFF headless) |
 | `cb11_e2e_07_vcs_off_variant_lifecycle_and_granted_agent` | durable/VCS backend 非搭載 rig で fork→edit→adopt(receipt)→query→discard 完走・granted agent は approval policy 通り動作 | CB-E2E-07(VCS OFF headless) |
-| `cb11_e2e_07_arrangement_scope_fails_closed_until_gateway_wiring` | `VariantPorts::standard` 未配線の arrangement scope が `unsupported` fail-closed（src gap の正直な pin） | CB-E2E-03(gateway boundary) |
+| `cb11_e2e_07_arrangement_scope_composite_adopt_undo_scope_isolation` | arrangement scope の fork→composite edit→adopt が gateway 経路で完走・単一 CAS=1 undo・scope 外 bitwise 不変（旧 `cb11_e2e_07_arrangement_scope_fails_closed_until_gateway_wiring` pin を synvelis#539 で positive flip） | CB-E2E-03(gateway 経路) |
 
 ## 判明した gap（slice 2・src 変更を要する follow-up）
 
@@ -191,3 +191,11 @@ RCP-GATE-04（OnDemand/Manual 認可）・RCP-GATE-06（5 mode
   には src 変更（adapter 登録）が必要。本 slice は
   `crates/**/src/**` 編集禁止のため fixture で現状を pin
   し、follow-up として記録。
+
+  **解消（synvelis#539）**: `VariantPorts::standard` の
+  adapters map に `ArrangementAdapter` を登録し、pin
+  fixture を positive 検証
+  （`cb11_e2e_07_arrangement_scope_composite_adopt_undo_scope_isolation`）
+  へ flip。`adapter_for` の fail-closed 機構は維持 —
+  未配線 kind が将来追加されても `Unsupported` で
+  安全側に倒れる。検証証拠は `evidence/sv539/` を参照。

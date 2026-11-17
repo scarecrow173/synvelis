@@ -196,9 +196,12 @@ headless coverage inventory・evidence ledger・runnable subset
   を apply/commit できる。`VariantPorts::standard(None)`
   rig で fork→edit→adopt（ApproveToApply + human receipt）
   →query→discard が durable/VCS backend なしに完走し、
-  arrangement scope は wired adapter 不在で `unsupported`
-  fail-closed する
-  （`crates/synvelis-gateway/tests/cb11_ai_vcs_off.rs`）。
+  arrangement scope も配線済み `ArrangementAdapter` 経由で
+  composite adopt（fork→`clip.mute`+`clip.move`→adopt、
+  単一 CAS=1 undo・scope 外 bitwise 不変）が完走する
+  （`crates/synvelis-gateway/tests/cb11_ai_vcs_off.rs` —
+  synvelis#539 で配線・旧 fail-closed pin を positive
+  検証へ flip）。
 
 ## Guarantees
 
@@ -232,10 +235,10 @@ headless coverage inventory・evidence ledger・runnable subset
 
 - GPUI Difference Explorer（CB-09・synvelis#286）の GUI
   fixture — 実 window・実 plugin は外部 gate。CB-10 の
-  gateway variant ops は headless 契約として pin 済みだが、
-  `VariantPorts::standard` が `ArrangementAdapter` を
-  wire していない gap は src 変更を要するため本 slice
-  対象外（fail-closed を fixture で正直に pin）。
+  gateway variant ops は headless 契約として pin 済み。
+  `VariantPorts::standard` の `ArrangementAdapter` 未配線
+  gap は synvelis#539 で解消済み（adapter 登録 + fixture
+  positive flip — `evidence/sv539/`）。
 - 実 PCM/render 実測・実 RT publish/noalloc/PDC・実 OS
   GUI-L2・実 plugin EXT-L3・AudioLens/Ruviform consumer・
   3OS L1 — 全て外部 gate（`evidence/sv288/external-gates.md`）。

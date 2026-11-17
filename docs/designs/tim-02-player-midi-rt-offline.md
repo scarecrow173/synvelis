@@ -35,10 +35,8 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）"
-    - "Panic-and-continue（transport 継続しつつ発音のみ停止）— upstream に専用 command がなく、Stopped 経由の Stop のみが release-without-retrigger を表現できる"
-    - "Seek 時の controller state chase — upstream `chase_span_events` の deferred contract"
-    - "MidiNote への channel 追加（synvelis-project 側 model 変更・別 slice）"
+    - "https://github.com/scarecrow173/ruviform/issues/253"
+    - "https://github.com/scarecrow173/synvelis/issues/126"
   deferred-by: []
 ---
 

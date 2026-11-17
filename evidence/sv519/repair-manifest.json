@@ -1,0 +1,1813 @@
+{
+  "docs/adr/issue-514-session-engine-selection.md": {
+    "defers": {
+      "ExecutionSelection の live consumer（sv#295 表示面）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/295"
+        ]
+      },
+      "SelectionInputs の production 供給経路（plugin env scan / TIM-04 state decl / artifact coverage）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/293"
+        ]
+      },
+      "stateless PluginStateDecl の型表現（synvelis-player 契約 — 別 Issue）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/530"
+        ]
+      }
+    }
+  },
+  "docs/designs/automation-modulation-design.md": {
+    "defers": {
+      "AUT-F01〜F05（#135〜139）— Multi-pass Takes・Envelope/Random Source・外部 MIDI CC Mapping・Audio-rate Modulation・明示 Bake": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/135",
+          "https://github.com/scarecrow173/synvelis/issues/136",
+          "https://github.com/scarecrow173/synvelis/issues/137",
+          "https://github.com/scarecrow173/synvelis/issues/138",
+          "https://github.com/scarecrow173/synvelis/issues/139"
+        ]
+      },
+      "Touch Return Time/Shape の最終既定値・曲線 Decimation 許容誤差・TimeBase/Plugin 精度の数値閾値（Issue #6 §H/§9 の PoC 後決定事項）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/6"
+        ]
+      },
+      "実 GUI/実 OS/実 Plugin/実機の受入（#102/#114/#103 の別受入 Gate）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/102",
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/103"
+        ]
+      }
+    }
+  },
+  "docs/designs/rcd-04-comp-transition-midi-phrase-fixture.md": {
+    "defers": {
+      "MIDI comp selection の project 永続化 model（#126 event model 確定後）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/126"
+        ]
+      },
+      "実 RT engine（ruviform graph）との sample 一致（後続 integration slice）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/294"
+        ]
+      }
+    }
+  },
+  "docs/designs/rcd-04-product-e2e-design.md": {
+    "defers": {
+      "MIDI comp selection の project 永続化 model（synvelis#126 event model 確定後）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/126"
+        ]
+      },
+      "実 RT engine sample 一致・AudioLens native-f64 consumer gate（Ruviform #294）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/294"
+        ]
+      },
+      "実 Window/OS GUI・実 device・実 plugin を要する product E2E（#114 系 GUI slice）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114"
+        ]
+      }
+    }
+  },
+  "docs/designs/rcd-04-rt-engine-comp-pcm-design.md": {
+    "defers": {
+      "実 device/OS GUI・AudioLens native-f64 consumer 経路の PCM 照合（#114・Ruviform #294 待ち）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/ruviform/issues/294"
+        ]
+      }
+    }
+  },
+  "docs/designs/tim-02-player-midi-rt-offline.md": {
+    "defers": {
+      "MidiNote への channel 追加（synvelis-project 側 model 変更・別 slice）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/126"
+        ]
+      },
+      "Panic-and-continue（transport 継続しつつ発音のみ停止）— upstream に専用 command がなく、Stopped 経由の Stop のみが release-without-retrigger を表現できる": {
+        "action": "remove"
+      },
+      "Seek 時の controller state chase — upstream `chase_span_events` の deferred contract": {
+        "action": "remove"
+      },
+      "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/253"
+        ]
+      }
+    }
+  },
+  "docs/designs/tim-02-smf-format01-core.md": {
+    "defers": {
+      "SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/129",
+          "https://github.com/scarecrow173/synvelis/issues/130"
+        ]
+      },
+      "synvelis-player の MIDI RT/Offline 結合・Loop/Seek/Stop・RT callback（後続 slice）": {
+        "action": "set",
+        "values": [
+          "docs/specs/tim-02-player-midi-rt-offline.md"
+        ]
+      },
+      "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/253"
+        ]
+      }
+    }
+  },
+  "docs/designs/vcs-01-immutable-snapshot-resolver-design.md": {
+    "defers": {
+      "Plugin opaque state bytes の実 probe（plugin host 未接続）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      },
+      "VCS-02 Semantic Diff ChangeSet（synvelis#93）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/93"
+        ]
+      },
+      "VCS-03 Git Read Provider 実装（synvelis#94）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/94"
+        ]
+      },
+      "実 Git/実 OS/実 plugin host での検証（VCS-06 #97）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      }
+    }
+  },
+  "docs/impl/exp/autx-01-action-catalog.md": {
+    "defers": {
+      "実 ScriptApiModel（synvelis#271）照合・Script Action（synvelis#272）・CLI surface（synvelis#262）・実 GPUI/OS lane（#114/#267）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/271",
+          "https://github.com/scarecrow173/synvelis/issues/272",
+          "https://github.com/scarecrow173/synvelis/issues/262",
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/267"
+        ]
+      }
+    }
+  },
+  "docs/impl/exp/autx-01-f01-has-executor.md": {
+    "defers": {
+      "automation_ui::ActionRow.executable への executor verdict 反映（#266 view 契約は別 Owner の Deferred 判断）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/266"
+        ]
+      },
+      "実 ScriptApiModel（synvelis#271）照合・Script Action（synvelis#272）・CLI surface（synvelis#262）・実 GPUI/OS lane（#114/#267）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/271",
+          "https://github.com/scarecrow173/synvelis/issues/272",
+          "https://github.com/scarecrow173/synvelis/issues/262",
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/267"
+        ]
+      }
+    }
+  },
+  "docs/impl/exp/autx-07-gui-views.md": {
+    "defers": {
+      "assets/themes への status-* token 値追加（範囲外）": {
+        "action": "remove"
+      },
+      "Script Editor 同一 source 照合（synvelis#274）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/274"
+        ]
+      },
+      "synvelis-automation live adapter 接続（#264）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/264"
+        ]
+      },
+      "実 GPUI/実 OS lane（synvelis#114/#267）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/267"
+        ]
+      }
+    }
+  },
+  "docs/impl/exp/autx-07-theme-parity.md": {
+    "defers": {
+      "Script Editor surface 本体・Analyzer 実装（synvelis#274 Owner）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/274"
+        ]
+      },
+      "synvelis-automation live adapter 接続（#264）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/264"
+        ]
+      },
+      "実 GPUI/実 OS lane（synvelis#114/#267）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/267"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/automation-modulation.md": {
+    "defers": {
+      "実 GUI/実 OS/実 Plugin/実機の受入 — #102/#114/#103 の別受入 Gate": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/102",
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/103"
+        ]
+      },
+      "製品 Automation/Modulation/Parameter Control の実装 — PC-C1〜06 #98〜103・CTL-01/02 #121/#122・AUT-01〜04 #131〜134": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/98",
+          "https://github.com/scarecrow173/synvelis/issues/99",
+          "https://github.com/scarecrow173/synvelis/issues/100",
+          "https://github.com/scarecrow173/synvelis/issues/101",
+          "https://github.com/scarecrow173/synvelis/issues/102",
+          "https://github.com/scarecrow173/synvelis/issues/103",
+          "https://github.com/scarecrow173/synvelis/issues/121",
+          "https://github.com/scarecrow173/synvelis/issues/122",
+          "https://github.com/scarecrow173/synvelis/issues/131",
+          "https://github.com/scarecrow173/synvelis/issues/132",
+          "https://github.com/scarecrow173/synvelis/issues/133",
+          "https://github.com/scarecrow173/synvelis/issues/134"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/autx-01-action-catalog.md": {
+    "defers": {
+      "CLI surface 本体（synvelis#262 のリース）— 本スライスは consumer-neutral fixture のみ供給": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/262"
+        ]
+      },
+      "Script Action 登録・script→catalog 投影（synvelis#272）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/272"
+        ]
+      },
+      "実 GPUI render・実 OS・live Gateway adapter 経由の実行（synvelis#114/#267 別 Gate）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/267"
+        ]
+      },
+      "実 ScriptApiModel（synvelis#271）との Capability ID/Version/Schema/Availability 同一性照合": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/271"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/autx-01-f01-has-executor.md": {
+    "defers": {
+      "automation_ui::ActionRow.executable への executor verdict 反映（#266 view 契約は別 Owner — catalog 側の executor field を正すまでが本 slice）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/266"
+        ]
+      },
+      "GUI/実 OS/実機 lane・CLI surface 本体（#262）・実 ScriptApiModel 照合（#271）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/267",
+          "https://github.com/scarecrow173/synvelis/issues/262",
+          "https://github.com/scarecrow173/synvelis/issues/271"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/autx-07-gui-views.md": {
+    "defers": {
+      "assets/themes/*.dtcg.json への status-* token 値の追加（assets は本スライスの編集範囲外 — vocabulary は synvelis-theme::status が正本）": {
+        "action": "remove"
+      },
+      "Script Editor/Diagnostics/Completion との同一 Capability/Schema/Availability/Target source 照合（synvelis#274 Owner）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/274"
+        ]
+      },
+      "synvelis-automation crate 統合後の live adapter 接続（#264 別 Worker リース）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/264"
+        ]
+      },
+      "実 GPUI/実 OS 入力・Pixel・Native Plugin Dock・IME/DPI/2Window/WindowClose/Undo/Save/Reload の実機受入（synvelis#114/#267 別 Gate）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/267"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/autx-07-theme-parity.md": {
+    "defers": {
+      "Script Editor surface 本体の実装変更（synvelis#274 Owner — 本 slice は表示投影の parity 照合のみ）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/274"
+        ]
+      },
+      "synvelis-automation live adapter 接続（SV266-NR-04・#264）・composition mount 配線（SV266-NR-05）・gpui-test scenario（SV266-NR-06）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/264"
+        ]
+      },
+      "実 GPUI/実 OS 入力・Pixel・IME/DPI/2Window/WindowClose の実機受入（synvelis#114/#267 別 Gate — SV266-NR-01 NotRun）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/267"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/pc-c4-observe-engine-wiring.md": {
+    "defers": {
+      "project.new/open 後の engine 再 attach（synvelis#106 の責務）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/106"
+        ]
+      },
+      "実 RT thread / OS timer への run 周期供給（caller/deterministic driver が供給する既存契約のまま）": {
+        "action": "remove"
+      },
+      "実 VST3/AU/CLAP・OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・外部 gate）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/101"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md": {
+    "defers": {
+      "project.new/open 後の engine 再 attach（synvelis#106 の責務）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/106"
+        ]
+      },
+      "synvelis-native bin の共有 helper への呼出側移行（後続 slice）": {
+        "action": "remove"
+      },
+      "実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/253",
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/101"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/pc-c5-04-recording-status.md": {
+    "defers": {
+      "UI-C5-05 external GUI acceptance（synvelis#114 / ruviform#313 / ruviform#314）— NotRun で後続 gate に委譲": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/ruviform/issues/313",
+          "https://github.com/scarecrow173/ruviform/issues/314"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/rcd-01-audio-device-headless-slice-fake-port-streamwriter-fixture-recording-stat.md": {
+    "defers": {
+      "cross-clock multi-device（#119）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/119"
+        ]
+      },
+      "実 Device backend・OS 別ドライバ・実機受入（ruviform#251 待ち、別 Gate）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/251"
+        ]
+      },
+      "録音 command/UI（#114 / SV-GUI-05）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/rcd-01-real-backend-readiness-slice.md": {
+    "defers": {
+      "cpal WASAPI adapter の IAudioClock::GetPosition device frame position 破棄（ruviform#565 起票済み）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/565"
+        ]
+      },
+      "実機 gate 行（実録音受入・Raw capture fidelity 実測・multi-device 実機相関・xrun/removal/長時間・証拠リンク）— Issue #115 後続 slice": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/115"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/rcd-01-real-input-coverage.md": {
+    "defers": {
+      "PCM fidelity deterministic source（OS loopback 等）— deterministic source 不在のため NotRun 維持": {
+        "action": "remove"
+      },
+      "physical USB 抜去・2ch 超 MultiChannel・cross-clock multi-device（#119）・macOS/Linux lane（ruviform#251 Stage M/L）・製品 E2E（#114）— 本 slice 対象外": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/119",
+          "https://github.com/scarecrow173/ruviform/issues/251",
+          "https://github.com/scarecrow173/synvelis/issues/114"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/rcd-04-product-e2e-slice.md": {
+    "defers": {
+      "MIDI comp selection の project 永続化 model（synvelis#126）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/126"
+        ]
+      },
+      "実 RT engine sample 一致・AudioLens native-f64 consumer gate（Ruviform #294）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/294"
+        ]
+      },
+      "実 Window/OS GUI・実 device・実 plugin を要する product E2E（#114 系 GUI slice）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/sv-script-03-workflow-plan.md": {
+    "defers": {
+      "ruviform#559": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/559"
+        ]
+      },
+      "synvelis#262": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/262"
+        ]
+      },
+      "synvelis#265": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/265"
+        ]
+      },
+      "synvelis#267": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/267"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/syn-io-02-head-cas-e2e.md": {
+    "defers": {
+      "macOS/Linux での実 2-process/HEAD.lock 実走 — portable code のため CI 実走見込み、merge 後の対象 SHA の CI 証拠で確認（NotRun）": {
+        "action": "remove"
+      },
+      "電源断・実 durability fault・stale break の process 間実測 — 外部 gate（NotRun）": {
+        "action": "remove"
+      },
+      "非協調 writer への強制排他・kernel file lock 化 — ruviform 境界上の別 Issue 事項": {
+        "action": "remove"
+      }
+    }
+  },
+  "docs/impl/ir/syn-io-02-os-l1-evidence.md": {
+    "defers": {
+      "Ruviform #305/#294/#306・Synvelis #28/#294・AudioLens #143 の統合・受入関係事項": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/305",
+          "https://github.com/scarecrow173/ruviform/issues/294",
+          "https://github.com/scarecrow173/ruviform/issues/306",
+          "https://github.com/scarecrow173/synvelis/issues/28",
+          "https://github.com/scarecrow173/synvelis/issues/294",
+          "https://github.com/scarecrow173/audio-lens/issues/143"
+        ]
+      },
+      "Windows NTFS 実機 Case・物理電断・Network/Cloud FS（Required/Deferred・NotRun）": {
+        "action": "remove"
+      },
+      "対象 SHA c0b000b3 の ci.yml run（NotRun pending — 次回 daily-ci/手動 dispatch）": {
+        "action": "remove"
+      }
+    }
+  },
+  "docs/impl/ir/syn-io-02-windows-real-fs.md": {
+    "defers": {
+      "Import↔Save 結合 Case — sv#86/#91 の責務（範囲外）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/86",
+          "https://github.com/scarecrow173/synvelis/issues/91"
+        ]
+      },
+      "Issue #84 の他残ゲート行（対象 SHA CI run・upstream/consumer gate）— tracker として open 継続": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/84"
+        ]
+      },
+      "macOS/Linux 実機 real-FS — 各 OS 実機環境での同一 lane 実走（Windows/NTFS 観測値を一般化しない）": {
+        "action": "remove"
+      },
+      "真の power-loss（電源断相当）実測 — 非破壊的に自動化不能、process kill は dirty page を保持するため代替不可（NotRun）": {
+        "action": "remove"
+      }
+    }
+  },
+  "docs/impl/ir/tim-04-plugin-state-snapshot.md": {
+    "defers": {
+      "実 VST3/AU/CLAP plugin での state save/restore・実 OS filesystem atomicity・GUI 統合（NotRun/Unsupported — headless mock slice の範囲外）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/128"
+        ]
+      }
+    },
+    "related": {
+      "docs/specs/tim-03-process-boundary.md": {
+        "action": "set",
+        "values": [
+          "docs/specs/tim03-process-boundary.md"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/vcs-01-immutable-snapshot-resolver.md": {
+    "defers": {
+      "VCS-02 Semantic Diff ChangeSet（Issue #93）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/93"
+        ]
+      },
+      "VCS-03 Git Read Provider（Issue #94）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/94"
+        ]
+      },
+      "実 Git remote / 実 OS filesystem atomicity / GUI / 実 plugin host probe（VCS-04/05/06, Issue #97）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/vcs-02-semantic-diff-engine.md": {
+    "defers": {
+      "lineage schema（Issue #7 で将来の Project schema extension へ deferred）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/7"
+        ]
+      },
+      "VCS-03 Git Read Provider（Issue #94）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/94"
+        ]
+      },
+      "VCS-04 History/Visual Diff UI（Issue #95）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/95"
+        ]
+      },
+      "VCS-05 Apply/Restore": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/96"
+        ]
+      },
+      "実 OS filesystem atomicity / 実 Git remote/provider / GUI / 実 plugin host probe（Issue #97）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/vcs-03-git-read-provider.md": {
+    "defers": {
+      "remote LFS fetch（local LFS object store のみ解決）": {
+        "action": "remove"
+      },
+      "VCS-04 History/Visual Diff UI（Issue #95）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/95"
+        ]
+      },
+      "VCS-05 Safe Apply/Restore（Issue #96）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/96"
+        ]
+      },
+      "実 OS permission matrix・real remote fetch・auth/credential 実経路・GC/objects 欠損の実 filesystem 条件・GUI・RT 性能保証（Issue #97）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/vcs-05-safe-apply-selected-change-restore-as-copy-headless.md": {
+    "defers": {
+      "cross-consumer validation（Issue #294）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/294"
+        ]
+      },
+      "VCS-04 History/Visual Diff UI（Issue #95）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/95"
+        ]
+      },
+      "VCS-06 Windows real FS/provider/plugin E2E・fault acceptance（Issue #97）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/vcs-06-evidence-completion.md": {
+    "defers": {
+      "*-REAL-* 行・実 GUI/実 OS/実 provider/consumer/RT — 外部 gate 残存": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      },
+      "docs/*/README.md index 再生成（同上・対象外）": {
+        "action": "remove"
+      },
+      "ledger 行追加（VCS-RESTORE-08・VCS-COMPAT-03/04 — ledger 占有のため Coordinator 後続 slice で統合）": {
+        "action": "remove"
+      }
+    }
+  },
+  "docs/impl/ir/vcs-06-monitoring-matrix-slice.md": {
+    "defers": {
+      "monitoring kind の apply surface 追加（transplant payload・preflight 設計を要する別 slice）": {
+        "action": "set",
+        "values": [
+          "docs/specs/vcs-05-monitoring-apply-surface.md"
+        ]
+      },
+      "実 GUI/実 OS/実 provider/実 plugin host/RT/consumer lane（`*-REAL-*`・COMPAT 行 — 外部 gate）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/vcs-06-real-git-fs-fault.md": {
+    "defers": {
+      "POSIX 側 FS fault 行 — share-mode/readonly 意味論が異なる別 lane（NotRun）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      },
+      "電源断/物理 fault・実 OS crash durability・実 GUI/plugin host/RT/consumer — 外部 gate（NotRun）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      },
+      "認証付き http/ssh remote・実 provider E2E・OS perms matrix — 実ネットワーク/認証情報が必要（NotRun）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      },
+      "本 branch の新規行に対する ci.yml covering run — merge 後の次回 dispatch 待ち": {
+        "action": "remove"
+      }
+    }
+  },
+  "docs/impl/ir/vcs-06-ui-headless-matrix-slice.md": {
+    "defers": {
+      "実 GPUI two-window/IME/keyboard/a11y 証拠（synvelis#114）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114"
+        ]
+      },
+      "実 OS window / native dock（OS matrix lane）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/vcs-06-variant-matrix-slice.md": {
+    "defers": {
+      "restore_as_copy の variant_sets defect 修復（fork_project nested identity 再採番 vs validate 規則見直し — synvelis#458）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/458"
+        ]
+      },
+      "variant diff adapter 本体（ObjectKind variant kind・raw_kind_map・DIFF_POLICY_VERSION・apply surface — synvelis#457）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/457"
+        ]
+      },
+      "実 GUI/実 OS/実 provider/実 plugin host/RT/consumer lane（*-REAL-*・COMPAT 行 — 外部 gate）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      }
+    }
+  },
+  "docs/specs/pc-c3-05-rt-trace-adapter.md": {
+    "defers": {
+      "HeadlessDriver/AttachedNode への adapter 搭載・transport control 配線（後続 integration slice）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/102"
+        ]
+      },
+      "synvelis-workspace ControlSession 接続・UI 表示・2 Inspector 二重起動防止（後続 integration slice）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/102"
+        ]
+      }
+    }
+  },
+  "docs/specs/pc-c3-control-trace-projection.md": {
+    "defers": {
+      "synvelis-workspace ControlSession 接続・single drain owner・2 Inspector 二重起動防止（後続 integration slice）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/102"
+        ]
+      },
+      "TRACE-C3-05 bounded history / no-RT alloc-block / 実計測 RT adapter（synvelis-player 後続 slice）": {
+        "action": "remove"
+      }
+    }
+  },
+  "docs/specs/pc-c4-drain-composition.md": {
+    "defers": {
+      "L1 wire 検証・実 VST3/OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・後続 slice）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/101"
+        ]
+      }
+    },
+    "depends-on": {
+      "docs/specs/pc-c4-07-transport-observe.md": {
+        "action": "set",
+        "values": [
+          "docs/specs/pc-c4-07-transport-mirror-observe.md"
+        ]
+      }
+    },
+    "related": {
+      "docs/specs/pc-c4-plugin-parameter-binding-frame-base-capability-gate.md": {
+        "action": "set",
+        "values": [
+          "docs/specs/pc-c4-plugin-param-binding.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/pc-c4-observe-engine-wiring.md": {
+    "defers": {
+      "project.new/open 後の engine 再 attach（synvelis#106 の責務）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/106"
+        ]
+      },
+      "実 RT thread / OS timer への run 周期供給（caller/deterministic driver が供給する既存契約のまま）": {
+        "action": "remove"
+      },
+      "実 VST3/AU/CLAP・OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・外部 gate）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/101"
+        ]
+      }
+    },
+    "related": {
+      "docs/specs/pc-c4-plugin-parameter-binding-frame-base-capability-gate.md": {
+        "action": "set",
+        "values": [
+          "docs/specs/pc-c4-plugin-param-binding.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/pc-c4-webview-composition.md": {
+    "defers": {
+      "project.new/open 後の engine 再 attach（synvelis#106 の責務）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/106"
+        ]
+      },
+      "synvelis-native bin の共有 helper への呼出側移行（native 経路の回帰リスクを避けるため本 slice 対象外）": {
+        "action": "remove"
+      },
+      "実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件・後続 slice）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/253",
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/101"
+        ]
+      }
+    }
+  },
+  "docs/specs/sf-03-map-semantic-runtime-contract.md": {
+    "defers": {
+      "SF-ACT-05〜09 の実機部分（RT latency/underrun・実 device epoch restart・実 OS/実デバイス/VST3 検証）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/103"
+        ]
+      },
+      "SF-ACT-06 残件（automation→TimedParamEvent lowering 配線・Fast Control active-generation gate・GUI）": {
+        "action": "set",
+        "values": [
+          "docs/specs/sf-03-slice6-act06-control-surface.md"
+        ]
+      },
+      "SF-ACT-07 Partial Preview vs Export fail-closed の mode 別 policy 分岐": {
+        "action": "remove"
+      },
+      "SF-ACT-08 Ruviform RT/render/AudioLens 側の受入証拠": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/294"
+        ]
+      },
+      "SF-ACT-09 device config-only change の compile 判定・性能 baseline": {
+        "action": "remove"
+      }
+    }
+  },
+  "docs/specs/tim-02-player-midi-rt-offline.md": {
+    "defers": {
+      "AudioLens Native f64 非回帰（#294 別 Gate）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/294"
+        ]
+      },
+      "MidiNote への channel 追加（synvelis-project 側 model 変更・別 slice）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/126"
+        ]
+      },
+      "SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/129",
+          "https://github.com/scarecrow173/synvelis/issues/130"
+        ]
+      },
+      "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/253"
+        ]
+      }
+    }
+  },
+  "docs/specs/tim-02-ppqn-smf-cross-golden.md": {
+    "defers": {
+      "AudioLens Native f64 非回帰（#294 別 Gate）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/294"
+        ]
+      },
+      "SMPTE Division・MIDI 2.0/MPE・Format 2（#129/#130 future・明示 Unsupported）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/129",
+          "https://github.com/scarecrow173/synvelis/issues/130"
+        ]
+      },
+      "synvelis-player の MIDI RT/Offline 結合・実機 MIDI timing（別 slice・NotRun）": {
+        "action": "set",
+        "values": [
+          "docs/specs/tim-02-player-midi-rt-offline.md"
+        ]
+      },
+      "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/253"
+        ]
+      }
+    }
+  },
+  "docs/specs/tim-02-smf-format01-import-export.md": {
+    "defers": {
+      "AudioLens Native f64 非回帰（#294 別 Gate）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/294"
+        ]
+      },
+      "SMPTE Division・MIDI 2.0/MPE（#129/#130 future・明示 Unsupported）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/129",
+          "https://github.com/scarecrow173/synvelis/issues/130"
+        ]
+      },
+      "synvelis-player の MIDI RT/Offline 結合・Loop/Seek/Stop・RT callback（後続 slice）": {
+        "action": "set",
+        "values": [
+          "docs/specs/tim-02-player-midi-rt-offline.md"
+        ]
+      },
+      "実 MIDI Backend OS 別・実 Device/Plugin 検証（Ruviform #253 の責務）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/issues/253"
+        ]
+      }
+    }
+  },
+  "docs/specs/vcs-01-immutable-snapshot-resolver.md": {
+    "defers": {
+      "Plugin opaque state bytes の実検証 probe（plugin host 未接続のため本 slice では Unknown 固定）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      },
+      "VCS-02 Semantic Diff ChangeSet・Change Index・Comparison policy（synvelis#93）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/93"
+        ]
+      },
+      "VCS-03 Git Read Provider の実装（synvelis#94 — 本 spec は VCS Bytes Port 境界のみ定義）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/94"
+        ]
+      },
+      "実 Git remote / 実 OS filesystem / 実 plugin host での検証（VCS-06 #97・OS 別 NotRun/Unsupported 記録）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      }
+    }
+  },
+  "docs/test-specs/automation-modulation.md": {
+    "defers": {
+      "実 Window/OS GUI・実 device・実 plugin を要する product E2E（#102/#114/#103 の別受入 Gate）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/102",
+          "https://github.com/scarecrow173/synvelis/issues/114",
+          "https://github.com/scarecrow173/synvelis/issues/103"
+        ]
+      }
+    }
+  },
+  "docs/test-specs/vcs-01-snapshot-resolver-fixtures.md": {
+    "defers": {
+      "実 Git/実 OS/実 plugin host での検証（VCS-06 #97）": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      }
+    }
+  },
+  "docs/designs/issue-515-os-credential.md": {
+    "depends-on": {
+      "docs/impl/ir/sv261-headless-session-host.md": {
+        "action": "set",
+        "values": [
+          "docs/impl/ir/autx-02-cli-adapter.md"
+        ]
+      }
+    }
+  },
+  "docs/designs/rcd-01-input-adapter-binding-arm-monitor-fake-port.md": {
+    "depends-on": {
+      "docs/specs/vs-b-deterministic-mock-capture-engine.md": {
+        "action": "set",
+        "values": [
+          "docs/specs/vs-b-rt-capture-mock-input-buffer-pool-spsc.md"
+        ]
+      },
+      "docs/specs/vs-d-multi-track-recording-session.md": {
+        "action": "set",
+        "values": [
+          "docs/specs/vs-d-recording-commit-e2e-idempotency-undo-reload.md"
+        ]
+      }
+    },
+    "related": {
+      "docs/designs/vs-b-capture-engine-design.md": {
+        "action": "set",
+        "values": [
+          "docs/designs/vs-b-clock-gate-rt-capture-mock-spsc.md"
+        ]
+      }
+    },
+    "source": {
+      "ruviform crates/ruviform-audio-core/src/device.rs @ 0f5b573": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/blob/0f5b57372e9a43f84415f7964b2f9636774174f0/crates/ruviform-audio-core/src/device.rs"
+        ]
+      }
+    }
+  },
+  "docs/discovery/issue-515-os-credential.md": {
+    "depends-on": {
+      "docs/impl/ir/sv261-headless-session-host.md": {
+        "action": "set",
+        "values": [
+          "docs/impl/ir/autx-02-cli-adapter.md"
+        ]
+      }
+    },
+    "related": {
+      "docs/impl/ir/sv261-headless-session-host.md": {
+        "action": "set",
+        "values": [
+          "docs/impl/ir/autx-02-cli-adapter.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/issue-274-cli-script-analyze.md": {
+    "depends-on": {
+      "docs/specs/autx-03-headless-cli.md": {
+        "action": "set",
+        "values": [
+          "docs/impl/ir/autx-03-headless-cli.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/issue-515-os-credential.md": {
+    "depends-on": {
+      "docs/impl/ir/sv261-headless-session-host.md": {
+        "action": "set",
+        "values": [
+          "docs/impl/ir/autx-02-cli-adapter.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/rcd-03-monitoring-punch-latency.md": {
+    "depends-on": {
+      "docs/specs/vs-b-deterministic-mock-capture-engine.md": {
+        "action": "set",
+        "values": [
+          "docs/specs/vs-b-rt-capture-mock-input-buffer-pool-spsc.md"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/issue-511-cb07-materialization.md": {
+    "references": {
+      "evidence/sv511/": {
+        "action": "set",
+        "values": [
+          "evidence/sv511/verification.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/issue-511-cb07-materialization.md": {
+    "references": {
+      "evidence/sv511/": {
+        "action": "set",
+        "values": [
+          "evidence/sv511/verification.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/issue-517-render-branch-wiring.md": {
+    "references": {
+      "evidence/sv517/": {
+        "action": "set",
+        "values": [
+          "evidence/sv517/verification.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/issue-518-job-system.md": {
+    "references": {
+      "evidence/sv518/": {
+        "action": "set",
+        "values": [
+          "evidence/sv518/verification.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/pc-c4-06-control-op-surface.md": {
+    "references": {
+      "docs/specs/pc-c4-03-param-observation-slice.md": {
+        "action": "set",
+        "values": [
+          "docs/specs/pc-c4-03-param-observation.md"
+        ]
+      }
+    },
+    "related": {
+      "docs/specs/pc-c4-03-param-observation-slice.md": {
+        "action": "set",
+        "values": [
+          "docs/specs/pc-c4-03-param-observation.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/sf-04-slice2-controlsession-probe-trace.md": {
+    "references": {
+      "docs/designs/sf-03-slice5-session-engine-connect.md": {
+        "action": "set",
+        "values": [
+          "docs/designs/sf-03-slice5-session-engine-connect-design.md"
+        ]
+      }
+    }
+  },
+  "docs/tasks/issue-511-cb07-materialization.md": {
+    "references": {
+      "evidence/sv511/": {
+        "action": "set",
+        "values": [
+          "evidence/sv511/verification.md"
+        ]
+      }
+    }
+  },
+  "docs/test-specs/issue-511-cb07-materialization.md": {
+    "references": {
+      "evidence/sv511/": {
+        "action": "set",
+        "values": [
+          "evidence/sv511/verification.md"
+        ]
+      }
+    }
+  },
+  "docs/test-specs/issue-518-job-system.md": {
+    "references": {
+      "evidence/sv518/": {
+        "action": "set",
+        "values": [
+          "evidence/sv518/verification.md"
+        ]
+      }
+    }
+  },
+  "docs/adr/pc-c3-control-trace-stage-evidence-freshness.md": {
+    "related": {
+      "docs/adr/pc-c1-recording-transaction-prepare-apply-finalize.md": {
+        "action": "set",
+        "values": [
+          "docs/adr/pc-c1-commit-session-cas-orchestration-prepared-commit.md"
+        ]
+      }
+    }
+  },
+  "docs/designs/issue-262-run-file-real-vm.md": {
+    "related": {
+      "docs/designs/autx-03-headless-cli.md": {
+        "action": "set",
+        "values": [
+          "docs/impl/ir/autx-03-headless-cli.md"
+        ]
+      }
+    }
+  },
+  "docs/designs/issue-274-cli-script-analyze.md": {
+    "related": {
+      "docs/designs/autx-03-headless-cli.md": {
+        "action": "set",
+        "values": [
+          "docs/impl/ir/autx-03-headless-cli.md"
+        ]
+      }
+    }
+  },
+  "docs/discovery/autx-08-live-adapter-leg.md": {
+    "related": {
+      "evidence/sv267/": {
+        "action": "set",
+        "values": [
+          "evidence/sv267/live-adapter-leg.md"
+        ]
+      }
+    }
+  },
+  "docs/discovery/sv114-gui-option-b-recorder-wire.md": {
+    "related": {
+      "evidence/sv114/": {
+        "action": "set",
+        "values": [
+          "evidence/sv114/recorder-wire-option-b-headless.md"
+        ]
+      }
+    }
+  },
+  "docs/discovery/sv488-lint-app-native.md": {
+    "related": {
+      "evidence/sv488/": {
+        "action": "set",
+        "values": [
+          "evidence/sv488/lint-app-native-verification.md"
+        ]
+      }
+    }
+  },
+  "docs/impl/exp/autx-08-live-adapter-leg.md": {
+    "related": {
+      "evidence/sv267/": {
+        "action": "set",
+        "values": [
+          "evidence/sv267/live-adapter-leg.md"
+        ]
+      }
+    }
+  },
+  "docs/impl/exp/sv114-gui-option-b-recorder-wire.md": {
+    "related": {
+      "evidence/sv114/": {
+        "action": "set",
+        "values": [
+          "evidence/sv114/recorder-wire-option-b-headless.md"
+        ]
+      }
+    }
+  },
+  "docs/impl/exp/sv488-lint-app-native.md": {
+    "related": {
+      "evidence/sv488/": {
+        "action": "set",
+        "values": [
+          "evidence/sv488/lint-app-native-verification.md"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/alib-05-browser-import-ux.md": {
+    "related": {
+      "evidence/sv89/": {
+        "action": "set",
+        "values": [
+          "evidence/sv89/acceptance-ledger.md"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/autx-08-live-adapter-leg.md": {
+    "related": {
+      "evidence/sv267/": {
+        "action": "set",
+        "values": [
+          "evidence/sv267/live-adapter-leg.md"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/sv114-gui-option-b-recorder-wire.md": {
+    "related": {
+      "evidence/sv114/": {
+        "action": "set",
+        "values": [
+          "evidence/sv114/recorder-wire-option-b-headless.md"
+        ]
+      }
+    }
+  },
+  "docs/impl/ir/sv488-lint-app-native.md": {
+    "related": {
+      "evidence/sv488/": {
+        "action": "set",
+        "values": [
+          "evidence/sv488/lint-app-native-verification.md"
+        ]
+      }
+    }
+  },
+  "docs/plans/signal-flow-design-plan.md": {
+    "related": {
+      "docs/plans/issue-365-impl-index-generation.md": {
+        "action": "set",
+        "values": [
+          "docs/plans/issue-365-impl-index-generation-plan.md"
+        ]
+      }
+    }
+  },
+  "docs/plans/sv114-gui-option-b-recorder-wire.md": {
+    "related": {
+      "evidence/sv114/": {
+        "action": "set",
+        "values": [
+          "evidence/sv114/recorder-wire-option-b-headless.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/autx-08-live-adapter-leg.md": {
+    "related": {
+      "evidence/sv267/": {
+        "action": "set",
+        "values": [
+          "evidence/sv267/live-adapter-leg.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/issue-262-run-file-real-vm.md": {
+    "related": {
+      "docs/specs/autx-03-headless-cli.md": {
+        "action": "set",
+        "values": [
+          "docs/impl/ir/autx-03-headless-cli.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/rcd-01-recording-input-adapter-channel-binding-arm-monitor-fake-port-fail-stop-s.md": {
+    "related": {
+      "docs/specs/vs-b-deterministic-mock-capture-engine.md": {
+        "action": "set",
+        "values": [
+          "docs/specs/vs-b-rt-capture-mock-input-buffer-pool-spsc.md"
+        ]
+      },
+      "docs/specs/vs-c-staging-writer-journal-recovery.md": {
+        "action": "set",
+        "values": [
+          "docs/specs/vs-c-staging-writer-journal-crash-recovery-verified-media-range.md"
+        ]
+      },
+      "docs/specs/vs-d-multi-track-recording-session.md": {
+        "action": "set",
+        "values": [
+          "docs/specs/vs-d-recording-commit-e2e-idempotency-undo-reload.md"
+        ]
+      }
+    },
+    "source": {
+      "ruviform crates/ruviform-audio-core/src/device.rs @ 0f5b573": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/ruviform/blob/0f5b57372e9a43f84415f7964b2f9636774174f0/crates/ruviform-audio-core/src/device.rs"
+        ]
+      }
+    }
+  },
+  "docs/specs/sv114-gui-option-b-recorder-wire.md": {
+    "related": {
+      "evidence/sv114/": {
+        "action": "set",
+        "values": [
+          "evidence/sv114/recorder-wire-option-b-headless.md"
+        ]
+      }
+    }
+  },
+  "docs/tasks/sv114-gui-option-b-recorder-wire.md": {
+    "related": {
+      "evidence/sv114/": {
+        "action": "set",
+        "values": [
+          "evidence/sv114/recorder-wire-option-b-headless.md"
+        ]
+      }
+    }
+  },
+  "docs/tasks/sv293-semantic-selection-integration.md": {
+    "related": {
+      "docs/tasks/rcp-04-missing-plugin-resolver.md": {
+        "action": "set",
+        "values": [
+          "docs/impl/ir/rcp-04-missing-plugin-resolver.md"
+        ]
+      }
+    }
+  },
+  "docs/test-specs/autx-08-live-adapter-leg.md": {
+    "related": {
+      "evidence/sv267/": {
+        "action": "set",
+        "values": [
+          "evidence/sv267/live-adapter-leg.md"
+        ]
+      }
+    }
+  },
+  "docs/test-specs/rcd-03-monitor-engine.md": {
+    "related": {
+      "docs/test-specs/rcd-03-monitor-gate.md": {
+        "action": "set",
+        "values": [
+          "docs/test-specs/rcd-03-monitor-punch-latency.md"
+        ]
+      },
+      "docs/test-specs/rcd-03-monitoring-punch-latency.md": {
+        "action": "set",
+        "values": [
+          "docs/test-specs/rcd-03-monitor-punch-latency.md"
+        ]
+      }
+    }
+  },
+  "docs/test-specs/rcd-03-monitor-punch.md": {
+    "related": {
+      "docs/test-specs/rcd-03-monitor-gate.md": {
+        "action": "set",
+        "values": [
+          "docs/test-specs/rcd-03-monitor-punch-latency.md"
+        ]
+      }
+    }
+  },
+  "docs/test-specs/signal-flow-design.md": {
+    "related": {
+      "docs/test-specs/sf-05-signal-flow-headless-hierarchy.md": {
+        "action": "set",
+        "values": [
+          "docs/test-specs/sf-05-slice1-signal-flow-headless.md"
+        ]
+      },
+      "docs/test-specs/sf-06-cross-gate-oracle-case-ledger.md": {
+        "action": "set",
+        "values": [
+          "docs/test-specs/sf-06-cross-gate-oracle.md"
+        ]
+      }
+    }
+  },
+  "docs/test-specs/sv114-gui-option-b-recorder-wire.md": {
+    "related": {
+      "evidence/sv114/": {
+        "action": "set",
+        "values": [
+          "evidence/sv114/recorder-wire-option-b-headless.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/vcs-02-semantic-diff-changeset.md": {
+    "source": {
+      "ISSUE-7": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/7"
+        ]
+      },
+      "ISSUE-92": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/92"
+        ]
+      },
+      "ISSUE-93": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/93"
+        ]
+      }
+    }
+  },
+  "docs/specs/vcs-03-git-read-provider.md": {
+    "source": {
+      "ISSUE-7": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/7"
+        ]
+      },
+      "ISSUE-88": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/88"
+        ]
+      },
+      "ISSUE-92": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/92"
+        ]
+      },
+      "ISSUE-93": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/93"
+        ]
+      },
+      "ISSUE-94": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/94"
+        ]
+      }
+    }
+  },
+  "docs/specs/vcs-04-backend-wiring.md": {
+    "source": {
+      "ISSUE-7": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/7"
+        ]
+      },
+      "ISSUE-92": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/92"
+        ]
+      },
+      "ISSUE-94": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/94"
+        ]
+      },
+      "ISSUE-95": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/95"
+        ]
+      }
+    }
+  },
+  "docs/specs/vcs-04-history-visual-diff-ui.md": {
+    "source": {
+      "ISSUE-114": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114"
+        ]
+      },
+      "ISSUE-7": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/7"
+        ]
+      },
+      "ISSUE-92": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/92"
+        ]
+      },
+      "ISSUE-93": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/93"
+        ]
+      },
+      "ISSUE-94": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/94"
+        ]
+      },
+      "ISSUE-95": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/95"
+        ]
+      },
+      "ISSUE-97": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/97"
+        ]
+      }
+    }
+  },
+  "docs/specs/vcs-04-native-mount.md": {
+    "source": {
+      "ISSUE-114": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/114"
+        ]
+      },
+      "ISSUE-7": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/7"
+        ]
+      },
+      "ISSUE-95": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/95"
+        ]
+      }
+    }
+  },
+  "docs/specs/vcs-05-apply-restore-headless.md": {
+    "source": {
+      "ISSUE-7": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/7"
+        ]
+      },
+      "ISSUE-92": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/92"
+        ]
+      },
+      "ISSUE-93": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/93"
+        ]
+      },
+      "ISSUE-94": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/94"
+        ]
+      },
+      "ISSUE-96": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/96"
+        ]
+      }
+    }
+  },
+  "docs/specs/vcs-05-monitoring-apply-surface.md": {
+    "source": {
+      "ISSUE-96": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/96"
+        ]
+      },
+      "SPEC-vcs06-monitoring-matrix": {
+        "action": "set",
+        "values": [
+          "docs/specs/vcs-06-monitoring-matrix.md"
+        ]
+      }
+    }
+  },
+  "docs/specs/vcs-05-plugin-instance-apply.md": {
+    "source": {
+      "ISSUE-96": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/96"
+        ]
+      }
+    }
+  },
+  "docs/specs/vcs-06-fixture-fault-matrix.md": {
+    "source": {
+      "SPEC-vcs01-immutable-snapshot-resolver": {
+        "action": "set",
+        "values": [
+          "docs/specs/vcs-01-immutable-snapshot-resolver.md"
+        ]
+      },
+      "SPEC-vcs02-semantic-diff-changeset": {
+        "action": "set",
+        "values": [
+          "docs/specs/vcs-02-semantic-diff-changeset.md"
+        ]
+      },
+      "SPEC-vcs03-git-read-provider": {
+        "action": "set",
+        "values": [
+          "docs/specs/vcs-03-git-read-provider.md"
+        ]
+      }
+    }
+  },
+  "docs/tasks/vcs-05-monitoring-apply-surface-task.md": {
+    "source": {
+      "ISSUE-96": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/96"
+        ]
+      }
+    }
+  },
+  "docs/tasks/vcs-05-plugin-instance-apply-task.md": {
+    "source": {
+      "ISSUE-96": {
+        "action": "set",
+        "values": [
+          "https://github.com/scarecrow173/synvelis/issues/96"
+        ]
+      }
+    }
+  }
+}

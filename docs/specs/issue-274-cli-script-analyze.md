@@ -21,7 +21,7 @@ relations:
   depends-on:
     - "docs/impl/ir/sv-script-04-script-editor.md"
     - "docs/impl/ir/issue-262-run-file-real-vm.md"
-    - "docs/specs/autx-03-headless-cli.md"
+    - "docs/impl/ir/autx-03-headless-cli.md"
   blocks: []
   supersedes: []
   superseded-by: []

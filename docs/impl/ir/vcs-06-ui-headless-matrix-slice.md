@@ -67,8 +67,7 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "実 GPUI two-window/IME/keyboard/a11y 証拠（synvelis#114）"
-    - "実 OS window / native dock（OS matrix lane）"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
   deferred-by: []
 metadata:
   experiments:

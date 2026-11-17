@@ -81,9 +81,9 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "VCS-02 Semantic Diff ChangeSet（Issue #93）"
-    - "VCS-03 Git Read Provider（Issue #94）"
-    - "実 Git remote / 実 OS filesystem atomicity / GUI / 実 plugin host probe（VCS-04/05/06, Issue #97）"
+    - "https://github.com/scarecrow173/synvelis/issues/93"
+    - "https://github.com/scarecrow173/synvelis/issues/94"
+    - "https://github.com/scarecrow173/synvelis/issues/97"
   deferred-by: []
 metadata:
   experiments:

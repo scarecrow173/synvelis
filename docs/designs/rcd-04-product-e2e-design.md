@@ -37,9 +37,9 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "実 Window/OS GUI・実 device・実 plugin を要する product E2E（#114 系 GUI slice）"
-    - "実 RT engine sample 一致・AudioLens native-f64 consumer gate（Ruviform #294）"
-    - "MIDI comp selection の project 永続化 model（synvelis#126 event model 確定後）"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/ruviform/issues/294"
+    - "https://github.com/scarecrow173/synvelis/issues/126"
   deferred-by: []
 ---
 

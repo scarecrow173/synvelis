@@ -23,8 +23,7 @@ relations:
   supersedes: []
   superseded-by: []
   related:
-    - "docs/test-specs/rcd-03-monitoring-punch-latency.md"
-    - "docs/test-specs/rcd-03-monitor-gate.md"
+    - "docs/test-specs/rcd-03-monitor-punch-latency.md"
   refines: []
   refined-by: []
   derives-from:

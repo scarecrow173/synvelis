@@ -84,9 +84,9 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "VCS-06 Windows real FS/provider/plugin E2E・fault acceptance（Issue #97）"
-    - "cross-consumer validation（Issue #294）"
-    - "VCS-04 History/Visual Diff UI（Issue #95）"
+    - "https://github.com/scarecrow173/synvelis/issues/97"
+    - "https://github.com/scarecrow173/synvelis/issues/294"
+    - "https://github.com/scarecrow173/synvelis/issues/95"
   deferred-by: []
 metadata:
   experiments:

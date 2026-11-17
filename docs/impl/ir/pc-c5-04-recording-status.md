@@ -57,7 +57,9 @@ relations:
   verified-by: []
   references: []
   defers:
-    - "UI-C5-05 external GUI acceptance（synvelis#114 / ruviform#313 / ruviform#314）— NotRun で後続 gate に委譲"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/ruviform/issues/313"
+    - "https://github.com/scarecrow173/ruviform/issues/314"
   deferred-by: []
 metadata:
   experiments:

@@ -66,9 +66,10 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/114"
     - "https://github.com/scarecrow173/synvelis/issues/267"
   defers:
-    - "実 GPUI/実 OS 入力・Pixel・IME/DPI/2Window/WindowClose の実機受入（synvelis#114/#267 別 Gate — SV266-NR-01 NotRun）"
-    - "synvelis-automation live adapter 接続（SV266-NR-04・#264）・composition mount 配線（SV266-NR-05）・gpui-test scenario（SV266-NR-06）"
-    - "Script Editor surface 本体の実装変更（synvelis#274 Owner — 本 slice は表示投影の parity 照合のみ）"
+    - "https://github.com/scarecrow173/synvelis/issues/114"
+    - "https://github.com/scarecrow173/synvelis/issues/267"
+    - "https://github.com/scarecrow173/synvelis/issues/264"
+    - "https://github.com/scarecrow173/synvelis/issues/274"
   deferred-by: []
 metadata:
   experiments:

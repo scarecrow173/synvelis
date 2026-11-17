@@ -28,7 +28,7 @@ relations:
   supersedes: []
   superseded-by: []
   related:
-    - "docs/specs/pc-c4-plugin-parameter-binding-frame-base-capability-gate.md"
+    - "docs/specs/pc-c4-plugin-param-binding.md"
   refines:
     - "docs/specs/pc-c4-07-transport-mirror-observe.md"
   refined-by: []
@@ -40,9 +40,8 @@ relations:
     - "docs/designs/pc-c4-07-transport-mirror-observe-design.md"
     - "docs/test-specs/pc-c4-07-transport-mirror-observe.md"
   defers:
-    - "実 VST3/AU/CLAP・OS backend・実 GUI・AudioLens/Ruviform consumer 照合（synvelis#101 残件・外部 gate）"
-    - "project.new/open 後の engine 再 attach（synvelis#106 の責務）"
-    - "実 RT thread / OS timer への run 周期供給（caller/deterministic driver が供給する既存契約のまま）"
+    - "https://github.com/scarecrow173/synvelis/issues/101"
+    - "https://github.com/scarecrow173/synvelis/issues/106"
   deferred-by: []
 ---
 

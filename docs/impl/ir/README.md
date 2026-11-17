@@ -108,6 +108,7 @@ Directory: `docs/impl/ir`
 | IMPL-sv517kL3mN4oP5qR6sT7uV8 | issue-517-render-branch-wiring | completed | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
 | IMPL-521a1b2c3d4e5f6g7h8i9j0k3 | issue-521-lfs-transport — Git LFS remote fetch HTTPS/TLS transport 実装記録 | completed | [issue-521-lfs-transport.md](./issue-521-lfs-transport.md) |
 | IMPL-IAG5was6XCP1GXzwMhcv | Issue #530 impl record — stateless PluginStateDecl 契約 slice | completed | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
+| IMPL-539aArrngmntAdptr08 | Issue #539 impl record — ArrangementAdapter 登録 slice | completed | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
 | IMPL-qGhrNdq0yLEfcWCITQ0m0p | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 実装記録 | completed | [issue-86-verified-import-wiring-slice.md](./issue-86-verified-import-wiring-slice.md) |
 | IMPL-L1LocalWavVerifiedPlayback | E2E-L1 Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | completed | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | IMPL-L2MasterSequentialOfflineWavExport | E2E-L2 Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | completed | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |

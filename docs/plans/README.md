@@ -51,6 +51,7 @@ Directory: `docs/plans`
 | PLAN-sv518dE5fG7hI9jK0lM6 | Issue #518 plan — production job system 配線 | approved | [issue-518-job-system.md](./issue-518-job-system.md) |
 | PLAN-issue521-lfs-transport | issue-521-lfs-transport — Git LFS remote fetch HTTPS/TLS transport 実装 plan | approved | [issue-521-lfs-transport.md](./issue-521-lfs-transport.md) |
 | PLAN-yBpwmwoB5470oC0kf0tb | Issue #530 plan — stateless PluginStateDecl 契約 slice | approved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
+| PLAN-539aArrngmntAdptr05 | Issue #539 plan — ArrangementAdapter 登録 + pin fixture positive flip slice | approved | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |
