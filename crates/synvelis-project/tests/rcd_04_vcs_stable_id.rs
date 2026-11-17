@@ -662,6 +662,7 @@ fn comp_stable_ids_survive_restore_as_copy() {
         blobs: &blobs,
         plugin_state: None,
         storage: None,
+        branch_content: None,
     };
     let receipt = restore_as_copy(
         &RestoreRequest {

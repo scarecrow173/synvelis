@@ -23,6 +23,7 @@ mod error;
 mod instrument;
 mod midi_clip;
 mod processing_range;
+mod runtime;
 pub(crate) mod scope;
 mod store;
 mod strip;
@@ -55,8 +56,11 @@ pub use midi_clip::{MidiClipAdapter, MidiClipCapabilities};
 pub use processing_range::{
     ProcessingBoundaryDependency, ProcessingRangeAdapter, ProcessingRangeCapabilities,
 };
+pub use runtime::JournaledRuntimePublish;
 pub use scope::scope_digest;
-pub use store::{BranchContentStore, InMemoryBranchContentStore, decode_candidate};
+pub use store::{
+    BranchContentStore, DirectoryBranchContentStore, InMemoryBranchContentStore, decode_candidate,
+};
 pub use strip::{StripBoundaryDependency, StripFieldsAdapter, StripFieldsCapabilities};
 pub use types::{
     AddBranchReceipt, AdoptIntent, AdoptOutcome, AdoptReceipt, AdoptRecord, ArrangementDomainMask,

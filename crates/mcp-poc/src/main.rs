@@ -268,6 +268,7 @@ fn gateway_stack(
     clock: &Arc<SystemClock>,
     source: &Arc<MemorySnapshotSource>,
     oracle: Arc<dyn ResourceOracle>,
+    variant_root: Option<&Path>,
 ) -> Result<GwStack, Box<dyn std::error::Error>> {
     let ctx = Arc::new(ContextProjectionEngine::new(
         source.clone(),
@@ -289,8 +290,12 @@ fn gateway_stack(
     // CB-10: one shared ports value — the prepare engine simulates
     // branch mutations through it, the query engine decodes candidate
     // payloads through its store, and the commit gate executes the
-    // retained intents inside its fence.
-    let variant = Arc::new(synvelis_gateway::variant::VariantPorts::standard());
+    // retained intents inside its fence. The bundle root keeps
+    // candidate payloads and the runtime-publish journal durable
+    // across restarts (synvelis#517).
+    let variant = Arc::new(synvelis_gateway::variant::VariantPorts::standard(
+        variant_root,
+    ));
     let prepare = Arc::new(
         PrepareEngine::new(
             ctx.clone(),
@@ -347,7 +352,8 @@ fn boot(dir: &Path) -> Result<Harness, Box<dyn std::error::Error>> {
     let oracle: Arc<dyn ResourceOracle> = Arc::new(LatestOracle {
         source: source.clone(),
     });
-    let (gw, proposals, variant) = gateway_stack(&policy, &clock, &source, oracle)?;
+    let (gw, proposals, variant) =
+        gateway_stack(&policy, &clock, &source, oracle, Some(&store_dir))?;
     let apply_capability = gw
         .registry()
         .describe(&synvelis_gateway::capability::CapabilityRef {
@@ -369,6 +375,9 @@ fn boot(dir: &Path) -> Result<Harness, Box<dyn std::error::Error>> {
             proposals: proposals.clone(),
             apply_capability,
             variant: Some(variant),
+            render: Some(Arc::new(
+                synvelis_gateway::variant::UnavailableRenderDispatch,
+            )),
         },
         MutexFence::new(),
     )?;

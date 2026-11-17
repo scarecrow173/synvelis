@@ -2,16 +2,17 @@
 //!
 //! Branch content is *referenced*, never embedded in the project
 //! snapshot: [`BranchContentRef::Captured`] pins payload bytes by
-//! SHA-256 digest inside a [`BranchContentStore`]. The project crate
-//! ships only the in-memory implementation — real content-addressed
-//! blob storage is a later slice's concern; the port boundary is what
-//! the model needs now.
+//! SHA-256 digest inside a [`BranchContentStore`]. Two implementations
+//! ship: [`InMemoryBranchContentStore`] for fixtures and
+//! [`DirectoryBranchContentStore`] — the durable, file-backed store
+//! production hosts wire through `VariantPorts` (synvelis#517).
 //!
 //! Orphan payloads are harmless: a failed operation may leave bytes in
 //! the store, but the persisted model only references digests that a
 //! successful CAS committed.
 
 use std::collections::BTreeMap;
+use std::io::Write;
 
 use crate::snapshot::ContentDigest;
 use crate::variant::VariantError;
@@ -117,5 +118,127 @@ impl BranchContentStore for InMemoryBranchContentStore {
 
     fn get(&self, digest: &ContentDigest) -> Result<Option<Vec<u8>>, VariantError> {
         Ok(self.objects.get(digest).cloned())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DirectoryBranchContentStore — durable, content-addressed payload store
+// (synvelis#517)
+// ---------------------------------------------------------------------------
+
+/// File-backed [`BranchContentStore`] — one immutable file per payload
+/// digest under `<root>/<sha256-hex>`.
+///
+/// Durability contract:
+///
+/// - `put` publishes through [`ruviform_io_file::StagedFile`] with
+///   `FileAndDirectorySync` — a payload is either fully visible under
+///   its digest name or absent; a torn write can never be read back as
+///   a different digest's bytes (the name *is* the digest, and
+///   [`decode_candidate`] re-verifies content digests on every read).
+/// - Writes are idempotent: an existing file whose bytes hash to the
+///   same digest is accepted without rewriting (content addressing
+///   makes "same name, different bytes" impossible for honest writers;
+///   a corrupted existing file fails closed instead of being trusted).
+/// - There is no GC: orphaned payloads are harmless by contract (only
+///   digests a successful project CAS references are authoritative),
+///   and deletion is the host's project-lifecycle concern, not the
+///   store's.
+/// - The store root is the host's choice — production hosts place it
+///   inside the project directory so `restore_as_copy` can fork payload
+///   bytes into the restored project's own store (VCS-RESTORE-10).
+#[derive(Clone, Debug)]
+pub struct DirectoryBranchContentStore {
+    root: std::path::PathBuf,
+}
+
+impl DirectoryBranchContentStore {
+    /// Store rooted at `root` (created on first write — reads of an
+    /// absent root honestly report every digest as missing).
+    #[must_use]
+    pub fn new(root: impl Into<std::path::PathBuf>) -> Self {
+        Self { root: root.into() }
+    }
+
+    /// The root directory payloads live under.
+    #[must_use]
+    pub fn root(&self) -> &std::path::Path {
+        &self.root
+    }
+
+    fn path_for(&self, digest: &ContentDigest) -> std::path::PathBuf {
+        self.root.join(crate::plugin_state::digest_hex(digest))
+    }
+
+    fn store_err(detail: impl Into<String>) -> VariantError {
+        VariantError::Store {
+            detail: detail.into(),
+        }
+    }
+}
+
+impl BranchContentStore for DirectoryBranchContentStore {
+    fn put(&mut self, digest: &ContentDigest, bytes: &[u8]) -> Result<(), VariantError> {
+        if ContentDigest::sha256(bytes) != *digest {
+            return Err(Self::store_err(format!(
+                "payload bytes do not match digest {digest}"
+            )));
+        }
+        let path = self.path_for(digest);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| {
+                Self::store_err(format!(
+                    "create content store dir {}: {e}",
+                    parent.display()
+                ))
+            })?;
+        }
+        if path.exists() {
+            // Idempotent re-put: verify the existing bytes still hash
+            // to the digest rather than trusting the name.
+            let existing = std::fs::read(&path)
+                .map_err(|e| Self::store_err(format!("readback {}: {e}", path.display())))?;
+            if ContentDigest::sha256(&existing) != *digest {
+                return Err(Self::store_err(format!(
+                    "existing payload {} fails digest verification",
+                    path.display()
+                )));
+            }
+            return Ok(());
+        }
+        let mut staged = ruviform_io_file::StagedFile::create(&path)
+            .map_err(|e| Self::store_err(format!("stage {}: {e}", path.display())))?;
+        staged
+            .write_all(bytes)
+            .map_err(|e| Self::store_err(format!("write {}: {e}", path.display())))?;
+        if let Err(failure) = staged.seal().publish(ruviform_io_file::PublishOptions::new(
+            ruviform_io_file::PublishMode::CreateNew,
+            ruviform_io_file::Durability::FileAndDirectorySync,
+        )) {
+            // A concurrent writer may have published the same digest
+            // between the existence check and `CreateNew` — verify
+            // rather than reporting a spurious failure.
+            if path.exists() {
+                let existing = std::fs::read(&path)
+                    .map_err(|e| Self::store_err(format!("readback {}: {e}", path.display())))?;
+                if ContentDigest::sha256(&existing) == *digest {
+                    return Ok(());
+                }
+            }
+            return Err(Self::store_err(format!(
+                "publish {}: {failure}",
+                path.display()
+            )));
+        }
+        Ok(())
+    }
+
+    fn get(&self, digest: &ContentDigest) -> Result<Option<Vec<u8>>, VariantError> {
+        let path = self.path_for(digest);
+        match std::fs::read(&path) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(Self::store_err(format!("read {}: {e}", path.display()))),
+        }
     }
 }

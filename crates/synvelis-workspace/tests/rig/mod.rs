@@ -798,6 +798,7 @@ pub(crate) fn compose(jobs: Option<CancelMode>) -> GatewayStack {
             proposals: proposals.clone(),
             apply_capability,
             variant: None,
+            render: None,
         },
         MutexFence::new(),
     )

@@ -143,9 +143,10 @@ pub use render_input::{
 };
 pub use restore::{
     DirSyncEvidence, MissingAssetsPolicy, RestoreAssetReport, RestoreBlobSource,
-    RestoreCopyEffects, RestoreEffects, RestoreError, RestoreGitEffects, RestoreOutcome,
-    RestorePluginReport, RestorePluginStateSource, RestorePorts, RestoreReceipt, RestoreRequest,
-    RestoreSourceEffects, RestoreStorageProbe, StableIdReport, restore_as_copy,
+    RestoreBranchContentReport, RestoreBranchContentSource, RestoreCopyEffects, RestoreEffects,
+    RestoreError, RestoreGitEffects, RestoreOutcome, RestorePluginReport, RestorePluginStateSource,
+    RestorePorts, RestoreReceipt, RestoreRequest, RestoreSourceEffects, RestoreStorageProbe,
+    StableIdReport, restore_as_copy,
 };
 pub use routing::{
     Bus, BusKind, ChannelStrip, ConnectionKind, ExplicitChannelMap, PluginRef, PortBinding,

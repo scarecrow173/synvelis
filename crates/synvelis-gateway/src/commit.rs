@@ -459,6 +459,12 @@ pub struct GateDeps {
     /// prepared branch mutation can never execute without its
     /// declared dependencies inside the fence.
     pub variant: Option<Arc<crate::variant::VariantPorts>>,
+    /// synvelis#517: the host's render backend — `synvelis.render.*`
+    /// intents dispatch through it inside the same fence. `None`
+    /// fails render commits closed; [`crate::variant::UnavailableRenderDispatch`]
+    /// is the honest headless wiring (typed `Unavailable`, never a
+    /// fabricated success).
+    pub render: Option<Arc<dyn crate::variant::RenderDispatch + Send + Sync>>,
 }
 
 /// In-flight / settled bookkeeping the gate keeps keyed by idempotency
@@ -1423,6 +1429,69 @@ impl<F: CommitFence> CommitGate<F> {
                             GatewayError::Denied {
                                 stage: AuthorizationStage::Commit,
                                 reason: Some(reason),
+                            },
+                        );
+                    }
+                }
+            }
+            crate::prepare::PreparedMutation::Render(intent) => {
+                // synvelis#517: the same revision fence the variant arm
+                // applies — a render proposal prepared against a stale
+                // base fails `Conflicted` inside the fence. The dispatch
+                // itself never touches the project: `live` stays the
+                // produced revision and the outcome becomes provenance.
+                let live = controller.live_revision();
+                if live != expected {
+                    return self.finish_noncommit(
+                        req,
+                        proposal,
+                        &CommitOutcome::Conflicted {
+                            expected,
+                            actual: live,
+                        },
+                        if budget_spend { grant.as_ref() } else { None },
+                        GatewayError::RevisionConflict {
+                            expected: expected.0,
+                            actual: live.0,
+                        },
+                    );
+                }
+                let Some(render) = &self.deps.render else {
+                    return self.finish_noncommit(
+                        req,
+                        proposal,
+                        &CommitOutcome::Rejected {
+                            reason: "render dispatch is not wired".to_owned(),
+                        },
+                        if budget_spend { grant.as_ref() } else { None },
+                        GatewayError::Internal {
+                            reason: "render dispatch is not wired".to_owned(),
+                        },
+                    );
+                };
+                let outcome = render.dispatch(intent);
+                match &outcome.state {
+                    crate::variant::RenderDispatchState::Dispatched
+                    | crate::variant::RenderDispatchState::Pending { .. } => {
+                        let json = serde_json::to_string(&outcome).map_err(|e| {
+                            ErrorEnvelope::from(GatewayError::Internal {
+                                reason: format!("render provenance encode failed: {e}"),
+                            })
+                        })?;
+                        (live, Some(json))
+                    }
+                    crate::variant::RenderDispatchState::Unavailable { reason }
+                    | crate::variant::RenderDispatchState::Failed { reason } => {
+                        return self.finish_noncommit(
+                            req,
+                            proposal,
+                            &CommitOutcome::Rejected {
+                                reason: reason.clone(),
+                            },
+                            if budget_spend { grant.as_ref() } else { None },
+                            GatewayError::Denied {
+                                stage: AuthorizationStage::Commit,
+                                reason: Some(reason.clone()),
                             },
                         );
                     }

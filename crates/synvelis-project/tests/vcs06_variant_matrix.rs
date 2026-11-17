@@ -393,6 +393,7 @@ fn restore_as_copy_preserves_variant_sets_verbatim() {
         blobs: &blobs,
         plugin_state: None,
         storage: None,
+        branch_content: None,
     };
     let rev_before = c.live_revision();
 

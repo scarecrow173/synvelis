@@ -303,6 +303,10 @@ pub enum PreparedMutation {
     Project(ProjectOp),
     /// A Creative Branch mutation intent (CB-10).
     Variant(crate::variant::VariantIntent),
+    /// A `synvelis.render.*` command intent (synvelis#517) — dispatched
+    /// through the host's render port at the commit boundary; never a
+    /// `ProjectOp` and never a project CAS.
+    Render(crate::variant::RenderIntent),
 }
 
 /// The retained proposal — what GW-06's commit path consumes.
@@ -323,14 +327,15 @@ pub struct PreparedRecord {
 
 impl PreparedRecord {
     /// The retained `ProjectOp` — `None` when the proposal carries a
-    /// Creative Branch [`PreparedMutation::Variant`] intent (CB-10),
-    /// which the commit gate dispatches through the variant ports
-    /// rather than `ProjectController::apply`.
+    /// Creative Branch [`PreparedMutation::Variant`] intent (CB-10) or
+    /// a [`PreparedMutation::Render`] intent (synvelis#517), which the
+    /// commit gate dispatches through its declared ports rather than
+    /// `ProjectController::apply`.
     #[must_use]
     pub fn project_op(&self) -> Option<&ProjectOp> {
         match &self.mutation {
             PreparedMutation::Project(op) => Some(op),
-            PreparedMutation::Variant(_) => None,
+            PreparedMutation::Variant(_) | PreparedMutation::Render(_) => None,
         }
     }
 }

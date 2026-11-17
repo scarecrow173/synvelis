@@ -284,6 +284,7 @@ fn restore_as_copy_preserves_plugin_instances_verbatim() {
         blobs: &blobs,
         plugin_state: Some(&source),
         storage: None,
+        branch_content: None,
     };
     let receipt = restore_as_copy(
         &request(snap, dest.clone(), "r-pi"),
