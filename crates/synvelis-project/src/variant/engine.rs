@@ -800,7 +800,11 @@ pub fn add_branch(
 /// Fail-closed rules:
 ///
 /// - candidate-side removal of an entity present at fork and still
-///   live → [`VariantError::Unsupported`] (no guessing);
+///   live materializes as a `Removed` write only for kinds with
+///   defined cascade semantics ([`entity::removal_supported_kind`]);
+///   an entity that merely left the scope but still exists in the
+///   candidate (move-out) or a kind without removal semantics →
+///   [`VariantError::Unsupported`] (no guessing);
 /// - owned kinds outside the apply surface →
 ///   [`VariantError::Unsupported`];
 /// - a scoped entity absent from live that is neither branch-minted
@@ -825,20 +829,42 @@ pub(crate) fn plan_adopt_writes(
         .map(|o| o.stable_id.clone())
         .collect();
 
+    let mut writes: Vec<PlannedWrite> = Vec::new();
+
     // Candidate-side removal of an entity that existed at fork and is
-    // still live → unsupported in this slice (fail closed, no guess).
+    // still live-scoped but absent from the candidate scope. The
+    // entity's own presence in the candidate distinguishes a genuine
+    // deletion (absent → `Removed` write, kinds permitting) from a
+    // move-out of the declared range (present → `Unsupported`, the
+    // same verdict the adapter's edit-time removal check gives).
     for origin in &set.origin_objects {
-        if live_scope.contains(origin) && !cand_scope.contains(origin) {
+        if !live_scope.contains(origin) || cand_scope.contains(origin) {
+            continue;
+        }
+        if scope::scope_value(candidate, origin)?.is_some() {
             return Err(VariantError::Unsupported {
                 detail: format!(
-                    "scope entity removal is not supported: {}",
+                    "scope entity moved out of the declared scope: {}",
                     origin.stable_id
                 ),
             });
         }
+        if !entity::removal_supported_kind(origin.kind) {
+            return Err(VariantError::Unsupported {
+                detail: format!(
+                    "scope entity removal is not supported for {:?}: {}",
+                    origin.kind, origin.stable_id
+                ),
+            });
+        }
+        writes.push(PlannedWrite {
+            object: origin.clone(),
+            change_id: ChangeId(format!("adopt-{:04}", writes.len())),
+            change_kind: ChangeKind::Removed,
+            payload: serde_json::Value::Null,
+        });
     }
 
-    let mut writes: Vec<PlannedWrite> = Vec::new();
     for cref in &cand_scope {
         if !entity::adopt_supported_kind(cref.kind) {
             return Err(VariantError::Unsupported {

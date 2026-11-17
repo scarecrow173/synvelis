@@ -24,7 +24,7 @@ use crate::{
     range::MusicalRange,
     tempo::ProjectPpqn,
     time::{MusicalDuration, MusicalTick},
-    variant::VariantScope,
+    variant::{BranchContentRef, VariantScope},
 };
 
 /// Smallest selectable project PPQN.
@@ -304,6 +304,22 @@ pub(crate) fn reproject_ppqn(
 ) -> Result<(), Error> {
     if old_ppqn == new_ppqn {
         return Ok(());
+    }
+    // Stored candidate payloads live in the branch content store
+    // outside this walk: a grid change would leave their musical
+    // values on the old grid and a later adopt/render resolution
+    // would transplant stale ticks. Fail closed while any branch
+    // still holds a `Captured` payload — adopt or discard every
+    // candidate (and resolve frozen adopt history) first. Re-projection
+    // of stored payloads is a separate design (issue-511 docs).
+    if project.variant_sets.values().any(|set| {
+        set.branches
+            .values()
+            .any(|b| matches!(b.content, BranchContentRef::Captured { .. }))
+    }) {
+        return Err(Error::Validation(
+            "cannot change ppqn while variant branches hold captured candidate payloads".into(),
+        ));
     }
     let old = ruviform_ppqn(old_ppqn)?;
     let new = ruviform_ppqn(new_ppqn)?;

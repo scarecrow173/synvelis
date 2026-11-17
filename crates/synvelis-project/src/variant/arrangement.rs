@@ -38,16 +38,16 @@
 //!   that would migrate them past the split point rejects
 //!   `Unsupported` rather than expressing a divergence adopt cannot
 //!   materialize.
-//! - **Adopt deferral, stated plainly**: the shared adopt planner
-//!   (`plan_adopt_writes`) still rejects *any* candidate-side scope
-//!   removal with typed `Unsupported` — that invariant is
-//!   slice-wide, not arrangement-specific, and `engine.rs`/`apply`
-//!   are frozen for this slice. A candidate expressing clip deletion
-//!   is therefore fork/edit/diff/save-reload capable (CB-ARR-01/02)
-//!   but its adopt and render-resolution reject typed until the
-//!   apply surface grows `Removed` materialization. Non-removal
-//!   candidates adopt atomically through the shared CAS path
-//!   (CB-ARR-03).
+//! - **Adopt materialization**: the shared adopt planner
+//!   (`plan_adopt_writes`) materializes candidate-side scope
+//!   removals of `Clip | Note` entities as `Removed` writes within
+//!   the declared scope — one CAS/undo step through the same atomic
+//!   path as non-removal candidates (CB-ARR-03), and render
+//!   resolution follows the same plan. A scope removal whose entity
+//!   still exists in the candidate (a move-out) or whose kind cannot
+//!   be materialized still rejects typed `Unsupported` — the
+//!   removal contract is entity-rooted and fail-closed, not a silent
+//!   re-scope.
 //! - **Absolute anchors are honest exclusions**: clips anchored or
 //!   extented in absolute time have no stable musical span without
 //!   a tempo-map conversion policy, so [`scope_objects`] never owns
@@ -94,11 +94,9 @@ pub struct ArrangementCapabilities {
     /// `ScopeViolation`.
     pub clip_add: ProcessingCapability,
     /// `RemoveClip`/`RemoveClipsInRange` in-range deletion —
-    /// `fields.clips`. The candidate edit surface accepts it; adopt
-    /// materialization of scope removals is deferred slice-wide (the
-    /// shared planner rejects typed `Unsupported` — see module
-    /// docs), so `Supported` here means *expressible*, never
-    /// *adoptable*.
+    /// `fields.clips`. `Supported` means the edit is accepted and
+    /// adopt materializes the removal as a `Removed` write within
+    /// the declared scope (see module docs).
     pub clip_remove: ProcessingCapability,
     /// `SplitClip` — `fields.clips`. Both halves must stay inside
     /// the scope's ownership post-edit or the edit fails typed. A
@@ -122,15 +120,14 @@ pub struct ArrangementCapabilities {
     /// named lane must belong to a scoped track and `range` must be
     /// contained in `time` (containment, not mere overlap — a wider
     /// sweep would delete out-of-scope clips the object-set diff
-    /// cannot see). `Supported` means *expressible*: adopt
-    /// materialization of scope removals is deferred slice-wide (see
-    /// module docs).
+    /// cannot see). `Supported` means the in-scope removals
+    /// materialize on adopt as `Removed` writes (see module docs).
     pub range_clear: ProcessingCapability,
     /// `AddNote` on a scope-owned clip — `fields.notes`.
     pub note_add: ProcessingCapability,
     /// `RemoveNote` on a scope-owned note — `fields.notes`.
-    /// `Supported` means *expressible*: adopt materialization of
-    /// scope removals is deferred slice-wide (see module docs).
+    /// `Supported` means the removal materializes on adopt as a
+    /// `Removed` write (see module docs).
     pub note_remove: ProcessingCapability,
     /// Absolute-anchored or absolute-extent placement — never
     /// scope-owned: no tempo-map conversion policy exists in this
