@@ -28,11 +28,11 @@ use synvelis_project::snapshot::{
 };
 use synvelis_project::store::{InMemoryStore, SCHEMA_VERSION};
 use synvelis_project::variant::{
-    AdoptIntent, AdoptSources, ArrangementAdapter, ArrangementBoundaryReason,
+    AdoptIntent, AdoptOutcome, AdoptSources, ArrangementAdapter, ArrangementBoundaryReason,
     ArrangementDomainMask, BranchEditOp, BranchEditOpIntent, DomainAdapter,
     InMemoryBranchContentStore, NoopRuntimePublish, ProcessingCapability, VariantError,
-    VariantScope, adopt_branch_adapted, decode_candidate, edit_branch_op, fork_variant_set,
-    scope_digest,
+    VariantScope, adopt_branch_adapted, decode_candidate, discard_branch, edit_branch_op,
+    fork_variant_set, scope_digest,
 };
 use synvelis_project::{
     AssetId, BeatPoint, BranchId, CaptureStreamId, ClipExtent, ClipId, ClipPlacement, ClockEpochId,
@@ -1281,14 +1281,21 @@ fn cb_arr_08_mask_gating_clips_only_and_notes_only() {
         );
     }
     // The candidate carries a scope-object removal (the deleted
-    // note) — adopt defers typed like every removal candidate this
-    // slice; live stays untouched.
-    let live_before = h2.controller.live().clone();
-    let err = h2
-        .try_adopt(f2.variant_set, f2.candidate, &notes_scope)
-        .unwrap_err();
-    assert!(matches!(err, VariantError::Unsupported { .. }));
-    assert_eq!(*h2.controller.live(), live_before);
+    // note) plus an addition — adopt materializes both as writes in
+    // one CAS (issue-511 `Removed` materialization); the parent clip
+    // stays untouched under the notes-only mask.
+    let receipt = h2.adopt(f2.variant_set, f2.candidate, &notes_scope);
+    assert_eq!(receipt.outcome, AdoptOutcome::Applied);
+    assert_eq!(receipt.objects, 2, "Removed note + Added note writes");
+    let live = h2.controller.live();
+    assert!(!live.notes.contains_key(&ids2.note_in));
+    assert_eq!(live.notes.len(), 2, "foreign note + the adopted addition");
+    assert!(
+        live.notes
+            .values()
+            .any(|n| n.clip == ids2.clip_b_in && n.key == 65)
+    );
+    assert!(live.clips.contains_key(&ids2.clip_a_in));
 
     // A pure-addition notes-only candidate adopts its note edit in
     // one CAS — additions are not removals (fresh controller: the
@@ -1509,13 +1516,12 @@ fn cb_arr_10_split_clip_scope_membership() {
 }
 
 // ===========================================================================
-// CB-ARR-11: deletion candidates are editable/diffable but adopt +
-// render-resolution defer typed — the shared no-removal invariant is
-// slice-wide, never silently bypassed
+// CB-ARR-11: deletion candidates adopt as `Removed` writes — one CAS/undo,
+// render resolution materializes the same plan, confinement holds
 // ===========================================================================
 
 #[test]
-fn cb_arr_11_delete_candidate_editable_but_adopt_defers_typed() {
+fn cb_arr_11_delete_candidate_adopts_and_renders_materialized() {
     let (c, ids) = arrangement_fixture();
     let mut h = Arrangement::new(c);
     let scope = all_scope(&ids);
@@ -1523,8 +1529,7 @@ fn cb_arr_11_delete_candidate_editable_but_adopt_defers_typed() {
     let (set, cand) = (forked.variant_set, forked.candidate);
 
     // In-range deletion IS an accepted candidate edit (CB-ARR-01
-    // surface): RemoveNote + RemoveClip (whose note cascade then has
-    // nothing left to delete).
+    // surface): RemoveNote + RemoveClip.
     h.edit(set, cand, ProjectOp::RemoveNote { note: ids.note_in });
     h.edit(
         set,
@@ -1538,22 +1543,10 @@ fn cb_arr_11_delete_candidate_editable_but_adopt_defers_typed() {
     assert_eq!(candidate.notes.len(), 1, "only the foreign note remains");
     assert!(candidate.notes.contains_key(&ids.note_foreign));
 
-    // Adopt materialization of scope removals is deferred slice-wide:
-    // the shared planner rejects typed Unsupported before any
-    // mutation — live, revision and branch state all unchanged.
-    let live_before = h.controller.live().clone();
-    let rev_before = h.controller.live_revision();
-    let err = h.try_adopt(set, cand, &scope).unwrap_err();
-    assert!(
-        matches!(err, VariantError::Unsupported { .. }),
-        "removal-candidate adopt must reject typed, got {err:?}"
-    );
-    assert_eq!(*h.controller.live(), live_before);
-    assert_eq!(h.controller.live_revision(), rev_before);
-
-    // Render resolution of the same candidate fails the same typed
-    // gate — a delete candidate is never silently half-materialized.
-    let err = resolve_render_project(
+    // Render resolution materializes the same `Removed`-write plan the
+    // adopt would commit — the composed view loses exactly the
+    // declared deletions, never a half-materialized state.
+    let resolved = resolve_render_project(
         h.controller.live(),
         Some(RenderBranchTarget {
             variant_set: set,
@@ -1561,14 +1554,56 @@ fn cb_arr_11_delete_candidate_editable_but_adopt_defers_typed() {
             store: &h.store,
         }),
     )
-    .unwrap_err();
-    assert!(
-        matches!(
-            err,
-            synvelis_project::render_input::RenderInputError::Unsupported { .. }
-        ),
-        "render resolution must reject typed, got {err:?}"
+    .unwrap();
+    let composed = &resolved.project;
+    assert!(!composed.clips.contains_key(&ids.clip_a_in));
+    assert!(!composed.notes.contains_key(&ids.note_in));
+    assert!(composed.notes.contains_key(&ids.note_foreign));
+    assert!(composed.clips.contains_key(&ids.clip_a_edge));
+    assert!(resolved.branch.is_some());
+
+    // Adopt commits the deletions as `Removed` writes in ONE CAS/undo:
+    // live revision +1, one undo step, adopted pointer swapped.
+    let rev_before = h.controller.live_revision();
+    let receipt = h.adopt(set, cand, &scope);
+    assert_eq!(receipt.outcome, AdoptOutcome::Applied);
+    assert_eq!(
+        receipt.objects, 2,
+        "one Removed write per deleted scope entity"
     );
+    assert!(receipt.project.committed);
+    assert_eq!(receipt.project.undo_steps, 1);
+    let live = h.controller.live();
+    assert!(!live.clips.contains_key(&ids.clip_a_in));
+    assert!(!live.notes.contains_key(&ids.note_in));
+    assert!(live.notes.contains_key(&ids.note_foreign));
+    // Declared-scope confinement: every untouched entity survives.
+    for clip in [
+        ids.clip_a_edge,
+        ids.clip_a_out,
+        ids.clip_a_abs,
+        ids.clip_b_in,
+        ids.clip_foreign,
+    ] {
+        assert!(live.clips.contains_key(&clip), "clip {clip} must survive");
+    }
+    assert!(
+        live.lanes[&ids.lane_a1].clip_ids.contains(&ids.clip_a_edge),
+        "sibling clip keeps its lane membership"
+    );
+    assert!(
+        !live.lanes[&ids.lane_a1].clip_ids.contains(&ids.clip_a_in),
+        "deleted clip leaves the lane membership"
+    );
+    assert_eq!(h.controller.live_revision().0, rev_before.0 + 1);
+    assert_eq!(live.variant_sets[&set].adopted, cand);
+
+    // One undo restores the whole pre-adopt state — no partial commit.
+    assert!(h.controller.undo().unwrap());
+    let live = h.controller.live();
+    assert!(live.clips.contains_key(&ids.clip_a_in));
+    assert!(live.notes.contains_key(&ids.note_in));
+    assert!(live.lanes[&ids.lane_a1].clip_ids.contains(&ids.clip_a_in));
 }
 
 // ===========================================================================
@@ -1833,16 +1868,42 @@ fn cb_arr_13_split_clip_notes_mask_gate() {
 }
 
 #[test]
-fn cb_arr_14_ppqn_reprojects_arrangement_scope_time() {
+fn cb_arr_14_ppqn_rejects_captured_payloads_then_reprojects_scope_time() {
     // `SetProjectPpqn` lifts every persisted musical-tick value —
-    // the arrangement scope's `time` window is one of them. Leaving
-    // it on the old grid would silently retarget the declared
-    // selection while clips convert underneath it.
+    // the arrangement scope's `time` window is one of them. Candidate
+    // payloads live in the branch content store outside the project
+    // walk, so a grid change while any branch holds a `Captured`
+    // payload would leave stale musical values adoptable — the op
+    // fails closed typed instead of transplanting the old grid.
     let (c, ids) = arrangement_fixture();
     let mut h = Arrangement::new(c);
     let forked = h.fork(all_scope(&ids));
-    let set = forked.variant_set;
+    let (set, cand) = (forked.variant_set, forked.candidate);
 
+    let rev = h.controller.live_revision();
+    let err = h
+        .controller
+        .apply(Command {
+            expected_revision: rev,
+            op: ProjectOp::SetProjectPpqn {
+                old_ppqn: 960,
+                new_ppqn: 480,
+                policy: synvelis_project::PpqnConversionPolicy::Exact,
+            },
+        })
+        .unwrap_err();
+    assert!(
+        matches!(err, synvelis_project::Error::Validation(_)),
+        "ppqn change with captured candidate payloads must reject typed, got {err:?}"
+    );
+    // No partial commit: ppqn and the scope declaration stay put.
+    assert_eq!(h.controller.live().ppqn.0, 960);
+    assert_eq!(h.controller.live_revision(), rev);
+
+    // Resolving the candidate leaves only `Live` branch content — the
+    // re-projection then proceeds and lifts the scope window onto the
+    // new grid exactly like every other persisted site.
+    discard_branch(&mut h.controller, set, cand).unwrap();
     apply_op(
         &mut h.controller,
         ProjectOp::SetProjectPpqn {
@@ -1917,4 +1978,61 @@ fn cb_arr_15_adapter_scope_binding_and_boundary_validation() {
         matches!(err, synvelis_project::Error::NotFound(_)),
         "malformed boundary scope must reject NotFound, got {err:?}"
     );
+}
+
+// ===========================================================================
+// CB-ARR-16: sweep deletion adopts as a `Removed` write; a clips-only mask
+// still cascades clip-local notes — referential integrity, not scope
+// ===========================================================================
+
+#[test]
+fn cb_arr_16_sweep_delete_adopts_and_cascades_notes() {
+    let (c, ids) = arrangement_fixture();
+    let mut h = Arrangement::new(c);
+    // clips-only mask on track_a: notes are outside the declared scope
+    // yet cannot survive their parent clip's deletion.
+    let scope = VariantScope::Arrangement {
+        tracks: vec![ids.track_a],
+        time: MusicalRange::try_new(MusicalTick::new(T0), MusicalTick::new(T1)).unwrap(),
+        fields: mask(true, false),
+    };
+    let forked = h.fork(scope.clone());
+    let (set, cand) = (forked.variant_set, forked.candidate);
+
+    // Contained sweep deletes clip_a_in (and only it on lane_a1); the
+    // candidate's note cascade removes note_in even though notes are
+    // not scope-owned under this mask.
+    h.edit(
+        set,
+        cand,
+        ProjectOp::RemoveClipsInRange {
+            lanes: vec![ids.lane_a1],
+            range: MusicalRange::try_new(MusicalTick::new(T0), MusicalTick::new(8 * BEAT)).unwrap(),
+        },
+    );
+    let candidate = h.candidate(set, cand);
+    assert!(!candidate.clips.contains_key(&ids.clip_a_in));
+    assert!(!candidate.notes.contains_key(&ids.note_in));
+    assert!(candidate.clips.contains_key(&ids.clip_a_edge));
+    assert!(candidate.notes.contains_key(&ids.note_foreign));
+
+    let receipt = h.adopt(set, cand, &scope);
+    assert_eq!(
+        receipt.objects, 1,
+        "only the clip is a scope-owned removal under clips-only"
+    );
+    let live = h.controller.live();
+    assert!(!live.clips.contains_key(&ids.clip_a_in));
+    assert!(
+        !live.notes.contains_key(&ids.note_in),
+        "clip-local note cascades with its clip"
+    );
+    assert!(live.notes.contains_key(&ids.note_foreign));
+    assert!(live.clips.contains_key(&ids.clip_a_edge));
+    assert!(live.clips.contains_key(&ids.clip_b_in));
+    assert!(
+        !live.lanes[&ids.lane_a1].clip_ids.contains(&ids.clip_a_in),
+        "deleted clip leaves the lane membership"
+    );
+    assert!(live.lanes[&ids.lane_a1].clip_ids.contains(&ids.clip_a_edge));
 }

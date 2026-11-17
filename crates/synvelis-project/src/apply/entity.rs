@@ -98,6 +98,16 @@ pub(crate) fn adopt_supported_kind(kind: ObjectKind) -> bool {
     supported_kind(kind)
 }
 
+/// `true` for object kinds the adopt path may materialize as
+/// `Removed` writes — the arrangement-removable surface (clip/note
+/// entity deletion with its referential cascade). Every other
+/// scope-owned kind keeps the typed `Unsupported` verdict until its
+/// domain defines cascade semantics; the VCS `apply_selected`
+/// surface still rejects `Removed` for all kinds.
+pub(crate) fn removal_supported_kind(kind: ObjectKind) -> bool {
+    matches!(kind, ObjectKind::Clip | ObjectKind::Note)
+}
+
 /// The canonical JSON view of one object inside `project`.
 /// `Ok(None)` = the object kind is supported but the entity is absent.
 pub(crate) fn entity_value(
@@ -361,9 +371,15 @@ pub(crate) fn write_all(
     let mut max_new_id = 0u128;
     // `VariantBranch` writes run last: a branch lands inside its
     // owning set's `branches` map, so every `VariantSet` write (incl.
-    // `Added` sets) must already be in place.
+    // `Added` sets) must already be in place. `Removed` writes take
+    // the delete arm — they carry no after-entity payload.
     for write in writes {
-        if write.object.kind != ObjectKind::VariantBranch {
+        if write.object.kind == ObjectKind::VariantBranch {
+            continue;
+        }
+        if write.change_kind == ChangeKind::Removed {
+            remove_entity(project, write)?;
+        } else {
             write_entity(project, after, write, &mut max_new_id)?;
         }
     }
@@ -508,6 +524,42 @@ fn write_entity(
             return Err(Error::Validation(format!(
                 "unsupported apply kind {:?}",
                 object.kind
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// `Removed` write materialization — the adopt path's delete arm.
+/// Only kinds in [`removal_supported_kind`] reach here (the planner
+/// gates the rest); each arm mirrors the corresponding live
+/// `ProjectOp::Remove*` semantics so live and candidate converge on
+/// identical referential integrity. Deletion is idempotent: a clip's
+/// note cascade may already have removed a `Note` write's target.
+fn remove_entity(project: &mut Project, write: &PlannedWrite) -> Result<(), Error> {
+    match write.object.kind {
+        ObjectKind::Clip => {
+            let clip_id = ClipId::from_tagged(&write.object.stable_id)
+                .map_err(|e| Error::InvalidId(e.to_string()))?;
+            // `ProjectOp::RemoveClip` parity: the clip leaves every
+            // lane's membership and its clip-local notes cascade —
+            // referential integrity of the declared deletion, not
+            // scope expansion (a `clips`-only mask owns no notes yet
+            // the notes cannot survive their parent).
+            project.clips.remove(&clip_id);
+            for lane in project.lanes.values_mut() {
+                lane.clip_ids.retain(|c| *c != clip_id);
+            }
+            project.notes.retain(|_, note| note.clip != clip_id);
+        }
+        ObjectKind::Note => {
+            let note_id = NoteId::from_tagged(&write.object.stable_id)
+                .map_err(|e| Error::InvalidId(e.to_string()))?;
+            project.notes.remove(&note_id);
+        }
+        kind => {
+            return Err(Error::Validation(format!(
+                "removal is not supported for apply kind {kind:?}"
             )));
         }
     }
