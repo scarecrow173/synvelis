@@ -20,6 +20,17 @@
 //! records adapter-side clip resolution failures in
 //! [`SessionRoutingEngine::last_prepare_error`] without touching the
 //! engine's live plan.
+//!
+//! RCP selection (`synvelis_workspace::rcp_selection`) is
+//! intentionally not consumed on this path (synvelis#514): the
+//! adapter receives only `(&Project, ProjectRevision)` via
+//! [`EnginePort`], has no production supply for `SelectionInputs`
+//! (plugin evidence, environment facts, render candidates), and the
+//! selection-driven engine build is identical to the direct
+//! `prepare`/`publish` driven here. Selection remains a caller-driven
+//! decision layer until its input supply chain and a live
+//! `ExecutionSelection` consumer exist; see
+//! `docs/adr/issue-514-session-engine-selection.md`.
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
