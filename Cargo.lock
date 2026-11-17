@@ -4156,6 +4156,7 @@ dependencies = [
  "sha2 0.10.9",
  "synvelis-gateway",
  "synvelis-project",
+ "synvelis-workspace",
 ]
 
 [[package]]
@@ -7518,6 +7519,7 @@ dependencies = [
  "synvelis-project",
  "synvelis-script",
  "synvelis-script-luau",
+ "synvelis-workspace",
 ]
 
 [[package]]

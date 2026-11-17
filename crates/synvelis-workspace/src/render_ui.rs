@@ -373,6 +373,7 @@ pub fn reason_of_job_failure(reason: JobFailureReason) -> RenderReason {
         JobFailureReason::QuotaExceeded => RenderReason::QuotaExceeded,
         JobFailureReason::UnknownDependency => RenderReason::UnknownDependency,
         JobFailureReason::Unsupported => RenderReason::UnsupportedContract,
+        JobFailureReason::InvalidSelection => RenderReason::SelectionBlocked,
         JobFailureReason::IncompleteArtifacts => RenderReason::IncompleteArtifacts,
     }
 }
