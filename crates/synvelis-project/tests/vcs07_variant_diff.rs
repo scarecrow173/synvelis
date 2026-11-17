@@ -2,8 +2,9 @@
 //! `ObjectKind::VariantSet`/`VariantBranch` under the `Variants`
 //! domain (policy v4). Pins the compare-surface contract that
 //! synvelis#97 measured as a gap: variant-only snapshot differences
-//! are typed changes, never silent `Equal`/`Complete`, and the
-//! apply surface stays fail-closed `Unsupported`.
+//! are typed changes, never silent `Equal`/`Complete`. Since sv#513
+//! the apply surface replays them as typed entity transplants with
+//! the same fail-closed partial-selection guarantees.
 //!
 //! Same headless contract as the other `vcs06_*`/`vcs02_*` fixtures:
 //! real GUI/plugin/consumer lanes remain `NotRun`
@@ -486,7 +487,7 @@ fn variants_domain_exclusion_hides_variant_only_difference() {
     assert_ne!(cs.changes.len(), 0);
 }
 
-// ── (g) apply surface stays fail-closed Unsupported ────────────────
+// ── (g) apply surface replays variant changes (sv#513) ────────────
 
 struct Src {
     resolved: ResolvedChangeSet,
@@ -498,44 +499,68 @@ impl ChangeSetSource for Src {
     }
 }
 
-#[test]
-fn variant_changes_stay_fail_closed_on_apply_surface() {
-    let (mut c, _store, _track, _set, _branch) = variant_project();
-    let mut before_p = c.live().clone();
-    before_p.variant_sets.clear();
-    let before = snap_manual(before_p, "apply-before");
-    let after = snap_live(&c);
-    let cs = compare(&before, &after);
-    let change = cs
-        .changes
-        .iter()
-        .find(|ch| ch.object.kind == ObjectKind::VariantSet)
-        .expect("variant set change missing");
+/// `after` carries a forked+adopted variant set; `before`/`live` is
+/// the same project minus `variant_sets`, so the diff is variant-kind
+/// changes only. Returns the live controller plus the change set.
+fn variant_apply_fixture() -> (
+    ProjectController,
+    ImmutableSnapshot,
+    ImmutableSnapshot,
+    ChangeSet,
+    VariantSetId,
+) {
+    let (c_full, _store, _track, set, _branch) = variant_project();
+    let after = snap_live(&c_full);
 
-    // `target_fingerprint` refuses variant kinds outright — the
-    // apply whitelist never learned them.
-    let objects = vec![change.object.clone()];
-    let err = target_fingerprint(c.live(), &objects).unwrap_err();
+    let mut c = controller();
+    apply_op(&mut c, ProjectOp::AddTrack { name: "vox".into() });
+    let before = snap_live(&c);
+    let cs = compare(&before, &after);
+    (c, before, after, cs, set)
+}
+
+fn variant_changes(cs: &ChangeSet) -> Vec<&SemanticChange> {
+    cs.changes
+        .iter()
+        .filter(|ch| {
+            matches!(
+                ch.object.kind,
+                ObjectKind::VariantSet | ObjectKind::VariantBranch
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn variant_changes_replay_through_apply_selected() {
+    let (mut c, before, after, cs, set) = variant_apply_fixture();
+    let changes = variant_changes(&cs);
     assert!(
-        matches!(
-            err,
-            ApplyError::Unsupported {
-                kind: ObjectKind::VariantSet,
-                ..
-            }
-        ),
-        "expected Unsupported for VariantSet, got {err:?}"
+        changes
+            .iter()
+            .any(|ch| ch.object.kind == ObjectKind::VariantSet && ch.kind == ChangeKind::Added)
+    );
+    assert_eq!(
+        changes
+            .iter()
+            .filter(|ch| ch.object.kind == ObjectKind::VariantBranch)
+            .count(),
+        2,
+        "fork+adopt leaves adopted + frozen-candidate branches"
     );
 
-    // `apply_selected` fails closed at the same boundary and leaves
-    // the project byte-identical.
+    // `target_fingerprint` accepts variant kinds — absent entities
+    // encode as `null` on the live side.
+    let objects: Vec<_> = changes.iter().map(|ch| ch.object.clone()).collect();
+    let fp = target_fingerprint(c.live(), &objects).unwrap();
+
     let intent = ApplyChangeIntent {
         change_set_id: cs.key.digest(),
         source_snapshot_id: after.identity.digest,
-        target_object: change.object.clone(),
+        target_object: changes[0].object.clone(),
         expected_project_revision: c.live_revision(),
-        selected_change_ids: vec![change.id.clone()],
-        expected_target_fingerprint: ContentDigest::sha256(b"unused"),
+        selected_change_ids: changes.iter().map(|ch| ch.id.clone()).collect(),
+        expected_target_fingerprint: fp,
         approval: ApplyApproval {
             ticket: "approve".into(),
         },
@@ -543,8 +568,62 @@ fn variant_changes_stay_fail_closed_on_apply_surface() {
     let src = Src {
         resolved: ResolvedChangeSet {
             changeset: cs,
-            before: before.clone(),
-            after: after.clone(),
+            before,
+            after,
+        },
+    };
+    let mut journal = InMemoryApplyJournal::new();
+    let sources = ApplySources {
+        changesets: &src,
+        assets: Some(&AllPresentProbe),
+        plugins: None,
+    };
+    let receipt = apply_selected(
+        &mut c,
+        &intent,
+        &sources,
+        &mut journal,
+        &SnapshotCancel::new(),
+    )
+    .unwrap();
+    assert_eq!(
+        receipt.outcome,
+        synvelis_project::apply::ApplyOutcome::Applied
+    );
+    let transplanted = &c.live().variant_sets[&set];
+    assert_eq!(transplanted.branches.len(), 2);
+    assert!(transplanted.branches.contains_key(&transplanted.adopted));
+}
+
+#[test]
+fn variant_set_without_branch_changes_fails_closed() {
+    let (mut c, before, after, cs, _set) = variant_apply_fixture();
+    // Selecting only the `VariantSet` Added change plants a set with
+    // an empty `branches` map — the persisted shape oracle rejects it
+    // and the whole CAS rolls back.
+    let set_change = cs
+        .changes
+        .iter()
+        .find(|ch| ch.object.kind == ObjectKind::VariantSet)
+        .unwrap();
+    let objects = vec![set_change.object.clone()];
+    let fp = target_fingerprint(c.live(), &objects).unwrap();
+    let intent = ApplyChangeIntent {
+        change_set_id: cs.key.digest(),
+        source_snapshot_id: after.identity.digest,
+        target_object: set_change.object.clone(),
+        expected_project_revision: c.live_revision(),
+        selected_change_ids: vec![set_change.id.clone()],
+        expected_target_fingerprint: fp,
+        approval: ApplyApproval {
+            ticket: "approve".into(),
+        },
+    };
+    let src = Src {
+        resolved: ResolvedChangeSet {
+            changeset: cs,
+            before,
+            after,
         },
     };
     let mut journal = InMemoryApplyJournal::new();
@@ -554,7 +633,6 @@ fn variant_changes_stay_fail_closed_on_apply_surface() {
         plugins: None,
     };
     let revision = c.live_revision();
-    let sets = c.live().variant_sets.clone();
     let err = apply_selected(
         &mut c,
         &intent,
@@ -564,9 +642,9 @@ fn variant_changes_stay_fail_closed_on_apply_surface() {
     )
     .unwrap_err();
     assert!(
-        matches!(err, ApplyError::Unsupported { .. }),
-        "expected Unsupported, got {err:?}"
+        !matches!(err, ApplyError::Unsupported { .. }),
+        "variant kinds are on the apply surface now, got {err:?}"
     );
     assert_eq!(c.live_revision(), revision);
-    assert_eq!(c.live().variant_sets, sets);
+    assert!(c.live().variant_sets.is_empty());
 }

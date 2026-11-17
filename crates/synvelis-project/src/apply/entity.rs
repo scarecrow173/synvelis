@@ -13,9 +13,10 @@ use crate::{
     control::{AutomationLane, ModulationAssignment, ModulationSource, ParameterTarget},
     diff::{ChangeKind, ObjectKind, SemanticObjectRef},
     id::{
-        AssetId, AutomationLaneId, BusId, ChainId, ClipId, CompId, CompRegionId, CompTransitionId,
-        LaneId, ModulationAssignmentId, ModulationSourceId, NoteId, ParameterTargetId, ProcessorId,
-        RoutingConnectionId, SemanticPortId, SendId, SourceId, StripId, TakeGroupId, TrackId,
+        AssetId, AutomationLaneId, BranchId, BusId, ChainId, ClipId, CompId, CompRegionId,
+        CompTransitionId, LaneId, ModulationAssignmentId, ModulationSourceId, NoteId,
+        ParameterTargetId, ProcessorId, RoutingConnectionId, SemanticPortId, SendId, SourceId,
+        StripId, TakeGroupId, TrackId, VariantSetId,
     },
     midi::{MidiNote, MidiSource},
     monitoring_data::{PunchMarks, TrackMonitorDecl},
@@ -26,6 +27,7 @@ use crate::{
         SendConfig,
     },
     snapshot::ContentDigest,
+    variant::{Branch, VariantSet},
 };
 
 use super::{ApplyError, plan::PlannedWrite};
@@ -46,10 +48,13 @@ fn to_value<T: serde::Serialize>(entity: &T) -> Result<Value, ApplyError> {
 
 /// `true` for object kinds inside the VCS apply surface
 /// (`apply_selected`/`target_fingerprint`). Everything else fails
-/// closed at plan/fingerprint time. Comping entities stay outside:
-/// user-selected partial application cannot preserve their domain
-/// invariants — they materialize only through the variant adopt path
-/// ([`adopt_supported_kind`]), whose candidates are domain-validated.
+/// closed at plan/fingerprint time. Comping and variant-set
+/// entities transplant as whole typed entities: their membership
+/// lists are either verbatim payload fields validated by the
+/// post-apply oracle (comping) or protected fields repopulated by
+/// the member changes themselves (variant branches), so a partial
+/// selection either lands complete or fails closed — never a
+/// half-transplanted registry.
 pub(crate) fn supported_kind(kind: ObjectKind) -> bool {
     matches!(
         kind,
@@ -77,21 +82,20 @@ pub(crate) fn supported_kind(kind: ObjectKind) -> bool {
             | ObjectKind::TrackMonitorDecl
             | ObjectKind::PunchMarks
             | ObjectKind::PluginInstance
+            | ObjectKind::TakeGroup
+            | ObjectKind::Comp
+            | ObjectKind::CompRegion
+            | ObjectKind::CompTransition
+            | ObjectKind::VariantSet
+            | ObjectKind::VariantBranch
     )
 }
 
 /// `true` for object kinds the variant adopt path may materialize —
-/// the VCS apply surface plus the comping registry, whose entities
-/// arrive only inside domain-validated branch candidates.
+/// identical to the VCS apply surface since sv#513; kept as a named
+/// predicate so the adopt planner's intent stays explicit.
 pub(crate) fn adopt_supported_kind(kind: ObjectKind) -> bool {
     supported_kind(kind)
-        || matches!(
-            kind,
-            ObjectKind::TakeGroup
-                | ObjectKind::Comp
-                | ObjectKind::CompRegion
-                | ObjectKind::CompTransition
-        )
 }
 
 /// The canonical JSON view of one object inside `project`.
@@ -184,6 +188,21 @@ pub(crate) fn entity_value(
         ObjectKind::Comp => keyed!(CompId, &project.comp.comps),
         ObjectKind::CompRegion => keyed!(CompRegionId, &project.comp.regions),
         ObjectKind::CompTransition => keyed!(CompTransitionId, &project.comp.transitions),
+        ObjectKind::VariantSet => keyed!(VariantSetId, &project.variant_sets),
+        ObjectKind::VariantBranch => {
+            // Branches carry no set reference of their own — the
+            // containing set's `branches` map is the membership, so
+            // the lookup scans every set (BranchIds are globally
+            // unique entity IDs).
+            let id = BranchId::from_tagged(&object.stable_id)
+                .map_err(|e| invalid_id(format!("{}: {e}", object.stable_id)))?;
+            Ok(project
+                .variant_sets
+                .values()
+                .find_map(|s| s.branches.get(&id))
+                .map(to_value)
+                .transpose()?)
+        }
         _ => Err(ApplyError::Unsupported {
             kind: object.kind,
             change: ChangeKind::Modified,
@@ -243,6 +262,10 @@ fn protected_fields(kind: ObjectKind) -> &'static [&'static str] {
         ObjectKind::MidiSource => &["notes"],
         ObjectKind::Strip | ObjectKind::Processor => &["port_ids"],
         ObjectKind::ProcessorChain => &["processors"],
+        // Branch membership is expressed by the `VariantBranch`
+        // changes themselves — the set payload never embeds branch
+        // entities.
+        ObjectKind::VariantSet => &["branches"],
         _ => &[],
     }
 }
@@ -289,12 +312,18 @@ pub(crate) fn payload_for(
         };
         obj.insert((*field).to_owned(), replacement);
     }
-    // `notes` is a map, not a list — fix the Added default.
-    if object.kind == ObjectKind::MidiSource
-        && is_added
-        && let Some(notes) = obj.get_mut("notes")
-    {
-        *notes = json!({});
+    // Map-valued protected fields need an object default, not `[]`.
+    if is_added {
+        let map_field = match object.kind {
+            ObjectKind::MidiSource => Some("notes"),
+            ObjectKind::VariantSet => Some("branches"),
+            _ => None,
+        };
+        if let Some(field) = map_field
+            && let Some(slot) = obj.get_mut(field)
+        {
+            *slot = json!({});
+        }
     }
     Ok(payload)
 }
@@ -330,8 +359,18 @@ pub(crate) fn write_all(
     ids: &mut dyn IdGenerator,
 ) -> Result<(), Error> {
     let mut max_new_id = 0u128;
+    // `VariantBranch` writes run last: a branch lands inside its
+    // owning set's `branches` map, so every `VariantSet` write (incl.
+    // `Added` sets) must already be in place.
     for write in writes {
-        write_entity(project, after, write, &mut max_new_id)?;
+        if write.object.kind != ObjectKind::VariantBranch {
+            write_entity(project, after, write, &mut max_new_id)?;
+        }
+    }
+    for write in writes {
+        if write.object.kind == ObjectKind::VariantBranch {
+            write_entity(project, after, write, &mut max_new_id)?;
+        }
     }
     reconcile_membership(project, after, writes)?;
     reseed_past(ids, max_new_id)?;
@@ -461,6 +500,10 @@ fn write_entity(
         ObjectKind::Comp => keyed_insert!(project.comp.comps, Comp),
         ObjectKind::CompRegion => keyed_insert!(project.comp.regions, CompRegion),
         ObjectKind::CompTransition => keyed_insert!(project.comp.transitions, CompTransition),
+        ObjectKind::VariantSet => keyed_insert!(project.variant_sets, VariantSet),
+        ObjectKind::VariantBranch => {
+            write_variant_branch(project, after, payload, max_new_id)?;
+        }
         _ => {
             return Err(Error::Validation(format!(
                 "unsupported apply kind {:?}",
@@ -468,6 +511,32 @@ fn write_entity(
             )));
         }
     }
+    Ok(())
+}
+
+/// `VariantBranch` transplant — branch membership is set-authoritative:
+/// the owning set is resolved through the after-snapshot (the same way
+/// `MidiNote` resolves its source), never through payload data — a
+/// branch payload cannot claim a foreign set.
+fn write_variant_branch(
+    project: &mut Project,
+    after: &Project,
+    payload: Value,
+    max_new_id: &mut u128,
+) -> Result<(), Error> {
+    let branch: Branch = from_value(payload, "variant branch")?;
+    *max_new_id = (*max_new_id).max(branch.id.raw());
+    let owner = after
+        .variant_sets
+        .iter()
+        .find(|(_, s)| s.branches.contains_key(&branch.id))
+        .map(|(sid, _)| *sid)
+        .ok_or_else(|| Error::Validation("variant branch has no after owner".into()))?;
+    let set = project
+        .variant_sets
+        .get_mut(&owner)
+        .ok_or_else(|| Error::NotFound(format!("variant set {owner}")))?;
+    set.branches.insert(branch.id, branch);
     Ok(())
 }
 
@@ -519,16 +588,75 @@ fn reconcile_membership(
     after: &Project,
     writes: &[PlannedWrite],
 ) -> Result<(), Error> {
+    let mut comp_touched = false;
     for write in writes {
         match write.object.kind {
             ObjectKind::Clip => reconcile_clip(project, after, write)?,
             ObjectKind::Lane => reconcile_lane(project, after, write)?,
             ObjectKind::Processor => reconcile_processor(project, after, write)?,
             ObjectKind::SemanticPort => reconcile_port(project, after, write)?,
+            ObjectKind::Comp | ObjectKind::CompRegion | ObjectKind::CompTransition => {
+                comp_touched = true;
+            }
             _ => {}
         }
     }
+    if comp_touched {
+        reconcile_comp_membership(project, after);
+    }
     Ok(())
+}
+
+/// Comp membership is child-authoritative like clip/lane membership:
+/// `region_ids`/`transition_ids` are re-derived from the live children
+/// on every comp-kind write — ordered by the after-snapshot's lists —
+/// so a child `Added`/`Modified` change never leaves the parent
+/// claiming absent entities, and a parent write never over-claims
+/// unselected children. `Removed` changes stay unsupported, so live
+/// children are always a subset of the after state.
+fn reconcile_comp_membership(project: &mut Project, after: &Project) {
+    for comp in project.comp.comps.values_mut() {
+        let live_regions: BTreeSet<CompRegionId> = project
+            .comp
+            .regions
+            .values()
+            .filter(|r| r.comp_id == comp.id)
+            .map(|r| r.id)
+            .collect();
+        let live_transitions: BTreeSet<CompTransitionId> = project
+            .comp
+            .transitions
+            .values()
+            .filter(|t| t.comp_id == comp.id)
+            .map(|t| t.id)
+            .collect();
+        let after_comp = after.comp.comps.get(&comp.id);
+        comp.region_ids =
+            membership_order(after_comp.map(|c| c.region_ids.as_slice()), &live_regions);
+        comp.transition_ids = membership_order(
+            after_comp.map(|c| c.transition_ids.as_slice()),
+            &live_transitions,
+        );
+    }
+}
+
+/// `after`-ordered membership filtered to entities that exist live,
+/// plus any live-owned ids missing from `after` (only reachable through
+/// an inconsistent changeset — `Removed` is unsupported) appended in
+/// id order.
+fn membership_order<I>(after_order: Option<&[I]>, live: &BTreeSet<I>) -> Vec<I>
+where
+    I: Copy + Ord,
+{
+    let mut out: Vec<I> = after_order
+        .unwrap_or(&[])
+        .iter()
+        .copied()
+        .filter(|id| live.contains(id))
+        .collect();
+    let claimed: BTreeSet<I> = out.iter().copied().collect();
+    out.extend(live.iter().copied().filter(|id| !claimed.contains(id)));
+    out
 }
 
 fn reconcile_clip(

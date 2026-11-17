@@ -32,8 +32,8 @@ use super::{
     scope,
     store::{self, BranchContentStore},
     types::{
-        AdoptIntent, AdoptOutcome, AdoptReceipt, AdoptRecord, Branch, BranchContentRef,
-        BranchLineage, BranchRevision, DiscardReceipt, EditReceipt, ForkReceipt,
+        AddBranchReceipt, AdoptIntent, AdoptOutcome, AdoptReceipt, AdoptRecord, Branch,
+        BranchContentRef, BranchLineage, BranchRevision, DiscardReceipt, EditReceipt, ForkReceipt,
         ProjectCommitEvidence, RuntimePublish, RuntimePublishEvidence, RuntimePublishRequest,
         RuntimePublishState, VariantScope, VariantSet, VariantSetRevision,
     },
@@ -184,6 +184,17 @@ pub(crate) enum VariantOp {
         /// Branch to discard.
         branch: BranchId,
     },
+    /// Insert a new non-adopted branch into an existing set — the
+    /// set-internal branch-add path (sv#513) that lifts the fork-time
+    /// two-branch ceiling to simultaneous N>2 candidates. The branch
+    /// arrives fully formed: content ref already stored, parent
+    /// linkage and provenance already recorded.
+    AddBranch {
+        /// Set receiving the branch.
+        set: VariantSetId,
+        /// The branch to insert (non-adopted: `Captured` content).
+        branch: Branch,
+    },
 }
 
 fn set_of<'a>(project: &'a Project, id: &VariantSetId) -> Result<&'a VariantSet, Error> {
@@ -206,6 +217,58 @@ fn check_branch_revision(branch: &Branch, expected: BranchRevision) -> Result<()
             expected: expected.raw(),
             actual: actual.raw(),
         });
+    }
+    Ok(())
+}
+
+/// `AddBranch` validation — the inserted branch must be globally
+/// unique across sets (the apply surface resolves branch ownership by
+/// scanning every set), descend from a member branch, carry `Captured`
+/// content (the adopted/captured invariant), and keep same-project
+/// provenance.
+fn validate_add_branch(
+    project: &Project,
+    set: &VariantSetId,
+    branch: &Branch,
+) -> Result<(), Error> {
+    let s = set_of(project, set)?;
+    if s.branches.contains_key(&branch.id) {
+        return Err(Error::Validation(format!(
+            "branch {} already exists in variant set {set}",
+            branch.id
+        )));
+    }
+    // BranchIds are globally unique — a duplicate across
+    // sets would make the apply surface's owner lookup
+    // ambiguous.
+    for other in project.variant_sets.values() {
+        if other.id != *set && other.branches.contains_key(&branch.id) {
+            return Err(Error::Validation(format!(
+                "branch {} already exists in variant set {}",
+                branch.id, other.id
+            )));
+        }
+    }
+    // A set-internal add always descends from a member —
+    // `None` parent is the fork-origin encoding only.
+    let Some(parent) = branch.parent else {
+        return Err(Error::Validation(
+            "added branch must name its parent branch".into(),
+        ));
+    };
+    branch_of(s, &parent)?;
+    match &branch.content {
+        BranchContentRef::Captured { .. } => {}
+        BranchContentRef::Live { .. } => {
+            return Err(Error::Validation(
+                "added branch must carry captured content (adopted/captured invariant)".into(),
+            ));
+        }
+    }
+    if branch.created_from.project_id != project.project_id {
+        return Err(Error::Validation(
+            "added branch origin belongs to a different project".into(),
+        ));
     }
     Ok(())
 }
@@ -307,6 +370,7 @@ impl Operation for VariantOp {
                 }
                 Ok(())
             }
+            Self::AddBranch { set, branch } => validate_add_branch(project, set, branch),
         }
     }
 
@@ -393,6 +457,14 @@ impl Operation for VariantOp {
                     .get_mut(set)
                     .ok_or_else(|| Error::NotFound(format!("variant set {set}")))?;
                 s.branches.remove(branch);
+                s.revision = s.revision.next();
+            }
+            Self::AddBranch { set, branch } => {
+                let s = project
+                    .variant_sets
+                    .get_mut(set)
+                    .ok_or_else(|| Error::NotFound(format!("variant set {set}")))?;
+                s.branches.insert(branch.id, branch.clone());
                 s.revision = s.revision.next();
             }
         }
@@ -616,6 +688,108 @@ pub fn fork_variant_set(
         variant_set: set_id,
         adopted: adopted_id,
         candidate: candidate_id,
+        project_revision: controller.live_revision(),
+    })
+}
+
+/// Adds a new non-adopted branch to an existing [`VariantSet`] — the
+/// set-internal branch-add path (sv#513) that lifts the fork-time
+/// two-branch ceiling to simultaneous N>2 candidates. The new
+/// branch's content mirrors `parent`'s current content: a candidate
+/// parent shares its immutable payload (content-addressed store, the
+/// branch content revision restarts at 1), an adopted parent captures
+/// live through the domain adapter exactly like fork. `parent`
+/// linkage and a fresh provenance snapshot are recorded; one
+/// controller CAS, one undo step.
+///
+/// # Errors
+/// [`VariantError::Project`]/[`VariantError::Snapshot`]/
+/// [`VariantError::Store`]/adapter failures — all fail closed with
+/// no partial mutation.
+pub fn add_branch(
+    controller: &mut ProjectController,
+    adapter: &dyn DomainAdapter,
+    store: &mut dyn BranchContentStore,
+    resolver: &SnapshotResolver,
+    variant_set: VariantSetId,
+    parent: BranchId,
+    cancel: &SnapshotCancel,
+) -> Result<AddBranchReceipt, VariantError> {
+    let rev = controller.live_revision();
+    let (scope, parent_content, parent_lineage) = {
+        let live = controller.live();
+        let set = live
+            .variant_sets
+            .get(&variant_set)
+            .ok_or_else(|| Error::NotFound(format!("variant set {variant_set}")))?;
+        let branch = set
+            .branches
+            .get(&parent)
+            .ok_or_else(|| Error::NotFound(format!("branch {parent}")))?;
+        (
+            set.scope.clone(),
+            branch.content.clone(),
+            branch.lineage.clone(),
+        )
+    };
+    let snapshot = resolver.capture_live(controller, rev, cancel, None)?;
+    // Lineage follows the content: a branch sharing a candidate
+    // parent's payload also inherits its minted-id provenance (those
+    // ids are branch-local, not live/origin — adopt-time lineage
+    // checks would otherwise reject them). A fresh live capture has
+    // only live/origin ids, so it starts empty like fork.
+    let (content, lineage) = match parent_content {
+        // Content-addressed sharing: identical candidate bytes mean
+        // identical digest — the payload is already in the store.
+        BranchContentRef::Captured {
+            payload_digest,
+            scope_digest,
+            schema_version,
+            ..
+        } => (
+            BranchContentRef::Captured {
+                revision: BranchRevision::new(1),
+                payload_digest,
+                scope_digest,
+                schema_version,
+            },
+            parent_lineage,
+        ),
+        BranchContentRef::Live { .. } => {
+            let candidate = adapter.fork_candidate(controller.live())?;
+            let payload = store::encode_candidate(&candidate)?;
+            let payload_digest = ContentDigest::sha256(&payload);
+            store.put(&payload_digest, &payload)?;
+            let scope_digest = scope::scope_fingerprint(&candidate, &scope)?;
+            (
+                BranchContentRef::Captured {
+                    revision: BranchRevision::new(1),
+                    payload_digest,
+                    scope_digest,
+                    schema_version: SCHEMA_VERSION,
+                },
+                BranchLineage::default(),
+            )
+        }
+    };
+    let branch = Branch {
+        id: BranchId::new(controller.draw_raw_id()),
+        parent: Some(parent),
+        created_from: snapshot.identity,
+        content,
+        lineage,
+    };
+    let branch_id = branch.id;
+    controller.apply(Command {
+        expected_revision: rev,
+        op: VariantOp::AddBranch {
+            set: variant_set,
+            branch,
+        },
+    })?;
+    Ok(AddBranchReceipt {
+        variant_set,
+        branch: branch_id,
         project_revision: controller.live_revision(),
     })
 }

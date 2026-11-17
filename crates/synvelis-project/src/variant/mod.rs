@@ -44,7 +44,7 @@ pub use compare::{
 };
 pub use engine::{
     AdoptSources, BranchEditIntent, BranchEditOpIntent, FakeRuntimePublish, NoopRuntimePublish,
-    adopt_branch, adopt_branch_adapted, discard_branch, edit_branch, edit_branch_op,
+    add_branch, adopt_branch, adopt_branch_adapted, discard_branch, edit_branch, edit_branch_op,
     fork_variant_set,
 };
 pub use error::VariantError;
@@ -59,9 +59,9 @@ pub use scope::scope_digest;
 pub use store::{BranchContentStore, InMemoryBranchContentStore, decode_candidate};
 pub use strip::{StripBoundaryDependency, StripFieldsAdapter, StripFieldsCapabilities};
 pub use types::{
-    AdoptIntent, AdoptOutcome, AdoptReceipt, AdoptRecord, ArrangementDomainMask, Branch,
-    BranchContentRef, BranchLineage, BranchRevision, DiscardReceipt, EditReceipt, ForkReceipt,
-    ProcessingRangeRef, ProjectCommitEvidence, RuntimePublish, RuntimePublishEvidence,
+    AddBranchReceipt, AdoptIntent, AdoptOutcome, AdoptReceipt, AdoptRecord, ArrangementDomainMask,
+    Branch, BranchContentRef, BranchLineage, BranchRevision, DiscardReceipt, EditReceipt,
+    ForkReceipt, ProcessingRangeRef, ProjectCommitEvidence, RuntimePublish, RuntimePublishEvidence,
     RuntimePublishRequest, RuntimePublishState, StripDomainMask, StripField, TakeUsageTarget,
     VariantScope, VariantSet, VariantSetRevision,
 };

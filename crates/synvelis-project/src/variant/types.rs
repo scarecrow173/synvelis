@@ -537,3 +537,14 @@ pub struct DiscardReceipt {
     /// Live revision after the discard commit.
     pub project_revision: ProjectRevision,
 }
+
+/// Receipt returned by [`crate::variant::add_branch`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AddBranchReceipt {
+    /// Set the branch was added to.
+    pub variant_set: VariantSetId,
+    /// The new non-adopted branch.
+    pub branch: BranchId,
+    /// Live revision after the add commit.
+    pub project_revision: ProjectRevision,
+}

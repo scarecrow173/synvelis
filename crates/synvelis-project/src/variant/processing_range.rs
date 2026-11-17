@@ -122,10 +122,10 @@ pub struct ProcessingRangeCapabilities {
     /// (CB-FX-04: no unauthorized external routing changes, no
     /// implicit double-mix).
     pub routing: ProcessingCapability,
-    /// Plugin rebind — descriptor/version/`capability_revision`
-    /// change. No `ProjectOp` mutates `Processor.binding`; a binding
-    /// change is a different authored identity, never a candidate
-    /// edit.
+    /// `SetProcessorBinding` on a range-owned processor —
+    /// descriptor/version/`capability_revision` change (sv#513).
+    /// Preset selection stays plugin-internal: only the
+    /// `PluginStatePort` seam can express it, never a `ProjectOp`.
     pub plugin_rebind: ProcessingCapability,
     /// Preset selection — plugin-internal opaque state; only the
     /// `PluginStatePort` seam can express it, never a `ProjectOp`.
@@ -197,7 +197,7 @@ impl ProcessingRangeAdapter {
             fx_insert_inside: ProcessingCapability::Supported,
             chain_structure: ProcessingCapability::Unsupported,
             routing: ProcessingCapability::Unsupported,
-            plugin_rebind: ProcessingCapability::Unsupported,
+            plugin_rebind: ProcessingCapability::Supported,
             preset_select: ProcessingCapability::Unsupported,
             mid_chain_end: ProcessingCapability::Unsupported,
         }
