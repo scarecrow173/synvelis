@@ -126,9 +126,11 @@ Directory: `docs/tasks`
 | TASK-034YXXXE7kuTr6kR5K8KV8 | SV177 issue-177-design-tokens | done | [issue-177-design-tokens.md](./issue-177-design-tokens.md) |
 | TASK-034WsBdOQFzQABNIgCwFPl | Issue #365 impl index 生成可能化 — front matter 是正と index 再生成 | done | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
 | TASK-034Wv2LV1SZLdyPnE8fyZD | Issue #368 docs/impl/ir missing-section 本文補完 | done | [issue-368-ir-missing-sections.md](./issue-368-ir-missing-sections.md) |
+| TASK-sv511eF6gH8iJ0kL1mN3oP5q | Issue #511 tasks — CB-07 materialization 実装タスク | done | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
 | TASK-rVJcKAC3jQHu6ZFC0SvSV9 | Issue #514 tasks — 判定記録 slice | done | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |
 | TASK-hu0U9zgaLa4C26TlCRz2oX | Issue #516 tasks — 薄い binding への置換 | done | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | TASK-sv517hI0jK1lM2nO3pQ4rS5 | Issue #517 tasks — render/branch pipeline 本番配線 | done | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
+| TASK-ldDyN5a7IH0RlM2Ys4UN | Issue #530 tasks — stateless PluginStateDecl 契約 slice | done | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | TASK-VB7LzgmqMRIfE31stZItL7 | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 | done | [issue-86-task-verified-import-wiring.md](./issue-86-task-verified-import-wiring.md) |
 | TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |
 | TASK-z866D1bQYKGTdgVlXsQMXJ | L1 task2 player crate fixture | done | [l1-task2-player-crate-fixture.md](./l1-task2-player-crate-fixture.md) |

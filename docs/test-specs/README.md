@@ -75,11 +75,13 @@ Directory: `docs/test-specs`
 | TSPEC-034YDhYCgjWoM4vF7KomTQ | issue-274-cli-script-analyze — test spec | approved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
 | TSPEC-034WsAjGC5rxjfAzdzF1XI | Issue #365 impl index 生成可能化 — index in-sync と audit 非増加の保証 | approved | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
 | TSPEC-034Wv24lt11AFRZnEjnYfR | Issue #368 docs/impl/ir missing-section 本文補完 — audit 0 件と非増加の保証 | approved | [issue-368-ir-missing-sections.md](./issue-368-ir-missing-sections.md) |
+| TSPEC-sv511fG7hI9jK1lM3nO5pQ7r | Issue #511 test spec — CB-07 materialization の検証保証 | approved | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
 | TSPEC-513a1b2c3d4e5f6g7h8i9j0k6 | issue-513-variant-apply-ops — test spec | approved | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
 | TSPEC-oNOHOT3cXJQKjlUyodpyBj | Issue #514 test-spec — 判定記録 slice の検証仕様 | approved | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |
 | TSPEC-034YXSZ2kuWzgTf2b6XeLT | issue-515-os-credential — session 供給の検証仕様 | draft | [issue-515-os-credential.md](./issue-515-os-credential.md) |
 | TSPEC-MYFHRUK4femA1AglhsravS | Issue #516 test spec — 製品 port 交換の検証保証 | approved | [issue-516-mlua-adapter.md](./issue-516-mlua-adapter.md) |
 | TSPEC-sv517iJ1kL2mN3oP4qR5sT6 | Issue #517 test spec — render/branch pipeline 本番配線の検証保証 | approved | [issue-517-render-branch-wiring.md](./issue-517-render-branch-wiring.md) |
+| TSPEC-j0rVeZntFdxTUwZBQefJ | Issue #530 test-spec — stateless PluginStateDecl 契約の検証仕様 | approved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | TSPEC-Zb0ctcQ2s7S0lDwxkjXsiu | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 — テスト仕様 | approved | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | TSPEC-034QmjuUDQRs8JzfSsG8wM | L2 検証仕様 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
