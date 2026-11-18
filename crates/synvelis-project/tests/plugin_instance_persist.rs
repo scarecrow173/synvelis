@@ -697,3 +697,105 @@ fn apply_modified_processor_changed_plugin_allocates_new_identity() {
     );
     assert!(live.live().validate_references().is_ok());
 }
+
+// ── sv#565: SetProcessorBinding op-path identity retirement ────────
+//
+// The apply-path pins above cover the VCS entity-write surface; these
+// pin the `ProjectOp::SetProcessorBinding` op path — the lowering
+// target of the wire `synvelis.processor.set-binding` capability —
+// through the same `sync_processor` primitive. A rebind to a
+// different `PluginRef` retires the old persisted id (never
+// reissued), an identical binding is idempotent, and `Unresolved`
+// drops the entry while the watermark stays monotonic.
+
+fn plugin_ref_b() -> PluginRef {
+    PluginRef {
+        descriptor: "vendor.inst-persist-b".into(),
+        version: "2.0.0".into(),
+        capability_revision: 7,
+    }
+}
+
+#[test]
+fn set_binding_rebind_retires_old_instance_id() {
+    let (mut c, strip) = strip_project();
+    let proc = insert_processor(&mut c, strip, resolved_binding());
+    assert_eq!(instance_id(&c, proc), 1);
+
+    apply_op(
+        &mut c,
+        ProjectOp::SetProcessorBinding {
+            processor_id: proc,
+            binding: ProcessorBinding::Resolved(plugin_ref_b()),
+        },
+    );
+
+    // A different authored identity mints a new persisted id; the
+    // old id is retired — no live entry carries it and the watermark
+    // only moves forward.
+    assert_eq!(instance_id(&c, proc), 2);
+    assert_eq!(c.live().plugin_instances.watermark, 3);
+    assert_eq!(
+        c.live().plugin_instances.instances[&proc].plugin,
+        plugin_ref_b()
+    );
+    assert!(
+        !c.live()
+            .plugin_instances
+            .instances
+            .values()
+            .any(|entry| entry.id.get() == 1)
+    );
+    // `resolve` is fail-closed: the retired (processor, old-plugin)
+    // pair resolves to `None`, never to the stale id.
+    assert_eq!(c.live().plugin_instances.resolve(proc, &plugin_ref()), None);
+    assert_eq!(
+        c.live().plugin_instances.resolve(proc, &plugin_ref_b()),
+        Some(PluginInstanceId::new(2))
+    );
+    assert!(c.live().validate_references().is_ok());
+}
+
+#[test]
+fn set_binding_same_plugin_keeps_instance_id() {
+    let (mut c, strip) = strip_project();
+    let proc = insert_processor(&mut c, strip, resolved_binding());
+    assert_eq!(instance_id(&c, proc), 1);
+
+    // Re-applying the identical binding is idempotent — `ensure`
+    // keeps the issued id and the watermark does not advance.
+    apply_op(
+        &mut c,
+        ProjectOp::SetProcessorBinding {
+            processor_id: proc,
+            binding: resolved_binding(),
+        },
+    );
+
+    assert_eq!(instance_id(&c, proc), 1);
+    assert_eq!(c.live().plugin_instances.watermark, 2);
+    assert!(c.live().validate_references().is_ok());
+}
+
+#[test]
+fn set_binding_unresolved_retires_instance_id() {
+    let (mut c, strip) = strip_project();
+    let proc = insert_processor(&mut c, strip, resolved_binding());
+    assert_eq!(instance_id(&c, proc), 1);
+
+    apply_op(
+        &mut c,
+        ProjectOp::SetProcessorBinding {
+            processor_id: proc,
+            binding: unresolved_binding(),
+        },
+    );
+
+    // `Unresolved` drops the entry; the issued id stays retired —
+    // the watermark never moves backward, so id 1 can never be
+    // reissued to a later processor.
+    assert!(!c.live().plugin_instances.instances.contains_key(&proc));
+    assert_eq!(c.live().plugin_instances.watermark, 2);
+    assert_eq!(c.live().plugin_instances.resolve(proc, &plugin_ref()), None);
+    assert!(c.live().validate_references().is_ok());
+}

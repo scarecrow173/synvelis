@@ -699,6 +699,12 @@ impl PrepareEngine {
                 &[Write],
                 obj(&[("value", ValueSchema::Number)], &["value"], true),
             ),
+            // synvelis#565: a rebind retires the processor's persisted
+            // plugin-instance identity and mints a new one
+            // (`plugin_instances.sync_processor`) — internal
+            // structure no `ResourceRef` can name. The binding
+            // change itself is observable through the target
+            // `Processor`'s `Write` effect detail.
             (
                 "synvelis.processor.set-binding",
                 TargetContract::Resource {

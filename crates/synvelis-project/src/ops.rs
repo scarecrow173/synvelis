@@ -532,7 +532,9 @@ pub enum ProjectOp {
     /// mint a fresh persisted plugin-instance identity (PC-C4-05
     /// `sync_processor` semantics, same as `InsertProcessor`);
     /// `Unresolved` drops the identity entry and keeps the descriptor
-    /// marker explicitly.
+    /// marker explicitly. A retired id is never reissued — the store's
+    /// watermark only moves forward — so resolving the old
+    /// `(processor, plugin)` pair yields `None`, not a stale id.
     SetProcessorBinding {
         /// Target processor.
         processor_id: ProcessorId,

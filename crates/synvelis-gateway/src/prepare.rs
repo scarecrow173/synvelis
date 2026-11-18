@@ -1409,6 +1409,11 @@ pub(crate) fn op_facts(op: &ProjectOp, project: &Project) -> OpFacts {
             ));
             preconditions.push(cond("insert-index-in-range", None, ""));
         }
+        // synvelis#565: a rebind retires the processor's persisted
+        // plugin-instance identity and mints a new one
+        // (`plugin_instances.sync_processor`) — internal structure
+        // no `ResourceRef` can name. The binding change itself is
+        // observable through the `Processor` `Write` effect detail.
         ProjectOp::SetProcessorBinding { processor_id, .. } => {
             read(ResourceRef::Processor(*processor_id));
             preconditions.push(cond(
