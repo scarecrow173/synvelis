@@ -52,9 +52,9 @@ use std::sync::Arc;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use synvelis_project::{
-    ClipId, ControlOwner, LaneId, MidiTick, MusicalTick, NoteId, ParameterRole, ParameterTargetId,
-    ProcessorId, Project, ProjectId, ProjectOp, ProjectRevision, SourceFrame, SourceId, StripId,
-    TrackId,
+    ClipId, ControlOwner, LaneId, MidiTick, ModulationSourceId, MusicalTick, NoteId, ParameterRole,
+    ParameterTargetId, ProcessorId, Project, ProjectId, ProjectOp, ProjectRevision, SemanticPortId,
+    SendId, SendTap, SourceFrame, SourceId, StripId, TrackId,
 };
 
 use crate::authorization::AuthorizationDecision;
@@ -841,6 +841,85 @@ fn lower_processor_set_binding(
     })
 }
 
+// synvelis#550 — send ops. `Send` is the routing entity the gateway
+// resource model can name; the send↔connection edge, its semantic
+// ports, and the send-owned control closure stay internal structure
+// (the `insert-processor` posture for ports). Mask gating and scope
+// confinement remain `StripFieldsAdapter`'s authority at edit time —
+// these lowerers are syntactic only. Connection/bus entities have no
+// `ResourceKind`, so their ops stay adapter-side only.
+
+fn target_send(target: &OperationTarget) -> Result<SendId, GatewayError> {
+    match resource(target)? {
+        ResourceRef::Send(id) => Ok(id),
+        _ => Err(malformed("target is not a send")),
+    }
+}
+
+/// A `semantic-port-*` tagged id — ports are project structure the
+/// gateway resource model cannot name, so they travel as validated
+/// strings, not `ResourceRef`s.
+fn arg_semantic_port(args: &Value, name: &str) -> Result<SemanticPortId, GatewayError> {
+    let text = field(args, name)?
+        .as_str()
+        .ok_or_else(|| malformed(format!("args.{name} must be a tagged id string")))?;
+    SemanticPortId::from_tagged(text).map_err(|e| malformed(format!("args.{name}: {e}")))
+}
+
+/// `null`/absent → `None`; a `param-*` tagged id → `Some`. Used for
+/// send gain targets where `None` is a real value (clear/rebind).
+fn arg_gain_target(args: &Value, name: &str) -> Result<Option<ParameterTargetId>, GatewayError> {
+    match args.get(name) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => {
+            let text = value.as_str().ok_or_else(|| {
+                malformed(format!("args.{name} must be a tagged id string or null"))
+            })?;
+            match ResourceRef::expect(ResourceKind::ParameterTarget, text)? {
+                ResourceRef::ParameterTarget(id) => Ok(Some(id)),
+                _ => Err(malformed(format!("args.{name} is not a parameter target"))),
+            }
+        }
+    }
+}
+
+fn lower_send_create(target: &OperationTarget, args: &Value) -> Result<ProjectOp, GatewayError> {
+    // Project-parented like `track.create`: the send's observable
+    // owner is the project (snapshot attrs), while strip-source
+    // confinement of the `source` port stays the adapter's check at
+    // edit time.
+    let _ = parent(target)?;
+    Ok(ProjectOp::AddSend {
+        source: arg_semantic_port(args, "source")?,
+        destination: arg_semantic_port(args, "destination")?,
+        tap: arg_typed::<SendTap>(args, "tap")?,
+        gain_target: arg_gain_target(args, "gain_target")?,
+    })
+}
+
+fn lower_send_remove(target: &OperationTarget, _args: &Value) -> Result<ProjectOp, GatewayError> {
+    Ok(ProjectOp::RemoveSend {
+        send_id: target_send(target)?,
+    })
+}
+
+fn lower_send_set_tap(target: &OperationTarget, args: &Value) -> Result<ProjectOp, GatewayError> {
+    Ok(ProjectOp::SetSendTap {
+        send_id: target_send(target)?,
+        tap: arg_typed::<SendTap>(args, "tap")?,
+    })
+}
+
+fn lower_send_set_gain_target(
+    target: &OperationTarget,
+    args: &Value,
+) -> Result<ProjectOp, GatewayError> {
+    Ok(ProjectOp::SetSendGainTarget {
+        send_id: target_send(target)?,
+        gain_target: arg_gain_target(args, "gain_target")?,
+    })
+}
+
 /// The capability-id → lowering dispatch. `None` for the batch
 /// capability (its members lower through the same table, handled by
 /// the engine's recursion) and for any id outside the table.
@@ -876,6 +955,10 @@ pub(crate) fn lower_for(id: &str) -> Option<LowerFn> {
         "synvelis.strip.insert-processor" => lower_strip_insert_processor,
         "synvelis.param.set-base" => lower_param_set_base,
         "synvelis.processor.set-binding" => lower_processor_set_binding,
+        "synvelis.send.create" => lower_send_create,
+        "synvelis.send.remove" => lower_send_remove,
+        "synvelis.send.set-tap" => lower_send_set_tap,
+        "synvelis.send.set-gain-target" => lower_send_set_gain_target,
         // GW-07: the verified-media placement op — its content digest
         // must come from the media gate, so the engine's gated path
         // builds the op; this entry only keeps the table total.
@@ -1250,6 +1333,81 @@ pub(crate) fn op_facts(op: &ProjectOp, project: &Project) -> OpFacts {
             ));
             preconditions.push(cond("param-not-readonly", None, ""));
             preconditions.push(cond("param-base-in-range", None, ""));
+        }
+        // synvelis#550 send ops — `Send` is the observable routing
+        // resource; the send↔connection edge and its semantic ports
+        // are internal structure no `ResourceRef` can name (the
+        // `insert-processor` posture for ports). A declared gain
+        // target is an honest internal read — validate consults it
+        // and apply re-owns it to the send.
+        ProjectOp::AddSend { gain_target, .. } => {
+            if let Some(target) = gain_target {
+                read(ResourceRef::ParameterTarget(*target));
+                preconditions.push(cond(
+                    "send-gain-target-exists",
+                    Some(ResourceRef::ParameterTarget(*target)),
+                    "",
+                ));
+                preconditions.push(cond("send-gain-target-adoptable", None, ""));
+            }
+            preconditions.push(cond("send-ports-exist", None, ""));
+        }
+        ProjectOp::RemoveSend { send_id } => {
+            read(ResourceRef::Send(*send_id));
+            preconditions.push(cond("send-exists", Some(ResourceRef::Send(*send_id)), ""));
+            // `RemoveSend` cascades the send's whole control closure.
+            // Owned `ParameterTarget`s and their `AutomationLane`s are
+            // enumerable — their deletes surface in the before/after
+            // diff. Send-owned `ModulationSource`s and any
+            // `ModulationAssignment` touching the closure are outside
+            // the resource model: when present the delete is
+            // unverifiable, so fail closed (SEC-14) rather than
+            // under-report.
+            let send_targets: BTreeSet<ParameterTargetId> = project
+                .control
+                .targets
+                .values()
+                .filter(|t| t.owner == ControlOwner::Send(*send_id))
+                .map(|t| t.id)
+                .collect();
+            let send_sources: BTreeSet<ModulationSourceId> = project
+                .control
+                .sources
+                .values()
+                .filter(|s| s.owner == ControlOwner::Send(*send_id))
+                .map(|s| s.id)
+                .collect();
+            if !send_sources.is_empty()
+                || project.control.assignments.values().any(|a| {
+                    send_sources.contains(&a.source)
+                        || send_targets.contains(&a.target)
+                        || a.depth_source.is_some_and(|ds| send_targets.contains(&ds))
+                })
+            {
+                unsupported.push(
+                    "send-owned modulation entities are outside the observable model".to_owned(),
+                );
+            }
+        }
+        ProjectOp::SetSendTap { send_id, .. } => {
+            read(ResourceRef::Send(*send_id));
+            preconditions.push(cond("send-exists", Some(ResourceRef::Send(*send_id)), ""));
+        }
+        ProjectOp::SetSendGainTarget {
+            send_id,
+            gain_target,
+        } => {
+            read(ResourceRef::Send(*send_id));
+            preconditions.push(cond("send-exists", Some(ResourceRef::Send(*send_id)), ""));
+            if let Some(target) = gain_target {
+                read(ResourceRef::ParameterTarget(*target));
+                preconditions.push(cond(
+                    "send-gain-target-exists",
+                    Some(ResourceRef::ParameterTarget(*target)),
+                    "",
+                ));
+                preconditions.push(cond("send-gain-target-adoptable", None, ""));
+            }
         }
         // Control-plane, media-state, and any unlowered variant: the
         // observable attribute diff cannot fully classify them —

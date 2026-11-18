@@ -249,3 +249,17 @@ mask 未宣言 family・scope 外 target・非 strip op の
 typed reject 境界は維持。routing op capability・scope
 entity removal は引き続き別 slice
 （`docs/impl/exp/issue-548-strip-domain-lowering.md`）。
+
+**解消追記（synvelis#550）**: 残件 2 系統は
+synvelis#550 の slice として実施された — mask に
+`Sends`/`MainRoute`/`Sidechain`/`Bus` が追加され、
+strip-sourced routing entity（send config+edge+control
+closure・Main/Sidechain edge・bus entity）の所有導出・
+adapter 受理・scope entity removal（apply/entity.rs の
+kind 追加を含む）が実装された。wire 表面は
+`ResourceKind::Send` を持つ `synvelis.send.*` 4 op に
+限定し、connection/bus は `ResourceKind` 非存在のため
+deferred（`UnknownCapability`）。adopt の `Removed`
+write が routing entity で `InvalidPort` に落ちる
+defect を、payload に削除 entity serialization を載せる
+修正で解消（`docs/impl/exp/issue-550-strip-routing-ops.md`）。

@@ -128,3 +128,22 @@ mask 未宣言 family・scope 外 target・非 strip op の
 typed reject 境界・scope digest / branch revision pin /
 adopt provenance の既存証拠は維持。
 証拠: `evidence/sv548/verification.md`。
+
+## 追補 — strip routing ops・scope entity removal（synvelis#550）
+
+CB-06 の残件 2 系統を実施。`StripDomainMask` に
+`Sends`/`MainRoute`/`Sidechain`/`Bus` が追加され、
+strip-sourced routing entity（send config+edge+
+control closure・Main/Sidechain edge・bus entity）の
+所有導出・adapter 受理・scope entity removal
+（apply/entity.rs の kind 追加を含む）が実装された。
+source-side 所有規則により foreign-source/destination
+の wiring は typed reject で境界維持。wire 表面は
+`ResourceKind::Send` を持つ `synvelis.send.*` 4 op に
+限定し、connection/bus は `ResourceKind` 非存在のため
+deferred（`UnknownCapability`）。adopt の `Removed`
+write が routing entity で `InvalidPort` に落ちる
+defect を payload 修正で解消し、send 削除の adopt
+cascade（send・edge・target・automation lane）と
+foreign feed の byte-identical 保持を実測。
+証拠: `evidence/sv550/verification.md`。

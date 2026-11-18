@@ -29,11 +29,11 @@ use crate::{
     diff::{ObjectKind, SemanticObjectRef},
     id::{
         ClipId, CompId, CompRegionId, CompTransitionId, ModulationSourceId, ParameterTargetId,
-        ProcessorId, ProjectId, SemanticPortId, StripId, TakeGroupId, TrackId,
+        ProcessorId, ProjectId, SemanticPortId, SendId, StripId, TakeGroupId, TrackId,
     },
     placement::{ClipExtent, ClipPlacement, TimeAnchor},
     range::MusicalRange,
-    routing::PortOwner,
+    routing::{ConnectionKind, PortOwner, StripOwner},
     snapshot::ContentDigest,
     time::MusicalTick,
 };
@@ -357,6 +357,14 @@ fn strip_fields_objects(
             }
         }
     }
+    // Routing fields (synvelis#550): source-side owned connections,
+    // send configs and send-owned channel targets — see
+    // `strip_routing_objects`.
+    let scoped_procs: BTreeSet<ProcessorId> = out
+        .iter()
+        .filter(|o| o.kind == ObjectKind::Processor)
+        .filter_map(|o| ProcessorId::from_tagged(&o.stable_id).ok())
+        .collect();
     // Channel-field control closure: the matching singleton roles on
     // the strip, filtered by the declared mask.
     let mut target_ids: BTreeSet<ParameterTargetId> = BTreeSet::new();
@@ -376,6 +384,8 @@ fn strip_fields_objects(
             ));
         }
     }
+    let owned_sends =
+        strip_routing_objects(project, strip, fields, &scoped_procs, &mut target_ids, out);
     for lane in project.control.lanes.values() {
         if target_ids.contains(&lane.target) {
             out.insert(object(pid, ObjectKind::AutomationLane, lane.id.to_tagged()));
@@ -383,7 +393,13 @@ fn strip_fields_objects(
     }
     let mut source_ids: BTreeSet<ModulationSourceId> = BTreeSet::new();
     for source in project.control.sources.values() {
-        if source.owner == ControlOwner::Strip(strip) {
+        let owned = source.owner == ControlOwner::Strip(strip)
+            || matches!(
+                source.owner,
+                ControlOwner::Send(send_id)
+                    if fields.owns(StripField::Sends) && owned_sends.contains(&send_id)
+            );
+        if owned {
             source_ids.insert(source.id);
             out.insert(object(
                 pid,
@@ -393,7 +409,94 @@ fn strip_fields_objects(
         }
     }
     strip_assignment_objects(project, &target_ids, &source_ids, out);
+    // The bus entity owning a bus-owned strip is scope-owned under
+    // `Bus` — `ConfigureBus` is its only candidate edit.
+    if fields.owns(StripField::Bus)
+        && let StripOwner::Bus(bus_id) = strip_entity.owner
+    {
+        out.insert(object(pid, ObjectKind::Bus, bus_id.to_tagged()));
+    }
     Ok(())
+}
+
+/// Routing-field ownership for one strip scope (synvelis#550): a
+/// connection is scope-owned when its *source* endpoint is owned by
+/// the scoped strip (sends and strip-level routes) or by a
+/// scope-owned chain processor, and the field family for its kind
+/// is declared. Source-side ownership is the send/tap rule — the
+/// scoped strip authors the outgoing edge; incoming feeds and
+/// foreign sources stay shared boundary context. `Send` edges
+/// additionally require a strip source (sends are strip-level by
+/// contract). Scope-owned sends contribute their `SendConfig`
+/// object and send-owned channel targets (folded into
+/// `target_ids`/`out`); the returned send ids feed the shared
+/// lane/source/assignment loops in [`strip_fields_objects`].
+fn strip_routing_objects(
+    project: &Project,
+    strip: StripId,
+    fields: &StripDomainMask,
+    scoped_procs: &BTreeSet<ProcessorId>,
+    target_ids: &mut BTreeSet<ParameterTargetId>,
+    out: &mut BTreeSet<SemanticObjectRef>,
+) -> BTreeSet<SendId> {
+    let pid = project.project_id;
+    let mut owned_sends: BTreeSet<SendId> = BTreeSet::new();
+    for conn in project.routing.connections.values() {
+        let required = match conn.kind {
+            ConnectionKind::Send(_) => StripField::Sends,
+            ConnectionKind::Main => StripField::MainRoute,
+            ConnectionKind::Sidechain => StripField::Sidechain,
+        };
+        if !fields.owns(required) {
+            continue;
+        }
+        let Some(port) = project.routing.ports.get(&conn.source) else {
+            continue;
+        };
+        let owned_source = match port.owner {
+            PortOwner::Strip(owner) => owner == strip,
+            PortOwner::Processor(owner) => {
+                !matches!(conn.kind, ConnectionKind::Send(_)) && scoped_procs.contains(&owner)
+            }
+        };
+        if !owned_source {
+            continue;
+        }
+        out.insert(object(
+            pid,
+            ObjectKind::RoutingConnection,
+            conn.id.to_tagged(),
+        ));
+        if let ConnectionKind::Send(send_id) = conn.kind {
+            owned_sends.insert(send_id);
+        }
+    }
+    // Send control closure: every control entity owned by a
+    // scope-owned send joins the same closure sets — lanes and
+    // assignments are collected by the shared loops in
+    // `strip_fields_objects`, so a send gain target, its automation
+    // and its modulation behave exactly like a declared channel
+    // field.
+    if fields.owns(StripField::Sends) {
+        for send in project.routing.sends.values() {
+            if owned_sends.contains(&send.id) {
+                out.insert(object(pid, ObjectKind::SendConfig, send.id.to_tagged()));
+            }
+        }
+        for target in project.control.targets.values() {
+            if let ControlOwner::Send(send_id) = target.owner
+                && owned_sends.contains(&send_id)
+            {
+                target_ids.insert(target.id);
+                out.insert(object(
+                    pid,
+                    ObjectKind::ParameterTarget,
+                    target.id.to_tagged(),
+                ));
+            }
+        }
+    }
+    owned_sends
 }
 
 /// Modulation assignments touching the strip's channel-field targets

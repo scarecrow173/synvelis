@@ -59,16 +59,19 @@ use std::path::Path;
 use rig::*;
 use serde_json::{Value, json};
 use synvelis_gateway::*;
-use synvelis_project::routing::{ConnectionKind, ProcessorBinding};
+use synvelis_project::routing::{
+    ConnectionKind, PortDirection, PortOwner, PortRole, ProcessorBinding, SendTap,
+};
 use synvelis_project::snapshot::ContentDigest;
 use synvelis_project::variant::{
     DomainAdapter, ProcessingCapability, StripDomainMask, StripField, StripFieldsAdapter,
     VariantScope, scope_digest,
 };
 use synvelis_project::{
-    BranchId, ClipId, Command, ControlOwner, CounterIdGenerator, DirectoryBundleStore,
-    ParameterRole, ParameterTargetId, ProcessorId, Project, ProjectController, ProjectOp,
-    ProjectRevision, ProjectStore, StripId, TrackId, VariantSetId,
+    AutomationTimeScope, BranchId, ClipId, Command, ControlOwner, CounterIdGenerator,
+    DirectoryBundleStore, ParamMapping, ParameterRole, ParameterTargetId, ProcessorId, Project,
+    ProjectController, ProjectOp, ProjectRevision, ProjectStore, SemanticPortId, SendId,
+    SourceKind, StripId, TrackId, ValueKind, VariantSetId,
 };
 
 // ── Strip fixture ────────────────────────────────────────────
@@ -126,19 +129,41 @@ fn strip_id() -> StripId {
         .id
 }
 
-/// `strip-fields` scope over the fixture strip, all five field
-/// families declared — the widest honest mask.
+/// `strip-fields` scope over the fixture strip, every field family a
+/// track-owned strip can honestly declare — the widest honest mask
+/// (synvelis#550: `Bus` stays undeclared; a track strip owns no bus).
 fn strip_scope() -> Value {
     json!({
         "kind": "strip-fields",
         "strip": strip_id().to_tagged(),
-        "fields": ["fader", "pan", "mute", "solo", "inserts"],
+        "fields": [
+            "fader", "pan", "mute", "solo", "inserts",
+            "sends", "main_route", "sidechain",
+        ],
     })
 }
 
 /// The typed domain scope matching [`strip_scope`] — for the
 /// domain-level boundary/capability assertions.
 fn strip_domain_scope() -> VariantScope {
+    VariantScope::StripFields {
+        strip: strip_id(),
+        fields: StripDomainMask(BTreeSet::from([
+            StripField::Fader,
+            StripField::Pan,
+            StripField::Mute,
+            StripField::Solo,
+            StripField::Inserts,
+            StripField::Sends,
+            StripField::MainRoute,
+            StripField::Sidechain,
+        ])),
+    }
+}
+
+/// The channel-only mask — routing families undeclared, so the
+/// strip-sourced main route stays typed boundary context.
+fn strip_channel_domain_scope() -> VariantScope {
     VariantScope::StripFields {
         strip: strip_id(),
         fields: StripDomainMask(BTreeSet::from([
@@ -160,6 +185,158 @@ fn seed_strip_store(dir: &Path) -> DirectoryBundleStore {
         c.save(&mut store).unwrap();
     }
     store
+}
+
+/// synvelis#550 send fixture: [`strip_controller`] plus one send on
+/// the strip→master main-input port pair with a bound `SendLevel`
+/// gain target — three more controller ops, head revision 5. The
+/// send id is minted inside `AddSend`, so every lookup below reads
+/// project truth, never a hard-coded id.
+fn strip_send_controller() -> ProjectController {
+    let mut c = strip_controller();
+    let rev = c.live_revision();
+    let (source, destination) = {
+        let p = c.live();
+        let strip = p
+            .routing
+            .strip_of_track(TrackId::new(3))
+            .expect("track strip exists")
+            .id;
+        let master_strip = p.routing.buses[&p.routing.master].strip;
+        (
+            port_of(
+                p,
+                PortOwner::Strip(strip),
+                PortDirection::Output,
+                PortRole::Main,
+            ),
+            port_of(
+                p,
+                PortOwner::Strip(master_strip),
+                PortDirection::Input,
+                PortRole::Main,
+            ),
+        )
+    };
+    c.apply(Command {
+        expected_revision: rev,
+        op: ProjectOp::AddSend {
+            source,
+            destination,
+            tap: SendTap::PostFader,
+            gain_target: None,
+        },
+    })
+    .unwrap();
+    let send = *c.live().routing.sends.keys().next().expect("send exists");
+    // Issue-#122 create-then-bind: the `Send`-owned `SendLevel`
+    // target is created against the now-known send id, then bound.
+    let rev = c.live_revision();
+    c.apply(Command {
+        expected_revision: rev,
+        op: ProjectOp::AddParameterTarget {
+            name: "send-lvl".to_owned(),
+            owner: ControlOwner::Send(send),
+            role: ParameterRole::SendLevel,
+            time_scope: AutomationTimeScope::ProjectMusical,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: None,
+            base: 0.5,
+        },
+    })
+    .unwrap();
+    let target = c
+        .live()
+        .control
+        .targets
+        .values()
+        .find(|t| t.owner == ControlOwner::Send(send) && t.role == ParameterRole::SendLevel)
+        .expect("send level target exists")
+        .id;
+    let rev = c.live_revision();
+    c.apply(Command {
+        expected_revision: rev,
+        op: ProjectOp::SetSendGainTarget {
+            send_id: send,
+            gain_target: Some(target),
+        },
+    })
+    .unwrap();
+    c
+}
+
+/// The send fixture's live project — head revision 5.
+fn strip_send_project() -> Project {
+    strip_send_controller().live().clone()
+}
+
+/// The fixture's single send — discovered through project truth.
+fn strip_send_id() -> SendId {
+    *strip_send_project()
+        .routing
+        .sends
+        .keys()
+        .next()
+        .expect("fixture send exists")
+}
+
+/// The one `SemanticPort` matching owner/direction/role — strip main
+/// ports are seeded by `AddTrackStrip`, never hard-coded.
+fn port_of(
+    project: &Project,
+    owner: PortOwner,
+    direction: PortDirection,
+    role: PortRole,
+) -> SemanticPortId {
+    project
+        .routing
+        .ports
+        .values()
+        .find(|p| p.owner == owner && p.direction == direction && p.role == role)
+        .expect("port exists")
+        .id
+}
+
+/// The master bus's strip — send destinations hang off its main
+/// input, the same port the deterministic main route feeds.
+fn master_strip(project: &Project) -> StripId {
+    project.routing.buses[&project.routing.master].strip
+}
+
+/// [`seed_strip_store`] for the send fixture.
+fn seed_strip_send_store(dir: &Path) -> DirectoryBundleStore {
+    let mut store = DirectoryBundleStore::create(dir).unwrap();
+    if store.head().unwrap().is_none() {
+        let mut c = strip_send_controller();
+        c.save(&mut store).unwrap();
+    }
+    store
+}
+
+/// synvelis#550 fail-closed fixture: [`strip_send_controller`] plus a
+/// send-owned `Macro` modulation source — `send.remove` then cascades
+/// an entity no `ResourceKind` can name, so `op_facts` must report
+/// the delete as unverifiable rather than under-report it. Head
+/// revision 6.
+fn strip_send_modulated_controller() -> ProjectController {
+    let mut c = strip_send_controller();
+    let send = *c.live().routing.sends.keys().next().expect("send exists");
+    let rev = c.live_revision();
+    c.apply(Command {
+        expected_revision: rev,
+        op: ProjectOp::AddModulationSource {
+            owner: ControlOwner::Send(send),
+            kind: SourceKind::Macro { value: 0.5 },
+        },
+    })
+    .unwrap();
+    c
+}
+
+/// The modulated send fixture's live project — head revision 6.
+fn strip_send_modulated_project() -> Project {
+    strip_send_modulated_controller().live().clone()
 }
 
 // ── Request builders (cb10/cb11 conventions) ─────────────────
@@ -346,6 +523,52 @@ fn strip_set_mute_foreign_op() -> Value {
     )
 }
 
+// ── synvelis#550 send wire ops ───────────────────────────────
+//
+// `Send` is the routing entity the gateway resource model names;
+// the send's connection edge and semantic ports travel as validated
+// id strings inside `send.create` args (the `insert-processor`
+// posture for ports). Mask gating stays `StripFieldsAdapter`'s
+// authority — these builders only shape honest wire requests.
+
+fn send_target() -> Value {
+    json!({"shape": "resource", "kind": "send", "id": strip_send_id().to_tagged()})
+}
+
+fn send_set_tap_op() -> Value {
+    op(
+        "synvelis.send.set-tap",
+        send_target(),
+        json!({"tap": "pre-fader"}),
+    )
+}
+
+fn send_set_gain_target_op() -> Value {
+    op(
+        "synvelis.send.set-gain-target",
+        send_target(),
+        json!({"gain_target": Value::Null}),
+    )
+}
+
+fn send_remove_op() -> Value {
+    op("synvelis.send.remove", send_target(), json!({}))
+}
+
+fn send_create_op() -> Value {
+    let p = strip_send_project();
+    let strip = strip_id();
+    op(
+        "synvelis.send.create",
+        create_target("project", &project_ref(), "send"),
+        json!({
+            "source": port_of(&p, PortOwner::Strip(strip), PortDirection::Output, PortRole::Main).to_tagged(),
+            "destination": port_of(&p, PortOwner::Strip(master_strip(&p)), PortDirection::Input, PortRole::Main).to_tagged(),
+            "tap": "post-fader",
+        }),
+    )
+}
+
 fn query_req(capability: &str, args: &Value, target: Option<Value>) -> Value {
     let mut req = json!({
         "request_id": "req-cb06-query",
@@ -495,10 +718,27 @@ fn publish(gate: &CommitGate, rig: &Rig) {
 fn boot_strip(vrig: &VariantRig, dir: &Path) -> CommitGate {
     let store_dir = dir.join("project");
     let mut store = seed_strip_store(&store_dir);
+    open_strip_gate(vrig, dir, &strip_project(), &mut store)
+}
+
+/// [`boot_strip`] over the synvelis#550 send fixture — bundle store
+/// and snapshot source both pin the send project at revision 5.
+fn boot_strip_send(vrig: &VariantRig, dir: &Path) -> CommitGate {
+    let store_dir = dir.join("project");
+    let mut store = seed_strip_send_store(&store_dir);
+    open_strip_gate(vrig, dir, &strip_send_project(), &mut store)
+}
+
+fn open_strip_gate(
+    vrig: &VariantRig,
+    dir: &Path,
+    project: &Project,
+    store: &mut DirectoryBundleStore,
+) -> CommitGate {
     let (gate, _report) = CommitGate::open(
-        strip_project(),
+        project.clone(),
         Box::new(CounterIdGenerator::new(9_000)),
-        &mut store,
+        store,
         dir.join("commit.journal"),
         gate_deps_variant(
             vrig.rig.store.clone(),
@@ -597,19 +837,7 @@ fn cb06_strip_fields_gateway_commit_gate_lifecycle() {
     // The set's scope round-trips the declared strip + mask.
     gate.inspect(|c| {
         let set = &c.live().variant_sets[&set];
-        assert_eq!(
-            set.scope,
-            VariantScope::StripFields {
-                strip: strip_id(),
-                fields: StripDomainMask(BTreeSet::from([
-                    StripField::Fader,
-                    StripField::Pan,
-                    StripField::Mute,
-                    StripField::Solo,
-                    StripField::Inserts,
-                ])),
-            }
-        );
+        assert_eq!(set.scope, strip_domain_scope());
     });
 
     // ── Queries on the pinned post-fork state ─────────────────
@@ -898,20 +1126,30 @@ fn cb06_strip_fields_scope_boundary_and_capabilities() {
     // Scope validation resolves through the registered adapter path.
     adapter.validate_scope(&project, &scope).unwrap();
 
-    // The routing boundary is exactly the strip→master `Main`
-    // connection: strip-affiliated on the source side only, never a
-    // scope object — adopt cannot touch it and candidate edits cannot
-    // rewire it (CB-STRIP-03).
-    let deps = StripFieldsAdapter::boundary_dependencies(&project, &scope).unwrap();
+    // Under the channel-only mask the routing boundary is exactly the
+    // strip→master `Main` connection: strip-affiliated on the source
+    // side only, never a scope object — adopt cannot touch it and
+    // candidate edits cannot rewire it (CB-STRIP-03). Under the
+    // widest mask `MainRoute` owns that edge instead — the boundary
+    // set is mask-relative (synvelis#550).
+    let channel_scope = strip_channel_domain_scope();
+    let deps = StripFieldsAdapter::boundary_dependencies(&project, &channel_scope).unwrap();
     assert_eq!(deps.len(), 1, "only the main route crosses the boundary");
     assert!(matches!(deps[0].kind, ConnectionKind::Main));
     assert!(deps[0].source_in_scope);
     assert!(!deps[0].destination_in_scope);
+    // Widest mask: the strip-sourced main edge is scope-owned, so no
+    // routing connection crosses the boundary in this fixture.
+    let widest_deps = StripFieldsAdapter::boundary_dependencies(&project, &scope).unwrap();
+    assert!(
+        widest_deps.is_empty(),
+        "declared routing fields own every strip-sourced edge: {widest_deps:?}"
+    );
 
     // The capability report is mask-relative truth: every declared
-    // field family is Supported; routing, entity removal and preset
-    // selection stay Unsupported — display truth equals enforcement
-    // truth (CB-STRIP-02).
+    // field family is Supported; preset selection stays Unsupported —
+    // display truth equals enforcement truth (CB-STRIP-02,
+    // synvelis#550).
     let VariantScope::StripFields { fields, .. } = &scope else {
         unreachable!()
     };
@@ -922,15 +1160,43 @@ fn cb06_strip_fields_scope_boundary_and_capabilities() {
         caps.mute,
         caps.solo,
         caps.inserts,
+        caps.sends,
+        caps.main_route,
+        caps.sidechain,
         caps.automation_edit,
         caps.modulation_edit,
+        caps.entity_remove,
+        caps.routing,
     ] {
         assert_eq!(cap, ProcessingCapability::Supported);
     }
-    for cap in [caps.entity_remove, caps.routing, caps.preset_select] {
+    // `Bus` is undeclared (a track strip owns no bus) and preset
+    // selection is plugin-internal — both stay Unsupported.
+    for cap in [caps.bus, caps.preset_select] {
         assert_eq!(cap, ProcessingCapability::Unsupported);
     }
     assert_eq!(caps.plugin_rebind, ProcessingCapability::Supported);
+
+    // A channel-only mask reports the routing families Unsupported —
+    // the report follows the declared mask, not the fixture.
+    let VariantScope::StripFields {
+        fields: channel_fields,
+        ..
+    } = &channel_scope
+    else {
+        unreachable!()
+    };
+    let channel_caps = adapter.capabilities(channel_fields);
+    for cap in [
+        channel_caps.sends,
+        channel_caps.main_route,
+        channel_caps.sidechain,
+        channel_caps.bus,
+        channel_caps.routing,
+    ] {
+        assert_eq!(cap, ProcessingCapability::Unsupported);
+    }
+    assert_eq!(channel_caps.entity_remove, ProcessingCapability::Supported);
 
     // The scope digest is a stable fingerprint of the declared
     // ownership set — identical projects digest identically, and the
@@ -1117,4 +1383,163 @@ fn cb06_strip_fields_insert_ops_wire_lowering() {
         "variant-unsupported",
     );
     assert_eq!(branch_revision(&gate, &set, &candidate), 3);
+}
+
+/// synvelis#550 — the send wire surface lowers through the ordinary
+/// op table: under a mask declaring `sends`, `send.set-tap`,
+/// `send.set-gain-target`, `send.create` and `send.remove` all commit
+/// as candidate edits while live send truth stays untouched.
+#[test]
+fn cb06_strip_550_send_ops_wire_lowering() {
+    let mut vrig = variant_rig();
+    vrig.rig
+        .source
+        .commit(project(), ProjectRevision(5), strip_send_project());
+    let dir = tmpdir("cb06-strip-send");
+    let gate = boot_strip_send(&vrig, &dir);
+
+    // The widest honest track-strip mask — `sends` declared.
+    commit_human(&mut vrig, &gate, fork_op(&strip_scope()), 5);
+    publish(&gate, &vrig.rig);
+    let (set, _adopted, candidate) = only_set(&gate);
+
+    let live_before = live_rev(&gate);
+    let mut brev = branch_revision(&gate, &set, &candidate);
+    assert_eq!(brev, 1);
+    for inner in [
+        send_set_tap_op(),
+        send_set_gain_target_op(),
+        send_create_op(),
+    ] {
+        commit_human(
+            &mut vrig,
+            &gate,
+            edit_op(&set, &candidate, brev, &inner),
+            live_rev(&gate),
+        );
+        publish(&gate, &vrig.rig);
+        brev = branch_revision(&gate, &set, &candidate);
+    }
+    assert_eq!(brev, 4);
+    assert_eq!(live_rev(&gate), live_before + 3);
+
+    // Live send truth is untouched — the tap stays `PostFader` and
+    // the gain binding survives; every edit stayed candidate-side.
+    gate.inspect(|c| {
+        let send = c
+            .live()
+            .routing
+            .sends
+            .values()
+            .next()
+            .expect("fixture send exists");
+        assert_eq!(send.tap, SendTap::PostFader);
+        assert!(send.gain_target.is_some());
+        assert_eq!(c.live().routing.sends.len(), 1);
+    });
+
+    // `send.remove` lowers too — the scope-owned send's teardown
+    // commits as a candidate edit; live keeps its send.
+    commit_human(
+        &mut vrig,
+        &gate,
+        edit_op(&set, &candidate, brev, &send_remove_op()),
+        live_rev(&gate),
+    );
+    publish(&gate, &vrig.rig);
+    assert_eq!(branch_revision(&gate, &set, &candidate), 5);
+    gate.inspect(|c| assert_eq!(c.live().routing.sends.len(), 1));
+}
+
+/// synvelis#550 — mask and surface negatives: send ops under a mask
+/// that does not declare `sends` keep the typed `variant-unsupported`
+/// reject, and connection/bus entities — which have no gateway
+/// `ResourceKind` — have no wire capability at all.
+#[test]
+fn cb06_strip_550_send_ops_mask_and_surface_negatives() {
+    let mut vrig = variant_rig();
+    vrig.rig
+        .source
+        .commit(project(), ProjectRevision(5), strip_send_project());
+    let dir = tmpdir("cb06-strip-send-neg");
+    let gate = boot_strip_send(&vrig, &dir);
+
+    // Channel-only mask: the send exists and resolves, but `sends`
+    // is undeclared — the adapter rejects typed, nothing retained.
+    let scope = json!({
+        "kind": "strip-fields",
+        "strip": strip_id().to_tagged(),
+        "fields": ["fader", "mute", "solo"],
+    });
+    commit_human(&mut vrig, &gate, fork_op(&scope), 5);
+    publish(&gate, &vrig.rig);
+    let (set, _adopted, candidate) = only_set(&gate);
+
+    for inner in [send_set_tap_op(), send_remove_op()] {
+        expect_edit_rejected(
+            &mut vrig,
+            &gate,
+            &set,
+            &candidate,
+            &inner,
+            "variant-unsupported",
+        );
+    }
+    assert_eq!(branch_revision(&gate, &set, &candidate), 1);
+
+    // Deferred wire surface: connection/bus entities have no
+    // `ResourceKind`, so no `synvelis.connection.*`/`synvelis.bus.*`
+    // capability exists — the inner op resolves `UnknownCapability`,
+    // not a mask verdict. Those ops stay adapter-accepted only.
+    for id in ["synvelis.connection.set-enabled", "synvelis.bus.configure"] {
+        let inner = op(id, Value::Null, json!({}));
+        let rev = live_rev(&gate);
+        let brev = branch_revision(&gate, &set, &candidate);
+        let err = vrig
+            .rig
+            .gw
+            .handle(
+                &prepare_req(
+                    None,
+                    None,
+                    edit_op(&set, &candidate, brev, &inner),
+                    expected(rev),
+                ),
+                human(),
+            )
+            .expect_err("connection/bus ops have no wire capability");
+        assert!(
+            matches!(err.code, GatewayError::UnknownCapability { .. }),
+            "expected UnknownCapability for {id}, got {:?}",
+            err.code
+        );
+    }
+}
+
+/// synvelis#550 — `send.remove` fails closed on an unobservable
+/// cascade: the send owns a modulation source no `ResourceKind` can
+/// name, so `op_facts` reports `unsupported` and the policy denies
+/// "unverifiable effects" rather than silently dropping the delete.
+#[test]
+fn cb06_strip_550_send_remove_unobservable_cascade_denied() {
+    let mut rig = fixture_rig();
+    rig.source.commit(
+        project(),
+        ProjectRevision(6),
+        strip_send_modulated_project(),
+    );
+    let err = rig
+        .gw
+        .handle(
+            &prepare_req(None, None, send_remove_op(), expected(6)),
+            human(),
+        )
+        .expect_err("send.remove with an unobservable cascade must reject");
+    match err.code {
+        GatewayError::PreparationRejected { reason } => assert!(
+            reason.contains("unverifiable"),
+            "expected unverifiable-effects denial, got {reason:?}"
+        ),
+        other => panic!("expected PreparationRejected, got {other:?}"),
+    }
 }

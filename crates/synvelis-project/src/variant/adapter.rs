@@ -28,19 +28,22 @@ use std::collections::BTreeSet;
 
 use crate::{
     Error, IdGenerator, Operation, Project, ProjectController, ProjectOp,
+    apply::entity,
     comp::CompOp,
     control::ControlOwner,
     diff::{ObjectKind, SemanticObjectRef},
     id::{
         AutomationLaneId, ClipId, LaneId, ModulationAssignmentId, ModulationSourceId,
-        ParameterTargetId, ProcessorId, StripId, TrackId,
+        ParameterTargetId, ProcessorId, RoutingConnectionId, SemanticPortId, SendId, StripId,
+        TrackId,
     },
     ops::clip_beats,
     placement::TimeAnchor,
+    routing::{ConnectionKind, PortOwner},
     time::MusicalTick,
     variant::{
         VariantError,
-        scope::{scope_objects, strip_channel_field, validate_scope_structure},
+        scope::{scope_objects, scope_value, strip_channel_field, validate_scope_structure},
         types::{ArrangementDomainMask, StripDomainMask, StripField, VariantScope},
     },
 };
@@ -271,6 +274,210 @@ fn require_processor_owner(
     }
 }
 
+/// `true` when `port`'s owner is the scoped strip — or, for
+/// non-send routes, a processor the scope owns. This mirrors the
+/// source-side ownership rule in `scope::strip_fields_objects`: a
+/// candidate may author the outgoing edge of its own strip/chain but
+/// never an edge sourced outside the scope.
+fn strip_routing_source(
+    project: &Project,
+    scope: &VariantScope,
+    strip: &StripId,
+    port_id: SemanticPortId,
+    allow_processor: bool,
+) -> Result<bool, VariantError> {
+    let Some(port) = project.routing.ports.get(&port_id) else {
+        return Ok(false);
+    };
+    match port.owner {
+        PortOwner::Strip(owner) => Ok(owner == *strip),
+        PortOwner::Processor(owner) if allow_processor => {
+            let processors = scoped_processor_ids(project, scope)?;
+            Ok(processors.contains(&owner))
+        }
+        PortOwner::Processor(_) => Ok(false),
+    }
+}
+
+/// Rejects an op whose declared `StripField` family is absent from
+/// the scope's domain mask — the mask-relative capability verdict.
+fn require_strip_field(
+    fields: &StripDomainMask,
+    field: StripField,
+    family: &str,
+) -> Result<(), VariantError> {
+    if fields.owns(field) {
+        Ok(())
+    } else {
+        Err(VariantError::Unsupported {
+            detail: format!("{family} edits are outside the declared domain mask {fields:?}"),
+        })
+    }
+}
+
+/// The `StripField` family a routing [`ConnectionKind`] belongs to —
+/// the mask-relative gate for connection/send ops (synvelis#550).
+fn routing_field(kind: &ConnectionKind) -> StripField {
+    match kind {
+        ConnectionKind::Send(_) => StripField::Sends,
+        ConnectionKind::Main => StripField::MainRoute,
+        ConnectionKind::Sidechain => StripField::Sidechain,
+    }
+}
+
+/// synvelis#550 routing surface: mask-gated by the field family the
+/// op's routing kind belongs to, then confined by scope ownership —
+/// a foreign send/connection/bus fails `ScopeViolation`, an
+/// undeclared field family fails `Unsupported` (the
+/// mask-relative capability verdict). Returns `None` for
+/// non-routing ops so the caller's match stays flat.
+fn check_strip_routing_op_targets(
+    project: &Project,
+    scope: &VariantScope,
+    strip: &StripId,
+    fields: &StripDomainMask,
+    op: &ProjectOp,
+) -> Option<Result<(), VariantError>> {
+    let result = match op {
+        ProjectOp::AddSend {
+            source,
+            gain_target,
+            ..
+        } => require_strip_field(fields, StripField::Sends, "sends").and_then(|()| {
+            if !strip_routing_source(project, scope, strip, *source, false)? {
+                return Err(VariantError::ScopeViolation {
+                    detail: format!(
+                        "send source port {source} is not owned by scoped strip {strip}"
+                    ),
+                });
+            }
+            // Apply re-owns the gain target to the send — adopting a
+            // target outside the scope would transplant foreign
+            // ownership into live at adopt, so the target must be
+            // scope-owned (the send control closure).
+            if let Some(target) = gain_target {
+                require_scope(
+                    project,
+                    scope,
+                    ObjectKind::ParameterTarget,
+                    &target.to_tagged(),
+                )?;
+            }
+            Ok(())
+        }),
+        ProjectOp::RemoveSend { send_id } | ProjectOp::SetSendTap { send_id, .. } => {
+            require_strip_field(fields, StripField::Sends, "sends").and_then(|()| {
+                require_scope(project, scope, ObjectKind::SendConfig, &send_id.to_tagged())
+            })
+        }
+        ProjectOp::SetSendGainTarget {
+            send_id,
+            gain_target,
+        } => require_strip_field(fields, StripField::Sends, "sends").and_then(|()| {
+            require_scope(project, scope, ObjectKind::SendConfig, &send_id.to_tagged())?;
+            // Same confinement as `AddSend` — apply re-owns the
+            // target, so it must already be scope-owned.
+            if let Some(target) = gain_target {
+                require_scope(
+                    project,
+                    scope,
+                    ObjectKind::ParameterTarget,
+                    &target.to_tagged(),
+                )?;
+                // `SendLevel` is a singleton per send owner and apply
+                // seals the new target without releasing the old
+                // one, so rebinding to a *different* target always
+                // fails project validation. Reject the impossible
+                // transition typed; re-asserting the bound target or
+                // clearing to `None` still works.
+                if let Some(send) = project.routing.sends.get(send_id)
+                    && send.gain_target.is_some_and(|bound| bound != *target)
+                {
+                    return Err(VariantError::Unsupported {
+                        detail: format!(
+                            "rebinding send {send_id} to a different gain target is not \
+                             supported — the previous SendLevel seal cannot be released"
+                        ),
+                    });
+                }
+            }
+            Ok(())
+        }),
+        ProjectOp::AddConnection { source, kind, .. } => {
+            require_strip_field(fields, routing_field(kind), "connections").and_then(|()| {
+                if strip_routing_source(project, scope, strip, *source, true)? {
+                    Ok(())
+                } else {
+                    Err(VariantError::ScopeViolation {
+                        detail: format!(
+                            "connection source port {source} is outside the scoped strip's routing"
+                        ),
+                    })
+                }
+            })
+        }
+        ProjectOp::RemoveConnection { connection_id }
+        | ProjectOp::SetConnectionEnabled { connection_id, .. }
+        | ProjectOp::SetConnectionChannelMap { connection_id, .. } => {
+            let Some(conn) = project.routing.connections.get(connection_id) else {
+                return Some(Err(
+                    Error::NotFound(format!("connection {connection_id}")).into()
+                ));
+            };
+            require_strip_field(fields, routing_field(&conn.kind), "connections").and_then(|()| {
+                require_scope(
+                    project,
+                    scope,
+                    ObjectKind::RoutingConnection,
+                    &connection_id.to_tagged(),
+                )
+            })
+        }
+        ProjectOp::ConfigureBus { bus_id, .. } => {
+            require_strip_field(fields, StripField::Bus, "bus")
+                .and_then(|()| require_scope(project, scope, ObjectKind::Bus, &bus_id.to_tagged()))
+        }
+        _ => return None,
+    };
+    Some(result)
+}
+
+/// Strip-fields scope-removal policy (synvelis#550): a scope object
+/// may leave the owned set only through a real deletion whose kind
+/// the apply surface can materialize — every removed object must be
+/// absent from the post-edit candidate (a move-out is rejected) and
+/// of a removal-supported kind. `RemoveProcessor` and other
+/// structure ops either fail the reference oracle earlier or land
+/// here as typed `Unsupported` — required-closure deletions the op
+/// surface cannot express stay rejected, never cascaded silently.
+pub(crate) fn check_strip_fields_scope_removals(
+    candidate: &Project,
+    removed: &BTreeSet<SemanticObjectRef>,
+) -> Result<(), VariantError> {
+    for object in removed {
+        if !entity::removal_supported_kind(object.kind) {
+            return Err(VariantError::Unsupported {
+                detail: format!(
+                    "scope entity removal is not supported for {:?}: {}",
+                    object.kind, object.stable_id
+                ),
+            });
+        }
+        if scope_value(candidate, object)
+            .map_err(VariantError::from)?
+            .is_some()
+        {
+            return Err(VariantError::Unsupported {
+                detail: format!(
+                    "scope entity removal requires the entity itself to be deleted: {}",
+                    object.stable_id
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
 /// Control-closure ops shared by every candidate surface whose scope
 /// owns control entities: parameter base/target, automation
 /// lanes/regions and modulation — confined by [`require_scope`]
@@ -458,6 +665,15 @@ pub(crate) fn is_strip_fields_op(op: &ProjectOp) -> bool {
             ProjectOp::SetStripMute { .. }
                 | ProjectOp::SetStripSolo { .. }
                 | ProjectOp::InsertProcessor { .. }
+                | ProjectOp::AddSend { .. }
+                | ProjectOp::RemoveSend { .. }
+                | ProjectOp::SetSendTap { .. }
+                | ProjectOp::SetSendGainTarget { .. }
+                | ProjectOp::AddConnection { .. }
+                | ProjectOp::RemoveConnection { .. }
+                | ProjectOp::SetConnectionEnabled { .. }
+                | ProjectOp::SetConnectionChannelMap { .. }
+                | ProjectOp::ConfigureBus { .. }
         )
 }
 
@@ -495,8 +711,12 @@ fn check_strip_bool_op(
 /// strip-aware owner check: a strip channel role needs its field
 /// declared; any other owner resolves through the scope-derived
 /// processor set (chain processors under `Inserts`, empty
-/// otherwise). Every routing/send/sidechain/bus op stays
-/// `Unsupported` — external wiring is never candidate-owned.
+/// otherwise). Routing ops are mask-gated per field family and
+/// confined source-side (synvelis#550): sends, main routes and
+/// sidechains authored by the scoped strip or a scope-owned chain
+/// processor; incoming/foreign-source edges and undeclared families
+/// stay `Unsupported`/`ScopeViolation` — external wiring is never
+/// candidate-owned.
 fn check_strip_fields_op_targets(
     project: &Project,
     scope: &VariantScope,
@@ -509,6 +729,11 @@ fn check_strip_fields_op_targets(
             ),
         });
     };
+    // synvelis#550 routing surface — delegated wholesale; the helper
+    // returns `None` for non-routing ops.
+    if let Some(result) = check_strip_routing_op_targets(project, scope, strip, fields, op) {
+        return result;
+    }
     match op {
         ProjectOp::SetStripMute { strip_id, .. } => {
             check_strip_bool_op(project, scope, strip_id, StripField::Mute, fields, "mute")
@@ -575,6 +800,13 @@ fn check_strip_fields_op_targets(
                     }),
                 }
             }
+            // Send-level targets join the send's control closure —
+            // legal only for a scope-owned send under `Sends` (the
+            // issue-#122 create-then-bind flow).
+            ControlOwner::Send(send_id) => {
+                require_strip_field(fields, StripField::Sends, "sends")?;
+                require_scope(project, scope, ObjectKind::SendConfig, &send_id.to_tagged())
+            }
             _ => {
                 let processors = scoped_processor_ids(project, scope)?;
                 require_processor_owner(*owner, &processors, scope)
@@ -586,6 +818,10 @@ fn check_strip_fields_op_targets(
             // them mask-independently) — the mask filters
             // channel-field *targets*, not strip-level plumbing.
             ControlOwner::Strip(owner_strip) if *owner_strip == *strip => Ok(()),
+            ControlOwner::Send(send_id) => {
+                require_strip_field(fields, StripField::Sends, "sends")?;
+                require_scope(project, scope, ObjectKind::SendConfig, &send_id.to_tagged())
+            }
             _ => {
                 let processors = scoped_processor_ids(project, scope)?;
                 require_processor_owner(*owner, &processors, scope)
@@ -874,6 +1110,8 @@ struct PreEditIds {
     automation_lanes: BTreeSet<AutomationLaneId>,
     modulation_sources: BTreeSet<ModulationSourceId>,
     modulation_assignments: BTreeSet<ModulationAssignmentId>,
+    connections: BTreeSet<RoutingConnectionId>,
+    sends: BTreeSet<SendId>,
 }
 
 impl PreEditIds {
@@ -893,6 +1131,8 @@ impl PreEditIds {
             automation_lanes: project.control.lanes.keys().copied().collect(),
             modulation_sources: project.control.sources.keys().copied().collect(),
             modulation_assignments: project.control.assignments.keys().copied().collect(),
+            connections: project.routing.connections.keys().copied().collect(),
+            sends: project.routing.sends.keys().copied().collect(),
         }
     }
 }
@@ -976,6 +1216,19 @@ fn check_created_within_scope(
     for assignment in candidate.control.assignments.keys() {
         if !before.modulation_assignments.contains(assignment) {
             check(ObjectKind::ModulationAssignment, assignment.to_tagged())?;
+        }
+    }
+    // Routing creations (synvelis#550 strip candidates): `AddSend`/
+    // `AddConnection` mint edges and send configs — both must land
+    // inside the scope's owned set.
+    for connection in candidate.routing.connections.keys() {
+        if !before.connections.contains(connection) {
+            check(ObjectKind::RoutingConnection, connection.to_tagged())?;
+        }
+    }
+    for send in candidate.routing.sends.keys() {
+        if !before.sends.contains(send) {
+            check(ObjectKind::SendConfig, send.to_tagged())?;
         }
     }
     Ok(())

@@ -160,3 +160,25 @@ production code 変更なし。
   removal・他 domain positive 化・実 PCM/RT/plugin・
   実 GUI lane（別 slice/別 gate）。
 - 検証詳細: `evidence/sv548/verification.md`。
+
+## 追補 — strip routing ops・scope entity removal（synvelis#550）
+
+- `mise run test synvelis-project` — 全 suite Pass
+  （`cb06_strip_fields` 24 件: #550 節 6 件 — sends
+  positive・per-field route/bus・confinement+mask
+  negatives・send 削除 adopt・boundary mask-relative
+  を含む）。
+- `mise run test synvelis-gateway` — 全 suite Pass
+  （`cb06_strip_gateway` 6 件: send wire lowering・
+  send mask/surface negatives を含む）。
+- wire 表面の実測（synvelis#550 後）: `synvelis.send.
+  create`/`remove`/`set-tap`/`set-gain-target` の
+  4 capability が op 表に登録され、`sends` mask
+  宣言時に positive lowering・commit を確認。
+  `sends` 未宣言 mask では `variant-unsupported`、
+  connection/bus op は `UnknownCapability` で
+  deferred surface を維持。
+- 残る NotRun: connection/bus wire capability
+  （`ResourceKind` 追加は別 slice）・実 PCM/RT/
+  plugin・実 GUI lane（別 gate）。
+- 検証詳細: `evidence/sv550/verification.md`。

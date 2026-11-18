@@ -100,12 +100,28 @@ pub(crate) fn adopt_supported_kind(kind: ObjectKind) -> bool {
 
 /// `true` for object kinds the adopt path may materialize as
 /// `Removed` writes — the arrangement-removable surface (clip/note
-/// entity deletion with its referential cascade). Every other
-/// scope-owned kind keeps the typed `Unsupported` verdict until its
-/// domain defines cascade semantics; the VCS `apply_selected`
-/// surface still rejects `Removed` for all kinds.
+/// entity deletion with its referential cascade) plus the strip
+/// scope's removable control/routing entities (synvelis#550): send
+/// configs and their edges, strip-sourced connections, and the
+/// control-closure entities a send or declared field owns. Each
+/// kind's cascade closure is expressed as individual `Removed`
+/// writes for every departed scope object — `remove_entity` deletes
+/// exactly the declared entity, never re-derives scope policy.
+/// Every other scope-owned kind keeps the typed `Unsupported`
+/// verdict until its domain defines cascade semantics; the VCS
+/// `apply_selected` surface still rejects `Removed` for all kinds.
 pub(crate) fn removal_supported_kind(kind: ObjectKind) -> bool {
-    matches!(kind, ObjectKind::Clip | ObjectKind::Note)
+    matches!(
+        kind,
+        ObjectKind::Clip
+            | ObjectKind::Note
+            | ObjectKind::ParameterTarget
+            | ObjectKind::AutomationLane
+            | ObjectKind::ModulationSource
+            | ObjectKind::ModulationAssignment
+            | ObjectKind::RoutingConnection
+            | ObjectKind::SendConfig
+    )
 }
 
 /// The canonical JSON view of one object inside `project`.
@@ -556,6 +572,43 @@ fn remove_entity(project: &mut Project, write: &PlannedWrite) -> Result<(), Erro
             let note_id = NoteId::from_tagged(&write.object.stable_id)
                 .map_err(|e| Error::InvalidId(e.to_string()))?;
             project.notes.remove(&note_id);
+        }
+        // synvelis#550 strip-scope removals: each arm deletes exactly
+        // its declared entity. The referential cascade a live
+        // `ProjectOp::Remove*` performs (send teardown's control
+        // closure, a send edge's `SendConfig`) is already expressed
+        // as sibling `Removed` writes — the planner emits one per
+        // departed scope object — so re-deriving it here would only
+        // duplicate scope policy. Deletion stays idempotent.
+        ObjectKind::ParameterTarget => {
+            let id = ParameterTargetId::from_tagged(&write.object.stable_id)
+                .map_err(|e| Error::InvalidId(e.to_string()))?;
+            project.control.targets.remove(&id);
+        }
+        ObjectKind::AutomationLane => {
+            let id = AutomationLaneId::from_tagged(&write.object.stable_id)
+                .map_err(|e| Error::InvalidId(e.to_string()))?;
+            project.control.lanes.remove(&id);
+        }
+        ObjectKind::ModulationSource => {
+            let id = ModulationSourceId::from_tagged(&write.object.stable_id)
+                .map_err(|e| Error::InvalidId(e.to_string()))?;
+            project.control.sources.remove(&id);
+        }
+        ObjectKind::ModulationAssignment => {
+            let id = ModulationAssignmentId::from_tagged(&write.object.stable_id)
+                .map_err(|e| Error::InvalidId(e.to_string()))?;
+            project.control.assignments.remove(&id);
+        }
+        ObjectKind::RoutingConnection => {
+            let id = RoutingConnectionId::from_tagged(&write.object.stable_id)
+                .map_err(|e| Error::InvalidId(e.to_string()))?;
+            project.routing.connections.remove(&id);
+        }
+        ObjectKind::SendConfig => {
+            let id = SendId::from_tagged(&write.object.stable_id)
+                .map_err(|e| Error::InvalidId(e.to_string()))?;
+            project.routing.sends.remove(&id);
         }
         kind => {
             return Err(Error::Validation(format!(
