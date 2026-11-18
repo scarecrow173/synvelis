@@ -136,6 +136,8 @@ Directory: `docs/tasks`
 | TASK-539aArrngmntAdptr06 | Issue #539 tasks — ArrangementAdapter 登録 slice | done | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
 | TASK-548StripDomLowr06 | Issue #548 tasks — strip-domain lowering slice | done | [issue-548-strip-domain-lowering.md](./issue-548-strip-domain-lowering.md) |
 | TASK-550StripRtOps06 | Issue #550 tasks — strip routing ops・entity removal slice | done | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
+| TASK-552SendGainSeal06 | Issue #552 tasks — SetSendGainTarget seal 解放 slice | done | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
+| TASK-553IntentFacts06 | Issue #553 tasks — intent_facts 伝播 slice | done | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
 | TASK-VB7LzgmqMRIfE31stZItL7 | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 | done | [issue-86-task-verified-import-wiring.md](./issue-86-task-verified-import-wiring.md) |
 | TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |
 | TASK-z866D1bQYKGTdgVlXsQMXJ | L1 task2 player crate fixture | done | [l1-task2-player-crate-fixture.md](./l1-task2-player-crate-fixture.md) |

@@ -33,6 +33,8 @@ Directory: `docs/discovery`
 | DISC-539aArrngmntAdptr01 | Issue #539 discovery — VariantPorts::standard への ArrangementAdapter 登録調査 | resolved | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
 | DISC-548StripDomLowr01 | Issue #548 discovery — strip-domain inner op lowering と routing mask 拡張（CB-06 後続） | resolved | [issue-548-strip-domain-lowering.md](./issue-548-strip-domain-lowering.md) |
 | DISC-550StripRtOps01 | Issue #550 discovery — strip routing ops・scope entity removal（CB-06 後続第 2 段） | resolved | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
+| DISC-552SendGainSeal01 | Issue #552 discovery — SetSendGainTarget rebind の旧 SendLevel seal 解放 | resolved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
+| DISC-553IntentFacts01 | Issue #553 discovery — variant intent_facts の inner op facts 伝播 gap（cascade fail-closed 不全） | resolved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
 | DISC-99vL2v7VILngzJrF9fbNos | L1 Discovery — Local WAV Safe Import・Verified Media・Headless Generic Graph Playback | resolved | [l1-local-wav-verified-playback-discovery.md](./l1-local-wav-verified-playback-discovery.md) |
 | DISC-034Qmb93ek3YXoxaRPDBBD | L2 Discovery — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | resolved | [l2-master-sequential-offline-wav-export-discovery.md](./l2-master-sequential-offline-wav-export-discovery.md) |
 | DISC-034VG2eVX55D1hI610carh | plugin_instances VCS semantic diff gap — persisted instance identity invisible to compare_snapshots | resolved | [plugin-instances-vcs-diff-gap.md](./plugin-instances-vcs-diff-gap.md) |

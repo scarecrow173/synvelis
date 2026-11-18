@@ -69,6 +69,8 @@ Directory: `docs/designs`
 | DESIGN-539aArrngmntAdptr03 | Issue #539 design — adapters map への ArrangementAdapter 登録と pin fixture positive flip | approved | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
 | DESIGN-548StripDomLowr03 | Issue #548 design — strip-domain capability 登録と lowering | approved | [issue-548-strip-domain-lowering.md](./issue-548-strip-domain-lowering.md) |
 | DESIGN-550StripRtOps03 | Issue #550 design — strip routing mask・confinement・wire 表面 | approved | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
+| DESIGN-552SendGainSeal03 | Issue #552 design — SendGainTarget rebind の seal 解放（削除 vs unseal の確定） | approved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
+| DESIGN-553IntentFacts03 | Issue #553 design — declared_facts の inner facts 伝播 | approved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
 | DESIGN-vaYFK7BnCVN715EASswzTe | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 設計 | approved | [issue-86-verified-import-wiring-design.md](./issue-86-verified-import-wiring-design.md) |
 | DESIGN-yiV0z7HH1jyKUmweFh9hCT | L1 Design — Safe Import・Verified Media・Lowering・Headless Driver | approved | [l1-local-wav-verified-playback-design.md](./l1-local-wav-verified-playback-design.md) |
 | DESIGN-034QmfChvqgB632y8fAydk | L2 Design — Render Snapshot・Preflight・Sequential Render・WAV Output・Reopen Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export-design.md](./l2-master-sequential-offline-wav-export-design.md) |
