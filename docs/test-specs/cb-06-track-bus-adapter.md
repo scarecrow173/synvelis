@@ -175,6 +175,15 @@ headless exercise）で、本 spec の境界契約が gateway の
   で `UnknownCapability` — 外部 wiring 非所有の境界は
   routing 領域でも維持される
   （`docs/test-specs/issue-550-strip-routing-ops.md`）。
+  **追補（synvelis#553）**: `variant.rs` の
+  `declared_facts` が inner op の `preconditions`/
+  `unsupported` を破棄していた gap が修正され、
+  variant-edit 経路でも inner op の fail-closed
+  verdict（"unverifiable effects"）が top-level と
+  同一に効くことが
+  `cb06_strip_553_variant_edit_send_remove_
+  unobservable_cascade_denied` で pin された
+  （`docs/test-specs/issue-553-intent-facts.md`）。
 - routing/send/bus op は capability 自体が存在せず fail-closed
   — 外部 wiring は candidate-owned でない（本 spec の
   routing 参照保護 Rule と一致）。
