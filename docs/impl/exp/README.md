@@ -22,6 +22,8 @@ Directory: `docs/impl/exp`
 | [issue-521-lfs-transport-exp.jsonl](./issue-521-lfs-transport-exp.jsonl) |
 | [issue-530-plugin-state-decl-exp.jsonl](./issue-530-plugin-state-decl-exp.jsonl) |
 | [issue-539-arrangement-adapter-exp.jsonl](./issue-539-arrangement-adapter-exp.jsonl) |
+| [issue-557-adopt-facts-exp.jsonl](./issue-557-adopt-facts-exp.jsonl) |
+| [issue-559-adopt-unobservable-removal-exp.jsonl](./issue-559-adopt-unobservable-removal-exp.jsonl) |
 | [rcd-04-residual-closeout-exp.jsonl](./rcd-04-residual-closeout-exp.jsonl) |
 | [sv-gpui-02-plugin-dock-gate.jsonl](./sv-gpui-02-plugin-dock-gate.jsonl) |
 | [sv-script-03-luau-backend-exp.jsonl](./sv-script-03-luau-backend-exp.jsonl) |
