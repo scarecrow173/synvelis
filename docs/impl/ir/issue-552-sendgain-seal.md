@@ -1,7 +1,7 @@
 ---
 id: "IMPLIR-552SendGainSeal08"
-type: "impl-ir"
-status: "approved"
+type: "impl"
+status: "completed"
 title: "Issue #552 impl-ir — SetSendGainTarget seal 解放の実装記録"
 created: "2026-11-18"
 updated: "2026-11-18"
@@ -42,6 +42,11 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted:
+      - "docs/impl/exp/issue-552-sendgain-seal.md"
+    rejected: []
 ---
 
 # Issue #552 impl-ir — SetSendGainTarget seal 解放の実装記録

@@ -55,6 +55,8 @@ Directory: `docs/plans`
 | PLAN-539aArrngmntAdptr05 | Issue #539 plan — ArrangementAdapter 登録 + pin fixture positive flip slice | approved | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
 | PLAN-548StripDomLowr05 | Issue #548 plan — strip-domain lowering slice | approved | [issue-548-strip-domain-lowering.md](./issue-548-strip-domain-lowering.md) |
 | PLAN-550StripRtOps05 | Issue #550 plan — strip routing ops・entity removal slice | approved | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
+| PLAN-552SendGainSeal05 | Issue #552 plan — SetSendGainTarget seal 解放 slice | approved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
+| PLAN-553IntentFacts05 | Issue #553 plan — intent_facts 伝播 slice | approved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |

@@ -52,6 +52,8 @@ Directory: `docs/specs`
 | SPEC-539aArrngmntAdptr02 | Issue #539 spec — VariantPorts::standard への ArrangementAdapter 登録 | approved | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
 | SPEC-548StripDomLowr02 | Issue #548 spec — strip-domain inner op lowering（CB-06 後続） | approved | [issue-548-strip-domain-lowering.md](./issue-548-strip-domain-lowering.md) |
 | SPEC-550StripRtOps02 | Issue #550 spec — strip routing ops・scope entity removal（CB-06 後続第 2 段） | approved | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
+| SPEC-552SendGainSeal02 | Issue #552 spec — SetSendGainTarget rebind の旧 SendLevel seal 解放 | approved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
+| SPEC-553IntentFacts02 | Issue #553 spec — variant intent_facts の inner op facts 伝播 | approved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
 | SPEC-ubzJtNuQxbSXLe7nevbdUw | L1 — Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | approved | [l1-local-wav-verified-media-graph-playback.md](./l1-local-wav-verified-media-graph-playback.md) |
 | SPEC-034Qmb9CC7dN4YE5VPN235 | L2 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | SPEC-rBmfzOP1H86N1KAXlFpX5N | MD-A — TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | approved | [mda-takegroup-comp-effective-projection-placement-contract.md](./mda-takegroup-comp-effective-projection-placement-contract.md) |

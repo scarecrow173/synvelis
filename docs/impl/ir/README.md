@@ -110,6 +110,8 @@ Directory: `docs/impl/ir`
 | IMPL-539aArrngmntAdptr08 | Issue #539 impl record — ArrangementAdapter 登録 slice | completed | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
 | IR-548StripDomLowr08 | Issue #548 impl IR — strip-domain lowering 実装記録 | completed | [issue-548-strip-domain-lowering.md](./issue-548-strip-domain-lowering.md) |
 | IR-550StripRtOps08 | Issue #550 impl IR — strip routing ops・entity removal 実装記録 | completed | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
+| IMPLIR-552SendGainSeal08 | Issue #552 impl-ir — SetSendGainTarget seal 解放の実装記録 | completed | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
+| IR-553IntentFacts08 | Issue #553 impl IR — intent_facts 伝播 実装記録 | completed | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
 | IMPL-qGhrNdq0yLEfcWCITQ0m0p | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 実装記録 | completed | [issue-86-verified-import-wiring-slice.md](./issue-86-verified-import-wiring-slice.md) |
 | IMPL-L1LocalWavVerifiedPlayback | E2E-L1 Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | completed | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | IMPL-L2MasterSequentialOfflineWavExport | E2E-L2 Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | completed | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |

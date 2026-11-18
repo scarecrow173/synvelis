@@ -1,7 +1,7 @@
 ---
 id: "IMPLOEXP-552SendGainSeal09"
-type: "impl-exp"
-status: "approved"
+type: "experiment"
+status: "completed"
 title: "Issue #552 impl-exp — SetSendGainTarget seal 解放の検証証拠"
 created: "2026-11-18"
 updated: "2026-11-18"
