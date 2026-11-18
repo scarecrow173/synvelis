@@ -1596,3 +1596,133 @@ fn cb06_strip_553_variant_edit_send_remove_unobservable_cascade_denied() {
     );
     assert_eq!(branch_revision(&gate, &set, &candidate), 1);
 }
+
+/// synvelis#557 — adopt-path audit pin: a candidate `send.remove`
+/// edit (legal post-sv#553 — the fixture send owns no modulation
+/// entities, so no unverifiable cascade exists) commits
+/// candidate-side, and adopting that candidate materializes the
+/// send teardown into live through `plan_adopt_writes`' `Removed`
+/// writes. The observable deletes (the `Send`, its `SendLevel`
+/// `ParameterTarget`) land; the send's dedicated `Send`-kind
+/// `RoutingConnection` edge is deleted with it under the same
+/// SEC-14 boundary top-level `send.remove` already accepts
+/// (unobservable kind, strictly 1:1 with the send — synvelis#550).
+/// `declared_facts`' Adopt arm propagates no inner facts because
+/// `AdoptIntent` carries no inner op — the audit record is
+/// `docs/impl/ir/issue-557-adopt-facts.md`.
+#[test]
+fn cb06_strip_557_adopt_send_remove_candidate_materializes_teardown() {
+    let mut vrig = variant_rig();
+    vrig.rig
+        .source
+        .commit(project(), ProjectRevision(5), strip_send_project());
+    let dir = tmpdir("cb06-strip-send-adopt");
+    let gate = boot_strip_send(&vrig, &dir);
+
+    commit_human(&mut vrig, &gate, fork_op(&strip_scope()), 5);
+    publish(&gate, &vrig.rig);
+    let (set, _adopted, candidate) = only_set(&gate);
+    let send = strip_send_id();
+
+    // Candidate-side teardown — the only wire-reachable op whose
+    // cascade can leave scope-owned entities (send config, edge,
+    // control closure) absent from the candidate payload.
+    let brev = branch_revision(&gate, &set, &candidate);
+    commit_human(
+        &mut vrig,
+        &gate,
+        edit_op(&set, &candidate, brev, &send_remove_op()),
+        live_rev(&gate),
+    );
+    publish(&gate, &vrig.rig);
+    // Live still owns the send until adopt.
+    gate.inspect(|c| assert!(c.live().routing.sends.contains_key(&send)));
+
+    // Adopt through the granted-agent approval path — the domain
+    // contract consumes the receipt id as the adopt ticket (cb10
+    // convention).
+    let rev = live_rev(&gate);
+    let brev = branch_revision(&gate, &set, &candidate);
+    let digest = live_scope_digest(&gate, &set);
+    issue_agent(
+        &vrig.rig.store,
+        "t1",
+        branch_grant(
+            "g1",
+            "t1",
+            &["synvelis.branch.adopt"],
+            ApprovalPolicy::ApproveToApply,
+        ),
+    );
+    let result = complete(
+        vrig.rig
+            .gw
+            .handle(
+                &prepare_req(
+                    Some("t1"),
+                    Some("g1"),
+                    adopt_op(&set, &candidate, rev, brev, &digest),
+                    expected(rev),
+                ),
+                agent(),
+            )
+            .unwrap(),
+    );
+    let proposal = result["proposal"].as_str().unwrap().to_owned();
+    let digest_s = result["digest"].as_str().unwrap().to_owned();
+    let outcome = apply_agent(&mut vrig.rig, &proposal, &digest_s, None, "t1", "g1", rev);
+    let GatewayOutcome::ApprovalRequired { approval } = outcome else {
+        panic!("expected ApprovalRequired, got {outcome:?}");
+    };
+    complete(
+        vrig.rig
+            .gw
+            .handle(&approve_req(&proposal, &digest_s), human())
+            .unwrap(),
+    );
+    let outcome = apply_agent(
+        &mut vrig.rig,
+        &proposal,
+        &digest_s,
+        Some(approval.as_str()),
+        "t1",
+        "g1",
+        rev,
+    );
+    assert!(matches!(outcome, GatewayOutcome::Accepted { .. }));
+    let receipt = gate
+        .commit(&ProposalRef::new(&proposal).unwrap())
+        .expect("adopt commits");
+    publish(&gate, &vrig.rig);
+
+    // The teardown materialized: send config, its dedicated edge
+    // and the send-owned level target are gone from live; the
+    // candidate is adopted and the previous adopted branch froze.
+    let (_set, new_adopted, frozen) = only_set(&gate);
+    assert_eq!(new_adopted, candidate);
+    assert_ne!(frozen, candidate);
+    gate.inspect(|c| {
+        let p = c.live();
+        assert!(p.routing.sends.is_empty(), "adopt removed the send");
+        assert!(
+            p.routing
+                .connections
+                .values()
+                .all(|conn| !matches!(conn.kind, ConnectionKind::Send(_))),
+            "adopt removed the send's dedicated edge"
+        );
+        assert!(
+            p.control
+                .targets
+                .values()
+                .all(|t| t.owner != ControlOwner::Send(send)),
+            "adopt removed the send-owned level target"
+        );
+    });
+    let prov: Value =
+        serde_json::from_str(&receipt.provenance.expect("adopt commit carries provenance"))
+            .unwrap();
+    assert_eq!(prov["branch"], candidate.to_tagged());
+    assert_eq!(prov["outcome"], "applied");
+    assert_eq!(prov["objects"], json!(3));
+}
