@@ -63,10 +63,11 @@ use synvelis_project::control::{Polarity, Transform};
 use synvelis_project::routing::{
     ConnectionKind, PortDirection, PortOwner, PortRole, ProcessorBinding, SendTap,
 };
-use synvelis_project::snapshot::ContentDigest;
+use synvelis_project::snapshot::{ContentDigest, SnapshotCancel, SnapshotResolver};
 use synvelis_project::variant::{
-    DomainAdapter, ProcessingCapability, StripDomainMask, StripField, StripFieldsAdapter,
-    VariantScope, scope_digest,
+    BranchContentStore, BranchEditOp, BranchEditOpIntent, DomainAdapter, ProcessingCapability,
+    StripDomainMask, StripField, StripFieldsAdapter, VariantScope, decode_candidate,
+    edit_branch_op, fork_variant_set, scope_digest,
 };
 use synvelis_project::{
     AutomationTimeScope, BranchId, ClipId, Command, ControlOwner, CounterIdGenerator,
@@ -400,23 +401,6 @@ fn strip_send_gained_modulated_controller() -> ProjectController {
     })
     .unwrap();
     c
-}
-
-/// The gained-modulated send fixture's live project — head
-/// revision 7.
-fn strip_send_gained_modulated_project() -> Project {
-    strip_send_gained_modulated_controller().live().clone()
-}
-
-/// [`seed_strip_send_modulated_store`] for the synvelis#559 gained
-/// modulated send fixture — head revision 7.
-fn seed_strip_send_gained_modulated_store(dir: &Path) -> DirectoryBundleStore {
-    let mut store = DirectoryBundleStore::create(dir).unwrap();
-    if store.head().unwrap().is_none() {
-        let mut c = strip_send_gained_modulated_controller();
-        c.save(&mut store).unwrap();
-    }
-    store
 }
 
 // ── Request builders (cb10/cb11 conventions) ─────────────────
@@ -816,20 +800,6 @@ fn boot_strip_send_modulated(vrig: &VariantRig, dir: &Path) -> CommitGate {
     let store_dir = dir.join("project");
     let mut store = seed_strip_send_modulated_store(&store_dir);
     open_strip_gate(vrig, dir, &strip_send_modulated_project(), &mut store)
-}
-
-/// [`boot_strip_send_modulated`] over the synvelis#559 gained
-/// modulated send fixture — bundle store and snapshot source both
-/// pin the project at revision 7.
-fn boot_strip_send_gained_modulated(vrig: &VariantRig, dir: &Path) -> CommitGate {
-    let store_dir = dir.join("project");
-    let mut store = seed_strip_send_gained_modulated_store(&store_dir);
-    open_strip_gate(
-        vrig,
-        dir,
-        &strip_send_gained_modulated_project(),
-        &mut store,
-    )
 }
 
 fn open_strip_gate(
@@ -1810,50 +1780,99 @@ fn cb06_strip_557_adopt_send_remove_candidate_materializes_teardown() {
     assert_eq!(prov["objects"], json!(3));
 }
 
+/// Seeds the durable unverifiable-removal payload for the
+/// `strip-fields` scope through the trusted domain variant API:
+/// fork the strip scope on a fresh modulated-send controller, then
+/// `RemoveSend` the candidate so its stored `Captured` payload
+/// carries `Removed` writes for the send-owned
+/// `ModulationSource`/`ModulationAssignment` — the shape a pre-#553
+/// wire `send.remove` persisted. Post-sv#561 no wire edit can mint
+/// this payload (every unobservable cascade is honestly denied at
+/// prepare), so the pin injects it at the store layer the adopt
+/// fail-closed actually guards. Returns the controller — still
+/// holding the un-adopted live state — plus the
+/// variant-set/adopted/candidate ids.
+fn seed_559_unobservable_removal(
+    vrig: &VariantRig,
+) -> (ProjectController, VariantSetId, BranchId, BranchId) {
+    let mut c = strip_send_gained_modulated_controller();
+    let adapter = StripFieldsAdapter::new();
+    let resolver = SnapshotResolver::new();
+    let mut guard = vrig.ports.store.lock().unwrap();
+    let store: &mut dyn BranchContentStore = &mut **guard;
+    let forked = fork_variant_set(
+        &mut c,
+        &adapter,
+        store,
+        &resolver,
+        strip_domain_scope(),
+        &SnapshotCancel::new(),
+    )
+    .expect("domain fork");
+    let expected = c.live().variant_sets[&forked.variant_set].branches[&forked.candidate]
+        .content
+        .revision();
+    edit_branch_op(
+        &mut c,
+        &adapter,
+        store,
+        &BranchEditOpIntent {
+            variant_set: forked.variant_set,
+            branch: forked.candidate,
+            expected_branch_revision: expected,
+            op: BranchEditOp::Project(ProjectOp::RemoveSend {
+                send_id: strip_send_id(),
+            }),
+        },
+    )
+    .expect("domain candidate edit");
+    (c, forked.variant_set, forked.adopted, forked.candidate)
+}
+
 /// synvelis#559 — stored candidate payload fail-closed, end-to-end:
-/// a wire-legal candidate edit (`send.set-gain-target` unbind)
-/// makes `release_send_level_target` delete the send's `SendLevel`
-/// target *and* the `ModulationAssignment` driving it — a `Removed`
-/// write for a kind no `ResourceKind` can name. `op_facts` does not
-/// flag that arm (the edit/live-apply coverage gap is synvelis#561's
-/// scope — see `docs/discovery/issue-559-adopt-unobservable-removal.md`
-/// §4), so the payload persists; adopt must then reject it typed
-/// instead of materializing the unverifiable deletion. Live stays
-/// untouched.
+/// the unverifiable-removal payload is seeded at the domain layer
+/// because post-sv#561 every wire edit that could mint it is honestly
+/// denied at prepare (`op_facts` unverifiable-cascade coverage — the
+/// edit/live-apply gap this issue's discovery §4 recorded is now
+/// closed). The seeded `Captured` payload carries the same shape a
+/// pre-553 wire `send.remove` persisted — `Removed` writes for
+/// `ModulationSource`/`ModulationAssignment`, kinds no `ResourceKind`
+/// can name — and adopt must reject it typed instead of materializing
+/// the unverifiable deletion. Live stays untouched.
 #[test]
 fn cb06_strip_559_adopt_unobservable_removal_denied() {
     let mut vrig = variant_rig();
-    vrig.rig.source.commit(
-        project(),
-        ProjectRevision(7),
-        strip_send_gained_modulated_project(),
-    );
-    let dir = tmpdir("cb06-strip-send-gained-mod");
-    let gate = boot_strip_send_gained_modulated(&vrig, &dir);
+    let (mut c, set, adopted, candidate) = seed_559_unobservable_removal(&vrig);
 
-    commit_human(&mut vrig, &gate, fork_op(&strip_scope()), 7);
-    publish(&gate, &vrig.rig);
-    let (set, adopted, candidate) = only_set(&gate);
-
-    // Candidate edit — wire-legal `SetSendGainTarget` unbind. The
-    // release cascade deletes the target's control closure
-    // (including the `ModulationAssignment`) inside the candidate
-    // payload only; live keeps everything until adopt.
-    let rev = live_rev(&gate);
-    let brev = branch_revision(&gate, &set, &candidate);
-    commit_human(
-        &mut vrig,
-        &gate,
-        edit_op(&set, &candidate, brev, &send_set_gain_target_op()),
-        rev,
-    );
+    // Pin the mutated live state into the durable stores and boot the
+    // gate on it — the candidate `Captured` ref resolves to the
+    // seeded payload through the shared branch store.
+    vrig.rig
+        .source
+        .commit(project(), c.live_revision(), c.live().clone());
+    let dir = tmpdir("cb06-strip-559-seeded");
+    let store_dir = dir.join("project");
+    let mut bundle = DirectoryBundleStore::create(&store_dir).unwrap();
+    c.save(&mut bundle).unwrap();
+    let gate = open_strip_gate(&vrig, &dir, c.live(), &mut bundle);
     publish(&gate, &vrig.rig);
 
-    // The candidate payload now carries the unverifiable deletion;
-    // live still owns the target and the assignment on it.
-    gate.inspect(|c| {
-        let p = c.live();
+    // The stored payload really carries the unobservable deletion;
+    // live still owns the send and its whole control closure.
+    gate.inspect(|ctl| {
+        let content = ctl.live().variant_sets[&set].branches[&candidate]
+            .content
+            .clone();
+        let guard = vrig.ports.store.lock().unwrap();
+        let cand = decode_candidate(&**guard, &content).expect("candidate decodes");
+        assert!(
+            !cand.routing.sends.contains_key(&strip_send_id()),
+            "stored payload carries the send removal"
+        );
+        drop(guard);
+        let p = ctl.live();
         let send = strip_send_id();
+        assert!(p.routing.sends.contains_key(&send));
         let target = p.routing.sends[&send]
             .gain_target
             .expect("gain target bound");
@@ -1900,10 +1919,10 @@ fn cb06_strip_559_adopt_unobservable_removal_denied() {
         other => panic!("expected PreparationRejected, got {other:?}"),
     }
 
-    // Live and the adopted pointer are untouched — the release
-    // cascade never left the candidate payload.
-    gate.inspect(|c| {
-        let p = c.live();
+    // Live and the adopted pointer are untouched — the seeded
+    // payload never materialized.
+    gate.inspect(|ctl| {
+        let p = ctl.live();
         let send = strip_send_id();
         let target = p.routing.sends[&send]
             .gain_target
