@@ -73,6 +73,7 @@ Directory: `docs/test-specs`
 | TSPEC-034U2HrQ3Myiuakuy9dVPa | Issue #184 canonical temp fixture 検証仕様 | approved | [issue-184-canonical-temp-fixture.md](./issue-184-canonical-temp-fixture.md) |
 | TEST-034YBzC4xwQyNe8RtUb | issue-262-run-file-real-vm — test spec | implemented | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
 | TSPEC-034YDhYCgjWoM4vF7KomTQ | issue-274-cli-script-analyze — test spec | approved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
+| TSPEC-034ZeN710ka50ujS8RWsVD | issue-286-diff-explorer-app-wiring | approved | [issue-286-diff-explorer-app-wiring.md](./issue-286-diff-explorer-app-wiring.md) |
 | TSPEC-034WsAjGC5rxjfAzdzF1XI | Issue #365 impl index 生成可能化 — index in-sync と audit 非増加の保証 | approved | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
 | TSPEC-034Wv24lt11AFRZnEjnYfR | Issue #368 docs/impl/ir missing-section 本文補完 — audit 0 件と非増加の保証 | approved | [issue-368-ir-missing-sections.md](./issue-368-ir-missing-sections.md) |
 | TSPEC-sv511fG7hI9jK1lM3nO5pQ7r | Issue #511 test spec — CB-07 materialization の検証保証 | approved | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
@@ -88,6 +89,8 @@ Directory: `docs/test-specs`
 | TSPEC-550StripRtOps07 | Issue #550 test-spec — strip routing ops・entity removal の検証仕様 | approved | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
 | TSPEC-552SendGainSeal07 | Issue #552 test-spec — SendGainTarget seal 解放の検証仕様 | approved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
 | TSPEC-553IntentFacts07 | Issue #553 test-spec — intent_facts 伝播の検証仕様 | approved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
+| TSPEC-557AdoptFacts06 | Issue #557 test-spec — adopt declared_facts 監査の検証仕様 | approved | [issue-557-adopt-facts.md](./issue-557-adopt-facts.md) |
+| TSPEC-561OpFactsUnverifiable06 | Issue #561 test-spec — op_facts unverifiable cascade の検証仕様 | approved | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
 | TSPEC-Zb0ctcQ2s7S0lDwxkjXsiu | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 — テスト仕様 | approved | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | TSPEC-034QmjuUDQRs8JzfSsG8wM | L2 検証仕様 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |

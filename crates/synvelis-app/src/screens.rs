@@ -1979,3 +1979,23 @@ pub fn mount_vcs_history_view(
         "vcs history screen",
     )
 }
+
+/// Mounts a Difference Explorer view's spec onto a fresh
+/// [`ViewHost`] — same session-owned allocator mint contract as
+/// [`mount_vcs_history_view`], under the *adopted* view's own
+/// [`ViewInstanceId`]. `spec` is the deterministic projection from
+/// `synvelis_workspace::variant_diff::variant_diff_spec` (the
+/// `syn.variant-diff.view` op returns it verbatim) — the app never
+/// re-interprets evidence rows into a second spec shape, so mounted
+/// drivers render exactly what the wire contract published.
+///
+/// # Errors
+/// [`UiError::Internal`] when the spec fails validation — a code
+/// defect.
+pub fn mount_variant_diff_view(
+    attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
+    instance: ViewInstanceId,
+    spec: ViewSpec,
+) -> Result<ViewHost, UiError> {
+    mount_screen_view(attach_epochs, instance, spec, "variant-diff screen")
+}

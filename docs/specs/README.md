@@ -41,6 +41,7 @@ Directory: `docs/specs`
 | SPEC-034U2u4gD9peI0yjoqllEA | Issue #184 CI verify/evidence 失敗 — synvelis-library テスト fixture の canonical path 修正 | proposed | [issue-184-ci-verify-symlink-fixture.md](./issue-184-ci-verify-symlink-fixture.md) |
 | SPEC-034YDgnDTjpDlwq3cW0ik4 | issue-274-cli-script-analyze — synvelis-cli script analyze --file headless Script Analyzer | approved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
 | SPEC-034ZjJ8aK8r4WHvvG44LZh | Issue #283 slice — strip-fields gateway commit-gate exercise spec | approved | [issue-283-strip-gateway-exercise.md](./issue-283-strip-gateway-exercise.md) |
+| SPEC-286DiffExplorerAppWiring02 | Issue #286 spec — CB-09 Difference Explorer app wiring | approved | [issue-286-diff-explorer-app-wiring.md](./issue-286-diff-explorer-app-wiring.md) |
 | SPEC-sv511bC3dE5fG7hI9jK1lM3n | Issue #511 spec — CB-07 materialization 残件の受入仕様 | approved | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
 | SPEC-513a1b2c3d4e5f6g7h8i9j0k1 | issue-513-variant-apply-ops — variant/VCS apply op surface 拡張 | approved | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
 | SPEC-5mnrHdz7IcQnkdbdZd6nsY | Issue #514 spec — SessionRoutingEngine の RCP selection 消費要否の確定 | approved | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |
@@ -54,6 +55,8 @@ Directory: `docs/specs`
 | SPEC-550StripRtOps02 | Issue #550 spec — strip routing ops・scope entity removal（CB-06 後続第 2 段） | approved | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
 | SPEC-552SendGainSeal02 | Issue #552 spec — SetSendGainTarget rebind の旧 SendLevel seal 解放 | approved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
 | SPEC-553IntentFacts02 | Issue #553 spec — variant intent_facts の inner op facts 伝播 | approved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
+| SPEC-557AdoptFacts02 | Issue #557 spec — VariantIntent::Adopt 経路の declared_facts 伝播監査 | approved | [issue-557-adopt-facts.md](./issue-557-adopt-facts.md) |
+| SPEC-561OpFactsUnverifiable02 | Issue #561 spec — op_facts 観測不能 cascade の fail-closed | approved | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
 | SPEC-ubzJtNuQxbSXLe7nevbdUw | L1 — Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | approved | [l1-local-wav-verified-media-graph-playback.md](./l1-local-wav-verified-media-graph-playback.md) |
 | SPEC-034Qmb9CC7dN4YE5VPN235 | L2 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | SPEC-rBmfzOP1H86N1KAXlFpX5N | MD-A — TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | approved | [mda-takegroup-comp-effective-projection-placement-contract.md](./mda-takegroup-comp-effective-projection-placement-contract.md) |

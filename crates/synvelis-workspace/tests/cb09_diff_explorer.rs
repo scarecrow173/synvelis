@@ -15,6 +15,8 @@
 //! labelled `Mock` — never real measurements.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use ruviform_ui::view::{ButtonSpec, ComponentSpec};
 use synvelis_project::control::BeatPoint;
@@ -39,8 +41,12 @@ use synvelis_project::snapshot::{
 use synvelis_project::store::SCHEMA_VERSION;
 use synvelis_project::time::{MusicalDuration, MusicalTick, SourceFrame};
 use synvelis_project::variant::{
-    ArrangementDomainMask, BranchEditIntent, BranchRevision, FakeDomainAdapter,
-    InMemoryBranchContentStore, ProcessingRangeRef, RuntimePublishState, StripDomainMask,
+    ArrangementAdapter, ArrangementDomainMask, AudioClipAdapter, BranchEditIntent, BranchRevision,
+    CompareError, DirectoryBranchContentStore, DomainAdapter, EvidenceOrigin as Cb08EvidenceOrigin,
+    FakeDomainAdapter, InMemoryBranchContentStore, LayerState as Cb08LayerState,
+    ProcessingRangeRef, RuntimePublishState, SessionOptions,
+    SignalAlignment as Cb08SignalAlignment, SignalCompareRequest, SignalComparisonProvider,
+    SignalDomain as Cb08SignalDomain, SignalMetric, SignalProviderReport, StripDomainMask,
     StripField, TakeUsageTarget, VariantScope, decode_candidate, edit_branch, fork_variant_set,
     scope_digest,
 };
@@ -49,11 +55,15 @@ use synvelis_project::{
     TrackId, VariantSetId,
 };
 use synvelis_workspace::state::ViewState;
+use synvelis_workspace::variant_diff::{
+    VariantDiffBranchObservations, VariantDiffDispatchError, VariantDiffEngine,
+    variant_diff_authority, variant_diff_context,
+};
 use synvelis_workspace::{
     ACTION_VARIANT_DIFF_ADOPT, ACTION_VARIANT_DIFF_ADOPT_PREVIEW, ACTION_VARIANT_DIFF_AUDITION,
     ACTION_VARIANT_DIFF_COMPARE, ACTION_VARIANT_DIFF_SELECT, AlignmentState, AuxLayerEvidence,
     BranchAuthority, BranchPin, CapabilityEvidence, CompareAuthority, CompareContext, CompareSide,
-    ContextState, EvidenceOrigin, EvidenceRow, EvidenceState, SemanticDiffEvidence,
+    ContextState, DiffRow, EvidenceOrigin, EvidenceRow, EvidenceState, SemanticDiffEvidence,
     SemanticEvidence, VARIANT_DIFF_TARGET, VariantDiffActionKind, VariantDiffDomain,
     VariantDiffInput, VariantDiffIntent, VariantDiffReason, VariantDiffReject, VariantDiffTarget,
     VariantDiffViewAction, VariantDiffViewState, ViewType, apply_variant_diff_action,
@@ -478,38 +488,26 @@ fn cb09_domain_labels_cover_every_scope() {
         let input = input_for(&scope, authority);
         let view = project_variant_diff(&input, &VariantDiffViewState::default());
         assert_eq!(view.domain, domain_for(case), "case {case}");
-        if case == 6 {
-            // Arrangement adapter is unmerged (CB-07/#284): the domain is
-            // honestly Unsupported — never a fabricated diff.
-            assert!(matches!(
-                view.domain_state,
-                EvidenceState::Unsupported {
-                    reason: VariantDiffReason::DomainAdapterUnmerged
-                }
-            ));
-        } else {
-            assert!(view.domain_state.is_available(), "case {case}");
-        }
+        // Every enumerated domain has a merged CB-0x adapter —
+        // arrangement included (CB-07/#284). The
+        // `DomainAdapterUnmerged` verdict stays typed for future
+        // unmerged domains but no current scope triggers it.
+        assert!(view.domain_state.is_available(), "case {case}");
     }
 }
 
 #[test]
-fn cb09_arrangement_domain_never_fabricates_rows() {
+fn cb09_arrangement_domain_projects_supplied_evidence() {
     let scope = scope_for(6);
     let authority = authority_for(&scope);
     let mut input = input_for(&scope, authority);
-    // Even if a caller supplies diff evidence for the unmerged domain,
-    // the view-model must not project fabricated arrangement rows.
+    // Arrangement is a supported domain now — caller-supplied diff
+    // evidence projects like any other domain's rows.
     input.semantic = available_semantic(empty_diff());
     let view = project_variant_diff(&input, &VariantDiffViewState::default());
-    assert!(matches!(
-        view.semantic.state,
-        EvidenceState::Unsupported {
-            reason: VariantDiffReason::DomainAdapterUnmerged
-        }
-    ));
+    assert!(view.semantic.state.is_available());
+    assert_eq!(view.semantic.equality, Some(ComparisonEquality::Equal));
     assert_eq!(view.semantic.rows, Vec::new());
-    assert!(view.semantic.equality.is_none());
 }
 
 #[test]
@@ -754,32 +752,28 @@ fn cb09_implicit_malformed_and_stale_targets_fail_closed() {
 }
 
 #[test]
-fn cb09_arrangement_domain_rejects_authority_actions() {
+fn cb09_arrangement_domain_mints_authority_intents() {
     let scope = scope_for(6);
     let authority = authority_for(&scope);
     let input = input_for(&scope, authority.clone());
     let view = project_variant_diff(&input, &VariantDiffViewState::default());
     let mut state = VariantDiffViewState::default();
 
+    // Arrangement's adapter is merged — compare and adopt candidates
+    // mint typed intents like every other supported domain.
     let params = serde_json::json!({ "left": pin(1, 1), "right": pin(2, 1) });
     let action = decode_variant_diff_action(ACTION_VARIANT_DIFF_COMPARE, Some(&params)).unwrap();
-    assert_eq!(
+    assert!(matches!(
         apply_variant_diff_action(&mut state, &view, &authority, &action),
-        Err(VariantDiffReject::UnsupportedDomain)
-    );
+        Ok(Some(VariantDiffIntent::Compare { .. }))
+    ));
     let params = serde_json::to_value(pin(2, 1)).unwrap();
     let action = decode_variant_diff_action(ACTION_VARIANT_DIFF_ADOPT, Some(&params)).unwrap();
-    assert_eq!(
+    assert!(matches!(
         apply_variant_diff_action(&mut state, &view, &authority, &action),
-        Err(VariantDiffReject::UnsupportedDomain)
-    );
-    // Candidates stay visible but honestly blocked — never executable.
-    assert!(view.actions.iter().all(|a| !a.executable));
-    assert!(
-        view.actions
-            .iter()
-            .all(|a| a.block_reason == Some(VariantDiffReason::UnsupportedDomain))
-    );
+        Ok(Some(VariantDiffIntent::Adopt { .. }))
+    ));
+    assert!(view.actions.iter().any(|a| a.executable));
 }
 
 // ── CB-CMP-01: stale / rejected context ─────────────────────────────
@@ -1294,8 +1288,10 @@ fn cb09_apply_rejects_noncurrent_context() {
 #[test]
 fn cb09_apply_domain_comes_from_authority_scope() {
     // View projected from an AudioClip context, but apply is handed an
-    // authority whose scope is the unmerged Arrangement domain — the
-    // gate must follow the authority, not the view's display domain.
+    // authority for a *different* scope — the scope mismatch must fail
+    // closed before any intent is minted. With every current domain
+    // adapter merged the domain gate no longer rejects arrangement;
+    // the context check still does.
     let scope = scope_for(0);
     let authority = authority_for(&scope);
     let input = input_for(&scope, authority.clone());
@@ -1310,7 +1306,7 @@ fn cb09_apply_domain_comes_from_authority_scope() {
     let action = VariantDiffViewAction::Adopt { target: pin(2, 1) };
     assert_eq!(
         apply_variant_diff_action(&mut state, &view, &arrangement_authority, &action),
-        Err(VariantDiffReject::UnsupportedDomain)
+        Err(VariantDiffReject::StaleContext)
     );
 }
 
@@ -1694,4 +1690,527 @@ fn cb09_summary_label_reports_every_change_kind() {
     assert!(summary.contains("3 moved"), "{summary}");
     assert!(summary.contains("1 reordered"), "{summary}");
     assert!(summary.contains("1 reconnected"), "{summary}");
+}
+
+// ── CB-08 provider adapter + dispatch facade (synvelis#286 wiring) ──
+//
+// `VariantDiffEngine` is the workspace-side seam connecting the CB-09
+// view-model to the merged CB-07/CB-08/CB-10 machinery: real domain
+// adapters, the comparison orchestrator, and the gateway's
+// simulate/execute commit gate — the app never names gateway types.
+// Fixtures fork through the *same* directory store the engine's
+// standard ports open, so captured candidate payloads resolve through
+// the real read path.
+
+static ENGINE_DIR_SEQ: AtomicU64 = AtomicU64::new(0);
+
+fn engine_root() -> PathBuf {
+    let seq = ENGINE_DIR_SEQ.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!("synvelis-cb09-engine-{}-{seq}", std::process::id()))
+}
+
+struct EngineFixture {
+    root: PathBuf,
+    controller: ProjectController,
+    variant_set: VariantSetId,
+    adopted: BranchId,
+    candidate: BranchId,
+    scope: VariantScope,
+}
+
+impl EngineFixture {
+    /// Live pins for adopted (left) vs candidate (right) plus the
+    /// current project revision — the explicit targets every facade
+    /// call requires.
+    fn pins(&self) -> (BranchPin, BranchPin, ProjectRevision) {
+        let set = &self.controller.live().variant_sets[&self.variant_set];
+        (
+            BranchPin {
+                branch: self.adopted,
+                revision: set.branches[&self.adopted].content.revision(),
+            },
+            BranchPin {
+                branch: self.candidate,
+                revision: set.branches[&self.candidate].content.revision(),
+            },
+            self.controller.live_revision(),
+        )
+    }
+
+    fn authority(&self) -> CompareAuthority {
+        variant_diff_authority(
+            self.controller.live(),
+            self.variant_set,
+            self.controller.live_revision(),
+            &VariantDiffBranchObservations::default(),
+        )
+        .unwrap()
+    }
+}
+
+/// Forks a real variant set through `adapter` into the directory store
+/// under `root/branch-content` — the same path `VariantDiffEngine`'s
+/// standard ports open — then mutes the clip on the candidate so the
+/// semantic layer has a confirmed change to project.
+fn engine_fixture(
+    scope: impl FnOnce(TrackId, ClipId) -> VariantScope,
+    adapter: &dyn DomainAdapter,
+) -> EngineFixture {
+    let root = engine_root();
+    let (mut controller, track, _lane, clip, _note) = audio_fixture();
+    let mut store = DirectoryBranchContentStore::new(root.join("branch-content"));
+    let scope = scope(track, clip);
+    let receipt = fork_variant_set(
+        &mut controller,
+        adapter,
+        &mut store,
+        &SnapshotResolver::new(),
+        scope.clone(),
+        &SnapshotCancel::new(),
+    )
+    .unwrap();
+    let candidate_rev = controller.live().variant_sets[&receipt.variant_set].branches
+        [&receipt.candidate]
+        .content
+        .revision();
+    edit_branch(
+        &mut controller,
+        adapter,
+        &mut store,
+        &BranchEditIntent {
+            variant_set: receipt.variant_set,
+            branch: receipt.candidate,
+            expected_branch_revision: candidate_rev,
+            op: ProjectOp::SetClipMuted {
+                clip_id: clip,
+                muted: true,
+            },
+        },
+    )
+    .unwrap();
+    EngineFixture {
+        root,
+        controller,
+        variant_set: receipt.variant_set,
+        adopted: receipt.adopted,
+        candidate: receipt.candidate,
+        scope,
+    }
+}
+
+fn audio_engine_fixture() -> EngineFixture {
+    engine_fixture(
+        |_track, clip| VariantScope::AudioClip { clip },
+        &AudioClipAdapter::new(),
+    )
+}
+
+/// Layers → view input, reusing the facade-built authority/context so
+/// the projection sees the same pins the orchestrator evaluated.
+fn engine_input(
+    fx: &EngineFixture,
+    layers: &synvelis_workspace::variant_diff::VariantDiffLayers,
+) -> VariantDiffInput {
+    let (left, right, rev) = fx.pins();
+    VariantDiffInput {
+        context: variant_diff_context(fx.controller.live(), fx.variant_set, left, right, rev)
+            .unwrap(),
+        authority: fx.authority(),
+        semantic: layers.semantic.clone(),
+        signal: layers.signal.clone(),
+        perceptual: layers.perceptual.clone(),
+        capabilities: CapabilityEvidence {
+            editability: EvidenceState::Available,
+            exact_audition: EvidenceState::Unavailable {
+                reason: VariantDiffReason::MissingPlugin,
+            },
+            reasons: vec![VariantDiffReason::MissingPlugin],
+        },
+    }
+}
+
+#[test]
+fn cb09_engine_compare_projects_cb08_layers() {
+    let fx = audio_engine_fixture();
+    let mut engine = VariantDiffEngine::new(Some(&fx.root));
+    let (left, right, rev) = fx.pins();
+    let layers = engine
+        .compare(
+            fx.controller.live(),
+            fx.variant_set,
+            &left,
+            &right,
+            rev,
+            &SessionOptions::default(),
+            None,
+        )
+        .unwrap();
+
+    // Semantic: the real orchestrator diff — mute is a confirmed
+    // change, never collapsed into equality.
+    assert!(layers.semantic.state.is_available());
+    let semantic = layers.semantic.diff.as_ref().expect("semantic diff");
+    assert_eq!(semantic.overall, ComparisonEquality::Different);
+    assert!(!layers.freshness.is_stale());
+
+    // Signal: no provider configured → honest typed gap, not a
+    // zero-difference claim.
+    assert!(matches!(
+        layers.signal.state,
+        EvidenceState::Unavailable {
+            reason: VariantDiffReason::EvidenceUnavailable
+        }
+    ));
+    assert!(layers.signal.origin.is_none());
+    assert_eq!(layers.signal.rows.len(), 0);
+
+    // Perceptual: headless audition stays an explicit gap.
+    assert!(matches!(
+        layers.perceptual.state,
+        EvidenceState::Unavailable {
+            reason: VariantDiffReason::EvidenceUnavailable
+        }
+    ));
+
+    // The same bundle projects into the view unchanged.
+    let input = engine_input(&fx, &layers);
+    let view = project_variant_diff(&input, &VariantDiffViewState::default());
+    assert_eq!(view.domain, VariantDiffDomain::AudioClip);
+    assert!(view.domain_state.is_available());
+    assert!(view.semantic.state.is_available());
+    assert_eq!(view.semantic.equality, Some(ComparisonEquality::Different));
+    assert_ne!(view.semantic.rows, [] as [DiffRow; 0]);
+    assert!(matches!(
+        view.signal.state,
+        EvidenceState::Unavailable { .. }
+    ));
+    assert_eq!(view.signal.rows.len(), 0);
+}
+
+/// Provider seam: Mock stays visibly Mock, Pipeline/Derived report as
+/// pipeline provenance, alignment and metric rows carry verbatim.
+struct StubSignalProvider {
+    report: SignalProviderReport,
+}
+
+impl SignalComparisonProvider for StubSignalProvider {
+    fn compare_signal(&self, _request: &SignalCompareRequest<'_>) -> SignalProviderReport {
+        self.report.clone()
+    }
+}
+
+#[test]
+fn cb09_engine_compare_maps_signal_provider_provenance() {
+    let fx = audio_engine_fixture();
+    let mut engine = VariantDiffEngine::new(Some(&fx.root));
+    let (left, right, rev) = fx.pins();
+
+    for (origin, expected) in [
+        (Cb08EvidenceOrigin::Mock, EvidenceOrigin::Mock),
+        (Cb08EvidenceOrigin::Pipeline, EvidenceOrigin::Pipeline),
+        (Cb08EvidenceOrigin::Derived, EvidenceOrigin::Pipeline),
+    ] {
+        let provider = StubSignalProvider {
+            report: SignalProviderReport {
+                state: Cb08LayerState::Available,
+                origin,
+                alignment: Cb08SignalAlignment::Aligned,
+                metrics: vec![SignalMetric {
+                    name: "pcm.rms".into(),
+                    domain: Cb08SignalDomain::Musical,
+                    before: 0.5,
+                    after: 0.7,
+                    delta: 0.2,
+                    unit: "linear".into(),
+                }],
+                provenance: None,
+            },
+        };
+        let layers = engine
+            .compare(
+                fx.controller.live(),
+                fx.variant_set,
+                &left,
+                &right,
+                rev,
+                &SessionOptions::default(),
+                Some(&provider),
+            )
+            .unwrap();
+        assert!(layers.signal.state.is_available(), "{origin:?}");
+        assert_eq!(layers.signal.origin, Some(expected), "{origin:?}");
+        assert_eq!(layers.signal.alignment, AlignmentState::Aligned);
+        assert_eq!(layers.signal.rows.len(), 1);
+        assert!(layers.signal.rows[0].label.contains("pcm.rms"));
+    }
+}
+
+/// The merged CB-07 arrangement adapter resolves through the facade's
+/// port table — arrangement compare produces real semantic evidence,
+/// not the stale `DomainAdapterUnmerged` verdict.
+#[test]
+fn cb09_engine_compare_resolves_arrangement_adapter() {
+    let fx = engine_fixture(
+        |track, _clip| VariantScope::Arrangement {
+            tracks: vec![track],
+            time: MusicalRange::try_new(MusicalTick::new(0), MusicalTick::new(16 * 960)).unwrap(),
+            fields: ArrangementDomainMask {
+                clips: true,
+                notes: true,
+            },
+        },
+        &ArrangementAdapter::new(),
+    );
+    let mut engine = VariantDiffEngine::new(Some(&fx.root));
+    let (left, right, rev) = fx.pins();
+    let layers = engine
+        .compare(
+            fx.controller.live(),
+            fx.variant_set,
+            &left,
+            &right,
+            rev,
+            &SessionOptions::default(),
+            None,
+        )
+        .unwrap();
+    assert!(layers.semantic.state.is_available());
+
+    let input = engine_input(&fx, &layers);
+    let view = project_variant_diff(&input, &VariantDiffViewState::default());
+    assert_eq!(view.domain, VariantDiffDomain::Arrangement);
+    assert!(view.domain_state.is_available());
+    assert!(view.semantic.state.is_available());
+    assert_eq!(view.semantic.equality, Some(ComparisonEquality::Different));
+    assert_ne!(view.semantic.rows, [] as [DiffRow; 0]);
+}
+
+#[test]
+fn cb09_engine_authority_and_context_reflect_live_state() {
+    let fx = audio_engine_fixture();
+    let authority = fx.authority();
+    let set = &fx.controller.live().variant_sets[&fx.variant_set];
+    assert_eq!(authority.variant_set, fx.variant_set);
+    assert_eq!(authority.scope, set.scope);
+    assert_eq!(authority.adopted, set.adopted);
+    assert_eq!(authority.project_revision, fx.controller.live_revision());
+    assert_eq!(
+        authority.scope_digest,
+        scope_digest(fx.controller.live(), &fx.scope).unwrap()
+    );
+    for (id, branch) in &set.branches {
+        assert_eq!(authority.branches[id].revision, branch.content.revision());
+        assert!(!authority.branches[id].editing);
+        assert_eq!(
+            authority.branches[id].publish,
+            RuntimePublishState::NotRequested
+        );
+    }
+
+    let (left, right, rev) = fx.pins();
+    let context = variant_diff_context(
+        fx.controller.live(),
+        fx.variant_set,
+        left.clone(),
+        right.clone(),
+        rev,
+    )
+    .unwrap();
+    assert_eq!(context.left, left);
+    assert_eq!(context.right, right);
+    assert_eq!(context.scope_digest, authority.scope_digest);
+
+    // Unknown sets fail closed — never a fabricated authority.
+    assert!(
+        variant_diff_authority(
+            fx.controller.live(),
+            VariantSetId::new(999),
+            rev,
+            &VariantDiffBranchObservations::default(),
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn cb09_engine_compare_rejects_stale_and_unknown_pins() {
+    let fx = audio_engine_fixture();
+    let mut engine = VariantDiffEngine::new(Some(&fx.root));
+    let (left, right, rev) = fx.pins();
+
+    // Stale asserted pin revision → typed CAS reject before any
+    // session opens.
+    let stale_right = BranchPin {
+        branch: right.branch,
+        revision: BranchRevision::new(right.revision.raw() + 1),
+    };
+    assert!(matches!(
+        engine.compare(
+            fx.controller.live(),
+            fx.variant_set,
+            &left,
+            &stale_right,
+            rev,
+            &SessionOptions::default(),
+            None,
+        ),
+        Err(CompareError::StaleRevision { .. })
+    ));
+
+    // Unknown branch → typed reject.
+    let ghost = BranchPin {
+        branch: BranchId::new(9999),
+        revision: BranchRevision::new(1),
+    };
+    assert!(matches!(
+        engine.compare(
+            fx.controller.live(),
+            fx.variant_set,
+            &left,
+            &ghost,
+            rev,
+            &SessionOptions::default(),
+            None,
+        ),
+        Err(CompareError::UnknownBranch { .. })
+    ));
+}
+
+#[test]
+fn cb09_engine_adopt_preview_and_commit_keep_cas() {
+    let mut fx = audio_engine_fixture();
+    let engine = VariantDiffEngine::new(Some(&fx.root));
+    let authority = fx.authority();
+    let candidate_rev = authority.branches[&fx.candidate].revision;
+    let target = BranchPin {
+        branch: fx.candidate,
+        revision: candidate_rev,
+    };
+
+    // Preview: the simulated post-state adopts the candidate; live is
+    // untouched.
+    let preview_intent = VariantDiffIntent::AdoptPreview {
+        target: target.clone(),
+        scope_digest: authority.scope_digest,
+    };
+    let preview = engine
+        .adopt_preview(fx.controller.live(), &authority, &preview_intent)
+        .unwrap();
+    assert_eq!(preview.variant_sets[&fx.variant_set].adopted, fx.candidate);
+    assert_ne!(
+        fx.controller.live().variant_sets[&fx.variant_set].adopted,
+        fx.candidate
+    );
+
+    // Commit: the same CAS guards run through the gateway execute
+    // path; live flips to the candidate only now.
+    let adopt_intent = VariantDiffIntent::Adopt {
+        target,
+        scope_digest: authority.scope_digest,
+    };
+    engine
+        .adopt(
+            &mut fx.controller,
+            &authority,
+            &adopt_intent,
+            "cb09-approval",
+        )
+        .unwrap();
+    assert_eq!(
+        fx.controller.live().variant_sets[&fx.variant_set].adopted,
+        fx.candidate
+    );
+}
+
+#[test]
+fn cb09_engine_adopt_rejects_typed() {
+    let mut fx = audio_engine_fixture();
+    let engine = VariantDiffEngine::new(Some(&fx.root));
+    let authority = fx.authority();
+    let candidate_rev = authority.branches[&fx.candidate].revision;
+    let good = BranchPin {
+        branch: fx.candidate,
+        revision: candidate_rev,
+    };
+
+    // Stale asserted branch revision.
+    let stale = VariantDiffIntent::Adopt {
+        target: BranchPin {
+            branch: fx.candidate,
+            revision: BranchRevision::new(candidate_rev.raw() + 1),
+        },
+        scope_digest: authority.scope_digest,
+    };
+    assert!(matches!(
+        engine.adopt(&mut fx.controller, &authority, &stale, "t"),
+        Err(VariantDiffDispatchError::Reject(
+            VariantDiffReject::StaleRevision
+        ))
+    ));
+
+    // Unknown branch.
+    let unknown = VariantDiffIntent::Adopt {
+        target: BranchPin {
+            branch: BranchId::new(9999),
+            revision: BranchRevision::new(1),
+        },
+        scope_digest: authority.scope_digest,
+    };
+    assert!(matches!(
+        engine.adopt(&mut fx.controller, &authority, &unknown, "t"),
+        Err(VariantDiffDispatchError::Reject(
+            VariantDiffReject::UnknownBranch
+        ))
+    ));
+
+    // Scope fingerprint drift.
+    let drifted = VariantDiffIntent::Adopt {
+        target: good.clone(),
+        scope_digest: ContentDigest::sha256(b"cb09-wrong-scope"),
+    };
+    assert!(matches!(
+        engine.adopt(&mut fx.controller, &authority, &drifted, "t"),
+        Err(VariantDiffDispatchError::Reject(
+            VariantDiffReject::StaleContext
+        ))
+    ));
+
+    // Already-adopted target is a typed no-op reject, never a commit.
+    let adopted_pin = BranchPin {
+        branch: fx.adopted,
+        revision: authority.branches[&fx.adopted].revision,
+    };
+    let noop = VariantDiffIntent::Adopt {
+        target: adopted_pin,
+        scope_digest: authority.scope_digest,
+    };
+    assert!(matches!(
+        engine.adopt(&mut fx.controller, &authority, &noop, "t"),
+        Err(VariantDiffDispatchError::Reject(
+            VariantDiffReject::AlreadyAdopted
+        ))
+    ));
+
+    // A preview intent must never reach the commit path, and an adopt
+    // intent must never be silently downgraded to a preview.
+    let preview = VariantDiffIntent::AdoptPreview {
+        target: good.clone(),
+        scope_digest: authority.scope_digest,
+    };
+    assert!(matches!(
+        engine.adopt(&mut fx.controller, &authority, &preview, "t"),
+        Err(VariantDiffDispatchError::Reject(
+            VariantDiffReject::Malformed
+        ))
+    ));
+    let commit = VariantDiffIntent::Adopt {
+        target: good,
+        scope_digest: authority.scope_digest,
+    };
+    assert!(matches!(
+        engine.adopt_preview(fx.controller.live(), &authority, &commit),
+        Err(VariantDiffDispatchError::Reject(
+            VariantDiffReject::Malformed
+        ))
+    ));
 }

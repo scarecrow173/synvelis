@@ -20,6 +20,7 @@ Directory: `docs/adr`
 | ADR-034RUwki0c6svA0PlhUBB8 | Issue #157 rev.3 skip placeholder 受理方式 — gate 名照合拡張 vs workflow 構造変更 | accepted | [issue-157-rev-3-skip-placeholder-gate-vs-workflow.md](./issue-157-rev-3-skip-placeholder-gate-vs-workflow.md) |
 | ADR-XTlIzRk1SB1nTV82KYSW6m | Issue #167 Tracker reconcile 入口 — 共有 pin eed590e で RF 別 workflow reconcile 契約を Consumer 採用(trigger 禁止の補足契約の転用) | accepted | [issue-167-tracker-reconcile-entry.md](./issue-167-tracker-reconcile-entry.md) |
 | ADR-034YXYg4hYn98CrAyagGqa | SV177 design tokens — product-document alias layer + ResolvedTheme-level parity | accepted | [issue-177-design-tokens.md](./issue-177-design-tokens.md) |
+| ADR-286DiffExplorerAppWiring05 | Issue #286 — Difference Explorer dispatch を synvelis-workspace の VariantDiffEngine facade に集約する | accepted | [issue-286-diff-explorer-app-wiring.md](./issue-286-diff-explorer-app-wiring.md) |
 | ADR-sv511gH8iJ0kL1mN3oP5qR7s | Issue #511 ADR — Removed materialization・PPQN typed 拒否・AbsoluteAnchor 継続の方式決定 | accepted | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
 | ADR-513a1b2c3d4e5f6g7h8i9j0k2 | issue-513-variant-apply-ops — apply op surface 拡張の採否決定 | accepted | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
 | ADR-0e3CjgAC6VMxn4HycdTGhk | Issue #514 — SessionRoutingEngine は RCP selection を消費しない（責務は RoutingEngine レベルで閉じる） | accepted | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |

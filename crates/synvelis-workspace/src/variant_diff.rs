@@ -1,13 +1,16 @@
 //! CB-09 Creative Branch Difference Explorer — headless view-model +
-//! driver-neutral [`ViewSpec`] projection (synvelis#286).
+//! driver-neutral [`ViewSpec`] projection + CB-08/CB-10 dispatch
+//! facade (synvelis#286).
 //!
 //! This module is the *presentation/read-model* layer for comparing two
-//! branches of one [`VariantSet`]. It consumes already-produced evidence
-//! — the canonical semantic diff (`synvelis_project::diff`, VCS-02) for
-//! the Semantic (Configured) layer, and typed evidence inputs for the
-//! Signal (Measured) and Perceptual (Inferred) layers — and projects it
-//! into a deterministic, driver-neutral [`ViewSpec`] tree that Fake,
-//! Mock, and (later) GPUI drivers can mount unchanged.
+//! branches of one [`VariantSet`], plus the workspace-side dispatch
+//! facade ([`VariantDiffEngine`]) that keeps `synvelis-gateway` types
+//! out of app code (AC-05). The view-model consumes already-produced
+//! evidence — the canonical semantic diff (`synvelis_project::diff`,
+//! VCS-02) for the Semantic (Configured) layer, and typed evidence
+//! inputs for the Signal (Measured) and Perceptual (Inferred) layers —
+//! and projects it into a deterministic, driver-neutral [`ViewSpec`]
+//! tree that Fake, Mock, and (later) GPUI drivers can mount unchanged.
 //!
 //! Contract boundaries (creative-branch-design §7):
 //!
@@ -16,9 +19,12 @@
 //!   inferred) are distinct sections with distinct state vocabularies.
 //!   `Unavailable`/`Unknown`/`Unsupported` evidence is never folded into
 //!   "zero difference", `Aligned`, or `Pass` (CB-CMP-02).
-//! - **Honest typing.** Stale pins, unknown branches, unmerged domain
-//!   adapters (arrangement → CB-07/#284), and mock provenance are explicit
-//!   machine codes ([`VariantDiffReason`]), never prose or `Debug` output.
+//! - **Honest typing.** Stale pins, unknown branches, and domains
+//!   without a merged variant adapter are explicit machine codes
+//!   ([`VariantDiffReason`]), never prose or `Debug` output. Every
+//!   domain enumerated today has a merged CB-0x adapter (arrangement
+//!   included — CB-07/#284); the `DomainAdapterUnmerged` verdict stays
+//!   typed so a future unmerged domain reports `Unsupported` honestly.
 //! - **Explicit targets only.** Compare/Adopt actions bind to fully
 //!   pinned [`BranchPin`]s validated against read-only authority facts.
 //!   There is no action variant that accepts an ambient/selection-derived
@@ -27,32 +33,40 @@
 //! - **View-local state only.** [`VariantDiffViewState`] persists row
 //!   selection, the audition (monitor) selection, and the last compare
 //!   target per view. It never carries project/variant/diff authority;
-//!   authority intents are returned to the host as [`VariantDiffIntent`]s
-//!   for routing to the existing CAS/adopt engine — this module never
-//!   mutates project truth.
-//! - **Mock seam.** [`AuxLayerEvidence`] is the input contract the CB-08
-//!   orchestrator will fill with real signal/perceptual evidence. Rows
-//!   tagged [`EvidenceOrigin::Mock`] are Fake-provider output and are
-//!   labelled as such — they are never real measurements.
+//!   the view-model apply path returns authority intents as
+//!   [`VariantDiffIntent`]s, and [`VariantDiffEngine`] is the single
+//!   dispatch point that routes them through the CB-08 orchestrator
+//!   (compare) or the gateway CAS/adopt path (adopt-preview/adopt).
+//! - **Evidence seam.** [`AuxLayerEvidence`] is the input contract the
+//!   CB-08 orchestrator fills with signal/perceptual evidence.
+//!   Rows tagged [`EvidenceOrigin::Mock`] are Fake-provider output and
+//!   are labelled as such — they are never real measurements.
 //!
 //! Real GPUI mount, OS/window/IME/pixel acceptance, real plugin dock,
-//! PCM/RT signal measurement, and the orchestrated compare pipeline are
-//! out of scope (CB-08/CB-10/CB-11, #114/#176 gates) — see
-//! `evidence/sv286/`.
+//! and PCM/RT signal measurement are out of scope (CB-10/CB-11,
+//! #114/#176/#288 gates) — see `evidence/sv286/`.
 
 use std::collections::BTreeMap;
+use std::sync::PoisonError;
 
 use ruviform_ui::view::{
     A11yRole, A11ySpec, ButtonSpec, CellValue, ComponentKey, ComponentSpec, ComponentVisualState,
     LabelSpec, PanelSpec, TableSelectionSpec, TableSpec, ViewSpec,
 };
 use serde::{Deserialize, Serialize};
+use synvelis_project::controller::ProjectController;
 use synvelis_project::diff::{
     ChangeKind, ChangeSet, ChangeSetSummary, ComparisonCompleteness, ComparisonDomain,
     ComparisonEquality, ComparisonIssue, ObjectKind, SemanticChange,
 };
-use synvelis_project::snapshot::ContentDigest;
-use synvelis_project::variant::{BranchRevision, RuntimePublishState, VariantScope};
+use synvelis_project::project::Project;
+use synvelis_project::snapshot::{BlobProbe, ContentDigest, SnapshotCancel};
+use synvelis_project::variant::{
+    AdoptIntent, BranchContentStore, BranchRevision, CompareError, ComparisonFreshness,
+    ComparisonOrchestrator, ComparisonResult, EvidenceReason, LayerState, PerceptualLayerResult,
+    RuntimePublishState, SessionOptions, SignalAlignment, SignalComparisonProvider,
+    SignalLayerResult, VariantError, VariantScope, scope_digest,
+};
 use synvelis_project::{BranchId, ProjectRevision, VariantSetId};
 
 // ── reason codes ────────────────────────────────────────────────────
@@ -76,8 +90,8 @@ pub enum VariantDiffReason {
     UnknownScope,
     /// A pinned branch is absent from authority.
     UnknownBranch,
-    /// The compared domain has no merged variant adapter — the
-    /// arrangement adapter is CB-07 (`scarecrow173/synvelis#284`).
+    /// The compared domain has no merged variant adapter. Kept typed
+    /// for future unmerged domains — all current domains have adapters.
     DomainAdapterUnmerged,
     /// The layer produced no evidence for this compare.
     EvidenceUnavailable,
@@ -159,8 +173,8 @@ pub enum VariantDiffDomain {
     ProcessingRange,
     /// Selected fields of one channel strip.
     StripFields,
-    /// A musical-time selection across tracks — adapter unmerged
-    /// (CB-07, `scarecrow173/synvelis#284`).
+    /// A musical-time selection across tracks — CB-07 arrangement
+    /// adapter merged (`scarecrow173/synvelis#284`).
     Arrangement,
 }
 
@@ -193,12 +207,21 @@ impl VariantDiffDomain {
         }
     }
 
-    /// Whether the domain's variant adapter is merged. Arrangement is
-    /// honestly `Unsupported` until CB-07 lands — the explorer must not
-    /// fabricate an arrangement domain diff.
+    /// Whether the domain's variant adapter is merged. Every domain
+    /// enumerated here has a merged CB-0x adapter — the verdict stays
+    /// typed so a future unmerged domain reports `Unsupported`
+    /// honestly instead of projecting fabricated rows.
     #[must_use]
     pub fn supported(self) -> bool {
-        !matches!(self, Self::Arrangement)
+        match self {
+            Self::AudioClip
+            | Self::TakeUsage
+            | Self::MidiClip
+            | Self::InstrumentSlot
+            | Self::ProcessingRange
+            | Self::StripFields
+            | Self::Arrangement => true,
+        }
     }
 
     /// Human-readable domain name for labels/titles.
@@ -1464,6 +1487,27 @@ pub fn apply_variant_diff_action(
     }
 }
 
+/// Applies the view-local subset of [`apply_variant_diff_action`] —
+/// `SelectRow`/`SetAudition`/`SetTarget` — directly to persisted
+/// state. These actions never consult authority or the projection by
+/// contract, so hosts may apply them on a view that has no compare
+/// target yet (`set-target` is the bootstrap action). Returns `false`
+/// for authority-bound actions, which must go through the full apply
+/// path.
+#[must_use]
+pub fn apply_variant_diff_view_local(
+    state: &mut VariantDiffViewState,
+    action: &VariantDiffViewAction,
+) -> bool {
+    match action {
+        VariantDiffViewAction::SelectRow { row } => state.selected_row = Some(*row),
+        VariantDiffViewAction::SetAudition { branch } => state.audition.clone_from(branch),
+        VariantDiffViewAction::SetTarget { target } => state.target = Some(target.clone()),
+        _ => return false,
+    }
+    true
+}
+
 fn validate_pin(authority: &CompareAuthority, pin: &BranchPin) -> Result<(), VariantDiffReject> {
     let Some(branch) = authority.branches.get(&pin.branch) else {
         return Err(VariantDiffReject::UnknownBranch);
@@ -2050,5 +2094,619 @@ fn alignment_label(a: AlignmentState) -> &'static str {
         AlignmentState::Approximate => "approximate",
         AlignmentState::Unaligned => "unaligned",
         AlignmentState::Unavailable => "unavailable",
+    }
+}
+
+// ── CB-08 provider adapter + intent dispatch facade ─────────────────
+//
+// This section wires the merged CB-08 `ComparisonOrchestrator` and the
+// CB-10 variant ports into the explorer's evidence/intent contracts.
+// It lives in this module (not a new file) because `synvelis-workspace`
+// already depends on `synvelis-project` and `synvelis-gateway`, and the
+// gateway types stay *inside* this facade — `synvelis-app` never names
+// them (AC-05).
+//
+// Honesty rules carried across the boundary:
+//
+// - Layer states map one-to-one (`Available`/`Unavailable`/`Unknown`/
+//   `Unsupported`); a CB-08 gap is never folded into "zero difference".
+// - Evidence provenance is preserved: pipeline/derived output maps to
+//   [`EvidenceOrigin::Pipeline`], fixture output to
+//   [`EvidenceOrigin::Mock`] — mock rows stay labelled mock.
+// - Freshness is pin-scoped: [`VariantDiffLayers::freshness`] reports
+//   the orchestrator's verdict at evaluation time, and
+//   [`project_variant_diff`] independently re-derives staleness as
+//   [`ContextState`] from *live* authority on every projection. Callers
+//   must build [`CompareAuthority`] from live project state, never from
+//   a session snapshot, or stale evidence would launder as current.
+// - Adopt preview/execute go through the same `run_intent` dispatch the
+//   gateway commit gate uses (`simulate`/`execute`), so preview and
+//   commit cannot diverge; the CAS guards (project revision, branch
+//   revision, scope digest, approval ticket) are re-checked by the
+//   domain engine at commit time.
+
+/// Bounded semantic-diff cache for the facade's orchestrator — same
+/// order as the CB-08 test rig.
+const VARIANT_DIFF_CACHE_CAPACITY: usize = 16;
+
+/// Host-observed per-branch facts [`variant_diff_authority`] cannot
+/// derive from [`Project`] alone: open edit sessions (view-local
+/// observation, §7.3 Editing label) and the runtime publish state from
+/// the last adopt receipt. Absent entries default to `false` /
+/// [`RuntimePublishState::NotRequested`] — honest "not observed",
+/// never a fabricated `Published`.
+#[derive(Clone, Debug, Default)]
+pub struct VariantDiffBranchObservations {
+    /// Branch id → host-observed "edit session open" flag.
+    pub editing: BTreeMap<BranchId, bool>,
+    /// Branch id → runtime publish observation from the last adopt.
+    pub publish: BTreeMap<BranchId, RuntimePublishState>,
+}
+
+/// The three CB-09 evidence layers plus the orchestrator's freshness
+/// verdict for one CB-08 evaluation.
+#[derive(Clone, Debug)]
+pub struct VariantDiffLayers {
+    /// Semantic (Configured) layer — the canonical `ChangeSet`.
+    pub semantic: SemanticEvidence,
+    /// Signal (Measured) layer — provider-gated honest states only.
+    pub signal: AuxLayerEvidence,
+    /// Perceptual (Inferred) layer — `RequiresAudition` stays a typed
+    /// gap headlessly, never fabricated.
+    pub perceptual: AuxLayerEvidence,
+    /// Freshness of the session's pinned context at evaluation time.
+    /// Pin-scoped evidence freshness — see the module note above for
+    /// how it relates to [`ContextState`].
+    pub freshness: ComparisonFreshness,
+}
+
+/// Dispatch failures for the adopt preview/execute facade. The inner
+/// errors stay typed for callers that can name them; the app maps them
+/// to wire error bodies through [`Self::code`] without naming gateway
+/// types (AC-05).
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum VariantDiffDispatchError {
+    /// Intent/authority validation failed — same typed rejects the
+    /// view-model apply path produces.
+    Reject(VariantDiffReject),
+    /// The variant engine rejected the operation (stale CAS, missing
+    /// adapter, preflight refusal, store failure).
+    Variant(VariantError),
+    /// The adopt commit path failed — determined rejection or
+    /// project-CAS conflict, never indeterminate.
+    Commit(synvelis_gateway::variant::VariantCommitError),
+}
+
+impl VariantDiffDispatchError {
+    /// Stable wire-facing reason code.
+    #[must_use]
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::Reject(VariantDiffReject::ImplicitTarget) => "implicit-target",
+            Self::Reject(VariantDiffReject::StaleRevision) => "stale-revision",
+            Self::Reject(VariantDiffReject::UnknownBranch) => "unknown-branch",
+            Self::Reject(VariantDiffReject::StaleContext) => "stale-context",
+            Self::Reject(VariantDiffReject::UnsupportedDomain) => "unsupported-domain",
+            Self::Reject(VariantDiffReject::CapabilityUnavailable) => "capability-unavailable",
+            Self::Reject(VariantDiffReject::AlreadyAdopted) => "already-adopted",
+            Self::Reject(VariantDiffReject::SameBranch) => "same-branch",
+            Self::Reject(VariantDiffReject::Malformed) => "malformed",
+            Self::Variant(_) => "variant-error",
+            Self::Commit(_) => "commit-error",
+        }
+    }
+
+    /// Finer-grained wire reason than [`Self::code`] — commit
+    /// rejections surface the gateway's `variant-<kind>` slug and
+    /// project-CAS conflicts report `conflicted`, so drivers can
+    /// distinguish a stale-CAS conflict from a missing-plugin
+    /// refusal without parsing prose.
+    #[must_use]
+    pub fn detail_reason(&self) -> String {
+        match self {
+            Self::Commit(synvelis_gateway::variant::VariantCommitError::Rejected { reason }) => {
+                reason
+                    .split(':')
+                    .next()
+                    .unwrap_or("commit-error")
+                    .to_owned()
+            }
+            Self::Commit(synvelis_gateway::variant::VariantCommitError::Conflicted { .. }) => {
+                "conflicted".to_owned()
+            }
+            _ => self.code().to_owned(),
+        }
+    }
+}
+
+impl std::fmt::Display for VariantDiffDispatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Reject(reject) => write!(f, "variant-diff reject: {reject:?}"),
+            Self::Variant(err) => write!(f, "variant engine error: {err}"),
+            Self::Commit(synvelis_gateway::variant::VariantCommitError::Rejected { reason }) => {
+                write!(f, "variant commit rejected: {reason}")
+            }
+            Self::Commit(synvelis_gateway::variant::VariantCommitError::Conflicted {
+                expected,
+                actual,
+            }) => write!(
+                f,
+                "variant commit conflicted: expected revision {expected}, actual {actual}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for VariantDiffDispatchError {}
+
+/// CB-08 [`EvidenceReason`] → CB-09 [`VariantDiffReason`] — one honest
+/// reason per gap kind; nothing is promoted to `Available`.
+fn diff_reason(reason: &EvidenceReason) -> VariantDiffReason {
+    match reason {
+        EvidenceReason::NoProvider | EvidenceReason::ProviderUnavailable => {
+            VariantDiffReason::EvidenceUnavailable
+        }
+        EvidenceReason::AlignmentPolicy | EvidenceReason::NoTimeMapping => {
+            VariantDiffReason::LayerUnsupported
+        }
+        EvidenceReason::UnalignedInputs => VariantDiffReason::NoAlignmentEvidence,
+        EvidenceReason::PluginStateUnknown => VariantDiffReason::MissingPlugin,
+        EvidenceReason::EvidenceQuality => VariantDiffReason::EvidenceUnknown,
+        EvidenceReason::RequiresAudition => VariantDiffReason::EvidenceUnavailable,
+    }
+}
+
+/// CB-08 [`LayerState`] → CB-09 [`EvidenceState`].
+fn diff_evidence_state(state: &LayerState, reason: &EvidenceReason) -> EvidenceState {
+    match state {
+        LayerState::Available => EvidenceState::Available,
+        LayerState::Unavailable { .. } => EvidenceState::Unavailable {
+            reason: diff_reason(reason),
+        },
+        LayerState::Unknown { .. } => EvidenceState::Unknown {
+            reason: diff_reason(reason),
+        },
+        LayerState::Unsupported { .. } => EvidenceState::Unsupported {
+            reason: diff_reason(reason),
+        },
+    }
+}
+
+/// The `EvidenceReason` a non-`Available` [`LayerState`] carries.
+fn layer_reason(state: &LayerState) -> EvidenceReason {
+    match state {
+        LayerState::Available => EvidenceReason::NoProvider,
+        LayerState::Unavailable { reason }
+        | LayerState::Unknown { reason }
+        | LayerState::Unsupported { reason } => reason.clone(),
+    }
+}
+
+/// CB-08 signal provenance → CB-09 [`EvidenceOrigin`]. Pipeline and
+/// derived (offline render/cached analysis) output are both real
+/// measured evidence — only fixture output stays `Mock`.
+fn signal_origin(origin: synvelis_project::variant::EvidenceOrigin) -> EvidenceOrigin {
+    match origin {
+        synvelis_project::variant::EvidenceOrigin::Pipeline
+        | synvelis_project::variant::EvidenceOrigin::Derived => EvidenceOrigin::Pipeline,
+        synvelis_project::variant::EvidenceOrigin::Mock => EvidenceOrigin::Mock,
+    }
+}
+
+/// CB-08 [`SignalAlignment`] → CB-09 [`AlignmentState`].
+fn signal_alignment(alignment: SignalAlignment) -> AlignmentState {
+    match alignment {
+        SignalAlignment::Aligned => AlignmentState::Aligned,
+        SignalAlignment::Approximate => AlignmentState::Approximate,
+        SignalAlignment::Unaligned => AlignmentState::Unaligned,
+        SignalAlignment::Unavailable => AlignmentState::Unavailable,
+    }
+}
+
+/// `SignalDomain` label for evidence-row detail — kebab-case, matching
+/// the serde vocabulary.
+fn signal_domain_label(domain: synvelis_project::variant::SignalDomain) -> &'static str {
+    match domain {
+        synvelis_project::variant::SignalDomain::SourceFrame => "source-frame",
+        synvelis_project::variant::SignalDomain::Musical => "musical",
+        synvelis_project::variant::SignalDomain::ProjectFrame => "project-frame",
+    }
+}
+
+/// Projects one CB-08 [`SignalLayerResult`] into [`AuxLayerEvidence`].
+/// Metric rows are carried verbatim — labels are the provider's metric
+/// names and values/details format the provider's own numbers; nothing
+/// is interpreted, normalized, or fabricated.
+fn aux_from_signal(result: &SignalLayerResult) -> AuxLayerEvidence {
+    if !result.state.is_available() {
+        return AuxLayerEvidence {
+            state: diff_evidence_state(&result.state, &layer_reason(&result.state)),
+            ..AuxLayerEvidence::default()
+        };
+    }
+    let origin = result
+        .origin
+        .map_or(EvidenceOrigin::Pipeline, signal_origin);
+    AuxLayerEvidence::available(
+        origin,
+        signal_alignment(result.alignment),
+        result
+            .metrics
+            .iter()
+            .map(|metric| EvidenceRow {
+                label: metric.name.clone(),
+                value: Some(format!(
+                    "{} → {} (Δ {})",
+                    metric.before, metric.after, metric.delta
+                )),
+                detail: Some(format!(
+                    "{} {}",
+                    signal_domain_label(metric.domain),
+                    metric.unit
+                )),
+            })
+            .collect(),
+    )
+}
+
+/// Projects one CB-08 [`PerceptualLayerResult`] into
+/// [`AuxLayerEvidence`]. Headless the layer is always an honest gap
+/// (`RequiresAudition`); an `Available` claim without provenance still
+/// meets [`AuxLayerEvidence`]'s origin gate downstream.
+fn aux_from_perceptual(result: &PerceptualLayerResult) -> AuxLayerEvidence {
+    AuxLayerEvidence {
+        state: diff_evidence_state(&result.state, &layer_reason(&result.state)),
+        ..AuxLayerEvidence::default()
+    }
+}
+
+/// Converts one CB-08 [`ComparisonResult`] into the CB-09 evidence
+/// bundle. Pure projection — the freshness verdict is carried through
+/// for the caller; [`project_variant_diff`] re-derives context
+/// staleness independently from live authority.
+#[must_use]
+pub fn variant_diff_layers(result: &ComparisonResult) -> VariantDiffLayers {
+    let semantic = if result.semantic.state.is_available() {
+        SemanticEvidence {
+            state: EvidenceState::Available,
+            diff: Some(SemanticDiffEvidence::from(
+                result.semantic.changeset.as_ref(),
+            )),
+        }
+    } else {
+        SemanticEvidence {
+            state: diff_evidence_state(
+                &result.semantic.state,
+                &layer_reason(&result.semantic.state),
+            ),
+            diff: None,
+        }
+    };
+    VariantDiffLayers {
+        semantic,
+        signal: aux_from_signal(&result.signal),
+        perceptual: aux_from_perceptual(&result.perceptual),
+        freshness: result.freshness.clone(),
+    }
+}
+
+/// Builds read-only [`CompareAuthority`] from live project state for
+/// `variant_set`. `project_revision` is the controller's live
+/// revision; `observations` carries host-only facts (edit sessions,
+/// last publish receipt). Fails closed on an unknown set or a scope
+/// whose fingerprint cannot be computed.
+///
+/// # Errors
+/// [`synvelis_project::Error`] when the set is absent or the scope
+/// digest fails.
+pub fn variant_diff_authority(
+    project: &Project,
+    variant_set: VariantSetId,
+    project_revision: ProjectRevision,
+    observations: &VariantDiffBranchObservations,
+) -> Result<CompareAuthority, synvelis_project::Error> {
+    let set = project
+        .variant_sets
+        .get(&variant_set)
+        .ok_or_else(|| synvelis_project::Error::NotFound(format!("variant set {variant_set}")))?;
+    let branches = set
+        .branches
+        .iter()
+        .map(|(id, branch)| {
+            (
+                *id,
+                BranchAuthority {
+                    revision: branch.content.revision(),
+                    editing: observations.editing.get(id).copied().unwrap_or(false),
+                    publish: observations
+                        .publish
+                        .get(id)
+                        .cloned()
+                        .unwrap_or(RuntimePublishState::NotRequested),
+                },
+            )
+        })
+        .collect();
+    Ok(CompareAuthority {
+        variant_set,
+        scope: set.scope.clone(),
+        adopted: set.adopted,
+        project_revision,
+        scope_digest: scope_digest(project, &set.scope)?,
+        branches,
+    })
+}
+
+/// Builds a [`CompareContext`] for two explicit pins against live
+/// project state — scope identity and the scope-content fingerprint
+/// are re-derived, never trusted from the caller.
+///
+/// # Errors
+/// [`synvelis_project::Error`] when the set is absent or the scope
+/// digest fails.
+pub fn variant_diff_context(
+    project: &Project,
+    variant_set: VariantSetId,
+    left: BranchPin,
+    right: BranchPin,
+    project_revision: ProjectRevision,
+) -> Result<CompareContext, synvelis_project::Error> {
+    let set = project
+        .variant_sets
+        .get(&variant_set)
+        .ok_or_else(|| synvelis_project::Error::NotFound(format!("variant set {variant_set}")))?;
+    Ok(CompareContext {
+        variant_set,
+        scope: set.scope.clone(),
+        left,
+        right,
+        scope_digest: scope_digest(project, &set.scope)?,
+        project_revision,
+    })
+}
+
+/// The CB-08/CB-10 dispatch facade. Owns the comparison orchestrator
+/// (bounded semantic-diff cache) and the variant ports (shared branch
+/// store + runtime publish + asset/plugin probes) so callers —
+/// `synvelis-app` included — never name `synvelis-gateway` types.
+///
+/// Every method takes live authority explicitly; the only mutating
+/// path is [`Self::adopt`], which runs the same CAS/approval dispatch
+/// the gateway commit gate uses.
+pub struct VariantDiffEngine {
+    orchestrator: ComparisonOrchestrator,
+    ports: synvelis_gateway::variant::VariantPorts,
+}
+
+impl VariantDiffEngine {
+    /// Wires the standard variant ports under `content_root` (the
+    /// project bundle directory — `None` only for project-less
+    /// contexts). `VariantPorts::standard` registers every merged
+    /// CB-0x domain adapter including CB-07's `ArrangementAdapter`
+    /// (synvelis#539); an unmerged domain still fails closed through
+    /// `adapter_for`.
+    #[must_use]
+    pub fn new(content_root: Option<&std::path::Path>) -> Self {
+        let ports = synvelis_gateway::variant::VariantPorts::standard(content_root);
+        Self {
+            orchestrator: ComparisonOrchestrator::new(VARIANT_DIFF_CACHE_CAPACITY),
+            ports,
+        }
+    }
+
+    /// Compares two explicitly pinned branches through the CB-08
+    /// orchestrator and returns the CB-09 evidence bundle.
+    ///
+    /// The explorer's asserted pin revisions are CAS-checked against
+    /// live content *before* the session opens — a stale pin fails
+    /// [`CompareError::StaleRevision`] rather than silently comparing
+    /// whatever the branch currently holds. `signal` is the optional
+    /// measured-evidence provider; `None` yields the honest
+    /// `Unavailable{NoProvider}` layer.
+    ///
+    /// # Errors
+    /// [`CompareError`] on unknown endpoints, stale asserted pins,
+    /// scope mismatch, or capture/diff engine failures.
+    #[allow(clippy::too_many_arguments)]
+    pub fn compare(
+        &mut self,
+        live: &Project,
+        variant_set: VariantSetId,
+        left: &BranchPin,
+        right: &BranchPin,
+        project_revision: ProjectRevision,
+        options: &SessionOptions,
+        signal: Option<&dyn SignalComparisonProvider>,
+    ) -> Result<VariantDiffLayers, CompareError> {
+        let store_guard = self
+            .ports
+            .store
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let store: &dyn BranchContentStore = &**store_guard;
+        let left_ref = self
+            .orchestrator
+            .pin_branch(live, store, variant_set, left.branch)?;
+        let right_ref = self
+            .orchestrator
+            .pin_branch(live, store, variant_set, right.branch)?;
+        for (side, asserted, actual) in [
+            (
+                synvelis_project::variant::CompareSide::Left,
+                left,
+                &left_ref,
+            ),
+            (
+                synvelis_project::variant::CompareSide::Right,
+                right,
+                &right_ref,
+            ),
+        ] {
+            if asserted.revision != actual.revision {
+                return Err(CompareError::StaleRevision {
+                    side,
+                    expected: asserted.revision,
+                    actual: actual.revision,
+                });
+            }
+        }
+        // Asset availability probing is the same port the commit gate
+        // uses — `None` fails closed inside capture, never fabricates.
+        let blobs: Option<&dyn BlobProbe> = self
+            .ports
+            .assets
+            .as_ref()
+            .map(|probe| -> &dyn BlobProbe { probe.as_ref() });
+        let session = self.orchestrator.open_session(
+            live,
+            store,
+            left_ref,
+            right_ref,
+            project_revision,
+            options,
+            blobs,
+            &SnapshotCancel::new(),
+        )?;
+        let result = self.orchestrator.evaluate(
+            &session,
+            live,
+            store,
+            project_revision,
+            signal,
+            &SnapshotCancel::new(),
+        )?;
+        Ok(variant_diff_layers(&result))
+    }
+
+    /// Runs the adopt *preview* for a validated
+    /// [`VariantDiffIntent::AdoptPreview`] — the same `run_intent`
+    /// dispatch commit uses, on a scratch controller with a
+    /// read-through store, so the previewed post-state is exactly what
+    /// commit would produce (barring later drift, which the CAS
+    /// guards re-check honestly).
+    ///
+    /// # Errors
+    /// [`VariantDiffDispatchError::Reject`] on intent/authority
+    /// mismatch, [`VariantDiffDispatchError::Variant`] on engine
+    /// failure.
+    pub fn adopt_preview(
+        &self,
+        base: &Project,
+        authority: &CompareAuthority,
+        intent: &VariantDiffIntent,
+    ) -> Result<Project, VariantDiffDispatchError> {
+        if !matches!(intent, VariantDiffIntent::AdoptPreview { .. }) {
+            return Err(VariantDiffDispatchError::Reject(
+                VariantDiffReject::Malformed,
+            ));
+        }
+        let adopt = Self::adopt_intent(authority, intent)?;
+        let variant_intent = synvelis_gateway::variant::VariantIntent::Adopt { intent: adopt };
+        synvelis_gateway::variant::simulate(base, &self.ports, &variant_intent)
+            .map_err(VariantDiffDispatchError::Variant)
+    }
+
+    /// Runs the adopt CAS for a validated [`VariantDiffIntent::Adopt`]
+    /// — the same `run_intent` dispatch the gateway commit gate uses:
+    /// adapter preflight, asset/plugin/port preflight, project CAS,
+    /// undo step, then runtime publish whose evidence stays a
+    /// separate receipt block.
+    ///
+    /// `approval_ticket` is the host's explicit-approval token — the
+    /// GUI fills it only after the user confirms this exact intent
+    /// (same contract as [`synvelis_project::apply::ApplyApproval`]).
+    ///
+    /// # Errors
+    /// [`VariantDiffDispatchError::Reject`] on intent/authority
+    /// mismatch, [`VariantDiffDispatchError::Variant`] on determined
+    /// engine rejection, [`VariantDiffDispatchError::Commit`] on
+    /// commit-path failure.
+    pub fn adopt(
+        &self,
+        controller: &mut ProjectController,
+        authority: &CompareAuthority,
+        intent: &VariantDiffIntent,
+        approval_ticket: &str,
+    ) -> Result<serde_json::Value, VariantDiffDispatchError> {
+        // A preview intent must never reach the commit path — the
+        // intent variant is part of the authority contract, not a
+        // hint the callee may reinterpret.
+        if !matches!(intent, VariantDiffIntent::Adopt { .. }) {
+            return Err(VariantDiffDispatchError::Reject(
+                VariantDiffReject::Malformed,
+            ));
+        }
+        let adopt = Self::adopt_intent(authority, intent)?;
+        let variant_intent = synvelis_gateway::variant::VariantIntent::Adopt { intent: adopt };
+        synvelis_gateway::variant::execute(
+            controller,
+            &self.ports,
+            &variant_intent,
+            approval_ticket,
+        )
+        .map_err(VariantDiffDispatchError::Commit)
+    }
+
+    /// Validates an adopt-family intent against fresh authority and
+    /// lowers it to the engine-level [`AdoptIntent`]. Re-checks the
+    /// same facts the view-model apply path enforced — branch known,
+    /// revision current, scope digest matching, target not already
+    /// adopted — so a detached or replayed intent cannot slip past a
+    /// drifted view.
+    fn adopt_intent(
+        authority: &CompareAuthority,
+        intent: &VariantDiffIntent,
+    ) -> Result<AdoptIntent, VariantDiffDispatchError> {
+        let (target, scope_digest) = match intent {
+            VariantDiffIntent::AdoptPreview {
+                target,
+                scope_digest,
+            }
+            | VariantDiffIntent::Adopt {
+                target,
+                scope_digest,
+            } => (target, *scope_digest),
+            VariantDiffIntent::Compare { .. } => {
+                return Err(VariantDiffDispatchError::Reject(
+                    VariantDiffReject::Malformed,
+                ));
+            }
+        };
+        let branch =
+            authority
+                .branches
+                .get(&target.branch)
+                .ok_or(VariantDiffDispatchError::Reject(
+                    VariantDiffReject::UnknownBranch,
+                ))?;
+        if branch.revision != target.revision {
+            return Err(VariantDiffDispatchError::Reject(
+                VariantDiffReject::StaleRevision,
+            ));
+        }
+        if target.branch == authority.adopted {
+            return Err(VariantDiffDispatchError::Reject(
+                VariantDiffReject::AlreadyAdopted,
+            ));
+        }
+        if scope_digest != authority.scope_digest {
+            return Err(VariantDiffDispatchError::Reject(
+                VariantDiffReject::StaleContext,
+            ));
+        }
+        Ok(AdoptIntent {
+            variant_set: authority.variant_set,
+            branch: target.branch,
+            expected_project_revision: authority.project_revision,
+            expected_branch_revision: target.revision,
+            expected_scope_digest: scope_digest,
+            // Placeholder — `execute` substitutes the consumed
+            // approval receipt's id; `simulate` its scratch ticket.
+            approval: synvelis_project::apply::ApplyApproval {
+                ticket: String::new(),
+            },
+        })
     }
 }

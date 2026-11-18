@@ -88,8 +88,8 @@ pub use screens::{
     PpqnScreenState, TransportScreenState, VcsScreenState, VizScreenState, WaveformScreenState,
     history_screen_spec, main_screen_spec, main_view_id, main_view_instance, main_view_targets,
     mixer_gain_target, mixer_strip_targets, mount_main_view, mount_secondary_view,
-    mount_vcs_history_view, secondary_screen_spec, secondary_view_id, secondary_view_instance,
-    secondary_view_targets, seek_range_seconds,
+    mount_variant_diff_view, mount_vcs_history_view, secondary_screen_spec, secondary_view_id,
+    secondary_view_instance, secondary_view_targets, seek_range_seconds,
 };
 pub use script_editor::{
     SV_SCRIPT_API_TARGET, SV_SCRIPT_COMPLETIONS_TARGET, SV_SCRIPT_DIAGNOSTICS_TARGET,

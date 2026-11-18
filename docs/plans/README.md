@@ -43,6 +43,7 @@ Directory: `docs/plans`
 | PLAN-034YBz5Lu1tRwVb8NxFc | issue-262-run-file-real-vm — 実装 plan | approved | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
 | PLAN-034YDhXmRCMo80uy2OMsrP | issue-274-cli-script-analyze — 実装 plan | approved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
 | PLAN-034ZjKIkevNThVWL0ubz8g | Issue #283 slice — strip-fields gateway exercise plan | approved | [issue-283-strip-gateway-exercise.md](./issue-283-strip-gateway-exercise.md) |
+| PLAN-286DiffExplorerAppWiring04 | Issue #286 plan — CB-09 Difference Explorer app wiring | approved | [issue-286-diff-explorer-app-wiring.md](./issue-286-diff-explorer-app-wiring.md) |
 | PLAN-sv511dE5fG7hI9jK1lM3nO5p | Issue #511 plan — CB-07 materialization 実装計画 | approved | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
 | PLAN-513a1b2c3d4e5f6g7h8i9j0k4 | issue-513-variant-apply-ops — 実装 plan | approved | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
 | PLAN-l2esj17AEoBoJdXsY3Q1EE | Issue #514 plan — 判定記録 slice（実装不要分岐） | approved | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |
@@ -57,6 +58,8 @@ Directory: `docs/plans`
 | PLAN-550StripRtOps05 | Issue #550 plan — strip routing ops・entity removal slice | approved | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
 | PLAN-552SendGainSeal05 | Issue #552 plan — SetSendGainTarget seal 解放 slice | approved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
 | PLAN-553IntentFacts05 | Issue #553 plan — intent_facts 伝播 slice | approved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
+| PLAN-557AdoptFacts04 | Issue #557 plan — adopt declared_facts 監査 slice | approved | [issue-557-adopt-facts.md](./issue-557-adopt-facts.md) |
+| PLAN-561OpFactsUnverifiable04 | Issue #561 plan — op_facts unverifiable cascade 修正 slice | approved | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |
