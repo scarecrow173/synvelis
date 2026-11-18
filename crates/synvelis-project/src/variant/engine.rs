@@ -805,6 +805,11 @@ pub fn add_branch(
 ///   an entity that merely left the scope but still exists in the
 ///   candidate (move-out) or a kind without removal semantics →
 ///   [`VariantError::Unsupported`] (no guessing);
+/// - a removal-supported kind whose deletion the gateway
+///   resource/effect model cannot observe (standalone control-graph
+///   entities — synvelis#559) → [`VariantError::UnverifiableRemoval`]
+///   — the write would materialize with no effect for
+///   `derive_effects`/`authorize_effects` to authorize (SEC-14);
 /// - owned kinds outside the apply surface →
 ///   [`VariantError::Unsupported`];
 /// - a scoped entity absent from live that is neither branch-minted
@@ -813,7 +818,8 @@ pub fn add_branch(
 ///
 /// # Errors
 /// [`VariantError::Unsupported`]/[`VariantError::AmbiguousLineage`]/
-/// [`VariantError::Project`] (scope extraction failures).
+/// [`VariantError::UnverifiableRemoval`]/[`VariantError::Project`]
+/// (scope extraction failures).
 pub(crate) fn plan_adopt_writes(
     live: &Project,
     candidate: &Project,
@@ -853,6 +859,14 @@ pub(crate) fn plan_adopt_writes(
             return Err(VariantError::Unsupported {
                 detail: format!(
                     "scope entity removal is not supported for {:?}: {}",
+                    origin.kind, origin.stable_id
+                ),
+            });
+        }
+        if entity::unverifiable_removal_kind(origin.kind) {
+            return Err(VariantError::UnverifiableRemoval {
+                detail: format!(
+                    "scope entity removal has no observable effect to authorize: {:?}: {}",
                     origin.kind, origin.stable_id
                 ),
             });

@@ -3419,3 +3419,98 @@ fn compare(before: &Project, after: &Project) -> synvelis_project::diff::ChangeS
     )
     .unwrap()
 }
+
+// ---------- synvelis#559 — adopt unobservable-removal fail-closed ----------
+
+/// Send-owned modulation closure for the sv#559 pin: an LFO
+/// source, a `SendLevel` target and the assignment between them —
+/// the entity set a pre-553 wire `send.remove` cascade deleted
+/// invisibly (send-owned `ModulationSource`/`ModulationAssignment`
+/// have no `ResourceKind`).
+fn send_modulated_closure(
+    c: &mut ProjectController,
+    ids: &StripIds,
+) -> (
+    ModulationSourceId,
+    ParameterTargetId,
+    ModulationAssignmentId,
+) {
+    let source = live_lfo_source(c, ControlOwner::Send(ids.send));
+    apply_op(
+        c,
+        ProjectOp::AddParameterTarget {
+            name: "send-lvl".into(),
+            owner: ControlOwner::Send(ids.send),
+            role: ParameterRole::SendLevel,
+            time_scope: AutomationTimeScope::ProjectMusical,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: None,
+            base: 0.5,
+        },
+    );
+    let lvl = *c
+        .live()
+        .control
+        .targets
+        .keys()
+        .rfind(|id| is_issuable_raw(id.raw()))
+        .unwrap();
+    let assignment = live_assignment(c, source, lvl);
+    (source, lvl, assignment)
+}
+
+/// synvelis#559 — stored candidate payload fail-closed: a
+/// candidate whose scope diff carries `Removed` writes for
+/// kinds the gateway resource/effect model cannot observe
+/// (send-owned `ModulationSource`/`ModulationAssignment`
+/// deleted by the `RemoveSend` cascade — the exact payload
+/// shape a pre-553 wire `send.remove` edit persisted) must be
+/// rejected by `plan_adopt_writes` with the typed
+/// `VariantError::UnverifiableRemoval`, leaving live and the
+/// variant set untouched. The same scenario materialized
+/// pre-fix — recorded in `evidence/sv559/reproduction.md`.
+#[test]
+fn cb_strip_559_adopt_unobservable_removal_rejected() {
+    let mut c = controller();
+    let ids = strip_fixture(&mut c);
+    let (source, lvl, assignment) = send_modulated_closure(&mut c, &ids);
+    let mut h = Strip::new(c);
+    let scope = scope_of(&ids, &[StripField::Sends]);
+    let forked = h.fork(scope.clone());
+    let adopted = forked.adopted;
+    let (set, candidate) = (forked.variant_set, forked.candidate);
+
+    // The domain cascade deletes the send, its edge, the level
+    // target and the send-owned modulation entities — the exact
+    // payload shape a pre-553 wire `send.remove` edit persisted.
+    h.edit(set, candidate, ProjectOp::RemoveSend { send_id: ids.send });
+    let cand = h.candidate(set, candidate);
+    assert!(!cand.control.sources.contains_key(&source));
+    assert!(!cand.control.targets.contains_key(&lvl));
+    assert!(!cand.control.assignments.contains_key(&assignment));
+
+    // POST-FIX: adopt fails closed — the candidate's scope diff
+    // contains `Removed` writes for kinds no `ResourceKind` can
+    // name, so `derive_effects`/`authorize_effects` could never
+    // authorize the deletion (SEC-14).
+    let rev_before = h.controller.live_revision();
+    let err = h
+        .try_adopt(set, candidate, &scope)
+        .expect_err("unobservable-removal candidate adopt must reject");
+    assert!(
+        matches!(err, VariantError::UnverifiableRemoval { .. }),
+        "expected UnverifiableRemoval, got {err:?}"
+    );
+
+    // Live and variant-set state are untouched: the send and its
+    // whole control closure survive, the revision did not move and
+    // the adopted branch is unchanged.
+    let live = h.controller.live();
+    assert_eq!(h.controller.live_revision(), rev_before);
+    assert!(live.routing.sends.contains_key(&ids.send));
+    assert!(live.control.sources.contains_key(&source));
+    assert!(live.control.targets.contains_key(&lvl));
+    assert!(live.control.assignments.contains_key(&assignment));
+    assert_eq!(live.variant_sets[&set].adopted, adopted);
+}
