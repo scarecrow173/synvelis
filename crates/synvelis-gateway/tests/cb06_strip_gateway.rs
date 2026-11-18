@@ -59,6 +59,7 @@ use std::path::Path;
 use rig::*;
 use serde_json::{Value, json};
 use synvelis_gateway::*;
+use synvelis_project::control::{Polarity, Transform};
 use synvelis_project::routing::{
     ConnectionKind, PortDirection, PortOwner, PortRole, ProcessorBinding, SendTap,
 };
@@ -345,6 +346,74 @@ fn seed_strip_send_modulated_store(dir: &Path) -> DirectoryBundleStore {
     let mut store = DirectoryBundleStore::create(dir).unwrap();
     if store.head().unwrap().is_none() {
         let mut c = strip_send_modulated_controller();
+        c.save(&mut store).unwrap();
+    }
+    store
+}
+
+/// synvelis#559 fixture: [`strip_send_controller`] (gain target
+/// bound to the send-owned `SendLevel` target) plus a send-owned
+/// `Macro` modulation source and an assignment driving that gain
+/// target. Unbinding the gain target then cascades a
+/// `ModulationAssignment` deletion no `ResourceKind` can name — a
+/// candidate carrying it is a stored payload whose adopt must fail
+/// closed. Head revision 7.
+fn strip_send_gained_modulated_controller() -> ProjectController {
+    let mut c = strip_send_controller();
+    let send = *c.live().routing.sends.keys().next().expect("send exists");
+    let target = c
+        .live()
+        .routing
+        .sends
+        .get(&send)
+        .and_then(|s| s.gain_target)
+        .expect("send gain target is bound");
+    let before: BTreeSet<_> = c.live().control.sources.keys().copied().collect();
+    let rev = c.live_revision();
+    c.apply(Command {
+        expected_revision: rev,
+        op: ProjectOp::AddModulationSource {
+            owner: ControlOwner::Send(send),
+            kind: SourceKind::Macro { value: 0.5 },
+        },
+    })
+    .unwrap();
+    let source = *c
+        .live()
+        .control
+        .sources
+        .keys()
+        .find(|id| !before.contains(id))
+        .expect("modulation source minted");
+    let rev = c.live_revision();
+    c.apply(Command {
+        expected_revision: rev,
+        op: ProjectOp::AddModulationAssignment {
+            source,
+            target,
+            depth: 0.4,
+            depth_source: None,
+            polarity: Polarity::Bipolar,
+            transform: Transform::Identity,
+            enabled: true,
+        },
+    })
+    .unwrap();
+    c
+}
+
+/// The gained-modulated send fixture's live project — head
+/// revision 7.
+fn strip_send_gained_modulated_project() -> Project {
+    strip_send_gained_modulated_controller().live().clone()
+}
+
+/// [`seed_strip_send_modulated_store`] for the synvelis#559 gained
+/// modulated send fixture — head revision 7.
+fn seed_strip_send_gained_modulated_store(dir: &Path) -> DirectoryBundleStore {
+    let mut store = DirectoryBundleStore::create(dir).unwrap();
+    if store.head().unwrap().is_none() {
+        let mut c = strip_send_gained_modulated_controller();
         c.save(&mut store).unwrap();
     }
     store
@@ -747,6 +816,20 @@ fn boot_strip_send_modulated(vrig: &VariantRig, dir: &Path) -> CommitGate {
     let store_dir = dir.join("project");
     let mut store = seed_strip_send_modulated_store(&store_dir);
     open_strip_gate(vrig, dir, &strip_send_modulated_project(), &mut store)
+}
+
+/// [`boot_strip_send_modulated`] over the synvelis#559 gained
+/// modulated send fixture — bundle store and snapshot source both
+/// pin the project at revision 7.
+fn boot_strip_send_gained_modulated(vrig: &VariantRig, dir: &Path) -> CommitGate {
+    let store_dir = dir.join("project");
+    let mut store = seed_strip_send_gained_modulated_store(&store_dir);
+    open_strip_gate(
+        vrig,
+        dir,
+        &strip_send_gained_modulated_project(),
+        &mut store,
+    )
 }
 
 fn open_strip_gate(
@@ -1725,4 +1808,111 @@ fn cb06_strip_557_adopt_send_remove_candidate_materializes_teardown() {
     assert_eq!(prov["branch"], candidate.to_tagged());
     assert_eq!(prov["outcome"], "applied");
     assert_eq!(prov["objects"], json!(3));
+}
+
+/// synvelis#559 — stored candidate payload fail-closed, end-to-end:
+/// a wire-legal candidate edit (`send.set-gain-target` unbind)
+/// makes `release_send_level_target` delete the send's `SendLevel`
+/// target *and* the `ModulationAssignment` driving it — a `Removed`
+/// write for a kind no `ResourceKind` can name. `op_facts` does not
+/// flag that arm (the edit/live-apply coverage gap is synvelis#561's
+/// scope — see `docs/discovery/issue-559-adopt-unobservable-removal.md`
+/// §4), so the payload persists; adopt must then reject it typed
+/// instead of materializing the unverifiable deletion. Live stays
+/// untouched.
+#[test]
+fn cb06_strip_559_adopt_unobservable_removal_denied() {
+    let mut vrig = variant_rig();
+    vrig.rig.source.commit(
+        project(),
+        ProjectRevision(7),
+        strip_send_gained_modulated_project(),
+    );
+    let dir = tmpdir("cb06-strip-send-gained-mod");
+    let gate = boot_strip_send_gained_modulated(&vrig, &dir);
+
+    commit_human(&mut vrig, &gate, fork_op(&strip_scope()), 7);
+    publish(&gate, &vrig.rig);
+    let (set, adopted, candidate) = only_set(&gate);
+
+    // Candidate edit — wire-legal `SetSendGainTarget` unbind. The
+    // release cascade deletes the target's control closure
+    // (including the `ModulationAssignment`) inside the candidate
+    // payload only; live keeps everything until adopt.
+    let rev = live_rev(&gate);
+    let brev = branch_revision(&gate, &set, &candidate);
+    commit_human(
+        &mut vrig,
+        &gate,
+        edit_op(&set, &candidate, brev, &send_set_gain_target_op()),
+        rev,
+    );
+    publish(&gate, &vrig.rig);
+
+    // The candidate payload now carries the unverifiable deletion;
+    // live still owns the target and the assignment on it.
+    gate.inspect(|c| {
+        let p = c.live();
+        let send = strip_send_id();
+        let target = p.routing.sends[&send]
+            .gain_target
+            .expect("gain target bound");
+        assert!(p.control.targets.contains_key(&target));
+        assert!(
+            p.control.assignments.values().any(|a| a.target == target),
+            "live still owns the assignment on the gain target"
+        );
+    });
+
+    // Adopt prepare simulates `plan_adopt_writes`, which must fail
+    // closed on the `ModulationAssignment` `Removed` write.
+    let rev = live_rev(&gate);
+    let brev = branch_revision(&gate, &set, &candidate);
+    let digest = live_scope_digest(&gate, &set);
+    issue_agent(
+        &vrig.rig.store,
+        "t1",
+        branch_grant(
+            "g1",
+            "t1",
+            &["synvelis.branch.adopt"],
+            ApprovalPolicy::ApproveToApply,
+        ),
+    );
+    let err = vrig
+        .rig
+        .gw
+        .handle(
+            &prepare_req(
+                Some("t1"),
+                Some("g1"),
+                adopt_op(&set, &candidate, rev, brev, &digest),
+                expected(rev),
+            ),
+            agent(),
+        )
+        .expect_err("unobservable-removal candidate adopt must reject");
+    match err.code {
+        GatewayError::PreparationRejected { reason } => assert!(
+            reason.contains("unverifiable-removal"),
+            "expected unverifiable-removal reason, got {reason:?}"
+        ),
+        other => panic!("expected PreparationRejected, got {other:?}"),
+    }
+
+    // Live and the adopted pointer are untouched — the release
+    // cascade never left the candidate payload.
+    gate.inspect(|c| {
+        let p = c.live();
+        let send = strip_send_id();
+        let target = p.routing.sends[&send]
+            .gain_target
+            .expect("gain target still bound");
+        assert!(p.control.targets.contains_key(&target));
+        assert!(
+            p.control.assignments.values().any(|a| a.target == target),
+            "live still owns the assignment on the gain target"
+        );
+        assert_eq!(p.variant_sets[&set].adopted, adopted);
+    });
 }
