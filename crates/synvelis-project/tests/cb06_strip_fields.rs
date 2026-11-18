@@ -35,8 +35,8 @@ use synvelis_project::plugin_state::{
 use synvelis_project::project::Project;
 use synvelis_project::recording_data::{CaptureStream, ClockEpoch, RecordingSession, SessionState};
 use synvelis_project::routing::{
-    BusKind, ConnectionKind, PluginRef, PortDirection, PortOwner, PortRole, ProcessorBinding,
-    SendTap, StripOwner,
+    BusKind, ConnectionKind, ExplicitChannelMap, PluginRef, PortDirection, PortOwner, PortRole,
+    ProcessorBinding, SendTap, StripOwner,
 };
 use synvelis_project::snapshot::{
     AssetAvailabilityManifest, ContentDigest, FixedSnapshotLocator, ImmutableSnapshot,
@@ -1118,16 +1118,18 @@ fn cb_strip_02_mask_gated_channel_edits() {
         );
     }
 
-    // Scope-entity removal fails closed through the shared
-    // post-edit confinement (the automation lane created above is
-    // scope-owned; removing it is unsupported this slice).
-    let err = h
-        .try_edit(set, candidate, ProjectOp::RemoveAutomationLane { lane })
-        .unwrap_err();
+    // Scope-entity removal is expressible (synvelis#550): the
+    // automation lane created above is scope-owned, so deleting it
+    // is a genuine candidate deletion — accepted, absent from the
+    // candidate, untouched live.
+    h.edit(set, candidate, ProjectOp::RemoveAutomationLane { lane });
+    let cand = h.candidate(set, candidate);
     assert!(
-        matches!(err, VariantError::Unsupported { .. }),
-        "scope-entity removal must reject Unsupported, got {err:?}"
+        !cand.control.lanes.contains_key(&lane),
+        "scope-owned lane deletion must materialize in the candidate"
     );
+    // The lane was candidate-local — live never carried it; the
+    // bitwise `control` equality below is the live-untouched proof.
 
     // Live is bitwise untouched — shared context and every
     // mask-external field.
@@ -2467,8 +2469,36 @@ fn assert_mask_capabilities(adapter: &StripFieldsAdapter, fields: &[StripField])
     assert_eq!(caps.solo, ProcessingCapability::Unsupported);
     assert_eq!(caps.automation_edit, ProcessingCapability::Supported);
     assert_eq!(caps.modulation_edit, ProcessingCapability::Supported);
-    assert_eq!(caps.entity_remove, ProcessingCapability::Unsupported);
-    assert_eq!(caps.routing, ProcessingCapability::Unsupported);
+    // synvelis#550: entity removal is expressible for every
+    // non-empty mask — supported kinds materialize, unsupported
+    // kinds and move-outs still reject typed at edit time.
+    assert_eq!(caps.entity_remove, ProcessingCapability::Supported);
+    // Routing families report mask-relative truth — each declared
+    // field family is `Supported`, undeclared is `Unsupported`.
+    for (cap, field) in [
+        (caps.sends, StripField::Sends),
+        (caps.main_route, StripField::MainRoute),
+        (caps.sidechain, StripField::Sidechain),
+        (caps.bus, StripField::Bus),
+    ] {
+        let expected = if fields.contains(&field) {
+            ProcessingCapability::Supported
+        } else {
+            ProcessingCapability::Unsupported
+        };
+        assert_eq!(cap, expected, "routing field {field:?} mismatch");
+    }
+    let routing_expected = if fields.iter().any(|f| {
+        matches!(
+            f,
+            StripField::Sends | StripField::MainRoute | StripField::Sidechain | StripField::Bus
+        )
+    }) {
+        ProcessingCapability::Supported
+    } else {
+        ProcessingCapability::Unsupported
+    };
+    assert_eq!(caps.routing, routing_expected);
     // sv#513: `SetProcessorBinding` is a typed op gated on the
     // `Inserts` field — the report tracks mask ownership.
     let expected_rebind = if fields.contains(&StripField::Inserts) {
@@ -2483,6 +2513,12 @@ fn assert_mask_capabilities(adapter: &StripFieldsAdapter, fields: &[StripField])
     assert_eq!(narrow.fader, ProcessingCapability::Unsupported);
     assert_eq!(narrow.inserts, ProcessingCapability::Unsupported);
     assert_eq!(narrow.mute, ProcessingCapability::Supported);
+    assert_eq!(narrow.entity_remove, ProcessingCapability::Supported);
+    assert_eq!(narrow.sends, ProcessingCapability::Unsupported);
+    assert_eq!(narrow.main_route, ProcessingCapability::Unsupported);
+    assert_eq!(narrow.sidechain, ProcessingCapability::Unsupported);
+    assert_eq!(narrow.bus, ProcessingCapability::Unsupported);
+    assert_eq!(narrow.routing, ProcessingCapability::Unsupported);
 }
 
 /// CB-STRIP-RCP-01: render-pin identity independence, honest
@@ -2572,6 +2608,747 @@ fn cb_strip_rcp_01_render_identity_capability_diff() {
     assert!(param_changes.iter().any(|ch| {
         ch.object.stable_id == ids.param_fader.to_tagged() && ch.kind == ChangeKind::Modified
     }));
+}
+
+// ---------- synvelis#550: routing fields + scope-entity removal ----------
+
+/// The scoped strip's main output port — the only legal `Send`/
+/// `Sidechain` source and a `Main` source candidate.
+fn strip_main_out(project: &Project, strip: StripId) -> SemanticPortId {
+    port_of(
+        project,
+        PortOwner::Strip(strip),
+        PortDirection::Output,
+        PortRole::Main,
+    )
+}
+
+/// A strip's main input port — send/main-route destination.
+fn strip_main_in(project: &Project, strip: StripId) -> SemanticPortId {
+    port_of(
+        project,
+        PortOwner::Strip(strip),
+        PortDirection::Input,
+        PortRole::Main,
+    )
+}
+
+/// The `Send`-owned `SendLevel` target minted by a candidate
+/// `AddParameterTarget` — the issue-#122 create-then-bind flow.
+fn send_level_target(project: &Project, send: SendId) -> ParameterTargetId {
+    project
+        .control
+        .targets
+        .values()
+        .find(|t| t.owner == ControlOwner::Send(send) && t.role == ParameterRole::SendLevel)
+        .map_or_else(|| panic!("send {send} lacks a SendLevel target"), |t| t.id)
+}
+
+/// `mask = {Sends}`: the strip→bus-strip send is scope-owned — tap,
+/// gain-target binding, enable/map edits, a second send and the
+/// send-owned control closure all land in the candidate while live
+/// stays bitwise untouched.
+#[test]
+#[allow(clippy::too_many_lines)] // sequential positive-op assertions read top-to-bottom (cb06 convention)
+fn cb_strip_550_sends_ops_mask_gated() {
+    let mut c = controller();
+    let ids = strip_fixture(&mut c);
+    let mut h = Strip::new(c);
+    let scope = scope_of(&ids, &[StripField::Sends]);
+    let forked = h.fork(scope);
+    let (set, candidate) = (forked.variant_set, forked.candidate);
+    let live_before = h.controller.live().clone();
+
+    let send_conn = h_send_connection(&live_before, ids.send);
+
+    // Tap + connection surface on the scope-owned send edge.
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::SetSendTap {
+            send_id: ids.send,
+            tap: SendTap::PreFader,
+        },
+    );
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::SetConnectionEnabled {
+            connection_id: send_conn,
+            enabled: false,
+        },
+    );
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::SetConnectionChannelMap {
+            connection_id: send_conn,
+            channel_map: Some(ExplicitChannelMap {
+                entries: vec![0, 1],
+            }),
+        },
+    );
+
+    // Send-owned control closure: create-then-bind a canonical
+    // `SendLevel` target, drive its base, then bind it as the send's
+    // gain target (issue-#122 contract — owner seals at apply).
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::AddParameterTarget {
+            name: "send-lvl".into(),
+            owner: ControlOwner::Send(ids.send),
+            role: ParameterRole::SendLevel,
+            time_scope: AutomationTimeScope::ProjectMusical,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: None,
+            base: 0.5,
+        },
+    );
+    let lvl = send_level_target(&h.candidate(set, candidate), ids.send);
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::SetSendGainTarget {
+            send_id: ids.send,
+            gain_target: Some(lvl),
+        },
+    );
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::SetParameterBase {
+            target: lvl,
+            value: 0.8,
+        },
+    );
+
+    // A second send on the same strip→bus-strip port pair — send
+    // edges are parallel tap paths, exempt from the endpoint-pair
+    // rule. Source-side ownership makes both the config and its
+    // `Send` connection scope-owned.
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::AddSend {
+            source: strip_main_out(&live_before, ids.strip),
+            destination: strip_main_in(&live_before, ids.bus_strip),
+            tap: SendTap::PostFader,
+            gain_target: None,
+        },
+    );
+    let cand = h.candidate(set, candidate);
+    assert_eq!(cand.routing.sends.len(), 2, "candidate gains a second send");
+    let new_send = *cand
+        .routing
+        .sends
+        .keys()
+        .find(|id| **id != ids.send)
+        .unwrap();
+    assert_eq!(
+        cand.routing.sends[&ids.send].tap,
+        SendTap::PreFader,
+        "tap edit must land in the candidate"
+    );
+    assert_eq!(
+        cand.routing.sends[&ids.send].gain_target,
+        Some(lvl),
+        "gain binding must land in the candidate"
+    );
+    assert!(!cand.routing.connections[&send_conn].enabled);
+    assert_eq!(
+        cand.control.targets[&lvl].base, 0.8,
+        "send-level base edit must land in the candidate"
+    );
+
+    // Live is untouched — sends, connections and control state.
+    assert_eq!(h.controller.live().routing.sends.len(), 1);
+    assert!(h.controller.live().routing.connections[&send_conn].enabled);
+    assert!(
+        !h.controller
+            .live()
+            .control
+            .targets
+            .values()
+            .any(|t| t.owner == ControlOwner::Send(ids.send)),
+        "live must not gain the candidate's send-owned target"
+    );
+
+    // Rebinding the bound send to a *different* scope-owned target
+    // rejects typed — apply seals the new target's `SendLevel` role
+    // without releasing the old one (a singleton per send owner), so
+    // the transition could never succeed; the adapter fails closed
+    // instead of surfacing a project-validation error.
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::AddParameterTarget {
+            name: "send2-lvl".into(),
+            owner: ControlOwner::Send(new_send),
+            role: ParameterRole::SendLevel,
+            time_scope: AutomationTimeScope::ProjectMusical,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: None,
+            base: 0.5,
+        },
+    );
+    let lvl2 = send_level_target(&h.candidate(set, candidate), new_send);
+    let err = h
+        .try_edit(
+            set,
+            candidate,
+            ProjectOp::SetSendGainTarget {
+                send_id: ids.send,
+                gain_target: Some(lvl2),
+            },
+        )
+        .unwrap_err();
+    assert!(
+        matches!(err, VariantError::Unsupported { .. }),
+        "send gain rebind must reject Unsupported, got {err:?}"
+    );
+
+    // Removing the *new* send is a genuine scope-entity deletion —
+    // send, edge and any closure materialize as removals.
+    h.edit(set, candidate, ProjectOp::RemoveSend { send_id: new_send });
+    let cand = h.candidate(set, candidate);
+    assert_eq!(cand.routing.sends.len(), 1);
+    assert!(!cand.routing.sends.contains_key(&new_send));
+    assert_eq!(
+        cand.routing.connections.len(),
+        live_before.routing.connections.len(),
+        "the removed send's edge must leave with it"
+    );
+}
+
+/// `mask = {MainRoute}` / `{Inserts, Sidechain}` / bus-scope `{Bus}`:
+/// each declared routing family accepts its source-side ops while
+/// undeclared families stay `Unsupported`.
+#[test]
+#[allow(clippy::too_many_lines)] // three independent per-field sections read top-to-bottom
+fn cb_strip_550_route_and_bus_ops_per_field() {
+    // ── MainRoute: the automatic strip→master edge is scope-owned.
+    let mut c = controller();
+    let ids = strip_fixture(&mut c);
+    let mut h = Strip::new(c);
+    let scope = scope_of(&ids, &[StripField::MainRoute]);
+    let forked = h.fork(scope);
+    let (set, candidate) = (forked.variant_set, forked.candidate);
+    let main_conn = h
+        .controller
+        .live()
+        .routing
+        .connections
+        .values()
+        .find(|conn| {
+            conn.source == strip_main_out(h.controller.live(), ids.strip)
+                && conn.kind == ConnectionKind::Main
+        })
+        .map(|conn| conn.id)
+        .expect("strip main route");
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::SetConnectionEnabled {
+            connection_id: main_conn,
+            enabled: false,
+        },
+    );
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::SetConnectionChannelMap {
+            connection_id: main_conn,
+            channel_map: Some(ExplicitChannelMap {
+                entries: vec![0, 1],
+            }),
+        },
+    );
+    // A second strip→strip `Main` edge on a free port pair —
+    // strip→bus-strip is unused for `Main` (the send edge is exempt
+    // from the pair rule).
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::AddConnection {
+            source: strip_main_out(h.controller.live(), ids.strip),
+            destination: strip_main_in(h.controller.live(), ids.bus_strip),
+            kind: ConnectionKind::Main,
+            channel_map: None,
+        },
+    );
+    let cand = h.candidate(set, candidate);
+    assert!(
+        cand.routing
+            .connections
+            .values()
+            .any(|conn| conn.kind == ConnectionKind::Main
+                && conn.destination == strip_main_in(h.controller.live(), ids.bus_strip)),
+        "candidate must carry the new main route"
+    );
+    assert!(
+        h.controller
+            .live()
+            .routing
+            .connections
+            .values()
+            .all(|conn| conn.enabled),
+        "live connections stay enabled — candidate edits never touch live"
+    );
+
+    // ── Sidechain (+Inserts for a fresh sidechain-input processor) —
+    // a fresh fixture: overlapping scopes on one project conflict.
+    let mut c = controller();
+    let ids = strip_fixture(&mut c);
+    let mut h = Strip::new(c);
+    let scope = scope_of(&ids, &[StripField::Inserts, StripField::Sidechain]);
+    let forked = h.fork(scope);
+    let (set, candidate) = (forked.variant_set, forked.candidate);
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::InsertProcessor {
+            strip_id: ids.strip,
+            index: 2,
+            name: "ducker-key-in".into(),
+            binding: plugin_binding("plug-sc"),
+            sidechain_input: true,
+        },
+    );
+    let cand = h.candidate(set, candidate);
+    let new_proc = *cand.routing.chains[&ids.chain].processors.last().unwrap();
+    let sc_in = port_of(
+        &cand,
+        PortOwner::Processor(new_proc),
+        PortDirection::Input,
+        PortRole::Sidechain,
+    );
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::AddConnection {
+            source: strip_main_out(h.controller.live(), ids.strip),
+            destination: sc_in,
+            kind: ConnectionKind::Sidechain,
+            channel_map: None,
+        },
+    );
+    let cand = h.candidate(set, candidate);
+    assert!(
+        cand.routing
+            .connections
+            .values()
+            .any(|conn| { conn.kind == ConnectionKind::Sidechain && conn.destination == sc_in }),
+        "candidate must carry the strip-sourced sidechain feed"
+    );
+    // The pre-existing key-strip→fx2 feed is foreign-sourced — it
+    // stays boundary, never candidate-owned.
+    assert!(
+        h.controller
+            .live()
+            .routing
+            .connections
+            .contains_key(&ids.feed),
+        "live boundary feed untouched"
+    );
+
+    // ── Bus: the bus entity owning the bus strip is scope-owned —
+    // fresh fixture again (scope conflict).
+    let mut c = controller();
+    let ids = strip_fixture(&mut c);
+    let mut h = Strip::new(c);
+    let scope = bus_scope_of(&ids, &[StripField::Bus]);
+    let forked = h.fork(scope);
+    let (set, candidate) = (forked.variant_set, forked.candidate);
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::ConfigureBus {
+            bus_id: ids.bus,
+            name: Some("ret-wet".into()),
+            kind: None,
+        },
+    );
+    assert_eq!(
+        h.candidate(set, candidate).routing.buses[&ids.bus].name,
+        "ret-wet"
+    );
+    assert_eq!(h.controller.live().routing.buses[&ids.bus].name, "ret");
+}
+
+/// Routing ops outside the declared mask reject `Unsupported`; ops
+/// whose routing source/target is foreign reject `ScopeViolation` —
+/// undeclared families and external wiring stay fail-closed.
+#[test]
+#[allow(clippy::too_many_lines)] // sequential negative-op assertions read top-to-bottom
+fn cb_strip_550_routing_confinement_and_mask_negatives() {
+    let mut c = controller();
+    let ids = strip_fixture(&mut c);
+    let mut h = Strip::new(c);
+    let live_before = h.controller.live().clone();
+    let scope = scope_of(&ids, &[StripField::Fader]);
+    let forked = h.fork(scope);
+    let (set, candidate) = (forked.variant_set, forked.candidate);
+
+    let send_conn = h_send_connection(&live_before, ids.send);
+    for op in [
+        // Every routing family undeclared under `{Fader}`.
+        ProjectOp::SetSendTap {
+            send_id: ids.send,
+            tap: SendTap::PreFader,
+        },
+        ProjectOp::RemoveSend { send_id: ids.send },
+        ProjectOp::SetSendGainTarget {
+            send_id: ids.send,
+            gain_target: None,
+        },
+        ProjectOp::SetConnectionEnabled {
+            connection_id: send_conn,
+            enabled: false,
+        },
+        ProjectOp::ConfigureBus {
+            bus_id: ids.bus,
+            name: Some("x".into()),
+            kind: None,
+        },
+    ] {
+        let err = h.try_edit(set, candidate, op).unwrap_err();
+        assert!(
+            matches!(err, VariantError::Unsupported { .. }),
+            "undeclared routing family must reject Unsupported, got {err:?}"
+        );
+    }
+
+    // `{Sends, Sidechain}` on the track strip: foreign-sourced
+    // sends/connections and foreign boundary edges stay outside the
+    // scope — fresh fixture (overlapping scopes conflict).
+    let mut c = controller();
+    let ids = strip_fixture(&mut c);
+    // A foreign-but-project-valid gain target: an unbound canonical
+    // `SendLevel` target owned by a send on the key strip. Send-owned
+    // targets pass send-gain validation, so only scope confinement
+    // can reject the adoption.
+    let foreign_lvl = {
+        let key_out = strip_main_out(c.live(), ids.key_strip);
+        let bus_in = strip_main_in(c.live(), ids.bus_strip);
+        apply_op(
+            &mut c,
+            ProjectOp::AddSend {
+                source: key_out,
+                destination: bus_in,
+                tap: SendTap::PostFader,
+                gain_target: None,
+            },
+        );
+        let key_send = *c
+            .live()
+            .routing
+            .sends
+            .keys()
+            .find(|id| **id != ids.send)
+            .unwrap();
+        apply_op(
+            &mut c,
+            ProjectOp::AddParameterTarget {
+                name: "key-send-lvl".into(),
+                owner: ControlOwner::Send(key_send),
+                role: ParameterRole::SendLevel,
+                time_scope: AutomationTimeScope::ProjectMusical,
+                kind: ValueKind::Continuous,
+                mapping: ParamMapping::Linear,
+                capability: None,
+                base: 0.5,
+            },
+        );
+        c.live()
+            .control
+            .targets
+            .values()
+            .find(|t| t.owner == ControlOwner::Send(key_send))
+            .map(|t| t.id)
+            .unwrap()
+    };
+    let mut h = Strip::new(c);
+    let scope = scope_of(&ids, &[StripField::Sends, StripField::Sidechain]);
+    let forked = h.fork(scope);
+    let (set2, candidate2) = (forked.variant_set, forked.candidate);
+    let strip_out = strip_main_out(h.controller.live(), ids.strip);
+    let bus_in = strip_main_in(h.controller.live(), ids.bus_strip);
+    let live = h.controller.live();
+    for op in [
+        // Key-strip-sourced send — source outside the scoped strip.
+        ProjectOp::AddSend {
+            source: strip_main_out(live, ids.key_strip),
+            destination: strip_main_in(live, ids.bus_strip),
+            tap: SendTap::PostFader,
+            gain_target: None,
+        },
+        // Key-strip-sourced sidechain feed — same confinement.
+        ProjectOp::AddConnection {
+            source: strip_main_out(live, ids.key_strip),
+            destination: port_of(
+                live,
+                PortOwner::Processor(ids.fx2),
+                PortDirection::Input,
+                PortRole::Sidechain,
+            ),
+            kind: ConnectionKind::Sidechain,
+            channel_map: None,
+        },
+        // The pre-existing foreign-source feed is boundary — removing
+        // or mutating it is a scope violation, not a candidate edit.
+        ProjectOp::RemoveConnection {
+            connection_id: ids.feed,
+        },
+        ProjectOp::SetConnectionEnabled {
+            connection_id: ids.feed,
+            enabled: false,
+        },
+    ] {
+        let err = h.try_edit(set2, candidate2, op).unwrap_err();
+        assert!(
+            matches!(
+                err,
+                VariantError::Unsupported { .. } | VariantError::ScopeViolation { .. }
+            ),
+            "foreign routing must reject typed, got {err:?}"
+        );
+    }
+
+    // Gain-target adoption is confined: apply re-owns the target to
+    // the send, so a project-valid target outside the scope must
+    // reject `ScopeViolation` — otherwise adopt would transplant
+    // foreign ownership into live.
+    for op in [
+        ProjectOp::SetSendGainTarget {
+            send_id: ids.send,
+            gain_target: Some(foreign_lvl),
+        },
+        ProjectOp::AddSend {
+            source: strip_out,
+            destination: bus_in,
+            tap: SendTap::PostFader,
+            gain_target: Some(foreign_lvl),
+        },
+    ] {
+        let err = h.try_edit(set2, candidate2, op).unwrap_err();
+        assert!(
+            matches!(err, VariantError::ScopeViolation { .. }),
+            "foreign gain target must reject ScopeViolation, got {err:?}"
+        );
+    }
+
+    // Bus-scope confinement: the track strip's scope owns no bus —
+    // `ConfigureBus` on the return bus (or the master) violates scope.
+    // Fresh fixture again — overlapping scopes conflict.
+    let mut c = controller();
+    let ids = strip_fixture(&mut c);
+    let mut h = Strip::new(c);
+    let live_before = h.controller.live().clone();
+    let scope = scope_of(&ids, &[StripField::Bus]);
+    let forked = h.fork(scope);
+    let (set3, candidate3) = (forked.variant_set, forked.candidate);
+    for bus_id in [ids.bus, h.controller.live().routing.master] {
+        let err = h
+            .try_edit(
+                set3,
+                candidate3,
+                ProjectOp::ConfigureBus {
+                    bus_id,
+                    name: Some("x".into()),
+                    kind: None,
+                },
+            )
+            .unwrap_err();
+        assert!(
+            matches!(
+                err,
+                VariantError::Unsupported { .. } | VariantError::ScopeViolation { .. }
+            ),
+            "foreign bus configure must reject typed, got {err:?}"
+        );
+    }
+
+    // Live routing stays bitwise untouched by every rejected edit.
+    assert_eq!(
+        serde_json::to_value(&h.controller.live().routing).unwrap(),
+        serde_json::to_value(&live_before.routing).unwrap()
+    );
+}
+
+/// `mask = {Sends}` + send-owned closure: `RemoveSend` cascades the
+/// send config, its `Send` edge and the whole send-owned control
+/// closure as sibling removals — adopt materializes the deletion
+/// live in one CAS while boundary context stays shared.
+#[test]
+fn cb_strip_550_send_removal_closure_and_adopt() {
+    let mut c = controller();
+    let ids = strip_fixture(&mut c);
+    let mut h = Strip::new(c);
+    let scope = scope_of(&ids, &[StripField::Sends]);
+    let forked = h.fork(scope.clone());
+    let (set, candidate) = (forked.variant_set, forked.candidate);
+
+    // Build the send's control closure in the candidate: canonical
+    // SendLevel target + automation lane + gain binding.
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::AddParameterTarget {
+            name: "send-lvl".into(),
+            owner: ControlOwner::Send(ids.send),
+            role: ParameterRole::SendLevel,
+            time_scope: AutomationTimeScope::ProjectMusical,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: None,
+            base: 0.5,
+        },
+    );
+    let cand = h.candidate(set, candidate);
+    let lvl = send_level_target(&cand, ids.send);
+    h.edit(set, candidate, ProjectOp::AddAutomationLane { target: lvl });
+    assert!(
+        h.candidate(set, candidate)
+            .control
+            .lanes
+            .values()
+            .any(|l| l.target == lvl),
+        "the send target's automation lane must exist pre-teardown"
+    );
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::SetSendGainTarget {
+            send_id: ids.send,
+            gain_target: Some(lvl),
+        },
+    );
+
+    let send_conn = h_send_connection(h.controller.live(), ids.send);
+
+    // Teardown: send + edge + target + lane all leave the candidate.
+    h.edit(set, candidate, ProjectOp::RemoveSend { send_id: ids.send });
+    let cand = h.candidate(set, candidate);
+    assert!(!cand.routing.sends.contains_key(&ids.send));
+    assert!(
+        !cand.routing.connections.contains_key(&send_conn),
+        "the send edge must leave with its config"
+    );
+    assert!(
+        !cand.control.targets.contains_key(&lvl),
+        "the send-owned gain target must leave with the send"
+    );
+    assert!(
+        !cand.control.lanes.values().any(|l| l.target == lvl),
+        "the send target's automation lane must leave with the send"
+    );
+
+    // Live still carries the original send — the candidate-local
+    // `SendLevel` target/lane never existed live, and candidate
+    // deletion is not live mutation until adopt.
+    assert!(h.controller.live().routing.sends.contains_key(&ids.send));
+    assert!(
+        h.controller
+            .live()
+            .routing
+            .connections
+            .contains_key(&send_conn)
+    );
+    assert_eq!(
+        h.controller.live().routing.sends[&ids.send].gain_target,
+        None,
+        "live send keeps its original unbound gain target"
+    );
+    assert!(
+        !h.controller.live().control.targets.contains_key(&lvl),
+        "the candidate-local target never materialized live"
+    );
+
+    // Adopt materializes the deletion live: send and edge are gone;
+    // the foreign-source feed and every other connection survive
+    // byte-identical, and no candidate-local entity leaks live.
+    let feed_before =
+        serde_json::to_value(&h.controller.live().routing.connections[&ids.feed]).unwrap();
+    h.adopt(set, candidate, &scope);
+    let live = h.controller.live();
+    assert!(!live.routing.sends.contains_key(&ids.send));
+    assert!(!live.routing.connections.contains_key(&send_conn));
+    assert!(
+        !live.control.targets.contains_key(&lvl),
+        "candidate-local entities must never leak through adopt"
+    );
+    assert_eq!(
+        serde_json::to_value(&live.routing.connections[&ids.feed]).unwrap(),
+        feed_before,
+        "the foreign-source boundary feed must survive adopt untouched"
+    );
+}
+
+/// `boundary_dependencies` is mask-relative (synvelis#550): a
+/// connection the declared routing field owns leaves the boundary
+/// inventory; undeclared families and foreign-source edges stay
+/// reported shared context.
+#[test]
+fn cb_strip_550_boundary_dependencies_mask_relative() {
+    let mut c = controller();
+    let ids = strip_fixture(&mut c);
+    let live = c.live().clone();
+    let deps_for = |fields: &[StripField]| {
+        StripFieldsAdapter::boundary_dependencies(&live, &scope_of(&ids, fields)).unwrap()
+    };
+    let send_conn = h_send_connection(&live, ids.send);
+    let main_conn = live
+        .routing
+        .connections
+        .values()
+        .find(|conn| {
+            conn.source == strip_main_out(&live, ids.strip) && conn.kind == ConnectionKind::Main
+        })
+        .map(|conn| conn.id)
+        .unwrap();
+
+    // `{Fader}` — no routing fields: main route + send are boundary
+    // (the foreign-source feed touches no affiliated port without
+    // `Inserts`, so it is not reported at all).
+    let deps = deps_for(&[StripField::Fader]);
+    let dep_conns: BTreeSet<RoutingConnectionId> = deps.iter().map(|d| d.connection).collect();
+    assert!(dep_conns.contains(&main_conn));
+    assert!(dep_conns.contains(&send_conn));
+    assert!(!dep_conns.contains(&ids.feed));
+
+    // `{Sends}` — the send edge is scope-owned and drops out; the
+    // undeclared main route stays boundary.
+    let deps = deps_for(&[StripField::Sends]);
+    let dep_conns: BTreeSet<RoutingConnectionId> = deps.iter().map(|d| d.connection).collect();
+    assert!(
+        !dep_conns.contains(&send_conn),
+        "owned send is not boundary"
+    );
+    assert!(
+        dep_conns.contains(&main_conn),
+        "undeclared route stays boundary"
+    );
+
+    // `{Sends, MainRoute, Inserts}` — both strip routes are owned;
+    // the foreign-source sidechain feed into an owned processor port
+    // is the remaining boundary crossing.
+    let deps = deps_for(&[
+        StripField::Sends,
+        StripField::MainRoute,
+        StripField::Inserts,
+    ]);
+    let dep_conns: BTreeSet<RoutingConnectionId> = deps.iter().map(|d| d.connection).collect();
+    assert!(!dep_conns.contains(&send_conn));
+    assert!(!dep_conns.contains(&main_conn));
+    assert!(
+        dep_conns.contains(&ids.feed),
+        "foreign-source feed into an owned port stays boundary"
+    );
+    let feed_dep = deps.iter().find(|d| d.connection == ids.feed).unwrap();
+    assert!(!feed_dep.source_in_scope && feed_dep.destination_in_scope);
 }
 
 // ---------- diff harness (cb04/cb05 snap_manual/compare conventions) ----
