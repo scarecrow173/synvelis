@@ -21,6 +21,7 @@ Directory: `docs/discovery`
 | DISC-034RGX4tzLnhJHNrXshLpE | Issue #151 synvelis CI ui/ 検証 lane 欠如 gap 調査 | resolved | [issue-151-ui-ci-lane-gap.md](./issue-151-ui-ci-lane-gap.md) |
 | DISC-034U2L1N2kWQrSPjNRT7Vf | Issue #184 CI verify/evidence 失敗 — 非 canonical temp 綴りと symlink fixture | resolved | [issue-184-ci-verify-symlink-fixture.md](./issue-184-ci-verify-symlink-fixture.md) |
 | DISC-034YDfGylRNr58hWDe5lyH | issue-274-cli-script-analyze — script analyze --file headless Script Analyzer 配線の探索結果 | resolved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
+| DISC-034ZjInvJi1kqRJQbP8fB2 | Issue #283 slice — strip-fields gateway commit-gate exercise 調査 | resolved | [issue-283-strip-gateway-exercise.md](./issue-283-strip-gateway-exercise.md) |
 | DISC-sv511aB2cD4eF6gH8iJ0kL1m | Issue #511 discovery — CB-07 adopt/render materialization・PPQN grid・anchor tempo-map の残件調査 | resolved | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
 | DISC-513a1b2c3d4e5f6g7h8i9j0k | issue-513-variant-apply-ops — variant/VCS apply op surface 残件の探索結果 | resolved | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
 | DISC-R611Xhqyq8ib0vHl2lV2e1 | Issue #514 discovery — SessionRoutingEngine の RCP selection 消費要否の root-cause 調査 | resolved | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |
@@ -30,6 +31,8 @@ Directory: `docs/discovery`
 | DISC-sv518aB2cD4eF6gH8iJ0kL2 | Issue #518 discovery — production job system 配線の残件調査 | resolved | [issue-518-job-system.md](./issue-518-job-system.md) |
 | DISC-4qXzyQzBwS2yIrMLH0Ra | Issue #530 discovery — stateless plugin を PluginStateDecl で表現する契約調査 | resolved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | DISC-539aArrngmntAdptr01 | Issue #539 discovery — VariantPorts::standard への ArrangementAdapter 登録調査 | resolved | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
+| DISC-548StripDomLowr01 | Issue #548 discovery — strip-domain inner op lowering と routing mask 拡張（CB-06 後続） | resolved | [issue-548-strip-domain-lowering.md](./issue-548-strip-domain-lowering.md) |
+| DISC-550StripRtOps01 | Issue #550 discovery — strip routing ops・scope entity removal（CB-06 後続第 2 段） | resolved | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
 | DISC-99vL2v7VILngzJrF9fbNos | L1 Discovery — Local WAV Safe Import・Verified Media・Headless Generic Graph Playback | resolved | [l1-local-wav-verified-playback-discovery.md](./l1-local-wav-verified-playback-discovery.md) |
 | DISC-034Qmb93ek3YXoxaRPDBBD | L2 Discovery — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | resolved | [l2-master-sequential-offline-wav-export-discovery.md](./l2-master-sequential-offline-wav-export-discovery.md) |
 | DISC-034VG2eVX55D1hI610carh | plugin_instances VCS semantic diff gap — persisted instance identity invisible to compare_snapshots | resolved | [plugin-instances-vcs-diff-gap.md](./plugin-instances-vcs-diff-gap.md) |

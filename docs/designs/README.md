@@ -55,6 +55,7 @@ Directory: `docs/designs`
 | DESIGN-034U2uVeVKqECLpCn8kbSa | Issue #184 CI verify/evidence 失敗 — canonical temp fixture 設計 | approved | [issue-184-ci-verify-evidence-canonical-temp-fixture.md](./issue-184-ci-verify-evidence-canonical-temp-fixture.md) |
 | DES-034YBy2Ks8xNvTc4QwE | issue-262-run-file-real-vm — run --file 実実行の設計 | approved | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
 | DESIGN-034YDh5yvBwPjPPKMUXsgY | issue-274-cli-script-analyze — script analyze --file の設計 | approved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
+| DESIGN-034ZjJTBCxSxqBr82J1mjO | Issue #283 slice — strip-fields gateway exercise design | approved | [issue-283-strip-gateway-exercise.md](./issue-283-strip-gateway-exercise.md) |
 | DESIGN-034WsvXEZuKq8V4PoYjVxZ | Issue #365 impl index 生成可能化 — front matter 是正と marker 追加の設計 | approved | [issue-365-impl-index-generation-design.md](./issue-365-impl-index-generation-design.md) |
 | DESIGN-034WuZE8vEiOZJKbZMaRJQ | Issue #368 docs/impl/ir missing-section 本文補完 — 設計 | approved | [issue-368-ir-missing-sections-design.md](./issue-368-ir-missing-sections-design.md) |
 | DESIGN-sv511cD4eF6gH8iJ0kL1mN3oP | Issue #511 設計 — CB-07 materialization 残件の方式決定 | approved | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
@@ -66,6 +67,8 @@ Directory: `docs/designs`
 | DESIGN-sv518cD4eF6gH8iJ0kL3mN5 | Issue #518 設計 — production job system 配線 | approved | [issue-518-job-system.md](./issue-518-job-system.md) |
 | DESIGN-lc4Y6qkD6O151hJoRKMQ | Issue #530 design — stateless/capture-applicability の契約表現 | approved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | DESIGN-539aArrngmntAdptr03 | Issue #539 design — adapters map への ArrangementAdapter 登録と pin fixture positive flip | approved | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
+| DESIGN-548StripDomLowr03 | Issue #548 design — strip-domain capability 登録と lowering | approved | [issue-548-strip-domain-lowering.md](./issue-548-strip-domain-lowering.md) |
+| DESIGN-550StripRtOps03 | Issue #550 design — strip routing mask・confinement・wire 表面 | approved | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
 | DESIGN-vaYFK7BnCVN715EASswzTe | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 設計 | approved | [issue-86-verified-import-wiring-design.md](./issue-86-verified-import-wiring-design.md) |
 | DESIGN-yiV0z7HH1jyKUmweFh9hCT | L1 Design — Safe Import・Verified Media・Lowering・Headless Driver | approved | [l1-local-wav-verified-playback-design.md](./l1-local-wav-verified-playback-design.md) |
 | DESIGN-034QmfChvqgB632y8fAydk | L2 Design — Render Snapshot・Preflight・Sequential Render・WAV Output・Reopen Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export-design.md](./l2-master-sequential-offline-wav-export-design.md) |
