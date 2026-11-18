@@ -16,6 +16,16 @@ relations:
       - type: "file"
         path: "crates/synvelis-app/tests/cb09_variant_diff.rs"
       - type: "file"
+        path: "docs/discovery/issue-286-diff-explorer-app-wiring.md"
+      - type: "file"
+        path: "docs/specs/issue-286-diff-explorer-app-wiring.md"
+      - type: "file"
+        path: "docs/designs/issue-286-diff-explorer-app-wiring.md"
+      - type: "file"
+        path: "docs/plans/issue-286-diff-explorer-app-wiring.md"
+      - type: "file"
+        path: "docs/adr/issue-286-diff-explorer-app-wiring.md"
+      - type: "file"
         path: "docs/tasks/issue-286-diff-explorer-app-wiring.md"
       - type: "file"
         path: "docs/test-specs/issue-286-diff-explorer-app-wiring.md"
@@ -26,8 +36,6 @@ relations:
     modified:
       - type: "file"
         path: "crates/synvelis-workspace/src/variant_diff.rs"
-      - type: "file"
-        path: "crates/synvelis-workspace/src/lib.rs"
       - type: "file"
         path: "crates/synvelis-workspace/tests/cb09_diff_explorer.rs"
       - type: "file"
@@ -40,6 +48,14 @@ relations:
         path: "crates/synvelis-app/src/screens.rs"
       - type: "file"
         path: "crates/synvelis-app/src/lib.rs"
+      - type: "file"
+        path: "docs/impl/ir/cb-09-diff-explorer.md"
+      - type: "file"
+        path: "docs/test-specs/cb-09-diff-explorer.md"
+      - type: "file"
+        path: "crates/synvelis-render/src/render_job/orchestrator.rs"
+      - type: "file"
+        path: "crates/synvelis-workspace/src/render_dispatch.rs"
     deleted: []
     renamed: []
     moved: []
@@ -68,7 +84,8 @@ relations:
   deferred-by: []
 metadata:
   experiments:
-    adopted: []
+    adopted:
+      - "docs/impl/exp/issue-286-diff-explorer-app-wiring.md"
     rejected: []
 ---
 
@@ -118,8 +135,11 @@ app は gateway 型を名指しできない（AC-05）ため、workspace
   受理（preview/compare intent は malformed reject）。
   `apply_variant_diff_view_local` を追加し、view-local
   action を authority 非依存で適用可能にした。
-- `crates/synvelis-workspace/src/lib.rs`: facade 型と
-  view-local helper の re-export。
+- `crates/synvelis-workspace/src/lib.rs`: 当初 facade 型と
+  view-local helper の root re-export を追加したが、全 import が
+  `synvelis_workspace::variant_diff::{...}` module path 形式で
+  compile 上不要と判明したため revert（sv#518 占有範囲・ask
+  必須の違反解消）。root export 差分は残さない。
 - `crates/synvelis-workspace/tests/cb09_diff_explorer.rs`:
   stale arrangement verdict の test 更新 + engine facade
   test 7 件追加（計 40 test）。
@@ -144,7 +164,7 @@ app は gateway 型を名指しできない（AC-05）ため、workspace
 - `crates/synvelis-app/src/screens.rs` + `lib.rs`:
   `mount_variant_diff_view` と re-export。
 - `crates/synvelis-app/tests/cb09_variant_diff.rs`: app
-  結合 test 10 件（lifecycle/kind gate・target seed・
+  結合 test 11 件（lifecycle/kind gate・target seed・
   view-local authority 非接触・compare pin-scope・
   stale/implicit reject・preview 非 commit・approval 必須・
   CAS commit・stale CAS reject・ViewSpec mount smoke）。

@@ -1,7 +1,7 @@
 ---
 id: "TSPEC-034ZeN710ka50ujS8RWsVD"
 type: "test-spec"
-status: "draft"
+status: "approved"
 title: "issue-286-diff-explorer-app-wiring"
 created: "2026-11-17"
 updated: "2026-11-18"

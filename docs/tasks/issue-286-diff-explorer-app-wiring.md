@@ -101,7 +101,6 @@ CB-08 orchestrator / gateway CAS 経路への接続を完成させる。
 ## Affected Files
 
 - `crates/synvelis-workspace/src/variant_diff.rs`
-- `crates/synvelis-workspace/src/lib.rs`
 - `crates/synvelis-workspace/tests/cb09_diff_explorer.rs`
 - `crates/synvelis-app/src/ui_ops.rs`
 - `crates/synvelis-app/src/app.rs`
