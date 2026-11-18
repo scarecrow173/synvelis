@@ -14,8 +14,11 @@ use rig::*;
 use serde_json::{Value, json};
 use synvelis_gateway::*;
 use synvelis_project::{
-    ClipId, Command, ControlOwner, CounterIdGenerator, NoteId, ParameterRole, ParameterTargetId,
-    ProcessorId, ProjectController, ProjectRevision, SourceId, StripId,
+    AutomationTimeScope, ClipId, Command, ControlOwner, CounterIdGenerator, MidiTick, NoteId,
+    ParamMapping, ParameterRole, ParameterTargetId, Polarity, PortDirection, PortOwner, PortRole,
+    ProcessorId, ProjectController, ProjectOp, ProjectRevision, SemanticPortId, SendTap,
+    SmfDocument, SmfEvent, SmfEventKind, SmfFormat, SmfTrack, SourceId, SourceKind, StripId,
+    TrackId, TrackMonitorDecl, Transform, ValueKind,
 };
 
 // ── Happy path + non-destructivity ───────────────────────────
@@ -1165,5 +1168,780 @@ fn prepare_strip_domain_args_fail_typed() {
             "unexpected error for {capability}: {err:?}"
         );
     }
+    assert_eq!(rig.engine.proposal_count(), 0);
+}
+
+// ── synvelis#561 — unobservable cascade fail-closed pins ─────
+//
+// `op_facts` must report `unsupported` whenever an op's apply
+// cascade deletes entities no `ResourceKind` can name —
+// `ModulationSource`/`ModulationAssignment`/`SmfDocument`, the same
+// SEC-14 boundary `RemoveSend` established in synvelis#550. Each pin
+// builds the cascade-carrying state through `ProjectController` ops
+// (file-local fixtures — the shared `rig` fixture stays frozen),
+// commits it as the pinned base, then asserts the wire op rejects
+// `PreparationRejected { reason: "unverifiable …" }`. Companion
+// positive pins prove the gate fires on the unobservable entities
+// themselves, not on the op family.
+
+/// Applies one domain op at the controller's live revision.
+fn sv561_apply(c: &mut ProjectController, op: ProjectOp) {
+    let rev = c.live_revision();
+    c.apply(Command {
+        expected_revision: rev,
+        op,
+    })
+    .unwrap();
+}
+
+/// The one `SemanticPort` matching owner/direction/role — strip main
+/// ports are seeded by `AddTrackStrip`, never hard-coded.
+fn sv561_port(
+    project: &synvelis_project::Project,
+    owner: PortOwner,
+    direction: PortDirection,
+    role: PortRole,
+) -> SemanticPortId {
+    project
+        .routing
+        .ports
+        .values()
+        .find(|p| p.owner == owner && p.direction == direction && p.role == role)
+        .expect("port exists")
+        .id
+}
+
+/// Strip + send with `gain_target: None` on `c` — the shared prefix
+/// of the send fixtures. Returns the send id discovered through
+/// project truth.
+fn sv561_strip_send(c: &mut ProjectController) -> synvelis_project::SendId {
+    sv561_apply(
+        c,
+        ProjectOp::AddTrackStrip {
+            track_id: TrackId::new(3),
+        },
+    );
+    let (source, destination) = {
+        let p = c.live();
+        let strip = p
+            .routing
+            .strip_of_track(TrackId::new(3))
+            .expect("track strip exists")
+            .id;
+        let master_strip = p.routing.buses[&p.routing.master].strip;
+        (
+            sv561_port(
+                p,
+                PortOwner::Strip(strip),
+                PortDirection::Output,
+                PortRole::Main,
+            ),
+            sv561_port(
+                p,
+                PortOwner::Strip(master_strip),
+                PortDirection::Input,
+                PortRole::Main,
+            ),
+        )
+    };
+    sv561_apply(
+        c,
+        ProjectOp::AddSend {
+            source,
+            destination,
+            tap: SendTap::PostFader,
+            gain_target: None,
+        },
+    );
+    *c.live().routing.sends.keys().next().expect("send exists")
+}
+
+/// synvelis#561 send-gain fixture: `demo_project()` + a track strip +
+/// one send whose `SendLevel` target is sealed through
+/// `SetSendGainTarget`, plus a second adoptable target for the
+/// rebind pin. With an assignment variant, a `Macro` source feeds a
+/// `ModulationAssignment` touching the sealed target — the entity
+/// `release_send_level_target` deletes on rebind/clear that no
+/// `ResourceKind` can name.
+/// Strip + send + sealed `SendLevel` target on `c` — the shared
+/// prefix of the send-gain fixtures. Returns the send and the sealed
+/// target ids discovered through project truth.
+fn sv561_strip_send_sealed(
+    c: &mut ProjectController,
+) -> (synvelis_project::SendId, ParameterTargetId) {
+    let send = sv561_strip_send(c);
+    sv561_apply(
+        c,
+        ProjectOp::AddParameterTarget {
+            name: "send-lvl".to_owned(),
+            owner: ControlOwner::Send(send),
+            role: ParameterRole::SendLevel,
+            time_scope: AutomationTimeScope::ProjectMusical,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: None,
+            base: 0.5,
+        },
+    );
+    let sealed = c
+        .live()
+        .control
+        .targets
+        .values()
+        .find(|t| t.owner == ControlOwner::Send(send) && t.role == ParameterRole::SendLevel)
+        .expect("send level target exists")
+        .id;
+    sv561_apply(
+        c,
+        ProjectOp::SetSendGainTarget {
+            send_id: send,
+            gain_target: Some(sealed),
+        },
+    );
+    (send, sealed)
+}
+
+/// Which `ModulationAssignment` shape the send-gain fixture binds:
+/// `OnTarget` aims `target` at the sealed target (the release's
+/// `a.target == old` leg); `ViaDepthSource` aims it at the adoptable
+/// rebind target while `depth_source` names the sealed one (the
+/// `a.depth_source == Some(old)` leg).
+#[derive(Clone, Copy)]
+enum Sv561Assignment {
+    None,
+    OnTarget,
+    ViaDepthSource,
+}
+
+fn sv561_send_gain_controller(assignment: Sv561Assignment) -> ProjectController {
+    let mut c = ProjectController::new(demo_project(), Box::new(CounterIdGenerator::new(9_000)));
+    let (_send, sealed) = sv561_strip_send_sealed(&mut c);
+    // The rebind target: a Project-owned free-form target already
+    // carrying the canonical send-level wire spec — apply re-owns it
+    // on bind, so it needs no `Send` owner up front.
+    sv561_apply(
+        &mut c,
+        ProjectOp::AddParameterTarget {
+            name: "send-lvl-next".to_owned(),
+            owner: ControlOwner::Project,
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::ProjectMusical,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: None,
+            base: 0.5,
+        },
+    );
+    let next = c
+        .live()
+        .control
+        .targets
+        .values()
+        .find(|t| t.name == "send-lvl-next")
+        .expect("rebind target exists")
+        .id;
+    if !matches!(assignment, Sv561Assignment::None) {
+        sv561_apply(
+            &mut c,
+            ProjectOp::AddModulationSource {
+                owner: ControlOwner::Project,
+                kind: SourceKind::Macro { value: 0.5 },
+            },
+        );
+        let mod_source = *c
+            .live()
+            .control
+            .sources
+            .keys()
+            .next()
+            .expect("modulation source exists");
+        let (target, depth_source) = match assignment {
+            Sv561Assignment::OnTarget => (sealed, None),
+            Sv561Assignment::ViaDepthSource => (next, Some(sealed)),
+            Sv561Assignment::None => unreachable!(),
+        };
+        sv561_apply(
+            &mut c,
+            ProjectOp::AddModulationAssignment {
+                source: mod_source,
+                target,
+                depth: 0.5,
+                depth_source,
+                polarity: Polarity::Bipolar,
+                transform: Transform::Identity,
+                enabled: true,
+            },
+        );
+    }
+    c
+}
+
+/// synvelis#561 composite fixture: a send with `gain_target: None`,
+/// an adoptable Project-owned target carrying the canonical
+/// send-level spec, and a `Macro`→target assignment. Inside one
+/// `synvelis.operation.batch`, member 1 seals the target
+/// (`SetSendGainTarget`) and member 2 releases it (clear) — the
+/// release's assignment delete is only visible to facts evaluated
+/// against the state member 1 leaves behind. Returns the send and
+/// the adoptable target ids.
+fn sv561_batch_seal_controller() -> (
+    ProjectController,
+    synvelis_project::SendId,
+    ParameterTargetId,
+) {
+    let mut c = ProjectController::new(demo_project(), Box::new(CounterIdGenerator::new(9_000)));
+    let send = sv561_strip_send(&mut c);
+    sv561_apply(
+        &mut c,
+        ProjectOp::AddParameterTarget {
+            name: "batch-lvl".to_owned(),
+            owner: ControlOwner::Project,
+            role: ParameterRole::Generic,
+            time_scope: AutomationTimeScope::ProjectMusical,
+            kind: ValueKind::Continuous,
+            mapping: ParamMapping::Linear,
+            capability: None,
+            base: 0.5,
+        },
+    );
+    let adoptable = c
+        .live()
+        .control
+        .targets
+        .values()
+        .find(|t| t.name == "batch-lvl")
+        .expect("adoptable target exists")
+        .id;
+    sv561_apply(
+        &mut c,
+        ProjectOp::AddModulationSource {
+            owner: ControlOwner::Project,
+            kind: SourceKind::Macro { value: 0.5 },
+        },
+    );
+    let mod_source = *c
+        .live()
+        .control
+        .sources
+        .keys()
+        .next()
+        .expect("modulation source exists");
+    sv561_apply(
+        &mut c,
+        ProjectOp::AddModulationAssignment {
+            source: mod_source,
+            target: adoptable,
+            depth: 0.5,
+            depth_source: None,
+            polarity: Polarity::Bipolar,
+            transform: Transform::Identity,
+            enabled: true,
+        },
+    );
+    (c, send, adoptable)
+}
+
+/// The send-gain fixture's single send — discovered through project
+/// truth, never a hard-coded id.
+fn sv561_send_id(project: &synvelis_project::Project) -> synvelis_project::SendId {
+    *project
+        .routing
+        .sends
+        .keys()
+        .next()
+        .expect("fixture send exists")
+}
+
+/// synvelis#561 track-remove fixture: `demo_project()` + a fresh
+/// lane-free track + its strip, with the deterministic main route
+/// removed so the teardown is oracle-clean — the pin isolates the
+/// strip-owned control cascade. With `with_modulation`, a strip-owned
+/// `Macro` source rides the cascade — a `ModulationSource` no
+/// `ResourceKind` can name.
+fn sv561_track_strip_controller(with_modulation: bool) -> ProjectController {
+    let mut c = ProjectController::new(demo_project(), Box::new(CounterIdGenerator::new(9_000)));
+    sv561_apply(
+        &mut c,
+        ProjectOp::AddTrack {
+            name: "sv561".to_owned(),
+        },
+    );
+    let track = *c
+        .live()
+        .tracks
+        .keys()
+        .find(|t| **t != TrackId::new(3))
+        .expect("new track exists");
+    sv561_apply(&mut c, ProjectOp::AddTrackStrip { track_id: track });
+    let conn = *c
+        .live()
+        .routing
+        .connections
+        .keys()
+        .next()
+        .expect("main route exists");
+    sv561_apply(
+        &mut c,
+        ProjectOp::RemoveConnection {
+            connection_id: conn,
+        },
+    );
+    if with_modulation {
+        let strip = c
+            .live()
+            .routing
+            .strip_of_track(track)
+            .expect("track strip exists")
+            .id;
+        sv561_apply(
+            &mut c,
+            ProjectOp::AddModulationSource {
+                owner: ControlOwner::Strip(strip),
+                kind: SourceKind::Macro { value: 0.5 },
+            },
+        );
+    }
+    c
+}
+
+/// The track-strip fixture's strip-owned track — the only track
+/// carrying a strip.
+fn sv561_strip_track(project: &synvelis_project::Project) -> TrackId {
+    *project
+        .tracks
+        .keys()
+        .find(|t| project.routing.strip_of_track(**t).is_some())
+        .expect("strip-owned track exists")
+}
+
+/// synvelis#561 SMF fixture: `demo_project()` + one `ImportMidiSmf`
+/// document — an unreferenced MIDI source whose `smf_documents`
+/// provenance entry `RemoveMidiSource` drops with it.
+fn sv561_smf_document() -> SmfDocument {
+    SmfDocument {
+        format: SmfFormat::Format0,
+        division: 480,
+        tracks: vec![SmfTrack {
+            events: vec![
+                SmfEvent {
+                    tick: MidiTick::new(0).unwrap(),
+                    kind: SmfEventKind::NoteOn {
+                        channel: 0,
+                        key: 60,
+                        velocity: 100,
+                    },
+                },
+                SmfEvent {
+                    tick: MidiTick::new(240).unwrap(),
+                    kind: SmfEventKind::NoteOff {
+                        channel: 0,
+                        key: 60,
+                        velocity: 0,
+                    },
+                },
+                SmfEvent {
+                    tick: MidiTick::new(480).unwrap(),
+                    kind: SmfEventKind::EndOfTrack,
+                },
+            ],
+        }],
+    }
+}
+
+/// Commits `project` built by `controller` as the rig's pinned base
+/// at the controller's live revision.
+fn sv561_commit(rig: &mut Rig, controller: &ProjectController) -> u64 {
+    let rev = controller.live_revision();
+    rig.source.commit(project(), rev, controller.live().clone());
+    rev.0
+}
+
+/// Asserts the prepare rejects with the unverifiable-effects verdict.
+fn sv561_expect_unverifiable(err: ErrorEnvelope) {
+    match err.code {
+        GatewayError::PreparationRejected { reason } => assert!(
+            reason.contains("unverifiable"),
+            "expected unverifiable-effects denial, got {reason:?}"
+        ),
+        other => panic!("expected PreparationRejected, got {other:?}"),
+    }
+}
+
+#[test]
+fn sv561_set_gain_target_clear_unobservable_assignment_denied() {
+    // `gain_target: null` releases the sealed `SendLevel` target; the
+    // release cascade deletes the `ModulationAssignment` bound to it
+    // — outside the observable model, so prepare must fail closed.
+    let mut rig = fixture_rig();
+    let c = sv561_send_gain_controller(Sv561Assignment::OnTarget);
+    let p = c.live().clone();
+    let send = sv561_send_id(&p);
+    let rev = sv561_commit(&mut rig, &c);
+    let err = rig
+        .gw
+        .handle(
+            &prepare_req(
+                None,
+                None,
+                op(
+                    "synvelis.send.set-gain-target",
+                    res_target("send", &ResourceRef::Send(send)),
+                    json!({"gain_target": Value::Null}),
+                ),
+                expected(rev),
+            ),
+            human(),
+        )
+        .expect_err("set-gain-target clear with an unobservable cascade must reject");
+    sv561_expect_unverifiable(err);
+    assert_eq!(rig.engine.proposal_count(), 0);
+}
+
+#[test]
+fn sv561_set_gain_target_rebind_unobservable_assignment_denied() {
+    // Rebinding to a different target releases the old seal the same
+    // way — the touching assignment is still an unobservable delete.
+    let mut rig = fixture_rig();
+    let c = sv561_send_gain_controller(Sv561Assignment::OnTarget);
+    let p = c.live().clone();
+    let send = sv561_send_id(&p);
+    let next = p
+        .control
+        .targets
+        .values()
+        .find(|t| t.owner == ControlOwner::Project && t.role == ParameterRole::Generic)
+        .expect("rebind target exists")
+        .id;
+    let rev = sv561_commit(&mut rig, &c);
+    let err = rig
+        .gw
+        .handle(
+            &prepare_req(
+                None,
+                None,
+                op(
+                    "synvelis.send.set-gain-target",
+                    res_target("send", &ResourceRef::Send(send)),
+                    json!({"gain_target": next.to_tagged()}),
+                ),
+                expected(rev),
+            ),
+            human(),
+        )
+        .expect_err("set-gain-target rebind with an unobservable cascade must reject");
+    sv561_expect_unverifiable(err);
+    assert_eq!(rig.engine.proposal_count(), 0);
+}
+
+#[test]
+fn sv561_set_gain_target_clear_without_assignment_accepted() {
+    // Positive control: the same sealed-target release with no
+    // modulation entities touching it deletes only observable
+    // entities — prepare must still accept (no over-denial).
+    let mut rig = fixture_rig();
+    let c = sv561_send_gain_controller(Sv561Assignment::None);
+    let p = c.live().clone();
+    let send = sv561_send_id(&p);
+    let rev = sv561_commit(&mut rig, &c);
+    let result = complete(
+        rig.gw
+            .handle(
+                &prepare_req(
+                    None,
+                    None,
+                    op(
+                        "synvelis.send.set-gain-target",
+                        res_target("send", &ResourceRef::Send(send)),
+                        json!({"gain_target": Value::Null}),
+                    ),
+                    expected(rev),
+                ),
+                human(),
+            )
+            .unwrap(),
+    );
+    let record = record_for(&rig, &result);
+    // The released target's delete surfaces in the observable diff.
+    let deleted: Vec<_> = record
+        .prepared
+        .effects
+        .iter()
+        .filter(|e| e.kind == EffectKind::Delete)
+        .map(|e| e.resource)
+        .collect();
+    assert!(
+        deleted
+            .iter()
+            .any(|r| matches!(r, ResourceRef::ParameterTarget(_))),
+        "expected the released target delete in effects, got {deleted:?}"
+    );
+}
+
+#[test]
+fn sv561_track_remove_unobservable_strip_cascade_denied() {
+    // `track.remove` cascades `remove_strip_owned` →
+    // `remove_control_owned(Strip)`: the strip-owned `Macro` source
+    // dies with the strip — outside the observable model.
+    let mut rig = fixture_rig();
+    let c = sv561_track_strip_controller(true);
+    let p = c.live().clone();
+    let track = sv561_strip_track(&p);
+    let rev = sv561_commit(&mut rig, &c);
+    let err = rig
+        .gw
+        .handle(
+            &prepare_req(
+                None,
+                None,
+                op(
+                    "synvelis.track.remove",
+                    res_target("track", &ResourceRef::Track(track)),
+                    json!({}),
+                ),
+                expected(rev),
+            ),
+            human(),
+        )
+        .expect_err("track.remove with an unobservable cascade must reject");
+    sv561_expect_unverifiable(err);
+    assert_eq!(rig.engine.proposal_count(), 0);
+}
+
+/// The fixture strip's id — discovered through project truth.
+fn strip_of(project: &synvelis_project::Project) -> StripId {
+    project
+        .routing
+        .strips
+        .values()
+        .find(|s| matches!(s.owner, synvelis_project::StripOwner::Track(_)))
+        .expect("track strip exists")
+        .id
+}
+
+#[test]
+fn sv561_track_remove_plain_strip_accepted() {
+    // Positive control: a strip teardown whose control closure holds
+    // only observable entities (seeded channel targets) still
+    // prepares — the gate keys on unobservable deletes, not strips.
+    let mut rig = fixture_rig();
+    let c = sv561_track_strip_controller(false);
+    let p = c.live().clone();
+    let track = sv561_strip_track(&p);
+    let rev = sv561_commit(&mut rig, &c);
+    let result = complete(
+        rig.gw
+            .handle(
+                &prepare_req(
+                    None,
+                    None,
+                    op(
+                        "synvelis.track.remove",
+                        res_target("track", &ResourceRef::Track(track)),
+                        json!({}),
+                    ),
+                    expected(rev),
+                ),
+                human(),
+            )
+            .unwrap(),
+    );
+    let record = record_for(&rig, &result);
+    effect(&record, EffectKind::Delete, &ResourceRef::Track(track));
+    effect(
+        &record,
+        EffectKind::Delete,
+        &ResourceRef::Strip(strip_of(&p)),
+    );
+}
+
+#[test]
+fn sv561_midi_source_remove_smf_document_denied() {
+    // `midi.source.remove` drops the source's `smf_documents`
+    // provenance entry unconditionally — `SmfDocument` has no
+    // `ResourceKind`, so the delete is unverifiable and must fail
+    // closed even though the source delete itself is observable.
+    let mut rig = fixture_rig();
+    let mut c = ProjectController::new(demo_project(), Box::new(CounterIdGenerator::new(9_000)));
+    sv561_apply(
+        &mut c,
+        ProjectOp::ImportMidiSmf {
+            document: sv561_smf_document(),
+        },
+    );
+    let p = c.live().clone();
+    let source = *p.smf_documents.keys().next().expect("smf document exists");
+    let rev = sv561_commit(&mut rig, &c);
+    let err = rig
+        .gw
+        .handle(
+            &prepare_req(
+                None,
+                None,
+                op(
+                    "synvelis.midi.source.remove",
+                    res_target("source", &ResourceRef::Source(source)),
+                    json!({}),
+                ),
+                expected(rev),
+            ),
+            human(),
+        )
+        .expect_err("midi.source.remove with an smf document must reject");
+    sv561_expect_unverifiable(err);
+    assert_eq!(rig.engine.proposal_count(), 0);
+}
+
+#[test]
+fn sv561_set_gain_target_clear_unobservable_depth_source_denied() {
+    // The release predicate's second leg: an assignment that does
+    // not target the sealed target but names it `depth_source`
+    // dies in the same cascade — still outside the observable
+    // model, so prepare must fail closed.
+    let mut rig = fixture_rig();
+    let c = sv561_send_gain_controller(Sv561Assignment::ViaDepthSource);
+    let p = c.live().clone();
+    let send = sv561_send_id(&p);
+    let rev = sv561_commit(&mut rig, &c);
+    let err = rig
+        .gw
+        .handle(
+            &prepare_req(
+                None,
+                None,
+                op(
+                    "synvelis.send.set-gain-target",
+                    res_target("send", &ResourceRef::Send(send)),
+                    json!({"gain_target": Value::Null}),
+                ),
+                expected(rev),
+            ),
+            human(),
+        )
+        .expect_err("set-gain-target clear with a depth_source cascade must reject");
+    sv561_expect_unverifiable(err);
+    assert_eq!(rig.engine.proposal_count(), 0);
+}
+
+#[test]
+fn sv561_send_remove_unobservable_assignment_denied() {
+    // `send.remove` cascades `remove_control_owned(Send)`: the
+    // sealed target's touching assignment dies even when the send
+    // owns no `ModulationSource` — the closure's `target` leg of
+    // the unverifiable check.
+    let mut rig = fixture_rig();
+    let c = sv561_send_gain_controller(Sv561Assignment::OnTarget);
+    let p = c.live().clone();
+    let send = sv561_send_id(&p);
+    let rev = sv561_commit(&mut rig, &c);
+    let err = rig
+        .gw
+        .handle(
+            &prepare_req(
+                None,
+                None,
+                op(
+                    "synvelis.send.remove",
+                    res_target("send", &ResourceRef::Send(send)),
+                    json!({}),
+                ),
+                expected(rev),
+            ),
+            human(),
+        )
+        .expect_err("send.remove with an unobservable cascade must reject");
+    sv561_expect_unverifiable(err);
+    assert_eq!(rig.engine.proposal_count(), 0);
+}
+
+#[test]
+fn sv561_track_remove_monitor_decl_denied() {
+    // `track.remove` drops the track's `monitoring.tracks`
+    // declaration unconditionally — `TrackMonitorDecl` has no
+    // `ResourceKind` and `detail_of` never serializes it, the same
+    // unverifiable-delete class as `SmfDocument`. The decl is
+    // authored state with independent content, not internal
+    // structure, so even a strip-less track must fail closed.
+    let mut rig = fixture_rig();
+    let mut c = ProjectController::new(demo_project(), Box::new(CounterIdGenerator::new(9_000)));
+    sv561_apply(
+        &mut c,
+        ProjectOp::AddTrack {
+            name: "sv561-monitor".to_owned(),
+        },
+    );
+    let track = *c
+        .live()
+        .tracks
+        .keys()
+        .find(|t| **t != TrackId::new(3))
+        .expect("new track exists");
+    sv561_apply(
+        &mut c,
+        ProjectOp::SetTrackMonitor {
+            track,
+            decl: TrackMonitorDecl::default(),
+        },
+    );
+    let rev = sv561_commit(&mut rig, &c);
+    let err = rig
+        .gw
+        .handle(
+            &prepare_req(
+                None,
+                None,
+                op(
+                    "synvelis.track.remove",
+                    res_target("track", &ResourceRef::Track(track)),
+                    json!({}),
+                ),
+                expected(rev),
+            ),
+            human(),
+        )
+        .expect_err("track.remove with a monitor declaration must reject");
+    sv561_expect_unverifiable(err);
+    assert_eq!(rig.engine.proposal_count(), 0);
+}
+
+#[test]
+fn sv561_batch_seal_release_unobservable_denied() {
+    // `synvelis.operation.batch` members commit sequentially, so
+    // member facts must read the state earlier members leave
+    // behind: member 1 seals the adoptable target as this send's
+    // `SendLevel`, member 2 clears it — releasing a seal that only
+    // exists mid-batch and deleting the touching assignment.
+    // Evaluating member 2 against the pinned base sees
+    // `gain_target: None` and under-reports the cascade.
+    let mut rig = fixture_rig();
+    let (c, send, adoptable) = sv561_batch_seal_controller();
+    let rev = sv561_commit(&mut rig, &c);
+    let err = rig
+        .gw
+        .handle(
+            &prepare_req(
+                None,
+                None,
+                op(
+                    "synvelis.operation.batch",
+                    Value::Null,
+                    json!({"ops": [
+                        op(
+                            "synvelis.send.set-gain-target",
+                            res_target("send", &ResourceRef::Send(send)),
+                            json!({"gain_target": adoptable.to_tagged()}),
+                        ),
+                        op(
+                            "synvelis.send.set-gain-target",
+                            res_target("send", &ResourceRef::Send(send)),
+                            json!({"gain_target": Value::Null}),
+                        ),
+                    ]}),
+                ),
+                expected(rev),
+            ),
+            human(),
+        )
+        .expect_err("batch seal-then-release with an unobservable cascade must reject");
+    sv561_expect_unverifiable(err);
     assert_eq!(rig.engine.proposal_count(), 0);
 }

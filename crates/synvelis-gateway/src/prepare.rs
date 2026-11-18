@@ -52,9 +52,10 @@ use std::sync::Arc;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use synvelis_project::{
-    ClipId, ControlOwner, LaneId, MidiTick, ModulationSourceId, MusicalTick, NoteId, ParameterRole,
-    ParameterTargetId, ProcessorId, Project, ProjectId, ProjectOp, ProjectRevision, SemanticPortId,
-    SendId, SendTap, SourceFrame, SourceId, StripId, TrackId,
+    ClipId, ControlOwner, CounterIdGenerator, LaneId, MidiTick, ModulationSourceId, MusicalTick,
+    NoteId, Operation, ParameterRole, ParameterTargetId, ProcessorId, Project, ProjectId,
+    ProjectOp, ProjectRevision, SemanticPortId, SendId, SendTap, SourceFrame, SourceId, StripId,
+    TrackId,
 };
 
 use crate::authorization::AuthorizationDecision;
@@ -1078,6 +1079,39 @@ fn project_ref(project: &Project) -> ResourceRef {
     ResourceRef::Project(project.project_id)
 }
 
+/// Whether `owner`'s control closure — the entities
+/// `remove_control_owned` deletes with it — touches modulation
+/// entities no `ResourceKind` can name. Owned `ParameterTarget`s and
+/// their `AutomationLane`s are enumerable and surface in the
+/// before/after diff; `ModulationSource`s and `ModulationAssignment`s
+/// touching the closure are outside the resource model, so their
+/// cascade delete is unverifiable (SEC-14 fail-closed). Mirrors the
+/// domain cascade's firing set exactly: an assignment dies when its
+/// `target` or `depth_source` is a closure target, or its `source`
+/// is a closure source.
+fn control_closure_unverifiable(project: &Project, owner: ControlOwner) -> bool {
+    let targets: BTreeSet<ParameterTargetId> = project
+        .control
+        .targets
+        .values()
+        .filter(|t| t.owner == owner)
+        .map(|t| t.id)
+        .collect();
+    let sources: BTreeSet<ModulationSourceId> = project
+        .control
+        .sources
+        .values()
+        .filter(|s| s.owner == owner)
+        .map(|s| s.id)
+        .collect();
+    !sources.is_empty()
+        || project.control.assignments.values().any(|a| {
+            sources.contains(&a.source)
+                || targets.contains(&a.target)
+                || a.depth_source.is_some_and(|ds| targets.contains(&ds))
+        })
+}
+
 /// The semantic facts of a `ProjectOp` against the pinned `project`.
 ///
 /// `reads` name resources consulted internally beyond the op's own
@@ -1117,6 +1151,32 @@ pub(crate) fn op_facts(op: &ProjectOp, project: &Project) -> OpFacts {
                 "",
             ));
             preconditions.push(cond("track-has-no-lanes", None, ""));
+            // `RemoveTrack` also drops the track's
+            // `monitoring.tracks` declaration unconditionally
+            // (synvelis#561): `TrackMonitorDecl` has no
+            // `ResourceKind` and `detail_of` never serializes it —
+            // the same unverifiable-delete class as `SmfDocument`,
+            // so fail closed (SEC-14) even when the track owns no
+            // strip.
+            if project.monitoring.tracks.contains_key(track_id) {
+                unsupported.push(
+                    "track monitor declaration deletion is outside the observable model".to_owned(),
+                );
+            }
+            // `RemoveTrack` cascades `remove_strip_owned` →
+            // `remove_control_owned(Strip)` when the track owns a
+            // strip (synvelis#561): the strip, its chain/ports and
+            // seeded channel targets are enumerable or strictly-1:1
+            // internal structure, but strip-owned modulation
+            // entities are outside the resource model — fail closed
+            // (SEC-14) rather than under-report their delete.
+            if let Some(strip) = project.routing.strip_of_track(*track_id)
+                && control_closure_unverifiable(project, ControlOwner::Strip(strip.id))
+            {
+                unsupported.push(
+                    "strip-owned modulation entities are outside the observable model".to_owned(),
+                );
+            }
         }
         ProjectOp::AddLane { track_id } => {
             read(ResourceRef::Track(*track_id));
@@ -1185,6 +1245,15 @@ pub(crate) fn op_facts(op: &ProjectOp, project: &Project) -> OpFacts {
                 None,
                 "no clip may reference the source",
             ));
+            // `RemoveMidiSource` also drops the source's
+            // `smf_documents` provenance entry unconditionally
+            // (synvelis#561): `SmfDocument` has no `ResourceKind`
+            // and `detail_of` never serializes it, so the delete is
+            // unverifiable — fail closed (SEC-14).
+            if project.smf_documents.contains_key(source_id) {
+                unsupported
+                    .push("smf document deletion is outside the observable model".to_owned());
+            }
         }
         ProjectOp::AddMidiNote { source_id, .. } => {
             read(ResourceRef::Source(*source_id));
@@ -1255,14 +1324,38 @@ pub(crate) fn op_facts(op: &ProjectOp, project: &Project) -> OpFacts {
                 .push("clock-epoch registration has no observable resource effect".to_owned());
         }
         ProjectOp::Composite { ops } => {
+            // Members commit sequentially, so member *i*'s facts
+            // must read the state members *0..i* leave behind —
+            // evaluating every member against the pinned base goes
+            // stale on state-dependent triggers (a `gain_target`
+            // sealed by an earlier member and released by a later
+            // one, a send minted and removed inside the batch) and
+            // under-reports unverifiable cascades (synvelis#561).
+            // Advance a scratch clone through the same
+            // validate-then-apply sequence `Composite::apply`
+            // commits — mirroring the trial-apply in
+            // `lower_bound_batch`. A member that cannot
+            // validate/apply dooms the composite, so the scratch —
+            // and every later member's facts — stays at the last
+            // reachable state.
+            let mut scratch = project.clone();
+            let mut ids = CounterIdGenerator::new(project.id_watermark);
             for member in ops {
-                let facts = op_facts(member, project);
+                let facts = op_facts(member, &scratch);
                 reads.extend(facts.reads);
                 for (source, clips) in facts.impacted {
                     impacted.entry(source).or_default().extend(clips);
                 }
                 preconditions.extend(facts.preconditions);
                 unsupported.extend(facts.unsupported);
+                if member.validate(&scratch).is_ok() {
+                    let mut trial = scratch.clone();
+                    let mut trial_ids = ids.clone();
+                    if member.apply(&mut trial, &mut trial_ids).is_ok() {
+                        scratch = trial;
+                        ids = trial_ids;
+                    }
+                }
             }
             preconditions.push(cond("composite-non-empty", None, ""));
         }
@@ -1355,35 +1448,12 @@ pub(crate) fn op_facts(op: &ProjectOp, project: &Project) -> OpFacts {
         ProjectOp::RemoveSend { send_id } => {
             read(ResourceRef::Send(*send_id));
             preconditions.push(cond("send-exists", Some(ResourceRef::Send(*send_id)), ""));
-            // `RemoveSend` cascades the send's whole control closure.
-            // Owned `ParameterTarget`s and their `AutomationLane`s are
-            // enumerable — their deletes surface in the before/after
-            // diff. Send-owned `ModulationSource`s and any
-            // `ModulationAssignment` touching the closure are outside
-            // the resource model: when present the delete is
-            // unverifiable, so fail closed (SEC-14) rather than
-            // under-report.
-            let send_targets: BTreeSet<ParameterTargetId> = project
-                .control
-                .targets
-                .values()
-                .filter(|t| t.owner == ControlOwner::Send(*send_id))
-                .map(|t| t.id)
-                .collect();
-            let send_sources: BTreeSet<ModulationSourceId> = project
-                .control
-                .sources
-                .values()
-                .filter(|s| s.owner == ControlOwner::Send(*send_id))
-                .map(|s| s.id)
-                .collect();
-            if !send_sources.is_empty()
-                || project.control.assignments.values().any(|a| {
-                    send_sources.contains(&a.source)
-                        || send_targets.contains(&a.target)
-                        || a.depth_source.is_some_and(|ds| send_targets.contains(&ds))
-                })
-            {
+            // `RemoveSend` cascades the send's whole control closure
+            // (`control_closure_unverifiable`): owned targets and
+            // lanes are enumerable, send-owned modulation entities
+            // are not — when present the delete is unverifiable, so
+            // fail closed (SEC-14) rather than under-report.
+            if control_closure_unverifiable(project, ControlOwner::Send(*send_id)) {
                 unsupported.push(
                     "send-owned modulation entities are outside the observable model".to_owned(),
                 );
@@ -1407,6 +1477,37 @@ pub(crate) fn op_facts(op: &ProjectOp, project: &Project) -> OpFacts {
                     "",
                 ));
                 preconditions.push(cond("send-gain-target-adoptable", None, ""));
+            }
+            // Mirror the apply's seal release (synvelis#561): it
+            // fires only when the previous `gain_target` differs and
+            // names this send's own `SendLevel` target —
+            // `release_send_level_target` then deletes the target
+            // and its lanes (enumerable) plus every
+            // `ModulationAssignment` targeting it or using it as
+            // `depth_source` (outside the resource model). When such
+            // an assignment exists the delete is unverifiable — fail
+            // closed (SEC-14) rather than under-report.
+            let previous = project
+                .routing
+                .sends
+                .get(send_id)
+                .and_then(|send| send.gain_target);
+            if let Some(old) = previous
+                && Some(old) != *gain_target
+                && project.control.targets.get(&old).is_some_and(|target| {
+                    target.owner == ControlOwner::Send(*send_id)
+                        && target.role == ParameterRole::SendLevel
+                })
+                && project
+                    .control
+                    .assignments
+                    .values()
+                    .any(|a| a.target == old || a.depth_source == Some(old))
+            {
+                unsupported.push(
+                    "released send gain target deletes modulation assignments outside the observable model"
+                        .to_owned(),
+                );
             }
         }
         // Control-plane, media-state, and any unlowered variant: the
