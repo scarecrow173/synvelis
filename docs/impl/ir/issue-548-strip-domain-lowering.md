@@ -72,6 +72,11 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted:
+      - "docs/impl/exp/issue-548-strip-domain-lowering.md"
+    rejected: []
 ---
 
 # Issue #548 impl IR — strip-domain lowering 実装記録

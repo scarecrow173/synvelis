@@ -85,6 +85,11 @@ relations:
   references: []
   defers: []
   deferred-by: []
+metadata:
+  experiments:
+    adopted:
+      - "docs/impl/exp/issue-550-strip-routing-ops.md"
+    rejected: []
 ---
 
 # Issue #550 impl IR — strip routing ops・entity removal 実装記録

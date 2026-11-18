@@ -84,6 +84,8 @@ Directory: `docs/test-specs`
 | TSPEC-sv518fG7hI9jK0lM5nO7 | Issue #518 test spec — 非同期 scheduler・cost model・永続化の検証保証 | approved | [issue-518-job-system.md](./issue-518-job-system.md) |
 | TSPEC-j0rVeZntFdxTUwZBQefJ | Issue #530 test-spec — stateless PluginStateDecl 契約の検証仕様 | approved | [issue-530-plugin-state-decl.md](./issue-530-plugin-state-decl.md) |
 | TSPEC-539aArrngmntAdptr07 | Issue #539 test-spec — gateway 経路 arrangement composite adopt の検証仕様 | approved | [issue-539-arrangement-adapter.md](./issue-539-arrangement-adapter.md) |
+| TSPEC-548StripDomLowr07 | Issue #548 test-spec — strip-domain lowering の検証仕様 | approved | [issue-548-strip-domain-lowering.md](./issue-548-strip-domain-lowering.md) |
+| TSPEC-550StripRtOps07 | Issue #550 test-spec — strip routing ops・entity removal の検証仕様 | approved | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
 | TSPEC-Zb0ctcQ2s7S0lDwxkjXsiu | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 — テスト仕様 | approved | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | TSPEC-034QmjuUDQRs8JzfSsG8wM | L2 検証仕様 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
