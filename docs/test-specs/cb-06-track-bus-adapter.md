@@ -184,6 +184,22 @@ headless exercise）で、本 spec の境界契約が gateway の
   `cb06_strip_553_variant_edit_send_remove_
   unobservable_cascade_denied` で pin された
   （`docs/test-specs/issue-553-intent-facts.md`）。
+  **追補（synvelis#557）**: `VariantIntent::Adopt`
+  経路の `declared_facts` 伝播を監査 — `AdoptIntent`
+  は inner op を持たず sv#553 同型 gap は構造上存在
+  しないことを確認。adopt の write 認可は
+  post-simulation `derive_effects` +
+  `authorize_effects` が実 diff で行う設計であり、
+  candidate `send.remove` の adopt が teardown
+  （SendConfig/`Send` edge/`SendLevel` target の
+  `Removed` write、provenance `objects == 3`）を
+  物質化することが
+  `cb06_strip_557_adopt_send_remove_candidate_
+  materializes_teardown` で pin された。唯一の残存
+  経路（pre-553 stored candidate payload の観測不能
+  entity 削除物質化）は `synvelis#559` として別
+  Issue 化
+  （`docs/test-specs/issue-557-adopt-facts.md`）。
 - routing/send/bus op は capability 自体が存在せず fail-closed
   — 外部 wiring は candidate-owned でない（本 spec の
   routing 参照保護 Rule と一致）。
