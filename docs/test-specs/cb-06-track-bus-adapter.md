@@ -165,9 +165,25 @@ headless exercise）で、本 spec の境界契約が gateway の
   `variant-unsupported`/`variant-scope-violation` typed
   reject は引き続き境界証拠として維持される
   （`docs/test-specs/issue-548-strip-domain-lowering.md`）。
+  **追補（synvelis#550）**: routing field
+  （`sends`/`main_route`/`sidechain`/`bus`）が mask に
+  追加され、send 4 op の positive wire lowering
+  （`cb06_strip_550_send_ops_wire_lowering`）と mask
+  negative・deferred surface negative
+  （`cb06_strip_550_send_ops_mask_and_surface_negatives`）
+  が pin された。connection/bus op は capability 非存在
+  で `UnknownCapability` — 外部 wiring 非所有の境界は
+  routing 領域でも維持される
+  （`docs/test-specs/issue-550-strip-routing-ops.md`）。
 - routing/send/bus op は capability 自体が存在せず fail-closed
   — 外部 wiring は candidate-owned でない（本 spec の
   routing 参照保護 Rule と一致）。
+  **追補（synvelis#550）**: send op は `sends` mask 宣言時
+  に限り wire capability を持つ。connection/bus op は
+  引き続き capability 非存在で fail-closed — source-side
+  所有の routing entity のみが candidate-owned となり、
+  foreign-source/destination の wiring は typed reject
+  で境界が維持される。
 - `synvelis.branch.adopt` が `ApproveToApply` grant + human
   approval receipt 経路で `Applied`（1 undo step、
   `runtime.state.state == "not-requested"`）を commit し、

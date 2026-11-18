@@ -276,6 +276,17 @@ gateway commit-gate 経路の strip-fields headless exercise を
   mask 未宣言・scope 外・非 strip op の typed reject は
   維持。routing op の capability 非存在は依然として正直な
   境界。
+  **追補（synvelis#550）**: routing field
+  （`sends`/`main_route`/`sidechain`/`bus`）が mask に
+  追加され、send 4 op（`synvelis.send.create`/`remove`/
+  `set-tap`/`set-gain-target`）が wire capability として
+  登録・positive lowering された
+  （`cb06_strip_550_send_ops_wire_lowering`）。
+  connection/bus entity は `ResourceKind` 非存在のため
+  wire 表面は deferred のまま（`UnknownCapability` が
+  正直な応答）。scope entity removal も adapter・adopt
+  経路で受理される
+  （`docs/impl/ir/issue-550-strip-routing-ops.md`）。
 - **pin 検証**: `expected_scope_digest` の stale 値が
   `variant-stale-scope`、`expected_branch_revision` の stale
   値が `variant-stale-branch-revision` で prepare simulation
@@ -320,5 +331,13 @@ gateway commit-gate 経路の strip-fields headless exercise を
   （`docs/impl/ir/issue-548-strip-domain-lowering.md`）。
   残る routing op capability・scope entity removal・他
   domain の positive 化は引き続き別 slice。
+  **追補（synvelis#550）**: routing op capability と
+  scope entity removal は synvelis#550 で解消 —
+  strip-sourced routing entity の mask-gated candidate
+  edit・typed confinement・adopt cascade を headless で
+  実測（`docs/impl/ir/issue-550-strip-routing-ops.md`）。
+  wire 表面は `ResourceKind::Send` を持つ send 4 op に
+  限定され、connection/bus は adapter 受理のみで
+  deferred。他 domain の positive 化は引き続き別 slice。
 - 実 plugin/PCM/OS/RT 受入は #286/#287/#288 系・CB-STRIP-06
   実機 lane の責務（`evidence/sv283/` で NotRun 記録）。
