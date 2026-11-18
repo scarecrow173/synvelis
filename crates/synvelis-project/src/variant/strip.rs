@@ -30,19 +30,27 @@
 //!   chain; every other accepted op is a control-closure op whose
 //!   targets must resolve inside `scope_objects` — an unowned-field
 //!   channel target or a non-`Inserts` processor owner fails typed
-//!   (CB-STRIP-02/03). All routing/send/sidechain/bus/monitor ops
-//!   stay `Unsupported` — external wiring is never candidate-owned.
+//!   (CB-STRIP-02/03). synvelis#550 extends the surface with the
+//!   routing families the mask declares: `Sends` owns the strip's
+//!   send configs, their `Send` edges and the send control closure;
+//!   `MainRoute`/`Sidechain` own `Main`/`Sidechain` connections
+//!   *sourced* at the scoped strip or a scope-owned chain processor;
+//!   `Bus` owns the bus entity of a bus-owned strip. Edges sourced
+//!   outside the scope, bus/monitor structure ops and scope-root
+//!   removal stay `Unsupported` — external wiring is never
+//!   candidate-owned.
 //! - **Typed routing boundary**: strip ports are *affiliated* with
 //!   the scope (the strip entity is scope-owned) but never scope
 //!   objects. [`StripFieldsAdapter::boundary_dependencies`] reports
 //!   every routing connection touching a scope-affiliated
-//!   `SemanticPortId` endpoint that is not wholly scope-owned —
-//!   the strip's main route, sends, sidechain feeds and any
-//!   strip↔processor crossing. Boundary connections stay shared live
-//!   context: adopt never touches them, candidate edits can never
-//!   rewire them, and a changed boundary feed moves the
-//!   shared-context digest so the comparison stales instead of
-//!   producing false equivalence (CB-STRIP-03/RCP-01).
+//!   `SemanticPortId` endpoint that is not scope-owned — incoming
+//!   main feeds, foreign sends/sidechains into the strip, and any
+//!   strip↔foreign crossing the declared mask does not own.
+//!   Boundary connections stay shared live context: adopt never
+//!   touches them, candidate edits can never rewire them, and a
+//!   changed boundary feed moves the shared-context digest so the
+//!   comparison stales instead of producing false equivalence
+//!   (CB-STRIP-03/RCP-01).
 //! - **Honest candidate surface**: [`StripFieldsCapabilities`] is
 //!   computed from the declared mask so display truth equals
 //!   enforcement truth — every `Supported` verdict has an accepted
@@ -69,7 +77,10 @@ use crate::{
     variant::{
         BranchEditOp, DomainAdapter, InstrumentSlotAdapter, InstrumentStateAssessment,
         ProcessingCapability, StripDomainMask, StripField, VariantError, VariantScope,
-        adapter::{edit_scoped_project_op, fork_candidate_project, is_strip_fields_op},
+        adapter::{
+            ScopeRemovalCheck, check_strip_fields_scope_removals,
+            edit_scoped_project_op_with_removal, fork_candidate_project, is_strip_fields_op,
+        },
         audio::{lane_recording_open, strip_recording_gate_lanes},
         scope::{scope_objects, validate_scope_structure},
     },
@@ -108,12 +119,31 @@ pub struct StripFieldsCapabilities {
     /// Modulation sources/assignments inside the scope closure —
     /// same rule as `automation_edit`.
     pub modulation_edit: ProcessingCapability,
-    /// Scope-entity removal (targets/lanes/sources/assignments/
-    /// processors) — unsupported this slice, typed `Unsupported` at
-    /// the confinement layer.
+    /// Scope-entity removal — `Supported` for every non-empty mask
+    /// (synvelis#550): send teardown, strip-sourced connection
+    /// removal and control-closure deletion are expressible; the
+    /// confinement layer still rejects unsupported kinds and
+    /// move-outs typed, and scope roots stay unremovable.
     pub entity_remove: ProcessingCapability,
-    /// Routing/send/sidechain/bus/monitor ops — external wiring is
-    /// shared context and never candidate-owned (CB-STRIP-03).
+    /// `Sends` field — `AddSend`/`RemoveSend`/`SetSendTap`/
+    /// `SetSendGainTarget`/`RemoveConnection` on the scoped strip's
+    /// send edges plus the send control closure (synvelis#550).
+    pub sends: ProcessingCapability,
+    /// `MainRoute` field — `AddConnection`/`RemoveConnection`/
+    /// `SetConnectionEnabled`/`SetConnectionChannelMap` on
+    /// `Main`-kind edges *sourced* at the scoped strip or a
+    /// scope-owned chain processor (synvelis#550).
+    pub main_route: ProcessingCapability,
+    /// `Sidechain` field — same surface as `main_route` for
+    /// `Sidechain`-kind edges (synvelis#550).
+    pub sidechain: ProcessingCapability,
+    /// `Bus` field — `ConfigureBus` on the bus entity owning a
+    /// bus-owned strip (synvelis#550); always `Unsupported` for
+    /// track-owned strips, which own no bus.
+    pub bus: ProcessingCapability,
+    /// Any routing family declared — aggregate verdict kept for
+    /// consumers that only need "does this candidate author
+    /// routing"; the per-field caps carry the mask-relative truth.
     pub routing: ProcessingCapability,
     /// `SetProcessorBinding` on an insert-chain processor — mask-
     /// relative: `Supported` under `Inserts` (sv#513). Preset
@@ -172,10 +202,14 @@ impl StripFieldsAdapter {
     }
 
     /// The capability report for a scope declaring `fields`
-    /// (CB-STRIP-02). Every `Supported` verdict has an accepted edit
-    /// path; every `Unsupported` verdict is rejected typed by the
-    /// confinement layer. The report is mask-relative because the
-    /// declared [`StripDomainMask`] *is* the candidate contract.
+    /// (CB-STRIP-02). The report is mask-relative because the
+    /// declared [`StripDomainMask`] *is* the candidate contract:
+    /// `Supported` means the family is inside the declared contract,
+    /// not that this particular scope owns an editable object — a
+    /// track-owned strip owns no bus, and a mask without channel
+    /// fields owns no automation targets. Enforcement stays
+    /// fail-closed typed at edit time; every `Unsupported` verdict
+    /// is likewise rejected typed by the confinement layer.
     #[must_use]
     pub fn capabilities(&self, fields: &StripDomainMask) -> StripFieldsCapabilities {
         let field_cap = |field: StripField| {
@@ -193,8 +227,20 @@ impl StripFieldsAdapter {
             inserts: field_cap(StripField::Inserts),
             automation_edit: ProcessingCapability::Supported,
             modulation_edit: ProcessingCapability::Supported,
-            entity_remove: ProcessingCapability::Unsupported,
-            routing: ProcessingCapability::Unsupported,
+            entity_remove: ProcessingCapability::Supported,
+            sends: field_cap(StripField::Sends),
+            main_route: field_cap(StripField::MainRoute),
+            sidechain: field_cap(StripField::Sidechain),
+            bus: field_cap(StripField::Bus),
+            routing: if fields.owns(StripField::Sends)
+                || fields.owns(StripField::MainRoute)
+                || fields.owns(StripField::Sidechain)
+                || fields.owns(StripField::Bus)
+            {
+                ProcessingCapability::Supported
+            } else {
+                ProcessingCapability::Unsupported
+            },
             plugin_rebind: if fields.owns(StripField::Inserts) {
                 ProcessingCapability::Supported
             } else {
@@ -207,16 +253,18 @@ impl StripFieldsAdapter {
     /// Boundary dependencies of the `StripFields` scope inside
     /// `project`: every routing connection that touches a
     /// scope-affiliated `SemanticPortId` endpoint without being
-    /// wholly scope-owned, in stable connection-id order
+    /// scope-owned, in stable connection-id order
     /// (CB-STRIP-03). Scope-affiliated ports are the scope-owned
     /// `SemanticPort` objects (chain processor ports under
     /// `Inserts`) plus the scoped strip's own ports — the strip is
     /// scope-owned, so its identity ports delimit the boundary even
-    /// though the port entities themselves stay shared. Wholly
-    /// internal connections (both endpoints scope objects — chain
-    /// wiring under `Inserts`) are not boundary; wholly external
-    /// ones are plain shared context. Detection errors propagate
-    /// when the scope itself no longer resolves.
+    /// though the port entities themselves stay shared. Scope-owned
+    /// connections (declared routing fields under synvelis#550 —
+    /// strip-sourced sends, main routes and sidechains, plus
+    /// wholly-internal chain wiring) are not boundary regardless of
+    /// where their far endpoint lands; wholly external connections
+    /// are plain shared context. Detection errors propagate when
+    /// the scope itself no longer resolves.
     ///
     /// # Errors
     /// [`Error::Validation`] for a non-`StripFields` scope,
@@ -237,6 +285,11 @@ impl StripFieldsAdapter {
             .filter(|o| o.kind == ObjectKind::SemanticPort)
             .filter_map(|o| SemanticPortId::from_tagged(&o.stable_id).ok())
             .collect();
+        let owned_connections: BTreeSet<String> = objects
+            .iter()
+            .filter(|o| o.kind == ObjectKind::RoutingConnection)
+            .map(|o| o.stable_id.clone())
+            .collect();
         let strip_ports: BTreeSet<SemanticPortId> = project
             .routing
             .ports
@@ -247,11 +300,11 @@ impl StripFieldsAdapter {
         let affiliated = |id: &SemanticPortId| owned_ports.contains(id) || strip_ports.contains(id);
         let mut out = Vec::new();
         for conn in project.routing.connections.values() {
-            let internal =
-                owned_ports.contains(&conn.source) && owned_ports.contains(&conn.destination);
             let source_in_scope = affiliated(&conn.source);
             let destination_in_scope = affiliated(&conn.destination);
-            if internal || (!source_in_scope && !destination_in_scope) {
+            if owned_connections.contains(&conn.id.to_tagged())
+                || (!source_in_scope && !destination_in_scope)
+            {
                 continue;
             }
             out.push(StripBoundaryDependency {
@@ -305,6 +358,13 @@ impl StripFieldsAdapter {
     }
 }
 
+/// The removal policy handed to the shared confined-edit flow —
+/// a plain `fn` so the seam stays monomorphization-free. synvelis#550:
+/// send teardown, strip-sourced connection removal and
+/// control-closure deletion are expressible; unsupported kinds and
+/// move-outs stay typed `Unsupported`.
+const STRIP_REMOVAL: ScopeRemovalCheck = check_strip_fields_scope_removals;
+
 impl DomainAdapter for StripFieldsAdapter {
     fn name(&self) -> &'static str {
         "strip-fields"
@@ -348,7 +408,14 @@ impl DomainAdapter for StripFieldsAdapter {
         if is_strip_fields_op(project_op) {
             project_op.validate(candidate)?;
         }
-        edit_scoped_project_op(candidate, scope, project_op, ids, None)
+        edit_scoped_project_op_with_removal(
+            candidate,
+            scope,
+            project_op,
+            ids,
+            None,
+            Some(STRIP_REMOVAL),
+        )
     }
 
     fn preflight_adopt(
