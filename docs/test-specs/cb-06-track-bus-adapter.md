@@ -4,7 +4,7 @@ type: "test-spec"
 status: "draft"
 title: "CB-06 Track/Bus Strip 候補 Adapter — mask・routing 参照保護・adopt"
 created: "2026-11-14"
-updated: "2026-11-14"
+updated: "2026-11-17"
 owners: []
 relations:
   source: []
@@ -30,6 +30,7 @@ relations:
   derived-by: []
   verifies:
     - "docs/specs/creative-branch.md"
+    - "docs/specs/issue-283-strip-gateway-exercise.md"
   verified-by: []
   references: []
   defers: []
@@ -132,6 +133,80 @@ Track/Bus Strip 候補 Adapter の mask 適合編集と routing 参照保護
   無断再接続されず、adopt が宣言範囲のみを書く。
 - Track/Bus 両 owner で同一 `StripId` 解決・二重 DSP なし。
 - capability 報告と enforcement が一致する。
+
+## Gateway commit-gate 経路カバレッジ（追補 slice）
+
+`crates/synvelis-gateway/tests/cb06_strip_gateway.rs`
+（synvelis#283 残件 slice、`VariantPorts::standard` 経由の
+headless exercise）で、本 spec の境界契約が gateway の
+`prepare → proposal → approval → apply → CommitGate` 経路でも
+成立することを pin した:
+
+- strip-fields scope の fork が 1 CAS で commit され、
+  candidate/adopted の 2 branch を持つ variant set が
+  domain provenance 付きで記録される。
+- candidate branch への ordinary op edit（`synvelis.clip.mute`・
+  `synvelis.track.create`・`synvelis.clip.move`）が全て
+  `PreparationRejected`/`variant-unsupported` で typed reject
+  され、live revision・branch content revision・対象 entity が
+  不変。当時の gateway の wire capability 表に strip-domain
+  inner op（`SetStripMute`/`SetParameterBase`/`InsertProcessor`
+  等）へ lower する経路は存在しなかったため、edit 面の証拠は
+  confinement の一様な fail-closed であった。
+  **追補（synvelis#548）**: strip-domain wire capability
+  5 件（`synvelis.strip.set-mute`/`set-solo`/
+  `insert-processor`・`synvelis.param.set-base`・
+  `synvelis.processor.set-binding`）が op 表に登録され、
+  mask 宣言済み family の candidate edit が positive に
+  受理されることが
+  `cb06_strip_fields_mask_gated_edit_wire_lowering`・
+  `cb06_strip_fields_insert_ops_wire_lowering` で pin された。
+  mask 未宣言 family・scope 外 target・非 strip op の
+  `variant-unsupported`/`variant-scope-violation` typed
+  reject は引き続き境界証拠として維持される
+  （`docs/test-specs/issue-548-strip-domain-lowering.md`）。
+  **追補（synvelis#550）**: routing field
+  （`sends`/`main_route`/`sidechain`/`bus`）が mask に
+  追加され、send 4 op の positive wire lowering
+  （`cb06_strip_550_send_ops_wire_lowering`）と mask
+  negative・deferred surface negative
+  （`cb06_strip_550_send_ops_mask_and_surface_negatives`）
+  が pin された。connection/bus op は capability 非存在
+  で `UnknownCapability` — 外部 wiring 非所有の境界は
+  routing 領域でも維持される
+  （`docs/test-specs/issue-550-strip-routing-ops.md`）。
+  **追補（synvelis#553）**: `variant.rs` の
+  `declared_facts` が inner op の `preconditions`/
+  `unsupported` を破棄していた gap が修正され、
+  variant-edit 経路でも inner op の fail-closed
+  verdict（"unverifiable effects"）が top-level と
+  同一に効くことが
+  `cb06_strip_553_variant_edit_send_remove_
+  unobservable_cascade_denied` で pin された
+  （`docs/test-specs/issue-553-intent-facts.md`）。
+- routing/send/bus op は capability 自体が存在せず fail-closed
+  — 外部 wiring は candidate-owned でない（本 spec の
+  routing 参照保護 Rule と一致）。
+  **追補（synvelis#550）**: send op は `sends` mask 宣言時
+  に限り wire capability を持つ。connection/bus op は
+  引き続き capability 非存在で fail-closed — source-side
+  所有の routing entity のみが candidate-owned となり、
+  foreign-source/destination の wiring は typed reject
+  で境界が維持される。
+- `synvelis.branch.adopt` が `ApproveToApply` grant + human
+  approval receipt 経路で `Applied`（1 undo step、
+  `runtime.state.state == "not-requested"`）を commit し、
+  `expected_scope_digest`/`expected_branch_revision` の stale
+  pin が `variant-stale-scope`/`variant-stale-branch-revision`
+  で prepare 時に typed reject される。
+- `synvelis.branch.{list,describe,compare}` が strip-fields
+  scope を typed decode し、`compare` が captured payload を
+  shared store から decode + scope digest 再計算して
+  `verified`/`scope_digests_equal` を正直に報告する。
+- `boundary_dependencies` が strip→master `Main` connection
+  のみを scope-affiliated boundary として報告し、
+  `capabilities` が declared mask に対し Supported/Unsupported
+  を正直に報告する（display truth = enforcement truth）。
 
 ## Non-goals
 

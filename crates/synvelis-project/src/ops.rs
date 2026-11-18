@@ -2406,8 +2406,28 @@ impl Operation for ProjectOp {
                 send_id,
                 gain_target,
             } => {
+                // synvelis#552: releasing the previous seal and binding
+                // the new one land inside this one apply — the
+                // post-apply oracle only ever sees the final binding,
+                // so a rebind cannot commit a half-sealed state (the
+                // old `SendLevel` lingering beside the new one on the
+                // same send owner, a singleton-role collision).
+                let previous = project
+                    .routing
+                    .sends
+                    .get(send_id)
+                    .and_then(|send| send.gain_target);
                 if let Some(send) = project.routing.sends.get_mut(send_id) {
                     send.gain_target = *gain_target;
+                }
+                if let Some(old) = previous
+                    && Some(old) != *gain_target
+                    && project.control.targets.get(&old).is_some_and(|target| {
+                        target.owner == ControlOwner::Send(*send_id)
+                            && target.role == ParameterRole::SendLevel
+                    })
+                {
+                    release_send_level_target(project, old);
                 }
                 // Sealed like `AddSend`: the send owns its level target.
                 if let Some(t) = gain_target
@@ -2615,6 +2635,26 @@ fn set_strip_bool(
         target.base = base;
         project.control.targets.insert(id, target);
     }
+}
+
+/// Releases a send's sealed `SendLevel` target on gain rebind /
+/// unconfigure (synvelis#552): the target and the control entities
+/// exclusively bound to it — its automation lanes and the modulation
+/// assignments that target it or use it as `depth_source` — die with
+/// the seal, mirroring `RemoveSend`'s `remove_control_owned` cascade
+/// at single-target granularity. Send-owned modulation *sources*
+/// survive: they are independent entities that may feed other
+/// targets, and an unassigned source is legal state.
+fn release_send_level_target(project: &mut Project, target: ParameterTargetId) {
+    project
+        .control
+        .lanes
+        .retain(|_, lane| lane.target != target);
+    project
+        .control
+        .assignments
+        .retain(|_, a| a.target != target && a.depth_source != Some(target));
+    project.control.targets.remove(&target);
 }
 
 /// Cascade: every control entity `owner` owned dies with it — a

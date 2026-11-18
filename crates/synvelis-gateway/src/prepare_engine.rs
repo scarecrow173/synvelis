@@ -646,6 +646,144 @@ impl PrepareEngine {
                 &[Write],
                 obj(&[("description", str_(256))], &["description"], true),
             ),
+            // synvelis#548: the strip-domain inner ops the CB-06
+            // `StripFieldsAdapter` candidate surface accepts
+            // (`is_strip_fields_op` + `check_strip_fields_op_targets`
+            // enforce the declared `StripDomainMask` and scope
+            // confinement at edit time — the gateway lowers and
+            // declares honest facts; it does not re-decide the mask).
+            // `set-mute`/`set-solo` write the strip's singleton
+            // Boolean channel target, creating it on first use;
+            // `insert-processor` creates the processor entity (its
+            // ports/plugin-instance identity are internal structure);
+            // `param.set-base`/`processor.set-binding` write existing
+            // control/routing entities only.
+            (
+                "synvelis.strip.set-mute",
+                TargetContract::Resource {
+                    kind: ResourceKind::Strip,
+                },
+                &[Create, Write],
+                obj(&[("muted", ValueSchema::Bool)], &["muted"], true),
+            ),
+            (
+                "synvelis.strip.set-solo",
+                TargetContract::Resource {
+                    kind: ResourceKind::Strip,
+                },
+                &[Create, Write],
+                obj(&[("soloed", ValueSchema::Bool)], &["soloed"], true),
+            ),
+            (
+                "synvelis.strip.insert-processor",
+                TargetContract::Resource {
+                    kind: ResourceKind::Strip,
+                },
+                &[Create, Write],
+                obj(
+                    &[
+                        ("index", int(0, i64::MAX)),
+                        ("name", str_(256)),
+                        ("binding", any_obj()),
+                        ("sidechain_input", ValueSchema::Bool),
+                    ],
+                    &["index", "name", "binding", "sidechain_input"],
+                    true,
+                ),
+            ),
+            (
+                "synvelis.param.set-base",
+                TargetContract::Resource {
+                    kind: ResourceKind::ParameterTarget,
+                },
+                &[Write],
+                obj(&[("value", ValueSchema::Number)], &["value"], true),
+            ),
+            (
+                "synvelis.processor.set-binding",
+                TargetContract::Resource {
+                    kind: ResourceKind::Processor,
+                },
+                &[Write],
+                obj(&[("binding", any_obj())], &["binding"], true),
+            ),
+            // synvelis#550: strip-sourced send ops — `Send` is the
+            // routing entity the gateway resource model can name;
+            // the send's connection edge and semantic ports stay
+            // internal structure (the `insert-processor` posture for
+            // ports). `send.create` adopts an existing project-time
+            // gain target or none; `set-gain-target` rebinds/clears
+            // it. Mask gating and scope confinement stay
+            // `StripFieldsAdapter`'s authority at edit time — the
+            // gateway lowers and declares honest facts; it does not
+            // re-decide the mask. Connection/bus entities have no
+            // resource kind, so their ops stay adapter-side only.
+            (
+                "synvelis.send.create",
+                TargetContract::Create {
+                    parent: ResourceKind::Project,
+                    creates: ResourceKind::Send,
+                },
+                &[Create, Write],
+                obj(
+                    &[
+                        ("source", str_(128)),
+                        ("destination", str_(128)),
+                        (
+                            "tap",
+                            ValueSchema::Enum {
+                                values: vec!["pre-fader".to_owned(), "post-fader".to_owned()],
+                            },
+                        ),
+                        (
+                            "gain_target",
+                            ValueSchema::Optional(Box::new(id_of(ResourceKind::ParameterTarget))),
+                        ),
+                    ],
+                    &["source", "destination", "tap"],
+                    true,
+                ),
+            ),
+            (
+                "synvelis.send.remove",
+                TargetContract::Resource {
+                    kind: ResourceKind::Send,
+                },
+                &[Delete, Write],
+                empty_args(),
+            ),
+            (
+                "synvelis.send.set-tap",
+                TargetContract::Resource {
+                    kind: ResourceKind::Send,
+                },
+                &[Write],
+                obj(
+                    &[(
+                        "tap",
+                        ValueSchema::Enum {
+                            values: vec!["pre-fader".to_owned(), "post-fader".to_owned()],
+                        },
+                    )],
+                    &["tap"],
+                    true,
+                ),
+            ),
+            (
+                "synvelis.send.set-gain-target",
+                TargetContract::Resource {
+                    kind: ResourceKind::Send,
+                },
+                &[Write],
+                obj(
+                    &[(
+                        "gain_target",
+                        ValueSchema::Optional(Box::new(id_of(ResourceKind::ParameterTarget))),
+                    )],
+                    &["gain_target"],
+                    true,
+                ),
+            ),
         ]
     }
 

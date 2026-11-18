@@ -131,6 +131,20 @@ pub enum StripField {
     Solo,
     /// The strip's insert processor chain.
     Inserts,
+    /// Sends sourced at the scoped strip — the `SendConfig`, its
+    /// `Send`-kind connection and the send-owned control closure
+    /// (synvelis#550).
+    Sends,
+    /// `Main`-kind connections whose source endpoint is owned by the
+    /// scoped strip or a scope-owned chain processor (synvelis#550).
+    MainRoute,
+    /// `Sidechain`-kind connections whose source endpoint is owned by
+    /// the scoped strip or a scope-owned chain processor
+    /// (synvelis#550).
+    Sidechain,
+    /// The bus entity that owns the scoped strip — present only for
+    /// bus-owned strips (synvelis#550).
+    Bus,
 }
 
 /// Which channel-strip aspects a [`VariantScope::StripFields`] scope owns.
@@ -139,7 +153,16 @@ pub enum StripField {
 /// [`StripField::Inserts`] owns the strip's whole insert chain
 /// (processors, ports, internal connections and their control
 /// entities); the channel fields own the matching singleton control
-/// targets plus their automation/modulation closure.
+/// targets plus their automation/modulation closure. The routing
+/// fields (synvelis#550) own strip-sourced routing entities:
+/// [`StripField::Sends`] the sends whose source port belongs to the
+/// scoped strip (config, edge and send control closure),
+/// [`StripField::MainRoute`]/[`StripField::Sidechain`] the
+/// `Main`/`Sidechain` connections whose *source* endpoint is owned by
+/// the scoped strip or a scope-owned chain processor, and
+/// [`StripField::Bus`] the bus entity owning a bus-owned strip.
+/// Connections whose source lives outside the scope — incoming main
+/// feeds, foreign sidechain keys — stay shared boundary context.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct StripDomainMask(pub BTreeSet<StripField>);

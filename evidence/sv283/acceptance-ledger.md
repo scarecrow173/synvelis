@@ -43,6 +43,29 @@ DEFER。
 | CB-STRIP-04 | Pass (headless) | `cb_strip_04_adopt_mask_only_one_cas_undo_save_reload` — adopt が宣言 mask の全 field（mute/fader/pan base・first-use Pan target・chain membership・automation・modulation・processor-owned source）を materialize（live revision +1・undo_steps=1 の 1 CAS）。connections/sends/strips/solo/fx2・sibling strip channel state は serialize 比較で不変。Undo で採用前復元・Redo で再適用、adopted branch は captured content へ freeze。save→load で `Project` 全体（variant_sets 含む）が round-trip。`cb_strip_04_stale_scope_digest_rejects_adopt` — pin 後の live scoped 編集で `StaleScope` 拒否・live 不変。`cb_strip_04_live_chain_reorder_stale_scope_rejects_adopt` — intent 取得後の live `ReorderProcessor` が `ProcessorChain` scope 所有を通じて scope digest を動かし `StaleScope` 拒否（positional merge による未 author 順序の生成を防止）。`cb_strip_04_adopt_while_recording_rejects_typed` — owning lane の recording Open で `RecordingActive` 先行拒否（bus strip は全 lane fail-closed の共有 helper）。`cb_strip_04_missing_plugin_gate_rejects_before_mutation` — `NoPlugins` availability で adopt が `MissingPlugin` fail-closed（live 不変）、`YesPlugins` で `Applied` — project-truth edit/adopt は runtime availability を越えて進行。`cb_strip_04_runtime_publish_failure_keeps_project_committed` — `FakeRuntimePublish` の `Failed` が project commit を rollback せず別 receipt に記録。`cb_strip_06_insert_state_assessment_verbatim` — `assess_insert_state` が chain 全 processor（insert 含む 3 件）を chain 順に評価し `Coordinated`/`BestEffort`/`Failed{Timeout}` を verbatim 記録 — `BestEffort` は `exact_eligible()=false` で昇格なし、失敗は型のまま。実 plugin instance 独立性・PDC/RT bounded・PCM 比較は fake vs real-plugin の別 gate — 実機 lane は全行 NotRun（偽装昇格なし）。 |
 | CB-STRIP-05 | Pass (headless) | `cb_strip_05_shared_strip_model_unchanged_outside_scope` — live 側の他 strip op（key strip fader base・bus strip solo）が variant scope の影響なく通常動作し、adopt は宣言 mask のみを書いて共有編集を温存（key fader 0.8・bus solo 1.0・sends/connections 数不変）。**SF-06 Oracle mapping**: 本 adapter は Bus/Return/Main/Solo/Automation の strip model を再実装せず、SF-06 cross-gate oracle（ADR-034・Issue #109）が対象とするのと同一の `ChannelStrip`/`StripId`/`SemanticPortId`/`RoutingConnection` model を共有する — scope 判定は `scope_objects` 導出の読み取り専用であり、live project への書き込み経路は既存 op/CAS/Undo のみ。`mise run test synvelis-project` 全 suite green（routing/control/snapshot/vcs 系を含む）で SF-06 Oracle が依存する既存 model の非回帰を確認。SF-06 oracle 自体の cross-gate 受入 lane は本 slice の範囲外（別 Issue の責務）であり、headless PASS を oracle PASS に昇格しない。 |
 
+## Gateway commit-gate 経路（追補 slice — 2026-11-17）
+
+`StripFieldsAdapter` 登録（CB-10 PR #483 `696efa73`）以降に
+残っていた gateway commit-gate 経路の strip-fields headless
+exercise を `crates/synvelis-gateway/tests/cb06_strip_gateway.rs`
+（`VariantPorts::standard` + in-memory content store、VCS-off
+headless）で実施。production code 変更なし・Issue #283 は
+OPEN 維持。
+
+| 面 | 判定 | 証拠 |
+| --- | --- | --- |
+| fork → commit gate | Pass (headless) | `cb06_strip_fields_gateway_commit_gate_lifecycle` — `synvelis.branch.fork` が strip-fields scope（track strip + 全 5 field mask）を受理し、candidate/adopted 2 branch の variant set を 1 CAS（revision 2→3）で commit。provenance に variant_set/adopted/candidate が記録される |
+| candidate edit 境界 | Pass (headless) | 同 test — ordinary op 3 種（`synvelis.clip.mute`・`synvelis.track.create`・`synvelis.clip.move`）が全て `PreparationRejected`/`variant-unsupported` で typed reject。live revision・branch content revision・対象 entity 不変。wire capability 表に strip-domain inner op への lowering は存在しないため、positive mask-gated edit は project 軸（`cb06_strip_fields.rs`）の責務 — 本経路の edit 面は confinement の一様な fail-closed が正直な証拠。routing/send/bus op は capability 非存在で fail-closed（外部 wiring は candidate-owned でない） |
+| adopt CAS + approval + pin | Pass (headless) | 同 test — `ApproveToApply` agent grant + human approval receipt 経路で `synvelis.branch.adopt` が `Applied`（`project.committed==true`・`undo_steps==1`・`objects==0`・`runtime.state.state=="not-requested"`）。scope-identical candidate でも pointer swap + frozen previous branch（Captured）が実 project truth。`expected_scope_digest` stale → `variant-stale-scope`、`expected_branch_revision` stale → `variant-stale-branch-revision` が prepare simulation で typed reject |
+| typed query | Pass (headless) | 同 test — `synvelis.branch.{list,describe,compare}` が `scope_kind=="strip-fields"`・scope（strip tagged id + fields mask）round-trip・`scope_digests_equal`・captured payload の `verified` decode を返す。frozen branch（Captured）vs adopted（Live）の post-adopt compare も verified |
+| domain boundary/capability | Pass (headless) | `cb06_strip_fields_scope_boundary_and_capabilities` — `boundary_dependencies` が strip→master `Main` connection のみを scope-affiliated（`source_in_scope && !destination_in_scope`）として報告。`capabilities` が declared mask に対し field family Supported・routing/entity_remove/preset_select Unsupported を正直に報告（display truth = enforcement truth — CB-STRIP-02/03） |
+
+対応 AC: CB-STRIP-01/02/03/04 の gateway 面での pin（scope
+解決・mask confinement・routing 境界・1 CAS/Undo adopt）。
+CB-STRIP-05（SF-06 Oracle 比較）と CB-STRIP-RCP-01 の実
+Render/materialization 面は本経路の範囲外 — project 軸
+fixture の Pass を昇格せず、実機 lane は引き続き NotRun。
+
 ## 補足: scope validation 回帰
 
 `cb_strip_01_track_and_bus_strip_resolve_same_stable_
@@ -90,3 +113,37 @@ Project`、foreign scope kind（`InstrumentSlot`）は
 | 外部 Plugin GUI / Native Dock | Windows | #176 Dock gate | NotRun | GUI lane は #176・Floating/Generic 表示のみでは実 Dock Pass としない |
 | PDC / RT bounded | Windows | 実 chain | NotRun | 実 RT pipeline・plugin latency 報告が必要 |
 | PCM / A-B 比較 | Windows | 実 render | NotRun | 実 Render pipeline・比較 orchestration（#285/#288） |
+
+## 追補 — gateway strip-domain inner op lowering（synvelis#548）
+
+CB-06 gateway commit-gate 経路の残件として、strip-domain
+inner op の wire capability 化を実施。`synvelis.strip.
+set-mute`/`set-solo`/`insert-processor`・
+`synvelis.param.set-base`・`synvelis.processor.set-binding`
+の 5 capability が op 表に登録され、mask 宣言済みの
+candidate edit が positive に受理されることを headless で
+実測（`cb06_strip_fields_mask_gated_edit_wire_lowering`・
+`cb06_strip_fields_insert_ops_wire_lowering`）。
+mask 未宣言 family・scope 外 target・非 strip op の
+typed reject 境界・scope digest / branch revision pin /
+adopt provenance の既存証拠は維持。
+証拠: `evidence/sv548/verification.md`。
+
+## 追補 — strip routing ops・scope entity removal（synvelis#550）
+
+CB-06 の残件 2 系統を実施。`StripDomainMask` に
+`Sends`/`MainRoute`/`Sidechain`/`Bus` が追加され、
+strip-sourced routing entity（send config+edge+
+control closure・Main/Sidechain edge・bus entity）の
+所有導出・adapter 受理・scope entity removal
+（apply/entity.rs の kind 追加を含む）が実装された。
+source-side 所有規則により foreign-source/destination
+の wiring は typed reject で境界維持。wire 表面は
+`ResourceKind::Send` を持つ `synvelis.send.*` 4 op に
+限定し、connection/bus は `ResourceKind` 非存在のため
+deferred（`UnknownCapability`）。adopt の `Removed`
+write が routing entity で `InvalidPort` に落ちる
+defect を payload 修正で解消し、send 削除の adopt
+cascade（send・edge・target・automation lane）と
+foreign feed の byte-identical 保持を実測。
+証拠: `evidence/sv550/verification.md`。

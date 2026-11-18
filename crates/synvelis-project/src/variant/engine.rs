@@ -857,11 +857,17 @@ pub(crate) fn plan_adopt_writes(
                 ),
             });
         }
+        // The payload carries the deleted entity's live serialization:
+        // `remove_entity` ignores it, but the apply preflight parses
+        // routing endpoints (`source`/`destination`/`connection`) off
+        // every `RoutingConnection`/`SendConfig` write payload —
+        // a `Null` payload would fail that parse before deletion ran.
+        let payload = scope::scope_value(live, origin)?.unwrap_or(serde_json::Value::Null);
         writes.push(PlannedWrite {
             object: origin.clone(),
             change_id: ChangeId(format!("adopt-{:04}", writes.len())),
             change_kind: ChangeKind::Removed,
-            payload: serde_json::Value::Null,
+            payload,
         });
     }
 

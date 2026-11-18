@@ -2,7 +2,7 @@
 id: "EXP-cb06-strip-adapter"
 title: "CB-06 Track/Bus Strip Adapter 設計実験メモ (synvelis#283)"
 created: "2026-11-14"
-updated: "2026-11-14"
+updated: "2026-11-17"
 ---
 
 # 実験記録: CB-06 Track/Bus Strip headless スライス（synvelis#283）
@@ -181,3 +181,95 @@ rejects_typed` で track strip の owning lane recording
 Open が `RecordingActive` で adopt を先行拒否し
 live/revision 不変であることを検証（bus strip の全 lane
 検査は同一 helper の既存契約 — CB-05 fixture で検証済み）。
+
+## E6 gateway wire 表面に strip-domain op capability を足すか（追補 slice — synvelis#283 残件）
+
+**仮説**: gateway commit-gate 経路で strip-fields scope の
+mask-gated edit（`SetStripMute`/`SetParameterBase` 等）を
+positive に駆動するには、`lower_for` の capability 表に
+strip op への lowering が必要か — 追加すべきか。
+
+- 調査: `crates/synvelis-gateway/src/variant.rs`・
+  `prepare_engine.rs`・op 表を実測したところ、ordinary
+  capability 表は clip/track/lane/note/midi/asset/source 系
+  のみで、strip-domain `ProjectOp`（`SetStripMute`・
+  `SetStripSolo`・`SetParameterBase`・`InsertProcessor`・
+  routing op 全般）へ lower する capability は存在しない。
+  `synvelis.branch.edit` の inner op は ordinary capability
+  の JSON のみを受け付けるため、candidate への strip edit
+  は wire 上表現不能。`EditAdopted` は adapter confinement
+  を通らず live edit として適用される設計のため、
+  adopted branch への edit 負例も confinement の証明に
+  ならない。
+- 案 A（strip op capability を gateway に追加）: op 表面の
+  設計判断（どの strip op を wire に出すか・引数 schema・
+  認可 resource kind の拡張）を伴う production 変更であり、
+  本 slice の lease（test + docs + evidence のみ）を超える。
+  host 側（cli/mcp-poc）の op surface 設計とも絡むため
+  別 dispatch が正しい。却下（本 slice では実施しない）。
+- 案 B（typed reject を境界証拠とする）: candidate branch
+  への ordinary op 3 種が `PreparationRejected`/
+  `variant-unsupported` に一様 fail-closed すること、
+  routing/send/bus op が capability 非存在で拒否される
+  こと、reject が live/branch revision/entity を一切
+  動かさないことを pin する。fork・adopt（approval ticket +
+  scope digest pin）・discard・query 面は完全に駆動できる
+  ため、commit-gate 経路の strip-fields exercise としては
+  十分な証拠になる。
+- 案 C（`demo_project()` に strip seed を追加）: 共有
+  fixture の変更は serialize 比較・connection 数前提など
+  既存 gateway test への波及リスクがある。test-local に
+  `AddTrackStrip` + `InsertProcessor` を `ProjectController`
+  で適用した fixture（head revision 2）を構築する方が
+  lease・影響範囲ともに安全。却下。
+
+**観察**: 案 B + test-local fixture を採用。
+`cb06_strip_fields_gateway_commit_gate_lifecycle` で
+fork → edit reject → stale pin reject → approval adopt →
+discard → list/describe/compare を完走し、
+`cb06_strip_fields_scope_boundary_and_capabilities` で
+`boundary_dependencies`（strip→master `Main` のみ
+scope-affiliated）と `capabilities`（declared mask に対し
+Supported/Unsupported を正直に報告）を pin。
+`mise run test synvelis-gateway` で 2 test Pass。
+wire 表面への strip op capability 追加は spec の
+Deferred Design Concerns として記録し、必要時に別
+dispatch で検討する。
+
+**解消追記（synvelis#548）**: 案 A は synvelis#548 の
+slice として実施された — `synvelis.strip.set-mute`/
+`set-solo`/`insert-processor`・`synvelis.param.set-base`・
+`synvelis.processor.set-binding` の 5 capability が op 表に
+登録され、狭 mask（channel 系）・全 mask（inserts 系）の
+両側で positive mask-gated edit が candidate edit として
+受理されることを headless で実測した
+（`cb06_strip_fields_mask_gated_edit_wire_lowering`・
+`cb06_strip_fields_insert_ops_wire_lowering`）。
+mask 未宣言 family・scope 外 target・非 strip op の
+typed reject 境界は維持。routing op capability・scope
+entity removal は引き続き別 slice
+（`docs/impl/exp/issue-548-strip-domain-lowering.md`）。
+
+**解消追記（synvelis#550）**: 残件 2 系統は
+synvelis#550 の slice として実施された — mask に
+`Sends`/`MainRoute`/`Sidechain`/`Bus` が追加され、
+strip-sourced routing entity（send config+edge+control
+closure・Main/Sidechain edge・bus entity）の所有導出・
+adapter 受理・scope entity removal（apply/entity.rs の
+kind 追加を含む）が実装された。wire 表面は
+`ResourceKind::Send` を持つ `synvelis.send.*` 4 op に
+限定し、connection/bus は `ResourceKind` 非存在のため
+deferred（`UnknownCapability`）。adopt の `Removed`
+write が routing entity で `InvalidPort` に落ちる
+defect を、payload に削除 entity serialization を載せる
+修正で解消（`docs/impl/exp/issue-550-strip-routing-ops.md`）。
+
+**解消追記（synvelis#553）**: synvelis#550 review で
+発見された系統的 gap — `variant.rs` の `declared_facts`
+が inner op の `preconditions`/`unsupported` を破棄し、
+variant-edit 経路で cascade op の fail-closed が
+伝播しない件 — は synvelis#553 の slice で解消された。
+Edit arm の `BranchEditOp::Project` inner facts を
+verbatim 伝播し、modulated send fixture で candidate
+`send.remove` の "unverifiable effects" deny を
+headless 実測（`docs/impl/exp/issue-553-intent-facts.md`）。
