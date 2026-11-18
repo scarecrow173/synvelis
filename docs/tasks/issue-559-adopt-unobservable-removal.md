@@ -1,7 +1,7 @@
 ---
 id: "TASK-559AdoptUnobservableRemoval05"
 type: "task"
-status: "in-progress"
+status: "done"
 title: "Issue #559 tasks — adopt 観測不能 entity 削除 fail-closed slice"
 created: "2026-11-19"
 updated: "2026-11-19"
@@ -50,7 +50,7 @@ relations:
 | T4 | domain pin test — 観測不能 `Removed` write を含む candidate adopt が typed rejection + live 不変 | done | `cb06_strip_fields.rs`・`mise run test synvelis-project` Pass |
 | T5 | gateway pin test — gain-target release cascade の stored payload adopt が `variant-unverifiable-removal` で `PreparationRejected` + live 不変 | done | `cb06_strip_gateway.rs`・`mise run test synvelis-gateway` Pass |
 | T6 | 必須検証一式: `check/lint/test synvelis-project`・`check/lint/test synvelis-gateway`・`fmt-check`・`check-headless-deps`・`prek run --all-files` | done | `evidence/sv559/verification.md` — 全 lane exit 0 |
-| T7 | `review-protocol` レビュー → blocker 0 → commit/push/PR | in-progress | IR「Validation」節・PR 本文 |
+| T7 | `review-protocol` レビュー → blocker 0 → commit/push/PR | done | IR「Validation」節・PR #568 本文 |
 
 ## 備考
 
