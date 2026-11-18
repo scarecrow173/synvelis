@@ -339,5 +339,14 @@ gateway commit-gate 経路の strip-fields headless exercise を
   wire 表面は `ResourceKind::Send` を持つ send 4 op に
   限定され、connection/bus は adapter 受理のみで
   deferred。他 domain の positive 化は引き続き別 slice。
+  **追補（synvelis#553）**: `variant.rs` の
+  `declared_facts` が inner op の `preconditions`/
+  `unsupported` を破棄していたため、variant-edit
+  経路では cascade op の fail-closed（send.remove の
+  send-owned modulation 削除 deny 等）が伝播
+  しなかった gap を修正 — inner facts を verbatim
+  伝播し、candidate `send.remove` の "unverifiable
+  effects" deny を headless で実測
+  （`docs/impl/ir/issue-553-intent-facts.md`）。
 - 実 plugin/PCM/OS/RT 受入は #286/#287/#288 系・CB-STRIP-06
   実機 lane の責務（`evidence/sv283/` で NotRun 記録）。

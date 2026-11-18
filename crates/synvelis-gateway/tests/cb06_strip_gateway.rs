@@ -339,6 +339,17 @@ fn strip_send_modulated_project() -> Project {
     strip_send_modulated_controller().live().clone()
 }
 
+/// [`seed_strip_send_store`] for the synvelis#553 modulated send
+/// fixture — head revision 6.
+fn seed_strip_send_modulated_store(dir: &Path) -> DirectoryBundleStore {
+    let mut store = DirectoryBundleStore::create(dir).unwrap();
+    if store.head().unwrap().is_none() {
+        let mut c = strip_send_modulated_controller();
+        c.save(&mut store).unwrap();
+    }
+    store
+}
+
 // ── Request builders (cb10/cb11 conventions) ─────────────────
 
 fn fork_op(scope: &Value) -> Value {
@@ -727,6 +738,15 @@ fn boot_strip_send(vrig: &VariantRig, dir: &Path) -> CommitGate {
     let store_dir = dir.join("project");
     let mut store = seed_strip_send_store(&store_dir);
     open_strip_gate(vrig, dir, &strip_send_project(), &mut store)
+}
+
+/// [`boot_strip_send`] over the synvelis#553 modulated send fixture —
+/// bundle store and snapshot source both pin the modulated project
+/// at revision 6.
+fn boot_strip_send_modulated(vrig: &VariantRig, dir: &Path) -> CommitGate {
+    let store_dir = dir.join("project");
+    let mut store = seed_strip_send_modulated_store(&store_dir);
+    open_strip_gate(vrig, dir, &strip_send_modulated_project(), &mut store)
 }
 
 fn open_strip_gate(
@@ -1542,4 +1562,37 @@ fn cb06_strip_550_send_remove_unobservable_cascade_denied() {
         ),
         other => panic!("expected PreparationRejected, got {other:?}"),
     }
+}
+
+/// synvelis#553 — the variant-edit path propagates the inner op's
+/// fail-closed facts: `send.remove` on a candidate branch cascades
+/// the same send-owned modulation entities the top-level prepare
+/// denies, so `declared_facts` must carry the inner `unsupported`
+/// verdict into the provisional gate instead of dropping it. The
+/// widest honest mask keeps `sends` declared, isolating the
+/// propagation as the deny cause (never mask gating).
+#[test]
+fn cb06_strip_553_variant_edit_send_remove_unobservable_cascade_denied() {
+    let mut vrig = variant_rig();
+    vrig.rig.source.commit(
+        project(),
+        ProjectRevision(6),
+        strip_send_modulated_project(),
+    );
+    let dir = tmpdir("cb06-strip-send-mod");
+    let gate = boot_strip_send_modulated(&vrig, &dir);
+
+    commit_human(&mut vrig, &gate, fork_op(&strip_scope()), 6);
+    publish(&gate, &vrig.rig);
+    let (set, _adopted, candidate) = only_set(&gate);
+
+    expect_edit_rejected(
+        &mut vrig,
+        &gate,
+        &set,
+        &candidate,
+        &send_remove_op(),
+        "unverifiable",
+    );
+    assert_eq!(branch_revision(&gate, &set, &candidate), 1);
 }

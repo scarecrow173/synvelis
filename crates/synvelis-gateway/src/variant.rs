@@ -661,10 +661,15 @@ fn scope_roots(scope: &VariantScope) -> Vec<ResourceRef> {
 /// inner op's impacted set joins too, because that edit writes live —
 /// for a candidate edit those resources are reads only (the write
 /// lands in the payload, and the post-simulation diff records only
-/// the bookkeeping writes).
+/// the bookkeeping writes). The inner op's `preconditions` and
+/// `unsupported` propagate verbatim: a fail-closed verdict (e.g. an
+/// unobservable cascade delete) must deny a variant edit exactly as
+/// it denies the same op at top level (synvelis#553).
 pub(crate) fn declared_facts(intent: &VariantIntent, project: &Project) -> OpFacts {
     let mut reads = BTreeSet::new();
     let mut impacted: BTreeMap<ResourceRef, BTreeSet<ResourceRef>> = BTreeMap::new();
+    let mut preconditions = Vec::new();
+    let mut unsupported = Vec::new();
 
     let mut cover_set = |set_id: &VariantSetId, branch: Option<&BranchId>| {
         reads.insert(ResourceRef::VariantSet(*set_id));
@@ -697,6 +702,8 @@ pub(crate) fn declared_facts(intent: &VariantIntent, project: &Project) -> OpFac
             if let BranchEditOp::Project(op) = &intent.op {
                 let inner = crate::prepare::op_facts(op, project);
                 reads.extend(inner.reads.iter().copied());
+                preconditions.extend(inner.preconditions);
+                unsupported.extend(inner.unsupported);
                 let adopted = crate::snapshot::branch_entry(project, &intent.branch)
                     .is_some_and(|(_, b)| matches!(b.content, BranchContentRef::Live { .. }));
                 if adopted {
@@ -725,8 +732,8 @@ pub(crate) fn declared_facts(intent: &VariantIntent, project: &Project) -> OpFac
     OpFacts {
         reads,
         impacted,
-        preconditions: Vec::new(),
-        unsupported: Vec::new(),
+        preconditions,
+        unsupported,
     }
 }
 

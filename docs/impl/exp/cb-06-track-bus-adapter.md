@@ -263,3 +263,13 @@ deferred（`UnknownCapability`）。adopt の `Removed`
 write が routing entity で `InvalidPort` に落ちる
 defect を、payload に削除 entity serialization を載せる
 修正で解消（`docs/impl/exp/issue-550-strip-routing-ops.md`）。
+
+**解消追記（synvelis#553）**: synvelis#550 review で
+発見された系統的 gap — `variant.rs` の `declared_facts`
+が inner op の `preconditions`/`unsupported` を破棄し、
+variant-edit 経路で cascade op の fail-closed が
+伝播しない件 — は synvelis#553 の slice で解消された。
+Edit arm の `BranchEditOp::Project` inner facts を
+verbatim 伝播し、modulated send fixture で candidate
+`send.remove` の "unverifiable effects" deny を
+headless 実測（`docs/impl/exp/issue-553-intent-facts.md`）。
