@@ -37,7 +37,9 @@ Directory: `docs/discovery`
 | DISC-552SendGainSeal01 | Issue #552 discovery — SetSendGainTarget rebind の旧 SendLevel seal 解放 | resolved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
 | DISC-553IntentFacts01 | Issue #553 discovery — variant intent_facts の inner op facts 伝播 gap（cascade fail-closed 不全） | resolved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
 | DISC-557AdoptFacts01 | Issue #557 discovery — VariantIntent::Adopt 経路の declared_facts 伝播監査 | resolved | [issue-557-adopt-facts.md](./issue-557-adopt-facts.md) |
+| DISC-559AdoptUnobservableRemoval01 | Issue #559 discovery — stored candidate payload の観測不能 entity 削除 adopt fail-closed | resolved | [issue-559-adopt-unobservable-removal.md](./issue-559-adopt-unobservable-removal.md) |
 | DISC-561OpFactsUnverifiable01 | Issue #561 discovery — op_facts under-report: 観測不能 cascade 削除の unsupported 欠落 | resolved | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
+| DISC-565ProcessorBindingCascade01 | Issue #565 discovery — SetProcessorBinding sync_processor の PluginInstanceId 退役 cascade 監査 | resolved | [issue-565-processor-binding-cascade.md](./issue-565-processor-binding-cascade.md) |
 | DISC-99vL2v7VILngzJrF9fbNos | L1 Discovery — Local WAV Safe Import・Verified Media・Headless Generic Graph Playback | resolved | [l1-local-wav-verified-playback-discovery.md](./l1-local-wav-verified-playback-discovery.md) |
 | DISC-034Qmb93ek3YXoxaRPDBBD | L2 Discovery — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | resolved | [l2-master-sequential-offline-wav-export-discovery.md](./l2-master-sequential-offline-wav-export-discovery.md) |
 | DISC-034VG2eVX55D1hI610carh | plugin_instances VCS semantic diff gap — persisted instance identity invisible to compare_snapshots | resolved | [plugin-instances-vcs-diff-gap.md](./plugin-instances-vcs-diff-gap.md) |

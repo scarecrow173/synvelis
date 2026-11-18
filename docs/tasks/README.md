@@ -140,7 +140,9 @@ Directory: `docs/tasks`
 | TASK-552SendGainSeal06 | Issue #552 tasks — SetSendGainTarget seal 解放 slice | done | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
 | TASK-553IntentFacts06 | Issue #553 tasks — intent_facts 伝播 slice | done | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
 | TASK-557AdoptFacts05 | Issue #557 tasks — adopt declared_facts 監査 slice | done | [issue-557-adopt-facts.md](./issue-557-adopt-facts.md) |
+| TASK-559AdoptUnobservableRemoval05 | Issue #559 tasks — adopt 観測不能 entity 削除 fail-closed slice | done | [issue-559-adopt-unobservable-removal.md](./issue-559-adopt-unobservable-removal.md) |
 | TASK-561OpFactsUnverifiable05 | Issue #561 tasks — op_facts unverifiable cascade 修正 slice | done | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
+| TASK-565ProcessorBindingCascade05 | Issue #565 tasks — 退役 cascade 監査 slice | done | [issue-565-processor-binding-cascade.md](./issue-565-processor-binding-cascade.md) |
 | TASK-VB7LzgmqMRIfE31stZItL7 | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 | done | [issue-86-task-verified-import-wiring.md](./issue-86-task-verified-import-wiring.md) |
 | TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |
 | TASK-z866D1bQYKGTdgVlXsQMXJ | L1 task2 player crate fixture | done | [l1-task2-player-crate-fixture.md](./l1-task2-player-crate-fixture.md) |

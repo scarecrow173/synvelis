@@ -73,7 +73,9 @@ Directory: `docs/designs`
 | DESIGN-552SendGainSeal03 | Issue #552 design — SendGainTarget rebind の seal 解放（削除 vs unseal の確定） | approved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
 | DESIGN-553IntentFacts03 | Issue #553 design — declared_facts の inner facts 伝播 | approved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
 | DESIGN-557AdoptFacts03 | Issue #557 design — Adopt 経路 declared_facts 監査と受理 pin | approved | [issue-557-adopt-facts.md](./issue-557-adopt-facts.md) |
+| DESIGN-559AdoptUnobservableRemoval03 | Issue #559 design — adopt 時の観測不能 entity 削除 fail-closed | approved | [issue-559-adopt-unobservable-removal.md](./issue-559-adopt-unobservable-removal.md) |
 | DESIGN-561OpFactsUnverifiable03 | Issue #561 design — op_facts 3 arm への unverifiable 検査追加 | approved | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
+| DESIGN-565ProcessorBindingCascade03 | Issue #565 design — 退役 cascade 監査の着地（契約明記 + test pin） | approved | [issue-565-processor-binding-cascade.md](./issue-565-processor-binding-cascade.md) |
 | DESIGN-vaYFK7BnCVN715EASswzTe | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 設計 | approved | [issue-86-verified-import-wiring-design.md](./issue-86-verified-import-wiring-design.md) |
 | DESIGN-yiV0z7HH1jyKUmweFh9hCT | L1 Design — Safe Import・Verified Media・Lowering・Headless Driver | approved | [l1-local-wav-verified-playback-design.md](./l1-local-wav-verified-playback-design.md) |
 | DESIGN-034QmfChvqgB632y8fAydk | L2 Design — Render Snapshot・Preflight・Sequential Render・WAV Output・Reopen Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export-design.md](./l2-master-sequential-offline-wav-export-design.md) |

@@ -56,7 +56,9 @@ Directory: `docs/specs`
 | SPEC-552SendGainSeal02 | Issue #552 spec — SetSendGainTarget rebind の旧 SendLevel seal 解放 | approved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
 | SPEC-553IntentFacts02 | Issue #553 spec — variant intent_facts の inner op facts 伝播 | approved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
 | SPEC-557AdoptFacts02 | Issue #557 spec — VariantIntent::Adopt 経路の declared_facts 伝播監査 | approved | [issue-557-adopt-facts.md](./issue-557-adopt-facts.md) |
+| SPEC-559AdoptUnobservableRemoval02 | Issue #559 spec — stored candidate payload の観測不能 entity 削除 adopt fail-closed | approved | [issue-559-adopt-unobservable-removal.md](./issue-559-adopt-unobservable-removal.md) |
 | SPEC-561OpFactsUnverifiable02 | Issue #561 spec — op_facts 観測不能 cascade の fail-closed | approved | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
+| SPEC-565ProcessorBindingCascade02 | Issue #565 spec — SetProcessorBinding 退役 cascade の監査・契約明記・test pin | approved | [issue-565-processor-binding-cascade.md](./issue-565-processor-binding-cascade.md) |
 | SPEC-ubzJtNuQxbSXLe7nevbdUw | L1 — Local WAV Safe Import・Verified Media・Track/Clip・Headless Generic Graph Playback | approved | [l1-local-wav-verified-media-graph-playback.md](./l1-local-wav-verified-media-graph-playback.md) |
 | SPEC-034Qmb9CC7dN4YE5VPN235 | L2 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | SPEC-rBmfzOP1H86N1KAXlFpX5N | MD-A — TakeGroup/Comp・Effective Comp 投影・ClipPlacement/Playback 時間契約 (headless model PoC) | approved | [mda-takegroup-comp-effective-projection-placement-contract.md](./mda-takegroup-comp-effective-projection-placement-contract.md) |

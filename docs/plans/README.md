@@ -59,7 +59,9 @@ Directory: `docs/plans`
 | PLAN-552SendGainSeal05 | Issue #552 plan — SetSendGainTarget seal 解放 slice | approved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
 | PLAN-553IntentFacts05 | Issue #553 plan — intent_facts 伝播 slice | approved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
 | PLAN-557AdoptFacts04 | Issue #557 plan — adopt declared_facts 監査 slice | approved | [issue-557-adopt-facts.md](./issue-557-adopt-facts.md) |
+| PLAN-559AdoptUnobservableRemoval04 | Issue #559 plan — adopt 観測不能 entity 削除 fail-closed slice | approved | [issue-559-adopt-unobservable-removal.md](./issue-559-adopt-unobservable-removal.md) |
 | PLAN-561OpFactsUnverifiable04 | Issue #561 plan — op_facts unverifiable cascade 修正 slice | approved | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
+| PLAN-565ProcessorBindingCascade04 | Issue #565 plan — 退役 cascade 監査 slice | approved | [issue-565-processor-binding-cascade.md](./issue-565-processor-binding-cascade.md) |
 | PLAN-wBxgPj2RVAMRBuOiry4yv2 | L1 実装計画 — Local WAV Safe Import・Verified Media・Headless Graph Playback | approved | [l1-e2e-local-wav-playback.md](./l1-e2e-local-wav-playback.md) |
 | PLAN-034QmjyxIXmPM1qiRQc6Hn | L2 実装計画 — Master Sequential Offline PCM WAV Export | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
 | PLAN-fEinABRn8LJsKRmVkn0kNJ | MD-A 実装計画 — TakeGroup/Comp・Effective Comp 投影・正規化 Placement/Playback | approved | [mda-comp-model-poc.md](./mda-comp-model-poc.md) |

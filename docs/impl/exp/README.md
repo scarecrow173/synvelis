@@ -24,7 +24,10 @@ Directory: `docs/impl/exp`
 | [issue-530-plugin-state-decl-exp.jsonl](./issue-530-plugin-state-decl-exp.jsonl) |
 | [issue-539-arrangement-adapter-exp.jsonl](./issue-539-arrangement-adapter-exp.jsonl) |
 | [issue-557-adopt-facts-exp.jsonl](./issue-557-adopt-facts-exp.jsonl) |
+| [issue-559-adopt-unobservable-removal-exp.jsonl](./issue-559-adopt-unobservable-removal-exp.jsonl) |
 | [issue-561-opfacts-unverifiable-cascade-exp.jsonl](./issue-561-opfacts-unverifiable-cascade-exp.jsonl) |
+| [issue-565-processor-binding-cascade-exp.jsonl](./issue-565-processor-binding-cascade-exp.jsonl) |
+| [issue-567-quota-pend-receipt-exp.jsonl](./issue-567-quota-pend-receipt-exp.jsonl) |
 | [rcd-04-residual-closeout-exp.jsonl](./rcd-04-residual-closeout-exp.jsonl) |
 | [sv-gpui-02-plugin-dock-gate.jsonl](./sv-gpui-02-plugin-dock-gate.jsonl) |
 | [sv-script-03-luau-backend-exp.jsonl](./sv-script-03-luau-backend-exp.jsonl) |
