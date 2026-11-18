@@ -43,13 +43,7 @@ relations:
     deleted: []
     renamed: []
     moved: []
-    generated:
-      - type: "file"
-        path: "docs/impl/ir/README.md"
-      - type: "file"
-        path: "docs/test-specs/README.md"
-      - type: "file"
-        path: "docs/tasks/README.md"
+    generated: []
   implements:
     - "docs/tasks/issue-286-diff-explorer-app-wiring.md"
   implemented-by: []
@@ -204,7 +198,13 @@ app は gateway 型を名指しできない（AC-05）ため、workspace
 `evidence/sv286/app-wiring-verification.md` に全記録。
 概略:
 
-- `mise run fmt-check` — pass
+- `mise run check-app-native` / `lint-app-native` /
+  `test-app-gpui` — pass（final head `e40b15f`。GPUI
+  driver 組立・clippy・GPUI-simulated test）
+- `mise run fmt-check` — 本 worktree で cargo-fmt の
+  `os error 206`（環境起因・diff 無関係）により fail。
+  全 15 member の `cargo fmt -p -- --check` は個別 pass
+  （詳細は evidence 参照）
 - `mise run check synvelis-workspace` / `check synvelis-app`
   — pass
 - `mise run lint synvelis-workspace` / `lint synvelis-app`

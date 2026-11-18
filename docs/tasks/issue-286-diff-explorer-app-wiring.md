@@ -128,7 +128,9 @@ CB-08 orchestrator / gateway CAS 経路への接続を完成させる。
 
 ## Verification
 
-- [x] `mise run fmt-check`
+- [x] `mise run check-app-native` / `lint-app-native` /
+      `test-app-gpui`（GPUI driver 組立・clippy・
+      GPUI-simulated test、final head で実行）
 - [x] `mise run check synvelis-workspace` / `check synvelis-app`
 - [x] `mise run lint synvelis-workspace` / `lint synvelis-app`
 - [x] `mise run lint-app-gpui`（gpui-test feature lane）
@@ -137,4 +139,8 @@ CB-08 orchestrator / gateway CAS 経路への接続を完成させる。
 - [x] `mise run test synvelis-app`（cb09_variant_diff 11/11
       を含む全 suite）
 - [x] `mise run check-headless-deps`
+- [~] `mise run fmt-check` — 本 worktree で cargo-fmt の
+      `os error 206`（環境起因・diff 無関係）により fail。
+      全 15 member の `cargo fmt -p -- --check` は個別 pass
+      （evidence/sv286 参照）
 - [x] `mise run check-app-gpui`
