@@ -68,8 +68,8 @@ prepare で `PreparationRejected`、万が一 prepare を
 - `crates/synvelis-project/tests/cb06_strip_fields.rs` —
   再現 test を deny pin に置き換え。
 - `crates/synvelis-gateway/tests/cb06_strip_gateway.rs` —
-  wire 到達可能な同型 scenario の adopt 拒絶 pin +
-  fixture 追加。
+  観測不能 kind 削除入り stored payload の adopt 拒絶
+  pin（domain 層 seed 方式）+ fixture 追加。
 - issue-559 doc chain 9 件 + `issue-559-adopt-
   unobservable-removal-exp.jsonl` + `evidence/sv559/`。
 
@@ -127,8 +127,10 @@ Main route・Sidechain・chain-internal）を含む。
 （`RemoveConnection`/`AddConnection`/`ConfigureBus` 系は
 capability 非存在）、domain API 呼出は trusted 内部
 コードの責務（apply と同じ trust level）とみなす。
-この residual は discovery/spec に記録し、wire 側の
-honest-deny 強化は `synvelis#561` 領域とする。
+この residual は discovery/spec に記録する。wire 側の
+honest-deny 強化は `synvelis#561`（`48858bb1`）で
+着地済み — 本 slice の gateway pin は当該 wire 拒否を
+迂回せず、domain 層 seed で durable payload を注入する。
 
 同じ観測モデル外の非対称として、`plan_adopt_writes`
 第 2 loop の `Added`/`Modified` write は本修正の対象外
@@ -206,7 +208,7 @@ VariantError::UnverifiableRemoval { detail } => {
   materialization 可否は別責務。observability は
   prepare/apply の権限であり、edit gate に持ち込まない。
 - `op_facts`/`declared_facts` — edit/live-apply 経路の
-  coverage は `synvelis#561` 領域。
+  coverage は `synvelis#561`（`48858bb1`）で着地済み。
 - `VariantIntent::Adopt` の `declared_facts` — gap 無し
   （synvelis#557 実証済み）。
 - candidate payload schema/provenance — 採用方針は
@@ -219,13 +221,17 @@ VariantError::UnverifiableRemoval { detail } => {
   `try_adopt` が `VariantError::UnverifiableRemoval`
   を返し、live の send/source/target/assignment と
   project revision・adopted branch が不変であること。
-- gateway pin: `SetSendGainTarget` release cascade で
-  `ModulationAssignment` を削除した candidate
-  （wire 合法 op のみで生成可能 — discovery §4 の
-  op_facts gap を利用した正直な stored-payload 同型）
-  の adopt prepare が `PreparationRejected` /
-  `variant-unverifiable-removal` で拒絶され、live 不変
-  であること。
+- gateway pin: `ModulationAssignment`/`ModulationSource`
+  を削除した candidate の adopt prepare が
+  `PreparationRejected` / `variant-unverifiable-removal`
+  で拒絶され、live 不変であること。payload は
+  domain 層の `fork_variant_set` + `edit_branch_op`
+  （`RemoveSend` cascade）で rig の shared
+  `BranchContentStore` に生成・seed する —
+  post-sv#561 では wire の candidate edit が同
+  cascade を `op_facts` unverifiable として
+  prepare で正直に拒否するため、wire op では
+  当該 durable payload を新規生成不能。
 - 非回帰: synvelis#550 send teardown adopt・
   synvelis#553/#557 の既存 pin が全て Pass。
 

@@ -79,7 +79,7 @@ relations:
 | `crates/synvelis-project/src/variant/engine.rs` | `plan_adopt_writes` の Removed loop に検査追加 + doc 追記 |
 | `crates/synvelis-gateway/src/variant.rs` | `variant_reason` に `unverifiable-removal` arm 追加 |
 | `crates/synvelis-project/tests/cb06_strip_fields.rs` | 再現 test → deny pin に置き換え |
-| `crates/synvelis-gateway/tests/cb06_strip_gateway.rs` | gain-target release cascade の adopt 拒絶 pin + fixture 追加 |
+| `crates/synvelis-gateway/tests/cb06_strip_gateway.rs` | 観測不能 kind 削除入り stored payload の adopt 拒絶 pin（domain 層 seed 方式）+ fixture 追加 |
 
 ## 依存順序
 
@@ -93,12 +93,14 @@ relations:
 ## リスクと rollback
 
 - リスク: `ModulationSource`/`ModulationAssignment` の
-  `Removed` write を含む**現在 wire 合法に生成可能な**
-  candidate（`SetSendGainTarget` release・`RemoveTrack`
-  strip closure 経由 — discovery §4）が adopt 不能に
-  なる。これは SEC-14 的に正しい fail-closed であり、
-  live-apply 経路の op_facts gap は `synvelis#561` で
-  別途対処されるべき残件として discovery に記録済み。
+  `Removed` write を含む durable candidate が adopt
+  不能になる。当初は `SetSendGainTarget` release・
+  `RemoveTrack` strip closure 経由で wire 合法に生成
+  可能と評価したが、`synvelis#561`（`48858bb1`）着地
+  により当該 wire 経路は `op_facts` unverifiable
+  cascade として prepare で正直に拒否される —
+  拒絶対象は pre-#561 時代の stored payload に限ら
+  れ、これは SEC-14 的に正しい fail-closed。
 - リスク: `RoutingConnection` を reject 集合から外す
   判断が過剰受理と見なされる可能性 — sv#550/#557 の
   受理済み境界（internal structure・owner 削除と不可分）

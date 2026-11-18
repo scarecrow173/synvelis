@@ -88,29 +88,35 @@ adopt fail-closed（synvelis#559）の検証。
 - fixture: gain_target が send-owned `SendLevel`
   target にバインド済みの send + send-owned
   `ModulationSource` + 当該 target 宛
-  `ModulationAssignment` を持つ project（head
-  revision 7）。
-- fork（`{Sends}` を含む widest honest mask）→
-  candidate に wire 合法 op `synvelis.send.
-  set-gain-target`（`gain_target: null`）を commit —
-  `release_send_level_target` cascade が target・
-  assignment を candidate から削除し、観測不能
-  `ModulationAssignment` 削除入り payload が
-  `BranchContentStore` に永続化される
-  （`op_facts` が当該 arm を unverifiable と flag
-  しない現行の wire 経路 — discovery §4）。
-- 当該 candidate の adopt prepare（agent + grant
-  経路）が `GatewayError::PreparationRejected`
-  で拒絶され、reason が `variant-unverifiable-
-  removal` を含む（`variant simulation failed:`
-  prefix 経由の stable kebab-case reason）。
+  `ModulationAssignment` を持つ project。
+- payload 生成は **domain 層の variant API**
+  （`fork_variant_set` + `edit_branch_op` に
+  `ProjectOp::RemoveSend`）で rig の shared
+  `BranchContentStore` に対して行う — cascade が
+  send・edge・level target・modulation source・
+  assignment を candidate payload から削除し、
+  観測不能 `ModulationAssignment`/`ModulationSource`
+  削除入り `BranchContentRef::Captured` payload が
+  永続化される。post-sv#561 では wire の candidate
+  edit 経路が同 cascade を `op_facts` unverifiable
+  として prepare で正直に拒否するため、wire op では
+  当該 payload を新規生成不能 — durable stored
+  payload への防御層としての adopt fail-closed を
+  pin する本来の意図に合致する注入経路。
+- live project（variant set・`Captured` ref・
+  payload digest を含む）は seed 済み状態で
+  `CommitGate::open` し、当該 candidate の adopt
+  prepare（agent + grant 経路）が
+  `GatewayError::PreparationRejected` で拒絶され、
+  reason が `unverifiable-removal` を含む。
 - 拒絶後の live は不変: send の `gain_target` binding
   ・target・assignment が残存し、branch は adopt
   されない。
 
-意図: wire から到達可能な stored-payload 同型
-scenario が gateway 境界で stable reason 付きに
-fail-closed することを end-to-end で固定する。
+意図: durable stored payload（pre-553 wire が
+永続化し得た形状と同型）が gateway 境界で stable
+reason 付きに fail-closed することを end-to-end で
+固定する。
 
 ### Rule 3 — 非回帰（既存 pin の再実測）
 
@@ -152,13 +158,17 @@ fail-closed することを end-to-end で固定する。
   headless のみ）。
 - `op_facts` の `SetSendGainTarget`/`RemoveTrack`
   unverifiable cascade coverage — edit/live-apply
-  経路の別 Issue（`synvelis#561`）領域。Rule 2 は
-  当該 gap が生成した candidate の adopt 拒絶のみ
-  を pin し、gap 自体の修正は要求しない。
-- stored payload bytes の直接注入
-  （`BranchContentRef::Captured` 差替等）— domain
-  `edit_branch`/wire 合法 op が生成する同型 payload
-  で十分であり、捏造経路の再現は対象外。
+  経路の別 Issue（`synvelis#561`）領域。
+  `synvelis#561` は着地済みで当該 wire 経路は
+  既に正直に拒否される — Rule 2 はその拒否を
+  迂回せず、domain 層で生成した durable payload が
+  adopt で拒絶されることのみを pin する。
+- stored payload bytes の直接捏造
+  （digest 偽装・`schema_version` 偽装・手組み
+  JSON 等）— `decode_candidate`/`verified_candidate`
+  の integrity 契約を迂回する経路は対象外。
+  domain `edit_branch_op` が生成する実 payload で
+  十分であり、integrity を破る注入は別問題。
 
 ## 関連リンク
 

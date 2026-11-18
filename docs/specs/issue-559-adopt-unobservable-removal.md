@@ -82,10 +82,12 @@ gateway の resource/effect 観測モデル（`ResourceKind` /
   candidate adopt が typed rejection になり、live
   project・variant set 状態が不変であることを pin
   する。
-- gateway: wire 到達可能な同型 scenario（candidate が
-  観測不能 entity 削除を含む stored payload）の adopt
-  が `variant-unverifiable-removal` 系の安定 reason で
-  `PreparationRejected` になることを pin する。
+- gateway: 観測不能 entity 削除を含む stored payload
+  （durable candidate — sv#561 着地後は wire で新規
+  生成不能のため domain 層で seed した同型
+  scenario）の adopt が `variant-unverifiable-removal`
+  系の安定 reason で `PreparationRejected` になる
+  ことを pin する。
 
 ### R4 — 非回帰（AC4）
 
@@ -102,10 +104,10 @@ AutomationLane の `Removed` write を含む candidate）
   adopt の挙動を headless で再現・記録する。
 - [x] 「修正方針の候補」から境界を決め、選択した方針で
   fail-closed（または明示的な受理判定）を実装する。
-- [ ] fail-closed の場合、観測不能 kind の `Removed`
+- [x] fail-closed の場合、観測不能 kind の `Removed`
   write を含む candidate adopt が typed rejection に
   なり、live が不変であることを test で pin する。
-- [ ] `mise run check/lint/test synvelis-project`・
+- [x] `mise run check/lint/test synvelis-project`・
   `mise run check/lint/test synvelis-gateway` が
   exit 0。
 
@@ -114,7 +116,8 @@ AutomationLane の `Removed` write を含む candidate）
 - `op_facts`/`declared_facts` の coverage 拡張
   （edit/live-apply 経路の unverifiable cascade —
   discovery §4 で記録した `SetSendGainTarget`/
-  `RemoveTrack` 経路は `synvelis#561` 領域）。
+  `RemoveTrack` 経路は `synvelis#561`（`48858bb1`）
+  で着地済み・本 slice 範囲外）。
 - candidate payload の schema version/provenance 世代
   管理。
 - gateway 側での stored payload scope diff 再検証。

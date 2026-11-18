@@ -135,10 +135,20 @@ typed 拒絶なく live に物質化していた
   不変であることを pin。
 - `crates/synvelis-gateway/tests/cb06_strip_gateway.rs` —
   `cb06_strip_559_adopt_unobservable_removal_denied`:
-  wire-legal `SetSendGainTarget(null)` で assignment 削除を
-  含む candidate を永続化し、adopt prepare が
-  `PreparationRejected`（`variant-unverifiable-removal`）
-  で拒絶・live 非破壊であることを pin。
+  domain 層の `fork_variant_set` + `edit_branch_op`
+  （`RemoveSend` cascade）で観測不能 kind 削除入り
+  `Captured` payload を rig の shared
+  `BranchContentStore` に生成・seed し、seed 済み live
+  で `CommitGate::open`。adopt prepare が
+  `PreparationRejected`（`unverifiable-removal`）で
+  拒絶・live 非破壊であることを pin。
+  （当初は wire-legal `SetSendGainTarget(null)` で
+  payload を生成していたが、sv#561（`48858bb1`）
+  着地により当該 wire 経路は `op_facts` unverifiable
+  cascade として prepare で正直に拒否されるように
+  なったため、durable stored payload への防御層と
+  いう pin の本来意図に合致する domain seed 方式へ
+  作り替え — merge 後 head で再実測）
 - doc chain 8 件（discovery/specs/designs/plans/tasks/
   test-specs/impl-ir/impl-exp+jsonl）+ `evidence/sv559/`
   （reproduction.md・verification.md）を新規作成。
@@ -213,9 +223,12 @@ RoutingConnection}` の 3 つに確定することを
 - `SetSendGainTarget` rebind（`release_send_level_target`）
   ・`RemoveTrack` 等の live/edit 経路 cascade が
   `ModulationAssignment` を削除するが `op_facts` が
-  unverifiable を flag しない関連 gap を発見 — wire 合法
-  op で assignment 削除入り candidate を生成し得る。
-  本 slice 範囲外として `synvelis#561` に記録。
+  unverifiable を flag しない関連 gap を発見時点で
+  記録した — `synvelis#561`（`48858bb1`）で
+  `op_facts` unverifiable cascade 検査が拡張され着地
+  済み。本 slice の gateway pin はこの wire 拒否を
+  迂回せず、domain 層 seed で durable payload を
+  注入する方式に作り替え済み。
 - `RoutingConnection` 単独削除（send 温存・Main route・
   Sidechain・chain-internal 全般）と観測不能 kind の
   `Added`/`Modified` write は kind-only 判定では証明
@@ -224,13 +237,15 @@ RoutingConnection}` の 3 つに確定することを
 
 ## Follow-ups
 
-- `synvelis#561` — wire 側 honest-deny 強化
-  （`op_facts` coverage・`SetSendGainTarget` 系 cascade
-  の unverifiable 分類・connection 系 op の扱い）。
+- `synvelis#561` — wire 側 honest-deny 強化は着地済み
+  （`48858bb1`）。残余の `RoutingConnection` 単独削除・
+  観測不能 kind の `Added`/`Modified` write 非対称は
+  design doc residual 節の記録どおり follow-up 領域。
 - docs index（`docs/**/README.md`・`docs/impl/*/README.md`）
-  の同期は Coordinator が統合時に再生成
-  （`sync_impl_index` preview→apply は本 slice で実施済み
-  の範囲に留める）。
+  の同期は Coordinator が統合時に再生成 — merge 時に
+  `docs/impl/{ir,exp}/README.md` は upstream (main
+  `b73018bd`) を採用して conflict 解消済みで、本 slice
+  では managed index を編集しない。
 - Issue #559 は open のまま — commit/PR 本文は
   `Refs #559` のみ使用（Closes/Fixes/Resolves 禁止）。
 

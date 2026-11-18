@@ -1,7 +1,10 @@
 # sv559 — VariantIntent::Adopt unobservable-removal fail-closed verification
 
 Issue: `scarecrow173/synvelis#559` / branch
-`bugfix/559-adopt-unobservable-removal`（base: `origin/main`
+`bugfix/559-adopt-unobservable-removal`（検証 head:
+merge `71d00ea8` — `origin/main` `b73018bd`（sv#561
+`48858bb1` op_facts unverifiable cascade 拡張 +
+managed index regen）取込後。初回検証 base は
 `848ebb73` — PR #560（synvelis#557 監査）着地後）
 OS: Windows（mise managed toolchain）。cargo 直接実行は
 補助証拠、canonical = mise。
@@ -60,11 +63,20 @@ OS: Windows（mise managed toolchain）。cargo 直接実行は
   を返し、live の send・modulation closure・
   `live_revision`・`adopted` branch が不変。
 - `cb06_strip_559_adopt_unobservable_removal_denied`
-  （gateway）: wire-legal `SetSendGainTarget(null)` edit
-  で assignment 削除を含む candidate payload を永続化
-  → adopt prepare が `PreparationRejected`（reason
+  （gateway）: domain variant API（`fork_variant_set`
+  + `edit_branch_op(ProjectOp::RemoveSend)`）で
+  send-owned `ModulationSource`/`ModulationAssignment`
+  削除を含む durable candidate payload を shared
+  `BranchContentStore` に seed し gate を boot →
+  adopt prepare が `PreparationRejected`（reason
   `variant-unverifiable-removal`）を返し live 非破壊。
   proposal/approval/commit には到達しない。
+  （sv#561 着地後の merge head では wire の
+  `SetSendGainTarget` release 経路が `op_facts`
+  unverifiable cascade として prepare で正直に拒否
+  されるため、payload 生成は wire ではなく domain
+  層 seed に作り替え — durable payload への防御層と
+  いう pin の本来意図に合致）
 - 非回帰: `cb06_strip_557_adopt_send_remove_candidate_
   materializes_teardown` が引き続き Pass — 観測可能な
   send teardown（send config・`Send` edge・send-owned
@@ -81,7 +93,10 @@ OS: Windows（mise managed toolchain）。cargo 直接実行は
   Full CI に委譲）。実機/RT/GUI は別 gate 責務。
 - `SetSendGainTarget`/`RemoveTrack` 等の live/edit 経路
   `op_facts` unverifiable coverage gap は本 slice 範囲外
-  — `synvelis#561` に記録（design residual 節参照）。
+  — `synvelis#561`（`48858bb1`）で着地済み。当該
+  wire 経路は prepare で正直に拒否され、残る防御対象は
+  pre-#561 の durable stored payload のみ（design
+  residual 節参照）。
 - `RoutingConnection` 単独削除・観測不能 kind の
   `Added`/`Modified` write の非対称は design residual
   として記録済み（`synvelis#561` 領域・follow-up）。

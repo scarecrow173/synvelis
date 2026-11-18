@@ -57,7 +57,7 @@ fail-closed の設置境界と reject 対象 kind 集合を実験的に絞り込
 | EXP-2 | 拒絶は gateway prepare/effect 層に置くべき | rejected | `plan_adopt_writes` は `Removed` write 化直前に正確な `ObjectKind` を知る唯一の層で、SEC-14 fail-closed（`Unsupported`/`AmbiguousLineage`）の既存所有者。gateway 側の kind filter は owner 境界の下流で policy を重複させる |
 | EXP-3 | reject 集合は `removal_supported_kind` のうち `ENUMERATED_KINDS` 外の全 kind | rejected | `RoutingConnection` は sv#550 send teardown 契約で「観測可能な `Send` 削除の内部構造」として edge ごと削除される既存受理境界（sv#553 `op_facts` RemoveSend arm と同じ分類）。これを reject すると合法な send teardown adopt（`cb06_strip_557_*` pin）を壊す |
 | EXP-4 | reject 集合は `ModulationSource | ModulationAssignment` のみ、`plan_adopt_writes` で typed error | adopted | `entity::unverifiable_removal_kind` predicate + `VariantError::UnverifiableRemoval`。write 構築・適用の前に fail し、gateway `variant_reason` は `"unverifiable-removal"` に写像 |
-| EXP-5 | 関連 live-path gap: `SetSendGainTarget` rebind の `release_send_level_target` が `ModulationAssignment` を削除するが `op_facts` が unverifiable を flag しない | confirmed・範囲外 | wire 合法 op で assignment 削除入り candidate を生成し得る経路。ただし本 slice は durable stored payload の adopt 境界であり、`synvelis#561` に記録して委譲 |
+| EXP-5 | 関連 live-path gap: `SetSendGainTarget` rebind の `release_send_level_target` が `ModulationAssignment` を削除するが `op_facts` が unverifiable を flag しない | confirmed・範囲外 → `synvelis#561` で解消 | wire 合法 op で assignment 削除入り candidate を生成し得る経路として記録・委譲。`synvelis#561`（`48858bb1`）が `op_facts` unverifiable cascade 検査を拡張し着地 — gateway pin は wire 注入をやめ domain 層 seed 方式に作り替え |
 
 ## 実測
 
@@ -66,9 +66,15 @@ fail-closed の設置境界と reject 対象 kind 集合を実験的に絞り込
   live の send・modulation closure・revision・adopted branch が
   不変であることを assert。
 - `cb06_strip_559_adopt_unobservable_removal_denied`
-  （gateway）: Pass — wire prepare 段階で
-  `PreparationRejected`（reason `variant-unverifiable-removal`）
-  となり proposal/approval/commit には到達しない。live 非破壊。
+  （gateway）: Pass — domain 層 `fork_variant_set` +
+  `edit_branch_op`（`RemoveSend` cascade）で観測不能
+  kind 削除入り `Captured` payload を shared
+  `BranchContentStore` に seed し、seed 済み live で
+  gate を boot。adopt prepare が
+  `PreparationRejected`（reason `unverifiable-removal`）
+  となり proposal/approval/commit には到達しない。
+  live 非破壊。（sv#561 着地後の merge head で
+  wire 注入から domain seed へ作り替えて再実測）
 - 非回帰: `cb06_strip_550_*`・`cb06_strip_553_*`・
   `cb06_strip_557_adopt_send_remove_candidate_materializes_
   teardown` を含む cb06 両 suite 全 Pass — 観測可能な send

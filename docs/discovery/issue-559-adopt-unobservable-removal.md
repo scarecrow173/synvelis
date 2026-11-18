@@ -151,6 +151,14 @@ facts 網羅性**の問題であり、本 Issue の対象外
 の領域）。本修正の adopt fail-closed は、当該経路で
 生成された candidate の adopt を正しく拒絶する。
 
+（追記: `synvelis#561`（`48858bb1`）が着地し、
+`SetSendGainTarget`/`RemoveTrack` 等の unverifiable
+cascade は wire/edit prepare で正直に拒否されるように
+なった — 本節の gap は解消済み。残る防御対象は
+pre-#561 時代に永続化された durable stored payload
+のみで、本 slice の adopt fail-closed がその防御層と
+なる。）
+
 ## 結論と判断
 
 - **AC1**: pre-fix で物質化を実測（`evidence/sv559/
@@ -166,10 +174,11 @@ facts 網羅性**の問題であり、本 Issue の対象外
   （前者は全 pre-upgrade payload を巻き込み過剰、後者は
   実装コスト大・再現性の問題 — Issue 本文の評価どおり）。
 - **AC3**: domain pin test で typed rejection + live
-  不変を固定。gateway pin test で wire 到達可能な
-  stored-payload 同型 scenario（`SetSendGainTarget`
-  release cascade が assignment を削除した candidate）
-  の adopt が `variant-unverifiable-removal` reason で
+  不変を固定。gateway pin test で stored-payload 同型
+  scenario（send-owned modulation entity 削除を含む
+  durable candidate — sv#561 着地後は wire で生成
+  不能のため domain 層 seed で注入）の adopt が
+  `variant-unverifiable-removal` reason で
   `PreparationRejected` になることを固定。
 - AC4: `removal_supported_kind`・`check_strip_fields_
   scope_removals`（edit-time scope policy）は非接触 —
@@ -182,7 +191,8 @@ facts 網羅性**の問題であり、本 Issue の対象外
 
 - `op_facts`/`declared_facts` の coverage 拡張
   （`SetSendGainTarget`/`RemoveTrack` 等の edit/live
-  経路 unverifiable cascade — `synvelis#561` 領域）。
+  経路 unverifiable cascade — `synvelis#561` で
+  着地済み）。
 - candidate payload schema version・provenance 管理。
 - `RoutingConnection`/`SemanticPort` 削除の reject
   （sv#550/#557 の受理済み SEC-14 境界を維持）。
