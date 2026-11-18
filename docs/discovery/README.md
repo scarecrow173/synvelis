@@ -22,6 +22,7 @@ Directory: `docs/discovery`
 | DISC-034U2L1N2kWQrSPjNRT7Vf | Issue #184 CI verify/evidence 失敗 — 非 canonical temp 綴りと symlink fixture | resolved | [issue-184-ci-verify-symlink-fixture.md](./issue-184-ci-verify-symlink-fixture.md) |
 | DISC-034YDfGylRNr58hWDe5lyH | issue-274-cli-script-analyze — script analyze --file headless Script Analyzer 配線の探索結果 | resolved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
 | DISC-034ZjInvJi1kqRJQbP8fB2 | Issue #283 slice — strip-fields gateway commit-gate exercise 調査 | resolved | [issue-283-strip-gateway-exercise.md](./issue-283-strip-gateway-exercise.md) |
+| DISC-286DiffExplorerAppWiring01 | Issue #286 discovery — CB-09 Difference Explorer app wiring の境界確定 | resolved | [issue-286-diff-explorer-app-wiring.md](./issue-286-diff-explorer-app-wiring.md) |
 | DISC-sv511aB2cD4eF6gH8iJ0kL1m | Issue #511 discovery — CB-07 adopt/render materialization・PPQN grid・anchor tempo-map の残件調査 | resolved | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
 | DISC-513a1b2c3d4e5f6g7h8i9j0k | issue-513-variant-apply-ops — variant/VCS apply op surface 残件の探索結果 | resolved | [issue-513-variant-apply-ops.md](./issue-513-variant-apply-ops.md) |
 | DISC-R611Xhqyq8ib0vHl2lV2e1 | Issue #514 discovery — SessionRoutingEngine の RCP selection 消費要否の root-cause 調査 | resolved | [issue-514-session-engine-selection.md](./issue-514-session-engine-selection.md) |
@@ -35,6 +36,8 @@ Directory: `docs/discovery`
 | DISC-550StripRtOps01 | Issue #550 discovery — strip routing ops・scope entity removal（CB-06 後続第 2 段） | resolved | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
 | DISC-552SendGainSeal01 | Issue #552 discovery — SetSendGainTarget rebind の旧 SendLevel seal 解放 | resolved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
 | DISC-553IntentFacts01 | Issue #553 discovery — variant intent_facts の inner op facts 伝播 gap（cascade fail-closed 不全） | resolved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
+| DISC-557AdoptFacts01 | Issue #557 discovery — VariantIntent::Adopt 経路の declared_facts 伝播監査 | resolved | [issue-557-adopt-facts.md](./issue-557-adopt-facts.md) |
+| DISC-561OpFactsUnverifiable01 | Issue #561 discovery — op_facts under-report: 観測不能 cascade 削除の unsupported 欠落 | resolved | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
 | DISC-99vL2v7VILngzJrF9fbNos | L1 Discovery — Local WAV Safe Import・Verified Media・Headless Generic Graph Playback | resolved | [l1-local-wav-verified-playback-discovery.md](./l1-local-wav-verified-playback-discovery.md) |
 | DISC-034Qmb93ek3YXoxaRPDBBD | L2 Discovery — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | resolved | [l2-master-sequential-offline-wav-export-discovery.md](./l2-master-sequential-offline-wav-export-discovery.md) |
 | DISC-034VG2eVX55D1hI610carh | plugin_instances VCS semantic diff gap — persisted instance identity invisible to compare_snapshots | resolved | [plugin-instances-vcs-diff-gap.md](./plugin-instances-vcs-diff-gap.md) |

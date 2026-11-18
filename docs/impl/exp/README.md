@@ -12,6 +12,7 @@ Directory: `docs/impl/exp`
 | [issue-177-design-tokens-exp.jsonl](./issue-177-design-tokens-exp.jsonl) |
 | [issue-262-run-file-real-vm-exp.jsonl](./issue-262-run-file-real-vm-exp.jsonl) |
 | [issue-274-cli-script-analyze-exp.jsonl](./issue-274-cli-script-analyze-exp.jsonl) |
+| [issue-286-diff-explorer-app-wiring-exp.jsonl](./issue-286-diff-explorer-app-wiring-exp.jsonl) |
 | [issue-511-cb07-materialization-exp.jsonl](./issue-511-cb07-materialization-exp.jsonl) |
 | [issue-513-variant-apply-ops-exp.jsonl](./issue-513-variant-apply-ops-exp.jsonl) |
 | [issue-514-session-engine-selection-exp.jsonl](./issue-514-session-engine-selection-exp.jsonl) |
@@ -22,6 +23,8 @@ Directory: `docs/impl/exp`
 | [issue-521-lfs-transport-exp.jsonl](./issue-521-lfs-transport-exp.jsonl) |
 | [issue-530-plugin-state-decl-exp.jsonl](./issue-530-plugin-state-decl-exp.jsonl) |
 | [issue-539-arrangement-adapter-exp.jsonl](./issue-539-arrangement-adapter-exp.jsonl) |
+| [issue-557-adopt-facts-exp.jsonl](./issue-557-adopt-facts-exp.jsonl) |
+| [issue-561-opfacts-unverifiable-cascade-exp.jsonl](./issue-561-opfacts-unverifiable-cascade-exp.jsonl) |
 | [rcd-04-residual-closeout-exp.jsonl](./rcd-04-residual-closeout-exp.jsonl) |
 | [sv-gpui-02-plugin-dock-gate.jsonl](./sv-gpui-02-plugin-dock-gate.jsonl) |
 | [sv-script-03-luau-backend-exp.jsonl](./sv-script-03-luau-backend-exp.jsonl) |
