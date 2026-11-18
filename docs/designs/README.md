@@ -56,6 +56,7 @@ Directory: `docs/designs`
 | DES-034YBy2Ks8xNvTc4QwE | issue-262-run-file-real-vm — run --file 実実行の設計 | approved | [issue-262-run-file-real-vm.md](./issue-262-run-file-real-vm.md) |
 | DESIGN-034YDh5yvBwPjPPKMUXsgY | issue-274-cli-script-analyze — script analyze --file の設計 | approved | [issue-274-cli-script-analyze.md](./issue-274-cli-script-analyze.md) |
 | DESIGN-034ZjJTBCxSxqBr82J1mjO | Issue #283 slice — strip-fields gateway exercise design | approved | [issue-283-strip-gateway-exercise.md](./issue-283-strip-gateway-exercise.md) |
+| DESIGN-286DiffExplorerAppWiring03 | Issue #286 design — CB-09 Difference Explorer app wiring | approved | [issue-286-diff-explorer-app-wiring.md](./issue-286-diff-explorer-app-wiring.md) |
 | DESIGN-034WsvXEZuKq8V4PoYjVxZ | Issue #365 impl index 生成可能化 — front matter 是正と marker 追加の設計 | approved | [issue-365-impl-index-generation-design.md](./issue-365-impl-index-generation-design.md) |
 | DESIGN-034WuZE8vEiOZJKbZMaRJQ | Issue #368 docs/impl/ir missing-section 本文補完 — 設計 | approved | [issue-368-ir-missing-sections-design.md](./issue-368-ir-missing-sections-design.md) |
 | DESIGN-sv511cD4eF6gH8iJ0kL1mN3oP | Issue #511 設計 — CB-07 materialization 残件の方式決定 | approved | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
@@ -71,6 +72,8 @@ Directory: `docs/designs`
 | DESIGN-550StripRtOps03 | Issue #550 design — strip routing mask・confinement・wire 表面 | approved | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
 | DESIGN-552SendGainSeal03 | Issue #552 design — SendGainTarget rebind の seal 解放（削除 vs unseal の確定） | approved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
 | DESIGN-553IntentFacts03 | Issue #553 design — declared_facts の inner facts 伝播 | approved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
+| DESIGN-557AdoptFacts03 | Issue #557 design — Adopt 経路 declared_facts 監査と受理 pin | approved | [issue-557-adopt-facts.md](./issue-557-adopt-facts.md) |
+| DESIGN-561OpFactsUnverifiable03 | Issue #561 design — op_facts 3 arm への unverifiable 検査追加 | approved | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
 | DESIGN-vaYFK7BnCVN715EASswzTe | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 設計 | approved | [issue-86-verified-import-wiring-design.md](./issue-86-verified-import-wiring-design.md) |
 | DESIGN-yiV0z7HH1jyKUmweFh9hCT | L1 Design — Safe Import・Verified Media・Lowering・Headless Driver | approved | [l1-local-wav-verified-playback-design.md](./l1-local-wav-verified-playback-design.md) |
 | DESIGN-034QmfChvqgB632y8fAydk | L2 Design — Render Snapshot・Preflight・Sequential Render・WAV Output・Reopen Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export-design.md](./l2-master-sequential-offline-wav-export-design.md) |

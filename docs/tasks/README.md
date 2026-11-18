@@ -125,6 +125,7 @@ Directory: `docs/tasks`
 | TASK-034RGXoZuTHIczgPxzHY1W | Issue #151 T1 ui-verify lane + install-ui freshness 追加 | done | [issue-151-t1-ui-verify-lane.md](./issue-151-t1-ui-verify-lane.md) |
 | TASK-034YXXXE7kuTr6kR5K8KV8 | SV177 issue-177-design-tokens | done | [issue-177-design-tokens.md](./issue-177-design-tokens.md) |
 | TASK-034ZjLJBI0ZsQ3Gifc0ggL | Issue #283 slice — strip-fields gateway exercise tasks | done | [issue-283-strip-gateway-exercise.md](./issue-283-strip-gateway-exercise.md) |
+| TASK-034ZeN5O8yT6dMB1tJteke | issue-286-diff-explorer-app-wiring | done | [issue-286-diff-explorer-app-wiring.md](./issue-286-diff-explorer-app-wiring.md) |
 | TASK-034WsBdOQFzQABNIgCwFPl | Issue #365 impl index 生成可能化 — front matter 是正と index 再生成 | done | [issue-365-impl-index-generation.md](./issue-365-impl-index-generation.md) |
 | TASK-034Wv2LV1SZLdyPnE8fyZD | Issue #368 docs/impl/ir missing-section 本文補完 | done | [issue-368-ir-missing-sections.md](./issue-368-ir-missing-sections.md) |
 | TASK-sv511eF6gH8iJ0kL1mN3oP5q | Issue #511 tasks — CB-07 materialization 実装タスク | done | [issue-511-cb07-materialization.md](./issue-511-cb07-materialization.md) |
@@ -138,6 +139,8 @@ Directory: `docs/tasks`
 | TASK-550StripRtOps06 | Issue #550 tasks — strip routing ops・entity removal slice | done | [issue-550-strip-routing-ops.md](./issue-550-strip-routing-ops.md) |
 | TASK-552SendGainSeal06 | Issue #552 tasks — SetSendGainTarget seal 解放 slice | done | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
 | TASK-553IntentFacts06 | Issue #553 tasks — intent_facts 伝播 slice | done | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
+| TASK-557AdoptFacts05 | Issue #557 tasks — adopt declared_facts 監査 slice | done | [issue-557-adopt-facts.md](./issue-557-adopt-facts.md) |
+| TASK-561OpFactsUnverifiable05 | Issue #561 tasks — op_facts unverifiable cascade 修正 slice | done | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
 | TASK-VB7LzgmqMRIfE31stZItL7 | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 | done | [issue-86-task-verified-import-wiring.md](./issue-86-task-verified-import-wiring.md) |
 | TASK-lmcasUOqQXftJ4I9FGaDr8 | L1 task1 project model extensions | done | [l1-task1-project-model-extensions.md](./l1-task1-project-model-extensions.md) |
 | TASK-z866D1bQYKGTdgVlXsQMXJ | L1 task2 player crate fixture | done | [l1-task2-player-crate-fixture.md](./l1-task2-player-crate-fixture.md) |
