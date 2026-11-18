@@ -124,6 +124,25 @@ pub(crate) fn removal_supported_kind(kind: ObjectKind) -> bool {
     )
 }
 
+/// `true` for [`removal_supported_kind`] kinds whose deletion the
+/// gateway resource/effect model cannot observe *and* that are not
+/// internal structure of an observable removal (synvelis#559).
+///
+/// `ModulationSource`/`ModulationAssignment` are standalone
+/// control-graph entities: no `ResourceKind` can name them, so an
+/// adopt that deletes them produces `Removed` writes the
+/// post-simulation `derive_effects`/`authorize_effects` gate never
+/// sees — the deletion must fail closed (SEC-14). The send's
+/// dedicated `RoutingConnection` edge stays allowed: it is internal
+/// structure of the observable `Send` delete, strictly paired with
+/// it in every wire-reachable cascade (synvelis#550/#557).
+pub(crate) fn unverifiable_removal_kind(kind: ObjectKind) -> bool {
+    matches!(
+        kind,
+        ObjectKind::ModulationSource | ObjectKind::ModulationAssignment
+    )
+}
+
 /// The canonical JSON view of one object inside `project`.
 /// `Ok(None)` = the object kind is supported but the entity is absent.
 pub(crate) fn entity_value(

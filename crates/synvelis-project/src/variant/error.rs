@@ -69,6 +69,13 @@ pub enum VariantError {
         /// What is unsupported and why.
         detail: String,
     },
+    /// A scope entity removal is structurally supported but its
+    /// deletion is outside the observable effect model — the adopt
+    /// cannot verify what it would destroy (synvelis#559).
+    UnverifiableRemoval {
+        /// What is unverifiable and why.
+        detail: String,
+    },
     /// A scoped entity cannot prove its lineage (not live, not minted
     /// by this branch, not from the fork origin).
     AmbiguousLineage {
@@ -148,6 +155,9 @@ impl fmt::Display for VariantError {
                 write!(f, "candidate unavailable: {detail}")
             }
             Self::Unsupported { detail } => write!(f, "unsupported: {detail}"),
+            Self::UnverifiableRemoval { detail } => {
+                write!(f, "unverifiable removal: {detail}")
+            }
             Self::AmbiguousLineage { detail } => write!(f, "ambiguous lineage: {detail}"),
             Self::ScopeViolation { detail } => write!(f, "scope violation: {detail}"),
             Self::RecordingActive { detail } => write!(f, "recording active: {detail}"),

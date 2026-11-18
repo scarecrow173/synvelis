@@ -414,6 +414,7 @@ pub(crate) fn variant_reason(e: &VariantError) -> String {
         VariantError::StaleProjectRevision { .. } => ("stale-project-revision", e.to_string()),
         VariantError::CandidateUnavailable { detail } => ("candidate-unavailable", detail.clone()),
         VariantError::Unsupported { detail } => ("unsupported", detail.clone()),
+        VariantError::UnverifiableRemoval { detail } => ("unverifiable-removal", detail.clone()),
         VariantError::AmbiguousLineage { detail } => ("ambiguous-lineage", detail.clone()),
         VariantError::ScopeViolation { detail } => ("scope-violation", detail.clone()),
         VariantError::RecordingActive { detail } => ("recording-active", detail.clone()),
