@@ -211,11 +211,10 @@ pub use variant_diff::{
     CompareSide, ContextState, DiffFieldRow, DiffRow, EvidenceOrigin, EvidenceRow, EvidenceState,
     IssueRow, MAX_AUX_ROWS, MAX_CONTENT_ROWS, MAX_FIELDS_PER_ROW, MAX_ISSUE_ROWS,
     SemanticDiffEvidence, SemanticEvidence, SemanticSection, VARIANT_DIFF_TARGET,
-    VariantDiffActionKind, VariantDiffDispatchError, VariantDiffDomain, VariantDiffEngine,
-    VariantDiffInput, VariantDiffIntent, VariantDiffReason, VariantDiffReject, VariantDiffTarget,
-    VariantDiffView, VariantDiffViewAction, VariantDiffViewState, apply_variant_diff_action,
-    apply_variant_diff_view_local, decode_variant_diff_action, project_variant_diff,
-    variant_diff_spec,
+    VariantDiffActionKind, VariantDiffDomain, VariantDiffInput, VariantDiffIntent,
+    VariantDiffReason, VariantDiffReject, VariantDiffTarget, VariantDiffView,
+    VariantDiffViewAction, VariantDiffViewState, apply_variant_diff_action,
+    decode_variant_diff_action, project_variant_diff, variant_diff_spec,
 };
 pub use vcs_ui::{
     EndpointFreshness, EndpointKind, EndpointPin, EndpointRequest, HistorySelection,
