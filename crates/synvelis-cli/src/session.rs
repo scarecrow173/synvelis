@@ -31,6 +31,7 @@ use crate::error::CliError;
 
 /// Credential-store service name every synvelis CLI session secret is
 /// filed under (per-OS-user on Windows Credential Manager).
+#[cfg(windows)]
 const VAULT_SERVICE: &str = "synvelis-cli";
 
 /// The vault username for a session: session ids are per-store
@@ -40,6 +41,7 @@ const VAULT_SERVICE: &str = "synvelis-cli";
 /// `--session` all derive the same scope from the same flag, and a
 /// credential can never be claimed through a different store file.
 /// (The hash is a namespace discriminator, not a secret.)
+#[cfg(windows)]
 fn vault_user(store_path_arg: Option<&Path>, session_id: &str) -> Result<String, CliError> {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
