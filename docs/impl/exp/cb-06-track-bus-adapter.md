@@ -273,3 +273,19 @@ Edit arm の `BranchEditOp::Project` inner facts を
 verbatim 伝播し、modulated send fixture で candidate
 `send.remove` の "unverifiable effects" deny を
 headless 実測（`docs/impl/exp/issue-553-intent-facts.md`）。
+
+**監査追記（synvelis#557）**: synvelis#553 review の
+残件 — `VariantIntent::Adopt` 経路の `declared_facts`
+同等 gap 監査 — を実施。`AdoptIntent` は inner op を
+持たず `lower_adopt` も CAS のみ受理するため同型 gap
+は構造上存在しないことを確認。adopt の write 認可は
+post-simulation `derive_effects` +
+`authorize_effects` が実 diff で行う設計であり、
+candidate `send.remove` の adopt が teardown
+（SendConfig/`Send` edge/`SendLevel` target の
+`Removed` write、provenance `objects == 3`）を
+物質化することを `cb06_strip_557_adopt_send_remove_
+candidate_materializes_teardown` で実測。唯一の残存
+経路（pre-553 stored candidate payload の観測不能
+entity 削除物質化）は `synvelis#559` に委譲
+（`docs/impl/exp/issue-557-adopt-facts.md`）。

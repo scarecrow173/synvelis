@@ -348,5 +348,22 @@ gateway commit-gate 経路の strip-fields headless exercise を
   伝播し、candidate `send.remove` の "unverifiable
   effects" deny を headless で実測
   （`docs/impl/ir/issue-553-intent-facts.md`）。
+  **追補（synvelis#557）**: synvelis#553 review で
+  残件として記録された `VariantIntent::Adopt` 経路の
+  同等 gap 監査を実施 — `AdoptIntent` は inner op を
+  持たず `lower_adopt` も CAS のみ受理するため
+  sv#553 同型 gap は構造上存在しないことを確認。
+  adopt の write 認可は post-simulation
+  `derive_effects` + `authorize_effects` が実 diff で
+  行う設計であり、candidate `send.remove` の adopt が
+  teardown（SendConfig/`Send` edge/`SendLevel`
+  target の `Removed` write、provenance
+  `objects == 3`）を物質化することを
+  `cb06_strip_557_adopt_send_remove_candidate_
+  materializes_teardown` で headless 実測。唯一の
+  残存経路（pre-553 stored candidate payload の観測
+  不能 entity 削除物質化）は project/gateway 境界の
+  hardening を要するため `synvelis#559` として別
+  Issue 化（`docs/impl/ir/issue-557-adopt-facts.md`）。
 - 実 plugin/PCM/OS/RT 受入は #286/#287/#288 系・CB-STRIP-06
   実機 lane の責務（`evidence/sv283/` で NotRun 記録）。
