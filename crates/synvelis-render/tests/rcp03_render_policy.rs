@@ -2118,14 +2118,14 @@ fn async_pol06_concurrency_quota_pends_then_resumes() {
 
     let k_a = accept_key(scheduler.submit_intent(i_a).expect("alive"));
 
-    // B's submit runs on a helper thread: its reply can only arrive
-    // after the worker drains it, which may be after A's parked
-    // render — awaiting it on the test thread would deadlock.
-    let (b_tx, b_rx) = channel();
-    let sched_b = scheduler.clone();
-    std::thread::spawn(move || {
-        let _ = b_tx.send(sched_b.submit_intent(i_b));
-    });
+    // B's intent is enqueued — not awaited — before A's parked
+    // render is released. `enqueue_intent` returns once the command
+    // sits in the worker's queue, so the submit is ordered before
+    // the release in this thread's program order. The worker cannot
+    // drain commands while parked inside A's render, and A stays
+    // non-terminal until after the release — every drain that can
+    // evaluate B's submit therefore still sees A holding the slot.
+    let b_reply = scheduler.enqueue_intent(i_b).expect("alive");
 
     // A is inside its first render — it lawfully occupies the slot.
     entered_rx
@@ -2133,10 +2133,10 @@ fn async_pol06_concurrency_quota_pends_then_resumes() {
         .expect("A render entered");
     release_tx.send(()).expect("release render");
 
-    let out_b = b_rx
+    let out_b = b_reply
         .recv_timeout(Duration::from_secs(10))
         .expect("B submit answered");
-    let k_b = accept_key(out_b.expect("scheduler alive"));
+    let k_b = accept_key(out_b);
 
     let va = scheduler
         .wait_terminal(&k_a, Duration::from_secs(10))

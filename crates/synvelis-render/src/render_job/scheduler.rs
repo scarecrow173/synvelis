@@ -394,12 +394,13 @@ impl JobScheduler {
         )
     }
 
-    /// Sends `msg` and returns its reply — `try_send` keeps callers
-    /// non-blocking; a full queue is [`SchedulerError::QueueFull`].
-    fn call<T>(
+    /// Enqueues `msg` and returns its reply receiver without waiting
+    /// for the worker — `try_send` keeps callers non-blocking; a
+    /// full queue is [`SchedulerError::QueueFull`].
+    fn enqueue<T>(
         &self,
         build: impl FnOnce(std::sync::mpsc::Sender<T>) -> SchedulerMsg,
-    ) -> Result<T, SchedulerError> {
+    ) -> Result<Receiver<T>, SchedulerError> {
         let (reply_tx, reply_rx) = std::sync::mpsc::channel();
         self.inner
             .tx
@@ -408,7 +409,18 @@ impl JobScheduler {
                 TrySendError::Full(_) => SchedulerError::QueueFull,
                 TrySendError::Disconnected(_) => SchedulerError::Shutdown,
             })?;
-        reply_rx.recv().map_err(|_| SchedulerError::WorkerGone)
+        Ok(reply_rx)
+    }
+
+    /// Sends `msg` and returns its reply — `try_send` keeps callers
+    /// non-blocking; a full queue is [`SchedulerError::QueueFull`].
+    fn call<T>(
+        &self,
+        build: impl FnOnce(std::sync::mpsc::Sender<T>) -> SchedulerMsg,
+    ) -> Result<T, SchedulerError> {
+        self.enqueue(build)?
+            .recv()
+            .map_err(|_| SchedulerError::WorkerGone)
     }
 
     /// Routes + submits a trigger report without driving — returns
@@ -430,7 +442,37 @@ impl JobScheduler {
     /// # Errors
     /// [`SchedulerError`] — see [`Self::handle_report`].
     pub fn submit_intent(&self, intent: JobIntent) -> Result<SubmitOutcome, SchedulerError> {
-        self.call(|reply| SchedulerMsg::SubmitIntent {
+        self.enqueue_intent(intent)?
+            .recv()
+            .map_err(|_| SchedulerError::WorkerGone)
+    }
+
+    /// Enqueues a pre-assembled [`JobIntent`] without waiting for
+    /// the worker's submit evaluation.
+    ///
+    /// Ordering contract: the command sits in the worker's queue
+    /// when this call returns — ahead of every command or signal
+    /// the caller issues afterwards. The worker evaluates it at its
+    /// next command drain, and drains process every queued command,
+    /// so the submit cannot be overtaken by scheduler-visible work
+    /// triggered after this call returns. Callers that must order
+    /// a submission against another observable event (for example
+    /// releasing a gated executor) get that happens-before from
+    /// program order alone — no helper thread whose enqueue timing
+    /// they cannot observe (synvelis#567).
+    ///
+    /// The returned receiver yields the same [`SubmitOutcome`]
+    /// [`Self::submit_intent`] returns; `recv` fails only when the
+    /// worker died before answering.
+    ///
+    /// # Errors
+    /// [`SchedulerError::QueueFull`]/[`SchedulerError::Shutdown`]
+    /// when the command could not be queued — nothing was accepted.
+    pub fn enqueue_intent(
+        &self,
+        intent: JobIntent,
+    ) -> Result<Receiver<SubmitOutcome>, SchedulerError> {
+        self.enqueue(|reply| SchedulerMsg::SubmitIntent {
             intent: Box::new(intent),
             reply,
         })
