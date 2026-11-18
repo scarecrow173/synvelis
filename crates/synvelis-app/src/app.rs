@@ -270,7 +270,9 @@ pub struct SynvelisApp {
     /// is the `ViewInstanceId`, never the epoch.
     attach_epochs: Rc<RefCell<AttachEpochAllocator>>,
     /// Bundle the session was created or opened from — `reload` reopens it.
-    bundle_path: Option<String>,
+    /// `pub(crate)` so `ui_ops` can root the Difference Explorer's
+    /// variant content store at the live bundle (synvelis#286 CB-09).
+    pub(crate) bundle_path: Option<String>,
     /// Cloneable handle to the attached [`SessionRoutingEngine`] — the
     /// session owns one boxed `EnginePort`; this handle lets the app
     /// compose engine evidence (receipt/source map/probe bindings)
@@ -1022,6 +1024,10 @@ impl SynvelisApp {
         // 参照するため破棄する（注入 device は host resource として
         // 保持される）。
         self.recorder.reset();
+        // Difference Explorer の engine/session/publish 観測は
+        // 旧 project の pin・receipt に紐づくため破棄する —
+        // view id 空間も新 workspace で再採番される。
+        self.ui.reset_variant_diff();
         self.bind_vcs_backend(path);
         self.bind_library_backend();
         Ok(self.project_info())
@@ -1073,6 +1079,9 @@ impl SynvelisApp {
         // `project_new_inner` と同じく稼働 recorder session を破棄
         // する（注入 device は保持）。
         self.recorder.reset();
+        // `project_new_inner` と同じく variant-diff の engine/
+        // session/publish 観測を破棄する。
+        self.ui.reset_variant_diff();
         self.bind_vcs_backend(path);
         self.bind_library_backend();
         Ok(self.project_info())

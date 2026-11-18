@@ -88,6 +88,7 @@ impl WorkspaceRenderDispatch {
         }
     }
 
+    #[allow(clippy::result_large_err)] // typed envelope is the contract
     fn decode_report(args: &Value) -> Result<TriggerReport, RenderDispatchOutcome> {
         serde_json::from_value(args.clone()).map_err(|e| {
             Self::outcome(
@@ -102,6 +103,7 @@ impl WorkspaceRenderDispatch {
 
     /// Decodes `{"job": <RenderJobKey>}`; a bare key object is also
     /// accepted for convenience.
+    #[allow(clippy::result_large_err)] // typed envelope is the contract
     fn decode_key(args: &Value) -> Result<RenderJobKey, RenderDispatchOutcome> {
         let candidate = args.get("job").cloned().unwrap_or_else(|| args.clone());
         serde_json::from_value(candidate).map_err(|e| {
@@ -133,15 +135,7 @@ impl WorkspaceRenderDispatch {
         match self.scheduler.handle_report(report) {
             Ok(TriggerOutcome::Job { key, coalesced }) => {
                 let receipt = serde_json::to_value(&key).ok();
-                if !coalesced {
-                    Self::outcome(
-                        RenderDispatchState::Pending {
-                            reason: "render job accepted; completion is asynchronous".to_owned(),
-                        },
-                        None,
-                        receipt,
-                    )
-                } else {
+                if coalesced {
                     // A coalesced submit into a terminal job does no
                     // new work — report the actual job state rather
                     // than claiming "in-flight" (synvelis#518).
@@ -169,6 +163,14 @@ impl WorkspaceRenderDispatch {
                             receipt,
                         ),
                     }
+                } else {
+                    Self::outcome(
+                        RenderDispatchState::Pending {
+                            reason: "render job accepted; completion is asynchronous".to_owned(),
+                        },
+                        None,
+                        receipt,
+                    )
                 }
             }
             Ok(TriggerOutcome::ShareGate { job, verdict }) => {
