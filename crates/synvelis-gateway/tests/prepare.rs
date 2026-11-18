@@ -15,10 +15,10 @@ use serde_json::{Value, json};
 use synvelis_gateway::*;
 use synvelis_project::{
     AutomationTimeScope, ClipId, Command, ControlOwner, CounterIdGenerator, MidiTick, NoteId,
-    ParamMapping, ParameterRole, ParameterTargetId, Polarity, PortDirection, PortOwner, PortRole,
-    ProcessorId, ProjectController, ProjectOp, ProjectRevision, SemanticPortId, SendTap,
-    SmfDocument, SmfEvent, SmfEventKind, SmfFormat, SmfTrack, SourceId, SourceKind, StripId,
-    TrackId, TrackMonitorDecl, Transform, ValueKind,
+    ParamMapping, ParameterRole, ParameterTargetId, PluginRef, Polarity, PortDirection, PortOwner,
+    PortRole, ProcessorBinding, ProcessorId, ProjectController, ProjectOp, ProjectRevision,
+    SemanticPortId, SendTap, SmfDocument, SmfEvent, SmfEventKind, SmfFormat, SmfTrack, SourceId,
+    SourceKind, StripId, TrackId, TrackMonitorDecl, Transform, ValueKind,
 };
 
 // ── Happy path + non-destructivity ───────────────────────────
@@ -1944,4 +1944,118 @@ fn sv561_batch_seal_release_unobservable_denied() {
         .expect_err("batch seal-then-release with an unobservable cascade must reject");
     sv561_expect_unverifiable(err);
     assert_eq!(rig.engine.proposal_count(), 0);
+}
+
+// ── synvelis#565 — set-binding persisted-identity posture pins ─────
+//
+// `synvelis.processor.set-binding` retires and re-issues the
+// processor's persisted plugin-instance identity through
+// `plugin_instances.sync_processor` — internal structure no
+// `ResourceRef` can name (`ResourceKind`/`ENUMERATED_KINDS` carry
+// no PluginInstance kind). The binding change itself stays
+// observable: the `Processor` `Write` effect's before/after detail
+// serializes the whole `Processor` including `binding`. These pins
+// fix that contract — the op must stay receivable (no unsupported
+// over-denial) while the candidate's identity store reflects the
+// retirement.
+
+/// The authored plugin identity the fixture processor binds to.
+fn sv565_plugin_ref() -> PluginRef {
+    PluginRef {
+        descriptor: "vendor.sv565".into(),
+        version: "1.0.0".into(),
+        capability_revision: 3,
+    }
+}
+
+/// File-local fixture: one track + strip + one `Resolved` processor,
+/// built through domain ops (the shared `rig` fixture stays frozen).
+fn sv565_processor_controller() -> (ProjectController, ProcessorId) {
+    let mut c = ProjectController::new(
+        synvelis_project::Project::new(project(), "sv565"),
+        Box::new(CounterIdGenerator::new(9_100)),
+    );
+    sv561_apply(
+        &mut c,
+        ProjectOp::AddTrack {
+            name: "sv565".to_owned(),
+        },
+    );
+    let track = *c.live().tracks.keys().next_back().unwrap();
+    sv561_apply(&mut c, ProjectOp::AddTrackStrip { track_id: track });
+    let strip = c.live().routing.strip_of_track(track).unwrap().id;
+    sv561_apply(
+        &mut c,
+        ProjectOp::InsertProcessor {
+            strip_id: strip,
+            index: 0,
+            name: "fx".into(),
+            binding: ProcessorBinding::Resolved(sv565_plugin_ref()),
+            sidechain_input: false,
+        },
+    );
+    let proc = *c.live().routing.processors.keys().next_back().unwrap();
+    (c, proc)
+}
+
+#[test]
+fn sv565_processor_set_binding_write_detail_carries_binding_and_retires_identity() {
+    // Rebind to a different `PluginRef` — a different authored
+    // identity, so `sync_processor` retires the old persisted
+    // instance id and mints a new one inside the candidate.
+    let mut rig = fixture_rig();
+    let (c, proc) = sv565_processor_controller();
+    let rev = sv561_commit(&mut rig, &c);
+
+    let new_binding = serde_json::to_value(ProcessorBinding::Resolved(PluginRef {
+        descriptor: "vendor.sv565-b".into(),
+        version: "2.0.0".into(),
+        capability_revision: 7,
+    }))
+    .unwrap();
+    let result = complete(
+        rig.gw
+            .handle(
+                &prepare_req(
+                    None,
+                    None,
+                    op(
+                        "synvelis.processor.set-binding",
+                        res_target("processor", &ResourceRef::Processor(proc)),
+                        json!({"binding": new_binding}),
+                    ),
+                    expected(rev),
+                ),
+                human(),
+            )
+            .unwrap(),
+    );
+    let record = record_for(&rig, &result);
+
+    // The persisted-identity retirement is internal structure — the
+    // op carries no unsupported verdict (no over-denial).
+    assert_eq!(record.prepared.unsupported, Vec::<String>::new());
+
+    // The `Processor` `Write` effect carries the binding diff — the
+    // observable half of the rebind contract.
+    let write = effect(&record, EffectKind::Write, &ResourceRef::Processor(proc));
+    let before_binding = &write.before_detail.as_ref().unwrap()["binding"];
+    let after_binding = &write.after_detail.as_ref().unwrap()["binding"];
+    assert_eq!(before_binding["binding"], json!("Resolved"));
+    assert_eq!(before_binding["descriptor"], json!("vendor.sv565"));
+    assert_eq!(after_binding["binding"], json!("Resolved"));
+    assert_eq!(after_binding["descriptor"], json!("vendor.sv565-b"));
+    assert_eq!(after_binding["capability_revision"], json!(7));
+
+    // The candidate's identity store reflects the retirement: a new
+    // id issued for the new `PluginRef`, the watermark advanced past
+    // both issued ids, and the post-apply oracle holds.
+    let candidate = &record.prepared.candidate;
+    let entry = &candidate.plugin_instances.instances[&proc];
+    assert_eq!(entry.plugin.descriptor, "vendor.sv565-b");
+    // The fixture issues id 1 on insert and id 2 on rebind — pin the
+    // exact values so a double-allocation regression cannot pass.
+    assert_eq!(entry.id.get(), 2);
+    assert_eq!(candidate.plugin_instances.watermark, 3);
+    assert!(candidate.validate_references().is_ok());
 }
