@@ -49,8 +49,29 @@
 | --- | --- | --- |
 | `mise run check-full` / `lint-full` / `test-full` / `build-full` / `verify-full`・Feature Matrix・`*-msrv`・3OS 横断 | NotRun | `POLICIES.md` §5 — 日常必須検証に含めない。scoped equivalent = `mise run test synvelis-render` で充足。統合検証は merge 後対象 SHA の CI（Daily/手動 Full CI・PR lane）に委譲 |
 | 実 PCM / 実 plugin / 実 GUI lane | NotRun | headless 実測のみが本 slice の対象。GUI-L2/EXT-L3 は対象外 |
-| PR `verify (windows-latest)` | 未確認（push 後に確認） | Windows CI lane green は PR CI の結果で判定 — Worker は push 後に PR CI を確認し、merge 後 main の CI 証拠は Coordinator が確認 |
 | `synvelis#566` 担当領域の ubuntu lint-full dead_code | Unsupported（本 slice 範囲外） | 並行 Worker sv#566 の占有パス。同一手動 CI run の失敗は本 slice と無関係 |
+
+## PR CI（統合検証の先行証拠 — merge 前の対象 SHA）
+
+`ci.yml` は `workflow_dispatch` 専用（pull_request trigger 撤去済み）
+のため、Worker が branch ref で dispatch して PR head SHA を検証:
+
+- run `44278685565`（`workflow_dispatch` on
+  `bugfix/567-quota-pend-receipt`、`expected_sha`
+  `fd2e2acea945465c3ab238cfd978a89d89438982` = PR head）
+- **`verify (windows-latest)`: Passed（24m32s、全 step 緑 —
+  `mise run test-full` の `rcp03_render_policy` suite を含む）**
+  → Issue AC「Windows CI lane green」を充足
+- `verify-macos`: Passed（16m13s）/ `msrv-verify`: Passed（12m16s）
+- `verify (ubuntu-latest)`: **Failed** — `lint-full` で
+  `crates/synvelis-cli/src/session.rs` の dead_code
+  （`VAULT_SERVICE`・`vault_user`、main 既存）により fail。
+  sv#566 の占有パスで本 slice 範囲外。`evidence`・
+  `ci-summary` の fail はこの leg の fail-closed cascade
+- その他 lane（`ui-verify` ×3・`gw10-verify` ×4・`rt-verify`・
+  `dep-guard`）: 全て Passed
+
+merge 後 main の CI 証拠は Coordinator が確認する。
 
 ## 判断根拠の要約
 
