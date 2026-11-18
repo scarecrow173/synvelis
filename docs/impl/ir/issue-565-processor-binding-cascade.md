@@ -1,7 +1,7 @@
 ---
 id: "IR-565ProcessorBindingCascade07"
-type: "impl-ir"
-status: "implemented"
+type: "impl"
+status: "completed"
 title: "Issue #565 impl-ir — 退役 cascade 監査の実装記録"
 created: "2026-11-18"
 updated: "2026-11-18"
@@ -57,6 +57,11 @@ relations:
   defers:
     - "synvelis#128"
   deferred-by: []
+metadata:
+  experiments:
+    adopted:
+      - "docs/impl/exp/issue-565-processor-binding-cascade.md"
+    rejected: []
 ---
 
 # Issue #565 impl-ir — 退役 cascade 監査の実装記録

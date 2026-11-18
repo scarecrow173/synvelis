@@ -90,7 +90,9 @@ Directory: `docs/test-specs`
 | TSPEC-552SendGainSeal07 | Issue #552 test-spec — SendGainTarget seal 解放の検証仕様 | approved | [issue-552-sendgain-seal.md](./issue-552-sendgain-seal.md) |
 | TSPEC-553IntentFacts07 | Issue #553 test-spec — intent_facts 伝播の検証仕様 | approved | [issue-553-intent-facts.md](./issue-553-intent-facts.md) |
 | TSPEC-557AdoptFacts06 | Issue #557 test-spec — adopt declared_facts 監査の検証仕様 | approved | [issue-557-adopt-facts.md](./issue-557-adopt-facts.md) |
+| TSPEC-559AdoptUnobservableRemoval06 | Issue #559 test-spec — adopt 観測不能 entity 削除 fail-closed の検証仕様 | approved | [issue-559-adopt-unobservable-removal.md](./issue-559-adopt-unobservable-removal.md) |
 | TSPEC-561OpFactsUnverifiable06 | Issue #561 test-spec — op_facts unverifiable cascade の検証仕様 | approved | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
+| TSPEC-565ProcessorBindingCascade06 | Issue #565 test-spec — 退役 cascade の検証仕様 | approved | [issue-565-processor-binding-cascade.md](./issue-565-processor-binding-cascade.md) |
 | TSPEC-Zb0ctcQ2s7S0lDwxkjXsiu | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 — テスト仕様 | approved | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | TSPEC-034QmjuUDQRs8JzfSsG8wM | L2 検証仕様 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
