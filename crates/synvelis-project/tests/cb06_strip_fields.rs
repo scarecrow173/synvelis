@@ -2776,10 +2776,10 @@ fn cb_strip_550_sends_ops_mask_gated() {
     );
 
     // Rebinding the bound send to a *different* scope-owned target
-    // rejects typed — apply seals the new target's `SendLevel` role
-    // without releasing the old one (a singleton per send owner), so
-    // the transition could never succeed; the adapter fails closed
-    // instead of surfacing a project-validation error.
+    // is a positive candidate edit (synvelis#552): apply releases
+    // the previous `SendLevel` seal — the old target leaves the
+    // scope-owned set as a supported deletion — and seals the new
+    // target in the same apply, so no half-sealed state commits.
     h.edit(
         set,
         candidate,
@@ -2795,19 +2795,47 @@ fn cb_strip_550_sends_ops_mask_gated() {
         },
     );
     let lvl2 = send_level_target(&h.candidate(set, candidate), new_send);
-    let err = h
-        .try_edit(
-            set,
-            candidate,
-            ProjectOp::SetSendGainTarget {
-                send_id: ids.send,
-                gain_target: Some(lvl2),
-            },
-        )
-        .unwrap_err();
+    h.edit(
+        set,
+        candidate,
+        ProjectOp::SetSendGainTarget {
+            send_id: ids.send,
+            gain_target: Some(lvl2),
+        },
+    );
+    let cand = h.candidate(set, candidate);
+    assert_eq!(cand.routing.sends[&ids.send].gain_target, Some(lvl2));
+    assert_eq!(
+        cand.control.targets[&lvl2].owner,
+        ControlOwner::Send(ids.send),
+        "the rebound target seals to the bound send"
+    );
+    assert_eq!(cand.control.targets[&lvl2].role, ParameterRole::SendLevel);
     assert!(
-        matches!(err, VariantError::Unsupported { .. }),
-        "send gain rebind must reject Unsupported, got {err:?}"
+        !cand.control.targets.contains_key(&lvl),
+        "the released SendLevel target must leave the candidate"
+    );
+    assert!(
+        !cand
+            .control
+            .targets
+            .values()
+            .any(|t| t.owner == ControlOwner::Send(ids.send)
+                && t.role == ParameterRole::SendLevel
+                && t.id != lvl2),
+        "exactly one SendLevel target may remain on the send owner"
+    );
+    // Live is untouched — the rebind is candidate-local; live's
+    // send keeps its original unbound gain target and never gains
+    // the candidate-local `lvl`/`lvl2` entities.
+    assert_eq!(
+        h.controller.live().routing.sends[&ids.send].gain_target,
+        None,
+        "live keeps the pre-rebind (unbound) gain target"
+    );
+    assert!(
+        !h.controller.live().control.targets.contains_key(&lvl),
+        "the candidate-local target never materialized live"
     );
 
     // Removing the *new* send is a genuine scope-entity deletion —

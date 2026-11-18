@@ -384,23 +384,13 @@ fn check_strip_routing_op_targets(
                     ObjectKind::ParameterTarget,
                     &target.to_tagged(),
                 )?;
-                // `SendLevel` is a singleton per send owner and apply
-                // seals the new target without releasing the old
-                // one, so rebinding to a *different* target always
-                // fails project validation. Reject the impossible
-                // transition typed; re-asserting the bound target or
-                // clearing to `None` still works.
-                if let Some(send) = project.routing.sends.get(send_id)
-                    && send.gain_target.is_some_and(|bound| bound != *target)
-                {
-                    return Err(VariantError::Unsupported {
-                        detail: format!(
-                            "rebinding send {send_id} to a different gain target is not \
-                             supported — the previous SendLevel seal cannot be released"
-                        ),
-                    });
-                }
             }
+            // synvelis#552: a rebind to a *different* target is a
+            // positive edit — apply releases the previous `SendLevel`
+            // seal (target + its control closure) inside the same
+            // apply, and the departed scope objects land in the
+            // removal check as supported deletions. Re-asserting the
+            // bound target or clearing to `None` release identically.
             Ok(())
         }),
         ProjectOp::AddConnection { source, kind, .. } => {

@@ -1001,6 +1001,262 @@ fn canonical_send_gain_targets_adopt_via_routing_intent() {
     assert_eq!(send_level_target_id(f.c.live(), f.send), Some(target2));
 }
 
+// ── CTL-02 rebind: Some→Some releases the old SendLevel seal ────
+
+/// Issue #552: rebinding a configured send to a different gain
+/// target releases the previous `SendLevel` seal inside the same
+/// apply — the old target's control closure (its automation lane
+/// and every modulation assignment touching it, as target or
+/// `depth_source`) dies with the seal while the new target binds
+/// atomically. The post-apply oracle only ever sees the final
+/// binding, so no half-sealed state (old seal lingering beside the
+/// new one on the same send owner) can commit.
+#[test]
+fn send_gain_rebind_releases_the_previous_seal() {
+    let mut f = adopt_fixture();
+    let canonical = (
+        ValueKind::Continuous,
+        ParamMapping::Linear,
+        AutomationTimeScope::ProjectMusical,
+        None,
+    );
+
+    // First bind: None → Some seals `first`.
+    let first = add_free_target(&mut f.c, ControlOwner::Track(f.track), canonical);
+    f.c.apply(cmd(
+        &f.c,
+        ProjectOp::SetSendGainTarget {
+            send_id: f.send,
+            gain_target: Some(first),
+        },
+    ))
+    .unwrap();
+
+    // Control closure on the bound target: an automation lane, a
+    // modulation assignment targeting it, and a second assignment
+    // using it as `depth_source` — all must die with the seal.
+    f.c.apply(cmd(&f.c, ProjectOp::AddAutomationLane { target: first }))
+        .unwrap();
+    let lane =
+        f.c.live()
+            .control
+            .lanes
+            .values()
+            .find(|l| l.target == first)
+            .map(|l| l.id)
+            .unwrap();
+    f.c.apply(cmd(
+        &f.c,
+        ProjectOp::AddModulationSource {
+            owner: ControlOwner::Project,
+            kind: SourceKind::Lfo {
+                rate: BeatPoint::new(2, 1).unwrap(),
+                shape: LfoShape::Sine,
+                bipolar: true,
+            },
+        },
+    ))
+    .unwrap();
+    let source = *f.c.live().control.sources.keys().next().unwrap();
+    let other = add_free_target(&mut f.c, ControlOwner::Track(f.track), canonical);
+    for (target, depth_source) in [(first, None), (other, Some(first))] {
+        f.c.apply(cmd(
+            &f.c,
+            ProjectOp::AddModulationAssignment {
+                source,
+                target,
+                depth: 0.4,
+                depth_source,
+                polarity: Polarity::Bipolar,
+                transform: Transform::Identity,
+                enabled: true,
+            },
+        ))
+        .unwrap();
+    }
+
+    let second = add_free_target(&mut f.c, ControlOwner::Track(f.track), canonical);
+    let before = serde_json::to_value(f.c.live()).unwrap();
+
+    // Some → Some rebind: accepted — release and seal are one apply.
+    f.c.apply(cmd(
+        &f.c,
+        ProjectOp::SetSendGainTarget {
+            send_id: f.send,
+            gain_target: Some(second),
+        },
+    ))
+    .unwrap();
+
+    let live = f.c.live();
+    assert_eq!(live.routing.sends[&f.send].gain_target, Some(second));
+    let bound = &live.control.targets[&second];
+    assert_eq!(bound.owner, ControlOwner::Send(f.send));
+    assert_eq!(bound.role, ParameterRole::SendLevel);
+    assert_eq!(send_level_target_id(live, f.send), Some(second));
+    // The released target and its exclusive control closure are
+    // gone — no orphan `SendLevel`, no dangling lane/assignment.
+    assert!(!live.control.targets.contains_key(&first));
+    assert!(!live.control.lanes.contains_key(&lane));
+    assert!(
+        live.control
+            .assignments
+            .values()
+            .all(|a| a.target != first && a.depth_source != Some(first)),
+        "assignments touching the released target must be gone"
+    );
+    assert!(live.control.assignments.is_empty());
+    // Untouched neighbors survive: the other target and the shared
+    // (now unassigned) modulation source.
+    assert!(live.control.targets.contains_key(&other));
+    assert!(live.control.sources.contains_key(&source));
+    // Exactly one `SendLevel` target remains on the send owner.
+    assert_eq!(
+        live.control
+            .targets
+            .values()
+            .filter(|t| {
+                t.owner == ControlOwner::Send(f.send) && t.role == ParameterRole::SendLevel
+            })
+            .count(),
+        1
+    );
+
+    // Undo restores the pre-rebind state bit-for-bit — release and
+    // seal commit as a single undo entry.
+    f.c.undo().unwrap();
+    assert_eq!(serde_json::to_value(f.c.live()).unwrap(), before);
+}
+
+/// Issue #552: `SetSendGainTarget { None }` unconfigure releases the
+/// seal the same way — no orphan `SendLevel` target may linger, or
+/// the next bind to a *different* target would collide on the
+/// `(Send, SendLevel)` singleton.
+#[test]
+fn send_gain_unconfigure_then_rebind_leaves_no_orphan_seal() {
+    let mut f = adopt_fixture();
+    let canonical = (
+        ValueKind::Continuous,
+        ParamMapping::Linear,
+        AutomationTimeScope::ProjectMusical,
+        None,
+    );
+
+    let first = add_free_target(&mut f.c, ControlOwner::Track(f.track), canonical);
+    f.c.apply(cmd(
+        &f.c,
+        ProjectOp::SetSendGainTarget {
+            send_id: f.send,
+            gain_target: Some(first),
+        },
+    ))
+    .unwrap();
+    f.c.apply(cmd(&f.c, ProjectOp::AddAutomationLane { target: first }))
+        .unwrap();
+
+    // Some → None: the send returns to the canonical unconfigured
+    // representation — `gain_target: None` and no `SendLevel` target.
+    f.c.apply(cmd(
+        &f.c,
+        ProjectOp::SetSendGainTarget {
+            send_id: f.send,
+            gain_target: None,
+        },
+    ))
+    .unwrap();
+    let live = f.c.live();
+    assert_eq!(live.routing.sends[&f.send].gain_target, None);
+    assert!(!live.control.targets.contains_key(&first));
+    assert!(live.control.lanes.is_empty());
+    assert_eq!(send_level_target_id(live, f.send), None);
+    assert!(
+        !live
+            .control
+            .targets
+            .values()
+            .any(|t| t.owner == ControlOwner::Send(f.send) && t.role == ParameterRole::SendLevel),
+        "unconfigure must not leave an orphan SendLevel seal"
+    );
+
+    // None → Some on a *different* target is accepted — the orphan
+    // seal that used to make this transition collide is gone.
+    let second = add_free_target(&mut f.c, ControlOwner::Track(f.track), canonical);
+    f.c.apply(cmd(
+        &f.c,
+        ProjectOp::SetSendGainTarget {
+            send_id: f.send,
+            gain_target: Some(second),
+        },
+    ))
+    .unwrap();
+    assert_eq!(send_level_target_id(f.c.live(), f.send), Some(second));
+}
+
+/// Issue #552: the `RoutingEditIntent` transaction path lowers to
+/// the same `ProjectOp::SetSendGainTarget` — a Some→Some rebind
+/// through `RoutingEdit::SetSendGainTarget` releases the old seal
+/// identically.
+#[test]
+fn send_gain_rebind_via_routing_intent_releases_the_seal() {
+    let mut f = adopt_fixture();
+    let canonical = (
+        ValueKind::Continuous,
+        ParamMapping::Linear,
+        AutomationTimeScope::ProjectMusical,
+        None,
+    );
+
+    let first = add_free_target(&mut f.c, ControlOwner::Track(f.track), canonical);
+    f.c.apply(cmd(
+        &f.c,
+        ProjectOp::SetSendGainTarget {
+            send_id: f.send,
+            gain_target: Some(first),
+        },
+    ))
+    .unwrap();
+    let second = add_free_target(&mut f.c, ControlOwner::Track(f.track), canonical);
+
+    let it = intent(
+        &f.c,
+        vec![RoutingEdit::SetSendGainTarget {
+            send: SendRef::Existing(f.send),
+            target: Some(second),
+        }],
+    );
+    apply_intent(&mut f.c, it).unwrap();
+
+    let live = f.c.live();
+    assert_eq!(live.routing.sends[&f.send].gain_target, Some(second));
+    assert_eq!(
+        live.control.targets[&second].owner,
+        ControlOwner::Send(f.send)
+    );
+    assert!(!live.control.targets.contains_key(&first));
+    assert_eq!(send_level_target_id(live, f.send), Some(second));
+
+    // `target: None` through the same path unconfigures and releases.
+    let it = intent(
+        &f.c,
+        vec![RoutingEdit::SetSendGainTarget {
+            send: SendRef::Existing(f.send),
+            target: None,
+        }],
+    );
+    apply_intent(&mut f.c, it).unwrap();
+    let live = f.c.live();
+    assert_eq!(live.routing.sends[&f.send].gain_target, None);
+    assert!(!live.control.targets.contains_key(&second));
+    assert!(
+        !live
+            .control
+            .targets
+            .values()
+            .any(|t| t.owner == ControlOwner::Send(f.send) && t.role == ParameterRole::SendLevel),
+        "intent unconfigure must not leave an orphan SendLevel seal"
+    );
+}
+
 // ── CTL-02 stage-1 semantic plugin binding ──────────────────────
 
 fn add_processor(c: &mut ProjectController, strip: StripId, resolved: bool) -> ProcessorId {
