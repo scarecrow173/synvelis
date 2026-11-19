@@ -110,7 +110,7 @@ Inspector の対象空間は **既存 entity 参照の tagged union**
 | Probe | `SemanticProbePoint{entity,boundary,port}` | 不可 → Observations section / 専用 Probe 対象として明示選択 |
 | MIDI Note/Event | （#10/#12 model 確定待ち） | 将来。Provider 位置のみ予約 |
 
-link event が運ぶのは `map_to_track` による semantic mapping 後の
+link event が伝えるのは `map_to_track` による semantic mapping 後の
 `SemanticTarget::Track` のみである（Clip/Lane 選択は owning
 Track へ写像、Source 選択は event 自体が不発、Bus/Strip/
 Processor/Parameter/Connection/Send/Port/Probe は

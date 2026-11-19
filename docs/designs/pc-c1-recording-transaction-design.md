@@ -91,7 +91,7 @@ last_disposition: Option<RecordDisposition>
   write-mode + bound lane + record-enabled + rolling)は変更しない。
 - `record_points` は `fixed_lanes` を引く(live `write_lanes` ではない)。
   `bind_write_lane` は固定対象への再 bind を `Validation` で拒否する
-  (非固定対象は次回 transaction へ効く)。
+  (非固定対象は次回 transaction に適用される)。
 - `SealReason` に `Stopped`/`Seek`/`ModeChanged`/`ArmChanged`/
   `ProjectChange` を追加。seal は常に「write gate のみ」を閉じ、
   commit/abort/prepare は可能(LoopWrap の既存契約どおり)。

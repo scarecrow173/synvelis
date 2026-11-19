@@ -183,7 +183,7 @@ OracleFixture（宣言的）
 - fixture 構築: workspace 側は `Project::new` → `ProjectSession` →
   `control_with` 駆動、player 側は `pc_c4_binding.rs` の Rig 流儀。
 - oracle: 宣言モデル → 期待値導出（`Project`/binding/dispatch/view
-  internals は読まない — 観測対象としてのみ触れる）。
+  internals は読まない — 観測対象としてのみ扱う）。
 - 照合: transaction field・`DispatchError` variant・delivery log・
   `RelationView`/`ControlEdgeOutcome`/undo 深さを比較。
 - 計測: `stats_alloc` のみ（PL05）。`Instant` 閾値判定は行わない。

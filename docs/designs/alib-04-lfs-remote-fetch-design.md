@@ -117,8 +117,8 @@ expected size を EOF で照合）にあり、本 slice は「正しい
 - `actions.download.headers`（文字列値のみ）は verbatim で付与
   し、wire 境界で header 妥当性を再検証する。
 - redirect は `MAX_REDIRECTS`(=4) まで追従。`https` 遷移先も
-  同一の TLS transport で follow する（scheme は target が
-  運び、暗黙の downgrade/upgrade はしない）。303 と POST への
+  同一の TLS transport で follow する（scheme は target のものを
+  使い、暗黙の downgrade/upgrade はしない）。303 と POST への
   301/302 は GET 化、307/308 は method/body を保持。
 - `Content-Length` が declared size と不一致なら open 時に
   `IntegrityMismatch`（早期検出）。宣言なし・chunked・
@@ -163,7 +163,7 @@ expected size を EOF で照合）にあり、本 slice は「正しい
   を追加し、`tls: Some` の endpoint は rustls handshake を
   cooperative guard（`IO_POLL` 毎の cancel/deadline/stall 再確認）
   の下で行う `TlsConn` で接続する。trust root は
-  `ProviderContext::tls: Option<TlsTrust>` が運ぶ — `None` は
+  `ProviderContext::tls: Option<TlsTrust>` が保持する — `None` は
   platform native root store（`rustls-native-certs`、process 内
   1 回 lazy 構築）、`Some` は `TlsTrust::from_pem` の明示 CA
   （private CA・fixture 用。検証強度は変えず trust anchor の

@@ -93,7 +93,7 @@ executor があるかを registry public API で観測できず、
 
 `Registration.handler` は `pub(crate)` のまま — executor 本体を
 公開すると `&CapabilityRegistry` の保持者が policy 評価を
-迂回して実行できてしまう（`Registration` doc の既存契約）。
+迂回して実行可能になる（`Registration` doc の既存契約）。
 `Gateway::invoke` の `NoExecutor` は引き続き唯一の実行時
 authority であり、本設計は discovery 層の観測手段のみを追加する。
 

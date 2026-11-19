@@ -99,7 +99,7 @@ targets/sources 収集 → assignment 触診）を
   observable model"`）を維持する。helper は bool を返し、
   文言は各 arm が owner に応じて push する
   （`RemoveTrack` は `"strip-owned modulation entities…"`）。
-- **DRY の根拠**: 「owner の control closure に触れる
+- **DRY の根拠**: 「owner の control closure に属する
   modulation entity の削除は観測不能」は domain の単一規則
   であり、`RemoveSend`/`RemoveTrack` の 2 caller が同じ
   authoritative 実装を共有するのが整合的。`RemoveMidiSource`

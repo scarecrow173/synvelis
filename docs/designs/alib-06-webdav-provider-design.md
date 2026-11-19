@@ -168,7 +168,7 @@ http への silent downgrade はしない）。
 - stall poll: blocking socket + 短い read timeout slice
   （既定 50ms）で `read` を retry し、各 retry で
   `cx.cancel`/`deadline`/累積 `io_timeout` を確認する。
-  socket stall 中でも cancel/deadline が ~50ms で効く
+  socket stall 中でも cancel/deadline が ~50ms で機能する
   （Cancelled Fetch の中核）。timeout 超過 →
   `TransientIo`、cancel → `Cancelled`、deadline →
   `BudgetExceeded`。

@@ -130,7 +130,7 @@ pin 内容:
   proposal を発行する（`unsupported` なし — 過剰拒否なし
   の反証を兼ねる）
 - `Write` 効果が `ResourceRef::Processor(proc)` に対し、
-  before/after detail の `binding` フィールド差分を運ぶ
+  before/after detail の `binding` フィールド差分を含む
 - `record.prepared.candidate.plugin_instances` で新 id 発行・
   旧 entry 置換・watermark 前進を確認（candidate は
   `Arc<Project>` で直接読める — prepare の trial-apply が

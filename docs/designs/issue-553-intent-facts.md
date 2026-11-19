@@ -53,8 +53,8 @@ relations:
   `facts.unsupported` 非空 → `PreparationRejected`
   （"unverifiable effects"）。この gate は
   `PreparedMutation::Project`・`Variant`・`Render` の
-  全経路で同一に効く — 伝播層を直せば deny は
-  top-level と同一のものが variant-edit にも効く。
+  全経路で同一に適用される — 伝播層を直せば deny は
+  variant-edit にも top-level と同一になる。
 
 ## 変更点
 
