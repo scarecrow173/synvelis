@@ -90,7 +90,7 @@ script が生成する batch 呼出は [design-atomic-macro.md](design-atomic-ma
 ## 5. Script に許されないもの
 
 - Grant・Token・Approval receipt・human authority の script 内への保存・
-  埋め込み・発行（script は authority を運ばない）。
+  埋め込み・発行（script は authority を持たない）。
 - 直接の Project mutation・CommitGate/Project mutex の呼出・保持。
 - 第二 Capability Registry・第二 Job truth・第二 Project writer の実装。
 - `script run` / `--script` 等の独立実行面の作成。**CLI は

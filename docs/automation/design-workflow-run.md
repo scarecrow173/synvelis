@@ -159,7 +159,7 @@ CancelRequested | Indeterminate}`。Step の `Completed` は「その step が�
 - **`operation_result` は正本 3 段照合**: `Gateway::operation_outcome`
   （keyed outcome ledger）→ `CommitPort::reconcile`（commit-bound）
   → `JobEngine::record`（admitted submit）の順。いずれにも記録が
-  無ければ `Unknown` — `Settled` を捏造しない。
+  無ければ `Unknown` とし、`Settled` を捏造しない。
 - **registry snapshot は厳密版投影**: `capture_registry_snapshot` は
   Gateway `CapabilityRegistry`/`SchemaRegistry` を automation
   `RegistrySnapshot` へ version・domain・contract・schema を
