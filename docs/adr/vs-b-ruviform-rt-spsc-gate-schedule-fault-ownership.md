@@ -142,7 +142,7 @@ Chosen option: "Q-1 + G-1 + F-1 + O-1 + S-1"。
   が 1 個に限定される本 Gate では、もう 1 本の Queue とその満杯時の
   payload 返却ポリシーを持ち込む必要がない（YAGNI。汎用的な retire
   需要は VS-C 以降で再評価）。
-* S-1: Span を Chunk と同じ所有権単位で運ぶと、Queue/所有権/故障経路が
+* S-1: Span を Chunk と同じ所有権単位に含めると、Queue/所有権/故障経路が
   増えず、Writer が受け取る 1 メッセージで Block の全保存区間が完結
   する。S-2 は欠落時の Span/PCM 照合を別途復元する必要があり、故障
   Gate を複雑化する。
