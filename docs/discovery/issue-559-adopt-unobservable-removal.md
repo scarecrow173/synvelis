@@ -102,7 +102,7 @@ RoutingConnection}`。うち `RoutingConnection` は
 **fail-closed 対象外**とする — 既存の受理境界:
 
 - `op_facts` の `RemoveSend` arm（synvelis#553 で追加）
-  は send-owned `ModulationSource` と closure に触れる
+  は send-owned `ModulationSource` と closure 内の entity を参照する
   `ModulationAssignment` のみを "unverifiable" として
   flag し、send↔connection edge・semantic port は
   「`ResourceRef` が名付けられない internal structure」
@@ -138,7 +138,7 @@ RoutingConnection}`。うち `RoutingConnection` は
   自体を削除するが、`op_facts` の当該 arm は
   `unsupported` を報告しない。modulation assignment を
   持つ target の rebind/解除は wire 上も unverifiable
-  cascade を静かに適用し得る。
+  cascade を報告なしに適用し得る。
 - `ProjectOp::RemoveTrack` → `remove_strip_owned` →
   `remove_control_owned(Strip)` も strip-owned
   `ModulationSource`/`ModulationAssignment` を削除するが、

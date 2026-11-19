@@ -112,7 +112,7 @@ match arm と domain apply（`crates/synvelis-project/src/ops.rs`）
   `Completed`（同上）
 
 いずれも prepare が提案を発行し、観測不能 entity の削除が
-沈黙する under-report を実測した。
+報告されない under-report を実測した。
 
 ## cascade の発火条件ミラー設計
 
@@ -122,12 +122,12 @@ match arm と domain apply（`crates/synvelis-project/src/ops.rs`）
   modulation entity を含むかを判定する小ヘルパ
   `control_closure_unverifiable` を抽出し、`RemoveSend` /
   `RemoveTrack` 両 arm から使う（同一ドメイン規則
-  「owner の control closure に触れる modulation entity の
+  「owner の control closure を参照する modulation entity の
   削除は観測不能」の authoritative 実装を一箇所に）。
 - `SetSendGainTarget` は closure ではなく単一 target の
   release なので、apply の発火条件（旧 target が
   Send-owned SendLevel・新旧異なる）をミラーしたうえで、
-  その target に触れる assignment の存在を検査する。
+  その target を参照する assignment の存在を検査する。
 - `RemoveMidiSource` は `smf_documents.contains_key` の
   単純検査（control-closure とは別種なので helper に統合
   しない）。
