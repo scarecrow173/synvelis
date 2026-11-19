@@ -116,7 +116,7 @@ project 側の dispatch 層に置き、workspace は session の mode/arm/transp
   保証される (複製する場所が存在しない)。
 * Good, because `ruviform-plugin-core` への依存は `synvelis-project`
   側だけに閉じ、workspace は `WorkspaceError` 経由で rejection を
-  運ぶだけになる。
+  伝えるだけになる。
 * Bad, because `Project` の persisted shape が変わり `SCHEMA_VERSION`
   を 1 → 2 へ bump する (PoC 間の意図的破壊的変更として schema
   version で正直に表す。`control` には `#[serde(default)]` を付けて

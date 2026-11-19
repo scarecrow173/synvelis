@@ -105,7 +105,7 @@ op を通らず既存 target を再所有するため、同じ契約をどこで
 2. **検査は `ProjectOp::validate` に置く。** apply は従来どおり
    owner/role の seal のみを行う。`RoutingEdit` 経路は
    `staging.apply_op` が `op.validate` を通すため、transaction
-   経路・低層 op 経路の双方に同一契約が atomic に効く。
+   経路・低層 op 経路の双方に同一契約が atomic に適用される。
 3. **canonical spec の定義は `control.rs` に単一 source を置く。**
    `canonical_internal_spec`（`AddParameterTarget` 検査と共有）
    と採用検査が同じ `(kind, mapping, time_scope)` 定数を参照し、

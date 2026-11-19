@@ -87,7 +87,7 @@ asset と Rust host の revision が乖離したまま配布される、とい�
 3. **frontend は `ui/` に SolidJS + TypeScript + vite で配置し、成果物は
    `ui/dist/` → `rust-embed` で埋め込む。** 本番/テスト/開発で同一 build
    artifact を使い、asset manifest (`synvelis-assets.json`) が
-   `appSchema`/`ipcSchema`/`revision`/file hash を運ぶ。Rust host は起動時に
+   `appSchema`/`ipcSchema`/`revision`/file hash を持つ。Rust host は起動時に
    照合し、不整合は説明付き安全停止。
 4. **単一 Window は `ruviform-ui-webview::host::run` を使う。** `run_multi`
    (dock detach) は SV-GUI-02/03 の有効化対象。Service 層は `UiRuntime`
