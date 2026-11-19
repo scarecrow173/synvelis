@@ -126,9 +126,10 @@ Plugin instance diff classification —
 
 ## Risk
 
-- `plugin_instances.instances` を `raw_kind_map` に登録し忘れ
-  ても登録してしまっても壊れる — 未登録が正しいが、登録すると
-  全 Resolved processor が `AmbiguousIdentity` を捏造する。
+- `plugin_instances.instances` は `raw_kind_map` に登録しても
+  diff 分類対象から外れても壊れる — `raw_kind_map` 未登録が
+  正しいが、登録すると全 Resolved processor が
+  `AmbiguousIdentity` を捏造する。
   E1 の `unresolved = 0` pin と E5 の衝突 fixture が両方向を
   固定する。
 - pre-v13 `id` を通常 `Replaced` にすると migration 採番の投影
