@@ -194,7 +194,7 @@ pub fn probe_compare(
 領域を黙って除外しない）を列挙する。`provenance` は解決済み
 side の `clock_mark`（`clock_ref` 経由、UNKNOWN → `None`）・
 generation range・`time_context` の `runtime_instance`/
-`sample_rate` を運ぶ。
+`sample_rate` を保持する。
 
 ### `ProbeTraceBridge` 配線
 

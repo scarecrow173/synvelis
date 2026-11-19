@@ -145,7 +145,7 @@ Selection を暗黙に書き換えない。
 - **TE-T-01** Smart Tool を標準とし、Select/Draw/Split/Trim/Slip/
   Stretch/Fade/Erase の Dedicated Tool を提供する。初期 Toolbar は
   Smart/Select/Draw/Split 中心、その他は Palette/Shortcut/Context
-  に露出可能。
+  から利用可能。
 - **TE-T-02** Smart Tool の Hit Test 解決は原則優先順
   **明示 Handle → Editor 内の編集対象 → Clip Body → Lane Empty →
   View Background**。数値の Hit Area は Pointer Device と Zoom に

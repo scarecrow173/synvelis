@@ -68,7 +68,7 @@ pub fn drain_output_reports(
   なしで検証可能にする。
 - gate は 2 段: `generation != surface.generation` → `generation_gated`、
   `active_generation != Some(surface.generation)` → `inactive_gated`。
-  いずれも endpoint に触れる前に return し、report は queued のまま残る。
+  いずれも endpoint を呼び出す前に return し、report は queued のまま残る。
 - endpoint → node は `surface.nodes[processor]` で解決。node surface を
   持たない processor は `unrouted`。
 

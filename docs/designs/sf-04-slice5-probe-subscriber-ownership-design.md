@@ -44,7 +44,7 @@ relations:
 slice 2 の `ProbeTraceSession` は `ProbeSubscriptionKey →
 BTreeSet<ParameterTargetId>` の相関のみを持ち、subscriber
 （Window/Inspector）識別子も lease も無い。`probe_remove`/
-`probe_stop_capture`/`probe_set_mode` は key に無条件で効くため
+`probe_stop_capture`/`probe_set_mode` は key に無条件に適用されるため
 「共有購読中の一方の Window close」を表現できない。port 側の
 dedup は `ProbeSession::request` の key 冪等で済んでおり、
 本 slice が足すのは **session 層の lease/refcount と capture
@@ -114,7 +114,7 @@ pub enum ProbePrincipal {
 
 `Session` variant が必要な理由: 既存 `probe_request` で作られた
 key は「session が欲しい subscription」であり、後から view が
-subscribe→release しても session 側の要求を道連れにしては
+subscribe→release しても session 側の要求を巻き込んでは
 いけない。`probe_request` 成功時に `Session` lease を記録すれば
 「最後の lease が外れたら remove」の規則が legacy key を
 自然に保護する（view lease が外れても `Session` が残る）。
@@ -458,6 +458,6 @@ unit test は「別 view id の release が当該 key に影響しない」
     `port.probe_stop_capture` へ届く。owner lease 喪失で
     `Session` 退避・capture 継続。
   - legacy `probe_request`/`probe_remove` が lease を
-    `Session` で保護し、view release で道連れにならない。
+    `Session` で保護し、view release で巻き込まれない。
 - `mise run fmt-check` / `check` / `lint` / `test` /
   `test-rt` / `test-msrv`。

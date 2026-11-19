@@ -250,8 +250,8 @@ Save→Export で完結する。
 | X-06 | GA-05/06 | Save→Reload | 復元 | 等価性 | 必須 |
 | X-07 | GA-07/08 | Offline WAV Export→独立検証 | WAV 出力 | WAV 検証 | 必須 |
 
-**detour 契約**: X-03〜X-05 は Understand/Refine への深掘り
-であり、文脈（選択中 Track/Clip・再生位置・Mixer 状態）を
+**detour 契約**: X-03〜X-05 は Understand/Refine への詳細な確認を行う
+detour であり、文脈（選択中 Track/Clip・再生位置・Mixer 状態）を
 保持したまま往復できること。detour 未実施・機能 OFF でも
 X-01→X-02→X-06→X-07 は完結する。detour 中に Signal Flow
 等が変更した Routing は Project 正本に反映され、Mixer 表示

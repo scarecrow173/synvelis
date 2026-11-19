@@ -289,7 +289,7 @@ connections: BTreeMap<u64, Vec<ProcessorLease>>,
   — 既存 test/呼出の「instance 未供給 → PluginUnavailable」結果を
   維持する。
 - `set_processor_host(&mut self, host: Box<dyn ProcessorHost>)` を
-  追加。将来の接続にのみ効く（既存 lease は自己完結 teardown の
+  追加。将来の接続にのみ適用される（既存 lease は自己完結 teardown の
   ため影響しない）。
 
 ### `prepare`/`stage_build` 改修

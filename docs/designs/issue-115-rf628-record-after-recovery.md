@@ -43,7 +43,7 @@ relations:
 
 ## 判断
 
-SV-7 の核心は「re-open した session で record する」こと。候補は
+SV-7 の要点は「re-open した session で record する」こと。候補は
 2 つあった。
 
 - **(a) 手組み rig**: hook で persistent open error →

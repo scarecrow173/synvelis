@@ -128,7 +128,7 @@ commit/abort は合法）・`RecordingTxnState::Rejected`（構造 reject、
 列は保持）。`Rejected` を独立した表示状態にしないのは、UI-C5-04 の
 5 状態が仕様で固定されており、かつ Rejected txn は project 修復 +
 retry で回復し得る「open transaction の一状態」であるため —
-verbatim `RecordingTxnState` は provenance が運ぶ。
+verbatim `RecordingTxnState` は provenance が保持する。
 
 ### 3. DTO 構成
 

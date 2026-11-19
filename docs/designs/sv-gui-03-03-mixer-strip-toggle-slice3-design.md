@@ -185,7 +185,7 @@ fn reconcile_mixer_subscriptions(&mut self) {
   `NotFound` を返す。discovery と subscribe が同一 project を
   見るため通常は起きないが、open/reload の隙間では起こり得る。
   `is_ok()` skip で次 pump が再試行する（収束的）。
-- **`ControlModel` 走査コスト**: pump 毎に全 target を舐めるが、
+- **`ControlModel` 走査コスト**: pump 毎に全 target を走査するが、
   master strip 判定は fader owner 1 件の比較のみで targets 数は
   プロジェクト規模に比例。UI pump 頻度（操作毎）では無視可能。
 

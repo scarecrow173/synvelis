@@ -52,15 +52,15 @@ segment ledger を更新する。slice 2 はその上に session→trace 配線�
 - seek は「同じ position 軸上の別の時間位置への跳躍」であり、
   pre-seek と post-seek の record を同一 span として扱うと、
   capture segment の `frame_range`/`discontinuities` が実際には
-  連続していない区間を連続として記録してしまう。
+  連続していない区間を連続として記録する。
 
 Ruviform #309 はこの問題を cursor-series の clock epoch で解く
 機構を既に提供する: `ProbeBroker` が `ProbeTimeContext`（domain/
 epoch/runtime instance/sample rate/provenance/anchors/generation
 window）を保持し、`bump_epoch()` で epoch を進めて
 `wire_clock_mark()` 経由で deck に `SetClockMark` を送る。以降の
-record/status は新 epoch の `ProbeClockMark` を運び、Ruviform 側の
-align 分類（`EpochMismatch`/`DiscontinuityInWindow`）が効く。
+record/status は新 epoch の `ProbeClockMark` を持ち、Ruviform 側の
+align 分類（`EpochMismatch`/`DiscontinuityInWindow`）が適用される。
 Synvelis 側の責務は「どの transport 不連続で epoch を進めるか」
 「segment ledger が epoch 境界を跨がないこと」の 2 点のみで、
 generic clock alignment 自体は Ruviform に委譲する（再実装禁止の
@@ -135,7 +135,7 @@ segment の epoch 切断は **eager ではなく lazy** に行う。設計判断
 - `bump_clock_epoch` 呼出時点では RT 側にまだ旧 epoch の chunk が
   残っている可能性がある（command channel の FIFO — bump の
   `SetClockMark` が適用される前に処理された block の chunk は旧
-  epoch を運ぶ）。eager に open segment を閉じると、それらの正当な
+  epoch を持つ）。eager に open segment を閉じると、それらの正当な
   旧 epoch chunk が帰属先を失う。
 - そこで cut は「新 epoch の evidence が drain された瞬間」に
   行う: `observe_meta`（`Captured` chunk の `RecordMeta`）と
@@ -275,11 +275,11 @@ explicit probe_capture ──► new OpenSegment(epoch N+1 records)
   span と見なさないのが契約として正しい。
 - **status 経路の epoch cut**: closing kind を除く全 status が
   対象。`Installed`/`ModeChanged` 等の lifecycle status も epoch
-  を運ぶため、capture 中の seek で最初に届くのが status でも
+  を持つため、capture 中の seek で最初に届くのが status でも
   segment は正しく切れる。
 - **seek 以外の不連続**: loop・device restart・transport stop は
   本 slice では epoch bump を呼ばない。これらが実装された際に
-  bump を追加するだけで同じ cut 経路が効く設計にしてあるが、
+  bump を追加するだけで同じ cut 経路を使える設計にしてあるが、
   「どの操作が不連続か」の宣言責務は transport 契約側に残る。
 
 ## Deferred Design Concerns
@@ -295,7 +295,7 @@ explicit probe_capture ──► new OpenSegment(epoch N+1 records)
 
 - `crates/synvelis-player/tests/sf04_s3_probe_discontinuity.rs`:
   - `sf04_s3_seek_bumps_cursor_clock_epoch_on_records`: Monitor
-    probe の metric record が seek 前後で epoch0/epoch1 を運び、
+    probe の metric record が seek 前後で epoch0/epoch1 を持ち、
     `sample_position` は単調増加のまま（epoch のみが境界証拠）。
   - `sf04_s3_capture_segment_cuts_at_clock_epoch`: capture 中の
     seek で segment が `ClockEpoch` 終了・旧 epoch

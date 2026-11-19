@@ -36,7 +36,7 @@ flowchart TD
     P -->|"adapter conversion"| X
 ~~~
 
-Canonical Musical Positionの具体的な整数幅、分母・正規化規則、Comparison、Hash、Overflow ContractはPoCで決定する。`Ratio<n,d>`のような概念で考えるが、無制限精度・無限大の分母を保証しない。不可表現・Overflowの場合は意図しない丸めではなく明示的な結果/エラーを返す。
+Canonical Musical Positionの具体的な整数幅、分母・正規化規則、Comparison、Hash、Overflow ContractはPoCで決定する。`Ratio<n,d>` 型を想定するが、無制限精度・無限大の分母を保証しない。不可表現・Overflowの場合は意図しない丸めではなく明示的な結果/エラーを返す。
 
 ## 3. Timebaseと保存の分離
 

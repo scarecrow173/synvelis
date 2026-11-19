@@ -112,7 +112,7 @@ fn capability_generation(&self) -> u64 {
   `self.host.capability_generation()` を capture し bundle に
   保持。prepare ごとに独立した pin なので、複数の outstanding
   prepare がそれぞれ「自分が build した時点の」generation を
-  運ぶ。
+  持つ。
 - **publish 再検証** — `routing_fingerprint` 一致の次、
   sourcemap 整合の前に 2 半分を検査:
   `port_capability_generation(project) != key.capability_generation`

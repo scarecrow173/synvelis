@@ -299,9 +299,9 @@ handle（秘密値ではない参照）を返す。Local/Project は未使用。
 advice を `ProviderError::new` が付与（NotFound/Unsupported→Never、
 TransientIo/RateLimited→After、AuthExpired→AfterAuth、
 SourceChanged/PreconditionFailed/RevisionGone→AfterUserRePin、
-IntegrityMismatch→Never、Cancelled→Never、CursorInvalid→
-AfterUserRePin? いや cursor 再取得なので `After` ではなく Never +
-caller が再 browse → `Never`）。
+IntegrityMismatch→Never、Cancelled→Never、CursorInvalid→Never。
+cursor は再取得が前提なので `After` ではなく caller が再 browse
+する）。
 
 ## FS traversal containment（N1, Refs #85 — 修復済み）
 

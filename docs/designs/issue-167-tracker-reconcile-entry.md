@@ -100,7 +100,7 @@ Consumer checkout パターンにどう適合させるか、(2) SV 側で保つ�
     防御設計: payload は歴史的に変更されており(`repository` は
     2022-09 追加)、不在環境(旧 GHES 等)で ref 比較が空に解決すると
     cron 全 skip のサイレント死になる。比較は dispatch の
-    非 default ref 起動を no-op にする防御としてのみ効く。
+    非 default ref 起動を no-op にする防御としてのみ機能する。
   - `timeout-minutes: 15` — hang が共有 concurrency group を占有し
     event 入口の pending 置換窓を広げるのを防ぐ。
   - `permissions: contents: read / actions: read / issues: write`

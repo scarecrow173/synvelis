@@ -64,8 +64,8 @@ routing connection の帰属は **source endpoint の所有**で
   帰属は決まる — ただし adapter の confinement 検査で
   foreign destination への新規接続は拒否する。
 
-`boundary_dependencies` は「scope-affiliated port に
-触れるが scope object でない connection」を返すため、
+`boundary_dependencies` は「scope-affiliated port を
+持つが scope object でない connection」を返すため、
 mask 宣言で boundary 集合が縮む（mask-relative）。
 
 ## adapter の検査順序

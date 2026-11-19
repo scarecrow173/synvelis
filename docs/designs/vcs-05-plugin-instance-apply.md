@@ -228,7 +228,7 @@ ObjectKind::PluginInstance => {
   しない異常入力への防御）。
 - `Added` が live 既存 entry と衝突 → `TargetConflict`。
   `Replaced` が live 不在 → `TargetMissing`（plan 層の既存
-  existence 規則がそのまま効く）。
+  existence 規則がそのまま適用される）。
 - entry のみ選択で processor binding が伴わない
   （plugin field が live binding と不一致）→ write は成功するが
   `validate_against` の「pins a different plugin」で

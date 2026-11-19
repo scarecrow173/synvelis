@@ -233,7 +233,7 @@ frontend build 時に `ui/dist/synvelis-assets.json` を生成:
   (missing → `AssetMissing`、hash 不一致 → `AssetCorrupt`)。
   **release build は hash 完全一致を強制、debug build は存在確認のみ**
   (debug は filesystem passthrough で手編集を許す)。
-- `revision`: 表示用 (app info に露出)。gate ではない。
+- `revision`: 表示用 (app info に表示)。gate ではない。
 - 起動時に `index.html` + manifest が無い/parse 不可 → `AssetError` で
   説明 + 安全停止。offline 起動 = 全参照が `rvf://app` 完結。
 

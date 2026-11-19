@@ -184,7 +184,7 @@ pub struct RoutingReconcileReport {
 6. pending: `ledger.pending` があり `p.frames > 0` かつ
    `snapshot.active_generation != p.generation` →
    `PendingActivation`（fault `ActivationNotObserved`）。
-   `frames == 0` は Playing/Stopped いずずれでも過渡的で fault なし。
+   `frames == 0` は Playing/Stopped いずれでも過渡的で fault なし。
 7. fault 優先順位（先勝ち、spec R5 と同一）で 1 つ選び、
    `Blocked{fault, last_good_generation}` を receipt に記録
    （`request_id` は `published_request_id`）。mismatch ゼロなら

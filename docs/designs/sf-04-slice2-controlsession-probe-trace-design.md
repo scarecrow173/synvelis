@@ -203,7 +203,7 @@ pub struct ProbeTraceBridge {
          binding ledger と segment gap が既に担う。slot は最後の
          `Measuring` を保持し freshness が age で Stale に落とす）
      - `Captured(ProbeChunk)` → update 無し（PCM 証拠は segment
-       ledger の責務。`MeasuredValue` は PCM を運べない）。
+       ledger の責務。`MeasuredValue` は PCM を保持できない）。
 
    generation 照合は Metric のみに適用する: status は binding ledger
    （slice 1 の `observe_status` が generation guard 済み）を通る
