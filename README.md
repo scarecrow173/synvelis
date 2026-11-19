@@ -71,7 +71,6 @@ Arrangement / Timeline、Mixer、Signal Flow、Automation、Context Inspectorの
 
 GitHubのファイル画面ではHTMLソースとして表示されます。実際に操作する場合はリポジトリをクローンし、`docs/mockups/synvelis-daw.html` をブラウザで開いてください（ロゴは `assets/branding/logo-dark.svg` を参照します）。
 
-
 ## Planned capabilities
 
 長期的には次の制作領域を扱う方針です。実装済み機能の一覧ではありません。
@@ -89,7 +88,7 @@ GitHubのファイル画面ではHTMLソースとして表示されます。実�
 
 ## Architecture direction
 
-Synvelisは、汎用マルチメディアフレームワーク **[Ruviform](https://github.com/scarecrow173/ruviform)** を利用する**独立したDAWアプリケーション**として構想しています。
+Synvelisは、汎用マルチメディアフレームワーク **[Ruviform](https://github.com/scarecrow173/ruviform)** を利用する**独立したDAWアプリケーション**という構想です。
 
 - **Synvelisの責務（合意済み）：** プロジェクト、トラック、クリップ、Take/Comp、Project PPQN設定（既定960）、制作操作、DAW固有のUI・状態管理・保存形式。
 - **Ruviformの責務（合意済み）：** Rational Beat/TempoMap、汎用Graph/Media、オーディオ入出力、DSP、RT処理、Plugin Host、Probe/UI基盤などの再利用可能な能力。
@@ -97,7 +96,7 @@ Synvelisは、汎用マルチメディアフレームワーク **[Ruviform](http
 
 RuviformにcrateやAPIが存在することは、SynvelisのDAW要件への適合を意味しません。実装と契約を確認しながら統合方針を決めます。
 
-関連する **[AudioLens](https://github.com/scarecrow173/audio-lens)** は独立した音声解析ツールであり、Synvelisへの統合は現在の方針ではありません。
+Ruviformを共通基盤とする **[AudioLens](https://github.com/scarecrow173/audio-lens)** は独立した音声解析ツールであり、Synvelisへの統合は現在の方針ではありません。
 
 ## Approved architecture baselines（2026-11-01）
 
@@ -128,7 +127,7 @@ Workspace/Recording/Asset Library等の詳細Issueは#22の索引から辿れま
 
 現在はアプリケーションコードのビルド手順ではなく、共通開発環境の初期化手順だけを提供しています。
 
-前提：`git` と [mise](https://mise.jdx.dev/) がインストールされていること。また、このリポジトリへのアクセス権が必要です。
+前提：`git` と [mise](https://mise.jdx.dev/) がインストールされ、このリポジトリへのアクセス権があること。
 
 ```sh
 git clone https://github.com/scarecrow173/synvelis.git
