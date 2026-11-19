@@ -82,7 +82,7 @@ persisted identity の不変条件（再読み込み・復元・外部参照）
   も pin する。
 - `crates/synvelis-gateway/tests/prepare.rs` に
   `synvelis.processor.set-binding` の `Write` 効果が
-  Processor detail の `binding` 変更を運ぶことの wire pin
+  Processor detail に `binding` 変更を含むことの wire pin
   を追加する（sv#561 節の様式・`mod rig` 共有 harness +
   ファイルローカル fixture。共有 rig fixture は非接触）。
 - `PluginStateProbe` staleness 論点（`dependency.rs` —

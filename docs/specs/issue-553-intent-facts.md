@@ -39,7 +39,7 @@ relations:
 `preconditions`/`unsupported` を破棄していた gap を修正し、
 variant-edit 経路でも inner op の fail-closed verdict
 （SEC-14 "unverifiable effects"）が top-level prepare と
-同一に効くことを保証する。CB-06/548/550 で構築した
+同一に適用されることを保証する。CB-06/548/550 で構築した
 variant-edit wire 経路の認可・fail-closed 契約を
 cascade op 全般へ拡張する。
 
