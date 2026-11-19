@@ -60,7 +60,7 @@ read-through・project_new/open rehydrate。
 - **R2 op は ProjectController 経由**: 宣言変更は
   `ProjectOp`+`apply` のみ。validate 失敗時に project/revision/
   undo stack は不変。成功時は revision+1・undo 可能。
-- **R3 参照整合**: 宣言 track の不存在・lane の他 track 属属・
+- **R3 参照整合**: 宣言 track の不存在・lane の他 track 所属・
   空 channel_map は validate/`validate_references` で拒否。
   `RemoveTrack` は decl を cascade 除去、`RemoveLane` は宣言参照中
   の lane を拒否する。

@@ -159,7 +159,7 @@ backend への薄い binding へ置換した。
    `ContractViolation`・close 後 `Backend` を全て保持した。
 4. **port 語彙の正直な拡張は最小限**: `ScriptErrorKind::
    BudgetExceeded.kind` を `Option<BudgetKind>` へ変更したのは、
-   中立 `ScriptError` が次元情報を運ばず複数 budget 併用時に
+   中立 `ScriptError` が次元情報を含まず複数 budget 併用時に
    帰属不可能なため — `None` で「不明」を正直に返す。
    `synvelis-script` の他の port 面（action/workflow/schema/model）
    には触れていない。
@@ -183,7 +183,7 @@ backend への薄い binding へ置換した。
   区別していない）。`ContractViolation` は binding 検出違反と
   port 契約違反（2 回目 evaluate 等）に限定。
 - `BudgetExceeded.kind`: 単一 armed budget 次元のみ `Some`、
-  複数併用時は `None`（中立 error が次元を運ばないため推測しない）。
+  複数併用時は `None`（中立 error が次元を含まないため推測しない）。
 
 ### 移行条件・残件（将来の再評価トリガ）
 
