@@ -143,7 +143,7 @@ CRC32 系 digest・`live_revision()` 無条件 commit・dir-sync 非対応を
   削除する。staging dir は `Committed` かつ applied 確認時のみ削除候補。
 - `CommittedLive`（live revision）と `SavedRevision`/`HEAD` を分離し、
   import receipt が save 完了を主張しない。
-- RT 非阻合: 本 crate は blocking worker 前提のまま、RT thread/callback で
+- RT 非阻害: 本 crate は blocking worker 前提のまま、RT thread/callback で
   I/O しない。`test-rt` の既存計測を regress させない。
 - 既存 ALIB-01 API・挙動を破壊しない（`object_rel` 拡張は additive）。
 

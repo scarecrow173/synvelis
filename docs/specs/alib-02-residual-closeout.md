@@ -97,7 +97,7 @@ Snapshot 互換移行・Project CAS）の実装は PR #220 / #236 / #253 /
 
 PR #326（DoD(2) consumer 配線）と PR #328（DoD(1) 実 v5 fixture）で
 残実装 DoD の headless 分は統合済みだが、Issue の受入条件/DoD 行と
-実測証拠の対応表・外部 gate の所在・doc status が一箫所に
+実測証拠の対応表・外部 gate の所在・doc status が一箇所に
 集約されていない。Issue は外部 gate が残るため open 継続が前提であり、
 「何が headless で証明済みで、何がどの Issue の gate か」を
 canonical doc に固定することで、後続の close 判定と並行 Worker の

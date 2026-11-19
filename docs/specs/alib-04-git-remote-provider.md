@@ -153,8 +153,8 @@ real bytes」と LIB-SEC「Git process argv safety」の対象でも
   構築し、branch 更新・force-push・deletion・submodule・
   symlink/odd path・LFS missing/corrupt・auth 失敗・cancel/
   retry を再現。`git`/`git-lfs` 非存在環境では test を
-  skip せず fixture 構築失敗として正直に落とさず、環境判定で
-  NotRun 相当の skip を明示する。
+  silent skip・fixture 構築失敗の Fail のどちらにもせず、環境判定
+  による NotRun 相当の skip を明示する。
 - docs チェーン（spec/design/plan/task/test-spec）。
 
 ### Out of Scope
