@@ -94,7 +94,7 @@ Mixer タブに master strip の `Mute`/`Solo` `Toggle` を mount するに
   への bind を作らない。
 - subscription reconcile が pump に載るため、attach 順序・project
   open/reload のどちらが先でも最終的に収束する。view close は
-  既存の `subscriptions.retain` がそのまま効く。
+  既存の `subscriptions.retain` がそのまま処理する。
 - domain/ops/service/workspace に一切触れず、app 層の投影追加のみで
   完結する。
 

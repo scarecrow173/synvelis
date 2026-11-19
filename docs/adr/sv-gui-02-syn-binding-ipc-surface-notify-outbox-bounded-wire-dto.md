@@ -92,7 +92,7 @@ SV-GUI-02 は `synvelis-workspace` の headless 契約 (`ControlsUi`/
   upstream contract の「receipt は ack channel、projection は
   subscribe channel」という分離を破壊する。不採用。
 
-### B. `notify` event の `data.channel` で全 push を運ぶ
+### B. `notify` event の `data.channel` で全 push を送る
 
 `syn.control.receipt` / `syn.control.projection` / `syn.viz.frame` /
 `syn.viz.event` / `syn.view.state` を `Event::Notify` の `data` に

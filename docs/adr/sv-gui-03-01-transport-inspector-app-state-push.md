@@ -50,7 +50,7 @@ Issue #112 slice 1 は、Transport 操作（Play/Stop）と Inspector
 表示（`InspectorBreakdown`）を既存の driver-neutral
 GPUI/ViewHost 経路に接続することを要求する。表示に必要なデータ
 （`TransportProjection`、param target の `InspectorBreakdown`）は
-`ControlsUi` の既存 projection が既に運んでおり、新しい
+`ControlsUi` の既存 projection が既に含んでおり、新しい
 `StateProjection` チャンネルや domain op を追加せずに view へ
 届ける必要がある。
 

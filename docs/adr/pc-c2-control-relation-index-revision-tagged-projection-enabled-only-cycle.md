@@ -61,7 +61,7 @@ Index/Projection を要求する。既存の `ControlSession::signal_flow_view`
 Depth Driver を含む双方向探索と一貫した状態証拠を持つ index は存在
 しない。`ControlModel` は `targets`/`lanes`/`sources`/`assignments`
 の 4 つの `BTreeMap` を持つ唯一の正本であり、ここに第二の正本や
-永続 schema を追加してはならない。
+永続 schema を追加するわけにはいかない。
 
 設計上の争点は 3 つある:
 
