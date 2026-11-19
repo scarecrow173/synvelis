@@ -199,6 +199,6 @@ fixation/stale を所有し、commit は `ProjectSession::apply`
 - Issue: <https://github.com/scarecrow173/synvelis/issues/108>
 - [spec](../specs/sf-05-slice2-signal-flow-ux0307.md) /
   [design](../designs/sf-05-slice2-signal-flow-ux0307-gesture-inspection-persist.md) /
-  [plan](../plans/sf-05-slice2-signal-flow-ux0307.md) /
-  [task](../tasks/sf-05-slice2-signal-flow-ux0307.md) /
+  plan `docs/plans/sf-05-slice2-signal-flow-ux0307.md` /
+  task `docs/tasks/sf-05-slice2-signal-flow-ux0307.md` /
   [test-spec](../test-specs/sf-05-slice2-signal-flow-ux0307.md)

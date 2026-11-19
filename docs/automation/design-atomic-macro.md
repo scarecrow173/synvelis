@@ -56,7 +56,7 @@ Query/Async/RuntimeControl の混在）は Workflow へ送る。
 
 batch 内で「member A が作成するリソースの ID を member B が参照する」
 ケースの契約。GW-04 の scratch-ID/rewrite seam として実装済み
-（AUTX-04-F02 / `docs/impl/ir/autx-04-f02-gw04-bindings.md`）:
+（AUTX-04-F02 / `docs/evidence/automation-and-command-gateway.md`）:
 
 - **対応形（実装済み）**: batch の任意 object field `bindings` に
   `{name, member, kind}` の宣言を並べる。`name` は binding の識別子、

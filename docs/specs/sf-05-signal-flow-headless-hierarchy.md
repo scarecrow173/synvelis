@@ -155,6 +155,6 @@ reorder/SF-UX-03）と GPUI 実機 slice（SF-UX-08, #114 gate）の土台
 - Issue: <https://github.com/scarecrow173/synvelis/issues/108>
 - [ADR](../adr/sf-05-slice1-signal-flow-workspace-read-model-engine-evidence-visual-state-app-i.md) /
   [design](../designs/sf-05-slice1-signal-flow-headless-graph-visual-state-status.md) /
-  [plan](../plans/sf-05-slice1-signal-flow-headless.md) /
-  [task](../tasks/sf-05-slice1-signal-flow-headless.md) /
+  plan `docs/plans/sf-05-slice1-signal-flow-headless.md` /
+  task `docs/tasks/sf-05-slice1-signal-flow-headless.md` /
   [test-spec](../test-specs/sf-05-slice1-signal-flow-headless.md)

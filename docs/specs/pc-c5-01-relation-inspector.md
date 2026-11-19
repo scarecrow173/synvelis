@@ -138,6 +138,6 @@ headless で検証できる最小の双方向探索 slice であり、後続 sli
   [PC-C2 design](../designs/pc-c2-control-relation-index-design.md)
 - Slice chain: [ADR](../adr/pc-c5-01-relation-readmodel-coverage.md) /
   [design](../designs/pc-c5-01-relation-inspector-design.md) /
-  [plan](../plans/pc-c5-01-relation-inspector.md) /
-  [task](../tasks/pc-c5-01-relation-inspector.md) /
+  plan `docs/plans/pc-c5-01-relation-inspector.md` /
+  task `docs/tasks/pc-c5-01-relation-inspector.md` /
   [test-spec](../test-specs/pc-c5-01-relation-inspector.md)

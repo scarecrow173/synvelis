@@ -357,6 +357,6 @@ impl SignalFlowVisualState {
 
 - [spec](../specs/sf-05-signal-flow-headless-hierarchy.md) /
   [ADR](../adr/sf-05-slice1-signal-flow-workspace-read-model-engine-evidence-visual-state-app-i.md) /
-  [plan](../plans/sf-05-slice1-signal-flow-headless.md) /
-  [task](../tasks/sf-05-slice1-signal-flow-headless.md) /
+  plan `docs/plans/sf-05-slice1-signal-flow-headless.md` /
+  task `docs/tasks/sf-05-slice1-signal-flow-headless.md` /
   [test-spec](../test-specs/sf-05-slice1-signal-flow-headless.md)

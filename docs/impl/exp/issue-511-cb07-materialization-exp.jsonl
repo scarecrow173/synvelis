@@ -1,4 +1,0 @@
-{"ts":"2026-11-22T00:00:00Z","experiment":"E1","hypothesis":"Clip削除のnote cascadeはdelete arm内でRemoveClip同一semanticsをmirrorすべき","result":"adopted","evidence":"cb_arr_16_sweep_delete_adopts_and_cascades_notes"}
-{"ts":"2026-11-22T00:00:00Z","experiment":"E2","hypothesis":"Captured payloadを編集中candidateとfrozen履歴に区別してPPQN拒否範囲を絞れるか","result":"rejected","evidence":"BranchContentRef::Capturedに識別子なし・frozenも再adopt可能で同一リスク"}
-{"ts":"2026-11-22T00:00:00Z","experiment":"E3","hypothesis":"absolute anchor/extent clipをtempo map変換でmusical scope所有に拡張できるか","result":"rejected","evidence":"tempo曲線全域依存・partial overlap帰属policy未確立・cb-07 exp E3踏襲"}
-{"ts":"2026-11-22T00:00:00Z","experiment":"E4","hypothesis":"render_input.rsはplan_adopt_writes再利用でRemoved materializeに自動追従するか","result":"confirmed","evidence":"cb_arr_11_delete_candidate_adopts_and_renders_materialized・render_input.rs無変更"}

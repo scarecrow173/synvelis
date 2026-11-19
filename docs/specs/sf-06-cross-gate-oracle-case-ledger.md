@@ -215,8 +215,8 @@ SF-05 の個別受入は揃いつつあるが、cross-gate の独立 oracle と
   #309（Frame/Clock/Epoch/Latency alignment）。
 - [ADR](../adr/sf-06-cross-gate-domain-oracle-case-id-evidence-ledger-headless.md) /
   [design](../designs/sf-06-cross-gate-oracle-domain-evidence.md) /
-  [plan](../plans/sf-06-cross-gate-oracle.md) /
-  [task](../tasks/sf-06-cross-gate-oracle-headless.md) /
+  plan `docs/plans/sf-06-cross-gate-oracle.md` /
+  task `docs/tasks/sf-06-cross-gate-oracle-headless.md` /
   [test-spec](../test-specs/sf-06-cross-gate-oracle.md) /
-  [impl record](../impl/ir/sf-06-cross-gate-headless-oracle.md) /
+  impl record `docs/impl/ir/sf-06-cross-gate-headless-oracle.md` /
   [evidence ledger](../../evidence/reports/sf-06-cross-gate-ledger.md)

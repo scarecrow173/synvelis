@@ -10,7 +10,7 @@ relations:
   source:
     - "docs/specs/issue-145-ci-manual-only.md"
     - "docs/designs/issue-145-ci-manual-only.md"
-    - "docs/plans/issue-145-ci-manual-only.md"
+    - "docs/knowledge/ci-and-verification-process.md"
     - "docs/adr/issue-145-ci-manual-only.md"
   changes:
     added: []

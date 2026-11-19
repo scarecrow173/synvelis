@@ -98,5 +98,5 @@ headless のみ（`ProjectSession::apply` + `ProjectOp` fixture、
 - [spec](../specs/pc-c5-01-relation-inspector.md) /
   [ADR](../adr/pc-c5-01-relation-readmodel-coverage.md) /
   [design](../designs/pc-c5-01-relation-inspector-design.md) /
-  [plan](../plans/pc-c5-01-relation-inspector.md) /
-  [task](../tasks/pc-c5-01-relation-inspector.md)
+  plan `docs/plans/pc-c5-01-relation-inspector.md` /
+  task `docs/tasks/pc-c5-01-relation-inspector.md`
