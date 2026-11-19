@@ -169,6 +169,6 @@ workspace crate で完結する。app 側は薄い写像のみ。
 - Issue: <https://github.com/scarecrow173/synvelis/issues/102>
 - [spec](../specs/pc-c5-01-relation-inspector.md) /
   [design](../designs/pc-c5-01-relation-inspector-design.md) /
-  [plan](../plans/pc-c5-01-relation-inspector.md) /
-  [task](../tasks/pc-c5-01-relation-inspector.md) /
+  plan `docs/plans/pc-c5-01-relation-inspector.md` /
+  task `docs/tasks/pc-c5-01-relation-inspector.md` /
   [test-spec](../test-specs/pc-c5-01-relation-inspector.md)

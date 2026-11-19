@@ -238,6 +238,6 @@ fixture 概形:
 
 - [spec](../specs/pc-c5-01-relation-inspector.md) /
   [ADR](../adr/pc-c5-01-relation-readmodel-coverage.md) /
-  [plan](../plans/pc-c5-01-relation-inspector.md) /
-  [task](../tasks/pc-c5-01-relation-inspector.md) /
+  plan `docs/plans/pc-c5-01-relation-inspector.md` /
+  task `docs/tasks/pc-c5-01-relation-inspector.md` /
   [test-spec](../test-specs/pc-c5-01-relation-inspector.md)

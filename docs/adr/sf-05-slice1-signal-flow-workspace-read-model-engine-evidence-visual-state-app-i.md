@@ -169,6 +169,6 @@ in-memory で要件（SF-UX-02 の不変性検証）は満たせる。採用し�
 - Issue: <https://github.com/scarecrow173/synvelis/issues/108>
 - [spec](../specs/sf-05-signal-flow-headless-hierarchy.md) /
   [design](../designs/sf-05-slice1-signal-flow-headless-graph-visual-state-status.md) /
-  [plan](../plans/sf-05-slice1-signal-flow-headless.md) /
-  [task](../tasks/sf-05-slice1-signal-flow-headless.md) /
+  plan `docs/plans/sf-05-slice1-signal-flow-headless.md` /
+  task `docs/tasks/sf-05-slice1-signal-flow-headless.md` /
   [test-spec](../test-specs/sf-05-slice1-signal-flow-headless.md)

@@ -10,7 +10,7 @@ relations:
   source:
     - "docs/specs/issue-167-tracker-reconcile-entry.md"
     - "docs/designs/issue-167-tracker-reconcile-entry.md"
-    - "docs/plans/issue-167-tracker-reconcile-entry.md"
+    - "docs/knowledge/ci-and-verification-process.md"
     - "docs/adr/issue-167-tracker-reconcile-entry.md"
   changes:
     added:

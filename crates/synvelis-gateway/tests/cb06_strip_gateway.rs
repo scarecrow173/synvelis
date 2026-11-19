@@ -1662,7 +1662,7 @@ fn cb06_strip_553_variant_edit_send_remove_unobservable_cascade_denied() {
 /// (unobservable kind, strictly 1:1 with the send — synvelis#550).
 /// `declared_facts`' Adopt arm propagates no inner facts because
 /// `AdoptIntent` carries no inner op — the audit record is
-/// `docs/impl/ir/issue-557-adopt-facts.md`.
+/// `docs/evidence/mixer-strip-and-variants.md`.
 #[test]
 fn cb06_strip_557_adopt_send_remove_candidate_materializes_teardown() {
     let mut vrig = variant_rig();

@@ -279,6 +279,6 @@ receiver 側のみ・再 emit なし・dedup は既存の
 
 - [spec](../specs/sf-05-slice2-signal-flow-ux0307.md) /
   [ADR](../adr/sf-05-slice2-routing-gesture-inspection-persist-boundary.md) /
-  [plan](../plans/sf-05-slice2-signal-flow-ux0307.md) /
-  [task](../tasks/sf-05-slice2-signal-flow-ux0307.md) /
+  plan `docs/plans/sf-05-slice2-signal-flow-ux0307.md` /
+  task `docs/tasks/sf-05-slice2-signal-flow-ux0307.md` /
   [test-spec](../test-specs/sf-05-slice2-signal-flow-ux0307.md)
