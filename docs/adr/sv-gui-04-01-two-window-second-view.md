@@ -81,7 +81,7 @@ per-window `attach_view`・`origin_view` の owner 検証を持ち、
 - shell/service 層の変更が不要 — view id は既存の
   `syn.view.attach`/`syn.control.*` 契約がそのまま受理する。
 - cross-window `origin_view` 拒否・window 別 teardown は
-  shell.rs の既存 validation/teardown が両 window に効く。
+  shell.rs の既存 validation/teardown が両 window に適用される。
 - env flag 未設定時はコードパスが 1 窓のまま — 既存動作を壊さない。
 
 ### Negative

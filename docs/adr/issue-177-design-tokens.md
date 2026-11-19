@@ -57,7 +57,7 @@ height`/`font.*`/`radius.*`/`motion.*` の製品独自語彙で書かれてい�
 `accent.*`/`state.*`/`control.*`/`viz.*`/`space.*`。
 語彙が不一致のため製品 theme は `ResolvedTheme` 解決後も palette の
 全項目で literal fallback に落ち、theme 選択が GPUI 描画へ実質
-効いていない。canonical 語彙の正本は upstream
+反映されていない。canonical 語彙の正本は upstream
 `rvf-dtcg-profile.v1` であり、Synvelis 側に第二の interpreter を
 作ることは RF385 adapter 設計に反する。
 
@@ -165,7 +165,7 @@ status ramp 契約を壊さない、(3) mode/density 文書という既存の
 ### Option C
 
 * Good, because alias 解決に依存しない。
-* Bad, because同一色の二重定義で mode/density 差分の一貫性が
+* Bad, because 同一色の二重定義で mode/density 差分の一貫性が
   人力管理になる。
 
 ### Option D

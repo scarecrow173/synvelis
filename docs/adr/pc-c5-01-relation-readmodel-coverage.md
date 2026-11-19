@@ -66,7 +66,7 @@ Assignment↔Parameter の双方向探索と roundtrip を headless で
    `signal_flow_view`/`lane_view`（評価寄りの投影）とは責務が
    異なる。両者は併存し、本 slice では置き換えない（置換判断は
    後続 slice の設計課題として記録のみ）。
-2. **coverage/state は verbatim で運ぶ**。`RelationView` が
+2. **coverage/state は verbatim で渡す**。`RelationView` が
    `RelationCoverage`（`Complete`/`Truncated`/`Stale`/`Unavailable`）
    と index generation（`project_revision`）を保持し、
    `RelationRow` が `RelationKind`/`RelationState` を保持する。
