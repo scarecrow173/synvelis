@@ -123,7 +123,7 @@ credential-change の各状態を**正直に区別したまま**、principal
   の記録、`PreviewLease`（RAII の entry 保護 + sequential read +
   cancel 対応）。
 - 単一 key あたりの single-flight（build/fetch の重複を
-  condvar で合体、cancel/deadline は待機側にも効く）。
+  condvar で合体、cancel/deadline は待機側にも伝播する）。
 - `CachePolicy`（disk bytes/entries/TTL/index 上限/preview 上限/
   lease 上限、全て構成可能）と `CacheStats`（entries/bytes/
   leases/evictions/hits/misses/provider calls avoided）。

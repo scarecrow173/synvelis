@@ -69,7 +69,7 @@ Transport 操作と Inspector 表示を接続する。domain/ops 層
    で表示する。slice 1 では view が購読する param target（現行は
    mixer gain fader の bootstrap target 1 件）が対象であり、
    target 選択 UI は後続 slice の範囲。表示値は既存の
-   `syn.control.projection` param row が運ぶ
+   `syn.control.projection` param row が持つ
    `ParamProjection.breakdown`（evaluation + observation + mode +
    arm + writer_state + capability）を app 層で捕捉し、既存の
    `update_view` push パターン（project-length 更新と同じ

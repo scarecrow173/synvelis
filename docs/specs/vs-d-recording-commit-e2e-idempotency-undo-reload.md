@@ -68,7 +68,7 @@ Undo/Redo までを End-to-End で実証する。
   `RecordingCommitIdentity`・Expected Project Revision・Finalized
   Sources/Takes/Placement を検証し、**単一 Project Mutation** として
   登録する。PCM を Project Command へコピーしない（Media Byte は
-  staging file が所有、Command は参照と digest のみを運ぶ）。
+  staging file が所有、Command は参照と digest のみを持つ）。
 - AssetId/SourceId/TakeId/ClipId（および commit が新規作成する
   Pass/Segment の Stable ID）は **Commit 前に Staging の
   `commit-manifest.json` へ確保・保存**し、Restart/Retry で再採番しない。

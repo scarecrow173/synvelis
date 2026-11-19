@@ -79,7 +79,7 @@ Issue #100 TRACE-C3-05: project 層の `ControlTrace`（PR #206 merge 済み）�
 ### Out of Scope
 
 - `crates/synvelis-workspace/` `ControlSession` 接続・single drain owner の workspace 側配線・UI 表示・2 Inspector 二重起動防止 — 後続 integration slice。
-- `HeadlessDriver`/`AttachedNode` への adapter 搻載・`control()` transport 操作の再公開 — 後続 slice（adapter は `control()` を公開しない）。
+- `HeadlessDriver`/`AttachedNode` への adapter 搭載・`control()` transport 操作の再公開 — 後続 slice（adapter は `control()` を公開しない）。
 - #101 Binding/FrameBase・#103 Control Oracle・#114 GPUI との同一 Revision/Case ID 統合 — NotRun（各 Issue gate）。
 - 実 plugin report channel（upstream に param→host report は未実装）・実 OS/RT 観測 — NotRun（in-process fake dispatch のみ。mock で実 OS 成功を主張しない）。
 - `synvelis-project`/`synvelis-app`/`synvelis-recording`/Ruviform の変更・Cargo 依存の追加（dev-dep `stats_alloc` を除く）。

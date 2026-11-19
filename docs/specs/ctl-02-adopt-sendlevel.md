@@ -83,7 +83,7 @@ owner/role 書き換え）が残っている限り、lowering・authority lookup
   参照する形状が一意になる。
 - `RoutingEditIntent`（`SendGainSpec::Adopt` /
   `RoutingEdit::SetSendGainTarget`）と低層 `ProjectOp` の双方で
-  同一契約が fail-closed に効く。
+  同一契約が fail-closed に適用される。
 
 ## Scope
 
@@ -131,7 +131,7 @@ owner/role 書き換え）が残っている限り、lowering・authority lookup
   無変更（既存の validate→apply 規律どおり）。
 - `RoutingEdit` 経路（`CreateSend` の `SendGainSpec::Adopt`、
   `SetSendGainTarget`）は同じ `ProjectOp` に stage されるため、
-  同一検査が transaction 単位で atomic に効く — 追加の
+  同一検査が transaction 単位で atomic に適用される — 追加の
   transaction 固有検査は設けない。
 
 ### CTL-02A-R2: 既存契約の非回帰

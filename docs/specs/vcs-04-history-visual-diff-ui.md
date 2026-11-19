@@ -94,7 +94,7 @@ Focus/Selection 保持の headless 実装と fixture。実 GPUI Window・
   権威を作らない。
 - `Unknown`/`Partial`/`Stale`/`Unsupported`/`Missing`/`Ambiguous`/
   `Unobserved` は明示状態として表示し、空・無変更・Equal に潰さない
-  （VCS-02 の tri-state を verbatim に運ぶ）。
+  （VCS-02 の tri-state を verbatim に持つ）。
 
 ### 層構成
 

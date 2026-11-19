@@ -117,7 +117,7 @@ Arm×Monitor×Transport×Punch 状態機械と投影を先に確定させ、
 - 実 Device / 実 Capture / 実 Software Monitor の可聴計測（外部 gate、
   NotRun）。
 - 実 GPUI GUI・multi-window/focus の受入（#114 系、外部 gate、NotRun）。
-- player RT 搻載・`MonitorAdapter` の PCM ミックス経路への統合
+- player RT 搭載・`MonitorAdapter` の PCM ミックス経路への統合
   （宣言 scope 外）。`LatencyReport` の解決投影のみ消費。
 - #115 実 Input 同 Clock、#116 Writer/Recovery 連携、#118 Take/Comp。
 - Arm/Monitor 宣言・Hardware Direct 観測のプロジェクト永続化

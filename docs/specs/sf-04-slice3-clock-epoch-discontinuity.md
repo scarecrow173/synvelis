@@ -139,7 +139,7 @@ pin 済み依存に存在するため、Synvelis 側は「どの不連続で epo
 
 ## Acceptance Criteria
 
-- [ ] seek 後の probe record が新しい clock epoch を運び、
+- [ ] seek 後の probe record が新しい clock epoch を持ち、
   `probe_time_context().epoch` が単調に進む。
 - [ ] capture 中の seek で open segment が `ClockEpoch` で閉じ、
   旧 epoch の `clock_context`/`frame_range`/completeness を保持し、

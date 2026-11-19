@@ -89,9 +89,9 @@ pol01〜pol06 trigger/pin/completeness/失敗行列契約を保存する。
   所有する 1 worker thread（`OfflineJob`）+ bounded command
   channel（`sync_channel`、満杯 → typed 応答、caller non-blocking）。
 - command は demand 粒度の `drive_step` 間で interleave — cancel/
-  retry は最大 1 demand render 遅延で効く。
+  retry は最大 1 demand render の遅延で反映される。
 - cost estimate は model floor と caller-declared の要素別 max —
-  caller は締める方向にのみ効き、model を下回れない。
+  caller の指定は締める方向にのみ有効で、model を下回れない。
 - RenderDispatch adapter の `Dispatched`/`Pending`/`Unavailable`/
   `Failed` は determined rejection を維持 — render success を
   捏造しない。

@@ -92,7 +92,7 @@ Provider** であり、Arrangement / Mixer / Signal Flow を置き換える
    対象・編集内容・Probe 状態は変わらず、Section 開閉は View
    Instance ごとに独立保持する。
 3. **ナビゲーション** — Follow（明示的 FollowSource の有効対象を
-   解決表示。link event が運ぶ対象は semantic mapping 後の Track
+   解決表示。link event が指す対象は semantic mapping 後の Track
    粒度であり、他 kind は Explore/明示 inspect で到達）/
    Explore（FollowSource を保持した内部探索履歴）/
    Pinned（対象固定・読み取り専用を意味しない）。Window/Active

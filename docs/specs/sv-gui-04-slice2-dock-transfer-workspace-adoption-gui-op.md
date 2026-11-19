@@ -147,7 +147,7 @@ decision フローを別 dispatch（`ctx_2aed081be01f`）が編集中のため�
   と整合し、headless lane で検証済みの semantics を GUI op 経路へ
   そのまま写像できることを文書で示す。
 - `WorkspaceManager.dock` と live UI binding の二重管理について、
-  「どちらが何の権威か」「同期はどの op/イベントで行うか
+  「どちらが何の権威か」「同期はどの op/イベントで行うか」
   「不整合時にどちらへ収束するか」を一意に決める。
 - `Destroyed` policy は「Dock/Window close で Project/Graph/
   Recording/Job が暗黙停止しない」というユーザー指定（Issue 受入

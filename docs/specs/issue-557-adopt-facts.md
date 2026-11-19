@@ -64,8 +64,8 @@ synvelis#553 で修正した Edit 経路の inner facts 伝播 gap
 
 ### R2 — adopt 経路の pin test（AC2・条件付き）
 
-gap がある場合、adopt 経路で cascade fail-closed が効く
-ことを headless で実測する test を追加する。gap が無い
+gap がある場合、adopt 経路で cascade fail-closed が発動
+することを headless で実測する test を追加する。gap が無い
 場合でも、監査で特定した契約（adopt が candidate の
 scope diff を実 diff 経由で物質化し post-simulation
 認可を通ること）を pin する test の追加は許容される。
@@ -84,8 +84,8 @@ exit 0 で Pass する。
 - `VariantIntent::Adopt` 経路の declared_facts が inner
   op の `unsupported`/`preconditions` を伝播する（または
   gap が無いことの根拠が記録される）。
-- gap がある場合、adopt 経路で cascade fail-closed が効く
-  ことを headless で実測する test が追加される。
+- gap がある場合、adopt 経路で cascade fail-closed が発動
+  することを headless で実測する test が追加される。
 - Edit 経路の修正（sv#553）に回帰がない。
 
 ## 非目標

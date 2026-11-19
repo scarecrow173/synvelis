@@ -261,7 +261,7 @@ Synvelis 側に実装する。実 CLAP/VST3/OS Plugin 別 capability
   field を追加しない）。
 - `synvelis-render` の Offline Recipe は
   `ExportRequest.plugin_state: Option<PluginStateRecipe>`
-  で policy + quality evidence + manifest digest を運び、
+  で policy + quality evidence + manifest digest を持ち、
   preflight が `Strict` で `exact_eligible()` を検査、
   receipt が evidence を記録する。実 plugin を render
   graph に組み込むことは本 slice の対象外。

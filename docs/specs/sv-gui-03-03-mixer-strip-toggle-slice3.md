@@ -49,7 +49,7 @@ relations:
 
 ## What Should Be Built
 
-Issue #112 の続 slice として、Main 画面 Mixer タブに master strip の
+Issue #112 の続きの slice として、Main 画面 Mixer タブに master strip の
 channel toggle（`Mute` / `Solo`）を Ruviform `ComponentSpec::Toggle`
 で mount する。slice1 の Transport/Inspector、slice2 の
 Arrangement/Undo-Redo に続く 3 つ目の画面要素で、driver-neutral
@@ -71,7 +71,7 @@ headless に検証可能な範囲で実装する。
   永続 write は domain の automation mode 契約（既定 `Read` では
   gesture 終端で記録系列へ復帰し書き込まない）に従い、Fader と
   同一の意味論を持つ。Undo/Redo は slice2 の
-  `syn.project.undo`/`redo` がそのまま効く。
+  `syn.project.undo`/`redo` がそのまま適用される。
 - toggle target の発見は role+owner による `ControlModel` 走査で行い、
   well-known raw ID の算術複製を app 層に持ち込まない。
 - toggle target の `(view, target)` subscription は app 層の pump で
