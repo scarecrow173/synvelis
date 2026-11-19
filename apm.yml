@@ -10,7 +10,6 @@ targets:
 dependencies:
   apm:
     - scarecrow173/apm-packages/packages/basic-dev-foundation#main
-    - scarecrow173/apm-packages/packages/recommended-dev-suite#main
     - scarecrow173/cheaper/packages/apm#main
     - scarecrow173/apm-packages/packages/japanese-tech-writing#main
     - scarecrow173/apm-packages/packages/pstack-devin#main
