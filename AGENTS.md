@@ -125,10 +125,10 @@ mise run setup
 - `apm_modules/`、各エージェント向けの配布生成物、およびSerena等のローカル状態はコミットしない。追跡する設定と生成物の区別は `.gitignore` を確認する。
 - APMで管理されるMCPは `apm.yml` に従って復元する。Serenaの起動にはmise管理下の実行環境を使用する。
 
-## ドキュメント駆動開発
+## 開発フローとドキュメント
 
-- canonical ドキュメントは `docs/` 配下のタイプ別ディレクトリ（`adr`・`designs`・`discovery`・`ideas`・`impl`・`plans`・`specs`・`tasks`・`test-specs`）に配置する。
-- ドキュメント起点の開発フローは `doc-driven-dev-graph` をエントリポイントとし、route が返す delegate と audit に従って進める。
+- 設計・仕様などのドキュメントは `docs/` にまとめる。
+- 開発作業の進め方は pstack（`pstack-devin`）の Skill に従う。通常の実装作業は `/pstack:poteto-mode` をエントリポイントとする。
 
 ## Gitと安全性
 
