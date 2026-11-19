@@ -874,7 +874,7 @@ dependencies:
 - repo_url: scarecrow173/cheaper
   name: cheaper
   host: github.com
-  resolved_commit: edb6f45951cbdd6342d3323a75102d5f1c6ae70e
+  resolved_commit: 032d46a4d09bf20b895434d9931c7d0052cf7702
   resolved_ref: main
   version: 1.0.0
   virtual_path: packages/apm
@@ -892,6 +892,10 @@ dependencies:
   - .agents/skills/cheaper-usage
   - .agents/skills/cheaper-usage/SKILL.md
   - .agents/skills/cheaper-usage/scripts/install-devin-hooks.ps1
+  - .agents/skills/cheaper-workflow-create
+  - .agents/skills/cheaper-workflow-create/SKILL.md
+  - .agents/skills/cheaper-workflow-discover
+  - .agents/skills/cheaper-workflow-discover/SKILL.md
   - .claude/skills/cheaper-bulk-read
   - .claude/skills/cheaper-bulk-read/SKILL.md
   - .claude/skills/cheaper-code-write
@@ -903,20 +907,28 @@ dependencies:
   - .claude/skills/cheaper-usage
   - .claude/skills/cheaper-usage/SKILL.md
   - .claude/skills/cheaper-usage/scripts/install-devin-hooks.ps1
+  - .claude/skills/cheaper-workflow-create
+  - .claude/skills/cheaper-workflow-create/SKILL.md
+  - .claude/skills/cheaper-workflow-discover
+  - .claude/skills/cheaper-workflow-discover/SKILL.md
   deployed_file_hashes:
     .agents/skills/cheaper-bulk-read/SKILL.md: sha256:370e2082887245b7279c3c90955dccae6ddb1317d5bbcff0a2b6289118e5fc53
     .agents/skills/cheaper-code-write/SKILL.md: sha256:2a8c859a8b5c46721ab16ad67920d01c90ec08d29436d8bd8e01983edc0813af
     .agents/skills/cheaper-doc-write/SKILL.md: sha256:9b98039b90cd1abfbefd12c106fa45d040536d1b9a5bc1c5857c60f73057a725
     .agents/skills/cheaper-tool-operate/SKILL.md: sha256:a70f84277133229fe45178d02b81b424b0a324d678240004aa00e893cd2de137
-    .agents/skills/cheaper-usage/SKILL.md: sha256:a839d1d0f653fe0555cf19668efd95de4107d1860a38939afbb2a1e348f4f531
+    .agents/skills/cheaper-usage/SKILL.md: sha256:8d0201f5c7416b3980241f937f02f27e7bbda8aa87af5826c6af510a9bd4ca1d
     .agents/skills/cheaper-usage/scripts/install-devin-hooks.ps1: sha256:ec5afcadd948e99b6e92faef0824240f8494b790f1f6bd60cb182697b7062376
+    .agents/skills/cheaper-workflow-create/SKILL.md: sha256:d21ccb5e046168e0d0b1e003d0a68b0bf7f26f8761b84cb0af6958a83aa9a97b
+    .agents/skills/cheaper-workflow-discover/SKILL.md: sha256:dfae93fbc9010c6b42918a63f33e2b427e5545277951d5fd69a243a5926ea2fa
     .claude/skills/cheaper-bulk-read/SKILL.md: sha256:370e2082887245b7279c3c90955dccae6ddb1317d5bbcff0a2b6289118e5fc53
     .claude/skills/cheaper-code-write/SKILL.md: sha256:2a8c859a8b5c46721ab16ad67920d01c90ec08d29436d8bd8e01983edc0813af
     .claude/skills/cheaper-doc-write/SKILL.md: sha256:9b98039b90cd1abfbefd12c106fa45d040536d1b9a5bc1c5857c60f73057a725
     .claude/skills/cheaper-tool-operate/SKILL.md: sha256:a70f84277133229fe45178d02b81b424b0a324d678240004aa00e893cd2de137
-    .claude/skills/cheaper-usage/SKILL.md: sha256:a839d1d0f653fe0555cf19668efd95de4107d1860a38939afbb2a1e348f4f531
+    .claude/skills/cheaper-usage/SKILL.md: sha256:8d0201f5c7416b3980241f937f02f27e7bbda8aa87af5826c6af510a9bd4ca1d
     .claude/skills/cheaper-usage/scripts/install-devin-hooks.ps1: sha256:ec5afcadd948e99b6e92faef0824240f8494b790f1f6bd60cb182697b7062376
-  content_hash: sha256:abfea1398f19988d12982a3009a0c4e9596f8865237fb68e644d462050945edb
+    .claude/skills/cheaper-workflow-create/SKILL.md: sha256:d21ccb5e046168e0d0b1e003d0a68b0bf7f26f8761b84cb0af6958a83aa9a97b
+    .claude/skills/cheaper-workflow-discover/SKILL.md: sha256:dfae93fbc9010c6b42918a63f33e2b427e5545277951d5fd69a243a5926ea2fa
+  content_hash: sha256:d31b6720cda41834e4f38d8ccc7880c1ee3b94fcb74092c6ed478ce2277af4c2
 - repo_url: addyosmani/agent-skills
   name: code-simplification
   host: github.com
@@ -1509,7 +1521,7 @@ dependencies:
 - repo_url: scarecrow173/cheaper
   name: cheaper-hook-claude
   host: github.com
-  resolved_commit: edb6f45951cbdd6342d3323a75102d5f1c6ae70e
+  resolved_commit: 032d46a4d09bf20b895434d9931c7d0052cf7702
   resolved_ref: main
   version: 1.0.0
   virtual_path: packages/apm-hook-claude
@@ -1529,7 +1541,7 @@ dependencies:
 - repo_url: scarecrow173/cheaper
   name: cheaper-hook-codex
   host: github.com
-  resolved_commit: edb6f45951cbdd6342d3323a75102d5f1c6ae70e
+  resolved_commit: 032d46a4d09bf20b895434d9931c7d0052cf7702
   resolved_ref: main
   version: 1.0.0
   virtual_path: packages/apm-hook-codex
@@ -1549,7 +1561,7 @@ dependencies:
 - repo_url: scarecrow173/cheaper
   name: cheaper-hook-copilot
   host: github.com
-  resolved_commit: edb6f45951cbdd6342d3323a75102d5f1c6ae70e
+  resolved_commit: 032d46a4d09bf20b895434d9931c7d0052cf7702
   resolved_ref: main
   version: 1.0.0
   virtual_path: packages/apm-hook-copilot
@@ -1571,7 +1583,7 @@ dependencies:
 - repo_url: scarecrow173/cheaper
   name: cheaper-hook-cursor
   host: github.com
-  resolved_commit: edb6f45951cbdd6342d3323a75102d5f1c6ae70e
+  resolved_commit: 032d46a4d09bf20b895434d9931c7d0052cf7702
   resolved_ref: main
   version: 1.0.0
   virtual_path: packages/apm-hook-cursor
@@ -1591,7 +1603,7 @@ dependencies:
 - repo_url: scarecrow173/cheaper
   name: cheaper-hook-windsurf
   host: github.com
-  resolved_commit: edb6f45951cbdd6342d3323a75102d5f1c6ae70e
+  resolved_commit: 032d46a4d09bf20b895434d9931c7d0052cf7702
   resolved_ref: main
   version: 1.0.0
   virtual_path: packages/apm-hook-windsurf
@@ -2220,7 +2232,7 @@ deployments:
   owners:
   - scarecrow173/cheaper/packages/apm
   active_owner: scarecrow173/cheaper/packages/apm
-  content_hash: sha256:a839d1d0f653fe0555cf19668efd95de4107d1860a38939afbb2a1e348f4f531
+  content_hash: sha256:8d0201f5c7416b3980241f937f02f27e7bbda8aa87af5826c6af510a9bd4ca1d
 - kind: project-relative
   target: claude
   value: .claude/skills/cheaper-usage/scripts/install-devin-hooks.ps1
@@ -2230,6 +2242,42 @@ deployments:
   - scarecrow173/cheaper/packages/apm
   active_owner: scarecrow173/cheaper/packages/apm
   content_hash: sha256:ec5afcadd948e99b6e92faef0824240f8494b790f1f6bd60cb182697b7062376
+- kind: project-relative
+  target: claude
+  value: .claude/skills/cheaper-workflow-create
+  runtime: null
+  scope: project
+  owners:
+  - scarecrow173/cheaper/packages/apm
+  active_owner: scarecrow173/cheaper/packages/apm
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/cheaper-workflow-create/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - scarecrow173/cheaper/packages/apm
+  active_owner: scarecrow173/cheaper/packages/apm
+  content_hash: sha256:d21ccb5e046168e0d0b1e003d0a68b0bf7f26f8761b84cb0af6958a83aa9a97b
+- kind: project-relative
+  target: claude
+  value: .claude/skills/cheaper-workflow-discover
+  runtime: null
+  scope: project
+  owners:
+  - scarecrow173/cheaper/packages/apm
+  active_owner: scarecrow173/cheaper/packages/apm
+  content_hash: null
+- kind: project-relative
+  target: claude
+  value: .claude/skills/cheaper-workflow-discover/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - scarecrow173/cheaper/packages/apm
+  active_owner: scarecrow173/cheaper/packages/apm
+  content_hash: sha256:dfae93fbc9010c6b42918a63f33e2b427e5545277951d5fd69a243a5926ea2fa
 - kind: project-relative
   target: claude
   value: .claude/skills/code-simplification
@@ -4992,7 +5040,7 @@ deployments:
   owners:
   - scarecrow173/cheaper/packages/apm
   active_owner: scarecrow173/cheaper/packages/apm
-  content_hash: sha256:a839d1d0f653fe0555cf19668efd95de4107d1860a38939afbb2a1e348f4f531
+  content_hash: sha256:8d0201f5c7416b3980241f937f02f27e7bbda8aa87af5826c6af510a9bd4ca1d
 - kind: project-relative
   target: codex
   value: .agents/skills/cheaper-usage/scripts/install-devin-hooks.ps1
@@ -5002,6 +5050,42 @@ deployments:
   - scarecrow173/cheaper/packages/apm
   active_owner: scarecrow173/cheaper/packages/apm
   content_hash: sha256:ec5afcadd948e99b6e92faef0824240f8494b790f1f6bd60cb182697b7062376
+- kind: project-relative
+  target: codex
+  value: .agents/skills/cheaper-workflow-create
+  runtime: null
+  scope: project
+  owners:
+  - scarecrow173/cheaper/packages/apm
+  active_owner: scarecrow173/cheaper/packages/apm
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/cheaper-workflow-create/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - scarecrow173/cheaper/packages/apm
+  active_owner: scarecrow173/cheaper/packages/apm
+  content_hash: sha256:d21ccb5e046168e0d0b1e003d0a68b0bf7f26f8761b84cb0af6958a83aa9a97b
+- kind: project-relative
+  target: codex
+  value: .agents/skills/cheaper-workflow-discover
+  runtime: null
+  scope: project
+  owners:
+  - scarecrow173/cheaper/packages/apm
+  active_owner: scarecrow173/cheaper/packages/apm
+  content_hash: null
+- kind: project-relative
+  target: codex
+  value: .agents/skills/cheaper-workflow-discover/SKILL.md
+  runtime: null
+  scope: project
+  owners:
+  - scarecrow173/cheaper/packages/apm
+  active_owner: scarecrow173/cheaper/packages/apm
+  content_hash: sha256:dfae93fbc9010c6b42918a63f33e2b427e5545277951d5fd69a243a5926ea2fa
 - kind: project-relative
   target: codex
   value: .agents/skills/code-simplification
