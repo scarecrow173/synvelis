@@ -47,7 +47,7 @@ Synvelis の出荷 DTCG theme 文書は `color.*`/`spacing.*`/`control.height` �
 （ruviform pin `cbcc834`）が読む canonical 語彙は
 `surface.*`/`text.*`/`accent.*`/`control.*`/`state.*`/`viz.*`/`space.*`。
 語彙が不一致のため現状は全項目が literal fallback に落ち、製品 theme が
-GPUI 描画へ実質効いていない。本 exploration の結論: 製品文書内に
+GPUI 描画へ実質反映されていない。本 exploration の結論: 製品文書内に
 primitive→canonical の DTCG alias 層を追加し、parity は
 `ResolvedTheme` レベルで契約固定する（`ViewPalette` は private で
 直接照合できないため）。

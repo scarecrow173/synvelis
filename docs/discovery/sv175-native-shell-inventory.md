@@ -44,7 +44,7 @@ relations:
 
 Issue #175（SV-GPUI-01・2026-11-07 横断レビュー確定仕様 v2）の初期
 slice に向けた、既存実装・消費可能な Ruviform 実 API・不足契約の
-棚卸し。確認時点の SHAS は Synvelis main `53318e7`・Ruviform main
+棚卸し。確認時点の SHA は Synvelis main `53318e7`・Ruviform main
 `e8adcc09`（作業時点 `Cargo.lock` pin は `5c0f16b` で更新が必要）。
 
 ## 既存構成（Synvelis側・再利用対象）

@@ -60,7 +60,7 @@ SV177 の実装境界を確定するため、(a) 既存の製品 Theme/Workspace
 既存機構、を確認する。2026-11-07 横断レビュー確定仕様 v2 が Theme
 （color/typography/spacing/density/modes）と Workspace Preset
 （Window/Dock/Layout/View selection/pin/focus）を別 Schema/Version/
-Restore とすること、Driver-neutral（GPUI 型を露出しない）であることを
+Restore とすること、Driver-neutral（GPUI 型を公開しない）であることを
 要求するため、既存コードがそれを満たすかの判定が必要だった。
 
 ## Key Issues and Assumptions
