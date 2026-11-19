@@ -70,16 +70,17 @@ batch 内で「member A が作成するリソースの ID を member B が参照
   apply 前後の `resource_map` diff から declared kind の created が
   ちょうど 1 つの binding を実 ID へ解決する。解決済み placeholder
   は lowering 前の member wire JSON へ再帰 rewrite され、retained op
-  は flatten された単一 `ProjectOp::Composite` のまま — proposal/
-  commit/undo 契約は不変。placeholder→実 ID の対応は commit と同一の
-  採番系列で決定的に導出され、ID の推測・事前採番は行わない。
+  は flatten された単一 `ProjectOp::Composite` のままであり、
+  proposal/commit/undo 契約は不変である。placeholder→実 ID の
+  対応は commit と同一の採番系列で決定的に導出され、ID の
+  推測・事前採番は行わない。
 - **provisional authorization**: bindings batch では seam の scratch
   post-state を `BaseFirstOracle` の candidate として provisional
   gate に供給し、transaction-created resource を `Known` に解決する。
   scope/`create_within`/`include_future`/data-access の判定は通常通り
   適用され、placeholder 解決は authorization を迂回しない。
-- **fail-closed 条件**: bindings 非空時、次は typed
-  `PreparationRejected` で拒否する — 宣言の malformed/未知 field/
+- **fail-closed 条件**: bindings 非空時、次はいずれも typed
+  `PreparationRejected` で拒否する: 宣言の malformed/未知 field/
   重複 `(member,kind)`、範囲外 member、未知 kind、未宣言 slot、
   kind-tag 不一致、self/backward/premature 参照、producer の
   apply 失敗・created arity 不一致（0 または複数）、object key の
