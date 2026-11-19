@@ -59,7 +59,7 @@ envelope の実配線を行う。
   workspace tests/autx08_e2e.rs の 3 箇所のみ。
 - **canonical surface 不在**: `synvelis-script` は命名無関知の
   汎用 crate で、`ScriptSurfaceSpec` を consume するが生成しない。
-  test fixture の手書き surface を本番へコピーしてはならない。
+  test fixture の手書き surface を本番へコピーするわけにはいかない。
   命名規則 authority は `synvelis-automation` に置く
   （#274 GUI/analyzer 結合が consume できる境界）。
 - **parity 正本**: `crates/synvelis-automation/tests/mixed_source_run.rs`

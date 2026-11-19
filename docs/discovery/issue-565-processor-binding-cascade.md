@@ -43,7 +43,7 @@ synvelis#561（`docs/impl/ir/issue-561-opfacts-unverifiable-cascade.md`
 退役経路を再確認し、persisted identity の不変条件 3 軸
 （再読み込み・復元・外部参照）への影響を監査する。
 
-監査の主問い: **退役する persisted identity を外部が参照でき、
+監査の中心となる問い: **退役する persisted identity を外部が参照でき、
 dangling が起き得るか**。起き得るなら fail-closed
 （`unsupported`/op_facts）または契約明記で修正、起き得ない
 なら根拠を doc chain/evidence に記録して完了とする。

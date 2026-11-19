@@ -81,7 +81,7 @@ Core UI は変更しない。
      completion slot（typed `FetchReceipt`/`ProviderError`）で返す。
 4. **Local walk の明示対応**: symlink は canonical target が root
    内かつ未訪問の dir のみ辿る（visited canonical dir set で loop
-   切断）。root 外へ逃げる locator は列挙は観測事実として行うが
+   切断）。root 外へ逃げる locator の列挙は観測事実として行うが
    stat/pin/open は拒否。locator は root 相対の `/` 区切りで、
    `..`・絶対・NUL を拒否し canonical 照合で traversal を防ぐ。
    open-after-stat race は「pin 時に sha256 を計測し open 時に

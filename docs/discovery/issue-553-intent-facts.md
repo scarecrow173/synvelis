@@ -40,7 +40,7 @@ systemic な設計 gap。`send.remove` の `op_facts` は
 send-owned `ModulationSource`/`ModulationAssignment` が
 cascade 削除される場合に `unsupported` を立てて
 fail-closed（SEC-14）するが、top-level prepare でのみ
-効き、variant-edit（inner op）経路では同じ deny が
+適用され、variant-edit（inner op）経路では同じ deny が
 伝播しなかった。synvelis#550 では send.remove に限り
 境界側で封じ込め済みで、本 Issue は伝播層
 （`variant.rs` の `declared_facts`）の修正である。
@@ -61,7 +61,7 @@ fail-closed 情報がここで欠落する。
 `provisional_gate`（`prepare_engine.rs`）は
 `facts.unsupported` 非空で `PreparationRejected`
 （"unverifiable effects"）を返す — 伝播すれば
-top-level と同一の deny が variant-edit に効く。
+top-level と同一の deny が variant-edit に適用される。
 
 ### 2. 影響面は全 cascade op に及ぶが、現行で非空に
 なり得るのは `RemoveSend` のみ
