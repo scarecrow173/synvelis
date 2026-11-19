@@ -90,7 +90,7 @@ Window/Inspector が監視しても Broker Capture 重複なし、
 Window Close/Window Move/Session stop/explicit Capture Abort の
 ownership」を要求する。現行の `ProbeTraceSession` は key→target
 相関のみで subscriber/window 識別子を持たず、`probe_remove`/
-`probe_stop_capture`/`probe_set_mode` が key に無条件で効くため、
+`probe_stop_capture`/`probe_set_mode` が key に無条件で適用されるため、
 共有購読中の一方の Window close を表現できない（契約:
 「複数Inspector/Windowは購読者」「Close Windowは他Subscriberや
 進行Jobを勝手にStopしない」「PCM Captureは明示Request/
