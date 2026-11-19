@@ -102,7 +102,7 @@ rebuild 経路は現行の直接 `RoutingEngine::prepare`/`publish` 駆動を
 ## 根拠（root-cause）
 
 1. **入力の不在**: `EnginePort::on_project_revision` は
-   `(&Project, ProjectRevision)` のみを運ぶ。`SelectionInputs` が
+   `(&Project, ProjectRevision)` のみを受け取る。`SelectionInputs` が
    要求する plugin_evidence・environments・render_candidates の
    production 供給経路は存在しない（`ProcessorBinding` は
    descriptor/version/capability_revision のみ、`PluginHost` に
