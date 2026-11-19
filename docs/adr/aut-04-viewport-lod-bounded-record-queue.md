@@ -111,7 +111,7 @@ v1.1)に基づく初期実装方針。
 - `view.points` は格納点を**verbatim**(pos/value)返す。
   `max_points` 超過時は feature 保持点(StepEdge/Extremum/
   Boundary 近接)を優先して残し、残 budget を先頭から順に anchor
-  で埋める — 一律絶対誤差削減ではなく「形を運ぶ点」の優先保持。
+  で埋める — 一律絶対誤差削減ではなく「形を伝える点」の優先保持。
 
 ### D-3: Quality は 3 値 — envelope はいかなる budget でも厳密
 
