@@ -14,6 +14,8 @@ dependencies:
     - scarecrow173/apm-packages/packages/doc-driven-dev#main
     - scarecrow173/apm-packages/packages/review-protocol#main
     - scarecrow173/cheaper/packages/apm#main
+    - scarecrow173/apm-packages/packages/japanese-tech-writing#main
+    - scarecrow173/apm-packages/packages/pstack-devin#main
   mcp: []
 devDependencies:
   mcp:
