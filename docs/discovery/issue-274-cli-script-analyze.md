@@ -73,7 +73,7 @@ Script Analyzer verb 配線）を、既存の公開契約だけで実装でき�
 - **`.rhai` の扱い**: analyzer registry は luau のみ登録。
   `ScriptLanguageId("rhai")` をそのまま `analyze_with_injection` に
   渡せば `AnalyzerError::Unavailable` → `CliError::Unsupported`
-  （exit 5）の typed fail-closed になる。CLI 層で言語別に握り潰さ
+  （exit 5）の typed fail-closed になる。CLI 層で言語別の事前検査を挟ま
   ない → confirmed。
 - **`SourceRevision`**: 単発同期 invocation に stale domain は無い。
   固定値 `SourceRevision(1)` + `verify_revision` echo 確認で十分

@@ -55,7 +55,7 @@ Ruviform RF-SCRIPT-00 製品 port（`ruviform-script` 中立契約 +
 - session 毎 fresh `Lua`・`shared_vm_state=false`・owner-thread-only
   （mlua `send` 無効）・single-shot evaluate・host binding なし・
   sandbox globals 4 種剥奪（`require`/`loadstring`/`print`/`debug`）・
-  lift 上限（depth 64 / nodes 1M）・pcall 飲み込み対策 — 高レベル
+  lift 上限（depth 64 / nodes 1M）・pcall での error 隠蔽対策 — 高レベル
   振る舞いはほぼ一致。
 - 差異は全て**契約語彙の形状**に集中: trait 署名・error enum・
   digest 形式・SessionConfig 追加 field・artifact payload 規則・
@@ -77,7 +77,7 @@ crate 単位の drop-in は成立しない。
 `synvelis_script::backend` 経由のみで `LuauBackend` を消費しており、
 公開面を壊さなければ変更不要。`BudgetExceeded.kind` のみ
 `Option<BudgetKind>` への port 語彙調整が必要（中立 error が次元を
-運ばないため）。
+含まないため）。
 
 ### ruviform 側の不足（consumer 要件に対して）
 

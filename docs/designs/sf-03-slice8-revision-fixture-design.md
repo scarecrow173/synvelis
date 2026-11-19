@@ -116,7 +116,7 @@ workspace は `synvelis-player`/`synvelis-app` に依存しないため、
   `SemanticNodeRef` が対応 node の
   `SignalFlowNodeRuntime::Unavailable` に写像され、未記録 node は
   `Unobserved` のまま — map の semantic key 照合が node 単位で
-  効いていることを固定（`Resolved` は NodeId 型が workspace の
+  適用されていることを固定（`Resolved` は NodeId 型が workspace の
   依存に無いため合成不可。node 解決の `Resolved` 側は app fixture
   が実 engine map で担保）。
 - **fixture 02 transition stale**: apply → `EnginePort` 通知・

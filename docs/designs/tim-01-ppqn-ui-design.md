@@ -88,7 +88,7 @@ Issue #125 の UI 契約（L34）は「New Project 既定 960・
 
 - 実 GUI widget intent（`rvf.ui.command.v1` の parameterized
   Action）による confirm/cancel — shell の Action 経路は
-  params を運べず、fake button で誤魔化さない。実 GUI 配線は
+  params を受け渡せず、fake button で誤魔化さない。実 GUI 配線は
   後続 slice・外部 gate。
 - SMF export 実装の変更（`effects.smf_export` は報告のみ）。
 - `synvelis-project` の PPQN コマンド意味変更。
@@ -270,7 +270,7 @@ gesture 状態機械は view 側 `PpqnUi`、権威は project 層。
   可否は `preview.applies`、変換は `reproject_ppqn`。
 - spec は表示専用 — `PpqnScreenState`/`PpqnPreviewView` は
   gesture authority を持たず、actionButton を持たない
-  （`rvf.ui.command.v1` Action は params を運べない制約を
+  （`rvf.ui.command.v1` Action は params を受け渡せない制約を
   fake で迂回しない）。
 - `PpqnUi` は session-scoped view state — 永続化しない、
   project を mutate しない。
@@ -281,7 +281,7 @@ gesture 状態機械は view 側 `PpqnUi`、権威は project 層。
 | --- | --- |
 | `lib.rs` lease で `ppqn_ui` が `state::ppqn_ui` に暫定 mount | `#[path]` で canonical file 配置を維持、coordinator が統合時に top-level module へ移設（doc に明記） |
 | pending preview が非 PPQN 変化で stale 化 | `project_revision` を screen guard + `expected_revision` CAS の二重防御 — confirm は正直に reject、view は再 preview で回復 |
-| fake parameterized widget で gesture を誤魔化す誘惑 | Action 経路が params を運べないことを確認済み — display-only spec + typed op helper + ViewBinding mint に限定し、実 GUI 配線は外部 gate として明示 |
+| fake parameterized widget で gesture を誤魔化す誘惑 | Action 経路が params を受け渡せないことを確認済み — display-only spec + typed op helper + ViewBinding mint に限定し、実 GUI 配線は外部 gate として明示 |
 | `PpqnUi` が app と view で二重化 | `UiOpsState` に単一 instance、`publish_project_length` の `observe_current` が唯一の re-sync 点 — fixture apply を含む全経路を網羅 |
 | snapshot/preset との乖離 | tick-preservation は `ViewState`（view-local・session）と persisted preset の双方に同一規則を適用 — preset 書き換えは行わず報告のみ（preset.rs は lease 外） |
 

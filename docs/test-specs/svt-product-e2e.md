@@ -44,7 +44,7 @@ relations:
 
 ### Rule SVT-01: Project Create keeps view composition
 
-` syn.project.new` 後も mount 済み view の attach/subscription が
+`syn.project.new` 後も mount 済み view の attach/subscription が
 生存し、gesture が新 session の transport truth に `Applied`
 receipt を返す。`syn.view.list` が view を報告し続け、
 `arrangement_rows` は新 project で空。

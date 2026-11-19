@@ -139,7 +139,7 @@ CI・Cargo 設定・Ruviform 共通契約を変更しない。
 `Unsupported{capability}`・`Unauthorized{scope}`・
 `PermissionDenied{scope}`・`Empty`（真の 0 件のみ）。
 検索 capability 非対応は `Unsupported` であり `Empty` としない。
-UI はこれらを個別 icon/label で表示し、「No Results」へ丸めない。
+UI はこれらを個別 icon/label で表示し、「No Results」に集約しない。
 
 `ProviderCapabilities` は search/index・revision listing・
 preview fetch・conditional read（ETag/If-Match）・LFS 実

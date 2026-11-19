@@ -116,7 +116,7 @@ bin が process boundary で `var_os` を読み、`Option<PathBuf>`
    `control_report()`/`last_control_drain` の実 evidence を返す。
 4. `ui_pump`（16 ms tick・op tail）が `drain_control_reports`・
    `drain_control_observations` を駆動 — drain slice の配線が
-   webview 経路でもそのまま効く。
+   webview 経路でもそのまま機能する。
 
 ## Non-Functional Constraints
 

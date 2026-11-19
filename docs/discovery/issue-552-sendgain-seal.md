@@ -99,7 +99,7 @@ after_objects` を `removed` として検査し、各 object が
 
 - `RemoveSend` は `remove_control_owned` で send 所有の
   control 閉包（target・source・lane・assignment）を
-  まとめて削除する — seal が死ぬときその閉包も死ぬ、
+  まとめて削除する — seal が解除されるときその閉包も削除される、
   という既存 semantics。
 - `RemoveConnection` の `Send` kind も `SendConfig` を
   道連れに削除する（1:1 相互参照）。
@@ -115,7 +115,7 @@ after_objects` を `removed` として検査し、各 object が
 `(owner = Send(send_id), role = SendLevel)` の seal を
 保持していれば、その target と排他閉包（その target を
 指す automation lane・`target`/`depth_source` として
-触れる modulation assignment）を同一 apply 内で削除
+参照する modulation assignment）を同一 apply 内で削除
 する。新 target への seal は従来どおり同じ apply で
 行い、release → seal の順で適用する。これにより:
 
@@ -127,8 +127,8 @@ after_objects` を `removed` として検査し、各 object が
   post-apply oracle が最終状態だけを検査する構造上
   commit され得ない。
 - send-owned modulation source は削除しない —
-  `remove_control_owned` が owner 死亡時に全 source を
-  畳むのに対し、本 slice は単一 target の解放であり、
+  `remove_control_owned` が owner 削除時に全 source を
+  一括削除するのに対し、本 slice は単一 target の解放であり、
   source は他 target を drive し得る独立 entity で
   未 assign の source は合法状態。
 

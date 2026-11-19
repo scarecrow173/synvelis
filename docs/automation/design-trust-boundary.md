@@ -41,9 +41,9 @@ CLI は「どの OS ユーザーが起動したか」「TTY があるか」「�
 当初本表は CLI session を `ExternalAdapter` に写像していたが、
 実装は trusted local CLI adapter 専用の `LocalCli` を持つ。
 `Human+LocalCli` は `Human+ExternalAdapter` と全 engine 経路で
-同一 verdict — `is_external`/`authorize_disclosure` は
+同一 verdict である。`is_external`/`authorize_disclosure` は
 `PrincipalKind::Agent` で判定され、`Human` principal は
-`PermitForStage` で short-circuit するため（sv261 台帳
+`PermitForStage` で short-circuit するためだ（sv261 台帳
 `evidence/sv261/autx-02-cli-adapter-ledger.md` の behavior
 差なし記録どおり）。`authority_class()` は `(kind, origin)` のみに
 写像し wire・引数・env・TTY を参照しない。
@@ -55,16 +55,16 @@ usable secret は OS credential store（Windows: Credential Manager、
 `synvelis-cli` service）に session id 単位で保管される。
 `synvelis-cli session issue` が operator provisioning として発行し、
 `--session <id>` が OS vault から secret を in-process に読み
-`CliSessionClaim::Interactive` を構成する — secret は argv/env/
+`CliSessionClaim::Interactive` を構成する。secret は argv/env/
 log/record に出ない。検証の信頼根拠は従来どおり store の digest
 照合のみであり、OS/TTY/env/args の自己申告は証拠にしない
 （§3 契約は不変）。OS credential store が secret を OS user
 account に束縛するため、対話存在証明（credential prompt /
 Windows Hello）は #114 系 gate に deferred。
 
-**重要**: `OriginKind`/`PrincipalKind`/`AdapterSeal` の発行権限は
+`OriginKind`/`PrincipalKind`/`AdapterSeal` の発行権限は
 **adapter 実装（trusted host 側）にのみ存在**し、CLI 引数・環境変数・
-TTY の有無はそれを生成しない。
+TTY の有無はこれらを生成しない。
 
 ## 3. 「Human 承認が引数で生成されない」契約
 
@@ -89,8 +89,8 @@ revision に束縛され、1 回の apply で消費される（`Consumed`）。
   - `Suggest`: proposal 準備のみ。apply は拒否。
   - `ApproveToApply`: apply ごとに trusted approval が必要。
   - `DelegatedApply`: Grant の `GrantLimits`（`apply_budget`/`job_budget`）と
-    `Validity`（`expires_at`/`revoked`）の範囲内で apply 可。** proactive
-    activation 権限ではない**（AHG-007）。
+    `Validity`（`expires_at`/`revoked`）の範囲内で apply 可。
+    **proactive activation 権限ではない**（AHG-007）。
 - Grant は `PolicyEpoch` に紐づき、revoke/expiry/epoch 変更は各 step と
   commit 境界で再評価される（fail-closed）。
 - Grant/Token/Approval/human authority を Script 定義・durable Workflow plan・

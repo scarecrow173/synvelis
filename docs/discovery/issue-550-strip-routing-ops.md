@@ -73,14 +73,14 @@ capability は宣言できない。port id は `semantic-port-*`
 tagged string として args に載せる形が既存の
 `insert-processor`（ports は内部構造）と整合する。
 
-### 3. adopt の Removed write は payload を運べない
+### 3. adopt の Removed write は payload を載せられない
 
 `plan_adopt_writes` は candidate 側削除を
 `ChangeKind::Removed` + `payload: Null` で emit する。
 `apply/plan.rs::preflight_ports`（非 lease）は
 `RoutingConnection`/`SendConfig` の全 write payload から
 endpoint を parse するため、routing entity の Removed
-write が `InvalidPort` で preflight 落ちする。
+write が `InvalidPort` で preflight 拒否される。
 `remove_entity` は payload を読まないので、Removed write
 に削除対象 entity の serialization を載せるのが最小の
 整合修正（`variant/engine.rs`、lease 内）。

@@ -161,7 +161,7 @@ publish。新経路では:
 - `blob.rs` の `open_blob_verified` — dual-scheme resolve 済み。
 - `import.rs` の `import_local` — legacy CRC32 経路は不変。
 - `commit.rs` の manifest/adopted digest 採用ロジック — digest
-  文字列をそのまま運ぶため変更不要。
+  文字列をそのまま使うため変更不要。
 - `writer.rs`/`recovery.rs` の `verified_sha256`（raw provenance）。
 - `staging.rs` の `publish_atomic`/`publish_atomic_faultable`
   signature と fault seam。

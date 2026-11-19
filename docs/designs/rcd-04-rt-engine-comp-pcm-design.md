@@ -79,7 +79,7 @@ Issue #118 の受入は「実 RT engine 出力（`RoutingEngine::run`/
 - (a) は `export()` という *実装された* offline render 経路を
   oracle に据える — `ClipRenderer`・preflight・WAV reopen を含む
   製品経路そのもので、test 内複写を新たに作らない。Issue 受入の
-  「実装経路を通した照合」に正面から一致する。
+  「実装経路を通した照合」に厳密に一致する。
 - (b)（engine 出力を権威として oracle で独立検証）は「第 3 の
   renderer」を test に置くことを要求し、検証対象の gap（複写
   renderer と実装の drift）を別の複写で再製する。却下。

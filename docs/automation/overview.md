@@ -8,7 +8,7 @@ Owner 境界・依存 DAG の canonical 文書セットである。
 自動化サブシステムの契約文書を集約するプロダクト文書ディレクトリである。
 各文書は相互に相対リンクで参照し、外部 Issue は URL で参照する。
 `README.md` は `doc-maintenance` が生成する管理 index であり手編集しない
-（本書はその手前にある概要・文書チェーンの案内である）。
+（本書は index ではなく、文書群の概要・チェーン案内である）。
 
 ## 文書チェーン
 
@@ -45,8 +45,8 @@ Owner 境界・依存 DAG の canonical 文書セットである。
 
 2026-11 追記: review-protocol レビューは blocker なしで通過済み
 （spec.md AC-6 チェック済み）。AUTX-01〜07 / SV-SCRIPT-01〜03 の
-実装が main に着地（sv#260〜#267・#272/#273 系の PR 群 —
-例: AUTX-02 は PR #423、SV-SCRIPT-02 は PR #438、AUTX-04
-GW-04 seam は PR #471）し、Gate A（契約承認）・実装ゲートとも
-充足 — 語彙は `docs/designs/` の `status: "approved"` に
-合わせる。
+実装は main にマージ済みであり（sv#260〜#267・#272/#273 系の
+PR 群。例: AUTX-02 は PR #423、SV-SCRIPT-02 は PR #438、
+AUTX-04 GW-04 seam は PR #471）、Gate A（契約承認）・実装
+ゲートの双方を満たしている。status 欄の語彙は `docs/designs/`
+の `status: "approved"` に合わせる。

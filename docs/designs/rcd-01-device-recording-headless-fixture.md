@@ -83,7 +83,7 @@ RCD-01 の fake port 契約層（`src/input.rs`）は実装済みで、`InputAda
 
 - `TapWriterEnds.stream_index` と `plan.targets`/staging manifest の対応付けを誤ると lane/channel がずれる → fixture 内で `stream_index == target index` の対応を明示し、manifest 照合で検出する。
 - engine fault 時に writer は `Complete` finalize し得る（journal は fault 前まで正常）→ `capture-fault` marker が session レベルの Partial/Unknown を担う既存設計に従い、marker + recoverable 分類を観測対象とする。stream 単体の outcome 表記ゆれは既存契約の範囲として記録する。
-- `synvelis-app` への追加は共有ファイル（`service.rs` 等）に触れる可能性 → additive な変更に限定し、#112 占有領域（録音以外の画面/service）には触れない。
+- `synvelis-app` への追加は共有ファイル（`service.rs` 等）を変更する可能性 → additive な変更に限定し、#112 占有領域（録音以外の画面/service）は変更しない。
 
 ## Deferred Design Concerns
 

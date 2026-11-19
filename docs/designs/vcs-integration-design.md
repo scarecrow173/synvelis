@@ -140,7 +140,7 @@ ViewType::VcsHistory → ViewHost/ViewMount → create_view_window（native moun
   Inspector 等の read-only projection）は同一 ChangeSet の異なる
   投影であり、view ごとに別の diff アルゴリズムを持たない。
 - `Unknown`/`Partial`/`Stale`/`Unsupported`/`Missing`/`Ambiguous`/
-  `Unobserved` は明示状態として各 view に運ばれ、empty/Equal に潰れない。
+  `Unobserved` は明示状態として各 view に伝えられ、empty/Equal に潰れない。
 
 ## Data and Control Flow
 

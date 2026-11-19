@@ -310,7 +310,7 @@ op の endpoint 指定（wire）:
   「backend 未接続」は正常な degraded 状態）。
 - `Snapshot`/`Vcs`/`Diff` error → `VcsHistoryState.last_error` +
   status `Failed{detail}`（detail は sanitize 済み provider text を
-  そのまま運ぶ。path/secret を新たに載せない）。
+  そのまま使う。path/secret を新たに載せない）。
 - cancellation → `VcsError::Cancelled`/`SnapshotError::Cancelled`/
   `DiffError::Cancelled` を `Cancelled` status に写像。
 

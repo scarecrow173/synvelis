@@ -149,8 +149,8 @@ OfflineRender/Export intent は synvelis-render 側の lowering 経路を
 
 根拠の要約:
 
-1. `EnginePort` は `(&Project, ProjectRevision)` のみを運び、intent・
-   plugin 証拠・environment facts・render candidates を運ばない。
+1. `EnginePort` は `(&Project, ProjectRevision)` のみを渡し、intent・
+   plugin 証拠・environment facts・render candidates は渡さない。
    rebuild は plan 実行 adapter であり、selection の入力を組み立てる
    責務も消費する責務も持たない。
 2. `drive_selection_plan` が駆動する engine build は rebuild と同一。

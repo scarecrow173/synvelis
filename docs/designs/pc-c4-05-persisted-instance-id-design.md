@@ -170,7 +170,7 @@ PluginInstanceIdentities` を追加。`Project::new` は `Default` で初期化�
 
 違反は `Error::Validation`（構造的不整合）/`Error::NotFound`
 （processor 不在）で typed reject — load・apply・migration 後検証の
-全てで同一 oracle が効く。
+全てで同一 oracle が適用される。
 
 ### Mutation 経路ごとの維持
 

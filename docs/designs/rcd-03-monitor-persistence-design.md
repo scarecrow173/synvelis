@@ -281,7 +281,7 @@ struct TrackSessionState {
 
 - read-through 化により `syn.monitoring.state` は毎回
   `project.monitoring` を走査する。宣言 track 数は mixer 規模で
-  bounded、`PROBE_TRACK_CAP` 等の既存 cap がそのまま効く。
+  bounded、`PROBE_TRACK_CAP` 等の既存 cap がそのまま適用される。
 - `RemoveTrack` の cascade は decl を暗黙に消すが、undo で復元
   される。`validate_references` が crafted snapshot の孤立 decl
   を拒否するため不変条件は維持される。

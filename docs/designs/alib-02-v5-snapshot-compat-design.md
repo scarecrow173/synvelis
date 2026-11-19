@@ -80,7 +80,7 @@ ALIB-02 本体（PR #220）は新規 import の SHA-256 識別子のみを導入
 `Asset.digest` / `Source.content_digest` / `AppliedImport.content_hash` の
 serde 表現は変更しない。永続化文字列を migration で書き換えると、
 旧 blob namespace の実体（`blobs/<flat name>`）との対応が壊れ、かつ
-byte-level verify なしの「verified 昇格」になってしまう。
+byte-level verify なしの「verified 昇格」となる。
 
 代わりに `synvelis-project/src/project.rs` に型付き分類層を追加する:
 

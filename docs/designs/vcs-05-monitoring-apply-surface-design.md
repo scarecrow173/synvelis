@@ -31,7 +31,7 @@ kind 2 種を載せる。両 kind とも既存 entity map に属さない特殊�
 identity を持つため、`keyed!`/`keyed_insert!` macro ではなく
 専用 arm で扱う。`plan.rs`・preflight・journal・engine の制御
 フローは変更しない — whitelist・presence 規則・`Removed` 拒否は
-すべて既存機構がそのまま効く。
+すべて既存機構がそのまま適用される。
 
 ```
 SemanticObjectRef(kind=TrackMonitorDecl, stable_id=track-<hex>)
@@ -70,7 +70,7 @@ collection として分類されており、apply 側も同じ identity 規約�
 - `protected_fields`: 追加なし。decl は membership list を持たず
   （`lane` は binding target であって親子 membership ではない
   — diff 分類 design と同じ位置付け）、reconcile 対象外。
-- 存在規則は `plan_changes` の既存 gate がそのまま効く:
+- 存在規則は `plan_changes` の既存 gate がそのまま適用される:
   `Added` は live に decl 不在、`Modified` は live に decl 存在
   を要求（不在なら `TargetMissing`、冗長なら `TargetConflict`）。
 
@@ -110,7 +110,7 @@ entity view にも適用する:
 - `plan.rs`: `change_supported` の `Removed` → `Unsupported`、
   kind 別 `Reordered`/`Reconnected`/`Replaced`/`Moved` gate、
   existence 規則、`check_singleton_fields`（Project/RoutingModel
-  のみ）はすべて既存のまま monitoring kind に正しく効く。
+  のみ）はすべて既存のまま monitoring kind に正しく適用される。
   変更不要。
 - preflight（`introduced_digests`/`preflight_assets`/
   `preflight_plugins`/`preflight_ports`）: monitoring payload は

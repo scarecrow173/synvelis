@@ -147,7 +147,7 @@ param report が `Reported` に進めるのは `drain_output_reports`
 （host→ledger）であり、observe_block の cycle には次の block 以降
 で初めて `Reported` が現れる。したって feed は「report が ledger
 に載った後の最初の観測 block」で起きる — 1 block 分の遅延は
-捏造ではなく ledger の実状態をそのまま運ぶ。`feed_plugin_report`
+捏造ではなく ledger の実状態をそのまま反映する。`feed_plugin_report`
 は upsert なので同一 Reported の再 feed は冪等。
 
 ## `syn.control.status` の `observe` 節

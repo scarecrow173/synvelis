@@ -80,6 +80,6 @@ fake Ruviform port から供給される入力 PCM が、armed tap ごとの実 
 
 ## Risk
 
-- fixture が in-memory writer のみを使うと実 staging/journal の回帰を見逃す → 実 `StreamWriter` 必須を Rule/Garantee で固定。
+- fixture が in-memory writer のみを使うと実 staging/journal の回帰を見逃す → 実 `StreamWriter` 必須を Rule/Guarantee で固定。
 - fail-stop を fault bit のみで判定すると journal/marker の durable 記録漏れを見逃す → Verified Prefix + marker を必須観測にする。
 - Punch/Loop の境界を block 単位で検証すると Sample 単位のずれを見逃す → span の session/source/project を Sample 単位で assert する。

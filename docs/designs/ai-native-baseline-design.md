@@ -246,7 +246,7 @@ lane を混同しない。
   Expected Revision・期限に結び付いた承認。receipt は proposal
   に結び付き ambient selection に結び付かず、他 Principal の
   receipt は拒否、revision drift は conflict、revoke は未使用
-  receipt を殺す（`sec10_foreign_approval_receipt_denies`・
+  receipt を無効化する（`sec10_foreign_approval_receipt_denies`・
   `sec11_revision_drift_after_approval_conflicts`・
   `sec12_revoked_grant_kills_the_unused_approval`・
   `gtv005_revoke_before_receipt_consumption_denies`・
