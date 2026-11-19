@@ -82,7 +82,7 @@ commands から非 RT で自動導出する**。
   畳み込みながら `next_wrap`（Playing かつ loop
   設定時に raw position が loop end に到達する
   frame）を逐次評価する。apply は同 frame の wrap
-  より先に効く（upstream scheduler の tie 規則と
+  より先に適用される（upstream scheduler の tie 規則と
   同一）。導出されるのは
   **要求された** wrap frame であり、degraded deferral の
   実適用 frame は従来どおり oracle/scheduler 側の責務
@@ -156,7 +156,7 @@ slice として本 Issue の残件を前進させる。
   別 slice・外部 gate。
 - 実 CLAP/VST3/AU plugin・実 OS matrix・実 GUI・
   precision certification/CapabilityMatrix — 別 slice・
-  設計要（Issue #127 の独立受入 Gate）。
+  要設計（Issue #127 の独立受入 Gate）。
 - `TransportMirror`/`TransportScheduler` 本体の変更
   （Ruviform 側の責務。mirror は commanded-state
   projection の既存契約をそのまま消費する）。
@@ -188,7 +188,7 @@ slice として本 Issue の残件を前進させる。
   は apply されず wrap 計算に影響しない
   （`note_transport_command` と同一規則）。
 - 同一 frame の apply と wrap が衝突した場合、apply が
-  先に効き wrap は新 state で再評価される
+  先に適用され wrap は新 state で再評価される
   （scheduler の tie 規則）。同一 offset の wrap が
   cascade した場合も `BoundaryPoint` は offset ごとに
   1 件へ coalesce される。

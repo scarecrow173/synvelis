@@ -148,7 +148,7 @@ app-state push）の上に載せ、headless に検証可能な範囲で実装す
   muted/track/start_s/end_s）になる。inspection が無い間は
   従来の param breakdown が維持される。
 - `main_screen_spec` が Arrangement タブに `Waveform`、Mixer タブに
-  `Meter` を含み、status label が `VizStatus` の表示文字列を運ぶ。
+  `Meter` を含み、status label が `VizStatus` の表示文字列を持つ。
 - `reconcile_viz_surfaces` が main view attach 中に waveform を
   選択 clip（fallback: 先頭 clip、無ければ unbound source）へ、
   meter を `meter:master` へ bind し、source 変更時に再 bind

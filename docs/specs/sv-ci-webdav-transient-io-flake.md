@@ -163,7 +163,7 @@ Winsock 依存のため POSIX では顕在化しない。Worker ローカルで�
 - [ ] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
   `test-msrv` が pass する。
 - [ ] 直近 2 run の CI 失敗との対応（同一失敗パターン・修正が
-  その源に効く根拠）が PR 本文に記録される。
+  その源を断つ根拠）が PR 本文に記録される。
 
 ## Deferred Design Concerns
 

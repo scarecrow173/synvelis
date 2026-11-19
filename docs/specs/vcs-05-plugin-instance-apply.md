@@ -98,7 +98,7 @@ Concern が「要求が出た時点で別 spec/design に切り出す」と
   みを動かし、plugin state store は触らない）。
 - `src/ops.rs`・`src/project.rs`・`src/plugin_instance.rs` の
   変更（既存 `sync_processor`/`validate_against` がそのまま
-  権威 oracle として効く）。
+  権威 oracle として機能する）。
 - `tests/vcs05_apply.rs`・`tests/vcs05_restore.rs` 等の他
   fixture、`docs/*/README.md` index（再生成のみ）。
 - 実 OS FS durability・実 Provider/plugin E2E・GUI/RT・

@@ -136,7 +136,7 @@ Undo。UI は SV-GUI-02/03 を消費し別時間モデルを持たない」。
 
 - `rvf.ui.command.v1` の parameterized widget intent による
   実 GUI confirm/cancel 配線（shell の Action 経路は params
-  を運べない — 後続 slice・外部 gate）。
+  を渡せない — 後続 slice・外部 gate）。
 - SMF export 実装の変更（preview/spec は影響情報の報告のみ）。
 - `synvelis-project` の PPQN コマンド意味変更。
 - Presentation Driver への時刻正本移動。

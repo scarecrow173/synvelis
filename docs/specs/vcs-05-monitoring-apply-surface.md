@@ -55,7 +55,7 @@ diff 分類・restore の先行 slice が両端を揃えたため、apply whitel
   declaration-presence view（`PunchMarks`）、`write_entity` の
   独自 arm（`keyed_insert!` 非使用）。
 - `crates/synvelis-project/src/apply/mod.rs`: module doc の
-  scope-out 文言更新（monitoring 宣言が apply surface に乗る
+  scope-out 文言更新（monitoring 宣言が apply surface に追加される
   ことを反映）。`plan.rs` は変更なし（`Removed` 拒否は既存の
   `change_supported` が全 kind に適用済み）。
 - `crates/synvelis-project/tests/vcs05_apply.rs`・

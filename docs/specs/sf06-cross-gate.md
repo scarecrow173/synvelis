@@ -65,7 +65,7 @@ relations:
 Issue #109（Routing/Plan/Probe/GUI Cross Gate — Fault Matrix・OS/RT・
 AudioLens 互換）の **headless fixture slice**。先行 slice
 （`sf-06-cross-gate-oracle`）が Domain Oracle・fault fixture・
-v5→v6 migration を `synvelis-project` に樋けたのに対し、本 slice は
+v5→v6 migration を `synvelis-project` に入れたのに対し、本 slice は
 **SF-01〜SF-05 の全 headless テスト被覆を SF-MODEL/VALID/ACT/PROBE
 case 行列へ棚卸しし、被覆が実測されていない経路だけを fixture として
 追加し、結果を `evidence/sv109/` の台帳へ記録する**。
@@ -103,7 +103,7 @@ NotApplicable と Pass/Fail/NotRun/Unsupported の分離を維持する）。
   save→load 往復と undo が PCM を bit-for-bit 保存/復元すること
   （SF-MODEL/SF-ACT-02）
 - `sf06_mute_solo_pcm_through_sends` — mute/solo が main 経路と
-  send 経路の双方へ PCM レベルで効くこと（測定 0 ≠ 未観測）
+  send 経路の双方に PCM レベルで適用されること（測定 0 ≠ 未観測）
   （SF-VALID-03/04）
 
 ### Evidence 台帳
