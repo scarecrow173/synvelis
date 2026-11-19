@@ -173,7 +173,7 @@ pub fn op_project_redo(&mut self) -> Result<Value, ErrorBody>
 - **`publish_project_length` の責務拡大**: 名前は狭いが
   service.rs の呼出契約を変えられないため本体を拡張。doc で
   「project 由来 state publish」と明記し、次に service.rs を
-  触れる機会に rename を検討。
+  変更する機会に rename を検討。
 - **undo/redo の wire 到達性**: 現行 wire には project を変更する
   op が無い（param commit は既定 Read mode で書き込まない）ため、
   実機での undo 対象は将来の編集 op 追加待ち。op 自体は履歴空で

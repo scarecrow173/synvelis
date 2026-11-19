@@ -159,7 +159,7 @@ pre-v13 側の値が migration-minted projection artifact）のような
 `variant_sets.values().find_map(|s| s.branches.get(&id))`）。
 `all_semantic_objects`（`ins_map!` 群）には **載せない**:
 variant set/branch は render input（描画依存 entity）ではなく
-branch 管理帳簿であり、resolved project が実体 entity を運ぶ。
+branch 管理帳簿であり、resolved project が実体 entity を保持する。
 inventory に載せると `canonical_fingerprint_except` の
 `shared_context_digest` が variant 編集のたびに全 branch で
 過剰 invalidation を起こす。value 解決は全 `ObjectKind` の

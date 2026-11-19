@@ -346,7 +346,7 @@ view の owner を変える以上、同じ機構を拡張する:
 
 `on_windowed` の各 `WindowLifecycle` を workspace へ写像する
 （`rt`/`SynvelisApp` への公開 accessor 経由 — shell は sealed
-app を直接触れないため、app 側に `pub(crate)`/`pub` の薄い
+app を直接触れられないため、app 側に `pub(crate)`/`pub` の薄い
 forwarding method を用意するか、対応する `syn.*` op を
 `rt.dispatch_op` で発行する。**採用方式: lifecycle 系は op
 ではなく app の直接メソッド呼出し** — `NativeShell` は
@@ -604,7 +604,7 @@ window 非依存 — 一切触れない。
   window 生成のみ非同期 — `AwaitingWindow` + `dock_moves` が
   その pending を所有する。
 - **wire 非直列化**: `MoveToken`/`WindowId`/`ViewInstanceId` の
-  raw 値を client に露出するのは `window_id`/`view_id` 文字列
+  raw 値を client に公開するのは `window_id`/`view_id` 文字列
   のみ。token は app 内 map に留める。
 - **依存方向**: `synvelis-app → synvelis-workspace →
   synvelis-project` を維持。`synvelis-workspace` は

@@ -98,7 +98,7 @@ pub struct BoundarySessionSpec {
 ```
 
 `ProcessBoundarySession::open` の control/provenance 以外の引数を
-そのまま運ぶ Copy 値。「attach 時に解決された boundary 入力」で
+そのまま保持する Copy 値。「attach 時に解決された boundary 入力」で
 あり、session open 時に `attach_delivery` が再評価されるため、
 spec と実 attach がずれていれば open が fail-closed する
 （caller contract: spec は接続時と同じ入力でなければならない）。
