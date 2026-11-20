@@ -13,15 +13,22 @@ mutating `invoke`/`run` paths keep their own authority rules.
 - `capability-describe` prints one capability's descriptor —
   `action describe <id[@major.minor]>`; an unknown id fails as
   `cli.unsupported` (exit `5`) and names `action list` as the fix.
+- `capability-prepare` resolves a prepared invocation —
+  `action prepare <id>`; the prepared payload is caller-held
+  evidence for `invoke`.
 - `project-info` reads project metadata — `project info --project
   <path>`; omitting the flag exits `2` (`cli.usage`).
-- `session-list` shows issued sessions — `session list` (uses the
+- `session-manage` issues/lists/revokes capability sessions —
+  `session issue`/`session list`/`session revoke` (uses the
   `--session-store` default path); an empty store is a valid result.
 - `script-analyze` statically analyzes a Luau/Rhai script file —
   `script analyze --file <path>`; it never executes
   (AUTX-SCR-ANA-01) and mints no authority. `.lua` is explicitly
   unsupported (`cli.unsupported`, exit `5`) — Luau (`.luau`) and
   PoC-only Rhai (`.rhai`) are the covered languages.
+- `authority-run` — `action invoke`/`action run`, `workflow run`,
+  and `render` mint and spend authority; they are the mutating half
+  this file maps but does not recipe-drive (scratch stores only).
 
 ## How to get to it (user POV)
 

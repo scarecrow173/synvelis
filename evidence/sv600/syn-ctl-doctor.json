@@ -3,9 +3,9 @@
   "lane": "syn-ctl-doctor",
   "verdict": "pass",
   "transport": "stdio",
-  "app": "G:\\orca\\workspaces\\synvelis\\sv600-slice2\\target\\debug\\synvelis-native.exe",
+  "app": "G:\\orca\\workspaces\\synvelis\\sv600-features-map\\target\\debug\\synvelis-native.exe",
   "repo": {
-    "sha": "d9e11dc5765863cdff7f86b0d81fa0ced2dfd124"
+    "sha": "535327e2746b3fd56a8f8e752285b2232ae87102"
   },
   "environment": {
     "os": "windows",
@@ -14,8 +14,8 @@
   },
   "welcome": {
     "v": 1,
-    "session_id": "s-dd62b3f2f08eac5a",
-    "run_id": "run-a88cdb6965a08999",
+    "session_id": "s-0c8bdc2729c1e4e7",
+    "run_id": "run-66eb21afc9fc69f8",
     "app": {
       "name": "synvelis",
       "version": "0.1.0",
@@ -74,7 +74,7 @@
     "screenshot": true,
     "input_injection": false,
     "dom_access": false,
-    "session_id": "s-dd62b3f2f08eac5a",
+    "session_id": "s-0c8bdc2729c1e4e7",
     "windows": [
       {
         "id": 1,

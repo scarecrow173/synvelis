@@ -5,8 +5,9 @@
 //! thin CLI over the `rvf.uitest.v1` client ([`TestDriver`]), shaped
 //! after Ruviform's `rvf-ctl` (`crates/ruviform-ui-test/src/bin/
 //! rvf_ctl.rs`). This slice ships `doctor` — the read-only health
-//! probe — and `drive`, the minimal live-proof probe that injects
-//! one `syn.app.info` intent through the `ipc_emit` fixture and
+//! probe — and `drive`, the live-proof probe that injects one
+//! `syn.*` intent — `syn.app.info` by default, or an arbitrary op
+//! selected by `--op`/`--params` — through the `ipc_emit` fixture and
 //! journals the receipts. Both spawn `synvelis-native` built with
 //! `--features uitest` (default: the sibling binary of this one in
 //! the same target dir).
@@ -41,8 +42,10 @@ use synvelis_app::HOST_REVISION;
 const DOCTOR_LANE: &str = "syn-ctl-doctor";
 const DRIVE_LANE: &str = "syn-ctl-drive";
 
-/// The `rvf.ipc.v1` intent `drive` injects through `ipc_emit` — a
-/// read-only `syn.*` op crossing the app's real inbound boundary.
+/// The canned `rvf.ipc.v1` intent `drive` injects through `ipc_emit`
+/// when `--op` is not given — a read-only `syn.*` op crossing the
+/// app's real inbound boundary. An explicit `--op <syn.*>` derives
+/// the intent id `syn-ctl-drive-<op>` instead.
 const DRIVE_INTENT_ID: &str = "syn-ctl-drive-1";
 const DRIVE_OP: &str = "syn.app.info";
 
@@ -52,6 +55,7 @@ syn-ctl — the synvelis verification control CLI (Issue #600 stage 2)
 usage:
   syn-ctl doctor [--app <path>] [--transport stdio|tcp] [--dry-run] [--out <path>]
   syn-ctl drive  [--app <path>] [--transport stdio|tcp] [--dry-run] [--out <path>]
+                 [--op <syn.*>] [--params <json-object>]
   syn-ctl --help | -h
 
 subcommands:
@@ -61,8 +65,9 @@ subcommands:
            graceful test.shutdown, confirm the child exits, and print
            one JSON health report (read-only — no mutating op is sent)
   drive    spawn the app-under-test, observe its windows, inject one
-           syn.app.info intent through the ipc_emit fixture, read the
-           receipt journal, shut down gracefully, and write a JSONL
+           syn.* intent (default syn.app.info; --op/--params select
+           any other) through the ipc_emit fixture, read the receipt
+           journal, shut down gracefully, and write a JSONL
            transcript — the live-proof leg of evidence/sv600/
 
 options (doctor, drive):
@@ -76,6 +81,15 @@ options (doctor, drive):
   --out <path>        write the report/transcript to <path> instead of
                       stdout
   --help, -h          this help
+
+options (drive only — exit 2 on doctor):
+  --op <syn.*>        the syn.* op the injected intent carries; must
+                      start with `syn.` (default syn.app.info — the
+                      canned probe)
+  --params <json>     the intent's params — must parse as one JSON
+                      object (default {}); a parse failure or a
+                      non-object value is misuse and exits 2 before
+                      anything spawns
 
 exit code:
   0  every check/step passed, or a plan was printed
@@ -127,6 +141,12 @@ struct Options {
     dry_run: bool,
     /// `--out <path>`; `None` writes to stdout.
     out: Option<PathBuf>,
+    /// `--op <syn.*>` — `drive` only; `None` keeps the canned
+    /// [`DRIVE_OP`] probe. Rejected as misuse for `doctor`.
+    op: Option<String>,
+    /// `--params <json>` — `drive` only; `None` keeps the canned
+    /// `{}`. Validated as one JSON object at parse time.
+    params: Option<Value>,
 }
 
 fn main() -> ExitCode {
@@ -166,6 +186,8 @@ fn parse_args(sub: &str, args: impl Iterator<Item = String>) -> Option<Options> 
         transport: Transport::Stdio,
         dry_run: false,
         out: None,
+        op: None,
+        params: None,
     };
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -197,6 +219,42 @@ fn parse_args(sub: &str, args: impl Iterator<Item = String>) -> Option<Options> 
                     return None;
                 };
                 options.out = Some(PathBuf::from(value));
+            }
+            "--op" => {
+                if sub != "drive" {
+                    eprintln!("syn-ctl: {sub}: --op is a drive-only option");
+                    return None;
+                }
+                let Some(value) = args.next() else {
+                    eprintln!("syn-ctl: --op requires a value");
+                    return None;
+                };
+                if !value.starts_with("syn.") {
+                    eprintln!("syn-ctl: --op must name a `syn.*` op (got `{value}`)");
+                    return None;
+                }
+                options.op = Some(value);
+            }
+            "--params" => {
+                if sub != "drive" {
+                    eprintln!("syn-ctl: {sub}: --params is a drive-only option");
+                    return None;
+                }
+                let Some(value) = args.next() else {
+                    eprintln!("syn-ctl: --params requires a value");
+                    return None;
+                };
+                match serde_json::from_str::<Value>(&value) {
+                    Ok(parsed) if parsed.is_object() => options.params = Some(parsed),
+                    Ok(_) => {
+                        eprintln!("syn-ctl: --params must be a JSON object");
+                        return None;
+                    }
+                    Err(e) => {
+                        eprintln!("syn-ctl: --params is not valid JSON: {e}");
+                        return None;
+                    }
+                }
             }
             "--help" | "-h" => {
                 println!("{USAGE}");
@@ -649,20 +707,40 @@ fn run_session(
     live
 }
 
+/// The `rvf.ipc.v1` intent `drive` injects through `ipc_emit`: the
+/// canned `syn-ctl-drive-1`/`syn.app.info` probe, or the
+/// `--op`/`--params` selection whose id derives as
+/// `syn-ctl-drive-<op>` so each op is identifiable in the journal.
+fn drive_intent(options: &Options) -> Value {
+    let op = options.op.as_deref().unwrap_or(DRIVE_OP);
+    let id = options.op.as_ref().map_or_else(
+        || DRIVE_INTENT_ID.to_string(),
+        |op| format!("syn-ctl-drive-{op}"),
+    );
+    json!({
+        "v": 1,
+        "kind": "intent",
+        "id": id,
+        "op": op,
+        "params": options.params.clone().unwrap_or_else(|| json!({})),
+    })
+}
+
 /// `drive` — the minimal live-proof probe: spawn → observe.windows →
-/// `ipc_emit` injects `syn.app.info` → observe.receipts → graceful
-/// shutdown → child exit, journaled as a JSONL transcript.
+/// `ipc_emit` injects the selected `syn.*` intent → observe.receipts
+/// → graceful shutdown → child exit, journaled as a JSONL transcript.
 fn drive(options: &Options) -> ExitCode {
     let app = app_path(options);
     let transport_name = match options.transport {
         Transport::Stdio => "stdio",
         Transport::Tcp => "tcp",
     };
+    let intent = drive_intent(options);
 
     if options.dry_run {
         return emit(
             options,
-            &drive_plan(&app, transport_name),
+            &drive_plan(&app, transport_name, &intent),
             ExitCode::SUCCESS,
         );
     }
@@ -730,7 +808,7 @@ fn drive(options: &Options) -> ExitCode {
         "data": serde_json::to_value(driver.welcome()).unwrap_or_default(),
     }));
 
-    let live = drive_session(&mut driver, &mut lines);
+    let live = drive_session(&mut driver, &mut lines, &intent);
     emit_jsonl(
         options,
         &lines,
@@ -821,10 +899,11 @@ fn mark_fail(stage: &str, first_error: &mut Option<String>) {
 }
 
 /// The probe body of `drive` after a live handshake:
-/// observe.windows → `ipc_emit` inject → observe.receipts → graceful
-/// shutdown → child exit. Returns `false` when any step failed;
-/// teardown steps still run so the transcript records cleanup.
-fn drive_session(driver: &mut TestDriver, lines: &mut Vec<Value>) -> bool {
+/// observe.windows → `ipc_emit` injects `intent` → observe.receipts
+/// → graceful shutdown → child exit. Returns `false` when any step
+/// failed; teardown steps still run so the transcript records
+/// cleanup.
+fn drive_session(driver: &mut TestDriver, lines: &mut Vec<Value>, intent: &Value) -> bool {
     let mut seq = 1u64;
     let mut live = true;
     let mut first_error: Option<String> = None;
@@ -862,18 +941,11 @@ fn drive_session(driver: &mut TestDriver, lines: &mut Vec<Value>) -> bool {
         None => None,
     };
 
-    // ipc_emit → the syn.app.info intent crosses the app's real
+    // ipc_emit → the selected syn.* intent crosses the app's real
     // inbound boundary.
     if let Some(window) = window {
-        let intent = json!({
-            "v": 1,
-            "kind": "intent",
-            "id": DRIVE_INTENT_ID,
-            "op": DRIVE_OP,
-            "params": {},
-        })
-        .to_string();
-        let params = json!({ "window": window, "body": intent });
+        let body = intent.to_string();
+        let params = json!({ "window": window, "body": body });
         let sent = params.clone();
         let receipt = driver
             .prepare_fixture("ipc_emit", None, params)
@@ -926,9 +998,13 @@ fn drive_session(driver: &mut TestDriver, lines: &mut Vec<Value>) -> bool {
     live
 }
 
-/// The `drive --dry-run` plan — the probe's op sequence without
-/// touching the AUT.
-fn drive_plan(app: &Path, transport_name: &str) -> Value {
+/// The `drive --dry-run` plan — the probe's op sequence and the
+/// selected `syn.*` intent without touching the AUT.
+fn drive_plan(app: &Path, transport_name: &str, intent: &Value) -> Value {
+    let inject_step = format!(
+        "test.fixture.prepare ipc_emit {{window, body}} → inject one {} rvf.ipc.v1 intent at the inbound boundary",
+        intent["op"].as_str().unwrap_or(DRIVE_OP),
+    );
     let mut plan = json!({
         "type": "drive-plan",
         "lane": DRIVE_LANE,
@@ -937,6 +1013,7 @@ fn drive_plan(app: &Path, transport_name: &str) -> Value {
         "app": app.display().to_string(),
         "app_exists": app.is_file(),
         "disabled_env": disabled_from_env(),
+        "intent": intent,
         "ops": [
             "test.hello",
             "test.observe.windows",
@@ -948,7 +1025,7 @@ fn drive_plan(app: &Path, transport_name: &str) -> Value {
             "spawn the AUT with RVF_TEST_CONTROL=<transport>",
             "test.hello → Welcome (implicit in the driver handshake)",
             "test.observe.windows → first ready window becomes the injection target",
-            "test.fixture.prepare ipc_emit {window, body} → inject one syn.app.info rvf.ipc.v1 intent at the inbound boundary",
+            inject_step,
             "test.observe.receipts → journal: the in `message` / out `post_event` pair is the resulting state",
             "test.shutdown graceful → CleanupReport, then await child exit",
         ],

@@ -78,7 +78,7 @@ mise run test-app-uitest-ctl
 # direct (auxiliary evidence — canonical = mise)
 target/debug/syn-ctl doctor                                   # stdout JSON
 target/debug/syn-ctl doctor --out evidence/sv600/syn-ctl-doctor.json
-target/debug/syn-ctl doctor --transport tcp                   # loopback + run-bound secret
+target/debug/syn-ctl doctor --transport tcp                   # loopback + run-bound secret — see evidence/sv600/syn-ctl-doctor-tcp.json
 target/debug/syn-ctl doctor --app target/debug/synvelis-native.exe
 target/debug/syn-ctl doctor --dry-run                         # plan only — spawns nothing
 ```
@@ -119,24 +119,45 @@ full-size window currently trips the protocol's 1 MiB reply cap —
 that is an honest bounded `service_error`, not an adapter fault
 (ruviform-side follow-up candidate).
 
-`syn-ctl drive` is the canned probe — the reproducible leg of the
-slice-1 live proof:
+`syn-ctl drive` injects one `syn.*` intent — `syn.app.info` by
+default (the canned probe, the reproducible leg of the slice-1 live
+proof), or any other op selected with `--op`/`--params`:
 
 ```sh
 target/debug/syn-ctl drive --out evidence/sv600/syn-ctl-drive-run1.jsonl
 target/debug/syn-ctl drive --dry-run    # plan JSON — spawns nothing
+
+# arbitrary syn.* op drive (additive — drive only):
+target/debug/syn-ctl drive --op syn.view.list                      # read-only live leg
+target/debug/syn-ctl drive --op syn.control.status --out evidence/sv600/syn-ctl-drive-syn.control.status.jsonl
+target/debug/syn-ctl drive --op syn.app.info --params '{}' --dry-run   # plan names the selected op
 ```
 
 Steps: `test.hello` (implicit in the handshake) →
 `test.observe.windows` → first `ready` window →
 `test.fixture.prepare{ name:"ipc_emit", params:{window, body} }` →
 `test.observe.receipts` → `test.shutdown` → child exit. `body` is one
-`rvf.ipc.v1` intent JSON string — the probe injects
-`{"v":1,"kind":"intent","id":"syn-ctl-drive-1","op":"syn.app.info","params":{}}`,
-which crosses the app's real inbound boundary as a
+`rvf.ipc.v1` intent JSON string — the default probe injects
+`{"v":1,"kind":"intent","id":"syn-ctl-drive-1","op":"syn.app.info","params":{}}`;
+an explicit `--op` derives `id` as `syn-ctl-drive-<op>`. The intent
+crosses the app's real inbound boundary as a
 `WindowLifecycle::Action` and takes the identical `syn.*` dispatch →
 `post_event` path as normal IPC. The journaled `in "message"` →
 `out "post_event"` receipt pair is the resulting state.
+
+`--op` must name a `syn.*` op and `--params` must parse as one JSON
+object — violations exit `2` before anything spawns (`doctor` rejects
+both flags the same way). Live `--op` legs stay on read-only ops —
+`syn.view.list`, `syn.window.list`, `syn.control.status`/`targets`,
+`syn.probe.state`, `syn.monitoring.state`, `syn.recorder.status`,
+`syn.recording.info`/`status`, `syn.library.providers`,
+`syn.project.info`, `syn.app.capabilities`, `syn.signal_flow.view` —
+mutating ops are scratch-session only or `--dry-run` plans. The
+receipt journal is metadata-only (seq/direction/kind/bytes): `drive
+--op` proves the intent reached live dispatch — the op's result
+payload is not readable through the seam, so semantic verification
+stays in the test lanes. An unknown `syn.*` op is dispatched
+honestly and lands in the journal as a domain error.
 
 Headless CLI surface (separate, non-seam): `synvelis-cli` —
 `action list|describe|prepare|invoke`, `action run`, `workflow run`,
@@ -213,6 +234,10 @@ target/debug/syn-ctl drive  [options]
   --transport <t>     stdio (default) | tcp
   --dry-run           print the plan JSON, spawn nothing
   --out <path>        write report (doctor) / JSONL (drive) to a file
+  --op <syn.*>        drive only — the syn.* op to inject (default
+                      syn.app.info); anything else exits 2
+  --params <json>     drive only — the intent's params object
+                      (default {}); non-object/parse failure exits 2
   --help, -h          usage + exit codes + next steps
 
 syn-ctl --help        # same usage; exit 0
@@ -226,7 +251,10 @@ gate), `run-app-native` (normal launch), `check-headless-deps`
 (lock/vendor/manifest pin agreement), `test-app-gpui`
 (scenario-port lane).
 
-The `features/` map seeds the driveable surfaces
-(`native-app-via-seam`, `cli-headless-ops`); the remaining
-user-visible areas are recorded honestly there as pending/blocked —
-normalizing the full feature map is a later slice.
+The `features/` map is normalized: every user-visible area — the
+seam-driven window, the six main-screen tabs, the detached/mounted
+surfaces (session/VCS/library/AUTX/variant-diff/script/plugin-dock),
+the headless CLI, and the scenario catalog — has an entry with
+verified recipes. The honest pending/blocked set (webview bin,
+real-OS/plugin-dock EXT-L3, `syn-ctl` scenario drive) is recorded in
+`features/README.md`.

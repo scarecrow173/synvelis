@@ -4,12 +4,14 @@ This directory is the maintained source for verifying Synvelis's
 user-facing behavior. Read the index before driving the app, then use
 the matching feature file as the recipe.
 
-Status: seeded in the first `verify-synvelis` slice with the two
-driveable surfaces — the seam-driven `synvelis-native` window and the
-headless `synvelis-cli` ops. Normalizing every user-visible feature —
-the project/session/arrangement/mixer/plugin/script/CLI areas the
-Issue enumerates — is deferred to a later slice
-(`scarecrow173/synvelis#600`).
+Status: normalized. The map covers the seam-driven `synvelis-native`
+window (`native-app-via-seam`), the six main-screen tabs
+(`arrangement`, `transport`, `mixer`, `inspector-control`,
+`signal-flow`, `project`), the detached/mounted surfaces (`session`,
+`vcs-history`, `library`, `automation`, `variant-diff`,
+`views-windows-dock`, `plugin-dock`, `script`), the headless
+`synvelis-cli` (`cli-headless-ops`), and the pinned scenario catalog
+(`scenario-catalog`).
 
 ## Baseline preconditions
 
@@ -19,7 +21,8 @@ Issue enumerates — is deferred to a later slice
   beside it (`mise run test-app-uitest-ctl` builds both).
 - The seam surface requires an interactive desktop session —
   `WindowedIo` + `GpuiDriver` has no headless path. The
-  `synvelis-cli` surface is headless and needs no session.
+  `synvelis-cli` surface and the `mise run test synvelis-app` /
+  `test-app-gpui` lanes are headless and need no session.
 - Run `syn-ctl doctor` and require `verdict: "pass"` before driving
   the seam surface — it proves spawn, handshake, capabilities,
   identity, shutdown, and child exit in one shot.
@@ -32,8 +35,11 @@ Issue enumerates — is deferred to a later slice
 
 - Start every recipe from the baseline state unless its preconditions
   say otherwise.
-- Drive the seam through `syn-ctl` (`doctor`, `drive`); drive the CLI
-  through `synvelis-cli` directly. Treat every command as literal.
+- Drive the seam through `syn-ctl` (`doctor`, `drive`,
+  `drive --op <syn.*> --params <json>`); drive the CLI through
+  `synvelis-cli` directly; drive the GUI scenario port through the
+  `mise run test synvelis-app` / `test-app-gpui` lanes. Treat every
+  command as literal.
 - For seam ops, select the injection target from
   `test.observe.windows` — the first `ready` window, never a guessed
   id.
@@ -53,6 +59,10 @@ Issue enumerates — is deferred to a later slice
 - Seam proof is the `syn-ctl` artifacts: the doctor JSON report
   (`checks[]`, `welcome`, `cleanup`, `child_exit`) and the drive
   JSONL transcript (context + step lines + verdict).
+- Emit boundary: the receipt journal is metadata-only
+  (seq/direction/kind/bytes) — an injected op's result payload is not
+  readable through the seam. `drive --op` proves the intent reached
+  live dispatch; semantic verification stays in the test lanes.
 - CLI proof includes the command, stdout, stderr, and exit code —
   `--format json` emits the versioned envelope.
 - Mutation proof includes a read-only second view (receipt journal,
@@ -82,23 +92,64 @@ stable handles, required state, commands, and observable proof.
 
 - [App window via the control seam](./native-app-via-seam.md) covers
   launching `synvelis-native` under `rvf.uitest.v1`, observing its
-  windows, and driving a `syn.*` op through `ipc_emit` — the
-  seam-driven GPUI surface.
+  windows, and driving any `syn.*` op through `ipc_emit` —
+  `drive --op`/`--params` and the TCP transport leg included.
+- [Project lifecycle and PPQN](./project.md) covers
+  `syn.project.*` — bundle lifecycle, info, undo/redo, and the
+  gated PPQN change with its read-only preview.
+- [Recording and monitor session](./session.md) covers
+  `syn.recording.*`/`syn.monitoring.*`/`syn.recorder.*` — session
+  projections, arm/punch declarations, and the recorder lifecycle.
+- [Arrangement tab](./arrangement.md) covers the clip table, row
+  select into inspector focus, the seek range, and the clip-waveform
+  viz surface.
+- [Transport and seek](./transport.md) covers Play invoke, the
+  seek-position gesture, `syn.transport.set`, and the secondary
+  transport-deck window.
+- [Mixer tab](./mixer.md) covers the gain fader, strip toggles, the
+  master meter, and `syn.control.fast_control` writes.
+- [Inspector tab and the control surface](./inspector-control.md)
+  covers the read-only inspector tables and the `syn.control.*` wire
+  family.
+- [Signal Flow tab and probes](./signal-flow.md) covers
+  `syn.signal_flow.*` (view/visual/inspection/routing) and the
+  `syn.probe.*` capture/compare surface.
+- [VCS history and A/B diff](./vcs-history.md) covers `syn.vcs.*` —
+  history projection, A/B selection, honest Unknown/Partial rows,
+  and git-backend binding.
+- [Asset library browser](./library.md) covers `syn.library.*` —
+  provider catalog, the detached browser view, and browse/import
+  actions.
+- [Automation (AUTX) surfaces](./automation.md) covers
+  `syn.autx.*` — palette/macro/workflow/run-monitor lifecycle,
+  catalog push, and per-view action dispatch.
+- [Variant diff explorer](./variant-diff.md) covers
+  `syn.variant-diff.*` — the CB-09 compare/adopt surface with
+  explicit pins and the approval ticket.
+- [Views, windows, and dock moves](./views-windows-dock.md) covers
+  `syn.view.*`/`syn.window.*` — lifecycle, two-phase dock moves, the
+  detached pool, and the close veto.
+- [Plugin dock](./plugin-dock.md) covers the `plugin.editor`
+  native-slot contract — honest `NotRun`/`Unsupported` status for
+  real-ABI/native-dock evidence.
+- [Script editor and script analysis](./script.md) covers the
+  `svscript.*` view-local command surface and `synvelis-cli script
+  analyze`.
 - [Headless CLI ops](./cli-headless-ops.md) covers `synvelis-cli`'s
   offline surface — `action list`/`describe`, `project info`,
   `session list`, `script analyze` — no display required.
+- [Scenario catalog](./scenario-catalog.md) covers the pinned
+  `SCENARIO_*`/`CASE_*` catalog the product screens are verified
+  through on the fake and GPUI lanes.
 
-Pending / blocked (later slices — recorded honestly, not faked):
+Pending / blocked (recorded honestly, not faked):
 
-- `project`, `session` (project-model), `arrangement`, `mixer`,
-  `plugin`, `script` areas of the native app — `blocked: seam
-  drive-through not yet mapped`; the seam carries `syn.*` ops but the
-  per-area recipes are unwritten.
 - `synvelis` (webview) GUI surface — `blocked: seam 未対応` (the
   webview bin is outside the uitest seam and is being removed per
-  `scarecrow173/synvelis#232`).
-- TCP transport lane (`RVF_TEST_CONTROL=tcp` + secret handshake) —
-  offered by `syn-ctl --transport tcp`, live evidence deferred.
+  `scarecrow173/synvelis#232`); no feature file is kept for it.
+- Real-OS/plugin-dock EXT-L3 lanes (real ABI test plugin, native
+  editor HWND, pixel/focus) — `NotRun` until their environment
+  exists; see `plugin-dock.md` and `evidence/sv176/`.
 - GUI scenario catalog driving through `syn-ctl` — the scenario port
-  (`tests/common/scenario.rs`) runs under `test`/`test-app-gpui`
-  lanes; a `syn-ctl` route is a later slice.
+  runs under `test`/`test-app-gpui` lanes; a `syn-ctl` route is a
+  later slice.

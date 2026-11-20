@@ -321,11 +321,14 @@ run = "cargo build -p synvelis-app --features uitest --bin synvelis-native --loc
 # verdict が not_run/fail のまま evidence JSON に残り lane も失敗する
 # (fake-pass にしない設計)。
 [tasks.test-app-uitest-ctl]
-description = "syn-ctl lane: uitest bins build → doctor --dry-run → live doctor JSON (manual/opt-in, interactive gate; not CI-required)"
+description = "syn-ctl lane: uitest bins build → doctor/drive --dry-run plans → live doctor JSON + TCP doctor JSON (manual/opt-in, interactive gate; not CI-required)"
 run = [
   "cargo build -p synvelis-app --features uitest --bin synvelis-native --bin syn-ctl --locked",
   "cargo run -p synvelis-app --features uitest --bin syn-ctl --locked -- doctor --dry-run",
+  "cargo run -p synvelis-app --features uitest --bin syn-ctl --locked -- drive --dry-run",
+  "cargo run -p synvelis-app --features uitest --bin syn-ctl --locked -- drive --op syn.view.list --params \"{}\" --dry-run",
   "cargo run -p synvelis-app --features uitest --bin syn-ctl --locked -- doctor --out evidence/sv600/syn-ctl-doctor.json",
+  "cargo run -p synvelis-app --features uitest --bin syn-ctl --locked -- doctor --transport tcp --out evidence/sv600/syn-ctl-doctor-tcp.json",
 ]
 
 [tasks.dev-ui]

@@ -160,3 +160,54 @@ doctor/drive とも `test.shutdown` graceful → `CleanupReport{windows_closed:1
 | `syn-ctl-drive-run1.jsonl` | slice 2: drive run 1 — context/5 steps/child_exit/verdict=pass、注入 receipt 対込み |
 | `syn-ctl-drive-run2.jsonl` | slice 2: drive run 2（2 回目観測、同一形状 pass） |
 | `syn-ctl-disabled.json` | slice 2: `RVF_TEST_DISABLE=1` blocked report — `not_run` + `environment_blocked` |
+
+# stage 2 slice 3 — `drive --op/--params` + feature map 正規化 + TCP transport live 証拠
+
+Branch `feature/600-verify-features-map`。seam 側は不変（additive: `drive --op <syn.*>` / `--params <json>` のみ）。feature map は `features/` 17 ファイルへ正規化（全 real surface、4-section contract、honest blocked/NotRun 記載）。
+
+## 変更検証（canonical = mise）
+
+| コマンド | OS | exit | 結果 |
+| --- | --- | --- | --- |
+| `mise run fmt-check` | Windows | 0 | Passed — 差分なし |
+| `mise run check-app-uitest` | Windows | 0 | Passed — uitest lane 全 target Finished |
+| `mise run lint-app-uitest` | Windows | 0 | Passed — clippy `-D warnings` Finished |
+| `mise run test-app-uitest` | Windows | 0 | Passed — 全 suite `test result: ok` |
+| `mise run build-app-uitest` | Windows | 0 | Passed — `--locked` dev build Finished |
+| `mise run test-app-uitest-ctl`（拡張 lane） | Windows | 0 | Passed — build → `doctor --dry-run` → `drive --dry-run` → `drive --op syn.view.list --params "{}" --dry-run`（plan が選択 op を反映）→ live `doctor`（stdio + tcp、`--out` へ evidence 保存） |
+| `mise run test synvelis-app`（非回帰） | Windows | 0 | Passed — 全 test binary `test result: ok` |
+| `mise run test-app-gpui`（非回帰） | Windows | 0 | Passed — gpui-test feature 全 suite `test result: ok` |
+| `mise run check-headless-deps` | Windows | 0 | Passed — `no GUI framework deps in 12 headless crates` |
+| `mise run check-ruviform-rev` | Windows | 0（再実行） | Passed — `resolved 84a68f25d5…`。slice 1/2 と同じ stale vendor 条件（`synvelis#230`）を `mise run sync-ui-deps` で復旧。vendor は gitignore 生成物、差分なし |
+| `mise exec -- prek run --all-files` | Windows | 0 | Passed — 全 hook Passed/Skipped |
+
+## `drive --op/--params` 証拠
+
+| leg | exit | 実測 |
+| --- | --- | --- |
+| `syn-ctl drive --op syn.view.list --out evidence/sv600/syn-ctl-drive-syn.view.list.jsonl`（stdio、live） | 0 | verdict `pass` — `test.fixture.prepare` params.body = `{"id":"syn-ctl-drive-syn.view.list","op":"syn.view.list","params":{}}`（id が選択 op から派生）、in `message` → out `post_event` 対が journaled、`test.shutdown` → child exit 0 |
+| `syn-ctl drive --transport tcp --op syn.control.status --out evidence/sv600/syn-ctl-drive-tcp.jsonl`（tcp、live） | 0 | verdict `pass` — 同一形状の tcp leg、body = `{"id":"syn-ctl-drive-syn.control.status","op":"syn.control.status","params":{}}`、child exit 0 |
+| `syn-ctl doctor --transport tcp --out evidence/sv600/syn-ctl-doctor-tcp.json` | 0 | verdict `pass` — 6 checks 全緑（loopback + run-bound secret）、child exit 0 |
+| `syn-ctl doctor --op syn.view.list` | 2 | `doctor: --op is a drive-only option`（misuse、spawn 前 reject） |
+| `syn-ctl drive --op test.hello --dry-run` | 2 | `--op must name a syn.* op`（misuse） |
+| `syn-ctl drive --params '[1,2]' --dry-run` | 2 | `--params must be a JSON object`（misuse） |
+
+`drive --dry-run` / `drive --op … --params "{}" --dry-run` の plan JSON は `test-app-uitest-ctl` lane 内で exit 0 を確認（plan.intent/ops が選択 op を反映）。emit boundary 注記: receipt journal は metadata-only（seq/direction/kind/bytes）のため op の result payload は seam 越しに読めない — `drive --op` は「intent が live dispatch に到達した」ことの証拠であり、semantic 検証は test lane に留まる。
+
+## artifact 追加
+
+| file | 内容 |
+| --- | --- |
+| `syn-ctl-doctor-tcp.json` | slice 3: TCP doctor report — 6 checks 全 pass、child exit 0 |
+| `syn-ctl-drive-syn.view.list.jsonl` | slice 3: stdio `drive --op syn.view.list` — verdict pass、派生 intent id 込み |
+| `syn-ctl-drive-tcp.jsonl` | slice 3: tcp `drive --op syn.control.status` — verdict pass |
+
+## 未実施（NotRun / Unsupported）と理由
+
+| 項目 | 区分 | 理由・後続 |
+| --- | --- | --- |
+| `drive --op` mutating ops live | NotRun | read-only ops のみ live 実測。mutating ops は scratch session のみ（SKILL.md の方針） — semantic は test lane で担保 |
+| scenario catalog の syn-ctl 経路 | Unsupported（後続 slice） | scenario port は `test`/`test-app-gpui` lane 駆動（`features/scenario-catalog.md` 記載） |
+| webview bin seam | Unsupported | `synvelis#232` で削除予定の bin — `features/README.md` に honest blocked 記載 |
+| real-OS/plugin-dock EXT-L3 | NotRun | 環境未整備（`features/plugin-dock.md` + `evidence/sv176/`） |
+| Full CI lanes / merge 後統合検証 | NotRun | `POLICIES.md` — scoped equivalent で充足。Coordinator が対象 SHA の CI を確認 |
