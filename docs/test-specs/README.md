@@ -93,6 +93,7 @@ Directory: `docs/test-specs`
 | TSPEC-559AdoptUnobservableRemoval06 | Issue #559 test-spec — adopt 観測不能 entity 削除 fail-closed の検証仕様 | approved | [issue-559-adopt-unobservable-removal.md](./issue-559-adopt-unobservable-removal.md) |
 | TSPEC-561OpFactsUnverifiable06 | Issue #561 test-spec — op_facts unverifiable cascade の検証仕様 | approved | [issue-561-opfacts-unverifiable-cascade.md](./issue-561-opfacts-unverifiable-cascade.md) |
 | TSPEC-565ProcessorBindingCascade06 | Issue #565 test-spec — 退役 cascade の検証仕様 | approved | [issue-565-processor-binding-cascade.md](./issue-565-processor-binding-cascade.md) |
+| TSPEC-v6mGcY3cvf6QTIDJnMSZ | Issue #602 検証仕様 — frozen 2-arm benchmark harness（render/playback E 層 slice 1） | approved | [issue-602-frozen-render-bench.md](./issue-602-frozen-render-bench.md) |
 | TSPEC-Zb0ctcQ2s7S0lDwxkjXsiu | Issue #86 DoD(2) — verified import consumer 配線 + digest-kind blob 解決 — テスト仕様 | approved | [issue-86-verified-import-wiring.md](./issue-86-verified-import-wiring.md) |
 | TSPEC-3kHdKFWk6cHMT13mFySlYa | L1 検証仕様 — Local WAV Safe Import・Verified Media・Headless Playback | approved | [l1-e2e-local-wav-verified-playback.md](./l1-e2e-local-wav-verified-playback.md) |
 | TSPEC-034QmjuUDQRs8JzfSsG8wM | L2 検証仕様 — Master Sequential Offline PCM WAV Export・Reopen/Verify・Safe Publish | approved | [l2-master-sequential-offline-wav-export.md](./l2-master-sequential-offline-wav-export.md) |
