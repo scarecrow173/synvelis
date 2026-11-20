@@ -2,17 +2,17 @@
 id: "SPEC-sv601frmlvrf0slice1"
 type: "spec"
 status: "proposed"
-title: "Issue #601 Formal Verification D 層 slice 1 — journal wire codec の proptest + Kani 検証基盤"
+title: "Issue #601 Formal Verification D 層 — journal wire codec + authorization boundary の proptest + Kani 検証基盤"
 created: "2026-11-23"
-updated: "2026-11-23"
+updated: "2026-11-21"
 owners: ["scarecrow173"]
 relations:
   source:
     - "https://github.com/scarecrow173/synvelis/issues/601"
   changes:
     added:
-      - type: "file"
-        path: "crates/synvelis-gateway/tests/formal_journal.rs"
+      - type: "dir"
+        path: "crates/synvelis-gateway/tests/formal_journal/"
       - type: "file"
         path: "crates/synvelis-recording/tests/formal_journal.rs"
       - type: "file"
@@ -54,12 +54,16 @@ relations:
   derived-by: []
 ---
 
-# Formal Verification — journal wire codec slice（synvelis-gateway / synvelis-recording）
+# Formal Verification — journal wire codec + authorization boundary（synvelis-gateway / synvelis-recording）
 
-Issue `scarecrow173/synvelis#601` slice 1 の実装 spec。D 層検証
+Issue `scarecrow173/synvelis#601` の実装 spec。D 層検証
 （property-based testing → bounded model checking → 将来の TLA+/Lean
-昇格）の第一弾として、unsafe を含まない 2 つの journal wire codec を
-対象に proptest と Kani の 2 層を常設する。先行実装
+昇格）の第一弾として、slice 1 は unsafe を含まない 2 つの journal
+wire codec を、slice 2 は `synvelis-gateway` の authorization
+boundary（`WireRequest::parse` と `GrantPolicy`）を対象に proptest
+を常設する。Kani の 2 層目は slice 1 の journal codec harness を維持
+し、slice 2 対象は serde_json / `Arc<String>` / dyn trait 依存のため
+bounded-proof 昇格を保留する（昇格表を参照）。先行実装
 `scarecrow173/ruviform#806` の lane 構成・証跡形式を踏襲する。
 
 ## 対象と検証する契約
@@ -72,6 +76,8 @@ Issue `scarecrow173/synvelis#601` slice 1 の実装 spec。D 層検証
 | `encode_record` / `JournalAppender` | 同上 | 記述 layout（LE magic `0x4A52`/version/kind∈{1,2,3}/seq/len/payload/crc32）。`JournalAppender::encode_next` が seq 採番を所有し、連番 stream は全 3 kind（`Chunk`/`Checkpoint`/`Finalize`）で `CleanEnd` 往復。`JournalAppender::resumed(n)` は n から採番するが、その stream 単体は seq0 起点を要求する replay に対し `SequenceGap` で止まる（途中再開の非互換を pin） |
 | `JournalPayload` serde | `crates/synvelis-gateway/src/commit.rs` | 全 6 variant（`Committed`/`Rejected`/`Conflicted`/`Indeterminate`/`Policy`/`Saved`）が `serde_json` を無損失往復し、inner record の `deny_unknown_fields` が注入未知 field を拒否 |
 | u128 tagged-id serde | `crates/synvelis-gateway/src/id.rs` | `"<kind>-<32 lowercase hex>"` 文字列として直列化・無損失往復・誤 tag・malformed hex（非 hex 文字・長さ 32 以外）を拒否 — u128 を JSON number として運ばない wire 契約 |
+| `WireRequest::parse` | `crates/synvelis-gateway/src/wire.rs` | 任意 `serde_json::Value` で panic しない・`Err` は閉じた 3 分類（`MalformedRequest`/`SelfDeclaredAuthority`/`ImplicitTargetRejected`）のみ・`FORBIDDEN_AUTHORITY_FIELDS` の全 key は top-level で `SelfDeclaredAuthority`（注入 field 名を echo、implicit より先に評価）・`FORBIDDEN_IMPLICIT_TARGET_FIELDS` は `ImplicitTargetRejected`・同 key を `args` 等の非走査位置に nest しても拒否にならない（top-level 限定）・受理入力は allow-list 構造契約を満たす（test 内の独立 model checker で検証）・`capability`/`schema`/`target`(既知 shape)/`consistency`(既知 kind) 内部の未知 key は `MalformedRequest`（internally tagged enum で `deny_unknown_fields` が無効な分を explicit scan で補う） |
+| `GrantPolicy`（`decide`/`evaluate_commit`/`evaluate_effects`） | `crates/synvelis-gateway/src/policy.rs` | 決定は閉じた `AuthorizationDecision` 集合・deny reason は契約文字列集合（test 内 `DENY_REASONS` 13 個に pin）・未 bind agent は全 8 stage で一律 `"no applicable authorization"`（存在秘匿）・trusted human は descriptor 一致で全 stage `PermitForStage`（descriptor mismatch は human 短絡より先に deny）・`DelegatedApply`+`Commit` は apply budget を単調消費（Permit 1 回 = 1 unit・枯渇後は `"apply budget exhausted"`・`try_consume_apply` と整合）・preflight と全 `Deny` は `consumed_applies` を動かさない・`evaluate_commit` ≡ `decide(Commit)`（同一評価・同一 spend）・scope coverage は再評価・resource 重複 dedup で不変・未解決/未カバー resource は `target outside grant scope`・create 欠陥は `creation outside grant constraints`・`effects.unsupported` 非空は `unverifiable effects`・disclosure/transfer が `data_access` 外なら `data access outside grant` |
 | `crc32` / `Crc32` | `crates/synvelis-recording/src/crc32.rs` | 一括 `crc32` と逐次 `Crc32::{new,update,finish}` が任意分割点で一致（table-driven 同一実装の 2 経路） |
 | `digest_fold` / `IntegrityDigest` | 同上 | `acc*K^v` fold が決定的（raw `digest_fold` 連鎖 = `IntegrityDigest::fold` 連鎖）・`to_hex` は固定 16 文字 lowercase hex |
 | session SM | `crates/synvelis-recording/src/session.rs` | `legal_transition` と `require_transition` が 4×4 pair 全域で一致・legal は `Created→Open`/`Open→Closed`/`Closed→Finalized` の 3 forward edge のみ・`accepts_registration` iff `Open`・`accepts_take_verification` iff `Open\|Closed` |
@@ -120,13 +126,20 @@ proptest は pseudo-random 生成 + shrink で「緑」を得る — bound 内�
 | 任意 byte 列（replay 系） | 0..=512 byte | 構造を持つ入力は encode 済み stream + 変異系 property がカバー |
 | journal payload body（gateway） | 0..=384 byte/record・0..=8 record | `MAX_PAYLOAD`(16 MiB) cap は `encode_frame_at_cap_roundtrips`（実測）+ `encode_frame_over_cap_refused`（4 case）で担保 |
 | `RecordPayload`（recording） | spans 0..=6・0..=8 record | `u16` count field 飽和 + `MAX_PAYLOAD`(1 MiB) cap は `chunk_record_at_cap_boundary`（fixed 58 byte + 48 byte/span → exact 21844 = in-cap・21845 = over-cap）で担保 |
-| `JournalPayload` | 全 6 variant・nested policy graph は bounded（refs ≤32 char・sets ≤4・state ≤256 byte） | `CommitRecord`/`Grant` 全フィールド生成 — policy semantic（grant evaluation 正当性）は後続 slice（`GrantPolicy::evaluate_commit`）の対象 |
+| `JournalPayload` | 全 6 variant・nested policy graph は bounded（refs ≤32 char・sets ≤4・state ≤256 byte） | `CommitRecord`/`Grant` 全フィールド生成 |
 | u128 tagged-id | 任意 u128 | tag 文字列形状は `check_tagged_id` が kind 別に pin |
+| 任意 JSON（`WireRequest::parse` no-panic/閉集合） | 深さ ≤4・container あたり ≤8 child・文字列 ≤24 char・object key は通常識別子に forbidden key を低頻度混合 | near-valid `arb_wire_request` が受理側構造をカバー・forbidden 注入系 property が分類を個別 pin |
+| near-valid wire request | 構造適合の required 5 field + optional（target/args/task/grant/idempotency_key） | 受理判定は test 内 model checker — 製品内部表現の写しではなく契約の独立再実装 |
+| policy spine（`GrantPolicy`） | task/grant/principal/project/adapter の id 列のみ生成。record/Oracle/Rig は defect 軸で構築し fresh `InMemoryPolicyStore` ごと使用（budget ≤5・commit 反復 ≤budget+2・request は `parse_wire`+`bind` の実経路のみ） | 権限・binding・scope の組合せ爆発は defect 駆動生成で抑止 — 境界到達を保証するため生成時に整列させる |
 
 仮定: proptest の case 数は既定（256/property、cap 系のみ 4 case）。
-「閉じた `StopReason` 集合」は型の exhaustiveness で compile-time に
-保証される（新 variant 追加はコンパイルエラー）— runtime assertion
-ではなく型で pin する設計。
+policy suite のみ case ごとに rig 全体を構築するため 64 case に
+抑える。「閉じた `StopReason` 集合」は型の exhaustiveness で
+compile-time に保証される（新 variant 追加はコンパイルエラー）
+— runtime assertion ではなく型で pin する設計。
+`WireRequest::parse` の「閉じたエラー分類」と `GrantPolicy` の
+「閉じた決定集合」も同じく exhaustive match と deny-reason 文字列
+集合への pin で担保する。
 
 ## Kani の bound と仮定
 
@@ -181,6 +194,25 @@ seq・`CleanEnd` iff 全消費・期待 layout byte・期待 stop class）と、
 証跡（下記）で「predicate が実装破壊を実際に検出できる」ことの側
 から閉じる。
 
+slice 2 も同じ方針で、加えて 3 つの独立判定を test 側に置く。
+`WireRequest::parse` の受理側は test 内の **独立 model checker**
+（top-level/必須/nested allow-list を契約から再実装した
+`model_allows`）を通し、「parse が受理した入力は必ず model を
+満たす」向きで pin する — 製品内部の `deny_extra_keys` 表の写し
+ではなく、乖離があれば property が fail し、mutation-fail 証跡が
+検出能力を裏付ける。拒否側の注入は製品 const ではなく test-local
+な literal list（`AUTHORITY_FIELDS` / `IMPLICIT_TARGET_FIELDS`）
+から生成し、`documented ⊆ product` の subset property で pin する
+— 製品表から entry が消えても注入は契約どおり残り、削除が
+「test 空間の縮小」として隠れない（`DENY_REASONS` の literal pin
+と同じ理屈。実際に `"token"` 削除 mutant が検出不能だった探査 run
+を経てこの構造になった。`evidence/sv601/verification.md` slice 2
+節参照）。`GrantPolicy` の oracle は契約 predicate（閉じた決定集合・
+deny reason 集合・一律 NO_AUTH・scope 欠陥の固定 reason）と
+store 側 counter（`consumed_applies` の単調性・
+`try_consume_apply` との整合）の独立再検査であり、これも製品実装
+を直接呼んで判定する。
+
 ## Kani 環境のプロビジョニング
 
 `test-formal-kani` が `not_run`（`environment_blocked`）を返す環境
@@ -231,8 +263,8 @@ synvelis skill の語彙に従う。環境欠如は `not_run` +
 
 | 候補 target | 対象 crate / 契約 | Kani が向く理由 |
 | --- | --- | --- |
-| `WireRequest::parse` | `synvelis-gateway` wire layer — forbidden authority/implicit-target field gate・envelope 検証 | wire codec と同型 — bounded symbolic byte 列/field 列に対し「panic なし・拒否分類が安定集合・受理なら構造契約」を尽きられる |
-| `GrantPolicy::evaluate_commit` | `synvelis-gateway` — grant/task/epoch/scope/effects の評価分岐 | 有限分岐の決定関数 — bounded symbolic `Grant`/`Task`/`scope` 入力で「決定が安定集合・deny なら拒否理由が契約内」を尽きられる |
+| `WireRequest::parse` | `synvelis-gateway` wire layer — forbidden authority/implicit-target field gate・envelope 検証 | wire codec と同型 — bounded symbolic byte 列/field 列に対し「panic なし・拒否分類が安定集合・受理なら構造契約」を尽きられる。**slice 2 で proptest 化済み**（`tests/formal_journal/wire.rs`）。昇格は保留: 入力が `serde_json::Value`（CBMC 変換コスト非実用 — slice 1 と同判断）で、JSON object の symbolic 生成は harness 側で bounded key/field 列に写す設計が別途要る |
+| `GrantPolicy::evaluate_commit` | `synvelis-gateway` — grant/task/epoch/scope/effects の評価分岐 | 有限分岐の決定関数 — bounded symbolic `Grant`/`Task`/`scope` 入力で「決定が安定集合・deny なら拒否理由が契約内」を尽きられる。**slice 2 で proptest 化済み**（`tests/formal_journal/policy.rs`）。昇格は保留: `Arc<String>`・`Arc<dyn PolicyStore>`/`Arc<dyn ResourceOracle>`/`Arc<dyn PolicyClock>` の trait object 境界が symbolic 化の前に決定的 mock 注入への設計を要求し、`String`/`BTreeSet` 系の CBMC コストも残る |
 | CommitGate CAS / idempotent ledger | `synvelis-gateway` — expected-revision CAS・`JournalIdem` keyed retry の replay 契約 | 有限状態の ledger 不変条件（同一 key は同一 outcome を replay・CAS 衝突は Conflicted）を bounded trace で尽きられる |
 
 ### TLA+ 昇格候補（ordering / state machine）
