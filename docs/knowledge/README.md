@@ -6,6 +6,7 @@ Directory: `docs/knowledge`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
+| KNOW-AmJQHxhnW2zRPGvDY1wqqG | システムアーキテクチャ概要 | draft | [architecture-overview.md](./architecture-overview.md) |
 | KNOW-gc1vOhVuopS5XF2sd0yAfq | CLI・配線・本番統合スライス | draft | [app-integration-slices.md](./app-integration-slices.md) |
 | KNOW-eekeLRoHe8Tf1r4XYhiSwp | アセットライブラリと Asset Provider 契約 | draft | [asset-library.md](./asset-library.md) |
 | KNOW-udyWNBbNMftbV0PhmnV0dZ | オートメーション実行基盤とコマンドゲートウェイ | draft | [automation-and-command-gateway.md](./automation-and-command-gateway.md) |
