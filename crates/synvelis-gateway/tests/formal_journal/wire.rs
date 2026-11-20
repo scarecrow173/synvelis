@@ -7,10 +7,14 @@
 //! - Errors stay in the closed three-way set:
 //!   `MalformedRequest` / `SelfDeclaredAuthority` /
 //!   `ImplicitTargetRejected` (compile-time exhaustive match).
-//! - Every `FORBIDDEN_AUTHORITY_FIELDS` top-level key is rejected as
+//! - Every documented authority-shaped top-level key is rejected as
 //!   `SelfDeclaredAuthority` echoing the injected field; every
-//!   `FORBIDDEN_IMPLICIT_TARGET_FIELDS` key as `ImplicitTargetRejected`;
-//!   authority wins when both are present (scan order).
+//!   documented implicit-target key as `ImplicitTargetRejected`;
+//!   authority wins when both are present (scan order). Injections
+//!   come from test-local literal copies of the documented field
+//!   lists, not the product constants — an entry deleted from
+//!   `FORBIDDEN_AUTHORITY_FIELDS` must still fail (deleting the key
+//!   from the product list does not shrink the contract).
 //! - The forbidden-key contract is top-level only: the same keys
 //!   nested under `args` (not scanned) must not produce those errors.
 //! - Accepted input satisfies the wire allow-list structure — a
@@ -33,6 +37,35 @@ use synvelis_gateway::wire::{
 };
 
 use crate::strategies::arb_ref_text;
+
+/// The documented authority-field contract — a literal copy of
+/// `FORBIDDEN_AUTHORITY_FIELDS` so an entry deleted from the product
+/// list is still injected (and still must be rejected). The product
+/// constant itself is imported only for a same-content cross-check.
+const AUTHORITY_FIELDS: &[&str] = &[
+    "principal",
+    "caller",
+    "authority",
+    "auth",
+    "authenticated",
+    "token",
+    "permissions",
+    "permission",
+    "approved",
+    "approval",
+    "impersonate",
+    "as_user",
+    "role",
+];
+
+/// Same contract for `FORBIDDEN_IMPLICIT_TARGET_FIELDS`.
+const IMPLICIT_TARGET_FIELDS: &[&str] = &[
+    "selection",
+    "focus",
+    "active_window",
+    "foreground_window",
+    "current_selection",
+];
 
 // ---- independent model checker ----
 //
@@ -146,8 +179,8 @@ fn model_allows(value: &Value) -> bool {
 fn arb_json_key() -> impl Strategy<Value = String> {
     prop_oneof![
         8 => "[a-z_]{1,12}",
-        1 => prop::sample::select(FORBIDDEN_AUTHORITY_FIELDS.to_vec()).prop_map(str::to_owned),
-        1 => prop::sample::select(FORBIDDEN_IMPLICIT_TARGET_FIELDS.to_vec()).prop_map(str::to_owned),
+        1 => prop::sample::select(AUTHORITY_FIELDS.to_vec()).prop_map(str::to_owned),
+        1 => prop::sample::select(IMPLICIT_TARGET_FIELDS.to_vec()).prop_map(str::to_owned),
     ]
 }
 
@@ -292,6 +325,19 @@ fn is_forbidden_rejection(result: &Result<WireRequest, GatewayError>) -> bool {
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(256))]
 
+    /// The documented forbidden lists stay inside the product
+    /// constants — an entry deleted from `FORBIDDEN_*` is caught
+    /// directly (product may extend, never drop).
+    #[test]
+    fn documented_forbidden_lists_stay_in_product(_dummy in Just(())) {
+        for field in AUTHORITY_FIELDS {
+            prop_assert!(FORBIDDEN_AUTHORITY_FIELDS.contains(field));
+        }
+        for field in IMPLICIT_TARGET_FIELDS {
+            prop_assert!(FORBIDDEN_IMPLICIT_TARGET_FIELDS.contains(field));
+        }
+    }
+
     /// Any JSON value: parse never panics (proptest catches), and a
     /// rejection stays in the closed three-way error set.
     #[test]
@@ -327,7 +373,7 @@ proptest! {
     #[test]
     fn authority_fields_rejected(
         req in arb_wire_request(),
-        field in prop::sample::select(FORBIDDEN_AUTHORITY_FIELDS.to_vec()),
+        field in prop::sample::select(AUTHORITY_FIELDS.to_vec()),
         injected in arb_json_value(),
     ) {
         let req = inject_top_level(&req, field, injected);
@@ -344,7 +390,7 @@ proptest! {
     #[test]
     fn implicit_target_fields_rejected(
         req in arb_wire_request(),
-        field in prop::sample::select(FORBIDDEN_IMPLICIT_TARGET_FIELDS.to_vec()),
+        field in prop::sample::select(IMPLICIT_TARGET_FIELDS.to_vec()),
         injected in arb_json_value(),
     ) {
         let req = inject_top_level(&req, field, injected);
@@ -361,8 +407,8 @@ proptest! {
     #[test]
     fn authority_precedes_implicit_target(
         req in arb_wire_request(),
-        auth in prop::sample::select(FORBIDDEN_AUTHORITY_FIELDS.to_vec()),
-        implicit in prop::sample::select(FORBIDDEN_IMPLICIT_TARGET_FIELDS.to_vec()),
+        auth in prop::sample::select(AUTHORITY_FIELDS.to_vec()),
+        implicit in prop::sample::select(IMPLICIT_TARGET_FIELDS.to_vec()),
     ) {
         let req = inject_top_level(&req, auth, Value::Null);
         let req = inject_top_level(&req, implicit, Value::Null);
@@ -375,9 +421,9 @@ proptest! {
     fn forbidden_keys_nested_under_args_not_rejected(
         req in arb_wire_request(),
         field in prop::sample::select(
-            FORBIDDEN_AUTHORITY_FIELDS
+            AUTHORITY_FIELDS
                 .iter()
-                .chain(FORBIDDEN_IMPLICIT_TARGET_FIELDS)
+                .chain(IMPLICIT_TARGET_FIELDS)
                 .copied()
                 .collect::<Vec<_>>(),
         ),
