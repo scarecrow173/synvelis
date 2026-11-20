@@ -50,16 +50,6 @@ incremental = false
 [profile.ci.package."*"]
 debug = "none"
 
-# WORKAROUND (ruviform#823): `Prefetch::manual` fills the free-block
-# pool through `debug_assert!`, which is elided under the optimized
-# bench profile — producers then push only the seek boundary and
-# consumers underrun forever. Until the upstream fix lands and the
-# pinned ruviform rev is bumped past it, compile that one crate with
-# debug assertions so the pool is initialized; remove this override
-# at that point (synvelis#602 frozen bench depends on it).
-[profile.bench.package.ruviform-media-reader]
-debug-assertions = true
-
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
