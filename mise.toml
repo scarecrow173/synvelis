@@ -352,3 +352,21 @@ run = [
 [tasks.test-msrv]
 description = "Compile and test under the declared MSRV toolchain"
 run = "mise exec rust@1.89.0 -- cargo test --workspace --locked"
+
+# Issue #601 D-layer formal verification slice 1: journal wire codec
+# proptest suites（synvelis-gateway + synvelis-recording の
+# tests/formal_journal.rs）。native lane — 常時実行可能な入口。
+[tasks.test-formal]
+description = "Issue #601 D-layer journal wire codec property suites (proptest): cargo test --test formal_journal for synvelis-gateway + synvelis-recording"
+run = "cargo test --locked -p synvelis-gateway -p synvelis-recording --test formal_journal"
+
+# test-formal-kani は同 harness に同梱した #[cfg(kani)] bounded proof
+# を検証する手動/opt-in lane（CI-required gate ではない）。
+# tools/run-formal-kani.mjs が native cargo kani → WSL2 distro の順で
+# 環境検出し、WSL 側は WSL native FS の CARGO_TARGET_DIR を使う
+# （/mnt 上の build は遅い・Windows 側 target dir は不変）。
+# 実行不能環境は verdict `not_run` + `environment_blocked` で exit 0
+# （fake pass しない）、実 verification 失敗のみ exit 1。
+[tasks.test-formal-kani]
+description = "Issue #601 D-layer Kani bounded-proof lane (manual/opt-in — NOT a CI-required gate): env-detect (native cargo kani → WSL2 distro) via tools/run-formal-kani.mjs; honest not_run + exit 0 when no environment exists; exit 1 only on a real verification failure"
+run = "node tools/run-formal-kani.mjs"
