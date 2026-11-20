@@ -7,7 +7,8 @@ created: "2026-11-20"
 updated: "2026-11-20"
 owners: []
 relations:
-  source: []
+  source:
+    - "https://github.com/scarecrow173/synvelis/issues/602"
   changes:
     added: []
     modified: []
@@ -25,7 +26,8 @@ relations:
     - "scarecrow173/ruviform#823"
   refines: []
   refined-by: []
-  derives-from: []
+  derives-from:
+    - "ruviform: docs/test-specs/issue-807-frozen-dsp-bench.md"
   derived-by: []
   verifies: []
   verified-by: []
@@ -147,6 +149,61 @@ evidence は `evidence/sv602/`。
   対象 crate を bench profile のみ debug-assertions 付きでコンパイルし
   pool 初期化を有効化する。撤去条件: upstream 修正を取り込み
   ruviform rev を bump したとき（comment に明記済み）。
+
+## Feature: limiter 特定手順
+
+gate 対象は A/B 比と fingerprint であり limiter 分類は診断用だが、
+回帰が検出されたときの一次切り分け手順を以下に固定する。
+
+- `decode/prefetch` — `PlayReport` の `underruns`/`mismatches`/
+  `silenced` が非ゼロ、または consumer が boundary のみで block を
+  受け取れていないケース（ruviform#823 はこの分類で発見）。Arm K
+  cell record の `limiter` 文字列もこの経路を B 側支配域として示す。
+- `compute/mix` — underrun 系が 0 で A/B 両側の per-call が同程度に
+  悪化するケース。A 側（naive）だけが悪化するなら freeze 契約の
+  意味論ずれを疑う。
+- `encode` / `fs-publish` — Arm P のみで wall が伸び、Arm K ratio が
+  安定なケース（staged publish・reopen verify を含む publish 経路）。
+- `alloc` — cell record の `alloc_median`/`dealloc_median`
+  （`stats_alloc` 計装）が baseline 記録値から大きく増えたケース。
+
+いずれの分類も `decision.tsv` に試行として記録してから閾値や
+fixture を変更する。
+
+## Feature: 再 pin 手順
+
+pin 済み baseline を無効化する変更は次のとおり。
+
+- naive mixer 意味論・cell 行列・計測手順・gate 規則の変更（凍結
+  契約の変更）。
+- fixture 生成（`wav_pcm16` の波形・チャネル数・rate）の変更。
+- ruviform 解決 rev の bump（`mise run check-ruviform-rev` で整合を
+  確認し、stale vendor は `mise run sync-ui-deps` で復旧してから
+  計測する）。
+- toolchain（`rustc`/`cargo`）の bump。
+
+無効化時の再 pin は `cargo bench -p synvelis-render --bench
+frozen_render -- --write-baseline <path>` で candidate を出力し、
+人間が内容をレビューして `approval` を object に置換したうえで
+`benches/frozen/baseline.sv602.json` に配置する（上記 baseline
+ライフサイクル節どおり、2 相のみ・自動昇格なし）。
+
+## Feature: 転用の経緯
+
+- fixture / drive 手順: `synvelis-player` の L1
+  （`l1_03_headless_clip_playback_exact`）・L2/x_e2e が使う
+  `fixture::wav_pcm16` / `fixture_sample` と `HeadlessDriver` 駆動列
+  （`import_local → prepare → lower → activate → run`）をそのまま
+  転用し、production arm の経路逸脱を防いだ。
+- RT oracle: `stats_alloc` による alloc/dealloc 計装は
+  `synvelis-rt` 系 test-rt lane の work oracle と同じ手法を dev-dep
+  edge add で転用（`Cargo.lock` 差分は edge add のみ）。
+- gate 契約: `min_ratio`・candidate `approval:null` → 手動 promote・
+  `--selftest`/`--test`/`--write-baseline`/cell filter・JSONL
+  run/cell/gate・verdict 語彙・`decision.tsv` は ruviform
+  `docs/test-specs/issue-807-frozen-dsp-bench.md`（merged sibling
+  の正本）に揃えた。evidence 台帳形式（`runs.jsonl` +
+  `verification.md`）は `evidence/sv601/` の先例に従う。
 
 ## Feature: evidence
 
