@@ -24,7 +24,13 @@ tmp/
 # APM dependencies and generated deployment assets
 apm_modules/
 **/apm_modules/
-.agents/
+# Exception: .agents/skills/verify-synvelis/ is repo-owned (Issue #600)
+# and tracked. Re-including a child of an ignored dir requires the staged
+# chain below — a `!` under an ignored directory never takes effect.
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/verify-synvelis/
 .claude/agents/
 .claude/commands/
 .claude/hooks/

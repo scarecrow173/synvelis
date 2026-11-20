@@ -1,0 +1,28 @@
+{
+  "type": "doctor",
+  "lane": "syn-ctl-doctor",
+  "verdict": "not_run",
+  "transport": "stdio",
+  "app": "G:\\orca\\workspaces\\synvelis\\sv600-slice2\\target\\debug\\synvelis-native.exe",
+  "repo": {
+    "sha": "d9e11dc5765863cdff7f86b0d81fa0ced2dfd124"
+  },
+  "environment": {
+    "os": "windows",
+    "arch": "x86_64",
+    "environment_kind": null
+  },
+  "checks": [
+    {
+      "id": "spawn",
+      "verdict": "not_run",
+      "detail": "RVF_TEST_DISABLE is set on this host — the AUT refuses every serve path"
+    }
+  ],
+  "error": {
+    "stage": "spawn",
+    "environment_blocked": true,
+    "detail": "RVF_TEST_DISABLE is set on this host",
+    "next_step": "unset RVF_TEST_DISABLE and rerun — it is the kill switch, not a diagnostic"
+  }
+}
