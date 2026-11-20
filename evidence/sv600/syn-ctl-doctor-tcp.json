@@ -1,0 +1,130 @@
+{
+  "type": "doctor",
+  "lane": "syn-ctl-doctor",
+  "verdict": "pass",
+  "transport": "tcp",
+  "app": "G:\\orca\\workspaces\\synvelis\\sv600-features-map\\target\\debug\\synvelis-native.exe",
+  "repo": {
+    "sha": "535327e2746b3fd56a8f8e752285b2232ae87102"
+  },
+  "environment": {
+    "os": "windows",
+    "arch": "x86_64",
+    "environment_kind": "real-window"
+  },
+  "welcome": {
+    "v": 1,
+    "session_id": "s-e5d7dc69205da502",
+    "run_id": "run-e4bce8055e4d29f7",
+    "app": {
+      "name": "synvelis",
+      "version": "0.1.0",
+      "revision": "84a68f25d5afd1b1f201018d76894d25b122f150"
+    },
+    "ruviform_revision": "0.1.0",
+    "backend": {
+      "name": "gpui-windowed",
+      "detail": "gpui/windows"
+    },
+    "capabilities": {
+      "fixture": true,
+      "clock_domains": [
+        "host_tick"
+      ],
+      "faults": [
+        "window_crash",
+        "ipc_disconnect"
+      ],
+      "observation": [
+        "windows",
+        "receipts",
+        "notices"
+      ],
+      "screenshot": true,
+      "input_injection": false,
+      "dom_access": false
+    },
+    "windows": [
+      {
+        "id": 1,
+        "width": 0,
+        "height": 0,
+        "ready": true,
+        "close_pending": false,
+        "ipc_down": false
+      }
+    ],
+    "os": "windows",
+    "arch": "x86_64"
+  },
+  "capabilities": {
+    "fixture": true,
+    "clock_domains": [
+      "host_tick"
+    ],
+    "faults": [
+      "window_crash",
+      "ipc_disconnect"
+    ],
+    "observation": [
+      "windows",
+      "receipts",
+      "notices"
+    ],
+    "screenshot": true,
+    "input_injection": false,
+    "dom_access": false,
+    "session_id": "s-e5d7dc69205da502",
+    "windows": [
+      {
+        "id": 1,
+        "width": 0,
+        "height": 0,
+        "ready": true,
+        "close_pending": false,
+        "ipc_down": false
+      }
+    ]
+  },
+  "cleanup": {
+    "windows_open": 1,
+    "windows_closed": 1,
+    "exited": true,
+    "app": {
+      "mounts": 1,
+      "mounts_attached": 1,
+      "windows_open": 1
+    }
+  },
+  "child_exit": {
+    "success": true,
+    "code": 0
+  },
+  "checks": [
+    {
+      "id": "spawn",
+      "verdict": "pass"
+    },
+    {
+      "id": "handshake",
+      "verdict": "pass"
+    },
+    {
+      "id": "capabilities",
+      "verdict": "pass"
+    },
+    {
+      "id": "identity",
+      "verdict": "pass",
+      "detail": "synvelis 0.1.0 @ 84a68f25d5afd1b1f201018d76894d25b122f150"
+    },
+    {
+      "id": "shutdown",
+      "verdict": "pass"
+    },
+    {
+      "id": "child-exit",
+      "verdict": "pass"
+    }
+  ]
+}
