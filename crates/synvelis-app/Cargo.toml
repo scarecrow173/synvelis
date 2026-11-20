@@ -73,3 +73,12 @@ required-features = ["webview"]
 name = "synvelis-native"
 path = "src/bin/synvelis-native.rs"
 required-features = ["native"]
+
+# Issue #600 stage 2: the verification control CLI — a thin
+# `rvf.uitest.v1` TestDriver client (doctor + drive). Rides the
+# `uitest` feature boundary so it stays out of default/product builds
+# (`ruviform-ui-test` is a dev/test crate — isolation by DAG).
+[[bin]]
+name = "syn-ctl"
+path = "src/bin/syn_ctl.rs"
+required-features = ["uitest"]

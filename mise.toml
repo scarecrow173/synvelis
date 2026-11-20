@@ -315,6 +315,19 @@ run = "cargo test -p synvelis-app --features uitest"
 description = "synvelis-app uitest feature bin ビルド(rvf.uitest.v1 seam 付き実窓)"
 run = "cargo build -p synvelis-app --features uitest --bin synvelis-native --locked"
 
+# Issue #600 stage 2: `syn-ctl` ctl lane (verify-synvelis の ctl 入口)。
+# manual/opt-in lane — CI-required gate ではない。dry-run leg は環境非依存、
+# live doctor leg は interactive desktop session 前提の gate で、非対話環境では
+# verdict が not_run/fail のまま evidence JSON に残り lane も失敗する
+# (fake-pass にしない設計)。
+[tasks.test-app-uitest-ctl]
+description = "syn-ctl lane: uitest bins build → doctor --dry-run → live doctor JSON (manual/opt-in, interactive gate; not CI-required)"
+run = [
+  "cargo build -p synvelis-app --features uitest --bin synvelis-native --bin syn-ctl --locked",
+  "cargo run -p synvelis-app --features uitest --bin syn-ctl --locked -- doctor --dry-run",
+  "cargo run -p synvelis-app --features uitest --bin syn-ctl --locked -- doctor --out evidence/sv600/syn-ctl-doctor.json",
+]
+
 [tasks.dev-ui]
 description = "開発ループ: ui/ を build して synvelis app を debug 起動(assets は live FS 読み)"
 depends = ["install-ui"]
