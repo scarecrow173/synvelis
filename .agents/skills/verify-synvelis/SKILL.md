@@ -177,6 +177,37 @@ Interactive note: the live drive legs need a desktop session (see
 Launch). A `drive` that cannot spawn/serve records the step's
 `not_run`/`fail` in the JSONL transcript — never a fabricated pass.
 
+## Formal verification (Issue #601)
+
+Two additional lanes verify the journal wire codecs
+(`synvelis-gateway` commit journal + `synvelis-recording` staging
+journal) — headless, no AUT:
+
+```sh
+mise run test-formal        # proptest property suites (always-on)
+mise run test-formal-kani   # Kani bounded proofs (native, else WSL2)
+KANI_JOBS=2 mise run test-formal-kani   # cap CBMC solver parallelism
+                            # on shared/small-RAM hosts (default -j4)
+```
+
+- `test-formal` runs `cargo test --locked … --test formal_journal`
+  for both crates — same entry as every test lane, no environment
+  requirements.
+- `test-formal-kani` runs `tools/run-formal-kani.mjs`: native
+  `cargo kani` first, then a WSL2 distro holding `cargo` +
+  `cargo kani` (Kani cannot run on native Windows). WSL executes
+  with `CARGO_TARGET_DIR` on the WSL-native filesystem — the
+  Windows managed target dir is untouched.
+- Verdict discipline is the same vocabulary: the runner prints one
+  JSON verdict line — `pass` (proofs held), `fail` (a real
+  counterexample/unwinding violation — exit 1), or `not_run` +
+  `environment_blocked` (no Kani environment — exit 0, never a
+  fake pass).
+- Coverage, bounds, assumptions, and the provision runbook live in
+  `docs/specs/formal-verification.md`; evidence lands in
+  `evidence/sv601/` (`test-formal-kani.log`, `verification.md`,
+  mutation-fail records).
+
 ## Evidence
 
 Ledger: `evidence/sv600/` (per-issue convention). Artifact kinds:
@@ -249,7 +280,8 @@ mise lanes: `check-app-uitest` / `lint-app-uitest` /
 gate), `run-app-native` (normal launch), `check-headless-deps`
 (headless tree non-regression), `check-ruviform-rev`
 (lock/vendor/manifest pin agreement), `test-app-gpui`
-(scenario-port lane).
+(scenario-port lane), `test-formal` / `test-formal-kani`
+(Issue #601 journal codec property + bounded-proof lanes).
 
 The `features/` map is normalized: every user-visible area — the
 seam-driven window, the six main-screen tabs, the detached/mounted

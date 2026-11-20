@@ -27,6 +27,10 @@ publish = false
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"
+# tests/ 配下の `#[cfg(kani)]` proof harness（Issue #601 formal
+# verification）を check-cfg で許容する。`cargo kani` 実行時にのみ
+# 有効化され、通常ビルドでは cfg 除外される。
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
 
 [workspace.lints.clippy]
 all = "warn"

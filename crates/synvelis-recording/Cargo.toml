@@ -32,3 +32,10 @@ optional = true
 [dev-dependencies]
 stats_alloc = "0.1.10"
 ruviform-audio-test.workspace = true
+# - proptest: Issue #601 D層 formal verification slice 1 — staging
+#   journal wire codec（`encode_record`/`replay_journal`/
+#   `JournalAppender` + `crc32`/`Crc32`/`digest_fold` + session SM）の
+#   property suite（tests/formal_journal.rs）に使用する生成入力検査器。
+#   dev-dep のみで本番依存グラフへ波及しない。MIT OR Apache-2.0・
+#   pure Rust。MSRV 1.89 適合。
+proptest = "1"

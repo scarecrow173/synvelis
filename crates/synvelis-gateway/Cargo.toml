@@ -18,3 +18,9 @@ rand.workspace = true
 [dev-dependencies]
 synvelis-automation = { path = "../synvelis-automation" }
 synvelis-script = { path = "../synvelis-script" }
+# - proptest: Issue #601 D層 formal verification slice 1 — journal wire
+#   codec（`encode_frame`/`replay`/`crc32` + `JournalPayload` serde・
+#   u128 tagged-id）の property suite（tests/formal_journal.rs）に
+#   使用する生成入力検査器。dev-dep のみで本番依存グラフへ波及しない。
+#   MIT OR Apache-2.0・pure Rust。MSRV 1.89 適合。
+proptest = "1"
