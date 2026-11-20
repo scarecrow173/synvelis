@@ -3,25 +3,25 @@
   "cells": {
     "export/4x48000": {
       "arm": "p",
-      "max_normalized": 6.152622483874399,
+      "max_normalized": 5.512761071783771,
       "pcm_sha256": "1177683de581f742386e7cb2b4faa7277ad9b60451c41f697ba69288e54fffbb"
     },
     "export/8x96000": {
       "arm": "p",
-      "max_normalized": 11.692423093384921,
+      "max_normalized": 12.054656877084186,
       "pcm_sha256": "bdda638004838eeb519f2f643a1667a8718173499b2d97499a876dc6563ddfde"
     },
     "mix/16x256": {
       "arm": "k",
-      "min_ratio": 0.05049395339498157
+      "min_ratio": 0.052550955184246205
     },
     "mix/4x256": {
       "arm": "k",
-      "min_ratio": 0.04653818209819114
+      "min_ratio": 0.047163889503378575
     },
     "mix/8x512": {
       "arm": "k",
-      "min_ratio": 0.05963938414457404
+      "min_ratio": 0.0603923062906135
     }
   },
   "env": {
@@ -30,8 +30,8 @@
     "cpu": "Intel64 Family 6 Model 158 Stepping 13, GenuineIntel",
     "os": "windows",
     "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
-    "ruviform_sha": "84a68f25d5afd1b1f201018d76894d25b122f150",
-    "synvelis_sha": "6a26788e34f905dba7969ab990080bbef3505ea2"
+    "ruviform_sha": "cd4213a1d665600f6adfefa0c3a90f2be9b4e4ce",
+    "synvelis_sha": "ea763ab4949c00a0883c1db244c0cb23ffb41a2d"
   },
   "issue": "synvelis#602",
   "schema": "sv.bench.baseline/v1"
