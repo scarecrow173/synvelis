@@ -119,8 +119,11 @@ pub trait ChunkSink {
 /// 強制）ので、pool は必ず全 chunk を free に流せる。
 ///
 /// # Errors
-/// なし（構築時の容量は事前検証済みを前提。不正容量は panic ではなく
-/// 空の pool を返す）。
+/// なし（構築時の容量は事前検証済みを前提）。
+/// # Panics
+/// free ring の capacity が pool サイズ（`chunks`）を下回る内部不変条件
+/// 違反時（seeding の `try_push` が `Full` を返した場合）。capacity は
+/// `chunks` から導かれるため通常は起こらない。
 #[must_use]
 pub fn build_handoff(
     stream_index: u16,
@@ -140,8 +143,16 @@ pub fn build_handoff(
             channels,
             spans_per_chunk,
         );
-        // free_capacity == chunks が保証されているので失敗しない。
-        debug_assert!(free_tx.try_push(chunk).is_ok());
+        // seeding は check ではなく実 work。debug_assert! の引数に置くと
+        // release で try_push 自体が評価されず free ring が空のままに
+        // なるため、通常コードとして実行する。free_capacity == chunks が
+        // 保証されているので Full は内部不変条件違反であり、panic で
+        // 明示的に観測可能にする（CaptureChunk は Debug 非実装のため
+        // expect ではなく assert!）。
+        assert!(
+            free_tx.try_push(chunk).is_ok(),
+            "free ring capacity equals pool size"
+        );
     }
     (
         EngineEnds { filled_tx, free_rx },
