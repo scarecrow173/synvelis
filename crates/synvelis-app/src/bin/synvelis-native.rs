@@ -43,9 +43,10 @@ use std::process::ExitCode;
 use std::rc::Rc;
 use std::time::Duration;
 
+use ruviform_observability::logging::{LoggingHealth, SinkDegraded};
 use ruviform_ui::dock::ViewInstanceId;
 use ruviform_ui::driver::{DriverEvent, WindowLifecycle};
-use ruviform_ui::view::{AttachEpochAllocator, ViewHost, ViewSpec};
+use ruviform_ui::view::{AttachEpochAllocator, ViewHost};
 use ruviform_ui::{
     BackendReport, Capability, LogicalPosition, LogicalSize, WindowCapabilities, WindowDriver,
     WindowId, WindowSpec,
@@ -56,11 +57,11 @@ use synvelis_theme::{ResolvedTheme, ThemeCatalog, ThemeSelection};
 
 use synvelis_app::logging::{self, EnvOverrides};
 use synvelis_app::{
-    AutomationScreenPublish, LogSettings, MainScreenState, NativeShell, SessionEngineConfig,
-    SynvelisApp, VcsScreenState, automation_screen_spec, compose_routing_engine,
-    history_screen_spec, main_screen_spec, main_view_id, main_view_targets, mount_automation_view,
-    mount_main_view, mount_secondary_view, mount_vcs_history_view, secondary_screen_spec,
-    secondary_view_id, secondary_view_targets,
+    AutomationScreenPublish, LogSettings, MainScreenState, MountSpec, NativeShell, PendingMount,
+    SessionEngineConfig, SynvelisApp, VcsScreenState, compose_routing_engine,
+    log_screen_state_update, main_view_id, main_view_targets, mount_automation_view,
+    mount_main_view, mount_secondary_view, mount_vcs_history_view, secondary_view_id,
+    secondary_view_targets,
 };
 use synvelis_project::{BuildBudget, BuildMode, RuntimeClockEpochRef, RuntimeInstanceId};
 
@@ -270,73 +271,6 @@ fn vcs_history_enabled() -> bool {
 /// empty states until `syn.autx.catalog` pushes authority data.
 fn autx_views_enabled() -> bool {
     env_flag("SYNVELIS_AUTX_VIEWS")
-}
-
-/// Which product screen a [`PendingMount`] displays — decides both
-/// the mount-time spec and every `update_view` push.
-enum MountSpec {
-    /// [`main_screen_spec`] over [`MainScreenState`].
-    Main,
-    /// [`secondary_screen_spec`] over [`MainScreenState`].
-    Secondary,
-    /// [`history_screen_spec`] over the view's published
-    /// [`VcsScreenState`] — the adopted `ViewInstanceId` keys the
-    /// lookup in the shared VCS screen cell.
-    VcsHistory(ViewInstanceId),
-    /// [`automation_screen_spec`] over the view's published
-    /// [`AutomationScreenPublish`] — the adopted `ViewInstanceId`
-    /// keys the lookup in the shared automation screen cell.
-    Automation(ViewInstanceId),
-}
-
-/// One mounted view↔window pair the run loop drives: attach the view
-/// on the window's first `Ready`, then push the matching screen spec
-/// whenever the shared screen state changes.
-struct PendingMount {
-    window: WindowId,
-    view_id: String,
-    targets: Vec<String>,
-    spec_kind: MountSpec,
-    attached: bool,
-}
-
-impl PendingMount {
-    /// The screen spec this mount currently displays — rebuilt from
-    /// the shared screen-state cells on every push. `None` when an
-    /// automation mount's publish entry is absent (the view closed
-    /// between open and push) — the caller skips that update rather
-    /// than fabricating a spec.
-    fn spec(
-        &self,
-        state: &MainScreenState,
-        vcs_screens: &BTreeMap<ViewInstanceId, VcsScreenState>,
-        autx_screens: &BTreeMap<ViewInstanceId, AutomationScreenPublish>,
-    ) -> Option<ViewSpec> {
-        match self.spec_kind {
-            MountSpec::Main => Some(main_screen_spec(state)),
-            MountSpec::Secondary => Some(secondary_screen_spec(state)),
-            MountSpec::VcsHistory(instance) => {
-                let empty = VcsScreenState::default();
-                Some(history_screen_spec(
-                    vcs_screens.get(&instance).unwrap_or(&empty),
-                ))
-            }
-            MountSpec::Automation(instance) => autx_screens
-                .get(&instance)
-                .map(|publish| automation_screen_spec(&publish.state)),
-        }
-    }
-}
-
-/// Structured trace for one pushed screen-state update.
-fn log_screen_state_update(state: &MainScreenState) {
-    tracing::info!(
-        project_length_seconds = state.project_length_seconds,
-        arrangement_rows = state.arrangement_rows.len(),
-        transport_status = ?state.transport.status,
-        inspector_target = ?state.inspector.target,
-        "screen state updated"
-    );
 }
 
 /// Mounts the product view hosts while the app is still
@@ -690,78 +624,191 @@ fn run_loop(
     }
 }
 
+/// Everything the composition root assembles before the driver loop
+/// starts — what `run_loop` (normal path) and `run_uitest` (the
+/// `rvf.uitest.v1` seam) each drive. View hosts are minted while the
+/// app is still composition-owned — the `AttachEpoch` comes from the
+/// session allocator handle, never a second allocator — and the
+/// shared screen-state cells are what the loop pushes into the
+/// mounted specs after every op and UI pump.
+struct Composed {
+    shell: NativeShell,
+    mounts: Vec<PendingMount>,
+    screen_state: Rc<RefCell<MainScreenState>>,
+    vcs_screens: Rc<RefCell<BTreeMap<ViewInstanceId, VcsScreenState>>>,
+    autx_screens: Rc<RefCell<BTreeMap<ViewInstanceId, AutomationScreenPublish>>>,
+}
+
+/// The full product composition — shared verbatim by the normal
+/// entry path and the `rvf.uitest.v1` seam so the externally-driven
+/// lane boots the identical app (env-gated secondary/VCS/automation
+/// surfaces included). `driver` is whichever thread's driver runs
+/// the loop; the logging triple is extracted on the owning thread so
+/// the [`logging::HostLog`] — and its writer guards — stays where
+/// `install_logging` dropped it.
+fn compose_app(
+    driver: &mut GpuiDriver,
+    log_state: logging::InstallState,
+    log_health: Option<LoggingHealth>,
+    log_degraded: Vec<SinkDegraded>,
+) -> Result<Composed, ExitCode> {
+    log_capabilities(&driver.capabilities());
+    let mut app = SynvelisApp::new(BackendReport::available(
+        "gpui",
+        ruviform_ui_gpui::version().to_string(),
+    ));
+    app.attach_logging(log_state, log_health, log_degraded);
+
+    open_boot_project(&mut app);
+    compose_product_routing(&mut app);
+
+    let screen_state = app.main_screen_cell();
+    let vcs_screens = app.vcs_screen_cell();
+    let autx_screens = app.automation_screen_cell();
+    let attach_epochs = app.attach_epoch_allocator();
+    let (main_host, secondary_host) = mount_views(&attach_epochs, &screen_state)?;
+    let vcs_host = if vcs_history_enabled() {
+        Some(open_vcs_history_view(
+            &mut app,
+            &attach_epochs,
+            &vcs_screens,
+        )?)
+    } else {
+        None
+    };
+    let autx_hosts = if autx_views_enabled() {
+        open_autx_views(&mut app, &attach_epochs, &autx_screens)?
+    } else {
+        Vec::new()
+    };
+
+    let shell = NativeShell::new(app, TICK).map_err(|e| {
+        eprintln!("synvelis-native: failed to compose shell: {e}");
+        tracing::error!(error = %e, "service registration failed");
+        ExitCode::from(3)
+    })?;
+    let theme = product_theme();
+    let mounts = open_windows(
+        driver,
+        theme.as_ref(),
+        main_host,
+        secondary_host,
+        vcs_host,
+        autx_hosts,
+    )?;
+    Ok(Composed {
+        shell,
+        mounts,
+        screen_state,
+        vcs_screens,
+        autx_screens,
+    })
+}
+
+/// The `rvf.uitest.v1` seam (Issue #600 stage 1 slice 1) — reached
+/// only under the `uitest` feature when [`synvelis_app::uitest`]'s
+/// gate resolved an explicit `RVF_TEST_CONTROL` transport. The
+/// control thread (this one) serves the protocol via
+/// `serve_from_env`; a spawned app thread owns `GpuiDriver` —
+/// non-`Send`, so the whole composition runs inside it and every
+/// control op crosses as a `UiJob`. A dead loop ends the process:
+/// the control channel must never outlive its backend.
+#[cfg(feature = "uitest")]
+fn run_uitest(mut host_log: logging::HostLog) -> ExitCode {
+    let (mut io, ui) = ruviform_ui_gpui::WindowedIo::new();
+    io.add_fixture(Box::new(synvelis_app::uitest::IpcEmitFixture));
+
+    let log_state = host_log.state();
+    let log_health = host_log.health().cloned();
+    let log_degraded = host_log.take_degraded();
+    let app_thread = std::thread::spawn(move || {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut driver = GpuiDriver::new();
+            // Composition failures already reported their diagnostics
+            // and the exit-3 code — a dead AUT ends the process rather
+            // than hanging the control channel.
+            let Ok(Composed {
+                shell,
+                mounts,
+                screen_state,
+                vcs_screens,
+                autx_screens,
+            }) = compose_app(&mut driver, log_state, log_health, log_degraded)
+            else {
+                std::process::exit(3)
+            };
+            let view_driver = driver.clone();
+            let adapter = synvelis_app::uitest::SynvelisTestApp::new(
+                shell,
+                mounts,
+                screen_state,
+                vcs_screens,
+                autx_screens,
+                Box::new(move |window, spec| view_driver.update_view(window, spec)),
+            );
+            if let Err(e) = ui.run(&mut driver, Some(TICK), adapter) {
+                eprintln!("synvelis-native: uitest driver failure: {e}");
+                tracing::error!(error = %e, "uitest driver failure");
+                std::process::exit(3);
+            }
+            tracing::info!("synvelis-native uitest shutdown");
+        }));
+        if result.is_err() {
+            eprintln!("synvelis-native: uitest app thread panicked");
+            std::process::exit(3);
+        }
+    });
+
+    let config = ruviform_ui_test::AgentConfig::new(ruviform_ui_test::AppMeta {
+        name: "synvelis".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        // The pinned ruviform revision `syn.app.info` reports — the
+        // only revision this binary honestly knows.
+        revision: Some(synvelis_app::HOST_REVISION.to_string()),
+    });
+    let outcome = ruviform_ui_test::serve_from_env(&mut io, config);
+    tracing::info!(?outcome, "synvelis-native uitest serve ended");
+    let _ = app_thread.join();
+    match outcome {
+        ruviform_ui_test::ServeOutcome::Shutdown { .. }
+        | ruviform_ui_test::ServeOutcome::DriverGone { .. }
+        | ruviform_ui_test::ServeOutcome::Disabled { .. } => ExitCode::SUCCESS,
+        _ => ExitCode::FAILURE,
+    }
+}
+
 fn main() -> ExitCode {
     let mut host_log = match install_logging() {
         Ok(host_log) => host_log,
         Err(code) => return code,
     };
 
-    let mut driver = GpuiDriver::new();
-    log_capabilities(&driver.capabilities());
+    // Issue #600 slice 1: the `rvf.uitest.v1` control seam — compiled
+    // only under the `uitest` feature, and even then inert until
+    // `RVF_TEST_CONTROL` selects a transport (`RVF_TEST_DISABLE`
+    // always wins). Everything else takes the unchanged product path.
+    #[cfg(feature = "uitest")]
+    if synvelis_app::uitest::opted_in(
+        ruviform_ui_test::transport::disabled_from_env(),
+        &ruviform_ui_test::transport::transport_from_env(),
+    ) {
+        return run_uitest(host_log);
+    }
 
-    let mut app = SynvelisApp::new(BackendReport::available(
-        "gpui",
-        ruviform_ui_gpui::version().to_string(),
-    ));
-    app.attach_logging(
+    let mut driver = GpuiDriver::new();
+    let Composed {
+        shell,
+        mounts,
+        screen_state,
+        vcs_screens,
+        autx_screens,
+    } = match compose_app(
+        &mut driver,
         host_log.state(),
         host_log.health().cloned(),
         host_log.take_degraded(),
-    );
-
-    open_boot_project(&mut app);
-    compose_product_routing(&mut app);
-
-    // The view hosts are minted while the app is still
-    // composition-owned — the `AttachEpoch` comes from the session
-    // allocator handle, never a second allocator. The main-screen
-    // state cell is taken here too: the app publishes into it after
-    // every op and UI pump, and the loop below pushes changes into
-    // the mounted specs. The VCS History cell map works the same
-    // way for env-gated VCS mounts.
-    let screen_state = app.main_screen_cell();
-    let vcs_screens = app.vcs_screen_cell();
-    let autx_screens = app.automation_screen_cell();
-    let attach_epochs = app.attach_epoch_allocator();
-    let (main_host, secondary_host) = match mount_views(&attach_epochs, &screen_state) {
-        Ok(mounts) => mounts,
-        Err(code) => return code,
-    };
-    let vcs_host = if vcs_history_enabled() {
-        match open_vcs_history_view(&mut app, &attach_epochs, &vcs_screens) {
-            Ok(mount) => Some(mount),
-            Err(code) => return code,
-        }
-    } else {
-        None
-    };
-    let autx_hosts = if autx_views_enabled() {
-        match open_autx_views(&mut app, &attach_epochs, &autx_screens) {
-            Ok(mounts) => mounts,
-            Err(code) => return code,
-        }
-    } else {
-        Vec::new()
-    };
-
-    let shell = match NativeShell::new(app, TICK) {
-        Ok(shell) => shell,
-        Err(e) => {
-            eprintln!("synvelis-native: failed to compose shell: {e}");
-            tracing::error!(error = %e, "service registration failed");
-            return ExitCode::from(3);
-        }
-    };
-    let theme = product_theme();
-    let mounts = match open_windows(
-        &mut driver,
-        theme.as_ref(),
-        main_host,
-        secondary_host,
-        vcs_host,
-        autx_hosts,
     ) {
-        Ok(mounts) => mounts,
+        Ok(composed) => composed,
         Err(code) => return code,
     };
 

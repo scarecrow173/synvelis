@@ -6428,6 +6428,7 @@ name = "ruviform-ui-gpui"
 version = "0.1.0"
 source = "git+https://github.com/scarecrow173/ruviform.git#84a68f25d5afd1b1f201018d76894d25b122f150"
 dependencies = [
+ "base64 0.22.1",
  "gpui",
  "raw-window-handle",
  "ruviform-ui",
