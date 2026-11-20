@@ -4,7 +4,7 @@ type: "test-spec"
 status: "approved"
 title: "Issue #602 検証仕様 — frozen 2-arm benchmark harness（render/playback E 層 slice 1）"
 created: "2026-11-20"
-updated: "2026-11-20"
+updated: "2026-11-21"
 owners: []
 relations:
   source:
@@ -137,18 +137,21 @@ evidence は `evidence/sv602/`。
 - `--selftest` は gate `fail`・exit 1 が正しい結果。証跡は
   `evidence/sv602/selftest-gate-fail.jsonl`。
 
-## Feature: 既知の依存不具合と workaround
+## Feature: 既知の依存不具合と workaround（撤去済み・履歴）
 
 - `scarecrow173/ruviform#823`: `ruviform_media_reader::Prefetch::manual`
   が free-block pool を `debug_assert!` 内で初期化するため、release
   profile では pool が空になり producer が `Backpressured` を返し続け、
   consumer が永続 underrun（無音）になる。debug build（`cargo test`）
   では顕在化しない。
-- workaround: root `Cargo.toml` の
-  `[profile.bench.package.ruviform-media-reader] debug-assertions = true`。
-  対象 crate を bench profile のみ debug-assertions 付きでコンパイルし
-  pool 初期化を有効化する。撤去条件: upstream 修正を取り込み
-  ruviform rev を bump したとき（comment に明記済み）。
+- workaround（**2026-11-20 撤去済み**）: slice 1 時点の pin
+  `84a68f25` が upstream 修正を含まなかったため、root `Cargo.toml` に
+  `[profile.bench.package.ruviform-media-reader] debug-assertions = true`
+  を暫定配置していた。rf#823 修正（`b202f9ab` — free-pool seed を
+  `debug_assert!` から分離）を含有する ruviform main `cd4213a1` へ
+  pin を bump した本 slice で、override とコメントブロックを撤去した。
+  撤去後の bench profile で Arm K 全 cell `errors=0`（underrun 無音な
+  し）を実走確認済み（`evidence/sv602/verification.md` slice 2 節）。
 
 ## Feature: limiter 特定手順
 
