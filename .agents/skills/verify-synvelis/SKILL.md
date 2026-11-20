@@ -208,6 +208,45 @@ KANI_JOBS=2 mise run test-formal-kani   # cap CBMC solver parallelism
   `evidence/sv601/` (`test-formal-kani.log`, `verification.md`,
   mutation-fail records).
 
+## Bench (Issue #602)
+
+One additional lane measures the render/playback stack — headless,
+no AUT, deterministic fixtures:
+
+```sh
+mise run bench-frozen                     # real run + gate + decision.tsv
+mise run bench-frozen -- --test           # 1-rep smoke (gate not_run)
+mise run bench-frozen -- --selftest       # regression injection → gate fail
+mise run bench-frozen -- mix/4x256        # positional substring filters
+mise run bench-frozen -- --help           # full mode/filter contract
+```
+
+- `crates/synvelis-render/benches/frozen_render.rs` (`harness = false`)
+  runs two arms in one session: **Arm K** times a frozen naive mixer
+  A/B against the production `prepare → lower → activate → run`
+  `HeadlessDriver` path (cells `mix/<clips>x<block>`), and **Arm P**
+  drives the real `RenderSnapshot → export()` pipeline including the
+  insert chain, tail policy and staged-file publish (cells
+  `export/<clips>x<range>`).
+- The gate is fail-closed against the pinned
+  `crates/synvelis-render/benches/frozen/baseline.sv602.json`: Arm-K
+  `min_ratio` (median naive/prod per-call), Arm-P `max_normalized`
+  (wall / same-session first Arm-K production median) plus the
+  published WAV `pcm_sha256`. Bit-exact A/B PCM equality and call
+  success are checked independently of perf.
+- A baseline is never auto-promoted: `--write-baseline <path>` emits a
+  candidate with `approval: null`; a human flips it to an approval
+  object at the pin path. Missing/malformed/unpromoted baselines fail
+  the gate; zero matching cells is `gate not_run` + exit 0.
+- Known upstream wart: ruviform#823 makes `Prefetch::manual` useless
+  in release (pool init lives in `debug_assert!`) — the
+  `[profile.bench.package.ruviform-media-reader]` override in the
+  root `Cargo.toml` is the recorded workaround; remove it once the
+  fix lands upstream.
+- Full contract: `docs/test-specs/issue-602-frozen-render-bench.md`;
+  evidence lands in `evidence/sv602/` (`decision.tsv`, `runs.jsonl`,
+  `selftest-gate-fail.jsonl`, `verification.md`).
+
 ## Evidence
 
 Ledger: `evidence/sv600/` (per-issue convention). Artifact kinds:
