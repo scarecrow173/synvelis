@@ -28,6 +28,7 @@ ruviform-observability = { workspace = true, features = ["logging"] }
 tracing.workspace = true
 ruviform-ui-webview = { workspace = true, optional = true }
 ruviform-ui-gpui = { workspace = true, optional = true }
+ruviform-ui-test = { workspace = true, optional = true }
 rust-embed = { workspace = true, optional = true }
 synvelis-theme = { workspace = true, optional = true }
 
@@ -55,6 +56,13 @@ native = [
 # product's GPUI feature name); non-default so the headless lanes
 # stay gpui-free.
 gpui-test = ["native", "ruviform-ui-gpui/gpui-test"]
+# Issue #600 stage 1 slice 1 (ruviform#313/#314, RF-GT-03/04): the
+# `rvf.uitest.v1` external-control seam — `WindowedIo` over the real
+# GPUI loop plus the app-side `TestApp` wiring, so external fixtures
+# drive the same `syn.*` op surface as normal IPC. Builds on
+# `native`; the port is also runtime-gated (`RVF_TEST_*`), so even a
+# `uitest` build stays inert without explicit opt-in.
+uitest = ["native", "ruviform-ui-gpui/uitest", "dep:ruviform-ui-test"]
 
 [[bin]]
 name = "synvelis"

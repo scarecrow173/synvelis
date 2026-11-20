@@ -62,10 +62,10 @@
 //! GPUI/OS/DOM. **RT contract:** non-RT only.
 
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::ops::Range;
 use std::rc::Rc;
 
-use ruviform_ui::UiError;
 use ruviform_ui::behavior::{DetachPolicy, ValueDescriptor};
 use ruviform_ui::dock::ViewInstanceId;
 use ruviform_ui::view::{
@@ -74,6 +74,7 @@ use ruviform_ui::view::{
     TabSpec, TableSelectionSpec, TableSpec, TabsSelectionSpec, TabsSpec, ViewHost, ViewSpec,
     WaveformBin, WaveformSpec,
 };
+use ruviform_ui::{UiError, WindowId};
 use synvelis_project::{
     ControlModel, MASTER_FADER_RAW, ModulationAssignmentId, ParameterRole, ParameterTargetId,
     RelationCoverage,
@@ -84,6 +85,7 @@ use synvelis_workspace::{
     VcsHistoryView, VcsViewMode, VcsViewStatus, ViewType,
 };
 
+use crate::automation::{AutomationScreenPublish, automation_screen_spec};
 use crate::binding::{PROJECT_TARGET, VIEW_STATE_TARGET};
 
 /// The single logical view this slice mounts — `ViewInstanceId(1)`
@@ -1998,4 +2000,80 @@ pub fn mount_variant_diff_view(
     spec: ViewSpec,
 ) -> Result<ViewHost, UiError> {
     mount_screen_view(attach_epochs, instance, spec, "variant-diff screen")
+}
+
+/// Which product screen a [`PendingMount`] displays — decides both
+/// the mount-time spec and every `update_view` push.
+pub enum MountSpec {
+    /// [`main_screen_spec`] over [`MainScreenState`].
+    Main,
+    /// [`secondary_screen_spec`] over [`MainScreenState`].
+    Secondary,
+    /// [`history_screen_spec`] over the view's published
+    /// [`VcsScreenState`] — the adopted `ViewInstanceId` keys the
+    /// lookup in the shared VCS screen cell.
+    VcsHistory(ViewInstanceId),
+    /// [`automation_screen_spec`] over the view's published
+    /// [`AutomationScreenPublish`] — the adopted `ViewInstanceId`
+    /// keys the lookup in the shared automation screen cell.
+    Automation(ViewInstanceId),
+}
+
+/// One mounted view↔window pair the run loop drives: attach the view
+/// on the window's first `Ready`, then push the matching screen spec
+/// whenever the shared screen state changes. Shared by
+/// `synvelis-native`'s normal loop and the `uitest` seam's app
+/// adapter, so the externally-driven lane applies the identical
+/// mount/attach/push semantics.
+pub struct PendingMount {
+    /// The reserved window this mount's view attaches on.
+    pub window: WindowId,
+    /// The wire `view_id` `syn.view.attach` resolves.
+    pub view_id: String,
+    /// `syn.control.subscribe` targets issued right after attach.
+    pub targets: Vec<String>,
+    /// Which product screen the mount projects.
+    pub spec_kind: MountSpec,
+    /// Whether the first `Ready` attach already ran.
+    pub attached: bool,
+}
+
+impl PendingMount {
+    /// The screen spec this mount currently displays — rebuilt from
+    /// the shared screen-state cells on every push. `None` when an
+    /// automation mount's publish entry is absent (the view closed
+    /// between open and push) — the caller skips that update rather
+    /// than fabricating a spec.
+    #[must_use]
+    pub fn spec(
+        &self,
+        state: &MainScreenState,
+        vcs_screens: &BTreeMap<ViewInstanceId, VcsScreenState>,
+        autx_screens: &BTreeMap<ViewInstanceId, AutomationScreenPublish>,
+    ) -> Option<ViewSpec> {
+        match self.spec_kind {
+            MountSpec::Main => Some(main_screen_spec(state)),
+            MountSpec::Secondary => Some(secondary_screen_spec(state)),
+            MountSpec::VcsHistory(instance) => {
+                let empty = VcsScreenState::default();
+                Some(history_screen_spec(
+                    vcs_screens.get(&instance).unwrap_or(&empty),
+                ))
+            }
+            MountSpec::Automation(instance) => autx_screens
+                .get(&instance)
+                .map(|publish| automation_screen_spec(&publish.state)),
+        }
+    }
+}
+
+/// Structured trace for one pushed screen-state update.
+pub fn log_screen_state_update(state: &MainScreenState) {
+    tracing::info!(
+        project_length_seconds = state.project_length_seconds,
+        arrangement_rows = state.arrangement_rows.len(),
+        transport_status = ?state.transport.status,
+        inspector_target = ?state.inspector.target,
+        "screen state updated"
+    );
 }
