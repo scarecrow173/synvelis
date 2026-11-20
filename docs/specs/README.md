@@ -220,6 +220,7 @@ Directory: `docs/specs`
 | SPEC-034X3kmamOZgcqrHR75ac9 | Workspace UX 操作 Scenario・状態図・UX 仕様の正本化 (Issue #3) | approved | [workspace-ux-scenarios.md](./workspace-ux-scenarios.md) |
 | SPEC-034QwWbIzoS7Pl7KxncpF6 | WS-A Workspace Foundation — View/Selection/LinkGroup/Command/Dock headless PoC | approved | [ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md](./ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md) |
 | SPEC-wVS4pCX5veOtjhEh013pJ0 | X — Recorded Source→Generic Playback/Export integration with Frame/ID/Content integrity | approved | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |
+| SPEC-sv601frmlvrf0slice1 | Issue #601 Formal Verification D 層 slice 1 — journal wire codec の proptest + Kani 検証基盤 | proposed | [formal-verification.md](./formal-verification.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
 
