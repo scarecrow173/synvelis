@@ -1,0 +1,3 @@
+{"type":"context","note":"opt-out probes: a framed test.hello was written to stdin; zero framed replies proves the control channel stayed closed (normal product path booted a real window, killed after probe)"}
+{"type":"probe","mode":"disabled","env_set":{"RVF_TEST_CONTROL":"stdio","RVF_TEST_DISABLE":"1"},"framed_replies":0,"unanswered_hello":true,"exit":"killed-after-probe"}
+{"type":"probe","mode":"noenv","env_set":{},"framed_replies":0,"unanswered_hello":true,"exit":"killed-after-probe"}
