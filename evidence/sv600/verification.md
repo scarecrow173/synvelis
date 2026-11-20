@@ -89,6 +89,8 @@ Notices: `window.created`(seq0) → `app.closing`(seq1) → `window.destroyed`(s
 | `mise run build-app-uitest` | Windows | 0 | Passed — `--locked` dev build Finished |
 | `mise run test-app-uitest-ctl`（新設 lane） | Windows | 0 | Passed — `cargo build --features uitest --bin synvelis-native --bin syn-ctl --locked` → `doctor --dry-run`（plan JSON、spawn せず）→ live `doctor --out evidence/sv600/syn-ctl-doctor.json`（verdict `pass`） |
 | `cargo check --locked --all-targets -p synvelis-app`（headless 既定 lane） | Windows | 0 | Passed — 非 uitest build 非回帰（`syn-ctl` は `required-features` で uitest lane に隔離） |
+| `mise run test synvelis-app`（headless 既定 lane、`cargo test --locked -p synvelis-app`） | Windows | 0 | Passed — 非回帰 lane。slice-2 tree 上で全 test binary `test result: ok` |
+| `mise run test-app-gpui`（`cargo test -p synvelis-app --features gpui-test`） | Windows | 0 | Passed — 非回帰 lane。slice-2 tree 上で gpui-test feature 全 suite `test result: ok`（GPUI-simulated VCS mount 3 件含む） |
 | `mise run check-headless-deps` | Windows | 0 | Passed — `no GUI framework deps in 12 headless crates` |
 | `mise run check-ruviform-rev` | Windows | 0（再実行） | Passed — `resolved 84a68f25d5…（30 lockfile sources, lockfile-primary, REV match）`。slice 1 と同じ stale vendor 条件（`synvelis#230`）を `mise run sync-ui-deps` で復旧。vendor は gitignore 生成物、差分なし |
 | `mise exec -- prek run --all-files` | Windows | 0 | Passed — 全 hook Passed/Skipped |
