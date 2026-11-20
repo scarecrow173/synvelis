@@ -1,0 +1,12 @@
+id	hypothesis	change	before	after	delta	tests	verdict	note
+sv602-r1	frozen two-arm bench measurement	none (run)	-	gate=not_run		cells pass=0 fail=0 not_run=0	kept	env=6a26788e/84a68f25
+sv602-r2	frozen two-arm bench measurement	baseline candidate emit (approval:null)	-	gate=not_run	mix/4x256 r=0.0931;mix/8x512 r=0.1193;mix/16x256 r=0.1010;export/4x48000 n=3.08;export/8x96000 n=5.85	cells pass=0 fail=0 not_run=5	kept	env=6a26788e/84a68f25
+sv602-r3	frozen two-arm bench measurement	none (run)	-	gate=pass	mix/4x256 r=0.0916;mix/8x512 r=0.1149;mix/16x256 r=0.0978;export/4x48000 n=3.18;export/8x96000 n=6.09	cells pass=5 fail=0 not_run=0	kept	env=6a26788e/84a68f25
+sv602-r4	frozen two-arm bench measurement	injected: prod spin x4 + corrupt-sink byte@100	-	gate=fail	mix/4x256 r=0.0162;mix/8x512 r=0.0223;mix/16x256 r=0.0193;export/4x48000 n=0.51;export/8x96000 n=1.08	cells pass=0 fail=5 not_run=0	kept	env=6a26788e/84a68f25
+sv602-r5	frozen two-arm bench measurement	none (run)	-	gate=fail	mix/4x256 r=0.0922	cells pass=0 fail=0 not_run=1	kept	env=6a26788e/84a68f25
+sv602-r6	frozen two-arm bench measurement	none (run)	-	gate=fail	mix/4x256 r=0.0852	cells pass=0 fail=0 not_run=1	kept	env=6a26788e/84a68f25
+sv602-r7	frozen two-arm bench measurement	none (run)	-	gate=fail	mix/4x256 r=0.0924	cells pass=0 fail=0 not_run=1	kept	env=6a26788e/84a68f25
+sv602-r8	frozen two-arm bench measurement	none (run)	-	gate=fail	mix/4x256 r=0.0889	cells pass=0 fail=0 not_run=1	kept	env=6a26788e/84a68f25
+sv602-r9	frozen two-arm bench measurement	none (run)	-	gate=pass	mix/4x256 r=0.0906;mix/8x512 r=0.1263;mix/16x256 r=0.1009;export/4x48000 n=2.63;export/8x96000 n=5.73	cells pass=5 fail=0 not_run=0	kept	env=6a26788e/84a68f25
+sv602-r10	frozen two-arm bench measurement	injected: prod spin x4 + corrupt-sink byte@100	-	gate=fail	mix/4x256 r=0.0164;mix/8x512 r=0.0236;mix/16x256 r=0.0207;export/4x48000 n=0.51;export/8x96000 n=1.01	cells pass=0 fail=5 not_run=0	kept	env=6a26788e/84a68f25
+sv602-r11	frozen two-arm bench measurement	none (run)	-	gate=pass	mix/4x256 r=0.0922;mix/8x512 r=0.1265;mix/16x256 r=0.1036;export/4x48000 n=3.03;export/8x96000 n=5.61	cells pass=5 fail=0 not_run=0	kept	env=6a26788e/84a68f25

@@ -29,3 +29,8 @@ ruviform-exec.workspace = true
 [dev-dependencies]
 synvelis-recording = { path = "../synvelis-recording" }
 serde_json.workspace = true
+stats_alloc = "0.1"
+
+[[bench]]
+name = "frozen_render"
+harness = false

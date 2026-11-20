@@ -7720,6 +7720,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "stats_alloc",
  "synvelis-player",
  "synvelis-project",
  "synvelis-recording",

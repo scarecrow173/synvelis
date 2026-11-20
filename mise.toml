@@ -370,3 +370,17 @@ run = "cargo test --locked -p synvelis-gateway -p synvelis-recording --test form
 [tasks.test-formal-kani]
 description = "Issue #601 D-layer Kani bounded-proof lane (manual/opt-in — NOT a CI-required gate): env-detect (native cargo kani → WSL2 distro) via tools/run-formal-kani.mjs; honest not_run + exit 0 when no environment exists; exit 1 only on a real verification failure"
 run = "node tools/run-formal-kani.mjs"
+
+# Issue #602 E層 frozen benchmark lane（slice 1）: crates/synvelis-render/
+# benches/frozen_render.rs の two-arm ハーネスを実行する opt-in lane。
+# Arm K: 凍結 naive mixer vs 本番 HeadlessDriver の in-process A/B 計測、
+# Arm P: 実 export() パイプライン E2E。gate は benches/frozen/
+# baseline.sv602.json の pinned ratio/fingerprint と照合（fail-closed:
+# baseline 欠落・未 promote・不整合は gate fail）。
+# 既定は real run（evidence/sv602/decision.tsv に追記）。
+# 引数はそのままハーネスに転送される: セルフィルタ `mix/4x256`、
+# smoke `--test`、回帰注入 `--selftest`、`--write-baseline <path>`、
+# `--baseline <path>`、`--help`。
+[tasks.bench-frozen]
+description = "Issue #602 E層 frozen 2-arm bench (opt-in): naive mixer vs HeadlessDriver in-process A/B + export() E2E + pinned ratio/fingerprint gate (fail-closed). 例: mise run bench-frozen -- --test / -- --selftest / -- mix/4x256"
+run = "cargo bench --locked -p synvelis-render --bench frozen_render --"
