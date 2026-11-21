@@ -506,3 +506,4 @@ Directory: `docs/test-specs`
 | TSPEC-zzdcoJZ1siQdbof0DBfv5l | X 検証仕様 — Recorded Source→Generic Playback/Export・Frame/ID/Content integrity | approved | [x-e2e-recorded-source-playback-export.md](./x-e2e-recorded-source-playback-export.md) |
 | TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |
 | TSPEC-PCc4030bs3vN1pQ8wXyZ2aF | PC-C4-03 param observation — drain→ledger・gate・typed 終端 test 保証 | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |
+| TSPEC-571ProcessorBindingStale03 | Issue #571 test-spec — rebind port stamp 再導出と UnresolvedPort 拒否 parity の検証仕様 | approved | [issue-571-processor-binding-stale.md](./issue-571-processor-binding-stale.md) |
