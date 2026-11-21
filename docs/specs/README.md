@@ -248,3 +248,4 @@ Directory: `docs/specs`
 | SPEC-034Yr9NUlwfGUnqDVVWXOp | Issue #114 synvelis-app recorder session owner + syn.recorder.* headless wire | implemented | [sv114-gui-option-b-recorder-wire.md](./sv114-gui-option-b-recorder-wire.md) |
 | SPEC-034YnF7HCn1ybs61M9xuu5 | Issue #488 lint-app-native clippy::large_enum_variant 是正 | implemented | [sv488-lint-app-native.md](./sv488-lint-app-native.md) |
 | SPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 slice (synvelis#126) | implemented | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
+| SPEC-571ProcessorBindingStale02 | Issue #571 spec — SetProcessorBinding rebind で SemanticPort.binding を再導出する修正 | implemented | [issue-571-processor-binding-stale.md](./issue-571-processor-binding-stale.md) |
