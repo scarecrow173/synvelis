@@ -21,7 +21,7 @@ use synvelis_project::apply::{
     InMemoryApplyJournal, PluginAvailability, ResolvedChangeSet, apply_selected,
     target_fingerprint,
 };
-use synvelis_project::controller::{Command, ProjectController, ProjectRevision};
+use synvelis_project::controller::{Command, Operation, ProjectController, ProjectRevision};
 use synvelis_project::diff::{
     ChangeKind, ChangeSet, ComparisonCompleteness, ComparisonSpec, ObjectKind, SemanticChange,
     SemanticObjectRef, compare_snapshots,
@@ -39,7 +39,7 @@ use synvelis_project::restore::{
     MissingAssetsPolicy, RestoreBlobSource, RestoreOutcome, RestorePluginStateSource, RestorePorts,
     RestoreRequest, restore_as_copy,
 };
-use synvelis_project::routing::{PluginRef, PortBinding, ProcessorBinding};
+use synvelis_project::routing::{PluginRef, ProcessorBinding};
 use synvelis_project::snapshot::{
     AssetAvailabilityManifest, BlobProbe, BlobRead, ContentDigest, FixedSnapshotLocator,
     ImmutableSnapshot, ReadOnlyProjectProjection, SnapshotCancel, SnapshotCompleteness,
@@ -608,28 +608,22 @@ fn plugin_instance_replaced_selection_transplants_new_identity() {
     // apply gate would reject NotApplicable before planning.
     let before = snap_manual(before_c.live().clone(), "before");
 
-    // after: the processor is rebound to plugin_b — binding, its
-    // `PluginDeclared` port capability stamps, and the persisted
-    // identity {id=9, plugin_b}/watermark=10 all move together, the
-    // shape a real rebind op would produce.
+    // after: the processor is rebound to plugin_b through the real
+    // `SetProcessorBinding` op — binding, its `PluginDeclared` port
+    // stamps, and the op-minted identity all move together (sv#571:
+    // this fixture once hand-stamped `capability_revision` alone and
+    // claimed the result was "the shape a real rebind op would
+    // produce", but the pre-fix op never touched port stamps — the
+    // fixture and the real op disagreed). The transplant then
+    // overwrites the minted identity with the candidate's {id=9}/
+    // watermark=10 values.
     let mut after_project = before_c.live().clone();
-    after_project
-        .routing
-        .processors
-        .get_mut(&proc)
-        .unwrap()
-        .binding = ProcessorBinding::Resolved(plugin_b.clone());
-    let port_ids = after_project.routing.processors[&proc].port_ids.clone();
-    for port_id in port_ids {
-        let port = after_project.routing.ports.get_mut(&port_id).unwrap();
-        if let PortBinding::PluginDeclared {
-            capability_revision,
-            ..
-        } = &mut port.binding
-        {
-            *capability_revision = plugin_b.capability_revision;
-        }
+    ProjectOp::SetProcessorBinding {
+        processor_id: proc,
+        binding: ProcessorBinding::Resolved(plugin_b.clone()),
     }
+    .apply(&mut after_project, &mut CounterIdGenerator::new(1))
+    .unwrap();
     after_project.plugin_instances.instances.insert(
         proc,
         PluginInstanceIdentity {

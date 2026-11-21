@@ -527,8 +527,11 @@ pub enum ProjectOp {
         /// New index (0..len).
         new_index: usize,
     },
-    /// Replace a processor's plugin binding in place — ports, chain
-    /// membership, and connections are untouched. `Resolved` rebinds
+    /// Replace a processor's plugin binding in place — port topology
+    /// (ids, role, direction), chain membership, and connections are
+    /// untouched; each owned port's binding is re-derived through the
+    /// same rule `InsertProcessor` applies, so the ports declare the
+    /// plugin actually bound (synvelis#571). `Resolved` rebinds
     /// mint a fresh persisted plugin-instance identity (PC-C4-05
     /// `sync_processor` semantics, same as `InsertProcessor`);
     /// `Unresolved` drops the identity entry and keeps the descriptor
@@ -2388,6 +2391,26 @@ impl Operation for ProjectOp {
             } => {
                 if let Some(proc) = project.routing.processors.get_mut(processor_id) {
                     proc.binding = binding.clone();
+                    // synvelis#571: the ports outlive the binding —
+                    // re-stamp their plugin identity through the same
+                    // `processor_port_binding` rule `InsertProcessor`
+                    // runs, or a `Resolved→Unresolved` rebind leaves
+                    // `PluginDeclared` ports the routing
+                    // `UnresolvedPort` rejection cannot see (the
+                    // insert-fresh path produces `Unresolved` ports for
+                    // the same logical state). Each port's `advertised`
+                    // slot name is its own and survives the rebind;
+                    // `Internal` carries no plugin stamp to refresh.
+                    for port_id in &proc.port_ids {
+                        if let Some(port) = project.routing.ports.get_mut(port_id) {
+                            let advertised = match &port.binding {
+                                PortBinding::PluginDeclared { advertised, .. }
+                                | PortBinding::Unresolved { advertised, .. } => advertised,
+                                PortBinding::Internal => continue,
+                            };
+                            port.binding = processor_port_binding(binding, advertised);
+                        }
+                    }
                     // PC-C4-05: same identity sync as `InsertProcessor`
                     // — a rebind to a different `PluginRef` mints a new
                     // persisted instance id, `Unresolved` drops the
