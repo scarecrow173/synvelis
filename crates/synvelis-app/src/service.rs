@@ -205,6 +205,46 @@ pub const OPS: &[OpInfo] = &[
         summary: "internal: NativeShell → workspace window lifecycle forwarding",
     },
     OpInfo {
+        name: "syn.plugin_dock.open",
+        summary: "adopt PluginDock view + declare slot + open editor session (view_id/window_id/instance)",
+    },
+    OpInfo {
+        name: "syn.plugin_dock.hide",
+        summary: "Attached → Hidden (editor tab inactive)",
+    },
+    OpInfo {
+        name: "syn.plugin_dock.show",
+        summary: "Hidden → Attached (editor tab active)",
+    },
+    OpInfo {
+        name: "syn.plugin_dock.focus",
+        summary: "keyboard focus on the editor (focused bool, non-fatal)",
+    },
+    OpInfo {
+        name: "syn.plugin_dock.resize",
+        summary: "request editor logical width×height",
+    },
+    OpInfo {
+        name: "syn.plugin_dock.close",
+        summary: "close the editor session, free lease + instance binding",
+    },
+    OpInfo {
+        name: "syn.plugin_dock.save",
+        summary: "PD-07 logical snapshot (instance/placement/size/visibility)",
+    },
+    OpInfo {
+        name: "syn.plugin_dock.restore",
+        summary: "adopt + slot + restore a saved editor snapshot",
+    },
+    OpInfo {
+        name: "syn.plugin_dock.state",
+        summary: "panel read model — view/window/slot/instance/session states",
+    },
+    OpInfo {
+        name: "syn.plugin_dock.list",
+        summary: "every live PluginDock panel's read model",
+    },
+    OpInfo {
         name: "syn.control.dispatch",
         summary: "dispatch CommandIntent + DispatchContext — ack only, receipts notify",
     },
@@ -510,6 +550,7 @@ impl AppService {
             "syn.window.dock_detach" => self.app.op_window_dock_detach(params),
             "syn.window.dock_reattach" => self.app.op_window_dock_reattach(params),
             "syn.window.lifecycle" => self.app.op_window_lifecycle(params),
+            name if name.starts_with("syn.plugin_dock.") => self.dispatch_plugin_dock(name, params),
             "syn.control.dispatch" => self.app.op_control_dispatch(params),
             "syn.control.subscribe" => self.app.op_control_subscribe(params),
             "syn.control.unsubscribe" => self.app.op_control_unsubscribe(params),
@@ -562,6 +603,28 @@ impl AppService {
             _ => Err(ErrorBody::new(
                 codes::UNKNOWN_OP,
                 format!("unhandled recorder op: {op}"),
+            )),
+        }
+    }
+
+    /// `syn.plugin_dock.*` family dispatch — the SV-GPUI-02 headless
+    /// slice's editor-dock surface (synvelis#176), grouped like
+    /// `dispatch_recorder` so the flat table stays bounded.
+    fn dispatch_plugin_dock(&mut self, op: &str, params: &Value) -> Result<Value, ErrorBody> {
+        match op {
+            "syn.plugin_dock.open" => self.app.op_plugin_dock_open(params),
+            "syn.plugin_dock.hide" => self.app.op_plugin_dock_hide(params),
+            "syn.plugin_dock.show" => self.app.op_plugin_dock_show(params),
+            "syn.plugin_dock.focus" => self.app.op_plugin_dock_focus(params),
+            "syn.plugin_dock.resize" => self.app.op_plugin_dock_resize(params),
+            "syn.plugin_dock.close" => self.app.op_plugin_dock_close(params),
+            "syn.plugin_dock.save" => self.app.op_plugin_dock_save(params),
+            "syn.plugin_dock.restore" => self.app.op_plugin_dock_restore(params),
+            "syn.plugin_dock.state" => self.app.op_plugin_dock_state(params),
+            "syn.plugin_dock.list" => Ok(self.app.op_plugin_dock_list()),
+            _ => Err(ErrorBody::new(
+                codes::UNKNOWN_OP,
+                format!("unhandled plugin dock op: {op}"),
             )),
         }
     }

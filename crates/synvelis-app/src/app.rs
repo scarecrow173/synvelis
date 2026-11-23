@@ -51,6 +51,7 @@ use crate::engine::SessionRoutingEngine;
 use crate::error::AppError;
 use crate::host::ShellWindowHost;
 use crate::logging::InstallState;
+use crate::plugin_dock::{PluginDock, PluginEditorHost};
 use crate::revision::HOST_REVISION;
 use crate::screens::{
     MainScreenState, RelationScreenState, SignalFlowScreenState, VcsScreenState,
@@ -846,6 +847,36 @@ impl SynvelisApp {
     /// `routing_engine`.
     pub fn set_control_report_drain(&mut self, drain: synvelis_player::PluginReportDrain) {
         self.control_report_drain = Some(drain);
+    }
+
+    /// Installs the [`PluginEditorHost`] seam the `syn.plugin_dock.*`
+    /// ops borrow per command (SV-GPUI-02 headless slice,
+    /// synvelis#176): the adapter resolves stable instance identities
+    /// to live host handles and lends an `EditorSessionOps`
+    /// implementation per call, redeeming opaque parent leases through
+    /// the panel's own ledger. `None` (the default) reports
+    /// `unavailable` honestly — no adapter means no editor, never a
+    /// faked one.
+    pub fn set_plugin_editor_host(&mut self, host: Box<dyn PluginEditorHost>) {
+        self.ui.plugin_editor_host = Some(host);
+    }
+
+    /// The `PluginDock` panel record for a wire `view_id`, when the
+    /// view hosts one — slot/session/instance wiring and the upstream
+    /// state machine for tests and the debug console.
+    #[must_use]
+    pub fn plugin_dock_panel(&self, view_id: &str) -> Option<&PluginDock> {
+        crate::ui_ops::parse_view_instance(view_id).and_then(|inst| self.ui.plugin_docks.get(&inst))
+    }
+
+    /// The `syn.plugin_dock.state` read model for `view_id`, when the
+    /// view hosts a `PluginDock` panel — tests and the debug console
+    /// read the same projection the op returns.
+    #[must_use]
+    pub fn plugin_dock_state(&self, view_id: &str) -> Option<serde_json::Value> {
+        crate::ui_ops::parse_view_instance(view_id)
+            .and_then(|inst| self.ui.plugin_docks.get(&inst))
+            .map(|dock| crate::ui_ops::plugin_dock_status_json(dock, &self.ui.plugin_sessions))
     }
 
     /// The Signal Flow projection for `view` — the per-view persisted

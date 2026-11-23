@@ -44,6 +44,7 @@ pub mod error;
 pub mod host;
 pub mod logging;
 pub mod monitoring;
+pub mod plugin_dock;
 pub mod recording;
 pub mod render;
 pub mod revision;
@@ -76,6 +77,12 @@ pub use host::{HeadlessWindowHost, ShellWindowHost};
 pub use logging::{
     CliOverrides, EnvOverrides, HostLog, InstallState, LogInstallError, LogSettings, SettingsError,
     install, parse_args, to_logging_config,
+};
+pub use plugin_dock::{
+    PLUGIN_DOCK_PANEL_KEY, PLUGIN_DOCK_SLOT_KEY, PLUGIN_DOCK_STATUS_KEY, PluginDock,
+    PluginDockBinding, PluginDockError, PluginDockPlacement, PluginDockReport, PluginDockSnapshot,
+    PluginDockStatus, PluginEditorHost, mount_plugin_dock_view, plugin_dock_screen_spec,
+    session_state_mode, session_state_name,
 };
 pub use render::{
     BranchDiffScreenState, RCP_BRANCH_TARGET, RCP_RENDER_TARGET, RCP_REQUEST_TARGET,
