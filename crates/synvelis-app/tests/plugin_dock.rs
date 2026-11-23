@@ -1,0 +1,1376 @@
+//! synvelis#176 (SV-GPUI-02) — headless `PluginDock` panel slice,
+//! acceptance rows 2–3.
+//!
+//! Two deterministic tiers, no OS window or plugin binary:
+//!
+//! - **Panel tier** — `PluginDock` + an app-shared
+//!   `PluginEditorSessions` + a scripted `PluginEditorHost`/`EditorSessionOps`
+//!   fake: the `StablePluginInstanceId → PluginEditorSessionId →
+//!   SurfaceSlotId → ViewInstanceId` ownership/generation model,
+//!   `Open`/`Hide`/`Show`/`ReDock`/`Close`, stale-lease and
+//!   `SessionBusy` rejection, `Unsupported`/host-loss honesty,
+//!   window-loss convergence, and the PD-07 logical save/restore.
+//! - **Op tier** — the same commands end-to-end through `NativeShell`
+//!   + `FakeDriver` (`syn.plugin_dock.*`), including the
+//!     `syn.window.dock_*` two-phase re-dock hook and proof that the
+//!     ops never touch project/DSP state.
+//!
+//! Nothing here claims real OS/native-plugin evidence — rows 1/7/8
+//! stay `NotRun`/`Deferred` (`evidence/sv176/`).
+
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::time::Duration;
+
+use serde_json::{Value, json};
+
+use ruviform_plugin_core::{ParentSlotLease, PluginEditorSessionId, PluginHandle};
+use ruviform_plugin_host::{
+    AttachMode, EditorCapabilities, EditorOpError, EditorSessionError, EditorSessionOps,
+    EditorSessionState, EditorSize, LeaseRedeemer, PluginEditorSessions, SessionFailCause,
+    Support as HostSupport,
+};
+use ruviform_ui::WindowId;
+use ruviform_ui::dock::ViewInstanceId;
+use ruviform_ui::ipc::{ErrorBody, Event, Intent};
+use ruviform_ui::native_slot::{LogicalRect, SlotGeometry, SlotState};
+use ruviform_ui::{BackendReport, DriverEvent, WindowDriver, WindowLifecycle, WindowSpec};
+use ruviform_ui_test::FakeDriver;
+
+use synvelis_app::{
+    NativeShell, PluginDock, PluginDockError, PluginDockPlacement, PluginEditorHost, SynvelisApp,
+    main_view_id, main_view_targets, secondary_view_id, secondary_view_targets,
+};
+use synvelis_player::StablePluginInstanceId;
+
+// ---------------------------------------------------------------------------
+// Scripted fake host — `PluginEditorHost` + `EditorSessionOps`
+// ---------------------------------------------------------------------------
+
+/// What the fake adapter was asked to do — the DSP/RT non-interference
+/// oracle is structural (the seam has no DSP-facing methods), but the
+/// log also proves which editor ops ran, in order.
+#[derive(Debug, Default)]
+struct OpsLog {
+    calls: Vec<String>,
+    /// Raw leases the adapter redeemed at open/reattach.
+    leases: Vec<u64>,
+    /// Attach modes `open` observed.
+    modes: Vec<AttachMode>,
+    /// Per-method scripted refusals.
+    open_err: Option<EditorOpError>,
+    close_err: Option<EditorOpError>,
+    visibility_err: Option<EditorOpError>,
+    reattach_err: Option<EditorOpError>,
+    focus_err: Option<EditorOpError>,
+    size_err: Option<EditorOpError>,
+}
+
+type SharedOps = Rc<RefCell<OpsLog>>;
+
+/// The `EditorSessionOps` half the host lends — redeems every
+/// `ParentSlotLease` through the panel-supplied issuer hook before
+/// "attaching", so a stale/revoked token is `LeaseRejected` exactly
+/// like a real driver's adapter.
+struct FakeOpsAdapter<'a> {
+    log: SharedOps,
+    redeem: Box<LeaseRedeemer<'a>>,
+}
+
+impl EditorSessionOps for FakeOpsAdapter<'_> {
+    fn capabilities(
+        &self,
+        _session: PluginEditorSessionId,
+    ) -> Result<EditorCapabilities, EditorOpError> {
+        Ok(EditorCapabilities::default())
+    }
+
+    fn open(
+        &mut self,
+        session: PluginEditorSessionId,
+        lease: &ParentSlotLease,
+        size: EditorSize,
+        mode: AttachMode,
+    ) -> Result<EditorCapabilities, EditorOpError> {
+        let parent = (self.redeem)(lease)?;
+        let mut log = self.log.borrow_mut();
+        log.calls.push(format!(
+            "open:{}:{}x{}",
+            session.slot(),
+            size.width,
+            size.height
+        ));
+        log.leases.push(parent.payload());
+        log.modes.push(mode);
+        if let Some(e) = log.open_err {
+            return Err(e);
+        }
+        Ok(EditorCapabilities {
+            dock: HostSupport::Supported,
+            float: HostSupport::Supported,
+            resize: HostSupport::Supported,
+            hide_show: HostSupport::Supported,
+            reparent: HostSupport::Supported,
+            close: HostSupport::Supported,
+            focus: HostSupport::Supported,
+            ..EditorCapabilities::default()
+        })
+    }
+
+    fn close(&mut self, session: PluginEditorSessionId) -> Result<(), EditorOpError> {
+        let mut log = self.log.borrow_mut();
+        log.calls.push(format!("close:{}", session.slot()));
+        match log.close_err {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
+    }
+
+    fn set_size(
+        &mut self,
+        session: PluginEditorSessionId,
+        size: EditorSize,
+    ) -> Result<(), EditorOpError> {
+        let mut log = self.log.borrow_mut();
+        log.calls
+            .push(format!("resize:{}:{}", session.slot(), size.width));
+        match log.size_err {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
+    }
+
+    fn set_visibility(
+        &mut self,
+        session: PluginEditorSessionId,
+        visible: bool,
+    ) -> Result<(), EditorOpError> {
+        let mut log = self.log.borrow_mut();
+        log.calls
+            .push(format!("visible:{}:{visible}", session.slot()));
+        match log.visibility_err {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
+    }
+
+    fn reattach(
+        &mut self,
+        session: PluginEditorSessionId,
+        lease: &ParentSlotLease,
+    ) -> Result<(), EditorOpError> {
+        let parent = (self.redeem)(lease)?;
+        let mut log = self.log.borrow_mut();
+        log.calls.push(format!("reattach:{}", session.slot()));
+        log.leases.push(parent.payload());
+        match log.reattach_err {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
+    }
+
+    fn set_focus(
+        &mut self,
+        session: PluginEditorSessionId,
+        focused: bool,
+    ) -> Result<(), EditorOpError> {
+        let mut log = self.log.borrow_mut();
+        log.calls
+            .push(format!("focus:{}:{focused}", session.slot()));
+        match log.focus_err {
+            Some(e) => Err(e),
+            None => Ok(()),
+        }
+    }
+
+    fn send_key(
+        &mut self,
+        session: PluginEditorSessionId,
+        _event: ruviform_plugin_core::GuiKeyEvent,
+    ) -> Result<(), EditorOpError> {
+        self.log
+            .borrow_mut()
+            .calls
+            .push(format!("key:{}", session.slot()));
+        Ok(())
+    }
+}
+
+/// `PluginEditorHost` fake: a `StablePluginInstanceId` → `PluginHandle`
+/// table plus one scripted ops log per handle slot — the headless
+/// "plugin binary" the deterministic tests drive.
+struct FakeEditorHost {
+    handles: HashMap<u64, PluginHandle>,
+    scripts: HashMap<u32, SharedOps>,
+    /// Adapter-level refusal (`L1EditorOps`-style): `ops` itself
+    /// fails before any session call.
+    ops_err: Option<EditorOpError>,
+    next_slot: u32,
+}
+
+impl FakeEditorHost {
+    fn new() -> Self {
+        Self {
+            handles: HashMap::new(),
+            scripts: HashMap::new(),
+            ops_err: None,
+            next_slot: 0,
+        }
+    }
+
+    /// Registers `instance` as a live plugin instance; returns the
+    /// shared ops log the test asserts against.
+    fn add_instance(&mut self, instance: u64) -> SharedOps {
+        let slot = self.next_slot;
+        self.next_slot += 1;
+        self.handles.insert(instance, PluginHandle::new(slot, 1));
+        let ops = Rc::new(RefCell::new(OpsLog::default()));
+        self.scripts.insert(slot, Rc::clone(&ops));
+        ops
+    }
+
+    /// The ops log for the handle `resolve(instance)` would return.
+    fn ops_of(&self, instance: u64) -> SharedOps {
+        let handle = self.handles[&instance];
+        Rc::clone(&self.scripts[&handle.slot()])
+    }
+}
+
+impl PluginEditorHost for FakeEditorHost {
+    fn resolve(&mut self, instance: StablePluginInstanceId) -> Option<PluginHandle> {
+        self.handles.get(&instance.get()).copied()
+    }
+
+    fn ops<'a>(
+        &'a mut self,
+        handle: PluginHandle,
+        redeem: Box<LeaseRedeemer<'a>>,
+    ) -> Result<Box<dyn EditorSessionOps + 'a>, EditorOpError> {
+        if let Some(e) = self.ops_err {
+            return Err(e);
+        }
+        let log = self
+            .scripts
+            .get(&handle.slot())
+            .map(Rc::clone)
+            .unwrap_or_default();
+        Ok(Box::new(FakeOpsAdapter { log, redeem }))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Panel-tier fixture
+// ---------------------------------------------------------------------------
+
+fn view(n: u64) -> ViewInstanceId {
+    ViewInstanceId::new(n).expect("view id non-zero")
+}
+
+fn win(n: u64) -> WindowId {
+    WindowId::new(n).expect("window id non-zero")
+}
+
+fn inst(n: u64) -> StablePluginInstanceId {
+    StablePluginInstanceId::new(n)
+}
+
+fn geom() -> SlotGeometry {
+    SlotGeometry {
+        rect: LogicalRect {
+            x: 0.0,
+            y: 0.0,
+            width: 800.0,
+            height: 600.0,
+        },
+        scale_factor: 1.0,
+    }
+}
+
+fn size() -> EditorSize {
+    EditorSize {
+        width: 800.0,
+        height: 600.0,
+    }
+}
+
+struct Panel {
+    sessions: PluginEditorSessions,
+    host: FakeEditorHost,
+    dock: PluginDock,
+}
+
+impl Panel {
+    fn new(view_n: u64, window_n: u64) -> Self {
+        Self {
+            sessions: PluginEditorSessions::new(),
+            host: FakeEditorHost::new(),
+            dock: PluginDock::declare(view(view_n), win(window_n), geom()).expect("declare panel"),
+        }
+    }
+
+    fn open(&mut self, instance: u64) -> ruviform_plugin_host::AttachMode {
+        let log = self.host.add_instance(instance);
+        let report = self
+            .dock
+            .open(
+                &mut self.sessions,
+                &mut self.host,
+                inst(instance),
+                size(),
+                AttachMode::Docked,
+            )
+            .expect("open editor");
+        assert!(log.borrow().calls.iter().any(|c| c.starts_with("open:")));
+        report.mode
+    }
+
+    fn state(&self) -> Option<EditorSessionState> {
+        self.dock.session_state(&self.sessions)
+    }
+}
+
+fn is_attached(state: Option<&EditorSessionState>) -> bool {
+    matches!(state, Some(EditorSessionState::Attached { .. }))
+}
+
+fn is_hidden(state: Option<&EditorSessionState>) -> bool {
+    matches!(state, Some(EditorSessionState::Hidden { .. }))
+}
+
+fn is_closed(state: Option<&EditorSessionState>) -> bool {
+    matches!(state, Some(EditorSessionState::Closed))
+}
+
+// ---------------------------------------------------------------------------
+// Row 3 — 4-ID ownership, Open/Hide/Show/ReDock/Close determinism
+// ---------------------------------------------------------------------------
+
+/// `open` mints the full identity tuple and lands `Attached{Docked}`:
+/// the report carries view/slot/session/instance, the binding records
+/// the live lease, and the slot ledger shows `Leased`.
+#[test]
+fn open_mints_four_ids_and_lands_attached() {
+    let mut p = Panel::new(9, 1);
+    let ops = p.host.add_instance(7);
+
+    let report = p
+        .dock
+        .open(
+            &mut p.sessions,
+            &mut p.host,
+            inst(7),
+            size(),
+            AttachMode::Docked,
+        )
+        .expect("open");
+
+    assert_eq!(report.view, view(9));
+    assert_eq!(report.instance, inst(7));
+    assert_eq!(report.slot, p.dock.slot().unwrap());
+    assert_eq!(report.mode, AttachMode::Docked);
+    assert!(report.capabilities.dock.supported());
+    assert!(is_attached(p.state().as_ref()));
+    assert_eq!(p.dock.slots().state(report.slot), Some(SlotState::Leased));
+
+    let binding = p.dock.binding().expect("binding");
+    assert_eq!(binding.session, report.session);
+    assert_eq!(binding.slot, report.slot);
+    assert!(binding.lease().is_some(), "live parent lease held");
+    // The adapter redeemed the panel-issued lease through the
+    // issuer-side hook — the same token the session carried.
+    assert_eq!(
+        ops.borrow().leases.as_slice(),
+        &[binding.lease().unwrap().raw()]
+    );
+    assert_eq!(ops.borrow().modes.as_slice(), &[AttachMode::Docked]);
+}
+
+/// `hide`/`show` are `Attached ⇄ Hidden` session transitions with the
+/// slot's visibility mirroring them — the tab-inactive path.
+#[test]
+fn hide_show_round_trip_mirrors_slot_visibility() {
+    let mut p = Panel::new(9, 1);
+    p.open(7);
+
+    p.dock
+        .set_visibility(&mut p.sessions, &mut p.host, false)
+        .expect("hide");
+    assert!(is_hidden(p.state().as_ref()));
+    assert_eq!(
+        p.dock
+            .slots()
+            .spec(p.dock.slot().unwrap())
+            .map(|s| s.visibility),
+        Some(ruviform_ui::native_slot::SlotVisibility::Hidden)
+    );
+
+    p.dock
+        .set_visibility(&mut p.sessions, &mut p.host, true)
+        .expect("show");
+    assert!(is_attached(p.state().as_ref()));
+}
+
+/// Re-dock across windows: a fresh slot + fresh lease, `reattach`
+/// through the adapter, the old slot released (its index recyclable
+/// under a bumped generation) and the old lease dead — the session id
+/// and `Attached` state survive the whole move.
+#[test]
+fn relocate_republishes_slot_and_revokes_old_lease() {
+    let mut p = Panel::new(9, 1);
+    p.open(7);
+    let old_slot = p.dock.slot().unwrap();
+    let old_lease = p.dock.binding().unwrap().lease().unwrap();
+    let session = p.dock.binding().unwrap().session;
+
+    p.dock
+        .relocate(&mut p.sessions, Some(&mut p.host), win(2))
+        .expect("relocate");
+
+    let new_slot = p.dock.slot().unwrap();
+    assert_ne!(new_slot, old_slot);
+    assert_eq!(p.dock.slots().state(old_slot), Some(SlotState::Released));
+    assert_eq!(p.dock.slots().state(new_slot), Some(SlotState::Leased));
+    assert!(
+        p.dock.slots().validate_lease(old_lease).is_err(),
+        "the pre-move lease must be revoked after the reattach lands"
+    );
+    let binding = p.dock.binding().unwrap();
+    assert_eq!(binding.slot, new_slot);
+    assert_eq!(binding.session, session, "same session across re-dock");
+    assert!(is_attached(p.state().as_ref()));
+}
+
+/// Adapter refusal mid-re-dock keeps the *old* slot + lease — the
+/// editor may still be parented there — and the move reports the
+/// error honestly.
+#[test]
+fn relocate_keeps_old_parent_on_adapter_refusal() {
+    let mut p = Panel::new(9, 1);
+    p.open(7);
+    p.host.ops_of(7).borrow_mut().reattach_err = Some(EditorOpError::Unsupported);
+    let old_slot = p.dock.slot().unwrap();
+    let old_lease = p.dock.binding().unwrap().lease().unwrap();
+
+    let err = p
+        .dock
+        .relocate(&mut p.sessions, Some(&mut p.host), win(2))
+        .expect_err("reparent refusal");
+    assert!(matches!(
+        err,
+        PluginDockError::Session(EditorSessionError::Ops(EditorOpError::Unsupported))
+            | PluginDockError::Ops(EditorOpError::Unsupported)
+    ));
+
+    assert_eq!(p.dock.slot(), Some(old_slot));
+    assert_eq!(
+        p.dock.slots().state(old_slot),
+        Some(SlotState::Leased),
+        "old parent seat stays live on refusal"
+    );
+    assert!(p.dock.slots().validate_lease(old_lease).is_ok());
+    // Upstream honesty: a refused reattach lands the session `Failed`
+    // — never recorded as still-attached.
+    assert!(matches!(p.state(), Some(EditorSessionState::Failed { .. })));
+}
+
+/// A stale lease is rejected at the issuer seam: mint a lease, revoke
+/// it via close, then prove `validate_lease` refuses the token —
+/// the same refusal the adapter's redeem path would produce
+/// (`EditorOpError::LeaseRejected`), never a reinterpreted parent.
+#[test]
+fn revoked_lease_is_stale_at_the_ledger() {
+    let mut p = Panel::new(9, 1);
+    p.open(7);
+    let lease = p.dock.binding().unwrap().lease().unwrap();
+
+    p.dock
+        .close(&mut p.sessions, Some(&mut p.host))
+        .expect("close");
+
+    let err = p
+        .dock
+        .slots()
+        .validate_lease(lease)
+        .expect_err("revoked lease must not validate");
+    assert!(matches!(
+        err,
+        ruviform_ui::native_slot::SlotError::LeaseRevoked
+            | ruviform_ui::native_slot::SlotError::InvalidLease
+            | ruviform_ui::native_slot::SlotError::StaleGeneration
+            | ruviform_ui::native_slot::SlotError::UnknownSlot
+    ));
+}
+
+/// `syn.window.dock_detach`-equivalent hook: the slot suppresses and
+/// the session hides — the DSP-side editor session is *not* closed.
+#[test]
+fn detach_hides_editor_without_closing_session() {
+    let mut p = Panel::new(9, 1);
+    p.open(7);
+    let session = p.dock.binding().unwrap().session;
+
+    p.dock
+        .notify_detached(&mut p.sessions, Some(&mut p.host))
+        .expect("detach");
+
+    assert!(is_hidden(p.state().as_ref()));
+    assert_eq!(
+        p.dock.binding().unwrap().session,
+        session,
+        "session survives detach"
+    );
+    assert!(p.dock.binding().unwrap().lease().is_some());
+}
+
+/// `close` drives the session to `Closed`, retires it from the shared
+/// registry, revokes the lease (slot → `Declared`) and frees the
+/// panel for another editor.
+#[test]
+fn close_retires_session_and_frees_panel() {
+    let mut p = Panel::new(9, 1);
+    p.open(7);
+    let session = p.dock.binding().unwrap().session;
+    let slot = p.dock.slot().unwrap();
+
+    p.dock
+        .close(&mut p.sessions, Some(&mut p.host))
+        .expect("close");
+
+    assert!(p.dock.binding().is_none());
+    assert!(
+        p.sessions.session(session).is_none(),
+        "retired sessions leave the registry"
+    );
+    assert_eq!(p.dock.slots().state(slot), Some(SlotState::Declared));
+
+    // Re-open mints a *fresh* session id — the registry's generation
+    // guard, not a recycled live id.
+    let report = p
+        .dock
+        .open(
+            &mut p.sessions,
+            &mut p.host,
+            inst(7),
+            size(),
+            AttachMode::Docked,
+        )
+        .expect("re-open");
+    assert_ne!(report.session, session);
+    assert!(is_attached(p.state().as_ref()));
+}
+
+/// `SessionBusy` is an upstream, cross-panel guarantee: one live
+/// editor session per `PluginHandle`. Two panels sharing the app
+/// registry cannot both host the same instance — the second `open`
+/// is refused before a second session is minted.
+#[test]
+fn session_busy_is_refused_across_panels() {
+    let mut sessions = PluginEditorSessions::new();
+    let mut host = FakeEditorHost::new();
+    host.add_instance(7);
+    let mut a = PluginDock::declare(view(9), win(1), geom()).unwrap();
+    let mut b = PluginDock::declare(view(10), win(1), geom()).unwrap();
+
+    a.open(
+        &mut sessions,
+        &mut host,
+        inst(7),
+        size(),
+        AttachMode::Docked,
+    )
+    .expect("first open");
+
+    let err = b
+        .open(
+            &mut sessions,
+            &mut host,
+            inst(7),
+            size(),
+            AttachMode::Docked,
+        )
+        .expect_err("same instance must refuse");
+    assert!(
+        matches!(
+            err,
+            PluginDockError::Session(EditorSessionError::SessionBusy)
+        ),
+        "expected SessionBusy, got {err}"
+    );
+    assert!(b.binding().is_none());
+}
+
+/// Occupied/open guards at the panel level, plus `UnknownInstance`
+/// when the host has no live handle for the identity.
+#[test]
+fn occupied_and_unknown_instance_guards() {
+    let mut p = Panel::new(9, 1);
+    p.open(7);
+
+    let err = p
+        .dock
+        .open(
+            &mut p.sessions,
+            &mut p.host,
+            inst(7),
+            size(),
+            AttachMode::Docked,
+        )
+        .expect_err("occupied panel refuses open");
+    assert!(matches!(err, PluginDockError::Occupied));
+
+    let err = p
+        .dock
+        .open(
+            &mut p.sessions,
+            &mut p.host,
+            inst(99),
+            size(),
+            AttachMode::Docked,
+        )
+        .expect_err("occupied before resolve");
+    assert!(matches!(err, PluginDockError::Occupied));
+
+    // Commands needing a live editor refuse on the empty panel B.
+    let mut q = Panel::new(10, 1);
+    let err = q
+        .dock
+        .set_visibility(&mut q.sessions, &mut q.host, false)
+        .expect_err("no editor");
+    assert!(matches!(err, PluginDockError::NoEditor));
+    let err = q
+        .dock
+        .open(
+            &mut q.sessions,
+            &mut q.host,
+            inst(99),
+            size(),
+            AttachMode::Docked,
+        )
+        .expect_err("no live handle");
+    assert!(matches!(err, PluginDockError::UnknownInstance));
+}
+
+/// `Unsupported` at `ops.open` lands the session in `Failed`
+/// honestly: the binding stays observable, the lease is revoked, and
+/// `close` still retires it — never recorded as an attach.
+#[test]
+fn unsupported_open_lands_failed_honestly() {
+    let mut p = Panel::new(9, 1);
+    p.host.add_instance(7);
+    p.host.ops_of(7).borrow_mut().open_err = Some(EditorOpError::Unsupported);
+
+    let err = p
+        .dock
+        .open(
+            &mut p.sessions,
+            &mut p.host,
+            inst(7),
+            size(),
+            AttachMode::Docked,
+        )
+        .expect_err("unsupported open refuses");
+    assert!(matches!(
+        err,
+        PluginDockError::Session(EditorSessionError::Ops(EditorOpError::Unsupported))
+    ));
+
+    assert!(matches!(p.state(), Some(EditorSessionState::Failed { .. })));
+    assert!(
+        p.dock.binding().unwrap().lease().is_none(),
+        "failed attach holds no parent lease"
+    );
+    p.dock
+        .close(&mut p.sessions, Some(&mut p.host))
+        .expect("failed session still retires on close");
+    assert!(p.dock.binding().is_none());
+}
+
+/// A missing adapter is `unavailable`, not a fabricated attach: the
+/// ops lend itself refused → no binding, session retired, slot back
+/// to `Declared`.
+#[test]
+fn adapter_lend_refusal_is_honest_unavailable() {
+    let mut p = Panel::new(9, 1);
+    p.host.add_instance(7);
+    p.host.ops_err = Some(EditorOpError::Unsupported);
+
+    let err = p
+        .dock
+        .open(
+            &mut p.sessions,
+            &mut p.host,
+            inst(7),
+            size(),
+            AttachMode::Docked,
+        )
+        .expect_err("adapter refusal");
+    assert!(matches!(
+        err,
+        PluginDockError::Ops(EditorOpError::Unsupported)
+    ));
+    assert!(p.dock.binding().is_none());
+    assert_eq!(
+        p.dock.slots().state(p.dock.slot().unwrap()),
+        Some(SlotState::Declared)
+    );
+}
+
+/// Window loss: the live session converges `Terminated{WindowLost}`
+/// (the DSP instance is never touched — the seam has no DSP method),
+/// the lease dies with the slot, and `relocate` onto a new window
+/// re-declares the slot while the concluded binding stays observable.
+#[test]
+fn window_lost_converges_session_and_frees_slot() {
+    let mut p = Panel::new(9, 1);
+    p.open(7);
+    let slot = p.dock.slot().unwrap();
+
+    p.dock.notify_window_lost(&mut p.sessions);
+
+    assert!(is_closed(p.state().as_ref()));
+    assert_eq!(p.dock.slot(), None);
+    assert_eq!(p.dock.slots().state(slot), Some(SlotState::Released));
+    assert!(p.dock.binding().unwrap().lease().is_none());
+
+    // Re-dock onto a new window re-materializes the slot; the
+    // concluded session is not re-parented.
+    p.dock
+        .relocate(&mut p.sessions, Some(&mut p.host), win(2))
+        .expect("re-declare on new window");
+    let new_slot = p.dock.slot().unwrap();
+    assert_eq!(p.dock.slots().spec(new_slot).unwrap().window, win(2));
+    assert!(
+        is_closed(p.state().as_ref()),
+        "concluded session stays concluded"
+    );
+}
+
+/// Host-loss during close converges honestly: `close(None)` records
+/// `Terminated{HostLost}` rather than faking a graceful adapter close.
+#[test]
+fn close_without_host_converges_host_lost() {
+    let mut p = Panel::new(9, 1);
+    p.open(7);
+
+    p.dock
+        .close(&mut p.sessions, None)
+        .expect("close converges without host");
+    assert!(p.dock.binding().is_none());
+}
+
+/// PD-07 logical save/restore: the snapshot carries instance +
+/// placement + size + visibility — no session id, slot id, lease or
+/// OS handle — and restore re-mints a fresh session in the saved
+/// placement.
+#[test]
+fn save_restore_round_trip_persists_only_logical_state() {
+    let mut p = Panel::new(9, 1);
+    p.open(7);
+    let old_session = p.dock.binding().unwrap().session;
+
+    let snapshot = p.dock.save(&p.sessions).expect("save");
+    assert_eq!(snapshot.instance, 7);
+    assert_eq!(snapshot.placement, PluginDockPlacement::Docked);
+    assert_eq!(snapshot.size, [800.0, 600.0]);
+    assert!(snapshot.visible);
+    let json = serde_json::to_value(&snapshot).unwrap();
+    for banned in ["session", "slot", "lease", "handle", "window"] {
+        assert!(
+            json.get(banned).is_none(),
+            "snapshot must not persist {banned}"
+        );
+    }
+
+    let report = p
+        .dock
+        .restore(&mut p.sessions, &mut p.host, &snapshot)
+        .expect("restore");
+    assert_ne!(
+        report.session, old_session,
+        "restore mints a fresh session id"
+    );
+    assert!(is_attached(p.state().as_ref()));
+}
+
+/// `visible: false` restores to `Hidden` — the tab-inactive
+/// persistence case.
+#[test]
+fn restore_honors_saved_visibility() {
+    let mut p = Panel::new(9, 1);
+    p.open(7);
+    p.dock
+        .set_visibility(&mut p.sessions, &mut p.host, false)
+        .expect("hide");
+    let snapshot = p.dock.save(&p.sessions).expect("save");
+    assert!(!snapshot.visible);
+
+    p.dock
+        .restore(&mut p.sessions, &mut p.host, &snapshot)
+        .expect("restore");
+    assert!(is_hidden(p.state().as_ref()));
+}
+
+/// Instance-level termination (crash/kill) converges the session and
+/// frees the parent seat — `SessionFailCause` is recorded, the DSP
+/// instance's own lifetime is upstream's concern, never this layer's.
+#[test]
+fn instance_termination_converges_and_frees_lease() {
+    let mut p = Panel::new(9, 1);
+    p.open(7);
+    let slot = p.dock.slot().unwrap();
+
+    p.dock
+        .notify_instance_terminated(&mut p.sessions, SessionFailCause::HostLost);
+
+    assert!(is_closed(p.state().as_ref()));
+    assert!(p.dock.binding().unwrap().lease().is_none());
+    assert_eq!(p.dock.slots().state(slot), Some(SlotState::Declared));
+}
+
+/// `PluginDockPlacement` is the persisted vocabulary for the upstream
+/// `AttachMode`: docked stays docked, every non-docked mode degrades
+/// to the explicit `Floating` seat — never a fake dock pass.
+#[test]
+fn placement_vocabulary_round_trips_honestly() {
+    assert_eq!(
+        PluginDockPlacement::parse("docked"),
+        Some(PluginDockPlacement::Docked)
+    );
+    assert_eq!(
+        PluginDockPlacement::parse("floating"),
+        Some(PluginDockPlacement::Floating)
+    );
+    assert_eq!(PluginDockPlacement::parse("bogus"), None);
+    assert_eq!(
+        PluginDockPlacement::from_attach_mode(AttachMode::Floating),
+        PluginDockPlacement::Floating
+    );
+    assert_eq!(PluginDockPlacement::Docked.as_str(), "docked");
+}
+
+// ---------------------------------------------------------------------------
+// Op tier — NativeShell + FakeDriver end to end
+// ---------------------------------------------------------------------------
+
+struct OpFixture {
+    shell: NativeShell,
+    driver: FakeDriver,
+    w1: WindowId,
+    w2: WindowId,
+}
+
+fn ops_fixture() -> OpFixture {
+    ops_fixture_with(None)
+}
+
+fn ops_fixture_with(host: Option<FakeEditorHost>) -> OpFixture {
+    let mut app = SynvelisApp::new(BackendReport::available("gpui", "test-0.1".to_string()));
+    if let Some(host) = host {
+        app.set_plugin_editor_host(Box::new(host));
+    }
+    let mut shell = NativeShell::new(app, Duration::from_millis(16)).expect("compose shell");
+    let mut driver = FakeDriver::new();
+    let w1 = shell.open_main(&mut driver).expect("main window");
+    ready(&mut shell, &mut driver, w1);
+    let w2 = driver
+        .create_window(&WindowSpec {
+            title: "Synvelis — Secondary".to_string(),
+            ..WindowSpec::default()
+        })
+        .expect("second window");
+    ready(&mut shell, &mut driver, w2);
+    shell
+        .attach_view(&mut driver, w1, &main_view_id(), &main_view_targets())
+        .expect("attach view-1");
+    shell
+        .attach_view(
+            &mut driver,
+            w2,
+            &secondary_view_id(),
+            &secondary_view_targets(),
+        )
+        .expect("attach view-2");
+    OpFixture {
+        shell,
+        driver,
+        w1,
+        w2,
+    }
+}
+
+fn ready(shell: &mut NativeShell, driver: &mut FakeDriver, window: WindowId) {
+    driver.inject(DriverEvent::Windowed {
+        window,
+        event: WindowLifecycle::Ready,
+    });
+    pump(shell, driver);
+}
+
+fn pump(shell: &mut NativeShell, driver: &mut FakeDriver) {
+    driver.pump(&mut |ev, d| shell.handle(ev, d));
+}
+
+fn inject(shell: &mut NativeShell, driver: &mut FakeDriver, ev: DriverEvent) {
+    driver.inject(ev);
+    pump(shell, driver);
+}
+
+fn op(
+    f: &mut OpFixture,
+    window: WindowId,
+    id: &str,
+    name: &str,
+    params: Value,
+) -> (bool, Option<Value>, Option<ErrorBody>) {
+    inject(
+        &mut f.shell,
+        &mut f.driver,
+        DriverEvent::Windowed {
+            window,
+            event: WindowLifecycle::Action(Intent::new(id, name, params)),
+        },
+    );
+    f.driver
+        .events_for(window)
+        .iter()
+        .filter_map(|e| match e {
+            Event::Result {
+                id: rid,
+                ok,
+                data,
+                error,
+            } if rid == id => Some((*ok, data.clone(), error.clone())),
+            _ => None,
+        })
+        .next_back()
+        .unwrap_or_else(|| panic!("no result for {name} on {window}"))
+}
+
+fn open_ok(f: &mut OpFixture, window: WindowId, view: &str, instance: u64) -> Value {
+    let (ok, data, err) = op(
+        f,
+        window,
+        "popen",
+        "syn.plugin_dock.open",
+        json!({
+            "view_id": view,
+            "window_id": window.to_string(),
+            "instance": instance,
+            "title": "Plugin",
+        }),
+    );
+    assert!(ok, "plugin_dock.open failed: {err:?}");
+    data.unwrap()
+}
+
+fn panel_state(f: &mut OpFixture, window: WindowId, view: &str) -> Value {
+    let (ok, data, err) = op(
+        f,
+        window,
+        "pstate",
+        "syn.plugin_dock.state",
+        json!({ "view_id": view }),
+    );
+    assert!(ok, "plugin_dock.state failed: {err:?}");
+    data.unwrap()
+}
+
+/// End-to-end row-3 lifecycle through the ops: open → hide → show →
+/// dock move (prepare/commit) → detach → reattach → close — every
+/// transition observable through `syn.plugin_dock.state`, the session
+/// id stable across the re-dock.
+#[test]
+fn plugin_dock_ops_drive_the_full_editor_lifecycle() {
+    let mut f = ops_fixture_with(Some({
+        let mut h = FakeEditorHost::new();
+        h.add_instance(7);
+        h
+    }));
+    let (w1, w2) = (f.w1, f.w2);
+
+    let opened = open_ok(&mut f, w1, "view-9", 7);
+    assert_eq!(opened["opened"], true);
+    assert_eq!(opened["mode"], "docked");
+    assert_eq!(opened["instance"], 7);
+    let session = opened["session"].as_str().unwrap().to_string();
+    let slot = opened["slot"].as_str().unwrap().to_string();
+
+    let state = panel_state(&mut f, w1, "view-9");
+    assert_eq!(state["session_state"], "attached");
+    assert_eq!(state["window_id"], w1.to_string());
+    assert_eq!(state["slot"], slot);
+    assert_eq!(state["session"], session);
+    assert_eq!(state["placement"], "docked");
+
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "phide",
+        "syn.plugin_dock.hide",
+        json!({ "view_id": "view-9" }),
+    );
+    assert!(ok, "hide failed: {err:?}");
+    assert_eq!(panel_state(&mut f, w1, "view-9")["session_state"], "hidden");
+
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "pshow",
+        "syn.plugin_dock.show",
+        json!({ "view_id": "view-9" }),
+    );
+    assert!(ok, "show failed: {err:?}");
+    assert_eq!(
+        panel_state(&mut f, w1, "view-9")["session_state"],
+        "attached"
+    );
+
+    // Re-dock through the existing two-phase move — the panel's slot
+    // re-declares on w2 under a fresh lease; the session survives.
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "dprep",
+        "syn.window.dock_prepare",
+        json!({ "view_id": "view-9", "window_id": w2.to_string() }),
+    );
+    assert!(ok, "dock_prepare failed: {err:?}");
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "dcommit",
+        "syn.window.dock_commit",
+        json!({ "view_id": "view-9" }),
+    );
+    assert!(ok, "dock_commit failed: {err:?}");
+
+    let moved = panel_state(&mut f, w1, "view-9");
+    assert_eq!(moved["window_id"], w2.to_string());
+    assert_eq!(moved["session"], session, "same session after re-dock");
+    assert_ne!(moved["slot"], slot, "fresh slot on the new window");
+    assert_eq!(moved["session_state"], "attached");
+
+    // Detach to the pool hides the editor; reattach re-shows it.
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "ddetach",
+        "syn.window.dock_detach",
+        json!({ "view_id": "view-9" }),
+    );
+    assert!(ok, "dock_detach failed: {err:?}");
+    assert_eq!(panel_state(&mut f, w1, "view-9")["session_state"], "hidden");
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "dreattach",
+        "syn.window.dock_reattach",
+        json!({ "view_id": "view-9", "window_id": w2.to_string() }),
+    );
+    assert!(ok, "dock_reattach failed: {err:?}");
+    assert_eq!(
+        panel_state(&mut f, w1, "view-9")["session_state"],
+        "attached"
+    );
+
+    let (ok, data, err) = op(
+        &mut f,
+        w1,
+        "pclose",
+        "syn.plugin_dock.close",
+        json!({ "view_id": "view-9" }),
+    );
+    assert!(ok, "close failed: {err:?}");
+    assert_eq!(data.unwrap()["closed"], true);
+    let state = panel_state(&mut f, w1, "view-9");
+    assert_eq!(state["session_state"], Value::Null);
+    assert_eq!(state["instance"], Value::Null);
+}
+
+/// `syn.view.close` on a plugin view retires the panel entirely —
+/// the editor session closes before the view leaves the dock domain.
+#[test]
+fn view_close_retires_the_panel() {
+    let mut f = ops_fixture_with(Some({
+        let mut h = FakeEditorHost::new();
+        h.add_instance(7);
+        h
+    }));
+    let w1 = f.w1;
+    open_ok(&mut f, w1, "view-9", 7);
+
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "vclose",
+        "syn.view.close",
+        json!({ "view_id": "view-9" }),
+    );
+    assert!(ok, "view.close failed: {err:?}");
+    let (ok, data, err) = op(&mut f, w1, "plist", "syn.plugin_dock.list", json!({}));
+    assert!(ok, "list failed: {err:?}");
+    assert_eq!(data.unwrap()["panels"].as_array().unwrap().len(), 0);
+    // `state` on the gone panel is an honest refusal, not a ghost.
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "pstate2",
+        "syn.plugin_dock.state",
+        json!({ "view_id": "view-9" }),
+    );
+    assert!(!ok);
+    assert_eq!(err.unwrap().code, "invalid_params");
+}
+
+/// Save/restore through the wire: `save` returns only the logical
+/// record; `restore` on the same view re-mints ids; JSON round-trip
+/// keeps `instance`/`placement`/`size`/`visible` only.
+#[test]
+fn save_restore_ops_round_trip() {
+    let mut f = ops_fixture_with(Some({
+        let mut h = FakeEditorHost::new();
+        h.add_instance(7);
+        h
+    }));
+    let w1 = f.w1;
+    let opened = open_ok(&mut f, w1, "view-9", 7);
+    let session = opened["session"].as_str().unwrap().to_string();
+
+    let (ok, data, err) = op(
+        &mut f,
+        w1,
+        "psave",
+        "syn.plugin_dock.save",
+        json!({ "view_id": "view-9" }),
+    );
+    assert!(ok, "save failed: {err:?}");
+    let snapshot = data.unwrap()["snapshot"].clone();
+    assert_eq!(snapshot["instance"], 7);
+    assert_eq!(snapshot["placement"], "docked");
+    assert_eq!(snapshot["size"], json!([800.0, 600.0]));
+    assert_eq!(snapshot["visible"], true);
+    for banned in ["session", "slot", "lease", "handle", "window"] {
+        assert!(
+            snapshot.get(banned).is_none(),
+            "snapshot must not persist {banned}"
+        );
+    }
+
+    let (ok, data, err) = op(
+        &mut f,
+        w1,
+        "prestore",
+        "syn.plugin_dock.restore",
+        json!({
+            "view_id": "view-9",
+            "window_id": w1.to_string(),
+            "snapshot": snapshot,
+        }),
+    );
+    assert!(ok, "restore failed: {err:?}");
+    assert_eq!(data.unwrap()["restored"], true);
+    assert_ne!(
+        panel_state(&mut f, w1, "view-9")["session"],
+        session,
+        "restore mints a fresh session"
+    );
+}
+
+/// The `instance`-elsewhere guard: opening the same plugin instance
+/// on a second view refuses `invalid_params` — the op-level face of
+/// "one editor session per instance" (panel tier pins the upstream
+/// `SessionBusy` itself).
+#[test]
+fn duplicate_instance_across_views_is_refused() {
+    let mut f = ops_fixture_with(Some({
+        let mut h = FakeEditorHost::new();
+        h.add_instance(7);
+        h
+    }));
+    let w1 = f.w1;
+    open_ok(&mut f, w1, "view-9", 7);
+
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "pdup",
+        "syn.plugin_dock.open",
+        json!({
+            "view_id": "view-10",
+            "window_id": w1.to_string(),
+            "instance": 7,
+        }),
+    );
+    assert!(!ok, "duplicate instance must refuse");
+    assert_eq!(err.unwrap().code, "invalid_params");
+    assert!(panel_state(&mut f, w1, "view-9")["session"].is_string());
+}
+
+/// No installed adapter → `unavailable`, never a fake attach. This is
+/// the L1/refused-adapter honesty the issue requires of every gate.
+#[test]
+fn ops_refuse_unavailable_without_a_host() {
+    let mut f = ops_fixture();
+    let w1 = f.w1;
+
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "popen",
+        "syn.plugin_dock.open",
+        json!({
+            "view_id": "view-9",
+            "window_id": w1.to_string(),
+            "instance": 7,
+        }),
+    );
+    assert!(!ok);
+    assert_eq!(err.unwrap().code, "unavailable");
+}
+
+/// Unknown instance is `invalid_params` — an honest refusal, not a
+/// fabricated handle.
+#[test]
+fn unknown_instance_is_refused() {
+    let mut f = ops_fixture_with(Some(FakeEditorHost::new()));
+    let w1 = f.w1;
+
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "popen",
+        "syn.plugin_dock.open",
+        json!({
+            "view_id": "view-9",
+            "window_id": w1.to_string(),
+            "instance": 99,
+        }),
+    );
+    assert!(!ok);
+    assert_eq!(err.unwrap().code, "invalid_params");
+}
+
+/// Window destroy: the editor session converges (read model reports
+/// `closed`), the slot is gone, and — DSP non-interference — the
+/// project record is byte-identical afterwards.
+#[test]
+fn window_destroy_converges_editor_and_preserves_project() {
+    let mut f = ops_fixture_with(Some({
+        let mut h = FakeEditorHost::new();
+        h.add_instance(7);
+        h
+    }));
+    let (w1, w2) = (f.w1, f.w2);
+    open_ok(&mut f, w1, "view-9", 7);
+    // Move the panel onto w2 so its slot's window is the one that dies.
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "dprep",
+        "syn.window.dock_prepare",
+        json!({ "view_id": "view-9", "window_id": w2.to_string() }),
+    );
+    assert!(ok, "dock_prepare failed: {err:?}");
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "dcommit",
+        "syn.window.dock_commit",
+        json!({ "view_id": "view-9" }),
+    );
+    assert!(ok, "dock_commit failed: {err:?}");
+
+    let (ok, project_before, err) = op(&mut f, w1, "pinfo", "syn.project.info", json!({}));
+    assert!(ok, "project.info failed: {err:?}");
+
+    inject(
+        &mut f.shell,
+        &mut f.driver,
+        DriverEvent::Windowed {
+            window: w2,
+            event: WindowLifecycle::Destroyed,
+        },
+    );
+
+    let state = panel_state(&mut f, w1, "view-9");
+    assert_eq!(state["session_state"], "closed");
+    assert_eq!(state["window_id"], Value::Null);
+    assert_eq!(state["slot"], Value::Null);
+
+    let (ok, project_after, err) = op(&mut f, w1, "pinfo2", "syn.project.info", json!({}));
+    assert!(ok, "project.info failed: {err:?}");
+    assert_eq!(
+        project_before, project_after,
+        "window-destroy editor convergence must not touch project state"
+    );
+}
+
+/// DSP/Project/RT non-interference, asserted at the op boundary:
+/// project info and the transport/viz projections are byte-identical
+/// before and after the open/hide/show/close sequence. (The seam is
+/// structurally UI-only — `PluginEditorHost`/`EditorSessionOps` carry
+/// no DSP-facing methods — and `notify_terminated` converges the
+/// *editor* session, never the instance's processing lifetime.)
+#[test]
+fn plugin_dock_ops_do_not_touch_project_or_dsp_state() {
+    let mut f = ops_fixture_with(Some({
+        let mut h = FakeEditorHost::new();
+        h.add_instance(7);
+        h
+    }));
+    let w1 = f.w1;
+
+    let (ok, before_project, _) = op(&mut f, w1, "pi", "syn.project.info", json!({}));
+    assert!(ok);
+    let (ok, before_views, _) = op(&mut f, w1, "vl", "syn.view.list", json!({}));
+    assert!(ok);
+
+    open_ok(&mut f, w1, "view-9", 7);
+    for (id, name) in [
+        ("h", "syn.plugin_dock.hide"),
+        ("s", "syn.plugin_dock.show"),
+        ("f1", "syn.plugin_dock.focus"),
+        ("r", "syn.plugin_dock.resize"),
+    ] {
+        let params = match name {
+            "syn.plugin_dock.focus" => json!({ "view_id": "view-9", "focused": true }),
+            "syn.plugin_dock.resize" => {
+                json!({ "view_id": "view-9", "width": 640.0, "height": 480.0 })
+            }
+            _ => json!({ "view_id": "view-9" }),
+        };
+        let (ok, _, err) = op(&mut f, w1, id, name, params);
+        assert!(ok, "{name} failed: {err:?}");
+    }
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "pc",
+        "syn.plugin_dock.close",
+        json!({ "view_id": "view-9" }),
+    );
+    assert!(ok, "close failed: {err:?}");
+
+    let (ok, after_project, _) = op(&mut f, w1, "pi2", "syn.project.info", json!({}));
+    assert!(ok);
+    assert_eq!(before_project, after_project);
+    let (ok, after_views, _) = op(&mut f, w1, "vl2", "syn.view.list", json!({}));
+    assert!(ok);
+    // The plugin panel's own view row legitimately exists post-open;
+    // every *other* view's row is untouched.
+    let strip = |v: &Value| -> Vec<Value> {
+        v["views"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|row| row["view_id"] != "view-9")
+            .cloned()
+            .collect()
+    };
+    assert_eq!(
+        strip(&before_views.unwrap()),
+        strip(&after_views.unwrap()),
+        "non-plugin views must be untouched by plugin dock ops"
+    );
+}

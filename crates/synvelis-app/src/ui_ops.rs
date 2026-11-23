@@ -21,12 +21,14 @@ use ruviform_media_core::{
     TempoMapRevision, TimeBase, TransportGeneration, TransportSpan, TransportStatus,
 };
 use ruviform_plugin_core::{ParamValue, ParamWriteMeans};
+use ruviform_plugin_host::{AttachMode, EditorSessionState, EditorSize, PluginEditorSessions};
 use ruviform_ui::dock::{
     DockEvent, DockTarget, MoveToken, ViewInstanceId, WindowCloseDisposition, WindowGeometry,
 };
 use ruviform_ui::driver::WindowSpec;
 use ruviform_ui::event::HostEvent;
 use ruviform_ui::ipc::{ErrorBody, Event, codes};
+use ruviform_ui::native_slot::{LogicalRect, SlotGeometry, SurfaceSlotId};
 use ruviform_ui::view::{MAX_METER_BINS, MAX_WAVEFORM_BINS, MeterBin, WaveformBin};
 use ruviform_ui::window::WindowId;
 use serde_json::{Value, json};
@@ -34,7 +36,7 @@ use serde_json::{Value, json};
 use synvelis_player::{
     DispatchCycle, FastControlBlockKind, FastControlOutcome, FastControlWrite, LatencyBasis,
     LatencyComponent, LatencyQuality, LatencyReport, LowLatencyReadiness, ReportDrainReport,
-    SurfaceReport, TickReport,
+    StablePluginInstanceId, SurfaceReport, TickReport,
 };
 use synvelis_project::probe::{
     AcousticObservation, ClockContextRef, ProbeAlignCondition, ProbeComparisonBasis,
@@ -93,6 +95,10 @@ use synvelis_workspace::{
 use crate::app::SynvelisApp;
 use crate::engine::SessionRoutingEngine;
 use crate::monitoring::{MonitorSessionParams, MonitorTransportAction, MonitorUxState, TrackPatch};
+use crate::plugin_dock::{
+    PluginDock, PluginDockError, PluginDockPlacement, PluginDockSnapshot, PluginEditorHost,
+    session_state_mode, session_state_name,
+};
 use crate::recording::{
     RecorderError, RecorderStartParams, RecorderStreamParams, RecorderTapParams,
     commit_outcome_name, take_state_name,
@@ -274,6 +280,22 @@ pub struct UiOpsState {
     /// live on every projection so drift renders as `Stale`, never
     /// as silently reused rows.
     pub(crate) variant_diff: VariantDiffUi,
+    /// The app-wide editor-session registry (SV-GPUI-02, synvelis#176)
+    /// — the host-wide authority minting unique
+    /// `PluginEditorSessionId`s and enforcing one live session per
+    /// `PluginHandle` (`SessionBusy`) across every `PluginDock` panel.
+    pub(crate) plugin_sessions: PluginEditorSessions,
+    /// `PluginDock` panels keyed by `ViewInstanceId` (SV-GPUI-02
+    /// headless slice, synvelis#176) — each owns the
+    /// `StablePluginInstanceId` → `PluginEditorSessionId` →
+    /// `SurfaceSlotId` → `ViewInstanceId` wiring for one dock view.
+    /// Panels are created by `syn.plugin_dock.open`/`restore` and
+    /// torn down by `syn.view.close`/window loss.
+    pub(crate) plugin_docks: HashMap<ViewInstanceId, PluginDock>,
+    /// Injected `PluginEditorHost` seam — every editor command
+    /// borrows it per call. `None` (default) reports `unavailable`
+    /// honestly: no adapter means no editor, never a faked one.
+    pub(crate) plugin_editor_host: Option<Box<dyn PluginEditorHost>>,
 }
 
 /// One Difference Explorer view's last compare — the pins the
@@ -349,6 +371,9 @@ impl UiOpsState {
             last_control_drain: ReportDrainReport::default(),
             ppqn_ui: RefCell::new(PpqnUi::new(ProjectPpqn::default().0)),
             variant_diff: VariantDiffUi::new(),
+            plugin_sessions: PluginEditorSessions::new(),
+            plugin_docks: HashMap::new(),
+            plugin_editor_host: None,
         }
     }
 }
@@ -812,6 +837,109 @@ fn probe_trace_err(error: &ProbeTraceError) -> ErrorBody {
 
 fn dock_err(e: &synvelis_workspace::WorkspaceError) -> ErrorBody {
     internal(format!("dock: {e}"))
+}
+
+// -- syn.plugin_dock.* helpers (SV176) -------------------------------------
+
+/// Maps a [`PluginDockError`] onto the wire vocabulary — adapter
+/// `Unsupported`/`HostLost` and a missing host stay honest
+/// `unavailable`, caller/identity faults `invalid_params`, everything
+/// else `service_error`. `Unsupported` is never rewritten as success.
+fn plugin_dock_err(e: &PluginDockError) -> ErrorBody {
+    use ruviform_plugin_host::{EditorOpError, EditorSessionError};
+    use ruviform_ui::native_slot::SlotError;
+    let code = match e {
+        PluginDockError::NoEditor
+        | PluginDockError::Occupied
+        | PluginDockError::UnknownInstance
+        | PluginDockError::Slot(SlotError::InvalidValue)
+        | PluginDockError::Session(
+            EditorSessionError::InvalidValue | EditorSessionError::SessionBusy,
+        ) => codes::INVALID_PARAMS,
+        PluginDockError::NoSlot => codes::UNAVAILABLE,
+        PluginDockError::Session(EditorSessionError::Ops(op)) | PluginDockError::Ops(op) => {
+            match op {
+                EditorOpError::Unsupported | EditorOpError::HostLost => codes::UNAVAILABLE,
+                EditorOpError::InvalidValue => codes::INVALID_PARAMS,
+                _ => codes::SERVICE_ERROR,
+            }
+        }
+        _ => codes::SERVICE_ERROR,
+    };
+    ErrorBody::new(code, e.to_string())
+}
+
+/// `SurfaceSlotId` → `"index:generation"` — the wire id a GUI/debug
+/// console echoes back on slot ops.
+fn slot_id_str(slot: SurfaceSlotId) -> String {
+    format!("{}:{}", slot.index(), slot.generation())
+}
+
+/// `PluginEditorSessionId` → `"slot:generation"`.
+fn session_id_str(session: ruviform_plugin_core::PluginEditorSessionId) -> String {
+    format!("{}:{}", session.slot(), session.generation())
+}
+
+/// `AttachMode` → `"docked"`/`"floating"` — `floating` is named
+/// explicitly so a fallback is never recorded as a dock pass.
+fn attach_mode_name(mode: AttachMode) -> &'static str {
+    match mode {
+        AttachMode::Docked => "docked",
+        AttachMode::Floating => "floating",
+        _ => "unknown",
+    }
+}
+
+/// Editor logical size from `width`/`height` params (default 800×600);
+/// domain validation happens inside the session (`InvalidValue` →
+/// `invalid_params`), so the helper only rejects non-numbers here.
+fn plugin_dock_size(params: &Value) -> EditorSize {
+    let opt = |key: &str| params.get(key).and_then(Value::as_f64);
+    EditorSize {
+        width: opt("width").unwrap_or(800.0),
+        height: opt("height").unwrap_or(600.0),
+    }
+}
+
+/// The `plugin.editor` slot geometry from optional `x`/`y`/
+/// `scale_factor` params + the editor's logical size.
+fn plugin_dock_geometry(params: &Value, size: EditorSize) -> SlotGeometry {
+    SlotGeometry {
+        rect: LogicalRect {
+            x: params.get("x").and_then(Value::as_f64).unwrap_or(0.0),
+            y: params.get("y").and_then(Value::as_f64).unwrap_or(0.0),
+            width: size.width,
+            height: size.height,
+        },
+        scale_factor: params
+            .get("scale_factor")
+            .and_then(Value::as_f64)
+            .unwrap_or(1.0),
+    }
+}
+
+/// A panel's read model as the `syn.plugin_dock.state` payload.
+pub(crate) fn plugin_dock_status_json(dock: &PluginDock, sessions: &PluginEditorSessions) -> Value {
+    let s = dock.status(sessions);
+    json!({
+        "view_id": format!("view-{}", s.view.get()),
+        "window_id": s.window.map(|w| w.to_string()),
+        "slot": s.slot.map(slot_id_str),
+        "slot_state": s.slot_state.map(|st| format!("{st:?}")),
+        "instance": s.instance.map(StablePluginInstanceId::get),
+        "session": s.session.map(session_id_str),
+        "session_state": s.session_state.as_ref().map(session_state_name),
+        "mode": s
+            .session_state
+            .as_ref()
+            .and_then(session_state_mode)
+            .map(attach_mode_name),
+        "placement": s.placement.map(PluginDockPlacement::as_str),
+        "visible": s
+            .session_state
+            .is_some_and(|st| matches!(st, EditorSessionState::Attached { .. })),
+        "size": s.size.map(|size| json!({ "width": size.width, "height": size.height })),
+    })
 }
 
 // -- PC-C4-06 syn.control.* typed-evidence wire shapes -------------------
@@ -3353,6 +3481,11 @@ impl SynvelisApp {
                 .move_view(inst, DockTarget::Window(win))
                 .map_err(|e| dock_err(&e))?;
         }
+        // SV176: an adopted/moved PluginDock panel re-materializes or
+        // re-parents its surface slot on the destination now — the
+        // `AwaitingWindow` early-return above skips this (its commit
+        // names the real destination).
+        self.plugin_dock_relocate(inst, win);
         Ok(())
     }
 
@@ -3409,6 +3542,7 @@ impl SynvelisApp {
                 .detach_to_pool(inst)
                 .map_err(|e| dock_err(&e))?;
         }
+        self.plugin_dock_notify_detached(inst);
         Ok(())
     }
 
@@ -3475,6 +3609,16 @@ impl SynvelisApp {
     /// requests), then removes the view from dock/registry/state.
     fn dock_view_close(&mut self, view: &str, info: &DockViewInfo) -> Result<(), ErrorBody> {
         let inst = info.instance;
+        // SV176: a PluginDock panel leaves with its view — the editor
+        // session closes first; a refused close aborts the view close
+        // (same lease-release contract as the probe release above).
+        if let Some(dock) = self.ui.plugin_docks.get_mut(&inst) {
+            let host = self.ui.plugin_editor_host.as_deref_mut();
+            let sessions = &mut self.ui.plugin_sessions;
+            dock.close(sessions, host)
+                .map_err(|e| plugin_dock_err(&e))?;
+            self.ui.plugin_docks.remove(&inst);
+        }
         match self.ui.dock_moves.remove(view) {
             Some(DockMove::Prepared { token, .. }) => {
                 if let Err(e) = self.workspace.abort_transfer(token)
@@ -3762,6 +3906,11 @@ impl SynvelisApp {
         self.ui
             .dock_moves
             .insert(view.clone(), DockMove::Prepared { token, target: win });
+        if let Some(dock) = self.ui.plugin_docks.get_mut(&inst)
+            && let Err(e) = dock.prepare_move()
+        {
+            tracing::warn!(view_id = %view, error = %e, "plugin dock slot busy-mark failed");
+        }
         self.ui_pump();
         Ok(json!({ "view_id": view, "window_id": window, "prepared": true }))
     }
@@ -3806,6 +3955,11 @@ impl SynvelisApp {
                 window: None,
             },
         );
+        if let Some(dock) = self.ui.plugin_docks.get_mut(&inst)
+            && let Err(e) = dock.prepare_move()
+        {
+            tracing::warn!(view_id = %view, error = %e, "plugin dock slot busy-mark failed");
+        }
         self.ui
             .window_requests
             .borrow_mut()
@@ -3877,6 +4031,10 @@ impl SynvelisApp {
             DockMove::AwaitingWindow { window: None, .. } => unreachable!("checked above"),
         };
         let to = report.to.to_string();
+        // SV176: the view's surface slot/editor re-parent to the
+        // committed owner (cross-window moves mint a fresh
+        // generation-checked lease).
+        self.plugin_dock_relocate(inst, report.to);
         // The AwaitingWindow path already bound the UI to the
         // destination via the exception attach — bind only when the
         // recorded owner differs (Prepared path, or an attach that
@@ -3946,6 +4104,11 @@ impl SynvelisApp {
                 self.ui_sync_view_owner(&view, inst);
             }
         }
+        if let Some(dock) = self.ui.plugin_docks.get_mut(&inst)
+            && let Err(e) = dock.abort_move()
+        {
+            tracing::warn!(view_id = %view, error = %e, "plugin dock slot busy-clear failed");
+        }
         self.ui_pump();
         self.push_notify(
             "syn.window.state",
@@ -3991,6 +4154,7 @@ impl SynvelisApp {
                 .detach_to_pool(inst)
                 .map_err(|e| dock_err(&e))?;
         }
+        self.plugin_dock_notify_detached(inst);
         let session = self.workspace.session_mut();
         self.ui
             .controls
@@ -4037,6 +4201,10 @@ impl SynvelisApp {
                 .move_view(inst, DockTarget::Window(win))
                 .map_err(|e| dock_err(&e))?;
         }
+        // SV176: re-attach re-materializes/re-parents the slot+editor
+        // (a pooled view has no slot owner; a cross-window move
+        // re-parents under a fresh lease).
+        self.plugin_dock_relocate(inst, win);
         self.ui_bind_view(&view, &win.to_string());
         self.ui_pump();
         self.push_notify(
@@ -4060,6 +4228,422 @@ impl SynvelisApp {
             "generation": gen_c,
             "viz_generation": gen_v,
         }))
+    }
+
+    // -- syn.plugin_dock.* -------------------------------------------------
+
+    /// `syn.plugin_dock.open` — adopts the view as a `PluginDock`
+    /// dock view on `window`, declares its `plugin.editor` slot, and
+    /// opens `instance`'s editor session under the slot's parent
+    /// lease. Params: `view_id`, `window_id`, `instance` (u64 stable
+    /// id), optional `mode` (`"docked"`/`"floating"`, default docked),
+    /// `width`/`height` (logical, default 800×600), `x`/`y`,
+    /// `scale_factor`, `title`.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid params, unadopted window, unknown
+    /// instance, occupied panel, or adapter/session refusal —
+    /// `unavailable` when no plugin editor host is installed.
+    pub fn op_plugin_dock_open(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let window = str_param(params, "window_id")?.to_owned();
+        let instance = StablePluginInstanceId::new(u64_param(params, "instance")?);
+        let placement = params.get("mode").and_then(Value::as_str).map_or(
+            Ok(PluginDockPlacement::Docked),
+            |s| {
+                PluginDockPlacement::parse(s)
+                    .ok_or_else(|| invalid("params.mode must be \"docked\" or \"floating\""))
+            },
+        )?;
+        let size = plugin_dock_size(params);
+        let geometry = plugin_dock_geometry(params, size);
+        let title = params
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or("Plugin")
+            .to_owned();
+        let report = self.plugin_dock_with_panel(
+            &view,
+            &window,
+            &title,
+            geometry,
+            Some(instance),
+            |dock, sessions, host| {
+                dock.open(sessions, host, instance, size, placement.to_attach_mode())
+            },
+        )?;
+        let status = self.plugin_dock_status_of(report.view)?;
+        self.ui_pump();
+        self.push_notify("syn.plugin_dock.state", status);
+        Ok(json!({
+            "view_id": view,
+            "window_id": window,
+            "instance": instance.get(),
+            "session": session_id_str(report.session),
+            "slot": slot_id_str(report.slot),
+            "mode": attach_mode_name(report.mode),
+            "opened": true,
+        }))
+    }
+
+    /// `syn.plugin_dock.hide` — Attached → Hidden (tab inactive).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid params, missing panel/editor, or
+    /// session refusal.
+    pub fn op_plugin_dock_hide(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        self.plugin_dock_visibility(params, false)
+    }
+
+    /// `syn.plugin_dock.show` — Hidden → Attached (tab active).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid params, missing panel/editor, or
+    /// session refusal.
+    pub fn op_plugin_dock_show(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        self.plugin_dock_visibility(params, true)
+    }
+
+    /// `syn.plugin_dock.focus` — `focused` (bool) on the editor —
+    /// non-fatal upstream, no session transition.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid params, missing panel/editor, or
+    /// session refusal.
+    pub fn op_plugin_dock_focus(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let focused = params
+            .get("focused")
+            .and_then(Value::as_bool)
+            .ok_or_else(|| invalid("params.focused (bool) required"))?;
+        let inst = self.plugin_dock_at(&view)?;
+        self.plugin_dock_command(inst, |dock, sessions, host| {
+            dock.set_focus(sessions, host, focused)
+        })?;
+        Ok(json!({ "view_id": view, "focused": focused }))
+    }
+
+    /// `syn.plugin_dock.resize` — requests editor `width`×`height`.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid params, missing panel/editor, or
+    /// session refusal.
+    pub fn op_plugin_dock_resize(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let size = plugin_dock_size(params);
+        let inst = self.plugin_dock_at(&view)?;
+        self.plugin_dock_command(inst, |dock, sessions, host| {
+            dock.set_size(sessions, host, size)
+        })?;
+        Ok(json!({
+            "view_id": view,
+            "width": size.width,
+            "height": size.height,
+        }))
+    }
+
+    /// `syn.plugin_dock.close` — drives the editor session to `Closed`
+    /// and frees the lease + instance binding; the panel stays.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid params, missing panel/editor, or a
+    /// session close refusal (the binding stays `Failed` for retry).
+    pub fn op_plugin_dock_close(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let inst = self.plugin_dock_at(&view)?;
+        {
+            let dock =
+                self.ui.plugin_docks.get_mut(&inst).ok_or_else(|| {
+                    internal(format!("view-{} has no plugin dock panel", inst.get()))
+                })?;
+            let host = self.ui.plugin_editor_host.as_deref_mut();
+            dock.close(&mut self.ui.plugin_sessions, host)
+                .map_err(|e| plugin_dock_err(&e))?;
+        }
+        let status = self.plugin_dock_status_of(inst)?;
+        self.ui_pump();
+        self.push_notify("syn.plugin_dock.state", status);
+        Ok(json!({ "view_id": view, "closed": true }))
+    }
+
+    /// `syn.plugin_dock.save` — the PD-07 logical snapshot (instance
+    /// identity + placement + size + visibility; no session/slot ids).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid params or an empty panel.
+    pub fn op_plugin_dock_save(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let inst = self.plugin_dock_at(&view)?;
+        let dock = self
+            .ui
+            .plugin_docks
+            .get(&inst)
+            .ok_or_else(|| internal(format!("view-{} has no plugin dock panel", inst.get())))?;
+        let snapshot = dock
+            .save(&self.ui.plugin_sessions)
+            .map_err(|e| plugin_dock_err(&e))?;
+        let snapshot = serde_json::to_value(snapshot)
+            .map_err(|e| internal(format!("plugin dock snapshot serialize: {e}")))?;
+        Ok(json!({ "view_id": view, "snapshot": snapshot }))
+    }
+
+    /// `syn.plugin_dock.restore` — adopts the view + declares the slot
+    /// like `open`, then restores the saved editor (closing any
+    /// occupying session first). Params: `view_id`, `window_id`,
+    /// `snapshot` (the `syn.plugin_dock.save` payload), optional
+    /// `title`.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid params, unadopted window, unknown
+    /// instance, or close/open refusal.
+    pub fn op_plugin_dock_restore(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let window = str_param(params, "window_id")?.to_owned();
+        let snapshot: PluginDockSnapshot = json_param(params, "snapshot")?;
+        let instance = StablePluginInstanceId::new(snapshot.instance);
+        let size = EditorSize {
+            width: snapshot.size[0],
+            height: snapshot.size[1],
+        };
+        let geometry = plugin_dock_geometry(params, size);
+        let title = params
+            .get("title")
+            .and_then(Value::as_str)
+            .unwrap_or("Plugin")
+            .to_owned();
+        let report = self.plugin_dock_with_panel(
+            &view,
+            &window,
+            &title,
+            geometry,
+            Some(instance),
+            |dock, sessions, host| dock.restore(sessions, host, &snapshot),
+        )?;
+        let status = self.plugin_dock_status_of(report.view)?;
+        self.ui_pump();
+        self.push_notify("syn.plugin_dock.state", status);
+        Ok(json!({
+            "view_id": view,
+            "window_id": window,
+            "instance": instance.get(),
+            "session": session_id_str(report.session),
+            "slot": slot_id_str(report.slot),
+            "mode": attach_mode_name(report.mode),
+            "restored": true,
+        }))
+    }
+
+    /// `syn.plugin_dock.state` — the panel read model (view, window,
+    /// slot, instance, session + their states).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] when `view_id` names no `PluginDock` panel.
+    pub fn op_plugin_dock_state(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let inst = self.plugin_dock_at(&view)?;
+        self.plugin_dock_status_of(inst)
+    }
+
+    /// `syn.plugin_dock.list` — every live panel's read model.
+    #[must_use]
+    pub fn op_plugin_dock_list(&self) -> Value {
+        let mut panels: Vec<Value> = self
+            .ui
+            .plugin_docks
+            .values()
+            .map(|dock| plugin_dock_status_json(dock, &self.ui.plugin_sessions))
+            .collect();
+        panels.sort_by(|a, b| a["view_id"].as_str().cmp(&b["view_id"].as_str()));
+        json!({ "panels": panels })
+    }
+
+    /// Shared hide/show tail — the session transition + slot mirror,
+    /// then a `syn.plugin_dock.state` notify.
+    fn plugin_dock_visibility(
+        &mut self,
+        params: &Value,
+        visible: bool,
+    ) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?.to_owned();
+        let inst = self.plugin_dock_at(&view)?;
+        self.plugin_dock_command(inst, |dock, sessions, host| {
+            dock.set_visibility(sessions, host, visible)
+        })?;
+        let status = self.plugin_dock_status_of(inst)?;
+        self.ui_pump();
+        self.push_notify("syn.plugin_dock.state", status);
+        Ok(json!({ "view_id": view, "visible": visible }))
+    }
+
+    /// The `syn.plugin_dock.state` payload for panel `inst`.
+    fn plugin_dock_status_of(&self, inst: ViewInstanceId) -> Result<Value, ErrorBody> {
+        self.ui
+            .plugin_docks
+            .get(&inst)
+            .map(|dock| plugin_dock_status_json(dock, &self.ui.plugin_sessions))
+            .ok_or_else(|| internal(format!("view-{} has no plugin dock panel", inst.get())))
+    }
+
+    /// Runs a host-needed command on panel `inst` — resolves the
+    /// `unavailable` refusal once and hands `f` the panel, the shared
+    /// session registry, and the adapter.
+    fn plugin_dock_command(
+        &mut self,
+        inst: ViewInstanceId,
+        f: impl FnOnce(
+            &mut PluginDock,
+            &mut PluginEditorSessions,
+            &mut crate::plugin_dock::PluginEditorHostObj,
+        ) -> Result<(), PluginDockError>,
+    ) -> Result<(), ErrorBody> {
+        if self.ui.plugin_editor_host.is_none() {
+            return Err(ErrorBody::new(
+                codes::UNAVAILABLE,
+                "no plugin editor host installed — editor commands are unavailable".to_string(),
+            ));
+        }
+        if !self.ui.plugin_docks.contains_key(&inst) {
+            return Err(internal(format!(
+                "view-{} has no plugin dock panel",
+                inst.get()
+            )));
+        }
+        let dock = self
+            .ui
+            .plugin_docks
+            .get_mut(&inst)
+            .ok_or_else(|| internal(format!("view-{} has no plugin dock panel", inst.get())))?;
+        let host = self
+            .ui
+            .plugin_editor_host
+            .as_deref_mut()
+            .ok_or_else(|| internal("plugin editor host vanished"))?;
+        let sessions = &mut self.ui.plugin_sessions;
+        f(dock, sessions, host).map_err(|e| plugin_dock_err(&e))
+    }
+
+    /// `view_id` → the panel's `ViewInstanceId`, or `invalid_params`
+    /// when the view has no `PluginDock` panel.
+    fn plugin_dock_at(&self, view: &str) -> Result<ViewInstanceId, ErrorBody> {
+        let inst = parse_view_instance(view)
+            .ok_or_else(|| invalid(format!("view {view} is not a workspace view")))?;
+        if !self.ui.plugin_docks.contains_key(&inst) {
+            return Err(invalid(format!("view {view} has no plugin dock panel")));
+        }
+        Ok(inst)
+    }
+
+    /// The open/restore shared prefix: parse ids, preflight host +
+    /// kind + instance-elsewhere + window adoption, adopt/attach the
+    /// dock view, ensure the panel's slot on `window`, then run `f`
+    /// with the panel + adapter.
+    fn plugin_dock_with_panel<R>(
+        &mut self,
+        view: &str,
+        window: &str,
+        title: &str,
+        geometry: SlotGeometry,
+        instance: Option<StablePluginInstanceId>,
+        f: impl FnOnce(
+            &mut PluginDock,
+            &mut PluginEditorSessions,
+            &mut crate::plugin_dock::PluginEditorHostObj,
+        ) -> Result<R, PluginDockError>,
+    ) -> Result<R, ErrorBody> {
+        let inst = parse_view_instance(view)
+            .ok_or_else(|| invalid(format!("view {view} is not a workspace view")))?;
+        let win = parse_window_id(window)
+            .ok_or_else(|| invalid(format!("params.window_id must be \"w{{n}}\", got {window}")))?;
+        if self.ui.plugin_editor_host.is_none() {
+            return Err(ErrorBody::new(
+                codes::UNAVAILABLE,
+                "no plugin editor host installed — editor sessions are unavailable".to_string(),
+            ));
+        }
+        if let Some(instance) = instance
+            && let Some((other, _)) = self.ui.plugin_docks.iter().find(|(other, dock)| {
+                **other != inst && dock.binding().is_some_and(|b| b.instance == instance)
+            })
+        {
+            return Err(invalid(format!(
+                "instance {} already has a live editor in view-{}",
+                instance.get(),
+                other.get()
+            )));
+        }
+        if let Some(d) = self.workspace.registry().descriptor(inst)
+            && d.kind != ViewType::PluginDock
+        {
+            return Err(invalid(format!(
+                "view {view} is registered as {:?}, not a plugin dock",
+                d.kind
+            )));
+        }
+        if !self.workspace.dock().is_registered(win) {
+            return Err(invalid(format!("window {window} is not adopted")));
+        }
+        let info = DockViewInfo {
+            instance: inst,
+            kind: ViewType::PluginDock,
+            title: title.to_string(),
+            targets: Vec::new(),
+        };
+        self.dock_view_attach(view, &info, window)?;
+        self.ui_bind_view(view, window);
+        let dock = match self.ui.plugin_docks.entry(inst) {
+            std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+            std::collections::hash_map::Entry::Vacant(e) => {
+                e.insert(PluginDock::declare(inst, win, geometry).map_err(|e| plugin_dock_err(&e))?)
+            }
+        };
+        dock.ensure_slot(&mut self.ui.plugin_sessions, win, geometry)
+            .map_err(|e| plugin_dock_err(&e))?;
+        let host = self
+            .ui
+            .plugin_editor_host
+            .as_deref_mut()
+            .ok_or_else(|| internal("plugin editor host vanished"))?;
+        let sessions = &mut self.ui.plugin_sessions;
+        f(dock, sessions, host).map_err(|e| plugin_dock_err(&e))
+    }
+
+    /// Commit/reattach hook — migrates/re-parents the panel's slot and
+    /// live session onto `to_window`. The dock move already happened,
+    /// so a re-parent refusal reports via notify rather than an op
+    /// error that would imply the move itself failed.
+    fn plugin_dock_relocate(&mut self, inst: ViewInstanceId, to: WindowId) {
+        let Some(dock) = self.ui.plugin_docks.get_mut(&inst) else {
+            return;
+        };
+        let host = self.ui.plugin_editor_host.as_deref_mut();
+        let sessions = &mut self.ui.plugin_sessions;
+        if let Err(e) = dock.relocate(sessions, host, to) {
+            tracing::warn!(view = inst.get(), error = %e, "plugin dock re-parent failed");
+            let status = plugin_dock_status_json(dock, sessions);
+            self.push_notify(
+                "syn.plugin_dock.state",
+                json!({ "relocate": "failed", "detail": e.to_string(), "panel": status }),
+            );
+        }
+    }
+
+    /// Detach hook — the slot's reserved region is unmounted: hide
+    /// the surface + session. A session refusal is notify-honest (the
+    /// detach itself already landed).
+    fn plugin_dock_notify_detached(&mut self, inst: ViewInstanceId) {
+        let Some(dock) = self.ui.plugin_docks.get_mut(&inst) else {
+            return;
+        };
+        let host = self.ui.plugin_editor_host.as_deref_mut();
+        let sessions = &mut self.ui.plugin_sessions;
+        if let Err(e) = dock.notify_detached(sessions, host) {
+            tracing::warn!(view = inst.get(), error = %e, "plugin dock detach-hide failed");
+            let status = plugin_dock_status_json(dock, sessions);
+            self.push_notify(
+                "syn.plugin_dock.state",
+                json!({ "detach": "failed", "detail": e.to_string(), "panel": status }),
+            );
+        }
     }
 
     /// `syn.window.lifecycle` — internal forwarding from
@@ -4259,6 +4843,17 @@ impl SynvelisApp {
                     "detail": "window destroyed",
                 }),
             );
+        }
+        // SV176: PluginDock panels on the destroyed window lose their
+        // slot's parent before view teardown — live sessions converge
+        // `Terminated{WindowLost}` (the DSP instance survives) and the
+        // lease is revoked with the slot.
+        for view in &views {
+            if let Some(inst) = parse_view_instance(view)
+                && let Some(dock) = self.ui.plugin_docks.get_mut(&inst)
+            {
+                dock.notify_window_lost(&mut self.ui.plugin_sessions);
+            }
         }
         // Per-view UI teardown under the applied disposition —
         // the same ops an explicit `syn.view.detach`/`close`
