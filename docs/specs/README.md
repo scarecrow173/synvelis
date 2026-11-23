@@ -249,3 +249,4 @@ Directory: `docs/specs`
 | SPEC-034YnF7HCn1ybs61M9xuu5 | Issue #488 lint-app-native clippy::large_enum_variant 是正 | implemented | [sv488-lint-app-native.md](./sv488-lint-app-native.md) |
 | SPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 slice (synvelis#126) | implemented | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | SPEC-571ProcessorBindingStale02 | Issue #571 spec — SetProcessorBinding rebind で SemanticPort.binding を再導出する修正 | implemented | [issue-571-processor-binding-stale.md](./issue-571-processor-binding-stale.md) |
+| SPEC-3kN7dP2fV9wX5tB8mQ6yHjNc | SV-GPUI-02 headless PluginDock panel — driver-neutral 製品 ViewSpec/Command + 4-ID session/slot 状態機械 (synvelis#176) | approved | [sv-gpui-02-plugin-dock-headless-panel.md](./sv-gpui-02-plugin-dock-headless-panel.md) |

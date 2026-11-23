@@ -507,3 +507,4 @@ Directory: `docs/test-specs`
 | TSPEC-vcs05-apply-restore-fixtures | VCS-05 apply/restore fixtures | approved | [vcs-05-apply-restore-fixtures.md](./vcs-05-apply-restore-fixtures.md) |
 | TSPEC-PCc4030bs3vN1pQ8wXyZ2aF | PC-C4-03 param observation — drain→ledger・gate・typed 終端 test 保証 | approved | [pc-c4-03-param-observation.md](./pc-c4-03-param-observation.md) |
 | TSPEC-571ProcessorBindingStale03 | Issue #571 test-spec — rebind port stamp 再導出と UnresolvedPort 拒否 parity の検証仕様 | approved | [issue-571-processor-binding-stale.md](./issue-571-processor-binding-stale.md) |
+| TSPEC-3kN7eQ3gW0xY6uC9nR7zKjPd | SV-GPUI-02 headless PluginDock panel テスト仕様 — 4-ID 状態機械 + syn.plugin_dock.* op (synvelis#176) | approved | [sv-gpui-02-plugin-dock-headless-panel.md](./sv-gpui-02-plugin-dock-headless-panel.md) |
