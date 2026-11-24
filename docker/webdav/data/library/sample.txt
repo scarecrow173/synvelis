@@ -1,0 +1,4 @@
+Synvelis WebDAV docker fixture — sample payload.
+The bytes are arbitrary: the provider contract cares about PROPFIND,
+strong ETag, If-Match, and Range, not media content.
+0123456789abcdefghijklmnopqrstuvwxyz

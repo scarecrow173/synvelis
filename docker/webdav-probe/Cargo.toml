@@ -1,0 +1,15 @@
+[package]
+name = "synvelis-webdav-probe"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+publish = false
+
+# root workspace（../../Cargo.toml）の members は crates/* に限定されており、
+# この crate を別 workspace として宣言しないと「workspace に属さない」
+# エラーになる。docker/ 配下で自己完結させるため独自に [workspace] を置く。
+[workspace]
+
+[dependencies]
+synvelis-library = { path = "../../crates/synvelis-library" }
+base64 = "0.22"

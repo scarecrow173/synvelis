@@ -1,0 +1,81 @@
+=== 1. docker compose config -q ===
+[verify] PASS compose config -q (exit 0)
+=== 2. up -d --build ===
+ Image synvelis-webdav-httpd:local Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 608B 0.0s done
+#1 DONE 0.0s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 1.04kB done
+#2 DONE 0.0s
+
+#3 [internal] load metadata for docker.io/library/httpd:2.4.71-alpine
+#3 DONE 0.4s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B done
+#4 DONE 0.1s
+
+#5 [1/3] FROM docker.io/library/httpd:2.4.71-alpine@sha256:32bd0639bcc4917ef1fd9363a1d9dd2dd9c498565118b062a10d51e43a5c3a24
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 62B done
+#6 DONE 0.1s
+
+#7 [2/3] RUN sed -i       -e 's/^#LoadModule ssl_module /LoadModule ssl_module /'       -e 's/^#LoadModule socache_shmcb_module /LoadModule socache_shmcb_module /'       -e 's/^#LoadModule dav_module /LoadModule dav_module /'       -e 's/^#LoadModule dav_fs_module /LoadModule dav_fs_module /'       -e 's/^#LoadModule dav_lock_module /LoadModule dav_lock_module /'       /usr/local/apache2/conf/httpd.conf     && printf '\nInclude conf/extra/webdav.conf\n'       >> /usr/local/apache2/conf/httpd.conf     && mkdir -p /var/dav-lock     && chown www-data:www-data /var/dav-lock
+#7 CACHED
+
+#8 [3/3] COPY conf/webdav.conf /usr/local/apache2/conf/extra/webdav.conf
+#8 CACHED
+
+#9 exporting to image
+#9 exporting layers done
+#9 writing image sha256:7a475a3f93e842c9ac235fb6e273173294827bb28b721da34b276e681b45848e 0.0s done
+#9 naming to docker.io/library/synvelis-webdav-httpd:local 0.0s done
+#9 DONE 0.1s
+
+#10 resolving provenance for metadata file
+#10 DONE 0.0s
+ Image synvelis-webdav-httpd:local Built
+ Container synvelis-webdav-webdav-1 Running
+ Container synvelis-webdav-certgen-1 Starting
+ Container synvelis-webdav-certgen-1 Started
+ Container synvelis-webdav-certgen-1 Waiting
+ Container synvelis-webdav-certgen-1 Exited
+=== 3. curl contract checks（補助証拠） ===
+[verify] PASS unauthenticated PROPFIND is 401 (401)
+[verify] PASS PROPFIND Depth:1 (207)
+[verify] PASS multistatus carries getetag
+[verify] GET ETag: "d6-66108c0e124a2"
+[verify] PASS strong ETag on GET
+[verify] PASS If-Match bogus validator (412)
+[verify] PASS If-Match pinned validator (200)
+[verify] PASS Range bytes=0-4 (206)
+=== 4. webdav-probe（実 WebDavProvider） ===
+[probe] url=https://localhost:8443 root=/library ca=docker/webdav/certs/ca.crt
+[probe] capabilities: browse=Supported stat=Supported pin=ConditionalStrong range_read=Supported preview=Supported access=ReadOnly
+[probe] browse root: 2 entries coverage=Complete
+[probe]   Container nested (/library/nested)
+[probe]   Asset sample.txt (/library/sample.txt)
+[probe] stat /library/sample.txt: availability=Available byte_len=Observed { value: 214, origin: Provider, at: ObservedAt(SystemTime { intervals: 134400143222900278 }) }
+[probe] pin: validator="d6-66108c0e124a2" precondition=IfMatch expected_size=Some(214)
+[probe] open_pinned: 214 bytes read, verified=false policy=IdentityBound { scheme: "webdav-etag-if-match" }
+[probe] open_preview range 0..16: 16 bytes
+[probe] bad credential rejected: kind=AuthExpired
+[probe] foreign CA rejected: kind=TlsVerification
+PROBE PASS
+mbx[savings]: 493.7 GiB shared among checkouts that each believe they are an only child.
+=== 5. down ===
+ Container synvelis-webdav-webdav-1 Stopping
+ Container synvelis-webdav-webdav-1 Stopped
+ Container synvelis-webdav-webdav-1 Removing
+ Container synvelis-webdav-webdav-1 Removed
+ Container synvelis-webdav-certgen-1 Stopping
+ Container synvelis-webdav-certgen-1 Stopped
+ Container synvelis-webdav-certgen-1 Removing
+ Container synvelis-webdav-certgen-1 Removed
+ Network synvelis-webdav_default Removing
+ Network synvelis-webdav_default Removed
+[verify] verdict=PASS
