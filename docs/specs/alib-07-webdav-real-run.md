@@ -83,7 +83,7 @@ probe は browse（Root scope）→ stat → pin → open_pinned → open_previe
 
 ## 制約と既知事項
 
-- `docker/webdav/conf/webdav.conf` は `DirectorySlash Off` を指定している。provider が redirect 解決で trailing slash を落として 301 ping-pong になる不具合（`crates/` 側・`scarecrow173/synvelis#634` で起票）への環境側 workaround であり、`On` に戻すと再現する。provider 修正後は `On` での再検証が望ましい。
+- `docker/webdav/conf/webdav.conf` は `DirectorySlash Off` を指定している。provider が redirect 解決で trailing slash を落として 301 ping-pong になる不具合（`crates/` 側）への環境側 workaround である。provider 側は `scarecrow173/synvelis#634` で修正済み — stock mod_dir（`DirectorySlash On`、slashless PROPFIND に `301 → /library/` を返す構成）で `evidence/sv634/` の compose override（vhost conf の bind mount 差し替え）を使った再検証を実施し、修正前は `PROBE FAIL: TransientIo: too many redirects`、修正後は `PROBE PASS` を観測した。tracked conf の workaround を恒久的に外す判断は別 Issue/Coordinator の責務であり、本ファイルの手順は現行の `Off` 構成を正本とする。
 - fixture は read-only のため、PUT/DELETE/LOCK・weak ETag の注入（Apache の `FileETag` 調整で可能だが本環境では未配線）・権限別 403 は環境の現構成では扱わない。これらは実走記録では `NotRun` とする。
 - Windows 版 curl（schannel）は私有 CA の revocation check で失敗するため、スクリプト内の curl は全て `--ssl-no-revoke` 付きである（他プラットフォームでは無害）。
 - 生成物（`docker/webdav/certs/`・`docker/.env`・probe の `target/`）は gitignore 済みであり、実値・秘密鍵はコミットしない。
