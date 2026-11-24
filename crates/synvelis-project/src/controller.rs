@@ -86,6 +86,30 @@ impl ProjectController {
         }
     }
 
+    /// Creates a controller over `project` already positioned at
+    /// `revision` — the mirror counterpart of [`Self::new`] for
+    /// dry-run controllers that must answer [`Self::live_revision`]
+    /// with the CAS position of the live controller they shadow
+    /// (e.g. a job-thread import dry run seeded from the session's
+    /// live project). Undo/redo history and `saved` start empty,
+    /// exactly as `new` — the asserted revision is trusted, never
+    /// derived.
+    #[must_use]
+    pub fn new_at_revision(
+        project: Project,
+        revision: ProjectRevision,
+        generator: Box<dyn IdGenerator>,
+    ) -> Self {
+        Self {
+            live: project,
+            live_revision: revision.0,
+            generator,
+            undo: Vec::new(),
+            redo: Vec::new(),
+            saved: None,
+        }
+    }
+
     /// The live project (read-only).
     #[must_use]
     pub fn live(&self) -> &Project {

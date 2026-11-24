@@ -7,8 +7,10 @@
 //! project/session source of truth.
 //!
 //! Op names live under `syn.*` — `sys.*` is reserved to the runtime.
-//! Every op returns [`CallOutcome::Result`]; long-running work (none in
-//! SV-GUI-01) would use [`CallOutcome::Job`].
+//! Every op returns [`CallOutcome::Result`] except the job-shaped
+//! `syn.library.action` variants (ALIB-05: `preview.fetch`,
+//! `import.submit`, `import.retry`) which return [`CallOutcome::Job`]
+//! so ruviform owns the worker thread and `job` lifecycle events.
 
 use serde_json::{Value, json};
 
@@ -118,7 +120,11 @@ pub const OPS: &[OpInfo] = &[
     },
     OpInfo {
         name: "syn.library.action",
-        summary: "one LibraryAction — provider.select|browse.*|search.*|entry.*|preview.*|import.*|drag.*",
+        summary: "one LibraryAction — provider.select|browse.*|search.*|entry.*|preview.*|import.*|drag.* — preview.fetch/import.submit/import.retry return CallOutcome::Job",
+    },
+    OpInfo {
+        name: "syn.library.jobs",
+        summary: "app-owned job ledger — cross-view projection of preview/import jobs {jobs:[{job_key,kind,state,stage,progress,terminal,...}]} (job_key? filter)",
     },
     OpInfo {
         name: "syn.autx.visual",
@@ -471,6 +477,7 @@ impl AppService {
             "syn.library.visual" => self.app.op_library_visual(params),
             "syn.library.view" => self.app.op_library_view(params),
             "syn.library.action" => self.app.op_library_action(params),
+            "syn.library.jobs" => self.app.op_library_jobs(params),
             "syn.autx.visual" | "syn.autx.catalog" | "syn.autx.action" => {
                 self.dispatch_autx(op, params)
             }
@@ -656,12 +663,21 @@ impl Service for AppService {
         // carry the op name only — params/bodies may contain paths.
         tracing::debug!(op, "syn op received");
         self.app.observability().record_intent();
-        let result = self.dispatch(op, params);
+        // `syn.library.action` is job-capable (ALIB-05): job-shaped
+        // actions (preview.fetch/import.submit/import.retry) return
+        // `CallOutcome::Job` so the runtime owns the worker thread and
+        // emits `job` lifecycle events; the app-owned ledger keeps the
+        // typed terminal either way.
+        let result = if op == "syn.library.action" {
+            self.app.library_action_call(params)
+        } else {
+            self.dispatch(op, params).map(CallOutcome::Result)
+        };
         if let Err(error) = &result {
             self.app.observability().record_intent_error();
             tracing::warn!(op, code = %error.code, "syn op failed");
         }
         self.app.publish_project_length();
-        result.map(CallOutcome::Result)
+        result
     }
 }

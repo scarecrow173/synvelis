@@ -203,3 +203,57 @@ headless 検証の Pass を実 GUI 受入（#114）に昇格しない。
   参照）。
 - 実 OS window・GPU・IME・focus・keyboard — synvelis#114
   へ deferred のまま。
+
+## ALIB-05 import jobs lane（2026-11-25 追記）
+
+`preview.fetch`/`import.submit`/`import.retry` を service
+thread の同期実行から job 化した slice。`Service::call` 経路は
+`CallOutcome::Job`（ruviform が worker thread と `job`
+lifecycle event を所有）、直接 `op_library_action` 経路は app
+spawn の worker thread（`DirectJobDrive`）で同じ
+`run_plan_job` 本体を実行する。app 所有の
+`syn.library.jobs` ledger が cross-view の進行・cancel・
+typed terminal を投影し、import の commit は worker 上の
+dry-run scratch `ProjectController` が manifest `Published`+
+で `pending_commit` に park した後、service thread の
+`reconcile_jobs` が本物の controller で replay する
+job/commit split。`import.cancel` action が shared cancel
+token 経由の cooperative cancel を提供する。
+`library_browser.rs` 24 test（既存 16 の job-drain 追随 +
+job lane 8 test）・`library_native_mount.rs` 8 test に写像。
+
+**実 OS window・実 provider/network/credential・v5 real-data
+import・process 再起動越しの job recovery は一切実行して
+いない。** headless の Pass をそれらに昇格しない。
+
+### 受入行 → 証拠写像（jobs lane）
+
+| 受入行 | 要件 | 証拠（test） | 判定 |
+| --- | --- | --- | --- |
+| job ack・ledger wire 形 | job action は即座に `{job_key,queued:true}` ack、`syn.library.jobs` が `{job_key,kind,view,import_id,state,stage,progress,cancel_requested,pending_commit,runtime_job,epoch,terminal{kind:…}}` を verbatim 投影 | `job_ack_and_ledger_wire_shape` | Pass-measured (headless) |
+| `CallOutcome::Job` runtime lane | `Service::call` 経路は ruviform job lane（`{job,label}` ack・`Event::Job`・`job.cancel` 対応）、direct op 経路は app thread で同一 body・同一 ledger | `job_actions_run_through_runtime_job_lane`（`CallOutcome::Job` ack・`rt.poll` の `Event::Job{Finished}`・`syn.library.jobs` reconcile → `committed-live`） | Pass-measured (headless) |
+| in-flight dedup | 同一 `ImportId`/key の resubmit は double-register せず `in-flight` — どの view からでも 1 ImportId = 1 job | `import_submit_dedups_in_flight` | Pass-measured (headless) |
+| mid-flight cancel → retry | `import.cancel` が shared token を立て worker が協調 cancel、`Cancelled{resumable,stage}` terminal → `import.retry` が commit を完遂 | `import_cancel_mid_flight_then_retry_recovers` | Pass-measured (headless) |
+| cross-view cancel | 別 view から `import_id`/`job_key` addressing で cancel が届く（job は view を跨ぐ） | `import_cancel_is_cross_view` | Pass-measured (headless) |
+| typed recoverable | publish 失敗は `Recoverable{reason,stage,detail}` — durable manifest が stage に残り resubmit/retry が redo なしに収束 | `import_publish_failure_is_recoverable_and_resumes` | Pass-measured (headless) |
+| view 非依存 | spawning view を close しても ledger entry・terminal receipt が残り他 view から観測可能 | `view_close_leaves_job_in_ledger` | Pass-measured (headless) |
+| preview cooperative cancel | preview fetch job が chunk 境界で cancel token を観測し `Cancelled` terminal に落ちる | `preview_fetch_job_cancels_cooperatively` | Pass-measured (headless) |
+| job/commit split 正しさ | worker は scratch controller 上で `import_verified` を dry-run、commit replay は service thread — stale-revision CAS が live revision 起点で正しく判定される | `import_stale_revision_rebase_retry_recovers`（`new_at_revision` fix の regression 検出 test — scratch が revision 0 起点だと stale-fail する事案を修正済み）、`import_commits_live_and_replays_idempotently`（`reused` flag は replay 側の `applied_replay` が mint） | Pass-measured (headless) |
+| provider fault parity | provider 由来 terminal reason は `state.fault` に typed 着地（同期経路と同じ `ProviderErrorKind` tag） | `import_without_backend_or_fetch_is_typed`（`unsupported-capability` fault） | Pass-measured (headless) |
+| op surface | `syn.library.jobs` が `sys.capabilities` に登録・dispatch される | `ops_registered_and_dispatch_through_runtime` | Pass-measured (headless) |
+
+### 既知の未カバー（jobs lane・正直記録）
+
+- ledger は app in-memory の `Arc<Mutex<LibraryJobLedger>>` —
+  process 再起動越し・cross-session の job recovery は
+  実行していない（durable manifest の stage 回復は
+  `Recoverable`/`import.retry` が担う）。
+- `mise run fmt`（`cargo fmt --all`）は引き続き
+  `os error 206` で実行不能（環境制約・本 change set
+  無関係）— 全 15 member package 個別の `cargo fmt -p
+  <pkg> -- --check` で準拠確認済み。
+- runtime `job.cancel` dispatch 経路は token 共有済みだが
+  `import.cancel` action からの cancel のみ計測 — 汎用
+  `job.cancel` wire からの cancel は未検証。
+- 実 OS window・実 provider・v5 real-data — #114/#91/#86
+  へ deferred のまま。

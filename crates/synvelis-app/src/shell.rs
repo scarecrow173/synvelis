@@ -509,6 +509,14 @@ impl NativeShell {
     /// check happen in [`handle`] for every event, ticks included.
     fn on_tick(&mut self, driver: &mut dyn WindowDriver) {
         for re in self.rt.drain_jobs_routed() {
+            // ALIB-05: a library job's progress/terminal event means the
+            // ledger moved without an op dispatch — mark the mounted
+            // library spec dirty so the next update re-reads it (the
+            // read reconciles pending commits before projecting, so the
+            // spec never shows a job the project has not committed).
+            if matches!(&re.event, Event::Job { .. }) {
+                self.library_dirty = true;
+            }
             self.post_routed(&re, driver);
         }
         self.clock

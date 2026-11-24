@@ -4,7 +4,7 @@ type: "test-spec"
 status: "draft"
 title: "ALIB-05 Browser/Import UX headless view-model + syn.library.* ops + driver-neutral ViewSpec（synvelis#89 ALIB-UX-H slice）"
 created: "2026-11-15"
-updated: "2026-11-24"
+updated: "2026-11-25"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -29,6 +29,7 @@ relations:
     - "docs/impl/ir/cb-09-diff-explorer.md"
     - "docs/impl/exp/cb-09-diff-explorer.md"
     - "docs/impl/ir/alib-05-native-mount.md"
+    - "docs/impl/ir/alib-05-import-jobs.md"
   refines: []
   refined-by: []
   derives-from:
@@ -428,3 +429,105 @@ mount 経路がそのまま載せられる」ことを検証する。
 - `syn.library.jobs`・`import.cancel` action・
   `CallOutcome::Job` 化 — 上記 Non-goals の通り別 slice。
 - Git/network/credential provider の mount — #90/#91 領域。
+
+## ALIB-05 import jobs lane（2026-11-25 追記 / synvelis#89 ALIB-UX-H 続 slice）
+
+`preview.fetch`/`import.submit`/`import.retry` を service thread の
+同期 op から `CallOutcome::Job` 化し、app 所有の `syn.library.jobs`
+ledger が cross-view の進行・cancel・typed terminal を投影する
+slice。job は project を書かない — commit は service thread 上の
+reconcile に委ねる job/commit split を headless に固定する。
+
+### Rules（jobs lane）
+
+- Rule: job action は即座に job ack を返し、worker を service
+  thread から切り離す。`Service::call` 経路では
+  `CallOutcome::Job`（ruviform が worker thread・`job` 系
+  event・`job.cancel` ルーティングを所有）を返し、直接
+  `op_library_action` 経路では app が spawn した thread で同じ
+  `run_plan_job` 本体を走らせ `{job_key, queued:true}` を ack する。
+  どちらの経路でも terminal は同一の app 所有 ledger に着地する。
+- Rule: `syn.library.jobs` ledger が cross-view の唯一の進行元。
+  key は `import:<tagged-import-id>` / `preview:<view-instance>` —
+  同一 key の live job がある resubmit は `in-flight` を答え
+  double-register しない（一つの `ImportId` はどの view からでも
+  一つの job）。entry は `state`（`queued`/`running`/
+  `cancel-requested`/`done`）・`stage`・`progress{done,total,
+  detail}`・`cancel_requested`・`pending_commit`・`epoch`・
+  `terminal` を verbatim で wire に投影する。
+- Rule: worker は project を書かない — job/commit split。import
+  job は dry-run scratch `ProjectController`（`new_at_revision`
+  で live revision 起点・`JOB_ID_BAND` の id band を live
+  generator から切り出し）上で `import_verified` を走らせ、
+  manifest が published に達した時点で `pending_commit` に
+  park する。`op_library_view`/`op_library_action`/
+  `syn.library.jobs` の各 read 経路が先ず `reconcile_jobs` を
+  実行し、parked commit を本物の controller で replay してから
+  投影を返す — ledger が project の見ていない commit を報告
+  しない。
+- Rule: job terminal は typed のまま潰れない — `committed-live`
+  （receipt 全部・`reused` flag 付き）/`already-applied`/
+  `cancelled{resumable,stage}`/`failed{reason,detail}`/
+  `recoverable{reason,stage,detail}`（durable manifest が stage に
+  残り `import.retry`/resubmit が完遂する）/`stale-revision
+  {expected,actual}`/`preview-ready`/`preview-plan`。
+  provider 由来の terminal reason は `provider_kind_from_tag` で
+  `state.fault` にも typed 着地し、同期経路の fault と区別が
+  つかない。
+- Rule: `import.cancel` は cooperative かつ cross-view —
+  `import_id`（`import:<id>` key に解決）または `job_key` で
+  addressing し、共有 cancel token を立てる。worker と publish
+  stage が境界ごとに token を見て協調的に落ちる。応答は
+  `cancel-requested`/`terminal`/`unknown-job`。
+- Rule: view close は job を殺さない — ledger entry の `view` は
+  terminal の materialize 先に過ぎず、spawning view が閉じても
+  receipt は ledger に残り、他 view からの `syn.library.jobs`
+  read で観測できる。key 再利用時は `epoch` が進み stale
+  observation と新 run を混同しない。
+- Rule: runtime 経路では `job` event が shell の library-dirty
+  mark を立て、run loop / uitest adapter（同一 handle・同一
+  semantics）が `syn.library.view` を再読みして spec が変わった
+  ときのみ push する — mount lane の refresh 契約が job 由来の
+  変更にもそのまま効く。
+
+### Examples（jobs lane、headless）
+
+- `job_ack_and_ledger_wire_shape` — `import.submit` の ack が
+  `{job_key, queued:true}`、`syn.library.jobs` が
+  `{job_key,kind,view,import_id,state,stage,cancel_requested,
+  pending_commit,epoch,terminal}` の wire entry を返す。
+- `import_submit_dedups_in_flight` — gate で止めた in-flight
+  job への再 submit が `in-flight` を返し ledger の entry 数が
+  増えない。
+- `import_cancel_mid_flight_then_retry_recovers` — publish 手前で
+  park した job へ `import.cancel` → typed `cancelled` →
+  `import.retry` が commit を完遂。
+- `import_publish_failure_is_recoverable_and_resumes` — fail-once
+  publisher で `Recoverable{stage}` terminal に落ち、再 submit
+  で done `committed-live` まで収束（stage をやり直さない）。
+- `import_cancel_is_cross_view` — 別 view から `job_key`/
+  `import_id` addressing で cancel が届く。
+- `view_close_leaves_job_in_ledger` — spawning view を閉じても
+  ledger entry が残り terminal が投影される。
+- `preview_fetch_job_cancels_cooperatively` — gated reader の
+  mid-read で cancel token を観測し `cancelled` terminal へ。
+- `job_actions_run_through_runtime_job_lane` — `Service::call`
+  経路の `CallOutcome::Job` ack `{job,label}`・`rt.poll` の
+  `Event::Job{Finished}`・その後の `syn.library.jobs` reconcile
+  が `committed-live` に着地する runtime lane。
+- `import_submits_through_real_import_ports`（native mount lane）
+  — 実 import ports 経由でも job 化経路で `committed-live`
+  receipt に到達する。
+
+### Non-goals（jobs lane・deferred 継続）
+
+- job ledger の永続化・process 再起動越しの recovery — 現状は
+  app in-memory の `Arc<Mutex<LibraryJobLedger>>`。cross-session
+  recovery は別 slice。
+- runtime `job.cancel` op wire（`job.cancel` dispatch 経路その
+  もの）— `import.cancel` action と token 共有済みだが、汎用
+  `job.cancel` → library cancel への言及は runtime 契約側の
+  責務。
+- preview byte の `LibraryCache` 経由・verified 化 — ALIB-03/
+  #87 領域。job の `PreviewReady` は引き続き unverified
+  observation。

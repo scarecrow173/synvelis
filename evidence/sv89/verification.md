@@ -193,3 +193,106 @@ push。HEADLESS ONLY — 実 OS window/GUI（#114）は対象外。
   `SYNVELIS_ASSET_LIBRARY` は dev 向け env gate —
   未設定時は backend unbound のまま typed `unavailable`
   fault を返し、session は継続する（fail-closed・殺さない）。
+
+## ALIB-05 import jobs lane（2026-11-25、追記）
+
+Slice: `preview.fetch`/`import.submit`/`import.retry` を
+service-thread 同期実行から job 化。`Service::call` 経路は
+`CallOutcome::Job`（ruviform job lane）、直接 `op_library_action`
+経路は app spawn の worker thread（`DirectJobDrive`）で同一
+`run_plan_job` 本体を実行。app 所有 `syn.library.jobs` ledger
+（`LibraryViews.jobs`・`Arc<Mutex<LibraryJobLedger>>`）が
+cross-view の進行・cancel・typed terminal を投影し、import
+commit は scratch `ProjectController` 上の dry-run →
+`pending_commit` park → service thread `reconcile_jobs`
+replay の job/commit split。`import.cancel` action が
+`import_id`/`job_key` addressing の cooperative cancel。
+HEADLESS ONLY — 実 OS window（#114）・実 provider（#91）・
+v5 real-data（#86）・process 再起動越し recovery は対象外。
+
+### Environment
+
+|| Field | Value |
+|| --- | --- |
+|| Synvelis commit | `227df937f9b2aa8fbde471e260cb6f256ba3d952`（branch `scarecrow173/sv89-alib05-import-jobs` base = origin/main HEAD）+ this change set（uncommitted） |
+|| OS | Windows (win32), NTFS |
+|| Toolchain | rustc 1.99.1（mise managed; CI pin 1.99.0 in mise.ci.toml） |
+|| Cargo.lock Ruviform SHA | `20dc41f71c47674b3e51d1eb0921124b94f8bfaf`（変更なし） |
+|| Provider / Import ports | scripted in-memory `FakeProvider` + `Gate`/`GatedReader`/`GatePublisher`/`FailOncePublisher` gate fixture（`tests/common/library.rs`）・temp-dir `ImportStore` + `LocalBlobDir` + `StagedBlobPublisher`。network/credential/実データ不使用 |
+
+### Commands run (canonical = mise)
+
+|| Command | Exit | Result |
+|| --- | --- | --- |
+|| `mise run fmt` | fail | **`cargo fmt --all` が `os error 206` で失敗**（既知の Windows コマンド長制限・mount lane と同一の環境制約で base commit でも同一） |
+|| `cargo fmt -p <全 15 member> -- --check` | 0 | pass — workspace 全 15 package を個別 `--check` で rustfmt 準拠確認（`synvelis-theme`/`project`/`library`/`recording`/`recording-poc`/`player`/`render`/`workspace`/`gateway`/`automation`/`script`/`script-luau`/`cli`/`mcp-poc`/`app`） |
+|| `mise run check synvelis-workspace` | 0 | pass |
+|| `mise run check synvelis-app` | 0 | pass |
+|| `mise run check synvelis-project` | 0 | pass |
+|| `mise run lint synvelis-workspace` | 0 | pass — `-D warnings` で warning 0（`needless_pass_by_value`/`collapsible_if`/`too_many_lines`/`large_enum_variant`/`doc_markdown`/`used_underscore_binding` 等を修正・`Box<LibraryJobPlan>` 化） |
+|| `mise run lint synvelis-app` | 0 | pass — `-D warnings` で warning 0 |
+|| `mise run lint synvelis-project` | 0 | pass — `-D warnings` で warning 0 |
+|| `mise run test synvelis-workspace` | 0 | pass — 全 suite green（`library_ui` unit test 含む） |
+|| `mise run test synvelis-app` | 0 | pass — 全 suite green。`library_browser` 24/24（job lane 8 test 含む）・`library_native_mount` 8/8 |
+|| `mise run test synvelis-project` | 0 | pass — 全 suite green（`new_at_revision` 含む） |
+|| `mise run test-rt` | 0 | pass — `cargo test --workspace --locked rt_` 全 green |
+|| `mise run check-headless-deps` | 0 | pass — "no GUI framework deps in 12 headless crates" |
+|| `mise run check-app-native` | 0 | pass（`cargo check -p synvelis-app --features native --all-targets`。`proc-macro-error2 v2.0.1` future-incompat は既存依存由来） |
+|| `mise run lint-app-native` | 0 | pass |
+|| `mise run build-app-native` | 0 | pass — `synvelis-native` binary link 成功 |
+|| `mise run check-app-uitest` | 0 | pass（`--features uitest`） |
+|| `mise run lint-app-uitest` | 0 | pass |
+|| `mise run test-app-uitest` | 0 | pass — `library_browser` 24/24・`library_native_mount` 9/9（uitest-gated `uitest_adapter_pushes_refreshed_library_spec` 含む） |
+|| `mise exec -- prek run --all-files` | 0 | pass — 全 hook green |
+
+### Job lane test 写像（library_browser 24 test）
+
+既存 16 test は action 後に `wait_job`/`wait_stage` で job
+drain を行う形に追随。新規 8 test が job lane を固定:
+
+- `job_ack_and_ledger_wire_shape` — `{job_key,queued:true}`
+  ack と `syn.library.jobs` wire entry の verbatim 投影。
+- `import_submit_dedups_in_flight` — live key の resubmit は
+  `in-flight`（1 ImportId = 1 job・cross-view）。
+- `import_cancel_mid_flight_then_retry_recovers` — publish
+  手前で `GatePublisher` park → `import.cancel` → typed
+  `Cancelled` → `import.retry` で commit 完遂。
+- `import_publish_failure_is_recoverable_and_resumes` —
+  `FailOncePublisher` で `Recoverable{stage}` terminal →
+  resubmit で `committed-live` まで収束。
+- `import_cancel_is_cross_view` — 別 view からの
+  `import_id`/`job_key` addressing cancel。
+- `view_close_leaves_job_in_ledger` — view close 後も
+  ledger entry・terminal receipt が残る。
+- `preview_fetch_job_cancels_cooperatively` — `GatedReader`
+  mid-read で cancel token 観測 → `Cancelled`。
+- `job_actions_run_through_runtime_job_lane` —
+  `Service::call` の `CallOutcome::Job` ack `{job,label}`・
+  `rt.poll` の `Event::Job{Finished}`・reconcile が
+  `committed-live` に着地する runtime lane。
+
+### NotRun（本 slice・正直記録）
+
+- `mise run fmt`（`cargo fmt --all`）— `os error 206` で実行
+  不能（Windows コマンド長制限・base commit でも同一の
+  環境制約）。代替として全 15 package 個別の `cargo fmt
+  -p <pkg> -- --check` で準拠確認済み。
+- ledger の永続化・process 再起動越しの job recovery —
+  in-memory ledger のみ、durable manifest 側の stage
+  recovery（`Recoverable`/`import.retry`）は計測済み。
+- 汎用 runtime `job.cancel` wire からの cancel —
+  `import.cancel` action の shared token 経路のみ計測。
+- 実 OS window・実 provider/network/credential・v5
+  real-data — #114/#91/#86 deferred。
+
+### Known limitation（本 slice・正直記録）
+
+- commit は `reconcile_jobs` が read 経路（
+  `op_library_view`/`op_library_action`/`syn.library.jobs`）
+  で行う lazy 設計 — parked commit はいずれかの read で
+  着地するまで project に反映されない。worker からの即時
+  commit push 経路は存在しない（service thread 所有権を
+  守るための意図的設計）。
+- direct `op_library_action` 経路は `DirectJobDrive` で
+  progress event を発行しない — progress は ledger
+  projection（`stage`/`progress`）経由でのみ観測可能。
