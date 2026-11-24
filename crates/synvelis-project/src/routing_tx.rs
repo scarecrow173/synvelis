@@ -517,10 +517,25 @@ pub struct RoutingReceipt {
 // ---------------------------------------------------------------------------
 
 /// The port/processor capability generation an intent is authored
-/// against: a fingerprint of every resolved plugin binding
-/// (`ProcessorBinding::Resolved` and `PluginDeclared` port bindings)
-/// *inside the project model*. Any reconfigure or rebind changes it,
-/// so an intent authored against the previous view rejects.
+/// against: a fingerprint of every plugin-identity-bearing binding
+/// *inside the project model* — `ProcessorBinding::Resolved`
+/// (`descriptor` + `version` + `capability_revision`),
+/// `ProcessorBinding::Unresolved` (the last-known `descriptor`),
+/// `PortBinding::PluginDeclared` (`plugin` + `advertised` +
+/// `capability_revision`), and `PortBinding::Unresolved` (the
+/// last-known `plugin` + `advertised`). Any reconfigure or rebind
+/// changes it — including a same-`capability_revision` rebind to a
+/// different plugin identity — so an intent authored against the
+/// previous view rejects. `Internal` ports carry no plugin stamp and
+/// do not contribute; a project with no plugin bindings has
+/// generation 0.
+///
+/// Deterministic across processes and save→load: FNV-1a 64 over the
+/// bindings in stable `BTreeMap` key order — the same scheme
+/// `routing_fingerprint` uses. synvelis#572: the fingerprint is a
+/// *change detector*, not a cryptographic identity — collisions are
+/// possible in principle, and any mismatch fails safe toward
+/// `StalePortCapability`.
 ///
 /// This is the project-side half of the capability pin only —
 /// processor-host state (boundary/catalog/factory registrations)
@@ -528,28 +543,63 @@ pub struct RoutingReceipt {
 /// engine's build/publish/reconcile gates (SF-03 slice 9).
 #[must_use]
 pub fn port_capability_generation(project: &Project) -> u64 {
-    let processors: u64 = project
-        .routing
-        .processors
-        .values()
-        .map(|p| match &p.binding {
-            ProcessorBinding::Resolved(reference) => reference.capability_revision,
-            ProcessorBinding::Unresolved { .. } => 0,
-        })
-        .fold(0u64, u64::saturating_add);
-    let ports: u64 = project
-        .routing
-        .ports
-        .values()
-        .map(|p| match &p.binding {
+    const FNV1A64_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const FNV1A64_PRIME: u64 = 0x0000_0100_0000_01b3;
+
+    fn feed(hash: &mut u64, bytes: &[u8]) {
+        for &byte in bytes {
+            *hash ^= u64::from(byte);
+            *hash = hash.wrapping_mul(FNV1A64_PRIME);
+        }
+    }
+
+    // Length-prefixed so adjacent fields cannot smear into each other
+    // ("ab"+"c" vs "a"+"bc").
+    fn feed_str(hash: &mut u64, s: &str) {
+        feed(hash, &(s.len() as u64).to_le_bytes());
+        feed(hash, s.as_bytes());
+    }
+
+    let mut hash = FNV1A64_OFFSET;
+    let mut fed = false;
+    for processor in project.routing.processors.values() {
+        match &processor.binding {
+            ProcessorBinding::Resolved(reference) => {
+                feed(&mut hash, &[0x01]);
+                feed_str(&mut hash, &reference.descriptor);
+                feed_str(&mut hash, &reference.version);
+                feed(&mut hash, &reference.capability_revision.to_le_bytes());
+            }
+            ProcessorBinding::Unresolved { descriptor } => {
+                feed(&mut hash, &[0x02]);
+                feed_str(&mut hash, descriptor);
+            }
+        }
+        fed = true;
+    }
+    for port in project.routing.ports.values() {
+        match &port.binding {
             PortBinding::PluginDeclared {
+                plugin,
+                advertised,
                 capability_revision,
-                ..
-            } => *capability_revision,
-            _ => 0,
-        })
-        .fold(0u64, u64::saturating_add);
-    processors.saturating_add(ports)
+            } => {
+                feed(&mut hash, &[0x11]);
+                feed_str(&mut hash, plugin);
+                feed_str(&mut hash, advertised);
+                feed(&mut hash, &capability_revision.to_le_bytes());
+            }
+            PortBinding::Unresolved { plugin, advertised } => {
+                feed(&mut hash, &[0x12]);
+                feed_str(&mut hash, plugin);
+                feed_str(&mut hash, advertised);
+            }
+            // `Internal` carries no plugin stamp — nothing to feed.
+            PortBinding::Internal => continue,
+        }
+        fed = true;
+    }
+    if fed { hash } else { 0 }
 }
 
 // ---------------------------------------------------------------------------
