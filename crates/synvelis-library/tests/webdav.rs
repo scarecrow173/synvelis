@@ -669,6 +669,73 @@ fn same_origin_redirect_is_followed() {
 }
 
 #[test]
+fn collection_slash_redirect_is_followed() {
+    // synvelis#634: a mod_dir-style collection redirect
+    // ("/lib" → "Location: /lib/") is the server's canonical
+    // spelling (RFC 4918 §5.2), not a loop — the wire path must
+    // keep the slash or the same 301 ping-pongs into
+    // "too many redirects".
+    let hits = Arc::new(Mutex::new(Vec::<String>::new()));
+    let hits2 = hits.clone();
+    let server = MockServer::start(Arc::new(move |req| {
+        hits2.lock().unwrap().push(req.path.clone());
+        if req.path == "/lib" {
+            return MockResponse::new(301).header("location", "/lib/");
+        }
+        propfind_response("/lib/", &[("/lib/", dir_props())])
+    }));
+    let p = provider(&server);
+    p.browse(&scope_req(Some("/lib"), 10), &cx())
+        .expect("browse");
+    let paths = hits.lock().unwrap();
+    assert_eq!(paths.as_slice(), &["/lib", "/lib/"]);
+}
+
+#[test]
+fn collection_slash_redirect_merges_relative_location() {
+    // The slash-preserved wire path is also the merge base for a
+    // relative `Location` (RFC 3986 §5.2.3): from "/col/" the
+    // reference "inner/" resolves to "/col/inner/", never
+    // "/inner/".
+    let hits = Arc::new(Mutex::new(Vec::<String>::new()));
+    let hits2 = hits.clone();
+    let server = MockServer::start(Arc::new(move |req| {
+        hits2.lock().unwrap().push(req.path.clone());
+        match req.path.as_str() {
+            "/col" => MockResponse::new(301).header("location", "/col/"),
+            "/col/" => MockResponse::new(301).header("location", "inner/"),
+            _ => propfind_response("/col/inner/", &[("/col/inner/", dir_props())]),
+        }
+    }));
+    let p = provider(&server);
+    p.browse(&scope_req(Some("/col"), 10), &cx())
+        .expect("browse");
+    let paths = hits.lock().unwrap();
+    assert_eq!(paths.as_slice(), &["/col", "/col/", "/col/inner/"]);
+}
+
+#[test]
+fn collection_slash_redirect_judges_decoded_spelling() {
+    // A percent-encoded trailing slash is judged on the decoded
+    // spelling (decode happens once): "Location: /enc%2F" names
+    // the collection "/enc/".
+    let hits = Arc::new(Mutex::new(Vec::<String>::new()));
+    let hits2 = hits.clone();
+    let server = MockServer::start(Arc::new(move |req| {
+        hits2.lock().unwrap().push(req.path.clone());
+        if req.path == "/enc" {
+            return MockResponse::new(301).header("location", "/enc%2F");
+        }
+        propfind_response("/enc/", &[("/enc/", dir_props())])
+    }));
+    let p = provider(&server);
+    p.browse(&scope_req(Some("/enc"), 10), &cx())
+        .expect("browse");
+    let paths = hits.lock().unwrap();
+    assert_eq!(paths.as_slice(), &["/enc", "/enc/"]);
+}
+
+#[test]
 fn cross_origin_redirect_refused() {
     let server = MockServer::start(Arc::new(|_| {
         MockResponse::new(302).header("location", "http://evil.example/x")

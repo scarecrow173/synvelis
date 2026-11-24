@@ -297,8 +297,16 @@ impl WebDavProvider {
     }
 
     /// Resolves a `Location` header against the current request into
-    /// `(origin, decoded path)`. Same-origin only — a cross-origin
-    /// target is refused so credentials and scope never leak.
+    /// `(origin, next-hop wire path)`. Same-origin only — a
+    /// cross-origin target is refused so credentials and scope never
+    /// leak.
+    ///
+    /// Validation and confinement run on the locator-canonical form
+    /// ([`normalize_path`] — trailing slash stripped), while the
+    /// returned path preserves a trailing slash the server sent: a
+    /// `Location` ending in `/` names a collection (RFC 4918 §5.2),
+    /// and re-requesting the stripped spelling would repeat the same
+    /// redirect to the hop bound.
     ///
     /// # Errors
     /// [`ProviderErrorKind::InvalidRequest`] on unparseable,
@@ -358,7 +366,19 @@ impl WebDavProvider {
         if !locator::within_root(&path, &self.root) {
             return Err(invalid("redirect escapes configured root"));
         }
-        Ok((new_url, path))
+        // `path` is the locator-canonical form the confinement
+        // grammar owns; the wire path keeps the collection spelling
+        // the server sent. A mod_dir-style "Location: /x/" answered
+        // with the stripped "/x" repeats the same 301 until the hop
+        // bound (synvelis#634) — and the slashed base is also the
+        // correct merge base for a later relative `Location`. The
+        // root "/" itself never doubles.
+        let wire_path = if decoded.ends_with('/') && path != "/" {
+            format!("{path}/")
+        } else {
+            path
+        };
+        Ok((new_url, wire_path))
     }
 
     /// `PROPFIND` on `path` at `depth`, returning the bounded parse.

@@ -1,0 +1,18 @@
+# synvelis#634 — DirectorySlash On（stock mod_dir）再検証用の
+# compose override（補助証拠）。docker/ 配下の tracked ファイルを
+# 変更せず、ビルド済み image 内の vhost conf を evidence 側の
+# `DirectorySlash On` 版へ bind mount で差し替える。
+#
+# 使い方（repo ルートから）:
+#   docker compose -f docker-compose.webdav.yml \
+#     -f evidence/sv634/docker-compose.webdav.override.yml \
+#     --env-file docker/.env up -d --build
+#   …検証…
+#   docker compose -f docker-compose.webdav.yml \
+#     -f evidence/sv634/docker-compose.webdav.override.yml \
+#     --env-file docker/.env down
+
+services:
+  webdav:
+    volumes:
+      - ./evidence/sv634/webdav-slash-on.conf:/usr/local/apache2/conf/extra/webdav.conf:ro

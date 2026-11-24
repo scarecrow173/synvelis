@@ -97,6 +97,24 @@ credential store・GUI は対象外（NotRun/Unsupported）。
   `locator_outside_root_path_rejected`、
   `url_rejects_userinfo_query_fragment`。
 
+## Feature: Redirect follow
+
+- Rule: same-origin `301/302/307/308` + `Location` を hop
+  上限内で follow（`303` は GET のみ）。redirect 先の
+  trailing slash は collection の wire 綴りとして保存し
+  （RFC 4918 §5.2 — slash 付与 301 の ping-pong で
+  `too many redirects` に潰れない）、confinement は
+  locator canonical 形で判定し、credential の
+  same-origin 境界は origin 照合であって path 綴りに
+  依存しない。
+- Example: `same_origin_redirect_is_followed`、
+  `collection_slash_redirect_is_followed`（`/x` → `301
+  /x/` の request path 記録が `["/x", "/x/"]`）、
+  `collection_slash_redirect_merges_relative_location`
+  （slash 付き base からの相対 `Location` merge）、
+  `collection_slash_redirect_judges_decoded_spelling`
+  （`%2F` は decode 1 回後の綴りで判定）。
+
 ## Feature: HTTPS / TLS opt-in
 
 - Rule: `https` origin は `ProviderContext::tls` の trust
