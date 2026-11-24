@@ -215,6 +215,7 @@ Directory: `docs/designs`
 | DESIGN-TiM02PpqnSmfXg02 | TIM-02 × TIM-01 PPQN×SMF cross-golden fixture — 設計 | approved | [tim-02-ppqn-smf-cross-golden-design.md](./tim-02-ppqn-smf-cross-golden-design.md) |
 | DESIGN-034UwVoRGI8Bp9zuzRFQhj | TIM-02 SMF Format0/1 core — crate 内完結設計 | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
 | DESIGN-034XmM4rWsUgOxCaZeItMq | TIM-02 SMF app ops — op 配線 + MIDI clip compile 証拠設計 | approved | [tim-02-app-ops-smf.md](./tim-02-app-ops-smf.md) |
+| DESIGN-623tim02midiNodeDelivery01 | TIM-02 MidiClipPlan→plugin node 配送 seam — single-plan merge + instrument node 解決 | draft | [tim-02-midi-node-delivery.md](./tim-02-midi-node-delivery.md) |
 | DESIGN-034XI7yLnh4SLMxH8BU2lg | TIM-03 driver-side loop-wrap boundary derivation | approved | [tim-03-driver-loop-boundary.md](./tim-03-driver-loop-boundary.md) |
 | DESIGN-034XzNPr4B2cwT30gBhGCN | TIM-03 Loop/Tempo boundary 自動導出 — 設計 | approved | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
 | DESIGN-MsBu5XoYY4Ex3QB0qmDvC5 | TIM-03 session→driver/routing wiring design — session 寿命・provenance mint・transport mirror | approved | [tim-03-session-driver-wiring-design.md](./tim-03-session-driver-wiring-design.md) |
