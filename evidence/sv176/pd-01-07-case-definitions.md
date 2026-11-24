@@ -61,19 +61,24 @@ NotApplicable and are never demanded uniformly (Issue #176 AC
 ## `rf631.plugin-dock` shared vocabulary and synvelis runnability
 
 The 8 upstream cases are the shared vocabulary PD evidence rows
-reference. Synvelis-side runnability at freeze time (pin `ac10a2f7`,
-no new dependencies):
+reference. Synvelis-side runnability after the S1 headless-probe slice
+(2026-11-25, pin `20dc41f7`): `synvelis-app` dev-deps now include
+`ruviform-plugin-dock-test` + the ruviform#630 test-plugin crates, so
+the probe cases execute headless against real plugin binaries — see
+`s1-headless-probe.md`/`s1-headless-probe.jsonl` (at freeze time —
+pin `ac10a2f7`, no new dependencies — the probe cases were
+`NotRun`/Deferred pending that addition):
 
-| rf631 case | Driver (upstream) | synvelis runnability at freeze |
+| rf631 case | Driver (upstream) | synvelis runnability / recorded verdict |
 | --- | --- | --- |
-| `view-mount` | `Fake` | **Runnable headless** — `plugin_dock_view_spec()` mounts on `FakeGuiTest`/`GpuiGuiTest` via the production composition shape; contract conformance only (see `pd-headless-contract.md`) |
-| `artifact` | `PluginHostProbe` | `NotRun`/Deferred — needs `ruviform-plugin-test-vst3` + `ruviform-plugin-dock-test` deps (Ask-first, not added in this slice) |
-| `host-lifecycle` | `PluginHostProbe` | `NotRun`/Deferred — same dependency gate |
-| `editor-attach` | `PluginHostProbe` | `Unsupported` (upstream) — `createView` returns null today; recorded as technical non-support, not environment absence |
-| `session-lifecycle` | `PluginHostProbe` | `NotRun`/Deferred — same dependency gate |
-| `host-terminate` | `PluginHostProbe` | `NotRun`/Deferred — same dependency gate |
-| `open-or-degrade` | `PluginHostProbe` | `NotRun`/Deferred — same dependency gate |
-| `dock-pixels` | `PluginHostProbe` | `NotRun` — no `VisualCapture` capability on any synvelis adapter |
+| `view-mount` | `Fake` | **Runnable headless** — `plugin_dock_view_spec()` mounts on `FakeGuiTest`/`GpuiGuiTest` via the production composition shape; contract conformance only (see `pd-headless-contract.md`). Re-recorded `Pass` in the S1 `run_all` document |
+| `artifact` | `PluginHostProbe` | `Pass` (S1) — real VST3 `test_gain` cdylib resolved + sha256/descriptor recorded in `plugin_artifact` |
+| `host-lifecycle` | `PluginHostProbe` | `Pass` (S1) — Scan→Instantiate→Initialize→Activate→Destroy on the real binary |
+| `editor-attach` | `PluginHostProbe` | `Unsupported` — `createView` returns null (test_gain ships no editor surface); observed live in the S1 run, recorded as technical non-support, not environment absence |
+| `session-lifecycle` | `PluginHostProbe` | `Pass` (S1) — begin/busy/refused-open/`Failed{Unsupported}`/close/end/rebegin |
+| `host-terminate` | `PluginHostProbe` | `Pass` (S1) — `Terminated{HostLost}` exactly once, `closed-concluded` |
+| `open-or-degrade` | `PluginHostProbe` | `Pass` (S1) — double refusal, no `Degraded` event |
+| `dock-pixels` | `PluginHostProbe` | `NotRun` — no `VisualCapture` capability on any synvelis adapter (also no docked surface exists) |
 
 The probe cases are built with upstream `probe_spec`, which declares
 `required = {}` — the probe honestly claims no capability, and
@@ -93,13 +98,13 @@ the upstream probe-case mechanism.
 
 | Case | Headless/Simulated | Real OS | Real Plugin ABI / Native Dock | Primary Owner |
 | --- | --- | --- | --- | --- |
-| PD-01 VST3 dock/tab/resize | pointer → `pd-headless-contract.md` (`view-mount` semantic only) | NotRun | NotRun — dep-gated probe cases per rf631 table; `editor-attach` = upstream `Unsupported`, `dock-pixels` = `NotRun` (no `VisualCapture`) | synvelis#176 / ruviform#630/#631/#532 |
-| PD-02 CLAP dock/tab/resize | same pointer (format dim = `clap`) | NotRun | NotRun (same gates) | synvelis#176 / ruviform#630/#631/#532 |
+| PD-01 VST3 dock/tab/resize | pointer → `pd-headless-contract.md` (`view-mount` semantic only) + `s1-headless-probe.md` (in-process real-ABI host/session legs Pass; `editor-attach` `Unsupported`; product `PluginDock` legs honest `Failed` — not dock evidence) | NotRun | NotRun — no real OS window/child HWND/pixel oracle; `dock-pixels` = `NotRun` (no `VisualCapture`) | synvelis#176 / ruviform#630/#631/#532 |
+| PD-02 CLAP dock/tab/resize | same pointers (format dim = `clap`; S1 `clap-artifact`/`clap-host-lifecycle` Pass, product open `Unsupported`) | NotRun | NotRun (same — real-window lane absent) | synvelis#176 / ruviform#630/#631/#532 |
 | PD-03 macOS AU dock | same pointer (format dim = `au`, OS = `macos`) | NotRun (要求状態 Deferred — POLICIES.md §2) | NotRun (同左・L2/L3 until use required) | synvelis#176 (activation on use) |
 | PD-04 2Window move/float/reDock/DPI | pointer → `evidence/sv114/sv-os-case-definitions.md` SV-OS-05 (2Window/Dock/IME/Focus headless pointer only) | NotRun | NotRun | synvelis#176 / synvelis#113 / ruviform#313 |
 | PD-05 Widget Focus/Keyboard/IME/Popup vs shortcut | pointer → `svt-headless-l1.md` SVT-09 (IPC/stale contract only; IME = unclaimed capability) | NotRun | NotRun | synvelis#176 / ruviform#313/#314 |
-| PD-06 hang/exit/destroyed/stale; RT/Project survive | pointer → `l1-contract-comparison.md` §1–2 (stale generation/epoch L1 contract) | NotRun | NotRun (`host-terminate`/`session-lifecycle` gated) | synvelis#176 / ruviform#389/#630/#631 |
-| PD-07 Save→Reload logical state restore | pointer → `svt-headless-l1.md` SVT-08 (Save/Reload oracle, project-domain only — no plugin session) | NotRun | NotRun (`session-lifecycle` gated) | synvelis#176 / synvelis#114 |
+| PD-06 hang/exit/destroyed/stale; RT/Project survive | pointer → `l1-contract-comparison.md` §1–2 (stale generation/epoch L1 contract) + `s1-headless-probe.md` (`host-terminate`/`session-lifecycle` Pass on the real binary — in-process, not a crashed-host/OS case) | NotRun | NotRun (real-host-termination lane absent) | synvelis#176 / ruviform#389/#630/#631 |
+| PD-07 Save→Reload logical state restore | pointer → `svt-headless-l1.md` SVT-08 (Save/Reload oracle, project-domain only — no plugin session) | NotRun | NotRun (plugin-session restore over a real window absent) | synvelis#176 / synvelis#114 |
 
 ## Case definitions
 
