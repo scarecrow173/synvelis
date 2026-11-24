@@ -157,6 +157,7 @@ fn mounted_view_projects_real_local_folder_state() {
         &view,
         json!({ "action": "preview.fetch", "locator": "a.wav" }),
     );
+    wait_job(&mut app, &preview_key(&view));
     let v = proj(&mut app, &view);
     assert_eq!(v["state"]["preview"]["state"], "ready");
     assert_eq!(v["state"]["preview"]["byte_len"], 4);
@@ -198,6 +199,7 @@ fn import_submits_through_real_import_ports() {
             "allow_full_object": true,
         }),
     );
+    wait_job(&mut app, &import_key(7));
     let v = proj(&mut app, &view);
     let import = &v["state"]["import"];
     assert_eq!(import["state"], "committed-live", "state: {import}");
@@ -255,6 +257,7 @@ fn mount_lifecycle_and_browse_ops_leave_project_authority_untouched() {
         &view,
         json!({ "action": "preview.fetch", "locator": "a.wav" }),
     );
+    wait_job(&mut app, &preview_key(&view));
     app.op_view_detach(&json!({ "view_id": view }))
         .expect("detach");
     app.op_view_attach(&json!({ "view_id": view, "window_id": "w1" }))

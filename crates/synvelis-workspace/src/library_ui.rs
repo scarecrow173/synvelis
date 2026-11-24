@@ -42,10 +42,11 @@ use serde::{Deserialize, Serialize};
 use synvelis_library::{
     AssetObservation, AssetProvider, Availability, BlobPublisher, BrowseEntry, BrowsePage,
     BrowseRequest, BrowseScope, Coverage, EntryFacts, EntryKind, FilterSpec, ImportError,
-    ImportIntent, ImportOutcome, ImportStore, ImportTarget, ObservedAt, OpaqueLocator,
-    OpaquePageCursor, PinnedAssetRef, PreviewPlan, PrincipalId, ProjectBlobStore, ProvenanceRecord,
-    ProviderCapabilities, ProviderContext, ProviderError, ProviderErrorKind, ProviderId,
-    ProviderRegistry, RemoteAssetRef, SearchQuery, SortSpec, import_verified, rebase_import,
+    ImportIntent, ImportManifest, ImportOutcome, ImportStage, ImportStore, ImportTarget,
+    ObservedAt, OpaqueLocator, OpaquePageCursor, PinnedAssetRef, PreviewPlan, PrincipalId,
+    ProjectBlobStore, ProvenanceRecord, ProviderCapabilities, ProviderContext, ProviderError,
+    ProviderErrorKind, ProviderId, ProviderRegistry, RemoteAssetRef, SearchQuery, SortSpec,
+    import_verified, rebase_import,
 };
 use synvelis_project::{ClipId, ImportId, ProjectController, ProjectRevision};
 
@@ -78,6 +79,35 @@ fn kind_tag(kind: ProviderErrorKind) -> String {
         _ => "unknown",
     };
     tag.to_string()
+}
+
+/// Reverse of [`kind_tag`] — recognizes only provider-error-kind
+/// tags, never `LibraryReason` codes (`stale-revision`,
+/// `target-gone`, `corrupt`, `io`, `job-state`, `publish-failed` are
+/// all deliberately absent, so a terminal reason produced by a
+/// non-provider arm can never read as a provider fault).
+fn provider_kind_from_tag(tag: &str) -> Option<ProviderErrorKind> {
+    Some(match tag {
+        "not-found" => ProviderErrorKind::NotFound,
+        "revision-gone" => ProviderErrorKind::RevisionGone,
+        "permission-denied" => ProviderErrorKind::PermissionDenied,
+        "auth-expired" => ProviderErrorKind::AuthExpired,
+        "offline" => ProviderErrorKind::Offline,
+        "rate-limited" => ProviderErrorKind::RateLimited,
+        "transient-io" => ProviderErrorKind::TransientIo,
+        "unsupported-capability" => ProviderErrorKind::UnsupportedCapability,
+        "precondition-failed" => ProviderErrorKind::PreconditionFailed,
+        "source-changed" => ProviderErrorKind::SourceChanged,
+        "integrity-mismatch" => ProviderErrorKind::IntegrityMismatch,
+        "invalid-media" => ProviderErrorKind::InvalidMedia,
+        "budget-exceeded" => ProviderErrorKind::BudgetExceeded,
+        "cancelled" => ProviderErrorKind::Cancelled,
+        "cursor-invalid" => ProviderErrorKind::CursorInvalid,
+        "invalid-request" => ProviderErrorKind::InvalidRequest,
+        "tls-verification" => ProviderErrorKind::TlsVerification,
+        "internal" => ProviderErrorKind::Internal,
+        _ => return None,
+    })
 }
 
 /// Kebab-case provider-family tag for the wire (`other` carries its
@@ -187,7 +217,10 @@ pub struct LibraryFault {
 }
 
 impl LibraryFault {
-    fn new(reason: LibraryReason, kind: Option<String>, detail: impl Into<String>) -> Self {
+    /// A typed fault — op-level dispatch records faults with the same
+    /// constructor `apply`-path code uses.
+    #[must_use]
+    pub fn new(reason: LibraryReason, kind: Option<String>, detail: impl Into<String>) -> Self {
         Self {
             reason,
             kind,
@@ -338,6 +371,12 @@ pub enum PreviewUiState {
         /// Whether bytes came from a verified cache lease.
         cached: bool,
     },
+    /// A preview fetch job is queued or running — the ledger entry
+    /// `job_key` carries progress for `syn.library.jobs`.
+    InFlight {
+        /// Ledger job key (`preview:<view-instance>`).
+        job_key: String,
+    },
     /// The fetch was cancelled mid-flight.
     Cancelled,
     /// The fetch/plan failed with a typed fault.
@@ -391,6 +430,31 @@ pub enum ImportUiState {
     Failed {
         /// Machine reason code.
         reason: String,
+        /// Detail.
+        detail: String,
+    },
+    /// An import job is queued or running — stage rides the ledger
+    /// projection (`fetching`/`verifying`/`materializing`/
+    /// `commit-pending`); the commit receipt still arrives only as
+    /// `CommittedLive`.
+    InFlight {
+        /// Ledger job key (`import:<tagged-import-id>`).
+        job_key: String,
+        /// Idempotency key of the in-flight job (tagged).
+        import_id: String,
+        /// Latest UX stage the worker/manifest reported.
+        stage: String,
+    },
+    /// The job failed but the durable manifest survives at `stage` —
+    /// `import.retry` (or a fresh `import.submit`) converges without
+    /// redoing completed stages. Distinct from `Failed`: recovery is
+    /// a resume, not a restart.
+    Recoverable {
+        /// Machine reason code.
+        reason: String,
+        /// Durable stage the manifest reached (`started`/`staged`/
+        /// `verified`/`published`).
+        stage: String,
         /// Detail.
         detail: String,
     },
@@ -550,6 +614,23 @@ pub enum LibraryAction {
         #[serde(default)]
         target: Option<Box<ImportTargetWire>>,
     },
+    /// Cooperatively cancel an in-flight preview fetch or import job
+    /// — the `CancelRequested` → `Cancelled` transition is projected
+    /// through the job ledger, never collapsed into `Failed` or an
+    /// empty result. One of `import_id`/`job_key` addresses the job;
+    /// either may name a job spawned by a *different* view/window —
+    /// the ledger, not the spawning model, owns the job.
+    #[serde(rename = "import.cancel")]
+    ImportCancel {
+        /// Import id (same form `import.submit` takes) — resolved to
+        /// the `import:<tagged>` ledger key.
+        #[serde(default)]
+        import_id: Option<serde_json::Value>,
+        /// Verbatim ledger job key — how `syn.library.jobs` entries
+        /// are addressed (preview jobs included).
+        #[serde(default)]
+        job_key: Option<String>,
+    },
     /// Rebase a stale import to the current live revision, then the
     /// caller retries with `ImportRetry`.
     #[serde(rename = "import.rebase")]
@@ -646,6 +727,20 @@ impl LibraryViewModel {
         &self.state
     }
 
+    /// The recorded pending intent's import id — `import.retry`'s
+    /// ledger key source (the job key derives from the durable
+    /// idempotency key, not the view).
+    #[must_use]
+    pub fn pending_import_id(&self) -> Option<ImportId> {
+        self.pending_import.as_ref().map(|(_, i)| i.import_id)
+    }
+
+    /// Records a typed fault from op-level dispatch — job-path
+    /// validation errors land identically to `apply`-path faults.
+    pub fn set_fault(&mut self, fault: LibraryFault) {
+        self.state.fault = Some(fault);
+    }
+
     /// The registered provider descriptors, in registry order.
     #[must_use]
     pub fn providers(&self) -> Vec<ProviderWire> {
@@ -706,6 +801,15 @@ impl LibraryViewModel {
                 expected_project_revision,
             } => self.import_rebase(import_id, *expected_project_revision, ports, controller),
             LibraryAction::ImportRetry {} => self.import_retry(ports, controller),
+            // Job cancel lives in the app-owned ledger (`LibraryViews
+            // ::jobs`) — the op layer resolves the target and raises
+            // the entry's cooperative token; the ledger terminal then
+            // materializes `Cancelled` on the *spawning* view. At bare
+            // model scope there is no ledger, so the only honest local
+            // projection is `Cancelled` on this view's own surface.
+            LibraryAction::ImportCancel { .. } => {
+                self.state.import = ImportUiState::Cancelled;
+            }
             LibraryAction::ImportDismiss {} => self.state.import = ImportUiState::Idle,
             LibraryAction::DragBegin { locator } => self.drag_begin(locator),
             LibraryAction::DragDrop {} => self.state.drag = DragUiState::Idle,
@@ -1251,7 +1355,13 @@ impl LibraryViewModel {
         self.state.preview = PreviewUiState::Cancelled;
     }
 
-    fn parse_import_id(value: &serde_json::Value) -> Result<ImportId, LibraryFault> {
+    /// Parses the `import_id` wire form — shared with `import.cancel`
+    /// resolution at the op layer.
+    ///
+    /// # Errors
+    /// [`LibraryFault`] `malformed` when the value is neither a u64
+    /// nor a tagged `import-<32hex>` string.
+    pub fn parse_import_id(value: &serde_json::Value) -> Result<ImportId, LibraryFault> {
         if let Some(n) = value.as_u64() {
             return Ok(ImportId::new(u128::from(n)));
         }
@@ -1410,11 +1520,18 @@ impl LibraryViewModel {
                 self.state.import = import_outcome_state(&outcome);
                 self.state.fault = None;
             }
-            Err(e) => self.import_failed(e),
+            Err(e) => {
+                let stage = read_manifest_stage(&ports.store.staging_dir(intent.import_id));
+                self.import_failed(e, stage);
+            }
         }
     }
 
-    fn import_failed(&mut self, e: ImportError) {
+    /// Maps an [`ImportError`] to the typed import surface. `stage` is
+    /// the durable manifest stage at failure time — its presence is
+    /// what makes `Io`/`JobState`/`PublishFailed` `Recoverable` (a
+    /// resume converges) instead of the old `internal` collapse.
+    fn import_failed(&mut self, e: ImportError, stage: Option<ImportStage>) {
         match e {
             // The error carries the manifest's true expectation and
             // the live revision at rejection — report those, not the
@@ -1483,11 +1600,11 @@ impl LibraryViewModel {
                     ),
                 };
             }
+            // ALIB-05 typed recovery — the durable manifest decides
+            // whether a retry is a resume (`Recoverable`) or a restart
+            // (`Failed`); nothing collapses into `internal` anymore.
             other => {
-                self.state.import = ImportUiState::Failed {
-                    reason: LibraryReason::Internal.code().to_string(),
-                    detail: format!("{other:?}"),
-                };
+                self.state.import = import_terminal_state(&other, stage);
             }
         }
     }
@@ -1539,7 +1656,10 @@ impl LibraryViewModel {
                     intent.expected_project_revision = ProjectRevision(expected_project_revision);
                 }
             }
-            Err(e) => self.import_failed(e),
+            Err(e) => {
+                let stage = read_manifest_stage(&ports.store.staging_dir(import_id));
+                self.import_failed(e, stage);
+            }
         }
     }
 
@@ -1560,6 +1680,261 @@ impl LibraryViewModel {
         };
         let cx = self.context();
         self.run_import(ports, controller, &pin, &intent, &cx);
+    }
+
+    // ── job preparation (ALIB-05 async lane) ────────────────────────
+    //
+    // The job-submitting ops resolve the same typed faults the sync
+    // paths produce, then hand the op layer everything the worker
+    // needs — provider, intent, asset — while this model records the
+    // `InFlight` projection. The heavy streaming itself runs on the
+    // job thread through `run_preview_job`/`run_import_job`.
+
+    /// Resolves a `preview.fetch` into its job inputs — the view
+    /// surfaces `InFlight` before returning; typed faults land on
+    /// `state.fault`/`state.preview` exactly as the sync path wrote
+    /// them.
+    ///
+    /// # Errors
+    /// `Err(())` with the typed fault recorded on the state.
+    #[allow(clippy::result_unit_err)] // Err means the typed fault already landed on `state`
+    pub fn prepare_preview_job(
+        &mut self,
+        locator: &str,
+        job_key: &str,
+    ) -> Result<(Arc<dyn AssetProvider>, RemoteAssetRef), ()> {
+        let provider = self.provider()?;
+        let asset = self.asset_for(locator).map_err(|()| {
+            self.state.preview = PreviewUiState::Failed {
+                reason: LibraryReason::Malformed.code().to_string(),
+                detail: "locator malformed".to_string(),
+            };
+        })?;
+        self.state.preview = PreviewUiState::InFlight {
+            job_key: job_key.to_string(),
+        };
+        Ok((provider, asset))
+    }
+
+    /// Resolves an `import.submit` into its job inputs — parses the
+    /// id, resolves the asset, takes the explicit pin (provider-side
+    /// metadata, kept on the service thread so pin faults stay
+    /// identical to the sync path), enforces whole-object consent,
+    /// decodes the target, and records the pending intent the
+    /// rebase/retry paths replay.
+    ///
+    /// `expected` falls back to the live revision like the sync path.
+    ///
+    /// # Errors
+    /// `Err(())` with the typed fault recorded on the state.
+    #[allow(clippy::too_many_arguments, clippy::result_unit_err)] // Err means the typed fault already landed on `state`
+    pub fn prepare_import_job(
+        &mut self,
+        import_id: &serde_json::Value,
+        locator: &str,
+        expected_project_revision: Option<u64>,
+        allow_full_object: bool,
+        target: Option<&ImportTargetWire>,
+        live_revision: u64,
+        job_key: &str,
+    ) -> Result<(Arc<dyn AssetProvider>, ImportIntent), ()> {
+        let import_id = Self::parse_import_id(import_id).map_err(|f| {
+            self.state.fault = Some(f);
+        })?;
+        self.state.import = ImportUiState::Idle;
+        let asset = self.asset_for(locator)?;
+        let provider = self.provider()?;
+        let cx = self.context();
+        let pin = provider.pin(&asset, &cx).map_err(|e| {
+            self.state.import = ImportUiState::Failed {
+                reason: kind_tag(e.kind()),
+                detail: e.detail().to_string(),
+            };
+            self.fail_provider(&e);
+        })?;
+        if !allow_full_object
+            && pin
+                .expected_size
+                .is_none_or(|n| n > FULL_OBJECT_CONSENT_BYTES)
+        {
+            self.state.fault = Some(LibraryFault::new(
+                LibraryReason::UnsupportedCapability,
+                Some("full-object-consent".to_string()),
+                "import of a whole-object asset requires allow_full_object",
+            ));
+            return Err(());
+        }
+        let target = target.map(Self::decode_target).transpose().map_err(|f| {
+            self.state.fault = Some(f);
+        })?;
+        let expected = expected_project_revision.unwrap_or(live_revision);
+        let intent = ImportIntent {
+            import_id,
+            expected_project_revision: ProjectRevision(expected),
+            source: pin.clone(),
+            target,
+        };
+        self.pending_import = Some((pin, intent.clone()));
+        self.state.import = ImportUiState::InFlight {
+            job_key: job_key.to_string(),
+            import_id: import_id.to_tagged(),
+            stage: "queued".to_string(),
+        };
+        Ok((provider, intent))
+    }
+
+    /// Resolves an `import.retry` into its job inputs — the recorded
+    /// pending intent is the replay; nothing is re-pinned.
+    ///
+    /// # Errors
+    /// `Err(())` with the typed fault recorded on the state.
+    #[allow(clippy::result_unit_err)] // Err means the typed fault already landed on `state`
+    pub fn prepare_import_retry(
+        &mut self,
+        job_key: &str,
+    ) -> Result<(Arc<dyn AssetProvider>, ImportIntent), ()> {
+        let Some((_, intent)) = self.pending_import.clone() else {
+            self.state.fault = Some(LibraryFault::new(
+                LibraryReason::Malformed,
+                None,
+                "import.retry requires a pending import intent",
+            ));
+            return Err(());
+        };
+        let provider = self.provider()?;
+        self.state.import = ImportUiState::InFlight {
+            job_key: job_key.to_string(),
+            import_id: intent.import_id.to_tagged(),
+            stage: "queued".to_string(),
+        };
+        Ok((provider, intent))
+    }
+
+    /// Materializes a job terminal onto this view's surfaces — the
+    /// reconcile side of the app-owned ledger (spawning views only;
+    /// other views observe the same truth through `syn.library.jobs`).
+    #[allow(clippy::too_many_lines)] // flat terminal→surface projection table
+    pub fn apply_job_terminal(
+        &mut self,
+        kind: LibraryJobKind,
+        import_id: Option<&str>,
+        terminal: &LibraryJobTerminal,
+    ) {
+        match (kind, terminal) {
+            (
+                LibraryJobKind::ImportSubmit | LibraryJobKind::ImportRetry,
+                LibraryJobTerminal::CommittedLive {
+                    import_id,
+                    asset_id,
+                    source_id,
+                    clip_id,
+                    revision,
+                    content_digest,
+                    byte_len,
+                    reused,
+                },
+            ) => {
+                self.state.import = ImportUiState::CommittedLive {
+                    import_id: import_id.clone(),
+                    asset_id: asset_id.clone(),
+                    source_id: source_id.clone(),
+                    clip_id: clip_id.clone(),
+                    revision: *revision,
+                    content_digest: content_digest.clone(),
+                    byte_len: *byte_len,
+                    reused: *reused,
+                };
+                self.state.fault = None;
+            }
+            (
+                LibraryJobKind::ImportSubmit | LibraryJobKind::ImportRetry,
+                LibraryJobTerminal::StaleRevision { expected, actual },
+            ) => {
+                self.state.import = ImportUiState::StaleRevision {
+                    import_id: import_id.unwrap_or("import-?").to_string(),
+                    expected: *expected,
+                    actual: *actual,
+                };
+            }
+            (
+                LibraryJobKind::ImportSubmit | LibraryJobKind::ImportRetry,
+                LibraryJobTerminal::Cancelled { .. },
+            ) => {
+                self.state.import = ImportUiState::Cancelled;
+            }
+            (
+                LibraryJobKind::ImportSubmit | LibraryJobKind::ImportRetry,
+                LibraryJobTerminal::Failed { reason, detail },
+            ) => {
+                self.state.import = ImportUiState::Failed {
+                    reason: reason.clone(),
+                    detail: detail.clone(),
+                };
+                // Provider-originated failures record the same typed
+                // fault the sync path writes via `fail_provider` —
+                // the reason only parses as a provider kind tag when
+                // it came from `ImportError::Provider`.
+                if let Some(kind) = provider_kind_from_tag(reason) {
+                    self.state.fault = Some(LibraryFault::from_provider(kind, detail.clone()));
+                }
+            }
+            (
+                LibraryJobKind::ImportSubmit | LibraryJobKind::ImportRetry,
+                LibraryJobTerminal::Recoverable {
+                    reason,
+                    stage,
+                    detail,
+                },
+            ) => {
+                self.state.import = ImportUiState::Recoverable {
+                    reason: reason.clone(),
+                    stage: stage.clone(),
+                    detail: detail.clone(),
+                };
+            }
+            (
+                LibraryJobKind::ImportSubmit | LibraryJobKind::ImportRetry,
+                LibraryJobTerminal::AlreadyApplied { import_id },
+            ) => {
+                // Registry replay — the receipt shows `reused` like the
+                // idempotent sync path.
+                self.state.import = ImportUiState::CommittedLive {
+                    import_id: import_id.clone(),
+                    asset_id: String::new(),
+                    source_id: String::new(),
+                    clip_id: None,
+                    revision: 0,
+                    content_digest: String::new(),
+                    byte_len: 0,
+                    reused: true,
+                };
+            }
+            (LibraryJobKind::PreviewFetch, LibraryJobTerminal::PreviewReady { byte_len }) => {
+                self.state.preview = PreviewUiState::Ready {
+                    byte_len: *byte_len,
+                    cached: false,
+                };
+            }
+            (LibraryJobKind::PreviewFetch, LibraryJobTerminal::PreviewPlan { plan, bytes }) => {
+                self.state.preview = PreviewUiState::PlanReady {
+                    plan: plan.clone(),
+                    bytes: *bytes,
+                };
+            }
+            (LibraryJobKind::PreviewFetch, LibraryJobTerminal::Cancelled { .. }) => {
+                self.state.preview = PreviewUiState::Cancelled;
+            }
+            (LibraryJobKind::PreviewFetch, LibraryJobTerminal::Failed { reason, detail }) => {
+                self.state.preview = PreviewUiState::Failed {
+                    reason: reason.clone(),
+                    detail: detail.clone(),
+                };
+            }
+            // Mismatched kind/terminal pairs and import terminals a
+            // preview view never materializes — the ledger entry
+            // remains the honest record; nothing faked locally.
+            _ => {}
+        }
     }
 
     fn drag_begin(&mut self, locator: &str) {
@@ -1697,6 +2072,83 @@ fn import_outcome_state(outcome: &ImportOutcome) -> ImportUiState {
         content_digest: outcome.content_digest.hex().to_string(),
         byte_len: outcome.byte_len,
         reused: outcome.reused,
+    }
+}
+
+/// Typed recovery mapping — the `Io`/`Corrupt`/`PublishFailed`/
+/// `JobState` variants that used to collapse into `Failed{internal}`
+/// (synvelis#89 ALIB-05). A surviving durable manifest means a retry
+/// resumes the recorded stages, so the surface shows `Recoverable`
+/// with the stage the resume converges from.
+fn import_terminal_state(e: &ImportError, stage: Option<ImportStage>) -> ImportUiState {
+    let recoverable = |reason: &str, detail: String| match stage {
+        Some(stage) => ImportUiState::Recoverable {
+            reason: reason.to_string(),
+            stage: ux_stage(stage).to_string(),
+            detail,
+        },
+        None => ImportUiState::Failed {
+            reason: reason.to_string(),
+            detail,
+        },
+    };
+    match e {
+        ImportError::Io { op, detail } => recoverable("io", format!("{op}: {detail}")),
+        ImportError::Corrupt { detail } => ImportUiState::Failed {
+            reason: "corrupt".to_string(),
+            detail: detail.clone(),
+        },
+        ImportError::PublishFailed { .. } => {
+            // A publish-side failure always has a staged+verified
+            // manifest — retry converges at materializing. The full
+            // Display carries kind/phase/effect — `detail` alone
+            // would erase the failure class.
+            let stage = stage.unwrap_or(ImportStage::Verified);
+            ImportUiState::Recoverable {
+                reason: "publish-failed".to_string(),
+                stage: ux_stage(stage).to_string(),
+                detail: e.to_string(),
+            }
+        }
+        ImportError::JobState { detail } => recoverable("job-state", detail.clone()),
+        // Every variant the match callers already handle explicitly —
+        // the ledger terminal mapping keeps them typed the same way.
+        ImportError::StaleRevision { expected, actual } => ImportUiState::StaleRevision {
+            import_id: "import-?".to_string(),
+            expected: *expected,
+            actual: *actual,
+        },
+        ImportError::IntegrityConflict { .. } => ImportUiState::Failed {
+            reason: LibraryReason::IntegrityConflict.code().to_string(),
+            detail: "import id replayed with a different intent".to_string(),
+        },
+        ImportError::Provider(pe) => ImportUiState::Failed {
+            reason: kind_tag(pe.kind()),
+            detail: pe.detail().to_string(),
+        },
+        ImportError::IntegrityMismatch { detail } => ImportUiState::Failed {
+            reason: LibraryReason::IntegrityMismatch.code().to_string(),
+            detail: detail.clone(),
+        },
+        ImportError::CommitRejected { source, .. } => {
+            let (reason, detail) = match source {
+                synvelis_project::Error::NotFound(_) | synvelis_project::Error::WrongOwner(_) => {
+                    (LibraryReason::TargetGone, source.to_string())
+                }
+                other => (LibraryReason::Internal, other.to_string()),
+            };
+            ImportUiState::Failed {
+                reason: reason.code().to_string(),
+                detail,
+            }
+        }
+        ImportError::PublishIndeterminate { destination } => ImportUiState::Failed {
+            reason: LibraryReason::PublishIndeterminate.code().to_string(),
+            detail: format!(
+                "publish destination state unknowable: {}",
+                destination.display()
+            ),
+        },
     }
 }
 
@@ -1953,6 +2405,7 @@ fn preview_panel(state: &LibraryViewState) -> ComponentSpec {
         PreviewUiState::Ready { byte_len, cached } => {
             format!("preview: ready {byte_len}B cached={cached}")
         }
+        PreviewUiState::InFlight { job_key } => format!("preview: in-flight {job_key}"),
         PreviewUiState::Cancelled => "preview: cancelled".to_string(),
         PreviewUiState::Failed { reason, detail } => {
             format!("preview: failed {reason} {detail}")
@@ -2012,6 +2465,16 @@ fn import_panel(state: &LibraryViewState) -> ComponentSpec {
         ImportUiState::Failed { reason, detail } => {
             format!("import: failed {reason} {detail}")
         }
+        ImportUiState::InFlight {
+            stage, import_id, ..
+        } => {
+            format!("import: in-flight {stage} {import_id}")
+        }
+        ImportUiState::Recoverable {
+            reason,
+            stage,
+            detail,
+        } => format!("import: recoverable {reason} stage={stage} {detail}"),
         ImportUiState::Cancelled => "import: cancelled".to_string(),
     };
     let mut children = vec![
@@ -2029,6 +2492,18 @@ fn import_panel(state: &LibraryViewState) -> ComponentSpec {
             serde_json::json!({}),
         ),
     ];
+    // The cancel affordance addresses the job by its durable
+    // idempotency key — `import.cancel` resolves it to the ledger
+    // entry, so the job can be cancelled from any view/window that
+    // knows the id, not only the spawning view.
+    if let ImportUiState::InFlight { import_id, .. } = &state.import {
+        children.push(button(
+            "library.import.cancel",
+            "cancel",
+            "import.cancel",
+            serde_json::json!({ "import_id": import_id }),
+        ));
+    }
     // The submit affordance needs a selection and a stable
     // idempotency key: the template derives `import_id` from the
     // (provider, locator) pair so resubmitting the same asset replays
@@ -2130,6 +2605,13 @@ pub struct LibraryBackend {
 pub struct LibraryViews {
     models: std::collections::BTreeMap<ruviform_ui::dock::ViewInstanceId, LibraryViewModel>,
     backend: Option<LibraryBackend>,
+    /// The single app-owned job ledger (`syn.library.jobs`) — import
+    /// and preview jobs live here, *not* inside per-view models, so
+    /// every view and window observes the same lifecycle projection
+    /// and a job + its project receipt survive the spawning view's
+    /// close. Worker threads hold the `Arc`; `Mutex` guards never
+    /// cover provider or filesystem I/O.
+    jobs: std::sync::Arc<std::sync::Mutex<LibraryJobLedger>>,
 }
 
 impl std::fmt::Debug for LibraryViews {
@@ -2137,6 +2619,14 @@ impl std::fmt::Debug for LibraryViews {
         f.debug_struct("LibraryViews")
             .field("models", &self.models.keys().collect::<Vec<_>>())
             .field("backend", &self.backend.is_some())
+            .field(
+                "jobs",
+                &self
+                    .jobs
+                    .lock()
+                    .map(|l| l.entries.len())
+                    .unwrap_or_default(),
+            )
             .finish()
     }
 }
@@ -2154,6 +2644,7 @@ impl LibraryViews {
         Self {
             models: std::collections::BTreeMap::new(),
             backend: None,
+            jobs: std::sync::Arc::new(std::sync::Mutex::new(LibraryJobLedger::default())),
         }
     }
 
@@ -2215,6 +2706,138 @@ impl LibraryViews {
             .as_ref()
             .map_or_else(Vec::new, |b| provider_wires(&b.registry))
     }
+
+    /// Shared handle to the app-owned job ledger — op dispatch
+    /// registers jobs on it, worker threads update it through the
+    /// `Arc`, `syn.library.jobs` projects it.
+    #[must_use]
+    pub fn jobs(&self) -> std::sync::Arc<std::sync::Mutex<LibraryJobLedger>> {
+        std::sync::Arc::clone(&self.jobs)
+    }
+
+    /// The ledger projected to wire entries for `syn.library.jobs` —
+    /// sorted by job key so identical states serialize identically.
+    #[must_use]
+    pub fn jobs_snapshot(&self) -> Vec<LibraryJobWire> {
+        self.jobs
+            .lock()
+            .map_or_else(|_| Vec::new(), |l| l.snapshot())
+    }
+
+    /// Service-thread reconcile — the job/commit split's finalize
+    /// half. Import workers stage/verify/publish against a throwaway
+    /// dry-run controller and park at `commit-pending`; this runs
+    /// `import_verified`'s terminal commit stage against the real
+    /// `controller` (the durable manifest skips completed stages and
+    /// lands `applied_replay`/`apply` with the live revision check
+    /// intact), then materializes every unprojected terminal into the
+    /// spawning view's model.
+    ///
+    /// Called at the top of `syn.library.view`/`syn.library.action`/
+    /// `syn.library.jobs` so the commit lands deterministically on
+    /// read. Returns `true` when the live revision moved (the caller
+    /// replays `notify_committed_change`).
+    pub fn reconcile_jobs(
+        &mut self,
+        controller: &mut ProjectController,
+        ports: Option<&LibraryImportPorts<'_>>,
+    ) -> bool {
+        let pending: Vec<(String, ImportIntent)> = self
+            .jobs
+            .lock()
+            .map(|l| {
+                l.entries
+                    .values()
+                    .filter(|e| e.pending_commit && e.terminal.is_none())
+                    .filter_map(|e| e.intent.clone().map(|i| (e.key.clone(), i)))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut moved = false;
+        for (key, intent) in pending {
+            let terminal = match ports.zip(self.backend.as_ref().and_then(|b| {
+                b.registry
+                    .get(&intent.source.asset.provider)
+                    .map(|p| (p, b.principal.clone()))
+            })) {
+                Some((ports, (provider, principal))) => {
+                    let cx = ProviderContext::new(principal);
+                    let rev_before = controller.live_revision();
+                    let stage_dir = ports.store.staging_dir(intent.import_id);
+                    match import_verified(
+                        provider.as_ref(),
+                        &intent,
+                        ports.store,
+                        ports.blobs,
+                        ports.publisher,
+                        controller,
+                        &cx,
+                    ) {
+                        Ok(outcome) => {
+                            moved |= controller.live_revision() != rev_before;
+                            LibraryJobTerminal::CommittedLive {
+                                import_id: outcome.import_id.to_tagged(),
+                                asset_id: outcome.commit.asset_id.to_tagged(),
+                                source_id: outcome.commit.source_id.to_tagged(),
+                                clip_id: outcome.commit.clip_id.map(ClipId::to_tagged),
+                                revision: outcome.commit.revision.0,
+                                content_digest: outcome.content_digest.hex().to_string(),
+                                byte_len: outcome.byte_len,
+                                reused: outcome.reused,
+                            }
+                        }
+                        Err(e) => {
+                            let stage = read_manifest_stage(&stage_dir);
+                            job_terminal(&e, stage)
+                        }
+                    }
+                }
+                None => LibraryJobTerminal::Failed {
+                    reason: "unavailable".to_string(),
+                    detail: "import backend or provider unavailable at commit".to_string(),
+                },
+            };
+            if let Ok(mut l) = self.jobs.lock()
+                && let Some(e) = l.entries.get_mut(&key)
+            {
+                e.terminal = Some(terminal);
+                e.pending_commit = false;
+                e.state = LibraryJobState::Done;
+            }
+        }
+        // Materialize unprojected terminals onto their spawning
+        // views — a closed view's terminal stays in the ledger as the
+        // honest record (jobs/receipts outlive their view).
+        let unprojected: Vec<(ruviform_ui::dock::ViewInstanceId, String)> = self
+            .jobs
+            .lock()
+            .map(|l| {
+                l.entries
+                    .values()
+                    .filter(|e| e.terminal.is_some() && !e.projected)
+                    .map(|e| (e.view, e.key.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        for (view, key) in unprojected {
+            let Some((kind, import_id, terminal)) = self.jobs.lock().ok().and_then(|l| {
+                l.entries
+                    .get(&key)
+                    .and_then(|e| e.terminal.clone().map(|t| (e.kind, e.import_id.clone(), t)))
+            }) else {
+                continue;
+            };
+            if let Some(model) = self.models.get_mut(&view) {
+                model.apply_job_terminal(kind, import_id.as_deref(), &terminal);
+            }
+            if let Ok(mut l) = self.jobs.lock()
+                && let Some(e) = l.entries.get_mut(&key)
+            {
+                e.projected = true;
+            }
+        }
+        moved
+    }
 }
 
 /// Projects a [`ProviderRegistry`] into wire descriptors — shared by
@@ -2234,6 +2857,1021 @@ fn provider_wires(registry: &ProviderRegistry) -> Vec<ProviderWire> {
             })
         })
         .collect()
+}
+
+// ── job ledger & workers (ALIB-05 async lane, synvelis#89) ──────────
+//
+// `preview.fetch`/`import.submit`/`import.retry` run as jobs off the
+// service thread. The durable `ImportManifest` stays the recovery
+// source of truth; this ledger is the *app-owned* projection every
+// view/window observes through `syn.library.jobs`.
+//
+// The job/commit split: `import_verified` needs `&mut
+// ProjectController`, which the service thread owns exclusively, so
+// the import worker runs the whole pipeline against a throwaway
+// dry-run controller — a `Project` clone plus a `CounterIdGenerator`
+// seeded in a disjoint raw-ID band — parks at `commit-pending`, and
+// [`LibraryViews::reconcile_jobs`] replays the terminal commit on the
+// real controller at the next `syn.library.*` read. Staged, verified,
+// and published blobs are durable, so the replay only pays the commit
+// stage; `applied_replay`, `expected_revision`, reserved-id
+// validation, and `id_watermark` reseeding all still run.
+
+/// How the durable [`ImportStage`] reads on the UX surface — the
+/// `progress_detail` stage tag and the `Recoverable.stage` wording
+/// share this vocabulary.
+fn ux_stage(stage: ImportStage) -> &'static str {
+    match stage {
+        ImportStage::Started => "fetching",
+        ImportStage::Staged => "verifying",
+        ImportStage::Verified => "materializing",
+        ImportStage::Published | ImportStage::Committed => "commit-pending",
+    }
+}
+
+/// Progress denominator — queued + the four durable stages.
+const UX_STAGE_TOTAL: u64 = 5;
+
+fn ux_stage_done(stage: ImportStage) -> u64 {
+    match stage {
+        ImportStage::Started => 1,
+        ImportStage::Staged => 2,
+        ImportStage::Verified => 3,
+        ImportStage::Published | ImportStage::Committed => 4,
+    }
+}
+
+/// Reads the durable manifest stage under `dir` — `None` when no
+/// manifest exists (nothing durable to resume from). Manifest writes
+/// are atomic publishes, never torn reads.
+fn read_manifest_stage(dir: &std::path::Path) -> Option<ImportStage> {
+    let entries = std::fs::read_dir(dir).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+        if let Ok(bytes) = std::fs::read(&path)
+            && let Ok(manifest) = serde_json::from_slice::<ImportManifest>(&bytes)
+        {
+            return Some(manifest.stage);
+        }
+    }
+    None
+}
+
+/// What a ledger key names.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+#[non_exhaustive]
+pub enum LibraryJobKind {
+    /// `preview.fetch` — bounded, unverified bytes.
+    PreviewFetch,
+    /// `import.submit` — the pin+stage+verify+publish+commit pipeline.
+    ImportSubmit,
+    /// `import.retry` — replays the recorded pending intent.
+    ImportRetry,
+}
+
+/// Lifecycle of a ledger entry — `Done` is qualified by `terminal`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+#[non_exhaustive]
+pub enum LibraryJobState {
+    /// Registered, worker not yet reporting.
+    Queued,
+    /// Worker running (or parked `commit-pending`).
+    Running,
+    /// `import.cancel` raised the cooperative token.
+    CancelRequested,
+    /// Terminal recorded — inspect `terminal`.
+    Done,
+}
+
+/// Latest-wins progress reported through the job driver.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LibraryJobProgress {
+    /// Completed units (bytes or stage index).
+    pub done: u64,
+    /// Total units (byte cap or [`UX_STAGE_TOTAL`]).
+    pub total: u64,
+    /// Stage detail (`fetching`/`verifying`/...).
+    pub detail: String,
+}
+
+/// The terminal a `Done` entry recorded — the single receipt every
+/// view/window observes. `CommittedLive` is the project-commit receipt
+/// only; preview outcomes never claim it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
+#[non_exhaustive]
+pub enum LibraryJobTerminal {
+    /// The real project commit landed (or replayed `reused`).
+    CommittedLive {
+        /// Tagged import id.
+        import_id: String,
+        /// Tagged asset id.
+        asset_id: String,
+        /// Tagged source id.
+        source_id: String,
+        /// Tagged clip id when placed.
+        clip_id: Option<String>,
+        /// The live revision the commit landed at.
+        revision: u64,
+        /// Verified content digest (hex).
+        content_digest: String,
+        /// Materialized bytes.
+        byte_len: u64,
+        /// `applied_replay` fired — idempotent replay, not a new commit.
+        reused: bool,
+    },
+    /// The registry already holds the import — receipt without a run.
+    AlreadyApplied {
+        /// Tagged import id.
+        import_id: String,
+    },
+    /// Cooperative cancel landed mid-flight. `resumable` records
+    /// whether a durable manifest survives for a retry to converge.
+    Cancelled {
+        /// A durable manifest exists — `import.retry` resumes it.
+        resumable: bool,
+        /// Durable stage at cancel, when a manifest exists.
+        stage: Option<String>,
+    },
+    /// Typed failure — `reason` is a `LibraryReason::code()` or a
+    /// provider/import kind tag.
+    Failed {
+        /// Machine reason code.
+        reason: String,
+        /// Diagnostic detail.
+        detail: String,
+    },
+    /// Failed but the durable manifest survives at `stage` —
+    /// `import.retry`/resubmit converges without redoing completed
+    /// stages.
+    Recoverable {
+        /// Machine reason code.
+        reason: String,
+        /// UX stage the manifest reached.
+        stage: String,
+        /// Diagnostic detail.
+        detail: String,
+    },
+    /// Live revision moved under the intent — rebase then retry.
+    StaleRevision {
+        /// Manifest's expected revision.
+        expected: u64,
+        /// Live revision at rejection.
+        actual: u64,
+    },
+    /// Preview bytes delivered (unverified observation).
+    PreviewReady {
+        /// Bytes read.
+        byte_len: u64,
+    },
+    /// The plan gate answered without fetching.
+    PreviewPlan {
+        /// `bounded`/`consent-required`/`over-budget`.
+        plan: String,
+        /// Declared bytes when known.
+        bytes: Option<u64>,
+    },
+}
+
+/// One ledger entry — the single source `syn.library.jobs` projects.
+#[derive(Clone, Debug)]
+pub struct LibraryJob {
+    /// Stable key — `import:<tagged-import-id>` or
+    /// `preview:<view-instance>`. Addressing the job from another
+    /// view goes through this key (or the import id it wraps).
+    pub key: String,
+    /// Which action spawned it.
+    pub kind: LibraryJobKind,
+    /// The spawning view — terminal materialization target only; the
+    /// job and its receipt do not die with the view.
+    pub view: ruviform_ui::dock::ViewInstanceId,
+    /// Tagged import id for import-lane jobs.
+    pub import_id: Option<String>,
+    /// Lifecycle state.
+    pub state: LibraryJobState,
+    /// Latest UX stage the worker reported.
+    pub stage: Option<String>,
+    /// Latest-wins progress.
+    pub progress: Option<LibraryJobProgress>,
+    /// Terminal once `state == Done`.
+    pub terminal: Option<LibraryJobTerminal>,
+    /// Cooperative cancel token wired into the job's
+    /// `ProviderContext` — `import.cancel` and the runtime-cancel
+    /// bridge land here. Clones share the flag.
+    pub cancel: synvelis_library::CancellationToken,
+    /// An `import.cancel` specifically requested cancel —
+    /// distinguishes a user cancel from the commit-park the watcher
+    /// also raises on this token.
+    pub cancel_requested: bool,
+    /// Manifest reached `Published`+ — the real commit is owed to the
+    /// service-thread reconcile.
+    pub pending_commit: bool,
+    /// The intent the commit reconciles (import lane only).
+    pub intent: Option<ImportIntent>,
+    /// Runtime job id once the worker reports it — the correlation
+    /// between ruviform job events and this entry.
+    pub runtime_job: Option<u64>,
+    /// Terminal already materialized onto the spawning view.
+    pub projected: bool,
+    /// Generation — reusing a key after `Done` bumps this so a stale
+    /// observation never confuses a resubmit with the old run.
+    pub epoch: u64,
+}
+
+impl LibraryJob {
+    /// The wire projection — everything the ledger knows, verbatim.
+    fn wire(&self) -> LibraryJobWire {
+        LibraryJobWire {
+            job_key: self.key.clone(),
+            kind: self.kind,
+            view: format!("{}", self.view),
+            import_id: self.import_id.clone(),
+            state: self.state,
+            stage: self.stage.clone(),
+            progress: self.progress.clone(),
+            cancel_requested: self.cancel_requested,
+            pending_commit: self.pending_commit,
+            runtime_job: self.runtime_job,
+            epoch: self.epoch,
+            terminal: self.terminal.clone(),
+        }
+    }
+}
+
+/// `syn.library.jobs` wire entry — the cross-view projection.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LibraryJobWire {
+    /// Ledger key.
+    pub job_key: String,
+    /// Which action spawned it.
+    pub kind: LibraryJobKind,
+    /// Spawning view instance.
+    pub view: String,
+    /// Tagged import id (import lane).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub import_id: Option<String>,
+    /// Lifecycle state.
+    pub state: LibraryJobState,
+    /// Latest UX stage.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stage: Option<String>,
+    /// Latest-wins progress.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progress: Option<LibraryJobProgress>,
+    /// A user cancel was requested on this job.
+    pub cancel_requested: bool,
+    /// The job is parked — service-thread commit owed.
+    pub pending_commit: bool,
+    /// Runtime-side job id when spawned through `CallOutcome::Job`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime_job: Option<u64>,
+    /// Key-reuse generation.
+    pub epoch: u64,
+    /// Terminal when `state` is `done`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub terminal: Option<LibraryJobTerminal>,
+}
+
+/// What [`LibraryJobLedger::begin`] answered.
+pub enum LibraryJobBegin {
+    /// Fresh entry — the token wires the job's `ProviderContext`.
+    Spawn {
+        /// The entry's cooperative cancel token.
+        token: synvelis_library::CancellationToken,
+        /// This entry's generation.
+        epoch: u64,
+    },
+    /// A live job already owns the key — resubmitting does not
+    /// double-register (the same `ImportId` stays a single job).
+    InFlight,
+}
+
+/// What [`LibraryJobLedger::request_cancel`] answered.
+pub enum LibraryJobCancel {
+    /// Token raised — the worker observes it at the next boundary.
+    Requested,
+    /// The key names a terminal job — `terminal` carries the receipt.
+    Terminal(LibraryJobTerminal),
+    /// No such job.
+    Unknown,
+}
+
+/// The app-owned job ledger. Lock discipline: mutations are
+/// O(entries) bookkeeping only — no I/O, no provider calls, no
+/// project mutation while held.
+#[derive(Debug, Default)]
+pub struct LibraryJobLedger {
+    entries: std::collections::BTreeMap<String, LibraryJob>,
+    /// Raw-ID band cursor for dry-run reservation — see
+    /// [`LibraryJobLedger::alloc_band`].
+    band_cursor: u128,
+    /// Monotonic key-reuse generation.
+    epoch: u64,
+}
+
+/// Raw-ID band allocated to one import job's dry-run reservation.
+/// `draw_reserved` issues ≤4 raws per import; the band is orders of
+/// magnitude wider so concurrent jobs can never collide and the live
+/// generator's skip costs nothing.
+pub const JOB_ID_BAND: u128 = 1 << 20;
+
+impl LibraryJobLedger {
+    /// The scratch-controller seed for a new import job — disjoint
+    /// from every live band and from `live_peek` (the live generator's
+    /// next raw). The caller then advances the *real* generator past
+    /// `seed + JOB_ID_BAND` so real draws never enter the band.
+    pub fn alloc_band(&mut self, live_peek: u128) -> u128 {
+        let seed = self.band_cursor.max(live_peek);
+        self.band_cursor = seed.saturating_add(JOB_ID_BAND);
+        seed
+    }
+
+    /// Registers a job under `key`, or reports the live owner —
+    /// deduplicates concurrent submits of the same target so one
+    /// `ImportId` is never two jobs.
+    pub fn begin(
+        &mut self,
+        key: String,
+        kind: LibraryJobKind,
+        view: ruviform_ui::dock::ViewInstanceId,
+        import_id: Option<String>,
+        intent: Option<ImportIntent>,
+    ) -> LibraryJobBegin {
+        if let Some(existing) = self.entries.get(&key)
+            && existing.state != LibraryJobState::Done
+        {
+            return LibraryJobBegin::InFlight;
+        }
+        self.epoch = self.epoch.saturating_add(1);
+        let token = synvelis_library::CancellationToken::new();
+        let epoch = self.epoch;
+        self.entries.insert(
+            key.clone(),
+            LibraryJob {
+                key,
+                kind,
+                view,
+                import_id,
+                state: LibraryJobState::Queued,
+                stage: Some("queued".to_string()),
+                progress: None,
+                terminal: None,
+                cancel: token.clone(),
+                cancel_requested: false,
+                pending_commit: false,
+                intent,
+                runtime_job: None,
+                projected: false,
+                epoch,
+            },
+        );
+        LibraryJobBegin::Spawn { token, epoch }
+    }
+
+    /// Raises the entry's cooperative cancel token — the
+    /// `CancelRequested` → `Cancelled` typed transition.
+    pub fn request_cancel(&mut self, key: &str) -> LibraryJobCancel {
+        let Some(entry) = self.entries.get_mut(key) else {
+            return LibraryJobCancel::Unknown;
+        };
+        if let Some(terminal) = &entry.terminal {
+            return LibraryJobCancel::Terminal(terminal.clone());
+        }
+        entry.cancel_requested = true;
+        entry.state = LibraryJobState::CancelRequested;
+        entry.cancel.cancel();
+        LibraryJobCancel::Requested
+    }
+
+    /// The job-key an `import.cancel` `import_id` resolves to.
+    #[must_use]
+    pub fn import_key(id: ImportId) -> String {
+        format!("import:{}", id.to_tagged())
+    }
+
+    /// The job-key a view's preview fetch registers under.
+    #[must_use]
+    pub fn preview_key(view: ruviform_ui::dock::ViewInstanceId) -> String {
+        format!("preview:{view}")
+    }
+
+    /// Latest-wins progress for `key` — also flips `Queued` →
+    /// `Running` on first report.
+    pub fn report(&mut self, key: &str, done: u64, total: u64, detail: &str) {
+        if let Some(e) = self.entries.get_mut(key) {
+            if e.state == LibraryJobState::Queued {
+                e.state = LibraryJobState::Running;
+            }
+            e.stage = Some(detail.to_string());
+            e.progress = Some(LibraryJobProgress {
+                done,
+                total,
+                detail: detail.to_string(),
+            });
+        }
+    }
+
+    /// Runtime-job-id correlation once the worker knows it.
+    pub fn set_runtime_job(&mut self, key: &str, job: u64) {
+        if let Some(e) = self.entries.get_mut(key) {
+            e.runtime_job = Some(job);
+        }
+    }
+
+    /// The intent a freshly-spawned import job reconciles — set right
+    /// after `begin` once the submit-side pin produced it.
+    pub fn set_intent(&mut self, key: &str, intent: ImportIntent) {
+        if let Some(e) = self.entries.get_mut(key) {
+            e.intent = Some(intent);
+        }
+    }
+
+    /// Drops a fresh entry whose prepare step faulted before any
+    /// worker spawned — nothing durable exists, nothing to resume.
+    pub fn abort(&mut self, key: &str) {
+        if self.entries.get(key).is_some_and(|e| e.terminal.is_none()) {
+            self.entries.remove(key);
+        }
+    }
+
+    /// Arms `commit-pending` — the job parked with a `Published`+
+    /// manifest and the service thread owes the real commit.
+    pub fn park_commit(&mut self, key: &str) {
+        if let Some(e) = self.entries.get_mut(key) {
+            e.pending_commit = true;
+            e.stage = Some("commit-pending".to_string());
+        }
+    }
+
+    /// Records the terminal — `Done` from now on.
+    pub fn finish(&mut self, key: &str, terminal: LibraryJobTerminal) {
+        if let Some(e) = self.entries.get_mut(key) {
+            e.terminal = Some(terminal);
+            e.state = LibraryJobState::Done;
+            e.pending_commit = false;
+        }
+    }
+
+    /// Wire projection — sorted by key, deterministic.
+    #[must_use]
+    pub fn snapshot(&self) -> Vec<LibraryJobWire> {
+        self.entries.values().map(LibraryJob::wire).collect()
+    }
+}
+
+/// Maps an [`ImportError`] to the ledger terminal — the job-side
+/// counterpart of [`import_terminal_state`]; `stage` is the durable
+/// manifest stage at failure (its presence is what makes
+/// `Io`/`JobState`/`PublishFailed` `Recoverable`).
+fn job_terminal(e: &ImportError, stage: Option<ImportStage>) -> LibraryJobTerminal {
+    let recoverable = |reason: &str, detail: String| match stage {
+        Some(stage) => LibraryJobTerminal::Recoverable {
+            reason: reason.to_string(),
+            stage: ux_stage(stage).to_string(),
+            detail,
+        },
+        None => LibraryJobTerminal::Failed {
+            reason: reason.to_string(),
+            detail,
+        },
+    };
+    match e {
+        ImportError::StaleRevision { expected, actual } => LibraryJobTerminal::StaleRevision {
+            expected: *expected,
+            actual: *actual,
+        },
+        ImportError::IntegrityConflict { import_id } => LibraryJobTerminal::Failed {
+            reason: LibraryReason::IntegrityConflict.code().to_string(),
+            detail: format!("import {import_id} integrity conflict"),
+        },
+        ImportError::Provider(pe) => LibraryJobTerminal::Failed {
+            reason: kind_tag(pe.kind()),
+            detail: pe.detail().to_string(),
+        },
+        ImportError::IntegrityMismatch { detail } => LibraryJobTerminal::Failed {
+            reason: LibraryReason::IntegrityMismatch.code().to_string(),
+            detail: detail.clone(),
+        },
+        ImportError::CommitRejected { source, .. } => {
+            let (reason, detail) = match source {
+                synvelis_project::Error::NotFound(_) | synvelis_project::Error::WrongOwner(_) => {
+                    (LibraryReason::TargetGone, source.to_string())
+                }
+                other => (LibraryReason::Internal, other.to_string()),
+            };
+            LibraryJobTerminal::Failed {
+                reason: reason.code().to_string(),
+                detail,
+            }
+        }
+        ImportError::PublishIndeterminate { destination } => LibraryJobTerminal::Failed {
+            reason: LibraryReason::PublishIndeterminate.code().to_string(),
+            detail: format!(
+                "publish destination state unknowable: {}",
+                destination.display()
+            ),
+        },
+        ImportError::Io { op, detail } => recoverable("io", format!("{op}: {detail}")),
+        ImportError::Corrupt { detail } => LibraryJobTerminal::Failed {
+            reason: "corrupt".to_string(),
+            detail: detail.clone(),
+        },
+        ImportError::PublishFailed { .. } => {
+            let stage = stage.unwrap_or(ImportStage::Verified);
+            LibraryJobTerminal::Recoverable {
+                reason: "publish-failed".to_string(),
+                stage: ux_stage(stage).to_string(),
+                detail: e.to_string(),
+            }
+        }
+        ImportError::JobState { detail } => recoverable("job-state", detail.clone()),
+    }
+}
+
+/// Everything a library job body needs — assembled on the service
+/// thread (inside `with_library`), then moved into the worker. No
+/// `&mut` into session or view state crosses the boundary: the only
+/// project authority the import lane sees is the throwaway dry-run
+/// controller it rebuilds from `project`/`id_seed`.
+pub struct LibraryJobPlan {
+    /// Ledger key this job owns.
+    pub key: String,
+    /// Which action spawned it.
+    pub kind: LibraryJobKind,
+    /// Spawning view (projection target).
+    pub view: ruviform_ui::dock::ViewInstanceId,
+    /// Resolved provider — `Send + Sync`, safe on the worker.
+    pub provider: Arc<dyn AssetProvider>,
+    /// Provider context carrying the ledger-owned cancel token.
+    pub cx: ProviderContext,
+    /// Shared ledger the worker reports into.
+    pub ledger: Arc<std::sync::Mutex<LibraryJobLedger>>,
+    // ── import lane ──
+    /// The intent being staged (import lane).
+    pub intent: Option<ImportIntent>,
+    /// Durable ports the import streams into.
+    pub store: Option<ImportStore>,
+    /// Project blob store.
+    pub blobs: Option<Arc<dyn ProjectBlobStore>>,
+    /// Blob publisher.
+    pub publisher: Option<Arc<dyn BlobPublisher>>,
+    /// `Project` clone the dry-run controller wraps — never the live
+    /// controller's project.
+    pub project: Option<synvelis_project::Project>,
+    /// The live controller's revision at dispatch — the scratch
+    /// controller is seeded at this CAS position so the manifest's
+    /// `expected_project_revision` is checked against the revision
+    /// the intent actually targeted, not revision 0.
+    pub live_revision: u64,
+    /// Disjoint raw-ID band seed for the dry-run generator.
+    pub id_seed: u128,
+    // ── preview lane ──
+    /// Resolved asset (preview lane).
+    pub asset: Option<RemoteAssetRef>,
+    /// Whole-object consent for the preview plan gate.
+    pub allow_full_object: bool,
+}
+
+/// The worker-side surface both spawn paths drive through — the
+/// runtime `JobContext` adapter (in synvelis-app) and the app-spawned
+/// `DirectJobDrive` both implement it, so job bodies never know which
+/// thread they're on.
+pub trait LibraryJobDrive: Send + Sync {
+    /// All cancel sources observed — the ledger token (`import.cancel`)
+    /// plus, on the runtime path, `job.cancel`/`cancel_window_jobs`.
+    fn is_cancelled(&self) -> bool;
+    /// Latest-wins progress — the runtime path reports
+    /// `progress_detail` events; both paths record the ledger.
+    fn report(&self, done: u64, total: u64, detail: &str);
+    /// The runtime job id for ledger correlation, when spawned through
+    /// `CallOutcome::Job`.
+    fn runtime_job(&self) -> Option<u64> {
+        None
+    }
+}
+
+/// The app-spawned driver — `op_library_action`'s direct (no-runtime)
+/// surface uses it for tests and headless callers. Cancel observation
+/// is the ledger token alone; progress goes to the ledger only.
+pub struct DirectJobDrive {
+    /// Ledger-owned cancel token for this job.
+    pub token: synvelis_library::CancellationToken,
+    /// Shared ledger.
+    pub ledger: Arc<std::sync::Mutex<LibraryJobLedger>>,
+    /// The job's ledger key.
+    pub key: String,
+}
+
+impl LibraryJobDrive for DirectJobDrive {
+    fn is_cancelled(&self) -> bool {
+        self.token.is_cancelled()
+    }
+
+    fn report(&self, done: u64, total: u64, detail: &str) {
+        if let Ok(mut l) = self.ledger.lock() {
+            l.report(&self.key, done, total, detail);
+        }
+    }
+}
+
+/// How often the import body polls the worker channel + manifest —
+/// progress granularity, not correctness (the durable manifest is
+/// always re-read at the end).
+const JOB_POLL: std::time::Duration = std::time::Duration::from_millis(10);
+
+/// Dispatches a [`LibraryJobPlan`] to its lane runner — shared by the
+/// `CallOutcome::Job` spec body and the app-spawned thread.
+///
+/// # Errors
+/// `Err(ErrorBody)` when the job fails — the runtime maps it to
+/// `job_failed`/`job_cancelled`; the ledger already holds the typed
+/// terminal either way.
+pub fn run_plan_job(
+    plan: &LibraryJobPlan,
+    drive: &dyn LibraryJobDrive,
+) -> Result<serde_json::Value, ruviform_ui::ipc::ErrorBody> {
+    if let Some(job) = drive.runtime_job()
+        && let Ok(mut l) = plan.ledger.lock()
+    {
+        l.set_runtime_job(&plan.key, job);
+    }
+    match plan.kind {
+        LibraryJobKind::PreviewFetch => run_preview_job(plan, drive),
+        LibraryJobKind::ImportSubmit | LibraryJobKind::ImportRetry => run_import_job(plan, drive),
+    }
+}
+
+fn ledger_finish(
+    ledger: &Arc<std::sync::Mutex<LibraryJobLedger>>,
+    key: &str,
+    t: LibraryJobTerminal,
+) {
+    if let Ok(mut l) = ledger.lock() {
+        l.finish(key, t);
+    }
+}
+
+fn ledger_park(ledger: &Arc<std::sync::Mutex<LibraryJobLedger>>, key: &str) {
+    if let Ok(mut l) = ledger.lock() {
+        l.park_commit(key);
+    }
+}
+
+/// Preview lane — capabilities gate → stat → plan gate → bounded
+/// `open_preview` read loop observing cancel at every chunk and
+/// reporting byte progress. Same stages as the sync `preview_fetch`;
+/// the terminal lands on the ledger instead of writing `state`
+/// directly.
+#[allow(clippy::too_many_lines)] // sequential fetch pipeline — plan gate → bounded read → terminal
+fn run_preview_job(
+    plan: &LibraryJobPlan,
+    drive: &dyn LibraryJobDrive,
+) -> Result<serde_json::Value, ruviform_ui::ipc::ErrorBody> {
+    use std::io::Read as _;
+    let ledger = &plan.ledger;
+    let key = &plan.key;
+    let fail = |t: LibraryJobTerminal, reason: &str, detail: String| {
+        ledger_finish(ledger, key, t);
+        Err(ruviform_ui::ipc::ErrorBody::new(reason, detail))
+    };
+    let Some(asset) = plan.asset.clone() else {
+        return fail(
+            LibraryJobTerminal::Failed {
+                reason: "job-state".to_string(),
+                detail: "preview job missing asset".to_string(),
+            },
+            ruviform_ui::ipc::codes::SERVICE_ERROR,
+            "preview job missing asset".to_string(),
+        );
+    };
+    let provider = &plan.provider;
+    let caps = provider.capabilities(Some(&asset));
+    if !caps.preview.is_supported() {
+        return fail(
+            LibraryJobTerminal::Failed {
+                reason: LibraryReason::UnsupportedCapability.code().to_string(),
+                detail: "provider does not support preview".to_string(),
+            },
+            ruviform_ui::ipc::codes::SERVICE_ERROR,
+            "provider does not support preview".to_string(),
+        );
+    }
+    let cx = &plan.cx;
+    let size = provider
+        .stat(&asset, cx)
+        .ok()
+        .and_then(|s| s.facts.byte_len.value().copied());
+    match classify_preview(size, caps.range_read.is_supported()) {
+        PreviewPlan::OverBudget { bytes } => {
+            ledger_finish(
+                ledger,
+                key,
+                LibraryJobTerminal::PreviewPlan {
+                    plan: "over-budget".to_string(),
+                    bytes: Some(bytes),
+                },
+            );
+            return Ok(serde_json::json!({
+                "job_key": key, "outcome": "plan", "plan": "over-budget",
+            }));
+        }
+        PreviewPlan::FullDownload { .. } if !plan.allow_full_object => {
+            ledger_finish(
+                ledger,
+                key,
+                LibraryJobTerminal::PreviewPlan {
+                    plan: "consent-required".to_string(),
+                    bytes: size,
+                },
+            );
+            return Ok(serde_json::json!({
+                "job_key": key, "outcome": "plan", "plan": "consent-required",
+            }));
+        }
+        _ => {}
+    }
+    let range = preview_range(size);
+    let mut pinned = match provider.open_preview(&asset, range, cx) {
+        Ok(p) => p,
+        Err(e) => {
+            return fail(
+                LibraryJobTerminal::Failed {
+                    reason: kind_tag(e.kind()),
+                    detail: e.detail().to_string(),
+                },
+                ruviform_ui::ipc::codes::SERVICE_ERROR,
+                e.to_string(),
+            );
+        }
+    };
+    let ceiling = if plan.allow_full_object {
+        FULL_OBJECT_CONSENT_BYTES
+    } else {
+        PREVIEW_CAP
+    };
+    let cap = size.map_or(ceiling, |n| n.min(ceiling));
+    let total = size.unwrap_or(cap);
+    let mut buf = Vec::new();
+    let mut chunk = [0u8; 8192];
+    loop {
+        if drive.is_cancelled() {
+            ledger_finish(
+                ledger,
+                key,
+                LibraryJobTerminal::Cancelled {
+                    resumable: false,
+                    stage: None,
+                },
+            );
+            return Err(ruviform_ui::ipc::ErrorBody::new(
+                ruviform_ui::ipc::codes::CANCELLED,
+                "preview fetch cancelled",
+            ));
+        }
+        match pinned.reader.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(n) => {
+                if (buf.len() as u64 + n as u64) > cap {
+                    return fail(
+                        LibraryJobTerminal::Failed {
+                            reason: LibraryReason::BudgetExceeded.code().to_string(),
+                            detail: "preview exceeded byte cap".to_string(),
+                        },
+                        ruviform_ui::ipc::codes::SERVICE_ERROR,
+                        "preview exceeded byte cap".to_string(),
+                    );
+                }
+                buf.extend_from_slice(&chunk[..n]);
+                drive.report(buf.len() as u64, total, "fetching");
+            }
+            Err(e) => {
+                return fail(
+                    LibraryJobTerminal::Failed {
+                        reason: LibraryReason::Internal.code().to_string(),
+                        detail: format!("preview read: {e}"),
+                    },
+                    ruviform_ui::ipc::codes::SERVICE_ERROR,
+                    format!("preview read: {e}"),
+                );
+            }
+        }
+    }
+    if drive.is_cancelled() {
+        ledger_finish(
+            ledger,
+            key,
+            LibraryJobTerminal::Cancelled {
+                resumable: false,
+                stage: None,
+            },
+        );
+        return Err(ruviform_ui::ipc::ErrorBody::new(
+            ruviform_ui::ipc::codes::CANCELLED,
+            "preview fetch cancelled",
+        ));
+    }
+    if let Some(Err(e)) = pinned.completion.take() {
+        return fail(
+            LibraryJobTerminal::Failed {
+                reason: kind_tag(e.kind()),
+                detail: e.detail().to_string(),
+            },
+            ruviform_ui::ipc::codes::SERVICE_ERROR,
+            e.to_string(),
+        );
+    }
+    ledger_finish(
+        ledger,
+        key,
+        LibraryJobTerminal::PreviewReady {
+            byte_len: buf.len() as u64,
+        },
+    );
+    Ok(serde_json::json!({
+        "job_key": key,
+        "outcome": "ready",
+        "byte_len": buf.len() as u64,
+    }))
+}
+
+/// Import lane — the job/commit split's worker half. `import_verified`
+/// runs on a nested thread (it owns the blocking stream); this body
+/// polls the durable manifest to report stage progress, bridges every
+/// cancel source onto the job's `ProviderContext` token, and parks
+/// `commit-pending` once the manifest reaches `Published` so the real
+/// commit lands on the service-thread reconcile — never on a
+/// controller the job borrowed.
+#[allow(clippy::too_many_lines)] // worker spawn + poll + typed terminal mapping stay together
+fn run_import_job(
+    plan: &LibraryJobPlan,
+    drive: &dyn LibraryJobDrive,
+) -> Result<serde_json::Value, ruviform_ui::ipc::ErrorBody> {
+    use std::sync::mpsc::RecvTimeoutError;
+    let ledger = plan.ledger.clone();
+    let key = plan.key.clone();
+    let Some((intent, store, blobs, publisher, project)) = plan
+        .intent
+        .clone()
+        .zip(plan.store.clone())
+        .zip(plan.blobs.clone())
+        .zip(plan.publisher.clone())
+        .zip(plan.project.clone())
+        .map(|((((i, s), b), p), pr)| (i, s, b, p, pr))
+    else {
+        ledger_finish(
+            &ledger,
+            &key,
+            LibraryJobTerminal::Failed {
+                reason: "job-state".to_string(),
+                detail: "import job missing durable ports or project".to_string(),
+            },
+        );
+        return Err(ruviform_ui::ipc::ErrorBody::new(
+            ruviform_ui::ipc::codes::SERVICE_ERROR,
+            "import job missing durable ports or project",
+        ));
+    };
+    let dir = store.staging_dir(intent.import_id);
+    let cancel = plan.cx.cancel.clone();
+    let provider = plan.provider.clone();
+    let cx = plan.cx.clone();
+    let seed = plan.id_seed;
+    let live_revision = plan.live_revision;
+    let (tx, rx) = std::sync::mpsc::channel::<Result<ImportOutcome, ImportError>>();
+    let worker = std::thread::Builder::new()
+        .name(format!("sv-lib-import-{}", intent.import_id.raw()))
+        .spawn(move || {
+            // The dry-run controller: real `Project` state, throwaway
+            // `CounterIdGenerator` seeded in a disjoint band — reserved
+            // raws, replay checks, and `apply` semantics all exercise
+            // the real code without touching live project authority.
+            let mut scratch = synvelis_project::ProjectController::new_at_revision(
+                project,
+                synvelis_project::ProjectRevision(live_revision),
+                Box::new(synvelis_project::CounterIdGenerator::new(seed)),
+            );
+            let r = import_verified(
+                provider.as_ref(),
+                &intent,
+                &store,
+                blobs.as_ref(),
+                publisher.as_ref(),
+                &mut scratch,
+                &cx,
+            );
+            let _ = tx.send(r);
+        });
+    let Ok(worker) = worker else {
+        ledger_finish(
+            &ledger,
+            &key,
+            LibraryJobTerminal::Failed {
+                reason: "job-state".to_string(),
+                detail: "import worker thread failed to spawn".to_string(),
+            },
+        );
+        return Err(ruviform_ui::ipc::ErrorBody::new(
+            ruviform_ui::ipc::codes::SERVICE_ERROR,
+            "import worker thread failed to spawn",
+        ));
+    };
+    // Poll the manifest — stage progress flows while the worker
+    // streams; at `Published`+ the job's own cancel token parks the
+    // commit gate so `controller.apply` can never fire on the scratch.
+    let result = loop {
+        match rx.recv_timeout(JOB_POLL) {
+            Ok(r) => break Some(r),
+            Err(RecvTimeoutError::Timeout) => {
+                if drive.is_cancelled() {
+                    cancel.cancel();
+                }
+                match read_manifest_stage(&dir) {
+                    Some(stage) => {
+                        drive.report(ux_stage_done(stage), UX_STAGE_TOTAL, ux_stage(stage));
+                        if stage >= ImportStage::Published {
+                            cancel.cancel();
+                        }
+                    }
+                    None => drive.report(0, UX_STAGE_TOTAL, "fetching"),
+                }
+            }
+            Err(RecvTimeoutError::Disconnected) => break None,
+        }
+    };
+    let _ = worker.join();
+    let final_stage = read_manifest_stage(&dir);
+    let cancel_requested = ledger
+        .lock()
+        .ok()
+        .and_then(|l| l.entries.get(&key).map(|e| e.cancel_requested))
+        .unwrap_or(false);
+    match result {
+        // Scratch committed — the durable commit is real; the live
+        // controller still owes the same `CommitVerifiedImport` (the
+        // manifest skips finished stages and lands `controller.apply`
+        // with its real revision check on reconcile).
+        Some(Ok(_)) => {
+            ledger_park(&ledger, &key);
+            Ok(serde_json::json!({
+                "job_key": key, "outcome": "commit-pending",
+            }))
+        }
+        Some(Err(ImportError::Provider(pe))) if pe.kind() == ProviderErrorKind::Cancelled => {
+            if cancel_requested || final_stage < Some(ImportStage::Published) {
+                // A user cancel — or the park never armed — is an
+                // honest `Cancelled` terminal; a durable manifest makes
+                // it resumable.
+                ledger_finish(
+                    &ledger,
+                    &key,
+                    LibraryJobTerminal::Cancelled {
+                        resumable: final_stage.is_some(),
+                        stage: final_stage.map(ux_stage).map(str::to_string),
+                    },
+                );
+                Err(ruviform_ui::ipc::ErrorBody::new(
+                    ruviform_ui::ipc::codes::CANCELLED,
+                    "import cancelled",
+                ))
+            } else {
+                // The watcher's own park raised the token — the commit
+                // stays owed to the reconcile.
+                ledger_park(&ledger, &key);
+                Ok(serde_json::json!({
+                    "job_key": key, "outcome": "commit-pending",
+                }))
+            }
+        }
+        Some(Err(e)) => {
+            let t = job_terminal(&e, final_stage);
+            ledger_finish(&ledger, &key, t);
+            Err(ruviform_ui::ipc::ErrorBody::new(
+                ruviform_ui::ipc::codes::SERVICE_ERROR,
+                e.to_string(),
+            ))
+        }
+        None => {
+            ledger_finish(
+                &ledger,
+                &key,
+                LibraryJobTerminal::Failed {
+                    reason: "job-state".to_string(),
+                    detail: "import worker died without a result".to_string(),
+                },
+            );
+            Err(ruviform_ui::ipc::ErrorBody::new(
+                ruviform_ui::ipc::codes::WORKER_FAILED,
+                "import worker died without a result",
+            ))
+        }
+    }
 }
 
 // ── tests ───────────────────────────────────────────────────────────

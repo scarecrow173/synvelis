@@ -5760,25 +5760,74 @@ impl SynvelisApp {
     /// view: registered providers, the typed [`LibraryViewState`]
     /// verbatim (coverage/search/pin/preview/import/drag/fault), and
     /// the deterministic driver-neutral [`ViewSpec`] a Fake/Mock/GPUI
-    /// driver mounts unchanged. Pure read — provider freshness probes
-    /// already happened inside the actions that filled the state.
+    /// driver mounts unchanged. Reconciles the job ledger first — a
+    /// parked import commit lands and job terminals materialize before
+    /// the state is read. Provider freshness probes already happened
+    /// inside the actions that filled the state.
     ///
     /// # Errors
     /// [`ErrorBody`] on invalid parameters, an unregistered/wrong-kind
     /// view, or an unbound library backend.
     pub fn op_library_view(&mut self, params: &Value) -> Result<Value, ErrorBody> {
         let (view_name, inst) = self.library_view_instance(params)?;
-        let model = self
-            .workspace
-            .library_mut()
-            .model_mut(inst)
-            .ok_or_else(Self::library_unavailable)?;
-        Ok(json!({
-            "view_id": view_name,
-            "providers": model.providers(),
-            "state": model.state(),
-            "spec": synvelis_workspace::library_spec(model),
-        }))
+        let import = self.library_import.as_ref();
+        self.workspace
+            .with_library(|views, session| -> Result<Value, ErrorBody> {
+                let ports = import.map(|s| synvelis_workspace::LibraryImportPorts {
+                    store: &s.store,
+                    blobs: s.blobs.as_ref(),
+                    publisher: s.publisher.as_ref(),
+                });
+                let revision_before = session.revision();
+                views.reconcile_jobs(session.controller_mut(), ports.as_ref());
+                if session.revision() != revision_before {
+                    session.notify_committed_change();
+                }
+                let model = views
+                    .model_mut(inst)
+                    .ok_or_else(Self::library_unavailable)?;
+                Ok(json!({
+                    "view_id": view_name,
+                    "providers": model.providers(),
+                    "state": model.state(),
+                    "spec": synvelis_workspace::library_spec(model),
+                }))
+            })
+    }
+
+    /// `syn.library.jobs` — the app-owned job ledger projected to wire
+    /// form: every preview/import job across every view and window,
+    /// with lifecycle `queued`/`running`/`cancel-requested`/`done`
+    /// plus the typed terminal (`committed-live`/`cancelled`/`failed`/
+    /// `recoverable`/`stale-revision`/`preview-ready`/`preview-plan`).
+    /// Reconciles first — a parked commit lands before the snapshot so
+    /// the ledger never reports a commit the project has not seen.
+    /// Optional `job_key` narrows the projection to one entry.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on invalid parameters only — the ledger itself is
+    /// always available (empty list when no job ever ran).
+    pub fn op_library_jobs(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let import = self.library_import.as_ref();
+        let mut jobs = self.workspace.with_library(
+            |views, session| -> Result<Vec<synvelis_workspace::LibraryJobWire>, ErrorBody> {
+                let ports = import.map(|s| synvelis_workspace::LibraryImportPorts {
+                    store: &s.store,
+                    blobs: s.blobs.as_ref(),
+                    publisher: s.publisher.as_ref(),
+                });
+                let revision_before = session.revision();
+                views.reconcile_jobs(session.controller_mut(), ports.as_ref());
+                if session.revision() != revision_before {
+                    session.notify_committed_change();
+                }
+                Ok(views.jobs_snapshot())
+            },
+        )?;
+        if let Some(key) = params.get("job_key").and_then(Value::as_str) {
+            jobs.retain(|j| j.job_key == key);
+        }
+        Ok(json!({ "jobs": jobs }))
     }
 
     /// `syn.library.action` — one decoded [`LibraryAction`] against a
@@ -5792,12 +5841,90 @@ impl SynvelisApp {
     /// The ack is minimal; query [`Self::op_library_view`] for the
     /// projection.
     ///
+    /// `preview.fetch`/`import.submit`/`import.retry` are jobs
+    /// (ALIB-05): through `Service::call` they return
+    /// `CallOutcome::Job` (ruviform owns the worker + `job` events);
+    /// on this direct surface they run on an app-spawned thread and
+    /// the ack carries `{job_key, queued: true}`. Either way the job
+    /// lands in the app-owned ledger — `syn.library.jobs` is the
+    /// cross-view projection, `import.cancel` the cooperative cancel.
+    ///
     /// # Errors
     /// [`ErrorBody`] on invalid parameters, an unregistered/wrong-kind
     /// view, or an unbound library backend. Action-level failures are
     /// *not* op errors — they land in `state.fault`/the typed surface
     /// states so drivers can render them.
     pub fn op_library_action(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        match self.library_action_effect(params)? {
+            LibraryActionEffect::Result(v) => Ok(v),
+            LibraryActionEffect::Job { plan, .. } => {
+                let job_key = plan.key.clone();
+                let view_name = plan_view_name(params);
+                let drive = synvelis_workspace::DirectJobDrive {
+                    token: plan.cx.cancel.clone(),
+                    ledger: plan.ledger.clone(),
+                    key: job_key.clone(),
+                };
+                // The direct surface has no runtime to own the
+                // worker — the app thread runs the same body with the
+                // ledger-only drive. Terminals land on the ledger
+                // either way; reconcile materializes them on read.
+                let spawned = std::thread::Builder::new()
+                    .name(format!("sv-lib-job-{job_key}"))
+                    .spawn(move || {
+                        let _ = synvelis_workspace::run_plan_job(&plan, &drive);
+                    });
+                match spawned {
+                    Ok(_) => Ok(json!({
+                        "ok": true, "view_id": view_name,
+                        "job_key": job_key, "queued": true,
+                    })),
+                    Err(e) => Err(internal(format!("library job spawn failed: {e}"))),
+                }
+            }
+        }
+    }
+
+    /// The `CallOutcome` variant of [`Self::op_library_action`] —
+    /// `Service::call` routes `syn.library.action` here so job-shaped
+    /// actions return `CallOutcome::Job` (immediate `{job,label}` ack,
+    /// `job` lifecycle events, `job.cancel` support) while every other
+    /// action keeps the plain `CallOutcome::Result`.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] on the same conditions as `op_library_action`.
+    pub fn library_action_call(
+        &mut self,
+        params: &Value,
+    ) -> Result<ruviform_ui::CallOutcome, ErrorBody> {
+        match self.library_action_effect(params)? {
+            LibraryActionEffect::Result(v) => Ok(ruviform_ui::CallOutcome::Result(v)),
+            LibraryActionEffect::Job { plan, label } => Ok(ruviform_ui::CallOutcome::Job(
+                ruviform_ui::JobSpec::new(label, move |ctx: &ruviform_ui::JobContext| {
+                    let drive = RuntimeJobDrive {
+                        ctx,
+                        token: plan.cx.cancel.clone(),
+                        ledger: plan.ledger.clone(),
+                        key: plan.key.clone(),
+                    };
+                    synvelis_workspace::run_plan_job(&plan, &drive)
+                }),
+            )),
+        }
+    }
+
+    /// Shared dispatch for `syn.library.action`: reconciles the job
+    /// ledger, then produces either a synchronous result or a
+    /// [`LibraryJobPlan`] the caller spawns. Job actions deduplicate
+    /// by ledger key — resubmitting a live `import:<id>` answers
+    /// `in-flight` instead of double-registering (one `ImportId` is
+    /// never two jobs, from any view).
+    #[allow(clippy::too_many_lines)] // one arm per job action — a flat dispatch table
+    fn library_action_effect(&mut self, params: &Value) -> Result<LibraryActionEffect, ErrorBody> {
+        use synvelis_workspace::{
+            JOB_ID_BAND, LibraryJobBegin, LibraryJobCancel, LibraryJobKind, LibraryJobLedger,
+            LibraryJobPlan,
+        };
         let (view_name, inst) = self.library_view_instance(params)?;
         // Strip `view_id` — the enum is `deny_unknown_fields` and the
         // action payload is everything else, verbatim.
@@ -5809,30 +5936,310 @@ impl SynvelisApp {
             serde_json::from_value(action_params).map_err(|e| invalid(format!("params: {e}")))?;
         let import = self.library_import.as_ref();
         self.workspace
-            .with_library(|views, session| -> Result<(), ErrorBody> {
-                let model = views
-                    .model_mut(inst)
-                    .ok_or_else(Self::library_unavailable)?;
+            .with_library(|views, session| -> Result<LibraryActionEffect, ErrorBody> {
                 let ports = import.map(|s| synvelis_workspace::LibraryImportPorts {
                     store: &s.store,
                     blobs: s.blobs.as_ref(),
                     publisher: s.publisher.as_ref(),
                 });
-                // Verified import commits inside `import_verified`
-                // through `controller_mut()` — it cannot route through
-                // `ProjectSession::apply`, so the session's post-commit
-                // notifications (engine rebuild, control write-gate
-                // seal) must be replayed here when the revision moved.
-                // An idempotent replay commits nothing and must not
-                // notify.
+                // Reconcile before dispatch — a parked commit lands on
+                // the real controller, and cancel/job-state reads see
+                // the freshest truth. Verified imports commit inside
+                // `import_verified` rather than `ProjectSession::apply`,
+                // so the post-commit notifications are replayed when
+                // the revision moved (an idempotent replay does not).
                 let revision_before = session.revision();
-                model.apply(&action, ports.as_ref(), Some(session.controller_mut()));
-                if session.revision() != revision_before {
+                let reconciled = views.reconcile_jobs(session.controller_mut(), ports.as_ref());
+                let ledger = views.jobs();
+                let principal = views
+                    .backend()
+                    .map(|b| b.principal.clone())
+                    .ok_or_else(Self::library_unavailable)?;
+                let model = views
+                    .model_mut(inst)
+                    .ok_or_else(Self::library_unavailable)?;
+                let job_cx = |token: synvelis_library::CancellationToken| {
+                    let mut cx = synvelis_library::ProviderContext::new(principal.clone());
+                    cx.cancel = token;
+                    cx
+                };
+                let result = match &action {
+                    synvelis_workspace::LibraryAction::ImportCancel { import_id, job_key } => {
+                        let key = match (import_id, job_key) {
+                            (Some(v), _) => {
+                                match synvelis_workspace::LibraryViewModel::parse_import_id(v) {
+                                    Ok(id) => Some(LibraryJobLedger::import_key(id)),
+                                    Err(f) => {
+                                        model.set_fault(f);
+                                        None
+                                    }
+                                }
+                            }
+                            (None, Some(k)) => Some(k.clone()),
+                            (None, None) => {
+                                model.set_fault(synvelis_workspace::LibraryFault::new(
+                                    synvelis_workspace::LibraryReason::Malformed,
+                                    None,
+                                    "import.cancel requires import_id or job_key",
+                                ));
+                                None
+                            }
+                        };
+                        match key {
+                            None => LibraryActionEffect::Result(
+                                json!({ "ok": true, "view_id": view_name }),
+                            ),
+                            Some(key) => match ledger.lock().map(|mut l| l.request_cancel(&key)) {
+                                Ok(LibraryJobCancel::Requested) => LibraryActionEffect::Result(
+                                    json!({"ok": true, "view_id": view_name, "job_key": key,
+                                           "status": "cancel-requested"}),
+                                ),
+                                Ok(LibraryJobCancel::Terminal(terminal)) => {
+                                    LibraryActionEffect::Result(
+                                        json!({"ok": true, "view_id": view_name, "job_key": key,
+                                               "status": "terminal", "terminal": terminal}),
+                                    )
+                                }
+                                Ok(LibraryJobCancel::Unknown) => LibraryActionEffect::Result(
+                                    json!({"ok": true, "view_id": view_name, "job_key": key,
+                                           "status": "unknown-job"}),
+                                ),
+                                Err(_) => return Err(internal("library job ledger lock poisoned")),
+                            },
+                        }
+                    }
+                    synvelis_workspace::LibraryAction::PreviewCancel {} => {
+                        // The ledger owns the job token — cancel it for
+                        // this view's preview key; the model arm keeps
+                        // the surface's own typed Cancelled for direct
+                        // model use.
+                        let key = LibraryJobLedger::preview_key(inst);
+                        if let Ok(mut l) = ledger.lock() {
+                            let _ = l.request_cancel(&key);
+                        }
+                        model.apply(&action, ports.as_ref(), Some(session.controller_mut()));
+                        LibraryActionEffect::Result(json!({ "ok": true, "view_id": view_name }))
+                    }
+                    synvelis_workspace::LibraryAction::PreviewFetch {
+                        locator,
+                        allow_full_object,
+                    } => {
+                        let key = LibraryJobLedger::preview_key(inst);
+                        match ledger.lock().map(|mut l| {
+                            l.begin(key.clone(), LibraryJobKind::PreviewFetch, inst, None, None)
+                        }) {
+                            Ok(LibraryJobBegin::InFlight) => LibraryActionEffect::Result(
+                                json!({"ok": true, "view_id": view_name, "job_key": key,
+                                       "status": "in-flight"}),
+                            ),
+                            Ok(LibraryJobBegin::Spawn { token, .. }) => {
+                                if let Ok((provider, asset)) =
+                                    model.prepare_preview_job(locator, &key)
+                                {
+                                    LibraryActionEffect::Job {
+                                        plan: Box::new(LibraryJobPlan {
+                                            key: key.clone(),
+                                            kind: LibraryJobKind::PreviewFetch,
+                                            view: inst,
+                                            provider,
+                                            cx: job_cx(token),
+                                            ledger: ledger.clone(),
+                                            intent: None,
+                                            store: None,
+                                            blobs: None,
+                                            publisher: None,
+                                            project: None,
+                                            live_revision: 0,
+                                            id_seed: 0,
+                                            asset: Some(asset),
+                                            allow_full_object: *allow_full_object,
+                                        }),
+                                        label: "syn.library.preview.fetch",
+                                    }
+                                } else {
+                                    if let Ok(mut l) = ledger.lock() {
+                                        l.abort(&key);
+                                    }
+                                    LibraryActionEffect::Result(
+                                        json!({ "ok": true, "view_id": view_name }),
+                                    )
+                                }
+                            }
+                            Err(_) => return Err(internal("library job ledger lock poisoned")),
+                        }
+                    }
+                    synvelis_workspace::LibraryAction::ImportSubmit {
+                        import_id,
+                        locator,
+                        expected_project_revision,
+                        allow_full_object,
+                        target,
+                    } => {
+                        let Some(services) = import else {
+                            model.apply(&action, None, Some(session.controller_mut()));
+                            return Ok(LibraryActionEffect::Result(
+                                json!({ "ok": true, "view_id": view_name }),
+                            ));
+                        };
+                        let parsed = match synvelis_workspace::LibraryViewModel::parse_import_id(
+                            import_id,
+                        ) {
+                            Ok(id) => id,
+                            Err(f) => {
+                                model.set_fault(f);
+                                return Ok(LibraryActionEffect::Result(
+                                    json!({ "ok": true, "view_id": view_name }),
+                                ));
+                            }
+                        };
+                        let key = LibraryJobLedger::import_key(parsed);
+                        match ledger.lock().map(|mut l| {
+                            (
+                                l.begin(
+                                    key.clone(),
+                                    LibraryJobKind::ImportSubmit,
+                                    inst,
+                                    Some(parsed.to_tagged()),
+                                    None,
+                                ),
+                                l.alloc_band(session.controller().peek_raw_id()),
+                            )
+                        }) {
+                            Ok((LibraryJobBegin::InFlight, _)) => LibraryActionEffect::Result(
+                                json!({"ok": true, "view_id": view_name, "job_key": key,
+                                       "status": "in-flight"}),
+                            ),
+                            Ok((LibraryJobBegin::Spawn { token, .. }, seed)) => {
+                                // Reserve the band on the live generator
+                                // — its next draws skip past the
+                                // scratch seed entirely.
+                                while session.controller().peek_raw_id() <= seed + JOB_ID_BAND {
+                                    let _ = session.controller_mut().draw_raw_id();
+                                }
+                                if let Ok((provider, intent)) = model.prepare_import_job(
+                                    import_id,
+                                    locator,
+                                    *expected_project_revision,
+                                    *allow_full_object,
+                                    target.as_deref(),
+                                    session.controller().live_revision().0,
+                                    &key,
+                                ) {
+                                    if let Ok(mut l) = ledger.lock() {
+                                        l.set_intent(&key, intent.clone());
+                                    }
+                                    LibraryActionEffect::Job {
+                                        plan: Box::new(LibraryJobPlan {
+                                            key: key.clone(),
+                                            kind: LibraryJobKind::ImportSubmit,
+                                            view: inst,
+                                            provider,
+                                            cx: job_cx(token),
+                                            ledger: ledger.clone(),
+                                            intent: Some(intent),
+                                            store: Some(services.store.clone()),
+                                            blobs: Some(services.blobs.clone()),
+                                            publisher: Some(services.publisher.clone()),
+                                            project: Some(session.controller().live().clone()),
+                                            live_revision: session.controller().live_revision().0,
+                                            id_seed: seed,
+                                            asset: None,
+                                            allow_full_object: *allow_full_object,
+                                        }),
+                                        label: "syn.library.import.submit",
+                                    }
+                                } else {
+                                    if let Ok(mut l) = ledger.lock() {
+                                        l.abort(&key);
+                                    }
+                                    LibraryActionEffect::Result(
+                                        json!({ "ok": true, "view_id": view_name }),
+                                    )
+                                }
+                            }
+                            Err(_) => return Err(internal("library job ledger lock poisoned")),
+                        }
+                    }
+                    synvelis_workspace::LibraryAction::ImportRetry {} => {
+                        let Some(services) = import else {
+                            model.apply(&action, None, Some(session.controller_mut()));
+                            return Ok(LibraryActionEffect::Result(
+                                json!({ "ok": true, "view_id": view_name }),
+                            ));
+                        };
+                        let Some(pending) = model.pending_import_id() else {
+                            model.apply(&action, ports.as_ref(), Some(session.controller_mut()));
+                            return Ok(LibraryActionEffect::Result(
+                                json!({ "ok": true, "view_id": view_name }),
+                            ));
+                        };
+                        let key = LibraryJobLedger::import_key(pending);
+                        match ledger.lock().map(|mut l| {
+                            (
+                                l.begin(
+                                    key.clone(),
+                                    LibraryJobKind::ImportRetry,
+                                    inst,
+                                    Some(pending.to_tagged()),
+                                    None,
+                                ),
+                                l.alloc_band(session.controller().peek_raw_id()),
+                            )
+                        }) {
+                            Ok((LibraryJobBegin::InFlight, _)) => LibraryActionEffect::Result(
+                                json!({"ok": true, "view_id": view_name, "job_key": key,
+                                       "status": "in-flight"}),
+                            ),
+                            Ok((LibraryJobBegin::Spawn { token, .. }, seed)) => {
+                                while session.controller().peek_raw_id() <= seed + JOB_ID_BAND {
+                                    let _ = session.controller_mut().draw_raw_id();
+                                }
+                                if let Ok((provider, intent)) = model.prepare_import_retry(&key) {
+                                    if let Ok(mut l) = ledger.lock() {
+                                        l.set_intent(&key, intent.clone());
+                                    }
+                                    LibraryActionEffect::Job {
+                                        plan: Box::new(LibraryJobPlan {
+                                            key: key.clone(),
+                                            kind: LibraryJobKind::ImportRetry,
+                                            view: inst,
+                                            provider,
+                                            cx: job_cx(token),
+                                            ledger: ledger.clone(),
+                                            intent: Some(intent),
+                                            store: Some(services.store.clone()),
+                                            blobs: Some(services.blobs.clone()),
+                                            publisher: Some(services.publisher.clone()),
+                                            project: Some(session.controller().live().clone()),
+                                            live_revision: session.controller().live_revision().0,
+                                            id_seed: seed,
+                                            asset: None,
+                                            allow_full_object: false,
+                                        }),
+                                        label: "syn.library.import.retry",
+                                    }
+                                } else {
+                                    if let Ok(mut l) = ledger.lock() {
+                                        l.abort(&key);
+                                    }
+                                    LibraryActionEffect::Result(
+                                        json!({ "ok": true, "view_id": view_name }),
+                                    )
+                                }
+                            }
+                            Err(_) => return Err(internal("library job ledger lock poisoned")),
+                        }
+                    }
+                    _ => {
+                        model.apply(&action, ports.as_ref(), Some(session.controller_mut()));
+                        LibraryActionEffect::Result(json!({ "ok": true, "view_id": view_name }))
+                    }
+                };
+                if session.revision() != revision_before || reconciled {
                     session.notify_committed_change();
                 }
-                Ok(())
-            })?;
-        Ok(json!({ "ok": true, "view_id": view_name }))
+                Ok(result)
+            })
     }
 
     // -- syn.autx.* ---------------------------------------------------------
@@ -8759,4 +9166,57 @@ fn latency_readiness_param(v: &Value) -> Result<LowLatencyReadiness, ErrorBody> 
         input_ready: flag("input_ready")?,
         output_ready: flag("output_ready")?,
     })
+}
+
+// ── library job plumbing (ALIB-05) ──────────────────────────────────
+
+/// What one `syn.library.action` produced: a synchronous result, or a
+/// [`synvelis_workspace::LibraryJobPlan`] the caller spawns — through
+/// `CallOutcome::Job` on the runtime surface or an app thread on the
+/// direct `op_*` surface.
+enum LibraryActionEffect {
+    /// Ran synchronously — the wire result verbatim.
+    Result(Value),
+    /// Job prepared — `label` is the `JobSpec` label for the runtime
+    /// path.
+    Job {
+        plan: Box<synvelis_workspace::LibraryJobPlan>,
+        label: &'static str,
+    },
+}
+
+/// The `view_id` string for acks — `library_view_instance` already
+/// validated it; this re-reads the raw param for the spawn-side ack.
+fn plan_view_name(params: &Value) -> &str {
+    params.get("view_id").and_then(Value::as_str).unwrap_or("")
+}
+
+/// The runtime-side [`synvelis_workspace::LibraryJobDrive`] — reports
+/// `progress_detail` through the [`ruviform_ui::JobContext`] (the
+/// runtime coalesces them latest-wins into `job` events) AND records
+/// the same progress in the app-owned ledger. Cancel observation is
+/// OR-ed over both sources: the ruviform token (`job.cancel`,
+/// `cancel_window_jobs`) and the ledger token (`import.cancel`).
+struct RuntimeJobDrive<'a> {
+    ctx: &'a ruviform_ui::JobContext,
+    token: synvelis_library::CancellationToken,
+    ledger: std::sync::Arc<std::sync::Mutex<synvelis_workspace::LibraryJobLedger>>,
+    key: String,
+}
+
+impl synvelis_workspace::LibraryJobDrive for RuntimeJobDrive<'_> {
+    fn is_cancelled(&self) -> bool {
+        self.ctx.is_cancelled() || self.token.is_cancelled()
+    }
+
+    fn report(&self, done: u64, total: u64, detail: &str) {
+        self.ctx.progress_detail(done, total, detail);
+        if let Ok(mut l) = self.ledger.lock() {
+            l.report(&self.key, done, total, detail);
+        }
+    }
+
+    fn runtime_job(&self) -> Option<u64> {
+        Some(self.ctx.job_id())
+    }
 }
