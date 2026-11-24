@@ -1,0 +1,31 @@
+crates/synvelis-app/src/assets.rs:27:/// The app asset source — `rvf://app` lookups resolve into `UiAssets`.
+crates/synvelis-app/src/bin/synvelis.rs:18://! window exits the loop. `rvf://data` pulls resolve against the same
+crates/synvelis-app/src/bin/synvelis.rs:145:    // the `rvf://data` scheme handler — clones of a `DataRegistry`
+crates/synvelis-app/src/bin/synvelis.rs:166:            url: "rvf://app/index.html".to_string(),
+crates/synvelis-app/src/bin/synvelis.rs:169:        default_url: "rvf://app/index.html".to_string(),
+crates/synvelis-app/src/error.rs:34:    /// A manifest entry name escapes the `rvf://app` namespace.
+crates/synvelis-app/src/revision.rs:24:/// Manifest filename inside the `rvf://app` namespace.
+crates/synvelis-app/src/revision.rs:67:/// inside the `rvf://app` namespace, and matches its recorded byte
+crates/synvelis-app/src/shell.rs:204:    /// `WebView` host shares its registry with the `rvf://data`
+docs/adr/sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md:178:- 16 MiB を超える viz payload は現状 `over-budget` error — `rvf://
+docs/designs/media-import-export-offline-render-ui-diagnostics-architecture.md:23:| `ruviform-ui::DataRegistry` | [data.rs](https://github.com/scarecrow173/ruviform/blob/main/crates/ruviform-ui/src/data.rs) の`rvf://data`有界Binary Pull（既定max chunk 16 MiB） | 波形/FFT/サムネイルをJSON PushせずBlob/Rangeで配信 |
+docs/designs/media-import-export-offline-render-ui-diagnostics-architecture.md:223:UI Event/IPCは小さいControl/State/Metadataに使用。大量Waveform Peaks、Spectrum、Spectrogram、PCM Previewは`rvf://data`相当の**有界Pull**や別の描画DataSourceで配布。Render/Probe/Preview JobがUI描画をブロックしない。必要なSelection/Revision/Source Version/Graph Generationを各DataSource Keyに含め、古いデータの誤表示を避ける。
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:129:   `HostConfig { title: "Synvelis", url: "rvf://app/index.html", tick:
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:238:  説明 + 安全停止。offline 起動 = 全参照が `rvf://app` 完結。
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:242:- **Asset origin**: `rvf://app` は `AssetSource` のみ。`resolve_path` の
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:243:  traversal/absolute 拒否をそのまま利用。`rvf://data` は `DataRegistry`
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:245:- **Navigation allowlist**: `rvf://app`(+ Windows の `http://rvf.app`
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:253:  `http://rvf.*` に rewrite され、`rvf://data` pull path は別 origin
+docs/designs/sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md:257:- `rvf://data` への viz 大容量移行 — 16MiB 超需要時。
+docs/evidence/gui-app-shell.md:11:macOS/Linux 実 GUI・release embed lane・`rvf://data` pull end-to-end は未検証として明示されている（synvelis#110）。
+docs/knowledge/architecture-overview.md:91:起動レーンは三系統ある。webview レーン（`src/bin/synvelis.rs`、feature `webview`）は、ロギング install→`detect_backend`→`SynvelisApp::new`→`SYNVELIS_PROJECT_DIR` があれば boot project と `compose_product_routing`（`SessionRoutingEngine`、48 kHz/stereo/256 フレーム）→`check_bundle` でフロントエンド資産を検証→`NativeShell`→`run_multi` の順で、`rvf://app` に埋め込み UI、`rvf://data` に `DataRegistry` を配線する。native レーン（`src/bin/synvelis-native.rs`、feature `native`）は `GpuiDriver` を組み立て、`ViewHost`+`ViewBinding` によるマウント済みビューを `NativeShell` の同じハンドラへ流す。ヘッドレスレーン（既定 feature）は `ruviform-ui-test` の `FakeDriver` で同一経路を検証に使う。webview・native はいずれも非既定 feature で、`cargo check --workspace` が GUI 依存なしに通るよう `tools/check-headless-deps.mjs` がガードする。
+docs/knowledge/gui-app-shell.md:46:asset pipeline は、vite build が `crates/synvelis-app/frontend/dist` に出力し、`synvelis-assets.json` manifest（host rev + per-file SHA-256）が rust-embed の `#[folder = "frontend/dist"]` で embed される。起動時に `check_bundle` が schema/revision/digest を検証し、不合格なら CSP 制限付きエラーページを表示して安全側に倒す fail-closed で、空 bundle での起動緑にはならない（synvelis#110）。CSP の `connect-src` は `'self' rvf: http://rvf.app http://rvf.data` で、`rvf://data` URL が webview 側で `http://rvf.data` origin に書き換わるため両 origin の許可が必要だった（design 初版で `rvf.data` 抜けを指摘され修正）（synvelis#110）。
+docs/knowledge/gui-app-shell.md:50:実績として、実 Windows で `synvelis.exe` が `Synvelis` 窓を開き WebView2 が bundle を描画、`asset bundle ok` を通過し窓 close で exit 0 を確認済みである。macOS/Linux 実機・release embed lane・`rvf://data` pull の end-to-end は未検証として明示されている（synvelis#110）。
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:125:5. CSP・`rvf://` origin・navigation allowlist・IPC 経路の明示 (design 文書に
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:159:  (`appSchema`・`ipcSchema`・file hash)。offline 起動 (全 asset が `rvf://`
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:179:  必須 asset 欠落の各経路で説明付き安全停止。全 asset が `rvf://` 完結で
+docs/specs/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md:250:- 大容量 viz payload の `rvf://data` 移行 — 現行は op result の
+ui/src/ipc.ts:110:/** `rvf://data` pull URL for a registered DataSource. */
+ui/test/fake-host.ts:73:      return `rvf://data/${path}?${q}`;
+ui/test/ipc.test.ts:55:  it("dataUrl builds the rvf://data pull URL", () => {
+ui/test/ipc.test.ts:58:      "rvf://data/meters/track-1?offset=128&len=512",

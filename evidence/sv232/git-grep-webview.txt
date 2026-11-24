@@ -1,0 +1,762 @@
+.agents/skills/verify-synvelis/SKILL.md:329:verified recipes. The honest pending/blocked set (webview bin,
+.agents/skills/verify-synvelis/features/README.md:147:- `synvelis` (webview) GUI surface — `blocked: seam 未対応` (the
+.agents/skills/verify-synvelis/features/README.md:148:  webview bin is outside the uitest seam and is being removed per
+.gitignore:88:# `.gitkeep` keeps the folder present so `cargo check --features webview`
+.worktreeinclude:60:# worktree can `cargo run --features webview` without the node toolchain step
+Cargo.lock:6555:name = "ruviform-ui-webview"
+Cargo.lock:7575: "ruviform-ui-webview",
+Cargo.lock:8996:name = "webview2-com"
+Cargo.lock:9001: "webview2-com-macros",
+Cargo.lock:9002: "webview2-com-sys",
+Cargo.lock:9008:name = "webview2-com-macros"
+Cargo.lock:9019:name = "webview2-com-sys"
+Cargo.lock:9836: "webview2-com",
+Cargo.toml:77:ruviform-ui-webview = { git = "https://github.com/scarecrow173/ruviform.git" }
+crates/synvelis-app/Cargo.toml:35:ruviform-ui-webview = { workspace = true, optional = true }
+crates/synvelis-app/Cargo.toml:45:webview = [
+crates/synvelis-app/Cargo.toml:46:  "dep:ruviform-ui-webview",
+crates/synvelis-app/Cargo.toml:47:  "ruviform-ui-webview/webview",
+crates/synvelis-app/Cargo.toml:52:# --workspace` stays headless, same pattern as `webview`.
+crates/synvelis-app/Cargo.toml:75:required-features = ["webview"]
+crates/synvelis-app/src/app.rs:387:    /// the probed `WebView` report the shell surfaces as capability
+crates/synvelis-app/src/app.rs:915:    /// The probed `WebView` backend report.
+crates/synvelis-app/src/app.rs:1459:            "webview": {
+crates/synvelis-app/src/assets.rs:1://! Production/development asset source (the `webview` feature only).
+crates/synvelis-app/src/assets.rs:18:use ruviform_ui_webview::EmbedAssets;
+crates/synvelis-app/src/bin/synvelis-native.rs:15://! Startup order mirrors the `synvelis` (webview) entry: install the
+crates/synvelis-app/src/bin/synvelis.rs:1://! `synvelis` — the desktop application entry point (the `webview`
+crates/synvelis-app/src/bin/synvelis.rs:7://! the `WebView` backend *before* a window exists (missing
+crates/synvelis-app/src/bin/synvelis.rs:8://! `WebView2`/`WebKit` gets an install hint on stderr, not a crash),
+crates/synvelis-app/src/bin/synvelis.rs:39:use ruviform_ui_webview::{SessionConfig, WebViewWindowConfig, detect_backend, run_multi};
+crates/synvelis-app/src/bin/synvelis.rs:102:        eprintln!("synvelis: webview backend `{}` unavailable", report.name);
+crates/synvelis-app/src/bin/synvelis.rs:106:        eprintln!("install the runtime (WebView2 Evergreen on Windows) and retry.");
+crates/synvelis-app/src/bin/synvelis.rs:107:        tracing::warn!(backend = report.name, "webview backend unavailable");
+crates/synvelis-app/src/bin/synvelis.rs:110:    tracing::info!(backend = report.name, "webview backend available");
+crates/synvelis-app/src/bin/synvelis.rs:160:        windows: vec![WebViewWindowConfig {
+crates/synvelis-app/src/binding.rs:18://! `ControlsUi`/`VizUi` gateways — the same authority the `WebView`
+crates/synvelis-app/src/binding.rs:25://! **Dependency direction:** this module is GPUI/OS/DOM/WebView-free —
+crates/synvelis-app/src/composition.rs:84:/// Product routing composition for the desktop bins (PC-C4 webview
+crates/synvelis-app/src/error.rs:99:    /// The platform `WebView` backend is missing or unusable.
+crates/synvelis-app/src/error.rs:132:            Self::BackendUnavailable(d) => write!(f, "webview backend unavailable: {d}"),
+crates/synvelis-app/src/host.rs:5://! `ruviform-ui-webview` created from `HostConfig`); a second window
+crates/synvelis-app/src/host.rs:65:    /// Scripts queued via [`WindowHandle::eval`]. No real webview sits
+crates/synvelis-app/src/lib.rs:14://! webview/GPUI type. Everything platform-dependent (wry/tao host,
+crates/synvelis-app/src/lib.rs:16://! non-default `webview`/`native` features so `cargo check
+crates/synvelis-app/src/lib.rs:37:#[cfg(feature = "webview")]
+crates/synvelis-app/src/shell.rs:204:    /// `WebView` host shares its registry with the `rvf://data`
+crates/synvelis-app/src/ui_ops.rs:9://! (single-threaded app) drained by the webview host loop and by
+crates/synvelis-app/src/ui_ops.rs:2524:    /// Injects the UI clock (ms). Called by the webview host each tick
+crates/synvelis-app/tests/logging.rs:41:    BackendReport::available("webview2", "test-1.0".to_string())
+crates/synvelis-app/tests/monitor_arm.rs:30:    BackendReport::available("webview2", "test-1.0".to_string())
+crates/synvelis-app/tests/pc_c4_webview_composition.rs:1://! PC-C4 webview composition acceptance (synvelis#101): the webview
+crates/synvelis-app/tests/pc_c4_webview_composition.rs:15://! the webview bin calls — never `compose_routing_engine` or a
+crates/synvelis-app/tests/pc_c4_webview_composition.rs:78:/// webview bin composes into.
+crates/synvelis-app/tests/pc_c4_webview_composition.rs:80:    let app = SynvelisApp::new(BackendReport::available("webview", "test-0.1".to_string()));
+crates/synvelis-app/tests/rcd_04_product_e2e.rs:91:    let app = SynvelisApp::new(BackendReport::available("webview2", "test-1.0".into()));
+crates/synvelis-app/tests/recorder_wire.rs:306:    let app = SynvelisApp::new(BackendReport::available("webview2", "test-1.0".into()));
+crates/synvelis-app/tests/recording_projection.rs:192:        "webview2",
+crates/synvelis-app/tests/service_ops.rs:25:    BackendReport::available("webview2", "test-1.0".to_string())
+crates/synvelis-app/tests/service_ops.rs:68:    assert_eq!(info["backend"]["name"], "webview2");
+crates/synvelis-app/tests/tim01_ppqn_app.rs:66:    let app = SynvelisApp::new(BackendReport::available("webview2", "test-1.0".into()));
+crates/synvelis-app/tests/tim01_ppqn_preview.rs:62:    let app = SynvelisApp::new(BackendReport::available("webview2", "test-1.0".into()));
+crates/synvelis-app/tests/tim01_ppqn_ui.rs:71:    let app = SynvelisApp::new(BackendReport::available("webview2", "test-1.0".into()));
+crates/synvelis-app/tests/ui_ops.rs:7://! separate — nothing here asserts OS/WebView behavior.
+crates/synvelis-app/tests/ui_ops.rs:27:    let app = SynvelisApp::new(BackendReport::available("webview2", "test-1.0".into()));
+crates/synvelis-app/tests/ui_ops.rs:427:    let mut app = SynvelisApp::new(BackendReport::available("webview2", "test-1.0".into()));
+crates/synvelis-cli/src/main.rs:7://! GUI, no Native/WebView/GPUI dependency.
+crates/synvelis-recording/Cargo.toml:25:# （synvelis-app の webview/native feature と同じ方針）。
+crates/synvelis-recording/src/real_input.rs:12://! 分離（synvelis-app の `webview`/`native` feature と同じ方針）。
+crates/synvelis-workspace/src/controls_ui.rs:43://! The bridge is headless — no OS windows, webviews, GPU or IME. The
+crates/synvelis-workspace/src/controls_ui.rs:44://! webview runtime side (Custom Elements + the upstream TS
+crates/synvelis-workspace/src/lib.rs:14://! is provided for tests), so no OS window, webview, GPU or IME is
+docs/adr/README.md:63:| ADR-vXwuA1OrALJD99tNRgZ8gQ | ADR: Native App Shell は Driver-neutral shell + GPUI 標準 Driver。SV-GUI-01 の WebView/SolidJS 決定を supersede | accepted | [sv175-native-shell-driver-neutral-gpui.md](./sv175-native-shell-driver-neutral-gpui.md) |
+docs/adr/README.md:79:| ADR-2kAD08Yeuxmx8U4t2mD2wr | SV-GUI-01 app crate boundary・webview feature gate・vendored ui/* TS pipeline | superseded | [sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md](./sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md) |
+docs/adr/cb-00-creative-branch.md:220:  Provider への暗黙 Write、旧 WebView/SolidJS を正式 UI 契約
+docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md:5:title: "SV-GUI-01 app crate boundary・webview feature gate・vendored ui/* TS pipeline"
+docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md:27:    - "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md"
+docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md:32:    - "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md"
+docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md:48:# SV-GUI-01 app crate boundary・webview feature gate・vendored ui/* TS pipeline
+docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md:53:> crate 境界・feature gate の形は継承されるが、WebView（wry/tao）+
+docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md:73:1. **`crates/synvelis-app` を新設し、GUI 依存を `webview` feature に隔離する。**
+docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md:75:   - bin `synvelis` は `required-features = ["webview"]`、
+docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md:76:     `ruviform-ui-webview`/`rust-embed` は optional 依存。
+docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md:78:     feature 無しで headless のまま通り、webview lane は専用タスク
+docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md:79:     (`check-app-webview` 等) で別検証する。
+docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md:92:4. **単一 Window は `ruviform-ui-webview::host::run` を使う。** `run_multi`
+docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md:115:  モデルが既に `ruviform-ui-webview` 側に用意されているため採用した。
+docs/adr/sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md:22:    - "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md"
+docs/adr/sv-gui-02-syn-binding-ipc-surface-notify-outbox-bounded-wire-dto.md:78:* headless `UiRuntime::dispatch_op` と webview host の同一契約 —
+docs/adr/sv-gui-04-slice2-dock-transfer-workspace-adoption.md:88:  webview `run_multi` / GPUI `GpuiDriver`）が所有し、view の UI
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:5:title: "ADR: Native App Shell は Driver-neutral shell + GPUI 標準 Driver。SV-GUI-01 の WebView/SolidJS 決定を supersede"
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:30:    - "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md"
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:61:- 現行の製品 GUI は SV-GUI-01（`docs/adr/sv-gui-01-app-crate-webview-
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:62:  feature-vendored-ui-pipeline.md`・accepted）の WebView 経路:
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:63:  `synvelis-app` は headless lib、`webview` feature + `synvelis`
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:64:  bin が `ruviform-ui-webview`（wry/tao）host・`rust-embed`・
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:78:- 旧 WebView/TS/SolidJS 実装資産と Headless 契約（`syn.*` op 面・
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:85:- **A. WebView/SolidJS 継続（SV-GUI-01 踏襲）**: 既存 `synvelis` bin・
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:97:1. **製品 GUI 方針を SV-GUI-01 の WebView/SolidJS から Driver-
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:101:   `webview` feature は Native 実証まで残置される preview lane と
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:106:   feature gate は webview lane と同型（optional dep + bin のみ
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:107:   required-features）。lib 本体は GPUI/OS/DOM/WebView 型を持たず
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:125:   window 型・DOM/WebView 型は composition root 例外（`native`
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:128:   webview`/`wry`/`tao` を固定し、headless crate への混入を
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:150:  native` bin が GPUI Driver を組み立てる。`synvelis`（webview）
+docs/adr/sv175-native-shell-driver-neutral-gpui.md:156:  継承する（WebView 固有の custom-elements 側は superseded lane）。
+docs/adr/sv177-product-theme-crate-boundary-dtcg-document-envelope-and-slot-based-workspa.md:73:* `check-headless-deps`: headless crate の依存木に GUI/GPU/WebView
+docs/adr/syn-obs-01-crate-ruviform-observability-logging-feature-host-global-subscriber.md:28:    - "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md"
+docs/adr/syn-obs-01-crate-ruviform-observability-logging-feature-host-global-subscriber.md:144:* Patterns to follow: SV-GUI-01 の「headless lib + webview feature bin」
+docs/adr/ws-a-workspace-crate-boundary-and-ruviform-dock-host-contract-adoption.md:62:* headless PoC のため `ruviform-ui-webview` (wry/tao adapter) に依存
+docs/adr/ws-a-workspace-crate-boundary-and-ruviform-dock-host-contract-adoption.md:91:* Good, because `ruviform-ui-webview` 非依存のまま headless CI で検証
+docs/adr/ws-a-workspace-crate-boundary-and-ruviform-dock-host-contract-adoption.md:102:  系のみに依存し、逆方向依存・webview adapter 依存がない
+docs/adr/ws-a-workspace-crate-boundary-and-ruviform-dock-host-contract-adoption.md:126:* [ ] `synvelis-workspace` の依存一覧に `ruviform-ui-webview` /
+docs/automation/design-owner-dag.md:15:| SV-AUTX-03 | [#262](https://github.com/scarecrow173/synvelis/issues/262) | Headless CLI adapter（`action run --file`/`workflow run --file`・機械可読 Outcome/Error） | Native/WebView 依存・第二 Gateway/認可/Job 経路・`script run`/`--script` |
+docs/automation/tasks.md:37:- [ ] T-03-3: Native/WebView 非依存の独立 adapter（GW-R-13）
+docs/designs/README.md:103:| DESIGN-034XHDrzEI83tAEfivcKq7 | PC-C4 webview composition design — synvelis.rs への routing engine attach | approved | [pc-c4-webview-composition.md](./pc-c4-webview-composition.md) |
+docs/designs/context-inspector-design.md:325:- **再水和**: Dock 間・Window 間移動・WebView/driver 再生成で
+docs/designs/creative-branch-design.md:586:- **UI 技術**: 旧 WebView/SolidJS を正式 UI 契約にしない。
+docs/designs/execution-plan-design.md:247:### GUI Native lane（GPUI First・旧 WebView 順に優先）
+docs/designs/execution-plan-design.md:257:| 旧 SV-GUI-01/02(#110/#111 WebView) | — | 歴史的証拠。新 Native 受入を代替しない・Start 条件にしない |
+docs/designs/execution-plan-design.md:354:| `mise run check-headless-deps` | headless crate に GUI/GPU/WebView 非依存 | OS-L1 | 境界不変条件 |
+docs/designs/execution-plan-design.md:361:| `mise run check-ui`/`test-ui`/`build-ui`/`install-ui`/`setup-ui`/`sync-ui-deps` | ui/ frontend（typecheck/vitest/build/vendor 同期） | OS-L1 | 旧 WebView lane・移行検証 |
+docs/designs/execution-plan-design.md:362:| `mise run check-app-webview`/`lint-app-webview`/`test-app-webview`/`dev-ui`/`build-app` | `webview` feature（旧 SolidJS/WebView lane） | OS-L1 + 実窓は手動 | 歴史的/移行 lane |
+docs/designs/execution-plan-design.md:370:注意: `gpui-test`/`webview` feature の成功は GPUI-
+docs/designs/execution-plan-design.md:405:| headless/Fake Pass の実機誤昇格 | Evidence honesty | `gpui-test`/`webview`/Fake Driver の結果を GUI-L2/EXT-L3 の Pass にしない。台帳で capability 別に分離 |
+docs/designs/issue-147-sccache-compile-cache.md:128:  dev profile と将来の ci profile、既定 feature と webview feature、
+docs/designs/issue-274-cli-script-analyze.md:163:- headless 維持: `check-headless-deps` が GUI/GPU/WebView crate
+docs/designs/issue-515-os-credential.md:138:  windows-sys/zeroize/byteorder/regex のみ（GUI/GPU/WebView なし）
+docs/designs/issue-515-os-credential.md:163:  WebView を引き込まないこと。
+docs/designs/media-import-export-offline-render-ui-diagnostics-architecture.md:21:| `ruviform-ui-webview` | WebView/Native Hostは現状単一Window。#181/#182は設計・PoC課題 | Multi-window/Docking、View State/Job ownership分離 |
+docs/designs/media-import-export-offline-render-ui-diagnostics-architecture.md:229:- Browserの未信頼Remote Filename/MetadataはTextとして扱い、HTML/Script/Path/Archive Traversal/Local Scheme Injectionを拒否。WebView Scheme側も許可済みDataSourceのみアクセス可能。
+docs/designs/media-import-export-offline-render-ui-diagnostics-architecture.md:378:- Window Close/App Exit時のJob Survival、再接続、UI WebView/Native GPU backend、Probe budget/Diagnostics payload。
+docs/designs/pc-c4-webview-composition.md:5:title: "PC-C4 webview composition design — synvelis.rs への routing engine attach"
+docs/designs/pc-c4-webview-composition.md:20:    - "docs/specs/pc-c4-webview-composition.md"
+docs/designs/pc-c4-webview-composition.md:23:    - "docs/specs/pc-c4-webview-composition.md"
+docs/designs/pc-c4-webview-composition.md:34:    - "docs/specs/pc-c4-webview-composition.md"
+docs/designs/pc-c4-webview-composition.md:37:    - "docs/test-specs/pc-c4-webview-composition.md"
+docs/designs/pc-c4-webview-composition.md:39:    - "docs/test-specs/pc-c4-webview-composition.md"
+docs/designs/pc-c4-webview-composition.md:47:# PC-C4 webview composition design — synvelis.rs への routing engine attach
+docs/designs/pc-c4-webview-composition.md:55:`compose_routing_engine` を呼ぶ。`synvelis`（webview）bin は
+docs/designs/pc-c4-webview-composition.md:76:- `tests/pc_c4_webview_composition.rs`（新規 fixture）。
+docs/designs/pc-c4-webview-composition.md:80:- `synvelis-native.rs` の変更 — private helper は残り、webview
+docs/designs/pc-c4-webview-composition.md:119:   webview 経路でもそのまま機能する。
+docs/designs/pc-c4-webview-composition.md:124:  bin 呼出は `webview` feature の `synvelis.rs` のみ。
+docs/designs/pc-c4-webview-composition.md:139:- **untitled session への attach**: webview bin は boot project
+docs/designs/pc-c4-webview-composition.md:160:- [x] `tests/pc_c4_webview_composition.rs` が gate 閉/開・
+docs/designs/pc-c4-webview-composition.md:163:- [x] `check-app-webview`/`lint-app-webview`/`test-app-webview`
+docs/designs/pc-c4-webview-composition.md:164:  で `webview` feature の bin compile・lint・test を検証する。
+docs/designs/rcd-01-real-backend-readiness-design.md:260:  （`synvelis-app` の `webview`/`native` feature と同じ方針）。
+docs/designs/sf-03-slice5-session-engine-connect-design.md:186:- headless: `synvelis-app` の default feature で GPUI/WebView/
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:19:    - "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md"
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:24:    - "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md"
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:25:    - "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md"
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:44:asset bundle 検査) と `webview` feature のみで有効化する wry/tao host bin
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:51:synvelis (bin, webview feature)
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:57:      → ruviform-ui-webview (optional: host::run/EmbedAssets/detect)
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:117:## Host entrypoint (`bin/synvelis.rs`, `webview` feature)
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:121:1. `detect_backend()` — `wry::webview_version()` probe。`Unavailable` なら
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:122:   install hint (WebView2 Evergreen) を出して exit 2。
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:140:実行) / `--data-dir <path>` (WebView2 UDF 固定・既定は process-unique temp)。
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:246:  rewrite) と `about:blank` のみ (`ruviform-ui-webview` 既定挙動。Synvelis
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:252:  rvf: http://rvf.app http://rvf.data`. WebView2 custom scheme は
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:256:- **WebView 権限**: devtools は debug build のみ (`cfg!(debug_assertions)`)。
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:257:  WebView2 UDF は process-unique temp (既定) または `--data-dir` 固定。
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:293:- **webview feature lane**: `cargo check/clippy/test --features webview`
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:295:- **実 GUI (Windows 実機)**: `cargo run -p synvelis-app --features webview`
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:298:- **逆流検査**: `synvelis-app` 以外の crate が `ruviform-ui-webview`/
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:303:- macOS (WKWebView) / Linux (WebKitGTK) の実機起動。
+docs/designs/sv-gui-01-desktop-app-bootstrap-design.md:307:- WebView2 runtime が存在しない環境での配布 (probe が説明を出すのみ)。
+docs/designs/sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md:48:    - "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md"
+docs/designs/sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md:91:  backend/plugin・RF-GT-04 実 WebView E2E・ruviform 側改変。
+docs/designs/sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md:115:公開する。host loop(webview feature)が毎 tick drain して
+docs/designs/sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md:162:- webview `host.rs`: event loop tick で `app.ui_pump(now)` + outbox
+docs/designs/sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md:233:- headless dispatch と webview dispatch は同一 `AppService` 実装 —
+docs/designs/sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md:235:- SolidJS/Ruviform 依存は `ui/` と `webview` feature に閉じる。
+docs/designs/sv-gui-02-frontend-view-model-binding-ipc-reference-workspace-view.md:273:  check-app-webview/lint-app-webview/test-app-webview` が pass。
+docs/designs/sv-gui-03-05-gpui-scenario-design.md:104:  `test-app-gpui` を webview/native lane と同形で追加。
+docs/designs/sv-gui-04-01-headless-window-handle-dock-design.md:48:`create_window` は `UiError::BackendUnavailable` を返す — webview
+docs/designs/sv-gui-04-01-headless-window-handle-dock-design.md:90:    OS window・webview・GPU に一切触れない（non-RT、UI thread
+docs/designs/sv-gui-04-slice2-dock-transfer-workspace-adoption-design.md:65:  両 lane（webview `run_multi` / GPUI `synvelis-native`）とも
+docs/designs/sv-gui-04-slice2-dock-transfer-workspace-adoption-design.md:611:  `ruviform-ui` contract のみ使用し webview/gpui adapter に
+docs/designs/sv114-gui-option-b-recorder-wire.md:270:  GUI/GPU/WebView 依存混入なし）
+docs/designs/sv175-native-shell-design.md:65:  有効化されるため）。webview 側の `ruviform-ui-webview`/`wry`/
+docs/designs/sv175-native-shell-design.md:158:1. `synvelis_app::logging::install()`（既存 webview bin と同型）。
+docs/designs/sv177-product-theme-workspace-preset-design.md:341:  GUI/GPU/WebView 依存が無いこと
+docs/designs/sv28-ruviform-pin-ac10a2f7.md:191:  `test-rt`、`check-headless-deps`、ui/app-webview/app-native/
+docs/designs/sv28-ruviform-pin-b02942c2.md:82:- headless lane・webview/native feature lane・UI lane の検証。
+docs/designs/sv28-ruviform-pin-b02942c2.md:134:  と `check-app-webview`/`check-app-native` でコンパイル契約を
+docs/designs/sv28-ruviform-pin-b02942c2.md:136:  修正は原則不要の見込みだが、feature-gated lane（webview/
+docs/designs/sv28-ruviform-pin-b02942c2.md:166:  非互換。対策: 全 feature lane（webview/native）の check/lint
+docs/designs/sv28-ruviform-pin-b02942c2.md:170:  対策: `test`/`test-app-webview` の既存 contract test で
+docs/designs/sv28-ruviform-pin-b02942c2.md:185:- [x] `mise run check-app-webview` / `check-app-native` /
+docs/designs/sv28-ruviform-pin-b02942c2.md:186:  `lint-app-native` / `test-app-webview` の pass。
+docs/designs/sv28-ruviform-pin-cbcc8343.md:207:  `test-rt`、`check-headless-deps`、ui/app-webview/app-native/
+docs/designs/sv28-ruviform-pin-cc7d5296.md:74:| `ruviform-ui-webview` | 変更なし | — |
+docs/designs/sv28-ruviform-pin-cc7d5296.md:79:ゼロ）。`ruviform-ui-webview` は無変更のため、synvelis webview
+docs/designs/sv28-ruviform-pin-cc7d5296.md:80:feature が使う `SessionConfig`/`WebViewWindowConfig`/`run_multi`/
+docs/designs/sv28-ruviform-pin-cc7d5296.md:93:  `check-app-webview`/`check-app-native` でコンパイル契約を検証し、
+docs/designs/sv28-ruviform-pin-cc7d5296.md:95:  原則不要の見込みだが、feature-gated lane（webview/native）は
+docs/designs/sv28-ruviform-pin-cc7d5296.md:103:  報告する（受入条件どおり。対処は webview lane 退役/移行の
+docs/designs/sv28-ruviform-pin-cc7d5296.md:110:feature lane として `check-app-webview` / `check-app-native` /
+docs/designs/sv28-ruviform-pin-cc7d5296.md:111:`lint-app-native` / `test-app-webview` を補助証拠として実行する
+docs/designs/sv28-ruviform-pin-fd1d4d5f.md:83:- headless lane・webview/native feature lane・UI lane の検証。
+docs/designs/sv28-ruviform-pin-fd1d4d5f.md:140:  と `check-app-webview`/`check-app-native` でコンパイル契約を
+docs/designs/sv28-ruviform-pin-fd1d4d5f.md:174:  非互換。対策: 全 feature lane（webview/native）の check/lint
+docs/designs/sv28-ruviform-pin-fd1d4d5f.md:194:- [x] `mise run check-app-webview` / `check-app-native` /
+docs/designs/sv28-ruviform-pin-fd1d4d5f.md:195:  `lint-app-native` / `test-app-webview` の pass。
+docs/designs/syn-obs-01-design-host-logging-owner-source-catalog.md:47:`webview` feature bin)を持ち、`ObservabilityOwner` が `syn.app.info` 向け
+docs/designs/syn-obs-01-design-host-logging-owner-source-catalog.md:66:- `crates/synvelis-app/src/logging.rs` 新設(headless、webview 非依存。
+docs/designs/synvelis-driven-ruviform-target-architecture-v07.md:111:| ui / ui-webview / viz | Generic Window/Dock/Bounded UI Data | 拡張 |
+docs/designs/synvelis-driven-ruviform-target-architecture-v07.md:182:- 維持：[RT Contract](https://github.com/scarecrow173/ruviform/blob/main/docs/adr/realtime-contract-and-verification-policy.md)、[Plugin RT Ownership](https://github.com/scarecrow173/ruviform/blob/main/docs/adr/plugin-rt-ownership-split.md)、[Media I/O Boundary](https://github.com/scarecrow173/ruviform/blob/main/docs/adr/media-io-backend-abstraction.md)、[UI Architecture](https://github.com/scarecrow173/ruviform/blob/main/docs/adr/ui-architecture-webview-hybrid.md)。
+docs/designs/target-architecture-design.md:60:    - "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md"
+docs/designs/target-architecture-design.md:104:| GUI Driver-neutral/Observability/Gateway | Ruviform | `ruviform-ui`・`ruviform-ui-{gpui,webview,theme,test}`・`ruviform-observability`・`ruviform-gateway` | 整合 — §9 GUI 方針 |
+docs/designs/target-architecture-design.md:114:  `ruviform-music`・`ruviform-ui-{gpui,webview,theme,test}`・
+docs/designs/target-architecture-design.md:416:| UI | `ruviform-ui`・`ruviform-ui-{gpui,webview,theme,test}`・`ruviform-viz`・`ruviform-poc-native-dock` | ui tests・gpui-test | #384〜#390 |
+docs/designs/target-architecture-design.md:421:`check-headless-deps`（10 headless crate に GPUI/WebView/
+docs/designs/target-architecture-design.md:424:（`webview`/`native`）で分離するため対象外 — これは
+docs/designs/target-architecture-design.md:434:| `docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md` | **superseded** | 旧 WebView/SolidJS 決定 — 歴史保持・再承認しない |
+docs/designs/target-architecture-design.md:435:| Ruviform `docs/adr/driver-neutral-gui-gpui-driver-webview-first-issue-384.md` | **proposed（仮決定）** | #384 — Driver-neutral 契約層 + GPUI 標準 Driver。**最終採用は #262/#388/#389 実機証拠後** |
+docs/designs/target-architecture-design.md:436:| Ruviform `docs/adr/plugin-gui-embedding.md` | accepted（WebView 時代） | wry `build_as_child` の plugin GUI embed — #389 で再設計予定の旧経路 |
+docs/designs/target-architecture-design.md:454:  GPUI/WebView/wgpu/winit/tao/wry・Ruviform GUI adapter
+docs/designs/workspace-docking-state-architecture.md:8:- **参考:** [Ruviform GUIホスト #156](https://github.com/scarecrow173/ruviform/issues/156)、[現行GUIホスト設計](https://github.com/scarecrow173/ruviform/blob/main/docs/designs/issue-156-gui-host-foundation.md)、[UI方針ADR](https://github.com/scarecrow173/ruviform/blob/main/docs/adr/ui-architecture-webview-hybrid.md)
+docs/designs/workspace-docking-state-architecture.md:26:- DOM/JSオブジェクトそのものをWebView間で移送すること。
+docs/designs/workspace-docking-state-architecture.md:37:  │    ├─ Window A [native window + WebView] → Dock Tree A
+docs/designs/workspace-docking-state-architecture.md:40:  │    └─ Window B [native window + WebView] → Dock Tree B
+docs/designs/workspace-docking-state-architecture.md:110:| **Transient State** | 各WebView / UI component | Hover、ドラッグ、IME、開いたメニュー。通常は永続化しない |
+docs/designs/workspace-docking-state-architecture.md:117:- IPCの呼出相関キーはWebView間で衝突し得る。Ruviformホスト側では**発信元Window/WebView + request ID**の組を識別できるようにする（#181）。
+docs/designs/workspace-docking-state-architecture.md:124:- **Input Focus:** そのWindow/WebView内で実際にキー入力を受けるコントロール（IME・プラグイン固有GUIを含む）。
+docs/designs/workspace-docking-state-architecture.md:180:既存RuviformのPlugin GUIとWindowフォーカス契約を尊重し、プラグイン内部へのキー処理を推定して奪わない。ネイティブWindowとWebView間でのショートカット配送はOS別に検証する。
+docs/designs/workspace-docking-state-architecture.md:187:2. 移動先Windowが必要なら生成し、WebViewのReady/表示準備を待つ。
+docs/designs/workspace-docking-state-architecture.md:198:- モーダル表示中やドラッグ中のClose、ネイティブクラッシュ、WebView再初期化失敗では、残ったWindowとProjectを維持し、可能な限りレイアウトを復旧する。
+docs/designs/workspace-docking-state-architecture.md:211:| 複数Window・WebViewのホスト | `WindowId`、Window作成/閉鎖、Focus/DPI/Monitorのイベントとライフサイクル | Window生成方針、主要Window、Workspaceへの紐付け |
+docs/designs/workspace-docking-state-architecture.md:216:| Selection/Focus | OS Window/WebViewの入力元とFocus境界 | Active View、Editing Selection、Inspection Focus |
+docs/designs/workspace-docking-state-architecture.md:223:- `ruviform-ui-webview::host::run` は現状単一Window・単一WebViewを生成する。
+docs/designs/workspace-docking-state-architecture.md:226:- `rvf.ipc.v1` とWebViewの`__rvf.call`は現行WebView内で要求IDを採番する。複数WebViewの識別・配送を拡張する必要がある。
+docs/designs/workspace-docking-state-architecture.md:235:| Ruviform実機 | 2 Window以上、各WebView、複数モニター、Focus/DPI/Close | 別Windowを閉じても残りが操作でき、既存GUIデモが機能 |
+docs/designs/workspace-docking-state-architecture.md:255:- Docking UIの実装技術とWebView間ドラッグ制約、代替操作。
+docs/designs/workspace-docking-state-architecture.md:256:- Window別WebViewプロセス/Context・DPI混在・モニター識別と復元形式。
+docs/designs/workspace-model-design.md:59:Issue #1/#2 の合意済み方向性を WebView 前提で記述した初期ベースラインである。
+docs/designs/workspace-model-design.md:69:「native window + WebView」から「driver-neutral Window/View port +
+docs/designs/workspace-model-design.md:71:Job/State の寿命独立性を不変条件として固定する。旧 WebView 固有の記述は
+docs/designs/workspace-model-design.md:125:**legacy 注記（旧 WebView 前提の記述の移行先）:**
+docs/designs/workspace-model-design.md:127:統合設計書 §2 の `Window A [native window + WebView]`、§4 の
+docs/designs/workspace-model-design.md:128:`各WebView / UI component`、§6 の「WebView間でのショートカット配送」、
+docs/designs/workspace-model-design.md:129:§8 の「複数Window・WebViewのホスト」「Window-aware IPC」等の WebView 固有
+docs/designs/workspace-model-design.md:401:  実コードの型名で参照し、WebView 固有記述を legacy 注記へ分離した。
+docs/designs/workspace-ux-scenarios-design.md:186:  回復する。描画リソース（WebView/Native Surface）は解放してよい
+docs/designs/ws-a-workspace-foundation-design.md:72:- `ruviform-ui-webview`・実 OS Window・WebView・GPU・IME 実装・
+docs/discovery/issue-147-sccache-eval.md:93:  (ruviform #329 §3 でも ui-verify `webview` feature と verify 既定
+docs/discovery/issue-148-evidence-fail-open-gap.md:71:  WebView)の分離や `Unsupported` の区別が無い。
+docs/discovery/issue-515-os-credential.md:80:  byteorder + regex — GUI/GPU/WebView なし）を経由し Credential
+docs/discovery/issue-515-os-credential.md:152:  （crates.io/docs.rs — deps に GUI/GPU/WebView なし、
+docs/discovery/issue-515-os-credential.md:170:  GUI/WebView/GPU framework のみ。keyring 系は非該当。
+docs/discovery/issue-516-mlua-adapter.md:99:  より build が重いが headless（GUI/GPU/WebView なし）。
+docs/discovery/sv175-native-shell-inventory.md:28:    - "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md"
+docs/discovery/sv175-native-shell-inventory.md:64:  - `webview` feature: `ruviform-ui-webview`/`rust-embed` optional 依存
+docs/discovery/sv175-native-shell-inventory.md:68:    `UiRuntime` へ sealed されると到達不能。webview bin は clock を
+docs/discovery/sv175-native-shell-inventory.md:80:- `ui/`（SolidJS+TS frontend）・`crates/synvelis-app` webview host —
+docs/discovery/sv28-ruviform-pin-ac10a2f7.md:93:| `ruviform-ui-webview` | `lib.rs` doc comment +12（legacy/preview 分類、Issue #465）、README | なし。doc のみ |
+docs/discovery/sv28-ruviform-pin-ac10a2f7.md:125:| GUI | additive + opt-in。`uitest`/`plugin_dock` scenario/`PluginHostProbe` 未採用。`ui-webview` doc のみ。synvelis-app tests の既存 lane で非回帰を検証 |
+docs/discovery/sv28-ruviform-pin-b02942c2.md:115:- `ruviform-ui-webview`: diff なし。`SessionConfig`/
+docs/discovery/sv28-ruviform-pin-b02942c2.md:116:  `WebViewWindowConfig`/`run_multi`/`detect_backend`/`EmbedAssets`
+docs/discovery/sv28-ruviform-pin-b02942c2.md:123:- `ruviform-ui` / `ruviform-ui-test`: `synvelis-app`（webview/
+docs/discovery/sv28-ruviform-pin-b02942c2.md:125:- `ruviform-ui-webview`: `synvelis` bin（webview feature）のみ。
+docs/discovery/sv28-ruviform-pin-fd1d4d5f.md:105:  observability/plugin-*/rt/ui/ui-test/ui-theme/ui-webview/
+docs/discovery/sv28-ruviform-pin-update.md:54:削除行ゼロ）。`ruviform-ui-webview` は無変更。したがって pin
+docs/discovery/sv28-ruviform-pin-update.md:74:| RF#465 P0/P1 | Legacy WebView 廃止の棚卸し・文書歴史化・API 分類（docs のみ） | なし。legacy API の物理削除は P2 で未実施 |
+docs/discovery/sv28-ruviform-pin-update.md:88:- `ruviform-ui-webview`: diff なし。`SessionConfig`/
+docs/discovery/sv28-ruviform-pin-update.md:89:  `WebViewWindowConfig`/`run_multi`/`detect_backend`/`EmbedAssets`
+docs/discovery/sv28-ruviform-pin-update.md:100:- `ruviform-ui` / `ruviform-ui-test`: `synvelis-app`（webview/
+docs/discovery/sv28-ruviform-pin-update.md:102:- `ruviform-ui-webview`: `synvelis` bin（webview feature）のみ。
+docs/discovery/sv28-ruviform-pin-update.md:111:RF#465 の legacy WebView API（`HostConfig`/`run`/`HostEvent`/
+docs/discovery/sv28-ruviform-pin-update.md:114:webview bin は既に driver-neutral API 面を使用しており、削除済み
+docs/discovery/sv28-ruviform-pin-update.md:115:API への依存は現時点で存在しない（`check-app-webview` で最終確認）。
+docs/evidence/app-integration-slices.md:47:`cargo test -p synvelis-script-luau` 30 test pass・0 fail（real-VM: descriptor・言語/digest/budget fail-closed・artifact・sandbox globals・session isolation・evaluate-once・cancel）。`mise run test synvelis-automation` 全 test pass（`.luau` real-VM resolver/eval・mixed-source run 含む）、`check-cli`/`lint-cli`/`test-cli` pass（lease 外 consumer 無変更）、`check-headless-deps` pass（12 headless crates・GUI/GPU/WebView なし）、prek pass。`cargo tree` で mlua は `ruviform-script-luau` 経由のみ、synvelis crate は mlua を直接宣言しない（推移的に隔離）。E1〜E5 全て解決: 薄い binding 採用・pin 更新必須確認・artifact Record 必須の分類差・`BudgetExceeded.kind` Option 化・clippy 修正。実 Luau.Analysis native FFI bridge 切替は synvelis#274 gate、macOS/Linux 実機受入は synvelis#267 gate（NotRun）（synvelis#516）。
+docs/evidence/foundation-and-workspace.md:45:`doc_status audit --type all` は 72 findings（67 blocking）を報告したが、全て既存 architecture/vs-c 文書の front-matter/traceability 起因であり、WS-A 成果物への finding は 0 である。`test-msrv` は rust 1.89 未導入で未実施と記録し、pinned 1.99.0 で全検証した。実 OS Window/WebView/GPU/IME/plugin GUI は ruviform #243 lane で未検証と正直に記録した。
+docs/evidence/gui-app-shell.md:7:実 Windows で `synvelis.exe` が `Synvelis` 窓を開き、WebView2 が frontend bundle を描画し、`asset bundle ok (frontend @synvelis/ui@0.1.0+7ac830b85129)` を通過、窓 close で clean exit した。
+docs/evidence/gui-app-shell.md:9:検証 lane は fmt-check/check/lint/test（70 suites 0 failed）/build/check-ui/test-ui（16 件）/build-ui/check-ruviform-rev（`073a3ff6`、22 lockfile sources、REV match）/check-headless-deps/check-app-webview/lint-app-webview/test-app-webview（service_ops 12 + asset_check 10）/prek で、全て pass である。
+docs/evidence/gui-app-shell.md:19:実 Chromium 150 + fake IPC で live route 数 receipt=1/projection=4/viz.event=1/viz.frame=1、unmount 後 0 を計測した。fake IPC であり実 Rust IPC/native WebView の受入とは混同しない。
+docs/evidence/gui-app-shell.md:23:全 mise lane（fmt-check/check/lint/test/check-ui/test-ui/build-ui/check-ruviform-rev/check-headless-deps/gw10/check-app-webview/lint-app-webview/test-app-webview/test-msrv）exit 0 である。実 OS WebView GUI・実 Rust IPC e2e・native GPU・実 plugin/実 DSP・実 multi window は別 lane の NotRun で synvelis#112 へ継続した（synvelis#111）。
+docs/evidence/media-io-and-render.md:127:GUI 方針照合（C13/C14）は、`sv175-native-shell-driver-neutral-gpui.md` = accepted、`supersedes` で sv-gui-01 を明示（sv-gui-01 = superseded）、Ruviform#384 ADR = proposed（仮決定）で #175 と方向一致だが最終採用は ruviform#262/#388/#389 実機証拠後、plugin GUI embedding の ADR（wry `build_as_child`）= accepted だが旧経路で ruviform#389 で再設計予定、`synvelis-app` の `native`/`webview`/`gpui-test` feature が GPUI/WebView/theme を optional dep として分離、C13 = GUI policy 整合 Pass、C14 = Native Dock 実機 Gate Deferred（ruviform#388/#389/#262、synvelis#176 に接続）に分離 —「採用方針の整合」と「GPUI 最終採用の PASS」を混同しない、である。
+docs/evidence/parameter-control.md:45:- webview composition: fixture 3 test pass（gate 閉 `None`→stub 維持・gate 開 `Some(dir)`→attach→publish→非 stub `syn.control.status`・recreate detach）。`SetProjectName` revision が空 project でも generation 1 の control surface を publish することを実測確認。`synvelis-native.rs` は `git diff` で無変更を確認した。
+docs/evidence/parameter-control.md:84:- plan/task の status 運用の不統一: ほぼ全 plan が `approved` のまま（PC-A plan のみ `completed`）、PC-C4-06 plan の Verification チェックボックスは未チェックのまま task/IR が完了、webview composition task は `Done When` 全チェック済みだが Verification 節が未チェック。完了度は status でなく IR/検証記録で判断する必要がある（synvelis#101/#103 ほか）。
+docs/evidence/ruviform-io-boundary.md:73:NotRun は、実機 Windows WebView2 ウィンドウでの起動・描画（headless 検証のみ）、worker による `test-msrv` 未実行。upstream#289 collector・#291/#292/#293 は open のまま deferred である。
+docs/evidence/scripting-and-feature-slices.md:65:webview 実窓対話・macOS/Linux/IME・`AutomationMode::Off` 実窓操作は NotRun である。既定 `AutomationMode::Read` で commit が base を書き込まないのは全 parameter target 共通の domain 契約として記録され、本 slice 固有の欠陥ではない。なお task 文書の status は `in-progress` のままだが impl record は `completed` で実績・検証は完了しており、文書間の status 不整合がある。
+docs/evidence/scripting-and-feature-slices.md:69:863a7a9d → cc7d5296: 15 commits、公開 API 削除・変更なし、製品コード変更なし。`fmt-check` のみ main 既存破損 `routing_engine.rs` で fail し、スコープ外として報告した。9865cd57 → fd1d4d5f: 6 commits、全件 additive、`pub` 削除 0 件。`test-msrv`（rust 1.89）pass。test-app-webview で rustc `0xc0000409` が 1 度だけ発生し単独・post-merge 再実行で pass、pin 非起因の環境 flaky と切り分けた。0f5b5737 → b02942c2: 80 commits、公開 API の削除・signature 変更は実質なし。唯一の root re-export 削除は `ruviform-ui-test` の `scenario::visual` で item は module path で存続・synvelis 未使用。webdav test が `TransientIo` os error 10053 で 1 度 flake し、後に synvelis#245 で原因特定した。前任 Worker のプロセスクラッシュ 0xc0000409 で中断した dispatch を引き継ぎ、残っていた未コミット `Cargo.lock` 更新が pin 更新と一致することを確認して続行した。fd1d4d5f → ac10a2f7: 128 commits/108 files。破壊的変更は全て未使用面（ParentLease 語彙・wire v5・`MergeOutcome`・bridge counter/ledger 再構成・ui-test driver 語彙）。`Cargo.lock` 差分は 27 package の source fragment 54 行のみ。新規 crate（plugin-dock-test・plugin-test-vst3・audio-test・io-e2e 等）は全て依存木外で不採用とした。abb9f372 → cbcc8343: 12 commits、`pub` 削除行スキャン 0 件の純粋 additive。依存木内 4 crate の差分は全て additive/内部修正。`lint-app-native`/`lint-app-gpui` が synvelis#488 由来の既存 `clippy::large_enum_variant` で fail したが、feature 統合機構を `cargo tree -e features` で確認し pin 非起因と切り分け、`synvelis-workspace` は HARD BOUNDARY のため未修正とした。`ruviform-audio-test` は 2026-11-15 承認で dev-dep 依存木入り済み。audio-lens#127 が同一 SHA で rev-watch slice を実施中の tuple 整合も確認した。
+docs/knowledge/app-integration-slices.md:88:durable `CliSessionStore` は `FilePermitStore`（`mcp_permit.rs`）と同型の digest-only JSON + tmp/fsync/rename 原子書込で実装し、open 時に Human-kind invariant を全 record に再適用して forged file を fail-closed にする。restart 跨ぎの expiry/revocation/一度きり返却を test で pin した（synvelis#515）。OS credential vault は `keyring` v4（`v1::Entry` API → `windows-native-keyring-store` → Windows Credential Manager）を `cfg(windows)` target 依存として採用した。`unsafe_code=forbid` のため windows-sys/DPAPI 直叩きは不可で safe wrapper が必須。service=`synvelis-cli`、username=session id、secret=password。keyring の deps は windows-sys/zeroize/byteorder/regex のみで GUI/GPU/WebView なし（synvelis#515）。
+docs/knowledge/app-integration-slices.md:140:`unsafe_code=forbid` と GUI/GPU/WebView 非含有の headless 制約下では、OS credential は `keyring` 等の safe wrapper、TLS は rustls、ファイル永続化は `StagedFile`/tmp+fsync+rename の既存 primitive に委譲し、unsafe FFI・独自 atomic rename/durability を再実装しない（synvelis#515・#517・#521）。schema migration の既存 pattern: serde-default optional field + identity migration step + `SCHEMA_VERSION` increment + `#[cfg(test)]` round-trip test。version bump 時は `SCHEMA_VERSION` を assert する既存 test pin の意識的更新が必要である（synvelis#518）。
+docs/knowledge/architecture-overview.md:91:起動レーンは三系統ある。webview レーン（`src/bin/synvelis.rs`、feature `webview`）は、ロギング install→`detect_backend`→`SynvelisApp::new`→`SYNVELIS_PROJECT_DIR` があれば boot project と `compose_product_routing`（`SessionRoutingEngine`、48 kHz/stereo/256 フレーム）→`check_bundle` でフロントエンド資産を検証→`NativeShell`→`run_multi` の順で、`rvf://app` に埋め込み UI、`rvf://data` に `DataRegistry` を配線する。native レーン（`src/bin/synvelis-native.rs`、feature `native`）は `GpuiDriver` を組み立て、`ViewHost`+`ViewBinding` によるマウント済みビューを `NativeShell` の同じハンドラへ流す。ヘッドレスレーン（既定 feature）は `ruviform-ui-test` の `FakeDriver` で同一経路を検証に使う。webview・native はいずれも非既定 feature で、`cargo check --workspace` が GUI 依存なしに通るよう `tools/check-headless-deps.mjs` がガードする。
+docs/knowledge/architecture-overview.md:93:UI からドメインへの往路はレーンを問わず `rvf.ipc.v1` の intent に統一される。webview 側は `ui/src` の ViewModel→`__rvf.call`→`window.ipc.postMessage` でホストへ入り、`NativeShell::handle`→`UiRuntime`→`AppService::call`→`ui_ops.rs` の op 実装→`WorkspaceManager` 系の変更と進む。native 側は `ViewBinding` が `rvf.ui.command.v1` intent を発行し、同じ `NativeShell` の `on_view_command` 検証（origin view と generation の fail-closed 照合）を経て同じ op 面へ合流する。復路は `Service::call` が「1 intent→1 result」しか返せないため、継続状態は bounded outbox（cap 4096）経由の `Event::Notify`（`syn.control.projection`、`syn.control.receipt`、`syn.viz.frame` 等）でプッシュされる。合成・配線の詳細は `docs/knowledge/gui-app-shell.md` を参照。
+docs/knowledge/architecture-overview.md:141:- **ドライバ・バックエンド中立。** UI は `WindowDriver`/`Service`/`ViewHost` のポートで抽象され、OS window・webview・GPUI は `synvelis-app` の feature 付き bin にのみ現れる。オーディオも headless エンジン＋sink tap が中心で、物理 I/O はオプションの `ruviform-audio-device` に隔離される。
+docs/knowledge/foundation-and-workspace.md:55:証拠の判定語彙は検証・受入方針 §3 の `Pass`/`Fail`/`NotRun`/`Unsupported` と、OS 検証レベル OS-L1/GUI-L2/EXT-L3、要求状態 Required/Deferred/NotApplicable の組合せを正本とする（synvelis#23）。要求状態と実行結果は別軸・別欄で記録し、未実施入口は `NotRun`/`Unsupported`/`Deferred` として記録する。`Pass` は実測成功に限る。headless・Fake Driver・`gpui-test`/`webview`/Browser の成功を GUI-L2/EXT-L3 の Pass に繰り上げず、capability 分離を evidence 台帳に明記する（synvelis#23）。
+docs/knowledge/gui-app-shell.md:36:Synvelis のデスクトップ GUI は、`synvelis-app` crate を composition root とし、実窓 host に Ruviform の `ruviform-ui-webview` を `webview` feature で接続する構成で成立している。frontend は `ui/` の SolidJS + TypeScript + Vite pipeline で、Ruviform の plain TS Custom Elements を vendored `ui/vendor/ruviform` 経由で利用し、Rust との境界は `syn.view.*` / `syn.control.*` / `syn.viz.*` の typed op 面と bounded notify outbox が担う。本書は、このシェルの bootstrap・asset pipeline・view model・viz 契約・workspace GUI slice 群・multiwindow dock・close-veto・実機検証ゲート・control/recording op surface・lint 是正に関する設計決定と検証上の教訓をまとめる。共通する教訓は、upstream 共有 SDK の不具合を consumer 側 workaround で隠さず基盤側で修復して pin 更新で取り込むこと、headless/fake の Pass を実 OS 証拠へ昇格しない証拠規律、そして未実装経路を正直な失敗応答で返す op 設計の方針である。
+docs/knowledge/gui-app-shell.md:42:`synvelis-app` crate が composition root（`SynvelisApp` + `AppService` の `syn.*` op 面）を担い、実窓 host は Ruviform 既存の `ruviform-ui-webview` を `webview` feature で接続する。`ruviform-ui-webview` と `rust-embed` は optional 依存で、bin `synvelis` は `required-features = ["webview"]` を持つ。headless の lib/test は wry/tao 非依存を `check-headless-deps` で fail-closed に検査する（synvelis#110）。
+docs/knowledge/gui-app-shell.md:46:asset pipeline は、vite build が `crates/synvelis-app/frontend/dist` に出力し、`synvelis-assets.json` manifest（host rev + per-file SHA-256）が rust-embed の `#[folder = "frontend/dist"]` で embed される。起動時に `check_bundle` が schema/revision/digest を検証し、不合格なら CSP 制限付きエラーページを表示して安全側に倒す fail-closed で、空 bundle での起動緑にはならない（synvelis#110）。CSP の `connect-src` は `'self' rvf: http://rvf.app http://rvf.data` で、`rvf://data` URL が webview 側で `http://rvf.data` origin に書き換わるため両 origin の許可が必要だった（design 初版で `rvf.data` 抜けを指摘され修正）（synvelis#110）。
+docs/knowledge/gui-app-shell.md:50:実績として、実 Windows で `synvelis.exe` が `Synvelis` 窓を開き WebView2 が bundle を描画、`asset bundle ok` を通過し窓 close で exit 0 を確認済みである。macOS/Linux 実機・release embed lane・`rvf://data` pull の end-to-end は未検証として明示されている（synvelis#110）。
+docs/knowledge/gui-app-shell.md:54:Rust 側は `syn.view.*`/`syn.control.*`/`syn.viz.*` op 面と bounded notify outbox（`VecDeque`、cap 超過で最古 drop + counter 記録）を持ち、host tick が outbox を webview へ drain する。frontend は upstream `BindingPort` を実装し、`dispatch`→`syn.control.dispatch`、`subscribe`→`syn.control.subscribe` + projection route、`query`→`syn.viz.query` に写像する（synvelis#111）。
+docs/knowledge/gui-app-shell.md:76:未対応として報告された既知制限が 2 件ある。`tempo_map.ppqn` vs `project.ppqn` の乖離は `synvelis-project` 側の invariant gap（`SetPpqn` が 960 固定のため現行では一致、crafted snapshot で乖離可能）で別 issue 報告対象である。`MemoryWaveform::query` の channels リスト乗算増幅は bounded-read 境界の port 側改善として follow-up とした（synvelis#48）。実 device GUI・WebView・GPU rendering・HiDPI・browser 実測 performance は manual gate で本 impl スコープ外と明記されている（synvelis#48）。
+docs/knowledge/gui-app-shell.md:138:検証 lane の正本は `mise run` 系である。`fmt-check`/`check`/`lint`（`-D warnings`）/`test` に加え、feature 別に `check-app-webview`/`lint-app-webview`/`test-app-webview`、`check-app-native`/`lint-app-native`/`build-app-native`、`check/lint/test-app-gpui`（`gpui-test` feature）、`test-rt`、`test-msrv`（rust@1.89.0）、`build` がある。補助証拠として単体 `cargo test` は使うが canonical = mise で複数文書で一貫している（synvelis#110/#111/#112/#113/#488）。
+docs/knowledge/gui-app-shell.md:150:この知識は Synvelis の GUI 層全体に影響する。`synvelis-app`（composition root、webview/native bin、asset embed、window/dock host）、`synvelis-workspace`（`viz_ui`・`arrangement_ui`・keymap・control/recording op・dock contract）、`ui/` frontend（SolidJS view model、`BindingPort` 実装、keymap contract）が対象である。境界として Ruviform の `ruviform-ui-webview`・`ruviform-ui-test`・`ruviform-viz` など upstream 共有 SDK・crate との依存方向と pin 更新手順を規定する。検証面では headless/fake/GPUI-simulated/real-OS の各 lane と `mise run` タスク群、および証拠 freeze ledger の分類規則がこの知識の適用範囲である。
+docs/knowledge/media-io-and-render.md:49:GUI は driver-neutral 契約で設計する。Synvelis#175 の ADR（accepted、旧 sv-gui-01 を supersede）と Ruviform#384 の ADR（proposed・仮決定）は方向が一致するが、ruviform#384 の最終採用は ruviform#262/#388/#389 の実機証拠後と明記されており、「方針の整合」と「GPUI 最終採用 PASS」は別物として台帳で分離された（synvelis#22）。plugin GUI embedding の wry `build_as_child` ADR は accepted のままだが WebView 時代の旧経路であり、ruviform#389 で再設計予定である。supersession 管理は Ruviform Owner の責務とされた（synvelis#22）。
+docs/knowledge/parameter-control.md:118:library は `std::env` に触れない契約を維持し、`SYNVELIS_PROJECT_DIR` の env 読みは process boundary の bin が行い `Option<PathBuf>` を渡す。`compose_product_routing(app, project_dir)` の `Option` 契約が gate 意味（`None`→stub 維持）を in-process testable にする。webview bin は実 WebView2 backend を要求し headless spawn 不能のため fixture は helper を直接呼び、env 読み 1 行は compile + review で担保した。native bin は意図的に無変更（回帰リスク回避）で、重複は Deferred Design Concern に記録された。ruviform-plugin-core を synvelis-app の `[dependencies]` へ昇格した（`ParamWriteMeans` blocker、coordinator 承認）。`ui_pump` が plan generation を deterministic に進める（fast=1、automation=2、observe pump +1 の規則が op surface の evidence と整合）。
+docs/knowledge/parameter-control.md:164:文書の不整合も記録されている。front matter の status は実態とずれることがあり、task 文書が `in-progress` のまま対応 IR が `completed` の例、plan が `approved` のまま実装完了済みの例が複数ある。PC-C3 RT trace adapter では対応 task 文書が `in-progress` で steps 2–6 が未チェックのままだが、実装記録は `completed` で 6 test pass・rt alloc 0/0 を記録しており、後続 slice も trace adapter の存在を前提に進んでいる。task status の更新漏れと見られるが、文書上は未解決の不整合として記録する。PC-C6 でも `pc-c6-task1-oracle-rel-tr`・`pc-c6-task1-oracle-rows` の task 文書が `in-progress` のままだが対応 IR は `completed` で全 test pass を記録しており、`Done When` 全チェック済み・Evidence 節ありの task が status 未更新の例である。ほぼ全 plan が `approved` のまま（PC-A plan のみ `completed`）、PC-C4-06 plan の Verification チェックボックスは未チェックのまま task/IR が完了、webview composition task は `Done When` 全チェック済みだが Verification 節が未チェックという status 運用の不統一もある。完了度は status ではなく IR 本文と検証記録で判断する必要がある。
+docs/knowledge/scripting-and-feature-slices.md:53:pin 更新の定型手順は次の通りである。scoped `cargo update -p` の後、`mise run sync-ui-deps` で `ui/vendor/ruviform`（gitignore された生成物で手編集禁止）を再生成し、`check-ruviform-rev --require-vendor` で lockfile・manifest・vendor の単一 SHA 一致を確認する。続いて upstream 差分を `git log`/`git diff <old>..<new>`、`pub` 削除行スキャン、synvelis 消費面 grep、`cargo check --workspace --all-targets` で精査し、canonical 検証 lane（fmt-check・check/lint/test×14 package・test-rt・check-headless-deps・app-webview/app-native/app-gpui・recording-real-input lint・prek）を実走する。
+docs/knowledge/scripting-and-feature-slices.md:64:- flaky 判定: 単発 fail は単独再実行・全件再実行で pass を確認し、pin 非起因と切り分ける。実例として webdav test の `TransientIo`（os error 10053、synvelis#245）と test-app-webview 中の rustc `0xc0000409` クラッシュ（synvelis#28 fd1d4d5f slice）がある。
+docs/specs/README.md:83:| SPEC-034XHD7VlFH8w8tiP7ebRb | PC-C4 webview composition — synvelis.rs への routing engine attach | approved | [pc-c4-webview-composition.md](./pc-c4-webview-composition.md) |
+docs/specs/README.md:151:| SPEC-ZdwjK7WkdHy90Oaw1mTGUy | SV-GUI-01 Desktop Application Bootstrap — WebView Host・Frontend Asset Pipeline | approved | [sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md](./sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md) |
+docs/specs/ci-os-l1-native-gpui.md:118:- `webview` feature lane・`real-device`/`real-fs` opt-in lane の
+docs/specs/ci-os-l1-native-gpui.md:164:- `webview` feature の CI lane 化は本 Issue の対象外
+docs/specs/command-gateway.md:330:  WebView に依存しない独立 Adapter。#267 で MCP/CLI/GPUI
+docs/specs/creative-branch.md:185:  Observability 実装の無断統合、旧 WebView ADR・全 Consumer
+docs/specs/creative-branch.md:370:- **CB-R-08-5**: 旧 WebView/SolidJS を新たな正式 UI 技術契約
+docs/specs/execution-plan.md:164:  WebView/SolidJS Shell の完了や L2/L3 実機の全完了を
+docs/specs/execution-plan.md:248:  `check-ui`/`test-ui`/`build-ui`/`check-app-webview` 系・
+docs/specs/execution-plan.md:260:  旧 WebView/SolidJS Shell の完了・L2/L3 実機の全完了を
+docs/specs/execution-plan.md:303:- [ ] **EP-AC-06（Issue AC-6）**: 旧 WebView/SolidJS
+docs/specs/issue-148-impact-classification.md:113:- Declared NotRun/Unsupported 表の能力別分離(WebView 行の追加・
+docs/specs/issue-148-impact-classification.md:154:`plugin` `graph` `rt` `gateway` `ipc` `webview` `solidjs-gui` `ci`
+docs/specs/issue-148-impact-classification.md:181:| synvelis-app | webview, ipc | — | — |
+docs/specs/issue-148-impact-classification.md:187:`webview`。
+docs/specs/issue-148-impact-classification.md:205:feature 軸: `webview` class の実窓 host 検証は capability 分離により
+docs/specs/issue-148-impact-classification.md:206:Declared `Unsupported`(headless 面は verify が担保。`check-app-webview`
+docs/specs/issue-148-impact-classification.md:208:所有し分類外。Browser/headless/実 WebView の lane 導入は
+docs/specs/issue-166-full-ci-ci-summary.md:129:     GUI・ruviform Git revision ガード・WebView/OS capability 分離の
+docs/specs/issue-516-mlua-adapter.md:83:  WebView が headless crate に混入しないこと。
+docs/specs/media-render.md:422:  WebView/Native GPU backend・Probe budget/Diagnostics
+docs/specs/pc-c4-drain-composition.md:102:- `synvelis`（webview）bin への composition — 同様に後続。
+docs/specs/pc-c4-webview-composition.md:5:title: "PC-C4 webview composition — synvelis.rs への routing engine attach"
+docs/specs/pc-c4-webview-composition.md:36:    - "docs/test-specs/pc-c4-webview-composition.md"
+docs/specs/pc-c4-webview-composition.md:38:    - "docs/test-specs/pc-c4-webview-composition.md"
+docs/specs/pc-c4-webview-composition.md:50:# PC-C4 webview composition — synvelis.rs への routing engine attach
+docs/specs/pc-c4-webview-composition.md:58:ところまでを実装した。同 spec の非目標は「`synvelis`（webview）
+docs/specs/pc-c4-webview-composition.md:62:現状 `crates/synvelis-app/src/bin/synvelis.rs`（webview product
+docs/specs/pc-c4-webview-composition.md:63:bin、`webview` feature）は `compose_routing_engine`/
+docs/specs/pc-c4-webview-composition.md:68:製品の webview 経路では control/drain/observe の実経路が到達
+docs/specs/pc-c4-webview-composition.md:76:1. webview product bin が native bin と同じ条件
+docs/specs/pc-c4-webview-composition.md:82:   `synvelis-native.rs` のコード経路は変更しない（webview 側
+docs/specs/pc-c4-webview-composition.md:85:   （`tests/pc_c4_webview_composition.rs`）で pin する。
+docs/specs/pc-c4-webview-composition.md:97:  impl/ir,impl/exp}/pc-c4-webview-composition.md`。
+docs/specs/pc-c4-webview-composition.md:103:  （read-only 参照のみ — webview 側だけが新 helper を使う最小
+docs/specs/pc-c4-webview-composition.md:135:- [ ] `synvelis.rs`（webview bin）で `SYNVELIS_PROJECT_DIR`
+docs/specs/pc-c4-webview-composition.md:144:- [ ] 新規 `tests/pc_c4_webview_composition.rs` が gate・attach・
+docs/specs/pc-c4-webview-composition.md:150:  synvelis-app・`check-app-webview`/`lint-app-webview`/
+docs/specs/pc-c4-webview-composition.md:151:  `test-app-webview`/`prek run --all-files`）が exit 0。
+docs/specs/pc-c4-webview-composition.md:161:  回帰リスクを避けるため本 slice では webview 側のみ新 helper
+docs/specs/pc-c4-webview-composition.md:164:- 実 GUI/実 Window での webview boot 検証 — synvelis#114 系の
+docs/specs/product-value-core.md:33:    - "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md"
+docs/specs/sf-05-ui-viewmodel.md:103:- [ ] 実 GUI mount・実 WebView/GPUI window・2-window・SF-UX-08/
+docs/specs/sv-gpui-01-native-app-shell.md:100:4. **後継 ADR**: `docs/adr/sv-gui-01-…` の SolidJS/WebView 採用決定
+docs/specs/sv-gpui-01-native-app-shell.md:135:  旧 WebView/frontend の撤去、新外部依存の追加。
+docs/specs/sv-gpui-03-product-theme-workspace-presets.md:154:- 旧 SolidJS/WebView frontend の削除・縮退（新 Native 実証前の
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:5:title: "SV-GUI-01 Desktop Application Bootstrap — WebView Host・Frontend Asset Pipeline"
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:46:# SV-GUI-01 Desktop Application Bootstrap — WebView Host・Frontend Asset Pipeline
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:52:Synvelis 所有の App entrypoint・Application Shell・実 Window/WebView asset
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:62:- **Ruviform `ruviform-ui-webview` (wry/tao Host) と Window/IPC lifecycle を
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:106:   - `webview` feature 時のみビルドされる bin `synvelis` (wry/tao host
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:128:   typecheck/test/build → `--features webview` ビルドまで一連で通る手順と
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:148:  `synvelis-recording`・`ruviform-ui` に依存し、`ruviform-ui-webview` と
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:149:  `rust-embed` は `webview` feature 時のみの optional 依存とする。
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:150:- GUI 依存 (wry/tao/rust-embed/SolidJS) は `synvelis-app` の webview lane と
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:155:- 起動時に backend probe (`wry::webview_version`) → asset bundle 検査 →
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:170:- [ ] **SV-GUI-01-A**: `webview` feature でビルドした `synvelis` binary が
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:175:  dispatch と webview host 経由で同一結果を返し、GUI 依存が core/RT crate
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:182:  (webview2 等)・OS/arch・op 一覧・audio/recorder/observability/plugin の
+docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md:197:- Ruviform `ruviform-ui`/`ruviform-ui-webview` crate 実装
+docs/specs/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md:23:    - "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md"
+docs/specs/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md:30:    - "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md"
+docs/specs/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md:31:    - "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md"
+docs/specs/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md:86:  保持**し、Payload を無制限に WebView へ送らない(query の maxBytes、
+docs/specs/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md:121:1. `synvelis-app` の `syn.*` op 面拡張(headless・webview feature 双方
+docs/specs/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md:149:   (`dock-transfer` detach+attach)・WebView 再作成(frontend reload →
+docs/specs/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md:172:  (同一 WebView 内 dock pane 相当)での 2 window 検証に留める。
+docs/specs/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md:175:- RF-GT-04(#313)の実 WebView E2E・OS 入力注入 — SV-GUI-05 (#114) の
+docs/specs/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md:184:- `syn.*` op は headless `UiRuntime::dispatch_op` と webview host
+docs/specs/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md:236:  `build-ui`/`check-app-webview`/`lint-app-webview`/`test-app-webview`
+docs/specs/sv-gui-02-frontend-view-models-ruviform-custom-elements-typed-ipc-receipt.md:245:- 実 multi-OS-window host(`ruviform-ui-webview` `run_multi`)と実 Dock
+docs/specs/sv-gui-03-05-gpui-scenario.md:93:  の 3 task を追加する(webview/native lane と同形。
+docs/specs/sv185-01-mixer-gain-domain-projection.md:116:  Unsupported の語彙で記録し、未検証 OS/IME/webview は
+docs/specs/sv28-ruviform-pin-ac10a2f7.md:147:  lint・test・test-rt・headless-deps・ui・app-webview・
+docs/specs/sv28-ruviform-pin-b02942c2.md:163:- [ ] `mise run check-app-webview` / `check-app-native` /
+docs/specs/sv28-ruviform-pin-b02942c2.md:164:  `lint-app-native`（および `test-app-webview` 等の補助 lane）が
+docs/specs/sv28-ruviform-pin-cbcc8343.md:157:  lint・test・test-rt・headless-deps・ui・app-webview・
+docs/specs/sv28-ruviform-pin-cc7d5296.md:77:RF#465 Legacy WebView 廃止 P0/P1 棚卸し、RF#461/#463 GPUI 修正等が
+docs/specs/sv28-ruviform-pin-cc7d5296.md:116:- `crates/synvelis-app` の webview/native lane の大規模変更、
+docs/specs/sv28-ruviform-pin-cc7d5296.md:145:- [ ] `synvelis` bin（webview feature）が削除済み legacy API
+docs/specs/sv28-ruviform-pin-cc7d5296.md:148:  現状 `SessionConfig`/`WebViewWindowConfig`/`run_multi` 移行済み
+docs/specs/sv28-ruviform-pin-cc7d5296.md:158:- RF#465 P2: `ruviform-ui` の legacy WebView adapter 面
+docs/specs/sv28-ruviform-pin-cc7d5296.md:161:  と driver-neutral asset/data delivery 契約。synvelis webview lane
+docs/specs/sv28-ruviform-pin-cc7d5296.md:172:  WebView host 新 API 移行）。
+docs/specs/sv28-ruviform-pin-cc7d5296.md:176:  `crates/` の公開 API 変更は追加のみ・`ruviform-ui-webview` 無変更）。
+docs/specs/sv28-ruviform-pin-fd1d4d5f.md:166:- [x] `mise run check-app-webview` / `check-app-native` /
+docs/specs/sv28-ruviform-pin-fd1d4d5f.md:167:  `lint-app-native`（および `test-app-webview` 等の補助 lane）が
+docs/specs/syn-obs-01-ruviform-observability-crate-logging-host.md:23:    - "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md"
+docs/specs/syn-obs-01-ruviform-observability-crate-logging-host.md:106:- `synvelis` bin(webview)の startup/shutdown への組み込み:
+docs/specs/target-architecture.md:143:実装・Ruviform 共通基盤の変更・旧 WebView ADR の再承認・
+docs/specs/target-architecture.md:176:   accepted）に整合する。旧 WebView/SolidJS ADR
+docs/specs/target-architecture.md:369:- 旧 WebView/SolidJS ADR（`sv-gui-01-...`）は
+docs/specs/target-architecture.md:410:| SV22-C13 | GUI 採用方針は #384 GPUI 標準 Driver + #175 後継 ADR に整合・旧 WebView ADR は歴史保持・通常画面へ GPUI 型非露出 | ADR/依存 guard 文書照合 + check-headless-deps 実測 |
+docs/specs/target-architecture.md:425:- **旧 WebView/SolidJS ADR の再承認・GPUI/実 Plugin OS
+docs/specs/ui-sf-control-integration.md:55:Ruviform 共通 Component/Gesture の再実装、旧 SolidJS/WebView の再導入は行わない。
+docs/specs/workspace-model.md:66:   （`NativeSurfaceSlot`）を含む形に更新し、旧 WebView 固有の前提は legacy 注記へ
+docs/specs/workspace-model.md:123:- 旧 WebView 前提の統合設計書本文の書き換え（legacy 注記は新 design doc 側で
+docs/specs/workspace-model.md:132:  WebView 固有の記述は legacy 注記として分離する。
+docs/specs/workspace-model.md:160:  GPUI-neutral View/Driver Port と Plugin Slot を反映し、旧 WebView 固有の
+docs/specs/workspace-model.md:212:  （初期統合設計ベースライン）。本 spec はその WebView 前提部分を GPUI-neutral
+docs/specs/ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md:105:- 実 OS Window / WebView / GPU 描画 / Multi-Monitor 実機 / DPI / IME 実
+docs/specs/ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md:115:  `ruviform-ui` + serde 系のみ。webview adapter 非依存・headless)。
+docs/test-specs/README.md:119:| TSPEC-034XHDIP0PrKJMfqaVowAi | PC-C4 webview composition test spec | approved | [pc-c4-webview-composition.md](./pc-c4-webview-composition.md) |
+docs/test-specs/README.md:321:| TSPEC-034XHDIP0PrKJMfqaVowAi | PC-C4 webview composition test spec | approved | [pc-c4-webview-composition.md](./pc-c4-webview-composition.md) |
+docs/test-specs/autx-03-headless-cli.md:57:固定する。「GUI/Native/WebView/GPUI/GPU/windowing に依存しない独立
+docs/test-specs/autx-03-headless-cli.md:83:- `synvelis-cli` は Native/WebView/GPUI/GPU/windowing 依存を持たず、
+docs/test-specs/autx-03-headless-cli.md:86:  path・credential・TTY 状態なしで完了する（Window/GPU/WebView 起動・
+docs/test-specs/execution-plan.md:97:- `gpui-test`/`webview`/Fake Driver/Headless/Browser の
+docs/test-specs/issue-151-ui-ci-lane.md:101:- browser E2E・実 WebView 起動・visual golden(ruviform #310 系・
+docs/test-specs/pc-c4-webview-composition.md:5:title: "PC-C4 webview composition test spec"
+docs/test-specs/pc-c4-webview-composition.md:20:    - "docs/specs/pc-c4-webview-composition.md"
+docs/test-specs/pc-c4-webview-composition.md:21:    - "docs/designs/pc-c4-webview-composition.md"
+docs/test-specs/pc-c4-webview-composition.md:22:    - "docs/plans/pc-c4-webview-composition.md"
+docs/test-specs/pc-c4-webview-composition.md:23:    - "docs/tasks/pc-c4-webview-composition.md"
+docs/test-specs/pc-c4-webview-composition.md:26:    - "docs/specs/pc-c4-webview-composition.md"
+docs/test-specs/pc-c4-webview-composition.md:27:    - "docs/designs/pc-c4-webview-composition.md"
+docs/test-specs/pc-c4-webview-composition.md:35:    - "docs/plans/pc-c4-webview-composition.md"
+docs/test-specs/pc-c4-webview-composition.md:38:    - "docs/specs/pc-c4-webview-composition.md"
+docs/test-specs/pc-c4-webview-composition.md:39:    - "docs/designs/pc-c4-webview-composition.md"
+docs/test-specs/pc-c4-webview-composition.md:40:    - "docs/plans/pc-c4-webview-composition.md"
+docs/test-specs/pc-c4-webview-composition.md:49:# PC-C4 webview composition test spec
+docs/test-specs/pc-c4-webview-composition.md:53:webview product bin の composition 経路
+docs/test-specs/pc-c4-webview-composition.md:55:契約を満たすことを、headless fixture で pin する。実 WebView
+docs/test-specs/pc-c4-webview-composition.md:60:## Feature: webview engine composition gate と op surface
+docs/test-specs/pc-c4-webview-composition.md:116:  webview 経路の追加のみを検証する。
+docs/test-specs/pc-c4-webview-composition.md:121:  wire-schema L1・実 WebView2 boot — 外部 gate（NotRun）。
+docs/test-specs/pc-c4-webview-composition.md:132:  （process boundary）— compile（`check-app-webview`）と
+docs/test-specs/sf-05-ui-viewmodel.md:116:実 WebView host e2e・実 GPUI window・2-window・SF-UX-08/Windows
+docs/test-specs/sv-gui-01-e2e-desktop-bootstrap.md:31:    - "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md"
+docs/test-specs/sv-gui-01-e2e-desktop-bootstrap.md:113:- Capabilities 表示が backend=webview2・os=windows・op 一覧・
+docs/test-specs/sv-gui-02.md:86:- 実 OS WebView GUI(macOS/Linux を含む)、実 plugin/実 DSP、実 multi
+docs/test-specs/sv-gui-04-01-two-window-slice1.md:90:- Browser/WebView lane の結果を Native PASS へ昇格しない。
+docs/test-specs/sv185-01-mixer-gain-fader.md:83:| R4 | OS coverage | macOS/Linux/IME/webview | 未検証は `NotRun`/`Unsupported` で記録 |
+docs/test-specs/sv28-ruviform-pin-ac10a2f7.md:66:  test 非回帰・feature 経路（webview/native/gpui/real-device
+docs/test-specs/sv28-ruviform-pin-ac10a2f7.md:77:| R5 | RT/headless/UI feature lane が非回帰 | `mise run test-rt`・`check-headless-deps`・`check-ui`/`test-ui`・`check-app-webview`/`lint-app-webview`/`test-app-webview`・`check-app-native`/`lint-app-native`/`build-app-native`・`check-app-gpui`/`lint-app-gpui`/`test-app-gpui`・`lint-recording-real-input` が exit 0 |
+docs/test-specs/sv28-ruviform-pin-ac10a2f7.md:95:- synvelis の全消費経路（headless・webview・native・gpui・
+docs/test-specs/sv28-ruviform-pin-b02942c2.md:74:- Rule: headless crate の依存木に GUI/GPU/WebView framework
+docs/test-specs/sv28-ruviform-pin-b02942c2.md:75:  crate（`ruviform-ui-gpui`/`ruviform-ui-webview`/`gpui`/`wry`/
+docs/test-specs/sv28-ruviform-pin-b02942c2.md:99:- Given `webview` / `native` feature
+docs/test-specs/sv28-ruviform-pin-b02942c2.md:100:  When `mise run check-app-webview` / `check-app-native` /
+docs/test-specs/sv28-ruviform-pin-b02942c2.md:113:- webview bin（`synvelis`）は `SessionConfig`/`run_multi` の
+docs/test-specs/sv28-ruviform-pin-b02942c2.md:133:feature-gated lane（webview/native）でのみ顕在化する非互換は
+docs/test-specs/sv28-ruviform-pin-b02942c2.md:134:既定 `mise run check` では検出できない。`check-app-webview` /
+docs/test-specs/sv28-ruviform-pin-cbcc8343.md:66:  test 非回帰・feature 経路（webview/native/gpui/real-device
+docs/test-specs/sv28-ruviform-pin-cbcc8343.md:77:| R5 | RT/headless/UI feature lane が非回帰 | `mise run test-rt`・`check-headless-deps`・`check-ui`/`test-ui`・`check-app-webview`/`lint-app-webview`/`test-app-webview`・`check-app-native`/`lint-app-native`/`build-app-native`・`check-app-gpui`/`lint-app-gpui`/`test-app-gpui`・`lint-recording-real-input` が exit 0 |
+docs/test-specs/sv28-ruviform-pin-cbcc8343.md:95:- synvelis の全消費経路（headless・webview・native・gpui・
+docs/test-specs/sv28-ruviform-pin-cc7d5296.md:74:- Rule: headless crate の依存木に GUI/GPU/WebView framework
+docs/test-specs/sv28-ruviform-pin-cc7d5296.md:75:  crate（`ruviform-ui-gpui`/`ruviform-ui-webview`/`gpui`/`wry`/
+docs/test-specs/sv28-ruviform-pin-cc7d5296.md:96:- Given `webview` / `native` feature
+docs/test-specs/sv28-ruviform-pin-cc7d5296.md:97:  When `mise run check-app-webview` / `check-app-native` を実行する
+docs/test-specs/sv28-ruviform-pin-cc7d5296.md:105:- webview bin（`synvelis`）は `SessionConfig`/`run_multi` の
+docs/test-specs/sv28-ruviform-pin-cc7d5296.md:120:feature-gated lane（webview/native）でのみ顕在化する非互換は
+docs/test-specs/sv28-ruviform-pin-cc7d5296.md:121:既定 `mise run check` では検出できない。`check-app-webview` /
+docs/test-specs/sv28-ruviform-pin-fd1d4d5f.md:78:- Rule: headless crate の依存木に GUI/GPU/WebView framework
+docs/test-specs/sv28-ruviform-pin-fd1d4d5f.md:79:  crate（`ruviform-ui-gpui`/`ruviform-ui-webview`/`gpui`/`wry`/
+docs/test-specs/sv28-ruviform-pin-fd1d4d5f.md:102:- Given `webview` / `native` feature
+docs/test-specs/sv28-ruviform-pin-fd1d4d5f.md:103:  When `mise run check-app-webview` / `check-app-native` /
+docs/test-specs/sv28-ruviform-pin-fd1d4d5f.md:143:feature-gated lane（webview/native/real-device）でのみ顕在化する
+docs/test-specs/sv28-ruviform-pin-fd1d4d5f.md:145:`check-app-webview`/`check-app-native`/`lint-recording-real-input`
+docs/test-specs/syn-obs-01-logging-source-catalog.md:46:`webview` feature 実窓起動は実機依存のため headless 証拠と分離する。
+docs/test-specs/syn-obs-01-logging-source-catalog.md:149:- webview 実窓での表示確認(実機/OS 依存、別受入)。
+docs/test-specs/ws-a-e2e-workspace-foundation.md:118:- 実 OS window/webview/DPI/IME/plugin GUI の実機検証 (ruviform #243)。
+evidence/reports/sf-06-cross-gate-ledger.md:105:| SF-UX-08 | real Windows/macOS/Linux native/WebView・DPI・a11y・keyboard・Window detach/close — OS evidence per environment | NotRun | NotRun | NotRun | NotRun | NotRun |
+evidence/sv101/pc-c4-webview-composition-verification.md:1:# PC-C4 webview composition verification results (Issue #101 / synvelis#101)
+evidence/sv101/pc-c4-webview-composition-verification.md:3:OS: Windows 11（worktree `sv101-webview-compose`）。toolchain は
+evidence/sv101/pc-c4-webview-composition-verification.md:7:slice: `synvelis`（webview）bin への routing engine composition
+evidence/sv101/pc-c4-webview-composition-verification.md:8:配線（`docs/specs/pc-c4-webview-composition.md`）。
+evidence/sv101/pc-c4-webview-composition-verification.md:16:| `mise run check-app-webview` | Windows | 同上 | 0 | Passed（`--features webview --all-targets`。`synvelis.rs` bin compile を含む） |
+evidence/sv101/pc-c4-webview-composition-verification.md:18:| `mise run lint-app-webview` | Windows | 同上 | 0 | Passed（`--features webview` clippy `-D warnings`） |
+evidence/sv101/pc-c4-webview-composition-verification.md:19:| `mise run test synvelis-app` | Windows | 同上 | 0 | Passed（全 test target green。`pc_c4_webview_composition` 3 test を含む） |
+evidence/sv101/pc-c4-webview-composition-verification.md:20:| `mise run test-app-webview` | Windows | 同上 | 0 | Passed（`--features webview` 全 test target green） |
+evidence/sv101/pc-c4-webview-composition-verification.md:26:  pc_c4_webview_composition`: 3/3 pass
+evidence/sv101/pc-c4-webview-composition-verification.md:31:  `test-app-webview`。
+evidence/sv101/pc-c4-webview-composition-verification.md:61:  plugin GUI・実 WebView2 boot・wire-schema/L1・AudioLens
+evidence/sv101/pc-c4-webview-composition-verification.md:65:  process boundary のため fixture 対象外。`check-app-webview`
+evidence/sv108/ui-viewmodel-verification.md:51:- 実 WebView host e2e・実 GPUI window・実 2-window・
+evidence/sv114/recorder-wire-option-b-headless.md:103:| `mise run check-headless-deps` | Windows / node | 0 | Pass（headless crate へ GUI/GPU/WebView 依存の混入なし、12 crates 確認） |
+evidence/sv2/workspace-model-case-ledger.md:15:| AC-01 | — | GPUI-neutral View/Driver Port + Plugin Slot を反映した Workspace 図、WebView 固有記述の legacy 注記化 | 文書レビュー（design §Workspace 構造図 + legacy 注記） | 図が `WindowDriver`/`ViewHost`/`NativeSurfaceSlot` を含み WebView 前提が legacy 注記へ分離 | design doc に反映済み。`WindowDriver`/`DriverEvent::Windowed`/`post_event` fire-and-forget/`NativeSurfaceSlot`/`SurfaceSlotId`/`SlotLease`/`ViewHost`/`ViewSpec` を実コードの型名で記述 | **Pass（設計レビュー）** |
+evidence/sv22/case-ledger.md:258:| UI | `ruviform-ui`/`ui-{gpui,webview,theme,test}`/`ruviform-viz`/`poc-native-dock` | ui tests・gpui-test | 契約実在 pin・実走 NotRun |
+evidence/sv22/case-ledger.md:264:  GPUI/WebView/wgpu/winit/tao/wry・Ruviform GUI adapter
+evidence/sv22/case-ledger.md:275:  Ruviform `docs/adr/driver-neutral-gui-gpui-driver-webview-first-issue-384.md`
+evidence/sv22/case-ledger.md:277:  （native/webview feature 分離）・`check-headless-deps` Pass
+evidence/sv22/case-ledger.md:282:  - 旧 WebView/SolidJS ADR は `superseded` で歴史保持・
+evidence/sv22/dependency-dag.md:106:| `ruviform-ui-webview` | `webview` | 旧 WebView driver（移行期間保持・新規本番採用ではない） |
+evidence/sv22/dependency-dag.md:108:| `rust-embed` | `webview` | WebView 資産 embed |
+evidence/sv22/dependency-dag.md:112:有効時）。`native`/`webview` 有効時も `synvelis-*` →
+evidence/sv22/dependency-dag.md:177:| `synvelis-app` → `ruviform-ui-webview` | optional（`webview` feature） | feature-gated。旧経路・移行期間保持 |
+evidence/sv23/execution-plan-entry-gate-ledger.md:22:| `check-headless-deps` | headless crate に GUI/GPU/WebView 非依存 | OS-L1 | 境界不変条件 | Win/mac/Linux | Required | NotRun（本 slice 対象外・Daily/手動 Full CI 委譲） | — | — |
+evidence/sv23/execution-plan-entry-gate-ledger.md:29:| `check-ui`/`test-ui`/`build-ui`/`install-ui`/`setup-ui`/`sync-ui-deps` | ui/ frontend（typecheck/vitest/build/vendor 同期） | OS-L1 | 旧 WebView lane・移行検証 | Win/mac/Linux | Required | NotRun（本 slice 対象外） | — | — |
+evidence/sv23/execution-plan-entry-gate-ledger.md:30:| `check-app-webview`/`lint-app-webview`/`test-app-webview`/`dev-ui`/`build-app` | `webview` feature（旧 SolidJS/WebView lane） | OS-L1 + 実窓は手動 | 歴史的/移行 lane | Win/mac/Linux | Required（移行期間） | NotRun（本 slice 対象外） | — | — |
+evidence/sv23/execution-plan-entry-gate-ledger.md:40:- `gpui-test`/`webview`/`test-app-*` の Pass は
+evidence/sv23/execution-plan-gate-ledger.md:92:| SV-GUI-LEGACY | #110/#111（旧 WebView） | Synvelis | — | 歴史的証拠（新 Native 受入を代替しない） | — | OS-L1 | closed（historical） |
+evidence/sv23/execution-plan-verification.md:85:| `check-app-native`/`lint-app-native`/`check-app-gpui`/`check-ui`/`check-app-webview` 系 | NotRun | 対象外（docs-only）。GUI-L2 は別 Issue |
+evidence/sv23/execution-plan-verification.md:108:  状態・結果状態を別欄で持ち、`gpui-test`/`webview`/
+evidence/sv261/autx-02-cli-adapter-ledger.md:55:| (5) GUI/WebView/GPUI を初期化しない Headless Session Host で Project open/query/prepare/commit/reopen | **部分実装+残件 Deferred** → **port adapter 実装済み・mutation case 一部残件（2026-11 追記）** | `HeadlessSessionHost` composition・`handle_claim` 単一経路・`CommitGate` port 実装は in-crate 契約として実装済み。実 project open/lock/revision は `synvelis-project` port adapter が必要で別 Worker 占有領域 — Deferred。**追記（2026-11）**: sv#262 の durable boot が port adapter を実現 — `crates/synvelis-cli/src/host.rs::boot_project` が実 `DirectoryBundleStore`+`ProjectController`+`CommitGate`+`FilePolicyStore`/journal（project-local `synvelis-cli.policy.log`/`synvelis-cli.commit.journal`）を composition root として配線し、`cli_e2e` 実バイナリ E2E で project open/prepare/query/info が検証済み（`evidence/sv262/autx-03-headless-cli-ledger.md`・`issue-262-run-file-real-vm-ledger.md`）。残件: 同 run-file 台帳が「Project Create/Change/Save/Reload の独立 Expected/Observed case は未整備（部分消化）」と記録 — mutation commit の独立 case は依然として残件 |
+evidence/sv262/autx-03-headless-cli-ledger.md:5:実測記録。GUI/Native/WebView/GPUI/GPU/windowing に依存しない
+evidence/sv262/autx-03-headless-cli-ledger.md:47:| `mise run build-cli` | 0 | 新設 task。`cargo build --locked -p synvelis-cli` 成功（Native/WebView/GUI feature なしで構築） |
+evidence/sv262/autx-03-headless-cli-ledger.md:93:| `synvelis-cli --help/--version/action list/action describe` が Window/GPU/WebView 起動・GUI asset 検証なしで Headless 動作し、Capability Version/Schema/Availability を現行 Gateway と一致して出力 | **実装+検証済み（Windows のみ）** | `help_and_version`/`action_list_json_envelope`/`action_describe_known_and_unknown` Pass。`check-headless-deps` で GUI 依存なし確認。3 OS 実機は NotRun |
+evidence/sv262/autx-03-headless-cli-ledger.md:100:| Native/WebView なしの Rust workspace check/test と CLI バイナリ build・実バイナリ E2E | **実装+検証済み（Windows のみ）** | 上記 mise task 全 Pass + `cli_e2e` 16 tests。非対応 OS 実機は NotRun |
+evidence/sv262/issue-262-run-file-real-vm-ledger.md:37:| `mise run build-cli` | 0 | `cargo build --locked -p synvelis-cli` 成功（22.34s、Native/WebView/GUI feature なし） |
+evidence/sv265/autx-06-live-adapters-ledger.md:50:| `mise run check-headless-deps` | Pass（12 headless crates に GUI/GPU/WebView framework 依存なし） |
+evidence/sv267/verification.md:48:| headless deps | `mise run check-headless-deps` | **Pass** — `check-headless-deps: no GUI framework deps in 12 headless crates`（dev-dep 追加後も GUI/GPU/WebView crate を引き込まない） |
+evidence/sv274/issue-274-cli-script-analyze-ledger.md:40:| `mise run build-cli` | 0 | `cargo build --locked -p synvelis-cli` 成功（dev profile、GUI/Native/WebView feature なし） |
+evidence/sv277/contract-trace.md:38:| 旧 WebView/SolidJS を正式 UI 契約にしない | CB-R-08 | §10 UI 技術 | Patterns to avoid |
+evidence/sv28/ruviform-ac10a2f7-diff-review.md:29:  `ruviform-ui-webview`, `ruviform-video-proc`。
+evidence/sv28/ruviform-ac10a2f7-diff-review.md:59:| `ruviform-ui-webview` | `lib.rs` +12（Issue #465 legacy/preview 分類の doc comment のみ）、`README.md` +9 | app `webview` feature が optional dep として依存 | なし。doc comment のみ |
+evidence/sv28/ruviform-ac10a2f7-diff-review.md:100:| GUI | additive + opt-in。`uitest` feature/`windowed_io`/`plugin_dock` scenario/`PluginHostProbe` は未採用。`ui-webview` は doc のみ。synvelis-app tests は既存の `gpui`/`gpui-test`/`webview` feature 経路で非回帰を lane 検証 |
+evidence/sv286/verification.md:30:| `mise run check-headless-deps` | 0 | pass — "no GUI framework deps in 12 headless crates"（`variant_diff.rs` は `ruviform_ui::view` の driver-neutral spec 型のみ使用・GUI/GPU/WebView 依存なし） |
+evidence/sv288/verification.md:28:| `mise run check-headless-deps` | Windows 11 | node | 0 | Passed（`no GUI framework deps in 12 headless crates` — 新規 test が GUI/GPU/WebView 依存を引き込まないことを確認） |
+evidence/sv289/render-checkpoint-verification.md:105:| `check-app-native`/`lint-app-native`/`check-app-gpui`/`check-ui`/`check-app-webview` 系 | NotRun | 対象外（docs-only）。GUI-L2 は別 Issue |
+evidence/sv296/verification.md:31:| 7 | `mise run check-headless-deps` | Pass | 0 | `check-headless-deps: no GUI framework deps in 12 headless crates` — 新 test は GUI/GPU/WebView 依存を引き込まない |
+evidence/sv46/command-gateway-gates-ledger.md:364:| #262 AUTX-03 独立 CLI | Native/WebView 非依存の独立 Adapter | OPEN |
+evidence/sv514/verification.md:27:| `check-full`/`lint-full`/`test-full`/`build-full`/`verify-full`・`test-msrv`・webview/native/gpui lane | **NotRun** | 本 slice の必須検証に含めない（Daily Full CI・別 lane 委譲） |
+evidence/sv515/os-credential-session-ledger.md:20:zeroize/byteorder/regex — GUI/GPU/WebView なし、
+evidence/sv515/os-credential-session-ledger.md:57:| `mise run check-headless-deps` | 0 | `check-headless-deps: no GUI framework deps in 12 headless crates` — keyring 系依存は GUI/GPU/WebView を引き込まない |
+evidence/sv519/defers_all.txt:52:###51|docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md|project.new/open 後の engine 再 attach（synvelis#106 の責務）
+evidence/sv519/defers_all.txt:53:###52|docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md|synvelis-native bin の共有 helper への呼出側移行（後続 slice）
+evidence/sv519/defers_all.txt:54:###53|docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md|実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件）
+evidence/sv519/defers_all.txt:118:###117|docs/specs/pc-c4-webview-composition.md|project.new/open 後の engine 再 attach（synvelis#106 の責務）
+evidence/sv519/defers_all.txt:119:###118|docs/specs/pc-c4-webview-composition.md|synvelis-native bin の共有 helper への呼出側移行（native 経路の回帰リスクを避けるため本 slice 対象外）
+evidence/sv519/defers_all.txt:120:###119|docs/specs/pc-c4-webview-composition.md|実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件・後続 slice）
+evidence/sv519/docstatus_designs_after.txt:69:[error blocking] docs/designs/pc-c4-webview-composition.md:148: Body references legacy artifact id EXP-1, which no artifact provides (unresolved-legacy-reference)
+evidence/sv519/docstatus_designs_after.txt:172:[warning] docs/designs/sv-gui-01-desktop-app-bootstrap-design.md: In-flight document derives-from a superseded upstream: docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md — re-point or close (stale-upstream)
+evidence/sv519/docstatus_designs_before.txt:75:[error blocking] docs/designs/pc-c4-webview-composition.md:148: Body references legacy artifact id EXP-1, which no artifact provides (unresolved-legacy-reference)
+evidence/sv519/docstatus_designs_before.txt:188:[warning] docs/designs/sv-gui-01-desktop-app-bootstrap-design.md: In-flight document derives-from a superseded upstream: docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md — re-point or close (stale-upstream)
+evidence/sv519/docstatus_designs_final.txt:70:[error blocking] docs/designs/pc-c4-webview-composition.md:148: Body references legacy artifact id EXP-1, which no artifact provides (unresolved-legacy-reference)
+evidence/sv519/docstatus_designs_final.txt:173:[warning] docs/designs/sv-gui-01-desktop-app-bootstrap-design.md: In-flight document derives-from a superseded upstream: docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md — re-point or close (stale-upstream)
+evidence/sv519/docstatus_specs_before.txt:81:[warning blocking] docs/specs/pc-c4-webview-composition.md: Relation defers points to missing target: project.new/open 後の engine 再 attach（synvelis#106 の責務） (broken-relation-link)
+evidence/sv519/docstatus_specs_before.txt:82:[warning blocking] docs/specs/pc-c4-webview-composition.md: Relation defers points to missing target: synvelis-native bin の共有 helper への呼出側移行（native 経路の回帰リスクを避けるため本 slice 対象外） (broken-relation-link)
+evidence/sv519/docstatus_specs_before.txt:83:[warning blocking] docs/specs/pc-c4-webview-composition.md: Relation defers points to missing target: 実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件・後続 slice） (broken-relation-link)
+evidence/sv519/findings_parsed.json:310:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/findings_parsed.json:316:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/findings_parsed.json:322:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/findings_parsed.json:706:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/findings_parsed.json:712:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/findings_parsed.json:718:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:1349:    "value": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:10125:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10132:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10139:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10146:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10153:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10160:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10167:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10169:    "value": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10174:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10176:    "value": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10181:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10188:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10195:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10202:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10209:    "source": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:10974:    "value": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:16992:    "source": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:16999:    "source": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:17006:    "source": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:17013:    "source": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:17020:    "source": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:17027:    "source": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:17034:    "source": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:17041:    "source": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:17048:    "source": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:17055:    "source": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:17078:    "value": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:17099:    "value": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:17106:    "value": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:19402:    "value": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:31111:    "source": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31118:    "source": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31120:    "value": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31125:    "source": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31127:    "value": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31132:    "source": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31139:    "source": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31146:    "source": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31153:    "source": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31155:    "value": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31160:    "source": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31162:    "value": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31167:    "source": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31169:    "value": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31174:    "source": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:31181:    "source": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:35838:    "value": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:35852:    "value": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:35859:    "value": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:35922:    "value": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:38218:    "value": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:46406:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46413:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46415:    "value": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46420:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46422:    "value": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46427:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46429:    "value": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46434:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46441:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46448:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46450:    "value": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46455:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46457:    "value": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46462:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46464:    "value": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46469:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46471:    "value": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46476:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46478:    "value": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46483:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46485:    "value": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:46490:    "source": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:49943:    "value": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:49957:    "value": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:49964:    "value": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:58397:    "source": "docs/tasks/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58404:    "source": "docs/tasks/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58406:    "value": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58411:    "source": "docs/tasks/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58413:    "value": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58418:    "source": "docs/tasks/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58420:    "value": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58425:    "source": "docs/tasks/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58427:    "value": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58432:    "source": "docs/tasks/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58434:    "value": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58439:    "source": "docs/tasks/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58441:    "value": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58446:    "source": "docs/tasks/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:58448:    "value": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:61631:    "source": "docs/tasks/sv-gui-01-task5-webview-bin-gui-launch.md",
+evidence/sv519/inventory_all.json:61638:    "source": "docs/tasks/sv-gui-01-task5-webview-bin-gui-launch.md",
+evidence/sv519/inventory_all.json:61645:    "source": "docs/tasks/sv-gui-01-task5-webview-bin-gui-launch.md",
+evidence/sv519/inventory_all.json:61652:    "source": "docs/tasks/sv-gui-01-task5-webview-bin-gui-launch.md",
+evidence/sv519/inventory_all.json:61659:    "source": "docs/tasks/sv-gui-01-task5-webview-bin-gui-launch.md",
+evidence/sv519/inventory_all.json:61675:    "value": "docs/tasks/sv-gui-01-task5-webview-bin-gui-launch.md",
+evidence/sv519/inventory_all.json:73153:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73160:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73162:    "value": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73167:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73169:    "value": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73174:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73176:    "value": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73181:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73183:    "value": "docs/tasks/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73188:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73190:    "value": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73195:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73197:    "value": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73202:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73204:    "value": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73209:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73211:    "value": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73216:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73218:    "value": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73223:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73225:    "value": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73230:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:73237:    "source": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:76620:    "value": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:83842:    "source": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:83849:    "source": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:83856:    "source": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:83858:    "value": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:83863:    "source": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:83870:    "source": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:83872:    "value": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:83877:    "source": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:83884:    "source": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:83900:    "value": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:84278:    "value": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:84453:    "value": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:91005:    "value": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:93124:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93131:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93133:    "value": "docs/tasks/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:93138:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93140:    "value": "docs/tasks/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:93145:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93147:    "value": "docs/specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:93152:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93154:    "value": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:93159:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93161:    "value": "docs/plans/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:93166:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93173:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93180:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93182:    "value": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:93187:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93189:    "value": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:93194:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93196:    "value": "docs/impl/exp/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:93201:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93203:    "value": "evidence/sv101/pc-c4-webview-composition-verification.md",
+evidence/sv519/inventory_all.json:93208:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93215:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:93222:    "source": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:98829:    "source": "docs/impl/ir/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:98836:    "source": "docs/impl/ir/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:98838:    "value": "docs/specs/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:98843:    "source": "docs/impl/ir/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:98845:    "value": "docs/adr/sv-gui-01-app-crate-webview-feature-vendored-ui-pipeline.md",
+evidence/sv519/inventory_all.json:98850:    "source": "docs/impl/ir/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:98857:    "source": "docs/impl/ir/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:98864:    "source": "docs/impl/ir/sv-gui-01-desktop-app-bootstrap-webview-frontend-pipeline.md",
+evidence/sv519/inventory_all.json:107369:    "source": "docs/impl/exp/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:107376:    "source": "docs/impl/exp/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:107378:    "value": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:107383:    "source": "docs/impl/exp/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:107385:    "value": "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md",
+evidence/sv519/inventory_all.json:107390:    "source": "docs/impl/exp/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:107397:    "source": "docs/impl/exp/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:107404:    "source": "docs/impl/exp/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:107406:    "value": "docs/designs/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:107411:    "source": "docs/impl/exp/pc-c4-webview-composition.md",
+evidence/sv519/inventory_all.json:107413:    "value": "docs/test-specs/pc-c4-webview-composition.md",
+evidence/sv519/repair-manifest.json:402:  "docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md": {
+evidence/sv519/repair-manifest.json:893:  "docs/specs/pc-c4-webview-composition.md": {
+evidence/sv519/repair.mjs:184:put('docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md', 'defers', 'project.new/open 後の engine 再 attach（synvelis#106 の責務）', s(106));
+evidence/sv519/repair.mjs:185:put('docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md', 'defers', 'synvelis-native bin の共有 helper への呼出側移行（後続 slice）', null);
+evidence/sv519/repair.mjs:186:put('docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md', 'defers', '実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件）', [...r(253), ...s(114), ...s(101)]);
+evidence/sv519/repair.mjs:257:put('docs/specs/pc-c4-webview-composition.md', 'defers', 'project.new/open 後の engine 再 attach（synvelis#106 の責務）', s(106));
+evidence/sv519/repair.mjs:258:put('docs/specs/pc-c4-webview-composition.md', 'defers', 'synvelis-native bin の共有 helper への呼出側移行（native 経路の回帰リスクを避けるため本 slice 対象外）', null);
+evidence/sv519/repair.mjs:259:put('docs/specs/pc-c4-webview-composition.md', 'defers', '実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件・後続 slice）', [...r(253), ...s(114), ...s(101)]);
+evidence/sv519/route_graph_before.json:64:    "broken-relation:Broken defers relation from docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md to project.new/open 後の engine 再 attach（synvelis#106 の責務） (docs/impl/ir/project.new/open 後の engine 再 attach（synvelis#106 の責務）)",
+evidence/sv519/route_graph_before.json:65:    "broken-relation:Broken defers relation from docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md to synvelis-native bin の共有 helper への呼出側移行（後続 slice） (docs/impl/ir/synvelis-native bin の共有 helper への呼出側移行（後続 slice）)",
+evidence/sv519/route_graph_before.json:66:    "broken-relation:Broken defers relation from docs/impl/ir/pc-c4-webview-composition-synvelis-rs-engine-attach.md to 実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件） (docs/impl/ir/実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件）)",
+evidence/sv519/route_graph_before.json:130:    "broken-relation:Broken defers relation from docs/specs/pc-c4-webview-composition.md to project.new/open 後の engine 再 attach（synvelis#106 の責務） (docs/specs/project.new/open 後の engine 再 attach（synvelis#106 の責務）)",
+evidence/sv519/route_graph_before.json:131:    "broken-relation:Broken defers relation from docs/specs/pc-c4-webview-composition.md to synvelis-native bin の共有 helper への呼出側移行（native 経路の回帰リスクを避けるため本 slice 対象外） (docs/specs/synvelis-native bin の共有 helper への呼出側移行（native 経路の回帰リスクを避けるため本 slice 対象外）)",
+evidence/sv519/route_graph_before.json:132:    "broken-relation:Broken defers relation from docs/specs/pc-c4-webview-composition.md to 実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件・後続 slice） (docs/specs/実 plugin factory（ruviform#253 gate）・実 GUI（synvelis#114）・wire-schema L1 結合検証（synvelis#101 残件・後続 slice）)",
+evidence/sv600/verification.md:147:| webview/TCP product lane | Unsupported（後続 slice） | stage 2 後続 slice のスコープ |
+evidence/sv600/verification.md:211:| webview bin seam | Unsupported | `synvelis#232` で削除予定の bin — `features/README.md` に honest blocked 記載 |
+evidence/sv89/verification.md:38:| `mise run check-headless-deps` | 0 | pass — "no GUI framework deps in 12 headless crates"（`library_ui.rs` は `ruviform_ui::view` の driver-neutral spec 型のみ使用・GUI/GPU/WebView 依存なし） |
+evidence/sv89/verification.md:80:  `check-app-gpui`/`check-app-webview` 等は未実行
+mise.toml:215:description = "headless crate の依存木に GUI/GPU/WebView framework crate が無いことを検証"
+mise.toml:242:# synvelis-app `webview` feature lane。既定 check/lint/test は headless
+mise.toml:245:[tasks.check-app-webview]
+mise.toml:246:description = "synvelis-app webview feature 型チェック(実窓 host ターゲット含む)"
+mise.toml:247:run = "cargo check -p synvelis-app --features webview --all-targets"
+mise.toml:249:[tasks.lint-app-webview]
+mise.toml:250:description = "synvelis-app webview feature lint"
+mise.toml:251:run = "cargo clippy -p synvelis-app --all-targets --features webview -- -D warnings"
+mise.toml:253:[tasks.test-app-webview]
+mise.toml:254:description = "synvelis-app webview feature テスト"
+mise.toml:255:run = "cargo test -p synvelis-app --features webview"
+mise.toml:340:  "cargo run -p synvelis-app --features webview --bin synvelis",
+mise.toml:349:  "cargo build -p synvelis-app --features webview --release --locked",
+tools/check-headless-deps.mjs:1:// Guard: headless crates must not depend on GUI/WebView/GPU/windowing
+tools/check-headless-deps.mjs:3:// `synvelis-app`, gated behind its `webview` feature). Invoked via
+tools/check-headless-deps.mjs:12:// `webview` feature.
+tools/check-headless-deps.mjs:28:// Curated exact package names of GUI/WebView/GPU/windowing framework
+tools/check-headless-deps.mjs:32:// through `synvelis-app`'s `native` feature, like `webview` before it).
+tools/check-headless-deps.mjs:49:  "ruviform-ui-webview",
+tools/check-headless-deps.mjs:55:  "webview2-com",
+tools/check-headless-deps.mjs:72:  "webview2-",
+tools/ci-summary.mjs:88:  { lane: "synvelis-app webview feature real-window host", status: "Unsupported", reason: "capability-separated: real WebView needs a display host; headless surface is covered by verify (mise tasks check-app-webview/lint-app-webview/test-app-webview remain local)" },
+ui/package.json:6:  "description": "Synvelis product Application Shell — SolidJS + TypeScript frontend over the Ruviform WebView host (SV-GUI-01 / Issue #110).",
+ui/test/app.test.tsx:15:  backend: { name: "webview2", version: "131.0", state: "Available", notes: [] },
+ui/test/store.test.ts:10:  backend: { name: "webview2", version: "131.0", state: "Available", notes: [] },
+ui/test/store.test.ts:26:    expect(s.state.backend?.name).toBe("webview2");

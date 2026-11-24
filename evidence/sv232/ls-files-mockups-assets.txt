@@ -1,0 +1,12 @@
+assets/branding/logo-dark.svg
+assets/branding/logo.svg
+assets/branding/symbol.svg
+assets/themes/synvelis-base.dtcg.json
+assets/themes/synvelis-dark.dtcg.json
+assets/themes/synvelis-density-comfortable.dtcg.json
+assets/themes/synvelis-density-compact.dtcg.json
+assets/themes/synvelis-light.dtcg.json
+assets/workspaces/synvelis.editing.json
+assets/workspaces/synvelis.mixing.json
+assets/workspaces/synvelis.plugin-dock.json
+docs/mockups/synvelis-daw.html

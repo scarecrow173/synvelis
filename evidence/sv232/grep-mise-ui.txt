@@ -1,0 +1,24 @@
+mise.toml:185:# Issue #110 / SV-GUI-01: ui/ frontend lane. The Cargo.lock ruviform rev is
+mise.toml:187:# ui/* packages from the local cargo checkout at that rev, and
+mise.toml:191:description = "ruviform ui/*(TS)を Cargo.lock と同一 SHA で ui/vendor/ へ再生成"
+mise.toml:194:# Issue #151 / ruviform #330 整合: ui/package-lock.json への npm ci は
+mise.toml:202:sources = ["ui/package-lock.json", "ui/package.json"]
+mise.toml:203:outputs = ["ui/node_modules/.package-lock.json"]
+mise.toml:207:description = "ui/ npm deps の集約 install 入口(CI lane 前段で一度だけ実行; verify task は depends 経由で再利用)"
+mise.toml:219:description = "ui/ frontend の型チェック(tsc --noEmit)+ vendor 同期照合"
+mise.toml:227:description = "ui/ frontend の vitest スイート(happy-dom、実 SolidJS client render)"
+mise.toml:235:description = "ui/ frontend を vite build し crates/synvelis-app/frontend/dist + manifest を生成"
+mise.toml:242:# synvelis-app `webview` feature lane。既定 check/lint/test は headless
+mise.toml:245:[tasks.check-app-webview]
+mise.toml:246:description = "synvelis-app webview feature 型チェック(実窓 host ターゲット含む)"
+mise.toml:247:run = "cargo check -p synvelis-app --features webview --all-targets"
+mise.toml:249:[tasks.lint-app-webview]
+mise.toml:250:description = "synvelis-app webview feature lint"
+mise.toml:251:run = "cargo clippy -p synvelis-app --all-targets --features webview -- -D warnings"
+mise.toml:253:[tasks.test-app-webview]
+mise.toml:254:description = "synvelis-app webview feature テスト"
+mise.toml:255:run = "cargo test -p synvelis-app --features webview"
+mise.toml:335:description = "開発ループ: ui/ を build して synvelis app を debug 起動(assets は live FS 読み)"
+mise.toml:340:  "cargo run -p synvelis-app --features webview --bin synvelis",
+mise.toml:344:description = "本番 lane: ui/ build → synvelis-app release build(frontend dist 埋め込み)"
+mise.toml:349:  "cargo build -p synvelis-app --features webview --release --locked",

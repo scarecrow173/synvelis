@@ -1,0 +1,12 @@
+tools/check-headless-deps.mjs:1:// Guard: headless crates must not depend on GUI/WebView/GPU/windowing
+tools/check-headless-deps.mjs:3:// `synvelis-app`, gated behind its `webview` feature). Invoked via
+tools/check-headless-deps.mjs:12:// `webview` feature.
+tools/check-headless-deps.mjs:28:// Curated exact package names of GUI/WebView/GPU/windowing framework
+tools/check-headless-deps.mjs:31:// wry/tao and GPUI adapters are not (SV-GPUI-01: `gpui` enters only
+tools/check-headless-deps.mjs:32:// through `synvelis-app`'s `native` feature, like `webview` before it).
+tools/check-headless-deps.mjs:49:  "ruviform-ui-webview",
+tools/check-headless-deps.mjs:51:  "tao",
+tools/check-headless-deps.mjs:55:  "webview2-com",
+tools/check-headless-deps.mjs:58:  "wry",
+tools/check-headless-deps.mjs:72:  "webview2-",
+tools/ci-summary.mjs:88:  { lane: "synvelis-app webview feature real-window host", status: "Unsupported", reason: "capability-separated: real WebView needs a display host; headless surface is covered by verify (mise tasks check-app-webview/lint-app-webview/test-app-webview remain local)" },
