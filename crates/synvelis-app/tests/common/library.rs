@@ -365,6 +365,66 @@ pub fn app_with_import(tag: &str) -> (SynvelisApp, std::path::PathBuf) {
     app_with_import_registry(tag, vec![FakeProvider::new(1, true, true, true)])
 }
 
+/// `SynvelisApp` with the *product* provider kind — a real
+/// [`synvelis_library::LocalFolderProvider`] rooted at a fresh temp
+/// dir — plus verified-import services over a sibling project dir,
+/// mirroring `synvelis-native`'s `SYNVELIS_LIBRARY_DIR` /
+/// `SYNVELIS_PROJECT_DIR` composition (ALIB-05 native mount,
+/// synvelis#89). `files` are `(name, bytes)` fixtures written under
+/// the library root so browse/stat/pin/preview/import hit real
+/// filesystem state. Returns `(app, library_root, project_dir)`.
+pub fn app_with_local_provider(
+    tag: &str,
+    files: &[(&str, &[u8])],
+) -> (SynvelisApp, std::path::PathBuf, std::path::PathBuf) {
+    let dir = std::env::temp_dir().join(format!(
+        "sv89-local-{tag}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let lib_root = dir.join("library");
+    let project_dir = dir.join("project");
+    std::fs::create_dir_all(&lib_root).expect("library root");
+    std::fs::create_dir_all(&project_dir).expect("project dir");
+    for (name, bytes) in files {
+        let path = lib_root.join(name);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).expect("fixture parent");
+        }
+        std::fs::write(path, bytes).expect("fixture file");
+    }
+    let provider = synvelis_library::LocalFolderProvider::new(ProviderId::new(1), &lib_root)
+        .expect("local folder provider");
+    let mut registry = ProviderRegistry::new();
+    registry
+        .register(
+            ProviderDescriptor {
+                id: provider.id(),
+                kind: provider.kind(),
+                display_name: "local folder".to_string(),
+            },
+            Arc::new(provider),
+        )
+        .expect("register local provider");
+    let store =
+        synvelis_library::ImportStore::new(project_dir.join("staging"), project_dir.join("media"));
+    let blobs = synvelis_library::LocalBlobDir::new(store.blob_dir());
+    let mut app = SynvelisApp::new(BackendReport::available("gpui", "test-0.1".to_string()));
+    app.set_library_backend(LibraryBackend {
+        registry: Arc::new(registry),
+        principal: PrincipalId::new("test").unwrap(),
+    });
+    app.set_library_import(LibraryImportServices {
+        store,
+        blobs: Arc::new(blobs),
+        publisher: Arc::new(synvelis_library::StagedBlobPublisher),
+    });
+    (app, lib_root, project_dir)
+}
+
 /// [`app_with_import`] over a caller-composed provider set — each
 /// [`FakeProvider`] registers under its own tagged id so
 /// provider-switch flows can span connections.

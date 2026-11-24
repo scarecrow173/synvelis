@@ -72,14 +72,15 @@ use serde_json::{Value, json};
 use ruviform_ui::driver::{DriverEvent, WindowDriver, WindowLifecycle, WindowSpec};
 use ruviform_ui::ipc::{ErrorBody, Event, LifecycleState, codes};
 use ruviform_ui::view::{
-    AttachEpoch, AttachEpochAllocator, TAB_SELECT_ACTION, TABLE_SELECT_ACTION,
+    AttachEpoch, AttachEpochAllocator, CellValue, ComponentSpec, TAB_SELECT_ACTION,
+    TABLE_SELECT_ACTION, ViewSpec,
 };
 use ruviform_ui::window::{CloseDecision, RoutedEvent, WindowId};
 use ruviform_ui::{DataRegistry, UiError, UiRuntime};
 
 use crate::app::SynvelisApp;
 use crate::binding::{
-    COMMAND_INTENT_OP, PROJECT_TARGET, VIEW_STATE_TARGET, decode_view_command,
+    COMMAND_INTENT_OP, LIBRARY_TARGET, PROJECT_TARGET, VIEW_STATE_TARGET, decode_view_command,
     notify_to_view_event, project_action_op, view_command_dispatch,
 };
 use crate::service::AppService;
@@ -185,6 +186,12 @@ pub struct NativeShell {
     /// cannot see registry-adopted views (VCS History). Drives the
     /// detach-pool vs legacy-close bookkeeping decisions.
     dock_domain: HashSet<String>,
+    /// Set when a `syn.library.*` op was dispatched — the run loop
+    /// and the `uitest` app adapter poll it to decide whether a
+    /// mounted Asset Library view's stored spec needs a
+    /// `syn.library.view` re-read (the library model lives inside
+    /// the sealed app, not in a shared screen-state cell).
+    library_dirty: bool,
     /// Shell-minted intent ids for teardown/lifecycle replays.
     teardown_seq: u64,
 }
@@ -237,6 +244,7 @@ impl NativeShell {
             window_titles: HashMap::new(),
             saga_windows: HashMap::new(),
             dock_domain: HashSet::new(),
+            library_dirty: false,
             teardown_seq: 0,
         })
     }
@@ -381,6 +389,49 @@ impl NativeShell {
     #[must_use]
     pub fn is_ready(&self, window: WindowId) -> bool {
         self.windows.get(&window).copied().unwrap_or(false)
+    }
+
+    /// Whether a `syn.library.*` op was dispatched since the last
+    /// poll — the flag the run loop and the `uitest` app adapter
+    /// consult to re-read mounted Asset Library specs (the library
+    /// model is sealed inside the app, not in a shared screen-state
+    /// cell, so a spec refresh must re-run the read op). Consumed on
+    /// read: each call returns the accumulated state and clears it.
+    pub fn take_library_dirty(&mut self) -> bool {
+        std::mem::replace(&mut self.library_dirty, false)
+    }
+
+    /// Re-reads one Asset Library view's [`ViewSpec`] through
+    /// `syn.library.view` — the same wire spec the mount path
+    /// installs, so a pushed update is exactly the projection the op
+    /// publishes (never a second, shell-side spec shape). `None`
+    /// when the op fails (backend unbound, view closed) — the caller
+    /// keeps the last good spec rather than fabricating one. The
+    /// op's events are broadcast to tracked windows like every other
+    /// internal `dispatch_op` the shell issues.
+    pub fn library_view_spec(
+        &mut self,
+        view_id: &str,
+        driver: &mut dyn WindowDriver,
+    ) -> Option<ViewSpec> {
+        self.teardown_seq += 1;
+        let id = format!("shell-library-spec-{}", self.teardown_seq);
+        let mut spec = None;
+        for event in self
+            .rt
+            .dispatch_op(id, "syn.library.view", json!({ "view_id": view_id }))
+        {
+            if let Event::Result {
+                ok: true,
+                data: Some(data),
+                ..
+            } = &event
+            {
+                spec = serde_json::from_value::<ViewSpec>(data["spec"].clone()).ok();
+            }
+            self.post_unrouted(&event, driver);
+        }
+        spec
     }
 
     /// Consumes one [`DriverEvent`] — the body the driver loop calls
@@ -553,11 +604,7 @@ impl NativeShell {
                 if intent.op == COMMAND_INTENT_OP {
                     self.on_view_command(window, intent, driver);
                 } else {
-                    self.track_view_op(&intent);
-                    for re in self.rt.dispatch_window_intent(window, intent) {
-                        self.observe_result(&re);
-                        self.post_routed(&re, driver);
-                    }
+                    self.dispatch_window_action(window, intent, driver);
                 }
             }
             WindowLifecycle::CloseRequested => {
@@ -595,6 +642,27 @@ impl NativeShell {
         params["event"] = json!(event);
         for routed in self.rt.dispatch_op(id, "syn.window.lifecycle", params) {
             self.post_unrouted(&routed, driver);
+        }
+    }
+
+    /// Runs a non-command window `Action` intent through the runtime.
+    /// A dispatched `syn.library.*` op may have moved the sealed
+    /// library model — mounted Asset Library specs re-read
+    /// `syn.library.view` rather than a shared cell, so flag the
+    /// re-read before dispatch.
+    fn dispatch_window_action(
+        &mut self,
+        window: WindowId,
+        intent: ruviform_ui::ipc::Intent,
+        driver: &mut dyn WindowDriver,
+    ) {
+        if intent.op.starts_with("syn.library.") {
+            self.library_dirty = true;
+        }
+        self.track_view_op(&intent);
+        for re in self.rt.dispatch_window_intent(window, intent) {
+            self.observe_result(&re);
+            self.post_routed(&re, driver);
         }
     }
 
@@ -844,6 +912,14 @@ impl NativeShell {
                 self.dispatch_autx_action(window, &view, &cmd, driver);
                 return;
             }
+            // ALIB-05 (synvelis#89): mounted Asset Library controls
+            // address `synvelis.library` — app-level surface commands
+            // routed to `syn.library.action` like `autx.*` routes to
+            // `syn.autx.action`, never through `syn.control.dispatch`.
+            if target == LIBRARY_TARGET {
+                self.dispatch_library_action(window, &view, &cmd, driver);
+                return;
+            }
         }
         let Some(generation) = self.view_generation.get(&view).copied() else {
             Self::reject_view_command(
@@ -970,6 +1046,104 @@ impl NativeShell {
             self.observe_result(&re);
             self.post_routed(&re, driver);
         }
+    }
+
+    /// Routes a `synvelis.library` surface action to
+    /// `syn.library.action` — the op decodes the remaining params
+    /// verbatim into the sealed `LibraryAction` enum
+    /// (`deny_unknown_fields`), and its `Result` settles the command on
+    /// the arriving channel exactly like `syn.autx.action`. The entries
+    /// table's `select` arrives with only `params.row`, so it is
+    /// resolved against the live `syn.library.view` projection's
+    /// `locator` column into the `entry.select` the op expects — a
+    /// failed resolution rejects the command rather than guessing a
+    /// row. A dispatched action may move the sealed library model
+    /// either way (a failed action still lands in the typed
+    /// `state.fault` the spec projects), so the library-dirty mark is
+    /// set for the spec refresh unconditionally.
+    fn dispatch_library_action(
+        &mut self,
+        window: WindowId,
+        view: &str,
+        cmd: &crate::binding::ViewCommand,
+        driver: &mut dyn WindowDriver,
+    ) {
+        let action = match &cmd.intent {
+            CommandIntent::Action { action, .. } => action.clone(),
+            _ => unreachable!("library branch only sees Action intents"),
+        };
+        let mut params = match cmd.action_params.clone() {
+            None => json!({}),
+            Some(p) if p.is_object() => p,
+            Some(_) => {
+                Self::reject_view_command(
+                    driver,
+                    window,
+                    cmd.command_id.clone(),
+                    "library action params must be an object".to_string(),
+                );
+                return;
+            }
+        };
+        let action = if action == TABLE_SELECT_ACTION {
+            let Some(locator) = self.library_row_locator(view, params.get("row"), driver) else {
+                Self::reject_view_command(
+                    driver,
+                    window,
+                    cmd.command_id.clone(),
+                    "entries select could not resolve params.row to a locator".to_string(),
+                );
+                return;
+            };
+            params = json!({ "locator": locator });
+            "entry.select".to_string()
+        } else {
+            action
+        };
+        params["view_id"] = json!(view);
+        params["action"] = json!(action);
+        let intent =
+            ruviform_ui::ipc::Intent::new(cmd.command_id.clone(), "syn.library.action", params);
+        for re in self.rt.dispatch_window_intent(window, intent) {
+            self.observe_result(&re);
+            self.post_routed(&re, driver);
+        }
+        self.library_dirty = true;
+    }
+
+    /// Resolves an entries-table `select` row to its `locator` cell by
+    /// re-reading the view's live `syn.library.view` spec — the same
+    /// projection the peer selected the row from, so the resolved
+    /// locator is exactly the one the peer saw. `None` when the read
+    /// fails, the row is out of bounds, or the `locator` cell is
+    /// missing — the caller rejects the command rather than guessing.
+    fn library_row_locator(
+        &mut self,
+        view: &str,
+        row: Option<&Value>,
+        driver: &mut dyn WindowDriver,
+    ) -> Option<String> {
+        let row = row?.as_u64().and_then(|v| usize::try_from(v).ok())?;
+        let spec = self.library_view_spec(view, driver)?;
+        let mut stack = vec![&spec.root];
+        while let Some(component) = stack.pop() {
+            match component {
+                ComponentSpec::Panel(panel) => stack.extend(panel.children.iter()),
+                ComponentSpec::Tabs(tabs) => {
+                    stack.extend(tabs.tabs.iter().map(|tab| tab.child.as_ref()));
+                }
+                ComponentSpec::Table(table) if table.key.0 == "library.entries" => {
+                    let column = table.columns.iter().position(|c| c == "locator")?;
+                    let cell = table.rows.get(row)?.get(column)?.as_ref()?;
+                    return match cell {
+                        CellValue::Text(locator) => Some(locator.clone()),
+                        _ => None,
+                    };
+                }
+                _ => {}
+            }
+        }
+        None
     }
 
     /// Routes a table `select` action to `syn.view.select` — the op

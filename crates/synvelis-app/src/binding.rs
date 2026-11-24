@@ -768,6 +768,13 @@ pub const PROJECT_TARGET: &str = "project";
 /// keeps the displayed tab the receipt settles.
 pub const VIEW_STATE_TARGET: &str = "view";
 
+/// Logical target of the mounted Asset Library actions (the library
+/// spec's Buttons and entries-table selection). The shell routes these
+/// to `syn.library.action`; `params` is the action payload — a Button's
+/// declared params verbatim, or the table row resolved to the entry's
+/// locator.
+pub const LIBRARY_TARGET: &str = "synvelis.library";
+
 /// The service op a `project` action invokes — `None` for an unknown
 /// action, which the shell answers with a rejected command.
 #[must_use]
@@ -920,13 +927,15 @@ pub struct ViewCommand {
     /// command arrives on).
     pub origin_view: Option<String>,
     /// View-local action payload (`params`) — only ever `Some` for
-    /// the [`VIEW_STATE_TARGET`] action arm and the five `autx.*`
-    /// automation targets, the only targets the decoder lets carry
-    /// params (the Tabs `{"index": n}`, the Arrangement table's
-    /// `{"row": n}` selection — synvelis#112 slice 4 — and the
-    /// automation surfaces' select/capture/preview/submit arguments —
-    /// synvelis#266 SV266-NR-05). Domain commands have no params
-    /// channel, so it is `None` for every other intent kind.
+    /// the [`VIEW_STATE_TARGET`] action arm, the five `autx.*`
+    /// automation targets, and [`LIBRARY_TARGET`], the only targets
+    /// the decoder lets carry params (the Tabs `{"index": n}`, the
+    /// Arrangement table's `{"row": n}` selection — synvelis#112
+    /// slice 4 — the automation surfaces' select/capture/preview/
+    /// submit arguments — synvelis#266 SV266-NR-05 — and the library
+    /// action payload — synvelis#89 ALIB-05 native mount). Domain
+    /// commands have no params channel, so it is `None` for every
+    /// other intent kind.
     pub action_params: Option<Value>,
 }
 
@@ -979,14 +988,17 @@ pub fn decode_view_command(params: &Value) -> Result<ViewCommand, WireTranslateE
             let w: RvfActionIntent = serde_json::from_value(intent_wire).map_err(decode)?;
             // `params` is a view-local payload (the Tabs index, the
             // table row, an automation surface's select/capture
-            // arguments). The view owns that state, so only the
-            // view-local targets may carry it — `view` plus the five
-            // `autx.*` automation targets; a domain action with
-            // params is not representable. The `autx.*` params still
-            // face the strict `decode_automation_command` table at
-            // dispatch — admission here is not acceptance.
+            // arguments, a library action's arguments). The view owns
+            // that state, so only the view-local targets may carry it —
+            // `view`, the five `autx.*` automation targets, and
+            // `synvelis.library`; a domain action with params is not
+            // representable. The `autx.*` params still face the strict
+            // `decode_automation_command` table at dispatch, and the
+            // library params the strict `LibraryAction` serde tag —
+            // admission here is not acceptance.
             if w.params.is_some()
                 && w.target != VIEW_STATE_TARGET
+                && w.target != LIBRARY_TARGET
                 && !crate::automation::is_autx_target(&w.target)
             {
                 return Err(werr(format!(

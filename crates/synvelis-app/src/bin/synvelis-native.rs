@@ -30,7 +30,16 @@
 //! `SYNVELIS_VCS_HISTORY` (VCS-04 native mount — same truthy values
 //! opens a `VcsHistory` view through `syn.vcs.visual{action:"open"}`
 //! and mounts its read-only History/A-B spec on its own window;
-//! unset keeps no VCS window).
+//! unset keeps no VCS window),
+//! `SYNVELIS_LIBRARY_DIR` (ALIB-05, synvelis#89 — an existing folder
+//! binds the real `LocalFolderProvider` backend so `syn.library.*`
+//! ops project live provider state; unset or unusable keeps the
+//! backend unbound and the ops answer their typed `unavailable`
+//! fault), and `SYNVELIS_ASSET_LIBRARY` (ALIB-05 native mount —
+//! same truthy values open an `AssetLibrary` view through
+//! `syn.library.visual{action:"open"}` and mount the
+//! `syn.library.view` spec verbatim on its own window; unset keeps
+//! no library window).
 //!
 //! Exit codes: `0` clean shutdown (last window destroyed /
 //! `syn.app.quit`), `3` service-registration, window-creation, or
@@ -41,12 +50,13 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Duration;
 
 use ruviform_observability::logging::{LoggingHealth, SinkDegraded};
 use ruviform_ui::dock::ViewInstanceId;
 use ruviform_ui::driver::{DriverEvent, WindowLifecycle};
-use ruviform_ui::view::{AttachEpochAllocator, ViewHost};
+use ruviform_ui::view::{AttachEpochAllocator, ViewHost, ViewSpec};
 use ruviform_ui::{
     BackendReport, Capability, LogicalPosition, LogicalSize, WindowCapabilities, WindowDriver,
     WindowId, WindowSpec,
@@ -56,12 +66,13 @@ use serde_json::json;
 use synvelis_theme::{ResolvedTheme, ThemeCatalog, ThemeSelection};
 
 use synvelis_app::logging::{self, EnvOverrides};
+use synvelis_app::screens::mount_library_view;
 use synvelis_app::{
-    AutomationScreenPublish, LogSettings, MainScreenState, MountSpec, NativeShell, PendingMount,
-    SessionEngineConfig, SynvelisApp, VcsScreenState, compose_routing_engine,
-    log_screen_state_update, main_view_id, main_view_targets, mount_automation_view,
-    mount_main_view, mount_secondary_view, mount_vcs_history_view, secondary_view_id,
-    secondary_view_targets,
+    AutomationScreenPublish, LibraryImportServices, LogSettings, MainScreenState, MountSpec,
+    NativeShell, PendingMount, SessionEngineConfig, SynvelisApp, VcsScreenState,
+    compose_routing_engine, log_screen_state_update, main_view_id, main_view_targets,
+    mount_automation_view, mount_main_view, mount_secondary_view, mount_vcs_history_view,
+    secondary_view_id, secondary_view_targets,
 };
 use synvelis_project::{BuildBudget, BuildMode, RuntimeClockEpochRef, RuntimeInstanceId};
 
@@ -273,6 +284,88 @@ fn autx_views_enabled() -> bool {
     env_flag("SYNVELIS_AUTX_VIEWS")
 }
 
+/// `SYNVELIS_ASSET_LIBRARY` — the ALIB-05 native-mount gate
+/// (synvelis#89): opens an `AssetLibrary` view through
+/// `syn.library.visual{action:"open"}` and mounts the
+/// `syn.library.view` spec verbatim on its own window.
+fn asset_library_enabled() -> bool {
+    env_flag("SYNVELIS_ASSET_LIBRARY")
+}
+
+/// ALIB-05 (synvelis#89): binds the product's real library provider
+/// backend when `SYNVELIS_LIBRARY_DIR` names an existing folder — a
+/// `ProviderRegistry` carrying one [`LocalFolderProvider`] rooted
+/// there, bound through [`SynvelisApp::set_library_backend`]. An
+/// unset variable keeps the backend unbound so `syn.library.*` ops
+/// answer their typed `unavailable` fault; a set-but-unusable root
+/// logs the provider error and also stays unbound — a bad env path
+/// must not kill the session, the fault surface is the honest
+/// degrade. Existence/canonicalization are checked inside
+/// `LocalFolderProvider::new` at this process boundary — no
+/// `std::env` crosses into the library. `project.new`/`open`/`reload`
+/// rebind is the app's retained-binding mechanism's job, not
+/// repeated here.
+fn compose_library_backend(app: &mut SynvelisApp) {
+    let Some(dir) = std::env::var_os("SYNVELIS_LIBRARY_DIR") else {
+        return;
+    };
+    let root = PathBuf::from(&dir);
+    let id = synvelis_library::ProviderId::new(1);
+    let provider = match synvelis_library::LocalFolderProvider::new(id, &root) {
+        Ok(provider) => provider,
+        Err(e) => {
+            eprintln!(
+                "synvelis-native: SYNVELIS_LIBRARY_DIR {} is not a usable local folder: {e}",
+                root.display()
+            );
+            tracing::error!(root = %root.display(), error = %e, "library provider root unusable — backend unbound");
+            return;
+        }
+    };
+    let mut registry = synvelis_library::ProviderRegistry::new();
+    if let Err(e) = registry.register(
+        synvelis_library::ProviderDescriptor {
+            id,
+            kind: synvelis_library::ProviderKind::LocalFolder,
+            display_name: "Local Folder".to_string(),
+        },
+        Arc::new(provider),
+    ) {
+        // A fresh registry cannot refuse a fresh provider — a
+        // rejection here is a code defect, logged rather than hidden.
+        tracing::error!(error = %e, "library provider registration failed — backend unbound");
+        return;
+    }
+    app.set_library_backend(synvelis_workspace::LibraryBackend {
+        registry: Arc::new(registry),
+        principal: synvelis_library::PrincipalId::new("user").expect("static principal id"),
+    });
+    tracing::info!(root = %root.display(), "library provider backend bound");
+}
+
+/// ALIB-05 (synvelis#89): binds the verified-import ports
+/// `syn.library.*` import actions compose — an [`ImportStore`]
+/// staging under `<SYNVELIS_PROJECT_DIR>/staging` and the blob
+/// object store under `<SYNVELIS_PROJECT_DIR>/media` (the same
+/// media dir [`compose_product_routing`] serves the engine),
+/// surfaced as [`LocalBlobDir`] + [`StagedBlobPublisher`]. Without a
+/// boot project dir the ports stay unbound and import actions land
+/// the typed fault — never an implicit write location.
+fn compose_library_import(app: &mut SynvelisApp) {
+    let Some(dir) = std::env::var_os("SYNVELIS_PROJECT_DIR") else {
+        return;
+    };
+    let dir = PathBuf::from(dir);
+    let store = synvelis_library::ImportStore::new(dir.join("staging"), dir.join("media"));
+    let blobs = synvelis_library::LocalBlobDir::new(store.blob_dir());
+    app.set_library_import(LibraryImportServices {
+        store,
+        blobs: Arc::new(blobs),
+        publisher: Arc::new(synvelis_library::StagedBlobPublisher),
+    });
+    tracing::info!(project = %dir.display(), "library import ports bound");
+}
+
 /// Mounts the product view hosts while the app is still
 /// composition-owned — each `AttachEpoch` comes from the session
 /// allocator handle, never a second allocator, and the shared
@@ -427,6 +520,51 @@ fn open_autx_views(
     Ok(mounts)
 }
 
+/// Opens a detached `AssetLibrary` view through the real op surface
+/// (`syn.library.visual{action:"open"}` — the same path any driver
+/// takes), reads the `syn.library.view` projection, and mounts the
+/// returned spec verbatim on a fresh [`ViewHost`] — the same
+/// wire-spec contract [`mount_variant_diff_view`]'s caller follows.
+/// Runs while the app is still composition-owned, before
+/// [`NativeShell::new`] seals it; the returned [`ViewSpec`] is stored
+/// on the mount record and refreshed by the run loop's
+/// `syn.library.view` re-reads (the library model lives inside the
+/// sealed app's `LibraryViews`, not a shared screen-state cell).
+///
+/// An unbound backend makes `syn.library.view` answer its typed
+/// `unavailable` fault — under the explicit env gate that is a
+/// composition defect (exit 3), never a silently empty window.
+fn open_library_view(
+    app: &mut SynvelisApp,
+    attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
+) -> Result<(String, ViewInstanceId, ViewHost, ViewSpec), ExitCode> {
+    let fail = |e: &dyn std::fmt::Display, what: &str| {
+        eprintln!("synvelis-native: {what} failed: {e}");
+        tracing::error!(error = %e, "{what} failed");
+        ExitCode::from(3)
+    };
+    let opened = app
+        .op_library_visual(&json!({ "action": "open" }))
+        .map_err(|e| fail(&e, "asset library open"))?;
+    let view_id = opened["view_id"]
+        .as_str()
+        .ok_or_else(|| fail(&"missing view_id in open result", "asset library open"))?
+        .to_string();
+    let instance = view_id
+        .strip_prefix("view-")
+        .and_then(|n| n.parse::<u64>().ok())
+        .and_then(ViewInstanceId::new)
+        .ok_or_else(|| fail(&view_id, "asset library view id parse"))?;
+    let view = app
+        .op_library_view(&json!({ "view_id": view_id }))
+        .map_err(|e| fail(&e, "asset library view"))?;
+    let spec: ViewSpec = serde_json::from_value(view["spec"].clone())
+        .map_err(|e| fail(&e, "asset library spec decode"))?;
+    let host = mount_library_view(attach_epochs, instance, spec.clone())
+        .map_err(|e| fail(&e, "asset library view mount"))?;
+    Ok((view_id, instance, host, spec))
+}
+
 /// Creates the OS windows for the mounted views — the main window
 /// always, the transport-deck window only when the env gate mounted a
 /// secondary view, the VCS History window only when the env gate
@@ -439,6 +577,7 @@ fn open_windows(
     secondary_host: Option<ViewHost>,
     vcs_host: Option<(String, ViewInstanceId, ViewHost)>,
     autx_hosts: Vec<(String, ViewInstanceId, ViewHost, &'static str)>,
+    library_host: Option<(String, ViewInstanceId, ViewHost, ViewSpec)>,
 ) -> Result<Vec<PendingMount>, ExitCode> {
     let window = create_view_window(
         driver,
@@ -516,6 +655,33 @@ fn open_windows(
             attached: false,
         });
     }
+
+    if let Some((view_id, instance, host, spec)) = library_host {
+        let window_spec = WindowSpec {
+            title: "Synvelis — Asset Library".to_string(),
+            logical_size: LogicalSize::new(1100, 720),
+            position: Some(LogicalPosition::new(160, 160)),
+            resizable: true,
+        };
+        let window = create_view_window(
+            driver,
+            &window_spec,
+            host,
+            theme,
+            "asset library window creation",
+        )?;
+        tracing::info!(window = %window, view_id = %view_id, "asset library window reserved");
+        mounts.push(PendingMount {
+            window,
+            view_id,
+            // An Asset Library view subscribes to no control targets
+            // — its spec is a verbatim `syn.library.view` projection
+            // refreshed by the run loop's op re-reads.
+            targets: Vec::new(),
+            spec_kind: MountSpec::Library(instance, Box::new(spec)),
+            attached: false,
+        });
+    }
     Ok(mounts)
 }
 
@@ -526,8 +692,12 @@ fn open_windows(
 /// (project length → seek range, transport readout, inspector rows)
 /// is pushed as an updated spec to every attached mount, which the
 /// driver applies to the mounted view in place (no remount).
-/// `view_driver` is the `Rc`-shared clone the `'static` event closure
-/// uses for `update_view`.
+/// Asset Library mounts hold no screen-state cell: a `syn.library.*`
+/// dispatch flags the shell's library-dirty mark, and their stored
+/// wire spec is refreshed by re-reading `syn.library.view` — the
+/// same verbatim contract the mount installed. `view_driver` is the
+/// `Rc`-shared clone the `'static` event closure uses for
+/// `update_view`.
 fn run_loop(
     driver: &mut GpuiDriver,
     mut shell: NativeShell,
@@ -610,6 +780,26 @@ fn run_loop(
                 log_screen_state_update(&state);
             }
         }
+        // A `syn.library.*` op ran — mounted Asset Library specs are
+        // re-read through `syn.library.view` (the sealed model owns
+        // the truth; the mount record only stores what was pushed)
+        // and pushed like every other spec change.
+        if shell.take_library_dirty() {
+            for m in mounts.iter_mut().filter(|m| m.attached) {
+                if let MountSpec::Library(_, applied) = &mut m.spec_kind {
+                    let view_id = m.view_id.clone();
+                    let window = m.window;
+                    if let Some(fresh) = shell.library_view_spec(&view_id, driver)
+                        && **applied != fresh
+                    {
+                        **applied = fresh.clone();
+                        if let Err(e) = view_driver.update_view(window, fresh) {
+                            tracing::error!(error = %e, "library spec update failed");
+                        }
+                    }
+                }
+            }
+        }
     });
     match result {
         Ok(()) => {
@@ -661,6 +851,8 @@ fn compose_app(
 
     open_boot_project(&mut app);
     compose_product_routing(&mut app);
+    compose_library_backend(&mut app);
+    compose_library_import(&mut app);
 
     let screen_state = app.main_screen_cell();
     let vcs_screens = app.vcs_screen_cell();
@@ -681,6 +873,11 @@ fn compose_app(
     } else {
         Vec::new()
     };
+    let library_host = if asset_library_enabled() {
+        Some(open_library_view(&mut app, &attach_epochs)?)
+    } else {
+        None
+    };
 
     let shell = NativeShell::new(app, TICK).map_err(|e| {
         eprintln!("synvelis-native: failed to compose shell: {e}");
@@ -695,6 +892,7 @@ fn compose_app(
         secondary_host,
         vcs_host,
         autx_hosts,
+        library_host,
     )?;
     Ok(Composed {
         shell,

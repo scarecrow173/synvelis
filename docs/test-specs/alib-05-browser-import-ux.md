@@ -4,7 +4,7 @@ type: "test-spec"
 status: "draft"
 title: "ALIB-05 Browser/Import UX headless view-model + syn.library.* ops + driver-neutral ViewSpec（synvelis#89 ALIB-UX-H slice）"
 created: "2026-11-15"
-updated: "2026-11-15"
+updated: "2026-11-24"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -28,6 +28,7 @@ relations:
     - "docs/test-specs/cb-09-diff-explorer.md"
     - "docs/impl/ir/cb-09-diff-explorer.md"
     - "docs/impl/exp/cb-09-diff-explorer.md"
+    - "docs/impl/ir/alib-05-native-mount.md"
   refines: []
   refined-by: []
   derives-from:
@@ -39,6 +40,7 @@ relations:
   verified-by:
     - "crates/synvelis-app/tests/library_browser.rs"
     - "crates/synvelis-app/tests/common/library.rs"
+    - "crates/synvelis-app/tests/library_native_mount.rs"
     - "crates/synvelis-workspace/src/library_ui.rs"
   references:
     - "evidence/sv89/acceptance-ledger.md"
@@ -331,3 +333,98 @@ ViewSpec projection
 - synchronous op 実行は長時間 fetch で service thread を
   占有する — headless slice の既知制約であり、job 化は
   `CallOutcome::Job` 導入時に対処。
+
+## ALIB-05 native mount lane（2026-11-24 追記 / synvelis#89 ALIB-UX-OS enabler）
+
+`synvelis-native`（GPUI 実 shell binary）の製品 composition が
+`SYNVELIS_LIBRARY_DIR` で実 `LocalFolderProvider` backend を、
+`SYNVELIS_PROJECT_DIR` で実 `ImportStore`/`LocalBlobDir`/
+`StagedBlobPublisher` import ports を bind し、
+`SYNVELIS_ASSET_LIBRARY` gate が `syn.library.visual
+{action:"open"}` → `syn.library.view` の返却 ViewSpec を
+verbatim で `ViewHost` に mount する経路を headless に固定する
+slice。headless lane（上記 Rules/Examples）が op 契約と spec
+形を固定済みであり、本 lane は「同じ wire 契約を native
+mount 経路がそのまま載せられる」ことを検証する。
+
+### Rules（mount lane）
+
+- Rule: mount は `syn.library.view` の返却 spec を verbatim で
+  `ViewHost`/`MountSpec::Library` に載せ、アプリ層で第二の
+  spec 形へ再解釈しない（`mount_variant_diff_view` と同型の
+  mount 契約）。
+- Rule: library model は sealed app の `LibraryViews` 内に
+  あり、shared screen-state cell を持たない。
+  `syn.library.*` dispatch / `synvelis.library` target の
+  action で shell の library-dirty mark を立て、run loop
+  （native）と uitest adapter（同一 semantics）が
+  `syn.library.view` を再読みし、返却 spec が変わったとき
+  だけ `ViewHost::update_view` を push する。
+- Rule: `SYNVELIS_LIBRARY_DIR` 未設定・設定値が不正な
+  folder を指すとき、backend は unbound のまま（session を
+  殺さない）で、`syn.library.*` op は typed `unavailable`
+  fault を返し spec 再読みは `None`（捏造しない）。
+- Rule: Asset Library view は registry-adopted dock-domain
+  view — window destroy で pool され、mount/close/
+  browse/pin/preview は project revision・engine・
+  transport・project name を汚さない（headless lane 行の
+  製品経路版）。
+- Rule: spec 内の Button/TableSelection は
+  `synvelis.library` target を持ち、shell は action を
+  `syn.library.action` へ route する。entries table の
+  `select{row}` は live spec の `library.entries` locator
+  列から `entry.select{locator}` へ解決する
+  （`LibraryAction` は `#[serde(tag="action",
+  deny_unknown_fields)]`）。
+
+### Examples（mount lane、headless）
+
+- `library_view_mounts_wire_spec_verbatim` — visual open→
+  view→mount で `ViewHost::spec()` が wire spec と一致。
+- `mounted_view_projects_real_local_folder_state` — temp-dir
+  fixture root を指す実 `LocalFolderProvider`（fake ではなく
+  製品と同じ provider 種別）で browse/stat/pin/preview の
+  typed 状態を投影（pin proof は `conditional-strong`）。
+- `import_submits_through_real_import_ports` — 実
+  `ImportStore`/`LocalBlobDir`/`StagedBlobPublisher` 経由で
+  `import.submit` が `committed-live` receipt を返し blob が
+  project media root に commit される。
+- `mount_lifecycle_and_browse_ops_leave_project_authority_
+  untouched` — mount/attach/browse/pin/preview/detach/close
+  で revision/engine/transport/project name が不変。
+- `unbound_backend_ops_answer_typed_unavailable` — backend
+  未 bind で `providers` は空 list・view/action op は
+  `unavailable`、shell の spec 再読みも `None`。
+- `native_shell_attaches_marks_dirty_and_re_reads_library_
+  spec` — `NativeShell`+`FakeDriver` で attach→
+  dock_domain 採用→dirty mark→spec 再読み→destroy pool→
+  close。
+- `uitest_adapter_pushes_refreshed_library_spec`（`uitest`
+  feature gate）— uitest adapter が dirty mark→spec 再読み→
+  `update_view` push を run loop と同じ意味論で行う。
+- `library_command_intent_decodes_and_routes_to_library_
+  action` — mounted control 発行の `rvf.ui.command.v1`
+  action intent（`synvelis.library` target + params）が
+  decode admission を通り、Button params verbatim /
+  entries table `select{row}`→`entry.select{locator}` で
+  `syn.library.action` に到達して typed state を動かす。
+- `library_command_intent_rejects_params_on_non_admitted_
+  target` — 非 admission target の params 付き action は
+  decode で `invalid_params` reject（admission の狭さ
+  pin）。
+
+### Non-goals（mount lane・deferred 継続）
+
+- 実 OS window/GPU/IME/focus/keyboard — synvelis#114（実 OS
+  受入 lane）に deferred のまま。
+- ~~`binding.rs::decode_view_command` の params
+  admission~~ — **2026-11-24 解消**: Coordinator 承認の
+  lease 拡張で `synvelis.library` を admission に追加
+  （`LIBRARY_TARGET` const を binding.rs に集約・doc
+  comment 更新）。mounted spec control の
+  `rvf.ui.command.v1` action intent は decode を通り
+  `syn.library.action` へ到達する（Examples の wire
+  command 2 test で固定）。
+- `syn.library.jobs`・`import.cancel` action・
+  `CallOutcome::Job` 化 — 上記 Non-goals の通り別 slice。
+- Git/network/credential provider の mount — #90/#91 領域。

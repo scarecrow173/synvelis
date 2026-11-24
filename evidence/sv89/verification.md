@@ -123,3 +123,73 @@ green・`library_ui` unit 14/14）、`cargo test --locked
   projection・registry を単一モジュールに収める（約 3000
   行）。責務は型で分離済みだが、実 provider 配線・jobs
   ledger 追加時に分割を検討する余地がある。
+
+## ALIB-05 native mount slice（2026-11-24、追記）
+
+Slice: `synvelis-native` の製品 composition が env-gated で
+実 `LocalFolderProvider`（`SYNVELIS_LIBRARY_DIR`）と実
+`ImportStore`/`LocalBlobDir`/`StagedBlobPublisher`
+（`SYNVELIS_PROJECT_DIR`）を bind し、`SYNVELIS_ASSET_LIBRARY`
+gate で `syn.library.visual{action:"open"}` → `syn.library.view`
+返却 ViewSpec を verbatim で `ViewHost`/`MountSpec::Library`
+に mount する経路を headless 検証で固定。shell 側は
+`synvelis.library` target action を `syn.library.action` へ
+route し、`syn.library.*` dispatch で dirty mark → run loop /
+uitest adapter が spec 再読み → 変更時のみ `update_view`
+push。HEADLESS ONLY — 実 OS window/GUI（#114）は対象外。
+
+### Environment
+
+| Field | Value |
+| --- | --- |
+| Synvelis commit | `d151716e66d69e89cebbcd93aedb06f53c424906`（branch `feat/89-alib05-native-mount` base = origin/main HEAD）+ this change set（uncommitted） |
+| OS | Windows (win32), NTFS |
+| Toolchain | rustc 1.99.1（mise managed; CI pin 1.99.0 in mise.ci.toml） |
+| Cargo.lock Ruviform SHA | 変更なし（synvelis-app crate 内変更のみ） |
+| Provider / Import ports | 実 `LocalFolderProvider`（temp-dir fixture root — 製品と同じ provider 種別・fake 不使用）・実 `ImportStore`/`LocalBlobDir`/`StagedBlobPublisher`（temp-dir project media root） |
+
+### Commands run (canonical = mise)
+
+| Command | Exit | Result |
+| --- | --- | --- |
+| `mise run fmt` | fail | **`cargo fmt --all` が `os error 206`（ファイル名または拡張子が長すぎます）で失敗** — workspace 全 member を 1 回の rustfmt 呼び出し（約 30KB コマンドライン）で処理するため Windows コマンド長制限超過。本 change set 起因ではない環境制約（下記 NotRun 参照） |
+| `mise exec -- cargo fmt --package synvelis-app -- --check` | 0 | pass — 本 slice が変更した全ファイル（synvelis-app crate）は rustfmt 準拠を確認 |
+| `mise run check synvelis-app` | 0 | pass（`cargo check --locked --all-targets -p synvelis-app`） |
+| `mise run lint synvelis-app` | 0 | pass（`cargo clippy --locked --all-targets -p synvelis-app -- -D warnings`、warning 0。`large_enum_variant` 対応で `MountSpec::Library` は `Box<ViewSpec>`、`too_many_lines` 対応で `dispatch_window_action` 抽出） |
+| `mise run test synvelis-app` | 0 | pass — 全 suite green。`library_native_mount` 6/6（uitest-gated 1 件は下記 lane） |
+| `mise run check-app-native` | 0 | pass（`cargo check -p synvelis-app --features native --all-targets`） |
+| `mise run lint-app-native` | 0 | pass |
+| `mise run build-app-native` | 0 | pass — `synvelis-native` binary link 成功 |
+| `mise run check-app-uitest` | 0 | pass（`--features uitest`） |
+| `mise run lint-app-uitest` | 0 | pass |
+| `mise run test-app-uitest` | 0 | pass — `library_native_mount` 7/7（`uitest_adapter_pushes_refreshed_library_spec` 含む） |
+| `mise exec -- prek run --all-files` | 0 | pass — 全 hook green |
+
+### NotRun（本 slice・正直記録）
+
+- `mise run fmt`（`cargo fmt --all`）— `os error 206` で実行
+  不能。Windows のコマンドライン長制限に由来する環境制約で、
+  base commit でも同一（本 change set 無関係）。代替として
+  `cargo fmt --package synvelis-app -- --check`（変更全
+  ファイルを含む）で rustfmt 準拠を確認済み。
+- 実 OS window/GPU/IME/focus/keyboard の受入 — synvelis#114
+  deferred（headless 検証のみ）。
+
+### Known limitation（本 slice・正直記録）
+
+- ~~binding admission 制約~~ **2026-11-24 解消**:
+  `binding.rs::decode_view_command` の params admission に
+  `synvelis.library` を追加済み（Coordinator 承認・lease
+  拡張 — `LIBRARY_TARGET` const を binding.rs に集約し
+  shell.rs は import 側）。mounted spec control のコマンド
+  経路は `library_command_intent_decodes_and_routes_to_
+  library_action`（Button params verbatim・entries table
+  `select{row}`→`entry.select{locator}`・dirty mark）と
+  `library_command_intent_rejects_params_on_non_admitted_
+  target`（admission の狭さ pin）で `rvf.ui.command.v1`
+  wire から end-to-end 検証済み（check/lint/test
+  synvelis-app・uitest 3 lane 再検証 green）。
+- `SYNVELIS_LIBRARY_DIR`/`SYNVELIS_PROJECT_DIR`/
+  `SYNVELIS_ASSET_LIBRARY` は dev 向け env gate —
+  未設定時は backend unbound のまま typed `unavailable`
+  fault を返し、session は継続する（fail-closed・殺さない）。
