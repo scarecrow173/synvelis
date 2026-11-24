@@ -21,10 +21,13 @@ relations:
 `TcpListener` の in-process server で in-memory tree に対し
 PROPFIND/GET/HEAD を提供し、auth・redirect・chunked・
 stall・disconnect・ETag 変種・大 collection を再現する。
-`tests/webdav.rs` が `AssetProvider` 契約・ETag/If-Match・
-Range・bounded listing・failure 分類・redaction・import
-接続を検証する。実 WebDAV server・実 network・TLS・実 OS・
-GUI は対象外（NotRun/Unsupported）。
+同 fixture の `MockTlsServer`（rcgen の fixture CA と
+IP SAN leaf）が `https://127.0.0.1` の TLS handshake を
+in-process で再現する。`tests/webdav.rs` が
+`AssetProvider` 契約・ETag/If-Match・Range・bounded
+listing・failure 分類・redaction・import 接続・https/TLS
+opt-in を検証する。実 WebDAV server・実 network・実 OS
+credential store・GUI は対象外（NotRun/Unsupported）。
 
 ## Feature: Metadata-first browse/stat
 
@@ -88,10 +91,31 @@ GUI は対象外（NotRun/Unsupported）。
 - Example: `credential_not_in_locator_or_error`、
   `cross_origin_redirect_strips_authorization`、
   `same_origin_redirect_keeps_authorization`、
-  `https_target_is_not_downgraded`、
+  `https_downgrade_redirect_never_reaches_plaintext`、
+  `https_cross_origin_redirect_never_reaches_other_origin`、
   `path_traversal_and_encoded_dotdot_rejected`、
   `locator_outside_root_path_rejected`、
   `url_rejects_userinfo_query_fragment`。
+
+## Feature: HTTPS / TLS opt-in
+
+- Rule: `https` origin は `ProviderContext::tls` の trust
+  root で verified TLS handshake する（未設定時は
+  platform native store）。foreign CA は
+  `TlsVerification`（`RetryAdvice::Never`）で fail-closed
+  となり、error detail に秘密や URL を残さない。
+  https→http downgrade・別 port の https を含む
+  cross-origin redirect は拒否し、deadline は handshake
+  中も `BudgetExceeded` で効く。
+- Example: `https_browse_and_stat_follow_plaintext_contract`、
+  `https_pin_and_open_pinned_keep_if_match_contract`、
+  `https_untrusted_ca_is_tls_verification`、
+  `https_native_roots_reject_self_signed`、
+  `https_same_origin_redirect_is_followed_over_tls`、
+  `https_downgrade_redirect_never_reaches_plaintext`、
+  `https_cross_origin_redirect_never_reaches_other_origin`、
+  `https_deadline_fails_during_tls_handshake`、
+  `https_dead_port_fails_typed_not_unsupported`。
 
 ## Feature: Import 接続・capability
 

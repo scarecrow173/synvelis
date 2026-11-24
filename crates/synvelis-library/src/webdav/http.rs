@@ -24,9 +24,10 @@
 //! errors stay `TransientIo`. Certificate contents, peer data, and
 //! URL secrets never appear in error details.
 //!
-//! The `WebDAV` provider itself still rejects `https` at its own
-//! boundary (`send`) — TLS transport exists for callers that opt in
-//! per endpoint (Git LFS); WebDAV-over-HTTPS is a separate decision.
+//! Callers opt into TLS per endpoint: `https` callers build
+//! [`HttpEndpoint::new_tls`] from [`crate::tls::session_for`] and
+//! reach [`send_endpoint`] directly — the `WebDAV` provider and the
+//! Git LFS backend share this single entry point.
 
 use std::cell::Cell;
 use std::io::{self, Read, Write};
@@ -38,7 +39,6 @@ use crate::digest::io_provider_error;
 use crate::error::{ProviderError, ProviderErrorKind};
 use crate::tls::TlsSession;
 use crate::webdav::locator::encode_path;
-use crate::webdav::url::WebDavUrl;
 
 /// Socket poll interval — how often a blocking read/write returns
 /// control so cancel/deadline can be re-checked.
@@ -229,40 +229,9 @@ impl HttpEndpoint {
     }
 }
 
-/// Sends `req` to `url` and returns the response head plus an open
-/// body stream. One connection per call; `Connection: close` is
-/// always sent so close-delimited bodies terminate.
-///
-/// # Errors
-/// [`ProviderError`] — `UnsupportedCapability` for `https` (the
-/// `WebDAV` provider does not opt into TLS), `Offline` for
-/// connect/resolution failures, `TlsVerification` for certificate
-/// failures on TLS endpoints, `TransientIo` for protocol violations
-/// and stalls, `Cancelled`/`BudgetExceeded` from the guard.
-pub(crate) fn send(
-    url: &WebDavUrl,
-    req: &HttpRequest,
-    cancel: &CancellationToken,
-    deadline: Option<Instant>,
-) -> Result<HttpResponse, ProviderError> {
-    if url.scheme() != crate::webdav::WebDavScheme::Http {
-        return Err(ProviderError::unsupported(
-            "https transport",
-            "webdav provider",
-        ));
-    }
-    // Plain-HTTP endpoint only — `send` never opts into TLS; HTTPS
-    // callers build `HttpEndpoint::new_tls` explicitly.
-    send_endpoint(
-        &HttpEndpoint::new(url.host(), url.port(), url.is_ipv6()),
-        req,
-        cancel,
-        deadline,
-    )
-}
-
 /// Sends `req` to `endpoint` — the shared transport entry point for
-/// non-WebDAV callers (Git LFS). Identical wire behavior to [`send`]:
+/// every caller (`WebDAV` provider, Git LFS backend). The wire
+/// behavior is uniform:
 /// one request per connection, `Connection: close`, and the
 /// cooperative cancel/deadline/stall guard. An endpoint carrying
 /// [`TlsSession`] parameters performs a verified TLS handshake;
@@ -270,8 +239,10 @@ pub(crate) fn send(
 /// construction, never inferred or downgraded.
 ///
 /// # Errors
-/// Same contract as [`send`], minus the scheme check — the endpoint
-/// carries its own transport parameters.
+/// [`ProviderError`] — `Offline` for resolution/connect failures,
+/// `TlsVerification` for certificate failures on TLS endpoints,
+/// `TransientIo` for protocol violations and stalls,
+/// `Cancelled`/`BudgetExceeded` from the guard.
 pub(crate) fn send_endpoint(
     endpoint: &HttpEndpoint,
     req: &HttpRequest,

@@ -1,6 +1,7 @@
 //! `WebDAV` file-server provider (ALIB-06, Synvelis #90).
 //!
-//! A read-only [`AssetProvider`] over plain-HTTP `WebDAV` collections.
+//! A read-only [`AssetProvider`] over `WebDAV` collections reached
+//! by plain HTTP or verified TLS (`http`/`https`).
 //! `browse`/`stat` run `PROPFIND` (metadata-first — never a content
 //! GET); `pin` accepts *strong* `ETag`s only and produces
 //! [`PinProof::ConditionalStrong`] with
@@ -21,8 +22,10 @@
 //! - Credentials resolve through [`ProviderContext::credentials`]
 //!   per call and are sent only to the configured origin; nothing
 //!   secret is persisted or logged.
-//! - `https` parses at configuration time but transport reports
-//!   `UnsupportedCapability` — this slice ships no TLS stack.
+//! - `https` endpoints run a verified TLS handshake under the trust
+//!   roots in [`ProviderContext::tls`] — explicit CA pins when set,
+//!   the platform native store when unset. The scheme is never
+//!   downgraded to `http`.
 //! - All network I/O is blocking worker-side; nothing here is safe
 //!   to call from an RT callback.
 
@@ -212,8 +215,22 @@ impl WebDavProvider {
             {
                 hs.push(("authorization".to_owned(), value.clone()));
             }
-            let resp = http::send(
-                &url,
+            // The endpoint carries the transport parameters — plain
+            // HTTP or a verified TLS session built from the context's
+            // trust roots (the platform native store when `cx.tls` is
+            // unset). The scheme never downgrades; `session_for` runs
+            // per hop so a same-origin redirect reuses the same trust.
+            let endpoint = match url.scheme() {
+                WebDavScheme::Http => {
+                    http::HttpEndpoint::new(url.host(), url.port(), url.is_ipv6())
+                }
+                WebDavScheme::Https => {
+                    let session = crate::tls::session_for(&url, cx.tls.as_ref())?;
+                    http::HttpEndpoint::new_tls(url.host(), url.port(), url.is_ipv6(), session)
+                }
+            };
+            let resp = http::send_endpoint(
+                &endpoint,
                 &HttpRequest {
                     method,
                     path: current_path.clone(),
