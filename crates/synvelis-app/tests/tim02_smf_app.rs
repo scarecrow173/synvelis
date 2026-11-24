@@ -11,10 +11,12 @@
 //! is no second project model and no test-only op surface.
 //!
 //! Boundary: this is headless evidence only. Instrument-node
-//! delivery of compiled MIDI events is deliberately unwired (the
-//! routing seam is a separate gate); real OS MIDI backends, GUI,
-//! and external oracles stay `NotRun` — fake/mock fixtures here
-//! never claim those passes.
+//! delivery of compiled MIDI events is wired through the routing
+//! seam (synvelis#623 — `tim02_midi_delivery` covers the staged
+//! path); this fixture binds no instrument, so every clip honestly
+//! records `Unresolved`. Real OS MIDI backends, GUI, and external
+//! oracles stay `NotRun` — fake/mock fixtures here never claim
+//! those passes.
 
 use std::cell::RefCell;
 use std::fs;
@@ -29,6 +31,7 @@ use ruviform_ui::{
     BackendReport, CallOutcome, DataRegistry, OpInfo, Service, ServiceContext, UiRuntime,
 };
 
+use synvelis_app::engine::MidiClipDelivery;
 use synvelis_app::{AppService, SessionEngineConfig, SessionRoutingEngine, SynvelisApp};
 use synvelis_project::{
     BuildBudget, BuildMode, ClipExtent, ClipPlacement, ClipPlayback, MusicalDuration, MusicalTick,
@@ -557,13 +560,14 @@ fn capabilities_reports_midi_section() {
 }
 
 // ===========================================================================
-// clip→MIDI plan/compile evidence (delivery unwired by design)
+// clip→MIDI plan/compile/delivery evidence
 // ===========================================================================
 
 /// A MIDI-source clip plans through `plan_midi_clips` and compiles
 /// to engine-frame wire events — recorded as adapter evidence on
-/// every revision build. Instrument-node delivery is a separate
-/// gate; this asserts the honest record, not playback.
+/// every revision build. This fixture binds no instrument (no
+/// processor, no host), so the delivery record stays honestly
+/// `Unresolved`; staged delivery is `tim02_midi_delivery`'s gate.
 #[test]
 fn midi_clip_compiles_to_engine_frame_evidence() {
     let mut f = fixture("midi-clip");
@@ -576,6 +580,7 @@ fn midi_clip_compiles_to_engine_frame_evidence() {
     let entry = &evidence[0];
     assert_eq!(entry.error, None);
     assert_ne!(entry.events.len(), 0);
+    assert_eq!(entry.delivery, MidiClipDelivery::Unresolved);
     // Note on/off pairs land in engine frames in non-decreasing order.
     let frames: Vec<i64> = entry.events.iter().map(|(frame, _)| *frame).collect();
     let mut sorted = frames.clone();
