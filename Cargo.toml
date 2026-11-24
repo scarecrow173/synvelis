@@ -74,6 +74,17 @@ ruviform-viz = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-plugin-core = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-plugin-host = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-audio-plugin-bridge = { git = "https://github.com/scarecrow173/ruviform.git" }
+# synvelis#176 (SV-GPUI-02) slice S1 — test-only real-ABI plugin-dock
+# probe (dev-deps of synvelis-app): upstream `rf631.plugin-dock`
+# HEADLESS_MATRIX driver, the host-side format adapters it and the
+# product-level legs load (`host` feature is specified crate-side),
+# and the ruviform#630 test-plugin cdylib crates whose dev-dep edge
+# places the real binaries next to the test executables.
+ruviform-plugin-dock-test = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-plugin-vst3 = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-plugin-clap = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-plugin-test-vst3 = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-plugin-test-clap = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-ui-webview = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-ui-gpui = { git = "https://github.com/scarecrow173/ruviform.git" }
 ruviform-ui-test = { git = "https://github.com/scarecrow173/ruviform.git" }

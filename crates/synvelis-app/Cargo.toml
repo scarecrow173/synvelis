@@ -40,6 +40,17 @@ synvelis-theme = { workspace = true, optional = true }
 
 [dev-dependencies]
 ruviform-ui-test.workspace = true
+# synvelis#176 slice S1 — `tests/plugin_dock_probe.rs` runs the upstream
+# `rf631.plugin-dock` HEADLESS_MATRIX via `ruviform-plugin-dock-test`,
+# drives the product `PluginDock` through `InProcessHost` + the real
+# `Vst3Library`/`ClapLibrary` host bridges (`host` feature), and loads
+# the ruviform#630 test-plugin cdylibs — the dev-dep edge builds them
+# into `target/<profile>/deps/` where `resolve_artifact` finds them.
+ruviform-plugin-dock-test.workspace = true
+ruviform-plugin-vst3 = { workspace = true, features = ["host"] }
+ruviform-plugin-clap = { workspace = true, features = ["host"] }
+ruviform-plugin-test-vst3.workspace = true
+ruviform-plugin-test-clap.workspace = true
 
 [features]
 webview = [
