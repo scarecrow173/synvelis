@@ -160,3 +160,49 @@ import ports は temp-dir の実 `ImportStore`/`LocalBlobDir`/
   を再生成。`docs/impl/exp/README.md` は `.jsonl` index のみ
   管理で `.md` exp memo は対象外（cb-01〜09・sv286 と同じ
   扱い）
+
+## ALIB-05 native mount lane（2026-11-24 追記）
+
+`SYNVELIS_ASSET_LIBRARY`/`SYNVELIS_LIBRARY_DIR`/
+`SYNVELIS_PROJECT_DIR` の env gate で `synvelis-native` が
+実 `LocalFolderProvider`・実 import ports を bind し、
+`syn.library.visual{action:"open"}` → `syn.library.view` の
+返却 ViewSpec を `ViewHost`/`MountSpec::Library` に verbatim
+mount する経路。`library_native_mount.rs` 7 test（uitest
+feature で 7 件・default では 6 件）に写像。
+
+**実 OS window/GPU/IME/focus/keyboard・実 network/
+credential・v5 real-data import は一切実行していない。**
+headless 検証の Pass を実 GUI 受入（#114）に昇格しない。
+
+### 受入行 → 証拠写像（mount lane）
+
+| 受入行 | 要件 | 証拠（test） | 判定 |
+| --- | --- | --- | --- |
+| wire spec verbatim mount | `syn.library.view` 返却 spec を第二の spec 形へ再解釈せず `ViewHost` に載せる | `library_view_mounts_wire_spec_verbatim`（`host.spec()` が wire spec と一致） | Pass-measured (headless) |
+| 実 provider 配線 | `SYNVELIS_LIBRARY_DIR` で実 `LocalFolderProvider` を bind（fake 不使用・製品と同じ provider 種別） | `mounted_view_projects_real_local_folder_state`（browse/stat/pin `conditional-strong`/preview typed 投影） | Pass-measured (headless)。network/credential provider は NotRun（#88/#90/#91） |
+| 実 import ports | `SYNVELIS_PROJECT_DIR` で実 `ImportStore`/`LocalBlobDir`/`StagedBlobPublisher` を bind し `import.submit` が commit される | `import_submits_through_real_import_ports`（`committed-live` receipt・blob が project media root に commit） | Pass-measured (headless) |
+| project authority 非汚染 | mount/close/browse/pin/preview は revision・engine・transport・project name を汚さない | `mount_lifecycle_and_browse_ops_leave_project_authority_untouched` | Pass-measured (headless) |
+| unbound fail-closed | env 未設定/不正 dir で backend unbound のまま typed `unavailable`・session を殺さない | `unbound_backend_ops_answer_typed_unavailable`（`providers` 空 list・view/action `unavailable`・spec 再読み `None`） | Pass-measured (headless) |
+| shell lifecycle・refresh | attach→dock_domain 採用→`syn.library.*` dispatch で dirty mark→run loop が `syn.library.view` 再読み→spec 変更時のみ `update_view` push→destroy で pool | `native_shell_attaches_marks_dirty_and_re_reads_library_spec`（`NativeShell`+`FakeDriver`）・`uitest_adapter_pushes_refreshed_library_spec`（uitest gate・同一 semantics） | Pass-measured (headless)。実 OS window lifecycle は NotRun（#114） |
+| `synvelis.library` action routing | spec control の Button/TableSelection action を `syn.library.action` へ route・entries table `select{row}`→`entry.select{locator}` 解決 | `native_shell_attaches_marks_dirty_and_re_reads_library_spec`（routing arm・`dispatch_library_action`・`library_row_locator` の unit 観測）。**mounted control からの wire 到達は `binding.rs::decode_view_command` の params admission が `view`/`autx.*` のみのため現行 decode で reject — 別途記録** | **部分 Pass**: shell routing は実装・検証済みだが、binding admission（リース外・Coordinator 相談中）が未解決のため mounted control 発行 action は未到達。op 直接 dispatch 経路は全機能 green |
+
+### 既知の未カバー（mount lane・正直記録）
+
+- `binding.rs::decode_view_command`（`binding.rs:974-982`）
+  は params 付き Action intent を `view`/`autx.*` 以外で
+  `invalid_params` reject — mounted Asset Library の全
+  spec control（Button は常に params、entries table は
+  `select{row}`）が decode で落ちる。admission 拡張は
+  binding.rs（本 slice リース外）への最小変更（target
+  admission + doc comment）として Coordinator に相談中。
+  承認なら別 commit で追加検証、却下なら deferred のまま
+  納品（op surface 経路はこの制約に依存しない）。
+- `mise run fmt`（`cargo fmt --all`）は `os error 206`
+  （Windows コマンド長制限・workspace 全 member 単一
+  rustfmt 呼出し）で実行不能 — 環境制約で base commit
+  でも同一。`cargo fmt --package synvelis-app -- --check`
+  で変更全ファイルの準拠を確認済み（verification.md
+  参照）。
+- 実 OS window・GPU・IME・focus・keyboard — synvelis#114
+  へ deferred のまま。

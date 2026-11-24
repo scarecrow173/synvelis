@@ -41,7 +41,9 @@ use ruviform_ui_test::{
 use serde_json::{Value, json};
 
 use crate::automation::AutomationScreenPublish;
-use crate::screens::{MainScreenState, PendingMount, VcsScreenState, log_screen_state_update};
+use crate::screens::{
+    MainScreenState, MountSpec, PendingMount, VcsScreenState, log_screen_state_update,
+};
 use crate::shell::NativeShell;
 
 /// Whether the `rvf.uitest.v1` port should serve — checked once at
@@ -184,6 +186,26 @@ impl TestApp for SynvelisTestApp {
             }
             if pushed {
                 log_screen_state_update(&state);
+            }
+        }
+        // Asset Library mounts hold no screen-state cell — the wire
+        // spec is re-read through `syn.library.view` whenever a
+        // `syn.library.*` op ran, then pushed like every other spec
+        // change. Same semantics as `synvelis-native`'s run loop.
+        if self.shell.take_library_dirty() {
+            for m in self.mounts.iter_mut().filter(|m| m.attached) {
+                if let MountSpec::Library(_, applied) = &mut m.spec_kind {
+                    let view_id = m.view_id.clone();
+                    let window = m.window;
+                    if let Some(fresh) = self.shell.library_view_spec(&view_id, drv)
+                        && **applied != fresh
+                    {
+                        **applied = fresh.clone();
+                        if let Err(e) = (self.push_spec)(window, fresh) {
+                            tracing::error!(error = %e, "library spec update failed");
+                        }
+                    }
+                }
             }
         }
     }

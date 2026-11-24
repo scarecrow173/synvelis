@@ -2002,6 +2002,27 @@ pub fn mount_variant_diff_view(
     mount_screen_view(attach_epochs, instance, spec, "variant-diff screen")
 }
 
+/// Mounts an Asset Library view's spec onto a fresh [`ViewHost`] —
+/// same session-owned allocator mint contract as
+/// [`mount_variant_diff_view`], under the *adopted* view's own
+/// [`ViewInstanceId`]. `spec` is the deterministic projection from
+/// `synvelis_workspace::library_spec` (the `syn.library.view` op
+/// returns it verbatim) — the app never re-interprets the library
+/// state into a second spec shape, so mounted drivers render exactly
+/// what the wire contract published (ALIB-05 native mount,
+/// synvelis#89).
+///
+/// # Errors
+/// [`UiError::Internal`] when the spec fails validation — a code
+/// defect.
+pub fn mount_library_view(
+    attach_epochs: &Rc<RefCell<AttachEpochAllocator>>,
+    instance: ViewInstanceId,
+    spec: ViewSpec,
+) -> Result<ViewHost, UiError> {
+    mount_screen_view(attach_epochs, instance, spec, "asset library screen")
+}
+
 /// Which product screen a [`PendingMount`] displays — decides both
 /// the mount-time spec and every `update_view` push.
 pub enum MountSpec {
@@ -2017,6 +2038,14 @@ pub enum MountSpec {
     /// [`AutomationScreenPublish`] — the adopted `ViewInstanceId`
     /// keys the lookup in the shared automation screen cell.
     Automation(ViewInstanceId),
+    /// The `syn.library.view` spec verbatim — the library model lives
+    /// inside the sealed app's `LibraryViews`, unreachable from the
+    /// shared screen-state cells, so the mount record stores the
+    /// wire [`ViewSpec`] itself. The run loop refreshes it by
+    /// re-reading `syn.library.view` (never by re-interpreting the
+    /// state into a second spec shape). Boxed: a `ViewSpec` dominates
+    /// the enum otherwise (`clippy::large_enum_variant`).
+    Library(ViewInstanceId, Box<ViewSpec>),
 }
 
 /// One mounted view↔window pair the run loop drives: attach the view
@@ -2063,6 +2092,7 @@ impl PendingMount {
             MountSpec::Automation(instance) => autx_screens
                 .get(&instance)
                 .map(|publish| automation_screen_spec(&publish.state)),
+            MountSpec::Library(_, ref spec) => Some((**spec).clone()),
         }
     }
 }
