@@ -1763,14 +1763,16 @@ impl RoutingEngine {
 
 /// Maps a non-intentional [`SkippedPlayback`] to the [`RoutingFault`]
 /// the build must fail with. Intentional silence — `Muted`,
-/// `SupersededByComp`, `CompSilence` — returns `None`; everything
-/// else means content that should play could not be lowered and is
-/// never silently replaced by silence.
+/// `SupersededByComp`, `CompSilence`, `MidiClip` (the MIDI pass owns
+/// it — not audio content) — returns `None`; everything else means
+/// content that should play could not be lowered and is never
+/// silently replaced by silence.
 fn skipped_fault(skipped: &[SkippedPlayback]) -> Option<RoutingFault> {
     skipped.iter().find_map(|skip| match skip {
         SkippedPlayback::Muted { .. }
         | SkippedPlayback::SupersededByComp { .. }
-        | SkippedPlayback::CompSilence { .. } => None,
+        | SkippedPlayback::CompSilence { .. }
+        | SkippedPlayback::MidiClip { .. } => None,
         SkippedPlayback::MissingSource { .. } => Some(RoutingFault::MissingSource),
         SkippedPlayback::RateMismatch { .. }
         | SkippedPlayback::UnresolvableAnchor { .. }

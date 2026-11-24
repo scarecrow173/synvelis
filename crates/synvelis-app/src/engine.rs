@@ -39,13 +39,13 @@ use std::rc::Rc;
 
 use ruviform_audio::typed::{ProcessError, SharedStatusSnapshot};
 use ruviform_audio_core::AudioFormat;
-use ruviform_media_core::{EngineFrame, MediaTime, TransportSpan};
+use ruviform_media_core::{EngineFrame, MediaTime, MidiEvent, TimeBase, TransportSpan};
 use ruviform_media_reader::PrefetchConfig;
 
 use synvelis_player::ProcessorControl;
 use synvelis_player::driver::{PlayReport, PumpPolicy};
 use synvelis_player::host::ProcessorHost;
-use synvelis_player::lowering::{EngineConfig, plan_playbacks};
+use synvelis_player::lowering::{EngineConfig, plan_midi_clips, plan_playbacks};
 use synvelis_player::plugin_state::PluginStateEndpoint;
 use synvelis_player::probe_trace::ProbeTraceBridge;
 use synvelis_player::resolver::{self, PreparedClip};
@@ -53,12 +53,14 @@ use synvelis_player::routing_control::RoutingControlDispatch;
 use synvelis_player::routing_engine::{RoutingDeps, RoutingEngine, RoutingPrepare};
 use synvelis_player::{
     DispatchCycle, FastControlOutcome, FastControlWrite, ParamCatalog, PluginReportDrain,
-    ProbeRequestError, ReportDrainReport, SurfaceReport, TickReport,
+    ProbeRequestError, ReportDrainReport, SurfaceReport, TickReport, compile_midi_events,
 };
 use synvelis_project::{
-    BeatPoint, BuildBudget, BuildMode, ProcessorId, Project, ProjectRevision,
-    RoutingActivationReceipt, RoutingBuildRequestId, RoutingCompileRequest, RoutingReconcileReport,
-    RoutingSourceMap, RuntimeClockEpochRef, RuntimeInstanceId, SemanticProbeBinding, SourceId,
+    BeatPoint, BuildBudget, BuildMode, ClipId, MidiCompSelection, MidiControllerLane,
+    MidiControllerLanes, ProcessorId, Project, ProjectRevision, RoutingActivationReceipt,
+    RoutingBuildRequestId, RoutingCompileRequest, RoutingReconcileReport, RoutingSourceMap,
+    RuntimeClockEpochRef, RuntimeInstanceId, SemanticProbeBinding, SourceId, TickTimeMapping,
+    compile_midi_comp,
 };
 use synvelis_workspace::EnginePort;
 
@@ -118,6 +120,28 @@ impl std::fmt::Display for SessionEngineError {
 
 impl std::error::Error for SessionEngineError {}
 
+/// TIM-02 clip→MIDI compile evidence (synvelis#126) — one entry per
+/// MIDI clip the plan pass resolved, recording whether the comp
+/// oracle (`compile_midi_comp`) and the wire compiler
+/// (`compile_midi_events`) accepted it. Instrument-node delivery is
+/// deliberately unwired in this slice (the routing seam — a
+/// `RoutingControlDispatch` MIDI seam plus a `routing_engine` plan
+/// merge honoring the instrument=MIDI / processor=param split — is
+/// a separate gate); this is the adapter's honest record.
+#[derive(Clone, Debug)]
+pub struct MidiClipEvidence {
+    /// The clip the region was lowered from.
+    pub clip_id: ClipId,
+    /// The MIDI source the clip reads.
+    pub source_id: SourceId,
+    /// Engine-frame `(frame, MidiEvent)` pairs when the clip
+    /// compiled; empty when `error` is `Some`.
+    pub events: Vec<(i64, MidiEvent)>,
+    /// Rendered typed rejection from the comp oracle or the wire
+    /// compiler — `None` on success.
+    pub error: Option<String>,
+}
+
 /// Shared engine state behind the cloneable [`SessionRoutingEngine`]
 /// handle.
 struct Inner {
@@ -168,6 +192,9 @@ struct Inner {
     /// `RefCell` borrow scoped to the run and lets the app own the
     /// feed cadence.
     pending_observe_cycles: Vec<DispatchCycle>,
+    /// TIM-02: the last build's MIDI-clip compile evidence — the
+    /// plan→compile result per MIDI-source clip (delivery unwired).
+    midi_evidence: Vec<MidiClipEvidence>,
 }
 
 /// The session-facing routing engine: an [`EnginePort`] that drives a
@@ -206,6 +233,7 @@ impl SessionRoutingEngine {
                 last_control_error: None,
                 param_catalog: None,
                 pending_observe_cycles: Vec::new(),
+                midi_evidence: Vec::new(),
             })),
         }
     }
@@ -477,6 +505,16 @@ impl SessionRoutingEngine {
         self.inner.borrow().last_prepare_error.clone()
     }
 
+    /// TIM-02 (synvelis#126): the last build's MIDI-clip compile
+    /// evidence — per MIDI-source clip, the engine-frame wire events
+    /// it compiled to or the typed rejection. Instrument-node
+    /// delivery is unwired (routing seam is a separate gate); this is
+    /// the adapter's honest record, not a playback claim.
+    #[must_use]
+    pub fn midi_clip_evidence(&self) -> Vec<MidiClipEvidence> {
+        self.inner.borrow().midi_evidence.clone()
+    }
+
     /// The attached control surface's evidence report — `None`
     /// before the first publish or after an attach/sync failure.
     #[must_use]
@@ -685,6 +723,14 @@ fn rebuild(inner: &mut Inner, project: &Project, revision: ProjectRevision) {
 
     let (plans, _skipped) = plan_playbacks(project, canonical_of, &inner.config.engine);
 
+    // TIM-02: the MIDI-clip pass — plan → per-clip comp compile →
+    // wire compile, recorded as adapter evidence before the audio
+    // prepare (whose early-return must not erase it). Instrument-node
+    // delivery is deliberately unwired: the routing seam
+    // (`RoutingControlDispatch` MIDI seam + `routing_engine` plan
+    // merge, instrument=MIDI / processor=param) is a separate gate.
+    inner.midi_evidence = compile_midi_clip_evidence(project, &inner.config.engine);
+
     // Track the consulted canonical format set: the build key's
     // `source_format_generation` pins "the format generation this
     // build consumed" — a change in the consulted map bumps it.
@@ -755,6 +801,63 @@ fn rebuild(inner: &mut Inner, project: &Project, revision: ProjectRevision) {
         // activation receipt — neither publishes nor mutates state.
         Ok(RoutingPrepare::Equivalent(_)) | Err(_) => {}
     }
+}
+
+/// TIM-02 clip→MIDI pipeline (synvelis#126): each planned MIDI clip
+/// becomes a single-region [`MidiCompSelection`] compiled by the
+/// project-layer oracle and lowered to engine-frame wire events.
+/// Per-clip selections keep region identity (the clip id) and
+/// isolate rejections — one malformed clip never sinks the others.
+/// Compile failures land as typed evidence, never a panic — the
+/// project commit already succeeded.
+fn compile_midi_clip_evidence(project: &Project, engine: &EngineConfig) -> Vec<MidiClipEvidence> {
+    let (plans, _skipped) = plan_midi_clips(project, engine);
+    let mapping = TickTimeMapping::new(&project.tempo_map).ok();
+    let frame_base = TimeBase::sample_rate(engine.sample_rate);
+    let mut evidence = Vec::with_capacity(plans.len());
+    for plan in plans {
+        let clip_id = plan.clip_id;
+        let source_id = plan.region.source_id;
+        let selection = MidiCompSelection {
+            regions: vec![plan.region],
+        };
+        // Controller chase input: the source's persisted SMF
+        // provenance when one exists, else an empty lane (defaults
+        // chase — CC→0, pitch bend→center).
+        let lanes = MidiControllerLanes {
+            lanes: project
+                .smf_documents
+                .get(&source_id)
+                .map(|document| {
+                    vec![MidiControllerLane {
+                        source_id,
+                        events: document.controller_events(),
+                    }]
+                })
+                .unwrap_or_default(),
+        };
+        let compiled = compile_midi_comp(project, &selection, &lanes)
+            .map_err(|error| error.to_string())
+            .and_then(|playback_plan| {
+                let (Some(mapping), Ok(frame_base)) = (mapping.as_ref(), frame_base.as_ref())
+                else {
+                    return Err("tempo map or frame base unresolvable".to_string());
+                };
+                compile_midi_events(project, &playback_plan, mapping, *frame_base, 0)
+                    .map_err(|error| error.to_string())
+            });
+        let (events, error) = match compiled {
+            Ok(events) => (events, None),
+            Err(error) => (Vec::new(), Some(error)),
+        };
+        evidence.push(MidiClipEvidence {
+            clip_id,
+            source_id,
+            events,
+            error,
+        });
+    }
+    evidence
 }
 
 /// PC-C4-04: reconcile the owned [`RoutingControlDispatch`] with the

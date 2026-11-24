@@ -61,6 +61,14 @@ pub const OPS: &[OpInfo] = &[
         summary: "dry-run project PPQN change — params.new_ppqn/policy(/rounding) → site counts, inexact/overflow, per-policy feasibility (read-only)",
     },
     OpInfo {
+        name: "syn.project.import_smf",
+        summary: "import an SMF Format 0/1 file as a new MIDI source — params.path, expected_revision? → source_id + import summary",
+    },
+    OpInfo {
+        name: "syn.project.export_smf",
+        summary: "export a MIDI source to an SMF file — params.source_id/path, format?, division? → conversion report (read-only)",
+    },
+    OpInfo {
         name: "syn.recording.info",
         summary: "recording state projection — sessions/passes/streams/segments/takes + recorder status",
     },
@@ -516,6 +524,8 @@ impl AppService {
             "syn.project.info" => Ok(self.app.project_info()),
             "syn.project.set_ppqn" => self.app.project_set_ppqn(params),
             "syn.project.preview_ppqn" => self.app.project_preview_ppqn(params),
+            "syn.project.import_smf" => self.app.project_import_smf(params),
+            "syn.project.export_smf" => self.app.project_export_smf(params),
             "syn.recording.info" => Ok(self.app.recording_info()),
             "syn.project.undo" => self.app.op_project_undo(),
             "syn.project.redo" => self.app.op_project_redo(),

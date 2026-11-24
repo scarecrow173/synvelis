@@ -500,6 +500,20 @@ impl ViewBinding {
         self.push("syn.project.set_ppqn", params)
     }
 
+    /// `syn.project.import_smf` — import an SMF Format 0/1 file as a
+    /// new MIDI source (TIM-02, synvelis#126). `params` carries
+    /// `path` plus an optional `expected_revision` CAS.
+    pub fn project_import_smf(&mut self, params: Value) -> String {
+        self.push("syn.project.import_smf", params)
+    }
+
+    /// `syn.project.export_smf` — export a MIDI source to an SMF
+    /// file (TIM-02, synvelis#126). `params` carries
+    /// `source_id`/`path` plus optional `format`/`division`.
+    pub fn project_export_smf(&mut self, params: Value) -> String {
+        self.push("syn.project.export_smf", params)
+    }
+
     /// `syn.transport.set` — set transport rolling.
     pub fn transport_set(&mut self, playing: bool) -> String {
         self.push("syn.transport.set", json!({ "playing": playing }))

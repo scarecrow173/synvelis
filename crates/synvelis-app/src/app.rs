@@ -40,7 +40,8 @@ use synvelis_project::vcs::{
 use synvelis_project::{
     ControlEntityRef, CounterIdGenerator, DirectoryBundleStore, ParameterTargetId,
     PpqnChangePreview, PpqnConversionPolicy, PpqnPreviewSite, Project, ProjectController,
-    ProjectId, ProjectOp, ProjectRevision, ProjectStore, RelationDirection, preview_ppqn,
+    ProjectId, ProjectOp, ProjectRevision, ProjectStore, RelationDirection, SmfError,
+    SmfExportOptions, SmfFormat, SourceId, export_smf, parse_smf, preview_ppqn,
 };
 use synvelis_workspace::{
     ProjectSession, SignalFlowRuntimeEvidence, SignalFlowView, SignalFlowViewOptions, VcsSession,
@@ -1200,31 +1201,8 @@ impl SynvelisApp {
         let old_ppqn = ppqn_param(params, "old_ppqn")?;
         let new_ppqn = ppqn_param(params, "new_ppqn")?;
         let policy = ppqn_policy(params)?;
-        let expected_revision = match params.get("expected_revision") {
-            None | Some(Value::Null) => self.workspace.session().revision(),
-            Some(v) => ProjectRevision(
-                v.as_u64()
-                    .ok_or_else(|| invalid_params("params.expected_revision (u64) required"))?,
-            ),
-        };
-        {
-            let session = self.workspace.session();
-            if session.transport().playing {
-                return Err(invalid_params(
-                    "transport is playing — stop transport before changing project ppqn",
-                ));
-            }
-            if session.control().recording().is_some() {
-                return Err(invalid_params(
-                    "recording transaction open — commit or abort it before changing project ppqn",
-                ));
-            }
-            if session.control().record_enabled() {
-                return Err(invalid_params(
-                    "automation record is enabled — disable it before changing project ppqn",
-                ));
-            }
-        }
+        let expected_revision = expected_revision_param(self.workspace.session(), params)?;
+        project_mutation_gate(self.workspace.session(), "changing project ppqn")?;
         self.workspace
             .session_mut()
             .apply(
@@ -1278,6 +1256,153 @@ impl SynvelisApp {
             .borrow_mut()
             .record_preview(&preview, revision);
         Ok(ppqn_preview_json(&preview))
+    }
+
+    /// `syn.project.import_smf` — imports a Standard MIDI File as a
+    /// new MIDI source through [`ProjectOp::ImportMidiSmf`] (TIM-02
+    /// app slice, synvelis#126).
+    ///
+    /// The app layer owns the wire mapping (`params.path` → file
+    /// bytes → [`parse_smf`] → session apply) and the session
+    /// preconditions shared with the other mutating project ops.
+    /// Document validation and source/note identity minting stay in
+    /// `synvelis-project`; SMF boundary failures (malformed /
+    /// unsupported / overflow) and file IO failures arrive as typed
+    /// [`ErrorBody`]s — the kind rides in `details`, never a silent
+    /// partial import.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] with `codes::INVALID_PARAMS` on malformed params,
+    /// a violated precondition, an SMF parse rejection, or a
+    /// project-layer rejection; `codes::SERVICE_ERROR` when the file
+    /// cannot be read.
+    ///
+    /// # Panics
+    /// When a successful `ImportMidiSmf` apply mints no new source —
+    /// an op-contract violation, unreachable by contract.
+    pub fn project_import_smf(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let path = string_param(params, "path")?;
+        let expected_revision = expected_revision_param(self.workspace.session(), params)?;
+        project_mutation_gate(self.workspace.session(), "importing an SMF file")?;
+        let bytes = fs::read(path).map_err(|e| smf_io_body("read", path, &e))?;
+        let document = parse_smf(&bytes).map_err(|e| smf_error_body(&e))?;
+        let summary = json!({
+            "format": document.format,
+            "division": document.division,
+            "tracks": document.tracks.len(),
+            "controllers": document.controller_events().len(),
+            "bytes": bytes.len(),
+        });
+        let existing: std::collections::BTreeSet<SourceId> = self
+            .workspace
+            .session()
+            .project()
+            .midi_sources
+            .keys()
+            .copied()
+            .collect();
+        let revision = self
+            .workspace
+            .session_mut()
+            .apply(ProjectOp::ImportMidiSmf { document }, expected_revision)
+            .map_err(|e| invalid_params(format!("syn.project.import_smf: {e}")))?;
+        let project = self.workspace.session().project();
+        let source_id = project
+            .midi_sources
+            .keys()
+            .find(|id| !existing.contains(id))
+            .copied()
+            .expect("ImportMidiSmf mints exactly one source");
+        let notes = project
+            .midi_sources
+            .get(&source_id)
+            .map_or(0, |source| source.notes.len());
+        Ok(json!({
+            "source_id": source_id.to_tagged(),
+            "path": path,
+            "notes": notes,
+            "revision": revision.0,
+            "import": summary,
+        }))
+    }
+
+    /// `syn.project.export_smf` — exports one MIDI source to an SMF
+    /// file through [`export_smf`] (TIM-02 app slice, synvelis#126).
+    ///
+    /// Read-only on the project: no mutation gate applies — the
+    /// source/document is only read and the SMF bytes are written
+    /// at this headless boundary. `params.format` (`"format0"`/
+    /// `"format1"`) and `params.division` (PPQN `1..=32767`) are
+    /// optional; omitted values default to the source's provenance
+    /// document (or the source's own division / Format 0 when none
+    /// exists). The reply carries the full
+    /// [`synvelis_project::SmfConversionReport`] so rounding error
+    /// is never silently dropped.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] with `codes::INVALID_PARAMS` on malformed params
+    /// or an [`SmfError`] rejection (`NotFound`/`Unsupported`/
+    /// `Malformed`/`Overflow` — the kind rides in `details`);
+    /// `codes::SERVICE_ERROR` when the output file cannot be written.
+    pub fn project_export_smf(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let source_id = SourceId::from_tagged(string_param(params, "source_id")?)
+            .map_err(|e| invalid_params(format!("params.source_id: {e}")))?;
+        let path = string_param(params, "path")?;
+        let project = self.workspace.session().project();
+        // Unknown source is `NotFound` — checked before the default
+        // resolution so a missing source never degrades to a
+        // misleading division-0 rejection.
+        if !project.midi_sources.contains_key(&source_id) {
+            return Err(smf_error_body(&SmfError::NotFound(format!(
+                "midi source {source_id}"
+            ))));
+        }
+        let (default_division, default_format) = project.smf_documents.get(&source_id).map_or_else(
+            || {
+                (
+                    project
+                        .midi_sources
+                        .get(&source_id)
+                        .map_or(0, |source| source.division.ticks_per_quarter()),
+                    SmfFormat::Format0,
+                )
+            },
+            |doc| (doc.division, doc.format),
+        );
+        let division = optional_u32_param(params, "division")?.unwrap_or(default_division);
+        let format = match params.get("format") {
+            None | Some(Value::Null) => default_format,
+            Some(v) => match v
+                .as_str()
+                .ok_or_else(|| invalid_params("params.format (string) required"))?
+            {
+                "format0" => SmfFormat::Format0,
+                "format1" => SmfFormat::Format1,
+                other => {
+                    return Err(invalid_params(format!(
+                        "params.format: unknown format {other:?} (format0|format1)"
+                    )));
+                }
+            },
+        };
+        let file = export_smf(project, &source_id, &SmfExportOptions { format, division })
+            .map_err(|e| smf_error_body(&e))?;
+        fs::write(path, &file.bytes).map_err(|e| smf_io_body("write", path, &e))?;
+        let report = &file.report;
+        Ok(json!({
+            "source_id": source_id.to_tagged(),
+            "path": path,
+            "format": format,
+            "division": division,
+            "bytes": file.bytes.len(),
+            "report": {
+                "event_count": report.event_count,
+                "exact_count": report.exact_count,
+                "rounded_count": report.rounded_count,
+                "max_error": { "num": report.max_error.num, "den": report.max_error.den },
+                "unsupported_events": report.unsupported_events,
+            },
+        }))
     }
 
     /// Recording-state projection for `syn.recording.info` — the
@@ -1450,6 +1575,52 @@ impl SynvelisApp {
         }
     }
 
+    /// `syn.app.capabilities` の `midi` 節 (TIM-02, synvelis#126) —
+    /// headless の `syn.project.import_smf`/`export_smf` op 面は
+    /// `available`。OS backend は ruviform `ruviform-midi-device`
+    /// (ruviform#253) の OS 別状態を正直に投影する: Windows は
+    /// `WinMM` backend 実装済みだが実 port 検証は外部 gate
+    /// (`not_run`)、macOS/Linux は backend 未実装で
+    /// `unsupported`。SMPTE division と Format 2 は synvelis#129、
+    /// MIDI 2.0 は synvelis#130/ruviform#317 で deferred。
+    /// clip→MIDI は clip→plan→wire event の compile まで headless;
+    /// instrument node への配送 seam は別 gate。
+    fn midi_capabilities() -> Value {
+        json!({
+            "smf": {
+                "state": "available",
+                "ops": ["syn.project.import_smf", "syn.project.export_smf"],
+                "formats": ["format0", "format1"],
+                "division": "ppqn 1..=32767",
+            },
+            "backend": {
+                "windows": {
+                    "state": "implemented",
+                    "backend": "winmm",
+                    "real_port": "not_run",
+                    "reason": "ruviform-midi-device (ruviform#253); real-port verification is an external gate",
+                },
+                "macos": {
+                    "state": "unsupported",
+                    "reason": "no OS backend implemented (ruviform#253)",
+                },
+                "linux": {
+                    "state": "unsupported",
+                    "reason": "no OS backend implemented (ruviform#253)",
+                },
+            },
+            "unsupported": [
+                { "feature": "smpte_division", "state": "unsupported", "reason": "deferred to synvelis#129" },
+                { "feature": "smf_format2", "state": "unsupported", "reason": "deferred to synvelis#129" },
+                { "feature": "midi2", "state": "unsupported", "reason": "future — synvelis#130 / ruviform#317" },
+            ],
+            "player_clip": {
+                "state": "partial",
+                "note": "midi-source clips compile to engine-frame MIDI event plans headless; instrument-node delivery seam is a separate gate",
+            },
+        })
+    }
+
     /// Capability report for `syn.app.capabilities` — every
     /// not-yet-wired area is listed `unavailable` with a reason, never
     /// silently omitted.
@@ -1474,6 +1645,7 @@ impl SynvelisApp {
             },
             "plugins": { "state": "unavailable", "reason": "not wired in SV-GUI-01" },
             "ai": { "state": "unavailable", "reason": "out of scope" },
+            "midi": Self::midi_capabilities(),
         })
     }
 
@@ -1503,6 +1675,102 @@ fn ppqn_param(params: &Value, key: &str) -> Result<u32, ErrorBody> {
         .and_then(Value::as_u64)
         .ok_or_else(|| invalid_params(format!("params.{key} (u64) required")))?;
     u32::try_from(value).map_err(|_| invalid_params(format!("params.{key} exceeds u32 range")))
+}
+
+/// Required string param — same wire contract the service-level
+/// `string_param` enforces for ops dispatched inline there.
+fn string_param<'a>(params: &'a Value, key: &str) -> Result<&'a str, ErrorBody> {
+    params
+        .get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid_params(format!("params.{key} (string) required")))
+}
+
+/// Optional `u64 → u32` param — absent or `null` means `None`;
+/// domain-range validation stays with the owning layer.
+fn optional_u32_param(params: &Value, key: &str) -> Result<Option<u32>, ErrorBody> {
+    match params.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(v) => v
+            .as_u64()
+            .and_then(|n| u32::try_from(n).ok())
+            .map(Some)
+            .ok_or_else(|| invalid_params(format!("params.{key} must be a u64 fitting u32"))),
+    }
+}
+
+/// The `expected_revision` CAS mutating ops share — absent/`null`
+/// means "current session revision" (no pin).
+fn expected_revision_param(
+    session: &ProjectSession,
+    params: &Value,
+) -> Result<ProjectRevision, ErrorBody> {
+    match params.get("expected_revision") {
+        None | Some(Value::Null) => Ok(session.revision()),
+        Some(v) => v
+            .as_u64()
+            .map(ProjectRevision)
+            .ok_or_else(|| invalid_params("params.expected_revision (u64) required")),
+    }
+}
+
+/// The app-layer mutation gate every project-mutating op shares —
+/// transport stopped, no open recording transaction, automation
+/// record disabled. The project layer never sees session state, so
+/// the precondition lives here; `what` names the attempted change
+/// in the rejection message.
+fn project_mutation_gate(session: &ProjectSession, what: &str) -> Result<(), ErrorBody> {
+    if session.transport().playing {
+        return Err(invalid_params(format!(
+            "transport is playing — stop transport before {what}"
+        )));
+    }
+    if session.control().recording().is_some() {
+        return Err(invalid_params(format!(
+            "recording transaction open — commit or abort it before {what}"
+        )));
+    }
+    if session.control().record_enabled() {
+        return Err(invalid_params(format!(
+            "automation record is enabled — disable it before {what}"
+        )));
+    }
+    Ok(())
+}
+
+/// Maps an [`SmfError`] onto a wire [`ErrorBody`] — the typed kind
+/// rides in `details.smf_error` so headless callers branch on
+/// structure, not on message text.
+fn smf_error_body(error: &SmfError) -> ErrorBody {
+    let (kind, offset, detail) = match error {
+        SmfError::Malformed { offset, detail } => ("malformed", Some(*offset), detail.clone()),
+        SmfError::Unsupported { detail } => ("unsupported", None, detail.clone()),
+        SmfError::Overflow { detail } => ("overflow", None, detail.clone()),
+        SmfError::NotFound(what) => ("not_found", None, what.clone()),
+    };
+    let mut body = invalid_params(error.to_string());
+    body.details = Some(json!({
+        "smf_error": { "kind": kind, "offset": offset, "detail": detail },
+    }));
+    body
+}
+
+/// Maps an SMF file IO failure onto a wire [`ErrorBody`] — file
+/// boundary failures are `service_error` with the io `kind` in
+/// `details`, distinct from SMF-domain rejections.
+fn smf_io_body(action: &str, path: &str, error: &std::io::Error) -> ErrorBody {
+    let mut body = ErrorBody::new(
+        codes::SERVICE_ERROR,
+        format!("smf {action} {path:?} failed: {error}"),
+    );
+    body.details = Some(json!({
+        "io_error": {
+            "action": action,
+            "path": path,
+            "kind": format!("{:?}", error.kind()),
+        },
+    }));
+    body
 }
 
 /// Maps the wire `policy`/`rounding` strings onto

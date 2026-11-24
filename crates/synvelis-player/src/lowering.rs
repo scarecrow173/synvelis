@@ -22,8 +22,8 @@
 
 use synvelis_project::{
     Clip, ClipId, CompId, CompRegionId, CompTransitionId, EffectiveTransition, FadeShape,
-    PlaybackMapping, Project, ProjectRange, ProjectTime, SourceBinding, SourceId, TakeGroupId,
-    TickTimeMapping, project_comp,
+    MidiCompRegionId, MidiPhraseRegion, MidiRange, MidiTick, PlaybackMapping, Project,
+    ProjectRange, ProjectTime, SourceBinding, SourceId, TakeGroupId, TickTimeMapping, project_comp,
 };
 
 use ruviform_audio_core::AudioFormat;
@@ -318,6 +318,17 @@ pub enum SkippedPlayback {
         side: OverlapSide,
         /// Why it could not be lowered.
         reason: CompSkipReason,
+    },
+    /// The clip reads a `MidiSource` — the audio graph has no MIDI
+    /// port domain, so it produces no playback node. The MIDI pass
+    /// ([`plan_midi_clips`]) plans it separately; reporting it here
+    /// keeps the skip explicit rather than masquerading as a missing
+    /// audio source.
+    MidiClip {
+        /// The clip.
+        clip_id: ClipId,
+        /// The MIDI source the clip reads.
+        source_id: SourceId,
     },
 }
 
@@ -878,19 +889,7 @@ pub fn plan_playbacks(
     // Active comps supersede raw clips inside their target range on the
     // owner lane — collect the zones up front so the clip pass can mark
     // superseded clips explicitly.
-    let mut zones = Vec::new();
-    for (group_id, group) in &env.project.comp.take_groups {
-        let Some(comp_id) = group.active_comp_id else {
-            continue;
-        };
-        zones.push(CompZone {
-            group_id: *group_id,
-            comp_id,
-            lane_id: group.owner_lane_id,
-            source_rate: group.source_rate,
-            span: range_span(&group.target_range, tempo.as_ref(), env.engine.sample_rate),
-        });
-    }
+    let zones = comp_zones(env.project, tempo.as_ref(), env.engine);
 
     let mut plans = Vec::new();
     let mut skipped = Vec::new();
@@ -926,17 +925,21 @@ fn plan_clip(
     // A clip inside an active comp's target span is superseded —
     // the adopted regions own that span, so the clip neither plays
     // nor is health-checked.
-    if let Ok(span) = clip.placement.resolve_span(tempo, env.engine.sample_rate) {
-        let (clip_start, clip_end) = (span.start().value(), span.end().value());
-        if let Some(zone) = zones.iter().find(|z| {
-            z.lane_id == clip.lane_id && z.span.is_some_and(|(s, e)| clip_start < e && s < clip_end)
-        }) {
-            skipped.push(SkippedPlayback::SupersededByComp {
-                clip_id: clip.id,
-                take_group_id: zone.group_id,
-            });
-            return;
-        }
+    if let Some(zone) = superseding_zone(clip, zones, tempo, env.engine.sample_rate) {
+        skipped.push(SkippedPlayback::SupersededByComp {
+            clip_id: clip.id,
+            take_group_id: zone.group_id,
+        });
+        return;
+    }
+    // A MIDI-source clip produces no audio playback node — the MIDI
+    // pass (`plan_midi_clips`) plans it; here it is an explicit skip.
+    if env.project.midi_sources.contains_key(&clip.source_id) {
+        skipped.push(SkippedPlayback::MidiClip {
+            clip_id: clip.id,
+            source_id: clip.source_id,
+        });
+        return;
     }
     let Some(canonical) = playable_clip(env, clip, skipped) else {
         return;
@@ -1016,4 +1019,157 @@ fn playable_clip(
         return None;
     }
     Some(canonical)
+}
+
+/// Active comps supersede raw clips inside their target range on the
+/// owner lane — the zones the audio and MIDI clip passes share.
+fn comp_zones(
+    project: &Project,
+    tempo: Option<&TickTimeMapping>,
+    engine: &EngineConfig,
+) -> Vec<CompZone> {
+    let mut zones = Vec::new();
+    for (group_id, group) in &project.comp.take_groups {
+        let Some(comp_id) = group.active_comp_id else {
+            continue;
+        };
+        zones.push(CompZone {
+            group_id: *group_id,
+            comp_id,
+            lane_id: group.owner_lane_id,
+            source_rate: group.source_rate,
+            span: range_span(&group.target_range, tempo, engine.sample_rate),
+        });
+    }
+    zones
+}
+
+/// The active comp zone superseding `clip`, when one owns its span —
+/// the adopted regions own that span, so the clip neither plays nor
+/// is health-checked.
+fn superseding_zone<'z>(
+    clip: &Clip,
+    zones: &'z [CompZone],
+    tempo: Option<&TickTimeMapping>,
+    rate: u32,
+) -> Option<&'z CompZone> {
+    let span = clip.placement.resolve_span(tempo, rate).ok()?;
+    let (clip_start, clip_end) = (span.start().value(), span.end().value());
+    zones.iter().find(|z| {
+        z.lane_id == clip.lane_id && z.span.is_some_and(|(s, e)| clip_start < e && s < clip_end)
+    })
+}
+
+/// A MIDI-source clip resolved to the phrase region
+/// `compile_midi_comp` consumes — the project-musical placement
+/// paired with the source-native tick window the clip reads (TIM-02,
+/// synvelis#126).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MidiClipPlan {
+    /// The clip this region was lowered from — also the region's
+    /// identity, so plan events trace back to their clip.
+    pub clip_id: ClipId,
+    /// The phrase region handed to the MIDI comp oracle.
+    pub region: MidiPhraseRegion,
+}
+
+/// Resolves `midi_sources`-backed clips into per-clip
+/// [`MidiPhraseRegion`]s — the *what plays* authority for the MIDI
+/// path (TIM-02, synvelis#126).
+///
+/// The audio graph has no MIDI port domain, so a MIDI-source clip
+/// never lowers to a playback node: [`plan_playbacks`] reports it as
+/// [`SkippedPlayback::MidiClip`] and this pass lowers it to a region
+/// instead. Region identity reuses the clip id (`MidiCompRegionId`),
+/// keeping plan events traceable to their clip; ordering and
+/// per-source window invariants are the comp oracle's contract —
+/// this pass only supplies honest inputs.
+///
+/// Skips are explicit: muted, superseded-by-comp,
+/// unsupported-mapping and unresolvable-anchor clips each land in
+/// `skipped` with a reason. Clips on non-MIDI sources are not this
+/// pass's domain — they produce no entry at all.
+#[must_use]
+pub fn plan_midi_clips(
+    project: &Project,
+    engine: &EngineConfig,
+) -> (Vec<MidiClipPlan>, Vec<SkippedPlayback>) {
+    let tempo = TickTimeMapping::new(&project.tempo_map).ok();
+    let zones = comp_zones(project, tempo.as_ref(), engine);
+    let mut plans = Vec::new();
+    let mut skipped = Vec::new();
+    for clip in project.clips.values() {
+        if project.midi_sources.contains_key(&clip.source_id) {
+            plan_midi_clip(
+                clip,
+                &zones,
+                tempo.as_ref(),
+                engine,
+                &mut plans,
+                &mut skipped,
+            );
+        }
+    }
+    (plans, skipped)
+}
+
+/// Plans one MIDI-source clip into a [`MidiClipPlan`] or an explicit
+/// skip — the same muted/superseded gates as [`plan_clip`], then the
+/// musical resolution the phrase pairing needs.
+fn plan_midi_clip(
+    clip: &Clip,
+    zones: &[CompZone],
+    tempo: Option<&TickTimeMapping>,
+    engine: &EngineConfig,
+    plans: &mut Vec<MidiClipPlan>,
+    skipped: &mut Vec<SkippedPlayback>,
+) {
+    if clip.muted {
+        skipped.push(SkippedPlayback::Muted { clip_id: clip.id });
+        return;
+    }
+    if let Some(zone) = superseding_zone(clip, zones, tempo, engine.sample_rate) {
+        skipped.push(SkippedPlayback::SupersededByComp {
+            clip_id: clip.id,
+            take_group_id: zone.group_id,
+        });
+        return;
+    }
+    // The phrase↔project pairing is natural 1:1 — loop/stretch
+    // mappings are the comp oracle's rejection, not an implicit
+    // rewrite here.
+    if !matches!(clip.playback.mapping, PlaybackMapping::Natural) {
+        skipped.push(SkippedPlayback::UnsupportedMapping { clip_id: clip.id });
+        return;
+    }
+    let Some(map) = tempo else {
+        skipped.push(SkippedPlayback::UnresolvableAnchor { clip_id: clip.id });
+        return;
+    };
+    let Ok(project_range) = clip
+        .placement
+        .resolve_musical_range(map, engine.sample_rate)
+    else {
+        skipped.push(SkippedPlayback::UnresolvableAnchor { clip_id: clip.id });
+        return;
+    };
+    // For a MIDI source the `source_region` units are source-native
+    // ticks — `MidiSource::division` declares the resolution.
+    let Some(phrase) = MidiTick::new(clip.playback.source_region.start().value())
+        .ok()
+        .zip(MidiTick::new(clip.playback.source_region.end().value()).ok())
+        .and_then(|(start, end)| MidiRange::try_new(start, end).ok())
+    else {
+        skipped.push(SkippedPlayback::UnresolvableAnchor { clip_id: clip.id });
+        return;
+    };
+    plans.push(MidiClipPlan {
+        clip_id: clip.id,
+        region: MidiPhraseRegion {
+            id: MidiCompRegionId::new(clip.id.raw()),
+            source_id: clip.source_id,
+            phrase,
+            project_range,
+        },
+    });
 }
