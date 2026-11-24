@@ -214,7 +214,9 @@ fn run(
     })?;
     // Every skip is explicit: `Muted`, `CompSilence` and
     // `SupersededByComp` are intentional silence — anything else is a
-    // refused render, never a silent drop.
+    // refused render, never a silent drop. `MidiClip` refuses too:
+    // a MIDI clip is content the audio render cannot produce —
+    // dropping it silently would masquerade as an empty render.
     for skipped in &lowered.skipped {
         match skipped {
             SkippedPlayback::Muted { .. }
@@ -223,6 +225,7 @@ fn run(
             SkippedPlayback::RateMismatch { clip_id, .. }
             | SkippedPlayback::UnresolvableAnchor { clip_id }
             | SkippedPlayback::MissingSource { clip_id, .. }
+            | SkippedPlayback::MidiClip { clip_id, .. }
             | SkippedPlayback::UnsupportedMapping { clip_id } => {
                 return Err(failed(
                     ExportStage::Preflight,
