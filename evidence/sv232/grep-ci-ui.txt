@@ -1,0 +1,42 @@
+.github/workflows/ci.yml:300:  # track。verify/gw10-verify/ui-verify の macos leg を required
+.github/workflows/ci.yml:853:  # Issue #151: ui/ frontend lane。check-ui/test-ui/build-ui を 3 OS で
+.github/workflows/ci.yml:854:  # 実行し、ui/ の破壊が未検出で merge される SV-GUI-02 型の gap を閉じる。
+.github/workflows/ci.yml:857:  # パターンに倣い install-ui へ集約し、setup-ui で lane 内一度だけ実行する。
+.github/workflows/ci.yml:858:  ui-verify:
+.github/workflows/ci.yml:859:    name: ui-verify (${{ matrix.os }})
+.github/workflows/ci.yml:866:      # ui-verify-macos job へ分離。
+.github/workflows/ci.yml:871:      # この lane だけ node を有効化する(ui/ npm 依存)。workflow 既定の
+.github/workflows/ci.yml:907:      # sync-ui-deps は ~/.cargo/git/checkouts の ruviform checkout を
+.github/workflows/ci.yml:913:      - name: Sync vendored ruviform ui/* (mise run sync-ui-deps)
+.github/workflows/ci.yml:915:        run: mise run sync-ui-deps
+.github/workflows/ci.yml:917:      # npm ci は install-ui freshness task 経由で job 内一度だけ
+.github/workflows/ci.yml:918:      # (ruviform #330)。後続 task の depends: install-ui は skip される。
+.github/workflows/ci.yml:923:      - name: Type-check UI (mise run check-ui)
+.github/workflows/ci.yml:925:        run: mise run check-ui
+.github/workflows/ci.yml:927:      - name: Test UI (mise run test-ui)
+.github/workflows/ci.yml:929:        run: mise run test-ui
+.github/workflows/ci.yml:931:      - name: Build UI bundle (mise run build-ui)
+.github/workflows/ci.yml:933:        run: mise run build-ui
+.github/workflows/ci.yml:940:            echo "## ui-verify (${{ matrix.os }}) — run ${{ github.run_id }}#${{ github.run_attempt }}"
+.github/workflows/ci.yml:948:            echo "| sync-ui-deps | ${{ steps.sync.outcome || 'not run' }} |"
+.github/workflows/ci.yml:950:            echo "| check-ui | ${{ steps.check.outcome || 'not run' }} |"
+.github/workflows/ci.yml:951:            echo "| test-ui | ${{ steps.test.outcome || 'not run' }} |"
+.github/workflows/ci.yml:952:            echo "| build-ui | ${{ steps.build.outcome || 'not run' }} |"
+.github/workflows/ci.yml:964:  # Issue #157 rev.2: ui-verify の macOS non-blocking track
+.github/workflows/ci.yml:966:  ui-verify-macos:
+.github/workflows/ci.yml:967:    name: ui-verify-macos
+.github/workflows/ci.yml:1010:      - name: Sync vendored ruviform ui/* (mise run sync-ui-deps)
+.github/workflows/ci.yml:1012:        run: mise run sync-ui-deps
+.github/workflows/ci.yml:1018:      - name: Type-check UI (mise run check-ui)
+.github/workflows/ci.yml:1020:        run: mise run check-ui
+.github/workflows/ci.yml:1022:      - name: Test UI (mise run test-ui)
+.github/workflows/ci.yml:1024:        run: mise run test-ui
+.github/workflows/ci.yml:1026:      - name: Build UI bundle (mise run build-ui)
+.github/workflows/ci.yml:1028:        run: mise run build-ui
+.github/workflows/ci.yml:1035:            echo "## ui-verify-macos — run ${{ github.run_id }}#${{ github.run_attempt }} (non-blocking observed leg)"
+.github/workflows/ci.yml:1043:            echo "| sync-ui-deps | ${{ steps.sync.outcome || 'not run' }} |"
+.github/workflows/ci.yml:1045:            echo "| check-ui | ${{ steps.check.outcome || 'not run' }} |"
+.github/workflows/ci.yml:1046:            echo "| test-ui | ${{ steps.test.outcome || 'not run' }} |"
+.github/workflows/ci.yml:1047:            echo "| build-ui | ${{ steps.build.outcome || 'not run' }} |"
+.github/workflows/ci.yml:1164:    needs: [verify, rt-verify, gw10-verify, msrv-verify, ui-verify, dep-guard]
+.github/workflows/ci.yml:1242:    needs: [verify, verify-macos, rt-verify, gw10-verify, gw10-verify-macos, msrv-verify, ui-verify, ui-verify-macos, dep-guard, evidence]
