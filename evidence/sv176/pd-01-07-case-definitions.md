@@ -15,12 +15,13 @@ Matrix (OS/backend × plugin format × L0/L1 × Plugin UI Toolkit/Version
 anchor: `docs/specs/sv-gpui-02-plugin-dock-gate.md`.
 
 Ruviform vocabulary source: `ruviform-ui-test` at Cargo.lock resolved
-rev `ac10a2f7761c08db73aebd861c0a5c1f53f269b7` — exports
+rev `20dc41f71c47674b3e51d1eb0921124b94f8bfaf` (frozen at `ac10a2f7`
+before the S0 pin bump) — exports
 `PLUGIN_DOCK_SCENARIO` (`"rf631.plugin-dock"`), `PLUGIN_DOCK_SLOT_KEY`
 (`"plugin.editor"`), `PluginArtifactEvidence`, `plugin_dock_view_spec`,
-`plugin_dock_spec`. The `rf631.plugin-dock` 8-case vocabulary itself is
+`plugin_dock_spec`. The `rf631.plugin-dock` case vocabulary itself is
 defined in `ruviform-plugin-dock-test` (upstream; synvelis references it
-only, it is not a dependency).
+only, it is not a dependency) — 9 cells at pin `20dc41f7`.
 
 ## Evidence schema (frozen)
 
@@ -60,7 +61,8 @@ NotApplicable and are never demanded uniformly (Issue #176 AC
 
 ## `rf631.plugin-dock` shared vocabulary and synvelis runnability
 
-The 8 upstream cases are the shared vocabulary PD evidence rows
+The 9 upstream cases (`HEADLESS_MATRIX` at pin `20dc41f7`) are the
+shared vocabulary PD evidence rows
 reference. Synvelis-side runnability after the S1 headless-probe slice
 (2026-11-25, pin `20dc41f7`): `synvelis-app` dev-deps now include
 `ruviform-plugin-dock-test` + the ruviform#630 test-plugin crates, so
@@ -72,6 +74,7 @@ pin `ac10a2f7`, no new dependencies — the probe cases were
 | rf631 case | Driver (upstream) | synvelis runnability / recorded verdict |
 | --- | --- | --- |
 | `view-mount` | `Fake` | **Runnable headless** — `plugin_dock_view_spec()` mounts on `FakeGuiTest`/`GpuiGuiTest` via the production composition shape; contract conformance only (see `pd-headless-contract.md`). Re-recorded `Pass` in the S1 `run_all` document |
+| `command-receipt` | `Fake` | `Pass` (S1) — Fake driver; applied + rejected command receipts minted and settled through `post_event`, recorded on the report. Semantic contract conformance, not dock evidence |
 | `artifact` | `PluginHostProbe` | `Pass` (S1) — real VST3 `test_gain` cdylib resolved + sha256/descriptor recorded in `plugin_artifact` |
 | `host-lifecycle` | `PluginHostProbe` | `Pass` (S1) — Scan→Instantiate→Initialize→Activate→Destroy on the real binary |
 | `editor-attach` | `PluginHostProbe` | `Unsupported` — `createView` returns null (test_gain ships no editor surface); observed live in the S1 run, recorded as technical non-support, not environment absence |
