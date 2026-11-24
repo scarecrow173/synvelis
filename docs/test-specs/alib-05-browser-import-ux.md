@@ -402,20 +402,29 @@ mount 経路がそのまま載せられる」ことを検証する。
 - `uitest_adapter_pushes_refreshed_library_spec`（`uitest`
   feature gate）— uitest adapter が dirty mark→spec 再読み→
   `update_view` push を run loop と同じ意味論で行う。
+- `library_command_intent_decodes_and_routes_to_library_
+  action` — mounted control 発行の `rvf.ui.command.v1`
+  action intent（`synvelis.library` target + params）が
+  decode admission を通り、Button params verbatim /
+  entries table `select{row}`→`entry.select{locator}` で
+  `syn.library.action` に到達して typed state を動かす。
+- `library_command_intent_rejects_params_on_non_admitted_
+  target` — 非 admission target の params 付き action は
+  decode で `invalid_params` reject（admission の狭さ
+  pin）。
 
 ### Non-goals（mount lane・deferred 継続）
 
 - 実 OS window/GPU/IME/focus/keyboard — synvelis#114（実 OS
   受入 lane）に deferred のまま。
-- `binding.rs::decode_view_command` の params admission —
-  mounted spec control が発行する `synvelis.library` action
-  intent は params 付きで decode 時に reject される
-  （target は `view`/`autx.*` のみ admission）。shell 側
-  routing は実装済みで、admission 拡張は binding.rs（本
-  slice のリース外）への最小変更として Coordinator に
-  相談中 — 承認なら別 commit で反映、却下なら mounted
-  control のコマンド経路を deferred として正直記録する。
-  op 駆動の headless 検証はこの制約に依存しない。
+- ~~`binding.rs::decode_view_command` の params
+  admission~~ — **2026-11-24 解消**: Coordinator 承認の
+  lease 拡張で `synvelis.library` を admission に追加
+  （`LIBRARY_TARGET` const を binding.rs に集約・doc
+  comment 更新）。mounted spec control の
+  `rvf.ui.command.v1` action intent は decode を通り
+  `syn.library.action` へ到達する（Examples の wire
+  command 2 test で固定）。
 - `syn.library.jobs`・`import.cancel` action・
   `CallOutcome::Job` 化 — 上記 Non-goals の通り別 slice。
 - Git/network/credential provider の mount — #90/#91 領域。

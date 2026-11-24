@@ -493,6 +493,215 @@ fn native_shell_attaches_marks_dirty_and_re_reads_library_spec() {
 }
 
 // ---------------------------------------------------------------------------
+// rvf.ui.command.v1 → synvelis.library admission + routing
+// ---------------------------------------------------------------------------
+
+/// Every mounted Asset Library control fires `rvf.ui.command.v1`
+/// action intents carrying `params` — Buttons their declared payload,
+/// the entries table `select{row}`. `decode_view_command`'s params
+/// admission covers `synvelis.library`, so the command survives decode
+/// and the shell routes it to `syn.library.action` — Button params
+/// verbatim, the table row resolved to `entry.select{locator}`. A
+/// params-carrying intent for any other non-view target still dies at
+/// decode — the admission is narrow.
+#[test]
+fn library_command_intent_decodes_and_routes_to_library_action() {
+    let (mut app, lib_root, _proj) =
+        app_with_local_provider("wire", &[("a.wav", b"aaaa"), ("b.wav", b"bbbb")]);
+    let view = open_view(&mut app);
+    let (mut shell, mut driver) = shell_harness(app);
+    let w1 = ready_window(&mut shell, &mut driver);
+    let w2 = second_window(&mut shell, &mut driver);
+    shell
+        .attach_view(&mut driver, w2, &view, &[])
+        .expect("attach library view");
+
+    // Materialize the entries the table select resolves against —
+    // the same op the existing tests drive.
+    for (id, params) in [
+        (
+            "provider-select",
+            json!({ "view_id": view, "action": "provider.select", "provider": PROVIDER_TAG }),
+        ),
+        (
+            "browse-refresh",
+            json!({ "view_id": view, "action": "browse.refresh" }),
+        ),
+    ] {
+        let (ok, _) = dispatch_op(
+            &mut shell,
+            &mut driver,
+            w1,
+            id,
+            "syn.library.action",
+            params,
+        );
+        assert!(ok);
+    }
+    let _ = shell.take_library_dirty();
+
+    // The entries table's own wire vocabulary, verbatim — row 0's
+    // locator is whatever the real provider listing produced.
+    let v = proj_shell(&mut shell, &mut driver, w1, &view);
+    let first_locator = v["state"]["entries"][0]["locator"]
+        .as_str()
+        .expect("entry locator")
+        .to_string();
+
+    // A mounted Button intent — `synvelis.library` target + params —
+    // decodes (admission) and routes to `syn.library.action`.
+    send_intent(
+        &mut shell,
+        &mut driver,
+        w2,
+        library_intent(
+            &view,
+            "lib-btn",
+            "library.detail.pin.button",
+            "entry.pin",
+            &json!({ "locator": first_locator }),
+        ),
+    );
+    assert!(
+        result_ok(&driver, w2, "lib-btn"),
+        "mounted Button command must settle ok"
+    );
+    let v = proj_shell(&mut shell, &mut driver, w1, &view);
+    assert_eq!(v["state"]["pin"]["state"], "pinned");
+
+    // The entries table fires `select{row}` — the shell resolves it to
+    // `entry.select{locator}` against the live spec.
+    send_intent(
+        &mut shell,
+        &mut driver,
+        w2,
+        library_intent(
+            &view,
+            "lib-row",
+            "library.entries",
+            "select",
+            &json!({ "row": 0 }),
+        ),
+    );
+    assert!(
+        result_ok(&driver, w2, "lib-row"),
+        "entries select must resolve row→locator and settle ok"
+    );
+    let v = proj_shell(&mut shell, &mut driver, w1, &view);
+    assert_eq!(v["state"]["selected_locator"], first_locator);
+    assert!(
+        shell.take_library_dirty(),
+        "routed library action must mark dirty"
+    );
+    let _ = std::fs::remove_dir_all(lib_root.parent().unwrap());
+}
+
+/// The admission stays narrow — a params-carrying action intent for a
+/// target the decoder does not admit still dies at decode with
+/// `invalid_params`, never reaching a domain op.
+#[test]
+fn library_command_intent_rejects_params_on_non_admitted_target() {
+    let (mut app, lib_root, _proj) = app_with_local_provider("reject", &[]);
+    let view = open_view(&mut app);
+    let (mut shell, mut driver) = shell_harness(app);
+    let _w1 = ready_window(&mut shell, &mut driver);
+    let w2 = second_window(&mut shell, &mut driver);
+    shell
+        .attach_view(&mut driver, w2, &view, &[])
+        .expect("attach library view");
+
+    send_intent(
+        &mut shell,
+        &mut driver,
+        w2,
+        Intent::new(
+            "lib-bogus",
+            "rvf.ui.command.v1",
+            json!({
+                "command_id": "lib-bogus",
+                "expect_receipt": true,
+                "intent": {
+                    "kind": "action",
+                    "target": "synvelis.unknown",
+                    "control_id": "x",
+                    "sequence": 1,
+                    "origin_view": view,
+                    "action": "entry.pin",
+                    "params": { "locator": "a.wav" },
+                },
+            }),
+        ),
+    );
+    assert!(
+        !result_ok(&driver, w2, "lib-bogus"),
+        "params on a non-admitted target must reject"
+    );
+    let _ = std::fs::remove_dir_all(lib_root.parent().unwrap());
+}
+
+/// Builds one `rvf.ui.command.v1` action intent the way a mounted
+/// library control emits it — `synvelis.library` target, the control
+/// key, the declared action and params.
+fn library_intent(
+    view: &str,
+    command_id: &str,
+    control_id: &str,
+    action: &str,
+    params: &Value,
+) -> Intent {
+    Intent::new(
+        command_id,
+        "rvf.ui.command.v1",
+        json!({
+            "command_id": command_id,
+            "expect_receipt": true,
+            "intent": {
+                "kind": "action",
+                "target": "synvelis.library",
+                "control_id": control_id,
+                "sequence": 1,
+                "origin_view": view,
+                "action": action,
+                "params": params,
+            },
+        }),
+    )
+}
+
+/// `syn.library.view` on `window` and unwrap its `(ok, data)` — the
+/// shell-internal `proj` helper reaches the same op the wire serves.
+fn proj_shell(
+    shell: &mut NativeShell,
+    driver: &mut FakeDriver,
+    window: WindowId,
+    view: &str,
+) -> Value {
+    let (ok, data) = dispatch_op(
+        shell,
+        driver,
+        window,
+        "proj",
+        "syn.library.view",
+        json!({ "view_id": view }),
+    );
+    assert!(ok, "syn.library.view must answer");
+    data.expect("view data")
+}
+
+/// The last `Result` the driver recorded on `window` for `id`.
+fn result_ok(driver: &FakeDriver, window: WindowId, id: &str) -> bool {
+    driver
+        .events_for(window)
+        .iter()
+        .filter_map(|e| match e {
+            Event::Result { id: rid, ok, .. } if rid == id => Some(*ok),
+            _ => None,
+        })
+        .next_back()
+        .unwrap_or_else(|| panic!("no result for {id}"))
+}
+
+// ---------------------------------------------------------------------------
 // uitest adapter — the run loop's mount/push semantics on the seam
 // ---------------------------------------------------------------------------
 

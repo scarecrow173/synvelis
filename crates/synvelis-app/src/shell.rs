@@ -80,7 +80,7 @@ use ruviform_ui::{DataRegistry, UiError, UiRuntime};
 
 use crate::app::SynvelisApp;
 use crate::binding::{
-    COMMAND_INTENT_OP, PROJECT_TARGET, VIEW_STATE_TARGET, decode_view_command,
+    COMMAND_INTENT_OP, LIBRARY_TARGET, PROJECT_TARGET, VIEW_STATE_TARGET, decode_view_command,
     notify_to_view_event, project_action_op, view_command_dispatch,
 };
 use crate::service::AppService;
@@ -91,12 +91,6 @@ use synvelis_workspace::controls_ui::CommandIntent;
 fn parse_window_id_str(s: &str) -> Option<WindowId> {
     WindowId::new(s.strip_prefix('w')?.parse().ok()?)
 }
-
-/// Logical target of mounted Asset Library controls — the
-/// `synvelis.library` Buttons and table selection a `syn.library.view`
-/// spec carries. Not a control target: the shell routes these to
-/// `syn.library.action` like `project` routes to its service ops.
-const LIBRARY_TARGET: &str = "synvelis.library";
 
 /// A `syn.view.*` intent the shell is watching so it can reconcile
 /// `view → window` when the result lands.

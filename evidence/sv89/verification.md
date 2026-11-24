@@ -174,22 +174,21 @@ push。HEADLESS ONLY — 実 OS window/GUI（#114）は対象外。
   ファイルを含む）で rustfmt 準拠を確認済み。
 - 実 OS window/GPU/IME/focus/keyboard の受入 — synvelis#114
   deferred（headless 検証のみ）。
-- `synvelis.library` mounted control のコマンド経路 —
-  `binding.rs::decode_view_command` が params 付き Action
-  intent を `view`/`autx.*` 以外で reject するため、spec
-  control 発行の action は decode 段で落ちる（shell routing
-  は実装済み・op 駆動検証は green）。admission 拡張は
-  binding.rs（本 slice リース外）への最小変更として
-  Coordinator に相談中 — 結果は PR・ledger に反映。
 
 ### Known limitation（本 slice・正直記録）
 
-- 上記 NotRun と同じ binding admission 制約 — mounted
-  spec control（Button/TableSelection）からの
-  `synvelis.library` action intent は `binding.rs` の現行
-  admission では decode 時に `invalid_params` reject。
-  ライブラリ操作は op surface（`syn.library.action` 直接
-  dispatch）経路では完全に機能する。
+- ~~binding admission 制約~~ **2026-11-24 解消**:
+  `binding.rs::decode_view_command` の params admission に
+  `synvelis.library` を追加済み（Coordinator 承認・lease
+  拡張 — `LIBRARY_TARGET` const を binding.rs に集約し
+  shell.rs は import 側）。mounted spec control のコマンド
+  経路は `library_command_intent_decodes_and_routes_to_
+  library_action`（Button params verbatim・entries table
+  `select{row}`→`entry.select{locator}`・dirty mark）と
+  `library_command_intent_rejects_params_on_non_admitted_
+  target`（admission の狭さ pin）で `rvf.ui.command.v1`
+  wire から end-to-end 検証済み（check/lint/test
+  synvelis-app・uitest 3 lane 再検証 green）。
 - `SYNVELIS_LIBRARY_DIR`/`SYNVELIS_PROJECT_DIR`/
   `SYNVELIS_ASSET_LIBRARY` は dev 向け env gate —
   未設定時は backend unbound のまま typed `unavailable`

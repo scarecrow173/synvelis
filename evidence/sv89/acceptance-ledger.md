@@ -185,19 +185,16 @@ headless 検証の Pass を実 GUI 受入（#114）に昇格しない。
 | project authority 非汚染 | mount/close/browse/pin/preview は revision・engine・transport・project name を汚さない | `mount_lifecycle_and_browse_ops_leave_project_authority_untouched` | Pass-measured (headless) |
 | unbound fail-closed | env 未設定/不正 dir で backend unbound のまま typed `unavailable`・session を殺さない | `unbound_backend_ops_answer_typed_unavailable`（`providers` 空 list・view/action `unavailable`・spec 再読み `None`） | Pass-measured (headless) |
 | shell lifecycle・refresh | attach→dock_domain 採用→`syn.library.*` dispatch で dirty mark→run loop が `syn.library.view` 再読み→spec 変更時のみ `update_view` push→destroy で pool | `native_shell_attaches_marks_dirty_and_re_reads_library_spec`（`NativeShell`+`FakeDriver`）・`uitest_adapter_pushes_refreshed_library_spec`（uitest gate・同一 semantics） | Pass-measured (headless)。実 OS window lifecycle は NotRun（#114） |
-| `synvelis.library` action routing | spec control の Button/TableSelection action を `syn.library.action` へ route・entries table `select{row}`→`entry.select{locator}` 解決 | `native_shell_attaches_marks_dirty_and_re_reads_library_spec`（routing arm・`dispatch_library_action`・`library_row_locator` の unit 観測）。**mounted control からの wire 到達は `binding.rs::decode_view_command` の params admission が `view`/`autx.*` のみのため現行 decode で reject — 別途記録** | **部分 Pass**: shell routing は実装・検証済みだが、binding admission（リース外・Coordinator 相談中）が未解決のため mounted control 発行 action は未到達。op 直接 dispatch 経路は全機能 green |
+| `synvelis.library` action routing | spec control の Button/TableSelection action を `syn.library.action` へ route・entries table `select{row}`→`entry.select{locator}` 解決・`rvf.ui.command.v1` wire decode admission | `library_command_intent_decodes_and_routes_to_library_action`（Button `entry.pin` params verbatim・entries `select{row}`→`entry.select{locator}`・Result ok・dirty mark）、`library_command_intent_rejects_params_on_non_admitted_target`（非 admission target の params は decode で `invalid_params` reject — admission の狭さ pin） | Pass-measured (headless)。`binding.rs::decode_view_command` の params admission は Coordinator 承認の lease 拡張で追加済み（2026-11-24） |
 
 ### 既知の未カバー（mount lane・正直記録）
 
-- `binding.rs::decode_view_command`（`binding.rs:974-982`）
-  は params 付き Action intent を `view`/`autx.*` 以外で
-  `invalid_params` reject — mounted Asset Library の全
-  spec control（Button は常に params、entries table は
-  `select{row}`）が decode で落ちる。admission 拡張は
-  binding.rs（本 slice リース外）への最小変更（target
-  admission + doc comment）として Coordinator に相談中。
-  承認なら別 commit で追加検証、却下なら deferred のまま
-  納品（op surface 経路はこの制約に依存しない）。
+- ~~`binding.rs` admission~~ — **2026-11-24 解消**:
+  `decode_view_command` の params admission に
+  `synvelis.library` を追加（Coordinator 承認・lease 拡張・
+  別 commit）。`LIBRARY_TARGET` は binding.rs に集約し
+  shell.rs は import 側。wire 経路は上記 2 test で
+  Pass-measured。
 - `mise run fmt`（`cargo fmt --all`）は `os error 206`
   （Windows コマンド長制限・workspace 全 member 単一
   rustfmt 呼出し）で実行不能 — 環境制約で base commit

@@ -19,6 +19,8 @@ relations:
       - type: "file"
         path: "crates/synvelis-app/src/bin/synvelis-native.rs"
       - type: "file"
+        path: "crates/synvelis-app/src/binding.rs"
+      - type: "file"
         path: "crates/synvelis-app/src/screens.rs"
       - type: "file"
         path: "crates/synvelis-app/src/shell.rs"
@@ -137,8 +139,18 @@ provider network/credential（#90/#91）・v5 実データ接合
     spec`/`mount` 経路は variant-diff と同型 — 保持 spec を
     そのまま返す。
 
+- `crates/synvelis-app/src/binding.rs`（lease 拡張・
+  Coordinator 承認）:
+  - `LIBRARY_TARGET = "synvelis.library"` pub const を
+    `VIEW_STATE_TARGET` と同じ責務の所在に追加。
+    `decode_view_command` の params admission に同 target
+    を加え、`action_params`・gate 行内の両 doc comment を
+    更新 — mounted spec control 発行の action intent が
+    decode で reject されなくなった。
+
 - `crates/synvelis-app/src/shell.rs`:
-  - `LIBRARY_TARGET = "synvelis.library"` const。
+  - `LIBRARY_TARGET` は binding.rs から import（admission
+    と routing が一つの定数を共有）。
     `on_view_command` で同 target の Action intent を
     `dispatch_library_action` へ route（autx 判定の直後）。
     params `{view_id, action, ...}` を `syn.library.action`
@@ -191,13 +203,20 @@ provider network/credential（#90/#91）・v5 実データ接合
   `select{row}` を `entry.select{locator}` へ変換する情報は
   wire spec 側の `library.entries` locator 列にあるため、
   再投影せず返却 spec を参照して解決する。
-- **`binding.rs` admission はリース外として STOP→ask**:
-  `decode_view_command`（`binding.rs:974-982`）が params
-  付き Action intent を `view`/`autx.*` 以外で reject
-  するため、mounted spec control 発行の `synvelis.library`
-  action は現行 decode で落ちる。admission 拡張は
-  `binding.rs` の最小変更（target admission + doc
-  comment）として Coordinator に相談（ask 保留中）。
+- **`binding.rs` admission は STOP→ask で承認取得・解消済み**:
+  `decode_view_command` が params 付き Action intent を
+  `view`/`autx.*` 以外で reject するため、mounted spec
+  control 発行の `synvelis.library` action が decode で
+  落ちることを発見し STOP→ask。Coordinator が lease に
+  `binding.rs` を追加して承認したため、`LIBRARY_TARGET`
+  const を binding.rs（`VIEW_STATE_TARGET` と同じ責務の
+  所在 — admission と routing が一つの定数を共有するため
+  shell.rs のローカル const は廃止・import 側に）へ置き、
+  admission 条件・`action_params` doc comment・gate の
+  行内 comment を同 target 込みで更新した。wire 経路は
+  `library_command_intent_decodes_and_routes_to_library_
+  action`/`library_command_intent_rejects_params_on_non_
+  admitted_target` の 2 test で固定。
 
 ## Validation
 
@@ -214,10 +233,6 @@ workspace 全 member 単一 rustfmt 呼出し）で環境的に実行
 
 ## Risks
 
-- `binding.rs` admission 未解決のまま着地すると mounted
-  Asset Library の全 spec control（Button/TableSelection）
-  が dead になる — op surface 経路は全機能するため slice
-  の受入は満たすが、UX 面のコマンド経路は follow-up 必須。
 - refresh は `syn.library.*` dispatch / library action の
   dirty mark 起点 — op 外経路（engine notify 等）で
   library model が変わる変更が将来入った場合、mark 網羅を
@@ -228,9 +243,6 @@ workspace 全 member 単一 rustfmt 呼出し）で環境的に実行
 
 ## Follow-ups
 
-- `binding.rs::decode_view_command` の `synvelis.library`
-  params admission 拡張（Coordinator 判断 — 承認なら別
-  commit で最小変更 + check/lint/test 再検証）。
 - `syn.library.jobs` / `import.cancel` action /
   `CallOutcome::Job` 化 — synvelis#126 TIM-02（service.rs/
   app.rs 占有）着地後の直列 slice 候補。
