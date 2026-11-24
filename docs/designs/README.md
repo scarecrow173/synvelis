@@ -296,3 +296,4 @@ Directory: `docs/designs`
 | DSGN-vcs05-apply-restore-headless | VCS-05 Apply/Restore headless — module 設計 | approved | [vcs-05-apply-restore-headless-design.md](./vcs-05-apply-restore-headless-design.md) |
 | DSGN-PCc4030bs3vN1pQ8wXyZ2aC | PC-C4-03 param observation design — drain surface・binding 逆引き・gate | approved | [pc-c4-03-param-observation-design.md](./pc-c4-03-param-observation-design.md) |
 | DESIGN-3kN7fR4hX1yZ7vD0oS8aLkQe | SV-GPUI-02 headless PluginDock panel 詳細設計 — 4-ID 所有・shared session registry・dock 2-phase 接続 | approved | [sv-gpui-02-plugin-dock-headless-panel-design.md](./sv-gpui-02-plugin-dock-headless-panel-design.md) |
+| DSN-alib07-webdav-docker-provider | ALIB-07 — WebDAV 実 provider 検証環境のイメージ選定と構成設計（synvelis#633） | approved | [alib-07-webdav-docker-provider.md](./alib-07-webdav-docker-provider.md) |
