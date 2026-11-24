@@ -1,0 +1,7 @@
+# certgen が生成する throwaway な CA・サーバ鍵・証明書・htpasswd。
+# 実値はコミットしない（detect-private-key 対象外にするため必須）。
+webdav/certs/
+
+# webdav-probe は独立 workspace（root Cargo.toml は触れない）。
+# lockfile は再現性のため追跡するのでここでは除外しない。
+/.verify-tmp/

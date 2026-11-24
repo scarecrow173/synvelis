@@ -1,0 +1,15 @@
+=== 4. webdav-probe（実 WebDavProvider） ===
+[probe] url=https://localhost:8443 root=/library ca=docker/webdav/certs/ca.crt
+[probe] capabilities: browse=Supported stat=Supported pin=ConditionalStrong range_read=Supported preview=Supported access=ReadOnly
+[probe] browse root: 2 entries coverage=Complete
+[probe]   Container nested (/library/nested)
+[probe]   Asset sample.txt (/library/sample.txt)
+[probe] stat /library/sample.txt: availability=Available byte_len=Observed { value: 214, origin: Provider, at: ObservedAt(SystemTime { intervals: 134400143222900278 }) }
+[probe] pin: validator="d6-66108c0e124a2" precondition=IfMatch expected_size=Some(214)
+[probe] open_pinned: 214 bytes read, verified=false policy=IdentityBound { scheme: "webdav-etag-if-match" }
+[probe] open_preview range 0..16: 16 bytes
+[probe] bad credential rejected: kind=AuthExpired
+[probe] foreign CA rejected: kind=TlsVerification
+PROBE PASS
+mbx[savings]: 493.7 GiB shared among checkouts that each believe they are an only child.
+=== 5. down ===

@@ -1,0 +1,10 @@
+=== 3. curl contract checks（補助証拠） ===
+[verify] PASS unauthenticated PROPFIND is 401 (401)
+[verify] PASS PROPFIND Depth:1 (207)
+[verify] PASS multistatus carries getetag
+[verify] GET ETag: "d6-66108c0e124a2"
+[verify] PASS strong ETag on GET
+[verify] PASS If-Match bogus validator (412)
+[verify] PASS If-Match pinned validator (200)
+[verify] PASS Range bytes=0-4 (206)
+=== 4. webdav-probe（実 WebDavProvider） ===

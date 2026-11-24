@@ -1,0 +1,43 @@
+# synvelis#633 — WebDAV 実 provider 検証環境（ローカル/opt-in lane）
+#
+# Apache httpd + mod_dav による TLS・Basic 認証付き WebDAV サーバ。
+# fault matrix（docs/test-specs/alib-07-fault-matrix.md）の
+# 「実 WebDAV server は NotRun」行を実走するための環境であり、
+# CI には組み込まない。手順と契約は docs/specs/alib-07-webdav-real-run.md、
+# 選定根拠は docs/designs/alib-07-webdav-docker-provider.md を参照。
+#
+# 使い方（repo ルートから。変数は docker/.env から読む）:
+#   cp docker/.env.example docker/.env   # 初回のみ
+#   docker compose -f docker-compose.webdav.yml --env-file docker/.env up -d --build
+#   docker compose -f docker-compose.webdav.yml --env-file docker/.env down
+# 一括実行は docker/verify.sh。
+
+name: synvelis-webdav
+
+services:
+  # 初回起動時に throwaway の私有 CA・サーバ証明書・htpasswd を
+  # docker/webdav/certs/（gitignored）へ生成して終了する。
+  certgen:
+    image: alpine/openssl:3.5.9
+    entrypoint: ["/bin/sh", "/certgen.sh"]
+    environment:
+      WEBDAV_USER: ${WEBDAV_USER:?docker/.env に WEBDAV_USER を設定してください（cp docker/.env.example docker/.env）}
+      WEBDAV_PASSWORD: ${WEBDAV_PASSWORD:?docker/.env に WEBDAV_PASSWORD を設定してください（cp docker/.env.example docker/.env）}
+    volumes:
+      - ./docker/webdav/certgen.sh:/certgen.sh:ro
+      - ./docker/webdav/certs:/certs
+    restart: "no"
+
+  webdav:
+    build:
+      context: ./docker/webdav
+    image: synvelis-webdav-httpd:local
+    depends_on:
+      certgen:
+        condition: service_completed_successfully
+    ports:
+      - "${WEBDAV_PORT:-8443}:443"
+    volumes:
+      - ./docker/webdav/certs:/certs:ro
+      - ./docker/webdav/data:/var/dav:ro
+    restart: "no"
