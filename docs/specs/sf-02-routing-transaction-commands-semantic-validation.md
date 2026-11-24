@@ -114,8 +114,10 @@ gesture を**1 CAS・1 Undo**の原子 Commit として成立させる
   Live/Revision/Undo/接続不変。
 - **SF-TX-02**: preflight(preview)は Project を変更せず、commit 成功時と同一
   の検証列を通す。成功 receipt は TempRef→Stable typed ID 対応を含む。
-- **SF-TX-03**: `expected_port_capability_generation` と PluginDeclared/
-  Resolved の `capability_revision` 不一致は `StalePortCapability` で拒否。
+- **SF-TX-03**: `expected_port_capability_generation` と
+  `port_capability_generation` 実測値(plugin identity 混入の決定的
+  fingerprint。`capability_revision` 変更・同一 revision の
+  rebind で変化)の不一致は `StalePortCapability` で拒否。
   `Unresolved` binding 参照は `UnresolvedPort`。古い Port ID への自動配線は
   行わない。
 - **SF-TX-04**: domain/direction/role/kind/ownership 規則は意味検証。

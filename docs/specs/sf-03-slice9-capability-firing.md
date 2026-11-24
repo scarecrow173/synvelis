@@ -78,8 +78,11 @@ prepared bundle ごとに pin する別軸として扱う。
 
 slice2 の fault taxonomy は `PluginCapabilityChanged` を
 capability drift の typed fault として定義したが、現行の
-`port_capability_generation` は project 内 `capability_revision`
-の和のみを含み host 側状態を観測しない。project fingerprint も
+`port_capability_generation` は project 内 plugin identity
+（`Resolved`=descriptor+version+`capability_revision`、
+`Unresolved`=last-known identity、`PluginDeclared`=plugin+
+advertised+`capability_revision`）を混ぜた決定的 fingerprint
+であり、host 側状態を観測しない。project fingerprint も
 host 登録を見ないため、host 側 drift（factory 追加・boundary/
 catalog 登録変更・host 差し替え）は検出経路を持たず、
 `PluginCapabilityChanged` は `SpeculativeMismatch` に shadow
