@@ -94,7 +94,7 @@ headless/mock/fixture の Pass を実 Provider/GUI/OS/device
 | Case | 要求 | Fixture/Oracle | Owner/Gate | mode/layer | Status |
 |---|---|---|---|---|---|
 | LIB-PIN-01 | Git fixed commit/tree・mutable branch→commit 固定 | `git.rs`・`vcs03_git_provider.rs`・#91 oracle | #88・#91 | fixture/L1・real git L2-Deferred | **NotRun** |
-| LIB-PIN-02 | Git LFS real bytes（pointer≠media・missing は NotFound） | `lfs.rs`・#331・#91 oracle | #88/#331・#91 | fixture/L1・real LFS L2-Deferred | **NotRun** |
+| LIB-PIN-02 | Git LFS real bytes（pointer≠media・missing は NotFound） | `lfs.rs`・#331・#91 oracle | #88/#331・#91 | fixture/L1・real LFS L2-Deferred | fixture/L1 **Pass**（file:// store 直読み・docs/test-specs/alib-07-fault-matrix.md LIB-PIN-02 参照）・LFS batch API/HTTP endpoint は Unsupported/NotRun |
 | LIB-PIN-03 | WebDAV strong ETag + `If-Match`・weak/missing fail-closed | `webdav.rs`・#91 oracle | #90・#91 | fixture/mock L1・real server L2-Deferred | **NotRun** |
 | LIB-PIN-04 | mutable branch update 後も pin は固定 revision を保持 | `git.rs`・`vcs06_git_matrix.rs`・#91 oracle | #88・#97・#91 | fixture/L1 | **NotRun** |
 | LIB-PIN-05 | auth revoke / permission denied が pin と conditional get の間で typed | `webdav.rs`・`git.rs`・#91 oracle | #88/#90・#91 | fixture/mock L1 | **NotRun** |
