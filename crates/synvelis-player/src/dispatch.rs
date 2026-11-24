@@ -147,6 +147,16 @@ pub struct ParamDispatch {
     /// `(node, param)` → owning synvelis target — keeps ledger
     /// attribution honest by refusing a second target on one param.
     param_owners: BTreeMap<(NodeId, ParamId), ParameterTargetId>,
+    /// The node's staged clip MIDI content — `(engine frame,
+    /// MidiEvent)` pairs merged into every plan this dispatcher
+    /// mints (TIM-02 node delivery, synvelis#623). The node's live
+    /// plan is single (`install_plan` replaces wholesale), so clip
+    /// content and param batches can only coexist inside one
+    /// merged plan; keeping the set here makes "a plan carries the
+    /// node's full event picture" a dispatcher-level invariant —
+    /// every mint path (`dispatch`, `dispatch_midi`,
+    /// `clear_midi_plan`) produces it, never the callers.
+    staged_midi: Vec<(i64, MidiEvent)>,
 }
 
 impl ParamDispatch {
@@ -184,6 +194,7 @@ impl ParamDispatch {
             last_plan: None,
             scheduler_gen: None,
             param_owners: BTreeMap::new(),
+            staged_midi: Vec::new(),
         })
     }
 
@@ -223,6 +234,14 @@ impl ParamDispatch {
     #[must_use]
     pub fn last_plan_generation(&self) -> Option<PlanGeneration> {
         self.last_plan.as_ref().map(|plan| plan.generation)
+    }
+
+    /// The node's staged clip MIDI content — merged into every plan
+    /// this dispatcher mints. Empty on attach and after
+    /// [`Self::clear_midi_plan`].
+    #[must_use]
+    pub fn staged_midi(&self) -> &[(i64, MidiEvent)] {
+        &self.staged_midi
     }
 
     /// Binds `target` to the plugin-local `param`, validated against
@@ -380,15 +399,27 @@ impl ParamDispatch {
             PlanGeneration::new(self.next_generation),
         );
         self.next_generation = self.next_generation.wrapping_add(1);
-        for (seq, (_, event)) in writes.iter().enumerate() {
-            #[allow(clippy::cast_possible_truncation)]
+        let mut seq = 0_u64;
+        for (_, event) in writes {
+            builder
+                .event(event.position, seq, EventKind::ParamValue(event.event))
+                .map_err(|_| DispatchError::PositionUnrepresentable)?;
+            seq += 1;
+        }
+        // Merged plan (synvelis#623): the node's staged clip MIDI
+        // rides in the same plan — the single-live-plan wholesale
+        // replace would otherwise drop it on every param batch.
+        // Params take the lower `source_sequence` values, so a
+        // same-position param/MIDI pair orders param first.
+        for (frame, midi) in &self.staged_midi {
             builder
                 .event(
-                    event.position,
-                    seq as u64,
-                    EventKind::ParamValue(event.event),
+                    MediaTime::new(*frame, self.frame_base),
+                    seq,
+                    EventKind::Midi(*midi),
                 )
                 .map_err(|_| DispatchError::PositionUnrepresentable)?;
+            seq += 1;
         }
         let plan = Arc::new(builder.build());
         self.control
@@ -403,9 +434,10 @@ impl ParamDispatch {
         Ok(plan)
     }
 
-    /// Stages `events` — `(engine frame, MidiEvent)` pairs — as one
+    /// Stages `events` — `(engine frame, MidiEvent)` pairs — as the
+    /// node's staged clip MIDI content and installs one
     /// generation-tagged [`TransportPlan`] of `EventKind::Midi`
-    /// payloads and installs it on the node (TIM-02, issue #126).
+    /// payloads on the node (TIM-02, issues #126/#623).
     ///
     /// The install path mirrors [`Self::dispatch`]: the plan is built
     /// through the node's verified `plan_builder` (attach-time frame
@@ -416,23 +448,29 @@ impl ParamDispatch {
     /// MIDI plan records zero ledger entries — param observation is
     /// unaffected.
     ///
+    /// On success `events` become [`Self::staged_midi`]: every later
+    /// [`Self::dispatch`] merges them into the param batch's plan so
+    /// the single live plan keeps carrying the clip content instead
+    /// of being wiped by the next wholesale replace.
+    ///
     /// Unlike [`Self::dispatch`] no `Play` is requested: `Play`
     /// re-anchors the node's transport position, and a bare `Play`
     /// after `Stop` would restart position at 0, diverging from the
     /// engine cursor the driver owns. Transport Play/Seek anchoring
     /// stays with `HeadlessDriver` (activation, `seek`,
-    /// `resume_attached_transport`); standalone consumers start
-    /// transport through [`Self::control`] themselves.
+    /// `resume_attached_transport`) or the consumer's own seam
+    /// ([`crate::RoutingControlDispatch::stage_midi_plan`]);
+    /// standalone consumers start transport through
+    /// [`Self::control`] themselves.
     ///
     /// The node's live plan is single — `install_plan` replaces it
-    /// wholesale, so a MIDI plan and a param plan staged on the same
-    /// node are last-writer-wins (upstream contract). The plan
-    /// generation change is itself a transport discontinuity: the
-    /// node releases sounding notes and chases the new plan's
-    /// prefix before delivery resumes.
+    /// wholesale. The plan generation change is itself a transport
+    /// discontinuity: the node releases sounding notes and chases
+    /// the new plan's prefix before delivery resumes.
     ///
     /// # Errors
-    /// [`DispatchError::Empty`] when `events` is empty;
+    /// [`DispatchError::Empty`] when `events` is empty (use
+    /// [`Self::clear_midi_plan`] to drop staged content);
     /// [`DispatchError::PositionUnrepresentable`] when a frame
     /// cannot convert to the plan frame base;
     /// [`DispatchError::QueueFull`] when the node's bounded queue
@@ -464,6 +502,39 @@ impl ParamDispatch {
         self.ledger.mark_plan_replaced();
         self.ledger.record_plan(&plan, &self.table, self.node);
         self.last_plan = Some(Arc::clone(&plan));
+        self.staged_midi = events.to_vec();
+        Ok(plan)
+    }
+
+    /// Drops the node's staged clip MIDI content and installs an
+    /// **empty** plan — the deliberate wholesale replace that
+    /// releases sounding notes through the generation-change
+    /// discontinuity (synvelis#623). The empty-plan install is
+    /// exactly the wipe [`Self::dispatch`]/[`Self::dispatch_midi`]
+    /// guard against with [`DispatchError::Empty`], routed through
+    /// an explicit API so it can never happen by accident.
+    ///
+    /// No `Play` is requested — same anchoring contract as
+    /// [`Self::dispatch_midi`]. `staged_midi` clears only on a
+    /// successful install: a `QueueFull` leaves both the node's
+    /// live plan and the staged set untouched, so a retry — or the
+    /// next [`Self::dispatch`] — still sees the real content.
+    ///
+    /// # Errors
+    /// [`DispatchError::QueueFull`] when the node's bounded queue
+    /// drops the staged install.
+    pub fn clear_midi_plan(&mut self) -> Result<Arc<TransportPlan<EventKind>>, DispatchError> {
+        let generation = PlanGeneration::new(self.next_generation);
+        self.next_generation = self.next_generation.wrapping_add(1);
+        let builder = self.control.plan_builder(generation);
+        let plan = Arc::new(builder.build());
+        self.control
+            .install_plan(Arc::clone(&plan), 0)
+            .map_err(|_| DispatchError::QueueFull)?;
+        self.ledger.mark_plan_replaced();
+        self.ledger.record_plan(&plan, &self.table, self.node);
+        self.last_plan = Some(Arc::clone(&plan));
+        self.staged_midi.clear();
         Ok(plan)
     }
 
