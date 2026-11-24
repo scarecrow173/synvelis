@@ -65,16 +65,17 @@
 
 use std::collections::{BTreeMap, VecDeque};
 use std::fmt;
+use std::sync::Arc;
 
 use ruviform_media_core::{
-    EngineFrame, MediaTime, PlanGeneration, TimeBase, TransportCommand, TransportSpan,
-    media_time_ticks,
+    EngineFrame, MediaTime, MidiEvent, PlanGeneration, TimeBase, TransportCommand, TransportPlan,
+    TransportSpan, media_time_ticks,
 };
 use ruviform_plugin_core::{Event, EventKind, ParamInfo, ParamWriteMeans, TimedParamEvent};
 use ruviform_plugin_host::{HostError, PluginHandle, ReportDrain};
 use synvelis_project::{
-    BeatPoint, ControlGraph, ControlOwner, EvalPlan, EvalScratch, ParameterTargetId, ProcessorId,
-    Project, ProjectRevision, lower_event, port_capability_generation,
+    BeatPoint, ClipId, ControlGraph, ControlOwner, EvalPlan, EvalScratch, ParameterTargetId,
+    ProcessorId, Project, ProjectRevision, lower_event, port_capability_generation,
 };
 
 use crate::binding::{
@@ -375,6 +376,64 @@ pub enum ControlDispatchError {
     /// base — unreachable through [`RoutingEngine`] (the engine mints
     /// `frame_base` from its own sample rate) but typed anyway.
     Dispatch(DispatchError),
+}
+
+/// Why a [`RoutingControlDispatch::stage_midi_plan`] /
+/// [`RoutingControlDispatch::clear_midi_plan`] call refused — typed,
+/// never a silent skip (TIM-02 node delivery, synvelis#623).
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum MidiStageError {
+    /// No generation surface is attached yet.
+    NoSurface,
+    /// The attached surface's capability/graph pins no longer match
+    /// the project — `sync` to a fresh generation is required.
+    StaleSurface,
+    /// The processor has no vended control node on this surface —
+    /// undeclared attach, static host, or a vend failure already
+    /// recorded in `SurfaceReport::without_control`.
+    NoNode(ProcessorId),
+    /// The [`ProcessBoundarySession`] refused — stale provenance or
+    /// node-side `QueueFull`; the typed [`BoundarySessionError`] is
+    /// preserved verbatim.
+    Boundary(BoundarySessionError),
+    /// [`ParamDispatch`] refused — `QueueFull` on the transport push
+    /// or the plan install, or `PositionUnrepresentable` on a frame
+    /// the plan base cannot express.
+    Dispatch(DispatchError),
+}
+
+impl fmt::Display for MidiStageError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::NoSurface => write!(f, "no control surface attached"),
+            Self::StaleSurface => write!(f, "control surface pins are stale"),
+            Self::NoNode(processor) => {
+                write!(f, "processor {processor} has no control node")
+            }
+            Self::Boundary(e) => write!(f, "boundary session refused: {e}"),
+            Self::Dispatch(e) => write!(f, "midi dispatch refused: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for MidiStageError {}
+
+/// Counters from one [`RoutingControlDispatch::sync_midi_plans`]
+/// reconcile — typed evidence for the per-node outcomes, never a
+/// silent skip (synvelis#623).
+#[derive(Clone, Debug, Default)]
+pub struct MidiStageReport {
+    /// Nodes whose staged clip content was (re-)installed — listed
+    /// processors with non-empty event sets that staged cleanly.
+    pub staged: Vec<ProcessorId>,
+    /// Nodes whose staged clip content was dropped via an empty-plan
+    /// install — processors absent from the reconcile map (or listed
+    /// with an empty set) that previously held staged MIDI.
+    pub cleared: Vec<ProcessorId>,
+    /// Nodes whose stage/clear failed — `(processor, rendered
+    /// error)` pairs preserving the typed [`MidiStageError`].
+    pub errors: Vec<(ProcessorId, String)>,
 }
 
 impl fmt::Display for ControlDispatchError {
@@ -1369,6 +1428,189 @@ impl RoutingControlDispatch {
         Ok(sim.walk_window(ws, call_frames, &pending))
     }
 
+    /// Stages `events` — `(engine frame, MidiEvent)` pairs — as the
+    /// processor node's clip MIDI content and installs it as one
+    /// merged `EventKind` plan (TIM-02 node delivery, synvelis#623).
+    ///
+    /// The events become the node's [`ParamDispatch::staged_midi`]:
+    /// every later param batch dispatch merges them into the same
+    /// plan, so the single-live-plan wholesale replace keeps the
+    /// clip content instead of dropping it on the next tick.
+    ///
+    /// A `Play` command (`due = 0`) is pushed **before** the plan
+    /// install — the same convention [`ParamDispatch::dispatch`]
+    /// uses internally: a queued `Play` is idempotent transport
+    /// state, so an install `QueueFull` can never orphan a staged
+    /// plan. This surface has no driver owning transport anchors,
+    /// so staging clip content carries the same "writes imply
+    /// playing" semantics the param path already establishes; the
+    /// pushed command is recorded in `staged_transport` so
+    /// `observe_block`'s mirror sees it.
+    ///
+    /// Boundary-declared processors route the install through the
+    /// node's [`ProcessBoundarySession::dispatch_midi`] — the
+    /// TIM-03 provenance gate. Undeclared nodes go straight to
+    /// `dispatch_midi`: the dispatch/session pair was minted
+    /// together by `vend_nodes`, so the instance/node pins the
+    /// session would check cannot drift inside one `NodeSurface`,
+    /// and [`Self::surface_is_current`] already validated the
+    /// capability/graph pins against the live project.
+    ///
+    /// Unlike [`Self::fast_control`]/[`Self::boundary_stage_window`]
+    /// this is **not** gated on `active_generation`: a clip plan is
+    /// generation-tagged persistent content — pre-staging before
+    /// activation is the intended use, and the installed plan
+    /// delivers only under its own generation's transport context.
+    ///
+    /// # Errors
+    /// [`MidiStageError::NoSurface`] / [`StaleSurface`] /
+    /// [`NoNode`] on surface/node gating;
+    /// [`MidiStageError::Boundary`] on the boundary session's
+    /// provenance or oracle refusal; [`MidiStageError::Dispatch`]
+    /// on `QueueFull`/`PositionUnrepresentable` (also when `events`
+    /// is empty — use [`Self::clear_midi_plan`] for that).
+    pub fn stage_midi_plan(
+        &mut self,
+        project: &Project,
+        processor: ProcessorId,
+        events: &[(i64, MidiEvent)],
+    ) -> Result<Arc<TransportPlan<EventKind>>, MidiStageError> {
+        let surface = self.surface.as_mut().ok_or(MidiStageError::NoSurface)?;
+        if !Self::surface_is_current(surface, project) {
+            return Err(MidiStageError::StaleSurface);
+        }
+        let generation = surface.generation;
+        let capability = port_capability_generation(project);
+        let node = surface
+            .nodes
+            .get_mut(&processor)
+            .ok_or(MidiStageError::NoNode(processor))?;
+        node.dispatch
+            .control()
+            .request(TransportCommand::Play, 0)
+            .map_err(|_| MidiStageError::Dispatch(DispatchError::QueueFull))?;
+        let plan = match node.boundary.as_ref() {
+            Some(session) => {
+                let pin = session.provenance();
+                let current =
+                    PrecisionProvenance::new(pin.instance(), pin.node(), capability, generation);
+                session
+                    .dispatch_midi(&mut node.dispatch, &current, events)
+                    .map_err(MidiStageError::Boundary)?
+            }
+            None => node
+                .dispatch
+                .dispatch_midi(events)
+                .map_err(MidiStageError::Dispatch)?,
+        };
+        node.staged_transport.push((TransportCommand::Play, 0));
+        Ok(plan)
+    }
+
+    /// Drops the processor node's staged clip MIDI content through
+    /// an explicit empty-plan install — the deliberate wholesale
+    /// replace that releases sounding notes (synvelis#623). Same
+    /// surface gating as [`Self::stage_midi_plan`].
+    ///
+    /// There is no boundary-session clear path, so the install goes
+    /// straight to [`ParamDispatch::clear_midi_plan`] — the session
+    /// pins it would check are the same ones
+    /// [`Self::surface_is_current`] validates (capability/graph) or
+    /// that cannot drift inside one `NodeSurface` (instance/node).
+    ///
+    /// # Errors
+    /// As [`Self::stage_midi_plan`].
+    pub fn clear_midi_plan(
+        &mut self,
+        project: &Project,
+        processor: ProcessorId,
+    ) -> Result<Arc<TransportPlan<EventKind>>, MidiStageError> {
+        let surface = self.surface.as_mut().ok_or(MidiStageError::NoSurface)?;
+        if !Self::surface_is_current(surface, project) {
+            return Err(MidiStageError::StaleSurface);
+        }
+        let node = surface
+            .nodes
+            .get_mut(&processor)
+            .ok_or(MidiStageError::NoNode(processor))?;
+        node.dispatch
+            .clear_midi_plan()
+            .map_err(MidiStageError::Dispatch)
+    }
+
+    /// Reconciles every surface node's staged clip MIDI content
+    /// with `plans` — the per-processor event sets the caller
+    /// resolved from the project's MIDI clips (synvelis#623).
+    ///
+    /// For each listed processor: a non-empty set is
+    /// [`Self::stage_midi_plan`]'d, an empty set is
+    /// [`Self::clear_midi_plan`]'d. Processors absent from `plans`
+    /// that still hold staged MIDI are cleared too — a clip removed
+    /// between builds must not keep sounding. Nodes not in `plans`
+    /// with no staged content are left alone. No surface is not an
+    /// error: nothing could stage, so the report carries zeroed
+    /// counters (the caller's evidence is the empty staged set).
+    pub fn sync_midi_plans(
+        &mut self,
+        project: &Project,
+        plans: &BTreeMap<ProcessorId, Vec<(i64, MidiEvent)>>,
+    ) -> MidiStageReport {
+        let mut report = MidiStageReport::default();
+        if self.surface.is_none() {
+            return report;
+        }
+        for (processor, events) in plans {
+            let result = if events.is_empty() {
+                self.clear_midi_plan(project, *processor).map(|_| ())
+            } else {
+                self.stage_midi_plan(project, *processor, events)
+                    .map(|_| ())
+            };
+            match result {
+                Ok(()) if events.is_empty() => report.cleared.push(*processor),
+                Ok(()) => report.staged.push(*processor),
+                Err(e) => report.errors.push((*processor, e.to_string())),
+            }
+        }
+        let stale: Vec<ProcessorId> = self
+            .surface
+            .as_ref()
+            .map(|surface| {
+                surface
+                    .nodes
+                    .iter()
+                    .filter(|(processor, node)| {
+                        !plans.contains_key(*processor) && !node.dispatch.staged_midi().is_empty()
+                    })
+                    .map(|(processor, _)| *processor)
+                    .collect()
+            })
+            .unwrap_or_default();
+        for processor in stale {
+            match self.clear_midi_plan(project, processor) {
+                Ok(_) => report.cleared.push(processor),
+                Err(e) => report.errors.push((processor, e.to_string())),
+            }
+        }
+        report
+    }
+
+    /// The processor node's currently staged clip MIDI content —
+    /// empty when nothing was staged or the last reconcile cleared
+    /// it. `None` before attach or for a processor with no vended
+    /// control node.
+    #[must_use]
+    pub fn staged_midi(&self, processor: ProcessorId) -> Option<&[(i64, MidiEvent)]> {
+        Some(
+            self.surface
+                .as_ref()?
+                .nodes
+                .get(&processor)?
+                .dispatch
+                .staged_midi(),
+        )
+    }
+
     fn block(&mut self, block: FastControlBlock) -> FastControlOutcome {
         let kind = block.kind();
         self.last_block = Some(block);
@@ -1725,4 +1967,26 @@ impl RoutingControlDispatch {
             },
         ))
     }
+}
+
+/// Resolves a MIDI clip to its delivery processor — the clip's lane
+/// → track → `strip_of_track` → strip chain **head** (TIM-02 node
+/// delivery, synvelis#623).
+///
+/// The chain's first processor is the instrument slot under the
+/// insert-chain convention this slice records in
+/// `docs/designs/tim-02-midi-node-delivery.md`: an instrument lives
+/// at the head of its track's chain and effects follow. The rule is
+/// strict — only `processors[0]` qualifies, so a clip never
+/// "falls through" to an effect when the head is unresolved; the
+/// caller records the `None` as typed no-instrument evidence.
+///
+/// `None` on any missing link: unknown clip, unknown lane, no strip
+/// bound to the lane's track, or an empty chain.
+#[must_use]
+pub fn instrument_node_for_clip(project: &Project, clip: ClipId) -> Option<ProcessorId> {
+    let lane = project.lanes.get(&project.clips.get(&clip)?.lane_id)?;
+    let strip = project.routing.strip_of_track(lane.track_id)?;
+    let chain = project.routing.chains.get(&strip.chain)?;
+    chain.processors.first().copied()
 }

@@ -1616,7 +1616,7 @@ impl SynvelisApp {
             ],
             "player_clip": {
                 "state": "partial",
-                "note": "midi-source clips compile to engine-frame MIDI event plans headless; instrument-node delivery seam is a separate gate",
+                "note": "midi-source clips compile to engine-frame MIDI event plans and stage onto the track strip's chain-head instrument node headless; real-plugin playback acceptance is an external gate",
             },
         })
     }

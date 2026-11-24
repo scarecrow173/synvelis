@@ -93,8 +93,8 @@ pub use publish::{
 pub use resolver::PreparedClip;
 pub use routing_control::{
     ControlDispatchError, FastControlBlock, FastControlBlockKind, FastControlOutcome,
-    FastControlWrite, ParamCatalog, ReportDrainReport, RoutingControlDispatch, SurfaceReport,
-    SyncOutcome, TickReport,
+    FastControlWrite, MidiStageError, MidiStageReport, ParamCatalog, ReportDrainReport,
+    RoutingControlDispatch, SurfaceReport, SyncOutcome, TickReport, instrument_node_for_clip,
 };
 pub use trace::{
     DispatchTraceAdapter, TraceAdapterConfig, TraceContext, TraceEvent, TraceEventKind,

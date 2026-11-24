@@ -54,6 +54,7 @@ use synvelis_player::routing_engine::{RoutingDeps, RoutingEngine, RoutingPrepare
 use synvelis_player::{
     DispatchCycle, FastControlOutcome, FastControlWrite, ParamCatalog, PluginReportDrain,
     ProbeRequestError, ReportDrainReport, SurfaceReport, TickReport, compile_midi_events,
+    instrument_node_for_clip,
 };
 use synvelis_project::{
     BeatPoint, BuildBudget, BuildMode, ClipId, MidiCompSelection, MidiControllerLane,
@@ -120,14 +121,39 @@ impl std::fmt::Display for SessionEngineError {
 
 impl std::error::Error for SessionEngineError {}
 
+/// TIM-02 clip→node delivery outcome (synvelis#623) — the honest
+/// record of where one compiled clip's events landed on the
+/// attached control surface.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum MidiClipDelivery {
+    /// The clip never compiled — `error` carries the reason;
+    /// nothing was deliverable.
+    NotCompiled,
+    /// No instrument node resolved: missing lane/strip/chain link
+    /// or an empty processor chain under the chain-head instrument
+    /// convention (`instrument_node_for_clip`).
+    Unresolved,
+    /// Installed as the resolved node's staged clip content —
+    /// merged into every plan the node mints.
+    Staged(ProcessorId),
+    /// Resolution succeeded but staging refused — the rendered
+    /// [`synvelis_player::MidiStageError`] (no vended control node,
+    /// stale surface, boundary refusal) or the absence of an
+    /// attached control surface.
+    Failed {
+        /// The resolved delivery target.
+        processor: ProcessorId,
+        /// The rendered refusal.
+        error: String,
+    },
+}
+
 /// TIM-02 clip→MIDI compile evidence (synvelis#126) — one entry per
 /// MIDI clip the plan pass resolved, recording whether the comp
 /// oracle (`compile_midi_comp`) and the wire compiler
-/// (`compile_midi_events`) accepted it. Instrument-node delivery is
-/// deliberately unwired in this slice (the routing seam — a
-/// `RoutingControlDispatch` MIDI seam plus a `routing_engine` plan
-/// merge honoring the instrument=MIDI / processor=param split — is
-/// a separate gate); this is the adapter's honest record.
+/// (`compile_midi_events`) accepted it, plus the instrument-node
+/// delivery outcome the routing seam reported (synvelis#623).
 #[derive(Clone, Debug)]
 pub struct MidiClipEvidence {
     /// The clip the region was lowered from.
@@ -140,6 +166,8 @@ pub struct MidiClipEvidence {
     /// Rendered typed rejection from the comp oracle or the wire
     /// compiler — `None` on success.
     pub error: Option<String>,
+    /// Where the compiled events landed — [`MidiClipDelivery`].
+    pub delivery: MidiClipDelivery,
 }
 
 /// Shared engine state behind the cloneable [`SessionRoutingEngine`]
@@ -505,11 +533,13 @@ impl SessionRoutingEngine {
         self.inner.borrow().last_prepare_error.clone()
     }
 
-    /// TIM-02 (synvelis#126): the last build's MIDI-clip compile
-    /// evidence — per MIDI-source clip, the engine-frame wire events
-    /// it compiled to or the typed rejection. Instrument-node
-    /// delivery is unwired (routing seam is a separate gate); this is
-    /// the adapter's honest record, not a playback claim.
+    /// TIM-02 (synvelis#126/#623): the last build's MIDI-clip
+    /// evidence — per MIDI-source clip, the engine-frame wire
+    /// events it compiled to or the typed rejection, plus the
+    /// instrument-node delivery outcome the routing seam reported.
+    /// This is the adapter's honest record: `Staged` means the
+    /// events reached the node's control channel, not that audio
+    /// was verified on a real plugin.
     #[must_use]
     pub fn midi_clip_evidence(&self) -> Vec<MidiClipEvidence> {
         self.inner.borrow().midi_evidence.clone()
@@ -726,9 +756,8 @@ fn rebuild(inner: &mut Inner, project: &Project, revision: ProjectRevision) {
     // TIM-02: the MIDI-clip pass — plan → per-clip comp compile →
     // wire compile, recorded as adapter evidence before the audio
     // prepare (whose early-return must not erase it). Instrument-node
-    // delivery is deliberately unwired: the routing seam
-    // (`RoutingControlDispatch` MIDI seam + `routing_engine` plan
-    // merge, instrument=MIDI / processor=param) is a separate gate.
+    // delivery (synvelis#623) stages these events onto the reconciled
+    // control surface after publish — see `stage_midi_delivery`.
     inner.midi_evidence = compile_midi_clip_evidence(project, &inner.config.engine);
 
     // Track the consulted canonical format set: the build key's
@@ -801,6 +830,15 @@ fn rebuild(inner: &mut Inner, project: &Project, revision: ProjectRevision) {
         // activation receipt — neither publishes nor mutates state.
         Ok(RoutingPrepare::Equivalent(_)) | Err(_) => {}
     }
+
+    // TIM-02 node delivery (synvelis#623): reconcile the compiled
+    // clip events with whatever control surface is current — the
+    // freshly-attached generation after a `Built` publish, or the
+    // still-live surface on `Equivalent` (a clip-content edit that
+    // leaves routing unchanged must still restage) and on failed
+    // builds (gates fail closed onto last-good or to typed
+    // `Failed`/`Unresolved` evidence, never a silent skip).
+    stage_midi_delivery(inner, project);
 }
 
 /// TIM-02 clip→MIDI pipeline (synvelis#126): each planned MIDI clip
@@ -850,14 +888,86 @@ fn compile_midi_clip_evidence(project: &Project, engine: &EngineConfig) -> Vec<M
             Ok(events) => (events, None),
             Err(error) => (Vec::new(), Some(error)),
         };
+        let delivery = if error.is_some() {
+            MidiClipDelivery::NotCompiled
+        } else {
+            MidiClipDelivery::Unresolved
+        };
         evidence.push(MidiClipEvidence {
             clip_id,
             source_id,
             events,
             error,
+            delivery,
         });
     }
     evidence
+}
+
+/// TIM-02 clip→node delivery (synvelis#623): reconcile the compiled
+/// clip events with the attached control surface — each clip's
+/// events route to its track strip's chain-head instrument node
+/// ([`instrument_node_for_clip`]), clips resolving to the same node
+/// merge into one staged set (sequential per-clip installs would be
+/// last-writer-wins and silently drop earlier clips), and the
+/// per-clip outcome lands back on the evidence. Clips the routing
+/// model cannot resolve stay `Unresolved`; clips the surface cannot
+/// stage land `Failed` — never a silent skip.
+fn stage_midi_delivery(inner: &mut Inner, project: &Project) {
+    let mut per_node: BTreeMap<ProcessorId, Vec<(i64, MidiEvent)>> = BTreeMap::new();
+    let mut resolved: Vec<Option<ProcessorId>> = Vec::with_capacity(inner.midi_evidence.len());
+    for evidence in &inner.midi_evidence {
+        let processor = if evidence.error.is_some() {
+            None
+        } else {
+            instrument_node_for_clip(project, evidence.clip_id)
+        };
+        if let Some(processor) = processor {
+            per_node
+                .entry(processor)
+                .or_default()
+                .extend(evidence.events.iter().copied());
+        }
+        resolved.push(processor);
+    }
+    let report = inner
+        .dispatch
+        .as_mut()
+        .map(|dispatch| dispatch.sync_midi_plans(project, &per_node));
+    for (evidence, processor) in inner.midi_evidence.iter_mut().zip(resolved) {
+        if evidence.error.is_some() {
+            continue; // delivery stays `NotCompiled`
+        }
+        evidence.delivery = match processor {
+            None => MidiClipDelivery::Unresolved,
+            Some(processor) => match &report {
+                Some(report)
+                    if report.staged.contains(&processor)
+                        || report.cleared.contains(&processor) =>
+                {
+                    // A resolved clip whose compiled event set is
+                    // empty reconciles through the clear path —
+                    // the node accepted it, the content was empty.
+                    MidiClipDelivery::Staged(processor)
+                }
+                Some(report) => MidiClipDelivery::Failed {
+                    processor,
+                    error: report
+                        .errors
+                        .iter()
+                        .find(|(id, _)| *id == processor)
+                        .map_or_else(
+                            || "processor has no control node".into(),
+                            |(_, error)| error.clone(),
+                        ),
+                },
+                None => MidiClipDelivery::Failed {
+                    processor,
+                    error: "no control surface attached".into(),
+                },
+            },
+        };
+    }
 }
 
 /// PC-C4-04: reconcile the owned [`RoutingControlDispatch`] with the
