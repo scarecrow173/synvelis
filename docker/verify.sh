@@ -91,7 +91,9 @@ trap 'rm -rf "$TMPD"' EXIT
 code=$(curl -s --ssl-no-revoke -o /dev/null -w "%{http_code}" --cacert "$CACERT" -X PROPFIND -H "Depth: 1" "$WEBDAV_URL/library")
 check "unauthenticated PROPFIND is 401" "401" "$code"
 
-code=$(curl -s --ssl-no-revoke --cacert "$CACERT" $AUTH -X PROPFIND -H "Depth: 1" "$WEBDAV_URL/library" -o "$TMPD/propfind.xml" -w "%{http_code}")
+# stock 挙動では mod_dir が slashless collection へ 301 を返す（#634 の修正で
+# provider はこれを追従する）。補助 curl も -L で追従し、最終的な 207 を見る。
+code=$(curl -sL --ssl-no-revoke --cacert "$CACERT" $AUTH -X PROPFIND -H "Depth: 1" "$WEBDAV_URL/library" -o "$TMPD/propfind.xml" -w "%{http_code}")
 check "PROPFIND Depth:1" "207" "$code"
 grep -q "getetag" "$TMPD/propfind.xml" && echo "[verify] PASS multistatus carries getetag" || { echo "[verify] FAIL multistatus has no getetag"; FAILED=1; }
 
