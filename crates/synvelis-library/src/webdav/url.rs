@@ -4,9 +4,8 @@
 //! a [`crate::WebDavProvider`] connects to. Validation is fail-closed:
 //! userinfo, query, fragment, non-ASCII hosts, and malformed ports are
 //! rejected so credentials can never hide in the URL and the `Host`
-//! header is always well-formed. `https` parses successfully but the
-//! transport reports [`crate::UnsupportedCapability`] — this slice
-//! ships no TLS stack and never silently downgrades to `http`.
+//! header is always well-formed. `https` origins connect over verified
+//! TLS — the scheme is never silently downgraded to `http`.
 
 use crate::error::{ProviderError, ProviderErrorKind};
 
@@ -15,9 +14,9 @@ use crate::error::{ProviderError, ProviderErrorKind};
 pub enum WebDavScheme {
     /// Plain HTTP.
     Http,
-    /// HTTPS — transported over verified TLS by callers that opt in
-    /// per endpoint (Git LFS); the `WebDAV` provider itself still
-    /// rejects it at connect time with `UnsupportedCapability`.
+    /// HTTPS — transported over verified TLS: the provider builds a
+    /// TLS session from the context's trust roots and never
+    /// downgrades to plain HTTP.
     Https,
 }
 

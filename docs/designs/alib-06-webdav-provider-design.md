@@ -87,8 +87,9 @@ src/webdav/locator.rs  絶対 path locator 文法・root_path
                      confinement・percent encode/decode・
                      child locator 構成
 src/webdav/http.rs   最小 HTTP/1.1 transport（TcpStream・
-                     request/response・chunked・redirect・
-                     auth header・stall poll・typed error）
+                     共有 TLS session・request/response・
+                     chunked・redirect・auth header・
+                     stall poll・typed error）
 src/webdav/xml.rs    XML pull parser（entity/CDATA/comment/
                      DOCTYPE/namespace local-name）
 src/webdav/dav.rs    PROPFIND body 組立・multistatus parse・
@@ -121,7 +122,7 @@ pub struct WebDavProviderInfo {        // capability 証拠
     pub scheme: WebDavScheme,          // Http | Https
     pub authority: String,             // host:port（credential-free）
     pub root_path: String,
-    pub tls_available: bool,           // 常に false（本 slice）
+    pub tls_available: bool,           // scheme==Https で handshake 可能（trust root は ProviderContext::tls 由来）
     pub credential_configured: bool,
 }
 ```
@@ -130,9 +131,12 @@ pub struct WebDavProviderInfo {        // capability 証拠
 初回 provider call で TCP connect）。`WebDavUrl::parse` は
 `http://`/`https://` の origin のみ受理し、userinfo・
 query・fragment・非 ASCII host・空 host を拒否する。
-`https` は config 上は受理するが transport が typed
-`UnsupportedCapability` を返す（TLS stack 非保有 —
-http への silent downgrade はしない）。
+`https` は共有 TLS transport で接続する — provider が
+`tls::session_for` で `cx.tls` の trust root（未設定時は
+platform native store）から TLS session を組み立て、
+`HttpEndpoint::new_tls` 経由で送る。証明書検証失敗は
+`TlsVerification` であり、http への silent downgrade は
+しない。
 
 ## 4. Locator 文法と confinement（locator.rs）
 
@@ -159,8 +163,16 @@ http への silent downgrade はしない）。
 
 ## 5. HTTP transport（http.rs）
 
-`std::net::TcpStream` のみ。connection は request 毎に
-新規確立（keep-alive pool なし — YAGNI）。
+`std::net::TcpStream`（`https` ではその上に共有 `tls.rs`
+の verified TLS session）。connection は request 毎に
+新規確立（keep-alive pool なし — YAGNI）。endpoint は
+scheme 毎に選び、`https` では `tls::session_for(&url,
+cx.tls)` が trust root（`cx.tls` 設定時はその PEM root
+store、未設定時は platform native store）から `TlsSession`
+を組み立てて `HttpEndpoint::new_tls` へ渡す。証明書検証
+失敗は `TlsVerification`（`RetryAdvice::Never`）、その他の
+handshake/IO 失敗は `TransientIo`/`Offline`。handshake 中も
+後述の stall poll の deadline/cancel が効く。
 
 - `connect`: `ToSocketAddrs` 解決後 `connect_timeout` で
   `TcpStream::connect_timeout`。`set_read_timeout`/
@@ -191,13 +203,15 @@ http への silent downgrade はしない）。
   （`io_provider_error` の downcast 経路で `TransientIo`/
   `IntegrityMismatch` 系に写像）。
 - redirect: 301/302/303/307/308 + `Location` を
-  request URL に対し resolve。scheme は `http` のみ
-  （`https` 行先は `UnsupportedCapability` — TLS 非保有、
-  http への downgrade も拒否）、`max_redirects` 上限、
-  ループ検出（同一 URL の繰返し）。**cross-origin
-  （scheme/host/port いずれか相違）では `Authorization`
-  を付けない** — same-origin のみ転送。PROPFIND/GET とも
-  redirect follow（303 は GET 化 — 本 provider は GET/HEAD/
+  request URL に対し resolve。行先は same-origin
+  （scheme・host・port が全て一致）に限る — https→http
+  の downgrade も http→https の scheme 変更も別 port の
+  https も全て cross-origin として `InvalidRequest` で
+  拒否し、`max_redirects` 上限とループ検出（同一 URL の
+  繰返し）を持つ。**cross-origin（scheme/host/port
+  いずれか相違）では `Authorization` を付けない** —
+  same-origin のみ転送。PROPFIND/GET とも redirect
+  follow（303 は GET 化 — 本 provider は GET/HEAD/
   PROPFIND のみで body を持つのは PROPFIND;303 で
   PROPFIND→GET 化は semantics が変わるため 303 は
   follow せず typed error）。
@@ -349,8 +363,16 @@ in-memory tree（`BTreeMap<path, Node>`）へ dispatch する。
   に保持し、`If-Match`・`Range`・`Authorization` の wire
   証拠・cross-origin での auth 非転送を assert する。
 - 2 台目 fixture（redirect 先）で cross-origin auth strip
-  を検証。TLS/実 network は fixture に含めない
+  を検証。実 server・実 network は fixture に含めない
   （NotRun/Unsupported）。
+- `MockTlsServer`（同 fixture 内）: rcgen で作る fixture
+  CA と IP SAN の leaf で `https://127.0.0.1:<port>` の
+  TLS handshake を再現する。`trust_pem()`/`foreign_trust_
+  pem()` で `ProviderContext::tls` へ trust root を供給し、
+  https 上の browse/stat/pin/open_pinned、foreign CA の
+  `TlsVerification`、native store 未信頼、same-origin
+  redirect follow、https→http downgrade 拒否、cross-origin
+  credential 非転送、handshake 中 deadline を固定する。
 
 `tests/webdav.rs`: ALIB-01 contract と同じ
 browse→stat→pin→open_pinned→bytes の列 + fixture 固有
@@ -359,9 +381,11 @@ timeout/disconnect・coverage/budget を検証する。
 
 ## 11. 非対象の明示
 
-- https/TLS・実 WebDAV server・実 network・OS credential
-  store・GUI・auth handshake（Digest 等）: capability/info
-  で区別し NotRun/Unsupported。
+- 実 WebDAV server・実 network・OS credential store・
+  GUI・auth handshake（Digest 等）: capability/info で
+  区別し NotRun/Unsupported。https/TLS transport 自体は
+  実装済みで fixture が検証する — 対象外は実 server・実
+  network に依存する検証に限る。
 - `synvelis-app` 配線・catalog/preview cache 連携の app 側
   組立: ALIB-03 の cache が principal 単位で既に分離済み。
   本 slice は provider のみ。

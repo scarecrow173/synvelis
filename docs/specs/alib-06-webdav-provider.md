@@ -68,8 +68,9 @@ pin/fetch の証拠として使う。pin→`open_pinned`→ALIB-02
 対象は library 契約と実装のみ。検証は **Local test WebDAV/HTTP
 fixture**（`std::net` の in-process server、実装経路の証拠に
 なる）で行い、実 WebDAV Server・実 network・実 OS credential
-store・TLS・GUI は本 slice では実装しない — capability として
-正直に宣言し、NotRun/Unsupported を Pass にしない。
+store・GUI は本 slice では実装しない — capability として正直に
+宣言し、NotRun/Unsupported を Pass にしない。TLS（https）は
+共有 TLS transport を fixture の `MockTlsServer` で検証する。
 
 SMB/NAS・SVN・P4・S3 は将来独立 Adapter であり、本 Issue は
 WebDAV/File Server adapter のみを約束する。
@@ -119,8 +120,12 @@ strong validator による conditional pin が唯一の強い固定手段
   `Transfer-Encoding: chunked` / close-delimited body、
   connect/read/write timeout、socket stall 中の
   cancel/deadline poll、redirect 上限と policy。
-  `https` は TLS stack 非保有のため typed
-  `UnsupportedCapability`（黙って http へ落とさない）。
+  `https` は共有 TLS transport（`tls.rs` の
+  `session_for` + `http.rs` の `HttpEndpoint::new_tls`）
+  で接続する — trust root は `ProviderContext::tls` 由来
+  （未設定時は platform native store）、証明書検証失敗は
+  typed `TlsVerification` であり、黙って http へ
+  downgrade しない。
 - PROPFIND（Depth:0/1、`text/xml` body）による
   Metadata-first browse/stat。`multistatus` の最小 XML
   pull parser（entity/CDATA/comment/DOCTYPE/namespace
@@ -183,10 +188,11 @@ strong validator による conditional pin が唯一の強い固定手段
   配線。Project Commit/Asset 正本との統合は #86 の公開
   契約（`import_verified`）で行い、本 slice は provider+pin
   の供給側のみ。
-- 実 WebDAV Server・実 network・TLS（https）・実 OS
-  credential store・Digest/Negotiate 等の auth scheme
-  （`Authorization` header value は opaque に転送する
-  のみ）・GUI。
+- 実 WebDAV Server・実 network・実 OS credential store・
+  Digest/Negotiate 等の auth scheme（`Authorization`
+  header value は opaque に転送するのみ）・GUI。
+  https/TLS transport 自体は実装済みであり、対象外は実
+  server・実 network に依存する検証に限る。
 - SMB/NAS・SVN・P4・S3 adapter、WebDAV locking/
   versioning（RFC 3253/4918 lock・`DAV:` version props）、
   `SEARCH` method、CalDAV/CardDAV。
@@ -260,8 +266,9 @@ strong validator による conditional pin が唯一の強い固定手段
 ## Deferred Design Concerns
 
 - 実 WebDAV Server（SabreDAV/Nextcloud/Windows IIS 等）・
-  TLS・実 network 障害 | 本 slice は in-process fixture のみ
-  実測。scheme/TLS/auth scheme は capability で区別し、
+  実 network 障害 | 本 slice は in-process fixture のみ
+  実測（TLS handshake は fixture の `MockTlsServer` で
+  検証済み）。実 server/実 network は capability で区別し、
   未検証を Pass としない | 実 network を持つ検証 slice
   （#91 consumer 別判定へ伝達）| network 依存を fixture に
   持ち込まない。

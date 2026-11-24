@@ -1,28 +1,36 @@
 //! ALIB-06 `WebDAV` file-server provider tests (Synvelis #90).
 //!
-//! Everything runs against an in-process `TcpListener` mock — a
-//! scripted HTTP/1.1 server covering `PROPFIND` multistatus bodies,
+//! Everything runs against in-process mocks — a scripted HTTP/1.1
+//! `TcpListener` server covering `PROPFIND` multistatus bodies,
 //! conditional `GET`s, `Range` responses, redirects, and typed error
-//! statuses. Real network hosts, TLS, OS credential stores, and the
-//! GUI are NotRun/Unsupported by design — see
+//! statuses, plus a `MockTlsServer` whose fixture CA exercises the
+//! `https` transport end to end. Real network hosts, OS credential
+//! stores, and the GUI are NotRun/Unsupported by design — see
 //! `docs/test-specs/alib-06-webdav-provider.md`.
 
 mod common;
 
 use std::fmt::Write as _;
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use common::webdav_fixture::{MockResponse, MockServer, dir_props, file_props, propfind_response};
-use common::{aref, cx, loc, pid};
+use common::webdav_fixture::{
+    MockResponse, MockServer, MockTlsServer, dir_props, file_props, propfind_response,
+};
+use common::{TempTree, aref, cx, loc, pid};
 use synvelis_library::{
-    AccessMode, AssetProvider, Availability, BrowseScope, ByteRange, Capability, Coverage,
-    CredentialKey, CredentialResolver, EntryKind, FilterSpec, ObjectIdentity, OpaqueCredential,
-    PinCapability, PinProof, PreconditionKind, ProviderError, ProviderErrorKind, ProviderId,
-    ProviderLimits, SortSpec, StrongRevisionToken, VerificationPolicy, WebDavConfig,
-    WebDavProvider, WebDavScheme, WebDavUrl,
+    AccessMode, AssetProvider, Availability, BrowseScope, ByteRange, Capability, ContentDigest,
+    Coverage, CredentialKey, CredentialResolver, DigestAlgorithm, EntryKind, FilterSpec,
+    ImportIntent, ImportStore, LocalBlobDir, ObjectIdentity, OpaqueCredential, PinCapability,
+    PinProof, PreconditionKind, ProjectBlobStore, ProviderContext, ProviderError,
+    ProviderErrorKind, ProviderId, ProviderLimits, RetryAdvice, SortSpec, StagedBlobPublisher,
+    StrongRevisionToken, TlsTrust, VerificationPolicy, WebDavConfig, WebDavProvider, WebDavScheme,
+    WebDavUrl, import_verified,
+};
+use synvelis_project::{
+    CounterIdGenerator, ImportId, Project, ProjectController, ProjectId, ProjectRevision,
 };
 
 const PROVIDER_RAW: u128 = 0x90_06;
@@ -671,13 +679,14 @@ fn cross_origin_redirect_refused() {
 }
 
 #[test]
-fn https_is_typed_unsupported() {
-    // Parses at configuration time; transport refuses — no silent
-    // downgrade, no TLS claim.
+fn https_dead_port_fails_typed_not_unsupported() {
+    // https is a real transport now: a dead port fails as a typed
+    // connect error (`Offline`), never `UnsupportedCapability` and
+    // never a silent plaintext attempt.
     let url = WebDavUrl::parse("https://127.0.0.1:1").expect("https url");
     let p = WebDavProvider::new(provider_id(), WebDavConfig::new(url)).expect("provider");
     let err = p.browse(&scope_req(None, 10), &cx()).expect_err("https");
-    assert_eq!(kind_of(&err), ProviderErrorKind::UnsupportedCapability);
+    assert_eq!(kind_of(&err), ProviderErrorKind::Offline);
 }
 
 #[test]
@@ -998,4 +1007,307 @@ fn fixture_serves_request_written_after_accept() {
     stream.read_to_end(&mut buf).expect("read");
     let head = String::from_utf8_lossy(&buf);
     assert!(head.starts_with("HTTP/1.1 204"), "bad head: {head:?}");
+}
+
+// ------------------------------------------------------------------
+// HTTPS / TLS opt-in — MockTlsServer covers the https:// scheme end
+// to end; trust roots come from `ProviderContext::tls`
+// ------------------------------------------------------------------
+
+/// A context trusting `pem` as the only TLS root — the fixture CA
+/// for success cases, a foreign CA for verification failures.
+fn tls_cx(pem: &[u8]) -> ProviderContext {
+    let mut cx = cx();
+    cx.tls = Some(TlsTrust::from_pem(pem).expect("fixture trust pem"));
+    cx
+}
+
+fn tls_provider(server: &MockTlsServer) -> WebDavProvider {
+    let url = WebDavUrl::parse(&server.url()).expect("fixture url");
+    WebDavProvider::new(provider_id(), WebDavConfig::new(url)).expect("provider")
+}
+
+#[test]
+fn https_browse_and_stat_follow_plaintext_contract() {
+    let server = MockTlsServer::start(Arc::new(|req| {
+        assert_eq!(req.method, "PROPFIND");
+        propfind_response(
+            "/music",
+            &[
+                ("/music", dir_props()),
+                ("/music/a.wav", &file_props(100, Some("\"e1\""))),
+            ],
+        )
+    }));
+    let p = tls_provider(&server);
+    let cx = tls_cx(&server.trust_pem());
+    let page = p
+        .browse(&scope_req(Some("/music"), 10), &cx)
+        .expect("browse over tls");
+    assert_eq!(page.coverage, Coverage::Complete);
+    assert_eq!(names(&page), vec!["a.wav"]);
+    let stat = p
+        .stat(&aref(provider_id(), "/music/a.wav"), &cx)
+        .expect("stat over tls");
+    assert_eq!(stat.availability, Availability::Available);
+    assert_eq!(stat.facts.byte_len.value().copied(), Some(100));
+}
+
+#[test]
+fn https_pin_and_open_pinned_keep_if_match_contract() {
+    let etag = "\"tls-v1\"";
+    let seen = Arc::new(Mutex::new(Vec::<Option<String>>::new()));
+    let seen2 = seen.clone();
+    let server = MockTlsServer::start(Arc::new(move |req| {
+        if req.method == "PROPFIND" {
+            return propfind_response("/a.wav", &[("/a.wav", &file_props(11, Some(etag)))]);
+        }
+        seen2
+            .lock()
+            .unwrap()
+            .push(req.header("if-match").map(str::to_owned));
+        MockResponse::new(200)
+            .header("etag", etag)
+            .header("content-length", "11")
+            .body(b"hello world".to_vec())
+    }));
+    let p = tls_provider(&server);
+    let cx = tls_cx(&server.trust_pem());
+    let pin = p.pin(&aref(provider_id(), "/a.wav"), &cx).expect("pin");
+    let PinProof::ConditionalStrong {
+        token:
+            StrongRevisionToken::StrongValidator {
+                validator,
+                precondition,
+            },
+    } = &pin.proof
+    else {
+        panic!(
+            "expected ConditionalStrong/StrongValidator, got {:?}",
+            pin.proof
+        );
+    };
+    assert_eq!(validator, "\"tls-v1\"");
+    assert_eq!(*precondition, PreconditionKind::IfMatch);
+    let mut pr = p.open_pinned(&pin, &cx).expect("open over tls");
+    let mut body = Vec::new();
+    pr.reader.read_to_end(&mut body).expect("read");
+    assert_eq!(body, b"hello world");
+    assert!(matches!(
+        pr.claims.verification,
+        VerificationPolicy::IdentityBound { .. }
+    ));
+    let receipt = pr.completion.take().expect("finished").expect("receipt");
+    assert_eq!(receipt.bytes_read, 11);
+    assert_eq!(
+        seen.lock().unwrap().as_slice(),
+        &[Some("\"tls-v1\"".to_owned())],
+        "the conditional GET must carry the pin validator over TLS"
+    );
+}
+
+#[test]
+fn https_untrusted_ca_is_tls_verification() {
+    let server = MockTlsServer::start(Arc::new(|_| MockResponse::new(200)));
+    let p = tls_provider(&server);
+    // Trust an unrelated CA: the handshake must fail certificate
+    // verification before any request bytes are sent.
+    let cx = tls_cx(&MockTlsServer::foreign_trust_pem());
+    let err = p
+        .browse(&scope_req(None, 10), &cx)
+        .expect_err("untrusted ca");
+    assert_eq!(kind_of(&err), ProviderErrorKind::TlsVerification);
+    assert_eq!(err.retry(), RetryAdvice::Never);
+    assert!(!err.detail().contains("PRIVATE KEY"));
+    assert!(!err.detail().contains(server.url().as_str()));
+}
+
+#[test]
+fn https_native_roots_reject_self_signed() {
+    let server = MockTlsServer::start(Arc::new(|_| MockResponse::new(200)));
+    let p = tls_provider(&server);
+    // `cx.tls = None` selects the platform native root store — the
+    // fixture CA is not in it, so verification must fail typed.
+    let err = p
+        .browse(&scope_req(None, 10), &cx())
+        .expect_err("native roots");
+    assert_eq!(kind_of(&err), ProviderErrorKind::TlsVerification);
+}
+
+#[test]
+fn https_same_origin_redirect_is_followed_over_tls() {
+    let hits = Arc::new(Mutex::new(Vec::<String>::new()));
+    let hits2 = hits.clone();
+    let server = MockTlsServer::start(Arc::new(move |req| {
+        hits2.lock().unwrap().push(req.path.clone());
+        if req.path == "/old" {
+            return MockResponse::new(301).header("location", "/new");
+        }
+        propfind_response("/new", &[("/new", dir_props())])
+    }));
+    let p = tls_provider(&server);
+    p.browse(&scope_req(Some("/old"), 10), &tls_cx(&server.trust_pem()))
+        .expect("browse over tls");
+    let paths = hits.lock().unwrap();
+    assert_eq!(paths.as_slice(), &["/old", "/new"]);
+}
+
+#[test]
+fn https_downgrade_redirect_never_reaches_plaintext() {
+    // A plaintext mock stands in for the downgrade target: the https
+    // server redirects to `http://`, which `same_origin` rejects as
+    // cross-origin — the target must see zero requests and no
+    // credential can leak.
+    let b_hits = Arc::new(Mutex::new(0usize));
+    let b_hits2 = b_hits.clone();
+    let server_b = MockServer::start(Arc::new(move |_| {
+        *b_hits2.lock().unwrap() += 1;
+        propfind_response("/", &[("/", dir_props())])
+    }));
+    let b_url = server_b.url();
+    let a = MockTlsServer::start(Arc::new(move |_| {
+        MockResponse::new(302).header("location", &format!("{b_url}/loot"))
+    }));
+    let url = WebDavUrl::parse(&a.url()).expect("url");
+    let mut config = WebDavConfig::new(url);
+    config.credential_key = Some(CredentialKey::new("test-key").expect("key"));
+    let p = WebDavProvider::new(provider_id(), config).expect("provider");
+    let mut cx = tls_cx(&a.trust_pem());
+    cx.credentials = Some(Arc::new(TestResolver));
+    let err = p
+        .browse(&scope_req(None, 10), &cx)
+        .expect_err("downgrade redirect");
+    assert_eq!(kind_of(&err), ProviderErrorKind::InvalidRequest);
+    assert_eq!(
+        *b_hits.lock().unwrap(),
+        0,
+        "plaintext downgrade target was contacted"
+    );
+}
+
+#[test]
+fn https_cross_origin_redirect_never_reaches_other_origin() {
+    // A second TLS mock stands in for the foreign https origin:
+    // different port → `same_origin` fails and the redirect is
+    // refused before any connect.
+    let b_hits = Arc::new(Mutex::new(0usize));
+    let b_hits2 = b_hits.clone();
+    let server_b = MockTlsServer::start(Arc::new(move |_| {
+        *b_hits2.lock().unwrap() += 1;
+        propfind_response("/", &[("/", dir_props())])
+    }));
+    let b_url = server_b.url();
+    let a = MockTlsServer::start(Arc::new(move |_| {
+        MockResponse::new(302).header("location", &format!("{b_url}/steal"))
+    }));
+    let url = WebDavUrl::parse(&a.url()).expect("url");
+    let mut config = WebDavConfig::new(url);
+    config.credential_key = Some(CredentialKey::new("test-key").expect("key"));
+    let p = WebDavProvider::new(provider_id(), config).expect("provider");
+    let mut cx = tls_cx(&a.trust_pem());
+    cx.credentials = Some(Arc::new(TestResolver));
+    let err = p
+        .browse(&scope_req(None, 10), &cx)
+        .expect_err("cross-origin redirect");
+    assert_eq!(kind_of(&err), ProviderErrorKind::InvalidRequest);
+    assert_eq!(*b_hits.lock().unwrap(), 0, "foreign origin was contacted");
+}
+
+#[test]
+fn https_deadline_fails_during_tls_handshake() {
+    // A bare TCP listener that accepts and never answers: the TLS
+    // handshake stalls and the context deadline must land as
+    // `BudgetExceeded` — the same cooperative guard as plaintext.
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind silent");
+    let port = listener.local_addr().expect("local addr").port();
+    // Blocking accept; held sockets keep the TCP connection open
+    // without ever answering the TLS ClientHello.
+    std::thread::spawn(move || {
+        let mut held = Vec::new();
+        while let Ok((s, _)) = listener.accept() {
+            held.push(s);
+        }
+    });
+    let url = WebDavUrl::parse(&format!("https://127.0.0.1:{port}")).expect("url");
+    let p = WebDavProvider::new(provider_id(), WebDavConfig::new(url)).expect("provider");
+    let mut cx = cx();
+    cx.limits.deadline = Some(Instant::now() + Duration::from_millis(300));
+    let err = p.browse(&scope_req(None, 10), &cx).expect_err("deadline");
+    assert_eq!(kind_of(&err), ProviderErrorKind::BudgetExceeded);
+}
+
+// ------------------------------------------------------------------
+// ALIB-02 import integration — webdav pin → import_verified →
+// offline re-read of the published blob
+// ------------------------------------------------------------------
+
+fn import_store(tree: &TempTree) -> (ImportStore, LocalBlobDir) {
+    let store = ImportStore::new(tree.join("staging"), tree.join("media"));
+    let blobs = LocalBlobDir::new(store.blob_dir());
+    (store, blobs)
+}
+
+fn controller() -> ProjectController {
+    ProjectController::new(
+        Project::new(ProjectId::new(1), "p"),
+        Box::new(CounterIdGenerator::new(1)),
+    )
+}
+
+fn sha256_of(bytes: &[u8]) -> ContentDigest {
+    use sha2::Digest as _;
+    ContentDigest::new(DigestAlgorithm::Sha256, &sha2::Sha256::digest(bytes))
+}
+
+#[test]
+fn import_verified_consumes_webdav_pin() {
+    let body = b"webdav bytes for verified import".to_vec();
+    let size = body.len() as u64;
+    let etag = "\"imp-1\"";
+    let resp_body = body.clone();
+    let server = MockServer::start(Arc::new(move |req| {
+        if req.method == "PROPFIND" {
+            return propfind_response("/a.wav", &[("/a.wav", &file_props(size, Some(etag)))]);
+        }
+        if req.header("if-match") == Some(etag) {
+            MockResponse::new(200)
+                .header("etag", etag)
+                .header("content-length", &size.to_string())
+                .body(resp_body.clone())
+        } else {
+            412.into()
+        }
+    }));
+    let p = provider(&server);
+    let cx = cx();
+    let tree = TempTree::new("webdav-imp");
+    let (store, blobs) = import_store(&tree);
+    let mut c = controller();
+
+    let pin = p.pin(&aref(provider_id(), "/a.wav"), &cx).expect("pin");
+    let it = ImportIntent {
+        import_id: ImportId::new(601),
+        expected_project_revision: ProjectRevision(0),
+        source: pin,
+        target: None,
+    };
+    let out = import_verified(&p, &it, &store, &blobs, &StagedBlobPublisher, &mut c, &cx)
+        .expect("import webdav pin");
+    assert_eq!(out.byte_len, size);
+    assert_eq!(out.content_digest, sha256_of(&body));
+
+    // Replay converges idempotently.
+    let replay = import_verified(&p, &it, &store, &blobs, &StagedBlobPublisher, &mut c, &cx)
+        .expect("replay");
+    assert!(replay.reused);
+    assert_eq!(replay.content_digest, out.content_digest);
+
+    // Offline re-read: the published blob opens by identity and
+    // re-measures to the recorded digest with the server gone.
+    drop(server);
+    let mut obj = blobs.open(&out.blob.identity).expect("blob open");
+    let mut back = Vec::new();
+    obj.reader.read_to_end(&mut back).expect("blob read");
+    assert_eq!(back, body);
+    assert_eq!(sha256_of(&back), out.content_digest);
 }
