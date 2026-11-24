@@ -1,6 +1,6 @@
 # synvelis#90 — ALIB-06 WebDAV https/TLS opt-in 検証記録
 
-対象 SHA（worktree HEAD）: `d151716e66d69e89cebbcd93aedb06f53c424906`（branch `feat/90-webdav-tls-provider`、origin/main と同一 — 最新 main の取り込みは差分なし）
+対象 SHA（worktree HEAD）: `7f4fd33`（branch `feat/90-webdav-tls-provider`、base `d151716e66d69e89cebbcd93aedb06f53c424906` — 検証時点の最新 origin/main と同一で取り込み差分なし）
 
 OS: Windows（`x86_64-pc-windows-msvc`）、記録日: 2026-11-24
 
