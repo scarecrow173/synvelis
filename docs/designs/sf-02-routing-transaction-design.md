@@ -247,8 +247,13 @@ fn to_graph_spec(routing: &RoutingModel) -> GraphSpec
 
 ## 6. 世代検査
 
-- `expected_port_capability_generation` = 全 `ProcessorBinding::PluginResolved`
-  の `capability_revision` 総和(決定的・単調)。不一致は StalePortCapability。
+- `expected_port_capability_generation` = plugin identity を混ぜた
+  決定的 FNV-1a 64 fingerprint(ProcessorBinding は `Resolved`=
+  descriptor+version+`capability_revision`/`Unresolved`=last-known
+  descriptor、PortBinding は `PluginDeclared`=plugin+advertised+
+  `capability_revision`/`Unresolved`=last-known plugin+advertised。
+  `Internal` は寄与しない)。単調ではないが同一 revision の rebind
+  も検出する。不一致は StalePortCapability。
 - `PluginDeclared`/`Unresolved` の processor port を CreateConnection の
   端点に使うと `UnresolvedPort`。
 - Plugin reconfigure で port が再解決されると新 ID となり、旧 ID は

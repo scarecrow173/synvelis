@@ -51,7 +51,7 @@ boundary/catalog 登録・factory/route 登録）を表す capability
 generation を新設し、`RoutingEngine` の prepare/publish/reconcile
 の各 gate に fold する。`RoutingBuildKey.capability_generation`
 （project 側 `port_capability_generation` のみを含む persisted
-capability 和）は変更せず、host 側 generation は engine が
+capability generation）は変更せず、host 側 generation は engine が
 prepared bundle ごとに pin する別軸として扱う。
 
 - `ProcessorHost::capability_generation`（default `0`）を trait に
@@ -60,11 +60,12 @@ prepared bundle ごとに pin する別軸として扱う。
   決定的 generation を返す。
 - `RoutingEngine::prepare` が host generation を capture して
   `PreparedRouting` に保持、`publish` が project 側 capability
-  sum と host generation の両方を再検証し、不一致を
+  generation と host generation の両方を再検証し、不一致を
   `RoutingFault::PluginCapabilityChanged` で fail closed する。
 - publish 成功時に host generation を ledger に pin し、
-  `reconcile` が project 側 sum + host 側 generation の両方を
-  比較して `RoutingReconcileMismatch::CapabilityGeneration` →
+  `reconcile` が project 側 capability generation + host 側
+  generation の両方を比較して
+  `RoutingReconcileMismatch::CapabilityGeneration` →
   `PluginCapabilityChanged` を報告する。
 - `NoRebuild` equivalence probe も host generation を比較対象に
   含め、host drift 下で semantic 同一 revision が stale な
@@ -78,8 +79,11 @@ prepared bundle ごとに pin する別軸として扱う。
 
 slice2 の fault taxonomy は `PluginCapabilityChanged` を
 capability drift の typed fault として定義したが、現行の
-`port_capability_generation` は project 内 `capability_revision`
-の和のみを含み host 側状態を観測しない。project fingerprint も
+`port_capability_generation` は project 内 plugin identity
+（`Resolved`=descriptor+version+`capability_revision`、
+`Unresolved`=last-known identity、`PluginDeclared`=plugin+
+advertised+`capability_revision`）を混ぜた決定的 fingerprint
+であり、host 側状態を観測しない。project fingerprint も
 host 登録を見ないため、host 側 drift（factory 追加・boundary/
 catalog 登録変更・host 差し替え）は検出経路を持たず、
 `PluginCapabilityChanged` は `SpeculativeMismatch` に shadow
@@ -142,9 +146,9 @@ fault taxonomy の残る live 発火可能 fault を実測で固定する。
   `PluginCapabilityChanged` で拒否する（fingerprint が一致して
   いても）。
 - publish 成功時に pin した generation が ledger に保存され、
-  `reconcile` は project 側 sum と host 側 generation の双方の
-  不一致を `CapabilityGeneration` mismatch として報告し、
-  fault は `PluginCapabilityChanged` に写像される。
+  `reconcile` は project 側 capability generation と host 側
+  generation の双方の不一致を `CapabilityGeneration` mismatch
+  として報告し、fault は `PluginCapabilityChanged` に写像される。
 - `NoRebuild` equivalence は host generation が一致する場合の
   み成立し、drift 時は `Built` に倒れる。
 - connect による instance 消費は capability drift と見なさない
