@@ -52,6 +52,10 @@ metadata:
 
 # ADR: Issue #115 virtual endpoint provisioning ownership
 
+> Cross-repo link note: Ruviform 側文書への `blob/main` URL は、対応 PR merge 後の
+> canonical location を示す。proposal 時点の main には未存在であり、両 PR の統合後に
+> 実在させる意図のリンクである。
+
 ## Status
 
 Proposed — 2026-11-25 design/docs slice の decision record。実装済みまたは
@@ -120,9 +124,11 @@ test-sign/install/devnode/mic consent/probe/cleanup である。
 
 Synvelis は manual consumer workflow を所有し、同一 `windows-2025` job で
 provision → readiness 確認 → `mise run test-recording-virtual-endpoint` →
-metadata/artifact upload → `if: always()` cleanup を orchestrate する。source
-revision は Synvelis `Cargo.lock` resolved revision に pin し、checkout 後に
-検証した Synvelis SHA を `SYNVELIS_RUN_SHA` へ注入する。
+pre-cleanup metadata/artifact upload → `if: always()` cleanup → post-cleanup
+cleanup artifact upload を orchestrate する。consumer evidence artifact は cleanup
+より前に確定させ、cleanup artifact と分離する。source revision は Synvelis
+`Cargo.lock` resolved revision に pin し、checkout 後に検証した Synvelis SHA を
+`SYNVELIS_RUN_SHA` へ注入する。
 
 acceptance verdict は consumer harness の terminal RunMetadata を権威とする。
 Ruviform の upstream Pass、workflow green、artifact 存在、cleanup 成功を Pass

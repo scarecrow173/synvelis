@@ -54,6 +54,10 @@ relations:
 
 # Issue #115 RCD-01 Virtual Endpoint Provisioning Consumer Contract
 
+> Cross-repo link note: Ruviform 側文書への `blob/main` URL は、対応 PR merge 後の
+> canonical location を示す。proposal 時点の main には未存在であり、両 PR の統合後に
+> 実在させる意図のリンクである。
+
 ## What Should Be Built
 
 Ruviform が所有する step-level virtual-audio-endpoint provision/unprovision
@@ -80,27 +84,32 @@ slice の履歴として維持する。本 spec はそれらを別 slice の設�
    を正本とし、Synvelis へ install ロジックを複写しない。
 2. Synvelis 側 implementation slice が `workflow_dispatch` 専用の manual
    workflow を追加し、同一 `windows-2025` x64 job 内で provision → endpoint
-   readiness 確認 → `mise run test-recording-virtual-endpoint` → metadata/
-   artifact upload → `if: always()` cleanup を実行する。reusable workflow job
-   間で endpoint を受け渡す構成、signed driver package artifact を恒久 interface
-   にする構成は採用しない。
+   readiness 確認 → `mise run test-recording-virtual-endpoint` → pre-cleanup
+   metadata/artifact upload → `if: always()` cleanup → post-cleanup cleanup
+   artifact upload を実行する。reusable workflow job 間で endpoint を受け渡す
+   構成、signed driver package artifact を恒久 interface にする構成は採用しない。
 3. consumer workflow の対象 SHA は checkout 後に `git rev-parse HEAD` で検証し、
    `SYNVELIS_RUN_REPO` / `SYNVELIS_RUN_SHA` へ注入する。dispatch input または
    workflow ref と checkout SHA が不一致なら harness を実行せず fail-closed で
    終了する。
 4. provisioning source は Synvelis `Cargo.lock` の single resolved Ruviform
    revision に pin する。actual checkout revision・lock revision・driver package/
-   cert/devnode/probe/cleanup record を artifact に残し、consumer RunMetadata
+   cert/devnode/probe record は pre-cleanup consumer evidence artifact に残し、
+   cleanup record は post-cleanup cleanup artifact に残して consumer RunMetadata
    と突合できるようにする。
 5. `result=pass` は provisioned endpoint 上で consumer harness が出力した
    terminal RunMetadata に限る。upstream Ruviform Pass、job green、artifact の
-  存在、cleanup 成功を Pass に転用しない。pair 不在は `NotRun`、candidate 存在
+   存在、cleanup 成功を Pass に転用しない。pair 不在は `NotRun`、candidate 存在
    下の oracle/open/stream/commit/reload 失敗は `Fail` として解釈する。
 6. cleanup は harness の Pass/Fail/NotRun、test crash、artifact upload 失敗に
-   関係なく `if: always()` で実行する。cleanup 結果は consumer verdict と
-   分離して記録し、partial provisioning state の uninstall までを scope に含める。
+   関係なく `if: always()` で実行する。consumer evidence artifact の upload は
+   cleanup より前に完了させ、cleanup 結果は consumer verdict と分離して
+   post-cleanup artifact に記録する。partial provisioning state の uninstall
+   までを scope に含め、test evidence が cleanup 成否へ依存しないようにする。
 7. raw run artifact は CI artifact に残し、canonical evidence は通常の PR で
    `evidence/sv115/` へ転記する。CI から repository へ直接 commit しない。
+   consumer evidence artifact と cleanup artifact は名前を分け、upload-artifact
+   v4 の immutable artifact 制約と evidence 保存責務を混同しない。
 8. 後続 implementation は (i) Ruviform primitive extraction、(ii) Synvelis
    consumer workflow の 2 slice に分割し、既存 manual probe workflow
    `virtual-audio-driver-probe.yml` を退行させない移行戦略を取る。

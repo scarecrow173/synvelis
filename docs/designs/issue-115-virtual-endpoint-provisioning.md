@@ -51,6 +51,10 @@ relations:
 
 # Issue #115 RCD-01 Virtual Endpoint Provisioning Consumer Orchestration 設計
 
+> Cross-repo link note: Ruviform 側文書への `blob/main` URL は、対応 PR merge 後の
+> canonical location を示す。proposal 時点の main には未存在であり、両 PR の統合後に
+> 実在させる意図のリンクである。
+
 ## 1. 設計入力の再確認
 
 本設計は 2026-11-25 に次の現状態を read-only で再確認した。
@@ -69,8 +73,10 @@ relations:
   `windows-2025` x64 単一 leg・timeout 90 分で、build → catalog → 2 日
   失効の self-signed cert → Root/TrustedPublisher 登録 → sign verify →
   `pnputil` staging → root-enumerated MEDIA devnode → endpoint/MIDI probe →
-  stream roundtrip → wiring/e2e/fault cases → cleanup → artifact upload を
-  同一 job に内包する。
+  stream roundtrip → wiring/e2e/fault cases を同一 job に内包する。現行 manual
+  probe では cleanup 後に artifact upload が行われるが、この順序は本設計の
+  consumer workflow には持ち込まず、後述する通り consumer evidence upload は
+  cleanup より前に置く。
 - 同 workflow は `bcdedit` も reboot も行わない。`testsigning=Yes` と
   SecureBoot OFF は GitHub-hosted runner の出荷状態として扱う。artifact
   retention は 30 日、権限は `contents: read`。
@@ -169,22 +175,29 @@ required gate・ci-summary・ruleset には接続しない。runner は `windows
    少なくとも artifact manifest と evidence 転記で terminal RunMetadata と
    同一 run に紐づける。harness 側に env 記録の小さな拡張が必要なら、
    implementation slice で oracle を変えずに provenance だけを追加する。
-9. stdout/stderr、terminal RunMetadata JSON、provision state、cleanup state、
-   driver package manifest、runner/tool versions を単一 artifact へ集約する。
-   artifact 名は `sv115-virtual-endpoint-consumer-<run_id>-<attempt>`、
-   retention は初期 90 日とする。
+9. stdout/stderr、terminal RunMetadata JSON、provision state、driver package
+   manifest、runner/tool versions を consumer evidence artifact として upload
+   する。artifact 名は `sv115-virtual-endpoint-consumer-<run_id>-<attempt>`、
+   retention は初期 90 日とする。この upload は cleanup より前に置き、
+   `if: always()` で実行する。cleanup state はまだ存在しないため、この
+   artifact の内容に含めない。
 10. cleanup script を `if: always()` で実行し、partial state を含めて
     devnode/driver/cert/consent/service を cleanup contract に従って畳む。
-11. artifact upload も `if: always()` とし、cleanup 結果を別 key で記録する。
-    cleanup 失敗は job の運用失敗として扱うが、consumer harness の Pass/Fail/
-    NotRun と混同しない。
+11. cleanup state、cleanup log、residue/leftover record を別 artifact
+    `sv115-virtual-endpoint-cleanup-<run_id>-<attempt>` として
+    `if: always()` で upload する。cleanup が失敗または hang しても consumer
+    evidence artifact は step 9 で確定済みであり、test evidence の有無は
+    cleanup 成否に依存しない。cleanup 失敗は job の運用失敗として扱うが、
+    consumer harness の Pass/Fail/NotRun と混同しない。
 
-test step が非零終了しても後続 step が走る必要があるため、metadata/artifact/
-cleanup 系 step はすべて `if: always()` にする。workflow は terminal metadata
-を parse し、`pass` だけを success、`fail` は failure、`not-run` は acceptance
-未達として failure または explicit neutral 相当の運用失敗に分類する。GitHub
-には neutral conclusion がないため、job conclusion は運用上の実行可否を表す
-だけであり、acceptance verdict の権威にはしない。
+test step が非零終了しても後続 step が走る必要があるため、metadata 収集、
+consumer evidence upload、cleanup、cleanup artifact upload はすべて
+`if: always()` にする。consumer evidence upload を cleanup より後ろへ移しては
+ならない。workflow は terminal metadata を parse し、`pass` だけを success、
+`fail` は failure、`not-run` は acceptance 未達として failure または explicit
+neutral 相当の運用失敗に分類する。GitHub には neutral conclusion がないため、
+job conclusion は運用上の実行可否を表すだけであり、acceptance verdict の権威
+にはしない。
 
 ### 4.2 SHA の対応関係
 
@@ -230,8 +243,8 @@ rollback は、 Synvelis `Cargo.lock` を既知の revision へ戻し、その r
 - harness: terminal RunMetadata を生成し、`pass`/`fail`/`not-run`、oracle id、
   repo/SHA、environment/level、evidence reference を記録する。
 - workflow: harness を実行条件どおり起動し、metadata を収集し、provisioning
-  provenance と cleanup record を同じ artifact に紐づける。harness 出力を
-  書き換えない。
+  provenance を consumer evidence artifact に、cleanup record を cleanup
+  artifact に紐づける。harness 出力を書き換えない。
 - evidence 解釈者: artifact の raw metadata を読み、acceptance verdict を
   `evidence/sv115/` へ転記する。job green を Pass に転用しない。
 
@@ -242,9 +255,10 @@ rollback は、 Synvelis `Cargo.lock` を既知の revision へ戻し、その r
 repository evidence が人間がレビューできる canonical summary とする。
 artifact retention は有限なので、Pass/Fail の判定に使った terminal
 RunMetadata JSON 本体、CI run URL、OS/driver/cert/provisioning record、
-Ruviform lock/checkout revision、artifact 名、artifact retention、cleanup
-結果を転記時に残す。RunMetadata が小さい場合は JSON を evidence 配下へ
-そのまま配置し、summary Markdown から参照する。
+Ruviform lock/checkout revision、artifact 名、artifact retention を転記時に
+残す。cleanup 結果は取得できた場合に併記するが、欠損しても consumer verdict
+を変えない。RunMetadata が小さい場合は JSON を evidence 配下へそのまま配置し、
+summary Markdown から参照する。
 
 初回 provisioned run は Fail になる可能性がある。Fail を隠して再実行だけを
 記録せず、失敗 run の artifact と metadata も残す。NotRun は endpoint 未
@@ -305,6 +319,15 @@ EXT-L3 harness を実行し、artifact/evidence 運用を確立することで�
 artifact 確認で行う。初期 manual run では Pass を前提にしない。Fail または
 infrastructure error が出た場合は evidence に残し、consumer acceptance の
 達成とは別に切り分ける。
+
+rollback は manual-only であることを利用する。不具合が見つかった場合は、まず
+GitHub Actions の workflow disable または手動 dispatch 停止で新規実行を止め、
+修正または revert PR で workflow ファイルを main から取り除く。manual trigger
+以外を持たないため、disable/revert 以外の緊急遮断は不要である。harness
+provenance 変更だけが問題なら workflow を残して test file の変更だけを revert
+し、lockfile 更新が問題なら独立した dependency rollback PR で戻す。consumer
+workflow rollback は既存 harness lane `mise run test-recording-virtual-endpoint`
+や merged 済み harness oracle を削除する意味ではない。
 
 依存順は Slice A → lockfile 更新（必要な場合）→ Slice B。Synvelis workflow
 を先に作っても primitive が lock revision に存在しなければ実行できないため、

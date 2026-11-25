@@ -44,6 +44,10 @@ relations:
 
 # Issue #115 RCD-01 Virtual Endpoint Provisioning 検証仕様
 
+> Cross-repo link note: Ruviform 側文書への `blob/main` URL は、対応 PR merge 後の
+> canonical location を示す。proposal 時点の main には未存在であり、両 PR の統合後に
+> 実在させる意図のリンクである。
+
 ## Purpose
 
 `docs/specs/issue-115-virtual-endpoint-provisioning.md` と
@@ -67,9 +71,11 @@ implementation slice で初めて実行可能になる。
    endpoint 判定に矛盾がある。証拠を acceptance に使わず、原因を切り分ける。
 4. Ruviform candidate pair が存在し、open/start/callback/capture/oracle/commit/
    save/reload のいずれかが失敗した場合は consumer case verdict を Fail とする。
-5. harness process crash、metadata 欠損、artifact 欠損、SHA/provenance mismatch
-   は consumer case verdict を確定できない。run は証拠不備として扱い、既存の
-   Pass/Fail/NotRun を上書きしない。
+5. harness process crash、metadata 欠損、consumer evidence artifact 欠損、
+   SHA/provenance mismatch は consumer case verdict を確定できない。run は
+   証拠不備として扱い、既存の Pass/Fail/NotRun を上書きしない。cleanup
+   artifact の欠損は運用 evidence の欠損であり、この rule の consumer verdict
+   不確定事由とは区別する。
 6. cleanup status は独立して記録する。cleanup error を consumer harness の
    Fail に混同しないが、runner residue として運用失敗には記録する。
 7. CI は repository へ evidence を direct commit しない。artifact を一次記録、
@@ -79,8 +85,10 @@ implementation slice で初めて実行可能になる。
 
 後続 implementation は次を保証しなければならない。
 
-- provision、consumer test、metadata/artifact upload、cleanup が同一
-  `windows-2025` job 内で実行される。
+- provision、consumer test、pre-cleanup metadata/artifact upload、cleanup、
+  post-cleanup cleanup artifact upload が同一 `windows-2025` job 内で実行される。
+- consumer evidence artifact upload は cleanup より前に置かれ、test evidence が
+  cleanup の成否・hang に依存しない。
 - test crash・test failure・artifact upload 失敗の後でも cleanup step が
   `if: always()` で実行される。
 - `SYNVELIS_RUN_REPO` / `SYNVELIS_RUN_SHA` は checkout 後検証済みの値から
@@ -89,15 +97,15 @@ implementation slice で初めて実行可能になる。
   acceptance evidence に使えない。
 - partial provisioning state も cleanup 対象になり、devnode/driver/cert/
   consent/service の residue が cleanup state へ記録される。
-- artifact に terminal RunMetadata、provision state、cleanup state、driver
+- consumer evidence artifact に terminal RunMetadata、provision state、driver
   package manifest、stdout/stderr、run URL 再現に必要な runner/tool 情報が
-  含まれる。
+  含まれる。cleanup state は別の post-cleanup artifact に含める。
 
 ## Case matrix
 
 | ID | 条件 | 実行方法（後続実装） | 期待判定 | acceptance 解釈 |
 | --- | --- | --- | --- | --- |
-| VP-S1 | workflow YAML・権限・step order | `mise run lint-actions`、静的 review | provision→test→metadata/artifact→`if: always()` cleanup が同一 job | 未実装時は NotRun |
+| VP-S1 | workflow YAML・権限・step order | `mise run lint-actions`、静的 review | provision→test→pre-cleanup metadata/artifact upload→`if: always()` cleanup→post-cleanup cleanup artifact upload が同一 job | 未実装時は NotRun |
 | VP-S2 | Ruviform lock rev extraction | workflow dry run または unit script test | `Cargo.lock` から single rev を抽出。零/複数/malformed は fail-closed | 不成立なら acceptance evidence 不可 |
 | VP-P1 | provision 成功 | manual workflow run | provision terminal status `ok`、endpoint pair candidate、state/artifact manifest あり | test 実行条件成立。これだけでは Pass ではない |
 | VP-P2 | provision absent/blocked/error | manual workflow run | consumer test は実行せず、provisioning evidence を upload | acceptance 未達。consumer Fail にしない |
@@ -109,13 +117,14 @@ implementation slice で初めて実行可能になる。
 | VP-C6 | `ruviform_lock_rev` と checkout rev 不一致 | static/fault review | acceptance evidence 不可を明示 | 証拠不備。product Fail にしない |
 | VP-X1 | test failure 後 cleanup | manual workflow run | cleanup step が実行され、devnode/driver/cert/consent residue が state に記録される | cleanup verdict は独立 |
 | VP-X2 | cleanup partial/failure | manual workflow run または fault review | cleanup status `error`、residue detail、consumer verdict と別記録 | 運用失敗。consumer Pass/Fail を変えない |
-| VP-E1 | artifact/evidence 転記 | provisioned run 後の通常 PR | `evidence/sv115/` に RunMetadata JSON・CI URL・revision・provisioning/cleanup record が残る | canonical evidence 完成 |
+| VP-E1 | artifact/evidence 転記 | provisioned run 後の通常 PR | `evidence/sv115/` に RunMetadata JSON・CI URL・revision・provisioning record が残る。cleanup record は取得できれば併記するが、欠損しても consumer verdict を変えない | canonical evidence 完成 |
 | VP-R1 | Ruviform manual probe 非回帰 | Ruviform parity manual run | 既存 stage vocabulary・artifact・fault cases が観測可能 | primitive extraction の acceptance |
 
 ## Pass evidence minimum
 
-`VP-C2` を acceptance evidence に使うには、少なくとも次が同一 artifact または
-同一 evidence 転記内で突合できる必要がある。
+`VP-C2` を acceptance evidence に使うには、少なくとも次が同一 run の
+consumer evidence artifact または同一 evidence 転記内で突合できる必要がある。
+cleanup artifact は運用確認の参照先であり、consumer Pass の成立条件にはしない。
 
 - terminal RunMetadata JSON本体。`repo=scarecrow173/synvelis`、対象 `sha`、
   `level=ext-l3`、`environment_kind=virtual-os-endpoint`、`oracle`、
@@ -124,8 +133,11 @@ implementation slice で初めて実行可能になる。
 - provision state JSON。terminal status、source repo/revision、driver package
   manifest、cert thumbprint/notAfter、devnode instance id、endpoint pair
   candidate、mic consent record。
-- cleanup state JSON。terminal status、residue/leftover、service restart 結果。
 - `ruviform_lock_rev` と `ruviform_checkout_rev`。
+
+cleanup state JSON の terminal status、residue/leftover、service restart 結果は
+運用 evidence として残す。cleanup artifact が欠損した場合はその事実を記録するが、
+consumer harness の terminal RunMetadata が満たす Pass/Fail/NotRun を書き換えない。
 
 ## Local validation for this design/docs slice
 
