@@ -6,7 +6,6 @@ Directory: `docs/designs`
 
 | ID | Title | Status | File |
 | --- | --- | --- | --- |
-| DESIGN-OVERVIEW | Synvelis 設計概要 | draft | [overview.md](./overview.md) |
 | DESIGN-AjvrOoTZDaCcUxKLXeoxA3 | AI-Native Hybrid DAW Baseline — Grant/Principal/Scope/Approval/ChangeSet・AI Off 既定・3 Mode 責務設計 (synvelis#44) | approved | [ai-native-baseline-design.md](./ai-native-baseline-design.md) |
 | DESIGN-pzR2GiO8Eru6Jw2zRK6l2s | ALIB-01 Design — Asset Provider 契約・Local/Project 基準 Provider | approved | [alib-01-asset-provider-contract-design.md](./alib-01-asset-provider-contract-design.md) |
 | DESIGN-034XCHS23zpAY0YcXEkGAP | ALIB-02 fault-injection followup — 残存 integrity/dirsync 拒否経路の専用 test 設計 | approved | [alib-02-fault-injection-followup.md](./alib-02-fault-injection-followup.md) |
@@ -44,6 +43,7 @@ Directory: `docs/designs`
 | DESIGN-0Gw02AuthorizationPo01 | GW-02 Principal / Execution Grant / Authorization Policy — Fixed/Dynamic Scope | draft | [gw-02-authorization-policy-design.md](./gw-02-authorization-policy-design.md) |
 | DESIGN-2mTMmzcADhXvcwIO5uSsUn | Issue #115 rf#628 consumer oracle Design | approved | [issue-115-rf628-consumer-oracle.md](./issue-115-rf628-consumer-oracle.md) |
 | DESIGN-6b7yO4AkTMb19oy5Wz3k1L | Issue #115 rf#628 record-after-recovery Design | approved | [issue-115-rf628-record-after-recovery.md](./issue-115-rf628-record-after-recovery.md) |
+| DESIGN-sv115VirtualEndpointRcd01 | Issue #115 RCD-01 Consumer Virtual-WASAPI EXT-L3 Harness 設計 | approved | [issue-115-virtual-endpoint.md](./issue-115-virtual-endpoint.md) |
 | DESIGN-7Y20yWdQNliSve36HXn2Hy | Issue #145 ci.yml manual-only 設計 — trigger 撤去の最小差分と不変契約の境界 | approved | [issue-145-ci-manual-only.md](./issue-145-ci-manual-only.md) |
 | DESIGN-034RIJlv2BuYKx5KG2VyDg | Issue #147 sccache キャッシュ分離・段階展開設計 | approved | [issue-147-sccache-compile-cache.md](./issue-147-sccache-compile-cache.md) |
 | DESIGN-034SVCIOPT02kX3pLwQs | Issue #148 変更影響分類・Fail-Closed evidence Gate 設計 | approved | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
@@ -84,6 +84,7 @@ Directory: `docs/designs`
 | DESIGN-034X7uvDLVml1hERo5iqNc | Media / Import / Export / Offline Render / UI / Diagnostics — Media & Render Lifecycle 設計契約 (synvelis#21) | approved | [media-render-design.md](./media-render-design.md) |
 | DESIGN-034MSA52Mn8xRt6yQwZkPf | 最小 MIDI Source / Note 編集契約 設計 | draft | [midi-source-note-editing-design.md](./midi-source-note-editing-design.md) |
 | DESIGN-v1cBPgJUA5gYtWIH40kczJ | Musical Time — 設計契約マップ（synvelis#19） | approved | [musical-time-design.md](./musical-time-design.md) |
+| DESIGN-OVERVIEW | Synvelis 設計概要 | draft | [overview.md](./overview.md) |
 | DESIGN-034PCA03Nj8xRs4yAbOcDe | PC-A Parameter Control Model 設計 — Scope/Breakdown/StateMachine headless PoC | approved | [pc-a-parameter-control-design.md](./pc-a-parameter-control-design.md) |
 | DESIGN-034PCB03Mn8xRs4uZvWdEf | PC-B Parameter Control dispatch/note-scope/RT/offline 設計 | approved | [pc-b-parameter-dispatch-note-scope-design.md](./pc-b-parameter-dispatch-note-scope-design.md) |
 | DESIGN-034RoTLCvNiYIgUG0JDqVa | PC-C1 Recording Transaction prepare/apply/finalize 設計 | approved | [pc-c1-recording-transaction-design.md](./pc-c1-recording-transaction-design.md) |
@@ -211,15 +212,17 @@ Directory: `docs/designs`
 | DESIGN-JxGLd6Q5TTckxCpvsulzYJ | TIM-01 PPQN config — punch marks 再投影と受入残件検証設計 | approved | [tim-01-ppqn-config-design.md](./tim-01-ppqn-config-design.md) |
 | DESIGN-4kLmNpQrStUvWxYz0123 | TIM-01 PPQN Preview op + New Project PPQN — 設計 | approved | [tim-01-ppqn-preview-design.md](./tim-01-ppqn-preview-design.md) |
 | DESIGN-TiM01uIxYzAbCdEfGh2 | TIM-01 PPQN 選択 UI + Snap/Grid ポリシー — 設計 | approved | [tim-01-ppqn-ui-design.md](./tim-01-ppqn-ui-design.md) |
+| DESIGN-034XmM4rWsUgOxCaZeItMq | TIM-02 SMF app ops — op 配線 + MIDI clip compile 証拠設計 | approved | [tim-02-app-ops-smf.md](./tim-02-app-ops-smf.md) |
+| DESIGN-623tim02midiNodeDelivery01 | TIM-02 MidiClipPlan→plugin node 配送 seam — single-plan merge + instrument node 解決 | draft | [tim-02-midi-node-delivery.md](./tim-02-midi-node-delivery.md) |
 | DESIGN-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 — crate 内完結設計 | approved | [tim-02-player-midi-rt-offline.md](./tim-02-player-midi-rt-offline.md) |
 | DESIGN-TiM02PpqnSmfXg02 | TIM-02 × TIM-01 PPQN×SMF cross-golden fixture — 設計 | approved | [tim-02-ppqn-smf-cross-golden-design.md](./tim-02-ppqn-smf-cross-golden-design.md) |
 | DESIGN-034UwVoRGI8Bp9zuzRFQhj | TIM-02 SMF Format0/1 core — crate 内完結設計 | approved | [tim-02-smf-format01-core.md](./tim-02-smf-format01-core.md) |
-| DESIGN-034XmM4rWsUgOxCaZeItMq | TIM-02 SMF app ops — op 配線 + MIDI clip compile 証拠設計 | approved | [tim-02-app-ops-smf.md](./tim-02-app-ops-smf.md) |
-| DESIGN-623tim02midiNodeDelivery01 | TIM-02 MidiClipPlan→plugin node 配送 seam — single-plan merge + instrument node 解決 | draft | [tim-02-midi-node-delivery.md](./tim-02-midi-node-delivery.md) |
 | DESIGN-034XI7yLnh4SLMxH8BU2lg | TIM-03 driver-side loop-wrap boundary derivation | approved | [tim-03-driver-loop-boundary.md](./tim-03-driver-loop-boundary.md) |
 | DESIGN-034XzNPr4B2cwT30gBhGCN | TIM-03 Loop/Tempo boundary 自動導出 — 設計 | approved | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
+| DESIGN-NhzhoY6wYQRrrjxtkUsnO | TIM-03 real ABI process oracle boundary slice | approved | [tim-03-real-abi-process-oracle.md](./tim-03-real-abi-process-oracle.md) |
 | DESIGN-MsBu5XoYY4Ex3QB0qmDvC5 | TIM-03 session→driver/routing wiring design — session 寿命・provenance mint・transport mirror | approved | [tim-03-session-driver-wiring-design.md](./tim-03-session-driver-wiring-design.md) |
 | DESIGN-034UC0ixTsN58rRlRctgAH | TIM-04 plugin state snapshot consistency design — quality receipt/store/session/offline recipe | approved | [tim-04-plugin-state-snapshot-consistency-design.md](./tim-04-plugin-state-snapshot-consistency-design.md) |
+| DESIGN-034jU54Fg1eMsmUlQArX7T | TIM-04 Plugin State Snapshot — real ABI consumer-run design | approved | [tim-04-real-abi-state.md](./tim-04-real-abi-state.md) |
 | DESIGN-034UyEjdALaapQRSk5hAdk | TIM-03 plugin process boundary design — capability/degraded policy oracle | approved | [tim03-process-boundary-design.md](./tim03-process-boundary-design.md) |
 | — | Synvelis × Ruviform — Time / Transport / MIDI / Automation / Plugin Integration Architecture v0.5 | — | [time-transport-midi-automation-plugin-integration-architecture.md](./time-transport-midi-automation-plugin-integration-architecture.md) |
 | DESIGN-T4E6PtTJ870Fpg4pFi3aM6 | Timeline Editing / Selection / Tool System — Snap・Gesture・Undo・Cross-View編集の共通設計（synvelis#11） | approved | [timeline-editing-design.md](./timeline-editing-design.md) |

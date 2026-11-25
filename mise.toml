@@ -75,6 +75,13 @@ run = "cargo test -p synvelis-recording --locked --features real-device --test r
 description = "Clippy for synvelis-recording with the real-device feature enabled (opt-in; not in CI)"
 run = "cargo clippy -p synvelis-recording --all-targets --locked --features real-device -- -D warnings"
 
+# RCD-01 consumer virtual-WASAPI EXT-L3 lane（CI 対象外・endpoint provisioning 依存）。
+# Ruviform Cable Input/Output pair 不在環境では test 内で RunMetadata
+# `result=not-run` / `NOT_PROVISIONED` を出して exit 0 になる。
+[tasks.test-recording-virtual-endpoint]
+description = "Run the opt-in Ruviform virtual endpoint EXT-L3 lane for synvelis-recording (requires provisioned endpoints for Pass; not in CI)"
+run = "cargo test -p synvelis-recording --locked --features real-device --test virtual_endpoint -- --ignored --test-threads=1 --nocapture"
+
 # RCD-02 opt-in real-FS lane（CI 対象外・実 FS 実測）。
 # recording-poc tests/real_fs_probe.rs の #[ignore] test のみを実行し、
 # 実 FS 上の rename 原子性・dir sync capability・unsynced tail の

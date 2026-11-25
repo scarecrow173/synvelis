@@ -30,8 +30,10 @@ Directory: `docs/specs`
 | SPEC-034QAlF2irl9rIJaUi9RQ1 | ED-A Editing Model — Selection/Tool/Snap/Transaction/LinkedContext headless PoC | approved | [ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md](./ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md) |
 | SPEC-034QMZiCjhKFlSgoIw9YaX | ED-B media-domain move + slip commit semantics (workspace editing PoC) | approved | [ed-b-media-domain-move-slip-commit-semantics.md](./ed-b-media-domain-move-slip-commit-semantics.md) |
 | SPEC-034X83uiIsH0n6OuQGcU1T | Execution Plan — RCP-00〜07/F01・F0/E2E-L/R/X・Signal Flow/Automation/GUI 横断単一 DAG・Owner/Gate/Acceptance Matrix | approved | [execution-plan.md](./execution-plan.md) |
+| SPEC-sv601frmlvrf0slice1 | Issue #601 Formal Verification D 層 slice 1 — journal wire codec の proptest + Kani 検証基盤 | proposed | [formal-verification.md](./formal-verification.md) |
 | SPEC-4s5cb4YaV5NS7O0krrfQcg | Issue #115 rf#628 consumer oracle — synvelis#115 slice | approved | [issue-115-rf628-consumer-oracle.md](./issue-115-rf628-consumer-oracle.md) |
 | SPEC-x2yrcR6anjkQ3O33VJ99WF | Issue #115 rf#628 record-after-recovery — synvelis#115 slice | approved | [issue-115-rf628-record-after-recovery.md](./issue-115-rf628-record-after-recovery.md) |
+| SPEC-sv115VirtualEndpointRcd01 | Issue #115 RCD-01 Consumer Virtual-WASAPI EXT-L3 Harness | approved | [issue-115-virtual-endpoint.md](./issue-115-virtual-endpoint.md) |
 | SPEC-nBrnIDkIfILvtzEXr42L56 | Issue #145 ci.yml manual-only 化 — pull_request/push trigger 撤去と dispatch 専用 Full CI | proposed | [issue-145-ci-manual-only.md](./issue-145-ci-manual-only.md) |
 | SPEC-034RIJkUYtv28x8ZpNn8Tv | Issue #147 sccache コンパイルキャッシュ導入仕様 | approved | [issue-147-sccache-compile-cache.md](./issue-147-sccache-compile-cache.md) |
 | SPEC-034RGX4X79sB0s9tVVWQh9 | Issue #151 CI ui-verify lane 追加仕様 | approved | [issue-151-ui-ci-lane.md](./issue-151-ui-ci-lane.md) |
@@ -187,8 +189,10 @@ Directory: `docs/specs`
 | SPEC-034UwMIulZ7DXWykQFy704 | TIM-02 SMF Format0/1 Import/Export — project+recording headless slice (synvelis#126) | proposed | [tim-02-smf-format01-import-export.md](./tim-02-smf-format01-import-export.md) |
 | SPEC-034XI73iNvfO3GRXXim8Ph | TIM-03 driver-side loop-wrap boundary derivation | approved | [tim-03-driver-loop-boundary.md](./tim-03-driver-loop-boundary.md) |
 | SPEC-034XzM1qSQBS0dtcltnMBI | TIM-03 Loop/Tempo boundary 自動導出 — TransportMirror scheduled commands からの LoopWrap BoundaryPoint 導出（headless slice） | approved | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
+| SPEC-dY1xgGhccy2D0xj8JhQC3 | TIM-03 real ABI process oracle boundary slice | approved | [tim-03-real-abi-process-oracle.md](./tim-03-real-abi-process-oracle.md) |
 | SPEC-1umIWi6ogYs4kgcJeTyvJ8 | TIM-03 session→driver/routing wiring — ProcessBoundarySession の composition 接続（headless slice） | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | SPEC-034UBZ7xNf0yey5lCLjVNT | TIM-04 Plugin State Snapshot 一貫性 — quality receipt・save/reload/HEAD/offline recipe（headless mock slice） | approved | [tim-04-plugin-state-snapshot-consistency.md](./tim-04-plugin-state-snapshot-consistency.md) |
+| SPEC-034oAncdBMNxHcIjF4PLx6 | TIM-04 Plugin State Snapshot — real ABI consumer-run | approved | [tim-04-real-abi-state.md](./tim-04-real-abi-state.md) |
 | SPEC-034UyE1s4ix4GwnKIOuV2N | TIM-03 plugin process boundary — capability/degraded policy（headless mock slice） | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
 | SPEC-BCK7X1Qx5rbH151Bo7ftE7 | Timeline Editing / Selection / Tool System — Snap・Gesture・Undo・Cross-View編集の共通仕様（synvelis#11） | approved | [timeline-editing.md](./timeline-editing.md) |
 | SPEC-034X7wGMLTCbfLxfME4Odo | Transport Integration — Span/Seek/Loop/Tempo・MIDI/Plugin Event Offset・Automation FrameBase・State Contract・Capability/Degraded (TT-001〜030 design contract) | approved | [transport-integration.md](./transport-integration.md) |
@@ -220,7 +224,6 @@ Directory: `docs/specs`
 | SPEC-034X3kmamOZgcqrHR75ac9 | Workspace UX 操作 Scenario・状態図・UX 仕様の正本化 (Issue #3) | approved | [workspace-ux-scenarios.md](./workspace-ux-scenarios.md) |
 | SPEC-034QwWbIzoS7Pl7KxncpF6 | WS-A Workspace Foundation — View/Selection/LinkGroup/Command/Dock headless PoC | approved | [ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md](./ws-a-workspace-foundation-view-selection-linkgroup-command-dock.md) |
 | SPEC-wVS4pCX5veOtjhEh013pJ0 | X — Recorded Source→Generic Playback/Export integration with Frame/ID/Content integrity | approved | [x-recorded-verified-source-playback-export.md](./x-recorded-verified-source-playback-export.md) |
-| SPEC-sv601frmlvrf0slice1 | Issue #601 Formal Verification D 層 slice 1 — journal wire codec の proptest + Kani 検証基盤 | proposed | [formal-verification.md](./formal-verification.md) |
 
 ## Settled <!-- doc-suite:settled-index -->
 

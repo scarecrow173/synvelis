@@ -103,10 +103,23 @@ precedent: `fake_input_drop_fails_stop_and_preserves_verified_prefix`・
 | --- | --- | --- |
 | synthetic-L1（本 slice・fake port oracle） | Pass | 全 case・全 stream/track で Expected/Observed 記録済み |
 | rf#628-fixture variant | Pass（2026-11-15 consumer oracle slice + 2026-11-16 residual gap closure） | `scarecrow173/ruviform#628` の deterministic runtime が pinned ruviform `abb9f372` の `ruviform-audio-test` として収録され、`tests/rf628_oracle.rs`/`rf628_oracle_rt_alloc.rs` で SV-1〜SV-8 を実測（SV-7 open-fault recovery E2E・SV-8 literal stereo→2mono は 2026-11-16 slice で追加）。case 行の詳細は `issue-115-rf628-consumer-oracle-verification.md` と `issue-115-rf628-record-after-recovery-verification.md` を参照（deterministic-backend headless lane のみ） |
-| rf#629 仮想 endpoint EXT-L3 | NotRun | `scarecrow173/ruviform#629` OPEN、OS 列挙/Open 可能な仮想 WASAPI endpoint 環境未構築（NOT_PROVISIONED、hard dep だが本 slice 対象外） |
+| consumer virtual endpoint EXT-L3 | NotRun | harness 実装済みだが本 host に Ruviform endpoint pair 未 provisioning（`NOT_PROVISIONED`、2026-11-25 実測 exit 0）。upstream ruviform#1001 の base round-trip Pass とは分離して記録 |
 | physical HW | NotRequired | 追加物理検証は通常必須外（POLICIES.md §2.1）。iD4 の real-input opt-in lane は上記のとおり構造検証として実測 Pass（oracle-grade PCM fidelity ではない） |
 | `mise run test-recording-real-input` | Pass | opt-in HW lane を実行。WASAPI 上の Audient iD4（Loop-back 1/2・Analogue 1/2）を実測し 10/10 pass（構造・continuity 検証。real PCM の内容は deterministic oracle で検証不能のため structural verification が Pass 権威 — `real_deterministic_pcm_source_records_not_run` が正直に NotRun を記録）。診断的 `--nocapture` 再実行で `real_long_capture_monitors_frame_continuity` が device/driver continuity fault（bits 0x0020、verified prefix は journal/media intact と自己分類）を 1 度観測する flaky 挙動あり、直後の再実行は 10/10 pass — real-HW 特性であり本 slice の変更とは無関係 |
 | canonical blob publish 脚 | Deferred | `synvelis-player` 管轄。既存証拠 `crates/synvelis-player/tests/rcd02_blob_digest.rs`・`evidence/sv116/rcd-02-blob-sha256-ledger.md` を参照。本 slice で Pass 転用しない |
+
+
+## 2026-11-25 consumer virtual endpoint harness update
+
+`tests/virtual_endpoint.rs` に Ruviform Cable Input/Output を対象とする
+consumer virtual-WASAPI EXT-L3 harness が追加された。upstream ruviform#1001
+/ PR #1008（merge `f332e462`）では SysVAD 派生 `Ruviform Cable Input/Output`
+の install→実 WASAPI render→capture round-trip が GitHub-hosted Windows で
+Pass 済みだが、本 slice を実行した開発 host には Ruviform endpoint pair が
+provisioning されていない。`mise run test-recording-virtual-endpoint` は
+`result=not-run` / `NOT_PROVISIONED` の RunMetadata JSON を出力して exit 0
+を実測した。したがって consumer EXT-L3 round-trip は NotRun であり、Pass では
+ない。詳細は `issue-115-virtual-endpoint-verification.md`。
 
 ## 未検証の項目（NotRun / Unsupported / Deferred）
 
@@ -120,11 +133,11 @@ precedent: `fake_input_drop_fails_stop_and_preserves_verified_prefix`・
   `issue-115-rf628-consumer-oracle-verification.md` と
   `issue-115-rf628-record-after-recovery-verification.md` を参照。
   real OS audio・GUI・physical lane の verdict は変更しない。
-- **rf#629 仮想 endpoint EXT-L3**: `scarecrow173/ruviform#629`
-  （RF-VTEST-02 Windows 仮想 endpoint）OPEN。OS が列挙・Open できる
-  仮想 WASAPI endpoint → 本番 Callback の環境が未構築のため
-  NotRun(NOT_PROVISIONED)。hard dep だが本 slice 対象外 — Issue #115
-  open 継続の根拠。
+- **consumer virtual endpoint EXT-L3**: harness は実装済みだが、本 host
+  に Ruviform Cable Input/Output pair が provisioning されていないため
+  NotRun(NOT_PROVISIONED)。upstream ruviform#1001 / PR #1008 の base
+  round-trip Pass は upstream の証拠であり、Synvelis consumer EXT-L3 の
+  Pass へ転用しない — Issue #115 open 継続の根拠。
 - **physical HW**: 追加物理検証は通常必須外（NotRequired）。iD4 10/10
   は既存履歴のまま。
 - **GUI（Option B）**: `synvelis-app` 層の Recorder command/UI wire の
