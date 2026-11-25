@@ -152,6 +152,12 @@ Pass だが、real ABI process oracle の代替にはしない。
 | `mise run check-headless-deps` | Pass（exit 0。12 headless crates に GUI framework dependency なし） |
 | `mise exec -- prek run --all-files` | Pass（exit 0。whitespace/EOL/YAML/TOML/line-ending/BOM/private-key/actionlint hooks 全 pass） |
 
+記録面の follow-up commit（ruviform#1012 起票番号と AC5/AC6 字義の緊張関係の残件化）
+に対する再検証: `mise run fmt-check` exit 0、`mise run test synvelis-app` exit 0
+（59 test binaries / 471 passed / 0 failed、`tim03_real_abi_process_oracle` 2 tests 含む）、
+`mise exec -- prek run --all-files` exit 0。変更は evidence 本文のみで test/コード差分は
+ないが、指示どおり fmt-check と関連 test lane を再実行した。
+
 補助証拠（canonical ではない）:
 
 - `target/debug/deps/tim03_real_abi_process_oracle-6b3a7d8b3525175c.exe --nocapture` — exit 0、
@@ -164,7 +170,14 @@ Pass だが、real ABI process oracle の代替にはしない。
   PCM/Event oracle を再評価する。
 - upstream real ABI bridge から有効な bus layout が見えない問題を切り分ける。
   現状 `Reported([])` が endpoint 以前の `Incompatible` を引き起こし、production
-  fault を `UnsupportedFormatOrTimeMap` にしている。
+  fault を `UnsupportedFormatOrTimeMap` にしている。ruviform 側 Issue として
+  `scarecrow173/ruviform#1012` を起票済み（本 evidence の実測ログへの言及を含む）。
+- Issue #127 受入条件の字義上の緊張関係: AC5 は実 CLAP/VST3/AU の L2/L3 を
+  「現行必須でなく利用OS/Format確定時にだけ Activation する」と条件付きで書く一方、
+  AC6（Windows GUI-L2/EXT-L3）は「2026-11-15現行 Required」と Windows の L2/L3 を
+  事実上必須化しており、両者は矛盾し得る。本 slice はどちらの解釈でも Pass を
+  主張しない（Windows L2/L3 は NotRun）が、字義の矛盾そのものは Issue 側で
+  解消すべき残件として記録する。
 - crash/hang/timeout isolation、`test_fault`、`test_stateful`、State/Unload、
   editor/GUI/Native Dock、Windows EXT-L3 最終実走。
 - desktop product で実 plugin scan/registry を提供する owner 判断、
