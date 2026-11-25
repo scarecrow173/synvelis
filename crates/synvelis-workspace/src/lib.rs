@@ -154,9 +154,9 @@ pub use library_ui::{
     BrowseEntryWire, DirectJobDrive, DragUiState, ImportTargetWire, ImportUiState, JOB_ID_BAND,
     LibraryAction, LibraryBackend, LibraryFault, LibraryImportPorts, LibraryJob, LibraryJobBegin,
     LibraryJobCancel, LibraryJobDrive, LibraryJobKind, LibraryJobLedger, LibraryJobPlan,
-    LibraryJobProgress, LibraryJobState, LibraryJobTerminal, LibraryJobWire, LibraryReason,
-    LibraryViewModel, LibraryViewState, LibraryViews, PinUiState, PreviewUiState, ProviderWire,
-    StatWire, library_spec, run_plan_job,
+    LibraryJobProgress, LibraryJobRestore, LibraryJobState, LibraryJobTerminal, LibraryJobWire,
+    LibraryReason, LibraryViewModel, LibraryViewState, LibraryViews, PinUiState, PreviewUiState,
+    ProviderWire, StatWire, library_spec, run_plan_job,
 };
 pub use recording_status::{
     PreparedCommitView, PreparedVerdict, RECORDING_STATUS_NOTICE_TAIL, RecordingAction,

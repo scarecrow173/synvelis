@@ -210,11 +210,13 @@ fn restart_restores_inflight_import_as_recoverable() {
 }
 
 #[test]
-fn restart_restores_pending_commit_as_recoverable() {
+fn restart_replays_pending_commit_to_committed_live() {
     // The restart lands between `park_commit` and the service-thread
     // reconcile: the ledger saved `pending_commit` while the durable
-    // manifest proves `Published` — the receipt is `recoverable` at
-    // `commit-pending`, and no commit is replayed.
+    // manifest carries the whole intent — so sv646 reinserts the job
+    // live and the first `syn.library.*` read replays the owed commit
+    // (the sv643 `recoverable` degrade survives only when the manifest
+    // can no longer prove the intent — sv646 covers that path).
     let gate = Gate::new();
     let (mut app, dir) = app_with_import_gate(
         "sv643-park",
@@ -263,17 +265,19 @@ fn restart_restores_pending_commit_as_recoverable() {
     let restored = job(&mut app2, &import_key(13)).expect("restored ledger entry");
     assert_eq!(restored["state"], "done");
     assert_eq!(restored["pending_commit"], false);
-    assert_eq!(restored["terminal"]["kind"], "recoverable");
-    assert_eq!(restored["terminal"]["reason"], "interrupted");
-    assert_eq!(restored["terminal"]["stage"], "commit-pending");
-    // The owed commit was never replayed — the manifest says
-    // `committed` but the live registry never applied it.
+    assert_eq!(restored["terminal"]["kind"], "committed-live");
+    assert_eq!(
+        restored["terminal"]["import_id"],
+        "import-0000000000000000000000000000000d"
+    );
+    assert_eq!(restored["terminal"]["reused"], false);
+    // The owed commit was replayed — the live registry applied it.
     let imports = app2
         .op_library_imports(&json!({}))
         .expect("syn.library.imports");
     let row = &imports["imports"].as_array().unwrap()[0];
     assert_eq!(row["stage"], "committed");
-    assert_eq!(row["applied"], false);
+    assert_eq!(row["applied"], true);
 
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&proj);
