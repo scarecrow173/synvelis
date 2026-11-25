@@ -63,6 +63,10 @@ pub const OPS: &[OpInfo] = &[
         summary: "dry-run project PPQN change — params.new_ppqn/policy(/rounding) → site counts, inexact/overflow, per-policy feasibility (read-only)",
     },
     OpInfo {
+        name: "syn.project.ppqn",
+        summary: "PPQN selection gesture for the Project tab widget — params.view_id/action(select|confirm|cancel)/new_ppqn/policy(/rounding) — select runs the preview",
+    },
+    OpInfo {
         name: "syn.project.import_smf",
         summary: "import an SMF Format 0/1 file as a new MIDI source — params.path, expected_revision? → source_id + import summary",
     },
@@ -536,6 +540,7 @@ impl AppService {
             "syn.project.info" => Ok(self.app.project_info()),
             "syn.project.set_ppqn" => self.app.project_set_ppqn(params),
             "syn.project.preview_ppqn" => self.app.project_preview_ppqn(params),
+            "syn.project.ppqn" => self.app.op_project_ppqn(params),
             "syn.project.import_smf" => self.app.project_import_smf(params),
             "syn.project.export_smf" => self.app.project_export_smf(params),
             "syn.recording.info" => Ok(self.app.recording_info()),

@@ -85,6 +85,41 @@ pub fn ppqn_policy_wire(policy: PpqnConversionPolicy) -> (&'static str, Option<&
     }
 }
 
+/// Inverse of [`ppqn_policy_wire`] — decodes the `policy`/`rounding`
+/// wire pair into a [`PpqnConversionPolicy`]. Strict: `exact`
+/// forbids a rounding, `round` requires a known one, and unknown
+/// names fail. `Err` carries the complete rejection message; callers
+/// turn it into their typed wire error.
+///
+/// The same `policy`/`rounding` contract is enforced at the
+/// `syn.project.set_ppqn`/`preview_ppqn` boundary; this function is
+/// the canonical decode for the params-carrying widget path
+/// (`syn.project.ppqn`, synvelis#125), where the sender is a widget
+/// spec rather than a driver-authored op call.
+///
+/// # Errors
+/// Returns `Err(message)` naming the offending `policy`/`rounding`
+/// value when the pair cannot be decoded.
+pub fn ppqn_policy_wire_decode(
+    policy: &str,
+    rounding: Option<&str>,
+) -> Result<PpqnConversionPolicy, String> {
+    match (policy, rounding) {
+        ("exact", None) => Ok(PpqnConversionPolicy::Exact),
+        ("exact", Some(_)) => Err("rounding is only valid with policy \"round\"".to_string()),
+        ("round", None) => Err("rounding required when policy is \"round\"".to_string()),
+        ("round", Some(name)) => match name {
+            "floor" => Ok(PpqnConversionPolicy::Round(Rounding::Floor)),
+            "ceil" => Ok(PpqnConversionPolicy::Round(Rounding::Ceil)),
+            "toward_zero" => Ok(PpqnConversionPolicy::Round(Rounding::TowardZero)),
+            "away_from_zero" => Ok(PpqnConversionPolicy::Round(Rounding::AwayFromZero)),
+            "nearest_even" => Ok(PpqnConversionPolicy::Round(Rounding::NearestEven)),
+            other => Err(format!("unknown rounding {other}")),
+        },
+        (other, _) => Err(format!("unknown policy {other}")),
+    }
+}
+
 /// Lifecycle phase of the PPQN selection gesture.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PpqnPhase {

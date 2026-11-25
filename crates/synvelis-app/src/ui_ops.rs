@@ -63,6 +63,7 @@ use synvelis_workspace::controls_ui::{
     CommandIntent, ControlsUi, DispatchContext, GestureCancelReason, ParamProjection,
     TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET,
 };
+use synvelis_workspace::ppqn_ui::ppqn_policy_wire_decode;
 use synvelis_workspace::state::{PpqnUi, PpqnUiError};
 use synvelis_workspace::variant_diff::{
     ACTION_VARIANT_DIFF_ADOPT, AuxLayerEvidence, BranchPin, CapabilityEvidence, EvidenceState,
@@ -4960,8 +4961,9 @@ impl SynvelisApp {
     // (`PpqnUi`); these helpers drive it and mint the real
     // `syn.project.*` ops through the same paths the service
     // dispatches — no separate time model and no fake widget
-    // actions. Real GUI wiring (parameterized widget intents) is the
-    // deferred external gate.
+    // actions. Widget intents reach them through `syn.project.ppqn`
+    // (`op_project_ppqn` below); real OS window/pixel driving stays
+    // the deferred external gate.
 
     /// The view-owned PPQN gesture read model — inspectable by views
     /// and headless drivers. Mutations go through the `ppqn_*`
@@ -5032,6 +5034,73 @@ impl SynvelisApp {
     /// returns `true` when a pending selection was discarded.
     pub fn ppqn_cancel(&mut self) -> bool {
         self.ui.ppqn_ui.borrow_mut().cancel()
+    }
+
+    /// `syn.project.ppqn` — the params-carrying widget entry into the
+    /// PPQN selection gesture (TIM-01 widget slice, synvelis#125).
+    /// The Project tab's recommended-value Buttons mint this op via
+    /// `rvf.ui.command.v1` `ppqn.select` with `{new_ppqn, policy,
+    /// rounding?}`; Confirm/Cancel mint `ppqn.confirm`/`ppqn.cancel`
+    /// with no payload. Params `{view_id, action}`:
+    ///
+    /// - `select` — `ppqn_select` + `ppqn_preview_pending` fused: the
+    ///   pending candidate is recorded and its preview op runs in one
+    ///   step. Returns `{view_id, selected, preview}` (`preview` is
+    ///   the `syn.project.preview_ppqn` result verbatim).
+    /// - `confirm` — `ppqn_confirm`: `syn.project.set_ppqn` carrying
+    ///   the preview-time `expected_revision` CAS. Returns
+    ///   `{view_id, confirmed, project}` (`project` is the
+    ///   `project_info` payload after application).
+    /// - `cancel` — `ppqn_cancel`. Returns `{view_id, canceled}`.
+    ///
+    /// Strict params — a widget spec or forged intent carrying an
+    /// out-of-range `new_ppqn`, unknown `policy`/`rounding`, or wrong
+    /// type is rejected (`INVALID_PARAMS`), never silently coerced.
+    ///
+    /// # Errors
+    /// [`ErrorBody`] with `codes::INVALID_PARAMS` on malformed params,
+    /// no applicable pending selection (confirm/cancel semantics
+    /// enforced by [`PpqnUi`]), or the underlying op's own rejection.
+    pub fn op_project_ppqn(&mut self, params: &Value) -> Result<Value, ErrorBody> {
+        let view = str_param(params, "view_id")?;
+        self.require_attached_view(view)?;
+        match str_param(params, "action")? {
+            "select" => {
+                let new_ppqn = u32::try_from(u64_param(params, "new_ppqn")?)
+                    .map_err(|_| invalid("params.new_ppqn exceeds u32 range"))?;
+                let rounding = match params.get("rounding") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => Some(
+                        value
+                            .as_str()
+                            .ok_or_else(|| invalid("params.rounding (string) required"))?,
+                    ),
+                };
+                let policy = ppqn_policy_wire_decode(str_param(params, "policy")?, rounding)
+                    .map_err(|e| invalid(format!("params: {e}")))?;
+                self.ppqn_select(new_ppqn, policy)
+                    .map_err(|e| invalid(format!("ppqn select: {e}")))?;
+                let preview = self.ppqn_preview_pending()?;
+                Ok(json!({
+                    "view_id": view,
+                    "selected": new_ppqn,
+                    "preview": preview,
+                }))
+            }
+            "confirm" => {
+                let project = self.ppqn_confirm()?;
+                Ok(json!({
+                    "view_id": view,
+                    "confirmed": project["ppqn"],
+                    "project": project,
+                }))
+            }
+            "cancel" => Ok(json!({
+                "view_id": view,
+                "canceled": self.ppqn_cancel(),
+            })),
+            other => Err(invalid(format!("unknown ppqn action {other}"))),
+        }
     }
 
     // -- syn.signal_flow.* -------------------------------------------------
