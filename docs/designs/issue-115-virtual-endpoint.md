@@ -7,7 +7,8 @@ created: "2026-11-25"
 updated: "2026-11-25"
 owners: ["scarecrow173"]
 relations:
-  source: []
+  source:
+    - "https://github.com/scarecrow173/synvelis/issues/115"
   changes:
     added:
       - type: "file"
