@@ -4,15 +4,17 @@ type: "test-spec"
 status: "approved"
 title: "ALIB-07 Asset Library 全経路 Fault Matrix — テスト仕様・証拠 matrix（headless slice）"
 created: "2026-11-10"
-updated: "2026-11-11"
+updated: "2026-11-25"
 owners: ["scarecrow173"]
 relations:
   verifies:
     - "docs/specs/alib-07-fault-matrix.md"
     - "docs/designs/alib-07-fault-matrix-design.md"
     - "docs/specs/alib-07-import-cancel.md"
+    - "docs/specs/alib-07-headless-residual.md"
   verified-by:
     - "crates/synvelis-library/tests/git.rs"
+    - "crates/synvelis-library/tests/lfs.rs"
     - "crates/synvelis-library/tests/webdav.rs"
     - "crates/synvelis-library/tests/import.rs"
     - "crates/synvelis-library/tests/import_recovery.rs"
@@ -22,8 +24,10 @@ relations:
     - "crates/synvelis-library/tests/project.rs"
     - "crates/synvelis-library/tests/rt_cache.rs"
     - "crates/synvelis-library/tests/containment_swap.rs"
+    - "crates/synvelis-library/tests/vcs06_git_matrix.rs"
     - "crates/synvelis-library/tests/common/git_fixture.rs"
     - "crates/synvelis-library/tests/common/webdav_fixture.rs"
+    - "crates/synvelis-library/tests/common/vcs_git_fixture.rs"
     - "crates/synvelis-recording/tests/input_adapter.rs"
     - "crates/synvelis-recording/tests/input_adapter_rt_alloc.rs"
     - "crates/synvelis-recording/tests/monitor_gate.rs"
@@ -53,6 +57,22 @@ Observed / Status を記録する。
   https://github.com/scarecrow173/synvelis/pull/236）と PR #253
   （v5 digest migration + import_recovery fixture、
   https://github.com/scarecrow173/synvelis/pull/253）。
+- Slice 3 追記（branch `scarecrow173/sv91-alib07-headless-slice`、base
+  `359fb293` = PR #644 merge・本 slice 取り込み時点の
+  `origin/main` と同一）: matrix が stale だった行を現行 main の
+  headless 証拠で同期する。`tests/lfs.rs` の remote LFS batch /
+  TLS 一式（PR #344 系以降）、`tests/webdav.rs` の `https_*` TLS
+  一式（PR #625 `04c7d441`）・`collection_slash_redirect_*`
+  （PR #637 `148b3bdb`）・budget/stall/cancel 一式（PR #644
+  `359fb293`）、および `tests/vcs06_git_matrix.rs`（synvelis#97
+  cross-case lane — 相互参照のみで verdict は #97 側 ledger に
+  従う）を Observed へ反映し、LIB-SEC-04 の新 transport 経路向け
+  credential 非漏洩 test を `lfs.rs`/`webdav.rs` に追加した。
+  対象 SHA での Ruviform resolved SHA は
+  `20dc41f71c47674b3e51d1eb0921124b94f8bfaf`（`Cargo.lock`
+  現行値）、toolchain は rustc 1.99.1（MSRV 1.89）、OS は
+  Windows（開発機）。slice 1/2 の baseline 行は履歴として保持
+  する。実測 ledger は `evidence/sv91/` に記録する。
 - 関連 Issue/PR（本 matrix の NotRun 根拠・別 slice の責務）:
   synvelis#84（File/FS publish/HEAD/crash/recovery cross-gate）、
   synvelis#97（VCS immutable history/missing LFS）、
@@ -76,6 +96,8 @@ Observed / Status を記録する。
 - Fixture: `GitFixture`（実 git CLI + bare `file://` remote +
   手置き LFS objects）、`webdav_fixture::MockServer`
   （in-process `TcpListener` scripted HTTP/1.1）、
+  `webdav_fixture::MockTlsServer`（rustls in-process TLS +
+  fixture CA）、`VcsGitFixture`（VCS-06 local worktree）、
   `ScriptedProvider`/`ScriptedPublisher`/`CancelOnReadProvider`/
   `ArmOnRead`（import fault 注入）
 - Status 凡例: `Pass` = headless で Expected を観測し green、
@@ -135,11 +157,14 @@ Observed / Status を記録する。
   `tests/git.rs::lfs_size_mismatch_and_corruption_fail_verification`、
   `tests/git.rs::refresh_makes_remote_updates_visible`、
   `tests/git.rs::force_push_keeps_pinned_objects_fetchable`、
+  `tests/lfs.rs::remote_lfs_*`（batch API/HTTP(S) download・
+  TLS trust・status mapping 一式）、
   `tests/webdav.rs::pin_strong_etag_produces_if_match_proof`、
   `tests/webdav.rs::pin_rejects_weak_and_missing_etags`、
   `tests/webdav.rs::open_pinned_sends_if_match_and_verifies`、
   `tests/webdav.rs::open_pinned_412_is_precondition_failed`、
   `tests/webdav.rs::open_pinned_response_etag_mismatch_is_source_changed`、
+  `tests/webdav.rs::https_pin_and_open_pinned_keep_if_match_contract`、
   `tests/webdav.rs::auth_revoked_between_pin_and_conditional_get`、
   `tests/webdav.rs::status_mapping_table`、
   `tests/git.rs::credential_failures_are_typed_and_secrets_never_leak`。
@@ -155,6 +180,8 @@ Observed / Status を記録する。
 - Evidence: `tests/import.rs` 全件 + `cancel_mid_stream_is_typed_and_same_import_resumes`、
   `same_bytes_across_providers_share_one_verified_blob`、
   `tests/git.rs::import_verified_consumes_git_blob_and_lfs_pins`、
+  `tests/webdav.rs::import_verified_consumes_webdav_pin`、
+  `tests/webdav.rs::cancel_observed_inside_stalled_body`、
   `tests/project.rs`（missing blob typed）、
   `synvelis-project` v5 migration tests、
   `synvelis-recording`/`synvelis-player` golden tests。
@@ -167,9 +194,14 @@ Observed / Status を記録する。
   malformed response/log redaction/git argv を fail closed で
   拒否する。
 - Evidence: `tests/cache.rs` 全件、`tests/webdav.rs` の
-  security 系 test、`tests/git.rs::hostile_locator_and_url_inputs_fail_closed`、
+  security 系 test（cross-origin/collection redirect・https TLS・
+  credential 非漏洩・budget 一式）、`tests/lfs.rs` の remote
+  credential/signed-url 非漏洩・malformed batch・TLS trust 一式、
+  `tests/git.rs::hostile_locator_and_url_inputs_fail_closed`、
   `tests/local.rs` traversal/symlink、`tests/containment_swap.rs`、
-  `tests/types.rs::opaque_credential_debug_redacts_context`。
+  `tests/types.rs::opaque_credential_debug_redacts_context`、
+  `tests/vcs06_git_matrix.rs::remote_credentials_never_surface_in_provider_output`
+  （synvelis#97 lane の相互参照）。
 
 ## Feature: LIB-QOS — RT callback 予算
 
@@ -210,10 +242,10 @@ workspace 横断の証拠は crate 名を前置する。
 | Case | Expected | Observed | Status |
 | --- | --- | --- | --- |
 | LIB-PIN-01 Git fixed commit/tree | pin は commit/tree/blob oid の immutable identity、locator `<sha>:<path>` で固定 commit を解決 | `git.rs::browse_root_lists_fixed_commit_tree`、`git.rs::blob_pin_open_roundtrip_is_identity_bound`、`git.rs::browse_subtree_scopes_and_odd_names`（Pass: file:// offline fixture。実 git remote/SSH/HTTP transport は NotRun） | Pass |
-| LIB-PIN-02 Git LFS 実 Byte | LFS pointer は内容として返さず、remote `lfs/objects` の実 byte を SHA-256 で検証。missing/corrupt は typed | `git.rs::lfs_pointer_pin_fetches_and_verifies_real_object`、`lfs_missing_object_is_not_found_not_pointer`、`lfs_size_mismatch_and_corruption_fail_verification`、`import.rs` 経由 `git.rs::import_verified_consumes_git_blob_and_lfs_pins`（Pass: file:// store 直読み。LFS batch API/HTTP download endpoint は Unsupported/NotRun） | Pass |
-| LIB-PIN-03 WebDAV If-Match strong/weak | strong ETag のみ pin 可、`If-Match` conditional GET、412→PreconditionFailed、response ETag/CL 不一致→SourceChanged、weak/missing ETag は fail closed | `webdav.rs::pin_strong_etag_produces_if_match_proof`、`pin_rejects_weak_and_missing_etags`、`pin_rejects_collection`、`open_pinned_sends_if_match_and_verifies`、`open_pinned_412_is_precondition_failed`、`open_pinned_response_etag_mismatch_is_source_changed`、`open_pinned_rejects_foreign_proof`（Pass: scripted mock。実 WebDAV server は NotRun） | Pass |
+| LIB-PIN-02 Git LFS 実 Byte | LFS pointer は内容として返さず、remote `lfs/objects` の実 byte を SHA-256 で検証。missing/corrupt は typed | `git.rs::lfs_pointer_pin_fetches_and_verifies_real_object`、`lfs_missing_object_is_not_found_not_pointer`、`lfs_size_mismatch_and_corruption_fail_verification`、`import.rs` 経由 `git.rs::import_verified_consumes_git_blob_and_lfs_pins`（file:// store 直読み）、`lfs.rs::remote_lfs_batch_download_fetches_and_verifies`、`remote_lfs_batch_404_is_not_found`、`remote_lfs_object_error_404_is_not_found`、`remote_lfs_download_size_mismatch_is_integrity`、`remote_lfs_corrupt_bytes_fail_sha256_at_eof`、`remote_lfs_https_batch_download_fetches_and_verifies`、`remote_lfs_https_protocol_relative_href_stays_tls`、`file_remote_lfs_still_reads_local_objects`（Pass: in-process `MockServer`/`MockTlsServer` 経由の batch API・HTTP(S) download endpoint。実 LFS server は NotRun） | Pass |
+| LIB-PIN-03 WebDAV If-Match strong/weak | strong ETag のみ pin 可、`If-Match` conditional GET、412→PreconditionFailed、response ETag/CL 不一致→SourceChanged、weak/missing ETag は fail closed | `webdav.rs::pin_strong_etag_produces_if_match_proof`、`pin_rejects_weak_and_missing_etags`、`pin_rejects_collection`、`open_pinned_sends_if_match_and_verifies`、`open_pinned_412_is_precondition_failed`、`open_pinned_response_etag_mismatch_is_source_changed`、`open_pinned_rejects_foreign_proof`、`https_pin_and_open_pinned_keep_if_match_contract`、`https_dead_port_fails_typed_not_unsupported`、`import_verified_consumes_webdav_pin`（Pass: scripted mock + `MockTlsServer`。実 WebDAV server は NotRun） | Pass |
 | LIB-PIN-04 mutable branch update | refresh で remote 更新が見え、pin は旧 immutable bytes を保持、force-push 後も取得済み object は fetchable | `git.rs::refresh_makes_remote_updates_visible`、`git.rs::force_push_keeps_pinned_objects_fetchable`、`git.rs::remote_rename_keeps_pin_and_fixed_commit_identity`（Pass） | Pass |
-| LIB-PIN-05 auth revoke / permission denied | 401→AuthExpired、403→PermissionDenied、credential 解決失敗は typed、secret は error/log に漏れない | `webdav.rs::auth_revoked_between_pin_and_conditional_get`、`webdav.rs::status_401_maps_auth_expired`、`webdav.rs::status_mapping_table`、`webdav.rs::missing_resolver_is_auth_expired`、`git.rs::credential_failures_are_typed_and_secrets_never_leak`（Pass: mock/scripted resolver。OS credential store 実機は NotRun） | Pass |
+| LIB-PIN-05 auth revoke / permission denied | 401→AuthExpired、403→PermissionDenied、credential 解決失敗は typed、secret は error/log に漏れない | `webdav.rs::auth_revoked_between_pin_and_conditional_get`、`webdav.rs::status_401_maps_auth_expired`、`webdav.rs::status_mapping_table`、`webdav.rs::missing_resolver_is_auth_expired`、`git.rs::credential_failures_are_typed_and_secrets_never_leak`、`lfs.rs::remote_lfs_batch_401_is_auth_expired`、`lfs.rs::remote_lfs_download_403_is_permission_denied`、`lfs.rs::remote_lfs_https_batch_401_is_auth_expired`、`lfs.rs::remote_lfs_https_download_403_is_permission_denied`（Pass: mock/scripted resolver。OS credential store 実機は NotRun） | Pass |
 
 ### LIB-IMPORT（chunked verified import）
 
@@ -222,7 +254,7 @@ workspace 横断の証拠は crate 名を前置する。
 | LIB-IMPORT-01 chunked huge bounded memory | provider chunk サイズに依らず固定 buffer のみで stream、1MiB を 7B ずつ供給して byte-exact | `import.rs::bounded_memory_streaming_with_tiny_chunks`、`import.rs::import_streams_verifies_publishes_and_commits`（Pass。GB 級の実サイズは headless 範囲外として NotRun 注記） | Pass |
 | LIB-IMPORT-02 verify/decode/metadata | staged bytes を readback 再計測し digest+size を照合。media decode 検証は consumer の別段階 | `import.rs::digest_mismatch_is_integrity_error`、`import.rs::byte_budget_is_enforced_during_staging`（byte verify Pass。decode/metadata は library slice 対象外 → NotRun） | Pass（一部 NotRun） |
 | LIB-IMPORT-03 SHA-256 mismatch | pin 期待 digest と実測の不一致は `IntegrityMismatch`、既存 blob との不一致も同様 | `import.rs::digest_mismatch_is_integrity_error`、`git.rs::lfs_size_mismatch_and_corruption_fail_verification`、`import.rs::same_import_id_different_content_is_conflict`（Pass） | Pass |
-| LIB-IMPORT-04 cancellation at each phase | stage/verify/publish/commit 各相の cancel は typed `Cancelled` で manifest が直前の durable stage に留まり resume 可能。commit は `apply` 直前の checkpoint のみ — commit 後に cancel を返さない | `import.rs::cancel_mid_stream_is_typed_and_same_import_resumes`（stage→`Started` 保持）、`import.rs::cancel_during_verify_is_typed_and_same_import_resumes`（verify→`Staged` 保持）、`import.rs::cancel_during_publish_is_typed_and_same_import_resumes`（publish→`Verified` 保持）、`import.rs::cancel_at_commit_boundary_parks_at_published_and_resumes`（commit 直前→`Published` 保持・blob 温存・resume は再 publish なしで commit）、`git.rs::cancellation_is_typed_before_and_during_fetch`、`webdav.rs::cancelled_token_fails_before_io`、`cache.rs::catalog_waiter_honours_cancellation`、`local.rs::cancel_during_directory_enumeration_fails_the_page`、`cache.rs::preview_cancel_and_typed_errors`（Pass: headless cooperative token。OS signal 等の実 cancel 経路は consumer/OS 範囲） | Pass |
+| LIB-IMPORT-04 cancellation at each phase | stage/verify/publish/commit 各相の cancel は typed `Cancelled` で manifest が直前の durable stage に留まり resume 可能。commit は `apply` 直前の checkpoint のみ — commit 後に cancel を返さない | `import.rs::cancel_mid_stream_is_typed_and_same_import_resumes`（stage→`Started` 保持）、`import.rs::cancel_during_verify_is_typed_and_same_import_resumes`（verify→`Staged` 保持）、`import.rs::cancel_during_publish_is_typed_and_same_import_resumes`（publish→`Verified` 保持）、`import.rs::cancel_at_commit_boundary_parks_at_published_and_resumes`（commit 直前→`Published` 保持・blob 温存・resume は再 publish なしで commit）、`git.rs::cancellation_is_typed_before_and_during_fetch`、`webdav.rs::cancelled_token_fails_before_io`、`webdav.rs::cancel_observed_inside_stalled_body`（stalled body 内の cancel 観測）、`cache.rs::catalog_waiter_honours_cancellation`、`local.rs::cancel_during_directory_enumeration_fails_the_page`、`cache.rs::preview_cancel_and_typed_errors`（Pass: headless cooperative token。OS signal 等の実 cancel 経路は consumer/OS 範囲） | Pass |
 | LIB-IMPORT-05 duplicate ImportId same/different digest | same ImportId+same content は冪等 reuse、different content は `IntegrityConflict` で二重登録なし | `import.rs::replay_same_import_is_idempotent`、`import.rs::same_import_id_different_content_is_conflict`（Pass） | Pass |
 | LIB-IMPORT-06 Project Revision/Target changed | stale `expected_project_revision` は `StaleRevision` で `rebase_import` のみが解決。存在しない lane/誤 track target は commit 前に reject | `import.rs::stale_revision_rejected_then_explicit_rebase_converges`、`import.rs::missing_lane_target_is_rejected_without_clip`、`import.rs::wrong_track_lane_target_is_rejected`（Pass） | Pass |
 | LIB-IMPORT-07 multiple windows | 複数 window/consumer からの同時 import | GUI/consumer slice（#89/#114）の範囲。headless library slice では NotRun | NotRun |
@@ -248,16 +280,16 @@ workspace 横断の証拠は crate 名を前置する。
 | LIB-CACHE-02 TTL/LRU/active read lease | budget 超過は LRU evict するが lease 中 entry は保持、corrupt/half-published は scan で drop | `cache.rs::cache_budget_evicts_but_leases_pin`、`cache.rs::cache_clear_and_eviction_preserve_source_of_truth`、`cache.rs::cache_open_scan_drops_corrupt_and_half_published`（Pass） | Pass |
 | LIB-CACHE-03 auth revocation & clear | permission denied は principal の entry を retire、credential 変更は invalidate | `cache.rs::catalog_permission_denied_retires_principal`、`cache.rs::catalog_credential_change_invalidates`（Pass） | Pass |
 | LIB-CACHE-04 Preview full-fetch warning | full download/unknown size は consent 必須、ranged over-budget は拒否 | `cache.rs::preview_full_download_requires_consent`、`preview_unknown_size_requires_consent`、`preview_ranged_over_budget_refused`（Pass） | Pass |
-| LIB-CACHE-05 巨大 catalog/rapid cancel/resource budget | single-flight dedupe、waiter cancel、entry/depth/byte budget で bounded truncate | `cache.rs::catalog_single_flight_dedupes_concurrent_builds`、`cache.rs::catalog_waiter_honours_cancellation`、`cache.rs::catalog_partial_and_page_budget_completeness`、`local.rs::entry_budget_truncates_honestly`、`local.rs::depth_budget_marks_truncation`、`rt_cache.rs::rt_queue_is_bounded_and_accounts_drops`（Pass: headless 規模。実運用規模の巨大 catalog は NotRun 注記） | Pass |
+| LIB-CACHE-05 巨大 catalog/rapid cancel/resource budget | single-flight dedupe、waiter cancel、entry/depth/byte budget で bounded truncate | `cache.rs::catalog_single_flight_dedupes_concurrent_builds`、`cache.rs::catalog_waiter_honours_cancellation`、`cache.rs::catalog_partial_and_page_budget_completeness`、`local.rs::entry_budget_truncates_honestly`、`local.rs::depth_budget_marks_truncation`、`rt_cache.rs::rt_queue_is_bounded_and_accounts_drops`、`webdav.rs::silent_response_head_fails_budget_typed`、`webdav.rs::mid_body_stall_fails_budget_typed`、`webdav.rs::https_silent_response_fails_budget_typed`、`webdav.rs::https_deadline_fails_during_tls_handshake`、`lfs.rs::remote_lfs_https_deadline_fails_during_tls_handshake`（Pass: headless 規模 + transport deadline/stall budget。実運用規模の巨大 catalog は NotRun 注記） | Pass |
 
 ### LIB-SEC（traversal/SSRF/redaction/argv）
 
 | Case | Expected | Observed | Status |
 | --- | --- | --- | --- |
-| LIB-SEC-01 Path traversal/symlink/redirect | locator/redirect の `..`/root 脱出/symlink escape を IO 前に拒否、cross-origin redirect 拒否 | `local.rs::traversal_locators_are_rejected_before_any_io`、`webdav.rs::locator_outside_root_rejected`、`webdav.rs::cross_origin_redirect_refused`、`webdav.rs::cross_origin_redirect_never_reaches_other_origin`、`git.rs::hostile_locator_and_url_inputs_fail_closed`、`containment_swap.rs`（Pass） | Pass |
-| LIB-SEC-02 SSRF/credential forwarding | Authorization は configured origin のみに送信、cross-origin redirect は接続前に拒否され foreign origin に request が届かない。実内部 network への SSRF probe は headless 範囲外 | `webdav.rs::cross_origin_redirect_never_reaches_other_origin`（foreign mock への hit=0 を assert）、`webdav.rs::same_origin_redirect_keeps_credentials_in_origin`、`webdav.rs::credentials_sent_only_as_authorization_header`、`git.rs::hostile_locator_and_url_inputs_fail_closed`（ext::/fd::/userinfo URL 拒否）（Pass: mock 証拠。実 SSRF 対象への到達試行は NotRun） | Pass（一部 NotRun） |
-| LIB-SEC-03 malformed Content-Length/compression bomb | 壊れた head/status/UTF-8/header 過多/oversize head は `TransientIo`、CL 過大の truncated body と malformed chunked は stream 途中で typed error、`accept-encoding: identity` で圧縮経路を閉じる | `webdav.rs::malformed_response_head_is_typed_transient`、`truncated_body_fails_mid_stream_not_silent`、`malformed_chunked_body_fails_typed`、`max_bytes_enforced_on_pinned_read`、`requests_declare_identity_encoding`（Pass） | Pass |
-| LIB-SEC-04 log token/redaction | credential/secret が error detail・debug 表示・locator/URL に漏れない | `git.rs::credential_failures_are_typed_and_secrets_never_leak`（"SECRET-TOKEN-xyz" 非含有 assert）、`types.rs::opaque_credential_debug_redacts_context`（Pass: typed error 経路。app 層の実 log pipeline は consumer 範囲で NotRun） | Pass（一部 NotRun） |
+| LIB-SEC-01 Path traversal/symlink/redirect | locator/redirect の `..`/root 脱出/symlink escape を IO 前に拒否、cross-origin redirect 拒否 | `local.rs::traversal_locators_are_rejected_before_any_io`、`webdav.rs::locator_outside_root_rejected`、`webdav.rs::cross_origin_redirect_refused`、`webdav.rs::cross_origin_redirect_never_reaches_other_origin`、`webdav.rs::collection_slash_redirect_is_followed`、`webdav.rs::collection_slash_redirect_merges_relative_location`、`webdav.rs::collection_slash_redirect_judges_decoded_spelling`、`webdav.rs::https_same_origin_redirect_is_followed_over_tls`、`webdav.rs::https_downgrade_redirect_never_reaches_plaintext`、`git.rs::hostile_locator_and_url_inputs_fail_closed`、`containment_swap.rs`（Pass） | Pass |
+| LIB-SEC-02 SSRF/credential forwarding | Authorization は configured origin のみに送信、cross-origin redirect は接続前に拒否され foreign origin に request が届かない。実内部 network への SSRF probe は headless 範囲外 | `webdav.rs::cross_origin_redirect_never_reaches_other_origin`（foreign mock への hit=0 を assert）、`webdav.rs::same_origin_redirect_keeps_credentials_in_origin`、`webdav.rs::credentials_sent_only_as_authorization_header`、`webdav.rs::https_cross_origin_redirect_never_reaches_other_origin`、`lfs.rs::remote_lfs_credentials_stay_on_remote_origin`、`lfs.rs::remote_lfs_https_credentials_stay_on_remote_origin`、`lfs.rs::remote_lfs_redirect_strips_sensitive_action_headers_cross_origin`、`lfs.rs::remote_lfs_https_redirect_is_followed_over_tls`、`lfs.rs::remote_lfs_https_protocol_relative_redirect_stays_tls`、`git.rs::hostile_locator_and_url_inputs_fail_closed`（ext::/fd::/userinfo URL 拒否）（Pass: mock 証拠。実 SSRF 対象への到達試行は NotRun） | Pass（一部 NotRun） |
+| LIB-SEC-03 malformed Content-Length/compression bomb | 壊れた head/status/UTF-8/header 過多/oversize head は `TransientIo`、CL 過大の truncated body と malformed chunked は stream 途中で typed error、`accept-encoding: identity` で圧縮経路を閉じる | `webdav.rs::malformed_response_head_is_typed_transient`、`truncated_body_fails_mid_stream_not_silent`、`malformed_chunked_body_fails_typed`、`max_bytes_enforced_on_pinned_read`、`requests_declare_identity_encoding`、`lfs.rs::remote_lfs_malformed_batch_is_typed_not_panic`（Pass） | Pass |
+| LIB-SEC-04 log token/redaction | credential/secret が error detail・debug 表示・locator/URL に漏れない | `git.rs::credential_failures_are_typed_and_secrets_never_leak`（"SECRET-TOKEN-xyz" 非含有 assert）、`types.rs::opaque_credential_debug_redacts_context`、`lfs.rs::remote_lfs_credentials_never_echo_in_typed_errors`（http/https batch-401 で sentinel が wire に届いたことを確認し Display/`detail()`/`{err:?}` に非含有）、`lfs.rs::remote_lfs_signed_url_tokens_never_echo_in_errors`（signed href `?sig=` token 非含有）、`webdav.rs::https_credentials_never_echo_in_typed_errors`（TLS 401→`AuthExpired`・secret 非含有）、`vcs06_git_matrix.rs::remote_credentials_never_surface_in_provider_output`（synvelis#97 lane の相互参照）（Pass: typed error 経路。app 層の実 log pipeline は consumer 範囲で NotRun） | Pass（一部 NotRun） |
 | LIB-SEC-05 Git process argv safety | option/reflog/traversal を含む rev・path は argv 構築前に `InvalidRequest`、`-` 始まり path はデータとして解決、`ext::`/`fd::`/userinfo URL は parse 拒否、prompt/credential helper 無効化 | `git.rs::hostile_locator_and_url_inputs_fail_closed`（`-x:`/`--upload-pack=`/`HEAD@{1}`/`..`/`\`/`//`/空 rev を InvalidRequest、`-dash.txt` を実 file として pin+read、`ext::`/`fd::`/`user:pass@`/`user@` 非 SSH を parse 拒否）（Pass） | Pass |
 
 ### LIB-QOS（RT callback 予算）

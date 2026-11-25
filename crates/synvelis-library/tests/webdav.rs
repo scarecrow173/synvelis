@@ -1421,6 +1421,54 @@ fn https_silent_response_fails_budget_typed() {
     assert_eq!(kind_of(&err), ProviderErrorKind::BudgetExceeded);
 }
 
+/// A resolver that hands out a sentinel secret — LIB-SEC-04 for the
+/// https transport: the value rides the wire as `Authorization` but a
+/// typed failure must never echo it in the error's Display, detail,
+/// or Debug rendering.
+struct SecretResolver;
+
+impl CredentialResolver for SecretResolver {
+    fn resolve(&self, key: &CredentialKey) -> Result<OpaqueCredential, ProviderError> {
+        Ok(OpaqueCredential::new(key.clone(), WEBDAV_SENTINEL))
+    }
+}
+
+const WEBDAV_SENTINEL: &str = "Bearer SECRET-WEBDAV-5k9m";
+
+#[test]
+fn https_credentials_never_echo_in_typed_errors() {
+    // The https transport rejects the configured credential — the
+    // typed `AuthExpired` must carry no secret material on any
+    // rendered surface.
+    let seen = Arc::new(Mutex::new(Vec::<String>::new()));
+    let seen_req = seen.clone();
+    let server = MockTlsServer::start(Arc::new(move |req| {
+        if let Some(v) = req.header("authorization") {
+            seen_req.lock().unwrap().push(v.to_owned());
+        }
+        MockResponse::new(401)
+    }));
+    let url = WebDavUrl::parse(&server.url()).expect("fixture url");
+    let mut config = WebDavConfig::new(url);
+    config.credential_key = Some(CredentialKey::new("test-key").expect("key"));
+    let p = WebDavProvider::new(provider_id(), config).expect("provider");
+    let mut cx = tls_cx(&server.trust_pem());
+    cx.credentials = Some(Arc::new(SecretResolver));
+    let err = p.browse(&scope_req(None, 10), &cx).expect_err("401");
+    assert_eq!(kind_of(&err), ProviderErrorKind::AuthExpired);
+    // Honest precondition: the sentinel really reached the wire —
+    // otherwise "not echoed" is vacuous.
+    assert_eq!(
+        seen.lock().unwrap().as_slice(),
+        &[WEBDAV_SENTINEL.to_owned()]
+    );
+    let rendered = format!("{err} | {} | {err:?}", err.detail());
+    assert!(
+        !rendered.contains("SECRET-WEBDAV-5k9m"),
+        "credential material leaked into error: {rendered}"
+    );
+}
+
 // ------------------------------------------------------------------
 // ALIB-02 import integration — webdav pin → import_verified →
 // offline re-read of the published blob

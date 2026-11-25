@@ -870,6 +870,114 @@ fn remote_lfs_credentials_stay_on_remote_origin() {
     );
 }
 
+/// A resolver that hands out a sentinel secret — LIB-SEC-04 for the
+/// remote-LFS transports: the value rides the wire as `Authorization`
+/// but a typed failure must never echo it in the error's Display,
+/// detail, or Debug rendering.
+struct SecretResolver;
+
+impl CredentialResolver for SecretResolver {
+    fn resolve(&self, key: &CredentialKey) -> Result<OpaqueCredential, ProviderError> {
+        Ok(OpaqueCredential::new(key.clone(), LFS_SENTINEL))
+    }
+}
+
+const LFS_SENTINEL: &str = "Bearer SECRET-LFS-7f3a";
+
+/// Every rendered surface a log could print — Display, the `detail`
+/// accessor, and derived `Debug`.
+fn assert_secret_absent(err: &ProviderError, secret: &str) {
+    let rendered = format!("{err} | {} | {err:?}", err.detail());
+    assert!(
+        !rendered.contains(secret),
+        "secret material leaked into error: {rendered}"
+    );
+}
+
+#[test]
+fn remote_lfs_credentials_never_echo_in_typed_errors() {
+    let Some(fix) = GitFixture::new() else { return };
+
+    // Plain http: the batch endpoint rejects the credential — the
+    // typed `AuthExpired` must carry no secret material.
+    let seen = Arc::new(Mutex::new(Vec::<String>::new()));
+    let seen_req = seen.clone();
+    let server = MockServer::start(Arc::new(move |req: &MockRequest| {
+        if let Some(v) = req.header("authorization") {
+            seen_req.lock().unwrap().push(v.to_owned());
+        }
+        MockResponse::new(401)
+    }));
+    let url = GitRemoteUrl::parse(&format!("{}/repo.git", server.url())).expect("url");
+    let mut config = GitRemoteConfig::new(url, seed_mirror(&fix, "mirror-secret-http"));
+    "main".clone_into(&mut config.reference);
+    config.credential_key = Some(CredentialKey::new("test-key").expect("key"));
+    let provider = GitRemoteProvider::new(provider_id(), config);
+    let mut cx = cx();
+    cx.credentials = Some(Arc::new(SecretResolver));
+    let pin = provider
+        .pin(&aref(provider_id(), "main:payload.bin"), &cx)
+        .expect("pin");
+    let err = provider.open_pinned(&pin, &cx).expect_err("401");
+    assert_eq!(err.kind(), ProviderErrorKind::AuthExpired);
+    // Honest precondition: the sentinel really reached the wire —
+    // otherwise "not echoed" is vacuous.
+    assert_eq!(seen.lock().unwrap().as_slice(), &[LFS_SENTINEL.to_owned()]);
+    assert_secret_absent(&err, "SECRET-LFS-7f3a");
+
+    // The same contract over TLS — a batch 401 inside records.
+    let seen = Arc::new(Mutex::new(Vec::<String>::new()));
+    let seen_req = seen.clone();
+    let server = MockTlsServer::start(Arc::new(move |req: &MockRequest| {
+        if let Some(v) = req.header("authorization") {
+            seen_req.lock().unwrap().push(v.to_owned());
+        }
+        MockResponse::new(401)
+    }));
+    let url = GitRemoteUrl::parse(&format!("{}/repo.git", server.url())).expect("url");
+    let mut config = GitRemoteConfig::new(url, seed_mirror(&fix, "mirror-secret-https"));
+    "main".clone_into(&mut config.reference);
+    config.credential_key = Some(CredentialKey::new("test-key").expect("key"));
+    let provider = GitRemoteProvider::new(provider_id(), config);
+    let mut cx = tls_cx(&server.trust_pem());
+    cx.credentials = Some(Arc::new(SecretResolver));
+    let pin = provider
+        .pin(&aref(provider_id(), "main:payload.bin"), &cx)
+        .expect("pin");
+    let err = provider.open_pinned(&pin, &cx).expect_err("401 over tls");
+    assert_eq!(err.kind(), ProviderErrorKind::AuthExpired);
+    assert_eq!(seen.lock().unwrap().as_slice(), &[LFS_SENTINEL.to_owned()]);
+    assert_secret_absent(&err, "SECRET-LFS-7f3a");
+}
+
+#[test]
+fn remote_lfs_signed_url_tokens_never_echo_in_errors() {
+    let Some(fix) = GitFixture::new() else { return };
+    let oid = GitFixture::lfs_oid();
+    let size = GitFixture::lfs_content().len() as u64;
+    let oid_href = oid.clone();
+    // The batch action's signed href carries a bearer query token;
+    // the forbidden download must surface `PermissionDenied` typed —
+    // the token rides the wire query but never echoes in the error
+    // or the pin.
+    let server = MockServer::start(batch_handler(
+        &oid,
+        size,
+        move |host| format!("http://{host}/objects/{oid_href}?sig=SIGNED-TOKEN-q1w2"),
+        || MockResponse::new(403),
+        Arc::new(Mutex::new(Vec::new())),
+    ));
+    let provider = provider_at(&fix, &server, "mirror-http-sig");
+    let pin = pin_payload(&provider);
+    let err = provider.open_pinned(&pin, &cx()).expect_err("403");
+    assert_eq!(err.kind(), ProviderErrorKind::PermissionDenied);
+    assert_secret_absent(&err, "SIGNED-TOKEN-q1w2");
+    assert!(
+        !format!("{pin:?}").contains("SIGNED-TOKEN-q1w2"),
+        "signed url material leaked into pin: {pin:?}"
+    );
+}
+
 #[test]
 fn file_remote_lfs_still_reads_local_objects() {
     let Some(fix) = GitFixture::new() else { return };
