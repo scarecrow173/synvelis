@@ -37,3 +37,7 @@ ruviform-audio-core.workspace = true
 ruviform-io-file.workspace = true
 ruviform-io-wav.workspace = true
 ruviform-media-io.workspace = true
+ruviform-plugin-vst3 = { workspace = true, features = ["host"] }
+ruviform-plugin-clap = { workspace = true, features = ["host"] }
+ruviform-plugin-test-vst3.workspace = true
+ruviform-plugin-test-clap.workspace = true
