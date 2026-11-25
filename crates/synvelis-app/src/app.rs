@@ -1032,6 +1032,10 @@ impl SynvelisApp {
             .controller_mut()
             .save(&mut store)
             .map_err(|e| AppError::store(e.to_string()))?;
+        // The ledger sidecar is written before the workspace swap so a
+        // reused bundle dir never keeps a foreign project's job rows —
+        // the fresh workspace's (empty) ledger is the honest record.
+        Self::persist_library_jobs(&workspace, &mut store)?;
         Self::refresh_project_file(&store, path)?;
         self.workspace = workspace;
         self.store = Some(store);
@@ -1116,6 +1120,10 @@ impl SynvelisApp {
         self.ui.reset_variant_diff();
         self.bind_vcs_backend(path);
         self.bind_library_backend();
+        // Restore the app-owned job ledger last — the sidecar read is
+        // honest about failure (corrupt/unknown-format errors open
+        // instead of silently dropping the receipts).
+        self.restore_library_jobs()?;
         Ok(self.project_info())
     }
 
@@ -1159,6 +1167,11 @@ impl SynvelisApp {
             .controller_mut()
             .save(store)
             .map_err(|e| AppError::store(e.to_string()))?;
+        // The ledger sidecar rides the same save: HEAD and
+        // `library-jobs.json` describe one point in time, and an
+        // in-flight job is persisted as in-flight (recovery assigns
+        // the typed terminal at open).
+        Self::persist_library_jobs(&self.workspace, store)?;
         let bundle_path = self
             .bundle_path
             .clone()

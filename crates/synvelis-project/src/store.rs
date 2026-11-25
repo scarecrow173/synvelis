@@ -2,7 +2,10 @@
 //!
 //! The snapshot envelope is strict (`deny_unknown_fields`), versioned, and
 //! serialized deterministically (declaration-ordered fields, `BTreeMap`
-//! sorted keys). `DirectoryBundleStore` follows the architecture's save
+//! sorted keys). Bundle-scoped *sidecars* (`save_sidecar`/`read_sidecar`)
+//! carry mutable app-owned documents alongside the snapshots — they publish
+//! with `Replace` semantics instead of the immutable `CreateNew` snapshots
+//! use. `DirectoryBundleStore` follows the architecture's save
 //! protocol through `ruviform-io-file`'s staged publish:
 //! `StagedFile` → `SealedFile` → classified `publish` — snapshots are
 //! immutable (`PublishMode::CreateNew`), HEAD is atomically replaced.
@@ -250,6 +253,45 @@ pub trait ProjectStore {
     /// # Errors
     /// Missing snapshot or read failure.
     fn read_snapshot(&self, name: &str) -> Result<Vec<u8>, Error>;
+
+    /// Persists a mutable bundle-scoped sidecar document (e.g. an
+    /// app-owned ledger snapshot) — `name` is a single file name like
+    /// `"library-jobs.json"`, never a path. Unlike snapshots, sidecars
+    /// are *replaced* in place through the same staged publish —
+    /// they are the bundle's mutable document surface, while snapshots
+    /// stay immutable by name.
+    ///
+    /// The default returns [`Error::Store`]; stores without a sidecar
+    /// surface must not silently fabricate one.
+    ///
+    /// # Errors
+    /// Invalid name or I/O/store failure — same publish-effect
+    /// honesty rules as [`Self::save`].
+    fn save_sidecar(&mut self, name: &str, bytes: &[u8]) -> Result<(), Error> {
+        let _ = (name, bytes);
+        Err(Error::Store("store does not support sidecars".to_owned()))
+    }
+
+    /// Reads a sidecar — `Ok(None)` when absent. Absent is not an
+    /// error: the writer only creates the sidecar on its first save.
+    ///
+    /// # Errors
+    /// Invalid name or read failure.
+    fn read_sidecar(&self, name: &str) -> Result<Option<Vec<u8>>, Error> {
+        let _ = name;
+        Ok(None)
+    }
+}
+
+/// Rejects anything that is not a plain file name under the bundle
+/// root — sidecars sit alongside `HEAD`, so separators, `..`
+/// traversal, and the store's own layout names are all refused.
+fn check_sidecar_name(name: &str) -> Result<(), Error> {
+    let reserved = name == "HEAD" || name == "snapshots" || name.starts_with("HEAD.lock");
+    if name.is_empty() || name.contains(['/', '\\']) || name.contains("..") || reserved {
+        return Err(Error::Store(format!("invalid sidecar name: {name}")));
+    }
+    Ok(())
 }
 
 /// Deterministic snapshot file name for a revision.
@@ -818,6 +860,29 @@ impl ProjectStore for DirectoryBundleStore {
         fs::read(self.snapshots_dir().join(name))
             .map_err(|e| Error::Store(format!("read snapshot {name}: {e}")))
     }
+
+    fn save_sidecar(&mut self, name: &str, bytes: &[u8]) -> Result<(), Error> {
+        check_sidecar_name(name)?;
+        let path = self.root.join(name);
+        // Sidecars are the mutable document surface — `Replace`
+        // publish, never the snapshots' `CreateNew` collision rules.
+        Self::publish_staged(
+            &path,
+            bytes,
+            PublishMode::Replace,
+            Durability::FileAndDirectorySync,
+        )
+        .map_err(|e| Self::publish_error(&path, e))
+    }
+
+    fn read_sidecar(&self, name: &str) -> Result<Option<Vec<u8>>, Error> {
+        check_sidecar_name(name)?;
+        match fs::read(self.root.join(name)) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(Error::Store(format!("read sidecar {name}: {e}"))),
+        }
+    }
 }
 
 /// In-memory store holding canonical snapshot bytes (round-trips through
@@ -826,6 +891,7 @@ impl ProjectStore for DirectoryBundleStore {
 pub struct InMemoryStore {
     snapshots: BTreeMap<String, Vec<u8>>,
     head: Option<String>,
+    sidecars: BTreeMap<String, Vec<u8>>,
 }
 
 impl InMemoryStore {
@@ -901,5 +967,16 @@ impl ProjectStore for InMemoryStore {
             .get(name)
             .cloned()
             .ok_or_else(|| Error::Store(format!("missing snapshot {name}")))
+    }
+
+    fn save_sidecar(&mut self, name: &str, bytes: &[u8]) -> Result<(), Error> {
+        check_sidecar_name(name)?;
+        self.sidecars.insert(name.to_owned(), bytes.to_vec());
+        Ok(())
+    }
+
+    fn read_sidecar(&self, name: &str) -> Result<Option<Vec<u8>>, Error> {
+        check_sidecar_name(name)?;
+        Ok(self.sidecars.get(name).cloned())
     }
 }

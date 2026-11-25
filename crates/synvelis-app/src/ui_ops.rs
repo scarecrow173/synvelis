@@ -5830,6 +5830,69 @@ impl SynvelisApp {
         Ok(json!({ "jobs": jobs }))
     }
 
+    /// `syn.library.imports` — `synvelis_library::inspect_imports`
+    /// over the bound import services: every durable manifest row
+    /// plus its project-registry `applied` state, correlated with the
+    /// app-owned ledger (`job` carries the entry's wire projection —
+    /// the same `import:<tagged>` key `syn.library.jobs` reports —
+    /// `null` when the import never ran through this process's
+    /// ledger). Reconciles first, same as `syn.library.jobs` — a
+    /// parked commit lands before `applied` is computed (ALIB-05
+    /// residual, synvelis#643).
+    ///
+    /// # Errors
+    /// [`ErrorBody`] `unavailable` when no import services are bound;
+    /// `service_error` on staging-root read failures.
+    pub fn op_library_imports(&mut self, _params: &Value) -> Result<Value, ErrorBody> {
+        let Some(import) = self.library_import.as_ref() else {
+            return Err(ErrorBody::new(
+                codes::UNAVAILABLE,
+                "asset library import services not bound — import inspection unavailable",
+            ));
+        };
+        self.workspace
+            .with_library(|views, session| -> Result<Value, ErrorBody> {
+                let ports = synvelis_workspace::LibraryImportPorts {
+                    store: &import.store,
+                    blobs: import.blobs.as_ref(),
+                    publisher: import.publisher.as_ref(),
+                };
+                let revision_before = session.revision();
+                views.reconcile_jobs(session.controller_mut(), Some(&ports));
+                if session.revision() != revision_before {
+                    session.notify_committed_change();
+                }
+                let manifest_rows =
+                    synvelis_library::inspect_imports(&import.store, session.controller().live())
+                        .map_err(|e| internal(format!("inspect_imports: {e}")))?;
+                let ledger: std::collections::BTreeMap<String, synvelis_workspace::LibraryJobWire> =
+                    views
+                        .jobs_snapshot()
+                        .into_iter()
+                        .map(|j| (j.job_key.clone(), j))
+                        .collect();
+                let imports: Vec<Value> = manifest_rows
+                    .into_iter()
+                    .map(|row| {
+                        let job_key =
+                            synvelis_workspace::LibraryJobLedger::import_key(row.import_id);
+                        json!({
+                            "import_id": row.import_id.to_tagged(),
+                            "stage": row.stage,
+                            "content_digest": row.content_digest,
+                            "byte_len": row.byte_len,
+                            "expected_project_revision": row.expected_project_revision.0,
+                            "applied": row.applied,
+                            "publish_indeterminate": row.publish_indeterminate,
+                            "job_key": job_key,
+                            "job": ledger.get(&job_key),
+                        })
+                    })
+                    .collect();
+                Ok(json!({ "imports": imports }))
+            })
+    }
+
     /// `syn.library.action` — one decoded [`LibraryAction`] against a
     /// view's model. Params are `{view_id, action: <tag>, ...fields}`
     /// where the action fields deserialize verbatim into the
