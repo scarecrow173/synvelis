@@ -3163,6 +3163,24 @@ pub enum LibraryJobCancel {
     Unknown,
 }
 
+/// What [`LibraryJobLedger::restore_pending_commit`] answered.
+pub enum LibraryJobRestore {
+    /// The commit-owed entry was reinserted — the next
+    /// [`LibraryViews::reconcile_jobs`] picks it up and replays
+    /// `intent` on the real controller.
+    Reinserted {
+        /// The entry's cooperative cancel token — fresh-minted so
+        /// `import.cancel` reaches the restored job through the same
+        /// `request_cancel` path a live job observes.
+        token: synvelis_library::CancellationToken,
+        /// This entry's generation.
+        epoch: u64,
+    },
+    /// A live job already owns the key — a reinsert never overwrites
+    /// an in-flight entry (the same `ImportId` stays a single job).
+    InFlight,
+}
+
 /// The app-owned job ledger. Lock discipline: mutations are
 /// O(entries) bookkeeping only — no I/O, no provider calls, no
 /// project mutation while held.
@@ -3308,6 +3326,66 @@ impl LibraryJobLedger {
             e.pending_commit = true;
             e.stage = Some("commit-pending".to_string());
         }
+    }
+
+    /// Reinserts a persisted commit-owed import job — the restart
+    /// counterpart of `begin` + `park_commit` for an entry whose
+    /// worker died with the process but whose durable manifest proves
+    /// the commit is still owed.
+    ///
+    /// The entry lands in exactly the state `park_commit` leaves
+    /// behind — `Running` + `commit-pending` + `pending_commit` —
+    /// with the replay `intent` restored and `runtime_job`/`terminal`
+    /// empty, so the next [`LibraryViews::reconcile_jobs`] picks it up
+    /// (`pending_commit && terminal.is_none()`) and replays `intent`
+    /// through `import_verified`. `progress` carries the snapshot's
+    /// last report verbatim when one was recorded. `runtime_job`
+    /// stays `None` honestly — no worker exists to correlate.
+    ///
+    /// Dedup matches `begin`: a non-`Done` entry under `key` answers
+    /// [`LibraryJobRestore::InFlight`] and is never overwritten. The
+    /// cancel token and epoch are process-local — minted fresh, so
+    /// `import.cancel` reaches the restored job like a live one (a
+    /// recorded cancel marks `cancel_requested` but, per current
+    /// `reconcile_jobs` semantics, does not veto the owed commit).
+    pub fn restore_pending_commit(
+        &mut self,
+        key: String,
+        kind: LibraryJobKind,
+        view: ruviform_ui::dock::ViewInstanceId,
+        import_id: Option<String>,
+        intent: ImportIntent,
+        progress: Option<LibraryJobProgress>,
+    ) -> LibraryJobRestore {
+        if let Some(existing) = self.entries.get(&key)
+            && existing.state != LibraryJobState::Done
+        {
+            return LibraryJobRestore::InFlight;
+        }
+        self.epoch = self.epoch.saturating_add(1);
+        let token = synvelis_library::CancellationToken::new();
+        let epoch = self.epoch;
+        self.entries.insert(
+            key.clone(),
+            LibraryJob {
+                key,
+                kind,
+                view,
+                import_id,
+                state: LibraryJobState::Running,
+                stage: Some("commit-pending".to_string()),
+                progress,
+                terminal: None,
+                cancel: token.clone(),
+                cancel_requested: false,
+                pending_commit: true,
+                intent: Some(intent),
+                runtime_job: None,
+                projected: false,
+                epoch,
+            },
+        );
+        LibraryJobRestore::Reinserted { token, epoch }
     }
 
     /// Records the terminal — `Done` from now on.
@@ -3920,6 +3998,11 @@ mod tests {
         }
     }
 
+    /// The bytes `open_pinned` streams — the pin's `expected_size`
+    /// claim must match them honestly (the verified-import pipeline
+    /// checks the staged byte length against the pin).
+    const PINNED_BYTES: &[u8] = b"fake-asset-bytes-for-import";
+
     /// In-memory fake provider — browse/stat/pin/preview scripted,
     /// search optional, cursor validation delegated to the library's
     /// own `decode_cursor`-style rules via opaque tokens.
@@ -3933,6 +4016,7 @@ mod tests {
         preview_supported: bool,
         search_results: Mutex<Option<BrowsePage>>,
         pin_unsupported: bool,
+        pinned_supported: bool,
     }
 
     impl FakeProvider {
@@ -3977,7 +4061,16 @@ mod tests {
                 preview_supported: preview,
                 search_results: Mutex::new(None),
                 pin_unsupported: !pinnable,
+                pinned_supported: false,
             }
+        }
+
+        /// Whether `open_pinned` serves bytes — the verified-import
+        /// pipeline stages them end-to-end (pin evidence vs fetchable
+        /// bytes are distinct capabilities in the contract).
+        fn with_pinned_bytes(mut self, supported: bool) -> Self {
+            self.pinned_supported = supported;
+            self
         }
 
         fn with_page(mut self, page: BrowsePage) -> Self {
@@ -4061,16 +4154,33 @@ mod tests {
                     revision: RevisionKey::new("commit:abc123").unwrap(),
                 },
                 object_identity: synvelis_library::ObjectIdentity::new("blob:test").unwrap(),
-                expected_size: Some(4),
+                expected_size: Some(PINNED_BYTES.len() as u64),
                 digest_hint: None,
             })
         }
         fn open_pinned(
             &self,
-            _pin: &PinnedAssetRef,
+            pin: &PinnedAssetRef,
             _cx: &ProviderContext,
         ) -> Result<PinnedRead, ProviderError> {
-            Err(ProviderError::unsupported("open_pinned", "fake"))
+            if !self.pinned_supported {
+                return Err(ProviderError::unsupported("open_pinned", "fake"));
+            }
+            let (tx, rx) = std::sync::mpsc::channel();
+            tx.send(PINNED_BYTES.to_vec()).unwrap();
+            drop(tx);
+            let slot = Arc::new(synvelis_library::FetchSlot::new());
+            Ok(PinnedRead {
+                reader: Box::new(ChanReader(rx)),
+                claims: synvelis_library::FetchClaims {
+                    object_identity: pin.object_identity.clone(),
+                    expected_size: pin.expected_size,
+                    verification: synvelis_library::VerificationPolicy::IdentityBound {
+                        scheme: "fake-blob".to_string(),
+                    },
+                },
+                completion: synvelis_library::FetchCompletion::new(slot),
+            })
         }
         fn search(
             &self,
@@ -4643,5 +4753,307 @@ mod tests {
             ImportUiState::CommittedLive { .. }
         ));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ── job ledger restore/reinsert (ALIB-05 residual, synvelis#646) ──
+
+    /// An `ImportIntent` for the fake provider's pin — the shape a
+    /// durable manifest reconstructs on restore.
+    fn restore_intent(import_raw: u128, expected: u64) -> (ImportId, ImportIntent) {
+        let asset = RemoteAssetRef {
+            provider: ProviderId::new(1),
+            locator: OpaqueLocator::new("loc-a").unwrap(),
+        };
+        let provider = FakeProvider::new(1, false, true, false);
+        let pin = provider
+            .pin(
+                &asset,
+                &ProviderContext::new(PrincipalId::new("test").unwrap()),
+            )
+            .unwrap();
+        let id = ImportId::new(import_raw);
+        (
+            id,
+            ImportIntent {
+                import_id: id,
+                expected_project_revision: ProjectRevision(expected),
+                source: pin,
+                target: None,
+            },
+        )
+    }
+
+    #[test]
+    fn restore_pending_commit_projects_commit_owed_state() {
+        // The reinserted entry is exactly the live `park_commit`
+        // state — `running` + `commit-pending` + `pending_commit` —
+        // with no worker (`runtime_job`/`terminal` absent): the
+        // projection reads "commit owed", never a fake queued/running
+        // worker.
+        let mut ledger = LibraryJobLedger::default();
+        let view = ruviform_ui::dock::ViewInstanceId::new(3).unwrap();
+        let (id, intent) = restore_intent(9, 4);
+        let progress = LibraryJobProgress {
+            done: 4,
+            total: UX_STAGE_TOTAL,
+            detail: "commit-pending".to_string(),
+        };
+        let LibraryJobRestore::Reinserted { token, epoch } = ledger.restore_pending_commit(
+            LibraryJobLedger::import_key(id),
+            LibraryJobKind::ImportSubmit,
+            view,
+            Some(id.to_tagged()),
+            intent,
+            Some(progress.clone()),
+        ) else {
+            panic!("fresh key must reinsert");
+        };
+        assert!(!token.is_cancelled());
+        assert!(epoch >= 1);
+
+        let wire = ledger
+            .snapshot()
+            .into_iter()
+            .find(|w| w.job_key == LibraryJobLedger::import_key(id))
+            .unwrap();
+        assert_eq!(wire.state, LibraryJobState::Running);
+        assert_eq!(wire.stage.as_deref(), Some("commit-pending"));
+        assert!(wire.pending_commit);
+        assert_eq!(wire.progress, Some(progress));
+        assert!(!wire.cancel_requested);
+        assert!(wire.terminal.is_none());
+        assert!(wire.runtime_job.is_none());
+        assert_eq!(wire.epoch, epoch);
+
+        // Dedup matches `begin`: a non-Done entry under the same key
+        // is never overwritten — the same `ImportId` stays one job.
+        let (_, intent2) = restore_intent(9, 4);
+        assert!(matches!(
+            ledger.restore_pending_commit(
+                LibraryJobLedger::import_key(ImportId::new(9)),
+                LibraryJobKind::ImportSubmit,
+                view,
+                Some(ImportId::new(9).to_tagged()),
+                intent2,
+                None,
+            ),
+            LibraryJobRestore::InFlight
+        ));
+    }
+
+    #[test]
+    fn restore_pending_commit_cancel_reaches_the_entry() {
+        // `import.cancel` lands on the reinserted job through the same
+        // `request_cancel` path a live job observes — the flag marks
+        // the cancel, the owed commit still reconciles (a live parked
+        // commit behaves identically).
+        let mut ledger = LibraryJobLedger::default();
+        let view = ruviform_ui::dock::ViewInstanceId::new(3).unwrap();
+        let (id, intent) = restore_intent(10, 0);
+        let _ = ledger.restore_pending_commit(
+            LibraryJobLedger::import_key(id),
+            LibraryJobKind::ImportSubmit,
+            view,
+            Some(id.to_tagged()),
+            intent,
+            None,
+        );
+        assert!(matches!(
+            ledger.request_cancel(&LibraryJobLedger::import_key(id)),
+            LibraryJobCancel::Requested
+        ));
+        let wire = ledger
+            .snapshot()
+            .into_iter()
+            .find(|w| w.job_key == LibraryJobLedger::import_key(id))
+            .unwrap();
+        assert!(wire.cancel_requested);
+        assert_eq!(wire.state, LibraryJobState::CancelRequested);
+        assert!(wire.pending_commit);
+    }
+
+    /// Builds the durable half of a parked commit: `import_verified`
+    /// driven on a scratch controller to `Committed` — the exact
+    /// state `park_commit` owes — while the returned `project` stays
+    /// untouched for the live controller.
+    #[allow(clippy::type_complexity)]
+    fn committed_scratch(
+        import_raw: u128,
+    ) -> (
+        std::path::PathBuf,
+        ImportStore,
+        synvelis_library::LocalBlobDir,
+        Arc<ProviderRegistry>,
+        ProviderContext,
+        ImportId,
+        ImportIntent,
+        Project,
+    ) {
+        let dir = std::env::temp_dir().join(format!(
+            "sv646-libui-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let store = ImportStore::new(dir.join("staging"), dir.join("media"));
+        let blobs = synvelis_library::LocalBlobDir::new(store.blob_dir());
+        let publisher = synvelis_library::StagedBlobPublisher;
+        let provider = FakeProvider::new(1, false, true, false).with_pinned_bytes(true);
+        let mut registry = ProviderRegistry::new();
+        registry
+            .register(
+                ProviderDescriptor {
+                    id: provider.id,
+                    kind: provider.kind.clone(),
+                    display_name: "fake".to_string(),
+                },
+                Arc::new(provider),
+            )
+            .unwrap();
+        let registry = Arc::new(registry);
+        let cx = ProviderContext::new(PrincipalId::new("test").unwrap());
+
+        let project = Project::new(ProjectId::new(1), "restore-test");
+        let mut scratch = ProjectController::new_at_revision(
+            project.clone(),
+            ProjectRevision(0),
+            Box::new(CounterIdGenerator::new(1 << 40)),
+        );
+        let asset = RemoteAssetRef {
+            provider: ProviderId::new(1),
+            locator: OpaqueLocator::new("loc-a").unwrap(),
+        };
+        let pin = registry
+            .get(&ProviderId::new(1))
+            .unwrap()
+            .pin(&asset, &cx)
+            .unwrap();
+        let import_id = ImportId::new(import_raw);
+        let intent = ImportIntent {
+            import_id,
+            expected_project_revision: ProjectRevision(0),
+            source: pin,
+            target: None,
+        };
+        import_verified(
+            registry.get(&ProviderId::new(1)).unwrap().as_ref(),
+            &intent,
+            &store,
+            &blobs,
+            &publisher,
+            &mut scratch,
+            &cx,
+        )
+        .expect("dry-run import_verified commits the scratch");
+        (dir, store, blobs, registry, cx, import_id, intent, project)
+    }
+
+    #[test]
+    fn reconcile_replays_a_reinserted_pending_commit() {
+        // AC1+AC2 at the lowest layer: a manifest the dry-run pipeline
+        // already drove to `Committed` + a reinserted `pending_commit`
+        // entry → `reconcile_jobs` replays `import_verified` on the
+        // LIVE controller — the commit lands, the entry terminates
+        // `committed-live`, and `applied_imports` records it.
+        let (dir, store, blobs, registry, _cx, import_id, intent, project) =
+            committed_scratch(11);
+        let publisher = synvelis_library::StagedBlobPublisher;
+        let mut views = LibraryViews::new();
+        views.set_backend(LibraryBackend {
+            registry,
+            principal: PrincipalId::new("test").unwrap(),
+        });
+        let view = ruviform_ui::dock::ViewInstanceId::new(3).unwrap();
+        let _ = views.model_mut(view); // materialize the spawning view's model
+        {
+            let jobs = views.jobs();
+            let mut ledger = jobs.lock().unwrap();
+            let LibraryJobRestore::Reinserted { .. } = ledger.restore_pending_commit(
+                LibraryJobLedger::import_key(import_id),
+                LibraryJobKind::ImportSubmit,
+                view,
+                Some(import_id.to_tagged()),
+                intent,
+                None,
+            ) else {
+                panic!("fresh ledger must reinsert");
+            };
+        }
+        // Before reconcile, the honest projection: running +
+        // commit-pending, no runtime job, no terminal.
+        let parked = views
+            .jobs_snapshot()
+            .into_iter()
+            .find(|w| w.job_key == LibraryJobLedger::import_key(import_id))
+            .unwrap();
+        assert!(parked.pending_commit && parked.terminal.is_none());
+        assert!(parked.runtime_job.is_none());
+
+        let mut controller = ProjectController::new(project, Box::new(CounterIdGenerator::new(1)));
+        let rev_before = controller.live_revision();
+        let ports = LibraryImportPorts {
+            store: &store,
+            blobs: &blobs,
+            publisher: &publisher,
+        };
+        let moved = views.reconcile_jobs(&mut controller, Some(&ports));
+        assert!(moved, "the replayed commit advances the live revision");
+        assert_ne!(controller.live_revision(), rev_before);
+        assert!(
+            controller.live().applied_imports.contains_key(&import_id),
+            "the replayed commit registers in applied_imports"
+        );
+        let done = views
+            .jobs_snapshot()
+            .into_iter()
+            .find(|w| w.job_key == LibraryJobLedger::import_key(import_id))
+            .unwrap();
+        assert_eq!(done.state, LibraryJobState::Done);
+        assert!(!done.pending_commit);
+        match &done.terminal {
+            Some(LibraryJobTerminal::CommittedLive { reused, .. }) => assert!(!reused),
+            other => panic!("expected committed-live terminal, got {other:?}"),
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn reconcile_reinserted_without_ports_lands_unavailable() {
+        // The filter picks a reinserted entry up even when the import
+        // backend is unbound — the owed commit lands the typed
+        // `unavailable` terminal rather than disappearing.
+        let mut views = LibraryViews::new();
+        let view = ruviform_ui::dock::ViewInstanceId::new(3).unwrap();
+        let (import_id, intent) = restore_intent(12, 0);
+        {
+            let jobs = views.jobs();
+            let mut ledger = jobs.lock().unwrap();
+            let _ = ledger.restore_pending_commit(
+                LibraryJobLedger::import_key(import_id),
+                LibraryJobKind::ImportSubmit,
+                view,
+                Some(import_id.to_tagged()),
+                intent,
+                None,
+            );
+        }
+        let mut controller = ProjectController::new(
+            Project::new(ProjectId::new(1), "restore-test"),
+            Box::new(CounterIdGenerator::new(1)),
+        );
+        let moved = views.reconcile_jobs(&mut controller, None);
+        assert!(!moved, "no commit can land without ports");
+        let done = views
+            .jobs_snapshot()
+            .into_iter()
+            .find(|w| w.job_key == LibraryJobLedger::import_key(import_id))
+            .unwrap();
+        assert_eq!(done.state, LibraryJobState::Done);
+        assert!(matches!(
+            done.terminal,
+            Some(LibraryJobTerminal::Failed { ref reason, .. }) if reason == "unavailable"
+        ));
     }
 }
