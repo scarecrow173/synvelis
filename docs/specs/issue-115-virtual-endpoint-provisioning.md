@@ -55,7 +55,7 @@ relations:
 # Issue #115 RCD-01 Virtual Endpoint Provisioning Consumer Contract
 
 > Cross-repo link note: Ruviform 側文書への `blob/main` URL は、対応 PR merge 後の
-> canonical location を示す。proposal 時点の main には未存在であり、両 PR の統合後に
+> canonical location を示す。proposal 時点の main にはまだ存在しておらず、両 PR の統合後に
 > 実在させる意図のリンクである。
 
 ## What Should Be Built
