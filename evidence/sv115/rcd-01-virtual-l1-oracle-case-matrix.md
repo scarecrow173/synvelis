@@ -23,6 +23,21 @@ physical・GUI（Option B）の gate が残るため **open 継続**。
 > E2E）と SV-8 `rf628_stereo_device_two_mono_taps_commit_reload`
 > （literal stereo→2mono tap）。詳細は
 > `issue-115-rf628-record-after-recovery-verification.md` を参照。
+
+> **2026-11-25 更新（consumer virtual-WASAPI EXT-L3 harness slice）**:
+> `tests/virtual_endpoint.rs` に Ruviform Cable Input/Output を対象とする
+> consumer virtual endpoint harness が実装され、fail-closed NotRun、
+> pure matcher/metadata tests、production Recorder commit→save→reload
+> 経路、marker/RMS + journal/digest oracle が追加された。upstream
+> ruviform#1001 / PR #1008（merge `f332e462`）では SysVAD 派生
+> `Ruviform Cable Input/Output` の install→実 WASAPI render→capture
+> round-trip が GitHub-hosted Windows で Pass 済みである。一方、本 slice
+> を実行した開発 host には Ruviform virtual endpoint pair が provisioning
+> されておらず、Synvelis consumer EXT-L3 lane は `result=not-run` /
+> `NOT_PROVISIONED` を実測した（exit 0、Pass ではない）。詳細は
+> `issue-115-virtual-endpoint-verification.md`。したがって matrix 内の
+> rf#629/仮想 endpoint EXT-L3 verdict は NotRun のままであり、
+> upstream base round-trip の Pass と consumer harness 実走を混同しない。
 >
 > **2026-11-16 更新（GUI Option B headless wire slice）**:
 > `synvelis#114` の `sv114-gui-option-b-recorder-wire` slice で
@@ -45,9 +60,10 @@ physical・GUI（Option B）の gate が残るため **open 継続**。
   （RF-VTEST-01 deterministic test runtime）の固定 PCM/Clock fixture を
   使う派生 case。pinned ruviform `abb9f372` に fixture 収録済み
   （`ruviform-audio-test`）。consumer oracle slice で実測。
-- **rf#629 仮想 endpoint EXT-L3**: `scarecrow173/ruviform#629`
-  （RF-VTEST-02 Windows 仮想 endpoint）— OS が列挙・Open できる仮想
-  WASAPI endpoint → 本番 Callback を通す EXT-L3 case。
+- **consumer virtual endpoint EXT-L3**: OS が列挙・Open できる
+  Ruviform 仮想 WASAPI endpoint → 本番 Callback → Synvelis Recorder を
+  通す EXT-L3 case。upstream ruviform#1001 の base round-trip Pass と、
+  Synvelis consumer harness の provisioning/実走状態は分離する。
 - **physical**: 物理 Audio Device（Audient iD4 等）の実機検証。
 - **GUI（Option B）**: `synvelis-app` 層の Recorder command/UI wire
   （EXT-L3/GUI-L2）。headless fake-device wire lane は
@@ -57,7 +73,7 @@ physical・GUI（Option B）の gate が残るため **open 継続**。
 
 ## Required case × lane matrix
 
-| Required case（Issue 受入条件） | synthetic-L1（本 slice） | rf#628-fixture | rf#629 仮想 endpoint EXT-L3 | physical | GUI（Option B） |
+| Required case（Issue 受入条件） | synthetic-L1（本 slice） | rf#628-fixture | consumer virtual endpoint EXT-L3 | physical | GUI（Option B） |
 | --- | --- | --- | --- | --- | --- |
 | 独立 PCM oracle（`MockPcm` 非依存 generator で sample/byte 検算） | **Pass**（`oracle_sample` + emission-log + golden const） | **Pass**（`pcm_reference_block` — `PcmFixture::fill` 非依存の独立再実装 + `pcm_assert_eq`） | NotRun | NotRequired | NotRun |
 | E2E byte/sample fidelity（mono/stereo/multichannel、commit→reload→digest resolve→bitwise 照合） | **Pass**（`oracle_stereo_identity`/`oracle_multichannel_identity`） | **Pass**（`rf628_stereo_scenario_commit_reload`/`rf628_multichannel_two_mono_taps_commit_reload`） | NotRun | NotRequired | NotRun |
@@ -87,8 +103,10 @@ physical・GUI（Option B）の gate が残るため **open 継続**。
   を一切含意しない。
 - rf#628-fixture variant は pinned ruviform `abb9f372` の
   `ruviform-audio-test` により consumer oracle slice で実測 Pass
-  （deterministic-backend lane）。rf#629 仮想 endpoint EXT-L3 は
-  hard dep だが本 slice 対象外（環境未構築 = NOT_PROVISIONED）。
+  （deterministic-backend lane）。consumer virtual endpoint EXT-L3 は
+  harness 実装済みだが、本 host では Ruviform endpoint pair 未
+  provisioning のため NotRun(NOT_PROVISIONED)。upstream ruviform#1001
+  の base round-trip Pass を consumer EXT-L3 Pass に転用しない。
   いずれの Pass も他 lane へ転用しない。
 - physical は追加検証が通常必須外（NotRequired）。iD4 10/10 は既存
   履歴のまま。

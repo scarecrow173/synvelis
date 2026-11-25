@@ -1425,12 +1425,13 @@ mod real_lane {
         );
     }
 
-    /// PCM fidelity 行: deterministic source（既知内容の OS
-    /// loopback や注入可能な仮想 device）が無い限り `NotRun`。
-    /// 実機 lane の default input device は内容が不定であり、
-    /// `MockPcm` 相当の deterministic 期待値を構成できない —
-    /// 構造検証（CRC・有限値・連続性）のみが本 lane の Pass 権威。
-    /// device 名を列挙して loopback 候補の有無を記録するが、
+    /// PCM fidelity 行: deterministic source は
+    /// `tests/virtual_endpoint.rs` の Ruviform Cable Input/Output
+    /// harness に分離された。実機 lane の default input device は
+    /// 内容が不定であり、`MockPcm` 相当の deterministic 期待値を
+    /// 構成できない — 構造検証（CRC・有限値・連続性）のみが本 lane の
+    /// Pass 権威であり、物理 device lane を PCM fidelity Pass に
+    /// 昇格しない。device 名を列挙して loopback 候補の有無を記録するが、
     /// 内容の決定性は保証できないため本 row は `NotRun` のまま。
     #[test]
     #[ignore = "real-device lane: deterministic PCM source availability probe (run `mise run test-recording-real-input`)"]
@@ -1456,9 +1457,10 @@ mod real_lane {
             Err(error) => println!("  input_devices() failed: {error}"),
         }
         println!(
-            "  NotRun: no deterministic PCM source — an OS loopback's content \
-             is not a verifiable expectation, and MockPcm equality is not \
-             claimed for real PCM (structural verification is the Pass authority)"
+            "  NotRun: physical default input is not a deterministic PCM source; \
+             the deterministic virtual-endpoint harness lives in tests/virtual_endpoint.rs, \
+             and MockPcm equality is not claimed for real PCM (structural verification \
+             is this lane's Pass authority)"
         );
     }
 }
