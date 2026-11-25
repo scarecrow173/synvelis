@@ -1,0 +1,90 @@
+=== 1. docker compose config -q ===
+[verify] PASS compose config -q (exit 0)
+=== 2. up -d --build ===
+ Image synvelis-webdav-httpd:local Building
+#1 [internal] load local bake definitions
+#1 reading from stdin 610B 0.2s done
+#1 DONE 0.2s
+
+#2 [internal] load build definition from Dockerfile
+#2 transferring dockerfile: 30B 0.0s
+#2 transferring dockerfile: 1.02kB 0.4s done
+#2 DONE 0.4s
+
+#3 [internal] load metadata for docker.io/library/httpd:2.4.71-alpine
+#3 DONE 7.9s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 2B 0.0s done
+#4 DONE 0.0s
+
+#5 [1/3] FROM docker.io/library/httpd:2.4.71-alpine@sha256:32bd0639bcc4917ef1fd9363a1d9dd2dd9c498565118b062a10d51e43a5c3a24
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 transferring context: 62B 0.0s done
+#6 DONE 0.1s
+
+#7 [2/3] RUN sed -i       -e 's/^#LoadModule ssl_module /LoadModule ssl_module /'       -e 's/^#LoadModule socache_shmcb_module /LoadModule socache_shmcb_module /'       -e 's/^#LoadModule dav_module /LoadModule dav_module /'       -e 's/^#LoadModule dav_fs_module /LoadModule dav_fs_module /'       -e 's/^#LoadModule dav_lock_module /LoadModule dav_lock_module /'       /usr/local/apache2/conf/httpd.conf     && printf '\nInclude conf/extra/webdav.conf\n'       >> /usr/local/apache2/conf/httpd.conf     && mkdir -p /var/dav-lock     && chown www-data:www-data /var/dav-lock
+#7 CACHED
+
+#8 [3/3] COPY conf/webdav.conf /usr/local/apache2/conf/extra/webdav.conf
+#8 CACHED
+
+#9 exporting to image
+#9 exporting layers done
+#9 writing image sha256:68b3a847d26c30eefe4a90f8cd11cc4bd20cf76e118c11585e22c7d6046526be done
+#9 naming to docker.io/library/synvelis-webdav-httpd:local done
+#9 DONE 0.1s
+
+#10 resolving provenance for metadata file
+#10 DONE 0.4s
+ Image synvelis-webdav-httpd:local Built
+ Network synvelis-webdav_default Creating
+ Network synvelis-webdav_default Creating
+ Network synvelis-webdav_default Created
+ Network synvelis-webdav_default Created
+ Container synvelis-webdav-certgen-1 Creating
+ Container synvelis-webdav-certgen-1 Created
+ Container synvelis-webdav-webdav-1 Creating
+ Container synvelis-webdav-webdav-1 Created
+ Container synvelis-webdav-certgen-1 Starting
+ Container synvelis-webdav-certgen-1 Started
+ Container synvelis-webdav-certgen-1 Waiting
+ Container synvelis-webdav-certgen-1 Exited
+ Container synvelis-webdav-webdav-1 Starting
+ Container synvelis-webdav-webdav-1 Started
+=== 3. curl contract checks（補助証拠） ===
+[verify] PASS unauthenticated PROPFIND is 401 (401)
+[verify] PASS PROPFIND Depth:1 (207)
+[verify] PASS multistatus carries getetag
+[verify] GET ETag: "d2-6610e079ff4bc"
+[verify] PASS strong ETag on GET
+[verify] PASS If-Match bogus validator (412)
+[verify] PASS If-Match pinned validator (200)
+[verify] PASS Range bytes=0-4 (206)
+=== 4. webdav-probe（実 WebDavProvider） ===
+[probe] url=https://localhost:8443 root=/library ca=docker/webdav/certs/ca.crt
+[probe] capabilities: browse=Supported stat=Supported pin=ConditionalStrong range_read=Supported preview=Supported access=ReadOnly
+[probe] browse root: 2 entries coverage=Complete
+[probe]   Container nested (/library/nested)
+[probe]   Asset sample.txt (/library/sample.txt)
+[probe] stat /library/sample.txt: availability=Available byte_len=Observed { value: 210, origin: Provider, at: ObservedAt(SystemTime { intervals: 134400379503418688 }) }
+[probe] pin: validator="d2-6610e079ff4bc" precondition=IfMatch expected_size=Some(210)
+[probe] open_pinned: 210 bytes read, verified=false policy=IdentityBound { scheme: "webdav-etag-if-match" }
+[probe] open_preview range 0..16: 16 bytes
+[probe] bad credential rejected: kind=AuthExpired
+[probe] foreign CA rejected: kind=TlsVerification
+PROBE PASS
+=== 5. down ===
+ Container synvelis-webdav-webdav-1 Stopping
+ Container synvelis-webdav-webdav-1 Stopped
+ Container synvelis-webdav-webdav-1 Removing
+ Container synvelis-webdav-webdav-1 Removed
+ Container synvelis-webdav-certgen-1 Stopping
+ Container synvelis-webdav-certgen-1 Stopped
+ Container synvelis-webdav-certgen-1 Removing
+ Container synvelis-webdav-certgen-1 Removed
+ Network synvelis-webdav_default Removing
+ Network synvelis-webdav_default Removed
+[verify] verdict=PASS

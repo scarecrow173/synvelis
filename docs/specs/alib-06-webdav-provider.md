@@ -1,10 +1,10 @@
 ---
 id: "SPEC-alib06-webdav-provider"
 type: "spec"
-status: "approved"
+status: "implemented"
 title: "ALIB-06 — WebDAV File-Server Provider（strong ETag/If-Match pin・conditional read・auth・cancel）（synvelis-library slice）"
 created: "2026-11-09"
-updated: "2026-11-09"
+updated: "2026-11-25"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -67,10 +67,15 @@ pin/fetch の証拠として使う。pin→`open_pinned`→ALIB-02
 
 対象は library 契約と実装のみ。検証は **Local test WebDAV/HTTP
 fixture**（`std::net` の in-process server、実装経路の証拠に
-なる）で行い、実 WebDAV Server・実 network・実 OS credential
-store・GUI は本 slice では実装しない — capability として正直に
-宣言し、NotRun/Unsupported を Pass にしない。TLS（https）は
-共有 TLS transport を fixture の `MockTlsServer` で検証する。
+なる）で行い、TLS（https）は共有 TLS transport を fixture の
+`MockTlsServer` で検証する。実 WebDAV Server との適合は
+synvelis#633 が導入した補助 lane（`docker/verify.sh` —
+localhost の Apache `mod_dav` + TLS + Basic 認証に、
+`docker/webdav-probe` が実 `WebDavProvider` を通す）で確認
+済みである（実測: `evidence/sv633/`・`evidence/sv90/`）。実
+network 障害・実 OS credential store・実 GUI・Cross OS は
+引き続き本 slice の対象外であり、capability として正直に
+宣言し、NotRun/Unsupported を Pass にしない。
 
 SMB/NAS・SVN・P4・S3 は将来独立 Adapter であり、本 Issue は
 WebDAV/File Server adapter のみを約束する。
@@ -177,7 +182,11 @@ strong validator による conditional pin が唯一の強い固定手段
   PROPFIND/GET/HEAD/redirect/auth/chunked/stall/disconnect/
   weak-etag/無 paging 大 collection を再現し、受信 request
   を記録して `If-Match`/`Range`/`Authorization` の wire
-  証拠を検査する。実 server・実 network は使わない。
+  証拠を検査する。`MockResponse::hold_open` は応答後に
+  socket を開いたまま無応答化する stall/silent peer を再現
+  し、deadline/stall/cancel が型付き結果
+  （`BudgetExceeded`/`Cancelled`）で返ることを named test
+  で固定する。実 server・実 network は fixture では使わない。
 - docs チェーン（spec/design/plan/task/test-spec）。
 
 ### Out of Scope
@@ -243,34 +252,54 @@ strong validator による conditional pin が唯一の強い固定手段
 
 ## Acceptance Criteria
 
-- [ ] Local test WebDAV/HTTP fixture で strong/weak ETag、
+- [x] Local test WebDAV/HTTP fixture で strong/weak ETag、
   If-Match 412、Range 対応/非対応、ページングなし・大きな
   Collection、redirect、auth revoke、timeout、mid-transfer
-  disconnect を再現する。
+  disconnect を再現する。（`tests/webdav.rs` の named case で
+  Pass。timeout/stall は `hold_open` fixture を使う
+  `silent_response_head_fails_budget_typed`・
+  `mid_body_stall_fails_budget_typed`・
+  `cancel_observed_inside_stalled_body`・
+  `https_silent_response_fails_budget_typed`、mid-transfer
+  disconnect は `truncated_body_fails_mid_stream_not_silent` で
+  固定）
 - [ ] 強い固定条件を満たす Server から選択 Download→
   Verified Import→Offline Project Playback。条件不足
   Server は安全に Unsupported となり、勝手な可変 Object
-  Import はしない。
+  Import はしない。（producer 側は Pass — pin→`import_verified`
+  →offline blob 再読を `import_verified_consumes_webdav_pin`
+  で、実 server 適合を `docker/verify.sh` で実測。
+  Offline Project Playback E2E は製品受入 gate（synvelis#114
+  系）として NotRun）
 - [ ] 受入 Byte Budget/Cache 隔離・Credential redaction・
   URI/Path traversal・Cross OS 差・Cancellable nonRT での
-  再生/録音非阻害を記録する。
-- [ ] Ruviform 汎用 HTTP/File 関数を新設する必要が本当に
+  再生/録音非阻害を記録する。（headless の Byte Budget・
+  credential redaction・locator confinement・cancel は named
+  test で Pass。Cross OS 差・実録音/再生の非阻害は NotRun —
+  synvelis#91/#114 系の外部 gate）
+- [x] Ruviform 汎用 HTTP/File 関数を新設する必要が本当に
   ある場合のみ、両 Consumer 互換評価後に基盤 Issue を作る
-  （本 slice では新設しない — WebDAV 固有の最小 transport
-  で完結）。
-- [ ] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
+  （条件未発動 — WebDAV 固有の最小 transport で完結し、新設
+  しない）
+- [x] `mise run fmt-check`/`check`/`lint`/`test`/`test-rt`/
   `test-msrv`/`build`（+ 存在する app-native 系）が全て
   pass。既存 test の非退行。実 WebDAV Server/network・
   実 OS・GUI は NotRun/Unsupported として記録。
+  （`evidence/sv90/` を参照。実 WebDAV Server は docker 補助
+  lane で実測済み。実 network 障害・実 OS credential
+  store・実 GUI は引き続き NotRun）
 
 ## Deferred Design Concerns
 
 - 実 WebDAV Server（SabreDAV/Nextcloud/Windows IIS 等）・
-  実 network 障害 | 本 slice は in-process fixture のみ
-  実測（TLS handshake は fixture の `MockTlsServer` で
-  検証済み）。実 server/実 network は capability で区別し、
-  未検証を Pass としない | 実 network を持つ検証 slice
-  （#91 consumer 別判定へ伝達）| network 依存を fixture に
+  実 network 障害 | Apache `mod_dav` + TLS + Basic の補助
+  lane（`docker/verify.sh`、synvelis#633 で導入）は実測済み
+  で、browse/stat/pin/open_pinned/open_preview と curl
+  contract（strong ETag・If-Match 412・Range 206・401）を
+  実 provider で確認した（`evidence/sv90/`）。他 server
+  実装・実 network 障害・Cross OS は引き続き未検証であり
+  Pass としない | 実 network を持つ検証 slice（#91
+  consumer 別判定へ伝達）| network 依存を fixture に
   持ち込まない。
 - Digest/Negotiate/NTLM/Kerberos auth | `Authorization`
   header value を opaque に転送する契約のみ。OS credential

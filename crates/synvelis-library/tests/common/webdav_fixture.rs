@@ -2,9 +2,9 @@
 //!
 //! An in-process `TcpListener` mock — a scripted HTTP/1.1 server
 //! covering `PROPFIND` multistatus bodies, conditional `GET`s, `Range`
-//! responses, redirects, malformed wire input, and typed error
-//! statuses. Real network hosts, TLS, OS credential stores, and the
-//! GUI are NotRun/Unsupported by design — see
+//! responses, redirects, malformed wire input, silent/stalling peers,
+//! and typed error statuses. Real network hosts, TLS, OS credential
+//! stores, and the GUI are NotRun/Unsupported by design — see
 //! `docs/test-specs/alib-06-webdav-provider.md` and
 //! `docs/test-specs/alib-07-fault-matrix.md`.
 //!
@@ -45,6 +45,9 @@ pub struct MockResponse {
     /// When set, the response bytes are written verbatim — used for
     /// malformed heads/bodies that the normal builder cannot express.
     raw: Option<Vec<u8>>,
+    /// Keep the connection open after responding, until the server
+    /// stops — a peer that goes silent without closing.
+    hold: bool,
 }
 
 impl MockResponse {
@@ -54,6 +57,7 @@ impl MockResponse {
             headers: Vec::new(),
             body: Vec::new(),
             raw: None,
+            hold: false,
         }
     }
 
@@ -76,7 +80,17 @@ impl MockResponse {
             headers: Vec::new(),
             body: Vec::new(),
             raw: Some(bytes.into()),
+            hold: false,
         }
+    }
+
+    /// Sends the response bytes, then holds the connection open —
+    /// silent but not closed — until the server is dropped. Combined
+    /// with `raw(Vec::new())` the peer never answers at all; with a
+    /// partial body it stalls mid-transfer.
+    pub fn hold_open(mut self) -> Self {
+        self.hold = true;
+        self
     }
 }
 
@@ -106,7 +120,7 @@ impl MockServer {
         let thread = std::thread::spawn(move || {
             while !flag.load(Ordering::SeqCst) {
                 match listener.accept() {
-                    Ok((stream, _)) => handle_conn(stream, &handler),
+                    Ok((stream, _)) => handle_conn(stream, &handler, &flag),
                     Err(e) if transient_accept_error(&e) => {
                         std::thread::sleep(Duration::from_millis(2));
                     }
@@ -178,7 +192,7 @@ fn transient_accept_error(e: &std::io::Error) -> bool {
     )
 }
 
-fn handle_conn(mut stream: TcpStream, handler: &Handler) {
+fn handle_conn(mut stream: TcpStream, handler: &Handler, stop: &AtomicBool) {
     // Winsock propagates the listener's nonblocking flag to the
     // accepted socket; POSIX does not. `read_request`/`write_response`
     // assume a blocking socket with timeouts — normalize the mode here
@@ -186,7 +200,7 @@ fn handle_conn(mut stream: TcpStream, handler: &Handler) {
     // of failing `WouldBlock` and RST-ing the connection (os error
     // 10054/10053 on the client; synvelis#245).
     normalize_socket(&mut stream);
-    serve(&mut stream, handler);
+    serve(&mut stream, handler, stop);
 }
 
 /// Blocking mode + generous timeouts for an accepted socket — the
@@ -199,13 +213,21 @@ fn normalize_socket(stream: &mut TcpStream) {
 }
 
 /// Reads one request, runs the handler, writes one response — the
-/// shared tail of every mock connection, plaintext or TLS.
-fn serve<S: Read + Write>(stream: &mut S, handler: &Handler) {
+/// shared tail of every mock connection, plaintext or TLS. A
+/// [`MockResponse::hold_open`] response keeps the socket open after
+/// the bytes are sent; the hold ends when `stop` is set so dropping
+/// the server never parks here.
+fn serve<S: Read + Write>(stream: &mut S, handler: &Handler, stop: &AtomicBool) {
     let Ok(req) = read_request(stream) else {
         return;
     };
     let resp = handler(&req);
-    let _ = write_response(stream, &resp);
+    if write_response(stream, &resp).is_err() {
+        return;
+    }
+    while resp.hold && !stop.load(Ordering::SeqCst) {
+        std::thread::sleep(Duration::from_millis(25));
+    }
 }
 
 fn find_subslice(hay: &[u8], needle: &[u8]) -> Option<usize> {
@@ -446,7 +468,7 @@ impl MockTlsServer {
         let thread = std::thread::spawn(move || {
             while !flag.load(Ordering::SeqCst) {
                 match listener.accept() {
-                    Ok((stream, _)) => handle_tls_conn(stream, &config, &handler),
+                    Ok((stream, _)) => handle_tls_conn(stream, &config, &handler, &flag),
                     Err(e) if transient_accept_error(&e) => {
                         std::thread::sleep(Duration::from_millis(2));
                     }
@@ -494,11 +516,16 @@ impl Drop for MockTlsServer {
 /// The handshake runs lazily inside the first `read`/`write` — a
 /// client that fails verification simply never produces a request,
 /// and the connection is dropped.
-fn handle_tls_conn(mut stream: TcpStream, config: &Arc<rustls::ServerConfig>, handler: &Handler) {
+fn handle_tls_conn(
+    mut stream: TcpStream,
+    config: &Arc<rustls::ServerConfig>,
+    handler: &Handler,
+    stop: &AtomicBool,
+) {
     normalize_socket(&mut stream);
     let Ok(conn) = rustls::ServerConnection::new(Arc::clone(config)) else {
         return;
     };
     let mut tls = rustls::StreamOwned::new(conn, stream);
-    serve(&mut tls, handler);
+    serve(&mut tls, handler, stop);
 }

@@ -1046,6 +1046,109 @@ fn cross_origin_redirect_never_reaches_other_origin() {
 }
 
 // ------------------------------------------------------------------
+// Timeout / stall — a silent or stalled server surfaces a typed
+// result, never a silent success, a hang, or a panic
+// ------------------------------------------------------------------
+
+#[test]
+fn silent_response_head_fails_budget_typed() {
+    // The server accepts the request and never answers: `read_head`
+    // polls at `IO_POLL` and re-checks the context deadline between
+    // socket timeouts, so the call lands `BudgetExceeded` — the
+    // plaintext twin of `https_silent_response_fails_budget_typed`.
+    let server = MockServer::start(Arc::new(|_| MockResponse::raw(Vec::new()).hold_open()));
+    let p = provider(&server);
+    let mut cx = cx();
+    cx.limits.deadline = Some(Instant::now() + Duration::from_millis(500));
+    let started = Instant::now();
+    let err = p
+        .browse(&scope_req(None, 10), &cx)
+        .expect_err("silent server");
+    assert_eq!(kind_of(&err), ProviderErrorKind::BudgetExceeded);
+    assert!(
+        started.elapsed() < Duration::from_secs(15),
+        "browse must land the deadline, not wait out the stall bound"
+    );
+}
+
+#[test]
+fn mid_body_stall_fails_budget_typed() {
+    // A valid 200 head with a strong ETag and `content-length: 11`
+    // delivers five bytes then goes silent: the guarded body reader
+    // lands the deadline as `BudgetExceeded` mid-stream — never a
+    // silent truncation or a hang.
+    let partial = b"HTTP/1.1 200 OK\r\netag: \"v\"\r\ncontent-length: 11\r\n\r\nhello".to_vec();
+    let server = MockServer::start(Arc::new(move |req| {
+        if req.method == "PROPFIND" {
+            return propfind_response("/a.wav", &[("/a.wav", &file_props(11, Some("\"v\"")))]);
+        }
+        MockResponse::raw(partial.clone()).hold_open()
+    }));
+    let p = provider(&server);
+    let pin = p.pin(&aref(provider_id(), "/a.wav"), &cx()).expect("pin");
+    let mut cx = cx();
+    cx.limits.deadline = Some(Instant::now() + Duration::from_millis(500));
+    let mut pr = p.open_pinned(&pin, &cx).expect("open");
+    let mut body = Vec::new();
+    let err = pr
+        .reader
+        .read_to_end(&mut body)
+        .expect_err("stalled body must fail");
+    let pe = err
+        .get_ref()
+        .and_then(|inner| inner.downcast_ref::<ProviderError>())
+        .cloned()
+        .unwrap_or_else(|| ProviderError::new(ProviderErrorKind::Internal, err.to_string()));
+    assert_eq!(pe.kind(), ProviderErrorKind::BudgetExceeded);
+    assert_eq!(body, b"hello", "delivered prefix bytes stay delivered");
+    let recorded = pr
+        .completion
+        .take()
+        .expect("finished")
+        .expect_err("completion must be Err");
+    assert_eq!(recorded.kind(), ProviderErrorKind::BudgetExceeded);
+}
+
+#[test]
+fn cancel_observed_inside_stalled_body() {
+    // Cancellation lands inside an in-flight stalled transfer, not
+    // only before I/O starts: bytes arrive, the token is cancelled,
+    // and the next `read` surfaces the typed result. Direct `read`
+    // calls are required — `read_to_end` retries `Interrupted` (the
+    // `io::ErrorKind` `Cancelled` maps to) and would mask the error
+    // as a clean `Ok(0)` EOF; the slot still records `Cancelled`.
+    let partial = b"HTTP/1.1 200 OK\r\netag: \"v\"\r\ncontent-length: 11\r\n\r\nhello".to_vec();
+    let server = MockServer::start(Arc::new(move |req| {
+        if req.method == "PROPFIND" {
+            return propfind_response("/a.wav", &[("/a.wav", &file_props(11, Some("\"v\"")))]);
+        }
+        MockResponse::raw(partial.clone()).hold_open()
+    }));
+    let p = provider(&server);
+    let pin = p.pin(&aref(provider_id(), "/a.wav"), &cx()).expect("pin");
+    let cx = cx();
+    let mut pr = p.open_pinned(&pin, &cx).expect("open");
+    let mut buf = [0u8; 64];
+    let n = pr.reader.read(&mut buf).expect("prefix bytes");
+    assert_eq!(&buf[..n], b"hello");
+    cx.cancel.cancel();
+    let err = pr.reader.read(&mut buf).expect_err("cancel observed");
+    assert_eq!(err.kind(), std::io::ErrorKind::Interrupted);
+    let pe = err
+        .get_ref()
+        .and_then(|inner| inner.downcast_ref::<ProviderError>())
+        .cloned()
+        .unwrap_or_else(|| ProviderError::new(ProviderErrorKind::Internal, err.to_string()));
+    assert_eq!(pe.kind(), ProviderErrorKind::Cancelled);
+    let recorded = pr
+        .completion
+        .take()
+        .expect("finished")
+        .expect_err("completion must be Err");
+    assert_eq!(recorded.kind(), ProviderErrorKind::Cancelled);
+}
+
+// ------------------------------------------------------------------
 // Fixture self-check: accepted-connection socket mode
 // ------------------------------------------------------------------
 
@@ -1300,6 +1403,21 @@ fn https_deadline_fails_during_tls_handshake() {
     let mut cx = cx();
     cx.limits.deadline = Some(Instant::now() + Duration::from_millis(300));
     let err = p.browse(&scope_req(None, 10), &cx).expect_err("deadline");
+    assert_eq!(kind_of(&err), ProviderErrorKind::BudgetExceeded);
+}
+
+#[test]
+fn https_silent_response_fails_budget_typed() {
+    // Post-handshake silence over TLS: the handshake completes, the
+    // request is sent, and the server never answers — the guarded
+    // TLS read path lands the same typed budget result as plaintext.
+    let server = MockTlsServer::start(Arc::new(|_| MockResponse::raw(Vec::new()).hold_open()));
+    let p = tls_provider(&server);
+    let mut cx = tls_cx(&server.trust_pem());
+    cx.limits.deadline = Some(Instant::now() + Duration::from_millis(800));
+    let err = p
+        .browse(&scope_req(None, 10), &cx)
+        .expect_err("silent tls server");
     assert_eq!(kind_of(&err), ProviderErrorKind::BudgetExceeded);
 }
 
