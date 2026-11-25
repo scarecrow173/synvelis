@@ -1,8 +1,15 @@
 # synvelis#91 — ALIB-07 headless residual slice の検証記録
 
-対象 SHA（worktree HEAD・検証時点）: `359fb293e`（branch
-`scarecrow173/sv91-alib07-headless-slice`、base `359fb293` = PR #644
-merge・取り込み時点の `origin/main` と同一）。
+対象 SHA（worktree HEAD・最終検証時点）: `084a01a4`（branch
+`scarecrow173/sv91-alib07-headless-slice`。構成: base `359fb293` =
+PR #644 merge で分岐 → `df2b41f` = 本 slice の変更 → `084a01a4` =
+`origin/main` `c6701363`（PR #645）の merge。merge 時点で
+`origin/main` と同一ツリーに同期済み。upstream 差分は
+synvelis-app/synvelis-project と `evidence/sv643/` のみで、本
+slice の変更範囲と Cargo.lock に差分は出なかった）。
+
+下記 lane は merge 後の対象 SHA（`084a01a4`）で再実走した結果
+（merge 前 `359fb293` でも同一結果を確認済み）。
 
 Ruviform resolved SHA（`Cargo.lock`）:
 `20dc41f71c47674b3e51d1eb0921124b94f8bfaf`
@@ -79,7 +86,7 @@ rustc 1.99.1（MSRV 1.89）、記録日: 2026-11-25
 | --- | --- | --- |
 | `cargo test -p synvelis-library --test lfs` | 0 | Pass — 新規 2 件を含む全件 green |
 | `cargo test -p synvelis-library --test webdav` | 0 | Pass — 新規 1 件を含む全件 green |
-| `mise exec -- cargo fmt --package synvelis-library -- --check` | 0 | Pass — `mise run fmt-check` の `os error 206` 制約に対する代替（変更した package の fmt は clean） |
+| `mise exec -- cargo fmt --package synvelis-library -- --check` | 0 | Pass — `mise run fmt-check` の `os error 206` 制約に対する代替（対象 SHA `084a01a4` で実施・変更した package の fmt は clean） |
 
 ## ローカル検証と統合検証の区別
 
