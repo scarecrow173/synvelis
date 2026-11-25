@@ -1,0 +1,2196 @@
+[test-rt] $ cargo test --workspace --locked rt_
+   Compiling tracing-subscriber v0.3.23
+   Compiling synvelis-automation v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-automation)
+   Compiling synvelis-library v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-library)
+   Compiling ruviform-script v0.1.0 (https://github.com/scarecrow173/ruviform.git#20dc41f7)
+   Compiling ruviform-ui-theme v0.1.0 (https://github.com/scarecrow173/ruviform.git#20dc41f7)
+   Compiling synvelis-script v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-script)
+   Compiling recording-poc v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\recording-poc)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-script\src\lib.rs
+   Compiling tracing-appender v0.2.5
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-ui-theme\src\lib.rs
+   Compiling ruviform-observability v0.1.0 (https://github.com/scarecrow173/ruviform.git#20dc41f7)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-observability\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-ui-theme\src\lib.rs
+   Compiling ruviform-plugin-host v0.1.0 (https://github.com/scarecrow173/ruviform.git#20dc41f7)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-script\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-plugin-host\src\lib.rs
+   Compiling ruviform-audio v0.1.0 (https://github.com/scarecrow173/ruviform.git#20dc41f7)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-audio\src\lib.rs
+   Compiling ruviform-script-luau v0.1.0 (https://github.com/scarecrow173/ruviform.git#20dc41f7)
+   Compiling synvelis-theme v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-theme)
+mbx[warning]: rustc cache bypassed: failed to read Cargo's build-script declarations: stream did not contain valid UTF-8
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-observability\src\lib.rs
+   Compiling synvelis-gateway v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-gateway)
+   Compiling ruviform-audio-plugin-bridge v0.1.0 (https://github.com/scarecrow173/ruviform.git#20dc41f7)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-audio-plugin-bridge\src\lib.rs
+mbx[progress]: 15s elapsed; 3 hits, 7 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+   Compiling synvelis-script-luau v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-script-luau)
+   Compiling synvelis-project v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-project)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-audio\src\lib.rs
+   Compiling synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-player)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-plugin-host\src\lib.rs
+   Compiling ruviform-audio-test v0.1.0 (https://github.com/scarecrow173/ruviform.git#20dc41f7)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-audio-test\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-audio-plugin-bridge\src\lib.rs
+   Compiling ruviform-plugin-dock-test v0.1.0 (https://github.com/scarecrow173/ruviform.git#20dc41f7)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-plugin-dock-test\src\lib.rs
+   Compiling synvelis-render v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-render)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-audio-test\src\lib.rs
+   Compiling synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-recording)
+mbx[progress]: 30s elapsed; 3 hits, 24 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\20dc41f\crates\ruviform-plugin-dock-test\src\lib.rs
+   Compiling synvelis-workspace v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-workspace)
+mbx[progress]: 45s elapsed; 3 hits, 35 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+mbx[progress]: 1m elapsed; 3 hits, 49 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+   Compiling synvelis-app v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-app)
+mbx[progress]: 1m 15s elapsed; 3 hits, 54 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+   Compiling synvelis-cli v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-cli)
+mbx[progress]: 1m 30s elapsed; 3 hits, 63 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+mbx[progress]: 1m 45s elapsed; 3 hits, 69 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+mbx[progress]: 2m elapsed; 3 hits, 74 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+   Compiling mcp-poc v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\mcp-poc)
+mbx[progress]: 3m elapsed; 3 hits, 100 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+mbx[progress]: 4m elapsed; 3 hits, 126 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+mbx[progress]: 5m elapsed; 3 hits, 147 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+mbx[progress]: 6m elapsed; 3 hits, 174 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+mbx[progress]: 7m elapsed; 3 hits, 203 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+mbx[progress]: 8m elapsed; 3 hits, 243 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+mbx[progress]: 9m elapsed; 3 hits, 299 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9m 44s
+     Running unittests src\main.rs (target\debug\deps\mcp_poc-3d901346c5916c33.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\gw10_transport.rs (target\debug\deps\gw10_transport-dd265aaff87aa90d.exe)
+
+running 1 test
+test gw10f_delegated_apply_commits_and_survives_restart_real ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.76s
+
+     Running tests\stdio_e2e.rs (target\debug\deps\stdio_e2e-177499695f3734a6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (target\debug\deps\recording_poc-3cbd23313411b2a7.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\poc_determinism.rs (target\debug\deps\poc_determinism-1213cf0e1cdf7730.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests\real_fs_probe.rs (target\debug\deps\real_fs_probe-11dd2c8c836ea8e6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\vsc_process.rs (target\debug\deps\vsc_process-97aa8d137cce4bc0.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\vsd_process.rs (target\debug\deps\vsd_process-fc68ab02c2c7467e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_app-4416f662853ac847.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\asset_check.rs (target\debug\deps\asset_check-9be407d924ba5f11.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\autx07_automation.rs (target\debug\deps\autx07_automation-8b042274b8608d54.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\binding.rs (target\debug\deps\binding-50cec6769231fdd8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\cb09_variant_diff.rs (target\debug\deps\cb09_variant_diff-941f3f9f5b5b1b4c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\close_veto.rs (target\debug\deps\close_veto-e6927824fb97426d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\dock_ops.rs (target\debug\deps\dock_ops-6be5c47ab3b4633f.exe)
+
+running 2 tests
+test dock_transfer_preserves_project_and_transport_state ... ok
+test dock_abort_preserves_source_ownership ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.04s
+
+     Running tests\library_browser.rs (target\debug\deps\library_browser-72efd7b218551309.exe)
+
+running 8 tests
+test import_without_backend_or_fetch_is_typed ... ok
+test import_cancel_is_cross_view ... ok
+test import_submit_dedups_in_flight ... ok
+test import_publish_failure_is_recoverable_and_resumes ... ok
+test import_commits_live_and_replays_idempotently ... ok
+test import_cancel_mid_flight_then_retry_recovers ... ok
+test provider_switch_scopes_import_surface ... ok
+test import_stale_revision_rebase_retry_recovers ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.16s
+
+     Running tests\library_native_mount.rs (target\debug\deps\library_native_mount-687f63126c8720bd.exe)
+
+running 1 test
+test import_submits_through_real_import_ports ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.07s
+
+     Running tests\logging.rs (target\debug\deps\logging-0c0cde797df8030a.exe)
+
+running 1 test
+test build_logging_reports_degraded_best_effort_sink ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\monitor_arm.rs (target\debug\deps\monitor_arm-56e99a0f4a9a61fc.exe)
+
+running 2 tests
+test e5_view_window_and_project_transport_do_not_change_monitor_state ... ok
+test e1_route_matrix_off_auto_on_x_transport_x_punch_x_mute_solo ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.03s
+
+     Running tests\pc_c4_04_app_composition.rs (target\debug\deps\pc_c4_04_app_composition-341d1592b5ba2354.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_06_control_op_surface.rs (target\debug\deps\pc_c4_06_control_op_surface-99c6b9ed12fddc47.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_drain_composition.rs (target\debug\deps\pc_c4_drain_composition-3e568f8cc1768552.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_observe_engine_wiring.rs (target\debug\deps\pc_c4_observe_engine_wiring-aeb814eba611ae1d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_webview_composition.rs (target\debug\deps\pc_c4_webview_composition-bcb643b207c59de7.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\plugin_dock.rs (target\debug\deps\plugin_dock-299584e76f0eb138.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.00s
+
+     Running tests\plugin_dock_contract.rs (target\debug\deps\plugin_dock_contract-e7e7db7a9ea6979c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\plugin_dock_contract_gpui.rs (target\debug\deps\plugin_dock_contract_gpui-646b01c4b03a5cd9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\plugin_dock_probe.rs (target\debug\deps\plugin_dock_probe-b8ad8c71e28d7bff.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\rcd_04_product_e2e.rs (target\debug\deps\rcd_04_product_e2e-7c6ec0a35b158cc9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\rcp06_render.rs (target\debug\deps\rcp06_render-3cc8ffee7f4c6d72.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\recorder_wire.rs (target\debug\deps\recorder_wire-49fdcbed3432e250.exe)
+
+running 3 tests
+test recorder_wire_start_rejects_loop_before_transport ... ok
+test recorder_wire_start_rejects_oversized_target_channels ... ok
+test recorder_wire_start_without_device_is_typed_error ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.13s
+
+     Running tests\recording_projection.rs (target\debug\deps\recording_projection-728fdd8ed370b2eb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\scenario_gpui.rs (target\debug\deps\scenario_gpui-fa5b553ceb7054f1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\screen_scenario.rs (target\debug\deps\screen_scenario-1f095d5330c3d4b1.exe)
+mbx[progress]: 10m elapsed; 3 hits, 339 misses, 1 bypassed, 0 not looked up; ~13.07s compiler work saved
+
+running 2 tests
+test fake_unrunnable_items_report_unsupported_not_run_not_pass ... ok
+test transport_play_invokes_and_inspector_table_is_read_only ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\service_ops.rs (target\debug\deps\service_ops-56af6df55066d76c.exe)
+
+running 1 test
+test transport_set_toggles_session_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.02s
+
+     Running tests\sf03_revision.rs (target\debug\deps\sf03_revision-e728c62c44a55c61.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\sf03_session_engine.rs (target\debug\deps\sf03_session_engine-c1a805b7e7e5eda3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sf04_probe_compare_op.rs (target\debug\deps\sf04_probe_compare_op-a7fab6a8e1ffd0ed.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sf04_probe_wiring.rs (target\debug\deps\sf04_probe_wiring-f577caad0bf4c2d1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sf05_probe_share.rs (target\debug\deps\sf05_probe_share-07b11284f400877f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sf05_signal_flow.rs (target\debug\deps\sf05_signal_flow-de097c2cc5b10453.exe)
+
+running 1 test
+test published_without_rt_observation_is_not_displayed_as_active ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.09s
+
+     Running tests\shell.rs (target\debug\deps\shell-841561aabd0c7c0a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.00s
+
+     Running tests\sv113_dock.rs (target\debug\deps\sv113_dock-7836e5931a56bddd.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sv266_wiring.rs (target\debug\deps\sv266_wiring-479f35b17fc5bd47.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\sv643_jobs_ledger.rs (target\debug\deps\sv643_jobs_ledger-723fe4ea282d185b.exe)
+
+running 5 tests
+test generic_job_cancel_reaches_import_job ... ok
+test restart_restores_queued_preview_as_failed ... ok
+test restart_restores_cancel_requested_as_cancelled ... ok
+test restart_restores_inflight_import_as_recoverable ... ok
+test restart_replays_pending_commit_to_committed_live ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.43s
+
+     Running tests\sv646_pending_commit_replay.rs (target\debug\deps\sv646_pending_commit_replay-004b99696fc51016.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\svscript04_script_editor.rs (target\debug\deps\svscript04_script_editor-770fe04a7e3d89df.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\svt_product_e2e.rs (target\debug\deps\svt_product_e2e-988e86962bed6ed7.exe)
+
+running 1 test
+test svt05_transport_receipt_projection_phase_progression ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.05s
+
+     Running tests\svt_product_e2e_gpui.rs (target\debug\deps\svt_product_e2e_gpui-9874bc5c6bbbf81b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\theme_parity.rs (target\debug\deps\theme_parity-8c810e5f27df94ce.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim01_ppqn_app.rs (target\debug\deps\tim01_ppqn_app-fae50c6f1fa1b709.exe)
+
+running 1 test
+test set_ppqn_rejects_while_transport_playing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.03s
+
+     Running tests\tim01_ppqn_preview.rs (target\debug\deps\tim01_ppqn_preview-0496aaad9f113c64.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\tim01_ppqn_ui.rs (target\debug\deps\tim01_ppqn_ui-790100fc9cc5f383.exe)
+
+running 1 test
+test preview_and_spec_report_snap_grid_policy ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.02s
+
+     Running tests\tim01_ppqn_widget.rs (target\debug\deps\tim01_ppqn_widget-8673c78ebca7bbc7.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\tim02_midi_delivery.rs (target\debug\deps\tim02_midi_delivery-885db083f6b9208a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\tim02_smf_app.rs (target\debug\deps\tim02_smf_app-3f4e29d93ca4ea73.exe)
+
+running 10 tests
+test import_smf_rejects_stale_expected_revision ... ok
+test import_smf_typed_errors ... ok
+test import_smf_rejects_while_transport_playing ... ok
+test import_smf_mints_source_and_reports_summary ... ok
+test export_smf_typed_errors ... ok
+test export_smf_is_read_only ... ok
+test import_smf_undo_redo_round_trip ... ok
+test export_smf_writes_file_and_reports_conversion ... ok
+test import_export_reimport_round_trip ... ok
+test import_smf_survives_save_reload ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.22s
+
+     Running tests\tim03_real_abi_process_oracle.rs (target\debug\deps\tim03_real_abi_process_oracle-2117bad5c83b12fb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\two_window.rs (target\debug\deps\two_window-b72ca0e850724c92.exe)
+
+running 2 tests
+test secondary_spec_is_a_transport_deck ... ok
+test both_views_display_the_same_transport_truth ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.05s
+
+     Running tests\ui_ops.rs (target\debug\deps\ui_ops-a534d4398e8dbb31.exe)
+
+running 2 tests
+test project_undo_redo_ops_dispatch_and_report_empty_history ... ok
+test transport_action_receipt_and_projection_flow ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.02s
+
+     Running tests\uic5_app.rs (target\debug\deps\uic5_app-7cc3ad4053635b2e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\vcs04_history.rs (target\debug\deps\vcs04_history-f1b8f5921b3f137c.exe)
+
+running 1 test
+test staged_and_saved_endpoints_report_honestly ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.01s
+
+     Running tests\vcs04_mount_gpui.rs (target\debug\deps\vcs04_mount_gpui-db39ae7b3166b119.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\vcs04_native_mount.rs (target\debug\deps\vcs04_native_mount-dca0952cd81ce037.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\vcs06_ui_matrix.rs (target\debug\deps\vcs06_ui_matrix-039f13f9fe8fe9a6.exe)
+
+running 1 test
+test cross_project_committed_endpoints_report_unknown_not_equal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.01s
+
+     Running tests\vcs_backend_wiring.rs (target\debug\deps\vcs_backend_wiring-fe0199386635afb3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\view_mount.rs (target\debug\deps\view_mount-64803718c621c9c9.exe)
+
+running 2 tests
+test main_spec_carries_transport_buttons_status_and_inspector_table ... ok
+test transport_buttons_play_and_stop_through_the_command_path ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.04s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_automation-61380895e5f4156b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\action_recipe.rs (target\debug\deps\action_recipe-3d91a6e58ce099bc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\compiler.rs (target\debug\deps\compiler-d390d50a8bb06af1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.00s
+
+     Running tests\coordinator.rs (target\debug\deps\coordinator-312514cd7d13a0ec.exe)
+
+running 1 test
+test duplicate_start_is_idempotent_rejected ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.01s
+
+     Running tests\decode.rs (target\debug\deps\decode-cb282a198619286e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\determinism.rs (target\debug\deps\determinism-5473acb7512c3b67.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\importer.rs (target\debug\deps\importer-382869053cb5087b.exe)
+
+running 2 tests
+test import_cycle_rejected ... ok
+test import_depth_exceeded_rejected ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.00s
+
+     Running tests\live_adapters.rs (target\debug\deps\live_adapters-7a6f35132a625d1b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\macros.rs (target\debug\deps\macros-04cbe14da4658cb8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+     Running tests\mixed_source_run.rs (target\debug\deps\mixed_source_run-95e14fd0bddcb2fa.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\script_analyzer.rs (target\debug\deps\script_analyzer-b6cacbf11fda3b5a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\yaml_subset.rs (target\debug\deps\yaml_subset-a33a1745badef00e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_cli-eff997d95033fb6a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (target\debug\deps\synvelis_cli-6b0b860217c29ac0.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\cli_analyze.rs (target\debug\deps\cli_analyze-091cf58ab91b1633.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\cli_e2e.rs (target\debug\deps\cli_e2e-f4b0e5bde727fbb9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_gateway-9f9063083103598b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running unittests src\bin\gw10_report.rs (target\debug\deps\gw10_report-86a9714766b7198c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\authorization.rs (target\debug\deps\authorization-231b6dba35447f92.exe)
+
+running 1 test
+test invoke_transport_under_grant ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 73 filtered out; finished in 0.00s
+
+     Running tests\autx06_live_adapters.rs (target\debug\deps\autx06_live_adapters-0ce63afb8eb148e5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\cb06_strip_gateway.rs (target\debug\deps\cb06_strip_gateway-999444bfdb476273.exe)
+
+running 1 test
+test cb06_strip_fields_insert_ops_wire_lowering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.08s
+
+     Running tests\cb10_variant_actions.rs (target\debug\deps\cb10_variant_actions-b89777608afe41e5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests\cb11_ai_vcs_off.rs (target\debug\deps\cb11_ai_vcs_off-11171483dd283c19.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\cli_adapter.rs (target\debug\deps\cli_adapter-e9a364f4a76b1e64.exe)
+
+running 1 test
+test wire_payloads_cannot_assert_authority_or_identity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.00s
+
+     Running tests\commit_gate.rs (target\debug\deps\commit_gate-6f969d224800ccf4.exe)
+
+running 1 test
+test restart_recovers_committed_state_and_verdict ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.07s
+
+     Running tests\context.rs (target\debug\deps\context-78b068bd2a2c5ad6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.00s
+
+     Running tests\contract.rs (target\debug\deps\contract-61c132062576fc0f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s
+
+     Running tests\ctl_01.rs (target\debug\deps\ctl_01-2abc2a23d79b7c90.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\fixtures.rs (target\debug\deps\fixtures-8a9c3dd1ed189cb1.exe)
+
+running 1 test
+test transport_fixture_roundtrip ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\formal_journal\main.rs (target\debug\deps\formal_journal-336cf465d20cdbd6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.00s
+
+     Running tests\gw04_bindings.rs (target\debug\deps\gw04_bindings-9bf3f3241c2a28f8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\gw10_authorization.rs (target\debug\deps\gw10_authorization-e6546cc89a8477cc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.00s
+
+     Running tests\gw10_concurrency.rs (target\debug\deps\gw10_concurrency-0c0fa7cb374df09c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\gw10_contract.rs (target\debug\deps\gw10_contract-34053069a7892cbf.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\gw10_harness.rs (target\debug\deps\gw10_harness-67c5a4bc8f364f88.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\gw10_job.rs (target\debug\deps\gw10_job-2d0967e96620a5c3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\gw10_mcp.rs (target\debug\deps\gw10_mcp-507345e4d18210f3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\gw10_persistence.rs (target\debug\deps\gw10_persistence-51038989cf445cb9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\gw10_project.rs (target\debug\deps\gw10_project-d75dfcb88bb15b47.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\gw10_system.rs (target\debug\deps\gw10_system-0e17233744bae4d7.exe)
+
+running 1 test
+test sys07_rt_boundary_is_recorded_not_claimed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.10s
+
+     Running tests\job.rs (target\debug\deps\job-36304e3db6563ac6.exe)
+
+running 1 test
+test progress_polls_report_provider_truth ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.01s
+
+     Running tests\mcp_adapter.rs (target\debug\deps\mcp_adapter-719b85e9f95e1954.exe)
+
+running 2 tests
+test settle_op_reports_committed_after_restart_scoped_reconcile ... ok
+test file_store_survives_restart_and_never_leaks_secrets ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.02s
+
+     Running tests\prepare.rs (target\debug\deps\prepare-67a9712c207abdc6.exe)
+
+running 1 test
+test prepare_param_set_base_and_insert_processor_lower ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 31 filtered out; finished in 0.01s
+
+     Running tests\prepare_regressions.rs (target\debug\deps\prepare_regressions-6dfeb74535e7d10c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\proposal.rs (target\debug\deps\proposal-7816057e32e08cf3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 30 filtered out; finished in 0.00s
+
+     Running tests\proposal_regressions.rs (target\debug\deps\proposal_regressions-84062b123a7654c5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+     Running tests\schema_compat.rs (target\debug\deps\schema_compat-b4cd20f92da5c64b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\script_action.rs (target\debug\deps\script_action-9368f3b8d33382ba.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\sv517_render_actions.rs (target\debug\deps\sv517_render_actions-701a4de958e4e675.exe)
+
+running 1 test
+test render_without_dispatch_port_fails_closed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.02s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_library-df0577b45d2f641b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 27 filtered out; finished in 0.00s
+
+     Running tests\cache.rs (target\debug\deps\cache-112ec6e5c965b84a.exe)
+
+running 1 test
+test rt_queue_is_bounded_and_accounts_drops ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests\containment_swap.rs (target\debug\deps\containment_swap-1cb3b95cb6402f13.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\contract.rs (target\debug\deps\contract-e8d0d6d0b0938779.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\git.rs (target\debug\deps\git-44a0657378d2a798.exe)
+
+running 1 test
+test import_verified_consumes_git_blob_and_lfs_pins ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 27 filtered out; finished in 3.86s
+
+     Running tests\import.rs (target\debug\deps\import-bbbc162ef770a837.exe)
+
+running 6 tests
+test same_import_id_different_content_is_conflict ... ok
+test cancel_during_verify_is_typed_and_same_import_resumes ... ok
+test cancel_mid_stream_is_typed_and_same_import_resumes ... ok
+test cancel_during_publish_is_typed_and_same_import_resumes ... ok
+test replay_same_import_is_idempotent ... ok
+test import_streams_verifies_publishes_and_commits ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.36s
+
+     Running tests\import_recovery.rs (target\debug\deps\import_recovery-c54b894382cbbe86.exe)
+
+running 1 test
+test undo_after_commit_reimport_converges ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.05s
+
+     Running tests\lfs.rs (target\debug\deps\lfs-646f9db8950ecf82.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.00s
+
+     Running tests\local.rs (target\debug\deps\local-992a3310dd434f99.exe)
+
+running 1 test
+test pin_failure_blocks_formal_import_path ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.01s
+
+     Running tests\project.rs (target\debug\deps\project-8d06a31755fce7be.exe)
+
+running 1 test
+test descending_size_sort_keeps_unknown_last ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.01s
+
+     Running tests\rt_cache.rs (target\debug\deps\rt_cache-c86c6c761fe53c77.exe)
+
+running 1 test
+test rt_event_enqueue_is_alloc_and_dealloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\types.rs (target\debug\deps\types-2c609906ae9b2e77.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\vcs03_git_provider.rs (target\debug\deps\vcs03_git_provider-d5625bfc689d7dd8.exe)
+
+running 1 test
+test staged_snapshot_and_working_status_report_index_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 1.16s
+
+     Running tests\vcs06_git_matrix.rs (target\debug\deps\vcs06_git_matrix-1f91bd12472d2698.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\webdav.rs (target\debug\deps\webdav-ee28d68f46635c23.exe)
+
+running 2 tests
+test https_dead_port_fails_typed_not_unsupported ... ok
+test import_verified_consumes_webdav_pin ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 58 filtered out; finished in 2.09s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_player-316385941ed35892.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\ctl_02.rs (target\debug\deps\ctl_02-a893cb4a0f8adc28.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\l1_e2e.rs (target\debug\deps\l1_e2e-50726951cff9b843.exe)
+
+running 2 tests
+test l1_01_import_verifies_and_materializes ... ok
+test l1_04_import_idempotency_and_orphan ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.12s
+
+     Running tests\md_b.rs (target\debug\deps\md_b-f81e40757426bf8f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\monitor.rs (target\debug\deps\monitor-095bf1ba92949738.exe)
+
+running 1 test
+test empty_report_resolves_to_unknown ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests\monitor_engine.rs (target\debug\deps\monitor_engine-3e94d8366390fda8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\monitor_rt_node.rs (target\debug\deps\monitor_rt_node-1e927071b0fe2044.exe)
+
+running 9 tests
+test monitor_rt_node_constructor_rejects_invalid_config ... ok
+test monitor_rt_node_mid_block_boundaries_match_independent_oracle ... ok
+test monitor_rt_node_frames_above_configured_max_write_zero_output ... ok
+test monitor_rt_node_compiled_monitor_input_is_a_direct_edge ... ok
+test monitor_rt_node_unused_missing_monitor_input_is_not_input_missing ... ok
+test monitor_rt_node_distinguishes_supplied_silence_from_missing_input ... ok
+test monitor_rt_node_control_overflow_mutes_next_observed_block ... ok
+test monitor_rt_node_playback_passthrough_preserves_bits_and_nonmonitor_path ... ok
+test monitor_rt_node_schedule_contract_violations_fail_closed ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\monitor_rt_rt.rs (target\debug\deps\monitor_rt_rt-c96254c90cd5090f.exe)
+
+running 1 test
+test rt_monitor_node_process_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pc_b.rs (target\debug\deps\pc_b-1ae84a34239880da.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_03_observation.rs (target\debug\deps\pc_c4_03_observation-60cd41c2fd1f9026.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_05_persisted_instance.rs (target\debug\deps\pc_c4_05_persisted_instance-c6dc4758992e1718.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_07_capability_rebind.rs (target\debug\deps\pc_c4_07_capability_rebind-336b56a3ffa0da6a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_07_transport_observe.rs (target\debug\deps\pc_c4_07_transport_observe-6819ba618d7864ac.exe)
+
+running 1 test
+test pc_c4_07_01_observe_block_derives_transport_span ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.11s
+
+     Running tests\pc_c4_binding.rs (target\debug\deps\pc_c4_binding-08e1e5fb15183da5.exe)
+
+running 1 test
+test pc_c4_01_eval_dispatch_receipt_rt_offline_parity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.02s
+
+     Running tests\pc_c4_binding_rt.rs (target\debug\deps\pc_c4_binding_rt-0c50d04926d2ee26.exe)
+
+running 1 test
+test rt_pc_c4_session_bound_dispatch_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\pc_c6_oracle_pl.rs (target\debug\deps\pc_c6_oracle_pl-ecae9006b54bd903.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_pl_rt.rs (target\debug\deps\pc_c6_oracle_pl_rt-389112b375f51320.exe)
+
+running 1 test
+test rt_pl05_param_delivery_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\pc_c6_oracle_tr_dispatch.rs (target\debug\deps\pc_c6_oracle_tr_dispatch-0e007a699dfd653b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\rcd02_blob_digest.rs (target\debug\deps\rcd02_blob_digest-7e5e459cb7e11752.exe)
+
+running 1 test
+test report_carries_provenance_fields ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.05s
+
+     Running tests\rcd_04_midi_phrase_boundary.rs (target\debug\deps\rcd_04_midi_phrase_boundary-c5d03d708dd9b64c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\rcp_04.rs (target\debug\deps\rcp_04-ad4674ef209fbcd2.exe)
+
+running 2 tests
+test ex01_offline_render_and_export_require_exact ... ok
+test ex02_multiout_requires_every_output_port_covered ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.01s
+
+     Running tests\sf03_l1.rs (target\debug\deps\sf03_l1-77e6db67719abbaf.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\sf03_l2.rs (target\debug\deps\sf03_l2-82aaf0fba83466ac.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\sf03_l3.rs (target\debug\deps\sf03_l3-0c1a56b7c9e36c03.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\sf03_l4.rs (target\debug\deps\sf03_l4-87d470b87fc528a0.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\sf03_l6.rs (target\debug\deps\sf03_l6-51886746b47a308e.exe)
+
+running 1 test
+test sf03_l6_02_gate_holds_until_rt_observes_activation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.20s
+
+     Running tests\sf03_l9.rs (target\debug\deps\sf03_l9-3180528810e2b116.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sf04_loop_discontinuity.rs (target\debug\deps\sf04_loop_discontinuity-61cf63f6ba409638.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\sf04_probe_acceptance.rs (target\debug\deps\sf04_probe_acceptance-f1a8e38e840d8a82.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\sf04_probe_adapter.rs (target\debug\deps\sf04_probe_adapter-cb78382c416d523c.exe)
+
+running 1 test
+test sf04_probe_request_queues_then_rt_confirms_bound_active ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.01s
+
+     Running tests\sf04_s2_probe_trace_bridge.rs (target\debug\deps\sf04_s2_probe_trace_bridge-f54304d817705c42.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\sf04_s3_probe_discontinuity.rs (target\debug\deps\sf04_s3_probe_discontinuity-c850342ccebaa2bf.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sf04_s7_probe_compare.rs (target\debug\deps\sf04_s7_probe_compare-a4291506b2f89f93.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\sf04_s8_probe_faults.rs (target\debug\deps\sf04_s8_probe_faults-e82d4668de0f9eb1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sf04_s9_probe_discontinuity_declare.rs (target\debug\deps\sf04_s9_probe_discontinuity_declare-ad7a8227695367d3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sf06_send_path_pcm.rs (target\debug\deps\sf06_send_path_pcm-1195e11df0f98793.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\sf_xr_01.rs (target\debug\deps\sf_xr_01-f6bfd4e2ad788ac4.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\tim02_midi_node_delivery.rs (target\debug\deps\tim02_midi_node_delivery-f2f38b6ca82ed965.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\tim02_midi_playback.rs (target\debug\deps\tim02_midi_playback-035aecf36c83f6a2.exe)
+
+running 1 test
+test tim02_rt_offline_parity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.03s
+
+     Running tests\tim02_midi_rt.rs (target\debug\deps\tim02_midi_rt-2483a15c16d04418.exe)
+
+running 1 test
+test rt_midi_delivery_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim03_attach_wiring.rs (target\debug\deps\tim03_attach_wiring-b6817e3978495bd1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\tim03_driver_loop_boundary.rs (target\debug\deps\tim03_driver_loop_boundary-419825a12cd34ffc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\tim03_loop_boundary.rs (target\debug\deps\tim03_loop_boundary-e4fd39c6c18359a5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\tim03_process_boundary.rs (target\debug\deps\tim03_process_boundary-a05c1347944e9f2e.exe)
+
+running 1 test
+test tim03_node_stale_transport_generation_zero_delivery ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+     Running tests\tim03_process_boundary_rt.rs (target\debug\deps\tim03_process_boundary_rt-838dfae890636d63.exe)
+
+running 1 test
+test rt_process_boundary_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim03_request_plan.rs (target\debug\deps\tim03_request_plan-5931b7805db87a0a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\tim03_session_wiring.rs (target\debug\deps\tim03_session_wiring-d538042893cb7c0b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\tim04_plugin_state.rs (target\debug\deps\tim04_plugin_state-f57c846bd7c47f05.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\tim04_real_abi_state.rs (target\debug\deps\tim04_real_abi_state-900331d7df0a7430.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\trace_c3_05.rs (target\debug\deps\trace_c3_05-c46cd3c2bf7eac27.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\trace_c3_05_rt.rs (target\debug\deps\trace_c3_05_rt-ddfcf2227517b5be.exe)
+
+running 1 test
+test rt_trace_adapter_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\verified_import.rs (target\debug\deps\verified_import-a3e0eb007c4c658d.exe)
+
+running 2 tests
+test sha256_import_resolves_and_plays ... ok
+test undo_then_reimport_converges_reserved_ids ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.12s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_project-508730add60ff86b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\alib02_digest.rs (target\debug\deps\alib02_digest-981f0a42b08dbf69.exe)
+
+running 1 test
+test applied_import_receipt_must_name_live_entities ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.01s
+
+     Running tests\alib02_v5_real.rs (target\debug\deps\alib02_v5_real-33e2f0273d432cd5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\aut_02.rs (target\debug\deps\aut_02-ed6f39a313d0a770.exe)
+
+running 1 test
+test aut_02_rt_eval_matches_offline_after_replace ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests\cb01_variant.rs (target\debug\deps\cb01_variant-9b901e1fb1bedd8c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+     Running tests\cb02_audio_take.rs (target\debug\deps\cb02_audio_take-d8b6add1c35d28d4.exe)
+
+running 1 test
+test cb_clip_02_capability_report_matches_edit_enforcement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.04s
+
+     Running tests\cb03_midi_clip.rs (target\debug\deps\cb03_midi_clip-4957c179426972ab.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\cb04_instrument_slot.rs (target\debug\deps\cb04_instrument_slot-10ff71d2ca1e7492.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\cb05_fx_range.rs (target\debug\deps\cb05_fx_range-2afeff7d32cd75a6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\cb06_strip_fields.rs (target\debug\deps\cb06_strip_fields-0d59ede880e8ff85.exe)
+
+running 1 test
+test cb_strip_06_insert_state_assessment_verbatim ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.05s
+
+     Running tests\cb07_arrangement.rs (target\debug\deps\cb07_arrangement-a0d1ac078eba617e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\cb08_compare_orchestrator.rs (target\debug\deps\cb08_compare_orchestrator-d1dd85e58eacfab6.exe)
+
+running 1 test
+test cb08_cmp_02_plugin_insert_marks_plugin_dimension_stale ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.12s
+
+     Running tests\cb11_cross_gate.rs (target\debug\deps\cb11_cross_gate-a32ac2a4263725c6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\composite.rs (target\debug\deps\composite-1010a0f9d773edff.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\controller_store.rs (target\debug\deps\controller_store-b233203f173a4659.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\ctl_01.rs (target\debug\deps\ctl_01-72c79a679d45b95b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s
+
+     Running tests\ctl_02.rs (target\debug\deps\ctl_02-4420ebdaffc84379.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\head_cas.rs (target\debug\deps\head_cas-ffa2f1d93b36b5c3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\id_time_range.rs (target\debug\deps\id_time_range-d34f26c4aab69ade.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\md_a.rs (target\debug\deps\md_a-6487d474b9ffdac2.exe)
+
+running 1 test
+test regression_media_region_sort_uses_time_not_raw_value ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.04s
+
+     Running tests\midi_source.rs (target\debug\deps\midi_source-f5b6fd714197d8b0.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\monitoring_persist.rs (target\debug\deps\monitoring_persist-d46109da27a001dd.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\pc_b_rt.rs (target\debug\deps\pc_b_rt-d000caff62cfe08b.exe)
+
+running 1 test
+test rt_control_eval_and_lower_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pc_c2_relation.rs (target\debug\deps\pc_c2_relation-da6dfa45af8c3f58.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_rel.rs (target\debug\deps\pc_c6_oracle_rel-280ba83e5ec1c171.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_tr.rs (target\debug\deps\pc_c6_oracle_tr-e711b72adfb32840.exe)
+
+running 1 test
+test tr03_transport_seek_loop_restart ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\plugin_instance_persist.rs (target\debug\deps\plugin_instance_persist-2a5dbf109273b2ee.exe)
+
+running 3 tests
+test remove_then_insert_never_reuses_id ... ok
+test unresolved_insert_has_no_entry ... ok
+test resolved_insert_allocates_and_roundtrips ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.02s
+
+     Running tests\plugin_state.rs (target\debug\deps\plugin_state-53949f5e38af0672.exe)
+
+running 1 test
+test unresolved_binding_and_missing_instance_fail_unavailable_without_port_call ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.03s
+
+     Running tests\rcd_04_comp_cas.rs (target\debug\deps\rcd_04_comp_cas-2d623048000e22ca.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\rcd_04_midi_phrase.rs (target\debug\deps\rcd_04_midi_phrase-b21783ebf3eafb35.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\rcd_04_vcs_stable_id.rs (target\debug\deps\rcd_04_vcs_stable_id-1f15abcc4a93f617.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\real_fs_probe.rs (target\debug\deps\real_fs_probe-12effa917e992be1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\routing_sf01.rs (target\debug\deps\routing_sf01-7d53e135315b5cf9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\sf04_project_probe.rs (target\debug\deps\sf04_project_probe-7752317c2d57283f.exe)
+
+running 1 test
+test explicit_port_must_agree_with_the_boundary_selection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.01s
+
+     Running tests\sf06_oracle.rs (target\debug\deps\sf06_oracle-f6735cbe0f85fbc5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sf_02.rs (target\debug\deps\sf_02-2c590cc8471e4bad.exe)
+
+running 1 test
+test a_stale_port_capability_generation_rejects ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.03s
+
+     Running tests\store_publish.rs (target\debug\deps\store_publish-9e20380a7dc39d10.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\sv517_render_wiring.rs (target\debug\deps\sv517_render_wiring-ad42f7b5765c5eca.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sv561_unobservable_cascade.rs (target\debug\deps\sv561_unobservable_cascade-49f66a97a913b88f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\sv571_rebind_port_binding.rs (target\debug\deps\sv571_rebind_port_binding-bfa61e2954a40f04.exe)
+
+running 2 tests
+test rebind_to_unresolved_marks_every_port_unresolved ... ok
+test rebind_to_unresolved_rejects_endpoints_like_insert_path ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.01s
+
+     Running tests\sv572_port_capability_generation.rs (target\debug\deps\sv572_port_capability_generation-a2c7ad62585b36a7.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\tempo.rs (target\debug\deps\tempo-3c38692457f1f3c2.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\tim_01_ppqn.rs (target\debug\deps\tim_01_ppqn-cc48b53eae49c03c.exe)
+
+running 1 test
+test rt_ppqn_beat_to_frame_rounding_reproduces ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.01s
+
+     Running tests\tim_02_ppqn_smf.rs (target\debug\deps\tim_02_ppqn_smf-2820bc4e73d16fdd.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\tim_02_smf.rs (target\debug\deps\tim_02_smf-b1624a1833dc87ef.exe)
+
+running 10 tests
+test smf_export_overflow_is_typed ... ok
+test smf_export_ppqn_down_reports_rounding_and_max_error ... ok
+test smf_export_rejects_invalid_targets ... ok
+test smf_import_creates_source_with_native_division_and_projection ... ok
+test smf_export_ppqn_up_conversion_is_exact ... ok
+test smf_export_same_format_division_is_golden ... ok
+test smf_export_format1_preserves_track_structure ... ok
+test smf_export_synthesizes_notes_only_source ... ok
+test smf_export_same_tick_noteoff_precedes_noteon ... ok
+test smf_export_format0_merges_tracks_deterministically ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\trace_c3.rs (target\debug\deps\trace_c3-61f351371ac5af34.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\vcs01_snapshot.rs (target\debug\deps\vcs01_snapshot-70c0973a1aa9b735.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.00s
+
+     Running tests\vcs02_diff.rs (target\debug\deps\vcs02_diff-5a824b7bdf2cd391.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 36 filtered out; finished in 0.00s
+
+     Running tests\vcs05_apply.rs (target\debug\deps\vcs05_apply-2f6bbb425f795bd4.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests\vcs05_restore.rs (target\debug\deps\vcs05_restore-5d4170335734fa2c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\vcs06_apply_matrix.rs (target\debug\deps\vcs06_apply_matrix-2dbb5811166d3959.exe)
+
+running 1 test
+test directory_journal_survives_restart_and_replays ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.02s
+
+     Running tests\vcs06_diff_matrix.rs (target\debug\deps\vcs06_diff_matrix-ea99c155410f48d7.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\vcs06_monitoring_matrix.rs (target\debug\deps\vcs06_monitoring_matrix-00ad3f2d8c133122.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\vcs06_plugin_instance_matrix.rs (target\debug\deps\vcs06_plugin_instance_matrix-c0b4dbb28446c966.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\vcs06_restore_matrix.rs (target\debug\deps\vcs06_restore_matrix-ce3a93cbadea6990.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\vcs06_variant_matrix.rs (target\debug\deps\vcs06_variant_matrix-354b0175aca66139.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\vcs07_variant_diff.rs (target\debug\deps\vcs07_variant_diff-3c848de2415eea10.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_recording-476af40ba42e0fed.exe)
+
+running 1 test
+test faultinj::tests::short_write_lands_partial_then_fails ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests\device_recording.rs (target\debug\deps\device_recording-dbc160193267d760.exe)
+
+running 1 test
+test fake_rt_queue_full_fails_stop ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.03s
+
+     Running tests\formal_journal.rs (target\debug\deps\formal_journal-a8abd56d073b5f15.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\input_adapter.rs (target\debug\deps\input_adapter-462e4999adc049fc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.00s
+
+     Running tests\input_adapter_rt_alloc.rs (target\debug\deps\input_adapter_rt_alloc-f8a40dcdef772c2e.exe)
+
+running 1 test
+test rt_callback_is_alloc_and_drop_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\monitor_gate.rs (target\debug\deps\monitor_gate-336b4dc1e8554489.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+     Running tests\monitor_punch_session.rs (target\debug\deps\monitor_punch_session-be8248766cfb3be9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\project_adapter.rs (target\debug\deps\project_adapter-7ec0dcfdfa9846bb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\rcd01_oracle.rs (target\debug\deps\rcd01_oracle-df66d4acd8feba23.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\rcd_04_recovery_partial.rs (target\debug\deps\rcd_04_recovery_partial-32ec15204ffaad36.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\rcd_04_take_comp_pcm.rs (target\debug\deps\rcd_04_take_comp_pcm-b2f9ae2fba4603b1.exe)
+
+running 1 test
+test rcd04_comp_pcm_rt_vs_offline_fixture ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+     Running tests\real_input.rs (target\debug\deps\real_input-ee0176d598861e8c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\recording.rs (target\debug\deps\recording-4e969b4658353389.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\recovery_review.rs (target\debug\deps\recovery_review-5c817bb12a3bf281.exe)
+
+running 1 test
+test rcd02_fault_matrix_journal_short_write_torn_append ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.02s
+
+     Running tests\rf628_oracle.rs (target\debug\deps\rf628_oracle-b4a6b1d38c3387e8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\rf628_oracle_rt_alloc.rs (target\debug\deps\rf628_oracle_rt_alloc-5650578a24874b73.exe)
+
+running 1 test
+test rt_scripted_input_callback_is_alloc_and_drop_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\staged_publish.rs (target\debug\deps\staged_publish-714307c1586bcd58.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\tim_02_midi_phrase.rs (target\debug\deps\tim_02_midi_phrase-b9add42789e26a70.exe)
+
+running 2 tests
+test smf_import_then_export_reimport_roundtrips_through_project ... ok
+test smf_import_feeds_phrase_plan_with_zero_hanging_notes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\virtual_endpoint.rs (target\debug\deps\virtual_endpoint-46a883d0820de120.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\vs_b.rs (target\debug\deps\vs_b-fe0a4aa8129d0426.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\vs_b_rt_alloc.rs (target\debug\deps\vs_b_rt_alloc-ae030eedbf4e8ac5.exe)
+
+running 1 test
+test rt_path_is_alloc_and_drop_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\vs_c.rs (target\debug\deps\vs_c-381dfc64603c680a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+     Running tests\vs_d.rs (target\debug\deps\vs_d-5667ce7ed5388bac.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_render-c4bdc97f593475d3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\l2_e2e.rs (target\debug\deps\l2_e2e-b0a1eb35abbbab46.exe)
+
+running 3 tests
+test l2_04_unknown_tail_and_support_rejected ... ok
+test l2_01_master_export_reopen_pcm_match ... ok
+test md_b_comp_export_pcm_exact ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.11s
+
+     Running tests\rcd_04_rt_comp_pcm.rs (target\debug\deps\rcd_04_rt_comp_pcm-a5207d260178962a.exe)
+
+running 2 tests
+test rcd_04_rt_engine_unsupported_mapping_fails_closed ... ok
+test rcd_04_rt_engine_comp_pcm_matches_offline_export ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.24s
+
+     Running tests\rcp01_recipe.rs (target\debug\deps\rcp01_recipe-d26cc49de5af7f85.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\rcp02_artifact.rs (target\debug\deps\rcp02_artifact-a4c6daa3fe5d5668.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+     Running tests\rcp03_render_policy.rs (target\debug\deps\rcp03_render_policy-b7c2f6acf0ac0479.exe)
+
+running 1 test
+test pol05_besteffort_share_discloses_partial_never_complete ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.06s
+
+     Running tests\rcp07_gate.rs (target\debug\deps\rcp07_gate-71719a9ed717eb1d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\sf03_render.rs (target\debug\deps\sf03_render-82a7d2d5e95590c6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\tim04_plugin_state.rs (target\debug\deps\tim04_plugin_state-672f9c1cffe3d66f.exe)
+
+running 3 tests
+test strict_export_fails_at_preflight_before_destination ... ok
+test standard_export_completes_and_records_evidence_verbatim ... ok
+test strict_export_with_exact_evidence_completes ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.07s
+
+     Running tests\x_e2e.rs (target\debug\deps\x_e2e-3e7ea2e0f081af2c.exe)
+
+running 1 test
+test x_01_recorded_playback_export_bit_exact ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.59s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_script-dcc060d1ba5ca0de.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\action.rs (target\debug\deps\action-0ef22e793a0ecab6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests\analyzer.rs (target\debug\deps\analyzer-503578289c5169d5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\backend.rs (target\debug\deps\backend-12351768214686fa.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\binding.rs (target\debug\deps\binding-8b40965ba9327603.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\golden.rs (target\debug\deps\golden-8aeee5ce19bc87d6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\luau.rs (target\debug\deps\luau-01e74afc5fa6443a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\model.rs (target\debug\deps\model-09d751e183e2a4ca.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+     Running tests\workflow.rs (target\debug\deps\workflow-2a48d2f4b8aaf2db.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_script_luau-ca5950fddc22afdc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\backend.rs (target\debug\deps\backend-f70ba93f40c8f212.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 30 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_theme-29606b09c93fe1cf.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\theme_contract.rs (target\debug\deps\theme_contract-e1955a46ce195b0e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_workspace-775f2e9db9fb259a.exe)
+
+running 4 tests
+test probe_trace::tests::sf04_s5_port_failures_leave_local_state_untouched ... ok
+test probe_trace::tests::sf04_s5_resubscribe_after_remove_is_a_fresh_port_request ... ok
+test probe_trace::tests::sf04_s5_two_views_share_one_port_request_and_fan_out ... ok
+test library_ui::tests::import_committed_live_with_receipt ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.01s
+
+     Running tests\adopt.rs (target\debug\deps\adopt-db7937ef0ae96a7d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\arrangement_rows.rs (target\debug\deps\arrangement_rows-81039d0a32a8884d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\aut_01.rs (target\debug\deps\aut_01-e4bbc1f0415d029a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\aut_03.rs (target\debug\deps\aut_03-fea8befb4337f320.exe)
+
+running 1 test
+test aut_03_wrap_seals_at_exact_loop_end_transport_continues ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\aut_04.rs (target\debug\deps\aut_04-984dbf7cb219e977.exe)
+
+running 1 test
+test record_event_rt_rejects_when_gates_closed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\aut_04_rt.rs (target\debug\deps\aut_04_rt-1764a5bdda336af9.exe)
+
+running 1 test
+test record_event_rt_alloc_free_bounded_and_typed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\autx01_action_catalog.rs (target\debug\deps\autx01_action_catalog-2ccd15c79c30d34b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\autx07_automation_ui.rs (target\debug\deps\autx07_automation_ui-34878cfcf399ffdc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.00s
+
+     Running tests\autx07_catalog_seam.rs (target\debug\deps\autx07_catalog_seam-20ce18fa7b99f021.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\autx08_e2e.rs (target\debug\deps\autx08_e2e-f6c5f53c1726933c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\cb09_diff_explorer.rs (target\debug\deps\cb09_diff_explorer-411f43946d58df07.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running tests\ed_a.rs (target\debug\deps\ed_a-10e1ddabf7047e87.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\ed_b.rs (target\debug\deps\ed_b-30e58a326299a8a8.exe)
+
+running 2 tests
+test ed_b_02_start_trim_past_end_rejects ... ok
+test ed_b_02_start_trim_single_floor_across_bases ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\fixture_bundle.rs (target\debug\deps\fixture_bundle-42252f4673313406.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests\gw09_ui.rs (target\debug\deps\gw09_ui-d47343eb5323f96a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s
+
+     Running tests\md_b.rs (target\debug\deps\md_b-2a91362205e802f6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\pc_a.rs (target\debug\deps\pc_a-3dbba4eeb8326d21.exe)
+
+running 1 test
+test pc_a_05_record_start_rejects_unbound_write_lane ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\pc_b.rs (target\debug\deps\pc_b-0a3fbfc8b26881bf.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\pc_c1.rs (target\debug\deps\pc_c1-cce4a2d6f444dd45.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_rec.rs (target\debug\deps\pc_c6_oracle_rec-16ce80321d3422fa.exe)
+
+running 1 test
+test pc_c6_r01_record_start_fixes_context ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_ui.rs (target\debug\deps\pc_c6_oracle_ui-24e34574791d873a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\preset.rs (target\debug\deps\preset-fec7644a7a6ede60.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests\project_length.rs (target\debug\deps\project_length-3ff4c2589a6fa17c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\rcp06_render_ui.rs (target\debug\deps\rcp06_render_ui-d499b2622a300791.exe)
+
+running 1 test
+test render_request_report_is_the_single_lowering_and_fails_closed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+     Running tests\rcp_selection_integration.rs (target\debug\deps\rcp_selection_integration-dd4d72e0f2dd197d.exe)
+
+running 1 test
+test rcp_ex03_export_rejects_preview_only_artifact ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\rel_c5.rs (target\debug\deps\rel_c5-8ae3004b02c36478.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\script_editor.rs (target\debug\deps\script_editor-6d92da6b1a42a9bd.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\sf03_revision.rs (target\debug\deps\sf03_revision-c50442f2491605f4.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\sf04_s2_probe_trace.rs (target\debug\deps\sf04_s2_probe_trace-1bc306938da1fe8d.exe)
+
+running 1 test
+test sf04_s2_port_errors_surface_as_probe_trace_error ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\sf_05.rs (target\debug\deps\sf_05-ecac0bcdda187e28.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\sf_05_s2.rs (target\debug\deps\sf_05_s2-450175b274afee20.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.00s
+
+     Running tests\sv112_keymap.rs (target\debug\deps\sv112_keymap-2f81e69279faa805.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\sv185_mixer_gain.rs (target\debug\deps\sv185_mixer_gain-d4a4956fe12a3fb2.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\sv266_parity.rs (target\debug\deps\sv266_parity-66b079ededd1b5fe.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sv47_controls.rs (target\debug\deps\sv47_controls-f6bbe1bae97db7de.exe)
+
+running 1 test
+test transport_actions_report_applied_vs_noop ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.00s
+
+     Running tests\sv48_viz.rs (target\debug\deps\sv48_viz-c3701c0b96b6ed25.exe)
+
+running 1 test
+test wrong_kind_port_is_a_source_error ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.00s
+
+     Running tests\uic5.rs (target\debug\deps\uic5-9c876d77bcf5069e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests\uic5_04.rs (target\debug\deps\uic5_04-b5036308b2d777ae.exe)
+
+running 1 test
+test uic5_04_abort_is_unknown_with_aborted_provenance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\vcs04_history.rs (target\debug\deps\vcs04_history-02a3377715137bb1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\workspace_model.rs (target\debug\deps\workspace_model-d8e8da83d1fa2a33.exe)
+
+running 1 test
+test playback_dock_window_churn_preserves_transport_revision_and_history ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\ws_a.rs (target\debug\deps\ws_a-89effef38ebb453a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+mbx[cache]: 3 hits, 339 misses, 1 bypassed; 0 B downloaded, 0 B uploaded, 75.8 GiB stored locally
+mbx[savings]: 533.6 GiB of outputs, one copy, several very confident checkouts.

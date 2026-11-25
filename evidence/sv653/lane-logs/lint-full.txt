@@ -1,0 +1,11 @@
+[lint-full] $ cargo clippy --workspace --all-targets --locked -- -D warnings
+    Checking synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-player)
+    Checking synvelis-render v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-render)
+    Checking synvelis-workspace v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-workspace)
+mbx[progress]: 15s elapsed; 0 hits, 2 misses, 0 bypassed, 65 not looked up; ~0s compiler work saved
+    Checking synvelis-app v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-app)
+    Checking synvelis-cli v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-cli)
+    Checking mcp-poc v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\mcp-poc)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 28.64s
+mbx[cache]: 0 hits, 2 misses, 175 not looked up, 177 incremental; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: has saved 4d 16h across 7145 builds. this line is the only thanks it needs.

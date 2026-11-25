@@ -1,0 +1,11 @@
+[check-full] $ cargo check --workspace --all-targets --locked
+    Checking synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-player)
+    Checking synvelis-render v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-render)
+    Checking synvelis-workspace v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-workspace)
+    Checking synvelis-app v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-app)
+    Checking synvelis-cli v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-cli)
+    Checking mcp-poc v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\mcp-poc)
+mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 114 not looked up; ~0s compiler work saved
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.54s
+mbx[cache]: 0 hits, 0 misses, 175 not looked up, 177 incremental; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: 530.9 GiB in every checkout, 530.9 GiB on disk. arithmetic declined to comment.
