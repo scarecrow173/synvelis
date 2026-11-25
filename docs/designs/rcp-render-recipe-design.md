@@ -422,7 +422,7 @@ spec §Persistent vs Derived Boundary の設計上の帰結:
 Offline(L2) の既存責務を子 Issue で再実装しない。
 Ruviform generic capability 不足は Ruviform Issue
 （#562 PoC 結果）として記録し、Synvelis 側で恒久的に
-重複実装しない（AGENTS.md Ruviform 節・POLICIES.md §6）。
+重複実装しない（AGENTS.md Ruviform 節・POLICIES.md §7）。
 
 ## Deferred Design Concerns
 
