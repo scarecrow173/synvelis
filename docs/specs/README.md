@@ -254,3 +254,4 @@ Directory: `docs/specs`
 | SPEC-3kN7dP2fV9wX5tB8mQ6yHjNc | SV-GPUI-02 headless PluginDock panel — driver-neutral 製品 ViewSpec/Command + 4-ID session/slot 状態機械 (synvelis#176) | approved | [sv-gpui-02-plugin-dock-headless-panel.md](./sv-gpui-02-plugin-dock-headless-panel.md) |
 | SPEC-alib07-webdav-real-run | ALIB-07 — WebDAV 実 provider（docker/compose）による fault matrix 実走手順（synvelis#633） | implemented | [alib-07-webdav-real-run.md](./alib-07-webdav-real-run.md) |
 | SPEC-alib07-headless-residual | ALIB-07 slice 3 — headless residual（fault matrix の現行 main 同期と LIB-SEC-04 新 transport 経路の閉塞） | implemented | [alib-07-headless-residual.md](./alib-07-headless-residual.md) |
+| SPEC-TiM01wIdGeTnPw01 | TIM-01 PPQN 選択 widget intent — Project tab の params 付き Action 配線（synvelis#125 widget slice・headless） | approved | [tim-01-ppqn-widget.md](./tim-01-ppqn-widget.md) |
