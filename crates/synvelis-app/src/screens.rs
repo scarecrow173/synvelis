@@ -86,7 +86,7 @@ use synvelis_workspace::{
 };
 
 use crate::automation::{AutomationScreenPublish, automation_screen_spec};
-use crate::binding::{PROJECT_TARGET, VIEW_STATE_TARGET};
+use crate::binding::{PPQN_ACTION_PREFIX, PROJECT_TARGET, VIEW_STATE_TARGET};
 
 /// The single logical view this slice mounts — `ViewInstanceId(1)`
 /// renders as `origin_view`/`view_id` `"view-1"` on the wire.
@@ -413,11 +413,14 @@ pub struct SignalFlowProbeRow {
 /// gesture itself is view-owned
 /// ([`synvelis_workspace::ppqn_ui::PpqnUi`]) and driven through
 /// `ViewBinding`; this state is what the mounted spec renders —
-/// display only, never gesture authority, and deliberately free of
-/// action buttons (a `rvf.ui.command.v1` `Action` cannot carry the
-/// candidate PPQN/policy params a confirm needs, so interactive
-/// driving stays on the typed `syn.project.*` op path proven
-/// headlessly; real GUI wiring is the deferred external gate).
+/// display only, never gesture authority. The widget slice mounts
+/// the interactive half next to it: recommended-value Buttons carry
+/// the candidate PPQN/policy as `rvf.ui.command.v1` `Action` params
+/// (`ButtonSpec.params`) minted into `syn.project.ppqn`, and
+/// Confirm/Cancel drive the same gesture — an Action with no payload
+/// cannot name a candidate, so selection always needs params and the
+/// value set is the recommended list (arbitrary `1..=32767` entry
+/// needs an input widget ruviform-ui does not have — out of slice).
 #[derive(Clone, Debug, PartialEq)]
 pub struct PpqnScreenState {
     /// Live project PPQN.
@@ -1693,6 +1696,85 @@ fn ppqn_sites_table(p: &PpqnScreenState) -> ComponentSpec {
     })
 }
 
+/// One recommended-value select Button (TIM-01 widget slice,
+/// synvelis#125). The press emits one `Action` `ppqn.select` on
+/// [`VIEW_STATE_TARGET`] carrying `params {new_ppqn, policy,
+/// rounding?}` verbatim — the shell routes it to `syn.project.ppqn`,
+/// whose select step records the candidate and runs the preview op in
+/// one receipt. Two Buttons per value cover the policy pair
+/// (`exact` needs no rounding; `round` declares `nearest_even` — the
+/// other roundings stay on the typed `syn.project.preview_ppqn`
+/// driver path).
+fn ppqn_select_button(new_ppqn: u32, policy: &str, rounding: Option<&str>) -> ComponentSpec {
+    let mut params = serde_json::json!({
+        "new_ppqn": new_ppqn,
+        "policy": policy,
+    });
+    if let Some(rounding) = rounding {
+        params["rounding"] = serde_json::json!(rounding);
+    }
+    ComponentSpec::Button(ButtonSpec {
+        key: key(&format!("ppqn.select.{new_ppqn}.{policy}")),
+        label: format!("{new_ppqn} {policy}"),
+        target: VIEW_STATE_TARGET.to_string(),
+        action: format!("{PPQN_ACTION_PREFIX}select"),
+        params: Some(params),
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some(format!(
+                "Select {new_ppqn} PPQN — {policy} (rounding {})",
+                rounding.unwrap_or("—")
+            )),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// A PPQN gesture Button (`ppqn.confirm`/`ppqn.cancel`) — no params:
+/// the view-owned [`PpqnUi`](synvelis_workspace::ppqn_ui::PpqnUi)
+/// pending state is the payload. Explicit-confirm semantics: pressing
+/// Confirm without an applicable preview is an honest rejection, not
+/// an implicit commit.
+fn ppqn_gesture_button(key_name: &str, label: &str, action: &str) -> ComponentSpec {
+    ComponentSpec::Button(ButtonSpec {
+        key: key(key_name),
+        label: label.to_string(),
+        target: VIEW_STATE_TARGET.to_string(),
+        action: format!("{PPQN_ACTION_PREFIX}{action}"),
+        params: None,
+        visual: ComponentVisualState::default(),
+        a11y: A11ySpec {
+            label: Some(format!("{label} PPQN change")),
+            ..A11ySpec::default()
+        },
+    })
+}
+
+/// The candidate-selector row — one `exact`/`round` Button pair per
+/// [`RECOMMENDED_PPQN`](synvelis_workspace::state::RECOMMENDED_PPQN)
+/// value.
+fn ppqn_candidates_panel() -> ComponentSpec {
+    let mut children = Vec::new();
+    for &new_ppqn in synvelis_workspace::state::RECOMMENDED_PPQN {
+        children.push(ppqn_select_button(new_ppqn, "exact", None));
+        children.push(ppqn_select_button(new_ppqn, "round", Some("nearest_even")));
+    }
+    panel("ppqn.candidates", Some("Select PPQN"), children)
+}
+
+/// The confirm/cancel pair — enabled by shape only; the op decides
+/// whether the gesture's pending state makes them applicable.
+fn ppqn_gesture_panel() -> ComponentSpec {
+    panel(
+        "ppqn.gesture",
+        None,
+        vec![
+            ppqn_gesture_button("ppqn.confirm", "Confirm PPQN change", "confirm"),
+            ppqn_gesture_button("ppqn.cancel", "Cancel PPQN change", "cancel"),
+        ],
+    )
+}
+
 /// The product's minimal screen spec — `Panel > [Toolbar, Tabs]`:
 ///
 /// - **Toolbar**: Save, Reload, Undo and Redo `Button`s (the
@@ -1836,9 +1918,11 @@ fn main_tabs(state: &MainScreenState, seek_range: f64) -> Vec<TabSpec> {
                 None,
                 vec![
                     ppqn_status_label(&state.ppqn),
+                    ppqn_candidates_panel(),
                     ppqn_preview_label(&state.ppqn),
                     ppqn_effects_label(&state.ppqn),
                     ppqn_sites_table(&state.ppqn),
+                    ppqn_gesture_panel(),
                 ],
             )),
         },

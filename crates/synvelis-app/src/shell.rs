@@ -80,8 +80,8 @@ use ruviform_ui::{DataRegistry, UiError, UiRuntime};
 
 use crate::app::SynvelisApp;
 use crate::binding::{
-    COMMAND_INTENT_OP, LIBRARY_TARGET, PROJECT_TARGET, VIEW_STATE_TARGET, decode_view_command,
-    notify_to_view_event, project_action_op, view_command_dispatch,
+    COMMAND_INTENT_OP, LIBRARY_TARGET, PPQN_ACTION_PREFIX, PROJECT_TARGET, VIEW_STATE_TARGET,
+    decode_view_command, notify_to_view_event, project_action_op, view_command_dispatch,
 };
 use crate::service::AppService;
 use crate::ui_ops::{UiOutbox, WindowRequest};
@@ -1014,12 +1014,63 @@ impl NativeShell {
             );
             return;
         }
+        if let Some(action) = action.strip_prefix(PPQN_ACTION_PREFIX) {
+            self.dispatch_ppqn_action(
+                window,
+                view,
+                &cmd.command_id,
+                action,
+                cmd.action_params.as_ref(),
+                driver,
+            );
+            return;
+        }
         Self::reject_view_command(
             driver,
             window,
             cmd.command_id.clone(),
             format!("unknown view action {action}"),
         );
+    }
+
+    /// Routes a `ppqn.*` view-state action to `syn.project.ppqn` —
+    /// the TIM-01 widget path (synvelis#125): the Project tab's
+    /// recommended-value Buttons carry `params {new_ppqn, policy,
+    /// rounding?}` verbatim, Confirm/Cancel carry none. `view_id` and
+    /// `action` are filled in shell-side so a widget spec can never
+    /// claim a foreign view or a different action, and the op's
+    /// `Result` settles the command on the arriving channel exactly
+    /// like `syn.view.select` — the pressing Button's optimistic
+    /// receipt resolves on the op's own verdict.
+    fn dispatch_ppqn_action(
+        &mut self,
+        window: WindowId,
+        view: &str,
+        command_id: &str,
+        action: &str,
+        params: Option<&Value>,
+        driver: &mut dyn WindowDriver,
+    ) {
+        let mut params = match params.cloned() {
+            None => json!({}),
+            Some(p) if p.is_object() => p,
+            Some(_) => {
+                Self::reject_view_command(
+                    driver,
+                    window,
+                    command_id.to_string(),
+                    "ppqn action params must be an object".to_string(),
+                );
+                return;
+            }
+        };
+        params["view_id"] = json!(view);
+        params["action"] = json!(action);
+        let intent = ruviform_ui::ipc::Intent::new(command_id, "syn.project.ppqn", params);
+        for re in self.rt.dispatch_window_intent(window, intent) {
+            self.observe_result(&re);
+            self.post_routed(&re, driver);
+        }
     }
 
     /// Routes an `autx.*` surface action to `syn.autx.action` — the

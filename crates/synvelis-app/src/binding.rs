@@ -768,6 +768,14 @@ pub const PROJECT_TARGET: &str = "project";
 /// keeps the displayed tab the receipt settles.
 pub const VIEW_STATE_TARGET: &str = "view";
 
+/// Action-name prefix for the PPQN selection widget actions on the
+/// `view` target (TIM-01 widget slice, synvelis#125): `ppqn.select`
+/// (recommended-value Buttons carrying `params {new_ppqn, policy,
+/// rounding?}`), `ppqn.confirm`, `ppqn.cancel`. The shell strips the
+/// prefix and routes the remainder as `syn.project.ppqn`'s `action`
+/// param — the op owns validation of the action name itself.
+pub const PPQN_ACTION_PREFIX: &str = "ppqn.";
+
 /// Logical target of the mounted Asset Library actions (the library
 /// spec's Buttons and entries-table selection). The shell routes these
 /// to `syn.library.action`; `params` is the action payload — a Button's
@@ -931,11 +939,12 @@ pub struct ViewCommand {
     /// automation targets, and [`LIBRARY_TARGET`], the only targets
     /// the decoder lets carry params (the Tabs `{"index": n}`, the
     /// Arrangement table's `{"row": n}` selection — synvelis#112
-    /// slice 4 — the automation surfaces' select/capture/preview/
-    /// submit arguments — synvelis#266 SV266-NR-05 — and the library
-    /// action payload — synvelis#89 ALIB-05 native mount). Domain
-    /// commands have no params channel, so it is `None` for every
-    /// other intent kind.
+    /// slice 4 — the PPQN widget's `{"new_ppqn", "policy",
+    /// "rounding"?}` selection — synvelis#125 — the automation
+    /// surfaces' select/capture/preview/submit arguments —
+    /// synvelis#266 SV266-NR-05 — and the library action payload —
+    /// synvelis#89 ALIB-05 native mount). Domain commands have no
+    /// params channel, so it is `None` for every other intent kind.
     pub action_params: Option<Value>,
 }
 
@@ -987,13 +996,15 @@ pub fn decode_view_command(params: &Value) -> Result<ViewCommand, WireTranslateE
         "action" => {
             let w: RvfActionIntent = serde_json::from_value(intent_wire).map_err(decode)?;
             // `params` is a view-local payload (the Tabs index, the
-            // table row, an automation surface's select/capture
-            // arguments, a library action's arguments). The view owns
-            // that state, so only the view-local targets may carry it —
-            // `view`, the five `autx.*` automation targets, and
-            // `synvelis.library`; a domain action with params is not
-            // representable. The `autx.*` params still face the strict
-            // `decode_automation_command` table at dispatch, and the
+            // table row, the PPQN widget's candidate/policy pair, an
+            // automation surface's select/capture arguments, a library
+            // action's arguments). The view owns that state, so only
+            // the view-local targets may carry it — `view`, the five
+            // `autx.*` automation targets, and `synvelis.library`; a
+            // domain action with params is not representable. The
+            // `autx.*` params still face the strict
+            // `decode_automation_command` table at dispatch, the ppqn
+            // params the strict `syn.project.ppqn` decode, and the
             // library params the strict `LibraryAction` serde tag —
             // admission here is not acceptance.
             if w.params.is_some()
