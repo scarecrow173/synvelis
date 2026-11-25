@@ -89,7 +89,7 @@ capabilityを実測値どおり記録する。
 
 | case | driver | expected verdict | oracle |
 | --- | --- | --- | --- |
-| RAS-ART-VST3/CLAP | cdylib resolver + library load + Scan | Pass | path/file existence、SHA-256、required descriptors |
+| RAS-ART-VST3/CLAP | cdylib resolver + library load + Scan | Pass | locked-rev dep-info provenance、path/file existence、SHA-256、required descriptors |
 | RAS-CAP-MATRIX | `PluginStateHost::capture` | Pass/Unsupported | lifecycle/modeごとの achieved qualityと `test_fault` の Unsupported |
 | RAS-ENDPOINT-VST3/CLAP | `PluginHost::prepare_endpoint` | Unsupported | error kind `EndpointUnavailable`、発生地点、`create_sendable=false` |
 | RAS-RT-VST3-DIST | save→PCM mutation→restore→save | Pass | 48-byte frame、component plain/controller normalized、digest、PCM復元 |
@@ -139,10 +139,10 @@ verdict集計は Pass 29・Unsupported 14・Fail 0・NotRun 0。
 
 主な実測値:
 
-- VST3 artifact: `ruviform_plugin_test_vst3-bbc6a23ab156b55c.dll`、
-  SHA-256 `51c2cf9a0a3201e838bb32acf3b4a0b97a3b24b5b0a63804e309b0872a13b591`。
+- VST3 artifact: `ruviform_plugin_test_vst3-1ac2c390d2654dc3.dll`、
+  SHA-256 `0975e9de4009781ebaa3b10637240a602cc92ec5ef68d93f1f1b171dc2a27575`。
 - CLAP artifact: `ruviform_plugin_test_clap-61ee98ac8bce960a.dll`、
-  SHA-256 `cd476a4384a24fdc1b17ce7b4ad70a722167a13a66101b53f4cb052f4c895f4a`。
+  SHA-256 `3330419055b034d5118d0a2139c223a5e63bfff17063458d6bd877aa9e177742`。
 - typed endpoint: VST3/CLAPとも `PluginHost::prepare_endpoint` が
   `EndpointUnavailable`、factory capability `create_sendable=false`。
   verdictは capabilityどおり `Unsupported`。

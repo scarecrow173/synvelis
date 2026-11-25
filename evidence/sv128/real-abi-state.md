@@ -31,13 +31,15 @@ in-process/L0・ruviform resolved rev
 
 | format | artifact | SHA-256 | required scan |
 | --- | --- | --- | --- |
-| VST3 | `ruviform_plugin_test_vst3-bbc6a23ab156b55c.dll` | `51c2cf9a0a3201e838bb32acf3b4a0b97a3b24b5b0a63804e309b0872a13b591` | `test_fault`/`test_stateful`/`test_stateful_single` を含む descriptor scan Pass |
-| CLAP | `ruviform_plugin_test_clap-61ee98ac8bce960a.dll` | `cd476a4384a24fdc1b17ce7b4ad70a722167a13a66101b53f4cb052f4c895f4a` | `test_fault`/`test_stateful` を含む descriptor scan Pass |
+| VST3 | `ruviform_plugin_test_vst3-1ac2c390d2654dc3.dll` | `0975e9de4009781ebaa3b10637240a602cc92ec5ef68d93f1f1b171dc2a27575` | `test_fault`/`test_stateful`/`test_stateful_single` を含む descriptor scan Pass |
+| CLAP | `ruviform_plugin_test_clap-61ee98ac8bce960a.dll` | `3330419055b034d5118d0a2139c223a5e63bfff17063458d6bd877aa9e177742` | `test_fault`/`test_stateful` を含む descriptor scan Pass |
 
 artifact解決は explicit path override → un-hashed artifact → profile-root
-artifact → hashed dep-artifact globの fail-closed順。今回は hashed dep artifact
-が使われた。pathだけではなく SHA-256を記録し、artifactが存在しない場合に
-skipで成功扱いしない。
+artifact → hashed dep-artifact globの順。implicit candidateは sibling dep-infoが
+`Cargo.lock` の ruviform resolved revに対応する cargo git checkout sourceを
+参照するものだけを採用し、stale/foreign/unprovenanced artifactは fail-closedに
+拒否する。今回は provenanceを確認した hashed dep artifactが使われた。pathだけ
+ではなく SHA-256を記録し、artifactが存在しない場合にskipで成功扱いしない。
 
 Machine rows: `vst3-artifact.jsonl`、`clap-artifact.jsonl`、`vst3-scan.jsonl`、
 `clap-scan.jsonl`。

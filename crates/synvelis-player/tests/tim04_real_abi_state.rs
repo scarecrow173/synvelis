@@ -175,6 +175,13 @@ impl Format {
         }
     }
 
+    const fn crate_dir(self) -> &'static str {
+        match self {
+            Self::Vst3 => "ruviform-plugin-test-vst3",
+            Self::Clap => "ruviform-plugin-test-clap",
+        }
+    }
+
     const fn explicit_env(self) -> &'static str {
         match self {
             Self::Vst3 => "SYNVELIS_TIM04_TEST_VST3_PATH",
@@ -209,6 +216,34 @@ fn artifact_from_path(path: PathBuf) -> Result<Artifact, String> {
     Ok(Artifact { path, sha256 })
 }
 
+fn depinfo_path(path: &Path) -> PathBuf {
+    let depinfo = path.with_extension("d");
+    let Some(file_name) = depinfo.file_name().and_then(|name| name.to_str()) else {
+        return depinfo;
+    };
+    let Some(unprefixed) = file_name.strip_prefix("lib") else {
+        return depinfo;
+    };
+    depinfo.with_file_name(unprefixed)
+}
+
+fn depinfo_proves_locked_ruviform(path: &Path, format: Format, revision: &str) -> bool {
+    let Ok(depinfo) = fs::read_to_string(depinfo_path(path)) else {
+        return false;
+    };
+    let normalized = depinfo.replace('\\', "/");
+    let source = format!("/crates/{}/src/lib.rs", format.crate_dir());
+    let segments: Vec<_> = normalized.split('/').collect();
+    let locked_checkout = segments.windows(4).any(|window| {
+        window[0] == "checkouts"
+            && window[1].starts_with("ruviform-")
+            && window[2].len() >= 7
+            && revision.starts_with(window[2])
+            && window[3] == "crates"
+    });
+    locked_checkout && normalized.contains(&source)
+}
+
 fn resolve_artifact(format: Format) -> Result<Artifact, String> {
     for variable in [format.explicit_env(), format.upstream_env()] {
         if let Some(path) = env::var_os(variable).filter(|value| !value.is_empty()) {
@@ -221,6 +256,8 @@ fn resolve_artifact(format: Format) -> Result<Artifact, String> {
     let deps_dir = executable
         .parent()
         .ok_or_else(|| format!("test executable has no parent: {}", executable.display()))?;
+    let revision = ruviform_revision()
+        .ok_or_else(|| "failed to resolve ruviform revision from Cargo.lock".to_owned())?;
     let library_name = format!(
         "{}{}{}",
         env::consts::DLL_PREFIX,
@@ -230,11 +267,6 @@ fn resolve_artifact(format: Format) -> Result<Artifact, String> {
     let mut candidates = vec![deps_dir.join(&library_name)];
     if let Some(profile_dir) = deps_dir.parent() {
         candidates.push(profile_dir.join(&library_name));
-    }
-    for candidate in &candidates {
-        if candidate.is_file() {
-            return artifact_from_path(candidate.clone());
-        }
     }
 
     let stem_prefix = format!("{}{}", env::consts::DLL_PREFIX, format.crate_stem());
@@ -249,19 +281,23 @@ fn resolve_artifact(format: Format) -> Result<Artifact, String> {
         }
     }
     hashed.sort();
-    if let Some(path) = hashed.first() {
-        return artifact_from_path(path.clone());
+    candidates.extend(hashed);
+
+    for candidate in &candidates {
+        if candidate.is_file() && depinfo_proves_locked_ruviform(candidate, format, &revision) {
+            return artifact_from_path(candidate.clone());
+        }
     }
 
     Err(format!(
-        "no {} cdylib found; checked {} and hashed artifacts in {}",
+        "no {} cdylib proven by dep-info to come from locked ruviform rev {}; checked {}",
         format.label(),
+        revision,
         candidates
             .iter()
             .map(|path| path.display().to_string())
             .collect::<Vec<_>>()
             .join(", "),
-        deps_dir.display()
     ))
 }
 
@@ -850,8 +886,68 @@ fn record_endpoint_gap(fixture: &LoadedFixture, plugin: &RunningPlugin) {
 
 // ── Artifact and capability matrix cases ─────────────────────────
 
+fn assert_depinfo_provenance_filter() {
+    assert_eq!(
+        depinfo_path(Path::new("target/libruviform_plugin_test_vst3.so")),
+        Path::new("target/ruviform_plugin_test_vst3.d")
+    );
+    assert_eq!(
+        depinfo_path(Path::new("target/ruviform_plugin_test_vst3.dll")),
+        Path::new("target/ruviform_plugin_test_vst3.d")
+    );
+
+    let probe_root = temp_store_root("artifact-depinfo");
+    if probe_root.exists() {
+        fs::remove_dir_all(&probe_root).unwrap();
+    }
+    fs::create_dir_all(&probe_root).unwrap();
+    let probe_artifact = probe_root.join("ruviform_plugin_test_vst3.dll");
+    fs::write(&probe_artifact, b"probe").unwrap();
+    let probe_depinfo = probe_artifact.with_extension("d");
+    let probe_revision = "abcdef1234567890";
+    fs::write(
+        &probe_depinfo,
+        r"target: C:\Users\probe\.cargo\git\checkouts\ruviform-deadbeef\abcdef1\crates\ruviform-plugin-test-vst3\src\lib.rs",
+    )
+    .unwrap();
+    assert!(depinfo_proves_locked_ruviform(
+        &probe_artifact,
+        Format::Vst3,
+        probe_revision
+    ));
+    fs::write(
+        &probe_depinfo,
+        r"target: C:\Users\probe\.cargo\git\checkouts\ruviform-deadbeef\0000000\crates\ruviform-plugin-test-vst3\src\lib.rs",
+    )
+    .unwrap();
+    assert!(!depinfo_proves_locked_ruviform(
+        &probe_artifact,
+        Format::Vst3,
+        probe_revision
+    ));
+    fs::write(
+        &probe_depinfo,
+        r"target: G:\orca\workspaces\ruviform\rf253-midi-e2e\target\debug\deps\ruviform_plugin_test_vst3.d: crates\ruviform-plugin-test-vst3\src\lib.rs",
+    )
+    .unwrap();
+    assert!(!depinfo_proves_locked_ruviform(
+        &probe_artifact,
+        Format::Vst3,
+        probe_revision
+    ));
+    fs::remove_file(&probe_depinfo).unwrap();
+    assert!(!depinfo_proves_locked_ruviform(
+        &probe_artifact,
+        Format::Vst3,
+        probe_revision
+    ));
+    fs::remove_dir_all(&probe_root).unwrap();
+}
+
 #[test]
 fn artifact_resolution_and_scan_surface_fail_closed() {
+    assert_depinfo_provenance_filter();
+
     for format in Format::ALL {
         let artifact = match resolve_artifact(format) {
             Ok(artifact) => artifact,

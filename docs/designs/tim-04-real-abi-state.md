@@ -75,6 +75,16 @@ production contract が実 ABI bytes に対して成立するかを測定する�
 3. profile root の artifact。
 4. `deps/<prefix><stem>-*<suffix>` の hashed dep-artifact glob。
 
+implicit candidateは cargoが artifactと同じ directoryに生成する dep-info
+（crate名ベースの `.d`）を読み、cargo git checkout配下の fixture crate
+sourceが `Cargo.lock` から読んだ ruviform resolved revに対応することを
+確認する。dep-infoがない、別 rev/
+別 worktree由来、または fixture crate sourceを示さない candidateは採用
+しない。hashed globが複数ある場合もこの provenance filterを通ったもの
+だけを deterministic な順で試し、1件も証明できなければ testを failさせる。
+explicit path overrideは運用者が明示した trusted inputとして扱い、同じ
+path/hashを証跡へ記録する。
+
 解決した file が存在しない、または読めない場合は test を fail させる。
 成功時は path・file name・SHA-256 を全 case の `environment.artifact` に
 記録する。ruviform resolved rev は workspace `Cargo.lock` から読み、

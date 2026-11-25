@@ -57,9 +57,13 @@ capture/save/restore/state mutation を検証する。本 slice は Issue #128
   （`host` feature）と `ruviform-plugin-test-vst3`/
   `ruviform-plugin-test-clap` を追加する。test 側は cargo が生成する
   cdylib artifact を explicit path override → un-hashed artifact →
-  profile-root artifact → hashed dep-artifact glob の順で fail-closed
-  に解決し、path・SHA-256・plugin identity を記録する。artifact が
-  見つからない場合は skip せず失敗または理由付き `NotRun` とする。
+  profile-root artifact → hashed dep-artifact glob の順で解決する。
+  implicit candidateは sibling dep-info が `Cargo.lock` の ruviform
+  resolved revに対応する cargo git checkout sourceを参照することを
+  確認できたものだけを採用し、stale/foreign/unprovenanced artifactは
+  fail-closedに拒否する。path・SHA-256・plugin identity を記録する。
+  artifactが見つからない場合は skip せず失敗または理由付き `NotRun`
+  とする。
 - **production host cell 上の consumer-run**:
   `Vst3Library::load`/`ClapLibrary::load` → `factories()` →
   `PluginHostProcessors::product` → 同じ shared `PluginHost` cell で
