@@ -30,6 +30,7 @@ pub mod lowering;
 pub mod midi;
 pub mod monitor;
 pub mod monitor_engine;
+pub mod monitor_rt;
 pub mod plugin_state;
 pub mod probe;
 pub mod probe_compare;
@@ -74,6 +75,14 @@ pub use monitor::{
 pub use monitor_engine::{
     EngineBlocks, MonitorEngine, MonitorEngineError, MonitorRunReport, MonitorSegmentRecord,
     MonitorSession,
+};
+pub use monitor_rt::{
+    MONITOR_RT_FAULT_CONTROL_OVERFLOW, MONITOR_RT_FAULT_IO_CONTRACT,
+    MONITOR_RT_FAULT_SCHEDULE_MALFORMED, MONITOR_RT_FAULT_SCHEDULE_MISSING,
+    MONITOR_RT_FAULT_SEQUENCE, MONITOR_RT_SCHEDULE_CAPACITY, MONITOR_RT_STATUS_INPUT_MISSING,
+    MONITOR_RT_STATUS_PLAYBACK_MISSING, MonitorRtControl, MonitorRtControlError, MonitorRtNode,
+    MonitorRtNodeConfig, MonitorRtNodeError, MonitorRtSchedule, MonitorRtScheduleError,
+    MonitorRtSegment, MonitorRtStatus,
 };
 pub use plugin_state::{PluginStateEndpoint, PluginStateHost};
 pub use probe::{ProbeRequestError, ProbeSession};

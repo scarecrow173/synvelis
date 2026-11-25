@@ -1,0 +1,5 @@
+[check] $ cargo check --locked --all-targets -p synvelis-player
+    Checking synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv653-rt-monitor-node\crates\synvelis-player)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.79s
+mbx[cache]: 0 hits, 0 misses, 51 not looked up, 53 incremental; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: worktrees come and go. their 8.8 TiB logical now goes with them.

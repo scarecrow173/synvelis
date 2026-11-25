@@ -1,0 +1,10 @@
+check-synvelis-player	0
+lint-synvelis-player	0
+test-synvelis-player	0
+check-full	0
+lint-full	0
+test-full	0
+test-rt	101
+test-rt-rerun	0
+test-msrv	0
+prek-all-files	0
