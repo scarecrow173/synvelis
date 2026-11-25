@@ -62,6 +62,7 @@ Directory: `docs/test-specs`
 | TSPEC-034X83U7r7ZrZZjmIhd8Em | Execution Plan Test Spec — DAG acyclicity・Owner/Gate/Acceptance matrix invariants・OS level rules | approved | [execution-plan.md](./execution-plan.md) |
 | TSPEC-FBuBxX4T4QwzjTi0GVihWW | Issue #115 rf#628 consumer oracle test-spec | approved | [issue-115-rf628-consumer-oracle.md](./issue-115-rf628-consumer-oracle.md) |
 | TSPEC-KV4kCWrFJsrB7hfC0dcpAp | Issue #115 rf#628 record-after-recovery test-spec | approved | [issue-115-rf628-record-after-recovery.md](./issue-115-rf628-record-after-recovery.md) |
+| TSPEC-sv115VirtualEndpointRcd01 | Issue #115 RCD-01 Consumer Virtual-WASAPI EXT-L3 検証仕様 | approved | [issue-115-virtual-endpoint.md](./issue-115-virtual-endpoint.md) |
 | TSPEC-O00hUfnnLCmwn9LGFITe1d | Issue #145 ci.yml manual-only test specification — dispatch 専用・陰性 trigger・lane 構造不変 | proposed | [issue-145-ci-manual-only.md](./issue-145-ci-manual-only.md) |
 | TSPEC-034RIJsxayw9vKD3Ez9Wcy | Issue #147 sccache 導入検証仕様 | approved | [issue-147-sccache-compile-cache.md](./issue-147-sccache-compile-cache.md) |
 | TSPEC-034SVCIOPT02gT5yUiOp | Issue #148 変更影響分類・Fail-Closed evidence Gate 検証仕様 | approved | [issue-148-impact-classification.md](./issue-148-impact-classification.md) |
@@ -236,15 +237,17 @@ Directory: `docs/test-specs`
 | TSPEC-3ppuFy4wUxgYHFtuGGZHG6 | TIM-01 PPQN config — punch marks 再投影と受入残件 test spec | approved | [tim-01-ppqn-config.md](./tim-01-ppqn-config.md) |
 | TSPEC-5nMbVcXzKlJhGfDsApOi | TIM-01 PPQN Preview + New Project PPQN — test spec | approved | [tim-01-ppqn-preview.md](./tim-01-ppqn-preview.md) |
 | TSPEC-TiM01uIxYzAbCdEfGh5 | TIM-01 PPQN 選択 UI + Snap/Grid ポリシー — test spec | approved | [tim-01-ppqn-ui.md](./tim-01-ppqn-ui.md) |
+| TSPEC-034XmP8sXtVhPzDbAfJuNr | TIM-02 SMF app ops — op 経路 fixture matrix | proposed | [tim-02-app-ops-smf.md](./tim-02-app-ops-smf.md) |
+| TSPEC-623tim02midiNodeDeliv01 | TIM-02 MidiClipPlan→plugin node 配送 seam — fixture matrix | proposed | [tim-02-midi-node-delivery.md](./tim-02-midi-node-delivery.md) |
 | TESTSPEC-126tim02playerMidiRt01 | TIM-02 player MIDI RT/Offline 結合 fixtures | approved | [tim-02-player-midi-rt-fixtures.md](./tim-02-player-midi-rt-fixtures.md) |
 | TSPEC-TiM02PpqnSmfXg05 | TIM-02 × TIM-01 PPQN×SMF cross-golden fixture — test spec | approved | [tim-02-ppqn-smf-cross-golden.md](./tim-02-ppqn-smf-cross-golden.md) |
 | TSPEC-034UwYugwIyQVbAeVxql8O | TIM-02 SMF Format0/1 fixture matrix | proposed | [tim-02-smf-format01-fixtures.md](./tim-02-smf-format01-fixtures.md) |
-| TSPEC-034XmP8sXtVhPzDbAfJuNr | TIM-02 SMF app ops — op 経路 fixture matrix | proposed | [tim-02-app-ops-smf.md](./tim-02-app-ops-smf.md) |
-| TSPEC-623tim02midiNodeDeliv01 | TIM-02 MidiClipPlan→plugin node 配送 seam — fixture matrix | proposed | [tim-02-midi-node-delivery.md](./tim-02-midi-node-delivery.md) |
 | TSPEC-034XI9qZiCV70sHFCsj1s7 | tim-03-driver-loop-boundary | approved | [tim-03-driver-loop-boundary.md](./tim-03-driver-loop-boundary.md) |
 | TSPEC-034XzNZjVRkpX8SwoPnSjs | TIM-03 Loop/Tempo boundary 自動導出 — テスト仕様 | approved | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
+| TSPEC-G0yUY6l6HxgOBguhDUFTI | tim-03-real-abi-process-oracle | approved | [tim-03-real-abi-process-oracle.md](./tim-03-real-abi-process-oracle.md) |
 | TSPEC-lQ0qYg1as24XtlZ1sHNNWN | TIM-03 session→driver/routing wiring test spec — TIM03-SW01..NN | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | TSPEC-034UC53kVrQjWrtds8Lrsn | TIM-04 plugin state snapshot consistency — test spec | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
+| TSPEC-034Xn0hBopO82wSvv0Y0Yn | TIM-04 Plugin State Snapshot — real ABI consumer-run test spec | approved | [tim-04-real-abi-state.md](./tim-04-real-abi-state.md) |
 | TSPEC-034UyEDDz7mTejYlyhg4gF | TIM-03 process boundary test spec — TIM-03-PB01..NN | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
 | TSPEC-vJFdbqSGXmBCZDnTy2Telx | Timeline Editing / Selection / Tool System — テスト仕様・受入 Fixture（synvelis#11） | approved | [timeline-editing.md](./timeline-editing.md) |
 | TSPEC-034X7wP0GQjilI9S0FX7m0 | Transport Integration Test Spec — TT-001〜030 case map to existing fixtures | approved | [transport-integration.md](./transport-integration.md) |
