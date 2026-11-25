@@ -127,6 +127,10 @@ pub const OPS: &[OpInfo] = &[
         summary: "app-owned job ledger — cross-view projection of preview/import jobs {jobs:[{job_key,kind,state,stage,progress,terminal,...}]} (job_key? filter)",
     },
     OpInfo {
+        name: "syn.library.imports",
+        summary: "durable import inspection — inspect_imports manifest rows + registry applied + ledger job correlation {imports:[{import_id,stage,applied,job,...}]} (ALIB-05 residual)",
+    },
+    OpInfo {
         name: "syn.autx.visual",
         summary: "AUTX surface lifecycle — open {surface} | close {view_id} (action-palette|macro-browser|workflow-editor|run-monitor)",
     },
@@ -478,6 +482,7 @@ impl AppService {
             "syn.library.view" => self.app.op_library_view(params),
             "syn.library.action" => self.app.op_library_action(params),
             "syn.library.jobs" => self.app.op_library_jobs(params),
+            "syn.library.imports" => self.app.op_library_imports(params),
             "syn.autx.visual" | "syn.autx.catalog" | "syn.autx.action" => {
                 self.dispatch_autx(op, params)
             }

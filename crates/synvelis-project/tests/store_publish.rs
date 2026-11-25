@@ -544,3 +544,66 @@ fn concurrent_same_name_publish_admits_one_winner() {
     assert!(body == b"bytes-from-a" || body == b"bytes-from-b");
     assert_eq!(fs::read_to_string(dir.join("HEAD")).unwrap(), "r1.json");
 }
+
+// synvelis#643 (ALIB-05 residual): sidecars — mutable bundle-root
+// documents (the `library-jobs.json` ledger). Unlike immutable
+// snapshots they replace in place through the same staged publish;
+// reserved store names and path separators are refused.
+#[test]
+fn sidecars_roundtrip_replace_and_reopen() {
+    let (_g, dir, mut store) = bundle("sidecar");
+    assert_eq!(store.read_sidecar("library-jobs.json").unwrap(), None);
+
+    store
+        .save_sidecar("library-jobs.json", br#"{"jobs":[]}"#)
+        .unwrap();
+    assert!(dir.join("library-jobs.json").exists());
+    store
+        .save_sidecar("library-jobs.json", br#"{"jobs":[1]}"#)
+        .unwrap();
+    assert_eq!(
+        store.read_sidecar("library-jobs.json").unwrap().unwrap(),
+        br#"{"jobs":[1]}"#
+    );
+
+    // A second handle on the same root reads the replaced bytes.
+    let store2 = DirectoryBundleStore::create(&dir).unwrap();
+    assert_eq!(
+        store2.read_sidecar("library-jobs.json").unwrap().unwrap(),
+        br#"{"jobs":[1]}"#
+    );
+
+    // InMemoryStore parity for non-filesystem callers.
+    let mut mem = InMemoryStore::new();
+    assert_eq!(mem.read_sidecar("s.json").unwrap(), None);
+    mem.save_sidecar("s.json", b"a").unwrap();
+    mem.save_sidecar("s.json", b"b").unwrap();
+    assert_eq!(mem.read_sidecar("s.json").unwrap().unwrap(), b"b");
+}
+
+#[test]
+fn sidecar_names_reject_paths_and_store_layout() {
+    let (_g, dir, mut store) = bundle("sidecar-name");
+    for name in [
+        "",
+        "a/b.json",
+        r"a\b.json",
+        "..",
+        "x..y.json",
+        "HEAD",
+        "HEAD.lock",
+        "HEAD.lock.stale-1",
+        "snapshots",
+    ] {
+        assert!(
+            store.save_sidecar(name, b"x").is_err(),
+            "save_sidecar must reject {name:?}"
+        );
+        assert!(
+            store.read_sidecar(name).is_err(),
+            "read_sidecar must reject {name:?}"
+        );
+    }
+    assert!(!dir.join("..x.json").exists());
+    assert!(store.read_sidecar("never-written.json").unwrap().is_none());
+}

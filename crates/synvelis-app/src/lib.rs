@@ -42,6 +42,7 @@ pub mod composition;
 pub mod engine;
 pub mod error;
 pub mod host;
+mod library_jobs;
 pub mod logging;
 pub mod monitoring;
 pub mod plugin_dock;
