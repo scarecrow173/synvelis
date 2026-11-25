@@ -4957,8 +4957,7 @@ mod tests {
         // entry → `reconcile_jobs` replays `import_verified` on the
         // LIVE controller — the commit lands, the entry terminates
         // `committed-live`, and `applied_imports` records it.
-        let (dir, store, blobs, registry, _cx, import_id, intent, project) =
-            committed_scratch(11);
+        let (dir, store, blobs, registry, _cx, import_id, intent, project) = committed_scratch(11);
         let publisher = synvelis_library::StagedBlobPublisher;
         let mut views = LibraryViews::new();
         views.set_backend(LibraryBackend {
