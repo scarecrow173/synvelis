@@ -70,7 +70,56 @@ Scope: scarecrow173/synvelis / 三リポジトリ共通の検証方針
 - Daily Full CIは既存の`ci-summary`等のfail-closed集約と対象SHA証拠を維持し、OS-L1のNative Build/Link・実走テスト・必要Feature/製品Oracleが不足する場合は既存レーンを補う。**CIに実装されていない検証を「委譲済み」と扱わない。** 新しい重複WorkflowやPR必須Full CIを無条件に増設しない。
 - Windowsで提供・利用するGUI-L2/EXT-L3の実OS Window・本番OS API・実Plugin ABI受入は、Daily OS-L1 CIのFake/Headless成功で代替できない。Windows専用の仮想Endpoint/実Window/実ABI Test Pluginの手動・opt-in・定期実行レーンを使用できるが、**RequiredのCaseがNotRun/Failなら未受入**とする。macOS/LinuxのGUI-L2/EXT-L3はDeferred方針を維持し、ローカル全体テスト省略によって精度・性能・Consumer互換性を緩めない。
 
-## 6. Synvelis固有の適用
+## 6. 形式的検証原則（Property-driven Formal Verification with Explicit Verification Boundaries）（2026-11-25決定）
+
+### 6.1 共通原則
+
+- Property First：製品が保証すべき性質を起点とする。
+- Risk Driven：破壊時のユーザー影響、障害の重大性、検出困難性に基づく優先順位。
+- Assurance Driven：必要な保証強度を決めてから検証方法を選ぶ。
+- Tool Fit：問いに適した手法を選び、特定の手法・順序を強制しない。
+- Minimal Sufficient Boundary：必要十分な検証境界を設定する。
+- True to the Code：実装と検証対象の対応を維持する。
+- Able to Fail：意図的な契約違反を検出できることを確認する。
+- Cheap to Rerun：関連変更ごとに再検証可能なコストを設計する。
+- Honest Assurance：保証範囲、仮定、未証明領域、結果を正確に扱う。
+- Continuous Synchronization：製品変更に検証と証跡を追従させる。
+
+### 6.2 検証粒度・境界
+
+Propertyを単位に必要なproof・モデル・テストを配置する。関数、ファイル、crate、公開API単位に機械的に割り当てない。Primitive/Function/Component/Protocol/Integration/Systemは設計上の参考であり固定階層ではない。小ささではなく必要な保証に対する適切さ、原因特定可能性、計算コストで評価する。
+
+各Propertyについてリスク、必要保証、対象実装・モデル、入力領域・状態空間、含まれる処理と依存、外部契約・仮定、Bound、Stub/Mock/抽象化と妥当性、除外、残留リスク・補完検証、予算・実行契機・再実行方法、証跡を記録する。Harness分割（実行単位）、Input Domain分割（入力領域）、Boundary分割（実装・依存範囲）を区別する。入力分割は元領域を覆うかを評価し、境界変更は除外した契約と保証の差を記録する。
+
+### 6.3 手法選定・契約分解
+
+固定的な proptest → Kani → TLA+ → Lean の昇格路を廃止する。生成入力・Round-tripはproptest、Rust有界網羅・算術・境界はKani、状態機械・順序・並行性はTLA+、数学的定理はLean、並行実行はloom、異常入力探索はFuzzing、接続・実装の振る舞いは通常テスト等を選択・併用する。Property Test/Fuzzingと形式的証明、モデル証明と実装証明を同一視しない。
+
+上位Propertyを独立した下位契約へ分解する。上位の形式的保証が必要なら、下位契約、呼出側の事前条件充足、事後条件から上位契約を導く接続条件を検証する。Function Contract、Verified Stubbing、Assume-Guarantee Reasoning等は必要に応じて採用。局所proofと統合テストだけで上位契約を証明済みとしない。
+
+### 6.4 健全性・検証可能性
+
+製品契約・保証範囲を暗黙に弱めることを禁止する。無関係処理の分離、固定fixture、必要なシンボリック軸を優先する。Stub/Mockは仮定、根拠、保証への影響を記録し、検証済み契約を優先する。cfg(kani)等による製品実装置換は原則回避。assumeは正当な事前条件・明示的な限定領域に限り、充足可能性と到達可能性を評価する。Bound縮小は保証差を記録。Unwinding Assertions無効化は原則禁止、例外は独立した妥当性根拠とレビューを要し、健全性が示せない結果を通常のProof Passに含めない。proptest移管は保証種別変更として記録する。反例を消す目的でProperty・モデルを弱めない。製品契約変更は別途承認を要する。
+
+Verifiabilityを設計品質として扱い、必要に応じFunctional Core / Imperative Shell、明示的状態・不変条件、型制約、副作用分離、決定的実行、契約指向API、独立Oracleを採用する。ツール都合の不自然な分割は避け、精度・RT・公開契約・Consumer互換性を維持する。
+
+### 6.5 コスト・証跡・同期
+
+実行時間、ピークメモリ、関連検証群の合計コスト、選択実行、再現性、保守コスト、保証価値を評価する。固定の一律上限ではなく重要性と実測に基づき予算を定義する。超過時はCompile/Symex/Solver/Memory等を分類し、粒度・境界・手法を再評価してからRunner・時間予算を検討する。本質的に高コストで必要な検証は個別予算・実行契機を設ける。
+
+要求状態（Required/Deferred/N/A等）、verdict（Pass/Fail/NotRun/Unsupported等）、保証種別（Example Tested/Property Tested/Bounded Exhaustive/Model Checked/Theorem Proved等）、対象（実装/モデル/抽象化）、同期状態、失敗原因（Product Defect/Model Error/Resource Limit/Environment等）を独立管理する。既存語彙・機械可読形式の互換性を維持し不足情報を補う。Timeout/OOM/環境不足/exit 0/CI greenをProof Passとしない。対象SHA、ツール版、実行条件、保証範囲、Mutation証跡を記録し、対応確認・再検証未完了時に検証済みSync Commitを更新しない。
+
+### 6.6 開発工程・管理場所・責務
+
+要求でProperty・リスク、仕様で必要保証、実装計画前の設計で粒度・境界・仮定・手法・予算を決定する。必要に応じ設計モデルを事前検証し、製品実装のproofは実装後に実走する。変更時の影響判定、再検証、検出能力確認、証跡同期を継続する。全開発で形式的証明を強制しない。
+
+POLICIES.mdを必須原則の正本とし、AGENTS.mdは導線、既存verifyスキルは対象固有の検証・保守手順、docs/specs/formal-verification.mdはProperty・検証仕様、src/tests/モデルは検証実装、miseは正規実行入口、evidenceは証跡とする。規則を重複させない。専用DSL・固定階層・独自フレームワークは当面不要。
+
+RFは共通契約・実装と再利用可能な検証支援、AL/SVは製品固有のProperty、共通契約の事前条件充足、独立Oracleによる統合検証を担当。実証された汎用実装のみRFへ還元し、片Consumerの保証を他方へ転用しない。
+
+既存L0〜L3・仮想優先・通常開発とDaily Full CIの責務分離を維持する。形式的検証は別の保証面でありOS/GUI/ABI検証の代替ではない。CI必須化はリスク・コスト・環境に応じ個別判断し、Requiredな証明はNotRunで受入しない。
+
+## 7. Synvelis固有の適用
 
 - OS-L1ではProject/Track/Clip/Undo/Save、Playback/Export、録音Mock/Fault、RT NoAlloc/NoBlock、Plugin/GUI Driver-neutral契約の独立Oracleを保護する。
 - Windowsで製品として実際に提供するDAW実GUI、録音/モニター/OS MIDI、VST3/CLAP等のNative Plugin DockをGUI-L2/EXT-L3で検証する。初回からRuviformの実OS仮想Audio/MIDI Endpointと正規ABIのTest Plugin/Native Editorを使用できるが、実Native Dockに画素・Focus・入力の未解決不具合がある場合、当該提供機能を未受入として追跡する。

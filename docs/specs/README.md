@@ -30,7 +30,7 @@ Directory: `docs/specs`
 | SPEC-034QAlF2irl9rIJaUi9RQ1 | ED-A Editing Model — Selection/Tool/Snap/Transaction/LinkedContext headless PoC | approved | [ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md](./ed-a-editing-model-selection-tool-snap-transaction-linkedcontext.md) |
 | SPEC-034QMZiCjhKFlSgoIw9YaX | ED-B media-domain move + slip commit semantics (workspace editing PoC) | approved | [ed-b-media-domain-move-slip-commit-semantics.md](./ed-b-media-domain-move-slip-commit-semantics.md) |
 | SPEC-034X83uiIsH0n6OuQGcU1T | Execution Plan — RCP-00〜07/F01・F0/E2E-L/R/X・Signal Flow/Automation/GUI 横断単一 DAG・Owner/Gate/Acceptance Matrix | approved | [execution-plan.md](./execution-plan.md) |
-| SPEC-sv601frmlvrf0slice1 | Issue #601 Formal Verification D 層 slice 1 — journal wire codec の proptest + Kani 検証基盤 | proposed | [formal-verification.md](./formal-verification.md) |
+| SPEC-sv601frmlvrf0slice1 | Issue #601 Formal Verification — journal wire codec + authorization boundary の proptest + Kani 検証基盤 | proposed | [formal-verification.md](./formal-verification.md) |
 | SPEC-4s5cb4YaV5NS7O0krrfQcg | Issue #115 rf#628 consumer oracle — synvelis#115 slice | approved | [issue-115-rf628-consumer-oracle.md](./issue-115-rf628-consumer-oracle.md) |
 | SPEC-x2yrcR6anjkQ3O33VJ99WF | Issue #115 rf#628 record-after-recovery — synvelis#115 slice | approved | [issue-115-rf628-record-after-recovery.md](./issue-115-rf628-record-after-recovery.md) |
 | SPEC-sv115VirtualEndpointRcd01 | Issue #115 RCD-01 Consumer Virtual-WASAPI EXT-L3 Harness | approved | [issue-115-virtual-endpoint.md](./issue-115-virtual-endpoint.md) |

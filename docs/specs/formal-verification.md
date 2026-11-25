@@ -2,9 +2,9 @@
 id: "SPEC-sv601frmlvrf0slice1"
 type: "spec"
 status: "proposed"
-title: "Issue #601 Formal Verification D 層 — journal wire codec + authorization boundary の proptest + Kani 検証基盤"
+title: "Issue #601 Formal Verification — journal wire codec + authorization boundary の proptest + Kani 検証基盤"
 created: "2026-11-23"
-updated: "2026-11-21"
+updated: "2026-11-25"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -56,14 +56,21 @@ relations:
 
 # Formal Verification — journal wire codec + authorization boundary（synvelis-gateway / synvelis-recording）
 
-Issue `scarecrow173/synvelis#601` の実装 spec。D 層検証
-（property-based testing → bounded model checking → 将来の TLA+/Lean
-昇格）の第一弾として、slice 1 は unsafe を含まない 2 つの journal
-wire codec を、slice 2 は `synvelis-gateway` の authorization
-boundary（`WireRequest::parse` と `GrantPolicy`）を対象に proptest
-を常設する。Kani の 2 層目は slice 1 の journal codec harness を維持
-し、slice 2 対象は serde_json / `Arc<String>` / dyn trait 依存のため
-bounded-proof 昇格を保留する（昇格表を参照）。先行実装
+Issue `scarecrow173/synvelis#601` の実装 spec。
+`scarecrow173/ruviform#1014` で決定され、`POLICIES.md` §6 に正本
+として置かれた形式的検証原則が上位ポリシーである。本文書は Issue
+#601 で導入した journal wire codec / authorization boundary の
+Property・検証仕様を記録する。ここに記載する proptest + Kani lane
+は固定昇格路ではなく、既存の issue-specific lane である。
+Journal/Authorization 検証の再設計と移行は
+`scarecrow173/synvelis#659` が担う。
+
+slice 1 は unsafe を含まない 2 つの journal wire codec を、slice 2
+は `synvelis-gateway` の authorization boundary（
+`WireRequest::parse` と `GrantPolicy`）を対象に proptest を常設
+する。Kani lane は slice 1 の journal codec harness を維持し、slice
+2 対象は serde_json / `Arc<String>` / dyn trait 依存のため
+bounded-proof 適用を保留する（tool-fit 候補評価を参照）。先行実装
 `scarecrow173/ruviform#806` の lane 構成・証跡形式を踏襲する。
 
 ## 対象と検証する契約
@@ -90,8 +97,9 @@ bounded-proof 昇格を保留する（昇格表を参照）。先行実装
 | `mise run test-formal` | `cargo test --locked -p synvelis-gateway -p synvelis-recording --test formal_journal` | なし（pure Rust・MSRV 内・CI と同一入口） |
 | `mise run test-formal-kani` | `node tools/run-formal-kani.mjs` → `cargo kani --tests -j4 --output-format terse -p synvelis-gateway -p synvelis-recording` | ネイティブ `cargo kani`、または `cargo` + `cargo kani` を持つ WSL2 ディストロ |
 
-`test-formal` は常時実行可能な第一層。`test-formal-kani` は
-環境検出つきの第二層（manual/opt-in — CI-required gate ではない）で、
+`test-formal` は追加環境なしで常時実行できる property-test
+lane。`test-formal-kani` は環境検出つきの bounded-proof lane
+（manual/opt-in — CI-required gate ではない）で、
 `tools/run-formal-kani.mjs` が次の順に解決する。
 
 1. ネイティブ `cargo kani` があればそれを使う。
@@ -188,9 +196,10 @@ compile-time に保証される（新 variant 追加はコンパイルエラー�
 property suite の oracle は契約 predicate（`prefix_len ≤ len`・連番
 seq・`CleanEnd` iff 全消費・期待 layout byte・期待 stop class）と、
 期待値の独立再計算（`ends[]` からの record 境界再構成、独立な crc32
-呼出しによる frame 検査）のみ。将来の昇格（TLA+ spec・Lean proof）
-では wire layout の「モデル」を別途書くことになるが、本 slice の
-正本は製品実装であり、model/product 乖離リスクは mutation-fail
+呼出しによる frame 検査）のみ。状態機械や数学的定理について
+TLA+ spec・Lean proof 等の model-based technique を選ぶ場合は wire
+layout 等の「モデル」を別途書くことになるが、本 slice の正本は製品
+実装であり、model/product 乖離リスクは mutation-fail
 証跡（下記）で「predicate が実装破壊を実際に検出できる」ことの側
 から閉じる。
 
@@ -252,22 +261,36 @@ revert 後の再検証結果を残す。source 一時変異の占有は coordina
 ## 判定語彙と fail-closed
 
 `pass` / `fail` / `not_run` / `unsupported` / `blocked` — verify-
-synvelis skill の語彙に従う。環境欠如は `not_run` +
+synvelis skill の実行 verdict 語彙に従う。環境欠如は `not_run` +
 `environment_blocked` で exit 0、証拠のない lane を `pass` と記録
 しない。ローカル検証は変更範囲の検証であり、merge 後の対象 SHA
 に対する必須 CI 結果が統合検証の証拠（本記録はそれを代替しない）。
 
-## 昇格経路（本 slice 外）
+実行 verdict は保証そのものではない。保証種別（Example Tested /
+Property Tested / Bounded Exhaustive / Model Checked / Theorem
+Proved 等）、対象（実装 / モデル / 抽象化）、同期状態、失敗原因
+（Product Defect / Model Error / Resource Limit / Environment 等）
+は独立軸として記録する。既存語彙と機械可読形式は維持し、不足情報
+を補う。Timeout・OOM・環境不足・exit 0・CI green を Proof Pass と
+しない。現行 runner の失敗原因分類は限定的であり、再設計は
+`scarecrow173/synvelis#659` が担う。
 
-### Kani（bounded model checking）昇格候補
+## Tool-fit 候補評価（再設計は synvelis#659）
+
+以下は固定順序ではなく、Property が要求する保証強度に対する
+tool-fit 候補の記録である。適用可否・境界・予算は `POLICIES.md`
+§6 に従って個別に決める。Journal/Authorization 検証の実際の再設計
+と移行は `scarecrow173/synvelis#659` に委譲する。
+
+### Kani（bounded model checking）候補
 
 | 候補 target | 対象 crate / 契約 | Kani が向く理由 |
 | --- | --- | --- |
-| `WireRequest::parse` | `synvelis-gateway` wire layer — forbidden authority/implicit-target field gate・envelope 検証 | wire codec と同型 — bounded symbolic byte 列/field 列に対し「panic なし・拒否分類が安定集合・受理なら構造契約」を尽きられる。**slice 2 で proptest 化済み**（`tests/formal_journal/wire.rs`）。昇格は保留: 入力が `serde_json::Value`（CBMC 変換コスト非実用 — slice 1 と同判断）で、JSON object の symbolic 生成は harness 側で bounded key/field 列に写す設計が別途要る |
-| `GrantPolicy::evaluate_commit` | `synvelis-gateway` — grant/task/epoch/scope/effects の評価分岐 | 有限分岐の決定関数 — bounded symbolic `Grant`/`Task`/`scope` 入力で「決定が安定集合・deny なら拒否理由が契約内」を尽きられる。**slice 2 で proptest 化済み**（`tests/formal_journal/policy.rs`）。昇格は保留: `Arc<String>`・`Arc<dyn PolicyStore>`/`Arc<dyn ResourceOracle>`/`Arc<dyn PolicyClock>` の trait object 境界が symbolic 化の前に決定的 mock 注入への設計を要求し、`String`/`BTreeSet` 系の CBMC コストも残る |
+| `WireRequest::parse` | `synvelis-gateway` wire layer — forbidden authority/implicit-target field gate・envelope 検証 | wire codec と同型 — bounded symbolic byte 列/field 列に対し「panic なし・拒否分類が安定集合・受理なら構造契約」を尽きられる。**slice 2 で proptest 化済み**（`tests/formal_journal/wire.rs`）。Kani への適用は保留: 入力が `serde_json::Value`（CBMC 変換コスト非実用 — slice 1 と同判断）で、JSON object の symbolic 生成は harness 側で bounded key/field 列に写す設計が別途要る |
+| `GrantPolicy::evaluate_commit` | `synvelis-gateway` — grant/task/epoch/scope/effects の評価分岐 | 有限分岐の決定関数 — bounded symbolic `Grant`/`Task`/`scope` 入力で「決定が安定集合・deny なら拒否理由が契約内」を尽きられる。**slice 2 で proptest 化済み**（`tests/formal_journal/policy.rs`）。Kani への適用は保留: `Arc<String>`・`Arc<dyn PolicyStore>`/`Arc<dyn ResourceOracle>`/`Arc<dyn PolicyClock>` の trait object 境界が symbolic 化の前に決定的 mock 注入への設計を要求し、`String`/`BTreeSet` 系の CBMC コストも残る |
 | CommitGate CAS / idempotent ledger | `synvelis-gateway` — expected-revision CAS・`JournalIdem` keyed retry の replay 契約 | 有限状態の ledger 不変条件（同一 key は同一 outcome を replay・CAS 衝突は Conflicted）を bounded trace で尽きられる |
 
-### TLA+ 昇格候補（ordering / state machine）
+### TLA+ 候補（ordering / state machine）
 
 | 候補 target | 契約 |
 | --- | --- |
@@ -275,18 +298,19 @@ synvelis skill の語彙に従う。環境欠如は `not_run` +
 | Recording crash recovery | torn tail 切詰め・`OpenReport` 報告・reopen 後追記の crash/再起動 ordering |
 | CommitGate ordering | revoke/commit の journal order・fence 内再評価と append の原子性 |
 
-### Lean 昇格候補（全サイズ算術不変条件）
+### Lean 候補（全サイズ算術不変条件）
 
 | 候補 target | 契約 |
 | --- | --- |
 | PPQN / routing / mix-order 算術 | tick 変換・graph 辺順序・mix 累積の overflow なし・単調性など、bounded ではなく全サイズの証明が要る算術 |
 
-### property-only（proptest 継続層）
+### property-only（proptest 継続候補）
 
 - `syn.*` operation-sequence 契約: `AppService` 経由の operation
   列に対する replay/冪等/outcome 安定性 — 生成列が複雑で symbolic
-  化の費用対効果が薄いため proptest を主層とし、契約の硬い core
-  が切り出せた時点で Kani へ部分的に昇格する。
+  化の費用対効果が薄いため proptest を主たる手法とし、契約の硬い core
+  が切り出せた時点で Kani 適用を個別に評価する。
 
 本 slice で確立した「coverage 記録 + sync commit + 1 コマンド
-再実行 + mutation-fail 証跡」の型を、そのまま昇格先にも適用する。
+再実行 + mutation-fail 証跡」の型を、Property に対して選定された
+検証手法にも適用する。

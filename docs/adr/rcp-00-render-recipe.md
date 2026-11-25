@@ -120,7 +120,7 @@ Plugin/RT/OS Gate PASS を意味しない。
 - **Option C**: Synvelis 独自の DSP Compiler/Plugin Host/
   Media Writer を新設して render checkpoint を内包。
   → Ruviform の既存 generic capability と重複し、
-  Owner 境界（POLICIES.md §1/§6、media-render-design
+  Owner 境界（POLICIES.md §1/§7、media-render-design
   Owner 表、L2 ADR）に反するため棄却。
 - **Option D**: 既存 `PluginStateRecipe` 型を RenderRecipe
   として拡張・流用。→ 別概念（plugin state 品質

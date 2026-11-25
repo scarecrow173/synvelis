@@ -179,6 +179,12 @@ Launch). A `drive` that cannot spawn/serve records the step's
 
 ## Formal verification (Issue #601)
 
+Boundary note: these are the existing Issue #601 lanes, not a fixed
+promotion path or a general verification order. Method selection,
+assurance strength, boundaries, and synchronization follow
+`POLICIES.md` §6. The journal/authorization lanes remain unmigrated;
+`scarecrow173/synvelis#659` owns their redesign.
+
 Two additional lanes verify the journal wire codecs
 (`synvelis-gateway` commit journal + `synvelis-recording` staging
 journal) — headless, no AUT:
@@ -198,15 +204,30 @@ KANI_JOBS=2 mise run test-formal-kani   # cap CBMC solver parallelism
   `cargo kani` (Kani cannot run on native Windows). WSL executes
   with `CARGO_TARGET_DIR` on the WSL-native filesystem — the
   Windows managed target dir is untouched.
-- Verdict discipline is the same vocabulary: the runner prints one
-  JSON verdict line — `pass` (proofs held), `fail` (a real
-  counterexample/unwinding violation — exit 1), or `not_run` +
-  `environment_blocked` (no Kani environment — exit 0, never a
-  fake pass).
+- Lane verdicts are execution verdicts, not assurance claims: the
+  runner prints one JSON verdict line — `pass` (the selected proof
+  harnesses completed within their recorded bounds), `fail`
+  (execution observed a counterexample/unwinding violation — exit 1),
+  or `not_run` + `environment_blocked` (no Kani environment — exit 0,
+  never a fake pass). Assurance kind (for Kani, bounded exhaustive
+  within the recorded bounds), target, synchronization state, and
+  failure cause are independent axes. The current runner's
+  failure-cause classification is limited and does not yet distinguish
+  Product Defect / Model Error / Resource Limit / Environment or
+  unwinding/bound soundness failures; `scarecrow173/synvelis#659`
+  owns that redesign. The honest `not_run` behavior is retained —
+  environment absence is never a fake pass.
 - Coverage, bounds, assumptions, and the provision runbook live in
   `docs/specs/formal-verification.md`; evidence lands in
   `evidence/sv601/` (`test-formal-kani.log`, `verification.md`,
   mutation-fail records).
+- Change-impact procedure: when production code, harnesses, models,
+  bounds, assumptions, or tools affecting these lanes change, judge
+  the impacted Properties, rerun the affected verification, confirm
+  detection capability, and synchronize evidence/sync-commit records.
+  Follow `POLICIES.md` §6 and `docs/specs/formal-verification.md` for
+  the policy and Property details; `scarecrow173/synvelis#659` owns
+  redesign of the unmigrated lanes.
 
 ## Bench (Issue #602)
 
@@ -320,7 +341,9 @@ gate), `run-app-native` (normal launch), `check-headless-deps`
 (headless tree non-regression), `check-ruviform-rev`
 (lock/vendor/manifest pin agreement), `test-app-gpui`
 (scenario-port lane), `test-formal` / `test-formal-kani`
-(Issue #601 journal codec property + bounded-proof lanes).
+(Issue #601 journal codec property + bounded-proof lanes; see the
+Formal verification section for boundary and change-impact
+discipline).
 
 The `features/` map is normalized: every user-visible area — the
 seam-driven window, the six main-screen tabs, the detached/mounted
