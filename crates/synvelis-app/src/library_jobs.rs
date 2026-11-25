@@ -7,24 +7,33 @@
 //! restores it at `syn.project.open` through the ledger's public API.
 //! Workers cannot survive a process restart, so entries that were
 //! in-flight land as *typed terminals* rather than fake in-flight
-//! states: a parked commit → `recoverable` at `commit-pending` (the
-//! durable manifest — not the ledger — carries the intent a resubmit
-//! converges through), an import job whose durable manifest exists →
-//! `recoverable` at the manifest's stage, a recorded user cancel →
-//! `cancelled`, everything else → `failed` with reason `interrupted`.
-//! `done` entries keep their recorded receipt verbatim.
+//! states: an import job whose durable manifest exists → `recoverable`
+//! at the manifest's stage, a recorded user cancel → `cancelled`,
+//! everything else → `failed` with reason `interrupted`. `done`
+//! entries keep their recorded receipt verbatim.
+//!
+//! The one live reinsert is `commit-pending` (ALIB-05 residual,
+//! synvelis#646): the durable manifest proves the commit is still
+//! owed *and* carries the whole [`synvelis_library::ImportIntent`], so
+//! the entry reinserts through
+//! [`synvelis_workspace::LibraryJobLedger::restore_pending_commit`]
+//! and the next `syn.library.*` reconcile replays it —
+//! `CommittedLive`, or the typed terminal (`stale-revision` when the
+//! live revision moved). A `commit-pending` entry whose manifest can
+//! no longer prove the intent keeps the sv643 `recoverable` degrade.
 
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use synvelis_library::ImportStage;
+use synvelis_library::{ImportIntent, ImportManifest, ImportStage};
 use synvelis_project::{ImportId, ProjectStore};
 use synvelis_workspace::{
-    LibraryJobBegin, LibraryJobLedger, LibraryJobState, LibraryJobTerminal, LibraryJobWire,
+    LibraryJobBegin, LibraryJobKind, LibraryJobLedger, LibraryJobRestore, LibraryJobState,
+    LibraryJobTerminal, LibraryJobWire,
 };
 
-use crate::app::SynvelisApp;
+use crate::app::{LibraryImportServices, SynvelisApp};
 use crate::error::AppError;
 use crate::host::ShellWindowHost;
 
@@ -35,6 +44,18 @@ const LIBRARY_JOBS_SIDECAR: &str = "library-jobs.json";
 /// loudly instead of silently degrading (the snapshot envelope's
 /// `deny_unknown_fields` honesty, applied to the sidecar).
 const LIBRARY_JOBS_FORMAT: &str = "synvelis-library-jobs/1";
+
+/// The durable manifest filename under each
+/// [`synvelis_library::ImportStore::staging_dir`] — the
+/// rustdoc-documented layout (`synvelis-library`'s `manifest_path`/
+/// `read_manifest` stay private; its own test lanes join the same
+/// name).
+const IMPORT_MANIFEST_NAME: &str = "import-manifest.json";
+
+/// Mirror of `synvelis-library`'s private `MANIFEST_FORMAT` — a
+/// manifest whose format tag is unknown fails closed into the
+/// `recoverable` degrade rather than being misread as replay intent.
+const IMPORT_MANIFEST_FORMAT: u32 = 1;
 
 /// The persisted payload — a `jobs_snapshot()` verbatim plus the
 /// format tag and the owning project's tagged id (a foreign project's
@@ -123,27 +144,86 @@ impl SynvelisApp {
             .into_iter()
             .map(|j| (j.import_id.raw(), j.stage))
             .collect();
+        // Replay intents for persisted `commit-pending` entries — the
+        // durable manifest is the only place the intent survives (the
+        // sidecar wire never carried it). Read before the ledger lock:
+        // manifest I/O must not run under it (the ledger's lock
+        // discipline is bookkeeping-only).
+        let services = self.library_import.as_ref();
+        let intents: BTreeMap<String, ImportIntent> = sidecar
+            .jobs
+            .iter()
+            .filter(|w| w.pending_commit && w.state != LibraryJobState::Done)
+            .filter_map(|w| pending_commit_intent(services, w).map(|i| (w.job_key.clone(), i)))
+            .collect();
         let ledger = self.workspace.library().jobs();
         let Ok(mut ledger) = ledger.lock() else {
             return Ok(());
         };
         for wire in &sidecar.jobs {
-            restore_job_entry(&mut ledger, wire, &manifests);
+            restore_job_entry(&mut ledger, wire, &manifests, intents.get(&wire.job_key));
         }
         Ok(())
     }
 }
 
+/// Reconstructs the replay intent for one persisted `commit-pending`
+/// entry from its durable manifest — [`IMPORT_MANIFEST_NAME`] under
+/// [`synvelis_library::ImportStore::staging_dir`] is the documented
+/// layout. `None` (no services bound, unparseable `import_id`,
+/// missing/unreadable/foreign-id/unknown-format manifest, or a
+/// manifest that never reached `Published`) keeps the sv643
+/// `recoverable` degrade — only import-lane entries can owe a commit.
+fn pending_commit_intent(
+    services: Option<&LibraryImportServices>,
+    wire: &LibraryJobWire,
+) -> Option<ImportIntent> {
+    if !matches!(
+        wire.kind,
+        LibraryJobKind::ImportSubmit | LibraryJobKind::ImportRetry
+    ) {
+        return None;
+    }
+    let services = services?;
+    let id = ImportId::from_tagged(wire.import_id.as_deref()?).ok()?;
+    let manifest: ImportManifest =
+        std::fs::read(services.store.staging_dir(id).join(IMPORT_MANIFEST_NAME))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice(&bytes).ok())?;
+    if manifest.import_id != id
+        || manifest.format_version != IMPORT_MANIFEST_FORMAT
+        || manifest.stage < ImportStage::Published
+    {
+        return None;
+    }
+    Some(ImportIntent {
+        import_id: id,
+        expected_project_revision: manifest.expected_project_revision,
+        source: manifest.source,
+        target: manifest.target,
+    })
+}
+
 /// Rebuilds one wire entry through the public ledger API — `begin`
 /// mints a fresh token/epoch (both are process-local), `report` and
 /// `request_cancel` replay the recorded flags, `finish` lands the
-/// receipt. `runtime_job`, `pending_commit`, `intent`, and the cancel
-/// token itself cannot be re-injected — the terminal records that
-/// honestly.
+/// receipt. `runtime_job` and the cancel token itself cannot be
+/// re-injected — `done` terminals record the receipt verbatim.
+///
+/// The exception is `commit-pending`: a `pending_commit` wire whose
+/// durable manifest still proves the intent (`intent` = the
+/// manifest-derived [`ImportIntent`]) reinserts *live* through
+/// [`LibraryJobLedger::restore_pending_commit`] so the next reconcile
+/// replays the owed commit — the state the live `park_commit` left
+/// (`running`/`commit-pending`/`pending_commit`), never a fake
+/// queued worker. A recorded cancel replays through `request_cancel`
+/// — the flag marks it, and per `reconcile_jobs` semantics the owed
+/// commit still lands, identical to a live parked commit.
 fn restore_job_entry(
     ledger: &mut LibraryJobLedger,
     wire: &LibraryJobWire,
     manifests: &BTreeMap<u128, ImportStage>,
+    intent: Option<&ImportIntent>,
 ) {
     let Some(view) = wire
         .view
@@ -154,6 +234,22 @@ fn restore_job_entry(
         tracing::warn!(job_key = %wire.job_key, "skipping job with unrestorable view id");
         return;
     };
+    if let Some(intent) = intent {
+        match ledger.restore_pending_commit(
+            wire.job_key.clone(),
+            wire.kind,
+            view,
+            wire.import_id.clone(),
+            intent.clone(),
+            wire.progress.clone(),
+        ) {
+            LibraryJobRestore::Reinserted { .. } if wire.cancel_requested => {
+                let _ = ledger.request_cancel(&wire.job_key);
+            }
+            _ => {}
+        }
+        return;
+    }
     if let LibraryJobBegin::InFlight = ledger.begin(
         wire.job_key.clone(),
         wire.kind,
