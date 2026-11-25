@@ -152,4 +152,4 @@ proptest → Kani → TLA+ → Lean の昇格路を廃止する」という cano
 
 - `scarecrow173/ruviform#1014`: 共通原則の canonical Issue
 - `scarecrow173/synvelis#659`: Journal/Authorization 検証再設計・移行 Issue
-- PR: push 後に PR 本文へ記録
+- PR: https://github.com/scarecrow173/synvelis/pull/661
