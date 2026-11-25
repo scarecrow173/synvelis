@@ -163,7 +163,14 @@ hosting が配線され、real ABI fixture が typed endpoint に attach でき�
 - `factory_class_id` は format 固有の意味を持つ。VST3 では descriptor id が raw
   component TUID bytes の lowercase hex、CLAP では descriptor id 自体が factory
   instantiation id である。別の UUID 表記へ変換して upstream constant と見せかける
-  ことはしない。
+  ことはしない。VST3 の TUID byte order は `vst3` crate の `uid()` constructor が
+  設計上プラットフォーム依存で（crate 自身の doc に明記）、Windows では COM GUID
+  mixed-endian layout、非 Windows では `INLINE_UID` big-endian layout になる。
+  したがって同一論理 class（`uid(0x6D4F8A21, 0x3B7C9E05, 0xF1A24C68, 0xB9D37E51)`）
+  でも rendered id は Windows `218a4f6d7c3b059ef1a24c68b9d37e51` / 非 Windows
+  `6d4f8a213b7c9e05f1a24c68b9d37e51` と正当に分かれ、期待値は cfg 付きで pin
+  する（byte order を正規化して片方に寄せることはしない — raw bytes の正直な
+  記録が oracle の責務）。
 
 ## Non-goals
 

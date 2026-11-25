@@ -56,7 +56,9 @@ composition-root activation measurement を完結させる。共通 helper/modul
   real fixture cdylib を解決する。未解決は skip/Unsupported ではなく failure。
   resolved path は file として存在し、SHA-256 は 64 hex chars で記録される。
 - **RA-02 ABI discovery**: VST3 descriptor scan は 7 件、CLAP は 6 件。
-  `test_gain` descriptor id は VST3 `218a4f6d7c3b059ef1a24c68b9d37e51`、CLAP
+  `test_gain` descriptor id は VST3 で Windows `218a4f6d7c3b059ef1a24c68b9d37e51` /
+  非 Windows `6d4f8a213b7c9e05f1a24c68b9d37e51`（`vst3` crate `uid()` の
+  プラットフォーム依存 byte order による正当な差異）、CLAP
   `org.ruviform-test.clap-test-gain` と一致する。scan 一覧には VST3/CLAP とも
   `test_instrument` が現れるが、本 slice では駆動しない。
 - **RA-03 lifecycle**: `test_gain` factory は Scan → Instantiate → Initialize →
@@ -90,8 +92,9 @@ composition-root activation measurement を完結させる。共通 helper/modul
 
 ## Examples
 
-- VST3 `test_gain`: descriptor/factory class id は
-  `218a4f6d7c3b059ef1a24c68b9d37e51`（raw component TUID lowercase hex）。
+- VST3 `test_gain`: descriptor/factory class id は Windows
+  `218a4f6d7c3b059ef1a24c68b9d37e51` / 非 Windows `6d4f8a213b7c9e05f1a24c68b9d37e51`
+  （raw component TUID lowercase hex。byte order はプラットフォーム依存）。
 - CLAP `test_gain`: descriptor/factory instantiation id は
   `org.ruviform-test.clap-test-gain`。
 - endpoint measurement: `prepare_endpoint` → `EndpointUnavailable`。
