@@ -43,7 +43,23 @@ const CLAP_ENV: &str = "SYNVELIS_TIM03_REAL_ABI_CLAP";
 const TEST_GAIN: &str = "test_gain";
 const EXPECTED_VST3_DESCRIPTORS: usize = 7;
 const EXPECTED_CLAP_DESCRIPTORS: usize = 6;
+// The fixture class id is built from one logical value —
+// `vst3::uid(0x6D4F8A21, 0x3B7C9E05, 0xF1A24C68, 0xB9D37E51)` in
+// `ruviform-plugin-test-vst3/src/component.rs` — but the `vst3` binding
+// crate's `uid()` constructor is platform-dependent *by design* (its own
+// doc: "the byte order of the resulting value will differ between Windows
+// and other platforms"). On Windows the TUID uses the COM GUID
+// mixed-endian memory layout (first u32 little-endian, next two u16
+// fields little-endian, tail bytes as-is); everywhere else it uses the
+// canonical Steinberg `INLINE_UID` big-endian order. The host scan renders
+// the raw bytes as lowercase hex, so the descriptor id string legitimately
+// differs per platform for the same logical class. Both layouts are
+// asserted here — the oracle pins the platform-correct exact bytes rather
+// than weakening the check.
+#[cfg(target_os = "windows")]
 const EXPECTED_VST3_TEST_GAIN_ID: &str = "218a4f6d7c3b059ef1a24c68b9d37e51";
+#[cfg(not(target_os = "windows"))]
+const EXPECTED_VST3_TEST_GAIN_ID: &str = "6d4f8a213b7c9e05f1a24c68b9d37e51";
 const EXPECTED_CLAP_TEST_GAIN_ID: &str = "org.ruviform-test.clap-test-gain";
 
 const GAIN_PARAM: ParamInfo = ParamInfo {
@@ -498,7 +514,7 @@ fn exercise_real_abi_format(
             "test_gain_descriptor_id": probe.gain.id,
             "factory_class_id": probe.gain.id,
             "factory_class_id_evidence": if probe.format == "vst3" {
-                "VST3 descriptor id is the raw component TUID as lowercase hex (ruviform-plugin-vst3 host contract)"
+                "VST3 descriptor id is the raw component TUID as lowercase hex; the TUID byte order is platform-dependent by vst3 crate design (COM GUID mixed-endian on Windows, INLINE_UID big-endian elsewhere)"
             } else {
                 "CLAP descriptor id is the plugin factory instantiation id"
             },

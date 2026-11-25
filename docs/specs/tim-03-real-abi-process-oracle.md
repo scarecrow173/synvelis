@@ -88,11 +88,16 @@ out-of-process hosting を production composition path に配線していない�
    test failure とする。
 2. resolved artifact path と SHA-256 を記録し、`Vst3Library::load` /
    `ClapLibrary::load` が成功する。descriptor scan は VST3 7 件、CLAP 6 件で、
-   `test_gain` を含む。`test_gain` descriptor id は VST3
-   `218a4f6d7c3b059ef1a24c68b9d37e51`、CLAP
+   `test_gain` を含む。`test_gain` descriptor id は VST3 で Windows
+   `218a4f6d7c3b059ef1a24c68b9d37e51` / 非 Windows（Linux・macOS）
+   `6d4f8a213b7c9e05f1a24c68b9d37e51`、CLAP
    `org.ruviform-test.clap-test-gain` と一致する。VST3 descriptor id は raw
-   component TUID の lowercase hex、CLAP descriptor id は factory instantiation id
-   として evidence に記録する。
+   component TUID の lowercase hex であり、その byte order は `vst3` binding crate
+   の `uid()` が設計上プラットフォーム依存（Windows は COM GUID mixed-endian、
+   非 Windows は Steinberg `INLINE_UID` big-endian — いずれも論理 class は
+   `uid(0x6D4F8A21, 0x3B7C9E05, 0xF1A24C68, 0xB9D37E51)` で同一）なので、
+   期待値はプラットフォーム条件付きで pin する。CLAP descriptor id は factory
+   instantiation id として evidence に記録する。
 3. `test_gain` factory を `PluginHost` に登録し、Scan → Instantiate → Initialize →
    Activate（48 kHz, 1..=256 frames）→ StartProcessing まで成功する。同じ activated
    instance に対する `prepare_endpoint` は `HostError::EndpointUnavailable` で失敗し、
