@@ -247,6 +247,7 @@ Directory: `docs/test-specs`
 | TSPEC-034XI9qZiCV70sHFCsj1s7 | tim-03-driver-loop-boundary | approved | [tim-03-driver-loop-boundary.md](./tim-03-driver-loop-boundary.md) |
 | TSPEC-034XzNZjVRkpX8SwoPnSjs | TIM-03 Loop/Tempo boundary 自動導出 — テスト仕様 | approved | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
 | TSPEC-G0yUY6l6HxgOBguhDUFTI | tim-03-real-abi-process-oracle | approved | [tim-03-real-abi-process-oracle.md](./tim-03-real-abi-process-oracle.md) |
+| TSPEC-c7Hn4Qw9Lm3Xv6RtYsK2 | tim-03-l1-out-of-process-hosting | approved | [tim-03-l1-out-of-process-hosting.md](./tim-03-l1-out-of-process-hosting.md) |
 | TSPEC-lQ0qYg1as24XtlZ1sHNNWN | TIM-03 session→driver/routing wiring test spec — TIM03-SW01..NN | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | TSPEC-034UC53kVrQjWrtds8Lrsn | TIM-04 plugin state snapshot consistency — test spec | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | TSPEC-034Xn0hBopO82wSvv0Y0Yn | TIM-04 Plugin State Snapshot — real ABI consumer-run test spec | approved | [tim-04-real-abi-state.md](./tim-04-real-abi-state.md) |

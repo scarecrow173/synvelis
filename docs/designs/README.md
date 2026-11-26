@@ -222,6 +222,7 @@ Directory: `docs/designs`
 | DESIGN-034XI7yLnh4SLMxH8BU2lg | TIM-03 driver-side loop-wrap boundary derivation | approved | [tim-03-driver-loop-boundary.md](./tim-03-driver-loop-boundary.md) |
 | DESIGN-034XzNPr4B2cwT30gBhGCN | TIM-03 Loop/Tempo boundary 自動導出 — 設計 | approved | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
 | DESIGN-NhzhoY6wYQRrrjxtkUsnO | TIM-03 real ABI process oracle boundary slice | approved | [tim-03-real-abi-process-oracle.md](./tim-03-real-abi-process-oracle.md) |
+| DESIGN-b6Kd2Wn8Qm4Xr7TyZuC5 | TIM-03 L1 out-of-process hosting production wiring | approved | [tim-03-l1-out-of-process-hosting.md](./tim-03-l1-out-of-process-hosting.md) |
 | DESIGN-MsBu5XoYY4Ex3QB0qmDvC5 | TIM-03 session→driver/routing wiring design — session 寿命・provenance mint・transport mirror | approved | [tim-03-session-driver-wiring-design.md](./tim-03-session-driver-wiring-design.md) |
 | DESIGN-034UC0ixTsN58rRlRctgAH | TIM-04 plugin state snapshot consistency design — quality receipt/store/session/offline recipe | approved | [tim-04-plugin-state-snapshot-consistency-design.md](./tim-04-plugin-state-snapshot-consistency-design.md) |
 | DESIGN-034jU54Fg1eMsmUlQArX7T | TIM-04 Plugin State Snapshot — real ABI consumer-run design | approved | [tim-04-real-abi-state.md](./tim-04-real-abi-state.md) |

@@ -191,6 +191,7 @@ Directory: `docs/specs`
 | SPEC-034XI73iNvfO3GRXXim8Ph | TIM-03 driver-side loop-wrap boundary derivation | approved | [tim-03-driver-loop-boundary.md](./tim-03-driver-loop-boundary.md) |
 | SPEC-034XzM1qSQBS0dtcltnMBI | TIM-03 Loop/Tempo boundary 自動導出 — TransportMirror scheduled commands からの LoopWrap BoundaryPoint 導出（headless slice） | approved | [tim-03-loop-boundary.md](./tim-03-loop-boundary.md) |
 | SPEC-dY1xgGhccy2D0xj8JhQC3 | TIM-03 real ABI process oracle boundary slice | approved | [tim-03-real-abi-process-oracle.md](./tim-03-real-abi-process-oracle.md) |
+| SPEC-x8Qn3Lm7Vw2Jt9AzPqR4 | TIM-03 L1 out-of-process hosting production wiring | approved | [tim-03-l1-out-of-process-hosting.md](./tim-03-l1-out-of-process-hosting.md) |
 | SPEC-1umIWi6ogYs4kgcJeTyvJ8 | TIM-03 session→driver/routing wiring — ProcessBoundarySession の composition 接続（headless slice） | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | SPEC-034UBZ7xNf0yey5lCLjVNT | TIM-04 Plugin State Snapshot 一貫性 — quality receipt・save/reload/HEAD/offline recipe（headless mock slice） | approved | [tim-04-plugin-state-snapshot-consistency.md](./tim-04-plugin-state-snapshot-consistency.md) |
 | SPEC-034oAncdBMNxHcIjF4PLx6 | TIM-04 Plugin State Snapshot — real ABI consumer-run | approved | [tim-04-real-abi-state.md](./tim-04-real-abi-state.md) |
