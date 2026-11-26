@@ -574,21 +574,21 @@
       "id": "K-RJ-03",
       "harness_or_test": "crc32_split_equivalence_bounded",
       "old_contract": "固定16byte・任意split≤16でincremental=one-shot",
-      "current_verification_verdict_cost": "solver起動後OOM/VM crash・NotRun。cost不明",
-      "needed_assurance_risk_assurance_kind": "Required・高・Bounded Exhaustive(未完了)",
+      "current_verification_verdict_cost": "Pass・0/131 failed (1 unreachable)・Verification Time 282.0517s・runner wall-clock 310.115s・sync 24d2e2a25291d4e8ec75c7f1ea41bad049421be5",
+      "needed_assurance_risk_assurance_kind": "Required・高・Bounded Exhaustive",
       "subject_boundary": "製品crc32/Crc32",
       "domain_assume_bounds_exclusions_unproven": "K-CRC16。16byte超・多数分割・任意長数学証明は未証明",
-      "new_verification_plan": "最小資源で再測定。boundを変える場合は保証差を記録"
+      "new_verification_plan": "pass は K-CRC16 の内側だけの保証として記録。任意長・多数分割は引き続き未証明。変更時は選択実行で再検証"
     },
     {
       "id": "K-RJ-04",
       "harness_or_test": "session_transitions_exhaustive",
       "old_contract": "4×4遷移とacceptance gatesを全網羅",
-      "current_verification_verdict_cost": "solver起動後OOM/VM crash・NotRun。cost不明",
+      "current_verification_verdict_cost": "NotRun・solver が 300s 予算内に完了せず外部停止・runner wall-clock 634.49s・sync 24d2e2a25291d4e8ec75c7f1ea41bad049421be5",
       "needed_assurance_risk_assurance_kind": "Required・高・Bounded Exhaustive(有限全域・未完了)",
       "subject_boundary": "製品session SM",
       "domain_assume_bounds_exclusions_unproven": "K-SESSION4。上位操作列/crash/recoveryは未証明",
-      "new_verification_plan": "最優先の軽量代表proof。選択実行で最初に完走確認"
+      "new_verification_plan": "solver cost の原因調査と harness 分割可否を次 slice で判断。bound/weakening は行わず、完了まで Required proof は未完了"
     }
   ]
 }

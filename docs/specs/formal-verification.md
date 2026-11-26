@@ -301,10 +301,42 @@ Verification Specification の再構成と証跡/手順分離は `scarecrow173/s
 - Kani 失敗は timeout/OOM/環境不足/exit 0 と証明結果を分け、
   `environment_absent`、`path_mapping`、`compile`、`symex`、`solver`、`memory`、
   `parallelism`、`infrastructure`、`product_oracle_failure` の原因分類で記録する
-  設計とした。runner 実装は本 slice では変更しない。
+  設計とした。runner 実装は slice 1 では変更しなかった。
 
 Issue #601 当時の lane・bound・tool-fit 評価は引き続き現行実装の説明として
 有効だが、新規 proof の優先順位と保証転用禁止の解釈は #659 の matrix に従う。
+
+## synvelis#659 slice 2 の同期点（2026-11-26）
+
+本節は selective proof の再実行方法と実走結果だけを同期する。Verification
+Specification の再構成と証跡/手順分離は引き続き `scarecrow173/synvelis#662`
+に委譲する。
+
+- `tools/run-formal-kani.mjs` は env による選択実行を受け付ける。
+  `KANI_PACKAGE=synvelis-recording` または `synvelis-gateway` は 1 package
+  だけを `-p` 対象にし、`KANI_HARNESS=<filter>` は `cargo kani --harness`
+  へ 1 回だけ渡す。未知の package、空文字、whitespace-only harness は
+  verification 開始前の `configuration_error` で nonzero 終了する。複数
+  filter、glob、正規表現、exact 指定の独自文法はない。`KANI_JOBS` の既定は
+  4 で、本 slice の selective run は 1 を使った。
+- 選択実行の JSON verdict は lane、verdict、reason、package/packages、
+  harness、jobs、environment、elapsed seconds、exit code、match した
+  harness 件数を含む。zero-match probe では Kani が `Please specify the
+  fully-qualified name of a harness.` を返し、runner は
+  `harnesses_matched=0`・exit 1 を記録した。0 harness を pass としない。
+- `K-RJ-03`（`crc32_split_equivalence_bounded`）は sync
+  `24d2e2a25291d4e8ec75c7f1ea41bad049421be5`・WSL2 Ubuntu・Kani 0.68.0・
+  CBMC 6.11.0 で Pass した。結果は `VERIFICATION:- SUCCESSFUL`、0/131
+  failed（1 unreachable）、Verification Time 282.0517s、runner wall-clock
+  310.115s である。保証は固定 16 byte・split ≤16 の incremental/one-shot
+  同値に限られ、任意長、3 以上の分割、暗号学的衝突耐性は対象外である。
+- `K-RJ-04`（`session_transitions_exhaustive`）は同じ sync・環境で solver
+  が 300s 予算内に完了せず、runner wall-clock 634.49s で invocation を外部
+  停止した。反例と unwinding assertion は出ていないため、cause class
+  `solver` の NotRun である。製品欠陥や proof 成功として記録しない。
+- 詳細な invocation 証跡は `evidence/sv659/formal-proof-runs.jsonl` と同じ
+  ディレクトリの raw output artifact に記録する。full lane（全 7 proof
+  一括実行）と `K-RJ-01`/`K-RJ-02`/`K-GJ-01` は本 slice では実行していない。
 
 ## Tool-fit 候補評価（再設計は synvelis#659）
 
