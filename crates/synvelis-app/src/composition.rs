@@ -21,6 +21,7 @@
 use std::path::PathBuf;
 
 use ruviform_plugin_core::{ParamInfo, PluginFactory};
+use ruviform_plugin_host::{HostError, OutOfProcessSpec};
 
 use synvelis_player::host::PluginHostProcessors;
 use synvelis_project::{BuildBudget, BuildMode, RuntimeClockEpochRef, RuntimeInstanceId};
@@ -43,6 +44,20 @@ pub struct ProductPlugin {
     pub params: Vec<ParamInfo>,
 }
 
+/// One product out-of-process (L1) plugin route registration for
+/// [`compose_routing_engine_with_out_of_process`]. The spec is passed
+/// to `PluginHost::register_out_of_process` verbatim: the composition
+/// root does not reinterpret the descriptor, runner program/argv,
+/// lookahead, timeout or isolation fields, and never upgrades an L1
+/// route to a precision-exact claim. `params` remains the product's
+/// explicit static catalog evidence for the same descriptor id.
+pub struct ProductOutOfProcessPlugin {
+    /// Out-of-process route registered on the host.
+    pub spec: OutOfProcessSpec,
+    /// Static parameter table vendored under the route descriptor id.
+    pub params: Vec<ParamInfo>,
+}
+
 /// Composes and attaches the production routing engine: fresh
 /// `PluginHost` + registered factories + per-plugin `ParamInfo`
 /// tables → `PluginHostProcessors` → `SessionRoutingEngine` with
@@ -61,16 +76,58 @@ pub fn compose_routing_engine(
     config: SessionEngineConfig,
     plugins: Vec<ProductPlugin>,
 ) -> SessionRoutingEngine {
-    let mut param_tables = Vec::with_capacity(plugins.len());
+    let processors = processors_for_routes(plugins, Vec::new())
+        .unwrap_or_else(|error| unreachable!("an empty L1 route table cannot fail: {error:?}"));
+    finish_composition(app, config, processors)
+}
+
+/// Production composition for a mixed L0/L1 registry. This is the
+/// typed L1 seam: callers construct [`ProductOutOfProcessPlugin`]
+/// values explicitly instead of smuggling a runner route through a
+/// `Box<dyn PluginFactory>`. Route registration failures (currently
+/// the host's duplicate-id rejection) are returned before any engine
+/// is attached to the app.
+///
+/// # Errors
+///
+/// [`HostError`] from `PluginHost::register_out_of_process`.
+pub fn compose_routing_engine_with_out_of_process(
+    app: &mut SynvelisApp,
+    config: SessionEngineConfig,
+    plugins: Vec<ProductPlugin>,
+    out_of_process: Vec<ProductOutOfProcessPlugin>,
+) -> Result<SessionRoutingEngine, HostError> {
+    let processors = processors_for_routes(plugins, out_of_process)?;
+    Ok(finish_composition(app, config, processors))
+}
+
+fn processors_for_routes(
+    plugins: Vec<ProductPlugin>,
+    out_of_process: Vec<ProductOutOfProcessPlugin>,
+) -> Result<PluginHostProcessors, HostError> {
+    let mut param_tables = Vec::with_capacity(plugins.len() + out_of_process.len());
     let mut factories = Vec::with_capacity(plugins.len());
     for plugin in plugins {
         param_tables.push((plugin.factory.descriptor().id, plugin.params));
         factories.push(plugin.factory);
     }
-    let mut processors = PluginHostProcessors::product(factories);
+    let mut specs = Vec::with_capacity(out_of_process.len());
+    for plugin in out_of_process {
+        param_tables.push((plugin.spec.descriptor.id, plugin.params));
+        specs.push(plugin.spec);
+    }
+    let mut processors = PluginHostProcessors::product_with_out_of_process(factories, specs)?;
     for (plugin_id, params) in param_tables {
         processors.register_params(plugin_id, params);
     }
+    Ok(processors)
+}
+
+fn finish_composition(
+    app: &mut SynvelisApp,
+    config: SessionEngineConfig,
+    processors: PluginHostProcessors,
+) -> SessionRoutingEngine {
     let cell = processors.param_catalog_cell();
     let drain = processors.report_drain();
     let engine = SessionRoutingEngine::new(config);

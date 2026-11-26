@@ -71,7 +71,10 @@ pub use automation::{
     run_monitor_screen_spec, workflow_editor_screen_spec,
 };
 pub use binding::{BindingNotice, ProjectionRow, ViewBinding};
-pub use composition::{ProductPlugin, compose_product_routing, compose_routing_engine};
+pub use composition::{
+    ProductOutOfProcessPlugin, ProductPlugin, compose_product_routing, compose_routing_engine,
+    compose_routing_engine_with_out_of_process,
+};
 pub use engine::{SessionEngineConfig, SessionEngineError, SessionRoutingEngine};
 pub use error::{AppError, AssetError, AssetErrorKind};
 pub use host::{HeadlessWindowHost, ShellWindowHost};

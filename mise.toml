@@ -61,6 +61,14 @@ run = "cargo test --locked -p"
 description = "Run the rt_ contract tests (RT no-alloc/no-block) against the locked dependency graph"
 run = "cargo test --workspace --locked rt_"
 
+# TIM-03 (#127): Synvelis-owned test-only L1 runner を先に build し、
+# その artifact path を production composition seam 経由の L1 oracle が
+# target profile root から再現可能に解決する。dedicated task は runner と
+# fixture cdylib の両方を同一 locked graph で build する入口。
+[tasks.test-tim03-l1]
+description = "Build the test-only TIM-03 L1 runners and run the synvelis-app L1 process oracle"
+run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_process_oracle -- --test-threads=1 --nocapture"
+
 # RCD-01 opt-in 実機 lane（CI 対象外・hardware 依存）。
 # real-device feature で ruviform-audio-device/cpal を有効化し、
 # tests/real_input.rs の #[ignore] test のみを実行する。
