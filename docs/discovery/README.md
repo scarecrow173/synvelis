@@ -61,3 +61,4 @@ Directory: `docs/discovery`
 | DISC-034XEEHyrtM1jt747O7iQD | variant_sets VCS semantic diff gap — schema v14 persisted variant state invisible to compare_snapshots | resolved | [variant-sets-vcs-diff-gap.md](./variant-sets-vcs-diff-gap.md) |
 | DISC-PXOZ9PhzQFVHOLgu0pAGLo | X Discovery — Recorded Source→Generic Playback/Export integration with Frame/ID/Content integrity | resolved | [x-recorded-verified-source-playback-export-discovery.md](./x-recorded-verified-source-playback-export-discovery.md) |
 | DISC-571ProcessorBindingStale01 | Issue #571 discovery — SetProcessorBinding rebind が SemanticPort.binding を stale に残す UnresolvedPort 拒否迂回 | resolved | [issue-571-processor-binding-stale.md](./issue-571-processor-binding-stale.md) |
+| DISC-SV114SVOSCONSUMER00000001 | SV-OS consumer catalog 調査記録 (synvelis#114) | completed | [sv114-svos-consumer-catalog.md](./sv114-svos-consumer-catalog.md) |

@@ -32,6 +32,9 @@ use synvelis_app::{InspectorRow, InspectorScreenState, MainScreenState, mixer_ga
 use synvelis_workspace::ArrangementRow;
 use synvelis_workspace::controls_ui::{TRANSPORT_POSITION_TARGET, TRANSPORT_TARGET};
 
+#[path = "sv_os_catalog.rs"]
+pub mod sv_os_catalog;
+
 // ---------------------------------------------------------------------
 // scenario / case ids (synvelis product namespace)
 // ---------------------------------------------------------------------

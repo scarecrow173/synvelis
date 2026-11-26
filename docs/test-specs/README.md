@@ -522,3 +522,4 @@ Directory: `docs/test-specs`
 | TSPEC-3kN7eQ3gW0xY6uC9nR7zKjPd | SV-GPUI-02 headless PluginDock panel テスト仕様 — 4-ID 状態機械 + syn.plugin_dock.* op (synvelis#176) | approved | [sv-gpui-02-plugin-dock-headless-panel.md](./sv-gpui-02-plugin-dock-headless-panel.md) |
 | TSPEC-TiM01wIdGeTnPw04 | TIM-01 PPQN 選択 widget intent — test spec（synvelis#125） | approved | [tim-01-ppqn-widget.md](./tim-01-ppqn-widget.md) |
 | TSPEC-pcC4L1RealAbi01 | PC-C4 L1 real ABI binding test spec | approved | [pc-c4-l1-real-abi-binding.md](./pc-c4-l1-real-abi-binding.md) |
+| TSPEC-SV114SVOSCONSUMER000001 | SV-OS consumer catalog verification matrix (synvelis#114) | approved | [sv114-svos-consumer-catalog.md](./sv114-svos-consumer-catalog.md) |

@@ -263,3 +263,4 @@ Directory: `docs/specs`
 | SPEC-alib07-headless-residual | ALIB-07 slice 3 — headless residual（fault matrix の現行 main 同期と LIB-SEC-04 新 transport 経路の閉塞） | implemented | [alib-07-headless-residual.md](./alib-07-headless-residual.md) |
 | SPEC-TiM01wIdGeTnPw01 | TIM-01 PPQN 選択 widget intent — Project tab の params 付き Action 配線（synvelis#125 widget slice・headless） | approved | [tim-01-ppqn-widget.md](./tim-01-ppqn-widget.md) |
 | SPEC-pcC4L1RealAbiBind01 | PC-C4 L1 real ABI binding — test_gain production evidence | approved | [pc-c4-l1-real-abi-binding.md](./pc-c4-l1-real-abi-binding.md) |
+| SPEC-SV114SVOSCONSUMER00000001 | SV-OS consumer catalog — SV-OS-01〜05 catalog/headless/real lane slice (synvelis#114) | approved | [sv114-svos-consumer-catalog.md](./sv114-svos-consumer-catalog.md) |
