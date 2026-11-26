@@ -23,8 +23,8 @@ relations:
 
 ## 完了処理
 
-- [ ] 全必須 verification lane を記録する。
-- [ ] 最新 main を取り込み、commit、push、PR を作成する。
+- [x] 全必須 verification lane を実行し、結果を `evidence/sv128/tim04-permission-verification.md` に記録した。
+- [ ] push、PR 作成。
 
 ## 後続 slice / gate
 

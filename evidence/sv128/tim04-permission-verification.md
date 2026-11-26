@@ -1,6 +1,6 @@
 # Verification — TIM-04 permission fault matrix slice
 
-対象 branch は `feat/128-tim04-permission-matrix`、最終検証前に `origin/main` `7c6bb6c04fd594bc5b86439fe726718ea5dbb56c` を fast-forward で取り込んだ。OS/Arch は Windows / x86_64。raw log は `verification-logs/`、permission matrix の仕様証拠は `tim04-permission-matrix.md` と `tim04_l1_abi_state.jsonl` を参照する。
+対象 branch は `feat/128-tim04-permission-matrix`、最終検証前に `origin/main` `7c6bb6c04fd594bc5b86439fe726718ea5dbb56c` を fast-forward で取り込んだ。OS/Arch は Windows / x86_64。canonical exit-code summaryは `verification-logs/summary.txt`、permission matrix の仕様証拠は `tim04-permission-matrix.md` と `tim04_l1_abi_state.jsonl` を参照する。
 
 ## Canonical lane results
 
@@ -24,6 +24,8 @@ SYNVELIS_TIM04_L1_EVIDENCE_DIR=evidence/sv128 mise exec -- cargo test -p synveli
 ```
 
 exit code 0、1/1 Pass。cargo直接実行のため補助証拠であり、canonical package testの代替ではない。permission matrix JSONL rowsは30件で Pass 28 / Unsupported 2 / Fail 0 / NotRun 0。
+
+`*.log` は repository の ignore 規則により tracked evidenceではない。実行時の詳細 console logは local worktreeに残る。
 
 ## Scope-out failure assessment
 
