@@ -1,0 +1,146 @@
+context: mutation M-WIRE-TOKEN applied
+command: mise run test-formal
+started_at_utc: 2026-11-26T13:02:55Z
+--- output ---
+[test-formal] $ cargo test --locked -p synvelis-gateway -p synvelis-recording --test formal_journal
+   Compiling synvelis-gateway v0.1.0 (G:\orca\workspaces\synvelis\sv659-mutation-cost\crates\synvelis-gateway)
+   Compiling synvelis-script v0.1.0 (G:\orca\workspaces\synvelis\sv659-mutation-cost\crates\synvelis-script)
+   Compiling synvelis-automation v0.1.0 (G:\orca\workspaces\synvelis\sv659-mutation-cost\crates\synvelis-automation)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.29s
+     Running tests\formal_journal\main.rs (target\debug\deps\formal_journal-281bda327062c73a.exe)
+
+running 35 tests
+test encode_frame_over_cap_refused ... ok
+test policy::descriptor_mismatch_denies_first ... ok
+test policy::grant_dimension_denies_stay_in_contract ... ok
+test policy::effects_recheck_actual_resources_and_classes ... ok
+test policy::decisions_stay_in_closed_set ... ok
+test policy::create_target_defects_deny ... ok
+test policy::coverage_stable_under_repeat_and_dedup ... ok
+test saved_record_rejects_unknown_field ... ok
+test encode_frame_layout ... ok
+test policy::delegated_apply_commit_spend_is_monotone ... ok
+test encode_nonzero_seq_is_gap ... ok
+test encode_seq0_replays_clean ... ok
+test policy::commit_entry_points_agree ... ok
+test u128_tagged_id_serde_contract ... ok
+test policy::human_permitted_at_every_stage ... ok
+test policy::unbound_agent_gets_uniform_no_auth ... ok
+test wire::documented_forbidden_lists_stay_in_product ... FAILED
+test policy::preflight_and_deny_never_spend ... ok
+test replay_arbitrary_bytes_contract ... ok
+test policy::unresolved_or_uncovered_target_denies ... ok
+test wire::authority_precedes_implicit_target ... FAILED
+test trailing_garbage_stops_at_boundary ... ok
+test truncation_is_torn_tail_or_boundary_clean ... ok
+test single_byte_corruption_never_verifies_past_it ... ok
+test journal_payload_rejects_unknown_fields ... ok
+test journal_payload_serde_roundtrip ... ok
+test encode_stream_roundtrip ... ok
+test wire::authority_fields_rejected ... FAILED
+test wire::parse_never_panics_and_errors_are_closed ... ok
+test wire::accepted_values_satisfy_allowlist_model ... ok
+test wire::missing_required_keys_are_malformed ... ok
+test wire::unknown_nested_keys_are_malformed ... ok
+test wire::implicit_target_fields_rejected ... ok
+test wire::forbidden_keys_nested_under_args_not_rejected ... ok
+test encode_frame_at_cap_roundtrips ... ok
+
+failures:
+
+---- wire::documented_forbidden_lists_stay_in_product stdout ----
+proptest: Saving this and future failures in G:\orca\workspaces\synvelis\sv659-mutation-cost\crates\synvelis-gateway\tests\proptest-regressions\wire.txt
+proptest: If this test was run on a CI system, you may wish to add the following line to your copy of the file. (You may need to create it.)
+cc 8e745a13dd2b01f97715367d91c879c58cb755e8b3109bf4a61d708369bf9a32
+
+thread 'wire::documented_forbidden_lists_stay_in_product' (52860) panicked at crates\synvelis-gateway\tests\formal_journal\wire.rs:325:1:
+Test failed: assertion failed: FORBIDDEN_AUTHORITY_FIELDS.contains(field) at crates\synvelis-gateway\tests\formal_journal\wire.rs:334.
+minimal failing input: _dummy = ()
+	successes: 0
+	local rejects: 0
+	global rejects: 0
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- wire::authority_precedes_implicit_target stdout ----
+proptest: Saving this and future failures in G:\orca\workspaces\synvelis\sv659-mutation-cost\crates\synvelis-gateway\tests\proptest-regressions\wire.txt
+proptest: If this test was run on a CI system, you may wish to add the following line to your copy of the file.
+cc aa3146fcbea350dede0e76c3ec0daf373a74b5c1d5ad8a0e2df1caceda6714c3
+
+thread 'wire::authority_precedes_implicit_target' (45496) panicked at crates\synvelis-gateway\tests\formal_journal\wire.rs:325:1:
+Test failed: assertion failed: is_self_declared(&WireRequest::parse(&req)) at crates\synvelis-gateway\tests\formal_journal\wire.rs:415.
+minimal failing input: req = Object {
+    "capability": Object {
+        "id": String("a"),
+        "version": Object {
+            "major": Number(0),
+            "minor": Number(0),
+        },
+    },
+    "consistency": Object {
+        "kind": String("latest"),
+    },
+    "project": String(""),
+    "request_id": String("_"),
+    "schema": Object {
+        "name": String("0"),
+        "version": Object {
+            "major": Number(0),
+            "minor": Number(0),
+        },
+    },
+}, auth = "token", implicit = "selection"
+	successes: 2
+	local rejects: 0
+	global rejects: 0
+
+
+---- wire::authority_fields_rejected stdout ----
+proptest: Saving this and future failures in G:\orca\workspaces\synvelis\sv659-mutation-cost\crates\synvelis-gateway\tests\proptest-regressions\wire.txt
+proptest: If this test was run on a CI system, you may wish to add the following line to your copy of the file.
+cc 7be613dfdef44eccb113b2942649643041decd124d42fc783f336195cfda60a5
+
+thread 'wire::authority_fields_rejected' (51664) panicked at crates\synvelis-gateway\tests\formal_journal\wire.rs:325:1:
+Test failed: expected SelfDeclaredAuthority, got Err(MalformedRequest { reason: "unknown field `token`, expected one of `request_id`, `capability`, `schema`, `project`, `target`, `args`, `consistency`, `task`, `grant`, `idempotency_key`" }) at crates\synvelis-gateway\tests\formal_journal\wire.rs:384.
+minimal failing input: req = Object {
+    "capability": Object {
+        "id": String("0"),
+        "version": Object {
+            "major": Number(0),
+            "minor": Number(0),
+        },
+    },
+    "consistency": Object {
+        "kind": String("latest"),
+    },
+    "project": String(""),
+    "request_id": String("A"),
+    "schema": Object {
+        "name": String("_"),
+        "version": Object {
+            "major": Number(0),
+            "minor": Number(0),
+        },
+    },
+}, field = "token", injected = Null
+	successes: 28
+	local rejects: 0
+	global rejects: 0
+
+
+
+failures:
+    wire::authority_fields_rejected
+    wire::authority_precedes_implicit_target
+    wire::documented_forbidden_lists_stay_in_product
+
+test result: FAILED. 32 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.89s
+
+error: test failed, to rerun pass `-p synvelis-gateway --test formal_journal`
+mbx[cache]: 0 hits, 0 misses, 4 not looked up, 5 incremental; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: cleaned up 9.6 TiB logical after checkouts that left without saying goodbye.
+[test-formal] ERROR task failed
+--- result ---
+exit_code: 101
+wall_clock_ms: 10408
+finished_at_utc: 2026-11-26T13:03:05Z

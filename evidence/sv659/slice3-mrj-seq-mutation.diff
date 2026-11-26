@@ -1,0 +1,13 @@
+diff --git a/crates/synvelis-recording/src/journal.rs b/crates/synvelis-recording/src/journal.rs
+index 75fccce7..d5a54e95 100644
+--- a/crates/synvelis-recording/src/journal.rs
++++ b/crates/synvelis-recording/src/journal.rs
+@@ -433,7 +433,7 @@ pub fn replay_journal(bytes: &[u8]) -> ReplayOutcome {
+         if crc32(&bytes[pos + 2..pos + HEADER_LEN + plen]) != crc_stored {
+             break StopReason::BadChecksum;
+         }
+-        if seq != next_seq {
++        if false && seq != next_seq {
+             break StopReason::SequenceGap;
+         }
+         let Some(payload) = decode_payload(kind, body) else {

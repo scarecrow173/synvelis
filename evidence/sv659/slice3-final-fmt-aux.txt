@@ -1,0 +1,6 @@
+started_at_utc: 2026-11-26T13:14:49Z
+command: mise exec -- cargo fmt -p synvelis-gateway -p synvelis-recording -- --check
+--- result ---
+exit_code: 0
+finished_at_utc: 2026-11-26T13:14:55Z
+wall_clock_ms: 5489

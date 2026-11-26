@@ -1,0 +1,15 @@
+diff --git a/crates/synvelis-gateway/src/policy.rs b/crates/synvelis-gateway/src/policy.rs
+index 8be2944a..2e2730e5 100644
+--- a/crates/synvelis-gateway/src/policy.rs
++++ b/crates/synvelis-gateway/src/policy.rs
+@@ -363,9 +363,7 @@ impl GrantPolicy {
+                     // liveness/epoch/budget on the current record
+                     // atomically (ACG-003). Exactly one unit per commit
+                     // authorization — preflight evaluations never spend.
+-                    if self
+-                        .store
+-                        .try_consume_apply(&record.grant.id, self.clock.now())
++                    if true
+                     {
+                         AuthorizationDecision::PermitForStage
+                     } else {

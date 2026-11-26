@@ -1,0 +1,15 @@
+started_at_utc: 2026-11-26T13:19:18Z
+command: mise exec -- prek run --all-files
+trim trailing whitespace.................................................Passed
+fix end of files.........................................................Passed
+check yaml...............................................................Passed
+check toml...............................................................Passed
+mixed line ending........................................................Passed
+fix utf-8 byte order marker..............................................Passed
+detect private key.......................................................Passed
+check illegal windows names..........................(no files to check)Skipped
+actionlint (changed workflows)...........................................Passed
+--- result ---
+exit_code: 0
+finished_at_utc: 2026-11-26T13:19:33Z
+wall_clock_ms: 14840

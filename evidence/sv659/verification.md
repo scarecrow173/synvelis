@@ -118,12 +118,67 @@ zero-match probe は `KANI_HARNESS=sv659_zero_match_probe` で実行した。Kan
 | full Kani lane without `KANI_HARNESS` | — | — | NotRun — memory risk と slice scope のため未実施 |
 | K-RJ-01/K-RJ-02/K-GJ-01 | — | — | NotRun — heavy replay/round-trip proof は後続 slice |
 
+## slice 3 の識別情報
+
+- sync SHA: `34e69fb27774f41f6aded1a24320be90ffd7477a`
+- branch: `test/659-mutation-cost-matrix`
+- Property mutation lane OS: Windows x64 native CLI、cargo 1.99.1
+- selective proof OS: Windows x64 host 上の WSL2 Ubuntu、x86_64、16 logical CPUs、約 32056 MiB、cargo 1.99.0、Kani Rust Verifier 0.68.0、CBMC 6.11.0
+- 実行順: baseline、K-GJ-02、K-GJ-03、K-RJ-03、M-GJ-CRC、M-RJ-SEQ、M-WIRE-TOKEN、M-POL-DENY-ORDER、M-POL-BUDGET、最終非回帰/衛生レーン
+
+## slice 3 — baseline と selective proof cost
+
+baseline は mutation 前の `mise run test-formal` で exit 0・wall-clock 47.560s、gateway 35/35・recording 15/15 pass だった（`slice3-baseline-test-formal.txt`）。これは proof pass ではなく、mutation の因果判断を可能にする property lane baseline である。
+
+selective proof はすべて canonical な `mise run test-formal-kani` 入口に env selector を付けて `KANI_JOBS=1` で実行した。exit 0 だけでなく、raw output の `VERIFICATION:- SUCCESSFUL`、failed check 数、runner verdict、環境を確認した。
+
+| proof | command selector | verdict | failed checks | Kani Verification Time | runner elapsed | shell wall-clock | raw output |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| K-GJ-02 | `KANI_PACKAGE=synvelis-gateway KANI_HARNESS=encode_replay_roundtrip_bounded KANI_JOBS=1` | Pass | 0/642 failed (6 unreachable) | 33.076668s | 104.125s | 105.486s | `slice3-kgj02-encode-replay-roundtrip-bounded.txt` |
+| K-GJ-03 | `KANI_PACKAGE=synvelis-gateway KANI_HARNESS=nonzero_seq_is_gap_bounded KANI_JOBS=1` | Pass | 0/610 failed (10 unreachable) | 24.030256s | 67.862s | 69.082s | `slice3-kgj03-nonzero-seq-is-gap-bounded.txt` |
+| K-RJ-03 | `KANI_PACKAGE=synvelis-recording KANI_HARNESS=crc32_split_equivalence_bounded KANI_JOBS=1` | Pass | 0/131 failed (1 unreachable) | 234.04366s | 288.605s | 289.802s | `slice3-krj03-crc32-split-equivalence-bounded.txt` |
+
+3 件とも 300s の verification budget 内だが、runner elapsed/wall-clock には compile/loading が含まれるため Verification Time と混ぜない。K-GJ-02 はこの worktree で最初の gateway selective run、K-GJ-03 は直後の warm cache、K-RJ-03 は recording selective run として測定した。WSL load average sample は 1.24/0.72/0.32・cbmc 1 process だった。historical baseline は sv601 の K-GJ-02 45.5s・K-GJ-03 31.4s、slice2 の K-RJ-03 282.0517s/310.115s を `cost-mutation-matrix.json` に併記したが、sv601 値は現存 artifact から計測項目名を一意に復元できないため同指標比較の主証拠にはしない。slice2/slice3 の差分からも、環境差と cache 状態差があるため性能因果は断定しない。peak memory は runner が RSS を計測しないため `unmeasured` とし、疎な sample を peak と偽らない。
+
+接続条件は限定的である。K-GJ-02 は固定 12 byte・seq0・単 record の GJ-P03 を補強するが、可変長、複数 record、full stream を証明しない。K-GJ-03 は固定 8 byte・単 record の任意非零 seq gap を示すが、複数 record 欠番や上位 resume を証明しない。K-RJ-03 は固定 16 byte・split ≤16 の RJ-P10 を示し、任意長、3 以上分割、暗号学的耐性を証明しない。上位 Journal/Recovery/製品全体契約を導くには、GJ-P05/RJ-P05 の stream roundtrip、resume/recovery ordering、Chunk/cap 境界、FS durability などの接続条件が残る。
+
+## slice 3 — mutation matrix
+
+各 mutation は 1 件ずつ適用し、canonical `mise run test-formal` の mutant run、完全 revert、revert 後の同 lane、production diff check の 3 点セットを記録した。複数 mutation を同時に重ねていない。最終的に生産 `src/` 4 件の diff はゼロである。
+
+| mutation | 変異 | 検出 test | mutant | revert | verdict |
+| --- | --- | --- | --- | --- | --- |
+| M-GJ-CRC | gateway journal CRC mismatch 検査を `false &&` で無効化 | `single_byte_corruption_never_verifies_past_it`（GJ-P06）。shrink は payloads=[[]]・rec_pick 0・xor=1 | exit 101・49.787s・34/1 failed | exit 0・14.790s | killed |
+| M-RJ-SEQ | recording journal seq 連続性検査を `false &&` で無効化 | `encode_record_nonzero_seq_is_gap`（RJ-P04）と `resumed_appender_frames_gap_as_fresh_stream`（RJ-P06）。最小値は seq=1/start=1 | exit 101・9.712s・13/2 failed | exit 0・6.130s | killed |
+| M-WIRE-TOKEN | `FORBIDDEN_AUTHORITY_FIELDS` から `"token"` だけを除去 | `wire::documented_forbidden_lists_stay_in_product`（GW-P01）、`wire::authority_precedes_implicit_target`、`wire::authority_fields_rejected`（GW-P04）。shrink は field="token"・injected=Null | exit 101・10.408s・32/3 failed | exit 0・11.076s | killed |
+| M-POL-DENY-ORDER | descriptor mismatch gate と trusted human short-circuit の順序を逆転 | `policy::descriptor_mismatch_denies_first`（GP-P03）。minimal input は human=true | exit 101・10.267s・34/1 failed | exit 0・10.037s | killed |
+| M-POL-BUDGET | DelegatedApply Commit が `try_consume_apply` による 1 unit 消費を行わない | `policy::delegated_apply_commit_spend_is_monotone`（GP-P04）。shrink は budget=None・consumed 0/expected 1 | exit 101・10.226s・34/1 failed | exit 0・9.991s | killed |
+
+survived/inconclusive はなかった。M-POL-BUDGET の直接検出は GP-P04 であり、GP-P05 は非消費側の接続 oracle として残るが、この mutant を検出した test として偽って記録しない。mutation killed は oracle の検出能力証拠であり、Property の assurance kind を引き上げない。oracle 強化や formal_journal test 変更は不要だった。proptest regression 出力はコミット対象に含めず、作業後に残っていないことを確認した。
+
+machine-readable な正本は `formal-proof-runs.jsonl`、`mutation-runs.jsonl`、`cost-mutation-matrix.json`、raw output `slice3-*.txt`、mutation diff `slice3-*-mutation.diff` である。
+
+## slice 3 — final non-regression and hygiene
+
+| lane | command / OS | exit | wall-clock | 結果 |
+| --- | --- | --- | --- | --- |
+| final formal property lane | `mise run test-formal` / Windows x64 | 0 | 3.657s | Pass。gateway 35/35・recording 15/15。`slice3-final-test-formal.txt` |
+| production diff hygiene | `git diff --exit-code -- crates/synvelis-gateway/src/journal.rs crates/synvelis-gateway/src/wire.rs crates/synvelis-gateway/src/policy.rs crates/synvelis-recording/src/journal.rs` / Windows x64 | 0 | — | 生産コード差分ゼロ。`slice3-final-production-diff-check.txt` |
+| canonical fmt lane | `mise run fmt-check` / Windows x64 | 1 | 3.374s | 環境/工具制約で失敗。cargo fmt が workspace 全 target を 1 つの rustfmt 命令へ連結し、Windows で `ファイル名または拡張子が長すぎます。 (os error 206)` となった。`slice3-final-fmt-check.txt` |
+| fmt auxiliary evidence | `mise exec -- cargo fmt -p synvelis-gateway -p synvelis-recording -- --check` / Windows x64 | 0 | 5.489s | 変更対象 crate 2 件の rustfmt check は pass。`slice3-final-fmt-aux.txt` |
+| prek initial run | `mise exec -- prek run --all-files` / Windows x64 | 1 | 1.757s | 本 slice で追加した docs/test-spec の EOF newline だけを end-of-file-fixer が修正。コードや検証契約の失敗ではない。`slice3-final-prek.txt` |
+| prek rerun | `mise exec -- prek run --all-files` / Windows x64 | 0 | 7.750s | Pass。`slice3-final-prek-rerun.txt` |
+
+fmt の補助確認として短い subst alias から canonical lane を試したが、cargo metadata が canonical path を使うため同じ os error 206 だった（`slice3-final-fmt-check-subst-attempt.txt`）。この失敗は本 slice の Rust 差分に由来しない。本 slice の最終 diff は docs/evidence/skill のみで、生産 Rust コード差分はゼロである。変更対象 crate に対する rustfmt check は補助証拠として Pass したが、canonical fmt lane 自体は Windows x64 環境で Fail として正直に記録する。
+
+full lane（全 7 proof 一括実行）、K-RJ-01/K-RJ-02/K-GJ-01/K-RJ-04、heavy replay/round-trip proof、Authorization pure core、Recovery ordering model は本 slice でも実行していない。
+
 ## 保証範囲と残件
 
 K-RJ-03 は製品実装 `crc32` と incremental `Crc32` API の局所的な bounded proof であり、全体ジャーナル形式・任意長入力・製品全体へ転用しない。K-RJ-04 が将来 pass しても `SessionState` 4×4 と acceptance gate の有限全域だけの保証であり、recording workflow、crash recovery、永続化 ordering の証明ではない。今回は solver 未完了のため、K-RJ-04 には新しい保証が追加されていない。
 
-残件は K-RJ-01/K-RJ-02/K-GJ-01、K-RJ-04 の solver-bound 原因調査・分割/bound 再設計、Authorization pure-core verification、Recovery ordering model、mutation 実験、full cause classifier、全件 cost comparison、Sync Commit 整備である。docs index は Coordinator が統合時に整備する。
+残件は K-RJ-01/K-RJ-02/K-GJ-01、K-RJ-04 の solver-bound 原因調査・分割/bound 再設計、Authorization pure-core verification、Recovery ordering model、full cause classifier、peak memory 計測基盤、全件 cost comparison の残り、Sync Commit 整備である。slice 3 の 5 件 mutation matrix は完了し、いずれも killed だったが、これは oracle 検出能力の証拠であって assurance kind の引き上げではない。docs index は Coordinator が統合時に整備する。
 
 ## Conclusion
 
-slice 1 は scope 内で完了した。slice 2 は selective interface、fail-closed configuration、zero-match fail-closed を実装・確認し、K-RJ-03 を記録された bound 内で完了した。K-RJ-04 は証明を弱めず NotRun/solver と正直に分類した。Issue #659 全体は未完了であり、この記録は partial slice の証拠である。
+slice 1 は scope 内で完了した。slice 2 は selective interface、fail-closed configuration、zero-match fail-closed を実装・確認し、K-RJ-03 を記録された bound 内で完了した。K-RJ-04 は証明を弱めず NotRun/solver と正直に分類した。slice 3 は低コスト selective proof 3 件を再実行して cost を記録し、5 件の mutation matrix を killed として記録したが、Issue #659 全体は未完了であり、この記録は partial slice の証拠である。

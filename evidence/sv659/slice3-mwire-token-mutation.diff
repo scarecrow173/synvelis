@@ -1,0 +1,12 @@
+diff --git a/crates/synvelis-gateway/src/wire.rs b/crates/synvelis-gateway/src/wire.rs
+index f7bd30bf..5832e202 100644
+--- a/crates/synvelis-gateway/src/wire.rs
++++ b/crates/synvelis-gateway/src/wire.rs
+@@ -31,7 +31,6 @@ pub const FORBIDDEN_AUTHORITY_FIELDS: &[&str] = &[
+     "authority",
+     "auth",
+     "authenticated",
+-    "token",
+     "permissions",
+     "permission",
+     "approved",

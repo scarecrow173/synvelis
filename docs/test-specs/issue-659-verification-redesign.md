@@ -131,3 +131,31 @@ slice 2 は `K-RJ-03` と `K-RJ-04` だけを実走する。full lane、全 7 pr
 ## slice 2 結果の正本
 
 machine-readable な invocation 証跡は `evidence/sv659/formal-proof-runs.jsonl`、raw output は `evidence/sv659/krj03-crc32-split-equivalence-bounded.txt`、`evidence/sv659/krj04-session-transitions-exhaustive.txt`、`evidence/sv659/kani-zero-match-probe.txt` とする。人間向けの要約は `evidence/sv659/verification.md` に記録する。
+
+## slice 3 selective proof cost/mutation matrix の検証 matrix
+
+slice 3 は baseline、低コスト selective proof 3 件、mutation 5 件、非回帰・衛生レーンを対象とする。full lane、heavy proof、Authorization pure core、Recovery ordering model は対象外である。
+
+| ID | 対象 | 方法 | Expected | 結果 |
+| --- | --- | --- | --- | --- |
+| SV659-S3-B1 | baseline | `mise run test-formal` | gateway 35/35・recording 15/15 | Pass。exit 0、wall-clock 47.560s |
+| SV659-S3-K2 | K-GJ-02 | `KANI_PACKAGE=synvelis-gateway KANI_HARNESS=encode_replay_roundtrip_bounded KANI_JOBS=1 mise run test-formal-kani` | `VERIFICATION:- SUCCESSFUL`、VT ≤300s | Pass。0/642 failed、VT 33.076668s、runner 104.125s |
+| SV659-S3-K3 | K-GJ-03 | `KANI_PACKAGE=synvelis-gateway KANI_HARNESS=nonzero_seq_is_gap_bounded KANI_JOBS=1 mise run test-formal-kani` | 同上 | Pass。0/610 failed、VT 24.030256s、runner 67.862s |
+| SV659-S3-K4 | K-RJ-03 | `KANI_PACKAGE=synvelis-recording KANI_HARNESS=crc32_split_equivalence_bounded KANI_JOBS=1 mise run test-formal-kani` | 同上 | Pass。0/131 failed、VT 234.04366s、runner 288.605s |
+| SV659-S3-M1 | M-GJ-CRC | 一時変異後に `mise run test-formal`、完全 revert 後に再実行 | GJ-P06 が shrink つきで fail、revert 後 green | killed。mutant exit 101、revert exit 0 |
+| SV659-S3-M2 | M-RJ-SEQ | 同上 | RJ-P04/RJ-P06 が fail、revert 後 green | killed。両 test が fail、mutant exit 101、revert exit 0 |
+| SV659-S3-M3 | M-WIRE-TOKEN | 同上 | GW-P01/GW-P04 が fail、revert 後 green | killed。GW-P01/GW-P04 を含む 3 件が fail、mutant exit 101、revert exit 0 |
+| SV659-S3-M4 | M-POL-DENY-ORDER | 同上 | GP-P03 が fail、revert 後 green | killed。mutant exit 101、revert exit 0 |
+| SV659-S3-M5 | M-POL-BUDGET | 同上 | GP-P04/GP-P05 が fail、revert 後 green | killed。直接検出は GP-P04、mutant exit 101、revert exit 0 |
+| SV659-S3-F1 | full lane・heavy proof | 実行しない | slice 3 scope 外 | NotRun。K-RJ-01/K-RJ-02/K-GJ-01/K-RJ-04 と full lane は未実施 |
+
+## slice 3 mutation oracle detail
+
+- `killed` は、1 件だけ適用した mutation に対し期待する Property Test が shrink つきで fail し、完全 revert 後の canonical lane が緑へ戻ったことを示す。
+- `survived` は、canonical lane が exit 0、または期待する test が fail しなかったことを示す。`inconclusive` は、fail したが mutation との因果、revert 後の緑、oracle 独立性のいずれかを確定できないことを示す。slice 3 では survived/inconclusive はなかった。
+- mutation killed は oracle の検出能力証拠であり、Property 自体の assurance kind を引き上げない。GW-P01 の test-local literal list は製品 const の写しではなく、M-WIRE-TOKEN で製品表からだけ token を削除した。
+- M-POL-BUDGET の直接検出は GP-P04 だった。GP-P05 は非消費側の接続 oracle として残り、今回の mutant を検出した test として偽って記録しない。
+
+## slice 3 結果の正本
+
+selective proof invocation は `evidence/sv659/formal-proof-runs.jsonl`、mutation は `evidence/sv659/mutation-runs.jsonl`、cost 集約は `evidence/sv659/cost-mutation-matrix.json`、raw output は同じディレクトリの `slice3-*.txt` を正本とする。人間向けの完全な記録は `evidence/sv659/verification.md` に記録する。

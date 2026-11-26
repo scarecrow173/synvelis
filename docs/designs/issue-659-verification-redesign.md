@@ -2,7 +2,7 @@
 id: "DESIGN-sv659VerificationRedesign01"
 type: "design"
 status: "draft"
-title: "Issue #659 Journal・Authorization 形式的検証再設計 — slice1 ledger/matrix"
+title: "Issue #659 Journal・Authorization 形式的検証再設計 — slice1-3 ledger/matrix"
 created: "2026-11-26"
 updated: "2026-11-26"
 owners: ["scarecrow173"]
@@ -41,13 +41,13 @@ relations:
     - "https://github.com/scarecrow173/synvelis/issues/662"
 ---
 
-# Issue #659 Journal・Authorization 形式的検証再設計 — slice1 ledger/matrix
+# Issue #659 Journal・Authorization 形式的検証再設計 — slice1-3 ledger/matrix
 
 ## 1. 目的と境界
 
-本書は `scarecrow173/synvelis#659` の slice 1 として、Issue #601 で導入された Journal・Authorization 検証を Property 起点で棚卸し、後続 slice が実装する representative proof・runner 分類・mutation 設計の基盤を定め、slice 2 の selective proof 結果を同期したものである。上位の規範は `POLICIES.md` §6.1〜§6.6 と `evidence/rf1014/verification.md` であり、本書はそこから派生する製品固有の検証設計である。
+本書は `scarecrow173/synvelis#659` の slice 1 として、Issue #601 で導入された Journal・Authorization 検証を Property 起点で棚卸し、後続 slice が実装する representative proof・runner 分類・mutation 設計の基盤を定め、slice 2 の selective proof 結果と slice 3 の selective proof cost/mutation matrix を同期したものである。上位の規範は `POLICIES.md` §6.1〜§6.6 と `evidence/rf1014/verification.md` であり、本書はそこから派生する製品固有の検証設計である。
 
-slice 1 は設計と inventory に限定し、製品コード、proof harness、Property Test、`tools/run-formal-kani.mjs`、mise lane、CI/workflow を変更しなかった。slice 2 は selective runner interface と `K-RJ-03`/`K-RJ-04` の実走結果だけを同期し、製品コード、proof harness、Property Test、bound、assume、unwind、mise lane、CI/workflow は変更しない。`docs/specs/formal-verification.md` の最終的な Verification Specification 再構成と証跡/手順分離は `scarecrow173/synvelis#662` が担うため、本書はその構成を先取りせず、Issue #601 当時の spec と slice 1/2 で確定した設計判断を分けて記録する。
+slice 1 は設計と inventory に限定し、製品コード、proof harness、Property Test、`tools/run-formal-kani.mjs`、mise lane、CI/workflow を変更しなかった。slice 2 は selective runner interface と `K-RJ-03`/`K-RJ-04` の実走結果だけを同期し、slice 3 は低コスト proof 3 件の cost と 5 件の mutation matrix を同期した。いずれの slice も製品コード、proof harness、Property Test、bound、assume、unwind、mise lane、CI/workflow を恒久的には変更しない。`docs/specs/formal-verification.md` の最終的な Verification Specification 再構成と証跡/手順分離は `scarecrow173/synvelis#662` が担うため、本書はその構成を先取りせず、Issue #601 当時の spec と slice 1/2/3 で確定した設計判断を分けて記録する。
 
 ## 2. 入力正本と inventory の作り方
 
@@ -70,7 +70,7 @@ inventory の入力正本は次の通りである。
 - **assurance 種別**: `Example Tested`（具体例）、`Property Tested`（生成検査）、`Bounded Exhaustive`（bound 内の尽きる検査）、`Model Checked`（状態/順序モデル）、`Theorem Proved`（数学的定理）を区別する。実行 verdict ではない。
 - **必要保証**: `Required` は Issue #659 の受入に必要な保証、`Deferred` は今回の代表proofでは必須としないが後続で再評価する保証、`PT十分` は Property Test と具体境界で必要保証を満たすものである。
 - **risk**: 破損時のユーザー影響・権限昇格可能性・検出困難性から `致命/高/中` に分類する。
-- **現行 verdict**: sv601 時点の記録と、slice 1/2 で実施した `mise run test-formal` の結果を区別する。slice 1 では Kani を実走せず 2 pass・5 not_run の sv601 verdict を引き継ぎ、slice 2 では `K-RJ-03`/`K-RJ-04` だけを実走した。not_run は証明成功でも失敗でもない。
+- **現行 verdict**: sv601 時点の記録と、slice 1/2 で実施した `mise run test-formal` の結果を区別する。slice 1 では Kani を実走せず 2 pass・5 not_run の sv601 verdict を引き継ぎ、slice 2 では `K-RJ-03`/`K-RJ-04` だけを実走し、slice 3 では `K-GJ-02`/`K-GJ-03`/`K-RJ-03` を再実行した。not_run は証明成功でも失敗でもない。
 - **局所証明の転用禁止**: 固定長・固定 kind・小 stream・test double 上で成功した proof を、可変長 payload、Chunk allocation、永続化 recovery、認可製品全体、Project 整合性の証明として扱わない。
 
 ## 4. 入力/状態領域プロファイル
@@ -109,10 +109,10 @@ matrix で使う領域 ID を先に定義する。
 | --- | --- | --- | --- | --- | --- | --- |
 | GJ-P01 `replay_arbitrary_bytes_contract` | 任意入力で panic せず、stop closed、prefix_len≤len、CleanEnd iff 全検証、seq 0連番、prefix再replay CleanEnd | PT 256cases・Pass・秒級〜数十秒級 | Required・致命・PT + 代表BE | 製品 `replay` のみ。file/recovery は境界外 | D-GJ-RANDOM。512byte超・cap・recovery順序は除外/未証明 | K-GJ-01 を代表proofとして完走。PTとmutationは継続 |
 | GJ-P02 `encode_frame_layout` | magic/version/reserved/seq/len/payload/crc32 layout | PT 256cases・Pass | PT十分・高・PT | 製品 `encode_frame` pure layout | D-GJ-PAYLOAD。cap exactは別test。全長網羅は未証明 | PT維持。K-GJ-02とcap例証で補完 |
-| GJ-P03 `encode_seq0_replays_clean` | seq0 frameはpayload同一でCleanEnd | PT 256cases・Pass | Required・高・PT+BE(固定長) | encode/replayのみ | D-GJ-PAYLOAD。可変長・複数recordは未証明 | K-GJ-02を代表proofとして維持し、全長へ転用しない |
-| GJ-P04 `encode_nonzero_seq_is_gap` | seq≠0の単一frameはSequenceGap・records空・prefix0 | PT 256cases・Pass | Required候補・高・PT+BE | encode/replayのみ | D-GJ-PAYLOAD。複数record欠番は未証明 | K-GJ-03を低コストproofとして維持 |
+| GJ-P03 `encode_seq0_replays_clean` | seq0 frameはpayload同一でCleanEnd | PT 256cases・Pass；slice3 K-GJ-02 Pass（VT 33.076668s・runner 104.125s） | Required・高・PT+BE(固定長) | encode/replayのみ | D-GJ-PAYLOAD。可変長・複数recordは未証明 | K-GJ-02を代表proofとして維持し、全長へ転用しない |
+| GJ-P04 `encode_nonzero_seq_is_gap` | seq≠0の単一frameはSequenceGap・records空・prefix0 | PT 256cases・Pass；slice3 K-GJ-03 Pass（VT 24.030256s・runner 67.862s） | Required候補・高・PT+BE | encode/replayのみ | D-GJ-PAYLOAD。複数record欠番は未証明 | K-GJ-03を低コストproofとして維持 |
 | GJ-P05 `encode_stream_roundtrip` | 連番streamが順序・payloadを保ちCleanEnd | PT 256cases・Pass | PT十分・高・PT | encode列+replay | D-GJ-PAYLOAD。9件以上・任意長は未証明 | 単record/seq規律BEの接続条件としてPT維持。全stream単一proofにしない |
-| GJ-P06 `single_byte_corruption_never_verifies_past_it` | record k内1byte変異はk以降をintact化できない | PT 256cases・Pass。CRC除去mutationはexit101で期待Fail | Required・致命・PT（mutation検証済） | 有効stream変異→replay | D-GJ-MUT。複数byte/悪意的再構成/大規模streamは未証明 | PT+mutationをRequired維持。固定小stream変異BEの費用を次slice評価 |
+| GJ-P06 `single_byte_corruption_never_verifies_past_it` | record k内1byte変異はk以降をintact化できない | PT 256cases・Pass。CRC除去mutationはexit101で期待Fail；slice3 M-GJ-CRC killed（mutant exit 101・49.787s、revert exit 0） | Required・致命・PT（mutation検証済） | 有効stream変異→replay | D-GJ-MUT。複数byte/悪意的再構成/大規模streamは未証明 | PT+mutationをRequired維持。固定小stream変異BEの費用を次slice評価 |
 | GJ-P07 `truncation_is_torn_tail_or_boundary_clean` | record途中切断はTornTail、境界切断はCleanEnd、完全frameのみ検証 | PT 256cases・Pass | PT十分・高・PT | prefix切断 | D-GJ-TRUNC。FS喪失モデル合成は未証明 | PT維持。Recovery orderingへ接続条件を引き継ぐ |
 | GJ-P08 `trailing_garbage_stops_at_boundary` | 有効stream後の非magic tailはframe境界で停止 | PT 256cases・Pass | PT十分・中・PT | replay末尾分類 | D-GJ-TAIL。magic一致後の複合破損は未証明 | PT維持。K-GJ-01の任意streamBEで補完 |
 | GJ-P09 `journal_payload_serde_roundtrip` | 全6variantがserde_json無損失往復 | PT 256cases・Pass | PT十分・高・PT | serde boundaryのみ | D-GJ-SERDE。巨大/深いJSONとserde内部は未証明 | PT維持。Kani対象外判断を維持 |
@@ -126,10 +126,10 @@ matrix で使う領域 ID を先に定義する。
 
 | Property ID / test | 旧契約 | 現行検証・verdict・cost | 必要保証・risk・assurance | subject/境界 | 領域・除外・未証明 | 新検証案 |
 | --- | --- | --- | --- | --- | --- | --- |
-| GW-P01 `documented_forbidden_lists_stay_in_product` | documented forbidden keyは製品constから削られない | Just(())実質1case・Pass。token削除mutationはexit101で期待Fail | Required・致命・PT（mutation検証済） | wire scan表。serde内部は境界外 | D-WIRE-FORBIDDEN。製品側追加は許容。未記載keyの意味論は未証明 | test-local契約を維持。pure key scan分離後に有限key集合BE化 |
+| GW-P01 `documented_forbidden_lists_stay_in_product` | documented forbidden keyは製品constから削られない | Just(())実質1case・Pass。token削除mutationはexit101で期待Fail；slice3 M-WIRE-TOKEN killed（mutant exit 101・10.408s、revert exit 0） | Required・致命・PT（mutation検証済） | wire scan表。serde内部は境界外 | D-WIRE-FORBIDDEN。製品側追加は許容。未記載keyの意味論は未証明 | test-local契約を維持。pure key scan分離後に有限key集合BE化 |
 | GW-P02 `parse_never_panics_and_errors_are_closed` | 任意JSONでpanicせずErrは3分類に閉じる | PT 256cases・Pass | Deferred BE・致命・PT必須 | `serde_json::Value`→`WireRequest`解釈 | D-WIRE-JSON。深い/巨大JSON、duplicate key、serde内部は未証明 | key scan・形状検査・serde結合を分離し、pure部分だけBE化 |
 | GW-P03 `accepted_values_satisfy_allowlist_model` | 受理入力は独立allow-list modelを満たす | PT 256cases・Pass | Required・高・PT+independent model | near-valid requestとtest-local model | D-WIRE-NEAR。逆方向の全JSON一致は未証明 | 独立modelを維持し、pure structural checkerへ分解してBE候補化 |
-| GW-P04 `authority_fields_rejected` | top-level authority keyはSelfDeclaredAuthorityでfield echo | PT 256cases・Pass。token削除mutationは期待Fail | Required候補・致命・PT（mutation検証済） | top-level scan | 13key×任意JSON値。nested位置とwire外transportは未証明 | pure key scan抽出後、有限key×代表値BEを次slice評価 |
+| GW-P04 `authority_fields_rejected` | top-level authority keyはSelfDeclaredAuthorityでfield echo | PT 256cases・Pass。token削除mutationは期待Fail；slice3 M-WIRE-TOKEN killed（mutant exit 101・10.408s、revert exit 0） | Required候補・致命・PT（mutation検証済） | top-level scan | 13key×任意JSON値。nested位置とwire外transportは未証明 | pure key scan抽出後、有限key×代表値BEを次slice評価 |
 | GW-P05 `implicit_target_fields_rejected` | top-level implicit-target keyはImplicitTargetRejectedでfield echo | PT 256cases・Pass | Required候補・高・PT | top-level scan | 5key×任意JSON値。nested位置は未証明 | GW-P04と同じpure scan proofへ統合 |
 | GW-P06 `authority_precedes_implicit_target` | 両方存在時はauthority拒否が優先 | PT 256cases・Pass | Required候補・高・PT | scan順序 | authority13×implicit5。serdeエラーとの全優先順位は未証明 | scan順序をpure coreで有限BE候補化 |
 | GW-P07 `forbidden_keys_nested_under_args_not_rejected` | args配下の同名keyはtop-level拒否にしない | PT 256cases・Pass | PT十分・中・PT | top-level限定契約 | D-WIRE-NEAR+nested注入。args schema意味論は未証明 | PT維持。top-level scan BEの境界外条件として記録 |
@@ -142,9 +142,9 @@ matrix で使う領域 ID を先に定義する。
 | --- | --- | --- | --- | --- | --- | --- |
 | GP-P01 `unbound_agent_gets_uniform_no_auth` | authority chain失敗は全8stageで一律 `no applicable authorization` | PT 64cases・Pass。full rig/caseで高め | Required・致命・PT→BE候補 | `authorize_agent` chain。store/oracle/clockは注入境界 | D-POL-SPINE+UNBOUND。durable store・並行revoke・全id/string空間は未証明 | pure判定coreとsnapshotを分離し、stage×defect有限行列をBE化 |
 | GP-P02 `human_permitted_at_every_stage` | descriptor一致のtrusted humanは全stage/effects/commitでPermit・budget非消費 | PT 64cases・Pass | Required・高・PT→BE候補 | human短絡とdescriptor gate | trusted callerはAdapterSeal前提。caller attestation自体は未証明 | descriptor一致条件付き有限stage proofへ分解 |
-| GP-P03 `descriptor_mismatch_denies_first` | descriptor mismatchはhuman短絡より先にdeny | PT 64cases・Pass | Required・致命・PT→BE候補 | `evaluate_with`先頭gate | id mismatch/version driftの2形態。registry解決は未証明 | 有限id/version不一致モデルでBE化 |
-| GP-P04 `delegated_apply_commit_spend_is_monotone` | DelegatedApply Commitは1permit=1unit・枯渇deny・store spend整合 | PT 64cases・Pass | Required・致命・PT→BE/Model候補 | budget状態とcommit評価。storeはatomic test double | D-POL-BUDGET。crash・並行commit・無限budgetは未証明 | 小さいbudget state machineをKani化し、revoke/commit並行性はTLA+判定へ |
-| GP-P05 `preflight_and_deny_never_spend` | 非Commit/effects/Denyはbudgetを消費しない | PT 64cases・Pass | Required・致命・PT | stage×entrypoint消費規則 | D-POL-BUDGET。commit fence原子性・例外中断は未証明 | GP-P04と同じstate machine proofへ統合 |
+| GP-P03 `descriptor_mismatch_denies_first` | descriptor mismatchはhuman短絡より先にdeny | PT 64cases・Pass；slice3 M-POL-DENY-ORDER killed（mutant exit 101・10.267s、revert exit 0） | Required・致命・PT→BE候補 | `evaluate_with`先頭gate | id mismatch/version driftの2形態。registry解決は未証明 | 有限id/version不一致モデルでBE化 |
+| GP-P04 `delegated_apply_commit_spend_is_monotone` | DelegatedApply Commitは1permit=1unit・枯渇deny・store spend整合 | PT 64cases・Pass；slice3 M-POL-BUDGET killed（mutant exit 101・10.226s、revert exit 0） | Required・致命・PT→BE/Model候補 | budget状態とcommit評価。storeはatomic test double | D-POL-BUDGET。crash・並行commit・無限budgetは未証明 | 小さいbudget state machineをKani化し、revoke/commit並行性はTLA+判定へ |
+| GP-P05 `preflight_and_deny_never_spend` | 非Commit/effects/Denyはbudgetを消費しない | PT 64cases・Pass；slice3 M-POL-BUDGET killed（直接検出は GP-P04。mutant exit 101・10.226s、revert exit 0） | Required・致命・PT | stage×entrypoint消費規則 | D-POL-BUDGET。commit fence原子性・例外中断は未証明 | GP-P04と同じstate machine proofへ統合 |
 | GP-P06 `commit_entry_points_agree` | `evaluate_commit`と`decide(Commit)`は同じdecision/spend | PT 64cases・Pass | PT十分・高・PT | 2つの公開entrypoint | identical twin rig。並行store変更は未証明 | 公開API接続条件としてPT維持 |
 | GP-P07 `decisions_stay_in_closed_set` | decisionは閉集合、deny reasonは契約13集合 | PT 64cases・Pass | PT十分・高・PT | decision出力 | DENY_REASONS literal pin。新reason審査は運用外 | literal pin維持。reason追加時は契約変更として同期 |
 | GP-P08 `unresolved_or_uncovered_target_denies` | unresolved/scope外targetは全stageで`target outside grant scope` | PT 64cases・Pass | Required候補・致命・PT | target coverage+oracle resolution | Exact scope中心。Dynamic/Snapshot/relatedは未証明 | Exact membershipをpure scope algebraへ分離しBE。Dynamic関連はPT/別proof |
@@ -160,13 +160,13 @@ matrix で使う領域 ID を先に定義する。
 | RJ-P01 `replay_journal_arbitrary_bytes_contract` | 任意入力でpanicせず、prefix/seq/last_seq/CleanEnd/prefix再replay契約 | PT 256cases・Pass | Required・致命・PT+代表BE | 製品`replay_journal`のみ | D-RJ-RANDOM。512byte超・cap・FS統合は未証明 | K-RJ-01を代表proofとして完走。PT継続 |
 | RJ-P02 `encode_record_layout` | magic/version/kind∈{1,2,3}/seq/len/payload/crc32 layout | PT 256cases・Pass | PT十分・高・PT | `encode_record` pure layout | D-RJ-PAYLOAD。span count飽和・cap exactは別test | PT維持。K-RJ-02とcap例証で補完 |
 | RJ-P03 `encode_record_seq0_replays` | seq0 recordは全3kindで同一payloadに復元 | PT 256cases・Pass | Required・高・PT+BE(固定長kind) | encode/replayのみ | D-RJ-PAYLOAD。Chunk symbolic span count/Vec allocationは除外・未証明 | 固定長2kind BEを代表proof。ChunkはPT+cap境界+必要時harness分割 |
-| RJ-P04 `encode_record_nonzero_seq_is_gap` | seq≠0の単一recordはSequenceGap・last_seq None | PT 256cases・Pass | Required候補・高・PT | encode/replay | seq任意非零。複数record欠番・録音側Kaniは未証明 | gateway側同型proofの実測を使い、録音側小harness追加を次slice評価 |
+| RJ-P04 `encode_record_nonzero_seq_is_gap` | seq≠0の単一recordはSequenceGap・last_seq None | PT 256cases・Pass；slice3 M-RJ-SEQ killed（mutant exit 101・9.712s、revert exit 0） | Required候補・高・PT | encode/replay | seq任意非零。複数record欠番・録音側Kaniは未証明 | gateway側同型proofの実測を使い、録音側小harness追加を次slice評価 |
 | RJ-P05 `appender_stream_roundtrip_and_seq_discipline` | JournalAppenderが連番採番し連結streamが順序・payloadを保つ | PT 256cases・Pass | PT十分・高・PT | Appender+encode/replay | D-RJ-STREAM。9件以上・resume接続は未証明 | 単record/seq規律の接続条件としてPT維持 |
-| RJ-P06 `resumed_appender_frames_gap_as_fresh_stream` | resumed(n)はnから採番するがfresh replayではSequenceGap | PT 256cases・Pass | PT十分・高・PT（契約pin） | resumed appenderとfresh replay | start任意非零、record1..3。正しいresume手続きは未証明 | 現行契約pinを維持し、Recoveryモデルの前提にする |
+| RJ-P06 `resumed_appender_frames_gap_as_fresh_stream` | resumed(n)はnから採番するがfresh replayではSequenceGap | PT 256cases・Pass；slice3 M-RJ-SEQ killed（mutant exit 101・9.712s、revert exit 0） | PT十分・高・PT（契約pin） | resumed appenderとfresh replay | start任意非零、record1..3。正しいresume手続きは未証明 | 現行契約pinを維持し、Recoveryモデルの前提にする |
 | RJ-P07 `single_byte_corruption_never_verifies_past_it` | record k内1byte変異はk以降をintact化できない | PT 256cases・Pass。seq系mutation証跡あり | Required・致命・PT（mutation検証済） | 有効stream変異→replay | D-RJ-MUT。複数byte/媒体相関破損は未証明 | PT+mutation維持。小stream変異proofを費用評価 |
 | RJ-P08 `truncation_is_torn_tail_or_boundary_clean` | record途中切断はTornTail、境界切断はCleanEnd | PT 256cases・Pass | PT十分・高・PT | prefix切断 | D-RJ-TRUNC。FS喪失/power-loss順序は未証明 | PT維持。Recovery orderingへ接続 |
 | RJ-P09 `trailing_garbage_stops_at_boundary` | 有効stream後の非magic tailはrecord境界で停止 | PT 256cases・Pass | PT十分・中・PT | replay末尾分類 | D-RJ-TAIL。magic一致後の複合破損は未証明 | PT維持。K-RJ-01で補完 |
-| RJ-P10 `crc32_incremental_matches_oneshot` | incremental Crc32とone-shot crc32が任意分割で一致 | PT 256cases・Pass | Required・高・PT+代表BE | crc32/Crc32のみ | D-RJ-CRC。256byte超・多数分割BE・暗号学的耐性は未証明/契約外 | K-RJ-03を代表proofとして完走。既知vectorと併用 |
+| RJ-P10 `crc32_incremental_matches_oneshot` | incremental Crc32とone-shot crc32が任意分割で一致 | PT 256cases・Pass；slice3 K-RJ-03 Pass（VT 234.04366s・runner 288.605s） | Required・高・PT+代表BE | crc32/Crc32のみ | D-RJ-CRC。256byte超・多数分割BE・暗号学的耐性は未証明/契約外 | K-RJ-03を代表proofとして完走。既知vectorと併用 |
 | RJ-P11 `digest_fold_chain_is_deterministic` | raw foldとIntegrityDigest::foldが一致・hex固定16 lowercase | PT 256cases・Pass | PT十分・中・PT | digest fold/newtype/hex | values≤16。衝突耐性は契約外。全長chain証明は未証明 | PT維持。必要保証は決定性と用途分離であることを明記 |
 | RJ-P12 `session_transition_agrees_with_require` | legal/requireが4×4で一致し合法は3 forward edgeのみ | PT 256cases・Pass | Required・高・PT+全域BE | session state machine | D-SESSION。上位操作列/crash/recoveryは未証明 | K-RJ-04をRequired proofとして完走。TLA+対象は上位順序に限定 |
 | RJ-P13 `session_acceptance_gates_are_total` | registration iff Open、take verification iff Open/Closed | PT 256cases・Pass | Required・高・PT+全域BE | session state machine | D-SESSION。操作受付の文脈・副作用は未証明 | K-RJ-04に統合。上位workflowは別Property |
@@ -178,11 +178,11 @@ matrix で使う領域 ID を先に定義する。
 | Property ID / harness | 旧契約 | 現行検証・verdict・cost | 必要保証・risk・assurance | subject/境界 | 領域・除外・未証明 | 新検証案 |
 | --- | --- | --- | --- | --- | --- | --- |
 | K-GJ-01 `replay_contract_bounded` | ≤44byte任意streamでGJ-P01相当の分類契約 | sv601ではsolver起動後OOM/VM crash・NotRun。cost不明 | Required・致命・Bounded Exhaustive(未完了) | 製品gateway replay | K-STREAM44。44byte超・cap・file/recoveryは未証明 | 代表proof。runner分割/選択実行/KANI_JOBS=1または2で再測定し、proof boundaryを縮めずに原因分類 |
-| K-GJ-02 `encode_replay_roundtrip_bounded` | 固定12byte payloadのseq0 roundtrip | Pass・0/642 failed・45.5s | Required・高・Bounded Exhaustive | gateway encode/replay | K-FIXED12。可変長・複数recordは未証明 | 代表proofとして維持。passを全長証明へ転用しない |
-| K-GJ-03 `nonzero_seq_is_gap_bounded` | 固定8byte payload・任意seq≠0がSequenceGap | Pass・0/610 failed・31.4s | Required候補・高・Bounded Exhaustive | gateway encode/replay | K-FIXED8-NONZERO。複数record欠番は未証明 | 維持。録音側同型proof追加は次sliceで費用比較 |
+| K-GJ-02 `encode_replay_roundtrip_bounded` | 固定12byte payloadのseq0 roundtrip | Pass・0/642 failed (6 unreachable)・Verification Time 33.076668s・runner wall-clock 104.125s・sync `34e69fb27774f41f6aded1a24320be90ffd7477a`（historical sv601 45.5s） | Required・高・Bounded Exhaustive | gateway encode/replay | K-FIXED12。可変長・複数recordは未証明 | 代表proofとして維持。passを全長証明へ転用しない |
+| K-GJ-03 `nonzero_seq_is_gap_bounded` | 固定8byte payload・任意seq≠0がSequenceGap | Pass・0/610 failed (10 unreachable)・Verification Time 24.030256s・runner wall-clock 67.862s・sync `34e69fb27774f41f6aded1a24320be90ffd7477a`（historical sv601 31.4s） | Required候補・高・Bounded Exhaustive | gateway encode/replay | K-FIXED8-NONZERO。複数record欠番は未証明 | 維持。録音側同型proof追加は次sliceで費用比較 |
 | K-RJ-01 `replay_journal_contract_bounded` | ≤44byte任意streamでRJ-P01相当の分類契約 | solver起動後OOM/VM crash・NotRun。cost不明 | Required・致命・Bounded Exhaustive(未完了) | 製品recording replay | K-STREAM44。44<48でChunk symbolic allocation経路を構造除外。長大stream/cap/FSは未証明 | 最優先代表proof。選択実行と資源分類で再測定 |
 | K-RJ-02 `encode_replay_roundtrip_bounded` | Checkpoint/Finalizeの全field symbolic・seq0 roundtrip | solver起動後OOM/VM crash・NotRun。cost不明 | Required・高・Bounded Exhaustive(未完了) | 製品recording encode/replay | K-FIXED-KINDS。Chunk/Vec<JournalSpan>/可変長は未証明 | 代表proof。Chunkは別harnessまたはPTとして分離 |
-| K-RJ-03 `crc32_split_equivalence_bounded` | 固定16byte・任意split≤16でincremental=one-shot | Pass・0/131 failed (1 unreachable)・Verification Time 282.0517s・runner wall-clock 310.115s・sync `24d2e2a25291d4e8ec75c7f1ea41bad049421be5` | Required・高・Bounded Exhaustive | 製品crc32/Crc32 | K-CRC16。16byte超・多数分割・任意長数学証明は未証明 | pass は K-CRC16 の内側だけの保証として記録。変更時は選択実行で再検証する |
+| K-RJ-03 `crc32_split_equivalence_bounded` | 固定16byte・任意split≤16でincremental=one-shot | Pass・0/131 failed (1 unreachable)・slice3 Verification Time 234.04366s・runner wall-clock 288.605s・sync `34e69fb27774f41f6aded1a24320be90ffd7477a`（slice2: 282.0517s/310.115s） | Required・高・Bounded Exhaustive | 製品crc32/Crc32 | K-CRC16。16byte超・多数分割・任意長数学証明は未証明 | pass は K-CRC16 の内側だけの保証として記録。変更時は選択実行で再検証する |
 | K-RJ-04 `session_transitions_exhaustive` | 4×4遷移とacceptance gatesを全網羅 | NotRun・solver が 300s 予算内に完了せず外部停止・runner wall-clock 634.49s・sync `24d2e2a25291d4e8ec75c7f1ea41bad049421be5` | Required・高・Bounded Exhaustive(有限全域・未完了) | 製品session SM | K-SESSION4。上位操作列/crash/recoveryは未証明 | solver cost の原因調査と harness 分割可否を次 slice で判断する。bound/weakening はしない |
 
 ## 6. Journal Codec・CRC32・Session Transition の保証設計
@@ -211,6 +211,10 @@ matrix で使う領域 ID を先に定義する。
 slice 2 の selective proof 実走（sync `24d2e2a25291d4e8ec75c7f1ea41bad049421be5`）では、`K-RJ-03` が `VERIFICATION:- SUCCESSFUL`・0/131 failed・Verification Time 282.0517s で Pass した。runner wall-clock は 310.115s で、compile/loading を含むため verification time と区別する。`K-RJ-04` は solver が 300s 予算内に完了せず、10 分を超えた時点で invocation を外部停止した。反例や unwinding assertion は出ていないため、結果は Fail ではなく cause class `solver` の NotRun である。`format!` を含む illegal-transition error path が solver 入力を大きくしている可能性はあるが、完了ログがないため未確定として記録する。
 
 これらの結果は保証範囲を広げない。`K-RJ-03` の Pass は固定 16 byte・split ≤16 の incremental/one-shot 同値だけを示し、任意長、3 以上の分割、暗号学的衝突耐性を示さない。`K-RJ-04` が将来 Pass しても、`SessionState` 4×4 と acceptance gate の有限全域だけを示し、上位 recording workflow や crash recovery を示さない。
+
+slice 3 の selective proof 実走（sync `34e69fb27774f41f6aded1a24320be90ffd7477a`）では、低コストの 3 件がいずれも 300s の verification budget 内で Pass した。K-GJ-02 は Verification Time 33.076668s・runner wall-clock 104.125s、K-GJ-03 は 24.030256s・67.862s、K-RJ-03 は 234.04366s・288.605s である。runner wall-clock は compile/loading を含むため Verification Time と混ぜない。実行順は K-GJ-02、K-GJ-03、K-RJ-03 であり、cache 状態と環境差が残るため、historical baseline との差分から性能因果は断定しない。
+
+これらの Pass の接続条件は限定的である。K-GJ-02 は固定 12 byte・seq0・単 record の GJ-P03 を補強するが、可変長、複数 record、full stream を証明しない。K-GJ-03 は固定 8 byte・単 record の任意非零 seq gap を示すが、複数 record 欠番や上位 resume を証明しない。K-RJ-03 は固定 16 byte・split ≤16 の RJ-P10 を示し、任意長、3 以上分割、暗号学的耐性を証明しない。上位 Journal/Recovery/製品全体契約を導くには、GJ-P05/RJ-P05 の stream roundtrip、resume/recovery ordering、Chunk/cap 境界、FS durability などの接続条件が残る。
 
 ### 6.3 保証制約の引き継ぎ
 
@@ -312,6 +316,14 @@ slice 2 の runner は `pass`/`fail`/`not_run(environment_blocked)` の語彙を
 4. WSL VM crash が出たら同じVMで連続再試行せず、Windows event/WSL journal/sibling CBMC有無を記録してから再起動またはクリーン環境で再実行する。
 5. 全件 lane の成功は代表 proof 群の合否集約であり、未対象領域の保証ではない。harnessごとの verdict を evidence に残す。
 
+slice 3 では次の 3 件を `KANI_JOBS=1` で再実行した。いずれも canonical な `mise run test-formal-kani` 入口である。
+
+- `KANI_PACKAGE=synvelis-gateway KANI_HARNESS=encode_replay_roundtrip_bounded KANI_JOBS=1 mise run test-formal-kani`
+- `KANI_PACKAGE=synvelis-gateway KANI_HARNESS=nonzero_seq_is_gap_bounded KANI_JOBS=1 mise run test-formal-kani`
+- `KANI_PACKAGE=synvelis-recording KANI_HARNESS=crc32_split_equivalence_bounded KANI_JOBS=1 mise run test-formal-kani`
+
+mutation は 1 件ずつ適用し、変異 diff、canonical `mise run test-formal` の exit code、検出 test、revert 後の緑を `evidence/sv659/mutation-runs.jsonl` に記録する。mutation killed は oracle の検出能力証拠であり、Property 自体の assurance kind を引き上げない。
+
 ## 10. Ruviform への還元判定
 
 Ruviform へ還元すべきものは、製品固有 Property ではなく、複数製品で再利用できる runner/evidence 基盤だけである。具体的には、harnessごとの verdict/cause/resource 使用量を機械可読に残す実行器、Kani/WSL環境検出、選択実行・再実行計画、assurance metadata schema が候補になる。一方、Journal frame、WireRequest、GrantPolicy、SessionState、Recording recovery は Synvelis の製品契約なので Ruviform に移さない。Ruviform 側の proof や runner pass を Synvelis 製品契約の pass へ転用もしない。
@@ -323,5 +335,5 @@ Ruviform へ還元すべきものは、製品固有 Property ではなく、複�
 - `K-RJ-04` の solver cost 原因調査と分割可否、`K-RJ-01`/`K-RJ-02`/`K-GJ-01` の実走、既存 pass 2 件を含む回帰、harnessごとの peak memory 計測と full cause classifier。
 - Authorization pure core の抽出可否を判断し、Wire scan・存在秘匿・descriptor・budget・grant次元・scope/effectsの代表BEを設計どおり実装するかを決める。
 - Recovery ordering model の atomic action/仮定を確定し、TLA+ 等の tool-fit と最小modelを作る。
-- mutation は oracle 独立性を壊す自己参照を避け、少なくとも CRC除去、seq検査除去、wire forbidden token削除、deny先攻順序、budget消費条件の代表的変異を計画する。
-- slice 2 は selective interface、`K-RJ-03` の bounded pass、`K-RJ-04` の solver NotRun までを確定した。重い replay/round-trip proof、Authorization、Recovery ordering、mutation、full cause classifier、全件 cost comparison は未実装または未実走であり、証明済みとして扱わない。
+- mutation は slice3 で CRC除去、seq検査除去、wire forbidden token削除、deny先攻順序、budget消費条件の 5 件を実施し、いずれも killed として記録した。検出能力の詳細は mutation ledger と cost matrix を正本とする。
+- slice 2 は selective interface、`K-RJ-03` の bounded pass、`K-RJ-04` の solver NotRun までを確定した。slice 3 は低コスト proof 3 件の再実行と 5 件の mutation matrix を確定したが、重い replay/round-trip proof、Authorization pure core、Recovery ordering、full cause classifier、peak memory 計測、全件 cost comparison、Sync Commit 整備は未実装または未実走であり、証明済みとして扱わない。

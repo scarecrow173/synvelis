@@ -1,0 +1,303 @@
+{
+  "schema": "syn.sv659.cost-mutation-matrix/v1",
+  "generated_at": "2026-11-26T13:09:59.762Z",
+  "sync_sha": "34e69fb27774f41f6aded1a24320be90ffd7477a",
+  "branch": "test/659-mutation-cost-matrix",
+  "measurement_environment": {
+    "property_tests": {
+      "host": "Windows x64",
+      "environment_kind": "native-cli",
+      "arch": "x86_64",
+      "memory_total_mb": 32056,
+      "logical_cpus": 16
+    },
+    "kani": {
+      "host": "Windows x64",
+      "environment_kind": "wsl2",
+      "wsl_distro": "Ubuntu",
+      "arch": "x86_64",
+      "memory_total_mb": 32056,
+      "logical_cpus": 16
+    },
+    "toolchain_kani": {
+      "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",
+      "kani": "Kani Rust Verifier 0.68.0 (cargo plugin)",
+      "cbmc": "CBMC 6.11.0"
+    },
+    "toolchain_property_tests": {
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)"
+    },
+    "measurement_order": [
+      "baseline test-formal",
+      "K-GJ-02",
+      "K-GJ-03",
+      "K-RJ-03",
+      "M-GJ-CRC",
+      "M-RJ-SEQ",
+      "M-WIRE-TOKEN",
+      "M-POL-DENY-ORDER",
+      "M-POL-BUDGET"
+    ],
+    "cache_and_noise_note": "runner wall-clock は compile/loading を含む。K-GJ-02 はこの worktree で最初の gateway selective run、K-GJ-03 は直後の warm cache、K-RJ-03 は recording crate selective run として測定した。WSL load average sample は 1.24/0.72/0.32・cbmc 1 process。環境差と cache 状態差から性能因果は断定しない。",
+    "peak_memory": "unmeasured — runner は RSS を計測せず、疎な sample を peak と偽らない"
+  },
+  "historical_baselines": [
+    {
+      "proof_id": "K-GJ-02",
+      "source": "evidence/sv601 inventory value",
+      "reported_cost_seconds": 45.5,
+      "metric_note": "現存 sv601 artifact から計測項目名を一意に復元できない。参考値として併記し、同指標比較の主証拠にはしない。"
+    },
+    {
+      "proof_id": "K-GJ-03",
+      "source": "evidence/sv601 inventory value",
+      "reported_cost_seconds": 31.4,
+      "metric_note": "現存 sv601 artifact から計測項目名を一意に復元できない。参考値として併記し、同指標比較の主証拠にはしない。"
+    },
+    {
+      "proof_id": "K-RJ-03",
+      "source": "slice2 formal-proof-runs.jsonl",
+      "kani_verification_seconds": 282.0517,
+      "runner_elapsed_seconds": 310.115,
+      "metric_note": "slice3 は Verification Time 234.04366s・runner wall-clock 288.605s。環境差と cache 状態差から性能因果は断定しない。"
+    }
+  ],
+  "rows": [
+    {
+      "property_id": "GJ-P03",
+      "property_test": "encode_seq0_replays_clean",
+      "current_verification": "Property Tested・Pass",
+      "selective_proof": {
+        "proof_id": "K-GJ-02",
+        "verdict": "Pass",
+        "kani_verification_seconds": 33.076668,
+        "runner_elapsed_seconds": 104.125,
+        "shell_elapsed_seconds": 105.486,
+        "artifact": "evidence/sv659/slice3-kgj02-encode-replay-roundtrip-bounded.txt",
+        "harness": "encode_replay_roundtrip_bounded"
+      },
+      "mutation": null,
+      "connection_conditions": [
+        "固定 12 byte・seq0・単 record のみを補強する",
+        "可変長・複数 record・full stream・recovery は GJ-P05、resume/recovery ordering、Chunk/cap 境界、FS durability の接続条件として残る"
+      ],
+      "unproven_areas": [
+        "可変長",
+        "複数 record",
+        "full stream",
+        "永続化 recovery"
+      ]
+    },
+    {
+      "property_id": "GJ-P04",
+      "property_test": "encode_nonzero_seq_is_gap",
+      "current_verification": "Property Tested・Pass",
+      "selective_proof": {
+        "proof_id": "K-GJ-03",
+        "verdict": "Pass",
+        "kani_verification_seconds": 24.030256,
+        "runner_elapsed_seconds": 67.862,
+        "shell_elapsed_seconds": 69.082,
+        "artifact": "evidence/sv659/slice3-kgj03-nonzero-seq-is-gap-bounded.txt",
+        "harness": "nonzero_seq_is_gap_bounded"
+      },
+      "mutation": null,
+      "connection_conditions": [
+        "固定 8 byte・任意非零 seq・単 record のみを補強する",
+        "複数 record 欠番・上位 resume・full stream・recovery ordering は別条件として残る"
+      ],
+      "unproven_areas": [
+        "複数 record 欠番",
+        "resume/recovery ordering",
+        "full stream"
+      ]
+    },
+    {
+      "property_id": "RJ-P10",
+      "property_test": "crc32_incremental_matches_oneshot",
+      "current_verification": "Property Tested・Pass",
+      "selective_proof": {
+        "proof_id": "K-RJ-03",
+        "verdict": "Pass",
+        "kani_verification_seconds": 234.04366,
+        "runner_elapsed_seconds": 288.605,
+        "shell_elapsed_seconds": 289.802,
+        "artifact": "evidence/sv659/slice3-krj03-crc32-split-equivalence-bounded.txt",
+        "harness": "crc32_split_equivalence_bounded"
+      },
+      "mutation": null,
+      "connection_conditions": [
+        "固定 16 byte・split ≤16 の 2 分割同値のみを補強する",
+        "任意長・3 以上分割・暗号学的耐性・journal/recovery 全体契約は対象外"
+      ],
+      "unproven_areas": [
+        "16 byte 超",
+        "3 以上分割",
+        "任意長の数学証明",
+        "暗号学的耐性"
+      ]
+    },
+    {
+      "property_id": "GJ-P06",
+      "property_test": "single_byte_corruption_never_verifies_past_it",
+      "current_verification": "Property Tested・Pass",
+      "selective_proof": null,
+      "mutation": {
+        "mutation_id": "M-GJ-CRC",
+        "verdict": "killed",
+        "detected_tests": [
+          "single_byte_corruption_never_verifies_past_it"
+        ],
+        "mutant_exit_code": 101,
+        "mutant_wall_clock_ms": 49787,
+        "revert_exit_code": 0,
+        "revert_wall_clock_ms": 14790,
+        "artifacts": [
+          "evidence/sv659/slice3-mgj-crc-mutation.diff",
+          "evidence/sv659/slice3-mgj-crc-mutant-test-formal.txt",
+          "evidence/sv659/slice3-mgj-crc-revert-test-formal.txt"
+        ]
+      },
+      "connection_conditions": [
+        "mutation killed は oracle の検出能力証拠であり assurance kind を引き上げない",
+        "複数 byte 破損・悪意的再構成・大規模 stream・FS durability は残る"
+      ],
+      "unproven_areas": [
+        "複数 byte/相関破損",
+        "大規模 stream",
+        "媒体/FS 破損モデル"
+      ]
+    },
+    {
+      "property_id": "RJ-P04/RJ-P06",
+      "property_test": "encode_record_nonzero_seq_is_gap / resumed_appender_frames_gap_as_fresh_stream",
+      "current_verification": "Property Tested・Pass",
+      "selective_proof": null,
+      "mutation": {
+        "mutation_id": "M-RJ-SEQ",
+        "verdict": "killed",
+        "detected_tests": [
+          "encode_record_nonzero_seq_is_gap",
+          "resumed_appender_frames_gap_as_fresh_stream"
+        ],
+        "mutant_exit_code": 101,
+        "mutant_wall_clock_ms": 9712,
+        "revert_exit_code": 0,
+        "revert_wall_clock_ms": 6130,
+        "artifacts": [
+          "evidence/sv659/slice3-mrj-seq-mutation.diff",
+          "evidence/sv659/slice3-mrj-seq-mutant-test-formal.txt",
+          "evidence/sv659/slice3-mrj-seq-revert-test-formal.txt"
+        ]
+      },
+      "connection_conditions": [
+        "mutation killed は seq oracle の検出能力証拠であり assurance kind を引き上げない",
+        "複数 record 欠番・正しい resume 手続き・recovery ordering は残る"
+      ],
+      "unproven_areas": [
+        "複数 record 欠番",
+        "正しい resume/recovery 手続き"
+      ]
+    },
+    {
+      "property_id": "GW-P01/GW-P04",
+      "property_test": "documented_forbidden_lists_stay_in_product / authority_fields_rejected",
+      "current_verification": "Property Tested・Pass",
+      "selective_proof": null,
+      "mutation": {
+        "mutation_id": "M-WIRE-TOKEN",
+        "verdict": "killed",
+        "detected_tests": [
+          "wire::documented_forbidden_lists_stay_in_product",
+          "wire::authority_precedes_implicit_target",
+          "wire::authority_fields_rejected"
+        ],
+        "mutant_exit_code": 101,
+        "mutant_wall_clock_ms": 10408,
+        "revert_exit_code": 0,
+        "revert_wall_clock_ms": 11076,
+        "artifacts": [
+          "evidence/sv659/slice3-mwire-token-mutation.diff",
+          "evidence/sv659/slice3-mwire-token-mutant-test-formal.txt",
+          "evidence/sv659/slice3-mwire-token-revert-test-formal.txt"
+        ]
+      },
+      "connection_conditions": [
+        "mutation killed は独立 oracle の検出能力証拠であり assurance kind を引き上げない",
+        "nested位置・serde 後段・bind/Operation 解釈・wire 外 transport は残る"
+      ],
+      "unproven_areas": [
+        "nested位置",
+        "bind/Operation 解釈",
+        "wire 外 transport"
+      ]
+    },
+    {
+      "property_id": "GP-P03",
+      "property_test": "descriptor_mismatch_denies_first",
+      "current_verification": "Property Tested・Pass",
+      "selective_proof": null,
+      "mutation": {
+        "mutation_id": "M-POL-DENY-ORDER",
+        "verdict": "killed",
+        "detected_tests": [
+          "policy::descriptor_mismatch_denies_first"
+        ],
+        "mutant_exit_code": 101,
+        "mutant_wall_clock_ms": 10267,
+        "revert_exit_code": 0,
+        "revert_wall_clock_ms": 10037,
+        "artifacts": [
+          "evidence/sv659/slice3-mpol-deny-order-mutation.diff",
+          "evidence/sv659/slice3-mpol-deny-order-mutant-test-formal.txt",
+          "evidence/sv659/slice3-mpol-deny-order-revert-test-formal.txt"
+        ]
+      },
+      "connection_conditions": [
+        "mutation killed は descriptor gate 順序 oracle の検出能力証拠であり Authorization pure core の Required proof を代替しない",
+        "descriptor registry 解決・store/oracle/clock・並行 revoke・pure core BE は残る"
+      ],
+      "unproven_areas": [
+        "descriptor registry 解決",
+        "pure core BE",
+        "並行 revoke"
+      ]
+    },
+    {
+      "property_id": "GP-P04/GP-P05",
+      "property_test": "delegated_apply_commit_spend_is_monotone / preflight_and_deny_never_spend",
+      "current_verification": "Property Tested・Pass",
+      "selective_proof": null,
+      "mutation": {
+        "mutation_id": "M-POL-BUDGET",
+        "verdict": "killed",
+        "detected_tests": [
+          "policy::delegated_apply_commit_spend_is_monotone"
+        ],
+        "mutant_exit_code": 101,
+        "mutant_wall_clock_ms": 10226,
+        "revert_exit_code": 0,
+        "revert_wall_clock_ms": 9991,
+        "artifacts": [
+          "evidence/sv659/slice3-mpol-budget-mutation.diff",
+          "evidence/sv659/slice3-mpol-budget-mutant-test-formal.txt",
+          "evidence/sv659/slice3-mpol-budget-revert-test-formal.txt"
+        ]
+      },
+      "connection_conditions": [
+        "mutation killed は budget spend oracle の検出能力証拠であり Authorization pure core の Required proof を代替しない",
+        "crash・並行 commit・無限 budget・preflight/deny の全経路・pure core BE/model は残る"
+      ],
+      "unproven_areas": [
+        "crash/並行 commit",
+        "pure core BE/model",
+        "無限 budget"
+      ]
+    }
+  ],
+  "evidence_refs": [
+    "evidence/sv659/formal-proof-runs.jsonl",
+    "evidence/sv659/mutation-runs.jsonl",
+    "evidence/sv659/slice3-baseline-test-formal.txt"
+  ]
+}

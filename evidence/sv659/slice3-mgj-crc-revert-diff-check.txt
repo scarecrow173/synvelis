@@ -1,0 +1,4 @@
+command: git diff --exit-code -- crates/synvelis-gateway/src/journal.rs
+--- output ---
+--- result ---
+exit_code: 0
