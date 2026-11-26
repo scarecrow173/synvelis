@@ -4,10 +4,13 @@
 //! copy-restore quality preservation, all over mock ports/stores.
 
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
-use synvelis_project::plugin_state::{PLUGIN_STATE_SCHEMA_VERSION, plugin_state_manifest_name};
+use synvelis_project::plugin_state::{
+    PLUGIN_STATE_SCHEMA_VERSION, PluginStateStoreOperation, PluginStateStorePublishEffect,
+    plugin_state_manifest_name,
+};
 use synvelis_project::*;
 
 // ── Fixtures ─────────────────────────────────────────────────────
@@ -173,6 +176,14 @@ impl FaultStore {
 }
 
 impl PluginStateStore for FaultStore {
+    fn publish_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError> {
+        self.inner.publish_manifest(bytes)
+    }
+
+    fn update_head(&mut self, name: &str) -> Result<(), PluginStateStoreError> {
+        self.inner.update_head(name)
+    }
+
     fn save_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError> {
         match self.manifest_indeterminate {
             Some(true) => {
@@ -180,9 +191,13 @@ impl PluginStateStore for FaultStore {
                 // undetermined — the session must reconcile by
                 // HEAD readback.
                 self.inner.save_manifest(bytes)?;
-                Err(PluginStateStoreError::Indeterminate)
+                Err(PluginStateStoreError::Indeterminate {
+                    operation: PluginStateStoreOperation::HeadUpdate,
+                })
             }
-            Some(false) => Err(PluginStateStoreError::Indeterminate),
+            Some(false) => Err(PluginStateStoreError::Indeterminate {
+                operation: PluginStateStoreOperation::HeadUpdate,
+            }),
             None => self.inner.save_manifest(bytes),
         }
     }
@@ -205,7 +220,9 @@ impl PluginStateStore for FaultStore {
                 if publish {
                     self.inner.put_blob(digest, bytes)?;
                 }
-                Err(PluginStateStoreError::Indeterminate)
+                Err(PluginStateStoreError::Indeterminate {
+                    operation: PluginStateStoreOperation::BlobPublish,
+                })
             }
             None => self.inner.put_blob(digest, bytes),
         }
@@ -214,6 +231,237 @@ impl PluginStateStore for FaultStore {
     fn read_blob(&self, digest: &ContentDigest) -> Result<Vec<u8>, PluginStateStoreError> {
         self.inner.read_blob(digest)
     }
+}
+
+// ── Permission-denial matrix store ───────────────────────────────
+
+fn injected_permission_denied(operation: PluginStateStoreOperation) -> PluginStateStoreError {
+    let effect = match operation {
+        PluginStateStoreOperation::BlobPublish
+        | PluginStateStoreOperation::ManifestPublish
+        | PluginStateStoreOperation::HeadUpdate => PluginStateStorePublishEffect::NotPublished,
+        PluginStateStoreOperation::HeadRead
+        | PluginStateStoreOperation::ManifestRead
+        | PluginStateStoreOperation::BlobRead => PluginStateStorePublishEffect::NotApplicable,
+    };
+    PluginStateStoreError::PermissionDenied {
+        operation,
+        effect,
+        detail: format!("deterministic fault injection at {operation}"),
+    }
+}
+
+/// Deterministic store-boundary fault seam for the permission
+/// matrix. Unlike an OS permission probe, every denial is injected
+/// before the denied write takes effect; the indeterminate cases
+/// separately control whether the bytes/HEAD effect was applied.
+/// The store keeps its objects in memory so tests can inspect the
+/// exact manifest/blob set without filesystem or OS-account
+/// dependencies.
+struct MatrixStore {
+    manifests: BTreeMap<String, Vec<u8>>,
+    blobs: BTreeMap<String, Vec<u8>>,
+    head_name: Option<String>,
+    denied: BTreeSet<PluginStateStoreOperation>,
+    calls: Rc<RefCell<Vec<PluginStateStoreOperation>>>,
+    blob_indeterminate: Option<bool>,
+    head_indeterminate: Option<bool>,
+}
+
+impl MatrixStore {
+    fn new() -> Self {
+        Self {
+            manifests: BTreeMap::new(),
+            blobs: BTreeMap::new(),
+            head_name: None,
+            denied: BTreeSet::new(),
+            calls: Rc::new(RefCell::new(Vec::new())),
+            blob_indeterminate: None,
+            head_indeterminate: None,
+        }
+    }
+
+    fn deny(&mut self, operation: PluginStateStoreOperation) {
+        self.denied.insert(operation);
+    }
+
+    fn check(&mut self, operation: PluginStateStoreOperation) -> Result<(), PluginStateStoreError> {
+        self.calls.borrow_mut().push(operation);
+        if self.denied.contains(&operation) {
+            return Err(injected_permission_denied(operation));
+        }
+        Ok(())
+    }
+
+    fn manifest_set(&self) -> BTreeMap<String, Vec<u8>> {
+        self.manifests.clone()
+    }
+
+    fn blob_set(&self) -> BTreeMap<String, Vec<u8>> {
+        self.blobs.clone()
+    }
+}
+
+impl PluginStateStore for MatrixStore {
+    fn publish_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError> {
+        self.check(PluginStateStoreOperation::ManifestPublish)?;
+        let name = plugin_state_manifest_name(bytes);
+        self.manifests.insert(name.clone(), bytes.to_vec());
+        Ok(name)
+    }
+
+    fn update_head(&mut self, name: &str) -> Result<(), PluginStateStoreError> {
+        self.check(PluginStateStoreOperation::HeadUpdate)?;
+        if !is_manifest_name(name) {
+            return Err(PluginStateStoreError::Failed(format!(
+                "invalid manifest name {name:?}"
+            )));
+        }
+        self.head_name = Some(name.to_owned());
+        Ok(())
+    }
+
+    fn save_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError> {
+        // Direct denial is an admission-control failure injected
+        // before any write. This is deliberate: the protection
+        // oracle must not depend on whether a real OS happens to
+        // deny a rename early or late. Partial effects are covered
+        // by the separate indeterminate injection below.
+        if self
+            .denied
+            .contains(&PluginStateStoreOperation::ManifestPublish)
+        {
+            self.calls
+                .borrow_mut()
+                .push(PluginStateStoreOperation::ManifestPublish);
+            return Err(injected_permission_denied(
+                PluginStateStoreOperation::ManifestPublish,
+            ));
+        }
+        if self.denied.contains(&PluginStateStoreOperation::HeadUpdate) {
+            self.calls
+                .borrow_mut()
+                .push(PluginStateStoreOperation::HeadUpdate);
+            return Err(injected_permission_denied(
+                PluginStateStoreOperation::HeadUpdate,
+            ));
+        }
+
+        self.calls
+            .borrow_mut()
+            .push(PluginStateStoreOperation::ManifestPublish);
+        let name = plugin_state_manifest_name(bytes);
+        self.manifests.insert(name.clone(), bytes.to_vec());
+        self.calls
+            .borrow_mut()
+            .push(PluginStateStoreOperation::HeadUpdate);
+        if let Some(applied) = self.head_indeterminate {
+            if applied {
+                self.head_name = Some(name.clone());
+            }
+            return Err(PluginStateStoreError::Indeterminate {
+                operation: PluginStateStoreOperation::HeadUpdate,
+            });
+        }
+        self.head_name = Some(name.clone());
+        Ok(name)
+    }
+
+    fn head(&self) -> Result<Option<String>, PluginStateStoreError> {
+        self.calls
+            .borrow_mut()
+            .push(PluginStateStoreOperation::HeadRead);
+        if self.denied.contains(&PluginStateStoreOperation::HeadRead) {
+            return Err(injected_permission_denied(
+                PluginStateStoreOperation::HeadRead,
+            ));
+        }
+        Ok(self.head_name.clone())
+    }
+
+    fn read_manifest(&self, name: &str) -> Result<Vec<u8>, PluginStateStoreError> {
+        self.calls
+            .borrow_mut()
+            .push(PluginStateStoreOperation::ManifestRead);
+        if self
+            .denied
+            .contains(&PluginStateStoreOperation::ManifestRead)
+        {
+            return Err(injected_permission_denied(
+                PluginStateStoreOperation::ManifestRead,
+            ));
+        }
+        if !is_manifest_name(name) {
+            return Err(PluginStateStoreError::Failed(format!(
+                "invalid manifest name {name:?}"
+            )));
+        }
+        self.manifests
+            .get(name)
+            .cloned()
+            .ok_or(PluginStateStoreError::NotFound)
+    }
+
+    fn put_blob(
+        &mut self,
+        digest: &ContentDigest,
+        bytes: &[u8],
+    ) -> Result<(), PluginStateStoreError> {
+        self.check(PluginStateStoreOperation::BlobPublish)?;
+        if let Some(applied) = self.blob_indeterminate {
+            if applied {
+                self.blobs.insert(digest_hex(digest), bytes.to_vec());
+            }
+            return Err(PluginStateStoreError::Indeterminate {
+                operation: PluginStateStoreOperation::BlobPublish,
+            });
+        }
+        self.blobs.insert(digest_hex(digest), bytes.to_vec());
+        Ok(())
+    }
+
+    fn read_blob(&self, digest: &ContentDigest) -> Result<Vec<u8>, PluginStateStoreError> {
+        self.calls
+            .borrow_mut()
+            .push(PluginStateStoreOperation::BlobRead);
+        if self.denied.contains(&PluginStateStoreOperation::BlobRead) {
+            return Err(injected_permission_denied(
+                PluginStateStoreOperation::BlobRead,
+            ));
+        }
+        self.blobs
+            .get(&digest_hex(digest))
+            .cloned()
+            .ok_or(PluginStateStoreError::NotFound)
+    }
+}
+
+fn captured_matrix_fixture(
+    blob: &[u8],
+    quality: StateCaptureQuality,
+) -> (ProjectController, ProcessorId, MockPort) {
+    let mut c = controller();
+    let processor = add_processor(&mut c, "matrix", resolved("matrix"));
+    let mut port = MockPort::default();
+    port.bind_all(&[processor]);
+    port.captures
+        .insert(processor, Ok(MockPort::capture_ok(blob, quality)));
+    (c, processor, port)
+}
+
+fn save_matrix_fixture(
+    blob: &[u8],
+) -> (
+    ProjectController,
+    ProcessorId,
+    PluginStateSession<MockPort, MatrixStore>,
+) {
+    let (c, processor, port) = captured_matrix_fixture(blob, StateCaptureQuality::Coordinated);
+    let mut session = PluginStateSession::new(port, MatrixStore::new());
+    session
+        .save(&save_request(&c, StateQualityPolicy::Standard))
+        .unwrap();
+    (c, processor, session)
 }
 
 // ── Save: quality classes & policy ───────────────────────────────
@@ -656,7 +904,7 @@ fn indeterminate_manifest_publish_without_effect_stays_error() {
         .unwrap_err();
     assert!(matches!(
         error,
-        PluginStateError::Store(PluginStateStoreError::Indeterminate)
+        PluginStateError::Store(PluginStateStoreError::Indeterminate { operation: _ })
     ));
     // HEAD was never repointed — previous state (none) intact.
     assert_eq!(session.store().head().unwrap(), None);
@@ -707,9 +955,290 @@ fn indeterminate_blob_put_reconciles_and_unreconciled_aborts_before_manifest() {
         .unwrap_err();
     assert!(matches!(
         error,
-        PluginStateError::Store(PluginStateStoreError::Indeterminate)
+        PluginStateError::Store(PluginStateStoreError::Indeterminate { operation: _ })
     ));
     assert_eq!(session2.store().head().unwrap(), None);
+}
+
+// ── Permission denial matrix ─────────────────────────────────────
+
+#[test]
+fn permission_denied_save_matrix_protects_previous_state() {
+    for operation in [
+        PluginStateStoreOperation::BlobPublish,
+        PluginStateStoreOperation::ManifestPublish,
+        PluginStateStoreOperation::HeadUpdate,
+    ] {
+        for policy in [StateQualityPolicy::Strict, StateQualityPolicy::Standard] {
+            let (c, processor, session) = save_matrix_fixture(b"exact-state-v1");
+            let (mut port, mut store) = session.into_parts();
+            let before_head = store.head().unwrap();
+            let before_manifests = store.manifest_set();
+            let before_blobs = store.blob_set();
+            port.captures.insert(
+                processor,
+                Ok(MockPort::capture_ok(
+                    b"exact-state-v2",
+                    StateCaptureQuality::Coordinated,
+                )),
+            );
+            store.deny(operation);
+            let mut session = PluginStateSession::new(port, store);
+
+            let error = session.save(&save_request(&c, policy)).unwrap_err();
+            let PluginStateError::Store(PluginStateStoreError::PermissionDenied {
+                operation: actual,
+                effect,
+                ..
+            }) = error
+            else {
+                panic!("expected typed permission denial at {operation}, got {error:?}");
+            };
+            assert_eq!(actual, operation);
+            assert_eq!(effect, PluginStateStorePublishEffect::NotPublished);
+
+            assert_eq!(session.store().head().unwrap(), before_head);
+            assert_eq!(session.store().manifest_set(), before_manifests);
+            // Content-addressed blobs are immutable: every pre-existing
+            // blob must keep the same bytes under the same digest. A
+            // denied later stage may leave an unreferenced new blob as
+            // garbage, but it is not reachable from the unchanged HEAD
+            // and is therefore not a valid saved state.
+            let after_blobs = session.store().blob_set();
+            for (digest, bytes) in &before_blobs {
+                assert_eq!(after_blobs.get(digest), Some(bytes));
+            }
+            let empty_digest = digest_hex(&ContentDigest::sha256(b""));
+            assert!(!after_blobs.contains_key(&empty_digest));
+        }
+    }
+}
+
+#[test]
+fn strict_quality_gate_precedes_store_denial_while_standard_reaches_store() {
+    let mut c = controller();
+    let exact = add_processor(&mut c, "exact", resolved("exact"));
+    let degraded = add_processor(&mut c, "degraded", resolved("degraded"));
+    let unsupported = add_processor(&mut c, "unsupported", resolved("unsupported"));
+    let failed = add_processor(&mut c, "failed", resolved("failed"));
+
+    let mut port = MockPort::default();
+    port.bind_all(&[exact, degraded, unsupported, failed]);
+    port.captures.insert(
+        degraded,
+        Ok(MockPort::capture_ok(
+            b"degraded",
+            StateCaptureQuality::BestEffort,
+        )),
+    );
+    port.captures
+        .insert(unsupported, Err(PluginStateCaptureError::Unsupported));
+    port.captures.insert(
+        failed,
+        Err(PluginStateCaptureError::Failed(
+            PluginStateFailureKind::CaptureFailed,
+        )),
+    );
+
+    let mut strict_store = MatrixStore::new();
+    strict_store.deny(PluginStateStoreOperation::ManifestPublish);
+    let strict_calls = Rc::clone(&strict_store.calls);
+    let mut strict_session = PluginStateSession::new(port, strict_store);
+    let strict_error = strict_session
+        .save(&save_request(&c, StateQualityPolicy::Strict))
+        .unwrap_err();
+    assert!(matches!(
+        strict_error,
+        PluginStateError::QualityRejected { .. }
+    ));
+    assert!(strict_calls.borrow().is_empty());
+
+    let (port, _) = strict_session.into_parts();
+    let mut standard_store = MatrixStore::new();
+    standard_store.deny(PluginStateStoreOperation::ManifestPublish);
+    let standard_calls = Rc::clone(&standard_store.calls);
+    let mut standard_session = PluginStateSession::new(port, standard_store);
+    let standard_error = standard_session
+        .save(&save_request(&c, StateQualityPolicy::Standard))
+        .unwrap_err();
+    assert!(matches!(
+        standard_error,
+        PluginStateError::Store(PluginStateStoreError::PermissionDenied {
+            operation: PluginStateStoreOperation::ManifestPublish,
+            ..
+        })
+    ));
+    let calls = standard_calls.borrow();
+    assert!(calls.contains(&PluginStateStoreOperation::BlobPublish));
+    assert!(calls.contains(&PluginStateStoreOperation::ManifestPublish));
+}
+
+#[test]
+fn permission_denied_restore_matrix_is_typed_and_fail_closed() {
+    for operation in [
+        PluginStateStoreOperation::HeadRead,
+        PluginStateStoreOperation::ManifestRead,
+    ] {
+        let (c, _, session) = save_matrix_fixture(b"restore-state");
+        let (_, mut store) = session.into_parts();
+        store.deny(operation);
+        let manifest = store.head().unwrap_or(None);
+        let mut session = PluginStateSession::new(MockPort::default(), store);
+        let request = PluginStateRestoreRequest {
+            manifest: if operation == PluginStateStoreOperation::ManifestRead {
+                manifest
+            } else {
+                None
+            },
+            project: c.live(),
+        };
+        let error = session.restore(&request).unwrap_err();
+        assert!(matches!(
+            error,
+            PluginStateError::Store(PluginStateStoreError::PermissionDenied {
+                operation: actual,
+                effect: PluginStateStorePublishEffect::NotApplicable,
+                ..
+            }) if actual == operation
+        ));
+    }
+
+    let (c, _processor, session) = save_matrix_fixture(b"restore-state");
+    let (port, mut store) = session.into_parts();
+    let restored = Rc::clone(&port.restored);
+    store.deny(PluginStateStoreOperation::BlobRead);
+    let mut session = PluginStateSession::new(port, store);
+    let receipt = session.restore(&restore_request(&c, None)).unwrap();
+    assert!(matches!(
+        receipt.records[0].outcome,
+        PluginStateRestoreOutcome::StoreFailed {
+            operation: PluginStateStoreOperation::BlobRead,
+            kind: PluginStateFailureKind::PermissionDenied,
+        }
+    ));
+    assert!(restored.borrow().is_empty());
+
+    // A plugin-port refusal is intentionally not the same outcome
+    // shape as host/store-side blob read denial. This mock only
+    // validates the session type boundary; it is not evidence that a
+    // real ABI plugin can originate PermissionDenied.
+    let (c, processor, session) = save_matrix_fixture(b"restore-state");
+    let (mut port, store) = session.into_parts();
+    port.restore_error.insert(
+        processor,
+        PluginStateCaptureError::Failed(PluginStateFailureKind::PermissionDenied),
+    );
+    let mut session = PluginStateSession::new(port, store);
+    let receipt = session.restore(&restore_request(&c, None)).unwrap();
+    assert!(matches!(
+        receipt.records[0].outcome,
+        PluginStateRestoreOutcome::Failed {
+            kind: PluginStateFailureKind::PermissionDenied,
+        }
+    ));
+}
+
+#[test]
+fn indeterminate_blob_publish_with_denied_readback_is_unreconciled_and_fail_closed() {
+    let (c, processor, session) = save_matrix_fixture(b"old-exact-state");
+    let (mut port, mut store) = session.into_parts();
+    let before_head = store.head().unwrap();
+    let before_manifests = store.manifest_set();
+    let before_blobs = store.blob_set();
+    port.captures.insert(
+        processor,
+        Ok(MockPort::capture_ok(
+            b"new-exact-state",
+            StateCaptureQuality::Coordinated,
+        )),
+    );
+    store.blob_indeterminate = Some(true);
+    store.deny(PluginStateStoreOperation::BlobRead);
+    let mut session = PluginStateSession::new(port, store);
+
+    let error = session
+        .save(&save_request(&c, StateQualityPolicy::Standard))
+        .unwrap_err();
+    let PluginStateError::ReadbackFailed {
+        publish_error,
+        readback_error,
+    } = error
+    else {
+        panic!("expected readback failure, got {error:?}");
+    };
+    assert!(matches!(
+        publish_error,
+        PluginStateStoreError::Indeterminate {
+            operation: PluginStateStoreOperation::BlobPublish,
+        }
+    ));
+    assert!(matches!(
+        readback_error,
+        PluginStateStoreError::PermissionDenied {
+            operation: PluginStateStoreOperation::BlobRead,
+            ..
+        }
+    ));
+
+    assert_eq!(session.store().head().unwrap(), before_head);
+    assert_eq!(session.store().manifest_set(), before_manifests);
+    let after_blobs = session.store().blob_set();
+    assert!(after_blobs.len() > before_blobs.len());
+    let new_digest = ContentDigest::sha256(b"new-exact-state");
+    assert!(after_blobs.contains_key(&digest_hex(&new_digest)));
+}
+
+#[test]
+fn indeterminate_head_update_with_denied_readback_never_becomes_success() {
+    for readback_operation in [
+        PluginStateStoreOperation::HeadRead,
+        PluginStateStoreOperation::ManifestRead,
+    ] {
+        let (c, processor, session) = save_matrix_fixture(b"old-head-state");
+        let (mut port, mut store) = session.into_parts();
+        let before_head = store.head().unwrap();
+        let before_manifests = store.manifest_set();
+        port.captures.insert(
+            processor,
+            Ok(MockPort::capture_ok(
+                b"new-head-state",
+                StateCaptureQuality::Coordinated,
+            )),
+        );
+        store.head_indeterminate = Some(true);
+        store.deny(readback_operation);
+        let mut session = PluginStateSession::new(port, store);
+
+        let error = session
+            .save(&save_request(&c, StateQualityPolicy::Standard))
+            .unwrap_err();
+        let PluginStateError::ReadbackFailed {
+            publish_error,
+            readback_error,
+        } = error
+        else {
+            panic!("expected readback failure, got {error:?}");
+        };
+        assert!(matches!(
+            publish_error,
+            PluginStateStoreError::Indeterminate {
+                operation: PluginStateStoreOperation::HeadUpdate,
+            }
+        ));
+        assert!(matches!(
+            readback_error,
+            PluginStateStoreError::PermissionDenied {
+                operation: actual,
+                ..
+            } if actual == readback_operation
+        ));
+
+        // The injected effect was applied, so HEAD/advanced manifest
+        // objects may exist, but the save is neither a success nor a
+        // proven non-publish. Evidence keeps it unreconciled.
+        assert_ne!(session.store().head_name, before_head);
+        assert!(session.store().manifest_set().len() > before_manifests.len());
+    }
 }
 
 // ── Directory store ──────────────────────────────────────────────
