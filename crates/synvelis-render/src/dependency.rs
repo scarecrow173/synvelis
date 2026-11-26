@@ -27,7 +27,7 @@ use synvelis_project::id::{
     AssetId, BusId, ChainId, ClipId, CompId, CompRegionId, LaneId, ModulationSourceId,
     ParameterTargetId, ProcessorId, SemanticPortId, SendId, SourceId, StripId, TakeId, TrackId,
 };
-use synvelis_project::plugin_state::StateCaptureQuality;
+use synvelis_project::plugin_state::{PluginStateFailureKind, StateCaptureQuality};
 use synvelis_project::project::AssetDigest;
 use synvelis_project::render_input::canonical_entity_digest;
 use synvelis_project::routing::{ConnectionKind, ProcessorBinding, StripOwner};
@@ -124,10 +124,29 @@ pub enum ExternalPin {
     Live,
 }
 
+/// Per-processor plugin-state outcome supplied to the resolver.
+///
+/// `Captured` is the only variant that carries exact evidence.
+/// `Unsupported` and `Failed` are deliberately blob-less so callers
+/// never invent an empty, zero, or otherwise fake digest for a state
+/// that was not captured.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PluginStateProbeOutcome {
+    /// Captured bytes whose digest was verified by the supplying port.
+    Captured(PluginStateEvidence),
+    /// The plugin does not support state capture.
+    Unsupported,
+    /// Capture or persisted-input recovery failed with a typed kind.
+    Failed {
+        /// Failure classification preserved from the persisted record.
+        kind: PluginStateFailureKind,
+    },
+}
+
 /// Port the resolver queries for per-processor plugin-state evidence.
 pub trait PluginStateProbe {
-    /// Evidence for `processor`, or `None` when unknown.
-    fn evidence(&self, processor: ProcessorId) -> Option<PluginStateEvidence>;
+    /// Outcome for `processor`, or `None` when unknown.
+    fn outcome(&self, processor: ProcessorId) -> Option<PluginStateProbeOutcome>;
 }
 
 /// Port the resolver queries for external-asset pin status.
@@ -142,7 +161,7 @@ pub trait ExternalAssetProbe {
 pub struct NoPluginStates;
 
 impl PluginStateProbe for NoPluginStates {
-    fn evidence(&self, _processor: ProcessorId) -> Option<PluginStateEvidence> {
+    fn outcome(&self, _processor: ProcessorId) -> Option<PluginStateProbeOutcome> {
         None
     }
 }
@@ -152,8 +171,11 @@ impl PluginStateProbe for NoPluginStates {
 pub struct StaticPluginStates(pub BTreeMap<ProcessorId, PluginStateEvidence>);
 
 impl PluginStateProbe for StaticPluginStates {
-    fn evidence(&self, processor: ProcessorId) -> Option<PluginStateEvidence> {
-        self.0.get(&processor).cloned()
+    fn outcome(&self, processor: ProcessorId) -> Option<PluginStateProbeOutcome> {
+        self.0
+            .get(&processor)
+            .cloned()
+            .map(PluginStateProbeOutcome::Captured)
     }
 }
 
@@ -198,6 +220,13 @@ pub struct DependencyClosure {
     pub plugin_states: BTreeMap<ProcessorId, PluginStateEvidence>,
     /// Verified external pins consumed (asset → digest).
     pub external_pins: BTreeMap<AssetId, ContentDigest>,
+}
+
+fn plugin_state_failure_kind_name(kind: PluginStateFailureKind) -> String {
+    serde_json::to_value(kind)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .unwrap_or_else(|| format!("{kind:?}"))
 }
 
 // ---------------------------------------------------------------------------
@@ -540,7 +569,7 @@ impl<'a> Resolver<'a> {
                 );
             }
             ProcessorBinding::Resolved(plugin) => {
-                match self.env.plugin_states.evidence(proc_id) {
+                match self.env.plugin_states.outcome(proc_id) {
                     None => {
                         self.unknown(
                             UnknownCause::PluginStateUnknown {
@@ -553,7 +582,7 @@ impl<'a> Resolver<'a> {
                             ),
                         );
                     }
-                    Some(ev) => {
+                    Some(PluginStateProbeOutcome::Captured(ev)) => {
                         if ev.quality.exact_eligible() {
                             self.plugin_states.insert(proc_id, ev);
                         } else {
@@ -561,10 +590,31 @@ impl<'a> Resolver<'a> {
                                 UnknownCause::PluginStateDegraded {
                                     locator: proc_id.to_tagged(),
                                     quality: format!("{:?}", ev.quality),
+                                    failure_kind: None,
                                 },
                                 format!("processor {}", proc_id.to_tagged()),
                             );
                         }
+                    }
+                    Some(PluginStateProbeOutcome::Unsupported) => {
+                        self.unknown(
+                            UnknownCause::PluginStateDegraded {
+                                locator: proc_id.to_tagged(),
+                                quality: "Unsupported".to_owned(),
+                                failure_kind: None,
+                            },
+                            format!("processor {}", proc_id.to_tagged()),
+                        );
+                    }
+                    Some(PluginStateProbeOutcome::Failed { kind }) => {
+                        self.unknown(
+                            UnknownCause::PluginStateDegraded {
+                                locator: proc_id.to_tagged(),
+                                quality: "Failed".to_owned(),
+                                failure_kind: Some(plugin_state_failure_kind_name(kind)),
+                            },
+                            format!("processor {}", proc_id.to_tagged()),
+                        );
                     }
                 }
                 if self

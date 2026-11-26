@@ -19,6 +19,7 @@ pub mod error;
 pub mod export;
 pub mod invalidation;
 pub mod job;
+pub mod plugin_state;
 pub mod policy;
 pub mod preflight;
 pub mod prepare;
@@ -32,7 +33,8 @@ pub mod verify;
 pub use dependency::{
     DependencyClosure, DependencyEdge, DependencyEdgeKind, DependencyNode, ExternalAssetProbe,
     ExternalPin, NoExternalAssets, NoPluginStates, PluginStateEvidence, PluginStateProbe,
-    RecipeEnvironment, RecipeRequest, StaticExternalAssets, StaticPluginStates, resolve_recipe,
+    PluginStateProbeOutcome, RecipeEnvironment, RecipeRequest, StaticExternalAssets,
+    StaticPluginStates, resolve_recipe,
 };
 pub use error::{ExportError, PreflightError};
 pub use export::{export, export_with_host};
@@ -40,6 +42,9 @@ pub use invalidation::{
     ChangedObject, InvalidationPlan, InvalidationReason, classify_invalidation,
 };
 pub use job::{CapabilityEvidence, ExportJob, ExportOutcome, ExportReceipt, ExportStage, stage_of};
+pub use plugin_state::{
+    PersistedPluginStateProjection, PluginStateProjectionError, PluginStateProjectionSource,
+};
 pub use prepare::{DecodedWindow, OpenedSource};
 pub use processor::{ClipRenderer, DelayProc, GainProc, OnePoleProc};
 pub use recipe::{

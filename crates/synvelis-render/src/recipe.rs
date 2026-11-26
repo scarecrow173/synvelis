@@ -428,13 +428,17 @@ pub enum UnknownCause {
         /// Processor stable ID.
         locator: String,
     },
-    /// Plugin state quality is not exact-eligible
-    /// (`BestEffort`/`Unsupported`/failed capture).
+    /// Plugin state quality or outcome is not exact-eligible
+    /// (`BestEffort`, `Unsupported`, or failed capture).
     PluginStateDegraded {
         /// Processor stable ID.
         locator: String,
-        /// Observed quality name.
+        /// Observed quality name or blob-less outcome label.
         quality: String,
+        /// Machine-readable failure kind (`capture_failed`, `timeout`, ...)
+        /// when the outcome is `Failed`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        failure_kind: Option<String>,
     },
     /// An external asset is not pinned to verified content.
     UnpinnedExternalAsset {
