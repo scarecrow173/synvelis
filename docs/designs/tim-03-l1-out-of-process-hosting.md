@@ -94,10 +94,14 @@ silence とし、その後の block は host audio counter で matched/substitut
   の意味に使わない。
 
 production oracle は `compose_routing_engine_with_out_of_process` を通し、実 project
-mutation → routing build → activation receipt `Active` を確認する。endpoint detach は
-generation/application teardown で行使されるが、この slice では direct endpoint の
-drop → Stop/Deactivate/Destroy を独立 evidence とし、production detach を detach
-oracle とは主張しない。
+mutation → routing build → activation receipt `Active` を確認する。さらに同じ
+production session で `RemoveProcessor` を commit し、replacement generation の RT
+activation と retired generation の `plugin_state_handles` 空化を観測する。これは
+generation retirement / lease teardown の independent evidence である。endpoint
+object detach 自体は upstream API 上 ownership `Drop` であり detach receipt がない
+ため、この slice では direct endpoint の drop → Stop/Deactivate/Destroy を明示 detach
+evidence とし、production endpoint object detach を same-instance re-attach oracle
+とは主張しない。
 
 ## 不変条件
 

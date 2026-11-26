@@ -72,10 +72,15 @@ Fixture: `crates/synvelis-app/tests/tim03_l1_process_oracle.rs`、
 - **L1-09 production seam**: `compose_routing_engine_with_out_of_process` 経由で
   project mutation から routing build を行い、receipt が `Active`、generation 1の
   state handle が存在する。
-- **L1-10 evidence separation**: production activation evidence と direct endpoint
+- **L1-10 production generation retirement**: 同じ production session で
+  `RemoveProcessor` を commit し、replacement generation 2 が RT activation へ到達
+  する。activation 後、retired generation 1 の `plugin_state_handles` は空でなければ
+  ならない。これは generation retirement と lease teardown の独立観測であり、
+  endpoint object detach receipt の代用証拠とはしない。
+- **L1-11 evidence separation**: production activation/retirement evidence と direct endpoint
   process oracle を別 JSON object に記録する。L0 negative boundary test の結果を流用
   しない。
-- **L1-11 honesty**: tempo/loop/automation sample accuracy、MIDI precision、state
+- **L1-12 honesty**: tempo/loop/automation sample accuracy、MIDI precision、state
   quality、crash/hang/fault isolation、GUI、Windows EXT-L3 は `NotRun`。Passと書かない。
 
 ## 正規実行

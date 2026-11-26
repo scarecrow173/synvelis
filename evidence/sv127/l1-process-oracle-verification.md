@@ -31,8 +31,8 @@ machine-readable 実測値: `evidence/sv127/l1-process-oracle.jsonl`
 
 | format | artifact hash | descriptor count | `test_gain` descriptor | runner | production activation | endpoint oracle | verdict |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| CLAP | `114129c55a44176841b194441bcd66c79c1350d54fc42c4a8816b176565edb7a` | 6 | `org.ruviform-test.clap-test-gain` | `target/debug/synvelis-plugin-test-clap-l1-runner.exe` | `Active` generation 1 | attach/detach Pass、14 matched / 8 substituted | initial re-evaluation complete, limited |
-| VST3 | `f76cd12554edd747a7b58ab19b93c29d9601c44a27813a453f9f041d70fd4376` | 7 | `218a4f6d7c3b059ef1a24c68b9d37e51` | `target/debug/synvelis-plugin-test-vst3-l1-runner.exe` | `Active` generation 1 | attach/detach Pass、15 matched / 7 substituted | initial re-evaluation complete, limited |
+| CLAP | `114129c55a44176841b194441bcd66c79c1350d54fc42c4a8816b176565edb7a` | 6 | `org.ruviform-test.clap-test-gain` | `target/debug/synvelis-plugin-test-clap-l1-runner.exe` | `Active` generation 1、replacement generation 2 で retirement Pass | attach/detach Pass、15 matched / 7 substituted | initial re-evaluation complete, limited |
+| VST3 | `f76cd12554edd747a7b58ab19b93c29d9601c44a27813a453f9f041d70fd4376` | 7 | `218a4f6d7c3b059ef1a24c68b9d37e51` | `target/debug/synvelis-plugin-test-vst3-l1-runner.exe` | `Active` generation 1、replacement generation 2 で retirement Pass | attach/detach Pass、15 matched / 7 substituted | initial re-evaluation complete, limited |
 
 runner は `mise run test-tim03-l1` が先に build する Synvelis 所有 test-only artifact。
 test は runner path を env override または target profile root から解決し、fixture
@@ -44,6 +44,12 @@ cdylib を runner sibling の un-hashed artifact として stage する。`ruvif
 - production side は `compose_routing_engine_with_out_of_process` を通り、project
   mutation → routing build → `RoutingActivationState::Active { generation: 1 }` に
   到達した。generation 1 に対応する plugin state handle も観測した。
+- 同じ production session で `RemoveProcessor` を commit し、replacement generation 2
+  の RT activation を観測した。activation 後、retired generation 1 の
+  `plugin_state_handles` は空であり、production generation retirement が独立に
+  観測できた。endpoint object 自体の detach は upstream API 上 ownership `Drop`
+  であり detach receipt を返さないため、同じ instance の re-attach oracle としては
+  断言しない。
 - direct endpoint side は Scan → Instantiate → Initialize → Activate →
   StartProcessing → `prepare_endpoint` に成功し、endpoint drop 後に
   StopProcessing → Deactivate → Destroy が成功した。
@@ -64,9 +70,12 @@ cdylib を runner sibling の un-hashed artifact として stage する。`ruvif
 | L1 route registration seam | Pass | `OutOfProcessSpec` を `PluginHostProcessors` / production composition から登録 |
 | VST3 production activation | Pass | `Active` generation 1、state handle present |
 | CLAP production activation | Pass | `Active` generation 1、state handle present |
+| VST3 production generation retirement | Pass | `RemoveProcessor` → replacement generation 2 Active、retired generation 1 handles empty |
+| CLAP production generation retirement | Pass | `RemoveProcessor` → replacement generation 2 Active、retired generation 1 handles empty |
 | VST3 direct endpoint attach/detach | Pass | endpoint latency 1024、drop 後 teardown Pass |
 | CLAP direct endpoint attach/detach | Pass | endpoint latency 1024、drop 後 teardown Pass |
-| deterministic defined-output membership | Pass（limited） | VST3 15、CLAP 14 matched blocks。bit-exact membership |
+| production endpoint object detach | NotRun/unobservable in current API | detach receipt なし。generation/application teardown の ownership `Drop` で行使されるが、same-instance re-attach oracle は teardown 後に成立しない |
+| deterministic defined-output membership | Pass（limited） | VST3 15、CLAP 15 matched blocks。bit-exact membership |
 | bus layout verification | NotRun/unverified | L1 `BusReport::Unavailable` |
 | tempo/loop/automation sample accuracy | NotRun | 後続 slice |
 | MIDI/transport precision (`test_instrument`) | NotRun | 後続 slice |
@@ -97,6 +106,19 @@ cdylib を runner sibling の un-hashed artifact として stage する。`ruvif
 ローカル検証は変更範囲の検証であり、統合検証は merge 後の対象 SHA に対する必須 CI
 証拠として別途確認する必要がある。
 
+## pstack Verification
+
+- Runtime Verification: NotRun（pstack project verify skill としての GUI runtime
+  drive は未実施）。この slice は headless な production routing seam と out-of-process
+  plugin hosting が対象で、GUI/Native Dock は scope 外のため。代替の canonical runtime
+  evidence は `mise run test-tim03-l1` が実 VST3/CLAP fixture binary・実 runner child
+  process・production routing activation/generation retirement・direct endpoint PCM
+  oracleを駆動した exit 0 の結果である。
+- Formal Verification: NotRun。formal verification 対象の journal wire codec /
+  authorization boundary（`docs/specs/formal-verification.md`）や concurrency/model
+  検証対象を変更していないため。代替の canonical 検証は `check`/`lint`/`test`/`test-rt`
+  と typed lifecycle/activation oracle であり、formal proof を主張しない。
+
 ## root `Cargo.toml` / `Cargo.lock` の限定変更
 
 Coordinator 許可どおり、root `Cargo.toml` の変更は次の 2 点だけである。
@@ -115,6 +137,10 @@ Coordinator 許可どおり、root `Cargo.toml` の変更は次の 2 点だけ�
 - `test_stateful`/state quality（sv#128/TIM-04 側との lease 境界に従う）。
 - GUI/Native Dock、実 Window、Windows EXT-L3 最終受入。
 - AC4/AC7 CI/cross-consumer gate、AudioLens f64/native PCM 非回帰、macOS/Linux 実走。
-- production endpoint detach は generation/application teardown で行使されるが、
-  独立 oracle としては未検証。direct endpoint detach は Pass。
+- production generation retirement は `RemoveProcessor` → replacement generation 2
+  activation → retired generation handles empty として独立観測済み。ただし endpoint
+  object detach 自体は upstream API に detach receipt がなく、same-instance re-attach
+  oracle は lifecycle teardown 後に成立しないため NotRun/unobservable。direct endpoint
+  detach は Pass。active generation 中に endpoint object drop だけを分離観測するには、
+  upstream か Synvelis engine に専用の観測 hook が必要であり後続 slice の論点とする。
 - docs index（`docs/**/README.md`）は生成物のため編集せず、Coordinator が統合時に整備する。

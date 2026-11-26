@@ -463,6 +463,86 @@ fn session_config(media_root: PathBuf) -> SessionEngineConfig {
     }
 }
 
+/// Builds the single-track/single-processor production project and returns
+/// the inserted processor id.
+fn build_project_with_processor(
+    app: &mut SynvelisApp,
+    descriptor: &str,
+) -> synvelis_project::ProcessorId {
+    let controller = app.workspace_mut().session_mut().controller_mut();
+    apply(
+        controller,
+        ProjectOp::AddTrack {
+            name: "track".into(),
+        },
+    );
+    let track = *controller.live().tracks.keys().next_back().unwrap();
+    apply(controller, ProjectOp::AddTrackStrip { track_id: track });
+    let strip = controller.live().routing.strip_of_track(track).unwrap().id;
+    apply(
+        controller,
+        ProjectOp::InsertProcessor {
+            strip_id: strip,
+            index: 0,
+            name: TEST_GAIN.into(),
+            binding: ProcessorBinding::Resolved(PluginRef {
+                descriptor: descriptor.to_owned(),
+                version: "0.0.0".into(),
+                capability_revision: 0,
+            }),
+            sidechain_input: false,
+        },
+    );
+    controller
+        .live()
+        .routing
+        .processors
+        .keys()
+        .next_back()
+        .copied()
+        .expect("inserted processor id")
+}
+
+fn active_generation(engine: &synvelis_app::SessionRoutingEngine, context: &str) -> u64 {
+    engine.run(2, PumpPolicy::Every(1)).unwrap();
+    match engine.receipt().expect("routing activation receipt").state {
+        RoutingActivationState::Active { generation, .. } => generation,
+        other => panic!("{context}: {other:?}"),
+    }
+}
+
+/// Retires the processor generation through the same production
+/// session/engine path. The RT-observed generation switch is the
+/// engine's defined point at which the old generation's retained
+/// connection vector is dropped; dropping each lease owns the
+/// StopProcessing/Deactivate/Destroy lifecycle teardown. Endpoint
+/// object detach itself is ownership-based (`Drop`) upstream and
+/// exposes no detach receipt, so this oracle independently proves
+/// generation retirement rather than re-attachability of the same
+/// instance.
+fn retire_generation(
+    app: &mut SynvelisApp,
+    engine: &synvelis_app::SessionRoutingEngine,
+    processor_id: synvelis_project::ProcessorId,
+    generation: u64,
+) -> u64 {
+    let revision = app.workspace().session().revision();
+    app.workspace_mut()
+        .session_mut()
+        .apply(ProjectOp::RemoveProcessor { processor_id }, revision)
+        .unwrap();
+    let retired_generation = active_generation(engine, "production retirement did not activate");
+    assert_ne!(
+        generation, retired_generation,
+        "processor removal did not publish a replacement generation"
+    );
+    assert!(
+        engine.plugin_state_handles(generation).is_empty(),
+        "retired generation {generation} still exposes plugin state handles"
+    );
+    retired_generation
+}
+
 fn production_activation(probe: &FixtureProbe, spec: OutOfProcessSpec) -> serde_json::Value {
     let root = scratch("production");
     fs::create_dir_all(root.join("media")).unwrap();
@@ -470,41 +550,7 @@ fn production_activation(probe: &FixtureProbe, spec: OutOfProcessSpec) -> serde_
         "gpui",
         "tim03-l1-production".to_owned(),
     ));
-    let descriptor = probe.gain.id.to_owned();
-    let processor_id = {
-        let controller = app.workspace_mut().session_mut().controller_mut();
-        apply(
-            controller,
-            ProjectOp::AddTrack {
-                name: "track".into(),
-            },
-        );
-        let track = *controller.live().tracks.keys().next_back().unwrap();
-        apply(controller, ProjectOp::AddTrackStrip { track_id: track });
-        let strip = controller.live().routing.strip_of_track(track).unwrap().id;
-        apply(
-            controller,
-            ProjectOp::InsertProcessor {
-                strip_id: strip,
-                index: 0,
-                name: TEST_GAIN.into(),
-                binding: ProcessorBinding::Resolved(PluginRef {
-                    descriptor: descriptor.clone(),
-                    version: "0.0.0".into(),
-                    capability_revision: 0,
-                }),
-                sidechain_input: false,
-            },
-        );
-        controller
-            .live()
-            .routing
-            .processors
-            .keys()
-            .next_back()
-            .copied()
-    }
-    .expect("inserted processor id");
+    let processor_id = build_project_with_processor(&mut app, probe.gain.id);
     let engine = compose_routing_engine_with_out_of_process(
         &mut app,
         session_config(root.join("media")),
@@ -525,12 +571,7 @@ fn production_activation(probe: &FixtureProbe, spec: OutOfProcessSpec) -> serde_
             revision,
         )
         .unwrap();
-    engine.run(2, PumpPolicy::Every(1)).unwrap();
-    let state = engine.receipt().expect("routing activation receipt").state;
-    let generation = match state {
-        RoutingActivationState::Active { generation, .. } => generation,
-        other => panic!("production composition did not activate: {other:?}"),
-    };
+    let generation = active_generation(&engine, "production composition did not activate");
     let state_handles = engine.plugin_state_handles(generation);
     assert!(
         state_handles
@@ -538,14 +579,17 @@ fn production_activation(probe: &FixtureProbe, spec: OutOfProcessSpec) -> serde_
             .any(|endpoint| endpoint.processor == processor_id),
         "production activation exposed no state handle for {processor_id:?}"
     );
+    let retired_generation = retire_generation(&mut app, &engine, processor_id, generation);
     json!({
         "composition_seam": "compose_routing_engine_with_out_of_process",
         "activation": "Active",
         "generation": generation,
+        "replacement_generation": retired_generation,
         "processor": format!("{processor_id:?}"),
         "state_handle_present": true,
         "lifecycle_attach": "pass — Scan/Instantiate/Initialize/Activate/StartProcessing/attach reached through PluginHostProcessors",
-        "endpoint_detach": "exercised by generation/application teardown; not independently oracle-asserted",
+        "generation_retirement": "pass — RemoveProcessor rebuild activated a replacement generation and retired-generation plugin_state_handles is empty",
+        "endpoint_detach": "limited — production endpoint detach is ownership Drop during generation/application teardown; no upstream detach receipt or same-instance re-attach oracle exists after teardown",
     })
 }
 

@@ -77,5 +77,7 @@ relations:
   採用する。
 - target directory の stale artifact: hash mismatch を fail-closed にする。
 - L1 bus enumeration: `Unavailable` を unverified とし、empty bus reportと混同しない。
-- production endpoint detach: generation teardown で行使されるが独立 oracle 断言は
-  せず、direct endpoint detach を evidence にする。
+- production endpoint detach: generation retirement は replacement generation activation
+  と retired generation handle 空化で観測するが、endpoint object detach receipt は
+  upstream API にないため独立 oracle 断言はせず、direct endpoint detach を明示
+  evidence にする。

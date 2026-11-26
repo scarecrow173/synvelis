@@ -59,7 +59,8 @@ relations:
 - `mise.toml`
   - `test-tim03-l1` を追加。runner build 後に oracle test を実行する。
 - `crates/synvelis-app/tests/tim03_l1_process_oracle.rs`
-  - VST3/CLAP の production activation と direct endpoint process oracle を追加。
+  - VST3/CLAP の production activation・generation retirement・direct endpoint
+    process oracle を追加。
 - `Cargo.toml` / `Cargo.lock`
   - Coordinator 許可の限定変更として workspace member と
     `ruviform-plugin-export` dependency を追加し、lockfile を必要範囲で更新した。
@@ -68,10 +69,10 @@ relations:
 
 `mise run test-tim03-l1`（Windows, exit 0）で 2 tests passed。
 
-| format | production activation | endpoint attach/detach | matched blocks | substituted blocks | latency |
+| format | production activation / retirement | endpoint attach/detach | matched blocks | substituted blocks | latency |
 | --- | --- | --- | --- | --- | --- |
-| CLAP | Active generation 1 | pass | 14 | 8 | 1024 frames |
-| VST3 | Active generation 1 | pass | 15 | 7 | 1024 frames |
+| CLAP | Active generation 1 / replacement generation 2 retirement pass | pass | 15 | 7 | 1024 frames |
+| VST3 | Active generation 1 / replacement generation 2 retirement pass | pass | 15 | 7 | 1024 frames |
 
 両 format とも `BusReport::Unavailable` であり、bus enumeration は unverified。
 matched block の samples は deterministic input 履歴に対する `0.5 * input` membership
@@ -84,9 +85,12 @@ matched block の samples は deterministic input 履歴に対する `0.5 * inpu
 - runner へ独自 argv を渡す設計は、`ruviform-plugin-export` が argv を defined usage
   rejection にするため不成立だった。初回実装は `SpawnFailed{cause:Transport}` で
   検出し、sibling artifact staging へ修正した。
-- production endpoint detach は generation/application teardown で行使されるが、
-  独立観測可能な oracle としては断言しない。direct endpoint の drop 後 teardown を
-  この slice の detach evidence とする。
+- production generation retirement は `RemoveProcessor` → replacement generation 2
+  activation → retired generation handles empty として独立観測した。一方、endpoint
+  object detach 自体は upstream API 上 ownership `Drop` であり detach receipt がない。
+  そのため production endpoint object detach は generation/application teardown で
+  行使されるが、same-instance re-attach oracle としては断言しない。direct endpoint
+  の drop 後 teardown をこの slice の明示 detach evidence とする。
 - `test_gain` 以外の fixture、tempo/loop/automation 精度、crash/hang isolation は
   この slice では未検証。
 

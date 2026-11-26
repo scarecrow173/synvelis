@@ -75,9 +75,13 @@ Activate → StartProcessing → attach まで通し、限定的な L1 process o
 1. production composition seam が `OutOfProcessSpec` の descriptor、program、args、
    isolation、lookahead、timeout を upstream API の意味のまま host 登録へ渡す。
 2. VST3/CLAP `test_gain` が production seam 経由で routing activation `Active` に
-   到達し、activation generation に対応する state handle が観測できる。
+   到達し、activation generation に対応する state handle が観測できる。同じ
+   production session の `RemoveProcessor` rebuild で replacement generation が
+   RT activation へ到達し、retired generation の state handle 空化によって
+   generation retirement を観測できる。
 3. direct L1 endpoint attach が成功し、endpoint drop 後に Stop/Deactivate/Destroy が
-   完了する。
+   完了する。production endpoint object detach 自体は upstream API に detach receipt
+   がない ownership `Drop` なので、same-instance re-attach oracle とはしない。
 4. deterministic input に対し、少なくとも defined-output membership を複数 matched
    block で観測する。substituted/pass-through block は delivery evidence に数えない。
 5. process oracle は「初回再評価済み・限定的」と記録し、精度 matrix、crash/hang

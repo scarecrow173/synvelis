@@ -47,8 +47,9 @@ relations:
 - [x] `PluginHostProcessors::product_with_out_of_process` を追加。
 - [x] VST3/CLAP test-only runner binary を追加。
 - [x] dedicated mise task `test-tim03-l1` を追加。
-- [x] `tim03_l1_process_oracle.rs` を追加し、VST3/CLAP で production activation
-  と direct endpoint defined-output membership を実測。
+- [x] `tim03_l1_process_oracle.rs` を追加し、VST3/CLAP で production activation、
+  replacement generation への generation retirement、direct endpoint defined-output
+  membership を実測。
 - [x] `evidence/sv127/l1-process-oracle.jsonl` を追加。
 
 ## 残り（この slice の完了処理）
