@@ -45,9 +45,9 @@ relations:
 
 ## 1. 目的と境界
 
-本書は `scarecrow173/synvelis#659` の slice 1 として、Issue #601 で導入された Journal・Authorization 検証を Property 起点で棚卸し、次 slice が実装する representative proof・runner 分類・mutation 設計の基盤を定める。上位の規範は `POLICIES.md` §6.1〜§6.6 と `evidence/rf1014/verification.md` であり、本書はそこから派生する製品固有の検証設計である。
+本書は `scarecrow173/synvelis#659` の slice 1 として、Issue #601 で導入された Journal・Authorization 検証を Property 起点で棚卸し、後続 slice が実装する representative proof・runner 分類・mutation 設計の基盤を定め、slice 2 の selective proof 結果を同期したものである。上位の規範は `POLICIES.md` §6.1〜§6.6 と `evidence/rf1014/verification.md` であり、本書はそこから派生する製品固有の検証設計である。
 
-この slice は設計と inventory に限定する。製品コード、proof harness、Property Test、`tools/run-formal-kani.mjs`、mise lane、CI/workflow は変更しない。Kani/TLA+ の新規実走、representative proof の実装、mutation 実験も行わない。`docs/specs/formal-verification.md` の最終的な Verification Specification 再構成と証跡/手順分離は `scarecrow173/synvelis#662` が担うため、本書はその構成を先取りせず、Issue #601 当時の spec と slice 1 で確定した設計判断を分けて記録する。
+slice 1 は設計と inventory に限定し、製品コード、proof harness、Property Test、`tools/run-formal-kani.mjs`、mise lane、CI/workflow を変更しなかった。slice 2 は selective runner interface と `K-RJ-03`/`K-RJ-04` の実走結果だけを同期し、製品コード、proof harness、Property Test、bound、assume、unwind、mise lane、CI/workflow は変更しない。`docs/specs/formal-verification.md` の最終的な Verification Specification 再構成と証跡/手順分離は `scarecrow173/synvelis#662` が担うため、本書はその構成を先取りせず、Issue #601 当時の spec と slice 1/2 で確定した設計判断を分けて記録する。
 
 ## 2. 入力正本と inventory の作り方
 
@@ -70,7 +70,7 @@ inventory の入力正本は次の通りである。
 - **assurance 種別**: `Example Tested`（具体例）、`Property Tested`（生成検査）、`Bounded Exhaustive`（bound 内の尽きる検査）、`Model Checked`（状態/順序モデル）、`Theorem Proved`（数学的定理）を区別する。実行 verdict ではない。
 - **必要保証**: `Required` は Issue #659 の受入に必要な保証、`Deferred` は今回の代表proofでは必須としないが後続で再評価する保証、`PT十分` は Property Test と具体境界で必要保証を満たすものである。
 - **risk**: 破損時のユーザー影響・権限昇格可能性・検出困難性から `致命/高/中` に分類する。
-- **現行 verdict**: sv601 時点の記録と、本 slice で実施した `mise run test-formal` の結果を区別する。Kani は本 slice で実走しないため、2 pass・5 not_run の sv601 verdict を引き継ぐ。not_run は証明成功でも失敗でもない。
+- **現行 verdict**: sv601 時点の記録と、slice 1/2 で実施した `mise run test-formal` の結果を区別する。slice 1 では Kani を実走せず 2 pass・5 not_run の sv601 verdict を引き継ぎ、slice 2 では `K-RJ-03`/`K-RJ-04` だけを実走した。not_run は証明成功でも失敗でもない。
 - **局所証明の転用禁止**: 固定長・固定 kind・小 stream・test double 上で成功した proof を、可変長 payload、Chunk allocation、永続化 recovery、認可製品全体、Project 整合性の証明として扱わない。
 
 ## 4. 入力/状態領域プロファイル
@@ -182,8 +182,8 @@ matrix で使う領域 ID を先に定義する。
 | K-GJ-03 `nonzero_seq_is_gap_bounded` | 固定8byte payload・任意seq≠0がSequenceGap | Pass・0/610 failed・31.4s | Required候補・高・Bounded Exhaustive | gateway encode/replay | K-FIXED8-NONZERO。複数record欠番は未証明 | 維持。録音側同型proof追加は次sliceで費用比較 |
 | K-RJ-01 `replay_journal_contract_bounded` | ≤44byte任意streamでRJ-P01相当の分類契約 | solver起動後OOM/VM crash・NotRun。cost不明 | Required・致命・Bounded Exhaustive(未完了) | 製品recording replay | K-STREAM44。44<48でChunk symbolic allocation経路を構造除外。長大stream/cap/FSは未証明 | 最優先代表proof。選択実行と資源分類で再測定 |
 | K-RJ-02 `encode_replay_roundtrip_bounded` | Checkpoint/Finalizeの全field symbolic・seq0 roundtrip | solver起動後OOM/VM crash・NotRun。cost不明 | Required・高・Bounded Exhaustive(未完了) | 製品recording encode/replay | K-FIXED-KINDS。Chunk/Vec<JournalSpan>/可変長は未証明 | 代表proof。Chunkは別harnessまたはPTとして分離 |
-| K-RJ-03 `crc32_split_equivalence_bounded` | 固定16byte・任意split≤16でincremental=one-shot | solver起動後OOM/VM crash・NotRun。cost不明 | Required・高・Bounded Exhaustive(未完了) | 製品crc32/Crc32 | K-CRC16。16byte超・多数分割・任意長数学証明は未証明 | 最小資源で再測定。boundを変える場合は保証差を記録 |
-| K-RJ-04 `session_transitions_exhaustive` | 4×4遷移とacceptance gatesを全網羅 | solver起動後OOM/VM crash・NotRun。cost不明 | Required・高・Bounded Exhaustive(有限全域・未完了) | 製品session SM | K-SESSION4。上位操作列/crash/recoveryは未証明 | 最優先の軽量代表proof。選択実行で最初に完走確認 |
+| K-RJ-03 `crc32_split_equivalence_bounded` | 固定16byte・任意split≤16でincremental=one-shot | Pass・0/131 failed (1 unreachable)・Verification Time 282.0517s・runner wall-clock 310.115s・sync `24d2e2a25291d4e8ec75c7f1ea41bad049421be5` | Required・高・Bounded Exhaustive | 製品crc32/Crc32 | K-CRC16。16byte超・多数分割・任意長数学証明は未証明 | pass は K-CRC16 の内側だけの保証として記録。変更時は選択実行で再検証する |
+| K-RJ-04 `session_transitions_exhaustive` | 4×4遷移とacceptance gatesを全網羅 | NotRun・solver が 300s 予算内に完了せず外部停止・runner wall-clock 634.49s・sync `24d2e2a25291d4e8ec75c7f1ea41bad049421be5` | Required・高・Bounded Exhaustive(有限全域・未完了) | 製品session SM | K-SESSION4。上位操作列/crash/recoveryは未証明 | solver cost の原因調査と harness 分割可否を次 slice で判断する。bound/weakening はしない |
 
 ## 6. Journal Codec・CRC32・Session Transition の保証設計
 
@@ -207,6 +207,10 @@ matrix で使う領域 ID を先に定義する。
 - gateway cap は 16 MiB、recording cap は 1 MiB であり、値が違う。matrix と証跡で cap を一括りにしない。recording Chunk exact boundaryは 21844 spans が in-cap、21845 spans が over-capである。
 - CRC32 は改竄検出のための integrity checksum であり、暗号学的衝突耐性を主張しない。`digest_fold` も決定的な integrity folding であり、SHA-256 等の content identity と混同しない。
 - session proof が成功しても、ファイル作成、media sync、checkpoint append、commit 適用の順序は証明されない。これらは §8 の Recovery/ordering inventory で扱う。
+
+slice 2 の selective proof 実走（sync `24d2e2a25291d4e8ec75c7f1ea41bad049421be5`）では、`K-RJ-03` が `VERIFICATION:- SUCCESSFUL`・0/131 failed・Verification Time 282.0517s で Pass した。runner wall-clock は 310.115s で、compile/loading を含むため verification time と区別する。`K-RJ-04` は solver が 300s 予算内に完了せず、10 分を超えた時点で invocation を外部停止した。反例や unwinding assertion は出ていないため、結果は Fail ではなく cause class `solver` の NotRun である。`format!` を含む illegal-transition error path が solver 入力を大きくしている可能性はあるが、完了ログがないため未確定として記録する。
+
+これらの結果は保証範囲を広げない。`K-RJ-03` の Pass は固定 16 byte・split ≤16 の incremental/one-shot 同値だけを示し、任意長、3 以上の分割、暗号学的衝突耐性を示さない。`K-RJ-04` が将来 Pass しても、`SessionState` 4×4 と acceptance gate の有限全域だけを示し、上位 recording workflow や crash recovery を示さない。
 
 ### 6.3 保証制約の引き継ぎ
 
@@ -240,7 +244,7 @@ serde 入力は `serde_json::Value` と internally tagged enum への依存が�
 | PT/統合 | bind/Operation解釈 | Gateway文脈・adapter metadata依存が大きい | wire-only proofではbindを保証しない |
 | PT/conformance + Model候補 | 外部store/oracle/clock | durable状態と時間は副作用を持つ | test doubleと実storeの同値性は実装契約レビューに依存 |
 
-この分類は slice 1 の設計確定であり、proof 実装・実走ではない。`Required` は次 slice で pure core 抽出または既存 proof 維持の形で実走計画を立てる。`PT十分` は「形式的証明が不要」ではなく、Property Test・mutation・レビューで必要保証を満たすと判断したものであり、未証明領域を matrix に残す。
+この分類は slice 1 の設計確定であり、proof 実装・実走ではない。`Required` は後続 slice で pure core 抽出または既存 proof 維持の形で実走計画を立てる。`PT十分` は「形式的証明が不要」ではなく、Property Test・mutation・レビューで必要保証を満たすと判断したものであり、未証明領域を matrix に残す。
 
 ## 8. Recovery・操作順序の inventory と必要性判定
 
@@ -278,7 +282,7 @@ Recovery の ordering を判定するには、少なくとも次の状態を区�
 
 ### 8.4 必要性判定
 
-TLA+ または同等の state/ordering model は **必要** と判定する。理由は、上記 property が単一 pure function の入出力ではなく、媒体・journal・manifest・session の複数状態と crash point の interleaving に関係し、Kani/proptest の局所 proof では crash 前後の順序を表現できないためである。ただし本 slice では model を導入しない。次 slice はまず CP1〜CP7 を最小限の atomic action へ写像し、どの副作用を atomic と仮定するか、fdatasync/fsync/dir sync をどこまで抽象するかをレビューしてから TLC/Apalache等の実用予算を決める。仮定を固定できない場合は model 化を行わず、不足情報として記録する。
+TLA+ または同等の state/ordering model は **必要** と判定する。理由は、上記 property が単一 pure function の入出力ではなく、媒体・journal・manifest・session の複数状態と crash point の interleaving に関係し、Kani/proptest の局所 proof では crash 前後の順序を表現できないためである。ただし slice 1/2 では model を導入しない。後続 slice はまず CP1〜CP7 を最小限の atomic action へ写像し、どの副作用を atomic と仮定するか、fdatasync/fsync/dir sync をどこまで抽象するかをレビューしてから TLC/Apalache等の実用予算を決める。仮定を固定できない場合は model 化を行わず、不足情報として記録する。
 
 ## 9. 失敗分類・選択実行・再実行設計
 
@@ -298,11 +302,11 @@ TLA+ または同等の state/ordering model は **必要** と判定する。�
 | `infrastructure` | WSL `E_UNEXPECTED`、VM hard crash、CI runner kill | ツール/VM crashとしてproof failと区別。raw log必須 |
 | `product_oracle_failure` | `VERIFICATION:- FAILED`、反例、oracle差分 | 製品欠陥または抽象化誤りとして解析する。environmentと混同しない |
 
-現行 runner は `pass`/`fail`/`not_run(environment_blocked)` を1行JSONで返し、cargo kani の生出力を inherit する。cargo が非零で終わると証明失敗と環境/基盤失敗が `fail` に潰れる可能性があるため、次 slice は runner semantics を変える前に raw log 保存と cause classifier の設計を別途承認する必要がある。本 slice は実装しない。
+slice 2 の runner は `pass`/`fail`/`not_run(environment_blocked)` の語彙を保ちながら、package/harness/jobs/environment/elapsed/exit code/harness件数を1行JSONへ追加した。cargo が非零で終わると証明失敗と環境/基盤失敗が `fail` に潰れる制限は残る。したがって slice 2 の cause class は raw output と実行観測から evidence 側で記録し、full cause classifier は実装しない。
 
 ### 9.2 選択実行と反復手順
 
-1. 全件実行の前に `K-RJ-04`（有限小規模）、`K-RJ-03`（CRC）、`K-RJ-01`（代表replay）の順で単発/選択実行可否を確認する。cargo kani の harness filter または package/test target 単位の公式な選択方法を次 slice で確認し、実測コマンドを証跡に残す。
+1. 選択実行 interface は `KANI_PACKAGE` と `KANI_HARNESS` として実装済みである。`K-RJ-04`・`K-RJ-03` は `KANI_PACKAGE=synvelis-recording KANI_JOBS=1` で実行し、実測コマンドと raw output を `evidence/sv659/formal-proof-runs.jsonl` に記録した。`K-RJ-01` を含む重い replay/round-trip proof は未実行である。
 2. 既定 `-j4` で memory class が疑われたら、proof boundを変えずに `KANI_JOBS=2`、次に `KANI_JOBS=1` で再実行する。
 3. 同一 harness を同一環境で 2 回実行し、wall-clock/peak memory/終了形を比較する。1回だけ成功しても不安定なら pass とせず、再現条件を書く。
 4. WSL VM crash が出たら同じVMで連続再試行せず、Windows event/WSL journal/sibling CBMC有無を記録してから再起動またはクリーン環境で再実行する。
@@ -312,12 +316,12 @@ TLA+ または同等の state/ordering model は **必要** と判定する。�
 
 Ruviform へ還元すべきものは、製品固有 Property ではなく、複数製品で再利用できる runner/evidence 基盤だけである。具体的には、harnessごとの verdict/cause/resource 使用量を機械可読に残す実行器、Kani/WSL環境検出、選択実行・再実行計画、assurance metadata schema が候補になる。一方、Journal frame、WireRequest、GrantPolicy、SessionState、Recording recovery は Synvelis の製品契約なので Ruviform に移さない。Ruviform 側の proof や runner pass を Synvelis 製品契約の pass へ転用もしない。
 
-`rf#1015` は verification evidence/model 周辺の既存課題として参照するが、本 slice だけでは要求差分と重複範囲を確定できない。したがって新規起票は行わない。次 slice で runner 分類実装の必要差分が確定した時点で `rf#1015` と重複しないか確認し、必要なら「製品非依存の検証runner evidence schema」として起票し、Synvelis側 Issue #659 と相互リンクする。確定できないまま重複起票しない方が安全である。
+`rf#1015` は verification evidence/model 周辺の既存課題として参照するが、slice 1/2 だけでは要求差分と重複範囲を確定できない。したがって新規起票は行わない。後続 slice で runner 分類実装の必要差分が確定した時点で `rf#1015` と重複しないか確認し、必要なら「製品非依存の検証runner evidence schema」として起票し、Synvelis側 Issue #659 と相互リンクする。確定できないまま重複起票しない方が安全である。
 
 ## 11. 次 slice への引き継ぎ
 
-- K-RJ-01/02/03/04 と K-GJ-01 の完走、既存 pass 2 件の回帰、harnessごとの resource/cause/evidence schema。
+- `K-RJ-04` の solver cost 原因調査と分割可否、`K-RJ-01`/`K-RJ-02`/`K-GJ-01` の実走、既存 pass 2 件を含む回帰、harnessごとの peak memory 計測と full cause classifier。
 - Authorization pure core の抽出可否を判断し、Wire scan・存在秘匿・descriptor・budget・grant次元・scope/effectsの代表BEを設計どおり実装するかを決める。
 - Recovery ordering model の atomic action/仮定を確定し、TLA+ 等の tool-fit と最小modelを作る。
 - mutation は oracle 独立性を壊す自己参照を避け、少なくとも CRC除去、seq検査除去、wire forbidden token削除、deny先攻順序、budget消費条件の代表的変異を計画する。
-- 本 slice はこれらを設計しただけであり、実装済み・証明済みとして扱わない。
+- slice 2 は selective interface、`K-RJ-03` の bounded pass、`K-RJ-04` の solver NotRun までを確定した。重い replay/round-trip proof、Authorization、Recovery ordering、mutation、full cause classifier、全件 cost comparison は未実装または未実走であり、証明済みとして扱わない。

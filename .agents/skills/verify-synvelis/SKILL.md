@@ -194,6 +194,9 @@ mise run test-formal        # proptest property suites (always-on)
 mise run test-formal-kani   # Kani bounded proofs (native, else WSL2)
 KANI_JOBS=2 mise run test-formal-kani   # cap CBMC solver parallelism
                             # on shared/small-RAM hosts (default -j4)
+KANI_PACKAGE=synvelis-recording \
+KANI_HARNESS=crc32_split_equivalence_bounded \
+KANI_JOBS=1 mise run test-formal-kani   # rerun one selected proof
 ```
 
 - `test-formal` runs `cargo test --locked … --test formal_journal`
@@ -204,14 +207,22 @@ KANI_JOBS=2 mise run test-formal-kani   # cap CBMC solver parallelism
   `cargo kani` (Kani cannot run on native Windows). WSL executes
   with `CARGO_TARGET_DIR` on the WSL-native filesystem — the
   Windows managed target dir is untouched.
+- Selective reruns use `KANI_PACKAGE=synvelis-gateway|synvelis-recording`
+  to select one package and `KANI_HARNESS=<filter>` to pass one Kani
+  harness filter. Unknown packages and whitespace-only harness values are
+  `configuration_error` (exit 2) before verification starts. The runner
+  adds no multi-filter, glob, regexp, or exact-match grammar of its own.
 - Lane verdicts are execution verdicts, not assurance claims: the
   runner prints one JSON verdict line — `pass` (the selected proof
   harnesses completed within their recorded bounds), `fail`
-  (execution observed a counterexample/unwinding violation — exit 1),
-  or `not_run` + `environment_blocked` (no Kani environment — exit 0,
-  never a fake pass). Assurance kind (for Kani, bounded exhaustive
-  within the recorded bounds), target, synchronization state, and
-  failure cause are independent axes. The current runner's
+  (verification failed, the harness filter matched no proof, or the
+  invocation was otherwise unsuccessful — exit 1; configuration errors
+  use exit 2), or `not_run` + `environment_blocked` (no Kani
+  environment — exit 0, never a fake pass). The JSON also records
+  package/packages, harness, jobs, environment, elapsed seconds, exit
+  code, and matched harness count. Assurance kind (for Kani, bounded
+  exhaustive within the recorded bounds), target, synchronization
+  state, and failure cause are independent axes. The current runner's
   failure-cause classification is limited and does not yet distinguish
   Product Defect / Model Error / Resource Limit / Environment or
   unwinding/bound soundness failures; `scarecrow173/synvelis#659`
@@ -220,7 +231,8 @@ KANI_JOBS=2 mise run test-formal-kani   # cap CBMC solver parallelism
 - Coverage, bounds, assumptions, and the provision runbook live in
   `docs/specs/formal-verification.md`; evidence lands in
   `evidence/sv601/` (`test-formal-kani.log`, `verification.md`,
-  mutation-fail records).
+  mutation-fail records); slice-2 selective proof evidence is in
+  `evidence/sv659/formal-proof-runs.jsonl` and its raw output artifacts.
 - Change-impact procedure: when production code, harnesses, models,
   bounds, assumptions, or tools affecting these lanes change, judge
   the impacted Properties, rerun the affected verification, confirm
