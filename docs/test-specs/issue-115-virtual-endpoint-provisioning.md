@@ -61,10 +61,11 @@ relations:
 implementation slice が満たすべき検証規則へ落とす正本である。
 
 2026-11-26 の Slice B implementation で consumer workflow は実装された。
-ただし workflow file は default branch に入るまで manual dispatch できず、
-provisioned run evidence はまだ無い。この文書に書く provisioned case を
-実施済みと読んではならない。static/local validation と merge 後の provisioned
-run を分けて記録する。
+初回 provisioned manual run は 2026-11-26 に実施され、run `45797309944`
+attempt `1` は consumer Fail だった。詳細は
+`evidence/sv115/issue-115-virtual-endpoint-provisioned-consumer-run.md` に記録する。
+この文書に書く provisioned case がすべて Pass したとは読まない。static/local
+validation、初回 provisioned run、後続の canonical Pass run を分けて記録する。
 
 ## Rules
 
@@ -165,5 +166,6 @@ Slice B implementation の canonical local validation は次である。
 RunMetadata が `result=not-run` / `NOT_PROVISIONED` なら EXT-L3 Pass ではない。
 workflow YAML の static confirmation と local harness の NotRun は
 `evidence/sv115/issue-115-virtual-endpoint-consumer-workflow-implementation.md`
-に記録する。provisioned manual run、artifact 検収、canonical evidence 転記は
-merge 後 follow-up gate とする。
+に記録する。初回 provisioned manual run、artifact 検収、canonical evidence 転記は
+`evidence/sv115/issue-115-virtual-endpoint-provisioned-consumer-run.md` に記録し、
+consumer Fail を Pass に読み替えない。

@@ -1,0 +1,16 @@
+{
+  "schema": "sv115-virtual-endpoint-consumer-verdict/v1",
+  "verdict": "consumer-fail",
+  "reason": "terminal RunMetadata result=fail",
+  "terminal_metadata_result": "fail",
+  "terminal_metadata_path": "D:\\a\\_temp\\sv115-consumer-evidence\\run-metadata\\run-metadata-sv115-rcd01-virtual-endpoint-render-capture-recorder.json",
+  "terminal_metadata_count": 1,
+  "metadata_error": "",
+  "readiness_ready": "true",
+  "readiness_reason": "OK",
+  "harness_step_outcome": "failure",
+  "consumer_upload_outcome": "success",
+  "cleanup_step_outcome": "success",
+  "cleanup_upload_outcome": "success",
+  "note": "GitHub Actions has no neutral conclusion; job conclusion is operational completion, not the acceptance verdict."
+}

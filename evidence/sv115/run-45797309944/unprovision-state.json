@@ -1,0 +1,357 @@
+{
+  "schema": "rvf-virtual-audio-provisioning/v1",
+  "operation": "unprovision",
+  "status": "ok",
+  "detail": "OK",
+  "exit_code": 0,
+  "recorded_utc": "2026-11-26T10:07:45Z",
+  "started_utc": "2026-11-26T10:07:38Z",
+  "finished_utc": "2026-11-26T10:07:45Z",
+  "source": {
+    "repo_url": "https://github.com/scarecrow173/ruviform.git",
+    "checkout_rev": "87a7ba8ff3fbe6d4502bea27d152d7f74c105899",
+    "expected_rev": "87a7ba8ff3fbe6d4502bea27d152d7f74c105899",
+    "dirty": false
+  },
+  "runner": {
+    "os_caption": "Microsoft Windows Server 2025 Datacenter",
+    "os_version": "10.0.26100",
+    "os_build": "26100",
+    "arch": "AMD64",
+    "github_actions": true,
+    "runner_environment": "github-hosted",
+    "admin": true,
+    "testsigning": true,
+    "secure_boot": false,
+    "msbuild": null,
+    "vs_install": null,
+    "km_headers": 0,
+    "km_libs": 0,
+    "initial_toolset_count": 0,
+    "initial_km_headers": 0,
+    "wdk_install_attempted": false,
+    "wdm_header_count": 0,
+    "initial_km_libs": 0,
+    "initial_signtool_hits": 0,
+    "initial_inf2cat_hits": 0,
+    "initial_makecat_hits": 0,
+    "winget_present": null
+  },
+  "inputs": {
+    "state_path": "D:\\a\\_temp\\sv115-consumer-evidence\\provision-state.json",
+    "workspace_root": "D:\\a\\_temp\\sv115-provision-workspace",
+    "evidence_dir": "D:\\a\\_temp\\sv115-cleanup-evidence",
+    "cleanup_mode": "Full",
+    "timeout_seconds": 900
+  },
+  "stages": [
+    {
+      "stage": "environment",
+      "status": "ok",
+      "detail": "ephemeral github-hosted windows-2025 x64 admin surface confirmed",
+      "exit_code": null,
+      "recorded_utc": "2026-11-26T10:07:39Z"
+    },
+    {
+      "stage": "state",
+      "status": "ok",
+      "detail": "input_status=ok; instance_id=ROOT\\MEDIA\\0000; inf=oem12.inf",
+      "exit_code": null,
+      "recorded_utc": "2026-11-26T10:07:39Z"
+    },
+    {
+      "stage": "devnode",
+      "status": "ok",
+      "detail": "",
+      "exit_code": null,
+      "recorded_utc": "2026-11-26T10:07:42Z"
+    },
+    {
+      "stage": "driver-store",
+      "status": "ok",
+      "detail": "",
+      "exit_code": null,
+      "recorded_utc": "2026-11-26T10:07:42Z"
+    },
+    {
+      "stage": "cert",
+      "status": "ok",
+      "detail": "",
+      "exit_code": null,
+      "recorded_utc": "2026-11-26T10:07:42Z"
+    },
+    {
+      "stage": "consent",
+      "status": "ok",
+      "detail": "",
+      "exit_code": null,
+      "recorded_utc": "2026-11-26T10:07:42Z"
+    },
+    {
+      "stage": "service",
+      "status": "ok",
+      "detail": "",
+      "exit_code": null,
+      "recorded_utc": "2026-11-26T10:07:44Z"
+    },
+    {
+      "stage": "residue-check",
+      "status": "ok",
+      "detail": "leftovers=0",
+      "exit_code": null,
+      "recorded_utc": "2026-11-26T10:07:45Z"
+    }
+  ],
+  "endpoint": {
+    "candidate": true,
+    "pair_count": 1,
+    "render": [
+      {
+        "name": "Ruviform Cable Input (Ruviform Virtual Audio Device)",
+        "id": "{0.0.0.00000000}.{c7136f16-fb0d-4b35-a310-8ef09628c2cd}",
+        "state": 1
+      }
+    ],
+    "capture": [
+      {
+        "name": "Ruviform Cable Output (Ruviform Virtual Audio Device)",
+        "id": "{0.0.1.00000000}.{43080967-2455-40bd-99e8-83708ee86977}",
+        "state": 1
+      }
+    ],
+    "pairs": [
+      {
+        "render": "Ruviform Cable Input (Ruviform Virtual Audio Device)",
+        "capture": "Ruviform Cable Output (Ruviform Virtual Audio Device)",
+        "stem": "ruviform cable ruviform virtual audio device",
+        "render_id": "{0.0.0.00000000}.{c7136f16-fb0d-4b35-a310-8ef09628c2cd}",
+        "capture_id": "{0.0.1.00000000}.{43080967-2455-40bd-99e8-83708ee86977}"
+      }
+    ],
+    "probe_result": "CANDIDATES_OBSERVED"
+  },
+  "package": {
+    "inf_path": "D:\\a\\_temp\\sv115-provision-workspace\\vaudio-pkg\\RvfVirtualAudio.inf",
+    "cat_path": "D:\\a\\_temp\\sv115-provision-workspace\\vaudio-pkg\\rvfvirtualaudio.cat",
+    "sys_path": "D:\\a\\_temp\\ruviform-source\\drivers\\rvf-virtual-audio\\x64\\Release\\RvfVirtualAudio.sys",
+    "package_dir": "D:\\a\\_temp\\sv115-provision-workspace\\vaudio-pkg",
+    "inf_sha256": "5da93e51d9c7d772286df3287efe2f8e79b0385cbe558382597a1699f85c31b3",
+    "cat_sha256": "ab83383362ba7ac00d3327b09a93fb95de41cced0fcd7dc66004cbe8af378c4e",
+    "sys_sha256": "66b6ea0c45e8f1011bb0a952412607ec7a85e69f2fb710ae34cad57f40a57270",
+    "publisher": "RvfVirtualAudio Probe (rf977)",
+    "cert_thumbprint": "5132ED7D65D89227B4C5EC1678CE8235783DB9EF",
+    "cert_not_after": "2026-11-28T10:06:21Z",
+    "signed": true
+  },
+  "os_state": {
+    "instance_id": "ROOT\\MEDIA\\0000",
+    "inf_published": "oem12.inf",
+    "cert_thumbprint": "5132ED7D65D89227B4C5EC1678CE8235783DB9EF",
+    "consent_before": [
+      {
+        "tag": "hklm-devacc",
+        "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DeviceAccess\\Global\\{E5323777-F976-4f5b-9B55-B94699C46E44}",
+        "name": "Value",
+        "key_exists": false,
+        "value_exists": false,
+        "value": null
+      },
+      {
+        "tag": "hkcu-devacc",
+        "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DeviceAccess\\Global\\{E5323777-F976-4f5b-9B55-B94699C46E44}",
+        "name": "Value",
+        "key_exists": false,
+        "value_exists": false,
+        "value": null
+      },
+      {
+        "tag": "hklm-cam",
+        "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone",
+        "name": "Value",
+        "key_exists": true,
+        "value_exists": true,
+        "value": "Allow"
+      },
+      {
+        "tag": "hkcu-cam",
+        "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone",
+        "name": "Value",
+        "key_exists": false,
+        "value_exists": false,
+        "value": null
+      },
+      {
+        "tag": "policy",
+        "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\AppPrivacy",
+        "name": "LetAppsAccessMicrophone",
+        "key_exists": false,
+        "value_exists": false,
+        "value": null
+      }
+    ],
+    "consent_after": [
+      {
+        "tag": "hklm-devacc",
+        "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DeviceAccess\\Global\\{E5323777-F976-4f5b-9B55-B94699C46E44}",
+        "name": "Value",
+        "key_exists": true,
+        "value_exists": true,
+        "value": "Allow"
+      },
+      {
+        "tag": "hkcu-devacc",
+        "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\DeviceAccess\\Global\\{E5323777-F976-4f5b-9B55-B94699C46E44}",
+        "name": "Value",
+        "key_exists": true,
+        "value_exists": true,
+        "value": "Allow"
+      },
+      {
+        "tag": "hklm-cam",
+        "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone",
+        "name": "Value",
+        "key_exists": true,
+        "value_exists": true,
+        "value": "Allow"
+      },
+      {
+        "tag": "hkcu-cam",
+        "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone",
+        "name": "Value",
+        "key_exists": true,
+        "value_exists": true,
+        "value": "Allow"
+      },
+      {
+        "tag": "policy",
+        "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Windows\\AppPrivacy",
+        "name": "LetAppsAccessMicrophone",
+        "key_exists": true,
+        "value_exists": true,
+        "value": 1
+      }
+    ],
+    "service_restart": [
+      {
+        "service": "AudioEndpointBuilder",
+        "before": "Running",
+        "after": "Running",
+        "error": ""
+      },
+      {
+        "service": "Audiosrv",
+        "before": "Running",
+        "after": "Running",
+        "error": ""
+      }
+    ],
+    "pre_devnode": {
+      "inf_in_store": true,
+      "published_name": "oem12.inf",
+      "matching_devnodes": 0,
+      "devices": [],
+      "recorded_utc": "2026-11-26T10:06:24Z"
+    }
+  },
+  "artifacts": [
+    {
+      "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\cleanup-pending.txt",
+      "kind": "txt",
+      "sha256": "8bbff635a1efc84873b2e1f630c545ecdffb9279d645e9a04985ed9e41ba8488"
+    },
+    {
+      "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-cert-cleanup.log",
+      "kind": "log",
+      "sha256": "278a8d20f0aeb539a73ddcdef74d5838c3e622cd55926cbac18ac82d66e937c0"
+    },
+    {
+      "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-consent-cleanup.log",
+      "kind": "log",
+      "sha256": "f6d8c1eb90ff578385d1a61705808d66ef11c251a9163b5f31cbd735d1297f82"
+    },
+    {
+      "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-devnode-cleanup.log",
+      "kind": "log",
+      "sha256": "1096c5b83fce0f88d1a280b68fae96b1596b6bd58d5519399390191b510ae2c8"
+    },
+    {
+      "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-driver-store-cleanup.log",
+      "kind": "log",
+      "sha256": "4c49caecae3839c7f2381f1249e2deed556b9483f355cc579a05250f96aa9d06"
+    },
+    {
+      "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-environment.log",
+      "kind": "log",
+      "sha256": "d88f2df05197dfc353303c1d1591276e70cd10144718326cf20e7b71beecc9e6"
+    },
+    {
+      "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-residue-check.log",
+      "kind": "log",
+      "sha256": "f26c2b0fe5242601365cfc459c9fb6a6bf53d9fc256c63d74eb3d4bd38d1d025"
+    },
+    {
+      "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-service-cleanup.log",
+      "kind": "log",
+      "sha256": "24b429abbeb151cae7c0a7af22a8a03f92e58d23f4c5026f8270d2a8b7857f6b"
+    },
+    {
+      "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-state.log",
+      "kind": "log",
+      "sha256": "d2a7e40d62af937619a66dc594a82118634b416b1154e9883b1df51cb77d4b37"
+    },
+    {
+      "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\unprovision.log",
+      "kind": "log",
+      "sha256": "65499fa6d32a5d8d5fd0ff24e05d55157cf11883b425bc0fbaae84dcdd286216"
+    }
+  ],
+  "cleanup": {
+    "mode": "Full",
+    "stages": [
+      {
+        "stage": "devnode",
+        "status": "ok",
+        "detail": "",
+        "exit_code": null,
+        "recorded_utc": "2026-11-26T10:07:42Z"
+      },
+      {
+        "stage": "driver-store",
+        "status": "ok",
+        "detail": "",
+        "exit_code": null,
+        "recorded_utc": "2026-11-26T10:07:42Z"
+      },
+      {
+        "stage": "cert",
+        "status": "ok",
+        "detail": "",
+        "exit_code": null,
+        "recorded_utc": "2026-11-26T10:07:42Z"
+      },
+      {
+        "stage": "consent",
+        "status": "ok",
+        "detail": "",
+        "exit_code": null,
+        "recorded_utc": "2026-11-26T10:07:42Z"
+      },
+      {
+        "stage": "service",
+        "status": "ok",
+        "detail": "",
+        "exit_code": null,
+        "recorded_utc": "2026-11-26T10:07:44Z"
+      },
+      {
+        "stage": "residue-check",
+        "status": "ok",
+        "detail": "leftovers=0",
+        "exit_code": null,
+        "recorded_utc": "2026-11-26T10:07:45Z"
+      }
+    ],
+    "leftovers": [],
+    "errors": []
+  }
+}

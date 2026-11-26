@@ -74,9 +74,11 @@ primitive を、Synvelis が所有する manual consumer workflow から同一
 
 この文書は 2026-11-25 の design/docs slice で作成され、2026-11-26 の
 Slice B implementation で manual-only consumer workflow が実装された。
-workflow は default branch に入るまで `workflow_dispatch` を受け付けないため、
 初回 provisioned manual run、artifact 検収、canonical run evidence 転記は
-merge 後 follow-up gate のままである。既存 approved spec
+2026-11-26 の merge 後 follow-up gate で実施され、run `45797309944` attempt `1`
+は consumer Fail だった。詳細は
+`evidence/sv115/issue-115-virtual-endpoint-provisioned-consumer-run.md` を参照し、
+本 spec の要件水準は run 結果で変更しない。既存 approved spec
 `docs/specs/issue-115-virtual-endpoint.md` は consumer harness の要件正本で
 あり、その Non-goals は merged 済み harness slice の履歴として維持する。
 本 spec は provisioning orchestration を別 slice の要件として扱うものであり、
