@@ -882,9 +882,9 @@ impl Project {
         // target's *role and owner*: the well-known ID is the app's
         // lookup key for "the master strip's fader", so an entry that
         // merely squats on the ID while pointing elsewhere is just as
-        // foreign. Cosmetic fields (name/kind/mapping/base) stay
-        // unconstrained — the v7→v8 migration legitimately re-keys a
-        // pre-existing user fader with its own values.
+        // foreign. The v15→v16 migration normalizes legacy fixed spec
+        // fields before this oracle runs; current snapshots must already
+        // satisfy the canonical internal-spec check below.
         let fader_id = ParameterTargetId::new(MASTER_FADER_RAW);
         let fader = ctl.targets.get(&fader_id).ok_or_else(|| {
             Error::Validation("project lacks the bootstrap master-strip fader target".into())
@@ -912,6 +912,16 @@ impl Project {
                 return Err(Error::Validation(format!(
                     "param {} base outside [0,1]",
                     target.id
+                )));
+            }
+            let spec_deviations = crate::control::canonical_internal_spec_deviations(target);
+            if !spec_deviations.is_empty() {
+                return Err(Error::Validation(format!(
+                    "param {} internal target deviates from the canonical spec (owner {:?}, role {:?}, fields: {})",
+                    target.id,
+                    target.owner,
+                    target.role,
+                    spec_deviations.join(", ")
                 )));
             }
             if let Some(cap) = target.capability {

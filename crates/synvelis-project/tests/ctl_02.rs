@@ -1548,3 +1548,305 @@ fn v9_snapshot_seeds_channel_params_deterministically() {
     c3.load(&store).unwrap();
     assert_eq!(c2.live(), c3.live());
 }
+
+// ── CTL-02 persistence: v15→v16 canonicalization + v16 oracle ─────
+
+fn foreign_capability() -> TargetCapability {
+    TargetCapability {
+        param_id: 41,
+        flags_bits: ParamFlags::AUTOMATABLE.bits(),
+        min_value: 0.1,
+        max_value: 1.0,
+        default_value: 0.1,
+    }
+}
+
+fn save_envelope_at_schema(
+    project: &Project,
+    revision: ProjectRevision,
+    schema_version: u32,
+) -> InMemoryStore {
+    let envelope = SnapshotEnvelope {
+        schema_version,
+        project_id: project.project_id,
+        revision,
+        project: project.clone(),
+    };
+    let bytes = serde_json::to_vec(&envelope).unwrap();
+    let mut store = InMemoryStore::new();
+    store.save("p", revision, &bytes).unwrap();
+    store
+}
+
+struct LegacySpecFixture {
+    project: Project,
+    revision: ProjectRevision,
+    master: StripId,
+    strip: StripId,
+    send: SendId,
+    master_fader: ParameterTargetId,
+    strip_mute: ParameterTargetId,
+    send_level: ParameterTargetId,
+    free_form_before: ParameterTarget,
+    plugin_param_before: ParameterTarget,
+    lane_targets: Vec<ParameterTargetId>,
+    watermark: u128,
+}
+
+fn make_noncanonical(
+    target: &mut ParameterTarget,
+    name: &str,
+    base: f64,
+    kind: ValueKind,
+    capability: TargetCapability,
+) {
+    target.name = name.into();
+    target.base = base;
+    target.kind = kind;
+    target.mapping = ParamMapping::Exponential;
+    target.time_scope = AutomationTimeScope::ProjectAbsolute;
+    target.capability = Some(capability);
+}
+
+fn legacy_spec_fixture() -> LegacySpecFixture {
+    let mut f = adopt_fixture();
+    let master = master_strip(f.c.live());
+    let master_fader = strip_channel_target_id(f.c.live(), master, ParameterRole::Fader).unwrap();
+    let strip_mute = strip_channel_target_id(f.c.live(), f.strip, ParameterRole::Mute).unwrap();
+    let canonical = (
+        ValueKind::Continuous,
+        ParamMapping::Linear,
+        AutomationTimeScope::ProjectMusical,
+        None,
+    );
+    let send_level = add_free_target(&mut f.c, ControlOwner::Track(f.track), canonical);
+    f.c.apply(cmd(
+        &f.c,
+        ProjectOp::SetSendGainTarget {
+            send_id: f.send,
+            gain_target: Some(send_level),
+        },
+    ))
+    .unwrap();
+
+    let free_form = add_free_target(
+        &mut f.c,
+        ControlOwner::Track(f.track),
+        (
+            ValueKind::Continuous,
+            ParamMapping::Exponential,
+            AutomationTimeScope::ProjectAbsolute,
+            Some(foreign_capability()),
+        ),
+    );
+    let processor = add_processor(&mut f.c, f.strip, true);
+    let plugin_param = add_plugin_param(&mut f.c, processor, 7);
+    f.c.apply(cmd(
+        &f.c,
+        ProjectOp::AddAutomationLane {
+            target: master_fader,
+        },
+    ))
+    .unwrap();
+
+    let lane_targets =
+        f.c.live()
+            .control
+            .lanes
+            .values()
+            .map(|lane| lane.target)
+            .collect();
+    let watermark = f.c.live().id_watermark;
+    let mut project = f.c.live().clone();
+    let foreign = foreign_capability();
+    make_noncanonical(
+        project.control.targets.get_mut(&master_fader).unwrap(),
+        "authored master fader",
+        0.62,
+        ValueKind::Boolean,
+        foreign,
+    );
+    make_noncanonical(
+        project.control.targets.get_mut(&strip_mute).unwrap(),
+        "authored mute",
+        0.33,
+        ValueKind::Continuous,
+        foreign,
+    );
+    make_noncanonical(
+        project.control.targets.get_mut(&send_level).unwrap(),
+        "authored send level",
+        0.71,
+        ValueKind::Boolean,
+        foreign,
+    );
+    let free_form_before = project.control.targets[&free_form].clone();
+    let plugin_param_before = project.control.targets[&plugin_param].clone();
+    LegacySpecFixture {
+        project,
+        revision: f.c.live_revision(),
+        master,
+        strip: f.strip,
+        send: f.send,
+        master_fader,
+        strip_mute,
+        send_level,
+        free_form_before,
+        plugin_param_before,
+        lane_targets,
+        watermark,
+    }
+}
+
+fn assert_canonical_target(
+    live: &Project,
+    id: ParameterTargetId,
+    owner: ControlOwner,
+    role: ParameterRole,
+    kind: ValueKind,
+    name: &str,
+    base: f64,
+) {
+    let target = &live.control.targets[&id];
+    assert_eq!(target.id, id);
+    assert_eq!(target.owner, owner);
+    assert_eq!(target.role, role);
+    assert_eq!(target.kind, kind, "{role:?} kind");
+    assert_eq!(target.mapping, ParamMapping::Linear, "{role:?} mapping");
+    assert_eq!(
+        target.time_scope,
+        AutomationTimeScope::ProjectMusical,
+        "{role:?} time_scope"
+    );
+    assert_eq!(target.capability, None, "{role:?} capability");
+    assert_eq!(target.name, name, "{role:?} authored name preserved");
+    assert_eq!(target.base, base, "{role:?} authored base preserved");
+}
+
+/// A v15 body may still contain internal targets written before the
+/// write/adoption paths enforced the canonical spec. The v15→v16 step
+/// normalizes only the fixed spec fields — `kind`/`mapping`/
+/// `time_scope`/`capability` — while preserving identity and authored
+/// state. Free-form and plugin capability targets are outside the rule.
+#[test]
+fn v15_snapshot_normalizes_legacy_internal_specs_without_rewriting_authored_state() {
+    let fixture = legacy_spec_fixture();
+    let store = save_envelope_at_schema(&fixture.project, fixture.revision, 15);
+    let mut loaded = controller();
+    loaded.load(&store).unwrap();
+    let live = loaded.live();
+
+    assert_canonical_target(
+        live,
+        fixture.master_fader,
+        ControlOwner::Strip(fixture.master),
+        ParameterRole::Fader,
+        ValueKind::Continuous,
+        "authored master fader",
+        0.62,
+    );
+    assert_canonical_target(
+        live,
+        fixture.strip_mute,
+        ControlOwner::Strip(fixture.strip),
+        ParameterRole::Mute,
+        ValueKind::Boolean,
+        "authored mute",
+        0.33,
+    );
+    assert_canonical_target(
+        live,
+        fixture.send_level,
+        ControlOwner::Send(fixture.send),
+        ParameterRole::SendLevel,
+        ValueKind::Continuous,
+        "authored send level",
+        0.71,
+    );
+
+    let free_form_id = fixture.free_form_before.id;
+    let plugin_param_id = fixture.plugin_param_before.id;
+    assert_eq!(
+        live.control.targets[&free_form_id],
+        fixture.free_form_before
+    );
+    assert_eq!(
+        live.control.targets[&plugin_param_id],
+        fixture.plugin_param_before
+    );
+
+    let lane_targets_after: Vec<ParameterTargetId> = live
+        .control
+        .lanes
+        .values()
+        .map(|lane| lane.target)
+        .collect();
+    assert_eq!(lane_targets_after, fixture.lane_targets);
+    assert_eq!(
+        live.routing.sends[&fixture.send].gain_target,
+        Some(fixture.send_level)
+    );
+    assert_eq!(live.id_watermark, fixture.watermark);
+    live.validate_references().unwrap();
+
+    let mut loaded_again = controller();
+    loaded_again.load(&store).unwrap();
+    assert_eq!(live, loaded_again.live());
+}
+
+/// A v16 body is already current: load must not repair it. Each fixed
+/// canonical-spec field is independently fail-closed through
+/// `Project::validate_references`, with target/owner/role/field evidence.
+#[test]
+fn v16_snapshot_rejects_each_noncanonical_internal_spec_field() {
+    for field in ["kind", "mapping", "time_scope", "capability"] {
+        let c = controller();
+        let master = master_strip(c.live());
+        let master_fader = strip_channel_target_id(c.live(), master, ParameterRole::Fader).unwrap();
+        let mut current = c.live().clone();
+        let target = current.control.targets.get_mut(&master_fader).unwrap();
+        match field {
+            "kind" => target.kind = ValueKind::Boolean,
+            "mapping" => target.mapping = ParamMapping::Exponential,
+            "time_scope" => target.time_scope = AutomationTimeScope::ProjectAbsolute,
+            "capability" => target.capability = Some(foreign_capability()),
+            other => unreachable!("unexpected field {other}"),
+        }
+
+        let store = save_envelope_at_schema(&current, c.live_revision(), 16);
+        let mut loaded = controller();
+        let err = loaded.load(&store).unwrap_err();
+        let Error::Validation(message) = err else {
+            panic!("schema v16 {field} deviation must fail as validation: {err:?}");
+        };
+        assert!(message.contains(&master_fader.to_string()), "{message}");
+        assert!(message.contains("Strip"), "{message}");
+        assert!(message.contains("Fader"), "{message}");
+        assert!(message.contains(field), "{message}");
+    }
+}
+
+/// Current-state validity covers both a fresh project and a legacy body
+/// after the full ordered ladder. The existing v9 strip seeding step and
+/// v15 canonicalization compose; neither leaves state the v16 oracle
+/// rejects.
+#[test]
+fn fresh_and_v9_migrated_projects_pass_the_canonical_internal_spec_oracle() {
+    let fresh = controller();
+    fresh.live().validate_references().unwrap();
+
+    let mut c = controller();
+    let track = add_track(&mut c, "t");
+    let _strip = add_track_strip(&mut c, track);
+    let mut store = InMemoryStore::new();
+    store
+        .save(
+            "p",
+            c.live_revision(),
+            &serde_json::to_vec(&as_v9_envelope(&c)).unwrap(),
+        )
+        .unwrap();
+    let mut migrated = controller();
+    migrated.load(&store).unwrap();
+    migrated.live().validate_references().unwrap();
+}

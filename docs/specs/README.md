@@ -267,4 +267,5 @@ Directory: `docs/specs`
 | SPEC-SV114SVOSCONSUMER00000001 | SV-OS consumer catalog — SV-OS-01〜05 catalog/headless/real lane slice (synvelis#114) | approved | [sv114-svos-consumer-catalog.md](./sv114-svos-consumer-catalog.md) |
 | SPEC-Tim04PermissionMatrix01 | TIM-04 plugin state permission fault matrix | approved | [tim-04-permission-matrix.md](./tim-04-permission-matrix.md) |
 | SPEC-rf1029p4Lx8Qm2Nv7Ty5Ks1Wd9Zc | SV#28 Ruviform pin 更新仕様（87a7ba8f → 0479fa62 / rf#1029） | approved | [sv28-ruviform-pin-rf1029.md](./sv28-ruviform-pin-rf1029.md) |
+| SPEC-gtjTcKhGLn9Po50wiKWkuC | CTL-02 canonical persistence — v15→v16 migration と load oracle | approved | [ctl-02-canonical-persistence.md](./ctl-02-canonical-persistence.md) |
 | SPEC-t7Qm4Vx9Ln2Rw8KzYpD6 | TIM-03 transport application minimal vertical | approved | [tim-03-transport-application.md](./tim-03-transport-application.md) |
