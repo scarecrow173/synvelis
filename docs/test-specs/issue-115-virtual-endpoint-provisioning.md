@@ -1,10 +1,10 @@
 ---
 id: "TSPEC-sv115VirtualEndpointProvisioning"
 type: "test-spec"
-status: "proposed"
+status: "approved"
 title: "Issue #115 RCD-01 Virtual Endpoint Provisioning 検証仕様"
 created: "2026-11-25"
-updated: "2026-11-25"
+updated: "2026-11-26"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -13,7 +13,13 @@ relations:
     added:
       - type: "file"
         path: "docs/test-specs/issue-115-virtual-endpoint-provisioning.md"
-    modified: []
+      - type: "file"
+        path: ".github/workflows/virtual-endpoint-consumer-acceptance.yml"
+      - type: "file"
+        path: "evidence/sv115/issue-115-virtual-endpoint-consumer-workflow-implementation.md"
+    modified:
+      - type: "file"
+        path: "crates/synvelis-recording/tests/virtual_endpoint.rs"
     deleted: []
     renamed: []
     moved: []
@@ -54,9 +60,11 @@ relations:
 `docs/designs/issue-115-virtual-endpoint-provisioning.md` の設計契約を、後続
 implementation slice が満たすべき検証規則へ落とす正本である。
 
-現時点では provisioning primitive も consumer workflow も実装されていない。
-この文書に書く lane や case は実装済み test を装わない。検証は後続
-implementation slice で初めて実行可能になる。
+2026-11-26 の Slice B implementation で consumer workflow は実装された。
+ただし workflow file は default branch に入るまで manual dispatch できず、
+provisioned run evidence はまだ無い。この文書に書く provisioned case を
+実施済みと読んではならない。static/local validation と merge 後の provisioned
+run を分けて記録する。
 
 ## Rules
 
@@ -105,7 +113,7 @@ implementation slice で初めて実行可能になる。
 
 | ID | 条件 | 実行方法（後続実装） | 期待判定 | acceptance 解釈 |
 | --- | --- | --- | --- | --- |
-| VP-S1 | workflow YAML・権限・step order | `mise run lint-actions`、静的 review | provision→test→pre-cleanup metadata/artifact upload→`if: always()` cleanup→post-cleanup cleanup artifact upload が同一 job | 未実装時は NotRun |
+| VP-S1 | workflow YAML・権限・step order | `mise run lint-actions`、静的 review | provision→test→pre-cleanup metadata/artifact upload→`if: always()` cleanup→post-cleanup cleanup artifact upload が同一 job | workflow 未 merge / provisioned run 未実施時は NotRun |
 | VP-S2 | Ruviform lock rev extraction | workflow dry run または unit script test | `Cargo.lock` から single rev を抽出。零/複数/malformed は fail-closed | 不成立なら acceptance evidence 不可 |
 | VP-P1 | provision 成功 | manual workflow run | provision terminal status `ok`、endpoint pair candidate、state/artifact manifest あり | test 実行条件成立。これだけでは Pass ではない |
 | VP-P2 | provision absent/blocked/error | manual workflow run | consumer test は実行せず、provisioning evidence を upload | acceptance 未達。consumer Fail にしない |
@@ -139,13 +147,23 @@ cleanup state JSON の terminal status、residue/leftover、service restart 結�
 運用 evidence として残す。cleanup artifact が欠損した場合はその事実を記録するが、
 consumer harness の terminal RunMetadata が満たす Pass/Fail/NotRun を書き換えない。
 
-## Local validation for this design/docs slice
+## Local validation for the implementation foundation
 
-本 slice は文書のみを変更する。実施する canonical validation は次である。
+Slice B implementation の canonical local validation は次である。
 
-- `mise exec -- prek run --files docs/specs/issue-115-virtual-endpoint-provisioning.md docs/designs/issue-115-virtual-endpoint-provisioning.md docs/test-specs/issue-115-virtual-endpoint-provisioning.md docs/adr/issue-115-virtual-endpoint-provisioning-ownership.md`
-- `git diff --name-only` / `git status --short` による lease 外差分の確認
+- `mise run lint-actions`
+- `mise run fmt-check`
+- `mise run check synvelis-recording`
+- `mise run lint synvelis-recording`
+- `mise run test synvelis-recording`
+- `mise run lint-recording-real-input`
+- `mise run test-recording-virtual-endpoint`
+- `mise run check-ruviform-rev`
+- `mise exec -- prek run --all-files`
 
-これらは設計文書の構文・整形と lease の確認であり、provisioning の実走証拠
-ではない。workflow actionlint、cargo lane、manual provisioned run は後続
-implementation slice の対象である。
+`test-recording-virtual-endpoint` が endpoint 不在 host で exit 0 でも、terminal
+RunMetadata が `result=not-run` / `NOT_PROVISIONED` なら EXT-L3 Pass ではない。
+workflow YAML の static confirmation と local harness の NotRun は
+`evidence/sv115/issue-115-virtual-endpoint-consumer-workflow-implementation.md`
+に記録する。provisioned manual run、artifact 検収、canonical evidence 転記は
+merge 後 follow-up gate とする。

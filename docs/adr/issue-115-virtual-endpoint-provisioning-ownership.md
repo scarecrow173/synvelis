@@ -1,10 +1,10 @@
 ---
 id: "ADR-sv115VirtualEndpointProvisioningOwnership"
 type: "adr"
-status: "proposed"
+status: "accepted"
 title: "Issue #115 virtual endpoint provisioning ownership — Ruviform step-level primitive と Synvelis consumer orchestration"
 created: "2026-11-25"
-updated: "2026-11-25"
+updated: "2026-11-26"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -13,7 +13,13 @@ relations:
     added:
       - type: "file"
         path: "docs/adr/issue-115-virtual-endpoint-provisioning-ownership.md"
-    modified: []
+      - type: "file"
+        path: ".github/workflows/virtual-endpoint-consumer-acceptance.yml"
+      - type: "file"
+        path: "evidence/sv115/issue-115-virtual-endpoint-consumer-workflow-implementation.md"
+    modified:
+      - type: "file"
+        path: "crates/synvelis-recording/tests/virtual_endpoint.rs"
     deleted: []
     renamed: []
     moved: []
@@ -58,9 +64,10 @@ metadata:
 
 ## Status
 
-Proposed — 2026-11-25 design/docs slice の decision record。実装済みまたは
-承認済みの ADR ではない。後続 implementation slice の merge 時に status を
-見直す。
+Accepted — 2026-11-26 の Slice B implementation で Option A の consumer
+workflow が実装された。manual-only workflow の merge と provisioned manual run
+はまだ行われていないため、この ADR は ownership と orchestration 境界を確定するが、
+EXT-L3 acceptance verdict を意味しない。
 
 ## Context and Problem Statement
 
@@ -178,8 +185,8 @@ Ruviform の upstream Pass、workflow green、artifact 存在、cleanup 成功�
 
 ## Confirmation
 
-本 design/docs slice では implementation を行わない。確認対象は、5 文書が
-acceptance 7 項目・open questions・rf#762 関係・後続 2 slice 分割をカバーし、
-指定 prek と lease 確認が実行されることである。provisioned endpoint での
-consumer EXT-L3 Pass/Fail/NotRun は後続 implementation slice の manual run で
-確認する。
+Slice B implementation では、manual-only workflow、lock revision の fail-closed
+抽出、same-job provisioning orchestration、pre-cleanup/post-cleanup artifact 分離、
+terminal RunMetadata による verdict 評価が実装された。確認は workflow static
+validation と canonical local lanes で行う。provisioned endpoint での consumer
+EXT-L3 Pass/Fail/NotRun は、default branch へ merge した後の manual run で確認する。
