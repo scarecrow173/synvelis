@@ -1,0 +1,44 @@
+{
+  "schema": "sv115-pin-stereo-capability-check/v1",
+  "synvelis_main_head": "bff8114ed5056be82b6b3ce370c2141bf2e355d1",
+  "synvelis_pin_update_pr": {
+    "number": 679,
+    "url": "https://github.com/scarecrow173/synvelis/pull/679",
+    "merge_commit": "bff8114ed5056be82b6b3ce370c2141bf2e355d1",
+    "merged_at": "2026-11-26T13:50:05Z"
+  },
+  "cargo_lock": {
+    "ruviform_source_count": 36,
+    "unique_revisions": [
+      "0479fa62e77e669a7bf84320d3d5418ffb949fc6"
+    ],
+    "single_40hex_revision": true
+  },
+  "rf1032": {
+    "merge_commit": "0479fa62e77e669a7bf84320d3d5418ffb949fc6",
+    "relation_to_lock_rev": "exact-match",
+    "pr_url": "https://github.com/scarecrow173/ruviform/pull/1032",
+    "merged_at": "2026-11-26T12:39:13Z"
+  },
+  "verification_method": "read-only gh api raw contents at the pinned Ruviform revision; no Ruviform checkout or repository was modified",
+  "files": {
+    "drivers/rvf-virtual-audio/micinwavtable.h": {
+      "sha256": "9bde2339594d064fbd8917efeb9064ee08f7cdb6ad084d1acb45fe6db2186711",
+      "micin_device_max_channels": 2,
+      "mono_format_entries": 8,
+      "stereo_format_entries": 8,
+      "stereo_channel_mask": "KSAUDIO_SPEAKER_STEREO",
+      "stream_data_range_channel_counts": [
+        1,
+        2
+      ],
+      "default_and_raw_mode_format": "stereo 48 kHz entry at the end of MicInPinSupportedDeviceFormats"
+    },
+    "drivers/rvf-virtual-audio/micintoptable.h": {
+      "sha256": "c24fbc5b7ae1aeca2393c9d5ed3950b0b5573d79a97cad1e4576b66823e5a856",
+      "micin_jack_channel_mask": "KSAUDIO_SPEAKER_STEREO"
+    }
+  },
+  "result": "stereo-preserve-present",
+  "checked_before_dispatch_utc": "2026-11-26T13:58:29Z"
+}

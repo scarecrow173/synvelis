@@ -1,0 +1,52 @@
+[
+  {
+    "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\cleanup-pending.txt",
+    "kind": "txt",
+    "sha256": "8bbff635a1efc84873b2e1f630c545ecdffb9279d645e9a04985ed9e41ba8488"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-cert-cleanup.log",
+    "kind": "log",
+    "sha256": "ab4e47a39513840db3fbdf61fd74155d9b0f39879ced5a8e6fdd1b12db000461"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-consent-cleanup.log",
+    "kind": "log",
+    "sha256": "f6d8c1eb90ff578385d1a61705808d66ef11c251a9163b5f31cbd735d1297f82"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-devnode-cleanup.log",
+    "kind": "log",
+    "sha256": "1096c5b83fce0f88d1a280b68fae96b1596b6bd58d5519399390191b510ae2c8"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-driver-store-cleanup.log",
+    "kind": "log",
+    "sha256": "4c49caecae3839c7f2381f1249e2deed556b9483f355cc579a05250f96aa9d06"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-environment.log",
+    "kind": "log",
+    "sha256": "d88f2df05197dfc353303c1d1591276e70cd10144718326cf20e7b71beecc9e6"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-residue-check.log",
+    "kind": "log",
+    "sha256": "f26c2b0fe5242601365cfc459c9fb6a6bf53d9fc256c63d74eb3d4bd38d1d025"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-service-cleanup.log",
+    "kind": "log",
+    "sha256": "24b429abbeb151cae7c0a7af22a8a03f92e58d23f4c5026f8270d2a8b7857f6b"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\stage-state.log",
+    "kind": "log",
+    "sha256": "d2a7e40d62af937619a66dc594a82118634b416b1154e9883b1df51cb77d4b37"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-cleanup-evidence\\unprovision.log",
+    "kind": "log",
+    "sha256": "d88a4be8b0e3f3866fb02f4bfb82fa630596caabc0988c1fc35a5bec27e464d5"
+  }
+]

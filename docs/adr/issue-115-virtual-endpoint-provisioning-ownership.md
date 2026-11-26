@@ -190,6 +190,9 @@ Slice B implementation では、manual-only workflow、lock revision の fail-cl
 抽出、same-job provisioning orchestration、pre-cleanup/post-cleanup artifact 分離、
 terminal RunMetadata による verdict 評価が実装された。初回 provisioned manual run
 `45797309944` attempt `1` では terminal RunMetadata `result=fail` が確認され、
-consumer EXT-L3 verdict は Fail だった。canonical Pass evidence は、Ruviform virtual
-capture endpoint の channel capability と consumer harness の stereo 要件を整合させた後の
-再 run で確認する。
+consumer EXT-L3 verdict は Fail だった。Ruviform virtual capture endpoint の channel
+capability と consumer harness の stereo 要件を整合させた後の rerun `45834341661`
+attempt `1` では stereo format が観測できた一方、`output timestamp regressions: 9`
+により terminal RunMetadata `result=fail` だった。canonical Pass evidence は未取得であり、
+timestamp regression の責務切り分けと後続 rerun が必要である。rerun の詳細は
+`evidence/sv115/issue-115-virtual-endpoint-stereo-consumer-rerun.md` に記録する。

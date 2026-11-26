@@ -78,7 +78,11 @@ Slice B implementation で manual-only consumer workflow が実装された。
 2026-11-26 の merge 後 follow-up gate で実施され、run `45797309944` attempt `1`
 は consumer Fail だった。詳細は
 `evidence/sv115/issue-115-virtual-endpoint-provisioned-consumer-run.md` を参照し、
-本 spec の要件水準は run 結果で変更しない。既存 approved spec
+本 spec の要件水準は run 結果で変更しない。同日の stereo preserve 修正後
+rerun `45834341661` attempt `1` では stereo format が観測された一方、
+`output timestamp regressions: 9` により consumer Fail だった。詳細は
+`evidence/sv115/issue-115-virtual-endpoint-stereo-consumer-rerun.md` を参照する。
+既存 approved spec
 `docs/specs/issue-115-virtual-endpoint.md` は consumer harness の要件正本で
 あり、その Non-goals は merged 済み harness slice の履歴として維持する。
 本 spec は provisioning orchestration を別 slice の要件として扱うものであり、
