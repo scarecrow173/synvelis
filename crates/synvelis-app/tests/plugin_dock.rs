@@ -34,15 +34,173 @@ use ruviform_plugin_host::{
 use ruviform_ui::WindowId;
 use ruviform_ui::dock::ViewInstanceId;
 use ruviform_ui::ipc::{ErrorBody, Event, Intent};
-use ruviform_ui::native_slot::{LogicalRect, SlotGeometry, SlotState};
+use ruviform_ui::native_slot::{
+    LeaseInfo, LogicalRect, NativeSurfaceSlot, SlotCapabilities, SlotError, SlotEvent,
+    SlotGeometry, SlotLease, SlotSpec, SlotState, SlotVisibility, SurfaceSlotId,
+};
 use ruviform_ui::{BackendReport, DriverEvent, WindowDriver, WindowLifecycle, WindowSpec};
-use ruviform_ui_test::FakeDriver;
+use ruviform_ui_test::{FakeDriver, FakeNativeSlot};
 
+use synvelis_app::plugin_dock::{NativeSlotAuthority, SharedNativeSlotAuthority};
 use synvelis_app::{
     NativeShell, PluginDock, PluginDockError, PluginDockPlacement, PluginEditorHost, SynvelisApp,
     main_view_id, main_view_targets, secondary_view_id, secondary_view_targets,
 };
 use synvelis_player::StablePluginInstanceId;
+
+// ---------------------------------------------------------------------------
+// Shared test slot authority — headless `FakeNativeSlot` fixture
+// ---------------------------------------------------------------------------
+
+/// High tag bits of the synthetic parent tokens the test authority
+/// mints at redemption. **Test-only vocabulary**: the value is
+/// obviously not an OS handle (no real HWND/HWND-like pointer carries
+/// this tag) and exists purely so tests can prove which slot a
+/// redeemed lease belonged to. Nothing here is evidence of real
+/// native docking.
+const TEST_PARENT_TOKEN_TAG: u64 = 0xFA17_E000_0000_0000;
+
+/// The synthetic test-only parent token for a lease sequence —
+/// distinct per live lease so a redemption mix-up is observable
+/// without treating a slot index as a parent token.
+fn test_parent_token(seq: u32) -> u64 {
+    TEST_PARENT_TOKEN_TAG | u64::from(seq)
+}
+
+/// Headless shared-authority fixture: upstream [`FakeNativeSlot`]
+/// (the canonical deterministic [`NativeSurfaceSlot`] fake) plus the
+/// product seam surface — spec mirroring (the fake does not expose
+/// specs) and issuer-side redemption against the *same* ledger. One
+/// instance behind one `Rc<RefCell>` is shared by every panel in a
+/// test, exactly like the production driver's canonical surface
+/// ledger — a second fixture instance is a *different* authority and
+/// must reject this ledger's leases as foreign.
+///
+/// **Headless/test-only** — no OS window, no real native parent.
+struct TestSlotAuthority {
+    inner: FakeNativeSlot,
+    /// Mirror of each live slot's declared spec, updated on
+    /// geometry/visibility mutation — the fake validates through its
+    /// registry but does not expose specs, and the product seam
+    /// requires them.
+    specs: HashMap<SurfaceSlotId, SlotSpec>,
+}
+
+impl TestSlotAuthority {
+    fn new() -> Self {
+        Self {
+            inner: FakeNativeSlot::new(),
+            specs: HashMap::new(),
+        }
+    }
+}
+
+/// mints a shared handle around a fresh fixture authority.
+fn test_authority() -> SharedNativeSlotAuthority {
+    Rc::new(RefCell::new(TestSlotAuthority::new()))
+}
+
+impl NativeSurfaceSlot for TestSlotAuthority {
+    fn capabilities(&self, slot: SurfaceSlotId) -> Result<SlotCapabilities, SlotError> {
+        self.inner.capabilities(slot)
+    }
+
+    fn declare_slot(&mut self, spec: SlotSpec) -> Result<SurfaceSlotId, SlotError> {
+        let slot = self.inner.declare_slot(spec)?;
+        self.specs.insert(slot, spec);
+        Ok(slot)
+    }
+
+    fn release_slot(&mut self, slot: SurfaceSlotId) -> Result<(), SlotError> {
+        self.inner.release_slot(slot)?;
+        self.specs.remove(&slot);
+        Ok(())
+    }
+
+    fn set_geometry(
+        &mut self,
+        slot: SurfaceSlotId,
+        geometry: SlotGeometry,
+    ) -> Result<(), SlotError> {
+        self.inner.set_geometry(slot, geometry)?;
+        if let Some(spec) = self.specs.get_mut(&slot) {
+            spec.geometry = geometry;
+        }
+        Ok(())
+    }
+
+    fn set_visibility(
+        &mut self,
+        slot: SurfaceSlotId,
+        visibility: SlotVisibility,
+    ) -> Result<(), SlotError> {
+        self.inner.set_visibility(slot, visibility)?;
+        if let Some(spec) = self.specs.get_mut(&slot) {
+            spec.visibility = visibility;
+        }
+        Ok(())
+    }
+
+    fn set_clip(
+        &mut self,
+        slot: SurfaceSlotId,
+        clip: Option<LogicalRect>,
+    ) -> Result<(), SlotError> {
+        self.inner.set_clip(slot, clip)
+    }
+
+    fn set_zorder(&mut self, slot: SurfaceSlotId, z: i32) -> Result<(), SlotError> {
+        self.inner.set_zorder(slot, z)
+    }
+
+    fn request_focus(&mut self, slot: SurfaceSlotId) -> Result<(), SlotError> {
+        self.inner.request_focus(slot)
+    }
+
+    fn lease_parent(&mut self, slot: SurfaceSlotId) -> Result<SlotLease, SlotError> {
+        self.inner.lease_parent(slot)
+    }
+
+    fn release_lease(&mut self, lease: SlotLease) -> Result<(), SlotError> {
+        self.inner.release_lease(lease)
+    }
+
+    fn validate_lease(&self, lease: SlotLease) -> Result<LeaseInfo, SlotError> {
+        self.inner.validate_lease(lease)
+    }
+
+    fn drain_events(&mut self) -> Vec<SlotEvent> {
+        self.inner.drain_events()
+    }
+}
+
+impl NativeSlotAuthority for TestSlotAuthority {
+    fn state(&self, slot: SurfaceSlotId) -> Result<Option<SlotState>, SlotError> {
+        Ok(self.inner.state(slot))
+    }
+
+    fn spec(&self, slot: SurfaceSlotId) -> Result<Option<SlotSpec>, SlotError> {
+        Ok(self.specs.get(&slot).copied())
+    }
+
+    fn mark_busy(&mut self, slot: SurfaceSlotId) -> Result<(), SlotError> {
+        self.inner.mark_busy(slot)
+    }
+
+    fn clear_busy(&mut self, slot: SurfaceSlotId) -> Result<(), SlotError> {
+        self.inner.clear_busy(slot)
+    }
+
+    fn redeem_parent(&self, payload: u64) -> Result<u64, SlotError> {
+        // Issuer-side validation against *this* ledger — a stale,
+        // revoked, or foreign (other-authority) payload never yields
+        // a token. The token itself is the clearly synthetic
+        // test-only value `test_parent_token`, never an OS handle.
+        let lease = SlotLease::new(payload);
+        self.inner.validate_lease(lease)?;
+        Ok(test_parent_token(lease.seq()))
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Scripted fake host — `PluginEditorHost` + `EditorSessionOps`
@@ -54,8 +212,10 @@ use synvelis_player::StablePluginInstanceId;
 #[derive(Debug, Default)]
 struct OpsLog {
     calls: Vec<String>,
-    /// Raw leases the adapter redeemed at open/reattach.
-    leases: Vec<u64>,
+    /// `(generation, payload)` of every `ParentLease` the adapter
+    /// redeemed at open/reattach — generation must be the lease's
+    /// issuer-side sequence, payload the test-only parent token.
+    leases: Vec<(u32, u64)>,
     /// Attach modes `open` observed.
     modes: Vec<AttachMode>,
     /// Per-method scripted refusals.
@@ -101,7 +261,7 @@ impl EditorSessionOps for FakeOpsAdapter<'_> {
             size.width,
             size.height
         ));
-        log.leases.push(parent.payload());
+        log.leases.push((parent.generation(), parent.payload()));
         log.modes.push(mode);
         if let Some(e) = log.open_err {
             return Err(e);
@@ -163,7 +323,7 @@ impl EditorSessionOps for FakeOpsAdapter<'_> {
         let parent = (self.redeem)(lease)?;
         let mut log = self.log.borrow_mut();
         log.calls.push(format!("reattach:{}", session.slot()));
-        log.leases.push(parent.payload());
+        log.leases.push((parent.generation(), parent.payload()));
         match log.reattach_err {
             Some(e) => Err(e),
             None => Ok(()),
@@ -298,15 +458,36 @@ struct Panel {
     sessions: PluginEditorSessions,
     host: FakeEditorHost,
     dock: PluginDock,
+    /// Clone of the shared authority the panel was lent — assertions
+    /// inspect the ledger through it, proving the panel holds no
+    /// private ledger of its own.
+    authority: SharedNativeSlotAuthority,
 }
 
 impl Panel {
     fn new(view_n: u64, window_n: u64) -> Self {
+        Self::with_authority(view_n, window_n, test_authority())
+    }
+
+    fn with_authority(view_n: u64, window_n: u64, authority: SharedNativeSlotAuthority) -> Self {
+        let dock = PluginDock::declare(view(view_n), win(window_n), geom(), authority.clone())
+            .expect("declare panel");
         Self {
             sessions: PluginEditorSessions::new(),
             host: FakeEditorHost::new(),
-            dock: PluginDock::declare(view(view_n), win(window_n), geom()).expect("declare panel"),
+            dock,
+            authority,
         }
+    }
+
+    /// Live ledger state of `slot` through the shared authority.
+    fn slot_state(&self, slot: SurfaceSlotId) -> Option<SlotState> {
+        self.authority.borrow().state(slot).ok().flatten()
+    }
+
+    /// Live ledger spec of `slot` through the shared authority.
+    fn slot_spec(&self, slot: SurfaceSlotId) -> Option<SlotSpec> {
+        self.authority.borrow().spec(slot).ok().flatten()
     }
 
     fn open(&mut self, instance: u64) -> ruviform_plugin_host::AttachMode {
@@ -371,17 +552,22 @@ fn open_mints_four_ids_and_lands_attached() {
     assert_eq!(report.mode, AttachMode::Docked);
     assert!(report.capabilities.dock.supported());
     assert!(is_attached(p.state().as_ref()));
-    assert_eq!(p.dock.slots().state(report.slot), Some(SlotState::Leased));
+    assert_eq!(p.slot_state(report.slot), Some(SlotState::Leased));
 
     let binding = p.dock.binding().expect("binding");
     assert_eq!(binding.session, report.session);
     assert_eq!(binding.slot, report.slot);
     assert!(binding.lease().is_some(), "live parent lease held");
-    // The adapter redeemed the panel-issued lease through the
-    // issuer-side hook — the same token the session carried.
+    // The adapter redeemed the lease through the issuer-side hook —
+    // the same shared authority that minted it. The minted parent
+    // lease follows the upstream reference shape: generation is the
+    // lease's issuer-side sequence, payload the slot's (test-only,
+    // synthetic) parent token — never a slot index or generation.
+    let lease = binding.lease().unwrap();
+    let seq = SlotLease::new(lease.raw()).seq();
     assert_eq!(
         ops.borrow().leases.as_slice(),
-        &[binding.lease().unwrap().raw()]
+        &[(seq, test_parent_token(seq))]
     );
     assert_eq!(ops.borrow().modes.as_slice(), &[AttachMode::Docked]);
 }
@@ -398,10 +584,7 @@ fn hide_show_round_trip_mirrors_slot_visibility() {
         .expect("hide");
     assert!(is_hidden(p.state().as_ref()));
     assert_eq!(
-        p.dock
-            .slots()
-            .spec(p.dock.slot().unwrap())
-            .map(|s| s.visibility),
+        p.slot_spec(p.dock.slot().unwrap()).map(|s| s.visibility),
         Some(ruviform_ui::native_slot::SlotVisibility::Hidden)
     );
 
@@ -429,10 +612,10 @@ fn relocate_republishes_slot_and_revokes_old_lease() {
 
     let new_slot = p.dock.slot().unwrap();
     assert_ne!(new_slot, old_slot);
-    assert_eq!(p.dock.slots().state(old_slot), Some(SlotState::Released));
-    assert_eq!(p.dock.slots().state(new_slot), Some(SlotState::Leased));
+    assert_eq!(p.slot_state(old_slot), Some(SlotState::Released));
+    assert_eq!(p.slot_state(new_slot), Some(SlotState::Leased));
     assert!(
-        p.dock.slots().validate_lease(old_lease).is_err(),
+        p.authority.borrow().validate_lease(old_lease).is_err(),
         "the pre-move lease must be revoked after the reattach lands"
     );
     let binding = p.dock.binding().unwrap();
@@ -464,11 +647,11 @@ fn relocate_keeps_old_parent_on_adapter_refusal() {
 
     assert_eq!(p.dock.slot(), Some(old_slot));
     assert_eq!(
-        p.dock.slots().state(old_slot),
+        p.slot_state(old_slot),
         Some(SlotState::Leased),
         "old parent seat stays live on refusal"
     );
-    assert!(p.dock.slots().validate_lease(old_lease).is_ok());
+    assert!(p.authority.borrow().validate_lease(old_lease).is_ok());
     // Upstream honesty: a refused reattach lands the session `Failed`
     // — never recorded as still-attached.
     assert!(matches!(p.state(), Some(EditorSessionState::Failed { .. })));
@@ -489,8 +672,8 @@ fn revoked_lease_is_stale_at_the_ledger() {
         .expect("close");
 
     let err = p
-        .dock
-        .slots()
+        .authority
+        .borrow()
         .validate_lease(lease)
         .expect_err("revoked lease must not validate");
     assert!(matches!(
@@ -542,7 +725,7 @@ fn close_retires_session_and_frees_panel() {
         p.sessions.session(session).is_none(),
         "retired sessions leave the registry"
     );
-    assert_eq!(p.dock.slots().state(slot), Some(SlotState::Declared));
+    assert_eq!(p.slot_state(slot), Some(SlotState::Declared));
 
     // Re-open mints a *fresh* session id — the registry's generation
     // guard, not a recycled live id.
@@ -569,8 +752,12 @@ fn session_busy_is_refused_across_panels() {
     let mut sessions = PluginEditorSessions::new();
     let mut host = FakeEditorHost::new();
     host.add_instance(7);
-    let mut a = PluginDock::declare(view(9), win(1), geom()).unwrap();
-    let mut b = PluginDock::declare(view(10), win(1), geom()).unwrap();
+    // Both panels are lent the SAME shared slot authority — the
+    // production shape (one driver ledger), not two panel-private
+    // registries.
+    let authority = test_authority();
+    let mut a = PluginDock::declare(view(9), win(1), geom(), authority.clone()).unwrap();
+    let mut b = PluginDock::declare(view(10), win(1), geom(), authority).unwrap();
 
     a.open(
         &mut sessions,
@@ -711,7 +898,7 @@ fn adapter_lend_refusal_is_honest_unavailable() {
     ));
     assert!(p.dock.binding().is_none());
     assert_eq!(
-        p.dock.slots().state(p.dock.slot().unwrap()),
+        p.slot_state(p.dock.slot().unwrap()),
         Some(SlotState::Declared)
     );
 }
@@ -730,7 +917,7 @@ fn window_lost_converges_session_and_frees_slot() {
 
     assert!(is_closed(p.state().as_ref()));
     assert_eq!(p.dock.slot(), None);
-    assert_eq!(p.dock.slots().state(slot), Some(SlotState::Released));
+    assert_eq!(p.slot_state(slot), Some(SlotState::Released));
     assert!(p.dock.binding().unwrap().lease().is_none());
 
     // Re-dock onto a new window re-materializes the slot; the
@@ -739,7 +926,7 @@ fn window_lost_converges_session_and_frees_slot() {
         .relocate(&mut p.sessions, Some(&mut p.host), win(2))
         .expect("re-declare on new window");
     let new_slot = p.dock.slot().unwrap();
-    assert_eq!(p.dock.slots().spec(new_slot).unwrap().window, win(2));
+    assert_eq!(p.slot_spec(new_slot).unwrap().window, win(2));
     assert!(
         is_closed(p.state().as_ref()),
         "concluded session stays concluded"
@@ -825,7 +1012,7 @@ fn instance_termination_converges_and_frees_lease() {
 
     assert!(is_closed(p.state().as_ref()));
     assert!(p.dock.binding().unwrap().lease().is_none());
-    assert_eq!(p.dock.slots().state(slot), Some(SlotState::Declared));
+    assert_eq!(p.slot_state(slot), Some(SlotState::Declared));
 }
 
 /// `PluginDockPlacement` is the persisted vocabulary for the upstream
@@ -865,9 +1052,16 @@ fn ops_fixture() -> OpFixture {
 }
 
 fn ops_fixture_with(host: Option<FakeEditorHost>) -> OpFixture {
+    ops_fixture_full(host, true)
+}
+
+fn ops_fixture_full(host: Option<FakeEditorHost>, with_authority: bool) -> OpFixture {
     let mut app = SynvelisApp::new(BackendReport::available("gpui", "test-0.1".to_string()));
     if let Some(host) = host {
         app.set_plugin_editor_host(Box::new(host));
+    }
+    if with_authority {
+        app.set_native_slot_authority(test_authority());
     }
     let mut shell = NativeShell::new(app, Duration::from_millis(16)).expect("compose shell");
     let mut driver = FakeDriver::new();
@@ -1212,6 +1406,36 @@ fn duplicate_instance_across_views_is_refused() {
 #[test]
 fn ops_refuse_unavailable_without_a_host() {
     let mut f = ops_fixture();
+    let w1 = f.w1;
+
+    let (ok, _, err) = op(
+        &mut f,
+        w1,
+        "popen",
+        "syn.plugin_dock.open",
+        json!({
+            "view_id": "view-9",
+            "window_id": w1.to_string(),
+            "instance": 7,
+        }),
+    );
+    assert!(!ok);
+    assert_eq!(err.unwrap().code, "unavailable");
+}
+
+/// Host installed but no shared slot authority → `unavailable` too:
+/// the panel must never fall back to a private ledger (S2 authority
+/// honesty).
+#[test]
+fn ops_refuse_unavailable_without_an_authority() {
+    let mut f = ops_fixture_full(
+        Some({
+            let mut h = FakeEditorHost::new();
+            h.add_instance(7);
+            h
+        }),
+        false,
+    );
     let w1 = f.w1;
 
     let (ok, _, err) = op(

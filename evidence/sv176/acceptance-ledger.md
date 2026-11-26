@@ -34,6 +34,17 @@ uniformly (POLICIES.md §2 / Issue AC「OS/機能別Evidence」).
 | 8 | **macOS/Linux L1必須:** Native Build/Link、Headless/RT/必要Featureを既存CIの同SHAで検証。実GUI/実Device/実Pluginは利用条件発生までDeferred。 | **充足（L1 — 同 SHA CI 照合完了）+ Deferred（L2/L3）** | 行 4 と同じ Run `https://github.com/scarecrow173/synvelis/actions/runs/45482081443`（SHA `71275d85`）で verify-macos・verify-ubuntu が全 step success — Native Build/Link・Headless/RT・必要 Feature の L1 実走を対象 SHA で照合済み（Coordinator 証拠工程 2026-11-25 完了）。macOS/Linux の実 GUI/実 Device/実 Plugin は POLICIES.md §2 により Deferred — PD-03（AU）は case definitions で Result=`NotRun`・要求状態=Deferred と記録済み。 |
 | 9 | **OS/機能別Evidence:** Windowsの使用機能で実証できなければ未受入。未使用機器・Plugin/Featureを一律Gateにせず、実測/NotRun/Fail/NotRequiredを混同しない。 | **merged-evidence pointer（分類規則の凍結）+ S1 実走結果の分離記録（2026-11-25）** | 本 ledger 自体がこの分類規則の適用結果。S1 で `artifact`/`host-lifecycle`/`session-lifecycle`/`host-terminate`/`open-or-degrade` は実測 `Pass`（in-process real-ABI）、`editor-attach` は `Unsupported`（定義済み拒否）、`dock-pixels` は `NotRun`（`VisualCapture` 不在）と verdict を混同せず機能単位で分離 — `s1-headless-probe.jsonl` が記録する `verdict`/`environment.plugin_artifact`（sha256 属性化）がその実測根拠。`pd-01-07-case-definitions.md` の lane status summary に反映済み（`Deferred` は Result 語彙ではなく要求状態の別軸）。未使用 format/OS/capability は要求しない（PD-FRZ-05）。 |
 
+
+## S2 native-slot authority slice（2026-11-26）
+
+本節は `feat/176-plugin-dock-native-slot` の structural follow-up 実績を記録する。詳細な lane/verdict/non-claims は `evidence/sv176/s2-native-slot-authority.md` を参照。
+
+- `PluginDock` から panel-private `SurfaceSlotRegistry` を取り除き、slot declaration・lease mint/validate/release・geometry/visibility・busy 制御を、composition root または test fixture から注入された単一の `NativeSlotAuthority` に集約した。`PluginEditorSessions` は app-shared のままである。
+- lease redemption は session-carried `ParentSlotLease` を opaque に扱い、issuer-side で同じ authority に照合して `ParentLease::new(SlotLease::new(raw).seq(), token)` に写像する構造へ修正した。slot index / `SurfaceSlotId` generation を parent token へ写像する旧構造は残っていない。
+- headless では共有 fake authority を使う `tests/plugin_dock_surface.rs` 7 tests と既存 `tests/plugin_dock.rs` 26 tests が、shared-only validation、foreign authority refusal、revoked/stale/forged lease refusal、index recycle、busy refusal、open/hide/show/redock/close、window-loss 収束、DSP/Project 非干渉を決定的に確認した。
+- GPUI-simulated では canonical `GpuiDriver::surface()` 上の slot を `plugin.editor` key に bind し、renderer の layout/visibility projection と unbind 後 suppression Hidden を canonical ledger 上で確認した。これは `GpuiSimulated` semantic/layout evidence であり、real OS window/native container/child HWND/pixel/input evidence ではない。
+- 受入分類は変えない。行 2・行 3 の structural gap を前進させるが、行 1・行 7 の Required real-window/native-dock gate は `NotRun` のまま、行 4・行 8 の統合 CI 判定は merge 後対象 SHA の Coordinator 証拠工程に残る。行 6 の非昇格規則どおり、headless/GPUI-simulated を Native Dock Pass と記録しない。
+
 ## 分類サマリ
 
 - **merged-evidence pointer**: 行 3（L0/L1 部分）, 5（記録の再確認 — `ruviform#532` CLOSED 再記録）, 6（方針 + S1 で非昇格規則を実走確認）, 9（分類規則 + S1 verdict 分離記録）
