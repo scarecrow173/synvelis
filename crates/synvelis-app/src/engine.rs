@@ -39,7 +39,10 @@ use std::rc::Rc;
 
 use ruviform_audio::typed::{ProcessError, SharedStatusSnapshot};
 use ruviform_audio_core::AudioFormat;
-use ruviform_media_core::{EngineFrame, MediaTime, MidiEvent, TimeBase, TransportSpan};
+use ruviform_media_core::{
+    EngineFrame, MediaDuration, MediaRange, MediaTime, MidiEvent, TimeBase, TransportCommand,
+    TransportSpan,
+};
 use ruviform_media_reader::PrefetchConfig;
 
 use synvelis_player::ProcessorControl;
@@ -48,9 +51,10 @@ use synvelis_player::host::ProcessorHost;
 use synvelis_player::lowering::{EngineConfig, plan_midi_clips, plan_playbacks};
 use synvelis_player::plugin_state::PluginStateEndpoint;
 use synvelis_player::probe_trace::ProbeTraceBridge;
+use synvelis_player::process_boundary::{BoundaryPoint, ProcessBoundaryPlan};
 use synvelis_player::resolver::{self, PreparedClip};
-use synvelis_player::routing_control::RoutingControlDispatch;
-use synvelis_player::routing_engine::{RoutingDeps, RoutingEngine, RoutingPrepare};
+use synvelis_player::routing_control::{BoundaryStageError, RoutingControlDispatch};
+use synvelis_player::routing_engine::{ObservedBlock, RoutingDeps, RoutingEngine, RoutingPrepare};
 use synvelis_player::{
     DispatchCycle, FastControlOutcome, FastControlWrite, ParamCatalog, PluginReportDrain,
     ProbeRequestError, ReportDrainReport, SurfaceReport, TickReport, compile_midi_events,
@@ -170,6 +174,150 @@ pub struct MidiClipEvidence {
     pub delivery: MidiClipDelivery,
 }
 
+/// One transport intent the app-owned application seam converts and
+/// stages. Beat-domain positions are converted inside
+/// [`SessionRoutingEngine::control_apply_transport`] through the
+/// project's tempo map and the attached surface's verified frame base;
+/// callers never pre-convert them.
+#[derive(Copy, Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum TransportApplicationCommand {
+    /// Start or resume transport at the current position.
+    Play,
+    /// Pause transport at the current position.
+    Pause,
+    /// Stop transport.
+    Stop,
+    /// Seek to a beat-domain project position.
+    Seek(BeatPoint),
+    /// Install the half-open beat-domain loop range `[start, end)`.
+    SetLoop {
+        /// Loop start in project beats.
+        start: BeatPoint,
+        /// Loop end in project beats.
+        end: BeatPoint,
+    },
+    /// Clear the active loop range.
+    ClearLoop,
+}
+
+/// Which beat input one conversion evidence record describes.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TransportConversionRole {
+    /// [`TransportApplicationCommand::Seek`] position.
+    Seek,
+    /// Loop range start.
+    LoopStart,
+    /// Loop range end.
+    LoopEnd,
+    /// Automation evaluation instant.
+    Automation,
+}
+
+/// Exact evidence for one beat→media conversion performed by the
+/// transport application seam. `media` is expressed in the attached
+/// control surface's verified frame base.
+#[derive(Copy, Clone, Debug)]
+pub struct TransportConversionEvidence {
+    /// What the converted position feeds.
+    pub role: TransportConversionRole,
+    /// Canonical beat-domain input.
+    pub beat: BeatPoint,
+    /// Media-frame result under the project's tempo map.
+    pub media: MediaTime,
+}
+
+/// Typed evidence from one transport application call.
+#[derive(Clone, Debug)]
+pub struct TransportApplicationReport {
+    /// Processor whose boundary session accepted the window.
+    pub processor: ProcessorId,
+    /// Control-surface routing generation.
+    pub generation: u64,
+    /// Node-cursor frame the upcoming window starts at.
+    pub call_start: EngineFrame,
+    /// Upcoming window length in frames.
+    pub window_frames: u32,
+    /// Verified attach-time frame base used for every conversion.
+    pub frame_base: TimeBase,
+    /// Tempo-map snapshot revision used for conversion.
+    pub tempo_revision: u64,
+    /// Unique beat→media conversions performed by this call.
+    pub conversions: Vec<TransportConversionEvidence>,
+    /// Loop-wrap points derived for this exact window before staging.
+    pub loop_wraps: Vec<BoundaryPoint>,
+    /// Converted transport commands in staged order; all dues are `0`.
+    pub commands: Vec<TransportCommand>,
+    /// The boundary oracle plan that authorized staging.
+    pub plan: ProcessBoundaryPlan,
+    /// Automation tick evidence when an automation instant was requested.
+    pub automation: Option<TickReport>,
+}
+
+/// Why transport application refused before or during staging.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum TransportApplicationError {
+    /// No control surface is attached.
+    NoControlSurface,
+    /// The attached surface has no verified frame base.
+    NoFrameBase,
+    /// No successfully processed block has established the node-cursor
+    /// window series yet.
+    NoObservedWindow,
+    /// The project's persisted tempo map failed to compile.
+    TempoMap(String),
+    /// A beat position could not be represented in the verified frame base.
+    PositionUnrepresentable {
+        /// What the position feeds.
+        role: TransportConversionRole,
+        /// Canonical beat-domain input.
+        beat: BeatPoint,
+    },
+    /// A loop end was not after its start in the converted media domain.
+    InvalidLoopRange {
+        /// Converted loop start in frame ticks.
+        start: i64,
+        /// Converted loop end in frame ticks.
+        end: i64,
+    },
+    /// Loop-wrap derivation was refused before staging.
+    LoopWraps(BoundaryStageError),
+    /// Boundary-oracle staging was refused.
+    Boundary(BoundaryStageError),
+}
+
+impl std::fmt::Display for TransportApplicationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NoControlSurface => write!(f, "no control surface attached"),
+            Self::NoFrameBase => write!(f, "control surface has no verified frame base"),
+            Self::NoObservedWindow => write!(f, "no observed node-cursor window yet"),
+            Self::TempoMap(error) => write!(f, "tempo map compile failed: {error}"),
+            Self::PositionUnrepresentable { role, beat } => {
+                write!(
+                    f,
+                    "{role:?} beat {beat} is not representable in the frame base"
+                )
+            }
+            Self::InvalidLoopRange { start, end } => {
+                write!(f, "loop end {end} is not after start {start}")
+            }
+            Self::LoopWraps(error) => write!(f, "loop-wrap derivation refused: {error}"),
+            Self::Boundary(error) => write!(f, "boundary staging refused: {error}"),
+        }
+    }
+}
+
+impl std::error::Error for TransportApplicationError {}
+
+struct TransportApplicationConversion {
+    commands: Vec<TransportCommand>,
+    evidence: Vec<TransportConversionEvidence>,
+    automation: Option<MediaTime>,
+}
+
 /// Shared engine state behind the cloneable [`SessionRoutingEngine`]
 /// handle.
 struct Inner {
@@ -223,6 +371,10 @@ struct Inner {
     /// TIM-02: the last build's MIDI-clip compile evidence — the
     /// plan→compile result per MIDI-source clip (delivery unwired).
     midi_evidence: Vec<MidiClipEvidence>,
+    /// Last node-cursor window reported by `run_observed`. Transport
+    /// application derives the next physical window from this observed
+    /// series; it never substitutes the engine cursor.
+    last_observed_window: Option<ObservedBlock>,
 }
 
 /// The session-facing routing engine: an [`EnginePort`] that drives a
@@ -262,6 +414,7 @@ impl SessionRoutingEngine {
                 param_catalog: None,
                 pending_observe_cycles: Vec::new(),
                 midi_evidence: Vec::new(),
+                last_observed_window: None,
             })),
         }
     }
@@ -349,10 +502,12 @@ impl SessionRoutingEngine {
                 PumpPolicy::Every(0)
             };
             let mut discontinuity = false;
+            let mut last_window = None;
             let step = inner
                 .bridge
                 .engine_mut()
                 .run_observed(1, block_policy, &mut |window| {
+                    last_window = Some(window);
                     let Some(dispatch) = dispatch.as_mut() else {
                         return;
                     };
@@ -371,6 +526,9 @@ impl SessionRoutingEngine {
             }
             match step {
                 Ok(report) => {
+                    if let Some(window) = last_window {
+                        inner.last_observed_window = Some(window);
+                    }
                     for (out, channel_pcm) in pcm.iter_mut().zip(report.pcm.iter()) {
                         out.extend_from_slice(channel_pcm);
                     }
@@ -568,6 +726,171 @@ impl SessionRoutingEngine {
     #[must_use]
     pub fn last_control_error(&self) -> Option<String> {
         self.inner.borrow().last_control_error.clone()
+    }
+
+    fn convert_transport_application_inputs(
+        project: &Project,
+        frame_base: TimeBase,
+        commands: &[TransportApplicationCommand],
+        automation_position: Option<BeatPoint>,
+    ) -> Result<TransportApplicationConversion, TransportApplicationError> {
+        let tempo = project
+            .tempo_map
+            .compile()
+            .map_err(|error| TransportApplicationError::TempoMap(error.to_string()))?;
+        let mut conversions = Vec::new();
+        let mut converted_cache: BTreeMap<(i64, u32), MediaTime> = BTreeMap::new();
+        let mut convert = |beat: BeatPoint,
+                           role: TransportConversionRole|
+         -> Result<MediaTime, TransportApplicationError> {
+            let key = (beat.num(), beat.den());
+            if let Some(media) = converted_cache.get(&key) {
+                return Ok(*media);
+            }
+            let media = tempo
+                .beat_to_media(beat.to_beat(), frame_base)
+                .map_err(|_| TransportApplicationError::PositionUnrepresentable { role, beat })?;
+            converted_cache.insert(key, media);
+            conversions.push(TransportConversionEvidence { role, beat, media });
+            Ok(media)
+        };
+
+        let mut staged = Vec::with_capacity(commands.len());
+        for command in commands {
+            let converted = match *command {
+                TransportApplicationCommand::Play => TransportCommand::Play,
+                TransportApplicationCommand::Pause => TransportCommand::Pause,
+                TransportApplicationCommand::Stop => TransportCommand::Stop,
+                TransportApplicationCommand::Seek(beat) => {
+                    TransportCommand::Seek(convert(beat, TransportConversionRole::Seek)?)
+                }
+                TransportApplicationCommand::SetLoop { start, end } => {
+                    let start_media = convert(start, TransportConversionRole::LoopStart)?;
+                    let end_media = convert(end, TransportConversionRole::LoopEnd)?;
+                    if end_media.value() <= start_media.value() {
+                        return Err(TransportApplicationError::InvalidLoopRange {
+                            start: start_media.value(),
+                            end: end_media.value(),
+                        });
+                    }
+                    TransportCommand::SetLoop(MediaRange::new(
+                        start_media,
+                        MediaDuration::new(end_media.value() - start_media.value(), frame_base),
+                    ))
+                }
+                TransportApplicationCommand::ClearLoop => TransportCommand::ClearLoop,
+            };
+            staged.push(converted);
+        }
+        let automation_media = automation_position
+            .map(|beat| convert(beat, TransportConversionRole::Automation))
+            .transpose()?;
+        Ok(TransportApplicationConversion {
+            commands: staged,
+            evidence: conversions,
+            automation: automation_media,
+        })
+    }
+
+    /// Applies transport intent through the processor's TIM-03
+    /// boundary session for the next observed node-cursor window.
+    ///
+    /// This is the app-owned conversion boundary: every beat-domain
+    /// input is converted here through the project's persisted tempo
+    /// map into the attached control surface's verified frame base,
+    /// with one final conversion per distinct beat value. Callers pass
+    /// no media positions and no frame base. The physical window comes
+    /// from the engine-reported [`ObservedBlock`] series (never the
+    /// engine cursor), loop-wrap points come from
+    /// [`RoutingControlDispatch::boundary_loop_wraps`] for that exact
+    /// window before staging, and commands stage only through
+    /// [`RoutingControlDispatch::boundary_stage_window`] at due `0`.
+    ///
+    /// `automation_position`, when present, is converted in the same
+    /// batch and fed to the existing low-level [`Self::control_tick`]
+    /// together with its beat original, so the pair denotes one
+    /// instant. `control_tick` remains the lower-level automation /
+    /// queued-fast-control primitive; this method is the transport
+    /// owner that supplies its position consistently rather than a
+    /// second automation evaluator.
+    ///
+    /// # Errors
+    /// [`TransportApplicationError`] for missing surface/window
+    /// evidence, conversion failure, invalid loop ranges, loop-wrap
+    /// derivation refusal, inactive generations, missing boundary
+    /// sessions, or oracle/session rejection.
+    pub fn control_apply_transport(
+        &self,
+        project: &Project,
+        processor: ProcessorId,
+        commands: &[TransportApplicationCommand],
+        automation_position: Option<BeatPoint>,
+    ) -> Result<TransportApplicationReport, TransportApplicationError> {
+        let mut inner = self.inner.borrow_mut();
+        let inner = &mut *inner;
+        let Some(dispatch) = inner.dispatch.as_mut() else {
+            return Err(TransportApplicationError::NoControlSurface);
+        };
+        let frame_base = dispatch
+            .frame_base()
+            .ok_or(TransportApplicationError::NoFrameBase)?;
+        let observed = inner
+            .last_observed_window
+            .ok_or(TransportApplicationError::NoObservedWindow)?;
+        let window_frames = u32::try_from(inner.config.engine.block_frames).unwrap_or(u32::MAX);
+        let call_start = EngineFrame::new(
+            observed.call_start.epoch(),
+            observed
+                .call_start
+                .frame()
+                .saturating_add(u64::from(observed.call_frames)),
+        );
+        let conversion = Self::convert_transport_application_inputs(
+            project,
+            frame_base,
+            commands,
+            automation_position,
+        )?;
+
+        let loop_wraps = dispatch
+            .boundary_loop_wraps(processor, project, call_start, window_frames)
+            .map_err(TransportApplicationError::LoopWraps)?;
+        let active = observed_active_generation(&inner.bridge.engine().rt_status());
+        let staged_commands: Vec<(TransportCommand, u64)> = conversion
+            .commands
+            .iter()
+            .copied()
+            .map(|command| (command, 0))
+            .collect();
+        let generation = dispatch
+            .generation()
+            .ok_or(TransportApplicationError::NoControlSurface)?;
+        let plan = dispatch
+            .boundary_stage_window(
+                processor,
+                project,
+                window_frames,
+                loop_wraps.clone(),
+                &staged_commands,
+                active,
+            )
+            .map_err(TransportApplicationError::Boundary)?;
+        let automation = automation_position
+            .zip(conversion.automation)
+            .map(|(beat, media)| dispatch.tick(project, beat, media, active));
+        Ok(TransportApplicationReport {
+            processor,
+            generation,
+            call_start,
+            window_frames,
+            frame_base,
+            tempo_revision: project.tempo_map.revision,
+            conversions: conversion.evidence,
+            loop_wraps,
+            commands: conversion.commands,
+            plan,
+            automation,
+        })
     }
 
     /// Drives one control tick on the attached surface: automation
