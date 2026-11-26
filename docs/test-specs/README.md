@@ -524,3 +524,4 @@ Directory: `docs/test-specs`
 | TSPEC-iHM3SpiejBbfVhTbjCGjfdoT | SV-GPUI-02 PluginDock native slot テスト仕様 — shared surface authority + GPUI-simulated binding (synvelis#176) | approved | [sv-gpui-02-plugin-dock-native-slot.md](./sv-gpui-02-plugin-dock-native-slot.md) |
 | TSPEC-pcC4L1RealAbi01 | PC-C4 L1 real ABI binding test spec | approved | [pc-c4-l1-real-abi-binding.md](./pc-c4-l1-real-abi-binding.md) |
 | TSPEC-SV114SVOSCONSUMER000001 | SV-OS consumer catalog verification matrix (synvelis#114) | approved | [sv114-svos-consumer-catalog.md](./sv114-svos-consumer-catalog.md) |
+| TSPEC-Tim04PermissionMatrix01 | TIM-04 permission fault matrix test spec | approved | [tim-04-permission-matrix.md](./tim-04-permission-matrix.md) |

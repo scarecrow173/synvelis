@@ -265,3 +265,4 @@ Directory: `docs/specs`
 | SPEC-Oisc4bt6LMiyM1toYOasb8fV | SV-GPUI-02 PluginDock native slot — shared driver-neutral surface authority + GPUI-simulated binding (synvelis#176) | approved | [sv-gpui-02-plugin-dock-native-slot.md](./sv-gpui-02-plugin-dock-native-slot.md) |
 | SPEC-pcC4L1RealAbiBind01 | PC-C4 L1 real ABI binding — test_gain production evidence | approved | [pc-c4-l1-real-abi-binding.md](./pc-c4-l1-real-abi-binding.md) |
 | SPEC-SV114SVOSCONSUMER00000001 | SV-OS consumer catalog — SV-OS-01〜05 catalog/headless/real lane slice (synvelis#114) | approved | [sv114-svos-consumer-catalog.md](./sv114-svos-consumer-catalog.md) |
+| SPEC-Tim04PermissionMatrix01 | TIM-04 plugin state permission fault matrix | approved | [tim-04-permission-matrix.md](./tim-04-permission-matrix.md) |

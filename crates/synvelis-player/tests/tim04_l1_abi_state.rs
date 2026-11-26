@@ -6,7 +6,7 @@
 //! projection through production host/state-session contracts.
 
 use std::cell::RefCell;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -28,15 +28,18 @@ use ruviform_plugin_host::{
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use synvelis_player::plugin_state::PluginStateHost;
+use synvelis_project::plugin_state::{
+    PluginStateStoreOperation, PluginStateStorePublishEffect, plugin_state_manifest_name,
+};
 use synvelis_project::{
     CaptureMode, Command, CounterIdGenerator, DirectoryPluginStateStore, PluginRef,
     PluginStateError, PluginStateFailureKind, PluginStateOutcome, PluginStatePort,
-    PluginStateRestoreRequest, PluginStateSaveRequest, PluginStateSession, ProcessorBinding,
-    ProcessorId, Project, ProjectController, ProjectId, ProjectOp, StateCaptureQuality,
-    StateQualityPolicy, StripId, digest_hex,
+    PluginStateRestoreOutcome, PluginStateRestoreRequest, PluginStateSaveRequest,
+    PluginStateSession, PluginStateStore, PluginStateStoreError, ProcessorBinding, ProcessorId,
+    Project, ProjectController, ProjectId, ProjectOp, StateCaptureQuality, StateQualityPolicy,
+    StripId, digest_hex,
 };
 
-const RUVIFORM_REV: &str = "20dc41f71c47674b3e51d1eb0921124b94f8bfaf";
 const EVIDENCE_ENV: &str = "SYNVELIS_TIM04_L1_EVIDENCE_DIR";
 const FRAMES: usize = 512;
 const FRAMES_U32: u32 = 512;
@@ -176,6 +179,56 @@ fn descriptor(format: Format, kind: FixtureKind) -> PluginDescriptor {
     }
 }
 
+fn ruviform_revision() -> String {
+    let lock = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join("Cargo.lock");
+    let text = fs::read_to_string(lock).expect("read Cargo.lock");
+    text.lines()
+        .find_map(|line| {
+            let line = line.trim();
+            if line.starts_with("source = \"git+https://github.com/scarecrow173/ruviform") {
+                line.rsplit_once('#')
+                    .map(|(_, revision)| revision.trim_end_matches('"').to_owned())
+            } else {
+                None
+            }
+        })
+        .expect("resolve ruviform revision from Cargo.lock")
+}
+
+fn depinfo_path(path: &Path) -> PathBuf {
+    let depinfo = path.with_extension("d");
+    let Some(file_name) = depinfo.file_name().and_then(|name| name.to_str()) else {
+        return depinfo;
+    };
+    let Some(unprefixed) = file_name.strip_prefix("lib") else {
+        return depinfo;
+    };
+    depinfo.with_file_name(unprefixed)
+}
+
+fn depinfo_proves_locked_ruviform(path: &Path, format: Format, revision: &str) -> bool {
+    let Ok(depinfo) = fs::read_to_string(depinfo_path(path)) else {
+        return false;
+    };
+    let normalized = depinfo.replace('\\', "/");
+    let crate_dir = match format {
+        Format::Vst3 => "ruviform-plugin-test-vst3",
+        Format::Clap => "ruviform-plugin-test-clap",
+    };
+    let source = format!("/crates/{crate_dir}/src/lib.rs");
+    let segments: Vec<_> = normalized.split('/').collect();
+    let locked_checkout = segments.windows(4).any(|window| {
+        window[0] == "checkouts"
+            && window[1].starts_with("ruviform-")
+            && window[2].len() >= 7
+            && revision.starts_with(window[2])
+            && window[3] == "crates"
+    });
+    locked_checkout && normalized.contains(&source)
+}
+
 fn resolve_artifact(format: Format) -> PathBuf {
     if let Some(path) = env::var_os(format.artifact_env()) {
         let path = PathBuf::from(path);
@@ -193,6 +246,7 @@ fn resolve_artifact(format: Format) -> PathBuf {
         .parent()
         .expect("test executable lives in target deps")
         .to_path_buf();
+    let revision = ruviform_revision();
     let stem = format!("{}-", format.artifact_file());
     let suffix = env::consts::DLL_SUFFIX;
     let mut matches: Vec<PathBuf> = fs::read_dir(&deps)
@@ -206,14 +260,16 @@ fn resolve_artifact(format: Format) -> PathBuf {
         })
         .collect();
     matches.sort();
-    assert_eq!(
-        matches.len(),
-        1,
-        "{} real fixture artifact resolution in {} was not unique: {matches:?}",
+    for candidate in &matches {
+        if depinfo_proves_locked_ruviform(candidate, format, &revision) {
+            return candidate.clone();
+        }
+    }
+    panic!(
+        "no {} cdylib proven by dep-info to come from locked ruviform rev {}; checked {matches:?}",
         format.label(),
-        deps.display()
+        revision
     );
-    matches.remove(0)
 }
 
 fn runner_program() -> PathBuf {
@@ -435,11 +491,38 @@ fn drive_to_processing(host: &Rc<RefCell<PluginHost>>, handle: PluginHandle) {
     .unwrap();
     h.execute(HostCommand::StartProcessing { handle }).unwrap();
 }
+fn stage_runner_fixtures(runner: &Path) {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    let _guard = LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
+    let dir = runner.parent().expect("runner has a parent directory");
+    for format in [Format::Vst3, Format::Clap] {
+        let source = resolve_artifact(format);
+        let file_name = format!(
+            "{}{}{}",
+            env::consts::DLL_PREFIX,
+            format.artifact_file(),
+            env::consts::DLL_SUFFIX
+        );
+        let target = dir.join(file_name);
+        let bytes = fs::read(&source).expect("read staged fixture source");
+        if fs::read(&target).ok().as_deref() != Some(bytes.as_slice()) {
+            fs::write(&target, bytes).unwrap_or_else(|error| {
+                panic!(
+                    "stage fixture {} to {}: {error}",
+                    source.display(),
+                    target.display()
+                )
+            });
+        }
+    }
+}
+
 fn prepare_host(
     routes: &[(Format, FixtureKind)],
     command_timeout: Duration,
 ) -> (Rc<RefCell<PluginHost>>, Vec<PluginDescriptor>) {
     let runner = runner_program();
+    stage_runner_fixtures(&runner);
     assert!(resolve_artifact(Format::Vst3).is_file());
     assert!(resolve_artifact(Format::Clap).is_file());
     let host = Rc::new(RefCell::new(PluginHost::new()));
@@ -487,7 +570,13 @@ fn evidence_lock() -> &'static Mutex<()> {
 fn environment(format: Format, d: PluginDescriptor, timeout_ms: u64) -> Value {
     let artifact = resolve_artifact(format);
     let runner = runner_program();
-    json!({"os":env::consts::OS,"arch":env::consts::ARCH,"environment_kind":"test-plugin","isolation":"out-of-process/l1","format":format.label(),"fixture_artifact_path":artifact.display().to_string(),"fixture_artifact_sha256":file_sha256(&artifact),"runner_path":runner.display().to_string(),"runner_sha256":file_sha256(&runner),"ruviform_resolved_rev":RUVIFORM_REV,"descriptor":{"id":d.id,"name":d.name,"vendor":d.vendor,"version":d.version,"features":d.features},"command_timeout_ms":timeout_ms,"spawn_timeout_ms":timeout_ms,"isolation_mode":"Dedicated"})
+    let staged = runner.parent().expect("runner parent").join(format!(
+        "{}{}{}",
+        env::consts::DLL_PREFIX,
+        format.artifact_file(),
+        env::consts::DLL_SUFFIX
+    ));
+    json!({"os":env::consts::OS,"arch":env::consts::ARCH,"environment_kind":"test-plugin","isolation":"out-of-process/l1","format":format.label(),"fixture_artifact_path":artifact.display().to_string(),"fixture_artifact_sha256":file_sha256(&artifact),"staged_fixture_path":staged.display().to_string(),"runner_path":runner.display().to_string(),"runner_sha256":file_sha256(&runner),"ruviform_resolved_rev":ruviform_revision(),"descriptor":{"id":d.id,"name":d.name,"vendor":d.vendor,"version":d.version,"features":d.features},"command_timeout_ms":timeout_ms,"spawn_timeout_ms":timeout_ms,"isolation_mode":"Dedicated"})
 }
 fn write_evidence(case: &str, verdict: &str, detail: &str, environment: &Value, observed: &Value) {
     let Some(dir) = env::var_os(EVIDENCE_ENV) else {
@@ -639,6 +728,249 @@ fn captured_digest(
 }
 fn blob_bytes(root: &Path, digest: &synvelis_project::ContentDigest) -> Vec<u8> {
     fs::read(root.join("blobs").join(digest_hex(digest))).expect("read captured RFST blob")
+}
+
+// ── Real-RFST permission matrix store seam ───────────────────────
+
+#[derive(Default)]
+struct L1MatrixState {
+    manifests: BTreeMap<String, Vec<u8>>,
+    blobs: BTreeMap<String, Vec<u8>>,
+    head_name: Option<String>,
+    denied: BTreeSet<PluginStateStoreOperation>,
+    calls: Vec<PluginStateStoreOperation>,
+    blob_indeterminate: Option<bool>,
+    head_indeterminate: Option<bool>,
+}
+
+/// Shared test-only store seam. The handle cloned outside the
+/// session controls deterministic faults while the session owns
+/// another handle to the same state. Denials are typed at the
+/// `PluginStateStore` boundary; no filesystem ACL or OS-account
+/// behavior is part of the oracle.
+#[derive(Clone, Default)]
+struct L1MatrixStore {
+    state: Rc<RefCell<L1MatrixState>>,
+}
+
+impl L1MatrixStore {
+    fn reset(&self) {
+        let mut state = self.state.borrow_mut();
+        state.denied.clear();
+        state.calls.clear();
+        state.blob_indeterminate = None;
+        state.head_indeterminate = None;
+    }
+
+    fn deny(&self, operation: PluginStateStoreOperation) {
+        self.state.borrow_mut().denied.insert(operation);
+    }
+
+    fn denied_error(operation: PluginStateStoreOperation) -> PluginStateStoreError {
+        let effect = match operation {
+            PluginStateStoreOperation::BlobPublish
+            | PluginStateStoreOperation::ManifestPublish
+            | PluginStateStoreOperation::HeadUpdate => PluginStateStorePublishEffect::NotPublished,
+            PluginStateStoreOperation::HeadRead
+            | PluginStateStoreOperation::ManifestRead
+            | PluginStateStoreOperation::BlobRead => PluginStateStorePublishEffect::NotApplicable,
+        };
+        PluginStateStoreError::PermissionDenied {
+            operation,
+            effect,
+            detail: format!("deterministic L1 matrix injection at {operation}"),
+        }
+    }
+
+    fn check(&self, operation: PluginStateStoreOperation) -> Result<(), PluginStateStoreError> {
+        let mut state = self.state.borrow_mut();
+        state.calls.push(operation);
+        if state.denied.contains(&operation) {
+            return Err(Self::denied_error(operation));
+        }
+        Ok(())
+    }
+}
+
+impl PluginStateStore for L1MatrixStore {
+    fn publish_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError> {
+        self.check(PluginStateStoreOperation::ManifestPublish)?;
+        let name = plugin_state_manifest_name(bytes);
+        self.state
+            .borrow_mut()
+            .manifests
+            .insert(name.clone(), bytes.to_vec());
+        Ok(name)
+    }
+
+    fn update_head(&mut self, name: &str) -> Result<(), PluginStateStoreError> {
+        self.check(PluginStateStoreOperation::HeadUpdate)?;
+        self.state.borrow_mut().head_name = Some(name.to_owned());
+        Ok(())
+    }
+
+    fn save_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError> {
+        if self
+            .state
+            .borrow()
+            .denied
+            .contains(&PluginStateStoreOperation::ManifestPublish)
+        {
+            self.state
+                .borrow_mut()
+                .calls
+                .push(PluginStateStoreOperation::ManifestPublish);
+            return Err(Self::denied_error(
+                PluginStateStoreOperation::ManifestPublish,
+            ));
+        }
+        if self
+            .state
+            .borrow()
+            .denied
+            .contains(&PluginStateStoreOperation::HeadUpdate)
+        {
+            self.state
+                .borrow_mut()
+                .calls
+                .push(PluginStateStoreOperation::HeadUpdate);
+            return Err(Self::denied_error(PluginStateStoreOperation::HeadUpdate));
+        }
+        self.state
+            .borrow_mut()
+            .calls
+            .push(PluginStateStoreOperation::ManifestPublish);
+        let name = plugin_state_manifest_name(bytes);
+        self.state
+            .borrow_mut()
+            .manifests
+            .insert(name.clone(), bytes.to_vec());
+        self.state
+            .borrow_mut()
+            .calls
+            .push(PluginStateStoreOperation::HeadUpdate);
+        let head_indeterminate = self.state.borrow().head_indeterminate;
+        if let Some(applied) = head_indeterminate {
+            if applied {
+                self.state.borrow_mut().head_name = Some(name.clone());
+            }
+            return Err(PluginStateStoreError::Indeterminate {
+                operation: PluginStateStoreOperation::HeadUpdate,
+            });
+        }
+        self.state.borrow_mut().head_name = Some(name.clone());
+        Ok(name)
+    }
+
+    fn head(&self) -> Result<Option<String>, PluginStateStoreError> {
+        let mut state = self.state.borrow_mut();
+        state.calls.push(PluginStateStoreOperation::HeadRead);
+        if state.denied.contains(&PluginStateStoreOperation::HeadRead) {
+            return Err(Self::denied_error(PluginStateStoreOperation::HeadRead));
+        }
+        Ok(state.head_name.clone())
+    }
+
+    fn read_manifest(&self, name: &str) -> Result<Vec<u8>, PluginStateStoreError> {
+        let mut state = self.state.borrow_mut();
+        state.calls.push(PluginStateStoreOperation::ManifestRead);
+        if state
+            .denied
+            .contains(&PluginStateStoreOperation::ManifestRead)
+        {
+            return Err(Self::denied_error(PluginStateStoreOperation::ManifestRead));
+        }
+        state
+            .manifests
+            .get(name)
+            .cloned()
+            .ok_or(PluginStateStoreError::NotFound)
+    }
+
+    fn put_blob(
+        &mut self,
+        digest: &synvelis_project::ContentDigest,
+        bytes: &[u8],
+    ) -> Result<(), PluginStateStoreError> {
+        self.check(PluginStateStoreOperation::BlobPublish)?;
+        let blob_indeterminate = self.state.borrow().blob_indeterminate;
+        if let Some(applied) = blob_indeterminate {
+            if applied {
+                self.state
+                    .borrow_mut()
+                    .blobs
+                    .insert(digest_hex(digest), bytes.to_vec());
+            }
+            return Err(PluginStateStoreError::Indeterminate {
+                operation: PluginStateStoreOperation::BlobPublish,
+            });
+        }
+        self.state
+            .borrow_mut()
+            .blobs
+            .insert(digest_hex(digest), bytes.to_vec());
+        Ok(())
+    }
+
+    fn read_blob(
+        &self,
+        digest: &synvelis_project::ContentDigest,
+    ) -> Result<Vec<u8>, PluginStateStoreError> {
+        let mut state = self.state.borrow_mut();
+        state.calls.push(PluginStateStoreOperation::BlobRead);
+        if state.denied.contains(&PluginStateStoreOperation::BlobRead) {
+            return Err(Self::denied_error(PluginStateStoreOperation::BlobRead));
+        }
+        state
+            .blobs
+            .get(&digest_hex(digest))
+            .cloned()
+            .ok_or(PluginStateStoreError::NotFound)
+    }
+}
+
+fn operation_key(operation: PluginStateStoreOperation) -> &'static str {
+    match operation {
+        PluginStateStoreOperation::BlobPublish => "blob_publish",
+        PluginStateStoreOperation::ManifestPublish => "manifest_publish",
+        PluginStateStoreOperation::HeadUpdate => "head_update",
+        PluginStateStoreOperation::HeadRead => "head_read",
+        PluginStateStoreOperation::ManifestRead => "manifest_read",
+        PluginStateStoreOperation::BlobRead => "blob_read",
+    }
+}
+
+fn matrix_environment(
+    format: Format,
+    d: PluginDescriptor,
+    fault_point: &str,
+    policy: StateQualityPolicy,
+    capture_quality: StateCaptureQuality,
+) -> Value {
+    let mut environment = environment(format, d, 5000);
+    let object = environment.as_object_mut().unwrap();
+    object.insert(
+        "store_backend".into(),
+        json!("in-memory fault-injecting PluginStateStore"),
+    );
+    object.insert("fault_point".into(), json!(fault_point));
+    object.insert("policy".into(), json!(format!("{policy:?}")));
+    object.insert(
+        "capture_quality".into(),
+        json!(format!("{capture_quality:?}")),
+    );
+    environment
+}
+
+fn state_snapshot(store: &L1MatrixStore) -> Value {
+    let state = store.state.borrow();
+    json!({
+        "head": state.head_name,
+        "manifests": state.manifests.keys().collect::<Vec<_>>(),
+        "manifest_sha256": state.manifests.iter().map(|(name,bytes)| json!({"name":name,"sha256":sha256_hex(bytes)})).collect::<Vec<_>>(),
+        "blob_digests": state.blobs.keys().collect::<Vec<_>>(),
+        "blob_sha256": state.blobs.iter().map(|(digest,bytes)| json!({"digest":digest,"sha256":sha256_hex(bytes),"len":bytes.len()})).collect::<Vec<_>>(),
+    })
 }
 #[test]
 fn l1_scan_lifecycle_and_capture_quality_matrix() {
@@ -916,5 +1248,354 @@ fn l1_fault_projection_and_old_blob_protection() {
                 &json!({"fault_mode":mode,"normalized":normalized,"arm_attempt":arm_attempt,"capture_failure_kind":format!("{capture_kind:?}"),"restore_failure_kind":format!("{restore_kind:?}"),"notification_exit":exit_text,"failure_cause":cause_text,"diagnostics":diagnostic.map(|r|json!({"diagnostics_id":r.diagnostics_id,"phase":format!("{:?}",r.phase),"cause":format!("{:?}",r.cause)})),"strict_rejection_summary":format!("{summary:?}"),"old_blob":{"sha256":digest_hex(&initial_digest),"len":before_blob.len(),"bytes_hex":hex_encode(&before_blob)},"head_unchanged":after_head==before_head,"manifest_set_unchanged":after_manifests==before_manifests}),
             );
         }
+    }
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "the permission matrix keeps real-byte capture, independent fault rows, and evidence in one consumer run"
+)]
+#[test]
+fn l1_permission_fault_matrix_real_rfst() {
+    for format in [Format::Vst3, Format::Clap] {
+        let (host, ds) = prepare_host(
+            &[
+                (format, FixtureKind::Stateful),
+                (format, FixtureKind::Fault),
+            ],
+            Duration::from_secs(5),
+        );
+        let sd = ds[0];
+        let fd = ds[1];
+        let stateful = spawn_instance(&host, sd);
+        let fault = spawn_instance(&host, fd);
+        let (mut c, _track, strip, sp) = project_with_processor(sd);
+        host.borrow_mut()
+            .execute(HostCommand::StopProcessing {
+                handle: stateful.handle,
+            })
+            .unwrap();
+
+        let mut port = PluginStateHost::new(host.clone());
+        port.bind(sp, stateful.handle, &plugin_ref(sd), 1);
+        let store = L1MatrixStore::default();
+        let control = store.clone();
+        let mut session = PluginStateSession::new(port, store);
+        let mut initial_request = save_request(&c);
+        initial_request.stored_at = "permission-matrix-initial".into();
+        let initial = session.save(&initial_request).unwrap();
+        let (input_digest, input_len, input_quality) = captured_digest(&initial, sp);
+        let input_bytes = control
+            .state
+            .borrow()
+            .blobs
+            .get(&digest_hex(&input_digest))
+            .expect("captured real RFST blob")
+            .clone();
+        let parsed = parse_rfst(&input_bytes);
+        assert!(matches!(
+            input_quality,
+            StateCaptureQuality::Coordinated | StateCaptureQuality::Quiescent
+        ));
+        let input_evidence = json!({
+            "len": input_bytes.len(),
+            "sha256": sha256_hex(&input_bytes),
+            "receipt_digest": digest_hex(&input_digest),
+            "receipt_len": input_len,
+            "rfst": {"gain": parsed.gain, "checksum": parsed.checksum},
+        });
+        write_evidence(
+            &format!("{}_permission_matrix_input_rfst", format.label()),
+            "Pass",
+            "actual RFST bytes captured from test_stateful are the matrix input",
+            &matrix_environment(
+                format,
+                sd,
+                "none",
+                StateQualityPolicy::Strict,
+                input_quality,
+            ),
+            &input_evidence,
+        );
+
+        for operation in [
+            PluginStateStoreOperation::BlobPublish,
+            PluginStateStoreOperation::ManifestPublish,
+            PluginStateStoreOperation::HeadUpdate,
+        ] {
+            for policy in [StateQualityPolicy::Strict, StateQualityPolicy::Standard] {
+                control.reset();
+                let before = state_snapshot(&control);
+                control.deny(operation);
+                let mut request = save_request(&c);
+                request.policy = policy;
+                request.stored_at = format!("permission-{}-{policy:?}", operation_key(operation));
+                let error = session.save(&request).unwrap_err();
+                let PluginStateError::Store(PluginStateStoreError::PermissionDenied {
+                    operation: actual,
+                    effect,
+                    detail,
+                }) = error
+                else {
+                    panic!("expected typed store permission denial, got {error:?}");
+                };
+                assert_eq!(actual, operation);
+                assert_eq!(effect, PluginStateStorePublishEffect::NotPublished);
+                let after = state_snapshot(&control);
+                assert_eq!(after, before, "denial changed reachable store state");
+                write_evidence(
+                    &format!(
+                        "{}_permission_save_{}_{}",
+                        format.label(),
+                        operation_key(operation),
+                        format!("{policy:?}").to_ascii_lowercase()
+                    ),
+                    "Pass",
+                    "typed publish denial leaves previous HEAD/manifest/blob state unchanged",
+                    &matrix_environment(
+                        format,
+                        sd,
+                        operation_key(operation),
+                        policy,
+                        input_quality,
+                    ),
+                    &json!({
+                        "input_rfst": input_evidence,
+                        "typed_error": {"operation": format!("{actual:?}"), "effect": format!("{effect:?}"), "detail": detail},
+                        "before": before,
+                        "after": after,
+                        "old_state_protected": true,
+                    }),
+                );
+            }
+        }
+
+        for operation in [
+            PluginStateStoreOperation::HeadRead,
+            PluginStateStoreOperation::ManifestRead,
+            PluginStateStoreOperation::BlobRead,
+        ] {
+            control.reset();
+            control.deny(operation);
+            let head_name = control.state.borrow().head_name.clone();
+            let request = PluginStateRestoreRequest {
+                project: c.live(),
+                manifest: if operation == PluginStateStoreOperation::ManifestRead {
+                    head_name
+                } else {
+                    None
+                },
+            };
+            let observed = match session.restore(&request) {
+                Err(PluginStateError::Store(PluginStateStoreError::PermissionDenied {
+                    operation: actual,
+                    effect,
+                    detail,
+                })) => {
+                    assert_eq!(actual, operation);
+                    assert_eq!(effect, PluginStateStorePublishEffect::NotApplicable);
+                    json!({"result":"session_error","operation":format!("{actual:?}"),"effect":format!("{effect:?}"),"detail":detail})
+                }
+                Ok(receipt) => {
+                    assert_eq!(operation, PluginStateStoreOperation::BlobRead);
+                    assert!(matches!(
+                        receipt.records[0].outcome,
+                        PluginStateRestoreOutcome::StoreFailed {
+                            operation: PluginStateStoreOperation::BlobRead,
+                            kind: PluginStateFailureKind::PermissionDenied,
+                        }
+                    ));
+                    json!({"result":"record_store_failed","operation":"BlobRead","failure_kind":"PermissionDenied","silent_success":false})
+                }
+                other => panic!("unexpected restore denial result: {other:?}"),
+            };
+            write_evidence(
+                &format!(
+                    "{}_permission_restore_{}",
+                    format.label(),
+                    operation_key(operation)
+                ),
+                "Pass",
+                "restore-path denial is typed and never becomes silent success or empty state",
+                &matrix_environment(
+                    format,
+                    sd,
+                    operation_key(operation),
+                    StateQualityPolicy::Strict,
+                    input_quality,
+                ),
+                &json!({"input_rfst": input_evidence, "observed_result": observed}),
+            );
+        }
+
+        // Best-effort real capture: Strict closes at the quality gate
+        // before the store, Standard records quality and reaches the
+        // injected store denial.
+        host.borrow_mut()
+            .execute(HostCommand::StartProcessing {
+                handle: stateful.handle,
+            })
+            .unwrap();
+        control.reset();
+        control.deny(PluginStateStoreOperation::ManifestPublish);
+        let mut strict_request = save_request(&c);
+        strict_request.stored_at = "permission-degraded-strict".into();
+        let strict_error = session.save(&strict_request).unwrap_err();
+        assert!(matches!(
+            strict_error,
+            PluginStateError::QualityRejected { .. }
+        ));
+        let strict_store_calls = control.state.borrow().calls.len();
+        assert_eq!(strict_store_calls, 0);
+        control.reset();
+        control.deny(PluginStateStoreOperation::ManifestPublish);
+        let mut standard_request = save_request(&c);
+        standard_request.policy = StateQualityPolicy::Standard;
+        standard_request.stored_at = "permission-degraded-standard".into();
+        let standard_error = session.save(&standard_request).unwrap_err();
+        assert!(matches!(
+            standard_error,
+            PluginStateError::Store(PluginStateStoreError::PermissionDenied {
+                operation: PluginStateStoreOperation::ManifestPublish,
+                ..
+            })
+        ));
+        let standard_calls = control.state.borrow().calls.clone();
+        assert!(standard_calls.contains(&PluginStateStoreOperation::ManifestPublish));
+        write_evidence(
+            &format!("{}_permission_policy_best_effort", format.label()),
+            "Pass",
+            "Strict quality-gates degraded real capture before store; Standard reaches typed denial",
+            &matrix_environment(
+                format,
+                sd,
+                "manifest_publish",
+                StateQualityPolicy::Standard,
+                StateCaptureQuality::BestEffort,
+            ),
+            &json!({"strict":{"error":"QualityRejected","store_calls":strict_store_calls},"standard":{"error":"PermissionDenied","store_calls":format!("{standard_calls:?}")}}),
+        );
+        host.borrow_mut()
+            .execute(HostCommand::StopProcessing {
+                handle: stateful.handle,
+            })
+            .unwrap();
+
+        control.reset();
+        control.state.borrow_mut().blob_indeterminate = Some(true);
+        control.deny(PluginStateStoreOperation::BlobRead);
+        let mut request = save_request(&c);
+        request.policy = StateQualityPolicy::Standard;
+        request.stored_at = "permission-indeterminate-blob".into();
+        let error = session.save(&request).unwrap_err();
+        assert!(matches!(
+            error,
+            PluginStateError::ReadbackFailed {
+                publish_error: PluginStateStoreError::Indeterminate {
+                    operation: PluginStateStoreOperation::BlobPublish,
+                },
+                readback_error: PluginStateStoreError::PermissionDenied {
+                    operation: PluginStateStoreOperation::BlobRead,
+                    ..
+                },
+            }
+        ));
+        write_evidence(
+            &format!(
+                "{}_permission_indeterminate_blob_readback_denied",
+                format.label()
+            ),
+            "Pass",
+            "indeterminate blob publish plus denied blob readback remains unreconciled and fail-closed",
+            &matrix_environment(
+                format,
+                sd,
+                "blob_publish+blob_read",
+                StateQualityPolicy::Standard,
+                input_quality,
+            ),
+            &json!({"publish_operation":"BlobPublish","readback_operation":"BlobRead","verdict_basis":"ReadbackFailed","head":control.state.borrow().head_name}),
+        );
+
+        for readback_operation in [
+            PluginStateStoreOperation::HeadRead,
+            PluginStateStoreOperation::ManifestRead,
+        ] {
+            control.reset();
+            control.state.borrow_mut().head_indeterminate = Some(true);
+            control.deny(readback_operation);
+            let mut request = save_request(&c);
+            request.policy = StateQualityPolicy::Standard;
+            request.stored_at = format!(
+                "permission-indeterminate-head-{}",
+                operation_key(readback_operation)
+            );
+            let error = session.save(&request).unwrap_err();
+            assert!(matches!(
+                error,
+                PluginStateError::ReadbackFailed {
+                    publish_error: PluginStateStoreError::Indeterminate {
+                        operation: PluginStateStoreOperation::HeadUpdate,
+                    },
+                    readback_error: PluginStateStoreError::PermissionDenied { operation: actual, .. },
+                } if actual == readback_operation
+            ));
+            write_evidence(
+                &format!(
+                    "{}_permission_indeterminate_head_{}_denied",
+                    format.label(),
+                    operation_key(readback_operation)
+                ),
+                "Pass",
+                "indeterminate HEAD update plus denied manifest/HEAD readback never becomes success",
+                &matrix_environment(
+                    format,
+                    sd,
+                    &format!("head_update+{}", operation_key(readback_operation)),
+                    StateQualityPolicy::Standard,
+                    input_quality,
+                ),
+                &json!({"publish_operation":"HeadUpdate","readback_operation":format!("{readback_operation:?}"),"verdict_basis":"ReadbackFailed","head":control.state.borrow().head_name}),
+            );
+        }
+
+        // Plugin-originated permission denial capability probe. The
+        // fault fixture has crash/hang/error/RT/NaN bands but no
+        // permission band and no state capability; ruviform HostError
+        // likewise has no PermissionDenied variant at this pin.
+        let fp = insert_processor(&mut c, strip, 1, plugin_ref(fd), "fault");
+        session
+            .port_mut()
+            .bind(fp, fault.handle, &plugin_ref(fd), 1);
+        let capture_error = session
+            .port_mut()
+            .capture(fp, CaptureMode::Coordinated)
+            .unwrap_err();
+        assert_eq!(
+            capture_error,
+            synvelis_project::PluginStateCaptureError::Unsupported
+        );
+        let mut capability_environment = environment(format, fd, 5000);
+        let object = capability_environment.as_object_mut().unwrap();
+        object.insert(
+            "store_backend".into(),
+            json!("not_applicable_capability_probe"),
+        );
+        object.insert("fault_point".into(), json!("plugin_originated_state_hook"));
+        object.insert("policy".into(), json!("not_applicable"));
+        object.insert("capture_quality".into(), json!("Unsupported"));
+        write_evidence(
+            &format!("{}_plugin_originated_permission_capability", format.label()),
+            "Unsupported",
+            "RF #630 fixtures and ruviform HostError expose no plugin-originated PermissionDenied state-hook capability",
+            &capability_environment,
+            &json!({
+                "fixture_fault_modes": ["none","abort","exit","hang","error","rt_alloc","bad_time","invalid"],
+                "permission_fault_mode_present": false,
+                "host_error_permission_denied_variant_present": false,
+                "state_capture_error": format!("{capture_error:?}"),
+                "mock_permission_denied_is_not_real_abi_pass": true,
+            }),
+        );
     }
 }
