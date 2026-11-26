@@ -522,8 +522,8 @@ impl Plugin for ReportPlugin {
     fn params(&self) -> &[ParamInfo] {
         &REC_PARAMS
     }
-    fn buses(&self) -> &[BusDescriptor] {
-        &STEREO_BUSES
+    fn buses(&self) -> Option<&[BusDescriptor]> {
+        Some(&STEREO_BUSES)
     }
 }
 

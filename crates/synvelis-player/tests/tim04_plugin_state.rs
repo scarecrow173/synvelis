@@ -96,8 +96,8 @@ impl Plugin for StatePlugin {
     fn params(&self) -> &[ParamInfo] {
         &[]
     }
-    fn buses(&self) -> &[BusDescriptor] {
-        &STATE_BUSES
+    fn buses(&self) -> Option<&[BusDescriptor]> {
+        Some(&STATE_BUSES)
     }
     fn save_state(&mut self) -> Result<Vec<u8>, HostError> {
         Ok(self.gain.to_le_bytes().to_vec())

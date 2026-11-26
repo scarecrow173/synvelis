@@ -148,8 +148,8 @@ impl Plugin for RecPlugin {
     fn params(&self) -> &[ParamInfo] {
         self.params
     }
-    fn buses(&self) -> &[BusDescriptor] {
-        &BUSES
+    fn buses(&self) -> Option<&[BusDescriptor]> {
+        Some(&BUSES)
     }
 }
 
