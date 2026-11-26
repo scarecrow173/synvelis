@@ -521,3 +521,4 @@ Directory: `docs/test-specs`
 | TSPEC-571ProcessorBindingStale03 | Issue #571 test-spec — rebind port stamp 再導出と UnresolvedPort 拒否 parity の検証仕様 | approved | [issue-571-processor-binding-stale.md](./issue-571-processor-binding-stale.md) |
 | TSPEC-3kN7eQ3gW0xY6uC9nR7zKjPd | SV-GPUI-02 headless PluginDock panel テスト仕様 — 4-ID 状態機械 + syn.plugin_dock.* op (synvelis#176) | approved | [sv-gpui-02-plugin-dock-headless-panel.md](./sv-gpui-02-plugin-dock-headless-panel.md) |
 | TSPEC-TiM01wIdGeTnPw04 | TIM-01 PPQN 選択 widget intent — test spec（synvelis#125） | approved | [tim-01-ppqn-widget.md](./tim-01-ppqn-widget.md) |
+| TSPEC-iHM3SpiejBbfVhTbjCGjfdoT | SV-GPUI-02 PluginDock native slot テスト仕様 — shared surface authority + GPUI-simulated binding (synvelis#176) | approved | [sv-gpui-02-plugin-dock-native-slot.md](./sv-gpui-02-plugin-dock-native-slot.md) |
