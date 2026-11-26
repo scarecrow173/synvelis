@@ -127,8 +127,8 @@ impl Plugin for MidiRecPlugin {
     fn params(&self) -> &[ParamInfo] {
         &[]
     }
-    fn buses(&self) -> &[BusDescriptor] {
-        &BUSES
+    fn buses(&self) -> Option<&[BusDescriptor]> {
+        Some(&BUSES)
     }
 }
 

@@ -386,8 +386,8 @@ impl Plugin for MidiRecPlugin {
     fn params(&self) -> &[ParamInfo] {
         &MIDI_PARAMS
     }
-    fn buses(&self) -> &[BusDescriptor] {
-        &STEREO_BUSES
+    fn buses(&self) -> Option<&[BusDescriptor]> {
+        Some(&STEREO_BUSES)
     }
 }
 

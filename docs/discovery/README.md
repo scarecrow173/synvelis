@@ -51,6 +51,7 @@ Directory: `docs/discovery`
 | DISC-034T6XSXfrmJPxTvbinHT6 | SV177 製品 Theme/Workspace 棚卸し — 既存 Theme・Workspace 永続化・RF385 契約状況 | resolved | [sv177-product-theme-workspace-inventory.md](./sv177-product-theme-workspace-inventory.md) |
 | DISC-sv232WvInvLedger01xQ9z | SV232 Legacy WebView 棚卸し台帳 — Synvelis 側使用箇所・機能対応表・撤去分類規則 | resolved | [sv232-legacy-webview-inventory.md](./sv232-legacy-webview-inventory.md) |
 | DISC-oz2TWMUsnSkPXzinPhwaOL | SV#28 Ruviform pin 更新 — fd1d4d5f → ac10a2f7 差分調査と API 互換性評価 | resolved | [sv28-ruviform-pin-ac10a2f7.md](./sv28-ruviform-pin-ac10a2f7.md) |
+| DISC-mQ7vN2xR9tL4pK8sJ6hG3d | SV#28 Ruviform pin 更新 — 20dc41f7 → 87a7ba8f 差分調査と API 互換性評価 | resolved | [sv28-ruviform-pin-87a7ba8f.md](./sv28-ruviform-pin-87a7ba8f.md) |
 | DISC-034Vo8SrwAKrqHNijuTiCD | SV#28 Ruviform pin 更新 — 0f5b5737 → b02942c2 差分調査と API 互換性評価 | resolved | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | DISC-0rH6upYc1dViYzZVllA0t1 | SV#28 Ruviform pin 更新 — abb9f372 → cbcc8343 差分調査と API 互換性評価 | resolved | [sv28-ruviform-pin-cbcc8343.md](./sv28-ruviform-pin-cbcc8343.md) |
 | DISC-E2h7ArIlocpw5psCMM5ytg | SV#28 Ruviform pin 更新 — 9865cd57 → fd1d4d5f 差分調査と API 互換性評価 | resolved | [sv28-ruviform-pin-fd1d4d5f.md](./sv28-ruviform-pin-fd1d4d5f.md) |

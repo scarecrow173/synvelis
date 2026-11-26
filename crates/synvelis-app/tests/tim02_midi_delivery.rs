@@ -185,8 +185,8 @@ impl Plugin for InstrumentPlugin {
     fn params(&self) -> &[ParamInfo] {
         &INSTRUMENT_PARAMS
     }
-    fn buses(&self) -> &[BusDescriptor] {
-        &STEREO_BUSES
+    fn buses(&self) -> Option<&[BusDescriptor]> {
+        Some(&STEREO_BUSES)
     }
 }
 
