@@ -329,6 +329,16 @@ pub enum PluginStateRestoreOutcome {
         /// Failure class.
         kind: PluginStateFailureKind,
     },
+    /// Host/store-side failure while reading the persisted inputs
+    /// for this record. This is intentionally separate from
+    /// [`Self::Failed`], whose permission/crash/timeout kinds are
+    /// plugin-port outcomes after digest verification.
+    StoreFailed {
+        /// Store operation that failed.
+        operation: PluginStateStoreOperation,
+        /// Failure class.
+        kind: PluginStateFailureKind,
+    },
 }
 
 /// One processor's restore result.
@@ -369,6 +379,18 @@ pub enum PluginStateError {
     },
     /// The store failed or could not prove a publish effect.
     Store(PluginStateStoreError),
+    /// A publish effect was indeterminate and the readback needed
+    /// to reconcile it failed. This is deliberately neither a save
+    /// success nor a proven non-publish: the original publish error
+    /// and the independent readback error stay separate.
+    ReadbackFailed {
+        /// Original publish error (for example an indeterminate or
+        /// permission-denied publish whose effect is indeterminate).
+        publish_error: PluginStateStoreError,
+        /// Failure of the HEAD/blob/manifest readback that was
+        /// required to reconcile the publish.
+        readback_error: PluginStateStoreError,
+    },
     /// The manifest bytes could not be read, parsed or verified.
     Manifest(String),
     /// No manifest exists to restore (no explicit name and no HEAD).
@@ -380,6 +402,13 @@ impl fmt::Display for PluginStateError {
         match self {
             Self::QualityRejected { .. } => write!(f, "plugin state quality rejected"),
             Self::Store(e) => write!(f, "plugin state store: {e}"),
+            Self::ReadbackFailed {
+                publish_error,
+                readback_error,
+            } => write!(
+                f,
+                "plugin state publish unreconciled ({publish_error}); readback failed: {readback_error}"
+            ),
             Self::Manifest(d) => write!(f, "plugin state manifest: {d}"),
             Self::NotFound => write!(f, "no plugin state manifest"),
         }
@@ -427,27 +456,124 @@ pub trait PluginStatePort {
 
 // ── Store ────────────────────────────────────────────────────────
 
+/// The store operation a failure or indeterminate effect belongs
+/// to. Manifest publish and HEAD update are separate operations even
+/// though [`PluginStateStore::save_manifest`] composes them: a
+/// denial before HEAD update must not be reported as a blob or
+/// manifest-content failure, and a readback denial must stay
+/// distinct from a restore-hook refusal.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PluginStateStoreOperation {
+    /// Publishing one content-addressed state blob.
+    BlobPublish,
+    /// Publishing one immutable manifest object.
+    ManifestPublish,
+    /// Repointing the mutable HEAD pointer.
+    HeadUpdate,
+    /// Reading the mutable HEAD pointer.
+    HeadRead,
+    /// Reading one immutable manifest object.
+    ManifestRead,
+    /// Reading one content-addressed blob.
+    BlobRead,
+}
+
+impl fmt::Display for PluginStateStoreOperation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            Self::BlobPublish => "blob publish",
+            Self::ManifestPublish => "manifest publish",
+            Self::HeadUpdate => "HEAD update",
+            Self::HeadRead => "HEAD read",
+            Self::ManifestRead => "manifest read",
+            Self::BlobRead => "blob read",
+        };
+        f.write_str(name)
+    }
+}
+
+/// What a failed publish did to its destination, as far as the
+/// store could prove. Read operations use [`Self::NotApplicable`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PluginStateStorePublishEffect {
+    /// The operation is not a publish.
+    NotApplicable,
+    /// The destination provably was not changed.
+    NotPublished,
+    /// The destination was changed before the operation failed.
+    Published,
+    /// The destination effect could not be proven either way.
+    Indeterminate,
+}
+
 /// Store-level failure. `Indeterminate` means the publish effect
 /// could not be proven either way — the session must reconcile via
 /// HEAD/blob readback before claiming success or failure.
+/// `PermissionDenied` is structural host/store-side OS/sandbox
+/// denial evidence; callers must not recover it by matching display
+/// text.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PluginStateStoreError {
     /// The publish provably did not take effect; previous HEAD is
     /// intact.
-    NotPublished,
+    NotPublished {
+        /// Operation whose publish did not take effect.
+        operation: PluginStateStoreOperation,
+    },
     /// The publish effect is undetermined — readback required.
-    Indeterminate,
+    Indeterminate {
+        /// Operation whose publish effect is undetermined.
+        operation: PluginStateStoreOperation,
+    },
+    /// Permission or sandbox policy denied the operation.
+    PermissionDenied {
+        /// Operation that was denied.
+        operation: PluginStateStoreOperation,
+        /// Destination effect known for a publish operation.
+        effect: PluginStateStorePublishEffect,
+        /// OS/store diagnostic detail. This is diagnostic text only;
+        /// the variant and `operation` are the matchable contract.
+        detail: String,
+    },
     /// The object does not exist.
     NotFound,
     /// Any other failure, with detail.
     Failed(String),
 }
 
+impl PluginStateStoreError {
+    /// `true` when this error leaves a publish effect undetermined
+    /// and therefore requires readback reconciliation.
+    #[must_use]
+    pub const fn requires_readback(&self) -> bool {
+        matches!(
+            self,
+            Self::Indeterminate { .. }
+                | Self::PermissionDenied {
+                    effect: PluginStateStorePublishEffect::Indeterminate,
+                    ..
+                }
+        )
+    }
+}
+
 impl fmt::Display for PluginStateStoreError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NotPublished => write!(f, "not published"),
-            Self::Indeterminate => write!(f, "publish effect indeterminate"),
+            Self::NotPublished { operation } => write!(f, "{operation}: not published"),
+            Self::Indeterminate { operation } => {
+                write!(f, "{operation}: publish effect indeterminate")
+            }
+            Self::PermissionDenied {
+                operation,
+                effect,
+                detail,
+            } => write!(
+                f,
+                "{operation}: permission denied (effect {effect:?}): {detail}"
+            ),
             Self::NotFound => write!(f, "not found"),
             Self::Failed(d) => write!(f, "{d}"),
         }
@@ -462,13 +588,43 @@ impl std::error::Error for PluginStateStoreError {}
 /// identical state is idempotent and distinct states never collide
 /// on a name.
 pub trait PluginStateStore {
+    /// Publishes `bytes` as an immutable manifest, returning its
+    /// content-derived name. This operation never repoints HEAD.
+    ///
+    /// # Errors
+    /// [`PluginStateStoreError`] — see variants. Errors carry
+    /// [`PluginStateStoreOperation::ManifestPublish`] when they are
+    /// operation-specific.
+    fn publish_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError>;
+
+    /// Repoints HEAD at an already published manifest name.
+    ///
+    /// # Errors
+    /// [`PluginStateStoreError`] — see variants. Errors carry
+    /// [`PluginStateStoreOperation::HeadUpdate`] when they are
+    /// operation-specific.
+    fn update_head(&mut self, name: &str) -> Result<(), PluginStateStoreError>;
+
     /// Publishes `bytes` as an immutable manifest and repoints HEAD,
-    /// returning the manifest name. `Indeterminate` means HEAD may or
-    /// may not have been repointed — reconcile via [`Self::head`].
+    /// returning the manifest name. The default implementation is
+    /// deliberately the two observable operations
+    /// [`Self::publish_manifest`] then [`Self::update_head`], so a
+    /// fault-injecting or production store can classify the failing
+    /// stage without string inspection. Stores with a stronger
+    /// atomic composition may override it, but must preserve the
+    /// same typed error contract.
+    ///
+    /// `Indeterminate` means the manifest publish or HEAD update may
+    /// or may not have taken effect — reconcile via [`Self::head`]
+    /// and manifest readback.
     ///
     /// # Errors
     /// [`PluginStateStoreError`] — see variants.
-    fn save_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError>;
+    fn save_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError> {
+        let name = self.publish_manifest(bytes)?;
+        self.update_head(&name)?;
+        Ok(name)
+    }
 
     /// The manifest name HEAD currently points at.
     ///
@@ -551,11 +707,20 @@ impl InMemoryPluginStateStore {
 }
 
 impl PluginStateStore for InMemoryPluginStateStore {
-    fn save_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError> {
+    fn publish_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError> {
         let name = plugin_state_manifest_name(bytes);
         self.manifests.insert(name.clone(), bytes.to_vec());
-        self.head_name = Some(name.clone());
         Ok(name)
+    }
+
+    fn update_head(&mut self, name: &str) -> Result<(), PluginStateStoreError> {
+        if !is_manifest_name(name) {
+            return Err(PluginStateStoreError::Failed(format!(
+                "invalid manifest name {name:?}"
+            )));
+        }
+        self.head_name = Some(name.to_owned());
+        Ok(())
     }
 
     fn head(&self) -> Result<Option<String>, PluginStateStoreError> {
@@ -606,6 +771,57 @@ enum PublishStepError {
     },
     /// `SealedFile::publish` failed — effect preserved for mapping.
     Publish(PublishFailure),
+}
+
+fn error_chain_has_permission_denied(error: &(dyn std::error::Error + 'static)) -> bool {
+    let mut current = Some(error);
+    while let Some(error) = current {
+        if let Some(io) = error.downcast_ref::<std::io::Error>()
+            && io.kind() == std::io::ErrorKind::PermissionDenied
+        {
+            return true;
+        }
+        current = error.source();
+    }
+    false
+}
+
+fn error_chain_detail(error: &(dyn std::error::Error + 'static)) -> String {
+    let mut detail = error.to_string();
+    let mut current = error.source();
+    while let Some(source) = current {
+        detail.push_str("; cause ");
+        detail.push_str(&source.to_string());
+        current = source.source();
+    }
+    detail
+}
+
+fn store_publish_effect(effect: PublishEffect) -> PluginStateStorePublishEffect {
+    match effect {
+        PublishEffect::NotPublished => PluginStateStorePublishEffect::NotPublished,
+        PublishEffect::Published => PluginStateStorePublishEffect::Published,
+        // `PublishEffect` is non-exhaustive. The known `Indeterminate`
+        // and any unknown future effect both land here and must not be
+        // flattened into a proven outcome.
+        _ => PluginStateStorePublishEffect::Indeterminate,
+    }
+}
+
+fn read_io_error(
+    operation: PluginStateStoreOperation,
+    error: &std::io::Error,
+    detail: impl FnOnce(&std::io::Error) -> String,
+) -> PluginStateStoreError {
+    match error.kind() {
+        std::io::ErrorKind::NotFound => PluginStateStoreError::NotFound,
+        std::io::ErrorKind::PermissionDenied => PluginStateStoreError::PermissionDenied {
+            operation,
+            effect: PluginStateStorePublishEffect::NotApplicable,
+            detail: detail(error),
+        },
+        _ => PluginStateStoreError::Failed(detail(error)),
+    }
 }
 
 /// Directory store: `<root>/manifests/ps-*.json`,
@@ -665,26 +881,59 @@ impl DirectoryPluginStateStore {
         Ok(())
     }
 
-    /// Flattens a staged-publish failure, preserving `Indeterminate`
-    /// for the session's readback reconciliation. Non-indeterminate
-    /// leftovers are cleaned up best-effort.
-    fn publish_error(error: PublishStepError) -> PluginStateStoreError {
+    /// Flattens a staged-publish failure without discarding typed
+    /// permission denial or the publish effect. Non-indeterminate
+    /// leftovers are cleaned up best-effort; indeterminate leftovers
+    /// remain owned by the recovery contract.
+    fn publish_error(
+        operation: PluginStateStoreOperation,
+        error: PublishStepError,
+    ) -> PluginStateStoreError {
         match error {
             PublishStepError::Stage(e) => {
-                PluginStateStoreError::Failed(format!("stage create: {e}"))
+                if error_chain_has_permission_denied(&e) {
+                    PluginStateStoreError::PermissionDenied {
+                        operation,
+                        effect: PluginStateStorePublishEffect::NotPublished,
+                        detail: error_chain_detail(&e),
+                    }
+                } else {
+                    PluginStateStoreError::Failed(format!("stage create: {e}"))
+                }
             }
-            PublishStepError::Write { source, temp } => PluginStateStoreError::Failed(format!(
-                "stage write: {source}; temp {}",
-                temp.map_or_else(|| "unknown".to_owned(), |p| p.display().to_string())
-            )),
+            PublishStepError::Write { source, temp } => {
+                let detail = format!(
+                    "stage write: {source}; temp {}",
+                    temp.map_or_else(|| "unknown".to_owned(), |p| p.display().to_string())
+                );
+                if source.kind() == std::io::ErrorKind::PermissionDenied {
+                    PluginStateStoreError::PermissionDenied {
+                        operation,
+                        effect: PluginStateStorePublishEffect::NotPublished,
+                        detail,
+                    }
+                } else {
+                    PluginStateStoreError::Failed(detail)
+                }
+            }
             PublishStepError::Publish(mut failure) => {
+                let effect = store_publish_effect(failure.effect());
                 if failure.effect() != PublishEffect::Indeterminate
                     && let Some(handle) = failure.take_recovery_handle()
                 {
                     let _ = handle.cleanup();
                 }
+                if error_chain_has_permission_denied(&failure) {
+                    return PluginStateStoreError::PermissionDenied {
+                        operation,
+                        effect,
+                        detail: error_chain_detail(&failure),
+                    };
+                }
                 match failure.effect() {
-                    PublishEffect::Indeterminate => PluginStateStoreError::Indeterminate,
+                    PublishEffect::Indeterminate => {
+                        PluginStateStoreError::Indeterminate { operation }
+                    }
                     _ => PluginStateStoreError::Failed(format!("publish: {failure}")),
                 }
             }
@@ -695,7 +944,11 @@ impl DirectoryPluginStateStore {
     /// existing destination is accepted only when byte-identical
     /// (content-addressed idempotence); differing bytes are a
     /// `Failed` collision — never silently overwritten.
-    fn publish_immutable(path: &Path, bytes: &[u8]) -> Result<(), PluginStateStoreError> {
+    fn publish_immutable(
+        path: &Path,
+        bytes: &[u8],
+        operation: PluginStateStoreOperation,
+    ) -> Result<(), PluginStateStoreError> {
         match Self::publish_staged(path, bytes, PublishMode::CreateNew) {
             Ok(()) => Ok(()),
             Err(PublishStepError::Publish(failure))
@@ -707,25 +960,44 @@ impl DirectoryPluginStateStore {
                         "content collision at {}",
                         path.display()
                     ))),
+                    Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                        Err(PluginStateStoreError::PermissionDenied {
+                            operation,
+                            effect: PluginStateStorePublishEffect::NotPublished,
+                            detail: format!("collision at {} unreadable: {e}", path.display()),
+                        })
+                    }
                     Err(e) => Err(PluginStateStoreError::Failed(format!(
                         "collision at {} unreadable: {e}",
                         path.display()
                     ))),
                 }
             }
-            Err(e) => Err(Self::publish_error(e)),
+            Err(e) => Err(Self::publish_error(operation, e)),
         }
     }
 }
 
 impl PluginStateStore for DirectoryPluginStateStore {
-    fn save_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError> {
+    fn publish_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateStoreError> {
         let name = plugin_state_manifest_name(bytes);
         let manifest_path = self.manifests_dir().join(&name);
-        Self::publish_immutable(&manifest_path, bytes)?;
-        Self::publish_staged(&self.head_path(), name.as_bytes(), PublishMode::Replace)
-            .map_err(Self::publish_error)?;
+        Self::publish_immutable(
+            &manifest_path,
+            bytes,
+            PluginStateStoreOperation::ManifestPublish,
+        )?;
         Ok(name)
+    }
+
+    fn update_head(&mut self, name: &str) -> Result<(), PluginStateStoreError> {
+        if !is_manifest_name(name) {
+            return Err(PluginStateStoreError::Failed(format!(
+                "invalid manifest name {name:?}"
+            )));
+        }
+        Self::publish_staged(&self.head_path(), name.as_bytes(), PublishMode::Replace)
+            .map_err(|e| Self::publish_error(PluginStateStoreOperation::HeadUpdate, e))
     }
 
     fn head(&self) -> Result<Option<String>, PluginStateStoreError> {
@@ -741,6 +1013,13 @@ impl PluginStateStore for DirectoryPluginStateStore {
                 }
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                Err(PluginStateStoreError::PermissionDenied {
+                    operation: PluginStateStoreOperation::HeadRead,
+                    effect: PluginStateStorePublishEffect::NotApplicable,
+                    detail: format!("read HEAD: {e}"),
+                })
+            }
             Err(e) => Err(PluginStateStoreError::Failed(format!("read HEAD: {e}"))),
         }
     }
@@ -751,9 +1030,10 @@ impl PluginStateStore for DirectoryPluginStateStore {
                 "invalid manifest name {name:?}"
             )));
         }
-        fs::read(self.manifests_dir().join(name)).map_err(|e| match e.kind() {
-            std::io::ErrorKind::NotFound => PluginStateStoreError::NotFound,
-            _ => PluginStateStoreError::Failed(format!("read manifest {name}: {e}")),
+        fs::read(self.manifests_dir().join(name)).map_err(|e| {
+            read_io_error(PluginStateStoreOperation::ManifestRead, &e, |error| {
+                format!("read manifest {name}: {error}")
+            })
         })
     }
 
@@ -762,13 +1042,18 @@ impl PluginStateStore for DirectoryPluginStateStore {
         digest: &ContentDigest,
         bytes: &[u8],
     ) -> Result<(), PluginStateStoreError> {
-        Self::publish_immutable(&self.blobs_dir().join(digest_hex(digest)), bytes)
+        Self::publish_immutable(
+            &self.blobs_dir().join(digest_hex(digest)),
+            bytes,
+            PluginStateStoreOperation::BlobPublish,
+        )
     }
 
     fn read_blob(&self, digest: &ContentDigest) -> Result<Vec<u8>, PluginStateStoreError> {
-        fs::read(self.blobs_dir().join(digest_hex(digest))).map_err(|e| match e.kind() {
-            std::io::ErrorKind::NotFound => PluginStateStoreError::NotFound,
-            _ => PluginStateStoreError::Failed(format!("read blob {digest}: {e}")),
+        fs::read(self.blobs_dir().join(digest_hex(digest))).map_err(|e| {
+            read_io_error(PluginStateStoreOperation::BlobRead, &e, |error| {
+                format!("read blob {digest}: {error}")
+            })
         })
     }
 }
@@ -882,8 +1167,8 @@ impl<P: PluginStatePort, S: PluginStateStore> PluginStateSession<P, S> {
 
         let (manifest_name, reconciled) = match self.store.save_manifest(&manifest_bytes) {
             Ok(name) => (Some(name), false),
-            Err(PluginStateStoreError::Indeterminate) => {
-                let name = self.reconcile_manifest(&manifest_bytes)?;
+            Err(error) if error.requires_readback() => {
+                let name = self.reconcile_manifest(&manifest_bytes, error)?;
                 (Some(name), true)
             }
             Err(e) => return Err(PluginStateError::Store(e)),
@@ -1022,42 +1307,59 @@ impl<P: PluginStatePort, S: PluginStateStore> PluginStateSession<P, S> {
     ) -> Result<(), PluginStateError> {
         match self.store.put_blob(digest, bytes) {
             Ok(()) => Ok(()),
-            Err(PluginStateStoreError::Indeterminate) => match self.store.read_blob(digest) {
+            Err(error) if error.requires_readback() => match self.store.read_blob(digest) {
                 Ok(existing) if ContentDigest::sha256(&existing) == *digest => Ok(()),
-                _ => Err(PluginStateError::Store(
-                    PluginStateStoreError::Indeterminate,
-                )),
+                // `NotFound` is negative readback evidence: the
+                // indeterminate effect is proven absent, so the
+                // original publish error remains the outcome rather
+                // than a readback failure. A digest mismatch is also
+                // proof that the intended publish is not available.
+                Ok(_) | Err(PluginStateStoreError::NotFound) => Err(PluginStateError::Store(error)),
+                Err(readback_error) => Err(PluginStateError::ReadbackFailed {
+                    publish_error: error,
+                    readback_error,
+                }),
             },
             Err(e) => Err(PluginStateError::Store(e)),
         }
     }
 
-    /// Reconciles an indeterminate manifest publish: HEAD must name
-    /// a manifest whose bytes equal what we tried to publish.
-    /// Anything else stays an error — indeterminate is never
-    /// asserted as success or failure without readback.
-    fn reconcile_manifest(&mut self, bytes: &[u8]) -> Result<String, PluginStateError> {
+    /// Reconciles an indeterminate manifest publish or HEAD update:
+    /// HEAD must name a manifest whose bytes equal what we tried to
+    /// publish. Anything else stays unreconciled — indeterminate is
+    /// never asserted as success or definite failure without
+    /// readback. A failed readback is reported separately from the
+    /// publish error so permission denial remains structural.
+    fn reconcile_manifest(
+        &mut self,
+        bytes: &[u8],
+        publish_error: PluginStateStoreError,
+    ) -> Result<String, PluginStateError> {
         let expected = plugin_state_manifest_name(bytes);
-        let head =
-            self.store
-                .head()
-                .map_err(PluginStateError::Store)?
-                .ok_or(PluginStateError::Store(
-                    PluginStateStoreError::Indeterminate,
-                ))?;
+        let head = match self.store.head() {
+            Ok(Some(head)) => head,
+            Ok(None) => return Err(PluginStateError::Store(publish_error)),
+            Err(readback_error) => {
+                return Err(PluginStateError::ReadbackFailed {
+                    publish_error,
+                    readback_error,
+                });
+            }
+        };
         if head != expected {
-            return Err(PluginStateError::Store(
-                PluginStateStoreError::Indeterminate,
-            ));
+            return Err(PluginStateError::Store(publish_error));
         }
-        let stored = self
-            .store
-            .read_manifest(&head)
-            .map_err(PluginStateError::Store)?;
+        let stored = match self.store.read_manifest(&head) {
+            Ok(stored) => stored,
+            Err(readback_error) => {
+                return Err(PluginStateError::ReadbackFailed {
+                    publish_error,
+                    readback_error,
+                });
+            }
+        };
         if stored != bytes {
-            return Err(PluginStateError::Store(
-                PluginStateStoreError::Indeterminate,
-            ));
+            return Err(PluginStateError::Store(publish_error));
         }
         Ok(head)
     }
@@ -1081,9 +1383,16 @@ impl<P: PluginStatePort, S: PluginStateStore> PluginStateSession<P, S> {
                     kind: PluginStateFailureKind::Missing,
                 };
             }
-            Err(_) => {
-                return PluginStateRestoreOutcome::Failed {
-                    kind: PluginStateFailureKind::CaptureFailed,
+            Err(error) => {
+                let kind = match error {
+                    PluginStateStoreError::PermissionDenied { .. } => {
+                        PluginStateFailureKind::PermissionDenied
+                    }
+                    _ => PluginStateFailureKind::CaptureFailed,
+                };
+                return PluginStateRestoreOutcome::StoreFailed {
+                    operation: PluginStateStoreOperation::BlobRead,
+                    kind,
                 };
             }
         };

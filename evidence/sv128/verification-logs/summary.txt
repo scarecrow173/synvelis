@@ -1,0 +1,22 @@
+canonical verification started 2026-11-26T10:08:59Z
+== fmt-check: mise run fmt-check
+exit_code=1
+== check-synvelis-project: mise run check synvelis-project
+exit_code=0
+== lint-synvelis-project: mise run lint synvelis-project
+exit_code=0
+== test-synvelis-project: mise run test synvelis-project
+exit_code=0
+== check-synvelis-player: mise run check synvelis-player
+exit_code=0
+== lint-synvelis-player: mise run lint synvelis-player
+exit_code=0
+== test-synvelis-player: mise run test synvelis-player
+exit_code=0
+== test-rt: mise run test-rt
+exit_code=0
+== check-headless-deps: mise run check-headless-deps
+exit_code=0
+== check-ruviform-rev: mise run check-ruviform-rev
+exit_code=1
+finished 2026-11-26T10:10:08Z

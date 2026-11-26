@@ -309,3 +309,4 @@ Directory: `docs/designs`
 | DESIGN-JCeMt2CNWWebw7vrpDhnTJgD | SV-GPUI-02 PluginDock native slot 詳細設計 — shared surface authority・opaque lease redemption・canonical GPUI binding | approved | [sv-gpui-02-plugin-dock-native-slot-design.md](./sv-gpui-02-plugin-dock-native-slot-design.md) |
 | DESIGN-pcC4L1RealAbi01 | PC-C4 L1 real ABI binding design | approved | [pc-c4-l1-real-abi-binding.md](./pc-c4-l1-real-abi-binding.md) |
 | DESIGN-SV114SVOSCONSUMER0000001 | SV-OS consumer catalog — catalog/headless/real lane 設計 (synvelis#114) | approved | [sv114-svos-consumer-catalog.md](./sv114-svos-consumer-catalog.md) |
+| DESIGN-Tim04PermissionMatrix01 | TIM-04 permission fault matrix design | approved | [tim-04-permission-matrix.md](./tim-04-permission-matrix.md) |
