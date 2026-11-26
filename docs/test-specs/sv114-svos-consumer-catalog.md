@@ -3,8 +3,8 @@ id: "TSPEC-SV114SVOSCONSUMER000001"
 type: "test-spec"
 status: "approved"
 title: "SV-OS consumer catalog verification matrix (synvelis#114)"
-created: "2026-11-16"
-updated: "2026-11-16"
+created: "2026-11-26"
+updated: "2026-11-26"
 owners: ["scarecrow173"]
 relations:
   source: []
@@ -60,7 +60,7 @@ relations:
 | `mise run fmt-check` / `check` / `lint` / `build` | canonical static/build | exit 0 |
 | `mise run check-app-native` / `lint-app-native` | canonical native | exit 0 |
 | `mise run check-app-gpui` / `lint-app-gpui` | canonical gpui static | exit 0 |
-| `mise run check-headless-deps` / `check-ruviform-rev` | canonical dependency/pin guard | exit 0、pin unchanged |
+| `mise run check-headless-deps` / `check-ruviform-rev` | canonical dependency/pin guard | exit 0。本 slice の net diff は pin/Cargo.lock を変更しない（main 取込分は upstream 差分） |
 | `mise exec -- prek run --all-files` | canonical hooks | exit 0 |
 
 ## Case verdict matrix

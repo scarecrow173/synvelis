@@ -3,8 +3,8 @@ id: "DESIGN-SV114SVOSCONSUMER0000001"
 type: "design"
 status: "approved"
 title: "SV-OS consumer catalog — catalog/headless/real lane 設計 (synvelis#114)"
-created: "2026-11-16"
-updated: "2026-11-16"
+created: "2026-11-26"
+updated: "2026-11-26"
 owners: ["scarecrow173"]
 relations:
   source: []

@@ -60,3 +60,20 @@ No row is `Pass`/`accepted` as a result of this slice
 - AUTX #267 AUTX-GUI-01〜06 との同一 Case ID 接続 → #267
   側の実施時に `sv-os-case-definitions.md` の SV-OS-03/05/06
   と照合。
+
+## 2026-11-26 consumer catalog slice addendum
+
+本 addendum は `feat/114-svos-consumer-catalog` slice の分類を追記するものであり、
+上記 ledger の frozen 分類を Pass/accepted へ書き換えない。
+
+- SV-OS-01〜05 consumer catalog、Fake/`GpuiSimulated` headless lane、`real-os-scenario`
+  composition rootを実装した。
+- interactive Windows 環境での opt-in real lane は semantic Command→Receipt→view-state
+  と window focus/geometry observationについて 5/5 pass を記録した
+  （`evidence/sv114/sv-os-real-run.jsonl`）。
+- 各 case の `observed.service_oracle` は独立した mounted `NativeShell`/`SynvelisApp`
+  fixtureによる headless OS-L1 製品 oracleであり、real window経由の service-backed
+  Project State/pixel/IME/native dock証拠へ昇格させない。
+- したがって AC6 は「runner/catalog slice の partial evidence あり、機能単位の
+  L2 acceptance は依然 NotRun/pending」と読む。physical OS input、pixel、IME/DPI/
+  monitor、native dock、PD-01〜07、merge後対象SHAのCI証拠は後続である。

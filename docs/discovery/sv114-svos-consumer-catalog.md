@@ -3,8 +3,8 @@ id: "DISC-SV114SVOSCONSUMER00000001"
 type: "discovery"
 status: "completed"
 title: "SV-OS consumer catalog 調査記録 (synvelis#114)"
-created: "2026-11-16"
-updated: "2026-11-16"
+created: "2026-11-26"
+updated: "2026-11-26"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -49,7 +49,10 @@ synvelis#114 SV-GUI-05 の consumer catalog slice として、frozen
 `evidence/sv114/sv-os-case-definitions.md`、既存 headless scenario、pin 済み
 ruviform revision `20dc41f71c47674b3e51d1eb0921124b94f8bfaf` の
 `ScenarioEntry`/`ScenarioMatrix`/`DriverBinding`/`RealOsGuiTest` を調べた。
-ruviform 側は read-only reference であり、pin・`Cargo.lock`・ruviform 本体は変更しない。
+ruviform 側は read-only reference であり、本 slice 自身は pin・`Cargo.lock`・ruviform 本体を変更しない。
+最終検証前に取り込んだ main には sv#28 の pin 更新（lock rev `87a7ba8ff3fbe6d4502bea27d152d7f74c105899`）が既に含まれるが、
+これは upstream main の差分であり本 slice の net diff には `Cargo.lock` を出さない。catalog/real-scenario API の消費可否は
+最終 main 取込後の compile/test で再確認する。
 
 ## 確認した前提
 

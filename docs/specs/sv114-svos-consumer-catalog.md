@@ -3,8 +3,8 @@ id: "SPEC-SV114SVOSCONSUMER00000001"
 type: "spec"
 status: "approved"
 title: "SV-OS consumer catalog — SV-OS-01〜05 catalog/headless/real lane slice (synvelis#114)"
-created: "2026-11-16"
-updated: "2026-11-16"
+created: "2026-11-26"
+updated: "2026-11-26"
 owners: ["scarecrow173"]
 relations:
   source:
