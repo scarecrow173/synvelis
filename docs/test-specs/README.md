@@ -526,3 +526,4 @@ Directory: `docs/test-specs`
 | TSPEC-SV114SVOSCONSUMER000001 | SV-OS consumer catalog verification matrix (synvelis#114) | approved | [sv114-svos-consumer-catalog.md](./sv114-svos-consumer-catalog.md) |
 | TSPEC-Tim04PermissionMatrix01 | TIM-04 permission fault matrix test spec | approved | [tim-04-permission-matrix.md](./tim-04-permission-matrix.md) |
 | TSPEC-rf1029v5Nx8Lp2Qw7Km4Ty6Zs1Jd | SV#28 Ruviform pin 更新 検証仕様（87a7ba8f → 0479fa62 / rf#1029） | approved | [sv28-ruviform-pin-rf1029.md](./sv28-ruviform-pin-rf1029.md) |
+| TSPEC-LxmoRkKfW8lDUiHntJVgGO | CTL-02 canonical persistence 検証仕様 | approved | [ctl-02-canonical-persistence.md](./ctl-02-canonical-persistence.md) |
