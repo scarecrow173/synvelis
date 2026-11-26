@@ -57,6 +57,12 @@ relations:
 
 # Issue #115 RCD-01 Virtual Endpoint Provisioning Consumer Orchestration 設計
 
+> 2026-11-26 follow-up gate note: 初回 provisioned manual run `45797309944`
+> attempt `1` は consumer Fail だった。本文中の「merge 後 follow-up gate」という
+> 記述は implementation 時点の計画として読み、run 観測と acceptance 転記は
+> `evidence/sv115/issue-115-virtual-endpoint-provisioned-consumer-run.md` を参照する。
+> 設計上の ownership、oracle、provisioning 責務分界は run 結果で変更しない。
+
 > Cross-repo link note: Ruviform 側文書への `blob/main` URL は、対応 PR merge 後の
 > canonical location を示す。proposal 時点の main にはまだ存在しておらず、両 PR の統合後に
 > 実在させる意図のリンクである。

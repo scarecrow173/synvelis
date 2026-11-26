@@ -65,9 +65,10 @@ metadata:
 ## Status
 
 Accepted — 2026-11-26 の Slice B implementation で Option A の consumer
-workflow が実装された。manual-only workflow の merge と provisioned manual run
-はまだ行われていないため、この ADR は ownership と orchestration 境界を確定するが、
-EXT-L3 acceptance verdict を意味しない。
+workflow が実装され、manual-only workflow は merge された。初回 provisioned
+manual run `45797309944` attempt `1` は consumer Fail だった。この ADR は
+ownership と orchestration 境界を確定するものであり、Fail の観測は EXT-L3
+acceptance 未達を示すが、境界設計そのものの否定ではない。
 
 ## Context and Problem Statement
 
@@ -187,6 +188,8 @@ Ruviform の upstream Pass、workflow green、artifact 存在、cleanup 成功�
 
 Slice B implementation では、manual-only workflow、lock revision の fail-closed
 抽出、same-job provisioning orchestration、pre-cleanup/post-cleanup artifact 分離、
-terminal RunMetadata による verdict 評価が実装された。確認は workflow static
-validation と canonical local lanes で行う。provisioned endpoint での consumer
-EXT-L3 Pass/Fail/NotRun は、default branch へ merge した後の manual run で確認する。
+terminal RunMetadata による verdict 評価が実装された。初回 provisioned manual run
+`45797309944` attempt `1` では terminal RunMetadata `result=fail` が確認され、
+consumer EXT-L3 verdict は Fail だった。canonical Pass evidence は、Ruviform virtual
+capture endpoint の channel capability と consumer harness の stereo 要件を整合させた後の
+再 run で確認する。

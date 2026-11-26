@@ -1,0 +1,258 @@
+{
+  "schema": "sv115-virtual-endpoint-run-inspection/v1",
+  "inspected_utc": "2026-11-26T10:14:51Z",
+  "inspection_subject": "first provisioned manual consumer acceptance run",
+  "run": {
+    "id": "45797309944",
+    "attempt": "1",
+    "url": "https://github.com/scarecrow173/synvelis/actions/runs/45797309944",
+    "event": "workflow_dispatch",
+    "ref": "refs/heads/main",
+    "head_sha": "a133050b682ea0a73f45359e122431ed59ede258",
+    "expected_sha_input": "a133050b682ea0a73f45359e122431ed59ede258",
+    "job_conclusion": "failure",
+    "acceptance_verdict": "consumer-fail",
+    "acceptance_reason": "terminal RunMetadata result=fail",
+    "job_conclusion_note": "job conclusion is operational completion, not the acceptance verdict"
+  },
+  "artifact_retention_days_configured": 90,
+  "artifacts": [
+    {
+      "id": 15106021714,
+      "name": "sv115-virtual-endpoint-cleanup-45797309944-1",
+      "size_in_bytes": 9735,
+      "expired": false,
+      "expires_at": "2027-02-24T10:00:56Z",
+      "archive_sha256": "2a5b53cd8b7ee3a7f7afca038719814eb9ecffc65548581fe7a4f11846c0323b",
+      "entries": [
+        {
+          "path": "cleanup-pending.txt",
+          "size": 20,
+          "crc32": "c78712bb"
+        },
+        {
+          "path": "stage-cert-cleanup.log",
+          "size": 511,
+          "crc32": "a01b92eb"
+        },
+        {
+          "path": "artifact-manifest.json",
+          "size": 1903,
+          "crc32": "3d6c9546"
+        },
+        {
+          "path": "cleanup-exit-code.txt",
+          "size": 2,
+          "crc32": "7e4acd12"
+        },
+        {
+          "path": "stage-consent-cleanup.log",
+          "size": 643,
+          "crc32": "28f9bdd7"
+        },
+        {
+          "path": "stage-devnode-cleanup.log",
+          "size": 139,
+          "crc32": "43a99aae"
+        },
+        {
+          "path": "stage-driver-store-cleanup.log",
+          "size": 6601,
+          "crc32": "c19e30f8"
+        },
+        {
+          "path": "stage-environment.log",
+          "size": 3392,
+          "crc32": "3b864331"
+        },
+        {
+          "path": "stage-residue-check.log",
+          "size": 58,
+          "crc32": "298aff0a"
+        },
+        {
+          "path": "stage-service-cleanup.log",
+          "size": 165,
+          "crc32": "6c9f77f2"
+        },
+        {
+          "path": "stage-state.log",
+          "size": 90,
+          "crc32": "9183415a"
+        },
+        {
+          "path": "unprovision-state.json",
+          "size": 11420,
+          "crc32": "a5d1e341"
+        },
+        {
+          "path": "unprovision.log",
+          "size": 11653,
+          "crc32": "4d3a63b2"
+        }
+      ]
+    },
+    {
+      "id": 15105582472,
+      "name": "sv115-virtual-endpoint-consumer-45797309944-1",
+      "size_in_bytes": 26896,
+      "expired": false,
+      "expires_at": "2027-02-24T10:00:56Z",
+      "archive_sha256": "633275365e78cef9a0ad2cdc81432d59b61548b19590bcad70334699c5c3be50",
+      "entries": [
+        {
+          "path": "harness-stderr.log",
+          "size": 7496,
+          "crc32": "844021c6"
+        },
+        {
+          "path": "harness-exit-code.txt",
+          "size": 4,
+          "crc32": "6b304be4"
+        },
+        {
+          "path": "harness-stdout.log",
+          "size": 292,
+          "crc32": "ddd63088"
+        },
+        {
+          "path": "provision-exit-code.txt",
+          "size": 2,
+          "crc32": "7e4acd12"
+        },
+        {
+          "path": "provision-state.json",
+          "size": 14069,
+          "crc32": "fe23f847"
+        },
+        {
+          "path": "provisioning/provision.log",
+          "size": 35403,
+          "crc32": "e0e3142f"
+        },
+        {
+          "path": "provisioning/artifact-manifest.json",
+          "size": 3445,
+          "crc32": "fe2c51fd"
+        },
+        {
+          "path": "provisioning/stage-catalog.log",
+          "size": 3258,
+          "crc32": "49a48455"
+        },
+        {
+          "path": "provisioning/stage-cert-create.log",
+          "size": 261,
+          "crc32": "a5423551"
+        },
+        {
+          "path": "provisioning/stage-cert-install.log",
+          "size": 181,
+          "crc32": "3b101e5c"
+        },
+        {
+          "path": "provisioning/stage-devnode.log",
+          "size": 744,
+          "crc32": "85b8ee81"
+        },
+        {
+          "path": "provisioning/stage-driver-build.log",
+          "size": 1463,
+          "crc32": "fc4bd480"
+        },
+        {
+          "path": "provisioning/stage-driver-store.log",
+          "size": 5818,
+          "crc32": "c391d262"
+        },
+        {
+          "path": "provisioning/stage-endpoint-probe.log",
+          "size": 639,
+          "crc32": "ff5a7f6d"
+        },
+        {
+          "path": "provisioning/stage-enum-verify-pre-devnode.log",
+          "size": 6578,
+          "crc32": "591295ee"
+        },
+        {
+          "path": "provisioning/stage-environment.log",
+          "size": 3486,
+          "crc32": "d9dd28cf"
+        },
+        {
+          "path": "provisioning/stage-mic-consent.log",
+          "size": 876,
+          "crc32": "c27bae75"
+        },
+        {
+          "path": "provisioning/stage-readiness.log",
+          "size": 78,
+          "crc32": "dffea01a"
+        },
+        {
+          "path": "provisioning/stage-sign-verify.log",
+          "size": 1544,
+          "crc32": "7b06308b"
+        },
+        {
+          "path": "provisioning/stage-sign.log",
+          "size": 1550,
+          "crc32": "165edcab"
+        },
+        {
+          "path": "provisioning/stage-source.log",
+          "size": 522,
+          "crc32": "a9344ce0"
+        },
+        {
+          "path": "provisioning/stage-wdk.log",
+          "size": 8351,
+          "crc32": "d4a33572"
+        },
+        {
+          "path": "provisioning/vaudio-cert.cer",
+          "size": 804,
+          "crc32": "a53287a0"
+        },
+        {
+          "path": "readiness-gate.json",
+          "size": 560,
+          "crc32": "73e408f4"
+        },
+        {
+          "path": "run-manifest.json",
+          "size": 2477,
+          "crc32": "a476149d"
+        },
+        {
+          "path": "run-metadata/run-metadata-sv115-rcd01-virtual-endpoint-render-capture-recorder.json",
+          "size": 872,
+          "crc32": "b25a65ea"
+        },
+        {
+          "path": "ruviform-checkout-revision.txt",
+          "size": 143,
+          "crc32": "26a2a01b"
+        },
+        {
+          "path": "ruviform-lock-revision.txt",
+          "size": 41,
+          "crc32": "021e017c"
+        }
+      ]
+    }
+  ],
+  "raw_run_log_sha256": "121570510bf06b1cf06b8590548feb79f71d60be77256c256d5956fe0cc416f9",
+  "raw_run_log_note": "raw run log is retained in the GitHub run and was not committed because of its size",
+  "committed_machine_records": {
+    "terminal-run-metadata.json": "3c8097a1ce81bd9ec58632cd9e243b2263fbccbc9465ab0237795d51816d5714",
+    "readiness-gate.json": "3f0b21d01a0ae3135e1492462416aa845d2ae05398d30c0d2532cae86450e12e",
+    "run-manifest.json": "abf3be39efb334fcd22dffb5c456fc1e214f70b2ce32753266ef77ea07fb03b1",
+    "provision-state.json": "f5da1a0166cf6d41ad01efc6bb69522e212cec4fe6f1333a77788506066c1eda",
+    "provisioning-artifact-manifest.json": "4f6585dec66175b2b118b470eb73b3ab327eb451a3553f52fa0c01e05a17361a",
+    "unprovision-state.json": "1437e213824ebb4318ec0d358cd6bac701615c78fc55300302d4a8e5923549b4",
+    "cleanup-artifact-manifest.json": "94108fd0d4c41390c30060cc36716ae4d1600a1908c5b7120d438b18a169635a",
+    "consumer-verdict.json": "0fad235388b4a22a963154bf5c5594d3b1b6bc09535662225d4cf9b32965c5e7"
+  }
+}
