@@ -22,7 +22,7 @@ relations:
 ## 進行中
 
 - [x] 正規 verification lane を実行し、scope 内の失敗を修正する。
-- [ ] push、PR 作成。
+- [x] push、PR 作成。
 
 ## 後続 slice / gate
 
