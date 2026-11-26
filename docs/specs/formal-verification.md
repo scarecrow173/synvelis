@@ -4,7 +4,7 @@ type: "spec"
 status: "proposed"
 title: "Issue #601 Formal Verification — journal wire codec + authorization boundary の proptest + Kani 検証基盤"
 created: "2026-11-23"
-updated: "2026-11-25"
+updated: "2026-11-26"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -46,6 +46,7 @@ relations:
   superseded-by: []
   related:
     - ".agents/skills/verify-synvelis/SKILL.md"
+    - "https://github.com/scarecrow173/synvelis/issues/659"
   refines: []
   refined-by: []
   derives-from:
@@ -274,6 +275,36 @@ Proved 等）、対象（実装 / モデル / 抽象化）、同期状態、失�
 を補う。Timeout・OOM・環境不足・exit 0・CI green を Proof Pass と
 しない。現行 runner の失敗原因分類は限定的であり、再設計は
 `scarecrow173/synvelis#659` が担う。
+
+## synvelis#659 slice 1 の同期点（2026-11-26）
+
+本節は Issue #601 当時の記録を置き換えるものではない。slice 1 で確定した
+設計判断のうち、本 spec と直接関係する同期点だけを記録する。完全な
+inventory、必要保証、境界、未証明領域、Authorization 分離案、Recovery
+ordering inventory、失敗分類、再実行設計は
+`docs/designs/issue-659-verification-redesign.md` を正本とする。最終的な
+Verification Specification の再構成と証跡/手順分離は `scarecrow173/synvelis#662`
+が担うため、本節はその構成を先取りしない。
+
+- 対象 inventory は Property/Example Test 50 件（gateway journal 14、wire 9、
+  policy 12、recording 15）と既存 Kani proof 7 件である。対応表の補助証跡は
+  `evidence/sv659/inventory.json`。
+- Journal/CRC32/session の代表的重要 Property は `K-RJ-01`、`K-RJ-02`、
+  `K-RJ-03`、`K-RJ-04`、`K-GJ-01` とする。`K-GJ-02`/`K-GJ-03` は pass 済みの
+  回帰 proof として維持する。いずれも bound 内の局所保証であり、任意長、
+  cap 経路、Chunk allocation、永続化 recovery、製品全体への転用はしない。
+- Authorization は WireRequest 解釈、bind/Operation 解釈、純粋認可判定、
+  外部 store/oracle/clock の 4 層に分けて検証する。serde 結合部は proptest、
+  pure structural scan と pure decision core を bounded proof の候補とする。
+- Recovery/操作順序は crash point をまたぐため TLA+ または同等の ordering
+  model が必要と判定した。model 本体、atomic action、同期仮定は次 slice で確定する。
+- Kani 失敗は timeout/OOM/環境不足/exit 0 と証明結果を分け、
+  `environment_absent`、`path_mapping`、`compile`、`symex`、`solver`、`memory`、
+  `parallelism`、`infrastructure`、`product_oracle_failure` の原因分類で記録する
+  設計とした。runner 実装は本 slice では変更しない。
+
+Issue #601 当時の lane・bound・tool-fit 評価は引き続き現行実装の説明として
+有効だが、新規 proof の優先順位と保証転用禁止の解釈は #659 の matrix に従う。
 
 ## Tool-fit 候補評価（再設計は synvelis#659）
 

@@ -1,0 +1,10 @@
+check: matrix harness/test names occur in source files
+source_files:
+ - crates/synvelis-gateway/tests/formal_journal/main.rs
+ - crates/synvelis-gateway/tests/formal_journal/wire.rs
+ - crates/synvelis-gateway/tests/formal_journal/policy.rs
+ - crates/synvelis-recording/tests/formal_journal.rs
+matrix_rows: 57
+missing_names: 0
+counts: {"gateway_journal_property_tests": 14, "gateway_policy_property_tests": 12, "gateway_wire_property_tests": 9, "kani_proofs": 7, "property_tests": 50, "recording_property_tests": 15, "total_rows": 57}
+exit_equivalent: 0
