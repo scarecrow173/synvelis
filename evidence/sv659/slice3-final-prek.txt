@@ -1,0 +1,21 @@
+started_at_utc: 2026-11-26T13:12:56Z
+command: mise exec -- prek run --all-files
+trim trailing whitespace.................................................Passed
+fix end of files.........................................................Failed
+- hook id: end-of-file-fixer
+- description: Ensures that a file is either empty, or ends with one newline
+- exit code: 1
+- files were modified by this hook
+
+  Fixing docs/test-specs/issue-659-verification-redesign.md
+check yaml...............................................................Passed
+check toml...............................................................Passed
+mixed line ending........................................................Passed
+fix utf-8 byte order marker..............................................Passed
+detect private key.......................................................Passed
+check illegal windows names..........................(no files to check)Skipped
+actionlint (changed workflows)...........................................Passed
+--- result ---
+exit_code: 1
+finished_at_utc: 2026-11-26T13:12:57Z
+wall_clock_ms: 1757

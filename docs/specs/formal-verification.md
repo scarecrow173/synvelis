@@ -338,6 +338,16 @@ Specification の再構成と証跡/手順分離は引き続き `scarecrow173/sy
   ディレクトリの raw output artifact に記録する。full lane（全 7 proof
   一括実行）と `K-RJ-01`/`K-RJ-02`/`K-GJ-01` は本 slice では実行していない。
 
+## synvelis#659 slice 3 の同期点（2026-11-26）
+
+本節は selective proof の cost、mutation matrix、再実行方法だけを同期する。Verification Specification の再構成は引き続き `scarecrow173/synvelis#662` に委譲する。
+
+- 低コスト selective proof は sync `34e69fb27774f41f6aded1a24320be90ffd7477a`・WSL2 Ubuntu・Kani 0.68.0・CBMC 6.11.0・`KANI_JOBS=1` で再実行した。K-GJ-02 は Verification Time 33.076668s・runner wall-clock 104.125s、K-GJ-03 は 24.030256s・67.862s、K-RJ-03 は 234.04366s・288.605s で、いずれも raw output に `VERIFICATION:- SUCCESSFUL` がある。runner wall-clock は compile/loading を含むため Verification Time と混ぜない。
+- 接続条件は限定的である。K-GJ-02 は固定 12 byte・seq0・単 record、K-GJ-03 は固定 8 byte・任意非零 seq・単 record、K-RJ-03 は固定 16 byte・split ≤16 の 2 分割だけを示す。可変長、複数 record、full stream、resume/recovery ordering、Chunk/cap 境界、FS durability、暗号学的耐性は残る。
+- mutation matrix は M-GJ-CRC、M-RJ-SEQ、M-WIRE-TOKEN、M-POL-DENY-ORDER、M-POL-BUDGET の 5 件で、すべて killed だった。各 mutation は 1 件ずつ適用し、canonical `mise run test-formal` で exit 101 と検出 test を記録し、完全 revert 後に exit 0 へ戻した。mutation killed は oracle の検出能力証拠であり、Property の assurance kind を引き上げない。
+- machine-readable な正本は `evidence/sv659/formal-proof-runs.jsonl`、`evidence/sv659/mutation-runs.jsonl`、`evidence/sv659/cost-mutation-matrix.json` とする。historical baseline として sv601 の K-GJ-02 45.5s・K-GJ-03 31.4s、slice2 の K-RJ-03 282.0517s/310.115s を併記するが、環境差・cache 状態差から性能因果は断定しない。
+- full lane（全 7 proof 一括実行）、K-RJ-01/K-RJ-02/K-GJ-01/K-RJ-04、Authorization pure core、Recovery ordering model は本 slice でも実行していない。
+
 ## Tool-fit 候補評価（再設計は synvelis#659）
 
 以下は固定順序ではなく、Property が要求する保証強度に対する

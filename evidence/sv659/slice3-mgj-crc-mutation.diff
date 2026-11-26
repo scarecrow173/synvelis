@@ -1,0 +1,13 @@
+diff --git a/crates/synvelis-gateway/src/journal.rs b/crates/synvelis-gateway/src/journal.rs
+index 7a619517..83020c5d 100644
+--- a/crates/synvelis-gateway/src/journal.rs
++++ b/crates/synvelis-gateway/src/journal.rs
+@@ -171,7 +171,7 @@ pub fn replay(bytes: &[u8]) -> ReplayOutcome {
+         }
+         let crc_field = &bytes[pos + HEADER_LEN + plen..record_end];
+         let crc_stored = u32::from_le_bytes(crc_field.try_into().unwrap_or_default());
+-        if crc32(&bytes[pos + 2..pos + HEADER_LEN + plen]) != crc_stored {
++        if false && crc32(&bytes[pos + 2..pos + HEADER_LEN + plen]) != crc_stored {
+             break StopReason::BadChecksum;
+         }
+         if seq != next_seq {

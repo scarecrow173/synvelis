@@ -194,9 +194,15 @@ mise run test-formal        # proptest property suites (always-on)
 mise run test-formal-kani   # Kani bounded proofs (native, else WSL2)
 KANI_JOBS=2 mise run test-formal-kani   # cap CBMC solver parallelism
                             # on shared/small-RAM hosts (default -j4)
+KANI_PACKAGE=synvelis-gateway \
+KANI_HARNESS=encode_replay_roundtrip_bounded \
+KANI_JOBS=1 mise run test-formal-kani   # rerun K-GJ-02
+KANI_PACKAGE=synvelis-gateway \
+KANI_HARNESS=nonzero_seq_is_gap_bounded \
+KANI_JOBS=1 mise run test-formal-kani   # rerun K-GJ-03
 KANI_PACKAGE=synvelis-recording \
 KANI_HARNESS=crc32_split_equivalence_bounded \
-KANI_JOBS=1 mise run test-formal-kani   # rerun one selected proof
+KANI_JOBS=1 mise run test-formal-kani   # rerun K-RJ-03
 ```
 
 - `test-formal` runs `cargo test --locked … --test formal_journal`
@@ -228,6 +234,15 @@ KANI_JOBS=1 mise run test-formal-kani   # rerun one selected proof
   unwinding/bound soundness failures; `scarecrow173/synvelis#659`
   owns that redesign. The honest `not_run` behavior is retained —
   environment absence is never a fake pass.
+- sv659 mutation recording procedure: apply exactly one temporary
+  production mutation, capture its diff, run canonical
+  `mise run test-formal`, restore the file completely, prove the
+  production diff is zero, rerun the same lane green, and record
+  baseline/mutant/revert command, exit code, wall-clock, detecting
+  tests, shrink summary, verdict, and artifacts in
+  `evidence/sv659/mutation-runs.jsonl`. Never commit the temporary
+  production diff or proptest regression artifacts. Mutation killed is
+  oracle detection evidence, not a stronger assurance kind.
 - Coverage, bounds, assumptions, and the provision runbook live in
   `docs/specs/formal-verification.md`; evidence lands in
   `evidence/sv601/` (`test-formal-kani.log`, `verification.md`,
