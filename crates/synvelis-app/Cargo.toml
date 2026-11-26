@@ -79,6 +79,11 @@ gpui-test = ["native", "ruviform-ui-gpui/gpui-test"]
 # `native`; the port is also runtime-gated (`RVF_TEST_*`), so even a
 # `uitest` build stays inert without explicit opt-in.
 uitest = ["native", "ruviform-ui-gpui/uitest", "dep:ruviform-ui-test"]
+# synvelis#114 SV-GUI-05: opt-in real OS scenario lane. The feature is
+# non-default, remains separate from `gpui-test` and `uitest`, and enables only
+# the ruviform `RealOsGuiTest` contract; interactive desktop availability is a
+# runtime preflight recorded as NotRun when absent.
+real-os-scenario = ["native", "ruviform-ui-gpui/real-scenario"]
 
 [[bin]]
 name = "synvelis"
@@ -98,3 +103,8 @@ required-features = ["native"]
 name = "syn-ctl"
 path = "src/bin/syn_ctl.rs"
 required-features = ["uitest"]
+
+[[test]]
+name = "sv_os_real"
+path = "tests/sv_os_real.rs"
+required-features = ["real-os-scenario"]
