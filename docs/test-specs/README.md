@@ -153,6 +153,7 @@ Directory: `docs/test-specs`
 | TSPEC-034YpVitlyGxkRAEe75uDo | RCD-04 residual closeout — AC 照合・canonical lane・gate 棚卸し検証仕様 | approved | [rcd-04-residual-closeout.md](./rcd-04-residual-closeout.md) |
 | TSPEC-034VC3cbBMDP6D1WnhLGlh | RCD-04 RT engine comp PCM test spec | approved | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
 | TSPEC-034XYhoCBSVkoSUEIe3O6aR3 | RCD-06 Monitor production integration test spec | proposed | [rcd-06-monitor-production-integration.md](./rcd-06-monitor-production-integration.md) |
+| TSPEC-sv659VerificationRedesign01 | Issue #659 Journal・Authorization 形式的検証再設計 slice1 検証仕様 | draft | [issue-659-verification-redesign.md](./issue-659-verification-redesign.md) |
 | TSPEC-034XJDBoNrTZPeWp6kZe5c | RCD-F02 Advanced Monitoring / Overdub / Pre-Punch Handles — Fixture 契約・受入検証仕様（synvelis#120） | approved | [rcd-f02-monitoring-overdub.md](./rcd-f02-monitoring-overdub.md) |
 | TSPEC-rcp01RenderRecipeTests | RCP-01 Canonical Render Recipe / typed dependency closure / temporal invalidation fixture tests | approved | [rcp-01-render-recipe.md](./rcp-01-render-recipe.md) |
 | TSPEC-Rcp02ArtifactManifestX | RCP-02 Immutable Artifact Manifest / Verified Publish / CAS GC / shared verification fixture tests | approved | [rcp-02-artifact-manifest.md](./rcp-02-artifact-manifest.md) |
