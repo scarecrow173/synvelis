@@ -145,8 +145,9 @@ fn headless_matrix_projects_fake_and_gpui_simulated_columns() {
     );
 }
 
-/// Capability classification rows keep the frozen case ids explicit and do
-/// not silently require unavailable L2/L3 capabilities for SV-OS-01〜05.
+/// Capability classification rows keep the frozen case ids explicit. They do
+/// not silently require unavailable L2/L3 capabilities for SV-OS-02〜05, while
+/// SV-OS-01 records the real-lane-only input/pixel vertical slice explicitly.
 #[test]
 fn capability_classification_keeps_l2_l3_out_of_headless_requirements() {
     assert_eq!(CAPABILITY_CLASSIFICATIONS.len(), 15);
@@ -164,7 +165,25 @@ fn capability_classification_keeps_l2_l3_out_of_headless_requirements() {
         CAPABILITY_CLASSIFICATIONS
             .iter()
             .filter(|row| row.capability == ScenarioCapability::RealOsPointerOrKeyboard)
-            .all(|row| row.state == RequirementState::Deferred)
+            .all(|row| {
+                if row.case == "SV-OS-01" {
+                    row.state == RequirementState::Required
+                } else {
+                    row.state == RequirementState::Deferred
+                }
+            })
+    );
+    assert!(
+        CAPABILITY_CLASSIFICATIONS
+            .iter()
+            .filter(|row| row.capability == ScenarioCapability::VisualCapture)
+            .all(|row| {
+                if row.case == "SV-OS-01" {
+                    row.state == RequirementState::Required
+                } else {
+                    row.state == RequirementState::Deferred
+                }
+            })
     );
 }
 

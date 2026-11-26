@@ -73,6 +73,14 @@ run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --lo
 description = "Build the test-only L1 runners and run the PC-C4 real ABI binding tests"
 run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test pc_c4_l1_real_abi_binding -- --test-threads=1 --nocapture"
 
+# TIM-03 (#127) transport application slice: production composition に
+# BoundaryDeclaration を供給し、tempo/loop/seek/automation を実 L1
+# fixture 上で観測する dedicated lane。runner は test-only で、
+# fixture artifact resolution contract は test-tim03-l1 / test-pc-c4-l1 と同じ。
+[tasks.test-tim03-transport]
+description = "Build the test-only TIM-03 L1 runners and run the transport application tests"
+run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_transport_application -- --test-threads=1 --nocapture"
+
 # RCD-01 opt-in 実機 lane（CI 対象外・hardware 依存）。
 # real-device feature で ruviform-audio-device/cpal を有効化し、
 # tests/real_input.rs の #[ignore] test のみを実行する。
