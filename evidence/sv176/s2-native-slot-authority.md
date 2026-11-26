@@ -73,8 +73,8 @@ ruviform resolved SHA: `87a7ba8ff3fbe6d4502bea27d152d7f74c105899`（作業中に
 
 ## Branch CI
 
-- branch head SHA: コミット後に確定する。本 evidence の初回記録時点では merge 取込後 base は `a24ff229d5084a6a44890ff3a2a06dc940cab0c9`、S2 diff は未コミット作業ツリーである。
-- branch CI Run URL/状態: push 後に記録する。CI 非ブロッキング方針のため、未完了なら未完了のまま PR 本文にも記録し、Pass に読み替えない。手動 dispatch は起動しない。
+- 実装・検証対象 commit: `682aafaeb72d8f59293986a2d3231380bcb94421`（merge 取込後 base `a24ff229d5084a6a44890ff3a2a06dc940cab0c9` に対する S2 実装・テスト・docs/evidence commit）。evidence 自身を含む最終 commit の SHA を同じファイル内で自己参照することはできないため、push 時点の正確な branch head SHA は PR 本文に記録する。
+- branch CI Run URL/状態: push 後に PR 本文へ記録する。CI 非ブロッキング方針のため、未完了なら未完了のまま記録し、Pass に読み替えない。手動 dispatch は起動しない。
 
 ## Non-claims
 
