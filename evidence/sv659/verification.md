@@ -48,15 +48,16 @@ inventory の正本は `docs/designs/issue-659-verification-redesign.md` §5、�
 | Command | OS | Exit | Verdict | 証跡/備考 |
 | --- | --- | ---: | --- | --- |
 | inventory name/count check（Python、補助） | Windows x64 | 0 | pass | `inventory-check.txt`。57/57 の matrix 名が対象 source に実在 |
-| `mise run test-formal` | Windows x64 | 0 | pass | `test-formal.log`。gateway 35/35、recording 15/15、計 50/50 pass。既存 lane の回帰確認 |
-| `mise run fmt-check` | Windows x64 | 1 | fail（環境/ツール起因） | `fmt-check.log`。`cargo fmt --all -- --check` が `os error 206`（ファイル名または拡張子が長すぎます）で起動失敗。Windows aggregate fmt の既知パターンであり、本 slice は Rust source を変更していない |
-| `mise exec -- prek run --all-files` | Windows x64 | 0 | pass | `prek.log`。whitespace/EOF/YAML/TOML/line-ending/BOM/key/actionlint hooks pass |
-| per-package `cargo fmt -p <package> -- --check`（補助証拠） | Windows x64 | 0 | pass | `fmt-check-aux.log`。workspace 15 package。canonical は失敗した `mise run fmt-check` であり、本行は代替ではなく補助 |
+| `mise run test-formal` | Windows x64 | 0 | pass | `test-formal.log`（local artifact）。gateway 35/35、recording 15/15、計 50/50 pass。既存 lane の回帰確認 |
+| `mise run fmt-check` | Windows x64 | 1 | fail（環境/ツール起因） | `fmt-check.log`（local artifact）。`cargo fmt --all -- --check` が `os error 206`（ファイル名または拡張子が長すぎます）で起動失敗。Windows aggregate fmt の既知パターンであり、本 slice は Rust source を変更していない |
+| `mise exec -- prek run --all-files` | Windows x64 | 0 | pass | `prek.log`（local artifact）。whitespace/EOF/YAML/TOML/line-ending/BOM/key/actionlint hooks pass |
+| per-package `cargo fmt -p <package> -- --check`（補助証拠） | Windows x64 | 0 | pass | `fmt-check-aux.log`（local artifact）。workspace 15 package。canonical は失敗した `mise run fmt-check` であり、本行は代替ではなく補助 |
 | `mise run test-formal-kani` / TLA+ | — | — | unsupported（本 slice scope外） | 実走しない。sv601 時点の verdict は 2 pass・5 not_run を引き継ぐが、本 slice で新たな証明証拠はない |
 
 ## 失敗・未実施の正直な状態
 
-- `fmt-check` は exit 1。原因は aggregate `cargo fmt --all` の Windows コマンド/パス長制限を示す `os error 206` であり、rustfmt 差分が検出された失敗ではない。製品コードも Rust test も変更していないため、本 slice 起因の formatting regression ではないと切り分ける。per-package fmt は補助証拠として 15/15 package pass（`fmt-check-aux.log`）。ただし canonical verdict は引き続き exit 1 の Fail である。
+- `*.log` はリポジトリの `.gitignore` で追跡されないため、実行ログは local artifact として扱う。コマンド・exit code・結果は本文書に記録し、`inventory-check.txt` と `inventory.json` だけを補助証跡としてコミットする。
+- `fmt-check` は exit 1。原因は aggregate `cargo fmt --all` の Windows コマンド/パス長制限を示す `os error 206` であり、rustfmt 差分が検出された失敗ではない。製品コードも Rust test も変更していないため、本 slice 起因の formatting regression ではないと切り分ける。per-package fmt は補助証拠として 15/15 package pass（`fmt-check-aux.log`、local artifact）。ただし canonical verdict は引き続き exit 1 の Fail である。
 - Kani/TLA+ は slice scope 外で未実施。したがって #659 の Required proof はまだ完了していない。
 - Authorization/Recovery の matrix は設計であり、pure core 抽出、TLA+ model、mutation 実験は未実装である。
 - docs index（`docs/**/README.md`）は生成物であり、共通契約に従って編集・再生成していない。統合時に Coordinator が整備する。
