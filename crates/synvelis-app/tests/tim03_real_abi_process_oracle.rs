@@ -15,11 +15,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use ruviform_audio_core::{AudioFormat, ChannelLayout, SampleFormat, SampleRate};
 use ruviform_plugin_clap::host::ClapLibrary;
 use ruviform_plugin_core::{
-    ParamFlags, ParamId, ParamInfo, PluginDescriptor, PluginFactory, ProcessConfig,
+    BusDescriptor, BusDirection, BusRole, ParamFlags, ParamId, ParamInfo, PluginDescriptor,
+    PluginFactory, ProcessConfig,
 };
 use ruviform_plugin_dock_test::artifact::resolve_artifact_named;
 use ruviform_plugin_dock_test::sha256_hex;
-use ruviform_plugin_host::{EndpointBounds, HostCommand, HostError, HostReply, PluginHost};
+use ruviform_plugin_host::{
+    BusReport, EndpointBounds, HostCommand, HostError, HostReply, PluginHost,
+};
 use ruviform_plugin_vst3::host::Vst3Library;
 use ruviform_ui::BackendReport;
 use serde_json::json;
@@ -197,7 +200,7 @@ fn teardown(host: &mut PluginHost, handle: ruviform_plugin_core::PluginHandle) {
 /// validation ordering.
 fn measure_endpoint_boundary(
     factory: Box<dyn PluginFactory>,
-) -> (Vec<PluginDescriptor>, String, HostError, bool) {
+) -> (Vec<PluginDescriptor>, BusReport, HostError, bool) {
     let plugin_id = factory.descriptor().id.to_owned();
     let create_sendable_available = factory.create_sendable().is_some();
     assert!(
@@ -228,7 +231,7 @@ fn measure_endpoint_boundary(
         HostCommand::StartProcessing { handle },
         "start processing",
     );
-    let bus_report = format!("{:?}", host.buses(handle).expect("bus report"));
+    let bus_report = host.buses(handle).expect("bus report");
     let Err(outcome) = host.prepare_endpoint(
         handle,
         EndpointBounds {
@@ -470,16 +473,35 @@ fn exercise_real_abi_format(
             .iter()
             .any(|descriptor| descriptor.id == probe.gain.id)
     );
-    assert_eq!(bus_report, "Reported([])");
+    assert_eq!(
+        bus_report,
+        BusReport::Reported(vec![
+            BusDescriptor {
+                direction: BusDirection::Input,
+                layout: ChannelLayout::Stereo,
+                name: "",
+                role: BusRole::Main,
+                enabled: true,
+            },
+            BusDescriptor {
+                direction: BusDirection::Output,
+                layout: ChannelLayout::Stereo,
+                name: "",
+                role: BusRole::Main,
+                enabled: true,
+            },
+        ])
+    );
     assert_eq!(endpoint_error, HostError::EndpointUnavailable);
 
-    // The in-process adapters at the pinned ruviform revision do not implement
-    // bus enumeration (`Plugin::buses` keeps the empty default). The bridge
-    // therefore reject-closed as bus-incompatible before it can even attempt
-    // endpoint preparation; the direct host measurement above is the evidence
-    // that endpoint preparation itself is also architecturally unavailable.
+    // The in-process adapters at the pinned ruviform revision enumerate the
+    // same stereo main input/output table the semantic processor declares.
+    // Bus validation therefore reaches endpoint preparation, whose defined
+    // refusal is the architectural boundary: real-ABI in-process instances do
+    // not expose a Send endpoint. The direct host measurement above is the
+    // independent evidence for that endpoint refusal.
     let adapter_error = adapter_connect_error(adapter_factory, probe.gain.id);
-    assert_eq!(adapter_error, ProcessorConnectError::Incompatible);
+    assert_eq!(adapter_error, ProcessorConnectError::Unavailable);
 
     let production_state = production_failure(production_factory, probe.gain.id);
     let production_fault = match &production_state {
@@ -487,12 +509,11 @@ fn exercise_real_abi_format(
         | RoutingActivationState::Blocked { fault, .. } => *fault,
         state => panic!("production composition unexpectedly reached {state:?}"),
     };
-    // `PluginHostProcessors` maps the first defined adapter rejection
-    // (`Incompatible`, caused by the empty in-process bus report above) to the
-    // routing fault for format/time-map incompatibility. This is still typed
-    // fail-closed evidence; it must not be rewritten into a plugin-unavailable
-    // claim the current production path did not make.
-    assert_eq!(production_fault, RoutingFault::UnsupportedFormatOrTimeMap);
+    // `PluginHostProcessors` maps the endpoint refusal (`Unavailable`) to the
+    // routing fault for plugin unavailability. This is typed fail-closed
+    // evidence; it must not be rewritten into a format/time-map claim the
+    // current production path did not make.
+    assert_eq!(production_fault, RoutingFault::PluginUnavailable);
 
     println!(
         "tim03-real-abi-oracle {}",
@@ -520,7 +541,7 @@ fn exercise_real_abi_format(
             },
             "scan": "pass",
             "lifecycle_to_processing": "pass",
-            "reported_buses": bus_report,
+            "reported_buses": format!("{bus_report:?}"),
             "create_sendable_available": create_sendable_available,
             "endpoint_prepare": format!("{endpoint_error:?}"),
             "adapter_connect": format!("{adapter_error:?}"),

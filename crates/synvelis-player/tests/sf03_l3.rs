@@ -415,8 +415,8 @@ impl Plugin for GainPlugin {
     fn params(&self) -> &[ParamInfo] {
         &[]
     }
-    fn buses(&self) -> &[BusDescriptor] {
-        self.buses
+    fn buses(&self) -> Option<&[BusDescriptor]> {
+        Some(self.buses)
     }
 }
 
