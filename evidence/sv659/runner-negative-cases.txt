@@ -1,0 +1,7 @@
+# runner negative cases (2026-11-26, sync 24d2e2a25291d4e8ec75c7f1ea41bad049421be5)
+$ KANI_PACKAGE=unknown mise exec -- node tools/run-formal-kani.mjs
+{"lane":"test-formal-kani","verdict":"fail","reason":"configuration_error: KANI_PACKAGE must be exactly one of synvelis-gateway, synvelis-recording when set; got \"unknown\"","packages":["synvelis-gateway","synvelis-recording"],"harness":null,"jobs":4,"environment":null,"elapsed_seconds":0,"exit_code":null,"harnesses_matched":0,"harnesses":[]}
+exit=2
+$ KANI_PACKAGE=synvelis-recording KANI_HARNESS="   " mise exec -- node tools/run-formal-kani.mjs
+{"lane":"test-formal-kani","verdict":"fail","reason":"configuration_error: KANI_HARNESS must not be empty or whitespace-only","package":"synvelis-recording","packages":["synvelis-recording"],"harness":null,"jobs":4,"environment":null,"elapsed_seconds":0,"exit_code":null,"harnesses_matched":0,"harnesses":[]}
+exit=2

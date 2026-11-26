@@ -24,8 +24,9 @@
 //   - exit 0 + verdict `pass`        — verification ran and succeeded
 //   - exit 0 + verdict `not_run`     — no usable environment
 //     (`environment_blocked`), never a fake pass
-//   - exit 1 + verdict `fail`        — verification ran and FAILED
-//     (fail-closed; a real defect or unwinding-assertion violation)
+//   - exit 1 + verdict `fail`        — invocation failed closed
+//     (verification failure, zero matched harnesses, or infrastructure
+//     failure; classify the cause from raw output/evidence)
 //   - exit 2 + verdict `fail`        — invalid selective-run configuration
 //     (`configuration_error`), before any verification starts
 //
