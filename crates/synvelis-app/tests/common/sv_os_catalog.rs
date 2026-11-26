@@ -75,21 +75,22 @@ pub struct CapabilityClassification {
     pub rationale: &'static str,
 }
 
-/// SV-OS-01〜05 の capability 分類。semantic catalog が要求するのは
-/// `SemanticAction`/`MultiWindow` のみ。real OS input/pixel/IME は L2 後続 gate、
+/// SV-OS-01〜05 の capability 分類。semantic catalog が実行時に要求するのは
+/// `SemanticAction`/`MultiWindow` のみ。SV-OS-01 では real lane 限定の最小縦断として
+/// real OS input/pixel を Required とし、他 case の input/pixel/IME は L2 後続 gate、
 /// `NativePluginDock` は SV-OS-09 であって 01〜05 には要求しない。
 pub const CAPABILITY_CLASSIFICATIONS: &[CapabilityClassification] = &[
     CapabilityClassification {
         case: CASE_SV_OS_01,
         capability: ScenarioCapability::RealOsPointerOrKeyboard,
-        state: RequirementState::Deferred,
-        rationale: "real OS input is part of the separate interactive GUI-L2 gate",
+        state: RequirementState::Required,
+        rationale: "the SV-OS-01 real lane requires the project.save input vertical slice",
     },
     CapabilityClassification {
         case: CASE_SV_OS_01,
         capability: ScenarioCapability::VisualCapture,
-        state: RequirementState::Deferred,
-        rationale: "pixel evidence belongs to the ruviform#314/L2 gate",
+        state: RequirementState::Required,
+        rationale: "the SV-OS-01 real lane requires pixel evidence for the same project.save target",
     },
     CapabilityClassification {
         case: CASE_SV_OS_01,
@@ -395,12 +396,21 @@ fn service_oracle_project_lifecycle() -> serde_json::Value {
             .status,
         ReceiptStatus::Applied
     );
+    let save_info = service_op_ok(&mut f, "psave", "syn.project.save", json!({}));
+    assert_eq!(save_info["saved"], json!(true));
+    assert_eq!(save_info["store"], json!(true));
     let _ = std::fs::remove_dir_all(&dir);
     json!({
         "service": "NativeShell/SynvelisApp mounted fixture",
         "project_name": info["name"],
         "view_listed": true,
         "transport_receipt": "applied",
+        "save": {
+            "operation": "syn.project.save",
+            "saved": save_info["saved"],
+            "store": save_info["store"],
+            "revision": save_info["revision"],
+        },
     })
 }
 
