@@ -10,7 +10,7 @@
 use crate::{
     control::{
         AutomationTimeScope, ControlOwner, ParameterRole, STRIP_SEED_ROLES, master_channel_raw,
-        master_fader_target, strip_channel_target,
+        master_fader_target, normalize_canonical_internal_spec, strip_channel_target,
     },
     error::Error,
     id::{ChainId, ParameterTargetId, RoutingConnectionId, SemanticPortId, StripId, TrackId},
@@ -74,6 +74,10 @@ const STEPS: &[MigrationStep] = &[
     MigrationStep {
         from: 14,
         migrate: migrate_v14_render_policy,
+    },
+    MigrationStep {
+        from: 15,
+        migrate: migrate_v15_canonical_internal_specs,
     },
 ];
 
@@ -499,5 +503,31 @@ fn migrate_v13_variant_sets(project: Project) -> Result<Project, Error> {
 /// shape keeps the ladder uniform.
 #[allow(clippy::unnecessary_wraps)]
 fn migrate_v14_render_policy(project: Project) -> Result<Project, Error> {
+    Ok(project)
+}
+
+/// v15 → v16: normalize the fixed persisted spec of internal channel/
+/// send targets to [`crate::control::canonical_internal_spec`]
+/// (synvelis#122). v15 bodies can still carry shapes written before
+/// write-time enforcement — including a master fader re-keyed by the
+/// v7→v8 step with legacy cosmetic fields — so this step projects
+/// `kind`/`mapping`/`time_scope` to the canonical values and drops the
+/// plugin `capability` internal targets never own. `id`/`owner`/`role`
+/// are identity, while `name`/`base` are authored state: all five are
+/// preserved verbatim. Free-form targets and processor/plugin targets
+/// are outside the canonical contract and untouched.
+///
+/// Deterministic — allocates no IDs and leaves `id_watermark`
+/// untouched. Automation lanes, modulation assignments and send
+/// bindings reference target IDs, which this projection never changes.
+///
+/// # Errors
+/// Never fails: the step is a deterministic field projection. The
+/// `Result` shape keeps the ladder uniform.
+#[allow(clippy::unnecessary_wraps)]
+fn migrate_v15_canonical_internal_specs(mut project: Project) -> Result<Project, Error> {
+    for target in project.control.targets.values_mut() {
+        normalize_canonical_internal_spec(target);
+    }
     Ok(project)
 }

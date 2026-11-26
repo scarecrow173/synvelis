@@ -23,8 +23,10 @@ use std::path::PathBuf;
 use ruviform_plugin_core::{ParamInfo, PluginFactory};
 use ruviform_plugin_host::{HostError, OutOfProcessSpec};
 
-use synvelis_player::host::PluginHostProcessors;
-use synvelis_project::{BuildBudget, BuildMode, RuntimeClockEpochRef, RuntimeInstanceId};
+use synvelis_player::host::{BoundaryDeclaration, PluginHostProcessors};
+use synvelis_project::{
+    BuildBudget, BuildMode, ProcessorId, RuntimeClockEpochRef, RuntimeInstanceId,
+};
 
 use crate::SynvelisApp;
 use crate::engine::{SessionEngineConfig, SessionRoutingEngine};
@@ -76,7 +78,7 @@ pub fn compose_routing_engine(
     config: SessionEngineConfig,
     plugins: Vec<ProductPlugin>,
 ) -> SessionRoutingEngine {
-    let processors = processors_for_routes(plugins, Vec::new())
+    let processors = processors_for_routes(plugins, Vec::new(), Vec::new())
         .unwrap_or_else(|error| unreachable!("an empty L1 route table cannot fail: {error:?}"));
     finish_composition(app, config, processors)
 }
@@ -97,13 +99,41 @@ pub fn compose_routing_engine_with_out_of_process(
     plugins: Vec<ProductPlugin>,
     out_of_process: Vec<ProductOutOfProcessPlugin>,
 ) -> Result<SessionRoutingEngine, HostError> {
-    let processors = processors_for_routes(plugins, out_of_process)?;
+    compose_routing_engine_with_out_of_process_and_boundaries(
+        app,
+        config,
+        plugins,
+        out_of_process,
+        Vec::new(),
+    )
+}
+
+/// Production composition for a mixed L0/L1 registry plus TIM-03
+/// boundary declarations. Declarations are keyed by semantic
+/// [`ProcessorId`] and registered on [`PluginHostProcessors`] before
+/// the host is boxed into the engine, so vended control surfaces carry
+/// the same process-boundary session provenance as the production
+/// attach. The composition root does not infer or upgrade precision:
+/// callers supply the certified declaration explicitly.
+///
+/// # Errors
+///
+/// [`HostError`] from `PluginHost::register_out_of_process`.
+pub fn compose_routing_engine_with_out_of_process_and_boundaries(
+    app: &mut SynvelisApp,
+    config: SessionEngineConfig,
+    plugins: Vec<ProductPlugin>,
+    out_of_process: Vec<ProductOutOfProcessPlugin>,
+    boundaries: Vec<(ProcessorId, BoundaryDeclaration)>,
+) -> Result<SessionRoutingEngine, HostError> {
+    let processors = processors_for_routes(plugins, out_of_process, boundaries)?;
     Ok(finish_composition(app, config, processors))
 }
 
 fn processors_for_routes(
     plugins: Vec<ProductPlugin>,
     out_of_process: Vec<ProductOutOfProcessPlugin>,
+    boundaries: Vec<(ProcessorId, BoundaryDeclaration)>,
 ) -> Result<PluginHostProcessors, HostError> {
     let mut param_tables = Vec::with_capacity(plugins.len() + out_of_process.len());
     let mut factories = Vec::with_capacity(plugins.len());
@@ -119,6 +149,9 @@ fn processors_for_routes(
     let mut processors = PluginHostProcessors::product_with_out_of_process(factories, specs)?;
     for (plugin_id, params) in param_tables {
         processors.register_params(plugin_id, params);
+    }
+    for (processor, declaration) in boundaries {
+        processors.register_boundary(processor, declaration);
     }
     Ok(processors)
 }

@@ -312,3 +312,5 @@ Directory: `docs/designs`
 | DESIGN-Tim04PermissionMatrix01 | TIM-04 permission fault matrix design | approved | [tim-04-permission-matrix.md](./tim-04-permission-matrix.md) |
 | DESIGN-rf1029k8Qw3Vx7Lm2Np6Ty4Rs9Zd | SV#28 Ruviform pin 更新設計（87a7ba8f → 0479fa62 / rf#1029） | approved | [sv28-ruviform-pin-rf1029.md](./sv28-ruviform-pin-rf1029.md) |
 | DESIGN-Tim04Rcp01StateProjection01 | TIM-04 RCP-01 persisted plugin-state projection design | approved | [tim-04-rcp01-state-projection.md](./tim-04-rcp01-state-projection.md) |
+| DESIGN-kPeDqP4gwqUY0r89uRpuRV | CTL-02 canonical persistence 設計 | approved | [ctl-02-canonical-persistence.md](./ctl-02-canonical-persistence.md) |
+| DESIGN-n8Vw2Kx6Qm4Rt9LyTzC3 | TIM-03 transport application minimal vertical | approved | [tim-03-transport-application.md](./tim-03-transport-application.md) |

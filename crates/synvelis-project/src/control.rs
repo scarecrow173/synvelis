@@ -1077,6 +1077,55 @@ pub(crate) fn canonical_internal_spec(
     }
 }
 
+/// The canonical-spec fields `target` violates, in stable contract order
+/// (`kind`, `mapping`, `time_scope`, `capability`). Empty for free-form
+/// targets and for internal targets already carrying the canonical spec —
+/// the read-only oracle half of [`canonical_internal_spec`], shared by
+/// load validation and the snapshot migration so the persisted contract
+/// has one definition.
+pub(crate) fn canonical_internal_spec_deviations(target: &ParameterTarget) -> Vec<&'static str> {
+    let Some((kind, mapping, time_scope)) = canonical_internal_spec(target.owner, target.role)
+    else {
+        return Vec::new();
+    };
+    let mut deviations = Vec::new();
+    if target.kind != kind {
+        deviations.push("kind");
+    }
+    if target.mapping != mapping {
+        deviations.push("mapping");
+    }
+    if target.time_scope != time_scope {
+        deviations.push("time_scope");
+    }
+    if target.capability.is_some() {
+        deviations.push("capability");
+    }
+    deviations
+}
+
+/// Rewrites the fixed spec fields of an internal channel/send target to
+/// [`canonical_internal_spec`], preserving every authored or identity
+/// field (`id`/`owner`/`role`/`name`/`base`). Returns whether anything
+/// changed. Free-form and plugin/processor targets are untouched.
+///
+/// This is the mutation half of the same canonical contract — used only
+/// by the schema migration that owns legacy persisted state. Current
+/// snapshots are never repaired implicitly; the load oracle rejects
+/// deviations reported by [`canonical_internal_spec_deviations`].
+pub(crate) fn normalize_canonical_internal_spec(target: &mut ParameterTarget) -> bool {
+    if canonical_internal_spec_deviations(target).is_empty() {
+        return false;
+    }
+    let (kind, mapping, time_scope) = canonical_internal_spec(target.owner, target.role)
+        .expect("a deviation implies an internal target");
+    target.kind = kind;
+    target.mapping = mapping;
+    target.time_scope = time_scope;
+    target.capability = None;
+    true
+}
+
 /// The well-known raw ID of the master strip's seeded `role` channel
 /// target — `None` for roles the bootstrap strip does not seed
 /// (`Pan`, see [`STRIP_SEED_ROLES`]).

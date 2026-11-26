@@ -333,7 +333,7 @@ fn cb_model_01_v13_snapshot_migrates_to_v14() {
     assert_eq!(c2.live().assets.len(), 1);
     // Migrated load counts as one implicit revision step.
     assert_eq!(c2.live_revision().0, fx.controller.live_revision().0 + 1);
-    assert_eq!(SCHEMA_VERSION, 15);
+    assert_eq!(SCHEMA_VERSION, 16);
 }
 
 // ── CB-MODEL-02: non-adopted edits never touch live ─────────────────

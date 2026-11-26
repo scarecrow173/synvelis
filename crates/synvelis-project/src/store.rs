@@ -83,7 +83,12 @@ use crate::{controller::ProjectRevision, error::Error, id::ProjectId, project::P
 /// preference, opaque JSON owned semantically by synvelis-render's
 /// `PolicyPatch`) — `#[serde(default)]`, so the v14→v15 step is a
 /// pass-through.
-pub const SCHEMA_VERSION: u32 = 15;
+/// v16 canonicalizes the fixed persisted spec of internal strip
+/// channel/send-level control targets (synvelis#122): the v15→v16
+/// step rewrites `kind`/`mapping`/`time_scope` to the canonical values
+/// and clears `capability`, preserving IDs, owners, roles, names and
+/// authored base values.
+pub const SCHEMA_VERSION: u32 = 16;
 
 /// Versioned snapshot wrapper. Unknown fields are rejected on load so a
 /// newer format fails loudly instead of being silently degraded.
