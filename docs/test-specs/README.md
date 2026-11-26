@@ -250,6 +250,7 @@ Directory: `docs/test-specs`
 | TSPEC-lQ0qYg1as24XtlZ1sHNNWN | TIM-03 session→driver/routing wiring test spec — TIM03-SW01..NN | approved | [tim-03-session-driver-wiring.md](./tim-03-session-driver-wiring.md) |
 | TSPEC-034UC53kVrQjWrtds8Lrsn | TIM-04 plugin state snapshot consistency — test spec | approved | [tim-04-plugin-state-snapshot.md](./tim-04-plugin-state-snapshot.md) |
 | TSPEC-034Xn0hBopO82wSvv0Y0Yn | TIM-04 Plugin State Snapshot — real ABI consumer-run test spec | approved | [tim-04-real-abi-state.md](./tim-04-real-abi-state.md) |
+| TSPEC-sv128Tim04L1StateFault | TIM-04 L1 state/fault テスト仕様 | draft | [tim-04-l1-state-fault.md](./tim-04-l1-state-fault.md) |
 | TSPEC-034UyEDDz7mTejYlyhg4gF | TIM-03 process boundary test spec — TIM-03-PB01..NN | approved | [tim03-process-boundary.md](./tim03-process-boundary.md) |
 | TSPEC-vJFdbqSGXmBCZDnTy2Telx | Timeline Editing / Selection / Tool System — テスト仕様・受入 Fixture（synvelis#11） | approved | [timeline-editing.md](./timeline-editing.md) |
 | TSPEC-034X7wP0GQjilI9S0FX7m0 | Transport Integration Test Spec — TT-001〜030 case map to existing fixtures | approved | [transport-integration.md](./transport-integration.md) |

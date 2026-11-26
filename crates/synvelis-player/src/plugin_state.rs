@@ -21,9 +21,13 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use ruviform_plugin_core::LifecycleState;
-use ruviform_plugin_host::{HostCommand, HostError, HostReply, PluginHandle, PluginHost};
+use ruviform_plugin_host::{
+    FailureCause, HostCommand, HostError, HostNotification, HostReply, PluginHandle, PluginHost,
+};
 
 use synvelis_project::{
     CaptureMode, CaptureObservation, PluginRef, PluginStateBinding, PluginStateCapture,
@@ -60,6 +64,7 @@ pub struct PluginStateHost {
     /// instance is visibly distinct.
     host_instance: String,
     instances: BTreeMap<ProcessorId, BoundInstance>,
+    failure_notifications: Vec<HostNotification>,
 }
 
 impl PluginStateHost {
@@ -73,6 +78,7 @@ impl PluginStateHost {
             host,
             host_instance,
             instances: BTreeMap::new(),
+            failure_notifications: Vec::new(),
         }
     }
 
@@ -103,6 +109,94 @@ impl PluginStateHost {
     /// the connection lease — this only forgets the mapping.
     pub fn unbind(&mut self, processor: ProcessorId) {
         self.instances.remove(&processor);
+    }
+
+    /// Returns the cached failure notification for `handle`, if the
+    /// adapter observed one while attributing a failed state command.
+    #[must_use]
+    pub fn failure_notification(&self, handle: PluginHandle) -> Option<HostNotification> {
+        self.failure_notifications
+            .iter()
+            .copied()
+            .find(|notification| match notification {
+                HostNotification::InstanceFailed { handle: failed, .. } => *failed == handle,
+                _ => false,
+            })
+    }
+
+    /// Drains host failure notifications only while attributing a
+    /// failed state command. Notifications for every handle are
+    /// retained in the adapter cache rather than dropped, so the
+    /// adapter — not each test or caller — owns this consumption.
+    fn failure_notification_for(&mut self, handle: PluginHandle) -> Option<HostNotification> {
+        if let Some(notification) = self.failure_notification(handle) {
+            return Some(notification);
+        }
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            let notification = self.host.borrow_mut().try_recv_notification();
+            if let Some(notification) = notification {
+                self.failure_notifications.push(notification);
+                if self
+                    .failure_notification(handle)
+                    .is_some_and(|cached| cached == notification)
+                {
+                    return Some(notification);
+                }
+            }
+            if Instant::now() >= deadline {
+                return self.failure_notification(handle);
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+    }
+
+    fn failure_cause(&mut self, handle: PluginHandle) -> Option<FailureCause> {
+        if let Some(HostNotification::InstanceFailed { cause, .. }) =
+            self.failure_notification_for(handle)
+        {
+            return Some(cause);
+        }
+        self.host
+            .borrow()
+            .diagnostics_for_handle(handle)
+            .and_then(|record| record.cause)
+    }
+
+    /// `HostError` → typed state failure, using the host's typed
+    /// failure attribution when the execution context is gone or
+    /// unreachable. A missing attribution stays `Crashed`: the
+    /// operation did not complete and must not be upgraded into a
+    /// timeout or success.
+    fn map_host_error(
+        &mut self,
+        handle: PluginHandle,
+        error: HostError,
+    ) -> PluginStateCaptureError {
+        match error {
+            HostError::Unsupported => {
+                if self.host.borrow().lifecycle_state(handle) == Some(LifecycleState::Failed) {
+                    let kind = match self.failure_cause(handle) {
+                        Some(FailureCause::Timeout) => PluginStateFailureKind::Timeout,
+                        _ => PluginStateFailureKind::Crashed,
+                    };
+                    PluginStateCaptureError::Failed(kind)
+                } else {
+                    PluginStateCaptureError::Unsupported
+                }
+            }
+            HostError::InvalidHandle | HostError::UnknownPluginId => {
+                PluginStateCaptureError::Failed(PluginStateFailureKind::Unavailable)
+            }
+            HostError::Failed | HostError::Ipc => {
+                let kind = match self.failure_cause(handle) {
+                    Some(FailureCause::Timeout) => PluginStateFailureKind::Timeout,
+                    _ => PluginStateFailureKind::Crashed,
+                };
+                PluginStateCaptureError::Failed(kind)
+            }
+            _ => PluginStateCaptureError::Failed(PluginStateFailureKind::CaptureFailed),
+        }
     }
 }
 
@@ -165,7 +259,7 @@ impl PluginStatePort for PluginStateHost {
             Ok(_) => Err(PluginStateCaptureError::Failed(
                 PluginStateFailureKind::CaptureFailed,
             )),
-            Err(error) => Err(map_host_error(error)),
+            Err(error) => Err(self.map_host_error(instance.handle, error)),
         }
     }
 
@@ -179,35 +273,19 @@ impl PluginStatePort for PluginStateHost {
                 PluginStateFailureKind::Unavailable,
             ));
         };
-        let mut host = self.host.borrow_mut();
-        match host.execute(HostCommand::RestoreState {
-            handle: instance.handle,
-            bytes: bytes.to_vec(),
-        }) {
+        let result = {
+            let mut host = self.host.borrow_mut();
+            host.execute(HostCommand::RestoreState {
+                handle: instance.handle,
+                bytes: bytes.to_vec(),
+            })
+        };
+        match result {
             Ok(HostReply::Ok) => Ok(()),
             Ok(_) => Err(PluginStateCaptureError::Failed(
                 PluginStateFailureKind::CaptureFailed,
             )),
-            Err(error) => Err(map_host_error(error)),
+            Err(error) => Err(self.map_host_error(instance.handle, error)),
         }
-    }
-}
-
-/// `HostError` → typed state failure. `Unsupported` stays distinct
-/// (the plugin has no state hooks); `InvalidHandle`/`UnknownPluginId`
-/// mean no live instance; `Failed`/`Ipc` mean the execution context
-/// is gone or unreachable (crash/transport); `PluginFailed` is a
-/// hook-level refusal. `HostError` is `#[non_exhaustive]` — unknown
-/// future variants fail closed as `CaptureFailed`.
-fn map_host_error(error: HostError) -> PluginStateCaptureError {
-    match error {
-        HostError::Unsupported => PluginStateCaptureError::Unsupported,
-        HostError::InvalidHandle | HostError::UnknownPluginId => {
-            PluginStateCaptureError::Failed(PluginStateFailureKind::Unavailable)
-        }
-        HostError::Failed | HostError::Ipc => {
-            PluginStateCaptureError::Failed(PluginStateFailureKind::Crashed)
-        }
-        _ => PluginStateCaptureError::Failed(PluginStateFailureKind::CaptureFailed),
     }
 }
