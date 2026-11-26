@@ -113,6 +113,7 @@ Directory: `docs/specs`
 | SPEC-034WEUWHrqeDl6HXbaRPVO | RCD-04 MIDI phrase boundary / Undo-Redo / VCS stable-ID residual slice (synvelis#118) | proposed | [rcd-04-midi-undo-stableid.md](./rcd-04-midi-undo-stableid.md) |
 | SPEC-034VmNS87JaOfBSbYwh0pt | RCD-04 Comp Transition / MIDI Phrase / Recovery Review — product E2E (synvelis#118) | proposed | [rcd-04-product-e2e.md](./rcd-04-product-e2e.md) |
 | SPEC-034VBTXNYEeuSEzbHwk1hv | RCD-04 Comp Transition — RT engine PCM equivalence (synvelis#118) | proposed | [rcd-04-rt-engine-comp-pcm.md](./rcd-04-rt-engine-comp-pcm.md) |
+| SPEC-034XWWkYoAVQp4ywPhneogME | RCD-06 Monitor production integration — graph topology・input tap・transport control (synvelis#665) | proposed | [rcd-06-monitor-production-integration.md](./rcd-06-monitor-production-integration.md) |
 | SPEC-034XJxBZyIYAfzQFLeIAWA | RCD-F02 Advanced Monitoring / Overdub Layering / Pre-Punch Handles — 要求仕様（synvelis#120） | approved | [rcd-f02-monitoring-overdub.md](./rcd-f02-monitoring-overdub.md) |
 | SPEC-QIpUDjWLLusOo4TEiv6CjZ | Recording / Take / Comping — Session・Take・Comp・Raw Writer・Monitor・Recovery・Source Native Frame の基本契約（synvelis#12） | approved | [recording-take-comping.md](./recording-take-comping.md) |
 | SPEC-g52wQZrVCdTt4O37271f7f | Render Checkpoint — Render Recipe・依存閉包・有効性・Branch/Execution/Policy 統合仕様正本 (synvelis#289) | approved | [render-checkpoint.md](./render-checkpoint.md) |
