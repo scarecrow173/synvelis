@@ -33,7 +33,7 @@ relations:
   verifies: []
   verified-by: []
   references:
-    - "evidence/sv122/verification.md"
+    - "evidence/sv122/canonical-persistence-verification.md"
   defers: []
   deferred-by: []
 ---
@@ -56,11 +56,15 @@ relations:
 
 ## 完了処理
 
-- [ ] 指定 verification lane を最終 SHA で実行し、evidence を確定する。
-- [ ] 最新 main を取り込み、差分と `Cargo.lock` を確認する。
-- [ ] commit、push、PR 作成。
-- [ ] PR 本文に受入条件ごとの進捗、NotRun/Unsupported、docs index 未整備
-  を明記する。
+- [x] 指定 verification lane を実行し、
+  `evidence/sv122/canonical-persistence-verification.md` に OS・exit code・
+  fixture 観測結果を記録した。canonical `mise run fmt-check` の環境依存
+  failure と package-scoped rustfmt の補助証拠も記録した。
+- [x] 最新 main が branch base `175b7b0d621f59e8b89cf0e5a0acfc784bbee940`
+  と同じであることを確認し、`Cargo.lock` に差分がないことを確認した。
+- [x] commit、push、PR #682 作成を完了した。
+- [x] PR 本文に受入条件ごとの進捗、NotRun/Unsupported、docs index 未整備
+  を明記した。
 
 ## 後続 slice / gate
 
