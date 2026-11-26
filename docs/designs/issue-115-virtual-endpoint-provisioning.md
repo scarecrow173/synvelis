@@ -1,10 +1,10 @@
 ---
 id: "DESIGN-sv115VirtualEndpointProvisioning"
 type: "design"
-status: "proposed"
+status: "approved"
 title: "Issue #115 RCD-01 Virtual Endpoint Provisioning Consumer Orchestration 設計"
 created: "2026-11-25"
-updated: "2026-11-25"
+updated: "2026-11-26"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -13,7 +13,13 @@ relations:
     added:
       - type: "file"
         path: "docs/designs/issue-115-virtual-endpoint-provisioning.md"
-    modified: []
+      - type: "file"
+        path: ".github/workflows/virtual-endpoint-consumer-acceptance.yml"
+      - type: "file"
+        path: "evidence/sv115/issue-115-virtual-endpoint-consumer-workflow-implementation.md"
+    modified:
+      - type: "file"
+        path: "crates/synvelis-recording/tests/virtual_endpoint.rs"
     deleted: []
     renamed: []
     moved: []
@@ -57,18 +63,19 @@ relations:
 
 ## 1. 設計入力の再確認
 
-本設計は 2026-11-25 に次の現状態を read-only で再確認した。
+本設計は 2026-11-25 に作成され、2026-11-26 の implementation 時点で次の現状態を再確認した。
 
-- Synvelis `origin/main` は `7f15b5bc7f2ba3376dc7b050e5f3de3b6d0b613e`。
+- Synvelis `origin/main` は `a24ff229d5084a6a44890ff3a2a06dc940cab0c9`。
   PR #654 の consumer virtual endpoint harness は merged 済みで、lane は
   `mise run test-recording-virtual-endpoint`。
 - 現行開発 host の `evidence/sv115/issue-115-virtual-endpoint-verification.md`
   は endpoint pair 不在のため `NotRun — NOT_PROVISIONED`。lane exit 0 は
   Pass ではない。
 - Synvelis `Cargo.lock` の Ruviform resolved revision は
-  `20dc41f71c47674b3e51d1eb0921124b94f8bfaf`。manifest は default branch
-  追従で、CI が single resolved SHA を guard する。
-- Ruviform `origin/main` は `3d953cf8750ab317219576ef035be905f7b3b73e`。
+  `87a7ba8ff3fbe6d4502bea27d152d7f74c105899`。manifest は default branch
+  追従で、CI が single resolved SHA を guard する。この revision は
+  provision/unprovision script pair と shared module を含む。
+- Ruviform `origin/main` は `71f8bd4da047699eeb3ead781ff19e8a21320816`。
   `virtual-audio-driver-probe.yml` は `workflow_dispatch` 専用・
   `windows-2025` x64 単一 leg・timeout 90 分で、build → catalog → 2 日
   失効の self-signed cert → Root/TrustedPublisher 登録 → sign verify →
@@ -142,8 +149,8 @@ Synvelis はその state JSON を parse するだけで、provisioning stage を
 
 ## 4. Synvelis manual workflow の conceptual design
 
-implementation slice が追加する workflow は `workflow_dispatch` 専用とし、
-仮称 `.github/workflows/virtual-endpoint-consumer-acceptance.yml` とする。
+implementation slice が追加した workflow は `workflow_dispatch` 専用の
+`.github/workflows/virtual-endpoint-consumer-acceptance.yml` である。
 required gate・ci-summary・ruleset には接続しない。runner は `windows-2025`
 単一 leg、job timeout は初期値 120 分を上限とし、実測後に短縮を検討する。
 
@@ -311,12 +318,17 @@ EXT-L3 harness を実行し、artifact/evidence 運用を確立することで�
 - 追加 `.github/workflows/virtual-endpoint-consumer-acceptance.yml`
 - 必要なら変更 `crates/synvelis-recording/tests/virtual_endpoint.rs`（Ruviform
   revision provenance を RunMetadata evidence に追加する場合のみ。oracle は変更しない）
-- 追加 `evidence/sv115/` の provisioned run 転記ファイル（実走後の通常 PR）
-- 関連 docs/test-spec/status 更新
+- 追加 `evidence/sv115/issue-115-virtual-endpoint-consumer-workflow-implementation.md`（implementation validation。provisioned run 転記は実走後の通常 PR）
+- 更新 `docs/specs/issue-115-virtual-endpoint-provisioning.md`
+- 更新 `docs/designs/issue-115-virtual-endpoint-provisioning.md`
+- 更新 `docs/test-specs/issue-115-virtual-endpoint-provisioning.md`
+- 更新 `docs/adr/issue-115-virtual-endpoint-provisioning-ownership.md`
 - primitive が lock revision に無い場合は、独立した `Cargo.lock` 依存更新 PR
 
-検証は actionlint、prek、workflow syntax/permissions の静的確認、manual run の
-artifact 確認で行う。初期 manual run では Pass を前提にしない。Fail または
+検証は actionlint、prek、workflow syntax/permissions の静的確認、canonical
+local harness lane で行う。新規 workflow file は default branch に入るまで
+manual dispatch できないため、provisioned manual run と artifact 確認は merge 後
+follow-up gate とする。初期 manual run では Pass を前提にしない。Fail または
 infrastructure error が出た場合は evidence に残し、consumer acceptance の
 達成とは別に切り分ける。
 

@@ -1,10 +1,10 @@
 ---
 id: "SPEC-sv115VirtualEndpointProvisioning"
 type: "spec"
-status: "proposed"
+status: "approved"
 title: "Issue #115 RCD-01 Virtual Endpoint Provisioning Consumer Contract"
 created: "2026-11-25"
-updated: "2026-11-25"
+updated: "2026-11-26"
 owners: ["scarecrow173"]
 relations:
   source:
@@ -19,7 +19,13 @@ relations:
         path: "docs/test-specs/issue-115-virtual-endpoint-provisioning.md"
       - type: "file"
         path: "docs/adr/issue-115-virtual-endpoint-provisioning-ownership.md"
-    modified: []
+      - type: "file"
+        path: ".github/workflows/virtual-endpoint-consumer-acceptance.yml"
+      - type: "file"
+        path: "evidence/sv115/issue-115-virtual-endpoint-consumer-workflow-implementation.md"
+    modified:
+      - type: "file"
+        path: "crates/synvelis-recording/tests/virtual_endpoint.rs"
     deleted: []
     renamed: []
     moved: []
@@ -66,14 +72,15 @@ primitive を、Synvelis が所有する manual consumer workflow から同一
 上で既存の `mise run test-recording-virtual-endpoint` を実走できるようにする。
 本 spec はその後続 implementation slice の要件正本である。
 
-この文書は 2026-11-25 の design/docs slice で作成された proposal であり、
-provisioning script・workflow・evidence はまだ実装されていない。実装済みの
-spec として扱ってはならない。既存 approved spec
+この文書は 2026-11-25 の design/docs slice で作成され、2026-11-26 の
+Slice B implementation で manual-only consumer workflow が実装された。
+workflow は default branch に入るまで `workflow_dispatch` を受け付けないため、
+初回 provisioned manual run、artifact 検収、canonical run evidence 転記は
+merge 後 follow-up gate のままである。既存 approved spec
 `docs/specs/issue-115-virtual-endpoint.md` は consumer harness の要件正本で
-あり、その Non-goals（driver install/provisioning、CI workflow/job 追加、
-cross-repo artifact download、pin 変更の非実施）は既に merged 済みの harness
-slice の履歴として維持する。本 spec はそれらを別 slice の設計対象として
-扱うものであり、既存 harness の受入済み範囲を遡って変更しない。
+あり、その Non-goals は merged 済み harness slice の履歴として維持する。
+本 spec は provisioning orchestration を別 slice の要件として扱うものであり、
+既存 harness の受入済み範囲を遡って変更しない。
 
 ## Acceptance Criteria
 
@@ -110,14 +117,18 @@ slice の履歴として維持する。本 spec はそれらを別 slice の設�
    `evidence/sv115/` へ転記する。CI から repository へ直接 commit しない。
    consumer evidence artifact と cleanup artifact は名前を分け、upload-artifact
    v4 の immutable artifact 制約と evidence 保存責務を混同しない。
-8. 後続 implementation は (i) Ruviform primitive extraction、(ii) Synvelis
-   consumer workflow の 2 slice に分割し、既存 manual probe workflow
-   `virtual-audio-driver-probe.yml` を退行させない移行戦略を取る。
+8. implementation は (i) Ruviform primitive extraction、(ii) Synvelis
+   consumer workflow の 2 slice に分割された。Slice B の workflow implementation
+   は本 spec の対象であり、provisioned run evidence の採取と転記は merge 後
+   follow-up gate とする。既存 manual probe workflow
+   `virtual-audio-driver-probe.yml` を退行させない移行戦略を維持する。
 
 ## Non-goals
 
-- 本 design/docs slice では script extraction、workflow 追加、PowerShell 変更、
-  provisioning 実行、driver install、管理者権限を要する OS 設定変更を行わない。
+- 本 implementation slice では Ruviform source、PowerShell primitive、
+  `Cargo.toml`/`Cargo.lock`、required PR gate、scheduled lane を変更しない。
+  provision/unprovision script の実行は GitHub-hosted ephemeral runner 上の
+  manual workflow に限定し、開発者 machine や persistent runner では行わない。
 - `workflow_call` reusable workflow、cross-repo artifact package download、
   signed driver binary の長期配布、production driver release を恒久 interface
   にしない。
@@ -125,11 +136,11 @@ slice の履歴として維持する。本 spec はそれらを別 slice の設�
 - external audio driver、VB-CABLE/Voicemeeter、physical device、macOS/Linux
   endpoint、GUI Option B、fault injection、Punch/Monitor/Arm 全 case、
   cross-clock multi-device の implementation design には拡張しない。
-- `evidence/sv115/` は後続 run の正規転記先を定義するだけであり、本 spec の
-  作成時点では evidence ファイルを追加しない。
-- `Cargo.toml`/`Cargo.lock`/ruviform pin・mise lane の変更は本 design/docs
-  slice の scope 外。implementation slice で lock revision の前進が必要なら、
-  workflow 実装へ混ぜず通常の依存更新として別途扱う。
+- `evidence/sv115/` への provisioned run 転記は merge 後 follow-up gate で行う。
+  本 slice の evidence は workflow implementation の static/local validation に
+  限定し、EXT-L3 Pass evidence ではない。
+- `Cargo.toml`/`Cargo.lock`/ruviform pin・mise lane の変更は本 slice の scope 外。
+  lock revision の前進が必要なら、workflow 実装へ混ぜず通常の依存更新として別途扱う。
 
 ## Acceptance coverage map
 
