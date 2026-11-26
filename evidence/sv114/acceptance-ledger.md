@@ -77,3 +77,25 @@ No row is `Pass`/`accepted` as a result of this slice
 - したがって AC6 は「runner/catalog slice の partial evidence あり、機能単位の
   L2 acceptance は依然 NotRun/pending」と読む。physical OS input、pixel、IME/DPI/
   monitor、native dock、PD-01〜07、merge後対象SHAのCI証拠は後続である。
+
+## 2026-11-26 SV-OS-01 input/pixel slice addendum
+
+本 addendum は `feat/114-svos-real-input-pixel` slice の分類を追記するものであり、
+上記 ledger と consumer catalog addendum の frozen 分類を Pass/accepted へ書き換えない。
+
+- real lane 内に SV-OS-01 `project.save` 限定の OS automation pointer injection
+  （move/down/up）と `capture_frame` pixel metadata を同じ run/case rowへ記録する
+  code pathを追加した。Worker は interactive Windows desktopで実 windowを開く
+  real laneを実行していないため、physical input/pixel実走 evidenceは NotRunのまま
+  Coordinator gateに残る。
+- capability classificationでは SV-OS-01 の `RealOsPointerOrKeyboard` と
+  `VisualCapture` のみ Required、SV-OS-02〜05の input/pixelは Deferred、
+  native dockは引き続き NotApplicableとする。headless Fake/GpuiSimulated passは
+  GUI-L2 passへ昇格させない。
+- `project.save` の harness-posted Applied receiptは production service receiptではなく、
+  `observed.service_oracle.save` は独立した mounted `NativeShell`/`SynvelisApp`
+  fixtureによる headless OS-L1 oracleである。real window経由 production wiring、
+  IME/DPI/monitor、native dock、PD-01〜07は claimしない。
+- したがって AC6 は「SV-OS-01 input/pixel verticalの実装・compile/headless証拠あり、
+  interactive実走 acceptanceは依然 NotRun/pending」と読む。Coordinator gateの exact
+  commandと確認点は `docs/test-specs/sv114-svos-real-input-pixel.md` を参照する。
