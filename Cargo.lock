@@ -7803,6 +7803,7 @@ dependencies = [
  "ruviform-media-reader",
  "ruviform-plugin-clap",
  "ruviform-plugin-core",
+ "ruviform-plugin-export",
  "ruviform-plugin-host",
  "ruviform-plugin-test-clap",
  "ruviform-plugin-test-vst3",

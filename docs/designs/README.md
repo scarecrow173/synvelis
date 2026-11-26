@@ -138,6 +138,8 @@ Directory: `docs/designs`
 | DESIGN-034VmNZvp2r11R0Phmdf0P | RCD-04 product E2E design | approved | [rcd-04-product-e2e-design.md](./rcd-04-product-e2e-design.md) |
 | DESIGN-034YpTJ7LGHVn4vKqeBjhO | RCD-04 residual closeout — AC 照合と gate 分類・簿記整合の設計 | approved | [rcd-04-residual-closeout-design.md](./rcd-04-residual-closeout-design.md) |
 | DESIGN-034VBU0PCNZXCZsyRneE3S | RCD-04 RT engine comp PCM design | approved | [rcd-04-rt-engine-comp-pcm-design.md](./rcd-04-rt-engine-comp-pcm-design.md) |
+| DESIGN-034XTaBm7KJKf8COVxX4IFGk | RCD-06 Monitor production integration design | proposed | [rcd-06-monitor-production-integration.md](./rcd-06-monitor-production-integration.md) |
+| DESIGN-sv659VerificationRedesign01 | Issue #659 Journal・Authorization 形式的検証再設計 — slice1 ledger/matrix | draft | [issue-659-verification-redesign.md](./issue-659-verification-redesign.md) |
 | DESIGN-034XJyqSj5ERrc0PHD2tDm | RCD-F02 Advanced Monitoring / Overdub / Pre-Punch Handles design | approved | [rcd-f02-monitoring-overdub-design.md](./rcd-f02-monitoring-overdub-design.md) |
 | DESIGN-HBZzINKHriX9qpGtNZ1ZFY | Render Checkpoint — Render Recipe・依存閉包・有効性・Branch/Execution/Policy 統合設計 (synvelis#289 RCP-00) | approved | [rcp-render-recipe-design.md](./rcp-render-recipe-design.md) |
 | DESIGN-jrb8PxsJgSO7YaSuwiQUcL | Recording / Take / Comping — Session・Take・Comp・Raw Writer・Monitor・Recovery・Source Native Frame の基本設計（synvelis#12） | approved | [recording-take-comping-design.md](./recording-take-comping-design.md) |
@@ -223,6 +225,7 @@ Directory: `docs/designs`
 | DESIGN-MsBu5XoYY4Ex3QB0qmDvC5 | TIM-03 session→driver/routing wiring design — session 寿命・provenance mint・transport mirror | approved | [tim-03-session-driver-wiring-design.md](./tim-03-session-driver-wiring-design.md) |
 | DESIGN-034UC0ixTsN58rRlRctgAH | TIM-04 plugin state snapshot consistency design — quality receipt/store/session/offline recipe | approved | [tim-04-plugin-state-snapshot-consistency-design.md](./tim-04-plugin-state-snapshot-consistency-design.md) |
 | DESIGN-034jU54Fg1eMsmUlQArX7T | TIM-04 Plugin State Snapshot — real ABI consumer-run design | approved | [tim-04-real-abi-state.md](./tim-04-real-abi-state.md) |
+| DESIGN-sv128Tim04L1StateFault | TIM-04 L1 state/fault 設計 | draft | [tim-04-l1-state-fault.md](./tim-04-l1-state-fault.md) |
 | DESIGN-034UyEjdALaapQRSk5hAdk | TIM-03 plugin process boundary design — capability/degraded policy oracle | approved | [tim03-process-boundary-design.md](./tim03-process-boundary-design.md) |
 | — | Synvelis × Ruviform — Time / Transport / MIDI / Automation / Plugin Integration Architecture v0.5 | — | [time-transport-midi-automation-plugin-integration-architecture.md](./time-transport-midi-automation-plugin-integration-architecture.md) |
 | DESIGN-T4E6PtTJ870Fpg4pFi3aM6 | Timeline Editing / Selection / Tool System — Snap・Gesture・Undo・Cross-View編集の共通設計（synvelis#11） | approved | [timeline-editing-design.md](./timeline-editing-design.md) |

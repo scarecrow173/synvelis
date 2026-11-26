@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
+autoexamples = false
 
 [lints]
 workspace = true
@@ -26,6 +27,9 @@ ruviform-audio-core.workspace = true
 ruviform-rt.workspace = true
 ruviform-plugin-core.workspace = true
 ruviform-plugin-host.workspace = true
+ruviform-plugin-export = { git = "https://github.com/scarecrow173/ruviform.git" }
+ruviform-plugin-vst3 = { workspace = true, features = ["host"] }
+ruviform-plugin-clap = { workspace = true, features = ["host"] }
 ruviform-audio-plugin-bridge.workspace = true
 ruviform-exec.workspace = true
 
@@ -37,7 +41,9 @@ ruviform-audio-core.workspace = true
 ruviform-io-file.workspace = true
 ruviform-io-wav.workspace = true
 ruviform-media-io.workspace = true
-ruviform-plugin-vst3 = { workspace = true, features = ["host"] }
-ruviform-plugin-clap = { workspace = true, features = ["host"] }
 ruviform-plugin-test-vst3.workspace = true
 ruviform-plugin-test-clap.workspace = true
+
+[[bin]]
+name = "tim04-l1-plugin-runner"
+path = "examples/tim04_l1_plugin_runner.rs"

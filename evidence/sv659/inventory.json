@@ -1,0 +1,594 @@
+{
+  "schema": "syn.sv659.inventory/v1",
+  "note": "正本の説明と設計判断は docs/designs/issue-659-verification-redesign.md。本JSONは同書のmatrixを機械可読に写した補助証跡である。",
+  "source_files": [
+    "crates/synvelis-gateway/tests/formal_journal/main.rs",
+    "crates/synvelis-gateway/tests/formal_journal/wire.rs",
+    "crates/synvelis-gateway/tests/formal_journal/policy.rs",
+    "crates/synvelis-recording/tests/formal_journal.rs",
+    "docs/specs/formal-verification.md",
+    "evidence/sv601/verification.md",
+    "evidence/sv601/runs.jsonl"
+  ],
+  "counts": {
+    "gateway_journal_property_tests": 14,
+    "gateway_wire_property_tests": 9,
+    "gateway_policy_property_tests": 12,
+    "recording_property_tests": 15,
+    "kani_proofs": 7,
+    "property_tests": 50,
+    "total_rows": 57
+  },
+  "rows": [
+    {
+      "id": "GJ-P01",
+      "harness_or_test": "replay_arbitrary_bytes_contract",
+      "old_contract": "任意入力で panic せず、stop closed、prefix_len≤len、CleanEnd iff 全検証、seq 0連番、prefix再replay CleanEnd",
+      "current_verification_verdict_cost": "PT 256cases・Pass・秒級〜数十秒級",
+      "needed_assurance_risk_assurance_kind": "Required・致命・PT + 代表BE",
+      "subject_boundary": "製品 `replay` のみ。file/recovery は境界外",
+      "domain_assume_bounds_exclusions_unproven": "D-GJ-RANDOM。512byte超・cap・recovery順序は除外/未証明",
+      "new_verification_plan": "K-GJ-01 を代表proofとして完走。PTとmutationは継続"
+    },
+    {
+      "id": "GJ-P02",
+      "harness_or_test": "encode_frame_layout",
+      "old_contract": "magic/version/reserved/seq/len/payload/crc32 layout",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・高・PT",
+      "subject_boundary": "製品 `encode_frame` pure layout",
+      "domain_assume_bounds_exclusions_unproven": "D-GJ-PAYLOAD。cap exactは別test。全長網羅は未証明",
+      "new_verification_plan": "PT維持。K-GJ-02とcap例証で補完"
+    },
+    {
+      "id": "GJ-P03",
+      "harness_or_test": "encode_seq0_replays_clean",
+      "old_contract": "seq0 frameはpayload同一でCleanEnd",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required・高・PT+BE(固定長)",
+      "subject_boundary": "encode/replayのみ",
+      "domain_assume_bounds_exclusions_unproven": "D-GJ-PAYLOAD。可変長・複数recordは未証明",
+      "new_verification_plan": "K-GJ-02を代表proofとして維持し、全長へ転用しない"
+    },
+    {
+      "id": "GJ-P04",
+      "harness_or_test": "encode_nonzero_seq_is_gap",
+      "old_contract": "seq≠0の単一frameはSequenceGap・records空・prefix0",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required候補・高・PT+BE",
+      "subject_boundary": "encode/replayのみ",
+      "domain_assume_bounds_exclusions_unproven": "D-GJ-PAYLOAD。複数record欠番は未証明",
+      "new_verification_plan": "K-GJ-03を低コストproofとして維持"
+    },
+    {
+      "id": "GJ-P05",
+      "harness_or_test": "encode_stream_roundtrip",
+      "old_contract": "連番streamが順序・payloadを保ちCleanEnd",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・高・PT",
+      "subject_boundary": "encode列+replay",
+      "domain_assume_bounds_exclusions_unproven": "D-GJ-PAYLOAD。9件以上・任意長は未証明",
+      "new_verification_plan": "単record/seq規律BEの接続条件としてPT維持。全stream単一proofにしない"
+    },
+    {
+      "id": "GJ-P06",
+      "harness_or_test": "single_byte_corruption_never_verifies_past_it",
+      "old_contract": "record k内1byte変異はk以降をintact化できない",
+      "current_verification_verdict_cost": "PT 256cases・Pass。CRC除去mutationはexit101で期待Fail",
+      "needed_assurance_risk_assurance_kind": "Required・致命・PT（mutation検証済）",
+      "subject_boundary": "有効stream変異→replay",
+      "domain_assume_bounds_exclusions_unproven": "D-GJ-MUT。複数byte/悪意的再構成/大規模streamは未証明",
+      "new_verification_plan": "PT+mutationをRequired維持。固定小stream変異BEの費用を次slice評価"
+    },
+    {
+      "id": "GJ-P07",
+      "harness_or_test": "truncation_is_torn_tail_or_boundary_clean",
+      "old_contract": "record途中切断はTornTail、境界切断はCleanEnd、完全frameのみ検証",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・高・PT",
+      "subject_boundary": "prefix切断",
+      "domain_assume_bounds_exclusions_unproven": "D-GJ-TRUNC。FS喪失モデル合成は未証明",
+      "new_verification_plan": "PT維持。Recovery orderingへ接続条件を引き継ぐ"
+    },
+    {
+      "id": "GJ-P08",
+      "harness_or_test": "trailing_garbage_stops_at_boundary",
+      "old_contract": "有効stream後の非magic tailはframe境界で停止",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・中・PT",
+      "subject_boundary": "replay末尾分類",
+      "domain_assume_bounds_exclusions_unproven": "D-GJ-TAIL。magic一致後の複合破損は未証明",
+      "new_verification_plan": "PT維持。K-GJ-01の任意streamBEで補完"
+    },
+    {
+      "id": "GJ-P09",
+      "harness_or_test": "journal_payload_serde_roundtrip",
+      "old_contract": "全6variantがserde_json無損失往復",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・高・PT",
+      "subject_boundary": "serde boundaryのみ",
+      "domain_assume_bounds_exclusions_unproven": "D-GJ-SERDE。巨大/深いJSONとserde内部は未証明",
+      "new_verification_plan": "PT維持。Kani対象外判断を維持"
+    },
+    {
+      "id": "GJ-P10",
+      "harness_or_test": "journal_payload_rejects_unknown_fields",
+      "old_contract": "inner recordの未知fieldを拒否",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・高・PT",
+      "subject_boundary": "serde boundary",
+      "domain_assume_bounds_exclusions_unproven": "D-GJ-SERDE。leaf variantは注入不可。serde内部は未証明",
+      "new_verification_plan": "PT維持。variant追加時にgenerator同期"
+    },
+    {
+      "id": "GJ-P11",
+      "harness_or_test": "u128_tagged_id_serde_contract",
+      "old_contract": "`<kind>-<32 lowercase hex>`往復、誤tag/malformed hex拒否",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・中・PT",
+      "subject_boundary": "id serde",
+      "domain_assume_bounds_exclusions_unproven": "任意u128。対象は3種id。他id種は未証明",
+      "new_verification_plan": "PT維持。id種追加時に対象追加"
+    },
+    {
+      "id": "GJ-P12",
+      "harness_or_test": "encode_frame_over_cap_refused",
+      "old_contract": "payload_len>MAX_PAYLOADでNone",
+      "current_verification_verdict_cost": "PT 4cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Example/PT十分・高・Example+PT",
+      "subject_boundary": "payload長gate",
+      "domain_assume_bounds_exclusions_unproven": "MAX+1..+64。cap超全長は未証明",
+      "new_verification_plan": "具体境界を維持。BE対象にしない"
+    },
+    {
+      "id": "GJ-P13",
+      "harness_or_test": "encode_frame_at_cap_roundtrips",
+      "old_contract": "payload_len=MAX_PAYLOADちょうどはroundtrip成功",
+      "current_verification_verdict_cost": "固定例1case・Pass",
+      "needed_assurance_risk_assurance_kind": "Example十分・高・Example",
+      "subject_boundary": "exact boundary",
+      "domain_assume_bounds_exclusions_unproven": "固定16MiB。cap超は別test",
+      "new_verification_plan": "exact boundaryを維持"
+    },
+    {
+      "id": "GJ-P14",
+      "harness_or_test": "saved_record_rejects_unknown_field",
+      "old_contract": "SavedRecordの未知fieldを拒否し未注入はparse成功",
+      "current_verification_verdict_cost": "固定例1case・Pass",
+      "needed_assurance_risk_assurance_kind": "Example十分・中・Example",
+      "subject_boundary": "`JournalPayload::Saved` serde",
+      "domain_assume_bounds_exclusions_unproven": "固定record。他variantはGJ-P09/P10",
+      "new_verification_plan": "pin維持"
+    },
+    {
+      "id": "GW-P01",
+      "harness_or_test": "documented_forbidden_lists_stay_in_product",
+      "old_contract": "documented forbidden keyは製品constから削られない",
+      "current_verification_verdict_cost": "Just(())実質1case・Pass。token削除mutationはexit101で期待Fail",
+      "needed_assurance_risk_assurance_kind": "Required・致命・PT（mutation検証済）",
+      "subject_boundary": "wire scan表。serde内部は境界外",
+      "domain_assume_bounds_exclusions_unproven": "D-WIRE-FORBIDDEN。製品側追加は許容。未記載keyの意味論は未証明",
+      "new_verification_plan": "test-local契約を維持。pure key scan分離後に有限key集合BE化"
+    },
+    {
+      "id": "GW-P02",
+      "harness_or_test": "parse_never_panics_and_errors_are_closed",
+      "old_contract": "任意JSONでpanicせずErrは3分類に閉じる",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Deferred BE・致命・PT必須",
+      "subject_boundary": "`serde_json::Value`→`WireRequest`解釈",
+      "domain_assume_bounds_exclusions_unproven": "D-WIRE-JSON。深い/巨大JSON、duplicate key、serde内部は未証明",
+      "new_verification_plan": "key scan・形状検査・serde結合を分離し、pure部分だけBE化"
+    },
+    {
+      "id": "GW-P03",
+      "harness_or_test": "accepted_values_satisfy_allowlist_model",
+      "old_contract": "受理入力は独立allow-list modelを満たす",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required・高・PT+independent model",
+      "subject_boundary": "near-valid requestとtest-local model",
+      "domain_assume_bounds_exclusions_unproven": "D-WIRE-NEAR。逆方向の全JSON一致は未証明",
+      "new_verification_plan": "独立modelを維持し、pure structural checkerへ分解してBE候補化"
+    },
+    {
+      "id": "GW-P04",
+      "harness_or_test": "authority_fields_rejected",
+      "old_contract": "top-level authority keyはSelfDeclaredAuthorityでfield echo",
+      "current_verification_verdict_cost": "PT 256cases・Pass。token削除mutationは期待Fail",
+      "needed_assurance_risk_assurance_kind": "Required候補・致命・PT（mutation検証済）",
+      "subject_boundary": "top-level scan",
+      "domain_assume_bounds_exclusions_unproven": "13key×任意JSON値。nested位置とwire外transportは未証明",
+      "new_verification_plan": "pure key scan抽出後、有限key×代表値BEを次slice評価"
+    },
+    {
+      "id": "GW-P05",
+      "harness_or_test": "implicit_target_fields_rejected",
+      "old_contract": "top-level implicit-target keyはImplicitTargetRejectedでfield echo",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required候補・高・PT",
+      "subject_boundary": "top-level scan",
+      "domain_assume_bounds_exclusions_unproven": "5key×任意JSON値。nested位置は未証明",
+      "new_verification_plan": "GW-P04と同じpure scan proofへ統合"
+    },
+    {
+      "id": "GW-P06",
+      "harness_or_test": "authority_precedes_implicit_target",
+      "old_contract": "両方存在時はauthority拒否が優先",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required候補・高・PT",
+      "subject_boundary": "scan順序",
+      "domain_assume_bounds_exclusions_unproven": "authority13×implicit5。serdeエラーとの全優先順位は未証明",
+      "new_verification_plan": "scan順序をpure coreで有限BE候補化"
+    },
+    {
+      "id": "GW-P07",
+      "harness_or_test": "forbidden_keys_nested_under_args_not_rejected",
+      "old_contract": "args配下の同名keyはtop-level拒否にしない",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・中・PT",
+      "subject_boundary": "top-level限定契約",
+      "domain_assume_bounds_exclusions_unproven": "D-WIRE-NEAR+nested注入。args schema意味論は未証明",
+      "new_verification_plan": "PT維持。top-level scan BEの境界外条件として記録"
+    },
+    {
+      "id": "GW-P08",
+      "harness_or_test": "unknown_nested_keys_are_malformed",
+      "old_contract": "capability/schema等の未知nested keyはMalformed",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Deferred BE・高・PT必須",
+      "subject_boundary": "nested allow-list scan+serde",
+      "domain_assume_bounds_exclusions_unproven": "4箇所重点。target/consistency全経路は未証明",
+      "new_verification_plan": "nested allow-listをpure structural checkerへ分離後にBE再評価"
+    },
+    {
+      "id": "GW-P09",
+      "harness_or_test": "missing_required_keys_are_malformed",
+      "old_contract": "required key欠落はMalformed",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・高・PT",
+      "subject_boundary": "serde shape validation",
+      "domain_assume_bounds_exclusions_unproven": "required keys有限集合。全欠落組合せは未証明",
+      "new_verification_plan": "PT維持。pure parse分離後に有限集合BEを再評価"
+    },
+    {
+      "id": "GP-P01",
+      "harness_or_test": "unbound_agent_gets_uniform_no_auth",
+      "old_contract": "authority chain失敗は全8stageで一律 `no applicable authorization`",
+      "current_verification_verdict_cost": "PT 64cases・Pass。full rig/caseで高め",
+      "needed_assurance_risk_assurance_kind": "Required・致命・PT→BE候補",
+      "subject_boundary": "`authorize_agent` chain。store/oracle/clockは注入境界",
+      "domain_assume_bounds_exclusions_unproven": "D-POL-SPINE+UNBOUND。durable store・並行revoke・全id/string空間は未証明",
+      "new_verification_plan": "pure判定coreとsnapshotを分離し、stage×defect有限行列をBE化"
+    },
+    {
+      "id": "GP-P02",
+      "harness_or_test": "human_permitted_at_every_stage",
+      "old_contract": "descriptor一致のtrusted humanは全stage/effects/commitでPermit・budget非消費",
+      "current_verification_verdict_cost": "PT 64cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required・高・PT→BE候補",
+      "subject_boundary": "human短絡とdescriptor gate",
+      "domain_assume_bounds_exclusions_unproven": "trusted callerはAdapterSeal前提。caller attestation自体は未証明",
+      "new_verification_plan": "descriptor一致条件付き有限stage proofへ分解"
+    },
+    {
+      "id": "GP-P03",
+      "harness_or_test": "descriptor_mismatch_denies_first",
+      "old_contract": "descriptor mismatchはhuman短絡より先にdeny",
+      "current_verification_verdict_cost": "PT 64cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required・致命・PT→BE候補",
+      "subject_boundary": "`evaluate_with`先頭gate",
+      "domain_assume_bounds_exclusions_unproven": "id mismatch/version driftの2形態。registry解決は未証明",
+      "new_verification_plan": "有限id/version不一致モデルでBE化"
+    },
+    {
+      "id": "GP-P04",
+      "harness_or_test": "delegated_apply_commit_spend_is_monotone",
+      "old_contract": "DelegatedApply Commitは1permit=1unit・枯渇deny・store spend整合",
+      "current_verification_verdict_cost": "PT 64cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required・致命・PT→BE/Model候補",
+      "subject_boundary": "budget状態とcommit評価。storeはatomic test double",
+      "domain_assume_bounds_exclusions_unproven": "D-POL-BUDGET。crash・並行commit・無限budgetは未証明",
+      "new_verification_plan": "小さいbudget state machineをKani化し、revoke/commit並行性はTLA+判定へ"
+    },
+    {
+      "id": "GP-P05",
+      "harness_or_test": "preflight_and_deny_never_spend",
+      "old_contract": "非Commit/effects/Denyはbudgetを消費しない",
+      "current_verification_verdict_cost": "PT 64cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required・致命・PT",
+      "subject_boundary": "stage×entrypoint消費規則",
+      "domain_assume_bounds_exclusions_unproven": "D-POL-BUDGET。commit fence原子性・例外中断は未証明",
+      "new_verification_plan": "GP-P04と同じstate machine proofへ統合"
+    },
+    {
+      "id": "GP-P06",
+      "harness_or_test": "commit_entry_points_agree",
+      "old_contract": "`evaluate_commit`と`decide(Commit)`は同じdecision/spend",
+      "current_verification_verdict_cost": "PT 64cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・高・PT",
+      "subject_boundary": "2つの公開entrypoint",
+      "domain_assume_bounds_exclusions_unproven": "identical twin rig。並行store変更は未証明",
+      "new_verification_plan": "公開API接続条件としてPT維持"
+    },
+    {
+      "id": "GP-P07",
+      "harness_or_test": "decisions_stay_in_closed_set",
+      "old_contract": "decisionは閉集合、deny reasonは契約13集合",
+      "current_verification_verdict_cost": "PT 64cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・高・PT",
+      "subject_boundary": "decision出力",
+      "domain_assume_bounds_exclusions_unproven": "DENY_REASONS literal pin。新reason審査は運用外",
+      "new_verification_plan": "literal pin維持。reason追加時は契約変更として同期"
+    },
+    {
+      "id": "GP-P08",
+      "harness_or_test": "unresolved_or_uncovered_target_denies",
+      "old_contract": "unresolved/scope外targetは全stageで`target outside grant scope`",
+      "current_verification_verdict_cost": "PT 64cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required候補・致命・PT",
+      "subject_boundary": "target coverage+oracle resolution",
+      "domain_assume_bounds_exclusions_unproven": "Exact scope中心。Dynamic/Snapshot/relatedは未証明",
+      "new_verification_plan": "Exact membershipをpure scope algebraへ分離しBE。Dynamic関連はPT/別proof"
+    },
+    {
+      "id": "GP-P09",
+      "harness_or_test": "create_target_defects_deny",
+      "old_contract": "create_within欠如/親未解決/親不許可/kind不許可はcreate拒否",
+      "current_verification_verdict_cost": "PT 64cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Deferred BE・高・PT必須",
+      "subject_boundary": "create axis+owner constraint",
+      "domain_assume_bounds_exclusions_unproven": "4 defect構造化。placement全形態・実project作成後状態は未証明",
+      "new_verification_plan": "pure判定化後にBE再評価。現行はPT必須"
+    },
+    {
+      "id": "GP-P10",
+      "harness_or_test": "effects_recheck_actual_resources_and_classes",
+      "old_contract": "unsupported/disclosure/transfer/uncovered readは対応reasonでdeny",
+      "current_verification_verdict_cost": "PT 64cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required候補・致命・PT",
+      "subject_boundary": "`ScopedEffects`照合",
+      "domain_assume_bounds_exclusions_unproven": "4 defect。covered/stray source固定軸。effect導出と全DataAccess組合せは未証明",
+      "new_verification_plan": "effect照合をpure coreへ分離し、resource/data-access algebraの代表BE候補"
+    },
+    {
+      "id": "GP-P11",
+      "harness_or_test": "coverage_stable_under_repeat_and_dedup",
+      "old_contract": "重複resourceと反復評価でdecisionが変わらない",
+      "current_verification_verdict_cost": "PT 64cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Deferred BE・中・PT必須",
+      "subject_boundary": "scope counter/dedup",
+      "domain_assume_bounds_exclusions_unproven": "reads重複+writes、非commit stage。dynamic max_members全域は未証明",
+      "new_verification_plan": "集合へ正規化できれば代数的proof候補。現行はPT"
+    },
+    {
+      "id": "GP-P12",
+      "harness_or_test": "grant_dimension_denies_stay_in_contract",
+      "old_contract": "revoked/expired/superseded/capability/permissions/data_accessは対応reasonでdeny",
+      "current_verification_verdict_cost": "PT 64cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required・致命・PT→BE候補",
+      "subject_boundary": "grant dimension gate",
+      "domain_assume_bounds_exclusions_unproven": "6 defect。clock/epochは決定的注入。連続時刻・並行更新は未証明",
+      "new_verification_plan": "有限次元×境界前後clockでBE。clock連続域は単調性Propertyへ分離"
+    },
+    {
+      "id": "RJ-P01",
+      "harness_or_test": "replay_journal_arbitrary_bytes_contract",
+      "old_contract": "任意入力でpanicせず、prefix/seq/last_seq/CleanEnd/prefix再replay契約",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required・致命・PT+代表BE",
+      "subject_boundary": "製品`replay_journal`のみ",
+      "domain_assume_bounds_exclusions_unproven": "D-RJ-RANDOM。512byte超・cap・FS統合は未証明",
+      "new_verification_plan": "K-RJ-01を代表proofとして完走。PT継続"
+    },
+    {
+      "id": "RJ-P02",
+      "harness_or_test": "encode_record_layout",
+      "old_contract": "magic/version/kind∈{1,2,3}/seq/len/payload/crc32 layout",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・高・PT",
+      "subject_boundary": "`encode_record` pure layout",
+      "domain_assume_bounds_exclusions_unproven": "D-RJ-PAYLOAD。span count飽和・cap exactは別test",
+      "new_verification_plan": "PT維持。K-RJ-02とcap例証で補完"
+    },
+    {
+      "id": "RJ-P03",
+      "harness_or_test": "encode_record_seq0_replays",
+      "old_contract": "seq0 recordは全3kindで同一payloadに復元",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required・高・PT+BE(固定長kind)",
+      "subject_boundary": "encode/replayのみ",
+      "domain_assume_bounds_exclusions_unproven": "D-RJ-PAYLOAD。Chunk symbolic span count/Vec allocationは除外・未証明",
+      "new_verification_plan": "固定長2kind BEを代表proof。ChunkはPT+cap境界+必要時harness分割"
+    },
+    {
+      "id": "RJ-P04",
+      "harness_or_test": "encode_record_nonzero_seq_is_gap",
+      "old_contract": "seq≠0の単一recordはSequenceGap・last_seq None",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required候補・高・PT",
+      "subject_boundary": "encode/replay",
+      "domain_assume_bounds_exclusions_unproven": "seq任意非零。複数record欠番・録音側Kaniは未証明",
+      "new_verification_plan": "gateway側同型proofの実測を使い、録音側小harness追加を次slice評価"
+    },
+    {
+      "id": "RJ-P05",
+      "harness_or_test": "appender_stream_roundtrip_and_seq_discipline",
+      "old_contract": "JournalAppenderが連番採番し連結streamが順序・payloadを保つ",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・高・PT",
+      "subject_boundary": "Appender+encode/replay",
+      "domain_assume_bounds_exclusions_unproven": "D-RJ-STREAM。9件以上・resume接続は未証明",
+      "new_verification_plan": "単record/seq規律の接続条件としてPT維持"
+    },
+    {
+      "id": "RJ-P06",
+      "harness_or_test": "resumed_appender_frames_gap_as_fresh_stream",
+      "old_contract": "resumed(n)はnから採番するがfresh replayではSequenceGap",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・高・PT（契約pin）",
+      "subject_boundary": "resumed appenderとfresh replay",
+      "domain_assume_bounds_exclusions_unproven": "start任意非零、record1..3。正しいresume手続きは未証明",
+      "new_verification_plan": "現行契約pinを維持し、Recoveryモデルの前提にする"
+    },
+    {
+      "id": "RJ-P07",
+      "harness_or_test": "single_byte_corruption_never_verifies_past_it",
+      "old_contract": "record k内1byte変異はk以降をintact化できない",
+      "current_verification_verdict_cost": "PT 256cases・Pass。seq系mutation証跡あり",
+      "needed_assurance_risk_assurance_kind": "Required・致命・PT（mutation検証済）",
+      "subject_boundary": "有効stream変異→replay",
+      "domain_assume_bounds_exclusions_unproven": "D-RJ-MUT。複数byte/媒体相関破損は未証明",
+      "new_verification_plan": "PT+mutation維持。小stream変異proofを費用評価"
+    },
+    {
+      "id": "RJ-P08",
+      "harness_or_test": "truncation_is_torn_tail_or_boundary_clean",
+      "old_contract": "record途中切断はTornTail、境界切断はCleanEnd",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・高・PT",
+      "subject_boundary": "prefix切断",
+      "domain_assume_bounds_exclusions_unproven": "D-RJ-TRUNC。FS喪失/power-loss順序は未証明",
+      "new_verification_plan": "PT維持。Recovery orderingへ接続"
+    },
+    {
+      "id": "RJ-P09",
+      "harness_or_test": "trailing_garbage_stops_at_boundary",
+      "old_contract": "有効stream後の非magic tailはrecord境界で停止",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・中・PT",
+      "subject_boundary": "replay末尾分類",
+      "domain_assume_bounds_exclusions_unproven": "D-RJ-TAIL。magic一致後の複合破損は未証明",
+      "new_verification_plan": "PT維持。K-RJ-01で補完"
+    },
+    {
+      "id": "RJ-P10",
+      "harness_or_test": "crc32_incremental_matches_oneshot",
+      "old_contract": "incremental Crc32とone-shot crc32が任意分割で一致",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required・高・PT+代表BE",
+      "subject_boundary": "crc32/Crc32のみ",
+      "domain_assume_bounds_exclusions_unproven": "D-RJ-CRC。256byte超・多数分割BE・暗号学的耐性は未証明/契約外",
+      "new_verification_plan": "K-RJ-03を代表proofとして完走。既知vectorと併用"
+    },
+    {
+      "id": "RJ-P11",
+      "harness_or_test": "digest_fold_chain_is_deterministic",
+      "old_contract": "raw foldとIntegrityDigest::foldが一致・hex固定16 lowercase",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "PT十分・中・PT",
+      "subject_boundary": "digest fold/newtype/hex",
+      "domain_assume_bounds_exclusions_unproven": "values≤16。衝突耐性は契約外。全長chain証明は未証明",
+      "new_verification_plan": "PT維持。必要保証は決定性と用途分離であることを明記"
+    },
+    {
+      "id": "RJ-P12",
+      "harness_or_test": "session_transition_agrees_with_require",
+      "old_contract": "legal/requireが4×4で一致し合法は3 forward edgeのみ",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required・高・PT+全域BE",
+      "subject_boundary": "session state machine",
+      "domain_assume_bounds_exclusions_unproven": "D-SESSION。上位操作列/crash/recoveryは未証明",
+      "new_verification_plan": "K-RJ-04をRequired proofとして完走。TLA+対象は上位順序に限定"
+    },
+    {
+      "id": "RJ-P13",
+      "harness_or_test": "session_acceptance_gates_are_total",
+      "old_contract": "registration iff Open、take verification iff Open/Closed",
+      "current_verification_verdict_cost": "PT 256cases・Pass",
+      "needed_assurance_risk_assurance_kind": "Required・高・PT+全域BE",
+      "subject_boundary": "session state machine",
+      "domain_assume_bounds_exclusions_unproven": "D-SESSION。操作受付の文脈・副作用は未証明",
+      "new_verification_plan": "K-RJ-04に統合。上位workflowは別Property"
+    },
+    {
+      "id": "RJ-P14",
+      "harness_or_test": "chunk_record_over_cap_refused",
+      "old_contract": "payloadがMAX_PAYLOAD超ならencode_recordはNone",
+      "current_verification_verdict_cost": "固定例1case・Pass",
+      "needed_assurance_risk_assurance_kind": "Example十分・高・Example",
+      "subject_boundary": "Chunk payload長gate",
+      "domain_assume_bounds_exclusions_unproven": "30000 spans。u16=65535付近全境界は未証明",
+      "new_verification_plan": "具体例を維持し、span count制約を明記"
+    },
+    {
+      "id": "RJ-P15",
+      "harness_or_test": "chunk_record_at_cap_boundary",
+      "old_contract": "21844 spansはin-cap roundtrip、21845はover-cap拒否",
+      "current_verification_verdict_cost": "固定例2case・Pass",
+      "needed_assurance_risk_assurance_kind": "Example十分・高・Example",
+      "subject_boundary": "Chunk exact boundary",
+      "domain_assume_bounds_exclusions_unproven": "58+48n byte計算の2点。中間全nは未証明",
+      "new_verification_plan": "具体境界を維持。BEへ拡大しない"
+    },
+    {
+      "id": "K-GJ-01",
+      "harness_or_test": "replay_contract_bounded",
+      "old_contract": "≤44byte任意streamでGJ-P01相当の分類契約",
+      "current_verification_verdict_cost": "sv601ではsolver起動後OOM/VM crash・NotRun。cost不明",
+      "needed_assurance_risk_assurance_kind": "Required・致命・Bounded Exhaustive(未完了)",
+      "subject_boundary": "製品gateway replay",
+      "domain_assume_bounds_exclusions_unproven": "K-STREAM44。44byte超・cap・file/recoveryは未証明",
+      "new_verification_plan": "代表proof。runner分割/選択実行/KANI_JOBS=1または2で再測定し、proof boundaryを縮めずに原因分類"
+    },
+    {
+      "id": "K-GJ-02",
+      "harness_or_test": "encode_replay_roundtrip_bounded",
+      "old_contract": "固定12byte payloadのseq0 roundtrip",
+      "current_verification_verdict_cost": "Pass・0/642 failed・45.5s",
+      "needed_assurance_risk_assurance_kind": "Required・高・Bounded Exhaustive",
+      "subject_boundary": "gateway encode/replay",
+      "domain_assume_bounds_exclusions_unproven": "K-FIXED12。可変長・複数recordは未証明",
+      "new_verification_plan": "代表proofとして維持。passを全長証明へ転用しない"
+    },
+    {
+      "id": "K-GJ-03",
+      "harness_or_test": "nonzero_seq_is_gap_bounded",
+      "old_contract": "固定8byte payload・任意seq≠0がSequenceGap",
+      "current_verification_verdict_cost": "Pass・0/610 failed・31.4s",
+      "needed_assurance_risk_assurance_kind": "Required候補・高・Bounded Exhaustive",
+      "subject_boundary": "gateway encode/replay",
+      "domain_assume_bounds_exclusions_unproven": "K-FIXED8-NONZERO。複数record欠番は未証明",
+      "new_verification_plan": "維持。録音側同型proof追加は次sliceで費用比較"
+    },
+    {
+      "id": "K-RJ-01",
+      "harness_or_test": "replay_journal_contract_bounded",
+      "old_contract": "≤44byte任意streamでRJ-P01相当の分類契約",
+      "current_verification_verdict_cost": "solver起動後OOM/VM crash・NotRun。cost不明",
+      "needed_assurance_risk_assurance_kind": "Required・致命・Bounded Exhaustive(未完了)",
+      "subject_boundary": "製品recording replay",
+      "domain_assume_bounds_exclusions_unproven": "K-STREAM44。44<48でChunk symbolic allocation経路を構造除外。長大stream/cap/FSは未証明",
+      "new_verification_plan": "最優先代表proof。選択実行と資源分類で再測定"
+    },
+    {
+      "id": "K-RJ-02",
+      "harness_or_test": "encode_replay_roundtrip_bounded",
+      "old_contract": "Checkpoint/Finalizeの全field symbolic・seq0 roundtrip",
+      "current_verification_verdict_cost": "solver起動後OOM/VM crash・NotRun。cost不明",
+      "needed_assurance_risk_assurance_kind": "Required・高・Bounded Exhaustive(未完了)",
+      "subject_boundary": "製品recording encode/replay",
+      "domain_assume_bounds_exclusions_unproven": "K-FIXED-KINDS。Chunk/Vec<JournalSpan>/可変長は未証明",
+      "new_verification_plan": "代表proof。Chunkは別harnessまたはPTとして分離"
+    },
+    {
+      "id": "K-RJ-03",
+      "harness_or_test": "crc32_split_equivalence_bounded",
+      "old_contract": "固定16byte・任意split≤16でincremental=one-shot",
+      "current_verification_verdict_cost": "solver起動後OOM/VM crash・NotRun。cost不明",
+      "needed_assurance_risk_assurance_kind": "Required・高・Bounded Exhaustive(未完了)",
+      "subject_boundary": "製品crc32/Crc32",
+      "domain_assume_bounds_exclusions_unproven": "K-CRC16。16byte超・多数分割・任意長数学証明は未証明",
+      "new_verification_plan": "最小資源で再測定。boundを変える場合は保証差を記録"
+    },
+    {
+      "id": "K-RJ-04",
+      "harness_or_test": "session_transitions_exhaustive",
+      "old_contract": "4×4遷移とacceptance gatesを全網羅",
+      "current_verification_verdict_cost": "solver起動後OOM/VM crash・NotRun。cost不明",
+      "needed_assurance_risk_assurance_kind": "Required・高・Bounded Exhaustive(有限全域・未完了)",
+      "subject_boundary": "製品session SM",
+      "domain_assume_bounds_exclusions_unproven": "K-SESSION4。上位操作列/crash/recoveryは未証明",
+      "new_verification_plan": "最優先の軽量代表proof。選択実行で最初に完走確認"
+    }
+  ]
+}
