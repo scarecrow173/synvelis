@@ -24,7 +24,7 @@ relations:
 ## 完了処理
 
 - [x] 全必須 verification lane を実行し、結果を `evidence/sv128/tim04-permission-verification.md` に記録した。
-- [ ] push、PR 作成。
+- [x] push、PR 作成（https://github.com/scarecrow173/synvelis/pull/676）。
 
 ## 後続 slice / gate
 
