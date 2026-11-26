@@ -21,6 +21,7 @@
 #[allow(dead_code)]
 mod common;
 
+use std::path::{Path, PathBuf};
 use std::process;
 
 use ruviform_audio_test::clock::{JitterSpec, VirtualClockConfig};
@@ -91,8 +92,31 @@ fn repo_sha() -> String {
     }
 }
 
+fn github_run_evidence() -> Option<String> {
+    let repo = std::env::var("GITHUB_REPOSITORY").ok()?;
+    let run_id = std::env::var("GITHUB_RUN_ID").ok()?;
+    let attempt = std::env::var("GITHUB_RUN_ATTEMPT").ok()?;
+    if repo.is_empty()
+        || !run_id.chars().all(|c| c.is_ascii_digit())
+        || !attempt.chars().all(|c| c.is_ascii_digit())
+    {
+        return None;
+    }
+    Some(format!("github-run:{repo}:{run_id}:{attempt}"))
+}
+
+fn revision_evidence(env_key: &str, label: &str) -> Option<String> {
+    let value = std::env::var(env_key).ok()?;
+    let revision = value.trim();
+    if revision.len() == 40 && revision.chars().all(|c| c.is_ascii_hexdigit()) {
+        Some(format!("{label}:{revision}"))
+    } else {
+        None
+    }
+}
+
 fn endpoint_record_at(case_id: &str, oracle: &str, sample_rate: u32) -> RunMetadata {
-    RunMetadata::for_environment(
+    let mut meta = RunMetadata::for_environment(
         case_id,
         CaseRequirement::Required,
         VerificationLevel::ExtL3,
@@ -101,8 +125,19 @@ fn endpoint_record_at(case_id: &str, oracle: &str, sample_rate: u32) -> RunMetad
         run_parameters(sample_rate),
         repo_name(),
         repo_sha(),
-    )
-    .with_platform(std::env::consts::OS, std::env::consts::ARCH)
+    );
+    if let Some(run) = github_run_evidence() {
+        meta = meta.with_evidence(run);
+    }
+    for (env_key, label) in [
+        ("SYNVELIS_RUVIFORM_LOCK_REV", "ruviform-lock-rev"),
+        ("SYNVELIS_RUVIFORM_CHECKOUT_REV", "ruviform-checkout-rev"),
+    ] {
+        if let Some(revision) = revision_evidence(env_key, label) {
+            meta = meta.with_evidence(revision);
+        }
+    }
+    meta.with_platform(std::env::consts::OS, std::env::consts::ARCH)
 }
 
 fn endpoint_record(case_id: &str, oracle: &str) -> RunMetadata {
@@ -171,23 +206,46 @@ fn classify_pair_selection(pair_count: usize) -> PairSelection {
     }
 }
 
+fn metadata_file_name(case_id: &str) -> String {
+    format!(
+        "run-metadata-{}.json",
+        case_id
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect::<String>()
+    )
+}
+
+fn metadata_output_dir_from(
+    run_metadata_dir: Option<&str>,
+    cargo_target_tmpdir: Option<&str>,
+) -> Option<PathBuf> {
+    run_metadata_dir
+        .filter(|dir| !dir.trim().is_empty())
+        .or_else(|| cargo_target_tmpdir.filter(|dir| !dir.trim().is_empty()))
+        .map(PathBuf::from)
+}
+
+fn write_run_metadata_file(meta: &RunMetadata, dir: &Path) -> std::io::Result<PathBuf> {
+    std::fs::create_dir_all(dir)?;
+    let path = dir.join(metadata_file_name(&meta.case_id));
+    meta.save_json(&path)?;
+    Ok(path)
+}
+
 #[cfg(feature = "real-device")]
 fn emit_record(meta: &RunMetadata) {
     let json = meta
         .to_json()
         .unwrap_or_else(|error| format!("{{\"serialize_error\":\"{error}\"}}"));
     eprintln!("run_metadata: {json}");
-    if let Ok(dir) = std::env::var("CARGO_TARGET_TMPDIR") {
-        let file = format!(
-            "run-metadata-{}.json",
-            meta.case_id
-                .chars()
-                .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-                .collect::<String>()
-        );
-        let path = std::path::Path::new(&dir).join(file);
-        match meta.save_json(&path) {
-            Ok(()) => eprintln!("run_metadata_path: {}", path.display()),
+    let run_metadata_dir = std::env::var("SYNVELIS_RUN_METADATA_DIR").ok();
+    let cargo_target_tmpdir = std::env::var("CARGO_TARGET_TMPDIR").ok();
+    if let Some(dir) =
+        metadata_output_dir_from(run_metadata_dir.as_deref(), cargo_target_tmpdir.as_deref())
+    {
+        match write_run_metadata_file(meta, &dir) {
+            Ok(path) => eprintln!("run_metadata_path: {}", path.display()),
             Err(error) => eprintln!("run_metadata_path_error: {error}"),
         }
     }
@@ -246,6 +304,43 @@ fn pair_selection_distinguishes_not_provisioned_from_candidates() {
     assert_eq!(classify_pair_selection(0), PairSelection::NotProvisioned);
     assert_eq!(classify_pair_selection(1), PairSelection::Candidates(1));
     assert_eq!(classify_pair_selection(3), PairSelection::Candidates(3));
+}
+
+#[test]
+fn metadata_output_dir_prefers_run_metadata_dir() {
+    let selected =
+        metadata_output_dir_from(Some("D:/runs/sv115/metadata"), Some("D:/cargo-target/tmp"));
+    assert_eq!(
+        selected,
+        Some(std::path::PathBuf::from("D:/runs/sv115/metadata"))
+    );
+    assert_eq!(
+        metadata_output_dir_from(None, Some("D:/cargo-target/tmp")),
+        Some(std::path::PathBuf::from("D:/cargo-target/tmp"))
+    );
+    assert_eq!(metadata_output_dir_from(Some(" "), None), None);
+}
+
+#[test]
+fn run_metadata_file_writes_one_machine_readable_json() {
+    let dir = common::tmp_dir("virtual-endpoint-metadata-output");
+    let meta = endpoint_record(CASE_ID, ORACLE_ID)
+        .with_expected("metadata file round-trip")
+        .with_result(CaseResult::NotRun, "constructed only — never executed")
+        .with_evidence("crates/synvelis-recording/tests/virtual_endpoint.rs");
+    let path = write_run_metadata_file(&meta, &dir).expect("write metadata");
+    assert_eq!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some("run-metadata-sv115-rcd01-virtual-endpoint-render-capture-recorder.json")
+    );
+    let entries = std::fs::read_dir(&dir)
+        .expect("metadata dir")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("metadata entries");
+    assert_eq!(entries.len(), 1, "exactly one metadata file");
+    let loaded = RunMetadata::load_json(&path).expect("metadata round-trip");
+    assert_eq!(loaded, meta);
+    std::fs::remove_dir_all(&dir).expect("cleanup metadata dir");
 }
 
 #[cfg(feature = "real-device")]
