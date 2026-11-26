@@ -1,0 +1,604 @@
+name: virtual-endpoint-consumer-acceptance
+
+# synvelis#115 Slice B: manual-only virtual endpoint consumer acceptance lane.
+# endpoint は runner-local OS state なので provision/test/cleanup を同一 job に閉じ込める。
+# job conclusion は acceptance verdict ではない。terminal RunMetadata を最終 step で評価する。
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: "Expected Synvelis SHA for this acceptance run; must match the dispatch ref and checkout HEAD"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MISE_ENABLE_TOOLS: rust,git-lfs
+  MISE_ENV: ci
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+  GIT_LFS_SKIP_SMUDGE: "1"
+
+jobs:
+  consumer-acceptance:
+    name: virtual endpoint consumer acceptance
+    runs-on: windows-2025
+    timeout-minutes: 120
+    steps:
+      - name: Configure runner-local paths
+        shell: pwsh
+        run: |
+          $consumer = Join-Path $env:RUNNER_TEMP 'sv115-consumer-evidence'
+          $cleanup = Join-Path $env:RUNNER_TEMP 'sv115-cleanup-evidence'
+          $workspace = Join-Path $env:RUNNER_TEMP 'sv115-provision-workspace'
+          $ruviform = Join-Path $env:RUNNER_TEMP 'ruviform-source'
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "SV115_CONSUMER_EVIDENCE_DIR=$consumer"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "SV115_CLEANUP_EVIDENCE_DIR=$cleanup"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "SV115_PROVISION_WORKSPACE=$workspace"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "SV115_RUVIFORM_SOURCE=$ruviform"
+          Add-Content -LiteralPath $env:GITHUB_ENV -Value "SV115_PROVISION_STATE=$(Join-Path $consumer 'provision-state.json')"
+
+      - name: Checkout Synvelis
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.expected_sha || github.sha }}
+          lfs: true
+          persist-credentials: false
+
+      - name: Verify target SHA fail-closed
+        id: target-sha
+        shell: bash
+        env:
+          EXPECTED_SHA_INPUT: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          target_sha="$(git rev-parse HEAD)"
+          github_sha="${GITHUB_SHA:-}"
+          if [ -z "$github_sha" ]; then
+            echo "::error::GITHUB_SHA is missing"
+            exit 1
+          fi
+          if [ "$target_sha" != "$github_sha" ]; then
+            echo "::error::checkout HEAD $target_sha does not match dispatch github.sha $github_sha — refusing acceptance evidence with ambiguous provenance"
+            exit 1
+          fi
+          if [ -n "${EXPECTED_SHA_INPUT:-}" ] && [ "$EXPECTED_SHA_INPUT" != "$target_sha" ]; then
+            echo "::error::expected_sha input $EXPECTED_SHA_INPUT does not match checkout HEAD $target_sha — refusing harness execution"
+            exit 1
+          fi
+          echo "target_sha=$target_sha" >> "$GITHUB_OUTPUT"
+          echo "target_sha=$target_sha github_sha=$github_sha expected_sha=${EXPECTED_SHA_INPUT:-<omitted>}"
+
+      - name: Prepare evidence directories
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:SV115_CONSUMER_EVIDENCE_DIR, $env:SV115_CLEANUP_EVIDENCE_DIR, $env:SV115_PROVISION_WORKSPACE | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'run-metadata') | Out-Null
+          [IO.File]::WriteAllText((Join-Path $env:SV115_CLEANUP_EVIDENCE_DIR 'cleanup-pending.txt'), "cleanup has not run`n", [Text.UTF8Encoding]::new($false))
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5.2.0
+        with:
+          install: false
+
+      - name: Restore CI-required tools from mise.lock
+        shell: bash
+        run: |
+          mise trust
+          mise install --locked rust git-lfs
+
+      - name: Resolve ruviform dep access
+        id: dep-access
+        uses: ./.github/actions/ruviform-dep-access
+        with:
+          deploy-key: ${{ secrets.CROSS_REPO_DEPLOY_KEY }}
+
+      - name: Restore cargo registry/git index cache
+        uses: actions/cache@v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Set up sccache
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+        with:
+          version: "v0.19.0"
+
+      - name: Export sccache GHA backend env
+        if: vars.CI_SCCACHE_DISABLE != '1'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const token = process.env.ACTIONS_RUNTIME_TOKEN || '';
+            const url = process.env.ACTIONS_RESULTS_URL || '';
+            const gha = token !== '' && url !== '';
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', token);
+            core.exportVariable('ACTIONS_RESULTS_URL', url);
+            core.exportVariable('SCCACHE_GHA_ENABLED', gha ? 'true' : 'false');
+            core.exportVariable('SCCACHE_GHA_VERSION', `synvelis-v1-${process.env.RUNNER_OS || 'unknown'}`);
+            core.exportVariable('RUSTC_WRAPPER', 'sccache');
+            core.info(`sccache GHA backend: ${gha ? 'enabled' : 'disabled (cache credentials absent)'}`);
+
+      - name: Extract single Ruviform lock revision
+        id: lockrev
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$SV115_CONSUMER_EVIDENCE_DIR"
+          if command -v cygpath >/dev/null 2>&1; then evidence="$(cygpath -u "$evidence")"; fi
+          mkdir -p "$evidence"
+          mapfile -t lines < <(grep -nE 'scarecrow173/ruviform\.git' Cargo.lock || true)
+          if [ "${#lines[@]}" -eq 0 ]; then
+            echo "::error::no ruviform git sources found in Cargo.lock"
+            exit 1
+          fi
+          malformed=0
+          for line in "${lines[@]}"; do
+            if ! printf '%s\n' "$line" | grep -Eq '#[0-9a-f]{40}"[[:space:]]*$'; then
+              echo "::error::malformed ruviform lockfile source: $line"
+              malformed=1
+            fi
+          done
+          if [ "$malformed" -ne 0 ]; then exit 1; fi
+          mapfile -t shas < <(printf '%s\n' "${lines[@]}" | grep -oE '#[0-9a-f]{40}"' | tr -d '"' | sed 's/^#//' | sort -u)
+          if [ "${#shas[@]}" -ne 1 ]; then
+            echo "::error::ruviform lockfile sources resolve to ${#shas[@]} distinct revisions — fail-closed"
+            printf '%s\n' "${lines[@]}"
+            exit 1
+          fi
+          rev="${shas[0]}"
+          if ! printf '%s' "$rev" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::extracted ruviform revision is not a 40 hex SHA: $rev"
+            exit 1
+          fi
+          printf '%s\n' "$rev" > "$evidence/ruviform-lock-revision.txt"
+          echo "ruviform_lock_rev=$rev" >> "$GITHUB_OUTPUT"
+          echo "single ruviform lock revision: $rev (${#lines[@]} lockfile sources)"
+
+      - name: Checkout Ruviform source at lock revision
+        id: ruviform-checkout
+        shell: bash
+        env:
+          RUVIFORM_LOCK_REV: ${{ steps.lockrev.outputs.ruviform_lock_rev }}
+        run: |
+          set -euo pipefail
+          rt="$RUNNER_TEMP"
+          if command -v cygpath >/dev/null 2>&1; then rt="$(cygpath -u "$rt")"; fi
+          src="$rt/ruviform-source"
+          evidence="$SV115_CONSUMER_EVIDENCE_DIR"
+          if command -v cygpath >/dev/null 2>&1; then evidence="$(cygpath -u "$evidence")"; fi
+          if [ -e "$src" ]; then
+            echo "::error::Ruviform source path already exists in runner temp: $src"
+            exit 1
+          fi
+          mkdir -p "$src"
+          git -C "$src" init
+          git -C "$src" remote add origin https://github.com/scarecrow173/ruviform.git
+          git -C "$src" fetch --depth 1 origin "+${RUVIFORM_LOCK_REV}:refs/remotes/origin/${RUVIFORM_LOCK_REV}"
+          git -C "$src" checkout --detach "$RUVIFORM_LOCK_REV"
+          actual="$(git -C "$src" rev-parse HEAD)"
+          if [ "$actual" != "$RUVIFORM_LOCK_REV" ]; then
+            echo "::error::Ruviform checkout rev $actual does not match lock rev $RUVIFORM_LOCK_REV"
+            exit 1
+          fi
+          if [ -n "$(git -C "$src" status --porcelain)" ]; then
+            echo "::error::Ruviform checkout is dirty immediately after checkout"
+            exit 1
+          fi
+          {
+            printf 'lock_rev=%s\n' "$RUVIFORM_LOCK_REV"
+            printf 'checkout_rev=%s\n' "$actual"
+            printf 'source_root=%s\n' "$src"
+          } > "$evidence/ruviform-checkout-revision.txt"
+          echo "ruviform_checkout_rev=$actual" >> "$GITHUB_OUTPUT"
+          echo "Ruviform source checked out at $actual"
+
+      - name: Fetch locked cargo dependencies
+        run: mise exec -- cargo fetch --locked
+
+      - name: Provision Ruviform virtual endpoint
+        id: provision
+        shell: pwsh
+        env:
+          RUVIFORM_LOCK_REV: ${{ steps.lockrev.outputs.ruviform_lock_rev }}
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $provisionEvidence = Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'provisioning'
+          New-Item -ItemType Directory -Force -Path $provisionEvidence | Out-Null
+          $script = Join-Path $env:SV115_RUVIFORM_SOURCE 'tools/virtual-audio-driver/Provision-RvfVirtualAudioEndpoint.ps1'
+          if (-not (Test-Path -LiteralPath $script)) {
+            [IO.File]::WriteAllText((Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'provision-script-missing.txt'), $script, [Text.UTF8Encoding]::new($false))
+            Write-Error "provision script missing at pinned Ruviform revision: $script"
+            exit 2
+          }
+          & $script `
+            -SourceRoot $env:SV115_RUVIFORM_SOURCE `
+            -ExpectedSourceRev $env:RUVIFORM_LOCK_REV `
+            -WorkspaceRoot $env:SV115_PROVISION_WORKSPACE `
+            -StatePath $env:SV115_PROVISION_STATE `
+            -EvidenceDir $provisionEvidence `
+            -Arch x64 `
+            -Configuration Release `
+            -AllowWdkInstall `
+            -AllowMicConsentProvisioning `
+            -CleanupOnFailure Full `
+            -TimeoutSeconds 3600
+          $code = $LASTEXITCODE
+          [IO.File]::WriteAllText((Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'provision-exit-code.txt'), "$code`n", [Text.UTF8Encoding]::new($false))
+          exit $code
+
+      - name: Evaluate provisioning readiness
+        id: readiness
+        if: always()
+        shell: pwsh
+        env:
+          RUVIFORM_LOCK_REV: ${{ steps.lockrev.outputs.ruviform_lock_rev }}
+          RUVIFORM_CHECKOUT_REV: ${{ steps.ruviform-checkout.outputs.ruviform_checkout_rev }}
+        run: |
+          $ready = 'false'
+          $reason = 'UNEVALUATED'
+          $stateStatus = $null
+          $stateDetail = $null
+          $pairCount = 0
+          $candidate = $false
+          $sourceRev = $null
+          $sourceDirty = $null
+          $parseError = ''
+          try {
+            if (-not (Test-Path -LiteralPath $env:SV115_PROVISION_STATE)) {
+              $reason = 'PROVISION_STATE_MISSING'
+            } else {
+              $state = Get-Content -LiteralPath $env:SV115_PROVISION_STATE -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+              $stateStatus = [string]$state.status
+              $stateDetail = [string]$state.detail
+              if ($state.endpoint) {
+                $candidate = [bool]$state.endpoint.candidate
+                if ($null -ne $state.endpoint.pair_count) { $pairCount = [int]$state.endpoint.pair_count }
+              }
+              if ($state.source) {
+                $sourceRev = [string]$state.source.checkout_rev
+                $sourceDirty = [string]$state.source.dirty
+              }
+              if ($state.schema -ne 'rvf-virtual-audio-provisioning/v1') {
+                $reason = 'PROVISION_STATE_SCHEMA_MISMATCH'
+              } elseif ($state.operation -ne 'provision') {
+                $reason = 'PROVISION_STATE_OPERATION_MISMATCH'
+              } elseif ($state.status -ne 'ok') {
+                $reason = "PROVISION_STATUS_$($state.status)_$($state.detail)" -replace '[^A-Za-z0-9_]', '_'
+              } elseif (-not $candidate -or $pairCount -lt 1) {
+                $reason = 'ENDPOINT_PAIR_CANDIDATE_MISSING'
+              } elseif ($sourceRev -ne $env:RUVIFORM_LOCK_REV) {
+                $reason = 'PROVISION_SOURCE_LOCK_REV_MISMATCH'
+              } elseif ($sourceRev -ne $env:RUVIFORM_CHECKOUT_REV) {
+                $reason = 'PROVISION_SOURCE_CHECKOUT_REV_MISMATCH'
+              } elseif ($sourceDirty -eq 'True' -or $sourceDirty -eq 'true') {
+                $reason = 'PROVISION_SOURCE_DIRTY'
+              } else {
+                $ready = 'true'
+                $reason = 'OK'
+              }
+            }
+          } catch {
+            $parseError = $_.Exception.Message -replace "`r?`n", ' '
+            $reason = 'READINESS_EVALUATION_ERROR'
+          }
+          $record = [pscustomobject][ordered]@{
+            schema = 'sv115-virtual-endpoint-readiness/v1'
+            ready = ($ready -eq 'true')
+            reason = $reason
+            provision_state_path = $env:SV115_PROVISION_STATE
+            provision_status = $stateStatus
+            provision_detail = $stateDetail
+            endpoint_candidate = $candidate
+            endpoint_pair_count = $pairCount
+            source_checkout_rev = $sourceRev
+            source_dirty = $sourceDirty
+            ruviform_lock_rev = $env:RUVIFORM_LOCK_REV
+            ruviform_checkout_rev = $env:RUVIFORM_CHECKOUT_REV
+            parse_error = $parseError
+          }
+          [IO.File]::WriteAllText((Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'readiness-gate.json'), ($record | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "ready=$ready"
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "reason=$reason"
+          Write-Host "readiness ready=$ready reason=$reason"
+
+      - name: Run consumer virtual endpoint harness
+        id: harness
+        if: steps.readiness.outputs.ready == 'true'
+        shell: bash
+        env:
+          SYNVELIS_RUN_REPO: scarecrow173/synvelis
+          SYNVELIS_RUN_SHA: ${{ steps.target-sha.outputs.target_sha }}
+          SYNVELIS_RUN_METADATA_DIR: ${{ runner.temp }}/sv115-consumer-evidence/run-metadata
+          SYNVELIS_RUVIFORM_LOCK_REV: ${{ steps.lockrev.outputs.ruviform_lock_rev }}
+          SYNVELIS_RUVIFORM_CHECKOUT_REV: ${{ steps.ruviform-checkout.outputs.ruviform_checkout_rev }}
+        run: |
+          evidence="$SV115_CONSUMER_EVIDENCE_DIR"
+          if command -v cygpath >/dev/null 2>&1; then evidence="$(cygpath -u "$evidence")"; fi
+          mkdir -p "$evidence"
+          out="$evidence/harness-stdout.log"
+          err="$evidence/harness-stderr.log"
+          set +e
+          mise run test-recording-virtual-endpoint >"$out" 2>"$err"
+          code=$?
+          printf '%s\n' "$code" > "$evidence/harness-exit-code.txt"
+          echo '--- harness stdout ---'
+          cat "$out" 2>/dev/null || true
+          echo '--- harness stderr ---' >&2
+          cat "$err" >&2 2>/dev/null || true
+          exit "$code"
+
+      - name: Build pre-cleanup consumer evidence manifest
+        id: consumer-manifest
+        if: always()
+        shell: pwsh
+        env:
+          TARGET_SHA: ${{ steps.target-sha.outputs.target_sha }}
+          EXPECTED_SHA_INPUT: ${{ inputs.expected_sha }}
+          RUVIFORM_LOCK_REV: ${{ steps.lockrev.outputs.ruviform_lock_rev }}
+          RUVIFORM_CHECKOUT_REV: ${{ steps.ruviform-checkout.outputs.ruviform_checkout_rev }}
+          DEP_ACCESS_MODE: ${{ steps.dep-access.outputs.mode }}
+          READINESS_READY: ${{ steps.readiness.outputs.ready }}
+          READINESS_REASON: ${{ steps.readiness.outputs.reason }}
+          PROVISION_STEP_OUTCOME: ${{ steps.provision.outcome }}
+          HARNESS_STEP_OUTCOME: ${{ steps.harness.outcome }}
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:SV115_CONSUMER_EVIDENCE_DIR | Out-Null
+          function Read-FirstLine([string]$Path) {
+            if (Test-Path -LiteralPath $Path) { return [string](Get-Content -LiteralPath $Path -TotalCount 1 -ErrorAction SilentlyContinue) }
+            return $null
+          }
+          function ToolVersion([string]$Command, [string[]]$Arguments) {
+            try {
+              $line = & $Command @Arguments 2>$null | Select-Object -First 1
+              if ($line) { return [string]$line }
+            } catch { }
+            return 'unavailable'
+          }
+          $metadataDir = Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'run-metadata'
+          $metadataFiles = @()
+          if (Test-Path -LiteralPath $metadataDir) {
+            foreach ($file in @(Get-ChildItem -LiteralPath $metadataDir -File -Filter '*.json' -ErrorAction SilentlyContinue | Sort-Object Name)) {
+              $metadataFiles += [pscustomobject][ordered]@{
+                name = $file.Name
+                path = $file.FullName
+                sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+              }
+            }
+          }
+          $provisioningManifest = Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'provisioning/artifact-manifest.json'
+          $manifest = [pscustomobject][ordered]@{
+            schema = 'sv115-virtual-endpoint-consumer-manifest/v1'
+            recorded_utc = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+            repository = 'scarecrow173/synvelis'
+            github_sha = $env:GITHUB_SHA
+            target_sha = $env:TARGET_SHA
+            expected_sha_input = $env:EXPECTED_SHA_INPUT
+            ruviform_lock_rev = $env:RUVIFORM_LOCK_REV
+            ruviform_checkout_rev = $env:RUVIFORM_CHECKOUT_REV
+            dep_access_mode = $env:DEP_ACCESS_MODE
+            workflow = [pscustomobject][ordered]@{
+              name = $env:GITHUB_WORKFLOW
+              run_id = $env:GITHUB_RUN_ID
+              run_attempt = $env:GITHUB_RUN_ATTEMPT
+              run_number = $env:GITHUB_RUN_NUMBER
+              job = $env:GITHUB_JOB
+              ref = $env:GITHUB_REF
+              workflow_ref = $env:GITHUB_WORKFLOW_REF
+              run_url = "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+            }
+            runner = [pscustomobject][ordered]@{
+              os = $env:RUNNER_OS
+              arch = $env:RUNNER_ARCH
+              name = $env:RUNNER_NAME
+              image_os = $env:ImageOS
+              image_version = $env:ImageVersion
+            }
+            tool_versions = [pscustomobject][ordered]@{
+              mise = (ToolVersion 'mise' @('--version'))
+              rustc = (ToolVersion 'rustc' @('--version'))
+              cargo = (ToolVersion 'cargo' @('--version'))
+              git = (ToolVersion 'git' @('--version'))
+              pwsh = $PSVersionTable.PSVersion.ToString()
+            }
+            step_outcomes = [pscustomobject][ordered]@{
+              provision = $env:PROVISION_STEP_OUTCOME
+              harness = $env:HARNESS_STEP_OUTCOME
+            }
+            readiness = [pscustomobject][ordered]@{
+              ready = $env:READINESS_READY
+              reason = $env:READINESS_REASON
+              gate_path = (Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'readiness-gate.json')
+            }
+            provision = [pscustomobject][ordered]@{
+              state_path = $env:SV115_PROVISION_STATE
+              state_present = (Test-Path -LiteralPath $env:SV115_PROVISION_STATE)
+              exit_code = (Read-FirstLine (Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'provision-exit-code.txt'))
+              artifact_manifest = $provisioningManifest
+              artifact_manifest_present = (Test-Path -LiteralPath $provisioningManifest)
+            }
+            harness = [pscustomobject][ordered]@{
+              exit_code = (Read-FirstLine (Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'harness-exit-code.txt'))
+              stdout_log = (Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'harness-stdout.log')
+              stderr_log = (Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'harness-stderr.log')
+              metadata_files = $metadataFiles
+            }
+          }
+          [IO.File]::WriteAllText((Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'run-manifest.json'), ($manifest | ConvertTo-Json -Depth 10), [Text.UTF8Encoding]::new($false))
+
+      - name: Upload pre-cleanup consumer evidence artifact
+        id: upload-consumer
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sv115-virtual-endpoint-consumer-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/sv115-consumer-evidence
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Unprovision Ruviform virtual endpoint
+        id: cleanup
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          New-Item -ItemType Directory -Force -Path $env:SV115_CLEANUP_EVIDENCE_DIR | Out-Null
+          $wrapperRecord = Join-Path $env:SV115_CLEANUP_EVIDENCE_DIR 'cleanup-wrapper.json'
+          if (-not (Test-Path -LiteralPath $env:SV115_PROVISION_STATE)) {
+            $record = [pscustomobject][ordered]@{
+              schema = 'sv115-virtual-endpoint-cleanup-wrapper/v1'
+              attempted = $false
+              reason = 'PROVISION_STATE_MISSING'
+              state_path = $env:SV115_PROVISION_STATE
+            }
+            [IO.File]::WriteAllText($wrapperRecord, ($record | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
+            Write-Host 'cleanup not attempted: provision state JSON is missing'
+            exit 0
+          }
+          $script = Join-Path $env:SV115_RUVIFORM_SOURCE 'tools/virtual-audio-driver/Unprovision-RvfVirtualAudioEndpoint.ps1'
+          if (-not (Test-Path -LiteralPath $script)) {
+            $record = [pscustomobject][ordered]@{
+              schema = 'sv115-virtual-endpoint-cleanup-wrapper/v1'
+              attempted = $false
+              reason = 'UNPROVISION_SCRIPT_MISSING'
+              script = $script
+              state_path = $env:SV115_PROVISION_STATE
+            }
+            [IO.File]::WriteAllText($wrapperRecord, ($record | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
+            Write-Error "unprovision script missing at pinned Ruviform revision: $script"
+            exit 2
+          }
+          & $script `
+            -StatePath $env:SV115_PROVISION_STATE `
+            -WorkspaceRoot $env:SV115_PROVISION_WORKSPACE `
+            -EvidenceDir $env:SV115_CLEANUP_EVIDENCE_DIR `
+            -CleanupMode Full `
+            -TimeoutSeconds 900
+          $code = $LASTEXITCODE
+          [IO.File]::WriteAllText((Join-Path $env:SV115_CLEANUP_EVIDENCE_DIR 'cleanup-exit-code.txt'), "$code`n", [Text.UTF8Encoding]::new($false))
+          exit $code
+
+      - name: Upload post-cleanup evidence artifact
+        id: upload-cleanup
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sv115-virtual-endpoint-cleanup-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/sv115-cleanup-evidence
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Evaluate consumer verdict from terminal RunMetadata
+        id: verdict
+        if: always()
+        shell: pwsh
+        env:
+          TARGET_SHA: ${{ steps.target-sha.outputs.target_sha }}
+          RUVIFORM_LOCK_REV: ${{ steps.lockrev.outputs.ruviform_lock_rev }}
+          RUVIFORM_CHECKOUT_REV: ${{ steps.ruviform-checkout.outputs.ruviform_checkout_rev }}
+          READINESS_READY: ${{ steps.readiness.outputs.ready }}
+          READINESS_REASON: ${{ steps.readiness.outputs.reason }}
+          HARNESS_STEP_OUTCOME: ${{ steps.harness.outcome }}
+          CONSUMER_UPLOAD_OUTCOME: ${{ steps.upload-consumer.outcome }}
+          CLEANUP_STEP_OUTCOME: ${{ steps.cleanup.outcome }}
+          CLEANUP_UPLOAD_OUTCOME: ${{ steps.upload-cleanup.outcome }}
+        run: |
+          $verdict = 'evidence-insufficient'
+          $reason = 'UNEVALUATED'
+          $exitCode = 1
+          $metadataResult = $null
+          $metadataPath = $null
+          $metadataCount = 0
+          $metadataError = ''
+          $metadataDir = Join-Path $env:SV115_CONSUMER_EVIDENCE_DIR 'run-metadata'
+          $expectedRunEvidence = "github-run:scarecrow173/synvelis:$env:GITHUB_RUN_ID`:$env:GITHUB_RUN_ATTEMPT"
+          if ($env:READINESS_READY -ne 'true') {
+            $verdict = 'acceptance-not-run'
+            $reason = "provisioning readiness did not reach ok/candidate: $env:READINESS_REASON"
+          } elseif (-not (Test-Path -LiteralPath $metadataDir)) {
+            $reason = 'RUN_METADATA_DIR_MISSING'
+          } else {
+            $files = @(Get-ChildItem -LiteralPath $metadataDir -File -Filter 'run-metadata-*.json' -ErrorAction SilentlyContinue)
+            $metadataCount = $files.Count
+            if ($files.Count -ne 1) {
+              $reason = "RUN_METADATA_FILE_COUNT_$($files.Count)"
+            } else {
+              $metadataPath = $files[0].FullName
+              try {
+                $metadata = Get-Content -LiteralPath $metadataPath -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+                $metadataResult = [string]$metadata.result
+                $evidence = @($metadata.evidence | ForEach-Object { [string]$_ })
+                $checks = [ordered]@{
+                  repo = ($metadata.repo -eq 'scarecrow173/synvelis')
+                  sha = ($metadata.sha -eq $env:TARGET_SHA)
+                  level = ($metadata.level -eq 'ext-l3')
+                  environment_kind = ($metadata.environment_kind -eq 'virtual-os-endpoint')
+                  oracle = ($metadata.oracle -eq 'marker-rms-journal-commit-reload-v1')
+                  github_run_evidence = ($evidence -contains $expectedRunEvidence)
+                  ruviform_lock_evidence = ($evidence -contains "ruviform-lock-rev:$env:RUVIFORM_LOCK_REV")
+                  ruviform_checkout_evidence = ($evidence -contains "ruviform-checkout-rev:$env:RUVIFORM_CHECKOUT_REV")
+                  ruviform_revisions_match = ($env:RUVIFORM_LOCK_REV -eq $env:RUVIFORM_CHECKOUT_REV)
+                }
+                $failedChecks = @($checks.GetEnumerator() | Where-Object { -not $_.Value } | ForEach-Object { $_.Key })
+                if ($failedChecks.Count) {
+                  $reason = 'RUN_METADATA_PROVENANCE_MISMATCH:' + ($failedChecks -join ',')
+                } elseif ($metadata.result -eq 'pass') {
+                  if ($env:CONSUMER_UPLOAD_OUTCOME -eq 'success') {
+                    $verdict = 'ext-l3-pass-candidate'
+                    $reason = 'terminal RunMetadata result=pass with matching repo/SHA/level/environment/oracle/run/revision evidence'
+                    $exitCode = 0
+                  } else {
+                    $reason = "consumer evidence artifact upload outcome=$env:CONSUMER_UPLOAD_OUTCOME"
+                  }
+                } elseif ($metadata.result -eq 'fail') {
+                  $verdict = 'consumer-fail'
+                  $reason = 'terminal RunMetadata result=fail'
+                } elseif ($metadata.result -eq 'not-run') {
+                  $verdict = 'acceptance-not-run'
+                  $reason = 'terminal RunMetadata result=not-run'
+                } else {
+                  $reason = "unexpected terminal RunMetadata result=$($metadata.result)"
+                }
+              } catch {
+                $metadataError = $_.Exception.Message -replace "`r?`n", ' '
+                $reason = 'RUN_METADATA_PARSE_FAILED'
+              }
+            }
+          }
+          $record = [pscustomobject][ordered]@{
+            schema = 'sv115-virtual-endpoint-consumer-verdict/v1'
+            verdict = $verdict
+            reason = $reason
+            terminal_metadata_result = $metadataResult
+            terminal_metadata_path = $metadataPath
+            terminal_metadata_count = $metadataCount
+            metadata_error = $metadataError
+            readiness_ready = $env:READINESS_READY
+            readiness_reason = $env:READINESS_REASON
+            harness_step_outcome = $env:HARNESS_STEP_OUTCOME
+            consumer_upload_outcome = $env:CONSUMER_UPLOAD_OUTCOME
+            cleanup_step_outcome = $env:CLEANUP_STEP_OUTCOME
+            cleanup_upload_outcome = $env:CLEANUP_UPLOAD_OUTCOME
+            note = 'GitHub Actions has no neutral conclusion; job conclusion is operational completion, not the acceptance verdict.'
+          }
+          $json = $record | ConvertTo-Json -Depth 8
+          Write-Host $json
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "## sv115 virtual endpoint consumer verdict`n"
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value ""
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- verdict: ``$verdict``"
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- reason: $reason"
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- terminal metadata result: ``$metadataResult``"
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- cleanup step outcome: ``$env:CLEANUP_STEP_OUTCOME`` (operational verdict, separate from consumer verdict)"
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- acceptance authority: terminal RunMetadata only; job green, artifact existence, provisioning exit, cleanup success, and upstream Ruviform results are not Pass evidence"
+          exit $exitCode
