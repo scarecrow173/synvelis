@@ -1,0 +1,87 @@
+[
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\provision.log",
+    "kind": "log",
+    "sha256": "4ce8f6c8b0c3e1fe64b90708dd5a24f59507054f8ca8c91c49c943ba619e0146"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-catalog.log",
+    "kind": "log",
+    "sha256": "3138be5801c255373a8da67e346b8021b01970d3fa3c0145a69866b9fd38e735"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-cert-create.log",
+    "kind": "log",
+    "sha256": "8abafb5a7a4f0e8bb8fb60ccbedbbda896ccd9ea0e92c48d4021636a887eb15f"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-cert-install.log",
+    "kind": "log",
+    "sha256": "0ecdd27b13b9af4b3f35234f4e763430f242eec98d29f202698f3cde9b7cbf4b"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-devnode.log",
+    "kind": "log",
+    "sha256": "7a9c0cc514d06b234b602179fb5c4c7983d4341cf97c8853baae74598841ac68"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-driver-build.log",
+    "kind": "log",
+    "sha256": "b93a1b950dfed93dc6d562adc04cf3a243557f405d96cc4234f3b74a1b813321"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-driver-store.log",
+    "kind": "log",
+    "sha256": "dc9fc0a47e62ed593d4f3d94c1b67437b0883d48061917206fc169a4968df7a8"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-endpoint-probe.log",
+    "kind": "log",
+    "sha256": "9cfdaff2b8acdcd58408ef92483ea514bb4786281d1b64a037679f0a808ec6f3"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-enum-verify-pre-devnode.log",
+    "kind": "log",
+    "sha256": "a31aa648ef72862b7e22020ec460666cb9039b91dd22ba225e1b08993a8351c3"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-environment.log",
+    "kind": "log",
+    "sha256": "39a7f3c363ab29a786f9da7685883b64c6ef692e0ebe7e873eb6a986fbf3ad9b"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-mic-consent.log",
+    "kind": "log",
+    "sha256": "d7949725d263aa015af83589b27b0c946a2d222046061ec8342a9d40e0f2faf4"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-readiness.log",
+    "kind": "log",
+    "sha256": "dd458c66359e93a3f85422271c18b88d35396b2f331ddebca4e396a8514a2a55"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-sign-verify.log",
+    "kind": "log",
+    "sha256": "05b9e50d9366172809c058d86d17734038823ab8c33278a004956f1bfcf9df3d"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-sign.log",
+    "kind": "log",
+    "sha256": "adf5f9e13c341157ad269f4b349a348911ec41150e57d0db991ee4ca9b8739f2"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-source.log",
+    "kind": "log",
+    "sha256": "5c16700a57bda7bd9cd67b581cc0b6e757f35c87fc0c2544a56fba107dace449"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\stage-wdk.log",
+    "kind": "log",
+    "sha256": "48ded35637113e9be77da2facbf2a644d64693c60b99ad141b0b20665d685d00"
+  },
+  {
+    "path": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\vaudio-cert.cer",
+    "kind": "cer",
+    "sha256": "df3d9dabb992540278ed42e534f7cb31918bec460bad2e2b7d661f6872db7fe5"
+  }
+]

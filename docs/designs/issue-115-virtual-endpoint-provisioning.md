@@ -273,6 +273,12 @@ Ruviform lock/checkout revision、artifact 名、artifact retention を転記時
 を変えない。RunMetadata が小さい場合は JSON を evidence 配下へそのまま配置し、
 summary Markdown から参照する。
 
+stereo preserve 修正後 rerun `45834341661` attempt `1` でも stereo format は
+観測できたが、terminal RunMetadata は `output timestamp regressions: 9` を
+伴う `result=fail` だった。この rerun の転記は
+`evidence/sv115/issue-115-virtual-endpoint-stereo-consumer-rerun.md` に記録し、
+canonical Pass evidence はまだ得られていない。
+
 初回 provisioned run は Fail になる可能性がある。Fail を隠して再実行だけを
 記録せず、失敗 run の artifact と metadata も残す。NotRun は endpoint 未
 provisioning の記録であり、provision state が `ok` の run で `NOT_PROVISIONED`

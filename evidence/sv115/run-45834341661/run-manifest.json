@@ -1,0 +1,63 @@
+{
+  "schema": "sv115-virtual-endpoint-consumer-manifest/v1",
+  "recorded_utc": "2026-11-26T14:05:53Z",
+  "repository": "scarecrow173/synvelis",
+  "github_sha": "bff8114ed5056be82b6b3ce370c2141bf2e355d1",
+  "target_sha": "bff8114ed5056be82b6b3ce370c2141bf2e355d1",
+  "expected_sha_input": "bff8114ed5056be82b6b3ce370c2141bf2e355d1",
+  "ruviform_lock_rev": "0479fa62e77e669a7bf84320d3d5418ffb949fc6",
+  "ruviform_checkout_rev": "0479fa62e77e669a7bf84320d3d5418ffb949fc6",
+  "dep_access_mode": "anonymous",
+  "workflow": {
+    "name": "virtual-endpoint-consumer-acceptance",
+    "run_id": "45834341661",
+    "run_attempt": "1",
+    "run_number": "2",
+    "job": "consumer-acceptance",
+    "ref": "refs/heads/main",
+    "workflow_ref": "scarecrow173/synvelis/.github/workflows/virtual-endpoint-consumer-acceptance.yml@refs/heads/main",
+    "run_url": "https://github.com/scarecrow173/synvelis/actions/runs/45834341661"
+  },
+  "runner": {
+    "os": "Windows",
+    "arch": "X64",
+    "name": "GitHub Actions 1000008438",
+    "image_os": "win25-vs2026",
+    "image_version": "20261123.321.1"
+  },
+  "tool_versions": {
+    "mise": "2026.11.14 windows-x64 (2026-11-24)",
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+    "cargo": "cargo 1.99.0 (5f94df478 2026-08-27)",
+    "git": "git version 2.56.1.windows.1",
+    "pwsh": "7.6.10"
+  },
+  "step_outcomes": {
+    "provision": "success",
+    "harness": "failure"
+  },
+  "readiness": {
+    "ready": "true",
+    "reason": "OK",
+    "gate_path": "D:\\a\\_temp\\sv115-consumer-evidence\\readiness-gate.json"
+  },
+  "provision": {
+    "state_path": "D:\\a\\_temp\\sv115-consumer-evidence\\provision-state.json",
+    "state_present": true,
+    "exit_code": "0",
+    "artifact_manifest": "D:\\a\\_temp\\sv115-consumer-evidence\\provisioning\\artifact-manifest.json",
+    "artifact_manifest_present": true
+  },
+  "harness": {
+    "exit_code": "101",
+    "stdout_log": "D:\\a\\_temp\\sv115-consumer-evidence\\harness-stdout.log",
+    "stderr_log": "D:\\a\\_temp\\sv115-consumer-evidence\\harness-stderr.log",
+    "metadata_files": [
+      {
+        "name": "run-metadata-sv115-rcd01-virtual-endpoint-render-capture-recorder.json",
+        "path": "D:\\a\\_temp\\sv115-consumer-evidence\\run-metadata\\run-metadata-sv115-rcd01-virtual-endpoint-render-capture-recorder.json",
+        "sha256": "cc95aa7f0793b2081f97a2c55ff688262d081111806d7b0042fa8d4a2679c3ce"
+      }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schema": "sv115-virtual-endpoint-readiness/v1",
+  "ready": true,
+  "reason": "OK",
+  "provision_state_path": "D:\\a\\_temp\\sv115-consumer-evidence\\provision-state.json",
+  "provision_status": "ok",
+  "provision_detail": "OK",
+  "endpoint_candidate": true,
+  "endpoint_pair_count": 1,
+  "source_checkout_rev": "0479fa62e77e669a7bf84320d3d5418ffb949fc6",
+  "source_dirty": "False",
+  "ruviform_lock_rev": "0479fa62e77e669a7bf84320d3d5418ffb949fc6",
+  "ruviform_checkout_rev": "0479fa62e77e669a7bf84320d3d5418ffb949fc6",
+  "parse_error": ""
+}
