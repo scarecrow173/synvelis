@@ -7818,6 +7818,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "synvelis-plugin-test-l1-runner"
+version = "0.1.0"
+dependencies = [
+ "ruviform-plugin-clap",
+ "ruviform-plugin-core",
+ "ruviform-plugin-export",
+ "ruviform-plugin-test-clap",
+ "ruviform-plugin-test-vst3",
+ "ruviform-plugin-vst3",
+]
+
+[[package]]
 name = "synvelis-project"
 version = "0.1.0"
 dependencies = [

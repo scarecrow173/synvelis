@@ -1,0 +1,29 @@
+[package]
+name = "synvelis-plugin-test-l1-runner"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ruviform-plugin-core.workspace = true
+ruviform-plugin-export.workspace = true
+ruviform-plugin-vst3 = { workspace = true, features = ["host"] }
+ruviform-plugin-clap = { workspace = true, features = ["host"] }
+# Test-only fixture package edges: they make Cargo build the real
+# VST3/CLAP cdylib artifacts beside this workspace's test/build output.
+# The runners still dlopen those artifacts through the production host
+# bridges; no fixture factory is linked into or served from this crate.
+ruviform-plugin-test-vst3.workspace = true
+ruviform-plugin-test-clap.workspace = true
+
+[[bin]]
+name = "synvelis-plugin-test-vst3-l1-runner"
+path = "src/bin/vst3.rs"
+
+[[bin]]
+name = "synvelis-plugin-test-clap-l1-runner"
+path = "src/bin/clap.rs"

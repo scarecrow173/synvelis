@@ -36,7 +36,7 @@ use ruviform_plugin_core::{
     BusDescriptor, BusDirection, BusRole, ParamInfo, PluginFactory, ProcessConfig,
 };
 use ruviform_plugin_host::{
-    EndpointBounds, HostCommand, HostError, HostReply, PluginHandle, PluginHost,
+    EndpointBounds, HostCommand, HostError, HostReply, OutOfProcessSpec, PluginHandle, PluginHost,
 };
 
 use synvelis_project::{
@@ -513,6 +513,31 @@ impl PluginHostProcessors {
             host.register_factory(factory);
         }
         Self::new(host)
+    }
+
+    /// Composition-root constructor for a mixed L0/L1 registry:
+    /// in-process factories plus typed out-of-process route specs.
+    /// The L1 [`OutOfProcessSpec`] is registered verbatim — descriptor,
+    /// runner program/argv, lookahead, timeouts and isolation keep the
+    /// upstream meaning; this adapter neither infers nor upgrades any
+    /// timing precision from the route. Registration remains non-RT.
+    ///
+    /// # Errors
+    ///
+    /// [`HostError::DuplicatePluginId`] when an L1 route id was already
+    /// claimed by either registration route.
+    pub fn product_with_out_of_process(
+        factories: impl IntoIterator<Item = Box<dyn PluginFactory>>,
+        out_of_process: impl IntoIterator<Item = OutOfProcessSpec>,
+    ) -> Result<Self, HostError> {
+        let mut host = PluginHost::new();
+        for factory in factories {
+            host.register_factory(factory);
+        }
+        for spec in out_of_process {
+            host.register_out_of_process(spec)?;
+        }
+        Ok(Self::new(host))
     }
 
     /// The periodic plugin→host report drain over the same shared
