@@ -297,6 +297,14 @@ pub struct UiOpsState {
     /// borrows it per call. `None` (default) reports `unavailable`
     /// honestly: no adapter means no editor, never a faked one.
     pub(crate) plugin_editor_host: Option<Box<dyn PluginEditorHost>>,
+    /// Injected shared slot/lease authority (synvelis#176 S2) — the
+    /// one ledger every `PluginDock` panel is lent: slot declare/
+    /// lease/release/validate/geometry/visibility/busy/event-drain
+    /// all go through it, so a lease always validates against the
+    /// authority that minted it. `None` (default) reports
+    /// `unavailable` honestly: no authority means no native slot,
+    /// never a panel-private ledger.
+    pub(crate) native_slot_authority: Option<crate::plugin_dock::SharedNativeSlotAuthority>,
 }
 
 /// One Difference Explorer view's last compare — the pins the
@@ -375,6 +383,7 @@ impl UiOpsState {
             plugin_sessions: PluginEditorSessions::new(),
             plugin_docks: HashMap::new(),
             plugin_editor_host: None,
+            native_slot_authority: None,
         }
     }
 }
@@ -4561,6 +4570,13 @@ impl SynvelisApp {
                 "no plugin editor host installed — editor sessions are unavailable".to_string(),
             ));
         }
+        let Some(authority) = self.ui.native_slot_authority.clone() else {
+            return Err(ErrorBody::new(
+                codes::UNAVAILABLE,
+                "no native slot authority installed — plugin editor slots are unavailable"
+                    .to_string(),
+            ));
+        };
         if let Some(instance) = instance
             && let Some((other, _)) = self.ui.plugin_docks.iter().find(|(other, dock)| {
                 **other != inst && dock.binding().is_some_and(|b| b.instance == instance)
@@ -4593,9 +4609,10 @@ impl SynvelisApp {
         self.ui_bind_view(view, window);
         let dock = match self.ui.plugin_docks.entry(inst) {
             std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
-            std::collections::hash_map::Entry::Vacant(e) => {
-                e.insert(PluginDock::declare(inst, win, geometry).map_err(|e| plugin_dock_err(&e))?)
-            }
+            std::collections::hash_map::Entry::Vacant(e) => e.insert(
+                PluginDock::declare(inst, win, geometry, authority)
+                    .map_err(|e| plugin_dock_err(&e))?,
+            ),
         };
         dock.ensure_slot(&mut self.ui.plugin_sessions, win, geometry)
             .map_err(|e| plugin_dock_err(&e))?;

@@ -20,9 +20,11 @@
 //! Nothing here claims a real OS window, a child HWND, or a pixel oracle —
 //! acceptance rows 1/7 stay `NotRun` (see `evidence/sv176/`).
 
+use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
 use std::env;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use ruviform_audio_core::SampleRate;
 use ruviform_plugin_clap::host::ClapLibrary;
@@ -41,8 +43,12 @@ use ruviform_plugin_host::{
 use ruviform_plugin_vst3::host::Vst3Library;
 use ruviform_ui::WindowId;
 use ruviform_ui::dock::ViewInstanceId;
-use ruviform_ui::native_slot::{LogicalRect, SlotGeometry};
-use ruviform_ui_test::{ScenarioReport, ScenarioVerdict};
+use ruviform_ui::native_slot::{
+    LeaseInfo, LogicalRect, NativeSurfaceSlot, SlotCapabilities, SlotError, SlotEvent,
+    SlotGeometry, SlotLease, SlotSpec, SlotState, SlotVisibility, SurfaceSlotId,
+};
+use ruviform_ui_test::{FakeNativeSlot, ScenarioReport, ScenarioVerdict};
+use synvelis_app::plugin_dock::{NativeSlotAuthority, SharedNativeSlotAuthority};
 use synvelis_app::{PluginDock, PluginDockError, PluginEditorHost};
 use synvelis_player::StablePluginInstanceId;
 
@@ -510,6 +516,159 @@ fn fixture_run_reports_honest_verdicts() {
 }
 
 // ---------------------------------------------------------------------------
+// Shared test slot authority — headless `FakeNativeSlot` fixture
+// ---------------------------------------------------------------------------
+
+/// High tag bits of the synthetic parent tokens the test authority
+/// mints at redemption. **Test-only vocabulary**: the value is
+/// obviously not an OS handle (no real HWND/HWND-like pointer carries
+/// this tag) and exists purely so tests can prove which slot a
+/// redeemed lease belonged to. Nothing here is evidence of real
+/// native docking.
+const TEST_PARENT_TOKEN_TAG: u64 = 0xFA17_E000_0000_0000;
+
+/// The synthetic test-only parent token for `slot` — distinct per
+/// slot index so a cross-slot redemption mix-up is observable.
+fn test_parent_token(seq: u32) -> u64 {
+    TEST_PARENT_TOKEN_TAG | u64::from(seq)
+}
+
+/// Headless shared-authority fixture: upstream [`FakeNativeSlot`]
+/// (the canonical deterministic [`NativeSurfaceSlot`] fake) plus the
+/// product seam surface — spec mirroring (the fake does not expose
+/// specs) and issuer-side redemption against the *same* ledger. One
+/// instance behind one `Rc<RefCell>` is shared by every panel in a
+/// test, exactly like the production driver's canonical surface
+/// ledger — a second fixture instance is a *different* authority and
+/// must reject this ledger's leases as foreign.
+///
+/// **Headless/test-only** — no OS window, no real native parent.
+struct TestSlotAuthority {
+    inner: FakeNativeSlot,
+    /// Mirror of each live slot's declared spec, updated on
+    /// geometry/visibility mutation — the fake validates through its
+    /// registry but does not expose specs, and the product seam
+    /// requires them.
+    specs: HashMap<SurfaceSlotId, SlotSpec>,
+}
+
+impl TestSlotAuthority {
+    fn new() -> Self {
+        Self {
+            inner: FakeNativeSlot::new(),
+            specs: HashMap::new(),
+        }
+    }
+}
+
+/// mints a shared handle around a fresh fixture authority.
+fn test_authority() -> SharedNativeSlotAuthority {
+    Rc::new(RefCell::new(TestSlotAuthority::new()))
+}
+
+impl NativeSurfaceSlot for TestSlotAuthority {
+    fn capabilities(&self, slot: SurfaceSlotId) -> Result<SlotCapabilities, SlotError> {
+        self.inner.capabilities(slot)
+    }
+
+    fn declare_slot(&mut self, spec: SlotSpec) -> Result<SurfaceSlotId, SlotError> {
+        let slot = self.inner.declare_slot(spec)?;
+        self.specs.insert(slot, spec);
+        Ok(slot)
+    }
+
+    fn release_slot(&mut self, slot: SurfaceSlotId) -> Result<(), SlotError> {
+        self.inner.release_slot(slot)?;
+        self.specs.remove(&slot);
+        Ok(())
+    }
+
+    fn set_geometry(
+        &mut self,
+        slot: SurfaceSlotId,
+        geometry: SlotGeometry,
+    ) -> Result<(), SlotError> {
+        self.inner.set_geometry(slot, geometry)?;
+        if let Some(spec) = self.specs.get_mut(&slot) {
+            spec.geometry = geometry;
+        }
+        Ok(())
+    }
+
+    fn set_visibility(
+        &mut self,
+        slot: SurfaceSlotId,
+        visibility: SlotVisibility,
+    ) -> Result<(), SlotError> {
+        self.inner.set_visibility(slot, visibility)?;
+        if let Some(spec) = self.specs.get_mut(&slot) {
+            spec.visibility = visibility;
+        }
+        Ok(())
+    }
+
+    fn set_clip(
+        &mut self,
+        slot: SurfaceSlotId,
+        clip: Option<LogicalRect>,
+    ) -> Result<(), SlotError> {
+        self.inner.set_clip(slot, clip)
+    }
+
+    fn set_zorder(&mut self, slot: SurfaceSlotId, z: i32) -> Result<(), SlotError> {
+        self.inner.set_zorder(slot, z)
+    }
+
+    fn request_focus(&mut self, slot: SurfaceSlotId) -> Result<(), SlotError> {
+        self.inner.request_focus(slot)
+    }
+
+    fn lease_parent(&mut self, slot: SurfaceSlotId) -> Result<SlotLease, SlotError> {
+        self.inner.lease_parent(slot)
+    }
+
+    fn release_lease(&mut self, lease: SlotLease) -> Result<(), SlotError> {
+        self.inner.release_lease(lease)
+    }
+
+    fn validate_lease(&self, lease: SlotLease) -> Result<LeaseInfo, SlotError> {
+        self.inner.validate_lease(lease)
+    }
+
+    fn drain_events(&mut self) -> Vec<SlotEvent> {
+        self.inner.drain_events()
+    }
+}
+
+impl NativeSlotAuthority for TestSlotAuthority {
+    fn state(&self, slot: SurfaceSlotId) -> Result<Option<SlotState>, SlotError> {
+        Ok(self.inner.state(slot))
+    }
+
+    fn spec(&self, slot: SurfaceSlotId) -> Result<Option<SlotSpec>, SlotError> {
+        Ok(self.specs.get(&slot).copied())
+    }
+
+    fn mark_busy(&mut self, slot: SurfaceSlotId) -> Result<(), SlotError> {
+        self.inner.mark_busy(slot)
+    }
+
+    fn clear_busy(&mut self, slot: SurfaceSlotId) -> Result<(), SlotError> {
+        self.inner.clear_busy(slot)
+    }
+
+    fn redeem_parent(&self, payload: u64) -> Result<u64, SlotError> {
+        // Issuer-side validation against *this* ledger — a stale,
+        // revoked, or foreign (other-authority) payload never yields
+        // a token. The token itself is the clearly synthetic
+        // test-only value `test_parent_token`, never an OS handle.
+        let lease = SlotLease::new(payload);
+        self.inner.validate_lease(lease)?;
+        Ok(test_parent_token(lease.seq()))
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tier B — product PluginDock over the real VST3 ABI path
 // ---------------------------------------------------------------------------
 
@@ -532,7 +691,8 @@ fn product_dock_vst3_test_gain_open_refused_is_honest() {
     host.register_instance(handle);
 
     let mut sessions = PluginEditorSessions::new();
-    let mut dock = PluginDock::declare(view(11), win(1), geom()).expect("declare panel");
+    let mut dock =
+        PluginDock::declare(view(11), win(1), geom(), test_authority()).expect("declare panel");
 
     let Err(err) = dock.open(&mut sessions, &mut host, inst(), size(), AttachMode::Docked) else {
         panic!("test_gain ships no editor — open must refuse honestly")
@@ -600,8 +760,9 @@ fn product_dock_vst3_test_gain_open_refused_is_honest() {
     );
 }
 
-/// `test_editor` ships a real `IPlugView`, but the panel's lease payload
-/// is a slot index — not a real OS parent HWND. The docked attach must
+/// `test_editor` ships a real `IPlugView`, but redemption yields the
+/// fixture authority's synthetic tagged test token — not a real OS parent
+/// HWND. The docked attach must
 /// therefore refuse honestly (or, on a platform where the fixture
 /// accepts it, attach — either is recorded verbatim; a fabricated pass
 /// is impossible at this seam).
@@ -619,7 +780,8 @@ fn product_dock_vst3_test_editor_attach_observation() {
     host.register_instance(handle);
 
     let mut sessions = PluginEditorSessions::new();
-    let mut dock = PluginDock::declare(view(12), win(1), geom()).expect("declare panel");
+    let mut dock =
+        PluginDock::declare(view(12), win(1), geom(), test_authority()).expect("declare panel");
 
     let outcome = dock.open(&mut sessions, &mut host, inst(), size(), AttachMode::Docked);
     let state = dock.session_state(&sessions);
@@ -725,7 +887,8 @@ fn clap_artifact_and_host_lifecycle_probe() {
     );
 
     let mut sessions = PluginEditorSessions::new();
-    let mut dock = PluginDock::declare(view(13), win(1), geom()).expect("declare panel");
+    let mut dock =
+        PluginDock::declare(view(13), win(1), geom(), test_authority()).expect("declare panel");
     host.register_instance(handle);
     let outcome = dock.open(&mut sessions, &mut host, inst(), size(), AttachMode::Docked);
     let state = dock.session_state(&sessions);

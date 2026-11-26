@@ -855,11 +855,35 @@ impl SynvelisApp {
     /// synvelis#176): the adapter resolves stable instance identities
     /// to live host handles and lends an `EditorSessionOps`
     /// implementation per call, redeeming opaque parent leases through
-    /// the panel's own ledger. `None` (the default) reports
+    /// the shared slot authority. `None` (the default) reports
     /// `unavailable` honestly — no adapter means no editor, never a
     /// faked one.
     pub fn set_plugin_editor_host(&mut self, host: Box<dyn PluginEditorHost>) {
         self.ui.plugin_editor_host = Some(host);
+    }
+
+    /// Installs the shared [`NativeSlotAuthority`](crate::plugin_dock::NativeSlotAuthority)
+    /// every `PluginDock` panel is lent (synvelis#176 S2): one
+    /// slot/lease ledger for the whole app — the driver's canonical
+    /// surface ledger in production, a test fixture in headless lanes.
+    /// Panels created afterwards clone the same handle, so a lease is
+    /// always validated by the authority that minted it. `None` (the
+    /// default) makes `syn.plugin_dock.open`/`restore` report
+    /// `unavailable` honestly — no authority means no native slot,
+    /// never a panel-private ledger.
+    pub fn set_native_slot_authority(
+        &mut self,
+        authority: crate::plugin_dock::SharedNativeSlotAuthority,
+    ) {
+        self.ui.native_slot_authority = Some(authority);
+    }
+
+    /// A clone of the installed shared slot authority handle, when
+    /// the composition root installed one — tests and the composition
+    /// root inspect/validate through the same ledger the panels use.
+    #[must_use]
+    pub fn native_slot_authority(&self) -> Option<crate::plugin_dock::SharedNativeSlotAuthority> {
+        self.ui.native_slot_authority.clone()
     }
 
     /// The `PluginDock` panel record for a wire `view_id`, when the

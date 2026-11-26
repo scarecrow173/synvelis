@@ -1,5 +1,6 @@
 //! Product `PluginDock` panel — driver-neutral view/session model
-//! (synvelis#176 SV-GPUI-02 headless slice, acceptance rows 2–3).
+//! (synvelis#176 SV-GPUI-02 headless slice, acceptance rows 2–3; S2
+//! shared-authority refactor).
 //!
 //! One [`PluginDock`] is the product-side record of a single
 //! [`ViewType::PluginDock`](synvelis_workspace::ViewType::PluginDock)
@@ -7,14 +8,19 @@
 //! four identity axes the issue requires —
 //! [`StablePluginInstanceId`] (project-side instance vocabulary) →
 //! [`PluginEditorSessionId`] (host session) → [`SurfaceSlotId`] (native
-//! surface slot) → [`ViewInstanceId`] (dock view) — over two upstream
-//! pure models it owns outright:
+//! surface slot) → [`ViewInstanceId`] (dock view) — over two shared
+//! authorities it is *lent*, never owns:
 //!
-//! - [`SurfaceSlotRegistry`] — the slot/lease ledger behind the
-//!   `plugin.editor` [`NativeSlotSpec`]. A slot is declared against the
-//!   view's owning window, mints at most one live [`SlotLease`] at a
-//!   time, and recycles freed indices under a bumped generation so a
-//!   stale lease is always rejected.
+//! - [`NativeSlotAuthority`] — the single injected slot/lease ledger
+//!   behind every panel's `plugin.editor` [`NativeSlotSpec`]. Panels
+//!   hold only a clone of the shared handle: slot declare/lease/
+//!   release/validate/geometry/visibility/busy/event-drain all go
+//!   through the one authority the composition root installed (the
+//!   driver's canonical surface ledger in production), so a lease is
+//!   always validated by the same ledger that minted it. A slot is
+//!   declared against the view's owning window, mints at most one
+//!   live [`SlotLease`] at a time, and recycles freed indices under a
+//!   bumped generation so a stale lease is always rejected.
 //! - [`PluginEditorSessions`] — the editor-session state machine
 //!   (`Closed → Creating → Attached/Hidden → Closing → Closed`,
 //!   `Failed`, `Terminated`) driven through the [`EditorSessionOps`]
@@ -25,10 +31,11 @@
 //! instance identity to a live [`PluginHandle`] and lends an
 //! [`EditorSessionOps`] adapter per call, redeeming opaque
 //! [`ParentSlotLease`]s through the issuer-side
-//! [`redeem_lease`] hook — the same seam a real GUI driver's
-//! `NativeSurfaceSlot` ledger validates before yielding an OS parent.
-//! With no host installed the op layer reports `unavailable` — an
-//! honest refusal, never a simulated editor.
+//! [`redeem_lease`] hook — which validates against the panel's shared
+//! authority, the same seam a real GUI driver's ledger validates
+//! before yielding an OS parent. With no host or no authority
+//! installed the op layer reports `unavailable` — an honest refusal,
+//! never a simulated editor.
 //!
 //! Dock moves connect to the existing `syn.window.dock_*` two-phase
 //! contract instead of re-implementing it: the op layer calls
@@ -56,8 +63,8 @@ use ruviform_plugin_host::{
 };
 use ruviform_ui::dock::ViewInstanceId;
 use ruviform_ui::native_slot::{
-    LeaseInfo, SlotCapabilities, SlotError, SlotEvent, SlotGeometry, SlotLease, SlotSpec,
-    SlotState, SlotVisibility, Support, SurfaceSlotId, SurfaceSlotRegistry,
+    NativeSurfaceSlot, SlotCapabilities, SlotError, SlotGeometry, SlotLease, SlotSpec, SlotState,
+    SlotVisibility, Support, SurfaceSlotId,
 };
 use ruviform_ui::view::{
     A11ySpec, AttachEpochAllocator, ComponentKey, ComponentSpec, ComponentVisualState, LabelSpec,
@@ -333,24 +340,120 @@ impl From<EditorOpError> for PluginDockError {
     }
 }
 
-/// Issuer-side half of the lease seam: validates a session-carried
-/// [`ParentSlotLease`] against the panel's [`SurfaceSlotRegistry`]
-/// ledger and maps it to the host's [`ParentLease`] vocabulary —
-/// `generation` carries the slot's generation, `payload` the slot
-/// index. The real driver's adapter resolves the OS parent at the
-/// same seam; a stale/revoked/forged token is always
-/// [`EditorOpError::LeaseRejected`], never reinterpreted.
+/// The driver-neutral slot/lease authority seam (synvelis#176 S2):
+/// one shared ledger every `PluginDock` panel is *lent* — the panel
+/// never owns a private registry. The trait extends the upstream
+/// [`NativeSurfaceSlot`] port with the product surface the panel and
+/// the lease-redemption path need:
+///
+/// - [`NativeSlotAuthority::state`]/[`NativeSlotAuthority::spec`] —
+///   ledger reads the port does not carry. `Err` means the ledger
+///   could not be consulted this call (a driver-internal borrow
+///   refusal), `Ok(None)` means the id is unknown — the two are never
+///   conflated.
+/// - [`NativeSlotAuthority::mark_busy`]/[`NativeSlotAuthority::clear_busy`]
+///   — the dock-move two-phase lease guard.
+/// - [`NativeSlotAuthority::redeem_parent`] — the issuer-side
+///   redemption step: validate the raw opaque lease payload against
+///   *this* ledger and yield the issuer's parent token, or refuse.
+///   The token is backend vocabulary (an OS-container token upstream,
+///   a clearly synthetic value in test fixtures) — never reinterpreted
+///   product-side.
+///
+/// Implementations are UI-thread only; the shared handle is
+/// `Rc<RefCell<dyn ..>>`, matching the driver's own shared-surface
+/// shape.
+///
+/// **RT contract:** non-RT only — UI-thread only.
+pub trait NativeSlotAuthority: NativeSurfaceSlot {
+    /// The ledger state of `slot` — see the trait docs for the
+    /// `Err`/`Ok(None)` distinction.
+    ///
+    /// # Errors
+    /// Returns [`SlotError`] when the ledger cannot be consulted.
+    fn state(&self, slot: SurfaceSlotId) -> Result<Option<SlotState>, SlotError>;
+
+    /// The declared spec of `slot` — same `Err`/`Ok(None)`
+    /// distinction as [`Self::state`].
+    ///
+    /// # Errors
+    /// Returns [`SlotError`] when the ledger cannot be consulted.
+    fn spec(&self, slot: SurfaceSlotId) -> Result<Option<SlotSpec>, SlotError>;
+
+    /// Marks `slot` busy — new leases are refused until
+    /// [`Self::clear_busy`] (dock-move in flight).
+    ///
+    /// # Errors
+    /// Returns [`SlotError`] on a bad id.
+    fn mark_busy(&mut self, slot: SurfaceSlotId) -> Result<(), SlotError>;
+
+    /// Clears the busy mark.
+    ///
+    /// # Errors
+    /// Returns [`SlotError`] on a bad id.
+    fn clear_busy(&mut self, slot: SurfaceSlotId) -> Result<(), SlotError>;
+
+    /// Validates the raw opaque lease payload against this ledger and
+    /// returns the issuer-side parent token. A stale, revoked, forged,
+    /// or backend-dead lease is always refused — never reinterpreted.
+    ///
+    /// # Errors
+    /// Returns [`SlotError`] on validation failure or backend refusal.
+    fn redeem_parent(&self, payload: u64) -> Result<u64, SlotError>;
+}
+
+/// The shared authority handle every panel (and the op layer) clones.
+/// `Rc<RefCell<..>>` because all implementations are UI-thread
+/// interior-mutable ledgers; panel code borrows per call and never
+/// holds a guard across an adapter call, so the issuer-side redeem
+/// hook can always consult the same ledger re-entrantly.
+///
+/// **RT contract:** non-RT only — UI-thread only.
+pub type SharedNativeSlotAuthority = Rc<RefCell<dyn NativeSlotAuthority>>;
+
+/// Issuer-side half of the lease seam, following the upstream real
+/// reference shape (`ruviform-plugin-dock-test`'s `real_editor_ops`):
+/// the session-carried [`ParentSlotLease`] is opaque — its raw payload
+/// is validated/redeemed against the *same authority that minted it*,
+/// and the minted [`ParentLease`] binds the lease's issuer-side
+/// sequence (`SlotLease::new(raw).seq()`) to the redeemed parent
+/// token. Neither the slot generation nor the slot index is ever
+/// mapped into a [`ParentLease`]; a stale/revoked/forged token is
+/// always [`EditorOpError::LeaseRejected`].
 fn redeem_lease(
-    slots: &SurfaceSlotRegistry,
+    authority: &SharedNativeSlotAuthority,
     lease: ParentSlotLease,
 ) -> Result<ParentLease, EditorOpError> {
-    let info: LeaseInfo = slots
-        .validate_lease(SlotLease::new(lease.raw()))
+    let raw = lease.raw();
+    let token = authority
+        .try_borrow()
+        .map_err(|_| EditorOpError::LeaseRejected)?
+        .redeem_parent(raw)
         .map_err(|_| EditorOpError::LeaseRejected)?;
-    Ok(ParentLease::new(
-        u32::from(info.slot.generation()),
-        u64::from(info.slot.index()),
-    ))
+    Ok(ParentLease::new(SlotLease::new(raw).seq(), token))
+}
+
+#[cfg(feature = "native")]
+impl NativeSlotAuthority for ruviform_ui_gpui::SharedSurface {
+    fn state(&self, slot: SurfaceSlotId) -> Result<Option<SlotState>, SlotError> {
+        ruviform_ui_gpui::SharedSurface::state(self, slot)
+    }
+
+    fn spec(&self, slot: SurfaceSlotId) -> Result<Option<SlotSpec>, SlotError> {
+        ruviform_ui_gpui::SharedSurface::spec(self, slot)
+    }
+
+    fn mark_busy(&mut self, slot: SurfaceSlotId) -> Result<(), SlotError> {
+        ruviform_ui_gpui::SharedSurface::mark_busy(self, slot)
+    }
+
+    fn clear_busy(&mut self, slot: SurfaceSlotId) -> Result<(), SlotError> {
+        ruviform_ui_gpui::SharedSurface::clear_busy(self, slot)
+    }
+
+    fn redeem_parent(&self, payload: u64) -> Result<u64, SlotError> {
+        ruviform_ui_gpui::SharedSurface::redeem(self, payload)
+    }
 }
 
 /// The composition seam: resolves a stable instance identity to a
@@ -463,20 +566,24 @@ impl EditorSessionOps for OpsBridge<'_> {
 }
 
 /// One mounted `PluginDock` panel: a `ViewInstanceId`, its declared
-/// `plugin.editor` surface slot, the slot lease ledger, and a binding
-/// into the app-wide [`PluginEditorSessions`] registry — the
-/// deterministic headless state machine the issue's row 2 requires.
+/// `plugin.editor` surface slot, a clone of the shared slot/lease
+/// authority handle, and a binding into the app-wide
+/// [`PluginEditorSessions`] registry — the deterministic headless
+/// state machine the issue's row 2 requires.
 ///
-/// The session registry is deliberately *not* per-panel: it is the
+/// Neither authority is per-panel: the session registry is the
 /// host-wide authority that mints unique [`PluginEditorSessionId`]s
 /// and enforces "one live editor session per [`PluginHandle`]"
 /// ([`EditorSessionError::SessionBusy`]) across panels — callers lend
-/// `&mut PluginEditorSessions` to every session-touching method.
+/// `&mut PluginEditorSessions` to every session-touching method — and
+/// the [`NativeSlotAuthority`] handle points at the one shared ledger
+/// the composition root installed, so every lease validates against
+/// the ledger that minted it regardless of which panel redeems it.
 ///
 /// Invariants enforced (composed, not re-implemented):
 /// - at most one live lease per slot and one live session per binding;
 /// - stale `{index,generation}` slot ids and revoked leases are always
-///   rejected by the registry ledger;
+///   rejected by the shared ledger;
 /// - a cross-window [`Self::relocate`] re-parents through a *fresh*
 ///   lease on a *fresh* slot — the old lease is revoked only after the
 ///   reattach lands, so the editor never sits on a dead parent;
@@ -484,15 +591,15 @@ impl EditorSessionOps for OpsBridge<'_> {
 ///   and releases the slot — the DSP instance is untouched.
 ///
 /// **RT contract:** non-RT only — UI-thread only.
-#[derive(Debug)]
 pub struct PluginDock {
     /// The dock view this panel renders as.
     view: ViewInstanceId,
     /// The live `plugin.editor` slot — `None` after window loss until
     /// `ensure_slot`/`relocate` re-materializes it.
     slot: Option<SurfaceSlotId>,
-    /// The issuer-side lease ledger (the driver's ledger mirrors it).
-    slots: SurfaceSlotRegistry,
+    /// The shared slot/lease authority — a clone of the handle the
+    /// composition root injected, never a panel-owned ledger.
+    authority: SharedNativeSlotAuthority,
     /// The occupying editor, when any (including a terminally-failed
     /// session kept observable until `close`/`restore`).
     binding: Option<PluginDockBinding>,
@@ -502,9 +609,24 @@ pub struct PluginDock {
     last_geometry: SlotGeometry,
 }
 
+// `dyn NativeSlotAuthority` is not `Debug` (the driver's shared
+// surface cannot implement foreign traits for it) — the projection
+// prints the panel's own identity fields only.
+impl fmt::Debug for PluginDock {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PluginDock")
+            .field("view", &self.view)
+            .field("slot", &self.slot)
+            .field("binding", &self.binding)
+            .field("last_geometry", &self.last_geometry)
+            .finish_non_exhaustive()
+    }
+}
+
 impl PluginDock {
     /// Declares a panel for `view` with its `plugin.editor` slot on
-    /// `window` at `geometry`.
+    /// `window` at `geometry`, inside the shared slot/lease
+    /// `authority` the composition root injected.
     ///
     /// # Errors
     /// [`PluginDockError::Slot`] on invalid geometry — the panel is not
@@ -515,13 +637,15 @@ impl PluginDock {
         view: ViewInstanceId,
         window: WindowId,
         geometry: SlotGeometry,
+        authority: SharedNativeSlotAuthority,
     ) -> Result<Self, PluginDockError> {
-        let mut slots = SurfaceSlotRegistry::new();
-        let slot = slots.declare_slot(Self::slot_spec(view, window, geometry))?;
+        let slot = authority
+            .borrow_mut()
+            .declare_slot(Self::slot_spec(view, window, geometry))?;
         Ok(Self {
             view,
             slot: Some(slot),
-            slots,
+            authority,
             binding: None,
             last_geometry: geometry,
         })
@@ -553,12 +677,27 @@ impl PluginDock {
         self.slot
     }
 
-    /// Read-only access to the slot ledger — validation, events, specs.
+    /// A clone of the shared slot/lease authority handle — the same
+    /// ledger this panel's slot lives in. Tests and the composition
+    /// root inspect/validate through it; the panel itself borrows it
+    /// per call.
     ///
     /// **RT contract:** non-RT only — UI-thread only.
     #[must_use]
-    pub const fn slots(&self) -> &SurfaceSlotRegistry {
-        &self.slots
+    pub fn authority(&self) -> SharedNativeSlotAuthority {
+        Rc::clone(&self.authority)
+    }
+
+    /// Ledger spec read, collapsing a consult failure to `None` —
+    /// read-model use only (command paths propagate the error).
+    fn spec_of(&self, slot: SurfaceSlotId) -> Option<SlotSpec> {
+        self.authority.borrow().spec(slot).ok().flatten()
+    }
+
+    /// Ledger state read — same read-model-only collapse as
+    /// [`Self::spec_of`].
+    fn state_of(&self, slot: SurfaceSlotId) -> Option<SlotState> {
+        self.authority.borrow().state(slot).ok().flatten()
     }
 
     /// The occupying editor binding, if any.
@@ -588,10 +727,10 @@ impl PluginDock {
             view: self.view,
             window: self
                 .slot
-                .and_then(|s| self.slots.spec(s))
+                .and_then(|s| self.spec_of(s))
                 .map(|spec| spec.window),
             slot: self.slot,
-            slot_state: self.slot.and_then(|s| self.slots.state(s)),
+            slot_state: self.slot.and_then(|s| self.state_of(s)),
             instance: self.binding.map(|b| b.instance),
             session: self.binding.map(|b| b.session),
             session_state: self.session_state(sessions),
@@ -618,11 +757,11 @@ impl PluginDock {
         self.last_geometry = geometry;
         let owner = self
             .slot
-            .and_then(|s| self.slots.spec(s).map(|spec| spec.window));
+            .and_then(|s| self.spec_of(s).map(|spec| spec.window));
         if owner == Some(window)
             && let Some(slot) = self.slot
         {
-            self.slots.set_geometry(slot, geometry)?;
+            self.authority.borrow_mut().set_geometry(slot, geometry)?;
             return Ok(slot);
         }
         if self.binding.is_some() {
@@ -633,38 +772,43 @@ impl PluginDock {
             self.retire_binding(sessions)?;
         }
         if let Some(slot) = self.slot.take() {
-            self.slots.release_slot(slot)?;
+            self.authority.borrow_mut().release_slot(slot)?;
         }
         let slot = self
-            .slots
+            .authority
+            .borrow_mut()
             .declare_slot(Self::slot_spec(self.view, window, geometry))?;
         self.slot = Some(slot);
         Ok(slot)
     }
 
     /// Lends the host adapter for `handle` with the issuer-side redeem
-    /// hook bound to this panel's ledger.
+    /// hook bound to the shared authority that minted the lease. The
+    /// closure owns a clone of the authority handle, so no panel
+    /// borrow is held across the adapter lend.
     fn host_ops<'a>(
         host: &'a mut PluginEditorHostObj,
-        slots: &'a SurfaceSlotRegistry,
+        authority: &SharedNativeSlotAuthority,
         handle: PluginHandle,
     ) -> Result<OpsBridge<'a>, EditorOpError> {
-        let redeem: Box<LeaseRedeemer<'a>> = Box::new(move |lease| redeem_lease(slots, *lease));
+        let authority = Rc::clone(authority);
+        let redeem: Box<LeaseRedeemer<'a>> =
+            Box::new(move |lease| redeem_lease(&authority, *lease));
         host.ops(handle, redeem).map(OpsBridge)
     }
 
     /// `ops` lend + `session.open` contained in one call — the
-    /// `&slots`/`&mut sessions` borrows end with it so the caller can
-    /// mutate the ledger on either outcome.
+    /// `&mut sessions` borrow ends with it so the caller can mutate
+    /// the ledger on either outcome.
     fn open_with_ops(
         host: &mut PluginEditorHostObj,
-        slots: &SurfaceSlotRegistry,
+        authority: &SharedNativeSlotAuthority,
         sessions: &mut PluginEditorSessions,
         binding: &PluginDockBinding,
         parent: ParentSlotLease,
         mode: AttachMode,
     ) -> Result<EditorCapabilities, PluginDockError> {
-        let mut ops = Self::host_ops(host, slots, binding.handle)?;
+        let mut ops = Self::host_ops(host, authority, binding.handle)?;
         sessions
             .session_mut(binding.session)
             .expect("freshly minted session")
@@ -676,12 +820,12 @@ impl PluginDock {
     /// as [`Self::open_with_ops`].
     fn reattach_with_ops(
         host: &mut PluginEditorHostObj,
-        slots: &SurfaceSlotRegistry,
+        authority: &SharedNativeSlotAuthority,
         sessions: &mut PluginEditorSessions,
         binding: &PluginDockBinding,
         parent: ParentSlotLease,
     ) -> Result<(), PluginDockError> {
-        let mut ops = Self::host_ops(host, slots, binding.handle)?;
+        let mut ops = Self::host_ops(host, authority, binding.handle)?;
         sessions
             .session_mut(binding.session)
             .ok_or(EditorSessionError::UnknownSession)?
@@ -718,7 +862,8 @@ impl PluginDock {
             .resolve(instance)
             .ok_or(PluginDockError::UnknownInstance)?;
         let session = sessions.begin_session(handle)?;
-        let lease = match self.slots.lease_parent(slot) {
+        let leased = self.authority.borrow_mut().lease_parent(slot);
+        let lease = match leased {
             Ok(lease) => lease,
             Err(e) => {
                 // Never-opened sessions retire cleanly — no binding,
@@ -738,7 +883,7 @@ impl PluginDock {
             size,
             lease: Some(lease),
         };
-        let opened = Self::open_with_ops(host, &self.slots, sessions, &binding, parent, mode);
+        let opened = Self::open_with_ops(host, &self.authority, sessions, &binding, parent, mode);
         self.binding = Some(binding);
         match opened {
             Ok(capabilities) => Ok(PluginDockReport {
@@ -754,7 +899,7 @@ impl PluginDock {
             // the half-minted session.
             Err(e @ PluginDockError::Ops(_)) => {
                 self.binding = None;
-                let _ = self.slots.release_lease(lease);
+                let _ = self.authority.borrow_mut().release_lease(lease);
                 let _ = sessions.end_session(session);
                 Err(e)
             }
@@ -762,7 +907,7 @@ impl PluginDock {
             // `close`/`restore` retire it; the lease is revoked so the
             // slot can host a retry.
             Err(e) => {
-                let _ = self.slots.release_lease(lease);
+                let _ = self.authority.borrow_mut().release_lease(lease);
                 if let Some(binding) = self.binding.as_mut() {
                     binding.lease = None;
                 }
@@ -786,13 +931,13 @@ impl PluginDock {
         visible: bool,
     ) -> Result<(), PluginDockError> {
         let (session_id, handle, slot) = self.binding_ids()?;
-        let mut ops = Self::host_ops(host, &self.slots, handle)?;
+        let mut ops = Self::host_ops(host, &self.authority, handle)?;
         sessions
             .session_mut(session_id)
             .ok_or(EditorSessionError::UnknownSession)?
             .set_visibility(&mut ops, visible)?;
         drop(ops);
-        self.slots.set_visibility(
+        self.authority.borrow_mut().set_visibility(
             slot,
             if visible {
                 SlotVisibility::Visible
@@ -818,7 +963,7 @@ impl PluginDock {
         size: EditorSize,
     ) -> Result<(), PluginDockError> {
         let (session_id, handle, _) = self.binding_ids()?;
-        let mut ops = Self::host_ops(host, &self.slots, handle)?;
+        let mut ops = Self::host_ops(host, &self.authority, handle)?;
         sessions
             .session_mut(session_id)
             .ok_or(EditorSessionError::UnknownSession)?
@@ -844,7 +989,7 @@ impl PluginDock {
         focused: bool,
     ) -> Result<(), PluginDockError> {
         let (session_id, handle, _) = self.binding_ids()?;
-        let mut ops = Self::host_ops(host, &self.slots, handle)?;
+        let mut ops = Self::host_ops(host, &self.authority, handle)?;
         sessions
             .session_mut(session_id)
             .ok_or(EditorSessionError::UnknownSession)?
@@ -860,7 +1005,7 @@ impl PluginDock {
     /// **RT contract:** non-RT only — UI-thread only.
     pub fn set_slot_geometry(&mut self, geometry: SlotGeometry) -> Result<(), PluginDockError> {
         let slot = self.slot.ok_or(PluginDockError::NoSlot)?;
-        self.slots.set_geometry(slot, geometry)?;
+        self.authority.borrow_mut().set_geometry(slot, geometry)?;
         self.last_geometry = geometry;
         Ok(())
     }
@@ -875,7 +1020,7 @@ impl PluginDock {
     /// **RT contract:** non-RT only — UI-thread only.
     pub fn prepare_move(&mut self) -> Result<(), PluginDockError> {
         if let Some(slot) = self.slot {
-            self.slots.mark_busy(slot)?;
+            self.authority.borrow_mut().mark_busy(slot)?;
         }
         Ok(())
     }
@@ -889,7 +1034,7 @@ impl PluginDock {
     /// **RT contract:** non-RT only — UI-thread only.
     pub fn abort_move(&mut self) -> Result<(), PluginDockError> {
         if let Some(slot) = self.slot {
-            self.slots.clear_busy(slot)?;
+            self.authority.borrow_mut().clear_busy(slot)?;
         }
         Ok(())
     }
@@ -915,7 +1060,7 @@ impl PluginDock {
     pub fn relocate(
         &mut self,
         sessions: &mut PluginEditorSessions,
-        mut host: Option<&mut PluginEditorHostObj>,
+        host: Option<&mut PluginEditorHostObj>,
         to_window: WindowId,
     ) -> Result<(), PluginDockError> {
         let Some(old_slot) = self.slot else {
@@ -923,7 +1068,7 @@ impl PluginDock {
             // owner with the last recorded geometry. A live session
             // cannot exist here (window loss converged it), so there
             // is nothing to re-parent.
-            let slot = self.slots.declare_slot(Self::slot_spec(
+            let slot = self.authority.borrow_mut().declare_slot(Self::slot_spec(
                 self.view,
                 to_window,
                 self.last_geometry,
@@ -931,44 +1076,26 @@ impl PluginDock {
             self.slot = Some(slot);
             return Ok(());
         };
-        let _ = self.slots.clear_busy(old_slot);
-        let spec = *self.slots.spec(old_slot).ok_or(PluginDockError::NoSlot)?;
+        let _ = self.authority.borrow_mut().clear_busy(old_slot);
+        let spec = self
+            .authority
+            .borrow()
+            .spec(old_slot)
+            .map_err(PluginDockError::Slot)?
+            .ok_or(PluginDockError::NoSlot)?;
         if spec.window == to_window {
-            // Same window — but a `Hidden` session (e.g. an editor a
-            // `detach_to_pool` suppressed) re-shows on re-attach: the
-            // slot's reserved region is rendered again, so the editor
-            // returns to `Attached`. A deliberately-hidden binding is
-            // not silently re-shown — only the detach-seated one.
-            let Some(binding) = self.binding else {
-                return Ok(());
-            };
-            let hidden = sessions
-                .session(binding.session)
-                .is_some_and(|s| matches!(s.state(), EditorSessionState::Hidden { .. }));
-            if !hidden {
-                return Ok(());
-            }
-            let Some(host) = host.as_deref_mut() else {
-                return Ok(());
-            };
-            let mut ops = Self::host_ops(host, &self.slots, binding.handle)?;
-            sessions
-                .session_mut(binding.session)
-                .ok_or(EditorSessionError::UnknownSession)?
-                .set_visibility(&mut ops, true)?;
-            drop(ops);
-            self.slots
-                .set_visibility(old_slot, SlotVisibility::Visible)?;
-            return Ok(());
+            return self.reshow_hidden_on_same_window(sessions, host, old_slot);
         }
-        let new_slot =
-            self.slots
-                .declare_slot(Self::slot_spec(self.view, to_window, spec.geometry))?;
+        let new_slot = self.authority.borrow_mut().declare_slot(Self::slot_spec(
+            self.view,
+            to_window,
+            spec.geometry,
+        ))?;
         self.slot = Some(new_slot);
         let Some(binding) = self.binding else {
             // Empty panel — the slot follows its view with no editor
             // to re-parent.
-            self.slots.release_slot(old_slot)?;
+            self.authority.borrow_mut().release_slot(old_slot)?;
             return Ok(());
         };
         let live = sessions.session(binding.session).is_some_and(|s| {
@@ -981,7 +1108,7 @@ impl PluginDock {
             // A terminally-failed/concluded session has no editor to
             // re-parent — the old slot (and its lease, if any) dies
             // with the old window.
-            self.slots.release_slot(old_slot)?;
+            self.authority.borrow_mut().release_slot(old_slot)?;
             if let Some(b) = self.binding.as_mut() {
                 b.lease = None;
             }
@@ -991,18 +1118,18 @@ impl PluginDock {
             // No adapter can re-parent — converge the live session
             // honestly rather than record a fake still-parented one.
             sessions.notify_terminated(binding.handle, SessionFailCause::HostLost);
-            self.slots.release_slot(old_slot)?;
+            self.authority.borrow_mut().release_slot(old_slot)?;
             if let Some(b) = self.binding.as_mut() {
                 b.lease = None;
             }
             return Ok(());
         };
-        let new_lease = self.slots.lease_parent(new_slot)?;
+        let new_lease = self.authority.borrow_mut().lease_parent(new_slot)?;
         let parent = ParentSlotLease::new(new_lease.raw());
-        let reattached = Self::reattach_with_ops(host, &self.slots, sessions, &binding, parent);
+        let reattached = Self::reattach_with_ops(host, &self.authority, sessions, &binding, parent);
         match reattached {
             Ok(()) => {
-                self.slots.release_slot(old_slot)?;
+                self.authority.borrow_mut().release_slot(old_slot)?;
                 if let Some(b) = self.binding.as_mut() {
                     b.slot = new_slot;
                     b.lease = Some(new_lease);
@@ -1013,7 +1140,7 @@ impl PluginDock {
                 let visible = sessions
                     .session(binding.session)
                     .is_some_and(|s| matches!(s.state(), EditorSessionState::Attached { .. }));
-                let _ = self.slots.set_visibility(
+                let _ = self.authority.borrow_mut().set_visibility(
                     new_slot,
                     if visible {
                         SlotVisibility::Visible
@@ -1026,12 +1153,49 @@ impl PluginDock {
             Err(e) => {
                 // Keep the old slot + lease — the editor may still be
                 // parented under them; retire the unused new slot.
-                let _ = self.slots.release_lease(new_lease);
-                let _ = self.slots.release_slot(new_slot);
+                let _ = self.authority.borrow_mut().release_lease(new_lease);
+                let _ = self.authority.borrow_mut().release_slot(new_slot);
                 self.slot = Some(old_slot);
                 Err(e)
             }
         }
+    }
+
+    /// Same-window half of [`Self::relocate`]: a `Hidden` session
+    /// (e.g. an editor a `detach_to_pool` suppressed) re-shows on
+    /// re-attach — the slot's reserved region is rendered again, so
+    /// the editor returns to `Attached`. A deliberately-hidden
+    /// binding is not silently re-shown — only the detach-seated one.
+    ///
+    /// **RT contract:** non-RT only — UI-thread only.
+    fn reshow_hidden_on_same_window(
+        &mut self,
+        sessions: &mut PluginEditorSessions,
+        host: Option<&mut PluginEditorHostObj>,
+        slot: SurfaceSlotId,
+    ) -> Result<(), PluginDockError> {
+        let Some(binding) = self.binding else {
+            return Ok(());
+        };
+        let hidden = sessions
+            .session(binding.session)
+            .is_some_and(|s| matches!(s.state(), EditorSessionState::Hidden { .. }));
+        if !hidden {
+            return Ok(());
+        }
+        let Some(host) = host else {
+            return Ok(());
+        };
+        let mut ops = Self::host_ops(host, &self.authority, binding.handle)?;
+        sessions
+            .session_mut(binding.session)
+            .ok_or(EditorSessionError::UnknownSession)?
+            .set_visibility(&mut ops, true)?;
+        drop(ops);
+        self.authority
+            .borrow_mut()
+            .set_visibility(slot, SlotVisibility::Visible)?;
+        Ok(())
     }
 
     /// View-detach hook (`detach_to_pool` / window destroy under
@@ -1051,7 +1215,10 @@ impl PluginDock {
         host: Option<&mut PluginEditorHostObj>,
     ) -> Result<(), PluginDockError> {
         if let Some(slot) = self.slot {
-            let _ = self.slots.set_visibility(slot, SlotVisibility::Hidden);
+            let _ = self
+                .authority
+                .borrow_mut()
+                .set_visibility(slot, SlotVisibility::Hidden);
         }
         let Some(binding) = self.binding else {
             return Ok(());
@@ -1068,7 +1235,7 @@ impl PluginDock {
         let Some(host) = host else {
             return Ok(());
         };
-        let mut ops = Self::host_ops(host, &self.slots, binding.handle)?;
+        let mut ops = Self::host_ops(host, &self.authority, binding.handle)?;
         sessions
             .session_mut(binding.session)
             .ok_or(EditorSessionError::UnknownSession)?
@@ -1088,7 +1255,7 @@ impl PluginDock {
             binding.lease = None;
         }
         if let Some(slot) = self.slot.take() {
-            let _ = self.slots.release_slot(slot);
+            let _ = self.authority.borrow_mut().release_slot(slot);
         }
     }
 
@@ -1105,7 +1272,7 @@ impl PluginDock {
         if let Some(binding) = self.binding.as_mut() {
             sessions.notify_terminated(binding.handle, cause);
             if let Some(lease) = binding.lease.take() {
-                let _ = self.slots.release_lease(lease);
+                let _ = self.authority.borrow_mut().release_lease(lease);
             }
         }
     }
@@ -1135,7 +1302,7 @@ impl PluginDock {
         if !concluded {
             match host {
                 Some(host) => {
-                    let mut ops = Self::host_ops(host, &self.slots, binding.handle)?;
+                    let mut ops = Self::host_ops(host, &self.authority, binding.handle)?;
                     sessions
                         .session_mut(binding.session)
                         .ok_or(EditorSessionError::UnknownSession)?
@@ -1156,7 +1323,7 @@ impl PluginDock {
     ) -> Result<(), PluginDockError> {
         if let Some(binding) = self.binding.take() {
             if let Some(lease) = binding.lease {
-                let _ = self.slots.release_lease(lease);
+                let _ = self.authority.borrow_mut().release_lease(lease);
             }
             sessions.end_session(binding.session)?;
         }
@@ -1232,13 +1399,6 @@ impl PluginDock {
         sessions.tick_all()
     }
 
-    /// Drains the slot ledger's pending events.
-    ///
-    /// **RT contract:** non-RT only — UI-thread only.
-    pub fn drain_slot_events(&mut self) -> Vec<SlotEvent> {
-        self.slots.drain_events()
-    }
-
     /// Drains the bound session's pending events (empty when no
     /// binding exists).
     ///
@@ -1298,8 +1458,8 @@ pub fn session_state_mode(state: &EditorSessionState) -> Option<AttachMode> {
 /// [`NativeSlotSpec`] the upstream contract vocabulary pins.
 ///
 /// The spec stays declarative: mounting it proves layout/semantics
-/// only — the slot binds a runtime `SurfaceSlotId` through the panel's
-/// [`SurfaceSlotRegistry`], never through this tree.
+/// only — the slot binds a runtime `SurfaceSlotId` through the shared
+/// [`NativeSlotAuthority`] ledger, never through this tree.
 ///
 /// **RT contract:** non-RT only — UI-thread only.
 #[must_use]

@@ -306,5 +306,6 @@ Directory: `docs/designs`
 | DESIGN-3kN7fR4hX1yZ7vD0oS8aLkQe | SV-GPUI-02 headless PluginDock panel 詳細設計 — 4-ID 所有・shared session registry・dock 2-phase 接続 | approved | [sv-gpui-02-plugin-dock-headless-panel-design.md](./sv-gpui-02-plugin-dock-headless-panel-design.md) |
 | DSN-alib07-webdav-docker-provider | ALIB-07 — WebDAV 実 provider 検証環境のイメージ選定と構成設計（synvelis#633） | approved | [alib-07-webdav-docker-provider.md](./alib-07-webdav-docker-provider.md) |
 | DESIGN-TiM01wIdGeTnPw02 | TIM-01 PPQN 選択 widget intent — params 付き Action → `syn.project.ppqn` 設計（synvelis#125） | approved | [tim-01-ppqn-widget.md](./tim-01-ppqn-widget.md) |
+| DESIGN-JCeMt2CNWWebw7vrpDhnTJgD | SV-GPUI-02 PluginDock native slot 詳細設計 — shared surface authority・opaque lease redemption・canonical GPUI binding | approved | [sv-gpui-02-plugin-dock-native-slot-design.md](./sv-gpui-02-plugin-dock-native-slot-design.md) |
 | DESIGN-pcC4L1RealAbi01 | PC-C4 L1 real ABI binding design | approved | [pc-c4-l1-real-abi-binding.md](./pc-c4-l1-real-abi-binding.md) |
 | DESIGN-SV114SVOSCONSUMER0000001 | SV-OS consumer catalog — catalog/headless/real lane 設計 (synvelis#114) | approved | [sv114-svos-consumer-catalog.md](./sv114-svos-consumer-catalog.md) |
