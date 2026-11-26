@@ -1,0 +1,7 @@
+ts	phase	decision	why	evidence	result
+2026-11-26T22:03:00+09:00	start	fixed candidate at dispatch-time ruviform origin/main HEAD	the task requires a re-measured candidate rather than the drafted snapshot	git ls-remote; git merge-base --is-ancestor	candidate 0479fa62e77e669a7bf84320d3d5418ffb949fc6
+2026-11-26T22:04:00+09:00	branch	created chore/28-ruviform-pin-rf1029 from synvelis origin/main	head remote branch was absent and the worktree started clean	git ls-remote --heads; git status	open
+2026-11-26T22:10:00+09:00	lock	scoped cargo update to candidate; 36 sources single SHA; no unrelated drift	Cargo.toml unchanged and lockfile-primary contract requires scoped update	Cargo.lock diff; check-ruviform-rev	adopt
+2026-11-26T22:11:00+09:00	consumer-impact	no source adaptation in input.rs/input_adapter.rs	existing fault mapping already handles Xrun and ClockDiscontinuity as independent bits; forward gap double report is intended upstream contract	ruviform-0479fa62-diff-review.md	no-adaptation
+2026-11-26T22:16:00+09:00	triage	test synvelis-app initial exit 101 classified as missing L1 runner artifact, not pin-caused	panic message names prerequisite; no plugin ABI diff in range; rerun after canonical L1 lanes passes	verification/test-synvelis-app.log; verification/test-synvelis-app-rerun.log	triaged
+2026-11-26T22:28:00+09:00	adopt	adopt candidate after canonical lanes pass	all required lanes exit 0; lock diff scoped; rf1029 contract included	verification.md	adopt

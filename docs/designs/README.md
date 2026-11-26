@@ -310,3 +310,4 @@ Directory: `docs/designs`
 | DESIGN-pcC4L1RealAbi01 | PC-C4 L1 real ABI binding design | approved | [pc-c4-l1-real-abi-binding.md](./pc-c4-l1-real-abi-binding.md) |
 | DESIGN-SV114SVOSCONSUMER0000001 | SV-OS consumer catalog — catalog/headless/real lane 設計 (synvelis#114) | approved | [sv114-svos-consumer-catalog.md](./sv114-svos-consumer-catalog.md) |
 | DESIGN-Tim04PermissionMatrix01 | TIM-04 permission fault matrix design | approved | [tim-04-permission-matrix.md](./tim-04-permission-matrix.md) |
+| DESIGN-rf1029k8Qw3Vx7Lm2Np6Ty4Rs9Zd | SV#28 Ruviform pin 更新設計（87a7ba8f → 0479fa62 / rf#1029） | approved | [sv28-ruviform-pin-rf1029.md](./sv28-ruviform-pin-rf1029.md) |
