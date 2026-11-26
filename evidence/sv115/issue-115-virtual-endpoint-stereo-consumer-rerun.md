@@ -157,7 +157,8 @@ workflow、harness、consumer oracle、endpoint selection、capture 判定、pro
 | --- | ---: | --- | --- |
 | `mise run sync-ui-deps` | 0 | Pass（環境同期） | ignored な生成物 `ui/vendor/ruviform` を lock rev `0479fa62e77e669a7bf84320d3d5418ffb949fc6` へ同期した。commit 対象外のローカル生成物の更新であり、Ruviform リポジトリや `Cargo.lock` は変更していない |
 | `mise run lint-actions` | 0 | Pass | actionlint pass。workflow ファイルは変更していないが、manual dispatch した workflow の static sanity を確認した |
-| `mise run fmt-check` | 1 | Fail（validation infrastructure） | `cargo fmt --all -- --check` の起動が Windows `os error 206` で失敗し、file 単位の formatting verdict へ進まなかった。`sync-ui-deps` 後も同じ結果だった。本 slice は Rust code を変更していない。formatting 違反の証拠ではないが、canonical check の Pass でもない |
+| `mise run fmt-check`（Orca worktree） | 1 | Fail（validation infrastructure） | `cargo fmt --all -- --check` の起動が Windows `os error 206` で失敗し、file 単位の formatting verdict へ進まなかった。`sync-ui-deps` 後も同じ結果だった。本 slice は Rust code を変更していない。formatting 違反の証拠ではないが、canonical check の Pass でもない |
+| `mise run fmt-check`（補助: main checkout） | 0 | Pass（補助確認） | 短い path の main checkout `G:\repositry\audio-products\synvelis` では同コマンドが pass した。この checkout は PR 対象 SHA ではないため PR head の formatting 証拠には使わず、Orca worktree の `os error 206` を長い path 固有の実行環境制約として分類する補助に限定する |
 | `mise run check-ruviform-rev` | 0 | Pass | lockfile は 36 source / single rev `0479fa62e77e669a7bf84320d3d5418ffb949fc6`、同期後の `ui/vendor/ruviform/REV` も同じ revision で一致した |
 | `mise exec -- prek run --all-files` | 0 | Pass | trailing whitespace、EOF、YAML/TOML、mixed line ending、BOM、private key、actionlint の全 hook pass |
 
