@@ -192,6 +192,7 @@ Directory: `docs/designs`
 | DESIGN-034T728YcMrGoBwDtbkIqS | SV177 Product Theme / Workspace Preset — synvelis-theme crate・DTCG overrides・slot-based preset・semantic screen spec | approved | [sv177-product-theme-workspace-preset-design.md](./sv177-product-theme-workspace-preset-design.md) |
 | DESIGN-Xk9mQ2vR7wTzLp4nHs8dFj | SV185-01 mixer.gain projection 設計 — ControlModel bootstrap・wire target・display_value | approved | [sv185-mixer-gain-projection-design.md](./sv185-mixer-gain-projection-design.md) |
 | DESIGN-gAU8JKJSNsO9ZsGEgF0CDj | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界（fd1d4d5f → ac10a2f7） | approved | [sv28-ruviform-pin-ac10a2f7.md](./sv28-ruviform-pin-ac10a2f7.md) |
+| DESIGN-b6Vd3Nx9Qm2Lp8Rt5Yw7Ks | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界（20dc41f7 → 87a7ba8f） | approved | [sv28-ruviform-pin-87a7ba8f.md](./sv28-ruviform-pin-87a7ba8f.md) |
 | DESIGN-034VobNphX5isOqTl9Wg5i | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界 | approved | [sv28-ruviform-pin-b02942c2.md](./sv28-ruviform-pin-b02942c2.md) |
 | DESIGN-2z5KtdGhRdUvPQ0fJobGHe | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界（abb9f372 → cbcc8343） | approved | [sv28-ruviform-pin-cbcc8343.md](./sv28-ruviform-pin-cbcc8343.md) |
 | DESIGN-43KJVuVRlioN1JtUFVuqtW | SV#28 Ruviform pin 更新 設計 — lockfile pin 更新と API 追従の境界 | approved | [sv28-ruviform-pin-cc7d5296.md](./sv28-ruviform-pin-cc7d5296.md) |
