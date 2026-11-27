@@ -271,3 +271,4 @@ Directory: `docs/specs`
 | SPEC-gtjTcKhGLn9Po50wiKWkuC | CTL-02 canonical persistence — v15→v16 migration と load oracle | approved | [ctl-02-canonical-persistence.md](./ctl-02-canonical-persistence.md) |
 | SPEC-t7Qm4Vx9Ln2Rw8KzYpD6 | TIM-03 transport application minimal vertical | approved | [tim-03-transport-application.md](./tim-03-transport-application.md) |
 | SPEC-i3Tn9Qx7Lm4Vw8KzRpD2 | TIM-03 instrument direct L1 musical transport oracle | approved | [tim-03-instrument-transport-oracle.md](./tim-03-instrument-transport-oracle.md) |
+| SPEC-p7Mx2Qw9Ln4Kr8TyVzD6 | TIM-03 production musical transport | approved | [tim-03-production-musical-transport.md](./tim-03-production-musical-transport.md) |

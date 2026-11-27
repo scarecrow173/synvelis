@@ -31,6 +31,8 @@ use ruviform_media_core::{
 use ruviform_plugin_core::{EventKind, ParamId, ParamInfo, TimedParamEvent};
 use synvelis_project::ParameterTargetId;
 
+use crate::musical_transport::PlanMusicalTransport;
+
 /// Typed failures of the dispatch surface.
 #[derive(Debug)]
 #[non_exhaustive]
@@ -157,6 +159,10 @@ pub struct ParamDispatch {
     /// every mint path (`dispatch`, `dispatch_midi`,
     /// `clear_midi_plan`) produces it, never the callers.
     staged_midi: Vec<(i64, MidiEvent)>,
+    /// Complete project-owned musical source applied to every plan this
+    /// dispatcher mints. `None` is the honest unavailable state — never
+    /// a partial tempo-map/PPQN pair or a fixed fallback.
+    musical_transport: Option<PlanMusicalTransport>,
 }
 
 impl ParamDispatch {
@@ -195,6 +201,7 @@ impl ParamDispatch {
             scheduler_gen: None,
             param_owners: BTreeMap::new(),
             staged_midi: Vec::new(),
+            musical_transport: None,
         })
     }
 
@@ -242,6 +249,95 @@ impl ParamDispatch {
     #[must_use]
     pub fn staged_midi(&self) -> &[(i64, MidiEvent)] {
         &self.staged_midi
+    }
+
+    /// The last plan this dispatcher staged, if any. Test and evidence
+    /// callers use this to inspect the exact generation, event payload,
+    /// tempo revision, tempo map, and PPQN the node was given.
+    #[must_use]
+    pub fn last_plan(&self) -> Option<&Arc<TransportPlan<EventKind>>> {
+        self.last_plan.as_ref()
+    }
+
+    /// Replaces the complete musical source future plans carry. Returns
+    /// `true` when the persisted project basis changed. This method does
+    /// not install a plan by itself; initial attachment must not mint an
+    /// empty discontinuity, while existing plans are refreshed through
+    /// [`Self::refresh_musical_plan`].
+    pub fn set_musical_transport(&mut self, source: Option<PlanMusicalTransport>) -> bool {
+        let changed = match (&self.musical_transport, &source) {
+            (None, None) => false,
+            (Some(current), Some(next)) => !current.same_project_basis(next),
+            _ => true,
+        };
+        if changed {
+            self.musical_transport = source;
+        }
+        changed
+    }
+
+    /// Whether the last staged plan already carries the currently desired
+    /// musical source. No plan is vacuously current — absence of content
+    /// must not trigger an empty install.
+    #[must_use]
+    pub fn last_plan_musical_is_current(&self) -> bool {
+        let Some(plan) = &self.last_plan else {
+            return true;
+        };
+        match &self.musical_transport {
+            Some(source) => source.plan_carries(plan),
+            None => plan.tempo_map.is_none() && plan.musical_ppqn.is_none(),
+        }
+    }
+
+    /// Rebuilds the last staged plan with the current musical source,
+    /// preserving every event position, source sequence, payload, and
+    /// optional transport-generation binding. No `Play` is requested: a
+    /// musical refresh must not re-anchor transport. Returns `None` when
+    /// no plan has been staged yet.
+    ///
+    /// # Errors
+    /// [`DispatchError::PositionUnrepresentable`] when a previously
+    /// representable event cannot be rebuilt, or [`DispatchError::QueueFull`]
+    /// when the node control queue refuses the install.
+    pub fn refresh_musical_plan(
+        &mut self,
+    ) -> Result<Option<Arc<TransportPlan<EventKind>>>, DispatchError> {
+        let Some(previous) = self.last_plan.clone() else {
+            return Ok(None);
+        };
+        let mut builder = self.next_plan_builder();
+        for event in &previous.events {
+            let result = if let Some(generation) = event.transport_generation {
+                builder.bound_event(
+                    event.position,
+                    event.source_sequence,
+                    generation,
+                    event.payload,
+                )
+            } else {
+                builder.event(event.position, event.source_sequence, event.payload)
+            };
+            result.map_err(|_| DispatchError::PositionUnrepresentable)?;
+        }
+        let plan = Arc::new(builder.build());
+        self.control
+            .install_plan(Arc::clone(&plan), 0)
+            .map_err(|_| DispatchError::QueueFull)?;
+        self.ledger.mark_plan_replaced();
+        self.ledger.record_plan(&plan, &self.table, self.node);
+        self.last_plan = Some(Arc::clone(&plan));
+        Ok(Some(plan))
+    }
+
+    fn next_plan_builder(&mut self) -> TransportPlanBuilder<EventKind> {
+        let generation = PlanGeneration::new(self.next_generation);
+        self.next_generation = self.next_generation.wrapping_add(1);
+        let builder = self.control.plan_builder(generation);
+        match &self.musical_transport {
+            Some(source) => source.apply(builder),
+            None => builder,
+        }
     }
 
     /// Binds `target` to the plugin-local `param`, validated against
@@ -394,11 +490,7 @@ impl ParamDispatch {
                 });
             }
         }
-        let mut builder = TransportPlanBuilder::<EventKind>::new(
-            self.frame_base,
-            PlanGeneration::new(self.next_generation),
-        );
-        self.next_generation = self.next_generation.wrapping_add(1);
+        let mut builder = self.next_plan_builder();
         let mut seq = 0_u64;
         for (_, event) in writes {
             builder
@@ -482,9 +574,7 @@ impl ParamDispatch {
         if events.is_empty() {
             return Err(DispatchError::Empty);
         }
-        let generation = PlanGeneration::new(self.next_generation);
-        self.next_generation = self.next_generation.wrapping_add(1);
-        let mut builder = self.control.plan_builder(generation);
+        let mut builder = self.next_plan_builder();
         for (seq, (frame, midi)) in events.iter().enumerate() {
             #[allow(clippy::cast_possible_truncation)]
             builder
@@ -524,9 +614,7 @@ impl ParamDispatch {
     /// [`DispatchError::QueueFull`] when the node's bounded queue
     /// drops the staged install.
     pub fn clear_midi_plan(&mut self) -> Result<Arc<TransportPlan<EventKind>>, DispatchError> {
-        let generation = PlanGeneration::new(self.next_generation);
-        self.next_generation = self.next_generation.wrapping_add(1);
-        let builder = self.control.plan_builder(generation);
+        let builder = self.next_plan_builder();
         let plan = Arc::new(builder.build());
         self.control
             .install_plan(Arc::clone(&plan), 0)
