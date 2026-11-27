@@ -1505,6 +1505,10 @@ fn tim03_pb_frame_boundary_matrix_exact_process_lengths() {
                     "window_frames": window,
                     "requested_boundary": requested,
                     "classification": "valid",
+                    "boundary_kinds": ["Seek"],
+                    "combined_case": false,
+                    "param_positions": [],
+                    "simultaneous_ordering": "single-kind baseline; combined ordering is covered by wired-combined rows",
                     "head_boundary": requested == 0,
                     "applied_boundaries": plan.boundaries,
                     "segment_lengths": segment_lengths,
@@ -1520,6 +1524,8 @@ fn tim03_pb_frame_boundary_matrix_exact_process_lengths() {
                     "window_frames": window,
                     "requested_boundary": requested,
                     "classification": "invalid-out-of-window",
+                    "boundary_kinds": ["Seek"],
+                    "combined_case": false,
                     "clamped": false,
                     "verdict": "pass-negative",
                 }));
@@ -1580,6 +1586,9 @@ fn tim03_sched_frame_boundary_matrix_exact_spans() {
                 "window_frames": window,
                 "requested_boundary": boundary,
                 "scenario": "seek-single",
+                "boundary_kinds": ["Seek"],
+                "combined_case": false,
+                "param_positions": [],
                 "span_sequence": sink.spans.iter().map(|span| [span.start, span.end]).collect::<Vec<_>>(),
                 "exact_process_lengths": physical,
                 "deliverable": true,
@@ -1627,6 +1636,9 @@ fn tim03_node_frame_boundary_matrix_exact_process_lengths() {
                 "window_frames": window,
                 "requested_boundary": boundary,
                 "scenario": "seek-single",
+                "boundary_kinds": ["Seek"],
+                "combined_case": false,
+                "param_positions": [],
                 "exact_process_lengths": lengths,
                 "fresh_instance": true,
                 "verdict": "pass",
@@ -1648,6 +1660,7 @@ fn tim03_node_frame_boundary_matrix_exact_process_lengths() {
 /// source order at one frame offset, and same-param last-wins order.
 #[test]
 fn tim03_node_param_frame_offset_ordering_matrix() {
+    let mut rows = Vec::new();
     for window in [100_u32, 128, 256] {
         for offset in [0_u32, 1, window / 2, window - 1] {
             let hosted = host_plugin(1, 512, DeliveryPolicy::Exact, 4096);
@@ -1713,6 +1726,24 @@ fn tim03_node_param_frame_offset_ordering_matrix() {
                 Some(0.75),
                 "same-param same-offset delivery order makes the final value last-wins"
             );
+            rows.push(serde_json::json!({
+                "window_frames": window,
+                "requested_frame_offset": offset,
+                "boundary_kinds": [],
+                "scenario": "param-ordering-frame-offset",
+                "param_positions": params.iter().map(|param| serde_json::json!({
+                    "param_id": param.param_id,
+                    "position_ticks": i64::from(offset),
+                    "process_start_relative_frame_offset": param.frame_offset,
+                    "absolute_position": param.abs,
+                    "value": param.value,
+                })).collect::<Vec<_>>(),
+                "source_sequence_order": [1,2,3],
+                "observed_delivery_order": params.iter().map(|param| (param.param_id, param.value)).collect::<Vec<_>>(),
+                "same_param_last_wins": {"param_id": 7, "final_value": 0.75},
+                "exact_process_lengths": [window],
+                "verdict": "pass"
+            }));
         }
     }
     println!(
@@ -1723,6 +1754,7 @@ fn tim03_node_param_frame_offset_ordering_matrix() {
             "offsets":["0","1","middle","last-in-call"],
             "ordering":"(position_ticks, source_sequence), stable same-offset source order; same ParamId last-wins",
             "different_param_relative_order":"no additional semantic invented",
+            "rows": rows,
             "verdict":"pass"
         })
     );

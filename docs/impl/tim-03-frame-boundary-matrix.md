@@ -49,6 +49,10 @@ relations:
 
 headless exact process-length proofと production real ABI PCM proofは分離する。production PCMは click lawによる primary evidenceだが、全physical call lengthsの authoritative proofではない。project PPQN 480はhost/project fact、fixture visible PPQN 960はadapter projectionであり fixed fallbackではない。
 
+## Gate-fix implementation
+
+Completion gate blockerに対応し、wired-session simultaneous matrixを256-frame representativeから W×B valid matrixへ拡張した。target Seekは post-collapse position 7を使い、natural wrapの基準position 0と区別する。JSONL rowsには boundary kinds、command/plan ordering、param position/frame offset、combined plan内のsource sequence順、same-param last-wins detail、明示PPQN 480付きtempo revisionとcall-start musical snapshotを記録する。`type_complexity` allowは削除し、`PlayingSurface` type aliasへ分解した。
+
 ## Limitations
 
 public seamの arbitrary interior scheduling unsupported cellsは NotRun/unsupportedのまま。fake-onlyを production ABI Passに昇格しない。docs indexは編集していない。

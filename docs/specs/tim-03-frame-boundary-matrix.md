@@ -43,10 +43,11 @@ Issue #127 TIM-03 のうち frame/boundary/event-order matrix slice を層別に
 ## 要求
 
 1. headless fake/mock layer で valid `W×B` cell を exhaustive に検証し、window=100/B=100 を clamp せず typed invalid/out-of-window negative とする。
-2. routing/driver loop-wrap derivation を 100/128/256 physical window geometry で検証し、head wrap offset 0 と interior cut、window-end wrap の次 window 所属を区別する。
-3. production real ABI evidence は production composition → PluginNode → out-of-process L1 → ruviform test_instrument のみで行う。direct endpoint process API、caller supplied `TransportInfo`、test-only seeding、fake plan direct install、direct endpoint injection は禁止する。
-4. public production seam が arbitrary interior seek/tempo-plan/param scheduling を表現できない cell は fake pass で埋めず `unsupported-by-current-production-seam` とする。
-5. project PPQN 480 と VST3/CLAP adapter projection PPQN 960を区別し、fixed 960 fallback を使わない。
+2. Loop/Seek/tempo-map付きPlanInstall/Param/process-start-relative frame offsetの simultaneous orderingを W×B valid matrixで exact process lengthsとともに固定する。
+3. routing/driver loop-wrap derivation を 100/128/256 physical window geometry で検証し、head wrap offset 0 と interior cut、window-end wrap の次 window 所属を区別する。
+4. production real ABI evidence は production composition → PluginNode → out-of-process L1 → ruviform test_instrument のみで行う。direct endpoint process API、caller supplied `TransportInfo`、test-only seeding、fake plan direct install、direct endpoint injection は禁止する。
+5. public production seam が arbitrary interior seek/tempo-plan/param scheduling を表現できない cell は fake pass で埋めず `unsupported-by-current-production-seam` とする。
+6. project PPQN 480 と VST3/CLAP adapter projection PPQN 960を区別し、fixed 960 fallback を使わない。
 
 ## 非スコープ
 

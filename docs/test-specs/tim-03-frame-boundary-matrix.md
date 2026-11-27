@@ -43,6 +43,10 @@ relations:
 - param eventは process-start-relative frame offset 0/1/middle/last-in-callを使い、same-position eventsを `(position_ticks, source_sequence)`順で確認する。
 - `tim03_loop_boundary.rs` / `tim03_driver_loop_boundary.rs`: 100/128/256 geometryで end-aligned/interior/head-cascade loop wrapを区別する。
 
+## Headless simultaneous ordering matrix
+
+`tim03_req_simultaneous_loop_seek_tempo_param` は W=100/128/256 × valid B=0/1/100/last を fresh wired session/nodeで実行する。300-tick loopに対して head初期位置を `300-B` とし、natural loop wrap・target Seek・tempo-map付きPlanInstallを同じ boundaryへ収束させる。target Seekは `307` で post-seek loop collapse後 position 7 となり、wrap collapse位置0と区別できる。exact process lengthsは B=0で `[W]`、interior Bで `[B,W-B]`、3つのsame-position param eventsは post-seek position 7から process-start-relative offsetで exactly once deliveryし、source_sequence順とsame-param last-winsを固定する。plan-owned musical transportは tempo map revision 1と明示PPQN 480を使い、target call startで bpm_milli=120000/ppqn=480を観測する。W=100/B=100は valid range外なので対象外であり、clampしない。
+
 ## Production real ABI oracle
 
 `tim03_l1_frame_boundary_matrix.rs` は VST3/CLAP両format、W=100/128/256で production composition seamから out-of-process L1 runnerの test_instrumentを駆動する。seek-derived positive、natural loop positive、tempo revision positiveを独立 click lawで判定し、amplitude 0.5、stereo identical、non-click silenceを要求する。

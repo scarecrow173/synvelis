@@ -636,17 +636,7 @@ fn interior_boundaries(calls: &[(u64, i64, u32)], head: u64, frames: u64) -> Vec
         .collect()
 }
 
-/// Standard drive to a playing, mirror-observed node: publish gen 1,
-/// attach (boundary declarations registered on every processor), one
-/// delivered fast write (stages `Play` + plan install at node head
-/// 256), run that block, observe it — returns with the node cursor at
-/// 512 and the scheduler `Playing` at position 0 anchored at frame
-/// 256. The wrap sim has likewise walked [256,512).
-#[allow(clippy::type_complexity)]
-fn playing_surface(
-    root: &Path,
-    processors: usize,
-) -> (
+type PlayingSurface = (
     ProjectController,
     PathBuf,
     Vec<ProcessorId>,
@@ -654,7 +644,15 @@ fn playing_surface(
     RoutingEngine,
     RoutingControlDispatch,
     Positions,
-) {
+);
+
+/// Standard drive to a playing, mirror-observed node: publish gen 1,
+/// attach (boundary declarations registered on every processor), one
+/// delivered fast write (stages `Play` + plan install at node head
+/// 256), run that block, observe it — returns with the node cursor at
+/// 512 and the scheduler `Playing` at position 0 anchored at frame
+/// 256. The wrap sim has likewise walked [256,512).
+fn playing_surface(root: &Path, processors: usize) -> PlayingSurface {
     let (mut c, media, ids) = plugin_project(root, processors);
     let (target, _lane) = add_gain_target(&mut c, ids[0]);
     let (mut adapter, positions) = rec_host();
@@ -1235,20 +1233,7 @@ fn run_and_observe_for(
         .unwrap_or_else(|| panic!("gen-{generation} surface observed"));
 }
 
-#[allow(clippy::type_complexity)]
-fn playing_surface_for(
-    root: &Path,
-    processors: usize,
-    block: usize,
-) -> (
-    ProjectController,
-    PathBuf,
-    Vec<ProcessorId>,
-    ParameterTargetId,
-    RoutingEngine,
-    RoutingControlDispatch,
-    Positions,
-) {
+fn playing_surface_for(root: &Path, processors: usize, block: usize) -> PlayingSurface {
     let (mut c, media, ids) = plugin_project(root, processors);
     let (target, _lane) = add_gain_target(&mut c, ids[0]);
     let (mut adapter, positions) = rec_host();

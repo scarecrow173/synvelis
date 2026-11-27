@@ -1,0 +1,4 @@
+test-synvelis-player-final	0	mise run test synvelis-player
+test-synvelis-app-final	0	mise run test synvelis-app
+test-tim03-frame-boundary-matrix-final	0	mise run test-tim03-frame-boundary-matrix
+prek-final	0	mise exec -- prek run --all-files

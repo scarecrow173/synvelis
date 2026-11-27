@@ -80,6 +80,12 @@ Param/frame-offset の `test_instrument` primary row は、deterministic voice/c
 
 Note: `canonical-verify3.log` preserves the first full canonical batch. During review the natural-loop production oracle was strengthened from a single in-loop click to first in-loop click plus post-wrap second click; the final authoritative matrix output is therefore the later `final-app-and-dedicated.log` and the regenerated `frame-boundary-matrix.jsonl`.
 
+## Completion-gate fix and review evidence
+
+2026-11-27 の needs-fix gateに対し、wired-session simultaneous matrixを valid W×B matrixへ拡張した。target Seekは post-collapse position 7を使い、natural loop wrap position 0と区別する。exact process lengths、single coalesced boundary、tempo-map付きPlanInstall、3つのsame-position param eventsのsource-sequence順/last-wins、exactly-once/process-start-relative frame offset、call-start musical snapshotを固定した。`#[allow(clippy::type_complexity)]` は削除し、`PlayingSurface` type aliasへ分解した。
+
+review-protocol-equivalent evidenceは `frame-boundary-matrix-review.md` にある。reviewer/validator split、reviewer verdict blockers 0、minor caveat disposition、4つの gate blocker dispositionを記録した。最終検証は `gate-fix4-canonical.log` を使う。初回 `test synvelis-app` は mbx gc後の L1 runner artifact欠落で failedとなったが、dedicated laneがrunnerを再構築した後の final targeted rerunを canonical verdictとする。これは source/test failureではなく test artifact lifecycleの順序依存として分類する。
+
 ## Artifact/negative evidence
 
 Machine-readable rows are in `frame-boundary-matrix.jsonl`, with these row families:
@@ -124,6 +130,9 @@ Negative/constraint evidence:
 - `frame-boundary-matrix/canonical-verify3.log` — dedicated lane, regression lanes, RT/headless/prek batch
 - `frame-boundary-matrix/final-app-and-dedicated.log` — final post-review app lint, `test synvelis-app`, and dedicated matrix lane rerun used for JSONL extraction
 - `frame-boundary-matrix/prek-final.log` — final prek run after evidence/doc updates
+- `frame-boundary-matrix/gate-fix-final-targeted.log` / `.tsv` — intermediate targeted rerun after runner rebuild
+- `frame-boundary-matrix/gate-fix4-canonical.log` / `.tsv` — final completion-gate canonical batch after combined param-order/musical-transport strengthening
+- `frame-boundary-matrix-review.md` — reviewer/validator split and blocker disposition
 - `frame-boundary-matrix/lint-player-rerun.log` — final player lint evidence
 - `frame-boundary-matrix/lint-app-rerun.log` — final app lint evidence
 - `frame-boundary-matrix/check-ruviform-rev-final.log` — final ruviform pin evidence
