@@ -270,3 +270,4 @@ Directory: `docs/specs`
 | SPEC-Tim04Rcp01StateProjection01 | TIM-04 RCP-01 persisted plugin-state projection | approved | [tim-04-rcp01-state-projection.md](./tim-04-rcp01-state-projection.md) |
 | SPEC-gtjTcKhGLn9Po50wiKWkuC | CTL-02 canonical persistence — v15→v16 migration と load oracle | approved | [ctl-02-canonical-persistence.md](./ctl-02-canonical-persistence.md) |
 | SPEC-t7Qm4Vx9Ln2Rw8KzYpD6 | TIM-03 transport application minimal vertical | approved | [tim-03-transport-application.md](./tim-03-transport-application.md) |
+| SPEC-i3Tn9Qx7Lm4Vw8KzRpD2 | TIM-03 instrument direct L1 musical transport oracle | approved | [tim-03-instrument-transport-oracle.md](./tim-03-instrument-transport-oracle.md) |

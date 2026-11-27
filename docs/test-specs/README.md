@@ -529,3 +529,4 @@ Directory: `docs/test-specs`
 | TSPEC-Tim04Rcp01StateProjection01 | TIM-04 RCP-01 persisted plugin-state projection test spec | approved | [tim-04-rcp01-state-projection.md](./tim-04-rcp01-state-projection.md) |
 | TSPEC-LxmoRkKfW8lDUiHntJVgGO | CTL-02 canonical persistence 検証仕様 | approved | [ctl-02-canonical-persistence.md](./ctl-02-canonical-persistence.md) |
 | TSPEC-j6Hm3Qw8Ln4Xv7RtYsK9 | tim-03-transport-application | approved | [tim-03-transport-application.md](./tim-03-transport-application.md) |
+| TSPEC-w2Ln8Qx4Vm7Kr9TyPzD5 | tim-03-instrument-transport-oracle | approved | [tim-03-instrument-transport-oracle.md](./tim-03-instrument-transport-oracle.md) |

@@ -314,3 +314,4 @@ Directory: `docs/designs`
 | DESIGN-Tim04Rcp01StateProjection01 | TIM-04 RCP-01 persisted plugin-state projection design | approved | [tim-04-rcp01-state-projection.md](./tim-04-rcp01-state-projection.md) |
 | DESIGN-kPeDqP4gwqUY0r89uRpuRV | CTL-02 canonical persistence 設計 | approved | [ctl-02-canonical-persistence.md](./ctl-02-canonical-persistence.md) |
 | DESIGN-n8Vw2Kx6Qm4Rt9LyTzC3 | TIM-03 transport application minimal vertical | approved | [tim-03-transport-application.md](./tim-03-transport-application.md) |
+| DESIGN-m7Qw3Ln9Vx2Kr6TyPzD8 | TIM-03 instrument direct L1 musical transport oracle | approved | [tim-03-instrument-transport-oracle.md](./tim-03-instrument-transport-oracle.md) |
