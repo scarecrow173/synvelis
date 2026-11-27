@@ -41,13 +41,13 @@ relations:
 
 - [x] upstream fixture law、direct endpoint transport API、`PluginNode` handoff gap を確認。
 - [x] ruviform Issue `https://github.com/scarecrow173/ruviform/issues/1040` を起票。
-- [ ] `tests/common/tim03_l1.rs` に必要な helper を追加。
-- [ ] `tim03_l1_instrument_transport.rs` を実装。
-- [ ] `mise run test-tim03-instrument-transport` を追加。
-- [ ] VST3/CLAP で click oracle、negative control、loop/position jump、150 BPM を実走。
-- [ ] JSONL/human-readable evidence を追加。
-- [ ] 正規検証 lane と prek を実行。
-- [ ] review、commit、push、PR 作成。
+- [x] `tests/common/tim03_l1.rs` に必要な helper を追加。
+- [x] `tim03_l1_instrument_transport.rs` を実装。
+- [x] `mise run test-tim03-instrument-transport` を追加。
+- [x] VST3/CLAP で click oracle、negative control、loop/position jump、150 BPM を実走。
+- [x] JSONL/human-readable evidence を追加。
+- [x] 正規検証 lane と prek を実行。
+- [x] review、commit、push、PR 作成。
 
 ## 残り（この slice の完了処理）
 
