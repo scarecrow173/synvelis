@@ -296,15 +296,26 @@ pub fn natural_playback(offset: i64, frames: i64) -> ClipPlayback {
 }
 
 pub fn session_config(media_root: PathBuf) -> SessionEngineConfig {
+    session_config_with_block_frames(media_root, BLOCK_FRAMES)
+}
+
+/// Explicit variable-block session configuration. The 256-frame
+/// `session_config` wrapper remains byte-for-byte unchanged in
+/// semantics; callers that pass `block_frames` opt into the geometry.
+pub fn session_config_with_block_frames(
+    media_root: PathBuf,
+    block_frames: usize,
+) -> SessionEngineConfig {
+    assert!(block_frames > 0 && block_frames <= 512);
     SessionEngineConfig {
         media_root,
         engine: synvelis_player::lowering::EngineConfig {
             sample_rate: SAMPLE_RATE,
             channels: 2,
-            block_frames: BLOCK_FRAMES,
+            block_frames,
         },
         prefetch: ruviform_media_reader::PrefetchConfig {
-            block_frames: BLOCK_FRAMES,
+            block_frames,
             block_count: 8,
             channels: 2,
             sample_rate: SAMPLE_RATE,
@@ -450,9 +461,53 @@ pub fn activate_generation(
     }
 }
 
+/// Activation helper for explicit block geometries. Small physical
+/// windows can complete before the out-of-process child has published
+/// its activation receipt, so pace individual blocks and wait bounded
+/// rather than assuming two unpaced 256-frame blocks are sufficient.
+pub fn activate_generation_paced(
+    engine: &synvelis_app::SessionRoutingEngine,
+    context: &str,
+) -> (u64, synvelis_player::driver::PlayReport) {
+    let mut pcm = vec![Vec::new(), Vec::new()];
+    let mut crc = 0_u64;
+    let mut frames = 0_u64;
+    for _ in 0..16 {
+        thread::sleep(Duration::from_millis(20));
+        let one = engine.run(1, PumpPolicy::Every(1)).unwrap();
+        frames += one.frames;
+        for (out, input) in pcm.iter_mut().zip(&one.pcm) {
+            out.extend_from_slice(input);
+        }
+        crc = crc.wrapping_mul(31).wrapping_add(one.crc);
+        if let Some(receipt) = engine.receipt() {
+            return match receipt.state {
+                RoutingActivationState::Active { generation, .. } => (
+                    generation,
+                    synvelis_player::driver::PlayReport { pcm, crc, frames },
+                ),
+                other => panic!("{context}: {other:?}"),
+            };
+        }
+    }
+    panic!("{context}: routing activation receipt was not published within 16 paced blocks");
+}
+
 pub fn run_paced(
     engine: &synvelis_app::SessionRoutingEngine,
     blocks: usize,
+) -> synvelis_player::driver::PlayReport {
+    run_paced_with_block_frames(engine, blocks, BLOCK_FRAMES)
+}
+
+/// Paced run aggregation for an explicit physical block geometry.
+/// L1 latency must be calculated by the caller as
+/// `lookahead_blocks * activated max_frames`; this helper only shapes
+/// the aggregate report.
+pub fn run_paced_with_block_frames(
+    engine: &synvelis_app::SessionRoutingEngine,
+    blocks: usize,
+    block_frames: usize,
 ) -> synvelis_player::driver::PlayReport {
     let mut pcm = vec![Vec::new(), Vec::new()];
     let mut crc = 0_u64;
@@ -468,12 +523,16 @@ pub fn run_paced(
     synvelis_player::driver::PlayReport {
         pcm,
         crc,
-        frames: (blocks * BLOCK_FRAMES) as u64,
+        frames: (blocks * block_frames) as u64,
     }
 }
 
 pub fn block_offset(frame: i64) -> u32 {
-    let block_frames = i64::try_from(BLOCK_FRAMES).unwrap();
+    block_offset_with(frame, BLOCK_FRAMES)
+}
+
+pub fn block_offset_with(frame: i64, geometry_block_frames: usize) -> u32 {
+    let block_frames = i64::try_from(geometry_block_frames).unwrap();
     u32::try_from(frame % block_frames).unwrap()
 }
 

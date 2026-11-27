@@ -553,3 +553,154 @@ fn tim03_dlb_06_sessionless_node_stays_legacy() {
     assert_eq!(interior_cuts(&calls, 128), vec![72]);
     assert_eq!(calls, vec![(128, 128, 72), (200, 100, 56)]);
 }
+
+// ---------------------------------------------------------------------
+// Geometry matrix expansion — 100/128/256 frame windows
+// ---------------------------------------------------------------------
+
+fn engine_config_for(block: u64) -> EngineConfig {
+    EngineConfig {
+        sample_rate: 48_000,
+        channels: 2,
+        block_frames: usize::try_from(block).unwrap(),
+    }
+}
+
+fn lowered_inserts_for(block: u64) -> (synvelis_player::lowering::Lowered, ruviform_graph::NodeId) {
+    let project = Project::new(ProjectId::new(0), "tim03-dlb-geometry");
+    let lowered = lower_with_inserts(
+        &project,
+        &|_: synvelis_project::SourceId| -> Option<AudioFormat> { None },
+        &engine_config_for(block),
+        1,
+    );
+    let node_id = lowered.inserts[0].node_id;
+    (lowered, node_id)
+}
+
+fn driver_with_for(
+    boundary: Option<BoundarySessionSpec>,
+    block: u64,
+) -> (
+    HeadlessDriver,
+    ruviform_graph::NodeId,
+    Positions,
+    PluginHost,
+) {
+    let (lowered, node_id) = lowered_inserts_for(block);
+    let hosted = host_plugin();
+    let positions = Arc::clone(&hosted.positions);
+    let node = hosted.attached.node;
+    let control = hosted.attached.control;
+    let host = hosted.host;
+    let mut driver = HeadlessDriver::new(engine_config_for(block));
+    driver
+        .activate_with_attached(
+            &lowered,
+            Vec::new(),
+            vec![AttachedNode {
+                node,
+                dispatch: ParamDispatch::new(control, node_id, frame_base()).unwrap(),
+                boundary,
+            }],
+        )
+        .expect("activate");
+    (driver, node_id, positions, host)
+}
+
+fn interior_cuts_for(calls: &[(u64, i64, u32)], head: u64, block: u64) -> Vec<u32> {
+    calls
+        .iter()
+        .filter(|(start, _, _)| *start > head && *start < head + block)
+        .map(|(start, _, _)| u32::try_from(start - head).unwrap_or(u32::MAX))
+        .collect()
+}
+
+fn plan_boundaries_for(
+    driver: &HeadlessDriver,
+    node: ruviform_graph::NodeId,
+    block: u64,
+) -> Vec<u32> {
+    let plan = driver
+        .attached_window_plan(node)
+        .expect("sessioned node has a window plan");
+    for &b in &plan.boundaries {
+        assert!(u64::from(b) < block, "boundary {b} outside [0, {block})");
+    }
+    plan.boundaries.clone()
+}
+
+fn run_window_for(
+    driver: &mut HeadlessDriver,
+    positions: &Positions,
+    head: u64,
+    _block: u64,
+) -> Vec<(u64, i64, u32)> {
+    assert!(drain(positions).is_empty(), "stale recorded calls");
+    driver.run(1, PumpPolicy::Every(1)).expect("run");
+    call_starts(&drain(positions), head)
+}
+
+/// Driver loop-wrap derivation across 100/128/256 physical window
+/// geometries. The matrix deliberately exercises three classes: a wrap
+/// exactly at the window end (excluded now, head wrap next), an
+/// interior wrap, and same-head cascade wraps followed by repeated
+/// interior wraps. Offset-0 head wraps are never confused with cuts.
+#[test]
+fn tim03_dlb_geometry_matrix_loop_wrap_derivation() {
+    let mut rows = Vec::new();
+    for block in [100_u64, 128, 256] {
+        let (mut driver, node, positions, _host) = driver_with_for(Some(spec()), block);
+        let calls = run_window_for(&mut driver, &positions, 0, block);
+        assert_eq!(calls, vec![(0, 0, u32::try_from(block).unwrap())]);
+        assert_eq!(plan_boundaries_for(&driver, node, block), Vec::<u32>::new());
+
+        driver.set_loop(100, 200).expect("set_loop");
+        let observed_plan = plan_boundaries_for(&driver, node, block);
+        let calls = run_window_for(&mut driver, &positions, block, block);
+        let cuts = interior_cuts_for(&calls, block, block);
+        assert_eq!(cuts, observed_plan, "block={block}");
+        let (expected_boundaries, expected_calls): (Vec<u32>, Vec<(u64, i64, u32)>) = match block {
+            100 => (vec![], vec![(100, 100, 100)]),
+            128 => (vec![72], vec![(128, 128, 72), (200, 100, 56)]),
+            256 => (
+                vec![44, 144, 244],
+                vec![
+                    (256, 156, 44),
+                    (300, 100, 100),
+                    (400, 100, 100),
+                    (500, 100, 12),
+                ],
+            ),
+            _ => unreachable!(),
+        };
+        assert_eq!(observed_plan, expected_boundaries, "block={block}");
+        assert_eq!(calls, expected_calls, "block={block}");
+
+        // The W=100 window-end wrap belongs to the next window head.
+        if block == 100 {
+            driver.set_loop(100, 200).expect("set_loop");
+            assert_eq!(plan_boundaries_for(&driver, node, block), Vec::<u32>::new());
+            let calls = run_window_for(&mut driver, &positions, 200, block);
+            assert_eq!(calls, vec![(200, 100, 100)]);
+        }
+
+        rows.push(serde_json::json!({
+            "window_frames": block,
+            "loop_range_frames": [100,200],
+            "derived_boundaries": observed_plan,
+            "observed_interior_cuts": cuts,
+            "physical_calls": calls,
+            "head_wrap_not_interior_cut": true,
+            "window_end_wrap_deferred": block == 100,
+            "verdict": "pass"
+        }));
+    }
+    println!(
+        "tim03-driver-loop-derivation-matrix {}",
+        serde_json::json!({
+            "schema":"tim03-frame-boundary-matrix/driver-loop-derivation/v1",
+            "rows": rows,
+        })
+    );
+}

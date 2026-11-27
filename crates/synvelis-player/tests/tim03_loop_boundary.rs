@@ -1162,3 +1162,183 @@ fn tim03_lb_07_provenance_gating_and_sessionless_nodes() {
         "expected no derived wraps"
     );
 }
+
+// ---------------------------------------------------------------------
+// Geometry matrix expansion — physical 100/128/256-frame routing windows
+// ---------------------------------------------------------------------
+
+fn engine_for(block: usize) -> synvelis_player::lowering::EngineConfig {
+    synvelis_player::lowering::EngineConfig {
+        sample_rate: 48_000,
+        channels: 2,
+        block_frames: block,
+    }
+}
+
+fn prefetch_for(block: usize) -> PrefetchConfig {
+    PrefetchConfig {
+        block_frames: block,
+        block_count: 8,
+        channels: 2,
+        sample_rate: 48_000,
+    }
+}
+
+fn prepared_clips_for(project: &Project, media_root: &Path, block: usize) -> Vec<PreparedClip> {
+    project
+        .clips
+        .values()
+        .map(|clip| prepare(project, clip.source_id, media_root, &prefetch_for(block)).unwrap())
+        .collect()
+}
+
+fn deps_for<'a>(project: &Project, media_root: &Path, block: usize) -> RoutingDeps<'a> {
+    RoutingDeps {
+        canonical_of: &|_| Some(canonical_format()),
+        clips: prepared_clips_for(project, media_root, block),
+        engine_config_generation: 1,
+        source_format_generation: 1,
+    }
+}
+
+fn publish_and_run_for(
+    eng: &mut RoutingEngine,
+    c: &ProjectController,
+    media: &Path,
+    id: u64,
+    block: usize,
+) {
+    let rev = c.live_revision();
+    let prepared = eng
+        .prepare(
+            &request(id, rev),
+            c.live(),
+            rev,
+            deps_for(c.live(), media, block),
+        )
+        .unwrap()
+        .expect_built();
+    eng.publish(prepared, c.live(), rev).unwrap();
+    eng.run(1, PumpPolicy::Every(1)).unwrap();
+}
+
+fn run_and_observe_for(
+    eng: &mut RoutingEngine,
+    dispatch: &mut RoutingControlDispatch,
+    generation: u64,
+    head: u64,
+    block: u32,
+) {
+    eng.run(1, PumpPolicy::Every(1)).unwrap();
+    dispatch
+        .observe_block(generation, ef(head), block)
+        .unwrap_or_else(|| panic!("gen-{generation} surface observed"));
+}
+
+#[allow(clippy::type_complexity)]
+fn playing_surface_for(
+    root: &Path,
+    processors: usize,
+    block: usize,
+) -> (
+    ProjectController,
+    PathBuf,
+    Vec<ProcessorId>,
+    ParameterTargetId,
+    RoutingEngine,
+    RoutingControlDispatch,
+    Positions,
+) {
+    let (mut c, media, ids) = plugin_project(root, processors);
+    let (target, _lane) = add_gain_target(&mut c, ids[0]);
+    let (mut adapter, positions) = rec_host();
+    for (processor, decl) in boundary_decls(&ids[..1]) {
+        adapter.register_boundary(processor, decl);
+    }
+    let mut eng = RoutingEngine::new(
+        engine_for(block),
+        RuntimeInstanceId(1),
+        RuntimeClockEpochRef(1),
+    );
+    eng.set_processor_host(Box::new(adapter));
+
+    publish_and_run_for(&mut eng, &c, &media, 1, block);
+    assert_eq!(active_generation(&eng), Some(1));
+    let mut dispatch =
+        RoutingControlDispatch::attach(&mut eng, 1, c.live(), &catalog(&ids)).unwrap();
+    let rev = c.live_revision();
+    let outcome = dispatch.fast_control(
+        c.live(),
+        fast_write(target, 300, 0.8, rev),
+        active_generation(&eng),
+    );
+    assert!(matches!(outcome, FastControlOutcome::Delivered));
+    run_and_observe_for(
+        &mut eng,
+        &mut dispatch,
+        1,
+        u64::try_from(block).unwrap(),
+        u32::try_from(block).unwrap(),
+    );
+    (c, media, ids, target, eng, dispatch, positions)
+}
+
+/// Routing-side loop-wrap derivation across physical window geometries
+/// 100/128/256. After the two setup windows the next head is `2W` and
+/// the playing position is `W`; `SetLoop` [100,200) therefore exercises
+/// end-aligned, interior, and same-head cascade cases respectively.
+#[test]
+fn tim03_lb_geometry_matrix_loop_wrap_derivation() {
+    let mut rows = Vec::new();
+    for block in [100_usize, 128, 256] {
+        let root = scratch(&format!("lbgeom{block}"));
+        let (c, _media, ids, _target, mut eng, mut dispatch, positions) =
+            playing_surface_for(&root, 1, block);
+        let processor = ids[0];
+        let head = u64::try_from(2 * block).unwrap();
+        let frames = u32::try_from(block).unwrap();
+        dispatch
+            .boundary_stage_window(
+                processor,
+                c.live(),
+                frames,
+                vec![],
+                &[(loop_cmd(100, 200), 0)],
+                active_generation(&eng),
+            )
+            .expect("set_loop staged");
+        let points = derive(&dispatch, &c, processor, head, frames);
+        let derived = offsets(&points);
+        let _ = drain_positions(&positions);
+        run_and_observe_for(&mut eng, &mut dispatch, 1, head, frames);
+        let records = drain_positions(&positions);
+        let observed: Vec<(i64, u32)> = records.iter().map(|r| (r.position, r.frames)).collect();
+        let (expected_derived, expected_observed): (Vec<u32>, Vec<(i64, u32)>) = match block {
+            100 => (vec![], vec![(100, 100)]),
+            128 => (vec![72], vec![(128, 72), (100, 56)]),
+            256 => (
+                vec![0, 44, 144, 244],
+                vec![(156, 44), (100, 100), (100, 100), (100, 12)],
+            ),
+            _ => unreachable!(),
+        };
+        assert_eq!(derived, expected_derived, "block={block}");
+        assert_eq!(observed, expected_observed, "block={block}");
+        rows.push(serde_json::json!({
+            "window_frames": block,
+            "loop_range_frames": [100,200],
+            "derived_loop_wrap_offsets_including_head": derived,
+            "observed_position_length_calls": observed,
+            "head_wrap_explicit_not_interior_cut": derived.first() == Some(&0),
+            "window_end_wrap_excluded": block == 100,
+            "verdict": "pass"
+        }));
+    }
+    println!(
+        "tim03-routing-loop-derivation-matrix {}",
+        serde_json::json!({
+            "schema":"tim03-frame-boundary-matrix/routing-loop-derivation/v1",
+            "rows": rows,
+        })
+    );
+}

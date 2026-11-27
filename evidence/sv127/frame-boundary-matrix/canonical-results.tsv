@@ -1,0 +1,5 @@
+fmt-check	1	mise run fmt-check
+check-ruviform-rev	1	mise run check-ruviform-rev
+check-synvelis-player	0	mise run check synvelis-player
+lint-synvelis-player	101	mise run lint synvelis-player
+test-synvelis-player	0	mise run test synvelis-player

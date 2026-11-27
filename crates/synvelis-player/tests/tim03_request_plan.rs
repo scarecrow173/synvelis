@@ -548,34 +548,40 @@ fn midi_events() -> Vec<(i64, MidiEvent)> {
 // tim03_req_* — boundary matrix through the wired session
 // ---------------------------------------------------------------------
 
-/// 100/128/256-frame windows × boundary offsets 0/1/100/last through
-/// `stage_window`: every window evaluates Exact and every physical
-/// call stays inside the block contract.
+/// 100/128/256-frame windows × valid boundary offsets 0/1/100/last
+/// through `stage_window`: every cell uses a fresh node/control/session,
+/// evaluates Exact, and records the exact physical process-length
+/// sequence. Window=100/offset=100 is out-of-window and is covered as a
+/// typed negative by the policy matrix rather than being silently clamped.
 #[test]
 fn tim03_req_exact_matrix_windows_and_offsets() {
+    let mut rows = Vec::new();
     for window in [100_u32, 128, 256] {
-        let hosted = host_plugin(1, 512, DeliveryPolicy::Exact, 4096);
-        let (graph, proc, srcs) = build_graph(&hosted.attached);
-        let node = hosted.attached.node;
-        let mut control = hosted.attached.control;
-        let mut drive = Drive::new(&graph, node, proc, srcs);
+        for offset in [0_u32, 1, 100, window - 1] {
+            if offset >= window {
+                continue;
+            }
+            let hosted = host_plugin(1, 512, DeliveryPolicy::Exact, 4096);
+            let (graph, proc, srcs) = build_graph(&hosted.attached);
+            let node = hosted.attached.node;
+            let mut control = hosted.attached.control;
+            let mut drive = Drive::new(&graph, node, proc, srcs);
 
-        let c = cap(
-            1,
-            512,
-            InBlockTransportSupport::Unknown,
-            TimingPrecision::FrameAccurateEvents,
-        );
-        let s = session(
-            &control,
-            c,
-            ExecutionMode::Realtime,
-            None,
-            4096,
-            prov(1, proc, 10, 20),
-        );
-        let current = prov(1, proc, 10, 20);
-        for offset in [0_u32, 1, 100.min(window - 1), window - 1] {
+            let c = cap(
+                1,
+                512,
+                InBlockTransportSupport::Unknown,
+                TimingPrecision::FrameAccurateEvents,
+            );
+            let s = session(
+                &control,
+                c,
+                ExecutionMode::Realtime,
+                None,
+                4096,
+                prov(1, proc, 10, 20),
+            );
+            let current = prov(1, proc, 10, 20);
             let plan = s
                 .stage_window(
                     &mut control,
@@ -589,17 +595,34 @@ fn tim03_req_exact_matrix_windows_and_offsets() {
                 )
                 .unwrap_or_else(|e| panic!("window={window} offset={offset}: {e}"));
             assert_eq!(plan.policy, DeliveryPolicy::Exact);
-        }
-        // Drain staged commands: dues are window-relative, so each
-        // callback runs `window` frames; extra callbacks flush the
-        // queue and the legality invariant must hold throughout.
-        for _ in 0..8 {
             drive.process(usize::try_from(window).unwrap());
+            let log = hosted.log.lock().unwrap();
+            let lengths: Vec<u32> = (0..log.len()).map(|i| log.hit(i).frames).collect();
+            let expected = if offset == 0 {
+                vec![window]
+            } else {
+                vec![offset, window - offset]
+            };
+            assert_eq!(lengths, expected, "window={window} offset={offset}");
+            assert_legal_calls(&log, 1, 512);
+            rows.push(serde_json::json!({
+                "window_frames": window,
+                "requested_boundary": offset,
+                "exact_process_lengths": lengths,
+                "fresh_instance": true,
+                "queue_residue_dependency": false,
+                "verdict": "pass"
+            }));
         }
-        let log = hosted.log.lock().unwrap();
-        assert_legal_calls(&log, 1, 512);
-        assert!(log.len() > 0, "window={window}: plugin was called");
     }
+    println!(
+        "tim03-wired-session-matrix {}",
+        serde_json::json!({
+            "schema":"tim03-frame-boundary-matrix/wired-session/v1",
+            "invalid_window100_boundary100":"typed-invalid-covered-by-policy-matrix; never clamped",
+            "rows": rows,
+        })
+    );
 }
 
 /// Min/max process length is enforced at the wired boundary: a

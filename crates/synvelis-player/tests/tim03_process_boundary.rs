@@ -1432,3 +1432,298 @@ fn tim03_node_stale_transport_generation_zero_delivery() {
             if f.kind == FaultKind::StaleEventGeneration
     )));
 }
+
+// ---------------------------------------------------------------------
+// TIM-03 frame/boundary matrix expansion (Issue #127 slice S1)
+// ---------------------------------------------------------------------
+
+fn partition_lengths(partition: &CallPartition) -> Vec<u32> {
+    (0..partition.chunks())
+        .map(|i| partition.chunk(i).1)
+        .collect()
+}
+
+fn expected_exact_lengths(window: u32, boundary: u32) -> Vec<u32> {
+    if boundary == 0 {
+        vec![window]
+    } else {
+        vec![boundary, window - boundary]
+    }
+}
+
+fn assert_legal_lengths(lengths: &[u32], min: u32, max: u32) {
+    for &frames in lengths {
+        assert!(frames > 0, "zero-length physical process call");
+        assert!(
+            (min..=max).contains(&frames),
+            "illegal physical length {frames}"
+        );
+    }
+}
+
+/// Exhaustive valid `W × B` policy matrix for W in 100/128/256 and B in
+/// 0/1/100/last. `B` is window-relative; W=100/B=100 is outside the
+/// valid range and is a typed invalid request, never clamped to 99.
+#[test]
+fn tim03_pb_frame_boundary_matrix_exact_process_lengths() {
+    let c = cap(
+        1,
+        512,
+        InBlockTransportSupport::Unknown,
+        TimingPrecision::FrameAccurateEvents,
+    );
+    let mut rows = Vec::new();
+    for window in [100_u32, 128, 256] {
+        for requested in [0_u32, 1, 100, window - 1] {
+            let valid = requested < window;
+            let points = [bp(requested, BoundaryKind::Seek)];
+            let outcome = c.evaluate(&req(window, &points, ExecutionMode::Realtime, None, 4096));
+            if valid {
+                let plan =
+                    outcome.unwrap_or_else(|e| panic!("window={window} boundary={requested}: {e}"));
+                assert_eq!(plan.policy, DeliveryPolicy::Exact);
+                let expected_boundaries = if requested == 0 {
+                    Vec::new()
+                } else {
+                    vec![requested]
+                };
+                assert_eq!(plan.boundaries, expected_boundaries);
+                let expected_lengths = expected_exact_lengths(window, requested);
+                let segment_lengths: Vec<u32> = plan
+                    .segments
+                    .iter()
+                    .map(|segment| segment.end - segment.start)
+                    .collect();
+                assert_eq!(segment_lengths, expected_lengths);
+                let physical: Vec<u32> = plan
+                    .segments
+                    .iter()
+                    .flat_map(|segment| partition_lengths(&segment.partition))
+                    .collect();
+                assert_eq!(physical, expected_lengths);
+                rows.push(serde_json::json!({
+                    "window_frames": window,
+                    "requested_boundary": requested,
+                    "classification": "valid",
+                    "head_boundary": requested == 0,
+                    "applied_boundaries": plan.boundaries,
+                    "segment_lengths": segment_lengths,
+                    "physical_process_lengths": physical,
+                    "verdict": "pass",
+                }));
+            } else {
+                assert!(matches!(
+                    outcome,
+                    Err(ProcessBoundaryError::InvalidRequest { .. })
+                ));
+                rows.push(serde_json::json!({
+                    "window_frames": window,
+                    "requested_boundary": requested,
+                    "classification": "invalid-out-of-window",
+                    "clamped": false,
+                    "verdict": "pass-negative",
+                }));
+            }
+        }
+    }
+    println!(
+        "tim03-headless-policy-matrix {}",
+        serde_json::json!({
+            "schema": "tim03-frame-boundary-matrix/headless-policy/v1",
+            "matrix": {"windows":[100,128,256],"boundaries":["0","1","100","last"]},
+            "rows": rows,
+        })
+    );
+}
+
+/// The same valid matrix through the real `TransportScheduler`: a fresh
+/// scheduler per cell, one exact seek discontinuity, exact half-open
+/// span sequence, and exact legal physical lengths per span.
+#[test]
+fn tim03_sched_frame_boundary_matrix_exact_spans() {
+    let contract = BlockContract::new(1, 512, InBlockTransportSupport::Unknown);
+    let mut rows = Vec::new();
+    for window in [100_u32, 128, 256] {
+        for boundary in [0_u32, 1, 100, window - 1] {
+            if boundary >= window {
+                continue;
+            }
+            let mut scheduler = sched(contract, DeliveryPolicy::Exact, 4096);
+            scheduler.request(TransportCommand::Play, ef(0)).unwrap();
+            scheduler
+                .request(TransportCommand::Seek(t(500)), ef(u64::from(boundary)))
+                .unwrap();
+            let mut sink = RecSink::new(contract);
+            scheduler.run_callback(ef(0), window, &mut sink);
+            let expected_lengths = expected_exact_lengths(window, boundary);
+            let observed_lengths: Vec<u32> = sink
+                .spans
+                .iter()
+                .map(|span| u32::try_from(span.end - span.start).unwrap())
+                .collect();
+            assert_eq!(
+                observed_lengths, expected_lengths,
+                "window={window} boundary={boundary}"
+            );
+            assert!(sink.spans.iter().all(|span| span.deliverable));
+            let physical: Vec<u32> = observed_lengths
+                .iter()
+                .flat_map(|len| {
+                    contract
+                        .partition(*len)
+                        .map(|partition| partition_lengths(&partition))
+                        .unwrap_or_default()
+                })
+                .collect();
+            assert_eq!(physical, expected_lengths);
+            rows.push(serde_json::json!({
+                "window_frames": window,
+                "requested_boundary": boundary,
+                "scenario": "seek-single",
+                "span_sequence": sink.spans.iter().map(|span| [span.start, span.end]).collect::<Vec<_>>(),
+                "exact_process_lengths": physical,
+                "deliverable": true,
+                "verdict": "pass",
+            }));
+        }
+    }
+    println!(
+        "tim03-headless-scheduler-matrix {}",
+        serde_json::json!({
+            "schema": "tim03-frame-boundary-matrix/headless-scheduler/v1",
+            "tie_rule_consumer_evidence": "same-frame apply wins over wrap; wrap is re-evaluated in the post-apply state",
+            "rows": rows,
+        })
+    );
+}
+
+/// The same valid matrix through the real `PluginNode`/`GraphRuntime`:
+/// fresh host/node/session inputs per cell, no queue residue, and the
+/// exact physical `process` length sequence observed by the plugin.
+#[test]
+fn tim03_node_frame_boundary_matrix_exact_process_lengths() {
+    let mut rows = Vec::new();
+    for window in [100_u32, 128, 256] {
+        for boundary in [0_u32, 1, 100, window - 1] {
+            if boundary >= window {
+                continue;
+            }
+            let hosted = host_plugin(1, 512, DeliveryPolicy::Exact, 4096);
+            let (graph, proc, srcs) = build_graph(&hosted.attached);
+            let node = hosted.attached.node;
+            let mut control = hosted.attached.control;
+            let mut drive = Drive::new(&graph, node, proc, srcs);
+            control.request(TransportCommand::Play, 0).unwrap();
+            control
+                .request(TransportCommand::Seek(t(500)), u64::from(boundary))
+                .unwrap();
+            drive.process(usize::try_from(window).unwrap());
+            let log = hosted.log.lock().unwrap();
+            let lengths: Vec<u32> = (0..log.len()).map(|i| log.hit(i).frames).collect();
+            let expected = expected_exact_lengths(window, boundary);
+            assert_eq!(lengths, expected, "window={window} boundary={boundary}");
+            assert_legal_lengths(&lengths, 1, 512);
+            rows.push(serde_json::json!({
+                "window_frames": window,
+                "requested_boundary": boundary,
+                "scenario": "seek-single",
+                "exact_process_lengths": lengths,
+                "fresh_instance": true,
+                "verdict": "pass",
+            }));
+        }
+    }
+    println!(
+        "tim03-headless-node-matrix {}",
+        serde_json::json!({
+            "schema": "tim03-frame-boundary-matrix/headless-node/v1",
+            "frame_offset_meaning": "process-start-relative EventList.frame_offset",
+            "rows": rows,
+        })
+    );
+}
+
+/// Param events at process-start-relative offsets 0/1/middle/last,
+/// same-position `(position_ticks, source_sequence)` ordering, stable
+/// source order at one frame offset, and same-param last-wins order.
+#[test]
+fn tim03_node_param_frame_offset_ordering_matrix() {
+    for window in [100_u32, 128, 256] {
+        for offset in [0_u32, 1, window / 2, window - 1] {
+            let hosted = host_plugin(1, 512, DeliveryPolicy::Exact, 4096);
+            let (graph, proc, srcs) = build_graph(&hosted.attached);
+            let node = hosted.attached.node;
+            let mut control = hosted.attached.control;
+            let mut drive = Drive::new(&graph, node, proc, srcs);
+            control.request(TransportCommand::Play, 0).unwrap();
+            let mut b = control.plan_builder(PlanGeneration::new(11));
+            let pos = t(i64::from(offset));
+            b.event(
+                pos,
+                3,
+                EventKind::ParamValue(ParamEvent {
+                    param_id: ParamId(7),
+                    value: ParamValue::new(0.75).unwrap(),
+                }),
+            )
+            .unwrap();
+            b.event(
+                pos,
+                1,
+                EventKind::ParamValue(ParamEvent {
+                    param_id: ParamId(9),
+                    value: ParamValue::new(0.2).unwrap(),
+                }),
+            )
+            .unwrap();
+            b.event(
+                pos,
+                2,
+                EventKind::ParamValue(ParamEvent {
+                    param_id: ParamId(7),
+                    value: ParamValue::new(0.25).unwrap(),
+                }),
+            )
+            .unwrap();
+            control.install_plan(Arc::new(b.build()), 0).unwrap();
+            drive.process(usize::try_from(window).unwrap());
+            let log = hosted.log.lock().unwrap();
+            assert_eq!(log.len(), 1, "no discontinuity: one physical call");
+            let hit = log.hit(0);
+            assert_eq!(hit.frames, window);
+            let params = hit.param_hits();
+            assert_eq!(params.len(), 3, "window={window} offset={offset}");
+            assert!(
+                params.iter().all(|param| param.frame_offset == offset),
+                "frame offsets must be process-start-relative: {params:?}"
+            );
+            assert_eq!(
+                params
+                    .iter()
+                    .map(|param| (param.param_id, param.value))
+                    .collect::<Vec<_>>(),
+                vec![(9, 0.2), (7, 0.25), (7, 0.75)],
+                "same-offset ordering must follow stable source_sequence order"
+            );
+            assert_eq!(
+                params
+                    .iter()
+                    .rfind(|param| param.param_id == 7)
+                    .map(|param| param.value),
+                Some(0.75),
+                "same-param same-offset delivery order makes the final value last-wins"
+            );
+        }
+    }
+    println!(
+        "tim03-headless-param-order-matrix {}",
+        serde_json::json!({
+            "schema":"tim03-frame-boundary-matrix/headless-param-order/v1",
+            "windows":[100,128,256],
+            "offsets":["0","1","middle","last-in-call"],
+            "ordering":"(position_ticks, source_sequence), stable same-offset source order; same ParamId last-wins",
+            "different_param_relative_order":"no additional semantic invented",
+            "verdict":"pass"
+        })
+    );
+}
