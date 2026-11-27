@@ -317,3 +317,4 @@ Directory: `docs/designs`
 | DESIGN-m7Qw3Ln9Vx2Kr6TyPzD8 | TIM-03 instrument direct L1 musical transport oracle | approved | [tim-03-instrument-transport-oracle.md](./tim-03-instrument-transport-oracle.md) |
 | DESIGN-q4Nx8Lm2Vw6Kr9TyPzD3 | TIM-03 production musical transport | approved | [tim-03-production-musical-transport.md](./tim-03-production-musical-transport.md) |
 | DESIGN-dynTm03Qw8Lm4Vx7Kr | TIM-03 dynamic musical transport | approved | [tim-03-dynamic-musical-transport.md](./tim-03-dynamic-musical-transport.md) |
+| DESIGN-fbD127mQw4Ln8KrTyVzB | TIM-03 frame/boundary matrix | approved | [tim-03-frame-boundary-matrix.md](./tim-03-frame-boundary-matrix.md) |

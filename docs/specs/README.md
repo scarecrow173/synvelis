@@ -273,3 +273,4 @@ Directory: `docs/specs`
 | SPEC-i3Tn9Qx7Lm4Vw8KzRpD2 | TIM-03 instrument direct L1 musical transport oracle | approved | [tim-03-instrument-transport-oracle.md](./tim-03-instrument-transport-oracle.md) |
 | SPEC-p7Mx2Qw9Ln4Kr8TyVzD6 | TIM-03 production musical transport | approved | [tim-03-production-musical-transport.md](./tim-03-production-musical-transport.md) |
 | SPEC-d7Tm03DynQw8Ln4Vx2Kr | TIM-03 dynamic musical transport | approved | [tim-03-dynamic-musical-transport.md](./tim-03-dynamic-musical-transport.md) |
+| SPEC-fbM127xQw8Ln2KrTyVzA | TIM-03 frame/boundary matrix | approved | [tim-03-frame-boundary-matrix.md](./tim-03-frame-boundary-matrix.md) |
