@@ -192,18 +192,9 @@ fn channel_params_are_the_single_base_authority() {
 
 // ── CTL-02 send gain: one persisted authority, atomic creation ───
 
-#[test]
-fn send_create_commits_gain_target_in_one_undo() {
-    let mut c = controller();
-    let track = add_track(&mut c, "vox");
-    let strip = add_track_strip(&mut c, track);
-    let ret = add_bus(&mut c, BusKind::Return, "verb");
-    let ret_strip = c.live().routing.buses[&ret].strip;
-    let rev_before = c.live_revision();
-    let before = serde_json::to_value(c.live()).unwrap();
-
+fn create_send_to_return(c: &mut ProjectController, strip: StripId, ret_strip: StripId) -> SendId {
     let it = intent(
-        &c,
+        c,
         vec![
             RoutingEdit::CreateConnection {
                 temp_id: TempConnectionId(10),
@@ -226,10 +217,23 @@ fn send_create_commits_gain_target_in_one_undo() {
             },
         ],
     );
-    apply_intent(&mut c, it).unwrap();
+    apply_intent(c, it).unwrap();
+    *c.live().routing.sends.keys().next().unwrap()
+}
+
+#[test]
+fn send_create_commits_gain_target_in_one_undo() {
+    let mut c = controller();
+    let track = add_track(&mut c, "vox");
+    let strip = add_track_strip(&mut c, track);
+    let ret = add_bus(&mut c, BusKind::Return, "verb");
+    let ret_strip = c.live().routing.buses[&ret].strip;
+    let rev_before = c.live_revision();
+    let before = serde_json::to_value(c.live()).unwrap();
+
+    let send_id = create_send_to_return(&mut c, strip, ret_strip);
 
     assert_eq!(c.live_revision().0, rev_before.0 + 1, "one CAS");
-    let send_id = *c.live().routing.sends.keys().next().unwrap();
     let send = &c.live().routing.sends[&send_id];
     let target_id = send.gain_target.expect("new send carries a target");
     assert_eq!(send_level_target_id(c.live(), send_id), Some(target_id));
@@ -264,6 +268,87 @@ fn send_create_commits_gain_target_in_one_undo() {
     c.undo().unwrap();
     assert_eq!(serde_json::to_value(c.live()).unwrap(), before);
     assert!(c.live().routing.sends.is_empty());
+}
+
+#[test]
+fn fader_and_send_level_preserve_independent_values_through_history_and_reload() {
+    let mut c = controller();
+    let track = add_track(&mut c, "vox");
+    let strip = add_track_strip(&mut c, track);
+    let ret = add_bus(&mut c, BusKind::Return, "verb");
+    let ret_strip = c.live().routing.buses[&ret].strip;
+    let send = create_send_to_return(&mut c, strip, ret_strip);
+    let fader = strip_channel_target_id(c.live(), strip, ParameterRole::Fader).unwrap();
+    let send_level = send_level_target_id(c.live(), send).unwrap();
+    assert_ne!(fader, send_level);
+
+    let assert_values = |project: &Project, stage: &str, fader_base, send_base| {
+        assert_eq!(
+            strip_channel_target_id(project, strip, ParameterRole::Fader),
+            Some(fader),
+            "{stage}: Fader binding"
+        );
+        assert_eq!(
+            send_level_target_id(project, send),
+            Some(send_level),
+            "{stage}: SendLevel binding"
+        );
+        for (id, base) in [(fader, fader_base), (send_level, send_base)] {
+            let target = &project.control.targets[&id];
+            assert_eq!(target.id, id, "{stage}: target identity");
+            assert_eq!(target.base, base, "{stage}: base for {id:?}");
+        }
+    };
+
+    assert_values(c.live(), "initial", 1.0, 0.75);
+    let mut store = InMemoryStore::new();
+    let before = c.save(&mut store).unwrap();
+    let mut expected: serde_json::Value =
+        serde_json::from_slice(&store.read_snapshot(&before.head).unwrap()).unwrap();
+
+    c.apply(cmd(
+        &c,
+        ProjectOp::SetParameterBase {
+            target: fader,
+            value: 0.625,
+        },
+    ))
+    .unwrap();
+    assert_values(c.live(), "Fader edit", 0.625, 0.75);
+    c.apply(cmd(
+        &c,
+        ProjectOp::SetParameterBase {
+            target: send_level,
+            value: 0.375,
+        },
+    ))
+    .unwrap();
+    assert_values(c.live(), "SendLevel edit", 0.625, 0.375);
+
+    assert!(c.undo().unwrap());
+    assert_values(c.live(), "undo SendLevel", 0.625, 0.75);
+    assert!(c.undo().unwrap());
+    assert_values(c.live(), "undo Fader", 1.0, 0.75);
+    assert!(c.redo().unwrap());
+    assert_values(c.live(), "redo Fader", 0.625, 0.75);
+    assert!(c.redo().unwrap());
+    assert_values(c.live(), "redo SendLevel", 0.625, 0.375);
+
+    let after = c.save(&mut store).unwrap();
+    let actual: serde_json::Value =
+        serde_json::from_slice(&store.read_snapshot(&after.head).unwrap()).unwrap();
+    expected["revision"] = serde_json::json!(c.live_revision());
+    let targets = &mut expected["project"]["control"]["targets"];
+    targets[fader.to_tagged()]["base"] = serde_json::json!(0.625);
+    targets[send_level.to_tagged()]["base"] = serde_json::json!(0.375);
+    assert_eq!(
+        actual, expected,
+        "the saved envelope may change only its revision and the two canonical bases"
+    );
+
+    let mut reloaded = controller();
+    reloaded.load(&store).unwrap();
+    assert_values(reloaded.live(), "reload", 0.625, 0.375);
 }
 
 #[test]
