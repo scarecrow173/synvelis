@@ -53,4 +53,4 @@ production composition が所有する `TransportPlan` を、committed project �
 
 ## 非スコープ
 
-full dynamic tempo edit matrix、full frame/boundary matrix、fault/state/crash isolation、GUI/Native Dock/EXT-L3、macOS/Linux 実走、3OS CI、AudioLens cross-consumer、fixture lawや adapter projectionの変更。`test-rt` は本 slice specの canonical commandではなく、実行する場合も補助証拠として区別する。
+full dynamic tempo edit matrix、automation parameter matrix expansion、full frame/boundary matrix、fault/state/crash isolation、GUI/Native Dock/EXT-L3、macOS/Linux 実走、3OS CI、AudioLens cross-consumer、fixture lawや adapter projectionの変更。`test-rt` は本 slice specの canonical commandではなく、実行する場合も補助証拠として区別する。

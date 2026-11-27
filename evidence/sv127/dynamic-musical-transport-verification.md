@@ -99,4 +99,4 @@ evidence raw logsを staged 状態へ追加した後の `prek run --all-files` �
 
 ## Honest non-scope / remaining work
 
-full dynamic tempo edit matrix、full frame/boundary matrix、fault/state/crash isolation、GUI/Native Dock/EXT-L3、macOS/Linux runtime、3OS CI、AudioLens cross-consumerは NotRun/follow-up。docs index（`docs/**/README.md`）は編集・再生成していない。Coordinatorが統合時に整備する。
+full dynamic tempo edit matrix、automation parameter matrix expansion、full frame/boundary matrix、fault/state/crash isolation、GUI/Native Dock/EXT-L3、macOS/Linux runtime、3OS CI、AudioLens cross-consumerは NotRun/follow-up。docs index（`docs/**/README.md`）は編集・再生成していない。Coordinatorが統合時に整備する。

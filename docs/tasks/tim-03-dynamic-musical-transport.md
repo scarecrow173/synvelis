@@ -53,6 +53,7 @@ relations:
 ## Follow-up / NotRun
 
 - [ ] full dynamic tempo edit matrix
+- [ ] automation parameter matrix expansion
 - [ ] 100/128/256 frame × boundary full matrix
 - [ ] fault/state/crash isolation、RT/Crash最終判定
 - [ ] GUI/Native Dock/EXT-L3、macOS/Linux実走、3OS CI、AudioLens cross-consumer

@@ -54,4 +54,4 @@ host/project PPQN 480はproject factであり、fixture visible PPQN 960はVST3/
 
 ## Limitations
 
-full dynamic matrix、full frame/boundary matrix、fault/state/crash isolation、GUI/EXT-L3、macOS/Linux runtime、3OS CI、AudioLens cross-consumerは本 sliceのPassに含めない。docs indexは編集していない。`test-rt` は本 slice specのcanonical commandではない。実行済みでも補助証拠としてのみ記録し、required lanesの代替にしない。
+full dynamic matrix、automation parameter matrix expansion、full frame/boundary matrix、fault/state/crash isolation、GUI/EXT-L3、macOS/Linux runtime、3OS CI、AudioLens cross-consumerは本 sliceのPassに含めない。docs indexは編集していない。`test-rt` は本 slice specのcanonical commandではない。実行済みでも補助証拠としてのみ記録し、required lanesの代替にしない。
