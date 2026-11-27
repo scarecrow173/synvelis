@@ -1,0 +1,13 @@
+sync-ui-deps exit 0
+check-ruviform-rev exit 0
+fmt-check exit 1
+rustfmt-package-aux exit 0
+check-synvelis-player exit 0
+lint-synvelis-player exit 0
+test-synvelis-player exit 0
+check-synvelis-app exit 0
+lint-synvelis-app exit 0
+test-synvelis-app exit 101
+test-tim03-dynamic-musical-transport exit 0
+test-tim03-production-transport exit 0
+prek-all-files exit 0

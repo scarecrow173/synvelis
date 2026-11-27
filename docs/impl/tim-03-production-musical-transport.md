@@ -53,3 +53,9 @@ host plan PPQNは project fact 480。fixture visible PPQN 960は VST3/CLAP adapt
 ## Limitations
 
 dynamic tempo edit matrix/full matrix/fault/state/GUI/EXT-L3/3OS/cross-consumerは本sliceのPassに含めない。`TransportMirror`本体は upstream API の暫定 revision 0 semanticを残すが、production routing-control observationは live plan revisionを使う。docs indexは編集していない。
+
+## Dynamic refresh implementation note
+
+実装は project revision reconciliation、musical plan refresh、MIDI ownership preservation、optional transport-generation bindingの4点に限定した。`engine.rs` は compile resultが `Equivalent`でも `sync_musical_transport(project)` を実行し、transport conversion前にも retryする。`routing_control.rs` は unchanged MIDI contentの再 installを避け、clear/replaceでは non-MIDI eventsを保持する。`dispatch.rs` は refresh/restage/clearの全builder pathで event position/source sequence/payload/optional generation bindingを再構成し、musical refreshでは `Play`を送らない。
+
+`FastControlWrite::transport_generation` は optional production semanticとして追加した。既存 construction sitesには機械的に `None`を伝播し、`Some`は upstream `bound_event` semanticsに乗る。real ABI evidenceでは plan installがRT receiptで `Applied` になり、2つの representative tempo edit後に fixture click lawの frameが VST3/CLAP双方で一致した。

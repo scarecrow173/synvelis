@@ -98,8 +98,11 @@ impl PlanMusicalTransport {
         builder.with_musical_transport(Arc::clone(&self.map), self.tempo_revision(), self.ppqn)
     }
 
-    /// Whether a compiled plan carries this exact source.
-    pub(crate) fn plan_carries<P>(&self, plan: &ruviform_media_core::TransportPlan<P>) -> bool {
+    /// Whether a compiled plan carries this exact source — revision,
+    /// project PPQN, and the same compiled tempo-map allocation rather
+    /// than merely equal-looking scalar fields.
+    #[must_use]
+    pub fn plan_carries<P>(&self, plan: &ruviform_media_core::TransportPlan<P>) -> bool {
         plan.tempo_revision == self.tempo_revision()
             && plan.musical_ppqn == Some(self.ppqn)
             && plan

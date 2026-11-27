@@ -55,3 +55,11 @@ relations:
 ## adapter projection
 
 host/project PPQN は plan evidenceとして 480 などの project fact を使う。VST3/CLAP adapter は ABI の beat floating-point表現を経て fixture visible PPQN 960へ reproject する。これは format adaptation であり fixed host fallbackではない。production PCM oracleは projected PPQNを明示して click lawを計算する。
+
+## Dynamic refresh design
+
+`SessionRoutingEngine::rebuild` は committed revision を処理した後、compile result に関わらず `sync_musical_transport` を呼ぶ。tempo map は routing fingerprint に含めないため `Equivalent` が正しい graph reuse であり、musical refresh は control-plane reconciliationとして独立に行う。`control_apply_transport` も conversion 前に同じ sync を retry し、project edit と次の transport command の間で rebuild sync が失敗したまま残る経路を狭める。
+
+`RoutingControlDispatch` は node ごとに current project source を保持し、plan 無しの initial install・source current・refresh必要を区別する。refresh は `ParamDispatch::refresh_musical_plan` で既存 plan の各 eventを同じ position/source sequence/payload/transport-generation bindingで rebuild し、`Play` を送らない。MIDI staging は content equalityを照合し、unchanged contentの再 installを避ける。clear/replace は MIDI payloadだけを対象とし、non-MIDI eventsを preserve する。
+
+`FastControlWrite::transport_generation` は production semantic の optional bindingである。`None` は従来の unbound eventと同じ builder path、`Some(generation)` は upstream `bound_event` pathを使う。test-only seeding API や fake plan direct install は設けない。

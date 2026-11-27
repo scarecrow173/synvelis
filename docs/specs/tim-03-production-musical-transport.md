@@ -52,4 +52,10 @@ Synvelis production composition から mint されるすべての `TransportPlan
 
 ## 非スコープ
 
-dynamic tempo edit matrix、full frame/boundary matrix、fault/state/crash isolation、GUI/Native Dock/EXT-L3、macOS/Linux 実走、3OS CI、AudioLens cross-consumer、fixture law や adapter projection の変更。
+full dynamic tempo edit matrix、full frame/boundary matrix、fault/state/crash isolation、GUI/Native Dock/EXT-L3、macOS/Linux 実走、3OS CI、AudioLens cross-consumer、fixture law や adapter projection の変更。
+
+## Dynamic refresh extension
+
+committed project revision が進んだとき、routing graph 自体が `Equivalent` でも production control surface は current project snapshot の tempo map/revision/PPQN を再評価する。musical source が変わった live plan は transport を再 anchor せず refresh され、event position・source sequence・payload・optional transport-generation binding・staged MIDI を保持する。unchanged MIDI content の再 install や MIDI clear による unrelated param/automation event の喪失は許容しない。
+
+real ABI evidence は少なくとも次の representative dynamic cases を含む: future tick への valid tempo edit を測定 transport 前に commit する case、および再生中に commit する case。各 case で revision/PPQN/current-source identity、RT install receipt、refresh error empty、independent click law、lookahead 分離を記録する。invalid committed edit は production op validation が拒否するため、この slice では boundary fault injection を player/control level evidence で扱う。

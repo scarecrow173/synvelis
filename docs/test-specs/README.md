@@ -531,3 +531,4 @@ Directory: `docs/test-specs`
 | TSPEC-j6Hm3Qw8Ln4Xv7RtYsK9 | tim-03-transport-application | approved | [tim-03-transport-application.md](./tim-03-transport-application.md) |
 | TSPEC-w2Ln8Qx4Vm7Kr9TyPzD5 | tim-03-instrument-transport-oracle | approved | [tim-03-instrument-transport-oracle.md](./tim-03-instrument-transport-oracle.md) |
 | TESTSPEC-r6Qw3Ln8Vx2Kr5TyPmD7 | TIM-03 production musical transport | approved | [tim-03-production-musical-transport.md](./tim-03-production-musical-transport.md) |
+| TESTSPEC-dynTm03Ew8Ln7Vx5Kr | TIM-03 dynamic musical transport | approved | [tim-03-dynamic-musical-transport.md](./tim-03-dynamic-musical-transport.md) |

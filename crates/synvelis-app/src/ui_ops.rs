@@ -7375,6 +7375,7 @@ impl SynvelisApp {
             means,
             position: MediaTime::new(position_frames, frame_base),
             project_revision,
+            transport_generation: None,
         };
         let outcome = self
             .control_fast_control(write)

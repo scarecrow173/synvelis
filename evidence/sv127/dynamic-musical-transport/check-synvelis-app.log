@@ -1,0 +1,144 @@
+=== mise run check synvelis-app ===
+[check] $ cargo check --locked --all-targets -p synvelis-app
+    Checking log v0.4.35
+   Compiling serde_core v1.0.229
+   Compiling serde_json v1.0.154
+    Checking windows-sys v0.61.2
+    Checking once_cell v1.21.4
+   Compiling thiserror v2.0.21
+   Compiling crossbeam-utils v0.8.23
+    Checking regex-syntax v0.8.11
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+    Checking pin-project-lite v0.2.17
+    Checking sharded-slab v0.1.7
+    Checking thread_local v1.1.10
+    Checking deranged v0.5.9
+    Checking num-conv v0.2.2
+    Checking powerfmt v0.2.1
+    Checking symphonia-core v0.6.1
+    Checking tracing-core v0.1.36
+    Checking ruviform-io-file v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking regex-automata v0.4.18
+    Checking audio_thread_priority v0.38.0
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.21
+    Checking nu-ansi-term v0.50.3
+   Compiling tracing-attributes v0.1.31
+    Checking time-core v0.1.9
+   Compiling fearless_simd_macros v0.1.0
+    Checking symlink v0.1.0
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-file\src\lib.rs
+    Checking tracing-log v0.2.0
+    Checking symphonia-metadata v0.6.1
+    Checking matchers v0.2.0
+    Checking ruviform-exec v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking ruviform-plugin-export v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking time v0.3.55
+    Checking simd-adler32 v0.3.10
+    Checking symphonia-codec-pcm v0.6.1
+    Checking symphonia-codec-adpcm v0.6.1
+    Checking schannel v0.1.30
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-export\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-exec\src\lib.rs
+    Checking adler2 v2.0.1
+    Checking symphonia-common v0.6.1
+    Checking ruviform-math v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking tracing v0.1.44
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-exec\src\lib.rs
+    Checking symphonia-format-riff v0.6.1
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-export\src\lib.rs
+   Compiling proc-macro2 v1.0.107
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-file\src\lib.rs
+   Compiling crc32fast v1.5.4
+    Checking rustls v0.23.46
+    Checking ruviform-plugin-vst3 v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling quote v1.0.47
+   Compiling camino v1.2.6
+    Checking unicode-ident v1.0.27
+    Checking miniz_oxide v0.9.1
+    Checking rustls-native-certs v0.8.5
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-math\src\lib.rs
+    Checking symphonia-bundle-flac v0.6.1
+    Checking symphonia-format-mkv v0.6.1
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-math\src\lib.rs
+    Checking ruviform-dsp v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking symphonia-codec-vorbis v0.6.1
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-vst3\src\lib.rs
+    Checking symphonia-format-ogg v0.6.1
+    Checking serde v1.0.229
+    Checking ruviform-plugin-clap v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking semver v1.0.28
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-dsp\src\lib.rs
+    Checking miniz_oxide v0.8.9
+    Checking fdeflate v0.3.7
+    Checking ruviform-numeric v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking crossbeam-channel v0.5.17
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-vst3\src\lib.rs
+   Compiling synvelis-app v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-app)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-dsp\src\lib.rs
+    Checking ruviform-audio-analysis v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking symphonia v0.6.1
+    Checking tracing-serde v0.2.0
+    Checking synvelis-project v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-project)
+    Checking ruviform-ui v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-clap\src\lib.rs
+    Checking cargo-platform v0.1.9
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-clap\src\lib.rs
+    Checking base64 v0.22.1
+    Checking ruviform-plugin-test-clap v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-numeric\src\lib.rs
+    Checking ruviform-plugin-test-vst3 v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-analysis\src\lib.rs
+    Checking ruviform-io-symphonia v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking tracing-subscriber v0.3.23
+    Checking flate2 v1.1.11
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-analysis\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-ui\src\lib.rs
+    Checking synvelis-library v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-library)
+    Checking synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-recording)
+    Checking synvelis-gateway v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-gateway)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-test-clap\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-test-vst3\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-symphonia\src\lib.rs
+    Checking cargo_metadata v0.19.2
+    Checking png v0.18.1
+    Checking tracing-appender v0.2.5
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-numeric\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-symphonia\src\lib.rs
+    Checking ruviform-viz v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-test-vst3\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-test-clap\src\lib.rs
+    Checking synvelis-script v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-script)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-viz\src\lib.rs
+    Checking ruviform-observability v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-observability\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-viz\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-ui\src\lib.rs
+    Checking ruviform-ui-test v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-ui-test\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-observability\src\lib.rs
+    Checking ruviform-plugin-host v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking ruviform-audio v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-host\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-host\src\lib.rs
+    Checking ruviform-audio-plugin-bridge v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-plugin-bridge\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-plugin-bridge\src\lib.rs
+    Checking ruviform-audio-test v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-test\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-ui-test\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-test\src\lib.rs
+    Checking ruviform-plugin-dock-test v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-dock-test\src\lib.rs
+    Checking synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-player)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-dock-test\src\lib.rs
+mbx[progress]: 15s elapsed; 87 hits, 2 misses, 0 bypassed, 0 not looked up; ~1m 34s compiler work saved
+    Checking synvelis-render v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-render)
+    Checking synvelis-workspace v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-workspace)
+mbx[progress]: 30s elapsed; 87 hits, 50 misses, 0 bypassed, 0 not looked up; ~1m 34s compiler work saved
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 32.01s
+mbx[cache]: 87 hits, 71 misses; 0 B downloaded, 0 B uploaded, 13.0 MiB stored locally
+mbx[savings]: this build borrowed 87 compilations from an earlier one. rustc was not informed. (1m 34s saved)

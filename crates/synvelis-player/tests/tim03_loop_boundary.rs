@@ -381,6 +381,7 @@ fn fast_write(
         means: ruviform_plugin_core::ParamWriteMeans::TimedEvent,
         position: MediaTime::new(frame, frame_base()),
         project_revision: revision,
+        transport_generation: None,
     }
 }
 

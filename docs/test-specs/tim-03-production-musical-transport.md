@@ -59,3 +59,9 @@ relations:
 ## Canonical lane
 
 `mise run test-tim03-production-transport` は runner build後に integration testを `--test-threads=1` で実行する。
+
+## Dynamic refresh test oracle
+
+player/control oracle は representative mixed planを使い、staged MIDI 2件、unbound fast-control event、transport-generation-bound eventを1 planに共存させる。tempo revisionを進めた refresh後に、event position/source sequence/payload/bindingと staged MIDIが一致し、plan revision/PPQN/current-source identityが新しい project snapshotを指すことを要求する。PPQN mismatchを注入した cloned projectでは typed unavailableとなり、両 musical halfが空で fixed 960が出ないことを要求する。
+
+production real ABI oracle は VST3/CLAPの両方で、(1) stop/lookahead分離後に tick 4800へ75.000 BPMを追加し quarter16 delta2の clickが672 frame、(2) 再生中に tick9600へ100.000 BPMを追加し quarter24 delta2の clickが632 frame、を independent lawで検証する。各 edit後の control evidenceは revision/PPQN/current-source identity/refresh error emptyを示し、RT receiptは対応 plan generationの `Applied` を示す。loop evidenceの後は `ClearLoop`で測定窓を分離し、旧loopがdynamic positionに混入しないようにする。

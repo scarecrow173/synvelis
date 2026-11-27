@@ -1,0 +1,9 @@
+=== mise run lint synvelis-player ===
+[lint] $ if [ "$#" -lt 1 ]; then
+    Checking synvelis-project v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-project)
+    Checking synvelis-library v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-library)
+    Checking synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-recording)
+    Checking synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-player)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.55s
+mbx[cache]: 2 hits, 58 misses; 0 B downloaded, 0 B uploaded, 787.2 KiB stored locally
+mbx[savings]: 17.8 TiB logical of old files removed while you were busy compiling other things.

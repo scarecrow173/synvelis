@@ -56,3 +56,12 @@ relations:
 - [ ] fault/state/crash isolation、RT/Crash最終判定
 - [ ] GUI/Native Dock/EXT-L3、3OS CI、AudioLens cross-consumer
 - [ ] docs index同期（Coordinatorが統合時に実施）
+
+## Dynamic refresh extension tasks
+
+- [x] `Equivalent` revision reconciliation で musical sync が skip される原因を切り分ける。
+- [x] `ParamDispatch::refresh_musical_plan` の payload/order/binding preservation を実装する。
+- [x] MIDI reconcile が unchanged content を restage せず non-MIDI events を落とさないよう修正する。
+- [x] `FastControlWrite::transport_generation` を production control path に通し、`None` compatibilityと`Some` preservationを検証する。
+- [x] VST3/CLAP production oracle に representative dynamic tempo edit 2 caseを追加する。
+- [x] machine/human evidence を `evidence/sv127/` に保存する。

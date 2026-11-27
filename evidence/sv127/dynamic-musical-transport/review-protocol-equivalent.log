@@ -1,0 +1,12 @@
+=== git diff --name-only 91738435..HEAD ===
+docs/designs/tim-03-dynamic-musical-transport.md
+docs/impl/tim-03-dynamic-musical-transport.md
+docs/plans/tim-03-dynamic-musical-transport.md
+docs/specs/tim-03-dynamic-musical-transport.md
+docs/tasks/tim-03-dynamic-musical-transport.md
+docs/test-specs/tim-03-dynamic-musical-transport.md
+mise.toml
+=== mechanical propagation added lines ===
+      1 +                transport_generation: None,
+      1 +            transport_generation: None,
+     10 +        transport_generation: None,

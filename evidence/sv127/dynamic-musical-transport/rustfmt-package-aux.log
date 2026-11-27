@@ -1,0 +1,1 @@
+=== mise exec -- cargo fmt --package synvelis-player --package synvelis-app -- --check ===

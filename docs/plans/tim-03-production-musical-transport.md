@@ -50,3 +50,11 @@ relations:
 - engine層へ新しい所有点を増やさない。既存の every-revision `stage_midi_delivery` が `sync_midi_plans` を呼ぶため、routing-control を authoritative apply boundary にできる。
 - 93.75 BPM/PPQN480/256-frame block は 1 host tick=64 frames、1 block=4 ticksになり、adapter PPQN 960 projectionでも fractional tick roundingを oracleへ混入しない。
 - loop caseは12 ticks=3 blocksのactive loopで、quarter boundaryが各iterationのblock 2 frame 0に来るよう設計する。
+
+## Dynamic refresh extension (2026-11-27)
+
+1. project revision reconciliation を authoritative sync boundary に追加し、routing compile が `Equivalent` でも current tempo map/revision/PPQN を再評価する。
+2. `refresh_musical_plan` は `Play` を送らず、event position/source sequence/payload/transport-generation binding/staged MIDI を保持して plan だけを更新する。
+3. MIDI reconcile は unchanged content を再 install せず、param/automation events を MIDI clear/replace から隔離する。
+4. `FastControlWrite::transport_generation` で production control path の generation-bound event を表現し、`None` の従来互換と `Some` の保存を player/control test で証明する。
+5. real VST3/CLAP production oracle に、停止分離後の tempo edit と再生中 tempo edit の representative 2 case を追加する。

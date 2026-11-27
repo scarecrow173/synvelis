@@ -96,6 +96,14 @@ run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --lo
 description = "Build the test-only TIM-03 L1 runners and run the production musical transport tests"
 run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_production_musical_transport -- --test-threads=1 --nocapture"
 
+# TIM-03 (#127) representative dynamic musical transport refresh slice:
+# 同一 production oracle binary が baseline production evidence と dynamic
+# tempo-edit evidenceをVST3/CLAP両formatでfail-closedに出力する。
+# direct endpoint API は使わない。
+[tasks.test-tim03-dynamic-musical-transport]
+description = "Build the test-only TIM-03 L1 runners and run the dynamic musical transport tests"
+run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_production_musical_transport -- --test-threads=1 --nocapture"
+
 # RCD-01 opt-in 実機 lane（CI 対象外・hardware 依存）。
 # real-device feature で ruviform-audio-device/cpal を有効化し、
 # tests/real_input.rs の #[ignore] test のみを実行する。

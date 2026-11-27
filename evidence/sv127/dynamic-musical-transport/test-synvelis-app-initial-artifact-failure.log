@@ -1,0 +1,388 @@
+=== mise run test synvelis-app ===
+[test] $ cargo test --locked -p synvelis-app
+   Compiling unicode-ident v1.0.27
+   Compiling log v0.4.35
+   Compiling serde_core v1.0.229
+   Compiling serde_json v1.0.154
+   Compiling windows-sys v0.61.2
+   Compiling once_cell v1.21.4
+   Compiling thiserror v2.0.21
+   Compiling crossbeam-utils v0.8.23
+   Compiling regex-syntax v0.8.11
+   Compiling pin-project-lite v0.2.17
+   Compiling sharded-slab v0.1.7
+   Compiling thread_local v1.1.10
+   Compiling num-conv v0.2.2
+   Compiling deranged v0.5.9
+   Compiling powerfmt v0.2.1
+   Compiling time-core v0.1.9
+   Compiling proc-macro2 v1.0.107
+   Compiling symphonia-core v0.6.1
+   Compiling tracing-core v0.1.36
+   Compiling symlink v0.1.0
+   Compiling regex-automata v0.4.18
+   Compiling ruviform-io-file v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling audio_thread_priority v0.38.0
+   Compiling nu-ansi-term v0.50.3
+   Compiling ruviform-plugin-export v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling simd-adler32 v0.3.10
+   Compiling time v0.3.55
+   Compiling schannel v0.1.30
+   Compiling matchers v0.2.0
+   Compiling tracing-log v0.2.0
+   Compiling crc32fast v1.5.4
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-file\src\lib.rs
+   Compiling quote v1.0.47
+   Compiling adler2 v2.0.1
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-export\src\lib.rs
+   Compiling rustls v0.23.46
+   Compiling rustls-native-certs v0.8.5
+   Compiling symphonia-metadata v0.6.1
+   Compiling symphonia-codec-pcm v0.6.1
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling symphonia-codec-adpcm v0.6.1
+   Compiling camino v1.2.6
+   Compiling serde_derive v1.0.229
+   Compiling thiserror-impl v2.0.21
+   Compiling fearless_simd_macros v0.1.0
+   Compiling symphonia-common v0.6.1
+   Compiling tracing-attributes v0.1.31
+   Compiling ruviform-exec v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-file\src\lib.rs
+   Compiling symphonia-format-riff v0.6.1
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-export\src\lib.rs
+   Compiling ruviform-plugin-vst3 v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling ruviform-plugin-clap v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling miniz_oxide v0.9.1
+   Compiling ruviform-math v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-exec\src\lib.rs
+   Compiling symphonia-format-mkv v0.6.1
+   Compiling symphonia-codec-vorbis v0.6.1
+   Compiling tracing v0.1.44
+   Compiling symphonia-format-ogg v0.6.1
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-exec\src\lib.rs
+   Compiling symphonia-bundle-flac v0.6.1
+   Compiling miniz_oxide v0.8.9
+   Compiling fdeflate v0.3.7
+   Compiling flate2 v1.1.11
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-math\src\lib.rs
+   Compiling ruviform-numeric v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling serde v1.0.229
+   Compiling crossbeam-channel v0.5.17
+   Compiling semver v1.0.28
+   Compiling base64 v0.22.1
+   Compiling synvelis-app v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-app)
+   Compiling ruviform-plugin-test-clap v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling symphonia v0.6.1
+   Compiling ruviform-plugin-test-vst3 v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-numeric\src\lib.rs
+   Compiling tracing-serde v0.2.0
+   Compiling synvelis-project v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-project)
+   Compiling ruviform-ui v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling cargo-platform v0.1.9
+   Compiling png v0.18.1
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-ui\src\lib.rs
+   Compiling ruviform-io-symphonia v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling cargo_metadata v0.19.2
+   Compiling tracing-subscriber v0.3.23
+   Compiling ruviform-dsp v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling ruviform-viz v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-recording)
+   Compiling synvelis-library v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-library)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-numeric\src\lib.rs
+   Compiling synvelis-gateway v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-gateway)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-symphonia\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-math\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-viz\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-dsp\src\lib.rs
+   Compiling tracing-appender v0.2.5
+   Compiling ruviform-observability v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling ruviform-audio-analysis v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-observability\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-analysis\src\lib.rs
+   Compiling synvelis-script v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-script)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-dsp\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-analysis\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-viz\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-symphonia\src\lib.rs
+mbx[progress]: 15s elapsed; 88 hits, 1 misses, 5 bypassed, 0 not looked up; ~3m 41s compiler work saved
+   Compiling ruviform-audio v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling ruviform-plugin-host v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-host\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio\src\lib.rs
+   Compiling ruviform-ui-test v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-ui-test\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-observability\src\lib.rs
+   Compiling ruviform-audio-plugin-bridge v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-plugin-bridge\src\lib.rs
+   Compiling ruviform-audio-test v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-test\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-plugin-bridge\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-host\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-ui\src\lib.rs
+   Compiling synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-player)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-test\src\lib.rs
+   Compiling ruviform-plugin-dock-test v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-dock-test\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-dock-test\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-ui-test\src\lib.rs
+   Compiling synvelis-render v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-render)
+   Compiling synvelis-workspace v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-workspace)
+mbx[progress]: 30s elapsed; 88 hits, 4 misses, 5 bypassed, 0 not looked up; ~3m 41s compiler work saved
+mbx[progress]: 45s elapsed; 88 hits, 7 misses, 5 bypassed, 0 not looked up; ~3m 41s compiler work saved
+mbx[progress]: 1m elapsed; 88 hits, 9 misses, 5 bypassed, 0 not looked up; ~3m 41s compiler work saved
+mbx[progress]: 1m 15s elapsed; 88 hits, 16 misses, 5 bypassed, 0 not looked up; ~3m 41s compiler work saved
+mbx[progress]: 1m 30s elapsed; 88 hits, 24 misses, 5 bypassed, 0 not looked up; ~3m 41s compiler work saved
+mbx[progress]: 1m 45s elapsed; 88 hits, 33 misses, 5 bypassed, 0 not looked up; ~3m 41s compiler work saved
+mbx[progress]: 2m elapsed; 88 hits, 41 misses, 5 bypassed, 0 not looked up; ~3m 41s compiler work saved
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 48s
+     Running unittests src\lib.rs (target\debug\deps\synvelis_app-d3f8153f064e8d42.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\asset_check.rs (target\debug\deps\asset_check-f581cc1453872c97.exe)
+
+running 10 tests
+test missing_manifest_is_explained ... ok
+test malformed_manifest_is_explained ... ok
+test revision_mismatch_is_explained ... ok
+test schema_mismatch_is_explained ... ok
+test ipc_mismatch_is_explained ... ok
+test bundle_without_index_html_is_explained ... ok
+test unsafe_entry_is_explained ... ok
+test missing_entry_is_explained ... ok
+test hash_mismatch_is_explained ... ok
+test valid_bundle_passes ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\autx07_automation.rs (target\debug\deps\autx07_automation-65ae4dba395e12fd.exe)
+
+running 7 tests
+test decode_rejects_unknown_targets_and_actions ... ok
+test decode_view_local_selects_and_category ... ok
+test decode_macro_and_cancel_commands ... ok
+test empty_states_render_empty_labels_without_panicking ... ok
+test decode_rejects_malformed_params ... ok
+test decode_domain_commands_carry_capability_target_args ... ok
+test mount_helpers_produce_valid_view_hosts ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\binding.rs (target\debug\deps\binding-36fb40b81abfef72.exe)
+
+running 12 tests
+test attach_intent_wire_shape_and_generation_adoption ... ok
+test notify_to_view_event_projection_row ... ok
+test detach_and_close_transitions ... ok
+test app_state_view_state_lifecycle_and_error_demux ... ok
+test decode_view_command_snake_to_camel ... ok
+test control_dispatch_carries_typed_intent_and_ctx ... ok
+test notify_to_view_event_receipt_statuses ... ok
+test gesture_lifecycle_mints_shared_gesture_id ... ok
+test decode_view_command_rejects_malformed ... ok
+test view_command_dispatch_mints_dispatch_intent ... ok
+test decode_view_command_atomic_and_action_distinctions ... ok
+test receipt_and_projection_demux_with_view_filter ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\cb09_variant_diff.rs (target\debug\deps\cb09_variant_diff-d07dd6e37db35fea.exe)
+
+running 11 tests
+test cb09_app_open_with_target_seed ... ok
+test cb09_app_variant_diff_spec_mounts_on_view_host ... ok
+test cb09_app_adopt_commits_through_cas ... ok
+test cb09_app_compare_stores_pin_scoped_evidence ... ok
+test cb09_app_adopt_preview_never_commits ... ok
+test cb09_app_adopt_rejects_stale_revision_cas ... ok
+test cb09_app_view_local_actions_never_touch_authority ... ok
+test cb09_app_visual_open_close_and_kind_gate ... ok
+test cb09_app_compare_rejects_stale_and_implicit_pins ... ok
+test cb09_app_adopt_requires_explicit_approval ... ok
+test cb09_app_project_switch_clears_variant_diff_state ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests\close_veto.rs (target\debug\deps\close_veto-7a266604421f769c.exe)
+
+running 6 tests
+test quit_with_clean_project_closes_all_windows ... ok
+test dirty_non_last_window_close_approves_without_guard_query ... ok
+test clean_last_window_close_approves_and_exits ... ok
+test dirty_last_window_close_is_vetoed ... ok
+test quit_with_dirty_project_partially_vetoes ... ok
+test close_guard_reports_unsaved_changes ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\dock_ops.rs (target\debug\deps\dock_ops-b66d7b7332cebf56.exe)
+
+running 12 tests
+test window_adopt_is_idempotent_and_list_reports_dock ... ok
+test destroyed_with_release_views_closes_docked_views ... ok
+test new_window_creation_failure_aborts_and_keeps_source ... ok
+test dock_abort_preserves_source_ownership ... ok
+test dock_prepare_commit_moves_view_everywhere ... ok
+test view_detach_pools_and_view_attach_reattaches ... ok
+test dock_transfer_preserves_project_and_transport_state ... ok
+test legacy_view_ids_stay_ui_only ... ok
+test dock_detach_reattach_round_trips_through_pool ... ok
+test dock_commit_after_destination_destroy_fails_closed ... ok
+test saga_destination_destroyed_before_ready_aborts ... ok
+test new_window_saga_commits_on_destination_ready ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\library_browser.rs (target\debug\deps\library_browser-6adbfe37a4f91f95.exe)
+
+running 24 tests
+test malformed_action_params_are_invalid_params ... ok
+test open_view_projects_providers_state_and_spec ... ok
+test ops_registered_and_dispatch_through_runtime ... ok
+test browse_pages_and_typed_states ... ok
+test close_removes_view_and_model ... ok
+test drag_ghost_never_mutates_project ... ok
+test unbound_backend_is_typed_not_fabricated ... ok
+test provider_switch_invalidates_bound_state ... ok
+test unsupported_capabilities_stay_typed ... ok
+test preview_fetch_job_cancels_cooperatively ... ok
+test view_rejects_unregistered_and_wrong_kind ... ok
+test search_stat_pin_and_preview_flow ... ok
+test import_without_backend_or_fetch_is_typed ... ok
+test import_cancel_is_cross_view ... ok
+test job_ack_and_ledger_wire_shape ... ok
+test job_actions_run_through_runtime_job_lane ... ok
+test library_backend_survives_project_new ... ok
+test view_close_leaves_job_in_ledger ... ok
+test import_commits_live_and_replays_idempotently ... ok
+test import_publish_failure_is_recoverable_and_resumes ... ok
+test import_submit_dedups_in_flight ... ok
+test import_cancel_mid_flight_then_retry_recovers ... ok
+test provider_switch_scopes_import_surface ... ok
+test import_stale_revision_rebase_retry_recovers ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests\library_native_mount.rs (target\debug\deps\library_native_mount-0ce8cce1165f22d7.exe)
+
+running 8 tests
+test unbound_backend_ops_answer_typed_unavailable ... ok
+test library_view_mounts_wire_spec_verbatim ... ok
+test library_command_intent_rejects_params_on_non_admitted_target ... ok
+test native_shell_attaches_marks_dirty_and_re_reads_library_spec ... ok
+test mount_lifecycle_and_browse_ops_leave_project_authority_untouched ... ok
+test library_command_intent_decodes_and_routes_to_library_action ... ok
+test mounted_view_projects_real_local_folder_state ... ok
+test import_submits_through_real_import_ports ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests\logging.rs (target\debug\deps\logging-2595665844717788.exe)
+
+running 11 tests
+test resolve_defaults_to_disabled_and_install_is_off ... ok
+test parse_args_rejects_unknown_args_and_missing_values ... ok
+test resolve_rejects_unknown_format ... ok
+test parse_args_accepts_all_logging_flag_forms ... ok
+test resolve_applies_cli_over_env_over_defaults ... ok
+test resolve_enablement_rules ... ok
+test to_logging_config_maps_sinks ... ok
+test observability_sources_describe_app_counters ... ok
+2026-11-27T12:49:31.529893Z  INFO logging: syn-obs-01 global event
+test build_logging_reports_degraded_best_effort_sink ... ok
+test scoped_dispatch_writes_events_without_global_install ... ok
+test global_install_is_once_per_process ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\monitor_arm.rs (target\debug\deps\monitor_arm-6b606c083b7714d3.exe)
+
+running 20 tests
+test e8_loop_session_projects_gate_and_pass_segments ... ok
+test e2_punch_segments_are_contiguous_half_open ... ok
+test e6_latency_and_low_latency_projection ... ok
+test e8_punch_outside_loop_is_rejected ... ok
+test e8_count_in_pre_roll_phases_keep_gate_closed ... ok
+test e8_session_scope_declarations_do_not_touch_project ... ok
+test monitoring_runtime_state_does_not_mutate_project ... ok
+test e7_inactive_session_projection_is_honest ... ok
+test e5_view_window_and_project_transport_do_not_change_monitor_state ... ok
+test e8_declaration_boundaries_are_rejected ... ok
+test monitoring_long_session_keeps_gate_open_projection ... ok
+test e3_hardware_direct_states_and_double_monitoring ... ok
+test e8_punch_in_loop_session_projects_per_pass_punch ... ok
+test e4_input_unavailable_is_explicit ... ok
+test monitoring_declarations_write_through_project ... ok
+test monitoring_set_rejects_invalid_params ... ok
+test e1_route_matrix_off_auto_on_x_transport_x_punch_x_mute_solo ... ok
+test punch_rejected_while_monitor_session_active ... ok
+test service_registers_monitoring_ops ... ok
+test monitoring_state_survives_project_save_open ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+     Running tests\pc_c4_04_app_composition.rs (target\debug\deps\pc_c4_04_app_composition-2b0b1d8f143f0fb2.exe)
+
+running 4 tests
+test catalog_vend_binds_on_publish ... ok
+test ui_pump_drives_control_tick ... ok
+test reported_observation_reaches_control_feed ... ok
+test generation_swap_gates_stale_surface ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests\pc_c4_06_control_op_surface.rs (target\debug\deps\pc_c4_06_control_op_surface-bef84c1c8483857a.exe)
+
+running 4 tests
+test control_ops_fail_closed_without_surface ... ok
+test observe_fails_closed_on_stale_generation ... ok
+test fast_control_and_status_return_typed_evidence ... ok
+test observe_reports_stages_and_feeds_only_reported ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\pc_c4_drain_composition.rs (target\debug\deps\pc_c4_drain_composition-4b97d524c240e268.exe)
+
+running 4 tests
+test drain_reports_reach_observed_feed ... ok
+test composition_root_assembles_surface_and_periodic_drain ... ok
+test inactive_gate_and_queue_saturation_fail_closed ... ok
+test project_recreate_clears_drain_and_its_evidence ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests\pc_c4_l1_real_abi_binding.rs (target\debug\deps\pc_c4_l1_real_abi_binding-353bc5d0a4bcfb65.exe)
+
+running 2 tests
+test pc_c4_l1_vst3_real_abi_binding ... FAILED
+test pc_c4_l1_clap_real_abi_binding ... FAILED
+
+failures:
+
+---- pc_c4_l1_vst3_real_abi_binding stdout ----
+
+thread 'pc_c4_l1_vst3_real_abi_binding' (48444) panicked at crates\synvelis-app\tests\pc_c4_l1_real_abi_binding.rs:181:5:
+L1 runner missing at G:\orca\workspaces\synvelis\sv127-dynamic-transport\target\debug\synvelis-plugin-test-vst3-l1-runner.exe — run `mise run test-pc-c4-l1` (or build synvelis-plugin-test-l1-runner)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- pc_c4_l1_clap_real_abi_binding stdout ----
+
+thread 'pc_c4_l1_clap_real_abi_binding' (56472) panicked at crates\synvelis-app\tests\pc_c4_l1_real_abi_binding.rs:181:5:
+L1 runner missing at G:\orca\workspaces\synvelis\sv127-dynamic-transport\target\debug\synvelis-plugin-test-clap-l1-runner.exe — run `mise run test-pc-c4-l1` (or build synvelis-plugin-test-l1-runner)
+
+
+failures:
+    pc_c4_l1_clap_real_abi_binding
+    pc_c4_l1_vst3_real_abi_binding
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `-p synvelis-app --test pc_c4_l1_real_abi_binding`
+mbx[cache]: 88 hits, 71 misses, 5 bypassed; 0 B downloaded, 0 B uploaded, 21.8 GiB stored locally
+mbx[savings]: quietly substituted 88 cached compilations. nobody noticed. that is the job. (3m 41s saved)
+[test] ERROR task failed

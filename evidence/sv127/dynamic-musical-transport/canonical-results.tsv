@@ -1,0 +1,16 @@
+key	command	os	exit	result
+sync-ui-deps	mise run sync-ui-deps	Windows x86_64	0	Pass
+check-ruviform-rev	mise run check-ruviform-rev	Windows x86_64	0	Pass
+fmt-check	mise run fmt-check	Windows x86_64	1	InfrastructureFailure
+rustfmt-package-aux	mise exec -- cargo fmt --package synvelis-player --package synvelis-app -- --check	Windows x86_64	0	Pass
+check-synvelis-player	mise run check synvelis-player	Windows x86_64	0	Pass
+lint-synvelis-player	mise run lint synvelis-player	Windows x86_64	0	Pass
+test-synvelis-player	mise run test synvelis-player	Windows x86_64	0	Pass
+check-synvelis-app	mise run check synvelis-app	Windows x86_64	0	Pass
+lint-synvelis-app	mise run lint synvelis-app	Windows x86_64	0	Pass
+test-synvelis-app-initial-artifact-failure	mise run test synvelis-app	Windows x86_64	101	InfrastructureFailure
+test-synvelis-app	mise run test synvelis-app	Windows x86_64	0	Pass
+test-tim03-dynamic-musical-transport	mise run test-tim03-dynamic-musical-transport	Windows x86_64	0	Pass
+test-tim03-production-transport	mise run test-tim03-production-transport	Windows x86_64	0	Pass
+prek-all-files-initial-evidence-normalization	mise exec -- prek run --all-files	Windows x86_64	1	FailFixedAndRerun
+prek-all-files	mise exec -- prek run --all-files	Windows x86_64	0	Pass

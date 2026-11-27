@@ -831,6 +831,10 @@ impl SessionRoutingEngine {
         let Some(dispatch) = inner.dispatch.as_mut() else {
             return Err(TransportApplicationError::NoControlSurface);
         };
+        // Transport conversion consumes the project's current tempo map;
+        // retry any pending musical refresh first so newly converted
+        // commands never combine with a silently stale live plan.
+        dispatch.sync_musical_transport(project);
         let frame_base = dispatch
             .frame_base()
             .ok_or(TransportApplicationError::NoFrameBase)?;
@@ -1152,6 +1156,15 @@ fn rebuild(inner: &mut Inner, project: &Project, revision: ProjectRevision) {
         // prepare faults are already recorded on the engine's
         // activation receipt — neither publishes nor mutates state.
         Ok(RoutingPrepare::Equivalent(_)) | Err(_) => {}
+    }
+
+    // TIM-03 dynamic musical transport: the committed-revision path
+    // reconciles the current project-owned tempo map/revision/PPQN even
+    // when routing compilation was Equivalent or failed and no new
+    // control generation was published. This is the authoritative sync;
+    // MIDI staging below must not be the accidental trigger.
+    if let Some(dispatch) = inner.dispatch.as_mut() {
+        dispatch.sync_musical_transport(project);
     }
 
     // TIM-02 node delivery (synvelis#623): reconcile the compiled

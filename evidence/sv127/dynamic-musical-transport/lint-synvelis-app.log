@@ -1,0 +1,15 @@
+=== mise run lint synvelis-app ===
+[lint] $ if [ "$#" -lt 1 ]; then
+    Checking synvelis-project v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-project)
+   Compiling synvelis-app v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-app)
+    Checking synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-recording)
+    Checking synvelis-library v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-library)
+    Checking synvelis-gateway v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-gateway)
+    Checking synvelis-script v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-script)
+    Checking synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-player)
+    Checking synvelis-render v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-render)
+    Checking synvelis-workspace v0.1.0 (G:\orca\workspaces\synvelis\sv127-dynamic-transport\crates\synvelis-workspace)
+mbx[progress]: 15s elapsed; 6 hits, 3 misses, 0 bypassed, 0 not looked up; ~18.22s compiler work saved
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 26.36s
+mbx[cache]: 6 hits, 70 misses; 0 B downloaded, 0 B uploaded, 961.5 KiB stored locally
+mbx[savings]: swept up 17.8 TiB logical so far. the broom is content-addressed.

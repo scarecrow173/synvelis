@@ -25,8 +25,8 @@ use ruviform_audio_plugin_bridge::{
 };
 use ruviform_graph::NodeId;
 use ruviform_media_core::{
-    EngineFrame, MediaTime, MidiEvent, PlanGeneration, TimeBase, TransportCommand, TransportPlan,
-    TransportPlanBuilder, TransportSpan,
+    EngineFrame, MediaTime, MidiEvent, PlanGeneration, TimeBase, TransportCommand,
+    TransportGeneration, TransportPlan, TransportPlanBuilder, TransportSpan,
 };
 use ruviform_plugin_core::{EventKind, ParamId, ParamInfo, TimedParamEvent};
 use synvelis_project::ParameterTargetId;
@@ -478,10 +478,38 @@ impl ParamDispatch {
         &mut self,
         writes: &[(ParameterTargetId, TimedParamEvent)],
     ) -> Result<Arc<TransportPlan<EventKind>>, DispatchError> {
+        let writes: Vec<(
+            ParameterTargetId,
+            TimedParamEvent,
+            Option<TransportGeneration>,
+        )> = writes
+            .iter()
+            .map(|(target, event)| (*target, *event, None))
+            .collect();
+        self.dispatch_with_transport_generations(&writes)
+    }
+
+    /// [`Self::dispatch`] with an explicit optional transport-generation
+    /// binding per parameter event. `None` uses the ordinary unbound
+    /// builder path exactly as [`Self::dispatch`]; `Some(generation)` uses
+    /// the upstream bound-event contract, so a transport discontinuity
+    /// invalidates that one event instead of silently delivering it in a
+    /// later position epoch.
+    ///
+    /// # Errors
+    /// Same as [`Self::dispatch`].
+    pub fn dispatch_with_transport_generations(
+        &mut self,
+        writes: &[(
+            ParameterTargetId,
+            TimedParamEvent,
+            Option<TransportGeneration>,
+        )],
+    ) -> Result<Arc<TransportPlan<EventKind>>, DispatchError> {
         if writes.is_empty() {
             return Err(DispatchError::Empty);
         }
-        for (target, event) in writes {
+        for (target, event, _) in writes {
             let binding = self.resolve_write(*target)?;
             if binding.param != event.event.param_id {
                 return Err(DispatchError::WriteRejected {
@@ -492,10 +520,18 @@ impl ParamDispatch {
         }
         let mut builder = self.next_plan_builder();
         let mut seq = 0_u64;
-        for (_, event) in writes {
-            builder
-                .event(event.position, seq, EventKind::ParamValue(event.event))
-                .map_err(|_| DispatchError::PositionUnrepresentable)?;
+        for (_, event, transport_generation) in writes {
+            let result = if let Some(generation) = transport_generation {
+                builder.bound_event(
+                    event.position,
+                    seq,
+                    *generation,
+                    EventKind::ParamValue(event.event),
+                )
+            } else {
+                builder.event(event.position, seq, EventKind::ParamValue(event.event))
+            };
+            result.map_err(|_| DispatchError::PositionUnrepresentable)?;
             seq += 1;
         }
         // Merged plan (synvelis#623): the node's staged clip MIDI
@@ -574,16 +610,40 @@ impl ParamDispatch {
         if events.is_empty() {
             return Err(DispatchError::Empty);
         }
+        let preserved: Vec<_> = self
+            .last_plan
+            .iter()
+            .flat_map(|plan| plan.events.iter().copied())
+            .filter(|event| !matches!(event.payload, EventKind::Midi(_)))
+            .collect();
         let mut builder = self.next_plan_builder();
-        for (seq, (frame, midi)) in events.iter().enumerate() {
-            #[allow(clippy::cast_possible_truncation)]
+        for event in &preserved {
+            let result = if let Some(generation) = event.transport_generation {
+                builder.bound_event(
+                    event.position,
+                    event.source_sequence,
+                    generation,
+                    event.payload,
+                )
+            } else {
+                builder.event(event.position, event.source_sequence, event.payload)
+            };
+            result.map_err(|_| DispatchError::PositionUnrepresentable)?;
+        }
+        let mut seq = preserved
+            .iter()
+            .map(|event| event.source_sequence)
+            .max()
+            .map_or(0, |seq| seq.saturating_add(1));
+        for (frame, midi) in events {
             builder
                 .event(
                     MediaTime::new(*frame, self.frame_base),
-                    seq as u64,
+                    seq,
                     EventKind::Midi(*midi),
                 )
                 .map_err(|_| DispatchError::PositionUnrepresentable)?;
+            seq = seq.saturating_add(1);
         }
         let plan = Arc::new(builder.build());
         self.control
@@ -596,10 +656,12 @@ impl ParamDispatch {
         Ok(plan)
     }
 
-    /// Drops the node's staged clip MIDI content and installs an
-    /// **empty** plan — the deliberate wholesale replace that
+    /// Drops the node's staged clip MIDI content and installs a plan
+    /// without MIDI events — the deliberate wholesale replace that
     /// releases sounding notes through the generation-change
-    /// discontinuity (synvelis#623). The empty-plan install is
+    /// discontinuity (synvelis#623). Non-MIDI events already owned by
+    /// the prior plan are preserved; only clip MIDI is cleared. The
+    /// MIDI-free install is
     /// exactly the wipe [`Self::dispatch`]/[`Self::dispatch_midi`]
     /// guard against with [`DispatchError::Empty`], routed through
     /// an explicit API so it can never happen by accident.
@@ -614,7 +676,26 @@ impl ParamDispatch {
     /// [`DispatchError::QueueFull`] when the node's bounded queue
     /// drops the staged install.
     pub fn clear_midi_plan(&mut self) -> Result<Arc<TransportPlan<EventKind>>, DispatchError> {
-        let builder = self.next_plan_builder();
+        let preserved: Vec<_> = self
+            .last_plan
+            .iter()
+            .flat_map(|plan| plan.events.iter().copied())
+            .filter(|event| !matches!(event.payload, EventKind::Midi(_)))
+            .collect();
+        let mut builder = self.next_plan_builder();
+        for event in &preserved {
+            let result = if let Some(generation) = event.transport_generation {
+                builder.bound_event(
+                    event.position,
+                    event.source_sequence,
+                    generation,
+                    event.payload,
+                )
+            } else {
+                builder.event(event.position, event.source_sequence, event.payload)
+            };
+            result.map_err(|_| DispatchError::PositionUnrepresentable)?;
+        }
         let plan = Arc::new(builder.build());
         self.control
             .install_plan(Arc::clone(&plan), 0)

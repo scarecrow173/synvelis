@@ -1,0 +1,16 @@
+trim trailing whitespace.................................................Passed
+fix end of files.........................................................Failed
+- hook id: end-of-file-fixer
+- description: Ensures that a file is either empty, or ends with one newline
+- exit code: 1
+- files were modified by this hook
+
+  Fixing evidence/sv127/dynamic-musical-transport/test-tim03-dynamic-musical-transport.log
+  Fixing evidence/sv127/dynamic-musical-transport/test-tim03-production-transport.log
+check yaml...............................................................Passed
+check toml...............................................................Passed
+mixed line ending........................................................Passed
+fix utf-8 byte order marker..............................................Passed
+detect private key.......................................................Passed
+check illegal windows names..........................(no files to check)Skipped
+actionlint (changed workflows)...........................................Passed
