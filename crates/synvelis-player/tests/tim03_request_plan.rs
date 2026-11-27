@@ -39,7 +39,7 @@ use ruviform_graph::{
 use ruviform_media_core::{
     ApplyDegradation, BlockContract, DeliveryPolicy, InBlockTransportSupport, MediaDuration,
     MediaRange, MediaTime, MidiChannel, MidiEvent, MidiGroup, MidiKind, NoteKey, PPQN,
-    PlanGeneration, ScheduleBudget, TempoEvent, TempoMapBuilder, TempoMapRevision, Tick,
+    PlanGeneration, Ppqn, ScheduleBudget, TempoEvent, TempoMapBuilder, TempoMapRevision, Tick,
     TickPosition, TimeBase, TransportCommand, TransportPlan, TransportPlanBuilder, TransportStatus,
 };
 use ruviform_plugin_core::{
@@ -130,6 +130,9 @@ struct CallHit {
     position: i64,
     /// `TransportStatus::Playing` at call start.
     playing: bool,
+    /// Plan-owned musical transport visible at call start, or zeroes.
+    musical_bpm_milli: u32,
+    musical_ppqn: u16,
     n_params: u8,
     params: [ParamHit; MAX_PARAMS_PER_CALL],
 }
@@ -199,12 +202,15 @@ impl PluginProcessor for RecPlugin {
         let frames = inputs.first().map_or(0, BufferView::frames);
         let position = transport.map_or(0, |t| t.position().value());
         let playing = transport.is_some_and(|t| t.status() == TransportStatus::Playing);
+        let musical = transport.and_then(TransportInfo::musical);
         let mut log = self.log.lock().unwrap();
         if log.len < MAX_CALLS {
             let mut hit = CallHit {
                 frames: u32::try_from(frames).unwrap_or(u32::MAX),
                 position,
                 playing,
+                musical_bpm_milli: musical.map_or(0, |m| m.bpm_milli),
+                musical_ppqn: musical.map_or(0, |m| m.ppqn),
                 n_params: 0,
                 params: [ParamHit::default(); MAX_PARAMS_PER_CALL],
             };
@@ -548,34 +554,40 @@ fn midi_events() -> Vec<(i64, MidiEvent)> {
 // tim03_req_* — boundary matrix through the wired session
 // ---------------------------------------------------------------------
 
-/// 100/128/256-frame windows × boundary offsets 0/1/100/last through
-/// `stage_window`: every window evaluates Exact and every physical
-/// call stays inside the block contract.
+/// 100/128/256-frame windows × valid boundary offsets 0/1/100/last
+/// through `stage_window`: every cell uses a fresh node/control/session,
+/// evaluates Exact, and records the exact physical process-length
+/// sequence. Window=100/offset=100 is out-of-window and is covered as a
+/// typed negative by the policy matrix rather than being silently clamped.
 #[test]
 fn tim03_req_exact_matrix_windows_and_offsets() {
+    let mut rows = Vec::new();
     for window in [100_u32, 128, 256] {
-        let hosted = host_plugin(1, 512, DeliveryPolicy::Exact, 4096);
-        let (graph, proc, srcs) = build_graph(&hosted.attached);
-        let node = hosted.attached.node;
-        let mut control = hosted.attached.control;
-        let mut drive = Drive::new(&graph, node, proc, srcs);
+        for offset in [0_u32, 1, 100, window - 1] {
+            if offset >= window {
+                continue;
+            }
+            let hosted = host_plugin(1, 512, DeliveryPolicy::Exact, 4096);
+            let (graph, proc, srcs) = build_graph(&hosted.attached);
+            let node = hosted.attached.node;
+            let mut control = hosted.attached.control;
+            let mut drive = Drive::new(&graph, node, proc, srcs);
 
-        let c = cap(
-            1,
-            512,
-            InBlockTransportSupport::Unknown,
-            TimingPrecision::FrameAccurateEvents,
-        );
-        let s = session(
-            &control,
-            c,
-            ExecutionMode::Realtime,
-            None,
-            4096,
-            prov(1, proc, 10, 20),
-        );
-        let current = prov(1, proc, 10, 20);
-        for offset in [0_u32, 1, 100.min(window - 1), window - 1] {
+            let c = cap(
+                1,
+                512,
+                InBlockTransportSupport::Unknown,
+                TimingPrecision::FrameAccurateEvents,
+            );
+            let s = session(
+                &control,
+                c,
+                ExecutionMode::Realtime,
+                None,
+                4096,
+                prov(1, proc, 10, 20),
+            );
+            let current = prov(1, proc, 10, 20);
             let plan = s
                 .stage_window(
                     &mut control,
@@ -589,17 +601,37 @@ fn tim03_req_exact_matrix_windows_and_offsets() {
                 )
                 .unwrap_or_else(|e| panic!("window={window} offset={offset}: {e}"));
             assert_eq!(plan.policy, DeliveryPolicy::Exact);
-        }
-        // Drain staged commands: dues are window-relative, so each
-        // callback runs `window` frames; extra callbacks flush the
-        // queue and the legality invariant must hold throughout.
-        for _ in 0..8 {
             drive.process(usize::try_from(window).unwrap());
+            let log = hosted.log.lock().unwrap();
+            let lengths: Vec<u32> = (0..log.len()).map(|i| log.hit(i).frames).collect();
+            let expected = if offset == 0 {
+                vec![window]
+            } else {
+                vec![offset, window - offset]
+            };
+            assert_eq!(lengths, expected, "window={window} offset={offset}");
+            assert_legal_calls(&log, 1, 512);
+            rows.push(serde_json::json!({
+                "window_frames": window,
+                "requested_boundary": offset,
+                "exact_process_lengths": lengths,
+                "boundary_kinds": ["Seek"],
+                "combined_case": false,
+                "param_positions": [],
+                "fresh_instance": true,
+                "queue_residue_dependency": false,
+                "verdict": "pass"
+            }));
         }
-        let log = hosted.log.lock().unwrap();
-        assert_legal_calls(&log, 1, 512);
-        assert!(log.len() > 0, "window={window}: plugin was called");
     }
+    println!(
+        "tim03-wired-session-matrix {}",
+        serde_json::json!({
+            "schema":"tim03-frame-boundary-matrix/wired-session/v1",
+            "invalid_window100_boundary100":"typed-invalid-covered-by-policy-matrix; never clamped",
+            "rows": rows,
+        })
+    );
 }
 
 /// Min/max process length is enforced at the wired boundary: a
@@ -670,95 +702,217 @@ fn tim03_req_min_max_process_length_fail_closed() {
 }
 
 /// Loop + Seek + plan install (with param event and tempo map)
-/// converging at one boundary inside a 256-frame window — the wired
+/// converging at each valid W×B matrix boundary — the wired
 /// session stages all of it, the node coalesces to one boundary and
-/// the param event delivers exactly once at its verified offset.
-#[test]
-fn tim03_req_simultaneous_loop_seek_tempo_param() {
-    let hosted = host_plugin(1, 512, DeliveryPolicy::Exact, 4096);
-    let (graph, proc, srcs) = build_graph(&hosted.attached);
-    let node = hosted.attached.node;
-    let mut control = hosted.attached.control;
-    let mut drive = Drive::new(&graph, node, proc, srcs);
-
-    let c = cap(
-        1,
-        512,
-        InBlockTransportSupport::Unknown,
-        TimingPrecision::FrameAccurateEvents,
-    );
-    let current = prov(1, proc, 10, 20);
-    let s = session(&control, c, ExecutionMode::Realtime, None, 4096, current);
-
-    // Transport commands: Play@head, loop[0,200]@head, Seek→600 @200.
-    let plan = s
-        .stage_window(
-            &mut control,
-            &current,
-            256,
-            vec![],
-            &[
-                (TransportCommand::Play, 0),
-                (TransportCommand::SetLoop(loop_range(0, 200)), 0),
-                (TransportCommand::Seek(t(600)), 200),
-            ],
-        )
-        .expect("window plan");
-    assert_eq!(plan.policy, DeliveryPolicy::Exact);
-    assert_eq!(plan.boundaries, vec![200]);
-
-    // Plan install at the same boundary: param7@pos20 + a tempo map.
+/// exact process lengths and the param event frame offset are fixed.
+fn simultaneous_tempo_plan(
+    control: &mut PluginNodeControl,
+    param_pos: i64,
+) -> Arc<TransportPlan<EventKind>> {
     let mut tempo = TempoMapBuilder::new();
     tempo.add_tempo_event(TempoEvent::at_tick(
         TickPosition::new(Tick::new(0), PPQN),
         120_000,
     ));
     let tempo_map = Arc::new(tempo.build().expect("tempo map"));
-    let b = control.plan_builder(PlanGeneration::new(7));
-    let mut b = b.with_tempo_map(tempo_map, TempoMapRevision::new(1));
-    b.event(
-        t(20),
-        1,
-        EventKind::ParamValue(ParamEvent {
-            param_id: ParamId(7),
-            value: ParamValue::new(0.5).unwrap(),
-        }),
-    )
-    .unwrap();
-    let install: Arc<TransportPlan<EventKind>> = Arc::new(b.build());
-    let evaluated = s
-        .stage_plan(
-            &mut control,
-            &current,
-            256,
-            vec![],
-            Arc::clone(&install),
-            200,
+    let mut b = control
+        .plan_builder(PlanGeneration::new(7))
+        .with_musical_transport(tempo_map, TempoMapRevision::new(1), Ppqn::new(480).unwrap());
+    for (sequence, param_id, value) in [(3, 7, 0.75), (1, 9, 0.2), (2, 7, 0.25)] {
+        b.event(
+            t(param_pos),
+            sequence,
+            EventKind::ParamValue(ParamEvent {
+                param_id: ParamId(param_id),
+                value: ParamValue::new(value).unwrap(),
+            }),
         )
-        .expect("plan install plan");
-    // The install's PlanInstall@200 coalesces with the Seek@200.
-    assert_eq!(evaluated.boundaries, vec![200]);
-
-    drive.process(256);
-
-    let log = hosted.log.lock().unwrap();
-    assert_legal_calls(&log, 1, 512);
-    // One boundary at 200 → calls [0,200) and [200,56).
-    assert_eq!(log.len(), 2);
-    assert_eq!(log.hit(0).frames, 200);
-    assert_eq!(log.hit(1).frames, 56);
-    // Post-seek+wrap position collapses to 0; the event at position 20
-    // delivers exactly once, process-start-relative offset 20.
-    assert_eq!(log.hit(1).position, 0);
-    assert_eq!(log.hit(0).param_hits(), []);
-    let hit1 = log.hit(1);
-    let params = hit1.param_hits();
-    assert_eq!(params.len(), 1, "param event delivers exactly once");
-    assert_eq!(params[0].param_id, 7);
-    assert_eq!(params[0].frame_offset, 20);
-    assert_eq!(params[0].abs, 20);
+        .unwrap();
+    }
+    Arc::new(b.build())
+}
+fn boundary_offsets(boundary: u32) -> Vec<u32> {
+    if boundary == 0 {
+        Vec::new()
+    } else {
+        vec![boundary]
+    }
 }
 
+fn split_lengths(window: u32, boundary: u32) -> Vec<u32> {
+    if boundary == 0 {
+        vec![window]
+    } else {
+        vec![boundary, window - boundary]
+    }
+}
+
+struct CombinedRowInput {
+    window: u32,
+    boundary: u32,
+    loop_len: i64,
+    initial_pos: i64,
+    target_position: i64,
+    musical_bpm_milli: u32,
+    musical_ppqn: u16,
+    frame_offset: u32,
+    abs: i64,
+    window_param_hit_count: usize,
+    lengths: Vec<u32>,
+}
+
+fn combined_row(input: &CombinedRowInput) -> serde_json::Value {
+    serde_json::json!({
+        "window_frames": input.window,
+        "requested_boundary": input.boundary,
+        "boundary_kinds": ["LoopWrap","Seek","PlanInstall","Param"],
+        "scenario": "combined-loop-seek-tempo-plan-param",
+        "combined_case": true,
+        "simultaneous_command_order": ["Play@0","SetLoop@0","initial-Seek@0","Seek@boundary","PlanInstall@boundary"],
+        "tie_rule": "same-frame apply wins over wrap; wrap re-evaluated in post-apply state",
+        "loop_range_ticks": [0,input.loop_len],
+        "initial_position_ticks": input.initial_pos,
+        "seek_target_ticks": 307,
+        "post_seek_loop_position": input.target_position,
+        "exact_process_lengths": input.lengths,
+        "param_positions": [{"position_ticks": input.abs, "post_seek_base_position": 7, "process_start_relative_frame_offset": input.frame_offset, "absolute_position": input.abs, "simultaneous_with_boundary": true, "exactly_once_scope": "whole-window", "exactly_once": true}],
+        "observed_window_param_hit_count": input.window_param_hit_count,
+        "tempo_plan": {"tempo_map_revision": 1, "param_source_sequences": [3,1,2], "expected_delivery_order": [[9,0.2],[7,0.25],[7,0.75]], "same_param_last_wins": {"param_id":7,"final_value":0.75}, "musical_ppqn": 480, "observed_call_start_bpm_milli": input.musical_bpm_milli, "observed_call_start_ppqn": input.musical_ppqn, "tempo_is_not_transport_command": true},
+        "frame_offset_meaning": "process-start-relative EventList.frame_offset",
+        "fresh_instance": true,
+        "verdict": "pass"
+    })
+}
+
+fn combined_cell_input(
+    log: &CallLog,
+    window: u32,
+    boundary: u32,
+    loop_len: i64,
+    initial_pos: i64,
+    param_pos: i64,
+    lengths: Vec<u32>,
+) -> CombinedRowInput {
+    let target = log.hit(usize::from(boundary != 0));
+    assert_eq!(
+        target.position, 7,
+        "post-seek loop collapse W{window}/B{boundary}"
+    );
+    assert_eq!(
+        (target.musical_bpm_milli, target.musical_ppqn),
+        (120_000, 480)
+    );
+    let target_params = target.param_hits();
+    let all_params = log.all_params();
+    assert_eq!(
+        all_params.len(),
+        3,
+        "window-wide param exactly-once W{window}/B{boundary}"
+    );
+    assert_eq!(all_params.as_slice(), target_params);
+    assert!(
+        all_params
+            .iter()
+            .all(|param| param.frame_offset == 0 && param.abs == param_pos)
+    );
+    assert_eq!(
+        all_params
+            .iter()
+            .map(|param| (param.param_id, param.value))
+            .collect::<Vec<_>>(),
+        vec![(9, 0.2), (7, 0.25), (7, 0.75)]
+    );
+    CombinedRowInput {
+        window,
+        boundary,
+        loop_len,
+        initial_pos,
+        target_position: target.position,
+        musical_bpm_milli: target.musical_bpm_milli,
+        musical_ppqn: target.musical_ppqn,
+        frame_offset: all_params[0].frame_offset,
+        abs: all_params[0].abs,
+        window_param_hit_count: all_params.len(),
+        lengths,
+    }
+}
+
+#[test]
+fn tim03_req_simultaneous_loop_seek_tempo_param() {
+    let mut rows = Vec::new();
+    for window in [100_u32, 128, 256] {
+        for boundary in [0_u32, 1, 100, window - 1] {
+            if boundary >= window {
+                continue;
+            }
+            let hosted = host_plugin(1, 512, DeliveryPolicy::Exact, 4096);
+            let (graph, proc, srcs) = build_graph(&hosted.attached);
+            let node = hosted.attached.node;
+            let mut control = hosted.attached.control;
+            let mut drive = Drive::new(&graph, node, proc, srcs);
+            let c = cap(
+                1,
+                512,
+                InBlockTransportSupport::Unknown,
+                TimingPrecision::FrameAccurateEvents,
+            );
+            let current = prov(1, proc, 10, 20);
+            let s = session(&control, c, ExecutionMode::Realtime, None, 4096, current);
+
+            // Head setup makes the natural 300-tick loop wrap converge with Seek/PlanInstall.
+            let loop_len = 300_i64;
+            let initial_pos = loop_len - i64::from(boundary);
+            let commands = [
+                (TransportCommand::Play, 0),
+                (TransportCommand::SetLoop(loop_range(0, loop_len)), 0),
+                (TransportCommand::Seek(t(initial_pos)), 0),
+                (TransportCommand::Seek(t(307)), u64::from(boundary)),
+            ];
+            let plan = s
+                .stage_window(&mut control, &current, window, vec![], &commands)
+                .expect("simultaneous window plan");
+            let expected_boundaries = boundary_offsets(boundary);
+            assert_eq!(plan.boundaries, expected_boundaries);
+
+            // Folded post-seek position 7 makes the boundary-call event simultaneous frame offset 0.
+            let param_pos = 7_i64;
+            let install = simultaneous_tempo_plan(&mut control, param_pos);
+            let evaluated = s
+                .stage_plan(
+                    &mut control,
+                    &current,
+                    window,
+                    vec![],
+                    install,
+                    u64::from(boundary),
+                )
+                .expect("simultaneous plan install");
+            assert_eq!(evaluated.boundaries, expected_boundaries);
+
+            drive.process(usize::try_from(window).unwrap());
+            let log = hosted.log.lock().unwrap();
+            let lengths: Vec<u32> = (0..log.len()).map(|i| log.hit(i).frames).collect();
+            let expected_lengths = split_lengths(window, boundary);
+            assert_eq!(lengths, expected_lengths, "W{window}/B{boundary}");
+            rows.push(combined_row(&combined_cell_input(
+                &log,
+                window,
+                boundary,
+                loop_len,
+                initial_pos,
+                param_pos,
+                lengths,
+            )));
+        }
+    }
+    println!(
+        "tim03-wired-session-matrix {}",
+        serde_json::json!({
+            "schema":"tim03-frame-boundary-matrix/wired-combined/v1",
+            "rows": rows,
+        })
+    );
+}
 /// `stage_plan` legality-checks the install's own offset: a plan due
 /// inside the window at an illegal boundary is refused before
 /// `install_plan` runs — nothing reaches the node.

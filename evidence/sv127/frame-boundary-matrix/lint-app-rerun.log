@@ -1,0 +1,6 @@
+[lint] $ if [ "$#" -lt 1 ]; then
+    Blocking waiting for file lock on package cache
+    Checking synvelis-app v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.45s
+mbx[cache]: 0 hits, 1 misses; 0 B downloaded, 0 B uploaded, 17.1 KiB stored locally
+mbx[savings]: 5d 3h of compiling skipped across 8264 builds. rustc suspects nothing.

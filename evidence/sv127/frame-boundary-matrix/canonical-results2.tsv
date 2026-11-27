@@ -1,0 +1,4 @@
+lint-synvelis-player	0	mise run lint synvelis-player
+check-synvelis-app	0	mise run check synvelis-app
+lint-synvelis-app	101	mise run lint synvelis-app
+test-synvelis-app	0	mise run test synvelis-app

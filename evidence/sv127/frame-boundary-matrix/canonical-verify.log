@@ -1,0 +1,880 @@
+===== fmt-check: mise run fmt-check =====
+[fmt-check] $ cargo fmt --all -- --check
+ファイル名または拡張子が長すぎます。 (os error 206)
+This utility formats all bin and lib files of the current crate using rustfmt.
+
+Usage: cargo fmt [OPTIONS] [-- <rustfmt_options>...]
+
+Arguments:
+  [rustfmt_options]...  Options passed to rustfmt
+
+Options:
+  -q, --quiet
+          No output printed to stdout
+  -v, --verbose
+          Use verbose output
+      --version
+          Print rustfmt version and exit
+  -p, --package <package>...
+          Specify package to format
+      --manifest-path <manifest-path>
+          Specify path to Cargo.toml
+      --message-format <message-format>
+          Specify message-format: short|human
+      --all
+          Format all packages, and also their local path-based dependencies
+      --check
+          Run rustfmt in check mode
+  -h, --help
+          Print help
+
+[fmt-check] ERROR task failed
+===== fmt-check exit=1 =====
+===== check-ruviform-rev: mise run check-ruviform-rev =====
+[check-ruviform-rev] $ node tools/check-ruviform-rev.mjs
+check-ruviform-rev: ui vendor REV 20a24a66ee90f4d462224391e78c10c93f4f31ba != lockfile resolved 511e1a7944c35797942ba065c092b9263067c48a — re-sync the vendor tree (`mise run sync-ui-deps`)
+[check-ruviform-rev] ERROR task failed
+===== check-ruviform-rev exit=1 =====
+===== check-synvelis-player: mise run check synvelis-player =====
+[check] $ cargo check --locked --all-targets -p synvelis-player
+    Checking log v0.4.35
+    Checking windows-sys v0.61.2
+   Compiling serde_core v1.0.229
+   Compiling syn v3.0.9
+   Compiling serde_json v1.0.154
+    Checking ruviform-observability v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking once_cell v1.21.4
+    Checking stats_alloc v0.1.10
+    Checking symphonia-core v0.6.1
+    Checking ruviform-io-file v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking audio_thread_priority v0.38.0
+    Checking ruviform-plugin-export v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking schannel v0.1.30
+    Checking ruviform-plugin-test-vst3 v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking ruviform-plugin-test-clap v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-observability\src\lib.rs
+   Compiling fearless_simd_macros v0.1.0
+   Compiling serde_derive v1.0.229
+    Checking rustls v0.23.46
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-file\src\lib.rs
+    Checking symphonia-metadata v0.6.1
+    Checking symphonia-codec-pcm v0.6.1
+    Checking symphonia-codec-adpcm v0.6.1
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-export\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-test-vst3\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-test-clap\src\lib.rs
+    Checking ruviform-exec v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking rustls-native-certs v0.8.5
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-exec\src\lib.rs
+    Checking symphonia-common v0.6.1
+    Checking symphonia-format-riff v0.6.1
+    Checking symphonia-format-ogg v0.6.1
+    Checking symphonia-codec-vorbis v0.6.1
+    Checking symphonia-bundle-flac v0.6.1
+    Checking symphonia-format-mkv v0.6.1
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-export\src\lib.rs
+    Checking symphonia v0.6.1
+    Checking ruviform-plugin-vst3 v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+    Checking ruviform-plugin-clap v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-exec\src\lib.rs
+    Checkingmbx[ ruviform-math v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-file\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-test-vst3\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-test-clap\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-observability\src\lib.rs
+    Checking ruviform-plugin-host v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-vst3\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-clap\src\lib.rs
+    Checking ruviform-io-symphonia v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-math\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-host\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-symphonia\src\lib.rs
+    Checking serde v1.0.229
+    Checking synvelis-project v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-project)
+    Checking synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-recording)
+    Checking synvelis-library v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-library)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-io-symphonia\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-math\src\lib.rs
+    Checking ruviform-dsp v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-dsp\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-clap\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-dsp\src\lib.rs
+    Checking ruviform-audio-analysis v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-vst3\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-analysis\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-analysis\src\lib.rs
+    Checking ruviform-audio v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-host\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio\src\lib.rs
+    Checking ruviform-audio-plugin-bridge v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-plugin-bridge\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-plugin-bridge\src\lib.rs
+    Checking synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-player)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.53s
+mbx[cache]: 30 hits, 59 misses; 0 B downloaded, 0 B uploaded, 4.8 MiB stored locally
+mbx[savings]: 17.8 TiB logical of old files removed to date. the broom sends its regards.
+===== check-synvelis-player exit=0 =====
+===== lint-synvelis-player: mise run lint synvelis-player =====
+[lint] $ if [ "$#" -lt 1 ]; then
+    Checking synvelis-project v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-project)
+    Checking synvelis-library v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-library)
+    Checking synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-recording)
+    Checking synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-player)
+error: called `Iterator::last` on a `DoubleEndedIterator`; this will needlessly iterate the entire iterator
+    --> crates\synvelis-player\tests\tim03_process_boundary.rs:1709:17
+     |
+1709 | /                 params
+1710 | |                     .iter()
+1711 | |                     .filter(|param| param.param_id == 7)
+1712 | |                     .last()
+     | |___________________________^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#double_ended_iterator_last
+     = note: `-D clippy::double-ended-iterator-last` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::double_ended_iterator_last)]`
+help: try
+     |
+1712 -                     .last()
+1712 +                     .next_back()
+     |
+
+error: could not compile `synvelis-player` (test "tim03_process_boundary") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+mbx[cache]: 2 hits, 41 misses; 0 B downloaded, 0 B uploaded, 4.6 MiB stored locally
+mbx[savings]: worktrees come and go. their 10.5 TiB logical now goes with them.
+[lint] ERROR task failed
+===== lint-synvelis-player exit=101 =====
+===== test-synvelis-player: mise run test synvelis-player =====
+[test] $ cargo test --locked -p synvelis-player
+   Compiling synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-player)
+mbx[progress]: 15s elapsed; 0 hits, 7 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 30s elapsed; 0 hits, 22 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+mbx[progress]: 45s elapsed; 0 hits, 37 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 56.61s
+     Running unittests src\lib.rs (target\debug\deps\synvelis_player-1f3b78224c07efc3.exe)
+
+running 9 tests
+test process_boundary::loop_wrap_tests::apply_at_head_wins_tie_then_wraps ... ok
+test process_boundary::loop_wrap_tests::invalid_commands_never_move_the_sim ... ok
+test process_boundary::loop_wrap_tests::no_loop_or_not_playing_is_empty ... ok
+test process_boundary::loop_wrap_tests::mid_window_seek_preempts_and_repositions ... ok
+test process_boundary::loop_wrap_tests::mid_window_set_loop_replaces_region ... ok
+test process_boundary::loop_wrap_tests::consecutive_windows_stay_scheduler_faithful ... ok
+test process_boundary::loop_wrap_tests::same_frame_cascade_records_one_point ... ok
+test process_boundary::loop_wrap_tests::window_edges_include_last_frame_exclude_end ... ok
+test process_boundary::loop_wrap_tests::steady_loop_multiple_wraps ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples\tim04_l1_plugin_runner.rs (target\debug\deps\tim04_l1_plugin_runner-6c4a9b641d7e976c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\ctl_02.rs (target\debug\deps\ctl_02-112febf0c43f7de0.exe)
+
+running 3 tests
+test unbound_and_foreign_targets_never_deliver ... ok
+test channel_params_are_internal_and_never_reach_plugin_params ... ok
+test plugin_param_delivery_tracks_generation_axes ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\l1_e2e.rs (target\debug\deps\l1_e2e-546c804c9b05d676.exe)
+
+running 10 tests
+test l1_07_fixture_is_deterministic ... ok
+test l1_03_clip_end_past_source_eof ... ok
+test l1_compat_prepare_failure_keeps_last_good ... ok
+test l1_06_capability_and_latency_evidence ... ok
+test l1_03_headless_clip_playback_exact ... ok
+test l1_05_time_conversion_is_exact_and_documented ... ok
+test l1_01_import_verifies_and_materializes ... ok
+test l1_02_id_separation_shared_source_undo_save ... ok
+test l1_04_failure_classes_are_typed_and_atomic ... ok
+test l1_04_import_idempotency_and_orphan ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests\md_b.rs (target\debug\deps\md_b-a2d0617616ef7dbc.exe)
+
+running 4 tests
+test md_b_01_comp_lowering_replaces_lane_clips ... ok
+test md_b_04_comp_skips_are_explicit ... ok
+test md_b_03_inactive_comp_plays_raw_clips ... ok
+test md_b_02_comp_playback_pcm_exact ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests\monitor.rs (target\debug\deps\monitor-f03075e1dd33e8cd.exe)
+
+running 15 tests
+test empty_report_resolves_to_unknown ... ok
+test input_missing_fails_closed_to_muted ... ok
+test mixed_clock_epochs_yield_no_single_epoch ... ok
+test overflow_fails_closed_to_unknown ... ok
+test gain_ramp_crossfades_over_ramp_frames ... ok
+test round_trip_is_authoritative_total_no_double_add ... ok
+test unverified_reported_is_excluded_not_summed ... ok
+test measured_without_clock_epoch_downgrades_to_reported ... ok
+test ramp_is_per_frame_not_per_channel ... ok
+test low_latency_ready_and_degraded ... ok
+test native_placement_is_bit_exact_without_ramp ... ok
+test muted_route_produces_silence ... ok
+test verified_reported_components_are_summed ... ok
+test low_latency_unavailable_reasons ... ok
+test playback_route_outputs_playback_pcm ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\monitor_engine.rs (target\debug\deps\monitor_engine-dec516c1894b726a.exe)
+
+running 10 tests
+test routing_engine_implements_engine_blocks ... ok
+test auto_punch_gate_routes_input_and_playback_on_engine_pcm ... ok
+test session_position_drift_fails_closed ... ok
+test sample_rate_mismatch_is_rejected ... ok
+test punch_in_loop_gate_repeats_open_per_pass_on_engine ... ok
+test loop_gate_open_contiguous_on_engine ... ok
+test input_missing_fails_closed_to_muted_on_engine ... ok
+test monitor_engine_does_not_alter_engine_playback ... ok
+test punch_gate_across_tempo_boundary_on_engine ... ok
+test monitor_state_matrix_routes_on_engine ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests\monitor_rt_node.rs (target\debug\deps\monitor_rt_node-78d2dd468e91043b.exe)
+
+running 9 tests
+test monitor_rt_node_constructor_rejects_invalid_config ... ok
+test monitor_rt_node_compiled_monitor_input_is_a_direct_edge ... ok
+test monitor_rt_node_unused_missing_monitor_input_is_not_input_missing ... ok
+test monitor_rt_node_distinguishes_supplied_silence_from_missing_input ... ok
+test monitor_rt_node_control_overflow_mutes_next_observed_block ... ok
+test monitor_rt_node_frames_above_configured_max_write_zero_output ... ok
+test monitor_rt_node_mid_block_boundaries_match_independent_oracle ... ok
+test monitor_rt_node_playback_passthrough_preserves_bits_and_nonmonitor_path ... ok
+test monitor_rt_node_schedule_contract_violations_fail_closed ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\monitor_rt_rt.rs (target\debug\deps\monitor_rt_rt-f75376805680bba4.exe)
+
+running 1 test
+test rt_monitor_node_process_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pc_b.rs (target\debug\deps\pc_b-bffde82f794e803c.exe)
+
+running 8 tests
+test pc_b_01_rejections_propagate ... ok
+test pc_b_05_unmatched_attached_rejected ... ok
+test pc_b_05_rejected_install_never_projects_dispatched ... ok
+test pc_b_01_dispatch_delivers_param_events ... ok
+test pc_b_05_dispatch_before_seek_drains_at_old_cursor ... ok
+test pc_b_05_headless_driver_dispatch_and_seek ... ok
+test pc_b_05_midrun_activation_reanchors_node ... ok
+test pc_b_04_offline_render_matches_playback ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\pc_c4_03_observation.rs (target\debug\deps\pc_c4_03_observation-84ea5c7dc36555ce.exe)
+mbx[progress]: 1m elapsed; 0 hits, 52 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+
+running 8 tests
+test pc_c4_03_01_reported_value_advances_ledger_to_reported ... ok
+test pc_c4_03_03_generation_gate_refuses_foreign_reports ... ok
+test pc_c4_03_06_host_errors_are_typed ... ok
+test pc_c4_03_05_unbound_and_non_param_reports_stay_out_of_ledger ... ok
+test pc_c4_03_07_repeated_drains_do_not_duplicate ... ok
+test pc_c4_03_02_unavailable_terminates_pending_entries ... ok
+test pc_c4_03_04_inactive_gate_keeps_reports_queued ... ok
+test pc_c4_03_08_generation_swap_gates_old_reports ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests\pc_c4_05_persisted_instance.rs (target\debug\deps\pc_c4_05_persisted_instance-ba385535e9f39f53.exe)
+
+running 3 tests
+test reload_restores_same_instance_id ... ok
+test hydration_uses_persisted_instance_id ... ok
+test missing_or_mismatched_identity_fails_closed ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\pc_c4_07_capability_rebind.rs (target\debug\deps\pc_c4_07_capability_rebind-a1e27f2e429e6a50.exe)
+
+running 2 tests
+test pc_c4_07_rebind_boundary_drift_blocks_publish ... ok
+test pc_c4_07_rebind_params_drift_junction ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\pc_c4_07_transport_observe.rs (target\debug\deps\pc_c4_07_transport_observe-af95c4b3fe2c9476.exe)
+
+running 10 tests
+test pc_c4_07_03_generation_gating_fail_closed ... ok
+test pc_c4_07_04_commanded_stop_projects_stopped ... ok
+test pc_c4_07_01_observe_block_derives_transport_span ... ok
+test pc_c4_07_06_mid_window_apply_splits_projection ... ok
+test pc_c4_07_05_commanded_seek_reanchors_position ... ok
+test pc_c4_07_07_pause_freezes_then_play_resumes ... ok
+test pc_c4_07_10_receipts_confirm_mirror_generations ... ok
+test pc_c4_07_02_position_advances_and_event_dispatches ... ok
+test pc_c4_07_08_loop_region_projects_into_context ... ok
+test pc_c4_07_09_generation_swap_mints_fresh_mirror ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests\pc_c4_binding.rs (target\debug\deps\pc_c4_binding-747f22be317f736d.exe)
+
+running 8 tests
+test pc_c4_05_verified_frame_base_contract ... ok
+test pc_c4_02_dispatch_plugin_pin_and_last_good ... ok
+test pc_c4_02_stage1_authority_and_plugin_identity ... ok
+test pc_c4_02_instance_authority_bind_gate ... ok
+test pc_c4_04_generation_consistency ... ok
+test pc_c4_03_composite_control_and_gates ... ok
+test pc_c4_02_typed_rejects_no_misdelivery ... ok
+test pc_c4_01_eval_dispatch_receipt_rt_offline_parity ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\pc_c4_binding_rt.rs (target\debug\deps\pc_c4_binding_rt-35ae4c3f75bbff8b.exe)
+
+running 1 test
+test rt_pc_c4_session_bound_dispatch_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_pl.rs (target\debug\deps\pc_c6_oracle_pl-d5c1a8b73d963a5d.exe)
+
+running 8 tests
+test pc_c6_pl06_plan_staleness_and_generation_axes ... ok
+test pc_c6_pl01_generation_and_identity_pins_reject_stale_records ... ok
+test pc_c6_pl02_param_identity_and_capability_contract ... ok
+test pc_c6_pl03_queue_full_and_atomic_batch_rejection ... ok
+test pc_c6_pl07_shared_param_and_stale_record_zero_misdelivery ... ok
+test pc_c6_pl05_min_process_frame_offset_delivery ... ok
+test pc_c6_pl04_reload_keeps_instance_old_records_dead ... ok
+test pc_c6_pl08_headless_fixture_boundary_marker ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\pc_c6_oracle_pl_rt.rs (target\debug\deps\pc_c6_oracle_pl_rt-8411876b39faafc7.exe)
+
+running 1 test
+test rt_pl05_param_delivery_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_tr_dispatch.rs (target\debug\deps\pc_c6_oracle_tr_dispatch-b500e3abf667254d.exe)
+
+running 8 tests
+test tr08_bounded_retention_metrics_real_ledger ... ok
+test tr06_silence_vs_unobserved_real_ledger ... ok
+test tr01_stage_independence_real_ledger ... ok
+test tr05_plugin_reported_stamp_provenance ... ok
+test tr02_context_mismatch_dimensions_real_ledger ... ok
+test tr03_context_change_stale_real_ledger ... ok
+test tr04_plugin_unavailable_vs_probe_states ... ok
+test tr07_shared_probe_two_contexts_real_ledger ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\rcd02_blob_digest.rs (target\debug\deps\rcd02_blob_digest-016cb645d285913b.exe)
+
+running 10 tests
+test opaque_receipt_digest_fails_closed ... ok
+test unlanded_publish_retries_once_then_fails_closed ... ok
+test legacy_crc32_receipt_keeps_flat_blob ... ok
+test indeterminate_publish_is_reconciled_by_observation ... ok
+test published_effect_failure_is_reconciled_by_observation ... ok
+test republish_is_idempotent_and_reuses_verified_blob ... ok
+test report_carries_provenance_fields ... ok
+test publish_writes_sha256_blob_and_receipt ... ok
+test missing_sha256_blob_is_republished ... ok
+test tampered_sha256_blob_fails_closed ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\rcd_04_midi_phrase_boundary.rs (target\debug\deps\rcd_04_midi_phrase_boundary-2e78c2331b1bc051.exe)
+
+running 2 tests
+test rcd_04_boundary_lowers_to_exact_wire_stream ... ok
+test rcd_04_boundary_driver_delivers_without_hanging_or_duplicate_voices ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\rcp_04.rs (target\debug\deps\rcp_04-26c913585aa5564e.exe)
+
+running 30 tests
+test ex02_latency_mismatch_rejected ... ok
+test ex02_dangling_input_when_region_feed_uncovered ... ok
+test ex01_missing_reverb_final_checkpoint_keeps_compressor_live ... ok
+test ex01_missing_plugin_no_artifact_blocks_main_playback ... ok
+test ex03_acl_denied_and_stale_pin_rejected ... ok
+test ex03_missing_plugin_verdicts_are_typed ... ok
+test ex02_send_return_boundary_input_must_be_pinned ... ok
+test ex02_unpinned_sidechain_input_rejected ... ok
+test ex02_required_midi_output_needs_typed_artifact_support ... ok
+test ex02_double_feed_rejected ... ok
+test ex02_multiout_requires_every_output_port_covered ... ok
+test ex01_missing_instrument_checkpoint_substitutes_exact ... ok
+test ex01_preview_intent_requires_opt_in_for_preview_artifact ... ok
+test ex01_offline_render_and_export_require_exact ... ok
+test ex03_stateless_decl_env_drift_and_uncaptured_stay_blocked ... ok
+test ex03_bad_artifact_states_never_exact_for_main_playback ... ok
+test ex03_stateless_env_decl_verdict_matrix ... ok
+test ex03_stateless_plugin_selects_live ... ok
+test ex03_stateless_profile_is_typed_and_distinct_from_uncaptured ... ok
+test ex03_unknown_plugin_state_blocks_required_path ... ok
+test ex04_bound_parameter_and_automation_are_control_only ... ok
+test ex04_rename_is_no_rebuild ... ok
+test ex04_source_content_edit_rebuilds ... ok
+test ex05_active_requires_matching_generation_and_epoch ... ok
+test ex04_structural_capability_and_render_changes_rebuild ... ok
+test ex05_out_of_order_publish_rejected ... ok
+test ex05_plugin_restore_failure_and_epoch_change_block ... ok
+test ex05_queue_full_and_retire_failure_retain_last_good ... ok
+test ex05_rapid_edits_never_activate_stale_plan ... ok
+test ex05_reconcile_detects_drift_and_gates_delivery ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\sf03_l1.rs (target\debug\deps\sf03_l1-c4175dc50d5b65e0.exe)
+
+running 13 tests
+test sf03_01b_fingerprint_and_semantic_eq ... ok
+test sf03_05_send_gain_stage ... ok
+test sf03_01_lower_semantic_topology_deterministic ... ok
+test sf03_05b_send_tap_pre_vs_post ... ok
+test sf03_04_publish_then_active_receipt ... ok
+test sf03_04c_publish_rejects_stale_revision ... ok
+test sf03_03b_disabled_connection_not_lowered ... ok
+test sf03_02_semantic_audio_matches_legacy_bitexact ... ok
+test sf03_04b_failure_preserves_last_good ... ok
+test sf03_04d_generation_scoped_source_map ... ok
+test sf03_06_chain_processor_instance ... ok
+test sf03_03_strip_mute_prunes_edge ... ok
+test sf03_02b_two_track_mix_is_additive ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running tests\sf03_l2.rs (target\debug\deps\sf03_l2-fe340eac0b143862.exe)
+
+running 11 tests
+test sf03_l2_06_pending_publish_is_transient ... ok
+test sf03_l2_07_retry_uses_fresh_build ... ok
+test sf03_l2_08_event_stale_via_reconcile ... ok
+test sf03_l2_02_lowering_fault_taxonomy ... ok
+test sf03_l2_10_offline_capability_gate ... ok
+test sf03_l2_11_offline_ignores_unused_instances ... ok
+test sf03_l2_04_last_good_matrix ... ok
+test sf03_l2_01_prepare_fault_taxonomy ... ok
+test sf03_l2_03_publish_fault_taxonomy ... ok
+test sf03_l2_05_reconcile_drift_matrix ... ok
+test sf03_l2_09_publish_queue_full_preserves_last_good ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\sf03_l3.rs (target\debug\deps\sf03_l3-c21a8614709f9f01.exe)
+
+running 11 tests
+test sf03_l3_04_real_host_unknown_plugin_unavailable ... ok
+test sf03_l3_06_real_host_bus_mismatch_incompatible ... ok
+test sf03_l3_05_unresolved_binding_unavailable ... ok
+test sf03_l3_11_host_boundary_contract_and_lease_teardown ... ok
+test sf03_l3_08_connect_failure_tears_down_prior_leases ... ok
+test sf03_l3_07_real_host_lifecycle_failure ... ok
+test sf03_l3_10_offline_real_host_fail_closed ... ok
+test sf03_l3_09_generation_teardown_lifecycle ... ok
+test sf03_l3_03_real_host_gain_processes_audio ... ok
+test sf03_l3_02_connect_failure_preserves_last_good ... ok
+test sf03_l3_01_static_host_connect_consumes_instance ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests\sf03_l4.rs (target\debug\deps\sf03_l4-6eab8cf8826f5572.exe)
+
+running 10 tests
+test sf03_l4_03_same_revision_always_builds ... ok
+test sf03_l4_08_static_host_vends_no_control ... ok
+test sf03_l4_06_control_vending_one_shot_and_scoped ... ok
+test sf03_l4_10_epoch_fault_then_fresh_retry ... ok
+test sf03_l4_02_undo_returns_equivalent_redo_rebuilds ... ok
+test sf03_l4_05_reconcile_revision_only_vs_semantic_drift ... ok
+test sf03_l4_04_non_equivalence_axes_build_or_fault ... ok
+test sf03_l4_01_name_only_revision_is_equivalent ... ok
+test sf03_l4_07_stale_control_never_reaches_new_generation ... ok
+test sf03_l4_09_rapid_publishes_superseded_and_queue_full ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running tests\sf03_l6.rs (target\debug\deps\sf03_l6-871141e82df5be08.exe)
+
+running 6 tests
+test sf03_l6_06_offline_build_attaches_without_plugin_controls ... ok
+test sf03_l6_01_automation_tick_delivers_on_active_generation ... ok
+test sf03_l6_03_fast_control_gate_queue_and_typed_blocks ... ok
+test sf03_l6_02_gate_holds_until_rt_observes_activation ... ok
+test sf03_l6_05_equivalent_revision_refreshes_control_surface ... ok
+test sf03_l6_04_queue_replays_through_new_generation_bindings ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\sf03_l9.rs (target\debug\deps\sf03_l9-ac45fb5982b24f63.exe)
+
+running 5 tests
+test sf03_l9_01_host_generation_tracks_registrations ... ok
+test sf03_l9_05_host_swap_is_capability_drift ... ok
+test sf03_l9_03_reconcile_reports_host_capability_drift ... ok
+test sf03_l9_02_publish_rejects_factory_drift ... ok
+test sf03_l9_04_host_drift_defeats_equivalence ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests\sf04_loop_discontinuity.rs (target\debug\deps\sf04_loop_discontinuity-cea753b37bcd2acb.exe)
+
+running 4 tests
+test sf04_loop_observe_block_stale_generation_clears_flag ... ok
+test sf04_loop_set_and_clear_apply_declare_without_wrap ... ok
+test sf04_loop_declare_channel_full_keeps_observable_divergence ... ok
+test sf04_loop_wrap_windows_declare_and_close_compare ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\sf04_probe_acceptance.rs (target\debug\deps\sf04_probe_acceptance-23efd3ab0dbfd142.exe)
+
+running 2 tests
+test sf04_probe_same_key_request_is_idempotent_single_install ... ok
+test sf04_probe_removed_entity_unbinds_and_reattach_binds_fresh ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\sf04_probe_adapter.rs (target\debug\deps\sf04_probe_adapter-6a2691bd1abfddf9.exe)
+
+running 7 tests
+test sf04_probe_unresolvable_point_is_recorded_not_faked ... ok
+test sf04_probe_request_queues_then_rt_confirms_bound_active ... ok
+test sf04_probe_remove_records_stopped_lifecycle ... ok
+test sf04_probe_request_requires_a_published_plan ... ok
+test sf04_probe_stale_generation_command_is_rejected_and_rebound ... ok
+test sf04_probe_capture_segment_cuts_at_generation_boundary ... ok
+test sf04_probe_reinstalls_when_semantic_point_moves ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\sf04_s2_probe_trace_bridge.rs (target\debug\deps\sf04_s2_probe_trace_bridge-539c8dad7d28a8ec.exe)
+
+running 3 tests
+test sf04_s2_metric_events_become_measuring_updates_with_derived_stamp ... ok
+test sf04_s2_mode_off_maps_to_disabled_and_unrouted_record_returns_false ... ok
+test sf04_s2_stale_generation_records_are_rejected ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\sf04_s3_probe_discontinuity.rs (target\debug\deps\sf04_s3_probe_discontinuity-d451c75c544d0729.exe)
+
+running 5 tests
+test sf04_s3_probe_table_capacity_is_bounded ... ok
+test sf04_s3_seek_bumps_cursor_clock_epoch_on_records ... ok
+test sf04_s3_capture_segment_cuts_at_clock_epoch ... ok
+test sf04_s3_rebind_channel_full_stays_atomic_and_recovers ... ok
+test sf04_s3_probe_modes_leave_master_output_identical ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests\sf04_s7_probe_compare.rs (target\debug\deps\sf04_s7_probe_compare-52a313e8ac579e2c.exe)
+
+running 10 tests
+test sf04_s7_bound_probe_without_records_has_no_observation_data ... ok
+test sf04_s7_unsubscribed_point_is_point_unresolved ... ok
+test sf04_s7_evidence_budget_is_bounded ... ok
+test sf04_s7_partial_coverage_is_conditional_never_aligned ... ok
+test sf04_s7_monitored_probes_align_on_shared_cursor ... ok
+test sf04_s7_empty_observed_range_is_coverage_empty ... ok
+test sf04_s7_binding_without_runtime_probe_is_not_bound ... ok
+test sf04_s7_window_spanning_seek_is_discontinuity_in_window ... ok
+test sf04_s7_sides_on_different_epochs_are_epoch_mismatch ... ok
+test sf04_s7_window_spanning_republish_is_generation_span ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\sf04_s8_probe_faults.rs (target\debug\deps\sf04_s8_probe_faults-9b357d68dd5caa52.exe)
+
+running 5 tests
+test sf04_s8_chunk_pool_exhaustion_records_lost_blocks ... ok
+test sf04_s8_capture_variants_close_with_distinct_reasons ... ok
+test sf04_s8_observation_states_stay_distinct ... ok
+test sf04_s8_unreachable_fault_statuses_are_unfaked ... ok
+test sf04_s8_telemetry_overflow_downgrades_coverage_fail_closed ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\sf04_s9_probe_discontinuity_declare.rs (target\debug\deps\sf04_s9_probe_discontinuity_declare-f284132b3abe0be6.exe)
+
+running 5 tests
+test sf04_s9_declare_observation_updates_carry_epoch_boundary ... ok
+test sf04_s9_declare_window_spanning_boundary_is_discontinuity_in_window ... ok
+test sf04_s9_declare_channel_full_reports_error_and_keeps_epoch ... ok
+test sf04_s9_stop_and_run_are_not_discontinuity_declarations ... ok
+test sf04_s9_declare_cuts_segment_at_clock_epoch_without_moving_transport ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\sf06_send_path_pcm.rs (target\debug\deps\sf06_send_path_pcm-4fdd0e00cf162730.exe)
+
+running 3 tests
+test sf06_send_pcm_pre_vs_post_tap ... ok
+test sf06_graph_edit_pcm_undo_save_reload ... ok
+test sf06_mute_solo_pcm_through_sends ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests\sf_xr_01.rs (target\debug\deps\sf_xr_01-496a52ef7d173ffa.exe)
+
+running 2 tests
+test sfxr01_02_create_send_channel_map_consent_and_atomic_rejection ... ok
+test sfxr01_01_strip_send_authority_survives_serialization_undo_and_lowering ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\tim02_midi_node_delivery.rs (target\debug\deps\tim02_midi_node_delivery-acbb9b73d9509879.exe)
+
+running 8 tests
+test boundary_declared_node_stages_through_session_gate ... ok
+test clear_midi_plan_silences_staged_content ... ok
+test merged_plan_keeps_staged_midi_across_param_dispatches ... ok
+test clip_events_deliver_to_chain_head_node ... ok
+test sync_midi_plans_reconciles_stage_and_clear ... ok
+test staging_failures_are_typed ... ok
+test generation_swap_requires_restage ... ok
+test instrument_resolution_is_strict_chain_head ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests\tim02_midi_playback.rs (target\debug\deps\tim02_midi_playback-e68d0eda9151f374.exe)
+
+running 10 tests
+test tim02_compile_lowers_plan_to_wire_events ... ok
+test tim02_native_tick_maps_to_engine_frames ... ok
+test tim02_same_tick_off_precedes_ons ... ok
+test tim02_controller_chase_is_channel_aware ... ok
+test tim02_driver_delivers_midi_at_absolute_frames ... ok
+test tim02_seek_releases_and_chases ... ok
+test tim02_smf_channel_provenance ... ok
+test tim02_panic_releases_hanging_voice_and_resume ... ok
+test tim02_loop_replay_releases_and_refires ... ok
+test tim02_rt_offline_parity ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\tim02_midi_rt.rs (target\debug\deps\tim02_midi_rt-db3c3e5480f8c1c8.exe)
+
+running 1 test
+test rt_midi_delivery_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim03_attach_wiring.rs (target\debug\deps\tim03_attach_wiring-228ee8acf98b8548.exe)
+
+running 10 tests
+test tim03_aw_delivery_realtime_consent_degraded_clamped ... ok
+test tim03_aw_delivery_offline_requires_certified_exact ... ok
+test tim03_aw_delivery_offline_ignores_consent ... ok
+test tim03_aw_delivery_realtime_exact_default ... ok
+test tim03_aw_delivery_unsupported_and_degenerate ... ok
+test tim03_aw_connect_unsupported_typed ... ok
+test tim03_aw_connect_offline_uncertified ... ok
+test tim03_aw_connect_undeclared_processor_legacy ... ok
+test tim03_aw_connect_declaration_scoped_per_processor ... ok
+test tim03_aw_connect_realtime_consented ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim03_driver_loop_boundary.rs (target\debug\deps\tim03_driver_loop_boundary-798f0dabcec8ad22.exe)
+
+running 7 tests
+test tim03_dlb_05_seek_into_active_loop_cascades ... ok
+test tim03_dlb_02_window_end_wrap_belongs_to_next_window ... ok
+test tim03_dlb_04_set_loop_change_and_clear_loop ... ok
+test tim03_dlb_01_activation_anchor_and_steady_loop ... ok
+test tim03_dlb_06_sessionless_node_stays_legacy ... ok
+test tim03_dlb_03_no_loop_and_stopped_have_no_wraps ... ok
+test tim03_dlb_geometry_matrix_loop_wrap_derivation ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\tim03_loop_boundary.rs (target\debug\deps\tim03_loop_boundary-d0dc021594f63332.exe)
+mbx[progress]: 1m 15s elapsed; 0 hits, 52 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+
+running 8 tests
+test tim03_lb_07_provenance_gating_and_sessionless_nodes ... ok
+test tim03_lb_05_clear_loop_removes_later_wraps ... ok
+test tim03_lb_02_no_loop_and_not_playing_is_empty ... ok
+test tim03_lb_03_mid_window_set_loop_replaces_region ... ok
+test tim03_lb_01_steady_loop_derives_offsets_matching_scheduler ... ok
+test tim03_lb_04_mid_window_seek_preempts_predicted_wrap ... ok
+test tim03_lb_06_derived_points_feed_boundary_oracle ... ok
+test tim03_lb_geometry_matrix_loop_wrap_derivation ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests\tim03_musical_transport_plan.rs (target\debug\deps\tim03_musical_transport_plan-aa30ac8a3c312e6c.exe)
+
+running 4 tests
+test invalid_project_state_is_honestly_absent_not_fixed_fallback ... ok
+test production_plan_mints_carry_complete_project_musical_source ... ok
+test musical_refresh_preserves_event_payload_positions_and_order ... ok
+test routing_control_musical_refresh_preserves_representative_mixed_plan ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\tim03_process_boundary.rs (target\debug\deps\tim03_process_boundary-f1986fcf1ac4e12a.exe)
+
+running 21 tests
+test tim03_pb_degraded_coalescing_and_wrap_bounds ... ok
+test tim03_pb_invalid_requests ... ok
+test tim03_pb_exact_windows_and_boundary_positions ... ok
+test tim03_pb_precision_gates ... ok
+test tim03_pb_offsets_zero_one_last ... ok
+test tim03_pb_min_max_illegal_segment_policy ... ok
+test tim03_pb_simultaneous_kinds_dedupe ... ok
+test tim03_sched_degraded_defers_apply ... ok
+test tim03_sched_exact_rejects_illegal_apply ... ok
+test tim03_sched_events_boundary_and_stale_generation ... ok
+test tim03_sched_exact_wrap_undeliverable ... ok
+test tim03_sched_simultaneous_loop_seek_plan ... ok
+test tim03_pb_frame_boundary_matrix_exact_process_lengths ... ok
+test tim03_sched_frame_boundary_matrix_exact_spans ... ok
+test tim03_node_simultaneous_loop_seek_plan_param ... ok
+test tim03_node_param_event_per_loop_occurrence ... ok
+test tim03_node_stale_transport_generation_zero_delivery ... ok
+test tim03_node_exact_rejects_illegal_boundary ... ok
+test tim03_node_degraded_consented_boundary ... ok
+test tim03_node_frame_boundary_matrix_exact_process_lengths ... ok
+test tim03_node_param_frame_offset_ordering_matrix ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\tim03_process_boundary_rt.rs (target\debug\deps\tim03_process_boundary_rt-56b9c8e6adf419b1.exe)
+
+running 1 test
+test rt_process_boundary_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim03_request_plan.rs (target\debug\deps\tim03_request_plan-463189ed2f6a1800.exe)
+
+running 10 tests
+test tim03_cap_unsupported_typed_refusal ... ok
+test tim03_cap_offline_exact_fail_closed ... ok
+test tim03_prov_stale_window_stages_nothing ... ok
+test tim03_prov_stale_generations_zero_delivery ... ok
+test tim03_prov_foreign_dispatch_refused ... ok
+test tim03_req_plan_install_boundary_checked ... ok
+test tim03_cap_realtime_degraded_requires_consent ... ok
+test tim03_req_simultaneous_loop_seek_tempo_param ... ok
+test tim03_req_min_max_process_length_fail_closed ... ok
+test tim03_req_exact_matrix_windows_and_offsets ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests\tim03_session_wiring.rs (target\debug\deps\tim03_session_wiring-163e95e04fb2a21c.exe)
+
+running 10 tests
+test tim03_sw_06_driver_node_mismatch ... ok
+test tim03_sw_07_driver_queue_full_typed ... ok
+test tim03_sw_04_06_driver_dispatch_params_and_stale_provenance ... ok
+test tim03_sw_01_driver_session_open_and_provenance ... ok
+test tim03_sw_10_driver_plan_window_segments_legal ... ok
+test tim03_sw_05_driver_span_context_is_honest ... ok
+test tim03_sw_08_driver_unsupported_spec_fails_activation ... ok
+test tim03_sw_02_routing_session_vend_and_provenance ... ok
+test tim03_sw_03_routing_plan_and_stage_window ... ok
+test tim03_sw_06_routing_stale_provenance_and_generation_swap ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests\tim04_l1_abi_state.rs (target\debug\deps\tim04_l1_abi_state-b3bd085efd9aa42f.exe)
+
+running 4 tests
+test l1_stateful_save_mutate_restore_save_roundtrip ... ok
+test l1_scan_lifecycle_and_capture_quality_matrix ... ok
+test l1_fault_projection_and_old_blob_protection ... ok
+test l1_permission_fault_matrix_real_rfst ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.25s
+
+     Running tests\tim04_plugin_state.rs (target\debug\deps\tim04_plugin_state-9bcba744353fbe87.exe)
+
+running 9 tests
+test unknown_processor_is_unavailable ... ok
+test capture_after_stop_processing_is_coordinated ... ok
+test capture_with_quiescent_mode_records_quiescent ... ok
+test describe_reports_bind_identity ... ok
+test destroyed_instance_fails_closed ... ok
+test unsupported_plugin_reports_unsupported ... ok
+test capture_while_processing_is_best_effort ... ok
+test engine_vends_empty_state_handles_for_unknown_generation ... ok
+test save_restore_roundtrip_through_session ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim04_real_abi_state.rs (target\debug\deps\tim04_real_abi_state-4fc0ee350dd1a78a.exe)
+
+running 6 tests
+test vst3_single_stateful_roundtrip_oracle ... ok
+test vst3_distributed_stateful_roundtrip_oracle ... ok
+test clap_stateful_roundtrip_oracle ... ok
+test artifact_resolution_and_scan_surface_fail_closed ... ok
+test corrupt_and_missing_blobs_restore_as_typed_failures ... ok
+test capability_matrix_is_measured_for_real_test_plugins ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests\trace_c3_05.rs (target\debug\deps\trace_c3_05-ac71d7cf8143dbf4.exe)
+
+running 5 tests
+test trace_c3_05_stages_fill_from_ledger_events ... ok
+test trace_c3_05_reported_and_unavailable_stages ... ok
+test trace_c3_05_plan_replaced_drop_is_explicit ... ok
+test trace_c3_05_bounded_history_and_expired ... ok
+test trace_c3_05_receipt_correlation ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\trace_c3_05_rt.rs (target\debug\deps\trace_c3_05_rt-b8dddf5856ea4005.exe)
+
+running 1 test
+test rt_trace_adapter_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\verified_import.rs (target\debug\deps\verified_import-2bbb72442376ac09.exe)
+
+running 8 tests
+test opaque_digest_fails_closed ... ok
+test crc32_fold_source_still_resolves ... ok
+test sha256_missing_and_mismatch_fail_typed ... ok
+test sha256_import_resolves_and_plays ... ok
+test imported_source_is_gated_until_entry_verifies ... ok
+test interrupted_job_inspects_resumes_and_plays ... ok
+test undo_then_reimport_converges_reserved_ids ... ok
+test saved_head_load_replays ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+   Doc-tests synvelis_player
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+mbx[cache]: 0 hits, 52 misses, 1 incremental, 1 bypassed; 0 B downloaded, 0 B uploaded, 9.4 GiB stored locally
+mbx[savings]: 10.5 TiB logical of target/ had outlived its checkouts. it has been dealt with.
+===== test-synvelis-player exit=0 =====

@@ -1,0 +1,8 @@
+fmt-check	1	mise run fmt-check
+check-ruviform-rev	0	mise run check-ruviform-rev
+check-synvelis-player	0	mise run check synvelis-player
+lint-synvelis-player	0	mise run lint synvelis-player
+test-synvelis-player	0	mise run test synvelis-player
+check-synvelis-app	0	mise run check synvelis-app
+lint-synvelis-app	0	mise run lint synvelis-app
+test-tim03-frame-boundary-matrix	0	mise run test-tim03-frame-boundary-matrix

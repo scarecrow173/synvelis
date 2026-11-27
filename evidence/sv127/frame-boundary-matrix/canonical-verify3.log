@@ -1,0 +1,2516 @@
+===== lint-synvelis-app: mise run lint synvelis-app =====
+[lint] $ if [ "$#" -lt 1 ]; then
+    Checking synvelis-app v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-app)
+error: this argument is passed by value, but not consumed in the function body
+   --> crates\synvelis-app\tests\tim03_l1_frame_boundary_matrix.rs:171:11
+    |
+171 |     case: SeekCase<'_>,
+    |           ^^^^^^^^^^^^
+    |
+help: or consider marking this type as `Copy`
+   --> crates\synvelis-app\tests\tim03_l1_frame_boundary_matrix.rs:159:1
+    |
+159 | struct SeekCase<'a> {
+    | ^^^^^^^^^^^^^^^^^^^
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#needless_pass_by_value
+    = note: `-D clippy::needless-pass-by-value` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::needless_pass_by_value)]`
+help: consider taking a reference instead
+    |
+171 |     case: &SeekCase<'_>,
+    |           +
+
+error: could not compile `synvelis-app` (test "tim03_l1_frame_boundary_matrix") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+mbx[cache]: 0 hits, 8 misses; 0 B downloaded, 0 B uploaded, 96.4 KiB stored locally
+mbx[savings]: 17.8 TiB logical tidied away. you may continue not thinking about it.
+[lint] ERROR task failed
+===== lint-synvelis-app exit=101 =====
+===== test-tim03-frame-boundary-matrix: mise run test-tim03-frame-boundary-matrix =====
+[test-tim03-frame-boundary-matrix] $ cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-player --test tim03_process_boundary --test tim03_request_plan --test tim03_loop_boundary --test tim03_driver_loop_boundary -- --test-threads=1 --nocapture && cargo test --locked -p synvelis-app --test tim03_l1_frame_boundary_matrix -- --test-threads=1 --nocapture
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.42s
+   Compiling synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-player)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.79s
+     Running tests\tim03_driver_loop_boundary.rs (target\debug\deps\tim03_driver_loop_boundary-798f0dabcec8ad22.exe)
+
+running 7 tests
+test tim03_dlb_01_activation_anchor_and_steady_loop ... ok
+test tim03_dlb_02_window_end_wrap_belongs_to_next_window ... ok
+test tim03_dlb_03_no_loop_and_stopped_have_no_wraps ... ok
+test tim03_dlb_04_set_loop_change_and_clear_loop ... ok
+test tim03_dlb_05_seek_into_active_loop_cascades ... ok
+test tim03_dlb_06_sessionless_node_stays_legacy ... ok
+test tim03_dlb_geometry_matrix_loop_wrap_derivation ... tim03-driver-loop-derivation-matrix {"rows":[{"derived_boundaries":[],"head_wrap_not_interior_cut":true,"loop_range_frames":[100,200],"observed_interior_cuts":[],"physical_calls":[[100,100,100]],"verdict":"pass","window_end_wrap_deferred":true,"window_frames":100},{"derived_boundaries":[72],"head_wrap_not_interior_cut":true,"loop_range_frames":[100,200],"observed_interior_cuts":[72],"physical_calls":[[128,128,72],[200,100,56]],"verdict":"pass","window_end_wrap_deferred":false,"window_frames":128},{"derived_boundaries":[44,144,244],"head_wrap_not_interior_cut":true,"loop_range_frames":[100,200],"observed_interior_cuts":[44,144,244],"physical_calls":[[256,156,44],[300,100,100],[400,100,100],[500,100,12]],"verdict":"pass","window_end_wrap_deferred":false,"window_frames":256}],"schema":"tim03-frame-boundary-matrix/driver-loop-derivation/v1"}
+ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\tim03_loop_boundary.rs (target\debug\deps\tim03_loop_boundary-d0dc021594f63332.exe)
+
+running 8 tests
+test tim03_lb_01_steady_loop_derives_offsets_matching_scheduler ... ok
+test tim03_lb_02_no_loop_and_not_playing_is_empty ... ok
+test tim03_lb_03_mid_window_set_loop_replaces_region ... ok
+test tim03_lb_04_mid_window_seek_preempts_predicted_wrap ... ok
+test tim03_lb_05_clear_loop_removes_later_wraps ... ok
+test tim03_lb_06_derived_points_feed_boundary_oracle ... ok
+test tim03_lb_07_provenance_gating_and_sessionless_nodes ... ok
+test tim03_lb_geometry_matrix_loop_wrap_derivation ... tim03-routing-loop-derivation-matrix {"rows":[{"derived_loop_wrap_offsets_including_head":[],"head_wrap_explicit_not_interior_cut":false,"loop_range_frames":[100,200],"observed_position_length_calls":[[100,100]],"verdict":"pass","window_end_wrap_excluded":true,"window_frames":100},{"derived_loop_wrap_offsets_including_head":[72],"head_wrap_explicit_not_interior_cut":false,"loop_range_frames":[100,200],"observed_position_length_calls":[[128,72],[100,56]],"verdict":"pass","window_end_wrap_excluded":false,"window_frames":128},{"derived_loop_wrap_offsets_including_head":[0,44,144,244],"head_wrap_explicit_not_interior_cut":true,"loop_range_frames":[100,200],"observed_position_length_calls":[[156,44],[100,100],[100,100],[100,12]],"verdict":"pass","window_end_wrap_excluded":false,"window_frames":256}],"schema":"tim03-frame-boundary-matrix/routing-loop-derivation/v1"}
+ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running tests\tim03_process_boundary.rs (target\debug\deps\tim03_process_boundary-f1986fcf1ac4e12a.exe)
+
+running 21 tests
+test tim03_node_degraded_consented_boundary ... ok
+test tim03_node_exact_rejects_illegal_boundary ... ok
+test tim03_node_frame_boundary_matrix_exact_process_lengths ... tim03-headless-node-matrix {"frame_offset_meaning":"process-start-relative EventList.frame_offset","rows":[{"exact_process_lengths":[100],"fresh_instance":true,"requested_boundary":0,"scenario":"seek-single","verdict":"pass","window_frames":100},{"exact_process_lengths":[1,99],"fresh_instance":true,"requested_boundary":1,"scenario":"seek-single","verdict":"pass","window_frames":100},{"exact_process_lengths":[99,1],"fresh_instance":true,"requested_boundary":99,"scenario":"seek-single","verdict":"pass","window_frames":100},{"exact_process_lengths":[128],"fresh_instance":true,"requested_boundary":0,"scenario":"seek-single","verdict":"pass","window_frames":128},{"exact_process_lengths":[1,127],"fresh_instance":true,"requested_boundary":1,"scenario":"seek-single","verdict":"pass","window_frames":128},{"exact_process_lengths":[100,28],"fresh_instance":true,"requested_boundary":100,"scenario":"seek-single","verdict":"pass","window_frames":128},{"exact_process_lengths":[127,1],"fresh_instance":true,"requested_boundary":127,"scenario":"seek-single","verdict":"pass","window_frames":128},{"exact_process_lengths":[256],"fresh_instance":true,"requested_boundary":0,"scenario":"seek-single","verdict":"pass","window_frames":256},{"exact_process_lengths":[1,255],"fresh_instance":true,"requested_boundary":1,"scenario":"seek-single","verdict":"pass","window_frames":256},{"exact_process_lengths":[100,156],"fresh_instance":true,"requested_boundary":100,"scenario":"seek-single","verdict":"pass","window_frames":256},{"exact_process_lengths":[255,1],"fresh_instance":true,"requested_boundary":255,"scenario":"seek-single","verdict":"pass","window_frames":256}],"schema":"tim03-frame-boundary-matrix/headless-node/v1"}
+ok
+test tim03_node_param_event_per_loop_occurrence ... ok
+test tim03_node_param_frame_offset_ordering_matrix ... tim03-headless-param-order-matrix {"different_param_relative_order":"no additional semantic invented","offsets":["0","1","middle","last-in-call"],"ordering":"(position_ticks, source_sequence), stable same-offset source order; same ParamId last-wins","schema":"tim03-frame-boundary-matrix/headless-param-order/v1","verdict":"pass","windows":[100,128,256]}
+ok
+test tim03_node_simultaneous_loop_seek_plan_param ... ok
+test tim03_node_stale_transport_generation_zero_delivery ... ok
+test tim03_pb_degraded_coalescing_and_wrap_bounds ... ok
+test tim03_pb_exact_windows_and_boundary_positions ... ok
+test tim03_pb_frame_boundary_matrix_exact_process_lengths ... tim03-headless-policy-matrix {"matrix":{"boundaries":["0","1","100","last"],"windows":[100,128,256]},"rows":[{"applied_boundaries":[],"classification":"valid","head_boundary":true,"physical_process_lengths":[100],"requested_boundary":0,"segment_lengths":[100],"verdict":"pass","window_frames":100},{"applied_boundaries":[1],"classification":"valid","head_boundary":false,"physical_process_lengths":[1,99],"requested_boundary":1,"segment_lengths":[1,99],"verdict":"pass","window_frames":100},{"clamped":false,"classification":"invalid-out-of-window","requested_boundary":100,"verdict":"pass-negative","window_frames":100},{"applied_boundaries":[99],"classification":"valid","head_boundary":false,"physical_process_lengths":[99,1],"requested_boundary":99,"segment_lengths":[99,1],"verdict":"pass","window_frames":100},{"applied_boundaries":[],"classification":"valid","head_boundary":true,"physical_process_lengths":[128],"requested_boundary":0,"segment_lengths":[128],"verdict":"pass","window_frames":128},{"applied_boundaries":[1],"classification":"valid","head_boundary":false,"physical_process_lengths":[1,127],"requested_boundary":1,"segment_lengths":[1,127],"verdict":"pass","window_frames":128},{"applied_boundaries":[100],"classification":"valid","head_boundary":false,"physical_process_lengths":[100,28],"requested_boundary":100,"segment_lengths":[100,28],"verdict":"pass","window_frames":128},{"applied_boundaries":[127],"classification":"valid","head_boundary":false,"physical_process_lengths":[127,1],"requested_boundary":127,"segment_lengths":[127,1],"verdict":"pass","window_frames":128},{"applied_boundaries":[],"classification":"valid","head_boundary":true,"physical_process_lengths":[256],"requested_boundary":0,"segment_lengths":[256],"verdict":"pass","window_frames":256},{"applied_boundaries":[1],"classification":"valid","head_boundary":false,"physical_process_lengths":[1,255],"requested_boundary":1,"segment_lengths":[1,255],"verdict":"pass","window_frames":256},{"applied_boundaries":[100],"classification":"valid","head_boundary":false,"physical_process_lengths":[100,156],"requested_boundary":100,"segment_lengths":[100,156],"verdict":"pass","window_frames":256},{"applied_boundaries":[255],"classification":"valid","head_boundary":false,"physical_process_lengths":[255,1],"requested_boundary":255,"segment_lengths":[255,1],"verdict":"pass","window_frames":256}],"schema":"tim03-frame-boundary-matrix/headless-policy/v1"}
+ok
+test tim03_pb_invalid_requests ... ok
+test tim03_pb_min_max_illegal_segment_policy ... ok
+test tim03_pb_offsets_zero_one_last ... ok
+test tim03_pb_precision_gates ... ok
+test tim03_pb_simultaneous_kinds_dedupe ... ok
+test tim03_sched_degraded_defers_apply ... ok
+test tim03_sched_events_boundary_and_stale_generation ... ok
+test tim03_sched_exact_rejects_illegal_apply ... ok
+test tim03_sched_exact_wrap_undeliverable ... ok
+test tim03_sched_frame_boundary_matrix_exact_spans ... tim03-headless-scheduler-matrix {"rows":[{"deliverable":true,"exact_process_lengths":[100],"requested_boundary":0,"scenario":"seek-single","span_sequence":[[0,100]],"verdict":"pass","window_frames":100},{"deliverable":true,"exact_process_lengths":[1,99],"requested_boundary":1,"scenario":"seek-single","span_sequence":[[0,1],[1,100]],"verdict":"pass","window_frames":100},{"deliverable":true,"exact_process_lengths":[99,1],"requested_boundary":99,"scenario":"seek-single","span_sequence":[[0,99],[99,100]],"verdict":"pass","window_frames":100},{"deliverable":true,"exact_process_lengths":[128],"requested_boundary":0,"scenario":"seek-single","span_sequence":[[0,128]],"verdict":"pass","window_frames":128},{"deliverable":true,"exact_process_lengths":[1,127],"requested_boundary":1,"scenario":"seek-single","span_sequence":[[0,1],[1,128]],"verdict":"pass","window_frames":128},{"deliverable":true,"exact_process_lengths":[100,28],"requested_boundary":100,"scenario":"seek-single","span_sequence":[[0,100],[100,128]],"verdict":"pass","window_frames":128},{"deliverable":true,"exact_process_lengths":[127,1],"requested_boundary":127,"scenario":"seek-single","span_sequence":[[0,127],[127,128]],"verdict":"pass","window_frames":128},{"deliverable":true,"exact_process_lengths":[256],"requested_boundary":0,"scenario":"seek-single","span_sequence":[[0,256]],"verdict":"pass","window_frames":256},{"deliverable":true,"exact_process_lengths":[1,255],"requested_boundary":1,"scenario":"seek-single","span_sequence":[[0,1],[1,256]],"verdict":"pass","window_frames":256},{"deliverable":true,"exact_process_lengths":[100,156],"requested_boundary":100,"scenario":"seek-single","span_sequence":[[0,100],[100,256]],"verdict":"pass","window_frames":256},{"deliverable":true,"exact_process_lengths":[255,1],"requested_boundary":255,"scenario":"seek-single","span_sequence":[[0,255],[255,256]],"verdict":"pass","window_frames":256}],"schema":"tim03-frame-boundary-matrix/headless-scheduler/v1","tie_rule_consumer_evidence":"same-frame apply wins over wrap; wrap is re-evaluated in the post-apply state"}
+ok
+test tim03_sched_simultaneous_loop_seek_plan ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests\tim03_request_plan.rs (target\debug\deps\tim03_request_plan-463189ed2f6a1800.exe)
+
+running 10 tests
+test tim03_cap_offline_exact_fail_closed ... ok
+test tim03_cap_realtime_degraded_requires_consent ... ok
+test tim03_cap_unsupported_typed_refusal ... ok
+test tim03_prov_foreign_dispatch_refused ... ok
+test tim03_prov_stale_generations_zero_delivery ... ok
+test tim03_prov_stale_window_stages_nothing ... ok
+test tim03_req_exact_matrix_windows_and_offsets ... tim03-wired-session-matrix {"invalid_window100_boundary100":"typed-invalid-covered-by-policy-matrix; never clamped","rows":[{"exact_process_lengths":[100],"fresh_instance":true,"queue_residue_dependency":false,"requested_boundary":0,"verdict":"pass","window_frames":100},{"exact_process_lengths":[1,99],"fresh_instance":true,"queue_residue_dependency":false,"requested_boundary":1,"verdict":"pass","window_frames":100},{"exact_process_lengths":[99,1],"fresh_instance":true,"queue_residue_dependency":false,"requested_boundary":99,"verdict":"pass","window_frames":100},{"exact_process_lengths":[128],"fresh_instance":true,"queue_residue_dependency":false,"requested_boundary":0,"verdict":"pass","window_frames":128},{"exact_process_lengths":[1,127],"fresh_instance":true,"queue_residue_dependency":false,"requested_boundary":1,"verdict":"pass","window_frames":128},{"exact_process_lengths":[100,28],"fresh_instance":true,"queue_residue_dependency":false,"requested_boundary":100,"verdict":"pass","window_frames":128},{"exact_process_lengths":[127,1],"fresh_instance":true,"queue_residue_dependency":false,"requested_boundary":127,"verdict":"pass","window_frames":128},{"exact_process_lengths":[256],"fresh_instance":true,"queue_residue_dependency":false,"requested_boundary":0,"verdict":"pass","window_frames":256},{"exact_process_lengths":[1,255],"fresh_instance":true,"queue_residue_dependency":false,"requested_boundary":1,"verdict":"pass","window_frames":256},{"exact_process_lengths":[100,156],"fresh_instance":true,"queue_residue_dependency":false,"requested_boundary":100,"verdict":"pass","window_frames":256},{"exact_process_lengths":[255,1],"fresh_instance":true,"queue_residue_dependency":false,"requested_boundary":255,"verdict":"pass","window_frames":256}],"schema":"tim03-frame-boundary-matrix/wired-session/v1"}
+ok
+test tim03_req_min_max_process_length_fail_closed ... ok
+test tim03_req_plan_install_boundary_checked ... ok
+test tim03_req_simultaneous_loop_seek_tempo_param ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+mbx[cache]: 0 hits, 0 misses, 2 incremental; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: 5d 3h refunded over 8262 builds. no receipt necessary.
+   Compiling synvelis-app v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.81s
+     Running tests\tim03_l1_frame_boundary_matrix.rs (target\debug\deps\tim03_l1_frame_boundary_matrix-8e81520ded2f1287.exe)
+
+running 2 tests
+test clap_frame_boundary_matrix ... tim03-l1-frame-boundary-matrix {"artifacts":{"fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_clap.dll","sha256":"63bffbf7b2926cf29995f3f9f1f3ad9a084c600ce736d8d57791be0038c06d05"},"ruviform_resolved_revision":"511e1a7944c35797942ba065c092b9263067c48a"},"descriptor":{"id":"org.ruviform-test.clap-test-instrument","name":"test_instrument","vendor":"Ruviform Test","version":"0.0.0"},"environment":{"arch":"x86_64","os":"windows"},"format":"clap","geometries":[{"artifact_facts":{"runner":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\synvelis-plugin-test-clap-l1-runner.exe","sha256":"af485b14d9f0baba36d2f353f0ca9b504f4bf7fb5fb4c77d96bd22c89f2fa24d","size":1383936},"staged_fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_clap.dll","sha256":"63bffbf7b2926cf29995f3f9f1f3ad9a084c600ce736d8d57791be0038c06d05","size":1074688}},"generation":1,"matrix_cells":[{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"seek-single","status":"pass-head-public-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"tempo-plan-install","status":"pass-head-public-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"seek-single","status":"invalid-out-of-window-honest-negative","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"tempo-plan-install","status":"invalid-out-of-window-honest-negative","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"param-arbitrary-frame-offset","status":"invalid-out-of-window-honest-negative","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":99,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":99,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":99,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":100},{"note":"loop discontinuity is derived by transport geometry rather than requested as an arbitrary interior command boundary","scenario":"natural-loop-wrap","status":"pass-primary-pcm-oracle","window_frames":100}],"musical_transport_surface":"Available { tempo_revision: 2, ppqn: 480 }","positive_cases":[{"amplitude":0.5,"case":"seek_derived_positive","host_position_ticks":3815,"independent_calculation":{"activated_max_frames":100,"adapter_projection_ppqn":960,"denominator":90000000,"expected_click_frame":1800,"fixed_960_fallback":false,"host_delta_ticks":25,"host_project_ppqn":480,"law":"ceil((boundary_tick-position_ticks)*sample_rate*60000/(bpm_milli*adapter_ppqn))+lookahead_frames","lookahead_blocks":2,"lookahead_frames":200,"numerator":144000000000,"projected_delta_ticks":50},"non_click_frames_silent":true,"observed_click_frames":[1800],"process_length_proof":"PCM indirect evidence only; exact physical process lengths are proven in the headless recording matrix","public_commands":["Seek","Play"],"scenario":"seek-single","stereo_identical":true,"transport_call_start":500,"verdict":"pass"},{"block_aligned_positive_oracle":true,"case":"natural_loop_wrap_simultaneous_head_batch","expected_click_frames":[1800],"first_click_after_loop_start_frames":1600,"lookahead_frames":200,"loop_period_frames_at_bpm":1856,"loop_range_host_ticks":{"end":7684,"start":7655},"observed_click_frames":[1800],"process_length_proof":"PCM indirect evidence only; exact segmentation is authoritative only in the headless matrix","public_commands":["SetLoop","Seek","Play"],"same_head_batch_order":"SetLoop, Seek, Play as supplied by the public transport application batch","scenario":"loop-wrap-natural","transport_call_start":2600,"verdict":"pass"},{"amplitude":0.5,"case":"tempo_revision_plan_boundary","control_evidence":{"musical_refresh_errors":"{}","musical_transport_surface":"Available { tempo_revision: 3, ppqn: 480 }"},"edit":{"bpm_milli":120000,"meaning":"tempo-map/tempo-revision discontinuity carried by production musical plan refresh","op":"ProjectOp::AddTempoEvent","resulting_project_revision":10,"resulting_tempo_revision":3,"tempo_command_invented":false,"tick":4800},"host_position_ticks":7660,"independent_calculation":{"activated_max_frames":100,"adapter_projection_ppqn":960,"denominator":115200000,"expected_click_frame":1200,"fixed_960_fallback":false,"host_delta_ticks":20,"host_project_ppqn":480,"law":"ceil((boundary_tick-position_ticks)*sample_rate*60000/(bpm_milli*adapter_ppqn))+lookahead_frames","lookahead_blocks":2,"lookahead_frames":200,"numerator":115200000000,"projected_delta_ticks":40},"non_click_frames_silent":true,"observed_click_frames":[1200],"process_length_proof":"PCM indirect evidence only; exact physical process lengths are proven in the headless recording matrix","public_commands":["Seek","Play"],"scenario":"seek-single","stereo_identical":true,"transport_call_start":600,"verdict":"pass"}],"window_geometry":{"activated_max_frames":100,"frames":100,"l1_latency_frames":200,"latency_formula":"lookahead_blocks * activated max_frames; not fixed at 512 frames","lookahead_blocks":2}},{"artifact_facts":{"runner":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\synvelis-plugin-test-clap-l1-runner.exe","sha256":"af485b14d9f0baba36d2f353f0ca9b504f4bf7fb5fb4c77d96bd22c89f2fa24d","size":1383936},"staged_fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_clap.dll","sha256":"63bffbf7b2926cf29995f3f9f1f3ad9a084c600ce736d8d57791be0038c06d05","size":1074688}},"generation":1,"matrix_cells":[{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"seek-single","status":"pass-head-public-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"tempo-plan-install","status":"pass-head-public-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":127,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":127,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":127,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":128},{"note":"loop discontinuity is derived by transport geometry rather than requested as an arbitrary interior command boundary","scenario":"natural-loop-wrap","status":"pass-primary-pcm-oracle","window_frames":128}],"musical_transport_surface":"Available { tempo_revision: 2, ppqn: 480 }","positive_cases":[{"amplitude":0.5,"case":"seek_derived_positive","host_position_ticks":3832,"independent_calculation":{"activated_max_frames":128,"adapter_projection_ppqn":960,"denominator":90000000,"expected_click_frame":768,"fixed_960_fallback":false,"host_delta_ticks":8,"host_project_ppqn":480,"law":"ceil((boundary_tick-position_ticks)*sample_rate*60000/(bpm_milli*adapter_ppqn))+lookahead_frames","lookahead_blocks":2,"lookahead_frames":256,"numerator":46080000000,"projected_delta_ticks":16},"non_click_frames_silent":true,"observed_click_frames":[768],"process_length_proof":"PCM indirect evidence only; exact physical process lengths are proven in the headless recording matrix","public_commands":["Seek","Play"],"scenario":"seek-single","stereo_identical":true,"transport_call_start":640,"verdict":"pass"},{"block_aligned_positive_oracle":true,"case":"natural_loop_wrap_simultaneous_head_batch","expected_click_frames":[1792],"first_click_after_loop_start_frames":1536,"lookahead_frames":256,"loop_period_frames_at_bpm":1792,"loop_range_host_ticks":{"end":7684,"start":7656},"observed_click_frames":[1792],"process_length_proof":"PCM indirect evidence only; exact segmentation is authoritative only in the headless matrix","public_commands":["SetLoop","Seek","Play"],"same_head_batch_order":"SetLoop, Seek, Play as supplied by the public transport application batch","scenario":"loop-wrap-natural","transport_call_start":1792,"verdict":"pass"},{"amplitude":0.5,"case":"tempo_revision_plan_boundary","control_evidence":{"musical_refresh_errors":"{}","musical_transport_surface":"Available { tempo_revision: 3, ppqn: 480 }"},"edit":{"bpm_milli":187500,"meaning":"tempo-map/tempo-revision discontinuity carried by production musical plan refresh","op":"ProjectOp::AddTempoEvent","resulting_project_revision":10,"resulting_tempo_revision":3,"tempo_command_invented":false,"tick":4800},"host_position_ticks":7648,"independent_calculation":{"activated_max_frames":128,"adapter_projection_ppqn":960,"denominator":180000000,"expected_click_frame":1280,"fixed_960_fallback":false,"host_delta_ticks":32,"host_project_ppqn":480,"law":"ceil((boundary_tick-position_ticks)*sample_rate*60000/(bpm_milli*adapter_ppqn))+lookahead_frames","lookahead_blocks":2,"lookahead_frames":256,"numerator":184320000000,"projected_delta_ticks":64},"non_click_frames_silent":true,"observed_click_frames":[1280],"process_length_proof":"PCM indirect evidence only; exact physical process lengths are proven in the headless recording matrix","public_commands":["Seek","Play"],"scenario":"seek-single","stereo_identical":true,"transport_call_start":768,"verdict":"pass"}],"window_geometry":{"activated_max_frames":128,"frames":128,"l1_latency_frames":256,"latency_formula":"lookahead_blocks * activated max_frames; not fixed at 512 frames","lookahead_blocks":2}},{"artifact_facts":{"runner":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\synvelis-plugin-test-clap-l1-runner.exe","sha256":"af485b14d9f0baba36d2f353f0ca9b504f4bf7fb5fb4c77d96bd22c89f2fa24d","size":1383936},"staged_fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_clap.dll","sha256":"63bffbf7b2926cf29995f3f9f1f3ad9a084c600ce736d8d57791be0038c06d05","size":1074688}},"generation":1,"matrix_cells":[{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"seek-single","status":"pass-head-public-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"tempo-plan-install","status":"pass-head-public-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":255,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":255,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":255,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":256},{"note":"loop discontinuity is derived by transport geometry rather than requested as an arbitrary interior command boundary","scenario":"natural-loop-wrap","status":"pass-primary-pcm-oracle","window_frames":256}],"musical_transport_surface":"Available { tempo_revision: 2, ppqn: 480 }","positive_cases":[{"amplitude":0.5,"case":"seek_derived_positive","host_position_ticks":3832,"independent_calculation":{"activated_max_frames":256,"adapter_projection_ppqn":960,"denominator":90000000,"expected_click_frame":1024,"fixed_960_fallback":false,"host_delta_ticks":8,"host_project_ppqn":480,"law":"ceil((boundary_tick-position_ticks)*sample_rate*60000/(bpm_milli*adapter_ppqn))+lookahead_frames","lookahead_blocks":2,"lookahead_frames":512,"numerator":46080000000,"projected_delta_ticks":16},"non_click_frames_silent":true,"observed_click_frames":[1024],"process_length_proof":"PCM indirect evidence only; exact physical process lengths are proven in the headless recording matrix","public_commands":["Seek","Play"],"scenario":"seek-single","stereo_identical":true,"transport_call_start":1280,"verdict":"pass"},{"block_aligned_positive_oracle":true,"case":"natural_loop_wrap_simultaneous_head_batch","expected_click_frames":[2048],"first_click_after_loop_start_frames":1536,"lookahead_frames":512,"loop_period_frames_at_bpm":1792,"loop_range_host_ticks":{"end":7684,"start":7656},"observed_click_frames":[2048],"process_length_proof":"PCM indirect evidence only; exact segmentation is authoritative only in the headless matrix","public_commands":["SetLoop","Seek","Play"],"same_head_batch_order":"SetLoop, Seek, Play as supplied by the public transport application batch","scenario":"loop-wrap-natural","transport_call_start":3072,"verdict":"pass"},{"amplitude":0.5,"case":"tempo_revision_plan_boundary","control_evidence":{"musical_refresh_errors":"{}","musical_transport_surface":"Available { tempo_revision: 3, ppqn: 480 }"},"edit":{"bpm_milli":187500,"meaning":"tempo-map/tempo-revision discontinuity carried by production musical plan refresh","op":"ProjectOp::AddTempoEvent","resulting_project_revision":10,"resulting_tempo_revision":3,"tempo_command_invented":false,"tick":4800},"host_position_ticks":7648,"independent_calculation":{"activated_max_frames":256,"adapter_projection_ppqn":960,"denominator":180000000,"expected_click_frame":1536,"fixed_960_fallback":false,"host_delta_ticks":32,"host_project_ppqn":480,"law":"ceil((boundary_tick-position_ticks)*sample_rate*60000/(bpm_milli*adapter_ppqn))+lookahead_frames","lookahead_blocks":2,"lookahead_frames":512,"numerator":184320000000,"projected_delta_ticks":64},"non_click_frames_silent":true,"observed_click_frames":[1536],"process_length_proof":"PCM indirect evidence only; exact physical process lengths are proven in the headless recording matrix","public_commands":["Seek","Play"],"scenario":"seek-single","stereo_identical":true,"transport_call_start":1536,"verdict":"pass"}],"window_geometry":{"activated_max_frames":256,"frames":256,"l1_latency_frames":512,"latency_formula":"lookahead_blocks * activated max_frames; not fixed at 512 frames","lookahead_blocks":2}}],"not_run":["arbitrary interior seek/tempo-plan/param scheduling unsupported by the current public production seam","full dynamic tempo edit matrix, automation matrix, fault/state/crash isolation, GUI/EXT-L3, macOS/Linux runtime, 3OS CI, AudioLens cross-consumer"],"param_frame_offset_oracle":{"primary_test_instrument":"NotRun: gain-param/frame-offset effect cannot be independently separated from the deterministic voice/click law through this public seam in this slice","secondary_corroboration":"existing tim03_l1_transport_application test_gain lane; not promoted to primary test_instrument matrix pass"},"process_length_oracle":{"authoritative_exact_sequence":"headless recording-plugin matrix in synvelis-player","production_real_abi":"PCM indirect evidence only"},"production_wiring":{"caller_supplied_transport_info":false,"direct_endpoint_injection":false,"direct_endpoint_process_api":false,"fake_plan_direct_install":false,"hash_mismatch_fail_closed":true,"runner":"synvelis-plugin-test-l1-runner","seam":"compose_routing_engine_with_out_of_process_and_boundaries","sibling_staging":true,"test_only_seeding":false},"project":{"adapter_projection_ppqn":960,"edited_tempo_bpm_milli":"geometry-dependent exact-projection tempo; see positive_cases","fixed_960_fallback":false,"host_project_ppqn":480,"initial_tempo_bpm_milli":93750},"schema":"tim03-l1-frame-boundary-matrix/v1","test":"tim03_l1_frame_boundary_matrix::clap_frame_boundary_matrix"}
+ok
+test vst3_frame_boundary_matrix ... mbx[progress]: 15s elapsed; 0 hits, 0 misses, 0 bypassed, 0 not looked up; ~0s compiler work saved
+tim03-l1-frame-boundary-matrix {"artifacts":{"fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_vst3.dll","sha256":"bd8a8e4ea664af0c08875833a096c177c6e93d5bc5582124d87ef40a16acb8a7"},"ruviform_resolved_revision":"511e1a7944c35797942ba065c092b9263067c48a"},"descriptor":{"id":"931c7e4a5f8d462be9a37c815f2d8b64","name":"test_instrument","vendor":"Ruviform Test","version":"0.0.0"},"environment":{"arch":"x86_64","os":"windows"},"format":"vst3","geometries":[{"artifact_facts":{"runner":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\synvelis-plugin-test-vst3-l1-runner.exe","sha256":"44f37b21b4eb48131c38c85f55f2e196ffd09b82b1d0c86967f8cf03c1aa0a1d","size":1366016},"staged_fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_vst3.dll","sha256":"bd8a8e4ea664af0c08875833a096c177c6e93d5bc5582124d87ef40a16acb8a7","size":655872}},"generation":1,"matrix_cells":[{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"seek-single","status":"pass-head-public-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"tempo-plan-install","status":"pass-head-public-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"seek-single","status":"invalid-out-of-window-honest-negative","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"tempo-plan-install","status":"invalid-out-of-window-honest-negative","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"param-arbitrary-frame-offset","status":"invalid-out-of-window-honest-negative","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":99,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":99,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":100},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":99,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":100},{"note":"loop discontinuity is derived by transport geometry rather than requested as an arbitrary interior command boundary","scenario":"natural-loop-wrap","status":"pass-primary-pcm-oracle","window_frames":100}],"musical_transport_surface":"Available { tempo_revision: 2, ppqn: 480 }","positive_cases":[{"amplitude":0.5,"case":"seek_derived_positive","host_position_ticks":3815,"independent_calculation":{"activated_max_frames":100,"adapter_projection_ppqn":960,"denominator":90000000,"expected_click_frame":1800,"fixed_960_fallback":false,"host_delta_ticks":25,"host_project_ppqn":480,"law":"ceil((boundary_tick-position_ticks)*sample_rate*60000/(bpm_milli*adapter_ppqn))+lookahead_frames","lookahead_blocks":2,"lookahead_frames":200,"numerator":144000000000,"projected_delta_ticks":50},"non_click_frames_silent":true,"observed_click_frames":[1800],"process_length_proof":"PCM indirect evidence only; exact physical process lengths are proven in the headless recording matrix","public_commands":["Seek","Play"],"scenario":"seek-single","stereo_identical":true,"transport_call_start":500,"verdict":"pass"},{"block_aligned_positive_oracle":true,"case":"natural_loop_wrap_simultaneous_head_batch","expected_click_frames":[1800],"first_click_after_loop_start_frames":1600,"lookahead_frames":200,"loop_period_frames_at_bpm":1856,"loop_range_host_ticks":{"end":7684,"start":7655},"observed_click_frames":[1800],"process_length_proof":"PCM indirect evidence only; exact segmentation is authoritative only in the headless matrix","public_commands":["SetLoop","Seek","Play"],"same_head_batch_order":"SetLoop, Seek, Play as supplied by the public transport application batch","scenario":"loop-wrap-natural","transport_call_start":2600,"verdict":"pass"},{"amplitude":0.5,"case":"tempo_revision_plan_boundary","control_evidence":{"musical_refresh_errors":"{}","musical_transport_surface":"Available { tempo_revision: 3, ppqn: 480 }"},"edit":{"bpm_milli":120000,"meaning":"tempo-map/tempo-revision discontinuity carried by production musical plan refresh","op":"ProjectOp::AddTempoEvent","resulting_project_revision":10,"resulting_tempo_revision":3,"tempo_command_invented":false,"tick":4800},"host_position_ticks":7660,"independent_calculation":{"activated_max_frames":100,"adapter_projection_ppqn":960,"denominator":115200000,"expected_click_frame":1200,"fixed_960_fallback":false,"host_delta_ticks":20,"host_project_ppqn":480,"law":"ceil((boundary_tick-position_ticks)*sample_rate*60000/(bpm_milli*adapter_ppqn))+lookahead_frames","lookahead_blocks":2,"lookahead_frames":200,"numerator":115200000000,"projected_delta_ticks":40},"non_click_frames_silent":true,"observed_click_frames":[1200],"process_length_proof":"PCM indirect evidence only; exact physical process lengths are proven in the headless recording matrix","public_commands":["Seek","Play"],"scenario":"seek-single","stereo_identical":true,"transport_call_start":600,"verdict":"pass"}],"window_geometry":{"activated_max_frames":100,"frames":100,"l1_latency_frames":200,"latency_formula":"lookahead_blocks * activated max_frames; not fixed at 512 frames","lookahead_blocks":2}},{"artifact_facts":{"runner":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\synvelis-plugin-test-vst3-l1-runner.exe","sha256":"44f37b21b4eb48131c38c85f55f2e196ffd09b82b1d0c86967f8cf03c1aa0a1d","size":1366016},"staged_fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_vst3.dll","sha256":"bd8a8e4ea664af0c08875833a096c177c6e93d5bc5582124d87ef40a16acb8a7","size":655872}},"generation":1,"matrix_cells":[{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"seek-single","status":"pass-head-public-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"tempo-plan-install","status":"pass-head-public-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":127,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":127,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":128},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":127,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":128},{"note":"loop discontinuity is derived by transport geometry rather than requested as an arbitrary interior command boundary","scenario":"natural-loop-wrap","status":"pass-primary-pcm-oracle","window_frames":128}],"musical_transport_surface":"Available { tempo_revision: 2, ppqn: 480 }","positive_cases":[{"amplitude":0.5,"case":"seek_derived_positive","host_position_ticks":3832,"independent_calculation":{"activated_max_frames":128,"adapter_projection_ppqn":960,"denominator":90000000,"expected_click_frame":768,"fixed_960_fallback":false,"host_delta_ticks":8,"host_project_ppqn":480,"law":"ceil((boundary_tick-position_ticks)*sample_rate*60000/(bpm_milli*adapter_ppqn))+lookahead_frames","lookahead_blocks":2,"lookahead_frames":256,"numerator":46080000000,"projected_delta_ticks":16},"non_click_frames_silent":true,"observed_click_frames":[768],"process_length_proof":"PCM indirect evidence only; exact physical process lengths are proven in the headless recording matrix","public_commands":["Seek","Play"],"scenario":"seek-single","stereo_identical":true,"transport_call_start":640,"verdict":"pass"},{"block_aligned_positive_oracle":true,"case":"natural_loop_wrap_simultaneous_head_batch","expected_click_frames":[1792],"first_click_after_loop_start_frames":1536,"lookahead_frames":256,"loop_period_frames_at_bpm":1792,"loop_range_host_ticks":{"end":7684,"start":7656},"observed_click_frames":[1792],"process_length_proof":"PCM indirect evidence only; exact segmentation is authoritative only in the headless matrix","public_commands":["SetLoop","Seek","Play"],"same_head_batch_order":"SetLoop, Seek, Play as supplied by the public transport application batch","scenario":"loop-wrap-natural","transport_call_start":1792,"verdict":"pass"},{"amplitude":0.5,"case":"tempo_revision_plan_boundary","control_evidence":{"musical_refresh_errors":"{}","musical_transport_surface":"Available { tempo_revision: 3, ppqn: 480 }"},"edit":{"bpm_milli":187500,"meaning":"tempo-map/tempo-revision discontinuity carried by production musical plan refresh","op":"ProjectOp::AddTempoEvent","resulting_project_revision":10,"resulting_tempo_revision":3,"tempo_command_invented":false,"tick":4800},"host_position_ticks":7648,"independent_calculation":{"activated_max_frames":128,"adapter_projection_ppqn":960,"denominator":180000000,"expected_click_frame":1280,"fixed_960_fallback":false,"host_delta_ticks":32,"host_project_ppqn":480,"law":"ceil((boundary_tick-position_ticks)*sample_rate*60000/(bpm_milli*adapter_ppqn))+lookahead_frames","lookahead_blocks":2,"lookahead_frames":256,"numerator":184320000000,"projected_delta_ticks":64},"non_click_frames_silent":true,"observed_click_frames":[1280],"process_length_proof":"PCM indirect evidence only; exact physical process lengths are proven in the headless recording matrix","public_commands":["Seek","Play"],"scenario":"seek-single","stereo_identical":true,"transport_call_start":768,"verdict":"pass"}],"window_geometry":{"activated_max_frames":128,"frames":128,"l1_latency_frames":256,"latency_formula":"lookahead_blocks * activated max_frames; not fixed at 512 frames","lookahead_blocks":2}},{"artifact_facts":{"runner":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\synvelis-plugin-test-vst3-l1-runner.exe","sha256":"44f37b21b4eb48131c38c85f55f2e196ffd09b82b1d0c86967f8cf03c1aa0a1d","size":1366016},"staged_fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_vst3.dll","sha256":"bd8a8e4ea664af0c08875833a096c177c6e93d5bc5582124d87ef40a16acb8a7","size":655872}},"generation":1,"matrix_cells":[{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"seek-single","status":"pass-head-public-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"tempo-plan-install","status":"pass-head-public-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":0,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":1,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":100,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":255,"scenario":"seek-single","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":255,"scenario":"tempo-plan-install","status":"unsupported-by-current-production-seam","window_frames":256},{"fake_evidence_promoted":false,"note":"production TransportApplicationCommand is staged at the next public window head; arbitrary interior command installation is not claimed","requested_boundary":255,"scenario":"param-arbitrary-frame-offset","status":"unsupported-by-current-production-seam","window_frames":256},{"note":"loop discontinuity is derived by transport geometry rather than requested as an arbitrary interior command boundary","scenario":"natural-loop-wrap","status":"pass-primary-pcm-oracle","window_frames":256}],"musical_transport_surface":"Available { tempo_revision: 2, ppqn: 480 }","positive_cases":[{"amplitude":0.5,"case":"seek_derived_positive","host_position_ticks":3832,"independent_calculation":{"activated_max_frames":256,"adapter_projection_ppqn":960,"denominator":90000000,"expected_click_frame":1024,"fixed_960_fallback":false,"host_delta_ticks":8,"host_project_ppqn":480,"law":"ceil((boundary_tick-position_ticks)*sample_rate*60000/(bpm_milli*adapter_ppqn))+lookahead_frames","lookahead_blocks":2,"lookahead_frames":512,"numerator":46080000000,"projected_delta_ticks":16},"non_click_frames_silent":true,"observed_click_frames":[1024],"process_length_proof":"PCM indirect evidence only; exact physical process lengths are proven in the headless recording matrix","public_commands":["Seek","Play"],"scenario":"seek-single","stereo_identical":true,"transport_call_start":1280,"verdict":"pass"},{"block_aligned_positive_oracle":true,"case":"natural_loop_wrap_simultaneous_head_batch","expected_click_frames":[2048],"first_click_after_loop_start_frames":1536,"lookahead_frames":512,"loop_period_frames_at_bpm":1792,"loop_range_host_ticks":{"end":7684,"start":7656},"observed_click_frames":[2048],"process_length_proof":"PCM indirect evidence only; exact segmentation is authoritative only in the headless matrix","public_commands":["SetLoop","Seek","Play"],"same_head_batch_order":"SetLoop, Seek, Play as supplied by the public transport application batch","scenario":"loop-wrap-natural","transport_call_start":3072,"verdict":"pass"},{"amplitude":0.5,"case":"tempo_revision_plan_boundary","control_evidence":{"musical_refresh_errors":"{}","musical_transport_surface":"Available { tempo_revision: 3, ppqn: 480 }"},"edit":{"bpm_milli":187500,"meaning":"tempo-map/tempo-revision discontinuity carried by production musical plan refresh","op":"ProjectOp::AddTempoEvent","resulting_project_revision":10,"resulting_tempo_revision":3,"tempo_command_invented":false,"tick":4800},"host_position_ticks":7648,"independent_calculation":{"activated_max_frames":256,"adapter_projection_ppqn":960,"denominator":180000000,"expected_click_frame":1536,"fixed_960_fallback":false,"host_delta_ticks":32,"host_project_ppqn":480,"law":"ceil((boundary_tick-position_ticks)*sample_rate*60000/(bpm_milli*adapter_ppqn))+lookahead_frames","lookahead_blocks":2,"lookahead_frames":512,"numerator":184320000000,"projected_delta_ticks":64},"non_click_frames_silent":true,"observed_click_frames":[1536],"process_length_proof":"PCM indirect evidence only; exact physical process lengths are proven in the headless recording matrix","public_commands":["Seek","Play"],"scenario":"seek-single","stereo_identical":true,"transport_call_start":1536,"verdict":"pass"}],"window_geometry":{"activated_max_frames":256,"frames":256,"l1_latency_frames":512,"latency_formula":"lookahead_blocks * activated max_frames; not fixed at 512 frames","lookahead_blocks":2}}],"not_run":["arbitrary interior seek/tempo-plan/param scheduling unsupported by the current public production seam","full dynamic tempo edit matrix, automation matrix, fault/state/crash isolation, GUI/EXT-L3, macOS/Linux runtime, 3OS CI, AudioLens cross-consumer"],"param_frame_offset_oracle":{"primary_test_instrument":"NotRun: gain-param/frame-offset effect cannot be independently separated from the deterministic voice/click law through this public seam in this slice","secondary_corroboration":"existing tim03_l1_transport_application test_gain lane; not promoted to primary test_instrument matrix pass"},"process_length_oracle":{"authoritative_exact_sequence":"headless recording-plugin matrix in synvelis-player","production_real_abi":"PCM indirect evidence only"},"production_wiring":{"caller_supplied_transport_info":false,"direct_endpoint_injection":false,"direct_endpoint_process_api":false,"fake_plan_direct_install":false,"hash_mismatch_fail_closed":true,"runner":"synvelis-plugin-test-l1-runner","seam":"compose_routing_engine_with_out_of_process_and_boundaries","sibling_staging":true,"test_only_seeding":false},"project":{"adapter_projection_ppqn":960,"edited_tempo_bpm_milli":"geometry-dependent exact-projection tempo; see positive_cases","fixed_960_fallback":false,"host_project_ppqn":480,"initial_tempo_bpm_milli":93750},"schema":"tim03-l1-frame-boundary-matrix/v1","test":"tim03_l1_frame_boundary_matrix::vst3_frame_boundary_matrix"}
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.28s
+
+mbx[cache]: 0 hits, 0 misses, 1 incremental; 0 B downloaded, 0 B uploaded, 0 B stored locally
+mbx[savings]: 611.4 GiB on loan to every checkout simultaneously. the paperwork is an inode.
+===== test-tim03-frame-boundary-matrix exit=0 =====
+===== test-tim03-dynamic-musical-transport: mise run test-tim03-dynamic-musical-transport =====
+[test-tim03-dynamic-musical-transport] $ cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_production_musical_transport -- --test-threads=1 --nocapture
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.43s
+    Blocking waiting for file lock on package cache
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.87s
+     Running tests\tim03_l1_production_musical_transport.rs (target\debug\deps\tim03_l1_production_musical_transport-bf135cc72252c561.exe)
+
+running 2 tests
+test clap_production_musical_transport ... tim03-l1-production-musical-transport {"artifacts":{"fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_clap.dll","sha256":"63bffbf7b2926cf29995f3f9f1f3ad9a084c600ce736d8d57791be0038c06d05"},"runner":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\synvelis-plugin-test-clap-l1-runner.exe","resolution_env":"SYNVELIS_TIM03_L1_CLAP_RUNNER","sha256":"af485b14d9f0baba36d2f353f0ca9b504f4bf7fb5fb4c77d96bd22c89f2fa24d","size":1383936},"ruviform_resolved_revision":"511e1a7944c35797942ba065c092b9263067c48a","staged_fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_clap.dll","sha256":"63bffbf7b2926cf29995f3f9f1f3ad9a084c600ce736d8d57791be0038c06d05","size":1074688}},"descriptor":{"id":"org.ruviform-test.clap-test-instrument","name":"test_instrument","vendor":"Ruviform Test","version":"0.0.0"},"dynamic_cases":{"valid_tempo_edit_before_measured_transport":{"control_evidence_before_measured_transport":{"event_counts":{"param_events":0,"staged_midi":0,"total":0,"transport_generation_bound":0},"plan_carries_current_project_source":true,"plan_ppqn":480,"plan_tempo_revision":3,"project_ppqn":480,"project_tempo_revision":3,"refresh_errors":"{}","surface":"Available { tempo_revision: 3, ppqn: 480 }"},"edit":{"bpm_milli":75000,"op":"ProjectOp::AddTempoEvent","ppqn_unchanged":true,"resulting_project_revision":10,"resulting_tempo_revision":3,"tick":4800},"positive":{"amplitude":0.5,"case":"post_edit_before_measured_transport_quarter16_delta2","host_position_ticks":7678,"independent_calculation":{"adapter_projection_ppqn":960,"boundary_tick":4,"bpm_milli":75000,"denominator":72000000,"expected_click_frame":672,"fixed_960_fallback":false,"host_delta_ticks":2,"host_project_ppqn":480,"law":"ceil((boundary_tick - position_ticks) * sample_rate * 60000 / (bpm_milli * adapter_ppqn)) + lookahead_frames","lookahead_frames":512,"numerator":11520000000,"projected_delta_ticks":4,"projected_position_ticks_mod_boundary":-4,"projection_note":"960 is the VST3/CLAP adapter projection observed by the fixture; the host plan carries project PPQN 480"},"non_click_frames_silent":true,"observed_click_frames":[672],"position_jump":true,"stereo_identical":true,"transport_call_start":13312,"verdict":"pass"},"rt_install_receipts_before_measured_transport":[{"applied_frame":null,"clock_epoch":0,"command_id":"CommandId(16)","degradation":null,"plan_generation":1,"reason":null,"requested_frame":12800,"status":"Requested","transport_generation":12},{"applied_frame":null,"clock_epoch":0,"command_id":"CommandId(16)","degradation":null,"plan_generation":1,"reason":null,"requested_frame":12800,"status":"Pending","transport_generation":12},{"applied_frame":12800,"clock_epoch":0,"command_id":"CommandId(16)","degradation":null,"plan_generation":2,"reason":null,"requested_frame":12800,"status":"Applied","transport_generation":12}]},"valid_tempo_edit_while_playing":{"control_evidence_before_measured_transport":{"event_counts":{"param_events":0,"staged_midi":0,"total":0,"transport_generation_bound":0},"plan_carries_current_project_source":true,"plan_ppqn":480,"plan_tempo_revision":4,"project_ppqn":480,"project_tempo_revision":4,"refresh_errors":"{}","surface":"Available { tempo_revision: 4, ppqn: 480 }"},"edit":{"bpm_milli":100000,"op":"ProjectOp::AddTempoEvent","ppqn_unchanged":true,"resulting_project_revision":11,"resulting_tempo_revision":4,"tick":9600},"positive":{"amplitude":0.5,"case":"post_edit_while_playing_quarter24_delta2","host_position_ticks":11518,"independent_calculation":{"adapter_projection_ppqn":960,"boundary_tick":4,"bpm_milli":100000,"denominator":96000000,"expected_click_frame":632,"fixed_960_fallback":false,"host_delta_ticks":2,"host_project_ppqn":480,"law":"ceil((boundary_tick - position_ticks) * sample_rate * 60000 / (bpm_milli * adapter_ppqn)) + lookahead_frames","lookahead_frames":512,"numerator":11520000000,"projected_delta_ticks":4,"projected_position_ticks_mod_boundary":-4,"projection_note":"960 is the VST3/CLAP adapter projection observed by the fixture; the host plan carries project PPQN 480"},"non_click_frames_silent":true,"observed_click_frames":[632],"position_jump":true,"stereo_identical":true,"transport_call_start":15104,"verdict":"pass"},"rt_install_receipts_before_measured_transport":[{"applied_frame":null,"clock_epoch":0,"command_id":"CommandId(19)","degradation":null,"plan_generation":2,"reason":null,"requested_frame":14592,"status":"Requested","transport_generation":14},{"applied_frame":null,"clock_epoch":0,"command_id":"CommandId(19)","degradation":null,"plan_generation":2,"reason":null,"requested_frame":14592,"status":"Pending","transport_generation":14},{"applied_frame":14592,"clock_epoch":0,"command_id":"CommandId(19)","degradation":null,"plan_generation":3,"reason":null,"requested_frame":14592,"status":"Applied","transport_generation":14}]}},"environment":{"arch":"x86_64","os":"windows"},"format":"clap","freshness":{"frames_per_block":256,"lookahead_blocks":2,"rule":"only the third block after each exact seek/play is positive fresh evidence; earlier pipeline blocks may belong to the prior source window and are not counted"},"loop_evidence":{"derivation":"12 host ticks = 768 frames = 3 blocks; the quarter boundary is block 2 frame 0 of each iteration and appears after the two-block L1 lookahead","expected_click_frames":[1024,1792],"full_dynamic_loop_matrix":"NotRun/follow-up","observed_click_frames":[1024,1792],"range_host_ticks":{"end":7684,"start":7672},"status":"pass"},"negative_controls":{"missing_or_unknown":"covered at player plan level in tim03_musical_transport_plan; production compile failure leaves both musical halves absent","paused":"pass","stopped":"pass"},"not_run":["full dynamic tempo edit matrix beyond the two representative cases, and full frame/boundary matrix","fault/state/crash isolation, GUI/EXT-L3, macOS/Linux runtime, 3OS CI, AudioLens cross-consumer"],"positive_cases":[{"amplitude":0.5,"case":"seek_jump_delta_3_ticks","host_position_ticks":3837,"independent_calculation":{"adapter_projection_ppqn":960,"boundary_tick":6,"bpm_milli":93750,"denominator":90000000,"expected_click_frame":704,"fixed_960_fallback":false,"host_delta_ticks":3,"host_project_ppqn":480,"law":"ceil((boundary_tick - position_ticks) * sample_rate * 60000 / (bpm_milli * adapter_ppqn)) + lookahead_frames","lookahead_frames":512,"numerator":17280000000,"projected_delta_ticks":6,"projected_position_ticks_mod_boundary":-6,"projection_note":"960 is the VST3/CLAP adapter projection observed by the fixture; the host plan carries project PPQN 480"},"non_click_frames_silent":true,"observed_click_frames":[704],"position_jump":true,"stereo_identical":true,"transport_call_start":1536,"verdict":"pass"},{"amplitude":0.5,"case":"seek_jump_delta_2_ticks","host_position_ticks":4798,"independent_calculation":{"adapter_projection_ppqn":960,"boundary_tick":4,"bpm_milli":93750,"denominator":90000000,"expected_click_frame":640,"fixed_960_fallback":false,"host_delta_ticks":2,"host_project_ppqn":480,"law":"ceil((boundary_tick - position_ticks) * sample_rate * 60000 / (bpm_milli * adapter_ppqn)) + lookahead_frames","lookahead_frames":512,"numerator":11520000000,"projected_delta_ticks":4,"projected_position_ticks_mod_boundary":-4,"projection_note":"960 is the VST3/CLAP adapter projection observed by the fixture; the host plan carries project PPQN 480"},"non_click_frames_silent":true,"observed_click_frames":[640],"position_jump":true,"stereo_identical":true,"transport_call_start":2816,"verdict":"pass"},{"amplitude":0.5,"case":"seek_jump_delta_1_ticks","host_position_ticks":5759,"independent_calculation":{"adapter_projection_ppqn":960,"boundary_tick":2,"bpm_milli":93750,"denominator":90000000,"expected_click_frame":576,"fixed_960_fallback":false,"host_delta_ticks":1,"host_project_ppqn":480,"law":"ceil((boundary_tick - position_ticks) * sample_rate * 60000 / (bpm_milli * adapter_ppqn)) + lookahead_frames","lookahead_frames":512,"numerator":5760000000,"projected_delta_ticks":2,"projected_position_ticks_mod_boundary":-2,"projection_note":"960 is the VST3/CLAP adapter projection observed by the fixture; the host plan carries project PPQN 480"},"non_click_frames_silent":true,"observed_click_frames":[576],"position_jump":true,"stereo_identical":true,"transport_call_start":4096,"verdict":"pass"}],"production_wiring":{"boundary_declaration":"FrameAccurateEvents/InBlockTransportSupport::Unknown","direct_endpoint_transport_info_supplied":false,"generation":1,"seam":"compose_routing_engine_with_out_of_process_and_boundaries"},"project":{"adapter_projection_ppqn":960,"final_tempo_revision":4,"initial_tempo_revision":2,"musical_refresh_errors":"{}","musical_transport_surface":"Available { tempo_revision: 2, ppqn: 480 }","ppqn":480,"tempo_events":[{"bpm_milli":120000,"tick":0},{"bpm_milli":93750,"tick":1},{"bpm_milli":75000,"edit_case":"before_measured_transport","tick":4800},{"bpm_milli":100000,"edit_case":"while_playing","tick":9600}]},"schema":"tim03-l1-production-musical-transport/v1","test":"tim03_l1_production_musical_transport::clap_production_musical_transport"}
+ok
+test vst3_production_musical_transport ... tim03-l1-production-musical-transport {"artifacts":{"fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_vst3.dll","sha256":"bd8a8e4ea664af0c08875833a096c177c6e93d5bc5582124d87ef40a16acb8a7"},"runner":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\synvelis-plugin-test-vst3-l1-runner.exe","resolution_env":"SYNVELIS_TIM03_L1_VST3_RUNNER","sha256":"44f37b21b4eb48131c38c85f55f2e196ffd09b82b1d0c86967f8cf03c1aa0a1d","size":1366016},"ruviform_resolved_revision":"511e1a7944c35797942ba065c092b9263067c48a","staged_fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_vst3.dll","sha256":"bd8a8e4ea664af0c08875833a096c177c6e93d5bc5582124d87ef40a16acb8a7","size":655872}},"descriptor":{"id":"931c7e4a5f8d462be9a37c815f2d8b64","name":"test_instrument","vendor":"Ruviform Test","version":"0.0.0"},"dynamic_cases":{"valid_tempo_edit_before_measured_transport":{"control_evidence_before_measured_transport":{"event_counts":{"param_events":0,"staged_midi":0,"total":0,"transport_generation_bound":0},"plan_carries_current_project_source":true,"plan_ppqn":480,"plan_tempo_revision":3,"project_ppqn":480,"project_tempo_revision":3,"refresh_errors":"{}","surface":"Available { tempo_revision: 3, ppqn: 480 }"},"edit":{"bpm_milli":75000,"op":"ProjectOp::AddTempoEvent","ppqn_unchanged":true,"resulting_project_revision":10,"resulting_tempo_revision":3,"tick":4800},"positive":{"amplitude":0.5,"case":"post_edit_before_measured_transport_quarter16_delta2","host_position_ticks":7678,"independent_calculation":{"adapter_projection_ppqn":960,"boundary_tick":4,"bpm_milli":75000,"denominator":72000000,"expected_click_frame":672,"fixed_960_fallback":false,"host_delta_ticks":2,"host_project_ppqn":480,"law":"ceil((boundary_tick - position_ticks) * sample_rate * 60000 / (bpm_milli * adapter_ppqn)) + lookahead_frames","lookahead_frames":512,"numerator":11520000000,"projected_delta_ticks":4,"projected_position_ticks_mod_boundary":-4,"projection_note":"960 is the VST3/CLAP adapter projection observed by the fixture; the host plan carries project PPQN 480"},"non_click_frames_silent":true,"observed_click_frames":[672],"position_jump":true,"stereo_identical":true,"transport_call_start":13312,"verdict":"pass"},"rt_install_receipts_before_measured_transport":[{"applied_frame":null,"clock_epoch":0,"command_id":"CommandId(16)","degradation":null,"plan_generation":1,"reason":null,"requested_frame":12800,"status":"Requested","transport_generation":12},{"applied_frame":null,"clock_epoch":0,"command_id":"CommandId(16)","degradation":null,"plan_generation":1,"reason":null,"requested_frame":12800,"status":"Pending","transport_generation":12},{"applied_frame":12800,"clock_epoch":0,"command_id":"CommandId(16)","degradation":null,"plan_generation":2,"reason":null,"requested_frame":12800,"status":"Applied","transport_generation":12}]},"valid_tempo_edit_while_playing":{"control_evidence_before_measured_transport":{"event_counts":{"param_events":0,"staged_midi":0,"total":0,"transport_generation_bound":0},"plan_carries_current_project_source":true,"plan_ppqn":480,"plan_tempo_revision":4,"project_ppqn":480,"project_tempo_revision":4,"refresh_errors":"{}","surface":"Available { tempo_revision: 4, ppqn: 480 }"},"edit":{"bpm_milli":100000,"op":"ProjectOp::AddTempoEvent","ppqn_unchanged":true,"resulting_project_revision":11,"resulting_tempo_revision":4,"tick":9600},"positive":{"amplitude":0.5,"case":"post_edit_while_playing_quarter24_delta2","host_position_ticks":11518,"independent_calculation":{"adapter_projection_ppqn":960,"boundary_tick":4,"bpm_milli":100000,"denominator":96000000,"expected_click_frame":632,"fixed_960_fallback":false,"host_delta_ticks":2,"host_project_ppqn":480,"law":"ceil((boundary_tick - position_ticks) * sample_rate * 60000 / (bpm_milli * adapter_ppqn)) + lookahead_frames","lookahead_frames":512,"numerator":11520000000,"projected_delta_ticks":4,"projected_position_ticks_mod_boundary":-4,"projection_note":"960 is the VST3/CLAP adapter projection observed by the fixture; the host plan carries project PPQN 480"},"non_click_frames_silent":true,"observed_click_frames":[632],"position_jump":true,"stereo_identical":true,"transport_call_start":15104,"verdict":"pass"},"rt_install_receipts_before_measured_transport":[{"applied_frame":null,"clock_epoch":0,"command_id":"CommandId(19)","degradation":null,"plan_generation":2,"reason":null,"requested_frame":14592,"status":"Requested","transport_generation":14},{"applied_frame":null,"clock_epoch":0,"command_id":"CommandId(19)","degradation":null,"plan_generation":2,"reason":null,"requested_frame":14592,"status":"Pending","transport_generation":14},{"applied_frame":14592,"clock_epoch":0,"command_id":"CommandId(19)","degradation":null,"plan_generation":3,"reason":null,"requested_frame":14592,"status":"Applied","transport_generation":14}]}},"environment":{"arch":"x86_64","os":"windows"},"format":"vst3","freshness":{"frames_per_block":256,"lookahead_blocks":2,"rule":"only the third block after each exact seek/play is positive fresh evidence; earlier pipeline blocks may belong to the prior source window and are not counted"},"loop_evidence":{"derivation":"12 host ticks = 768 frames = 3 blocks; the quarter boundary is block 2 frame 0 of each iteration and appears after the two-block L1 lookahead","expected_click_frames":[1024,1792],"full_dynamic_loop_matrix":"NotRun/follow-up","observed_click_frames":[1024,1792],"range_host_ticks":{"end":7684,"start":7672},"status":"pass"},"negative_controls":{"missing_or_unknown":"covered at player plan level in tim03_musical_transport_plan; production compile failure leaves both musical halves absent","paused":"pass","stopped":"pass"},"not_run":["full dynamic tempo edit matrix beyond the two representative cases, and full frame/boundary matrix","fault/state/crash isolation, GUI/EXT-L3, macOS/Linux runtime, 3OS CI, AudioLens cross-consumer"],"positive_cases":[{"amplitude":0.5,"case":"seek_jump_delta_3_ticks","host_position_ticks":3837,"independent_calculation":{"adapter_projection_ppqn":960,"boundary_tick":6,"bpm_milli":93750,"denominator":90000000,"expected_click_frame":704,"fixed_960_fallback":false,"host_delta_ticks":3,"host_project_ppqn":480,"law":"ceil((boundary_tick - position_ticks) * sample_rate * 60000 / (bpm_milli * adapter_ppqn)) + lookahead_frames","lookahead_frames":512,"numerator":17280000000,"projected_delta_ticks":6,"projected_position_ticks_mod_boundary":-6,"projection_note":"960 is the VST3/CLAP adapter projection observed by the fixture; the host plan carries project PPQN 480"},"non_click_frames_silent":true,"observed_click_frames":[704],"position_jump":true,"stereo_identical":true,"transport_call_start":1536,"verdict":"pass"},{"amplitude":0.5,"case":"seek_jump_delta_2_ticks","host_position_ticks":4798,"independent_calculation":{"adapter_projection_ppqn":960,"boundary_tick":4,"bpm_milli":93750,"denominator":90000000,"expected_click_frame":640,"fixed_960_fallback":false,"host_delta_ticks":2,"host_project_ppqn":480,"law":"ceil((boundary_tick - position_ticks) * sample_rate * 60000 / (bpm_milli * adapter_ppqn)) + lookahead_frames","lookahead_frames":512,"numerator":11520000000,"projected_delta_ticks":4,"projected_position_ticks_mod_boundary":-4,"projection_note":"960 is the VST3/CLAP adapter projection observed by the fixture; the host plan carries project PPQN 480"},"non_click_frames_silent":true,"observed_click_frames":[640],"position_jump":true,"stereo_identical":true,"transport_call_start":2816,"verdict":"pass"},{"amplitude":0.5,"case":"seek_jump_delta_1_ticks","host_position_ticks":5759,"independent_calculation":{"adapter_projection_ppqn":960,"boundary_tick":2,"bpm_milli":93750,"denominator":90000000,"expected_click_frame":576,"fixed_960_fallback":false,"host_delta_ticks":1,"host_project_ppqn":480,"law":"ceil((boundary_tick - position_ticks) * sample_rate * 60000 / (bpm_milli * adapter_ppqn)) + lookahead_frames","lookahead_frames":512,"numerator":5760000000,"projected_delta_ticks":2,"projected_position_ticks_mod_boundary":-2,"projection_note":"960 is the VST3/CLAP adapter projection observed by the fixture; the host plan carries project PPQN 480"},"non_click_frames_silent":true,"observed_click_frames":[576],"position_jump":true,"stereo_identical":true,"transport_call_start":4096,"verdict":"pass"}],"production_wiring":{"boundary_declaration":"FrameAccurateEvents/InBlockTransportSupport::Unknown","direct_endpoint_transport_info_supplied":false,"generation":1,"seam":"compose_routing_engine_with_out_of_process_and_boundaries"},"project":{"adapter_projection_ppqn":960,"final_tempo_revision":4,"initial_tempo_revision":2,"musical_refresh_errors":"{}","musical_transport_surface":"Available { tempo_revision: 2, ppqn: 480 }","ppqn":480,"tempo_events":[{"bpm_milli":120000,"tick":0},{"bpm_milli":93750,"tick":1},{"bpm_milli":75000,"edit_case":"before_measured_transport","tick":4800},{"bpm_milli":100000,"edit_case":"while_playing","tick":9600}]},"schema":"tim03-l1-production-musical-transport/v1","test":"tim03_l1_production_musical_transport::vst3_production_musical_transport"}
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.18s
+
+===== test-tim03-dynamic-musical-transport exit=0 =====
+===== test-tim03-transport: mise run test-tim03-transport =====
+[test-tim03-transport] $ cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_transport_application -- --test-threads=1 --nocapture
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.44s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.54s
+     Running tests\tim03_l1_transport_application.rs (target\debug\deps\tim03_l1_transport_application-221b4f3a61fd9f00.exe)
+
+running 2 tests
+test tim03_l1_clap_transport_application ... tim03-l1-transport-application {"artifacts":{"fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_clap.dll","sha256":"63bffbf7b2926cf29995f3f9f1f3ad9a084c600ce736d8d57791be0038c06d05"},"runner":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\synvelis-plugin-test-clap-l1-runner.exe","resolution_env":"SYNVELIS_TIM03_L1_CLAP_RUNNER","sha256":"af485b14d9f0baba36d2f353f0ca9b504f4bf7fb5fb4c77d96bd22c89f2fa24d","size":1383936},"ruviform_resolved_revision":"511e1a7944c35797942ba065c092b9263067c48a","staged_fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_clap.dll","sha256":"63bffbf7b2926cf29995f3f9f1f3ad9a084c600ce736d8d57791be0038c06d05","size":1074688}},"commands":["cargo build --locked -p synvelis-plugin-test-l1-runner","cargo test --locked -p synvelis-app --test tim03_l1_transport_application -- --test-threads=1 --nocapture"],"control_oracle":{"automation_value":0.375,"call_start":512,"expected_physical_frame":544,"frame_offset":32,"position_frame":545,"stage":"Dispatched","tick":{"dispatch_errors":0,"evaluated":1,"events":1,"gated":false,"stale":false},"transport_anchor":-1},"format":"clap","negative_evidence":{"active":1,"kind":"InactiveGeneration","surface":2},"not_run":["test_instrument plugin-side musical transport oracle (test_gain ignores TransportInfo)","dynamic tempo edit matrix, full frame/boundary matrix, fault/state isolation","GUI/Native Dock/EXT-L3, provisioned endpoints, macOS/Linux runtime"],"pcm_oracle":{"automation_gain_blocks":[4,5,6,7,8,9,10,11],"automation_normalized":0.375,"automation_plain_gain":0.75,"block_classes":[{"block":0,"class":"silence","left_first":0.0,"right_first":0.0},{"block":1,"class":"silence","left_first":0.0,"right_first":0.0},{"block":2,"class":"input*1.0","left_first":0.25,"right_first":-0.25},{"block":3,"class":"other","left_first":0.25,"right_first":-0.25},{"block":4,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":5,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":6,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":7,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":8,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":9,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":10,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":11,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875}],"freshness_rule":"silence/lookahead/pass-through unity blocks are not counted as automation delivery; only input*0.75 blocks count","input":{"left":0.25,"right":-0.25},"lookahead_blocks":2,"matched_blocks":[4,5,6,7,8,9,10,11],"normalized_as_plain_blocks":[],"silence_blocks":[0,1],"substituted_pass_through_distinction":"not separately observable through the production PCM surface; silence/unity/transition blocks are classified as non-fresh for automation delivery and never counted as matched input*0.75 delivery","transition_or_mixed_blocks":[3],"unity_blocks":[2]},"production_wiring":{"activation":"Active","descriptor":"org.ruviform-test.clap-test-gain","descriptor_count":6,"generation":1,"route":"L1 OutOfProcessSpec","seam":"compose_routing_engine_with_out_of_process_and_boundaries"},"schema":"tim03-l1-transport-application/v1","span_oracle":{"folded_position_expected":513,"loop_occurrence":1,"loop_ticks":[385,641],"plan_generation":2,"position_ticks":513,"start_frame":768,"status":"Playing","transport_generation":4},"tempo_map":{"added_bpm_milli":125000,"added_tick":1,"frame_base":"1/48000","initial_bpm_milli":120000,"revision":1},"transport_application":{"first":{"boundaries":[],"call_start":512,"commands":[{"end_frame":641,"kind":"SetLoop","start_frame":385},{"kind":"Seek","position_frame":513},{"kind":"Play"}],"conversions":[{"beat":"1/60","media_frame":385,"role":"LoopStart"},{"beat":"1/36","media_frame":641,"role":"LoopEnd"},{"beat":"1/45","media_frame":513,"role":"Seek"},{"beat":"17/720","media_frame":545,"role":"Automation"}],"loop_wraps":[],"policy":"Exact","precision":"FrameAccurateEvents","window_frames":256},"second":{"boundaries":[128],"call_start":768,"commands":[{"kind":"Play"}],"loop_wraps":[{"kind":"LoopWrap","offset":128}],"policy":"Exact"}}}
+ok
+test tim03_l1_vst3_transport_application ... tim03-l1-transport-application {"artifacts":{"fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_vst3.dll","sha256":"bd8a8e4ea664af0c08875833a096c177c6e93d5bc5582124d87ef40a16acb8a7"},"runner":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\synvelis-plugin-test-vst3-l1-runner.exe","resolution_env":"SYNVELIS_TIM03_L1_VST3_RUNNER","sha256":"44f37b21b4eb48131c38c85f55f2e196ffd09b82b1d0c86967f8cf03c1aa0a1d","size":1366016},"ruviform_resolved_revision":"511e1a7944c35797942ba065c092b9263067c48a","staged_fixture":{"path":"G:\\orca\\workspaces\\synvelis\\sv127-frame-boundary-matrix\\target\\debug\\ruviform_plugin_test_vst3.dll","sha256":"bd8a8e4ea664af0c08875833a096c177c6e93d5bc5582124d87ef40a16acb8a7","size":655872}},"commands":["cargo build --locked -p synvelis-plugin-test-l1-runner","cargo test --locked -p synvelis-app --test tim03_l1_transport_application -- --test-threads=1 --nocapture"],"control_oracle":{"automation_value":0.375,"call_start":512,"expected_physical_frame":544,"frame_offset":32,"position_frame":545,"stage":"Dispatched","tick":{"dispatch_errors":0,"evaluated":1,"events":1,"gated":false,"stale":false},"transport_anchor":-1},"format":"vst3","negative_evidence":{"active":1,"kind":"InactiveGeneration","surface":2},"not_run":["test_instrument plugin-side musical transport oracle (test_gain ignores TransportInfo)","dynamic tempo edit matrix, full frame/boundary matrix, fault/state isolation","GUI/Native Dock/EXT-L3, provisioned endpoints, macOS/Linux runtime"],"pcm_oracle":{"automation_gain_blocks":[4,5,6,7,8,9,10,11],"automation_normalized":0.375,"automation_plain_gain":0.75,"block_classes":[{"block":0,"class":"silence","left_first":0.0,"right_first":0.0},{"block":1,"class":"silence","left_first":0.0,"right_first":0.0},{"block":2,"class":"input*1.0","left_first":0.25,"right_first":-0.25},{"block":3,"class":"other","left_first":0.25,"right_first":-0.25},{"block":4,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":5,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":6,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":7,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":8,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":9,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":10,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875},{"block":11,"class":"input*0.75","left_first":0.1875,"right_first":-0.1875}],"freshness_rule":"silence/lookahead/pass-through unity blocks are not counted as automation delivery; only input*0.75 blocks count","input":{"left":0.25,"right":-0.25},"lookahead_blocks":2,"matched_blocks":[4,5,6,7,8,9,10,11],"normalized_as_plain_blocks":[],"silence_blocks":[0,1],"substituted_pass_through_distinction":"not separately observable through the production PCM surface; silence/unity/transition blocks are classified as non-fresh for automation delivery and never counted as matched input*0.75 delivery","transition_or_mixed_blocks":[3],"unity_blocks":[2]},"production_wiring":{"activation":"Active","descriptor":"218a4f6d7c3b059ef1a24c68b9d37e51","descriptor_count":7,"generation":1,"route":"L1 OutOfProcessSpec","seam":"compose_routing_engine_with_out_of_process_and_boundaries"},"schema":"tim03-l1-transport-application/v1","span_oracle":{"folded_position_expected":513,"loop_occurrence":1,"loop_ticks":[385,641],"plan_generation":2,"position_ticks":513,"start_frame":768,"status":"Playing","transport_generation":4},"tempo_map":{"added_bpm_milli":125000,"added_tick":1,"frame_base":"1/48000","initial_bpm_milli":120000,"revision":1},"transport_application":{"first":{"boundaries":[],"call_start":512,"commands":[{"end_frame":641,"kind":"SetLoop","start_frame":385},{"kind":"Seek","position_frame":513},{"kind":"Play"}],"conversions":[{"beat":"1/60","media_frame":385,"role":"LoopStart"},{"beat":"1/36","media_frame":641,"role":"LoopEnd"},{"beat":"1/45","media_frame":513,"role":"Seek"},{"beat":"17/720","media_frame":545,"role":"Automation"}],"loop_wraps":[],"policy":"Exact","precision":"FrameAccurateEvents","window_frames":256},"second":{"boundaries":[128],"call_start":768,"commands":[{"kind":"Play"}],"loop_wraps":[{"kind":"LoopWrap","offset":128}],"policy":"Exact"}}}
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.14s
+
+===== test-tim03-transport exit=0 =====
+===== test-rt: mise run test-rt =====
+[test-rt] $ cargo test --workspace --locked rt_
+   Compiling regex-syntax v0.8.11
+   Compiling aho-corasick v1.1.5
+   Compiling getrandom v0.4.3
+   Compiling synvelis-automation v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-automation)
+   Compiling rand_core v0.10.1
+   Compiling fastrand v2.5.0
+   Compiling wait-timeout v0.2.1
+   Compiling quick-error v1.2.3
+   Compiling bit-vec v0.10.2
+   Compiling fnv v1.0.7
+   Compiling cpufeatures v0.3.1
+   Compiling unarray v0.1.4
+   Compiling core_detect v1.0.0
+   Compiling scopeguard v1.2.0
+   Compiling parking_lot_core v0.9.12
+   Compiling libc v0.2.189
+   Compiling jobserver v0.1.35
+   Compiling rand_xorshift v0.5.0
+   Compiling regex-automata v0.4.18
+   Compiling bstr v1.13.1
+   Compiling rustc-hash v2.1.3
+   Compiling either v1.19.0
+   Compiling bit-set v0.11.1
+   Compiling ruviform-script v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling base64 v0.23.1
+   Compiling chacha20 v0.10.2
+   Compiling yasna v0.6.0
+   Compiling lock_api v0.4.14
+   Compiling keyring-core v1.0.1
+   Compiling cc v1.11.1
+   Compiling byteorder v1.5.0
+   Compiling tempfile v3.27.0
+   Compiling rand v0.10.3
+   Compiling matchers v0.2.0
+   Compiling regex v1.13.1
+   Compiling ruviform-ui-theme v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling synvelis-plugin-test-l1-runner v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-plugin-test-l1-runner)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-script\src\lib.rs
+   Compiling pem v4.0.0
+   Compiling synvelis-script v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-script)
+   Compiling parking_lot v0.12.5
+   Compiling ring v0.17.14
+   Compiling luau0-src v0.22.0+luau740
+   Compiling rusty-fork v0.3.1
+   Compiling tracing-subscriber v0.3.23
+   Compiling ruviform-script-luau v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling windows-native-keyring-store v1.1.0
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-ui-theme\src\lib.rs
+   Compiling mlua-sys v0.13.0
+   Compiling proptest v1.12.0
+   Compiling tracing-appender v0.2.5
+   Compiling keyring v4.2.0
+   Compiling synvelis-theme v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-theme)
+   Compiling ruviform-observability v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-observability\src\lib.rs
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-script-luau\build.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-script\src\lib.rs
+   Compiling synvelis-gateway v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-gateway)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-script-luau\build.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-ui-theme\src\lib.rs
+   Compiling ruviform-audio v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio\src\lib.rs
+   Compiling ruviform-plugin-host v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-host\src\lib.rs
+   Compiling recording-poc v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\recording-poc)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-observability\src\lib.rs
+mbx[warning]: build-script result was not stored: build-script stdout is not UTF-8: invalid utf-8 sequence of 1 bytes from index 5482
+   Compiling ruviform-audio-plugin-bridge v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-plugin-bridge\src\lib.rs
+mbx[warning]: rustc cache bypassed: failed to read Cargo's build-script declarations: stream did not contain valid UTF-8
+   Compiling rustls v0.23.46
+mbx[progress]: 15s elapsed; 46 hits, 11 misses, 1 bypassed, 1 not looked up; ~1m 23s compiler work saved
+   Compiling ruviform-audio-test v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-test\src\lib.rs
+   Compiling synvelis-project v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-project)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-plugin-bridge\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-host\src\lib.rs
+   Compiling rustls-webpki v0.103.16
+   Compiling ruviform-plugin-dock-test v0.1.0 (https://github.com/scarecrow173/ruviform.git#511e1a79)
+   Compiling rcgen v0.14.10
+mbx[warning]: prediction was not restored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-dock-test\src\lib.rs
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-audio-test\src\lib.rs
+   Compiling synvelis-recording v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-recording)
+mbx[warning]: result was not stored: absolute path has no stable cache mapping: C:\Users\akiyoshi\.cargo\git\checkouts\ruviform-8f0ffdb08acc57df\511e1a7\crates\ruviform-plugin-dock-test\src\lib.rs
+mbx[progress]: 30s elapsed; 46 hits, 30 misses, 1 bypassed, 1 not looked up; ~1m 23s compiler work saved
+   Compiling synvelis-library v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-library)
+mbx[progress]: 45s elapsed; 46 hits, 45 misses, 1 bypassed, 1 not looked up; ~1m 23s compiler work saved
+   Compiling synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-player)
+   Compiling synvelis-render v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-render)
+mbx[progress]: 1m elapsed; 46 hits, 54 misses, 1 bypassed, 1 not looked up; ~1m 23s compiler work saved
+   Compiling synvelis-workspace v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-workspace)
+mbx[progress]: 1m 15s elapsed; 46 hits, 65 misses, 1 bypassed, 1 not looked up; ~1m 23s compiler work saved
+mbx[progress]: 1m 30s elapsed; 46 hits, 78 misses, 1 bypassed, 1 not looked up; ~1m 23s compiler work saved
+   Compiling synvelis-app v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-app)
+mbx[progress]: 1m 45s elapsed; 46 hits, 87 misses, 1 bypassed, 1 not looked up; ~1m 23s compiler work saved
+   Compiling mlua v0.12.2
+mbx[progress]: 2m elapsed; 46 hits, 95 misses, 1 bypassed, 1 not looked up; ~1m 23s compiler work saved
+   Compiling mcp-poc v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\mcp-poc)
+mbx[progress]: 3m elapsed; 46 hits, 136 misses, 1 bypassed, 1 not looked up; ~1m 23s compiler work saved
+mbx[progress]: 4m elapsed; 46 hits, 168 misses, 1 bypassed, 2 not looked up; ~1m 23s compiler work saved
+mbx[progress]: 5m elapsed; 46 hits, 196 misses, 1 bypassed, 2 not looked up; ~1m 23s compiler work saved
+   Compiling synvelis-script-luau v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-script-luau)
+   Compiling synvelis-cli v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-cli)
+mbx[progress]: 6m elapsed; 46 hits, 231 misses, 2 bypassed, 2 not looked up; ~1m 23s compiler work saved
+mbx[progress]: 7m elapsed; 46 hits, 289 misses, 2 bypassed, 2 not looked up; ~1m 23s compiler work saved
+mbx[progress]: 8m elapsed; 46 hits, 360 misses, 2 bypassed, 2 not looked up; ~1m 23s compiler work saved
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8m 13s
+     Running unittests src\main.rs (target\debug\deps\mcp_poc-6718d97eb1509495.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\gw10_transport.rs (target\debug\deps\gw10_transport-b54ea0acd29731be.exe)
+
+running 1 test
+test gw10f_delegated_apply_commits_and_survives_restart_real ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.99s
+
+     Running tests\stdio_e2e.rs (target\debug\deps\stdio_e2e-8e31430f494133e2.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (target\debug\deps\recording_poc-3cbd23313411b2a7.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\poc_determinism.rs (target\debug\deps\poc_determinism-1213cf0e1cdf7730.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests\real_fs_probe.rs (target\debug\deps\real_fs_probe-11dd2c8c836ea8e6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\vsc_process.rs (target\debug\deps\vsc_process-97aa8d137cce4bc0.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\vsd_process.rs (target\debug\deps\vsd_process-fc68ab02c2c7467e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_app-52e5bf90675f170a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\asset_check.rs (target\debug\deps\asset_check-af8896906406f829.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\autx07_automation.rs (target\debug\deps\autx07_automation-e0461a7ede8a78ff.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\binding.rs (target\debug\deps\binding-1af2708f5e9f4c65.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\cb09_variant_diff.rs (target\debug\deps\cb09_variant_diff-508605dfb4be346e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\close_veto.rs (target\debug\deps\close_veto-f72b62b581db7431.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\dock_ops.rs (target\debug\deps\dock_ops-4f7b07204fc1c909.exe)
+
+running 2 tests
+test dock_transfer_preserves_project_and_transport_state ... ok
+test dock_abort_preserves_source_ownership ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.04s
+
+     Running tests\library_browser.rs (target\debug\deps\library_browser-a6a1a1911e0c9525.exe)
+
+running 8 tests
+test import_without_backend_or_fetch_is_typed ... ok
+test import_cancel_is_cross_view ... ok
+test import_submit_dedups_in_flight ... ok
+test import_publish_failure_is_recoverable_and_resumes ... ok
+test import_cancel_mid_flight_then_retry_recovers ... ok
+test import_commits_live_and_replays_idempotently ... ok
+test provider_switch_scopes_import_surface ... ok
+test import_stale_revision_rebase_retry_recovers ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.20s
+
+     Running tests\library_native_mount.rs (target\debug\deps\library_native_mount-95a1b39d4197bfe5.exe)
+
+running 1 test
+test import_submits_through_real_import_ports ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.08s
+
+     Running tests\logging.rs (target\debug\deps\logging-d58ec09a6b68f646.exe)
+
+running 1 test
+test build_logging_reports_degraded_best_effort_sink ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\monitor_arm.rs (target\debug\deps\monitor_arm-d06268ad61878bfb.exe)
+
+running 2 tests
+test e5_view_window_and_project_transport_do_not_change_monitor_state ... ok
+test e1_route_matrix_off_auto_on_x_transport_x_punch_x_mute_solo ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.03s
+
+     Running tests\pc_c4_04_app_composition.rs (target\debug\deps\pc_c4_04_app_composition-4910b69601332436.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_06_control_op_surface.rs (target\debug\deps\pc_c4_06_control_op_surface-6735d300a81db27e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_drain_composition.rs (target\debug\deps\pc_c4_drain_composition-84b94722fb9b1c63.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_l1_real_abi_binding.rs (target\debug\deps\pc_c4_l1_real_abi_binding-0497f4b861d0a99d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_observe_engine_wiring.rs (target\debug\deps\pc_c4_observe_engine_wiring-4e862679fecede1e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_webview_composition.rs (target\debug\deps\pc_c4_webview_composition-6cc9ebf76b0409cb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\plugin_dock.rs (target\debug\deps\plugin_dock-53bd52fe8d67537a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.00s
+
+     Running tests\plugin_dock_contract.rs (target\debug\deps\plugin_dock_contract-34440a3e2dc21ee4.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\plugin_dock_contract_gpui.rs (target\debug\deps\plugin_dock_contract_gpui-e9db2e3e180687af.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\plugin_dock_probe.rs (target\debug\deps\plugin_dock_probe-3b5580de8833266d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\plugin_dock_surface.rs (target\debug\deps\plugin_dock_surface-67fc2ddf15d478ec.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\rcd_04_product_e2e.rs (target\debug\deps\rcd_04_product_e2e-84164aae2d2fb87e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\rcp06_render.rs (target\debug\deps\rcp06_render-ff9864c842c3651f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\recorder_wire.rs (target\debug\deps\recorder_wire-ef7b38fedf6d3a99.exe)
+
+running 3 tests
+test recorder_wire_start_rejects_oversized_target_channels ... ok
+test recorder_wire_start_rejects_loop_before_transport ... ok
+test recorder_wire_start_without_device_is_typed_error ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.11s
+
+     Running tests\recording_projection.rs (target\debug\deps\recording_projection-c3f11e1e65155aec.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\scenario_gpui.rs (target\debug\deps\scenario_gpui-b69d9f6ff3f94851.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\screen_scenario.rs (target\debug\deps\screen_scenario-88c0f67663946112.exe)
+
+running 2 tests
+test fake_unrunnable_items_report_unsupported_not_run_not_pass ... ok
+test transport_play_invokes_and_inspector_table_is_read_only ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\service_ops.rs (target\debug\deps\service_ops-736ce1b4736fdf3a.exe)
+
+running 1 test
+test transport_set_toggles_session_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.02s
+
+     Running tests\sf03_revision.rs (target\debug\deps\sf03_revision-f0293d0a984f214a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\sf03_session_engine.rs (target\debug\deps\sf03_session_engine-d71fdb902fe0ab41.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sf04_probe_compare_op.rs (target\debug\deps\sf04_probe_compare_op-5501e306bc07e634.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sf04_probe_wiring.rs (target\debug\deps\sf04_probe_wiring-6f6205191d8f1158.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sf05_probe_share.rs (target\debug\deps\sf05_probe_share-033e9e1b6218f3ff.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sf05_signal_flow.rs (target\debug\deps\sf05_signal_flow-4690e2cb7f248076.exe)
+
+running 1 test
+test published_without_rt_observation_is_not_displayed_as_active ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.09s
+
+     Running tests\shell.rs (target\debug\deps\shell-6226618f704d006d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.00s
+
+     Running tests\sv113_dock.rs (target\debug\deps\sv113_dock-55f08155aeb851ea.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sv266_wiring.rs (target\debug\deps\sv266_wiring-5e5b3a4a2dc46b5a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\sv643_jobs_ledger.rs (target\debug\deps\sv643_jobs_ledger-ac7e393f127c76c1.exe)
+
+running 5 tests
+test generic_job_cancel_reaches_import_job ... ok
+test restart_restores_queued_preview_as_failed ... ok
+test restart_restores_inflight_import_as_recoverable ... ok
+test restart_restores_cancel_requested_as_cancelled ... ok
+test restart_replays_pending_commit_to_committed_live ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.45s
+
+     Running tests\sv646_pending_commit_replay.rs (target\debug\deps\sv646_pending_commit_replay-8a6104d480c953e1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sv_os_headless.rs (target\debug\deps\sv_os_headless-9f5d64ae57d6d673.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\svscript04_script_editor.rs (target\debug\deps\svscript04_script_editor-929e0e7c81d7ad9a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\svt_product_e2e.rs (target\debug\deps\svt_product_e2e-f548be32ed8f86bd.exe)
+
+running 1 test
+test svt05_transport_receipt_projection_phase_progression ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.04s
+
+     Running tests\svt_product_e2e_gpui.rs (target\debug\deps\svt_product_e2e_gpui-3577791aaeb69015.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\theme_parity.rs (target\debug\deps\theme_parity-1a94a0dc50397a32.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim01_ppqn_app.rs (target\debug\deps\tim01_ppqn_app-9a088f34dd68a166.exe)
+
+running 1 test
+test set_ppqn_rejects_while_transport_playing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.03s
+
+     Running tests\tim01_ppqn_preview.rs (target\debug\deps\tim01_ppqn_preview-ae4461d7e9ed18b0.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\tim01_ppqn_ui.rs (target\debug\deps\tim01_ppqn_ui-1aaa2acda23b309b.exe)
+
+running 1 test
+test preview_and_spec_report_snap_grid_policy ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.03s
+
+     Running tests\tim01_ppqn_widget.rs (target\debug\deps\tim01_ppqn_widget-4dce701ef3ab4170.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\tim02_midi_delivery.rs (target\debug\deps\tim02_midi_delivery-34b83416cd34f943.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\tim02_smf_app.rs (target\debug\deps\tim02_smf_app-4d9005eb7a362add.exe)
+
+running 10 tests
+test import_smf_rejects_stale_expected_revision ... ok
+test import_smf_typed_errors ... ok
+test export_smf_typed_errors ... ok
+test import_smf_rejects_while_transport_playing ... ok
+test import_smf_mints_source_and_reports_summary ... ok
+test export_smf_is_read_only ... ok
+test import_smf_undo_redo_round_trip ... ok
+test export_smf_writes_file_and_reports_conversion ... ok
+test import_export_reimport_round_trip ... ok
+test import_smf_survives_save_reload ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.17s
+
+     Running tests\tim03_l1_frame_boundary_matrix.rs (target\debug\deps\tim03_l1_frame_boundary_matrix-f7d8637a3b498711.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\tim03_l1_instrument_transport.rs (target\debug\deps\tim03_l1_instrument_transport-c284dffa422c29c7.exe)
+
+running 2 tests
+test clap_instrument_transport_clicks ... ok
+test vst3_instrument_transport_clicks ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.38s
+
+     Running tests\tim03_l1_process_oracle.rs (target\debug\deps\tim03_l1_process_oracle-596232b345444c45.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\tim03_l1_production_musical_transport.rs (target\debug\deps\tim03_l1_production_musical_transport-aa1f6ea6d118a202.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\tim03_l1_transport_application.rs (target\debug\deps\tim03_l1_transport_application-88d74210841ff72e.exe)
+
+running 2 tests
+test tim03_l1_vst3_transport_application ... ok
+test tim03_l1_clap_transport_application ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+     Running tests\tim03_real_abi_process_oracle.rs (target\debug\deps\tim03_real_abi_process_oracle-9948e91f680e89b8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\two_window.rs (target\debug\deps\two_window-f8177e3aaec06397.exe)
+
+running 2 tests
+test secondary_spec_is_a_transport_deck ... ok
+test both_views_display_the_same_transport_truth ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.05s
+
+     Running tests\ui_ops.rs (target\debug\deps\ui_ops-00e74aac9e76d49a.exe)
+
+running 2 tests
+test project_undo_redo_ops_dispatch_and_report_empty_history ... ok
+test transport_action_receipt_and_projection_flow ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.02s
+
+     Running tests\uic5_app.rs (target\debug\deps\uic5_app-889e177f8f729e38.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\vcs04_history.rs (target\debug\deps\vcs04_history-a97195092448c361.exe)
+
+running 1 test
+test staged_and_saved_endpoints_report_honestly ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.01s
+
+     Running tests\vcs04_mount_gpui.rs (target\debug\deps\vcs04_mount_gpui-d7a0c2c243ab7bfe.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\vcs04_native_mount.rs (target\debug\deps\vcs04_native_mount-bfb04e1cac181652.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\vcs06_ui_matrix.rs (target\debug\deps\vcs06_ui_matrix-3e92c0af3cdc9dbb.exe)
+
+running 1 test
+test cross_project_committed_endpoints_report_unknown_not_equal ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.01s
+
+     Running tests\vcs_backend_wiring.rs (target\debug\deps\vcs_backend_wiring-4c11026c6a144476.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\view_mount.rs (target\debug\deps\view_mount-b4c4f3c4b10a3922.exe)
+
+running 2 tests
+test main_spec_carries_transport_buttons_status_and_inspector_table ... ok
+test transport_buttons_play_and_stop_through_the_command_path ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.04s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_automation-61380895e5f4156b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\action_recipe.rs (target\debug\deps\action_recipe-3d91a6e58ce099bc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\compiler.rs (target\debug\deps\compiler-d390d50a8bb06af1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.00s
+
+     Running tests\coordinator.rs (target\debug\deps\coordinator-312514cd7d13a0ec.exe)
+
+running 1 test
+test duplicate_start_is_idempotent_rejected ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.01s
+
+     Running tests\decode.rs (target\debug\deps\decode-cb282a198619286e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\determinism.rs (target\debug\deps\determinism-5473acb7512c3b67.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\importer.rs (target\debug\deps\importer-382869053cb5087b.exe)
+
+running 2 tests
+test import_cycle_rejected ... ok
+test import_depth_exceeded_rejected ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.02s
+
+     Running tests\live_adapters.rs (target\debug\deps\live_adapters-7a6f35132a625d1b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\macros.rs (target\debug\deps\macros-04cbe14da4658cb8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+     Running tests\mixed_source_run.rs (target\debug\deps\mixed_source_run-95e14fd0bddcb2fa.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\script_analyzer.rs (target\debug\deps\script_analyzer-b6cacbf11fda3b5a.exe)
+mbx[progress]: 9m elapsed; 46 hits, 361 misses, 2 bypassed, 2 not looked up; ~1m 23s compiler work saved
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\yaml_subset.rs (target\debug\deps\yaml_subset-a33a1745badef00e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_cli-4750f83b65bf345f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running unittests src\main.rs (target\debug\deps\synvelis_cli-a552ce4b596a1a6a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\cli_analyze.rs (target\debug\deps\cli_analyze-87441f1f0af309bd.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\cli_e2e.rs (target\debug\deps\cli_e2e-693ef3d849a01509.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_gateway-9f9063083103598b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running unittests src\bin\gw10_report.rs (target\debug\deps\gw10_report-86a9714766b7198c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\authorization.rs (target\debug\deps\authorization-231b6dba35447f92.exe)
+
+running 1 test
+test invoke_transport_under_grant ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 73 filtered out; finished in 0.00s
+
+     Running tests\autx06_live_adapters.rs (target\debug\deps\autx06_live_adapters-0ce63afb8eb148e5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\cb06_strip_gateway.rs (target\debug\deps\cb06_strip_gateway-999444bfdb476273.exe)
+
+running 1 test
+test cb06_strip_fields_insert_ops_wire_lowering ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.08s
+
+     Running tests\cb10_variant_actions.rs (target\debug\deps\cb10_variant_actions-b89777608afe41e5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests\cb11_ai_vcs_off.rs (target\debug\deps\cb11_ai_vcs_off-11171483dd283c19.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\cli_adapter.rs (target\debug\deps\cli_adapter-e9a364f4a76b1e64.exe)
+
+running 1 test
+test wire_payloads_cannot_assert_authority_or_identity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.00s
+
+     Running tests\commit_gate.rs (target\debug\deps\commit_gate-6f969d224800ccf4.exe)
+
+running 1 test
+test restart_recovers_committed_state_and_verdict ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.05s
+
+     Running tests\context.rs (target\debug\deps\context-78b068bd2a2c5ad6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 43 filtered out; finished in 0.00s
+
+     Running tests\contract.rs (target\debug\deps\contract-61c132062576fc0f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.00s
+
+     Running tests\ctl_01.rs (target\debug\deps\ctl_01-2abc2a23d79b7c90.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\fixtures.rs (target\debug\deps\fixtures-8a9c3dd1ed189cb1.exe)
+
+running 1 test
+test transport_fixture_roundtrip ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\formal_journal\main.rs (target\debug\deps\formal_journal-336cf465d20cdbd6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.00s
+
+     Running tests\gw04_bindings.rs (target\debug\deps\gw04_bindings-9bf3f3241c2a28f8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\gw10_authorization.rs (target\debug\deps\gw10_authorization-e6546cc89a8477cc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.00s
+
+     Running tests\gw10_concurrency.rs (target\debug\deps\gw10_concurrency-0c0fa7cb374df09c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\gw10_contract.rs (target\debug\deps\gw10_contract-34053069a7892cbf.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\gw10_harness.rs (target\debug\deps\gw10_harness-67c5a4bc8f364f88.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\gw10_job.rs (target\debug\deps\gw10_job-2d0967e96620a5c3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\gw10_mcp.rs (target\debug\deps\gw10_mcp-507345e4d18210f3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\gw10_persistence.rs (target\debug\deps\gw10_persistence-51038989cf445cb9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\gw10_project.rs (target\debug\deps\gw10_project-d75dfcb88bb15b47.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\gw10_system.rs (target\debug\deps\gw10_system-0e17233744bae4d7.exe)
+
+running 1 test
+test sys07_rt_boundary_is_recorded_not_claimed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.04s
+
+     Running tests\job.rs (target\debug\deps\job-36304e3db6563ac6.exe)
+
+running 1 test
+test progress_polls_report_provider_truth ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests\mcp_adapter.rs (target\debug\deps\mcp_adapter-719b85e9f95e1954.exe)
+
+running 2 tests
+test settle_op_reports_committed_after_restart_scoped_reconcile ... ok
+test file_store_survives_restart_and_never_leaks_secrets ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.02s
+
+     Running tests\prepare.rs (target\debug\deps\prepare-67a9712c207abdc6.exe)
+
+running 1 test
+test prepare_param_set_base_and_insert_processor_lower ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 31 filtered out; finished in 0.01s
+
+     Running tests\prepare_regressions.rs (target\debug\deps\prepare_regressions-6dfeb74535e7d10c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\proposal.rs (target\debug\deps\proposal-7816057e32e08cf3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 30 filtered out; finished in 0.00s
+
+     Running tests\proposal_regressions.rs (target\debug\deps\proposal_regressions-84062b123a7654c5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+     Running tests\schema_compat.rs (target\debug\deps\schema_compat-b4cd20f92da5c64b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\script_action.rs (target\debug\deps\script_action-9368f3b8d33382ba.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\sv517_render_actions.rs (target\debug\deps\sv517_render_actions-701a4de958e4e675.exe)
+
+running 1 test
+test render_without_dispatch_port_fails_closed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.02s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_library-df0577b45d2f641b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 27 filtered out; finished in 0.00s
+
+     Running tests\cache.rs (target\debug\deps\cache-112ec6e5c965b84a.exe)
+
+running 1 test
+test rt_queue_is_bounded_and_accounts_drops ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests\containment_swap.rs (target\debug\deps\containment_swap-1cb3b95cb6402f13.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\contract.rs (target\debug\deps\contract-e8d0d6d0b0938779.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\git.rs (target\debug\deps\git-44a0657378d2a798.exe)
+
+running 1 test
+test import_verified_consumes_git_blob_and_lfs_pins ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 27 filtered out; finished in 3.45s
+
+     Running tests\import.rs (target\debug\deps\import-bbbc162ef770a837.exe)
+
+running 6 tests
+test cancel_during_verify_is_typed_and_same_import_resumes ... ok
+test cancel_mid_stream_is_typed_and_same_import_resumes ... ok
+test cancel_during_publish_is_typed_and_same_import_resumes ... ok
+test same_import_id_different_content_is_conflict ... ok
+test replay_same_import_is_idempotent ... ok
+test import_streams_verifies_publishes_and_commits ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.19s
+
+     Running tests\import_recovery.rs (target\debug\deps\import_recovery-c54b894382cbbe86.exe)
+
+running 1 test
+test undo_after_commit_reimport_converges ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.05s
+
+     Running tests\lfs.rs (target\debug\deps\lfs-646f9db8950ecf82.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.00s
+
+     Running tests\local.rs (target\debug\deps\local-992a3310dd434f99.exe)
+
+running 1 test
+test pin_failure_blocks_formal_import_path ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.00s
+
+     Running tests\project.rs (target\debug\deps\project-8d06a31755fce7be.exe)
+
+running 1 test
+test descending_size_sort_keeps_unknown_last ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+     Running tests\rt_cache.rs (target\debug\deps\rt_cache-c86c6c761fe53c77.exe)
+
+running 1 test
+test rt_event_enqueue_is_alloc_and_dealloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\types.rs (target\debug\deps\types-2c609906ae9b2e77.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\vcs03_git_provider.rs (target\debug\deps\vcs03_git_provider-d5625bfc689d7dd8.exe)
+
+running 1 test
+test staged_snapshot_and_working_status_report_index_state ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.78s
+
+     Running tests\vcs06_git_matrix.rs (target\debug\deps\vcs06_git_matrix-1f91bd12472d2698.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\webdav.rs (target\debug\deps\webdav-ee28d68f46635c23.exe)
+
+running 2 tests
+test import_verified_consumes_webdav_pin ... ok
+test https_dead_port_fails_typed_not_unsupported ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 58 filtered out; finished in 2.08s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_player-5563f958416d60e0.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running unittests examples\tim04_l1_plugin_runner.rs (target\debug\deps\tim04_l1_plugin_runner-e96c36f30c144c3e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\ctl_02.rs (target\debug\deps\ctl_02-b5f0ebff60aecc12.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\l1_e2e.rs (target\debug\deps\l1_e2e-68f28a2d1445099f.exe)
+
+running 2 tests
+test l1_01_import_verifies_and_materializes ... ok
+test l1_04_import_idempotency_and_orphan ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.06s
+
+     Running tests\md_b.rs (target\debug\deps\md_b-107a20dd46f999fb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\monitor.rs (target\debug\deps\monitor-399a532053bc2c81.exe)
+
+running 1 test
+test empty_report_resolves_to_unknown ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests\monitor_engine.rs (target\debug\deps\monitor_engine-6a6e3c7f2abccac8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\monitor_rt_node.rs (target\debug\deps\monitor_rt_node-9914181a72bfe826.exe)
+
+running 9 tests
+test monitor_rt_node_constructor_rejects_invalid_config ... ok
+test monitor_rt_node_compiled_monitor_input_is_a_direct_edge ... ok
+test monitor_rt_node_frames_above_configured_max_write_zero_output ... ok
+test monitor_rt_node_unused_missing_monitor_input_is_not_input_missing ... ok
+test monitor_rt_node_distinguishes_supplied_silence_from_missing_input ... ok
+test monitor_rt_node_control_overflow_mutes_next_observed_block ... ok
+test monitor_rt_node_mid_block_boundaries_match_independent_oracle ... ok
+test monitor_rt_node_playback_passthrough_preserves_bits_and_nonmonitor_path ... ok
+test monitor_rt_node_schedule_contract_violations_fail_closed ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\monitor_rt_rt.rs (target\debug\deps\monitor_rt_rt-515e5717f4d0ad0b.exe)
+
+running 1 test
+test rt_monitor_node_process_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pc_b.rs (target\debug\deps\pc_b-3c12c2bf411ee0d4.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_03_observation.rs (target\debug\deps\pc_c4_03_observation-2c0ccaa9e7b1e753.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_05_persisted_instance.rs (target\debug\deps\pc_c4_05_persisted_instance-0337d694d5dd4936.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_07_capability_rebind.rs (target\debug\deps\pc_c4_07_capability_rebind-073afa221c8a4899.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\pc_c4_07_transport_observe.rs (target\debug\deps\pc_c4_07_transport_observe-58f2badb93f343f8.exe)
+
+running 1 test
+test pc_c4_07_01_observe_block_derives_transport_span ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.07s
+
+     Running tests\pc_c4_binding.rs (target\debug\deps\pc_c4_binding-9727c631814b2fa1.exe)
+
+running 1 test
+test pc_c4_01_eval_dispatch_receipt_rt_offline_parity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.01s
+
+     Running tests\pc_c4_binding_rt.rs (target\debug\deps\pc_c4_binding_rt-383fede611592c49.exe)
+
+running 1 test
+test rt_pc_c4_session_bound_dispatch_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_pl.rs (target\debug\deps\pc_c6_oracle_pl-0c813e3c741e4e30.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_pl_rt.rs (target\debug\deps\pc_c6_oracle_pl_rt-2248fb2842bdfe80.exe)
+
+running 1 test
+test rt_pl05_param_delivery_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_tr_dispatch.rs (target\debug\deps\pc_c6_oracle_tr_dispatch-20ab2c4d7659621b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\rcd02_blob_digest.rs (target\debug\deps\rcd02_blob_digest-2d7a5bee120abd1e.exe)
+
+running 1 test
+test report_carries_provenance_fields ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.03s
+
+     Running tests\rcd_04_midi_phrase_boundary.rs (target\debug\deps\rcd_04_midi_phrase_boundary-5354b34f6f69a9e8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\rcp_04.rs (target\debug\deps\rcp_04-e4977a58d03ebfe7.exe)
+
+running 2 tests
+test ex02_multiout_requires_every_output_port_covered ... ok
+test ex01_offline_render_and_export_require_exact ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.00s
+
+     Running tests\sf03_l1.rs (target\debug\deps\sf03_l1-38120e3e93f89f29.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\sf03_l2.rs (target\debug\deps\sf03_l2-4bb026da62acc57a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\sf03_l3.rs (target\debug\deps\sf03_l3-5484811fc4f52e97.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\sf03_l4.rs (target\debug\deps\sf03_l4-3768a7e0c692caf9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\sf03_l6.rs (target\debug\deps\sf03_l6-ca777e87b4ec355c.exe)
+
+running 1 test
+test sf03_l6_02_gate_holds_until_rt_observes_activation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.04s
+
+     Running tests\sf03_l9.rs (target\debug\deps\sf03_l9-840286c34030d1f2.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sf04_loop_discontinuity.rs (target\debug\deps\sf04_loop_discontinuity-332709f12392e305.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\sf04_probe_acceptance.rs (target\debug\deps\sf04_probe_acceptance-008070adfb55fa2a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\sf04_probe_adapter.rs (target\debug\deps\sf04_probe_adapter-6c613ea426eb5e81.exe)
+
+running 1 test
+test sf04_probe_request_queues_then_rt_confirms_bound_active ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sf04_s2_probe_trace_bridge.rs (target\debug\deps\sf04_s2_probe_trace_bridge-ea882d79e60ba73d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\sf04_s3_probe_discontinuity.rs (target\debug\deps\sf04_s3_probe_discontinuity-d684548dfe19ddde.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sf04_s7_probe_compare.rs (target\debug\deps\sf04_s7_probe_compare-4f8f5c5d135abc35.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\sf04_s8_probe_faults.rs (target\debug\deps\sf04_s8_probe_faults-5af70dc895781baf.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sf04_s9_probe_discontinuity_declare.rs (target\debug\deps\sf04_s9_probe_discontinuity_declare-c0169a30baf91474.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\sf06_send_path_pcm.rs (target\debug\deps\sf06_send_path_pcm-47d42ce61be561e0.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\sf_xr_01.rs (target\debug\deps\sf_xr_01-31b78f19ae91ea1c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\tim02_midi_node_delivery.rs (target\debug\deps\tim02_midi_node_delivery-e07cc50b60e2e2b8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\tim02_midi_playback.rs (target\debug\deps\tim02_midi_playback-3f954f4af74950ab.exe)
+
+running 1 test
+test tim02_rt_offline_parity ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.02s
+
+     Running tests\tim02_midi_rt.rs (target\debug\deps\tim02_midi_rt-b9661e24efe2239d.exe)
+
+running 1 test
+test rt_midi_delivery_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim03_attach_wiring.rs (target\debug\deps\tim03_attach_wiring-f39b2937efa0440c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\tim03_driver_loop_boundary.rs (target\debug\deps\tim03_driver_loop_boundary-e13e11c468695604.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\tim03_loop_boundary.rs (target\debug\deps\tim03_loop_boundary-8b989926e63c9b27.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\tim03_musical_transport_plan.rs (target\debug\deps\tim03_musical_transport_plan-17b89f621d8a756d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\tim03_process_boundary.rs (target\debug\deps\tim03_process_boundary-4aa0ef73fd959835.exe)
+
+running 1 test
+test tim03_node_stale_transport_generation_zero_delivery ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+     Running tests\tim03_process_boundary_rt.rs (target\debug\deps\tim03_process_boundary_rt-8cae48111ebda8d7.exe)
+
+running 1 test
+test rt_process_boundary_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\tim03_request_plan.rs (target\debug\deps\tim03_request_plan-f2d06beb354eca3d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\tim03_session_wiring.rs (target\debug\deps\tim03_session_wiring-47c42aa41d355537.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\tim04_l1_abi_state.rs (target\debug\deps\tim04_l1_abi_state-ee1e221784037279.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\tim04_plugin_state.rs (target\debug\deps\tim04_plugin_state-396310065afe73b7.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\tim04_real_abi_state.rs (target\debug\deps\tim04_real_abi_state-b9b6e73bdbf05732.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\trace_c3_05.rs (target\debug\deps\trace_c3_05-8f6fa3e91dbcda11.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\trace_c3_05_rt.rs (target\debug\deps\trace_c3_05_rt-05c9b1d2c20f887b.exe)
+
+running 1 test
+test rt_trace_adapter_hot_path_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\verified_import.rs (target\debug\deps\verified_import-f2a7ae4b474831bc.exe)
+
+running 2 tests
+test sha256_import_resolves_and_plays ... ok
+test undo_then_reimport_converges_reserved_ids ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.09s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_plugin_test_l1_runner-32543d0cb95468df.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\clap.rs (target\debug\deps\synvelis_plugin_test_clap_l1_runner-f3c601f31164df9b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\bin\vst3.rs (target\debug\deps\synvelis_plugin_test_vst3_l1_runner-3fea539cb6f42917.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_project-508730add60ff86b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\alib02_digest.rs (target\debug\deps\alib02_digest-981f0a42b08dbf69.exe)
+
+running 1 test
+test applied_import_receipt_must_name_live_entities ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\alib02_v5_real.rs (target\debug\deps\alib02_v5_real-33e2f0273d432cd5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\aut_02.rs (target\debug\deps\aut_02-ed6f39a313d0a770.exe)
+
+running 1 test
+test aut_02_rt_eval_matches_offline_after_replace ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests\cb01_variant.rs (target\debug\deps\cb01_variant-9b901e1fb1bedd8c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+     Running tests\cb02_audio_take.rs (target\debug\deps\cb02_audio_take-d8b6add1c35d28d4.exe)
+
+running 1 test
+test cb_clip_02_capability_report_matches_edit_enforcement ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.01s
+
+     Running tests\cb03_midi_clip.rs (target\debug\deps\cb03_midi_clip-4957c179426972ab.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\cb04_instrument_slot.rs (target\debug\deps\cb04_instrument_slot-10ff71d2ca1e7492.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\cb05_fx_range.rs (target\debug\deps\cb05_fx_range-2afeff7d32cd75a6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\cb06_strip_fields.rs (target\debug\deps\cb06_strip_fields-0d59ede880e8ff85.exe)
+
+running 1 test
+test cb_strip_06_insert_state_assessment_verbatim ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.02s
+
+     Running tests\cb07_arrangement.rs (target\debug\deps\cb07_arrangement-a0d1ac078eba617e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\cb08_compare_orchestrator.rs (target\debug\deps\cb08_compare_orchestrator-d1dd85e58eacfab6.exe)
+
+running 1 test
+test cb08_cmp_02_plugin_insert_marks_plugin_dimension_stale ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.05s
+
+     Running tests\cb11_cross_gate.rs (target\debug\deps\cb11_cross_gate-a32ac2a4263725c6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\composite.rs (target\debug\deps\composite-1010a0f9d773edff.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\controller_store.rs (target\debug\deps\controller_store-b233203f173a4659.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\ctl_01.rs (target\debug\deps\ctl_01-72c79a679d45b95b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s
+
+     Running tests\ctl_02.rs (target\debug\deps\ctl_02-4420ebdaffc84379.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s
+
+     Running tests\head_cas.rs (target\debug\deps\head_cas-ffa2f1d93b36b5c3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\id_time_range.rs (target\debug\deps\id_time_range-d34f26c4aab69ade.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\md_a.rs (target\debug\deps\md_a-6487d474b9ffdac2.exe)
+
+running 1 test
+test regression_media_region_sort_uses_time_not_raw_value ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests\midi_source.rs (target\debug\deps\midi_source-f5b6fd714197d8b0.exe)
+mbx[progress]: 10m elapsed; 46 hits, 361 misses, 2 bypassed, 2 not looked up; ~1m 23s compiler work saved
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\monitoring_persist.rs (target\debug\deps\monitoring_persist-d46109da27a001dd.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\pc_b_rt.rs (target\debug\deps\pc_b_rt-d000caff62cfe08b.exe)
+
+running 1 test
+test rt_control_eval_and_lower_alloc_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pc_c2_relation.rs (target\debug\deps\pc_c2_relation-da6dfa45af8c3f58.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_rel.rs (target\debug\deps\pc_c6_oracle_rel-280ba83e5ec1c171.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_tr.rs (target\debug\deps\pc_c6_oracle_tr-e711b72adfb32840.exe)
+
+running 1 test
+test tr03_transport_seek_loop_restart ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\plugin_instance_persist.rs (target\debug\deps\plugin_instance_persist-2a5dbf109273b2ee.exe)
+
+running 3 tests
+test unresolved_insert_has_no_entry ... ok
+test remove_then_insert_never_reuses_id ... ok
+test resolved_insert_allocates_and_roundtrips ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\plugin_state.rs (target\debug\deps\plugin_state-53949f5e38af0672.exe)
+
+running 1 test
+test unresolved_binding_and_missing_instance_fail_unavailable_without_port_call ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\rcd_04_comp_cas.rs (target\debug\deps\rcd_04_comp_cas-2d623048000e22ca.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\rcd_04_midi_phrase.rs (target\debug\deps\rcd_04_midi_phrase-b21783ebf3eafb35.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\rcd_04_vcs_stable_id.rs (target\debug\deps\rcd_04_vcs_stable_id-1f15abcc4a93f617.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\real_fs_probe.rs (target\debug\deps\real_fs_probe-12effa917e992be1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\routing_sf01.rs (target\debug\deps\routing_sf01-7d53e135315b5cf9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\sf04_project_probe.rs (target\debug\deps\sf04_project_probe-7752317c2d57283f.exe)
+
+running 1 test
+test explicit_port_must_agree_with_the_boundary_selection ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\sf06_oracle.rs (target\debug\deps\sf06_oracle-f6735cbe0f85fbc5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sf_02.rs (target\debug\deps\sf_02-2c590cc8471e4bad.exe)
+
+running 1 test
+test a_stale_port_capability_generation_rejects ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\store_publish.rs (target\debug\deps\store_publish-9e20380a7dc39d10.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\sv517_render_wiring.rs (target\debug\deps\sv517_render_wiring-ad42f7b5765c5eca.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sv561_unobservable_cascade.rs (target\debug\deps\sv561_unobservable_cascade-49f66a97a913b88f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\sv571_rebind_port_binding.rs (target\debug\deps\sv571_rebind_port_binding-bfa61e2954a40f04.exe)
+
+running 2 tests
+test rebind_to_unresolved_marks_every_port_unresolved ... ok
+test rebind_to_unresolved_rejects_endpoints_like_insert_path ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\sv572_port_capability_generation.rs (target\debug\deps\sv572_port_capability_generation-a2c7ad62585b36a7.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\tempo.rs (target\debug\deps\tempo-3c38692457f1f3c2.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\tim_01_ppqn.rs (target\debug\deps\tim_01_ppqn-cc48b53eae49c03c.exe)
+
+running 1 test
+test rt_ppqn_beat_to_frame_rounding_reproduces ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.00s
+
+     Running tests\tim_02_ppqn_smf.rs (target\debug\deps\tim_02_ppqn_smf-2820bc4e73d16fdd.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\tim_02_smf.rs (target\debug\deps\tim_02_smf-b1624a1833dc87ef.exe)
+
+running 10 tests
+test smf_export_ppqn_down_reports_rounding_and_max_error ... ok
+test smf_export_overflow_is_typed ... ok
+test smf_import_creates_source_with_native_division_and_projection ... ok
+test smf_export_rejects_invalid_targets ... ok
+test smf_export_format1_preserves_track_structure ... ok
+test smf_export_same_tick_noteoff_precedes_noteon ... ok
+test smf_export_synthesizes_notes_only_source ... ok
+test smf_export_ppqn_up_conversion_is_exact ... ok
+test smf_export_same_format_division_is_golden ... ok
+test smf_export_format0_merges_tracks_deterministically ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\trace_c3.rs (target\debug\deps\trace_c3-61f351371ac5af34.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\vcs01_snapshot.rs (target\debug\deps\vcs01_snapshot-70c0973a1aa9b735.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.00s
+
+     Running tests\vcs02_diff.rs (target\debug\deps\vcs02_diff-5a824b7bdf2cd391.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 36 filtered out; finished in 0.00s
+
+     Running tests\vcs05_apply.rs (target\debug\deps\vcs05_apply-2f6bbb425f795bd4.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests\vcs05_restore.rs (target\debug\deps\vcs05_restore-5d4170335734fa2c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\vcs06_apply_matrix.rs (target\debug\deps\vcs06_apply_matrix-2dbb5811166d3959.exe)
+
+running 1 test
+test directory_journal_survives_restart_and_replays ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.02s
+
+     Running tests\vcs06_diff_matrix.rs (target\debug\deps\vcs06_diff_matrix-ea99c155410f48d7.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\vcs06_monitoring_matrix.rs (target\debug\deps\vcs06_monitoring_matrix-00ad3f2d8c133122.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\vcs06_plugin_instance_matrix.rs (target\debug\deps\vcs06_plugin_instance_matrix-c0b4dbb28446c966.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\vcs06_restore_matrix.rs (target\debug\deps\vcs06_restore_matrix-ce3a93cbadea6990.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\vcs06_variant_matrix.rs (target\debug\deps\vcs06_variant_matrix-354b0175aca66139.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\vcs07_variant_diff.rs (target\debug\deps\vcs07_variant_diff-3c848de2415eea10.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_recording-476af40ba42e0fed.exe)
+
+running 1 test
+test faultinj::tests::short_write_lands_partial_then_fails ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests\device_recording.rs (target\debug\deps\device_recording-dbc160193267d760.exe)
+
+running 1 test
+test fake_rt_queue_full_fails_stop ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.02s
+
+     Running tests\formal_journal.rs (target\debug\deps\formal_journal-a8abd56d073b5f15.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\input_adapter.rs (target\debug\deps\input_adapter-462e4999adc049fc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.00s
+
+     Running tests\input_adapter_rt_alloc.rs (target\debug\deps\input_adapter_rt_alloc-f8a40dcdef772c2e.exe)
+
+running 1 test
+test rt_callback_is_alloc_and_drop_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\monitor_gate.rs (target\debug\deps\monitor_gate-336b4dc1e8554489.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+     Running tests\monitor_punch_session.rs (target\debug\deps\monitor_punch_session-be8248766cfb3be9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\project_adapter.rs (target\debug\deps\project_adapter-7ec0dcfdfa9846bb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\rcd01_oracle.rs (target\debug\deps\rcd01_oracle-df66d4acd8feba23.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\rcd_04_recovery_partial.rs (target\debug\deps\rcd_04_recovery_partial-32ec15204ffaad36.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\rcd_04_take_comp_pcm.rs (target\debug\deps\rcd_04_take_comp_pcm-b2f9ae2fba4603b1.exe)
+
+running 1 test
+test rcd04_comp_pcm_rt_vs_offline_fixture ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running tests\real_input.rs (target\debug\deps\real_input-ee0176d598861e8c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\recording.rs (target\debug\deps\recording-4e969b4658353389.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\recovery_review.rs (target\debug\deps\recovery_review-5c817bb12a3bf281.exe)
+
+running 1 test
+test rcd02_fault_matrix_journal_short_write_torn_append ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.02s
+
+     Running tests\rf628_oracle.rs (target\debug\deps\rf628_oracle-b4a6b1d38c3387e8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\rf628_oracle_rt_alloc.rs (target\debug\deps\rf628_oracle_rt_alloc-5650578a24874b73.exe)
+
+running 1 test
+test rt_scripted_input_callback_is_alloc_and_drop_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\staged_publish.rs (target\debug\deps\staged_publish-714307c1586bcd58.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\tim_02_midi_phrase.rs (target\debug\deps\tim_02_midi_phrase-b9add42789e26a70.exe)
+
+running 2 tests
+test smf_import_feeds_phrase_plan_with_zero_hanging_notes ... ok
+test smf_import_then_export_reimport_roundtrips_through_project ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\virtual_endpoint.rs (target\debug\deps\virtual_endpoint-46a883d0820de120.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\vs_b.rs (target\debug\deps\vs_b-fe0a4aa8129d0426.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\vs_b_rt_alloc.rs (target\debug\deps\vs_b_rt_alloc-ae030eedbf4e8ac5.exe)
+
+running 1 test
+test rt_path_is_alloc_and_drop_free ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\vs_c.rs (target\debug\deps\vs_c-381dfc64603c680a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+     Running tests\vs_d.rs (target\debug\deps\vs_d-5667ce7ed5388bac.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_render-4ebfb47a16ebfdaa.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\l2_e2e.rs (target\debug\deps\l2_e2e-5de97d627441324b.exe)
+
+running 3 tests
+test l2_04_unknown_tail_and_support_rejected ... ok
+test l2_01_master_export_reopen_pcm_match ... ok
+test md_b_comp_export_pcm_exact ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.11s
+
+     Running tests\rcd_04_rt_comp_pcm.rs (target\debug\deps\rcd_04_rt_comp_pcm-34647d1e8ec2d773.exe)
+
+running 2 tests
+test rcd_04_rt_engine_unsupported_mapping_fails_closed ... ok
+test rcd_04_rt_engine_comp_pcm_matches_offline_export ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.26s
+
+     Running tests\rcp01_recipe.rs (target\debug\deps\rcp01_recipe-c0c8424e3499a2b9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\rcp02_artifact.rs (target\debug\deps\rcp02_artifact-2af9cc93770e5582.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+     Running tests\rcp03_render_policy.rs (target\debug\deps\rcp03_render_policy-63621165c34ee3d1.exe)
+
+running 1 test
+test pol05_besteffort_share_discloses_partial_never_complete ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.06s
+
+     Running tests\rcp07_gate.rs (target\debug\deps\rcp07_gate-d5062ad41f0491a9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\sf03_render.rs (target\debug\deps\sf03_render-dde5092778fcebab.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\tim04_plugin_state.rs (target\debug\deps\tim04_plugin_state-4edd2d1c27509441.exe)
+
+running 3 tests
+test strict_export_fails_at_preflight_before_destination ... ok
+test standard_export_completes_and_records_evidence_verbatim ... ok
+test strict_export_with_exact_evidence_completes ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.06s
+
+     Running tests\tim04_rcp01_state_projection.rs (target\debug\deps\tim04_rcp01_state_projection-c1001f1eab8ad780.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\x_e2e.rs (target\debug\deps\x_e2e-8fc8170a0e4a60a9.exe)
+
+running 1 test
+test x_01_recorded_playback_export_bit_exact ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.60s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_script-dcc060d1ba5ca0de.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\action.rs (target\debug\deps\action-0ef22e793a0ecab6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests\analyzer.rs (target\debug\deps\analyzer-503578289c5169d5.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\backend.rs (target\debug\deps\backend-12351768214686fa.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\binding.rs (target\debug\deps\binding-8b40965ba9327603.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\golden.rs (target\debug\deps\golden-8aeee5ce19bc87d6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\luau.rs (target\debug\deps\luau-01e74afc5fa6443a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\model.rs (target\debug\deps\model-09d751e183e2a4ca.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+     Running tests\workflow.rs (target\debug\deps\workflow-2a48d2f4b8aaf2db.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_script_luau-ca5950fddc22afdc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\backend.rs (target\debug\deps\backend-f70ba93f40c8f212.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 30 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_theme-29606b09c93fe1cf.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\theme_contract.rs (target\debug\deps\theme_contract-e1955a46ce195b0e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running unittests src\lib.rs (target\debug\deps\synvelis_workspace-1407c7b29ca6d187.exe)
+
+running 4 tests
+test probe_trace::tests::sf04_s5_port_failures_leave_local_state_untouched ... ok
+test probe_trace::tests::sf04_s5_resubscribe_after_remove_is_a_fresh_port_request ... ok
+test probe_trace::tests::sf04_s5_two_views_share_one_port_request_and_fan_out ... ok
+test library_ui::tests::import_committed_live_with_receipt ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.01s
+
+     Running tests\adopt.rs (target\debug\deps\adopt-8297cab51768a4af.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\arrangement_rows.rs (target\debug\deps\arrangement_rows-af9dd116ca4da48d.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\aut_01.rs (target\debug\deps\aut_01-22ca55a86f0d186c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\aut_03.rs (target\debug\deps\aut_03-35e11f2d9d8c803d.exe)
+
+running 1 test
+test aut_03_wrap_seals_at_exact_loop_end_transport_continues ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\aut_04.rs (target\debug\deps\aut_04-5a9e442e78465db4.exe)
+
+running 1 test
+test record_event_rt_rejects_when_gates_closed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\aut_04_rt.rs (target\debug\deps\aut_04_rt-9a65ddd33d00c1b4.exe)
+
+running 1 test
+test record_event_rt_alloc_free_bounded_and_typed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\autx01_action_catalog.rs (target\debug\deps\autx01_action_catalog-c42b803463f06fee.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\autx07_automation_ui.rs (target\debug\deps\autx07_automation_ui-2c243035c6918833.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 29 filtered out; finished in 0.00s
+
+     Running tests\autx07_catalog_seam.rs (target\debug\deps\autx07_catalog_seam-acfdd0695d1de842.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\autx08_e2e.rs (target\debug\deps\autx08_e2e-e617c856c19d6c72.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\cb09_diff_explorer.rs (target\debug\deps\cb09_diff_explorer-3771c3eda3919979.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.00s
+
+     Running tests\ed_a.rs (target\debug\deps\ed_a-4d5775d37c877871.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\ed_b.rs (target\debug\deps\ed_b-c4286a8e6547315a.exe)
+
+running 2 tests
+test ed_b_02_start_trim_past_end_rejects ... ok
+test ed_b_02_start_trim_single_floor_across_bases ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.00s
+
+     Running tests\fixture_bundle.rs (target\debug\deps\fixture_bundle-f6daa37621b9dbab.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests\gw09_ui.rs (target\debug\deps\gw09_ui-c6f25eb8712cf139.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 21 filtered out; finished in 0.00s
+
+     Running tests\md_b.rs (target\debug\deps\md_b-dd5f949e68e1c599.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\pc_a.rs (target\debug\deps\pc_a-6a132d97d4f46681.exe)
+
+running 1 test
+test pc_a_05_record_start_rejects_unbound_write_lane ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\pc_b.rs (target\debug\deps\pc_b-071afb0cc98045d6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\pc_c1.rs (target\debug\deps\pc_c1-68bd8672ad95ba5a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_rec.rs (target\debug\deps\pc_c6_oracle_rec-cfee0d34b75962cb.exe)
+
+running 1 test
+test pc_c6_r01_record_start_fixes_context ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\pc_c6_oracle_ui.rs (target\debug\deps\pc_c6_oracle_ui-5a95484f81888360.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\preset.rs (target\debug\deps\preset-174ad8ab76d3a6f9.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests\project_length.rs (target\debug\deps\project_length-75feeb5b8ec30e3c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\rcp06_render_ui.rs (target\debug\deps\rcp06_render_ui-5f90dcc4276de327.exe)
+
+running 1 test
+test render_request_report_is_the_single_lowering_and_fails_closed ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+     Running tests\rcp_selection_integration.rs (target\debug\deps\rcp_selection_integration-51654a565c823b31.exe)
+
+running 1 test
+test rcp_ex03_export_rejects_preview_only_artifact ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\rel_c5.rs (target\debug\deps\rel_c5-d58eab2fad09378c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\script_editor.rs (target\debug\deps\script_editor-62305bd0803eba93.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\sf03_revision.rs (target\debug\deps\sf03_revision-c1b96f788334acdb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\sf04_s2_probe_trace.rs (target\debug\deps\sf04_s2_probe_trace-f1a94f74eae2b953.exe)
+
+running 1 test
+test sf04_s2_port_errors_surface_as_probe_trace_error ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\sf_05.rs (target\debug\deps\sf_05-050cfb1698a1533f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\sf_05_s2.rs (target\debug\deps\sf_05_s2-20a9ce4e0e1be2d6.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 0.00s
+
+     Running tests\sv112_keymap.rs (target\debug\deps\sv112_keymap-604277d283e026ac.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\sv185_mixer_gain.rs (target\debug\deps\sv185_mixer_gain-167d388b4c12223e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\sv266_parity.rs (target\debug\deps\sv266_parity-a8b9d22affee51e1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\sv47_controls.rs (target\debug\deps\sv47_controls-8030bfb8f67dfe22.exe)
+
+running 1 test
+test transport_actions_report_applied_vs_noop ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.00s
+
+     Running tests\sv48_viz.rs (target\debug\deps\sv48_viz-a7ddd8477354dd89.exe)
+
+running 1 test
+test wrong_kind_port_is_a_source_error ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 35 filtered out; finished in 0.00s
+
+     Running tests\uic5.rs (target\debug\deps\uic5-ee7220d7e6fd93e4.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests\uic5_04.rs (target\debug\deps\uic5_04-bb37180fdc1671bc.exe)
+
+running 1 test
+test uic5_04_abort_is_unknown_with_aborted_provenance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+     Running tests\vcs04_history.rs (target\debug\deps\vcs04_history-397becbb77c3ed2c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests\workspace_model.rs (target\debug\deps\workspace_model-11850dceb3a007ff.exe)
+
+running 1 test
+test playback_dock_window_churn_preserves_transport_revision_and_history ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\ws_a.rs (target\debug\deps\ws_a-e13332837cf45aea.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+mbx[cache]: 46 hits, 361 misses, 2 not looked up, 2 bypassed; 0 B downloaded, 0 B uploaded, 67.4 GiB stored locally
+mbx[savings]: found 10.5 TiB logical of target/ whose checkouts left long ago. the estate has been settled.
+===== test-rt exit=0 =====
+===== check-headless-deps: mise run check-headless-deps =====
+[check-headless-deps] $ node tools/check-headless-deps.mjs
+check-headless-deps: no GUI framework deps in 12 headless crates
+===== check-headless-deps exit=0 =====
+===== prek-all-files: mise exec -- prek run --all-files =====
+trim trailing whitespace.................................................Passed
+fix end of files.........................................................Passed
+check yaml...............................................................Passed
+check toml...............................................................Passed
+mixed line ending........................................................Passed
+fix utf-8 byte order marker..............................................Passed
+detect private key.......................................................Passed
+check illegal windows names..........................(no files to check)Skipped
+actionlint (changed workflows)...........................................Passed
+===== prek-all-files exit=0 =====

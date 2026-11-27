@@ -1,0 +1,3 @@
+lint-synvelis-app	0	mise run lint synvelis-app
+test-synvelis-app	0	mise run test synvelis-app
+test-tim03-frame-boundary-matrix	0	mise run test-tim03-frame-boundary-matrix

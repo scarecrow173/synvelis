@@ -1,0 +1,22 @@
+[lint] $ if [ "$#" -lt 1 ]; then
+    Checking synvelis-player v0.1.0 (G:\orca\workspaces\synvelis\sv127-frame-boundary-matrix\crates\synvelis-player)
+error: item in documentation is missing backticks
+    --> crates\synvelis-player\tests\tim03_loop_boundary.rs:1288:34
+     |
+1288 | /// the playing position is `W`; SetLoop [100,200) therefore exercises
+     |                                  ^^^^^^^
+     |
+     = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#doc_markdown
+     = note: `-D clippy::doc-markdown` implied by `-D warnings`
+     = help: to override `-D warnings` add `#[allow(clippy::doc_markdown)]`
+help: try
+     |
+1288 - /// the playing position is `W`; SetLoop [100,200) therefore exercises
+1288 + /// the playing position is `W`; `SetLoop` [100,200) therefore exercises
+     |
+
+error: could not compile `synvelis-player` (test "tim03_loop_boundary") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+mbx[cache]: 0 hits, 2 misses; 0 B downloaded, 0 B uploaded, 13.4 KiB stored locally
+mbx[savings]: 292726 compilations old. not one compiled twice.
+[lint] ERROR task failed
