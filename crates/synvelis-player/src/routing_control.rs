@@ -83,6 +83,7 @@ use crate::binding::{
 };
 use crate::dispatch::{DispatchCycle, DispatchError, ParamDispatch};
 use crate::driver::TransportMirror;
+use crate::musical_transport::{MusicalTransportError, compile_project_musical_transport};
 use crate::plugin_state::PluginStateEndpoint;
 use crate::process_boundary::{
     BoundaryKind, BoundaryPoint, BoundarySessionError, PrecisionProvenance, ProcessBoundaryPlan,
@@ -256,6 +257,42 @@ pub enum FastControlOutcome {
     Blocked(FastControlBlockKind),
 }
 
+/// Surface-level musical transport evidence for production plans.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum MusicalTransportEvidence {
+    /// No project snapshot has been evaluated on this surface yet.
+    #[default]
+    NotEvaluated,
+    /// A complete project-owned source is being supplied to new plans.
+    Available {
+        /// Persisted tempo snapshot revision.
+        tempo_revision: u64,
+        /// Project PPQN carried by the plan.
+        ppqn: u16,
+    },
+    /// The project snapshot cannot supply musical transport; plans
+    /// deliberately carry no musical half.
+    Unavailable {
+        /// Typed compile/validation failure.
+        error: MusicalTransportError,
+    },
+}
+
+/// Result of reconciling node plans with the current project musical source.
+#[derive(Clone, Debug, Default)]
+pub struct MusicalTransportSyncReport {
+    /// `false` when no generation surface is attached.
+    pub attached: bool,
+    /// Source availability after evaluating the project snapshot.
+    pub source: MusicalTransportEvidence,
+    /// Nodes whose existing plan was rebuilt with the current source.
+    pub refreshed: Vec<ProcessorId>,
+    /// Nodes whose existing plan could not be rebuilt yet. The desired
+    /// source remains pending and the next sync retries; the stale plan is
+    /// never treated as current evidence.
+    pub refresh_errors: BTreeMap<ProcessorId, String>,
+}
+
 /// Per-surface attach/sync evidence: which processors obtained
 /// plugin control halves, which targets bound, which failed typed.
 #[derive(Clone, Debug, Default)]
@@ -272,6 +309,10 @@ pub struct SurfaceReport {
     pub bound_targets: usize,
     /// Targets whose bind failed — `target → rejection` evidence.
     pub unbound: BTreeMap<ParameterTargetId, String>,
+    /// Project musical source evaluated for this surface's production plans.
+    pub musical_transport: MusicalTransportEvidence,
+    /// Per-node plan refresh failures from the latest musical sync.
+    pub musical_refresh_errors: BTreeMap<ProcessorId, String>,
 }
 
 /// Counters from one [`RoutingControlDispatch::tick`] call.
@@ -622,6 +663,20 @@ impl RoutingControlDispatch {
         self.surface.as_ref().map(|s| &s.report)
     }
 
+    /// Reconciles every surface node's production plan with the current
+    /// project's complete musical source. Refresh rebuilds copy the prior
+    /// plan's payload exactly; unavailable project state is compiled into
+    /// an honest empty musical half rather than a fallback.
+    pub fn sync_musical_transport(&mut self, project: &Project) -> MusicalTransportSyncReport {
+        let Some(mut surface) = self.surface.take() else {
+            return MusicalTransportSyncReport::default();
+        };
+        let mut report = Self::sync_surface_musical_transport(&mut surface, project, true);
+        report.attached = true;
+        self.surface = Some(surface);
+        report
+    }
+
     /// The verified attach-time frame base shared by the surface's
     /// nodes (`None` before attach or when no processor is
     /// plugin-backed). Positions for [`Self::fast_control`] and
@@ -667,6 +722,7 @@ impl RoutingControlDispatch {
             && surface.generation == generation
         {
             Self::refresh_surface(surface, project, catalogs);
+            Self::sync_surface_musical_transport(surface, project, false);
             return Ok(SyncOutcome::Current(surface.report.clone()));
         }
         let plan = ControlGraph::compile(project).map_err(ControlDispatchError::Project)?;
@@ -683,6 +739,7 @@ impl RoutingControlDispatch {
             },
         };
         Self::vend_nodes(engine, &mut surface, project);
+        Self::sync_surface_musical_transport(&mut surface, project, false);
         let report = surface.report.clone();
         self.surface = Some(surface);
         Ok(SyncOutcome::Swapped(report))
@@ -1097,17 +1154,21 @@ impl RoutingControlDispatch {
                 );
             }
             let seg_start_frame = EngineFrame::new(epoch, seg_start);
+            let mut ctx = node.transport.span_context(
+                seg_start,
+                node.dispatch.frame_base(),
+                epoch,
+                node.dispatch
+                    .last_plan_generation()
+                    .unwrap_or_else(|| PlanGeneration::new(0)),
+            );
+            if let Some(plan) = node.dispatch.last_plan() {
+                ctx.tempo_revision = plan.tempo_revision;
+            }
             let span = TransportSpan {
                 start: seg_start_frame,
                 end: EngineFrame::new(epoch, seg_end),
-                ctx: node.transport.span_context(
-                    seg_start,
-                    node.dispatch.frame_base(),
-                    epoch,
-                    node.dispatch
-                        .last_plan_generation()
-                        .unwrap_or_else(|| PlanGeneration::new(0)),
-                ),
+                ctx,
                 deliverable: true,
             };
             let call_frames = u32::try_from(seg_end - seg_start).unwrap_or(u32::MAX);
@@ -1559,6 +1620,7 @@ impl RoutingControlDispatch {
         if self.surface.is_none() {
             return report;
         }
+        self.sync_musical_transport(project);
         for (processor, events) in plans {
             let result = if events.is_empty() {
                 self.clear_midi_plan(project, *processor).map(|_| ())
@@ -1756,6 +1818,64 @@ impl RoutingControlDispatch {
                 }
             }
         }
+    }
+
+    fn sync_surface_musical_transport(
+        surface: &mut GenerationSurface,
+        project: &Project,
+        install_initial: bool,
+    ) -> MusicalTransportSyncReport {
+        let compiled = compile_project_musical_transport(project);
+        let (source, evidence) = match compiled {
+            Ok(source) => {
+                let evidence = MusicalTransportEvidence::Available {
+                    tempo_revision: project.tempo_map.revision,
+                    ppqn: source.ppqn().ticks_per_quarter(),
+                };
+                (Some(source), evidence)
+            }
+            Err(error) => (None, MusicalTransportEvidence::Unavailable { error }),
+        };
+        surface.report.musical_transport = evidence.clone();
+        surface.report.musical_refresh_errors.clear();
+        let mut report = MusicalTransportSyncReport {
+            attached: true,
+            source: evidence,
+            refreshed: Vec::new(),
+            refresh_errors: BTreeMap::new(),
+        };
+        for (processor, node) in &mut surface.nodes {
+            node.dispatch.set_musical_transport(source.clone());
+            let result = if node.dispatch.last_plan().is_none() {
+                // A content-free instrument otherwise receives no plan at
+                // all. Installing the first explicit empty musical plan is
+                // intentional: it is not an accidental empty dispatch, and
+                // because no prior plan exists it does not erase payload or
+                // manufacture a discontinuity in existing delivery.
+                if install_initial && source.is_some() {
+                    node.dispatch.clear_midi_plan().map(Some)
+                } else {
+                    Ok(None)
+                }
+            } else if node.dispatch.last_plan_musical_is_current() {
+                Ok(None)
+            } else {
+                node.dispatch.refresh_musical_plan()
+            };
+            match result {
+                Ok(Some(_)) => report.refreshed.push(*processor),
+                Ok(None) => {}
+                Err(error) => {
+                    let rendered = error.to_string();
+                    surface
+                        .report
+                        .musical_refresh_errors
+                        .insert(*processor, rendered.clone());
+                    report.refresh_errors.insert(*processor, rendered);
+                }
+            }
+        }
+        report
     }
 
     /// Refresh path: recompile the plan when the control model drifted

@@ -405,12 +405,22 @@ pub fn insert_gain_processor(
     strip: StripId,
     descriptor: &str,
 ) -> ProcessorId {
+    insert_processor(controller, strip, TEST_GAIN, descriptor)
+}
+
+/// Inserts one resolved plugin processor under `name`.
+pub fn insert_processor(
+    controller: &mut ProjectController,
+    strip: StripId,
+    name: &str,
+    descriptor: &str,
+) -> ProcessorId {
     apply(
         controller,
         ProjectOp::InsertProcessor {
             strip_id: strip,
             index: 0,
-            name: TEST_GAIN.into(),
+            name: name.into(),
             binding: ProcessorBinding::Resolved(PluginRef {
                 descriptor: descriptor.to_owned(),
                 version: "0.0.0".into(),

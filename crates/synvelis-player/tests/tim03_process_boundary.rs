@@ -38,9 +38,9 @@ use ruviform_graph::{
 use ruviform_media_core::{
     ApplyDegradation, ApplyStatus, BlockContract, CallPartition, ClockEpochId, DeliveryPolicy,
     EngineFrame, FaultKind, InBlockTransportSupport, MediaDuration, MediaRange, MediaTime,
-    PlanGeneration, RejectReason, ScheduleBudget, ScheduledEvent, SpanSink, TimeBase,
-    TransportCommand, TransportGeneration, TransportPlanBuilder, TransportScheduler, TransportSpan,
-    TransportStatus, event_engine_frame,
+    MusicalTimeSource, PlanGeneration, RejectReason, ScheduleBudget, ScheduledEvent, SpanSink,
+    TimeBase, TransportCommand, TransportGeneration, TransportPlanBuilder, TransportScheduler,
+    TransportSpan, TransportStatus, event_engine_frame,
 };
 use ruviform_plugin_core::{
     BufferView, BufferViewMut, BusDescriptor, BusDirection, BusRole, ErasedPlugin, EventKind,
@@ -960,7 +960,12 @@ impl RecSink {
 }
 
 impl SpanSink<u32> for RecSink {
-    fn span(&mut self, span: &TransportSpan, events: &[ScheduledEvent<u32>]) {
+    fn span(
+        &mut self,
+        span: &TransportSpan,
+        events: &[ScheduledEvent<u32>],
+        _musical: MusicalTimeSource<'_>,
+    ) {
         let evs = events
             .iter()
             .map(|e| {

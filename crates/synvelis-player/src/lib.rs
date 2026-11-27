@@ -31,6 +31,7 @@ pub mod midi;
 pub mod monitor;
 pub mod monitor_engine;
 pub mod monitor_rt;
+pub mod musical_transport;
 pub mod plugin_state;
 pub mod probe;
 pub mod probe_compare;
@@ -83,6 +84,9 @@ pub use monitor_rt::{
     MONITOR_RT_STATUS_PLAYBACK_MISSING, MonitorRtControl, MonitorRtControlError, MonitorRtNode,
     MonitorRtNodeConfig, MonitorRtNodeError, MonitorRtSchedule, MonitorRtScheduleError,
     MonitorRtSegment, MonitorRtStatus,
+};
+pub use musical_transport::{
+    MusicalTransportError, PlanMusicalTransport, compile_project_musical_transport,
 };
 pub use plugin_state::{PluginStateEndpoint, PluginStateHost};
 pub use probe::{ProbeRequestError, ProbeSession};

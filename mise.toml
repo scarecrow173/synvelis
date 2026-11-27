@@ -89,6 +89,13 @@ run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --lo
 description = "Build the test-only TIM-03 L1 runners and run the instrument transport oracle"
 run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_instrument_transport -- --test-threads=1 --nocapture"
 
+# TIM-03 (#127) production musical transport slice: production composition
+# → PluginNode → real ABI test_instrument を project-owned tempo map/PPQNで
+# 検証する dedicated lane。direct endpoint API は使わない。
+[tasks.test-tim03-production-transport]
+description = "Build the test-only TIM-03 L1 runners and run the production musical transport tests"
+run = "cargo build --locked -p synvelis-plugin-test-l1-runner && cargo test --locked -p synvelis-app --test tim03_l1_production_musical_transport -- --test-threads=1 --nocapture"
+
 # RCD-01 opt-in 実機 lane（CI 対象外・hardware 依存）。
 # real-device feature で ruviform-audio-device/cpal を有効化し、
 # tests/real_input.rs の #[ignore] test のみを実行する。
