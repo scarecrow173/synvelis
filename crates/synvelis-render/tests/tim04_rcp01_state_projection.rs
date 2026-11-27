@@ -8,16 +8,19 @@
 use std::env;
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{Value, json};
 use synvelis_project::controller::{Command, ProjectController, ProjectRevision};
 use synvelis_project::id::{CounterIdGenerator, ProjectId};
 use synvelis_project::ops::ProjectOp;
 use synvelis_project::plugin_state::{
-    InMemoryPluginStateStore, PLUGIN_STATE_SCHEMA_VERSION, PluginStateFailureKind,
-    PluginStateManifest, PluginStateOutcome, PluginStateRecord, PluginStateStore,
-    PluginStateStoreError,
+    CaptureMode, CaptureObservation, DirectoryPluginStateStore, InMemoryPluginStateStore,
+    PLUGIN_STATE_SCHEMA_VERSION, PluginStateBinding, PluginStateCapture, PluginStateCaptureError,
+    PluginStateFailureKind, PluginStateManifest, PluginStateOutcome, PluginStatePort,
+    PluginStateQualitySummary, PluginStateRecord, PluginStateSaveRequest, PluginStateSession,
+    PluginStateStore, PluginStateStoreError, StateQualityPolicy,
 };
 use synvelis_project::routing::{PluginRef, ProcessorBinding, StripOwner};
 use synvelis_project::snapshot::ContentDigest;
@@ -43,8 +46,9 @@ use synvelis_render::recipe::{
     TemporalDomain, UnknownCause,
 };
 use synvelis_render::{
-    NoExternalAssets, PersistedPluginStateProjection, PluginStateProbe, PluginStateProjectionError,
-    PluginStateProjectionSource, RecipeEnvironment, RecipeRequest, resolve_recipe,
+    NoExternalAssets, PersistedPluginStateProjection, PluginStateEvidence, PluginStateProbe,
+    PluginStateProbeOutcome, PluginStateProjectionError, PluginStateProjectionSource,
+    RecipeEnvironment, RecipeRequest, resolve_recipe,
 };
 
 const RATE: u32 = 48_000;
@@ -754,6 +758,207 @@ fn non_resolved_resolution_never_promotes_verified_artifact() {
         unknown_lookup.outcome,
         LookupOutcome::EligibleExact { .. } | LookupOutcome::EligiblePreview { .. }
     ));
+}
+
+const REOPEN_STATE: &[u8] = b"tim04-reopen-state";
+const REOPEN_DIGEST: &str =
+    "sha256:ffb02af46b451617039d38417b0b19b08af08ca192ef147ce3ff05644949d759";
+
+struct ScratchStateDir(PathBuf);
+
+impl ScratchStateDir {
+    fn new() -> Self {
+        let nonce = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let root = env::temp_dir().join(format!(
+            "synvelis-tim04-reopen-{}-{}",
+            std::process::id(),
+            nonce.as_nanos()
+        ));
+        fs::create_dir(&root).unwrap();
+        Self(root)
+    }
+}
+
+impl Drop for ScratchStateDir {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+struct ReopenCaptureFixture {
+    processor: ProcessorId,
+    quality: Option<StateCaptureQuality>,
+}
+
+impl PluginStatePort for ReopenCaptureFixture {
+    fn describe(&self, processor: ProcessorId) -> Option<PluginStateBinding> {
+        (processor == self.processor).then(|| PluginStateBinding {
+            descriptor: "test-plugin".into(),
+            version: "1.0".into(),
+            capability_revision: 1,
+            host_runtime_instance: "state-fixture".into(),
+            graph_generation: 1,
+        })
+    }
+
+    fn capture(
+        &mut self,
+        _processor: ProcessorId,
+        _mode: CaptureMode,
+    ) -> Result<PluginStateCapture, PluginStateCaptureError> {
+        let achieved = self.quality.ok_or(PluginStateCaptureError::Unsupported)?;
+        let stable_boundary = achieved == StateCaptureQuality::Quiescent;
+        Ok(PluginStateCapture {
+            blob: REOPEN_STATE.to_vec(),
+            achieved,
+            observation: CaptureObservation {
+                processing: !stable_boundary,
+                stable_boundary,
+            },
+            detail: None,
+        })
+    }
+
+    fn restore(
+        &mut self,
+        _processor: ProcessorId,
+        _bytes: &[u8],
+    ) -> Result<(), PluginStateCaptureError> {
+        panic!("this fixture only captures state")
+    }
+}
+
+fn publish_and_reopen(
+    c: &ProjectController,
+    root: &Path,
+    processor: ProcessorId,
+    quality: Option<StateCaptureQuality>,
+    expected_summary: &PluginStateQualitySummary,
+) -> PersistedPluginStateProjection {
+    let digest: ContentDigest = REOPEN_DIGEST.parse().unwrap();
+    let receipt = {
+        let store = DirectoryPluginStateStore::create(root).unwrap();
+        let mut session =
+            PluginStateSession::new(ReopenCaptureFixture { processor, quality }, store);
+        session
+            .save(&PluginStateSaveRequest {
+                project: c.live(),
+                project_revision: c.live_revision().0,
+                project_head: None,
+                mode: CaptureMode::BestEffort,
+                policy: StateQualityPolicy::Standard,
+                stored_at: "reopen-fixture".into(),
+            })
+            .unwrap()
+    };
+
+    let published_name = receipt
+        .manifest_name
+        .as_deref()
+        .expect("published manifest");
+    let published_digest = receipt.manifest_digest.expect("published manifest digest");
+    assert_eq!(&receipt.summary, expected_summary, "{quality:?} publish");
+    let [record] = receipt.records.as_slice() else {
+        panic!("expected one save record, got {:?}", receipt.records);
+    };
+    assert_eq!(record.processor_id, processor);
+    assert_eq!(
+        record.outcome,
+        quality.map_or(PluginStateOutcome::Unsupported, |quality| {
+            PluginStateOutcome::Captured {
+                quality,
+                blob_digest: digest,
+                blob_len: REOPEN_STATE.len() as u64,
+            }
+        })
+    );
+
+    let reopened = DirectoryPluginStateStore::create(root).unwrap();
+    let projection = PersistedPluginStateProjection::from_store_head(&reopened).unwrap();
+    assert_eq!(projection.manifest_name(), Some(published_name));
+    assert_eq!(projection.manifest_digest(), published_digest);
+    assert_eq!(projection.project_id(), c.live().project_id);
+    assert_eq!(projection.project_revision(), c.live_revision().0);
+    if quality.is_some() {
+        assert_eq!(reopened.read_blob(&digest).unwrap(), REOPEN_STATE);
+    }
+    assert_eq!(
+        projection.outcome(processor),
+        Some(
+            quality.map_or(PluginStateProbeOutcome::Unsupported, |quality| {
+                PluginStateProbeOutcome::Captured(PluginStateEvidence { digest, quality })
+            })
+        ),
+        "{quality:?} reopen"
+    );
+    projection
+}
+
+#[test]
+fn directory_state_reopen_preserves_quality_and_exact_eligibility() {
+    let (c, _, processor) = base_fx();
+    let root = ScratchStateDir::new();
+    let exact = publish_and_reopen(
+        &c,
+        &root.0,
+        processor,
+        Some(StateCaptureQuality::Quiescent),
+        &PluginStateQualitySummary {
+            processors: 1,
+            exact: 1,
+            ..PluginStateQualitySummary::default()
+        },
+    );
+    let exact_resolution = resolve_with_probe(c.live(), &exact);
+    let RecipeResolution::Resolved { recipe, key, .. } = &exact_resolution else {
+        panic!("expected exact Resolved after reopen, got {exact_resolution:?}");
+    };
+    let evidence = &recipe.closure.plugin_states[&processor];
+    assert_eq!(evidence.digest.to_string(), REOPEN_DIGEST);
+    assert_eq!(evidence.quality, StateCaptureQuality::Quiescent);
+
+    let mut artifacts = InMemoryArtifactStore::new();
+    let artifact = publish_for(&mut artifacts, *key, recipe);
+    let lookup_query = query(*key, recipe);
+    assert!(matches!(
+        lookup(&artifacts, &lookup_query, &exact_resolution).unwrap().outcome,
+        LookupOutcome::EligibleExact { artifact: id } if id == artifact
+    ));
+
+    for (quality, label, expected_summary) in [
+        (
+            Some(StateCaptureQuality::BestEffort),
+            "BestEffort",
+            PluginStateQualitySummary {
+                processors: 1,
+                degraded: 1,
+                ..PluginStateQualitySummary::default()
+            },
+        ),
+        (
+            None,
+            "Unsupported",
+            PluginStateQualitySummary {
+                processors: 1,
+                unsupported: 1,
+                ..PluginStateQualitySummary::default()
+            },
+        ),
+    ] {
+        let reopened = publish_and_reopen(&c, &root.0, processor, quality, &expected_summary);
+        let resolution = resolve_with_probe(c.live(), &reopened);
+        assert_eq!(
+            unknown_causes(&resolution),
+            [UnknownCause::PluginStateDegraded {
+                locator: processor.to_tagged(),
+                quality: label.into(),
+                failure_kind: None,
+            }]
+        );
+        let observed = lookup(&artifacts, &lookup_query, &resolution).unwrap();
+        assert!(matches!(observed.outcome, LookupOutcome::Unknown { .. }));
+        assert!(observed.candidates.is_empty());
+    }
 }
 
 #[test]
